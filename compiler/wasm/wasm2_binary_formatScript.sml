@@ -15,7 +15,6 @@ val _ = new_theory "wasm2_binary_format";
     dec goes from WBF to AST
  *)
 
-
 (************************************)
 (*                                  *)
 (*     Misc notations/helps/etc     *)
@@ -55,15 +54,34 @@ Definition enc_valtype_def:
 End
 
 Definition dec_valtype_def:
-  dec_valtype (b:byte) : valtype option =
-  if b = 0x7Fw then SOME (Tnum   Int W32) else
-  if b = 0x7Ew then SOME (Tnum   Int W64) else
-  if b = 0x7Dw then SOME (Tnum Float W32) else
-  if b = 0x7Cw then SOME (Tnum Float W64) else
-  if b = 0x7Bw then SOME  Tvec            else
-  if b = 0x70w then SOME  TFunRef         else
-  if b = 0x6Fw then SOME  TExtRef         else
-  NONE
+  dec_valtype ([]:byteSeq) : ((mlstring + valtype) # byteSeq) = error "[dec_valtype]" [] ∧
+  dec_valtype (b::bs) = let failure = error "[dec_valtype]" $ b::bs in
+
+  if b = 0x7Fw then (INR $ Tnum   Int W32 ,bs) else
+  if b = 0x7Ew then (INR $ Tnum   Int W64 ,bs) else
+  if b = 0x7Dw then (INR $ Tnum Float W32 ,bs) else
+  if b = 0x7Cw then (INR $ Tnum Float W64 ,bs) else
+  if b = 0x7Bw then (INR $ Tvec           ,bs) else
+  if b = 0x70w then (INR $ TFunRef        ,bs) else
+  if b = 0x6Fw then (INR $ TExtRef        ,bs) else
+  failure
+End
+
+
+
+Definition enc_global_def:
+  enc_global (t:global) : byteSeq = case t of
+  | Gconst vt => 0x00w :: [enc_valtype vt]
+  | Gmut   vt => 0x01w :: [enc_valtype vt]
+End
+
+Definition dec_global_def:
+  dec_global ([]:byteSeq) : ((mlstring + global) # byteSeq) = error "[dec_global]" [] ∧
+  dec_global (b::bs) = let failure = error "[dec_global]" $ b::bs in
+
+  if b = 0x00w then case dec_valtype bs of (INR vt, rs) => (INR $ Gconst vt, rs) | _ => failure else
+  if b = 0x01w then case dec_valtype bs of (INR vt, rs) => (INR $ Gmut   vt, rs) | _ => failure else
+  failure
 End
 
 
@@ -72,16 +90,16 @@ Definition enc_blocktype_def:
   enc_blocktype (bt:blocktype) : byteSeq = case bt of
   | BlkNil    => [0x40w]
   | BlkVal vt => [enc_valtype vt]
-  | BlkIdx x  => enc_s33 $ w2w x
+  | BlkIdx x  => enc_BlkIdx x
 End
 
 Definition dec_blocktype_def:
   dec_blocktype ([]:byteSeq) : ((mlstring + blocktype) # byteSeq) = error "[dec_blocktype] : Byte sequence unexpectedly empty." [] ∧
-  dec_blocktype (b::bs) = let failure = error "[dec_blocktype]" $ b::bs in
+  dec_blocktype bs = let failure = error "[dec_blocktype]" bs in
 
-  if b = 0x40w then                      (INR   BlkNil        , bs) else
-  case dec_valtype b   of SOME t      => (INR $ BlkVal t      , bs) | _ =>
-  case dec_s33 $ b::bs of SOME (x,rs) => (INR $ BlkIdx $ w2w x, rs) | _ =>
+  case bs of []=>failure| b::rs => if b = 0x40w then (INR   BlkNil  , rs) else
+  case dec_valtype bs of (INR t ,rs)            =>   (INR $ BlkVal t, rs) | _ =>
+  case dec_BlkIdx  bs of SOME (x,rs)            =>   (INR $ BlkIdx x, rs) | _ =>
   failure
 End
 
@@ -391,227 +409,227 @@ End
 
 
 
-Overload v_opcode[local] = “λ n. 0xFDw :: enc_u32 (n2w n)”
+Overload v_opcode[local] = “λ w. 0xFDw :: enc_u32 w”
 Definition enc_vecI_def:
   enc_vecI (i:vec_instr) : byteSeq = case i of
 
-  | V_binary  $   Vswizzle                              => v_opcode 14
-  | V_splat   $          IShp $ Is3 $ Is2 I8x16         => v_opcode 15
-  | V_splat   $          IShp $ Is3 $ Is2 I16x8         => v_opcode 16
-  | V_splat   $          IShp $ Is3       I32x4         => v_opcode 17
-  | V_splat   $          IShp             I64x2         => v_opcode 18
-  | V_splat   $          FShp             F32x4         => v_opcode 19
-  | V_splat   $          FShp             F64x2         => v_opcode 20
-  | V_compare $   Veq  $ IShp $ Is3 $ Is2 I8x16         => v_opcode 35
-  | V_compare $   Vne  $ IShp $ Is3 $ Is2 I8x16         => v_opcode 36
-  | V_compare $   Vlt_     Signed   $ Is2 I8x16         => v_opcode 37
-  | V_compare $   Vlt_   Unsigned   $ Is2 I8x16         => v_opcode 38
-  | V_compare $   Vgt_     Signed   $ Is2 I8x16         => v_opcode 39
-  | V_compare $   Vgt_   Unsigned   $ Is2 I8x16         => v_opcode 40
-  | V_compare $   Vle_     Signed   $ Is2 I8x16         => v_opcode 41
-  | V_compare $   Vle_   Unsigned   $ Is2 I8x16         => v_opcode 42
-  | V_compare $   Vge_     Signed   $ Is2 I8x16         => v_opcode 43
-  | V_compare $   Vge_   Unsigned   $ Is2 I8x16         => v_opcode 44
-  | V_compare $   Veq  $ IShp $ Is3 $ Is2 I16x8         => v_opcode 45
-  | V_compare $   Vne  $ IShp $ Is3 $ Is2 I16x8         => v_opcode 46
-  | V_compare $   Vlt_     Signed   $ Is2 I16x8         => v_opcode 47
-  | V_compare $   Vlt_   Unsigned   $ Is2 I16x8         => v_opcode 48
-  | V_compare $   Vgt_     Signed   $ Is2 I16x8         => v_opcode 49
-  | V_compare $   Vgt_   Unsigned   $ Is2 I16x8         => v_opcode 50
-  | V_compare $   Vle_     Signed   $ Is2 I16x8         => v_opcode 51
-  | V_compare $   Vle_   Unsigned   $ Is2 I16x8         => v_opcode 52
-  | V_compare $   Vge_     Signed   $ Is2 I16x8         => v_opcode 53
-  | V_compare $   Vge_   Unsigned   $ Is2 I16x8         => v_opcode 54
-  | V_compare $   Veq  $ IShp $ Is3       I32x4         => v_opcode 55
-  | V_compare $   Vne  $ IShp $ Is3       I32x4         => v_opcode 56
-  | V_compare $   Vlt_    Signed          I32x4         => v_opcode 57
-  | V_compare $   Vlt_  Unsigned          I32x4         => v_opcode 58
-  | V_compare $   Vgt_    Signed          I32x4         => v_opcode 59
-  | V_compare $   Vgt_  Unsigned          I32x4         => v_opcode 60
-  | V_compare $   Vle_    Signed          I32x4         => v_opcode 61
-  | V_compare $   Vle_  Unsigned          I32x4         => v_opcode 62
-  | V_compare $   Vge_    Signed          I32x4         => v_opcode 63
-  | V_compare $   Vge_  Unsigned          I32x4         => v_opcode 64
-  | V_compare $   Veq $ IShp              I64x2         => v_opcode 214
-  | V_compare $   Vne $ IShp              I64x2         => v_opcode 215
-  | V_compare $   Vlt_s                                 => v_opcode 216
-  | V_compare $   Vgt_s                                 => v_opcode 217
-  | V_compare $   Vle_s                                 => v_opcode 218
-  | V_compare $   Vge_s                                 => v_opcode 219
-  | V_compare $   Veq  $ FShp             F32x4         => v_opcode 65
-  | V_compare $   Vne  $ FShp             F32x4         => v_opcode 66
-  | V_compare $   Vlt                     F32x4         => v_opcode 67
-  | V_compare $   Vgt                     F32x4         => v_opcode 68
-  | V_compare $   Vle                     F32x4         => v_opcode 69
-  | V_compare $   Vge                     F32x4         => v_opcode 70
-  | V_compare $   Veq  $ FShp             F64x2         => v_opcode 71
-  | V_compare $   Vne  $ FShp             F64x2         => v_opcode 72
-  | V_compare $   Vlt                     F64x2         => v_opcode 73
-  | V_compare $   Vgt                     F64x2         => v_opcode 74
-  | V_compare $   Vle                     F64x2         => v_opcode 75
-  | V_compare $   Vge                     F64x2         => v_opcode 76
-  | V_unary       Vnot                                  => v_opcode 77
-  | V_binary      Vand                                  => v_opcode 78
-  | V_binary      VandNot                               => v_opcode 79
-  | V_binary      Vor                                   => v_opcode 80
-  | V_binary      Vxor                                  => v_opcode 81
-  | V_ternary     VbitSelect                            => v_opcode 82
-  | V_test        VanyTrue                              => v_opcode 83
-  | V_unary   $   Vabs $ IShp $ Is3 $ Is2 I8x16         => v_opcode 96
-  | V_unary   $   Vneg $ IShp $ Is3 $ Is2 I8x16         => v_opcode 97
-  | V_unary       Vpopcnt                               => v_opcode 98
-  | V_test    $   VallTrue    $ Is3 $ Is2 I8x16         => v_opcode 99
-  | V_unary   $   Vbitmask    $ Is3 $ Is2 I8x16         => v_opcode 100
-  | V_binary  $   Vnarrow   Signed I8x16                => v_opcode 101
-  | V_binary  $   Vnarrow Unsigned I8x16                => v_opcode 102
-  | V_shift   $   Vshl           $ Is3 $ Is2 I8x16      => v_opcode 107
-  | V_shift   $   Vshr_   Signed $ Is3 $ Is2 I8x16      => v_opcode 108
-  | V_shift   $   Vshr_ Unsigned $ Is3 $ Is2 I8x16      => v_opcode 109
-  | V_binary  $   Vadd $ IShp $ Is3 $ Is2 I8x16         => v_opcode 110
-  | V_binary  $   Vadd_sat_    Signed     I8x16         => v_opcode 111
-  | V_binary  $   Vadd_sat_  Unsigned     I8x16         => v_opcode 112
-  | V_binary  $   Vsub $ IShp $ Is3 $ Is2 I8x16         => v_opcode 113
-  | V_binary  $   Vsub_sat_    Signed     I8x16         => v_opcode 114
-  | V_binary  $   Vsub_sat_  Unsigned     I8x16         => v_opcode 115
-  | V_binary  $   Vmin_   Signed $ Is2 I8x16            => v_opcode 118
-  | V_binary  $   Vmin_ Unsigned $ Is2 I8x16            => v_opcode 119
-  | V_binary  $   Vmax_   Signed $ Is2 I8x16            => v_opcode 120
-  | V_binary  $   Vmax_ Unsigned $ Is2 I8x16            => v_opcode 121
-  | V_binary  $   Vavgr_u I8x16                         => v_opcode 123
-  | V_convert $   VextAdd I8x16   Signed                => v_opcode 124
-  | V_convert $   VextAdd I8x16 Unsigned                => v_opcode 125
-  | V_unary   $   Vabs $ IShp $ Is3 $ Is2 I16x8         => v_opcode 128
-  | V_unary   $   Vneg $ IShp $ Is3 $ Is2 I16x8         => v_opcode 129
-  | V_binary  $   VmulQ15                               => v_opcode 130
-  | V_test    $   VallTrue    $ Is3 $ Is2 I16x8         => v_opcode 131
-  | V_unary   $   Vbitmask    $ Is3 $ Is2 I16x8         => v_opcode 132
-  | V_binary  $   Vnarrow          Signed I16x8         => v_opcode 133
-  | V_binary  $   Vnarrow        Unsigned I16x8         => v_opcode 134
-  | V_convert $   Vextend   Low  (Is2 I8x16)   Signed   => v_opcode 135
-  | V_convert $   Vextend  High  (Is2 I8x16)   Signed   => v_opcode 136
-  | V_convert $   Vextend   Low  (Is2 I8x16) Unsigned   => v_opcode 137
-  | V_convert $   Vextend  High  (Is2 I8x16) Unsigned   => v_opcode 138
-  | V_shift   $   Vshl           $ Is3 $ Is2 I16x8      => v_opcode 139
-  | V_shift   $   Vshr_   Signed $ Is3 $ Is2 I16x8      => v_opcode 140
-  | V_shift   $   Vshr_ Unsigned $ Is3 $ Is2 I16x8      => v_opcode 141
-  | V_binary  $   Vadd $ IShp $ Is3 $ Is2 I16x8         => v_opcode 142
-  | V_binary  $   Vadd_sat_   Signed      I16x8         => v_opcode 143
-  | V_binary  $   Vadd_sat_ Unsigned      I16x8         => v_opcode 144
-  | V_binary  $   Vsub $ IShp $ Is3 $ Is2 I16x8         => v_opcode 145
-  | V_binary  $   Vsub_sat_   Signed      I16x8         => v_opcode 146
-  | V_binary  $   Vsub_sat_ Unsigned      I16x8         => v_opcode 147
-  | V_binary  $   VmulI16                               => v_opcode 149
-  | V_binary  $   Vmin_    Signed   $ Is2 I16x8         => v_opcode 150
-  | V_binary  $   Vmin_  Unsigned   $ Is2 I16x8         => v_opcode 151
-  | V_binary  $   Vmax_    Signed   $ Is2 I16x8         => v_opcode 152
-  | V_binary  $   Vmax_  Unsigned   $ Is2 I16x8         => v_opcode 153
-  | V_binary  $   Vavgr_u I16x8                         => v_opcode 155
-  | V_convert $   VextMul   Low  (Is2 I8x16)   Signed   => v_opcode 156
-  | V_convert $   VextMul  High  (Is2 I8x16)   Signed   => v_opcode 157
-  | V_convert $   VextMul   Low  (Is2 I8x16) Unsigned   => v_opcode 158
-  | V_convert $   VextMul  High  (Is2 I8x16) Unsigned   => v_opcode 159
-  | V_convert $   VextAdd I16x8   Signed                => v_opcode 126
-  | V_convert $   VextAdd I16x8 Unsigned                => v_opcode 127
-  | V_unary   $   Vabs $ IShp $ Is3 I32x4               => v_opcode 160
-  | V_unary   $   Vneg $ IShp $ Is3 I32x4               => v_opcode 161
-  | V_test    $   VallTrue    $ Is3 I32x4               => v_opcode 163
-  | V_unary   $   Vbitmask    $ Is3 I32x4               => v_opcode 164
-  | V_convert $   Vextend   Low  (Is2 I16x8)   Signed   => v_opcode 167
-  | V_convert $   Vextend  High  (Is2 I16x8)   Signed   => v_opcode 168
-  | V_convert $   Vextend   Low  (Is2 I16x8) Unsigned   => v_opcode 169
-  | V_convert $   Vextend  High  (Is2 I16x8) Unsigned   => v_opcode 170
-  | V_shift   $   Vshl           (Is3 I32x4)            => v_opcode 171
-  | V_shift   $   Vshr_   Signed (Is3 I32x4)            => v_opcode 172
-  | V_shift   $   Vshr_ Unsigned (Is3 I32x4)            => v_opcode 173
-  | V_binary  $   Vadd $ IShp $ Is3 I32x4               => v_opcode 174
-  | V_binary  $   Vsub $ IShp $ Is3 I32x4               => v_opcode 177
-  | V_binary  $   VmulI32                               => v_opcode 181
-  | V_binary  $   Vmin_   Signed I32x4                  => v_opcode 182
-  | V_binary  $   Vmin_ Unsigned I32x4                  => v_opcode 183
-  | V_binary  $   Vmax_   Signed I32x4                  => v_opcode 184
-  | V_binary  $   Vmax_ Unsigned I32x4                  => v_opcode 185
-  | V_binary  $   Vdot                                  => v_opcode 186
-  | V_convert $   VextMul   Low  (Is2 I16x8)   Signed   => v_opcode 188
-  | V_convert $   VextMul  High  (Is2 I16x8)   Signed   => v_opcode 189
-  | V_convert $   VextMul   Low  (Is2 I16x8) Unsigned   => v_opcode 190
-  | V_convert $   VextMul  High  (Is2 I16x8) Unsigned   => v_opcode 191
-  | V_unary   $   Vabs $ IShp I64x2                     => v_opcode 192
-  | V_unary   $   Vneg $ IShp I64x2                     => v_opcode 193
-  | V_test    $   VallTrue    I64x2                     => v_opcode 195
-  | V_unary   $   Vbitmask    I64x2                     => v_opcode 196
-  | V_convert $   Vextend   Low  I32x4    Signed        => v_opcode 199
-  | V_convert $   Vextend  High  I32x4    Signed        => v_opcode 200
-  | V_convert $   Vextend   Low  I32x4  Unsigned        => v_opcode 201
-  | V_convert $   Vextend  High  I32x4  Unsigned        => v_opcode 202
-  | V_shift   $   Vshl I64x2                            => v_opcode 203
-  | V_shift   $   Vshr_   Signed I64x2                  => v_opcode 204
-  | V_shift   $   Vshr_ Unsigned I64x2                  => v_opcode 205
-  | V_binary  $   Vadd (IShp I64x2)                     => v_opcode 206
-  | V_binary  $   Vsub (IShp I64x2)                     => v_opcode 209
-  | V_binary  $   VmulI64                               => v_opcode 213
-  | V_convert $   VextMul   Low  I32x4    Signed        => v_opcode 220
-  | V_convert $   VextMul  High  I32x4    Signed        => v_opcode 221
-  | V_convert $   VextMul   Low  I32x4  Unsigned        => v_opcode 222
-  | V_convert $   VextMul  High  I32x4  Unsigned        => v_opcode 223
-  | V_unary   $   Vceil       F32x4                     => v_opcode 103
-  | V_unary   $   Vfloor      F32x4                     => v_opcode 104
-  | V_unary   $   Vtrunc      F32x4                     => v_opcode 105
-  | V_unary   $   Vnearest    F32x4                     => v_opcode 106
-  | V_unary   $   Vabs $ FShp F32x4                     => v_opcode 224
-  | V_unary   $   Vneg $ FShp F32x4                     => v_opcode 225
-  | V_unary   $   Vsqrt       F32x4                     => v_opcode 227
-  | V_binary  $   Vadd $ FShp F32x4                     => v_opcode 228
-  | V_binary  $   Vsub $ FShp F32x4                     => v_opcode 229
-  | V_binary  $   VmulF       F32x4                     => v_opcode 230
-  | V_binary  $   Vdiv        F32x4                     => v_opcode 231
-  | V_binary  $   Vmin        F32x4                     => v_opcode 232
-  | V_binary  $   Vmax        F32x4                     => v_opcode 233
-  | V_binary  $   Vpmin       F32x4                     => v_opcode 234
-  | V_binary  $   Vpmax       F32x4                     => v_opcode 235
-  | V_unary   $   Vceil       F64x2                     => v_opcode 116
-  | V_unary   $   Vfloor      F64x2                     => v_opcode 117
-  | V_unary   $   Vtrunc      F64x2                     => v_opcode 122
-  | V_unary   $   Vnearest    F64x2                     => v_opcode 148
-  | V_unary   $   Vabs $ FShp F64x2                     => v_opcode 236
-  | V_unary   $   Vneg $ FShp F64x2                     => v_opcode 237
-  | V_unary   $   Vsqrt       F64x2                     => v_opcode 239
-  | V_binary  $   Vadd $ FShp F64x2                     => v_opcode 240
-  | V_binary  $   Vsub $ FShp F64x2                     => v_opcode 241
-  | V_binary  $   VmulF       F64x2                     => v_opcode 242
-  | V_binary  $   Vdiv        F64x2                     => v_opcode 243
-  | V_binary  $   Vmin        F64x2                     => v_opcode 244
-  | V_binary  $   Vmax        F64x2                     => v_opcode 245
-  | V_binary  $   Vpmin       F64x2                     => v_opcode 246
-  | V_binary  $   Vpmax       F64x2                     => v_opcode 247
-  | V_convert $   VtruncSat          Signed             => v_opcode 248
-  | V_convert $   VtruncSat        Unsigned             => v_opcode 249
-  | V_convert $   Vconvert   High    Signed             => v_opcode 250
-  | V_convert $   Vconvert   High  Unsigned             => v_opcode 251
-  | V_convert $   VtruncSat0         Signed             => v_opcode 252
-  | V_convert $   VtruncSat0       Unsigned             => v_opcode 253
-  | V_convert $   Vconvert    Low    Signed             => v_opcode 254
-  | V_convert $   Vconvert    Low  Unsigned             => v_opcode 255
-  | V_convert $   Vdemote                               => v_opcode 94
-  | V_convert $   Vpromote                              => v_opcode 95
+  | V_binary  $   Vswizzle                              => v_opcode  14w
+  | V_splat   $          IShp $ Is3 $ Is2 I8x16         => v_opcode  15w
+  | V_splat   $          IShp $ Is3 $ Is2 I16x8         => v_opcode  16w
+  | V_splat   $          IShp $ Is3       I32x4         => v_opcode  17w
+  | V_splat   $          IShp             I64x2         => v_opcode  18w
+  | V_splat   $          FShp             F32x4         => v_opcode  19w
+  | V_splat   $          FShp             F64x2         => v_opcode  20w
+  | V_compare $   Veq  $ IShp $ Is3 $ Is2 I8x16         => v_opcode  35w
+  | V_compare $   Vne  $ IShp $ Is3 $ Is2 I8x16         => v_opcode  36w
+  | V_compare $   Vlt_     Signed   $ Is2 I8x16         => v_opcode  37w
+  | V_compare $   Vlt_   Unsigned   $ Is2 I8x16         => v_opcode  38w
+  | V_compare $   Vgt_     Signed   $ Is2 I8x16         => v_opcode  39w
+  | V_compare $   Vgt_   Unsigned   $ Is2 I8x16         => v_opcode  40w
+  | V_compare $   Vle_     Signed   $ Is2 I8x16         => v_opcode  41w
+  | V_compare $   Vle_   Unsigned   $ Is2 I8x16         => v_opcode  42w
+  | V_compare $   Vge_     Signed   $ Is2 I8x16         => v_opcode  43w
+  | V_compare $   Vge_   Unsigned   $ Is2 I8x16         => v_opcode  44w
+  | V_compare $   Veq  $ IShp $ Is3 $ Is2 I16x8         => v_opcode  45w
+  | V_compare $   Vne  $ IShp $ Is3 $ Is2 I16x8         => v_opcode  46w
+  | V_compare $   Vlt_     Signed   $ Is2 I16x8         => v_opcode  47w
+  | V_compare $   Vlt_   Unsigned   $ Is2 I16x8         => v_opcode  48w
+  | V_compare $   Vgt_     Signed   $ Is2 I16x8         => v_opcode  49w
+  | V_compare $   Vgt_   Unsigned   $ Is2 I16x8         => v_opcode  50w
+  | V_compare $   Vle_     Signed   $ Is2 I16x8         => v_opcode  51w
+  | V_compare $   Vle_   Unsigned   $ Is2 I16x8         => v_opcode  52w
+  | V_compare $   Vge_     Signed   $ Is2 I16x8         => v_opcode  53w
+  | V_compare $   Vge_   Unsigned   $ Is2 I16x8         => v_opcode  54w
+  | V_compare $   Veq  $ IShp $ Is3       I32x4         => v_opcode  55w
+  | V_compare $   Vne  $ IShp $ Is3       I32x4         => v_opcode  56w
+  | V_compare $   Vlt_    Signed          I32x4         => v_opcode  57w
+  | V_compare $   Vlt_  Unsigned          I32x4         => v_opcode  58w
+  | V_compare $   Vgt_    Signed          I32x4         => v_opcode  59w
+  | V_compare $   Vgt_  Unsigned          I32x4         => v_opcode  60w
+  | V_compare $   Vle_    Signed          I32x4         => v_opcode  61w
+  | V_compare $   Vle_  Unsigned          I32x4         => v_opcode  62w
+  | V_compare $   Vge_    Signed          I32x4         => v_opcode  63w
+  | V_compare $   Vge_  Unsigned          I32x4         => v_opcode  64w
+  | V_compare $   Veq $ IShp              I64x2         => v_opcode 214w
+  | V_compare $   Vne $ IShp              I64x2         => v_opcode 215w
+  | V_compare $   Vlt_s                                 => v_opcode 216w
+  | V_compare $   Vgt_s                                 => v_opcode 217w
+  | V_compare $   Vle_s                                 => v_opcode 218w
+  | V_compare $   Vge_s                                 => v_opcode 219w
+  | V_compare $   Veq  $ FShp             F32x4         => v_opcode  65w
+  | V_compare $   Vne  $ FShp             F32x4         => v_opcode  66w
+  | V_compare $   Vlt                     F32x4         => v_opcode  67w
+  | V_compare $   Vgt                     F32x4         => v_opcode  68w
+  | V_compare $   Vle                     F32x4         => v_opcode  69w
+  | V_compare $   Vge                     F32x4         => v_opcode  70w
+  | V_compare $   Veq  $ FShp             F64x2         => v_opcode  71w
+  | V_compare $   Vne  $ FShp             F64x2         => v_opcode  72w
+  | V_compare $   Vlt                     F64x2         => v_opcode  73w
+  | V_compare $   Vgt                     F64x2         => v_opcode  74w
+  | V_compare $   Vle                     F64x2         => v_opcode  75w
+  | V_compare $   Vge                     F64x2         => v_opcode  76w
+  | V_unary       Vnot                                  => v_opcode  77w
+  | V_binary      Vand                                  => v_opcode  78w
+  | V_binary      VandNot                               => v_opcode  79w
+  | V_binary      Vor                                   => v_opcode  80w
+  | V_binary      Vxor                                  => v_opcode  81w
+  | V_ternary     VbitSelect                            => v_opcode  82w
+  | V_test        VanyTrue                              => v_opcode  83w
+  | V_unary   $   Vabs $ IShp $ Is3 $ Is2 I8x16         => v_opcode  96w
+  | V_unary   $   Vneg $ IShp $ Is3 $ Is2 I8x16         => v_opcode  97w
+  | V_unary       Vpopcnt                               => v_opcode  98w
+  | V_test    $   VallTrue    $ Is3 $ Is2 I8x16         => v_opcode  99w
+  | V_unary   $   Vbitmask    $ Is3 $ Is2 I8x16         => v_opcode 100w
+  | V_binary  $   Vnarrow   Signed I8x16                => v_opcode 101w
+  | V_binary  $   Vnarrow Unsigned I8x16                => v_opcode 102w
+  | V_shift   $   Vshl           $ Is3 $ Is2 I8x16      => v_opcode 107w
+  | V_shift   $   Vshr_   Signed $ Is3 $ Is2 I8x16      => v_opcode 108w
+  | V_shift   $   Vshr_ Unsigned $ Is3 $ Is2 I8x16      => v_opcode 109w
+  | V_binary  $   Vadd $ IShp $ Is3 $ Is2 I8x16         => v_opcode 110w
+  | V_binary  $   Vadd_sat_    Signed     I8x16         => v_opcode 111w
+  | V_binary  $   Vadd_sat_  Unsigned     I8x16         => v_opcode 112w
+  | V_binary  $   Vsub $ IShp $ Is3 $ Is2 I8x16         => v_opcode 113w
+  | V_binary  $   Vsub_sat_    Signed     I8x16         => v_opcode 114w
+  | V_binary  $   Vsub_sat_  Unsigned     I8x16         => v_opcode 115w
+  | V_binary  $   Vmin_   Signed $ Is2 I8x16            => v_opcode 118w
+  | V_binary  $   Vmin_ Unsigned $ Is2 I8x16            => v_opcode 119w
+  | V_binary  $   Vmax_   Signed $ Is2 I8x16            => v_opcode 120w
+  | V_binary  $   Vmax_ Unsigned $ Is2 I8x16            => v_opcode 121w
+  | V_binary  $   Vavgr_u I8x16                         => v_opcode 123w
+  | V_convert $   VextAdd I8x16   Signed                => v_opcode 124w
+  | V_convert $   VextAdd I8x16 Unsigned                => v_opcode 125w
+  | V_unary   $   Vabs $ IShp $ Is3 $ Is2 I16x8         => v_opcode 128w
+  | V_unary   $   Vneg $ IShp $ Is3 $ Is2 I16x8         => v_opcode 129w
+  | V_binary  $   VmulQ15                               => v_opcode 130w
+  | V_test    $   VallTrue    $ Is3 $ Is2 I16x8         => v_opcode 131w
+  | V_unary   $   Vbitmask    $ Is3 $ Is2 I16x8         => v_opcode 132w
+  | V_binary  $   Vnarrow          Signed I16x8         => v_opcode 133w
+  | V_binary  $   Vnarrow        Unsigned I16x8         => v_opcode 134w
+  | V_convert $   Vextend   Low  (Is2 I8x16)   Signed   => v_opcode 135w
+  | V_convert $   Vextend  High  (Is2 I8x16)   Signed   => v_opcode 136w
+  | V_convert $   Vextend   Low  (Is2 I8x16) Unsigned   => v_opcode 137w
+  | V_convert $   Vextend  High  (Is2 I8x16) Unsigned   => v_opcode 138w
+  | V_shift   $   Vshl           $ Is3 $ Is2 I16x8      => v_opcode 139w
+  | V_shift   $   Vshr_   Signed $ Is3 $ Is2 I16x8      => v_opcode 140w
+  | V_shift   $   Vshr_ Unsigned $ Is3 $ Is2 I16x8      => v_opcode 141w
+  | V_binary  $   Vadd $ IShp $ Is3 $ Is2 I16x8         => v_opcode 142w
+  | V_binary  $   Vadd_sat_   Signed      I16x8         => v_opcode 143w
+  | V_binary  $   Vadd_sat_ Unsigned      I16x8         => v_opcode 144w
+  | V_binary  $   Vsub $ IShp $ Is3 $ Is2 I16x8         => v_opcode 145w
+  | V_binary  $   Vsub_sat_   Signed      I16x8         => v_opcode 146w
+  | V_binary  $   Vsub_sat_ Unsigned      I16x8         => v_opcode 147w
+  | V_binary  $   VmulI16                               => v_opcode 149w
+  | V_binary  $   Vmin_    Signed   $ Is2 I16x8         => v_opcode 150w
+  | V_binary  $   Vmin_  Unsigned   $ Is2 I16x8         => v_opcode 151w
+  | V_binary  $   Vmax_    Signed   $ Is2 I16x8         => v_opcode 152w
+  | V_binary  $   Vmax_  Unsigned   $ Is2 I16x8         => v_opcode 153w
+  | V_binary  $   Vavgr_u I16x8                         => v_opcode 155w
+  | V_convert $   VextMul   Low  (Is2 I8x16)   Signed   => v_opcode 156w
+  | V_convert $   VextMul  High  (Is2 I8x16)   Signed   => v_opcode 157w
+  | V_convert $   VextMul   Low  (Is2 I8x16) Unsigned   => v_opcode 158w
+  | V_convert $   VextMul  High  (Is2 I8x16) Unsigned   => v_opcode 159w
+  | V_convert $   VextAdd I16x8   Signed                => v_opcode 126w
+  | V_convert $   VextAdd I16x8 Unsigned                => v_opcode 127w
+  | V_unary   $   Vabs $ IShp $ Is3 I32x4               => v_opcode 160w
+  | V_unary   $   Vneg $ IShp $ Is3 I32x4               => v_opcode 161w
+  | V_test    $   VallTrue    $ Is3 I32x4               => v_opcode 163w
+  | V_unary   $   Vbitmask    $ Is3 I32x4               => v_opcode 164w
+  | V_convert $   Vextend   Low  (Is2 I16x8)   Signed   => v_opcode 167w
+  | V_convert $   Vextend  High  (Is2 I16x8)   Signed   => v_opcode 168w
+  | V_convert $   Vextend   Low  (Is2 I16x8) Unsigned   => v_opcode 169w
+  | V_convert $   Vextend  High  (Is2 I16x8) Unsigned   => v_opcode 170w
+  | V_shift   $   Vshl           (Is3 I32x4)            => v_opcode 171w
+  | V_shift   $   Vshr_   Signed (Is3 I32x4)            => v_opcode 172w
+  | V_shift   $   Vshr_ Unsigned (Is3 I32x4)            => v_opcode 173w
+  | V_binary  $   Vadd $ IShp $ Is3 I32x4               => v_opcode 174w
+  | V_binary  $   Vsub $ IShp $ Is3 I32x4               => v_opcode 177w
+  | V_binary  $   VmulI32                               => v_opcode 181w
+  | V_binary  $   Vmin_   Signed I32x4                  => v_opcode 182w
+  | V_binary  $   Vmin_ Unsigned I32x4                  => v_opcode 183w
+  | V_binary  $   Vmax_   Signed I32x4                  => v_opcode 184w
+  | V_binary  $   Vmax_ Unsigned I32x4                  => v_opcode 185w
+  | V_binary  $   Vdot                                  => v_opcode 186w
+  | V_convert $   VextMul   Low  (Is2 I16x8)   Signed   => v_opcode 188w
+  | V_convert $   VextMul  High  (Is2 I16x8)   Signed   => v_opcode 189w
+  | V_convert $   VextMul   Low  (Is2 I16x8) Unsigned   => v_opcode 190w
+  | V_convert $   VextMul  High  (Is2 I16x8) Unsigned   => v_opcode 191w
+  | V_unary   $   Vabs $ IShp I64x2                     => v_opcode 192w
+  | V_unary   $   Vneg $ IShp I64x2                     => v_opcode 193w
+  | V_test    $   VallTrue    I64x2                     => v_opcode 195w
+  | V_unary   $   Vbitmask    I64x2                     => v_opcode 196w
+  | V_convert $   Vextend   Low  I32x4    Signed        => v_opcode 199w
+  | V_convert $   Vextend  High  I32x4    Signed        => v_opcode 200w
+  | V_convert $   Vextend   Low  I32x4  Unsigned        => v_opcode 201w
+  | V_convert $   Vextend  High  I32x4  Unsigned        => v_opcode 202w
+  | V_shift   $   Vshl I64x2                            => v_opcode 203w
+  | V_shift   $   Vshr_   Signed I64x2                  => v_opcode 204w
+  | V_shift   $   Vshr_ Unsigned I64x2                  => v_opcode 205w
+  | V_binary  $   Vadd (IShp I64x2)                     => v_opcode 206w
+  | V_binary  $   Vsub (IShp I64x2)                     => v_opcode 209w
+  | V_binary  $   VmulI64                               => v_opcode 213w
+  | V_convert $   VextMul   Low  I32x4    Signed        => v_opcode 220w
+  | V_convert $   VextMul  High  I32x4    Signed        => v_opcode 221w
+  | V_convert $   VextMul   Low  I32x4  Unsigned        => v_opcode 222w
+  | V_convert $   VextMul  High  I32x4  Unsigned        => v_opcode 223w
+  | V_unary   $   Vceil       F32x4                     => v_opcode 103w
+  | V_unary   $   Vfloor      F32x4                     => v_opcode 104w
+  | V_unary   $   Vtrunc      F32x4                     => v_opcode 105w
+  | V_unary   $   Vnearest    F32x4                     => v_opcode 106w
+  | V_unary   $   Vabs $ FShp F32x4                     => v_opcode 224w
+  | V_unary   $   Vneg $ FShp F32x4                     => v_opcode 225w
+  | V_unary   $   Vsqrt       F32x4                     => v_opcode 227w
+  | V_binary  $   Vadd $ FShp F32x4                     => v_opcode 228w
+  | V_binary  $   Vsub $ FShp F32x4                     => v_opcode 229w
+  | V_binary  $   VmulF       F32x4                     => v_opcode 230w
+  | V_binary  $   Vdiv        F32x4                     => v_opcode 231w
+  | V_binary  $   Vmin        F32x4                     => v_opcode 232w
+  | V_binary  $   Vmax        F32x4                     => v_opcode 233w
+  | V_binary  $   Vpmin       F32x4                     => v_opcode 234w
+  | V_binary  $   Vpmax       F32x4                     => v_opcode 235w
+  | V_unary   $   Vceil       F64x2                     => v_opcode 116w
+  | V_unary   $   Vfloor      F64x2                     => v_opcode 117w
+  | V_unary   $   Vtrunc      F64x2                     => v_opcode 122w
+  | V_unary   $   Vnearest    F64x2                     => v_opcode 148w
+  | V_unary   $   Vabs $ FShp F64x2                     => v_opcode 236w
+  | V_unary   $   Vneg $ FShp F64x2                     => v_opcode 237w
+  | V_unary   $   Vsqrt       F64x2                     => v_opcode 239w
+  | V_binary  $   Vadd $ FShp F64x2                     => v_opcode 240w
+  | V_binary  $   Vsub $ FShp F64x2                     => v_opcode 241w
+  | V_binary  $   VmulF       F64x2                     => v_opcode 242w
+  | V_binary  $   Vdiv        F64x2                     => v_opcode 243w
+  | V_binary  $   Vmin        F64x2                     => v_opcode 244w
+  | V_binary  $   Vmax        F64x2                     => v_opcode 245w
+  | V_binary  $   Vpmin       F64x2                     => v_opcode 246w
+  | V_binary  $   Vpmax       F64x2                     => v_opcode 247w
+  | V_convert $   VtruncSat          Signed             => v_opcode 248w
+  | V_convert $   VtruncSat        Unsigned             => v_opcode 249w
+  | V_convert $   Vconvert   High    Signed             => v_opcode 250w
+  | V_convert $   Vconvert   High  Unsigned             => v_opcode 251w
+  | V_convert $   VtruncSat0         Signed             => v_opcode 252w
+  | V_convert $   VtruncSat0       Unsigned             => v_opcode 253w
+  | V_convert $   Vconvert    Low    Signed             => v_opcode 254w
+  | V_convert $   Vconvert    Low  Unsigned             => v_opcode 255w
+  | V_convert $   Vdemote                               => v_opcode  94w
+  | V_convert $   Vpromote                              => v_opcode  95w
 
-  | V_const (w128: word128)                             => (v_opcode 12) ++ lend128 w128
+  | V_const (w128: word128)                             => (v_opcode 12w) ++ lend128 w128
 
-  | V_lane   (Vextract_           Signed  I8x16)   lidx => (v_opcode 21) ++ enc_u8 lidx
-  | V_lane   (Vextract_         Unsigned  I8x16)   lidx => (v_opcode 22) ++ enc_u8 lidx
-  | V_lane   (Vreplace $ IShp $ Is3 $ Is2 I8x16)   lidx => (v_opcode 23) ++ enc_u8 lidx
-  | V_lane   (Vextract_           Signed  I16x8)   lidx => (v_opcode 24) ++ enc_u8 lidx
-  | V_lane   (Vextract_         Unsigned  I16x8)   lidx => (v_opcode 25) ++ enc_u8 lidx
-  | V_lane   (Vreplace $ IShp $ Is3 $ Is2 I16x8)   lidx => (v_opcode 26) ++ enc_u8 lidx
-  | V_lane    VextractI32x4                        lidx => (v_opcode 27) ++ enc_u8 lidx
-  | V_lane   (Vreplace $ IShp $ Is3       I32x4)   lidx => (v_opcode 28) ++ enc_u8 lidx
-  | V_lane    VextractI64x2                        lidx => (v_opcode 29) ++ enc_u8 lidx
-  | V_lane   (Vreplace $ IShp             I64x2)   lidx => (v_opcode 30) ++ enc_u8 lidx
-  | V_lane   (VextractF                   F32x4)   lidx => (v_opcode 31) ++ enc_u8 lidx
-  | V_lane   (Vreplace $ FShp             F32x4)   lidx => (v_opcode 32) ++ enc_u8 lidx
-  | V_lane   (VextractF                   F64x2)   lidx => (v_opcode 33) ++ enc_u8 lidx
-  | V_lane   (Vreplace $ FShp             F64x2)   lidx => (v_opcode 34) ++ enc_u8 lidx
+  | V_lane   (Vextract_           Signed  I8x16)   lidx => (v_opcode 21w) ++ enc_u8 lidx
+  | V_lane   (Vextract_         Unsigned  I8x16)   lidx => (v_opcode 22w) ++ enc_u8 lidx
+  | V_lane   (Vreplace $ IShp $ Is3 $ Is2 I8x16)   lidx => (v_opcode 23w) ++ enc_u8 lidx
+  | V_lane   (Vextract_           Signed  I16x8)   lidx => (v_opcode 24w) ++ enc_u8 lidx
+  | V_lane   (Vextract_         Unsigned  I16x8)   lidx => (v_opcode 25w) ++ enc_u8 lidx
+  | V_lane   (Vreplace $ IShp $ Is3 $ Is2 I16x8)   lidx => (v_opcode 26w) ++ enc_u8 lidx
+  | V_lane    VextractI32x4                        lidx => (v_opcode 27w) ++ enc_u8 lidx
+  | V_lane   (Vreplace $ IShp $ Is3       I32x4)   lidx => (v_opcode 28w) ++ enc_u8 lidx
+  | V_lane    VextractI64x2                        lidx => (v_opcode 29w) ++ enc_u8 lidx
+  | V_lane   (Vreplace $ IShp             I64x2)   lidx => (v_opcode 30w) ++ enc_u8 lidx
+  | V_lane   (VextractF                   F32x4)   lidx => (v_opcode 31w) ++ enc_u8 lidx
+  | V_lane   (Vreplace $ FShp             F32x4)   lidx => (v_opcode 32w) ++ enc_u8 lidx
+  | V_lane   (VextractF                   F64x2)   lidx => (v_opcode 33w) ++ enc_u8 lidx
+  | V_lane   (Vreplace $ FShp             F64x2)   lidx => (v_opcode 34w) ++ enc_u8 lidx
 
-  | V_lane (Vshuffle l0 l1 l2 l3 l4 l5 l6 l7 l8 l9 lA lB lC lD lE) lF => (v_opcode 13) ++
+  | V_lane (Vshuffle l0 l1 l2 l3 l4 l5 l6 l7 l8 l9 lA lB lC lD lE) lF => (v_opcode 13w) ++
   (FLAT $ MAP enc_u8 [l0; l1; l2; l3; l4; l5; l6; l7; l8; l9; lA; lB; lC; lD; lE; lF])
 
 End
@@ -752,13 +770,13 @@ Definition dec_vecI_def:
   if oc = 171w then (INR $ V_shift   $   Vshl           (Is3 I32x4)            ,cs) else
   if oc = 172w then (INR $ V_shift   $   Vshr_   Signed (Is3 I32x4)            ,cs) else
   if oc = 173w then (INR $ V_shift   $   Vshr_ Unsigned (Is3 I32x4)            ,cs) else
-  if oc = 174w then (INR $ V_binary  $   Vadd (IShp (Is3 I32x4))               ,cs) else
-  if oc = 177w then (INR $ V_binary  $   Vsub (IShp (Is3 I32x4))               ,cs) else
+  if oc = 174w then (INR $ V_binary  $   Vadd $ IShp $ Is3 I32x4               ,cs) else
+  if oc = 177w then (INR $ V_binary  $   Vsub $ IShp $ Is3 I32x4               ,cs) else
   if oc = 181w then (INR $ V_binary  $   VmulI32                               ,cs) else
-  if oc = 182w then (INR $ V_binary  $   Vmin_   Signed I32x4                  ,cs) else
-  if oc = 183w then (INR $ V_binary  $   Vmin_ Unsigned I32x4                  ,cs) else
-  if oc = 184w then (INR $ V_binary  $   Vmax_   Signed I32x4                  ,cs) else
-  if oc = 185w then (INR $ V_binary  $   Vmax_ Unsigned I32x4                  ,cs) else
+  if oc = 182w then (INR $ V_binary  $   Vmin_    Signed   I32x4               ,cs) else
+  if oc = 183w then (INR $ V_binary  $   Vmin_  Unsigned   I32x4               ,cs) else
+  if oc = 184w then (INR $ V_binary  $   Vmax_    Signed   I32x4               ,cs) else
+  if oc = 185w then (INR $ V_binary  $   Vmax_  Unsigned   I32x4               ,cs) else
   if oc = 186w then (INR $ V_binary  $   Vdot                                  ,cs) else
   if oc = 188w then (INR $ V_convert $   VextMul   Low  (Is2 I16x8)   Signed   ,cs) else
   if oc = 189w then (INR $ V_convert $   VextMul  High  (Is2 I16x8)   Signed   ,cs) else
@@ -775,8 +793,8 @@ Definition dec_vecI_def:
   if oc = 203w then (INR $ V_shift   $   Vshl             I64x2                ,cs) else
   if oc = 204w then (INR $ V_shift   $   Vshr_    Signed  I64x2                ,cs) else
   if oc = 205w then (INR $ V_shift   $   Vshr_  Unsigned  I64x2                ,cs) else
-  if oc = 206w then (INR $ V_binary  $   Vadd (IShp I64x2)                     ,cs) else
-  if oc = 209w then (INR $ V_binary  $   Vsub (IShp I64x2)                     ,cs) else
+  if oc = 206w then (INR $ V_binary  $   Vadd $ IShp I64x2                     ,cs) else
+  if oc = 209w then (INR $ V_binary  $   Vsub $ IShp I64x2                     ,cs) else
   if oc = 213w then (INR $ V_binary  $   VmulI64                               ,cs) else
   if oc = 220w then (INR $ V_convert $   VextMul   Low  I32x4   Signed         ,cs) else
   if oc = 221w then (INR $ V_convert $   VextMul  High  I32x4   Signed         ,cs) else
@@ -820,8 +838,8 @@ Definition dec_vecI_def:
   if oc = 253w then (INR $ V_convert $   VtruncSat0        Unsigned            ,cs) else
   if oc = 254w then (INR $ V_convert $   Vconvert     Low    Signed            ,cs) else
   if oc = 255w then (INR $ V_convert $   Vconvert     Low  Unsigned            ,cs) else
-  if oc =  94w then (INR $ V_convert    Vdemote                                ,cs) else
-  if oc =  95w then (INR $ V_convert    Vpromote                               ,cs) else
+  if oc =  94w then (INR $ V_convert     Vdemote                               ,cs) else
+  if oc =  95w then (INR $ V_convert     Vpromote                              ,cs) else
 
   if oc=12w then case unlend128 cs of NONE => failure | SOME (w128, ds) => (INR $ V_const w128,ds) else
 
@@ -857,7 +875,6 @@ Definition dec_vecI_def:
                  case dec_u8 cs of NONE => failure | SOME (lE,cs) =>
                  case dec_u8 cs of NONE => failure | SOME (lF,ds) =>
   (INR $ V_lane (Vshuffle l0 l1 l2 l3 l4 l5 l6 l7 l8 l9 lA lB lC lD lE) lF ,ds) else
-
   failure
 End
 
@@ -1117,10 +1134,26 @@ End
 (*                                 *)
 (***********************************)
 
+(* neat trick to check if we're making progress (?)
+   due to MM *)
+fun print_dot_tac h = (print "."; all_tac h);
+
 Theorem dec_enc_valtype:
-  ∀ t. dec_valtype (enc_valtype t) = SOME t
+  ∀ t rest. dec_valtype (enc_valtype t :: rest) = (INR t, rest)
 Proof
+  rpt strip_tac
+  >> `∃ val. enc_valtype t = val` by simp []
+  >> asm_rewrite_tac[]
+  >> pop_assum mp_tac
+  >> rewrite_tac[enc_valtype_def]
+  >> simp[AllCaseEqs()]
+  >> simp[bvtype_nchotomy]
+  >> rpt strip_tac
+  >> gvs[dec_valtype_def]
+
+(*
   rw[enc_valtype_def] >> every_case_tac >> rw[dec_valtype_def]
+*)
 QED
 
 Theorem dec_enc_blocktype:
@@ -1128,16 +1161,45 @@ Theorem dec_enc_blocktype:
 Proof
   (* ahh, what's really missing here is the fact that the enc_s33 will never
   collide with the other possible encodings for blocktype... *)
+  rpt strip_tac
+  >> `∃ val. enc_blocktype b = val` by simp []
+  >> asm_rewrite_tac[]
+  >> pop_assum mp_tac
+  >> rewrite_tac[enc_blocktype_def]
+  >> simp[AllCaseEqs()]
+  >> rpt strip_tac
 
-  rw[enc_blocktype_def] >> every_case_tac
+  >- gvs[dec_blocktype_def]
 
-  >- rw[dec_blocktype_def]
+  >- (
+    gvs[dec_blocktype_def, dec_enc_valtype]
+    >> rw[enc_valtype_def]
+    >> fs[AllCaseEqs()]
+  )
 
-  >-(rw[dec_blocktype_def]
-    >- fs[enc_valtype_def, AllCaseEqs()]
-    >- rw[dec_enc_valtype])
+  >- (
+    gvs[oneline dec_blocktype_def,dec_valtype_def]
+    >> simp[AllCaseEqs()]
+    >>
+cheat
+  )
+QED
 
-  >- cheat
+Theorem dec_enc_global:
+  ∀ x rest. dec_global (enc_global x ++ rest) = (INR x, rest)
+Proof
+  rpt strip_tac
+  >> `∃ val. enc_global x = val` by simp []
+  >> asm_rewrite_tac[]
+  >> pop_assum mp_tac
+  >> rewrite_tac[enc_global_def]
+  >> simp[AllCaseEqs()]
+  >> rpt strip_tac
+  >> gvs[dec_global_def, dec_enc_valtype]
+
+(*
+  rw[enc_global_def] >> every_case_tac >> rw[dec_global_def, dec_enc_valtype]
+*)
 QED
 
 (* ASKMM *)
@@ -1145,8 +1207,24 @@ QED
 Theorem dec_enc_numI:
   ∀ i rest. dec_numI (enc_numI i ++ rest) = (INR i, rest)
 Proof
-  cheat
-  (* rw[enc_numI_def] >> every_case_tac >> rw[dec_numI_def] *)
+  rpt gen_tac
+  \\ ‘∃res. enc_numI i = res’ by simp []
+  \\ asm_rewrite_tac []
+  \\ pop_assum mp_tac
+  \\ rewrite_tac [enc_numI_def]
+  \\ simp[AllCaseEqs()]
+  \\ rpt strip_tac
+
+  (* single byte encoding cases *)
+  \\ asm_rewrite_tac[APPEND, dec_numI_def]
+  \\ simp[AllCaseEqs()]
+
+
+  (* cases requiring further encoding (of their "immediates") *)
+  \\ (
+    pop_assum sym_sub_tac
+    >- simp[dec_numI_def, AllCaseEqs()]
+  )
 QED
 
 Theorem NOT_NULL_enc_u32:
@@ -1154,8 +1232,6 @@ Theorem NOT_NULL_enc_u32:
 Proof
   cheat
 QED
-
-fun print_dot_tac h = (print "."; all_tac h);
 
 Theorem dec_enc_vecI:
   ∀ i. dec_vecI (enc_vecI i ++ rest) = (INR i, rest)
@@ -1180,18 +1256,25 @@ Proof
       \\ print_dot_tac
       \\ simp_tac std_ss [n2w_11,EVAL “dimword (:32)”])
   \\ ntac 16 (rewrite_tac [leb128Theory.dec_enc_unsigned_word,GSYM APPEND_ASSOC] \\ simp [])
-  \\ cheat (* something is wrong in the definitions near VbitSelect *)
+  \\ (Cases_on `v3` >> rewrite_tac[])
 QED
 
-(* ASKYK ASKMM *)
-(* this is super slow. Any way to speed up? *)
 Theorem dec_enc_loadI:
   ∀ i. dec_loadI (enc_loadI i ++ rest) = (INR i, rest)
 Proof
+  rpt gen_tac
+  \\ ‘∃res. enc_loadI i = res’ by simp [] >> asm_rewrite_tac[]
+  \\ pop_assum mp_tac
+  \\ rewrite_tac [enc_loadI_def]
+  \\ simp[AllCaseEqs()]
+  \\ rpt strip_tac
+
+  \\ (
+    pop_assum sym_sub_tac
+    >> simp[dec_loadI_def, AllCaseEqs()]
+  )
+  \\
   cheat
-  (* rw [enc_loadI_def] >> every_case_tac
-  >> rw [dec_loadI_def]
-  >> (rewrite_tac[GSYM APPEND_ASSOC] >- rw[]) *)
 QED
 
 (* ASKYK ASKMM *)
@@ -1199,16 +1282,46 @@ QED
 Theorem dec_enc_storeI:
   ∀ i. dec_storeI (enc_storeI i ++ rest) = (INR i, rest)
 Proof
+  rpt gen_tac
+  \\ ‘∃res. enc_storeI i = res’ by simp []
+  \\ asm_rewrite_tac []
+  \\ pop_assum mp_tac
+  \\ rewrite_tac [enc_storeI_def]
+  \\ simp[AllCaseEqs()]
+  \\ rpt strip_tac
+  \\ gvs[dec_storeI_def, dec_enc_2u32]
+  \\
+cheat
+(*
   rw[enc_storeI_def] >> every_case_tac
+  >> simp[bvtype_nchotomy]
   >> rw[dec_storeI_def]
-  >> (rewrite_tac[GSYM APPEND_ASSOC] >- rw[])
+  \\
+cheat
+*)
 QED
 
 Theorem dec_enc_memI:
   ∀ i. dec_memI (enc_memI i ++ rest) = (INR i, rest)
 Proof
-  rw [enc_memI_def] >> every_case_tac
-  >> rw [dec_memI_def, GSYM APPEND_ASSOC, Excl "APPEND_ASSOC"]
+(*
+  rpt gen_tac
+  \\ ‘∃res. enc_memI i = res’ by simp []
+  \\ asm_rewrite_tac []
+  \\ pop_assum mp_tac
+  \\ rewrite_tac [enc_memI_def]
+  \\ simp[AllCaseEqs()]
+  \\ rpt strip_tac
+  \\ gvs[dec_memI_def, dec_enc_2u32]
+  \\
+  (* ASKMM ASKYK *)
+  (* EXPLODE *)
+  (* this one seems pretty slow/might be looping.
+  which I then don't understand *)
+  rewrite_tac [GSYM APPEND, dec_enc_u32, Excl "APPEND"]
+  (* \\ rw[GSYM APPEND, Excl "APPEND", dec_enc_u32] *)
+*)
+cheat
 QED
 
 Theorem dec_enc_paraI:
@@ -1230,19 +1343,6 @@ Theorem dec_enc_tableI:
 Proof
   rw[enc_tableI_def] >> every_case_tac>>
   rw[dec_tableI_def,GSYM APPEND_ASSOC, Excl"APPEND_ASSOC",dec_enc_unsigned_word]
-QED
-
-Theorem dec_enc_valtype_learning:
-  ∀ t. dec_valtype (enc_valtype t) = SOME t
-Proof
-  rpt strip_tac (* this is like intros *)
-  >> `? val. enc_valtype t = val` by simp []
-  >> asm_rewrite_tac[]
-  >> pop_assum mp_tac
-  >> rewrite_tac[enc_valtype_def]
-  >> simp[AllCaseEqs()]
-  >> rpt strip_tac (* this is like intros *)
-  >> gvs[dec_valtype_def]
 QED
 
 
@@ -1308,15 +1408,15 @@ Definition enc_instr_def:
   | If    bTyp bodyTh bodyEl => 0x04w :: enc_blocktype bTyp ++ enc_instr_list bodyTh ++
                   (if NULL bodyEl then [] else elseB :: enc_instr_list bodyEl) ++ [endB]
 
-  | Br           lbl => 0x0Cw ::                    enc_unsigned_word lbl
-  | BrIf         lbl => 0x0Dw ::                    enc_unsigned_word lbl
-  | BrTable lbls lbl => 0x0Ew :: (* TODO lbls ++ *) enc_unsigned_word lbl
+  | Br           lbl => 0x0Cw ::                    enc_u32 lbl
+  | BrIf         lbl => 0x0Dw ::                    enc_u32 lbl
+  | BrTable lbls lbl => 0x0Ew :: (* TODO lbls ++ *) enc_u32 lbl
 
   | Return                    => [0x0Fw]
-  | Call               f      =>  0x10w :: enc_unsigned_word f
-  | CallIndirect       f fsig =>  0x11w :: enc_fsig fsig ++ enc_unsigned_word f
-  | ReturnCall         f      =>  0x12w :: enc_unsigned_word f
-  | ReturnCallIndirect f fsig =>  0x13w :: enc_fsig fsig ++ enc_unsigned_word f
+  | Call               f      =>  0x10w ::                  enc_u32 f
+  | CallIndirect       f fsig =>  0x11w :: enc_fsig fsig ++ enc_u32 f
+  | ReturnCall         f      =>  0x12w ::                  enc_u32 f
+  | ReturnCallIndirect f fsig =>  0x13w :: enc_fsig fsig ++ enc_u32 f
 
   (* other classes of instructions *)
   | Variable   i => enc_varI   i
@@ -1326,7 +1426,6 @@ Definition enc_instr_def:
   | MemRead    i => enc_loadI  i
   | MemWrite   i => enc_storeI i
   | MemOthers  i => enc_memI   i
-  | _ => []
   ) ∧
 
   (enc_instr_list ([]:instr list) : byteSeq = [endB]) ∧
@@ -1335,9 +1434,19 @@ Definition enc_instr_def:
 End
 
 Theorem dec_blocktype_len:
-  dec_blocktype bs = (r,bs1) ⇒ LENGTH bs1 ≤ LENGTH bs
+  ∀ bs r bs1. dec_blocktype bs = (r,bs1) ⇒ LENGTH bs1 ≤ LENGTH bs
 Proof
-  cheat
+  Cases
+  >- simp[dec_blocktype_def]
+  >- (
+    rpt gen_tac
+    >> simp[dec_blocktype_def]
+    >> simp[AllCaseEqs()]
+    >> rpt strip_tac
+    >> rw[]
+    >>
+cheat
+  )
 QED
 
 Definition check_len_def:
@@ -1364,7 +1473,7 @@ Proof
   PairCases_on ‘xs’ \\ rw [check_len_def]
   \\ Cases_on ‘xs0’ \\ gvs [check_len_def,AllCaseEqs()]
 QED
-
+(*
 Definition dec_instr_def:
   (dec_instr ([]:byteSeq) : ((mlstring + instr) # byteSeq) =
      error "[dec_instr] : Byte sequence unexpectedly empty." []) ∧
@@ -1425,19 +1534,20 @@ Termination
   \\ rw [] \\ imp_res_tac dec_blocktype_len \\ fs []
   \\ imp_res_tac check_len_IMP \\ fs []
 End
-
-Triviality check_len_INR:
+*)
+(* Triviality check_len_INR:
   check_len bs0 y = (INR x,bs1) ⇒ ∃y1 y2. y = (INR y1,y2)
 Proof
   gvs [oneline check_len_def, AllCaseEqs()] \\ rw [] \\ fs []
-QED
+QED *)
 
-Triviality check_len_INL:
+(* Triviality check_len_INL:
   check_len bs0 y = (INL x,bs1) ⇒ ∃y1 y2. y = (INL y1,y2)
 Proof
   gvs [oneline check_len_def, AllCaseEqs()] \\ rw [] \\ fs []
-QED
+QED *)
 
+(*
 Theorem dec_instr_length:
   (∀bs x bs1. dec_instr bs = (INR x,bs1) ⇒ LENGTH bs1 < LENGTH bs) ∧
   (∀bs x bs1. dec_instr_list bs = (INR x,bs1) ⇒ LENGTH bs1 < LENGTH bs)
@@ -1454,8 +1564,9 @@ Proof
   \\ imp_res_tac check_len_INR \\ fs []
   \\ gvs [check_len_def]
 QED
+*)
 
-Theorem dec_instr_INL_length:
+(* Theorem dec_instr_INL_length:
   (∀bs x bs1. dec_instr bs = (INL x,bs1) ⇒ LENGTH bs1 ≤ LENGTH bs) ∧
   (∀bs x bs1. dec_instr_list bs = (INL x,bs1) ⇒ LENGTH bs1 ≤ LENGTH bs)
 Proof
@@ -1469,9 +1580,9 @@ Proof
   \\ imp_res_tac check_len_INR \\ fs []
   \\ imp_res_tac check_len_IMP \\ fs []
   \\ cheat (* not implemented cases *)
-QED
+QED *)
 
-Theorem check_len_thm:
+(* Theorem check_len_thm:
   check_len bs (dec_instr bs) = dec_instr bs ∧
   check_len bs (dec_instr_list bs) = dec_instr_list bs
 Proof
@@ -1485,10 +1596,10 @@ Proof
   \\ Cases_on ‘q’ \\ fs [check_len_def]
   \\ imp_res_tac dec_instr_INL_length \\ fs []
   \\ imp_res_tac dec_instr_length \\ fs []
-QED
+QED *)
 
-Theorem dec_instr_def[allow_rebind] = REWRITE_RULE [check_len_thm] dec_instr_def;
-Theorem dec_instr_ind[allow_rebind] = REWRITE_RULE [check_len_thm] dec_instr_ind;
+(* Theorem dec_instr_def[allow_rebind] = REWRITE_RULE [check_len_thm] dec_instr_def;
+Theorem dec_instr_ind[allow_rebind] = REWRITE_RULE [check_len_thm] dec_instr_ind; *)
 
 Theorem enc_instr_not_end:
   ∀i. ∃h t. enc_instr i = h::t ∧ h ≠ 0x0Bw
@@ -1503,7 +1614,7 @@ Proof
   >~ [‘enc_vecI’] >- cheat (* incomplete *)
 QED
 
-Theorem dec_enc_instr:
+(* Theorem dec_enc_instr:
   (∀i rest. dec_instr (enc_instr i ++ rest) = (INR i,rest)) ∧
   (∀is rest. dec_instr_list (enc_instr_list is ++ rest) = (INR is,rest))
 Proof
@@ -1529,7 +1640,7 @@ Proof
     \\ Cases_on ‘b2’ \\ simp []
     \\ asm_rewrite_tac [GSYM APPEND_ASSOC] \\ simp [])
   \\ cheat (* not yet implemented cases *)
-QED
+QED *)
 
 (* Definition dec_instr_def:
   dec_instr ([]:byteSeq) : ((mlstring + instr) # byteSeq) = error "[dec_instr] : Byte sequence unexpectedly empty." [] ∧
@@ -1552,15 +1663,13 @@ QED
    (* TODO
   if b = 0x13w then case dec_unsigned_word bs of NONE => failure | SOME (f,cs) => (INR $ ReturnCallIndirect f (* tblIdx *) , cs) else *)
 
-  (* variable instructions *)
-  if b = 0x20w then case dec_unsigned_word bs of NONE=>failure| SOME(x,cs) => (INR $ LocalGet  x, cs) else
-  if b = 0x21w then case dec_unsigned_word bs of NONE=>failure| SOME(x,cs) => (INR $ LocalSet  x, cs) else
-  if b = 0x22w then case dec_unsigned_word bs of NONE=>failure| SOME(x,cs) => (INR $ LocalTee  x, cs) else
-  if b = 0x23w then case dec_unsigned_word bs of NONE=>failure| SOME(x,cs) => (INR $ GlobalGet x, cs) else
-  if b = 0x24w then case dec_unsigned_word bs of NONE=>failure| SOME(x,cs) => (INR $ GlobalSet x, cs) else
-
-  case dec_numI (b::bs) of (INR inum,cs) => (INR $ Numeric inum, cs) | _ =>
-  case dec_vecI (b::bs) of (INR ivec,cs) => (INR $ Vector  ivec, cs) | _ =>
+  case dec_varI   (b::bs) of (INR ivar,cs) => (INR $ Variable   ivar, cs) | _ =>
+  case dec_paraI  (b::bs) of (INR ipar,cs) => (INR $ Parametric ipar, cs) | _ =>
+  case dec_numI   (b::bs) of (INR inum,cs) => (INR $ Numeric    inum, cs) | _ =>
+  case dec_vecI   (b::bs) of (INR ivec,cs) => (INR $ Vector     ivec, cs) | _ =>
+  case dec_loadI  (b::bs) of (INR imrd,cs) => (INR $ MemRead    imrd, cs) | _ =>
+  case dec_storeI (b::bs) of (INR imwr,cs) => (INR $ MemWrite   imwr, cs) | _ =>
+  case dec_memI   (b::bs) of (INR imem,cs) => (INR $ MemOthers  imem, cs) | _ =>
 
   failure
 End *)
