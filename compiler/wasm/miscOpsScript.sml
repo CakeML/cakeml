@@ -34,8 +34,6 @@ Overload dec_s8  = “dec_signed        : byteSeq -> (byte   # byteSeq) option�
 Overload dec_s32 = “dec_signed        : byteSeq -> (word32 # byteSeq) option”
 Overload dec_s64 = “dec_signed        : byteSeq -> (word64 # byteSeq) option”
 
-Overload dec_s33 = “dec_signed        : byteSeq ->(33 word # byteSeq) option”
-
 Overload enc_u8  = “enc_unsigned_word : byte   -> byteSeq”
 Overload enc_u32 = “enc_unsigned_word : word32 -> byteSeq”
 Overload enc_u64 = “enc_unsigned_word : word64 -> byteSeq”
@@ -135,12 +133,32 @@ Definition enc_s33_def:
                  w2w (w >>> 28)]
 End
 
+Overload dec_s33 = “dec_signed : byteSeq ->(33 word # byteSeq) option”
+
 Theorem dec_enc_s33:
   ∀b xs rest. dec_s33 (enc_s33 b ++ rest) = SOME (b,rest)
 Proof
   rw [enc_s33_def,dec_signed_def]
+  \\ rpt $ pop_assum mp_tac
   \\ simp [dec_enc_w7s,or_w7s_def]
-  \\ pop_assum mp_tac
+  \\ blastLib.BBLAST_TAC
+QED
+
+Definition enc_BlkIdx_def:
+  enc_BlkIdx (w:word32) = enc_s33 $ w2w w
+End
+
+Definition dec_BlkIdx_def:
+  dec_BlkIdx (bs:byteSeq) : (word32 # byteSeq) option =
+  case dec_s33 bs of NONE=>NONE| SOME (w, rs) =>
+    if word_msb w then NONE else SOME ((w2w w):word32,rs)
+End
+
+Theorem dec_enc_BlkIdx:
+  ∀ w. dec_BlkIdx (enc_BlkIdx w ++ rest) = SOME (w, rest)
+Proof
+  rpt gen_tac
+  \\ rw [enc_BlkIdx_def, dec_BlkIdx_def, dec_enc_s33, AllCaseEqs()]
   \\ blastLib.BBLAST_TAC
 QED
 
