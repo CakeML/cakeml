@@ -67,6 +67,26 @@ Definition dec_valtype_def:
   failure
 End
 
+(* mutually recursive defn not working *)
+(* Definition dec_valtype_def:
+  (dec_valtype ([]:byteSeq) : ((mlstring + valtype) # byteSeq) = error "[dec_valtype]" []) ∧
+  (dec_valtype (b::bs) = let failure = error "[dec_valtype]" $ b::bs in
+
+  if b = 0x7Fw then (INR $ Tnum   Int W32 ,bs) else
+  if b = 0x7Ew then (INR $ Tnum   Int W64 ,bs) else
+  if b = 0x7Dw then (INR $ Tnum Float W32 ,bs) else
+  if b = 0x7Cw then (INR $ Tnum Float W64 ,bs) else
+  if b = 0x7Bw then (INR $ Tvec           ,bs) else
+  if b = 0x70w then (INR $ TFunRef        ,bs) else
+  if b = 0x6Fw then (INR $ TExtRef        ,bs) else
+  failure) ∧
+  (dec_valtype_list ([]:byteSeq) : (valtype list # byteSeq) = ([],[])) ∧
+  (dec_valtype_list bs =
+    case dec_valtype bs of
+    | (INL err, rs) => ([], rs)
+    | (INR x  , rs) => let (xs, final) = dec_valtype_list rs in (x::xs, final))
+End *)
+
 
 
 Definition enc_global_def:
