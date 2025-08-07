@@ -804,6 +804,7 @@ Definition dec_instr_def:
 
   failure
 End
+*)
 
 val _ = export_theory();
 
