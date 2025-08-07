@@ -2,10 +2,10 @@
   Properties about stackLang and its semantics
 *)
 Theory stackProps
-Ancestors
-  stackSem stack_names backendProps
 Libs
   preamble
+Ancestors
+  stackSem stack_names backendProps
 
 
 Theorem case_eq_thms =
@@ -1159,4 +1159,3 @@ Definition no_shmemop_def:
   (no_shmemop (ShMemOp _ _ _) = F) /\
   (no_shmemop _ = T)
 End
-
