@@ -534,6 +534,8 @@ Definition infer_p_def:
     return (Infer_Tapp [] Tword8_num, [])) ∧
   (infer_p l ienv (Plit (Word64 w)) =
     return (Infer_Tapp [] Tword64_num, [])) ∧
+  (infer_p l ienv (Plit (Float64 f)) =
+    failwith l «Floats cannot be used in patterns» ) ∧
   (infer_p l ienv (Pcon cn_opt ps) =
     dtcase cn_opt of
       | NONE =>
@@ -853,6 +855,8 @@ Definition infer_e_def:
     return (Infer_Tapp [] Tword8_num)) ∧
   (infer_e l ienv (Lit (Word64 _)) =
     return (Infer_Tapp [] Tword64_num)) ∧
+  (infer_e l ienv (Lit (Float64 _)) =
+    return (Infer_Tapp [] Tdouble_num)) ∧
   (infer_e l ienv (Var id) =
     do (tvs,t) <- lookup_st_ex l "variable" id ienv.inf_v;
        uvs <- n_fresh_uvar tvs;
