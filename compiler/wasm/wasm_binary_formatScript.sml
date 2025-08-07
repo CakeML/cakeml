@@ -372,66 +372,87 @@ End
 
 Definition dec_list_valtype_def:
   dec_list_valtype ([]:byteSeq) : (valtype list # byteSeq) = ([],[]) ∧
-  dec_list_valtype bs = ARB
-    (* case dec_valtype bs of
+  dec_list_valtype bs =
+    case dec_valtype bs of
     | (INL err, rs) => ([], rs)
-    | (INR x  , rs) => let (xs, final) = dec_list_valtype rs in (x::xs, final) *)
+    | (INR x  , rs) => let (xs, final) = dec_list_valtype rs in (x::xs, final)
+Termination
+cheat
+  (* WF_REL_TAC ‘measure $ λx. case x of
+                            | INL bs => 2 * LENGTH bs
+                            | INR bs => 2 * LENGTH bs + 1’
+  \\ rw [] \\ imp_res_tac dec_blocktype_len \\ fs []
+  \\ imp_res_tac check_len_IMP \\ fs [] *)
 End
 
 Definition dec_list_global_def:
   dec_list_global ([]:byteSeq) : (global list # byteSeq) = ([],[]) ∧
   dec_list_global bs = ARB
-    (* case dec_global bs of
+    case dec_global bs of
     | (INL err, rs) => ([], rs)
-    | (INR x  , rs) => let (xs, final) = dec_list_global rs in (x::xs, final) *)
+    | (INR x  , rs) => let (xs, final) = dec_list_global rs in (x::xs, final)
+Termination
+cheat
 End
 
 Definition dec_list_blocktype_def:
   dec_list_blocktype ([]:byteSeq) : (blocktype list # byteSeq) = ([],[]) ∧
   dec_list_blocktype bs = ARB
-    (* case dec_blocktype bs of
+    case dec_blocktype bs of
     | (INL err, rs) => ([], rs)
-    | (INR x  , rs) => let (xs, final) = dec_list_blocktype rs in (x::xs, final) *)
+    | (INR x  , rs) => let (xs, final) = dec_list_blocktype rs in (x::xs, final)
+Termination
+cheat
 End
 
 Definition dec_list_numI_def:
   dec_list_numI ([]:byteSeq) : (num_instr list # byteSeq) = ([],[]) ∧
   dec_list_numI bs = ARB
-    (* case dec_numI bs of
+    case dec_numI bs of
     | (INL err, rs) => ([], rs)
-    | (INR x  , rs) => let (xs, final) = dec_list_numI rs in (x::xs, final) *)
+    | (INR x  , rs) => let (xs, final) = dec_list_numI rs in (x::xs, final)
+Termination
+cheat
 End
 
 Definition dec_list_loadI_def:
   dec_list_loadI ([]:byteSeq) : (load_instr list # byteSeq) = ([],[]) ∧
   dec_list_loadI bs = ARB
-    (* case dec_loadI bs of
+    case dec_loadI bs of
     | (INL err, rs) => ([], rs)
-    | (INR x  , rs) => let (xs, final) = dec_list_loadI rs in (x::xs, final) *)
+    | (INR x  , rs) => let (xs, final) = dec_list_loadI rs in (x::xs, final)
+Termination
+cheat
 End
 
 Definition dec_list_storeI_def:
   dec_list_storeI ([]:byteSeq) : (store_instr list # byteSeq) = ([],[]) ∧
   dec_list_storeI bs = ARB
-    (* case dec_storeI bs of
+    case dec_storeI bs of
     | (INL err, rs) => ([], rs)
-    | (INR x  , rs) => let (xs, final) = dec_list_storeI rs in (x::xs, final) *)
+    | (INR x  , rs) => let (xs, final) = dec_list_storeI rs in (x::xs, final)
+Termination
+cheat
 End
 
 Definition dec_list_paraI_def:
   dec_list_paraI ([]:byteSeq) : (para_instr list # byteSeq) = ([],[]) ∧
   dec_list_paraI bs = ARB
-    (* case dec_paraI bs of
+    case dec_paraI bs of
     | (INL err, rs) => ([], rs)
-    | (INR x  , rs) => let (xs, final) = dec_list_paraI rs in (x::xs, final) *)
+    | (INR x  , rs) => let (xs, final) = dec_list_paraI rs in (x::xs, final)
+Termination
+cheat
 End
 
 Definition dec_list_varI_def:
   dec_list_varI ([]:byteSeq) : (var_instr list # byteSeq) = ([],[]) ∧
   dec_list_varI bs = ARB
-    (* case dec_varI bs of
+    case dec_varI bs of
     | (INL err, rs) => ([], rs)
-    | (INR x  , rs) => let (xs, final) = dec_list_varI rs in (x::xs, final) *)
+    | (INR x  , rs) => let (xs, final) = dec_list_varI rs in (x::xs, final)
+Termination
+cheat
 End
 
 
