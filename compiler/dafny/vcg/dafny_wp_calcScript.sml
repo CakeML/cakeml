@@ -2362,19 +2362,46 @@ Proof
   \\ Cases \\ simp [CaseEq "sum"]
 QED
 
+Definition find_met_def:
+  find_met name [] = fail «find_met: Could not find method» ∧
+  find_met name (Method name' spec body::rest) =
+    if name' = name
+    then return (Method name' spec body)
+    else find_met name rest
+End
+
+Triviality find_met_inr:
+  ∀methods name method.
+    find_met name methods = INR method ⇒
+    ∃spec body. method = Method name spec body
+Proof
+  Induct \\ simp [find_met_def]
+  \\ Cases \\ simp [find_met_def]
+  \\ rpt gen_tac
+  \\ IF_CASES_TAC \\ simp []
+  \\ strip_tac \\ gvs []
+QED
+
+Definition dest_met_def[simp]:
+  dest_met (Method name spec body) = (name, spec, body)
+End
+
 Definition stmt_vcg_def:
-  stmt_vcg _ Skip post _ _ = return post ∧
-  stmt_vcg _ (Assert e) post ens decs = return (e::post) ∧
-  stmt_vcg _ (Return) post ens decs = return ens ∧
-  stmt_vcg m (Then s₁ s₂) post ens decs =
-    do pre' <- stmt_vcg m s₂ post ens decs; stmt_vcg m s₁ pre' ens decs od ∧
-  stmt_vcg m (If grd thn els) post ens decs =
+  stmt_vcg _ Skip post _ _ _ = return post ∧
+  stmt_vcg _ (Assert e) post _ _ _ = return (e::post) ∧
+  stmt_vcg _ (Return) _ ens _ _ = return ens ∧
+  stmt_vcg m (Then s₁ s₂) post ens decs methods =
+    do
+      pre' <- stmt_vcg m s₂ post ens decs methods;
+      stmt_vcg m s₁ pre' ens decs methods
+    od ∧
+  stmt_vcg m (If grd thn els) post ens decs methods =
   do
-    pre_thn <- stmt_vcg m thn post ens decs;
-    pre_els <- stmt_vcg m els post ens decs;
+    pre_thn <- stmt_vcg m thn post ens decs methods;
+    pre_els <- stmt_vcg m els post ens decs methods;
     return [IsBool grd; imp grd (conj pre_thn); imp (not grd) (conj pre_els)]
   od ∧
-  stmt_vcg m (Assign ass) post ens decs =
+  stmt_vcg _ (Assign ass) post _ _ _ =
   do
     (lhss, rhss) <<- UNZIP ass;
     vars <- result_mmap dest_VarLhs lhss;
@@ -2384,12 +2411,56 @@ Definition stmt_vcg_def:
     return ((Let (ZIP (vars, es)) (conj post))
             ::MAP (CanEval ∘ Var) vars)
   od ∧
-  stmt_vcg m _ (post:exp list) (ens:exp list) decs = fail «woopsie»
+  stmt_vcg m (MetCall lhss name args) post ens decs methods =
+  do
+    method <- find_met name methods;
+    (name, spec, body) <<- dest_met method;
+    () <- if method ∈ m then return () else
+            (fail «stmt_vcg:MetCall: Cannot call unverified method»);
+    () <- if LENGTH spec.ins = LENGTH args then return () else
+            (fail «stmt_vcg:MetCall: Bad number of arguments»);
+    () <- if LENGTH spec.outs = LENGTH lhss then return () else
+            (fail «stmt_vcg:MetCall: Bad number of left-hand sides»);
+    () <- if ALL_DISTINCT (MAP FST spec.ins ++ MAP FST spec.outs)
+          then return ()
+          else (fail «stmt_vcg:MetCall: Method ins and outs not distinct»);
+    vars <- result_mmap dest_VarLhs lhss;
+    () <- if EVERY (λe. DISJOINT (freevars e) (set vars)) args
+          then return ()
+          else (fail «stmt_vcg:MetCall: Cannot read and assign a variable in one statement»);
+    () <- if EVERY (λe. freevars e ⊆ set (MAP FST spec.ins) ∧
+                        no_Old e) spec.reqs
+          then return ()
+          else (fail «stmt_vcg:MetCall: Bad requires spec»);
+    () <- if EVERY (λe. freevars e ⊆ set (MAP FST spec.ins) ∧
+                        no_Old e) spec.decreases
+          then return ()
+          else (fail «stmt_vcg:MetCall: Bad decreases spec»);
+    () <- if EVERY (λe. freevars e ⊆ set (MAP FST spec.ins
+                                          ++ MAP FST spec.outs) ∧
+                        no_Old e) spec.ens
+          then return ()
+          else (fail «stmt_vcg:MetCall: Bad ensures spec»);
+    return
+      ((Let (ZIP (MAP FST spec.ins,args)) (conj spec.reqs))
+       :: MAP CanEval args
+       ++ MAP CanEval (MAP Var vars)
+       ++ decreases_check
+            (spec.rank,
+             MAP (Let (ZIP (MAP FST spec.ins,args))) spec.decreases)
+            (wrap_old decs)
+       ++ [Foralls (ZIP (vars, MAP SND spec.outs))
+                   (imp (Let (ZIP(MAP FST spec.ins ++ MAP FST spec.outs,
+                                  args             ++ MAP Var vars))
+                             (conj spec.ens))
+                        (conj post))])
+  od ∧
+  stmt_vcg _ _ _ _ _ _ = fail «stmt_vcg: Unsupported statement»
 End
 
 Theorem stmt_vcg_correct:
-  ∀m stmt post ens decs res.
-    stmt_vcg m stmt (post:exp list) (ens:exp list) decs = INR res
+  ∀m stmt post ens decs methods res.
+    stmt_vcg m stmt (post:exp list) (ens:exp list) decs methods = INR res
     ⇒
     stmt_wp m res stmt (post:exp list) (ens:exp list) decs
 Proof
@@ -2419,5 +2490,12 @@ Proof
     \\ imp_res_tac result_mmap_len \\ simp []
     \\ drule_then assume_tac result_mmap_dest_VarLhs \\ simp []
     \\ drule_then assume_tac result_mmap_dest_ExpRhs \\ simp [])
+  >~ [‘MetCall’] >-
+   (gvs [stmt_vcg_def]
+    \\ gvs [oneline bind_def, CaseEq "sum"]
+    \\ drule find_met_inr \\ rpt strip_tac \\ gvs []
+    \\ gvs [oneline bind_def, CaseEq "sum"]
+    \\ cheat
+   )
   \\ gvs [stmt_vcg_def]
 QED
