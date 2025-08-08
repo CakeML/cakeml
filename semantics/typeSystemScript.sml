@@ -602,6 +602,11 @@ T
 ==>
 type_e tenv tenvE (Lit (Word64 w)) Tword64)
 
+/\ (! tenv tenvE w.
+T
+==>
+type_e tenv tenvE (Lit (Float64 w)) Tdouble)
+
 /\ (! tenv tenvE e t.
 (check_freevars (num_tvs tenvE) [] t /\
 type_e tenv tenvE e Texn)
