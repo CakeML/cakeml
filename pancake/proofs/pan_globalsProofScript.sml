@@ -1296,8 +1296,8 @@ Theorem compile_decs_functions_thm:
     EVERY (is_function) fdecs ⇒
     (decls = [] ∧ ctxt' = ctxt ∧
      funs =
-     MAP (λx. case x of Function f xp args body =>
-                          Function f xp args (compile ctxt' body) | _ => ARB)
+     MAP (λx. case x of Function fi =>
+                          Function $ fi with body := compile ctxt' fi.body | _ => ARB)
          fdecs)
 Proof
   ho_match_mp_tac compile_decs_ind >> rpt conj_tac
