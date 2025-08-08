@@ -48,9 +48,6 @@ Definition every_exp_def[simp]:
   (every_exp f (Lannot e l) <=>
     f (Lannot e l) /\
     every_exp f e) /\
-  (every_exp f (FpOptimise fpopt e) <=>
-    f (FpOptimise fpopt e) /\
-    every_exp f e) /\
   (every_exp f e <=> f e)
 Termination
   WF_REL_TAC `measure (exp_size o SND)`
@@ -131,8 +128,7 @@ Definition freevars_def[simp]:
                                        {Short fn; Short vn}) f)) ∪
        (freevars x DIFF set (MAP (Short o FST) f))) ∧
   freevars (Tannot x t) = freevars x ∧
-  freevars (Lannot x l) = freevars x ∧
-  freevars (FpOptimise fpopt e) = freevars e
+  freevars (Lannot x l) = freevars x
 End
 
 (* Partial applications of closures.
