@@ -648,8 +648,8 @@ Definition evaluate_decls_def:
         else
           NONE)
    | NONE => NONE) ∧
-  evaluate_decls s (Function v export args body::ds) =
-  evaluate_decls (s with code := s.code |+ (v,(args,body))) ds
+  evaluate_decls s (Function fi::ds) =
+  evaluate_decls (s with code := s.code |+ (fi.name,(fi.params,fi.body))) ds
 End
 
 Definition semantics_decls_def:
