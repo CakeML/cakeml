@@ -2,11 +2,11 @@
   Some lemmas about the syntactic functions.
 *)
 Theory holSyntaxExtra
+Libs
+  preamble
 Ancestors
   toto comparison ternaryComparisons mlstring holSyntaxLib
   holSyntax
-Libs
-  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
@@ -15298,4 +15298,3 @@ Proof
   >> imp_res_tac WELLTYPED_LEMMA
   >> fs[]
 QED
-
