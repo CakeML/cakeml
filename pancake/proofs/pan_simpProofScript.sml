@@ -60,7 +60,7 @@ Proof
   fs [pan_simpTheory.compile_prog_def,MAP_MAP_o] >>
   ntac 3 AP_TERM_TAC >>
   rw[MAP_EQ_f] >>
-  Cases_on ‘p'’ >> gvs[] >>
+  Cases_on ‘p’ >> gvs[] >>
   fs [exp_ids_compile_eq]
 QED
 
