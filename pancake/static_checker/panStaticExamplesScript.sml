@@ -314,9 +314,14 @@ val warns_repeat_params =
 (* Error: Incorrect number of Op arguments (impossible from parser) *)
 
 val parse_missing_arg_binop = ``
-  [Function «f» F ([]:(mlstring # shape) list) $
-     Seq (Annot «location» «(0:0 0:0)»)
-     (Return (Op Xor [Const 1w]))]
+  [Function
+     <| name   := «f»
+      ; export := F
+      ; params := []
+      ; body := Seq (Annot «location» «(0:0 0:0)»)
+                    (Return (Op Xor [Const 1w]))
+      |>
+  ]
 ``;
 
 val static_missing_arg_binop =
@@ -327,9 +332,14 @@ val warns_missing_arg_binop =
 
 
 val parse_missing_arg_panop = ``
-  [Function «f» F ([]:(mlstring # shape) list) $
-    Seq (Annot «location» «(0:0 0:0)»)
-    (Return (Panop Mul [Const 1w]))]
+  [Function
+     <| name   := «f»
+      ; export := F
+      ; params := []
+      ; body := Seq (Annot «location» «(0:0 0:0)»)
+                    (Return (Panop Mul [Const 1w]))
+      |>
+  ]
 ``;
 
 val static_missing_arg_panop =
@@ -340,9 +350,14 @@ val warns_missing_arg_panop =
 
 
 val parse_missing_arg_sub = ``
-  [Function «f» F ([]:(mlstring # shape) list) $
-    Seq (Annot «location» «(0:0 0:0)»)
-    (Return (Op Sub [Const 1w]))]
+  [Function
+     <| name   := «f»
+      ; export := F
+      ; params := []
+      ; body := Seq (Annot «location» «(0:0 0:0)»)
+                    (Return (Op Sub [Const 1w]))
+      |>
+  ]
 ``;
 
 val static_missing_arg_sub =
@@ -353,9 +368,14 @@ val warns_missing_arg_sub =
 
 
 val parse_extra_arg_panop = ``
-  [Function «f» F ([]:(mlstring # shape) list) $
-    Seq (Annot «location» «(0:0 0:0)»)
-    (Return (Panop Mul [Const 1w; Const 1w; Const 1w]))]
+  [Function
+     <| name   := «f»
+      ; export := F
+      ; params := []
+      ; body := Seq (Annot «location» «(0:0 0:0)»)
+                    (Return (Panop Mul [Const 1w; Const 1w; Const 1w]))
+      |>
+  ]
 ``;
 
 val static_extra_arg_panop =
@@ -366,9 +386,14 @@ val warns_extra_arg_panop =
 
 
 val parse_extra_arg_sub = ``
-  [Function «f» F ([]:(mlstring # shape) list) $
-    Seq (Annot «location» «(0:0 0:0)»)
-    (Return (Op Sub [Const 1w; Const 1w; Const 1w]))]
+  [Function
+     <| name   := «f»
+      ; export := F
+      ; params := []
+      ; body := Seq (Annot «location» «(0:0 0:0)»)
+                    (Return (Op Sub [Const 1w; Const 1w; Const 1w]))
+      |>
+  ]
 ``;
 
 val static_extra_arg_sub =
