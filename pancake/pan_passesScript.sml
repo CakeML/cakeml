@@ -22,10 +22,15 @@ Definition pan_to_target_all_def:
   pan_to_target_all (c:'a config) prog =
     let
       prog1:'a decl list = case SPLITP (λx. case x of
-                            Function n e p b => n = «main»
+                            Function fi => fi.name = «main»
                           | Decl _ _ _ => F) prog of
               | ([],ys) => ys
-              | (xs,[]) => Function «main» F [] (Return (Const 0w))::xs
+                | (xs,[]) => Function
+                                <| name := «main»
+                                 ; export := F
+                                 ; params := []
+                                 ; body := Return (Const 0w)|>
+                                ::xs
               | (xs,y::ys) => y::xs ++ ys
     in
       let
@@ -294,12 +299,12 @@ End
 Definition pan_fun_to_display_def:
   pan_fun_to_display decl =
     case decl of
-      Function nm expt args body => Tuple
-        [String «func»; String nm;
+      Function fi => Tuple
+        [String «func»; String fi.name;
         Tuple (MAP (λ(s,shape). Tuple [String s;
                                        String (strlit ":");
-                                       String (shape_to_str shape)]) args);
-        pan_prog_to_display body]
+                                       String (shape_to_str shape)]) fi.params);
+        pan_prog_to_display fi.body]
     | Decl sh nm exp => Tuple
         [String (shape_to_str sh);
          String (strlit "global");

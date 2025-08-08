@@ -9,8 +9,8 @@ open preamble
 val _ = new_theory "pan_to_target";
 
 Definition exports_def:
-  (exports(Function n e p b::ds) =
-   if e then n::exports ds
+  (exports(Function fi::ds) =
+   if fi.export then fi.name::exports ds
    else exports ds) ∧
   exports (_::ds) = exports ds ∧
   exports [] = []
@@ -20,10 +20,15 @@ Definition compile_prog_def:
   compile_prog c prog =
     (* Ensure either user-written main or new main that does nothing is first in func list *)
     let prog1:'a decl list = case SPLITP (λx. case x of
-                                   Function n e p b => n = «main»
+                                   Function fi => fi.name = «main»
                                  | Decl _ _ _ => F) prog of
                   ([],ys) => ys
-                | (xs,[]) => Function «main» F [] (Return (Const 0w))::xs
+                | (xs,[]) => Function
+                                <| name := «main»
+                                 ; export := F
+                                 ; params := []
+                                 ; body := Return (Const 0w)|>
+                                ::xs
                 | (xs,y::ys) => y::xs ++ ys in
     (* Compiler passes *)
     let prog2 = pan_to_word$compile_prog c.lab_conf.asm_conf.ISA prog1 in
@@ -49,10 +54,15 @@ Theorem compile_prog_eq:
   compile_prog c prog =
     (* Ensure either user-written main or new main that does nothing is first in func list *)
     let prog1:'a decl list = case SPLITP (λx. case x of
-                                   Function n e p b => n = «main»
+                                   Function fi => fi.name = «main»
                                  | Decl _ _ _ => F) prog of
                   ([],ys) => ys
-                | (xs,[]) => Function «main» F [] (Return (Const 0w))::xs
+                | (xs,[]) => Function
+                                <| name := «main»
+                                 ; export := F
+                                 ; params := []
+                                 ; body := Return (Const 0w)|>
+                                ::xs
                 | (xs,y::ys) => y::xs ++ ys in
     (* Compiler passes *)
     let prog2 = pan_to_word$compile_prog c.lab_conf.asm_conf.ISA prog1 in

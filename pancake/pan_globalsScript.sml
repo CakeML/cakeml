@@ -121,9 +121,9 @@ Definition compile_decs_def:
        (decs,funs,ctxt'') = compile_decs ctxt' ds
      in
         (Store (Op Sub [TopAddr; Const s]) (compile_exp ctxt e)::decs,funs,ctxt'')) ∧
-    (compile_decs ctxt (Function f xp args body::ds) =
+    (compile_decs ctxt (Function fi::ds) =
      let (decs,funs,ctxt'') = compile_decs ctxt ds
-     in (decs,Function f xp args (compile ctxt body)::funs,ctxt''))
+     in (decs,Function (fi with body := compile ctxt fi.body)::funs,ctxt''))
 End
 
 Definition resort_decls_def:
@@ -165,8 +165,9 @@ End
 
 Definition fperm_decs_def:
   (fperm_decs f g [] = []) ∧
-  (fperm_decs f g (Function h b params body::decs) =
-   Function (fperm_name f g h) b params (fperm f g body)::fperm_decs f g decs) ∧
+  (fperm_decs f g (Function fi::decs) =
+   Function (fi with <| name := fperm_name f g fi.name; body := (fperm f g fi.body)|>)
+            ::fperm_decs f g decs) ∧
   (fperm_decs f g (d::decs) = d::fperm_decs f g decs)
 End
 
@@ -189,7 +190,7 @@ Definition new_main_name_def:
 End
 
 Definition dec_shapes_def:
-  dec_shapes(Function _ _ _ _::ds) = dec_shapes ds ∧
+  dec_shapes(Function _::ds) = dec_shapes ds ∧
   dec_shapes(Decl sh _ _::ds) = sh::dec_shapes ds ∧
   dec_shapes [] = []
 End
@@ -207,10 +208,11 @@ Definition compile_top_def:
                                  max_globals_size := bytes_in_word*n2w(SUM(MAP size_of_shape(dec_shapes nds')))
                               |> nds';
           params = MAP (Var Local o FST) args;
-          new_main = Function start
-                              F
-                              args
-                              (Seq (nested_seq decls) (TailCall start' params))
+          new_main = Function <| name   := start
+                               ;  export := F
+                               ;  params := args
+                               ;  body := Seq (nested_seq decls) (TailCall start' params)
+                              |>
       in
         new_main::funs
 End

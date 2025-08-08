@@ -910,45 +910,45 @@ Definition static_check_funs_def:
   static_check_funs fnames gnames (Decl _ _ _::decls) =
     (* not a function *)
     static_check_funs fnames gnames decls ∧
-  static_check_funs fnames gnames (Function fname export vshapes body::decls) =
+  static_check_funs fnames gnames (Function fi::decls) =
     do
       (* check main function arguments *)
-      if (fname = «main» /\ LENGTH vshapes > 0) then
+      if (fi.name = «main» /\ LENGTH fi.params > 0) then
         error (GenErr $ strlit "main function has arguments\n")
       else return ();
       (* check main function export status *)
-      if (fname = «main» /\ export) then
+      if (fi.name = «main» /\ fi.export) then
         error (GenErr $ strlit "main function is exported\n")
       else return ();
       (* check exported function arg num *)
-      if (LENGTH vshapes > 4 /\ export) then
+      if (LENGTH fi.params > 4 /\ fi.export) then
         error (GenErr $ concat
-          [strlit "exported function "; fname;
+          [strlit "exported function "; fi.name;
            strlit " has more than 4 arguments\n"])
       else return ();
       (* check parameter name uniqueness *)
-      pnames <<- MAP FST vshapes;
+      pnames <<- MAP FST fi.params;
       case first_repeat $ QSORT mlstring_lt pnames of
         SOME p => error (GenErr $ concat
           [strlit "parameter "; p; strlit " is redeclared in function ";
-           fname; strlit "\n"])
+           fi.name; strlit "\n"])
       | NONE => return ();
       (* setup initial checking context *)
       ctxt <<- <| vars := FOLDL (\m p. insert m p Trusted) (empty mlstring$compare) pnames
                 ; globals := gnames
                 ; funcs := fnames
-                ; scope := FunScope fname
+                ; scope := FunScope fi.name
                 ; in_loop := F
                 ; is_reachable := IsReach
                 ; last := InvisLast
                 ; loc := strlit "" |>;
       (* check function body *)
-      prog_ret <- static_check_prog ctxt body;
+      prog_ret <- static_check_prog ctxt fi.body;
       (* check missing function exit *)
       if ~(prog_ret.exits_fun)
         then error (GenErr $ concat
           [strlit "branches missing return statement in function ";
-           fname; strlit "\n"])
+           fi.name; strlit "\n"])
       else return ();
       (* check remaining functions *)
       static_check_funs fnames gnames decls
@@ -977,7 +977,7 @@ Definition static_check_globals_def:
       (* check remaining globals *)
       static_check_globals (insert gnames vname ()) decls
     od ∧
-  static_check_globals gnames (Function _ _ _ _::funs) =
+  static_check_globals gnames (Function _::funs) =
     (* not a global variable declaration *)
     static_check_globals gnames funs
 End

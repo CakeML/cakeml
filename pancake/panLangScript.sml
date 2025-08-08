@@ -86,7 +86,16 @@ Datatype:
 End
 
 Datatype:
-  decl = Function mlstring bool ((varname # shape) list) ('a prog)
+  fun_decl =
+  <| name        : mlstring
+   ; export      : bool
+   ; params      : (varname # shape) list
+   ; body        : 'a prog
+  |>
+End
+
+Datatype:
+  decl = Function ('a fun_decl)
        | Decl shape mlstring ('a exp)
 End
 
@@ -145,7 +154,7 @@ End
 
 Definition size_of_eids_def:
   size_of_eids prog =
-  let eids = FLAT (MAP (λp. case p of Decl _ _ _ => [] | Function _ _ _ p => exp_ids p) prog) in
+  let eids = FLAT (MAP (λp. case p of Decl _ _ _ => [] | Function fi => exp_ids fi.body) prog) in
    LENGTH (nub eids)
 End
 
@@ -203,14 +212,14 @@ Definition store_op_def:
 End
 
 Definition is_function_def:
-  is_function(Function _ _ _ _) = T ∧
+  is_function(Function _) = T ∧
   is_function _ = F
 End
 
 Definition functions_def:
   functions [] = [] ∧
-  functions(Function name export params body::fs) =
-  (name,params,body)::functions fs ∧
+  functions(Function fi::fs) =
+  (fi.name,fi.params,fi.body)::functions fs ∧
   functions(Decl _ _ _::fs) = functions fs
 End
 

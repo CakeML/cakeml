@@ -75,8 +75,8 @@ Definition compile_prog_def:
   compile_prog prog =
     MAP (λdecl.
            dtcase decl of
-             Function name export params body =>
-               Function name export params (compile body)
+             Function fi =>
+               Function (fi with body := compile fi.body)
            | _ => decl) prog
 End
 
@@ -140,8 +140,8 @@ Theorem compile_prog_pmatch:
   compile_prog prog =
     MAP (λdecl.
            case decl of
-             Function name export params body =>
-               Function name export params (compile body)
+             Function fi =>
+               Function (fi with body := compile fi.body)
            | _ => decl) prog
 Proof
   rw[compile_prog_def,MAP_EQ_f] >>
