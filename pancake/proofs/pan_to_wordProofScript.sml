@@ -902,8 +902,8 @@ Proof
 QED
 
 Definition good_panops_def:
-  good_panops (Function name export params body) =
-  EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) (exps_of body) ∧
+  good_panops (Function fi) =
+  EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) (exps_of fi.body) ∧
   good_panops (Decl sh v exp) =
   every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2) exp
 End
