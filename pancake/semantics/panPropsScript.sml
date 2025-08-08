@@ -985,8 +985,8 @@ Definition localised_prog_def:
 End
 
 Theorem evaluate_decl_commute:
-  evaluate_decls s (Function v export args body::Decl sh v' e::ds) =
-  evaluate_decls s (Decl sh v' e::Function v export args body::ds)
+  evaluate_decls s (Function fi::Decl sh v' e::ds) =
+  evaluate_decls s (Decl sh v' e::Function fi::ds)
 Proof
   rw[evaluate_decls_def] >>
   irule option_case_cong >> simp[] >>
@@ -996,7 +996,7 @@ QED
 
 Theorem functions_eq_FILTER:
   functions prog =
-  MAP (λx. case x of Function f x y z => (f,y,z) | Decl _ _ _ => ARB)
+  MAP (λx. case x of Function fi => (fi.name,fi.params,fi.body) | Decl _ _ _ => ARB)
   $ FILTER is_function prog
 Proof
   Induct_on ‘prog’ using functions_ind >>
