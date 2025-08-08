@@ -690,7 +690,7 @@ Definition conv_TopDec_def:
                body <- conv_Prog c;
                n'   <- conv_ident n;
                e'   <- conv_export e;
-               SOME $ Function n' e' ps' body
+               SOME $ Function <| name := n'; export := e'; params := ps'; body := body |>
             od)
        | _ => NONE)
   | _ =>
@@ -808,9 +808,8 @@ End
 
 Definition localise_topdec_def:
   localise_topdec ls (Decl sh v e) = Decl sh v e ∧
-  localise_topdec ls (Function f b args body) =
-  Function f b args $
-           localise_prog (FOLDL (\m p. insert m p ()) ls (MAP FST args)) body
+  localise_topdec ls (Function fi) =
+  Function $ fi with body := localise_prog (FOLDL (\m p. insert m p ()) ls (MAP FST fi.params)) fi.body
 End
 
 Definition localise_topdecs_def:
