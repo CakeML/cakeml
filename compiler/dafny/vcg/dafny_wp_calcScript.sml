@@ -10,6 +10,7 @@ open dafny_evaluateTheory
 open dafny_evaluatePropsTheory
 open dafny_eval_relTheory
 open integerTheory
+open result_monadTheory
 
 val _ = new_theory "dafny_wp_calc";
 
@@ -2337,5 +2338,33 @@ Proof
 QED
 
 Theorem methods_correct = SRULE [] methods_lemma;
+
+(*************)
+
+Definition stmt_vcg_def:
+  stmt_vcg _ Skip post _ _ = return post ∧
+  stmt_vcg m (Then s₁ s₂) post ens decs =
+    do pre' <- stmt_vcg m s₂ post ens decs; stmt_vcg m s₁ pre' ens decs od ∧
+  stmt_vcg m _ (post:exp list) (ens:exp list) decs = fail «woopsie»
+End
+
+Theorem stmt_vcg_correct:
+  ∀m stmt post ens decs res.
+    stmt_vcg m stmt (post:exp list) (ens:exp list) decs = INR res
+    ⇒
+    stmt_wp m res stmt (post:exp list) (ens:exp list) decs
+Proof
+  ho_match_mp_tac stmt_vcg_ind
+  \\ rpt strip_tac
+  >~ [‘Skip’] >-
+   (gvs [stmt_vcg_def, stmt_wp_Skip])
+  >~ [‘Then s₁ s₂’] >-
+   (gvs [stmt_vcg_def]
+    \\ gvs [oneline bind_def, CaseEq "sum"]
+    \\ irule stmt_wp_Then
+    \\ last_x_assum $ irule_at (Pos last)
+    \\ last_x_assum irule \\ simp [])
+  \\ gvs [stmt_vcg_def]
+QED
 
 val _ = export_theory ();
