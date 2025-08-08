@@ -2341,10 +2341,54 @@ Theorem methods_correct = SRULE [] methods_lemma;
 
 (*************)
 
+Definition dest_VarLhs_def:
+  dest_VarLhs (VarLhs var) = return var ∧
+  dest_VarLhs _ = fail «dest_VarLhs: Not VarLhs»
+End
+
+Triviality result_mmap_dest_VarLhs:
+  ∀lhss vars. result_mmap dest_VarLhs lhss = INR vars ⇒ lhss = MAP VarLhs vars
+Proof
+  Induct \\ simp [result_mmap_def, oneline bind_def]
+  \\ Cases \\ simp [dest_VarLhs_def]
+  \\ Cases \\ simp [CaseEq "sum"]
+QED
+
+Definition dest_ExpRhs_def:
+  dest_ExpRhs (ExpRhs e) = return e ∧
+  dest_ExpRhs _ = fail «dest_ExpRhs: Not ExpRhs»
+End
+
+Triviality result_mmap_dest_ExpRhs:
+  ∀lhss vars. result_mmap dest_ExpRhs lhss = INR vars ⇒ lhss = MAP ExpRhs vars
+Proof
+  Induct \\ simp [result_mmap_def, oneline bind_def]
+  \\ Cases \\ simp [dest_ExpRhs_def]
+  \\ Cases \\ simp [CaseEq "sum"]
+QED
+
 Definition stmt_vcg_def:
   stmt_vcg _ Skip post _ _ = return post ∧
+  stmt_vcg _ (Assert e) post ens decs = return (e::post) ∧
+  stmt_vcg _ (Return) post ens decs = return ens ∧
   stmt_vcg m (Then s₁ s₂) post ens decs =
     do pre' <- stmt_vcg m s₂ post ens decs; stmt_vcg m s₁ pre' ens decs od ∧
+  stmt_vcg m (If grd thn els) post ens decs =
+  do
+    pre_thn <- stmt_vcg m thn post ens decs;
+    pre_els <- stmt_vcg m els post ens decs;
+    return [IsBool grd; imp grd (conj pre_thn); imp (not grd) (conj pre_els)]
+  od ∧
+  stmt_vcg m (Assign ass) post ens decs =
+  do
+    (lhss, rhss) <<- UNZIP ass;
+    vars <- result_mmap dest_VarLhs lhss;
+    es <- result_mmap dest_ExpRhs rhss;
+    () <- if ALL_DISTINCT vars then return () else
+            (fail «stmt_vcg:Assign: variables not distinct»);
+    return ((Let (ZIP (vars, es)) (conj post))
+            ::MAP (CanEval ∘ Var) vars)
+  od ∧
   stmt_vcg m _ (post:exp list) (ens:exp list) decs = fail «woopsie»
 End
 
@@ -2358,12 +2402,28 @@ Proof
   \\ rpt strip_tac
   >~ [‘Skip’] >-
    (gvs [stmt_vcg_def, stmt_wp_Skip])
-  >~ [‘Then s₁ s₂’] >-
+  >~ [‘Assert’] >-
+   (gvs [stmt_vcg_def, stmt_wp_Assert])
+  >~ [‘Return’] >-
+   (gvs [stmt_vcg_def, stmt_wp_Return])
+  >~ [‘Then’] >-
    (gvs [stmt_vcg_def]
     \\ gvs [oneline bind_def, CaseEq "sum"]
     \\ irule stmt_wp_Then
     \\ last_x_assum $ irule_at (Pos last)
     \\ last_x_assum irule \\ simp [])
+  >~ [‘If’] >-
+   (gvs [stmt_vcg_def]
+    \\ gvs [oneline bind_def, CaseEq "sum"]
+    \\ irule stmt_wp_If \\ simp [])
+  >~ [‘Assign’] >-
+   (gvs [stmt_vcg_def]
+    \\ gvs [UNZIP_MAP]
+    \\ gvs [oneline bind_def, CaseEq "sum"]
+    \\ irule stmt_wp_Assign
+    \\ imp_res_tac result_mmap_len \\ simp []
+    \\ drule_then assume_tac result_mmap_dest_VarLhs \\ simp []
+    \\ drule_then assume_tac result_mmap_dest_ExpRhs \\ simp [])
   \\ gvs [stmt_vcg_def]
 QED
 
