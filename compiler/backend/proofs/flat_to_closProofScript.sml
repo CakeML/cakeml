@@ -1006,15 +1006,15 @@ Proof
   THEN1
    (fs [integerTheory.int_le] \\ rename [`~(i4 < 0)`]
     \\ Cases_on `i4 < 0` \\ fs [] \\ rveq \\ fs [subscript_exn_v_def,v_rel_def]
-    \\ rename [`i4 < &LENGTH str`] \\ fs [GREATER_EQ,GSYM NOT_LESS]
-    \\ `Num (ABS i4) < STRLEN str <=> i4 < &STRLEN str` by intLib.COOPER_TAC \\ fs []
+    \\ rename [`i4 < &LENGTH s₁`] \\ fs [GREATER_EQ,GSYM NOT_LESS]
+    \\ `Num (ABS i4) < STRLEN s₁ <=> i4 < &STRLEN s₁` by intLib.COOPER_TAC \\ fs []
     \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs [v_rel_def]
     \\ Cases_on `i4` \\ fs []
-    \\ fs [EL_MAP,ORD_BOUND] \\ Cases_on `str` \\ fs [EL_MAP,ORD_BOUND])
-  \\ qsuff_tac `!x vs str y.
-        v_to_list x = SOME vs /\ vs_to_string vs = SOME str /\ v_rel x y ==>
+    \\ fs [EL_MAP,ORD_BOUND] \\ Cases_on `s₁` \\ fs [EL_MAP,ORD_BOUND])
+  \\ qsuff_tac `!x vs s₁ y.
+        v_to_list x = SOME vs /\ vs_to_string vs = SOME s₁ /\ v_rel x y ==>
         ?wss. v_to_list y = SOME (MAP ByteVector wss) /\
-              MAP (CHR o w2n) (FLAT wss) = str`
+              MAP (CHR o w2n) (FLAT wss) = s₁`
   THEN1
    (rpt (disch_then drule \\ fs []) \\ strip_tac \\ fs []
     \\ `!xs ys. MAP ByteVector xs = MAP ByteVector ys <=> xs = ys` by
@@ -2201,4 +2201,3 @@ Proof
   simp [inc_compile_decs_def]
   \\ simp [compile_decs_esgc_free,insert_interp_esgc_free]
 QED
-

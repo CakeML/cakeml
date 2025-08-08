@@ -10,6 +10,9 @@ Ancestors
 Libs
   preamble helperLib[qualified]
 
+(* We want bvi's, not bvl's ML bindings. *)
+open bviPropsTheory
+
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj",
                        "fromAList_def", "domain_union", "domain_insert",
                        "domain_inter"]
@@ -4840,4 +4843,3 @@ Proof
   \\ rw[bvl_to_bviTheory.stubs_def]
   \\ metis_tac[UNION_ASSOC, UNION_COMM]
 QED
-
