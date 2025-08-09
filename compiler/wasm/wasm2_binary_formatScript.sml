@@ -1244,6 +1244,19 @@ Proof
 *)
 QED
 
+Triviality enc_BlkIdx_not_nil:
+  enc_BlkIdx x <> []
+Proof
+  cheat
+QED
+
+Theorem enc_BlkIdx_imp_word_msb:
+  enc_BlkIdx x = b::bs ==>
+  word_msb b
+Proof
+  cheat
+QED
+
 Theorem dec_enc_blocktype:
   ∀b rest. dec_blocktype (enc_blocktype b ++ rest) = (INR b, rest)
 Proof
@@ -1256,20 +1269,25 @@ Proof
   >> rewrite_tac[enc_blocktype_def]
   >> simp[AllCaseEqs()]
   >> rpt strip_tac
-
   >- gvs[dec_blocktype_def]
-
   >- (
     gvs[dec_blocktype_def, dec_enc_valtype]
     >> rw[enc_valtype_def]
     >> fs[AllCaseEqs()]
   )
-
   >- (
     gvs[oneline dec_blocktype_def,dec_valtype_def]
     >> simp[AllCaseEqs()]
-    >>
-cheat
+    >> simp[SF DNF_ss]
+    >> Cases_on `enc_BlkIdx x`
+    >> gvs[enc_BlkIdx_not_nil]
+    >> reverse $ rpt strip_tac (* reverses the subgoals produced by the following tactic *)
+    >-  metis_tac[APPEND, dec_enc_BlkIdx]
+    >> (
+      gvs[]
+      >> drule enc_BlkIdx_imp_word_msb
+      >> EVAL_TAC
+    )
   )
 QED
 
@@ -1318,7 +1336,9 @@ QED
 Theorem NOT_NULL_enc_u32:
   ~(NULL (enc_u32 u))
 Proof
-  cheat
+  rw[enc_unsigned_word_def]
+  >> simp[Once enc_num_def]
+  >> every_case_tac >> simp[]
 QED
 
 Theorem dec_enc_vecI:
@@ -1361,8 +1381,7 @@ Proof
     pop_assum sym_sub_tac
     >> simp[dec_loadI_def, AllCaseEqs()]
   )
-  \\
-  cheat
+  \\ rewrite_tac[GSYM APPEND_ASSOC,dec_enc_u32] >> simp[]
 QED
 
 (* ASKYK ASKMM *)
@@ -1392,7 +1411,6 @@ QED
 Theorem dec_enc_memI:
   ∀ i rest. dec_memI (enc_memI i ++ rest) = (INR i, rest)
 Proof
-(*
   rpt gen_tac
   \\ ‘∃res. enc_memI i = res’ by simp []
   \\ asm_rewrite_tac []
@@ -1401,15 +1419,8 @@ Proof
   \\ simp[AllCaseEqs()]
   \\ rpt strip_tac
   \\ gvs[dec_memI_def, dec_enc_2u32]
-  \\
-  (* ASKMM ASKYK *)
-  (* EXPLODE *)
-  (* this one seems pretty slow/might be looping.
-  which I then don't understand *)
-  rewrite_tac [GSYM APPEND, dec_enc_u32, Excl "APPEND"]
-  (* \\ rw[GSYM APPEND, Excl "APPEND", dec_enc_u32] *)
-*)
-cheat
+  \\ rewrite_tac [GSYM APPEND_ASSOC, dec_enc_u32]
+  \\ simp[dec_enc_u32]
 QED
 
 Theorem dec_enc_paraI:

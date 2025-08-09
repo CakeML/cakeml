@@ -357,103 +357,58 @@ End
 
 
 Definition enc_list_def:
-  enc_list (encdr:α -> byteSeq) ([]:α list) = [] ∧
-  enc_list encdr (x::xs) = encdr x ++ enc_list encdr xs
+  enc_list (encdr:α -> byteSeq option) ([]:α list) = SOME [] ∧
+  enc_list encdr (x::xs) =
+    case encdr x           of NONE=>NONE| SOME encx  =>
+    case enc_list encdr xs of NONE=>NONE| SOME encxs =>
+    SOME $ encx ++ encxs
 End
 
 Definition enc_vector_def:
-  enc_vector encdr [] : byteSeq option = SOME $ enc_num 0 ∧
-  enc_vector encdr xs = let n = LENGTH xs in
-    if n >= 2 ** 32 then NONE else SOME $ enc_num n ++ enc_list encdr xs
+  enc_vector encdr xs =
+    let n = LENGTH xs in
+    if  2 ** 32 <= n then NONE else
+
+    case enc_list encdr xs of NONE=>NONE| SOME encxs =>
+    SOME $ enc_u32 (n2w n) ++ encxs
 End
 
 
-
-
-Definition dec_list_valtype_def:
-  dec_list_valtype ([]:byteSeq) : (valtype list # byteSeq) = ([],[]) ∧
-  dec_list_valtype bs =
-    case dec_valtype bs of
-    | (INL err, rs) => ([], rs)
-    | (INR x  , rs) => let (xs, final) = dec_list_valtype rs in (x::xs, final)
-Termination
-cheat
-  (* WF_REL_TAC ‘measure $ λx. case x of
-                            | INL bs => 2 * LENGTH bs
-                            | INR bs => 2 * LENGTH bs + 1’
-  \\ rw [] \\ imp_res_tac dec_blocktype_len \\ fs []
-  \\ imp_res_tac check_len_IMP \\ fs [] *)
+Definition dec_list_def:
+  dec_list (n:num) dec bs =
+    if n = 0 then (INR [],bs) else
+    case dec bs of
+    | (INL err, rs) => (INL err, rs)
+    | (INR x  , rs) =>
+      case dec_list (n-1) dec rs of
+      | (INL err, rs) => (INL err, rs)
+      | (INR xs , rs) => (INR $ x::xs, rs)
 End
 
-Definition dec_list_global_def:
-  dec_list_global ([]:byteSeq) : (global list # byteSeq) = ([],[]) ∧
-  dec_list_global bs = ARB
-    case dec_global bs of
-    | (INL err, rs) => ([], rs)
-    | (INR x  , rs) => let (xs, final) = dec_list_global rs in (x::xs, final)
-Termination
-cheat
+Definition dec_vector_def:
+  dec_vector dec bs =
+    case dec_u32 bs of
+    | NONE => error "dec_vec" bs
+    | SOME (w,cs) => dec_list (w2n w) dec cs
 End
 
-Definition dec_list_blocktype_def:
-  dec_list_blocktype ([]:byteSeq) : (blocktype list # byteSeq) = ([],[]) ∧
-  dec_list_blocktype bs = ARB
-    case dec_blocktype bs of
-    | (INL err, rs) => ([], rs)
-    | (INR x  , rs) => let (xs, final) = dec_list_blocktype rs in (x::xs, final)
-Termination
-cheat
-End
+(*
+  ∀ dec enc x rs1 items encitems rest.
+Theorem dec_enc_vector:
 
-Definition dec_list_numI_def:
-  dec_list_numI ([]:byteSeq) : (num_instr list # byteSeq) = ([],[]) ∧
-  dec_list_numI bs = ARB
-    case dec_numI bs of
-    | (INL err, rs) => ([], rs)
-    | (INR x  , rs) => let (xs, final) = dec_list_numI rs in (x::xs, final)
-Termination
-cheat
-End
+    (dec (enc x ++ rs1) =  (INR x,rs1)) ⇒
+    (enc_vector enc items = SOME encitems) ⇒
 
-Definition dec_list_loadI_def:
-  dec_list_loadI ([]:byteSeq) : (load_instr list # byteSeq) = ([],[]) ∧
-  dec_list_loadI bs = ARB
-    case dec_loadI bs of
-    | (INL err, rs) => ([], rs)
-    | (INR x  , rs) => let (xs, final) = dec_list_loadI rs in (x::xs, final)
-Termination
-cheat
-End
+  (dec_vector dec encitems = (INR items, rest))
+Proof
+  cheat
+QED
 
-Definition dec_list_storeI_def:
-  dec_list_storeI ([]:byteSeq) : (store_instr list # byteSeq) = ([],[]) ∧
-  dec_list_storeI bs = ARB
-    case dec_storeI bs of
-    | (INL err, rs) => ([], rs)
-    | (INR x  , rs) => let (xs, final) = dec_list_storeI rs in (x::xs, final)
-Termination
-cheat
-End
+type_of ``enc_vector``
 
-Definition dec_list_paraI_def:
-  dec_list_paraI ([]:byteSeq) : (para_instr list # byteSeq) = ([],[]) ∧
-  dec_list_paraI bs = ARB
-    case dec_paraI bs of
-    | (INL err, rs) => ([], rs)
-    | (INR x  , rs) => let (xs, final) = dec_list_paraI rs in (x::xs, final)
-Termination
-cheat
-End
-
-Definition dec_list_varI_def:
-  dec_list_varI ([]:byteSeq) : (var_instr list # byteSeq) = ([],[]) ∧
-  dec_list_varI bs = ARB
-    case dec_varI bs of
-    | (INL err, rs) => ([], rs)
-    | (INR x  , rs) => let (xs, final) = dec_list_varI rs in (x::xs, final)
-Termination
-cheat
-End
+  ∀ (enc:α -> byteSeq) (dec:byteSeq -> (α # byteSeq) option) x xs rs1 rs2.
+  dec_vector dec (enc_vector enc xs ++ rs2) = SOME (xs,rs2)
+*)
 
 
 
@@ -582,7 +537,7 @@ Proof
 QED
 
 
-
+(*
 Theorem dec_enc_list_valtype:
   ∀ is rest. dec_list_valtype (enc_list (λ x. [enc_valtype x]) is ++ rest) = (is, rest)
 Proof
@@ -632,7 +587,7 @@ Theorem dec_enc_list_varI:
   ∀ is rest. dec_list_varI ((enc_list enc_varI) is ++ rest) = (is, rest)
 Proof
   cheat
-QED
+QED *)
 
 (***************)
 (*             *)
@@ -660,14 +615,6 @@ End *)
     if len = LENGTH vec then (INR vec, rest) else
     failure
 End *)
-
-(* Theorem dec_enc_vector:
-  ∀ (enc:α -> byteSeq) (dec:byteSeq -> (α # byteSeq) option) x xs rs1 rs2.
-    dec (enc x ++ rs1) = SOME (x,rs1) ⇒
-  dec_vector dec (enc_vector enc xs ++ rs2) = SOME (xs,rs2)
-Proof
-  cheat
-QED *)
 
 Definition dec_vec_def:
   dec_vec = ARB
@@ -720,10 +667,15 @@ End
 Theorem dec_blocktype_len:
   ∀ bs r bs1. dec_blocktype bs = (r,bs1) ⇒ LENGTH bs1 ≤ LENGTH bs
 Proof
+cheat
+(*
   Cases
-  >- ( rewrite_tac[dec_blocktype_def] >> cheat )
-  (* >- rewrite_tac[dec_blocktype_def] *)
-  >- cheat
+  \\ rewrite_tac[dec_blocktype_def]
+  >- simp[]
+  (* ASKMM *)
+  >- rw[dec_valtype_def]
+  >- rw[dec_valtype_def]
+*)
 QED
 
 Definition check_len_def:

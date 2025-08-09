@@ -162,10 +162,7 @@ Proof
   \\ blastLib.BBLAST_TAC
 QED
 
-(* Theorem :
-  ∀ w. ∃ bs. enc_BlkIdx w = bs ⇒ (b::bs) <> 0x40w::
-Proof
-QED *)
+
 
 (***********************************************)
 (*                                             *)
