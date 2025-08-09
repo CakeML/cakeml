@@ -821,6 +821,55 @@ QED
 
 (****)
 
+Definition bst_def:
+  bst (s:('a,'b) panSem$state) =
+    <| locals      := s.locals
+     ; code        := s.code
+     ; eshapes     := s.eshapes
+     ; memory      := s.memory
+     ; memaddrs    := s.memaddrs
+     ; sh_memaddrs := s.sh_memaddrs
+     ; be          := s.be
+     ; base_addr   := s.base_addr
+|>
+End
+
+Theorem bst_access[simp]:
+  (bst t).locals = t.locals ∧
+  (bst t).code = t.code ∧
+  (bst t).eshapes = t.eshapes ∧
+  (bst t).memory = t.memory ∧
+  (bst t).memaddrs = t.memaddrs ∧
+  (bst t).sh_memaddrs = t.sh_memaddrs ∧
+  (bst t).be = t.be ∧
+  (bst t).base_addr = t.base_addr
+Proof
+  rw[bst_def]
+QED
+
+Theorem eval_bst[simp]:
+  eval (bst s) e = eval s e
+Proof
+  map_every qid_spec_tac [‘e’,‘s’]>>
+  recInduct panSemTheory.eval_ind>>rw[]>>
+  simp[eval_def,panSemTheory.eval_def]>>
+  TRY (simp[bst_def]>>NO_TAC)>>
+  ‘OPT_MMAP (λe. eval (bst s) e) es = OPT_MMAP (λe. eval s e) es’ by
+    (pop_assum mp_tac>>
+     qid_spec_tac ‘es’>>Induct>>rw[])>>
+  fs[]
+QED
+
+Theorem opt_mmap_eval_bst[simp]:
+  OPT_MMAP (eval (bst s)) es = OPT_MMAP (eval s) es
+Proof
+  rw [] >>
+  match_mp_tac IMP_OPT_MMAP_EQ >>
+  fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN]
+QED
+
+(****)
+
 Theorem mrec_Ret_INR:
   mrec h_prog (h_prog (p,s)) = Ret x ⇒ ∃y. x = INR y
 Proof
