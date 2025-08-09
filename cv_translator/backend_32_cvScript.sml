@@ -163,6 +163,7 @@ val _ = stack_rawcallTheory.comp_seq_def |> arch_spec |> cv_trans;
 val _ = stack_rawcallTheory.comp_def |> arch_spec |> cv_trans;
 val _ = stack_rawcallTheory.comp_top_def |> arch_spec |> cv_trans;
 val _ = stack_rawcallTheory.compile_def |> arch_spec |> cv_auto_trans;
+val _ = stack_to_labTheory.stack_to_stack_def |> arch_spec |> cv_auto_trans;
 val _ = stack_to_labTheory.compile_def |> arch_spec |> cv_auto_trans;
 val _ = word_to_stackTheory.format_var_def |> cv_trans;
 val _ = word_to_stackTheory.wReg1_def |> arch_spec |> cv_trans;

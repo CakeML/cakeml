@@ -3180,7 +3180,7 @@ Theorem stack_to_lab_compile_lab_pres:
   ALL_DISTINCT (MAP FST prog) ⇒
   labels_ok (compile c c2 c3 sp offset prog)
 Proof
-  rw[labels_ok_def,stack_to_labTheory.compile_def]
+  rw[labels_ok_def,stack_to_labTheory.compile_def,stack_to_labTheory.stack_to_stack_def]
   >-
     (fs[MAP_prog_to_section_FST,MAP_FST_compile_compile]>>
     fs[EVERY_MEM]>>CCONTR_TAC>>fs[]>>res_tac>>fs[] >>
@@ -3317,7 +3317,7 @@ Proof
       \\ conj_tac
       >- (
         simp[Abbr`code3`,lookup_fromAList]
-        \\ simp[stack_to_labTheory.compile_def]
+        \\ simp[stack_to_labTheory.compile_def,stack_to_labTheory.stack_to_stack_def]
         \\ qmatch_goalsub_abbrev_tac`ALOOKUP code3`
         \\ `EVERY (λp. call_args p t.ptr_reg t.len_reg t.ptr2_reg t.len2_reg t.link_reg) (MAP SND code3)`
         by (
@@ -3338,7 +3338,7 @@ Proof
         \\ match_mp_tac code_installed_prog_to_section
         \\ simp[Abbr`code2`,Abbr`code1`,Abbr`ggc`,Abbr`code3`,Abbr`jump`]
         \\ (stack_to_lab_compile_lab_pres
-            |> SIMP_RULE(srw_ss()++LET_ss)[stack_to_labTheory.compile_def]
+            |> SIMP_RULE(srw_ss()++LET_ss)[stack_to_labTheory.compile_def,stack_to_labTheory.stack_to_stack_def]
             |> match_mp_tac)
         \\ simp[]
         \\ fs[EVERY_MEM,EVERY_MAP,EXISTS_PROD,FORALL_PROD]
@@ -3388,7 +3388,7 @@ Proof
              DECIDE``0n <> 1 /\ 0n <> 2 /\ 0n <> 3 /\ 1n <> 2 /\ 1n <> 3``, INJ_DEF] )
       \\ simp[Abbr`code3`,domain_fromAList,Abbr`code2`]
       \\ conj_tac >-
-        simp[compile_def,MAP_prog_to_section_Section_num]>>
+        simp[compile_def,stack_to_stack_def,MAP_prog_to_section_Section_num]>>
       qmatch_goalsub_abbrev_tac`EVERY _ cc`>>
       `labels_ok cc` by
         (fs[Abbr`cc`]>>
@@ -3400,7 +3400,7 @@ Proof
       metis_tac[labels_ok_imp])
     \\ conj_tac
     >- (
-      simp[stack_to_labTheory.compile_def,
+      simp[stack_to_labTheory.compile_def,stack_to_labTheory.stack_to_stack_def,
            stack_namesTheory.compile_def,Abbr`code2`,
            stack_removeTheory.compile_def,
            stack_removeTheory.init_stubs_def,
@@ -3577,7 +3577,7 @@ Theorem stack_to_lab_compile_all_enc_ok:
   conf_ok (:'a) c2 ∧ sp ≠ 0 ⇒
   all_enc_ok_pre c (compile c1 c2 c3 sp c.addr_offset prog)
 Proof
-  rw[stack_to_labTheory.compile_def]>>
+  rw[stack_to_labTheory.compile_def,stack_to_labTheory.stack_to_stack_def]>>
   match_mp_tac compile_all_enc_ok_pre>>fs[]>>
   match_mp_tac stack_names_stack_asm_ok>>fs[]>>
   match_mp_tac stack_remove_stack_asm_name>>fs[stackPropsTheory.reg_name_def]>>
@@ -4374,7 +4374,7 @@ Theorem stack_to_lab_stack_good_code_labels:
   (* TODO: pretty sure this is only ever used with elabs = {} *)
   get_labels prog' ⊆ get_code_labels prog' ∪ IMAGE (λn. n,0) elabs ∪ IMAGE (λn. n,1) elabs
 Proof
-  rw[stack_to_labTheory.compile_def]>>
+  rw[stack_to_labTheory.compile_def,stack_to_labTheory.stack_to_stack_def]>>
   match_mp_tac get_labels_MAP_prog_to_section_SUBSET_code_labels >>
   simp[]>>
   match_mp_tac stack_names_stack_good_code_labels>>
@@ -4578,7 +4578,7 @@ Theorem stack_to_lab_stack_good_handler_labels:
   EVERY sec_labels_ok  prog' ⇒
   restrict_nonzero (get_labels prog') ⊆ get_code_labels prog'
 Proof
-  rw[stack_to_labTheory.compile_def]>>
+  rw[stack_to_labTheory.compile_def,stack_to_labTheory.stack_to_stack_def]>>
   match_mp_tac nonzero_get_labels_MAP_prog_to_section_SUBSET_code_labels >>
   simp[]>>
   match_mp_tac stack_names_stack_good_handler_labels>>
@@ -4826,7 +4826,7 @@ Theorem compile_no_share_mem_inst:
   compile stack_conf data_conf max_heap sp offset prog = prog' ==>
   labProps$no_share_mem_inst prog'
 Proof
-  rw[compile_def]>>
+  rw[stack_to_labTheory.compile_def,stack_to_labTheory.stack_to_stack_def]>>
   irule prog_to_section_no_share_mem_inst>>
   irule stack_names_compile_no_shmemop>>
   irule stack_remove_compile_no_shmemop>>
@@ -5088,7 +5088,7 @@ Theorem stack_to_lab_compile_no_install:
   compile stack_conf data_conf max_heap sp offset prog = prog' ==>
   labProps$no_install prog'
 Proof
-  rw[compile_def]>>
+  rw[stack_to_labTheory.compile_def, stack_to_labTheory.stack_to_stack_def]>>
   irule prog_to_section_no_install>>
   irule stack_names_compile_no_install>>
   irule stack_remove_compile_no_install>>

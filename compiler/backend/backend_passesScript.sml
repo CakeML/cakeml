@@ -318,7 +318,8 @@ Theorem to_lab_thm:
   SND (to_lab_all (c:'a config) p) = to_lab c p
 Proof
   assume_tac to_stack_thm
-  \\ fs [to_lab_all_def,to_lab_def,stack_to_labTheory.compile_def]
+  \\ fs [to_lab_all_def,to_lab_def,stack_to_labTheory.compile_def,
+         stack_to_labTheory.stack_to_stack_def]
   \\ rpt (pairarg_tac \\ gvs [])
 QED
 
@@ -378,7 +379,7 @@ Theorem from_stack_thm:
   SND (from_stack_all ps c names p bm) = from_stack c names p bm
 Proof
   gvs [from_stack_all_def,from_stack_def,stack_to_labTheory.compile_def,
-       from_lab_thm]
+       from_lab_thm,stack_to_labTheory.stack_to_stack_def]
 QED
 
 Definition from_word_all_def:

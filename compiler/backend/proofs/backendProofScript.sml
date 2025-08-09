@@ -1395,7 +1395,8 @@ Theorem MAP_Section_num_stack_to_lab_SUBSET:
   set (MAP FST prog) ⊆ labs /\ count (SUC gc_stub_location) ⊆ labs ==>
   set (MAP Section_num (compile scc dc max_heap sp offset prog)) ⊆ labs
 Proof
-  simp [stack_to_labTheory.compile_def, MAP_prog_to_section_Section_num]
+  simp [stack_to_labTheory.compile_def, stack_to_labTheory.stack_to_stack_def,
+        MAP_prog_to_section_Section_num]
   \\ simp [stack_removeTheory.compile_def,
        stack_rawcallTheory.compile_def,
        stack_allocTheory.compile_def, MAP_MAP_o, o_DEF, Q.ISPEC `FST` ETA_THM]
