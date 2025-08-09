@@ -1005,6 +1005,14 @@ Proof
   Cases_on ‘n-m’>>fs[FUNPOW_SUC]
 QED
 
+Theorem FUNPOW_Ret_simp:
+  (FUNPOW Tau n t = FUNPOW Tau m (Ret x)) ⇔ (n ≤ m ∧ t = FUNPOW Tau (m-n) (Ret x))
+Proof
+  EQ_TAC>>strip_tac
+  >- (irule FUNPOW_Ret_strip>>simp[])>>
+  fs[GSYM FUNPOW_ADD]
+QED
+
 Theorem bind_FUNPOW_Ret:
   itree_bind ht k = FUNPOW Tau n (Ret x) ⇒ ∃r n'. ht = FUNPOW Tau n' (Ret r) ∧ n' ≤ n
 Proof
@@ -1012,6 +1020,15 @@ Proof
   imp_res_tac bind_FUNPOW_Ret'>>fs[FUNPOW_Tau_bind]>>
   imp_res_tac FUNPOW_Ret_strip
 QED
+
+Theorem itree_unfold_FUNPOW_Tau:
+  (∀u. f (Tau u) = Tau' u) ⇒
+  itree_unfold f (FUNPOW Tau n t) = FUNPOW Tau n (itree_unfold f t)
+Proof
+  qid_spec_tac ‘n’>>Induct>>rw[FUNPOW_SUC]>>
+  simp[Once itree_unfold]
+QED
+
 (***)
 
 Theorem mrec_FUNPOW_Ret_INR:
