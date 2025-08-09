@@ -1549,7 +1549,6 @@ Proof
   \\ rw[] \\ rw[kernel_perms_def]
 QED
 
-(*broken*)
 Theorem perms_ok_new_basic_type_definition_v[simp]:
  perms_ok kernel_perms new_basic_type_definition_v
 Proof

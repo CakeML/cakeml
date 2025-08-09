@@ -7,7 +7,7 @@ val _ = new_theory "mllist"
 
 val _ = set_grammar_ancestry ["mergesort", "indexedLists", "toto"];
 
-(* ===== TO BE PORTED TO HOL ===== *)
+(* ===== TODO: TO BE PORTED TO HOL (better theorems for mergesort_tail) ===== *)
 Theorem merge_tail_MEM:
   !negate R xs ys acc. MEM x (merge_tail negate R xs ys acc) = ((MEM x xs) \/ (MEM x ys) \/ (MEM x acc))
 Proof
