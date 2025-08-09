@@ -1071,6 +1071,31 @@ Proof
 QED
 
 (***)
+
+Theorem mrec_Skip_loop_spin:
+  (mrec h_prog (h_prog (While (Const 1w) Skip, ^s)):'a ptree) = spin
+Proof
+  simp[Once itree_bisimulation]>>
+  qexists ‘CURRY ({(mrec h_prog (h_prog (While (Const 1w) Skip, t)), spin)|T}
+    ∪ {(Tau (mrec h_prog (h_prog (While (Const 1w) Skip, t))), spin)|T})’>>
+  rw[]>- metis_tac[]
+  >- fs[Once mrec_While,eval_def]
+  >- (pop_assum mp_tac>>
+      rewrite_tac[Once mrec_While,eval_def]>>
+      fs[Once h_prog_def]>>strip_tac>>
+      irule_at Any OR_INTRO_THM2>>
+      gvs[]>>
+      irule_at Any EQ_REFL>>
+      irule_at (Pos last) (GSYM spin)>>fs[])
+  >- (irule_at Any OR_INTRO_THM1>>
+      irule_at Any EQ_REFL>>
+      irule_at Any EQ_REFL>>
+      irule spin)>>
+  pop_assum mp_tac>>
+  rewrite_tac[Once mrec_While,eval_def]>>
+  simp[]
+QED
+
 Theorem Skip_loop_spin:
   itree_semantics (While (Const 1w) Skip, ^s) = spin
 Proof
@@ -1078,26 +1103,21 @@ Proof
   qexists ‘CURRY ({(itree_semantics (While (Const 1w) Skip, t), spin)|T}
     ∪ {(Tau (itree_semantics (While (Const 1w) Skip, t)), spin)|T})’>>
   rw[]>- metis_tac[]
-  >- (fs[itree_semantics_def]>>
-      fs[Once mrec_While,eval_def]>>
-      fs[Once itree_unfold])
-  >- (fs[itree_semantics_def]>>
-      fs[Once mrec_While,eval_def]>>
-      fs[Once h_prog_def]>>
+  >- (fs[itree_semantics_def,mrec_Skip_loop_spin]>>
+      fs[Once itree_unfold,Once spin])
+  >- (fs[itree_semantics_def,mrec_Skip_loop_spin]>>
       pop_assum mp_tac>>
-      rewrite_tac[Once itree_unfold]>>
+      rewrite_tac[Once itree_unfold,Once spin]>>
       CASE_TAC>>fs[]>>strip_tac>>
-      irule_at Any OR_INTRO_THM2>>
-      gvs[]>>
-      simp[Once itree_unfold]>>
-      irule_at Any EQ_REFL>>
+      irule_at Any OR_INTRO_THM1>>
       irule_at (Pos last) (GSYM spin)>>fs[])
   >- (irule_at Any OR_INTRO_THM1>>
       irule_at Any EQ_REFL>>
       irule_at Any EQ_REFL>>
       irule spin)>>
-  fs[itree_semantics_def]>>
-  fs[Once mrec_While,eval_def]>>
-  fs[Once itree_unfold]
+  fs[itree_semantics_def,mrec_Skip_loop_spin]>>
+  pop_assum mp_tac>>
+  rewrite_tac[Once itree_unfold,Once spin]>>
+  CASE_TAC>>fs[]
 QED
 
