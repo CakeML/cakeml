@@ -3,10 +3,10 @@
 *)
 Theory backend_itreeProof
 Ancestors
-  semanticsProps evaluateProps ffi targetProps backendProof
-  primSemEnv alt_semantics target_itreeSem target_itreeProps
-  target_itreeEquiv itree_semantics itree_semanticsProps
-  itree_semanticsEquiv
+  semanticsProps evaluateProps ffi targetProps lab_to_targetProof
+  backendProof primSemEnv alt_semantics target_itreeSem
+  target_itreeProps target_itreeEquiv itree_semantics
+  itree_semanticsProps itree_semanticsEquiv
 Libs
   preamble
 
@@ -619,4 +619,3 @@ QED
 
 
 (**********)
-

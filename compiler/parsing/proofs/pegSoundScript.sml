@@ -3,16 +3,20 @@
   then it is valid w.r.t. the specification grammar.
 *)
 Theory pegSound
-Ancestors
-  cmlPEG gramProps peg gram grammar
 Libs
   preamble
+Ancestors
+  cmlPEG gramProps peg gram grammar
+
+(* Set up ML bindings *)
+open pegTheory cmlPEGTheory gramTheory gramPropsTheory grammarTheory;
 
 infix >*
 fun t1 >* t2 = (t1 >> conj_tac) >- t2
 
 val _ = hide "choicel"
 Overload choicel = “cmlPEG$choicel”
+val choicel_def = cmlPEGTheory.choicel_def
 
 Theorem Success_COND_Failure[simp]:
   Success i r opt ≠ if P then Failure fl1 fe1 else Failure fl2 fe2
@@ -1397,4 +1401,3 @@ Proof
   simp[peg_V_def, peg_eval_choice] >>
   strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied, PAIR_MAP]
 QED
-

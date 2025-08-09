@@ -3,11 +3,15 @@
   then the parser will find one.
 *)
 Theory pegComplete
+Libs
+  preamble
 Ancestors
   pegSound peg grammar gram gramProps cmlPEG cmlNTProps
   NTproperties grammar
-Libs
-  preamble
+
+(* Set up ML bindings *)
+open pegTheory grammarTheory pegSoundTheory
+     gramTheory gramPropsTheory cmlPEGTheory cmlNTPropsTheory;
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
@@ -3581,4 +3585,3 @@ Proof
                       MP_TAC (Q.SPEC ‘pt2’ th)) >> simp[] >>
   rw[] >> dxrule_then assume_tac peg_det >> gvs[]
 QED
-
