@@ -4,7 +4,7 @@
 *)
 
 open preamble basis
-     splitwordsTheory balanced_mapTheory mlmapTheory
+     splitwordsTheory balanced_mapTheory mllistTheory mlmapTheory
 
 (* note: opening all these theories/libraries can take a while
    and it will print many warning messages which can be ignored *)
