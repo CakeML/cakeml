@@ -819,6 +819,14 @@ Proof
   fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN]
 QED
 
+Theorem ext_normalise[simp]:
+  ext s t f with locals := x = ext (s with locals := x) t f ∧
+  ext s t f with memory := m = ext (s with memory := m) t f ∧
+  dec_clock (ext s k f) = ext s (k - 1) f
+Proof
+  simp[ext_def,dec_clock_def]
+QED
+
 (****)
 
 Definition bst_def:
@@ -847,6 +855,13 @@ Proof
   rw[bst_def]
 QED
 
+Theorem bst_normalise[simp]:
+  bst s with locals := x = bst (s with locals := x) ∧
+  bst s with memory := m = bst (s with memory := m)
+Proof
+  simp[bst_def]
+QED
+
 Theorem eval_bst[simp]:
   eval (bst s) e = eval s e
 Proof
@@ -868,7 +883,29 @@ Proof
   fs [MAP_EQ_EVERY2, LIST_REL_EL_EQN]
 QED
 
-(****)
+(***)
+
+Theorem ext_bst_id[simp]:
+  ext (bst s) s.clock s.ffi = s ∧
+  ext (bst s with locals := x) s.clock s.ffi = s with locals := x ∧
+  ext (bst s with memory := m) s.clock s.ffi = s with memory := m ∧
+  ext (empty_locals (bst s)) s.clock s.ffi = empty_locals s
+Proof
+  simp[bst_def,ext_def,state_component_equality,empty_locals_defs]
+QED
+
+Theorem bst_ext_id[simp]:
+  bst (ext s t f) = s ∧
+  bst (ext s t f with locals := x) = s with locals := x ∧
+  bst (ext s t f with memory := m) = s with memory := m ∧
+  bst (empty_locals (ext s k ffi)) = empty_locals s ∧
+  bst (dec_clock (ext s k ffi)) = s
+Proof
+  simp[bst_def,ext_def,fetch "-" "bstate_component_equality",
+       empty_locals_defs,dec_clock_def]
+QED
+
+(***)
 
 Theorem mrec_Ret_INR:
   mrec h_prog (h_prog (p,s)) = Ret x ⇒ ∃y. x = INR y
