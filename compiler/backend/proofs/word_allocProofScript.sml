@@ -9,7 +9,9 @@ Ancestors
   linear_scan linear_scanProof wordConvs
 
 (* Ensures we have the correct ML bindings *)
-open word_alloc
+open reg_allocTheory reg_allocProofTheory linear_scanTheory
+     linear_scanProofTheory wordLangTheory wordSemTheory wordPropsTheory
+     wordConvsTheory word_allocTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]

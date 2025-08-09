@@ -406,7 +406,7 @@ val state_rel_IN_FDOM = prove(
   fs [state_rel_def] \\ rw [] \\ fs [FLOOKUP_DEF]);
 
 
-Theorem compile_exp_thm:
+Theorem compile_exp_thm[local]:
   state_rel s1 t1 cs2 t0 frame /\ eval_exp_pre s1 x /\ good_dimindex (:α) ==>
   word_exp t1 (compile_exp x) = SOME (Word (eval_exp s1 (x:'a wordLang$exp)))
 Proof

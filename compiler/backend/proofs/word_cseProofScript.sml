@@ -2,11 +2,11 @@
   Correctness proof for word_cse
 *)
 Theory word_cseProof
+Libs
+  preamble helperLib
 Ancestors
   wordLang wordSem wordProps word_cse alist toto reg_alloc
   word_simp wordConvs
-Libs
-  preamble helperLib
 
 Definition data_inv_def:
   data_inv (data:knowledge) (s:('a,'c,'ffi) wordSem$state) ⇔
@@ -2061,4 +2061,3 @@ Proof
   fs [word_common_subexp_elim_def] \\ pairarg_tac \\ gvs []
   \\ qspecl_then [‘p’,‘empty_data’,‘ac’] mp_tac word_cse_conventions \\ fs []
 QED
-

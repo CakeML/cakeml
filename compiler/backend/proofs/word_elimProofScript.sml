@@ -2,10 +2,10 @@
   Correctness proof for word_elim
 *)
 Theory word_elimProof
-Ancestors
-  wordLang word_elim wordSem wordProps spt_closure wordConvs
 Libs
   preamble
+Ancestors
+  wordLang word_elim wordSem wordProps spt_closure wordConvs
 
 
 val _ = temp_delsimps ["fromAList_def"]
@@ -1533,4 +1533,3 @@ Proof
                 ) >> fs[ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME])
         )
 QED
-

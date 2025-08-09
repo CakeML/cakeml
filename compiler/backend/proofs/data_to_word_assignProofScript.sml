@@ -2,6 +2,8 @@
   Part of the correctness proof for data_to_word
 *)
 Theory data_to_word_assignProof
+Libs
+  preamble helperLib blastLib
 Ancestors
   data_to_word_memoryProof data_to_word_gcProof dataSem
   wordSem[qualified] data_to_word int_bitwise dataProps
@@ -9,8 +11,6 @@ Ancestors
   semanticsProps alignment backendProps word_bignum wordLang
   word_bignumProof gen_gc_partial gc_shared word_gcFunctions
   gen_gc[qualified] bvi_to_data[qualified]
-Libs
-  preamble helperLib blastLib
 
 val _ = (max_print_depth := 1);
 
@@ -14075,4 +14075,3 @@ Proof
   \\ rpt (PURE_CASE_TAC \\ fs [])
   \\ qhdtm_x_assum`do_app`mp_tac \\ EVAL_TAC
 QED
-

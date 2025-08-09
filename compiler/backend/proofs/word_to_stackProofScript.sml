@@ -5,10 +5,16 @@ Theory word_to_stackProof
 Ancestors
   semanticsProps (* for extend_with_resource_limit *)
   stackProps (* for extract_labels *)
-  wordProps stackSem wordSem
-  word_to_stack wordConvs parmove
+  wordProps stackSem wordSem word_to_stack
+Ancestors[ignore_grammar]
+  wordConvs parmove
 Libs
   preamble helperLib
+
+(* Set up ML bindings *)
+open preamble semanticsPropsTheory stackSemTheory wordSemTheory
+     word_to_stackTheory wordPropsTheory wordConvsTheory stackPropsTheory
+     parmoveTheory helperLib;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]

@@ -2,11 +2,11 @@
   Correctness proof for stack_remove
 *)
 Theory stack_removeProof
+Libs
+  preamble helperLib dep_rewrite[qualified] blastLib[qualified]
 Ancestors
   stack_remove stackLang stackSem stackProps set_sep
   semanticsProps
-Libs
-  preamble helperLib dep_rewrite[qualified] blastLib[qualified]
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -4310,4 +4310,3 @@ Proof
   simp[stack_removeTheory.stack_store_def,stack_removeTheory.stack_load_def,call_args_def,upshift_downshift_call_args]
   >- EVAL_TAC
 QED
-

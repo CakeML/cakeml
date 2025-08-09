@@ -2,10 +2,10 @@
   Correctness proof for stack_names
 *)
 Theory stack_namesProof
-Ancestors
-  stack_names stackSem stackProps
 Libs
   preamble dep_rewrite[qualified]
+Ancestors
+  stack_names stackSem stackProps
 
 val _ = bring_to_front_overload"prog_comp"{Name="prog_comp",Thy="stack_names"};
 val _ = bring_to_front_overload"comp"{Name="comp",Thy="stack_names"};
@@ -672,4 +672,3 @@ Proof
   fs[]>>fs[call_args_def]>>
   BasicProvers.EVERY_CASE_TAC>>fs[call_args_def]
 QED
-

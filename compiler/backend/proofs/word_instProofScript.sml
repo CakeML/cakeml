@@ -2,10 +2,10 @@
   Correctness proof for word_inst
 *)
 Theory word_instProof
-Ancestors
-  wordLang wordProps word_inst wordSem wordConvs asm
 Libs
   preamble
+Ancestors
+  wordLang wordProps word_inst wordSem wordConvs asm
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
@@ -1030,4 +1030,3 @@ Proof
   drule_all three_to_two_reg_correct>>
   simp[]
 QED
-

@@ -2,12 +2,12 @@
   Correctness proof for stack_alloc
 *)
 Theory stack_allocProof
+Libs
+  preamble blastLib[qualified]
 Ancestors
   stack_alloc stackLang stackSem stackProps
   word_gcFunctions (* for memcpy *)
   wordSem[qualified]
-Libs
-  preamble blastLib[qualified]
 
 
 val _ = temp_delsimps ["NORMEQ_CONV"]

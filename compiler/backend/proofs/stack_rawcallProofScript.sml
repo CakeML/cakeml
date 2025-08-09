@@ -2,11 +2,11 @@
   Correctness proof for stack_rawcall
 *)
 Theory stack_rawcallProof
+Libs
+  preamble
 Ancestors
   stack_rawcall stackLang stackSem stackProps wordSem[qualified]
   labProps[qualified]
-Libs
-  preamble
 
 
 val _ = (max_print_depth := 18);
@@ -965,4 +965,3 @@ Proof
   \\ Cases_on `lookup dest i` \\ fs []  \\ rw []
   \\ simp [stack_get_handler_labels_def]
 QED
-
