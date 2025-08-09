@@ -2421,7 +2421,7 @@ Definition stmt_vcg_def:
     method <- find_met name methods;
     (name, spec, body) <<- dest_met method;
     () <- if method ∈ m then return () else
-            (fail «stmt_vcg:MetCall: Cannot call unverified method»);
+            (fail «stmt_vcg:MetCall: Could not find method»);
     () <- if LENGTH spec.ins = LENGTH args then return () else
             (fail «stmt_vcg:MetCall: Bad number of arguments»);
     () <- if LENGTH spec.outs = LENGTH lhss then return () else
@@ -2430,6 +2430,8 @@ Definition stmt_vcg_def:
           then return ()
           else (fail «stmt_vcg:MetCall: Method ins and outs not distinct»);
     vars <- result_mmap dest_VarLhs lhss;
+    () <- if ALL_DISTINCT vars then return () else
+            (fail «stmt_vcg:MetCall: left-hand side names not distinct»);
     () <- if EVERY (λe. DISJOINT (freevars e) (set vars)) args
           then return ()
           else (fail «stmt_vcg:MetCall: Cannot read and assign a variable in one statement»);
@@ -2447,13 +2449,13 @@ Definition stmt_vcg_def:
           then return ()
           else (fail «stmt_vcg:MetCall: Bad ensures spec»);
     return
-      ((Let (ZIP (MAP FST spec.ins,args)) (conj spec.reqs))
+      (Let (ZIP (MAP FST spec.ins,args)) (conj spec.reqs)
        :: MAP CanEval args
        ++ MAP CanEval (MAP Var vars)
        ++ decreases_check
-            (spec.rank,
-             MAP (Let (ZIP (MAP FST spec.ins,args))) spec.decreases)
-            (wrap_old decs)
+          (spec.rank,
+           MAP (Let (ZIP (MAP FST spec.ins,args))) spec.decreases)
+          (wrap_old decs)
        ++ [Foralls (ZIP (vars, MAP SND spec.outs))
                    (imp (Let (ZIP(MAP FST spec.ins ++ MAP FST spec.outs,
                                   args             ++ MAP Var vars))
@@ -2500,8 +2502,10 @@ Proof
     \\ gvs [oneline bind_def, CaseEq "sum"]
     \\ drule find_met_inr \\ rpt strip_tac \\ gvs []
     \\ gvs [oneline bind_def, CaseEq "sum"]
-    \\ cheat
-   )
+    \\ drule_then assume_tac result_mmap_dest_VarLhs \\ simp []
+    \\ irule $ SRULE [rich_listTheory.APPEND] stmt_wp_MetCall
+    \\ simp []
+    \\ last_assum $ irule_at (Pos hd))
   \\ gvs [stmt_vcg_def]
 QED
 
