@@ -1,7 +1,7 @@
 (*
   Pseudo-boolean constraints proof format and checker
 *)
-open preamble npbcTheory mlstringTheory mlintTheory mlvectorTheory spt_to_vecTheory mergesortTheory;
+open preamble npbcTheory mlstringTheory mlintTheory mlvectorTheory mllistTheory spt_to_vecTheory;
 
 val _ = new_theory "npbc_check";
 
@@ -145,7 +145,7 @@ Definition clean_triv_def:
     FOLDR (λpc1 c2.
       npbc$add ([pc1],0) c2) ([],0)
       (FILTER (λh. FST h ≠ 0)
-      (mergesort_tail (λx y. SND x ≤ SND y)
+      (sort (λx y. SND x ≤ SND y)
         (MAP sing_lit (append ls))))
 End
 
@@ -167,7 +167,7 @@ End
 
 Definition mk_strict_sorted_num_def:
   mk_strict_sorted_num ls =
-  mk_strict (mergesort_tail (\x y:num. y ≤ x) ls)
+  mk_strict (sort (\x y:num. y ≤ x) ls)
 End
 
 Definition weaken_sorted_def:
@@ -2621,7 +2621,7 @@ End
 
 Definition mk_obj_vec_def:
   mk_obj_vec (wm:((num # bool) list)) =
-    let wms = mergesort_tail (λx y. FST x ≤ FST y) wm in
+    let wms = sort (λx y. FST x ≤ FST y) wm in
     Vector (to_flat_d F 0 wms [])
 End
 

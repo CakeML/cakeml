@@ -3,8 +3,7 @@
 *)
 
 open preamble state_transformerTheory
-open ml_monadBaseLib ml_monadBaseTheory
-open sortingTheory
+  ml_monadBaseLib ml_monadBaseTheory mllistTheory;
 
 val _ = new_theory "reg_alloc"
 val _ = ParseExtras.temp_tight_equality();
@@ -342,7 +341,7 @@ End
 (* sort moves by priority *)
 Definition sort_moves_def:
   sort_moves ls =
-    QSORT (λp:num,x p',x'. p>p') ls
+    sort (λp:num,x p',x'. p>p') ls
 End
 
 (* merge two sorted lists *)
@@ -966,7 +965,7 @@ Definition assign_Stemp_tag_def:
       do
         adjs <- adj_ls_sub n;
         tags <- st_ex_MAP node_tag_sub adjs;
-        let bads = QSORT (λx y. x≤y) (MAP tag_col tags) in
+        let bads = sort (λx y. x≤y) (MAP tag_col tags) in
         do
           c <- prefs n bads;
           case c of
