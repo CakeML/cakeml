@@ -766,7 +766,7 @@ Proof
   Cases_on ‘n’>>simp[trace_prefix_def]
 QED
 
-(****)
+(***)
 
 Definition ext_def:
   ext ^s k ffi =
@@ -928,6 +928,10 @@ QED
 Type ptree = “:((ffi_outcome + word8 list) + α result option # α bstate, ev,
      (ffi_outcome + word8 list) + α result option # α bstate) itree”;
 
+Type rtree[pp] = “:((ffi_outcome + word8 list) + α result option # α bstate,
+                    α panLang$prog # α bstate + ev,
+     (ffi_outcome + word8 list) + α result option # α bstate) itree”;
+
 Theorem mrec_While:
   (mrec h_prog (h_prog (While e p,s)):'a ptree) =
   case eval s e of
@@ -954,7 +958,7 @@ Proof
   qpat_abbrev_tac ‘Y = mrec _ _’>>
   Cases_on ‘Y’>>simp[itree_bind_thm]
   >| [fs[markerTheory.Abbrev_def]>>
-      pop_assum $ assume_tac o GSYM>>      
+      pop_assum $ assume_tac o GSYM>>
       imp_res_tac mrec_Ret_INR>>fs[],
       AP_TERM_TAC>>
       simp[FUN_EQ_THM]>>strip_tac,
@@ -1174,4 +1178,379 @@ Proof
   rewrite_tac[Once itree_unfold,Once spin]>>
   CASE_TAC>>fs[]
 QED
+
+(*** simp rules ***)
+
+Theorem mrec_Seq:
+  (mrec h_prog (h_prog (Seq p q, s)):'a ptree) =
+  Tau (itree_bind
+       (mrec h_prog (h_prog (p, s)):'a ptree)
+       (λa. case a of
+              INL l => Ret (INR (SOME Error, s))
+            | INR (NONE,s') =>
+                Tau (itree_bind (mrec h_prog (h_prog (q, s')):'a ptree)
+                                (λa.
+                                   Ret (INR
+                                   (case a of
+                                      INL v => (SOME Error,s)
+                                    | INR (res,s') => (res,s')))))
+            | INR (SOME res, s') => Ret (INR (SOME res, s'))))
+Proof
+  simp[h_prog_seq_def,h_prog_def,mrec_bind]>>
+  AP_TERM_TAC>>
+  simp[FUN_EQ_THM]>>strip_tac>>
+  rpt (CASE_TAC>>fs[])>>fs[mrec_bind]>>
+  simp[o_DEF]>>
+  AP_TERM_TAC>>
+  simp[FUN_EQ_THM]>>strip_tac>>
+  rpt (CASE_TAC>>fs[])
+QED
+
+Theorem mrec_Dec:
+  (mrec h_prog (h_prog (Dec x e p, s)):'a ptree) =
+  case eval s e of
+    SOME v =>
+      Tau (itree_bind
+           (mrec h_prog (h_prog (p,s with locals := s.locals |+ (x,v))):'a ptree)
+           (λa. Ret (INR (case a of
+                            INL l => (SOME Error, s)
+                          | INR (res,s') =>
+                              (res, s' with
+                     locals := res_var s'.locals (x,FLOOKUP s.locals x))))))
+  | _ => Ret (INR (SOME Error, s))
+Proof
+  simp[h_prog_dec_def,h_prog_def,mrec_bind]>>
+  rpt (CASE_TAC>>fs[])>>fs[mrec_bind]>>
+  AP_TERM_TAC>>fs[o_DEF]>>
+  simp[FUN_EQ_THM]>>strip_tac>>
+  rpt (CASE_TAC>>fs[])>>fs[mrec_bind]
+QED
+
+Theorem mrec_Assign:
+  (mrec h_prog (h_prog (Assign x v, s)):'a ptree) =
+  case eval s v of
+    SOME v =>
+      Ret (INR (if is_valid_value s.locals x v then
+                  (NONE, s with locals := s.locals |+ (x,v))
+                else (SOME Error, s)))
+  | _ => Ret (INR (SOME Error, s))
+Proof
+  simp[h_prog_assign_def,h_prog_def,mrec_bind]>>
+  rpt (CASE_TAC>>fs[])
+QED
+
+Theorem mrec_If:
+  (mrec h_prog (h_prog (If e p q, s)):'a ptree) =
+  case eval s e of
+    SOME (ValWord v) =>
+      Tau (itree_bind (mrec h_prog (h_prog (if v ≠ 0w then p else q,s)):'a ptree)
+                      (λa. Ret (INR (case a of
+                                       INL l => (SOME Error,s)
+                                     | INR (res,s') => (res,s')))))
+  | _ => Ret (INR (SOME Error, s))
+Proof
+  simp[h_prog_cond_def,h_prog_def,mrec_bind]>>
+  rpt (CASE_TAC>>fs[mrec_bind])>>simp[o_DEF]>>
+  AP_TERM_TAC>>
+  simp[FUN_EQ_THM]>>strip_tac>>
+  rpt (CASE_TAC>>fs[])
+QED
+
+Theorem mrec_Store:
+  (mrec h_prog (h_prog (Store dst src, s)):'a ptree) =
+  Ret (INR (case (eval s dst, eval s src) of
+    (NONE, v3) => (SOME Error, s)
+  | (SOME (ValWord ad), NONE) => (SOME Error, s)
+  | (SOME (ValWord ad), SOME v) =>
+      (case mem_stores ad (flatten v) s.memaddrs s.memory of
+         NONE => (SOME Error, s)
+       | SOME m => (NONE, s with memory := m))
+  | _ => (SOME Error, s)))
+Proof
+  simp[h_prog_store_def,h_prog_def,mrec_bind]>>
+  rpt (CASE_TAC>>fs[])
+QED
+
+Theorem mrec_StoreByte:
+  (mrec h_prog (h_prog (StoreByte dst src, s)):'a ptree) =
+  Ret (INR (case (eval s dst, eval s src) of
+              (NONE, v3) => (SOME Error, s)
+            | (SOME (ValWord ad), NONE) => (SOME Error, s)
+            | (SOME (ValWord ad), SOME (ValWord v)) =>
+                (case mem_store_byte s.memory s.memaddrs s.be ad (w2w v) of
+                   NONE => (SOME Error, s)
+                 | SOME m => (NONE, s with memory := m))
+            | _ => (SOME Error, s)))
+Proof
+  simp[h_prog_store_byte_def,h_prog_def,mrec_bind]>>
+  rpt (CASE_TAC>>fs[])
+QED
+
+Theorem mrec_Store32:
+  (mrec h_prog (h_prog (Store32 dst src, s)):'a ptree) =
+  Ret (INR (case (eval s dst, eval s src) of
+              (NONE, v3) => (SOME Error, s)
+            | (SOME (ValWord ad), NONE) => (SOME Error, s)
+            | (SOME (ValWord ad), SOME (ValWord v)) =>
+                (case mem_store_32 s.memory s.memaddrs s.be ad (w2w v) of
+                   NONE => (SOME Error, s)
+                 | SOME m => (NONE, s with memory := m))
+            | _ => (SOME Error, s)))
+Proof
+  simp[h_prog_store_32_def,h_prog_def,mrec_bind]>>
+  rpt (CASE_TAC>>fs[])
+QED
+
+Theorem mrec_ShMemLoad:
+  (mrec h_prog (h_prog (ShMemLoad op v addr, s)):'a ptree) =
+  case (eval s addr, FLOOKUP s.locals v) of
+    (SOME (ValWord ad), SOME (Val _)) =>
+      (if nb_op op = 0 then
+         (if ad ∈ s.sh_memaddrs then
+            Vis (SharedMem MappedRead,[0w],word_to_bytes ad F)
+                (Tau o mrec h_prog o
+                     (λres.
+                        Ret
+                        (INR
+                         (case res of
+                            INL (INL outcome) =>
+                              (SOME
+                               (FinalFFI
+                                (Final_event (SharedMem MappedRead) [0w]
+                                             (word_to_bytes ad F) outcome)),
+                               empty_locals s)
+                          | INL (INR new_bytes) =>
+                              if LENGTH new_bytes = dimindex (:α) DIV 8 then
+                                (NONE,
+                                 set_var v
+                                         (ValWord (word_of_bytes F 0w new_bytes)) s)
+                              else
+                                (SOME
+                                 (FinalFFI
+                                  (Final_event (SharedMem MappedRead) [0w]
+                                               (word_to_bytes ad F) FFI_failed)),
+                                 empty_locals s)
+                          | INR _ => (SOME Error,s)))))
+          else Ret (INR (SOME Error,s)))
+       else if byte_align ad ∈ s.sh_memaddrs then
+         Vis (SharedMem MappedRead,[n2w (nb_op op)],word_to_bytes ad F)
+             (Tau o mrec h_prog o
+                  (λres.
+                     Ret
+                     (INR
+                      (case res of
+                         INL (INL outcome) =>
+                           (SOME
+                            (FinalFFI
+                             (Final_event (SharedMem MappedRead)
+                                          [n2w (nb_op op)] (word_to_bytes ad F)
+                                          outcome)),empty_locals s)
+                       | INL (INR new_bytes) =>
+                           if LENGTH new_bytes = dimindex (:α) DIV 8 then
+                             (NONE,
+                              set_var v
+                                      (ValWord (word_of_bytes F 0w new_bytes)) s)
+                           else
+                             (SOME
+                              (FinalFFI
+                               (Final_event (SharedMem MappedRead)
+                                            [n2w (nb_op op)] (word_to_bytes ad F)
+                                            FFI_failed)),empty_locals s)
+                       | INR _ => (SOME Error,s)))))
+       else Ret (INR (SOME Error,s)))
+  | _ => Ret (INR (SOME Error, s))
+Proof
+  simp[h_prog_sh_mem_load_def,h_prog_def,mrec_bind]>>
+  rpt (TOP_CASE_TAC>>fs[])
+QED
+
+Theorem mrec_ShMemStore:
+  (mrec h_prog (h_prog (ShMemStore op addr e, s)):'a ptree) =
+  case (eval s addr, eval s e) of
+    (SOME (ValWord ad), SOME (ValWord w)) =>
+      if nb_op op = 0 then
+        if ad ∈ s.sh_memaddrs then
+          Vis
+          (SharedMem MappedWrite,[0w],word_to_bytes w F ++ word_to_bytes ad F)
+          (Tau ∘ mrec h_prog ∘
+               (λres.
+                  Ret
+                  (INR
+                   (case res of
+                      INL (INL outcome) =>
+                        (SOME
+                         (FinalFFI
+                          (Final_event (SharedMem MappedWrite) [0w]
+                                       (word_to_bytes w F ++ word_to_bytes ad F)
+                                       outcome)),s)
+                    | INL (INR new_bytes) =>
+                        if LENGTH new_bytes = 2 * (dimindex (:α) DIV 8) then
+                          (NONE,s)
+                        else
+                          (SOME
+                           (FinalFFI
+                            (Final_event (SharedMem MappedWrite) [0w]
+                                         (word_to_bytes w F ++ word_to_bytes ad F)
+                                         FFI_failed)),s)
+                    | INR _ => (SOME Error,s)))))
+        else Ret (INR (SOME Error,s))
+      else if byte_align ad ∈ s.sh_memaddrs then
+        Vis (SharedMem MappedWrite,[n2w (nb_op op)],
+             TAKE (nb_op op) (word_to_bytes w F) ++ word_to_bytes ad F)
+            (Tau ∘ mrec h_prog ∘
+                 (λres.
+                    Ret
+                    (INR
+                     (case res of
+                        INL (INL outcome) =>
+                          (SOME
+                           (FinalFFI
+                            (Final_event (SharedMem MappedWrite)
+                                         [n2w (nb_op op)]
+                                         (TAKE (nb_op op) (word_to_bytes w F) ++
+                                          word_to_bytes ad F) outcome)),s)
+                      | INL (INR new_bytes) =>
+                          if
+                          LENGTH new_bytes =
+                          LENGTH (TAKE (nb_op op) (word_to_bytes w F)) +
+                          dimindex (:α) DIV 8
+                          then
+                            (NONE,s)
+                          else
+                            (SOME
+                             (FinalFFI
+                              (Final_event (SharedMem MappedWrite)
+                                           [n2w (nb_op op)]
+                                           (TAKE (nb_op op) (word_to_bytes w F) ++
+                                            word_to_bytes ad F) FFI_failed)),s)
+                      | INR v1 => (SOME Error,s)))))
+      else Ret (INR (SOME Error,s))
+  | _ => Ret (INR (SOME Error,s))
+Proof
+  simp[h_prog_sh_mem_store_def,h_prog_def,mrec_bind]>>
+  rpt (TOP_CASE_TAC>>fs[])
+QED
+
+Theorem mrec_prog_triv:
+  mrec h_prog (h_prog (Skip,s)) = Ret (INR (NONE,s)) ∧
+  mrec h_prog (h_prog (Break,s)) = Ret (INR (SOME Break,s)) ∧
+  mrec h_prog (h_prog (Tick,s)) = Ret (INR (NONE,s)) ∧
+  mrec h_prog (h_prog (Annot x y,s)) = Ret (INR (NONE,s)) ∧
+  mrec h_prog (h_prog (Continue,s)) = Ret (INR (SOME Continue,s))
+Proof
+  simp[h_prog_def]
+QED
+
+Theorem mrec_Return:
+  mrec h_prog (h_prog (Return e,s)) =
+  Ret (INR (case eval s e of
+              NONE => (SOME Error,s)
+            | SOME v =>
+                if size_of_shape (shape_of v) ≤ 32 then
+                  (SOME (Return v), empty_locals s)
+                else (SOME Error,s)))
+Proof
+  simp[mrec_simps,h_prog_def,h_prog_return_def]
+QED
+
+Theorem mrec_Raise:
+  mrec h_prog (h_prog (Raise eid e,s)) =
+  Ret (INR (case (FLOOKUP s.eshapes eid, eval s e) of
+            | (SOME sh, SOME v) =>
+                if shape_of v = sh ∧ size_of_shape (shape_of v) ≤ 32 then
+                  (SOME (Exception eid v), empty_locals s)
+                else (SOME Error,s)
+            | _ => (SOME Error,s)))
+Proof
+  simp[mrec_simps,h_prog_def,h_prog_raise_def]
+QED
+
+val mrec_prog_simps =
+  LIST_CONJ [mrec_prog_triv,mrec_Return,mrec_Raise,mrec_Dec,mrec_Assign,
+             mrec_Store,mrec_Store32,mrec_StoreByte];
+
+Theorem mrec_Call:
+ (mrec h_prog (h_prog (Call typ texp aexps,s)):'a ptree) =
+   (case eval s texp of
+      | SOME (ValLabel fname) =>
+        (case OPT_MMAP (eval s) aexps of
+           NONE => Ret (INR (SOME Error,s))
+         | SOME args =>
+           case lookup_code s.code fname args of
+             NONE => Ret (INR (SOME Error,s))
+           | SOME (q,r) =>
+               Tau
+               (itree_bind (mrec h_prog (h_prog (q,s with locals := r)):'a ptree)
+                           (mrec h_prog o (h_handle_call_ret typ s)))
+           | _ => Ret (INR (SOME Error,s)))
+      | _ => Ret (INR (SOME Error,s)))
+Proof
+  simp[h_prog_def,h_prog_call_def,mrec_simps]>>
+  rpt (CASE_TAC>>fs[])>>simp[mrec_bind]
+QED
+
+Theorem mrec_DecCall:
+  mrec h_prog (h_prog (DecCall rt sh texp aexps prog,s)):'a ptree =
+   (case eval s texp of
+      | SOME (ValLabel fname) =>
+        (case OPT_MMAP (eval s) aexps of
+           NONE => Ret (INR (SOME Error,s))
+         | SOME args =>
+           case lookup_code s.code fname args of
+             NONE => Ret (INR (SOME Error,s))
+           | SOME (q,r) =>
+               Tau
+               (itree_bind (mrec h_prog (h_prog (q,s with locals := r)):'a ptree)
+                           (mrec h_prog o (h_handle_deccall_ret rt sh prog s))))
+      | _ => Ret (INR (SOME Error,s)))
+
+Proof
+  simp[h_prog_def,h_prog_deccall_def,mrec_simps]>>
+  rpt (CASE_TAC>>fs[])>>simp[mrec_bind]
+QED
+
+Theorem mrec_ExtCall:
+  mrec h_prog (h_prog (ExtCall ffiname cptr clen aptr alen, s)) =
+  case (eval s alen, eval s aptr, eval s clen, eval s cptr) of
+    (SOME (ValWord c), SOME (ValWord c'), SOME (ValWord c2), SOME (ValWord c3)) =>
+      (case read_bytearray c' (w2n c) (mem_load_byte s.memory s.memaddrs s.be) of
+         SOME x =>
+           (case read_bytearray c3 (w2n c2) (mem_load_byte s.memory s.memaddrs s.be) of
+              SOME x' =>
+                if explode ffiname ≠ ""
+                then
+                   Vis (ExtCall (explode ffiname),x',x)
+                      (Tau o mrec h_prog o
+                           (λres.
+                              (Ret
+                               (INR
+                                (case res of
+                                   INL (INL outcome) =>
+                                     (SOME
+                                      (FinalFFI
+                                       (Final_event (ExtCall (explode ffiname)) x' x outcome)),empty_locals s)
+                                 | INL (INR new_bytes) =>
+                                     if LENGTH new_bytes = LENGTH x then
+                                       (NONE,
+                                        s with
+                                          memory :=
+                                        write_bytearray c' new_bytes s.memory
+                                                        s.memaddrs s.be)
+                                     else
+                                       (SOME
+                                        (FinalFFI
+                                         (Final_event (ExtCall (explode ffiname)) x' x FFI_failed)),empty_locals s)
+                                 | INR _ => (SOME Error,s))))))
+                else Ret (INR (NONE, s with memory := write_bytearray c' x s.memory s.memaddrs s.be))
+            | _ => Ret (INR (SOME Error,s)))
+       | _ => Ret (INR (SOME Error,s)))
+  | _ => Ret (INR (SOME Error,s))
+Proof
+  simp[h_prog_def,h_prog_ext_call_def,mrec_simps]>>
+  rpt (PURE_CASE_TAC>>fs[])>>simp[mrec_bind]
+QED
+
+val mrec_prog_nonrec =
+  LIST_CONJ [mrec_prog_simps,mrec_ShMemStore,mrec_ShMemLoad,mrec_Seq,
+            mrec_Call,mrec_DecCall];
 
