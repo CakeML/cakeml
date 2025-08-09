@@ -6,11 +6,18 @@ Ancestors
   source_to_flat flatProps namespaceProps semantics
   semanticPrimitivesProps ffi[qualified] lprefix_lub[qualified]
   backend_common[qualified] misc[qualified] backendProps
-  source_evalProof semanticPrimitives flatLang flatSem
+  source_evalProof
+Ancestors[ignore_grammar]
+  semanticPrimitives flatLang flatSem
   flat_elimProof[qualified] flat_patternProof[qualified]
 Libs
   preamble experimentalLib
 
+(* Set up ML bindings *)
+open preamble semanticsTheory namespacePropsTheory
+     semanticPrimitivesTheory semanticPrimitivesPropsTheory
+     source_to_flatTheory flatLangTheory flatSemTheory flatPropsTheory
+     backendPropsTheory experimentalLib source_evalProofTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -5844,4 +5851,3 @@ Proof
   \\ rw [] \\ fs []
   \\ fs [IN_LIST_TO_BAG, MEM_MAP, MEM_COUNT_LIST]
 QED
-

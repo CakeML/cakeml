@@ -2,13 +2,23 @@
   Correctness proof for stack_to_lab
 *)
 Theory stack_to_labProof
-Ancestors
-  stackSem stackProps stack_alloc stack_to_lab labSem labProps
-  stack_removeProof stack_allocProof stack_namesProof
-  semanticsProps word_to_stackProof[qualified]
-  data_to_word_gcProof[qualified] stack_rawcallProof[qualified]
 Libs
   preamble
+Ancestors
+  data_to_word_gcProof[qualified] word_to_stackProof[qualified]
+  stack_namesProof stack_rawcallProof[qualified]
+  stack_allocProof stack_removeProof stack_to_lab
+  stackSem stackProps stack_alloc  labSem labProps semanticsProps
+
+(* Set up ML bindings *)
+open stackSemTheory stackPropsTheory
+     stack_allocTheory stack_to_labTheory
+     labSemTheory labPropsTheory
+     stack_removeProofTheory
+     stack_allocProofTheory
+     stack_namesProofTheory
+     semanticsPropsTheory
+local open word_to_stackProofTheory data_to_word_gcProofTheory stack_rawcallProofTheory in end
 
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
@@ -5092,4 +5102,3 @@ Proof
   irule stack_alloc_compile_no_install>>
   irule stack_rawcall_compile_no_install>>fs[]
 QED
-
