@@ -1076,8 +1076,6 @@ fun match_hconds rewrite_thms avoid_tms let_pre app_spec =
 
       val app_pre = concl (UNDISCH_ALL app_spec) |> list_dest dest_imp |> List.last |>
                           dest_comb |> fst |> dest_comb |> snd
-      val rw_app_pre = (QCONV (SIMP_CONV sset rewrite_thms) app_pre |> concl |> dest_eq |> snd)
-      val rw_let_pre = (QCONV (SIMP_CONV sset rewrite_thms) let_pre |> concl |> dest_eq |> snd)
       val (substsl, _, _) = match_heap_conditions let_pre app_pre
       val filt_subst =
           List.filter (fn {redex = x, residue = y} => not (HOLset.member (avoid_tms, x))) substsl
@@ -1666,8 +1664,6 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
       (* Compute the frame *)
       val app_pre = concl (UNDISCH_ALL hsimp_app_spec') |> list_dest dest_imp |> List.last |>
                           dest_comb |> fst |> dest_comb |> snd
-      val rw_app_pre = (QCONV (SIMP_CONV list_ss all_rw_thms) app_pre |> concl |> dest_eq |> snd)
-      val rw_let_pre = (QCONV (SIMP_CONV list_ss all_rw_thms) let_pre |> concl |> dest_eq |> snd)
       val (vars_subst, frame_hpl, rest) = match_heap_conditions let_pre app_pre
       val () = if List.null rest then () else
                raise (generate_XLET_ERR "xlet_simp_spec" "cannot extract the frame" asl let_pre hsimp_app_spec')
