@@ -559,7 +559,8 @@ Definition h_prog_ext_call_def:
                                       else
                                         (SOME (FinalFFI (Final_event (ExtCall (explode ffi_name)) conf_bytes array_bytes FFI_failed)),empty_locals s)))
                             | INR _ => (SOME Error,s))))
-          else Ret (INR (NONE,s)))
+          else Ret (INR
+                    (NONE, s with memory := write_bytearray array_ptr_adr array_bytes s.memory s.memaddrs s.be)))
       | _ => Ret (INR (SOME Error,s)))
   | _ => Ret (INR (SOME Error,s))
 End
