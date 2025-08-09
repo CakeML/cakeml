@@ -5,6 +5,8 @@
 open preamble;
 open wasmLangTheory;
 
+val _ = set_grammar_ancestry ["wasmLang"];
+
 val _ = new_theory "wasm_notations";
 
 (*********************)

@@ -8,6 +8,8 @@ open wasm2LangTheory;
 open mlstringTheory;
 open leb128Theory miscOpsTheory;
 
+val _ = set_grammar_ancestry ["wasm2Lang", "mlstring", "leb128", "miscOps"];
+
 val _ = new_theory "wasm2_binary_format";
 
 (*  Note:

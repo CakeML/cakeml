@@ -7,6 +7,8 @@ open preamble leb128Theory;
 open wordsTheory wordsLib;
 open byteTheory;
 
+val _ = set_grammar_ancestry ["words", "byte", "leb128", "list", "arithmetic"];
+
 val _ = new_theory "miscOps";
 
 (*****************************)

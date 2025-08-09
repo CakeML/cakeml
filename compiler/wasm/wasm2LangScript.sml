@@ -10,6 +10,8 @@
 *)
 open preamble;
 
+val _ = set_grammar_ancestry ["words", "arithmetic", "list"];
+
 val _ = new_theory "wasm2Lang";
 
 (* Note :
