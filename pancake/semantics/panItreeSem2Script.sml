@@ -928,8 +928,8 @@ Proof
   simp[GSYM h_prog_while_def,h_prog_def]
 QED
 
-(***)
-Theorem bind_FUNPOW_Ret:
+(** move to itreeTauTheory **)
+Theorem bind_FUNPOW_Ret':
   itree_bind ht k = FUNPOW Tau n (Ret x) ⇒ ∃r n'. ht = FUNPOW Tau n' (Ret r)
 Proof
   Cases_on ‘∃t. strip_tau ht t’>>rw[]>>fs[]
@@ -939,6 +939,19 @@ Proof
   pop_assum mp_tac>>
   rewrite_tac[Once (Q.SPEC ‘n’ spin_FUNPOW_Tau)]>>rw[]>>
   fs[Tau_INJ,FUNPOW_eq_elim]>>fs[Once spin]
+QED
+
+Theorem FUNPOW_Tau_Ret_eq_simp[simp]:
+  FUNPOW Tau n (Ret x) = FUNPOW Tau m (Ret y) ⇔
+    (n = m /\ x = y)
+Proof
+  EQ_TAC>>strip_tac>>fs[]>>
+  Cases_on ‘n < m’>>fs[NOT_LESS]
+  >- (fs[FUNPOW_min_cancel,Tau_INJ]>>
+      Cases_on ‘m - n’>>fs[FUNPOW_SUC])>>
+  last_x_assum $ assume_tac o GSYM>>
+  rfs[FUNPOW_min_cancel,Tau_INJ]>>
+  Cases_on ‘n - m’>>fs[FUNPOW_SUC]
 QED
 
 Theorem FUNPOW_Ret_strip:
@@ -954,6 +967,15 @@ Proof
   rfs[FUNPOW_min_cancel,Tau_INJ]>>
   Cases_on ‘n-m’>>fs[FUNPOW_SUC]
 QED
+
+Theorem bind_FUNPOW_Ret:
+  itree_bind ht k = FUNPOW Tau n (Ret x) ⇒ ∃r n'. ht = FUNPOW Tau n' (Ret r) ∧ n' ≤ n
+Proof
+  rw[]>>
+  imp_res_tac bind_FUNPOW_Ret'>>fs[FUNPOW_Tau_bind]>>
+  imp_res_tac FUNPOW_Ret_strip
+QED
+(***)
 
 Theorem mrec_FUNPOW_Ret_INR:
   (mrec h_prog (h_prog (p,s)):'a ptree) = FUNPOW Tau n (Ret x) ⇒ ∃y. x = INR y
