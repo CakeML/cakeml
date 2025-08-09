@@ -108,6 +108,9 @@ pancake/parser
 pancake/static_checker
 pancake/proofs
 
+# compilation to WASM
+compiler/wasm
+
 # dafny compiler
 compiler/dafny
 compiler/dafny/translation
