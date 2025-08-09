@@ -1176,6 +1176,11 @@ Proof
               , pair_case_eq,SWAP_REVERSE_SYM,lookup_map]
       \\ ntac 5 (rfs [MAP_EQ_CONS])
       \\ fs [v_to_words_eq,v_to_bytes_eq,data_to_bvi_v_eq]
+      \\ reverse IF_CASES_TAC >-
+       (qsuff_tac ‘F’ \\ gvs [] \\ pop_assum mp_tac
+        \\ fs [domain_list_to_num_set,SUBSET_DEF,Abbr‘env1’,SF DNF_ss])
+      \\ simp [dataLangTheory.op_requires_names_def]
+      \\ fs [v_to_words_eq,v_to_bytes_eq,data_to_bvi_v_eq]
       \\ IMP_RES_TAC data_to_bvi_v_eq \\ rveq
       \\ fs [lookup_map,case_eq_thms]
       \\ IMP_RES_TAC data_to_bvi_eq_ByteArray \\ rveq
