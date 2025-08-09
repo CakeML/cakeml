@@ -901,6 +901,11 @@ Definition dec_instr_def:
 End
 *)
 
+Definition enc_wasm_module_def:
+  enc_wasm_module (m : wasmLang$module) =
+    (INR []) : mlstring + word8 list
+End
+
 val _ = export_theory();
 
 
