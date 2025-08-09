@@ -2,11 +2,14 @@
   Correctness proof for word_alloc
 *)
 Theory word_allocProof
+Libs
+  preamble
 Ancestors
   wordLang wordSem wordProps word_alloc reg_alloc reg_allocProof
   linear_scan linear_scanProof wordConvs
-Libs
-  preamble
+
+(* Ensures we have the correct ML bindings *)
+open word_alloc
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -8933,4 +8936,3 @@ Proof
   match_mp_tac get_forced_pairwise_distinct>>
   simp[]
 QED
-

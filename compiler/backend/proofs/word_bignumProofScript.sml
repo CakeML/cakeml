@@ -2,11 +2,11 @@
   Correctness proof for word_bignum
 *)
 Theory word_bignumProof
+Libs
+  preamble helperLib
 Ancestors
   ast wordLang wordSem wordProps tailrec mc_multiword set_sep
   word_bignum
-Libs
-  preamble helperLib
 
 val good_dimindex_def = miscTheory.good_dimindex_def;
 val env_to_list_lookup_equiv = wordPropsTheory.env_to_list_lookup_equiv;
@@ -406,9 +406,10 @@ val state_rel_IN_FDOM = prove(
   fs [state_rel_def] \\ rw [] \\ fs [FLOOKUP_DEF]);
 
 
-val compile_exp_thm = prove(
-  ``state_rel s1 t1 cs2 t0 frame /\ eval_exp_pre s1 x /\ good_dimindex (:α) ==>
-    word_exp t1 (compile_exp x) = SOME (Word (eval_exp s1 (x:'a wordLang$exp)))``,
+Theorem compile_exp_thm:
+  state_rel s1 t1 cs2 t0 frame /\ eval_exp_pre s1 x /\ good_dimindex (:α) ==>
+  word_exp t1 (compile_exp x) = SOME (Word (eval_exp s1 (x:'a wordLang$exp)))
+Proof
   completeInduct_on `wordLang$exp_size (K 0) x`
   \\ rw [] \\ fs [PULL_FORALL]
   \\ Cases_on `x`
@@ -433,7 +434,8 @@ val compile_exp_thm = prove(
   \\ res_tac \\ fs []
   \\ Cases_on `s`
   \\ fs [word_sh_def,eval_exp_def]
-  \\ fs [good_dimindex_def]);
+  \\ fs [good_dimindex_def]
+QED
 
 val evaluate_SeqTemp = prove(
   ``evaluate (SeqTemp i r p,t) =
@@ -2216,4 +2218,3 @@ Theorem evaluate_mc_iop =
   |> SIMP_RULE std_ss [code_subset_refl]
   |> Q.GENL [`i1`,`i2`,`l'`,`frame`,`zs`,`t`,`ret_val`,
              `n`,`l`,`iop`,`p1`,`l1`,`i'`,`cs`]
-

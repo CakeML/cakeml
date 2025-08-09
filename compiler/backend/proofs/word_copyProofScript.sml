@@ -2,10 +2,10 @@
   Correctness proof for word_copy
 *)
 Theory word_copyProof
-Ancestors
-  wordLang[qualified] wordSem wordProps word_copy wordConvs
 Libs
   preamble
+Ancestors
+  wordLang[qualified] wordSem wordProps word_copy wordConvs
 
 val s = ``s:('a,'c,'ffi) wordSem$state``
 
@@ -1225,4 +1225,3 @@ Proof
   rw[copy_prop_def]
   >>metis_tac[copy_prop_correct,empty_eq_inv,empty_eq_model,PAIR]
 QED
-

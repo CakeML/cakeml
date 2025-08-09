@@ -2,10 +2,10 @@
   Correctness proof for word_simp
 *)
 Theory word_simpProof
-Ancestors
-  wordLang wordSem wordProps word_simp alist
 Libs
   preamble
+Ancestors
+  wordLang wordSem wordProps word_simp alist
 
 val s = ``s:('a,'c,'ffi) wordSem$state``
 
@@ -1151,4 +1151,3 @@ Proof
     fs [word_simpTheory.compile_exp_def,evaluate_Seq_assoc,
         evaluate_const_fp, evaluate_simp_duplicate_if]
 QED
-

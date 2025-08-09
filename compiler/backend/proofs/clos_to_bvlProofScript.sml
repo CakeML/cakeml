@@ -7,10 +7,18 @@ Libs
 Ancestors
   closSem bvlSem closProps bvlProps clos_to_bvl
   backendProps[qualified] ffi[qualified] lprefix_lub[qualified]
+Ancestors[ignore_grammar]
   closLang bvl_jumpProof clos_constantProof backend_common
   clos_mtiProof[qualified] clos_numberProof[qualified]
   clos_knownProof[qualified] clos_annotateProof[qualified]
   clos_callProof[qualified] clos_fvsProof[qualified]
+
+(* Make sure we get the correct ML bindings (somehow) *)
+open closLangTheory closSemTheory closPropsTheory
+     bvlSemTheory bvlPropsTheory
+     bvl_jumpProofTheory
+     clos_to_bvlTheory clos_constantProofTheory
+     backend_commonTheory;
 
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
