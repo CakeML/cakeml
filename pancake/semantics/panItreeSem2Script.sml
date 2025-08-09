@@ -722,8 +722,8 @@ End
 
 (******)
 
-Definition itree_semantics_def:
-  itree_semantics (p:'a panLang$prog, ^s) =
+Definition itree_evaluate_def:
+  itree_evaluate (p:'a panLang$prog, ^s) =
   let g= (λx. case x of
               | INR (r:'a result option # 'a bstate) => r
               | INL (l:ffi_outcome + word8 list) =>
@@ -1155,15 +1155,15 @@ Proof
 QED
 
 Theorem Skip_loop_spin:
-  itree_semantics (While (Const 1w) Skip, ^s) = spin
+  itree_evaluate (While (Const 1w) Skip, ^s) = spin
 Proof
   simp[Once itree_bisimulation]>>
-  qexists ‘CURRY ({(itree_semantics (While (Const 1w) Skip, t), spin)|T}
-    ∪ {(Tau (itree_semantics (While (Const 1w) Skip, t)), spin)|T})’>>
+  qexists ‘CURRY ({(itree_evaluate (While (Const 1w) Skip, t), spin)|T}
+    ∪ {(Tau (itree_evaluate (While (Const 1w) Skip, t)), spin)|T})’>>
   rw[]>- metis_tac[]
-  >- (fs[itree_semantics_def,mrec_Skip_loop_spin]>>
+  >- (fs[itree_evaluate_def,mrec_Skip_loop_spin]>>
       fs[Once itree_unfold,Once spin])
-  >- (fs[itree_semantics_def,mrec_Skip_loop_spin]>>
+  >- (fs[itree_evaluate_def,mrec_Skip_loop_spin]>>
       pop_assum mp_tac>>
       rewrite_tac[Once itree_unfold,Once spin]>>
       CASE_TAC>>fs[]>>strip_tac>>
@@ -1173,7 +1173,7 @@ Proof
       irule_at Any EQ_REFL>>
       irule_at Any EQ_REFL>>
       irule spin)>>
-  fs[itree_semantics_def,mrec_Skip_loop_spin]>>
+  fs[itree_evaluate_def,mrec_Skip_loop_spin]>>
   pop_assum mp_tac>>
   rewrite_tac[Once itree_unfold,Once spin]>>
   CASE_TAC>>fs[]
@@ -1718,9 +1718,9 @@ QED
 Theorem evaluate_itree_Ret_weak:
   evaluate (p, s0) = (res,t) ∧ s0 = ext s k ffi ∧ t.ffi.io_events = ffi.io_events ∧
   (∀fe. res ≠ SOME (FinalFFI fe)) ∧ res ≠ SOME TimeOut ⇒
-  ∃n. itree_semantics (p, s) = FUNPOW Tau n (Ret (res,bst t))
+  ∃n. itree_evaluate (p, s) = FUNPOW Tau n (Ret (res,bst t))
 Proof
-  simp[itree_semantics_def]>>strip_tac>>
+  simp[itree_evaluate_def]>>strip_tac>>
   drule_all evaluate_mrec_Ret_weak>>rw[]>>simp[]>>
   simp[itree_unfold_FUNPOW_Tau]>>
   simp[Once itree_unfold]
