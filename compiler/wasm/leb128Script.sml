@@ -1,10 +1,11 @@
 (*
   A foramlisation of LEB128
 *)
-open preamble;
-open wordsTheory wordsLib;
-
-val _ = new_theory "leb128";
+Theory leb128
+Ancestors
+  words arithmetic list
+Libs
+  wordsLib dep_rewrite
 
 (*  API
     enc goes from words/nums to leb stream
@@ -267,5 +268,3 @@ Triviality tests:
 Proof
   EVAL_TAC
 QED
-
-val _ = export_theory();
