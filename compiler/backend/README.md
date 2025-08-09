@@ -317,6 +317,9 @@ of goto-like jumps.
 [str_treeScript.sml](str_treeScript.sml):
 A Lisp inspired tree of mlstrings and a pretty printing function
 
+[wasm](wasm):
+This directory contains the WASM-specific compiler configuration.
+
 [wordLangScript.sml](wordLangScript.sml):
 The wordLang intermediate language consists of structured programs
 that overate over machine words, a list-like stack and a flat memory.

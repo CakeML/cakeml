@@ -23,5 +23,8 @@ Define mips specialised backend functions.
 [backend_riscvScript.sml](backend_riscvScript.sml):
 Define riscv specialised backend functions.
 
+[backend_wasmScript.sml](backend_wasmScript.sml):
+Define WASM specialised backend functions.
+
 [backend_x64Script.sml](backend_x64Script.sml):
 Define x64 specialised backend functions.
