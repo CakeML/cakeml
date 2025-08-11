@@ -621,4 +621,27 @@ Termination
   \\ gvs [fix_clock_def]
 End
 
+Theorem exec_clock_thm:
+  (∀e s res s1. exec e s = (res,s1) ⇒ s1.clock ≤ s.clock) ∧
+  (∀e s res s1. exec_list e s = (res,s1) ⇒ s1.clock ≤ s.clock)
+Proof
+  ho_match_mp_tac exec_ind \\ rw []
+  \\ pop_assum mp_tac
+  \\ simp [Once exec_def]
+  \\ cheat
+QED
+
+Triviality fix_clock_exec:
+  fix_clock s (exec e s) = exec e s ∧
+  fix_clock s (exec_list es s) = exec_list es s
+Proof
+  Cases_on ‘exec e s’
+  \\ Cases_on ‘exec_list es s’
+  \\ imp_res_tac exec_clock_thm
+  \\ fs [fix_clock_def,fetch "-" "state_component_equality",MIN_DEF]
+QED
+
+Theorem exec_def[allow_rebind] = exec_def |> REWRITE_RULE [fix_clock_exec];
+Theorem exec_ind[allow_rebind] = exec_ind |> REWRITE_RULE [fix_clock_exec];
+
 val _ = export_theory();
