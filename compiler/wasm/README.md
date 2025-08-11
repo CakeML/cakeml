@@ -10,6 +10,9 @@ A foramlisation of LEB128
 Some extra operations
 No specs yet
 
+[stack_to_wasmProofScript.sml](stack_to_wasmProofScript.sml):
+Correctness proof for compilation from stackLang to wasmLang
+
 [stack_to_wasmScript.sml](stack_to_wasmScript.sml):
 Compilation from stackLang to wasmLang
 
