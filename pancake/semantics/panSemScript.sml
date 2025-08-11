@@ -498,9 +498,9 @@ Definition evaluate_def:
                   (case caltyp of
                     | NONE      => (SOME (Return retv),empty_locals st)
                     | SOME (NONE, _) => (NONE, st with locals := s.locals)
-                    | SOME (SOME rt,  _) =>
+                    | SOME (SOME (rk, rt),  _) =>
                        if is_valid_value s.locals rt retv
-                       then (NONE, set_var rt retv (st with locals := s.locals))
+                       then (NONE, set_kvar rk rt retv (st with locals := s.locals))
                        else (SOME Error,st))
               | (SOME (Exception eid exn),st) =>
                   (case caltyp of

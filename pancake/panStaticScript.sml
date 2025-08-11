@@ -765,10 +765,10 @@ Definition static_check_prog_def:
               ; var_delta  := empty mlstring$compare
               ; curr_loc   := ctxt.loc |>
     od ∧
-  static_check_prog ctxt (AssignCall rt hdl trgt args) =
+  static_check_prog ctxt (AssignCall (rk,rt) hdl trgt args) =
     do
       (* check for out of scope assignment *)
-      scope_check_local_var ctxt rt;
+      scope_check_var ctxt rk rt;
       (* check func ptr exp and arg exps *)
       scope_check_fun_name ctxt trgt;
       static_check_exps ctxt args;
@@ -786,7 +786,10 @@ Definition static_check_prog_def:
       return <| exits_fun  := F
               ; exits_loop := F
               ; last       := OtherLast
-              ; var_delta  := singleton mlstring$compare rt Trusted
+              ; var_delta  := if rk = Local then
+                                singleton mlstring$compare rt Trusted
+                              else
+                                empty mlstring$compare
               ; curr_loc   := ctxt.loc |>
     od ∧
   static_check_prog ctxt (StandAloneCall hdl trgt args) =

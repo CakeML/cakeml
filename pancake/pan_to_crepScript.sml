@@ -225,7 +225,7 @@ Definition compile_def:
                        hndlr = Seq (exp_hdl ctxt.vars evar) comp_hdl in
                      Call (SOME (NONE, Skip,
                                  (SOME (neid, hndlr)))) ce args))
-     | SOME (SOME rt, hdl) =>
+     | SOME (SOME(rk,rt), hdl) =>
          (case wrap_rt (FLOOKUP ctxt.vars rt) of
           | NONE =>
               (case hdl of

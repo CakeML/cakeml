@@ -148,9 +148,9 @@ Proof
   fs [evaluate_def] >>
   pairarg_tac >> fs [] >>
   every_case_tac >> fs [] >> rveq >>
-  TRY (metis_tac [] >> NO_TAC) >>
-  fs [empty_locals_def, set_var_def] >>
-  fs [eval_def, FLOOKUP_UPDATE]
+  fs [empty_locals_def, set_var_def, set_kvar_def, set_global_def] >>
+  fs [eval_def, FLOOKUP_UPDATE] >>
+  metis_tac[]
 QED
 
 
@@ -739,8 +739,8 @@ Proof
    fs [] >> rveq >>
    cases_on ‘caltyp’ >> rfs [] >>
    fs [empty_locals_def] >> rveq >>
-   fs [state_rel_def, state_component_equality] >>
-   every_case_tac >> fs [set_var_def] >> rveq >> rfs [])
+   fs [state_rel_def, state_component_equality,set_var_def,set_kvar_def,set_global_def] >>
+   every_case_tac >> fs [] >> rveq >> rfs [])
   >- (
    last_x_assum (qspec_then ‘dec_clock t with
                              locals := FEMPTY |++ ZIP (MAP FST vshapes,x)’ mp_tac) >>
@@ -753,8 +753,8 @@ Proof
    fs [] >> rveq >>
    cases_on ‘caltyp’ >> rfs [] >>
    fs [empty_locals_def] >> rveq >>
-   fs [state_rel_def, state_component_equality] >>
-   every_case_tac >> fs [set_var_def] >> rveq >> rfs []) >>
+   fs [state_rel_def, state_component_equality,set_var_def,set_kvar_def,set_global_def] >>
+   every_case_tac >> fs [] >> rveq >> rfs []) >>
   last_x_assum (qspec_then ‘dec_clock t with
                             locals := FEMPTY |++ ZIP (MAP FST vshapes,x)’ mp_tac) >>
   impl_tac

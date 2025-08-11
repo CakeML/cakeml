@@ -73,7 +73,7 @@ Datatype:
        | While ('a exp) prog
        | Break
        | Continue
-       | Call ((varname option # ((eid # varname # prog) option)) option) funname (('a exp) list)
+       | Call (((varkind # varname) option # ((eid # varname # prog) option)) option) funname (('a exp) list)
        | DecCall varname shape funname ('a exp list) prog
        | ExtCall funname ('a exp) ('a exp) ('a exp) ('a exp)
          (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
@@ -232,6 +232,44 @@ Definition fun_ids_def:
   (fun_ids (Call _ nm _) = [nm]) ∧
   (fun_ids (DecCall _ _ nm _ p) = nm::fun_ids p) ∧
   (fun_ids _ = [])
+End
+
+Definition free_var_ids_def:
+  (free_var_ids (Dec vn e p) = var_exp e ++ FILTER ($≠ vn) (free_var_ids p)) ∧
+  (free_var_ids (Seq p q) = free_var_ids p ++ free_var_ids q) ∧
+  (free_var_ids (If g p q) = var_exp g ++ free_var_ids p ++ free_var_ids q) ∧
+  (free_var_ids (While g p) = var_exp g ++ free_var_ids p) ∧
+  (free_var_ids (Assign vk v e) =
+   if vk = Local then
+     v::var_exp e
+   else
+     var_exp e
+  ) ∧
+  (free_var_ids (Store e1 e2) = var_exp e1 ++ var_exp e2) ∧
+  (free_var_ids (Store32 e1 e2) = var_exp e1 ++ var_exp e2) ∧
+  (free_var_ids (StoreByte e1 e2) = var_exp e1 ++ var_exp e2) ∧
+  (free_var_ids (Raise eid e) = var_exp e) ∧
+  (free_var_ids (Return e) = var_exp e) ∧
+  (free_var_ids (ExtCall fn e1 e2 e3 e4) = var_exp e1 ++ var_exp e2 ++ var_exp e3 ++ var_exp e3) ∧
+  (free_var_ids (ShMemLoad os vk v e) =
+   if vk = Local then
+     v::var_exp e
+   else
+     var_exp e) ∧
+  (free_var_ids (ShMemStore os e1 e2) = var_exp e1 ++ var_exp e2) ∧
+  (free_var_ids (panLang$Call (SOME (NONE , SOME (_ ,  vn , ep))) _ args) =
+   FILTER ($≠vn) (free_var_ids ep) ++
+   FLAT (MAP var_exp args)) ∧
+  (free_var_ids (panLang$Call (SOME (SOME(vk,vn) , SOME (_ ,  en , ep))) _ args) =
+   (if vk = Local then [vn] else []) ++
+   FILTER ($≠en) (free_var_ids ep) ++
+   FLAT (MAP var_exp args)) ∧
+  (free_var_ids (panLang$Call (SOME (SOME(vk,vn) , NONE)) _ args) =
+   (if vk = Local then [vn] else []) ++
+   FLAT (MAP var_exp args)) ∧
+  (free_var_ids (panLang$Call NONE _ args) = FLAT (MAP var_exp args)) ∧
+  (free_var_ids (DecCall vn _ _ _ p) = vn::free_var_ids p) ∧
+  (free_var_ids _ = [])
 End
 
 val _ = export_theory();

@@ -266,7 +266,7 @@ Definition pan_prog_to_display_def:
               [String f;
                Tuple (MAP pan_exp_to_display args);
                pan_prog_to_display_handler handler]
-     | SOME (SOME v,handler) =>
+     | SOME (SOME(vk,v),handler) =>
          Tuple [String v;
                 String (strlit ":=");
                 Item NONE (strlit "call")

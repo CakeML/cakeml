@@ -49,6 +49,27 @@ Termination
   decide_tac
 End
 
+Definition fresh_name_def:
+  fresh_name name names =
+  if MEM name names then
+    fresh_name (strcat name «'») names
+  else
+    name
+Termination
+  qexists ‘measure $ λ(name,names). 1 + MAX_SET(IMAGE strlen (set names)) - strlen name’ >>
+  rw[] >>
+  ‘strlen name <= MAX_SET (IMAGE strlen (set names))’
+    by(irule MAX_SET_PROPERTY >> rw[]) >>
+  simp[]
+End
+
+Definition shape_val_def:
+  shape_val One = Const 0w ∧
+  shape_val (Comb shapes) = Struct (shape_vals shapes) ∧
+  shape_vals [] = [] ∧
+  shape_vals (sh::shs) = shape_val sh :: shape_vals shs
+End
+
 Definition compile_def:
   (compile ctxt (Dec v e p) =
    Dec v (compile_exp ctxt e) (compile ctxt p)) ∧
@@ -77,16 +98,33 @@ Definition compile_def:
    While (compile_exp ctxt e) (compile ctxt p)) ∧
   (compile ctxt (Call rtyp e es) =
    let cexps = MAP (compile_exp ctxt) es in
-     Call (case rtyp of
-           | NONE => NONE
-           | SOME (tl, hdl) =>
-               SOME (tl,
+     case rtyp of
+       NONE => Call NONE e cexps
+     | SOME (SOME(Global,vn), hdl) =>
+         (case FLOOKUP ctxt.globals vn of
+           NONE => Skip (* should never happen *)
+         | SOME (sh,addr) =>
+             (case hdl of
+                NONE =>
+                  DecCall «» sh e cexps $ Store (Op Sub [TopAddr; Const addr]) (Var Local «»)
+              | SOME (eid, evar, p) =>
+                  let
+                    p' = compile ctxt p;
+                    vn' = fresh_name «» (free_var_ids p' ++ FLAT(MAP var_exp cexps))
+                  in
+                    Dec vn' (shape_val sh) $
+                        Seq (Call (SOME (SOME(Local,vn'), SOME(eid, evar, p'))) e cexps) $
+                        Store (Op Sub [TopAddr; Const addr]) (Var Local vn')
+             )
+         )
+     | SOME (tl, hdl) =>
+         Call (SOME (tl,
                      case hdl of
                      | NONE => NONE
                      | SOME (eid, evar, p) =>
                          SOME (eid, evar, compile ctxt p)))
-          e
-          cexps) ∧
+              e
+              cexps) ∧
   (compile ctxt (DecCall v s e es p) =
    DecCall v s e (MAP (compile_exp ctxt) es) (compile ctxt p)) ∧
   (compile ctxt (ExtCall f ptr1 len1 ptr2 len2) =
@@ -169,20 +207,6 @@ Definition fperm_decs_def:
    Function (fi with <| name := fperm_name f g fi.name; body := (fperm f g fi.body)|>)
             ::fperm_decs f g decs) ∧
   (fperm_decs f g (d::decs) = d::fperm_decs f g decs)
-End
-
-Definition fresh_name_def:
-  fresh_name name names =
-  if MEM name names then
-    fresh_name (strcat name «'») names
-  else
-    name
-Termination
-  qexists ‘measure $ λ(name,names). 1 + MAX_SET(IMAGE strlen (set names)) - strlen name’ >>
-  rw[] >>
-  ‘strlen name <= MAX_SET (IMAGE strlen (set names))’
-    by(irule MAX_SET_PROPERTY >> rw[]) >>
-  simp[]
 End
 
 Definition new_main_name_def:

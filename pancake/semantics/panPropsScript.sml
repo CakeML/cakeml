@@ -559,7 +559,8 @@ Proof
       opt_mmap_eval_upd_clock_eq,
       lookup_kvar_def,
       set_kvar_def
-     ]
+     ] >>
+  PURE_TOP_CASE_TAC >> gvs[]
 QED
 
 Theorem evaluate_clock_sub:
@@ -618,17 +619,19 @@ Proof
       gvs[state_component_equality])
   >~ [‘Call’]
   >- (gvs[evaluate_def,AllCaseEqs(),eval_upd_clock_eq,opt_mmap_eval_upd_clock_eq1,dec_clock_def,
-         empty_locals_def,set_var_def] >>
+         empty_locals_def,set_var_def,set_kvar_def,set_global_def] >>
       imp_res_tac evaluate_clock >>
       gvs[empty_locals_def] >>
       TRY $ first_x_assum $ irule_at $ Pat ‘evaluate _ = _’ >>
       gvs[state_component_equality,PULL_EXISTS] >>
       TRY $ first_x_assum $ irule_at $ Pat ‘evaluate _ = _’ >>
       rw[] >>
-      qrefine ‘_ with locals := (_:('a,'b) state).locals’ >>
+      qrefine ‘_ with <|globals := (_:('a,'b) state).globals;
+                        locals := (_:('a,'b) state).locals|>’ >>
       rw[] >>
       gvs[] >>
-      metis_tac[])
+      metis_tac[]
+     )
   >~ [‘DecCall’]
   >- (gvs[evaluate_def,AllCaseEqs(),eval_upd_clock_eq,opt_mmap_eval_upd_clock_eq1,dec_clock_def,
          empty_locals_def,set_var_def] >>
@@ -736,6 +739,7 @@ Proof
   >- (gvs[evaluate_def,AllCaseEqs(),
           oneline nb_op_def,oneline sh_mem_load_def,
           oneline sh_mem_store_def, set_var_def, empty_locals_def,
+          set_kvar_def, set_global_def,
           dec_clock_def,opt_mmap_eval_upd_clock_eq1,
           eval_upd_clock_eq,ffiTheory.call_FFI_def] >>
       rpt(pairarg_tac >> gvs[]) >>
@@ -886,7 +890,7 @@ Proof
              dec_clock_def,set_var_def,nb_op_def,sh_mem_store_def,
              sh_mem_load_def] >>
          metis_tac[PAIR,FST,SND])>>
-     gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,dec_clock_def,set_var_def] >>
+     gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,dec_clock_def,set_var_def,set_kvar_def,set_global_def] >>
      metis_tac[PAIR,FST,SND])
 QED
 
