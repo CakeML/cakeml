@@ -2373,35 +2373,117 @@ End
 Triviality find_met_inr:
   ∀methods name method.
     find_met name methods = INR method ⇒
-    ∃spec body. method = Method name spec body
+    ∃spec body. method = Method name spec body ∧ MEM method methods
 Proof
   Induct \\ simp [find_met_def]
   \\ Cases \\ simp [find_met_def]
   \\ rpt gen_tac
   \\ IF_CASES_TAC \\ simp []
   \\ strip_tac \\ gvs []
+  \\ last_x_assum drule
+  \\ rpt strip_tac \\ simp []
 QED
 
 Definition dest_met_def[simp]:
   dest_met (Method name spec body) = (name, spec, body)
 End
 
+Definition freevars_list_def:
+  (freevars_list (Let binds body) ⇔
+     (FLAT (MAP freevars_list (MAP SND binds)))
+      ++ (FILTER (λx. ¬MEM x (MAP FST binds)) (freevars_list body))) ∧
+  (freevars_list (Var n) ⇔ [n]) ∧
+  (freevars_list (Lit _) ⇔ []) ∧
+  (freevars_list (If grd thn els) ⇔
+     freevars_list grd ++ freevars_list thn ++ freevars_list els) ∧
+  (freevars_list (UnOp _ e) ⇔ freevars_list e) ∧
+  (freevars_list (BinOp _ e₀ e₁) ⇔
+     (freevars_list e₀) ++ (freevars_list e₁)) ∧
+  (freevars_list (ArrLen arr) ⇔ freevars_list arr) ∧
+  (freevars_list (ArrSel arr idx) ⇔
+     freevars_list arr ++ freevars_list idx) ∧
+  (freevars_list (FunCall _ args) ⇔
+     FLAT (MAP freevars_list args)) ∧
+  (freevars_list (Forall (vn,_) e) ⇔
+     (FILTER (λx. x ≠ vn) (freevars_list e))) ∧
+  (freevars_list (Old e) ⇔ freevars_list e) ∧
+  (freevars_list (ForallHeap mods e) ⇔
+     FLAT (MAP freevars_list mods) ++ freevars_list e)
+Termination
+  wf_rel_tac ‘measure $ exp_size’
+  \\ rpt strip_tac
+  \\ gvs [list_size_pair_size_MAP_FST_SND]
+  \\ rewrite_tac [list_exp_size_snd]
+  \\ drule MEM_list_size
+  \\ disch_then $ qspec_then ‘exp_size’ assume_tac
+  \\ gvs []
+End
+
+Triviality set_freevars_list_eq:
+  (∀e. MEM e xs ⇒ set (freevars_list e) = freevars e) ⇒
+  MAP set (MAP (λe. freevars_list e) xs) = MAP (λe. freevars e) xs
+Proof
+  rpt strip_tac
+  \\ simp [MAP_MAP_o, o_DEF]
+  \\ irule MAP_CONG \\ gvs []
+QED
+
+Theorem freevars_list_eq:
+  ∀e. set (freevars_list e) = freevars e
+Proof
+  ho_match_mp_tac freevars_list_ind
+  \\ rpt strip_tac
+  \\ simp [freevars_list_def, freevars_def]
+  \\ simp [LIST_TO_SET_FLAT]
+  \\ simp [LIST_TO_SET_FILTER]
+  \\ simp [set_freevars_list_eq]
+  \\ SET_TAC []
+QED
+
+(* TODO Move? *)
+Definition list_disjoint_def:
+  list_disjoint xs ys ⇔
+    list_inter xs ys = []
+End
+
+(* TODO Move? *)
+Triviality LIST_TO_SET_DISJOINT:
+  list_disjoint xs ys = DISJOINT (set xs) (set ys)
+Proof
+  simp [list_disjoint_def, list_inter_def, FILTER_EQ_NIL, EVERY_MEM]
+  \\ SET_TAC []
+QED
+
+(* TODO Move? *)
+Definition list_subset:
+  list_subset xs ys ⇔
+    list_inter xs ys = xs
+End
+
+(* TODO Move? *)
+Triviality LIST_TO_SET_SUBSET:
+  list_subset xs ys ⇔ (set xs) ⊆ (set ys)
+Proof
+  simp [list_subset_def, list_inter_def, EVERY_MEM]
+  \\ SET_TAC []
+QED
+
 Definition stmt_vcg_def:
-  stmt_vcg _ Skip post _ _ _ = return post ∧
-  stmt_vcg _ (Assert e) post _ _ _ = return (e::post) ∧
-  stmt_vcg _ (Return) _ ens _ _ = return ens ∧
-  stmt_vcg m (Then s₁ s₂) post ens decs methods =
+  stmt_vcg _ Skip post _ _ = return post ∧
+  stmt_vcg _ (Assert e) post _ _ = return (e::post) ∧
+  stmt_vcg _ (Return) _ ens _ = return ens ∧
+  stmt_vcg m (Then s₁ s₂) post ens decs =
     do
-      pre' <- stmt_vcg m s₂ post ens decs methods;
-      stmt_vcg m s₁ pre' ens decs methods
+      pre' <- stmt_vcg m s₂ post ens decs;
+      stmt_vcg m s₁ pre' ens decs;
     od ∧
-  stmt_vcg m (If grd thn els) post ens decs methods =
+  stmt_vcg m (If grd thn els) post ens decs =
   do
-    pre_thn <- stmt_vcg m thn post ens decs methods;
-    pre_els <- stmt_vcg m els post ens decs methods;
+    pre_thn <- stmt_vcg m thn post ens decs;
+    pre_els <- stmt_vcg m els post ens decs;
     return [IsBool grd; imp grd (conj pre_thn); imp (not grd) (conj pre_els)]
   od ∧
-  stmt_vcg _ (Assign ass) post _ _ _ =
+  stmt_vcg _ (Assign ass) post _ _ =
   do
     (lhss, rhss) <<- UNZIP ass;
     vars <- result_mmap dest_VarLhs lhss;
@@ -2411,12 +2493,10 @@ Definition stmt_vcg_def:
     return ((Let (ZIP (vars, es)) (conj post))
             ::MAP (CanEval ∘ Var) vars)
   od ∧
-  stmt_vcg m (MetCall lhss name args) post ens decs methods =
+  stmt_vcg m (MetCall lhss name args) post ens decs =
   do
-    method <- find_met name methods;
+    method <- find_met name m;
     (name, spec, body) <<- dest_met method;
-    () <- if method ∈ m then return () else
-            (fail «stmt_vcg:MetCall: Could not find method»);
     () <- if LENGTH spec.ins = LENGTH args then return () else
             (fail «stmt_vcg:MetCall: Bad number of arguments»);
     () <- if LENGTH spec.outs = LENGTH lhss then return () else
@@ -2427,19 +2507,19 @@ Definition stmt_vcg_def:
     vars <- result_mmap dest_VarLhs lhss;
     () <- if ALL_DISTINCT vars then return () else
             (fail «stmt_vcg:MetCall: left-hand side names not distinct»);
-    () <- if EVERY (λe. DISJOINT (freevars e) (set vars)) args
+    () <- if EVERY (λe. list_disjoint (freevars_list e) vars) args
           then return ()
           else (fail «stmt_vcg:MetCall: Cannot read and assign a variable in one statement»);
-    () <- if EVERY (λe. freevars e ⊆ set (MAP FST spec.ins) ∧
+    () <- if EVERY (λe. list_subset (freevars_list e) (MAP FST spec.ins) ∧
                         no_Old e) spec.reqs
           then return ()
           else (fail «stmt_vcg:MetCall: Bad requires spec»);
-    () <- if EVERY (λe. freevars e ⊆ set (MAP FST spec.ins) ∧
+    () <- if EVERY (λe. list_subset (freevars_list e) (MAP FST spec.ins) ∧
                         no_Old e) spec.decreases
           then return ()
           else (fail «stmt_vcg:MetCall: Bad decreases spec»);
-    () <- if EVERY (λe. freevars e ⊆ set (MAP FST spec.ins
-                                          ++ MAP FST spec.outs) ∧
+    () <- if EVERY (λe. list_subset (freevars_list e) (MAP FST spec.ins
+                                                   ++ MAP FST spec.outs) ∧
                         no_Old e) spec.ens
           then return ()
           else (fail «stmt_vcg:MetCall: Bad ensures spec»);
@@ -2457,14 +2537,14 @@ Definition stmt_vcg_def:
                              (conj spec.ens))
                         (conj post))])
   od ∧
-  stmt_vcg _ _ _ _ _ _ = fail «stmt_vcg: Unsupported statement»
+  stmt_vcg _ _ _ _ _ = fail «stmt_vcg: Unsupported statement»
 End
 
 Theorem stmt_vcg_correct:
-  ∀m stmt post ens decs methods res.
-    stmt_vcg m stmt (post:exp list) (ens:exp list) decs methods = INR res
+  ∀m stmt post ens decs res.
+    stmt_vcg m stmt (post:exp list) (ens:exp list) decs = INR res
     ⇒
-    stmt_wp m res stmt (post:exp list) (ens:exp list) decs
+    stmt_wp (set m) res stmt (post:exp list) (ens:exp list) decs
 Proof
   ho_match_mp_tac stmt_vcg_ind
   \\ rpt strip_tac
@@ -2500,6 +2580,7 @@ Proof
     \\ drule_then assume_tac result_mmap_dest_VarLhs \\ simp []
     \\ irule $ SRULE [rich_listTheory.APPEND] stmt_wp_MetCall
     \\ simp []
-    \\ last_assum $ irule_at (Pos hd))
+    \\ last_assum $ irule_at (Pos last)
+    \\ gvs [LIST_TO_SET_SUBSET, LIST_TO_SET_DISJOINT, freevars_list_eq])
   \\ gvs [stmt_vcg_def]
 QED
