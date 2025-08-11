@@ -876,6 +876,66 @@ Proof
   gvs[state_rel_def,empty_locals_def,set_var_def]
 QED
 
+Theorem state_rel_set_kvar:
+  (state_rel T ctxt s t ⇒ state_rel ls' ctxt (set_kvar kv rt retv s) (set_kvar kv rt retv t))
+Proof
+  Cases_on ‘kv’ >>
+  rw[] >>
+  gvs[state_rel_def,empty_locals_def,set_var_def,set_kvar_def,set_global_def]
+QED
+
+
+Theorem eval_shape_val_NONE[simp]:
+  (∀sh.
+    eval t (shape_val sh) = NONE ⇔ F) ∧
+  (∀shs.
+     OPT_MMAP (eval t) (shape_vals shs) = NONE ⇔ F)
+Proof
+  Induct >>
+  rw[shape_val_def,eval_def] >>
+  CONV_TAC $ DEPTH_CONV ETA_CONV >>
+  PURE_TOP_CASE_TAC >> gvs[]
+QED
+
+Theorem eval_shape_val_thm:
+  (∀sh v.
+    eval t (shape_val sh) = SOME v ⇒ sh = shape_of v) ∧
+  (∀shs vs.
+     OPT_MMAP (eval t) (shape_vals shs) = SOME vs ⇒ shs = MAP shape_of vs)
+Proof
+  Induct >>
+  rw[shape_val_def,eval_def,shape_of_def] >>
+  PRED_ASSUM (K true) $ assume_tac o CONV_RULE (DEPTH_CONV ETA_CONV) >>
+  gvs[shape_of_def,ETA_THM] >>
+  PURE_FULL_CASE_TAC >> gvs[shape_of_def,ETA_THM]
+QED
+
+Theorem fresh_name_correct:
+  ∀name names.
+    MEM (fresh_name name names) names ⇒ F
+Proof
+  recInduct fresh_name_ind >>
+  rw[] >>
+  simp[Once fresh_name_def] >>
+  rw[]
+QED
+
+Theorem fresh_name_correct':
+  ∀name names names'.
+    MEM (fresh_name name names) names' ⇒ set names' ⊆ set names ⇒ F
+Proof
+  metis_tac[SUBSET_DEF,IN_DEF,fresh_name_correct]
+QED
+
+(* TODO: move *)
+Theorem res_var_FEMPTY[simp]:
+  res_var FEMPTY upd = FEMPTY
+Proof
+  Cases_on ‘upd’ >>
+  rw[fmap_eq_flookup,FLOOKUP_pan_res_var_thm] >>
+  rw[]
+QED
+
 Theorem compile_Call:
   ^(get_goal "compile _ (Call _ _ _)")
 Proof
@@ -890,7 +950,24 @@ Proof
   drule_all_then strip_assume_tac state_rel_lookup_code >>
   gvs[] >>
   IF_CASES_TAC
-  >- (rw[] >> gvs[state_rel_def,good_res_def,empty_locals_def]) >>
+  >- (rw[] >>
+      rpt(PURE_TOP_CASE_TAC >> gvs[state_rel_def,good_res_def,empty_locals_def]) >>
+      gvs[Once evaluate_def,empty_locals_def] >>
+      PURE_TOP_CASE_TAC >>
+      gvs[eval_shape_val_NONE] >>
+      imp_res_tac eval_shape_val_thm >>
+      ntac 3 $ simp[Once evaluate_def] >>
+      drule_at (Pos last) OPT_MMAP_update_locals_not_vars_eval_eq >>
+      qmatch_goalsub_abbrev_tac ‘_.locals |+ (an,aw)’ >>
+      disch_then $ qspecl_then [‘an’,‘aw’] mp_tac >>
+      impl_tac
+      >- (CCONTR_TAC >>
+          gvs[MEM_FLAT,MEM_MAP,Abbr ‘an’] >>
+          drule_then irule fresh_name_correct' >>
+          simp[SUBSET_DEF,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+          metis_tac[]) >>
+      strip_tac >>
+      simp[empty_locals_def]) >>
   gvs[] >>
   PURE_TOP_CASE_TAC >> gvs[] >>
   rename1 ‘option_CASE opt’ >>
@@ -902,15 +979,127 @@ Proof
   strip_tac >>
   rw[] >>
   gvs[AllCaseEqs(),good_res_def,state_rel_empty_locals,PULL_EXISTS,
-      state_rel_change_locals,state_rel_set_var]
-  >- metis_tac[option_nchotomy,PAIR]
-  >- metis_tac[option_nchotomy,PAIR] >>
-  first_x_assum $ qspecl_then [‘ctxt’,‘set_var evar exn (t' with locals := t.locals)’] mp_tac >>
-  impl_keep_tac
-  >- gvs[state_rel_change_locals,state_rel_set_var] >>
-  strip_tac >>
-  simp[] >>
-  gvs[state_rel_def]
+      state_rel_change_locals,state_rel_set_var,state_rel_set_kvar,
+      evaluate_def]
+  >- (rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
+      gvs[Once evaluate_def,state_rel_empty_locals] >>
+      PURE_TOP_CASE_TAC >>
+      gvs[eval_shape_val_NONE] >>
+      imp_res_tac eval_shape_val_thm >>
+      ntac 3 $ simp[Once evaluate_def] >>
+      drule_at (Pos last) OPT_MMAP_update_locals_not_vars_eval_eq >>
+      qmatch_goalsub_abbrev_tac ‘_.locals |+ (an,aw)’ >>
+      disch_then $ qspecl_then [‘an’,‘aw’] mp_tac >>
+      impl_tac
+      >- (CCONTR_TAC >>
+          gvs[MEM_FLAT,MEM_MAP,Abbr ‘an’] >>
+          drule_then irule fresh_name_correct' >>
+          simp[SUBSET_DEF,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+          metis_tac[]) >>
+      strip_tac >>
+      gvs[dec_clock_def] >>
+      simp[empty_locals_def] >>
+      gvs[state_rel_def])
+  >- (PURE_TOP_CASE_TAC >>
+      gvs[evaluate_def,state_rel_set_kvar,state_rel_change_locals] >>
+      PURE_TOP_CASE_TAC
+      >- (gvs[evaluate_def] >>
+          spose_not_then kall_tac >>
+          gvs[is_valid_value_def] >>
+          PURE_FULL_CASE_TAC >>
+          gvs[state_rel_def,dec_clock_def] >>
+          res_tac >>
+          gvs[]) >>
+      simp[] >>
+      PURE_TOP_CASE_TAC >>
+      simp[] >>
+      PURE_TOP_CASE_TAC >>
+      gvs[evaluate_def,state_rel_set_kvar,state_rel_change_locals]
+      >- (reverse IF_CASES_TAC
+          >- (gvs[is_valid_value_def] >>
+              PURE_FULL_CASE_TAC >>
+              gvs[state_rel_def,dec_clock_def] >>
+              res_tac >>
+              gvs[]) >>
+          gvs[eval_def,wordLangTheory.word_op_def,set_var_def,FLOOKUP_UPDATE] >>
+          gvs[is_valid_value_def] >>
+          Cases_on ‘FLOOKUP s.globals rt’ >>
+          gvs[] >>
+          rev_drule evaluate_global_shape_invariant >>
+          simp[dec_clock_def] >>
+          disch_then drule >>
+          strip_tac >>
+          qpat_x_assum ‘state_rel F _ _ _’ $ strip_assume_tac o SIMP_RULE (srw_ss()) [state_rel_def,dec_clock_def] >>
+          res_tac >>
+          drule $ cj 1 mem_load_mem_store >>
+          disch_then $ qspec_then ‘retv’ mp_tac >>
+          impl_tac >- simp[] >>
+          strip_tac >>
+          simp[] >>
+          gvs[] >>
+          simp[state_rel_def,set_kvar_def,set_global_def] >>
+          conj_tac
+          >- (rw[fmap_eq_flookup,FLOOKUP_UPDATE,FLOOKUP_pan_res_var_thm] >> rw[]) >>
+          conj_tac
+          >- (rw[FLOOKUP_UPDATE] >> gvs[]
+              >- (qpat_x_assum ‘shape_of retv = _’ $ assume_tac o GSYM >>
+                  gvs[] >>
+                  irule $ cj 1 mem_stores_mem_load_back >>
+                  simp[] >>
+                  drule mem_stores_bounded_length >>
+                  disch_then drule >>
+                  impl_tac
+                  >- (gvs[state_rel_def] >>
+                      irule byte_aligned_add >>
+                      simp[] >>
+                      rw[byte_aligned_def] >>
+                      irule $ SIMP_RULE (srw_ss()) [] $ Q.SPECL [‘p’,‘0w’] aligned_add_sub_cor >>
+                      simp[aligned_0] >>
+                      gvs[byte_aligned_def]) >>
+                  strip_tac >>
+                  reverse conj_tac >- metis_tac[] >>
+                  gvs[] >>
+                  irule LESS_EQ_LESS_TRANS >>
+                  first_x_assum $ irule_at (Pos last) >>
+                  simp[w2n_lt]) >>
+              res_tac >> simp[] >>
+              drule $ cj 1 mem_stores_load_disjoint >>
+              simp[length_flatten_eq_size_of_shape] >>
+              strip_tac >>
+              irule EQ_TRANS >>
+              first_x_assum $ irule_at $ Pos last >>
+              first_x_assum irule >>
+              gvs[disjoint_globals_def,IS_SOME_EXISTS,PULL_EXISTS] >>
+              res_tac >> fs[]) >>
+          conj_tac
+          >- (rw[] >>
+              gvs[DISJOINT_ALT] >>
+              drule mem_stores_lookup >>
+              simp[length_flatten_eq_size_of_shape]) >>
+          gvs[disjoint_globals_def,FLOOKUP_UPDATE,IS_SOME_EXISTS,PULL_EXISTS] >>
+          rw[] >>
+          res_tac >>
+          fs[]) >>
+      rpt(PURE_TOP_CASE_TAC >> gvs[]) >>
+      cheat)
+  >- (rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
+      gvs[Once evaluate_def,state_rel_empty_locals])
+  >- (first_x_assum $ qspecl_then [‘ctxt’,‘set_var evar exn (t' with locals := t.locals)’] mp_tac >>
+      impl_keep_tac
+      >- gvs[state_rel_change_locals,state_rel_set_var] >>
+      strip_tac >>
+      simp[] >>
+      rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
+      gvs[Once evaluate_def,state_rel_empty_locals] >>
+      ‘t.eshapes = s.eshapes’ by fs[state_rel_def] >>
+      simp[] >>
+      cheat)
+  >- (rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
+      gvs[Once evaluate_def,state_rel_empty_locals] >>
+      cheat) >>
+  rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
+  gvs[Once evaluate_def,state_rel_empty_locals] >>
+  cheat
 QED
 
 Theorem compile_DecCall:
@@ -1186,7 +1375,8 @@ Proof
       PURE_CASE_TAC >> gvs[] >>
       PURE_CASE_TAC >> gvs[] >>
       PURE_CASE_TAC >> gvs[] >>
-      gvs[set_var_def] >>
+      rw[] >>
+      gvs[set_kvar_def,set_var_def,set_global_def] >>
       PURE_CASE_TAC >> gvs[] >>
       PURE_TOP_CASE_TAC >> gvs[] >>
       PURE_TOP_CASE_TAC >> gvs[] >>
@@ -2000,16 +2190,6 @@ Proof
   gvs[state_rel_def]
 QED
 
-Theorem fresh_name_correct:
-  ∀name names.
-    MEM (fresh_name name names) names ⇒ F
-Proof
-  recInduct fresh_name_ind >>
-  rw[] >>
-  simp[Once fresh_name_def] >>
-  rw[]
-QED
-
 Theorem new_main_name_correct:
   MEM (new_main_name code) (MAP FST (functions code)) ⇒ F
 Proof
@@ -2163,6 +2343,13 @@ Proof
   rpt(PURE_TOP_CASE_TAC >> gvs[panPropsTheory.localised_exp_def])
 QED
 
+Theorem localised_exp_shape_val:
+  (∀sh. localised_exp ((shape_val sh):'a panLang$exp)) ∧
+  (∀shs. EVERY localised_exp ((shape_vals shs):'a panLang$exp list))
+Proof
+  Induct >> rw[shape_val_def,localised_exp_def] >> gvs[ETA_THM]
+QED
+
 Theorem compile_localised:
   ∀ctxt body.
     localised_prog (compile ctxt body)
@@ -2171,7 +2358,8 @@ Proof
   rw[panPropsTheory.localised_prog_def,pan_globalsTheory.compile_def,
      compile_exp_localised,EVERY_MEM,MEM_MAP] >>
   rpt(PURE_TOP_CASE_TAC >> gvs[compile_exp_localised,localised_prog_def,localised_exp_def]) >>
-  gvs[AllCaseEqs(),compile_exp_localised]
+  gvs[AllCaseEqs(),compile_exp_localised,EVERY_MEM,MEM_MAP,PULL_EXISTS,
+      localised_exp_shape_val]
 QED
 
 Theorem compile_decs_localised:
