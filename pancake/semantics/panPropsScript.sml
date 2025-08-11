@@ -824,6 +824,50 @@ Proof
   metis_tac[]
 QED
 
+Theorem update_locals_not_vars_eval_eq_NONE:
+  ∀s e v n w.
+  ~MEM n (var_exp e) /\
+  eval s e = NONE ==>
+  eval (s with locals := s.locals |+ (n,w)) e = NONE
+Proof
+  ho_match_mp_tac eval_ind >>
+  rpt conj_tac >> rpt gen_tac
+  >~ [‘Struct’]
+  >- (fs [var_exp_def] >>
+      rpt strip_tac >>
+      gvs[eval_def,AllCaseEqs()] >>
+      ‘OPT_MMAP (λa. eval s a) es = OPT_MMAP (λa. eval (s with locals := s.locals |+ (n,w)) a) es’
+        by(qpat_x_assum ‘OPT_MMAP _ _ = _’ kall_tac >>
+           irule OPT_MMAP_CONG >>
+           rw[] >>
+           gvs[MEM_FLAT,MEM_MAP,SF DNF_ss] >>
+           Cases_on ‘eval s x’ >> gvs[] >>
+           metis_tac[update_locals_not_vars_eval_eq]) >>
+      gvs[]) >>
+  rw[] >>
+  gvs[eval_def,var_exp_def, lookup_kvar_def, FLOOKUP_UPDATE,AllCaseEqs(),PULL_EXISTS] >>
+  imp_res_tac update_locals_not_vars_eval_eq >>
+  gvs[] >>
+  ‘OPT_MMAP (λa. eval s a) es = OPT_MMAP (λa. eval (s with locals := s.locals |+ (n,w)) a) es’
+    by(qpat_x_assum ‘OPT_MMAP _ _ = _’ kall_tac >>
+       irule OPT_MMAP_CONG >>
+       rw[] >>
+       gvs[MEM_FLAT,MEM_MAP,SF DNF_ss] >>
+       Cases_on ‘eval s x’ >> gvs[] >>
+       metis_tac[update_locals_not_vars_eval_eq]) >>
+  gvs[]
+QED
+
+Theorem eval_fresh_var:
+  ∀s e n w.
+  ~MEM n (var_exp e) ⇒
+  eval (s with locals := s.locals |+ (n,w)) e = eval s e
+Proof
+  rpt strip_tac >>
+  Cases_on ‘eval s e’ >>
+  metis_tac[update_locals_not_vars_eval_eq_NONE,update_locals_not_vars_eval_eq]
+QED
+
 Theorem OPT_MMAP_update_locals_not_vars_eval_eq:
   ∀s es vs n w.
   ~MEM n (FLAT(MAP var_exp es)) /\
