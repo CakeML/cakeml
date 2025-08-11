@@ -2429,13 +2429,12 @@ val ret_call_shape_retv_one_tac =
      drule locals_rel_lookup_ctxt >>
      disch_then drule >> strip_tac >> fs [] >>
      rveq >> fs [OPT_MMAP_def] >> rveq >>
-     fs [state_rel_def, panSemTheory.set_var_def,set_var_def,
-         Abbr ‘nctxt’, code_rel_def, ctxt_fc_funcs_eq,ctxt_fc_eids_eq,
-         panSemTheory.set_var_def,set_var_def] >>
+     fs [state_rel_def, panSemTheory.set_var_def,set_var_def,set_kvar_def,
+         Abbr ‘nctxt’, code_rel_def, ctxt_fc_funcs_eq,ctxt_fc_eids_eq] >>
      conj_tac >- (rw[] >> res_tac) >>
      fs [length_flatten_eq_size_of_shape] >>
      rfs [panLangTheory.size_of_shape_def] >>
-     fs [locals_rel_def, panSemTheory.set_var_def,set_var_def] >>
+     fs [locals_rel_def, panSemTheory.set_var_def,set_var_def,set_kvar_def] >>
      rw [] >> rveq >>
      fs [FLOOKUP_UPDATE] >>
      PURE_FULL_CASE_TAC
@@ -2483,7 +2482,7 @@ val ret_call_shape_retv_comb_zero_tac =
      rename1 ‘x'' = Return (Word _)’>>
      cases_on ‘x''’ >> fs [] >> rveq >> fs [] >>
      fs [shape_of_def, panLangTheory.size_of_shape_def,
-         panSemTheory.set_var_def, set_var_def] >>
+         panSemTheory.set_var_def, set_var_def, set_kvar_def] >>
      conj_tac >- fs [state_rel_def] >>
      conj_tac >- (fs [Abbr ‘nctxt’, code_rel_def, ctxt_fc_funcs_eq, ctxt_fc_eids_eq] >>
                   rw[] >> res_tac) >>
@@ -2553,14 +2552,13 @@ val ret_call_shape_retv_comb_one_tac =
       pop_assum (assume_tac o GSYM) >>
       fs [GSYM length_flatten_eq_size_of_shape]) >>
      fs [OPT_MMAP_def] >> rveq >>
-     fs [state_rel_def, panSemTheory.set_var_def,set_var_def,
-         Abbr ‘nctxt’, code_rel_def, ctxt_fc_funcs_eq,ctxt_fc_eids_eq,
-         panSemTheory.set_var_def,set_var_def] >>
+     fs [state_rel_def, panSemTheory.set_var_def,set_var_def, set_kvar_def,
+         Abbr ‘nctxt’, code_rel_def, ctxt_fc_funcs_eq,ctxt_fc_eids_eq] >>
      ‘size_of_shape (shape_of v) = 1’ by fs [] >>
       rveq >> fs [length_flatten_eq_size_of_shape] >>
       rfs [panLangTheory.size_of_shape_def] >>
       fs [OPT_MMAP_def] >> rveq >>
-      fs [locals_rel_def, panSemTheory.set_var_def,set_var_def] >>
+      fs [locals_rel_def, panSemTheory.set_var_def,set_var_def,set_kvar_def] >>
       rw [] >> rveq >>
       fs [FLOOKUP_UPDATE] >>
       rw [] >> res_tac >>
@@ -2610,7 +2608,7 @@ val ret_call_shape_retv_comb_gt_one_tac =
     rename1 ‘x'' = Return (Word _)’>>
     cases_on ‘x''’ >> fs [] >> rveq >> fs [] >>
     fs [shape_of_def, panLangTheory.size_of_shape_def,
-        panSemTheory.set_var_def, set_var_def] >>
+        panSemTheory.set_var_def, set_var_def, set_kvar_def] >>
     ‘1 < size_of_shape (shape_of x)’ by (
       drule locals_rel_lookup_ctxt >>
       disch_then drule >>
@@ -2855,10 +2853,9 @@ val ret_call_excp_handler_tac =
     first_x_assum (qspecl_then [‘tt’, ‘ctxt’] mp_tac) >>
     impl_tac
     >- (
-     fs [Abbr ‘tt’, panSemTheory.set_var_def] >>
-     fs [state_rel_def, panSemTheory.set_var_def,set_var_def,
-         Abbr ‘nctxt’, code_rel_def, ctxt_fc_funcs_eq,ctxt_fc_eids_eq,
-         panSemTheory.set_var_def,set_var_def] >>
+     fs [Abbr ‘tt’, panSemTheory.set_var_def, set_kvar_def] >>
+     fs [state_rel_def, panSemTheory.set_var_def,set_var_def, set_kvar_def,
+         Abbr ‘nctxt’, code_rel_def, ctxt_fc_funcs_eq,ctxt_fc_eids_eq] >>
      conj_tac >- (rw[] >> res_tac) >>
      fs [locals_rel_def] >>
      rw [] >> rveq >>
@@ -2968,8 +2965,7 @@ Proof
               rels_empty_tac) >>
           PairCases_on ‘x’ >>
           fs[] >>
-          PURE_TOP_CASE_TAC >>
-          fs[]
+          PURE_TOP_CASE_TAC
           >- (fs [evaluate_def] >>
               ‘OPT_MMAP (eval t)
                (FLAT (MAP FST (MAP (compile_exp ctxt) argexps))) = SOME (FLAT (MAP flatten args))’ by (
@@ -3039,6 +3035,9 @@ Proof
           TOP_CASE_TAC >> fs [] >> TOP_CASE_TAC >> fs [] >>
           rels_empty_tac) >>
       fs[] >>
+      PURE_TOP_CASE_TAC >>
+      rename1 ‘(xk:varkind,x)’ >>
+      Cases_on ‘xk’ >> fs[] >>
       rename1 ‘is_valid_value s.locals q v’ >>
       cases_on ‘is_valid_value s.locals q v’ >> fs [] >> rveq >>
       fs [is_valid_value_def] >>
@@ -3206,6 +3205,9 @@ Proof
           rw[] >>
           gvs[globals_lookup_def]) >>
       fs[] >>
+      PURE_TOP_CASE_TAC >>
+      rename1 ‘(xk:varkind,x)’ >>
+      Cases_on ‘xk’ >> fs[] >>
       rename1 ‘r' = SOME (_, _, _)’>>cases_on ‘r'’ >>
       fs []
       >- ret_call_excp_reult_handle_none_tac >>

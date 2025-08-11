@@ -980,6 +980,9 @@ Definition localised_prog_def:
    EVERY localised_exp args ∧
    (case hdl of
     | SOME(_,SOME(_,_,p)) => localised_prog p
+    | _ => T) ∧
+   (case hdl of
+    | SOME(SOME(Global,_),_) => F
     | _ => T)) ∧
   (localised_prog (DecCall vn sh fn args p) ⇔
    EVERY localised_exp args ∧ localised_prog p) ∧
