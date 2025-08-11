@@ -250,7 +250,7 @@ Definition free_var_ids_def:
   (free_var_ids (StoreByte e1 e2) = var_exp e1 ++ var_exp e2) ∧
   (free_var_ids (Raise eid e) = var_exp e) ∧
   (free_var_ids (Return e) = var_exp e) ∧
-  (free_var_ids (ExtCall fn e1 e2 e3 e4) = var_exp e1 ++ var_exp e2 ++ var_exp e3 ++ var_exp e3) ∧
+  (free_var_ids (ExtCall fn e1 e2 e3 e4) = var_exp e1 ++ var_exp e2 ++ var_exp e3 ++ var_exp e4) ∧
   (free_var_ids (ShMemLoad os vk v e) =
    if vk = Local then
      v::var_exp e
@@ -268,7 +268,7 @@ Definition free_var_ids_def:
    (if vk = Local then [vn] else []) ++
    FLAT (MAP var_exp args)) ∧
   (free_var_ids (panLang$Call NONE _ args) = FLAT (MAP var_exp args)) ∧
-  (free_var_ids (DecCall vn _ _ _ p) = vn::free_var_ids p) ∧
+  (free_var_ids (DecCall vn _ _ args p) = vn::free_var_ids p ++ FLAT (MAP var_exp args)) ∧
   (free_var_ids _ = [])
 End
 
