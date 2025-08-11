@@ -34,6 +34,9 @@ Functions for in-logic evaluation of the CakeML compiler for ag32.
 [eval_cake_compile_arm8Lib.sml](eval_cake_compile_arm8Lib.sml):
 Functions for in-logic evaluation of the CakeML compiler for arm8.
 
+[eval_cake_compile_wasmLib.sml](eval_cake_compile_wasmLib.sml):
+Functions for in-logic evaluation of the CakeML compiler for wasm.
+
 [eval_cake_compile_x64Lib.sml](eval_cake_compile_x64Lib.sml):
 Functions for in-logic evaluation of the CakeML compiler for x64.
 

@@ -121,6 +121,9 @@ Definition cake_to_wasm_binary_def:
     | INR out => SOME (out : word8 list)
 End
 
+Theorem cake_to_wasm_binary_def[allow_rebind] =
+  cake_to_wasm_binary_def |> SPEC_ALL |> Q.GENL [‘p’,‘c’];
+
 Theorem cake_to_wasm_binary_IMP:
   cake_to_wasm_binary c p = SOME bytes ⇒
   ∃res.

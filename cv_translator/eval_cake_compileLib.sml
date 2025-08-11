@@ -46,7 +46,10 @@ fun write_cv_char_list_to_file filename cv_char_list_tm = let
 
 fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f;
 
-exception EarlyReturn;
+val word8_list_type =
+  byteTheory.word_to_bytes_def |> SPEC_ALL |> concl |> rand |> type_of;
+
+exception EarlyReturn of thm;
 
 fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
   val _ = (cv_memLib.verbosity_level := cv_memLib.Verbose)
@@ -99,10 +102,32 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
     if not run_as_explorer then () else let
       val tm = th1 |> concl |> rhs |> rand |> rand
       val _ = write_cv_char_list_to_file output_filename tm
-      in raise EarlyReturn end
+      in raise (EarlyReturn boolTheory.TRUTH) end
   val _ = report "cv_eval_raw complie_cake_def finished"
   val th2 = th1 |> CONV_RULE (PATH_CONV "r" (REWR_CONV to_option_some))
             handle HOL_ERR _ => failwith "compiler returned NONE"
+  fun abbrev_inside name path th = let
+    val tm = dest_path path (concl th)
+    val def = define_abbrev name tm
+    in (def, CONV_RULE (PATH_CONV path (REWR_CONV (SYM def))) th) end
+  fun new_spec name th =
+    new_specification(prefix ^ "compiled",
+                      [prefix ^ "oracle", prefix ^ name], th)
+  val ty = th2 |> concl |> dest_eq |> snd |> rand |> type_of
+  val _ =
+    (* any backend that directly produces a list of bytes as the entire output *)
+    if ty <> word8_list_type then () else let
+      val tm = th2 |> concl |> rhs |> rand |> rand
+      val _ = write_cv_char_list_to_file output_filename tm
+      val (code_def,th) = abbrev_inside "binary" "rr" th2
+      val result_th = MATCH_MP compile_cake_imp th
+        |> REWRITE_RULE [backendTheory.inc_set_oracle_pull,
+                         backendTheory.inc_config_to_config_config_to_inc_config]
+        |> CONV_RULE (UNBETA_CONV oracle_tm)
+        |> MATCH_MP backend_asmTheory.exists_oracle
+        |> CONV_RULE (PATH_CONV "b" BETA_CONV)
+        |> new_spec "code"
+      in raise (EarlyReturn result_th) end
   val c2n_Num = cvTheory.c2n_def |> cj 1
   val th3 = th2 |> CONV_RULE (PATH_CONV "rr" (REWR_CONV to_pair)
                         THENC PATH_CONV "rrr" (REWR_CONV to_pair)
@@ -115,19 +140,12 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
                         THENC PATH_CONV "rrrrrlr" (REWR_CONV c2n_Num)
                         THENC PATH_CONV "rrrrrrrlr" (REWR_CONV c2n_Num))
   val _ = report "to_pair evaluation finished"
-  fun abbrev_inside name path th = let
-    val tm = dest_path path (concl th)
-    val def = define_abbrev name tm
-    in (def, CONV_RULE (PATH_CONV path (REWR_CONV (SYM def))) th) end
   val (code_def,th) = abbrev_inside "code" "rrlr" th3
   val (data_def,th) = abbrev_inside "data" "rrrrlr" th
   val (ffis_def,th) = abbrev_inside "ffis" "rrrrrrlr" th
   val (syms_def,th) = abbrev_inside "syms" "rrrrrrrrlr" th
   val (conf_def,th) = abbrev_inside "conf" "rrrrrrrrr" th
   val _ = report "abbrevations for result defined"
-  fun new_spec th =
-    new_specification(prefix ^ "compiled",
-                      [prefix ^ "oracle", prefix ^ "info"], th)
   val result_th = MATCH_MP compile_cake_imp th
     |> REWRITE_RULE [backendTheory.inc_set_oracle_pull,
                      backendTheory.inc_config_to_config_config_to_inc_config]
@@ -135,7 +153,7 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
     |> CONV_RULE (UNBETA_CONV oracle_tm)
     |> MATCH_MP backend_asmTheory.exists_oracle
     |> CONV_RULE (PATH_CONV "b" BETA_CONV)
-    |> new_spec
+    |> new_spec "info"
   val _ = report "new_spec run on result"
   (* --- *)
   val e = cv_export_def |> concl |> strip_forall |> snd |> lhs
@@ -174,7 +192,7 @@ fun eval_cake_compile_general (arch : arch_thms) (input : comp_input) = let
   val _ = Theory.delete_binding (prefix ^ "temp_oracle_def")
   val _ = Theory.delete_binding (prefix ^ "syms_def")
   val _ = report "theory tidy up finished"
-  in result_th end handle EarlyReturn => TRUTH;
+  in result_th end handle EarlyReturn res => res;
 
 fun eval_cake_compile_with_conf arch prefix conf_def prog_def filename =
   eval_cake_compile_general arch
@@ -210,6 +228,15 @@ val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
        , conf_def             = #default_config_def x64_arch_thms
        , prog_def             = Define `prog = [] : ast$dec list`
        , run_as_explorer      = true
+       , output_filename      = "test.S"
+       , output_conf_filename = SOME "test_conf.txt" } : comp_input;
+   val _ = (max_print_depth := 15);
+   val arch = wasm_arch_thms;
+   val input =
+       { prefix               = "wasm_"
+       , conf_def             = #default_config_def wasm_arch_thms
+       , prog_def             = Define `prog = [] : ast$dec list`
+       , run_as_explorer      = false
        , output_filename      = "test.S"
        , output_conf_filename = SOME "test_conf.txt" } : comp_input;
 *)
