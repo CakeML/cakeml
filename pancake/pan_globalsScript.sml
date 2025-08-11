@@ -102,7 +102,14 @@ Definition compile_def:
        NONE => Call NONE e cexps
      | SOME (SOME(Global,vn), hdl) =>
          (case FLOOKUP ctxt.globals vn of
-           NONE => Skip (* should never happen *)
+           NONE => (* ...should never happen, but needs to preserve timeouts *)
+             Call (SOME (NONE,
+                         case hdl of
+                         | NONE => NONE
+                         | SOME (eid, evar, p) =>
+                             SOME (eid, evar, compile ctxt p)))
+                  e
+                  cexps
          | SOME (sh,addr) =>
              (case hdl of
                 NONE =>
