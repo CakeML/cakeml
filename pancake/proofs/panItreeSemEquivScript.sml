@@ -4014,7 +4014,7 @@ Proof
           dxrule FUNPOW_Tau_Vis_eq>>strip_tac>>gvs[]>>
           qmatch_asmsub_abbrev_tac ‘(prog,t)’>>
           last_x_assum $ qspec_then ‘n’ assume_tac>>fs[]>>
-          ‘s.ffi = (reclock t).ffi’ by simp[Abbr‘t’]>>
+          ‘s'.ffi = (reclock t).ffi’ by simp[Abbr‘t’]>>
           pop_assum (fn h => rewrite_tac[h])>>
           first_x_assum irule>>gvs[Abbr‘t’]>>metis_tac[])>>
       imp_res_tac strip_tau_spin>>gvs[spin_bind]>>
@@ -4452,7 +4452,7 @@ Proof
           qmatch_asmsub_abbrev_tac ‘(prog,t)’>>
           first_x_assum $ qspecl_then [‘prog’,‘t’,‘g’,‘a’] assume_tac>>
           gvs[]>>
-          ‘t.ffi = s.ffi’ by simp[Abbr‘t’]>>fs[]>>gvs[]>>
+          ‘t.ffi = s'.ffi’ by simp[Abbr‘t’]>>fs[]>>gvs[]>>
           fs[ltree_lift_Vis_alt]>>
           pairarg_tac>>fs[ltree_lift_monad_law]>>
           Cases_on ‘FST a’>>fs[]>>

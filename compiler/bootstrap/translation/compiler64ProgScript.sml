@@ -80,6 +80,10 @@ val res = translate $ spec64 $ panStaticTheory.static_check_progs_def;
 val res = translate $ spec64 $ panStaticTheory.static_check_decls_def;
 val res = translate $ spec64 $ panStaticTheory.static_check_def;
 
+val _ = res |> hyp |> null orelse
+        failwith ("Unproved side condition in the translation of " ^
+                  "panStaticTheory.static_check_def.");
+
 Definition max_heap_limit_64_def:
                                   max_heap_limit_64 c =
 ^(spec64 data_to_wordTheory.max_heap_limit_def

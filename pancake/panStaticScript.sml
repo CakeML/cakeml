@@ -1348,10 +1348,10 @@ Definition static_check_decls_def:
       (* check remaining decls *)
       static_check_decls fctxt (insert gctxt vname <| vshape := shape |>) decls
     od ∧
-  static_check_decls fctxt gctxt (Function fi::funs) =
+  static_check_decls fctxt gctxt (Function fi::decls) =
     do
       (* check for redeclaration *)
-      if member fi.fname fctxt
+      if member fi.name fctxt
         then error (GenErr $ concat
         (* TODO: swap this to `get_redec_msg F <loc> f TopLevel` once function locations exist *)
           [strlit "function "; fi.name; strlit " is redeclared\n"])

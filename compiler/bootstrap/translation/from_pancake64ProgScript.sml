@@ -634,7 +634,7 @@ Definition conv_Exp_alt_def:
         else if tokcheck (Lf v12) (kw TopK) then SOME TopAddr
         else if tokcheck (Lf v12) (kw BiwK) then SOME BytesInWord
         else if tokcheck (Lf v12) (kw TrueK) then SOME $ Const 1w
-                   else if tokcheck (Lf v12) (kw FalseK) then SOME $ Const 0w
+        else if tokcheck (Lf v12) (kw FalseK) then SOME $ Const 0w
         else NONE)) ∧
   (conv_binaryExps_alt trees res =
    (case trees of

@@ -817,14 +817,8 @@ End
 
 Definition localise_topdec_def:
   localise_topdec ls (Decl sh v e) = Decl sh v e ∧
-<<<<<<< HEAD
   localise_topdec ls (Function fi) =
   Function $ fi with body := localise_prog (FOLDL (\m p. insert m p ()) ls (MAP FST fi.params)) fi.body
-=======
-  localise_topdec ls (Function sh f b args body) =
-  Function sh f b args $
-           localise_prog (FOLDL (\m p. insert m p ()) ls (MAP FST args)) body
->>>>>>> 2fcd73030 (Add shape declaration for local variables and function returns to parser & make all shape declarations optional with default One (up to panConcreteExamples))
 End
 
 Definition localise_topdecs_def:
