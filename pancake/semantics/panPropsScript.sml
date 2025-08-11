@@ -824,6 +824,16 @@ Proof
   metis_tac[]
 QED
 
+Theorem OPT_MMAP_update_locals_not_vars_eval_eq:
+  ∀s es vs n w.
+  ~MEM n (FLAT(MAP var_exp es)) /\
+  OPT_MMAP (eval s) es = SOME vs ==>
+  OPT_MMAP (eval (s with locals := s.locals |+ (n,w))) es = SOME vs
+Proof
+  strip_tac >> Induct_on ‘es’ >>
+  rw[update_locals_not_vars_eval_eq]
+QED
+
 Theorem write_bytearray_update_byte:
   ∀bytes ad ad' m adrs be.
     byte_aligned ad ∧
@@ -892,6 +902,36 @@ Proof
          metis_tac[PAIR,FST,SND])>>
      gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,dec_clock_def,set_var_def,set_kvar_def,set_global_def] >>
      metis_tac[PAIR,FST,SND])
+QED
+
+Theorem evaluate_global_shape_invariant:
+  ∀p s res st n v.
+    evaluate(p,s) = (res,st) ∧ FLOOKUP s.globals n = SOME v ⇒
+    ∃v'. FLOOKUP st.globals n = SOME v' ∧ shape_of v' = shape_of v
+Proof
+  recInduct evaluate_ind >> rpt conj_tac
+  >~ [‘While’]
+  >- (rpt gen_tac >>
+      strip_tac >>
+      simp[Once evaluate_def] >>
+      rw[AllCaseEqs(),empty_locals_def,UNCURRY_EQ] >> rw[] >>
+      gvs[dec_clock_def] >>
+      metis_tac[])
+  >~ [‘ShMemLoad’]
+  >- (rw[Once evaluate_def,AllCaseEqs(),UNCURRY_EQ,is_valid_value_def,
+         sh_mem_load_def,oneline set_kvar_def,empty_locals_def,set_var_def,
+         set_global_def,sh_mem_store_def,dec_clock_def] >>
+      rw[] >>
+      PURE_TOP_CASE_TAC >>
+      rw[FLOOKUP_UPDATE] >> gvs[] >>
+      gvs[lookup_kvar_def] >>
+      simp[oneline shape_of_def] >>
+      PURE_TOP_CASE_TAC >> simp[]) >>
+  rw[Once evaluate_def,AllCaseEqs(),UNCURRY_EQ,is_valid_value_def,
+     oneline set_kvar_def,empty_locals_def,set_var_def,
+     sh_mem_store_def,dec_clock_def,set_global_def
+    ] >> rw[FLOOKUP_UPDATE] >> gvs[] >>
+  metis_tac[]
 QED
 
 Definition every_exp_def:
