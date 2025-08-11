@@ -1,7 +1,7 @@
 (*
    Defining the Ramsey number and SAT encoding
 *)
-open preamble miscTheory lprTheory satSemTheory;
+open preamble miscTheory mllistTheory lprTheory satSemTheory;
 
 val _ = new_theory "ramsey";
 
@@ -618,31 +618,31 @@ Proof
   simp[LIST_TO_SET_MAP,satisfies_def,PULL_EXISTS]>>
   `FINITE (count n)` by fs[]>>
   `FINITE t` by metis_tac[ SUBSET_FINITE]>>
-  `PERM (SET_TO_LIST t) (QSORT $<= (SET_TO_LIST t))` by
-        metis_tac[QSORT_PERM]>>
-  `ALL_DISTINCT (QSORT $<= (SET_TO_LIST t))` by
+  `PERM (SET_TO_LIST t) (sort $<= (SET_TO_LIST t))` by
+        metis_tac[sort_PERM]>>
+  `ALL_DISTINCT (sort $<= (SET_TO_LIST t))` by
      (pop_assum (assume_tac o GSYM o MATCH_MP ALL_DISTINCT_PERM)>>
      fs[])>>
   `∃k. LENGTH (SET_TO_LIST t) = k` by fs[]>>
-  `SORTED $< (QSORT $<= (SET_TO_LIST t))` by
-    (`SORTED $<= (QSORT $<= (SET_TO_LIST t))` by
-          (match_mp_tac QSORT_SORTED>>
+  `SORTED $< (sort $<= (SET_TO_LIST t))` by
+    (`SORTED $<= (sort $<= (SET_TO_LIST t))` by
+          (match_mp_tac sort_SORTED>>
           simp[transitive_def,total_def])>>
         match_mp_tac ALL_DISTINCT_SORTED_WEAKEN>>simp[]>>
         qexists_tac`$<=`>>simp[])>>
-  `MEM (QSORT $<= (SET_TO_LIST t)) (choose (COUNT_LIST n) k)` by
-    (qspecl_then [`COUNT_LIST n`,`k`,`QSORT $<= (SET_TO_LIST t)`] mp_tac choose_complete>>
+  `MEM (sort $<= (SET_TO_LIST t)) (choose (COUNT_LIST n) k)` by
+    (qspecl_then [`COUNT_LIST n`,`k`,`sort $<= (SET_TO_LIST t)`] mp_tac choose_complete>>
     simp[]>>impl_tac>-
-      (simp[EVERY_MEM,QSORT_MEM]>>
+      (simp[EVERY_MEM]>>
       fs[SUBSET_DEF,LENGTH_COUNT_LIST])>>
     qmatch_goalsub_abbrev_tac`MEM aa _ ⇒ MEM bb _`>>
     `aa=bb` by
-      (unabbrev_all_tac>>fs[MAP_EQ_ID,QSORT_MEM]>>
+      (unabbrev_all_tac>>fs[MAP_EQ_ID]>>
       rw[]>>
       match_mp_tac EL_COUNT_LIST>>fs[SUBSET_DEF])>>
     simp[])>>
   simp[GSYM EXISTS_OR_THM]>>
-  qexists_tac`QSORT $<= (SET_TO_LIST t)`>>simp[]>>
+  qexists_tac`sort $<= (SET_TO_LIST t)`>>simp[]>>
   drule SET_TO_LIST_CARD >> strip_tac >> fs [] >>
   Cases_on`b`>>fs[]
   >- (
@@ -659,7 +659,7 @@ Proof
     drule clique_edges_SORTED_complete>>
     disch_then drule>>
     strip_tac>>rfs[]>>
-    fs[QSORT_MEM]>>
+    fs[]>>
     rfs[MEM_SET_TO_LIST]>>
     `a ≠ b` by fs[]>>
     metis_tac[])
@@ -677,7 +677,7 @@ Proof
     drule clique_edges_SORTED_complete>>
     disch_then drule>>
     strip_tac>>rfs[]>>
-    fs[QSORT_MEM]>>
+    fs[]>>
     rfs[MEM_SET_TO_LIST]>>
     `a ≠ b` by fs[]>>
     metis_tac[]

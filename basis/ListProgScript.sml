@@ -3,7 +3,7 @@
 *)
 open preamble ml_translatorLib ml_progLib cfLib std_preludeTheory
 open mllistTheory ml_translatorTheory OptionProgTheory
-open basisFunctionsLib
+open basisFunctionsLib mergesortTheory mllistTheory
 
 val _ = new_theory"ListProg"
 
@@ -347,63 +347,58 @@ val _ = translate mllistTheory.list_compare_def;
 
 val _ = ml_prog_update open_local_block;
 
-Definition qsort_part_def:
-  qsort_part ord y [] ys zs = (ys,zs) ∧
-  qsort_part ord y (x::xs) ys zs =
-    if ord x y then qsort_part ord y xs (x::ys) zs
-               else qsort_part ord y xs ys (x::zs)
-End
+val result = translate sort2_tail_def;
+val result = translate sort3_tail_def;
+val result = translate REV_DEF;
+val result = translate merge_tail_def;
+val result = translate DIV2_def;
+val result = translate DROP_def;
+val result = translate_no_ind mergesortN_tail_def;
 
-Triviality qsort_part_length:
-  ∀ord y xs ys zs ys1 zs1.
-    qsort_part ord y xs ys zs = (ys1,zs1) ⇒
-    LENGTH ys1 ≤ LENGTH xs + LENGTH ys ∧
-    LENGTH zs1 ≤ LENGTH xs + LENGTH zs
+Triviality mergesortn_tail_ind:
+  mergesortn_tail_ind (:'a)
 Proof
-  Induct_on ‘xs’
-  \\ fs [qsort_part_def,AllCaseEqs()]
-  \\ rw [] \\ res_tac \\ fs []
+  once_rewrite_tac [fetch "-" "mergesortn_tail_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD, DIV2_def]
 QED
 
-Definition qsort_acc_def:
-  qsort_acc ord [] acc = acc ∧
-  qsort_acc ord (x::xs) acc =
-    let (l1,l2) = qsort_part ord x xs [] [] in
-      qsort_acc ord l1 (x::qsort_acc ord l2 acc)
-Termination
-  WF_REL_TAC ‘measure $ λ(ord,xs,acc). LENGTH xs’ \\ rw []
-  \\ imp_res_tac $ GSYM qsort_part_length \\ fs []
-End
+val result = mergesortn_tail_ind |> update_precondition;
 
-val res = translate qsort_part_def;
-val res = translate qsort_acc_def;
+Triviality mergesortn_tail_side:
+  !w x y z. mergesortn_tail_side w x y z
+Proof
+  completeInduct_on `y`
+  \\ once_rewrite_tac[(fetch "-" "mergesortn_tail_side_def")]
+  \\ rw[DIV2_def]
+     >- (
+        first_x_assum match_mp_tac
+        \\ fs[]
+        \\ qspecl_then [`2`,`SUC x1`] assume_tac dividesTheory.DIV_POS
+        \\ gvs[]
+      )
+     >- (
+        qspecl_then [`SUC x1`, `2`] assume_tac arithmeticTheory.DIV_LESS
+        \\ `0 < SUC x1` by fs[]
+        \\ `SUC x1 DIV 2 < SUC x1` suffices_by rw[]
+        \\ first_x_assum match_mp_tac
+        \\ fs[]
+      )
+QED
+
+val result = mergesortn_tail_side |> update_precondition;
+val result = translate mergesort_tail_def
 
 val _ = ml_prog_update open_local_in_block;
 
-Triviality qsort_part_thm:
-  ∀xs ys zs ord x.
-    qsort_part ord x xs ys zs = PART (λy. ord y x) xs ys zs
-Proof
-  Induct \\ fs [qsort_part_def,sortingTheory.PART_DEF]
-QED
-
-Triviality qsort_acc:
-  ∀ord xs acc. qsort_acc ord xs acc = QSORT ord xs ++ acc
-Proof
-  ho_match_mp_tac qsort_acc_ind \\ rw []
-  \\ simp [Once QSORT_DEF,Once qsort_acc_def]
-  \\ pairarg_tac \\ fs [sortingTheory.PARTITION_DEF]
-  \\ pairarg_tac \\ fs [qsort_part_thm]
-QED
-
-Triviality qsort_acc_thm:
-  QSORT ord xs = qsort_acc ord xs []
-Proof
-  simp [qsort_acc]
-QED
-
 val _ = next_ml_names := ["sort"];
-val res = translate qsort_acc_thm;
+
+val result = translate sort_def;
 
 val _ =  ml_prog_update close_local_blocks;
 val _ =  ml_prog_update (close_module NONE);

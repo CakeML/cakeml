@@ -1,7 +1,7 @@
 (*
   Normalizes pbc into npbc
 *)
-open preamble pbcTheory npbcTheory mlmapTheory mergesortTheory;
+open preamble pbcTheory npbcTheory mllistTheory mlmapTheory;
 
 val _ = new_theory "pbc_normalise";
 
@@ -407,13 +407,13 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Theorem iSUM_mergesort_term_le[simp]:
-  iSUM (MAP (eval_term w) (mergesort $≤ l)) =
+Theorem iSUM_sort_term_le[simp]:
+  iSUM (MAP (eval_term w) (sort $≤ l)) =
   iSUM (MAP (eval_term w) l)
 Proof
   match_mp_tac iSUM_PERM>>
   match_mp_tac PERM_MAP>>
-  metis_tac[mergesort_perm,PERM_SYM]
+  metis_tac[sort_PERM,PERM_SYM]
 QED
 
 Theorem eval_lit_eq_flip:
@@ -510,7 +510,7 @@ QED
 
 Definition pbc_to_npbc_def:
   (pbc_to_npbc (GreaterEqual,lhs,n) =
-    let (lhs',m') = compact_lhs (mergesort term_le lhs) 0 in
+    let (lhs',m') = compact_lhs (sort term_le lhs) 0 in
     let (lhs'',m'') = normalise_lhs lhs' [] 0 in
     let rhs = if n-(m'+m'') ≥ 0 then Num(n-(m'+m'')) else 0 in
     (lhs'',rhs):npbc) ∧
@@ -648,7 +648,7 @@ Proof
   imp_res_tac compact_lhs_no_dup>>
   pop_assum mp_tac>>
   impl_tac>- (
-    match_mp_tac mergesort_sorted>>
+    match_mp_tac sort_SORTED>>
     fs[transitive_term_le]>>
     simp[total_def]>>
     Cases>>Cases>>simp[])>>
@@ -1203,7 +1203,7 @@ QED
 Definition normalise_obj_def:
   (normalise_obj NONE = NONE) ∧
   (normalise_obj (SOME (f,c)) =
-    let (f',c') = compact_lhs (mergesort term_le f) 0 in
+    let (f',c') = compact_lhs (sort term_le f) 0 in
     let (f'', c'') = normalise_lhs f' [] 0 in
     SOME (f'',c + c'+c''))
 End

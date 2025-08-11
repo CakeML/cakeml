@@ -8,7 +8,8 @@ open preamble dataSemTheory dataPropsTheory
      set_sepTheory semanticsPropsTheory
      helperLib alignmentTheory blastLib word_bignumTheory
      wordLangTheory word_bignumProofTheory gen_gc_partialTheory
-     gc_sharedTheory word_gcFunctionsTheory word_depthProofTheory;
+     gc_sharedTheory word_gcFunctionsTheory word_depthProofTheory
+     mllistTheory;
 local open gen_gcTheory in end
 
 val _ = new_theory "data_to_word_bignumProof";
@@ -918,7 +919,7 @@ Proof
   \\ fs [Abbr `t2`,lookup_insert,multiwordTheory.single_div_def]
   \\ impl_tac THEN1 fs [wordSemTheory.MustTerminate_limit_def]
   \\ strip_tac \\ fs [] \\ pop_assum kall_tac
-  \\ fs [wordSemTheory.pop_env_def,EVAL “QSORT R []”,
+  \\ fs [wordSemTheory.pop_env_def,EVAL “sort R []”,
          FLOOKUP_UPDATE,wordSemTheory.set_store_def,wordSemTheory.set_vars_def]
   \\ gvs [alist_insert_def,EVAL “list_rearrange p []”,fromAList_def,
           domain_fromAList_toAList,wordSemTheory.get_store_def,FLOOKUP_SIMP]

@@ -1257,7 +1257,7 @@ Definition inf_env_to_types_string_def:
     let xs = MAP (\(n,_,t). concat [implode n; strlit ": ";
                                     inf_type_to_string s.inf_t t;
                                     strlit "\n";]) l in
-      (* QSORT mlstring_le *) REVERSE xs
+      (* sort mlstring_le *) REVERSE xs
 End
 
 val _ = export_theory ();
