@@ -31,8 +31,9 @@ Overload elseB[local] = “0x05w:byte”
 Overload endB[local]  = “0x0Bw:byte”
 Overload B0[local]    = “λ x. x = zeroB”
 
-Overload error = “λ str obj. (INL (strlit str),obj)”
-(* ": Byte sequence unexpectedly empty." *)
+Overload error[local] = “λ obj str. (INL $ strlit str,obj)”
+Overload emErr[local] = “λ str. (INL $ strlit $ "[" ++ str ++ "] : Byte sequence unexpectedly empty.\n",[])”
+
 
 (*********************************************************)
 (*                                                       *)
@@ -51,8 +52,8 @@ Definition enc_valtype_def:
 End
 
 Definition dec_valtype_def:
-  dec_valtype ([]:byteSeq) : ((mlstring + valtype) # byteSeq) = error "[dec_valtype]" [] ∧
-  dec_valtype (b::bs) = let failure = error "[dec_valtype]" $ b::bs in
+  dec_valtype ([]:byteSeq) : ((mlstring + valtype) # byteSeq) = emErr "dec_valtype" ∧
+  dec_valtype (b::bs) = let failure = error (b::bs) "[dec_valtype]" in
 
   if b = 0x7Fw then (INR $ Tnum   Int W32 ,bs) else
   if b = 0x7Ew then (INR $ Tnum   Int W64 ,bs) else
@@ -68,8 +69,8 @@ Definition enc_globaltype_def:
 End
 
 Definition dec_globaltype_def:
-  dec_globaltype ([]:byteSeq) : ((mlstring + globaltype) # byteSeq) = error "[dec_global]" [] ∧
-  dec_globaltype (b::bs) = let failure = error "[dec_global]" $ b::bs in
+  dec_globaltype ([]:byteSeq) : ((mlstring + globaltype) # byteSeq) = emErr "dec_global" ∧
+  dec_globaltype (b::bs) = let failure = error (b::bs) "[dec_global]" in
 
   if b = 0x00w then case dec_valtype bs of (INR vt, rs) => (INR $ Gconst vt, rs) | _ => failure else
   if b = 0x01w then case dec_valtype bs of (INR vt, rs) => (INR $ Gmut   vt, rs) | _ => failure else
@@ -156,8 +157,8 @@ Definition enc_numI_def:
 End
 
 Definition dec_numI_def:
-  dec_numI ([]:byteSeq) : ((mlstring + num_instr) # byteSeq) = error "[dec_numI]" [] ∧
-  dec_numI (b::bs) = let failure = error "[dec_numI]" $ b::bs in
+  dec_numI ([]:byteSeq) : ((mlstring + num_instr) # byteSeq) = emErr "dec_numI" ∧
+  dec_numI (b::bs) = let failure = error (b::bs) "[dec_numI]" in
 
   if b = 0x45w then (INR $ N_eqz     $   W32                        ,bs) else
   if b = 0x46w then (INR $ N_compare $   Eq Int W32                 ,bs) else
@@ -241,8 +242,8 @@ Definition enc_paraI_def:
 End
 
 Definition dec_paraI_def:
-  dec_paraI ([]:byteSeq) : ((mlstring + para_instr) # byteSeq) = error "[dec_paraI] : Byte sequence unexpectedly empty." [] ∧
-  dec_paraI (b::bs) = let failure = error "[dec_paraI]" $ b::bs in
+  dec_paraI ([]:byteSeq) : ((mlstring + para_instr) # byteSeq) = emErr "dec_paraI" ∧
+  dec_paraI (b::bs) = let failure = error (b::bs) "[dec_paraI]" in
 
   if b = 0x1Aw then (INR Drop  , bs) else
   if b = 0x1Bw then (INR Select, bs) else
@@ -261,8 +262,8 @@ Definition enc_varI_def:
 End
 
 Definition dec_varI_def:
-  dec_varI ([]:byteSeq) : ((mlstring + var_instr) # byteSeq) = error "[dec_varI] : Byte sequence unexpectedly empty." [] ∧
-  dec_varI (b::bs) = let failure = error "[dec_varI]" $ b::bs in
+  dec_varI ([]:byteSeq) : ((mlstring + var_instr) # byteSeq) = emErr "dec_varI" ∧
+  dec_varI (b::bs) = let failure = error (b::bs) "[dec_varI]" in
 
   if b = 0x20w then case dec_unsigned_word bs of NONE=>failure| SOME(x,rs) => (INR $ LocalGet  x,rs) else
   if b = 0x21w then case dec_unsigned_word bs of NONE=>failure| SOME(x,rs) => (INR $ LocalSet  x,rs) else
@@ -292,8 +293,8 @@ Definition enc_loadI_def:
 End
 
 Definition dec_loadI_def:
-  dec_loadI ([]:byteSeq) : ((mlstring + load_instr) # byteSeq) = error "[dec_loadI] : Byte sequence unexpectedly empty." [] ∧
-  dec_loadI (b::bs) = let failure = error "[dec_loadI]" $ b::bs in
+  dec_loadI ([]:byteSeq) : ((mlstring + load_instr) # byteSeq) = emErr "dec_loadI" ∧
+  dec_loadI (b::bs) = let failure = error (b::bs) "[dec_loadI]" in
 
   if b = 0x28w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   Load    Int                  W32 ofs al,rs) else
   if b = 0x29w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   Load    Int                  W64 ofs al,rs) else
@@ -329,8 +330,8 @@ Overload i32x4 = “Is3       I32x4”
 Overload i64x2 = “          I64x2”
 
 Definition dec_storeI_def:
-  dec_storeI ([]:byteSeq) : ((mlstring + store_instr) # byteSeq) = error "[dec_storeI] : Byte sequence unexpectedly empty." [] ∧
-  dec_storeI (b::bs) = let failure = error "[dec_storeI]" $ b::bs in
+  dec_storeI ([]:byteSeq) : ((mlstring + store_instr) # byteSeq) = emErr "dec_storeI" ∧
+  dec_storeI (b::bs) = let failure = error (b::bs) "[dec_storeI]" in
 
   if b = 0x36w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ Store          Int  W32 ofs al,rs) else
   if b = 0x37w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ Store          Int  W64 ofs al,rs) else
@@ -351,8 +352,8 @@ Definition enc_blocktype_def:
 End
 
 Definition dec_blocktype_def:
-  dec_blocktype ([]:byteSeq) : ((mlstring + blocktype) # byteSeq) = error "[dec_blocktype] : Byte sequence unexpectedly empty." [] ∧
-  dec_blocktype bs = let failure = error "[dec_blocktype]" bs in
+  dec_blocktype ([]:byteSeq) : ((mlstring + blocktype) # byteSeq) = emErr "dec_blocktype" ∧
+  dec_blocktype bs = let failure = error bs "[dec_blocktype]" in
 
   case bs of []=>failure| b::rs => if b = 0x40w then (INR   BlkNil  , rs) else
   case dec_valtype bs of (INR t ,rs)            =>   (INR $ BlkVal t, rs) | _ =>
@@ -380,15 +381,15 @@ Definition enc_instr_def:
   | If    bT bThn bEls => 0x04w :: enc_blocktype bT ++ enc_instr_list bThn ++
                    (if NULL bEls then [] else elseB :: enc_instr_list bEls)++ [endB]
 
-  | Br           lbl => 0x0Cw ::                    enc_unsigned_word lbl
-  | BrIf         lbl => 0x0Dw ::                    enc_unsigned_word lbl
-  | BrTable lbls lbl => 0x0Ew :: (* TODO lbls ++ *) enc_unsigned_word lbl
+  | Br           lbl => 0x0Cw ::                    enc_u32 lbl
+  | BrIf         lbl => 0x0Dw ::                    enc_u32 lbl
+  | BrTable lbls lbl => 0x0Ew :: (* TODO lbls ++ *) enc_u32 lbl
 
   | Return                    => [0x0Fw]
-  | Call               f      =>  0x10w :: enc_unsigned_word f
-  | CallIndirect       f fsig =>  0x11w :: enc_fsig fsig ++ enc_unsigned_word f
-  | ReturnCall         f      =>  0x12w :: enc_unsigned_word f
-  | ReturnCallIndirect f fsig =>  0x13w :: enc_fsig fsig ++ enc_unsigned_word f
+  | Call               f      =>  0x10w ::                  enc_u32 f
+  | CallIndirect       f fsig =>  0x11w :: enc_fsig fsig ++ enc_u32 f
+  | ReturnCall         f      =>  0x12w ::                  enc_u32 f
+  | ReturnCallIndirect f fsig =>  0x13w :: enc_fsig fsig ++ enc_u32 f
 
   (* other classes of instructions *)
   | Variable   i => enc_varI   i
@@ -436,7 +437,7 @@ End
 Definition dec_vector_def:
   dec_vector dec bs =
     case dec_u32 bs of
-    | NONE => error "dec_vec" bs
+    | NONE => error bs "dec_vec"
     | SOME (w,cs) => dec_list (w2n w) dec cs
 End
 
@@ -663,52 +664,53 @@ Proof
 QED
 
 Definition dec_instr_def:
-  (dec_instr ([]:byteSeq) : ((mlstring + instr) # byteSeq) = error "[dec_instr] : Byte sequence unexpectedly empty." []) ∧
-  (dec_instr (b::bs) =
-     if b = zeroB then (INR Unreachable, bs) else
-     if b = 0x01w then (INR Nop, bs) else
+  (dec_instr ([]:byteSeq) : ((mlstring + instr) # byteSeq) = emErr "dec_instr") ∧
+  (dec_instr (b::bs) = let failure = error (b::bs) "[dec_instr]" in
+    if b = zeroB then (INR Unreachable, bs) else
+    if b = 0x01w then (INR Nop        , bs) else
+    if b = 0x0Fw then (INR Return     , bs) else
+
      if b = 0x02w then
        (case dec_blocktype bs of (INL err,bs) => (INL err,bs) | (INR bTyp,bs) =>
         case dec_instr_list bs of (INL err,bs) => (INL err,bs) | (INR body,bs) =>
         case bs of
-        | [] => error "[dec_instr] : Byte sequence unexpectedly empty." []
+        | [] => failure
         | (b::bs) =>
           if b = 0x0Bw then
             (INR (Block bTyp body),bs)
           else
-            error "[dec_instr] : Byte sequence unexpectedly empty." []) else
+            failure) else
      if b = 0x03w then
        (case dec_blocktype bs of (INL err,bs) => (INL err,bs) | (INR bTyp,bs) =>
         case dec_instr_list bs of (INL err,bs) => (INL err,bs) | (INR body,bs) =>
         case bs of
-        | [] => error "[dec_instr] : Byte sequence unexpectedly empty." []
+        | [] => failure
         | (b::bs) =>
           if b = 0x0Bw then
             (INR (Loop bTyp body),bs)
           else
-            error "[dec_instr] : Byte sequence unexpectedly empty." []) else
+            failure) else
      if b = 0x04w then
        (case dec_blocktype bs of (INL err,bs) => (INL err,bs) | (INR bTyp,bs) =>
         case check_len bs (dec_instr_list bs) of (INL err,bs) => (INL err,bs) | (INR bodyTh,bs) =>
         case bs of
-        | [] => error "[dec_instr] : Byte sequence unexpectedly empty." []
+        | [] => failure
         | (b::bs) =>
           if b = 0x0Bw then
             (INR (If bTyp bodyTh []),bs)
           else if b ≠ 0x05w then
-            error "[dec_instr] : Byte sequence unexpectedly empty." (b::bs)
+            failure
           else
             case dec_instr_list bs of (INL err,bs) => (INL err,bs) | (INR bodyEl,bs) =>
             case bs of
-            | [] => error "[dec_instr] : Byte sequence unexpectedly empty." []
+            | [] => failure
             | (b::bs) =>
               if b = 0x0Bw then
                 (INR (If bTyp bodyTh bodyEl),bs)
               else
-                error "[dec_instr] : Byte sequence unexpectedly empty." [])
-     else error "TODO not yet supported" (b::bs)) ∧
-  (dec_instr_list ([]:byteSeq) =
-     error "[dec_instr] : Byte sequence unexpectedly empty." []) ∧
+                failure)
+     else error (b::bs) "TODO not yet supported") ∧
+  (dec_instr_list ([]:byteSeq) = emErr "dec_instr_list") ∧
   (dec_instr_list (b::bs) =
      if b = 0x0Bw then (INR [],bs) else
      case check_len (b::bs) (dec_instr (b::bs)) of (INL err,bs) => (INL err,bs) | (INR i,bs) =>
