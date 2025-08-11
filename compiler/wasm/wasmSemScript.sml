@@ -523,7 +523,7 @@ Definition exec_def:
     let np = LENGTH (FST f.type) in
     let nr = LENGTH (SND f.type) in
     case pop_n np s of NONE => (RInvalid,s) | SOME (args,s) =>
-    let init_locals = args (* ++ MAP init_val_of f.types_of_loca FIXMEls *) in
+    let init_locals = args ++ MAP init_val_of (FST f.type) in
     if s.clock = 0 then (RTimeout,s) else
     let s_call = s with <|clock:= s.clock - 1; stack:=[]; locals:=init_locals|> in
     (* real WASM treats the body as wrapped in a Block *)
@@ -581,7 +581,7 @@ Definition exec_def:
     let np = LENGTH (FST f.type) in
     let nr = LENGTH (SND f.type) in
     case pop_n np s of NONE => (RInvalid,s) | SOME (args,s) =>
-    let init_locals = args (* ++ MAP init_val_of f.types_of_locals FIXME *) in
+    let init_locals = args ++ MAP init_val_of (FST f.type) in
     if s.clock = 0 then (RTimeout,s) else
     let s_call = s with <|clock:= s.clock - 1; stack:=[]; locals:=init_locals|> in
     (* real WASM treats the body as wrapped in a Block *)

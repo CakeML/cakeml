@@ -16,11 +16,15 @@ DIRS = $(patsubst bootstrap/,,$(patsubst encoders/,,$(wildcard */)))
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
 
-EXTRA_CLEANS = cake_compile_heap
+EXTRA_CLEANS = cake_compile_heap cake_to_wasm_heap
 
 ifdef POLY
-all: cake_compile_heap
+all: cake_compile_heap cake_to_wasm_heap
 
 cake_compile_heap: eval_cake_compile_x64Lib.uo eval_cake_compile_arm8Lib.uo
 	$(HOLDIR)/bin/buildheap -o $@ $<
+
+cake_to_wasm_heap: eval_cake_compile_wasmLib.uo
+	$(HOLDIR)/bin/buildheap -o $@ $<
+
 endif
