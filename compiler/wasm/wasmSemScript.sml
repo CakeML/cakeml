@@ -48,8 +48,10 @@ End
 
 (* TODO fix *)
 (* Returns the function type for tb *)
-Definition tb_tf_def:
-  tb_tf types BlkNil = oEL ARB types (* fixme *)
+Definition functype_of_blocktype_def:
+   functype_of_blocktype types BlkNil = SOME (([]:valtype list), ([]:valtype list)) ∧
+(* functype_of_blocktype types (BlkIndex i) = oEL (w2n i) types ∧ *)
+   functype_of_blocktype types (BlkVal ty) = SOME ([],[ty])
 End
 
 (* QQ what is T_i32? *)
@@ -463,7 +465,7 @@ Definition exec_def:
     (RNormal, push (if b then val1 else val2) s)
   ) ∧
   (exec ((Block tb bs):instr) s =
-    case tb_tf s.types tb of NONE => (RInvalid,s) | SOME (mts,nts) =>
+    case functype_of_blocktype s.types tb of NONE => (RInvalid,s) | SOME (mts,nts) =>
     let m = LENGTH mts in
     let n = LENGTH nts in
     if LENGTH s.stack < m then (RInvalid,s) else
@@ -481,7 +483,7 @@ Definition exec_def:
     | _ => (res, s)
   ) ∧
   (exec (Loop tb b) s =
-    case tb_tf s.types tb of NONE => (RInvalid,s) | SOME (mts,nts) =>
+    case functype_of_blocktype s.types tb of NONE => (RInvalid,s) | SOME (mts,nts) =>
     let m = LENGTH mts in
     let n = LENGTH nts in
     if LENGTH s.stack < m then (RInvalid,s) else
