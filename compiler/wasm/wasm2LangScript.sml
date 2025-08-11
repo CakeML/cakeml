@@ -520,41 +520,79 @@ Datatype: instr
 End
 
 
+(*************************)
+(*                       *)
+(*     CWasm Modules     *)
+(*                       *)
+(*************************)
+
+(*  Note: CWasm modules are sound wrt to the Wasm
+    spec, but have been simplified. ie, Every CWasm
+    module can be represented as a Wasm module, but
+    the converse may not be true *)
+
+Type expr          = “:instr list”
+Type constant_expr = “:instr list”
+
+Datatype: func =
+  <| name   : string
+   ; type   : functype
+   ; locals : valtype list
+   ; body   : expr
+   |>
+End
+
+Datatype: global =
+  <| type: globaltype
+   ; init: expr
+   |>
+End
+
+Datatype: data =
+  <| data   : index
+   ; offset : constant_expr
+   ; init   : word8 list
+   |>
+End
+
+Datatype: datamode
+  = Dpassive
+  | Dactive index constant_expr
+End
+
+Datatype: data2 =
+  <| init : word8 list
+   ; mode : datamode
+   |>
+End
+
+Datatype: module =
+  <| funcs   : func    list
+   ; mems    : memtype
+   ; globals : global  list
+   ; datas   : data
+   |>
+End
+
+
+
 (*******************)
 (*                 *)
 (*     Modules     *)
 (*                 *)
 (*******************)
 
-Datatype: func =
+Datatype: moduleWasm =
   <|
-    name   : string       ;
-    type   : functype     ;
-    body   : instr list   ;
-    locals : valtype list ;
-  |>
-End
-
-Datatype: moduleCWasm =
-  <|
-  funcs   : func list   ;
-  mems    : mem list    ;
-  globals : globaltype list ;
-  |>
-End
-
-
-Datatype: module =
-  <|
-  funcs   : func list   ;
-  (* tables  : table list  ; *)
-  mems    : mem list    ;
-  globals : globaltype list ;
-  (* elems   : elem list   ; *)
-  (* datas   : data list   ; *)
-  start   : index       ;
-  (* imports : import list ; *)
-  (* exports : export list ; *)
+    funcs   : func    list ;
+    (* tables  : table   list ; *)
+    mems    : memtype list ;
+    globals : global  list ;
+    (* elems   : elem    list ; *)
+    datas   : data    list ;
+    start   : index        ;
+    (* imports : import  list ; *)
+    (* exports : export  list ; *)
   |>
 End
 

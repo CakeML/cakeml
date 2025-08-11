@@ -53,6 +53,10 @@ Type mem = “:word8 list”
 (* Type addrtype = “:width” *)
 Type memtype = “:(width # limits)”
 
+Definition default_memtype_def:
+  default_memtype : memtype = (W32,Lunb 0w)
+End
+
 Datatype: globaltype
   = Gconst valtype
   | Gmut   valtype
@@ -89,7 +93,7 @@ End
 (*   Numerics   *)
 (****************)
 
-Datatype: sign
+Datatype: sign  (* ancillary type *)
   = Signed
   | Unsigned
 End
@@ -260,10 +264,10 @@ Datatype: instr
   | BrTable (index list) index
 
   | Return
-  | ReturnCall         index            (* TODO: tail call *)
-  | ReturnCallIndirect index functype   (* TODO: input/output params, names *)
+  | ReturnCall         index
+  | ReturnCallIndirect index functype
   | Call               index
-  | CallIndirect       index functype   (* TODO: first num is tableid *)
+  | CallIndirect       index functype
 
   | Numeric    num_instr
   | Parametric para_instr
@@ -274,39 +278,67 @@ Datatype: instr
 End
 
 
+
+(*************************)
+(*                       *)
+(*     CWasm Modules     *)
+(*                       *)
+(*************************)
+
+(*  Note: CWasm modules are sound wrt to the Wasm
+    spec, but have been simplified. ie, Every CWasm
+    module can be represented as a Wasm module, but
+    the converse may not be true *)
+
+Type expr          = “:instr list”
+Type constant_expr = “:instr list”
+
+Datatype: func =
+  <| name   : string
+   ; type   : functype
+   ; locals : valtype list
+   ; body   : expr
+   |>
+End
+
+Datatype: global =
+  <| type: globaltype
+   ; init: expr
+   |>
+End
+
+Datatype: data =
+  <| data   : index
+   ; offset : constant_expr
+   ; init   : word8 list
+   |>
+End
+
+Datatype: module =
+  <| funcs   : func    list
+   ; mems    : memtype list
+   ; globals : global  list
+   ; datas   : data    list
+   |>
+End
+
+
+
 (*******************)
 (*                 *)
 (*     Modules     *)
 (*                 *)
 (*******************)
 
-Datatype: func =
+Datatype: moduleWasm =
   <|
-    name   : string       ;
-    type   : functype     ;
-    body   : instr list   ;
-    locals : valtype list ;
+    funcs   : func    list ;
+    mems    : memtype list ;
+    globals : global  list ;
+    datas   : data    list ;
+    start   : index        ;
   |>
 End
-
-Datatype: moduleCWasm =
-  <|
-  funcs   : func list   ;
-  mems    : mem list    ;
-  globals : globaltype list ;
-  |>
-End
-
-Datatype: module =
-  <|
-  funcs   : func list   ;
-  mems    : mem list    ;
-  globals : globaltype list ;
-  start   : index       ;
-  |>
-End
-(*
-*)
 
 val _ = export_theory();
 
