@@ -15,5 +15,5 @@ Definition stack_to_wasm_def:
     INR <| funcs   := []
          ; mems    := []
          ; globals := []
-         ; start   := 0w |> : mlstring + wasmLang$module
+         ; datas   := [] |> : mlstring + wasmLang$module
 End
