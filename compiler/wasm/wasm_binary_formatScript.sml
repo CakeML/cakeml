@@ -441,23 +441,35 @@ Definition dec_vector_def:
     | SOME (w,cs) => dec_list (w2n w) dec cs
 End
 
-(*
-  ∀ dec enc x rs1 items encitems rest.
-Theorem dec_enc_vector:
 
-    (dec (enc x ++ rs1) =  (INR x,rs1)) ⇒
-    (enc_vector enc items = SOME encitems) ⇒
+Definition enc_section_def:
+  enc_section (leadByte:byte) (contents:byteSeq) : byteSeq =
+    leadByte :: enc_u32 (n2w $ LENGTH contents) ++ contents
+End
 
-  (dec_vector dec encitems = (INR items, rest))
-Proof
-  cheat
-QED
+Overload enc_custom   = “enc_section  0w”
+Overload enc_type     = “enc_section  1w”
+Overload enc_import   = “enc_section  2w”
+Overload enc_function = “enc_section  3w”
+Overload enc_table    = “enc_section  4w”
+Overload enc_memory   = “enc_section  5w”
+Overload enc_global   = “enc_section  6w”
+Overload enc_export   = “enc_section  7w”
+Overload enc_start    = “enc_section  8w”
+Overload enc_element  = “enc_section  9w”
+Overload enc_code     = “enc_section 10w”
+Overload enc_data     = “enc_section 11w”
 
-type_of ``enc_vector``
 
-  ∀ (enc:α -> byteSeq) (dec:byteSeq -> (α # byteSeq) option) x xs rs1 rs2.
-  dec_vector dec (enc_vector enc xs ++ rs2) = SOME (xs,rs2)
-*)
+
+
+(* From CWasm (not Wasm!) modules to Wasm binary format *)
+Definition enc_module_def:
+  enc_module (m:module) : byteSeq = ARB
+
+End
+
+
 
 
 
@@ -615,6 +627,22 @@ Proof
   \\
   cheat
 QED
+
+
+(*
+  ∀ dec enc x rs1 items encitems rest.
+Theorem dec_enc_vector:
+
+    (dec (enc x ++ rs1) =  (INR x,rs1)) ⇒
+    (enc_vector enc items = SOME encitems) ⇒
+
+  (dec_vector dec encitems = (INR items, rest))
+Proof
+  cheat
+QED
+
+*)
+
 
 (***************)
 (*             *)
