@@ -499,7 +499,7 @@ Definition evaluate_def:
                     | NONE      => (SOME (Return retv),empty_locals st)
                     | SOME (NONE, _) => (NONE, st with locals := s.locals)
                     | SOME (SOME (rk, rt),  _) =>
-                       if is_valid_value s.locals rt retv
+                       if is_valid_value (if rk = Local then s.locals else s.globals) rt retv
                        then (NONE, set_kvar rk rt retv (st with locals := s.locals))
                        else (SOME Error,st))
               | (SOME (Exception eid exn),st) =>
