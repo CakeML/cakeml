@@ -3187,14 +3187,14 @@ QED
 Triviality heap_store_ThunkBlock:
   (heap_lookup n heap = SOME (ThunkBlock NotEvaluated y)) ⇒
   ∃heap2.
-    heap_store n [ThunkBlock NotEvaluated h] heap = (heap2,T) ∧
+    heap_store n [ThunkBlock ev h] heap = (heap2,T) ∧
     ThunkBlock_inv heap heap2 ∧
-    (heap_lookup n heap2 = SOME (ThunkBlock NotEvaluated h)) ∧
+    (heap_lookup n heap2 = SOME (ThunkBlock ev h)) ∧
     (heap_length heap2 = heap_length heap) ∧
     (FILTER isForwardPointer heap2 = FILTER isForwardPointer heap) ∧
     (∀xs l d.
        MEM (DataElement xs l d) heap2 ⇒
-         (DataElement xs l d = ThunkBlock NotEvaluated h) ∨
+         (DataElement xs l d = ThunkBlock ev h) ∨
          MEM (DataElement xs l d) heap) ∧
     (∀a. isSomeDataElement (heap_lookup a heap2) =
          isSomeDataElement (heap_lookup a heap)) ∧
@@ -3342,7 +3342,7 @@ val data_up_to_alt = prove(
   \\ rw [] \\ eq_tac \\ rw []);
 
 val update_thunk_gen_state_ok = prove(
-  ``heap_store b [ThunkBlock NotEvaluated t1] heap = (heap2,T) ∧ a <= b ∧
+  ``heap_store b [ThunkBlock ev t1] heap = (heap2,T) ∧ a <= b ∧
     gen_state_ok a (a + (sp + sp1)) heap gens ⇒
     gen_state_ok a (a + (sp + sp1)) heap2 gens``,
   Cases_on `gens` \\ fs [gen_state_ok_def]
@@ -3702,9 +3702,9 @@ Theorem update_thunk_thm:
     ?p r roots2 v1 heap2 u.
       (roots = r :: Pointer p u :: roots2) ∧
       (thunk_deref p heap = SOME v1) ∧
-      (heap_store p [ThunkBlock NotEvaluated r] heap = (heap2,T)) ∧
+      (heap_store p [ThunkBlock ev r] heap = (heap2,T)) ∧
       abs_ml_inv conf (h::(RefPtr b ptr)::stack)
-        (insert ptr (Thunk NotEvaluated h) refs)
+        (insert ptr (Thunk ev h) refs)
         (roots,heap2,be,a,sp,sp1,gens) limit ts
 Proof
   simp_tac std_ss [abs_ml_inv_def]
@@ -3723,7 +3723,7 @@ Proof
   \\ `thunk_deref (f ' ptr) heap = SOME [z]` by (
        fs[thunk_deref_def,ThunkBlock_def,FLOOKUP_DEF] )
   \\ imp_res_tac heap_store_ThunkBlock
-  \\ POP_ASSUM (MP_TAC o Q.SPEC `x`)
+  \\ pop_assum $ qspecl_then [`x`, `ev`] mp_tac
   \\ full_simp_tac std_ss [] \\ simp[LENGTH_LUPDATE]
   \\ strip_tac \\ full_simp_tac std_ss []
   \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF]
@@ -3759,14 +3759,14 @@ Proof
     \\ qpat_x_assum `heap_length h1 = _` (assume_tac o GSYM)
     \\ fs[]
     \\ SIMP_TAC std_ss [GSYM APPEND_ASSOC,gen_gc_partialTheory.heap_split_length]
-    \\ fs[isRef_def,ThunkBlock_def])
+    \\ fs[isRef_def,ThunkBlock_def,isMutTag_def])
   \\ strip_tac THEN1
    (full_simp_tac std_ss [unused_space_inv_def] \\ rpt strip_tac
     \\ res_tac \\ Cases_on `a = f ' ptr` \\ full_simp_tac (srw_ss()) []
     THEN1 full_simp_tac (srw_ss()) [ThunkBlock_def]
     \\ imp_res_tac data_up_to_heap_store \\ fs [])
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
-  \\ qexists_tac `DRESTRICT tf (all_ts (insert ptr (Thunk NotEvaluated h) refs)
+  \\ qexists_tac `DRESTRICT tf (all_ts (insert ptr (Thunk ev h) refs)
                                        (h::RefPtr b ptr::stack))`
   \\ full_simp_tac std_ss []
   \\ MP_TAC v_inv_Thunk
@@ -6166,128 +6166,6 @@ Proof
   \\ SEP_W_TAC \\ fs [AC STAR_ASSOC STAR_COMM]
 QED
 
-Theorem memory_rel_UpdateThunk:
-   memory_rel c be ts refs sp st m dm
-     ((h,w)::(RefPtr bl nn,ptr)::vars) /\
-    lookup nn refs = SOME (Thunk NotEvaluated v) /\
-    good_dimindex (:'a) ==>
-    ?ptr_w x:'a word.
-      ptr = Word ptr_w /\
-      get_real_addr c st ptr_w = SOME x /\
-      (x + bytes_in_word) IN dm /\
-      memory_rel c be ts (insert nn (Thunk NotEvaluated h) refs) sp st
-        ((x + bytes_in_word =+ w) m) dm
-        ((h,w)::(RefPtr bl nn,ptr)::vars)
-Proof
-  rewrite_tac [CONJ_ASSOC]
-  \\ once_rewrite_tac [CONJ_COMM]
-  \\ fs [memory_rel_def,PULL_EXISTS] \\ rw []
-  \\ fs [word_ml_inv_def,PULL_EXISTS] \\ clean_tac
-  \\ rpt_drule (update_thunk_thm |> GEN_ALL)
-  \\ fs [LENGTH_EQ_1,PULL_EXISTS]
-  \\ rpt strip_tac \\ fs [] \\ clean_tac
-  \\ rewrite_tac [GSYM CONJ_ASSOC]
-  \\ once_rewrite_tac [METIS_PROVE [] ``b1 /\ b2 /\ b3 <=> b2 /\ b1 /\ b3:bool``]
-  \\ asm_exists_tac \\ fs [word_addr_def]
-  \\ fs [thunk_deref_def] \\ every_case_tac \\ fs [] \\ clean_tac
-  \\ fs [heap_in_memory_store_def]
-  \\ rpt_drule get_real_addr_get_addr \\ fs []
-  \\ disch_then kall_tac
-  \\ `LENGTH l = 1 ∧ n = 1` by
-    (qpat_x_assum `abs_ml_inv _ _ _ _ _ _` kall_tac
-     \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def]
-     \\ clean_tac
-     \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
-     \\ `reachable_refs (h::RefPtr bl nn::MAP FST vars) refs nn` by (
-       fs [reachable_refs_def] \\ qexists_tac `RefPtr bl nn` \\ fs []
-       \\ fs [get_refs_def] \\ NO_TAC) \\ res_tac
-     \\ pop_assum mp_tac
-     \\ simp_tac std_ss [bc_ref_inv_def]
-     \\ fs [FLOOKUP_DEF,ThunkBlock_def]
-     \\ rw [] \\ simp [LENGTH])
-  \\ fs [] \\ fs [get_real_offset_thm]
-  \\ Cases_on `l` \\ gvs []
-  \\ fs [GSYM ThunkBlock_def]
-  \\ imp_res_tac heap_lookup_SPLIT \\ fs [] \\ clean_tac
-  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
-  \\ fs [heap_store_ThunkBlock_thm,LENGTH_LUPDATE] \\ clean_tac
-  \\ fs [heap_length_APPEND]
-  \\ fs [heap_length_def,el_length_def,ThunkBlock_def]
-  \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
-  \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR,SEP_CLAUSES]
-  \\ fs [word_list_def,SEP_CLAUSES]
-  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND,LUPDATE_LENGTH]
-  \\ fs [word_list_def,word_list_APPEND,SEP_CLAUSES,heap_length_def]
-  \\ fs [el_length_def,SUM_APPEND]
-  \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
-  \\ SEP_R_TAC \\ fs []
-  \\ SEP_W_TAC \\ fs [AC STAR_ASSOC STAR_COMM]
-QED
-
-Theorem memory_rel_UpdateThunk':
-   memory_rel c be ts refs sp st m dm
-     ((h,w)::(RefPtr bl nn,ptr)::vars) /\
-    lookup nn refs = SOME (Thunk NotEvaluated v) /\
-    encode_header c hx hy = SOME hdr /\
-    good_dimindex (:'a) ==>
-    ?ptr_w x:'a word.
-      ptr = Word ptr_w /\
-      get_real_addr c st ptr_w = SOME x /\
-      x IN dm /\ (x + bytes_in_word) IN dm /\
-      memory_rel c be ts (insert nn (Thunk Evaluated h) refs) sp st
-        (m =++ [x, Word hdr; x + bytes_in_word,w]) dm
-        ((h,w)::(RefPtr bl nn,ptr)::vars)
-Proof
-  rewrite_tac [CONJ_ASSOC]
-  \\ once_rewrite_tac [CONJ_COMM]
-  \\ fs [memory_rel_def,PULL_EXISTS] \\ rw []
-  \\ fs [word_ml_inv_def,PULL_EXISTS] \\ clean_tac
-  \\ rpt_drule (update_thunk_thm |> GEN_ALL)
-  \\ fs [LENGTH_EQ_1,PULL_EXISTS]
-  \\ rpt strip_tac \\ fs [] \\ clean_tac
-  \\ rewrite_tac [GSYM CONJ_ASSOC]
-  \\ once_rewrite_tac [METIS_PROVE [] ``b1 /\ b2 /\ b3 <=> b2 /\ b1 /\ b3:bool``]
-  \\ `abs_ml_inv c (h::RefPtr bl nn::MAP FST vars)
-          (insert nn (Thunk Evaluated h) refs)
-          (v'::Pointer p u::xs',heap2,be,a,sp',sp1,gens) limit ts` by cheat
-  \\ pop_assum mp_tac \\ pop_assum kall_tac \\ strip_tac
-  \\ asm_exists_tac \\ fs [word_addr_def]
-  \\ fs [thunk_deref_def] \\ every_case_tac \\ fs [] \\ clean_tac
-  \\ fs [heap_in_memory_store_def]
-  \\ rpt_drule get_real_addr_get_addr \\ fs []
-  \\ disch_then kall_tac
-  \\ `LENGTH l = 1 ∧ n = 1` by
-    (qpat_x_assum `abs_ml_inv _ _ _ _ _ _` kall_tac
-     \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def]
-     \\ clean_tac
-     \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
-     \\ `reachable_refs (h::RefPtr bl nn::MAP FST vars) refs nn` by (
-       fs [reachable_refs_def] \\ qexists_tac `RefPtr bl nn` \\ fs []
-       \\ fs [get_refs_def] \\ NO_TAC) \\ res_tac
-     \\ pop_assum mp_tac
-     \\ simp_tac std_ss [bc_ref_inv_def]
-     \\ fs [FLOOKUP_DEF,ThunkBlock_def]
-     \\ rw [] \\ simp [LENGTH])
-  \\ fs [] \\ fs [get_real_offset_thm]
-  \\ Cases_on `l` \\ gvs []
-  \\ fs [GSYM ThunkBlock_def]
-  \\ imp_res_tac heap_lookup_SPLIT \\ fs [] \\ clean_tac
-  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
-  \\ fs [heap_store_ThunkBlock_thm,LENGTH_LUPDATE] \\ clean_tac
-  \\ fs [heap_length_APPEND]
-  \\ fs [heap_length_def,el_length_def,ThunkBlock_def]
-  \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
-  \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR,SEP_CLAUSES]
-  \\ fs [word_list_def,SEP_CLAUSES]
-  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND,LUPDATE_LENGTH]
-  \\ fs [word_list_def,word_list_APPEND,SEP_CLAUSES,heap_length_def]
-  \\ fs [el_length_def,SUM_APPEND]
-  \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
-  \\ SEP_R_TAC \\ fs []
-  \\ SEP_W_TAC \\ fs [AC STAR_ASSOC STAR_COMM]
-  \\ cheat
-QED
-
 Definition store_list_def:
   (store_list a [] (m:'a word -> 'a word_loc) dm = SOME m) /\
   (store_list a (w::ws) m dm =
@@ -6381,6 +6259,139 @@ Proof
   \\ `dimword (:'a) = 2 ** c.len_size * 2 ** (dimindex (:α) − c.len_size)`
         suffices_by fs []
   \\ fs [GSYM EXP_ADD,dimword_def]
+QED
+
+Theorem memory_rel_UpdateThunk_NotEvaluated:
+   memory_rel c be ts refs sp st m dm
+     ((h,w)::(RefPtr bl nn,ptr)::vars) /\
+    lookup nn refs = SOME (Thunk NotEvaluated v) /\
+    good_dimindex (:'a) ==>
+    ?ptr_w x:'a word.
+      ptr = Word ptr_w /\
+      get_real_addr c st ptr_w = SOME x /\
+      (x + bytes_in_word) IN dm /\
+      memory_rel c be ts (insert nn (Thunk NotEvaluated h) refs) sp st
+        ((x + bytes_in_word =+ w) m) dm
+        ((h,w)::(RefPtr bl nn,ptr)::vars)
+Proof
+  rewrite_tac [CONJ_ASSOC]
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ fs [memory_rel_def,PULL_EXISTS] \\ rw []
+  \\ fs [word_ml_inv_def,PULL_EXISTS] \\ clean_tac
+  \\ rpt_drule (update_thunk_thm |> GEN_ALL)
+  \\ disch_then $ qspec_then `NotEvaluated` mp_tac
+  \\ fs [LENGTH_EQ_1,PULL_EXISTS]
+  \\ rpt strip_tac \\ fs [] \\ clean_tac
+  \\ rewrite_tac [GSYM CONJ_ASSOC]
+  \\ once_rewrite_tac [METIS_PROVE [] ``b1 /\ b2 /\ b3 <=> b2 /\ b1 /\ b3:bool``]
+  \\ asm_exists_tac \\ fs [word_addr_def]
+  \\ fs [thunk_deref_def] \\ every_case_tac \\ fs [] \\ clean_tac
+  \\ fs [heap_in_memory_store_def]
+  \\ rpt_drule get_real_addr_get_addr \\ fs []
+  \\ disch_then kall_tac
+  \\ `LENGTH l = 1 ∧ n = 1` by
+    (qpat_x_assum `abs_ml_inv _ _ _ _ _ _` kall_tac
+     \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def]
+     \\ clean_tac
+     \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
+     \\ `reachable_refs (h::RefPtr bl nn::MAP FST vars) refs nn` by (
+       fs [reachable_refs_def] \\ qexists_tac `RefPtr bl nn` \\ fs []
+       \\ fs [get_refs_def] \\ NO_TAC) \\ res_tac
+     \\ pop_assum mp_tac
+     \\ simp_tac std_ss [bc_ref_inv_def]
+     \\ fs [FLOOKUP_DEF,ThunkBlock_def]
+     \\ rw [] \\ simp [LENGTH])
+  \\ fs [] \\ fs [get_real_offset_thm]
+  \\ Cases_on `l` \\ gvs []
+  \\ fs [GSYM ThunkBlock_def]
+  \\ imp_res_tac heap_lookup_SPLIT \\ fs [] \\ clean_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ fs [heap_store_ThunkBlock_thm,LENGTH_LUPDATE] \\ clean_tac
+  \\ fs [heap_length_APPEND]
+  \\ fs [heap_length_def,el_length_def,ThunkBlock_def]
+  \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
+  \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR,SEP_CLAUSES]
+  \\ fs [word_list_def,SEP_CLAUSES]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND,LUPDATE_LENGTH]
+  \\ fs [word_list_def,word_list_APPEND,SEP_CLAUSES,heap_length_def]
+  \\ fs [el_length_def,SUM_APPEND]
+  \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+  \\ SEP_R_TAC \\ fs []
+  \\ SEP_W_TAC \\ fs [AC STAR_ASSOC STAR_COMM]
+QED
+
+Triviality thunk_tag_bits_lemma:
+  (thunk_tag_to_bits Evaluated ≪ 3 ‖ 6w) = 14w:'a word
+Proof
+  simp [thunk_tag_to_bits_def,WORD_MUL_LSL]
+QED
+
+Theorem memory_rel_UpdateThunk_Evaluated:
+   memory_rel c be ts refs sp st m dm
+     ((h,w)::(RefPtr bl nn,ptr)::vars) /\
+    lookup nn refs = SOME (Thunk NotEvaluated v) /\
+    encode_header c (8 + 6) 1 = SOME hdr /\
+    good_dimindex (:'a) ==>
+    ?ptr_w x:'a word.
+      ptr = Word ptr_w /\
+      get_real_addr c st ptr_w = SOME x /\
+      x IN dm /\ (x + bytes_in_word) IN dm /\
+      memory_rel c be ts (insert nn (Thunk Evaluated h) refs) sp st
+        (m =++ [x, Word hdr; x + bytes_in_word,w]) dm
+        ((h,w)::(RefPtr bl nn,ptr)::vars)
+Proof
+  rewrite_tac [CONJ_ASSOC]
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ fs [memory_rel_def,PULL_EXISTS] \\ rw []
+  \\ fs [word_ml_inv_def,PULL_EXISTS] \\ clean_tac
+  \\ rpt_drule (update_thunk_thm |> GEN_ALL)
+  \\ disch_then $ qspec_then `Evaluated` mp_tac \\ simp []
+  \\ fs [LENGTH_EQ_1,PULL_EXISTS]
+  \\ rpt strip_tac \\ fs [] \\ clean_tac
+  \\ rewrite_tac [GSYM CONJ_ASSOC]
+  \\ once_rewrite_tac [METIS_PROVE [] ``b1 /\ b2 /\ b3 <=> b2 /\ b1 /\ b3:bool``]
+  \\ asm_exists_tac \\ fs [word_addr_def]
+  \\ fs [thunk_deref_def, AllCaseEqs()] \\ fs [] \\ clean_tac
+  \\ fs [heap_in_memory_store_def]
+  \\ rpt_drule get_real_addr_get_addr \\ fs []
+  \\ disch_then kall_tac
+  \\ rename1 `SOME (DataElement l1 n1 (ThunkTag NotEvaluated,[]))`
+  \\ `LENGTH l1 = 1 ∧ n1 = 1` by
+    (qpat_x_assum `abs_ml_inv _ _ _ _ _ _` kall_tac
+     \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def]
+     \\ clean_tac
+     \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
+     \\ `reachable_refs (h::RefPtr bl nn::MAP FST vars) refs nn` by (
+       fs [reachable_refs_def] \\ qexists_tac `RefPtr bl nn` \\ fs []
+       \\ fs [get_refs_def] \\ NO_TAC) \\ res_tac
+     \\ pop_assum mp_tac
+     \\ simp_tac std_ss [bc_ref_inv_def]
+     \\ fs [FLOOKUP_DEF,ThunkBlock_def]
+     \\ rw [] \\ simp [LENGTH])
+  \\ fs [] \\ fs [get_real_offset_thm]
+  \\ Cases_on `l1` \\ gvs []
+  \\ fs [GSYM ThunkBlock_def]
+  \\ imp_res_tac heap_lookup_SPLIT \\ fs [] \\ clean_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ fs [heap_store_ThunkBlock_thm,LENGTH_LUPDATE] \\ clean_tac
+  \\ fs [heap_length_APPEND]
+  \\ fs [heap_length_def,el_length_def,ThunkBlock_def]
+  \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def,
+         UPDATE_LIST_def]
+  \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR,SEP_CLAUSES]
+  \\ fs [word_list_def,SEP_CLAUSES]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND,LUPDATE_LENGTH]
+  \\ fs [word_list_def,word_list_APPEND,SEP_CLAUSES,heap_length_def]
+  \\ fs [el_length_def,SUM_APPEND]
+  \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+  \\ SEP_R_TAC \\ fs []
+  \\ conj_tac
+  >- (
+    drule encode_header_IMP \\ gvs []
+    \\ strip_tac
+    \\ gvs [encode_header_def,thunk_tag_bits_lemma])
+  \\ SEP_W_TAC
+  \\ fs [encode_header_def,AC STAR_ASSOC STAR_COMM,thunk_tag_bits_lemma]
 QED
 
 Theorem word_list_exists_thm:

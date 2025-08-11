@@ -5069,7 +5069,7 @@ Proof
   \\ drule0 reorder_2_lemma \\ strip_tac
   \\ reverse $ Cases_on `ev` \\ gvs []
   >- (
-    drule0 (memory_rel_UpdateThunk |> GEN_ALL) \\ fs []
+    drule0 (memory_rel_UpdateThunk_NotEvaluated |> GEN_ALL) \\ fs []
     \\ strip_tac \\ clean_tac
     \\ `word_exp t (real_addr c (adjust_var h)) = SOME (Word x')` by
           metis_tac [get_real_offset_lemma,get_real_addr_lemma]
@@ -5089,8 +5089,7 @@ Proof
           dimword_def, memory_rel_def, heap_in_memory_store_def,
           consume_space_def, arch_size_def]
     \\ rfs[NOT_LESS])
-  \\ drule0 (memory_rel_UpdateThunk' |> GEN_ALL) \\ fs []
-  \\ disch_then drule
+  \\ drule0 (memory_rel_UpdateThunk_Evaluated |> GEN_ALL) \\ fs []
   \\ strip_tac \\ clean_tac
   \\ `word_exp t (real_addr c (adjust_var h)) = SOME (Word x'')` by
         metis_tac [get_real_offset_lemma,get_real_addr_lemma]
