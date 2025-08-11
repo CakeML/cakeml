@@ -1,8 +1,6 @@
-INCLUDES = $(HOLDIR)/examples/machine-code/multiword \
-					$(CAKEMLDIR)/compiler/backend \
-					$(CAKEMLDIR)/compiler/backend/semantics \
-					$(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics $(CAKEMLDIR)/semantics/proofs \
-					$(CAKEMLDIR)/basis/pure
+INCLUDES = .. $(CAKEMLDIR)/compiler/backend \
+              $(CAKEMLDIR)/compiler/backend/semantics \
+              $(CAKEMLDIR)/compiler/backend/proofs
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

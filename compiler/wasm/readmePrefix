@@ -1,2 +1,1 @@
 WebAssembly backend for CakeML
-Defines the Cwasm IR that models Wasm (largely faithfully)

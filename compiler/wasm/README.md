@@ -1,8 +1,7 @@
 WebAssembly backend for CakeML
-Defines the Cwasm IR that models Wasm (largely faithfully)
 
-[cake_to_wasmScript.sml](cake_to_wasmScript.sml):
-A compiler from CakeML source to wasmLang and its binary encoding
+[end-to-end](end-to-end):
+Connect stackLang-to-WASM to rest of CakeML compiler
 
 [leb128Script.sml](leb128Script.sml):
 A foramlisation of LEB128

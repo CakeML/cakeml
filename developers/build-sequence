@@ -110,6 +110,7 @@ pancake/proofs
 
 # compilation to WASM
 compiler/wasm
+compiler/wasm/end-to-end
 
 # dafny compiler
 compiler/dafny
