@@ -3,7 +3,8 @@
 *)
 Theory dafny_wp_calc
 Ancestors
-  integer result_monad dafny_ast dafny_semanticPrimitives dafnyProps
+  integer result_monad topological_sort
+  dafny_ast dafny_semanticPrimitives dafnyProps
   dafny_evaluate dafny_evaluateProps dafny_eval_rel
 Libs
   preamble
@@ -2419,7 +2420,7 @@ Termination
   \\ gvs []
 End
 
-Triviality set_freevars_list_eq:
+Triviality mem_freevars_list_eq:
   (∀e. MEM e xs ⇒ set (freevars_list e) = freevars e) ⇒
   MAP set (MAP (λe. freevars_list e) xs) = MAP (λe. freevars e) xs
 Proof
@@ -2436,7 +2437,7 @@ Proof
   \\ simp [freevars_list_def, freevars_def]
   \\ simp [LIST_TO_SET_FLAT]
   \\ simp [LIST_TO_SET_FILTER]
-  \\ simp [set_freevars_list_eq]
+  \\ simp [mem_freevars_list_eq]
   \\ SET_TAC []
 QED
 
@@ -2455,16 +2456,16 @@ Proof
 QED
 
 (* TODO Move? *)
-Definition list_subset:
+Definition list_subset_def:
   list_subset xs ys ⇔
-    list_inter xs ys = xs
+    EVERY (λx. MEM x ys) xs
 End
 
 (* TODO Move? *)
 Triviality LIST_TO_SET_SUBSET:
   list_subset xs ys ⇔ (set xs) ⊆ (set ys)
 Proof
-  simp [list_subset_def, list_inter_def, EVERY_MEM]
+  simp [list_subset_def, EVERY_MEM]
   \\ SET_TAC []
 QED
 
@@ -2584,3 +2585,208 @@ Proof
     \\ gvs [LIST_TO_SET_SUBSET, LIST_TO_SET_DISJOINT, freevars_list_eq])
   \\ gvs [stmt_vcg_def]
 QED
+
+Definition wrap_Old_list_def:
+  wrap_Old_list vs (Var v) =
+    (if MEM v vs then Old (Var v) else Var v) ∧
+  wrap_Old_list _ (Lit l) = Lit l ∧
+  wrap_Old_list vs (If grd thn els) =
+    If (wrap_Old_list vs grd) (wrap_Old_list vs thn) (wrap_Old_list vs els) ∧
+  wrap_Old_list vs (UnOp uop e) =
+    UnOp uop (wrap_Old_list vs e) ∧
+  wrap_Old_list vs (BinOp bop e₀ e₁) =
+    BinOp bop (wrap_Old_list vs e₀) (wrap_Old_list vs e₁) ∧
+  wrap_Old_list vs (ArrLen arr) =
+    ArrLen (wrap_Old_list vs arr) ∧
+  wrap_Old_list vs (ArrSel arr idx) =
+    ArrSel (wrap_Old_list vs arr) (wrap_Old_list vs idx) ∧
+  wrap_Old_list vs (FunCall name args) =
+    FunCall name (MAP (wrap_Old_list vs) args) ∧
+  wrap_Old_list vs (Forall (vn,vt) term) =
+    Forall (vn,vt) (wrap_Old_list (FILTER (λx. x ≠ vn) vs) term) ∧
+  wrap_Old_list vs (Old e) =
+    Old (wrap_Old_list vs e) ∧
+  wrap_Old_list vs (Let binds body) =
+    Let (MAP (λ(n,e). (n, wrap_Old_list vs e)) binds)
+        ((wrap_Old_list (FILTER (λx. ¬MEM x (MAP FST binds)) vs)) body) ∧
+  wrap_Old_list vs (ForallHeap mods term) =
+    ForallHeap (MAP (wrap_Old_list vs) mods) (wrap_Old_list vs term)
+End
+
+Triviality mem_wrap_Old_list_eq:
+  (∀e. MEM e args ⇒ wrap_Old_list vs e = wrap_Old (set vs) e) ⇒
+  MAP (λa. wrap_Old_list vs a) args = MAP (λa. wrap_Old (set vs) a) args
+Proof
+  rpt strip_tac
+  \\ simp [MAP_MAP_o, o_DEF]
+  \\ irule MAP_CONG \\ gvs []
+QED
+
+Triviality wrap_Old_list_eq_aux:
+  ∀vs e. wrap_Old_list vs e = wrap_Old (set vs) e
+Proof
+  ho_match_mp_tac wrap_Old_list_ind
+  \\ rpt strip_tac
+  >~ [‘Forall’] >-
+   (simp [wrap_Old_list_def, wrap_Old_def]
+    \\ simp [LIST_TO_SET_FILTER]
+    \\ AP_THM_TAC \\ AP_TERM_TAC \\ SET_TAC [])
+  >~ [‘Let’] >-
+   (simp [wrap_Old_list_def, wrap_Old_def]
+    \\ simp [LIST_TO_SET_FILTER]
+    \\ conj_tac
+    >- (irule MAP_CONG \\ simp []
+        \\ qx_gen_tac ‘x’
+        \\ PairCases_on ‘x’ \\ simp []
+        \\ strip_tac \\ last_assum drule \\ simp [])
+    \\ AP_THM_TAC \\ AP_TERM_TAC \\ SET_TAC [])
+  \\ simp [wrap_Old_list_def, wrap_Old_def]
+  \\ simp [mem_wrap_Old_list_eq]
+  \\ simp [LIST_TO_SET_FILTER]
+QED
+
+Theorem wrap_Old_list_eq:
+  ∀vs. wrap_Old_list vs = wrap_Old (set vs)
+Proof
+  simp [FUN_EQ_THM, wrap_Old_list_eq_aux]
+QED
+
+Definition met_vcg_def:
+  met_vcg mets (Method name specs body) =
+  do
+    (* ensures should always refer to the locals as they were at the beginning
+       of a method; in particular, it should ignore any updates/shadowing *)
+    ens <<- (MAP (wrap_Old_list (MAP FST specs.ins)) specs.ens
+                ++ vars_have_types specs.outs);
+    vcs <- stmt_vcg mets body [False] ens (specs.rank, specs.decreases);
+    return (imp (conj specs.reqs) (conj vcs))
+  od
+End
+
+Definition mets_vcg_def:
+  mets_vcg mets = result_mmap (met_vcg mets) mets
+End
+
+(* TODO move to result_monad? *)
+Theorem mem_result_mmap_inr:
+  ∀xs x f ys.
+    MEM x xs ∧ result_mmap f xs = INR ys ⇒ ∃y. f x = INR y ∧ MEM y ys
+Proof
+  Induct \\ gvs []
+  \\ rpt strip_tac
+  \\ gvs [result_mmap_def, oneline bind_def, CaseEq "sum"]
+  \\ last_x_assum drule_all
+  \\ rpt strip_tac \\ gvs []
+QED
+
+Theorem mets_vcg_correct:
+  ∀mets vcs.
+    mets_vcg mets = INR vcs ∧ (EVERY valid vcs) ⇒
+    proved_methods (set mets)
+Proof
+  rpt strip_tac
+  \\ gvs [mets_vcg_def, proved_methods_def]
+  \\ rpt strip_tac
+  \\ drule_all mem_result_mmap_inr
+  \\ strip_tac
+  \\ gvs [met_vcg_def, oneline bind_def, CaseEq "sum"]
+  \\ drule_then assume_tac stmt_vcg_correct \\ gvs []
+  \\ gvs [wrap_Old_list_eq]
+  \\ last_x_assum $ irule_at $ Pos hd
+  \\ gvs [EVERY_MEM]
+QED
+
+(* TODO Perhaps we should use this in the semantics? *)
+Definition get_method_def:
+  get_method name members =
+  case get_member_aux name members of
+  | NONE => fail «get_method: Method not found»
+  | SOME member =>
+    (case member of
+     | Function _ _ _ _ _ _ _ => fail «get_method: Found function instead»
+     | Method _ _ _ _ _ _ _ _ _ => return member)
+End
+
+Definition met_calls_def:
+  met_calls members (MetCall _ name _) =
+  do
+    member <- get_method name members;
+    return [member]
+  od ∧
+  met_calls members (Then s₁ s₂) =
+  do
+    mcs₁ <- met_calls members s₁;
+    mcs₂ <- met_calls members s₂;
+    return (mcs₁ ++ mcs₂)
+  od ∧
+  met_calls members (If _ thn els) =
+  do
+    mcs₁ <- met_calls members thn;
+    mcs₂ <- met_calls members els;
+    return (mcs₁ ++ mcs₂)
+  od ∧
+  met_calls members (Dec _ stmt) = met_calls members stmt ∧
+  met_calls members (While _ _ _ _ body) = met_calls members body ∧
+  met_calls members Skip = return [] ∧
+  met_calls members (Assert _) = return [] ∧
+  met_calls members (Assign _) = return [] ∧
+  met_calls members (Print _ _) = return [] ∧
+  met_calls members Return = return []
+End
+
+Definition dependencies_def:
+  dependencies members member =
+  case member of
+  | (Method _ _ _ _ _ _ _ _ body) =>
+      do
+        deps <- met_calls members body;
+        return (member, deps)
+      od
+  | _ => fail «dependencies: Functions unsupported»
+End
+
+Definition top_sorted_deps_def:
+  top_sorted_deps members =
+  do
+    deps <- result_mmap (dependencies members) members;
+    return $ top_sort_any deps
+  od
+End
+
+Definition to_met_def:
+  to_met rank (Method name ins reqs ens reads decreases outs mods body) =
+  return (Method name
+                 <| ins := ins;
+                    reqs := reqs;
+                    ens := ens;
+                    reads := reads;
+                    decreases := decreases;
+                    outs := outs;
+                    mods := mods;
+                    rank := rank |>
+                 body) ∧
+  to_met _ _ = fail «to_met: Not a method»
+End
+
+Definition to_mets_aux_def:
+  to_mets_aux _ [] = return [] ∧
+  to_mets_aux rank (methods::rest) =
+  do
+    mets <- result_mmap (to_met rank) methods;
+    rest <- to_mets_aux (rank + 1) rest;
+    return $ mets ++ rest
+  od
+End
+
+Definition to_mets_def:
+  to_mets methods = to_mets_aux 0 methods
+End
+
+Definition vcg_def:
+  vcg (Program members) =
+  do
+    top_sorted_methods <- top_sorted_deps members;
+    mets <- to_mets top_sorted_methods;
+    result_mmap (met_vcg mets) mets
+  od
+End
