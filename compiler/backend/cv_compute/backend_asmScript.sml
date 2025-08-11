@@ -303,6 +303,22 @@ Definition from_word_0_def:
           from_word asm_conf c names prog
 End
 
+Definition from_word_0_to_stack_0_def:
+  from_word_0_to_stack_0 (asm_conf :'a asm_config) (c,p,names) =
+    case word_to_word_inlogic asm_conf c.inc_word_to_word_conf p of
+    | NONE => NONE
+    | SOME (col,prog) =>
+        let c = c with inc_word_to_word_conf :=
+                  (c.inc_word_to_word_conf with col_oracle := col) in
+        let (bm,c',fs,p) = word_to_stack$compile asm_conf prog in
+        let c = c with inc_word_conf := c' in
+          SOME
+            (bm, stack_to_lab$stack_to_stack
+              c.inc_stack_conf c.inc_data_conf (2 * max_heap_limit (:'a) c.inc_data_conf - 1)
+              (asm_conf.reg_count - (LENGTH asm_conf.avoid_regs +3))
+              (asm_conf.addr_offset) p, names)
+End
+
 (*----------------------------------------------------------------*
    End-to-end compiler
  *----------------------------------------------------------------*)
@@ -311,6 +327,13 @@ Definition compile_cake_def:
   compile_cake (asm_conf :'a asm_config) (c :inc_config) p =
     if ml_prog$prog_syntax_ok p then
       from_word_0 asm_conf (to_word_0 asm_conf c p)
+    else NONE
+End
+
+Definition compile_cake_to_stack_def:
+  compile_cake_to_stack (asm_conf :'a asm_config) (c :inc_config) p =
+    if ml_prog$prog_syntax_ok p then
+      from_word_0_to_stack_0 asm_conf (to_word_0 asm_conf c p)
     else NONE
 End
 
@@ -519,6 +542,30 @@ Proof
   \\ pairarg_tac \\ gvs []
   \\ drule_all to_word_0_thm
   \\ rw [] \\ gvs []
+QED
+
+(*----------------------------------------------------------------*
+   Correspondence proofs for to_stack version
+ *----------------------------------------------------------------*)
+
+Theorem compile_cake_to_stack_thm:
+  ∀asm_conf:'a asm_config.
+    compile_cake_to_stack asm_conf c p = SOME (bm, p_out, names) ⇒
+    ∃c2.
+      ml_prog$prog_syntax_ok p ∧
+      backend$to_stack_0 (inc_config_to_config asm_conf c) p = (bm,c2,p_out,names)
+Proof
+  rw [compile_cake_to_stack_def]
+  \\ cheat (*
+  \\ ‘∃y. to_word_0 asm_conf c p = y’ by fs []
+  \\ PairCases_on ‘y’ \\ gvs []
+  \\ drule from_word_0_thm \\ strip_tac
+  \\ pop_assum $ irule_at Any
+  \\ last_x_assum kall_tac
+  \\ gvs [backendTheory.compile_oracle_word_0]
+  \\ pairarg_tac \\ gvs []
+  \\ drule_all to_word_0_thm
+  \\ rw [] \\ gvs [] *)
 QED
 
 (*----------------------------------------------------------------*

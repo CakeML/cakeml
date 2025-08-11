@@ -22,7 +22,6 @@ Datatype: value
   | I64 word64
 End
 
-
 Datatype:
   state =
   <|
@@ -50,7 +49,7 @@ End
 (* TODO fix *)
 (* Returns the function type for tb *)
 Definition tb_tf_def:
-  tb_tf types BlkNil = oEL ARB types
+  tb_tf types BlkNil = oEL ARB types (* fixme *)
 End
 
 (* QQ what is T_i32? *)

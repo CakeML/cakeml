@@ -9,12 +9,7 @@ Ancestors
 
 Definition cake_to_wasm_def:
   cake_to_wasm c p =
-    let (bm,c,p,names) = to_stack c p in
-    let p = stack_to_lab$stack_to_stack
-      c.stack_conf c.data_conf (2 * max_heap_limit (:64) c.data_conf - 1)
-      (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3))
-      (c.lab_conf.asm_conf.addr_offset) p
-    in
+    let (bm,c,p,names) = to_stack_0 c p in
       stack_to_wasm names bm p
 End
 

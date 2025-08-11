@@ -3,6 +3,7 @@
 *)
 open preamble cv_transLib cv_stdTheory backend_cvTheory backend_64_cvTheory;
 open backend_wasmTheory wasmLangTheory wasm_configTheory to_data_cvTheory;
+open cake_to_wasmTheory stack_to_wasmTheory wasm_binary_formatTheory;
 
 val _ = new_theory "backend_wasm_cv";
 
@@ -10,9 +11,13 @@ val _ = new_theory "backend_wasm_cv";
   StackLang to WASM compiler
  *---------------------------------------------------------------------------*)
 
+val _ = cv_auto_trans stack_to_wasmTheory.stack_to_wasm_def
+
 (*---------------------------------------------------------------------------*
   WASM to binary format
  *---------------------------------------------------------------------------*)
+
+val _ = cv_auto_trans wasm_binary_formatTheory.enc_wasm_module_def;
 
 (*---------------------------------------------------------------------------*
   Remaining wasm-specific functions
@@ -96,14 +101,42 @@ val _ = cv_auto_trans (backend_wasmTheory.to_word_all_wasm_def
                                    backend_64_cvTheory.inline]);
 
 val _ = cv_auto_trans backend_wasmTheory.to_stack_all_wasm_def;
+val _ = cv_auto_trans backend_wasmTheory.to_lab_all_wasm_def;
+
+val _ = cv_auto_trans (backend_wasmTheory.from_word_0_to_stack_0_wasm_def
+  |> SRULE [backend_64_cvTheory.inline,data_to_wordTheory.max_heap_limit_def]);
+
+val _ = cv_trans compile_cake_to_stack_wasm_def;
+
+Definition cake_to_wasm_binary_def:
+  cake_to_wasm_binary (c:inc_config) p =
+    case compile_cake_to_stack_wasm c p of
+    | NONE => NONE
+    | SOME (bm,p_out,names) =>
+    case stack_to_wasm names bm p_out of
+    | INL err => NONE (* TODO: preserve error messages *)
+    | INR mod =>
+    case enc_wasm_module mod of
+    | INL err => NONE (* TODO: preserve error messages *)
+    | INR out => SOME (out : word8 list)
+End
+
+Theorem cake_to_wasm_binary_IMP:
+  cake_to_wasm_binary c p = SOME bytes ⇒
+  ∃res.
+    cake_to_wasm (inc_config_to_config wasm_config c) p = INR res ∧
+    enc_wasm_module res = INR bytes
+Proof
+  rw [cake_to_wasm_binary_def,AllCaseEqs()]
+  \\ drule compile_cake_to_stack_wasm_thm \\ strip_tac
+  \\ gvs [cake_to_wasm_def]
+QED
 
 (* main translations below *)
 
 val _ = cv_trans backend_wasmTheory.to_livesets_wasm_def;
-(*
-val _ = cv_trans backend_wasmTheory.compile_cake_wasm_def;
+val _ = cv_trans cake_to_wasm_binary_def;
 val _ = cv_auto_trans backend_wasmTheory.compile_cake_explore_wasm_def;
-*)
 
 (* lemma used by automation *)
 

@@ -96,6 +96,12 @@ fun define_target_specific_backend asm_config_def = let
   val th = compile_cake_def |> asm_spec
   val th = ISPEC asm_conf compile_cake_thm |> REWRITE_RULE [th]
   val res = save_thm ("compile_cake_" ^ name ^ "_thm", th)
+  (* cake_to_stack *)
+  val th = from_word_0_to_stack_0_def
+             |> REWRITE_RULE [word_to_stackTheory.compile_def] |> asm_spec
+  val th = compile_cake_to_stack_def |> asm_spec
+  val th = ISPEC asm_conf compile_cake_to_stack_thm |> REWRITE_RULE [th]
+  val res = save_thm ("compile_cake_to_stack_" ^ name ^ "_thm", th)
   (* explorer *)
   val th = backend_passesTheory.word_internal_def |> asm_spec
   val th = to_word_all_def |> asm_spec

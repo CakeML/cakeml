@@ -162,6 +162,16 @@ Definition to_stack_def:
   (bm,c,p,names)
 End
 
+Definition to_stack_0_def:
+  to_stack_0 c p =
+  let (bm,c,p,names) = to_stack c p in
+  let p = stack_to_lab$stack_to_stack
+    c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
+    (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3))
+    (c.lab_conf.asm_conf.addr_offset) p in
+  (bm,c,(p:(num # 'a stackLang$prog) list),names)
+End
+
 Definition to_lab_def:
   to_lab c p =
   let (bm,c,p,names) = to_stack c p in
@@ -238,6 +248,19 @@ Definition from_word_0_def:
   let (col,prog) = word_to_word$compile c.word_to_word_conf c.lab_conf.asm_conf p in
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
   from_word c names prog
+End
+
+Definition from_word_0_to_stack_0_def:
+  from_word_0_to_stack_0 c names p =
+  let (col,prog) = word_to_word$compile c.word_to_word_conf c.lab_conf.asm_conf p in
+  let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
+  let (bm,c',fs,p) = word_to_stack$compile c.lab_conf.asm_conf p in
+  let c = c with word_conf := c' in
+  let p = stack_to_lab$stack_to_stack
+    c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
+    (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3))
+    (c.lab_conf.asm_conf.addr_offset) p in
+  ((bm:'a word list),c,names,p)
 End
 
 Definition from_data_def:

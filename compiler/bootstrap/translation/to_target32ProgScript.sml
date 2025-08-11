@@ -221,7 +221,7 @@ val _ = translate (flatten_def |> spec32)
 
 val _ = translate (stack_to_labTheory.is_Seq_def |> spec32)
 
-val _ = translate (compile_def |> spec32)
+val _ = translate (compile_def |> REWRITE_RULE [stack_to_labTheory.stack_to_stack_def] |> spec32);
 
 val _ = translate (stack_to_labTheory.compile_no_stubs_def |> spec32)
 
