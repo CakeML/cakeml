@@ -19,11 +19,11 @@ val _ = new_theory "wasmLang";
   We attempt to note where our encoding differs from wasm specs.
 *)
 
-(***********************)
-(*                     *)
-(*     Basic Types     *)
-(*                     *)
-(***********************)
+(************************************)
+(*                                  *)
+(*     Basic Types + ancillaries    *)
+(*                                  *)
+(************************************)
 
 Datatype: bvtype (* bit vector type (Does anyone have a better name? *)
   = Int
@@ -34,16 +34,15 @@ Datatype: width
   | W64
 End
 
-Datatype: sign
-  = Signed
-  | Unsigned
-End
+Type index = “:word32”
 
 Datatype: valtype
   = Tnum bvtype width
 End
 
-Type addrtype = “:width”
+Type resulttype = “:valtype list”
+
+Type functype = “:resulttype list # resulttype list”
 
 Datatype: limits
   = Lunb word64
@@ -51,10 +50,14 @@ Datatype: limits
 End
 
 Type mem = “:word8 list”
-Type memtyp = “:(addrtype # limits)”
+(* Type addrtype = “:width” *)
+Type memtype = “:(width # limits)”
 
-Type resulttype = “:valtype list”
-Type functype = “:resulttype list # resulttype list”
+Datatype: globaltype
+  = Gconst valtype
+  | Gmut   valtype
+End
+(* Type global = “:bool # valtype” *)
 
 (* Note on style :
   instructions data constructors have their return types
@@ -76,11 +79,20 @@ Type functype = “:resulttype list # resulttype list”
   i32_trunc_f64_u :=: Trunc_f  W64  Unsigned  W32
 *)
 
-(********************************)
-(*                              *)
-(*     Numeric Instructions     *)
-(*                              *)
-(********************************)
+(************************)
+(*                      *)
+(*     Instructions     *)
+(*                      *)
+(************************)
+
+(****************)
+(*   Numerics   *)
+(****************)
+
+Datatype: sign
+  = Signed
+  | Unsigned
+End
 
 Datatype: unary_op
 
@@ -145,9 +157,10 @@ Datatype: num_instr
   | N_convert convert_op
 End
 
-  (***************************************)
-  (*   Misc vec notations/"types"/tags   *)
-  (***************************************)
+
+(*********************************)
+(*   Vectors - ancillary types   *)
+(*********************************)
 
 Datatype: ishap2
   = I8x16
@@ -165,12 +178,32 @@ Datatype: ishape
 End
 
 
+(*******************)
+(*   Parametrics   *)
+(*******************)
 
-(*******************************)
-(*                             *)
-(*     Memory Instructions     *)
-(*                             *)
-(*******************************)
+Datatype: para_instr
+  = Drop
+  | Select
+End
+
+
+(*****************)
+(*   Variables   *)
+(*****************)
+
+Datatype: var_instr
+  = LocalGet  index
+  | LocalSet  index
+  | LocalTee  index
+  | GlobalGet index
+  | GlobalSet index
+End
+
+
+(**************)
+(*   Memory   *)
+(**************)
 
 (* NB:
   We abuse abstraction by (re)using the ishape (ishap2/ishap3) datatype from vectors
@@ -197,62 +230,20 @@ Datatype: store_instr
   | StoreNarrow32            word32 word32
 End
 
-Type index = “:word32”
 
+(************************************************)
+(*   Control Flows + top level instr Datatype   *)
+(************************************************)
 
-(******************************)
-(*                            *)
-(*     Other instructions     *)
-(*                            *)
-(******************************)
+(*  Note: Since branches (control flow instructions) can contain
+    lists of instrutions, we don't factor CF instructions out of
+    the top level *)
 
-Datatype: para_instr (* parametric *)
-  = Drop
-  | Select
-End
-
-Datatype: var_instr
-  = LocalGet  index
-  | LocalSet  index
-  | LocalTee  index
-  | GlobalGet index
-  | GlobalSet index
-End
-
-
-(*************************************)
-(*                                   *)
-(*     Control Flow Instructions     *)
-(*                                   *)
-(*************************************)
-
-  (******************************)
-  (*   Misc Notations/"types"   *)
-  (******************************)
-
-(* Type t = “:valtype”
-Type functype = “:t list # t list” *)
-(* Datatype: functype
-  =
-  |
-End *)
-
-
-(* QQ these represent block types? *)
-(* Datatype:
-  tb = Tbf num (* | Tbv (t option) *)
-End *)
-
-(* Datatype: ctrlFlow_instr
-  | CtrlFlow  ctrlFlow_instr
-End *)
-
+(* CF ancillaries *)
 Datatype: blocktype
   = BlkNil
   | BlkVal valtype
 End
-
-(* TODO switch out nums in AST to index *)
 
 Datatype: instr
 
@@ -274,44 +265,75 @@ Datatype: instr
   | Call               index
   | CallIndirect       index functype   (* TODO: first num is tableid *)
 
-  | Variable   var_instr
-  | Parametric para_instr
   | Numeric    num_instr
+  | Parametric para_instr
+  | Variable   var_instr
   | MemRead    load_instr
   | MemWrite   store_instr
 
 End
 
-Datatype: global
-  = Gconst valtype
-  | Gmut   valtype
-End
 
-(* we could also do global much more simply *)
-(* Type global = “:bool # valtype” *)
+(*******************)
+(*                 *)
+(*     Modules     *)
+(*                 *)
+(*******************)
 
 Datatype: func =
   <|
-    name       : string     ;
-    type       : functype   ;
-    body       : instr list ;
-    localTypes : valtype list
+    name   : string       ;
+    type   : functype     ;
+    body   : instr list   ;
+    locals : valtype list ;
   |>
 End
 
-(* MM: HOL doesn't have a utf8 library *)
+Datatype: moduleCWasm =
+  <|
+  funcs   : func list   ;
+  mems    : mem list    ;
+  globals : globaltype list ;
+  |>
+End
+
 Datatype: module =
   <|
   funcs   : func list   ;
-  (* tables  : table list  ; *)
   mems    : mem list    ;
-  globals : global list ;
-  (* elems   : elem list   ; *)
-  (* datas   : data list   ; *)
+  globals : globaltype list ;
   start   : index       ;
-  (* imports : import list ; *)
-  (* exports : export list ; *)
   |>
 End
+(*
+*)
 
 val _ = export_theory();
+
+(*
+2.3 Types
+    2.3.1 Number Types
+    2.3.2 Vector Types
+    2.3.3 Reference Types
+    2.3.4 Value Types
+    2.3.5 Result Types
+    2.3.6 Function Types
+    2.3.7 Limits
+    2.3.8 Memory Types
+    2.3.9 Table Types
+    2.3.10 Global Types
+    2.3.11 External Types
+
+2.4 Instructions
+    2.4.1 Numeric Instructions
+    2.4.2 Vector Instructions
+    2.4.3 Reference Instructions
+    2.4.4 Parametric Instructions
+    2.4.5 Variable Instructions
+    2.4.6 Table Instructions
+    2.4.7 Memory Instructions
+    2.4.8 Control Instructions
+    2.4.9 Expressions
+
+2.5 Modules
+*)
