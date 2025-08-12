@@ -475,6 +475,12 @@ End
 
 
 Overload enc_indxs = “enc_vector enc_u32”
+Definition lift_dec_u32_def:
+  lift_dec_u32 bs = case dec_u32 bs of
+    | NONE        => error bs "[dec_indxs] : not a u32/index."
+    | SOME (i,rs) => (INR i,rs)
+End
+Overload dec_indxs = “dec_vector lift_dec_u32”
 
 Definition enc_instr_def:
   (* "Expressions" in Wasm are lists of instructions terminated by
@@ -519,6 +525,113 @@ End
 Overload enc_expr       = “enc_instrs T”
 Overload enc_instr_list = “enc_instrs F”
 
+Theorem dec_valtype_shortens:
+  ∀ b bs t rs. dec_valtype (b::bs) = (INR t,rs) ⇒ bs = rs
+Proof
+  simp[oneline dec_valtype_def, AllCaseEqs()] >> rpt strip_tac
+QED
+
+Theorem dec_blocktype_shortens:
+  ∀ bs t rs. dec_blocktype bs = (t,rs) ⇒ LENGTH rs ≤ LENGTH bs
+Proof
+  Cases_on ‘bs’
+  >- simp[dec_blocktype_def]
+  >- (
+    rpt gen_tac
+    \\ simp[dec_blocktype_def]
+    \\ simp[AllCaseEqs()]
+    \\ rpt strip_tac
+    >> gvs[]
+    \\ drule dec_valtype_shortens
+    \\ simp[]
+  )
+QED
+
+Definition check_len_def:
+  (check_len bs (INR x,rs) = if LENGTH rs < LENGTH bs then (INR x,rs) else (INR x,[])) ∧
+  (check_len bs (INL x,rs) = if LENGTH rs ≤ LENGTH bs then (INL x,rs) else (INL x,bs))
+End
+
+Theorem check_len_IMP:
+    check_len bs xs = (INR x,bs1) ⇒
+  (LENGTH bs1 ≤ LENGTH bs) ∧
+  (bs ≠ [] ⇒ LENGTH bs1 < LENGTH bs)
+Proof
+  PairCases_on ‘xs’
+  \\ rw [check_len_def]
+  >> Cases_on ‘xs0’
+  >> gvs [check_len_def,AllCaseEqs()]
+  >- (
+    fs [] \\ Cases_on ‘bs’ \\ fs []
+  )
+QED
+
+Definition dec_instr_def:
+  (dec_instr ([]:byteSeq) : ((mlstring + instr) # byteSeq) = emErr "dec_instr") ∧
+  (dec_instr (b::bs) = let failure = error (b::bs) "[dec_instr]" in
+    if b = zeroB then (INR Unreachable, bs) else
+    if b = 0x01w then (INR Nop        , bs) else
+    if b = 0x0Fw then (INR Return     , bs) else
+
+    if b = 0x0Cw then case dec_u32 bs of NONE=>failure|SOME (lbl,rs) => (INR $ Br   lbl,rs) else
+    if b = 0x0Dw then case dec_u32 bs of NONE=>failure|SOME (lbl,rs) => (INR $ BrIf lbl,rs) else
+
+    if b= 0x0Ew then (* BrTable *)
+     (case dec_indxs bs of (INL _,_) => failure | (INR  lbls,cs) =>
+      case dec_u32   cs of      NONE => failure | SOME (lbl ,rs) =>
+      (INR $ BrTable lbls lbl, rs)                           ) else
+
+
+    if b = 0x02w then (* Block *)
+     (case dec_blocktype  bs of (INL err,bs) => (INL err,bs) | (INR bTyp,bs) =>
+      case dec_instr_list bs of (INL err,bs) => (INL err,bs) | (INR body,bs) =>
+      case bs                of           [] => failure      | (b::bs)       =>
+      if b = 0x0Bw then (INR (Block bTyp body),bs) else failure          ) else
+
+    if b = 0x03w then (* Loop *)
+     (case dec_blocktype bs  of (INL err,bs) => (INL err,bs) | (INR bTyp,bs) =>
+      case dec_instr_list bs of (INL err,bs) => (INL err,bs) | (INR body,bs) =>
+      case bs                of           [] => failure      | (b::bs)       =>
+      if b = 0x0Bw then (INR (Loop bTyp body),bs) else failure           ) else
+
+    if b = 0x04w then (* If *)
+     (case dec_blocktype bs                 of (INL err,bs) => (INL err,bs) | (INR bTyp,bs) =>
+      case check_len bs (dec_instr_list bs) of (INL err,bs) => (INL err,bs) | (INR bdT ,bs) =>
+      case bs                               of           [] => failure      | (b::bs)       =>
+      if b = 0x0Bw then (INR (If bTyp bdT []),bs) else
+
+      if b ≠ 0x05w then failure else
+      case dec_instr_list bs of (INL err,bs) => (INL err,bs) | (INR bdE,bs) =>
+      case bs                of           [] => failure      | (b::bs)      =>
+      if b = 0x0Bw then (INR (If bTyp bdT bdE),bs) else failure         ) else
+
+    if b= 0x10w then case dec_u32 bs of NONE=>failure|SOME (f,rs) => (INR $ Call       f,rs) else
+    if b= 0x12w then case dec_u32 bs of NONE=>failure|SOME (f,rs) => (INR $ ReturnCall f,rs) else
+
+  error (b::bs) "TODO not yet supported") ∧
+(*  CallIndirect
+    ReturnCallIndirect
+  (* other classes of instructions *)
+  | Variable   i => SOME $ enc_varI   i
+  | Parametric i => SOME $ enc_paraI  i
+  | Numeric    i => SOME $ enc_numI   i
+  | MemRead    i => SOME $ enc_loadI  i
+  | MemWrite   i => SOME $ enc_storeI i *)
+
+
+  (dec_instr_list ([]:byteSeq) = emErr "dec_instr_list") ∧
+  (dec_instr_list (b::bs) =
+     if b = 0x0Bw then (INR [],bs) else
+     case check_len (b::bs) (dec_instr (b::bs)) of (INL err,bs) => (INL err,bs) | (INR i ,bs) =>
+     case dec_instr_list bs                     of (INL err,bs) => (INL err,bs) | (INR is,bs) =>
+     (INR (i::is),bs))
+Termination
+  WF_REL_TAC ‘measure $ λx. case x of
+                            | INL bs => 2 * LENGTH bs
+                            | INR bs => 2 * LENGTH bs + 1’
+  \\ rw [] \\ imp_res_tac dec_blocktype_shortens \\ fs []
+  \\ imp_res_tac check_len_IMP \\ fs []
+End
 
 
 (********************)
@@ -684,7 +797,7 @@ Proof
 QED
 
 (* ASKMM ASKYK *)
-Theorem dec_enc_functype_def:
+Theorem dec_enc_functype:
     ∀ sg encsg. enc_functype sg = SOME encsg ⇒
   ∀ rest. dec_functype (encsg ++ rest) = (INR sg, rest)
 Proof
@@ -694,6 +807,13 @@ Proof
   \\ gvs[dec_functype_def, dec_vector_def]
   \\
 
+  cheat
+QED
+
+Theorem dec_enc_limits:
+  ∀ lim rest. dec_limits (enc_limits lim ++ rest) = (INR lim, rest)
+Proof
+  (* TODO *)
   cheat
 QED
 
@@ -823,38 +943,6 @@ QED
 (*             *)
 (***************)
 
-Theorem dec_blocktype_len:
-  ∀ bs t rst. dec_blocktype bs = (t,rst) ⇒ LENGTH rst ≤ LENGTH bs
-Proof
-  Cases_on ‘bs’
-  >- simp[dec_blocktype_def]
-  >- (
-    rpt gen_tac
-    \\ simp[dec_blocktype_def]
-    \\ simp[AllCaseEqs()]
-    \\ rpt strip_tac
-    >> gvs[]
-    >- cheat
-  )
-QED
-
-Definition check_len_def:
-  (check_len bs (INR x,bs1) =
-    if LENGTH bs1 < LENGTH bs then (INR x,bs1) else (INR x,[])) ∧
-  (check_len bs (INL x,bs1) =
-    if LENGTH bs1 ≤ LENGTH bs then (INL x,bs1) else (INL x,bs))
-End
-
-Theorem check_len_IMP:
-  check_len bs xs = (INR x,bs1) ⇒
-  (LENGTH bs1 ≤ LENGTH bs) ∧
-  (bs ≠ [] ⇒ LENGTH bs1 < LENGTH bs)
-Proof
-  PairCases_on ‘xs’ \\ rw [check_len_def]
-  \\ Cases_on ‘xs0’ \\ gvs [check_len_def,AllCaseEqs()]
-  \\ fs [] \\ Cases_on ‘bs’ \\ fs []
-QED
-
 Theorem check_len_IMP_INL:
   check_len bs xs = (INL x,bs1) ⇒
   (LENGTH bs1 ≤ LENGTH bs)
@@ -862,67 +950,6 @@ Proof
   PairCases_on ‘xs’ \\ rw [check_len_def]
   \\ Cases_on ‘xs0’ \\ gvs [check_len_def,AllCaseEqs()]
 QED
-
-Definition dec_instr_def:
-  (dec_instr ([]:byteSeq) : ((mlstring + instr) # byteSeq) = emErr "dec_instr") ∧
-  (dec_instr (b::bs) = let failure = error (b::bs) "[dec_instr]" in
-    if b = zeroB then (INR Unreachable, bs) else
-    if b = 0x01w then (INR Nop        , bs) else
-    if b = 0x0Fw then (INR Return     , bs) else
-
-     if b = 0x02w then
-       (case dec_blocktype bs of (INL err,bs) => (INL err,bs) | (INR bTyp,bs) =>
-        case dec_instr_list bs of (INL err,bs) => (INL err,bs) | (INR body,bs) =>
-        case bs of
-        | [] => failure
-        | (b::bs) =>
-          if b = 0x0Bw then
-            (INR (Block bTyp body),bs)
-          else
-            failure) else
-     if b = 0x03w then
-       (case dec_blocktype bs of (INL err,bs) => (INL err,bs) | (INR bTyp,bs) =>
-        case dec_instr_list bs of (INL err,bs) => (INL err,bs) | (INR body,bs) =>
-        case bs of
-        | [] => failure
-        | (b::bs) =>
-          if b = 0x0Bw then
-            (INR (Loop bTyp body),bs)
-          else
-            failure) else
-     if b = 0x04w then
-       (case dec_blocktype bs of (INL err,bs) => (INL err,bs) | (INR bTyp,bs) =>
-        case check_len bs (dec_instr_list bs) of (INL err,bs) => (INL err,bs) | (INR bodyTh,bs) =>
-        case bs of
-        | [] => failure
-        | (b::bs) =>
-          if b = 0x0Bw then
-            (INR (If bTyp bodyTh []),bs)
-          else if b ≠ 0x05w then
-            failure
-          else
-            case dec_instr_list bs of (INL err,bs) => (INL err,bs) | (INR bodyEl,bs) =>
-            case bs of
-            | [] => failure
-            | (b::bs) =>
-              if b = 0x0Bw then
-                (INR (If bTyp bodyTh bodyEl),bs)
-              else
-                failure)
-     else error (b::bs) "TODO not yet supported") ∧
-  (dec_instr_list ([]:byteSeq) = emErr "dec_instr_list") ∧
-  (dec_instr_list (b::bs) =
-     if b = 0x0Bw then (INR [],bs) else
-     case check_len (b::bs) (dec_instr (b::bs)) of (INL err,bs) => (INL err,bs) | (INR i,bs) =>
-     case dec_instr_list bs of (INL err,bs) => (INL err,bs) | (INR is,bs) =>
-       (INR (i::is),bs))
-Termination
-  WF_REL_TAC ‘measure $ λx. case x of
-                            | INL bs => 2 * LENGTH bs
-                            | INR bs => 2 * LENGTH bs + 1’
-  \\ rw [] \\ imp_res_tac dec_blocktype_len \\ fs []
-  \\ imp_res_tac check_len_IMP \\ fs []
-End
 
 Triviality check_len_INR:
   check_len bs0 y = (INR x,bs1) ⇒ ∃y1 y2. y = (INR y1,y2)
@@ -936,6 +963,21 @@ Proof
   gvs [oneline check_len_def, AllCaseEqs()] \\ rw [] \\ fs []
 QED
 
+Theorem dec_u32_shortens:
+  ∀ bs x rs. dec_u32 bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
+Proof
+  Cases
+  >- gvs[dec_unsigned_word_def, dec_num_def]
+  >- 
+  cheat
+QED
+
+Theorem dec_indxs_shortens:
+  ∀ bs xs rs. dec_indxs bs = (INR xs, rs) ⇒ LENGTH rs < LENGTH bs
+Proof
+  cheat
+QED
+
 Theorem dec_instr_length:
   (∀bs x bs1. dec_instr bs = (INR x,bs1) ⇒ LENGTH bs1 < LENGTH bs) ∧
   (∀bs x bs1. dec_instr_list bs = (INR x,bs1) ⇒ LENGTH bs1 < LENGTH bs)
@@ -947,10 +989,12 @@ Proof
   \\ simp [Once dec_instr_def]
   \\ strip_tac
   \\ gvs [AllCaseEqs()]
-  \\ imp_res_tac dec_blocktype_len \\ fs []
+  \\ imp_res_tac dec_blocktype_shortens \\ fs []
   \\ imp_res_tac check_len_INL \\ fs []
   \\ imp_res_tac check_len_INR \\ fs []
   \\ gvs [check_len_def]
+  >> (drule dec_u32_shortens >> simp[])
+  >> (drule dec_indxs_shortens >> simp[])
 QED
 
 Theorem dec_instr_INL_length:
@@ -962,7 +1006,7 @@ Proof
   \\ simp [Once dec_instr_def]
   \\ strip_tac
   \\ gvs [AllCaseEqs()]
-  \\ imp_res_tac dec_blocktype_len \\ gvs []
+  \\ imp_res_tac dec_blocktype_shortens \\ gvs []
   \\ imp_res_tac check_len_IMP_INL \\ gvs []
   \\ imp_res_tac check_len_INR \\ fs []
   \\ imp_res_tac check_len_IMP \\ fs []
@@ -1029,3 +1073,4 @@ Proof
 QED *)
 
 val _ = export_theory();
+
