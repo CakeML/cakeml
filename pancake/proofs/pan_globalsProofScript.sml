@@ -1291,8 +1291,7 @@ Proof
       fs[])
   >- (rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
       gvs[Once evaluate_def,state_rel_empty_locals])
-  >- ((* here *)
-      first_x_assum $ qspecl_then [‘ctxt’,‘set_var evar exn (t' with locals := t.locals)’] mp_tac >>
+  >- (first_x_assum $ qspecl_then [‘ctxt’,‘set_var evar exn (t' with locals := t.locals)’] mp_tac >>
       impl_keep_tac
       >- gvs[state_rel_change_locals,state_rel_set_var] >>
       strip_tac >>
@@ -1320,7 +1319,6 @@ Proof
       gvs[is_valid_value_def] >>
       gvs[set_var_def] >>
       simp[eval_def] >>
-
       qmatch_goalsub_abbrev_tac ‘_ |+ (av1, vv1) |+ (av2, vv2)’ >>
       drule_at (Pos last) evaluate_two_fresh_locals >>
       disch_then $ qspecl_then [‘av1’,‘vv1’,‘av2’,‘vv2’] mp_tac >>
