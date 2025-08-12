@@ -1,17 +1,14 @@
 (*
   CWasm AST modelling Wasm 1.0 (+ tail calls)
-  Present here are
-    + control flow instructions
-    + int numeric instructions (ie, those not involving floats)
-    + int memory operations    (not involving floats/vecs)
   Imprecisions:
     HOL lists encode Wasm vectors; latter has max length of 2^32
 *)
-open preamble;
 
-val _ = set_grammar_ancestry ["words", "arithmetic", "list"];
-
-val _ = new_theory "wasmLang";
+Theory wasmLang
+Ancestors
+  words arithmetic list
+Libs
+  wordsLib dep_rewrite
 
 (* Note :
   Most datatypes closely follow the wasm abstractions. ie,
@@ -40,22 +37,16 @@ Datatype: valtype
   = Tnum bvtype width
 End
 
-Type resulttype = “:valtype list”
+Type resulttype = “:valtype option”
 
-Type functype = “:resulttype # resulttype”
+Type functype = “:valtype list # valtype list”
 
 Datatype: limits
   = Lunb word32
   | Lwmx word32 word32
 End
 
-Type mem = “:word8 list”
-(* Type addrtype = “:width” *)
 Type memtype = “:limits”
-
-Definition default_memtype_def:
-  default_memtype : memtype = Lunb 0w
-End
 
 Datatype: globaltype
   = Gconst valtype
@@ -310,7 +301,7 @@ End
 Datatype: data =
   <| data   : index
    ; offset : constant_expr
-   ; dinit   : word8 list
+   ; dinit  : word8 list
    |>
 End
 
@@ -333,7 +324,7 @@ End
 
 Datatype: moduleWasm =
   <| types   : functype list
-   ; funcs   : index    list
+   ; funcs   : func     list
    ; mems    : memtype  list
    ; globals : global   list
    ; datas   : data     list
@@ -341,7 +332,7 @@ Datatype: moduleWasm =
    |>
 End
 
-val _ = export_theory();
+
 
 (*
 2.3 Types
