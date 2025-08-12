@@ -876,15 +876,6 @@ Proof
   gvs[state_rel_def,empty_locals_def,set_var_def]
 QED
 
-Theorem state_rel_set_kvar:
-  (state_rel T ctxt s t ⇒ state_rel ls' ctxt (set_kvar kv rt retv s) (set_kvar kv rt retv t))
-Proof
-  Cases_on ‘kv’ >>
-  rw[] >>
-  gvs[state_rel_def,empty_locals_def,set_var_def,set_kvar_def,set_global_def]
-QED
-
-
 Theorem eval_shape_val_NONE[simp]:
   (∀sh.
     eval t (shape_val sh) = NONE ⇔ F) ∧
@@ -929,11 +920,61 @@ QED
 
 (* TODO: move *)
 Theorem res_var_FEMPTY[simp]:
-  res_var FEMPTY upd = FEMPTY
+  res_var FEMPTY (n,NONE) = FEMPTY
 Proof
-  Cases_on ‘upd’ >>
   rw[fmap_eq_flookup,FLOOKUP_pan_res_var_thm] >>
   rw[]
+QED
+
+(* TODO: move *)
+Theorem OPT_MMAP_eval_fresh_var:
+  ∀s e n w.
+    ~MEM n (FLAT(MAP var_exp es)) ⇒
+    OPT_MMAP (eval (s with locals := s.locals |+ (n,w))) es = OPT_MMAP (eval s) es
+Proof
+  rpt strip_tac >>
+  irule OPT_MMAP_CONG >>
+  rw[] >>
+  irule eval_fresh_var >>
+  gvs[MEM_FLAT,MEM_MAP] >> metis_tac[]
+QED
+
+Theorem evaluate_fresh_local:
+  ∀z v p s res s'.
+  ~MEM z (free_var_ids p) ∧
+  evaluate (p,s) = (res,s') ⇒
+  ∃locals.
+    evaluate(p,s with locals := s.locals |+ (z,v)) = (res,s' with locals := locals) ∧
+    (good_res res ∧ res ≠ SOME Error ⇒ locals = s'.locals |+ (z,v))
+Proof
+  ntac 2 strip_tac >>
+  recInduct evaluate_ind >> rpt conj_tac
+  >~ [‘While’]
+  >- (rw[] >>
+      rw[Once evaluate_def] >>
+      qpat_x_assum ‘evaluate _ = _’ mp_tac >>
+      rw[Once evaluate_def] >>
+      gvs[AllCaseEqs(),free_var_ids_def,eval_fresh_var,empty_locals_def,good_res_def,
+          UNCURRY_EQ,dec_clock_def] >>
+      rw[state_component_equality])
+  >~ [‘Call’]
+  >- (rw[evaluate_def] >>
+      qpat_x_assum ‘¬MEM _ (free_var_ids _)’ $ mp_tac o PURE_ONCE_REWRITE_RULE[oneline free_var_ids_def] >>
+      rpt(IF_CASES_TAC ORELSE PURE_TOP_CASE_TAC >>
+          fs[]) >> rw[MEM_FLAT, MEM_MAP] >> fs[] >>
+      gvs[AllCaseEqs(),OPT_MMAP_eval_fresh_var,MEM_FLAT,MEM_MAP,empty_locals_def,
+          good_res_def,dec_clock_def,MEM_FILTER,set_var_def,FUPDATE_COMMUTES,
+          set_kvar_def, set_global_def] >>
+      gvs[is_valid_value_def,FLOOKUP_UPDATE] >>
+      rw[state_component_equality]) >>
+  rw[evaluate_def,free_var_ids_def,good_res_def,AllCaseEqs(),MEM_FILTER,UNCURRY_EQ,
+     sh_mem_load_def,sh_mem_store_def,set_kvar_def,set_var_def,set_global_def,
+     empty_locals_def,free_var_ids_def,OPT_MMAP_eval_fresh_var,MEM_FLAT,MEM_MAP,
+     eval_fresh_var,PULL_EXISTS,lookup_kvar_def] >> rw[PULL_EXISTS] >>
+  fs[is_valid_value_def,FLOOKUP_UPDATE,FUPDATE_COMMUTES,dec_clock_def] >>
+  rw[] >> gvs[FUPDATE_COMMUTES,good_res_def] >>
+  rw[state_component_equality] >>
+  rw[fmap_eq_flookup,FLOOKUP_UPDATE,FLOOKUP_pan_res_var_thm] >> rw[]
 QED
 
 Theorem compile_Call:
@@ -979,7 +1020,7 @@ Proof
   strip_tac >>
   rw[] >>
   gvs[AllCaseEqs(),good_res_def,state_rel_empty_locals,PULL_EXISTS,
-      state_rel_change_locals,state_rel_set_var,state_rel_set_kvar,
+      state_rel_change_locals,state_rel_set_var,set_kvar_def,
       evaluate_def]
   >- (rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
       gvs[Once evaluate_def,state_rel_empty_locals] >>
@@ -1000,21 +1041,18 @@ Proof
       gvs[dec_clock_def] >>
       simp[empty_locals_def] >>
       gvs[state_rel_def])
-  >- (PURE_TOP_CASE_TAC >>
-      gvs[evaluate_def,state_rel_set_kvar,state_rel_change_locals] >>
-      PURE_TOP_CASE_TAC
-      >- (gvs[evaluate_def] >>
-          spose_not_then kall_tac >>
+  >- (PURE_TOP_CASE_TAC
+      >- (spose_not_then kall_tac >>
           gvs[is_valid_value_def] >>
           PURE_FULL_CASE_TAC >>
-          gvs[state_rel_def,dec_clock_def] >>
+          gvs[state_rel_def] >>
           res_tac >>
           gvs[]) >>
-      simp[] >>
+      gvs[evaluate_def,set_kvar_def,state_rel_change_locals] >>
       PURE_TOP_CASE_TAC >>
-      simp[] >>
+      gvs[] >>
       PURE_TOP_CASE_TAC >>
-      gvs[evaluate_def,state_rel_set_kvar,state_rel_change_locals]
+      gvs[evaluate_def,set_kvar_def,state_rel_change_locals]
       >- (reverse IF_CASES_TAC
           >- (gvs[is_valid_value_def] >>
               PURE_FULL_CASE_TAC >>
