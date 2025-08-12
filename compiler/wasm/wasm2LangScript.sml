@@ -51,7 +51,7 @@ End
 
 Type resulttype = “:valtype list”
 
-Type functype = “:resulttype list # resulttype list”
+Type functype = “:resulttype # resulttype”
 
 Datatype: limits
   = Lunb word64
@@ -68,7 +68,7 @@ Datatype: globaltype
   = Gconst valtype
   | Gmut   valtype
 End
-(* Type global = “:bool # valtype” *)
+(* Type globaltype = “:bool # valtype” *)
 
 Datatype: externtype
   = ExFun functype
