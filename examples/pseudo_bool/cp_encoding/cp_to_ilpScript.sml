@@ -18,7 +18,7 @@ Datatype:
   | Gem ('a + int) ('a + int) (* Used to force X ≥ Y in Array Max *)
   | Eqc ('a + int) ('a + int) (* Used to force X = Y in Count *)
   | Nv ('a list) int (* Used to force some element in As = v *)
-  | Tb (('a + int) list) (('a + int) list)
+  | Tb (('a + int) list) (int list list)
 End
 
 Definition min_iterm_def:
@@ -464,6 +464,8 @@ Definition reify_eilp_def:
   | Ne X Y => varc wi X > varc wi Y
   | Gem X Y => varc wi X ≥ varc wi Y
   | Eqc X Y => varc wi X = varc wi Y
+  | Tb Xs Tss => ARB
+  | Nv Xs v => ARB
 End
 
 Theorem encode_element_sem_1:
@@ -1004,7 +1006,7 @@ Definition domlist_def:
     if lb > ub then [] else GENLIST (λn. &n + lb) (Num (ub - lb) + 1)
 End
 
-(* bijection 0, -1, 1, -2, 2,... ⇔ 0, 1, 2, 3, 4,... and its inverse *)
+(* bijection 0, -1, 1, -2, 2,... ⇔ 0, 1, 2, 3, 4,... and its inverse next *)
 Definition intnum_def:
   intnum (n: int) =
   if n = 0 then 0n
@@ -1048,66 +1050,111 @@ Proof
   metis_tac[]
 QED
 
-(* the following concerning nvalue (and bitsum) to be redone *)
-
-(* encodes (the sum of bit-array Bs) = Y for Y:int *)
-Definition encode_bitsum_const_def:
-  encode_bitsum_const Bs (Y: int) =
-  [([], MAP (λb. (1i, Pos b)) Bs, Y);([], MAP (λb. (-1i, Pos b)) Bs, -Y)]
+(* encodes (sum of the bitlist Bs) = Y *)
+Definition encode_bitsum_def:
+  encode_bitsum Bs Y =
+  case Y of
+    INL vY => [
+      ([(-1i, vY)], MAP (λb. (1i, Pos b)) Bs, 0i);
+      ([(1i, vY)], MAP (λb. (-1i, Pos b)) Bs, 0i)]
+  | INR cY => [
+      ([], MAP (λb. (1i, Pos b)) Bs, cY);
+      ([], MAP (λb. (-1i, Pos b)) Bs, -cY)]
 End
 
-(* encodes (the sum of bit-array Bs) = Y for Y:'a *)
-Definition encode_bitsum_var_def:
-  encode_bitsum_var Bs (Y: 'a) =
-  [([(-1i, Y)], MAP (λb. (1i, Pos b)) Bs, 0i);([(1i, Y)], MAP (λb. (-1i, Pos b)) Bs, 0i)]
-End
-
-(* encodes NValue for Y:int *)
-Definition encode_nvalue_const_def:
-  encode_nvalue_const bnd Y Xs =
-  let
-    vals = union_dom bnd Xs;
-    ges = λv. (FLAT $ MAP (λX. encode_ge bnd X v) Xs);
-    eqs = λv. (FLAT $ MAP (λX. encode_eq bnd X v) Xs)
-  in
-    (FLAT $ MAP (λv. ges v ++ eqs v ++ encode_some_eq bnd Xs v) vals) ++
-    encode_bitsum_const (MAP (λv. Nv Xs v) vals) Y
-End
-
-Theorem encode_nvalue_const_sem:
-  let
-    vals = union_dom bnd Xs
-  in
-    valid_assignment bnd wi ⇒
-    EVERY (λx. iconstraint_sem x (wi,wb)) (encode_nvalue_const bnd Y Xs) = (
-      ∀v. MEM v vals ⇒ (
-        EVERY (λX. wb (Ge X v) ⇔ wi X ≥ v) Xs ∧
-        EVERY (λX. wb (Eq X v) ⇔ wi X = v) Xs ∧
-        wb (Nv Xs v) ⇔ ∃A. MEM A Xs ∧ wb (Eq A v)) ∧
-      iSUM (MAP (λv. b2i (wb (Nv Xs v))) vals) = Y ∧
-      nvalue_sem (INR Y) Xs wi)
+Theorem encode_bitsum_sem:
+  valid_assignment bnd wi ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb)) (encode_bitsum Bs Y) ⇔
+  iSUM $ MAP (b2i o wb) Bs = varc wi Y)
 Proof
-  cheat
+  rw[encode_bitsum_def]>>
+  CASE_TAC>>
+  simp[varc_def,iconstraint_sem_def,eval_ilin_term_def,eval_lin_term_def,
+    eval_iterm_def,eval_term_def,iSUM_def,MAP_MAP_o,combinTheory.o_ABS_R,
+    iSUM_MAP_lin_const]>>
+  simp[GSYM combinTheory.o_ABS_R,GSYM combinTheory.I_EQ_IDABS]>>
+  intLib.ARITH_TAC
 QED
-
-(* encodes NValue for Y:'a *)
-Definition encode_nvalue_var_def:
-  encode_nvalue_var bnd (Y: 'a) Xs =
-  let
-    vals = union_dom bnd Xs;
-    ges = λv. (FLAT $ MAP (λX. encode_ge bnd X v) Xs);
-    eqs = λv. (FLAT $ MAP (λX. encode_eq bnd X v) Xs)
-  in
-    (FLAT $ MAP (λv. ges v ++ eqs v ++ encode_some_eq bnd Xs v) vals) ++
-    encode_bitsum_var (MAP (λv. Nv Xs v) vals) Y
-End
 
 Definition encode_nvalue_def:
   encode_nvalue bnd Y Xs =
-  case Y of
-    INL vY => encode_nvalue_var bnd vY Xs
-  | INR cY => encode_nvalue_const bnd cY Xs
+  let
+    vals = union_dom bnd Xs;
+    ges = λv. (FLAT $ MAP (λX. encode_ge bnd X v ++ encode_ge bnd X (v + 1)) Xs);
+    eqs = λv. (FLAT $ MAP (λX. encode_eq bnd X v) Xs)
+  in
+    (FLAT $ MAP (λv. ges v ++ eqs v ++ encode_some_eq bnd Xs v) vals) ++
+    encode_bitsum (MAP (λv. Nv Xs v) vals) Y
 End
+
+(*** HERE ***)
+Theorem encode_nvalue_sem:
+  valid_assignment bnd wi ∧ vals = union_dom bnd Xs ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_nvalue bnd Y Xs) = (
+    (∀v. MEM v vals ⇒ (
+      EVERY (λX. wb (Ge X v) ⇔ wi X ≥ v) Xs ∧
+      EVERY (λX. wb (Ge X (v + 1)) ⇔ wi X ≥ v + 1) Xs ∧
+      EVERY (λX. wb (Eq X v) ⇔ wi X = v) Xs ∧
+      (wb (Nv Xs v) ⇔ ∃A. MEM A Xs ∧ wb (Eq A v)))) ∧
+    iSUM (MAP (λv. b2i (wb (Nv Xs v))) vals) = varc wi Y ∧
+    nvalue_sem Y Xs wi)
+Proof
+  rw[encode_nvalue_def,EVERY_FLAT,EVERY_MAP]>>
+  rw[Once EVERY_MEM,GSYM CONJ_ASSOC]>>
+  match_mp_tac LEFT_AND_CONG>>
+  strip_tac
+  >-(
+    ho_match_mp_tac (
+      METIS_PROVE[]
+      “(∀x. P x ⇒ (Q x ⇔ R x)) ⇒
+      ((∀x. P x ⇒ Q x) ⇔ (∀x. P x ⇒ R x))”)>>
+    rw[EVERY_FLAT,EVERY_MAP]>>
+    rw[Once EQ_SYM_EQ]>>
+    rw[Once CONJ_ASSOC]>>
+    rw[Once EQ_SYM_EQ]>>
+    match_mp_tac LEFT_AND_CONG>>
+    CONJ_TAC
+    >-(
+      rw[Once EQ_SYM_EQ]>>
+      rw[Ntimes EVERY_MEM 3]>>
+      rw[METIS_PROVE[] “(∀x. P x ⇒ Q x) ∧ (∀x. P x ⇒ R x) ⇔ (∀x. P x ⇒ (Q x ∧ R x))”]>>
+      ho_match_mp_tac (
+        METIS_PROVE[]
+          “(∀x. P x ⇒ (Q x ⇔ R x)) ⇒
+          ((∀x. P x ⇒ Q x) ⇔ (∀x. P x ⇒ R x))”)>>
+      rw[Once EQ_SYM_EQ]>>
+      ho_match_mp_tac (
+        METIS_PROVE[]
+          “(P ⇔ P') ∧ (Q ⇔ Q') ⇒ (P ∧ Q ⇔ P' ∧ Q')”)>>
+      CONJ_TAC>>
+      simp[encode_ge_sem])
+    >-(
+      simp[Ntimes EVERY_MEM 3]>>
+      rw[METIS_PROVE[] “(∀x. P x ⇒ Q x) ∧ (∀x. P x ⇒ R x) ⇔ (∀x. P x ⇒ (Q x ∧ R x))”]>>
+      match_mp_tac LEFT_AND_CONG>>
+      CONJ_TAC
+      >-(
+        simp[Once EQ_SYM_EQ]>>
+        simp[Once EVERY_MEM]>>
+        simp[Once EQ_SYM_EQ]>>
+        ho_match_mp_tac (
+          METIS_PROVE[]
+            “(∀x. P x ⇒ (Q x ⇔ R x)) ⇒
+             ((∀x. P x ⇒ Q x) ⇔ (∀x. P x ⇒ R x))”)>>
+        fs[encode_eq_sem])
+      >-fs[encode_some_eq_sem]))
+  >-(
+    strip_tac>>
+    match_mp_tac (
+      METIS_PROVE[] “(P ⇔ P') ∧ (P' ⇒ Q) ⇒ (P ⇔ P' ∧ Q)”)>>
+    CONJ_TAC
+    >-(
+      assume_tac $ INST_TYPE[“:'b” |-> “:'a eilp”] (Q.GEN ‘Bs’ encode_bitsum_sem)>>
+      rfs[]>>
+      rw[MAP_MAP_o,o_DEF])
+    >-(cheat)
+  )
+QED
 
 Definition encode_table_def:
   encode_table bnd Xs Yss =
@@ -1123,8 +1170,6 @@ Definition encode_table_def:
         [([], MAP (λYs. (1i, Pos (Tb Xs Ys))) Yss, 1i)]
     else [([], [], 1i)]
 End
-
-(* TODO: Theorem encode_table_sem *)
 
 (* The top-level encodings *)
 Definition encode_cp_one_def:
