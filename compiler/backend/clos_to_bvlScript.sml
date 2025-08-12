@@ -273,6 +273,7 @@ Definition num_stubs_def:
     (* generic apps *)         max_app
     (* partial apps *)       + max_app * (max_app - 1) DIV 2
     + 1 (* code to install a jump table in global 0 *)
+    + 1 (* location for force_thunk stub *)
 End
 
 Definition generic_app_fn_location_def:
@@ -399,6 +400,16 @@ Definition init_globals_def:
       (Call 0 (SOME start_loc) []))
 End
 
+Definition force_thunk_code_def:
+  force_thunk_code =
+    If (Op (BlockOp (EqualConst (Int 0))) [mk_elem_at (Var 0) 1])
+      (Let [Call 0 NONE [mk_unit; Var 0; mk_elem_at (Var 0) 0]]
+        (Let [Op (ThunkOp (UpdateThunk Evaluated)) [Var 0; Var 1]] (Var 1)))
+      (Let [Call 0 (SOME 0) [mk_unit; Var 0]]
+        (Let [Op (ThunkOp (UpdateThunk Evaluated)) [Var 0; Var 1]] (Var 1)))
+       : bvl$exp
+End
+
 Definition compile_exps_def:
   (compile_exps max_app [] aux = ([],aux)) /\
   (compile_exps max_app ((x:closLang$exp)::y::xs) aux =
@@ -425,6 +436,8 @@ Definition compile_exps_def:
      let (c1,aux1) = compile_exps max_app xs aux in
      ([if op = Install then
          Call 0 NONE [Op Install c1]
+       else if op = ThunkOp ForceThunk then
+         Let c1 (Force (num_stubs max_app - 2) 0)
        else
          Op (compile_op op) c1]
      ,aux1)) /\
@@ -512,6 +525,7 @@ Definition compile_exp_sing_def:
   (compile_exp_sing max_app (Op t op xs) aux =
      let (c1,aux1) = compile_exp_list max_app xs aux in
      (if op = Install then Call 0 NONE [Op Install c1]
+      else if op = ThunkOp ForceThunk then Let c1 (Force (num_stubs max_app - 2) 0)
       else Op (compile_op op) c1
      ,aux1)) /\
   (compile_exp_sing max_app (App t loc_opt x1 xs2) aux =
@@ -860,8 +874,9 @@ Definition make_name_alist_def:
   make_name_alist nums prog nstubs dec_start (dec_length:num) =
     let src_names = get_src_names (MAP (SND o SND) prog) LN in
       fromAList(MAP(λn.(n, if n < nstubs then
-                             if n = nstubs-1 then mlstring$strlit "bvl_init"
-                                             else mlstring$strlit "bvl_stub"
+                             if n = nstubs-1 then mlstring$strlit "bvl_init" else
+                             if n = nstubs-2 then mlstring$strlit "bvl_force" else
+                                                  mlstring$strlit "bvl_stub"
                            else let clos_name = n - nstubs in
                              if dec_start ≤ clos_name ∧ clos_name < dec_start + dec_length
                              then mlstring$strlit "dec" else
@@ -877,13 +892,15 @@ Theorem make_name_alist_eq =
 Definition compile_def:
   compile c0 es =
     let (c, prog) = compile_common c0 es in
+    let n = num_stubs c.max_app in
     let init_stubs = toAList (init_code c.max_app) in
-    let init_globs = [(num_stubs c.max_app - 1, 0n, init_globals c.max_app (num_stubs c.max_app + c.start))] in
+    let init_globs = [(n - 1, 0n, init_globals c.max_app (n + c.start))] in
+    let force_stub = [(n - 1, 2n, force_thunk_code)] in
     let comp_progs = compile_prog c.max_app prog in
     let prog' = init_stubs ++ init_globs ++ comp_progs in
-    let func_names = make_name_alist (MAP FST prog') prog (num_stubs c.max_app)
+    let func_names = make_name_alist (MAP FST prog') prog n
                        c0.next_loc (LENGTH es) in
-    let c = c with start := num_stubs c.max_app - 1 in
+    let c = c with start := n - 1 in
       (c, code_sort prog', func_names)
 End
 
