@@ -2,6 +2,12 @@
   En- & De- coding between CWasm 1.0 AST & Wasm's binary format
 *)
 
+(* Theory wasm_binary_format
+Ancestors
+  wasmLang mlstring leb128 miscOps
+Libs
+  wordsLib dep_rewrite *)
+
 open preamble;
 open wasmLangTheory;
 open mlstringTheory;
@@ -121,6 +127,7 @@ Definition dec_valtype_def:
 End
 
 Overload enc_valtype_Seq = “λ t. [enc_valtype t] : byteSeq”
+
 
 
 Definition enc_functype_def:
@@ -465,6 +472,8 @@ Definition dec_blocktype_def:
   failure
 End
 
+
+
 Overload enc_indxs = “enc_vector enc_u32”
 
 Definition enc_instr_def:
@@ -511,6 +520,12 @@ Overload enc_expr       = “enc_instrs T”
 Overload enc_instr_list = “enc_instrs F”
 
 
+
+(********************)
+(*                  *)
+(*     Modules      *)
+(*                  *)
+(********************)
 
 Definition enc_global_def:
   enc_global (g:global) : byteSeq option =
@@ -612,6 +627,41 @@ End
 (* neat trick to check if we're making progress - due to MM *)
 fun print_dot_tac h = (print "."; all_tac h);
 
+(*****************************************)
+(*   Vectors (not vector instructions)   *)
+(*****************************************)
+
+(* ASKMM ASKYK *)
+Theorem dec_enc_vector:
+    ∀ dec enc x rs. (dec (enc x ++ rs) =  (INR x,rs)) ⇒
+    ∀ is encis rest. (enc_vector enc is = SOME encis) ⇒
+    (LEGNTH is < 2 ** 32) ⇒
+  (dec_vector dec encis = (INR items, rest))
+Proof
+  rpt strip_tac
+  \\ pop_assum mp_tac
+  \\ rewrite_tac[dec_vector_def, enc_vector_def]
+  \\ simp[AllCaseEqs()]
+  \\ rpt strip_tac
+  \\
+  cheat
+QED
+
+Theorem dec_encO_vector:
+    ∀ enc x encx. enc x = SOME encx ⇒
+    ∀ dec rs. (dec (encx ++ rs) = (INR x,rs)) ⇒
+    ∀ is encis rest. (enc_vectorO enc is = SOME encis) ⇒
+    (LEGNTH is < 2 ** 32) ⇒
+  (dec_vector dec encis = (INR items, rest))
+Proof
+  rpt strip_tac
+  \\ gvs[dec_vector_def, dec_unsigned_word_def]
+  \\
+  cheat
+QED
+
+
+
 (*************)
 (*   Types   *)
 (*************)
@@ -633,6 +683,20 @@ Proof
   *)
 QED
 
+(* ASKMM ASKYK *)
+Theorem dec_enc_functype_def:
+    ∀ sg encsg. enc_functype sg = SOME encsg ⇒
+  ∀ rest. dec_functype (encsg ++ rest) = (INR sg, rest)
+Proof
+     rewrite_tac[enc_functype_def]
+  \\ simp[AllCaseEqs()]
+  \\ rpt strip_tac
+  \\ gvs[dec_functype_def, dec_vector_def]
+  \\
+
+  cheat
+QED
+
 Theorem dec_enc_globaltype:
   ∀ x rest. dec_globaltype (enc_globaltype x ++ rest) = (INR x, rest)
 Proof
@@ -650,9 +714,10 @@ Proof
 QED
 
 
-(********************)
-(*   Instructions   *)
-(********************)
+
+(*******************************************)
+(*   Instructions (hierarchically lower)   *)
+(*******************************************)
 
 Theorem dec_enc_numI:
   ∀ i rest. dec_numI (enc_numI i ++ rest) = (INR i, rest)
@@ -726,52 +791,30 @@ QED
 
 
 
+(**********************************************)
+(*                                            *)
+(*     Top-level Instructions + Controls      *)
+(*                                            *)
+(**********************************************)
+
 Theorem dec_enc_blocktype:
   ∀b rest. dec_blocktype (enc_blocktype b ++ rest) = (INR b, rest)
 Proof
   rpt strip_tac
-  >> `∃ val. enc_blocktype b = val` by simp []
-  >> asm_rewrite_tac[]
-  >> pop_assum mp_tac
-  >> rewrite_tac[enc_blocktype_def]
-  >> simp[AllCaseEqs()]
-  >> rpt strip_tac
+  \\ `∃ val. enc_blocktype b = val` by simp []
+  \\ asm_rewrite_tac[]
+  \\ pop_assum mp_tac
+  \\ rewrite_tac[enc_blocktype_def]
+  \\ simp[AllCaseEqs()]
+  \\ rpt strip_tac
   >- gvs[dec_blocktype_def]
   >- (
     gvs[dec_blocktype_def, dec_enc_valtype]
-    >> rw[enc_valtype_def]
-    >> fs[AllCaseEqs()]
+    \\ rw[enc_valtype_def]
+    \\ fs[AllCaseEqs()]
   )
 QED
 
-Theorem dec_enc_vector:
-  ∀ dec enc x rs. (dec (enc x ++ rs) =  (INR x,rs)) ⇒
-  ∀ is encis rest. (enc_vector enc is = SOME encis) ⇒
-  (dec_vector dec encis = (INR items, rest))
-Proof
-  rpt strip_tac
-  \\ pop_assum mp_tac
-  \\ rewrite_tac[dec_vector_def, enc_vector_def]
-  \\ simp[AllCaseEqs()]
-  \\ rpt strip_tac
-  \\
-  cheat
-QED
-
-
-(*
-  ∀ dec enc x rs1 items encitems rest.
-Theorem dec_enc_vector:
-
-    (dec (enc x ++ rs1) =  (INR x,rs1)) ⇒
-    (enc_vector enc items = SOME encitems) ⇒
-
-  (dec_vector dec encitems = (INR items, rest))
-Proof
-  cheat
-QED
-
-*)
 
 
 (***************)
@@ -780,19 +823,18 @@ QED
 (*             *)
 (***************)
 
-
 Theorem dec_blocktype_len:
-  ∀ bs r bs1. dec_blocktype bs = (r,bs1) ⇒ LENGTH bs1 ≤ LENGTH bs
+  ∀ bs t rst. dec_blocktype bs = (t,rst) ⇒ LENGTH rst ≤ LENGTH bs
 Proof
-  Cases
+  Cases_on ‘bs’
   >- simp[dec_blocktype_def]
   >- (
     rpt gen_tac
-    >> simp[dec_blocktype_def]
-    >> simp[AllCaseEqs()]
-    >> rpt strip_tac
-    >>
-    cheat
+    \\ simp[dec_blocktype_def]
+    \\ simp[AllCaseEqs()]
+    \\ rpt strip_tac
+    >> gvs[]
+    >- cheat
   )
 QED
 
@@ -987,4 +1029,3 @@ Proof
 QED *)
 
 val _ = export_theory();
-
