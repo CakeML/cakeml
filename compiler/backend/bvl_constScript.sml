@@ -318,6 +318,7 @@ Definition compile_def:
      [Raise (HD (compile env [x1]))]) /\
   (compile env [Op op xs] = [SmartOp op (compile env xs)]) /\
   (compile env [Tick x] = [Tick (HD (compile env [x]))]) /\
+  (compile env [Force loc v] = [Force loc v]) /\
   (compile env [Call t dest xs] = [Call t dest (compile env xs)])
 End
 
@@ -345,6 +346,7 @@ Definition compile_sing_def:
      Raise (compile_sing env x1)) /\
   (compile_sing env (Op op xs) = SmartOp op (compile_list env xs)) /\
   (compile_sing env (Tick x) = Tick (compile_sing env x)) /\
+  (compile_sing env (Force loc v) = Force loc v) ∧
   (compile_sing env (Call t dest xs) = Call t dest (compile_list env xs)) ∧
 
   (compile_list env [] = []) /\

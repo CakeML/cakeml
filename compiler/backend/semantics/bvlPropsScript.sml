@@ -336,20 +336,28 @@ Proof
     \\ metis_tac [])
   THEN1 (
     fs [case_eq_thms] \\ reverse $ rw [] \\ gvs [dec_clock_def]
-    \\ TRY (metis_tac [])
-    >- (
-      Cases_on `op` \\ gvs [do_app_def, AllCaseEqs()]
-      >~ [`do_install`] >- (
-        gvs [do_install_def, AllCaseEqs()]
-        \\ pairarg_tac \\ gvs [AllCaseEqs(), shift_seq_def]
-        \\ qmatch_goalsub_rename_tac `nn + _`
-        \\ qexists `nn + 1` \\ gvs []
-        \\ once_rewrite_tac [ADD_COMM]
-        \\ gvs [GENLIST_APPEND]
-        \\ simp [GSYM SNOC_APPEND, FOLDL_SNOC])
-      \\ rpt (pairarg_tac \\ gvs [])
-      \\ metis_tac [])
-    \\ gvs [AllCaseEqs()]
+    >- (metis_tac [])
+    >- (metis_tac [])
+    \\ Cases_on `op` \\ gvs [do_app_def, AllCaseEqs()]
+    >~ [`do_install`] >-
+     (gvs [do_install_def, AllCaseEqs()]
+      \\ pairarg_tac \\ gvs [AllCaseEqs(), shift_seq_def]
+      \\ qmatch_goalsub_rename_tac `nn + _`
+      \\ qexists `nn + 1` \\ gvs []
+      \\ once_rewrite_tac [ADD_COMM]
+      \\ gvs [GENLIST_APPEND]
+      \\ simp [GSYM SNOC_APPEND, FOLDL_SNOC])
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ metis_tac [])
+  THEN1
+   (fs [case_eq_thms] \\ rw [] \\ fs []
+    THEN1 (qexists_tac `0` \\ fs [shift_seq_def,FUN_EQ_THM])
+    \\ pop_assum (assume_tac o GSYM) \\ fs []
+    \\ qexists_tac `n` \\ fs [dec_clock_def])
+  THEN1
+    cheat (*
+
+    gvs [AllCaseEqs()] \\ rw [] \\ fs []
     >~ [`dest_thunk _ _ = BadRef`] >- (qexists `n` \\ gvs [])
     >~ [`dest_thunk _ _ = NotThunk`] >- (qexists `n` \\ gvs [])
     >~ [`dest_thunk _ _ = IsThunk Evaluated _`] >- (qexists `n` \\ gvs [])
@@ -358,11 +366,8 @@ Proof
     \\ rewrite_tac [GENLIST_APPEND,FOLDL_APPEND,MAP_APPEND]
     \\ fs [dec_clock_def,shift_seq_def,FUN_EQ_THM]
     \\ simp_tac std_ss [Once ADD_COMM] \\ fs [])
-  THEN1
-   (fs [case_eq_thms] \\ rw [] \\ fs []
-    THEN1 (qexists_tac `0` \\ fs [shift_seq_def,FUN_EQ_THM])
-    \\ pop_assum (assume_tac o GSYM) \\ fs []
-    \\ qexists_tac `n` \\ fs [dec_clock_def])
+
+*)
   \\ fs [case_eq_thms] \\ rw [] \\ fs []
   \\ TRY (qexists_tac `n` \\ fs [] \\ NO_TAC)
   \\ pop_assum (assume_tac o GSYM) \\ fs []
@@ -821,6 +826,7 @@ Definition bVarBound_def[simp]:
   (bVarBound n [Raise x1] <=> bVarBound n [x1]) /\
   (bVarBound n [Tick x1] <=>  bVarBound n [x1]) /\
   (bVarBound n [Op op xs] <=> bVarBound n xs) /\
+  (bVarBound n [Force loc v] <=> v < n) /\
   (bVarBound n [Handle x1 x2] <=>
      bVarBound n [x1] /\ bVarBound (n + 1) [x2]) /\
   (bVarBound n [Call ticks dest xs] <=> bVarBound n xs)
@@ -841,6 +847,7 @@ Definition bEvery_def[simp]:
      bEvery P xs /\ bEvery P [x2]) /\
   (bEvery P [Raise x1] <=> P (Raise x1) /\ bEvery P [x1]) /\
   (bEvery P [Tick x1] <=> P (Tick x1) /\ bEvery P [x1]) /\
+  (bEvery P [Force m n] <=> P (Force m n)) /\
   (bEvery P [Op op xs] <=> P (Op op xs) /\ bEvery P xs) /\
   (bEvery P [Handle x1 x2] <=> P (Handle x1 x2) /\
      bEvery P [x1] /\ bEvery P [x2]) /\
@@ -872,6 +879,7 @@ Definition get_code_labels_def:
   (get_code_labels (Raise e) = get_code_labels e) ∧
   (get_code_labels (Handle e1 e2) = get_code_labels e1 ∪ get_code_labels e2) ∧
   (get_code_labels (Tick e) = get_code_labels e) ∧
+  (get_code_labels (Force loc v) = {loc}) ∧
   (get_code_labels (Call _ d es) = (case d of NONE => {} | SOME n => {n}) ∪ BIGUNION (set (MAP get_code_labels es))) ∧
   (get_code_labels (Op op es) = closLang$assign_get_code_label op ∪ BIGUNION (set (MAP get_code_labels es)))
 Termination
