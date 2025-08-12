@@ -2796,5 +2796,19 @@ Definition vcg_def:
   od
 End
 
+(* In-logic testing *)
+(* open dafny_compilerTheory; *)
+
+(* val cwd = OS.FileSys.getDir (); *)
+(* val fname = OS.Path.mkCanonical (cwd ^ "/../tests/simple/only_mccarthy.sexp"); *)
+
+(* val inStream = TextIO.openIn fname; *)
+(* val dafny = TextIO.inputAll inStream; *)
+(* val _ = TextIO.closeIn inStream; *)
+
+(* val dafny_tm = stringSyntax.fromMLstring dafny; *)
+
+(* val dafny_ast = EVAL “frontend ^dafny_tm” |> concl |> rhs |> rand; *)
+(* val vcgs = EVAL “vcg ^dafny_ast” |> concl |> rhs |> rand; *)
 
 val _ = export_theory ();
