@@ -34,6 +34,8 @@ Datatype:
       | Handle exp exp
       | Tick exp
       | Call num (num option) (exp list)
+      | Force num (* loc to call for evaluation of unevaluated thunk *)
+              num (* var holding thunk *)
       | Op closLang$op (exp list)
 End
 
