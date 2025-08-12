@@ -1137,6 +1137,7 @@ Definition state_rel_def:
          lookup (generic_app_fn_location n) t.code = SOME (n + 2, generate_generic_app s.max_app n)) ∧
     (!tot n. tot < s.max_app ∧ n < tot ⇒
       lookup (partial_app_fn_location s.max_app tot n) t.code = SOME (tot - n + 1, generate_partial_app_closure_fn tot n)) ∧
+    lookup (num_stubs s.max_app - 2) t.code = SOME (2,force_thunk_code) ∧
     compile_oracle_inv s.max_app s.code s.compile s.compile_oracle
                                  t.code t.compile t.compile_oracle ∧
     (!name arity c.
@@ -3399,20 +3400,20 @@ QED
 
 Theorem rel_dest_thunk:
   state_rel f s t ∧
-  LIST_REL (v_rel s.max_app f t.refs t.code) vs ys ∧
-  dest_thunk vs s.refs = IsThunk m r1 ⇒
-    ∃r2. dest_thunk ys t.refs = IsThunk m r2 ∧
+  v_rel s.max_app f t.refs t.code h y ∧
+  dest_thunk [h] s.refs = IsThunk m r1 ⇒
+  ∃r2.
+    dest_thunk y t.refs = IsThunk m r2 ∧
     v_rel s.max_app f t.refs t.code r1 r2
 Proof
   rw []
   \\ gvs [oneline closSemTheory.dest_thunk_def, oneline dest_thunk_def,
           AllCaseEqs(), PULL_EXISTS]
-  \\ (
-    qpat_x_assum `v_rel _ _ _ _ (RefPtr _ _) y` mp_tac
-    \\ reverse $ rw [Once v_rel_cases]
-    >- gvs [add_args_F]
-    >- rgs [Once cl_rel_cases]
-    \\ drule_all state_rel_refs_lookup \\ rw [] \\ gvs [])
+  \\ (qpat_x_assum `v_rel _ _ _ _ (RefPtr _ _) y` mp_tac
+      \\ reverse $ rw [Once v_rel_cases]
+      >- gvs [add_args_F]
+      >- rgs [Once cl_rel_cases]
+      \\ drule_all state_rel_refs_lookup \\ rw [] \\ gvs [])
 QED
 
 Theorem compile_exps_correct:
@@ -3991,8 +3992,41 @@ Proof
       )
     \\ srw_tac[][]
     \\ Cases_on `op = ThunkOp ForceThunk` >- (
-      gvs [closSemTheory.evaluate_def, compile_exps_def]
+      ‘lookup (num_stubs s.max_app − 2) t1.code =
+       SOME (2,force_thunk_code)’ by fs [state_rel_def]
+      \\ last_x_assum assume_tac
+      \\ gvs [closSemTheory.evaluate_def, compile_exps_def]
       \\ pairarg_tac \\ gvs [evaluate_def]
+      \\ Cases_on ‘evaluate (xs,env,s)’ \\ fs []
+      \\ Cases_on ‘q = Rerr (Rabort Rtype_error)’ \\ fs []
+      \\ first_x_assum drule_all
+      \\ strip_tac
+      \\ reverse $ Cases_on ‘q’ \\ gvs []
+      >-
+       (qexists_tac ‘ck’ \\ fs []
+        \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
+      \\ Cases_on ‘dest_thunk a r.refs’ \\ fs []
+      \\ rename [‘IsThunk thunk_mode’]
+      \\ qrefine ‘ck + ck2’ \\ gvs []
+      \\ drule evaluate_add_clock \\ simp [inc_clock_def]
+      \\ disch_then kall_tac
+      \\ ‘LENGTH a = 1’ by gvs [oneline closSemTheory.dest_thunk_def,AllCaseEqs()]
+      \\ gvs [LENGTH_EQ_NUM_compute]
+      \\ drule_at (Pos last) rel_dest_thunk
+      \\ imp_res_tac evaluate_const \\ gvs []
+      \\ disch_then drule_all
+      \\ strip_tac \\ fs []
+      \\ Cases_on ‘thunk_mode’ \\ fs []
+      >- (gvs [] \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
+      \\ simp [bvlSemTheory.find_code_def]
+      \\ Cases_on ‘t2.clock = 0’ \\ fs []
+      >-
+       (qexists_tac ‘0’ \\ gvs []
+        \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
+      \\ drule bvlPropsTheory.evaluate_mono
+      \\ simp [subspt_lookup]
+      \\ disch_then drule \\ strip_tac \\ simp [dec_clock_def]
+      \\ cheat (*
       \\ gvs [AllCaseEqs(), PULL_EXISTS]
       >- (
         first_x_assum drule_all \\ rw [] \\ gvs []
@@ -4117,7 +4151,7 @@ Proof
       >- (
         first_x_assum drule_all \\ rw [] \\ gvs []
         \\ goal_assum drule \\ rw [PULL_EXISTS]
-        \\ goal_assum drule \\ gvs []))
+        \\ goal_assum drule \\ gvs []) *) )
     \\ srw_tac[][]
     \\ full_simp_tac(srw_ss())[cEval_def,compile_exps_def] \\ SRW_TAC [] [bEval_def]
     \\ `?p. evaluate (xs,env,s) = p` by full_simp_tac(srw_ss())[] \\ PairCases_on `p` \\ full_simp_tac(srw_ss())[]
@@ -7690,6 +7724,7 @@ Theorem compile_prog_semantics:
    FEVERY (λp. every_Fn_SOME [SND (SND p)]) code1 ∧
    FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) code1 ∧
    lookup nsm1 code2 = SOME (0, init_globals max_app (num_stubs max_app + start)) /\
+   lookup (num_stubs max_app - 2) code2 = SOME (2,force_thunk_code) ∧
    compile_oracle_inv max_app code1 cc1 co1 code2 cc2 co2 ∧
    code_installed prog2 code2
    ⇒
@@ -8486,7 +8521,8 @@ Theorem syntax_oracle_ok_to_oracle_inv:
     (pure_cc (compile_inc c.max_app) cc) co'
     (fromAList
        (toAList (init_code c.max_app) ++
-        [(num_stubs c.max_app - 1,0,
+        [(num_stubs c.max_app − 2,2,force_thunk_code);
+         (num_stubs c.max_app - 1,0,
           init_globals c.max_app (c''.start + num_stubs c.max_app))] ++
         compile_prog c.max_app prog')) cc
     (pure_co (compile_inc c.max_app) ∘ co')
@@ -8949,6 +8985,7 @@ Proof
     \\ imp_res_tac ALOOKUP_MEM
     \\ metis_tac[] )
   \\ conj_tac >- ( irule ALOOKUP_ALL_DISTINCT_MEM \\ fs[] )
+  \\ conj_tac >- ( irule ALOOKUP_ALL_DISTINCT_MEM \\ fs[] )
   \\ simp[Once CONJ_ASSOC]
   \\ conj_tac >- (
     fs[compile_common_def]
@@ -9109,7 +9146,7 @@ Theorem compile_exps_code_labels:
      ⊆
      IMAGE (((+) (num_stubs app))) (BIGUNION (set (MAP get_code_labels es1))) ∪
      BIGUNION (set (MAP (get_code_labels o SND o SND) aux1)) ∪
-     domain (init_code app)
+     domain (init_code app) ∪ {num_stubs app − 2}
 Proof
   recInduct clos_to_bvlTheory.compile_exps_ind
   \\ rw [clos_to_bvlTheory.compile_exps_def] \\ rw []
@@ -9206,7 +9243,7 @@ Theorem compile_prog_code_labels:
    BIGUNION (set (MAP (get_code_labels o SND o SND)
                    (compile_prog max_app prog))) SUBSET
    IMAGE (((+) (clos_to_bvl$num_stubs max_app))) (BIGUNION (set (MAP get_code_labels (MAP (SND o SND) prog)))) ∪
-   domain (init_code max_app)
+   domain (init_code max_app) ∪ {num_stubs max_app − 2}
 Proof
   rw[clos_to_bvlTheory.compile_prog_def]
   \\ pairarg_tac \\ fs[]

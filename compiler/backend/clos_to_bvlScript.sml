@@ -895,9 +895,9 @@ Definition compile_def:
     let n = num_stubs c.max_app in
     let init_stubs = toAList (init_code c.max_app) in
     let init_globs = [(n - 1, 0n, init_globals c.max_app (n + c.start))] in
-    let force_stub = [(n - 1, 2n, force_thunk_code)] in
+    let force_stub = [(n - 2, 2n, force_thunk_code)] in
     let comp_progs = compile_prog c.max_app prog in
-    let prog' = init_stubs ++ init_globs ++ comp_progs in
+    let prog' = init_stubs ++ force_stub ++ init_globs ++ comp_progs in
     let func_names = make_name_alist (MAP FST prog') prog n
                        c0.next_loc (LENGTH es) in
     let c = c with start := n - 1 in
