@@ -6,12 +6,9 @@
     + ✓ variables
     + ✓ memories
     + ✓ controls
-    + ❌ modules
+    + ✓ modules
     + ❌ names section
 - Missing
-    + Functions
-    + Modules
-    + and supporting/types eg blocktypes
     + names section
 
 ### Binary Format encoder/decoder - wasm_binary_formatScript.sml
