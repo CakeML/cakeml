@@ -117,10 +117,13 @@ Definition compile_def:
               | SOME (eid, evar, p) =>
                   let
                     p' = compile ctxt p;
-                    vn' = fresh_name «» (free_var_ids p' ++ FLAT(MAP var_exp cexps))
+                    names = evar::free_var_ids p' ++ FLAT(MAP var_exp cexps);
+                    vn'  = fresh_name «» names;
+                    flag = fresh_name «» (vn'::names)
                   in
-                    Dec vn' (shape_val sh) $
-                        Seq (Call (SOME (SOME(Local,vn'), SOME(eid, evar, p'))) e cexps) $
+                    Dec vn' (shape_val sh) $ Dec flag (Const 0w) $
+                        Seq (Call (SOME (SOME(Local,vn'), SOME(eid, evar, Seq p' (Assign Local flag (Const 1w))))) e cexps) $
+                        If (Var Local flag) Skip $
                         Store (Op Sub [TopAddr; Const addr]) (Var Local vn')
              )
          )
