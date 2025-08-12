@@ -959,6 +959,12 @@ Proof
   rw[b2i_alt]
 QED
 
+Theorem b2i_ge_0:
+  b2i b ≥ 0
+Proof
+  rw[b2i_alt]
+QED
+
 Theorem encode_count_sem:
   valid_assignment bnd wi ⇒
   EVERY (λx. iconstraint_sem x (wi,wb)) (encode_count bnd Y C As) = (
@@ -1152,8 +1158,20 @@ Proof
       assume_tac $ INST_TYPE[“:'b” |-> “:'a eilp”] (Q.GEN ‘Bs’ encode_bitsum_sem)>>
       rfs[]>>
       rw[MAP_MAP_o,o_DEF])
-    >-(cheat)
-  )
+    >-(
+      rw[nvalue_sem_def]
+      >-(
+        pop_assum $ (fn thm => simp[GSYM thm])>>
+        ‘∀x. MEM x (MAP (λv. b2i (wb (Nv Xs v))) (union_dom bnd Xs)) ⇒ x ≥ 0’ by (
+          rw[MEM_MAP]>>
+          simp[b2i_ge_0])>>
+        simp[iSUM_ge_0])
+      >-(
+        cheat
+        (* listTheory.CARD_LIST_TO_SET_EQN *)
+        (* listTheory.nub_set *)
+      )
+    ))
 QED
 
 Definition encode_table_def:
