@@ -81,25 +81,64 @@ Proof
   rw[perms_ok_def, ListProgTheory.every_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
 QED
 
-Theorem perms_ok_qsort_part_v[simp]:
-  perms_ok ps ListProg$qsort_part_v
+Theorem perms_ok_sort2_tail_v[simp]:
+  perms_ok ps ListProg$sort2_tail_v
 Proof
-  rw[perms_ok_def, ListProgTheory.qsort_part_v_def, astTheory.pat_bindings_def,
-     perms_ok_env_def]
+  rw[perms_ok_def, ListProgTheory.sort2_tail_v_def, astTheory.pat_bindings_def,perms_ok_env_def]
 QED
 
-Theorem perms_ok_qsort_acc_v[simp]:
-  perms_ok ps ListProg$qsort_acc_v
+Theorem perms_ok_sort3_tail_v[simp]:
+  perms_ok ps ListProg$sort3_tail_v
 Proof
-  rw[perms_ok_def, ListProgTheory.qsort_acc_v_def, astTheory.pat_bindings_def,perms_ok_env_def]
+  rw[perms_ok_def, ListProgTheory.sort3_tail_v_def, astTheory.pat_bindings_def,perms_ok_env_def]
+QED
+
+Theorem perms_ok_div2_v[simp]:
+  perms_ok ps ListProg$div2_v
+Proof
+  rw[perms_ok_def, ListProgTheory.div2_v_def, astTheory.pat_bindings_def,perms_ok_env_def]
+QED
+
+Theorem perms_ok_rev_1_v[simp]:
+  perms_ok ps ListProg$rev_1_v
+Proof
+  rw[perms_ok_def, ListProgTheory.rev_1_v_def, astTheory.pat_bindings_def,perms_ok_env_def]
+QED
+
+Theorem perms_ok_drop_1_v[simp]:
+  perms_ok ps ListProg$drop_1_v
+Proof
+  rw[perms_ok_def, ListProgTheory.drop_1_v_def, astTheory.pat_bindings_def,perms_ok_env_def]
+QED
+
+Theorem perms_ok_merge_tail[simp]:
+  perms_ok ps ListProg$merge_tail_v
+Proof
+  rw[perms_ok_def, ListProgTheory.merge_tail_v_def, astTheory.pat_bindings_def,perms_ok_env_def]
   \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
-Theorem perms_ok_qsort_v[simp]:
-  perms_ok ps ListProg$qsort_v
+Theorem perms_ok_mergesortn_tail_v[simp]:
+  perms_ok ps ListProg$mergesortn_tail_v
 Proof
-  rw[perms_ok_def, ListProgTheory.qsort_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  rw[perms_ok_def, ListProgTheory.mergesortn_tail_v_def, astTheory.pat_bindings_def,perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[]
+QED
+
+Theorem perms_ok_mergesort_tail_v[simp]:
+  perms_ok ps ListProg$mergesort_tail_v
+Proof
+  rw[perms_ok_def, ListProgTheory.mergesort_tail_v_def, astTheory.pat_bindings_def,perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[]
+QED
+
+Theorem perms_ok_sort_v[simp]:
+  perms_ok ps ListProg$sort_v
+Proof
+  rw[perms_ok_def, ListProgTheory.sort_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
   \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
@@ -1613,4 +1652,3 @@ Theorem evaluate_empty_perms =
   |> SIMP_RULE (srw_ss()) [];
 
 val _ = export_theory ();
-

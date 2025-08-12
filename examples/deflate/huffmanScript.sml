@@ -8,6 +8,7 @@ open optionTheory;
 open pairTheory;
 open arithmeticTheory;
 open ringBufferTheory;
+open mllistTheory;
 
 val _ = new_theory"huffman";
 
@@ -32,7 +33,7 @@ Definition get_frequencies_def:
 End
 
 Definition sort_frequencies_def:
-  sort_frequencies ls = QSORT (λ (_,(f1:num)) (_,(f2:num)). f1 < f2) ls
+  sort_frequencies ls = sort (λ (_,(f1:num)) (_,(f2:num)). f1 < f2) ls
 End
 
 (******************************************
@@ -149,7 +150,7 @@ Definition complete_assoc_list_def:
   let
     max_val = FOLDL (λ a:num (b:num,_). if a < b then b else a) 0 ls;
     gs = gen_zero_codes max_val;
-    as = QSORT (λ (a,_) (b,_). a < b) ls;
+    as = sort (λ (a,_) (b,_). a < b) ls;
   in
     fill_assoc_list gs as
 End

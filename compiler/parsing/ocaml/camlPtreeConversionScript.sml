@@ -3,13 +3,13 @@
  *)
 
 open preamble caml_lexTheory camlPEGTheory astTheory;
-open precparserTheory;
+open precparserTheory mllistTheory;
 local open cmlParseTheory lexer_implTheory in end
 
 val _ = new_theory "camlPtreeConversion";
 
 val _ = set_grammar_ancestry [
-  "misc", "pegexec", "caml_lex", "camlPEG", "ast", "precparser", "sum"];
+  "misc", "pegexec", "caml_lex", "camlPEG", "ast", "precparser", "sum", "mllist"];
 
 (* -------------------------------------------------------------------------
  * Sum monad syntax
@@ -1332,7 +1332,7 @@ End
 
 Definition build_record_cons_def:
   build_record_cons path upds =
-    let (names,exprs) = UNZIP (QSORT (λ(f,_) (g,_). string_lt f g) upds) in
+    let (names,exprs) = UNZIP (sort (λ(f,_) (g,_). string_lt f g) upds) in
       do
         id <- build_record_cons_id names path;
         return $ build_funapp (Var id) exprs
@@ -2788,7 +2788,7 @@ Definition sort_records_def:
      MAP (λtdef.
        case tdef of
        | INL (cn,tys) => INL (cn,tys)
-       | INR (cn,fds) => INR (cn,QSORT (λ(l,_) (r,_). string_lt l r) fds)) tds)
+       | INR (cn,fds) => INR (cn,sort (λ(l,_) (r,_). string_lt l r) fds)) tds)
 End
 
 Definition MAP_OUTR_def:
