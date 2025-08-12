@@ -50,7 +50,7 @@ End
 (* TODO fix *)
 (* Returns the function type for tb *)
 Definition functype_of_blocktype_def:
-   functype_of_blocktype types BlkNil = SOME (([]:valtype list), ([]:valtype list)) ∧
+   functype_of_blocktype types BlkNil : functype option = SOME ([], []) ∧
 (* functype_of_blocktype types (BlkIndex i) = oEL (w2n i) types ∧ *)
    functype_of_blocktype types (BlkVal ty) = SOME ([],[ty])
 End
