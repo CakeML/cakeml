@@ -42,26 +42,26 @@ End
 
 Type resulttype = “:valtype list”
 
-Type functype = “:resulttype list # resulttype list”
+Type functype = “:resulttype # resulttype”
 
 Datatype: limits
-  = Lunb word64
-  | Lwmx word64 word64
+  = Lunb word32
+  | Lwmx word32 word32
 End
 
 Type mem = “:word8 list”
 (* Type addrtype = “:width” *)
-Type memtype = “:(width # limits)”
+Type memtype = “:limits”
 
 Definition default_memtype_def:
-  default_memtype : memtype = (W32,Lunb 0w)
+  default_memtype : memtype = Lunb 0w
 End
 
 Datatype: globaltype
   = Gconst valtype
   | Gmut   valtype
 End
-(* Type global = “:bool # valtype” *)
+(* Type globaltype = “:bool # valtype” *)
 
 (* Note on style :
   instructions data constructors have their return types
@@ -295,30 +295,31 @@ Type constant_expr = “:instr list”
 
 Datatype: func =
   <| name   : string
-   ; type   : functype
+   ; ftype  : index
    ; locals : valtype list
    ; body   : expr
    |>
 End
 
 Datatype: global =
-  <| type: globaltype
-   ; init: expr
+  <| gtype: globaltype
+   ; ginit: expr
    |>
 End
 
 Datatype: data =
   <| data   : index
    ; offset : constant_expr
-   ; init   : word8 list
+   ; dinit   : word8 list
    |>
 End
 
 Datatype: module =
-  <| funcs   : func    list
-   ; mems    : memtype list
-   ; globals : global  list
-   ; datas   : data    list
+  <| types   : functype list
+   ; funcs   : func     list
+   ; mems    : memtype  list
+   ; globals : global   list
+   ; datas   : data     list
    |>
 End
 
@@ -331,13 +332,13 @@ End
 (*******************)
 
 Datatype: moduleWasm =
-  <|
-    funcs   : func    list ;
-    mems    : memtype list ;
-    globals : global  list ;
-    datas   : data    list ;
-    start   : index        ;
-  |>
+  <| types   : functype list
+   ; funcs   : index    list
+   ; mems    : memtype  list
+   ; globals : global   list
+   ; datas   : data     list
+   ; start   : index
+   |>
 End
 
 val _ = export_theory();
