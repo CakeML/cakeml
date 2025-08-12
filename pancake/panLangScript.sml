@@ -258,14 +258,16 @@ Definition free_var_ids_def:
      var_exp e) ∧
   (free_var_ids (ShMemStore os e1 e2) = var_exp e1 ++ var_exp e2) ∧
   (free_var_ids (panLang$Call (SOME (NONE , SOME (_ ,  vn , ep))) _ args) =
-   FILTER ($≠vn) (free_var_ids ep) ++
+   vn::free_var_ids ep ++
    FLAT (MAP var_exp args)) ∧
   (free_var_ids (panLang$Call (SOME (SOME(vk,vn) , SOME (_ ,  en , ep))) _ args) =
    (if vk = Local then [vn] else []) ++
-   FILTER ($≠en) (free_var_ids ep) ++
+   en::free_var_ids ep ++
    FLAT (MAP var_exp args)) ∧
   (free_var_ids (panLang$Call (SOME (SOME(vk,vn) , NONE)) _ args) =
    (if vk = Local then [vn] else []) ++
+   FLAT (MAP var_exp args)) ∧
+  (free_var_ids (panLang$Call (SOME (NONE , NONE)) _ args) =
    FLAT (MAP var_exp args)) ∧
   (free_var_ids (panLang$Call NONE _ args) = FLAT (MAP var_exp args)) ∧
   (free_var_ids (DecCall vn _ _ args p) = vn::free_var_ids p ++ FLAT (MAP var_exp args)) ∧
