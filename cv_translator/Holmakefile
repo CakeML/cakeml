@@ -5,6 +5,7 @@ INCLUDES = $(HOLDIR)/examples/bootstrap \
            ../compiler/backend/x64 \
            ../compiler/backend/arm8 \
            ../compiler/backend/ag32 \
+           ../compiler/backend/wasm \
            ../compiler/backend/cv_compute \
            ../compiler/wasm \
            ../compiler/wasm/end-to-end

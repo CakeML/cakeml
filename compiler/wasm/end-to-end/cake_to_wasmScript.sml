@@ -20,7 +20,7 @@ Definition cake_to_wasm_binary_def:
     case cake_to_wasm c p of
     | INL err_msg => INL err_msg
     | INR wasm_module =>
-    case enc_wasm_module wasm_module of
-    | INL err_msg => INL (strlit "wasm encoding failure: " ^ err_msg)
-    | INR binary => INR binary
+    case enc_module wasm_module of
+    | NONE => INL (strlit "wasm encoding failure")
+    | SOME binary => INR binary
 End
