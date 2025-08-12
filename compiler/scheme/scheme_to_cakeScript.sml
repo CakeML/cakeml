@@ -34,18 +34,17 @@ Definition cons_list_def:
 End
 
 Definition proc_ml_def:
-  proc_ml [] NONE k ce = Mat (Var (Short "ts")) [
-        (Pcon (SOME $ Short "[]") [],
-          App Opapp [ce; Var (Short k)]);
+  proc_ml [] NONE ce = Mat (Var (Short "ts")) [
+        (Pcon (SOME $ Short "[]") [], ce);
         (Pany,
           Con (SOME $ Short "Ex") [Lit $ StrLit "Wrong number of arguments"])
     ] ∧
-  proc_ml [] (SOME x) k ce = Let (SOME $ "var" ++ explode x)
+  proc_ml [] (SOME x) ce = Let (SOME $ "var" ++ explode x)
       (App Opref [Con (SOME $ Short "Some") [
         App Opapp [Var (Short "allocate_list"); Var (Short "ts")]]])
-      (App Opapp [ce; Var (Short k)]) ∧
-  proc_ml (x::xs) xp k ce = (let
-    inner = proc_ml xs xp k ce
+      ce ∧
+  proc_ml (x::xs) xp ce = (let
+    inner = proc_ml xs xp ce
   in
     Mat (Var (Short "ts")) [
         (Pcon (SOME $ Short "[]") [],
@@ -67,7 +66,7 @@ Definition refunc_set_def:
   refunc_set t k x = Let NONE (App Opassign [Var (Short $ "var" ++ explode x);
               Con (SOME $ Short "Some") [t]]) $
             Let (SOME "t") (Con (SOME $ Short "Wrong") [Lit $ StrLit "Unspecified"])
-              (App Opapp [k; Var (Short "t")])
+              (App Opapp [Var (Short k); Var (Short "t")])
 End
 
 Definition letinit_ml_def:
@@ -79,104 +78,69 @@ Definition letinit_ml_def:
 End
 
 Definition cps_transform_def:
-  cps_transform (Lit v) = (let
+  cps_transform (Lit v) k = (let
     mlv = lit_to_ml_val v
   in
-    Fun "k" $ Let (SOME "t") mlv $
-      App Opapp [Var (Short "k"); Var (Short "t")]) ∧
+    Let (SOME "t") mlv $
+      App Opapp [Var (Short k); Var (Short "t")]) ∧
 
-  cps_transform (Cond c t f) = (let
-    cc = cps_transform c;
-    ct = cps_transform t;
-    cf = cps_transform f;
-  in
-    Fun "k" $ Let (SOME "k'") (Fun "t" $ Mat (Var (Short "t")) [
-      (Pcon (SOME $ Short "SBool") [Pcon (SOME $ Short "False") []],
-        App Opapp [cf; Var (Short "k")]);
-      (Pany,
-        App Opapp [ct; Var (Short "k")])
-    ]) $ App Opapp [cc; Var (Short "k'")]) ∧
+  cps_transform (Cond c t f) k =
+    Let (SOME "k") (Fun "t" $ Mat (Var (Short "t")) [
+      (Pcon (SOME $ Short "SBool") [Pcon (SOME $ Short "False") []], cps_transform f k);
+      (Pany, cps_transform t k)
+    ]) $ cps_transform c "k" ∧
 
-  cps_transform (Apply fn args) = (let
-    cfn = cps_transform fn;
-    capp = cps_transform_app (Var (Short "t")) [] args (Var (Short "k"))
-  in
-    Fun "k" $ Let (SOME "k'") (Fun "t" capp) $ App Opapp [cfn; Var (Short "k'")]) ∧
+  cps_transform (Apply fn args) k =
+    Let (SOME "k") (Fun "t" $ cps_transform_app (Var (Short "t")) [] args k) $ cps_transform fn "k" ∧
 
-  cps_transform (Ident x) = Fun "k" $ Mat (App Opderef [Var (Short $ "var" ++ explode x)]) [
+  cps_transform (Ident x) k = Mat (App Opderef [Var (Short $ "var" ++ explode x)]) [
       (Pcon (SOME $ Short "None") [],
         Con (SOME $ Short "Ex") [Lit $ StrLit "Letrec variable touched"]);
       (Pcon (SOME $ Short "Some") [Pvar "t"],
-        App Opapp [Var (Short "k"); Var (Short "t")])] ∧
+        App Opapp [Var (Short k); Var (Short "t")])] ∧
 
-  cps_transform (Lambda xs xp e) = (let
-    ce = cps_transform e;
-    inner = proc_ml xs xp "k" ce;
-  in
-    Fun "k" $ Let (SOME "t")
-      (Con (SOME $ Short "Proc") [Fun "k" $ Fun "ts" inner]) $
-      App Opapp [Var (Short "k"); Var (Short "t")]) ∧
+  cps_transform (Lambda xs xp e) k = Let (SOME "t")
+      (Con (SOME $ Short "Proc") [Fun "k" $ Fun "ts" $ proc_ml xs xp $ cps_transform e "k"]) $
+      App Opapp [Var (Short k); Var (Short "t")] ∧
 
-  cps_transform (Begin es e) = (let
-      inner = cps_transform_seq (Var (Short "k")) es e
-    in
-      Fun "k" inner) ∧
+  cps_transform (Begin es e) k = cps_transform_seq k es e ∧
 
-  cps_transform (Set x e) = (let
-    ce = cps_transform e;
-    inner = refunc_set (Var (Short "t")) (Var (Short "k")) x;
-  in
-    Fun "k" $ Let (SOME "k'") (Fun "t" inner) $ App Opapp [ce; Var (Short "k'")]) ∧
+  cps_transform (Set x e) k =
+    Let (SOME "k") (Fun "t" $ refunc_set (Var (Short "t")) k x) $ cps_transform e "k" ∧
 
-  cps_transform (Letrec bs e) = (let
-    inner = cps_transform_letinit [] bs e (Var (Short "k"));
-  in
-    Fun "k" $ letpreinit_ml (MAP FST bs) $ inner) ∧
+  cps_transform (Letrec bs e) k = letpreinit_ml (MAP FST bs) $ cps_transform_letinit [] bs e k ∧
 
-  cps_transform (Letrecstar bs e) = (let
-    ce = cps_transform (Begin (MAP (UNCURRY Set) bs) e);
-  in
-    Fun "k" $ letpreinit_ml (MAP FST bs) $ App Opapp [ce; Var (Short "k")]) ∧
+  cps_transform (Letrecstar bs e) k =
+    letpreinit_ml (MAP FST bs) $ cps_transform (Begin (MAP (UNCURRY Set) bs) e) k ∧
 
 
   cps_transform_app tfn ts (e::es) k = (let
-    ce = cps_transform e;
     t = "t" ++ toString (LENGTH ts);
     inner = cps_transform_app tfn (Var (Short t)::ts) es k
   in
-    Let (SOME "k'") (Fun t inner) $ App Opapp [ce; Var (Short "k'")]) ∧
+    Let (SOME "k") (Fun t inner) $ cps_transform e "k") ∧
 
   cps_transform_app tfn ts [] k = App Opapp [
-      App Opapp [App Opapp [Var (Short "app"); k]; tfn];
+      App Opapp [App Opapp [Var (Short "app"); (Var (Short k))]; tfn];
       cons_list (REVERSE ts)] ∧
 
 
-  cps_transform_letinit xts [] e k = (let
-    ce = cps_transform e
-  in
-    letinit_ml xts $ App Opapp [ce; k]) ∧
+  cps_transform_letinit xts [] e k = letinit_ml xts $ cps_transform e k ∧
 
   cps_transform_letinit xts ((x, e')::bs) e k = (let
-    ce = cps_transform e';
     t = "t" ++ toString (LENGTH xts);
     inner = cps_transform_letinit ((x, Var (Short t))::xts) bs e k
   in
-    Let (SOME "k'") (Fun t inner) $ App Opapp [ce; Var (Short "k'")]) ∧
+    Let (SOME "k") (Fun t inner) $ cps_transform e' "k") ∧
 
 
-  cps_transform_seq k [] e = (let
-    ce = cps_transform e
-  in
-    App Opapp [ce; k]) ∧
+  cps_transform_seq k [] e = cps_transform e k ∧
 
-  cps_transform_seq k (e'::es) e = (let
-    ce = cps_transform e';
-    inner = cps_transform_seq k es e
-  in
-     Let (SOME "k'") (Fun "_" inner) $ App Opapp [ce; Var (Short "k'")])
+  cps_transform_seq k (e'::es) e =
+     Let (SOME "k") (Fun "_" $ cps_transform_seq k es e) $ cps_transform e' "k"
 Termination
   WF_REL_TAC ‘inv_image ($< LEX $<) (λ x . case x of
-    | INL(e) => (exp_size e, case e of Letrecstar _ _ => 1 | _ => 0)
+    | INL(e,_) => (exp_size e, case e of Letrecstar _ _ => 1 | _ => 0)
     | INR(INL(_,_,es,_)) => (list_size exp_size es, 2n)
     | INR(INR(INL(_,bs,e,_))) => (exp1_size bs + exp_size e, 2)
     | INR(INR(INR(_,es,e))) => (list_size exp_size es + exp_size e, 2))’
@@ -190,11 +154,7 @@ Termination
 End
 
 Definition compile_scheme_prog_def:
-  compile_scheme_prog p = let
-    cp = cps_transform p
-  in
-    Let (SOME $ "k") (Fun "t" $ Var (Short "t")) $
-      App Opapp [cp; Var (Short "k")]
+  compile_scheme_prog p = Let (SOME $ "k") (Fun "t" $ Var (Short "t")) $ cps_transform p "k"
 End
 
 Definition cake_print_def:
