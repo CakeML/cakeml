@@ -1,7 +1,7 @@
 (*
   The formal semantics of wordLang
 *)
-open preamble wordLangTheory;
+open preamble wordLangTheory mllistTheory;
 local open alignmentTheory asmTheory ffiTheory in end;
 
 val _ = new_theory"wordSem";
@@ -429,7 +429,7 @@ Definition env_to_list_def:
     let mover = bij_seq 0 in
     let permute = (\n. bij_seq (n + 1)) in
     let l = toAList env in
-    let l = QSORT key_val_compare l in
+    let l = mllist$sort key_val_compare l in
     let l = list_rearrange mover l in
       (l,permute)
 End

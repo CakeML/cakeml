@@ -1,7 +1,7 @@
 (*
   A linear-scan register allocator.
 *)
-open preamble sptreeTheory reg_allocTheory
+open preamble sptreeTheory reg_allocTheory mllistTheory
 open state_transformerTheory ml_monadBaseLib ml_monadBaseTheory
 
 val _ = new_theory "linear_scan"
@@ -795,7 +795,7 @@ End
 
 Definition sort_moves_rev_def:
   sort_moves_rev ls =
-    QSORT (\p:num,x p',x'. p<p') ls
+    sort (\p:num,x p',x'. p<p') ls
 End
 
 Definition swap_regs_def:
@@ -828,8 +828,8 @@ Termination
   WF_REL_TAC `measure (\l,rpiv,begrpiv,r. r-l)`
 End
 
-Definition qsort_regs_def:
-    qsort_regs l r =
+Definition sort_regs_def:
+    sort_regs l r =
       if r <= l+1 then
         return ()
       else
@@ -843,8 +843,8 @@ Definition qsort_regs_def:
             return ()
           else
             do
-              qsort_regs l (m-1);
-              qsort_regs m r;
+              sort_regs l (m-1);
+              sort_regs m r;
             od
         od
 Termination
@@ -907,8 +907,8 @@ Termination
   WF_REL_TAC `measure (\l,piv,r. r-l)`
 End
 
-Definition qsort_moves_def:
-    qsort_moves l r =
+Definition sort_moves_def:
+    sort_moves l r =
       if r <= l+1 then
         return ()
       else
@@ -921,8 +921,8 @@ Definition qsort_moves_def:
             return ()
           else
             do
-              qsort_moves l (m-1);
-              qsort_moves m r;
+              sort_moves l (m-1);
+              sort_moves m r;
             od
         od
 Termination
@@ -964,13 +964,13 @@ Definition linear_reg_alloc_intervals_def:
         let st_init_pass1 = linear_reg_alloc_pass1_initial_state k in
         do
           list_to_sorted_regs reglist_unsorted 0;
-          qsort_regs 0 lenreg;
+          sort_regs 0 lenreg;
           reglist <- sorted_regs_to_list 0 lenreg;
           phyregs <- return (FILTER is_phy_var reglist);
           phyphyregs <- return (FILTER (\r. r < 2*k) phyregs);
           stackphyregs <- return (FILTER (\r. 2*k <= r) phyregs);
           list_to_sorted_moves moves 0;
-          qsort_moves 0 lenmoves;
+          sort_moves 0 lenmoves;
           smoves <- sorted_moves_to_list 0 lenmoves;
           moves_adjlist <- edges_to_adjlist (MAP SND smoves) LN;
           forced_adjlist <- edges_to_adjlist forced LN;
@@ -1147,185 +1147,4 @@ Definition linear_scan_reg_alloc_def:
         run_linear_reg_alloc_intervals ct' k forced' moves' reglist_unsorted bijstate.invbij bijstate.nmax (* (0i-((size_of_clash_tree ct') + 1)) *)
 End
 
-(*
-(* === translation (TODO: move to bootstrap translation) === *)
-
-(* TODO: remove when moved to bootstrap *)
-val _ = register_type ``:'a num_map``;
-val _ = register_type ``:'a list``;
-
-(*
- *  Set up the monadic translator
- *)
-
-(* The record types used for the monadic state and exceptions *)
-val state_type = ``:linear_scan_hidden_state``
-val exn_type   = ``:state_exn``;
-val _          = register_exn_type exn_type;
-
-val STATE_EXN_TYPE_def = theorem "REG_ALLOC_STATE_EXN_TYPE_def"
-val exn_ri_def         = STATE_EXN_TYPE_def;
-val store_hprop_name   = "LINEAR_SCAN_HIDDEN_STATE";
-
-(* Accessor functions are defined (and used) previously together
-   with exceptions, etc. *)
-
-val exn_functions = [
-    (raise_Fail_def, handle_Fail_def),
-    (raise_Subscript_def, handle_Subscript_def)
-];
-
-val refs_manip_list = [] : (string * thm * thm) list;
-val rarrays_manip_list = [] : (string * thm * thm * thm * thm * thm * thm) list;
-val farrays_manip_list = [
-    ("colors", get_colors_def, set_colors_def, colors_length_def, colors_sub_def, update_colors_def),
-    ("int_beg", get_int_beg_def, set_int_beg_def, int_beg_length_def, int_beg_sub_def, update_int_beg_def),
-    ("int_end", get_int_end_def, set_int_end_def, int_end_length_def, int_end_sub_def, update_int_end_def),
-    ("sorted_regs", get_sorted_regs_def, set_sorted_regs_def, sorted_regs_length_def, sorted_regs_sub_def, update_sorted_regs_def),
-    ("sorted_moves", get_sorted_moves_def, set_sorted_moves_def, sorted_moves_length_def, sorted_moves_sub_def, update_sorted_moves_def)
-];
-
-val add_type_theories  = ([] : string list);
-val store_pinv_def_opt = NONE : thm option;
-
-(* Initialization *)
-
-val _ = start_dynamic_init_fixed_store_translation
-            refs_manip_list
-            rarrays_manip_list
-            farrays_manip_list
-            store_hprop_name
-            state_type
-            exn_ri_def
-            [] (* exn_functions *)
-            add_type_theories
-            store_pinv_def_opt
-
-(* Translate basics -- TODO: remove in bootstrap *)
-
-val res = translate NULL
-val res = translate LENGTH
-val res = translate MAP
-val res = translate FILTER
-val res = translate EVEN
-val res = translate FST
-val res = translate SND
-val res = translate HD;
-val res = translate TL;
-val res = translate K_DEF;
-val res = translate LAST_DEF;
-val res = translate FRONT_DEF;
-val res = translate the_def;
-val res = translate MEMBER_def;
-
-val hd_side = prove(
-  ``hd_side x <=> x <> []``,
-  Cases_on `x` \\ fs [fetch "-" "hd_side_def"])
-  |> update_precondition;
-
-val tl_side = prove(
-  ``tl_side x <=> x <> []``,
-  Cases_on `x` \\ fs [fetch "-" "tl_side_def"])
-  |> update_precondition;
-
-val last_side = prove(
-  ``!x. last_side x <=> x <> []``,
-  Induct \\ simp [Once (fetch "-" "last_side_def")])
-  |> update_precondition;
-
-val front_side = prove(
-  ``!x. front_side x <=> x <> []``,
-  Induct \\ simp [Once (fetch "-" "front_side_def")])
-  |> update_precondition;
-
-val res = translate mk_BN_def;
-val res = translate mk_BS_def;
-val res = translate delete_def;
-val res = translate numset_list_delete_def;
-val res = translate lookup_def
-val res = translate insert_def
-val res = translate union_def
-val res = translate map_def
-val res = translate difference_def;
-val res = translate is_stack_var_def
-val res = translate is_phy_var_def
-val res = translate fromAList_def;
-val res = translate sortingTheory.PART_DEF
-val res = translate sortingTheory.PARTITION_DEF
-val res = translate sortingTheory.QSORT_DEF
-
-val res = translate pairTheory.LEX_DEF
-val res = translate lrnext_def
-val res = translate foldi_def
-val res = translate toAList_def
-val res = translate MAX_DEF;
-val res = translate FOLDL;
-
-(* Translate linear scan register allocator *)
-
-Definition map_colors_sub_def:
-  (map_colors_sub [] = return []) ∧
-  (map_colors_sub (x::xs) =
-     do fx <- colors_sub x; fxs <- map_colors_sub xs; return (fx::fxs) od)
-End
-
-Theorem map_colors_sub_eq:
-   map_colors_sub = st_ex_MAP colors_sub
-Proof
-  once_rewrite_tac [FUN_EQ_THM]
-  \\ Induct \\ fs [map_colors_sub_def,st_ex_MAP_def]
-QED
-
-val res = m_translate spill_register_def;
-val res = m_translate MAP_colors_def;
-val res = m_translate st_ex_FOLDL_def;
-val res = m_translate map_colors_sub_def;
-val res = m_translate remove_inactive_intervals_def;
-
-val res = translate linear_reg_alloc_pass1_initial_state_def
-val res = translate linear_reg_alloc_pass2_initial_state_def
-val res = translate add_active_interval_def
-val res = translate find_color_in_list_def
-val res = translate find_color_in_colornum_def
-val res = translate find_color_def
-val res = m_translate color_register_def
-val res = m_translate find_last_stealable_def;
-val res = m_translate find_spill_def;
-val res = m_translate (linear_reg_alloc_step_aux_def
-                       |> REWRITE_RULE [MEMBER_INTRO]);
-val res = m_translate (linear_reg_alloc_step_pass1_def
-                       |> REWRITE_RULE [GSYM map_colors_sub_eq]);
-val res = m_translate (linear_reg_alloc_step_pass2_def
-                       |> REWRITE_RULE [GSYM map_colors_sub_eq]);
-
-val res = m_translate find_reg_exchange_def
-val res = m_translate apply_reg_exchange_def
-val res = translate edges_to_adjlist_impl_def
-val res = m_translate st_ex_FILTER_good_def;
-
-val res = translate sort_moves_def;
-
-val res = m_translate (linear_reg_alloc_intervals_def
-                       |> REWRITE_RULE [edges_to_adjlist_impl_thm]);
-
-val res = m_translate extract_coloration_def;
-val res = translate find_bijection_init_def;
-val res = translate find_bijection_step_def;
-val res = translate find_bijection_def;
-val res = translate apply_bijection_def;
-
-val res = m_translate linear_reg_alloc_intervals_and_extract_coloration_def;
-val res = m_translate_run run_linear_reg_alloc_intervals_def;
-
-val res = translate get_live_tree_def;
-val res = translate numset_list_insert_def;
-val res = translate get_live_backward_def;
-val res = translate fix_domination_def;
-val res = translate numset_list_add_if_def;
-val res = translate numset_list_add_if_lt_def;
-val res = translate numset_list_add_if_gt_def;
-val res = translate get_intervals_def;
-val res = translate linear_scan_reg_alloc_def;
-
-*)
 val _ = export_theory ();

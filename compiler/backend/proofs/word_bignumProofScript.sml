@@ -2,7 +2,7 @@
   Correctness proof for word_bignum
 *)
 open preamble astTheory wordLangTheory wordSemTheory wordPropsTheory tailrecTheory;
-open mc_multiwordTheory set_sepTheory helperLib word_bignumTheory;
+open mc_multiwordTheory set_sepTheory helperLib word_bignumTheory mllistTheory;
 
 val good_dimindex_def = miscTheory.good_dimindex_def;
 val env_to_list_lookup_equiv = wordPropsTheory.env_to_list_lookup_equiv;
@@ -349,7 +349,10 @@ QED
 val env_to_list_insert_0_LN = prove(
   ``env_to_list (insert 0 ret_val LN) p = ([0,ret_val],(\n. p (n+1)))``,
   fs [env_to_list_def,toAList_def,Once insert_def,foldi_def]
-  \\ fs [QSORT_DEF,PARTITION_DEF,PART_DEF]
+  \\ fs [sort_def,
+         mergesortTheory.mergesort_tail_def,
+         Once $ mergesortTheory.mergesortN_tail_def
+        ]
   \\ fs [list_rearrange_def] \\ rw []
   \\ fs [BIJ_DEF,EVAL ``count 1``,INJ_DEF,SURJ_DEF]);
 
@@ -930,6 +933,7 @@ Proof
     \\ Cases_on `a = n1` \\ fs []
     \\ Cases_on `a = n2` \\ fs []
     \\ strip_tac \\ res_tac \\ fs [])
+
   THEN1 (* Loop *)
    (fs [compile_def]
     \\ fs [syntax_ok_def,syntax_ok_aux_def]
@@ -975,7 +979,6 @@ Proof
       \\ CONJ_TAC >- (irule wf_insert \\ fs[])
       \\ fs[domain_fromAList]
       \\ fs[toAList_def,foldi_def]
-      \\ fs[QSORT_DEF]
       \\ fs[list_rearrange_def]
       \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t8)`
       \\ qexists_tac `t8` \\ fs []
@@ -1024,7 +1027,6 @@ Proof
     \\ CONJ_TAC >- (irule wf_insert \\ fs[])
     \\ fs[domain_fromAList]
     \\ fs[toAList_def,foldi_def]
-    \\ fs[QSORT_DEF]
     \\ fs[list_rearrange_def]
     \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t8)`
     \\ qexists_tac `t8` \\ fs []

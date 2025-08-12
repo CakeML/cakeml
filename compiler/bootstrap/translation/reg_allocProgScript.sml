@@ -370,13 +370,13 @@ val res = m_translate list_to_sorted_regs_def;
 val res = m_translate swap_regs_def;
 val res = m_translate partition_regs_def;
 
-val res = m_translate qsort_regs_def;
+val res = m_translate sort_regs_def;
 val res = m_translate sorted_regs_to_list_def;
 val res = m_translate list_to_sorted_moves_def;
 
 val res = m_translate swap_moves_def;
 val res = m_translate partition_moves_def;
-val res = m_translate qsort_moves_def;
+val res = m_translate sort_moves_def;
 val res = m_translate sorted_moves_to_list_def;
 
 val res = m_translate edges_to_adjlist_def;

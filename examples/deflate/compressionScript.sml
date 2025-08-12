@@ -6,6 +6,8 @@ open preamble;
 open stringLib stringTheory string_numTheory ASCIInumbersTheory;
 open rich_listTheory alistTheory listTheory;
 open sortingTheory arithmeticTheory;
+open mllistTheory;
+
 val _ = new_theory "compression";
 
 
@@ -117,7 +119,7 @@ End
 Definition create_fixed_dict_def:
   create_fixed_dict s =
   let
-    keys = QSORT (λ x y. LENGTH y < LENGTH x) $ extract_keys s
+    keys = sort (λ x y. LENGTH y < LENGTH x) $ extract_keys s
   in
     ZIP (keys, gen_fix_codes $ LENGTH keys)
 End

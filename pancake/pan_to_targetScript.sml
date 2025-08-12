@@ -4,7 +4,8 @@
 
 open preamble
      pan_to_wordTheory backendTheory
-     word_depthTheory word_to_wordTheory;
+     word_depthTheory word_to_wordTheory
+     mllistTheory;
 
 val _ = new_theory "pan_to_target";
 
@@ -24,7 +25,7 @@ Definition compile_prog_def:
     let c = c with
             word_to_word_conf updated_by (λc. c with col_oracle := col) in
     (* Add user functions to name mapping *)
-    let names = fromAList (ZIP (QSORT $< (MAP FST prog2),  (* func numbers *)
+    let names = fromAList (ZIP (sort $< (MAP FST prog2),  (* func numbers *)
                                 MAP FST prog1              (* func names *)
                           )) : mlstring$mlstring num_map in
     (* Add stubs to name mapping *)
@@ -49,7 +50,7 @@ Theorem compile_prog_eq:
     (* Compiler passes *)
     let prog2 = pan_to_word$compile_prog c.lab_conf.asm_conf.ISA prog1 in
     (* Add user functions to name mapping *)
-    let names = fromAList (ZIP (QSORT $< (MAP FST prog2),  (* func numbers *)
+    let names = fromAList (ZIP (sort $< (MAP FST prog2),  (* func numbers *)
                                 MAP FST prog1              (* func names *)
                           )) : mlstring$mlstring num_map in
     (* Add stubs to name mapping *)
