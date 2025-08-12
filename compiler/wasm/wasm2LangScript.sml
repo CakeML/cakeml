@@ -1,13 +1,9 @@
 (*
   CWasm AST modelling Wasm 2.0 (+ tail calls)
-  Present here are
-    + control flow instructions
-    + all numeric (stack) instructions
-    + all vector (stack) instructions
-    + all (incl num&vec) memory operations -- factored into their own datatype
   Imprecisions:
     HOL lists encode Wasm vectors; latter has max length of 2^32
 *)
+
 open preamble;
 
 val _ = set_grammar_ancestry ["words", "arithmetic", "list"];
@@ -54,13 +50,12 @@ Type resulttype = “:valtype list”
 Type functype = “:resulttype # resulttype”
 
 Datatype: limits
-  = Lunb word64
-  | Lwmx word64 word64
+  = Lunb word32
+  | Lwmx word32 word32
 End
 
-Type mem = “:word8 list”
 (* Type addrtype = “:width” *)
-Type memtype = “:(width # limits)”
+Type memtype = “:limits”
 
 Type tabletype = “:limits # reftype”
 
@@ -520,6 +515,7 @@ Datatype: instr
 End
 
 
+
 (*************************)
 (*                       *)
 (*     CWasm Modules     *)
@@ -536,22 +532,15 @@ Type constant_expr = “:instr list”
 
 Datatype: func =
   <| name   : string
-   ; type   : functype
+   ; ftype  : index
    ; locals : valtype list
    ; body   : expr
    |>
 End
 
 Datatype: global =
-  <| type: globaltype
-   ; init: expr
-   |>
-End
-
-Datatype: data =
-  <| data   : index
-   ; offset : constant_expr
-   ; init   : word8 list
+  <| gtype: globaltype
+   ; ginit: expr
    |>
 End
 
@@ -560,17 +549,18 @@ Datatype: datamode
   | Dactive index constant_expr
 End
 
-Datatype: data2 =
+Datatype: data =
   <| init : word8 list
    ; mode : datamode
    |>
 End
 
 Datatype: module =
-  <| funcs   : func    list
-   ; mems    : memtype
-   ; globals : global  list
-   ; datas   : data
+  <| types   : functype list
+   ; funcs   : func     list
+   ; mems    : memtype  list
+   ; globals : global   list
+   ; datas   : data     list
    |>
 End
 
@@ -583,18 +573,39 @@ End
 (*******************)
 
 Datatype: moduleWasm =
-  <|
-    funcs   : func    list ;
-    (* tables  : table   list ; *)
-    mems    : memtype list ;
-    globals : global  list ;
-    (* elems   : elem    list ; *)
-    datas   : data    list ;
-    start   : index        ;
-    (* imports : import  list ; *)
-    (* exports : export  list ; *)
-  |>
+  <| types   : functype list
+   ; funcs   : index    list
+   (* ; tables  : table    list *)
+   ; mems    : memtype  list
+   ; globals : global   list
+   (* ; elems   : elem     list *)
+   ; datas   : data     list
+   ; start   : index
+   (* ; imports : import   list *)
+   (* ; exports : export   list *)
+   |>
 End
+
+
+
+(********************************)
+(*                              *)
+(*     Validation functions     *)
+(*                              *)
+(********************************)
+
+
+
+(* Definition constant_inst_def:
+  constant_inst (m:module) (i:instr) = case i of
+  | N_const32 => T
+  | N_const64 => T
+  | V_const   => T
+  | GlobalGet x => m
+
+End *)
+
+
 
 
 val _ = export_theory();

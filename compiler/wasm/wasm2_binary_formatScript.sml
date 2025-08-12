@@ -38,6 +38,66 @@ Overload emErr[local] = “λ str. (INL $ strlit $ "[" ++ str ++ "] : Byte seque
 (*                                                       *)
 (*********************************************************)
 
+
+(*****************************************)
+(*   Vectors (not vector instructions)   *)
+(*****************************************)
+
+Definition enc_list_def:
+  enc_list (encdr:α -> byteSeq) ([]:α list) : byteSeq option = SOME [] ∧
+  enc_list encdr (x::xs) =
+    case enc_list encdr xs of NONE=>NONE| SOME encxs =>
+    SOME $ encdr x ++ encxs
+End
+
+Definition enc_vector_def:
+  enc_vector (encdr:α -> byteSeq) (xs:α list) : byteSeq option =
+    let n = LENGTH xs in
+    if  2 ** 32 ≤ n then NONE else
+
+    case enc_list encdr xs of NONE=>NONE| SOME encxs =>
+    SOME $ enc_u32 (n2w n) ++ encxs
+End
+
+Definition dec_list_def:
+  dec_list (n:num) decdr bs =
+    if n = 0 then (INR [],bs) else
+    case decdr bs of
+    | (INL err, rs) => (INL err, rs)
+    | (INR x  , rs) =>
+      case dec_list (n-1) decdr rs of
+      | (INL err, rs) => (INL err, rs)
+      | (INR xs , rs) => (INR $ x::xs, rs)
+End
+
+Definition dec_vector_def:
+  dec_vector (dec:byteSeq -> (mlstring + α) # byteSeq) (bs:byteSeq) : (mlstring + α list) # byteSeq =
+    case dec_u32 bs of
+    | NONE => error bs "dec_vec"
+    | SOME (w,cs) => dec_list (w2n w) dec cs
+End
+
+
+
+Definition enc_listO_def:
+  enc_listO (encdr:α -> byteSeq option) ([]:α list) : byteSeq option = SOME [] ∧
+  enc_listO encdr (x::xs) =
+    case           encdr x  of NONE=>NONE| SOME encx  =>
+    case enc_listO encdr xs of NONE=>NONE| SOME encxs =>
+    SOME $ encx ++ encxs
+End
+
+Definition enc_vectorO_def:
+  enc_vectorO (encdr:α -> byteSeq option) (xs:α list) : byteSeq option =
+    let n = LENGTH xs in
+    if  2 ** 32 ≤ n then NONE else
+
+    case enc_listO encdr xs of NONE=>NONE| SOME encxs =>
+    SOME $ enc_u32 (n2w n) ++ encxs
+End
+
+
+
 (*************)
 (*   Types   *)
 (*************)
@@ -67,6 +127,48 @@ Definition dec_valtype_def:
   failure
 End
 
+Overload enc_valtype_Seq = “λ t. [enc_valtype t] : byteSeq”
+
+
+
+Definition enc_functype_def:
+  enc_functype (sg:functype) : byteSeq option =
+    case enc_vector enc_valtype_Seq (FST sg) of NONE=>NONE| SOME argTs =>
+    case enc_vector enc_valtype_Seq (SND sg) of NONE=>NONE| SOME resTs =>
+    SOME $ 0x60w :: argTs ++ resTs
+End
+
+Definition dec_functype_def:
+  dec_functype ([]:byteSeq) : (mlstring + functype) # byteSeq = emErr "dec_functype" ∧
+  dec_functype (b::bs) = let failure = error (b::bs) "[dec_functype]" in
+
+  if b ≠ 0x60w then failure else
+  case dec_vector dec_valtype bs of (INL err, es) =>failure| (INR argTs,cs) =>
+  case dec_vector dec_valtype cs of (INL err, es) =>failure| (INR resTs,rs) =>
+  (INR (argTs, resTs), rs)
+End
+
+
+
+Definition enc_limits_def:
+  enc_limits (lim:limits) : byteSeq = case lim of
+  | Lunb mn    => 0x00w :: enc_u32  mn
+  | Lwmx mn mx => 0x01w :: enc_2u32 mn mx
+End
+
+Overload enc_expr       = “enc_instrs T”
+Overload enc_instr_list = “enc_instrs F”
+
+
+Definition dec_limits_def:
+  dec_limits ([]:byteSeq) : (mlstring + limits) # byteSeq = emErr "dec_limits" ∧
+  dec_limits (b::bs) = let failure = error (b::bs) "[dec_limits]" in
+
+  if b = 0x00w then case dec_u32  bs of NONE=>failure| SOME (mn   ,rs) => (INR $ Lunb mn   , rs) else
+  if b = 0x01w then case dec_2u32 bs of NONE=>failure| SOME (mn,mx,rs) => (INR $ Lwmx mn mx, rs) else
+  failure
+End
+
 
 
 Definition enc_globaltype_def:
@@ -86,9 +188,9 @@ End
 
 
 
-(********************)
-(*   Instructions   *)
-(********************)
+(*******************************************)
+(*   Instructions (hierarchically lower)   *)
+(*******************************************)
 
 Definition enc_numI_def:
   enc_numI (i:num_instr) : byteSeq = case i of
@@ -1100,6 +1202,12 @@ End
 
 
 
+(**********************************************)
+(*                                            *)
+(*     Top-level Instructions + Controls      *)
+(*                                            *)
+(**********************************************)
+
 Definition enc_BlkIdx_def:
   enc_BlkIdx (w:word32) = enc_s33 $ w2w w
 End
@@ -1127,79 +1235,148 @@ Definition dec_blocktype_def:
   failure
 End
 
-Definition enc_fsig_def:
-  enc_fsig = ARB
-End
 
-Definition dec_fsig_def:
-  dec_fsig = ARB
-End
+
+Overload enc_indxs = “enc_vector enc_u32”
 
 Definition enc_instr_def:
+  (* "Expressions" in Wasm are lists of instructions terminated by
+      the byte 0x0B [endB]. Here we use a flag to control whether
+      we are encoding expressions, or just lists of instructions.
+      cf the If case for an example *)
+  (enc_instrs (exp:bool) ([]:instr list) : byteSeq option = SOME if exp then [endB] else []) ∧
+  (enc_instrs e (i::is) =
+    case enc_instr  e i  of NONE=>NONE| SOME enci  =>
+    case enc_instrs e is of NONE=>NONE| SOME encis =>  SOME $ enci ++ encis) ∧
 
-  (enc_instr (inst:instr) : byteSeq = case inst of
+  enc_instr (e:bool) (inst:instr) : byteSeq option = case inst of
 
   (* control instructions *)
-  | Unreachable => [zeroB]
-  | Nop         => [0x01w]
+  | Unreachable => SOME [zeroB]
+  | Nop         => SOME [0x01w]
 
-  | Block bT body => 0x02w :: enc_blocktype bT ++ enc_instr_list body ++ [endB]
-  | Loop  bT body => 0x03w :: enc_blocktype bT ++ enc_instr_list body ++ [endB]
-  | If    bT bThn bEls => 0x04w :: enc_blocktype bT ++ enc_instr_list bThn ++
-                  (if NULL bEls then [] else elseB :: enc_instr_list bEls) ++ [endB]
+  | Block bT body => (case enc_instrs T body of NONE=>NONE| SOME encb => SOME $ 0x02w :: enc_blocktype bT ++ encb)
+  | Loop  bT body => (case enc_instrs T body of NONE=>NONE| SOME encb => SOME $ 0x03w :: enc_blocktype bT ++ encb)
+  | If bT bdT []  => (case enc_instrs T bdT  of NONE=>NONE| SOME enct => SOME $ 0x04w :: enc_blocktype bT ++ enct)
+  | If bT bdT bdE => (case enc_instrs F bdT  of NONE=>NONE| SOME enct =>
+                      case enc_instrs T bdE  of NONE=>NONE| SOME ence => SOME $ 0x04w :: enc_blocktype bT ++ enct ++ elseB :: ence)
 
-  | Br           lbl => 0x0Cw ::                    enc_u32 lbl
-  | BrIf         lbl => 0x0Dw ::                    enc_u32 lbl
-  | BrTable lbls lbl => 0x0Ew :: (* TODO lbls ++ *) enc_u32 lbl
+  | Br           lbl =>                                     SOME $ 0x0Cw ::                            enc_u32 lbl
+  | BrIf         lbl =>                                     SOME $ 0x0Dw ::                            enc_u32 lbl
+  | BrTable lbls lbl => (case enc_indxs lbls of NONE=>NONE| SOME enclbls => SOME $ 0x0Ew :: enclbls ++ enc_u32 lbl)
 
-  | Return                    => [0x0Fw]
-  | Call               f      =>  0x10w ::                  enc_u32 f
-  | CallIndirect       f fsig =>  0x11w :: enc_fsig fsig ++ enc_u32 f
-  | ReturnCall         f      =>  0x12w ::                  enc_u32 f
-  | ReturnCallIndirect f fsig =>  0x13w :: enc_fsig fsig ++ enc_u32 f
+  | Return                    =>                                                      SOME  [0x0Fw]
+  | Call               fdx    =>                                                      SOME $ 0x10w ::            enc_u32 fdx
+  | ReturnCall         fdx    =>                                                      SOME $ 0x12w ::            enc_u32 fdx
+  | CallIndirect       fdx sg => (case enc_functype sg of NONE=>NONE| SOME encFsig => SOME $ 0x11w :: encFsig ++ enc_u32 fdx)
+  | ReturnCallIndirect fdx sg => (case enc_functype sg of NONE=>NONE| SOME encFsig => SOME $ 0x13w :: encFsig ++ enc_u32 fdx)
 
   (* other classes of instructions *)
-  | Variable   i => enc_varI   i
-  | Parametric i => enc_paraI  i
-  | Numeric    i => enc_numI   i
-  | Vector     i => enc_vecI   i
-  | MemRead    i => enc_loadI  i
-  | MemWrite   i => enc_storeI i
-  | MemOthers  i => enc_memI   i
-
-  ) ∧
-  (enc_instr_list ([]:instr list) : byteSeq = [endB]) ∧
-  (enc_instr_list (i::ins) = enc_instr i ++ enc_instr_list ins)
-
+  | Variable   i => SOME $ enc_varI   i
+  | Parametric i => SOME $ enc_paraI  i
+  | Numeric    i => SOME $ enc_numI   i
+  | Vector     i => SOME $ enc_vecI   i
+  | MemRead    i => SOME $ enc_loadI  i
+  | MemWrite   i => SOME $ enc_storeI i
+  | MemOthers  i => SOME $ enc_memI   i
 End
 
+Overload enc_expr       = “enc_instrs T”
+Overload enc_instr_list = “enc_instrs F”
 
 
-Definition enc_list_def:
-  enc_list (encdr:α -> byteSeq) ([]:α list) = [] ∧
-  enc_list encdr (x::xs) = encdr x ++ enc_list encdr xs
+
+(********************)
+(*                  *)
+(*     Modules      *)
+(*                  *)
+(********************)
+
+Definition enc_global_def:
+  enc_global (g:global) : byteSeq option =
+    case enc_expr g.ginit of NONE=>NONE| SOME expr =>
+    SOME $ enc_globaltype g.gtype ++ expr
 End
 
-Definition enc_vector_def:
-  enc_vector encdr [] : byteSeq option = SOME $ enc_num 0 ∧
-  enc_vector encdr xs = let n = LENGTH xs in
-    if n >= 2 ** 32 then NONE else SOME $ enc_num n ++ enc_list encdr xs
+Definition enc_code_def:
+  enc_code (c:valtype list # expr) : byteSeq option =
+    case enc_vector enc_valtype_Seq (FST c) of NONE=>NONE| SOME encL =>
+    case enc_expr                   (SND c) of NONE=>NONE| SOME encC =>
+    let code = encL ++ encC in
+    SOME $ enc_u32 (n2w $ LENGTH code) ++ code
 End
 
-
-Definition dec_list_def:
-  dec_list (n:num) dec bs = if n = 0 then (INR [],bs) else
-    case dec                bs of (INL err,rs) => (INL err,rs)| (INR x ,cs) =>
-    case dec_list (n-1) dec cs of (INL err,rs) => (INL err,rs)| (INR xs,rs) =>
-    (INR $ x::xs, rs)
+Definition enc_data_def:
+  enc_data (d:data) : byteSeq option = ARB
 End
 
-Definition dec_vector_def:
-  dec_vector dec bs =
-    case dec_u32 bs of
-    | NONE => error bs "dec_vec"
-    | SOME (w,cs) => dec_list (w2n w) dec cs
+Definition enc_section_def:
+  enc_section (leadByte:byte) (contents:byteSeq) : byteSeq =
+    leadByte :: enc_u32 (n2w $ LENGTH contents) ++ contents
 End
+
+(* Definition dec_section_def:
+  dec_section ([]:byteSeq) : ((mlstring + byteSeq) # byteSeq) = emErr "dec_section" ∧
+  dec_section bs = let failure = error bs "[dec_section]" in
+
+  case dec_u32 of NONE=>NONE| SOME
+
+  dec_section (leadByte:byte) (contents:byteSeq) : byteSeq =
+    leadByte :: enc_u32 (n2w $ LENGTH contents) ++ contents
+End *)
+
+Overload enc_custom_sec  = “enc_section  0w”
+Overload enc_type_sec    = “enc_section  1w”
+Overload enc_funcs_sec   = “enc_section  3w”
+Overload enc_memory_sec  = “enc_section  5w”
+Overload enc_global_sec  = “enc_section  6w”
+Overload enc_code_sec    = “enc_section 10w”
+Overload enc_data_sec    = “enc_section 11w”
+(* Overload enc_import_sec  = “enc_section  2w” *)
+(* Overload enc_table_sec   = “enc_section  4w” *)
+(* Overload enc_export_sec  = “enc_section  7w” *)
+(* Overload enc_start_sec   = “enc_section  8w” *)
+(* Overload enc_element_sec = “enc_section  9w” *)
+
+Definition split_funcs_def:
+  split_funcs ([]:func list) : index list # (valtype list # expr) list = ([],[]) ∧
+  split_funcs (f::fs) =
+  let (typs, lBods) = split_funcs fs in
+  (f.ftype :: typs, (f.locals, f.body) :: lBods)
+End
+
+(* Overload enc_types   = enc_vectorO enc_functype
+Overload enc_funcs   = enc_vector  enc_u32
+Overload enc_mems    = enc_vector  enc_limits
+Overload enc_globals = enc_vectorO enc_global
+Overload enc_codes   = enc_vectorO enc_code
+Overload enc_datas   = enc_vectorO enc_data     *)
+
+(* From CWasm (not Wasm!) modules to Wasm binary format *)
+(*
+Definition enc_module_def:
+  enc_module (m:module) : byteSeq option =
+
+    let (fTIdxs, locBods) = split_funcs m.funcs in
+    case enc_vectorO  enc_functype  m.types   of NONE=>NONE| SOME types'   =>
+    case enc_vector   enc_u32       fTIdxs    of NONE=>NONE| SOME funcs'   =>
+    case enc_vector   enc_limits    m.mems    of NONE=>NONE| SOME mems'    =>
+    case enc_vectorO  enc_global    m.globals of NONE=>NONE| SOME globals' =>
+    case enc_vectorO  enc_code      locBods   of NONE=>NONE| SOME code'    =>
+    case enc_vectorO  enc_data      m.datas   of NONE=>NONE| SOME datas'   =>
+
+    SOME $
+    0x00w:: 0x61w:: 0x73w:: 0x6Dw:: (* \0asm - magic number         *)
+    0x01w:: 0x00w:: 0x00w:: 0x00w:: (* version number of Bin format *)
+
+    enc_type_sec   types'   ++
+    enc_funcs_sec  funcs'   ++
+    enc_memory_sec mems'    ++
+    enc_global_sec globals' ++
+    enc_code_sec   code'    ++
+    enc_data_sec   datas'
+End
+*)
 
 
 
@@ -1414,12 +1591,12 @@ Theorem dec_enc_blocktype:
   ∀b rest. dec_blocktype (enc_blocktype b ++ rest) = (INR b, rest)
 Proof
   rpt strip_tac
-  >> `∃ val. enc_blocktype b = val` by simp []
-  >> asm_rewrite_tac[]
-  >> pop_assum mp_tac
-  >> rewrite_tac[enc_blocktype_def]
-  >> simp[AllCaseEqs()]
-  >> rpt strip_tac
+  \\ `∃ val. enc_blocktype b = val` by simp []
+  \\ asm_rewrite_tac[]
+  \\ pop_assum mp_tac
+  \\ rewrite_tac[enc_blocktype_def]
+  \\ simp[AllCaseEqs()]
+  \\ rpt strip_tac
   >- gvs[dec_blocktype_def]
   >- (
     gvs[dec_blocktype_def, dec_enc_valtype]
@@ -1428,12 +1605,12 @@ Proof
   )
   >- (
     gvs[oneline dec_blocktype_def,dec_valtype_def]
-    >> simp[AllCaseEqs()]
-    >> simp[SF DNF_ss]
-    >> Cases_on `enc_BlkIdx x`
+    \\ simp[AllCaseEqs()]
+    \\ simp[SF DNF_ss]
+    \\ Cases_on `enc_BlkIdx x`
     >> gvs[enc_BlkIdx_not_nil]
     >> reverse $ rpt strip_tac (* reverses the subgoals produced by the following tactic *)
-    >-  metis_tac[APPEND, dec_enc_BlkIdx]
+    >- metis_tac[APPEND, dec_enc_BlkIdx]
     >> (
       gvs[]
       >> drule enc_BlkIdx_imp_word_msb
@@ -1457,58 +1634,6 @@ Proof
   cheat
 QED
 
-
-(*
-Theorem dec_enc_list_valtype:
-  ∀ is rest. dec_list_valtype (enc_list (λ x. [enc_valtype x]) is ++ rest) = (is, rest)
-Proof
-  rpt gen_tac
-  >> rw[enc_list_def, enc_valtype_def]
-  >>
-  cheat
-QED
-
-Theorem dec_enc_list_global:
-  ∀ is rest. dec_list_global ((enc_list enc_global) is ++ rest) = (is, rest)
-Proof
-  cheat
-QED
-
-Theorem dec_enc_list_blocktype:
-  ∀ is rest. dec_list_blocktype ((enc_list enc_blocktype) is ++ rest) = (is, rest)
-Proof
-  cheat
-QED
-
-Theorem dec_enc_list_numI:
-  ∀ is rest. dec_list_numI ((enc_list enc_numI) is ++ rest) = (is, rest)
-Proof
-  cheat
-QED
-
-Theorem dec_enc_list_loadI:
-  ∀ is rest. dec_list_loadI ((enc_list enc_loadI) is ++ rest) = (is, rest)
-Proof
-  cheat
-QED
-
-Theorem dec_enc_list_storeI:
-  ∀ is rest. dec_list_storeI ((enc_list enc_storeI) is ++ rest) = (is, rest)
-Proof
-  cheat
-QED
-
-Theorem dec_enc_list_paraI:
-  ∀ is rest. dec_list_paraI ((enc_list enc_paraI) is ++ rest) = (is, rest)
-Proof
-  cheat
-QED
-
-Theorem dec_enc_list_varI:
-  ∀ is rest. dec_list_varI ((enc_list enc_varI) is ++ rest) = (is, rest)
-Proof
-  cheat
-QED *)
 
 (***************)
 (*             *)
@@ -1681,9 +1806,9 @@ Theorem dec_instr_def[allow_rebind] = REWRITE_RULE [check_len_thm] dec_instr_def
 Theorem dec_instr_ind[allow_rebind] = REWRITE_RULE [check_len_thm] dec_instr_ind;
 
 Theorem enc_instr_not_end:
-  ∀i. ∃h t. enc_instr i = h::t ∧ h ≠ 0x0Bw
+  ∀i e. ∃h t. enc_instr e i = SOME (h::t) ⇒ h ≠ 0x0Bw
 Proof
-  Cases \\ simp [Once enc_instr_def]
+  Cases_on ‘i’ >> Cases_on ‘e’ >> simp [Once enc_instr_def]
   >~ [‘enc_varI’] >- (simp [enc_varI_def] \\ every_case_tac \\ fs [])
   >~ [‘enc_paraI’] >- (simp [enc_paraI_def] \\ every_case_tac \\ fs [])
   >~ [‘enc_numI’] >- (simp [enc_numI_def] \\ every_case_tac \\ fs [])
