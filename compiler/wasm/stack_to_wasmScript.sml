@@ -12,7 +12,8 @@ Definition stack_to_wasm_def:
                 ( read_only_data : word64 list )
                 ( prog           : (num # 64 stackLang$prog) list )
   =
-    INR <| funcs   := []
+    INR <| types   := []
+         ; funcs   := []
          ; mems    := []
          ; globals := []
          ; datas   := [] |> : mlstring + wasmLang$module
