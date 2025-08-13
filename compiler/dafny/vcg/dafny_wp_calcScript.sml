@@ -149,6 +149,14 @@ Inductive stmt_wp:
     ⇒
     stmt_wp m [IsBool g; imp g (conj pre1); imp (not g) (conj pre2)]
       (If g s1 s2) post ens decs ls
+[~Dec:]
+  ∀m wp stmt post ens decs n ty ls.
+    stmt_wp m wp stmt post ens decs ((n,ty)::ls) ∧
+    EVERY (λe. n ∉ freevars e) wp ∧
+    EVERY (λe. n ∉ freevars e) post ∧
+    EVERY (λe. n ∉ freevars e) ens
+    ⇒
+    stmt_wp m wp (Dec (n,ty) stmt) post ens decs ls
 [~Assign:]
   ∀m ret_names exps l post ens.
     (MAP FST l) = (MAP VarLhs ret_names) ∧
@@ -189,34 +197,34 @@ End
 (* TODO rename definition *)
 Definition wrap_Old_def:
   wrap_Old vs (Var v) =
-    (if v ∈ vs then Old (Var v) else Var v) ∧
+  (if v ∈ vs then Old (Var v) else Var v) ∧
   wrap_Old _ (Lit l) = Lit l ∧
   wrap_Old vs (If grd thn els) =
-    If (wrap_Old vs grd) (wrap_Old vs thn) (wrap_Old vs els) ∧
+  If (wrap_Old vs grd) (wrap_Old vs thn) (wrap_Old vs els) ∧
   wrap_Old vs (UnOp uop e) =
-    UnOp uop (wrap_Old vs e) ∧
+  UnOp uop (wrap_Old vs e) ∧
   wrap_Old vs (BinOp bop e₀ e₁) =
-    BinOp bop (wrap_Old vs e₀) (wrap_Old vs e₁) ∧
+  BinOp bop (wrap_Old vs e₀) (wrap_Old vs e₁) ∧
   wrap_Old vs (ArrLen arr) =
-    ArrLen (wrap_Old vs arr) ∧
+  ArrLen (wrap_Old vs arr) ∧
   wrap_Old vs (ArrSel arr idx) =
-    ArrSel (wrap_Old vs arr) (wrap_Old vs idx) ∧
+  ArrSel (wrap_Old vs arr) (wrap_Old vs idx) ∧
   wrap_Old vs (FunCall name args) =
-    FunCall name (MAP (wrap_Old vs) args) ∧
+  FunCall name (MAP (wrap_Old vs) args) ∧
   wrap_Old vs (Forall (vn,vt) term) =
-    Forall (vn,vt) (wrap_Old (vs DELETE vn) term) ∧
+  Forall (vn,vt) (wrap_Old (vs DELETE vn) term) ∧
   wrap_Old vs (Old e) =
-    Old (wrap_Old vs e) ∧
+  Old (wrap_Old vs e) ∧
   wrap_Old vs (Let binds body) =
-    Let (MAP (λ(n,e). (n, wrap_Old vs e)) binds)
+  Let (MAP (λ(n,e). (n, wrap_Old vs e)) binds)
       ((wrap_Old (vs DIFF (set (MAP FST binds)))) body) ∧
   wrap_Old vs (ForallHeap mods term) =
-    ForallHeap (MAP (wrap_Old vs) mods) (wrap_Old vs term)
+  ForallHeap (MAP (wrap_Old vs) mods) (wrap_Old vs term)
 End
 
 Definition vars_have_types_def:
   vars_have_types vs =
-    MAP (λ(v,ty). HasType (Var v) ty) vs
+  MAP (λ(v,ty). HasType (Var v) ty) vs
 End
 
 Definition proved_methods_def:
@@ -225,10 +233,10 @@ Definition proved_methods_def:
       Method name mspec body ∈ m ⇒
       ∃wp_pre.
         stmt_wp m wp_pre body [False]
-          (MAP (wrap_Old (set (MAP FST mspec.ins))) mspec.ens ++
-           vars_have_types mspec.outs)
-          (mspec.rank, mspec.decreases)
-          (mspec.ins ++ mspec.outs) ∧
+                (MAP (wrap_Old (set (MAP FST mspec.ins))) mspec.ens ++
+                 vars_have_types mspec.outs)
+                (mspec.rank, mspec.decreases)
+                (mspec.ins ++ mspec.outs) ∧
         ⊢ (imp (conj mspec.reqs) (conj wp_pre))
 End
 
@@ -290,18 +298,18 @@ Proof
 QED
 
 Triviality WF_ind =
-  MATCH_MP relationTheory.WF_INDUCTION_THM WF_lemma;
+MATCH_MP relationTheory.WF_INDUCTION_THM WF_lemma;
 
 Definition evaluate_exp_total_def:
   evaluate_exp_total st env e =
-    some v. eval_exp st env e v
+  some v. eval_exp st env e v
 End
 
 Definition evaluate_exp_num_def:
   evaluate_exp_num st env e =
-    case evaluate_exp_total st env e of
-    | SOME (IntV i) => (if i < 0 then NONE else SOME (Num i))
-    | _ => NONE
+  case evaluate_exp_total st env e of
+  | SOME (IntV i) => (if i < 0 then NONE else SOME (Num i))
+  | _ => NONE
 End
 
 Definition eval_decreases_def:
@@ -310,7 +318,7 @@ End
 
 Definition eval_measure_def:
   eval_measure st env (rank:num,es) =
-    (rank, eval_decreases st env es)
+  (rank, eval_decreases st env es)
 End
 
 Theorem False_thm[simp,local]:
@@ -321,7 +329,7 @@ QED
 
 Triviality conditions_hold_cons:
   conditions_hold st env (e::es) ⇔
-  eval_true st env e ∧ conditions_hold st env es
+    eval_true st env e ∧ conditions_hold st env es
 Proof
   gvs [conditions_hold_def]
 QED
@@ -531,7 +539,7 @@ Proof
     \\ IF_CASES_TAC \\ gvs []
     \\ gvs [push_local_with_old, no_Old_def]
     \\ ‘∀v. SND (evaluate_exp
-                   (push_local s vn v with <|locals_old := l; heap_old := h|>) env e) =
+                 (push_local s vn v with <|locals_old := l; heap_old := h|>) env e) =
             SND (evaluate_exp (push_local s vn v) env e)’ by
       (gen_tac
        \\ namedCases_on ‘evaluate_exp (push_local s vn v) env e’ ["s₁ r₁"]
@@ -566,7 +574,7 @@ Proof
     \\ simp [eval_forall_def]
     \\ ‘∀hs.
           SND (evaluate_exp
-                 (s₁ with <|heap := hs; locals_old := l; heap_old := h|>) env e)
+               (s₁ with <|heap := hs; locals_old := l; heap_old := h|>) env e)
           = SND (evaluate_exp (s₁ with heap := hs) env e)’ by
       (gen_tac
        \\ namedCases_on ‘evaluate_exp (s₁ with heap := hs) env e’ ["s₂ r₁"]
@@ -579,7 +587,7 @@ Proof
     \\ namedCases_on ‘r₁’ ["vs", "err"] \\ gvs []
     \\ namedCases_on
        ‘evaluate_exp (push_locals s₁ (ZIP (MAP FST vars,vs))) env e’
-         ["s₂ r₂"]
+       ["s₂ r₂"]
     \\ gvs [push_locals_with_old, pop_locals_def, AllCaseEqs()])
   >~ [‘If tst thn els’] >-
    (gvs [evaluate_exp_def, no_Old_def, AllCaseEqs()]
@@ -682,7 +690,7 @@ Triviality eval_exp_Let_lr:
   ⇒
   eval_exp st env (Let (ZIP (ns,args)) e) v' ⇒
   eval_exp
-    (st with locals := REVERSE (ZIP (ns,MAP SOME vs)) ++ st.locals) env e v'
+  (st with locals := REVERSE (ZIP (ns,MAP SOME vs)) ++ st.locals) env e v'
 Proof
   namedCases_on ‘args’ ["", "arg args"] >-
    (gvs [eval_exp_def, evaluate_exp_def, push_locals_def, pop_locals_def,
@@ -707,8 +715,8 @@ Proof
   \\ imp_res_tac eval_exp_val_eq \\ gvs []
   \\ imp_res_tac list_rel_eval_exp_vals_eq \\ gvs []
   \\ namedCases_on
-       ‘evaluate_exp (push_locals (st with clock := ck₃) ((n,v)::ZIP (ns',vs'))) env e’
-       ["st₃ r₃"]
+     ‘evaluate_exp (push_locals (st with clock := ck₃) ((n,v)::ZIP (ns',vs'))) env e’
+     ["st₃ r₃"]
   \\ gvs []
   \\ drule (cj 1 evaluate_exp_with_clock)
   \\ disch_then $ qx_choose_then ‘ck₄’ assume_tac \\ gvs []
@@ -765,7 +773,7 @@ Theorem eval_exp_Let:
   ⇒
   eval_exp st env (Let (ZIP (ns,args)) e) v =
   eval_exp
-    (st with locals := REVERSE (ZIP (ns,MAP SOME vs)) ++ st.locals) env e v
+  (st with locals := REVERSE (ZIP (ns,MAP SOME vs)) ++ st.locals) env e v
 Proof
   rpt strip_tac \\ iff_tac \\ strip_tac
   >- (drule_all eval_exp_Let_lr \\ simp [])
@@ -818,7 +826,7 @@ Proof
     \\ imp_res_tac evaluate_exps_len_eq \\ gvs []
     \\ gvs [push_locals_zip]
     \\ qmatch_goalsub_abbrev_tac
-         ‘evaluate_exp (_ with <| clock := _; locals := lcls |>)’
+       ‘evaluate_exp (_ with <| clock := _; locals := lcls |>)’
     \\ last_x_assum $ qspec_then ‘lcls’ mp_tac
     \\ simp [Abbr ‘lcls’]
     \\ impl_tac >-
@@ -859,12 +867,12 @@ Proof
     \\ namedCases_on ‘get_locs vs’ ["", "locs"] \\ gvs []
     \\ simp [eval_forall_def]
     \\ ‘∀hs. SND (evaluate_exp
-                   (st with <|clock := ck; locals := l2; heap := hs|>) env e)
+                  (st with <|clock := ck; locals := l2; heap := hs|>) env e)
              = SND (evaluate_exp (st with <| clock := ck; heap := hs |>) env e)’
       by
       (gen_tac
        \\ namedCases_on
-            ‘evaluate_exp (st with <|clock := ck; heap := hs|>) env e’ ["st₁ r₁"]
+          ‘evaluate_exp (st with <|clock := ck; heap := hs|>) env e’ ["st₁ r₁"]
        \\ gvs [snd_tuple]
        \\ last_x_assum $ irule_at Any \\ gvs [])
     \\ gvs [])
@@ -977,7 +985,7 @@ Triviality ALOOKUP_MAP_SOME:
   ∀ns vs.
     LENGTH ns = LENGTH vs ⇒
     (ALOOKUP (ZIP (ns,MAP SOME vs)) n = SOME (SOME v) ⇔
-     ALOOKUP (ZIP (ns,vs)) n = SOME v)
+       ALOOKUP (ZIP (ns,vs)) n = SOME v)
 Proof
   Induct \\ Cases_on ‘vs’ \\ gvs [] \\ rw []
 QED
@@ -1098,7 +1106,7 @@ QED
 Triviality list_rel_locals_map_fst:
   ∀ns xs.
     LIST_REL
-      (λ(n,ty) (m,x). m = n ∧ ∃v. v ∈ all_values ty ∧ x = SOME v) ns xs ⇒
+    (λ(n,ty) (m,x). m = n ∧ ∃v. v ∈ all_values ty ∧ x = SOME v) ns xs ⇒
     MAP FST ns = MAP FST xs
 Proof
   Induct \\ gvs []
@@ -1179,7 +1187,7 @@ QED
 
 Theorem can_eval_read_local:
   eval_true st env (CanEval (Var n)) ⇔
-  ∃v. read_local st.locals n = SOME v
+    ∃v. read_local st.locals n = SOME v
 Proof
   gvs [read_local_def, AllCaseEqs(), eval_true_CanEval_Var, is_initialized_def]
 QED
@@ -1218,8 +1226,8 @@ QED
 
 Theorem assi_values_cons:
   (∃st₁.
-    assi_value st env var val st₁ ∧ assi_values st₁ env vars vals st') ⇒
-    assi_values st env (var::vars) (val::vals) st'
+     assi_value st env var val st₁ ∧ assi_values st₁ env vars vals st') ⇒
+  assi_values st env (var::vars) (val::vals) st'
 Proof
   simp [assi_value_def, assi_values_def, PULL_EXISTS]
   \\ qx_genl_tac [‘st₁’, ‘ck’, ‘ck₁’, ‘ck₂’, ‘ck₃’]
@@ -1415,7 +1423,7 @@ Proof
 QED
 
 Triviality not_mem_alookup_zip_none =
-  SRULE [AND_IMP_INTRO] $ iffRL ALOOKUP_ZIP_FAIL
+SRULE [AND_IMP_INTRO] $ iffRL ALOOKUP_ZIP_FAIL
 
 Theorem evaluate_exp_wrap_Old_locals:
   (∀st env e' nss e st' r l.
@@ -1466,7 +1474,7 @@ Proof
     \\ disch_then $ drule_all_then assume_tac
     \\ namedCases_on ‘r₁’ ["v", "err"] \\ gvs []
     \\ namedCases_on ‘do_cond v (wrap_Old nss thn) (wrap_Old nss els)’
-         ["", "branch"]
+                     ["", "branch"]
     \\ gvs []
     >- (imp_res_tac do_cond_none \\ gvs [])
     \\ imp_res_tac do_cond_some_cases \\ gvs [do_cond_def]
@@ -1487,8 +1495,8 @@ Proof
             SND (evaluate_exp (push_local (st with locals := l) vn v) env e)’ by
       (gen_tac
        \\ namedCases_on
-            ‘evaluate_exp (push_local st vn v) env (wrap_Old (nss DELETE vn) e)’
-            ["s₁ r₁"]
+          ‘evaluate_exp (push_local st vn v) env (wrap_Old (nss DELETE vn) e)’
+          ["s₁ r₁"]
        \\ gvs [snd_tuple]
        \\ last_x_assum drule
        \\ disch_then $ qspecl_then [‘nss DELETE vn’, ‘e’] mp_tac
@@ -1520,7 +1528,7 @@ Proof
     \\ qmatch_asmsub_abbrev_tac ‘evaluate_exp st₁' _ wrapped_body’
     \\ namedCases_on ‘evaluate_exp st₁' env wrapped_body’ ["st₂ r₂"] \\ gvs []
     \\ last_x_assum $
-         qspecl_then [‘nss DIFF set (MAP FST binds)’, ‘body’] mp_tac
+                    qspecl_then [‘nss DIFF set (MAP FST binds)’, ‘body’] mp_tac
     \\ gvs [Abbr ‘wrapped_body’, Abbr ‘st₁'’]
     \\ gvs [push_locals_with_locals]
     \\ gvs [push_locals_def]
@@ -1556,7 +1564,7 @@ Proof
     \\ qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
     \\ simp [evaluate_exp_def]
     \\ namedCases_on ‘evaluate_exps st env (MAP (λa. wrap_Old nss a) mods)’
-         ["s₁ r₁"]
+                     ["s₁ r₁"]
     \\ gvs []
     \\ drule (cj 2 evaluate_exp_with_clock)
     \\ disch_then $ qx_choose_then ‘ck’ assume_tac \\ gvs []
@@ -1571,15 +1579,15 @@ Proof
     \\ strip_tac \\ gvs []
     \\ simp [eval_forall_def]
     \\ ‘∀hs. SND (evaluate_exp (st with <|clock := ck; heap := hs|>) env
-                    (wrap_Old nss e))
+                               (wrap_Old nss e))
              = SND (evaluate_exp
-                      (st with <|clock := ck; locals := l; heap := hs|>) env e)’
+                    (st with <|clock := ck; locals := l; heap := hs|>) env e)’
       by
       (gen_tac
        \\ namedCases_on
-            ‘evaluate_exp (st with <|clock := ck; heap := hs|>) env
-               (wrap_Old nss e)’
-            ["s₁ r₁"]
+          ‘evaluate_exp (st with <|clock := ck; heap := hs|>) env
+           (wrap_Old nss e)’
+          ["s₁ r₁"]
        \\ gvs [snd_tuple]
        \\ last_x_assum drule
        \\ disch_then $ qspecl_then [‘nss’, ‘e’] mp_tac \\ gvs [])
@@ -1860,7 +1868,7 @@ Proof
 QED
 
 Definition locals_ok_def:
-  locals_ok locals s_locals ⇔
+  locals_ok (locals: (mlstring # type) list) (s_locals: (mlstring # value option) list) ⇔
     ∀n ty.
       (n,ty) ∈ set locals ⇒ ∃oval. ALOOKUP s_locals n = SOME oval
 End
@@ -1869,6 +1877,128 @@ Triviality is_some_none:
   IS_SOME x ⇔ x ≠ NONE
 Proof
   Cases_on ‘x’ \\ simp []
+QED
+
+(* TODO move to eval_rel *)
+Theorem eval_stmt_Dec:
+  eval_stmt (st with locals := (n, NONE)::st.locals) env stmt st₁ ret ∧
+  pop_locals 1 st₁ = SOME st'
+  ⇒
+  eval_stmt st env (Dec (n,ty) stmt) st' ret
+Proof
+  simp [eval_stmt_def, PULL_EXISTS]
+  \\ qx_genl_tac [‘ck₁’, ‘ck₂’]
+  \\ rpt strip_tac
+  \\ qexistsl [‘ck₁’, ‘ck₂’]
+  \\ simp [evaluate_stmt_def]
+  \\ simp [declare_local_def]
+  \\ gvs [pop_locals_def, AllCaseEqs()]
+QED
+
+(* TODO move to eval_rel *)
+Theorem eval_stmt_locals:
+  eval_stmt st env stmt st' ret ⇒
+  MAP FST st'.locals = MAP FST st.locals
+Proof
+  simp [eval_stmt_def]
+  \\ rpt strip_tac
+  \\ imp_res_tac evaluate_stmt_locals
+  \\ gvs [state_component_equality]
+QED
+
+Triviality eval_measure_with_locals_wrap_old:
+  eval_measure (st with locals := xs) env (wrap_old r_es) =
+  eval_measure st env (wrap_old r_es)
+Proof
+  namedCases_on ‘r_es’ ["r es"]
+  \\ simp [wrap_old_def]
+  \\ simp [eval_measure_def, eval_decreases_def]
+  \\ irule MAP_CONG \\ simp [MEM_MAP]
+  \\ rpt strip_tac \\ gvs []
+  \\ simp [evaluate_exp_num_def, evaluate_exp_total_def]
+  \\ rpt AP_THM_TAC \\ rpt AP_TERM_TAC
+  \\ simp [FUN_EQ_THM] \\ rpt strip_tac
+  \\ DEP_REWRITE_TAC [eval_exp_old_eq] \\ simp []
+QED
+
+Triviality locals_ok_cons:
+  locals_ok xs ys ⇒ locals_ok ((n,ty)::xs) ((n,v)::ys)
+Proof
+  simp [locals_ok_def]
+  \\ rpt strip_tac \\ gvs []
+  \\ IF_CASES_TAC \\ gvs []
+  \\ last_x_assum drule \\ gvs []
+QED
+
+Triviality map_fst_alookup_some:
+  ∀(xs: (α # β) list) (ys: (α # β) list) n v.
+    MAP FST xs = MAP FST ys ∧ ALOOKUP ys n = SOME v ⇒
+    ∃v'. ALOOKUP xs n = SOME v'
+Proof
+  Induct \\ gvs []
+  \\ qx_genl_tac [‘x’, ‘ys’, ‘n’, ‘v’]
+  \\ rpt strip_tac \\ gvs []
+  \\ namedCases_on ‘ys’ ["", "y ys'"] \\ gvs []
+  \\ Cases_on ‘x’ \\ Cases_on ‘y’ \\ gvs []
+  \\ IF_CASES_TAC \\ gvs []
+  \\ last_x_assum irule \\ simp []
+  \\ first_x_assum $ irule_at $ Pos last
+  \\ simp []
+QED
+
+Triviality locals_ok_cons_drop:
+  locals_ok ((n,ty)::xs) ys ∧
+  locals_ok xs zs ∧
+  MAP FST ys = n::MAP FST zs ⇒
+  locals_ok xs (DROP 1 ys)
+Proof
+  simp [locals_ok_def]
+  \\ rpt strip_tac
+  \\ rename [‘MEM (n',ty') _’]
+  \\ last_x_assum $ qspecl_then [‘n'’, ‘ty'’] mp_tac \\ simp []
+  \\ rpt strip_tac
+  \\ namedCases_on ‘ys’ ["", "y ys'"] \\ simp []
+  \\ Cases_on ‘y’ \\ gvs [AllCaseEqs()]
+  \\ last_x_assum drule
+  \\ rpt strip_tac
+  \\ drule_all map_fst_alookup_some \\ simp []
+QED
+
+Triviality conditions_hold_cons_not_free:
+  EVERY (λe. n ∉ freevars e) es ∧
+  conditions_hold (st with locals := xs) env es ⇒
+  conditions_hold (st with locals := (n,v)::xs) env es
+Proof
+  simp [conditions_hold_def]
+  \\ simp [EVERY_MEM]
+  \\ rpt strip_tac
+  \\ last_x_assum $ drule_then assume_tac
+  \\ last_x_assum $ drule_then assume_tac
+  \\ gvs [eval_true_def]
+  \\ irule $ iffLR eval_exp_freevars
+  \\ first_assum $ irule_at $ Pos last \\ simp []
+  \\ rpt strip_tac
+  \\ IF_CASES_TAC \\ gvs []
+QED
+
+Triviality conditions_hold_cons_drop:
+  EVERY (λe. n ∉ freevars e) es ∧
+  conditions_hold st env es ∧
+  MAP FST st.locals = n::ys ⇒
+  conditions_hold (st with locals := DROP 1 st.locals) env es
+Proof
+  simp [conditions_hold_def]
+  \\ simp [EVERY_MEM]
+  \\ rpt strip_tac
+  \\ namedCases_on ‘st.locals’ ["", "x xs"] \\ gvs []
+  \\ namedCases_on ‘x’ ["n v"] \\ gvs []
+  \\ last_x_assum $ drule_then assume_tac
+  \\ last_x_assum $ drule_then assume_tac
+  \\ gvs [eval_true_def]
+  \\ irule $ iffLR eval_exp_freevars
+  \\ qexists ‘st.locals’ \\ simp []
+  \\ rpt strip_tac
+  \\ IF_CASES_TAC \\ gvs []
 QED
 
 Theorem stmt_wp_sound:
@@ -1964,6 +2094,33 @@ Proof
     \\ first_assum $ irule_at (Pos hd) \\ simp []
     \\ namedCases_on ‘ret₁’ ["", "err"] \\ gvs []
     \\ Cases_on ‘err’ \\ gvs [])
+  >~ [‘Dec (n,ty) stmt’] >-
+   (irule_at (Pos hd) eval_stmt_Dec \\ simp []
+    \\ qmatch_goalsub_abbrev_tac ‘eval_stmt st_inner’
+    \\ last_x_assum $ qspecl_then [‘st_inner’, ‘env’] mp_tac \\ simp []
+    \\ impl_tac >-
+     (simp [Abbr ‘st_inner’]
+      \\ conj_tac >-
+       (simp [eval_measure_with_locals_wrap_old, SF SFY_ss]
+        \\ rpt strip_tac
+        \\ first_x_assum drule_all
+        \\ rpt strip_tac \\ gvs []
+        \\ rpt $ pop_assum $ irule_at Any)
+      \\ drule locals_ok_cons \\ simp [] \\ disch_then kall_tac
+      \\ irule conditions_hold_cons_not_free \\ simp [])
+    \\ rpt strip_tac
+    \\ first_assum $ irule_at $ Pos hd
+    \\ drule eval_stmt_locals
+    \\ simp [Abbr ‘st_inner’]
+    \\ strip_tac
+    \\ simp [pop_locals_def, safe_drop_def]
+    \\ ‘1 ≤ LENGTH st'.locals’ by
+      (qsuff_tac ‘1 ≤ LENGTH (MAP FST st'.locals)’ >- (simp [])
+       \\ asm_rewrite_tac [] \\ simp [])
+    \\ simp []
+    \\ drule_all locals_ok_cons_drop \\ simp [] \\ disch_then kall_tac
+    \\ rpt CASE_TAC
+    \\ gvs [conditions_hold_cons_drop])
   >~ [‘Assign ass’] >-
    (irule_at (Pos hd) eval_stmt_Assign \\ simp []
     \\ qpat_x_assum ‘∀x._’ kall_tac
