@@ -88,7 +88,7 @@ End
 
 
 
-Definition enc_listO_def:
+Definition enc_listO_def: (* TODO: rename to enc_list_opt *)
   enc_listO (encdr:α -> byteSeq option) ([]:α list) : byteSeq option = SOME [] ∧
   enc_listO encdr (x::xs) =
     case           encdr x  of NONE=>NONE| SOME encx  =>
@@ -96,7 +96,7 @@ Definition enc_listO_def:
     SOME $ encx ++ encxs
 End
 
-Definition enc_vectorO_def:
+Definition enc_vectorO_def: (* TODO: rename to enc_vector_opt *)
   enc_vectorO (encdr:α -> byteSeq option) (xs:α list) : byteSeq option =
     let n = LENGTH xs in
     if  2 ** 32 ≤ n then NONE else
@@ -1073,4 +1073,3 @@ Proof
 QED *)
 
 val _ = export_theory();
-

@@ -2,7 +2,7 @@
   Translate non-target-specific backend functions to cv equations.
 *)
 open preamble cv_transLib cv_stdTheory;
-open backendTheory to_data_cvTheory exportTheory;
+open backendTheory backend_passesTheory to_data_cvTheory exportTheory;
 open unify_cvTheory infer_cvTheory basis_cvTheory;
 
 val _ = new_theory "backend_cv";
@@ -1057,6 +1057,8 @@ Proof
 QED
 
 val _ = cv_trans word_copyTheory.copy_prop_def;
+
+val _ = cv_auto_trans backend_passesTheory.any_prog_pp_def;
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = export_theory();

@@ -17,7 +17,130 @@ val _ = cv_auto_trans stack_to_wasmTheory.stack_to_wasm_def
   WASM to binary format
  *---------------------------------------------------------------------------*)
 
-val _ = cv_auto_trans wasm_binary_formatTheory.enc_wasm_module_def;
+(* leb128 *)
+
+val _ = cv_trans_rec leb128Theory.enc_num_def
+ (WF_REL_TAC ‘measure $ cv$c2n’
+  \\ cv_termination_tac
+  \\ rename [‘cv_div n’]
+  \\ Cases_on ‘n’
+  >- (gvs [DIV_LT_X] \\ Cases_on ‘128 − m’ \\ fs [cvTheory.c2b_def])
+  >- fs [cvTheory.c2b_def])
+
+val _ = cv_trans leb128Theory.enc_unsigned_word_def;
+val _ = cv_trans leb128Theory.enc_w7s_def;
+val _ = cv_trans leb128Theory.enc_signed_word8_def;
+val _ = cv_trans leb128Theory.enc_signed_word32_def;
+val _ = cv_trans leb128Theory.enc_signed_word64_def;
+
+(* encoding of instr *)
+
+val pre = cv_auto_trans_pre "enc_instr_list_pre enc_instr_pre"
+            wasm_binary_formatTheory.enc_instr_def;
+Theorem enc_instr_pre[cv_pre]:
+  (∀v e. enc_instr_pre e v) ∧
+  (∀v e. enc_instr_list_pre e v)
+Proof
+  ho_match_mp_tac (TypeBase.induction_of “:instr”)
+  \\ simp [] \\ rpt strip_tac
+  \\ simp [Once pre] \\ rw [] \\ gvs []
+QED
+
+(* encoding of module *)
+
+val _ = cv_auto_trans wasm_binary_formatTheory.split_funcs_def
+val _ = cv_auto_trans wasm_binary_formatTheory.enc_functype_def;
+val _ = cv_trans wasm_binary_formatTheory.enc_limits_def;
+val _ = cv_trans wasm_binary_formatTheory.enc_globaltype_def;
+val _ = cv_auto_trans wasm_binary_formatTheory.enc_global_def;
+val _ = cv_auto_trans wasm_binary_formatTheory.enc_code_def;
+val _ = cv_auto_trans wasm_binary_formatTheory.enc_data_def;
+val _ = cv_trans wasm_binary_formatTheory.enc_section_def;
+
+Definition enc_listO_enc_functype_def:
+  enc_listO_enc_functype [] = SOME [] ∧
+  enc_listO_enc_functype (x::xs) =
+     case enc_functype x of
+     | NONE => NONE
+     | SOME encx =>
+       case enc_listO_enc_functype xs of
+       | NONE => NONE
+       | SOME encxs => SOME (encx ++ encxs)
+End
+
+Theorem enc_listO_enc_functype_thm:
+  ∀xs. enc_listO enc_functype xs = enc_listO_enc_functype xs
+Proof
+  Induct \\ fs [enc_listO_enc_functype_def,enc_listO_def]
+QED
+
+val _ = cv_trans enc_listO_enc_functype_def;
+
+Definition enc_listO_enc_global_def:
+  enc_listO_enc_global [] = SOME [] ∧
+  enc_listO_enc_global (x::xs) =
+     case enc_global x of
+     | NONE => NONE
+     | SOME encx =>
+       case enc_listO_enc_global xs of
+       | NONE => NONE
+       | SOME encxs => SOME (encx ++ encxs)
+End
+
+Theorem enc_listO_enc_global_thm:
+  ∀xs. enc_listO enc_global xs = enc_listO_enc_global xs
+Proof
+  Induct \\ fs [enc_listO_enc_global_def,enc_listO_def]
+QED
+
+val _ = cv_trans enc_listO_enc_global_def;
+
+Definition enc_listO_enc_code_def:
+  enc_listO_enc_code [] = SOME [] ∧
+  enc_listO_enc_code (x::xs) =
+     case enc_code x of
+     | NONE => NONE
+     | SOME encx =>
+       case enc_listO_enc_code xs of
+       | NONE => NONE
+       | SOME encxs => SOME (encx ++ encxs)
+End
+
+Theorem enc_listO_enc_code_thm:
+  ∀xs. enc_listO enc_code xs = enc_listO_enc_code xs
+Proof
+  Induct \\ fs [enc_listO_enc_code_def,enc_listO_def]
+QED
+
+val _ = cv_trans enc_listO_enc_code_def;
+
+Definition enc_listO_enc_data_def:
+  enc_listO_enc_data [] = SOME [] ∧
+  enc_listO_enc_data (x::xs) =
+     case enc_data x of
+     | NONE => NONE
+     | SOME encx =>
+       case enc_listO_enc_data xs of
+       | NONE => NONE
+       | SOME encxs => SOME (encx ++ encxs)
+End
+
+Theorem enc_listO_enc_data_thm:
+  ∀xs. enc_listO enc_data xs = enc_listO_enc_data xs
+Proof
+  Induct \\ fs [enc_listO_enc_data_def,enc_listO_def]
+QED
+
+val _ = cv_trans enc_listO_enc_data_def;
+
+val _ = wasm_binary_formatTheory.enc_module_def
+          |> SRULE [wasm_binary_formatTheory.enc_vector_def,
+                    wasm_binary_formatTheory.enc_vectorO_def,
+                    enc_listO_enc_functype_thm,
+                    enc_listO_enc_global_thm,
+                    enc_listO_enc_code_thm,
+                    enc_listO_enc_data_thm]
+          |> cv_auto_trans;
 
 (*---------------------------------------------------------------------------*
   Remaining wasm-specific functions
@@ -116,9 +239,9 @@ Definition cake_to_wasm_binary_def:
     case stack_to_wasm names bm p_out of
     | INL err => NONE (* TODO: preserve error messages *)
     | INR mod =>
-    case enc_wasm_module mod of
-    | INL err => NONE (* TODO: preserve error messages *)
-    | INR out => SOME (out : word8 list)
+    case enc_module mod of
+    | NONE => NONE
+    | SOME out => SOME (out : word8 list)
 End
 
 Theorem cake_to_wasm_binary_def[allow_rebind] =
@@ -128,7 +251,7 @@ Theorem cake_to_wasm_binary_IMP:
   cake_to_wasm_binary c p = SOME bytes ⇒
   ∃res.
     cake_to_wasm (inc_config_to_config wasm_config c) p = INR res ∧
-    enc_wasm_module res = INR bytes
+    enc_module res = SOME bytes
 Proof
   rw [cake_to_wasm_binary_def,AllCaseEqs()]
   \\ drule compile_cake_to_stack_wasm_thm \\ strip_tac
