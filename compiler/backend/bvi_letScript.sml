@@ -90,6 +90,7 @@ Definition compile_def:
      [Raise (HD (compile env d [x1]))]) /\
   (compile env d [Op op xs] = [Op op (compile env d xs)]) /\
   (compile env d [Tick x] = [Tick (HD (compile env d [x]))]) /\
+  (compile env d [Force loc v] = [Force loc v]) /\
   (compile env d [Call t dest xs h] =
      [Call t dest (compile env d xs)
          (case h of NONE => NONE
@@ -127,6 +128,7 @@ Definition compile_sing_def:
      (Raise ((compile_sing env d x1)))) /\
   (compile_sing env d (Op op xs) = (Op op (compile_list env d xs))) /\
   (compile_sing env d (Tick x) = (Tick (compile_sing env d x))) /\
+  (compile_sing env d (Force loc v) = (Force loc v)) /\
   (compile_sing env d (Call t dest xs h) =
      (Call t dest (compile_list env d xs)
          (case h of NONE => NONE

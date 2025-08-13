@@ -58,6 +58,7 @@ Definition alloc_glob_count_def:
      alloc_glob_count [x] +
      alloc_glob_count [y]) /\
   (alloc_glob_count [Tick x] = alloc_glob_count [x]) /\
+  (alloc_glob_count [Force loc v] = 0) /\
   (alloc_glob_count [Raise x] = alloc_glob_count [x]) /\
   (alloc_glob_count [Let xs x] = alloc_glob_count (x::xs)) /\
   (alloc_glob_count [Call _ _ xs] = alloc_glob_count xs) /\
@@ -76,6 +77,7 @@ Definition global_count_sing_def:
   (global_count_sing (Handle x y) =
      global_count_sing x +
      global_count_sing y) /\
+  (global_count_sing (Force loc v) = 0) /\
   (global_count_sing (Tick x) = global_count_sing x) /\
   (global_count_sing (Raise x) = global_count_sing x) /\
   (global_count_sing (Let xs x) =
@@ -356,6 +358,7 @@ Definition compile_exps_def:
   (compile_exps n [Tick x1] =
      let (c1,aux1,n1) = compile_exps n [x1] in
        ([Tick (HD c1)], aux1, n1)) /\
+  (compile_exps n [Force loc v] = ([Force loc v], Nil, n)) /\
   (compile_exps n [Op op xs] =
      let (c1,aux1,n1) = compile_exps n xs in
        ([compile_op op c1],aux1,n1)) /\
@@ -407,6 +410,8 @@ Definition compile_exps_sing_def:
   (compile_exps_sing n (Tick x1) =
      let (c1,aux1,n1) = compile_exps_sing n x1 in
        (Tick c1, aux1, n1)) /\
+  (compile_exps_sing n (Force loc v) =
+     (Force loc v, Nil, n)) /\
   (compile_exps_sing n (Op op xs) =
      let (c1,aux1,n1) = compile_exps_list n xs in
        (compile_op op c1,aux1,n1)) /\
