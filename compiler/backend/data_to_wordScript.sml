@@ -1237,50 +1237,6 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
-  assign_ForceThunk (c:data_to_word$config) secn (l:num) (dest:num) (names:num_set option) v1 =
-    let (s1,s2) = adjust_sets (get_names names) in
-    let cutsets = (s1, insert 9 () s2) in
-    (dtcase encode_header c (8 + 6) 1 of
-     | NONE => (GiveUp,l)
-     | SOME (header:'a word) =>
-     If Test (adjust_var v1) (Imm 1w)
-       (Assign (adjust_var dest) (Var (adjust_var v1))) $
-       (list_Seq
-          [Assign 1 (real_addr c (adjust_var v1));
-           Assign 3 (Op And [Load (Var 1); Const 0b1111w]);
-           If Equal 3 (Imm (n2w (8 + 6)))
-             (Assign (adjust_var dest)
-                (Op And [Load (Op Add [Var 1; Const bytes_in_word])])) $
-           If NotEqual 3 (Imm (n2w (0 + 6)))
-             (Assign (adjust_var dest) (Var (adjust_var v1)))
-           (* rest is the implementation of AppUnit + update thunk *)
-             (list_Seq
-               [(* pointer to closure value, i.e., var 0 in AppUnit *)
-                Assign 5 (Load (Op Add [Var 1; Const bytes_in_word]));
-                (* AppUnit's ElemAt 1 *)
-                Assign 15 (real_addr c 5);
-                Assign 7 (Load (Op Add [Var 15; Const (bytes_in_word * 2w)]));
-                Assign 9 (Var (adjust_var v1));
-                Assign 13 (Const 2w); (* Cons 0 *)
-                (* AppUnit's EqualConst and If *)
-                If Equal 7 (Imm 0w)
-                  (list_Seq
-                    [Assign 11 (Load (Op Add [Var 15; Const bytes_in_word]));
-                     Call (SOME ([9],cutsets,Skip,secn,l))
-                          NONE [13; 5; 11] NONE])
-                  (list_Seq
-                    [Call (SOME ([9],cutsets,Skip,secn,l+1))
-                          (SOME bvl_num_stubs) [13; 5] NONE]);
-                (* update the thunk header to Evaluated and set payload *)
-                Assign 1 (real_addr c 9);
-                Assign 3 (Const header);
-                Store (Var 1) 3;
-                Store (Op Add [Var 1; Const bytes_in_word]) 19;
-                Assign (adjust_var dest) (Var 19);
-               ])]),l+2)
-      : 'a wordLang$prog # num`;
-
-val def = assign_Define `
   assign_UpdateByte (c:data_to_word$config) (l:num) (dest:num) v1 v2 v3 =
       (list_Seq [
           Assign 1 (Op Add [real_addr c (adjust_var v1);
@@ -2418,7 +2374,6 @@ Definition assign_def:
     | MemOp Ref => assign_Ref c secn l dest names args
     | ThunkOp (AllocThunk ev) => arg1 args (assign_AllocThunk ev c secn l dest names) (Skip,l)
     | ThunkOp (UpdateThunk ev) => arg2 args (assign_UpdateThunk ev c l dest) (Skip,l)
-    | ThunkOp ForceThunk => arg1 args (assign_ForceThunk c secn l dest names) (Skip,l)
     | MemOp (RefByte imm) => arg2 args (assign_RefByte c secn l dest names imm) (Skip,l)
     | MemOp XorByte => arg2 args (assign_XorByte c secn l dest names) (Skip,l)
     | Label n => (LocValue (adjust_var dest) n,l)
@@ -2464,6 +2419,42 @@ Definition assign_def:
     | _ => (Skip,l)
 End
 
+Definition force_thunk_def:
+  force_thunk (c:data_to_word$config) secn (l:num) ret loc v1 =
+    (dtcase encode_header c (8 + 6) 1 of
+     | NONE => (GiveUp,l)
+     | SOME (header:'a word) =>
+     If Test (adjust_var v1) (Imm 1w)
+       (dtcase ret of
+        | NONE => Return 0 [adjust_var v1]
+        | SOME (dest,_) => Assign (adjust_var dest) (Var (adjust_var v1)))
+       (list_Seq
+          [Assign 1 (real_addr c (adjust_var v1));
+           Assign 3 (Op And [Load (Var 1); Const 0b1111w]);
+           If Equal 3 (Imm (n2w (8 + 6)))
+             (dtcase ret of
+              | NONE =>
+                 list_Seq
+                   [Assign 1 (Op And [Load (Op Add [Var 1; Const bytes_in_word])]);
+                    Return 0 [1]]
+              | SOME (dest,_) =>
+                  Assign (adjust_var dest)
+                         (Op And [Load (Op Add [Var 1; Const bytes_in_word])])) $
+           If NotEqual 3 (Imm (n2w (0 + 6)))
+             (dtcase ret of
+              | NONE => Return 0 [adjust_var v1]
+              | SOME (dest,_) => Assign (adjust_var dest) (Var (adjust_var v1)))
+           (* rest is the implementation of AppUnit + update thunk *)
+             ARB (*
+             (list_Seq
+                [Assign 5 (Op And [Load (Op Add [Var 1; Const bytes_in_word])]);
+                 Call (dtcase ret of
+                       | NONE => NONE
+                       | SOME (r,ns) => ([r],adjust_sets ns,Skip,secn,l))
+                      (SOME loc) [adjust_ar v1; 5] NONE])*)]),l+1)
+      : 'a wordLang$prog # num
+End
+
 Definition comp_def:
   comp c (secn:num) (l:num) (p:dataLang$prog) =
     dtcase p of
@@ -2492,6 +2483,7 @@ Definition comp_def:
                             SilentFFI c 3 (adjust_sets names)])
                 Skip),l)
     | Assign dest op args names => assign c secn l dest op args names
+    | Force ret loc v => force_thunk c secn l ret loc v
     | Call ret target args handler =>
         dtcase ret of
         | NONE => (Call NONE target (0::MAP adjust_var args) NONE,l)

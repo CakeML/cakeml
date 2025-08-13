@@ -169,35 +169,13 @@ Datatype:
 End
 
 Definition dest_thunk_def:
-  dest_thunk [RefPtr _ ptr] refs =
+  dest_thunk (RefPtr _ ptr) refs =
     (case FLOOKUP refs ptr of
      | NONE => BadRef
      | SOME (Thunk Evaluated v) => IsThunk Evaluated v
      | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
      | SOME _ => NotThunk) ∧
   dest_thunk vs refs = NotThunk
-End
-
-Definition store_thunk_def:
-  store_thunk ptr v refs =
-    case FLOOKUP refs ptr of
-    | SOME (Thunk NotEvaluated _) => SOME (refs |+ (ptr,v))
-    | _ => NONE
-End
-
-Definition update_thunk_def:
-  update_thunk [RefPtr _ ptr] refs [v] =
-    (case dest_thunk [v] refs of
-     | NotThunk => store_thunk ptr (Thunk Evaluated v) refs
-     | _ => NONE) ∧
-  update_thunk _ _ _ = NONE
-End
-
-Definition AppUnit_def:
-  AppUnit =
-    If (Op (BlockOp (EqualConst (Int 0))) [mk_elem_at (Var 0) 1])
-       (Call 0 NONE [mk_unit; Var 0; mk_elem_at (Var 0) 0] NONE)
-       (Call 0 (SOME num_stubs) [mk_unit; Var 0] NONE)
 End
 
 
@@ -247,29 +225,31 @@ Definition evaluate_def:
   (evaluate ([Op op xs],env,s) =
      case fix_clock s (evaluate (xs,env,s)) of
      | (Rval vs,s) =>
-          if op = ThunkOp ForceThunk then
-            (case dest_thunk vs s.refs of
-             | BadRef => (Rerr (Rabort Rtype_error),s)
-             | NotThunk => (Rerr (Rabort Rtype_error),s)
-             | IsThunk Evaluated v => (Rval [v],s)
-             | IsThunk NotEvaluated f =>
-                if s.clock = 0 then
-                  (Rerr (Rabort Rtimeout_error),s)
-                else
-                  case evaluate ([AppUnit],[f],(dec_clock 1 s)) of
-                  | (Rval vs2,s) =>
-                      (case update_thunk vs s.refs vs2 of
-                       | NONE => (Rerr (Rabort Rtype_error),s)
-                       | SOME refs => (Rval vs2,s with refs := refs))
-                  | (Rerr e,s) => (Rerr e,s))
-          else
-            (case do_app op (REVERSE vs) s of
-             | Rerr e => (Rerr e,s)
-             | Rval (v,s) => (Rval [v],s))
+         (case do_app op (REVERSE vs) s of
+          | Rerr e => (Rerr e,s)
+          | Rval (v,s) => (Rval [v],s))
      | res => res) /\
   (evaluate ([Tick x],env,s) =
      if s.clock = 0 then (Rerr(Rabort Rtimeout_error),s) else
        evaluate ([x],env,dec_clock 1 s)) /\
+  (evaluate ([Force force_loc n],env,s) =
+     if ~(n < LENGTH env) then (Rerr(Rabort Rtype_error),s) else
+       let thunk_v = EL n env in
+         case dest_thunk thunk_v s.refs of
+         | BadRef => (Rerr (Rabort Rtype_error),s)
+         | NotThunk => (Rerr (Rabort Rtype_error),s)
+         | IsThunk Evaluated v => (Rval [v],s)
+         | IsThunk NotEvaluated f =>
+             if s.clock = 0 then
+               (Rerr (Rabort Rtimeout_error),s)
+             else
+               (case find_code (SOME force_loc) [thunk_v; f] s.code of
+                | NONE => (Rerr(Rabort Rtype_error),s)
+                | SOME (args,exp) =>
+                    if s.clock = 0 then
+                      (Rerr(Rabort Rtimeout_error),s with clock := 0)
+                    else
+                      evaluate ([exp],args,dec_clock 1 s))) /\
   (evaluate ([Call ticks dest xs handler],env,s1) =
      if IS_NONE dest /\ IS_SOME handler then (Rerr(Rabort Rtype_error),s1) else
      case fix_clock s1 (evaluate (xs,env,s1)) of

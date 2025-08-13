@@ -14229,7 +14229,7 @@ Proof[exclude_simps = EXP_LE_LOG_SIMP EXP_LT_LOG_SIMP LE_EXP_LOG_SIMP
 QED
 
 Theorem assign_thm:
-  op ≠ ThunkOp ForceThunk ⇒ ^assign_thm_goal
+  ^assign_thm_goal
 Proof
   strip_tac
   \\ Cases_on `op = GlobOp AllocGlobal` \\ fs []

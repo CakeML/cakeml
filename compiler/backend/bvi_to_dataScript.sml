@@ -33,7 +33,6 @@ Theorem op_space_reset_pmatch:
     | MemOp (CopyByte new_flag) => new_flag
     | MemOp ConfigGC => T
     | FFI _ => T
-    | ThunkOp ForceThunk => T
     | _ => F
 Proof
   rpt strip_tac
@@ -121,6 +120,11 @@ Definition compile_def:
   (compile n env tail live [Tick x1] =
      let (c1,v1,n1) = compile n env tail live [x1] in
        (Seq Tick c1, v1, n1)) /\
+  (compile n env tail live [Force loc v] =
+     let var = any_el v env 0n in
+     let ret = (if tail then NONE
+                else SOME (n, list_to_num_set (live ++ env))) in
+       (Force ret loc var, [n], MAX (n+1) (var+1))) ∧
   (compile n env tail live [Call ticks dest xs NONE] =
      let (c1,vs,n1) = compile n env F live xs in
      let ret = (if tail then NONE
@@ -163,6 +167,11 @@ Definition compile_sing_def:
   (compile_sing n env tail live (Tick x1) =
      let (c1,v1,n1) = compile_sing n env tail live x1 in
        (Seq Tick c1, v1, n1)) /\
+  (compile_sing n env tail live (Force loc v) =
+     let var = any_el v env 0n in
+     let ret = (if tail then NONE
+                else SOME (n, list_to_num_set (live ++ env))) in
+       (Force ret loc var, n, MAX (n+1) (var+1))) ∧
   (compile_sing n env tail live (Call ticks dest xs NONE) =
      let (c1,vs,n1) = compile_list n env live xs in
      let ret = (if tail then NONE

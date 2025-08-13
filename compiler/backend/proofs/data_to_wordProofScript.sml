@@ -102,9 +102,7 @@ Proof
     \\ imp_res_tac word_ml_inv_get_var_IMP
     \\ match_mp_tac word_ml_inv_insert \\ fs [])
   >~ [‘evaluate (Assign _ _ _ _,s)’] >-
-   (Cases_on ‘op = ThunkOp ForceThunk’
-    >- cheat
-    \\ full_simp_tac std_ss []
+   (full_simp_tac std_ss []
     \\ fs [comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ imp_res_tac (METIS_PROVE [] ``(if b1 /\ b2 then x1 else x2) = y ==>
                                      b1 /\ b2 /\ x1 = y \/
@@ -133,6 +131,7 @@ Proof
     \\ Cases_on `names_opt` \\ fs [cut_state_opt_def] \\ srw_tac[][] \\ fs []
     \\ fs [cut_state_def,cut_env_def] \\ every_case_tac
     \\ fs [] \\ rw [] \\ fs [set_var_def])
+  >~ [‘evaluate (Force _ _ _,s)’] >- cheat
   >~ [‘evaluate (Tick,s)’] >-
    (fs [comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ `t.clock = s.clock` by fs [state_rel_def] \\ fs [] \\ srw_tac[][]

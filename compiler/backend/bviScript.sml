@@ -45,6 +45,8 @@ Datatype:
       | Raise exp
       | Tick exp
       | Call num (num option) (exp list) (exp option)
+      | Force num (* loc to call for evaluation of unevaluated thunk *)
+              num (* var holding thunk *)
       | Op op (exp list)
 End
 
