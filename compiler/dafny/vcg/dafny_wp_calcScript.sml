@@ -2709,6 +2709,17 @@ Definition stmt_vcg_def:
     pre_els <- stmt_vcg m els post ens decs ls;
     return [IsBool grd; imp grd (conj pre_thn); imp (not grd) (conj pre_els)]
   od ∧
+  stmt_vcg m (Dec (n,ty) stmt) post ens decs ls =
+  do
+    wp <- stmt_vcg m stmt post ens decs ((n,ty)::ls);
+    () <- if EVERY (λe. ¬MEM n (freevars_list e)) wp then return () else
+            (fail «stmt_vcg:Dec: Name occurs freely in wp»);
+    () <- if EVERY (λe. ¬MEM n (freevars_list e)) post then return () else
+            (fail «stmt_vcg:Dec: Name occurs freely in post»);
+    () <- if EVERY (λe. ¬MEM n (freevars_list e)) ens then return () else
+            (fail «stmt_vcg:Dec: Name occurs freely in ens»);
+    return wp
+  od ∧
   stmt_vcg _ (Assign ass) post _ _ ls =
   do
     (lhss, rhss) <<- UNZIP ass;
@@ -2792,6 +2803,11 @@ Proof
    (gvs [stmt_vcg_def]
     \\ gvs [oneline bind_def, CaseEq "sum"]
     \\ irule stmt_wp_If \\ simp [])
+  >~ [‘Dec’] >-
+   (gvs [stmt_vcg_def]
+    \\ gvs [oneline bind_def, CaseEq "sum"]
+    \\ irule stmt_wp_Dec
+    \\ gvs [IN_DEF, freevars_list_eq])
   >~ [‘Assign’] >-
    (gvs [stmt_vcg_def]
     \\ gvs [UNZIP_MAP]
