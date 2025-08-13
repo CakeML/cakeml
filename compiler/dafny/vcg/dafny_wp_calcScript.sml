@@ -129,26 +129,26 @@ End
 Inductive stmt_wp:
 [~Skip:]
   ∀m ens post.
-    stmt_wp m post Skip (post:exp list) (ens:exp list) decs
+    stmt_wp m post Skip (post:exp list) (ens:exp list) decs (ls:(mlstring # type) list)
 [~Assert:]
   ∀m ens post e.
-    stmt_wp m (e::post) (Assert e) (post:exp list) (ens:exp list) decs
+    stmt_wp m (e::post) (Assert e) (post:exp list) (ens:exp list) decs ls
 [~Return:]
   ∀m ens post.
-    stmt_wp m (ens:exp list) Return (post:exp list) (ens:exp list) decs
+    stmt_wp m (ens:exp list) Return (post:exp list) (ens:exp list) decs ls
 [~Then:]
   ∀m s1 s2 pre1 pre2 post ens.
-    stmt_wp m pre1 s1 pre2 ens decs ∧
-    stmt_wp m pre2 s2 post ens decs
+    stmt_wp m pre1 s1 pre2 ens decs ls ∧
+    stmt_wp m pre2 s2 post ens decs ls
     ⇒
-    stmt_wp m pre1 (Then s1 s2) post ens decs
+    stmt_wp m pre1 (Then s1 s2) post ens decs ls
 [~If:]
   ∀m s1 s2 pre1 pre2 post ens g.
-    stmt_wp m pre1 s1 post ens decs ∧
-    stmt_wp m pre2 s2 post ens decs
+    stmt_wp m pre1 s1 post ens decs ls ∧
+    stmt_wp m pre2 s2 post ens decs ls
     ⇒
     stmt_wp m [IsBool g; imp g (conj pre1); imp (not g) (conj pre2)]
-      (If g s1 s2) post ens decs
+      (If g s1 s2) post ens decs ls
 [~Assign:]
   ∀m ret_names exps l post ens.
     (MAP FST l) = (MAP VarLhs ret_names) ∧
@@ -157,7 +157,7 @@ Inductive stmt_wp:
     LENGTH exps = LENGTH ret_names
     ⇒
     stmt_wp m ((Let (ZIP (ret_names,exps)) (conj post))::
-               MAP (CanEval ∘ Var) ret_names) (Assign l) post ens decs
+               MAP (CanEval ∘ Var) ret_names) (Assign l) post ens decs ls
 [~MetCall:]
   ∀m mname mspec mbody args ret_names rets post ens.
     Method mname mspec mbody ∈ m ∧
@@ -183,7 +183,7 @@ Inductive stmt_wp:
                                  args              ++ MAP Var ret_names))
                           (conj mspec.ens))
                        (conj post))])
-              (MetCall rets mname args) post ens decs
+              (MetCall rets mname args) post ens decs ls
 End
 
 (* TODO rename definition *)
@@ -227,7 +227,8 @@ Definition proved_methods_def:
         stmt_wp m wp_pre body [False]
           (MAP (wrap_Old (set (MAP FST mspec.ins))) mspec.ens ++
            vars_have_types mspec.outs)
-          (mspec.rank, mspec.decreases) ∧
+          (mspec.rank, mspec.decreases)
+          (mspec.ins ++ mspec.outs) ∧
         ⊢ (imp (conj mspec.reqs) (conj wp_pre))
 End
 
@@ -1859,8 +1860,8 @@ Proof
 QED
 
 Theorem stmt_wp_sound:
-  ∀m reqs stmt post ens decs.
-    stmt_wp m reqs stmt post ens decs ⇒
+  ∀m reqs stmt post ens decs locals.
+    stmt_wp m reqs stmt post ens decs locals ⇒
     ∀st env.
       (∀st' name' mspec' body'.
           ($< LEX SHORTLEX opt_lt)
@@ -2542,10 +2543,10 @@ Definition stmt_vcg_def:
 End
 
 Theorem stmt_vcg_correct:
-  ∀m stmt post ens decs res.
+  ∀m stmt post ens decs res ls.
     stmt_vcg m stmt (post:exp list) (ens:exp list) decs = INR res
     ⇒
-    stmt_wp (set m) res stmt (post:exp list) (ens:exp list) decs
+    stmt_wp (set m) res stmt (post:exp list) (ens:exp list) decs ls
 Proof
   ho_match_mp_tac stmt_vcg_ind
   \\ rpt strip_tac
@@ -2690,9 +2691,9 @@ Proof
   \\ drule_all mem_result_mmap_inr
   \\ strip_tac
   \\ gvs [met_vcg_def, oneline bind_def, CaseEq "sum"]
-  \\ drule_then assume_tac stmt_vcg_correct \\ gvs []
-  \\ gvs [wrap_Old_list_eq]
-  \\ last_x_assum $ irule_at $ Pos hd
+  \\ drule stmt_vcg_correct \\ gvs []
+  \\ simp [wrap_Old_list_eq]
+  \\ disch_then $ irule_at (Pos hd)
   \\ gvs [EVERY_MEM]
 QED
 
