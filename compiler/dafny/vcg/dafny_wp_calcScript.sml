@@ -1859,6 +1859,18 @@ Proof
   \\ disch_then rev_drule \\ gvs []
 QED
 
+Definition locals_ok_def:
+  locals_ok locals s_locals ⇔
+    ∀n ty.
+      (n,ty) ∈ set locals ⇒ ∃oval. ALOOKUP s_locals n = SOME oval
+End
+
+Triviality is_some_none:
+  IS_SOME x ⇔ x ≠ NONE
+Proof
+  Cases_on ‘x’ \\ simp []
+QED
+
 Theorem stmt_wp_sound:
   ∀m reqs stmt post ens decs locals.
     stmt_wp m reqs stmt post ens decs locals ⇒
@@ -1869,7 +1881,8 @@ Theorem stmt_wp_sound:
             (eval_measure st env (wrap_old decs)) ∧
           Method name' mspec' body' ∈ m ∧ st'.locals_old = st'.locals ∧
           st'.heap_old = st'.heap ∧ conditions_hold st' env mspec'.reqs ∧
-          compatible_env env m ⇒
+          compatible_env env m ∧
+          locals_ok (mspec'.ins ++ mspec'.outs) st'.locals ⇒
           ∃st'' out_vs.
             eval_stmt st' env body' st'' (Rstop Sret) ∧
             conditions_hold st'' env (MAP (wrap_Old (set (MAP FST mspec'.ins))) mspec'.ens) ∧
@@ -1877,15 +1890,18 @@ Theorem stmt_wp_sound:
             st''.heap = st'.heap ∧
             st''.heap_old = st'.heap_old ∧
             st''.output = st'.output ∧
+            locals_ok (mspec'.ins ++ mspec'.outs) st''.locals ∧
             EVERY (eval_true st'' env) (vars_have_types mspec'.outs) ∧
             LIST_REL (eval_exp st'' env) (MAP (Var o FST) mspec'.outs) out_vs) ∧
-      conditions_hold st env reqs ∧ compatible_env env m ⇒
+      conditions_hold st env reqs ∧ compatible_env env m ∧
+      locals_ok locals st.locals ⇒
       ∃st' ret.
         eval_stmt st env stmt st' ret ∧
         st'.locals_old = st.locals_old ∧
         st'.heap = st.heap ∧
         st'.heap_old = st.heap_old ∧
         st'.output = st.output ∧
+        locals_ok locals st'.locals ∧
         case ret of
         | Rstop Sret => conditions_hold st' env ens
         | Rcont => conditions_hold st' env post
@@ -1964,6 +1980,13 @@ Proof
     \\ strip_tac
     \\ first_x_assum $ irule_at $ Pos hd
     \\ simp [eval_true_def,GSYM eval_true_conj_every]
+    \\ conj_tac >-
+     (gvs [locals_ok_def]
+      \\ rpt strip_tac
+      \\ last_x_assum drule
+      \\ rpt strip_tac
+      \\ simp [ALOOKUP_APPEND]
+      \\ CASE_TAC)
     \\ irule $ iffLR eval_exp_freevars
     \\ qexists_tac ‘ZIP (ret_names,MAP SOME vs) ++ st.locals’
     \\ conj_tac
@@ -2004,6 +2027,18 @@ Proof
   \\ impl_tac
   >-
    (reverse $ rpt conj_tac
+    >-
+     (unabbrev_all_tac
+      \\ simp [locals_ok_def]
+      \\ simp [GSYM IS_SOME_EXISTS]
+      \\ simp [is_some_none]
+      \\ simp [ALOOKUP_NONE]
+      \\ simp [MEM_MAP]
+      \\ simp [EXISTS_PROD]
+      \\ simp [MEM_ZIP]
+      \\ simp [MEM_EL]
+      \\ simp [EL_MAP, SF CONJ_ss, EL_REPLICATE]
+      \\ metis_tac [FST])
     >-
      (rewrite_tac [GSYM eval_true_conj_every]
       \\ qpat_x_assum ‘eval_true st env (Let _ (conj mspec.reqs))’ mp_tac
@@ -2126,6 +2161,18 @@ Proof
   \\ conj_tac >- (unabbrev_all_tac \\ fs [restore_caller_def])
   \\ conj_tac >- (unabbrev_all_tac \\ fs [restore_caller_def])
   \\ conj_tac >- (unabbrev_all_tac \\ fs [restore_caller_def])
+  \\ conj_tac >-
+   (simp []
+    \\ simp [locals_ok_def]
+    \\ ‘st3.locals = st.locals’ by (gvs [restore_caller_def, Abbr ‘st3’])
+    \\ simp []
+    \\ qpat_x_assum ‘locals_ok _ st.locals’ mp_tac
+    \\ simp [locals_ok_def]
+    \\ rpt strip_tac
+    \\ first_x_assum drule
+    \\ rpt strip_tac
+    \\ simp [ALOOKUP_APPEND]
+    \\ CASE_TAC \\ simp [])
   \\ rewrite_tac [GSYM eval_true_conj_every]
   \\ rewrite_tac [eval_true_def]
   \\ irule (iffLR eval_exp_swap_locals_alt)
@@ -2293,13 +2340,15 @@ Theorem methods_lemma[local]:
       Method name mspec body ∈ m ∧
       st.locals_old = st.locals ∧
       st.heap_old = st.heap ∧
-      conditions_hold st env mspec.reqs ∧ compatible_env env m ⇒
+      conditions_hold st env mspec.reqs ∧ compatible_env env m ∧
+      locals_ok (mspec.ins ++ mspec.outs) st.locals ⇒
       ∃st' out_vs.
         eval_stmt st env body st' (Rstop Sret) ∧
         st'.locals_old = st.locals_old ∧
         st'.heap = st.heap ∧
         st'.heap_old = st.heap_old ∧
         st'.output = st.output ∧
+        locals_ok (mspec.ins ++ mspec.outs) st'.locals ∧
         conditions_hold st' env (MAP (wrap_Old (set (MAP FST mspec.ins))) mspec.ens) ∧
         EVERY (eval_true st' env) (vars_have_types mspec.outs) ∧
         LIST_REL (eval_exp st' env) (MAP (Var o FST) mspec.outs) out_vs
@@ -2319,7 +2368,7 @@ Proof
     \\ rpt strip_tac
     \\ gvs [eval_measure_wrap_old, compatible_env_def]
     \\ last_x_assum $ drule_then drule
-    \\ impl_tac >- simp [SF SFY_ss]
+    \\ impl_tac >- (simp [SF SFY_ss])
     \\ strip_tac \\ gvs []
     \\ first_x_assum $ irule_at $ Pos hd \\ fs []
     \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
