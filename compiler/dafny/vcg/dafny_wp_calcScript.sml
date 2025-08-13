@@ -178,11 +178,11 @@ Inductive stmt_wp:
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e) mspec.reqs ∧
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e) mspec.decreases ∧
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins ++ MAP FST mspec.outs) ∧
-               no_Old e) mspec.ens
+               no_Old e) mspec.ens ∧
+    set ret_names ⊆ set (MAP FST ls)
     ⇒
     stmt_wp m (Let (ZIP (MAP FST mspec.ins,args)) (conj mspec.reqs) ::
                MAP CanEval args ++
-               MAP CanEval (MAP Var ret_names) ++
                decreases_check (mspec.rank,
                                 MAP (Let (ZIP (MAP FST mspec.ins,args))) mspec.decreases)
                                (wrap_old decs) ++
@@ -2016,19 +2016,6 @@ Proof
   \\ IF_CASES_TAC \\ gvs []
 QED
 
-Triviality can_eval_is_some_alookup:
-  ∀ns st env.
-    EVERY (eval_true st env) (MAP CanEval (MAP Var ns)) ⇒
-    EVERY (λn. IS_SOME (ALOOKUP st.locals n)) ns
-Proof
-  Induct \\ gvs []
-  \\ rpt strip_tac
-  >-
-   (gvs [CanEval_def, eval_true_def, eval_exp_def, evaluate_exp_def,
-         read_local_def, AllCaseEqs()])
-  \\ last_x_assum drule \\ simp []
-QED
-
 Theorem stmt_wp_sound:
   ∀m reqs stmt post ens decs locals.
     stmt_wp m reqs stmt post ens decs locals ⇒
@@ -2335,13 +2322,12 @@ Proof
   \\ gvs [conditions_hold_def]
   \\ rename [‘restore_caller st2 st’]
   \\ qabbrev_tac ‘st3 = restore_caller st2 st’
-  \\ ‘EVERY (eval_true st3 env) (MAP CanEval (MAP Var ret_names))’ by
-   (qpat_x_assum ‘EVERY _ (MAP CanEval (MAP Var ret_names))’ mp_tac
-    \\ simp [EVERY_MEM,MEM_MAP,PULL_EXISTS]
-    \\ rpt strip_tac \\ first_x_assum dxrule
-    \\ simp [eval_true_CanEval_Var,Abbr‘st3’,restore_caller_def])
-  \\ drule can_eval_is_some_alookup
-  \\ strip_tac
+  \\ ‘EVERY (λn. IS_SOME (ALOOKUP st3.locals n)) ret_names’ by
+    (unabbrev_all_tac
+     \\ gvs [restore_caller_def]
+     \\ rev_drule locals_ok_is_some_alookup
+     \\ strip_tac
+     \\ drule_all subset_every \\ simp [])
   \\ drule IMP_assi_values_distinct
   \\ disch_then $ qspecl_then [‘env’, ‘out_vs’] mp_tac
   \\ impl_tac >- fs []
@@ -2764,10 +2750,11 @@ Definition stmt_vcg_def:
                         no_Old e) spec.ens
           then return ()
           else (fail «stmt_vcg:MetCall: Bad ensures spec»);
+    () <- if list_subset vars (MAP FST ls) then return () else
+            (fail «stmt_vcg:MetCall: Trying to assign to undeclared variables»);
     return
       (Let (ZIP (MAP FST spec.ins,args)) (conj spec.reqs)
        :: MAP CanEval args
-       ++ MAP CanEval (MAP Var vars)
        ++ decreases_check
           (spec.rank,
            MAP (Let (ZIP (MAP FST spec.ins,args))) spec.decreases)
@@ -2822,8 +2809,8 @@ Proof
     \\ drule_then assume_tac result_mmap_dest_VarLhs \\ simp []
     \\ irule $ SRULE [rich_listTheory.APPEND] stmt_wp_MetCall
     \\ simp []
-    \\ last_assum $ irule_at (Pos last)
-    \\ gvs [LIST_TO_SET_SUBSET, LIST_TO_SET_DISJOINT, freevars_list_eq])
+    \\ gvs [LIST_TO_SET_SUBSET, LIST_TO_SET_DISJOINT, freevars_list_eq]
+    \\ last_assum $ irule_at (Pos hd))
   \\ gvs [stmt_vcg_def]
 QED
 
