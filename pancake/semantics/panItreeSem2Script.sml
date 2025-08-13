@@ -995,6 +995,19 @@ Proof
   Cases_on ‘n - m’>>fs[FUNPOW_SUC]
 QED
 
+Theorem FUNPOW_Tau_Vis_eq_simp[simp]:
+  FUNPOW Tau n (Vis e k) = FUNPOW Tau m (Vis e' k') ⇔
+    (n = m /\ e = e' ∧ k = k')
+Proof
+  EQ_TAC>>strip_tac>>fs[]>>
+  Cases_on ‘n < m’>>fs[NOT_LESS]
+  >- (fs[FUNPOW_min_cancel,Tau_INJ]>>
+      Cases_on ‘m - n’>>fs[FUNPOW_SUC])>>
+  last_x_assum $ assume_tac o GSYM>>
+  rfs[FUNPOW_min_cancel,Tau_INJ]>>
+  Cases_on ‘n - m’>>fs[FUNPOW_SUC]
+QED
+
 Theorem FUNPOW_Ret_strip:
   FUNPOW Tau n t = FUNPOW Tau m (Ret x) ⇒ n ≤ m ∧ t = FUNPOW Tau (m-n) (Ret x)
 Proof
@@ -1017,12 +1030,50 @@ Proof
   fs[GSYM FUNPOW_ADD]
 QED
 
+Theorem FUNPOW_Vis_strip:
+  FUNPOW Tau n t = FUNPOW Tau m (Vis e k) ⇒ n ≤ m ∧ t = FUNPOW Tau (m-n) (Vis e k)
+Proof
+  strip_tac>>
+  Cases_on ‘n ≤ m’>>fs[]
+  >- (fs[LESS_OR_EQ]
+      >- (fs[FUNPOW_min_cancel,Tau_INJ]>>metis_tac[])>>
+      fs[FUNPOW_eq_elim]>>metis_tac[FUNPOW])>>
+  fs[NOT_LESS_EQUAL]>>
+  last_x_assum $ assume_tac o GSYM>>
+  rfs[FUNPOW_min_cancel,Tau_INJ]>>
+  Cases_on ‘n-m’>>fs[FUNPOW_SUC]
+QED
+
+Theorem FUNPOW_Vis_simp:
+  (FUNPOW Tau n t = FUNPOW Tau m (Vis e k)) ⇔ (n ≤ m ∧ t = FUNPOW Tau (m-n) (Vis e k))
+Proof
+  EQ_TAC>>strip_tac
+  >- (irule FUNPOW_Vis_strip>>simp[])>>
+  fs[GSYM FUNPOW_ADD]
+QED
+
 Theorem bind_FUNPOW_Ret:
   itree_bind ht k = FUNPOW Tau n (Ret x) ⇒ ∃r n'. ht = FUNPOW Tau n' (Ret r) ∧ n' ≤ n
 Proof
   rw[]>>
   imp_res_tac bind_FUNPOW_Ret'>>fs[FUNPOW_Tau_bind]>>
   imp_res_tac FUNPOW_Ret_strip
+QED
+
+Theorem bind_FUNPOW_Vis:
+  itree_bind ht t = FUNPOW Tau n (Vis e k) ⇒
+  (∃g. ht = FUNPOW Tau n (Vis e g) ∧ k = (λx. itree_bind (g x) t))
+  ∨ (∃x m. ht = FUNPOW Tau m (Ret x) ∧ t x = FUNPOW Tau (n - m) (Vis e k)
+           ∧ m ≤ n)
+Proof
+  Cases_on ‘∃t. strip_tau ht t’>>rw[]>>fs[]
+  >- (imp_res_tac strip_tau_FUNPOW>>rw[]>>fs[FUNPOW_Tau_bind]>>
+      Cases_on ‘t'’>>fs[itree_bind_thm]>>
+      fs[FUNPOW_Vis_simp])>>
+  imp_res_tac strip_tau_spin>>rw[]>>fs[spin_bind]>>
+  pop_assum mp_tac>>
+  rewrite_tac[Once (Q.SPEC ‘n’ spin_FUNPOW_Tau)]>>rw[]>>
+  fs[Tau_INJ,FUNPOW_eq_elim]>>fs[Once spin]
 QED
 
 Theorem itree_unfold_FUNPOW_Tau:
