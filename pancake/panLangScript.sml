@@ -171,17 +171,17 @@ End
 *)
 
 (* optimise this function *)
-Definition assigns_def:
-  (assigns [] n = Skip) ∧
-  (assigns (v::vs) n =
-    Seq (Assign v n) (assigns vs n))
+Definition Assigns_def:
+  (Assigns [] n = Skip) ∧
+  (Assigns (v::vs) n =
+    Seq (Assign v n) (Assigns vs n))
 End
 
 
-Definition decs_def:
-  (decs [] p = p) /\
-  (decs ((v,e)::es) p =
-    Dec v e (decs es p))
+Definition Decs_def:
+  (Decs [] p = p) /\
+  (Decs ((v,e)::es) p =
+    Dec v e (Decs es p))
 End
 
 
