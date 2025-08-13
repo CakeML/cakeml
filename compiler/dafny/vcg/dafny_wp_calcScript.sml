@@ -162,10 +162,10 @@ Inductive stmt_wp:
     (MAP FST l) = (MAP VarLhs ret_names) ∧
     (MAP SND l) = (MAP ExpRhs exps) ∧
     ALL_DISTINCT ret_names ∧
-    LENGTH exps = LENGTH ret_names
+    LENGTH exps = LENGTH ret_names ∧
+    set ret_names ⊆ set (MAP FST ls)
     ⇒
-    stmt_wp m ((Let (ZIP (ret_names,exps)) (conj post))::
-               MAP (CanEval ∘ Var) ret_names) (Assign l) post ens decs ls
+    stmt_wp m [Let (ZIP (ret_names,exps)) (conj post)] (Assign l) post ens decs ls
 [~MetCall:]
   ∀m mname mspec mbody args ret_names rets post ens.
     Method mname mspec mbody ∈ m ∧
@@ -1146,30 +1146,40 @@ Proof
 QED
 
 (* TODO Move to dafnyProps *)
-Theorem read_local_update_local:
-  ∀xs n.
-    read_local xs n = SOME v ⇒
+Theorem is_some_alookup_update_local_aux:
+  ∀(xs: (mlstring # value option) list) n.
+    IS_SOME (ALOOKUP xs n) ⇒
     ∃ys. update_local_aux xs n v' = SOME ys ∧
          ALOOKUP ys = ALOOKUP ((n,SOME v')::xs)
 Proof
-  Induct >- (simp [read_local_def])
+  Induct >- (simp [])
   \\ qx_genl_tac [‘x’, ‘n’]
-  \\ simp [read_local_def]
+  \\ gvs [IS_SOME_EXISTS, PULL_EXISTS]
   \\ namedCases_on ‘x’ ["xn xv"] \\ gvs []
   \\ IF_CASES_TAC \\ gvs []
   >-
-   (strip_tac \\ gvs []
-    \\ simp [update_local_aux_def]
+   (simp [update_local_aux_def]
     \\ simp [FUN_EQ_THM])
+  \\ rpt strip_tac \\ gvs []
+  \\ last_x_assum $ drule_then assume_tac
+  \\ simp [update_local_aux_def]
   \\ CASE_TAC \\ gvs []
-  \\ strip_tac \\ gvs []
-  \\ last_x_assum $ qspec_then ‘n’ assume_tac
-  \\ gvs [read_local_def]
-  \\ drule_all update_local_aux_cons_neq
-  \\ disch_then $ qspec_then ‘xv’ assume_tac \\ gvs []
   \\ gvs [FUN_EQ_THM]
   \\ strip_tac
   \\ IF_CASES_TAC \\ gvs []
+QED
+
+(* TODO Move to dafnyProps *)
+Theorem is_some_alookup_update_local:
+  IS_SOME (ALOOKUP st.locals n) ⇒
+  ∃l. update_local st n v = SOME (st with locals := l) ∧
+      ALOOKUP l = ALOOKUP ((n, SOME v)::st.locals)
+Proof
+  strip_tac
+  \\ rpt strip_tac
+  \\ drule is_some_alookup_update_local_aux
+  \\ disch_then $ qspec_then ‘v’ assume_tac
+  \\ gvs [update_local_def, state_component_equality]
 QED
 
 Definition is_initialized_def:
@@ -1190,19 +1200,6 @@ Theorem can_eval_read_local:
     ∃v. read_local st.locals n = SOME v
 Proof
   gvs [read_local_def, AllCaseEqs(), eval_true_CanEval_Var, is_initialized_def]
-QED
-
-Theorem can_eval_var_update_local:
-  eval_true st env (CanEval (Var n)) ⇒
-  ∃l. update_local st n v = SOME (st with locals := l) ∧
-      ALOOKUP l = ALOOKUP ((n, SOME v)::st.locals)
-Proof
-  strip_tac
-  \\ dxrule (iffLR can_eval_read_local)
-  \\ rpt strip_tac
-  \\ drule read_local_update_local
-  \\ disch_then $ qspec_then ‘v’ assume_tac
-  \\ gvs [update_local_def, state_component_equality]
 QED
 
 Theorem can_eval_vars:
@@ -1246,9 +1243,33 @@ Proof
   simp [FUN_EQ_THM, ALOOKUP_APPEND]
 QED
 
+Definition locals_ok_def:
+  locals_ok (locals: (mlstring # type) list) (s_locals: (mlstring # value option) list) ⇔
+    ∀n ty.
+      (n,ty) ∈ set locals ⇒ ∃oval. ALOOKUP s_locals n = SOME oval
+End
+
+Triviality locals_ok_is_some_alookup:
+  locals_ok locals st_locals ⇒
+  EVERY (λn. IS_SOME (ALOOKUP st_locals n)) (MAP FST locals)
+Proof
+  simp [locals_ok_def, EVERY_MEM, MEM_MAP]
+  \\ rpt strip_tac \\ gvs []
+  \\ rename [‘MEM l _’]
+  \\ namedCases_on ‘l’ ["n ty"]
+  \\ last_x_assum drule
+  \\ rpt strip_tac \\ simp []
+QED
+
+Triviality subset_every:
+  set xs ⊆ set ys ∧ EVERY P ys ⇒ EVERY P xs
+Proof
+  simp [EVERY_MEM, SUBSET_DEF]
+QED
+
 Theorem IMP_assi_values:
   ∀ret_names out_vs st.
-    EVERY (eval_true st env) (MAP CanEval (MAP Var ret_names)) ∧
+    EVERY (λn. IS_SOME (ALOOKUP st.locals n)) ret_names ∧
     LENGTH out_vs = LENGTH ret_names
     ⇒
     ∃l. assi_values st env (MAP VarLhs ret_names) out_vs (st with locals := l) ∧
@@ -1260,18 +1281,18 @@ Proof
   \\ rpt strip_tac
   \\ namedCases_on ‘out_vs’ ["", "v out_vs'"] \\ gvs []
   \\ irule_at (Pos hd) assi_values_cons
-  \\ drule can_eval_var_update_local
+  \\ drule is_some_alookup_update_local
   \\ disch_then $ qspec_then ‘v’ mp_tac
   \\ disch_then $ qx_choose_then ‘l’ mp_tac
   \\ strip_tac
   \\ irule_at (Pos hd) assi_value_VarLhs
   \\ first_assum $ irule_at (Pos hd)
-  \\ drule can_eval_vars
-  \\ disch_then $ qspecl_then [‘st’, ‘l’] mp_tac
+  \\ last_x_assum $ qspecl_then [‘out_vs'’, ‘st with locals := l’] mp_tac
+  \\ simp []
   \\ impl_tac >-
-   (strip_tac \\ simp [is_initialized_def] \\ IF_CASES_TAC \\ gvs [])
-  \\ strip_tac
-  \\ last_x_assum drule_all \\ simp []
+   (gvs [EVERY_MEM]
+    \\ rpt strip_tac
+    \\ IF_CASES_TAC \\ gvs [])
   \\ disch_then $ qx_choose_then ‘l₁’ mp_tac
   \\ strip_tac
   \\ first_assum $ irule_at (Pos hd) \\ gvs []
@@ -1281,7 +1302,7 @@ QED
 
 Triviality IMP_assi_values_distinct:
   ∀ret_names out_vs st.
-    EVERY (eval_true st env) (MAP CanEval (MAP Var ret_names)) ∧
+    EVERY (λn. IS_SOME (ALOOKUP st.locals n)) ret_names ∧
     ALL_DISTINCT ret_names ∧ LENGTH out_vs = LENGTH ret_names
     ⇒
     ∃l. assi_values st env (MAP VarLhs ret_names) out_vs (st with locals := l) ∧
@@ -1867,12 +1888,6 @@ Proof
   \\ disch_then rev_drule \\ gvs []
 QED
 
-Definition locals_ok_def:
-  locals_ok (locals: (mlstring # type) list) (s_locals: (mlstring # value option) list) ⇔
-    ∀n ty.
-      (n,ty) ∈ set locals ⇒ ∃oval. ALOOKUP s_locals n = SOME oval
-End
-
 Triviality is_some_none:
   IS_SOME x ⇔ x ≠ NONE
 Proof
@@ -1999,6 +2014,19 @@ Proof
   \\ qexists ‘st.locals’ \\ simp []
   \\ rpt strip_tac
   \\ IF_CASES_TAC \\ gvs []
+QED
+
+Triviality can_eval_is_some_alookup:
+  ∀ns st env.
+    EVERY (eval_true st env) (MAP CanEval (MAP Var ns)) ⇒
+    EVERY (λn. IS_SOME (ALOOKUP st.locals n)) ns
+Proof
+  Induct \\ gvs []
+  \\ rpt strip_tac
+  >-
+   (gvs [CanEval_def, eval_true_def, eval_exp_def, evaluate_exp_def,
+         read_local_def, AllCaseEqs()])
+  \\ last_x_assum drule \\ simp []
 QED
 
 Theorem stmt_wp_sound:
@@ -2130,8 +2158,11 @@ Proof
     \\ irule_at Any IMP_eval_rhs_exps_MAP_ExpRhs
     \\ first_assum $ irule_at $ Pos hd
     \\ fs [GSYM MAP_MAP_o]
+    \\ drule_then mp_tac locals_ok_is_some_alookup
+    \\ strip_tac
+    \\ dxrule_all subset_every \\ strip_tac
     \\ drule IMP_assi_values
-    \\ disch_then $ qspec_then ‘vs’ mp_tac
+    \\ disch_then $ qspecl_then [‘env’, ‘vs’] mp_tac
     \\ imp_res_tac LIST_REL_LENGTH
     \\ impl_tac >- simp []
     \\ strip_tac
@@ -2309,8 +2340,10 @@ Proof
     \\ simp [EVERY_MEM,MEM_MAP,PULL_EXISTS]
     \\ rpt strip_tac \\ first_x_assum dxrule
     \\ simp [eval_true_CanEval_Var,Abbr‘st3’,restore_caller_def])
+  \\ drule can_eval_is_some_alookup
+  \\ strip_tac
   \\ drule IMP_assi_values_distinct
-  \\ disch_then $ qspec_then ‘out_vs’ mp_tac
+  \\ disch_then $ qspecl_then [‘env’, ‘out_vs’] mp_tac
   \\ impl_tac >- fs []
   \\ strip_tac
   \\ first_assum $ irule_at $ Pos hd
@@ -2319,8 +2352,7 @@ Proof
   \\ conj_tac >- (unabbrev_all_tac \\ fs [restore_caller_def])
   \\ conj_tac >- (unabbrev_all_tac \\ fs [restore_caller_def])
   \\ conj_tac >-
-   (simp []
-    \\ simp [locals_ok_def]
+   (simp [locals_ok_def]
     \\ ‘st3.locals = st.locals’ by (gvs [restore_caller_def, Abbr ‘st3’])
     \\ simp []
     \\ qpat_x_assum ‘locals_ok _ st.locals’ mp_tac
@@ -2677,31 +2709,32 @@ Proof
 QED
 
 Definition stmt_vcg_def:
-  stmt_vcg _ Skip post _ _ = return post ∧
-  stmt_vcg _ (Assert e) post _ _ = return (e::post) ∧
-  stmt_vcg _ (Return) _ ens _ = return ens ∧
-  stmt_vcg m (Then s₁ s₂) post ens decs =
+  stmt_vcg _ Skip post _ _ _ = return post ∧
+  stmt_vcg _ (Assert e) post _ _ _ = return (e::post) ∧
+  stmt_vcg _ (Return) _ ens _ _ = return ens ∧
+  stmt_vcg m (Then s₁ s₂) post ens decs ls =
     do
-      pre' <- stmt_vcg m s₂ post ens decs;
-      stmt_vcg m s₁ pre' ens decs;
+      pre' <- stmt_vcg m s₂ post ens decs ls;
+      stmt_vcg m s₁ pre' ens decs ls;
     od ∧
-  stmt_vcg m (If grd thn els) post ens decs =
+  stmt_vcg m (If grd thn els) post ens decs ls =
   do
-    pre_thn <- stmt_vcg m thn post ens decs;
-    pre_els <- stmt_vcg m els post ens decs;
+    pre_thn <- stmt_vcg m thn post ens decs ls;
+    pre_els <- stmt_vcg m els post ens decs ls;
     return [IsBool grd; imp grd (conj pre_thn); imp (not grd) (conj pre_els)]
   od ∧
-  stmt_vcg _ (Assign ass) post _ _ =
+  stmt_vcg _ (Assign ass) post _ _ ls =
   do
     (lhss, rhss) <<- UNZIP ass;
     vars <- result_mmap dest_VarLhs lhss;
     es <- result_mmap dest_ExpRhs rhss;
     () <- if ALL_DISTINCT vars then return () else
             (fail «stmt_vcg:Assign: variables not distinct»);
-    return ((Let (ZIP (vars, es)) (conj post))
-            ::MAP (CanEval ∘ Var) vars)
+    () <- if list_subset vars (MAP FST ls) then return () else
+            (fail «stmt_vcg:Assign: Trying to assign to undeclared variables»);
+    return [Let (ZIP (vars, es)) (conj post)]
   od ∧
-  stmt_vcg m (MetCall lhss name args) post ens decs =
+  stmt_vcg m (MetCall lhss name args) post ens decs ls =
   do
     method <- find_met name m;
     (name, spec, body) <<- dest_met method;
@@ -2745,12 +2778,12 @@ Definition stmt_vcg_def:
                              (conj spec.ens))
                         (conj post))])
   od ∧
-  stmt_vcg _ _ _ _ _ = fail «stmt_vcg: Unsupported statement»
+  stmt_vcg _ _ _ _ _ _ = fail «stmt_vcg: Unsupported statement»
 End
 
 Theorem stmt_vcg_correct:
-  ∀m stmt post ens decs res ls.
-    stmt_vcg m stmt (post:exp list) (ens:exp list) decs = INR res
+  ∀m stmt post ens decs ls res.
+    stmt_vcg m stmt (post:exp list) (ens:exp list) decs ls = INR res
     ⇒
     stmt_wp (set m) res stmt (post:exp list) (ens:exp list) decs ls
 Proof
@@ -2779,7 +2812,8 @@ Proof
     \\ irule stmt_wp_Assign
     \\ imp_res_tac result_mmap_len \\ simp []
     \\ drule_then assume_tac result_mmap_dest_VarLhs \\ simp []
-    \\ drule_then assume_tac result_mmap_dest_ExpRhs \\ simp [])
+    \\ drule_then assume_tac result_mmap_dest_ExpRhs \\ simp []
+    \\ gvs [LIST_TO_SET_SUBSET])
   >~ [‘MetCall’] >-
    (gvs [stmt_vcg_def]
     \\ gvs [oneline bind_def, CaseEq "sum"]
@@ -2865,7 +2899,8 @@ Definition met_vcg_def:
        of a method; in particular, it should ignore any updates/shadowing *)
     ens <<- (MAP (wrap_Old_list (MAP FST specs.ins)) specs.ens
                 ++ vars_have_types specs.outs);
-    vcs <- stmt_vcg mets body [False] ens (specs.rank, specs.decreases);
+    vcs <- stmt_vcg mets body [False] ens (specs.rank, specs.decreases)
+                    (specs.ins ++ specs.outs);
     return (imp (conj specs.reqs) (conj vcs))
   od
 End
