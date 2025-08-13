@@ -317,7 +317,17 @@ Proof
         \\ ntac 2 (TOP_CASE_TAC \\ fs[])
         >- solve_simple
         \\ solve_complex)
-    >- cheat
+    >- (
+      gvs[AllCaseEqs()]
+      \\ rw[]
+      >- (first_x_assum drule_all \\ rw[] \\ gvs[] \\ metis_tac[])
+      >- (first_x_assum drule_all \\ rw[] \\ gvs[] \\ metis_tac[])
+      >- (first_x_assum drule_all \\ rw[] \\ gvs[] \\ metis_tac[])
+      >- (first_x_assum drule_all \\ rw[] \\ gvs[] \\ metis_tac[])
+      \\ (
+        solve_complex
+        \\ qexists `stC with fp_state := stC.fp_state with opts := hN''`
+        \\ gvs[]))
     >- (
      TOP_CASE_TAC \\ fs[]
      >- solve_simple
@@ -674,7 +684,21 @@ Proof
         \\ strip_tac \\ fs[dec_clock_def]
         \\ solve_complex)
     (* Force *)
-    >- cheat
+    >- (
+      gvs[AllCaseEqs()] \\ rw[] \\ gvs[]
+      >- solve_simple
+      >- solve_simple
+      >- solve_simple
+      >- solve_simple
+      \\ (
+        solve_complex
+        \\ rw[] \\ gvs[]
+        \\ qexistsl [
+          `fpOpt3N`,
+          `st2 with fp_state := st2.fp_state with
+             <| rws := opts;
+                opts := fpOpt2N |>`]
+        \\ gvs[]))
     (* Simple *)
     >- (
       TOP_CASE_TAC \\ fs[] >- solve_simple

@@ -38,7 +38,9 @@ Definition perms_ok_exp_def:
           (op = AallocFixed ⇒ RefAlloc ∈ ps) ∧
           (op = Aw8alloc ⇒ W8Alloc ∈ ps) ∧
           (op = Opassign ⇒ RefUpdate ∈ ps) ∧
-          (∀chn. op = FFI chn ⇒ FFIWrite chn ∈ ps ∧ DoFFI ∈ ps)
+          (∀chn. op = FFI chn ⇒ FFIWrite chn ∈ ps ∧ DoFFI ∈ ps) ∧
+          (∀m. op = ThunkOp (AllocThunk m) ⇒ RefAlloc ∈ ps) ∧
+          (∀m. op = ThunkOp (UpdateThunk m) ⇒ RefUpdate ∈ ps)
       | _ => T
 End
 
@@ -195,7 +197,8 @@ QED
 Definition perms_ok_ref_def:
   perms_ok_ref ps (Refv v) = perms_ok ps v ∧
   perms_ok_ref ps (Varray vs) = EVERY (perms_ok ps) vs ∧
-  perms_ok_ref ps (W8array ws) = T
+  perms_ok_ref ps (W8array ws) = T ∧
+  perms_ok_ref ps (Thunk _ v) = perms_ok ps v
 End
 
 Definition perms_ok_state_def:
@@ -308,6 +311,8 @@ Theorem do_app_perms:
   (op = Aw8alloc ⇒ W8Alloc ∈ ps) ∧
   (op = Opassign ⇒ RefUpdate ∈ ps) ∧
   (∀chn. op = FFI chn ⇒ FFIWrite chn ∈ ps ∧ DoFFI ∈ ps) ∧
+  (∀m. op = ThunkOp (AllocThunk m) ⇒ RefAlloc ∈ ps) ∧
+  (∀m. op = ThunkOp (UpdateThunk m) ⇒ RefUpdate ∈ ps) ∧
   op ≠ Opapp ⇒
     (∀n. n < LENGTH refs1 ∧ RefMention n ∈ ps ⇒ perms_ok_ref ps (EL n refs1)) ∧
     (RefAlloc ∉ ps ∧ W8Alloc ∉ ps ⇒ LENGTH refs1 = LENGTH refs) ∧
@@ -320,7 +325,6 @@ Theorem do_app_perms:
     | Rerr (Rraise v) => perms_ok ps v
     | Rerr (Rabort err) => T
 Proof
-  cheat (*
   strip_tac
   \\ qpat_x_assum ‘do_app _ _ _ = _’ mp_tac
   \\ Cases_on ‘op = Env_id’ \\ gs []
@@ -587,7 +591,22 @@ Proof
   >- (
     rw [do_app_cases] \\ gs[]
     \\ rw [perms_ok_def])
-  \\ Cases_on ‘op’ \\ gs [] *)
+  \\ Cases_on ‘∃m. op = ThunkOp (AllocThunk m)’ \\ gs[]
+  >- (
+    rw [do_app_cases] \\ gs [thunk_op_def, AllCaseEqs()] \\ pairarg_tac \\ gs []
+    \\ gvs [perms_ok_def, store_alloc_def, perms_ok_ref_def, SUBSET_DEF]
+    \\ simp [EL_APPEND_EQN]
+    \\ rw [] \\ gs []
+    \\ gvs [NOT_LESS, LESS_OR_EQ, perms_ok_ref_def])
+  \\ Cases_on ‘∃m. op = ThunkOp (UpdateThunk m)’ \\ gs[]
+  >- (
+    rw [do_app_cases] \\ gs [thunk_op_def, AllCaseEqs()]
+    \\ gvs [perms_ok_def, store_assign_def]
+    \\ rw [EL_LUPDATE, perms_ok_ref_def])
+  \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gs[]
+  >- (rw [do_app_cases] \\ gvs [thunk_op_def])
+  \\ Cases_on ‘op’ \\ gs []
+  \\ Cases_on ‘t’ \\ gs []
 QED
 
 Theorem perms_ok_do_opapp:
@@ -697,7 +716,6 @@ Theorem evaluate_perms_ok:
        | Rval env1 => perms_ok_env ps UNIV env1
        | _ => T)
 Proof
-  cheat (*
   ho_match_mp_tac full_evaluate_ind
   \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac
   >~ [‘[]’] >- (
@@ -733,7 +751,63 @@ Proof
   >~ [‘Fun n e’] >- (
     gvs [evaluate_def, perms_ok_env_def, perms_ok_def, SF SFY_ss])
   >~ [‘App op xs’] >- (
-    gvs [evaluate_def]
+    Cases_on ‘getOpClass op = Force’ \\ gvs []
+    >- (
+      gvs [AllCaseEqs()] \\ gvs [evaluate_def] \\ gvs [AllCaseEqs()]
+      \\ gvs [perms_ok_env_BIGUNION, MEM_MAP, PULL_EXISTS, EVERY_MEM]
+      >- (
+        gvs [oneline dest_thunk_def, AllCaseEqs(), store_lookup_def,
+             perms_ok_state_def]
+        \\ last_x_assum drule \\ rw [] \\ gvs [perms_ok_def, perms_ok_ref_def])
+      \\ (
+        gvs [AppUnit_def, sing_env_def, perms_ok_env_def, dec_clock_def,
+             namespaceTheory.nsEmpty_def, namespaceTheory.nsBind_def]
+        \\ gvs [oneline dest_thunk_def, AllCaseEqs(), store_lookup_def]
+        \\ gvs [evaluate_def, do_con_check_def, build_conv_def,
+                namespaceTheory.nsLookup_def, AllCaseEqs()]
+        \\ gvs [do_opapp_cases]
+        >- ((* Closure *)
+          last_x_assum mp_tac
+          \\ reverse impl_tac
+          >- (
+            rw [] \\ gs []
+            \\ gvs [oneline update_thunk_def, AllCaseEqs(), store_assign_def,
+                 perms_ok_state_def, EL_LUPDATE] \\ rw []
+            \\ gvs [perms_ok_ref_def]
+            \\ first_x_assum (drule_then assume_tac) \\ gs [])
+          \\ gs [SF DNF_ss, perms_ok_env_def, perms_ok_def, find_recfun_ALOOKUP,
+                 EVERY_MEM, MEM_MAP, PULL_EXISTS, perms_ok_state_def]
+          \\ rw [] \\ gs []
+          \\ (
+            first_x_assum (drule_then assume_tac)
+            \\ gvs [perms_ok_ref_def, perms_ok_def, perms_ok_env_def]
+            \\ first_x_assum irule \\ gvs []
+            \\ metis_tac []))
+        >- ((* Recclosure *)
+          last_x_assum mp_tac
+          \\ reverse impl_tac
+          >- (
+            rw [] \\ gs []
+            \\ gvs [oneline update_thunk_def, AllCaseEqs(), store_assign_def,
+                 perms_ok_state_def, EL_LUPDATE] \\ rw []
+            \\ gvs [perms_ok_ref_def]
+            \\ first_x_assum (drule_then assume_tac) \\ gs [])
+          \\ gs [SF DNF_ss, perms_ok_env_def, perms_ok_def, find_recfun_ALOOKUP,
+                 EVERY_MEM, MEM_MAP, PULL_EXISTS, perms_ok_state_def]
+          \\ drule_then assume_tac ALOOKUP_MEM
+          \\ qmatch_asmsub_abbrev_tac ‘MEM yyy funs’
+          \\ first_x_assum drule \\ simp_tac std_ss [Abbr ‘yyy’]
+          \\ rw [] \\ gs [nsLookup_nsAppend_some, nsLookup_alist_to_ns_some,
+                          nsLookup_alist_to_ns_none]
+          >- (
+            gvs [perms_ok_ref_def, perms_ok_def, perms_ok_env_def]
+            \\ first_x_assum irule \\ gvs []
+            \\ gvs [PULL_EXISTS, MEM_MAP, EVERY_MAP]
+            \\ metis_tac [])
+          >- gvs [perms_ok_ref_def, perms_ok_def, EVERY_MAP, EVERY_EL,
+                  MEM_EL])))
+    \\ gvs [AllCaseEqs()]
+    \\ gvs [evaluate_def]
     \\ Cases_on ‘op = Opapp’ \\ gs []
     >- ((* Opapp *)
       gvs [CaseEqs ["result", "prod", "bool", "option"],
@@ -795,6 +869,7 @@ Proof
     \\ Cases_on ‘getOpClass op’ \\ gs[]
     >~ [‘EvalOp’] >- (Cases_on ‘op’ \\ gs[])
     >~ [‘FunApp’] >- (Cases_on ‘op’ \\ gs[])
+    >~ [‘Force’] >- (Cases_on ‘op’ \\ gs[])
     >~ [‘Simple’] >- (
       gvs [CaseEqs ["result", "prod", "bool", "option"]]
       \\ drule_then (qspec_then ‘ps’ mp_tac) do_app_perms
@@ -985,7 +1060,7 @@ Proof
       gs [perms_ok_env_def, extend_dec_env_def, nsLookup_nsAppend_some]
       \\ rw [] \\ gs [SF SFY_ss])
     \\ rw []
-    \\ first_x_assum (drule_then assume_tac) \\ gs []) *)
+    \\ first_x_assum (drule_then assume_tac) \\ gs [])
 QED
 
 Theorem evaluate_perms_ok_exp =
