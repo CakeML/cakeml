@@ -1957,7 +1957,7 @@ Proof
   \\ ‘FLOOKUP fr2 n = SOME l2’ by (drule_all FLOOKUP_SUBMAP \\ rw [])
   \\ ‘ref_rel (v_rel fr2 ft2 fe2) (Thunk Evaluated v) (Thunk Evaluated y')’
     by gvs [ref_rel_def]
-  \\ drule_all state_rel_store_assign \\ rw []
+  \\ drule_all state_rel_store_assign \\ rw [OPTREL_def]
 QED
 
 Theorem state_rel_update_thunk_SOME:
@@ -1980,7 +1980,6 @@ Proof
     by gvs [ref_rel_def]
   \\ drule_all state_rel_store_assign \\ rw [OPTREL_def] \\ gvs []
 QED
-
 
 Theorem evaluate_update_Op:
   op ≠ Opapp ∧ op ≠ Eval ⇒ ^(get_goal "App")

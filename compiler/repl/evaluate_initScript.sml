@@ -64,7 +64,8 @@ End
 Theorem ref_ok_thm:
   ref_ok s (Refv v) = v_ok s v ∧
   ref_ok s (Varray vs) = EVERY (v_ok s) vs ∧
-  ref_ok s (W8array a) = T
+  ref_ok s (W8array a) = T ∧
+  ref_ok s (Thunk _ v) = v_ok s v
 Proof
   rw [ref_ok_def, ref_rel_def, v_ok_def, LIST_REL_EL_EQN, EVERY_EL]
 QED
@@ -349,7 +350,6 @@ Theorem do_app_ok:
     (∀v. res = Rval v ⇒ v_ok t v) ∧
     (∀v. res = Rerr (Rraise v) ⇒ v_ok t v)
 Proof
-  cheat (*
   strip_tac \\ simp [LET_THM]
   \\ simp [Once CONJ_COMM]
   \\ simp [Once (GSYM CONJ_ASSOC)]
@@ -686,21 +686,105 @@ Proof
     gvs[do_app_cases, v_ok_thm]
     \\ ‘s with <| refs := s.refs; ffi := s.ffi |> = s’ suffices_by gs[]
     \\ gs[state_component_equality])
-  \\ Cases_on ‘op’ \\ gs [] *)
+  \\ Cases_on ‘∃m. op = ThunkOp (AllocThunk m)’ \\ gs[]
+  >- (
+    gvs [do_app_cases, v_ok_thm, thunk_op_def, AllCaseEqs()]
+    \\ pairarg_tac \\ gvs []
+    \\ gvs [store_alloc_def, state_ok_def, v_ok_thm, state_rel_def, EVERY_EL,
+            INJ_IFF, FLOOKUP_FUN_FMAP, EL_APPEND_EQN]
+    \\ rw [] \\ gvs [FUN_FMAP_DEF, ref_rel_def, NOT_LESS, LESS_OR_EQ,
+                     ref_ok_def]
+    >- (
+      irule ref_rel_mono
+      \\ first_assum (irule_at Any) \\ rw []
+      \\ irule_at Any v_rel_update
+      \\ first_assum (irule_at Any)
+      \\ gvs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
+    \\ gvs [v_ok_def]
+    \\ irule_at Any v_rel_update
+    \\ first_assum (irule_at Any)
+    \\ gvs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
+  \\ Cases_on ‘∃m. op = ThunkOp (UpdateThunk m)’ \\ gs[]
+  >- (
+    gvs [do_app_cases, thunk_op_def, AllCaseEqs(), v_ok_thm, store_assign_def,
+         state_ok_def, v_ok_def, state_rel_def, FLOOKUP_FUN_FMAP]
+    \\ rw [v_rel_def, EL_LUPDATE, ref_rel_def])
+  \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gs[]
+  >- gvs [do_app_def, AllCaseEqs(), thunk_op_def]
+  \\ Cases_on ‘op’ \\ gs []
+  \\ Cases_on ‘t’ \\ gs []
 QED
 
 Theorem do_app_ok[allow_rebind] = SIMP_RULE (srw_ss()) [LET_THM] do_app_ok;
 
+Theorem dest_thunk_ok:
+  state_ok s ∧
+  dest_thunk vs s.refs = IsThunk m v ⇒
+    state_ok (dec_clock s) ∧ env_ok (dec_clock s) (sing_env n v)
+Proof
+  rw []
+  >- gvs [dec_clock_def, state_ok_def, state_rel_def]
+  \\ gvs [dec_clock_def, sing_env_def, env_ok_def, env_rel_def, ctor_rel_def]
+  \\ irule nsAll2_nsBind \\ rw [] \\ gvs []
+  \\ gvs [state_ok_def, state_rel_def, FLOOKUP_FUN_FMAP]
+  \\ gvs [oneline dest_thunk_def, AllCaseEqs(), store_lookup_def]
+  \\ first_x_assum drule \\ rw [ref_rel_def]
+QED
+
 Theorem evaluate_ok_Op:
   op ≠ Opapp ∧ op ≠ Eval ⇒ ^(get_goal "App")
 Proof
-  cheat (*
   strip_tac
-  \\ ‘~ (getOpClass op = EvalOp)’ by (Cases_on ‘op’ \\ gs[])
-  \\ ‘~ (getOpClass op = FunApp)’ by (Cases_on ‘op’ \\ gs[])
+  \\ ‘~ (getOpClass op = EvalOp)’ by (
+    Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
+  \\ ‘~ (getOpClass op = FunApp)’ by (
+    Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
   \\ rpt strip_tac
   \\ gs[evaluate_def, Excl "getOpClass_def"]
   \\ Cases_on ‘getOpClass op’ \\ gs[Excl "getOpClass_def"]
+  >>~ [‘getOpClass op = Force’]
+  >- (
+    Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []
+    \\ Cases_on ‘t'’ \\ full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
+    >- (
+      drule_all_then (qspec_then ‘"f"’ assume_tac) dest_thunk_ok \\ gvs []
+      \\ qpat_x_assum ‘state_ok st2’ mp_tac
+      \\ rw [state_ok_def, state_rel_def] \\ gvs [FLOOKUP_FUN_FMAP]
+      >- simp [INJ_DEF, FUN_FMAP_DEF]
+      \\ rw []
+      \\ gvs [oneline update_thunk_def, AllCaseEqs(), store_assign_def,
+              EL_LUPDATE]
+      \\ IF_CASES_TAC \\ gvs [ref_rel_def, v_ok_def])
+    >- (
+      drule_all_then (qspec_then ‘"f"’ assume_tac) dest_thunk_ok \\ gvs []))
+  >- (
+    Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []
+    \\ Cases_on ‘t'’ \\ full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
+    \\ (
+      drule_all_then (qspec_then ‘"f"’ assume_tac) dest_thunk_ok \\ gvs []
+      \\ imp_res_tac (CONJUNCT1 evaluate_next_type_stamp_mono)
+      \\ imp_res_tac (CONJUNCT1 evaluate_next_exn_stamp_mono)
+      \\ imp_res_tac (CONJUNCT1 evaluate_refs_length_mono)
+      \\ gvs [dec_clock_def, env_ok_def]
+      \\ irule env_rel_update
+      \\ first_assum (irule_at Any)
+      \\ gvs [oneline update_thunk_def, AllCaseEqs(), store_assign_def,
+              FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO]))
+  >- (
+    Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []
+    \\ Cases_on ‘t'’ \\ full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
+    >- (
+      gvs [oneline dest_thunk_def, AllCaseEqs(), store_lookup_def]
+      \\ qpat_x_assum ‘state_ok st'’ mp_tac
+      \\ rw [state_ok_def, state_rel_def] \\ gvs [FLOOKUP_FUN_FMAP]
+      \\ first_x_assum drule \\ rw [ref_rel_def, v_ok_def])
+    \\ drule_all_then (qspec_then ‘"f"’ assume_tac) dest_thunk_ok \\ gvs []
+    \\ gvs [EVERY_EL, v_ok_def, oneline update_thunk_def, AllCaseEqs(),
+            store_assign_def])
+  >- (
+    Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []
+    \\ Cases_on ‘t'’ \\ full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
+    \\ drule_all_then (qspec_then ‘"f"’ assume_tac) dest_thunk_ok \\ gvs [])
   \\ gvs [CaseEqs ["prod", "result", "option"]]
   \\ dxrule_then assume_tac (iffRL EVERY_REVERSE)
   \\ TRY (
@@ -724,7 +808,7 @@ Proof
           \\ every_case_tac \\ gs[] \\ rveq \\ gs[])
   \\ irule env_rel_update
   \\ first_assum (irule_at Any)
-  \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO] *)
+  \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO]
 QED
 
 Theorem do_opapp_cases[local] = semanticPrimitivesPropsTheory.do_opapp_cases;
