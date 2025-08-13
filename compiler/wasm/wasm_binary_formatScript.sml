@@ -968,7 +968,7 @@ Theorem dec_u32_shortens:
 Proof
   Cases
   >- gvs[dec_unsigned_word_def, dec_num_def]
-  >- 
+  >-
   cheat
 QED
 

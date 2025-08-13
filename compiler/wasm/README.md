@@ -18,11 +18,6 @@ Compilation from stackLang to wasmLang
 
 [wasm2LangScript.sml](wasm2LangScript.sml):
 CWasm AST modelling Wasm 2.0 (+ tail calls)
-Present here are
-  + control flow instructions
-  + all numeric (stack) instructions
-  + all vector (stack) instructions
-  + all (incl num&vec) memory operations -- factored into their own datatype
 Imprecisions:
   HOL lists encode Wasm vectors; latter has max length of 2^32
 

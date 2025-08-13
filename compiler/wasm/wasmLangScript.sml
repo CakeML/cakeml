@@ -6,7 +6,7 @@
 
 Theory wasmLang
 Ancestors
-  words arithmetic list
+  words arithmetic list mlstring
 Libs
   wordsLib dep_rewrite
 
@@ -285,7 +285,7 @@ Type expr          = “:instr list”
 Type constant_expr = “:instr list”
 
 Datatype: func =
-  <| name   : string
+  <| name   : mlstring
    ; ftype  : index
    ; locals : valtype list
    ; body   : expr
