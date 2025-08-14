@@ -8,6 +8,14 @@ Ancestors
 Libs
   wordsLib helperLib
 
+(* compiler definition (TODO: move to another file when ready) *)
+
+Definition compile_def:
+  compile stackLang$Skip = List ([]:wasmLang$instr list) ∧
+  compile (Seq p1 p2) = Append (compile p1) (compile p2) ∧
+  compile _ = ARB
+End
+
 (* definitions used in the correctness statement *)
 
 val s = “s:('a,'c,'ffi) stackSem$state”
@@ -26,15 +34,21 @@ Definition state_rel_def:
     empty_buffer s.code_buffer ∧ empty_buffer s.data_buffer
 End
 
+Definition res_rel_def:
+  (res_rel NONE r     ⇔ r = RNormal) ∧
+  (res_rel (SOME v) r ⇔ T (* TODO: fix *))
+End
+
 (* set up for one theorem per case *)
 
 val goal_tm =
   “λ(p,^s). ∀res s1 t.
      evaluate (p,s) = (res,s1) ∧
-     state_rel s t ∧
+     state_rel s t ∧ syntax_ok p ∧
      res ≠ SOME Error ⇒
      ∃ck t1 res1.
-       exec (compile p) (t with clock := t.clock + ck) = (res1,t1) ∧
+       exec_list (append (compile p)) (t with clock := t.clock + ck) = (res1,t1) ∧
+       res_rel res res1 ∧
        state_rel s1 t1”
 
 local
@@ -53,17 +67,14 @@ end
 Theorem compile_Skip:
   ^(get_goal "Skip")
 Proof
-  cheat
+  rpt strip_tac
+  \\ gvs [compile_def,exec_def,stackSemTheory.evaluate_def]
+  \\ simp [res_rel_def]
+  \\ qexists_tac ‘0’ \\ fs [state_rel_def]
 QED
 
 Theorem compile_Inst:
   ^(get_goal "Inst")
-Proof
-  cheat
-QED
-
-Theorem compile_Call:
-  ^(get_goal "Call")
 Proof
   cheat
 QED
@@ -86,20 +97,14 @@ Proof
   cheat
 QED
 
+Theorem compile_Call:
+  ^(get_goal "Call")
+Proof
+  cheat
+QED
+
 Theorem compile_JumpLower:
   ^(get_goal "JumpLower")
-Proof
-  cheat
-QED
-
-Theorem compile_Alloc:
-  ^(get_goal "Alloc")
-Proof
-  cheat
-QED
-
-Theorem compile_StoreConsts:
-  ^(get_goal "StoreConsts")
 Proof
   cheat
 QED
@@ -134,24 +139,6 @@ Proof
   cheat
 QED
 
-Theorem compile_Install:
-  ^(get_goal "Install")
-Proof
-  cheat
-QED
-
-Theorem compile_ShMemOp:
-  ^(get_goal "ShMemOp")
-Proof
-  cheat
-QED
-
-Theorem compile_RawCall:
-  ^(get_goal "RawCall")
-Proof
-  cheat
-QED
-
 Theorem compile_BitmapLoad:
   ^(get_goal "BitmapLoad")
 Proof
@@ -160,6 +147,24 @@ QED
 
 Theorem compile_Halt:
   ^(get_goal "Halt")
+Proof
+  cheat
+QED
+
+Theorem compile_Install: (* will be banned *)
+  ^(get_goal "Install")
+Proof
+  cheat
+QED
+
+Theorem compile_ShMemOp: (* will be banned *)
+  ^(get_goal "ShMemOp")
+Proof
+  cheat
+QED
+
+Theorem compile_RawCall: (* will be banned *)
+  ^(get_goal "RawCall")
 Proof
   cheat
 QED
@@ -186,11 +191,10 @@ Proof
   match_mp_tac (the_ind_thm())
   \\ EVERY (map strip_assume_tac [compile_Skip, compile_Inst,
        compile_Call, compile_Seq, compile_If, compile_While,
-       compile_JumpLower, compile_Alloc, compile_StoreConsts,
-       compile_Raise, compile_Return, compile_FFI, compile_Tick,
-       compile_LocValue, compile_Install, compile_ShMemOp,
-       compile_CodeBufferWrite, compile_DataBufferWrite,
-       compile_RawCall, compile_BitmapLoad, compile_Halt])
+       compile_JumpLower, compile_Raise, compile_Return, compile_FFI,
+       compile_Tick, compile_LocValue, compile_Install,
+       compile_ShMemOp, compile_CodeBufferWrite, compile_Halt,
+       compile_DataBufferWrite, compile_RawCall, compile_BitmapLoad])
   \\ asm_rewrite_tac []
   \\ rpt $ pop_assum kall_tac
   \\ rw [evaluate_def,state_rel_def]
