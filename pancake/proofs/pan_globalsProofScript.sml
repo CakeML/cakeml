@@ -1319,7 +1319,7 @@ Proof
       gvs[is_valid_value_def] >>
       gvs[set_var_def] >>
       simp[eval_def] >>
-      qmatch_goalsub_abbrev_tac ‘_ |+ (av1, vv1) |+ (av2, vv2)’ >>
+      qmatch_goalsub_abbrev_tac ‘_ |+ (av1, vv1) |+ (av2, vv2) |+ (_,_)’ >>
       drule_at (Pos last) evaluate_two_fresh_locals >>
       disch_then $ qspecl_then [‘av1’,‘vv1’,‘av2’,‘vv2’] mp_tac >>
       impl_tac >- simp[] >>
@@ -1341,13 +1341,64 @@ Proof
       gvs[state_rel_def] >>
       rw[fmap_eq_flookup,FLOOKUP_pan_res_var_thm,FLOOKUP_UPDATE] >>
       imp_res_tac evaluate_unchanged_local >>
-      gvs[good_res_def,FLOOKUP_UPDATE])
+      gvs[good_res_def,FLOOKUP_UPDATE] >>
+      rw[])
   >- (rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
       gvs[evaluate_def,state_rel_empty_locals] >>
-      cheat) >>
+      PURE_TOP_CASE_TAC >>
+      gvs[] >>
+      imp_res_tac eval_shape_val_thm >>
+      simp[evaluate_def,eval_def] >>
+      qmatch_goalsub_abbrev_tac ‘_ with locals := _.locals |+ (an,aw) |+ (bn,bw)’ >>
+      drule_at (Pos last) OPT_MMAP_update_locals_not_vars_eval_eq >>
+      disch_then $ qspecl_then [‘an’,‘aw’] mp_tac >>
+      impl_tac
+      >- (CCONTR_TAC >>
+          gvs[MEM_FLAT,MEM_MAP,Abbr ‘an’] >>
+          drule_then irule fresh_name_correct' >>
+          simp[SUBSET_DEF,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+          metis_tac[]) >>
+      strip_tac >>
+      drule_at (Pos last) OPT_MMAP_update_locals_not_vars_eval_eq >>
+      disch_then $ qspecl_then [‘bn’,‘bw’] mp_tac >>
+      impl_tac
+      >- (CCONTR_TAC >>
+          gvs[MEM_FLAT,MEM_MAP,Abbr ‘bn’] >>
+          drule_then irule fresh_name_correct' >>
+          simp[SUBSET_DEF,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+          metis_tac[]) >>
+      strip_tac >>
+      fs[] >>
+      simp[empty_locals_def] >>
+      gvs[dec_clock_def,state_rel_def]) >>
   rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
   gvs[Once evaluate_def,state_rel_empty_locals] >>
-  cheat
+  PURE_TOP_CASE_TAC >>
+  gvs[] >>
+  imp_res_tac eval_shape_val_thm >>
+  simp[evaluate_def,eval_def] >>
+  qmatch_goalsub_abbrev_tac ‘_ with locals := _.locals |+ (an,aw) |+ (bn,bw)’ >>
+  drule_at (Pos last) OPT_MMAP_update_locals_not_vars_eval_eq >>
+  disch_then $ qspecl_then [‘an’,‘aw’] mp_tac >>
+  impl_tac
+  >- (CCONTR_TAC >>
+      gvs[MEM_FLAT,MEM_MAP,Abbr ‘an’] >>
+      drule_then irule fresh_name_correct' >>
+      simp[SUBSET_DEF,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+      metis_tac[]) >>
+  strip_tac >>
+  drule_at (Pos last) OPT_MMAP_update_locals_not_vars_eval_eq >>
+  disch_then $ qspecl_then [‘bn’,‘bw’] mp_tac >>
+  impl_tac
+  >- (CCONTR_TAC >>
+      gvs[MEM_FLAT,MEM_MAP,Abbr ‘bn’] >>
+      drule_then irule fresh_name_correct' >>
+      simp[SUBSET_DEF,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
+      metis_tac[]) >>
+  strip_tac >>
+  fs[] >>
+  simp[empty_locals_def] >>
+  gvs[dec_clock_def,state_rel_def]
 QED
 
 Theorem compile_DecCall:
