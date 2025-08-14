@@ -98,6 +98,9 @@ Definition lit_to_display_def:
   /\
   (lit_to_display (Word64 w) =
     Item NONE (strlit "Word64") [word_to_display w])
+  /\
+  (lit_to_display (Float64 w) =
+    Item NONE (strlit "Float64") [word_to_display w])
 End
 
 Overload list_to_display = ``λf xs. displayLang$Tuple (MAP f xs)``
@@ -429,6 +432,8 @@ Definition flat_op_to_display_def:
     | FP_uop op => fp_uop_to_display op
     | FP_bop op => fp_bop_to_display op
     | FP_top op => fp_top_to_display op
+    | FpFromWord => empty_item (strlit "FpFromWord")
+    | FpToWord => empty_item (strlit "FpToWord")
     | Opapp => empty_item (strlit "Opapp")
     | Opassign => empty_item (strlit "Opassign")
     | Opref => empty_item (strlit "Opref")
