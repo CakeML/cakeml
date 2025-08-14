@@ -451,9 +451,8 @@ Theorem ref_ok_APPEND:
     !x s. STATE (x ++ c) s /\ (!th. THM c th ==> THM (x ++ c) th)
      ==> ref_ok (x ++ c) v
 Proof
-  cheat (*
   gen_tac \\ Cases \\ rw[ref_ok_def]
-  \\ fs[EVERY_MEM] \\ metis_tac[v_ok_APPEND] *)
+  \\ fs[EVERY_MEM] \\ metis_tac[v_ok_APPEND]
 QED
 
 Theorem inferred_ok:

@@ -221,7 +221,8 @@ Theorem kernel_vals_ind = v_ok_ind
 Definition ref_ok_def:
   ref_ok ctxt (Varray vs) = EVERY (v_ok ctxt) vs ∧
   ref_ok ctxt (Refv v) = v_ok ctxt v ∧
-  ref_ok ctxt (W8array vs) = T
+  ref_ok ctxt (W8array vs) = T ∧
+  ref_ok ctxt (Thunk m v) = v_ok ctxt v
 End
 
 Definition kernel_loc_ok_def:

@@ -217,7 +217,6 @@ QED
 Theorem evaluate_basis_v_ok_App:
   ^(get_goal "App")
 Proof
-  cheat (*
   rw [evaluate_def]
   \\ Cases_on ‘getOpClass op’
   \\ gvs [CaseEqs ["bool", "option", "prod", "semanticPrimitives$result"], SF SFY_ss]
@@ -225,6 +224,7 @@ Proof
   >- (Cases_on ‘op’ \\ gs[])
   >- (Cases_on ‘op’ \\ gs[])
   >- (Cases_on ‘op’ \\ gs[])
+  >- (Cases_on ‘op’ \\ gvs [])
   >- (
     gvs [do_app_cases, Boolv_def]
     \\ rw [v_ok_def]
@@ -239,7 +239,7 @@ Proof
       \\ first_x_assum irule \\ gs []
       \\ gs [post_state_ok_def]))
   >- (Cases_on ‘op’ \\ gs[])
-  >- (Cases_on ‘op’ \\ gs[]) *)
+  >- (Cases_on ‘op’ \\ gs[])
 QED
 
 Theorem evaluate_basis_v_ok_FpOptimise:

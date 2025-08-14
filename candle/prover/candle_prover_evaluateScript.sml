@@ -285,7 +285,6 @@ Theorem do_app_ok:
         | Rerr (Rraise v) => v_ok ctxt v
         | _ => T
 Proof
-  cheat (*
   strip_tac
   \\ qpat_x_assum ‘do_app _ _ _ = _’ mp_tac
   \\ Cases_on ‘op = Env_id’ \\ gs []
@@ -662,16 +661,123 @@ Proof
     rw[do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
-  \\ Cases_on ‘op’ \\ gs [] *)
+  \\ Cases_on ‘∃m. op = ThunkOp (AllocThunk m)’ \\ gs[]
+  >- (
+    rw [do_app_cases] \\ gs [thunk_op_def, AllCaseEqs()]
+    \\ pairarg_tac \\ gvs []
+    \\ gvs [v_ok_def, store_alloc_def, EVERY_EL, LLOOKUP_EQ_EL]
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ rw [EL_APPEND_EQN] \\ gs [NOT_LESS, LESS_OR_EQ, ref_ok_def]
+    >- (
+      gs [kernel_loc_ok_def, LLOOKUP_EQ_EL, EL_APPEND_EQN]
+      \\ first_x_assum (drule_then strip_assume_tac)
+      \\ rw [] \\ gs [SF SFY_ss])
+    \\ strip_tac
+    \\ first_x_assum (drule_then assume_tac)
+    \\ drule kernel_loc_ok_LENGTH \\ gs [])
+  \\ Cases_on ‘∃m. op = ThunkOp (UpdateThunk m)’ \\ gs[]
+  >- (
+    rw [do_app_cases] \\ gs [thunk_op_def, AllCaseEqs()]
+    \\ first_assum (irule_at Any)
+    \\ gvs [v_ok_def, store_assign_def, EVERY_EL, EL_LUPDATE, LLOOKUP_EQ_EL]
+    \\ rw [ref_ok_def]
+    \\ irule kernel_loc_ok_LUPDATE1
+    \\ rpt strip_tac \\ gs [])
+  \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gs[]
+  >- (rw [do_app_cases] \\ gs [thunk_op_def])
+  \\ Cases_on ‘op’ \\ gs []
+  \\ Cases_on ‘t’ \\ gs []
+QED
+
+Theorem state_ok_dest_thunk:
+  state_ok ctxt s ∧
+  EVERY (v_ok ctxt) vs ∧
+  dest_thunk vs s.refs = IsThunk m v ⇒
+    v_ok ctxt v ∧ env_ok ctxt (sing_env n v)
+Proof
+  rw []
+  >- (
+    gvs [state_ok_def, oneline dest_thunk_def, AllCaseEqs(), v_ok_def,
+         store_lookup_def, LLOOKUP_THM]
+    \\ first_x_assum drule \\ rw [] \\ gvs [ref_ok_def])
+  \\ rw [env_ok_def, sing_env_def]
+  \\ Cases_on ‘n'’ \\ gvs []
+  \\ gvs [namespaceTheory.nsEmpty_def, namespaceTheory.nsBind_def,
+          namespaceTheory.nsLookup_def]
+  \\ gvs [oneline dest_thunk_def, AllCaseEqs(), store_lookup_def, state_ok_def,
+          LLOOKUP_THM, v_ok_def]
+  \\ first_x_assum drule_all \\ rw [] \\ gvs [ref_ok_def]
+QED
+
+Theorem state_ok_update_thunk:
+  state_ok ctxt s ∧
+  EVERY (v_ok ctxt) vs ∧
+  EVERY (v_ok ctxt) vs2 ∧
+  update_thunk vs s.refs vs2 = SOME refs ⇒
+    state_ok ctxt (s with refs := refs)
+Proof
+  rw []
+  \\ gvs [oneline update_thunk_def, AllCaseEqs(), store_assign_def,
+          state_ok_def, LLOOKUP_LUPDATE, v_ok_def]
+  \\ goal_assum drule \\ gvs [] \\ rw []
+  >- (
+    irule kernel_loc_ok_LUPDATE1 \\ gvs []
+    \\ metis_tac [EXTENSION])
+  >- (first_x_assum drule \\ rw [])
+  >- gvs [ref_ok_def]
 QED
 
 Theorem evaluate_v_ok_Op:
   op ≠ Opapp ∧ op ≠ Eval ⇒ ^(get_goal "ast$App")
 Proof
-  cheat (*
   rw [evaluate_def] \\ Cases_on ‘getOpClass op’ \\ gs[]
-  >~ [‘EvalOp’] >- (Cases_on ‘op’ \\ gs[])
-  >~ [‘FunApp’] >- (Cases_on ‘op’ \\ gs[])
+  >~ [‘EvalOp’] >- (Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
+  >~ [‘FunApp’] >- (Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
+  >~ [‘Force’] >- (
+    gvs [AllCaseEqs()]
+    >~ [‘BadRef’] >- (
+      first_x_assum (drule_all_then strip_assume_tac) \\ gvs [state_ok_def])
+    >~ [‘NotThunk’] >- (
+      first_x_assum (drule_all_then strip_assume_tac) \\ gvs [state_ok_def])
+    >~ [‘IsThunk NotEvaluated _’, ‘s'.clock = 0’] >- (
+      first_x_assum (drule_all_then strip_assume_tac) \\ gvs [state_ok_def])
+    >- (
+      first_x_assum (drule_all_then strip_assume_tac) \\ gvs []
+      \\ goal_assum drule \\ gvs []
+      \\ drule_all state_ok_dest_thunk \\ rw [])
+    >- (
+      first_x_assum (drule_all_then strip_assume_tac) \\ gvs []
+      \\ goal_assum drule \\ gvs []
+      \\ rename1 ‘state_ok ctxt1 st'’
+      \\ ‘state_ok ctxt1 (dec_clock st')’ by (
+        gvs [state_ok_def, dec_clock_def] \\ metis_tac [])
+      \\ last_x_assum drule
+      \\ impl_tac \\ rw []
+      >- (drule_all state_ok_dest_thunk \\ rw [])
+      >- gvs [AppUnit_def, safe_exp_def]
+      >- gvs [state_ok_def])
+    >- (
+      first_x_assum (drule_all_then strip_assume_tac) \\ gvs []
+      \\ rename1 ‘state_ok ctxt1 st'’
+      \\ ‘state_ok ctxt1 (dec_clock st')’ by (
+        gvs [state_ok_def, dec_clock_def] \\ metis_tac [])
+      \\ last_x_assum drule
+      \\ impl_tac \\ rw []
+      >- (drule_all state_ok_dest_thunk \\ rw [])
+      >- gvs [AppUnit_def, safe_exp_def]
+      \\ qexists ‘ctxt''’ \\ gvs []
+      \\ ‘EVERY (v_ok ctxt'') vs’ by gvs [EVERY_EL]
+      \\ drule_all state_ok_update_thunk \\ rw [])
+    >- (
+      first_x_assum (drule_all_then strip_assume_tac) \\ gvs []
+      \\ rename1 ‘state_ok ctxt1 st'’
+      \\ ‘state_ok ctxt1 (dec_clock st')’ by (
+        gvs [state_ok_def, dec_clock_def] \\ metis_tac [])
+      \\ last_x_assum drule
+      \\ impl_tac \\ rw []
+      >- (drule_all state_ok_dest_thunk \\ rw [])
+      >- gvs [AppUnit_def, safe_exp_def]
+      >- metis_tac []))
   >~ [‘Simple’] >- (
     gvs [AllCaseEqs()]
     \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs [state_ok_def]
@@ -705,7 +811,7 @@ Proof
     \\ disch_then drule_all \\ simp []
     \\ strip_tac \\ gs []
     \\ rpt CASE_TAC \\ gs []
-    \\ first_assum (irule_at Any) \\ gs []) *)
+    \\ first_assum (irule_at Any) \\ gs [])
 QED
 
 Theorem evaluate_v_ok_Opapp:
