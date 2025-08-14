@@ -321,6 +321,22 @@ Proof
   simp[env_rel_cases, FEVERY_FEMPTY]
 QED
 
+Theorem env_rel_FUPDATE:
+  ! se env env_v x l .
+    env_rel se (env with v := env_v)
+    ==>
+    env_rel (se |+ (x, l))
+      (env with v := nsBind ("var" ++ explode x) (Loc T l) env_v)
+Proof
+  simp[env_rel_cases]
+  >> rpt strip_tac
+  >> gvs[FEVERY_DEF]
+  >> strip_tac
+  >> rename1 `y = x`
+  >> Cases_on `y = x`
+  >> simp[FAPPLY_FUPDATE_THM]
+QED
+
 Theorem env_rel_non_var[simp]:
   ! se env envv var v .
     (! x . var <> "var" ++ x)
@@ -1101,29 +1117,8 @@ Proof
       >> simp[Once cps_rel_cases]
       >> rpt scheme_env_tac
       >> simp[store_entry_rel_cases]
-      >> gvs[env_rel_cases]
-      >> rename1 `explode x`
-      >> Cases_on ‘x ∈ FDOM se’ >- (
-        simp[FEVERY_DEF, SNOC_APPEND]
-        >> strip_tac
-        >> rename1 `x' = x`
-        >> Cases_on ‘x' = x’
-        >> gvs[] >- (
-          irule $ GSYM LIST_REL_LENGTH
-          >> first_assum $ irule_at $ Pos hd
-        )
-        >> strip_tac
-        >> gvs[FEVERY_DEF]
-        >> simp[FAPPLY_FUPDATE_THM]
-      )
-      >> irule $ cj 2 FEVERY_STRENGTHEN_THM
-      >> simp[]
-      >> irule_at (Pos hd) $ GSYM LIST_REL_LENGTH
-      >> first_assum $ irule_at $ Pos hd
-      >> simp[FEVERY_DEF]
-      >> rpt strip_tac
-      >> ‘x ≠ x'’ by (strip_tac >> gvs[])
-      >> gvs[FEVERY_DEF]
+      >> drule_then assume_tac LIST_REL_LENGTH
+      >> simp[SRULE [] env_rel_FUPDATE]
     )
     >> simp[proc_ml_def]
     >> Cases_on ‘vs’
@@ -1147,29 +1142,8 @@ Proof
     >> first_assum $ irule_at $ Pat `parameterize _ _ _ _ _ _ = _`
     >> simp[SNOC_APPEND]
     >> simp[Once store_entry_rel_cases]
-    >> rename1 `env_rel env proc_env'`
-    >> gvs[env_rel_cases]
-    >> rename1 `explode x`
-    >> Cases_on ‘x ∈ FDOM env’ >- (
-      simp[FEVERY_DEF, SNOC_APPEND]
-      >> strip_tac
-      >> rename1 `x' = x`
-      >> Cases_on ‘x' = x’
-      >> gvs[] >- (
-        irule $ GSYM LIST_REL_LENGTH
-        >> first_assum $ irule_at $ Pos hd
-      )
-      >> strip_tac
-      >> gvs[FEVERY_DEF]
-      >> simp[FAPPLY_FUPDATE_THM]
-    )
-    >> irule $ cj 2 FEVERY_STRENGTHEN_THM
-    >> simp[]
-    >> rev_drule_then assume_tac $ LIST_REL_LENGTH
-    >> simp[FEVERY_DEF]
-    >> rpt strip_tac
-    >> ‘x ≠ x'’ by (strip_tac >> gvs[])
-    >> gvs[FEVERY_DEF]
+    >> rev_drule_then assume_tac LIST_REL_LENGTH
+    >> simp[SRULE [] env_rel_FUPDATE]
   )
   >~ [`Prim CallCC`] >- (
     gvs[application_def]
