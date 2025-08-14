@@ -564,10 +564,10 @@ Definition conv_Prog_def:
      case argsNT tree RetNT of
      | SOME [id; t] => do var <- conv_ident id;
                           hdl <- conv_Handle t;
-                          SOME $ SOME (SOME var, hdl)
+                          SOME $ SOME (SOME(Global,var), hdl)
                        od
      | SOME [id] => do var <- conv_ident id;
-                       SOME $ SOME (SOME var, NONE)
+                       SOME $ SOME (SOME(Global,var), NONE)
                     od
      | _ => NONE) ∧
   (conv_Prog (Nd nodeNT args) =
@@ -777,9 +777,11 @@ Definition localise_prog_def:
   localise_prog ls (While exp prog) =
   While (localise_exp ls exp)
         (localise_prog ls prog) ∧
-  localise_prog ls (Call call name exps) =
-  Call (OPTION_MAP
-          (λ(x,y). (x, OPTION_MAP (λ(x,y,z). (x,y,localise_prog (insert ls y ()) z)) y))
+  localise_prog ls (panLang$Call call name exps) =
+  panLang$Call (OPTION_MAP
+          (λ(x,y).
+             (OPTION_MAP (λ(varkind,varname). ((case lookup ls varname of NONE => varkind | SOME _ => Local), varname)) x,
+              OPTION_MAP (λ(x,y,z). (x,y,localise_prog (insert ls y ()) z)) y))
           call)
        name
        (MAP (localise_exp ls) exps) ∧
