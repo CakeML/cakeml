@@ -6,7 +6,7 @@ Ancestors
   wasmLang words arithmetic list rich_list sptree mlstring
   wasmSem stackSem stackLang
 Libs
-  wordsLib helperLib
+  wordsLib helperLib markerLib
 
 (* compiler definition (TODO: move to another file when ready) *)
 
@@ -36,7 +36,7 @@ End
 
 Definition res_rel_def:
   (res_rel NONE r     ⇔ r = RNormal) ∧
-  (res_rel (SOME v) r ⇔ T (* TODO: fix *))
+  (res_rel (SOME v) r ⇔ r ≠ RNormal (* TODO: fix *))
 End
 
 (* set up for one theorem per case *)
@@ -44,7 +44,7 @@ End
 val goal_tm =
   “λ(p,^s). ∀res s1 t.
      evaluate (p,s) = (res,s1) ∧
-     state_rel s t ∧ syntax_ok p ∧
+     state_rel s t ∧ (* syntax_ok p ∧ *)
      res ≠ SOME Error ⇒
      ∃ck t1 res1.
        exec_list (append (compile p)) (t with clock := t.clock + ck) = (res1,t1) ∧
@@ -79,10 +79,57 @@ Proof
   cheat
 QED
 
+Theorem exec_list_append:
+  ∀xs ys s.
+    exec_list (xs ++ ys) s =
+    let (res,s1) = exec_list xs s in
+    if res = RNormal then exec_list ys s1
+    else (res,s1)
+Proof
+  cheat
+QED
+
+
+Theorem exec_list_add_clock:
+  exec_list c s = (res,s1) ∧ res ≠ RTimeout ==>
+  ∀ck. exec_list c (s with clock := ck + s.clock) =
+       (res, s1 with clock := ck + s1.clock)
+Proof
+  cheat
+QED
+
+
 Theorem compile_Seq:
   ^(get_goal "Seq")
 Proof
-  cheat
+  rpt gen_tac
+  >>strip_tac
+  >>rw[evaluate_def]
+  >>rpt(pairarg_tac>>fs[])
+  >>simp[compile_def]
+  >>simp[exec_list_append]
+  >>rename[‘_ = (res_mid, s_mid)’]
+  >>reverse $ Cases_on‘res_mid’
+  >-(
+    gvs[]
+    >>last_x_assum drule
+    >>strip_tac
+    >>qexists_tac‘ck’
+    >>simp[]
+    >>fs[res_rel_def]
+  )
+  >>gvs[]
+  >>last_x_assum $ ASSUME_NAMED_TAC "H1"
+  >>qpat_x_assum ‘∀t'. _’ $ ASSUME_NAMED_TAC "H2"
+  >>LABEL_X_ASSUM "H2" drule
+  >>strip_tac
+  >>drule exec_list_add_clock
+  >>gvs[res_rel_def]
+  >>LABEL_X_ASSUM "H1" drule
+  >>rpt strip_tac
+  >>pop_assum $ qspec_then ‘ck'’ assume_tac
+  >>qexists_tac‘ck+ck'’
+  >>fs[]
 QED
 
 Theorem compile_If:
