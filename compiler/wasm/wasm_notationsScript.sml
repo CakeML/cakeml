@@ -2,12 +2,9 @@
   Notations for cake's Wasm 1.0 AST
   Separated from wasmLangScript for ergonomics/build efficency
 *)
-open preamble;
-open wasmLangTheory;
-
-val _ = set_grammar_ancestry ["wasmLang"];
-
-val _ = new_theory "wasm_notations";
+Theory wasm_notations
+Ancestors
+  wasmLang
 
 (*********************)
 (*                   *)
@@ -194,5 +191,3 @@ Overload i64_eqz = “N_eqz W64”
   (*********************)
 
 Overload i32_wrap_i64        = “N_convert WrapI64”
-
-val _ = export_theory();

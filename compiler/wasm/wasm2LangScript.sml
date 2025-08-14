@@ -4,11 +4,11 @@
     HOL lists encode Wasm vectors; latter has max length of 2^32
 *)
 
-open preamble;
-
-val _ = set_grammar_ancestry ["words", "arithmetic", "list"];
-
-val _ = new_theory "wasm2Lang";
+Theory wasm2Lang
+Ancestors
+  words arithmetic list mlstring
+Libs
+  wordsLib dep_rewrite
 
 (* Note :
   Most datatypes closely follow the wasm abstractions. ie,
@@ -605,10 +605,6 @@ End
 
 End *)
 
-
-
-
-val _ = export_theory();
 
 (*
 2.3 Types

@@ -2,13 +2,11 @@
   WebAssembly (Wasm) semantics
 *)
 
-open preamble wasmLangTheory;
-open miscOpsTheory;
-open wordsTheory wordsLib;
-(* open integer_wordsTheory;
-integer_words$word_rem *)
-
-val _ = new_theory "wasmSem";
+Theory wasmSem
+Ancestors
+  wasmLang miscOps arithmetic
+Libs
+  wordsLib
 
 Type memory = “:word8 list”
 Overload b2w[local] = “λ (b:bool). if b then 1w:α word else 0w”
@@ -649,4 +647,3 @@ QED
 Theorem exec_def[allow_rebind] = exec_def |> REWRITE_RULE [fix_clock_exec];
 Theorem exec_ind[allow_rebind] = exec_ind |> REWRITE_RULE [fix_clock_exec];
 
-val _ = export_theory();

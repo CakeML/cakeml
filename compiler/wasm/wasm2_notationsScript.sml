@@ -3,10 +3,9 @@
   Separated from wasm2LangScript for ergonomics/build efficency
   We have over 400 instructions
 *)
-open preamble;
-open wasm2LangTheory;
-
-val _ = new_theory "wasm2_notations";
+Theory wasm2_notations
+Ancestors
+  wasm2Lang
 
 (*********************)
 (*                   *)
@@ -676,5 +675,3 @@ Overload f32x4_replaceLane = “V_lane (Vreplace f32x4)”
 Overload f64x2_replaceLane = “V_lane (Vreplace f64x2)”
 
 Overload v128_shuffle = “λ l1 l2 l3 l4 l5 l6 l7 l8 l9 l10 l11 l12 l13 l14 l15. V_lane (Vshuffle l1 l2 l3 l4 l5 l6 l7 l8 l9 l10 l11 l12 l13 l14 l15)”
-
-val _ = export_theory();

@@ -2,13 +2,11 @@
   En- & De- coding between CWasm 2.0 AST & Wasm's binary format
 *)
 
-open preamble;
-open wasm2LangTheory leb128Theory miscOpsTheory;
-open mlstringTheory blastLib;
-
-val _ = set_grammar_ancestry ["wasm2Lang", "mlstring", "leb128", "miscOps"];
-
-val _ = new_theory "wasm2_binary_format";
+Theory wasm2_binary_format
+Ancestors
+  wasm2Lang leb128 miscOps
+Libs
+  preamble wordsLib blastLib
 
 (*  Note:
     enc goes from AST to Wasm Binary format (WBF)
@@ -76,8 +74,6 @@ Definition dec_vector_def:
     | NONE => error bs "dec_vec"
     | SOME (w,cs) => dec_list (w2n w) dec cs
 End
-
-
 
 Definition enc_listO_def:
   enc_listO (encdr:α -> byteSeq option) ([]:α list) : byteSeq option = SOME [] ∧
@@ -1847,4 +1843,3 @@ Proof
   \\ cheat (* not yet implemented cases *)
 QED *)
 
-val _ = export_theory();

@@ -3,14 +3,11 @@
   No specs yet
 *)
 
-open preamble;
-open wordsTheory wordsLib blastLib;
-open byteTheory;
-open leb128Theory;
-
-val _ = set_grammar_ancestry ["words", "byte", "leb128", "list", "arithmetic"];
-
-val _ = new_theory "miscOps";
+Theory miscOps
+Ancestors
+  byte words arithmetic list leb128
+Libs
+  preamble wordsLib blastLib
 
 (*****************************)
 (*                           *)
@@ -283,5 +280,3 @@ Definition store_def:
     let n = dimindex(:α) DIV 8 in
     (TAKE oa bs ⧺ lend x ⧺ DROP (oa + n) bs, oa + n <= LENGTH bs)
 End
-
-val _ = export_theory();
