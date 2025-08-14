@@ -641,6 +641,18 @@ Proof
   gvs[state_component_equality]
 QED
 
+Theorem evaluate_min_clock:
+  evaluate (prog,s) = (q,r) ∧ q ≠ SOME TimeOut ⇒
+  ∃k. evaluate (prog,s with clock := k) = (q,r with clock := 0)
+Proof
+  qabbrev_tac ‘x = r with clock := 0’>>
+  ‘r = x with clock := x.clock + r.clock’
+    by simp[state_component_equality,Abbr‘x’]>>
+  pop_assum (fn h => rewrite_tac[Once h])>>strip_tac>>
+  drule_all evaluate_clock_sub>>
+  strip_tac>>fs[]>>metis_tac[]
+QED
+
 Theorem evaluate_io_events_mono:
    !exps s1 res s2.
     evaluate (exps,s1) = (res, s2)
@@ -863,6 +875,18 @@ Proof
   fs [APPLY_UPDATE_THM] >>
   every_case_tac >> gs [] >>
   fs [APPLY_UPDATE_THM]
+QED
+
+Theorem read_write_bytearray_lemma:
+  ∀n addr bytes.
+   good_dimindex(:α) ∧
+   read_bytearray (addr:α word) n (mem_load_byte m addrs be) = SOME bytes
+   ⇒ write_bytearray addr bytes m addrs be = m
+Proof
+  Induct >>
+  rw[Once $ oneline read_bytearray_def,AllCaseEqs(),mem_load_byte_def] >>
+  gvs[write_bytearray_def,mem_store_byte_def] >>
+  gvs[set_byte_get_byte,good_dimindex_def]
 QED
 
 Theorem evaluate_clock_sub1:
