@@ -355,19 +355,10 @@ Proof
     \\ pop_assum (assume_tac o GSYM) \\ fs []
     \\ qexists_tac `n` \\ fs [dec_clock_def])
   THEN1
-    cheat (*
-
-    gvs [AllCaseEqs()] \\ rw [] \\ fs []
-    >~ [`dest_thunk _ _ = BadRef`] >- (qexists `n` \\ gvs [])
-    >~ [`dest_thunk _ _ = NotThunk`] >- (qexists `n` \\ gvs [])
-    >~ [`dest_thunk _ _ = IsThunk Evaluated _`] >- (qexists `n` \\ gvs [])
-    >~ [`dest_thunk _ _ = IsThunk NotEvaluated _`] >- (qexists `n` \\ gvs [])
-    \\ qexists `n' + n`
-    \\ rewrite_tac [GENLIST_APPEND,FOLDL_APPEND,MAP_APPEND]
-    \\ fs [dec_clock_def,shift_seq_def,FUN_EQ_THM]
-    \\ simp_tac std_ss [Once ADD_COMM] \\ fs [])
-
-*)
+   (rw [] \\ gvs [AllCaseEqs(), NOT_LESS]
+    >~ [‘dest_thunk _ _ = IsThunk NotEvaluated _’, ‘find_code _ _ _ = SOME _’]
+    >- (qexists ‘n'’ \\ gvs [shift_seq_def, dec_clock_def])
+    \\ qexists ‘0’ \\ gvs [shift_seq_def, FUN_EQ_THM])
   \\ fs [case_eq_thms] \\ rw [] \\ fs []
   \\ TRY (qexists_tac `n` \\ fs [] \\ NO_TAC)
   \\ pop_assum (assume_tac o GSYM) \\ fs []
@@ -533,7 +524,6 @@ Theorem evaluate_add_clock:
     ⇒
     !ck. evaluate (exps,env,inc_clock ck s1) = (res, inc_clock ck s2)
 Proof
-  cheat (*
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def]
   >- (Cases_on `evaluate ([x], env,s)` >> full_simp_tac(srw_ss())[] >>
@@ -554,29 +544,23 @@ Proof
   >- (Cases_on `evaluate ([x1],env,s1)` >> full_simp_tac(srw_ss())[] >>
       Cases_on `q` >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
       Cases_on`e`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>full_simp_tac(srw_ss())[])
-  >- (
-    gvs [AllCaseEqs(), inc_clock_def, dec_clock_def] >>
-    imp_res_tac do_app_const >> gvs [] >>
-    imp_res_tac do_app_change_clock >> gvs [] >>
-    imp_res_tac do_app_change_clock_err >> gvs [])
+  >- (gvs [AllCaseEqs(), inc_clock_def, dec_clock_def] >>
+      imp_res_tac do_app_const >> gvs [] >>
+      imp_res_tac do_app_change_clock >> gvs [] >>
+      imp_res_tac do_app_change_clock_err >> gvs [])
   >- (srw_tac[][] >>
       full_simp_tac(srw_ss())[inc_clock_def, dec_clock_def] >>
       srw_tac[][] >>
       `s.clock + ck - 1 = s.clock - 1 + ck` by (srw_tac [ARITH_ss] [ADD1]) >>
       metis_tac [])
-  >- (Cases_on `evaluate (xs,env,s1)` >>
-      full_simp_tac(srw_ss())[] >>
-      Cases_on `q` >>
-      full_simp_tac(srw_ss())[] >>
-      srw_tac[][] >>
-      BasicProvers.EVERY_CASE_TAC >>
-      full_simp_tac(srw_ss())[] >>
-      srw_tac[][] >>
-      rev_full_simp_tac(srw_ss())[inc_clock_def, dec_clock_def] >>
-      srw_tac[][]
-      >- decide_tac >>
-      `r.clock + ck - (ticks + 1) = r.clock - (ticks + 1) + ck` by srw_tac [ARITH_ss] [ADD1] >>
-      metis_tac []) *)
+  >- (gvs [AllCaseEqs(), inc_clock_def, dec_clock_def] >>
+      imp_res_tac do_app_const >> gvs [] >>
+      imp_res_tac do_app_change_clock >> gvs [] >>
+      imp_res_tac do_app_change_clock_err >> gvs [])
+  >- (gvs [AllCaseEqs(), inc_clock_def, dec_clock_def] >>
+      imp_res_tac do_app_const >> gvs [] >>
+      imp_res_tac do_app_change_clock >> gvs [] >>
+      imp_res_tac do_app_change_clock_err >> gvs [])
 QED
 
 Theorem evaluate_add_clock_initial_state:
@@ -607,12 +591,11 @@ Theorem evaluate_io_events_mono:
     ⇒
     s1.ffi.io_events ≼ s2.ffi.io_events
 Proof
-  cheat (*
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >>
+  gvs [AllCaseEqs()] >>
   srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
-  metis_tac[IS_PREFIX_TRANS,do_app_io_events_mono] *)
+  metis_tac[IS_PREFIX_TRANS,do_app_io_events_mono]
 QED
 
 Triviality do_app_inc_clock:
@@ -648,7 +631,6 @@ Theorem evaluate_add_to_clock_io_events_mono:
     (SND(evaluate(exps,env,s))).ffi.io_events ≼
     (SND(evaluate(exps,env,inc_clock extra s))).ffi.io_events
 Proof
-  cheat (*
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def] >>
   TRY (
@@ -664,9 +646,8 @@ Proof
   imp_res_tac do_app_io_events_mono >>
   TRY(fsrw_tac[ARITH_ss][] >>NO_TAC) >>
   full_simp_tac(srw_ss())[dec_clock_inc_clock] >>
-  TRY (rename1 `dest_thunk _ _ = _` >> gvs [dec_clock_def, inc_clock_def]) >>
   metis_tac[evaluate_io_events_mono,SND,IS_PREFIX_TRANS,Boolv_11,PAIR,
-            inc_clock_ffi,dec_clock_ffi] *)
+            inc_clock_ffi,dec_clock_ffi]
 QED
 
 Triviality take_drop_lem:
@@ -775,14 +756,13 @@ QED
 Triviality evaluate_refs_SUBSET_lemma:
   !xs env s. FDOM s.refs SUBSET FDOM (SND (evaluate (xs,env,s))).refs
 Proof
-  cheat (*
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[evaluate_def]
   \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ REV_FULL_SIMP_TAC std_ss []
   \\ IMP_RES_TAC SUBSET_TRANS
-  \\ gvs [oneline update_thunk_def, AllCaseEqs(), store_thunk_def]
   \\ full_simp_tac(srw_ss())[dec_clock_def] \\ full_simp_tac(srw_ss())[]
-  \\ IMP_RES_TAC do_app_refs_SUBSET \\ full_simp_tac(srw_ss())[SUBSET_DEF] *)
+  \\ IMP_RES_TAC do_app_refs_SUBSET \\ full_simp_tac(srw_ss())[SUBSET_DEF]
+  \\ rw [] \\ rpt (CASE_TAC \\ rw [])
 QED
 
 Theorem evaluate_refs_SUBSET:
