@@ -31,8 +31,8 @@ Datatype:
     locals  : value list;
     globals : value list;
     memory  : word8 list;
-    mtypes  : functype list;
-    mfuncs  : func list;
+    types   : functype list;
+    funcs   : func list;
     func_tables : num list ;
   |>
 End
@@ -452,7 +452,6 @@ Definition exec_store_def:
   exec_store res_t size_ext addr memory = ARB
 End
 
-(*
 Definition exec_def:
   (exec Unreachable s = (RTrap,s)) ∧
   (exec Nop s = (RNormal,s)) ∧
@@ -466,7 +465,7 @@ Definition exec_def:
     (RNormal, push (if b then val1 else val2) s)
   ) ∧
   (exec ((Block tb bs):instr) s =
-    case functype_of_blocktype s.mtypes tb of NONE => (RInvalid,s) | SOME (mts,nts) =>
+    case functype_of_blocktype s.types tb of NONE => (RInvalid,s) | SOME (mts,nts) =>
     let m = LENGTH mts in
     let n = LENGTH nts in
     if LENGTH s.stack < m then (RInvalid,s) else
@@ -484,7 +483,7 @@ Definition exec_def:
     | _ => (res, s)
   ) ∧
   (exec (Loop tb b) s =
-    case functype_of_blocktype s.mtypes tb of NONE => (RInvalid,s) | SOME (mts,nts) =>
+    case functype_of_blocktype s.types tb of NONE => (RInvalid,s) | SOME (mts,nts) =>
     let m = LENGTH mts in
     let n = LENGTH nts in
     if LENGTH s.stack < m then (RInvalid,s) else
@@ -520,11 +519,12 @@ Definition exec_def:
     (RBreak (case oEL (w2n w) table of NONE => w2n default | SOME i => w2n i), s)
   ) ∧
   (exec (Call fi) s =
-    case oEL (w2n fi) s.mfuncs of NONE => (RInvalid,s) | SOME f =>
-    let np = LENGTH (FST f.ftype) in
-    let nr = LENGTH (SND f.ftype) in
+    case oEL (w2n fi) s.funcs of NONE => (RInvalid,s) | SOME f =>
+    case oEL (w2n f.ftype) s.types of NONE => (RInvalid,s) | SOME (ins,outs) =>
+    let np = LENGTH ins in
+    let nr = LENGTH outs in
     case pop_n np s of NONE => (RInvalid,s) | SOME (args,s) =>
-    let init_locals = args ++ MAP init_val_of (FST f.ftype) in
+    let init_locals = args ++ MAP init_val_of ins in
     if s.clock = 0 then (RTimeout,s) else
     let s_call = s with <|clock:= s.clock - 1; stack:=[]; locals:=init_locals|> in
     (* real WASM treats the body as wrapped in a Block *)
@@ -540,15 +540,17 @@ Definition exec_def:
       | _ => (res, s1)
   ) ∧
   (exec Return s = (RReturn, s)) ∧
+(*
   (exec (CallIndirect n tf) s =
     case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
     case dest_i32 x of NONE => (RInvalid,s) | SOME w =>
     (* TODO we removed one layer of indirection *)
     (* we only use one func table *)
     case lookup_func_tables [s.func_tables] (w2n n) w of NONE => (RInvalid,s) | SOME fi =>
-    case oEL fi s.mfuncs of NONE => (RInvalid,s) | SOME f =>
+    case oEL fi s.funcs of NONE => (RInvalid,s) | SOME f =>
     if f.ftype ≠ tf then (RInvalid,s) else
       exec (Call (n2w fi)) s) ∧
+*)
   (exec (Variable (LocalGet n)) s =
     case oEL (w2n n) s.locals of NONE => (RInvalid,s) | SOME x =>
     (RNormal, push x s)
@@ -577,8 +579,9 @@ Definition exec_def:
   (exec (Numeric op) s =
     case num_stk_op op s.stack of NONE => (RInvalid,s) | SOME stack1 =>
     (RNormal, s with stack := stack1)) ∧
+(*
   (exec (ReturnCall fi) s =
-    case oEL (w2n fi) s.mfuncs of NONE => (RInvalid,s) | SOME f =>
+    case oEL (w2n fi) s.funcs of NONE => (RInvalid,s) | SOME f =>
     let np = LENGTH (FST f.ftype) in
     let nr = LENGTH (SND f.ftype) in
     case pop_n np s of NONE => (RInvalid,s) | SOME (args,s) =>
@@ -601,9 +604,10 @@ Definition exec_def:
     case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
     case dest_i32 x of NONE => (RInvalid,s) | SOME w =>
     case lookup_func_tables [s.func_tables] (w2n n) w of NONE => (RInvalid,s) | SOME fi =>
-    case oEL fi s.mfuncs of NONE => (RInvalid,s) | SOME f =>
+    case oEL fi s.funcs of NONE => (RInvalid,s) | SOME f =>
     if f.ftype ≠ tf then (RInvalid,s) else
       exec (ReturnCall (n2w fi)) s) ∧
+*)
   (exec_list [] s = (RNormal, s)) ∧
   (exec_list ((b:instr)::bs) s =
     let (res,s) = fix_clock s (exec b s) in
@@ -644,6 +648,5 @@ QED
 
 Theorem exec_def[allow_rebind] = exec_def |> REWRITE_RULE [fix_clock_exec];
 Theorem exec_ind[allow_rebind] = exec_ind |> REWRITE_RULE [fix_clock_exec];
-*)
 
 val _ = export_theory();
