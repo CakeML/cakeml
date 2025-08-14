@@ -506,6 +506,15 @@ val globals3 =
 
 val globals3_parse = check_success $ parse_pancake globals3;
 
+val globals4 =
+ ‘
+  var 1 x = 0;
+
+  fun f(1 y) { x = f(x); var x = 5; x = f(x); return x; }
+  ’
+
+val globals4_parse = check_success $ parse_pancake globals4;
+
 (* Dec blocks with no subsequent prog *)
 val empty_dec_prog =
  ‘
