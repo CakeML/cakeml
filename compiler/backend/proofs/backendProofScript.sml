@@ -82,6 +82,7 @@ Definition backend_config_ok_def:
     (c.data_conf.has_fp_ops ⇔ 1 < c.lab_conf.asm_conf.fp_reg_count) ∧
     max_stack_alloc ≤ 2 * max_heap_limit (:'a) c.data_conf − 1 ∧
     addr_offset_ok c.lab_conf.asm_conf 0w ∧
+    hw_offset_ok c.lab_conf.asm_conf 0w ∧
     (∀w. -8w ≤ w ∧ w ≤ 8w ⇒ byte_offset_ok c.lab_conf.asm_conf w) ∧
     c.lab_conf.asm_conf.valid_imm (INL Add) 8w ∧
     c.lab_conf.asm_conf.valid_imm (INL Add) 4w ∧
@@ -1233,8 +1234,8 @@ Theorem compile_to_word_conventions2:
     wordConvs$post_alloc_conventions
       (ac.reg_count - (5 + LENGTH ac.avoid_regs)) prog ∧
     (EVERY (λ(n,m,prog).
-                      wordConvs$every_inst (wordConvs$inst_ok_less ac) prog)
-                 p ∧ addr_offset_ok ac 0w ∧ byte_offset_ok ac 0w ⇒
+              wordConvs$every_inst (wordConvs$inst_ok_less ac) prog) p ∧
+     addr_offset_ok ac 0w ∧ hw_offset_ok ac 0w ∧ byte_offset_ok ac 0w ⇒
                wordConvs$full_inst_ok_less ac prog) ∧
               (ac.two_reg_arith ⇒
                wordConvs$every_inst wordConvs$two_reg_inst prog)) ps
