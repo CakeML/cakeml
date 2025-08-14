@@ -1016,6 +1016,15 @@ Proof
   gvs[EVERY_MEM]
 QED
 
+Theorem every_inst_ok_less_shape_val:
+  (∀e. every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2) ((shape_val e):'a exp)) ∧
+  (∀es. EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) ((shape_vals es):'a exp list))
+Proof
+  Induct >>
+  rw[pan_globalsTheory.shape_val_def,panPropsTheory.every_exp_def] >>
+  gvs[EVERY_MEM]
+QED
+
 Theorem every_inst_ok_less_pan_globals_compile:
   ∀ctxt code.
     EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) (exps_of code) ⇒
@@ -1026,6 +1035,7 @@ Proof
   rpt(PURE_TOP_CASE_TAC >> gvs[]) >>
   gvs[pan_globalsTheory.compile_def,ELIM_UNCURRY,panPropsTheory.exps_of_def,
       panPropsTheory.every_exp_def,
+      every_inst_ok_less_shape_val,
       EVERY_MAP] >>
   gvs[EVERY_MEM] >>
   metis_tac[every_inst_ok_less_pan_globals_compile_exp]
