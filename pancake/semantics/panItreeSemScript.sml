@@ -345,7 +345,7 @@ Definition h_handle_call_ret_def:
      NONE => Ret (SOME (Return retv),empty_locals s')
    | SOME (NONE, _) => Ret (NONE, s' with locals := s.locals)
    | SOME (SOME (rk,rt),_) =>
-       if is_valid_value s.locals rt retv
+       if is_valid_value (if rk = Local then s.locals else s.globals) rt retv
        then Ret (NONE,set_kvar rk rt retv (s' with locals := s.locals))
        else Ret (SOME Error,s')) ∧
   (h_handle_call_ret calltyp s (SOME (Exception eid exn),s') =
