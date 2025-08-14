@@ -43,7 +43,7 @@ Overload emErr[local] = “λ str. (INL $ strlit $ "[" ++ str ++ "] : Byte seque
 
 (*********************************************************)
 (*                                                       *)
-(*     Wasm Binary Format ⇔ WasmCake AST Functions      *)
+(*     Wasm Binary Format ⇔ WasmCake AST Functions       *)
 (*                                                       *)
 (*********************************************************)
 
@@ -53,19 +53,16 @@ Overload emErr[local] = “λ str. (INL $ strlit $ "[" ++ str ++ "] : Byte seque
 (*****************************************)
 
 Definition enc_list_def:
-  enc_list (encdr:α -> byteSeq) ([]:α list) : byteSeq option = SOME [] ∧
-  enc_list encdr (x::xs) =
-    case enc_list encdr xs of NONE=>NONE| SOME encxs =>
-    SOME $ encdr x ++ encxs
+  enc_list (encdr:α -> byteSeq) ([]:α list) : byteSeq = [] ∧
+  enc_list encdr (x::xs) = encdr x ++ enc_list encdr xs
 End
 
-Definition enc_vector_def:
-  enc_vector (encdr:α -> byteSeq) (xs:α list) : byteSeq option =
-    let n = LENGTH xs in
-    if  2 ** 32 ≤ n then NONE else
-
-    case enc_list encdr xs of NONE=>NONE| SOME encxs =>
-    SOME $ enc_u32 (n2w n) ++ encxs
+Definition enc_list_opt_def: (* TODO: rename to enc_list_opt *)
+  enc_list_opt (encdr:α -> byteSeq option) ([]:α list) : byteSeq option = SOME [] ∧
+  enc_list_opt encdr (x::xs) =
+    case               encdr x  of NONE=>NONE| SOME encx  =>
+    case enc_list_opt encdr xs of NONE=>NONE| SOME encxs =>
+    SOME $ encx ++ encxs
 End
 
 Definition dec_list_def:
@@ -79,30 +76,31 @@ Definition dec_list_def:
       | (INR xs , rs) => (INR $ x::xs, rs)
 End
 
+
+
+Definition enc_vector_def:
+  enc_vector (encdr:α -> byteSeq) (xs:α list) : byteSeq option =
+    let n = LENGTH xs in
+    if  2 ** 32 ≤ n then NONE else
+
+    let encxs = enc_list encdr xs in
+    SOME $ enc_u32 (n2w n) ++ encxs
+End
+
+Definition enc_vector_opt_def: (* TODO: rename to enc_vector_opt *)
+  enc_vector_opt (encdr:α -> byteSeq option) (xs:α list) : byteSeq option =
+    let n = LENGTH xs in
+    if  2 ** 32 ≤ n then NONE else
+
+    case enc_list_opt encdr xs of NONE=>NONE| SOME encxs =>
+    SOME $ enc_u32 (n2w n) ++ encxs
+End
+
 Definition dec_vector_def:
   dec_vector (dec:byteSeq -> (mlstring + α) # byteSeq) (bs:byteSeq) : (mlstring + α list) # byteSeq =
     case dec_u32 bs of
     | NONE => error bs "dec_vec"
     | SOME (w,cs) => dec_list (w2n w) dec cs
-End
-
-
-
-Definition enc_listO_def: (* TODO: rename to enc_list_opt *)
-  enc_listO (encdr:α -> byteSeq option) ([]:α list) : byteSeq option = SOME [] ∧
-  enc_listO encdr (x::xs) =
-    case           encdr x  of NONE=>NONE| SOME encx  =>
-    case enc_listO encdr xs of NONE=>NONE| SOME encxs =>
-    SOME $ encx ++ encxs
-End
-
-Definition enc_vectorO_def: (* TODO: rename to enc_vector_opt *)
-  enc_vectorO (encdr:α -> byteSeq option) (xs:α list) : byteSeq option =
-    let n = LENGTH xs in
-    if  2 ** 32 ≤ n then NONE else
-
-    case enc_listO encdr xs of NONE=>NONE| SOME encxs =>
-    SOME $ enc_u32 (n2w n) ++ encxs
 End
 
 
@@ -698,24 +696,24 @@ Definition split_funcs_def:
   (f.ftype :: typs, (f.locals, f.body) :: lBods)
 End
 
-(* Overload enc_types   = enc_vectorO enc_functype
+(* Overload enc_types   = enc_vector_opt enc_functype
 Overload enc_funcs   = enc_vector  enc_u32
 Overload enc_mems    = enc_vector  enc_limits
-Overload enc_globals = enc_vectorO enc_global
-Overload enc_codes   = enc_vectorO enc_code
-Overload enc_datas   = enc_vectorO enc_data     *)
+Overload enc_globals = enc_vector_opt enc_global
+Overload enc_codes   = enc_vector_opt enc_code
+Overload enc_datas   = enc_vector_opt enc_data     *)
 
 (* From CWasm (not Wasm!) modules to Wasm binary format *)
 Definition enc_module_def:
   enc_module (m:module) : byteSeq option =
 
     let (fTIdxs, locBods) = split_funcs m.funcs in
-    case enc_vectorO  enc_functype  m.types   of NONE=>NONE| SOME types'   =>
-    case enc_vector   enc_u32       fTIdxs    of NONE=>NONE| SOME funcs'   =>
-    case enc_vector   enc_limits    m.mems    of NONE=>NONE| SOME mems'    =>
-    case enc_vectorO  enc_global    m.globals of NONE=>NONE| SOME globals' =>
-    case enc_vectorO  enc_code      locBods   of NONE=>NONE| SOME code'    =>
-    case enc_vectorO  enc_data      m.datas   of NONE=>NONE| SOME datas'   =>
+    case enc_vector_opt  enc_functype  m.types   of NONE=>NONE| SOME types'   =>
+    case enc_vector      enc_u32       fTIdxs    of NONE=>NONE| SOME funcs'   =>
+    case enc_vector      enc_limits    m.mems    of NONE=>NONE| SOME mems'    =>
+    case enc_vector_opt  enc_global    m.globals of NONE=>NONE| SOME globals' =>
+    case enc_vector_opt  enc_code      locBods   of NONE=>NONE| SOME code'    =>
+    case enc_vector_opt  enc_data      m.datas   of NONE=>NONE| SOME datas'   =>
 
     SOME $
     0x00w:: 0x61w:: 0x73w:: 0x6Dw:: (* \0asm - magic number         *)
@@ -744,26 +742,37 @@ fun print_dot_tac h = (print "."; all_tac h);
 (*   Vectors (not vector instructions)   *)
 (*****************************************)
 
-(* ASKMM ASKYK *)
 Theorem dec_enc_vector:
-    ∀ dec enc x rs. (dec (enc x ++ rs) =  (INR x,rs)) ⇒
-    ∀ is encis rest. (enc_vector enc is = SOME encis) ⇒
-    (LEGNTH is < 2 ** 32) ⇒
-  (dec_vector dec encis = (INR items, rest))
+  ∀dec enc is encis rest.
+    enc_vector enc is = SOME encis ∧
+    (∀x rs. dec (enc x ++ rs) = (INR x,rs))
+    ⇒
+    dec_vector dec (encis ++ rest) = (INR is, rest)
 Proof
   rpt strip_tac
-  \\ pop_assum mp_tac
+  \\ last_x_assum mp_tac
   \\ rewrite_tac[dec_vector_def, enc_vector_def]
   \\ simp[AllCaseEqs()]
   \\ rpt strip_tac
-  \\
-  cheat
+  \\ gvs[GSYM NOT_LESS]
+  \\ rewrite_tac[GSYM APPEND_ASSOC, dec_enc_u32]
+  \\ simp[]
+  \\ qid_spec_tac `rest`  (* ask  hol to generalize rest *)
+  \\ qid_spec_tac `is`    (* ask  hol to generalize rest *)
+  \\ Induct
+  >> rewrite_tac[enc_list_def]
+  >> simp[Once dec_list_def, CaseEq "sum", CaseEq "prod"]
+  \\ asm_rewrite_tac[GSYM APPEND_ASSOC]
+  \\ simp[]
 QED
 
+
+
+(*
 Theorem dec_encO_vector:
     ∀ enc x encx. enc x = SOME encx ⇒
     ∀ dec rs. (dec (encx ++ rs) = (INR x,rs)) ⇒
-    ∀ is encis rest. (enc_vectorO enc is = SOME encis) ⇒
+    ∀ is encis rest. (enc_vector_opt enc is = SOME encis) ⇒
     (LEGNTH is < 2 ** 32) ⇒
   (dec_vector dec encis = (INR items, rest))
 Proof
@@ -772,6 +781,7 @@ Proof
   \\
   cheat
 QED
+*)
 
 
 
@@ -797,17 +807,24 @@ Proof
 QED
 
 (* ASKMM ASKYK *)
+
 Theorem dec_enc_functype:
-    ∀ sg encsg. enc_functype sg = SOME encsg ⇒
-  ∀ rest. dec_functype (encsg ++ rest) = (INR sg, rest)
+  ∀sg encsg rest.
+    enc_functype sg = SOME encsg ⇒
+    dec_functype (encsg ++ rest) = (INR sg, rest)
 Proof
      rewrite_tac[enc_functype_def]
   \\ simp[AllCaseEqs()]
   \\ rpt strip_tac
-  \\ gvs[dec_functype_def, dec_vector_def]
-  \\
-
-  cheat
+  \\ gvs[dec_functype_def]
+  \\ PairCases_on `sg` \\ gvs[]
+  \\ dxrule dec_enc_vector  (* same as drule but then clears the assumption it used *)
+  \\ dxrule dec_enc_vector
+  \\ disch_then $ qspec_then `dec_valtype` assume_tac (*  *)
+  \\ disch_then $ qspec_then `dec_valtype` assume_tac (*  *)
+  \\ gvs[dec_enc_valtype]
+  \\ asm_rewrite_tac[GSYM APPEND_ASSOC]
+  \\ simp[]
 QED
 
 Theorem dec_enc_limits:
