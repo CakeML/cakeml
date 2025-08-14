@@ -1,11 +1,12 @@
 (*
   A foramlisation of LEB128
 *)
+
 Theory leb128
 Ancestors
   words arithmetic list
 Libs
-  wordsLib dep_rewrite
+  wordsLib dep_rewrite blastLib
 
 (*  API
     enc goes from words/nums to leb stream
