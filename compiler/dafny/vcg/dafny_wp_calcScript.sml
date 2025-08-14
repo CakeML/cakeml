@@ -115,6 +115,10 @@ Definition get_type_def:
   get_type _ _ = fail «get_type: Unsupported expression»
 End
 
+Definition get_types_def:
+  get_types ls tys = result_mmap (get_type ls) tys
+End
+
 (* TODO Move to AST *)
 Definition Foralls_def:
   Foralls [] e = e ∧
