@@ -309,10 +309,10 @@ Definition update_array_def:
 End
 
 Definition all_values_def:
-  all_values IntT = {IntV i | i ∈ 𝕌(:int)} ∧
-  all_values BoolT = {BoolV T; BoolV F} ∧
-  all_values StrT = {StrV s | s ∈ 𝕌(:mlstring)} ∧
-  all_values _ = ∅
+  all_values IntT      = {IntV i | i ∈ 𝕌(:int)} ∧
+  all_values BoolT     = {BoolV T; BoolV F} ∧
+  all_values StrT      = {StrV s | s ∈ 𝕌(:mlstring)} ∧
+  all_values (ArrT t)  = {} (* {ArrV len loc |(len,loc)| T } *)
 End
 
 Definition declare_local_def:
