@@ -27,3 +27,4 @@ Definition stack_to_wasm_def:
          ; globals := []
          ; datas   := [] |> : mlstring + wasmLang$module
 End
+

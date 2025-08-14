@@ -191,3 +191,4 @@ Overload i64_eqz = “N_eqz W64”
   (*********************)
 
 Overload i32_wrap_i64        = “N_convert WrapI64”
+

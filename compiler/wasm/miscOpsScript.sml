@@ -280,3 +280,4 @@ Definition store_def:
     let n = dimindex(:α) DIV 8 in
     (TAKE oa bs ⧺ lend x ⧺ DROP (oa + n) bs, oa + n <= LENGTH bs)
 End
+
