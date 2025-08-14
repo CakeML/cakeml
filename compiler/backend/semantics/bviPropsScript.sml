@@ -344,14 +344,13 @@ Proof
     \\ `(inc_clock n s).clock <> 0` by (EVAL_TAC \\ DECIDE_TAC)
     \\ full_simp_tac(srw_ss())[dec_clock_inv_clock1] \\ NO_TAC)
   THEN1
-   (Cases_on `op = ThunkOp ForceThunk`
-    >- gvs [AllCaseEqs(), dec_clock_def, inc_clock_def]
-    \\ `?res5 s5. evaluate (xs,env,s) = (res5,s5)` by METIS_TAC [PAIR]
+   (`?res5 s5. evaluate (xs,env,s) = (res5,s5)` by METIS_TAC [PAIR]
     \\ full_simp_tac(srw_ss())[] \\ Cases_on `res5` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ TRY (Cases_on`e` \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
     \\ MP_TAC (do_app_inv_clock |> Q.INST [`s`|->`s5`])
     \\ Cases_on `do_app op (REVERSE a) s5` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ Cases_on `a'` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [])
+  THEN1 gvs [AllCaseEqs(), NOT_LESS, dec_clock_def, inc_clock_def]
   THEN1
    (Cases_on `dest = NONE /\ IS_SOME handler` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `evaluate (xs,env,s1)` \\ full_simp_tac(srw_ss())[]
@@ -413,24 +412,21 @@ Proof
     \\ qexists_tac`a3+a2+a1`
     \\ simp[GENLIST_APPEND,FOLDL_APPEND] \\ NO_TAC)
   >- (
-    gvs [AllCaseEqs(), FUN_EQ_THM]
-    >~ [`dest_thunk _ _ = BadRef`] >- (qexists `n` \\ gvs [])
-    >~ [`dest_thunk _ _ = NotThunk`] >- (qexists `n` \\ gvs [])
-    >~ [`dest_thunk _ _ = IsThunk Evaluated _`] >- (qexists `n` \\ gvs [])
-    >~ [`dest_thunk _ _ = IsThunk NotEvaluated _`] >- (qexists `n` \\ gvs [])
-    \\ qexists `n' + n`
-    \\ rewrite_tac [GENLIST_APPEND,FOLDL_APPEND,MAP_APPEND]
-    \\ gvs [])
-  \\ Cases_on`op=Install`
+    Cases_on`op=Install`
+    >- (
+      fs[do_app_def,do_install_def,case_eq_thms,bool_case_eq]
+      \\ pairarg_tac \\ fs[] \\ rveq
+      \\ fs[case_eq_thms,pair_case_eq,bool_case_eq] \\ rveq
+      \\ fs[shift_seq_def]
+      \\ qexists_tac`1+n` \\ rfs[GENLIST_APPEND,FOLDL_APPEND] )
+    \\ imp_res_tac do_app_code \\ rfs[]
+    \\ imp_res_tac do_app_oracle \\ rfs[]
+    \\ qexists_tac`n` \\ fs[])
   >- (
-    fs[do_app_def,do_install_def,case_eq_thms,bool_case_eq]
-    \\ pairarg_tac \\ fs[] \\ rveq
-    \\ fs[case_eq_thms,pair_case_eq,bool_case_eq] \\ rveq
-    \\ fs[shift_seq_def]
-    \\ qexists_tac`1+n` \\ rfs[GENLIST_APPEND,FOLDL_APPEND] )
-  \\ imp_res_tac do_app_code \\ rfs[]
-  \\ imp_res_tac do_app_oracle \\ rfs[]
-  \\ qexists_tac`n` \\ fs[]
+    gvs [AllCaseEqs(), FUN_EQ_THM]
+    >~ [‘dest_thunk _ _ = IsThunk NotEvaluated _’, ‘find_code _ _ _ = SOME _’]
+    >- (qexists ‘n'’ \\ gvs [])
+    \\ qexists `0` \\ gvs [])
 QED
 
 Theorem evaluate_code_mono:
@@ -558,9 +554,7 @@ Proof
       srw_tac[][] >> full_simp_tac(srw_ss())[])
   >- (Cases_on `evaluate ([x1],env,s)` >> full_simp_tac(srw_ss())[] >>
       Cases_on `q` >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[])
-  >- (Cases_on `op = ThunkOp ForceThunk`
-      >- gvs [AllCaseEqs(), dec_clock_def, inc_clock_def] >>
-      Cases_on `evaluate (xs,env,s)` >> full_simp_tac(srw_ss())[] >>
+  >- (Cases_on `evaluate (xs,env,s)` >> full_simp_tac(srw_ss())[] >>
       Cases_on `q` >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
       srw_tac[][inc_clock_def] >>
       BasicProvers.EVERY_CASE_TAC >>
@@ -574,6 +568,7 @@ Proof
       srw_tac[][] >>
       `s.clock + ck - 1 = s.clock - 1 + ck` by (srw_tac [ARITH_ss] [ADD1]) >>
       metis_tac [])
+  >- gvs [AllCaseEqs(), dec_clock_def, inc_clock_def]
   >- (Cases_on `evaluate (xs,env,s1)` >>
       full_simp_tac(srw_ss())[] >>
       Cases_on `q` >>
@@ -616,7 +611,7 @@ Theorem evaluate_io_events_mono:
 Proof
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >>
+  gvs [AllCaseEqs()] >>
   srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
   metis_tac[IS_PREFIX_TRANS,do_app_io_events_mono]
 QED
