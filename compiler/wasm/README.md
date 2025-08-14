@@ -1,14 +1,14 @@
 WebAssembly backend for CakeML
 
+[ancillaryOpsScript.sml](ancillaryOpsScript.sml):
+Some extra operations
+No specs yet
+
 [end-to-end](end-to-end):
 Connect stackLang-to-WASM to rest of CakeML compiler
 
 [leb128Script.sml](leb128Script.sml):
 A foramlisation of LEB128
-
-[miscOpsScript.sml](miscOpsScript.sml):
-Some extra operations
-No specs yet
 
 [stack_to_wasmProofScript.sml](stack_to_wasmProofScript.sml):
 Correctness proof for compilation from stackLang to wasmLang

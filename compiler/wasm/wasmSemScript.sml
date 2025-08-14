@@ -2,11 +2,9 @@
   WebAssembly (Wasm) semantics
 *)
 
-Theory wasmSem
-Ancestors
-  wasmLang miscOps arithmetic
-Libs
-  wordsLib
+Theory      wasmSem
+Ancestors   wasmLang ancillaryOps arithmetic
+Libs        wordsLib
 
 Type memory = “:word8 list”
 Overload b2w[local] = “λ (b:bool). if b then 1w:α word else 0w”

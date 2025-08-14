@@ -3,11 +3,9 @@
   No specs yet
 *)
 
-Theory miscOps
-Ancestors
-  byte words arithmetic list leb128
-Libs
-  preamble wordsLib blastLib
+Theory      ancillaryOps
+Ancestors   byte words arithmetic list leb128
+Libs        preamble wordsLib blastLib
 
 (*****************************)
 (*                           *)
