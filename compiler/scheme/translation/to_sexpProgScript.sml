@@ -35,7 +35,6 @@ val r = translate fromSexpTheory.typesexp_def;
 val r = translate fromSexpTheory.patsexp_def;
 val r = translate fromSexpTheory.opsexp_def;
 val r = translate fromSexpTheory.lopsexp_def;
-val r = translate fromSexpTheory.scsexp_def;
 val r = translate fromSexpTheory.expsexp_def;
 val r = translate fromSexpTheory.type_defsexp_def;
 val r = translate fromSexpTheory.decsexp_def;
