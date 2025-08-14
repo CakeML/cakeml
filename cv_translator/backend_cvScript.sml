@@ -4,6 +4,7 @@
 open preamble cv_transLib cv_stdTheory;
 open backendTheory to_data_cvTheory exportTheory;
 open unify_cvTheory infer_cvTheory basis_cvTheory;
+open mllistTheory mergesortTheory;
 
 val _ = new_theory "backend_cv";
 
@@ -822,87 +823,79 @@ val _ = word_allocTheory.heu_max_all_def |> cv_auto_trans;
 val _ = word_allocTheory.heu_merge_call_def |> cv_trans;
 
 val tm = word_allocTheory.canonize_moves_def
-           |> concl |> find_term (can (match_term “QSORT _”)) |> rand;
+           |> concl |> find_term (can (match_term “sort _”)) |> rand;
 
-Definition QSORT_canonize_def:
-  QSORT_canonize = QSORT ^tm
+Definition sort_canonize_def:
+  sort_canonize ls =
+    sort ^tm ls
 End
 
-val qsort = sortingTheory.QSORT_DEF
-            |> CONJUNCTS |> map SPEC_ALL |> LIST_CONJ
-            |> Q.GEN ‘ord’ |> ISPEC tm
-            |> SRULE [GSYM QSORT_canonize_def, LAMBDA_PROD]
-            |> GEN_ALL |> SRULE [FORALL_PROD,sortingTheory.PARTITION_DEF]
-            |> REWRITE_RULE [GSYM APPEND_ASSOC,APPEND] |> SPEC_ALL
-
-val tm2 = qsort |> concl |> find_term (can (match_term “PART _”)) |> rand;
-
-Definition PART_canonize_def:
-  PART_canonize p_1 p_1' p_2 = PART ^tm2
+Definition merge_tail_canonize_def:
+  merge_tail_canonize b ls accl accr =
+    merge_tail b ^tm ls accl accr
 End
 
-val part_eq = sortingTheory.PART_DEF
+val merge_tail_eq = merge_tail_def
             |> CONJUNCTS |> map SPEC_ALL |> LIST_CONJ
-            |> Q.GEN ‘P’ |> ISPEC tm2 |> SRULE [GSYM PART_canonize_def]
+            |> Q.GEN ‘R’ |> ISPEC tm |> SRULE [GSYM merge_tail_canonize_def]
             |> GEN_ALL |> SRULE [FORALL_PROD] |> SPEC_ALL
 
-val qsort_eq = qsort |> SRULE [GSYM PART_canonize_def]
+val pre = cv_trans_pre "" merge_tail_eq;
 
-val pre = cv_trans_pre "" part_eq;
-Theorem PART_canonize_pre[cv_pre]:
-  ∀p_1 p_3 p_2 v l1 l2. PART_canonize_pre p_1 p_3 p_2 v l1 l2
+Theorem merge_tail_canonize_pre[cv_pre]:
+  ∀negate v0 v acc. merge_tail_canonize_pre negate v0 v acc
 Proof
-  Induct_on ‘v’ \\ rw [] \\ simp [Once pre]
+  Induct_on`v` \\ rw[]
+  >- simp[Once pre]
+  \\ qid_spec_tac`acc`
+  \\ Induct_on`v0` \\ rw[]
+  >- simp[Once pre]
+  \\ simp[Once pre]
+  \\ rw[]
+  \\ metis_tac[]
 QED
 
-Triviality cv_PART_size_cv_fst:
-  ∀xs acc1 acc2.
-    cv_size (cv_fst (cv_PART_canonize x y z xs acc1 acc2)) ≤
-    cv_size xs + cv_size acc1
+Definition mergesortN_tail_canonize_def:
+  mergesortN_tail_canonize b n ls =
+    mergesortN_tail b ^tm n ls
+End
+
+val mergesortN_tail_eq = mergesortN_tail_def
+            |> CONJUNCTS |> map SPEC_ALL |> LIST_CONJ
+            |> Q.GEN ‘R’ |> ISPEC tm |> SRULE [GSYM mergesortN_tail_canonize_def, GSYM merge_tail_canonize_def]
+            |> GEN_ALL |> SRULE [FORALL_PROD] |> SPEC_ALL;
+
+Triviality c2b_b2c:
+  cv$c2b (b2c b) = b
 Proof
-  Induct \\ simp [Once $ fetch "-" "cv_PART_canonize_def"]
-  \\ rw [] \\ irule LESS_EQ_TRANS \\ first_x_assum $ irule_at Any
-  \\ cv_termination_tac
+  fs[cvTheory.b2c_if,cvTheory.c2b_def]
+  \\ rw[]
 QED
 
-Triviality cv_PART_size_cv_snd:
-  ∀xs acc1 acc2.
-    cv_size (cv_snd (cv_PART_canonize x y z xs acc1 acc2)) ≤
-    cv_size xs + cv_size acc2
+val _ = cv_trans DIV2_def;
+
+val pre = cv_auto_trans_pre_rec "" mergesortN_tail_eq
+  (WF_REL_TAC ‘measure (cv_size o FST o SND)’ \\ rw []
+   \\ rename1`_ < cv_size cvv`
+   \\ Cases_on`cvv`
+   \\ simp[GSYM (fetch "-" "cv_arithmetic_DIV2_thm")]
+   \\ rw[DIV2_def]
+   \\ cv_termination_tac
+   \\ fs[c2b_b2c]
+   \\ intLib.ARITH_TAC);
+
+Theorem mergesortN_tail_canonize_pre[cv_pre]:
+  ∀negate n l. mergesortN_tail_canonize_pre negate n l
 Proof
-  Induct \\ simp [Once $ fetch "-" "cv_PART_canonize_def"]
-  \\ rw [] \\ irule LESS_EQ_TRANS \\ first_x_assum $ irule_at Any
-  \\ cv_termination_tac
+  completeInduct_on`n`>>
+  rw[Once pre,DIV2_def]>>
+  first_x_assum irule>>
+  intLib.ARITH_TAC
 QED
 
-Triviality PART_LENGTH:
-  ∀xs ys zs ys1 zs1.
-    PART ord xs ys zs = (ys1,zs1) ⇒
-    LENGTH ys1 ≤ LENGTH ys + LENGTH xs ∧
-    LENGTH zs1 ≤ LENGTH zs + LENGTH xs
-Proof
-  Induct \\ gvs [sortingTheory.PART_DEF]
-  \\ rw [] \\ res_tac \\ gvs []
-QED
+val pre = cv_auto_trans (sort_canonize_def |> SRULE [sort_def,mergesort_tail_def,GSYM mergesortN_tail_canonize_def]);
 
-val pre = cv_trans_pre_rec "" qsort_eq
-  (WF_REL_TAC ‘measure cv_size’ \\ rw []
-   \\ Cases_on ‘cv_v’ \\ gvs []
-   \\ irule LESS_EQ_LESS_TRANS
-   >- (irule_at Any cv_PART_size_cv_fst \\ gvs [])
-   >- (irule_at Any cv_PART_size_cv_snd \\ gvs []))
-
-Theorem QSORT_canonize_pre[cv_pre]:
-  ∀xs. QSORT_canonize_pre xs
-Proof
-  gen_tac \\ completeInduct_on ‘LENGTH xs’ \\ rw [] \\ gvs [PULL_FORALL]
-  \\ simp [Once pre] \\ rw []
-  \\ last_x_assum irule \\ gvs [PART_canonize_def]
-  \\ imp_res_tac PART_LENGTH \\ gvs []
-QED
-
-val _ = word_allocTheory.canonize_moves_def |> SRULE [GSYM QSORT_canonize_def]
-                                            |> cv_auto_trans;
+val res = word_allocTheory.canonize_moves_def |> SRULE[GSYM sort_canonize_def] |> cv_auto_trans
 
 val _ = cv_trans backendTheory.inc_set_oracle_def;
 
