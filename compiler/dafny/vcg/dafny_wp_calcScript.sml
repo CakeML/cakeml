@@ -34,6 +34,11 @@ Definition is_ArrT_def:
   is_ArrT _ = F
 End
 
+Definition dest_ArrT_def:
+  dest_ArrT (ArrT t) = return t ∧
+  dest_ArrT _ = fail «dest_ArrT: Not ArrT»
+End
+
 Definition get_type_def:
   get_type _ (Lit l) =
   (case l of
@@ -86,11 +91,11 @@ Definition get_type_def:
      | Div => if e₀_ty = IntT ∧ e₁_ty = IntT then return IntT else
                 (fail «get_type:BinOp:Div: Expected int types»)
      | And => if e₀_ty = BoolT ∧ e₁_ty = BoolT then return BoolT else
-                (fail «get_type:BinOp:And: Expected int types»)
+                (fail «get_type:BinOp:And: Expected bool types»)
      | Or => if e₀_ty = BoolT ∧ e₁_ty = BoolT then return BoolT else
-               (fail «get_type:BinOp:Or: Expected int types»)
+               (fail «get_type:BinOp:Or: Expected bool types»)
      | Imp => if e₀_ty = BoolT ∧ e₁_ty = BoolT then return BoolT else
-                (fail «get_type:BinOp:Imp: Expected int types»))
+                (fail «get_type:BinOp:Imp: Expected bool types»))
   od ∧
   get_type ls (ArrLen arr) =
   do
@@ -98,7 +103,16 @@ Definition get_type_def:
     () <- if is_ArrT arr_ty then return () else
             (fail «get_type:ArrLen: Expected array type»);
     return IntT
-  od
+  od ∧
+  get_type ls (ArrSel arr idx) =
+  do
+    idx_ty <- get_type ls arr;
+    () <- if idx_ty = IntT then return () else
+            (fail «get_type:ArrSel: Expected int index»);
+    arr_ty <- get_type ls arr;
+    dest_ArrT arr_ty
+  od ∧
+  get_type _ _ = fail «get_type: Unsupported expression»
 End
 
 (* TODO Move to AST *)
