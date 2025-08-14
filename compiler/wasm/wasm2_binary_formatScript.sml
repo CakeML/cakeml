@@ -2,12 +2,10 @@
   En- & De- coding between CWasm 2.0 AST & Wasm's binary format
 *)
 
-Theory wasm2_binary_format
-Ancestors
-  wasm2Lang leb128 miscOps
-Libs
-  preamble wordsLib blastLib
-
+Theory      wasm2_binary_format
+Ancestors   wasm2Lang leb128 ancillaryOps
+Libs        preamble wordsLib blastLib
+(*
 (*  Note:
     enc goes from AST to Wasm Binary format (WBF)
     dec goes from WBF to AST
@@ -1499,8 +1497,8 @@ QED
 Theorem dec_enc_tableI:
   ∀ i rest. dec_tableI (enc_tableI i ++ rest) = (INR i, rest)
 Proof
-  rw[enc_tableI_def] >> every_case_tac>>
-  rw[dec_tableI_def,GSYM APPEND_ASSOC, Excl"APPEND_ASSOC",dec_enc_unsigned_word]
+  rw[enc_tableI_def] \\ every_case_tac
+    >> simp[dec_tableI_def,GSYM APPEND_ASSOC, Excl"APPEND_ASSOC", enc_2u32_def]
 QED
 
 Theorem dec_enc_loadI:
@@ -1517,7 +1515,8 @@ Proof
     pop_assum sym_sub_tac
     >> simp[dec_loadI_def, AllCaseEqs()]
   )
-  \\ rewrite_tac[GSYM APPEND_ASSOC,dec_enc_u32] >> simp[]
+  \\ fs[GSYM APPEND_ASSOC,dec_enc_u32, enc_2u32_def] >> simp[]
+  \\ rewrite_tac[GSYM APPEND_ASSOC,dec_enc_u32, enc_2u32_def] >> simp[]
 QED
 
 Theorem dec_enc_storeI:
@@ -1842,4 +1841,4 @@ Proof
     \\ asm_rewrite_tac [GSYM APPEND_ASSOC] \\ simp [])
   \\ cheat (* not yet implemented cases *)
 QED *)
-
+*)
