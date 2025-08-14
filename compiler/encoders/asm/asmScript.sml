@@ -290,7 +290,7 @@ Definition inst_ok_def:
      (if m IN {Load; Store; Load32; Store32} then
         addr_offset_ok c w
       else if m IN {Load16; Store16} then
-        hw_offset_ok c w ∧ c.ISA ≠ Ag32
+        (if c.ISA = Ag32 then T else hw_offset_ok c w)
       else
         byte_offset_ok c w))
 End
