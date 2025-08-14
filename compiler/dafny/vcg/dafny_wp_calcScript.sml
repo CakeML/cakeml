@@ -29,6 +29,78 @@ Overload "int_lt" = “BinOp Lt”
 Overload "int_le" = “BinOp Le”
 Overload "int_lit" = “λn. Lit (IntL n)”
 
+Definition is_ArrT_def:
+  is_ArrT (ArrT _ ) = T ∧
+  is_ArrT _ = F
+End
+
+Definition get_type_def:
+  get_type _ (Lit l) =
+  (case l of
+   | BoolL _ => return BoolT
+   | IntL _ => return IntT
+   | StrL _ => return StrT) ∧
+  get_type ls (Var v) =
+  (case ALOOKUP ls v of
+   | NONE => fail «get_type:Var: Could not find variable in type context»
+   | SOME ty => return ty) ∧
+  get_type ls (If grd thn els) =
+  do
+    grd_ty <- get_type ls grd;
+    () <- if grd_ty = BoolT then return () else
+            (fail «get_type:If: Guard is not of type bool»);
+    thn_ty <- get_type ls thn;
+    els_ty <- get_type ls els;
+    () <- if thn_ty = els_ty then return () else
+            (fail «get_type:If: Arms have different types»);
+    return thn_ty
+  od ∧
+  get_type ls (UnOp uop e) =
+  do
+    e_ty <- get_type ls e;
+    (case uop of
+     | Not => if e_ty = BoolT then return e_ty else
+                (fail «get_type:UnOp:Not: Expected bool type»))
+  od ∧
+  get_type ls (BinOp bop e₀ e₁) =
+  do
+    e₀_ty <- get_type ls e₀;
+    e₁_ty <- get_type ls e₁;
+    (case bop of
+     | Lt => if e₀_ty = IntT ∧ e₁_ty = IntT then return BoolT else
+               (fail «get_type:BinOp:Lt: Expected int types»)
+     | Le => if e₀_ty = IntT ∧ e₁_ty = IntT then return BoolT else
+               (fail «get_type:BinOp:Le: Expected int types»)
+     | Ge => if e₀_ty = IntT ∧ e₁_ty = IntT then return BoolT else
+               (fail «get_type:BinOp:Ge: Expected int types»)
+     | Eq => if e₁_ty  = e₀_ty then return BoolT else
+               (fail «get_type:BinOp:Eq: Expected same types»)
+     | Neq => if e₁_ty  = e₀_ty then return BoolT else
+                (fail «get_type:BinOp:Neq: Expected same types»)
+     | Sub => if e₀_ty = IntT ∧ e₁_ty = IntT then return IntT else
+                (fail «get_type:BinOp:Sub: Expected int types»)
+     | Add => if e₀_ty = IntT ∧ e₁_ty = IntT then return IntT else
+                (fail «get_type:BinOp:Add: Expected int types»)
+     | Mul => if e₀_ty = IntT ∧ e₁_ty = IntT then return IntT else
+                (fail «get_type:BinOp:Mul: Expected int types»)
+     | Div => if e₀_ty = IntT ∧ e₁_ty = IntT then return IntT else
+                (fail «get_type:BinOp:Div: Expected int types»)
+     | And => if e₀_ty = BoolT ∧ e₁_ty = BoolT then return BoolT else
+                (fail «get_type:BinOp:And: Expected int types»)
+     | Or => if e₀_ty = BoolT ∧ e₁_ty = BoolT then return BoolT else
+               (fail «get_type:BinOp:Or: Expected int types»)
+     | Imp => if e₀_ty = BoolT ∧ e₁_ty = BoolT then return BoolT else
+                (fail «get_type:BinOp:Imp: Expected int types»))
+  od ∧
+  get_type ls (ArrLen arr) =
+  do
+    arr_ty <- get_type ls arr;
+    () <- if is_ArrT arr_ty then return () else
+            (fail «get_type:ArrLen: Expected array type»);
+    return IntT
+  od
+End
+
 (* TODO Move to AST *)
 Definition Foralls_def:
   Foralls [] e = e ∧
@@ -1195,12 +1267,12 @@ Proof
   \\ simp [state_component_equality,SF CONJ_ss,is_initialized_def]
 QED
 
-Theorem can_eval_read_local:
-  eval_true st env (CanEval (Var n)) ⇔
-    ∃v. read_local st.locals n = SOME v
-Proof
-  gvs [read_local_def, AllCaseEqs(), eval_true_CanEval_Var, is_initialized_def]
-QED
+(* Theorem can_eval_read_local: *)
+(*   eval_true st env (CanEval (Var n)) ⇔ *)
+(*     ∃v. read_local st.locals n = SOME v *)
+(* Proof *)
+(*   gvs [read_local_def, AllCaseEqs(), eval_true_CanEval_Var, is_initialized_def] *)
+(* QED *)
 
 Theorem can_eval_vars:
   ∀ns.
