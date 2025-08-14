@@ -265,7 +265,8 @@ Inductive stmt_wp:
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e) mspec.decreases ∧
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins ++ MAP FST mspec.outs) ∧
                no_Old e) mspec.ens ∧
-    set ret_names ⊆ set (MAP FST ls)
+    set ret_names ⊆ set (MAP FST ls) (* ∧
+    get_types ls args = INR (MAP SND mspec.ins) *)
     ⇒
     stmt_wp m (Let (ZIP (MAP FST mspec.ins,args)) (conj mspec.reqs) ::
                MAP CanEval args ++
@@ -323,7 +324,10 @@ Definition proved_methods_def:
                  vars_have_types mspec.outs)
                 (mspec.rank, mspec.decreases)
                 (mspec.ins ++ mspec.outs) ∧
-        ⊢ (imp (conj mspec.reqs) (conj wp_pre))
+        ∃p.
+          p = Foralls mspec.ins (imp (conj mspec.reqs) (conj wp_pre)) ∧
+          freevars p = {} ∧
+          ⊢ p
 End
 
 Definition conditions_hold_def:
@@ -1332,8 +1336,42 @@ QED
 Definition locals_ok_def:
   locals_ok (locals: (mlstring # type) list) (s_locals: (mlstring # value option) list) ⇔
     ∀n ty.
-      (n,ty) ∈ set locals ⇒ ∃oval. ALOOKUP s_locals n = SOME oval
+      MEM (n,ty) locals ⇒ ∃oval. ALOOKUP s_locals n = SOME oval
 End
+
+Definition strict_locals_ok_def:
+  strict_locals_ok (locals: (mlstring # type) list) (s_locals: (mlstring # value option) list) ⇔
+    ∀n ty.
+      MEM (n,ty) locals ⇒ ∃val. ALOOKUP s_locals n = SOME (SOME val)
+End
+
+Theorem forall_imp_conditions_hold:
+  ⊢ (Foralls vs (imp (conj reqs) (conj wp_pre))) ∧
+  conditions_hold st env reqs ∧
+  strict_locals_ok vs st.locals ⇒
+  conditions_hold st env wp_pre
+Proof
+  cheat (*
+  rw [valid_def]
+  \\ last_x_assum $ qspecl_then [‘st’,‘env’] mp_tac
+  \\ gvs [conditions_hold_def]
+  \\ strip_tac
+  \\ drule eval_true_mp
+  \\ gvs [eval_true_conj_every] *)
+QED
+
+Theorem locals_ok_append:
+  locals_ok (xs ++ ys) ls ⇔ locals_ok xs ls ∧ locals_ok ys ls
+Proof
+  simp [locals_ok_def,SF DNF_ss]
+QED
+
+Theorem strict_locals_ok_IMP_locals_ok:
+  strict_locals_ok xs ls ⇒ locals_ok xs ls
+Proof
+  simp [locals_ok_def,strict_locals_ok_def]
+  \\ rw [] \\ res_tac \\ fs []
+QED
 
 Triviality locals_ok_is_some_alookup:
   locals_ok locals st_locals ⇒
@@ -2113,7 +2151,8 @@ Theorem stmt_wp_sound:
           Method name' mspec' body' ∈ m ∧ st'.locals_old = st'.locals ∧
           st'.heap_old = st'.heap ∧ conditions_hold st' env mspec'.reqs ∧
           compatible_env env m ∧
-          locals_ok (mspec'.ins ++ mspec'.outs) st'.locals ⇒
+          strict_locals_ok mspec'.ins st'.locals ∧
+          locals_ok mspec'.outs st'.locals ⇒
           ∃st'' out_vs.
             eval_stmt st' env body' st'' (Rstop Sret) ∧
             conditions_hold st'' env (MAP (wrap_Old (set (MAP FST mspec'.ins))) mspec'.ens) ∧
@@ -2300,6 +2339,8 @@ Proof
       \\ simp [MEM_EL]
       \\ simp [EL_MAP, SF CONJ_ss, EL_REPLICATE]
       \\ metis_tac [FST])
+    >-
+     (simp [Abbr‘st1’] \\ cheat)
     >-
      (rewrite_tac [GSYM eval_true_conj_every]
       \\ qpat_x_assum ‘eval_true st env (Let _ (conj mspec.reqs))’ mp_tac
@@ -2602,7 +2643,8 @@ Theorem methods_lemma[local]:
       st.locals_old = st.locals ∧
       st.heap_old = st.heap ∧
       conditions_hold st env mspec.reqs ∧ compatible_env env m ∧
-      locals_ok (mspec.ins ++ mspec.outs) st.locals ⇒
+      strict_locals_ok mspec.ins st.locals ∧
+      locals_ok mspec.outs st.locals ⇒
       ∃st' out_vs.
         eval_stmt st env body st' (Rstop Sret) ∧
         st'.locals_old = st.locals_old ∧
@@ -2625,12 +2667,14 @@ Proof
   \\ disch_then $ qspecl_then [‘st’,‘env’] mp_tac
   \\ impl_tac >-
    (asm_rewrite_tac []
-    \\ drule_all imp_conditions_hold \\ strip_tac \\ gvs []
+    \\ drule_all forall_imp_conditions_hold \\ strip_tac \\ gvs []
+    \\ imp_res_tac strict_locals_ok_IMP_locals_ok
+    \\ simp [locals_ok_append]
     \\ rpt strip_tac
     \\ gvs [eval_measure_wrap_old, compatible_env_def]
     \\ last_x_assum $ drule_then drule
     \\ impl_tac >- (simp [SF SFY_ss])
-    \\ strip_tac \\ gvs []
+    \\ strip_tac \\ gvs [locals_ok_append]
     \\ first_x_assum $ irule_at $ Pos hd \\ fs []
     \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
   \\ gvs [False_thm]
@@ -2990,7 +3034,11 @@ Definition met_vcg_def:
                 ++ vars_have_types specs.outs);
     vcs <- stmt_vcg mets body [False] ens (specs.rank, specs.decreases)
                     (specs.ins ++ specs.outs);
-    return (imp (conj specs.reqs) (conj vcs))
+    p <<- (Foralls specs.ins $ imp (conj specs.reqs) (conj vcs));
+    if freevars_list p = [] then
+      return p
+    else
+      fail «met_vcg: condition has freevars»
   od
 End
 
@@ -3025,6 +3073,7 @@ Proof
   \\ simp [wrap_Old_list_eq]
   \\ disch_then $ irule_at (Pos hd)
   \\ gvs [EVERY_MEM]
+  \\ simp [GSYM freevars_list_eq]
 QED
 
 (* TODO Perhaps we should use this in the semantics? *)
