@@ -257,6 +257,8 @@ Proof
     \\ pop_assum $ drule_at $ Pos $ el 2 \\ gvs []
     \\ disch_then drule
     \\ impl_tac >- (CCONTR_TAC \\ gvs []) \\ gvs [])
+  \\ Cases_on `∃force_loc n. h = Force force_loc n` \\ gvs []
+  THEN1 cheat
   \\ reverse (Cases_on `?ys y. h = Let ys y` \\ fs [])
   THEN1 (Cases_on `h` \\ fs [])
   \\ fs [] \\ rpt (qpat_x_assum `T` kall_tac) \\ rveq \\ fs [evaluate_def]

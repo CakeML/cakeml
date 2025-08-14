@@ -3997,7 +3997,150 @@ Proof
       \\ last_x_assum assume_tac
       \\ gvs [closSemTheory.evaluate_def, compile_exps_def]
       \\ pairarg_tac \\ gvs [evaluate_def]
-      \\ Cases_on ‘evaluate (xs,env,s)’ \\ fs []
+      \\ gvs [AllCaseEqs(), PULL_EXISTS]
+      >- (
+        first_x_assum drule_all \\ rw []
+        \\ rpt (goal_assum $ drule_at Any \\ gvs [])
+        \\ `LENGTH vs = 1`
+          by gvs [oneline closSemTheory.dest_thunk_def, AllCaseEqs()]
+        \\ Cases_on `vs` \\ gvs []
+        \\ imp_res_tac evaluate_const
+        \\ drule (GEN_ALL rel_dest_thunk) \\ simp []
+        \\ disch_then drule_all \\ rw []
+        \\ goal_assum drule \\ gvs [])
+      >- (
+        first_x_assum drule_all \\ rw []
+        \\ rpt (goal_assum $ drule_at Any \\ gvs [])
+        \\ `LENGTH vs = 1`
+          by gvs [oneline closSemTheory.dest_thunk_def, AllCaseEqs()]
+        \\ Cases_on `vs` \\ gvs []
+        \\ imp_res_tac evaluate_const
+        \\ drule (GEN_ALL rel_dest_thunk) \\ simp []
+        \\ disch_then drule_all \\ rw []
+        \\ goal_assum drule \\ gvs [])
+      >- (
+        first_x_assum drule_all \\ rw []
+        \\ `LENGTH vs = 1`
+          by gvs [oneline closSemTheory.dest_thunk_def, AllCaseEqs()]
+        \\ Cases_on `vs` \\ gvs []
+        \\ imp_res_tac evaluate_const
+        \\ drule (GEN_ALL rel_dest_thunk) \\ simp []
+        \\ disch_then drule_all \\ rw []
+        \\ gvs [closSemTheory.dec_clock_def]
+        \\ first_x_assum $ drule_at (Pat `state_rel _ _ _`)
+        \\ simp [AppUnit_def, compile_exps_def]
+        \\ disch_then $ qspecl_then [`aux1`, `[r2]`] mp_tac \\ gvs []
+        \\ impl_tac
+        >- (
+          gvs [closSemTheory.dec_clock_def] \\ rw []
+          >- (
+            drule_all (GEN_ALL compile_exps_IMP_code_installed) \\ rw []
+            \\ drule evaluate_mono \\ rw []
+            \\ gvs [code_installed_def, subspt_def, EVERY_EL] \\ rw []
+            \\ pairarg_tac \\ gvs []
+            \\ first_x_assum drule \\ rw []
+            \\ gvs [domain_lookup])
+          >- gvs [env_rel_def])
+        \\ rw [] \\ gvs []
+        \\ qpat_x_assum `evaluate _ = (Rval [y],_)` assume_tac
+        \\ drule_then (qspec_then `ck'` assume_tac) evaluate_add_clock
+        \\ gvs [inc_clock_def]
+        \\ qexists `ck + ck'` \\ gvs [PULL_EXISTS]
+        \\ pop_assum kall_tac
+        \\ gvs [find_code_def]
+        \\ drule bvlPropsTheory.evaluate_mono
+        \\ simp [subspt_lookup]
+        \\ disch_then drule \\ strip_tac \\ simp [dec_clock_def]
+        \\ qpat_x_assum `update_thunk _ _ _ = SOME _` mp_tac
+        \\ simp [oneline update_thunk_def, AllCaseEqs()] \\ rw []
+        \\ gvs [store_thunk_def, AllCaseEqs(), v_rel_SIMP, PULL_EXISTS]
+        \\ drule_at (Pat `FLOOKUP _ _ = SOME _`) state_rel_UPDATE_REF
+        \\ disch_then drule \\ gvs []
+        \\ `FLOOKUP f2' ptr = SOME r2'` by metis_tac [FLOOKUP_SUBMAP]
+        \\ disch_then drule \\ gvs []
+        \\ `ref_rel (v_rel s.max_app f2' t2'.refs t2'.code)
+              (Thunk Evaluated v'') (Thunk Evaluated y')` by gvs [ref_rel_def]
+        \\ disch_then drule \\ gvs [] \\ rw []
+        \\ goal_assum $ drule_at (Pat `state_rel _ _ _`) \\ gvs []
+        \\ qexists `y'` \\ gvs [] \\ rw []
+        >- (
+          qpat_x_assum `evaluate _ = (Rval [y'],_)` mp_tac
+          \\ simp [clos_tag_shift_def, mk_cl_call_def,
+                   generic_app_fn_location_def, evaluate_def, do_app_def,
+                   AllCaseEqs(), PULL_EXISTS, dec_clock_def] \\ rw []
+          \\ gvs [find_code_def, AllCaseEqs()]
+          \\ (
+            simp [force_thunk_code_def, evaluate_def, do_app_def, EL_APPEND,
+                  find_code_def, AllCaseEqs(), PULL_EXISTS, dec_clock_def]
+            \\ rw [] \\ gvs []
+            \\ drule_then drule (GEN_ALL state_rel_refs_lookup) \\ rw []
+            \\ metis_tac []))
+        >- (
+          irule v_rel_UPDATE_REF \\ gvs [TO_FLOOKUP]
+          \\ first_x_assum drule \\ rw [SF SFY_ss])
+        >- metis_tac [SUBMAP_TRANS]
+        >- (
+          `r2' ∈ (FRANGE f2')` by (
+            gvs [TO_FLOOKUP] \\ first_x_assum drule \\ rw [SF SFY_ss])
+          \\ rw [FDIFF_FUPDATE]
+          \\ metis_tac [SUBMAP_TRANS]))
+      >- (
+        first_x_assum drule_all \\ rw []
+        \\ `LENGTH vs = 1`
+          by gvs [oneline closSemTheory.dest_thunk_def, AllCaseEqs()]
+        \\ Cases_on `vs` \\ gvs []
+        \\ imp_res_tac evaluate_const
+        \\ drule (GEN_ALL rel_dest_thunk) \\ simp []
+        \\ disch_then drule_all \\ rw []
+        \\ gvs [closSemTheory.dec_clock_def]
+        \\ first_x_assum $ drule_at (Pat `state_rel _ _ _`)
+        \\ simp [AppUnit_def, compile_exps_def]
+        \\ disch_then $ qspecl_then [`aux1`, `[r2]`] mp_tac \\ gvs []
+        \\ impl_tac
+        >- (
+          gvs [closSemTheory.dec_clock_def] \\ rw []
+          >- (
+            drule_all (GEN_ALL compile_exps_IMP_code_installed) \\ rw []
+            \\ drule evaluate_mono \\ rw []
+            \\ gvs [code_installed_def, subspt_def, EVERY_EL] \\ rw []
+            \\ pairarg_tac \\ gvs []
+            \\ first_x_assum drule \\ rw []
+            \\ gvs [domain_lookup])
+          >- gvs [env_rel_def])
+        \\ rw [] \\ gvs []
+        \\ qpat_x_assum `evaluate _ = (Rval [y],_)` assume_tac
+        \\ drule_then (qspec_then `ck'` assume_tac) evaluate_add_clock
+        \\ gvs [inc_clock_def]
+        \\ qexists `ck + ck'` \\ gvs [PULL_EXISTS]
+        \\ pop_assum kall_tac
+        \\ gvs [find_code_def]
+        \\ drule bvlPropsTheory.evaluate_mono
+        \\ simp [subspt_lookup]
+        \\ disch_then drule \\ strip_tac \\ simp [dec_clock_def]
+        \\ goal_assum $ drule_at (Pat `state_rel _ _ _`) \\ gvs []
+        \\ qexists `e'` \\ gvs [] \\ rw []
+        >- (
+          `e' ≠ Rabort Rtype_error` by (Cases_on `e` \\ gvs []) \\ gvs []
+          \\ qpat_x_assum `evaluate _ = (Rerr e',_)` mp_tac
+          \\ simp [clos_tag_shift_def, mk_cl_call_def,
+                   generic_app_fn_location_def, evaluate_def, do_app_def,
+                   find_code_def]
+          \\ rpt (PURE_CASE_TAC \\ gvs [])
+          \\ simp [force_thunk_code_def, evaluate_def, do_app_def,
+                   find_code_def])
+        >- metis_tac [SUBMAP_TRANS]
+        >- metis_tac [SUBMAP_TRANS])
+      >- (
+        first_x_assum drule_all \\ rw []
+        \\ rpt (goal_assum $ drule_at Any \\ gvs [])
+        \\ `LENGTH vs = 1`
+          by gvs [oneline closSemTheory.dest_thunk_def, AllCaseEqs()]
+        \\ Cases_on `vs` \\ gvs []
+        \\ imp_res_tac evaluate_const
+        \\ drule (GEN_ALL rel_dest_thunk) \\ simp []
+        \\ disch_then drule_all \\ rw []
+        \\ goal_assum drule \\ gvs [])
+      (*\\ Cases_on ‘evaluate (xs,env,s)’ \\ fs []
       \\ Cases_on ‘q = Rerr (Rabort Rtype_error)’ \\ fs []
       \\ first_x_assum drule_all
       \\ strip_tac
@@ -4026,7 +4169,7 @@ Proof
       \\ drule bvlPropsTheory.evaluate_mono
       \\ simp [subspt_lookup]
       \\ disch_then drule \\ strip_tac \\ simp [dec_clock_def]
-      \\ cheat (*
+      \\ cheat*) (*
       \\ gvs [AllCaseEqs(), PULL_EXISTS]
       >- (
         first_x_assum drule_all \\ rw [] \\ gvs []

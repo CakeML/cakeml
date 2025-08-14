@@ -402,10 +402,10 @@ End
 
 Definition force_thunk_code_def:
   force_thunk_code =
-    If (Op (BlockOp (EqualConst (Int 0))) [mk_elem_at (Var 0) 1])
-      (Let [Call 0 NONE [mk_unit; Var 0; mk_elem_at (Var 0) 0]]
+    If (Op (BlockOp (EqualConst (Int 0))) [mk_elem_at (Var 1) 1])
+      (Let [Call 0 NONE [mk_unit; Var 1; mk_elem_at (Var 1) 0]]
         (Let [Op (ThunkOp (UpdateThunk Evaluated)) [Var 0; Var 1]] (Var 1)))
-      (Let [Call 0 (SOME 0) [mk_unit; Var 0]]
+      (Let [Call 0 (SOME 0) [mk_unit; Var 1]]
         (Let [Op (ThunkOp (UpdateThunk Evaluated)) [Var 0; Var 1]] (Var 1)))
        : bvl$exp
 End
