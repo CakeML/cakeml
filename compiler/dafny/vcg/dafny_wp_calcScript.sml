@@ -265,8 +265,8 @@ Inductive stmt_wp:
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e) mspec.decreases ∧
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins ++ MAP FST mspec.outs) ∧
                no_Old e) mspec.ens ∧
-    set ret_names ⊆ set (MAP FST ls) (* ∧
-    get_types ls args = INR (MAP SND mspec.ins) *)
+    set ret_names ⊆ set (MAP FST ls) ∧
+    get_types ls args = INR (MAP SND mspec.ins)
     ⇒
     stmt_wp m (Let (ZIP (MAP FST mspec.ins,args)) (conj mspec.reqs) ::
                MAP CanEval args ++
@@ -1334,20 +1334,26 @@ Proof
 QED
 
 Definition locals_ok_def:
-  locals_ok (locals: (mlstring # type) list) (s_locals: (mlstring # value option) list) ⇔
+  locals_ok (locals: (mlstring # type) list)
+            (s_locals: (mlstring # value option) list) ⇔
     ∀n ty.
-      MEM (n,ty) locals ⇒ ∃oval. ALOOKUP s_locals n = SOME oval
+      MEM (n,ty) locals ⇒
+      ∃oval. ALOOKUP s_locals n = SOME oval ∧
+             ∀val. oval = SOME val ⇒ val ∈ all_values ty
 End
 
 Definition strict_locals_ok_def:
-  strict_locals_ok (locals: (mlstring # type) list) (s_locals: (mlstring # value option) list) ⇔
+  strict_locals_ok (locals: (mlstring # type) list)
+                   (s_locals: (mlstring # value option) list) ⇔
     ∀n ty.
-      MEM (n,ty) locals ⇒ ∃val. ALOOKUP s_locals n = SOME (SOME val)
+      MEM (n,ty) locals ⇒
+      ∃val. ALOOKUP s_locals n = SOME (SOME val) ∧ val ∈ all_values ty
 End
 
 Theorem forall_imp_conditions_hold:
   ⊢ (Foralls vs (imp (conj reqs) (conj wp_pre))) ∧
   conditions_hold st env reqs ∧
+(* conditions_hold st env (vars_have_types vs) ∧ *)
   strict_locals_ok vs st.locals ⇒
   conditions_hold st env wp_pre
 Proof
