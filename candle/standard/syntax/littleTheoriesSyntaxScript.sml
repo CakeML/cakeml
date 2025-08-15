@@ -818,7 +818,8 @@ QED
 Theorem FVs_in_tm_names:
   ∀tm n ty. (n, ty) ∈ FVs tm ⇒ MEM n (tm_names tm)
 Proof
-  cheat
+  Induct_on ‘tm’ >> rw[FVs_def, tm_names_def]
+  >> rpt $ first_x_assum drule >> simp[]
 QED
 
 Theorem tm_names_vsubst:
