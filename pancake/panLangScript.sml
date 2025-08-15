@@ -168,22 +168,20 @@ End
 
 (*
   for time_to_pancake compiler:
+
+Definition Assigns_def:
+  (Assigns [] n = Skip) ∧
+  (Assigns (v::vs) n =
+    Seq (Assign v n) (Assigns vs n))
+End
+
+Definition Decs_def:
+  (Decs [] p = p) /\
+  (Decs ((v,e)::es) p =
+    Dec v e (Decs es p))
+End
+
 *)
-
-(* optimise this function *)
-Definition assigns_def:
-  (assigns [] n = Skip) ∧
-  (assigns (v::vs) n =
-    Seq (Assign v n) (assigns vs n))
-End
-
-
-Definition decs_def:
-  (decs [] p = p) /\
-  (decs ((v,e)::es) p =
-    Dec v e (decs es p))
-End
-
 
 Definition var_exp_def:
   (var_exp (Const w) = ([]:mlstring list)) ∧

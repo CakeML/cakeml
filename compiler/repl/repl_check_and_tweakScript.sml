@@ -11,8 +11,6 @@ val _ = Parse.hide "types"
 
 val _ = new_theory "repl_check_and_tweak";
 
-val _ = permahide “decs”;
-
 Definition check_and_tweak_def:
   check_and_tweak (decs, types, input_str) =
     case add_print_then_read types decs of
