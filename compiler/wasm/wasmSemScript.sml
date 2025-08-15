@@ -269,13 +269,13 @@ Inductive compare_op_rel:
   (∀ l r. compare_op_rel (Le_  Unsigned  W32) (I32 l) (I32 r) (I32 $ b2w (l <=+ r)) )∧
   (∀ l r. compare_op_rel (Ge_  Unsigned  W32) (I32 l) (I32 r) (I32 $ b2w (l >=+ r)) )∧
 
-  (∀ l r. compare_op_rel (Eq Int W64) (I64 l) (I64 r) (I64 $ b2w (l =  r)) )∧
-  (∀ l r. compare_op_rel (Ne Int W64) (I64 l) (I64 r) (I64 $ b2w (l <> r)) )∧
+  (∀ l r. compare_op_rel (Eq Int W64) (I64 l) (I64 r) (I32 $ b2w (l =  r)) )∧
+  (∀ l r. compare_op_rel (Ne Int W64) (I64 l) (I64 r) (I32 $ b2w (l <> r)) )∧
 
-  (∀ l r. compare_op_rel (Lt_  Unsigned  W64) (I64 l) (I64 r) (I64 $ b2w (l <+  r)) )∧
-  (∀ l r. compare_op_rel (Gt_  Unsigned  W64) (I64 l) (I64 r) (I64 $ b2w (l >+  r)) )∧
-  (∀ l r. compare_op_rel (Le_  Unsigned  W64) (I64 l) (I64 r) (I64 $ b2w (l <=+ r)) )∧
-  (∀ l r. compare_op_rel (Ge_  Unsigned  W64) (I64 l) (I64 r) (I64 $ b2w (l >=+ r)) )∧
+  (∀ l r. compare_op_rel (Lt_  Unsigned  W64) (I64 l) (I64 r) (I32 $ b2w (l <+  r)) )∧
+  (∀ l r. compare_op_rel (Gt_  Unsigned  W64) (I64 l) (I64 r) (I32 $ b2w (l >+  r)) )∧
+  (∀ l r. compare_op_rel (Le_  Unsigned  W64) (I64 l) (I64 r) (I32 $ b2w (l <=+ r)) )∧
+  (∀ l r. compare_op_rel (Ge_  Unsigned  W64) (I64 l) (I64 r) (I32 $ b2w (l >=+ r)) )∧
 
 
 
@@ -284,10 +284,10 @@ Inductive compare_op_rel:
   (∀ l r. compare_op_rel (Le_    Signed  W32) (I32 l) (I32 r) (I32 $ b2w (l <= r)) )∧ (* TODO *)
   (∀ l r. compare_op_rel (Ge_    Signed  W32) (I32 l) (I32 r) (I32 $ b2w (l >= r)) )∧ (* TODO *)
 
-  (∀ l r. compare_op_rel (Lt_    Signed  W64) (I64 l) (I64 r) (I64 $ b2w (l <  r)) )∧ (* TODO *)
-  (∀ l r. compare_op_rel (Gt_    Signed  W64) (I64 l) (I64 r) (I64 $ b2w (l >  r)) )∧ (* TODO *)
-  (∀ l r. compare_op_rel (Le_    Signed  W64) (I64 l) (I64 r) (I64 $ b2w (l <= r)) )∧ (* TODO *)
-  (∀ l r. compare_op_rel (Ge_    Signed  W64) (I64 l) (I64 r) (I64 $ b2w (l >= r)) )  (* TODO *)
+  (∀ l r. compare_op_rel (Lt_    Signed  W64) (I64 l) (I64 r) (I32 $ b2w (l <  r)) )∧ (* TODO *)
+  (∀ l r. compare_op_rel (Gt_    Signed  W64) (I64 l) (I64 r) (I32 $ b2w (l >  r)) )∧ (* TODO *)
+  (∀ l r. compare_op_rel (Le_    Signed  W64) (I64 l) (I64 r) (I32 $ b2w (l <= r)) )∧ (* TODO *)
+  (∀ l r. compare_op_rel (Ge_    Signed  W64) (I64 l) (I64 r) (I32 $ b2w (l >= r)) )  (* TODO *)
 End
 
 Theorem compare_op_rel_det:
