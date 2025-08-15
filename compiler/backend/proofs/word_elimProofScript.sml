@@ -1199,6 +1199,7 @@ Proof
         gvs[AllCaseEqs(),
         sh_mem_load_def,sh_mem_load_byte_def,
         sh_mem_load32_def,sh_mem_store32_def,
+        sh_mem_load16_def,sh_mem_store16_def,
         sh_mem_store_def,sh_mem_store_byte_def,
         DefnBase.one_line_ify NONE sh_mem_set_var_def] >>
       rw[set_var_def,dest_result_loc_def,flush_state_def] >>

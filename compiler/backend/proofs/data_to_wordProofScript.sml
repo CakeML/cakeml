@@ -1578,6 +1578,7 @@ Theorem data_to_word_compile_conventions:
     ((data_conf.has_longdiv ⇒ (ac.ISA = x86_64)) ∧
     (data_conf.has_div ⇒ (ac.ISA ∈ {ARMv8; MIPS;RISC_V})) ∧
     addr_offset_ok ac 0w /\
+    hw_offset_ok ac 0w /\
     (* NOTE: this condition is
        stricter than necessary, but we have much more byte_offset space
        anyway on all the targets *)

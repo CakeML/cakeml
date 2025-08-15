@@ -82,6 +82,10 @@ Definition is_valid_mapped_read_def:
     then
       (bytes_in_memory pc (t.config.encode (Inst (Mem Load r ad)))
         (t.get_byte ms) md)
+    else if nb = 2w
+    then
+      (bytes_in_memory pc (t.config.encode (Inst (Mem Load16 r ad)))
+        (t.get_byte ms) md)
     else if nb = 4w
     then
       (bytes_in_memory pc (t.config.encode (Inst (Mem Load32 r ad)))
@@ -98,6 +102,10 @@ Definition is_valid_mapped_write_def:
     else if nb = 0w
     then
         (bytes_in_memory pc (t.config.encode (Inst (Mem Store r ad)))
+          (t.get_byte ms) md)
+    else if nb = 2w
+    then
+        (bytes_in_memory pc (t.config.encode (Inst (Mem Store16 r ad)))
           (t.get_byte ms) md)
     else if nb = 4w
     then

@@ -393,6 +393,7 @@ Definition inst_select_def:
     | Op Add [exp';Const w] =>
       if ((op = Load ∨ op = Store) /\ addr_offset_ok c w) ∨
           ((op = Load32 ∨ op  = Store32) /\ addr_offset_ok c w) ∨
+          ((op = Load16 ∨ op  = Store16) /\ (if c.ISA = Ag32 then T else hw_offset_ok c w)) ∨
           ((op = Load8 ∨ op  = Store8) /\ byte_offset_ok c w) then
         let prog = inst_select_exp c temp temp exp' in
           Seq prog (ShareInst op v (Op Add [Var temp; Const w]))
@@ -452,6 +453,7 @@ Theorem inst_select_pmatch:
     | Op Add [exp';Const w] =>
       if ((op = Load ∨ op = Store) /\ addr_offset_ok c w) \/
           ((op = Load32 ∨ op  = Store32) /\ addr_offset_ok c w) \/
+          ((op = Load16 ∨ op  = Store16) /\ (if c.ISA = Ag32 then T else hw_offset_ok c w)) \/
           ((op = Load8 ∨ op  = Store8) /\ byte_offset_ok c w) then
         let prog = inst_select_exp c temp temp exp' in
           Seq prog (ShareInst op var (Op Add [Var temp; Const w]))
