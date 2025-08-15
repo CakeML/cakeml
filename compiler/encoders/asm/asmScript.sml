@@ -86,7 +86,7 @@ End
 
 Datatype:
   arith = Binop binop reg reg ('a reg_imm)
-        | Shift shift reg reg num
+        | Shift shift reg reg ('a reg_imm)
         | Div reg reg reg
         | LongMul reg reg reg reg
         | LongDiv reg reg reg reg reg
@@ -194,10 +194,12 @@ Definition arith_ok_def:
               "Or" on "two_reg_arith" architectures. *)
      (c.two_reg_arith ==> (r1 = r2) \/ (b = Or) /\ (ri = Reg r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\ reg_imm_ok (INL b) ri c) /\
-  (arith_ok (Shift l r1 r2 n) (c: 'a asm_config) <=>
+  (arith_ok (Shift l r1 r2 ri) (c: 'a asm_config) <=>
      (c.two_reg_arith ==> (r1 = r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\
-     ((n = 0) ==> (l = Lsl)) /\ n < dimindex(:'a)) /\
+     (case ri of
+      | Imm i => (((i = 0w) ==> (l = Lsl)) /\ w2n i < dimindex(:'a))
+      | Reg r => reg_ok r c)) /\
   (arith_ok (Div r1 r2 r3) c <=>
      reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\
      c.ISA IN {ARMv8; MIPS; RISC_V}) /\

@@ -76,8 +76,9 @@ End
 Definition arith_upd_def:
   (arith_upd (Binop b r1 r2 (ri:'a reg_imm)) s =
      binop_upd r1 b (read_reg r2 s) (reg_imm ri s) s) /\
-  (arith_upd (Shift l r1 r2 n) s =
-     upd_reg r1 (word_shift l (read_reg r2 s) n) s) /\
+  (arith_upd (Shift l r1 r2 ri) s =
+     assert (case ri of Reg r => w2n (read_reg r s) < dimindex (:'a) | _ => T) $
+       upd_reg r1 (word_shift l (read_reg r2 s) (w2n (reg_imm ri s))) s) /\
   (arith_upd (Div r1 r2 r3) s =
      let q = read_reg r3 s in
        assert (q <> 0w) (upd_reg r1 (read_reg r2 s / q) s)) /\
