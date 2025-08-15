@@ -5,7 +5,6 @@ tutorial
 compiler/backend/San
 
 unverified
-unverified/lem/lem_lib_stub
 
 # Unmaintained + exampleLib does unholy things like calling set_grammar_ancestry
 icing/examples
