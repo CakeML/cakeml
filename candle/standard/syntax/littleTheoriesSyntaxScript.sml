@@ -823,13 +823,20 @@ Proof
 QED
 
 Theorem tm_names_vsubst:
-  ∀tm n m ty1 ty2. 
+  ∀tm n m ty1 ty2.
+    term_ok sig tm ∧
     (n, ty1) ∈ FVs tm ∧
     ty1 ≠ ty2 ∧
     MEM n (tm_names tm) ⇒
     MEM n (tm_names (VSUBST [(Var m ty2, Var n ty2)] tm))
 Proof
-  cheat
+  rw[]
+  >> ‘ALL_DISTINCT (MAP SND [(Var m ty2, Var n ty2)])’ by simp[]
+  >> dxrule_then drule VSUBST_VSUBSTfm >> rw[]
+  >> ‘(n, ty1) ∈ FVs (VSUBSTfm (FEMPTY |+ (Var n ty2,Var m ty2)) tm)’
+    suffices_by metis_tac[FVs_in_tm_names]
+  >> qspecl_then [‘tm’, ‘FEMPTY |+ (Var n ty2, Var m ty2)’]
+                 assume_tac VSUBSTfm_FVs >> gvs[]
 QED
 
 Theorem tm_names_unrelated_vsubst:
