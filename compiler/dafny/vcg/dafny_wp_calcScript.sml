@@ -244,16 +244,20 @@ Inductive stmt_wp:
     stmt_wp m wp stmt post ens decs ((n,ty)::ls) ∧
     EVERY (λe. n ∉ freevars e) wp ∧
     EVERY (λe. n ∉ freevars e) post ∧
-    EVERY (λe. n ∉ freevars e) ens
+    EVERY (λe. n ∉ freevars e) ens ∧
+    ¬MEM n (MAP FST ls)
     ⇒
     stmt_wp m wp (Dec (n,ty) stmt) post ens decs ls
 [~Assign:]
-  ∀m ret_names exps l post ens.
+  ∀m ret_names exps l post ens rhs_tys.
     (MAP FST l) = (MAP VarLhs ret_names) ∧
     (MAP SND l) = (MAP ExpRhs exps) ∧
     ALL_DISTINCT ret_names ∧
     LENGTH exps = LENGTH ret_names ∧
-    set ret_names ⊆ set (MAP FST ls)
+    set ret_names ⊆ set (MAP FST ls) ∧
+    get_types ls exps = INR rhs_tys ∧
+    get_types ls (MAP Var ret_names) = INR lhs_tys ∧
+    lhs_tys = rhs_tys
     ⇒
     stmt_wp m [Let (ZIP (ret_names,exps)) (conj post)] (Assign l) post ens decs ls
 [~MetCall:]
@@ -270,7 +274,8 @@ Inductive stmt_wp:
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins ++ MAP FST mspec.outs) ∧
                no_Old e) mspec.ens ∧
     set ret_names ⊆ set (MAP FST ls) ∧
-    get_types ls args = INR (MAP SND mspec.ins)
+    get_types ls args = INR (MAP SND mspec.ins) ∧
+    get_types ls (MAP Var ret_names) = INR (MAP SND mspec.outs)
     ⇒
     stmt_wp m (Let (ZIP (MAP FST mspec.ins,args)) (conj mspec.reqs) ::
                MAP CanEval args ++
@@ -1289,13 +1294,6 @@ Proof
   \\ simp [state_component_equality,SF CONJ_ss,is_initialized_def]
 QED
 
-(* Theorem can_eval_read_local: *)
-(*   eval_true st env (CanEval (Var n)) ⇔ *)
-(*     ∃v. read_local st.locals n = SOME v *)
-(* Proof *)
-(*   gvs [read_local_def, AllCaseEqs(), eval_true_CanEval_Var, is_initialized_def] *)
-(* QED *)
-
 Theorem can_eval_vars:
   ∀ns.
     EVERY (eval_true st env) (MAP CanEval (MAP Var ns)) ∧
@@ -1340,18 +1338,20 @@ QED
 Definition locals_ok_def:
   locals_ok (locals: (mlstring # type) list)
             (s_locals: (mlstring # value option) list) ⇔
-    ∀n ty.
-      MEM (n,ty) locals ⇒
-      ∃oval. ALOOKUP s_locals n = SOME oval ∧
-             ∀val. oval = SOME val ⇒ val ∈ all_values ty
+    (∀n ty.
+       MEM (n,ty) locals ⇒
+       ∃oval. ALOOKUP s_locals n = SOME oval ∧
+              ∀val. oval = SOME val ⇒ val ∈ all_values ty) ∧
+    ALL_DISTINCT (MAP FST locals)
 End
 
 Definition strict_locals_ok_def:
   strict_locals_ok (locals: (mlstring # type) list)
                    (s_locals: (mlstring # value option) list) ⇔
-    ∀n ty.
-      MEM (n,ty) locals ⇒
-      ∃val. ALOOKUP s_locals n = SOME (SOME val) ∧ val ∈ all_values ty
+    (∀n ty.
+       MEM (n,ty) locals ⇒
+       ∃val. ALOOKUP s_locals n = SOME (SOME val) ∧ val ∈ all_values ty) ∧
+    ALL_DISTINCT (MAP FST locals)
 End
 
 Theorem forall_imp_conditions_hold:
@@ -1370,10 +1370,15 @@ Proof
   \\ gvs [eval_true_conj_every] *)
 QED
 
-Theorem locals_ok_append:
-  locals_ok (xs ++ ys) ls ⇔ locals_ok xs ls ∧ locals_ok ys ls
+Theorem locals_ok_append_left:
+  locals_ok (xs ++ ys) ls ⇔
+    locals_ok xs ls ∧ locals_ok ys ls ∧
+    ALL_DISTINCT (MAP FST xs ++ MAP FST ys)
 Proof
-  simp [locals_ok_def,SF DNF_ss]
+
+  iff_tac \\ strip_tac
+  >- (gvs [locals_ok_def, ALL_DISTINCT_APPEND])
+  \\ gvs [locals_ok_def,SF DNF_ss]
 QED
 
 Theorem strict_locals_ok_IMP_locals_ok:
@@ -2071,7 +2076,8 @@ Proof
 QED
 
 Triviality locals_ok_cons:
-  locals_ok xs ys ⇒ locals_ok ((n,ty)::xs) ((n,v)::ys)
+  locals_ok xs ys ∧ ¬MEM n (MAP FST xs) ⇒
+  locals_ok ((n,ty)::xs) ((n,NONE)::ys)
 Proof
   simp [locals_ok_def]
   \\ rpt strip_tac \\ gvs []
@@ -2095,9 +2101,25 @@ Proof
   \\ simp []
 QED
 
+Triviality MEM_MAP_FST:
+  ∀xs. MEM (x,y) xs ⇒ MEM x (MAP FST xs)
+Proof
+  Induct \\ gvs []
+  \\ rpt strip_tac \\ gvs []
+QED
+
+Triviality ALOOKUP_MEM_FST:
+  ALOOKUP xs x = SOME y ⇒ MEM x (MAP FST xs)
+Proof
+  rpt strip_tac
+  \\ drule_then assume_tac ALOOKUP_MEM
+  \\ drule MEM_MAP_FST \\ simp []
+QED
+
 Triviality locals_ok_cons_drop:
   locals_ok ((n,ty)::xs) ys ∧
   locals_ok xs zs ∧
+  ¬MEM n (MAP FST xs) ∧
   MAP FST ys = n::MAP FST zs ⇒
   locals_ok xs (DROP 1 ys)
 Proof
@@ -2108,9 +2130,7 @@ Proof
   \\ rpt strip_tac
   \\ namedCases_on ‘ys’ ["", "y ys'"] \\ simp []
   \\ Cases_on ‘y’ \\ gvs [AllCaseEqs()]
-  \\ last_x_assum drule
-  \\ rpt strip_tac
-  \\ drule_all map_fst_alookup_some \\ simp []
+  \\ drule MEM_MAP_FST \\ gvs []
 QED
 
 Triviality conditions_hold_cons_not_free:
@@ -2150,6 +2170,170 @@ Proof
   \\ IF_CASES_TAC \\ gvs []
 QED
 
+Triviality ALOOKUP_append_distinct:
+  ALL_DISTINCT (MAP FST xs ++ MAP FST ys) ⇒
+  ALOOKUP (xs ++ ys) = ALOOKUP (ys ++ xs)
+Proof
+  simp [FUN_EQ_THM]
+  \\ rpt strip_tac
+  \\ simp [ALOOKUP_APPEND]
+  \\ rpt CASE_TAC \\ gvs []
+  \\ gvs [ALL_DISTINCT_APPEND]
+  \\ qpat_x_assum ‘ALOOKUP xs _ = _ ’ assume_tac
+  \\ imp_res_tac ALOOKUP_MEM_FST \\ gvs []
+QED
+
+Triviality MEM_MAP_FST_ALOOKUP:
+  MEM n (MAP FST xs) ⇒ ALOOKUP (xs ++ ys) n = ALOOKUP xs n
+Proof
+  rpt strip_tac
+  \\ simp [ALOOKUP_APPEND]
+  \\ CASE_TAC \\ gvs []
+  \\ gvs [ALOOKUP_NONE]
+QED
+
+Triviality ALOOKUP_ZIP_REPLICATE:
+  ∀xs cnt n val.
+    MEM n xs ∧ LENGTH xs = cnt ⇒
+    ALOOKUP (ZIP (xs, REPLICATE cnt val)) n = SOME val
+Proof
+  Induct \\ gvs []
+  \\ rpt strip_tac \\ gvs []
+QED
+
+Triviality ALOOKUP_locals_ok_eq:
+  ALOOKUP xs = ALOOKUP ys ⇒
+  locals_ok ls xs = locals_ok ls ys
+Proof
+  gvs [locals_ok_def]
+QED
+
+Triviality locals_ok_append_right:
+  locals_ok ls ys ∧
+  (∀n ty. MEM (n, ty) ls ∧ MEM n (MAP FST xs) ⇒
+          ∃oval.
+            ALOOKUP xs n = SOME oval ∧
+            ∀val. oval = SOME val ⇒ val ∈ all_values ty) ⇒
+  locals_ok ls (xs ++ ys)
+Proof
+  simp [locals_ok_def]
+  \\ rpt strip_tac
+  \\ simp [ALOOKUP_APPEND]
+  \\ CASE_TAC \\ gvs []
+  \\ drule_then assume_tac ALOOKUP_MEM_FST
+  \\ rpt strip_tac \\ gvs []
+  \\ first_x_assum drule_all
+  \\ rpt strip_tac \\ gvs []
+QED
+
+Triviality eval_exp_get_type:
+  ∀locals e ty.
+    get_type locals e = INR ty ∧
+    eval_exp st env e val ∧
+    locals_ok locals st.locals ⇒
+    val ∈ all_values ty
+Proof
+  ho_match_mp_tac get_type_ind
+  \\ rpt strip_tac
+  >~ [‘Var var’] >-
+   (gvs [get_type_def, eval_exp_def, evaluate_exp_def, read_local_def,
+         locals_ok_def, AllCaseEqs()]
+    \\ rev_drule_then assume_tac ALOOKUP_MEM
+    \\ last_x_assum drule
+    \\ rpt strip_tac \\ gvs [])
+  >~ [‘If’] >-
+   (gvs [get_type_def, oneline bind_def, eval_exp_def, evaluate_exp_def,
+         PULL_EXISTS, AllCaseEqs()]
+    \\ imp_res_tac do_cond_some_cases \\ gvs [do_cond_def]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+    \\ last_x_assum drule \\ simp [])
+  >~ [‘UnOp’] >-
+   (gvs [get_type_def, oneline bind_def, eval_exp_def, evaluate_exp_def,
+         oneline do_uop_def, all_values_def, PULL_EXISTS, AllCaseEqs()])
+  >~ [‘BinOp’] >-
+   (gvs [get_type_def, oneline bind_def, eval_exp_def, evaluate_exp_def,
+         do_sc_def, do_bop_def, all_values_def, AllCaseEqs()])
+  >~ [‘ArrSel’] >-
+   (gvs [get_type_def, oneline bind_def, eval_exp_def, evaluate_exp_def,
+         dest_ArrT_def, all_values_def, AllCaseEqs()])
+  \\ gvs [get_type_def, oneline bind_def, eval_exp_def, evaluate_exp_def,
+          all_values_def, AllCaseEqs()]
+QED
+
+Triviality list_rel_eval_exp_get_types:
+  ∀exps vs tys.
+    LIST_REL (eval_exp st env) exps vs ∧
+    get_types locals exps = INR tys ∧
+    locals_ok locals st.locals ⇒
+    LIST_REL (λv ty. v ∈ all_values ty) vs tys
+Proof
+  Induct \\ gvs [PULL_EXISTS]
+  >- (simp [get_types_def, result_mmap_def])
+  \\ rpt strip_tac
+  \\ gvs [get_types_def, result_mmap_def, oneline bind_def, CaseEq "sum"]
+  \\ drule_all eval_exp_get_type \\ simp []
+QED
+
+Triviality get_types_var:
+  ∀ns tys.
+    get_types ls (MAP Var ns) = INR tys ⇒
+    LIST_REL (λn ty. MEM (n,ty) ls) ns tys
+Proof
+  Induct \\ gvs []
+  \\ rpt strip_tac
+  \\ gvs [get_types_def, result_mmap_def, oneline bind_def, CaseEq "sum"]
+  \\ gvs [get_type_def, CaseEq "option"]
+  \\ drule ALOOKUP_MEM \\ simp []
+QED
+
+Triviality lookup_ret_name:
+  ∀vs lhs_tys ret_names n locals.
+    MEM n ret_names ∧
+    LIST_REL (λv ty. v ∈ all_values ty) vs lhs_tys ∧
+    LIST_REL (λn ty. MEM (n,ty) locals) ret_names lhs_tys ⇒
+    ∃val lhs_ty.
+      ALOOKUP (ZIP (ret_names,vs)) n = SOME val ∧
+      val ∈ all_values lhs_ty ∧ MEM lhs_ty lhs_tys ∧
+      MEM (n,lhs_ty) locals
+Proof
+  Induct \\ gvs []
+  \\ rpt strip_tac
+  \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
+  >- (first_assum $ irule_at $ Pos hd \\ simp [])
+  \\ IF_CASES_TAC \\ gvs []
+  >- (first_assum $ irule_at $ Pos hd \\ simp [])
+  \\ last_x_assum drule_all
+  \\ rpt strip_tac \\ gvs []
+  \\ first_assum $ irule_at $ Pos hd \\ simp []
+QED
+
+Triviality ALL_DISTINCT_MAP_FST_EQ:
+  ∀xs x y y'.
+    ALL_DISTINCT (MAP FST xs) ∧ MEM (x,y) xs ∧ MEM (x,y') xs ⇒ y' = y
+Proof
+  Induct \\ gvs [] \\ Cases
+  \\ rpt strip_tac \\ gvs []
+  >- (drule MEM_MAP_FST \\ simp [])
+  >- (drule MEM_MAP_FST \\ simp [])
+  \\ last_x_assum dxrule_all \\ simp []
+QED
+
+Triviality locals_unique_types:
+  locals_ok locals st.locals ∧ MEM (n,ty) locals ∧ MEM (n,ty') locals ⇒
+  ty' = ty
+Proof
+  simp [locals_ok_def]
+  \\ rpt strip_tac
+  \\ dxrule_all ALL_DISTINCT_MAP_FST_EQ \\ simp []
+QED
+
+Triviality ALOOKUP_ZIP_MAP_SOME:
+  ALOOKUP (ZIP (ns,MAP SOME vs)) n = SOME (SOME val) ⇔
+    ALOOKUP (ZIP (ns,vs)) n = SOME val
+Proof
+  cheat
+QED
+
 Theorem stmt_wp_sound:
   ∀m reqs stmt post ens decs locals.
     stmt_wp m reqs stmt post ens decs locals ⇒
@@ -2162,7 +2346,8 @@ Theorem stmt_wp_sound:
           st'.heap_old = st'.heap ∧ conditions_hold st' env mspec'.reqs ∧
           compatible_env env m ∧
           strict_locals_ok mspec'.ins st'.locals ∧
-          locals_ok mspec'.outs st'.locals ⇒
+          locals_ok mspec'.outs st'.locals ∧
+          ALL_DISTINCT (MAP FST mspec'.ins ++ MAP FST mspec'.outs) ⇒
           ∃st'' out_vs.
             eval_stmt st' env body' st'' (Rstop Sret) ∧
             conditions_hold st'' env (MAP (wrap_Old (set (MAP FST mspec'.ins))) mspec'.ens) ∧
@@ -2291,12 +2476,23 @@ Proof
     \\ first_x_assum $ irule_at $ Pos hd
     \\ simp [eval_true_def,GSYM eval_true_conj_every]
     \\ conj_tac >-
-     (gvs [locals_ok_def]
-      \\ rpt strip_tac
-      \\ last_x_assum drule
-      \\ rpt strip_tac
-      \\ simp [ALOOKUP_APPEND]
-      \\ CASE_TAC)
+     (pop_assum mp_tac
+      \\ DEP_REWRITE_TAC [alookup_distinct_reverse_append] \\ simp [MAP_ZIP]
+      \\ disch_tac
+      \\ drule ALOOKUP_locals_ok_eq \\ simp [] \\ disch_then kall_tac
+      \\ irule locals_ok_append_right \\ simp [MAP_ZIP]
+      \\ qx_genl_tac [‘n’, ‘ty’]
+      \\ strip_tac \\ gvs []
+      \\ qrefine ‘SOME val’
+      \\ simp [ALOOKUP_ZIP_MAP_SOME]
+      \\ drule_all_then assume_tac list_rel_eval_exp_get_types
+      \\ drule_all_then assume_tac get_types_var
+      \\ drule_all lookup_ret_name
+      \\ disch_then $ qx_choosel_then [‘val’, ‘lhs_ty’] mp_tac
+      \\ strip_tac \\ gvs []
+      \\ drule locals_unique_types
+      (* TODO explicitly name these values *)
+      \\ disch_then $ qspecl_then [‘ty’, ‘lhs_ty’, ‘n’] mp_tac \\ simp [])
     \\ irule $ iffLR eval_exp_freevars
     \\ qexists_tac ‘ZIP (ret_names,MAP SOME vs) ++ st.locals’
     \\ conj_tac
@@ -2338,17 +2534,18 @@ Proof
   >-
    (reverse $ rpt conj_tac
     >-
+     (simp [])
+    >-
      (unabbrev_all_tac
       \\ simp [locals_ok_def]
-      \\ simp [GSYM IS_SOME_EXISTS]
-      \\ simp [is_some_none]
-      \\ simp [ALOOKUP_NONE]
-      \\ simp [MEM_MAP]
-      \\ simp [EXISTS_PROD]
-      \\ simp [MEM_ZIP]
-      \\ simp [MEM_EL]
-      \\ simp [EL_MAP, SF CONJ_ss, EL_REPLICATE]
-      \\ metis_tac [FST])
+      \\ reverse $ conj_tac
+      >- (gvs [ALL_DISTINCT_APPEND])
+      \\ rpt strip_tac
+      \\ DEP_ONCE_REWRITE_TAC [alookup_distinct_reverse] \\ simp [MAP_ZIP]
+      \\ DEP_ONCE_REWRITE_TAC [ALOOKUP_append_distinct] \\ simp [MAP_ZIP]
+      \\ drule MEM_MAP_FST \\ strip_tac
+      \\ DEP_ONCE_REWRITE_TAC [MEM_MAP_FST_ALOOKUP] \\ simp [MAP_ZIP]
+      \\ DEP_ONCE_REWRITE_TAC [ALOOKUP_ZIP_REPLICATE] \\ simp [])
     >-
      (simp [Abbr‘st1’] \\ cheat)
     >-
@@ -2475,16 +2672,7 @@ Proof
   \\ conj_tac >- (unabbrev_all_tac \\ fs [restore_caller_def])
   \\ conj_tac >- (unabbrev_all_tac \\ fs [restore_caller_def])
   \\ conj_tac >-
-   (simp [locals_ok_def]
-    \\ ‘st3.locals = st.locals’ by (gvs [restore_caller_def, Abbr ‘st3’])
-    \\ simp []
-    \\ qpat_x_assum ‘locals_ok _ st.locals’ mp_tac
-    \\ simp [locals_ok_def]
-    \\ rpt strip_tac
-    \\ first_x_assum drule
-    \\ rpt strip_tac
-    \\ simp [ALOOKUP_APPEND]
-    \\ CASE_TAC \\ simp [])
+   (cheat)
   \\ rewrite_tac [GSYM eval_true_conj_every]
   \\ rewrite_tac [eval_true_def]
   \\ irule (iffLR eval_exp_swap_locals_alt)
@@ -2654,7 +2842,8 @@ Theorem methods_lemma[local]:
       st.heap_old = st.heap ∧
       conditions_hold st env mspec.reqs ∧ compatible_env env m ∧
       strict_locals_ok mspec.ins st.locals ∧
-      locals_ok mspec.outs st.locals ⇒
+      locals_ok mspec.outs st.locals ∧
+      ALL_DISTINCT (MAP FST mspec.ins ++ MAP FST mspec.outs) ⇒
       ∃st' out_vs.
         eval_stmt st env body st' (Rstop Sret) ∧
         st'.locals_old = st.locals_old ∧
@@ -2679,12 +2868,12 @@ Proof
    (asm_rewrite_tac []
     \\ drule_all forall_imp_conditions_hold \\ strip_tac \\ gvs []
     \\ imp_res_tac strict_locals_ok_IMP_locals_ok
-    \\ simp [locals_ok_append]
+    \\ simp [locals_ok_append_left]
     \\ rpt strip_tac
     \\ gvs [eval_measure_wrap_old, compatible_env_def]
     \\ last_x_assum $ drule_then drule
     \\ impl_tac >- (simp [SF SFY_ss])
-    \\ strip_tac \\ gvs [locals_ok_append]
+    \\ strip_tac \\ gvs [locals_ok_append_left]
     \\ first_x_assum $ irule_at $ Pos hd \\ fs []
     \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
   \\ gvs [False_thm]
@@ -2858,6 +3047,8 @@ Definition stmt_vcg_def:
             (fail «stmt_vcg:Dec: Name occurs freely in post»);
     () <- if EVERY (λe. ¬MEM n (freevars_list e)) ens then return () else
             (fail «stmt_vcg:Dec: Name occurs freely in ens»);
+    () <- if ¬MEM n (MAP FST ls) then return () else
+            (fail «stmt_vcg:Dec: Shadowing variables disallowed»);
     return wp
   od ∧
   stmt_vcg _ (Assign ass) post _ _ ls =
@@ -2869,6 +3060,10 @@ Definition stmt_vcg_def:
             (fail «stmt_vcg:Assign: variables not distinct»);
     () <- if list_subset vars (MAP FST ls) then return () else
             (fail «stmt_vcg:Assign: Trying to assign to undeclared variables»);
+    es_tys <- get_types ls es;
+    vars_tys <- get_types ls (MAP Var vars);
+    () <- if es_tys = vars_tys then return () else
+            (fail «stmt_vcg:Assign: lhs and rhs types do not match»);
     return [Let (ZIP (vars, es)) (conj post)]
   od ∧
   stmt_vcg m (MetCall lhss name args) post ens decs ls =
@@ -2903,6 +3098,12 @@ Definition stmt_vcg_def:
           else (fail «stmt_vcg:MetCall: Bad ensures spec»);
     () <- if list_subset vars (MAP FST ls) then return () else
             (fail «stmt_vcg:MetCall: Trying to assign to undeclared variables»);
+    arg_tys <- get_types ls args;
+    () <- if arg_tys = MAP SND spec.ins then return () else
+            (fail «stmt_vcg:MetCall: Argument and parameters types do not match»);
+    var_tys <- get_types ls (MAP Var vars);
+    () <- if var_tys = MAP SND spec.outs then return () else
+            (fail «stmt_vcg:MetCall: lhs variable types do not match»);
     return
       (Let (ZIP (MAP FST spec.ins,args)) (conj spec.reqs)
        :: MAP CanEval args
