@@ -116,35 +116,6 @@ End
 Definition NVARIANT:
   NVARIANT n tm = nvar_aux (tm_names tm) n
 End
-(*
-Definition VSUBST_def:
-  (NVSUBST ilist (Var x ty) = REV_ASSOCD (Var x ty) ilist (Var x ty)) ∧
-  (NVSUBST ilist (Const x ty) = Const x ty) ∧
-  (NVSUBST ilist (Comb s t) = Comb (NVSUBST ilist s) (NVSUBST ilist t)) ∧
-  (NVSUBST ilist (Abs v t) =
-    let ilist' = FILTER (λ(s',s). ¬(s = v)) ilist in
-    let t' = NVSUBST ilist' t in
-    if EXISTS (λ(s',s). VFREE_IN v s' ∧ VFREE_IN s t) ilist'
-    then let (x,ty) = dest_var v in
-         let z = Var (NVARIANT x t') ty in
-         let ilist'' = CONS (z,v) ilist' in
-         Abs z (NVSUBST ilist'' t)
-    else Abs v t')
-End
-
-Theorem SIZEOF_NVSUBST:
-   ∀t ilist. (∀s' s. MEM (s',s) ilist ⇒ ∃x ty. s' = Var x ty)
-              ⇒ sizeof (NVSUBST ilist t) = sizeof t
-Proof
-  Induct >> simp[VSUBST_def] >> rw[VSUBST_def] >> simp[] >- (
-    Q.ISPECL_THEN[`ilist`,`Var m t`,`Var m t`]mp_tac REV_ASSOCD_MEM >>
-    rw[] >> res_tac >> pop_assum SUBST1_TAC >> simp[] )
-  >- metis_tac[] >>
-  simp[pairTheory.UNCURRY] >> rw[] >> simp[] >>
-  first_x_assum match_mp_tac >>
-  simp[MEM_FILTER] >>
-  rw[] >> res_tac >> fs[]
-QED*)
 
 (* analog of INST_CORE *)
 Definition esubst_ty0_def:
@@ -192,8 +163,8 @@ End
 Definition esubst_ty_def:
   esubst_ty σ tm = case esubst_ty0 [] σ tm of
                    | return v => v
-                   | error e => ARB
-End
+                   | error e => ARB (* see esubst_ty0_always_returns *)
+End 
 
 Definition esubst_tm_def:
   esubst_tm σ (Var n ty) = Var n ty ∧
@@ -379,20 +350,6 @@ Theorem term_var_ok:
 Proof
   rw[term_ok_def]
 QED
-      (*
-Theorem variant_not_self:
-  ∀tm n ty. Var (NVARIANT n tm) ty ≠ tm
-Proof
-  rw[] >> qspecl_then [‘tm’, ‘n’, ‘ty’] assume_tac VARIANT_THM
-  >> metis_tac[VFREE_IN_def]
-QED
-
-Theorem variant_name_not_self:
-  ∀n ty x. VARIANT (Var n ty) x ty ≠ n
-Proof
-  rw[] >> qspecl_then [‘Var n ty’, ‘x’, ‘ty’] assume_tac VARIANT_THM
-  >> metis_tac[VFREE_IN_def]
-QED*)
 
 Theorem bind_return_comb:
   ∀a b q. (do
@@ -496,15 +453,6 @@ Theorem env_ok_nil[simp]:
 Proof
   rw[env_ok_def]
 QED
-
-(*Theorem VSUBST_fresh:
-  ¬VFREE_IN v tm ⇒ VSUBST [(v', v)] tm = tm
-Proof
-  rw[Once VSUBST_FILTER]
-QED*)
-
-(* define NVARIANT in terms of names in term *)
-(* tm_names etc. returns a set *)
 
 Theorem VFREE_IN_tm_names:
   ∀tm n ty. VFREE_IN (Var n ty) tm ⇒ MEM n (tm_names tm)
@@ -625,70 +573,6 @@ Proof
   >> first_x_assum $ qspec_then ‘0’ assume_tac >> gvs[]
 QED
 
-(*Theorem tm_names_vsubst:
-  ∀tm x n1 n2.
-    x ∈ free_names (VSUBST [(Var n1 ty1, Var n2 ty)] tm)
-    ∧ x ≠ n2 ∧ x ≠ n1
-    ∧ term_ok sig tm
-    ⇒ x ∈ free_names tm
-Proof
-  Induct_on ‘tm’ >> rw[VSUBST_def, REV_ASSOCD_def, term_ok_def]
-  >- (gvs[free_names, PULL_EXISTS] >> metis_tac[])
-  >- (qpat_x_assum ‘_ ∈ free_names _’ mp_tac >> simp[free_names, PULL_EXISTS]
-      >> cheat)
-  >> cheat
-QED*)
-
-(*Theorem esubst_ty0_error_name:
-  ∀env σ tm n ty.
-    esubst_ty0 env σ tm = error (Var n ty)
-    ∧ term_ok sig tm
-    ⇒ MEM n (tm_names tm) ∨ ∃p q. MEM (p, Var n q) env
-Proof
-  recInduct esubst_ty0_ind >> rw[esubst_ty0_def, term_ok_def]
-  >- (drule bind_error_comb >> rw[] >> metis_tac[])
-  >> gvs[try_eq_error, AllCaseEqs(), bind_EQ_return, bind_EQ_error]
-  >- metis_tac[]
-  >> qspecl_then [‘body’, ‘NVARIANT x body1’, ‘x’, ‘ty'’]
-                 assume_tac term_ok_vsubst_variant
-  >> gvs[]
-  >- (first_assum drule >> rw[] >> cheat)
-  >- (first_x_assum drule >> rw[] >> disj1_tac
-      >> Cases_on ‘n = x’ >> gvs[]
-      >> cheat)
-      >> cheat
-QED*)
-
-(*Theorem lemma1:
-  ∀env σ tm.
-    esubst_ty0 env σ tm = return subst_tm
-    ∧ (n, ty_esubst σ ty) ∈ FVs subst_tm
-    ⇒ (∀v. MEM (v, Var n (ty_esubst σ ty)) env ⇒ v = Var n ty)
-Proof
-  recInduct esubst_ty0_ind >> rpt $ strip_tac
-  >- (gvs[esubst_ty0_def, AllCaseEqs(), REV_ASSOCD_def] >> cheat)
-  >> cheat
-QED*)
-
-Inductive fv_subst_rel:
-[~var:]
-  fv_subst_rel σ (Var n ty) (Var n (ty_esubst σ ty))
-[~const:]
-  fv_subst_rel σ (Const n ty) (Const n (ty_esubst σ ty))
-[~comb:]
-  fv_subst_rel σ f1 f2 ∧ fv_subst_rel σ x1 x2
-⇒ fv_subst_rel σ (Comb f1 x1) (Comb f2 x2)
-[~abs_easy:]
-  fv_subst_rel σ tm1 tm2
-  ∧ (∀typ. (n, typ) ∈ FVs tm1 ∧ ty_esubst σ typ = ty_esubst σ ty ⇒ typ = ty)
-⇒ fv_subst_rel σ (Abs (Var n ty) tm1) (Abs (Var n (ty_esubst σ ty)) tm2)
-[~abs_hard:]
-  fv_subst_rel σ (VSUBST [(Var m ty, Var n ty)] tm1) tm2
-  ∧ ¬MEM m (tm_names tm1) ∧ (n, typ) ∈ FVs tm1 ∧ ty_esubst σ typ = ty_esubst σ ty
-  ∧ typ ≠ ty
-⇒ fv_subst_rel σ (Abs (Var n ty) tm1) (Abs (Var m (ty_esubst σ ty)) tm2)
-End
-
 Theorem rev_assocd_default_cases:
   ∀x l d. REV_ASSOCD x l d = d ⇒ MEM (d, x) l ∨ ¬∃y. MEM (y, x) l
 Proof
@@ -696,19 +580,26 @@ Proof
 QED
 
 Theorem NVARIANT_esubst_ty0:
-  ∀tm tm1 n ty.
-    esubst_ty0 [] σ tm = return tm1
+  ∀tm subst_tm n ty.
+    (∀n. MEM n (tm_names tm) ⇒ MEM n (tm_names subst_tm))
     ∧ term_ok sig tm
-    ⇒ ¬VFREE_IN (Var (NVARIANT n tm1) ty) tm
+    ⇒ ¬VFREE_IN (Var (NVARIANT n subst_tm) ty) tm
 Proof
-  cheat
+  rw[]
+  >> qspecl_then [‘subst_tm’, ‘n’] assume_tac NVARIANT_NAMES_THM
+  (*>> first_x_assum $ CONV_TAC CONTRAPOS_CONV*)
+  >> ‘¬MEM (NVARIANT n subst_tm) (tm_names tm)’ by metis_tac[]
+  >> ‘∀tm n ty. ¬MEM n (tm_names tm) ⇒ ¬VFREE_IN (Var n ty) tm’ suffices_by metis_tac[]
+  >> rw[]
+  >> Induct_on ‘tm'’
+  >> rw[VFREE_IN_def, tm_names_def]
 QED
 
 Theorem NVARIANT_esubst_ty0_alt:
-  ∀tm tm1 n ty.
-    esubst_ty0 [] σ tm = return tm1
+  ∀tm subst_tm n ty.
+    (∀n. MEM n (tm_names tm) ⇒ MEM n (tm_names subst_tm))
     ∧ term_ok sig tm
-    ⇒ (NVARIANT n tm1, ty) ∉ FVs tm
+    ⇒ (NVARIANT n subst_tm, ty) ∉ FVs tm
 Proof
   metis_tac[NVARIANT_esubst_ty0, FVs_VFREE_in]
 QED
@@ -883,12 +774,15 @@ Proof
                      assume_tac $ GEN_ALL IN_FRANGE_DOMSUB_suff
       >> gvs[PULL_EXISTS, FORALL_AND_THM, DISJ_IMP_THM]
       >> ‘{(n, ty') | n = x ∧ ty' = ty ∨ Var n ty' ∈ FDOM fm} =
-                                         {x, ty} ∪ {(n, ty') | Var n ty' ∈ FDOM fm}’
+                                         {x, ty} ∪ {(n, ty')
+                                             | Var n ty' ∈ FDOM fm}’
         by SET_TAC[]
       >> rw[DIFF_UNION]
-      >> Cases_on ‘(x, ty) ∈ FVs tm'’
-      >> cheat)
-  >> cheat
+      >> Cases_on ‘(Xv, ty) ∈ FVs tm' DIFF {(x,ty)}
+                   DIFF {(n,ty') | Var n ty' ∈ FDOM fm}’
+      >- cheat
+      >> ASM_SET_TAC[])
+p  >> cheat
 QED
 
 Theorem FVs_VSUBST_CASES:
@@ -921,6 +815,44 @@ Proof
   metis_tac[FVs_VSUBST_CASES]
 QED
 
+Theorem FVs_in_tm_names:
+  ∀tm n ty. (n, ty) ∈ FVs tm ⇒ MEM n (tm_names tm)
+Proof
+  cheat
+QED
+
+Theorem tm_names_vsubst:
+  ∀tm n m ty1 ty2. 
+    (n, ty1) ∈ FVs tm ∧
+    ty1 ≠ ty2 ∧
+    MEM n (tm_names tm) ⇒
+    MEM n (tm_names (VSUBST [(Var m ty2, Var n ty2)] tm))
+Proof
+  cheat
+QED
+
+Theorem tm_names_unrelated_vsubst:
+  ∀tm subst_tm ilist.
+    term_ok sig tm ∧
+    (∀v. v ∈ ilist ⇒ ∃x ty. v = (Var (NVARIANT x subst_tm) ty, Var x ty)) ∧ 
+    MEM n (tm_names tm) ∧ 
+    n ≠ NVARIANT x subst_tm ⇒
+    MEM n (tm_names (VSUBST ilist [(Var (NVARIANT x subst_tm) ty, Var x ty)] tm))
+Proof
+  rw[term_ok_def] >> Cases_on ‘n = x’
+  >- cheat
+  >> Induct_on ‘tm’
+  >> rw[tm_names_def, VSUBST_def, REV_ASSOCD_def, term_ok_def]
+  >- (rpt $ first_x_assum drule >> simp[])
+  >- (rpt $ first_x_assum drule >> simp[])
+  >> gvs[]
+  >> Cases_on ‘n =
+               VARIANT (VSUBST [(Var (NVARIANT x subst_tm) ty,Var x ty)] tm')
+                       (explode (NVARIANT x subst_tm)) ty’
+  >> rw[]
+  >> cheat
+QED
+        
 Theorem esubst_ty0_impossible1:
   ∀env σ tm.
     (∀k v. MEM (v, k) env ⇒ ∃n ty. k = Var n (ty_esubst σ ty) ∧ v = Var n ty) ∧
@@ -937,38 +869,68 @@ Theorem esubst_ty0_impossible1:
        ty_esubst σ typ1 = ty_esubst σ typ2 ∧
        typ1 ≠ typ2 ∧
        REV_ASSOCD (Var n (ty_esubst σ typ1)) env (Var n typ1) = Var n typ2
-       ⇒ ∃e. esubst_ty0 env σ tm = error e)
+       ⇒ ∃e. esubst_ty0 env σ tm = error e) ∧
+    (∀subst_tm. esubst_ty0 env σ tm = return subst_tm ⇒
+                ∀n. MEM n (tm_names tm) ⇒ MEM n (tm_names subst_tm)) 
 Proof
   recInduct esubst_ty0_ind >> REWRITE_TAC[esubst_ty0_def] >> rpt strip_tac
-  >> gvs[term_ok_def, bind_EQ_error, bind_EQ_return]
   >- (gvs[AllCaseEqs()]
       >> drule rev_assocd_neq_mem >> rw[]
       >> first_x_assum drule >> rw[]
       >> metis_tac[])
-  >- metis_tac[]
-  >- metis_tac[]
-  >- metis_tac[TypeBase.nchotomy_of “:(α, β) error”]
-  >- metis_tac[TypeBase.nchotomy_of “:(α, β) error”]
-  >> gvs[bind_EQ_error, bind_EQ_return, term_ok_def, try_eq_error, AllCaseEqs()]
-  >- (gvs[DISJ_IMP_THM, FORALL_AND_THM, REV_ASSOCD_def, AllCaseEqs()]
-      >> first_assum $ irule_at (Pat ‘_ ∈ FVs body’)
-      >> simp[] >> rpt strip_tac >> gvs[])
-  >- gvs[REV_ASSOCD_def]
-  >- (gvs[DISJ_IMP_THM, FORALL_AND_THM, REV_ASSOCD_def, AllCaseEqs()]
+  >- gvs[LET_THM, AllCaseEqs()]
+  >- gvs[LET_THM, AllCaseEqs()]
+  >- gvs[LET_THM, AllCaseEqs()]
+  >- gvs[LET_THM, AllCaseEqs()]
+  >- gvs[LET_THM, AllCaseEqs()]
+  >- (gvs[bind_EQ_error, bind_EQ_return, term_ok_def, try_eq_error, AllCaseEqs()]
+      >> metis_tac[TypeBase.nchotomy_of “:(α, β) error”])
+  >- (gvs[bind_EQ_error, bind_EQ_return, term_ok_def, try_eq_error, AllCaseEqs()]
+      >> metis_tac[TypeBase.nchotomy_of “:(α, β) error”])
+  >- gvs[bind_EQ_error, bind_EQ_return, term_ok_def, try_eq_error, AllCaseEqs()]
+  >- (gvs[bind_EQ_error, bind_EQ_return, term_ok_def, try_eq_error, AllCaseEqs()]
+      >- (gvs[DISJ_IMP_THM, FORALL_AND_THM, REV_ASSOCD_def, AllCaseEqs()]
+          >> first_assum $ irule_at (Pat ‘_ ∈ FVs body’)
+          >> simp[] >> rpt strip_tac >> gvs[])
+      >- gvs[REV_ASSOCD_def]
+      >> gvs[DISJ_IMP_THM, FORALL_AND_THM, REV_ASSOCD_def, AllCaseEqs(), neq_error]
       >> gvs[term_ok_vsubst_variant]
       >> last_x_assum $ qspec_then ‘body1’ assume_tac
       >> gvs[]
       >> metis_tac[FVs_VSUBST_CASES, NVARIANT_esubst_ty0_alt])
-  >> gvs[neq_error, REV_ASSOCD_def, term_ok_vsubst_variant, PULL_EXISTS, DISJ_IMP_THM, AllCaseEqs()]
-  >> last_x_assum $ qspec_then ‘v’ assume_tac
-  >> Cases_on ‘n = x’
-  >- (Cases_on ‘ty_esubst σ ty = ty_esubst σ typ1’
-      >> metis_tac[FVs_VSUBST_PRESERVED_VAR, NVARIANT_esubst_ty0_alt])
-  >> gvs[]
-  >> metis_tac[FVs_VSUBST_CASES, NVARIANT_esubst_ty0_alt]
+  >- (gvs[bind_EQ_error, bind_EQ_return, term_ok_def, try_eq_error, AllCaseEqs()]
+      >> gvs[DISJ_IMP_THM, term_ok_vsubst_variant]
+      >> gvs[neq_error, REV_ASSOCD_def, term_ok_vsubst_variant,
+             PULL_EXISTS, DISJ_IMP_THM, AllCaseEqs(), term_ok_def]
+      >> rename [‘esubst_ty0 [] σ body = return subst_tm’]
+      >> last_x_assum $ qspec_then ‘subst_tm’ assume_tac
+      >> Cases_on ‘n = x’
+      >- (Cases_on ‘ty_esubst σ ty = ty_esubst σ typ1’
+          >> metis_tac[FVs_VSUBST_PRESERVED_VAR, NVARIANT_esubst_ty0_alt])
+      >> gvs[]
+      >> metis_tac[FVs_VSUBST_CASES, NVARIANT_esubst_ty0_alt])
+  >> gvs[term_ok_def]
+  >> gvs[bind_EQ_error, bind_EQ_return, term_ok_def, try_eq_error, AllCaseEqs(),
+         try_eq_return]
+  >> gvs[DISJ_IMP_THM, term_ok_vsubst_variant]
+  >> gvs[neq_error, REV_ASSOCD_def, term_ok_vsubst_variant,
+         PULL_EXISTS, DISJ_IMP_THM, AllCaseEqs(), term_ok_def]
+  >- (rC ‘n = NVARIANT n body1’ >> rw[]
+      >> last_x_assum $ qspec_then ‘body1’ assume_tac >> rw[]
+      >> drule FVs_in_tm_names >> rw[]
+      >> first_x_assum $ irule_at Any
+      >> drule_all tm_names_vsubst
+      >> metis_tac[])
+  >- (rC ‘n = NVARIANT x body1’ >> rw[]
+      >> last_x_assum $ qspec_then ‘body1’ assume_tac >> rw[]
+      >> gvs[term_ok_vsubst_variant]
+      >> first_x_assum drule >> rw[]
+      >> first_x_assum irule
+      >> irule tm_names_unrelated_vsubst
+      >> rw[])
 QED
 
-Theorem esubst_ty0_correct:
+Theorem esubst_ty0_always_returns:
   ∀σ tm.
     term_ok sig tm ⇒
     ∃v. esubst_ty0 [] σ tm = return v
@@ -977,131 +939,6 @@ Proof
   >> qspec_then ‘[]’ assume_tac esubst_ty0_impossible1
   >> gvs[REV_ASSOCD_def, neq_error]
 QED
-
-Theorem VSUBST_REDUNDANT:
-  ∀tm n ty.
-    term_ok sig tm ⇒ VSUBST [(Var n ty, Var n ty)] tm = tm
-Proof
-  Induct_on ‘tm’ >> rw[VSUBST_def, REV_ASSOCD_def, term_ok_def] >> gvs[]
-QED
-
-Theorem esubst_ty0_fv_subst_rel:
-  ∀env σ tm subst_tm.
-    esubst_ty0 env σ tm = return subst_tm
-    ∧ term_ok sig tm
-    ⇒ fv_subst_rel σ tm subst_tm
-Proof
-  recInduct esubst_ty0_ind >> simp[esubst_ty0_def, term_ok_def] >> rw[]
-  >- irule fv_subst_rel_var
-  >- irule fv_subst_rel_const
-  >- (gvs[bind_EQ_return] >> metis_tac[fv_subst_rel_comb])
-  >> gvs[try_eq_return, bind_EQ_return, AllCaseEqs(), bind_EQ_error]
-  >> rename [‘Abs (Var n ty) body’]
-  >> Cases_on ‘∀typ. (n, typ) ∈ FVs body ∧ ty_esubst σ typ = ty_esubst σ ty
-                     ⇒ typ = ty’
-  >> gvs[]
-  >- (irule fv_subst_rel_abs_easy >> rw[] >> first_x_assum drule_all
-      >> rw[])
-  >- (irule fv_subst_rel_abs_hard >> rw[]
-      >- (cheat)
-      >- (first_x_assum $ irule_at Any >> rw[])
-      >> metis_tac[VSUBST_REDUNDANT])
-  >- (irule fv_subst_rel_abs_hard >> rw[]
-      >- cheat
-      )
-  >> cheat
-QED
-
-Theorem esubst_ty0_var_subset:
-  ∀env σ tm subst_tm.
-    term_ok sig tm
-    ∧ esubst_ty0 env σ tm = return subst_tm
-    ⇒ ∀n. n ∈ free_names tm ⇒ n ∈ free_names subst_tm
-Proof
-  recInduct esubst_ty0_ind
-  >> gvs[term_ok_def, esubst_ty0_def, MEM, free_names, bind_EQ_return, AllCaseEqs(),
-         PULL_EXISTS]
-  >> rw[]
-  >- metis_tac[] >- metis_tac[]
-  >> gvs[try_eq_return, bind_EQ_return]
-  >- (first_x_assum drule >> strip_tac >> first_assum $ irule_at Any
-      >> strip_tac >> gvs[] >> metis_tac[])
-
-
-
-     Cases_on ‘esubst_ty0 ((Var n ty,Var n (ty_esubst σ ty))::env) σ tm'’
-      >> gvs[bind_EQ_return, try_def, AllCaseEqs()]
-      >> first_assum drule >> rw[]
-      >> rpt $ first_x_assum drule >> rw[]
-      >> drule_all esubst_ty0_error_name
-      >> rw[] >> rpt $ first_x_assum drule
-      >> cheat)
-  >> Cases_on ‘esubst_ty0 ((Var x ty,Var x (ty_esubst σ ty))::env) σ tm'’
-  >> gvs[bind_EQ_return, try_def, AllCaseEqs()]
-  >- metis_tac[]
-  >> rpt $ first_assum dxrule >> rw[]
-  >> cheat
-QED
-
-Theorem esubst_ty0_never_errors:
-  ∀env σ tm e.
-    esubst_ty0 env σ tm = error e
-    ∧ env_ok env
-    ∧ term_ok sig tm
-    ⇒ ∃n ty1 ty2.
-        e = Var n (ty_esubst σ ty1) ∧ MEM (Var n ty2, e) env
-        ∧ ty1 ≠ ty2 ∧ VFREE_IN (Var n ty1) tm
-Proof
-  recInduct esubst_ty0_ind >> rw[term_ok_def]
-  >- (gvs[esubst_ty0_def, AllCaseEqs(), env_ok_def]
-      >> drule REV_ASSOCD_NEQ_DEFAULT >> rw[]
-      >> first_x_assum drule >> rw[] >> metis_tac[])
-  >- gvs[esubst_ty0_def]
-  >- (gvs[esubst_ty0_def] >> metis_tac[bind_error_comb]) >> gvs[]
-  >> gvs[term_ok_def, env_ok_ext, neq_error]
-  >> gvs[esubst_ty0_def, bind_EQ_error, try_eq_error]
-  >- (first_x_assum drule >> impl_tac
-      >- metis_tac[term_ok_vsubst_variant]
-      >> rename [‘NVARIANT nm body'’]
-      >> qabbrev_tac ‘variant = NVARIANT nm body'’
-      >> qpat_x_assum ‘ty_esubst _ _ = ty_esubst _ _’ (assume_tac o SYM) >> gvs[]
-      >> qabbrev_tac ‘V1 = Var variant ty’
-      >> qabbrev_tac ‘V2 = Var variant (ty_esubst σ ty)’
-      >> strip_tac
-      >- (qpat_x_assum ‘_ = variant’ SUBST_ALL_TAC
-          >> qpat_x_assum ‘e = Var _ _’ SUBST_ALL_TAC
-          >> qpat_x_assum ‘ty2 = ty’ SUBST_ALL_TAC
-          >> simp[] >> drule_at_then (Pos last) drule VFREE_IN_VSUBST
-          >> impl_tac >- simp[Abbr‘V1’]
-          >> strip_tac >> simp[Abbr‘variant’]
-          >> metis_tac[NVARIANT_esubst_ty0])
-      >- (cheat)) gvs[]
-  >> gvs[AllCaseEqs(), bind_EQ_error] >- metis_tac[]
-  >> first_x_assum drule >> rw[]
-  >> qspecl_then [‘body’, ‘NVARIANT n' v’, ‘n'’, ‘ty’] assume_tac term_ok_vsubst_variant
-  >> first_x_assum drule >> rw[] >> gvs[]
-  >- (cheat)
-  >- (cheat)
-QED
-
-Theorem esubst_ty0_always_returns:
-  ∀σ tm sig. term_ok sig tm ⇒ ∃v. esubst_ty0 [] σ tm = return v
-Proof
-  rw[] >> qspecl_then [‘[]’, ‘σ’, ‘tm’] assume_tac esubst_ty0_never_errors
-  >> gvs[neq_error]
-QED
-
-Definition esubsts_ok_def:
-  (* substituting the variable doesn't semantically change the abs' meaning *)
-  (esubsts_ok σ (Abs v body) ⇔
-     ¬(∃p. v = esubst σ p ∧ VFREE_IN p body) ∧ esubsts_ok σ body) ∧
-
-  (* term substitutions are type-consistent with any type substitutions *)
-  (esubsts_ok σ (Const n ty) ⇔ typeof (esubst σ (Const n ty)) = ty_esubst σ ty) ∧
-
-  (esubsts_ok σ (Comb l r) ⇔ esubsts_ok σ l ∧ esubsts_ok σ r) ∧
-  (esubsts_ok _ (Var _ _) ⇔ T)
-End
 
 Inductive proves':
 [~ABS:]
@@ -1162,9 +999,8 @@ Inductive proves':
 
 [~elim_inst:]
   ((thy, es, h) |-' c
-   ∧ (∀p. p ∈ es ⇒ esubsts_ok σ p ∧ term_ok thy.sig (esubst σ p) ∧ (esubst σ p) has_type Bool)
-   ∧ (∀p. MEM p h ⇒ esubsts_ok σ p ∧ term_ok thy.sig (esubst σ p) ∧ (esubst σ p) has_type Bool)
-   ∧ esubsts_ok σ c
+   ∧ (∀p. p ∈ es ⇒ term_ok thy.sig (esubst σ p) ∧ (esubst σ p) has_type Bool)
+   ∧ (∀p. MEM p h ⇒ term_ok thy.sig (esubst σ p) ∧ (esubst σ p) has_type Bool)
    ∧ (esubst σ c) has_type Bool
    ∧ term_ok thy.sig (esubst σ c)
    ⇒ (thy, IMAGE (esubst σ) es, MAP (esubst σ) h) |-' esubst σ c)
@@ -1445,11 +1281,23 @@ Proof
   Induct_on ‘$|-'’ >> rw[] >> rw[] >> gvs[theory_ok'_def, term_ok_term_ok'_weakening]
 QED
 
-Theorem esubst_equation:
-  esubst_ok
-  esubst σ (a === b) = esubst σ a === esubst σ b
+Definition esubsts_ok_def:
+  esubsts_ok σ = T
+End
+
+Theorem esubst_ty_ok_tys:
+  ∀a b. esubsts_ok σ ⇒ esubst_ty σ (a === b) = (esubst_ty σ a) === (esubst_ty σ b)
 Proof
   cheat
+QED
+        
+Theorem esubst_equation[simp]:
+  ∀a b.
+    esubsts_ok σ ⇒
+    esubst σ (a === b) = esubst σ a === esubst σ b
+Proof
+  rw[esubst_def, esubst_tm_def]
+  >> drule esubst_ty_ok_tys >> gvs[equation_def] >> metis_tac[]
 QED
 
 Theorem proves_substitutable:
@@ -1457,11 +1305,11 @@ Theorem proves_substitutable:
     ((sig, axs ∪ es), h) |- c ∧
     theory_ok (sig, axs ∪ IMAGE (esubst σ) es) ∧
     (∀p. p ∈ es ⇒
-         esubsts_ok σ p ∧ term_ok sig (esubst σ p) ∧
+         term_ok sig (esubst σ p) ∧
          esubst σ p has_type Bool) ∧
     (∀p. MEM p h ⇒
-         esubsts_ok σ p ∧ term_ok sig (esubst σ p) ∧
-         esubst σ p has_type Bool) ∧ esubsts_ok σ c ∧
+         term_ok sig (esubst σ p) ∧
+         esubst σ p has_type Bool) ∧
     esubst σ c has_type Bool ∧ term_ok sig (esubst σ c) ⇒
     ((sig, axs ∪ IMAGE (esubst σ) es), MAP (esubst σ) h) |- esubst σ c
 Proof
