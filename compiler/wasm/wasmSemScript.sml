@@ -468,7 +468,7 @@ Definition exec_def:
     let s1 = s with stack:=TAKE m stack0 in
     let (res, s) = fix_clock s1 (exec_list b s1) in
     case res of
-      RBreak 0 =>
+    | RBreak 0 =>
       if LENGTH s.stack < n then inv s else
       if s.clock = 0 then (RTimeout,s) else
         exec (Loop tb b) (s with <| stack := (TAKE n s.stack) ++ (DROP m stack0);
@@ -486,19 +486,19 @@ Definition exec_def:
   ) ∧
   (exec (Br w) s = (RBreak (w2n w), s)) ∧
   (exec (BrIf w) s =
-    case pop s of NONE => inv s | SOME (c,s) =>
+    case pop s     of NONE => inv s | SOME (c,s) =>
     case nonzero c of NONE => inv s | SOME t =>
     if t then (RBreak (w2n w), s) else (RNormal, s)
   ) ∧
   (exec (BrTable table default) s =
-    case pop s of NONE => inv s | SOME (x,s) =>
+    case pop s      of NONE => inv s | SOME (x,s) =>
     case dest_i32 x of NONE => inv s | SOME w =>
     (RBreak (case oEL (w2n w) table of NONE => w2n default | SOME i => w2n i), s)
   ) ∧
   (exec Return s = (RReturn, s)
   ) ∧
   (exec (ReturnCall fi) s =
-    case oEL (w2n fi) s.funcs of NONE => inv s | SOME f =>
+    case oEL (w2n fi) s.funcs      of NONE => inv s | SOME f =>
     case oEL (w2n f.ftype) s.types of NONE => inv s | SOME (ins,outs) =>
     let np = LENGTH ins in
     let nr = LENGTH outs in
@@ -520,13 +520,13 @@ Definition exec_def:
   ) ∧
   (exec (ReturnCallIndirect n tf) s = let inv = inv s in
     case pop s                                        of NONE=>inv| SOME (x,s) =>
-    case dest_i32 x                                   of NONE=>inv| SOME w =>
-    case lookup_func_tables [s.func_tables] (w2n n) w of NONE=>inv| SOME fi =>
-    case oEL fi s.funcs                               of NONE=>inv| SOME f =>
+    case dest_i32 x                                   of NONE=>inv| SOME w     =>
+    case lookup_func_tables [s.func_tables] (w2n n) w of NONE=>inv| SOME fi    =>
+    case oEL fi s.funcs                               of NONE=>inv| SOME f     =>
       exec (ReturnCall (n2w fi)) s
   ) ∧
   (exec (Call fi) s =
-    case oEL (w2n fi) s.funcs of NONE => inv s | SOME f =>
+    case oEL (w2n fi) s.funcs      of NONE => inv s | SOME f          =>
     case oEL (w2n f.ftype) s.types of NONE => inv s | SOME (ins,outs) =>
     let np = LENGTH ins in
     let nr = LENGTH outs in
@@ -547,30 +547,33 @@ Definition exec_def:
       | _ => (res, s1)
   ) ∧
   (exec (CallIndirect n tf) s =
-    case pop s of NONE => inv s | SOME (x,s) =>
-    case dest_i32 x of NONE => inv s | SOME w =>
+    case pop s      of NONE => inv s | SOME (x,s) =>
+    case dest_i32 x of NONE => inv s | SOME w     =>
     (* TODO we removed one layer of indirection *)
     (* we only use one func table *)
     case lookup_func_tables [s.func_tables] (w2n n) w of NONE => inv s | SOME fi =>
-      exec (Call (n2w fi)) s) ∧
-
+      exec (Call (n2w fi)) s
+  ) ∧
   (****************)
   (*   Numerics   *)
   (****************)
   (exec (Numeric op) s =
     case num_stk_op op s.stack of NONE => inv s | SOME stack1 =>
-    (RNormal, s with stack := stack1)) ∧
+    (RNormal, s with stack := stack1)
+  ) ∧
   (*******************)
   (*   Parametrics   *)
   (*******************)
   (exec (Parametric Drop) s =
-    case pop s of NONE => (RInvalid, s) | SOME (_,s) => (RNormal, s)) ∧
+    case pop s of NONE => inv s | SOME (_,s) => (RNormal, s)
+  ) ∧
   (exec ((Parametric Select):instr) s =
-    case pop s     of NONE => (RInvalid, s) | SOME (c   ,s) =>
-    case pop s     of NONE => (RInvalid, s) | SOME (val2,s) =>
-    case pop s     of NONE => (RInvalid, s) | SOME (val1,s) =>
-    case nonzero c of NONE => (RInvalid, s) | SOME b        =>
-      (RNormal, push (if b then val1 else val2) s)         ) ∧
+    case pop s     of NONE => inv s | SOME (c   ,s) =>
+    case pop s     of NONE => inv s | SOME (val2,s) =>
+    case pop s     of NONE => inv s | SOME (val1,s) =>
+    case nonzero c of NONE => inv s | SOME b        =>
+      (RNormal, push (if b then val1 else val2) s)
+  ) ∧
   (*****************)
   (*   Variables   *)
   (*****************)
@@ -579,21 +582,24 @@ Definition exec_def:
     (RNormal, push x s)
   ) ∧
   (exec (Variable $ LocalSet n) s =
-    case pop s of NONE => inv s | SOME (x,s) =>
-    case set_local (w2n n) x s of NONE => inv s | SOME s =>
-      (RNormal,s)) ∧
+    case pop s                 of NONE => inv s | SOME (x,s) =>
+    case set_local (w2n n) x s of NONE => inv s | SOME s     =>
+      (RNormal,s)
+  ) ∧
   (exec (Variable $ LocalTee n) s =
-    case pop s of NONE => inv s | SOME (x,_) =>
-    case set_local (w2n n) x s of NONE => inv s | SOME s =>
-      (RNormal,s)) ∧
+    case pop s                 of NONE => inv s | SOME (x,_) =>
+    case set_local (w2n n) x s of NONE => inv s | SOME s     =>
+      (RNormal,s)
+  ) ∧
   (exec (Variable $ GlobalGet n) s =
     case oEL (w2n n) s.globals of NONE => inv s | SOME x =>
     (RNormal, push x s)
   ) ∧
   (exec (Variable $ GlobalSet n) s =
-    case pop s of NONE => inv s | SOME (x,s) =>
-    case set_global (w2n n) x s of NONE => inv s | SOME s =>
-      (RNormal,s)) ∧
+    case pop s                  of NONE => inv s | SOME (x,s) =>
+    case set_global (w2n n) x s of NONE => inv s | SOME s     =>
+      (RNormal,s)
+  ) ∧
   (**********************)
   (*   Memory - loads   *)
   (**********************)
@@ -601,8 +607,9 @@ Definition exec_def:
 
   (exec (MemRead op) s = (* TODO: fix *)
     case pop s             of NONE=>inv s| SOME (x,s) =>
-    case dest_i32 x        of NONE=>inv s| SOME w =>
-    case do_ld op s.memory of NONE=>inv s| SOME v => inv s
+    case dest_i32 x        of NONE=>inv s| SOME w     =>
+    case do_ld op s.memory of NONE=>inv s| SOME v     =>
+      inv s
   ) ∧
   (***********************)
   (*   Memory - stores   *)
@@ -612,8 +619,8 @@ Definition exec_def:
 
   (* END CHRC TODO *)
 
-  (exec_list [] s = (RNormal, s)) ∧
-  (exec_list ((b:instr)::bs) s =
+  (exec_list ([]:instr list) (s:state) = (RNormal, s)) ∧
+  (exec_list (b::bs) s =
     let (res,s) = fix_clock s (exec b s) in
     case res of
     | RNormal => exec_list bs s
