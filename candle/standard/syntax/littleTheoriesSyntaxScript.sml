@@ -681,20 +681,6 @@ Definition VSUBSTfm:
                               else Abs v t')
 End
 
-Theorem welltyped_comb_vsubstfm:
-  welltyped (Comb x y)
-  ∧ (∀v. v ∈ FRANGE fm ⇒ ∃n ty. v = Var n ty ∧ term_ok sig v)
-  ⇒ welltyped (Comb (VSUBSTfm fm x) (VSUBSTfm fm y))
-Proof
-  rw[welltyped_def]
-  >> drule $ iffLR has_type_cases >> rw[]
-  >> ‘∃dty rty. (VSUBSTfm fm x) has_type (Fun dty rty) ∧
-                (VSUBSTfm fm y) has_type dty’
-    suffices_by metis_tac[has_type_rules]
-  >> Induct_on ‘x’ >> rw[VSUBSTfm]
-  >- (drule $ iffLR has_type_cases >> rw[])
-QED
-
 Theorem alist_to_fm_FILTER:
   ∀ilist k.
     alist_to_fm (FILTER (λ(s',s). s ≠ k) ilist) = alist_to_fm ilist \\ k
@@ -947,6 +933,26 @@ Proof
                  assume_tac VSUBSTfm_FVs >> gvs[]
 QED
 
+Theorem alist_to_fm_FDOM_MEM:
+  ∀k ilist.
+    k ∈ FDOM (alist_to_fm ilist) ⇒
+    ∃v. MEM (v, k) ilist
+Proof
+  Induct_on ‘ilist’ >> rw[]
+  >> PairCases_on ‘h’ >> gvs[]
+  >> metis_tac[]
+QED
+
+Theorem tm_names_vsubstfm_different_name:
+  ∀tm fm n.
+    term_ok sig tm ∧
+    (∀v. v ∈ FDOM fm ⇒ ∃x ty. v = Var x ty ∧ x ≠ n) ∧
+    MEM n (tm_names tm) ⇒
+    MEM n (tm_names (VSUBSTfm fm tm))
+Proof
+  cheat
+QED
+
 Theorem tm_names_vsubst_different_name:
   ∀tm ilist n.
     term_ok sig tm ∧
@@ -955,14 +961,11 @@ Theorem tm_names_vsubst_different_name:
     MEM n (tm_names tm) ⇒
     MEM n (tm_names (VSUBST ilist tm))
 Proof
-  Induct_on ‘tm’ >> rw[term_ok_def, tm_names_def, VSUBST_def, REV_ASSOCD_def]
-  >- (qspecl_then [‘ilist’, ‘Var m t’, ‘Var m t’] assume_tac REV_ASSOCD_MEM
-      >> rw[] >> gvs[]
-      >- (first_x_assum drule >> rw[]))
-  >- metis_tac[]
-  >- metis_tac[]
-  >> gvs[]
-  >> cheat
+  rw[] >> drule_all VSUBST_VSUBSTfm >> gvs[] >> rw[]
+  >> irule tm_names_vsubstfm_different_name >> rw[]
+  >- (drule alist_to_fm_FDOM_MEM >> rw[]
+      >> first_x_assum drule >> rw[])
+  >> simp[SF SFY_ss]
 QED
 
 Theorem esubst_ty0_impossible1:
