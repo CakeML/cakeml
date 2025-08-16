@@ -494,6 +494,14 @@ Proof
   >> gvs[term_ok_def, FVs_def] >> metis_tac[]
 QED
 
+Theorem FVs_VFREER_in:
+  ∀tm n ty.
+    (n, ty) ∈ FVs tm ⇒ VFREE_IN (Var n ty) tm
+Proof
+  Induct_on ‘tm’ >> rw[VFREE_IN_def, FVs_def, term_ok_def]
+  >> gvs[term_ok_def, FVs_def] >> strip_tac >> gvs[]
+QED
+
 Definition free_names:
   free_names tm = { n | ∃ty. (n, ty) ∈ FVs tm }
 End
@@ -566,9 +574,9 @@ QED
 Theorem variant_name_self:
   ∀tm x ty.
     ¬VFREE_IN (Var x ty) tm
-    ⇒ VARIANT tm (explode x) ty = x
+    ⇔ VARIANT tm (explode x) ty = x
 Proof
-  rw[VARIANT_def]
+  rw[VARIANT_def, EQ_IMP_THM]
   >> qspecl_then [‘tm’, ‘explode x’, ‘ty’] assume_tac VARIANT_PRIMES_def >> gvs[]
   >> first_x_assum $ qspec_then ‘0’ assume_tac >> gvs[]
 QED
@@ -673,6 +681,20 @@ Definition VSUBSTfm:
                               else Abs v t')
 End
 
+Theorem welltyped_comb_vsubstfm:
+  welltyped (Comb x y)
+  ∧ (∀v. v ∈ FRANGE fm ⇒ ∃n ty. v = Var n ty ∧ term_ok sig v)
+  ⇒ welltyped (Comb (VSUBSTfm fm x) (VSUBSTfm fm y))
+Proof
+  rw[welltyped_def]
+  >> drule $ iffLR has_type_cases >> rw[]
+  >> ‘∃dty rty. (VSUBSTfm fm x) has_type (Fun dty rty) ∧
+                (VSUBSTfm fm y) has_type dty’
+    suffices_by metis_tac[has_type_rules]
+  >> Induct_on ‘x’ >> rw[VSUBSTfm]
+  >- (drule $ iffLR has_type_cases >> rw[])
+QED
+
 Theorem alist_to_fm_FILTER:
   ∀ilist k.
     alist_to_fm (FILTER (λ(s',s). s ≠ k) ilist) = alist_to_fm ilist \\ k
@@ -762,7 +784,7 @@ QED
 
 Theorem VSUBSTfm_FVs:
   ∀tm fm.
-    term_ok sig tm ∧
+    term_ok sig tm ∧ 
     (∀v. v ∈ FRANGE fm ⇒ ∃n ty. v = Var n ty) ∧
     (∀v. v ∈ FDOM fm ⇒ ∃n ty. v = Var n ty) ⇒
     FVs (VSUBSTfm fm tm) =
@@ -781,7 +803,7 @@ Proof
       >> qspecl_then [‘Var x ty’, ‘fm’, ‘λp. ∃n ty. p = Var n ty’]
                      assume_tac $ GEN_ALL IN_FRANGE_DOMSUB_suff
       >> gvs[PULL_EXISTS, FORALL_AND_THM, DISJ_IMP_THM, EXTENSION, FLOOKUP_SIMP,
-             DIFF_UNION] >> rw[]
+             DIFF_UNION, FRANGE_DOMSUB_SUBSET] >> rw[]
       >> Cases_on ‘x' = (x, ty)’ >> rw[]
       >- (iff_tac >> rw[]
           >- (qexistsl [‘s’, ‘t’] >> rw[]
@@ -790,19 +812,44 @@ Proof
           >- (qexistsl [‘s’, ‘t’] >> rw[]
               >> Cases_on ‘x = n ∧ ty = ty'’ >> rw[] >> gvs[]
               >> metis_tac[])
-          >> cheat)
-      >- (iff_tac >> rw[]
-          >- metis_tac[]
-          >- (Cases_on ‘x' ∈ FVs tm' ∧
-                        (∀n ty'. x' = (n,ty') ⇒ Var n ty' ∉ FDOM fm)’
-              >> gvs[] >> rw[]
-              >> qexistsl [‘s’, ‘t’] >> rw[]
-              >> Cases_on ‘n = x ∧ ty = ty'’ >> rw[] >> gvs[]
-              >> metis_tac[])
-          >- metis_tac[]
-          >- cheat
-          >- metis_tac[]
-          >> cheat))
+          >> strip_tac >> gvs[Abbr‘Xv’]
+          >> Cases_on ‘(x, ty) ∈ FVs (VSUBSTfm (fm \\ Var x ty) tm')’
+          >- (drule FVs_VFREER_in >> rw[]
+              >> irule $ iffRL variant_name_self >> simp[])
+          >> ‘(∀v. v ∈ FDOM (fm \\ Var x ty) ⇒ ∃n ty. v = Var n ty)’
+            by simp[] >> gvs[]
+          >> first_x_assum $ drule_then (qspec_then ‘(x, ty)’ assume_tac)
+          >> first_x_assum $ qspecl_then [‘s’, ‘t’, ‘n’, ‘ty'’] assume_tac
+          >> ‘Var x ty ≠ Var n ty'’ by simp[]
+          >> metis_tac[DOMSUB_FLOOKUP_NEQ])
+      >> iff_tac >> rw[] >> gvs[]
+      >- (Cases_on ‘x' ∈ FVs tm' ∧
+                    (∀n ty'. x' = (n,ty') ⇒ Var n ty' ∉ FDOM fm)’
+          >> gvs[] >> rw[]
+          >> qexistsl [‘s’, ‘t’] >> rw[]
+          >> Cases_on ‘n = x ∧ ty = ty'’ >> rw[] >> gvs[]
+          >> metis_tac[])
+      >- (strip_tac >> gvs[]
+          >> ‘(∀v. v ∈ FDOM (fm \\ Var x ty) ⇒ ∃n ty. v = Var n ty)’
+            by simp[]
+          >> first_x_assum $ drule_all_then (qspec_then ‘(Xv, ty)’ assume_tac)
+          >> gvs[] >> metis_tac[VARIANT_THM, FVs_VFREER_in])
+      >- (Cases_on ‘x' ∈ FVs tm' ∧
+                    (∀n ty'. x' = (n,ty') ⇒ Var n ty' ∉ FDOM fm)’
+          >> gvs[] >> rw[]
+          >> qexistsl [‘s’, ‘t’] >> rw[]
+          >> Cases_on ‘n = x ∧ ty = ty'’ >> rw[] >> gvs[]
+          >> metis_tac[])
+      >> strip_tac >> gvs[]
+      >> ‘(∀v. v ∈ FDOM (fm \\ Var x ty) ⇒ ∃n ty. v = Var n ty)’
+        by simp[]
+      >> first_x_assum $ drule_all_then (qspec_then ‘(Xv, ty)’ assume_tac)
+      >> gvs[]
+      >> ‘FLOOKUP (fm \\ Var x ty) (Var n ty') = SOME t’
+        by simp[DOMSUB_FLOOKUP_NEQ]
+      >> ‘(Xv, ty) ∈ s’ by simp[]
+      >> ‘(Xv,ty) ∈ FVs (VSUBSTfm (fm \\ Var x ty) tm')’ by metis_tac[]
+      >> metis_tac[VARIANT_THM, FVs_VFREER_in])
   >> gvs[PULL_EXISTS, FORALL_AND_THM, DISJ_IMP_THM, EXTENSION, FLOOKUP_SIMP,
          DIFF_UNION] >> rw[]
   >> iff_tac >> gvs[] >> rw[]
@@ -833,7 +880,6 @@ Proof
       >> qexistsl [‘s’, ‘t’, ‘n’, ‘ty'’]
       >> ‘Var n ty' ≠ Var x ty’ by simp[]
       >> metis_tac[DOMSUB_FLOOKUP_THM])
-     (* n, ty' is NOT Getting swapped for x, ty *)
   >> ‘t ∈ FRANGE fm’ by metis_tac[IN_FRANGE_FLOOKUP]
   >> first_assum dxrule >> rw[]
   >> PairCases_on ‘x'’ >> rw[]
