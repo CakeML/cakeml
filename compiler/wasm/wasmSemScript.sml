@@ -518,11 +518,11 @@ Definition exec_def:
       | RBreak _ => (RInvalid, s1)
       | _ => (res, s1)
   ) ∧
-  (exec (ReturnCallIndirect n tf) s = let inv = inv s in
-    case pop s                                        of NONE=>inv| SOME (x,s) =>
-    case dest_i32 x                                   of NONE=>inv| SOME w     =>
-    case lookup_func_tables [s.func_tables] (w2n n) w of NONE=>inv| SOME fi    =>
-    case oEL fi s.funcs                               of NONE=>inv| SOME f     =>
+  (exec (ReturnCallIndirect n tf) s =
+    case pop s                                        of NONE=>inv s| SOME (x,s) =>
+    case dest_i32 x                                   of NONE=>inv s| SOME w     =>
+    case lookup_func_tables [s.func_tables] (w2n n) w of NONE=>inv s| SOME fi    =>
+    case oEL fi s.funcs                               of NONE=>inv s| SOME f     =>
       exec (ReturnCall (n2w fi)) s
   ) ∧
   (exec (Call fi) s =
@@ -567,7 +567,7 @@ Definition exec_def:
   (exec (Parametric Drop) s =
     case pop s of NONE => inv s | SOME (_,s) => (RNormal, s)
   ) ∧
-  (exec ((Parametric Select):instr) s =
+  (exec (Parametric Select) s =
     case pop s     of NONE => inv s | SOME (c   ,s) =>
     case pop s     of NONE => inv s | SOME (val2,s) =>
     case pop s     of NONE => inv s | SOME (val1,s) =>
@@ -577,7 +577,7 @@ Definition exec_def:
   (*****************)
   (*   Variables   *)
   (*****************)
-  (exec (Variable (LocalGet n)) s =
+  (exec (Variable $ LocalGet n) s =
     case oEL (w2n n) s.locals of NONE => inv s | SOME x =>
     (RNormal, push x s)
   ) ∧
