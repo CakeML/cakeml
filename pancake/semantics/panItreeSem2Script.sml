@@ -1701,6 +1701,71 @@ Proof
   rpt (CASE_TAC>>fs[])>>simp[mrec_bind]
 QED
 
+Theorem mrec_h_handle_call_ret_lemma:
+  mrec h_prog (h_handle_call_ret ct s res) :'a ptree =
+  case res of
+  | INR (NONE,s') => Ret (INR (SOME Error,s'))
+  | INR (SOME Break,s') => Ret (INR (SOME Error,s'))
+  | INR (SOME Continue,s') => Ret (INR (SOME Error,s'))
+  | INR (SOME (Exception eid exn),s') =>
+      (case ct of
+         SOME (_, SOME (eid', evar, p)) =>
+           (if eid' = eid
+            then
+              (case FLOOKUP s.eshapes eid of
+                 SOME sh =>
+                   (if shape_of exn = sh ∧ is_valid_value s.locals evar exn
+                    then Tau (itree_bind
+                              (mrec h_prog (h_prog (p,set_var evar exn (s' with locals := s.locals))):'a ptree)
+                              (mrec h_prog o (λa. Ret (INR
+                                                      (case a of
+                                                         INL _ => (SOME Error,s')
+                                                       | INR (q,t) => (q,t))))))
+                    else Ret (INR (SOME Error,s')))
+               | NONE => Ret (INR (SOME Error,s')))
+            else Ret (INR (SOME (Exception eid exn),empty_locals s')))
+       | _ => Ret (INR (SOME (Exception eid exn),empty_locals s')))
+  | INR (SOME (Return retv), s') =>
+      (case ct of
+         NONE => Ret (INR (SOME (Return retv),empty_locals s'))
+       | SOME (NONE, _) => Ret (INR (NONE, s' with locals := s.locals))
+       | SOME (SOME rt, _) =>
+              if is_valid_value s.locals rt retv
+              then Ret (INR (NONE,set_var rt retv (s' with locals := s.locals)))
+              else Ret (INR (SOME Error,s')))
+  | INR (res,s') => Ret (INR (res,empty_locals s'))
+  | INL _ => Ret (INR (SOME Error,s)):'a ptree
+Proof
+  simp[oneline h_handle_call_ret_def]>>
+  rpt (CASE_TAC>>fs[mrec_bind])
+QED
+
+Theorem mrec_h_handle_deccall_ret_lemma:
+  mrec h_prog (h_handle_deccall_ret rt sh p s res) :'a ptree =
+  case res of
+  | INR (NONE,s') => Ret (INR (SOME Error,s'))
+  | INR (SOME Break,s') => Ret (INR (SOME Error,s'))
+  | INR (SOME Continue,s') => Ret (INR (SOME Error,s'))
+  | INR (SOME (Return retv), s') =>
+      (if shape_of retv = sh then
+         Tau
+         (itree_bind
+          (mrec h_prog (h_prog (p,set_var rt retv (s' with locals := s.locals))):'a ptree)
+          (mrec h_prog o
+                (λa. Ret
+                     (INR
+                      (case a of
+                         INL v => (SOME Error,s')
+                       | INR (q,r') =>
+                           (q, r' with locals := res_var r'.locals (rt, FLOOKUP s.locals rt)))))))
+       else Ret (INR (SOME Error, s')))
+  | INR (res,s') => Ret (INR (res,empty_locals s'))
+  | INL _ => Ret (INR (SOME Error,s)):'a ptree
+Proof
+  simp[oneline h_handle_deccall_ret_def]>>
+  rpt (CASE_TAC>>fs[mrec_bind])
+QED
+
 Theorem mrec_ExtCall:
   mrec h_prog (h_prog (ExtCall ffiname cptr clen aptr alen, s)) =
   case (eval s alen, eval s aptr, eval s clen, eval s cptr) of
