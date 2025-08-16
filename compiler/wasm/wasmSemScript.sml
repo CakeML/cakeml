@@ -6,13 +6,8 @@ Theory      wasmSem
 Ancestors   wasmLang ancillaryOps option arithmetic
 Libs        wordsLib
 
-Type memory = “:word8 list”
+Type mem = “:word8 list”
 Overload b2w[local] = “λ (b:bool). if b then 1w:α word else 0w”
-
-Definition sext_def:
-  sext   Signed = sw2sw ∧
-  sext Unsigned = w2w
-End
 
 Datatype: value
   = I32 word32
@@ -47,7 +42,6 @@ End
 (* Returns the function type for tb *)
 Definition functype_of_blocktype_def:
    functype_of_blocktype types BlkNil : functype option = SOME ([], []) ∧
-(* functype_of_blocktype types (BlkIndex i) = oEL (w2n i) types ∧ *)
    functype_of_blocktype types (BlkVal ty) = SOME ([],[ty])
 End
 
@@ -161,20 +155,26 @@ Inductive unary_op_rel:
   (∀ w. unary_op_rel (Clz       W64) (I64 w) (I64 $ clz    w)) ∧
   (∀ w. unary_op_rel (Ctz       W64) (I64 w) (I64 $ ctz    w)) ∧
 
+  (∀ w. unary_op_rel (Extend8s  W32) (I32 w) (I32 $ extend8s  w)) ∧
+  (∀ w. unary_op_rel (Extend16s W32) (I32 w) (I32 $ extend16s w)) ∧
 
-  (∀ w. unary_op_rel (Extend8s  W32) (I32 w) (I32 $ sw2sw $ (w2w w):word8 )) ∧
-  (∀ w. unary_op_rel (Extend16s W32) (I32 w) (I32 $ sw2sw $ (w2w w):word16)) ∧
-
-  (∀ w. unary_op_rel (Extend8s  W64  ) (I64 w) (I64 $ sw2sw $ (w2w w):word8 )) ∧
-  (∀ w. unary_op_rel (Extend16s W64  ) (I64 w) (I64 $ sw2sw $ (w2w w):word16)) ∧
-(* (∀ w. unary_op_rel  Extend32_s       (I64 w) (I64 $ sw2sw $ (w2w w):word32)) ∧ *)
+  (∀ w. unary_op_rel (Extend8s  W64  ) (I64 w) (I64 $ extend8s  w)) ∧
+  (∀ w. unary_op_rel (Extend16s W64  ) (I64 w) (I64 $ extend16s w)) ∧
+  (∀ w. unary_op_rel  Extend32_s       (I64 w) (I64 $ extend32s (w2w w:word32))) ∧
   (∀ w. unary_op_rel (ExtendI32_ sign) (I32 w) (I64 $ sext sign $ w))
 End
 
+
 Theorem unary_op_rel_det:
-  ∀ op v r1 r2. unary_op_rel op v r1 ∧ unary_op_rel op v r2 ==> r1 = r2
+  ∀ op v r1 r2. unary_op_rel op v r1 ∧ unary_op_rel op v r2 ⇒ r1 = r2
 Proof
-  once_rewrite_tac [unary_op_rel_cases] \\ simp [] \\ rw [] \\ simp []
+  Cases >> Cases
+  >> once_rewrite_tac [unary_op_rel_cases]
+  \\ simp []
+  \\ rpt strip_tac
+  >> cheat
+  (* \\ rw [clz_def, sw2sw_def]
+  \\ simp [] *)
 QED
 
 Definition do_una_def:
@@ -256,7 +256,7 @@ Proof
 QED
 
 (* INVARIANT - changes to ops shouldn't break this *)
-Theorem do_bin_eq = REWRITE_RULE [GSYM do_bin_thm] binop_rel_rules;
+Theorem do_bin_eq    = REWRITE_RULE [GSYM do_bin_thm] binop_rel_rules;
 Theorem do_bin_cases = REWRITE_RULE [GSYM do_bin_thm] binop_rel_cases;
 
 Inductive compare_op_rel:
@@ -277,8 +277,6 @@ Inductive compare_op_rel:
   (∀ l r. compare_op_rel (Le_  Unsigned  W64) (I64 l) (I64 r) (I64 $ b2w (l <=+ r)) )∧
   (∀ l r. compare_op_rel (Ge_  Unsigned  W64) (I64 l) (I64 r) (I64 $ b2w (l >=+ r)) )∧
 
-
-
   (∀ l r. compare_op_rel (Lt_    Signed  W32) (I32 l) (I32 r) (I32 $ b2w (l <  r)) )∧ (* TODO *)
   (∀ l r. compare_op_rel (Gt_    Signed  W32) (I32 l) (I32 r) (I32 $ b2w (l >  r)) )∧ (* TODO *)
   (∀ l r. compare_op_rel (Le_    Signed  W32) (I32 l) (I32 r) (I32 $ b2w (l <= r)) )∧ (* TODO *)
@@ -291,9 +289,12 @@ Inductive compare_op_rel:
 End
 
 Theorem compare_op_rel_det:
-  ∀ c v1 v2 r1 r2. compare_op_rel c v1 v2 r1 ∧ compare_op_rel c v1 v2 r2 ==> r1 = r2
+  ∀ c v1 v2 r1 r2. compare_op_rel c v1 v2 r1 ∧ compare_op_rel c v1 v2 r2 ⇒ r1 = r2
 Proof
-  once_rewrite_tac [compare_op_rel_cases] \\ simp [] \\ rw [] \\ simp []
+  once_rewrite_tac [compare_op_rel_cases]
+  \\ simp []
+  \\ rw []
+  \\ simp []
 QED
 
 Definition do_cmp_def:
@@ -395,48 +396,42 @@ QED
 Theorem do_ld_eq    = REWRITE_RULE [GSYM do_ld_thm] load_op_rel_rules;
 Theorem do_ld_cases = REWRITE_RULE [GSYM do_ld_thm] load_op_rel_cases;
 
-(* Parser complains there's a free variable in the RHS *)
-(* Inductive store_op_rel:
-  (∀ ofs al x m m'. store       x          ofs al m = (m':memory,T) ⇒ store_op rel (Store        Int  W32 ofs al) (I32 x) m m')
-  (* (∀ ofs al x m m'. store ((w2w x):word8 ) ofs al m = (m',T) ⇒ store_op rel (StoreNarrow I8x16 W32 ofs al) (I32 x) m m')∧
-  (∀ ofs al x m m'. store ((w2w x):word16) ofs al m = (m',T) ⇒ store_op rel (StoreNarrow I16x8 W32 ofs al) (I32 x) m m')∧
+Inductive store_op_rel:
+  (∀ ofs al x m m'. store       x          ofs al m = (m',T) ⇒ store_op_rel (Store        Int  W32 ofs al) (I32 x) m m')∧
+  (∀ ofs al x m m'. store ((w2w x):word8 ) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow I8x16 W32 ofs al) (I32 x) m m')∧
+  (∀ ofs al x m m'. store ((w2w x):word16) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow I16x8 W32 ofs al) (I32 x) m m')∧
 
-  (∀ ofs al x m m'. store       x          ofs al m = (m',T) ⇒ store_op rel (Store        Int  W64 ofs al) (I64 x) m m')∧
-  (∀ ofs al x m m'. store ((w2w x):word8 ) ofs al m = (m',T) ⇒ store_op rel (StoreNarrow I8x16 W64 ofs al) (I64 x) m m')∧
-  (∀ ofs al x m m'. store ((w2w x):word16) ofs al m = (m',T) ⇒ store_op rel (StoreNarrow I16x8 W64 ofs al) (I64 x) m m')∧
-  (∀ ofs al x m m'. store ((w2w x):word32) ofs al m = (m',T) ⇒ store_op rel (StoreNarrow32         ofs al) (I64 x) m m') *)
-End *)
+  (∀ ofs al x m m'. store       x          ofs al m = (m',T) ⇒ store_op_rel (Store        Int  W64 ofs al) (I64 x) m m')∧
+  (∀ ofs al x m m'. store ((w2w x):word8 ) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow I8x16 W64 ofs al) (I64 x) m m')∧
+  (∀ ofs al x m m'. store ((w2w x):word16) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow I16x8 W64 ofs al) (I64 x) m m')∧
+  (∀ ofs al x m m'. store ((w2w x):word32) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow32         ofs al) (I64 x) m m')
+End
 
-(* Theorem store_op_rel_det:
-  ∀ op m r1 r2. store_op_rel op m r1 ∧ store_op_rel op m r2 ==> r1 = r2
+Theorem store_op_rel_det:
+  ∀ op x m r1 r2. store_op_rel op x m r1 ∧ store_op_rel op x m r2 ==> r1 = r2
 Proof
   cheat
-  (* once_rewrite_tac [store_op_rel_cases] \\ simp [] \\ rw [] \\ simp [] *)
-QED *)
+  (* once_rewrite_tac [store_op_rel_cases]
+  \\ simp []
+  \\ rw []
+  \\ simp [] *)
+QED
 
+Definition do_st_def:
+  do_st op x m = some res. store_op_rel op x m res
+End
 
-(* Definition do_st_def:
-  do_st op m = some res. store_op_rel op m res
-End *)
-
-(* Theorem do_st_thm:
-  do_st op m = SOME res ⇔ store_op_rel op m res
+Theorem do_st_thm:
+  do_st op x m = SOME res ⇔ store_op_rel op x m res
 Proof
   cheat
   (* rw [do_bin_def] \\ DEEP_INTRO_TAC some_intro
   \\ fs [] \\ metis_tac [binop_rel_det] *)
-QED *)
+QED
 
 (* INVARIANT - changes to ops shoustn't break this *)
-(* Theorem do_st_eq    = REWRITE_RULE [GSYM do_st_thm] store_op_rel_rules;
-Theorem do_st_cases = REWRITE_RULE [GSYM do_st_thm] store_op_rel_cases; *)
-
-
-(* Definition mem_op_def:
-  mem_op ()
-
-
-End *)
+Theorem do_st_eq    = REWRITE_RULE [GSYM do_st_thm] store_op_rel_rules;
+Theorem do_st_cases = REWRITE_RULE [GSYM do_st_thm] store_op_rel_cases;
 
 Definition exec_def:
   (exec Unreachable s = (RTrap,s)) ∧
@@ -553,12 +548,18 @@ Definition exec_def:
     case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
     case set_global (w2n n) x s of NONE => (RInvalid,s) | SOME s =>
       (RNormal,s)) ∧
-  (exec (MemRead op) s = (* TODO: fix *)
-    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
-    case dest_i32 x of NONE => (RInvalid,s) | SOME w =>
-    case do_ld op s.memory of NONE => (RInvalid,s) | SOME v => (RInvalid,s)
+
+  (* TODO - CHRC *)
+
+  (exec (MemRead op) s = let inv = (RInvalid,s) in (* TODO: fix *)
+    case pop s             of NONE=>inv| SOME (x,s) =>
+    case dest_i32 x        of NONE=>inv| SOME w =>
+    case do_ld op s.memory of NONE=>inv| SOME v => (RInvalid,s)
   ) ∧
   (exec (MemWrite op) s = (* TODO: fix *) (RInvalid,s)) ∧
+
+  (* TODO - END CHRC *)
+
   (exec (Numeric op) s =
     case num_stk_op op s.stack of NONE => (RInvalid,s) | SOME stack1 =>
     (RNormal, s with stack := stack1)) ∧
