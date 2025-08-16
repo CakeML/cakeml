@@ -576,22 +576,6 @@ Proof
     \\ first_assum (irule_at Any)
     \\ simp [Boolv_def]
     \\ rw [v_ok_def])
-  \\ Cases_on ‘∃bop. op = Real_bop bop’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
-  \\ Cases_on ‘∃uop. op = Real_uop uop’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
-  \\ Cases_on ‘∃cmp. op = Real_cmp cmp’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [Boolv_def]
-    \\ rw [v_ok_def])
   \\ Cases_on ‘∃opn. op = Opn opn’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [SF SFY_ss]
@@ -656,11 +640,6 @@ Proof
     rw[do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
-  \\ Cases_on ‘op = RealFromFP’ \\ gs[]
-  >- (
-    rw[do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [v_ok_def])
   \\ Cases_on ‘op’ \\ gs []
 QED
 
@@ -675,30 +654,6 @@ Proof
     \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs [state_ok_def]
     \\ rename1 ‘EVERY (v_ok ctxt1)’
     \\ qexists_tac ‘ctxt1’ \\ gs []
-    \\ drule do_app_ok \\ gs []
-    \\ disch_then drule_all \\ simp []
-    \\ strip_tac \\ gs []
-    \\ rpt CASE_TAC \\ gs []
-    \\ first_assum (irule_at Any) \\ gs [])
-  >~ [‘Icing’] >- (
-    gvs [AllCaseEqs()]
-    \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs [state_ok_def]
-    \\ rename1 ‘EVERY (v_ok ctxt1)’
-    \\ qexists_tac ‘ctxt1’ \\ gs [astTheory.isFpBool_def]
-    \\ drule do_app_ok \\ gs []
-    \\ disch_then drule_all \\ simp []
-    \\ strip_tac \\ gs []
-    \\ rpt CASE_TAC \\ gs[do_fprw_def] \\ rveq
-    \\ first_assum (irule_at Any)
-    \\ gs [shift_fp_opts_def, Boolv_def,
-           CaseEqs["option","semanticPrimitives$result","list", "v"]]
-    \\ rveq \\ gs[v_ok_def]
-    \\ COND_CASES_TAC \\ gs[v_ok_def])
-  >~ [‘Reals’] >- (
-    gvs [AllCaseEqs()]
-    \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs [state_ok_def]
-    \\ rename1 ‘EVERY (v_ok ctxt1)’
-    \\ qexists_tac ‘ctxt1’ \\ gs [shift_fp_opts_def]
     \\ drule do_app_ok \\ gs []
     \\ disch_then drule_all \\ simp []
     \\ strip_tac \\ gs []
@@ -892,125 +847,6 @@ Theorem evaluate_v_ok_Lannot:
   ^(get_goal "Lannot")
 Proof
   rw [evaluate_def]
-QED
-
-Theorem STRING_TYPE_do_fpoptimise:
-  STRING_TYPE m v ⇒
-  do_fpoptimise annot [v] = [v]
-Proof
-  Cases_on ‘m’
-  \\ gs[ml_translatorTheory.STRING_TYPE_def, do_fpoptimise_def]
-QED
-
-Theorem LIST_TYPE_TYPE_TYPE_do_fpoptimise:
-  ∀ l v annot.
-    (∀ ty v. MEM ty l ⇒ TYPE_TYPE ty v ⇒ do_fpoptimise annot [v] = [v]) ∧
-    LIST_TYPE TYPE_TYPE l v ⇒
-    do_fpoptimise annot [v] = [v]
-Proof
-  Induct_on ‘l’ \\ rw[ml_translatorTheory.LIST_TYPE_def]
-  \\ gs [do_fpoptimise_def]
-  \\ last_x_assum irule \\ metis_tac[]
-QED
-
-Theorem TYPE_TYPE_do_fpoptimise:
-  ∀ ty v. TYPE_TYPE ty v ⇒ do_fpoptimise annot [v] = [v]
-Proof
-  ho_match_mp_tac TYPE_TYPE_ind \\ rw[TYPE_TYPE_def]
-  \\ gs[do_fpoptimise_def]
-  \\ imp_res_tac STRING_TYPE_do_fpoptimise \\ gs[]
-  \\ drule LIST_TYPE_TYPE_TYPE_do_fpoptimise \\ gs[]
-QED
-
-Theorem TERM_TYPE_do_fpoptimise:
-  ∀ v ty. TERM_TYPE ty v ⇒ do_fpoptimise annot [v] = [v]
-Proof
-  Induct_on ‘ty’ \\ rw[TERM_TYPE_def] \\ res_tac \\ gs[do_fpoptimise_def]
-  \\ imp_res_tac TYPE_TYPE_do_fpoptimise
-  \\ imp_res_tac STRING_TYPE_do_fpoptimise \\ gs []
-QED
-
-Theorem LIST_TYPE_TERM_TYPE_do_fpoptimise:
-  ∀ l v annot. LIST_TYPE TERM_TYPE l v ⇒ do_fpoptimise annot [v] = [v]
-Proof
-  Induct_on ‘l’ \\ gs[ml_translatorTheory.LIST_TYPE_def, do_fpoptimise_def]
-  \\ rpt strip_tac \\ rveq
-  \\ imp_res_tac TERM_TYPE_do_fpoptimise
-  \\ gs[do_fpoptimise_def]
-QED
-
-Theorem THM_TYPE_do_fpoptimise:
-  ∀ v ty. THM_TYPE ty v ⇒ do_fpoptimise annot [v] = [v]
-Proof
-  Induct_on ‘ty’ \\ rw [THM_TYPE_def]
-  \\ imp_res_tac TERM_TYPE_do_fpoptimise
-  \\ imp_res_tac LIST_TYPE_TERM_TYPE_do_fpoptimise
-  \\ gs [do_fpoptimise_def]
-QED
-
-Theorem inferred_do_fpoptimise:
-  ∀ ctxt v.
-    inferred ctxt v ⇒
-    ∀ xs vs annot.
-      v = Conv (SOME xs) vs ⇒
-      inferred ctxt (Conv (SOME xs) (do_fpoptimise annot vs))
-Proof
-  ho_match_mp_tac inferred_ind \\ rw[]
-  >- gs[kernel_funs_def]
-  >- (imp_res_tac TYPE_TYPE_do_fpoptimise \\ gs [do_fpoptimise_def]
-      \\ gs[inferred_cases, SF SFY_ss])
-  >- (imp_res_tac TERM_TYPE_do_fpoptimise \\ gs [do_fpoptimise_def]
-      \\ gs [inferred_cases, SF SFY_ss])
-  >- (imp_res_tac THM_TYPE_do_fpoptimise \\ gs [do_fpoptimise_def]
-      \\ gs [inferred_cases, SF SFY_ss])
-QED
-
-Theorem EVERY_v_ok_do_fpoptimise:
-  ∀ annot vs ctxt.
-    EVERY (v_ok ctxt) vs ⇒
-    EVERY (v_ok ctxt) (do_fpoptimise annot vs)
-Proof
-  ho_match_mp_tac do_fpoptimise_ind \\ rpt conj_tac
-  \\ gs[do_fpoptimise_def, v_ok_def] \\ rpt strip_tac
-  \\ gs[] \\ Cases_on ‘st’ \\ gs[]
-  \\ imp_res_tac kernel_vals_Conv \\ simp[]
-  \\ qpat_x_assum ‘kernel_vals _ _’ $ assume_tac o SIMP_RULE std_ss [Once v_ok_cases]
-  \\ gs[]
-  >- (simp [Once v_ok_cases]
-      \\ drule inferred_do_fpoptimise \\ gs[])
-  \\ Cases_on ‘f’ \\ gs[do_partial_app_def, CaseEq"exp"]
-QED
-
-Theorem evaluate_v_ok_FpOptimise:
-  ^(get_goal "FpOptimise")
-Proof
-  rw[evaluate_def] \\ gvs [AllCaseEqs()]
-  \\ ‘st with fp_state := st.fp_state = st’ by gs [state_component_equality]
-  \\ gvs []
-  >- (
-    last_x_assum drule \\ gs[safe_exp_def, state_ok_def]
-    \\ strip_tac \\ gs[]
-    \\ first_assum $ irule_at Any \\ gs[] \\ conj_tac
-    >- metis_tac[]
-    \\ irule EVERY_v_ok_do_fpoptimise \\ gs[])
-  >- (last_x_assum drule \\ gs[safe_exp_def, state_ok_def])
-  >- (
-    ‘state_ok ctxt (st with fp_state := st.fp_state with canOpt := FPScope annot)’
-    by (gs[state_ok_def] \\ metis_tac[])
-    \\ last_x_assum drule \\ gs[safe_exp_def]
-    \\ strip_tac \\ gs[]
-    \\ ‘state_ok ctxt'' (st' with fp_state := st'.fp_state with canOpt := st.fp_state.canOpt)’
-      by (gs[state_ok_def] \\ metis_tac[])
-    \\ first_assum $ irule_at Any  \\ gs[]
-    \\ irule EVERY_v_ok_do_fpoptimise \\ gs[])
-  >- (
-    ‘state_ok ctxt (st with fp_state := st.fp_state with canOpt := FPScope annot)’
-    by (gs[state_ok_def] \\ metis_tac[])
-    \\ last_x_assum drule \\ gs[safe_exp_def]
-    \\ strip_tac \\ gs[]
-    \\ Cases_on ‘e'’ \\ gs[]
-    \\ first_assum $ irule_at Any  \\ gs[]
-    \\ gs[state_ok_def] \\ metis_tac[])
 QED
 
 Theorem evaluate_v_ok_pmatch_Nil:
@@ -1220,7 +1056,6 @@ Proof
                   evaluate_v_ok_If, evaluate_v_ok_Mat,
                   evaluate_v_ok_Let, evaluate_v_ok_Letrec,
                   evaluate_v_ok_Tannot, evaluate_v_ok_Lannot,
-                  evaluate_v_ok_FpOptimise,
                   evaluate_v_ok_pmatch_Nil, evaluate_v_ok_pmatch_Cons,
                   evaluate_v_ok_decs_Nil, evaluate_v_ok_decs_Cons,
                   evaluate_v_ok_decs_Dlet, evaluate_v_ok_decs_Dletrec,

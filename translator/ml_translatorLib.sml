@@ -565,6 +565,11 @@ in
   fun is_primitive_exception name = can get_primitive_exception name
 end;
 
+val float64_ty = mk_thy_type{Args = [fcpSyntax.mk_int_numeric_type 52,
+                                     fcpSyntax.mk_int_numeric_type 11],
+                             Thy = "binary_ieee",
+                             Tyop = "float"}
+
 val default_eq_lemmas = CONJUNCTS EqualityType_NUM_BOOL
     @ CONJUNCTS IsTypeRep_NUM_BOOL
     @ [IsTypeRep_PAIR, IsTypeRep_LIST, IsTypeRep_VECTOR]
@@ -604,6 +609,8 @@ in
   val word8_ast_t = prim_type "word8"
   val word64_ast_t = prim_type "word64"
   val string_ast_t = prim_type "string"
+  val double_ast_t = prim_type "double"
+
   val one_ast_t = mk_Attup(listSyntax.mk_list([],ast_t_ty))
   fun type2t ty =
     if ty = bool then bool_ast_t else
@@ -618,6 +625,7 @@ in
     if ty = oneSyntax.one_ty then one_ast_t else
     if ty = stringSyntax.string_ty andalso use_hol_string_type() then string_ast_t else
     if ty = mlstring_ty then string_ast_t else
+    if ty = float64_ty then double_ast_t else
     if can dest_vartype ty then
       astSyntax.mk_Atvar(stringSyntax.fromMLstring (dest_vartype ty))
     else let
@@ -668,6 +676,7 @@ in
     if ty = stringSyntax.char_ty then CHAR else
     if ty = stringSyntax.string_ty andalso use_hol_string_type() then HOL_STRING_TYPE else
     if ty = mlstringSyntax.mlstring_ty then STRING_TYPE else
+    if ty = float64_ty then FLOAT64 else
     if is_vector_type ty then let
       val inv = get_type_inv (dest_vector_type ty)
       in VECTOR_TYPE_def |> ISPEC inv |> SPEC_ALL
@@ -2076,7 +2085,9 @@ fun register_term_types register_type tm = let
     ((if is_abs tm then every_term f (snd (dest_abs tm))
       else if is_comb tm then (every_term f (rand tm); every_term f (rator tm))
       else ()); f tm)
-  val special_types = [numSyntax.num,intSyntax.int_ty,bool,stringSyntax.char_ty,mlstringSyntax.mlstring_ty,mk_vector_type alpha,wordsSyntax.mk_word_type alpha]
+  val special_types = [numSyntax.num,intSyntax.int_ty,bool,stringSyntax.char_ty,
+                       mlstringSyntax.mlstring_ty,mk_vector_type alpha,
+                       wordsSyntax.mk_word_type alpha, float64_ty]
                       @ get_user_supplied_types ()
   fun ignore_type ty =
     if can (first (fn ty1 => can (match_type ty1) ty)) special_types then true else

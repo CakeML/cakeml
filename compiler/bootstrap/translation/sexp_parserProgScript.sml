@@ -277,8 +277,6 @@ val r = translate (fromSexpTheory.sexpop_def
 
 val r = translate fromSexpTheory.sexplop_def;
 
-val r = translate fromSexpTheory.sexpsc_def;
-
 val r = translate sexpexp_alt_def;
 
 val r = translate fromSexpTheory.sexpdec_alt_def
@@ -471,7 +469,6 @@ val _ = translate typesexp_def;
 val _ = translate patsexp_def;
 val _ = translate opsexp_def;
 val _ = translate lopsexp_def;
-val _ = translate scsexp_def;
 val _ = translate locssexp_def;
 val _ = translate expsexp_def;
 val _ = translate type_defsexp_def;

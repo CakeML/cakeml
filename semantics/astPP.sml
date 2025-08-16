@@ -25,11 +25,6 @@ val _ = bring_fwd_ctors ``:ast$lop``
 val _ = bring_fwd_ctors ``:ast$pat``
 val _ = bring_fwd_ctors ``:ast$exp``
 val _ = bring_fwd_ctors ``:ast$dec``
-val _ = bring_fwd_ctors “:fpValTree$fp_opt”
-val _ = bring_fwd_ctors “:fpValTree$fp_cmp”
-val _ = bring_fwd_ctors “:fpValTree$fp_uop”
-val _ = bring_fwd_ctors “:fpValTree$fp_bop”
-val _ = bring_fwd_ctors “:fpValTree$fp_top”
 (* val _ = bring_fwd_ctors ``:ast$spec`` *)
 (* val _ = bring_fwd_ctors ``:ast$top`` *)
 

@@ -10,8 +10,7 @@ in end
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = new_theory"flatProps"
-val _ = set_grammar_ancestry ["flatLang", "flatSem"];
-val _ = temp_tight_equality ();
+val _ = set_grammar_ancestry ["flatLang", "flatSem", "lprefix_lub"];
 
 Theorem ctor_same_type_OPTREL:
    ∀c1 c2. ctor_same_type c1 c2 ⇔ OPTREL (inv_image $= SND) c1 c2
@@ -770,8 +769,9 @@ Proof
     \\ imp_res_tac evaluate_decs_add_to_clock_initial_state_io_events_mono
     \\ fs [] \\ rveq
     \\ every_case_tac \\ fs [] \\ rw [] \\ fs [])
-  \\ qmatch_abbrev_tac `build_lprefix_lub l1 = build_lprefix_lub l2`
-  \\ `(lprefix_chain l1 /\ lprefix_chain l2) /\ equiv_lprefix_chain l1 l2`
+  \\ qmatch_abbrev_tac
+       ‘build_lprefix_lub l1 = build_lprefix_lub l2’
+  \\ ‘(lprefix_chain l1 /\ lprefix_chain l2) /\ equiv_lprefix_chain l1 l2’
      suffices_by metis_tac [build_lprefix_lub_thm,
                             lprefix_lub_new_chain,
                             unique_lprefix_lub]
