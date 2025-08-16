@@ -40,10 +40,16 @@ Datatype: result
   | RTimeout
 End
 
-(* Returns the function type for tb *)
-Definition functype_of_blocktype_def:
-   functype_of_blocktype BlkNil : functype = ([], [] ) ∧
-   functype_of_blocktype (BlkVal ty)       = ([],[ty])
+(* Returns the result type of a block-y isntr *)
+Definition resulttype_of_blocktype_def:
+   resulttype_of_blocktype  BlkNil : resulttype = NONE ∧
+   resulttype_of_blocktype (BlkVal ty)          = SOME ty
+End
+
+Definition match_blocktype_result_def:
+  match_blocktype_result (BlkNil:blocktype) ([]:value list) : (value list) option = SOME []
+  match_blocktype_result (BlkVal t) [v] = SOME [v]
+  match_blocktype_result _ _ = NONE
 End
 
 (* QQ what is T_i32? *)
@@ -465,9 +471,22 @@ Definition exec_def:
   ) ∧
   (exec Nop s = (RNormal,s)
   ) ∧
-  (exec (Block tb bs) s =
-    (* case functype_of_blocktype s.types tb of NONE => inv s | SOME (mts,nts) => *)
-    let (mts,nts) = functype_of_blocktype tb in
+  (exec (Block tb body) s) =
+    let (res, s') = exec_list body (s with stack := []) in
+
+    case res of
+    | RBreak 0 => ( case match_blocktype_result of
+                    | SOME stk => (RNormal, s' with stack := stk ++ s.stack)
+                    | _        => inv s')
+    | RBreak (SUC l) => RBreak (l, s)
+    | RNormal => (case match_blocktype_result of
+                  | SOME stk => (RNormal, s' with stack := stk ++ s.stack)
+                  | _        => inv s')
+    | _ => (res,s)
+  ) ∧
+  (* this (below) was written assuming blocktypes returning functypes *)
+  (* (exec (Block tb bs) s =
+    case functype_of_blocktype s.types tb of NONE => inv s | SOME (mts,nts) =>
     let m = LENGTH mts in
     let n = LENGTH nts in
     if LENGTH s.stack < m then inv s else
@@ -483,8 +502,8 @@ Definition exec_def:
       if LENGTH s.stack ≠ n then inv s else
       (RNormal, (s with stack := s.stack ++ (DROP m stack0)))
     | _ => (res, s)
-  ) ∧
-  (exec (Loop tb b) s =
+  ) ∧ *)
+  (* (exec (Loop tb b) s =
     (* case functype_of_blocktype s.types tb of NONE => inv s | SOME (mts,nts) => *)
     let (mts,nts) = functype_of_blocktype tb in
     let m = LENGTH mts in
@@ -504,7 +523,7 @@ Definition exec_def:
       if LENGTH s.stack ≠ n then inv s else
       (RNormal, (s with stack := s.stack ++ (DROP m stack0)))
     | _ => (res, s)
-  ) ∧
+  ) ∧ *)
   (exec (If tb bl br) s =
     case pop s     of NONE => inv s | SOME (c,s) =>
     case nonzero c of NONE => inv s | SOME t =>
