@@ -390,14 +390,14 @@ Theorem do_ld_eq    = REWRITE_RULE [GSYM do_ld_thm] load_op_rel_rules;
 Theorem do_ld_cases = REWRITE_RULE [GSYM do_ld_thm] load_op_rel_cases;
 
 Inductive store_op_rel:
-  (∀ ofs al x m m'. store       x          ofs al m = (m',T) ⇒ store_op_rel (Store        Int  W32 ofs al) (I32 x) m m')∧
-  (∀ ofs al x m m'. store ((w2w x):word8 ) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow I8x16 W32 ofs al) (I32 x) m m')∧
-  (∀ ofs al x m m'. store ((w2w x):word16) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow I16x8 W32 ofs al) (I32 x) m m')∧
+  (∀ofs al x m m'. store       x          ofs al m = (m',T) ⇒ store_op_rel (Store        Int  W32 ofs al) (I32 x) m m')∧
+  (∀ofs al x m m'. store ((w2w x):word8 ) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow I8x16 W32 ofs al) (I32 x) m m')∧
+  (∀ofs al x m m'. store ((w2w x):word16) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow I16x8 W32 ofs al) (I32 x) m m')∧
 
-  (∀ ofs al x m m'. store       x          ofs al m = (m',T) ⇒ store_op_rel (Store        Int  W64 ofs al) (I64 x) m m')∧
-  (∀ ofs al x m m'. store ((w2w x):word8 ) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow I8x16 W64 ofs al) (I64 x) m m')∧
-  (∀ ofs al x m m'. store ((w2w x):word16) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow I16x8 W64 ofs al) (I64 x) m m')∧
-  (∀ ofs al x m m'. store ((w2w x):word32) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow32         ofs al) (I64 x) m m')
+  (∀ofs al x m m'. store       x          ofs al m = (m',T) ⇒ store_op_rel (Store        Int  W64 ofs al) (I64 x) m m')∧
+  (∀ofs al x m m'. store ((w2w x):word8 ) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow I8x16 W64 ofs al) (I64 x) m m')∧
+  (∀ofs al x m m'. store ((w2w x):word16) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow I16x8 W64 ofs al) (I64 x) m m')∧
+  (∀ofs al x m m'. store ((w2w x):word32) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow32         ofs al) (I64 x) m m')
 End
 
 Theorem store_op_rel_det:
@@ -435,71 +435,74 @@ Theorem do_st_cases = REWRITE_RULE [GSYM do_st_thm] store_op_rel_cases;
 (*     Top level Semantics     *)
 (*                             *)
 (*******************************)
-
+Overload inv[local] = “λ s. (RInvalid,s)”
 Definition exec_def:
-  (exec Unreachable s = (RTrap,s)) ∧
-  (exec Nop s = (RNormal,s)) ∧
-  (exec ((Block tb bs):instr) s =
-    case functype_of_blocktype s.types tb of NONE => (RInvalid,s) | SOME (mts,nts) =>
+  (exec (Unreachable:instr) (s:state) = (RTrap,s) : result # state
+  ) ∧
+  (exec Nop s = (RNormal,s)
+  ) ∧
+  (exec (Block tb bs) s =
+    case functype_of_blocktype s.types tb of NONE => inv s | SOME (mts,nts) =>
     let m = LENGTH mts in
     let n = LENGTH nts in
-    if LENGTH s.stack < m then (RInvalid,s) else
+    if LENGTH s.stack < m then inv s else
     let stack0 = s.stack in
     let s1 = s with stack:=TAKE m stack0 in
     let (res, s) = exec_list bs s1 in
     case res of
-      RBreak 0 =>
-        if LENGTH s.stack < n then (RInvalid,s) else
+    | RBreak 0 =>
+        if LENGTH s.stack < n then inv s else
           (RNormal, (s with stack := (TAKE n s.stack) ++ (DROP m stack0)))
     | RBreak (SUC l) => (RBreak l, s)
     | RNormal =>
-      if LENGTH s.stack ≠ n then (RInvalid,s) else
+      if LENGTH s.stack ≠ n then inv s else
       (RNormal, (s with stack := s.stack ++ (DROP m stack0)))
     | _ => (res, s)
   ) ∧
   (exec (Loop tb b) s =
-    case functype_of_blocktype s.types tb of NONE => (RInvalid,s) | SOME (mts,nts) =>
+    case functype_of_blocktype s.types tb of NONE => inv s | SOME (mts,nts) =>
     let m = LENGTH mts in
     let n = LENGTH nts in
-    if LENGTH s.stack < m then (RInvalid,s) else
+    if LENGTH s.stack < m then inv s else
     let stack0 = s.stack in
     let s1 = s with stack:=TAKE m stack0 in
     let (res, s) = fix_clock s1 (exec_list b s1) in
     case res of
       RBreak 0 =>
-      if LENGTH s.stack < n then (RInvalid,s) else
+      if LENGTH s.stack < n then inv s else
       if s.clock = 0 then (RTimeout,s) else
         exec (Loop tb b) (s with <| stack := (TAKE n s.stack) ++ (DROP m stack0);
                                     clock := s.clock - 1|>)
     | RBreak (SUC l) => (RBreak l, s)
     | RNormal =>
-      if LENGTH s.stack ≠ n then (RInvalid,s) else
+      if LENGTH s.stack ≠ n then inv s else
       (RNormal, (s with stack := s.stack ++ (DROP m stack0)))
     | _ => (res, s)
   ) ∧
   (exec (If tb bl br) s =
-    case pop s of NONE => (RInvalid,s) | SOME (c,s) =>
-    case nonzero c of NONE => (RInvalid,s) | SOME t =>
+    case pop s     of NONE => inv s | SOME (c,s) =>
+    case nonzero c of NONE => inv s | SOME t =>
     exec (Block tb (if t then bl else br)) s
   ) ∧
   (exec (Br w) s = (RBreak (w2n w), s)) ∧
   (exec (BrIf w) s =
-    case pop s of NONE => (RInvalid,s) | SOME (c,s) =>
-    case nonzero c of NONE => (RInvalid,s) | SOME t =>
+    case pop s of NONE => inv s | SOME (c,s) =>
+    case nonzero c of NONE => inv s | SOME t =>
     if t then (RBreak (w2n w), s) else (RNormal, s)
   ) ∧
   (exec (BrTable table default) s =
-    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
-    case dest_i32 x of NONE => (RInvalid,s) | SOME w =>
+    case pop s of NONE => inv s | SOME (x,s) =>
+    case dest_i32 x of NONE => inv s | SOME w =>
     (RBreak (case oEL (w2n w) table of NONE => w2n default | SOME i => w2n i), s)
   ) ∧
-  (exec Return s = (RReturn, s)) ∧
+  (exec Return s = (RReturn, s)
+  ) ∧
   (exec (ReturnCall fi) s =
-    case oEL (w2n fi) s.funcs of NONE => (RInvalid,s) | SOME f =>
-    case oEL (w2n f.ftype) s.types of NONE => (RInvalid,s) | SOME (ins,outs) =>
+    case oEL (w2n fi) s.funcs of NONE => inv s | SOME f =>
+    case oEL (w2n f.ftype) s.types of NONE => inv s | SOME (ins,outs) =>
     let np = LENGTH ins in
     let nr = LENGTH outs in
-    case pop_n np s of NONE => (RInvalid,s) | SOME (args,s) =>
+    case pop_n np s of NONE => inv s | SOME (args,s) =>
     let init_locals = args ++ MAP init_val_of ins in
     if s.clock = 0 then (RTimeout,s) else
     let s_call = s with <|clock:= s.clock - 1; stack:=[]; locals:=init_locals|> in
@@ -515,18 +518,19 @@ Definition exec_def:
       | RBreak _ => (RInvalid, s1)
       | _ => (res, s1)
   ) ∧
-  (exec (ReturnCallIndirect n tf) s =
-    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
-    case dest_i32 x of NONE => (RInvalid,s) | SOME w =>
-    case lookup_func_tables [s.func_tables] (w2n n) w of NONE => (RInvalid,s) | SOME fi =>
-    case oEL fi s.funcs of NONE => (RInvalid,s) | SOME f =>
-      exec (ReturnCall (n2w fi)) s) ∧
+  (exec (ReturnCallIndirect n tf) s = let inv = inv s in
+    case pop s                                        of NONE=>inv| SOME (x,s) =>
+    case dest_i32 x                                   of NONE=>inv| SOME w =>
+    case lookup_func_tables [s.func_tables] (w2n n) w of NONE=>inv| SOME fi =>
+    case oEL fi s.funcs                               of NONE=>inv| SOME f =>
+      exec (ReturnCall (n2w fi)) s
+  ) ∧
   (exec (Call fi) s =
-    case oEL (w2n fi) s.funcs of NONE => (RInvalid,s) | SOME f =>
-    case oEL (w2n f.ftype) s.types of NONE => (RInvalid,s) | SOME (ins,outs) =>
+    case oEL (w2n fi) s.funcs of NONE => inv s | SOME f =>
+    case oEL (w2n f.ftype) s.types of NONE => inv s | SOME (ins,outs) =>
     let np = LENGTH ins in
     let nr = LENGTH outs in
-    case pop_n np s of NONE => (RInvalid,s) | SOME (args,s) =>
+    case pop_n np s of NONE => inv s | SOME (args,s) =>
     let init_locals = args ++ MAP init_val_of ins in
     if s.clock = 0 then (RTimeout,s) else
     let s_call = s with <|clock:= s.clock - 1; stack:=[]; locals:=init_locals|> in
@@ -543,18 +547,18 @@ Definition exec_def:
       | _ => (res, s1)
   ) ∧
   (exec (CallIndirect n tf) s =
-    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
-    case dest_i32 x of NONE => (RInvalid,s) | SOME w =>
+    case pop s of NONE => inv s | SOME (x,s) =>
+    case dest_i32 x of NONE => inv s | SOME w =>
     (* TODO we removed one layer of indirection *)
     (* we only use one func table *)
-    case lookup_func_tables [s.func_tables] (w2n n) w of NONE => (RInvalid,s) | SOME fi =>
+    case lookup_func_tables [s.func_tables] (w2n n) w of NONE => inv s | SOME fi =>
       exec (Call (n2w fi)) s) ∧
 
   (****************)
   (*   Numerics   *)
   (****************)
   (exec (Numeric op) s =
-    case num_stk_op op s.stack of NONE => (RInvalid,s) | SOME stack1 =>
+    case num_stk_op op s.stack of NONE => inv s | SOME stack1 =>
     (RNormal, s with stack := stack1)) ∧
   (*******************)
   (*   Parametrics   *)
@@ -571,39 +575,40 @@ Definition exec_def:
   (*   Variables   *)
   (*****************)
   (exec (Variable (LocalGet n)) s =
-    case oEL (w2n n) s.locals of NONE => (RInvalid,s) | SOME x =>
+    case oEL (w2n n) s.locals of NONE => inv s | SOME x =>
     (RNormal, push x s)
   ) ∧
   (exec (Variable $ LocalSet n) s =
-    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
-    case set_local (w2n n) x s of NONE => (RInvalid,s) | SOME s =>
+    case pop s of NONE => inv s | SOME (x,s) =>
+    case set_local (w2n n) x s of NONE => inv s | SOME s =>
       (RNormal,s)) ∧
   (exec (Variable $ LocalTee n) s =
-    case pop s of NONE => (RInvalid,s) | SOME (x,_) =>
-    case set_local (w2n n) x s of NONE => (RInvalid,s) | SOME s =>
+    case pop s of NONE => inv s | SOME (x,_) =>
+    case set_local (w2n n) x s of NONE => inv s | SOME s =>
       (RNormal,s)) ∧
   (exec (Variable $ GlobalGet n) s =
-    case oEL (w2n n) s.globals of NONE => (RInvalid,s) | SOME x =>
+    case oEL (w2n n) s.globals of NONE => inv s | SOME x =>
     (RNormal, push x s)
   ) ∧
   (exec (Variable $ GlobalSet n) s =
-    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
-    case set_global (w2n n) x s of NONE => (RInvalid,s) | SOME s =>
+    case pop s of NONE => inv s | SOME (x,s) =>
+    case set_global (w2n n) x s of NONE => inv s | SOME s =>
       (RNormal,s)) ∧
   (**********************)
   (*   Memory - loads   *)
   (**********************)
   (* CHRC TODO - edit in this region on pain of merge conflicts *)
 
-  (exec (MemRead op) s = let inv = (RInvalid,s) in (* TODO: fix *)
-    case pop s             of NONE=>inv| SOME (x,s) =>
-    case dest_i32 x        of NONE=>inv| SOME w =>
-    case do_ld op s.memory of NONE=>inv| SOME v => (RInvalid,s)
+  (exec (MemRead op) s = (* TODO: fix *)
+    case pop s             of NONE=>inv s| SOME (x,s) =>
+    case dest_i32 x        of NONE=>inv s| SOME w =>
+    case do_ld op s.memory of NONE=>inv s| SOME v => inv s
   ) ∧
   (***********************)
   (*   Memory - stores   *)
   (***********************)
-  (exec (MemWrite op) s = (* TODO: fix *) (RInvalid,s)) ∧
+  (exec (MemWrite op) s = (* TODO: fix *) inv s
+  ) ∧
 
   (* END CHRC TODO *)
 
