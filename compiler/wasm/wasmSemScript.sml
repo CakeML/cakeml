@@ -54,12 +54,12 @@ Definition init_val_of_def:
 End
 
 Definition nonzero_def:
-  nonzero (I32 n) = SOME (n ≠ 0w) ∧
+  nonzero (I32 n:value) : bool option = SOME (n ≠ 0w) ∧
   nonzero (I64 n) = NONE
 End
 
 Definition pop_def:
-  pop s =
+  pop (s:state) : (value # state) option =
     case s.stack of
     | [] => NONE
     | (x::ss) => SOME (x, s with stack := ss)
@@ -72,11 +72,11 @@ Definition pop_n_def:
 End
 
 Definition push_def:
-  push x s = s with stack := x :: s.stack
+  push (x:value) (s:state) = s with stack := x :: s.stack
 End
 
 Definition dest_i32_def:
-  dest_i32 (I32 w) = SOME w ∧
+  dest_i32 (I32 w:value) : word32 option = SOME w ∧
   dest_i32 _ = NONE
 End
 
@@ -182,19 +182,22 @@ Proof
 QED
 
 (* ASKMM ASKYK *)
-(* Is this an invocation of the choice function? *)
+(* declaring a function that returns a result via (Axiom of) choice *)
 Definition do_una_def:
   do_una op x = some res. u_op_rel op x res
 End
 
-(* Establishing iff between the relational & functional versions? *)
+(* iff between the relational & functional *)
 Theorem do_una_thm:
   do_una op v = SOME res ⇔ u_op_rel op v res
 Proof
-  rw [do_una_def] \\ DEEP_INTRO_TAC some_intro
-  \\ fs [] \\ metis_tac [u_op_rel_det]
+  rw [do_una_def]
+  \\ DEEP_INTRO_TAC some_intro
+  \\ fs []
+  \\ metis_tac [u_op_rel_det]
 QED
 
+(* derive _eq & _cases for the functional via the relational *)
 Theorem do_una_eq    = REWRITE_RULE [GSYM do_una_thm] u_op_rel_rules;
 Theorem do_una_cases = REWRITE_RULE [GSYM do_una_thm] u_op_rel_cases;
 
@@ -324,7 +327,8 @@ Inductive convert_op_rel:
 End
 
 Theorem convert_op_rel_det:
-  ∀ c x r1 r2. convert_op_rel c x r1 ∧ convert_op_rel c x r2 ⇒ r1 = r2
+  ∀ c x r1 r2.  convert_op_rel c x r1 ∧
+                convert_op_rel c x r2 ⇒ r1 = r2
 Proof
   once_rewrite_tac [convert_op_rel_cases] \\ simp [] \\ rw []
 QED
@@ -352,14 +356,14 @@ Theorem do_cvt_cases = REWRITE_RULE [GSYM do_cvt_thm] convert_op_rel_cases;
 (**************************)
 
 Definition num_stk_op_def:
-  num_stk_op (N_const32 Int w) stack = SOME (I32 w :: stack) ∧
-  num_stk_op (N_const64 Int w) stack = SOME (I64 w :: stack) ∧
-  num_stk_op (N_eqz W32) (I32 w ::stack) = SOME (I32 (b2w (w = 0w)) :: stack) ∧
-  num_stk_op (N_eqz W64) (I64 w ::stack) = SOME (I64 (b2w (w = 0w)) :: stack) ∧
- (num_stk_op (N_unary   op) (v   ::stack) = case do_una op v   of NONE=>NONE| SOME x => SOME (x::stack))∧
- (num_stk_op (N_binary  op) (l::r::stack) = case do_bin op l r of NONE=>NONE| SOME x => SOME (x::stack))∧
- (num_stk_op (N_compare op) (l::r::stack) = case do_cmp op l r of NONE=>NONE| SOME x => SOME (x::stack))∧
- (num_stk_op (N_convert op) (v   ::stack) = case do_cvt op v   of NONE=>NONE| SOME x => SOME (x::stack))
+  num_stk_op (N_const32 Int w)     stk  = SOME (I32  w             :: stk) ∧
+  num_stk_op (N_const64 Int w)     stk  = SOME (I64  w             :: stk) ∧
+  num_stk_op (N_eqz W32) (I32 w :: stk) = SOME (I32 (b2w (w = 0w)) :: stk) ∧
+  num_stk_op (N_eqz W64) (I64 w :: stk) = SOME (I32 (b2w (w = 0w)) :: stk) ∧
+ (num_stk_op (N_unary   op) (v   ::stk) = case do_una op v   of NONE=>NONE| SOME x => SOME $ x::stk)∧
+ (num_stk_op (N_binary  op) (l::r::stk) = case do_bin op l r of NONE=>NONE| SOME x => SOME $ x::stk)∧
+ (num_stk_op (N_compare op) (l::r::stk) = case do_cmp op l r of NONE=>NONE| SOME x => SOME $ x::stk)∧
+ (num_stk_op (N_convert op) (v   ::stk) = case do_cvt op v   of NONE=>NONE| SOME x => SOME $ x::stk)
 End
 
 
@@ -369,19 +373,19 @@ End
 (****************************)
 
 Inductive load_op_rel:
-  (∀ ofs al m v  . load 4 ofs al m = (v,T) ⇒ load_op_rel (Load Int W32 ofs al) m (I32 v) )∧
-  (* Why does the following case need the type annotation for v, but not the preceeding case??? *)
-  (∀ ofs al m v s. load 1 ofs al m = (v:word8 ,T) ⇒ load_op_rel (LoadNarrow I8x16 s W32 ofs al) m (I32 $ sext s $ v) )∧
-  (∀ ofs al m v s. load 2 ofs al m = (v:word16,T) ⇒ load_op_rel (LoadNarrow I16x8 s W32 ofs al) m (I32 $ sext s $ v) )∧
-
-  (∀ ofs al m v  . load 8 ofs al m = (v,T) ⇒ load_op_rel (Load Int W64 ofs al) m (I64 v) )∧
-  (∀ ofs al m v s. load 1 ofs al m = (v:word8 ,T) ⇒ load_op_rel (LoadNarrow I8x16 s W64 ofs al) m (I64 $ sext s $ v) )∧
-  (∀ ofs al m v s. load 2 ofs al m = (v:word16,T) ⇒ load_op_rel (LoadNarrow I16x8 s W64 ofs al) m (I64 $ sext s $ v) )∧
-  (∀ ofs al m v s. load 4 ofs al m = (v:word32,T) ⇒ load_op_rel (LoadNarrow32     s     ofs al) m (I64 $ sext s $ v) )
+  (∀ofs al m v  . load 4 ofs al m = (v       ,T) ⇒ load_op_rel (Load Int W32           ofs al) m (I32 v)            )∧
+  (∀ofs al m v s. load 1 ofs al m = (v:word8 ,T) ⇒ load_op_rel (LoadNarrow I8x16 s W32 ofs al) m (I32 $ sext s $ v) )∧
+  (∀ofs al m v s. load 2 ofs al m = (v:word16,T) ⇒ load_op_rel (LoadNarrow I16x8 s W32 ofs al) m (I32 $ sext s $ v) )
+  ∧
+  (∀ofs al m v  . load 8 ofs al m = (v       ,T) ⇒ load_op_rel (Load Int W64           ofs al) m (I64 v)            )∧
+  (∀ofs al m v s. load 1 ofs al m = (v:word8 ,T) ⇒ load_op_rel (LoadNarrow I8x16 s W64 ofs al) m (I64 $ sext s $ v) )∧
+  (∀ofs al m v s. load 2 ofs al m = (v:word16,T) ⇒ load_op_rel (LoadNarrow I16x8 s W64 ofs al) m (I64 $ sext s $ v) )∧
+  (∀ofs al m v s. load 4 ofs al m = (v:word32,T) ⇒ load_op_rel (LoadNarrow32     s     ofs al) m (I64 $ sext s $ v) )
 End
 
 Theorem load_op_rel_det:
-  ∀ op m r1 r2. load_op_rel op m r1 ∧ load_op_rel op m r2 ⇒ r1 = r2
+  ∀ op m r1 r2. load_op_rel op m r1 ∧
+                load_op_rel op m r2 ⇒ r1 = r2
 Proof
   once_rewrite_tac [load_op_rel_cases]
   \\ simp []
@@ -410,18 +414,19 @@ Theorem do_ld_cases = REWRITE_RULE [GSYM do_ld_thm] load_op_rel_cases;
 (*****************************)
 
 Inductive store_op_rel:
-  (∀ofs al x m m'. store       x          ofs al m = (m',T) ⇒ store_op_rel (Store        Int  W32 ofs al) (I32 x) m m')∧
-  (∀ofs al x m m'. store ((w2w x):word8 ) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow I8x16 W32 ofs al) (I32 x) m m')∧
-  (∀ofs al x m m'. store ((w2w x):word16) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow I16x8 W32 ofs al) (I32 x) m m')∧
-
-  (∀ofs al x m m'. store       x          ofs al m = (m',T) ⇒ store_op_rel (Store        Int  W64 ofs al) (I64 x) m m')∧
-  (∀ofs al x m m'. store ((w2w x):word8 ) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow I8x16 W64 ofs al) (I64 x) m m')∧
-  (∀ofs al x m m'. store ((w2w x):word16) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow I16x8 W64 ofs al) (I64 x) m m')∧
-  (∀ofs al x m m'. store ((w2w x):word32) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow32         ofs al) (I64 x) m m')
+  (∀ofs al x m m'. store       x        ofs al m = (m',T) ⇒ store_op_rel (Store        Int  W32 ofs al) (I32 x) m m')∧
+  (∀ofs al x m m'. store (w2w x:word8 ) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow I8x16 W32 ofs al) (I32 x) m m')∧
+  (∀ofs al x m m'. store (w2w x:word16) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow I16x8 W32 ofs al) (I32 x) m m')
+  ∧
+  (∀ofs al x m m'. store       x        ofs al m = (m',T) ⇒ store_op_rel (Store        Int  W64 ofs al) (I64 x) m m')∧
+  (∀ofs al x m m'. store (w2w x:word8 ) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow I8x16 W64 ofs al) (I64 x) m m')∧
+  (∀ofs al x m m'. store (w2w x:word16) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow I16x8 W64 ofs al) (I64 x) m m')∧
+  (∀ofs al x m m'. store (w2w x:word32) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow32         ofs al) (I64 x) m m')
 End
 
 Theorem store_op_rel_det:
-  ∀ op x m r1 r2. store_op_rel op x m r1 ∧ store_op_rel op x m r2 ⇒ r1 = r2
+  ∀op x m r1 r2.  store_op_rel op x m r1 ∧
+                  store_op_rel op x m r2 ⇒ r1 = r2
 Proof
   once_rewrite_tac [store_op_rel_cases]
   \\ simp []
@@ -706,3 +711,4 @@ QED
 
 Theorem exec_def[allow_rebind] = exec_def |> REWRITE_RULE [fix_clock_exec];
 Theorem exec_ind[allow_rebind] = exec_ind |> REWRITE_RULE [fix_clock_exec];
+
