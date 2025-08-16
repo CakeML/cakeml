@@ -1080,6 +1080,16 @@ Proof
   \\ metis_tac [with_same_locals, eval_exp_swap_locals_alt]
 QED
 
+Triviality eval_true_swap_locals_alt:
+  ALOOKUP l' = ALOOKUP l ⇒
+  eval_true (st with locals := l') env e =
+  eval_true (st with locals := l) env e
+Proof
+  strip_tac
+  \\ simp [eval_true_def]
+  \\ drule eval_exp_swap_locals_alt \\ simp []
+QED
+
 Triviality ALOOKUP_MAP_SOME:
   ∀ns vs.
     LENGTH ns = LENGTH vs ⇒
@@ -1235,15 +1245,6 @@ Definition assi_value_def:
       (st' with clock := ck2,Rcont)
 End
 
-Triviality update_local_aux_cons_neq:
-  xn ≠ n ∧
-  update_local_aux xs n v = SOME ys ⇒
-  update_local_aux ((xn,xv)::xs) n v = SOME ((xn,xv)::ys)
-Proof
-  strip_tac
-  \\ gvs [update_local_aux_def, AllCaseEqs()]
-QED
-
 (* TODO Move to dafnyProps *)
 Theorem is_some_alookup_update_local_aux:
   ∀(xs: (mlstring # value option) list) n.
@@ -1354,20 +1355,93 @@ Definition strict_locals_ok_def:
     ALL_DISTINCT (MAP FST locals)
 End
 
+Triviality strict_locals_ok_IMP_LIST_REL:
+  ∀vs.
+    strict_locals_ok vs st_locals ⇒
+    ∃xs.
+      LIST_REL
+        (λ(n,ty) (m,x).
+           m = n ∧ ALOOKUP st_locals n = SOME x ∧
+           ∃v. v ∈ all_values ty ∧ x = SOME v)
+        vs xs
+Proof
+  Induct \\ gvs []
+  \\ namedCases ["n ty"]
+  \\ gvs [strict_locals_ok_def, PULL_EXISTS]
+  \\ rpt strip_tac
+  \\ first_assum $ qspecl_then [‘n’, ‘ty’] mp_tac
+  \\ impl_tac >- (simp [])
+  \\ rpt strip_tac
+  \\ rename [‘ALOOKUP _ _ = SOME (SOME val)’]
+  \\ qexists ‘(n, SOME val)’ \\ simp []
+QED
+
+Triviality LIST_REL_ALOOKUP:
+  ∀xs vs.
+    LIST_REL
+      (λ(n,ty) (m,x).
+         m = n ∧ ALOOKUP st_locals n = SOME x ∧
+         ∃v. v ∈ all_values ty ∧ x = SOME v) vs xs ∧
+    MEM x (MAP FST xs) ⇒
+    ALOOKUP xs x = ALOOKUP st_locals x
+Proof
+  Induct \\ gvs []
+  \\ gvs [PULL_EXISTS]
+  \\ qx_genl_tac [‘x₁’, ‘v₁’]
+  \\ namedCases_on ‘x₁’ ["n oval"]
+  \\ namedCases_on ‘v₁’ ["m ty"]
+  \\ rpt strip_tac \\ gvs []
+  \\ IF_CASES_TAC \\ gvs []
+  \\ last_x_assum drule \\ simp []
+QED
+
+Triviality MEM_MAP_FST:
+  ∀xs. MEM (x,y) xs ⇒ MEM x (MAP FST xs)
+Proof
+  Induct \\ gvs []
+  \\ rpt strip_tac \\ gvs []
+QED
+
+Triviality ALOOKUP_MEM_FST:
+  ALOOKUP xs x = SOME y ⇒ MEM x (MAP FST xs)
+Proof
+  rpt strip_tac
+  \\ drule_then assume_tac ALOOKUP_MEM
+  \\ drule MEM_MAP_FST \\ simp []
+QED
+
 Theorem forall_imp_conditions_hold:
   ⊢ (Foralls vs (imp (conj reqs) (conj wp_pre))) ∧
+  ALL_DISTINCT (MAP FST vs) ∧
   conditions_hold st env reqs ∧
-(* conditions_hold st env (vars_have_types vs) ∧ *)
   strict_locals_ok vs st.locals ⇒
   conditions_hold st env wp_pre
 Proof
-  cheat (*
   rw [valid_def]
-  \\ last_x_assum $ qspecl_then [‘st’,‘env’] mp_tac
-  \\ gvs [conditions_hold_def]
+  \\ last_x_assum $ qspecl_then [‘st’,‘env’] assume_tac
+  \\ dxrule eval_true_Foralls_distinct
+  \\ disch_then $ dxrule_then assume_tac
+  \\ drule strict_locals_ok_IMP_LIST_REL
+  \\ disch_then $ qx_choose_then ‘xs’ mp_tac
   \\ strip_tac
+  \\ first_x_assum $ qspec_then ‘xs’ mp_tac
+  \\ impl_tac >-
+   (pop_assum mp_tac
+    \\ match_mp_tac LIST_REL_mono
+    \\ PairCases \\ PairCases \\ gvs [])
+  \\ simp []
+  \\ ‘ALOOKUP (xs ++ st.locals) = ALOOKUP st.locals’ by
+    (simp [FUN_EQ_THM]
+     \\ strip_tac
+     \\ simp [ALOOKUP_APPEND]
+     \\ CASE_TAC \\ gvs []
+     \\ drule ALOOKUP_MEM_FST \\ strip_tac
+     \\ drule_all LIST_REL_ALOOKUP \\ simp [])
+  \\ drule eval_true_swap_locals_alt \\ simp [] \\ disch_then kall_tac
+  \\ strip_tac
+  \\ gvs [conditions_hold_def]
   \\ drule eval_true_mp
-  \\ gvs [eval_true_conj_every] *)
+  \\ gvs [eval_true_conj_every]
 QED
 
 Theorem locals_ok_append_left:
@@ -2099,21 +2173,6 @@ Proof
   \\ last_x_assum irule \\ simp []
   \\ first_x_assum $ irule_at $ Pos last
   \\ simp []
-QED
-
-Triviality MEM_MAP_FST:
-  ∀xs. MEM (x,y) xs ⇒ MEM x (MAP FST xs)
-Proof
-  Induct \\ gvs []
-  \\ rpt strip_tac \\ gvs []
-QED
-
-Triviality ALOOKUP_MEM_FST:
-  ALOOKUP xs x = SOME y ⇒ MEM x (MAP FST xs)
-Proof
-  rpt strip_tac
-  \\ drule_then assume_tac ALOOKUP_MEM
-  \\ drule MEM_MAP_FST \\ simp []
 QED
 
 Triviality locals_ok_cons_drop:
@@ -2866,7 +2925,9 @@ Proof
   \\ disch_then $ qspecl_then [‘st’,‘env’] mp_tac
   \\ impl_tac >-
    (asm_rewrite_tac []
-    \\ drule_all forall_imp_conditions_hold \\ strip_tac \\ gvs []
+    \\ ‘ALL_DISTINCT (MAP FST mspec.ins)’ by (gvs [ALL_DISTINCT_APPEND])
+    \\ drule_all forall_imp_conditions_hold
+    \\ strip_tac \\ gvs []
     \\ imp_res_tac strict_locals_ok_IMP_locals_ok
     \\ simp [locals_ok_append_left]
     \\ rpt strip_tac
