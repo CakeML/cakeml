@@ -2585,3 +2585,127 @@ Proof
   simp[FUNPOW_SUC]>>gvs[]
 QED
 
+
+(*** ffi case ***)
+
+Theorem evaluate_ffi_lemma:
+  evaluate (p,s) = (res, s') ⇒
+  (s.ffi = s'.ffi ⇔ s.ffi.io_events = s'.ffi.io_events)
+Proof
+  strip_tac>>eq_tac>>rw[]>>metis_tac[io_event_eq_imp_ffi_eq]
+QED
+
+(*** evaluate -> itree (ffi) ***)
+
+Theorem mrec_Vis_evaluate:
+  mrec h_prog (h_prog (p, bst s)) = (Vis e g:'a ptree) ∧
+  evaluate (p, s) = (res, s') ∧ res ≠ SOME TimeOut ⇒
+  (s.ffi.io_events ≠ s'.ffi.io_events ∧ ∀fe. res ≠ SOME (FinalFFI fe))
+   ∨ (s.ffi.io_events = s'.ffi.io_events ∧ ∃fe. res = SOME (FinalFFI fe))
+Proof
+  map_every qid_spec_tac [‘res’,‘s'’,‘e’,‘g’,‘s’,‘p’]>>
+  Induct>>rw[]>>
+  fs[Once mrec_While,mrec_prog_nonrec,mrec_If,mrec_ExtCall]>>
+  pop_assum mp_tac>>
+  gvs[AllCaseEqs()]>>rw[]>>
+  fs[Once evaluate_def]>>
+  fs[sh_mem_load_def,sh_mem_store_def]>>
+  fs[panPropsTheory.eval_upd_clock_eq,empty_locals_defs]>>
+  gvs[call_FFI_def]>>
+  gvs[AllCaseEqs()]>>
+  rpt (FULL_CASE_TAC>>fs[])>>
+  fs[state_component_equality,ffi_state_component_equality]
+QED
+
+(*** evaluate -> itree (ffi) ***)
+
+Theorem evaluate_mrec_Vis_weak:
+  evaluate (p, s) = (res, s') ∧ res ≠ SOME TimeOut ∧
+  (s.ffi.io_events ≠ s'.ffi.io_events ∨ ∃fe. res = SOME (FinalFFI fe)) ⇒
+    ∃n e g. mrec h_prog (h_prog (p, bst s)) = FUNPOW Tau n (Vis e g:'a ptree)
+Proof
+  map_every qid_spec_tac [‘res’,‘s'’,‘s’,‘p’]>>
+  recInduct evaluate_ind>>rw[]>>
+  simp[mrec_prog_simps,mrec_If,mrec_ShMemLoad,mrec_ShMemStore,
+       mrec_ExtCall,mrec_Call,mrec_DecCall]>>
+  qhdtm_x_assum ‘evaluate’ mp_tac>>
+  simp[Once evaluate_def]>>
+  simp[sh_mem_load_def,sh_mem_store_def,call_FFI_def]>>
+  simp[panPropsTheory.eval_upd_clock_eq,empty_locals_defs]>>rw[]>>
+  gvs[AllCaseEqs()]>>rw[]>>
+  rpt (pairarg_tac>>fs[])>>
+  gvs[set_var_defs,dec_clock_def,res_var_def]>>simp[FUNPOW_Tau_bind]>>
+  TRY (simp[GSYM FUNPOW_SUC]>>NO_TAC)>>
+  TRY (simp[state_component_equality,ffi_state_component_equality]>>NO_TAC)>>
+  TRY (qexists ‘0’>>simp[FUNPOW]>>NO_TAC)
+>~ [‘While’]>-
+   (simp[Once mrec_While]>>
+    Cases_on ‘s.ffi.io_events = s1.ffi.io_events ∧ ∀fe. res' ≠ SOME (FinalFFI fe)’>>fs[]
+      >- (rev_drule (iffRL evaluate_ffi_lemma)>>
+          simp[]>>rw[]>>rfs[]>>
+          rev_drule evaluate_mrec_Ret_weak>>
+          disch_then $ qspecl_then [‘bst s’,‘s.clock-1’,‘s.ffi’] mp_tac>>
+          fs[]>>gvs[]>>
+          impl_tac>-
+           (simp[ext_def,bst_def,state_component_equality]>>
+            rpt (FULL_CASE_TAC>>fs[]))>>
+          rw[]>>simp[FUNPOW_Tau_bind,itree_bind_thm]>>
+          simp[GSYM FUNPOW_SUC]>>
+          rpt (PURE_CASE_TAC>>fs[])>>gvs[]>>
+          fs[GSYM FUNPOW]>>simp[GSYM FUNPOW_ADD])>>
+      ‘res' ≠ SOME TimeOut’
+        by (rpt (FULL_CASE_TAC>>fs[]))>>fs[]>>
+      fs[FUNPOW_Tau_bind,itree_bind_thm]>>
+      fs[GSYM FUNPOW_SUC])
+>~ [‘Seq’]>-
+   (simp[mrec_Seq]>>
+    FULL_CASE_TAC>>fs[]
+    >- (Cases_on ‘s.ffi.io_events = s1.ffi.io_events’>>fs[]
+        >- (drule_all (iffRL evaluate_ffi_lemma)>>rw[]>>
+            drule evaluate_mrec_Ret_weak>>
+            disch_then $ qspecl_then [‘bst s’,‘s.clock’,‘s.ffi’] assume_tac>>
+            fs[]>>gvs[]>>
+            simp[FUNPOW_Tau_bind,itree_bind_thm]>>
+            simp[GSYM FUNPOW_SUC]>>fs[GSYM FUNPOW_ADD])>>
+        qrefine ‘SUC n’>>simp[FUNPOW_SUC]>>
+        simp[FUNPOW_Tau_bind,itree_bind_thm])>>
+    qrefine ‘SUC n’>>simp[FUNPOW_SUC]>>
+    simp[FUNPOW_Tau_bind,itree_bind_thm])
+  (* Call *)
+  >~ [‘h_handle_call_ret’]
+  >- (Cases_on ‘s.ffi.io_events = st.ffi.io_events’>>fs[]
+      >- (rev_drule (iffRL evaluate_ffi_lemma)>>
+          simp[]>>rw[]>>rfs[]>>
+          rev_drule evaluate_mrec_Ret_weak>>
+          disch_then $ qspecl_then [‘bst (s with locals:=newlocals)’,‘s.clock-1’,‘s.ffi’] mp_tac>>
+          fs[]>>gvs[]>>
+          impl_tac>-
+           simp[ext_def,bst_def,state_component_equality]>>
+          rw[]>>simp[FUNPOW_Tau_bind,itree_bind_thm]>>
+          simp[GSYM FUNPOW_SUC]>>
+          simp[mrec_h_handle_call_ret_lemma]>>
+          simp[o_DEF,set_var_defs]>>
+          simp[FUNPOW_Tau_bind,itree_bind_thm]>>
+          simp[GSYM FUNPOW_SUC]>>simp[GSYM FUNPOW_ADD])>>
+      simp[FUNPOW_Tau_bind,itree_bind_thm]>>
+      simp[GSYM FUNPOW_SUC])>>
+  (* DecCall *)
+  Cases_on ‘s.ffi.io_events = st.ffi.io_events’>>fs[]
+      >- (rev_drule (iffRL evaluate_ffi_lemma)>>
+          simp[]>>rw[]>>rfs[]>>
+          rev_drule evaluate_mrec_Ret_weak>>
+          disch_then $ qspecl_then [‘bst (s with locals:=newlocals)’,‘s.clock-1’,‘s.ffi’] mp_tac>>
+          fs[]>>gvs[]>>
+          impl_tac>-
+           simp[ext_def,bst_def,state_component_equality]>>
+          rw[]>>simp[FUNPOW_Tau_bind,itree_bind_thm]>>
+          simp[GSYM FUNPOW_SUC]>>
+          simp[mrec_h_handle_deccall_ret_lemma]>>
+          simp[o_DEF,set_var_defs]>>
+          simp[FUNPOW_Tau_bind,itree_bind_thm]>>
+          simp[GSYM FUNPOW_SUC]>>simp[GSYM FUNPOW_ADD])>>
+      simp[FUNPOW_Tau_bind,itree_bind_thm]>>
+      simp[GSYM FUNPOW_SUC]
+QED
+
+(*********************************************)
