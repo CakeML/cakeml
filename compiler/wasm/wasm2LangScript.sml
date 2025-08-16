@@ -531,7 +531,7 @@ Type expr          = “:instr list”
 Type constant_expr = “:instr list”
 
 Datatype: func =
-  <| name   : string
+  <| name   : mlstring
    ; ftype  : index
    ; locals : valtype list
    ; body   : expr
@@ -574,7 +574,7 @@ End
 
 Datatype: moduleWasm =
   <| types   : functype list
-   ; funcs   : index    list
+   ; funcs   : func     list
    (* ; tables  : table    list *)
    ; mems    : memtype  list
    ; globals : global   list
