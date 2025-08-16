@@ -995,7 +995,10 @@ QED
 
 Theorem bst_normalise[simp]:
   bst s with locals := x = bst (s with locals := x) ∧
-  bst s with memory := m = bst (s with memory := m)
+  bst s with memory := m = bst (s with memory := m) ∧
+  bst (s with <|locals := x;clock :=k|>) = bst (s with locals := x) ∧
+  bst (s with <|memory := m;clock :=k|>) = bst (s with memory := m) ∧
+  bst (s with clock := k) = bst s
 Proof
   simp[bst_def]
 QED
@@ -1063,7 +1066,7 @@ Proof
   rpt (FULL_CASE_TAC>>fs[mrec_simps])>>gvs[]
 QED
 
-Type ptree = “:((ffi_outcome + word8 list) + α result option # α bstate, ev,
+Type ptree[pp] = “:((ffi_outcome + word8 list) + α result option # α bstate, ev,
      (ffi_outcome + word8 list) + α result option # α bstate) itree”;
 
 Type rtree[pp] = “:((ffi_outcome + word8 list) + α result option # α bstate,
