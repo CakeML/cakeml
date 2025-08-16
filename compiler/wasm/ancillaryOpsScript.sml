@@ -270,11 +270,7 @@ QED
 (*                                      *)
 (****************************************)
 
-(* REPLACE ASKMM *)
-Definition take_def:
-  take (n:num) (xs: α list) : (α list # bool) = (TAKE n xs, n <= LENGTH xs)
-End
-
+(* REPLACE ASKYK *)
 Definition load_def:
   load (n:num) (offs:α word) (algn:β word) (bs:byteSeq) : (γ word # bool) =
     let ofs = w2n offs in
@@ -286,9 +282,11 @@ Definition load_def:
 End
 
 Definition store_def:
-  store (x:α word) (offs:β word) (algn:γ word) (m:byte list) : (byteSeq # bool) =
+  store (x:α word) (offs:β word) (algn:γ word) (m:byte list) : (byte list # bool) =
     let oa = (w2n offs) * (w2n algn) in
-    let n = dimindex(:α) DIV 8 in
-    (TAKE oa m ⧺ lend x ⧺ DROP (oa + n) m, oa + n ≤ LENGTH m)
+    let n = dimindex(:α) DIV 8
+    in
+    ( TAKE oa m  ⧺  lend x  ⧺  DROP (oa + n) m
+    , oa + n ≤ LENGTH m)
 End
 
