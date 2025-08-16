@@ -14,8 +14,7 @@ Datatype: value
   | I64 word64
 End
 
-Datatype:
-  state =
+Datatype: state =
   <|
     clock   : num;
     stack   : value list;
@@ -28,13 +27,16 @@ Datatype:
   |>
 End
 
-Datatype:
-  result = (* TODO document *)
-    RNormal
+Datatype: result
+  = RInvalid
+  (* RInvalid represents cases of going wrong
+     that shouldn't happen in validated modules.
+     ie, any "valid" CWasm module should never
+     be evaluated to RInvalid *)
   | RBreak num
   | RReturn
   | RTrap
-  | RInvalid (* failures from "Assert: due to validation ..." *)
+  | RNormal
   | RTimeout
 End
 
