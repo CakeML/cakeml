@@ -23,19 +23,18 @@ Type byteSeq[local] = “:word8 list”
 Overload zeroB[local] = “0x00w:byte”
 Overload elseB[local] = “0x05w:byte”
 Overload endB[local]  = “0x0Bw:byte”
-Overload B0[local]    = “λ x. x = zeroB”
+Overload B0[local]    = “(λ x. x = zeroB):byte -> bool”
 
 Overload error[local] = “λ obj str. (INL $ strlit str,obj)”
 Overload emErr[local] = “λ str. (INL $ strlit $ "[" ++ str ++ "] : Byte sequence unexpectedly empty.\n",[])”
 
 Overload gt2_32[local] = “λ (n:num). 2 ** 32 ≤ n”
 
-
-(*********************************************************)
-(*                                                       *)
-(*     Wasm Binary Format ⇔ WasmCake AST Functions       *)
-(*                                                       *)
-(*********************************************************)
+(********************************************************)
+(*                                                      *)
+(*     Wasm Binary Format ⇔ WasmCake AST Functions     *)
+(*                                                      *)
+(********************************************************)
 
 
 (*****************************************)
@@ -590,7 +589,6 @@ Definition dec_instr_def:
       case dec_u32   cs of      NONE => failure | SOME (lbl ,rs) =>
       (INR $ BrTable lbls lbl, rs)                           ) else
 
-
     if b = 0x02w then (* Block *)
      (case dec_blocktype  bs of (INL err,bs) => (INL err,bs) | (INR bTyp,bs) =>
       case dec_instr_list bs of (INL err,bs) => (INL err,bs) | (INR body,bs) =>
@@ -627,15 +625,15 @@ Definition dec_instr_def:
     case dec_numI   bs of (INR i, rs) => (INR $ Numeric    i, rs) | _ =>
     case dec_loadI  bs of (INR i, rs) => (INR $ MemRead    i, rs) | _ =>
     case dec_storeI bs of (INR i, rs) => (INR $ MemWrite   i, rs) | _ =>
-  error (b::bs) "TODO not yet supported") ∧
-
+  failure
+  ) ∧
   (dec_instr_list ([]:byteSeq) = emErr "dec_instr_list") ∧
   (dec_instr_list (b::bs) =
      if b = 0x0Bw then (INR [],bs) else
      case check_len (b::bs) (dec_instr (b::bs)) of (INL err,bs) => (INL err,bs) | (INR i ,bs) =>
      (* case mk_shorter (b::bs) dec_instr of (INL err,bs) => (INL err,bs) | (INR i ,bs) => *)
      case dec_instr_list bs                     of (INL err,bs) => (INL err,bs) | (INR is,bs) =>
-     (INR (i::is),bs))
+     (INR $ i::is, bs)                                                                          )
 Termination
   WF_REL_TAC ‘measure $ λx. case x of
                             | INL bs => 2 * LENGTH bs
@@ -1046,7 +1044,7 @@ Proof
 QED
 
 Theorem dec_instr_INL_length:
-  (∀bs x bs1. dec_instr bs = (INL x,bs1) ⇒ LENGTH bs1 ≤ LENGTH bs) ∧
+  (∀bs x bs1. dec_instr      bs = (INL x,bs1) ⇒ LENGTH bs1 ≤ LENGTH bs) ∧
   (∀bs x bs1. dec_instr_list bs = (INL x,bs1) ⇒ LENGTH bs1 ≤ LENGTH bs)
 Proof
   ho_match_mp_tac dec_instr_ind \\ rw []
