@@ -151,49 +151,51 @@ End
 (********************)
 
 (* How a instr/op relates its operand and result *)
-Inductive unary_op_rel:
-  (∀w. unary_op_rel (Popcnt W32) (I32 w) (I32 $ popcnt w)) ∧
-  (∀w. unary_op_rel (Clz    W32) (I32 w) (I32 $ clz    w)) ∧
-  (∀w. unary_op_rel (Ctz    W32) (I32 w) (I32 $ ctz    w))
+Inductive u_op_rel:
+  (∀w. u_op_rel (Popcnt W32) (I32 w) (I32 $ popcnt w)) ∧
+  (∀w. u_op_rel (Clz    W32) (I32 w) (I32 $ clz    w)) ∧
+  (∀w. u_op_rel (Ctz    W32) (I32 w) (I32 $ ctz    w))
   ∧
-  (∀w. unary_op_rel (Popcnt W64) (I64 w) (I64 $ popcnt w)) ∧
-  (∀w. unary_op_rel (Clz    W64) (I64 w) (I64 $ clz    w)) ∧
-  (∀w. unary_op_rel (Ctz    W64) (I64 w) (I64 $ ctz    w))
+  (∀w. u_op_rel (Popcnt W64) (I64 w) (I64 $ popcnt w)) ∧
+  (∀w. u_op_rel (Clz    W64) (I64 w) (I64 $ clz    w)) ∧
+  (∀w. u_op_rel (Ctz    W64) (I64 w) (I64 $ ctz    w))
   ∧
-  (∀w. unary_op_rel (Extend8s  W32) (I32 w) (I32 $ extend8s  w)) ∧
-  (∀w. unary_op_rel (Extend16s W32) (I32 w) (I32 $ extend16s w))
+  (∀w. u_op_rel (Extend8s  W32) (I32 w) (I32 $ extend8s  w)) ∧
+  (∀w. u_op_rel (Extend16s W32) (I32 w) (I32 $ extend16s w))
   ∧
-  (∀w. unary_op_rel (Extend8s  W64  ) (I64 w) (I64 $ extend8s  w)) ∧
-  (∀w. unary_op_rel (Extend16s W64  ) (I64 w) (I64 $ extend16s w)) ∧
-  (∀w. unary_op_rel  Extend32s        (I64 w) (I64 $ extend32s (w2w w:word32))) ∧
-  (∀w. unary_op_rel (ExtendI32_ sign) (I32 w) (I64 $ sext sign $ w))
+  (∀w. u_op_rel (Extend8s  W64  ) (I64 w) (I64 $ extend8s  w)) ∧
+  (∀w. u_op_rel (Extend16s W64  ) (I64 w) (I64 $ extend16s w)) ∧
+  (∀w. u_op_rel  Extend32s        (I64 w) (I64 $ extend32s (w2w w:word32))) ∧
+  (∀w. u_op_rel (ExtendI32_ sign) (I32 w) (I64 $ sext sign $ w))
 End
 
 (* The relation is deterministic *)
-Theorem unary_op_rel_det:
-  ∀ op x r1 r2. unary_op_rel op x r1 ∧ unary_op_rel op x r2 ⇒ r1 = r2
+Theorem u_op_rel_det:
+  ∀ op x r1 r2. u_op_rel op x r1 ∧
+                u_op_rel op x r2 ⇒ r1 = r2
 Proof
   Cases >> Cases
-  >> once_rewrite_tac [unary_op_rel_cases]
+  >> once_rewrite_tac [u_op_rel_cases]
   >> simp[AllCaseEqs()]
 QED
 
 (* ASKMM ASKYK *)
 (* Is this an invocation of the choice function? *)
 Definition do_una_def:
-  do_una op x = some res. unary_op_rel op x res
+  do_una op x = some res. u_op_rel op x res
 End
 
 (* Establishing iff between the relational & functional versions? *)
 Theorem do_una_thm:
-  do_una op v = SOME res ⇔ unary_op_rel op v res
+  do_una op v = SOME res ⇔ u_op_rel op v res
 Proof
   rw [do_una_def] \\ DEEP_INTRO_TAC some_intro
-  \\ fs [] \\ metis_tac [unary_op_rel_det]
+  \\ fs [] \\ metis_tac [u_op_rel_det]
 QED
 
-Theorem do_una_eq    = REWRITE_RULE [GSYM do_una_thm] unary_op_rel_rules;
-Theorem do_una_cases = REWRITE_RULE [GSYM do_una_thm] unary_op_rel_cases;
+Theorem do_una_eq    = REWRITE_RULE [GSYM do_una_thm] u_op_rel_rules;
+Theorem do_una_cases = REWRITE_RULE [GSYM do_una_thm] u_op_rel_cases;
+
 
 
 Inductive b_op_rel:
@@ -239,7 +241,8 @@ Inductive b_op_rel:
 End
 
 Theorem b_op_rel_det:
-  ∀b v1 v2 r1 r2. b_op_rel b v1 v2 r1 ∧ b_op_rel b v1 v2 r2 ⇒ r1 = r2
+  ∀b x y r1 r2.   b_op_rel b x y r1 ∧
+                  b_op_rel b x y r2 ⇒ r1 = r2
 Proof
   once_rewrite_tac [b_op_rel_cases] \\ simp [] \\ rw [] \\ simp []
 QED
@@ -259,57 +262,62 @@ QED
 Theorem do_bin_eq    = REWRITE_RULE [GSYM do_bin_thm] b_op_rel_rules;
 Theorem do_bin_cases = REWRITE_RULE [GSYM do_bin_thm] b_op_rel_cases;
 
-Inductive compare_op_rel:
 
-  (∀ l r. compare_op_rel (Eq Int W32) (I32 l) (I32 r) (I32 $ b2w (l =  r)) )∧
-  (∀ l r. compare_op_rel (Ne Int W32) (I32 l) (I32 r) (I32 $ b2w (l <> r)) )∧
 
-  (∀ l r. compare_op_rel (Lt_  Unsigned  W32) (I32 l) (I32 r) (I32 $ b2w (l <+  r)) )∧ (* TODO check in HOL i *)
-  (∀ l r. compare_op_rel (Gt_  Unsigned  W32) (I32 l) (I32 r) (I32 $ b2w (l >+  r)) )∧
-  (∀ l r. compare_op_rel (Le_  Unsigned  W32) (I32 l) (I32 r) (I32 $ b2w (l <=+ r)) )∧
-  (∀ l r. compare_op_rel (Ge_  Unsigned  W32) (I32 l) (I32 r) (I32 $ b2w (l >=+ r)) )∧
-
-  (∀ l r. compare_op_rel (Eq Int W64) (I64 l) (I64 r) (I32 $ b2w (l =  r)) )∧
-  (∀ l r. compare_op_rel (Ne Int W64) (I64 l) (I64 r) (I32 $ b2w (l <> r)) )∧
-
-  (∀ l r. compare_op_rel (Lt_  Unsigned  W64) (I64 l) (I64 r) (I32 $ b2w (l <+  r)) )∧
-  (∀ l r. compare_op_rel (Gt_  Unsigned  W64) (I64 l) (I64 r) (I32 $ b2w (l >+  r)) )∧
-  (∀ l r. compare_op_rel (Le_  Unsigned  W64) (I64 l) (I64 r) (I32 $ b2w (l <=+ r)) )∧
-  (∀ l r. compare_op_rel (Ge_  Unsigned  W64) (I64 l) (I64 r) (I32 $ b2w (l >=+ r)) )∧
-
-  (∀ l r. compare_op_rel (Lt_    Signed  W32) (I32 l) (I32 r) (I32 $ b2w (l <  r)) )∧ (* TODO *)
-  (∀ l r. compare_op_rel (Gt_    Signed  W32) (I32 l) (I32 r) (I32 $ b2w (l >  r)) )∧ (* TODO *)
-  (∀ l r. compare_op_rel (Le_    Signed  W32) (I32 l) (I32 r) (I32 $ b2w (l <= r)) )∧ (* TODO *)
-  (∀ l r. compare_op_rel (Ge_    Signed  W32) (I32 l) (I32 r) (I32 $ b2w (l >= r)) )∧ (* TODO *)
-
-  (∀ l r. compare_op_rel (Lt_    Signed  W64) (I64 l) (I64 r) (I32 $ b2w (l <  r)) )∧ (* TODO *)
-  (∀ l r. compare_op_rel (Gt_    Signed  W64) (I64 l) (I64 r) (I32 $ b2w (l >  r)) )∧ (* TODO *)
-  (∀ l r. compare_op_rel (Le_    Signed  W64) (I64 l) (I64 r) (I32 $ b2w (l <= r)) )∧ (* TODO *)
-  (∀ l r. compare_op_rel (Ge_    Signed  W64) (I64 l) (I64 r) (I32 $ b2w (l >= r)) )  (* TODO *)
+Inductive cmp_op_rel:
+  (* TODO check semantics of these ops *)
+  (∀l r. cmp_op_rel (Eq Int W32) (I32 l) (I32 r) (I32 $ b2w (l =  r)) )∧
+  (∀l r. cmp_op_rel (Ne Int W32) (I32 l) (I32 r) (I32 $ b2w (l <> r)) )
+  ∧
+  (∀l r. cmp_op_rel (Lt_  Unsigned  W32) (I32 l) (I32 r) (I32 $ b2w (l <+  r)) )∧
+  (∀l r. cmp_op_rel (Gt_  Unsigned  W32) (I32 l) (I32 r) (I32 $ b2w (l >+  r)) )∧
+  (∀l r. cmp_op_rel (Le_  Unsigned  W32) (I32 l) (I32 r) (I32 $ b2w (l <=+ r)) )∧
+  (∀l r. cmp_op_rel (Ge_  Unsigned  W32) (I32 l) (I32 r) (I32 $ b2w (l >=+ r)) )
+  ∧
+  (∀l r. cmp_op_rel (Eq Int W64) (I64 l) (I64 r) (I32 $ b2w (l =  r)) )∧
+  (∀l r. cmp_op_rel (Ne Int W64) (I64 l) (I64 r) (I32 $ b2w (l <> r)) )
+  ∧
+  (∀l r. cmp_op_rel (Lt_  Unsigned  W64) (I64 l) (I64 r) (I32 $ b2w (l <+  r)) )∧
+  (∀l r. cmp_op_rel (Gt_  Unsigned  W64) (I64 l) (I64 r) (I32 $ b2w (l >+  r)) )∧
+  (∀l r. cmp_op_rel (Le_  Unsigned  W64) (I64 l) (I64 r) (I32 $ b2w (l <=+ r)) )∧
+  (∀l r. cmp_op_rel (Ge_  Unsigned  W64) (I64 l) (I64 r) (I32 $ b2w (l >=+ r)) )
+  ∧
+  (∀l r. cmp_op_rel (Lt_    Signed  W32) (I32 l) (I32 r) (I32 $ b2w (l <  r)) )∧
+  (∀l r. cmp_op_rel (Gt_    Signed  W32) (I32 l) (I32 r) (I32 $ b2w (l >  r)) )∧
+  (∀l r. cmp_op_rel (Le_    Signed  W32) (I32 l) (I32 r) (I32 $ b2w (l <= r)) )∧
+  (∀l r. cmp_op_rel (Ge_    Signed  W32) (I32 l) (I32 r) (I32 $ b2w (l >= r)) )
+  ∧
+  (∀l r. cmp_op_rel (Lt_    Signed  W64) (I64 l) (I64 r) (I32 $ b2w (l <  r)) )∧
+  (∀l r. cmp_op_rel (Gt_    Signed  W64) (I64 l) (I64 r) (I32 $ b2w (l >  r)) )∧
+  (∀l r. cmp_op_rel (Le_    Signed  W64) (I64 l) (I64 r) (I32 $ b2w (l <= r)) )∧
+  (∀l r. cmp_op_rel (Ge_    Signed  W64) (I64 l) (I64 r) (I32 $ b2w (l >= r)) )
 End
 
-Theorem compare_op_rel_det:
-  ∀ c x y r1 r2. compare_op_rel c x y r1 ∧ compare_op_rel c x y r2 ⇒ r1 = r2
+Theorem cmp_op_rel_det:
+  ∀ c x y r1 r2.  cmp_op_rel c x y r1 ∧
+                  cmp_op_rel c x y r2 ⇒ r1 = r2
 Proof
-  once_rewrite_tac [compare_op_rel_cases]
+  once_rewrite_tac [cmp_op_rel_cases]
   \\ simp []
   \\ rw []
 QED
 
 Definition do_cmp_def:
-  do_cmp c v1 v2 = some res. compare_op_rel c v1 v2 res
+  do_cmp c v1 v2 = some res. cmp_op_rel c v1 v2 res
 End
 
 Theorem do_cmp_thm:
-  do_cmp c v1 v2 = SOME res ⇔ compare_op_rel c v1 v2 res
+  do_cmp c v1 v2 = SOME res ⇔ cmp_op_rel c v1 v2 res
 Proof
   rw [do_cmp_def] \\ DEEP_INTRO_TAC some_intro
-  \\ fs [] \\ metis_tac [compare_op_rel_det]
+  \\ fs [] \\ metis_tac [cmp_op_rel_det]
 QED
 
 (* INVARIANT - changes to ops shouldn't break this *)
-Theorem do_cmp_eq    = REWRITE_RULE [GSYM do_cmp_thm] compare_op_rel_rules;
-Theorem do_cmp_cases = REWRITE_RULE [GSYM do_cmp_thm] compare_op_rel_cases;
+Theorem do_cmp_eq    = REWRITE_RULE [GSYM do_cmp_thm] cmp_op_rel_rules;
+Theorem do_cmp_cases = REWRITE_RULE [GSYM do_cmp_thm] cmp_op_rel_cases;
+
+
 
 Inductive convert_op_rel:
   ∀ w. convert_op_rel WrapI64 (I64 w) (I32 $ w2w w)
