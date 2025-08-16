@@ -439,15 +439,6 @@ Theorem do_st_cases = REWRITE_RULE [GSYM do_st_thm] store_op_rel_cases;
 Definition exec_def:
   (exec Unreachable s = (RTrap,s)) ∧
   (exec Nop s = (RNormal,s)) ∧
-  (exec (Parametric Drop) s =
-    case pop s of NONE => (RInvalid, s) | SOME (_,s) => (RNormal, s)) ∧
-  (exec ((Parametric Select):instr) s =
-    case pop s of NONE => (RInvalid, s) | SOME (c,s) =>
-    case pop s of NONE => (RInvalid, s) | SOME (val2,s) =>
-    case pop s of NONE => (RInvalid, s) | SOME (val1,s) =>
-    case nonzero c of NONE => (RInvalid, s) | SOME b =>
-    (RNormal, push (if b then val1 else val2) s)
-  ) ∧
   (exec ((Block tb bs):instr) s =
     case functype_of_blocktype s.types tb of NONE => (RInvalid,s) | SOME (mts,nts) =>
     let m = LENGTH mts in
@@ -502,70 +493,7 @@ Definition exec_def:
     case dest_i32 x of NONE => (RInvalid,s) | SOME w =>
     (RBreak (case oEL (w2n w) table of NONE => w2n default | SOME i => w2n i), s)
   ) ∧
-  (exec (Call fi) s =
-    case oEL (w2n fi) s.funcs of NONE => (RInvalid,s) | SOME f =>
-    case oEL (w2n f.ftype) s.types of NONE => (RInvalid,s) | SOME (ins,outs) =>
-    let np = LENGTH ins in
-    let nr = LENGTH outs in
-    case pop_n np s of NONE => (RInvalid,s) | SOME (args,s) =>
-    let init_locals = args ++ MAP init_val_of ins in
-    if s.clock = 0 then (RTimeout,s) else
-    let s_call = s with <|clock:= s.clock - 1; stack:=[]; locals:=init_locals|> in
-    (* real WASM treats the body as wrapped in a Block *)
-    let (res, s1) = fix_clock s_call (exec_list f.body s_call) in
-      case res of
-      | RNormal =>
-          if LENGTH s1.stack ≠ nr then (RInvalid,s1) else
-            (RNormal, s with stack := s1.stack ++ s.stack)
-      | RReturn =>
-          if LENGTH s1.stack < nr then (RInvalid,s1) else
-            (RNormal, s with stack := TAKE nr s1.stack ++ s.stack)
-      | RBreak _ => (RInvalid, s1)
-      | _ => (res, s1)
-  ) ∧
   (exec Return s = (RReturn, s)) ∧
-  (exec (CallIndirect n tf) s =
-    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
-    case dest_i32 x of NONE => (RInvalid,s) | SOME w =>
-    (* TODO we removed one layer of indirection *)
-    (* we only use one func table *)
-    case lookup_func_tables [s.func_tables] (w2n n) w of NONE => (RInvalid,s) | SOME fi =>
-      exec (Call (n2w fi)) s) ∧
-  (exec (Variable (LocalGet n)) s =
-    case oEL (w2n n) s.locals of NONE => (RInvalid,s) | SOME x =>
-    (RNormal, push x s)
-  ) ∧
-  (exec (Variable $ LocalSet n) s =
-    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
-    case set_local (w2n n) x s of NONE => (RInvalid,s) | SOME s =>
-      (RNormal,s)) ∧
-  (exec (Variable $ LocalTee n) s =
-    case pop s of NONE => (RInvalid,s) | SOME (x,_) =>
-    case set_local (w2n n) x s of NONE => (RInvalid,s) | SOME s =>
-      (RNormal,s)) ∧
-  (exec (Variable $ GlobalGet n) s =
-    case oEL (w2n n) s.globals of NONE => (RInvalid,s) | SOME x =>
-    (RNormal, push x s)
-  ) ∧
-  (exec (Variable $ GlobalSet n) s =
-    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
-    case set_global (w2n n) x s of NONE => (RInvalid,s) | SOME s =>
-      (RNormal,s)) ∧
-
-  (* TODO - CHRC *)
-
-  (exec (MemRead op) s = let inv = (RInvalid,s) in (* TODO: fix *)
-    case pop s             of NONE=>inv| SOME (x,s) =>
-    case dest_i32 x        of NONE=>inv| SOME w =>
-    case do_ld op s.memory of NONE=>inv| SOME v => (RInvalid,s)
-  ) ∧
-  (exec (MemWrite op) s = (* TODO: fix *) (RInvalid,s)) ∧
-
-  (* TODO - END CHRC *)
-
-  (exec (Numeric op) s =
-    case num_stk_op op s.stack of NONE => (RInvalid,s) | SOME stack1 =>
-    (RNormal, s with stack := stack1)) ∧
   (exec (ReturnCall fi) s =
     case oEL (w2n fi) s.funcs of NONE => (RInvalid,s) | SOME f =>
     case oEL (w2n f.ftype) s.types of NONE => (RInvalid,s) | SOME (ins,outs) =>
@@ -593,12 +521,98 @@ Definition exec_def:
     case lookup_func_tables [s.func_tables] (w2n n) w of NONE => (RInvalid,s) | SOME fi =>
     case oEL fi s.funcs of NONE => (RInvalid,s) | SOME f =>
       exec (ReturnCall (n2w fi)) s) ∧
+  (exec (Call fi) s =
+    case oEL (w2n fi) s.funcs of NONE => (RInvalid,s) | SOME f =>
+    case oEL (w2n f.ftype) s.types of NONE => (RInvalid,s) | SOME (ins,outs) =>
+    let np = LENGTH ins in
+    let nr = LENGTH outs in
+    case pop_n np s of NONE => (RInvalid,s) | SOME (args,s) =>
+    let init_locals = args ++ MAP init_val_of ins in
+    if s.clock = 0 then (RTimeout,s) else
+    let s_call = s with <|clock:= s.clock - 1; stack:=[]; locals:=init_locals|> in
+    (* real WASM treats the body as wrapped in a Block *)
+    let (res, s1) = fix_clock s_call (exec_list f.body s_call) in
+      case res of
+      | RNormal =>
+          if LENGTH s1.stack ≠ nr then (RInvalid,s1) else
+            (RNormal, s with stack := s1.stack ++ s.stack)
+      | RReturn =>
+          if LENGTH s1.stack < nr then (RInvalid,s1) else
+            (RNormal, s with stack := TAKE nr s1.stack ++ s.stack)
+      | RBreak _ => (RInvalid, s1)
+      | _ => (res, s1)
+  ) ∧
+  (exec (CallIndirect n tf) s =
+    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
+    case dest_i32 x of NONE => (RInvalid,s) | SOME w =>
+    (* TODO we removed one layer of indirection *)
+    (* we only use one func table *)
+    case lookup_func_tables [s.func_tables] (w2n n) w of NONE => (RInvalid,s) | SOME fi =>
+      exec (Call (n2w fi)) s) ∧
+
+  (****************)
+  (*   Numerics   *)
+  (****************)
+  (exec (Numeric op) s =
+    case num_stk_op op s.stack of NONE => (RInvalid,s) | SOME stack1 =>
+    (RNormal, s with stack := stack1)) ∧
+  (*******************)
+  (*   Parametrics   *)
+  (*******************)
+  (exec (Parametric Drop) s =
+    case pop s of NONE => (RInvalid, s) | SOME (_,s) => (RNormal, s)) ∧
+  (exec ((Parametric Select):instr) s =
+    case pop s     of NONE => (RInvalid, s) | SOME (c   ,s) =>
+    case pop s     of NONE => (RInvalid, s) | SOME (val2,s) =>
+    case pop s     of NONE => (RInvalid, s) | SOME (val1,s) =>
+    case nonzero c of NONE => (RInvalid, s) | SOME b        =>
+      (RNormal, push (if b then val1 else val2) s)         ) ∧
+  (*****************)
+  (*   Variables   *)
+  (*****************)
+  (exec (Variable (LocalGet n)) s =
+    case oEL (w2n n) s.locals of NONE => (RInvalid,s) | SOME x =>
+    (RNormal, push x s)
+  ) ∧
+  (exec (Variable $ LocalSet n) s =
+    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
+    case set_local (w2n n) x s of NONE => (RInvalid,s) | SOME s =>
+      (RNormal,s)) ∧
+  (exec (Variable $ LocalTee n) s =
+    case pop s of NONE => (RInvalid,s) | SOME (x,_) =>
+    case set_local (w2n n) x s of NONE => (RInvalid,s) | SOME s =>
+      (RNormal,s)) ∧
+  (exec (Variable $ GlobalGet n) s =
+    case oEL (w2n n) s.globals of NONE => (RInvalid,s) | SOME x =>
+    (RNormal, push x s)
+  ) ∧
+  (exec (Variable $ GlobalSet n) s =
+    case pop s of NONE => (RInvalid,s) | SOME (x,s) =>
+    case set_global (w2n n) x s of NONE => (RInvalid,s) | SOME s =>
+      (RNormal,s)) ∧
+  (**********************)
+  (*   Memory - loads   *)
+  (**********************)
+  (* CHRC TODO - edit in this region on pain of merge conflicts *)
+
+  (exec (MemRead op) s = let inv = (RInvalid,s) in (* TODO: fix *)
+    case pop s             of NONE=>inv| SOME (x,s) =>
+    case dest_i32 x        of NONE=>inv| SOME w =>
+    case do_ld op s.memory of NONE=>inv| SOME v => (RInvalid,s)
+  ) ∧
+  (***********************)
+  (*   Memory - stores   *)
+  (***********************)
+  (exec (MemWrite op) s = (* TODO: fix *) (RInvalid,s)) ∧
+
+  (* END CHRC TODO *)
+
   (exec_list [] s = (RNormal, s)) ∧
   (exec_list ((b:instr)::bs) s =
     let (res,s) = fix_clock s (exec b s) in
     case res of
-      RNormal => exec_list bs s
-    | _ => (res,s))
+    | RNormal => exec_list bs s
+    | _       => (res,s))
 Termination
   WF_REL_TAC ‘inv_image (measure I LEX measure I) $ λx. case x of
                | INL (i,s) => (s.clock, inst_size' i)
