@@ -5,7 +5,7 @@
 Theory      wasm2_binary_format
 Ancestors   wasm2Lang leb128 ancillaryOps
 Libs        preamble wordsLib blastLib
-(*
+
 (*  Note:
     enc goes from AST to Wasm Binary format (WBF)
     dec goes from WBF to AST
@@ -25,14 +25,16 @@ Overload elseB[local] = “0x05w:byte”
 Overload endB[local]  = “0x0Bw:byte”
 Overload B0[local]    = “(λ x. x = zeroB):byte -> bool”
 
-Overload error[local] = “λ obj str. (INL (strlit str),obj)”
+Overload error[local] = “λ obj str. (INL $ strlit str,obj)”
 Overload emErr[local] = “λ str. (INL $ strlit $ "[" ++ str ++ "] : Byte sequence unexpectedly empty.\n",[])”
 
-(*********************************************************)
-(*                                                       *)
-(*     Wasm Binary Format ⇔ WasmCake AST Functions      *)
-(*                                                       *)
-(*********************************************************)
+Overload gt2_32[local] = “λ (n:num). 2 ** 32 ≤ n”
+
+(********************************************************)
+(*                                                      *)
+(*     Wasm Binary Format ⇔ WasmCake AST Functions     *)
+(*                                                      *)
+(********************************************************)
 
 
 (*****************************************)
@@ -40,30 +42,48 @@ Overload emErr[local] = “λ str. (INL $ strlit $ "[" ++ str ++ "] : Byte seque
 (*****************************************)
 
 Definition enc_list_def:
-  enc_list (encdr:α -> byteSeq) ([]:α list) : byteSeq option = SOME [] ∧
-  enc_list encdr (x::xs) =
-    case enc_list encdr xs of NONE=>NONE| SOME encxs =>
-    SOME $ encdr x ++ encxs
+  enc_list (encdr:α -> byteSeq) ([]:α list) : byteSeq = [] ∧
+  enc_list encdr (x::xs) = encdr x ++ enc_list encdr xs
 End
+
+Definition enc_list_opt_def:
+  enc_list_opt (encdr:α -> byteSeq option) ([]:α list) : byteSeq option = SOME [] ∧
+  enc_list_opt encdr (x::xs) =
+    case              encdr x  of NONE=>NONE| SOME encx  =>
+    case enc_list_opt encdr xs of NONE=>NONE| SOME encxs =>
+    SOME $ encx ++ encxs
+End
+
+Definition dec_list_def:
+  dec_list (_    :num                                )
+           (decdr:byteSeq -> (mlstring + α) # byteSeq)
+           ([]   :byteSeq                            )
+           : ((mlstring + α list) # byteSeq) = emErr "dec_list"
+  ∧
+  dec_list (n:num) decdr bs = let failure = error bs "[dec_list]" in
+    if n = 0 then (INR [],bs) else
+    case decdr                bs of (INL _,_) =>failure| (INR x  , rs) =>
+    case dec_list (n-1) decdr rs of (INL _,_) =>failure| (INR xs , rs) =>
+      (INR $ x::xs, rs)
+End
+
 
 Definition enc_vector_def:
   enc_vector (encdr:α -> byteSeq) (xs:α list) : byteSeq option =
     let n = LENGTH xs in
-    if  2 ** 32 ≤ n then NONE else
+    if gt2_32 n then NONE else
 
-    case enc_list encdr xs of NONE=>NONE| SOME encxs =>
+    let encxs = enc_list encdr xs in
     SOME $ enc_u32 (n2w n) ++ encxs
 End
 
-Definition dec_list_def:
-  dec_list (n:num) decdr bs =
-    if n = 0 then (INR [],bs) else
-    case decdr bs of
-    | (INL err, rs) => (INL err, rs)
-    | (INR x  , rs) =>
-      case dec_list (n-1) decdr rs of
-      | (INL err, rs) => (INL err, rs)
-      | (INR xs , rs) => (INR $ x::xs, rs)
+Definition enc_vector_opt_def:
+  enc_vector_opt (encdr:α -> byteSeq option) (xs:α list) : byteSeq option =
+    let n = LENGTH xs in
+    if gt2_32 n then NONE else
+
+    case enc_list_opt encdr xs of NONE=>NONE| SOME encxs =>
+    SOME $ enc_u32 (n2w n) ++ encxs
 End
 
 Definition dec_vector_def:
@@ -71,23 +91,6 @@ Definition dec_vector_def:
     case dec_u32 bs of
     | NONE => error bs "dec_vec"
     | SOME (w,cs) => dec_list (w2n w) dec cs
-End
-
-Definition enc_listO_def:
-  enc_listO (encdr:α -> byteSeq option) ([]:α list) : byteSeq option = SOME [] ∧
-  enc_listO encdr (x::xs) =
-    case           encdr x  of NONE=>NONE| SOME encx  =>
-    case enc_listO encdr xs of NONE=>NONE| SOME encxs =>
-    SOME $ encx ++ encxs
-End
-
-Definition enc_vectorO_def:
-  enc_vectorO (encdr:α -> byteSeq option) (xs:α list) : byteSeq option =
-    let n = LENGTH xs in
-    if  2 ** 32 ≤ n then NONE else
-
-    case enc_listO encdr xs of NONE=>NONE| SOME encxs =>
-    SOME $ enc_u32 (n2w n) ++ encxs
 End
 
 
@@ -150,10 +153,6 @@ Definition enc_limits_def:
   | Lwmx mn mx => 0x01w :: enc_2u32 mn mx
 End
 
-Overload enc_expr       = “enc_instrs T”
-Overload enc_instr_list = “enc_instrs F”
-
-
 Definition dec_limits_def:
   dec_limits ([]:byteSeq) : (mlstring + limits) # byteSeq = emErr "dec_limits" ∧
   dec_limits (b::bs) = let failure = error (b::bs) "[dec_limits]" in
@@ -167,16 +166,18 @@ End
 
 Definition enc_globaltype_def:
   enc_globaltype (t:globaltype) : byteSeq = case t of
-  | Gconst vt => 0x00w :: [enc_valtype vt]
-  | Gmut   vt => 0x01w :: [enc_valtype vt]
+  | Gconst vt => enc_valtype vt :: [0x00w]
+  | Gmut   vt => enc_valtype vt :: [0x01w]
 End
 
 Definition dec_globaltype_def:
   dec_globaltype ([]:byteSeq) : ((mlstring + globaltype) # byteSeq) = emErr "dec_global" ∧
-  dec_globaltype (b::bs) = let failure = error (b::bs) "[dec_global]" in
+  dec_globaltype bs = let failure = error bs "[dec_global]" in
 
-  if b = 0x00w then case dec_valtype bs of (INR vt, rs) => (INR $ Gconst vt, rs) | _ => failure else
-  if b = 0x01w then case dec_valtype bs of (INR vt, rs) => (INR $ Gmut   vt, rs) | _ => failure else
+  case dec_valtype bs of (INL _,_) => failure     | (INR vt, cs) =>
+  case cs             of [] => emErr "dec_global" |  b  ::   rs  =>
+  if b = 0x00w then (INR $ Gconst vt, rs) else
+  if b = 0x01w then (INR $ Gmut   vt, rs) else
   failure
 End
 
@@ -188,150 +189,149 @@ End
 
 Definition enc_numI_def:
   enc_numI (i:num_instr) : byteSeq = case i of
-  |N_eqz    $   W32                        => [0x45w]
-  |N_compare$   Eq  Int      W32           => [0x46w]
-  |N_compare$   Ne  Int      W32           => [0x47w]
-  |N_compare$   Lt_   Signed W32           => [0x48w]
-  |N_compare$   Lt_ Unsigned W32           => [0x49w]
-  |N_compare$   Gt_   Signed W32           => [0x4Aw]
-  |N_compare$   Gt_ Unsigned W32           => [0x4Bw]
-  |N_compare$   Le_   Signed W32           => [0x4Cw]
-  |N_compare$   Le_ Unsigned W32           => [0x4Dw]
-  |N_compare$   Ge_   Signed W32           => [0x4Ew]
-  |N_compare$   Ge_ Unsigned W32           => [0x4Fw]
-  |N_eqz    $   W64                        => [0x50w]
-  |N_compare$   Eq Int       W64           => [0x51w]
-  |N_compare$   Ne Int       W64           => [0x52w]
-  |N_compare$   Lt_   Signed W64           => [0x53w]
-  |N_compare$   Lt_ Unsigned W64           => [0x54w]
-  |N_compare$   Gt_   Signed W64           => [0x55w]
-  |N_compare$   Gt_ Unsigned W64           => [0x56w]
-  |N_compare$   Le_   Signed W64           => [0x57w]
-  |N_compare$   Le_ Unsigned W64           => [0x58w]
-  |N_compare$   Ge_   Signed W64           => [0x59w]
-  |N_compare$   Ge_ Unsigned W64           => [0x5Aw]
-  |N_compare$   Eq  Float    W32           => [0x5Bw]
-  |N_compare$   Ne  Float    W32           => [0x5Cw]
-  |N_compare$   Lt           W32           => [0x5Dw]
-  |N_compare$   Gt           W32           => [0x5Ew]
-  |N_compare$   Le           W32           => [0x5Fw]
-  |N_compare$   Ge           W32           => [0x60w]
-  |N_compare$   Eq  Float    W64           => [0x61w]
-  |N_compare$   Ne  Float    W64           => [0x62w]
-  |N_compare$   Lt           W64           => [0x63w]
-  |N_compare$   Gt           W64           => [0x64w]
-  |N_compare$   Le           W64           => [0x65w]
-  |N_compare$   Ge           W64           => [0x66w]
-  |N_unary  $   Clz    W32                 => [0x67w]
-  |N_unary  $   Ctz    W32                 => [0x68w]
-  |N_unary  $   Popcnt W32                 => [0x69w]
-  |N_binary $   Add  Int      W32          => [0x6Aw]
-  |N_binary $   Sub  Int      W32          => [0x6Bw]
-  |N_binary $   Mul  Int      W32          => [0x6Cw]
-  |N_binary $   Div_   Signed W32          => [0x6Dw]
-  |N_binary $   Div_ Unsigned W32          => [0x6Ew]
-  |N_binary $   Rem_   Signed W32          => [0x6Fw]
-  |N_binary $   Rem_ Unsigned W32          => [0x70w]
-  |N_binary $   And           W32          => [0x71w]
-  |N_binary $   Or            W32          => [0x72w]
-  |N_binary $   Xor           W32          => [0x73w]
-  |N_binary $   Shl           W32          => [0x74w]
-  |N_binary $   Shr_   Signed W32          => [0x75w]
-  |N_binary $   Shr_ Unsigned W32          => [0x76w]
-  |N_binary $   Rotl          W32          => [0x77w]
-  |N_binary $   Rotr          W32          => [0x78w]
-  |N_unary  $   Clz    W64                 => [0x79w]
-  |N_unary  $   Ctz    W64                 => [0x7Aw]
-  |N_unary  $   Popcnt W64                 => [0x7Bw]
-  |N_binary $   Add Int       W64          => [0x7Cw]
-  |N_binary $   Sub Int       W64          => [0x7Dw]
-  |N_binary $   Mul Int       W64          => [0x7Ew]
-  |N_binary $   Div_   Signed W64          => [0x7Fw]
-  |N_binary $   Div_ Unsigned W64          => [0x80w]
-  |N_binary $   Rem_   Signed W64          => [0x81w]
-  |N_binary $   Rem_ Unsigned W64          => [0x82w]
-  |N_binary $   And           W64          => [0x83w]
-  |N_binary $   Or            W64          => [0x84w]
-  |N_binary $   Xor           W64          => [0x85w]
-  |N_binary $   Shl           W64          => [0x86w]
-  |N_binary $   Shr_   Signed W64          => [0x87w]
-  |N_binary $   Shr_ Unsigned W64          => [0x88w]
-  |N_binary $   Rotl          W64          => [0x89w]
-  |N_binary $   Rotr          W64          => [0x8Aw]
-  |N_unary  $   Abs     W32                => [0x8Bw]
-  |N_unary  $   Neg     W32                => [0x8Cw]
-  |N_unary  $   Ceil    W32                => [0x8Dw]
-  |N_unary  $   Floor   W32                => [0x8Ew]
-  |N_unary  $   Trunc   W32                => [0x8Fw]
-  |N_unary  $   Nearest W32                => [0x90w]
-  |N_unary  $   Sqrt    W32                => [0x91w]
-  |N_binary $   Add Float W32              => [0x92w]
-  |N_binary $   Sub Float W32              => [0x93w]
-  |N_binary $   Mul Float W32              => [0x94w]
-  |N_binary $   Div       W32              => [0x95w]
-  |N_binary $   Min       W32              => [0x96w]
-  |N_binary $   Max       W32              => [0x97w]
-  |N_binary $   Copysign  W32              => [0x98w]
-  |N_unary  $   Abs     W64                => [0x99w]
-  |N_unary  $   Neg     W64                => [0x9Aw]
-  |N_unary  $   Ceil    W64                => [0x9Bw]
-  |N_unary  $   Floor   W64                => [0x9Cw]
-  |N_unary  $   Trunc   W64                => [0x9Dw]
-  |N_unary  $   Nearest W64                => [0x9Ew]
-  |N_unary  $   Sqrt    W64                => [0x9Fw]
-  |N_binary $   Add Float W64              => [0xA0w]
-  |N_binary $   Sub Float W64              => [0xA1w]
-  |N_binary $   Mul Float W64              => [0xA2w]
-  |N_binary $   Div       W64              => [0xA3w]
-  |N_binary $   Min       W64              => [0xA4w]
-  |N_binary $   Max       W64              => [0xA5w]
-  |N_binary $   Copysign  W64              => [0xA6w]
-  |N_convert$   WrapI64                    => [0xA7w]
-  |N_convert$   Trunc_f W32   Signed W32   => [0xA8w]
-  |N_convert$   Trunc_f W32 Unsigned W32   => [0xA9w]
-  |N_convert$   Trunc_f W64   Signed W32   => [0xAAw]
-  |N_convert$   Trunc_f W64 Unsigned W32   => [0xABw]
-  |N_unary  $   ExtendI32_   Signed        => [0xACw]
-  |N_unary  $   ExtendI32_ Unsigned        => [0xADw]
-  |N_convert$   Trunc_f W32   Signed W64   => [0xAEw]
-  |N_convert$   Trunc_f W32 Unsigned W64   => [0xAFw]
-  |N_convert$   Trunc_f W64   Signed W64   => [0xB0w]
-  |N_convert$   Trunc_f W64 Unsigned W64   => [0xB1w]
-  |N_convert$   Convert W32   Signed W32   => [0xB2w]
-  |N_convert$   Convert W32 Unsigned W32   => [0xB3w]
-  |N_convert$   Convert W64   Signed W32   => [0xB4w]
-  |N_convert$   Convert W64 Unsigned W32   => [0xB5w]
-  |N_convert$   Demote                     => [0xB6w]
-  |N_convert$   Convert W32   Signed W64   => [0xB7w]
-  |N_convert$   Convert W32 Unsigned W64   => [0xB8w]
-  |N_convert$   Convert W64   Signed W64   => [0xB9w]
-  |N_convert$   Convert W64 Unsigned W64   => [0xBAw]
-  |N_convert$   Promote                    => [0xBBw]
-  |N_convert$   Reinterpret_f        W32   => [0xBCw]
-  |N_convert$   Reinterpret_f        W64   => [0xBDw]
-  |N_convert$   Reinterpret_i        W32   => [0xBEw]
-  |N_convert$   Reinterpret_i        W64   => [0xBFw]
-  |N_unary  $   Extend8s  W32              => [0xC0w]
-  |N_unary  $   Extend16s W32              => [0xC1w]
-  |N_unary  $   Extend8s  W64              => [0xC2w]
-  |N_unary  $   Extend16s W64              => [0xC3w]
-  |N_unary  $   Extend32s                  => [0xC4w]
+  | N_eqz     $   W32                        => [0x45w]
+  | N_compare $   Eq  Int      W32           => [0x46w]
+  | N_compare $   Ne  Int      W32           => [0x47w]
+  | N_compare $   Lt_   Signed W32           => [0x48w]
+  | N_compare $   Lt_ Unsigned W32           => [0x49w]
+  | N_compare $   Gt_   Signed W32           => [0x4Aw]
+  | N_compare $   Gt_ Unsigned W32           => [0x4Bw]
+  | N_compare $   Le_   Signed W32           => [0x4Cw]
+  | N_compare $   Le_ Unsigned W32           => [0x4Dw]
+  | N_compare $   Ge_   Signed W32           => [0x4Ew]
+  | N_compare $   Ge_ Unsigned W32           => [0x4Fw]
+  | N_eqz     $   W64                        => [0x50w]
+  | N_compare $   Eq Int       W64           => [0x51w]
+  | N_compare $   Ne Int       W64           => [0x52w]
+  | N_compare $   Lt_   Signed W64           => [0x53w]
+  | N_compare $   Lt_ Unsigned W64           => [0x54w]
+  | N_compare $   Gt_   Signed W64           => [0x55w]
+  | N_compare $   Gt_ Unsigned W64           => [0x56w]
+  | N_compare $   Le_   Signed W64           => [0x57w]
+  | N_compare $   Le_ Unsigned W64           => [0x58w]
+  | N_compare $   Ge_   Signed W64           => [0x59w]
+  | N_compare $   Ge_ Unsigned W64           => [0x5Aw]
+  | N_compare $   Eq  Float    W32           => [0x5Bw]
+  | N_compare $   Ne  Float    W32           => [0x5Cw]
+  | N_compare $   Lt           W32           => [0x5Dw]
+  | N_compare $   Gt           W32           => [0x5Ew]
+  | N_compare $   Le           W32           => [0x5Fw]
+  | N_compare $   Ge           W32           => [0x60w]
+  | N_compare $   Eq  Float    W64           => [0x61w]
+  | N_compare $   Ne  Float    W64           => [0x62w]
+  | N_compare $   Lt           W64           => [0x63w]
+  | N_compare $   Gt           W64           => [0x64w]
+  | N_compare $   Le           W64           => [0x65w]
+  | N_compare $   Ge           W64           => [0x66w]
+  | N_unary   $   Clz    W32                 => [0x67w]
+  | N_unary   $   Ctz    W32                 => [0x68w]
+  | N_unary   $   Popcnt W32                 => [0x69w]
+  | N_binary  $   Add  Int      W32          => [0x6Aw]
+  | N_binary  $   Sub  Int      W32          => [0x6Bw]
+  | N_binary  $   Mul  Int      W32          => [0x6Cw]
+  | N_binary  $   Div_   Signed W32          => [0x6Dw]
+  | N_binary  $   Div_ Unsigned W32          => [0x6Ew]
+  | N_binary  $   Rem_   Signed W32          => [0x6Fw]
+  | N_binary  $   Rem_ Unsigned W32          => [0x70w]
+  | N_binary  $   And           W32          => [0x71w]
+  | N_binary  $   Or            W32          => [0x72w]
+  | N_binary  $   Xor           W32          => [0x73w]
+  | N_binary  $   Shl           W32          => [0x74w]
+  | N_binary  $   Shr_   Signed W32          => [0x75w]
+  | N_binary  $   Shr_ Unsigned W32          => [0x76w]
+  | N_binary  $   Rotl          W32          => [0x77w]
+  | N_binary  $   Rotr          W32          => [0x78w]
+  | N_unary   $   Clz    W64                 => [0x79w]
+  | N_unary   $   Ctz    W64                 => [0x7Aw]
+  | N_unary   $   Popcnt W64                 => [0x7Bw]
+  | N_binary  $   Add Int       W64          => [0x7Cw]
+  | N_binary  $   Sub Int       W64          => [0x7Dw]
+  | N_binary  $   Mul Int       W64          => [0x7Ew]
+  | N_binary  $   Div_   Signed W64          => [0x7Fw]
+  | N_binary  $   Div_ Unsigned W64          => [0x80w]
+  | N_binary  $   Rem_   Signed W64          => [0x81w]
+  | N_binary  $   Rem_ Unsigned W64          => [0x82w]
+  | N_binary  $   And           W64          => [0x83w]
+  | N_binary  $   Or            W64          => [0x84w]
+  | N_binary  $   Xor           W64          => [0x85w]
+  | N_binary  $   Shl           W64          => [0x86w]
+  | N_binary  $   Shr_   Signed W64          => [0x87w]
+  | N_binary  $   Shr_ Unsigned W64          => [0x88w]
+  | N_binary  $   Rotl          W64          => [0x89w]
+  | N_binary  $   Rotr          W64          => [0x8Aw]
+  | N_unary   $   Abs     W32                => [0x8Bw]
+  | N_unary   $   Neg     W32                => [0x8Cw]
+  | N_unary   $   Ceil    W32                => [0x8Dw]
+  | N_unary   $   Floor   W32                => [0x8Ew]
+  | N_unary   $   Trunc   W32                => [0x8Fw]
+  | N_unary   $   Nearest W32                => [0x90w]
+  | N_unary   $   Sqrt    W32                => [0x91w]
+  | N_binary  $   Add Float W32              => [0x92w]
+  | N_binary  $   Sub Float W32              => [0x93w]
+  | N_binary  $   Mul Float W32              => [0x94w]
+  | N_binary  $   Div       W32              => [0x95w]
+  | N_binary  $   Min       W32              => [0x96w]
+  | N_binary  $   Max       W32              => [0x97w]
+  | N_binary  $   Copysign  W32              => [0x98w]
+  | N_unary   $   Abs     W64                => [0x99w]
+  | N_unary   $   Neg     W64                => [0x9Aw]
+  | N_unary   $   Ceil    W64                => [0x9Bw]
+  | N_unary   $   Floor   W64                => [0x9Cw]
+  | N_unary   $   Trunc   W64                => [0x9Dw]
+  | N_unary   $   Nearest W64                => [0x9Ew]
+  | N_unary   $   Sqrt    W64                => [0x9Fw]
+  | N_binary  $   Add Float W64              => [0xA0w]
+  | N_binary  $   Sub Float W64              => [0xA1w]
+  | N_binary  $   Mul Float W64              => [0xA2w]
+  | N_binary  $   Div       W64              => [0xA3w]
+  | N_binary  $   Min       W64              => [0xA4w]
+  | N_binary  $   Max       W64              => [0xA5w]
+  | N_binary  $   Copysign  W64              => [0xA6w]
+  | N_convert $   WrapI64                    => [0xA7w]
+  | N_convert $   Trunc_f W32   Signed W32   => [0xA8w]
+  | N_convert $   Trunc_f W32 Unsigned W32   => [0xA9w]
+  | N_convert $   Trunc_f W64   Signed W32   => [0xAAw]
+  | N_convert $   Trunc_f W64 Unsigned W32   => [0xABw]
+  | N_unary   $   ExtendI32_   Signed        => [0xACw]
+  | N_unary   $   ExtendI32_ Unsigned        => [0xADw]
+  | N_convert $   Trunc_f W32   Signed W64   => [0xAEw]
+  | N_convert $   Trunc_f W32 Unsigned W64   => [0xAFw]
+  | N_convert $   Trunc_f W64   Signed W64   => [0xB0w]
+  | N_convert $   Trunc_f W64 Unsigned W64   => [0xB1w]
+  | N_convert $   Convert W32   Signed W32   => [0xB2w]
+  | N_convert $   Convert W32 Unsigned W32   => [0xB3w]
+  | N_convert $   Convert W64   Signed W32   => [0xB4w]
+  | N_convert $   Convert W64 Unsigned W32   => [0xB5w]
+  | N_convert $   Demote                     => [0xB6w]
+  | N_convert $   Convert W32   Signed W64   => [0xB7w]
+  | N_convert $   Convert W32 Unsigned W64   => [0xB8w]
+  | N_convert $   Convert W64   Signed W64   => [0xB9w]
+  | N_convert $   Convert W64 Unsigned W64   => [0xBAw]
+  | N_convert $   Promote                    => [0xBBw]
+  | N_convert $   Reinterpret_f        W32   => [0xBCw]
+  | N_convert $   Reinterpret_f        W64   => [0xBDw]
+  | N_convert $   Reinterpret_i        W32   => [0xBEw]
+  | N_convert $   Reinterpret_i        W64   => [0xBFw]
+  | N_unary   $   Extend8s  W32              => [0xC0w]
+  | N_unary   $   Extend16s W32              => [0xC1w]
+  | N_unary   $   Extend8s  W64              => [0xC2w]
+  | N_unary   $   Extend16s W64              => [0xC3w]
+  | N_unary   $   Extend32s                  => [0xC4w]
 
-  |N_const32 Int   (c32: word32)           =>  0x41w :: enc_s32 c32
-  |N_const64 Int   (c64: word64)           =>  0x42w :: enc_s64 c64
+  | N_const32  Int   (c32: word32)           =>  0x41w :: enc_s32 c32
+  | N_const64  Int   (c64: word64)           =>  0x42w :: enc_s64 c64
 
-  |N_const32 Float (c32: word32)           =>  0x43w :: lend32 c32
-  |N_const64 Float (c64: word64)           =>  0x44w :: lend64 c64
+  | N_const32  Float (c32: word32)           =>  0x43w :: lend32 c32
+  | N_const64  Float (c64: word64)           =>  0x44w :: lend64 c64
 
-  |N_convert$   Trunc_sat_f W32   Signed W32   => 0xFCw :: enc_u32 0w
-  |N_convert$   Trunc_sat_f W32 Unsigned W32   => 0xFCw :: enc_u32 1w
-  |N_convert$   Trunc_sat_f W64   Signed W32   => 0xFCw :: enc_u32 2w
-  |N_convert$   Trunc_sat_f W64 Unsigned W32   => 0xFCw :: enc_u32 3w
-  |N_convert$   Trunc_sat_f W32   Signed W64   => 0xFCw :: enc_u32 4w
-  |N_convert$   Trunc_sat_f W32 Unsigned W64   => 0xFCw :: enc_u32 5w
-  |N_convert$   Trunc_sat_f W64   Signed W64   => 0xFCw :: enc_u32 6w
-  |N_convert$   Trunc_sat_f W64 Unsigned W64   => 0xFCw :: enc_u32 7w
-
+  | N_convert $   Trunc_sat_f W32   Signed W32   => 0xFCw :: enc_u32 0w
+  | N_convert $   Trunc_sat_f W32 Unsigned W32   => 0xFCw :: enc_u32 1w
+  | N_convert $   Trunc_sat_f W64   Signed W32   => 0xFCw :: enc_u32 2w
+  | N_convert $   Trunc_sat_f W64 Unsigned W32   => 0xFCw :: enc_u32 3w
+  | N_convert $   Trunc_sat_f W32   Signed W64   => 0xFCw :: enc_u32 4w
+  | N_convert $   Trunc_sat_f W32 Unsigned W64   => 0xFCw :: enc_u32 5w
+  | N_convert $   Trunc_sat_f W64   Signed W64   => 0xFCw :: enc_u32 6w
+  | N_convert $   Trunc_sat_f W64 Unsigned W64   => 0xFCw :: enc_u32 7w
 End
 
 Definition dec_numI_def:
@@ -1232,6 +1232,12 @@ End
 
 
 Overload enc_indxs = “enc_vector enc_u32”
+Definition lift_dec_u32_def:
+  lift_dec_u32 bs = case dec_u32 bs of
+    | NONE        => error bs "[dec_indxs] : not a u32/index."
+    | SOME (i,rs) => (INR i,rs)
+End
+Overload dec_indxs = “dec_vector lift_dec_u32”
 
 Definition enc_instr_def:
   (* "Expressions" in Wasm are lists of instructions terminated by
@@ -1278,7 +1284,132 @@ End
 Overload enc_expr       = “enc_instrs T”
 Overload enc_instr_list = “enc_instrs F”
 
+Theorem dec_valtype_shortens:
+  ∀ b bs t rs. dec_valtype (b::bs) = (INR t,rs) ⇒ bs = rs
+Proof
+  simp[oneline dec_valtype_def, AllCaseEqs()] \\ rpt strip_tac
+QED
 
+Theorem dec_BlkIdx_shortens:
+  ∀ b bs t rs. dec_BlkIdx (b::bs) = SOME (t,rs) ⇒ LENGTH rs < LENGTH bs
+Proof
+     rewrite_tac[dec_BlkIdx_def, dec_signed_def, dec_w7s_def]
+  \\ rpt gen_tac
+  \\ BBLAST_TAC
+  \\
+  cheat
+QED
+
+Theorem dec_blocktype_shortens:
+  ∀ bs t rs. dec_blocktype bs = (t,rs) ⇒ LENGTH rs ≤ LENGTH bs
+Proof
+  Cases_on ‘bs’
+  >- simp[dec_blocktype_def]
+  >- (
+       simp[dec_blocktype_def]
+    \\ simp[AllCaseEqs()]
+    \\ rpt strip_tac
+      >> gvs[]
+      >- (drule dec_BlkIdx_shortens  \\ simp[])
+      >- (drule dec_valtype_shortens \\ simp[])
+  )
+QED
+
+Definition check_len_def:
+  (check_len bs (INR x,bs1) = if LENGTH bs1 < LENGTH bs then (INR x,bs1) else (INR x,[])) ∧
+  (check_len bs (INL x,bs1) = if LENGTH bs1 ≤ LENGTH bs then (INL x,bs1) else (INL x,bs))
+End
+
+Theorem check_len_IMP:
+  check_len bs xs = (INR x,bs1) ⇒
+  (LENGTH bs1 ≤ LENGTH bs) ∧
+  (bs ≠ [] ⇒ LENGTH bs1 < LENGTH bs)
+Proof
+  PairCases_on ‘xs’ \\ rw [check_len_def]
+  \\ Cases_on ‘xs0’ \\ gvs [check_len_def,AllCaseEqs()]
+  \\ fs [] \\ Cases_on ‘bs’ \\ fs []
+QED
+
+Theorem check_len_IMP_INL:
+  check_len bs xs = (INL x,bs1) ⇒
+  (LENGTH bs1 ≤ LENGTH bs)
+Proof
+  PairCases_on ‘xs’ \\ rw [check_len_def]
+  \\ Cases_on ‘xs0’ \\ gvs [check_len_def,AllCaseEqs()]
+QED
+
+Definition dec_instr_def:
+  (dec_instr ([]:byteSeq) : ((mlstring + instr) # byteSeq) = emErr "dec_instr") ∧
+  (dec_instr (b::bs) = let failure = error (b::bs) "[dec_instr]" in
+    if b = zeroB then (INR Unreachable, bs) else
+    if b = 0x01w then (INR Nop        , bs) else
+    if b = 0x0Fw then (INR Return     , bs) else
+
+    if b = 0x0Cw then case dec_u32 bs of NONE=>failure|SOME (lbl,rs) => (INR $ Br   lbl,rs) else
+    if b = 0x0Dw then case dec_u32 bs of NONE=>failure|SOME (lbl,rs) => (INR $ BrIf lbl,rs) else
+
+    if b= 0x0Ew then (* BrTable *) (
+    case dec_indxs bs of (INL _,_) => failure | (INR  lbls,cs) =>
+    case dec_u32   cs of      NONE => failure | SOME (lbl ,rs) =>
+      (INR $ BrTable lbls lbl, rs)                         ) else
+
+    if b = 0x02w then (* Block *) (
+    case dec_blocktype  bs of (INL err,bs)=>failure| (INR bTyp,bs) =>
+    case dec_instr_list bs of (INL err,bs)=>failure| (INR body,bs) =>
+    case bs                of []          =>failure| (b  ::    bs) =>
+      if b = 0x0Bw then (INR $ Block bTyp body,bs) else failure) else
+
+    if b = 0x03w then (* Loop *) (
+    case dec_blocktype bs  of (INL err,bs) => (INL err,bs) | (INR bTyp,bs) =>
+    case dec_instr_list bs of (INL err,bs) => (INL err,bs) | (INR body,bs) =>
+    case bs                of           [] => failure      | (b ::     bs) =>
+      if b = 0x0Bw then (INR (Loop bTyp body),bs) else failure         ) else
+
+    if b = 0x04w then (* If - then arm only *) (
+    case dec_blocktype bs                 of (INL err,bs) => (INL err,bs) | (INR bTyp,bs) =>
+    case check_len bs (dec_instr_list bs) of (INL err,bs) => (INL err,bs) | (INR bdT ,bs) =>
+    case bs                               of           [] => failure      | (b ::     bs) =>
+      if b = 0x0Bw then (INR (If bTyp bdT []),bs)                                       else
+
+    if b ≠ 0x05w then (* If - both arms *) failure else
+    case dec_instr_list bs of (INL err,bs) => (INL err,bs) | (INR bdE,bs) =>
+    case bs                of           [] => failure      | (b ::    bs) =>
+      if b = 0x0Bw then (INR (If bTyp bdT bdE),bs) else failure       ) else
+
+    if b=0x10w then case dec_u32 bs of NONE=>failure|SOME (f,rs)           => (INR $ Call               f   ,rs) else
+    if b=0x12w then case dec_u32 bs of NONE=>failure|SOME (f,rs)           => (INR $ ReturnCall         f   ,rs) else
+    if b=0x11w then case dec_functype bs of (INL _,_)=>failure|(INR sg,cs) =>
+                    case dec_u32      cs of NONE     =>failure|SOME (f,rs) => (INR $ CallIndirect       f sg,rs) else
+    if b=0x13w then case dec_functype bs of (INL _,_)=>failure|(INR sg,cs) =>
+                    case dec_u32      cs of NONE     =>failure|SOME (f,rs) => (INR $ ReturnCallIndirect f sg,rs) else
+
+    (* other classes of instructions *)
+    case dec_numI   bs of (INR i, rs) => (INR $ Numeric    i, rs) | _ =>
+    case dec_vecI   bs of (INR i, rs) => (INR $ Vector     i, rs) | _ =>
+    case dec_varI   bs of (INR i, rs) => (INR $ Variable   i, rs) | _ =>
+    case dec_tableI bs of (INR i, rs) => (INR $ Table      i, rs) | _ =>
+    case dec_paraI  bs of (INR i, rs) => (INR $ Parametric i, rs) | _ =>
+    case dec_loadI  bs of (INR i, rs) => (INR $ MemRead    i, rs) | _ =>
+    case dec_storeI bs of (INR i, rs) => (INR $ MemWrite   i, rs) | _ =>
+    case dec_memI   bs of (INR i, rs) => (INR $ MemOthers  i, rs) | _ =>
+  failure
+  ) ∧
+  (dec_instr_list ([]:byteSeq) = emErr "dec_instr_list" ) ∧
+  (dec_instr_list (b::bs) =
+     if b = 0x0Bw then (INR [],bs) else
+     case check_len (b::bs) (dec_instr (b::bs)) of (INL err,bs) => (INL err,bs) | (INR i ,bs) =>
+     case dec_instr_list bs                     of (INL err,bs) => (INL err,bs) | (INR is,bs) =>
+       (INR $ i::is, bs)                                                                       )
+Termination
+  WF_REL_TAC ‘measure $ λx. case x of
+                            | INL bs => 2 * LENGTH bs
+                            | INR bs => 2 * LENGTH bs + 1’
+  \\ rw []
+    >> imp_res_tac dec_blocktype_shortens
+    >> fs []
+    >> imp_res_tac check_len_IMP
+    >> fs []
+End
 
 (********************)
 (*                  *)
@@ -1383,6 +1514,37 @@ End
 (* neat trick to check if we're making progress - due to MM *)
 fun print_dot_tac h = (print "."; all_tac h);
 
+(*****************************************)
+(*   Vectors (not vector instructions)   *)
+(*****************************************)
+
+(*
+Theorem dec_enc_vector:
+  ∀dec enc is encis rest.
+    enc_vector enc is = SOME encis ∧
+    (∀x rs. dec (enc x ++ rs) = (INR x,rs))
+    ⇒
+    dec_vector dec (encis ++ rest) = (INR is, rest)
+Proof
+  rpt strip_tac
+  \\ last_x_assum mp_tac
+  \\ rewrite_tac[dec_vector_def, enc_vector_def]
+  \\ simp[AllCaseEqs()]
+  \\ rpt strip_tac
+  \\ gvs[GSYM NOT_LESS]
+  \\ rewrite_tac[GSYM APPEND_ASSOC, dec_enc_u32]
+  \\ simp[]
+  \\ qid_spec_tac ‘rest’  (* ask  hol to generalize rest *)
+  \\ qid_spec_tac ‘is’    (* ask  hol to generalize rest *)
+  \\ Induct
+    >> rewrite_tac[enc_list_def]
+    >> simp[Once dec_list_def, CaseEq "sum", CaseEq "prod"]
+    \\ asm_rewrite_tac[GSYM APPEND_ASSOC]
+    \\ simp[]
+QED
+*)
+
+
 (*************)
 (*   Types   *)
 (*************)
@@ -1406,14 +1568,14 @@ QED
 Theorem dec_enc_globaltype:
   ∀ x rest. dec_globaltype (enc_globaltype x ++ rest) = (INR x, rest)
 Proof
-  rpt strip_tac
-  >> `∃ val. enc_globaltype x = val` by simp []
-  >> asm_rewrite_tac[]
-  >> pop_assum mp_tac
-  >> rewrite_tac[enc_globaltype_def]
-  >> simp[AllCaseEqs()]
-  >> rpt strip_tac
-  >> gvs[dec_globaltype_def, dec_enc_valtype]
+     rpt strip_tac
+  \\ `∃ val. enc_globaltype x = val` by simp []
+  \\ asm_rewrite_tac[]
+  \\ pop_assum mp_tac
+  \\ rewrite_tac[enc_globaltype_def]
+  \\ simp[AllCaseEqs()]
+  \\ rpt strip_tac
+    >> gvs[dec_globaltype_def, dec_enc_valtype]
   (*
   rw[enc_global_def] >> every_case_tac >> rw[dec_global_def, dec_enc_valtype]
   *)
@@ -1434,24 +1596,23 @@ Proof
   \\ rewrite_tac [enc_numI_def]
   \\ simp[AllCaseEqs()]
   \\ rpt strip_tac
-
-  (* single byte encoding cases *)
-  \\ asm_rewrite_tac[APPEND, dec_numI_def]
-  \\ simp[AllCaseEqs()]
-
-  (* cases requiring further encoding (of their "immediates") *)
-  \\ (
+    (* single byte encoding cases *)
+    >> asm_rewrite_tac[APPEND, dec_numI_def]
+    >> simp[AllCaseEqs()]
+    (* cases requiring further encoding (of their "immediates") *)
+    >> (
     pop_assum sym_sub_tac
     >- simp[dec_numI_def, AllCaseEqs()]
-  )
+    )
 QED
 
 Theorem NOT_NULL_enc_u32:
   ~(NULL (enc_u32 u))
 Proof
   rewrite_tac[enc_unsigned_word_def]
-  >> simp[Once enc_num_def]
-  >> every_case_tac >> simp[]
+  \\ simp[Once enc_num_def]
+  \\ every_case_tac
+    >> simp[]
 QED
 
 Theorem dec_enc_vecI:
@@ -1464,20 +1625,22 @@ Proof
   \\ rewrite_tac [enc_vecI_def]
   \\ simp [AllCaseEqs()]
   \\ rpt strip_tac
-  \\ (rpt var_eq_tac
-      \\ rewrite_tac [dec_vecI_def,APPEND,NOT_NULL_enc_u32,NULL_APPEND]
-      \\ rewrite_tac [GSYM APPEND_ASSOC,dec_enc_u32]
-      \\ rewrite_tac [LET_THM]
-      \\ CONV_TAC ((RATOR_CONV o RAND_CONV) BETA_CONV)
-      \\ rewrite_tac [pair_case_thm,option_case_def]
-      \\ CONV_TAC (DEPTH_CONV BETA_CONV)
-      \\ rewrite_tac [pair_case_thm,option_case_def]
-      \\ CONV_TAC (DEPTH_CONV BETA_CONV)
-      \\ rewrite_tac [AllCaseEqs()]
-      \\ print_dot_tac
-      \\ simp_tac std_ss [n2w_11,EVAL “dimword (:32)”])
-  \\ ntac 16 (rewrite_tac [leb128Theory.dec_enc_unsigned_word,GSYM APPEND_ASSOC] \\ simp [])
-  \\ (Cases_on `v3` >> rewrite_tac[])
+    >> (
+    rpt var_eq_tac
+    \\ rewrite_tac [dec_vecI_def,APPEND,NOT_NULL_enc_u32,NULL_APPEND]
+    \\ rewrite_tac [GSYM APPEND_ASSOC,dec_enc_u32]
+    \\ rewrite_tac [LET_THM]
+    \\ CONV_TAC ((RATOR_CONV o RAND_CONV) BETA_CONV)
+    \\ rewrite_tac [pair_case_thm,option_case_def]
+    \\ CONV_TAC (DEPTH_CONV BETA_CONV)
+    \\ rewrite_tac [pair_case_thm,option_case_def]
+    \\ CONV_TAC (DEPTH_CONV BETA_CONV)
+    \\ rewrite_tac [AllCaseEqs()]
+    \\ print_dot_tac
+    \\ simp_tac std_ss [n2w_11,EVAL “dimword (:32)”]
+    )
+    >> ntac 16 (rewrite_tac [dec_enc_unsigned_word,GSYM APPEND_ASSOC] \\ simp [])
+    >> (Cases_on `v3` >> rewrite_tac[])
 QED
 
 Theorem dec_enc_paraI:
@@ -1498,7 +1661,7 @@ Theorem dec_enc_tableI:
   ∀ i rest. dec_tableI (enc_tableI i ++ rest) = (INR i, rest)
 Proof
   rw[enc_tableI_def] \\ every_case_tac
-    >> simp[dec_tableI_def,GSYM APPEND_ASSOC, Excl"APPEND_ASSOC", enc_2u32_def]
+    >> simp[dec_tableI_def,GSYM APPEND_ASSOC, Excl"APPEND_ASSOC"]
 QED
 
 Theorem dec_enc_loadI:
@@ -1510,13 +1673,9 @@ Proof
   \\ rewrite_tac [enc_loadI_def]
   \\ simp[AllCaseEqs()]
   \\ rpt strip_tac
-
-  \\ (
-    pop_assum sym_sub_tac
+    >> pop_assum sym_sub_tac
     >> simp[dec_loadI_def, AllCaseEqs()]
-  )
-  \\ fs[GSYM APPEND_ASSOC,dec_enc_u32, enc_2u32_def] >> simp[]
-  \\ rewrite_tac[GSYM APPEND_ASSOC,dec_enc_u32, enc_2u32_def] >> simp[]
+    >> gvs[GSYM APPEND_ASSOC, Excl "APPEND_ASSOC"]
 QED
 
 Theorem dec_enc_storeI:
@@ -1529,15 +1688,8 @@ Proof
   \\ rewrite_tac [enc_storeI_def]
   \\ simp[AllCaseEqs()]
   \\ rpt strip_tac
-  \\ gvs[dec_storeI_def, dec_enc_2u32]
-  \\ rewrite_tac[GSYM APPEND_ASSOC, dec_enc_u32] >> simp[]
-  (*
-  rw[enc_storeI_def] >> every_case_tac
-  >> simp[bvtype_nchotomy]
-  >> rw[dec_storeI_def]
-  \\ gvs[dec_storeI_def, dec_enc_2u32]
-  \\ rewrite_tac[GSYM APPEND_ASSOC, dec_enc_u32] >> simp[]
-  *)
+    >> gvs[dec_storeI_def]
+    >> rewrite_tac[GSYM APPEND_ASSOC] >> simp[]
 QED
 
 Theorem dec_enc_memI:
@@ -1550,9 +1702,9 @@ Proof
   \\ rewrite_tac [enc_memI_def]
   \\ simp[AllCaseEqs()]
   \\ rpt strip_tac
-  \\ gvs[dec_memI_def, dec_enc_2u32]
+  \\ gvs[dec_memI_def]
   \\ rewrite_tac [GSYM APPEND_ASSOC, dec_enc_u32]
-  \\ simp[dec_enc_u32]
+  \\ simp[]
 QED
 
 Theorem dec_enc_BlkIdx:
@@ -1585,49 +1737,35 @@ QED
 Theorem dec_enc_blocktype:
   ∀b rest. dec_blocktype (enc_blocktype b ++ rest) = (INR b, rest)
 Proof
-  rpt strip_tac
+  rpt gen_tac
   \\ `∃ val. enc_blocktype b = val` by simp []
   \\ asm_rewrite_tac[]
   \\ pop_assum mp_tac
   \\ rewrite_tac[enc_blocktype_def]
   \\ simp[AllCaseEqs()]
   \\ rpt strip_tac
-  >- gvs[dec_blocktype_def]
-  >- (
-    gvs[dec_blocktype_def, dec_enc_valtype]
-    >> rewrite_tac[enc_valtype_def]
-    >> gvs[AllCaseEqs()]
-  )
-  >- (
-    gvs[oneline dec_blocktype_def,dec_valtype_def]
-    \\ simp[AllCaseEqs()]
-    \\ simp[SF DNF_ss]
-    \\ Cases_on `enc_BlkIdx x`
-    >> gvs[enc_BlkIdx_not_nil]
-    >> reverse $ rpt strip_tac (* reverses the subgoals produced by the following tactic *)
-    >- metis_tac[APPEND, dec_enc_BlkIdx]
-    >> (
-      gvs[]
-      >> drule enc_BlkIdx_imp_word_msb
-      >> EVAL_TAC
+    >> gvs[oneline dec_blocktype_def, dec_enc_valtype]
+    >-(
+    rewrite_tac[enc_valtype_def] >> gvs[AllCaseEqs()]
     )
-  )
+    >-(
+    gvs[dec_valtype_def]
+    \\ simp[AllCaseEqs(), SF DNF_ss]
+    \\ Cases_on `enc_BlkIdx x`
+      >- gvs[enc_BlkIdx_not_nil]
+      >-(
+      gvs[]
+      \\ reverse $ rpt strip_tac (* reverses the subgoals produced by the following tactic *)
+        >- metis_tac[APPEND, dec_enc_BlkIdx]
+        >> (
+        gvs[]
+        >> drule enc_BlkIdx_imp_word_msb
+        >> EVAL_TAC
+        )
+      )
+    )
 QED
 
-Theorem dec_enc_vector:
-  ∀ dec enc x rs1 items encitems rest.
-    (dec (enc x ++ rs1) =  (INR x,rs1)) ⇒
-    (enc_vector enc items = SOME encitems) ⇒
-  (dec_vector dec encitems = (INR items, rest))
-Proof
-  rpt strip_tac
-  \\ pop_assum mp_tac
-  \\ rewrite_tac[dec_vector_def, enc_vector_def]
-  \\ simp[AllCaseEqs()]
-  \\ rpt strip_tac
-  \\
-  cheat
-QED
 
 
 (***************)
@@ -1651,91 +1789,6 @@ Proof
   )
 QED
 
-Definition check_len_def:
-  (check_len bs (INR x,bs1) =
-    if LENGTH bs1 < LENGTH bs then (INR x,bs1) else (INR x,[])) ∧
-  (check_len bs (INL x,bs1) =
-    if LENGTH bs1 ≤ LENGTH bs then (INL x,bs1) else (INL x,bs))
-End
-
-Theorem check_len_IMP:
-  check_len bs xs = (INR x,bs1) ⇒
-  (LENGTH bs1 ≤ LENGTH bs) ∧
-  (bs ≠ [] ⇒ LENGTH bs1 < LENGTH bs)
-Proof
-  PairCases_on ‘xs’ \\ rw [check_len_def]
-  \\ Cases_on ‘xs0’ \\ gvs [check_len_def,AllCaseEqs()]
-  \\ fs [] \\ Cases_on ‘bs’ \\ fs []
-QED
-
-Theorem check_len_IMP_INL:
-  check_len bs xs = (INL x,bs1) ⇒
-  (LENGTH bs1 ≤ LENGTH bs)
-Proof
-  PairCases_on ‘xs’ \\ rw [check_len_def]
-  \\ Cases_on ‘xs0’ \\ gvs [check_len_def,AllCaseEqs()]
-QED
-
-Definition dec_instr_def:
-  (dec_instr ([]:byteSeq) : ((mlstring + instr) # byteSeq) = emErr "dec_instr") ∧
-  (dec_instr (b::bs) = let failure = error (b::bs) "[dec_instr]" in
-    if b = zeroB then (INR Unreachable, bs) else
-    if b = 0x01w then (INR Nop        , bs) else
-    if b = 0x0Fw then (INR Return     , bs) else
-
-
-    if b = 0x02w then (
-      case dec_blocktype bs of (INL err,bs) => (INL err,bs) | (INR bTyp,bs) =>
-      case dec_instr_list bs of (INL err,bs) => (INL err,bs) | (INR body,bs) =>
-        case bs of
-        | [] => failure
-        | (b::bs) =>
-          if b = 0x0Bw then (INR $ Block bTyp body,bs) else failure
-    ) else
-    if b = 0x03w then
-       (case dec_blocktype bs of (INL err,bs) => (INL err,bs) | (INR bTyp,bs) =>
-        case dec_instr_list bs of (INL err,bs) => (INL err,bs) | (INR body,bs) =>
-        case bs of
-        | [] => emErr "dec_instr"
-        | (b::bs) =>
-          if b = 0x0Bw then
-            (INR (Loop bTyp body),bs)
-          else
-            failure) else
-     if b = 0x04w then
-       (case dec_blocktype bs of (INL err,bs) => (INL err,bs) | (INR bTyp,bs) =>
-        case check_len bs (dec_instr_list bs) of (INL err,bs) => (INL err,bs) | (INR bodyTh,bs) =>
-        case bs of
-        | [] => failure
-        | (b::bs) =>
-          if b = 0x0Bw then
-            (INR (If bTyp bodyTh []),bs)
-          else if b ≠ 0x05w then
-            error (b::bs) "dec_instr"
-          else
-            case dec_instr_list bs of (INL err,bs) => (INL err,bs) | (INR bodyEl,bs) =>
-            case bs of
-            | [] => failure
-            | (b::bs) =>
-              if b = 0x0Bw then
-                (INR (If bTyp bodyTh bodyEl),bs)
-              else
-                failure)
-     else error (b::bs) "TODO not yet supported") ∧
-  (dec_instr_list ([]:byteSeq) = emErr "dec_instr_list") ∧
-  (dec_instr_list (b::bs) =
-     if b = 0x0Bw then (INR [],bs) else
-     case check_len (b::bs) (dec_instr (b::bs)) of (INL err,bs) => (INL err,bs) | (INR i ,bs) =>
-     case dec_instr_list bs                     of (INL err,bs) => (INL err,bs) | (INR is,bs) =>
-       (INR (i::is),bs))
-Termination
-  WF_REL_TAC ‘measure $ λx. case x of
-                            | INL bs => 2 * LENGTH bs
-                            | INR bs => 2 * LENGTH bs + 1’
-  \\ rw [] \\ imp_res_tac dec_blocktype_len \\ fs []
-  \\ imp_res_tac check_len_IMP \\ fs []
-End
-
 Triviality check_len_INR:
   check_len bs0 y = (INR x,bs1) ⇒ ∃y1 y2. y = (INR y1,y2)
 Proof
@@ -1748,25 +1801,59 @@ Proof
   gvs [oneline check_len_def, AllCaseEqs()] \\ rw [] \\ fs []
 QED
 
+(* ASKMM ASKYK *)
+Theorem dec_u32_shortens:
+  ∀ bs x rs. dec_u32 bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
+Proof
+  Induct_on ‘bs’ >> rpt gen_tac
+    >> gvs[dec_vector_def, Once dec_list_def, dec_unsigned_word_def, dec_num_def]
+    >>
+  cheat
+QED
+
+Theorem dec_indxs_shortens:
+  ∀ bs xs rs. dec_indxs bs = (INR xs, rs) ⇒ LENGTH rs < LENGTH bs
+Proof
+  cheat
+QED
+
+Theorem dec_functype_shortens:
+  ∀ bs xs rs. dec_functype bs = (INR xs, rs) ⇒ LENGTH rs < LENGTH bs
+Proof
+  Cases_on ‘bs’ >> rpt gen_tac
+    >> simp[dec_functype_def]
+    (* >> simp[dec_enc_vector]
+    >> simp[dec_vector_def, dec_num_def, dec_unsigned_word_def] *)
+    >>
+    cheat
+QED
+
 Theorem dec_instr_length:
   (∀bs x bs1. dec_instr bs = (INR x,bs1) ⇒ LENGTH bs1 < LENGTH bs) ∧
   (∀bs x bs1. dec_instr_list bs = (INR x,bs1) ⇒ LENGTH bs1 < LENGTH bs)
 Proof
   ho_match_mp_tac dec_instr_ind \\ rw []
-  >~ [‘dec_instr []’] >- simp [dec_instr_def]
+  >~ [‘dec_instr      []’] >- simp [dec_instr_def]
   >~ [‘dec_instr_list []’] >- simp [dec_instr_def]
-  \\ pop_assum mp_tac
-  \\ simp [Once dec_instr_def]
-  \\ strip_tac
-  \\ gvs [AllCaseEqs()]
-  \\ imp_res_tac dec_blocktype_len \\ fs []
-  \\ imp_res_tac check_len_INL \\ fs []
-  \\ imp_res_tac check_len_INR \\ fs []
-  \\ gvs [check_len_def]
+    >> pop_assum mp_tac
+    >> simp [Once dec_instr_def]
+    >> strip_tac
+      >> gvs [AllCaseEqs()]
+      >> imp_res_tac dec_blocktype_shortens \\ fs []
+      >> imp_res_tac check_len_INL \\ fs []
+      >> imp_res_tac check_len_INR \\ fs []
+      >> gvs [check_len_def]
+      >>~ [‘dec_u32’]
+        >> TRY (drule dec_u32_shortens     )
+        >> TRY (drule dec_indxs_shortens   )
+        >> TRY (drule dec_functype_shortens)
+        >> simp[]
+        >>
+        cheat
 QED
 
 Theorem dec_instr_INL_length:
-  (∀bs x bs1. dec_instr bs = (INL x,bs1) ⇒ LENGTH bs1 ≤ LENGTH bs) ∧
+  (∀bs x bs1. dec_instr      bs = (INL x,bs1) ⇒ LENGTH bs1 ≤ LENGTH bs) ∧
   (∀bs x bs1. dec_instr_list bs = (INL x,bs1) ⇒ LENGTH bs1 ≤ LENGTH bs)
 Proof
   ho_match_mp_tac dec_instr_ind \\ rw []
@@ -1841,4 +1928,3 @@ Proof
     \\ asm_rewrite_tac [GSYM APPEND_ASSOC] \\ simp [])
   \\ cheat (* not yet implemented cases *)
 QED *)
-*)
