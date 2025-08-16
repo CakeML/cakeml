@@ -760,10 +760,148 @@ Definition trace_prefix_def:
     | Oracle_final outcome => trace_prefix n (oracle, ffi_st) (f $ INL outcome)
 End
 
-Triviality trace_prefix_Ret[simp]:
+Theorem trace_prefix_Ret_FST[simp]:
   FST (trace_prefix n (or, ffi) (Ret r)) = []
 Proof
   Cases_on ‘n’>>simp[trace_prefix_def]
+QED
+
+Theorem trace_prefix_Ret_SND[simp]:
+  n ≠ 0 ⇒ SND (trace_prefix n (or, ffi) (Ret r)) = SOME r
+Proof
+  Cases_on ‘n’>>simp[trace_prefix_def]
+QED
+
+Theorem trace_prefix_Ret_simp[simp]:
+  trace_prefix n (or,ffi) (Ret r) = ([], if n = 0 then NONE else SOME r)
+Proof
+  Cases_on ‘n’>>simp[trace_prefix_def]
+QED
+
+Theorem trace_prefix_FUNPOW_Tau:
+  trace_prefix n x (FUNPOW Tau m ht) = trace_prefix (n - m) x ht
+Proof
+  map_every qid_spec_tac [‘ht’,‘m’,‘n’]>>
+  Induct>>rw[]>>Cases_on ‘x’
+  >- simp[trace_prefix_def]>>
+  Cases_on ‘m’>>fs[FUNPOW_SUC]>>
+  simp[trace_prefix_def]
+QED
+
+Theorem trace_prefix_Vis[simp]:
+  trace_prefix n (x,x') (Vis a g) =
+  (case n of
+     0 => ([],NONE)
+   | SUC n =>
+       (case x (FST a) x' (FST(SND a)) (SND(SND a)) of
+          Oracle_final f => trace_prefix n (x,x') (g (INL f))
+        | Oracle_return f l =>
+            (let (io,res) = trace_prefix n (x,f) (g (INR l))
+             in
+               if LENGTH (SND(SND a)) ≠ LENGTH l
+               then (io,res)
+               else (IO_event (FST a) (FST(SND a)) (ZIP (SND(SND a),l))::io,res))))
+Proof
+  Cases_on ‘n’>>simp[trace_prefix_def]>>
+  simp[trace_prefix_def]>>
+  PairCases_on ‘a’>>simp[]>>
+  CASE_TAC>>
+  simp[trace_prefix_def]>>
+  rpt (pairarg_tac>>fs[])
+QED
+
+Definition trace_prefix0_def:
+  trace_prefix0 0 (oracle, ffi_st) (itree:'a ptree) = ([], NONE) ∧
+  trace_prefix0 (SUC n) (oracle, ffi_st) (Ret (INL l)) = ([], SOME ARB) ∧
+  trace_prefix0 (SUC n) (oracle, ffi_st) (Ret (INR r)) = ([], SOME r) ∧
+  trace_prefix0 (SUC n) (oracle, ffi_st) (Tau t) = trace_prefix0 n (oracle, ffi_st) t ∧
+  trace_prefix0 (SUC n) (oracle, ffi_st) ((Vis (s, conf, ws) f):'a ptree) =
+    case oracle s ffi_st conf ws of
+    | Oracle_return ffi_st' ws' =>
+        let (io, res) = trace_prefix0 n (oracle, ffi_st') (f $ INL $ INR ws') in
+        if LENGTH ws ≠ LENGTH ws' then (io, res)
+        else (IO_event s conf (ZIP (ws,ws'))::io, res)
+    | Oracle_final outcome => trace_prefix0 n (oracle, ffi_st) (f $ INL $ INL outcome)
+End
+
+Theorem trace_prefix0_Ret[simp]:
+  FST (trace_prefix0 n (or, ffi) (Ret r)) = []
+Proof
+  Cases_on ‘n’>>Cases_on ‘r’>>simp[trace_prefix0_def]
+QED
+
+Theorem trace_prefix0_Ret_SND[simp]:
+  n ≠ 0 ⇒ SND (trace_prefix0 n (or, ffi) (Ret (INR r))) = SOME r
+Proof
+  Cases_on ‘n’>>simp[trace_prefix0_def]
+QED
+
+Theorem trace_prefix0_Ret_simp[simp]:
+  trace_prefix0 n (or,ffi) (Ret x) =
+  ([], if n = 0 then NONE
+       else (case x of INL _ => SOME ARB | INR r => SOME r))
+Proof
+  Cases_on ‘n’>>Cases_on ‘x’>>simp[trace_prefix0_def]
+QED
+
+Theorem trace_prefix0_FUNPOW_Tau:
+  trace_prefix0 n x (FUNPOW Tau m ht) = trace_prefix0 (n - m) x ht
+Proof
+  map_every qid_spec_tac [‘ht’,‘m’,‘n’]>>
+  Induct>>rw[]>>Cases_on ‘x’
+  >- simp[trace_prefix0_def]>>
+  Cases_on ‘m’>>fs[FUNPOW_SUC]>>
+  simp[trace_prefix0_def]
+QED
+
+Theorem trace_prefix0_Vis[simp]:
+  trace_prefix0 n (x,x') (Vis a g) =
+  (case n of
+     0 => ([],NONE)
+   | SUC n =>
+       (case x (FST a) x' (FST(SND a)) (SND(SND a)) of
+          Oracle_final f => trace_prefix0 n (x,x') (g (INL (INL f)))
+        | Oracle_return f l =>
+            (let (io,res) = trace_prefix0 n (x,f) (g (INL (INR l)))
+             in
+               if LENGTH (SND(SND a)) ≠ LENGTH l
+               then (io,res)
+               else (IO_event (FST a) (FST(SND a)) (ZIP (SND(SND a),l))::io,res))))
+Proof
+  Cases_on ‘n’>>simp[trace_prefix0_def]>>
+  PairCases_on ‘a’>>simp[]>>
+  CASE_TAC>>
+  simp[trace_prefix0_def]
+QED
+
+Theorem trace_prefix_eq0:
+  trace_prefix n (x,x')
+  (itree_unfold
+   (λx.
+      case x of
+        Ret r => Ret' (case r of INL l => ARB | INR r => r)
+      | Tau t => Tau' t
+      | Vis e f => Vis' e (λx. f (INL x))) ht) =
+  trace_prefix0 n (x,x') ht
+Proof
+  map_every qid_spec_tac [‘ht’,‘x’,‘x'’,‘p’,‘s’,‘n’]>>
+  completeInduct_on ‘n’>>
+  Cases_on ‘n’>>rw[]
+  >-simp[trace_prefix_def,trace_prefix0_def]>>
+  Cases_on ‘∃t. strip_tau ht t’>>fs[]
+  >- (imp_res_tac strip_tau_FUNPOW>>
+      simp[itree_unfold_FUNPOW_Tau,trace_prefix_FUNPOW_Tau,
+           trace_prefix0_FUNPOW_Tau,FUNPOW_Tau_bind]>>
+      Cases_on ‘t’>>fs[]>>
+      simp[Once itree_unfold]>>
+      simp[trace_prefix_def,trace_prefix0_def]
+      >- FULL_CASE_TAC>>
+      Cases_on ‘SUC n' - n’>>
+      PairCases_on ‘a’>>fs[])>>
+  imp_res_tac strip_tau_spin>>fs[]>>
+  once_rewrite_tac[spin]>>
+  simp[Once itree_unfold]>>
+  simp[trace_prefix_def,trace_prefix0_def]
 QED
 
 (***)
