@@ -213,37 +213,8 @@ Proof
     \\ drule evaluate_add_clock \\ fs [inc_clock_def])
   THEN1 (* Op *)
    (fs [remove_ticks_def,evaluate_def]
-    \\ Cases_on `op = ThunkOp ForceThunk` \\ gvs []
-    >- (
-      Cases_on `evaluate (remove_ticks xs,env,s)` \\ gvs []
-      \\ reverse $ Cases_on `q` \\ gvs []
-      >- (
-        first_x_assum drule \\ gvs []
-        \\ disch_then drule \\ strip_tac
-        \\ qexists `ck` \\ gvs [])
-      \\ first_x_assum drule \\ gvs []
-      \\ disch_then drule \\ strip_tac
-      \\ `t'.refs = r.refs` by gvs [state_rel_def]
-      \\ `t'.clock = r.clock` by gvs [state_rel_def]
-      \\ gvs [AllCaseEqs(), PULL_EXISTS]
-      \\ TRY (qexists `ck` \\ gvs [] \\ NO_TAC)
-      \\ (
-        qrefine `ck' + ck`
-        \\ `∀ck'. evaluate (xs,env,t with clock := ck' + ck + t.clock) =
-                    (Rval a,t' with clock := ck' + t'.clock)` by (
-          imp_res_tac evaluate_add_clock \\ gvs [inc_clock_def])
-        \\ gvs [PULL_EXISTS]
-        \\ `evaluate (remove_ticks [AppUnit],[v],dec_clock 1 r) =
-           evaluate ([AppUnit],[v],dec_clock 1 r)`
-          by gvs [AppUnit_def, remove_ticks_def]
-        \\ gvs []
-        \\ `(dec_clock 1 r).clock < s.clock` by (
-          imp_res_tac evaluate_clock \\ gvs [dec_clock_def])
-        \\ `state_rel (dec_clock 1 t') (dec_clock 1 r)` by (
-          gvs [state_rel_def, dec_clock_def])
-        \\ last_x_assum drule_all \\ rw [dec_clock_def]
-        \\ goal_assum drule \\ gvs []
-        \\ gvs [state_rel_def]))
+    \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gvs []
+    >- (gvs [AllCaseEqs(), do_app_def, PULL_EXISTS] \\ metis_tac [])
     \\ FULL_CASE_TAC \\ fs []
     \\ first_x_assum drule \\ fs []
     \\ disch_then drule \\ strip_tac
@@ -257,6 +228,14 @@ Proof
     \\ disch_then drule \\ strip_tac
     \\ fs [bvlSemTheory.evaluate_def]
     \\ qexists_tac `ck + 1` \\ fs [dec_clock_def])
+  THEN1
+   (gvs [remove_ticks_def, evaluate_def, oneline dest_thunk_def,
+         AllCaseEqs(), PULL_EXISTS, state_rel_def, find_code_def,
+         lookup_map, dec_clock_def]
+    >- (qexistsl [‘0’, ‘t with clock := 0`] \\ gvs [])
+    \\ last_x_assum $ drule_at (Pat ‘evaluate _ = _’)
+    \\ disch_then $ qspec_then ‘t with clock := t.clock - 1’ assume_tac
+    \\ gvs [] \\ metis_tac [])
   (* Call *)
   \\ fs [remove_ticks_def]
   \\ fs [bvlSemTheory.evaluate_def]
@@ -613,6 +592,7 @@ Inductive exp_rel:
    exp_rel cs [Tick x] [Tick y]) /\
   (exp_rel cs xs ys ==>
    exp_rel cs [Op op xs] [Op op ys]) /\
+  (exp_rel cs [Force loc n] [Force loc n]) /\
   (exp_rel cs xs ys ==>
    exp_rel cs [Call ticks dest xs] [Call ticks dest ys]) /\
   (exp_rel cs xs ys /\ lookup n cs = SOME (arity, x) /\
@@ -1006,19 +986,8 @@ Proof
     \\ drule subspt_exp_rel \\ disch_then drule \\ rw []
     \\ pop_assum drule \\ rw [] \\ fs [])
   THEN1
-   (Cases_on `op = ThunkOp ForceThunk` \\ gvs []
-    >- (
-      gvs [evaluate_def]
-      \\ gvs [AllCaseEqs(), PULL_EXISTS]
-      \\ (
-        first_x_assum drule_all \\ rw [] \\ gvs [PULL_EXISTS]
-        \\ `s'.refs = t2.refs` by gvs [in_state_rel_def] \\ gvs [PULL_EXISTS]
-        \\ `s'.clock = t2.clock` by gvs [in_state_rel_def] \\ gvs []
-        \\ `in_state_rel limit (dec_clock 1 s') (dec_clock 1 t2)`
-           by gvs [in_state_rel_def, dec_clock_def]
-        \\ last_x_assum drule
-        \\ disch_then $ qspec_then `[AppUnit]` assume_tac
-        \\ gvs [exp_rel_refl, in_state_rel_def]))
+   (Cases_on ‘op = ThunkOp ForceThunk’ \\ gvs []
+    >- gvs [evaluate_def, do_app_def, AllCaseEqs()]
     \\ fs [case_eq_thms] \\ rveq \\ fs []
     \\ first_x_assum drule
     \\ disch_then drule \\ strip_tac
@@ -1036,6 +1005,15 @@ Proof
     \\ first_x_assum drule
     \\ disch_then drule \\ strip_tac
     \\ fs [evaluate_def])
+  THEN1
+   (gvs [AllCaseEqs(), evaluate_def, PULL_EXISTS, oneline dest_thunk_def]
+    >- gvs [in_state_rel_def]
+    >- gvs [in_state_rel_def]
+    \\ ‘in_state_rel limit (dec_clock 1 s) (dec_clock 1 t1)’
+      by gvs [in_state_rel_def, dec_clock_def]
+    \\ last_x_assum drule \\ rw []
+    \\ gvs [find_code_def, AllCaseEqs(), in_state_rel_def, PULL_EXISTS]
+    \\ last_x_assum drule \\ rw [] \\ gvs [])
   THEN1
    (reverse (fs [case_eq_thms] \\ rveq \\ fs [])
     \\ first_x_assum drule
@@ -1595,18 +1573,8 @@ Proof
    (fs [case_eq_thms] \\ rveq \\ fs []
    \\ res_tac \\ fs [] \\ res_tac \\ fs [])
   THEN1
-   (Cases_on `op = ThunkOp ForceThunk` \\ gvs []
-    >- (
-      gvs [AllCaseEqs(), PULL_EXISTS]
-      \\ (
-        first_x_assum drule \\ rw [] \\ gvs [PULL_EXISTS]
-        \\ `s'.refs = t2.refs` by gvs [let_state_rel_def] \\ gvs [PULL_EXISTS]
-        \\ `s'.clock = t2.clock` by gvs [let_state_rel_def] \\ gvs []
-        \\ `let_state_rel q4 l4 (dec_clock 1 s') (dec_clock 1 t2)`
-          by gvs [let_state_rel_def, dec_clock_def]
-        \\ last_x_assum drule \\ rw [AppUnit_def, let_op_def]
-        \\ gvs []
-        \\ gvs [let_state_rel_def]))
+   (Cases_on ‘op = ThunkOp ForceThunk’ \\ gvs []
+    >- gvs [AllCaseEqs(), PULL_EXISTS, do_app_def]
     \\ fs [case_eq_thms] \\ rveq \\ fs []
     \\ res_tac \\ fs [] \\ res_tac \\ fs []
     \\ rveq \\ fs []
@@ -1621,6 +1589,27 @@ Proof
     \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs []
     \\ rveq \\ fs []
     \\ qexists_tac `t2` \\ fs [] \\ fs [let_state_rel_def])
+  THEN1
+   (gvs [AllCaseEqs(), PULL_EXISTS]
+    >- gvs [let_state_rel_def]
+    >- gvs [let_state_rel_def]
+    \\ rename1 ‘let_state_rel q l s t’
+    \\ ‘let_state_rel q l (dec_clock 1 s) (dec_clock 1 t)’
+      by gvs [let_state_rel_def, dec_clock_def]
+    \\ last_x_assum drule \\ rw []
+    \\ gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
+    \\ ‘FLOOKUP t.refs ptr = SOME (Thunk NotEvaluated v)’
+      by gvs [let_state_rel_def]
+    \\ gvs []
+    \\ ‘t.clock ≠ 0’ by gvs [let_state_rel_def] \\ gvs [PULL_EXISTS]
+    \\ goal_assum $ drule_at Any \\ gvs []
+    \\ ‘find_code (SOME force_loc) [RefPtr v0 ptr; v] t.code = SOME (args,
+           compile_any q l (LENGTH args) (let_op_sing exp))’
+      by gvs [find_code_def, AllCaseEqs(), let_state_rel_def, lookup_map,
+              let_opt_def]
+    \\ gvs []
+    \\ match_mp_tac bvl_handleProofTheory.compile_any_correct \\ fs []
+    \\ gvs [let_op_sing_thm])
   THEN1
    (fs [case_eq_thms] \\ rveq \\ fs []
     \\ res_tac \\ fs [] \\ res_tac \\ fs [] \\ rveq

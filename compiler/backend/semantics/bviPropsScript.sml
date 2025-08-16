@@ -734,6 +734,7 @@ Definition get_code_labels_def:
   (get_code_labels (Let es e) = BIGUNION (set (MAP get_code_labels es)) ∪ get_code_labels e) ∧
   (get_code_labels (Raise e) = get_code_labels e) ∧
   (get_code_labels (Tick e) = get_code_labels e) ∧
+  (get_code_labels (Force loc v) = {loc}) ∧
   (get_code_labels (Call _ d es h) =
     (case d of NONE => {} | SOME n => {n}) ∪
     (case h of NONE => {} | SOME e => get_code_labels e) ∪

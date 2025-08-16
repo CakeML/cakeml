@@ -182,11 +182,13 @@ Proof
     fs [dest_simple_eq, case_op_const_eq] \\
     simp [evaluate_def, do_app_def,oneline do_int_app_def] \\
     fsrw_tac [DNF_ss] [case_eq_thms] \\
-    rw [REVERSE_DEF] \\
-    imp_res_tac evaluate_SING  \\
-    fs [] \\ rveq \\
-    gvs [oneline dest_thunk_def, AllCaseEqs()] \\
-    intLib.COOPER_TAC)
+    rw [REVERSE_DEF]
+    \\ (
+      imp_res_tac evaluate_SING  \\
+      fs [] \\ rveq \\
+      intLib.COOPER_TAC
+        ORELSE metis_tac [intLib.COOPER_PROVE
+                           ``!(a : int) b. 0 ≤ a ∧ a < &b ⇒ Num a < b``]))
   \\ fs []
   \\ every_case_tac \\ fs []
   \\ fs [dest_simple_eq] \\ rveq
@@ -217,7 +219,6 @@ Proof
   \\ gvs [evaluate_def,do_app_def,do_int_app_def]
   \\ rw [] \\ gvs [] \\ eq_tac \\ rw []
 QED
-
 
 Theorem SmartOp_thm:
    evaluate ([Op op xs],env,s) = (res,s2) /\
@@ -294,8 +295,7 @@ Proof
     \\ res_tac \\ rw [] \\ Cases_on `e` \\ fs [] \\ rw [] \\ fs []
     \\ first_x_assum match_mp_tac
     \\ fs [env_rel_def])
-  \\ Cases_on `op = ThunkOp ForceThunk` \\ gvs []
-  >- (gvs [AllCaseEqs()] \\ irule SmartOp_thm \\ rw [evaluate_def])
+  >>~- ([`dest_thunk`], cheat)
   \\ TRY (match_mp_tac SmartOp_thm)
   \\ fs [evaluate_def] \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
   \\ res_tac \\ fs [] \\ rw [] \\ fs [] \\ rw [] \\ fs []

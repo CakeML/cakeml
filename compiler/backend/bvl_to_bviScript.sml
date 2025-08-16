@@ -358,7 +358,8 @@ Definition compile_exps_def:
   (compile_exps n [Tick x1] =
      let (c1,aux1,n1) = compile_exps n [x1] in
        ([Tick (HD c1)], aux1, n1)) /\
-  (compile_exps n [Force loc v] = ([Force loc v], Nil, n)) /\
+  (compile_exps n [Force loc v] =
+     ([Force (num_stubs + nss * loc) v], Nil, n)) /\
   (compile_exps n [Op op xs] =
      let (c1,aux1,n1) = compile_exps n xs in
        ([compile_op op c1],aux1,n1)) /\
@@ -411,7 +412,7 @@ Definition compile_exps_sing_def:
      let (c1,aux1,n1) = compile_exps_sing n x1 in
        (Tick c1, aux1, n1)) /\
   (compile_exps_sing n (Force loc v) =
-     (Force loc v, Nil, n)) /\
+     (Force (num_stubs + nss * loc) v, Nil, n)) /\
   (compile_exps_sing n (Op op xs) =
      let (c1,aux1,n1) = compile_exps_list n xs in
        (compile_op op c1,aux1,n1)) /\
