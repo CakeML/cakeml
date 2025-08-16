@@ -10,15 +10,49 @@ Libs
 
 (* compiler definition (TODO: move to another file when ready) *)
 
+
+(* shorthands for wasm instructions *)
+Definition I64_EQ_def:
+  I64_EQ = Numeric (N_compare (Eq Int W64))
+End
+Definition I64_NE_def:
+  I64_NE = Numeric (N_compare (Ne Int W64))
+End
+Definition I64_CONST_def:
+  I64_CONST w = Numeric (N_const64 Int w)
+End
+Definition GLOBAL_GET_def:
+  GLOBAL_GET i = Variable (GlobalGet (n2w i))
+End
+
+(* reg_imm = Reg reg | Imm ('a imm) *)
+Definition comp_ri_def:
+  comp_ri (Reg r) = GLOBAL_GET r ∧
+  comp_ri (Imm n) = I64_CONST n
+End
+
+(* cmp = Equal | Lower | Less | Test | NotEqual | NotLower | NotLess | NotTest *)
+Definition comp_cmp_def:
+  comp_cmp (Equal: cmp) a_r b_ri =
+    List [GLOBAL_GET a_r; comp_ri b_ri; I64_EQ]
+End
+
 Definition compile_def:
   compile stackLang$Skip = List ([]:wasmLang$instr list) ∧
   compile (Seq p1 p2) = Append (compile p1) (compile p2) ∧
+  (* If cmp num ('a reg_imm) stackLang$prog stackLang$prog *)
+  (* no values are left on the wasm operand stack, hence BlkNil *)
+  compile (stackLang$If cmp a_r b_ri p1 p2) =
+    Append (comp_cmp cmp a_r b_ri)
+           (List [wasmLang$If BlkNil (append (compile p1)) (append (compile p2))])
+  ∧
+  (* TODO: compile Inst *)
   compile _ = ARB
 End
 
 (* definitions used in the correctness statement *)
 
-val s = “s:('a,'c,'ffi) stackSem$state”
+val s = “s:(64,'c,'ffi) stackSem$state”
 val t = “t:wasmSem$state”
 
 Definition empty_buffer_def:
@@ -28,15 +62,27 @@ Definition empty_buffer_def:
     b.space_left = 0
 End
 
+Definition to_value_def:
+  to_value (Word w) = I64 w ∧
+  to_value (Loc l _) = I64 (n2w l << 1)
+End
+
+Definition regs_rel_def:
+  regs_rel regs globals <=>
+    LENGTH globals >= 32 ∧
+    ∀n wl. FLOOKUP regs n = SOME wl ==> EL n globals = to_value wl
+End
+
 Definition state_rel_def:
   state_rel ^s ^t ⇔
     ¬ s.use_stack ∧ ¬ s.use_store ∧ ¬ s.use_alloc ∧ ¬ s.be ∧
-    empty_buffer s.code_buffer ∧ empty_buffer s.data_buffer
+    empty_buffer s.code_buffer ∧ empty_buffer s.data_buffer ∧
+    regs_rel s.regs t.globals
 End
 
 Definition res_rel_def:
   (res_rel NONE r     ⇔ r = RNormal) ∧
-  (res_rel (SOME v) r ⇔ r ≠ RNormal (* TODO: fix *))
+  (res_rel (SOME v) r ⇔ r ≠ RNormal ∧ ∀l. r ≠ RBreak l (* TODO: fix *))
 End
 
 (* set up for one theorem per case *)
@@ -49,7 +95,9 @@ val goal_tm =
      ∃ck t1 res1.
        exec_list (append (compile p)) (t with clock := t.clock + ck) = (res1,t1) ∧
        res_rel res res1 ∧
-       state_rel s1 t1”
+       state_rel s1 t1 ∧
+       (res1 = RNormal ==> t1.stack = t.stack)
+  ”
 
 local
   val ind_thm = stackSemTheory.evaluate_ind |> ISPEC goal_tm
@@ -61,6 +109,49 @@ in
   fun compile_correct_tm () = ind_thm |> concl |> rand
   fun the_ind_thm () = ind_thm
 end
+
+(* Lemmas *)
+
+Theorem exec_list_append:
+  ∀xs ys s.
+    exec_list (xs ++ ys) s =
+    let (res,s1) = exec_list xs s in
+    if res = RNormal then exec_list ys s1
+    else (res,s1)
+Proof
+  cheat
+QED
+
+Theorem exec_list_add_clock:
+  exec_list c s = (res,s1) ∧ res ≠ RTimeout ==>
+  ∀ck. exec_list c (s with clock := ck + s.clock) =
+       (res, s1 with clock := ck + s1.clock)
+Proof
+  cheat
+QED
+
+Theorem comp_cmp_thm:
+  get_var a s = SOME va ∧
+  get_var_imm b s = SOME vb ∧
+  labSem$word_cmp cmp va vb = SOME v ∧
+  state_rel ^s ^t ==>
+  exec_list (append (comp_cmp cmp a b)) (t with clock := ck) =
+    (RNormal, push (I32 (b2w v)) (t with clock := ck))
+Proof
+  cheat
+QED
+
+Theorem pop_push:
+  pop (push v t) = SOME (v,t)
+Proof
+  rw[push_def,pop_def,wasmSemTheory.state_component_equality]
+QED
+
+Theorem nonzero_b2w:
+  nonzero (I32 (b2w v)) = SOME v
+Proof
+  Cases_on‘v’>>rw[nonzero_def]
+QED
 
 (* a proof for each case *)
 
@@ -78,26 +169,6 @@ Theorem compile_Inst:
 Proof
   cheat
 QED
-
-Theorem exec_list_append:
-  ∀xs ys s.
-    exec_list (xs ++ ys) s =
-    let (res,s1) = exec_list xs s in
-    if res = RNormal then exec_list ys s1
-    else (res,s1)
-Proof
-  cheat
-QED
-
-
-Theorem exec_list_add_clock:
-  exec_list c s = (res,s1) ∧ res ≠ RTimeout ==>
-  ∀ck. exec_list c (s with clock := ck + s.clock) =
-       (res, s1 with clock := ck + s1.clock)
-Proof
-  cheat
-QED
-
 
 Theorem compile_Seq:
   ^(get_goal "Seq")
@@ -132,10 +203,37 @@ Proof
   >>fs[]
 QED
 
+Theorem state_rel_with_stack:
+  state_rel s (t with stack := st) = state_rel s t
+Proof
+  fs[state_rel_def]
+QED
+(* delsimps["state_rel_with_stack"] *)
+
 Theorem compile_If:
   ^(get_goal "If")
 Proof
-  cheat
+  rpt strip_tac
+  >>fs[evaluate_def]
+  >>gvs[CaseEq"option"]
+  >>simp[compile_def]
+  >>simp[exec_list_append]
+  >>drule_all comp_cmp_thm
+  >>strip_tac
+  >>simp[]
+  >>pop_assum kall_tac
+  >>simp[exec_def,pop_push]
+  >>simp[nonzero_b2w]
+  >>simp[functype_of_blocktype_def]
+  >>‘state_rel s (t with stack:=[])’ by simp[state_rel_with_stack]
+  >>IF_CASES_TAC>>gvs[]>>first_x_assum drule>>strip_tac
+  >>(
+    qexists_tac‘ck’
+    >>fs[]
+    >>Cases_on‘res’>>fs[res_rel_def]
+    >>simp[state_rel_with_stack]
+    >>Cases_on‘res1’>>gvs[]
+  )
 QED
 
 Theorem compile_While:
