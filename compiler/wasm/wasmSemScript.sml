@@ -140,12 +140,17 @@ Definition set_global_def:
     else NONE
 End
 
+
+
+
+
 (********************)
 (*                  *)
 (*     Numerics     *)
 (*                  *)
 (********************)
 
+(* How a instr/op relates its operand and result *)
 Inductive unary_op_rel:
   (∀ w. unary_op_rel (Popcnt    W32) (I32 w) (I32 $ popcnt w)) ∧
   (∀ w. unary_op_rel (Clz       W32) (I32 w) (I32 $ clz    w)) ∧
@@ -160,27 +165,26 @@ Inductive unary_op_rel:
 
   (∀ w. unary_op_rel (Extend8s  W64  ) (I64 w) (I64 $ extend8s  w)) ∧
   (∀ w. unary_op_rel (Extend16s W64  ) (I64 w) (I64 $ extend16s w)) ∧
-  (∀ w. unary_op_rel  Extend32_s       (I64 w) (I64 $ extend32s (w2w w:word32))) ∧
+  (∀ w. unary_op_rel  Extend32s        (I64 w) (I64 $ extend32s (w2w w:word32))) ∧
   (∀ w. unary_op_rel (ExtendI32_ sign) (I32 w) (I64 $ sext sign $ w))
 End
 
-
+(* The relation is deterministic *)
 Theorem unary_op_rel_det:
-  ∀ op v r1 r2. unary_op_rel op v r1 ∧ unary_op_rel op v r2 ⇒ r1 = r2
+  ∀ op x r1 r2. unary_op_rel op x r1 ∧ unary_op_rel op x r2 ⇒ r1 = r2
 Proof
   Cases >> Cases
   >> once_rewrite_tac [unary_op_rel_cases]
-  \\ simp []
-  \\ rpt strip_tac
-  >> cheat
-  (* \\ rw [clz_def, sw2sw_def]
-  \\ simp [] *)
+  >> simp[AllCaseEqs()]
 QED
 
+(* ASKMM ASKYK *)
+(* Is this an invocation of the choice function? *)
 Definition do_una_def:
-  do_una op v = some res. unary_op_rel op v res
+  do_una op x = some res. unary_op_rel op x res
 End
 
+(* Establishing iff between the relational & functional versions? *)
 Theorem do_una_thm:
   do_una op v = SOME res ⇔ unary_op_rel op v res
 Proof
@@ -206,11 +210,9 @@ Inductive binop_rel:
 
   (∀ w n. n <+ 32w ⇒ binop_rel (Rotl          W32) (I32 w) (I32 n) (I32 $ w ⇆  (w2n n)) )∧
   (∀ w n. n <+ 32w ⇒ binop_rel (Rotr          W32) (I32 w) (I32 n) (I32 $ w ⇄  (w2n n)) )∧
-(*
-  (∀ w n. n <+ 32w ⇒ binop_rel (Shw           W32) (I32 w) (I32 n) (I32 $ w <<  (w2n n)) )∧
-  (∀ w n. n <+ 32w ⇒ binop_rel (Shn_   Signed W32) (I32 w) (I32 n) (I32 $ w >>  (w2n n)) )∧
-  (∀ w n. n <+ 32w ⇒ binop_rel (Shn_ Unsigned W32) (I32 w) (I32 n) (I32 $ w >>> (w2n n)) )∧
-*)
+  (∀ w n. n <+ 32w ⇒ binop_rel (Shl           W32) (I32 w) (I32 n) (I32 $ w <<  (w2n n)) )∧
+  (∀ w n. n <+ 32w ⇒ binop_rel (Shr_   Signed W32) (I32 w) (I32 n) (I32 $ w >>  (w2n n)) )∧
+  (∀ w n. n <+ 32w ⇒ binop_rel (Shr_ Unsigned W32) (I32 w) (I32 n) (I32 $ w >>> (w2n n)) )∧
 
   (∀ l r. binop_rel (Add Int W64) (I64 l) (I64 r) (I64 $ l + r) )∧
   (∀ l r. binop_rel (Mul Int W64) (I64 l) (I64 r) (I64 $ l - r) )∧
@@ -226,10 +228,8 @@ Inductive binop_rel:
   (∀ w n. n <+ 64w ⇒ binop_rel (Rotl          W64) (I64 w) (I64 n) (I64 $ w ⇆  (w2n n)) )∧
   (∀ w n. n <+ 64w ⇒ binop_rel (Rotr          W64) (I64 w) (I64 n) (I64 $ w ⇄  (w2n n)) )∧
   (∀ w n. n <+ 64w ⇒ binop_rel (Shl           W64) (I64 w) (I64 n) (I64 $ w <<  (w2n n)) )∧
-(*
   (∀ w n. n <+ 64w ⇒ binop_rel (Shr_   Signed W64) (I64 w) (I64 n) (I64 $ w >>  (w2n n)) )∧
   (∀ w n. n <+ 64w ⇒ binop_rel (Shr_ Unsigned W64) (I64 w) (I64 n) (I64 $ w >>> (w2n n)) )∧
-*)
 
   (* integer_words$word_rem *)
   (∀ n d. d ≠ 0w ⇒ binop_den (Div_   Signed W32) (I32 n) (I32 d) (I32 $ n // d) )∧ (* TODO *)
@@ -289,12 +289,11 @@ Inductive compare_op_rel:
 End
 
 Theorem compare_op_rel_det:
-  ∀ c v1 v2 r1 r2. compare_op_rel c v1 v2 r1 ∧ compare_op_rel c v1 v2 r2 ⇒ r1 = r2
+  ∀ c x y r1 r2. compare_op_rel c x y r1 ∧ compare_op_rel c x y r2 ⇒ r1 = r2
 Proof
   once_rewrite_tac [compare_op_rel_cases]
   \\ simp []
   \\ rw []
-  \\ simp []
 QED
 
 Definition do_cmp_def:
@@ -316,14 +315,10 @@ Inductive convert_op_rel:
   ∀ w. convert_op_rel WrapI64 (I64 w) (I32 $ w2w w)
 End
 
-Definition convert_op_def:
-  do_cvt c v = some res. convert_op_rel c v res
-End
-
 Theorem convert_op_rel_det:
-  ∀ c v r1 r2. convert_op_rel c v r1 ∧ convert_op_rel c v r2 ==> r1 = r2
+  ∀ c x r1 r2. convert_op_rel c x r1 ∧ convert_op_rel c x r2 ⇒ r1 = r2
 Proof
-  once_rewrite_tac [convert_op_rel_cases] \\ simp [] \\ rw [] \\ simp []
+  once_rewrite_tac [convert_op_rel_cases] \\ simp [] \\ rw []
 QED
 
 Definition do_cvt_def:
@@ -333,53 +328,51 @@ End
 Theorem do_cvt_thm:
   do_cvt c v = SOME res ⇔ convert_op_rel c v res
 Proof
-  rw [do_cvt_def] \\ DEEP_INTRO_TAC some_intro
-  \\ fs [] \\ metis_tac [convert_op_rel_det]
+  rw [do_cvt_def]
+  \\ DEEP_INTRO_TAC some_intro
+  \\ fs []
+  \\ metis_tac [convert_op_rel_det]
 QED
 
 (* INVARIANT - changes to ops shouldn't break this *)
 Theorem do_cvt_eq    = REWRITE_RULE [GSYM do_cvt_thm] convert_op_rel_rules;
 Theorem do_cvt_cases = REWRITE_RULE [GSYM do_cvt_thm] convert_op_rel_cases;
 
+(**************************)
+(*   Top level numerics   *)
+(**************************)
 
 Definition num_stk_op_def:
-  num_stk_op (N_const32 Int w) stack =
-    SOME (I32 w :: stack) ∧
-  num_stk_op (N_const64 Int w) stack =
-    SOME (I64 w :: stack) ∧
-  num_stk_op (N_eqz W32) (I32 w ::stack) =
-    SOME (I32 (b2w (w = 0w)) :: stack) ∧
-  num_stk_op (N_eqz W64) (I64 w ::stack) =
-    SOME (I64 (b2w (w = 0w)) :: stack) ∧
- (num_stk_op (N_unary   op) (v   ::stack) =
-    case do_una op v   of NONE=>NONE| SOME x => SOME (x::stack))∧
- (num_stk_op (N_binary  op) (l::r::stack) =
-    case do_bin op l r of NONE=>NONE| SOME x => SOME (x::stack))∧
- (num_stk_op (N_compare op) (l::r::stack) =
-    case do_cmp op l r of NONE=>NONE| SOME x => SOME (x::stack))∧
- (num_stk_op (N_convert op) (v   ::stack) =
-   case do_cvt op v   of NONE=>NONE| SOME x => SOME (x::stack))
+  num_stk_op (N_const32 Int w) stack = SOME (I32 w :: stack) ∧
+  num_stk_op (N_const64 Int w) stack = SOME (I64 w :: stack) ∧
+  num_stk_op (N_eqz W32) (I32 w ::stack) = SOME (I32 (b2w (w = 0w)) :: stack) ∧
+  num_stk_op (N_eqz W64) (I64 w ::stack) = SOME (I64 (b2w (w = 0w)) :: stack) ∧
+ (num_stk_op (N_unary   op) (v   ::stack) = case do_una op v   of NONE=>NONE| SOME x => SOME (x::stack))∧
+ (num_stk_op (N_binary  op) (l::r::stack) = case do_bin op l r of NONE=>NONE| SOME x => SOME (x::stack))∧
+ (num_stk_op (N_compare op) (l::r::stack) = case do_cmp op l r of NONE=>NONE| SOME x => SOME (x::stack))∧
+ (num_stk_op (N_convert op) (v   ::stack) = case do_cvt op v   of NONE=>NONE| SOME x => SOME (x::stack))
 End
 
 Inductive load_op_rel:
-  (∀ ofs al m v. load 4 ofs al m = (v,T) ⇒ load_op_rel (Load Int W32 ofs al) m (I32 v) )∧
+  (∀ ofs al m v  . load 4 ofs al m = (v,T) ⇒ load_op_rel (Load Int W32 ofs al) m (I32 v) )∧
   (* Why does the following case need the type annotation for v, but not the preceeding case??? *)
   (∀ ofs al m v s. load 1 ofs al m = (v:word8 ,T) ⇒ load_op_rel (LoadNarrow I8x16 s W32 ofs al) m (I32 $ sext s $ v) )∧
   (∀ ofs al m v s. load 2 ofs al m = (v:word16,T) ⇒ load_op_rel (LoadNarrow I16x8 s W32 ofs al) m (I32 $ sext s $ v) )∧
 
-  (∀ ofs al m v. load 8 ofs al m = (v,T) ⇒ load_op_rel (Load Int W64 ofs al) m (I64 v) )∧
-
+  (∀ ofs al m v  . load 8 ofs al m = (v,T) ⇒ load_op_rel (Load Int W64 ofs al) m (I64 v) )∧
   (∀ ofs al m v s. load 1 ofs al m = (v:word8 ,T) ⇒ load_op_rel (LoadNarrow I8x16 s W64 ofs al) m (I64 $ sext s $ v) )∧
   (∀ ofs al m v s. load 2 ofs al m = (v:word16,T) ⇒ load_op_rel (LoadNarrow I16x8 s W64 ofs al) m (I64 $ sext s $ v) )∧
   (∀ ofs al m v s. load 4 ofs al m = (v:word32,T) ⇒ load_op_rel (LoadNarrow32     s     ofs al) m (I64 $ sext s $ v) )
 End
 
 Theorem load_op_rel_det:
-  ∀ op m r1 r2. load_op_rel op m r1 ∧ load_op_rel op m r2 ==> r1 = r2
+  ∀ op m r1 r2. load_op_rel op m r1 ∧ load_op_rel op m r2 ⇒ r1 = r2
 Proof
-  once_rewrite_tac [load_op_rel_cases] \\ simp [] \\ rw [] \\ simp [] \\ gvs []
+  once_rewrite_tac [load_op_rel_cases]
+  \\ simp []
+  \\ rw []
+    >> gvs []
 QED
-
 
 Definition do_ld_def:
   do_ld op m = some res. load_op_rel op m res
@@ -408,13 +401,12 @@ Inductive store_op_rel:
 End
 
 Theorem store_op_rel_det:
-  ∀ op x m r1 r2. store_op_rel op x m r1 ∧ store_op_rel op x m r2 ==> r1 = r2
+  ∀ op x m r1 r2. store_op_rel op x m r1 ∧ store_op_rel op x m r2 ⇒ r1 = r2
 Proof
-  cheat
-  (* once_rewrite_tac [store_op_rel_cases]
+  once_rewrite_tac [store_op_rel_cases]
   \\ simp []
   \\ rw []
-  \\ simp [] *)
+    >> fs []
 QED
 
 Definition do_st_def:
@@ -424,14 +416,25 @@ End
 Theorem do_st_thm:
   do_st op x m = SOME res ⇔ store_op_rel op x m res
 Proof
-  cheat
-  (* rw [do_bin_def] \\ DEEP_INTRO_TAC some_intro
-  \\ fs [] \\ metis_tac [binop_rel_det] *)
+  rw [do_st_def]
+  \\ DEEP_INTRO_TAC some_intro
+  \\ fs []
+  \\ metis_tac [store_op_rel_det]
 QED
 
 (* INVARIANT - changes to ops shoustn't break this *)
 Theorem do_st_eq    = REWRITE_RULE [GSYM do_st_thm] store_op_rel_rules;
 Theorem do_st_cases = REWRITE_RULE [GSYM do_st_thm] store_op_rel_cases;
+
+
+
+
+
+(*******************************)
+(*                             *)
+(*     Top level Semantics     *)
+(*                             *)
+(*******************************)
 
 Definition exec_def:
   (exec Unreachable s = (RTrap,s)) ∧
