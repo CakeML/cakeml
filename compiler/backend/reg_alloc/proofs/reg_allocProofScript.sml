@@ -1,12 +1,13 @@
 (*
   Proves correctness of the graph-colouring register allocator.
 *)
-open preamble state_transformerTheory reg_allocTheory
-  mllistTheory ml_monadBaseTheory ml_monadBaseLib;
+Theory reg_allocProof
+Libs
+  preamble ml_monadBaseLib
+Ancestors
+  mllist state_transformer reg_alloc sorting ml_monadBase
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "reg_allocProof"
 
 val _ = ParseExtras.temp_tight_equality();
 val _ = monadsyntax.temp_add_monadsyntax()
@@ -3461,5 +3462,3 @@ Proof
   first_x_assum drule
 QED
 (* --- --- *)
-
-val _ = export_theory ();

@@ -5,22 +5,21 @@
   state a formal connection between the generated code and the input
   HOL functions.
 *)
-open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
-open astTheory evaluateTheory semanticPrimitivesTheory
-open ml_progLib ml_progTheory evaluateTheory
-open set_sepTheory cfTheory cfStoreTheory cfTacticsLib Satisfy
-open cfHeapsBaseTheory basisFunctionsLib
-open ml_monadBaseTheory ml_monad_translatorTheory ml_monadStoreLib ml_monad_translatorLib
-open holKernelTheory holKernelProofTheory
-open basisProgTheory
-open holAxiomsSyntaxTheory
-local open holKernelPmatchTheory in end
+Theory ml_hol_kernel_funsProg
+Libs
+  preamble ml_translatorLib ml_progLib cfTacticsLib Satisfy
+  basisFunctionsLib ml_monadStoreLib ml_monad_translatorLib
+Ancestors
+  ml_translator ml_pmatch patternMatches ast evaluate
+  semanticPrimitives ml_prog evaluate set_sep cf cfStore
+  cfHeapsBase ml_monadBase ml_monad_translator holKernel
+  holKernelProof basisProg holAxiomsSyntax
+  holKernelPmatch[qualified]
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory "ml_hol_kernel_funsProg";
 val _ = translation_extends "basisProg"
 
 val _ = (use_full_type_names := false);
@@ -765,5 +764,3 @@ val def = m_translate constants_def;
 
 val _ = Globals.max_print_depth := 10;
 val _ = print_asts := false;
-
-val _ = export_theory()

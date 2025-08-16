@@ -1,10 +1,12 @@
 (*
   Proves soundness of the inference system: any provable sequent is valid.
 *)
-open preamble setSpecTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
-     holSemanticsTheory holSemanticsExtraTheory
-
-val _ = new_theory"holSoundness"
+Theory holSoundness
+Ancestors
+  setSpec holSyntaxLib holSyntax holSyntaxExtra holSemantics
+  holSemanticsExtra
+Libs
+  preamble
 
 val _ = Parse.hide "mem";
 
@@ -721,4 +723,3 @@ Proof
   rw[entails_def,theory_ok_def,models_def]
 QED
 
-val _ = export_theory()

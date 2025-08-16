@@ -1,11 +1,11 @@
 (*
   An itree-based semantics for the target machine code
 *)
-open preamble;
-open targetSemTheory;
-open itreeTheory;
-
-val _ = new_theory "target_itreeSem"
+Theory target_itreeSem
+Ancestors
+  targetSem itree
+Libs
+  preamble
 
 Overload get_ffi_string = “MAP (λx. case x of ExtCall s => s)”;
 
@@ -123,4 +123,3 @@ End
 
 (**********)
 
-val _ = export_theory();

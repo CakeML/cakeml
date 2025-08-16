@@ -1,13 +1,11 @@
 (*
   Compiler from Pancake to machine code
 *)
-
-open preamble
-     pan_to_wordTheory backendTheory
-     word_depthTheory word_to_wordTheory
-     mllistTheory;
-
-val _ = new_theory "pan_to_target";
+Theory pan_to_target
+Libs
+  preamble
+Ancestors
+  mllist pan_to_word backend word_depth word_to_word
 
 
 Definition compile_prog_def:
@@ -63,5 +61,3 @@ Proof
   \\ AP_THM_TAC \\ gvs [FUN_EQ_THM] \\ rw []
   \\ pairarg_tac \\ gvs[from_word_0_def]
 QED
-
-val _ = export_theory();

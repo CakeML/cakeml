@@ -1,9 +1,11 @@
 (*
   Define the format of the compiler-generated .S file for ARMv8
 *)
-open preamble exportTheory
-
-val () = new_theory "export_arm8";
+Theory export_arm8
+Ancestors
+  export
+Libs
+  preamble
 
 (*
 CakeML expects 4 arguments in order:
@@ -205,4 +207,3 @@ End
 
 
 
-val _ = export_theory ();

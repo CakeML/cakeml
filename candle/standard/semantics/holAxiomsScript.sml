@@ -2,13 +2,15 @@
   Prove consistency of each of the axioms. (For the axiom of infinity, this
   requires an additional assumption on the set theory.)
 *)
-open preamble holBoolTheory holBoolSyntaxTheory
-     holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holAxiomsSyntaxTheory
-     setSpecTheory holSemanticsTheory holSemanticsExtraTheory holExtensionTheory
+Theory holAxioms
+Ancestors
+  holBool holBoolSyntax holSyntaxLib holSyntax holSyntaxExtra
+  holAxiomsSyntax setSpec holSemantics holSemanticsExtra
+  holExtension
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory"holAxioms"
 
 Overload A[local] = ``Tyvar (strlit "A")``
 Overload B[local] = ``Tyvar (strlit "B")``
@@ -709,4 +711,3 @@ Proof
   metis_tac[infinity_has_model_gen]
 QED
 
-val _ = export_theory()

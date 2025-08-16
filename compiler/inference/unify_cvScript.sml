@@ -1,11 +1,11 @@
 (*
   Translating unifyTheory to cv equations for use with cv_eval
 *)
-open preamble;
-open cv_transLib unifyTheory;
-open cv_stdTheory basis_cvTheory;
-
-val _ = new_theory "unify_cv";
+Theory unify_cv
+Ancestors
+  unify cv_std basis_cv
+Libs
+  preamble cv_transLib
 
 val tcvwalk_pre_def = cv_trans_pre "" tcvwalk_thm;
 
@@ -184,4 +184,3 @@ Proof
   gvs[spt_eq_thm, cwfs_def, lookup_fromAList]
 QED
 
-val _ = export_theory ();

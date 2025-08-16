@@ -1,9 +1,11 @@
 (*
   Formalization of the max clique problem
 *)
-open preamble pbcTheory graph_basicTheory pbc_normaliseTheory;
-
-val _ = new_theory "clique";
+Theory clique
+Ancestors
+  pbc graph_basic pbc_normalise
+Libs
+  preamble
 
 Definition is_clique_def:
   is_clique vs (v,e) ⇔
@@ -394,4 +396,3 @@ Theorem full_encode_eq =
   |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF]
   |> SIMP_RULE (srw_ss()) [if_APPEND];
 
-val _ = export_theory();

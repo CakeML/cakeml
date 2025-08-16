@@ -4,9 +4,11 @@
   to make use of closLang's support for true multi-argument
   functions. This phase is vital for good performance.
 *)
-open preamble closLangTheory;
-
-val _ = new_theory "clos_mti";
+Theory clos_mti
+Ancestors
+  closLang
+Libs
+  preamble
 
 Definition collect_args_def:
   (collect_args max_app num_args (Fn t NONE NONE num_args' e) =
@@ -285,4 +287,3 @@ Proof
   Cases_on`do_mti` \\ EVAL_TAC
 QED
 
-val _ = export_theory()

@@ -1,12 +1,16 @@
 (*
   Translate the backend phase from closLang to BVL.
 *)
-open preamble ml_translatorLib ml_translatorTheory to_closProgTheory
-local open backendTheory in end
+Theory to_bvlProg
+Ancestors
+  ml_translator to_closProg backend[qualified]
+Libs
+  preamble ml_translatorLib
+
+open preamble ml_translatorLib ml_translatorTheory to_closProgTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory "to_bvlProg";
 val _ = translation_extends "to_closProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_bvlProg");
@@ -348,4 +352,3 @@ val res = translate clos_to_bvlTheory.clos_to_bvl_compile_inc_def
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 val _ = ml_translatorLib.clean_on_exit := true;
-val _ = export_theory ();

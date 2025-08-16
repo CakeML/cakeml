@@ -2,10 +2,11 @@
   This is an example of applying the translator to the Lazy Pairing
   Heap algorithm from Chris Okasaki's book.
 *)
-open preamble
-open bagTheory bagLib okasaki_miscTheory ml_translatorLib ListProgTheory
-
-val _ = new_theory "LazyPairingHeap"
+Theory LazyPairingHeap
+Ancestors
+  bag okasaki_misc ListProg
+Libs
+  preamble bagLib ml_translatorLib
 
 val _ = translation_extends "ListProg";
 
@@ -296,4 +297,3 @@ Proof
 rw [find_min_side_def]
 QED
 
-val _ = export_theory ();

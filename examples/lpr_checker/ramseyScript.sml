@@ -1,9 +1,11 @@
 (*
    Defining the Ramsey number and SAT encoding
 *)
-open preamble miscTheory mllistTheory lprTheory satSemTheory;
-
-val _ = new_theory "ramsey";
+Theory ramsey
+Libs
+  preamble
+Ancestors
+  misc mllist lpr satSem
 
 (* TODO MOVE *)
 Theorem ALL_DISTINCT_MAP_FST_enumerate:
@@ -830,5 +832,3 @@ Proof
   qexists_tac`solf'`>>match_mp_tac check_sat_satisfies>>
   simp[thm]
 QED
-
-val _ = export_theory ();

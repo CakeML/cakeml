@@ -1,16 +1,15 @@
 (*
   Theorems about the type system.
 *)
+Theory typeSysProps
+Ancestors
+  ast namespace typeSystem typeSoundInvariants astProps
+  namespaceProps semanticPrimitivesProps[qualified]
+Libs
+  preamble
 
-open preamble
-open astTheory namespaceTheory typeSystemTheory typeSoundInvariantsTheory;
-open astPropsTheory;
-open namespacePropsTheory;
-local open semanticPrimitivesPropsTheory in end
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "typeSysProps";
 
 val find_recfun_def = semanticPrimitivesTheory.find_recfun_def;
 (*
@@ -3396,4 +3395,3 @@ Proof
 QED
   *)
 
-val _ = export_theory ();

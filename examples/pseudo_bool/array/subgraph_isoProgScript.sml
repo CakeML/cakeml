@@ -1,9 +1,11 @@
 (*
   Subgraph isomorphism encoder and checker
 *)
-open preamble basis pbc_normaliseTheory graphProgTheory subgraph_isoTheory graph_basicTheory;
-
-val _ = new_theory "subgraph_isoProg";
+Theory subgraph_isoProg
+Ancestors
+  basis_ffi pbc_normalise graphProg subgraph_iso graph_basic
+Libs
+  preamble basis
 
 val _ = translation_extends "graphProg";
 
@@ -107,8 +109,8 @@ val res = translate (res_to_string_def |> SIMP_RULE std_ss [UNSAT_string_def,SAT
 
 Definition mk_prob_def:
   mk_prob fml = (NONE,NONE,fml):mlstring list option #
-    ((int # mlstring lit) list # int) option #
-    (pbop # (int # mlstring lit) list # int) list
+    ((int # mlstring pbc$lit) list # int) option #
+    (pbop # (int # mlstring pbc$lit) list # int) list
 End
 
 val res = translate mk_prob_def;
@@ -453,5 +455,3 @@ Theorem main_semantics =
   |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
 
 end
-
-val _ = export_theory();

@@ -2,16 +2,13 @@
   Prove top-level correctness theorem for complete compiler, i.e. the
   combination of parsing, type inference, compiler backend.
 *)
-open preamble
-     compilerTheory
-     semanticsTheory targetSemTheory
-     evaluatePropsTheory typeSoundTheory typeSoundInvariantsTheory
-     pegSoundTheory pegCompleteTheory
-     inferTheory inferSoundTheory inferCompleteTheory
-     inferPropsTheory envRelTheory
-     backendProofTheory
-
-val _ = new_theory"compilerProof";
+Theory compilerProof
+Ancestors
+  compiler semantics targetSem evaluateProps typeSound
+  typeSoundInvariants pegSound pegComplete infer inferSound
+  inferComplete inferProps envRel lab_to_targetProof backendProof
+Libs
+  preamble
 
 val _ = diminish_srw_ss ["ABBREV"]
 
@@ -307,5 +304,3 @@ Proof
     rw [unconvert_t_def, inf_set_tids_def,typeSystemTheory.check_freevars_def]) >>
   rw [typeSystemTheory.prim_type_nums_def]
 QED
-
-val _ = export_theory();

@@ -1,13 +1,13 @@
 (*
   Lemmas that aid the tactics for reasoning about CF-based goals in HOL.
 *)
-open preamble
-open set_sepTheory helperLib ConseqConv ml_translatorTheory
-open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory
-open cfNormaliseTheory cfAppTheory cfTheory
-open cfTacticsBaseLib cfHeapsLib
-
-val _ = new_theory "cfTactics"
+Theory cfTactics
+Ancestors
+  set_sep ml_translator cfHeapsBase cfHeaps cfStore cfNormalise
+  cfApp cf
+Libs
+  preamble helperLib ConseqConv cfHeapsBaseLib cfTacticsBaseLib
+  cfHeapsLib
 
 (*
 Theorem xret_lemma:
@@ -155,4 +155,3 @@ Theorem BOOL_T =
 Theorem BOOL_F =
   EVAL ``BOOL F (Conv (SOME (TypeStamp "False" 0)) [])``
 
-val _ = export_theory()

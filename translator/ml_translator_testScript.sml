@@ -2,12 +2,12 @@
   A collection of functions that have in the past turned out to be tricky to
   translate.
 *)
+Theory ml_translator_test
+Ancestors
+  list pair ml_translator
+Libs
+  ml_translatorLib ml_progLib blastLib
 
-open HolKernel Parse boolLib bossLib;
-open listTheory pairTheory ml_translatorLib ml_translatorTheory;
-open ml_progLib blastLib;
-
-val _ = new_theory "ml_translator_test";
 
 val _ = register_type “:'a list”;
 val _ = register_type “:'a option”;
@@ -633,4 +633,3 @@ val _ = use_sub_check true;
 (* no precondition *)
 val res = translate foo_sub_def;
 
-val _ = export_theory();

@@ -2,15 +2,14 @@
   Assertions about references and arrays are defined. Lemmas for these
   are proved, including reasoning in separation logic.
 *)
-open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
-open astTheory semanticPrimitivesTheory evaluateTheory
-open evaluateTheory ml_progLib ml_progTheory
-open set_sepTheory Satisfy
-open cfHeapsBaseTheory (* basisFunctionsLib *) AC_Sort
-open ml_monadBaseTheory
-open cfStoreTheory cfTheory cfTacticsLib
-
-val _ = new_theory "ml_monad_translatorBase";
+Theory ml_monad_translatorBase
+Ancestors
+  ml_translator ml_pmatch patternMatches ast semanticPrimitives
+  evaluate evaluate ml_prog set_sep cfHeapsBase ml_monadBase
+  cfStore cf
+Libs
+  preamble ml_translatorLib ml_progLib Satisfy AC_Sort
+  cfTacticsLib
 
 val HCOND_EXTRACT = cfLetAutoTheory.HCOND_EXTRACT;
 
@@ -750,4 +749,3 @@ Proof
   \\ fs[]
 QED
 
-val _ = export_theory();

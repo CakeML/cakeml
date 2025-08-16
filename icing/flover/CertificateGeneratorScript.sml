@@ -3,12 +3,12 @@
   To be used in conjunction with the certificate checker to first analyze
   a kernel and then validate the analysis result
 **)
-open RealIntervalInferenceTheory ErrorIntervalInferenceTheory ExpressionsTheory
-     FloverMapTheory TypeValidatorTheory CommandsTheory AbbrevsTheory
-     ExpressionAbbrevsTheory;
-open preambleFloVer;
-
-val _ = new_theory "CertificateGenerator";
+Theory CertificateGenerator
+Ancestors
+  RealIntervalInference ErrorIntervalInference Expressions
+  FloverMap TypeValidator Commands Abbrevs ExpressionAbbrevs
+Libs
+  preambleFloVer
 
 Definition CertificateGeneratorExp_def:
   CertificateGeneratorExp (f:real expr) (P:precond) (Gamma:typeMap)
@@ -52,4 +52,3 @@ Definition getCmd_def:
   getCmd (f, P, Gamma, errMap) = f
 End
 
-val _ = export_theory ();

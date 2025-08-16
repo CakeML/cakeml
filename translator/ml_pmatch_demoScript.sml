@@ -2,12 +2,13 @@
   Demonstration of using the translator on functions containing PMATCH-based
   pattern matching.
 *)
-open HolKernel Parse boolLib bossLib;
-open patternMatchesLib ml_translatorLib patternMatchesSyntax patternMatchesTheory;
+Theory ml_pmatch_demo
+Ancestors
+  patternMatches ml_pmatch ml_optimise
+Libs
+  patternMatchesLib ml_translatorLib patternMatchesSyntax
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "ml_pmatch_demo";
 
 (* basic example *)
 
@@ -278,5 +279,3 @@ Definition foo1_def:
 End
 
 val res = translate foo1_def
-
-val _ = export_theory();

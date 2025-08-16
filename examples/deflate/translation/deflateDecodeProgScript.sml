@@ -1,12 +1,14 @@
 (*
   Encoding program for the Deflate Decoder
 *)
-
-open preamble basis miscTheory lispProgTheory listTheory arithmeticTheory;
-open deflateTheory deflateTableTheory rleTheory huffmanTheory LZSSTheory;
-open (* for parsing: *) parsingTheory source_valuesTheory;
-
-val _ = new_theory "deflateDecodeProg";
+Theory deflateDecodeProg
+Libs
+  preamble basis
+Ancestors
+  misc lispProg list arithmetic deflate deflateTable rle huffman
+  LZSS
+  (* for parsing: *) parsing source_values
+  std_prelude
 
 val _ = translation_extends "lispProg";
 
@@ -189,5 +191,3 @@ val prog =
 Definition deflateDecode_prog_def:
   deflateDecode_prog = ^prog
 End
-
-val _ = export_theory();

@@ -1,9 +1,17 @@
 (*
   Correctness proof for stack_to_lab
 *)
+Theory stack_to_labProof
+Libs
+  preamble
+Ancestors
+  data_to_word_gcProof[qualified] word_to_stackProof[qualified]
+  stack_namesProof stack_rawcallProof[qualified]
+  stack_allocProof stack_removeProof stack_to_lab
+  stackSem stackProps stack_alloc  labSem labProps semanticsProps
 
-open preamble
-     stackSemTheory stackPropsTheory
+(* Set up ML bindings *)
+open stackSemTheory stackPropsTheory
      stack_allocTheory stack_to_labTheory
      labSemTheory labPropsTheory
      stack_removeProofTheory
@@ -12,7 +20,6 @@ open preamble
      semanticsPropsTheory
 local open word_to_stackProofTheory data_to_word_gcProofTheory stack_rawcallProofTheory in end
 
-val _ = new_theory"stack_to_labProof";
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
@@ -5095,5 +5102,3 @@ Proof
   irule stack_alloc_compile_no_install>>
   irule stack_rawcall_compile_no_install>>fs[]
 QED
-
-val _ = export_theory();

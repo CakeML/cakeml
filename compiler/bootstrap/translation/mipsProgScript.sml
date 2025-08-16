@@ -1,6 +1,12 @@
 (*
   Translate the MIPS instruction encoder and MIPS-specific config.
 *)
+Theory mipsProg
+Ancestors
+  evaluate ml_translator riscvProg mips_target mips
+Libs
+  preamble ml_translatorLib inliningLib
+
 open preamble;
 open evaluateTheory
 open ml_translatorLib ml_translatorTheory;
@@ -9,8 +15,6 @@ open mips_targetTheory mipsTheory;
 open inliningLib;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "mipsProg"
 
 val _ = translation_extends "riscvProg";
 val _ = ml_translatorLib.use_string_type true;
@@ -392,5 +396,3 @@ val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

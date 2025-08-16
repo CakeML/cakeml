@@ -1,9 +1,11 @@
 (*
   Refine npbc_list to npbc_array
 *)
-open preamble basis UnsafeProgTheory UnsafeProofTheory npbcTheory npbc_listTheory;
-
-val _ = new_theory "npbc_arrayProg"
+Theory npbc_arrayProg
+Libs
+  preamble basis
+Ancestors
+  UnsafeProg UnsafeProof npbc npbc_list
 
 val _ = translation_extends"UnsafeProg";
 
@@ -6279,5 +6281,3 @@ Proof
     fs[OPTION_TYPE_def,map_snd_def]>>
     metis_tac[])
 QED
-
-val _ = export_theory();

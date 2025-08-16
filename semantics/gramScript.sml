@@ -2,15 +2,12 @@
   Definition of CakeML's Context-Free Grammar.
   The grammar specifies how token lists should be converted to syntax trees.
 *)
+Theory gram
+Ancestors
+  tokens grammar location
+Libs
+  grammarLib
 
-open HolKernel Parse boolLib bossLib
-
-open tokensTheory grammarTheory locationTheory
-
-open grammarLib
-
-val _ = new_theory "gram"
-val _ = set_grammar_ancestry ["tokens", "grammar", "location"]
 
 val tokmap0 =
     List.foldl (fn ((s,t), acc) => Binarymap.insert(acc,s,t))
@@ -287,4 +284,3 @@ val check_results =
 val _ = if aconv (rhs (concl check_results)) T then print "valid_ptree: OK\n"
         else raise Fail "valid_ptree: failed"
 
-val _ = export_theory()

@@ -1,12 +1,11 @@
 (*
   Semantics of Scheme
 *)
-open preamble;
-open mlstringTheory;
-open scheme_astTheory;
-open finite_mapTheory;
-
-val _ = new_theory "scheme_semantics";
+Theory scheme_semantics
+Ancestors
+  mlstring scheme_ast finite_map
+Libs
+  preamble
 
 Datatype:
   e_or_v = Exp senv exp | Val val | Exception mlstring
@@ -372,4 +371,3 @@ End
   ))] (Apply (Ident $ strlit "fac") [Lit $ LitNum 6]))”
 *)
 
-val _ = export_theory();

@@ -1,13 +1,13 @@
 (*
   Module about the built-in 'a vector.
 *)
-open preamble ml_translatorLib ml_translatorTheory ml_progLib
-     ListProgTheory basisFunctionsLib;
-open mlvectorTheory;
+Theory VectorProg
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
+Ancestors
+  ast[qualified] regexp_compiler[qualified] ml_translator
+  ListProg mlvector
 
-val _ = new_theory"VectorProg"
-
-val _ = set_grammar_ancestry ["ast", "regexp_compiler", "ml_translator"]
 val _ = translation_extends "ListProg";
 
 val _ = ml_prog_update (open_module "Vector");
@@ -219,5 +219,3 @@ val collate_side_thm = Q.prove (
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);
-
-val _ = export_theory ()

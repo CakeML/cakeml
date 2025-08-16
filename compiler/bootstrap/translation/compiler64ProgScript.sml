@@ -1,6 +1,12 @@
 (*
   Finish translation of the 64-bit version of the compiler.
 *)
+Theory compiler64Prog
+Ancestors
+  mipsProg compiler export ml_translator basis_ffi[qualified]
+Libs
+  preamble ml_translatorLib cfLib basis
+
 open preamble
      mipsProgTheory compilerTheory
      exportTheory
@@ -8,8 +14,6 @@ open preamble
 open cfLib basis
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"compiler64Prog";
 
 val _ = translation_extends "mipsProg";
 
@@ -394,7 +398,7 @@ Proof
 QED
 
 val compiler_for_eval_alt =
-“compiler_for_eval (id,c,decs)”
+“compiler_for_eval (id,c,ds)”
   |> SIMP_CONV std_ss [backendTheory.compile_inc_progs_for_eval_eq,
                        compiler_for_eval_def, EVAL “x64_config.reg_count”,
                        backendTheory.ensure_fp_conf_ok_def,
@@ -762,4 +766,3 @@ Theorem LAST_compiler64_prog = EVAL “LAST compiler64_prog”;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.reset_translation(); (* because this translation won't be continued *)
-val _ = export_theory();

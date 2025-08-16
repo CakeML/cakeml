@@ -2,11 +2,12 @@
   For any type_d, prove that the canonical type identifier strategy
   succeeds.
 *)
-open preamble astTheory namespaceTheory typeSystemTheory;
-open namespacePropsTheory;
-open typeSysPropsTheory typeSoundInvariantsTheory inferPropsTheory
-
-val _ = new_theory "type_dCanon"
+Theory type_dCanon
+Ancestors
+  ast namespace typeSystem namespaceProps typeSysProps
+  typeSoundInvariants inferProps
+Libs
+  preamble
 
 (* TODO: move *)
 
@@ -1938,4 +1939,3 @@ Proof
  >- metis_tac [extend_dec_tenv_ok]
 QED
 
-val _ = export_theory();

@@ -1,13 +1,12 @@
 (*
   Correctness proof for loop_remove
 *)
+Theory loop_removeProof
+Ancestors
+  loopLang loopSem loopProps loop_remove wordSem[qualified]
+Libs
+  preamble
 
-open preamble loopLangTheory loopSemTheory
-     loopPropsTheory loop_removeTheory
-
-local open wordSemTheory in end
-
-val _ = new_theory"loop_removeProof";
 
 Definition has_code_def:
   has_code (n,funs) code =
@@ -1975,4 +1974,3 @@ Proof
   impl_tac >-metis_tac[FOLDR_min]>>rw[]
 QED
 
-val _ = export_theory();

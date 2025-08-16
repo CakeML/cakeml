@@ -1,12 +1,12 @@
 (*
   A high-level specification of words and frequencies
 *)
+Theory splitwords
+Ancestors
+  mlstring fsFFIProps
+Libs
+  preamble
 
-open preamble
-     mlstringTheory
-     fsFFIPropsTheory
-
-val _ = new_theory"splitwords";
 
 Definition splitwords_def:
   splitwords s = tokens isSpace s
@@ -102,4 +102,3 @@ Proof
   rw[FUN_EQ_THM,frequency_def,splitwords_concat_space]
 QED
 
-val _ = export_theory();

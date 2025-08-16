@@ -1,13 +1,19 @@
 (*
   Translate the backend phase from flatLang to closLang.
 *)
-open preamble ml_translatorLib ml_translatorTheory to_flatProgTheory
-local open flat_to_closTheory clos_mtiTheory clos_numberTheory
-  clos_knownTheory clos_callTheory clos_annotateTheory in end
+Theory to_closProg
+Ancestors
+  ml_translator to_flatProg flat_to_clos[qualified]
+  clos_mti[qualified] clos_number[qualified]
+  clos_known[qualified] clos_call[qualified]
+  clos_annotate[qualified]
+Libs
+  preamble ml_translatorLib
+
+open preamble ml_translatorLib ml_translatorTheory to_flatProgTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
-val _ = new_theory "to_closProg";
 val _ = translation_extends "to_flatProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_closProg");
@@ -415,4 +421,3 @@ val r = translate clos_ticksTheory.compile_inc_def;
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 val _ = ml_translatorLib.clean_on_exit := true;
-val _ = export_theory ();

@@ -2,11 +2,11 @@
   For x64, prove that the compiler configuration is well formed, and
   instantiate the compiler correctness theorem.
 *)
-open preamble backendProofTheory
-open x64_configTheory x64_targetProofTheory
-open blastLib;
-
-val _ = new_theory"x64_configProof";
+Theory x64_configProof
+Ancestors
+  lab_to_targetProof backendProof x64_config x64_targetProof
+Libs
+  preamble blastLib
 
 Definition is_x64_machine_config_def:
   is_x64_machine_config mc ⇔
@@ -76,5 +76,3 @@ Theorem x64_compile_correct =
   |> SIMP_RULE (srw_ss()) [x64_backend_config_ok,UNDISCH x64_machine_config_ok,UNDISCH x64_init_ok]
   |> CONV_RULE (ONCE_DEPTH_CONV(EVAL o (assert(same_const``heap_regs``o fst o strip_comb))))
   |> DISCH_ALL
-
-val _ = export_theory();

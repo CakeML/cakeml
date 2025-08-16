@@ -1,15 +1,12 @@
 (*
   Compilation from crepLang to panLang.
 *)
-open preamble crepLangTheory
-     loopLangTheory sptreeTheory
-     loop_liveTheory crep_arithTheory
-
-val _ = new_theory "crep_to_loop"
-
-val _ = set_grammar_ancestry
-        ["crepLang", "loopLang",
-         "backend_common", "sptree"];
+Theory crep_to_loop
+Ancestors
+  crepLang loopLang backend_common[qualified] sptree loop_live
+  crep_arith
+Libs
+  preamble
 
 Datatype:
   context =
@@ -264,4 +261,3 @@ Definition compile_prog_def:
 End
 
 
-val _ = export_theory();

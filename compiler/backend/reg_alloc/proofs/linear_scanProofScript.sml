@@ -1,12 +1,13 @@
 (*
   Proves correctness of the linear-scan register allocator.
 *)
-open preamble sptreeTheory reg_allocTheory linear_scanTheory reg_allocProofTheory
-open ml_monadBaseTheory ml_monadBaseLib mllistTheory;
+Theory linear_scanProof
+Libs
+  preamble ml_monadBaseLib
+Ancestors
+  mllist sptree reg_alloc linear_scan reg_allocProof ml_monadBase
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "linear_scanProof"
 
 val _ = disable_tyabbrev_printing "type_ident"
 val _ = disable_tyabbrev_printing "alist"
@@ -6231,5 +6232,3 @@ Proof[exclude_simps = sptree.LENGTH_toAList]
         metis_tac [SOME_11]
     )
 QED
-
-val _ = export_theory ();

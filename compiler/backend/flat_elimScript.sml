@@ -5,12 +5,13 @@
   Closes this next-step function to give a set of reachable globals.
   Removes unreachable globals from the code.
 *)
+Theory flat_elim
+Ancestors
+  spt_closure flatLang misc[qualified] sptree
+Libs
+  preamble
 
-open preamble sptreeTheory flatLangTheory spt_closureTheory
 
-val _ = new_theory "flat_elim";
-
-val _ = set_grammar_ancestry ["spt_closure", "flatLang", "misc"]
 val _ = temp_tight_equality();
 
 (**************************** ANALYSIS FUNCTIONS *****************************)
@@ -239,4 +240,3 @@ Definition remove_flat_prog_def:
         remove_unreachable reachable code
 End
 
-val _ = export_theory();

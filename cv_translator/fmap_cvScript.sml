@@ -1,11 +1,11 @@
 (*
   Set up cv translation of fmaps
 *)
-open preamble cv_transLib cv_stdTheory finite_mapTheory listTheory;
-open alistTheory stringTheory;
-open mllistTheory
-
-val _ = new_theory "fmap_cv";
+Theory fmap_cv
+Libs
+  preamble cv_transLib
+Ancestors
+  mllist cv_std finite_map list alist string
 
 (* -- string as domain -- *)
 
@@ -222,5 +222,3 @@ End
 
 val _ = cv_trans test_def;
 val res = fetch "-" "cv_test_thm";
-
-val _ = export_theory();

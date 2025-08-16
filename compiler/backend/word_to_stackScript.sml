@@ -6,10 +6,11 @@
   uses to known which variables it should treat as roots in a given
   stack frame.
 *)
-open preamble asmTheory wordLangTheory stackLangTheory parmoveTheory
-     word_allocTheory mlstringTheory
-
-val _ = new_theory "word_to_stack";
+Theory word_to_stack
+Ancestors
+  asm wordLang stackLang parmove word_alloc mlstring
+Libs
+  preamble
 
 (* bitmaps_length stores the current length of the bitmaps *)
 Datatype:
@@ -523,4 +524,3 @@ Definition stub_names_def:
     (store_consts_stub_location, mlstring$strlit "_StoreConsts")]
 End
 
-val _ = export_theory();

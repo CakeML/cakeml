@@ -5,9 +5,11 @@
     algorithm for parallel moves
   http://gallium.inria.fr/~xleroy/publi/parallel-move.pdf
 *)
-open preamble;
-
-val _ = new_theory "parmove";
+Theory parmove
+Ancestors
+  misc
+Libs
+  preamble
 
 (* Non-deterministic algorithm *)
 
@@ -1330,5 +1332,3 @@ Proof
   \\ fs[]
   \\ simp[map_state_def]
 QED
-
-val _ = export_theory();

@@ -5,15 +5,15 @@
     The computation is done using our formalized interval arithmetic.
     The function is used in CertificateChecker.v to build the full checker.
 **)
-open simpLib realTheory realLib RealArith pred_setTheory sptreeTheory
-     sptreeLib;
-open AbbrevsTheory ExpressionsTheory RealSimpsTheory FloverTactics
-     ExpressionAbbrevsTheory IntervalArithTheory CommandsTheory ssaPrgsTheory
-     MachineTypeTheory FloverMapTheory TypeValidatorTheory RealRangeArithTheory
-     ExpressionSemanticsTheory sqrtApproxTheory;
-open preambleFloVer;
-
-val _ = new_theory "IntervalValidation";
+Theory IntervalValidation
+Ancestors
+  real pred_set sptree Abbrevs Expressions RealSimps
+  ExpressionAbbrevs IntervalArith Commands ssaPrgs MachineType
+  FloverMap TypeValidator RealRangeArith ExpressionSemantics
+  sqrtApprox
+Libs
+  simpLib realLib RealArith sptreeLib FloverTactics
+  preambleFloVer
 
 val _ = temp_delsimps ["RMUL_LEQNORM"]
 
@@ -642,4 +642,3 @@ Proof
   \\ fs[valid_def] \\ real_prove
 QED
 
-val _ = export_theory();

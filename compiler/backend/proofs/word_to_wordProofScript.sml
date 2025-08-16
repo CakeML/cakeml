@@ -1,13 +1,14 @@
 (*
   Correctness proof for word_to_word
 *)
-open preamble word_to_wordTheory wordSemTheory word_simpProofTheory
-     wordPropsTheory wordConvsTheory word_allocProofTheory word_instProofTheory
-     word_unreachTheory word_removeProofTheory word_cseProofTheory
-     word_elimTheory word_elimProofTheory word_unreachProofTheory
-     word_copyProofTheory wordConvsProofTheory;
-
-val _ = new_theory "word_to_wordProof";
+Theory word_to_wordProof
+Ancestors
+  word_to_word wordSem word_simpProof wordProps wordConvs
+  word_allocProof word_instProof word_unreach word_removeProof
+  word_cseProof word_elim word_elimProof word_unreachProof
+  word_copyProof wordConvsProof
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -1657,4 +1658,3 @@ Proof
   pairarg_tac>>gs[]
 QED
 
-val _ = export_theory();

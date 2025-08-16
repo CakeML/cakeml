@@ -1,14 +1,14 @@
 (*
   Correctness proof for clos_call
 *)
+Theory clos_callProof
+Ancestors
+  backendProps closSem closProps clos_call db_vars
+Libs
+  preamble match_goal
 
-open preamble backendPropsTheory match_goal
-     closSemTheory closPropsTheory
-     clos_callTheory db_varsTheory
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"clos_callProof";
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -4788,4 +4788,3 @@ Proof
 QED
 *)
 
-val _ = export_theory();

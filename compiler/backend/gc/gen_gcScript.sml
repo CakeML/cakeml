@@ -1,13 +1,15 @@
 (*
   The major collection of the generational copying garbage collector.
 *)
-open preamble wordsTheory wordsLib integer_wordTheory gc_sharedTheory;
+Theory gen_gc
+Ancestors
+  words integer_word gc_shared
+Libs
+  preamble wordsLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "gen_gc";
 
 val _ = ParseExtras.temp_loose_equality();
 
@@ -1986,4 +1988,3 @@ Proof
   \\ fs [] \\ rveq \\ fs [] \\ fs [gc_inv_def]
 QED
 
-val _ = export_theory();

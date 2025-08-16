@@ -1,12 +1,14 @@
 (*
   grep example: search for file lines matching a regular expression.
 *)
-open preamble basis
-     charsetTheory regexpTheory regexp_parserTheory regexp_compilerTheory
+Theory grepProg
+Libs
+  preamble basis
+Ancestors
+  charset regexp regexp_parser regexp_compiler mlvector
+  cfApp basis_ffi
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "grepProg";
 
 val _ = translation_extends"basisProg";
 
@@ -1049,5 +1051,3 @@ End
 Theorem grep_semantics =
   sem_thm |> REWRITE_RULE[GSYM grep_prog_def]
   |> DISCH_ALL |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
-
-val _ = export_theory ();

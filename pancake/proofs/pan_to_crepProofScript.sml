@@ -1,17 +1,12 @@
 (*
   Correctness proof for --
 *)
-
-open preamble
-     panSemTheory  panPropsTheory
-     crepLangTheory crepSemTheory crepPropsTheory
-     pan_commonTheory pan_commonPropsTheory
-     listRangeTheory pan_to_crepTheory
-
-val _ = new_theory "pan_to_crepProof";
-
-val _ = set_grammar_ancestry  ["listRange", "crepProps", "pan_commonProps", "pan_to_crep"];
-
+Theory pan_to_crepProof
+Ancestors
+  panSem panProps crepLang crepSem pan_common
+  listRange crepProps pan_commonProps pan_to_crep
+Libs
+  preamble
 
 (* state relation *)
 
@@ -5251,6 +5246,3 @@ Proof
   cases_on ‘x’ >> fs [] >> rveq >> fs [] >>
    fs [state_rel_def, IS_PREFIX_THM]
 QED
-
-
-val _ = export_theory();

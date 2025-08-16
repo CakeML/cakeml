@@ -1,13 +1,12 @@
 (*
 Implementation of Deflate specific Run Length Encoding
 *)
+Theory rle
+Ancestors
+  rich_list list deflateTable huffman
+Libs
+  preamble
 
-open preamble;
-open rich_listTheory listTheory;
-open deflateTableTheory;
-open huffmanTheory;
-
-val _ = new_theory "rle";
 
 Definition rle_table_def:
   rle_table : (num # num # num) =
@@ -149,4 +148,3 @@ EVAL “
    (ls, output, LENGTH ls * 8, rest)
 ”;
 
-val _ = export_theory();

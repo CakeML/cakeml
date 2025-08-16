@@ -2,11 +2,11 @@
   This is an example of applying the translator to the Unbalanced
   Set algorithm from Chris Okasaki's book.
 *)
-open preamble
-open okasaki_miscTheory pred_setTheory pred_setSimps
-open ml_translatorLib ListProgTheory;
-
-val _ = new_theory "UnbalancedSet"
+Theory UnbalancedSet
+Ancestors
+  okasaki_misc pred_set ListProg
+Libs
+  preamble pred_setSimps ml_translatorLib
 
 val _ = translation_extends "ListProg";
 
@@ -101,4 +101,3 @@ rw [is_bst_def, insert_def, tree_to_set_def, insert_set] >>
 metis_tac []
 QED
 
-val _ = export_theory ();

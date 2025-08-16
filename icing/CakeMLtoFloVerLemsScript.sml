@@ -3,19 +3,22 @@
   the translation function is defined in CakeMLtoFloVerScript.sml, and the main
   connection theorem in CakeMLtoFloVerProofsScript.sml
 *)
-(* HOL4 *)
-open machine_ieeeTheory realTheory realLib RealArith;
-(* CakeML *)
-open backendTheory;
-(* FloVer *)
-open ExpressionsTheory CommandsTheory IEEE_connectionTheory;
-(* Icing *)
-open CakeMLtoFloVerTheory;
-open preamble;
+
+Theory CakeMLtoFloVerLems
+Ancestors
+  (* HOL4 *)
+  machine_ieee real
+  (* CakeML *)
+  backend
+  (* FloVer *)
+  Expressions Commands IEEE_connection
+  (* Icing *)
+  CakeMLtoFloVer
+Libs
+  realLib RealArith (* HOL4 *)
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "CakeMLtoFloVerLems";
 
 Definition freevars_def:
   freevars [] = EMPTY /\
@@ -702,5 +705,3 @@ Proof
   \\ imp_res_tac toFloVerCmd_ids_unique
   \\ fs[ids_unique_def] \\ res_tac \\ rveq \\ fs[]
 QED
-
-val _ = export_theory();

@@ -1,9 +1,13 @@
 (*
   An example of how to translate `run`
 *)
-open preamble ml_monad_translator_interfaceLib
+Theory runProg
+Libs
+  preamble ml_monad_translator_interfaceLib
+Ancestors
+  ml_monad_translator
 
-val _ = new_theory "runProg"
+val _ = set_up_monadic_translator ();
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -114,5 +118,3 @@ Definition run_test7_def:
   run_test7 x l state = run (test7 x l) state
 End
 val run_test7_v_thm = m_translate_run run_test7_def;
-
-val _ = export_theory ();

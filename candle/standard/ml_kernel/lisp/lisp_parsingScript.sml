@@ -1,12 +1,11 @@
 (*
   Parsing of Lisp s-expressions
 *)
-open HolKernel Parse boolLib bossLib term_tactic;
-open arithmeticTheory listTheory pairTheory finite_mapTheory stringTheory;
-open lisp_valuesTheory;
-
-val _ = new_theory "lisp_parsing";
-
+Theory lisp_parsing
+Ancestors
+  arithmetic list pair finite_map string lisp_values
+Libs
+  term_tactic
 
 (* lexing *)
 
@@ -84,4 +83,3 @@ Definition parse_def:
 End
 
 
-val _ = export_theory();

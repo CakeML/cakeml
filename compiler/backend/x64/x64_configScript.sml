@@ -1,9 +1,11 @@
 (*
   Define the compiler configuration for x64
 *)
-open preamble backendTheory x64_targetTheory x64_targetLib
-
-val _ = new_theory"x64_config";
+Theory x64_config
+Ancestors
+  backend x64_target
+Libs
+  preamble x64_targetLib
 
 Definition x64_names_def:
   x64_names =
@@ -61,4 +63,3 @@ Definition x64_backend_config_def:
                |>
 End
 
-val _ = export_theory();

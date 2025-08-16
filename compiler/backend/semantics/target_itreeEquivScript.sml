@@ -1,14 +1,13 @@
 (*
   Theorem expressing `machine_sem` in terms of target itree semantics
 *)
-open preamble;
-open semanticsPropsTheory evaluatePropsTheory ffiTheory
-     targetSemTheory targetPropsTheory;
-open target_itreeSemTheory target_itreePropsTheory
-     itree_semanticsTheory itree_semanticsPropsTheory; (* itree_semanticsEquivTheory;*)
-
-
-val _ = new_theory "target_itreeEquiv"
+Theory target_itreeEquiv
+Ancestors
+  semanticsProps evaluateProps ffi targetSem targetProps
+  target_itreeSem target_itreeProps itree_semantics
+  itree_semanticsProps
+Libs
+  preamble
 
 
 (*********** evaluate' **********)
@@ -1146,6 +1145,3 @@ QED
 
 
 (**********)
-
-val _ = export_theory();
-

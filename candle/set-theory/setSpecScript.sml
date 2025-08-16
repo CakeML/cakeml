@@ -4,9 +4,11 @@
     is_set_theory (mem : 'U -> 'U -> bool), and
     is_model (mem, indset, ch)
 *)
-open preamble cardinalTheory
-
-val _ = new_theory"setSpec"
+Theory setSpec
+Ancestors
+  cardinal
+Libs
+  preamble
 
 val _ = Parse.remove_type_abbrev "reln";
 val _ = Parse.remove_type_abbrev "inf";
@@ -303,6 +305,7 @@ Definition apply_def:
   apply ^mem x y = @a. (y,a) <: x
 End
 
+val _ = Parse.add_infix("'",2000,Parse.LEFT);
 Overload "'" = ``apply ^mem``
 
 Overload boolset = ``Two``
@@ -553,5 +556,3 @@ Proof
   simp[bigcross_def,tuple_def,mem_one] >>
   simp[mem_product,PULL_EXISTS,tuple_def]
 QED
-
-val _ = export_theory()

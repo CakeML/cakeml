@@ -1,11 +1,11 @@
 (**
   Real-number simplification theorems
 **)
-open RealArith;
-open realTheory realLib;
-open preambleFloVer;
-
-val _ = new_theory "RealSimps";
+Theory RealSimps
+Ancestors
+  real
+Libs
+  RealArith realLib preambleFloVer
 
 Overload abs[local] = “realax$abs”
 Overload max[local] = “realax$max”
@@ -138,4 +138,3 @@ Proof
   \\ irule POW_POS \\ fs[]
 QED
 
-val _ = export_theory();

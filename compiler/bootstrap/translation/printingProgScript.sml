@@ -1,13 +1,15 @@
 (*
   Translate the pretty printing functions for the REPL
 *)
+Theory printingProg
+Ancestors
+  infer[qualified] misc[qualified] ml_translator basis_defProg
+  std_prelude printTweaks
+Libs
+  preamble ml_translatorLib
 
 open preamble ml_translatorLib ml_translatorTheory
-     basis_defProgTheory std_preludeTheory printTweaksTheory
-
-val _ = set_grammar_ancestry ["infer","misc"];
-
-val _ = new_theory "printingProg"
+     basis_defProgTheory std_preludeTheory printTweaksTheory;
 
 val _ = translation_extends "basis_defProg";
 val _ = ml_translatorLib.use_sub_check true;
@@ -136,5 +138,3 @@ val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

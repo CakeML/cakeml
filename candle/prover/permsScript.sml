@@ -1,14 +1,13 @@
 (*
   Permissions for CakeML values.
  *)
+Theory perms
+Ancestors
+  semanticPrimitives semanticPrimitivesProps namespaceProps
+  evaluateProps evaluate sptree ml_prog ast_extras
+Libs
+  preamble
 
-open preamble;
-open semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     namespacePropsTheory evaluatePropsTheory evaluateTheory
-     sptreeTheory ml_progTheory;
-open ast_extrasTheory;
-
-val _ = new_theory "perms";
 
 Type loc = “:num”;
 
@@ -1004,4 +1003,3 @@ Theorem evaluate_perms_ok_dec =
   |> GEN_ALL
   |> SIMP_RULE (srw_ss()) [];
 
-val _ = export_theory ();

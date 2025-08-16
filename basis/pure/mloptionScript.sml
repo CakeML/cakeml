@@ -1,9 +1,11 @@
 (*
   Pure functions for the Option module.
 *)
-open preamble
-
-val _ = new_theory"mloption"
+Theory mloption
+Ancestors
+  ternaryComparisons
+Libs
+  preamble
 
 Definition getOpt_def:
   (getOpt (SOME v) a = v) /\
@@ -33,8 +35,6 @@ End
 Definition compare_def:
   compare f x y =
     case x of
-    | NONE => (case y of NONE => Equal | _ => Less)
-    | SOME vx => (case y of NONE => Greater | SOME vy => f vx vy)
+    | NONE => (case y of NONE => EQUAL | _ => LESS)
+    | SOME vx => (case y of NONE => GREATER | SOME vy => f vx vy)
 End
-
-val _ = export_theory()

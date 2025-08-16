@@ -3,13 +3,12 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     TextIOProofTheory
-     npbc_fullProgTheory
-     npbc_fullCompileTheory;
-
-val _ = new_theory"npbc_fullProof";
+Theory npbc_fullProof
+Ancestors
+  semanticsProps backendProof x64_configProof TextIOProof
+  npbc_fullProg npbc_fullCompile
+Libs
+  preamble
 
 val cake_pb_io_events_def = new_specification("cake_pb_io_events_def",["cake_pb_io_events"],
   main_semantics |> Q.GENL[`cl`,`fs`]
@@ -130,4 +129,3 @@ QED
 
 val chk = machine_code_sound |> check_thm;
 
-val _ = export_theory();

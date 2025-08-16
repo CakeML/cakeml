@@ -1,12 +1,12 @@
 (*
   Properties of Dafny's functional big-step semantics.
 *)
+Theory dafny_evaluateProps
+Ancestors
+  dafny_evaluate dafny_semanticPrimitives
+Libs
+  preamble
 
-open preamble
-open dafny_evaluateTheory
-open dafny_semanticPrimitivesTheory
-
-val _ = new_theory "dafny_evaluateProps";
 
 (* After evaluate, only the value of locals can have changed. *)
 
@@ -118,4 +118,3 @@ Proof
   \\ res_tac
 QED
 
-val _ = export_theory ();

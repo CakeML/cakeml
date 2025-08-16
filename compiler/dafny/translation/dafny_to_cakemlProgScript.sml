@@ -1,15 +1,12 @@
 (*
   Translates definitions to translate from Dafny's to CakeML's AST.
 *)
+Theory dafny_to_cakemlProg
+Ancestors
+  sexp_to_dafnyProg dafny_to_cakeml namespace location
+Libs
+  preamble ml_translatorLib
 
-open preamble
-open ml_translatorLib
-open sexp_to_dafnyProgTheory
-open dafny_to_cakemlTheory
-open namespaceTheory
-open locationTheory
-
-val _ = new_theory "dafny_to_cakemlProg";
 
 val _ = translation_extends "sexp_to_dafnyProg";
 
@@ -59,4 +56,3 @@ val r = translate dafny_to_cakemlTheory.from_member_decl_def;
 val r = translate locationTheory.unknown_loc_def;
 val r = translate dafny_to_cakemlTheory.from_program_def;
 
-val _ = export_theory ();

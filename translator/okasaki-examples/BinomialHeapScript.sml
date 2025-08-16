@@ -2,13 +2,14 @@
   This is an example of applying the translator to the Binomial Heap
   algorithm from Chris Okasaki's book.
 *)
-open preamble
-open bagTheory bagLib okasaki_miscTheory ml_translatorLib ListProgTheory;
+Theory BinomialHeap
+Ancestors
+  bag okasaki_misc ListProg
+Libs
+  preamble bagLib ml_translatorLib
 
 val fs = full_simp_tac (srw_ss ())
 val rw = srw_tac []
-
-val _ = new_theory "BinomialHeap"
 
 val _ = translation_extends "ListProg";
 
@@ -572,4 +573,3 @@ THEN SIMP_TAC std_ss [Once remove_min_tree_side_def]
 THEN Cases_on `h` THEN FULL_SIMP_TAC (srw_ss()) []
 QED
 
-val _ = export_theory ();

@@ -1,10 +1,11 @@
 (*
   Proofs about the Array module.
 *)
-open preamble ml_translatorTheory ml_translatorLib cfLib
-     mlbasicsProgTheory ArrayProgTheory
-
-val _ = new_theory"ArrayProof";
+Theory ArrayProof
+Ancestors
+  ml_translator mlbasicsProg ArrayProg
+Libs
+  preamble ml_translatorLib cfLib
 
 val _ = translation_extends "ArrayProg";
 
@@ -1070,4 +1071,3 @@ Proof
   simp[]
 QED
 
-val _ = export_theory();

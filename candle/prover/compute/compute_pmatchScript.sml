@@ -1,11 +1,12 @@
 (*
   Pmatch definitions for functions in computeScript.sml.
  *)
+Theory compute_pmatch
+Ancestors
+  compute_syntax compute_eval compute
+Libs
+  preamble patternMatchesLib[qualified]
 
-open preamble compute_syntaxTheory compute_evalTheory computeTheory;
-local open patternMatchesLib in end;
-
-val _ = new_theory "compute_pmatch";
 
 val _ = numLib.temp_prefer_num ();
 
@@ -109,6 +110,4 @@ Proof
   \\ Cases_on ‘t1’ \\ Cases_on ‘t2’
   \\ rw [do_reln_def]
 QED
-
-val _ = export_theory ();
 

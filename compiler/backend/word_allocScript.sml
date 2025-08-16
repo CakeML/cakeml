@@ -6,18 +6,14 @@
       3) IRC allocator + spill heuristics;
       4) linear scan register allocator.
 *)
-open preamble wordLangTheory;
-open linear_scanTheory;
-open reg_allocTheory;
-open mllistTheory;
+Theory word_alloc
+Libs
+  preamble
+Ancestors
+  mllist
+  asm[qualified] (* for arity-2 Const *)
+  reg_alloc misc[qualified] wordLang linear_scan
 
-val _ = new_theory "word_alloc";
-val _ = set_grammar_ancestry [
-  "asm" (* for arity-2 Const *),
-  "reg_alloc",
-  "misc",
-  "wordLang"
-]
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 Overload Move0[inferior] = ``Move 0n``;
@@ -1653,5 +1649,3 @@ Definition full_ssa_cc_trans_def:
     let (prog',ssa',na') = ssa_cc_trans prog ssa na in
       Seq mov prog'
 End
-
-val _ = export_theory();

@@ -2,12 +2,14 @@
   Prove correctness of the monadic functions, i.e. prove that they are
   faithful to the inference rules of the Candle logic.
 *)
-open preamble mlstringTheory ml_monadBaseTheory holKernelTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
-open mllistTheory
+Theory holKernelProof
+Libs
+  preamble
+Ancestors
+  mlstring mllist ml_monadBase holKernel holSyntaxLib holSyntax
+  holSyntaxExtra
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "holKernelProof";
 
 val _ = ParseExtras.temp_loose_equality();
 val _ = hide"str";
@@ -3528,5 +3530,3 @@ Proof
   \\ CCONTR_TAC \\ fs [] \\ rw [] \\ fs [image_clash_thm]
 QED
 *)
-
-val _ = export_theory();

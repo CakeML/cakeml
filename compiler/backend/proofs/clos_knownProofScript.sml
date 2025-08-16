@@ -1,21 +1,21 @@
 (*
   Correctness proof for clos_known
 *)
+Theory clos_knownProof
+Ancestors
+  closLang closSem closProps clos_known clos_knownProps db_vars
+  backendProps clos_opProof clos_letopProof[qualified]
+  clos_ticksProof[qualified] clos_fvsProof[qualified]
+Libs
+  preamble bagLib[qualified]
 
-open preamble local open bagLib in end
-open closPropsTheory clos_knownTheory clos_knownPropsTheory closSemTheory
-     closLangTheory db_varsTheory backendPropsTheory clos_opProofTheory
-local open clos_letopProofTheory clos_ticksProofTheory clos_fvsProofTheory in end
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"];
 
-val _ = new_theory "clos_knownProof";
 val _ = diminish_srw_ss ["ABBREV"];
 val _ = set_trace "BasicProvers.var_eq_old" 1;
 val _ = augment_srw_ss [rewrites [SNOC_APPEND]];
 
-val _ = set_grammar_ancestry
-  [ "closLang", "closSem", "closProps", "clos_known", "clos_knownProps" ];
 val _ = temp_bring_to_front_overload "domain" {Name = "domain", Thy = "sptree"};
 
 fun patresolve p f th = Q.PAT_ASSUM p (mp_then (Pos f) mp_tac th);
@@ -5480,4 +5480,3 @@ Proof
   \\ rw[Once clos_knownTheory.mk_Ticks_def]
 QED
 
-val _ = export_theory();

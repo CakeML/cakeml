@@ -1,13 +1,13 @@
 (*
   Encode kakuro to cnf
 *)
-
-open preamble miscTheory ASCIInumbersTheory set_sepTheory;
-open quantifierExpTheory orderEncodingBoolTheory numBoolExpTheory;
-open numBoolExtendedTheory numBoolRangeTheory;
-open numberSudokuTheory killerSudokuTheory;
-
-val _ = new_theory "kakuro";
+Theory kakuro
+Ancestors
+  misc ASCIInumbers set_sep quantifierExp orderEncodingBool
+  numBoolExp numBoolExtended numBoolRange numberSudoku
+  killerSudoku
+Libs
+  preamble
 
 
 (* ----------------------------- Datatypes --------------------------- *)
@@ -106,4 +106,3 @@ Definition numVarAssignment_to_assignment_kakuro_def:
 End
 
 
-val _ = export_theory();

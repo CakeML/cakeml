@@ -1,23 +1,13 @@
 (*
   Proof of semantic preservation from Scheme to CakeML
 *)
-open preamble;
-open computeLib;
-open scheme_astTheory;
-open scheme_semanticsTheory;
-open scheme_to_cakeTheory;
-open scheme_semanticsPropsTheory;
-
-open astTheory;
-open evaluateTheory;
-open evaluatePropsTheory;
-open semanticPrimitivesTheory;
-open namespaceTheory;
-open primTypesTheory;
-open namespacePropsTheory;
-open integerTheory;
-
-val _ = new_theory "scheme_to_cakeProof";
+Theory scheme_to_cakeProof
+Ancestors
+  scheme_ast scheme_semantics scheme_to_cake
+  scheme_semanticsProps ast evaluate evaluateProps
+  semanticPrimitives namespace primTypes namespaceProps integer
+Libs
+  preamble computeLib
 
 val _ = (max_print_depth := 30);
 
@@ -1971,4 +1961,3 @@ Proof
   >> gvs[]
 QED
 
-val _ = export_theory();

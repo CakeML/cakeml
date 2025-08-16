@@ -1,14 +1,17 @@
 (*
   Translate the data_to_word part of the 64-bit compiler.
 *)
+Theory to_word64Prog
+Ancestors
+  ml_translator printingProg std_prelude data_to_word word_simp
+  word_alloc word_inst backend[qualified]
+Libs
+  preamble ml_translatorLib blastLib[qualified]
 
 open preamble ml_translatorLib ml_translatorTheory
-     printingProgTheory std_preludeTheory
-local open backendTheory blastLib in end
+     printingProgTheory std_preludeTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "to_word64Prog"
 
 val _ = translation_extends "printingProg";
 
@@ -706,5 +709,3 @@ val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

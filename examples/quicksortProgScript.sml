@@ -1,11 +1,11 @@
 (*
   In-place quick sort on a polymorphic array.
 *)
-open preamble semanticPrimitivesTheory
-open ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
-open basisProgTheory ArrayProofTheory
-
-val _ = new_theory "quicksortProg";
+Theory quicksortProg
+Ancestors
+  semanticPrimitives ml_translator basisProg ArrayProof
+Libs
+  preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -1219,4 +1219,3 @@ Proof
   metis_tac [PERM_SYM]
 QED
 
-val _ = export_theory ();

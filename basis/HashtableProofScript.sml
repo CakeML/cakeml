@@ -1,13 +1,12 @@
 (*
 Proof of the hashtable module
 *)
-
-open preamble ml_translatorTheory ml_translatorLib cfLib
-     mlbasicsProgTheory ArrayProgTheory ArrayProofTheory ListProgTheory
-     MapProgTheory HashtableProgTheory
-     comparisonTheory;
-
-val _ = new_theory"HashtableProof";
+Theory HashtableProof
+Ancestors
+  mlmap ml_translator mlbasicsProg ArrayProg ArrayProof ListProg
+  MapProg HashtableProg comparison
+Libs
+  preamble ml_translatorLib cfLib
 
 val _ = translation_extends "HashtableProg";
 
@@ -1460,5 +1459,3 @@ Proof
       \\ imp_res_tac replicate_empty_map_thm
       \\ fs[list_union_empty_maps]))
 QED
-
-val _ = export_theory();

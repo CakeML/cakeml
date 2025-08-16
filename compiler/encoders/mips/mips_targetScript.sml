@@ -1,10 +1,11 @@
 (*
   Define the target compiler configuration for MIPS.
 *)
-open HolKernel Parse boolLib bossLib
-open asmLib mips_stepTheory;
-
-val () = new_theory "mips_target"
+Theory mips_target
+Ancestors
+  asmProps mips_step
+Libs
+  asmLib
 
 (* --- The next-state function --- *)
 
@@ -350,5 +351,3 @@ Theorem mips_config =
   mips_config
 Theorem mips_asm_ok =
   mips_asm_ok
-
-val () = export_theory ()

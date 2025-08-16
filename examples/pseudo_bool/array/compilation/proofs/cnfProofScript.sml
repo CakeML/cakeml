@@ -3,13 +3,12 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     TextIOProofTheory
-     cnfProgTheory
-     satSemTheory cnfCompileTheory;
-
-val _ = new_theory"cnfProof";
+Theory cnfProof
+Ancestors
+  semanticsProps backendProof x64_configProof TextIOProof cnfProg
+  satSem cnfCompile
+Libs
+  preamble
 
 val cake_pb_cnf_io_events_def = new_specification("cake_pb_cnf_io_events_def",["cake_pb_cnf_io_events"],
   main_semantics |> Q.GENL[`cl`,`fs`]
@@ -111,4 +110,3 @@ QED
 
 val chk = machine_code_sound |> check_thm;
 
-val _ = export_theory();

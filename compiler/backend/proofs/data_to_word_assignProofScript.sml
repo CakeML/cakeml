@@ -1,17 +1,16 @@
 (*
   Part of the correctness proof for data_to_word
 *)
-open preamble int_bitwiseTheory dataSemTheory dataPropsTheory copying_gcTheory
-     data_to_word_memoryProofTheory data_to_word_gcProofTheory
-     data_to_word_bignumProofTheory data_to_wordTheory wordPropsTheory
-     whileTheory set_sepTheory semanticsPropsTheory
-     helperLib alignmentTheory blastLib backendPropsTheory
-     word_bignumTheory wordLangTheory word_bignumProofTheory
-     gen_gc_partialTheory gc_sharedTheory word_gcFunctionsTheory;
-local open gen_gcTheory in end
-local open bvi_to_dataTheory in end
-
-val _ = new_theory "data_to_word_assignProof";
+Theory data_to_word_assignProof
+Libs
+  preamble helperLib blastLib
+Ancestors
+  data_to_word_memoryProof data_to_word_gcProof dataSem
+  wordSem[qualified] data_to_word int_bitwise dataProps
+  copying_gc data_to_word_bignumProof wordProps while set_sep
+  semanticsProps alignment backendProps word_bignum wordLang
+  word_bignumProof gen_gc_partial gc_shared word_gcFunctions
+  gen_gc[qualified] bvi_to_data[qualified]
 
 val _ = (max_print_depth := 1);
 
@@ -24,12 +23,6 @@ val _ = temp_delsimps ["fromAList_def", "domain_union",
                        "sptree.insert_notEmpty", "sptree.isEmpty_union"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
-
-val _ = set_grammar_ancestry
-  ["data_to_word_memoryProof",
-   "data_to_word_gcProof",
-   "dataSem", "wordSem", "data_to_word"
-  ];
 
 fun drule0 th =
   first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
@@ -14082,5 +14075,3 @@ Proof
   \\ rpt (PURE_CASE_TAC \\ fs [])
   \\ qhdtm_x_assum`do_app`mp_tac \\ EVAL_TAC
 QED
-
-val _ = export_theory();

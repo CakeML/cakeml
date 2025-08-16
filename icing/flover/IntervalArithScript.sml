@@ -2,13 +2,13 @@
   Formalization of real valued interval arithmetic
   Used in soundness proofs for error bound validator.
 **)
-open realTheory realLib RealArith
-open AbbrevsTheory ExpressionsTheory RealSimpsTheory FloverTactics;
-open preambleFloVer;
+Theory IntervalArith
+Ancestors
+  real Abbrevs Expressions RealSimps
+Libs
+  realLib RealArith FloverTactics preambleFloVer
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "IntervalArith";
 
 Overload abs[local] = “realax$abs”
 Overload max[local] = “realax$max”
@@ -552,4 +552,3 @@ Proof
   metis_tac[REAL_MIN_ALT]
 QED
 
-val _ = export_theory();

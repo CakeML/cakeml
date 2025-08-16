@@ -1,14 +1,16 @@
 (*
   Translation of CakeML source AST
 *)
+Theory decProg
+Ancestors
+  ast ml_translator ml_pmatch[qualified] semanticPrimitives
+  repl_init_envProg
+Libs
+  preamble ml_translatorLib ml_progLib
 
 open preamble astTheory semanticPrimitivesTheory;
 open ml_translatorLib ml_translatorTheory ml_progLib;
 open repl_init_envProgTheory;
-
-val _ = new_theory "decProg";
-
-val _ = set_grammar_ancestry ["ast","ml_translator","ml_pmatch"];
 
 val _ = translation_extends "repl_init_envProg";
 
@@ -72,4 +74,3 @@ val r = translate repl_decs_allowedTheory.safe_exp_pmatch;
 val r = translate candle_prover_invTheory.safe_dec_def;
 val r = translate repl_decs_allowedTheory.decs_allowed_def;
 
-val _ = export_theory();

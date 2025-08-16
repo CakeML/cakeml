@@ -5,13 +5,14 @@
   lines from the file, then splits them into words, then takes the lengths of
   those word lists. A more efficient implementation is possible even in CakeML.
 *)
+Theory wordcountProg
+Ancestors
+  splitwords cfApp basis_ffi
+Libs
+  preamble basis
 
-open preamble basis
-     splitwordsTheory
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory"wordcountProg";
 
 val _ = translation_extends"basisProg";
 
@@ -272,5 +273,3 @@ Theorem wordcount_semantics =
   |> DISCH_ALL
   |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC,LENGTH]
   |> SIMP_RULE (srw_ss()) []
-
-val _ = export_theory();

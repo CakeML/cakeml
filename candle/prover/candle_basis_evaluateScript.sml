@@ -1,19 +1,15 @@
 (*
   Proving that the basis program only produces v_ok values.
  *)
+Theory candle_basis_evaluate
+Ancestors
+  candle_prover_inv ast_extras evaluate namespaceProps
+  perms[qualified] semanticPrimitivesProps misc[qualified]
+  semanticPrimitives evaluateProps sptree candle_kernelProg
+  candle_prover_evaluate
+Libs
+  preamble helperLib ml_progLib[qualified]
 
-open preamble helperLib;
-open semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     evaluateTheory namespacePropsTheory evaluatePropsTheory
-     sptreeTheory candle_kernelProgTheory
-open candle_prover_invTheory candle_prover_evaluateTheory ast_extrasTheory;
-local open ml_progLib in end
-
-val _ = new_theory "candle_basis_evaluate";
-
-val _ = set_grammar_ancestry [
-  "candle_prover_inv", "ast_extras", "evaluate", "namespaceProps", "perms",
-  "semanticPrimitivesProps", "misc"];
 
 val _ = temp_send_to_back_overload "If"  {Name="If", Thy="compute_syntax"};
 val _ = temp_send_to_back_overload "App" {Name="App",Thy="compute_syntax"};
@@ -426,4 +422,3 @@ Proof
   rw [post_state_ok_def]
 QED
 
-val _ = export_theory ();

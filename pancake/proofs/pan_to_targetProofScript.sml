@@ -3,14 +3,13 @@
 composing semantics correctness from pan to target
 
 *)
+Theory pan_to_targetProof
+Ancestors
+  backendProof stackProps stack_to_labProof lab_to_targetProof
+  pan_to_wordProof pan_to_target wordConvsProof
+Libs
+  preamble blastLib[qualified]
 
-open preamble
-     backendProofTheory pan_to_wordProofTheory
-     pan_to_targetTheory wordConvsProofTheory;
-
-local open blastLib in end
-
-val _ = new_theory "pan_to_targetProof";
 
 Overload stack_remove_prog_comp[local] = ``stack_remove$prog_comp``
 Overload stack_alloc_prog_comp[local] = ``stack_alloc$prog_comp``
@@ -2217,5 +2216,3 @@ Proof
   rewrite_tac[LE_MULT_RCANCEL]>>
   rw[]
 QED
-
-val _ = export_theory();

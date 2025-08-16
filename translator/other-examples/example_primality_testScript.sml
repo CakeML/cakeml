@@ -2,16 +2,11 @@
   This is a simple example of applying the translator to an
   efficient primaliy tester formalised by Joe Hurd.
 *)
-open HolKernel Parse boolLib bossLib;
-
-val _ = new_theory "example_primality_test";
-
-open miller_rabinTheory;
-open arithmeticTheory;
-open combinTheory;
-open ListProgTheory;
-
-open ml_translatorLib;
+Theory example_primality_test
+Ancestors
+  miller_rabin arithmetic combin ListProg
+Libs
+  ml_translatorLib
 
 fun find_def tm = let
   val thy = #Thy (dest_thy_const tm)
@@ -85,4 +80,3 @@ val _ = translate miller_rabin_1_def;
 
 val _ = translate miller_rabin_def;
 
-val _ = export_theory();

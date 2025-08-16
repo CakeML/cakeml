@@ -3,11 +3,13 @@
   Booleans, and some basic syntactic properties about these
   extensions.
 *)
-open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
+Theory holBoolSyntax
+Ancestors
+  holSyntaxLib holSyntax holSyntaxExtra
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory"holBoolSyntax"
 
 Overload True = ``Const (strlit "T") Bool``
 Overload And = ``λp1 p2. Comb (Comb (Const (strlit "/\\") (Fun Bool (Fun Bool Bool))) p1) p2``
@@ -246,4 +248,3 @@ Proof
   PROVE_TAC[term_ok_welltyped]
 QED
 
-val _ = export_theory()

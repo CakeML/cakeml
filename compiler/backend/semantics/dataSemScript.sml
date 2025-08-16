@@ -1,12 +1,13 @@
 (*
   The formal semantics of dataLang
 *)
-open preamble data_simpTheory data_liveTheory data_spaceTheory
-     dataLangTheory bvlSemTheory
-     data_to_wordTheory (* TODO: immoral, semantics shouldn't depend on compiler *);
-local open backendPropsTheory in end;
-
-val _ = new_theory"dataSem";
+Theory dataSem
+Ancestors
+  data_simp data_live data_space dataLang bvlSem
+  data_to_word (* TODO: immoral, semantics shouldn't depend on compiler *)
+  backendProps[qualified]
+Libs
+  preamble
 
 Datatype:
   v = Number int              (* integer *)
@@ -1455,5 +1456,3 @@ End
 (* clean up *)
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
-
-val _ = export_theory();

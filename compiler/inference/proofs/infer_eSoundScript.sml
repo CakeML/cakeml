@@ -1,20 +1,15 @@
 (*
   Prove soundness of the type inferencer for the expression-level.
 *)
-open preamble;
-open typeSystemTheory astTheory semanticPrimitivesTheory inferTheory unifyTheory infer_tTheory;
-open astPropsTheory;
-open inferPropsTheory envRelTheory;
-open typeSysPropsTheory;
-open namespacePropsTheory;
-
-local open typeSoundInvariantsTheory in
-end
+Theory infer_eSound
+Ancestors
+  typeSystem ast semanticPrimitives infer unify infer_t astProps
+  inferProps envRel typeSysProps namespaceProps
+  typeSoundInvariants[qualified]
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "infer_eSound";
-
 
 (* ---------- sub_completion ---------- *)
 
@@ -1232,4 +1227,3 @@ Proof
           metis_tac [FST]])
 QED
 
-val _ = export_theory ();

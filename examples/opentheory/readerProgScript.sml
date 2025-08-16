@@ -2,12 +2,14 @@
   Deeply embedded CakeML program that implements an OpenTheory article
   checker.
 *)
-open preamble basis ml_monadBaseTheory ml_monad_translatorLib cfMonadTheory
-     cfMonadLib holKernelTheory holKernelProofTheory ml_hol_kernelProgTheory
-     ml_hol_kernel_funsProgTheory readerTheory readerProofTheory
-     prettyTheory reader_commonProgTheory reader_initTheory;
+Theory readerProg
+Ancestors
+  ml_monadBase cfMonad holKernel holKernelProof ml_hol_kernelProg
+  ml_hol_kernel_funsProg reader readerProof pretty
+  reader_commonProg reader_init basis_ffi
+Libs
+  preamble basis ml_monad_translatorLib cfMonadLib
 
-val _ = new_theory "readerProg"
 val _ = m_translation_extends "reader_commonProg"
 
 (* TODO: move *)
@@ -593,5 +595,3 @@ Theorem reader_semantics =
      |> ONCE_REWRITE_RULE [CONJ_COMM] |> GSYM
      |> CONV_RULE (LHS_CONV (ONCE_REWRITE_CONV [CONJ_COMM]))]
   |> REWRITE_RULE [AND_IMP_INTRO, GSYM CONJ_ASSOC]
-
-val _ = export_theory ();

@@ -1,10 +1,11 @@
 (*
   Encoding of Hamiltonain path problem
 *)
-
-open preamble miscTheory boolExpToCnfTheory quantifierExpTheory cnfTheory;
-
-val _ = new_theory "hamiltonianpath";
+Theory hamiltonianpath
+Ancestors
+  misc boolExpToCnf quantifierExp cnf
+Libs
+  preamble
 
 
 (* ---------------- Types ------------------- *)
@@ -128,4 +129,3 @@ Proof
   >> metis_tac[sum_bools_vertex, sum_bools_least_one]
 QED
 
-val _ = export_theory();

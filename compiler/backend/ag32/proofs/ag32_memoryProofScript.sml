@@ -3,14 +3,14 @@
   correctness of the startup code and length and lookup theorems for
   other parts of memory.
 *)
-open preamble ag32_memoryTheory
-local
-  open wordsLib blastLib asmLib combinLib ag32_targetLib
-  open data_to_word_memoryProofTheory backendProofTheory
-       ag32_machine_configTheory
-in end
-
-val _ = new_theory"ag32_memoryProof";
+Theory ag32_memoryProof
+Ancestors
+  ag32_memory data_to_word_memoryProof[qualified]
+  backendProof[qualified] ag32_machine_config[qualified]
+Libs
+  preamble wordsLib[qualified] blastLib[qualified]
+  asmLib[qualified] combinLib[qualified]
+  ag32_targetLib[qualified]
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -1311,4 +1311,3 @@ Proof
   \\ rfs[]
 QED
 
-val _ = export_theory();

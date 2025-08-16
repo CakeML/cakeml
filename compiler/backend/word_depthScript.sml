@@ -3,9 +3,11 @@
   graph. This graph is in turn used to compute the max stack depth
   used by the wordLang program.
 *)
-open preamble wordLangTheory;
-
-val _ = new_theory "word_depth";
+Theory word_depth
+Ancestors
+  wordLang
+Libs
+  preamble
 
 (* representation of acyclic call graph, i.e. call tree *)
 
@@ -101,4 +103,3 @@ Definition max_depth_graphs_def:
                         (max_depth_graphs ss ns all funs all_funs))
 End
 
-val _ = export_theory();

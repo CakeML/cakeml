@@ -1,11 +1,12 @@
 (*
   Syntactic properties proofs for word_to_word.
 *)
-open preamble wordLangTheory word_to_wordTheory wordConvsTheory
-  word_simpTheory word_allocTheory word_instTheory word_unreachTheory
-  word_removeTheory word_cseTheory word_elimTheory word_copyTheory;
-
-val _ = new_theory "wordConvsProof";
+Theory wordConvsProof
+Ancestors
+  wordLang word_to_word wordConvs word_simp word_alloc word_inst
+  word_unreach word_remove word_cse word_elim word_copy
+Libs
+  preamble
 
 (***
   This theory should serve also as documentation for
@@ -2735,4 +2736,3 @@ Proof
   rveq>>fs[]
 QED;
 
-val _ = export_theory();

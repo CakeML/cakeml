@@ -7,18 +7,16 @@
   icing_optimisationsLib and the general theorems from
   source_to_source2ProofsScript.
 *)
-open bossLib ml_translatorLib;
-open semanticPrimitivesTheory evaluatePropsTheory;
-open fpValTreeTheory fpSemPropsTheory fpOptTheory fpOptPropsTheory
-     icing_optimisationsTheory icing_rewriterTheory source_to_source2ProofsTheory
-     floatToRealTheory floatToRealProofsTheory icing_optimisationProofsTheory
-     evaluateTheory pureExpsTheory binary_ieeeTheory realLib realTheory RealArith;
+Theory icing_realIdProofs
+Ancestors
+  semanticPrimitives evaluateProps fpValTree fpSemProps fpOpt
+  fpOptProps icing_optimisations icing_rewriter
+  source_to_source2Proofs floatToReal floatToRealProofs
+  icing_optimisationProofs evaluate pureExps binary_ieee real
+Libs
+  ml_translatorLib realLib RealArith preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-open preamble;
-
-val _ = new_theory "icing_realIdProofs";
 
 val state_eqs = [state_component_equality, fpState_component_equality];
 
@@ -864,4 +862,3 @@ QED
 
 Theorem fp_times_one_real_id_unfold = REWRITE_RULE [fp_times_one_def] fp_times_one_real_id;
 
-val _ = export_theory();

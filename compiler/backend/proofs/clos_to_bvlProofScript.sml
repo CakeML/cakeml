@@ -1,37 +1,31 @@
 (*
   Correctness proof for clos_to_bvl
 *)
+Theory clos_to_bvlProof
+Libs
+  preamble
+Ancestors
+  closSem bvlSem closProps bvlProps clos_to_bvl
+  backendProps[qualified] ffi[qualified] lprefix_lub[qualified]
+Ancestors[ignore_grammar]
+  closLang bvl_jumpProof clos_constantProof backend_common
+  clos_mtiProof[qualified] clos_numberProof[qualified]
+  clos_knownProof[qualified] clos_annotateProof[qualified]
+  clos_callProof[qualified] clos_fvsProof[qualified]
 
-open preamble
-     closLangTheory closSemTheory closPropsTheory
+(* Make sure we get the correct ML bindings (somehow) *)
+open closLangTheory closSemTheory closPropsTheory
      bvlSemTheory bvlPropsTheory
      bvl_jumpProofTheory
      clos_to_bvlTheory clos_constantProofTheory
      backend_commonTheory;
 
-local
-open
-  clos_mtiProofTheory
-  clos_numberProofTheory
-  clos_knownProofTheory
-  clos_annotateProofTheory
-  clos_callProofTheory
-  clos_fvsProofTheory
-in end
-
-val _ = new_theory"clos_to_bvlProof";
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "fromAList_def",
                        "domain_union", "domain_insert"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
-
-val _ = set_grammar_ancestry
-  ["closSem", "bvlSem", "closProps", "bvlProps",
-   "clos_to_bvl",
-   "backendProps", "ffi", "lprefix_lub"
-   ];
 
 val drule = old_drule
 
@@ -8956,5 +8950,3 @@ Proof
       |> Q.INST [`l1`|->`x::[]`] |> SIMP_RULE std_ss [APPEND]]
   \\ fs []
 QED
-
-val _ = export_theory();

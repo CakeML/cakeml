@@ -3,18 +3,18 @@
    development.
 *)
 
-open HolKernel bossLib boolLib boolSimps Parse mp_then
-open alignmentTheory alistTheory arithmeticTheory bitstringTheory bagTheory
-     byteTheory combinTheory dep_rewrite containerTheory listTheory
-     pred_setTheory finite_mapTheory rich_listTheory llistTheory optionTheory
-     pairTheory sortingTheory relationTheory totoTheory comparisonTheory
-     bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory BasicProvers
-     indexedListsTheory stringTheory ASCIInumbersLib machine_ieeeTheory
-     integer_wordTheory
-local open bagLib addressTheory blastLib pathTheory in end
-
 (* Misc. lemmas (without any compiler constants) *)
-val _ = new_theory "misc"
+Theory misc
+Ancestors
+  alignment alist arithmetic blast[qualified] bitstring bag byte
+  combin container list pred_set finite_map rich_list llist option
+  pair sorting relation toto comparison bit sptree words set_sep
+  indexedLists string machine_ieee integer_word address[qualified]
+  path[qualified] res_quan[qualified] lprefix_lub[qualified]
+Libs
+  boolSimps mp_then dep_rewrite wordsLib BasicProvers
+  ASCIInumbersLib bagLib[qualified] blastLib[qualified]
+
 val _ = ParseExtras.tight_equality()
 
 (* Total version of THE *)
@@ -4449,5 +4449,3 @@ Proof
   Induct_on`ls`>>simp[]>>
   rw[]>>gvs[]
 QED
-
-val _ = export_theory()

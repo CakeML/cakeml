@@ -1,10 +1,11 @@
 (*
   Replaces free variables with constant type errors.
 *)
-open preamble closLangTheory;
-
-val _ = new_theory "clos_fvs";
-val _ = set_grammar_ancestry ["closLang"];
+Theory clos_fvs
+Ancestors
+  closLang
+Libs
+  preamble
 
 Definition remove_fvs_def:
   (remove_fvs fvs [] = []) /\
@@ -122,4 +123,3 @@ Proof
   recInduct (fetch "-" "remove_fvs_ind") \\ simp [remove_fvs_def] \\ rw []
 QED
 
-val _ = export_theory();

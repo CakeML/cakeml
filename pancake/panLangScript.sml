@@ -5,13 +5,16 @@
   memory load and store, functions,
   and foreign function calls.
 *)
+Theory panLang
+Ancestors
+  mlstring
+  asm (* for binop and cmp *)
+  backend_common  (* for overloading the shift operation *)
+Libs
+  preamble
 
-open preamble
-     mlstringTheory
-     asmTheory             (* for binop and cmp *)
-     backend_commonTheory; (* for overloading the shift operation *)
 
-val _ = new_theory "panLang";
+(* for overloading the shift operation *)
 
 Type shift = ``:ast$shift``
 
@@ -221,5 +224,3 @@ Definition store_op_def:
   store_op OpW = Store ∧
   store_op Op32 = Store32
 End
-
-val _ = export_theory();

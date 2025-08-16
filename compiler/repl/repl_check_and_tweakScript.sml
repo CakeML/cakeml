@@ -3,13 +3,14 @@
   defines the function that implements this and proves that the
   function will only produce type checked and allowed declarations.
 *)
-open preamble
-open semanticsPropsTheory evaluateTheory semanticPrimitivesTheory
-open inferTheory compilerTheory repl_decs_allowedTheory printTweaksTheory
+Theory repl_check_and_tweak
+Ancestors
+  semanticsProps evaluate semanticPrimitives infer compiler
+  repl_decs_allowed printTweaks
+Libs
+  preamble
 
 val _ = Parse.hide "types"
-
-val _ = new_theory "repl_check_and_tweak";
 
 Definition check_and_tweak_def:
   check_and_tweak (decs, types, input_str) =
@@ -41,5 +42,3 @@ Definition roll_back_def:
              (new_tn:type_names, new_ienv:inf_env, new_next_id:num)) =
     (old_tn, old_ienv, new_next_id)
 End
-
-val _ = export_theory();

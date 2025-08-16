@@ -15,15 +15,17 @@
   typically open HolKernel boolLib bossLib and Parse (at least). CakeML's
   preamble wrapper includes all of those structures and more.
 *)
+Theory simple_bst
+Ancestors
+  comparison finite_map
+Libs
+  preamble
 
-open preamble comparisonTheory
 
 (*
   Create the logical theory in which we will work. Its name should match the name
   of this file, before the "Script.sml" suffix.
 *)
-
-val _ = new_theory "simple_bst";
 
 val _ = Parse.hide "cmp";
 
@@ -316,5 +318,3 @@ Proof
   metis_tac[cmp_thms]
   (* ex*)
 QED
-
-val _ = export_theory();

@@ -1,9 +1,12 @@
 (*
   This builds the cake_xlrup proof checker
 *)
-open preamble basis UnsafeProofTheory xlrupTheory xlrup_listTheory xlrup_parsingTheory xlrup_arrayProgTheory cnf_extTheory;
-
-val _ = new_theory "xlrup_arrayFullProg"
+Theory xlrup_arrayFullProg
+Ancestors
+  UnsafeProof xlrup xlrup_list xlrup_parsing xlrup_arrayProg
+  cnf_ext basis_ffi
+Libs
+  preamble basis
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -1017,5 +1020,3 @@ Theorem check_unsat_semantics =
   |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
 
 end
-
-val _ = export_theory();

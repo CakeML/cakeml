@@ -1,9 +1,11 @@
 (*
   Hello World on standard error.
 *)
-open preamble basis
-
-val _ = new_theory "helloErrProg"
+Theory helloErrProg
+Ancestors
+  basis_ffi
+Libs
+  preamble basis
 
 val _ = translation_extends"basisProg";
 
@@ -53,5 +55,3 @@ End
 Theorem helloErr_semantics =
   helloErr_sem_thm |> ONCE_REWRITE_RULE[GSYM helloErr_prog_def]
   |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
-
-val _ = export_theory ()

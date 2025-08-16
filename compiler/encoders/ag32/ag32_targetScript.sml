@@ -1,10 +1,11 @@
 (*
   Define the target compiler configuration for ag32.
 *)
-open HolKernel Parse boolLib bossLib
-open asmLib ag32Theory;
-
-val () = new_theory "ag32_target"
+Theory ag32_target
+Ancestors
+  asmProps ag32
+Libs
+  asmLib
 
 (* --- Valid Ag32 states --- *)
 
@@ -261,5 +262,3 @@ Theorem ag32_config =
   ag32_config
 Theorem ag32_asm_ok =
   ag32_asm_ok
-
-val () = export_theory ()

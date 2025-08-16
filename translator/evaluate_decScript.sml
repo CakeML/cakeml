@@ -3,15 +3,13 @@
   evaluate_decs from evaluateTheory.  This alternative version is
   adjusted to make translation faster.
 *)
+Theory evaluate_dec
+Ancestors
+  ast semanticPrimitives evaluate semanticPrimitivesProps
+  evaluateProps mlstring integer namespace alist_tree
+Libs
+  preamble
 
-open preamble
-open astTheory semanticPrimitivesTheory evaluateTheory
-     semanticPrimitivesPropsTheory evaluatePropsTheory;
-open mlstringTheory integerTheory;
-open namespaceTheory;
-open alist_treeTheory;
-
-val _ = new_theory "evaluate_dec";
 
 (* --- define an alternative to evaluate_decs --- *)
 
@@ -490,4 +488,3 @@ Proof
   \\ imp_res_tac RTC_TRANS
 QED
 
-val _ = export_theory();

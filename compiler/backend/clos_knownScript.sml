@@ -7,10 +7,11 @@
   inline the body of the called closure. The function inlining is
   recurisve and controlled using configurable parameters.
 *)
-open preamble closLangTheory;
-open db_varsTheory clos_ticksTheory clos_letopTheory clos_fvsTheory clos_opTheory;
-
-val _ = new_theory "clos_known";
+Theory clos_known
+Ancestors
+  closLang db_vars clos_ticks clos_letop clos_fvs clos_op
+Libs
+  preamble
 
 (* val _ = set_grammar_ancestry ["closLang", "sptree", "misc", "backend_common"] *)
 
@@ -919,4 +920,3 @@ EVAL ``
 
 *)
 
-val _ = export_theory();

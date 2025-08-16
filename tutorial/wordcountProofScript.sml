@@ -3,11 +3,12 @@
   by composing the application-specific correctness theorem, the
   compiler evaluation theorem and the compiler correctness theorem.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     wordcountProgTheory wordcountCompileTheory
-
-val _ = new_theory"wordcountProof";
+Theory wordcountProof
+Ancestors
+  semanticsProps backendProof x64_configProof wordcountProg
+  wordcountCompile
+Libs
+  preamble
 
 val _ = temp_clear_overloads_on"STRCAT"; (* " *)
 
@@ -36,4 +37,3 @@ Theorem wordcount_compiled_thm =
   |> DISCH_ALL
   |> check_thm
 
-val _ = export_theory();

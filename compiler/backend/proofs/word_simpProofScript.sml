@@ -1,13 +1,13 @@
 (*
   Correctness proof for word_simp
 *)
-open alistTheory preamble wordLangTheory wordSemTheory wordPropsTheory word_simpTheory mllistTheory;
-
-val _ = new_theory "word_simpProof";
+Theory word_simpProof
+Libs
+  preamble
+Ancestors
+  mllist wordLang wordSem wordProps word_simp alist
 
 val s = ``s:('a,'c,'ffi) wordSem$state``
-
-val _ = set_grammar_ancestry ["wordLang", "wordSem", "wordProps", "word_simp"];
 
 (** verification of Seq_assoc **)
 
@@ -1151,5 +1151,3 @@ Proof
     fs [word_simpTheory.compile_exp_def,evaluate_Seq_assoc,
         evaluate_const_fp, evaluate_simp_duplicate_if]
 QED
-
-val _ = export_theory();

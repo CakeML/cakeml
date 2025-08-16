@@ -1,6 +1,12 @@
 (*
   Translate the ARMv8 instruction encoder and ARMv8-specific config.
 *)
+Theory arm8Prog
+Ancestors
+  arm8_target arm8 evaluate ml_translator x64Prog
+Libs
+  preamble ml_translatorLib inliningLib
+
 open preamble;
 open evaluateTheory
 open ml_translatorLib ml_translatorTheory;
@@ -9,10 +15,6 @@ open arm8_targetTheory arm8Theory;
 open inliningLib;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = set_grammar_ancestry ["arm8_target", "arm8"];
-
-val _ = new_theory "arm8Prog"
 
 val () = computeLib.set_skip computeLib.the_compset “COND” (SOME 1);
 
@@ -511,5 +513,3 @@ val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

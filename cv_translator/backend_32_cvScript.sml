@@ -1,13 +1,16 @@
 (*
   Translate arch-size-specific functions to cv equations.
 *)
-open preamble cv_transLib cv_stdTheory backend_cvTheory to_data_cvTheory;
-open backendTheory;
 
 (* The following line is (and shall remain) the only difference between
    the 32-bit and 64-bit versions of this file. *)
+Theory backend_32_cv
+Ancestors
+  cv_std backend_cv to_data_cv backend
+Libs
+  preamble cv_transLib
 
-val arch_size = (new_theory "backend_32_cv"; “:32”);
+val arch_size = if String.isSubstring "32" (current_theory()) then “:32” else “:64”;
 
 val arch_spec = INST_TYPE [alpha |-> arch_size];
 val arch_spec_beta = INST_TYPE [beta |-> arch_size];
@@ -572,4 +575,3 @@ QED
 val _ = word_allocTheory.get_heuristics_def |> arch_spec |> cv_auto_trans;
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
-val _ = export_theory();

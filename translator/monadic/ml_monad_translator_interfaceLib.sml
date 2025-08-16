@@ -15,20 +15,22 @@ open preamble ml_monadBaseLib ml_monadStoreLib ml_monad_translatorLib
 
 ******************************************************************************)
 
-(* Add monadic syntax: do x <- f y; ... od *)
-val _ = ParseExtras.temp_loose_equality();
-val _ = monadsyntax.temp_add_monadsyntax()
+fun set_up_monadic_translator () = let
+  (* Add monadic syntax: do x <- f y; ... od *)
+  val _ = ParseExtras.temp_loose_equality();
+  val _ = monadsyntax.temp_add_monadsyntax()
 
-(* Parser overloadings *)
-val _ = Parse.temp_overload_on("monad_bind",``st_ex_bind``);
-val _ = Parse.temp_overload_on("monad_unitbind",``st_ex_ignore_bind``);
-val _ = Parse.temp_overload_on("monad_ignore_bind",``st_ex_ignore_bind``);
-val _ = Parse.temp_overload_on("return",``st_ex_return``);
+  (* Parser overloadings *)
+  val _ = Parse.temp_overload_on("monad_bind",``st_ex_bind``);
+  val _ = Parse.temp_overload_on("monad_unitbind",``st_ex_ignore_bind``);
+  val _ = Parse.temp_overload_on("monad_ignore_bind",``st_ex_ignore_bind``);
+  val _ = Parse.temp_overload_on("return",``st_ex_return``);
 
-(* Hide "state" due to semanticPrimitives *)
-val _ = hide "state";
+  (* Hide "state" due to semanticPrimitives *)
+  val _ = hide "state";
 
-val _ = (use_full_type_names := false);
+  val _ = (use_full_type_names := false);
+in () end
 
 
 (******************************************************************************

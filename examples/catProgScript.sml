@@ -3,11 +3,13 @@
 
   Simple version that operates one character at a time.
 *)
-open preamble basis
+Theory catProg
+Ancestors
+  cfApp basis_ffi
+Libs
+  preamble basis
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "catProg"
 
 val _ = translation_extends"basisProg";
 
@@ -316,5 +318,3 @@ End
 Theorem cat_semantics_thm =
   semantics_thm |> ONCE_REWRITE_RULE[GSYM cat_prog_def]
   |> DISCH_ALL |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
-
-val _ = export_theory();

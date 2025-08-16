@@ -1,13 +1,13 @@
 (*
   Correctness proof for word_copy
 *)
-open preamble word_copyTheory wordPropsTheory wordConvsTheory wordSemTheory;
-
-val _ = new_theory "word_copyProof";
+Theory word_copyProof
+Libs
+  preamble
+Ancestors
+  wordLang[qualified] wordSem wordProps word_copy wordConvs
 
 val s = ``s:('a,'c,'ffi) wordSem$state``
-
-val _ = set_grammar_ancestry ["wordLang", "wordSem", "wordProps", "word_copy"];
 
 Definition CPstate_inv_def:
   CPstate_inv cs = (
@@ -1225,5 +1225,3 @@ Proof
   rw[copy_prop_def]
   >>metis_tac[copy_prop_correct,empty_eq_inv,empty_eq_model,PAIR]
 QED
-
-val _ = export_theory();

@@ -1,9 +1,11 @@
 (*
   Correctness proof for bvi_let
 *)
-open preamble bvi_letTheory bviSemTheory bviPropsTheory;
-
-val _ = new_theory"bvi_letProof";
+Theory bvi_letProof
+Ancestors
+  bvi_let bviSem bviProps
+Libs
+  preamble
 
 val _ = bring_to_front_overload "compile" {Name = "compile", Thy = "bvi_let"}
 
@@ -348,4 +350,3 @@ Proof
   \\ simp[Once(GSYM bvi_letTheory.compile_HD_SING)]
 QED
 
-val _ = export_theory();

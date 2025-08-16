@@ -2,14 +2,13 @@
   Implement  a trusted, unverified inferencer for real range intervals.
   The inferred, returned maps should be run through the certificate checker
 **)
-open simpLib realTheory realLib RealArith;
-open AbbrevsTheory ExpressionsTheory RealSimpsTheory FloverTactics
-     ExpressionAbbrevsTheory IntervalArithTheory CommandsTheory ssaPrgsTheory
-     MachineTypeTheory FloverMapTheory TypeValidatorTheory RealRangeArithTheory
-     ExpressionSemanticsTheory sqrtApproxTheory;
-open preambleFloVer;
-
-val _ = new_theory "RealIntervalInference";
+Theory RealIntervalInference
+Ancestors
+  real Abbrevs Expressions RealSimps ExpressionAbbrevs
+  IntervalArith Commands ssaPrgs MachineType FloverMap
+  TypeValidator RealRangeArith ExpressionSemantics sqrtApprox
+Libs
+  simpLib realLib RealArith FloverTactics preambleFloVer
 
 val _ = monadsyntax.enable_monadsyntax();
 val _ = List.app monadsyntax.enable_monad ["option"];
@@ -94,4 +93,3 @@ Definition inferIntervalboundsCmd_def:
       | Ret e => inferIntervalbounds e P akk
 End
 
-val _ = export_theory();

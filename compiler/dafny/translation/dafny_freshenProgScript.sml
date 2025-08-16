@@ -1,13 +1,12 @@
 (*
   Translates definitions for the freshen pass.
 *)
+Theory dafny_freshenProg
+Ancestors
+  dafny_to_cakemlProg dafny_freshen
+Libs
+  preamble ml_translatorLib
 
-open preamble
-open ml_translatorLib
-open dafny_to_cakemlProgTheory
-open dafny_freshenTheory
-
-val _ = new_theory "dafny_freshenProg";
 
 val _ = translation_extends "dafny_to_cakemlProg";
 
@@ -23,4 +22,3 @@ val r = translate dafny_freshenTheory.map_add_fresh_def;
 val r = translate dafny_freshenTheory.freshen_member_def;
 val r = translate dafny_freshenTheory.freshen_program_def;
 
-val _ = export_theory ();

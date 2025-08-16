@@ -1,12 +1,13 @@
 (*
   Encode killerSudoku to cnf
 *)
+Theory killerSudoku
+Ancestors
+  misc ASCIInumbers set_sep quantifierExp numBoolRange sudoku
+  numberSudoku
+Libs
+  preamble
 
-open preamble miscTheory ASCIInumbersTheory set_sepTheory;
-open quantifierExpTheory numBoolRangeTheory;
-open sudokuTheory numberSudokuTheory;
-
-val _ = new_theory "killerSudoku";
 
 (* ------------------------ Types --------------------------- *)
 
@@ -154,4 +155,3 @@ Definition assignment_to_cellAssignment_killerSudoku_def:
 End
 
 
-val _ = export_theory();

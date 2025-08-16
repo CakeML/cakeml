@@ -51,7 +51,10 @@ val ILLEGAL_STRINGS =
    ("Datatype"^"\226\128\152", "Use Datatype: ... End syntax instead of Datatype\226\128\152."),
    ("Hol_rel"^"n`","Use Inductive ... End instead of old Hol_reln."),
    ("Hol_rel"^"n\"","Use Inductive ... End instead of old Hol_reln."),
-   ("Hol_corel"^"n`","Use CoInductive ... End instead of old Hol_coreln.")]
+   ("Hol_corel"^"n`","Use CoInductive ... End instead of old Hol_coreln."),
+   (* HACK Stop readme_gen from flagging itself by using \ \ in strings *)
+   ("new_\ \theory","Use Theory syntax instead of old new_\ \theory"),
+   ("export_\ \theory","Use Theory sytnax instead of old export_\ \theory")]
 
 (* Helper functions *)
 

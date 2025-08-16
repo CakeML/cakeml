@@ -1,10 +1,11 @@
 (*
   Prove `encoder_correct` for ag32, i.e. Silver ISA
 *)
-open HolKernel Parse boolLib bossLib
-open asmLib ag32_targetTheory Import;
-
-val () = new_theory "ag32_targetProof"
+Theory ag32_targetProof
+Ancestors
+  ag32_target
+Libs
+  asmLib Import
 
 val () = wordsLib.guess_lengths()
 
@@ -532,4 +533,3 @@ Proof
       )
 QED
 
-val () = export_theory ()

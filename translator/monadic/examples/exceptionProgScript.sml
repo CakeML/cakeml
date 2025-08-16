@@ -2,9 +2,13 @@
   An example showing how to use the monadic translator to translate
   monadic functions using exceptions (no references, no arrays).
 *)
-open preamble ml_monad_translator_interfaceLib
+Theory exceptionProg
+Libs
+  preamble ml_monad_translator_interfaceLib
+Ancestors
+  ml_monad_translator
 
-val _ = new_theory "exceptionProg";
+val _ = set_up_monadic_translator ();
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -63,5 +67,3 @@ val decrease_v_thm = decrease_def |> m_translate;
 val handle_decrease = handle_decrease_def |> m_translate;
 
 (**********)
-
-val _ = export_theory();

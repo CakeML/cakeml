@@ -1,11 +1,11 @@
 (*
   In-place insertion sort on a polymorphic array.
 *)
-open preamble semanticPrimitivesTheory
-     ml_translatorTheory ml_translatorLib ml_progLib cfLib
-     basisFunctionsLib ArrayProofTheory
-
-val _ = new_theory "insertSortProg";
+Theory insertSortProg
+Ancestors
+  semanticPrimitives ml_translator ArrayProof
+Libs
+  preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
 
 val _ = translation_extends"ArrayProg";
 
@@ -488,4 +488,3 @@ Proof
     simp [])
 QED
 
-val _ = export_theory ();

@@ -2,12 +2,12 @@
  Formalization of the Abstract Syntax Tree of a subset used in the Flover
  framework
  **)
-open simpLib realTheory realLib RealArith;
-open AbbrevsTheory ExpressionsTheory ExpressionAbbrevsTheory
-     ExpressionSemanticsTheory MachineTypeTheory;
-open preambleFloVer;
-
-val _ = new_theory "Commands";
+Theory Commands
+Ancestors
+  real Abbrevs Expressions ExpressionAbbrevs ExpressionSemantics
+  MachineType
+Libs
+  simpLib realLib RealArith preambleFloVer
 
 (**
   Next define what a program is.
@@ -113,4 +113,3 @@ Definition getRetExp_def:
 (getRetExp (Ret e) = e)
 End
 
-val _ = export_theory ();

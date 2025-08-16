@@ -1,12 +1,11 @@
 (*
   Pure functions for the Vector module.
 *)
-open preamble
-      mllistTheory miscTheory regexp_compilerTheory
-
-val _ = new_theory"mlvector"
-
-val _ = set_grammar_ancestry ["mllist", "regexp_compiler"]
+Theory mlvector
+Libs
+  preamble
+Ancestors
+  misc mllist regexp_compiler
 
 Theorem vector_nchotomy =
   regexp_compilerTheory.vector_nchotomy
@@ -389,5 +388,3 @@ Proof
   rw [collate_def, collate_aux_greater_thm, collate_aux_equal_thm,
       collate_aux_less_thm]
 QED
-
-val _ = export_theory()
