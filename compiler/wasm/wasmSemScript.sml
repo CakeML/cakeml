@@ -40,11 +40,10 @@ Datatype: result
   | RTimeout
 End
 
-(* TODO fix *)
 (* Returns the function type for tb *)
 Definition functype_of_blocktype_def:
-   functype_of_blocktype types BlkNil : functype option = SOME ([], []) ∧
-   functype_of_blocktype types (BlkVal ty) = SOME ([],[ty])
+   functype_of_blocktype BlkNil : functype = ([], [] ) ∧
+   functype_of_blocktype (BlkVal ty)       = ([],[ty])
 End
 
 (* QQ what is T_i32? *)
@@ -467,7 +466,8 @@ Definition exec_def:
   (exec Nop s = (RNormal,s)
   ) ∧
   (exec (Block tb bs) s =
-    case functype_of_blocktype s.types tb of NONE => inv s | SOME (mts,nts) =>
+    (* case functype_of_blocktype s.types tb of NONE => inv s | SOME (mts,nts) => *)
+    let (mts,nts) = functype_of_blocktype tb in
     let m = LENGTH mts in
     let n = LENGTH nts in
     if LENGTH s.stack < m then inv s else
@@ -485,7 +485,8 @@ Definition exec_def:
     | _ => (res, s)
   ) ∧
   (exec (Loop tb b) s =
-    case functype_of_blocktype s.types tb of NONE => inv s | SOME (mts,nts) =>
+    (* case functype_of_blocktype s.types tb of NONE => inv s | SOME (mts,nts) => *)
+    let (mts,nts) = functype_of_blocktype tb in
     let m = LENGTH mts in
     let n = LENGTH nts in
     if LENGTH s.stack < m then inv s else
