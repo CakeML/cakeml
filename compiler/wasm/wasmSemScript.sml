@@ -152,21 +152,21 @@ End
 
 (* How a instr/op relates its operand and result *)
 Inductive unary_op_rel:
-  (∀ w. unary_op_rel (Popcnt    W32) (I32 w) (I32 $ popcnt w)) ∧
-  (∀ w. unary_op_rel (Clz       W32) (I32 w) (I32 $ clz    w)) ∧
-  (∀ w. unary_op_rel (Ctz       W32) (I32 w) (I32 $ ctz    w)) ∧
-
-  (∀ w. unary_op_rel (Popcnt    W64) (I64 w) (I64 $ popcnt w)) ∧
-  (∀ w. unary_op_rel (Clz       W64) (I64 w) (I64 $ clz    w)) ∧
-  (∀ w. unary_op_rel (Ctz       W64) (I64 w) (I64 $ ctz    w)) ∧
-
-  (∀ w. unary_op_rel (Extend8s  W32) (I32 w) (I32 $ extend8s  w)) ∧
-  (∀ w. unary_op_rel (Extend16s W32) (I32 w) (I32 $ extend16s w)) ∧
-
-  (∀ w. unary_op_rel (Extend8s  W64  ) (I64 w) (I64 $ extend8s  w)) ∧
-  (∀ w. unary_op_rel (Extend16s W64  ) (I64 w) (I64 $ extend16s w)) ∧
-  (∀ w. unary_op_rel  Extend32s        (I64 w) (I64 $ extend32s (w2w w:word32))) ∧
-  (∀ w. unary_op_rel (ExtendI32_ sign) (I32 w) (I64 $ sext sign $ w))
+  (∀w. unary_op_rel (Popcnt W32) (I32 w) (I32 $ popcnt w)) ∧
+  (∀w. unary_op_rel (Clz    W32) (I32 w) (I32 $ clz    w)) ∧
+  (∀w. unary_op_rel (Ctz    W32) (I32 w) (I32 $ ctz    w))
+  ∧
+  (∀w. unary_op_rel (Popcnt W64) (I64 w) (I64 $ popcnt w)) ∧
+  (∀w. unary_op_rel (Clz    W64) (I64 w) (I64 $ clz    w)) ∧
+  (∀w. unary_op_rel (Ctz    W64) (I64 w) (I64 $ ctz    w))
+  ∧
+  (∀w. unary_op_rel (Extend8s  W32) (I32 w) (I32 $ extend8s  w)) ∧
+  (∀w. unary_op_rel (Extend16s W32) (I32 w) (I32 $ extend16s w))
+  ∧
+  (∀w. unary_op_rel (Extend8s  W64  ) (I64 w) (I64 $ extend8s  w)) ∧
+  (∀w. unary_op_rel (Extend16s W64  ) (I64 w) (I64 $ extend16s w)) ∧
+  (∀w. unary_op_rel  Extend32s        (I64 w) (I64 $ extend32s (w2w w:word32))) ∧
+  (∀w. unary_op_rel (ExtendI32_ sign) (I32 w) (I64 $ sext sign $ w))
 End
 
 (* The relation is deterministic *)
@@ -196,68 +196,68 @@ Theorem do_una_eq    = REWRITE_RULE [GSYM do_una_thm] unary_op_rel_rules;
 Theorem do_una_cases = REWRITE_RULE [GSYM do_una_thm] unary_op_rel_cases;
 
 
-Inductive binop_rel:
-  (∀ l r. binop_rel (Add Int W32) (I32 l) (I32 r) (I32 $ l + r) )∧
-  (∀ l r. binop_rel (Sub Int W32) (I32 l) (I32 r) (I32 $ l - r) )∧
-  (∀ l r. binop_rel (Mul Int W32) (I32 l) (I32 r) (I32 $ l * r) )∧
+Inductive b_op_rel:
+  (∀ l r. b_op_rel (Add Int W32) (I32 l) (I32 r) (I32 $ l + r) )∧
+  (∀ l r. b_op_rel (Sub Int W32) (I32 l) (I32 r) (I32 $ l - r) )∧
+  (∀ l r. b_op_rel (Mul Int W32) (I32 l) (I32 r) (I32 $ l * r) )∧
 
-  (∀ n d. d ≠ 0w ⇒ binop_den (Div_ Unsigned W32) (I32 n) (I32 d) (I32 $ n // d) )∧
-  (∀ n d. d ≠ 0w ⇒ binop_den (Rem_ Unsigned W32) (I32 n) (I32 d) (I32 $ n // d) )∧
+  (∀ n d. d ≠ 0w ⇒ b_op_rel (Div_ Unsigned W32) (I32 n) (I32 d) (I32 $ n // d) )∧
+  (∀ n d. d ≠ 0w ⇒ b_op_rel (Rem_ Unsigned W32) (I32 n) (I32 d) (I32 $ n // d) )∧
 
-  (∀ l r. binop_rel (And W32) (I32 l) (I32 r) (I32 $ l && r) )∧
-  (∀ l r. binop_rel (Or  W32) (I32 l) (I32 r) (I32 $ l || r) )∧
-  (∀ l r. binop_rel (Xor W32) (I32 l) (I32 r) (I32 $ l ⊕ r) )∧
+  (∀ l r. b_op_rel (And W32) (I32 l) (I32 r) (I32 $ l && r) )∧
+  (∀ l r. b_op_rel (Or  W32) (I32 l) (I32 r) (I32 $ l || r) )∧
+  (∀ l r. b_op_rel (Xor W32) (I32 l) (I32 r) (I32 $ l ⊕ r) )∧
 
-  (∀ w n. n <+ 32w ⇒ binop_rel (Rotl          W32) (I32 w) (I32 n) (I32 $ w ⇆  (w2n n)) )∧
-  (∀ w n. n <+ 32w ⇒ binop_rel (Rotr          W32) (I32 w) (I32 n) (I32 $ w ⇄  (w2n n)) )∧
-  (∀ w n. n <+ 32w ⇒ binop_rel (Shl           W32) (I32 w) (I32 n) (I32 $ w <<  (w2n n)) )∧
-  (∀ w n. n <+ 32w ⇒ binop_rel (Shr_   Signed W32) (I32 w) (I32 n) (I32 $ w >>  (w2n n)) )∧
-  (∀ w n. n <+ 32w ⇒ binop_rel (Shr_ Unsigned W32) (I32 w) (I32 n) (I32 $ w >>> (w2n n)) )∧
+  (∀ w n. n <+ 32w ⇒ b_op_rel (Rotl          W32) (I32 w) (I32 n) (I32 $ w ⇆  (w2n n)) )∧
+  (∀ w n. n <+ 32w ⇒ b_op_rel (Rotr          W32) (I32 w) (I32 n) (I32 $ w ⇄  (w2n n)) )∧
+  (∀ w n. n <+ 32w ⇒ b_op_rel (Shl           W32) (I32 w) (I32 n) (I32 $ w <<  (w2n n)) )∧
+  (∀ w n. n <+ 32w ⇒ b_op_rel (Shr_   Signed W32) (I32 w) (I32 n) (I32 $ w >>  (w2n n)) )∧
+  (∀ w n. n <+ 32w ⇒ b_op_rel (Shr_ Unsigned W32) (I32 w) (I32 n) (I32 $ w >>> (w2n n)) )∧
 
-  (∀ l r. binop_rel (Add Int W64) (I64 l) (I64 r) (I64 $ l + r) )∧
-  (∀ l r. binop_rel (Mul Int W64) (I64 l) (I64 r) (I64 $ l - r) )∧
-  (∀ l r. binop_rel (Sub Int W64) (I64 l) (I64 r) (I64 $ l * r) )∧
+  (∀ l r. b_op_rel (Add Int W64) (I64 l) (I64 r) (I64 $ l + r) )∧
+  (∀ l r. b_op_rel (Mul Int W64) (I64 l) (I64 r) (I64 $ l - r) )∧
+  (∀ l r. b_op_rel (Sub Int W64) (I64 l) (I64 r) (I64 $ l * r) )∧
 
-  (∀ n d. d ≠ 0w ⇒ binop_rel (Div_ Unsigned W64) (I64 n) (I64 d) (I64 $ n // d) )∧
-  (∀ n d. d ≠ 0w ⇒ binop_rel (Rem_ Unsigned W64) (I64 n) (I64 d) (I64 $ n // d) )∧
+  (∀ n d. d ≠ 0w ⇒ b_op_rel (Div_ Unsigned W64) (I64 n) (I64 d) (I64 $ n // d) )∧
+  (∀ n d. d ≠ 0w ⇒ b_op_rel (Rem_ Unsigned W64) (I64 n) (I64 d) (I64 $ n // d) )∧
 
-  (∀ l r. binop_rel (And W64) (I64 l) (I64 r) (I64 $ l && r) )∧
-  (∀ l r. binop_rel (Or  W64) (I64 l) (I64 r) (I64 $ l || r) )∧
-  (∀ l r. binop_rel (Xor W64) (I64 l) (I64 r) (I64 $ l ⊕ r) )∧
+  (∀ l r. b_op_rel (And W64) (I64 l) (I64 r) (I64 $ l && r) )∧
+  (∀ l r. b_op_rel (Or  W64) (I64 l) (I64 r) (I64 $ l || r) )∧
+  (∀ l r. b_op_rel (Xor W64) (I64 l) (I64 r) (I64 $ l ⊕ r) )∧
 
-  (∀ w n. n <+ 64w ⇒ binop_rel (Rotl          W64) (I64 w) (I64 n) (I64 $ w ⇆  (w2n n)) )∧
-  (∀ w n. n <+ 64w ⇒ binop_rel (Rotr          W64) (I64 w) (I64 n) (I64 $ w ⇄  (w2n n)) )∧
-  (∀ w n. n <+ 64w ⇒ binop_rel (Shl           W64) (I64 w) (I64 n) (I64 $ w <<  (w2n n)) )∧
-  (∀ w n. n <+ 64w ⇒ binop_rel (Shr_   Signed W64) (I64 w) (I64 n) (I64 $ w >>  (w2n n)) )∧
-  (∀ w n. n <+ 64w ⇒ binop_rel (Shr_ Unsigned W64) (I64 w) (I64 n) (I64 $ w >>> (w2n n)) )∧
+  (∀ w n. n <+ 64w ⇒ b_op_rel (Rotl          W64) (I64 w) (I64 n) (I64 $ w ⇆  (w2n n)) )∧
+  (∀ w n. n <+ 64w ⇒ b_op_rel (Rotr          W64) (I64 w) (I64 n) (I64 $ w ⇄  (w2n n)) )∧
+  (∀ w n. n <+ 64w ⇒ b_op_rel (Shl           W64) (I64 w) (I64 n) (I64 $ w <<  (w2n n)) )∧
+  (∀ w n. n <+ 64w ⇒ b_op_rel (Shr_   Signed W64) (I64 w) (I64 n) (I64 $ w >>  (w2n n)) )∧
+  (∀ w n. n <+ 64w ⇒ b_op_rel (Shr_ Unsigned W64) (I64 w) (I64 n) (I64 $ w >>> (w2n n)) )∧
 
   (* integer_words$word_rem *)
-  (∀ n d. d ≠ 0w ⇒ binop_den (Div_   Signed W32) (I32 n) (I32 d) (I32 $ n // d) )∧ (* TODO *)
-  (∀ n d. d ≠ 0w ⇒ binop_den (Rem_   Signed W32) (I32 n) (I32 d) (I32 $ n // d) )∧ (* TODO *)
-  (∀ n d. d ≠ 0w ⇒ binop_rel (Div_   Signed W64) (I64 n) (I64 d) (I64 $ n // d) )∧ (* TODO *)
-  (∀ n d. d ≠ 0w ⇒ binop_rel (Rem_   Signed W64) (I64 n) (I64 d) (I64 $ n // d) ) (* TODO *)
+  (∀ n d. d ≠ 0w ⇒ b_op_rel (Div_   Signed W32) (I32 n) (I32 d) (I32 $ n // d) )∧ (* TODO *)
+  (∀ n d. d ≠ 0w ⇒ b_op_rel (Rem_   Signed W32) (I32 n) (I32 d) (I32 $ n // d) )∧ (* TODO *)
+  (∀ n d. d ≠ 0w ⇒ b_op_rel (Div_   Signed W64) (I64 n) (I64 d) (I64 $ n // d) )∧ (* TODO *)
+  (∀ n d. d ≠ 0w ⇒ b_op_rel (Rem_   Signed W64) (I64 n) (I64 d) (I64 $ n // d) ) (* TODO *)
 End
 
-Theorem binop_rel_det:
-  ∀b v1 v2 r1 r2. binop_rel b v1 v2 r1 ∧ binop_rel b v1 v2 r2 ⇒ r1 = r2
+Theorem b_op_rel_det:
+  ∀b v1 v2 r1 r2. b_op_rel b v1 v2 r1 ∧ b_op_rel b v1 v2 r2 ⇒ r1 = r2
 Proof
-  once_rewrite_tac [binop_rel_cases] \\ simp [] \\ rw [] \\ simp []
+  once_rewrite_tac [b_op_rel_cases] \\ simp [] \\ rw [] \\ simp []
 QED
 
 Definition do_bin_def:
-  do_bin b v1 v2 = some res. binop_rel b v1 v2 res
+  do_bin b v1 v2 = some res. b_op_rel b v1 v2 res
 End
 
 Theorem do_bin_thm:
-  do_bin b v1 v2 = SOME res ⇔ binop_rel b v1 v2 res
+  do_bin b v1 v2 = SOME res ⇔ b_op_rel b v1 v2 res
 Proof
   rw [do_bin_def] \\ DEEP_INTRO_TAC some_intro
-  \\ fs [] \\ metis_tac [binop_rel_det]
+  \\ fs [] \\ metis_tac [b_op_rel_det]
 QED
 
 (* INVARIANT - changes to ops shouldn't break this *)
-Theorem do_bin_eq    = REWRITE_RULE [GSYM do_bin_thm] binop_rel_rules;
-Theorem do_bin_cases = REWRITE_RULE [GSYM do_bin_thm] binop_rel_cases;
+Theorem do_bin_eq    = REWRITE_RULE [GSYM do_bin_thm] b_op_rel_rules;
+Theorem do_bin_cases = REWRITE_RULE [GSYM do_bin_thm] b_op_rel_cases;
 
 Inductive compare_op_rel:
 
