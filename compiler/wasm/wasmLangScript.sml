@@ -95,9 +95,9 @@ Datatype: unary_op
   = (* inn *) Clz        width
   | (* inn *) Ctz        width
   | (* inn *) Popcnt     width
-  | (* inn *) Extend8s   width
-  | (* inn *) Extend16s  width
-  | (* i64 *) Extend32s
+  | (* inn *) Extend8s   width  (* not in Wasm 1, but in 1+ε *)
+  | (* inn *) Extend16s  width  (* not in Wasm 1, but in 1+ε *)
+  | (* i64 *) Extend32s         (* not in Wasm 1, but in 1+ε *)
   | (* i64 *) ExtendI32_ sign
 End
 
