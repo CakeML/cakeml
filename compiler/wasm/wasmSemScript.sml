@@ -7,7 +7,7 @@ Ancestors   wasmLang ancillaryOps option arithmetic
 Libs        wordsLib
 
 Type mem = “:word8 list”
-Overload b2w[local] = “λ (b:bool). if b then 1w:α word else 0w”
+Overload b2w[local] = “(λ b. if b then 1w else 0w) : bool -> α word”
 
 Datatype: value
   = I32 word32
@@ -144,11 +144,11 @@ End
 
 
 
-(********************)
-(*                  *)
-(*     Numerics     *)
-(*                  *)
-(********************)
+(************************************************************************)
+(*                                                                      *)
+(*     Instructions (hierarchically lower) - starting with Numerics     *)
+(*                                                                      *)
+(************************************************************************)
 
 (* How a instr/op relates its operand and result *)
 Inductive u_op_rel:
@@ -258,7 +258,6 @@ Proof
   \\ fs [] \\ metis_tac [b_op_rel_det]
 QED
 
-(* INVARIANT - changes to ops shouldn't break this *)
 Theorem do_bin_eq    = REWRITE_RULE [GSYM do_bin_thm] b_op_rel_rules;
 Theorem do_bin_cases = REWRITE_RULE [GSYM do_bin_thm] b_op_rel_cases;
 
@@ -313,7 +312,6 @@ Proof
   \\ fs [] \\ metis_tac [cmp_op_rel_det]
 QED
 
-(* INVARIANT - changes to ops shouldn't break this *)
 Theorem do_cmp_eq    = REWRITE_RULE [GSYM do_cmp_thm] cmp_op_rel_rules;
 Theorem do_cmp_cases = REWRITE_RULE [GSYM do_cmp_thm] cmp_op_rel_cases;
 
@@ -342,9 +340,10 @@ Proof
   \\ metis_tac [convert_op_rel_det]
 QED
 
-(* INVARIANT - changes to ops shouldn't break this *)
 Theorem do_cvt_eq    = REWRITE_RULE [GSYM do_cvt_thm] convert_op_rel_rules;
 Theorem do_cvt_cases = REWRITE_RULE [GSYM do_cvt_thm] convert_op_rel_cases;
+
+
 
 (**************************)
 (*   Top level numerics   *)
@@ -360,6 +359,12 @@ Definition num_stk_op_def:
  (num_stk_op (N_compare op) (l::r::stack) = case do_cmp op l r of NONE=>NONE| SOME x => SOME (x::stack))∧
  (num_stk_op (N_convert op) (v   ::stack) = case do_cvt op v   of NONE=>NONE| SOME x => SOME (x::stack))
 End
+
+
+
+(****************************)
+(*     Memories - loads     *)
+(****************************)
 
 Inductive load_op_rel:
   (∀ ofs al m v  . load 4 ofs al m = (v,T) ⇒ load_op_rel (Load Int W32 ofs al) m (I32 v) )∧
@@ -393,9 +398,14 @@ Proof
   \\ fs [] \\ metis_tac [load_op_rel_det]
 QED
 
-(* INVARIANT - changes to ops shouldn't break this *)
 Theorem do_ld_eq    = REWRITE_RULE [GSYM do_ld_thm] load_op_rel_rules;
 Theorem do_ld_cases = REWRITE_RULE [GSYM do_ld_thm] load_op_rel_cases;
+
+
+
+(*****************************)
+(*     Memories - stores     *)
+(*****************************)
 
 Inductive store_op_rel:
   (∀ofs al x m m'. store       x          ofs al m = (m',T) ⇒ store_op_rel (Store        Int  W32 ofs al) (I32 x) m m')∧
@@ -430,7 +440,6 @@ Proof
   \\ metis_tac [store_op_rel_det]
 QED
 
-(* INVARIANT - changes to ops shoustn't break this *)
 Theorem do_st_eq    = REWRITE_RULE [GSYM do_st_thm] store_op_rel_rules;
 Theorem do_st_cases = REWRITE_RULE [GSYM do_st_thm] store_op_rel_cases;
 
@@ -443,6 +452,7 @@ Theorem do_st_cases = REWRITE_RULE [GSYM do_st_thm] store_op_rel_cases;
 (*     Top level Semantics     *)
 (*                             *)
 (*******************************)
+
 Overload inv[local] = “λ s. (RInvalid,s)”
 Definition exec_def:
   (exec (Unreachable:instr) (s:state) = (RTrap,s) : result # state
@@ -644,6 +654,10 @@ Termination
   \\ imp_res_tac fix_clock_IMP
   \\ gvs [fix_clock_def]
 End
+
+
+
+
 
 Triviality pop_clock:
   pop s = SOME (r,s1) ⇒ s1.clock = s.clock
