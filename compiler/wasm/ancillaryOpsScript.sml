@@ -194,14 +194,27 @@ QED
 
 
 
-(*********************************************)
-(*                                           *)
-(*     Word ops missing from wordsTheory     *)
-(*                                           *)
-(*********************************************)
+(*************************************************************************)
+(*                                                                       *)
+(*     Ops for Wasm semantics (not already existing in wordsThy/Lib)     *)
+(*                                                                       *)
+(*************************************************************************)
 
 Overload popcnt = “λ (w:α word). (n2w $ bit_count w): β word”
 Overload onehot = “λ (w:α word). (b2w ((popcnt w):γ word = 1w)): β word”
+
+(* sign extend *)
+Definition sext_def:
+  sext   Signed = sw2sw ∧
+  sext Unsigned = w2w
+End
+
+(* Conversions/truncates/extends *)
+Overload extend8s  = “λ (w:α word). sw2sw (w2w w:word8 ):β word”
+Overload extend16s = “λ (w:α word). sw2sw (w2w w:word16):β word”
+Overload extend32s = “λ (w:α word). sw2sw (w2w w:word32):β word”
+(* Overload extend8s = “λ w. sw2sw $ (w2w w):word8”
+Overload extend8s = “λ w. sw2sw $ (w2w w):word8” *)
 
 Definition ctz_def: (* count trailing zeros *)
   ctz (w:α word) : β word = n2w (bit_count (w ⊕ (w-1w)) - 1)
@@ -273,9 +286,9 @@ Definition load_def:
 End
 
 Definition store_def:
-  store (x:α word) (offs:β word) (algn:γ word) (bs:byteSeq) : (byteSeq # bool) =
+  store (x:α word) (offs:β word) (algn:γ word) (m:byte list) : (byteSeq # bool) =
     let oa = (w2n offs) * (w2n algn) in
     let n = dimindex(:α) DIV 8 in
-    (TAKE oa bs ⧺ lend x ⧺ DROP (oa + n) bs, oa + n <= LENGTH bs)
+    (TAKE oa m ⧺ lend x ⧺ DROP (oa + n) m, oa + n ≤ LENGTH m)
 End
 
