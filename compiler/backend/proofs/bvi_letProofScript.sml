@@ -257,8 +257,18 @@ Proof
     \\ pop_assum $ drule_at $ Pos $ el 2 \\ gvs []
     \\ disch_then drule
     \\ impl_tac >- (CCONTR_TAC \\ gvs []) \\ gvs [])
-  \\ Cases_on `∃force_loc n. h = Force force_loc n` \\ gvs []
-  THEN1 cheat
+  \\ Cases_on ‘∃force_loc n. h = Force force_loc n’ \\ gvs []
+  >- (
+    imp_res_tac env_rel_length \\ gvs []
+    \\ gvs [evaluate_def, AllCaseEqs()]
+    \\ gvs [compile_def, evaluate_def]
+    \\ CASE_TAC \\ gvs []
+    >>~- ([‘LLOOKUP ax n = NONE’],
+      gvs [evaluate_def] \\ drule_all env_rel_LLOOKUP_NONE \\ rw [])
+    \\ (
+      drule env_rel_LOOKUP_SOME \\ gvs [v_rel_def]
+      \\ disch_then drule \\ gvs [] \\ rw []
+      \\ gvs [evaluate_def, LLOOKUP_EQ_EL, EL_DROP]))
   \\ reverse (Cases_on `?ys y. h = Let ys y` \\ fs [])
   THEN1 (Cases_on `h` \\ fs [])
   \\ fs [] \\ rpt (qpat_x_assum `T` kall_tac) \\ rveq \\ fs [evaluate_def]
