@@ -629,7 +629,8 @@ Proof
   >> gvs[]
 QED
 
-Theorem REV_ASSOCD_EQ_DEFAULT_i = REV_ASSOCD_NEQ_DEFAULT |> CONV_RULE CONTRAPOS_CONV |> SRULE[]
+Theorem REV_ASSOCD_EQ_DEFAULT_i = REV_ASSOCD_NEQ_DEFAULT
+                                    |> CONV_RULE CONTRAPOS_CONV |> SRULE[]
 
 Theorem VSUBST_NOT_FREE:
   ∀tm ilist.
@@ -943,20 +944,108 @@ Proof
   >> metis_tac[]
 QED
 
+Theorem alist_to_fm_FRANGE_MEM:
+  ∀v ilist.
+    v ∈ FRANGE (alist_to_fm ilist) ⇒
+    ∃k. MEM (v, k) ilist
+Proof
+  Induct_on ‘ilist’ >> rw[]
+  >> PairCases_on ‘h’ >> gvs[]
+  >- metis_tac[]
+  >> Cases_on ‘v ∈ FRANGE (alist_to_fm ilist)’ >> gvs[]
+  >> metis_tac[SUBSET_DEF, FRANGE_DOMSUB_SUBSET]
+QED
+
+Theorem FLOOKUP_fm_DOMSUB_FUPDATE:
+  ∀fm k v k1 v1.
+    FLOOKUP (fm \\ k1) k = SOME v ⇒
+    FLOOKUP (fm |+ (k1, v1)) k = SOME v
+Proof
+  rw[] >> Cases_on ‘k1 = k’ >> gvs[FLOOKUP_SIMP]
+  >> drule DOMSUB_FLOOKUP_NEQ >> rw[] >> gvs[]
+QED
+
+Theorem tm_names_VSUBSTfm_fupdate:
+  ∀fm tm' n nV ty k w.
+    n ≠ nV ∧
+    type_ok (tysof sig) ty ∧ 
+    term_ok sig tm' ∧ 
+    (∀v. v ∈ FDOM fm ⇒ ∃x ty. v = Var x ty ∧ x ≠ n) ∧
+    (∀v. v ∈ FRANGE fm ⇒ ∃n ty. v = Var n ty) ∧
+    (∀v. v ∈ FRANGE fm ⇒ term_ok sig v) ∧
+    FLOOKUP (fm \\ Var n ty) k = SOME w ∧
+    VFREE_IN (Var n ty) w ∧
+    VFREE_IN k tm' ⇒ 
+    MEM n (tm_names (VSUBSTfm (fm |+ (Var n ty,Var nV ty)) tm'))
+Proof
+  rw[]
+  >> irule FVs_in_tm_names
+  >> qspecl_then [‘tm'’, ‘fm |+ (Var n ty, Var nV ty)’]
+                 assume_tac VSUBSTfm_FVs
+  >> gvs[DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS]
+  >> qspecl_then [‘Var n ty’, ‘fm’, ‘λp. ∃n ty. p = Var n ty’]
+                 assume_tac $ GEN_ALL IN_FRANGE_DOMSUB_suff
+  >> ‘∀v. v ∈ FDOM fm ⇒ ∃n ty. v = Var n ty’ by metis_tac[FORALL_AND_THM]
+  >> gvs[]
+  >> rw[]
+  >> ‘FLOOKUP (fm |+ (Var n ty, Var nV ty)) k = SOME w’
+    by metis_tac[FLOOKUP_fm_DOMSUB_FUPDATE]
+  >> ‘k ∈ FDOM (fm \\ Var n ty)’ by simp[FDOM_FLOOKUP]
+  >> ‘FDOM (fm \\ Var n ty) ⊆ FDOM fm’
+    by metis_tac[SUBMAP_FDOM_SUBSET, SUBMAP_DOMSUB]
+  >> ‘k ∈ FDOM (fm \\ Var n ty)’ by metis_tac[FDOM_FLOOKUP]
+  >> ‘k ∈ FDOM fm’ by metis_tac[SUBSET_DEF]
+  >> first_x_assum drule >> gvs[] >> rw[]
+  >> drule_then (drule o iffLR) FVs_VFREE_in >> rw[]
+  >> qexists ‘ty’ >> rw[] 
+  >> qexists ‘FVs w’ >> rw[]
+  >> qspecl_then [‘Var n ty’, ‘fm’, ‘λp. term_ok sig p’]
+                 assume_tac $ GEN_ALL IN_FRANGE_DOMSUB_suff
+  >> gvs[]
+  >> ‘w ∈ FRANGE (fm \\ Var n ty)’ by metis_tac[IN_FRANGE_FLOOKUP]
+  >> first_x_assum drule >> rw[]
+  >- metis_tac[FVs_VFREE_in]
+  >> qexists ‘w’ >> rw[] >> qexistsl [‘n'’, ‘ty'’] >> gvs[]
+QED
+
 Theorem tm_names_vsubstfm_different_name:
   ∀tm fm n.
     term_ok sig tm ∧
     (∀v. v ∈ FDOM fm ⇒ ∃x ty. v = Var x ty ∧ x ≠ n) ∧
+    (∀v. v ∈ FRANGE fm ⇒ ∃n ty. v = Var n ty) ∧
+    (∀v. v ∈ FRANGE fm ⇒ term_ok sig v) ∧
     MEM n (tm_names tm) ⇒
     MEM n (tm_names (VSUBSTfm fm tm))
 Proof
-  cheat
+  Induct_on ‘tm’ >> rw[VSUBSTfm]
+  >- (rC ‘FLOOKUP fm (Var m t)’
+      >> ‘Var m t ∈ FDOM fm’ by metis_tac[FDOM_FLOOKUP]
+      >> first_x_assum drule >> gvs[])
+  >> gvs[term_ok_def]
+  >- (qabbrev_tac ‘nV = VARIANT (VSUBSTfm (fm \\ Var n ty) tm')
+                                   (explode n) ty’
+      >> Cases_on ‘n = nV’ >> rw[]
+      >> metis_tac[tm_names_VSUBSTfm_fupdate])
+  >- (qabbrev_tac ‘nV = VARIANT (VSUBSTfm (fm \\ Var x ty) tm') (explode x) ty’
+      >> Cases_on ‘x = n’
+      >> Cases_on ‘n = nV’ >> gvs[]
+      >- metis_tac[tm_names_VSUBSTfm_fupdate]
+      >> first_x_assum irule
+      >> rw[term_ok_def] >> gvs[term_ok_def]
+      >> first_x_assum irule
+      >> metis_tac[FRANGE_DOMSUB_SUBSET, SUBSET_DEF])
+  >> qspecl_then [‘Var x ty’, ‘fm’, ‘λp. ∃n ty. p = Var n ty’]
+                 assume_tac $ GEN_ALL IN_FRANGE_DOMSUB_suff
+  >> qspecl_then [‘Var x ty’, ‘fm’, ‘λp. term_ok sig p’]
+                 assume_tac $ GEN_ALL IN_FRANGE_DOMSUB_suff
+  >> gvs[term_ok_def]
 QED
 
 Theorem tm_names_vsubst_different_name:
   ∀tm ilist n.
     term_ok sig tm ∧
-    (∀v. MEM v ilist ⇒ ∃v1 x ty. v = (v1, Var x ty) ∧ n ≠ x) ∧
+    (∀v. MEM v ilist ⇒ ∃x1 x2 ty. v = (Var x1 ty, Var x2 ty) ∧
+                                  n ≠ x2 ∧ term_ok sig (Var x1 ty)) ∧
     ALL_DISTINCT (MAP SND ilist) ∧ 
     MEM n (tm_names tm) ⇒
     MEM n (tm_names (VSUBST ilist tm))
@@ -965,7 +1054,12 @@ Proof
   >> irule tm_names_vsubstfm_different_name >> rw[]
   >- (drule alist_to_fm_FDOM_MEM >> rw[]
       >> first_x_assum drule >> rw[])
-  >> simp[SF SFY_ss]
+  >- (drule alist_to_fm_FRANGE_MEM >> rw[]
+      >> first_x_assum drule >> rw[])
+  >> first_x_assum $ irule_at Any
+  >> rw[term_ok_def]
+  >> drule alist_to_fm_FRANGE_MEM >> rw[]
+  >> first_x_assum drule >> rw[] >> gvs[term_ok_def]
 QED
 
 Theorem esubst_ty0_impossible1:
@@ -1048,7 +1142,8 @@ Proof
       >> Cases_on ‘n = x’
       >- metis_tac[tm_names_vsubst]
       >> qspecl_then [‘body’, ‘[(Var (NVARIANT x body1) ty,Var x ty)]’, ‘n’]
-                     assume_tac tm_names_vsubst_different_name >> gvs[])
+                     assume_tac tm_names_vsubst_different_name
+      >> gvs[term_ok_def])
 QED
 
 Theorem esubst_ty0_always_returns:
