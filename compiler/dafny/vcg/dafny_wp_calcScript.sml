@@ -2387,10 +2387,15 @@ Proof
 QED
 
 Triviality ALOOKUP_ZIP_MAP_SOME:
-  ALOOKUP (ZIP (ns,MAP SOME vs)) n = SOME (SOME val) ⇔
-    ALOOKUP (ZIP (ns,vs)) n = SOME val
+  ∀ns vs.
+    LENGTH ns = LENGTH vs ⇒
+    (ALOOKUP (ZIP (ns,MAP SOME vs)) n = SOME (SOME val) ⇔
+       ALOOKUP (ZIP (ns,vs)) n = SOME val)
 Proof
-  cheat
+  Induct \\ gvs []
+  \\ gen_tac
+  \\ Cases \\ gvs []
+  \\ IF_CASES_TAC \\ gvs []
 QED
 
 Theorem stmt_wp_sound:
