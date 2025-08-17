@@ -1259,12 +1259,6 @@ Proof
   Cases_on `op` \\ fs [op_type_def]
 QED
 
-Triviality to_op_not_ForceThunk[simp]:
-  ∀op. to_op op ≠ ThunkOp ForceThunk
-Proof
-  strip_tac \\ gvs [oneline to_op_def, AllCaseEqs()]
-QED
-
 Theorem evaluate_rewrite_tail:
    ∀xs ^s env1 r t opt s' acc env2 loc ts ty.
      evaluate (xs, env1, s) = (r, t) ∧
@@ -1630,16 +1624,7 @@ Proof
     \\ simp [LEFT_EXISTS_AND_THM, CONJ_ASSOC]
     \\ conj_tac
     >-
-     ((*Cases_on `op = ThunkOp ForceThunk`
-      >- (
-        gvs []
-        \\ last_assum $ qspecl_then [`xs`, `s`] mp_tac \\ gvs[]
-        \\ `env_rel ty F acc env1 env2` by fs [env_rel_def] \\ gvs []
-        \\ rpt (disch_then drule) \\ rw []
-        \\ gvs [AllCaseEqs(), PULL_EXISTS]
-        >- (imp_res_tac state_rel_do_app \\ gvs [])
-        >- (imp_res_tac state_rel_do_app_err \\ gvs []))*)
-      gvs []
+     (gvs []
       \\ first_x_assum (qspecl_then [`xs`, `s`] mp_tac)
       \\ simp [bviTheory.exp_size_def]
       \\ `env_rel ty F acc env1 env2` by fs [env_rel_def]
@@ -2000,7 +1985,101 @@ Proof
     \\ fs [check_op_def, try_swap_def, opbinargs_def, get_bin_args_def, apply_op_def]
     \\ rw [] \\ metis_tac [is_rec_term_ok])
   \\ Cases_on `∃force_loc n. h = Force force_loc n` \\ gvs []
-  >- cheat
+  >- (
+    gvs [scan_expr_def]
+    \\ simp [evaluate_def]
+    \\ `LENGTH env1 ≤ LENGTH env2` by metis_tac [env_rel_def, IS_PREFIX_LENGTH]
+    \\ rw [] \\ gvs [AllCaseEqs(), PULL_EXISTS]
+    >- (
+      gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
+      \\ `EL n env2 = EL n env1` by (
+        gvs [env_rel_def]
+        \\ drule_then drule is_prefix_el \\ rw [])
+      \\ gvs []
+      \\ `FLOOKUP s'.refs ptr = FLOOKUP s.refs ptr` by gvs [state_rel_def]
+      \\ gvs [] \\ rw [])
+    >- (
+      gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
+      \\ `EL n env2 = EL n env1` by (
+        gvs [env_rel_def]
+        \\ drule_then drule is_prefix_el \\ rw [])
+      \\ gvs []
+      \\ `FLOOKUP s'.refs ptr = FLOOKUP s.refs ptr` by gvs [state_rel_def]
+      \\ gvs []
+      \\ `s'.clock = 0` by gvs [state_rel_def] \\ gvs [] \\ rw [])
+    \\ last_assum $ qspecl_then [`[exp]`, `dec_clock 1 s`] mp_tac
+    \\ gvs [dec_clock_def]
+    \\ disch_then drule
+    \\ gvs [find_code_def, oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
+    \\ `state_rel (s with clock := s.clock - 1) (s' with clock := s'.clock - 1)`
+      by gvs [state_rel_def]
+    \\ disch_then $ drule_at (Pat `state_rel _ _`) \\ gvs []
+    \\ `ty_rel [RefPtr v0 ptr; v] [Any; Any]` by gvs [ty_rel_def]
+    \\ disch_then $ drule_at (Pat `ty_rel _ _`) \\ gvs []
+    \\ disch_then $ qspec_then `F` mp_tac \\ simp [env_rel_def]
+    \\ disch_then $ qspec_then `[RefPtr v0 ptr; v]` mp_tac \\ rw []
+    \\ `EL n env2 = EL n env1` by (
+      gvs [env_rel_def]
+      \\ drule_then drule is_prefix_el \\ rw [])
+    \\ gvs []
+    \\ `s.refs = s'.refs` by gvs [state_rel_def] \\ gvs []
+    \\ `s.clock = s'.clock` by gvs [state_rel_def] \\ gvs [PULL_EXISTS]
+    \\ qpat_x_assum `state_rel (s with clock := _) (s' with clock := _)`
+         assume_tac
+    \\ drule state_rel_code_rel \\ simp [code_rel_def]
+    \\ disch_then drule \\ rw []
+    \\ Cases_on `check_exp force_loc 2 exp` \\ gvs []
+    \\ gvs [compile_exp_def, AllCaseEqs()]
+    \\ pairarg_tac \\ gvs []
+    \\ imp_res_tac scan_expr_not_Noop
+    \\ drule evaluate_let_wrap
+    \\ qabbrev_tac `a = [RefPtr v0 ptr; v]`
+    \\ disch_then $ qspecl_then [`opt'`, `a`,
+                                 `s' with clock := s'.clock - 1`] assume_tac
+    \\ `LENGTH a = 2` by (unabbrev_all_tac \\ gvs [])
+    \\ gvs []
+    \\ ntac 2 (pop_assum kall_tac)
+    \\ first_assum (qspecl_then [`[exp]`,`dec_clock 1 s`] mp_tac)
+    \\ impl_tac >- (imp_res_tac evaluate_clock \\ fs [dec_clock_def])
+    \\ sg `env_rel (op_type x) T (LENGTH a) a (a ++ [op_id_val x] ++ a)`
+    >-
+     (Cases_on `x`
+      \\ fs [op_id_val_def, op_type_def, env_rel_def, EL_LENGTH_APPEND,
+             EL_APPEND1, IS_PREFIX_APPEND, bvlSemTheory.v_to_list_def])
+    \\ sg `ty_rel a [Any; Any]`
+    >- fs [ty_rel_def, LIST_REL_EL_EQN, EL_REPLICATE]
+    \\ gvs [dec_clock_def]
+    \\ rpt (disch_then drule) \\ fs []
+    \\ disch_then (qspec_then `force_loc` mp_tac)
+    \\ rw []
+    \\ unabbrev_all_tac \\ gvs []
+    \\ `REPLICATE 2 Any = [Any;Any]` by gvs [REPLICATE_compute] \\ gvs []
+    \\ first_x_assum (qspecl_then [`x`,`n'`] mp_tac) \\ rw [] \\ fs []
+    \\ gvs [optimized_code_def, compile_exp_def, check_exp_def]
+    \\ gvs [evaluate_def, apply_op_def, AllCaseEqs()]
+    >- (
+      drule (GEN_ALL (INST_TYPE [alpha|->``:num#'c``,beta|->``:'ffi``] (SPEC_ALL scan_expr_ty_rel)))
+      \\ rpt (disch_then drule) \\ strip_tac \\ fs []
+      \\ pop_assum mp_tac \\ fs [] \\ once_rewrite_tac [ty_rel_def] \\ strip_tac
+      \\ fs []
+      \\ PRED_ASSUM is_forall kall_tac
+      \\ Cases_on `x`
+      \\ gvs [op_type_def, to_op_def, do_app_def, do_app_aux_def, op_id_val_def,
+              bvlSemTheory.do_app_def, bvlSemTheory.v_to_list_def,
+              list_to_v_imp, oneline bvlSemTheory.do_int_app_def, AllCaseEqs()])
+    >- (
+      drule (GEN_ALL (INST_TYPE [alpha|->``:num#'c``,beta|->``:'ffi``] (SPEC_ALL scan_expr_ty_rel)))
+      \\ rpt (disch_then drule) \\ strip_tac \\ fs []
+      \\ pop_assum mp_tac \\ fs [] \\ once_rewrite_tac [ty_rel_def] \\ strip_tac
+      \\ fs []
+      \\ PRED_ASSUM is_forall kall_tac
+      \\ Cases_on `x`
+      \\ gvs [to_op_def, op_id_val_def, do_app_def, do_app_aux_def,
+             bvlSemTheory.do_app_def, bvlSemTheory.do_int_app_def,
+             bvl_to_bvi_id, op_type_def]
+      \\ fs [bvlSemTheory.v_to_list_def]
+      \\ fs [case_eq_thms, case_elim_thms, pair_case_eq, bool_case_eq] \\ rw []
+      \\ fs [bvl_to_bvi_id, list_to_v_imp]))
   \\ Cases_on `∃ticks dest xs hdl. h = Call ticks dest xs hdl` \\ fs [] \\ rveq
   >-
    (simp [scan_expr_def, evaluate_def]
