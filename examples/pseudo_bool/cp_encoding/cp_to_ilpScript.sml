@@ -1108,7 +1108,7 @@ Definition union_dom_def:
     MAP (λX. list_to_num_set $ MAP intnum $ domlist bnd X) Xs
 End
 
-Theorem MEM_subspt_foldl_union_lem:
+Theorem MEM_subspt_foldl_union_aux:
   MEM (t:num_set) ls ⇒ ∀e. subspt t (FOLDL union e ls)
 Proof
   Induct_on ‘ls’
@@ -1116,20 +1116,19 @@ Proof
   >-(
     rw[]
     >-(
+      rename1 ‘subspt x (FOLDL union (union y x) ls)’>>
       simp[Once union_num_set_sym]>>
       irule subspt_trans>>
-      qexists ‘union h e’>>
-      simp[subspt_union,subspt_FOLDL_union]
-    )
-    >-simp[]
-  )
+      qexists ‘union x y’>>
+      simp[subspt_union,subspt_FOLDL_union])
+    >-simp[])
 QED
 
 (* to be simplified using Q.SPEC *)
 Theorem MEM_subspt_foldl_union:
   MEM (t:num_set) ls ⇒ subspt t (FOLDL union LN ls)
 Proof
-  simp[MEM_subspt_foldl_union_lem]
+  simp[MEM_subspt_foldl_union_aux]
 QED
 
 Definition submem_def:
