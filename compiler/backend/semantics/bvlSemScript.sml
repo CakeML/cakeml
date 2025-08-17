@@ -513,24 +513,6 @@ Definition dest_thunk_def:
   dest_thunk _ refs = NotThunk
 End
 
-(*
-Definition store_thunk_def:
-  store_thunk ptr v refs =
-    case FLOOKUP refs ptr of
-    | SOME (Thunk NotEvaluated _) => SOME (refs |+ (ptr,v))
-    | _ => NONE
-End
-
-Definition update_thunk_def:
-  update_thunk [RefPtr _ ptr] refs [v] =
-    (case dest_thunk [v] refs of
-     | NotThunk => store_thunk ptr (Thunk Evaluated v) refs
-     | _ => NONE) ∧
-  update_thunk _ _ _ = NONE
-End
-
-*)
-
 (* The evaluation is defined as a clocked functional version of
    a conventional big-step operational semantics. *)
 

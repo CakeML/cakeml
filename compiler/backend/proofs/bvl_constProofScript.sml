@@ -11,7 +11,9 @@ Definition v_rel_def:
   v_rel (:'c) (:'ffi) a x y xs ys =
     case a of
     | Var n => LLOOKUP ys n = SOME x
-    | Op _ _ => !(s:('c,'ffi) bvlSem$state) env. evaluate ([a],env,s) = (Rval [x],s)
+    | Op _ _ =>
+      (x = y) ∧
+      !(s:('c,'ffi) bvlSem$state) env. evaluate ([a],env,s) = (Rval [x],s)
     | _ => F
 End
 
@@ -295,7 +297,15 @@ Proof
     \\ res_tac \\ rw [] \\ Cases_on `e` \\ fs [] \\ rw [] \\ fs []
     \\ first_x_assum match_mp_tac
     \\ fs [env_rel_def])
-  >>~- ([`dest_thunk`], cheat)
+  >~ [‘dest_thunk’] >- (
+    imp_res_tac env_rel_length \\ gvs []
+    \\ rpt (PURE_CASE_TAC \\ gvs [])
+    \\ gvs [evaluate_def, AllCaseEqs(), PULL_EXISTS]
+    >>~- ([‘LLOOKUP _ _ = NONE’], drule env_rel_LLOOKUP_NONE \\ rw [])
+    >>~- ([‘LLOOKUP _ _ = SOME NONE’], drule env_rel_LLOOKUP_NONE \\ rw [])
+    \\ (
+      drule_all env_rel_LOOKUP_SOME \\ rw []
+      \\ gvs [v_rel_def, LLOOKUP_DROP, LLOOKUP_EQ_EL, EL_DROP]))
   \\ TRY (match_mp_tac SmartOp_thm)
   \\ fs [evaluate_def] \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
   \\ res_tac \\ fs [] \\ rw [] \\ fs [] \\ rw [] \\ fs []
@@ -403,7 +413,7 @@ Proof
     \\ fs[MEM_MAP, MEM_FILTER, IS_SOME_EXISTS, PULL_EXISTS]
     \\ simp[MEM_EL, PULL_EXISTS]
     \\ goal_assum(first_assum o mp_then Any mp_tac) \\ simp[]
-    \\ PURE_FULL_CASE_TAC \\ fs[] )
+    \\ PURE_FULL_CASE_TAC \\ fs[])
   >- (
     rw[]
     \\ last_x_assum drule
@@ -412,6 +422,17 @@ Proof
     >- metis_tac[]
     \\ imp_res_tac MEM_extract_list_code_labels
     \\ fs[])
+  >- (
+    CASE_TAC \\ gvs []
+    \\ CASE_TAC \\ gvs []
+    \\ rw []
+    \\ Cases_on ‘x'' = loc’ \\ gvs []
+    \\ asm_exists_tac \\ gvs []
+    \\ gvs [LLOOKUP_THM]
+    \\ gvs [MEM_MAP, MEM_FILTER, IS_SOME_EXISTS, PULL_EXISTS]
+    \\ simp [MEM_EL, PULL_EXISTS]
+    \\ goal_assum (first_assum o mp_then Any mp_tac) \\ simp []
+    \\ FULL_CASE_TAC \\ gvs [])
 QED
 
 Theorem compile_exp_code_labels:
