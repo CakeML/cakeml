@@ -1,13 +1,12 @@
 (*
   Implements the freshen pass, where names are updated to be unique.
 *)
+Theory dafny_freshen
+Ancestors
+  dafny_ast mlstring mlint
+Libs
+  preamble
 
-open preamble
-open dafny_astTheory
-open mlstringTheory
-open mlintTheory
-
-val _ = new_theory "dafny_freshen";
 
 Definition lookup_def:
   lookup m old =
@@ -186,4 +185,3 @@ Definition freshen_program_def:
     Program (MAP freshen_member members)
 End
 
-val _ = export_theory ();

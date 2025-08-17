@@ -1,13 +1,12 @@
 (*
   Various basic properties of the semantic primitives.
 *)
+Theory semanticPrimitivesProps
+Ancestors
+  ast namespace ffi semanticPrimitives namespaceProps
+Libs
+  preamble boolSimps
 
-open preamble;
-open astTheory namespaceTheory ffiTheory semanticPrimitivesTheory;
-open namespacePropsTheory;
-open boolSimps;
-
-val _ = new_theory "semanticPrimitivesProps";
 
 Theorem with_same_v[simp]:
    (env:'v sem_env) with v := env.v = env
@@ -765,4 +764,3 @@ Proof
   simp [concrete_v_def]
 QED
 
-val _ = export_theory ();

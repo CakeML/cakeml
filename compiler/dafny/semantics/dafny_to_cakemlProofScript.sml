@@ -1,31 +1,15 @@
 (*
   Correctness proof for the Dafny to CakeML compiler.
 *)
+Theory dafny_to_cakemlProof
+Ancestors
+  ast semanticPrimitives evaluate evaluateProps
+  dafny_semanticPrimitives dafny_evaluate dafny_evaluateProps
+  namespace namespaceProps mlstring integer mlint result_monad
+  dafny_freshenProof dafny_to_cakeml dafny_ast
+Libs
+  preamble
 
-open preamble
-open astTheory
-open semanticPrimitivesTheory
-open evaluateTheory
-open evaluatePropsTheory
-open dafny_astTheory
-open dafny_semanticPrimitivesTheory
-open dafny_evaluateTheory
-open dafny_evaluatePropsTheory
-open namespaceTheory
-open namespacePropsTheory
-open mlstringTheory
-open integerTheory
-open mlintTheory
-open result_monadTheory
-open dafny_freshenProofTheory
-open dafny_to_cakemlTheory
-
-val _ = new_theory "dafny_to_cakemlProof";
-val _ = set_grammar_ancestry
-          ["ast", "semanticPrimitives", "evaluate", "evaluateProps",
-           "dafny_semanticPrimitives", "dafny_evaluate", "dafny_evaluateProps",
-           "namespace", "namespaceProps", "mlstring", "integer", "mlint",
-           "result_monad", "dafny_freshenProof", "dafny_to_cakeml"];
 
 (* TODO Remove unused definition / trivialities *)
 
@@ -4183,4 +4167,3 @@ Proof
           do_con_check_def, build_conv_def]
 QED
 
-val _ = export_theory ();

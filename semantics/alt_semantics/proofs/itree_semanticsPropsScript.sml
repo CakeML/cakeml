@@ -1,14 +1,13 @@
 (*
   Properties about the itree- and FFI state-based CakeML semantics
 *)
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open optionTheory relationTheory pairTheory listTheory
-     arithmeticTheory llistTheory pred_setTheory;
-open namespaceTheory astTheory ffiTheory semanticPrimitivesTheory
-     evaluatePropsTheory smallStepTheory smallStepPropsTheory lprefix_lubTheory;
-open itreeTheory itree_semanticsTheory;
-
-val _ = new_theory "itree_semanticsProps";
+Theory itree_semanticsProps
+Ancestors
+  option relation pair list arithmetic llist pred_set namespace
+  ast ffi semanticPrimitives evaluateProps smallStep
+  smallStepProps lprefix_lub itree itree_semantics
+Libs
+  BasicProvers dep_rewrite
 
 (******************** Definitions ********************)
 
@@ -799,4 +798,3 @@ QED
 
 (****************************************)
 
-val _ = export_theory();

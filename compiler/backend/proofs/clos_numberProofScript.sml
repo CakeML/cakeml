@@ -1,11 +1,13 @@
 (*
   Correctness proof for clos_number
 *)
-open preamble backendPropsTheory closLangTheory clos_numberTheory closSemTheory closPropsTheory;
+Theory clos_numberProof
+Ancestors
+  backendProps closLang clos_number closSem closProps
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory"clos_numberProof";
 
 val _ = temp_bring_to_front_overload"lookup"{Name="lookup",Thy="sptree"};
 val _ = temp_bring_to_front_overload"insert"{Name="insert",Thy="sptree"};
@@ -1377,4 +1379,3 @@ Proof
   \\ Cases_on `e` \\ fs []
 QED
 
-val _ = export_theory();

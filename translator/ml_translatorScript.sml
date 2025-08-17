@@ -3,17 +3,14 @@
     translator. The theorems about Eval serve as an interface between
     the source semantics and the translator's automation.
 *)
-open integerTheory ml_progTheory
-     astTheory semanticPrimitivesTheory
-     semanticPrimitivesPropsTheory evaluatePropsTheory
-     fpOptTheory fpValTreeTheory fpSemTheory fpSemPropsTheory;
-open mlvectorTheory mlstringTheory packLib;
-open integer_wordSyntax
-open evaluateTheory
-local open integer_wordSyntax in end;
-open preamble;
-
-val _ = new_theory "ml_translator";
+Theory ml_translator
+Ancestors
+  integer ml_prog ast semanticPrimitives semanticPrimitivesProps
+  evaluateProps fpOpt fpValTree fpSem fpSemProps mlvector
+  mlstring evaluate
+Libs
+  packLib integer_wordSyntax preamble
+  integer_wordSyntax[qualified]
 
 infix \\ val op \\ = op THEN;
 
@@ -3136,4 +3133,3 @@ Proof
   \\ fs [state_component_equality]
 QED
 
-val _ = export_theory();

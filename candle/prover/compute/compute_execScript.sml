@@ -1,14 +1,13 @@
 (*
    Fast interpreter function for the Candle compute primitive.
  *)
+Theory compute_exec
+Ancestors
+  holSyntax holSyntaxExtra holSyntaxLib holKernel holKernelProof
+  compute_syntax compute_eval ml_monadBase mlvector
+Libs
+  preamble ml_monadBaseLib
 
-open preamble holSyntaxTheory holSyntaxExtraTheory holSyntaxLibTheory
-     holKernelTheory holKernelProofTheory compute_syntaxTheory
-     compute_evalTheory;
-open ml_monadBaseTheory ml_monadBaseLib;
-open mlvectorTheory
-
-val _ = new_theory "compute_exec";
 
 (* -------------------------------------------------------------------------
  * st_ex_monad setup
@@ -223,4 +222,3 @@ Definition cv2term_def:
   cv2term (Pair p q)   = _CEXP_PAIR (cv2term p) (cv2term q)
 End
 
-val _ = export_theory ();

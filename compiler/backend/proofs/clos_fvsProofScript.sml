@@ -1,12 +1,13 @@
 (*
   Correctness proof for clos_fvs
 *)
-open preamble closLangTheory clos_fvsTheory closSemTheory closPropsTheory;
-local open backendPropsTheory in end;
+Theory clos_fvsProof
+Ancestors
+  closLang clos_fvs closSem closProps backendProps[qualified]
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "clos_fvsProof";
 
 Theorem LENGTH_remove_fvs:
    !fvs xs. LENGTH (remove_fvs fvs xs) = LENGTH xs
@@ -798,4 +799,3 @@ Proof
   \\ rw[] \\ fs[]
 QED
 
-val _ = export_theory();

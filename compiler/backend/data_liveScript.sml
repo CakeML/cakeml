@@ -3,9 +3,11 @@
   attached to MakeSpace, Assign and Call in dataLang programs. This
   phase also locally deletes code that has no observable effect.
 *)
-open preamble dataLangTheory;
-
-val _ = new_theory "data_live";
+Theory data_live
+Ancestors
+  dataLang
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -132,4 +134,3 @@ Definition compile_def:
        (Call (SOME (n,l1)) dest vs (SOME (v,d)),l2))
 End
 
-val _ = export_theory();

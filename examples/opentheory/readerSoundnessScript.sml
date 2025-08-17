@@ -2,9 +2,11 @@
   Proves soundness of the OpenTheory article checker. The soundness
   theorem makes the connection to the semantics of HOL explicit.
 *)
-open preamble readerProofTheory holSoundnessTheory;
-
-val _ = new_theory "readerSoundness";
+Theory readerSoundness
+Ancestors
+  readerProof holSoundness
+Libs
+  preamble
 
 val _ = Parse.hide "mem";
 val mem = ``mem:'U->'U-> bool``;
@@ -23,6 +25,4 @@ Proof
   \\ drule (GEN_ALL reader_proves) \\ rw []
   \\ irule proves_sound \\ fs []
 QED
-
-val _ = export_theory ();
 

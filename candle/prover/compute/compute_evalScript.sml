@@ -1,12 +1,13 @@
 (*
    Interpreter function for the Candle compute primitive.
  *)
+Theory compute_eval
+Ancestors
+  holSyntax holSyntaxExtra holSyntaxLib holKernel holKernelProof
+  compute_syntax ml_monadBase
+Libs
+  preamble ml_monadBaseLib
 
-open preamble holSyntaxTheory holSyntaxExtraTheory holSyntaxLibTheory
-     holKernelTheory holKernelProofTheory compute_syntaxTheory;
-open ml_monadBaseTheory ml_monadBaseLib;
-
-val _ = new_theory "compute_eval";
 
 val _ = numLib.temp_prefer_num ();
 
@@ -503,4 +504,3 @@ End
 
 val _ = Theory.delete_binding "compute_eval_ind_def"
 
-val _ = export_theory ();

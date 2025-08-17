@@ -1,25 +1,28 @@
 (*
   Correctness proof for source_to_flat
 *)
+Theory source_to_flatProof
+Ancestors
+  source_to_flat flatProps namespaceProps semantics
+  semanticPrimitivesProps ffi[qualified] lprefix_lub[qualified]
+  backend_common[qualified] misc[qualified] backendProps
+  source_evalProof
+Ancestors[ignore_grammar]
+  semanticPrimitives flatLang flatSem
+  flat_elimProof[qualified] flat_patternProof[qualified]
+Libs
+  preamble experimentalLib
 
+(* Set up ML bindings *)
 open preamble semanticsTheory namespacePropsTheory
      semanticPrimitivesTheory semanticPrimitivesPropsTheory
      source_to_flatTheory flatLangTheory flatSemTheory flatPropsTheory
-     backendPropsTheory experimentalLib source_evalProofTheory
-local open flat_elimProofTheory flat_patternProofTheory in end
+     backendPropsTheory experimentalLib source_evalProofTheory;
 
-
-val _ = new_theory "source_to_flatProof";
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "getOpClass_def"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
-
-val grammar_ancestry =
-  ["source_to_flat","flatProps","namespaceProps",
-   "semantics","semanticPrimitivesProps","ffi","lprefix_lub",
-   "backend_common","misc","backendProps", "source_evalProof"];
-val _ = set_grammar_ancestry grammar_ancestry;
 
 Triviality compile_exps_length:
   LENGTH (compile_exps t m es) = LENGTH es
@@ -6032,5 +6035,3 @@ Proof
   \\ rw [] \\ fs []
   \\ fs [IN_LIST_TO_BAG, MEM_MAP, MEM_COUNT_LIST]
 QED
-
-val _ = export_theory ();

@@ -1,29 +1,23 @@
 (*
   Correctness proof for data_to_word
 *)
-open preamble dataSemTheory dataPropsTheory
-     copying_gcTheory int_bitwiseTheory finite_mapTheory
-     data_to_word_memoryProofTheory data_to_word_gcProofTheory
-     data_to_word_bignumProofTheory data_to_word_assignProofTheory
-     data_to_wordTheory wordPropsTheory
-     wordConvsTheory wordConvsProofTheory
-     whileTheory set_sepTheory semanticsPropsTheory word_to_wordProofTheory
-     helperLib alignmentTheory blastLib word_bignumTheory
-     wordLangTheory word_bignumProofTheory gen_gc_partialTheory
-     gc_sharedTheory;
-open match_goal;
-local open backendTheory gen_gcTheory in end
-
-val _ = new_theory "data_to_wordProof";
+Theory data_to_wordProof
+Ancestors
+  backend[qualified] dataLang[qualified] dataSem
+  data_to_word_gcProof word_to_wordProof wordProps data_to_word
+  wordLang wordSem[qualified] dataProps copying_gc int_bitwise
+  finite_map data_to_word_memoryProof data_to_word_bignumProof
+  data_to_word_assignProof wordConvs wordConvsProof while set_sep
+  semanticsProps alignment word_bignum word_bignumProof
+  gen_gc_partial gc_shared gen_gc[qualified]
+Libs
+  preamble helperLib blastLib match_goal
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
-val _ = set_grammar_ancestry
-  ["backend","dataLang","dataSem","data_to_word_gcProof","word_to_wordProof",
-   "wordProps","data_to_word","wordLang", "wordSem"]
 val _ = hide "next";
 
 val clean_tac = rpt var_eq_tac \\ rpt (qpat_x_assum `T` kall_tac)
@@ -2100,4 +2094,3 @@ Proof
   simp [comp_no_share_inst |> SIMP_RULE std_ss [PAIR_FST_SND_EQ]]
 QED
 
-val _ = export_theory();

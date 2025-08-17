@@ -2,12 +2,13 @@
   A compiler phase that turns some non-tail-recursive functions into
   tail-recursive functions.
 *)
+Theory bvi_tailrec
+Ancestors
+  bvi backend_common
+Libs
+  preamble
 
-open preamble bviTheory backend_commonTheory
 
-val _ = new_theory "bvi_tailrec";
-
-val _ = set_grammar_ancestry["bvi", "backend_common"];
 val _ = temp_tight_equality();
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES ();
@@ -910,4 +911,3 @@ Proof
   EVAL_TAC
 QED
 
-val _ = export_theory();

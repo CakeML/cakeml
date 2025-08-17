@@ -1,15 +1,16 @@
 (*
   A theory for converting OCaml parse trees to abstract syntax.
  *)
+Theory camlPtreeConversion
+Libs
+  preamble
+Ancestors
+  misc[qualified] mllist pegexec[qualified] caml_lex camlPEG ast
+  precparser sum[qualified] cmlParse[qualified]
+  lexer_impl[qualified]
 
-open preamble caml_lexTheory camlPEGTheory astTheory;
-open precparserTheory mllistTheory;
-local open cmlParseTheory lexer_implTheory in end
-
-val _ = new_theory "camlPtreeConversion";
-
-val _ = set_grammar_ancestry [
-  "misc", "pegexec", "caml_lex", "camlPEG", "ast", "precparser", "sum", "mllist"];
+val _ =
+  temp_bring_to_front_overload "destResult" {Name="destResult", Thy="pegexec"};
 
 (* -------------------------------------------------------------------------
  * Sum monad syntax
@@ -3428,5 +3429,3 @@ Proof
   CONV_TAC (DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   \\ gen_tac \\ simp [ptree_Pattern_def]
 QED
-
-val _ = export_theory ();

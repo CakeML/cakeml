@@ -1,13 +1,14 @@
 (*
   The formal semantics of BVI
 *)
-open preamble bviTheory;
-local open backend_commonTheory bvlSemTheory in end;
-local open backendPropsTheory in end;
+Theory bviSem
+Ancestors
+  bvi backend_common[qualified] bvlSem[qualified]
+  backendProps[qualified]
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"bviSem";
 
 Overload num_stubs[local] = ``bvl_num_stubs``
 
@@ -367,4 +368,3 @@ End
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
 
-val _ = export_theory()

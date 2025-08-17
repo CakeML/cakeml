@@ -1,28 +1,22 @@
 (*
   Correctness proof for bvl_to_bvi
 *)
-open preamble backendPropsTheory
-     bvlSemTheory bvlPropsTheory
-     bvl_to_bviTheory
-     bviSemTheory bviPropsTheory;
-local open
-  bvl_constProofTheory
-  bvl_handleProofTheory
-  bvi_letProofTheory
-  bvl_inlineProofTheory
-  bvi_tailrecProofTheory
-in end;
-local open helperLib in end
+Theory bvl_to_bviProof
+Ancestors
+  ffi[qualified] bvlSem bviSem bviProps bvl_to_bvi
+  bvl_handleProof[qualified] backendProps bvlProps
+  bvl_constProof[qualified] bvi_letProof[qualified]
+  bvl_inlineProof[qualified] bvi_tailrecProof[qualified]
+Libs
+  preamble helperLib[qualified]
+
+(* We want bvi's, not bvl's ML bindings. *)
+open bviPropsTheory
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj",
                        "fromAList_def", "domain_union", "domain_insert",
                        "domain_inter"]
 val _ = augment_srw_ss [rewrites [SNOC_APPEND]];
-
-val _ = new_theory"bvl_to_bviProof";
-
-val _ = set_grammar_ancestry
-  ["ffi", "bvlSem", "bviSem", "bviProps", "bvl_to_bvi", "bvl_handleProof"];
 
 val _ = Parse.hide"str";
 
@@ -5166,5 +5160,3 @@ Proof
   \\ rw[bvl_to_bviTheory.stubs_def]
   \\ metis_tac[UNION_ASSOC, UNION_COMM]
 QED
-
-val _ = export_theory();

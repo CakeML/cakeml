@@ -4,9 +4,9 @@
   Her definitions are reproduced below so that we can try our
   hol2miniml translator on them.
 *)
-open HolKernel Parse boolLib bossLib;
-val _ = new_theory "slr_parser_gen";
-open arithmeticTheory listTheory combinTheory stringTheory;
+Theory slr_parser_gen
+Ancestors
+  arithmetic list combin string
 
 Definition push_def:
   push l e = e::l
@@ -212,4 +212,3 @@ Definition parser_def:
 End
 
 
-val _ = export_theory ();

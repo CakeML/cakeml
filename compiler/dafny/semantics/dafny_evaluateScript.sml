@@ -1,11 +1,12 @@
 (*
   Defines functional big-step semantics for Dafny.
 *)
+Theory dafny_evaluate
+Ancestors
+  dafny_semanticPrimitives
+Libs
+  preamble
 
-open preamble
-open dafny_semanticPrimitivesTheory
-
-val _ = new_theory "dafny_evaluate";
 
 (* Related papers:
    "Functional Big-step Semantics", https://cakeml.org/esop16.pdf
@@ -405,4 +406,3 @@ Definition evaluate_program_def:
       (MetCall [] «Main» [])
 End
 
-val _ = export_theory ();

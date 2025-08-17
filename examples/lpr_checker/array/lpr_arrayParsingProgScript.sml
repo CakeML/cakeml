@@ -1,9 +1,12 @@
 (*
   Adds a parser for LPR
 *)
-open preamble basis UnsafeProofTheory lprTheory lpr_listTheory lpr_parsingTheory HashtableProofTheory mlintTheory lpr_arrayProgTheory;
-
-val _ = new_theory "lpr_arrayParsingProg"
+Theory lpr_arrayParsingProg
+Ancestors
+  UnsafeProof lpr lpr_list lpr_parsing HashtableProof mlint
+  lpr_arrayProg
+Libs
+  preamble basis
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -1447,4 +1450,3 @@ Proof
   asm_exists_tac>>simp[]
 QED
 
-val _ = export_theory();

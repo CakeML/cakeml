@@ -1,26 +1,20 @@
 (*
   Part of the correctness proof for data_to_word
 *)
-open preamble dataSemTheory dataPropsTheory copying_gcTheory
-     int_bitwiseTheory data_to_word_memoryProofTheory finite_mapTheory
-     data_to_wordTheory wordPropsTheory whileTheory
-     set_sepTheory semanticsPropsTheory
-     helperLib alignmentTheory blastLib word_bignumTheory wordLangTheory
-     word_bignumProofTheory gen_gc_partialTheory gc_sharedTheory
-     word_gcFunctionsTheory backendPropsTheory mllistTheory;
-local open gen_gcTheory in end
-
-val _ = new_theory "data_to_word_gcProof";
+Theory data_to_word_gcProof
+Libs
+  preamble helperLib blastLib
+Ancestors
+  mllist dataSem wordSem[qualified] data_to_word backendProps
+  data_to_word_memoryProof dataProps copying_gc int_bitwise
+  finite_map wordProps while set_sep semanticsProps alignment
+  word_bignum wordLang word_bignumProof gen_gc_partial gc_shared
+  word_gcFunctions gen_gc[qualified]
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
-
-val _ = set_grammar_ancestry
-  ["dataSem", "wordSem", "data_to_word", "backendProps",
-   "data_to_word_memoryProof"
-  ];
 
 val shift_def = backend_commonTheory.word_shift_def
 val isWord_def = wordSemTheory.isWord_def
@@ -8446,5 +8440,3 @@ Theorem word_ml_inv_get_var_IMP[allow_rebind] =
   |> Q.INST [`n`|->`[n1]`,`x`|->`[x1]`] |> GEN_ALL
   |> REWRITE_RULE [get_vars_SOME_IFF,get_vars_SOME_IFF_data,MAP]
   |> SIMP_RULE std_ss [Once get_vars_sing,PULL_EXISTS,get_vars_SOME_IFF,ZIP,APPEND]
-
-val _ = export_theory();

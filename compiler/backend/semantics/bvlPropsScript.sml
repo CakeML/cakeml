@@ -1,14 +1,15 @@
 (*
   Properties about BVL and its semantics
 *)
-open preamble bvlTheory bvlSemTheory bvl_constTheory;
-open backend_commonTheory;
+Theory bvlProps
+Ancestors
+  bvl bvlSem bvl_const backend_common
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"bvlProps";
 
 val s = ``(s:('c,'ffi) bvlSem$state)``
 
@@ -887,4 +888,3 @@ Proof
   Induct \\ rw [] \\ fs [bvlTheory.mk_tick_def, FUNPOW_SUC]
 QED
 
-val _ = export_theory();

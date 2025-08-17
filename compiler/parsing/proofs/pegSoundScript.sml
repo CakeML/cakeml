@@ -2,17 +2,21 @@
   Soundness proof for the parser. If the parser returns a parse tree,
   then it is valid w.r.t. the specification grammar.
 *)
-open preamble pegTheory cmlPEGTheory gramTheory gramPropsTheory
-     grammarTheory
+Theory pegSound
+Libs
+  preamble
+Ancestors
+  cmlPEG gramProps peg gram grammar
 
-val _ = new_theory "pegSound";
-val _ = set_grammar_ancestry ["cmlPEG", "gramProps"]
+(* Set up ML bindings *)
+open pegTheory cmlPEGTheory gramTheory gramPropsTheory grammarTheory;
 
 infix >*
 fun t1 >* t2 = (t1 >> conj_tac) >- t2
 
 val _ = hide "choicel"
 Overload choicel = “cmlPEG$choicel”
+val choicel_def = cmlPEGTheory.choicel_def
 
 Theorem Success_COND_Failure[simp]:
   Success i r opt ≠ if P then Failure fl1 fe1 else Failure fl2 fe2
@@ -1397,5 +1401,3 @@ Proof
   simp[peg_V_def, peg_eval_choice] >>
   strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied, PAIR_MAP]
 QED
-
-val _ = export_theory()

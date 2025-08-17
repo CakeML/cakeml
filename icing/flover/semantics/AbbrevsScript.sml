@@ -1,11 +1,12 @@
 (**
   This file contains some type abbreviations, to ease writing.
  **)
-open realTheory realLib sptreeTheory
-open MachineTypeTheory
-open preambleFloVer
+Theory Abbrevs
+Ancestors
+  real sptree MachineType
+Libs
+  realLib preambleFloVer
 
-val _ = new_theory "Abbrevs";
 (**
 For the moment we need only one interval type in HOL, since we do not have the
 problem of computability as we have it in Coq
@@ -53,4 +54,3 @@ End
 val _ = export_rewrites ["IVlo_def", "IVhi_def",
                          "emptyEnv_def", "updEnv_def"]
 
-val _ = export_theory();

@@ -1,11 +1,13 @@
 (*
   The formal semantics of BVL
 *)
-open preamble bvlTheory closSemTheory
-open clos_to_bvlTheory (* for closure_tag and num_added_globals *)
-local open backendPropsTheory in end;
-
-val _ = new_theory"bvlSem"
+Theory bvlSem
+Ancestors
+  bvl closSem
+  clos_to_bvl (* for closure_tag and num_added_globals *)
+  backendProps[qualified]
+Libs
+  preamble
 
 val _ = Parse.hide "str";
 
@@ -729,5 +731,3 @@ End
 (* clean up *)
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
-
-val _ = export_theory()

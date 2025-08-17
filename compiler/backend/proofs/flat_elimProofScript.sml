@@ -1,19 +1,14 @@
 (*
   Correctness proof for flatLang dead code elimination
 *)
-open preamble sptreeTheory flatLangTheory flat_elimTheory
-     flatSemTheory flatPropsTheory spt_closureTheory
+Theory flat_elimProof
+Ancestors
+  flat_elim flatSem flatLang flatProps spt_closure
+  misc[qualified] ffi[qualified] sptree
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "flat_elimProof";
-
-val grammar_ancestry =
-  ["flat_elim", "flatSem", "flatLang", "flatProps",
-   "spt_closure",  "misc", "ffi", "sptree"];
-
-val _ = set_grammar_ancestry grammar_ancestry;
-
 
 (************************** LEMMAS ***************************)
 
@@ -1733,4 +1728,3 @@ Proof
   metis_tac [remove_flat_prog_sub_bag, BAG_ALL_DISTINCT_SUB_BAG]
 QED
 
-val _ = export_theory();

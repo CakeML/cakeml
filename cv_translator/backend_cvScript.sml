@@ -1,12 +1,12 @@
 (*
   Translate non-target-specific backend functions to cv equations.
 *)
-open preamble cv_transLib cv_stdTheory;
-open backendTheory to_data_cvTheory exportTheory;
-open unify_cvTheory infer_cvTheory basis_cvTheory;
-open mllistTheory mergesortTheory;
-
-val _ = new_theory "backend_cv";
+Theory backend_cv
+Libs
+  preamble cv_transLib
+Ancestors
+  mllist mergesort cv_std backend to_data_cv export unify_cv
+  infer_cv basis_cv
 
 val _ = cv_memLib.use_long_names := true;
 
@@ -233,11 +233,11 @@ val _ = cv_auto_trans backend_enc_decTheory.word_to_word_config_enc_def;
 val _ = cv_auto_trans backend_enc_decTheory.word_to_stack_config_enc_def;
 val _ = cv_auto_trans backend_enc_decTheory.stack_to_lab_config_enc_def;
 val _ = cv_auto_trans backend_enc_decTheory.lab_to_target_inc_config_enc_def;
-val _ = cv_auto_trans backend_enc_decTheory.tap_config_enc_def;
+val _ = cv_auto_trans backend_enc_decTheory.presLang_tap_config_enc_def;
 
 (* environment encoding *)
 
-val tms = backend_enc_decTheory.environment_enc_def
+val tms = backend_enc_decTheory.source_to_flat_environment_enc_def
             |> concl |> find_terms (can (match_term “namespace_enc _”)) |> map rand;
 val tm1 = el 1 tms;
 val tm2 = el 2 tms;
@@ -272,7 +272,7 @@ val res2 = spec_namespace_enc' tm2 "_2";
 
 val _ = cv_trans num_list_enc_decTheory.namespace_depth_def;
 
-val _ = cv_trans (backend_enc_decTheory.environment_enc_def
+val _ = cv_trans (backend_enc_decTheory.source_to_flat_environment_enc_def
                     |> SRULE [res1,res2,num_list_enc_decTheory.namespace_enc_def,
                               num_list_enc_decTheory.prod_enc_def]);
 
@@ -280,14 +280,14 @@ val _ = cv_auto_trans backend_enc_decTheory.source_to_flat_config_enc_def;
 
 (* closLang const encoding *)
 
-val const_exp = backend_enc_decTheory.const_enc'_def
+val const_exp = backend_enc_decTheory.closLang_const_enc'_def
                 |> SRULE [SF ETA_ss, num_tree_enc_decTheory.list_enc'_def];
-val const_exps = MAP |> CONJUNCTS |> map (Q.ISPEC ‘const_enc'’);
+val const_exps = MAP |> CONJUNCTS |> map (Q.ISPEC ‘closLang_const_enc'’);
 
 val name = "const_enc_aux"
-val c = “const_enc'”
+val c = “closLang_const_enc'”
 val r = mk_var(name,type_of c)
-val c_list = “MAP const_enc'”
+val c_list = “MAP closLang_const_enc'”
 val r_list = mk_var(name ^ "_list",type_of c_list)
 
 Definition const_enc_aux_def:
@@ -298,11 +298,11 @@ End
 val _ = cv_auto_trans const_enc_aux_def;
 
 Theorem const_enc_aux_thm[cv_inline,local]:
-  const_enc' = const_enc_aux ∧
-  MAP const_enc' = const_enc_aux_list
+  closLang_const_enc' = const_enc_aux ∧
+  MAP closLang_const_enc' = const_enc_aux_list
 Proof
   gvs [FUN_EQ_THM] \\ Induct
-  \\ gvs [const_enc_aux_def,backend_enc_decTheory.const_enc'_def,
+  \\ gvs [const_enc_aux_def,backend_enc_decTheory.closLang_const_enc'_def,
           num_tree_enc_decTheory.list_enc'_def,SF ETA_ss]
 QED
 
@@ -382,14 +382,14 @@ QED
 
 (* closLang val_approx encoding *)
 
-val val_approx_exp = backend_enc_decTheory.val_approx_enc'_def
+val val_approx_exp = backend_enc_decTheory.clos_known_val_approx_enc'_def
                 |> SRULE [SF ETA_ss, num_tree_enc_decTheory.list_enc'_def];
-val val_approx_exps = MAP |> CONJUNCTS |> map (Q.ISPEC ‘val_approx_enc'’);
+val val_approx_exps = MAP |> CONJUNCTS |> map (Q.ISPEC ‘clos_known_val_approx_enc'’);
 
 val name = "val_approx_enc_aux"
-val c = “val_approx_enc'”
+val c = “clos_known_val_approx_enc'”
 val r = mk_var(name,type_of c)
-val c_list = “MAP val_approx_enc'”
+val c_list = “MAP clos_known_val_approx_enc'”
 val r_list = mk_var(name ^ "_list",type_of c_list)
 
 Definition val_approx_enc_aux_def:
@@ -400,17 +400,17 @@ End
 val _ = cv_auto_trans val_approx_enc_aux_def;
 
 Theorem val_approx_enc_aux_thm[cv_inline,local]:
-  val_approx_enc' = val_approx_enc_aux ∧
-  MAP val_approx_enc' = val_approx_enc_aux_list
+  clos_known_val_approx_enc' = val_approx_enc_aux ∧
+  MAP clos_known_val_approx_enc' = val_approx_enc_aux_list
 Proof
   gvs [FUN_EQ_THM] \\ Induct
-  \\ gvs [val_approx_enc_aux_def,backend_enc_decTheory.val_approx_enc'_def,
+  \\ gvs [val_approx_enc_aux_def,backend_enc_decTheory.clos_known_val_approx_enc'_def,
           num_tree_enc_decTheory.list_enc'_def,SF ETA_ss]
 QED
 
 val _ = cv_auto_trans backend_enc_decTheory.clos_to_bvl_config_enc_def;
 
-val _ = cv_auto_trans backend_enc_decTheory.inc_config_enc_def;
+val _ = cv_auto_trans backend_enc_decTheory.backend_inc_config_enc_def;
 val _ = cv_trans backend_enc_decTheory.encode_backend_config_def;
 val _ = cv_auto_trans backend_asmTheory.attach_bitmaps_def;
 
@@ -1052,4 +1052,3 @@ QED
 val _ = cv_trans word_copyTheory.copy_prop_def;
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
-val _ = export_theory();

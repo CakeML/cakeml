@@ -37,23 +37,13 @@
   function bodies to get the alignment right.
 
 *)
-open preamble closLangTheory bvlTheory bvl_jumpTheory;
-open backend_commonTheory
-local open
-  clos_mtiTheory
-  clos_callTheory
-  clos_knownTheory
-  clos_numberTheory
-  clos_annotateTheory
-in (* clos-to-clos transformations *) end;
-
-val _ = new_theory "clos_to_bvl";
-val _ = set_grammar_ancestry [
-  "backend_common",
-  "clos_mti", "clos_call", "clos_known", "clos_number",
-  "clos_annotate",
-  "bvl_jump"
-]
+Theory clos_to_bvl
+Ancestors
+  backend_common clos_mti[qualified] clos_call[qualified]
+  clos_known[qualified] clos_number[qualified]
+  clos_annotate[qualified] bvl_jump closLang bvl
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -954,4 +944,3 @@ Definition clos_to_bvl_compile_inc_def:
       (c, p)
 End
 
-val _ = export_theory()

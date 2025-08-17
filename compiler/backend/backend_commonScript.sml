@@ -1,12 +1,12 @@
 (*
   Definitions that are common for many parts of the compiler backend.
 *)
+Theory backend_common
+Ancestors[qualified]
+  arithmetic integer words
+Libs
+  preamble
 
-open preamble
-
-val _ = new_theory "backend_common";
-
-val _ = set_grammar_ancestry ["arithmetic", "integer", "words"];
 
 (* Small general definition *)
 Definition small_enough_int_def:
@@ -157,4 +157,3 @@ Definition word_shift_def:
     if dimindex (:'a) = 32 then 2 else 3:num
 End
 
-val _ = export_theory();

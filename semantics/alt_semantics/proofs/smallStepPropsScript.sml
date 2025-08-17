@@ -1,11 +1,12 @@
 (*
   Properties about the small-step semantics.
 *)
-open preamble;
-open semanticPrimitivesTheory ffiTheory semanticPrimitivesPropsTheory
-     evaluatePropsTheory smallStepTheory determTheory;
-
-val _ = new_theory "smallStepProps";
+Theory smallStepProps
+Ancestors
+  semanticPrimitives ffi semanticPrimitivesProps evaluateProps
+  smallStep determ
+Libs
+  preamble
 
 (**
 Theorem application_thm:
@@ -1863,4 +1864,3 @@ Proof
   imp_res_tac RTC_decl_step_reln_io_events_mono >> gvs[io_events_mono_def]
 QED
 
-val _ = export_theory ();

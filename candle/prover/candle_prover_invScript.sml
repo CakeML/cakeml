@@ -2,19 +2,15 @@
   Definitions of invariants that are to be maintained during
   evaluate of Candle prover
  *)
+Theory candle_prover_inv
+Ancestors
+  candle_kernel_vals ast_extras evaluate namespaceProps perms
+  holKernelProof[qualified] semanticPrimitivesProps
+  misc[qualified] semanticPrimitives evaluateProps sptree
+  candle_kernelProg ml_hol_kernel_funsProg
+Libs
+  preamble helperLib ml_progLib[qualified]
 
-open preamble helperLib;
-open semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     evaluateTheory namespacePropsTheory evaluatePropsTheory
-     sptreeTheory candle_kernelProgTheory ml_hol_kernel_funsProgTheory;
-open permsTheory candle_kernel_valsTheory ast_extrasTheory;
-local open ml_progLib in end
-
-val _ = new_theory "candle_prover_inv";
-
-val _ = set_grammar_ancestry [
-  "candle_kernel_vals", "ast_extras", "evaluate", "namespaceProps", "perms",
-  "holKernelProof", "semanticPrimitivesProps", "misc"];
 
 (* -------------------------------------------------------------------------
  * Expressions are safe if they do not construct anything with a name from the
@@ -870,4 +866,3 @@ Proof
   \\ first_assum $ irule_at Any
 QED
 
-val _ = export_theory ();

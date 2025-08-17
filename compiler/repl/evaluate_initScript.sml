@@ -2,14 +2,13 @@
   Lemma used in repl_typesTheory: that evaluate_skip's invariant
   holds at initialisation.
 *)
+Theory evaluate_init
+Ancestors
+  evaluate semanticPrimitives evaluateProps namespaceProps
+  ml_prog evaluate_skip
+Libs
+  preamble helperLib[qualified]
 
-open preamble
-open evaluateTheory semanticPrimitivesTheory evaluatePropsTheory
-open namespacePropsTheory ml_progTheory
-open evaluate_skipTheory
-local open helperLib in end
-
-val _ = new_theory "evaluate_init";
 
 (* TODO: move *)
 
@@ -1352,4 +1351,3 @@ Proof
   \\ irule env_ok_extend_dec_env \\ gs []
 QED
 
-val _ = export_theory();

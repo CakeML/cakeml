@@ -1,12 +1,10 @@
 (*
   Definition of CakeML abstract syntax (AST).
 *)
-open HolKernel Parse boolLib bossLib;
-open namespaceTheory fpSemTheory fpValTreeTheory realOpsTheory;
-
-local open integerTheory wordsTheory stringTheory namespaceTheory locationTheory in end;
-val _ = new_theory "ast"
-val _ = set_grammar_ancestry ["integer", "words", "string", "namespace", "location"];
+Theory ast
+Ancestors
+  integer[qualified] words[qualified] string[qualified] namespace
+  location[qualified] fpSem fpValTree realOps
 
 (* Literal constants *)
 Datatype:
@@ -337,4 +335,3 @@ Definition Funs_def:
   Funs (x::xs) e = Fun x (Funs xs e)
 End
 
-val _ = export_theory()

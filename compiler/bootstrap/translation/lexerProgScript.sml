@@ -1,13 +1,17 @@
 (*
   Translate the compiler's lexer.
 *)
+Theory lexerProg
+Ancestors
+  lexer_fun lexer_impl to_dataProg ml_translator
+Libs
+  preamble ml_translatorLib
+
 open preamble
      lexer_funTheory lexer_implTheory to_dataProgTheory
      ml_translatorLib ml_translatorTheory
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "lexerProg"
 
 val _ = translation_extends "to_dataProg";
 
@@ -134,5 +138,3 @@ val () = Feedback.set_trace "TheoryPP.include_docs" 0
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

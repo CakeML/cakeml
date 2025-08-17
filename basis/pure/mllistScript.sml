@@ -1,11 +1,12 @@
 (*
   Pure functions for the List module.
 *)
-open preamble sortingTheory mergesortTheory
-
-val _ = new_theory "mllist"
-
-val _ = set_grammar_ancestry ["mergesort", "indexedLists", "toto"];
+Theory mllist
+Libs
+  preamble
+Ancestors
+  indexedLists[qualified] toto[qualified]
+  sorting mergesort
 
 (* ===== TODO: TO BE PORTED TO HOL (better theorems for mergesort_tail) ===== *)
 Theorem merge_tail_MEM:
@@ -662,5 +663,3 @@ Proof
   \\ Induct_on ‘xs’
   \\ rw[flat_rev'_def, flat_rev'_lemma, REV_REVERSE_LEM]
 QED
-
-val _ = export_theory()

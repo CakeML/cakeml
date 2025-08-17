@@ -1,13 +1,12 @@
 (*
   Correctness proof for clos_annotate
 *)
+Theory clos_annotateProof
+Ancestors
+  db_vars closSem closProps clos_annotate backendProps
+Libs
+  preamble
 
-open preamble
-     db_varsTheory
-     closSemTheory closPropsTheory
-     clos_annotateTheory backendPropsTheory
-
-val _ = new_theory"clos_annotateProof";
 
 val _ = temp_bring_to_front_overload"do_app"{Name="do_app",Thy="closSem"};
 val _ = temp_bring_to_front_overload"compile"{Name="compile",Thy="clos_annotate"};
@@ -1709,4 +1708,3 @@ Proof
   \\ match_mp_tac every_Fn_SOME_annotate \\ fs []
 QED
 
-val _ = export_theory()

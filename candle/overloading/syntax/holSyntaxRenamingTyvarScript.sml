@@ -1,11 +1,12 @@
 (*
  * Properties of RenamingTheory for our syntax
  *)
-open preamble totoTheory comparisonTheory ternaryComparisonsTheory mlstringTheory
-     holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
-     holSyntaxRenamingTheory
-
-val _ = new_theory"holSyntaxRenamingTyvar"
+Theory holSyntaxRenamingTyvar
+Ancestors
+  toto comparison ternaryComparisons mlstring holSyntaxLib
+  holSyntax holSyntaxExtra holSyntaxRenaming
+Libs
+  preamble
 
 (* overloads for set operations on lists *)
 
@@ -2593,4 +2594,3 @@ Proof
   >> gvs[]
 QED
 
-val _ = export_theory();

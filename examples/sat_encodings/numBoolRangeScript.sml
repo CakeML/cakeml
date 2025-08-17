@@ -1,11 +1,12 @@
 (*
   Add individual upper and lower bounds for each number variable
 *)
+Theory numBoolRange
+Ancestors
+  misc cnf boolExpToCnf numBoolExp numBoolExtended
+Libs
+  preamble
 
-open preamble miscTheory cnfTheory;
-open boolExpToCnfTheory numBoolExpTheory numBoolExtendedTheory;
-
-val _ = new_theory "numBoolRange";
 
 (* ----------------- Datatypes ----------------------------- *)
 
@@ -566,4 +567,3 @@ QED
 
 *)
 
-val _ = export_theory();

@@ -1,10 +1,9 @@
 (*
   Pre-evaluate encoder (to help speed up EVAL)
 *)
-open HolKernel Parse boolLib bossLib
-open x64Theory x64_targetTheory
-
-val () = new_theory "x64_eval_encode"
+Theory x64_eval_encode
+Ancestors
+  x64 x64_target
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0
 
@@ -223,4 +222,3 @@ val x64_encode_rwts = Theory.save_thm("x64_encode_rwts",
      fp_less, fp_leq, fp_eq, fp_mov, fp_abs, fp_neg, fp_sqrt, fp_add, fp_sub,
      fp_mul, fp_div, fp_fma, fp_to_reg, fp_from_reg, fp_to_int, fp_from_int])
 
-val () = export_theory ()

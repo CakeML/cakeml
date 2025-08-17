@@ -36,11 +36,11 @@
        All values below 1 are treated as 1.
 
 *)
-open preamble
-     ml_translatorTheory ml_translatorLib ml_progLib basisFunctionsLib
-     candle_kernelProgTheory cfLib
-
-val _ = new_theory"repl_moduleProg";
+Theory repl_moduleProg
+Ancestors
+  ml_translator candle_kernelProg
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib cfLib
 
 val _ = translation_extends "candle_kernelProg";
 
@@ -240,4 +240,3 @@ Proof
   \\ fs [foldl_char_cons]
 QED
 
-val _ = export_theory();

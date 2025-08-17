@@ -1,9 +1,11 @@
 (*
   Define a monad to make dataLang ASTs nicer to work with
 *)
-open preamble dataLangTheory dataSemTheory;
-
-val _ = new_theory"data_monad";
+Theory data_monad
+Ancestors
+  dataLang dataSem
+Libs
+  preamble
 
 Type M = ``:('c,'ffi) dataSem$state -> (v, v) result option # ('c,'ffi) dataSem$state``
 
@@ -279,4 +281,3 @@ Proof
   \\ rw [] \\ fs [data_safe_def]
 QED
 
-val _ = export_theory();

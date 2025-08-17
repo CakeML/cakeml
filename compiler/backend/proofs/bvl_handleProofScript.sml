@@ -1,12 +1,11 @@
 (*
   Correctness proof for bvl_handle
 *)
-open preamble bvl_handleTheory bvlSemTheory bvlPropsTheory;
-local open bvl_constProofTheory in end
-
-val _ = new_theory"bvl_handleProof";
-
-val _ = set_grammar_ancestry["bvlSem","bvl_handle","bvlProps"];
+Theory bvl_handleProof
+Ancestors
+  bvlSem bvl_handle bvlProps bvl_constProof[qualified]
+Libs
+  preamble
 
 Theorem can_raise_thm:
   (∀e env s (s:('a,'b) state).
@@ -881,4 +880,3 @@ Proof
   \\ metis_tac [compile_exp_code_labels, SUBSET_UNION, SUBSET_TRANS, UNION_SUBSET]
 QED
 
-val _ = export_theory();

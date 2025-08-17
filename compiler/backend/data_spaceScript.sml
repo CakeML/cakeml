@@ -4,9 +4,11 @@
   wordLang code. By lumping together MakeSpace operations we turn
   several calls to the memory allocator into a single efficient call.
 *)
-open preamble dataLangTheory;
-
-val _ = new_theory "data_space";
+Theory data_space
+Ancestors
+  dataLang
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -135,4 +137,3 @@ Definition compile_def:
   compile c = pMakeSpace (space c)
 End
 
-val _ = export_theory();

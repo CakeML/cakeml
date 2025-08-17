@@ -2,12 +2,12 @@
   Reformulates compile definition to expose the result of each internal
   compiler pass
 *)
+Theory backend_passes
+Ancestors
+  backend presLang
+Libs
+  preamble
 
-open preamble backendTheory presLangTheory
-
-val _ = new_theory"backend_passes";
-
-val _ = set_grammar_ancestry ["backend"];
 
 Datatype:
   any_prog = Source (ast$dec list)
@@ -522,4 +522,3 @@ Proof
   \\ pairarg_tac \\ gvs []
 QED
 
-val _ = export_theory();

@@ -2,11 +2,11 @@
   Implements a predicate to check whether an expression is pure, i.e. does not
   use memory or the FFI
 *)
-open bossLib semanticPrimitivesTheory fpValTreeTheory fpOptTheory
-     fpOptPropsTheory fpSemPropsTheory;
-open icingTacticsLib preamble;
-
-val _ = new_theory "pureExps";
+Theory pureExps
+Ancestors
+  semanticPrimitives fpValTree fpOpt fpOptProps fpSemProps
+Libs
+  icingTacticsLib preamble
 
 val semState_comp_eq = semanticPrimitivesTheory.state_component_equality;
 
@@ -466,4 +466,3 @@ Proof
   \\ fs[fpState_component_equality]
 QED
 
-val _ = export_theory();

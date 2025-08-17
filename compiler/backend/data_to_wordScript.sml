@@ -5,11 +5,12 @@
   addresses to machine words. This phase introduces the garbage
   collector and bignum library, among other things.
 *)
-open preamble wordLangTheory dataLangTheory word_to_wordTheory multiwordTheory
-     word_bignumTheory;
-local open backend_commonTheory word_depthTheory in end
-
-val _ = new_theory "data_to_word";
+Theory data_to_word
+Ancestors
+  wordLang dataLang word_to_word multiword word_bignum
+  backend_common[qualified] word_depth[qualified]
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -2798,4 +2799,3 @@ Proof
     \\ rewrite_tac [th_FF,AnyArith_call_tree_def,structure_le_def])
 QED
 
-val _ = export_theory();

@@ -3,9 +3,11 @@
   There is a more advanced inlining optimisation as part of
   clos_known.
 *)
-open preamble bvlTheory bvl_handleTheory;
-
-val _ = new_theory "bvl_inline";
+Theory bvl_inline
+Ancestors
+  bvl bvl_handle
+Libs
+  preamble
 
 (* tick_inline -- a function that inlines a function body *)
 
@@ -430,4 +432,3 @@ Definition compile_prog_def:
     compile_inc limit split_seq cut_size LN prog
 End
 
-val _ = export_theory();

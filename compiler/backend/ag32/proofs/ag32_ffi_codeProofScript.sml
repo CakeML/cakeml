@@ -2,12 +2,13 @@
   Verify the deep embeddings of the ag32 implementation of the CakeML
   basis FFI primitives.
 *)
-open preamble ag32_memoryTheory ag32_decompilerLib
-local open blastLib ag32_targetProofTheory in end
+Theory ag32_ffi_codeProof
+Ancestors
+  ag32_prog ag32_memory ag32_targetProof[qualified]
+Libs
+  preamble ag32_decompilerLib blastLib[qualified]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"ag32_ffi_codeProof";
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["DIV_NUMERAL_THM"]
@@ -4090,4 +4091,3 @@ Proof
   \\ rpt(IF_CASES_TAC \\ simp[])
 QED
 
-val _ = export_theory();

@@ -2,9 +2,11 @@
   Defines a datatype that is handy when keeping track of which dB vars
   are live when traversing a language using dB vars.
 *)
-open preamble;
-
-val _ = new_theory "db_vars";
+Theory db_vars
+Ancestors
+  sptree
+Libs
+  preamble
 
 Datatype:
   db_var_set = Empty
@@ -151,5 +153,3 @@ Theorem ALL_DISTINCT_vars_to_list:
 Proof
   fs [vars_to_list_def,ALL_DISTINCT_MAP_FST_toAList]
 QED
-
-val _ = export_theory();

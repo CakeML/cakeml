@@ -1,11 +1,13 @@
 (*
   Correctness proof for data_space
 *)
-open preamble dataLangTheory data_spaceTheory dataSemTheory dataPropsTheory;
+Theory data_spaceProof
+Ancestors
+  data_space dataSem dataProps
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory"data_spaceProof";
 
 val _ = temp_bring_to_front_overload"get_vars"{Name="get_vars",Thy="dataSem"};
 val _ = temp_bring_to_front_overload"cut_env"{Name="cut_env",Thy="dataSem"};
@@ -572,4 +574,3 @@ Proof
   \\ imp_res_tac get_code_labels_space
 QED
 
-val _ = export_theory();

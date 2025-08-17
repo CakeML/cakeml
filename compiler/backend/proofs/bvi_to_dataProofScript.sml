@@ -1,20 +1,14 @@
 (*
   Correctness proof for bvi_to_data
 *)
+Theory bvi_to_dataProof
+Ancestors
+  bvi_to_data bviSem bviProps dataSem dataProps data_simpProof
+  data_liveProof data_spaceProof
+Libs
+  preamble unwindLib
 
-open preamble
-     bvi_to_dataTheory
-     bviSemTheory bviPropsTheory
-     dataSemTheory dataPropsTheory
-     data_simpProofTheory
-     data_liveProofTheory
-     data_spaceProofTheory;
-open unwindLib
 
-val _ = new_theory"bvi_to_dataProof";
-
-val _ = set_grammar_ancestry["bvi_to_data", "bviSem", "bviProps", "dataSem",
-                             "dataProps"];
 val _ = temp_delsimps ["fromAList_def"]
 val _ = hide"tail";
 
@@ -2401,4 +2395,3 @@ Proof
   \\ simp[Abbr`e`]
 QED
 
-val _ = export_theory();

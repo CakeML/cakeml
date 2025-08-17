@@ -1,7 +1,11 @@
 (*
   Correctness proof for bvi_tailrec
 *)
-open preamble bviSemTheory bviPropsTheory bvi_tailrecTheory
+Theory bvi_tailrecProof
+Ancestors
+  bvi_tailrec bviProps bviSem
+Libs
+  preamble
 
 (* TODO
 
@@ -14,10 +18,6 @@ open preamble bviSemTheory bviPropsTheory bvi_tailrecTheory
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "bvi_tailrecProof";
-
-val _ = set_grammar_ancestry ["bvi_tailrec","bviProps","bviSem"];
 
 val find_code_def = bvlSemTheory.find_code_def;
 val s = mk_var("s",
@@ -2594,4 +2594,3 @@ Proof
   \\ simp[ADD1,LEFT_ADD_DISTRIB]
 QED
 
-val _ = export_theory();

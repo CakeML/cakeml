@@ -6,18 +6,13 @@
   large expressions are split into samller ones (in order to protect
   the register allocator from overly large inputs).
 *)
-open preamble bvlTheory bviTheory;
-open backend_commonTheory
-local open
-  bvl_inlineTheory
-  bvl_constTheory
-  bvl_handleTheory
-  bvi_letTheory
-  bvi_tailrecTheory
-  dataLangTheory
-in end;
-
-val _ = new_theory "bvl_to_bvi";
+Theory bvl_to_bvi
+Ancestors
+  bvl bvi backend_common bvl_inline[qualified]
+  bvl_const[qualified] bvl_handle[qualified] bvi_let[qualified]
+  bvi_tailrec[qualified] dataLang[qualified]
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -584,4 +579,3 @@ Definition bvl_to_bvi_compile_inc_all_def:
       (c, p)
 End
 
-val _ = export_theory();
