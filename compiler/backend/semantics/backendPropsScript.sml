@@ -2,9 +2,11 @@
   General definitions and theorems that are useful within the proofs
   about the compiler backend.
 *)
-open preamble
-
-val _ = new_theory"backendProps";
+Theory backendProps
+Ancestors
+  misc
+Libs
+  preamble
 
 Definition state_cc_def:
   state_cc f cc =
@@ -494,5 +496,3 @@ Theorem OPTION_MAP2_MAX_ASSOC:
 Proof
   Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs [MAX_DEF]
 QED
-
-val _ = export_theory();

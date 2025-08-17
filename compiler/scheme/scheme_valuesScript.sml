@@ -1,10 +1,11 @@
 (*
   Definition of Scheme values
 *)
-open preamble;
-open arithmeticTheory listTheory stringTheory;
-
-val _ = new_theory "scheme_values";
+Theory scheme_values
+Ancestors
+  arithmetic list string
+Libs
+  preamble
 
 (* Values in the source semantics are binary trees *)
 Datatype:
@@ -135,4 +136,3 @@ Definition otherwise_def[simp]:
 End
 *)
 
-val _ = export_theory();

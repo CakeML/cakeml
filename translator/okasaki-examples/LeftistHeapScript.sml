@@ -2,14 +2,14 @@
   This is an example of applying the translator to the Leftist
   Heap algorithm from Chris Okasaki's book.
 *)
-open preamble
-open bagTheory bagLib okasaki_miscTheory;
-open ml_translatorLib ListProgTheory;
+Theory LeftistHeap
+Ancestors
+  bag okasaki_misc ListProg
+Libs
+  preamble bagLib ml_translatorLib
 
 val fs = full_simp_tac (srw_ss ())
 val rw = srw_tac []
-
-val _ = new_theory "LeftistHeap"
 
 val _ = translation_extends "ListProg";
 
@@ -203,4 +203,3 @@ cases_on `h` >>
 rw []
 QED
 
-val _ = export_theory ();

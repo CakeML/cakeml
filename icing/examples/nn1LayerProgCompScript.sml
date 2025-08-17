@@ -4,9 +4,9 @@
 **)
 
 (* INCLUDES, do not change those *)
-open exampleLib;
-
-val _ = new_theory "nn1LayerProgComp";
+Theory nn1LayerProgComp
+Libs
+  exampleLib
 
 val _ = translation_extends "cfSupport";
 
@@ -112,4 +112,3 @@ End
 
 val x = define_benchmark theAST_def theAST_pre_def true;
 
-val _ = export_theory();

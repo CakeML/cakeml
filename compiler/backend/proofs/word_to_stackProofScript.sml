@@ -1,11 +1,21 @@
 (*
   Correctness proof for word_to_stack
 *)
+Theory word_to_stackProof
+Libs
+  preamble helperLib
+Ancestors
+  mllist
+  semanticsProps (* for extend_with_resource_limit *)
+  stackProps (* for extract_labels *)
+  wordProps stackSem wordSem word_to_stack
+Ancestors[ignore_grammar]
+  wordConvs parmove
+
+(* Set up ML bindings *)
 open preamble semanticsPropsTheory stackSemTheory wordSemTheory
      word_to_stackTheory wordPropsTheory wordConvsTheory stackPropsTheory
-     parmoveTheory helperLib mllistTheory;
-
-val _ = new_theory "word_to_stackProof";
+     parmoveTheory helperLib;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -14,12 +24,6 @@ val _ = temp_delsimps ["fromAList_def", "domain_union", "domain_insert",
                        "sptree.map_def", "sptree.lookup_rwts",
                        "sptree.insert_notEmpty","misc.max3_def"]
 
-val _ = set_grammar_ancestry [
-  "semanticsProps", (* for extend_with_resource_limit *)
-  "stackProps", (* for extract_labels *)
-  "wordProps",
-  "stackSem", "wordSem", "word_to_stack"
-]
 val _ = numLib.temp_prefer_num();
 
 val get_labels_def = stackSemTheory.get_labels_def;
@@ -504,7 +508,7 @@ local
     Induct \\ fs [LUPDATE_def] \\ rw []
     \\ Cases_on `m` \\ fs [LUPDATE_def])
 in
-  Theorem DROP_LUPDATE:
+Theorem DROP_LUPDATE:
      !n h m xs.
         DROP n (LUPDATE h m xs) =
         if m < n then DROP n xs else LUPDATE h (m - n) (DROP n xs)
@@ -12002,5 +12006,3 @@ Proof
   drule_all ALOOKUP_ALL_DISTINCT_MEM>>
   strip_tac>>res_tac
 QED
-
-val _ = export_theory();

@@ -3,9 +3,11 @@
   type inferencer. This file also acts as a test of cv_compute
   evaluation of the type inferencer.
 *)
-open preamble basisProgTheory infer_cvTheory cv_transLib;
-
-val _ = new_theory "basisTypeCheck"
+Theory basisTypeCheck
+Ancestors
+  basisProg infer_cv
+Libs
+  preamble cv_transLib
 
 val _ = cv_auto_trans inferTheory.init_config_def;
 
@@ -32,4 +34,3 @@ val print_types = let
   in () end
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
-val _ = export_theory ();

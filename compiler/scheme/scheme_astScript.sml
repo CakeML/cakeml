@@ -1,10 +1,11 @@
 (*
   AST of Scheme
 *)
-open preamble;
-open mlstringTheory;
-
-val _ = new_theory "scheme_ast";
+Theory scheme_ast
+Ancestors
+  mlstring
+Libs
+  preamble
 
 Type senv = “:(mlstring |-> num)”
 Type loc = “:num”
@@ -135,4 +136,3 @@ Proof
   >> simp[static_scope_def]
 QED
 
-val _ = export_theory();

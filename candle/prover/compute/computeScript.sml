@@ -1,12 +1,13 @@
 (*
   Implementation of the compute primitive.
  *)
+Theory compute
+Ancestors
+  holSyntax holSyntaxExtra holKernel holKernelProof ml_monadBase
+  compute_syntax compute_eval compute_exec
+Libs
+  preamble
 
-open preamble holSyntaxTheory holSyntaxExtraTheory holKernelTheory
-     holKernelProofTheory ml_monadBaseTheory;
-open compute_syntaxTheory compute_evalTheory compute_execTheory;
-
-val _ = new_theory "compute";
 
 val _ = numLib.temp_prefer_num ();
 
@@ -283,4 +284,3 @@ Definition compute_def:
         od
 End
 
-val _ = export_theory ();

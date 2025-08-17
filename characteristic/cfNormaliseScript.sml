@@ -2,15 +2,12 @@
   Defines the normalise_prog function which puts an arbitrary program
   in A-normal form.
 *)
-open preamble
-open set_sepTheory helperLib ml_translatorTheory ConseqConv
-open semanticPrimitivesTheory cfHeapsTheory
-open cfHeapsBaseLib cfStoreTheory
-open cfTacticsBaseLib;
-open evaluateTheory
-open ASCIInumbersTheory
-
-val _ = new_theory "cfNormalise"
+Theory cfNormalise
+Ancestors
+  set_sep ml_translator semanticPrimitives cfHeaps cfStore
+  evaluate ASCIInumbers
+Libs
+  preamble helperLib ConseqConv cfHeapsBaseLib cfTacticsBaseLib
 
 (*------------------------------------------------------------------*)
 (** The [cf] function assumes that programs are in "normal form"
@@ -524,4 +521,3 @@ End
 
 *)
 
-val _ = export_theory ()

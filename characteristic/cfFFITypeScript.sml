@@ -2,9 +2,11 @@
   Defines a type that can be used for embedding different FFI models
   for parts of the FFI state.
 *)
-open preamble;
-
-val _ = new_theory "cfFFIType"
+Theory cfFFIType
+Ancestors
+  string
+Libs
+  preamble
 
 (*
 
@@ -290,5 +292,3 @@ val _ = map delete_binding ["ffi_app_def","Num_def","Str_def",
           "Cons_def","List_def","Stream_def","Fun_def","Inner_def"];
 
 val _ = delete_const "ffi_app";
-
-val _ = export_theory()

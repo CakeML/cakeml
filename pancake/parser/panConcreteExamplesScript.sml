@@ -3,11 +3,11 @@
  * 9th May 2023: Updated with function declarations
  * March 2024: Updated with shared memory instructions
  *)
-open HolKernel Parse boolLib bossLib stringLib numLib intLib;
-open preamble panPtreeConversionTheory;
-open helperLib;
-
-val _ = new_theory "panConcreteExamples";
+Theory panConcreteExamples
+Ancestors
+  panPtreeConversion
+Libs
+  stringLib numLib intLib preamble helperLib
 
 local
   val f =
@@ -526,4 +526,3 @@ val annots = annot_fun_lex |> concl |> rhs |> listSyntax.dest_list |> fst
   |> filter (can (find_term (can (match_term ``AnnotCommentT``))))
 val has_annot = assert (not o null) annots;
 
-val _ = export_theory();

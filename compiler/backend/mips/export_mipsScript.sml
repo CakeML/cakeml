@@ -1,9 +1,11 @@
 (*
   Define the format of the compiler-generated .S file for MIPS
 *)
-open preamble exportTheory
-
-val () = new_theory "export_mips";
+Theory export_mips
+Ancestors
+  export
+Libs
+  preamble
 
 (*
 CakeML expects 4 arguments in order:
@@ -191,4 +193,3 @@ Definition mips_export_def:
       else List []))))
 End
 
-val _ = export_theory ();

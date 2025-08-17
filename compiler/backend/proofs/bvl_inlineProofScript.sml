@@ -1,17 +1,15 @@
 (*
   Correctness proof for bvi_inline
 *)
+Theory bvl_inlineProof
+Ancestors
+  bvlSem bvlProps bvl_inline backendProps
+  bvl_handleProof[qualified]
+Libs
+  preamble
 
-open preamble backendPropsTheory
-     bvlSemTheory bvlPropsTheory
-     bvl_inlineTheory
-local open bvl_handleProofTheory in end
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "fromAList_def"]
-
-val _ = new_theory"bvl_inlineProof";
-
-val _ = set_grammar_ancestry [ "bvlSem", "bvlProps", "bvl_inline" ];
 
 val drule = old_drule
 
@@ -2157,4 +2155,3 @@ Proof
   \\ fs [o_DEF, toList_def, toListA_def]
 QED
 
-val _ = export_theory();

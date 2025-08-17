@@ -2,13 +2,13 @@
   Correctness proofs for the expression rewriting function
   Shows that matchesExpr e p = SOME s ==> appExpr p s = SOME e
 *)
-open icing_rewriterTheory source_to_source2Theory fpOptTheory fpOptPropsTheory
-     fpSemPropsTheory semanticPrimitivesTheory evaluateTheory
-     semanticsTheory semanticsPropsTheory floatToRealTheory
-     evaluatePropsTheory fpSemPropsTheory;
-open preamble;
-
-val _ = new_theory "icing_rewriterProofs";
+Theory icing_rewriterProofs
+Ancestors
+  icing_rewriter source_to_source2 fpOpt fpOptProps fpSemProps
+  semanticPrimitives evaluate semantics semanticsProps
+  floatToReal evaluateProps fpSemProps
+Libs
+  preamble
 
 Theorem isFpArithExp_matched_evaluates:
   (∀ e env.
@@ -464,4 +464,3 @@ Proof
   \\ res_tac \\ fs[]
 QED
 
-val _ = export_theory();

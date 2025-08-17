@@ -1,9 +1,11 @@
 (*
   Formalisation of normalised pseudo-boolean constraints
 *)
-open preamble pbcTheory;
-
-val _ = new_theory "npbc";
+Theory npbc
+Ancestors
+  pbc
+Libs
+  preamble
 
 val _ = numLib.temp_prefer_num();
 
@@ -2907,4 +2909,3 @@ Definition weaken_spt_def:
     (delete v l, n-Num(ABS c))
 End
 
-val _ = export_theory();

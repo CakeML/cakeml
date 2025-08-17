@@ -1,14 +1,14 @@
 (*
   Theorems about values from the Candle kernel program
  *)
+Theory candle_kernel_vals
+Ancestors
+  ml_translator ml_hol_kernel_funsProg candle_kernelProg
+  semanticPrimitives semanticPrimitivesProps namespaceProps
+  evaluateProps ast_extras holKernelProof evaluate perms
+Libs
+  preamble
 
-open preamble;
-open ml_translatorTheory ml_hol_kernel_funsProgTheory candle_kernelProgTheory;
-open semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     namespacePropsTheory evaluatePropsTheory ast_extrasTheory
-     holKernelProofTheory evaluateTheory permsTheory;
-
-val _ = new_theory "candle_kernel_vals";
 
 val _ = (max_print_depth := 10);
 
@@ -1702,4 +1702,3 @@ Proof
   \\ fs [TYPE_TYPE_def,TERM_TYPE_def,THM_TYPE_def]
 QED
 
-val _ = export_theory ();

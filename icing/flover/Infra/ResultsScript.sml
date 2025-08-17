@@ -1,10 +1,11 @@
 (**
   A simple Result datatype to ease some implementations
 **)
-open stringTheory;
-open preambleFloVer;
-
-val _ = new_theory "Results";
+Theory Results
+Ancestors
+  string
+Libs
+  preambleFloVer
 
 Datatype:
   result = Succes 'a | Fail string | FailDet string 'a
@@ -31,4 +32,3 @@ End
 
 val _ = export_rewrites ["result_return_def", "result_bind_def", "result_ignore_bind_def"]
 
-val _ = export_theory();

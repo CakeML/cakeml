@@ -1,14 +1,11 @@
 (*
   Code generator for Scheme to CakeML compiler
 *)
-open preamble;
-open astTheory;
-open scheme_astTheory;
-
-open semanticPrimitivesTheory;
-open namespaceTheory;
-
-val _ = new_theory "scheme_to_cake";
+Theory scheme_to_cake
+Ancestors
+  ast scheme_ast semanticPrimitives namespace
+Libs
+  preamble
 
 Definition lit_to_ml_val_def:
   lit_to_ml_val (LitPrim p) = Con (SOME $ Short "Prim") [case p of
@@ -549,4 +546,3 @@ EVAL “cps_transform $ OUTR $ parse_to_ast
 "(cons 1 2)"”
 *)
 
-val _ = export_theory();

@@ -30,11 +30,11 @@
 
   Shape checks: TODO
 *)
-
-
-open preamble errorLogMonadTheory panLangTheory mlmapTheory mlintTheory mllistTheory;
-
-val _ = new_theory "panStatic";
+Theory panStatic
+Libs
+  preamble
+Ancestors
+  errorLogMonad panLang mlmap mlint mllist
 
 
 val _ = monadsyntax.enable_monadsyntax();
@@ -923,5 +923,3 @@ Definition static_check_def:
       static_check_funs fnames funs
     od
 End
-
-val _ = export_theory ();

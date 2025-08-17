@@ -128,13 +128,13 @@ fun alloc_all_raw alg graphs_raw =
 (*Int ML sptree to HOL num sptree*)
 fun mk_num_sptree t =
  case t of
-    Ln => mk_ln ``:num``
+    Ln => mk_ln ``:num$num``
   | Ls a => mk_ls (term_of_int a)
   | Bn (Ln, t2) =>
        let
           val tm = mk_num_sptree t2
        in
-          mk_bn (mk_ln ``:num``, tm)
+          mk_bn (mk_ln ``:num$num``, tm)
        end
   | Bn (t1, Ln) =>
        let
@@ -145,7 +145,7 @@ fun mk_num_sptree t =
   | Bn (t1, t2) => mk_bn (mk_num_sptree t1, mk_num_sptree t2)
   | Bs (t1, a, t2) =>
        let
-          val ln = mk_ln ``:num``
+          val ln = mk_ln ``:num$num``
           val tm1 = if t1 = Ln then ln else mk_num_sptree t1
           val tm2 = if t2 = Ln then ln else mk_num_sptree t2
        in
@@ -158,7 +158,7 @@ fun get_oracle_raw alg t =
   in
     listSyntax.mk_list
       (map (optionSyntax.mk_some o mk_num_sptree) cols,
-       ``:num num_map option``)
+       ``:num$num sptree$spt option$option``)
   end;
 
 (* --- old version --- *)
@@ -335,7 +335,7 @@ fun get_oracle alg t =
       val alloc = listSyntax.mk_list (
       map
         (optionSyntax.mk_some  o mk_num_sptree) cols,
-        ``:num num_map option``) in
+        ``:num$num sptree$spt option$option``) in
       alloc
   end
 

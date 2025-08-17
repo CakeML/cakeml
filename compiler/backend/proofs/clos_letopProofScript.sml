@@ -1,15 +1,16 @@
 (*
   Correctness proof for clos_letop
 *)
+Theory clos_letopProof
+Ancestors
+  closProps clos_letop closSem closLang backendProps
+Libs
+  preamble
 
-open preamble closPropsTheory clos_letopTheory closSemTheory
-     closLangTheory backendPropsTheory
 
 fun bump_assum pat = qpat_x_assum pat assume_tac;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "clos_letopProof";
 
 Overload let_op = ``clos_letop$let_op``
 Overload var_list = ``clos_letop$var_list``
@@ -842,4 +843,3 @@ Proof
   \\ res_tac \\ fs[]
 QED
 
-val _ = export_theory();

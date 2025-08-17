@@ -2,12 +2,11 @@
   Definitions of semantic primitives (e.g., values, and functions for doing
   primitive operations) used in the semantics.
 *)
-open HolKernel Parse boolLib bossLib;
-open miscTheory astTheory namespaceTheory ffiTheory fpValTreeTheory fpSemTheory realOpsTheory;
+Theory semanticPrimitives
+Ancestors
+  misc ast namespace ffi fpValTree fpSem realOps
 
 val _ = numLib.temp_prefer_num();
-
-val _ = new_theory "semanticPrimitives"
 
 (* Constructors and exceptions need unique identities, which we represent by stamps. *)
 Datatype:
@@ -1338,4 +1337,3 @@ End
 val _ = set_fixity "+++" (Infixl 480);
 Overload "+++" = “extend_dec_env”;
 
-val _ = export_theory()

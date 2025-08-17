@@ -1,13 +1,15 @@
 (*
   Filter case study from CASE.
 *)
-open preamble basis MapProgTheory ml_translatorLib ml_progLib basisFunctionsLib ml_translatorTheory
-     charsetTheory regexpTheory regexp_parserTheory regexp_compilerTheory cfTacticsBaseLib
-     cfDivTheory cfDivLib;
+Theory filterProg
+Ancestors
+  MapProg ml_translator charset regexp regexp_parser
+  regexp_compiler cfDiv
+Libs
+  preamble basis ml_translatorLib ml_progLib basisFunctionsLib
+  cfTacticsBaseLib cfDivLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "filterProg";
 
 (*---------------------------------------------------------------------------*)
 (* The regexp wrt. which we're filtering                                     *)
@@ -1530,4 +1532,3 @@ QED
 val _ = astToSexprLib.write_ast_to_file "../program.sexp" prog;
 *)
 
-val _ = export_theory ();

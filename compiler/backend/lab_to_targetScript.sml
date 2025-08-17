@@ -5,9 +5,11 @@
   all instructions according to the instruction encoder stored in the
   compiler configuration.
 *)
-open preamble labLangTheory lab_filterTheory ffiTheory;
-
-val _ = new_theory"lab_to_target";
+Theory lab_to_target
+Ancestors
+  labLang lab_filter ffi
+Libs
+  preamble
 
 (* Number of bytes per FFI *)
 Definition ffi_offset_def:
@@ -534,4 +536,3 @@ Definition inc_config_to_config_def:
   |>
 End
 
-val _ = export_theory();

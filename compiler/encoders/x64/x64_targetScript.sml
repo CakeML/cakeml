@@ -1,10 +1,11 @@
 (*
   Define the target compiler configuration for x64.
 *)
-open HolKernel Parse boolLib bossLib
-open asmLib x64_stepTheory;
-
-val () = new_theory "x64_target"
+Theory x64_target
+Ancestors
+  asmProps x64_step
+Libs
+  asmLib
 
 val () = wordsLib.guess_lengths()
 
@@ -261,5 +262,3 @@ Theorem x64_config =
   x64_config
 Theorem x64_asm_ok =
   x64_asm_ok
-
-val () = export_theory ()
