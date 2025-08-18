@@ -2427,6 +2427,74 @@ Proof
   \\ dxrule_all eval_exp_var_eq \\ strip_tac \\ gvs []
 QED
 
+Triviality strict_locals_ok_swap_imp:
+  (∀n ty. MEM (n,ty) ls ⇒ ALOOKUP xs n = ALOOKUP ys n)
+  ⇒
+  strict_locals_ok ls xs ⇒ strict_locals_ok ls ys
+Proof
+  simp [strict_locals_ok_def]
+  \\ rpt strip_tac
+  \\ last_x_assum drule \\ strip_tac
+  \\ last_x_assum drule \\ strip_tac
+  \\ gvs []
+  \\ first_assum $ irule_at (Pos last) \\ simp []
+QED
+
+Triviality strict_locals_ok_swap:
+  (∀n ty. MEM (n,ty) ls ⇒ ALOOKUP xs n = ALOOKUP ys n)
+  ⇒
+  (strict_locals_ok ls xs ⇔ strict_locals_ok ls ys)
+Proof
+  metis_tac [strict_locals_ok_swap_imp]
+QED
+
+Triviality strict_locals_ok_cons_lr:
+  strict_locals_ok ((n,ty)::ls) ((n,SOME v)::rs) ⇒
+  v ∈ all_values ty ∧ strict_locals_ok ls rs ∧ ¬MEM n (MAP FST ls)
+Proof
+  gvs [strict_locals_ok_def]
+  \\ rpt strip_tac
+  >- (last_x_assum $ qspecl_then [‘n’, ‘ty’] mp_tac \\ simp [])
+  \\ rpt strip_tac
+  \\ rename [‘MEM (n', ty') _’]
+  \\ last_x_assum $ qspecl_then [‘n'’, ‘ty'’] mp_tac \\ simp []
+  \\ IF_CASES_TAC \\ gvs []
+  \\ drule MEM_MAP_FST \\ simp []
+QED
+
+Triviality strict_locals_ok_cons_rl:
+  v ∈ all_values ty ∧ strict_locals_ok ls rs ∧ ¬MEM n (MAP FST ls) ⇒
+  strict_locals_ok ((n,ty)::ls) ((n,SOME v)::rs)
+Proof
+  simp [strict_locals_ok_def]
+  \\ rpt strip_tac \\ gvs []
+  \\ IF_CASES_TAC \\ gvs []
+  \\ drule MEM_MAP_FST \\ simp []
+QED
+
+Triviality strict_locals_ok_cons:
+  strict_locals_ok ((n,ty)::ls) ((n,SOME v)::rs) ⇔
+    v ∈ all_values ty ∧ strict_locals_ok ls rs ∧ ¬MEM n (MAP FST ls)
+Proof
+  metis_tac [strict_locals_ok_cons_rl, strict_locals_ok_cons_lr]
+QED
+
+Triviality strict_locals_ok_zip_some:
+  ∀ls vs.
+    LENGTH vs = LENGTH ls ⇒
+    (strict_locals_ok ls (ZIP (MAP FST ls, MAP SOME vs)) ⇔
+       ALL_DISTINCT (MAP FST ls) ∧
+       LIST_REL (λv ty. v ∈ all_values ty) vs (MAP SND ls))
+Proof
+  Induct \\ gvs []
+  >- (simp [strict_locals_ok_def])
+  \\ namedCases ["n ty"]
+  \\ namedCases ["", "v vs'"] \\ gvs []
+  \\ strip_tac
+  \\ last_x_assum drule \\ strip_tac
+  \\ simp [strict_locals_ok_cons, AC CONJ_COMM CONJ_ASSOC]
+QED
+
 Theorem stmt_wp_sound:
   ∀m reqs stmt post ens decs locals.
     stmt_wp m reqs stmt post ens decs locals ⇒
@@ -2639,7 +2707,23 @@ Proof
       \\ DEP_ONCE_REWRITE_TAC [MEM_MAP_FST_ALOOKUP] \\ simp [MAP_ZIP]
       \\ DEP_ONCE_REWRITE_TAC [ALOOKUP_ZIP_REPLICATE] \\ simp [])
     >-
-     (simp [Abbr‘st1’] \\ cheat)
+     (simp [Abbr‘st1’]
+      \\ ‘∀n ty. MEM (n,ty) mspec.ins ⇒
+                 ALOOKUP new_l n =
+                 ALOOKUP (ZIP (MAP FST mspec.ins,MAP SOME in_vs)) n’ by
+        (rpt strip_tac
+         \\ simp [Abbr ‘new_l’]
+         \\ DEP_ONCE_REWRITE_TAC [alookup_distinct_reverse] \\ simp [MAP_ZIP]
+         \\ simp [ALOOKUP_APPEND]
+         \\ CASE_TAC
+         \\ simp [ALOOKUP_NONE] \\ simp [MAP_ZIP]
+         \\ drule MEM_MAP_FST
+         \\ gvs [ALL_DISTINCT_APPEND])
+      \\ drule strict_locals_ok_swap \\ simp [] \\ disch_then kall_tac
+      \\ simp [strict_locals_ok_zip_some]
+      \\ conj_tac
+      >- (full_simp_tac std_ss [ALL_DISTINCT_APPEND])
+      \\ drule_all list_rel_eval_exp_get_types \\ simp [])
     >-
      (rewrite_tac [GSYM eval_true_conj_every]
       \\ qpat_x_assum ‘eval_true st env (Let _ (conj mspec.reqs))’ mp_tac
