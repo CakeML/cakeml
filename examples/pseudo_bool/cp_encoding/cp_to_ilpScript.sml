@@ -1087,7 +1087,7 @@ Definition union_dom_def:
     MAP (λX. list_to_num_set $ MAP intnum $ domlist bnd X) Xs
 End
 
-Theorem MEM_subspt_foldl_union_aux:
+Theorem mem_subspt_foldl_union_aux:
   MEM (t:num_set) ls ⇒ ∀e. subspt t (FOLDL union e ls)
 Proof
   Induct_on ‘ls’
@@ -1104,10 +1104,10 @@ Proof
 QED
 
 (* to be simplified using Q.SPEC *)
-Theorem MEM_subspt_foldl_union:
+Theorem mem_subspt_foldl_union:
   MEM (t:num_set) ls ⇒ subspt t (FOLDL union LN ls)
 Proof
-  simp[MEM_subspt_foldl_union_aux]
+  simp[mem_subspt_foldl_union_aux]
 QED
 
 Definition submem_def:
@@ -1125,14 +1125,9 @@ Theorem subspt_submem:
   subspt (list_to_num_set ls) t ⇒ submem ls (MAP FST $ toSortedAList t)
 Proof
   simp[subspt_domain,submem_def]>>
-  strip_tac>>
-  simp[Once $ GSYM domain_list_to_num_set]>>
-  rw[MEM_MAP]>>
-  qrefine ‘(z,v)’>>
-  simp[MEM_toSortedAList]>>
-  fs[SUBSET_DEF]>>
-  last_x_assum $ drule_then assume_tac>>
-  fs[domain_lookup]
+  rw[Once $ GSYM domain_list_to_num_set,MEM_MAP]>>
+  qrefine ‘(a,b)’>>
+  fs[MEM_toSortedAList,SUBSET_DEF,domain_lookup]
 QED
 
 Theorem map_submem:
@@ -1167,7 +1162,7 @@ Proof
   irule invfun_submem>>
   goal_assum $ drule_at Any>>
   irule subspt_submem>>
-  irule MEM_subspt_foldl_union>>
+  irule mem_subspt_foldl_union>>
   simp[MEM_MAP]>>
   metis_tac[]
 QED
