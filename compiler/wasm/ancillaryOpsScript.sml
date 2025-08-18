@@ -1,6 +1,5 @@
 (*
-  Some extra operations
-  No specs yet
+  Some supporting operations
 *)
 
 Theory      ancillaryOps
@@ -272,18 +271,33 @@ QED
 
 (* REPLACE ASKYK *)
 Definition load_def:
-  load (n:num) (i:word32) (offs:α word) (bs:byteSeq) : (γ word # bool) =
-    let ea = (w2n i + w2n offs) in
-      ( word_of_bytes F 0w $ TAKE n $ DROP ea bs
-      , ea + n <= LENGTH bs )
+  load (n:num) (i:word32) (offs:α word) (bs:byte list) : (γ word # bool) =
+    let ea = w2n i + w2n offs
+    in
+    ( word_of_bytes F 0w $ TAKE n $ DROP ea bs
+    , ea + n <= LENGTH bs )
 End
 
 Definition store_def:
-  store (x:α word) (offs:β word) (algn:γ word) (m:byte list) : (byte list # bool) =
-    let oa = (w2n offs) * (w2n algn) in
-    let n = dimindex(:α) DIV 8
+  store (payload:α word) (i:word32) (offs:β word) (m:byte list) : (byte list # bool) =
+    let ea = w2n i + w2n offs   in
+    let n  = dimindex(:α) DIV 8
     in
-    ( TAKE oa m  ⧺  lend x  ⧺  DROP (oa + n) m
-    , oa + n ≤ LENGTH m)
+    ( TAKE ea m  ⧺  word_to_bytes payload F  ⧺  DROP (ea + n) m
+    , ea + n ≤ LENGTH m)
 End
+
+Theorem load_store:
+  ∀n x i ofs m m'.
+    n = dimindex(:α) DIV 8 ∧
+    store (x:α word) i ofs m = (m',T)
+    ⇒
+    load n i ofs m'  = (x,T)
+Proof
+  rpt gen_tac
+  \\ gvs[store_def, load_def]
+  \\ rpt strip_tac
+  \\
+  cheat
+QED
 
