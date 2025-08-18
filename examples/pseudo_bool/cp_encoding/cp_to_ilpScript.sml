@@ -1060,34 +1060,13 @@ Theorem numint_intnum:
 Proof
   simp[combinTheory.I_EQ_IDABS]>>
   cong_tac NONE>>
-  simp[o_DEF]>>
-  simp[intnum_def]>>
+  simp[o_DEF,intnum_def]>>
   IF_CASES_TAC
   >-simp[numint_def]
   >-(
-    IF_CASES_TAC
-    >-(
-      simp[numint_def]>>
-      IF_CASES_TAC
-      >-(
-        fs[arithmeticTheory.EVEN_MOD2]>>
-        intLib.ARITH_TAC
-      )
-      >-(
-        simp[integerTheory.INT_NEG_EQ]>>
-        qmatch_asmsub_abbrev_tac ‘n < 0’>>
-        ‘-n > 0’ by intLib.ARITH_TAC>>
-        qmatch_asmsub_abbrev_tac ‘m > 0’>>
-        ‘Num m > 0’ by intLib.ARITH_TAC>>
-        intLib.ARITH_TAC
-      )
-    )
-    >-(
-      gs[GSYM integerTheory.int_gt,not_gt_le]>>
-      simp[numint_def]>>
-      simp[arithmeticTheory.EVEN_DOUBLE]
-    )
-  )
+    IF_CASES_TAC>>
+    simp[numint_def]>>
+    intLib.ARITH_TAC)
 QED
 
 Definition numset_to_intlist_def:
