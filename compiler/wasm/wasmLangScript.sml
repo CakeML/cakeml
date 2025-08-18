@@ -291,8 +291,8 @@ Datatype: func =
 End
 
 Datatype: global =
-  <| gtype: globaltype
-   ; ginit: expr
+  <| gtype : globaltype
+   ; ginit : expr
    |>
 End
 
