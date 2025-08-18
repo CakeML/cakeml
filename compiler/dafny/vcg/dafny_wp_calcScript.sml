@@ -2378,7 +2378,7 @@ Proof
 QED
 
 Triviality locals_unique_types:
-  locals_ok locals st.locals ∧ MEM (n,ty) locals ∧ MEM (n,ty') locals ⇒
+  locals_ok locals st_locals ∧ MEM (n,ty) locals ∧ MEM (n,ty') locals ⇒
   ty' = ty
 Proof
   simp [locals_ok_def]
@@ -2396,6 +2396,35 @@ Proof
   \\ gen_tac
   \\ Cases \\ gvs []
   \\ IF_CASES_TAC \\ gvs []
+QED
+
+Triviality locals_ok_restore_caller:
+  locals_ok locals st.locals ⇒ locals_ok locals (restore_caller st' st).locals
+Proof
+  simp [locals_ok_def, restore_caller_def]
+QED
+
+Triviality eval_exp_var_eq:
+  eval_exp st env (Var n) v' ∧ eval_exp st env (Var n) v ⇒ v' = v
+Proof
+  rpt strip_tac
+  \\ gvs [eval_exp_def, evaluate_exp_def, AllCaseEqs()]
+QED
+
+Triviality vars_have_type_all_values:
+  ∀vars vals.
+    EVERY (eval_true st env) (vars_have_types vars) ∧
+    LIST_REL (eval_exp st env) (MAP Var (MAP FST vars)) vals ⇒
+    LIST_REL (λv ty. v ∈ all_values ty) vals (MAP SND vars)
+Proof
+  Induct \\ gvs [PULL_EXISTS]
+  \\ namedCases ["n ty"]
+  \\ qx_genl_tac [‘val’, ‘vals’]
+  \\ rpt strip_tac
+  \\ gvs [vars_have_types_def]
+  \\ drule eval_true_hastype_imp
+  \\ strip_tac
+  \\ dxrule_all eval_exp_var_eq \\ strip_tac \\ gvs []
 QED
 
 Theorem stmt_wp_sound:
@@ -2555,7 +2584,6 @@ Proof
       \\ disch_then $ qx_choosel_then [‘val’, ‘lhs_ty’] mp_tac
       \\ strip_tac \\ gvs []
       \\ drule locals_unique_types
-      (* TODO explicitly name these values *)
       \\ disch_then $ qspecl_then [‘ty’, ‘lhs_ty’, ‘n’] mp_tac \\ simp [])
     \\ irule $ iffLR eval_exp_freevars
     \\ qexists_tac ‘ZIP (ret_names,MAP SOME vs) ++ st.locals’
@@ -2736,7 +2764,23 @@ Proof
   \\ conj_tac >- (unabbrev_all_tac \\ fs [restore_caller_def])
   \\ conj_tac >- (unabbrev_all_tac \\ fs [restore_caller_def])
   \\ conj_tac >-
-   (cheat)
+   (gvs []
+    \\ drule ALOOKUP_locals_ok_eq \\ simp [] \\ disch_then kall_tac
+    \\ irule locals_ok_append_right \\ simp [MAP_ZIP]
+    \\ simp [Abbr ‘st3’]
+    \\ irule_at (Pos last) locals_ok_restore_caller \\ simp []
+    \\ qx_genl_tac [‘n’, ‘ty’]
+    \\ strip_tac \\ gvs []
+    \\ qrefine ‘SOME val’
+    \\ simp [ALOOKUP_ZIP_MAP_SOME]
+    \\ drule_all_then assume_tac list_rel_eval_exp_get_types
+    \\ drule_all_then assume_tac get_types_var
+    \\ drule_all vars_have_type_all_values \\ strip_tac
+    \\ drule_all lookup_ret_name
+    \\ disch_then $ qx_choosel_then [‘val’, ‘lhs_ty’] mp_tac
+    \\ strip_tac \\ gvs []
+    \\ rev_drule locals_unique_types
+    \\ disch_then $ qspecl_then [‘ty’, ‘lhs_ty’, ‘n’] mp_tac \\ simp [])
   \\ rewrite_tac [GSYM eval_true_conj_every]
   \\ rewrite_tac [eval_true_def]
   \\ irule (iffLR eval_exp_swap_locals_alt)
