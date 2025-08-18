@@ -272,13 +272,10 @@ QED
 
 (* REPLACE ASKYK *)
 Definition load_def:
-  load (n:num) (offs:α word) (algn:β word) (bs:byteSeq) : (γ word # bool) =
-    let ofs = w2n offs in
-    let alg = w2n algn in
-    let bs' = DROP (ofs * alg) bs in
-    case unlend bs' of
-    | NONE       => (0w,F)
-    | SOME (v,_) => (v ,T)
+  load (n:num) (i:word32) (offs:α word) (bs:byteSeq) : (γ word # bool) =
+    let ea = (w2n i + w2n offs) in
+      ( word_of_bytes F 0w $ TAKE n $ DROP ea bs
+      , ea + n <= LENGTH bs )
 End
 
 Definition store_def:
