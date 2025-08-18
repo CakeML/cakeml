@@ -1,8 +1,7 @@
 WebAssembly backend for CakeML
 
 [ancillaryOpsScript.sml](ancillaryOpsScript.sml):
-Some extra operations
-No specs yet
+Some supporting operations
 
 [end-to-end](end-to-end):
 Connect stackLang-to-WASM to rest of CakeML compiler
