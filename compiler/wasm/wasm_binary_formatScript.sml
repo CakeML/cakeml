@@ -1,5 +1,6 @@
 (*
   En- & De- coding between CWasm 1.0 AST & Wasm's binary format
+  14 cheats
 *)
 
 Theory      wasm_binary_format
@@ -68,8 +69,8 @@ End
 Definition enc_vector_def:
   enc_vector (encdr:α -> byteSeq) (xs:α list) : byteSeq option =
     let n = LENGTH xs in
-    if gt2_32 n then NONE else
-
+    if gt2_32 n then NONE
+    else
     let encxs = enc_list encdr xs in
     SOME $ enc_u32 (n2w n) ++ encxs
 End
@@ -77,8 +78,8 @@ End
 Definition enc_vector_opt_def:
   enc_vector_opt (encdr:α -> byteSeq option) (xs:α list) : byteSeq option =
     let n = LENGTH xs in
-    if gt2_32 n then NONE else
-
+    if gt2_32 n then NONE
+    else
     case enc_list_opt encdr xs of NONE=>NONE| SOME encxs =>
     SOME $ enc_u32 (n2w n) ++ encxs
 End
@@ -104,8 +105,8 @@ End
 
 Definition dec_valtype_def:
   dec_valtype ([]:byteSeq) : ((mlstring + valtype) # byteSeq) = emErr "dec_valtype" ∧
-  dec_valtype (b::bs) = let failure = error (b::bs) "[dec_valtype]" in
-
+  dec_valtype (b::bs) = let failure = error (b::bs) "[dec_valtype]"
+  in
   if b = 0x7Fw then (INR $ Tnum   Int W32 ,bs) else
   if b = 0x7Ew then (INR $ Tnum   Int W64 ,bs) else
   failure
@@ -124,8 +125,8 @@ End
 
 Definition dec_functype_def:
   dec_functype ([]:byteSeq) : (mlstring + functype) # byteSeq = emErr "dec_functype" ∧
-  dec_functype (b::bs) = let failure = error (b::bs) "[dec_functype]" in
-
+  dec_functype (b::bs) = let failure = error (b::bs) "[dec_functype]"
+  in
   if b ≠ 0x60w then failure else
   case dec_vector dec_valtype bs of (INL err, es) =>failure| (INR argTs,cs) =>
   case dec_vector dec_valtype cs of (INL err, es) =>failure| (INR resTs,rs) =>
@@ -142,8 +143,8 @@ End
 
 Definition dec_limits_def:
   dec_limits ([]:byteSeq) : (mlstring + limits) # byteSeq = emErr "dec_limits" ∧
-  dec_limits (b::bs) = let failure = error (b::bs) "[dec_limits]" in
-
+  dec_limits (b::bs) = let failure = error (b::bs) "[dec_limits]"
+  in
   if b = 0x00w then case dec_u32  bs of NONE=>failure| SOME (mn   ,rs) => (INR $ Lunb mn   , rs) else
   if b = 0x01w then case dec_2u32 bs of NONE=>failure| SOME (mn,mx,rs) => (INR $ Lwmx mn mx, rs) else
   failure
@@ -159,8 +160,8 @@ End
 
 Definition dec_globaltype_def:
   dec_globaltype ([]:byteSeq) : ((mlstring + globaltype) # byteSeq) = emErr "dec_global" ∧
-  dec_globaltype bs = let failure = error bs "[dec_global]" in
-
+  dec_globaltype bs = let failure = error bs "[dec_global]"
+  in
   case dec_valtype bs of (INL _,_) => failure     | (INR vt, cs) =>
   case cs             of [] => emErr "dec_global" |  b  ::   rs  =>
   if b = 0x00w then (INR $ Gconst vt, rs) else
@@ -242,15 +243,14 @@ Definition enc_numI_def:
   | N_unary   $   Extend8s  W64              => [0xC2w]
   | N_unary   $   Extend16s W64              => [0xC3w]
   | N_unary   $   Extend32s                  => [0xC4w]
-
   | N_const32 Int   (c32: word32)            =>  0x41w :: enc_s32 c32
   | N_const64 Int   (c64: word64)            =>  0x42w :: enc_s64 c64
 End
 
 Definition dec_numI_def:
   dec_numI ([]:byteSeq) : ((mlstring + num_instr) # byteSeq) = emErr "dec_numI" ∧
-  dec_numI (b::bs) = let failure = error (b::bs) "[dec_numI]" in
-
+  dec_numI (b::bs) = let failure = error (b::bs) "[dec_numI]"
+  in
   if b = 0x45w then (INR $ N_eqz     $   W32                        ,bs) else
   if b = 0x46w then (INR $ N_compare $   Eq Int W32                 ,bs) else
   if b = 0x47w then (INR $ N_compare $   Ne Int W32                 ,bs) else
@@ -317,11 +317,9 @@ Definition dec_numI_def:
   if b = 0xC2w then (INR $ N_unary   $   Extend8s  W64              ,bs) else
   if b = 0xC3w then (INR $ N_unary   $   Extend16s W64              ,bs) else
   if b = 0xC4w then (INR $ N_unary   $   Extend32s                  ,bs) else
-
   if b = 0x41w then case dec_s32 bs of SOME (s32,cs) => (INR $ N_const32  Int  s32, cs) | NONE => failure else
   if b = 0x42w then case dec_s64 bs of SOME (s64,cs) => (INR $ N_const64  Int  s64, cs) | NONE => failure else
-  (* failure "[dec_numI] : Not a numeric instruction" *)
-  failure
+  error (b::bs) "[dec_numI]: Not a numeric instruction"
 End
 
 
@@ -334,8 +332,8 @@ End
 
 Definition dec_paraI_def:
   dec_paraI ([]:byteSeq) : ((mlstring + para_instr) # byteSeq) = emErr "dec_paraI" ∧
-  dec_paraI (b::bs) = let failure = error (b::bs) "[dec_paraI]" in
-
+  dec_paraI (b::bs) = let failure = error (b::bs) "[dec_paraI]"
+  in
   if b = 0x1Aw then (INR Drop  , bs) else
   if b = 0x1Bw then (INR Select, bs) else
   failure
@@ -354,15 +352,14 @@ End
 
 Definition dec_varI_def:
   dec_varI ([]:byteSeq) : ((mlstring + var_instr) # byteSeq) = emErr "dec_varI" ∧
-  dec_varI (b::bs) = let failure = error (b::bs) "[dec_varI]" in
-
+  dec_varI (b::bs) = let failure = error (b::bs) "[dec_varI]"
+  in
   if b = 0x20w then case dec_unsigned_word bs of NONE=>failure| SOME(x,rs) => (INR $ LocalGet  x,rs) else
   if b = 0x21w then case dec_unsigned_word bs of NONE=>failure| SOME(x,rs) => (INR $ LocalSet  x,rs) else
   if b = 0x22w then case dec_unsigned_word bs of NONE=>failure| SOME(x,rs) => (INR $ LocalTee  x,rs) else
   if b = 0x23w then case dec_unsigned_word bs of NONE=>failure| SOME(x,rs) => (INR $ GlobalGet x,rs) else
   if b = 0x24w then case dec_unsigned_word bs of NONE=>failure| SOME(x,rs) => (INR $ GlobalSet x,rs) else
-
-  failure
+  error (b::bs) "[dec_varI] : Not a variable instruction.\n"
 End
 
 
@@ -385,21 +382,21 @@ End
 
 Definition dec_loadI_def:
   dec_loadI ([]:byteSeq) : ((mlstring + load_instr) # byteSeq) = emErr "dec_loadI" ∧
-  dec_loadI (b::bs) = let failure = error (b::bs) "[dec_loadI]" in
-
-  if b = 0x28w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   Load    Int                  W32 ofs al,rs) else
-  if b = 0x29w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   Load    Int                  W64 ofs al,rs) else
-  if b = 0x2Cw then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   LoadNarrow I8x16    Signed   W32 ofs al,rs) else
-  if b = 0x2Dw then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   LoadNarrow I8x16  Unsigned   W32 ofs al,rs) else
-  if b = 0x2Ew then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   LoadNarrow I16x8    Signed   W32 ofs al,rs) else
-  if b = 0x2Fw then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   LoadNarrow I16x8  Unsigned   W32 ofs al,rs) else
-  if b = 0x30w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   LoadNarrow I8x16    Signed   W64 ofs al,rs) else
-  if b = 0x31w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   LoadNarrow I8x16  Unsigned   W64 ofs al,rs) else
-  if b = 0x32w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   LoadNarrow I16x8    Signed   W64 ofs al,rs) else
-  if b = 0x33w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   LoadNarrow I16x8  Unsigned   W64 ofs al,rs) else
-  if b = 0x34w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   LoadNarrow32        Signed       ofs al,rs) else
-  if b = 0x35w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $   LoadNarrow32      Unsigned       ofs al,rs) else
-  failure
+  dec_loadI (b::bs) = let failure = error (b::bs) "[dec_loadI]"
+  in
+  if b = 0x28w then case dec_2u32 bs of NONE=>failure|SOME (a,ofs,rs) => (INR $  Load    Int                 W32 ofs a,rs) else
+  if b = 0x29w then case dec_2u32 bs of NONE=>failure|SOME (a,ofs,rs) => (INR $  Load    Int                 W64 ofs a,rs) else
+  if b = 0x2Cw then case dec_2u32 bs of NONE=>failure|SOME (a,ofs,rs) => (INR $  LoadNarrow I8x16    Signed  W32 ofs a,rs) else
+  if b = 0x2Dw then case dec_2u32 bs of NONE=>failure|SOME (a,ofs,rs) => (INR $  LoadNarrow I8x16  Unsigned  W32 ofs a,rs) else
+  if b = 0x2Ew then case dec_2u32 bs of NONE=>failure|SOME (a,ofs,rs) => (INR $  LoadNarrow I16x8    Signed  W32 ofs a,rs) else
+  if b = 0x2Fw then case dec_2u32 bs of NONE=>failure|SOME (a,ofs,rs) => (INR $  LoadNarrow I16x8  Unsigned  W32 ofs a,rs) else
+  if b = 0x30w then case dec_2u32 bs of NONE=>failure|SOME (a,ofs,rs) => (INR $  LoadNarrow I8x16    Signed  W64 ofs a,rs) else
+  if b = 0x31w then case dec_2u32 bs of NONE=>failure|SOME (a,ofs,rs) => (INR $  LoadNarrow I8x16  Unsigned  W64 ofs a,rs) else
+  if b = 0x32w then case dec_2u32 bs of NONE=>failure|SOME (a,ofs,rs) => (INR $  LoadNarrow I16x8    Signed  W64 ofs a,rs) else
+  if b = 0x33w then case dec_2u32 bs of NONE=>failure|SOME (a,ofs,rs) => (INR $  LoadNarrow I16x8  Unsigned  W64 ofs a,rs) else
+  if b = 0x34w then case dec_2u32 bs of NONE=>failure|SOME (a,ofs,rs) => (INR $  LoadNarrow32        Signed      ofs a,rs) else
+  if b = 0x35w then case dec_2u32 bs of NONE=>failure|SOME (a,ofs,rs) => (INR $  LoadNarrow32      Unsigned      ofs a,rs) else
+  error (b::bs) "[dec_loadI] : Not a load instruction.\n"
 End
 
 
@@ -422,8 +419,8 @@ Overload i64x2 = “          I64x2”
 
 Definition dec_storeI_def:
   dec_storeI ([]:byteSeq) : ((mlstring + store_instr) # byteSeq) = emErr "dec_storeI" ∧
-  dec_storeI (b::bs) = let failure = error (b::bs) "[dec_storeI]" in
-
+  dec_storeI (b::bs) = let failure = error (b::bs) "[dec_storeI]"
+  in
   if b = 0x36w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ Store          Int  W32 ofs al,rs) else
   if b = 0x37w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ Store          Int  W64 ofs al,rs) else
   if b = 0x3Aw then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ StoreNarrow  I8x16  W32 ofs al,rs) else
@@ -431,16 +428,16 @@ Definition dec_storeI_def:
   if b = 0x3Cw then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ StoreNarrow  I8x16  W64 ofs al,rs) else
   if b = 0x3Dw then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ StoreNarrow  I16x8  W64 ofs al,rs) else
   if b = 0x3Ew then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ StoreNarrow32           ofs al,rs) else
-  failure
+  error (b::bs) "[dec_storeI] : Not a store instruction.\n"
 End
 
 
 
-(**********************************************)
-(*                                            *)
-(*     Top-level Instructions + Controls      *)
-(*                                            *)
-(**********************************************)
+(*********************************************)
+(*                                           *)
+(*     Top-level Instructions + Controls     *)
+(*                                           *)
+(*********************************************)
 
 Definition enc_blocktype_def:
   enc_blocktype (bt:blocktype) : byteSeq = case bt of
@@ -450,11 +447,12 @@ End
 
 Definition dec_blocktype_def:
   dec_blocktype ([]:byteSeq) : (mlstring + blocktype) # byteSeq = emErr "dec_blocktype" ∧
-  dec_blocktype bs = let failure = error bs "[dec_blocktype]" in
-
+  dec_blocktype bs = let failure = error bs "[dec_blocktype]"
+  in
   case bs of []=>failure| b::rs => if b = 0x40w then (INR   BlkNil  , rs) else
   case dec_valtype bs of (INR t ,rs)            =>   (INR $ BlkVal t, rs) | _ =>
-  failure
+  error
+  (b::bs) "[dec_blocktype] : Not a blocktype.\n"
 End
 
 
@@ -472,11 +470,13 @@ Definition enc_instr_def:
       the byte 0x0B [endB]. Here we use a flag to control whether
       we are encoding expressions, or just lists of instructions.
       cf the If case for an example *)
-  (enc_instrs (exp:bool) ([]:instr list) : byteSeq option = SOME if exp then [endB] else []) ∧
+  (enc_instrs (exp:bool) ([]:instr list) : byteSeq option = SOME if exp then [endB] else []
+  ) ∧
   (enc_instrs e (i::is) =
     case enc_instr  e i  of NONE=>NONE| SOME enci  =>
-    case enc_instrs e is of NONE=>NONE| SOME encis =>  SOME $ enci ++ encis) ∧
-
+    case enc_instrs e is of NONE=>NONE| SOME encis =>
+      SOME $ enci ++ encis
+  ) ∧
   enc_instr (e:bool) (inst:instr) : byteSeq option = case inst of
 
   (* control instructions *)
@@ -517,7 +517,7 @@ Proof
 QED
 
 Theorem dec_blocktype_shortens:
-  ∀ bs t rs. dec_blocktype bs = (t,rs) ⇒ LENGTH rs ≤ LENGTH bs
+  ∀ bs t rs. dec_blocktype bs = (INR t,rs) ⇒ LENGTH rs ≤ LENGTH bs
 Proof
   Cases_on ‘bs’
   >- simp[dec_blocktype_def]
@@ -538,7 +538,8 @@ Definition check_len_def:
 End
 
 Theorem check_len_IMP:
-    check_len bs xs = (INR x,rs) ⇒
+  check_len bs xs = (INR x,rs)
+  ⇒
   (LENGTH rs ≤ LENGTH bs) ∧
   (bs ≠ [] ⇒ LENGTH rs < LENGTH bs)
 Proof
@@ -546,9 +547,9 @@ Proof
   \\ rw [check_len_def]
     >> Cases_on ‘xs0’
     >> gvs [check_len_def,AllCaseEqs()]
-    >- (
+      >- (
       Cases_on ‘bs’ \\ fs[]
-    )
+      )
 QED
 
 Definition mk_shorter_def:
@@ -580,45 +581,42 @@ Definition dec_instr_def:
     if b = zeroB then (INR Unreachable, bs) else
     if b = 0x01w then (INR Nop        , bs) else
     if b = 0x0Fw then (INR Return     , bs) else
-
     if b = 0x0Cw then case dec_u32 bs of NONE=>failure|SOME (lbl,rs) => (INR $ Br   lbl,rs) else
     if b = 0x0Dw then case dec_u32 bs of NONE=>failure|SOME (lbl,rs) => (INR $ BrIf lbl,rs) else
-
-    if b= 0x0Ew then (* BrTable *)
-     (case dec_indxs bs of (INL _,_) => failure | (INR  lbls,cs) =>
+    (* BrTable *)
+    if b= 0x0Ew then (
+      case dec_indxs bs of (INL _,_) => failure | (INR  lbls,cs) =>
       case dec_u32   cs of      NONE => failure | SOME (lbl ,rs) =>
-      (INR $ BrTable lbls lbl, rs)                           ) else
-
-    if b = 0x02w then (* Block *)
-     (case dec_blocktype  bs of (INL err,bs) => (INL err,bs) | (INR bTyp,bs) =>
+        (INR $ BrTable lbls lbl, rs)                         ) else
+    (* Block *)
+    if b = 0x02w then (
+      case dec_blocktype  bs of (INL err,bs) => (INL err,bs) | (INR bTyp,bs) =>
       case dec_instr_list bs of (INL err,bs) => (INL err,bs) | (INR body,bs) =>
       case bs                of           [] => failure      | (b ::     bs) =>
-      if b = 0x0Bw then (INR (Block bTyp body),bs) else failure          ) else
-
-    if b = 0x03w then (* Loop *)
-     (case dec_blocktype bs  of (INL err,bs) => (INL err,bs) | (INR bTyp,bs) =>
+        if b = 0x0Bw then (INR (Block bTyp body),bs) else failure        ) else
+    (* Loop *)
+    if b = 0x03w then (
+      case dec_blocktype bs  of (INL err,bs) => (INL err,bs) | (INR bTyp,bs) =>
       case dec_instr_list bs of (INL err,bs) => (INL err,bs) | (INR body,bs) =>
       case bs                of           [] => failure      | (b ::     bs) =>
-      if b = 0x0Bw then (INR (Loop bTyp body),bs) else failure           ) else
-
-    if b = 0x04w then (* If *)
-     (case dec_blocktype bs                 of (INL err,bs) => (INL err,bs) | (INR bTyp,bs) =>
+        if b = 0x0Bw then (INR (Loop bTyp body),bs) else failure         ) else
+    (* If then only *)
+    if b = 0x04w then (
+      case dec_blocktype bs                 of (INL err,bs) => (INL err,bs) | (INR bTyp,bs) =>
       case check_len bs (dec_instr_list bs) of (INL err,bs) => (INL err,bs) | (INR bdT ,bs) =>
       case bs                               of           [] => failure      | (b ::     bs) =>
-      if b = 0x0Bw then (INR (If bTyp bdT []),bs)                                         else
-
-      if b ≠ 0x05w then failure else
+        if b = 0x0Bw then (INR (If bTyp bdT []),bs)                                       else
+    (* If both *)
+    if b ≠ 0x05w then failure else
       case dec_instr_list bs of (INL err,bs) => (INL err,bs) | (INR bdE,bs) =>
       case bs                of           [] => failure      | (b ::    bs) =>
-      if b = 0x0Bw then (INR (If bTyp bdT bdE),bs) else failure         ) else
-
-    if b= 0x10w then case dec_u32 bs of NONE=>failure|SOME (f,rs)           => (INR $ Call               f   ,rs) else
-    if b= 0x12w then case dec_u32 bs of NONE=>failure|SOME (f,rs)           => (INR $ ReturnCall         f   ,rs) else
+        if b = 0x0Bw then (INR (If bTyp bdT bdE),bs) else failure       ) else
+    if b= 0x10w then case dec_u32 bs of NONE => failure | SOME (f,rs) => (INR $ Call       f, rs) else
+    if b= 0x12w then case dec_u32 bs of NONE => failure | SOME (f,rs) => (INR $ ReturnCall f, rs) else
     if b= 0x11w then case dec_functype bs of (INL _,_)=>failure|(INR sg,cs) =>
                      case dec_u32      cs of NONE     =>failure|SOME (f,rs) => (INR $ CallIndirect       f sg,rs) else
     if b= 0x13w then case dec_functype bs of (INL _,_)=>failure|(INR sg,cs) =>
                      case dec_u32      cs of NONE     =>failure|SOME (f,rs) => (INR $ ReturnCallIndirect f sg,rs) else
-
     (* other classes of instructions *)
     case dec_varI   bs of (INR i, rs) => (INR $ Variable   i, rs) | _ =>
     case dec_paraI  bs of (INR i, rs) => (INR $ Parametric i, rs) | _ =>
@@ -629,11 +627,11 @@ Definition dec_instr_def:
   ) ∧
   (dec_instr_list ([]:byteSeq) = emErr "dec_instr_list") ∧
   (dec_instr_list (b::bs) =
-     if b = 0x0Bw then (INR [],bs) else
-     case check_len (b::bs) (dec_instr (b::bs)) of (INL err,bs) => (INL err,bs) | (INR i ,bs) =>
+    if b = endB then (INR [],bs) else
+    case check_len (b::bs) (dec_instr (b::bs)) of (INL err,bs) => (INL err,bs) | (INR i ,bs) =>
+    case dec_instr_list bs                     of (INL err,bs) => (INL err,bs) | (INR is,bs) =>
+      (INR $ i::is, bs)                                                                       )
      (* case mk_shorter (b::bs) dec_instr of (INL err,bs) => (INL err,bs) | (INR i ,bs) => *)
-     case dec_instr_list bs                     of (INL err,bs) => (INL err,bs) | (INR is,bs) =>
-     (INR $ i::is, bs)                                                                          )
 Termination
   WF_REL_TAC ‘measure $ λx. case x of
                             | INL bs => 2 * LENGTH bs
@@ -645,33 +643,75 @@ Termination
 End
 
 
-(********************)
-(*                  *)
-(*     Modules      *)
-(*                  *)
-(********************)
+
+(*******************)
+(*                 *)
+(*     Modules     *)
+(*                 *)
+(*******************)
 
 Definition enc_global_def:
   enc_global (g:global) : byteSeq option =
-
-  case enc_expr g.ginit of NONE=>NONE| SOME expr =>
-  SOME $ enc_globaltype g.gtype ++ expr
+    case enc_expr g.ginit of NONE=>NONE| SOME expr =>
+      SOME $ enc_globaltype g.gtype ++ expr
 End
+
+Definition dec_global_def:
+  dec_global ([]:byteSeq) : ((mlstring + global) # byteSeq) = emErr "dec_global" ∧
+  dec_global bs = let failure = error bs "[dec_global]"
+  in
+  case dec_globaltype bs of (INL _,_) => failure | (INR gt, cs) =>
+  case dec_instr_list cs of (INL _,_) => failure | (INR ex, rs) =>
+    (INR <| gtype := gt
+          ; ginit := ex
+          |> : mlstring + global
+    , bs)
+End
+
+
 
 Definition enc_code_def:
   enc_code (c:valtype list # expr) : byteSeq option =
-    case enc_vector enc_valtype_Seq (FST c) of NONE=>NONE| SOME encL =>
     case enc_expr                   (SND c) of NONE=>NONE| SOME encC =>
-    let code = encL ++ encC in
-    SOME $ enc_u32 (n2w $ LENGTH code) ++ code
+    case enc_vector enc_valtype_Seq (FST c) of NONE=>NONE| SOME encL =>
+      let code = encL ++ encC in
+      SOME $ enc_u32 (n2w $ LENGTH code) ++ code
 End
+
+Definition dec_code_def:
+  dec_code ([]:byteSeq) : ((mlstring + valtype list # expr) # byteSeq) = emErr "dec_code" ∧
+  dec_code bs = let failure = error bs "[dec_code]" in
+    case dec_u32                bs of  NONE    =>failure|SOME (len,cs) =>
+    case dec_vector dec_valtype cs of (INL _,_)=>failure|(INR vts ,ds) =>
+    case dec_instr_list         ds of (INL _,_)=>failure|(INR code,rs) =>
+      (INR (vts, code), rs)
+End
+
+
 
 Definition enc_data_def:
   enc_data (d:data) : byteSeq option =
-    case enc_expr d.offset             of NONE=>NONE| SOME ofs =>
     case enc_vector (λ b. [b]) d.dinit of NONE=>NONE| SOME ini =>
+    case enc_expr d.offset             of NONE=>NONE| SOME ofs =>
+      SOME $ enc_u32 d.data ++ ofs ++ ini
+End
 
-    SOME $ enc_u32 d.data ++ ofs ++ ini
+Definition foo_def:
+  foo [] = error [] "bogus" ∧
+  foo (b::bs) = (INR b, bs)
+End
+
+Definition dec_data_def:
+  dec_data ([]:byteSeq) : ((mlstring + data) # byteSeq) = emErr "dec_data" ∧
+  dec_data bs = let failure = error bs "[dec_data]" in
+    case dec_u32        bs of  NONE     =>failure| SOME (idx,cs) =>
+    case dec_instr_list cs of (INL _,_) =>failure| (INR ofse,ds) =>
+    case dec_vector foo ds of (INL _,_) =>failure| (INR ini ,rs) =>
+      (INR <| data   := idx
+            ; offset := ofse
+            ; dinit  := ini
+            |> : mlstring + data
+      , rs)
 End
 
 Definition enc_section_def:
@@ -689,37 +729,33 @@ End
     leadByte :: enc_u32 (n2w $ LENGTH contents) ++ contents
 End *)
 
-Overload enc_custom_sec  = “enc_section  0w”
-Overload enc_type_sec    = “enc_section  1w”
-Overload enc_funcs_sec   = “enc_section  3w”
-Overload enc_memory_sec  = “enc_section  5w”
-Overload enc_global_sec  = “enc_section  6w”
-Overload enc_code_sec    = “enc_section 10w”
-Overload enc_data_sec    = “enc_section 11w”
-(* Overload enc_import_sec  = “enc_section  2w” *)
-(* Overload enc_table_sec   = “enc_section  4w” *)
-(* Overload enc_export_sec  = “enc_section  7w” *)
-(* Overload enc_start_sec   = “enc_section  8w” *)
-(* Overload enc_element_sec = “enc_section  9w” *)
-
 Definition split_funcs_def:
-  split_funcs ([]:func list) : index list # (valtype list # expr) list = ([],[]) ∧
+  split_funcs ([]:func list) =  ( ([] :  index                list)
+                                , ([] : (valtype list # expr) list)
+                                ) ∧
   split_funcs (f::fs) =
   let (typs, lBods) = split_funcs fs in
   (f.ftype :: typs, (f.locals, f.body) :: lBods)
 End
 
-(* Overload enc_types   = enc_vector_opt enc_functype
-Overload enc_funcs   = enc_vector  enc_u32
-Overload enc_mems    = enc_vector  enc_limits
-Overload enc_globals = enc_vector_opt enc_global
-Overload enc_codes   = enc_vector_opt enc_code
-Overload enc_datas   = enc_vector_opt enc_data     *)
+Definition zip_funcs_def:
+  zip_funcs ([] :  index                list)
+            (_  : (valtype list # expr) list) = [] : func list ∧
+  zip_funcs _ [] = [] ∧
+  zip_funcs (fi::is) ((vs,e)::vles) =
+    (<| name   := strlit ""
+      ; ftype  := fi
+      ; locals := vs
+      ; body   := e
+      |> : func)
+    :: zip_funcs is vles
+End
+
+
 
 (* From CWasm (not Wasm!) modules to WBF *)
 Definition enc_module_def:
   enc_module (m:module) : byteSeq option =
-
     let (fTIdxs, locBods) = split_funcs m.funcs in
     case enc_vector_opt  enc_functype  m.types   of NONE=>NONE| SOME types'   =>
     case enc_vector      enc_u32       fTIdxs    of NONE=>NONE| SOME funcs'   =>
@@ -727,18 +763,22 @@ Definition enc_module_def:
     case enc_vector_opt  enc_global    m.globals of NONE=>NONE| SOME globals' =>
     case enc_vector_opt  enc_code      locBods   of NONE=>NONE| SOME code'    =>
     case enc_vector_opt  enc_data      m.datas   of NONE=>NONE| SOME datas'   =>
-
-    SOME $
-    0x00w:: 0x61w:: 0x73w:: 0x6Dw:: (* \0asm - magic number         *)
-    0x01w:: 0x00w:: 0x00w:: 0x00w:: (* version number of Bin format *)
-
-    enc_type_sec   types'   ++
-    enc_funcs_sec  funcs'   ++
-    enc_memory_sec mems'    ++
-    enc_global_sec globals' ++
-    enc_code_sec   code'    ++
-    enc_data_sec   datas'
+      SOME $
+      0x00w:: 0x61w:: 0x73w:: 0x6Dw:: (* \0asm - magic number         *)
+      0x01w:: 0x00w:: 0x00w:: 0x00w:: (* version number of Bin format *)
+      (* Type     *) enc_section  1w    types'   ++
+      (* Function *) enc_section  3w    funcs'   ++
+      (* Memory   *) enc_section  5w    mems'    ++
+      (* Global   *) enc_section  6w    globals' ++
+      (* Code     *) enc_section 10w    code'    ++
+      (* Data     *) enc_section 11w    datas'
 End
+    (* Custom   *) (* enc_section  0w    ???      ++ *)
+    (* Import   *) (* enc_section  2w *)
+    (* Table    *) (* enc_section  4w *)
+    (* Export   *) (* enc_section  7w *)
+    (* Start    *) (* enc_section  8w *)
+    (* Element  *) (* enc_section  9w *)
 
 
 
@@ -809,6 +849,23 @@ Proof
   \\ asm_rewrite_tac[]
   \\ pop_assum mp_tac
   \\ rewrite_tac[enc_valtype_def]
+  \\ simp[AllCaseEqs()]
+  \\ simp[bvtype_nchotomy]
+  \\ rpt strip_tac
+    >> gvs[dec_valtype_def]
+  (*
+  rw[enc_valtype_def] >> every_case_tac >> simp[bvtype_nchotomy] >> rw[dec_valtype_def]
+  *)
+QED
+
+Theorem dec_enc_valtype_Seq:
+  ∀ t rest. dec_valtype (enc_valtype_Seq t ++ rest) = (INR t, rest)
+Proof
+     rpt strip_tac
+  \\ `∃ val. enc_valtype t = val` by simp []
+  \\ asm_rewrite_tac[]
+  \\ pop_assum mp_tac
+  \\ rewrite_tac[enc_valtype_def, APPEND]
   \\ simp[AllCaseEqs()]
   \\ simp[bvtype_nchotomy]
   \\ rpt strip_tac
@@ -956,13 +1013,59 @@ Proof
   \\ simp[AllCaseEqs()]
   \\ rpt strip_tac
   >- gvs[dec_blocktype_def]
-  >- (
+  >-(
      gvs[dec_blocktype_def, dec_enc_valtype]
     \\ rw[enc_valtype_def]
     \\ fs[AllCaseEqs()]
   )
 QED
 
+
+
+(*******************)
+(*                 *)
+(*     Modules     *)
+(*                 *)
+(*******************)
+
+Theorem dec_enc_global:
+  ∀g encg rs.
+    enc_global g = SOME encg ⇒
+    dec_global $ encg ++ rs = (INR g, rs)
+Proof
+  cheat
+QED
+
+Theorem dec_enc_code:
+  ∀cd encC rs.
+    enc_code cd = SOME encC ⇒
+    dec_code $ encC ++ rs = (INR cd, rs)
+Proof
+  cheat
+QED
+
+Theorem dec_enc_data:
+  ∀dt encD rs.
+    enc_data dt = SOME encD ⇒
+    dec_data $ encD ++ rs = (INR dt, rs)
+Proof
+  cheat
+QED
+
+(*
+Theorem dec_enc_section:
+  dec_section ??? enc_section lb contents ++ rs =
+Proof
+  cheat
+QED
+
+Theorem dec_enc_module:
+  ∀mod encM rs.
+    enc_data mod = SOME encM ⇒
+    dec_data $ encM ++ rs = (INR mod, rs)
+Proof
+  cheat
+QED *)
 
 
 (***************)
