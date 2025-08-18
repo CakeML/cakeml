@@ -38,6 +38,7 @@ WebAssembly (Wasm) semantics
 
 [wasm_binary_formatScript.sml](wasm_binary_formatScript.sml):
 En- & De- coding between CWasm 1.0 AST & Wasm's binary format
+9 cheats
 
 [wasm_notationsScript.sml](wasm_notationsScript.sml):
 Notations for cake's Wasm 1.0 AST
