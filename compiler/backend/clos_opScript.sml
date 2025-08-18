@@ -3,11 +3,11 @@
   constructor. When possible, this smart constructor breaks
   the operation into faster separate operators.
 *)
-open preamble closLangTheory;
-
-val _ = new_theory "clos_op";
-
-val _ = set_grammar_ancestry ["closLang","backend_common","misc"]
+Theory clos_op
+Ancestors
+  closLang backend_common[qualified] misc[qualified]
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -410,4 +410,3 @@ Definition SmartOp_def:
     | SOME x => x
 End
 
-val _ = export_theory();

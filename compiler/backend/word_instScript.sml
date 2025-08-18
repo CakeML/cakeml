@@ -2,9 +2,11 @@
   This compiler phase implements instruction selection. It uses the
   Maximal Munch strategy.
 *)
-open preamble wordLangTheory stackLangTheory sortingTheory;
-
-val _ = new_theory "word_inst";
+Theory word_inst
+Ancestors
+  wordLang stackLang sorting
+Libs
+  preamble
 
 val _ = Parse.bring_to_front_overload"Shift"{Thy="wordLang",Name="Shift"};
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
@@ -564,4 +566,3 @@ Definition three_to_two_reg_prog_def:
     if b then three_to_two_reg prog else prog
 End
 
-val _ = export_theory();

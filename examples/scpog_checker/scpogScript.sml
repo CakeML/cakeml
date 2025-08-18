@@ -1,11 +1,11 @@
 (*
   Defines the proof checker for SCPOG
 *)
-open preamble miscTheory mlstringTheory mlintTheory mllistTheory mlvectorTheory sptreeTheory cnf_scpogSemTheory;
-
-val _ = set_grammar_ancestry ["mlstring","mllist","mlvector","sptree","misc","cnf_scpogSem"];
-
-val _ = new_theory "scpog";
+Theory scpog
+Libs
+  preamble
+Ancestors
+  mlstring mllist mlvector sptree mergesort misc cnf_scpogSem mlint
 
 (* Implementation *)
 Type clause = ``:int list``;
@@ -13,6 +13,8 @@ Type hint = ``:num list``;
 Type lit = ``:int``;
 Type var = ``:num``;
 Type id = ``:num``;
+
+val _ = temp_bring_to_front_overload "insert" {Name="insert", Thy="sptree"};
 
 (* Proof steps *)
 Datatype:
@@ -3077,5 +3079,3 @@ Proof
   first_x_assum drule>>
   simp[sat_clause_def]
 QED
-
-val _ = export_theory ();

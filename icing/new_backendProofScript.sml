@@ -2,16 +2,14 @@
   Proof of a new overall compiler correctness theorem for
   the global constant lifting, showing that it is semantics preserving
 **)
-open semanticPrimitivesTheory evaluateTheory
-     icing_rewriterTheory icing_optimisationsTheory
-     icing_optimisationProofsTheory fpOptTheory fpValTreeTheory
-     namespacePropsTheory ml_progTheory
-     optPlannerTheory source_to_source2Theory source_to_source2ProofsTheory
-     pull_wordsTheory backendProofTheory;
-
-open preamble;
-
-val _ = new_theory "new_backendProof";
+Theory new_backendProof
+Ancestors
+  semanticPrimitives evaluate icing_rewriter icing_optimisations
+  icing_optimisationProofs fpOpt fpValTree namespaceProps ml_prog
+  optPlanner source_to_source2 source_to_source2Proofs pull_words
+  backendProof
+Libs
+  preamble
 
 (*
 Theorem pull_words_correct:
@@ -392,4 +390,3 @@ Theorem pull_words_correct_simp =
   |> CONV_RULE pairLib.let_CONV;
 *)
 
-val _ = export_theory();

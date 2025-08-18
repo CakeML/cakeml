@@ -1,9 +1,11 @@
 (*
    Parsing interface for DIMACS and LPR
 *)
-open preamble miscTheory lprTheory mlintTheory;
-
-val _ = new_theory "lpr_parsing";
+Theory lpr_parsing
+Ancestors
+  misc lpr mlint
+Libs
+  preamble
 
 (*
   Parses a list of strings (1 per line of a file) in
@@ -1141,4 +1143,3 @@ val res = EVAL ``good_char (strsub (HD ^(clprraw)) 0)``
 
 val res = EVAL``parse_pr ^(clprraw)``
 
-val _ = export_theory ();

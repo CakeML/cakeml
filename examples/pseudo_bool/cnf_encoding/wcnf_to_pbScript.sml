@@ -1,9 +1,11 @@
 (*
   WCNF into pbc, written in a tutorial style
 *)
-open preamble pbcTheory pbc_normaliseTheory satSemTheory lprTheory cnf_to_pbTheory;
-
-val _ = new_theory "wcnf_to_pb";
+Theory wcnf_to_pb
+Ancestors
+  pbc pbc_normalise satSem lpr cnf_to_pb
+Libs
+  preamble
 
 (*** STEP 1: Formalise the semantics of MAX-SAT ***)
 
@@ -711,4 +713,3 @@ End
   val enc = EVAL`` full_encode (THE ^(rconc wcnf))``
 *)
 
-val _ = export_theory ();

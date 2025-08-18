@@ -2,15 +2,14 @@
   Definition of the PEG for CakeML.
   Includes a proof that the PEG is well-formed.
 *)
+Theory cmlPEG
+Ancestors
+  pegexec gram tokenUtils[qualified] peg
+Libs
+  monadsyntax[qualified] finite_mapSyntax[qualified]
 
-open HolKernel Parse boolLib bossLib
-     gramTheory pegexecTheory pegTheory
 
-local open tokenUtilsTheory monadsyntax finite_mapSyntax in end
 fun Store_thm(n,t,tac) = store_thm(n,t,tac) before export_rewrites [n]
-
-val _ = new_theory "cmlPEG"
-val _ = set_grammar_ancestry ["pegexec", "gram", "tokenUtils"]
 
 val _ = monadsyntax.temp_add_monadsyntax()
 
@@ -842,4 +841,3 @@ end
 end (* local *)
 
 
-val _ = export_theory()

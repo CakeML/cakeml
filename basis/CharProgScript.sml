@@ -1,10 +1,11 @@
 (*
   A module about the char type for the CakeML standard basis library.
 *)
-open preamble ml_translatorLib ml_progLib basisFunctionsLib
-     RatProgTheory
-
-val _ = new_theory "CharProg";
+Theory CharProg
+Ancestors
+  RatProg
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
 
 val _ = translation_extends "RatProg";
 
@@ -83,4 +84,3 @@ val _ = ml_prog_update close_local_blocks;
 
 val _ = ml_prog_update (close_module NONE);
 
-val _ = export_theory()

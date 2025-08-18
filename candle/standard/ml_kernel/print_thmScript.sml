@@ -1,11 +1,12 @@
 (*
   Defines functions for turning a ctxt & thm to a string and back
 *)
-open preamble;
-open holKernelTheory mlstringTheory;
-open lisp_valuesTheory lisp_parsingTheory lisp_printingTheory lisp_parsing_proofsTheory;
-
-val _ = new_theory "print_thm";
+Theory print_thm
+Ancestors
+  holKernel mlstring lisp_values lisp_parsing lisp_printing
+  lisp_parsing_proofs
+Libs
+  preamble
 
 (* encoding into v *)
 
@@ -243,4 +244,3 @@ val _ =
 
 end
 
-val _ = export_theory();

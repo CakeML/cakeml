@@ -1,10 +1,12 @@
 (*
   This refines scpog_list to use arrays
 *)
-open preamble basis UnsafeProofTheory cnf_scpogSemTheory scpogTheory
-  scpog_listTheory lpr_parsingTheory scpog_parsingTheory blastLib;
-
-val _ = new_theory "scpog_arrayProg"
+Theory scpog_arrayProg
+Ancestors
+  UnsafeProof cnf_scpogSem scpog scpog_list lpr_parsing
+  scpog_parsing
+Libs
+  preamble basis blastLib
 
 val _ = diminish_srw_ss ["ABBREV"]
 
@@ -2382,4 +2384,3 @@ Proof
   metis_tac[]
 QED
 
-val _ = export_theory();

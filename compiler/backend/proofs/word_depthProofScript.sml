@@ -2,12 +2,13 @@
   Proves correctness of the max_depth applied to the call graph of a
   wordLang program as produced by the word_depth$call_graph function.
 *)
-open preamble wordLangTheory wordSemTheory wordPropsTheory word_depthTheory
-     backendPropsTheory;
+Theory word_depthProof
+Ancestors
+  wordLang wordSem wordProps word_depth backendProps
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "word_depthProof";
 
 Triviality option_le_X_MAX_X[simp]:
   option_le x (OPTION_MAP2 MAX m x) /\
@@ -777,4 +778,3 @@ Proof
   \\ Cases_on `s1.stack_max` \\ fs [OPTION_MAP2_DEF,MAX_DEF]
 QED
 
-val _ = export_theory();

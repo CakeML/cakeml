@@ -6,15 +6,14 @@
    encoded in the analysis result. The validator is used in the file
    CertificateChecker.v to build the complete checker.
  **)
-open simpLib realTheory realLib RealArith pred_setTheory;
-open AbbrevsTheory ExpressionsTheory ExpressionSemanticsTheory RealSimpsTheory
-     RealRangeArithTheory FloverTactics MachineTypeTheory
-     ExpressionAbbrevsTheory ErrorBoundsTheory IntervalArithTheory
-     TypeValidatorTheory IntervalValidationTheory EnvironmentsTheory
-     CommandsTheory ssaPrgsTheory FloverMapTheory sqrtApproxTheory;
-open preambleFloVer;
-
-val _ = new_theory "ErrorValidation";
+Theory ErrorValidation
+Ancestors
+  real pred_set Abbrevs Expressions ExpressionSemantics RealSimps
+  RealRangeArith MachineType ExpressionAbbrevs ErrorBounds
+  IntervalArith TypeValidator IntervalValidation Environments
+  Commands ssaPrgs FloverMap sqrtApprox
+Libs
+  simpLib realLib RealArith FloverTactics preambleFloVer
 
 val _ = temp_delsimps ["fromAList_def", "domain_union",
                        "domain_inter", "domain_difference",
@@ -2867,4 +2866,3 @@ Proof
       \\ find_exists_tac \\ fs[])
 QED
 
-val _ = export_theory();

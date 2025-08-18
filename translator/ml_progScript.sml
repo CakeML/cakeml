@@ -2,17 +2,16 @@
   Definitions and theorems supporting ml_progLib, which constructs a
   CakeML program and its semantic environment.
 *)
+Theory ml_prog
+Ancestors
+  ast semanticPrimitives evaluate semanticPrimitivesProps
+  evaluateProps mlstring integer evaluate_dec namespace
+  alist_tree primSemEnv[qualified]
+Libs
+  preamble
 
-open preamble
-open astTheory semanticPrimitivesTheory evaluateTheory
-     semanticPrimitivesPropsTheory evaluatePropsTheory;
-open mlstringTheory integerTheory evaluate_decTheory;
-open namespaceTheory;
-open alist_treeTheory;
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "ml_prog";
 
 (* --- env operators --- *)
 
@@ -1223,5 +1222,3 @@ Proof
           semanticsTheory.evaluate_prog_with_clock_def,
           evaluate_decTheory.evaluate_dec_list_with_clock_def]
 QED
-
-val _ = export_theory();

@@ -2,9 +2,11 @@
   This is an example of applying the translator to the Real-Time
   Heap algorithm from Chris Okasaki's book.
 *)
-open HolKernel Parse boolLib bossLib; val _ = new_theory "RealTimeQueue";
-
-open listTheory arithmeticTheory ml_translatorLib ListProgTheory;
+Theory RealTimeQueue
+Ancestors
+  list arithmetic ListProg
+Libs
+  ml_translatorLib
 
 val _ = translation_extends "ListProg";
 
@@ -124,4 +126,3 @@ Proof
   THEN MATCH_MP_TAC exec_thm THEN EVAL_TAC THEN DECIDE_TAC
 QED
 
-val _ = export_theory();

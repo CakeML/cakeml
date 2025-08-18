@@ -1,9 +1,9 @@
 (*
    Verification of longest common subsequence algorithms.
 *)
-open preamble;
-
-val _ = new_theory "lcs";
+Theory lcs
+Libs
+  preamble
 
 (* Miscellaneous lemmas that may belong elsewhere *)
 
@@ -1309,4 +1309,3 @@ Proof
   metis_tac[optimised_lcs_correct,lcs_refl']
 QED
 
-val _ = export_theory ();

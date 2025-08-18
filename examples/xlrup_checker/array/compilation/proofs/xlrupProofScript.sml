@@ -3,13 +3,12 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     TextIOProofTheory
-     cnf_extTheory xlrupTheory xlrup_listTheory xlrup_arrayFullProgTheory
-     xlrup_parsingTheory xlrupCompileTheory;
-
-val _ = new_theory"xlrupProof";
+Theory xlrupProof
+Ancestors
+  semanticsProps backendProof x64_configProof TextIOProof cnf_ext
+  xlrup xlrup_list xlrup_arrayFullProg xlrup_parsing xlrupCompile
+Libs
+  preamble
 
 val cake_xlrup_io_events_def = new_specification("cake_xlrup_io_events_def",["cake_xlrup_io_events"],
   check_unsat_semantics |> Q.GENL[`cl`,`fs`]
@@ -174,4 +173,3 @@ Proof
   metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]
 QED
 
-val _ = export_theory();

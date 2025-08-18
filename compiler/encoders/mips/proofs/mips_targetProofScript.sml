@@ -1,10 +1,11 @@
 (*
   Prove `encoder_correct` for MIPS
 *)
-open HolKernel Parse boolLib bossLib
-open realLib asmLib mips_stepLib mips_targetTheory;
-
-val () = new_theory "mips_targetProof"
+Theory mips_targetProof
+Ancestors
+  mips_target
+Libs
+  realLib asmLib mips_stepLib
 
 val () = wordsLib.guess_lengths()
 
@@ -719,4 +720,3 @@ Proof
       )
 QED
 
-val () = export_theory ()

@@ -3,11 +3,14 @@
   such as If, While, Return etc, to labLang programs that are a soup
   of goto-like jumps.
 *)
-open preamble stackLangTheory labLangTheory;
-local open stack_allocTheory stack_removeTheory stack_namesTheory
-           word_to_stackTheory bvl_to_bviTheory stack_rawcallTheory in end
-
-val _ = new_theory "stack_to_lab";
+Theory stack_to_lab
+Ancestors
+  stackLang labLang stack_alloc[qualified]
+  stack_remove[qualified] stack_names[qualified]
+  word_to_stack[qualified] bvl_to_bvi[qualified]
+  stack_rawcall[qualified]
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -152,4 +155,3 @@ Definition compile_no_stubs_def:
         (MAP prog_comp prog)))
 End
 
-val _ = export_theory();

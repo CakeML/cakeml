@@ -1,12 +1,12 @@
 (*
   Simplification of panLang.
 *)
+Theory pan_simp
+Ancestors
+  panLang backend_common[qualified]
+Libs
+  preamble
 
-open preamble panLangTheory
-
-val _ = new_theory "pan_simp"
-
-val _ = set_grammar_ancestry ["panLang","backend_common"];
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -135,4 +135,3 @@ Proof
   every_case_tac >> fs[ret_to_tail_def]
 QED
 
-val _ = export_theory();

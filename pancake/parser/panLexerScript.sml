@@ -8,14 +8,12 @@
  * Author: Craig McLaughlin
  * Date: March--April 2022
  *)
+Theory panLexer
+Ancestors
+  arithmetic string list location ASCIInumbers mlstring
+Libs
+  stringLib numLib intLib ASCIInumbersLib
 
-open HolKernel Parse boolLib bossLib stringLib numLib;
-
-open arithmeticTheory stringTheory intLib listTheory locationTheory;
-open ASCIInumbersTheory ASCIInumbersLib;
-open mlstringTheory;
-
-val _ = new_theory "panLexer";
 
 Datatype:
   keyword = SkipK | StK | StwK | St8K | St32K | IfK | ElseK | WhileK
@@ -320,4 +318,3 @@ End
    EVAL ``pancake_lex "x + 1 --Then check y\n && y - 2 <= -3 || !z"``;
 *)
 
-val _ = export_theory();

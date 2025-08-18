@@ -1,16 +1,17 @@
 (*
   Translation of the functions in caml_parserScript.sml
  *)
+Theory caml_parserProg
+Ancestors
+  misc[qualified] camlPEG camlPtreeConversion caml_parser
+  ml_translator caml_lexProg
+Libs
+  preamble ml_translatorLib
 
 open preamble camlPEGTheory camlPtreeConversionTheory caml_parserTheory;
 open caml_lexProgTheory;
 open ml_translatorLib ml_translatorTheory;
 
-val _ = new_theory "caml_parserProg";
-
-val _ = set_grammar_ancestry [
-  "misc", "camlPEG", "camlPtreeConversion", "caml_parser",
-  "ml_translator" ];
 
 val _ = translation_extends "caml_lexProg";
 
@@ -302,4 +303,3 @@ val _ = update_precondition run_side;
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val () = ml_translatorLib.clean_on_exit := true;
 
-val _ = export_theory ();

@@ -1,11 +1,11 @@
 (*
   Module about the built-in string tyoe.
 *)
-open preamble
-  ml_translatorLib ml_translatorTheory ml_progLib
-  mlstringTheory VectorProgTheory basisFunctionsLib
-
-val _ = new_theory"StringProg"
+Theory StringProg
+Ancestors
+  ml_translator mlstring VectorProg
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
 
 val _ = translation_extends "VectorProg";
 val _ = ml_translatorLib.use_string_type false;
@@ -228,4 +228,3 @@ val _ = translate escape_char_def;
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);
 
-val _ = export_theory()

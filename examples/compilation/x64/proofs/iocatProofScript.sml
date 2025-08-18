@@ -3,11 +3,12 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     iocatProgTheory iocatCompileTheory
-
-val _ = new_theory"iocatProof";
+Theory iocatProof
+Ancestors
+  semanticsProps backendProof x64_configProof iocatProg
+  iocatCompile
+Libs
+  preamble
 
 val cat_io_events_def =
   new_specification("cat_io_events_def",["cat_io_events"],
@@ -35,4 +36,3 @@ Theorem cat_compiled_thm =
   |> DISCH_ALL
   |> check_thm
 
-val _ = export_theory();

@@ -1,12 +1,12 @@
 (*
   Properties of floating-point value tree semantics
 *)
+Theory fpSemProps
+Ancestors
+  fpSem fpOptProps fpValTree semanticPrimitives evaluate
+Libs
+  preamble
 
-open fpSemTheory fpOptPropsTheory fpValTreeTheory
-     semanticPrimitivesTheory evaluateTheory;
-open preamble;
-
-val _ = new_theory "fpSemProps";
 
 Theorem do_fpoptimise_cons:
   do_fpoptimise fpopt (v1 :: vs) =
@@ -879,4 +879,3 @@ Proof
 QED
 **)
 
-val _ = export_theory();

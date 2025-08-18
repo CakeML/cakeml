@@ -1,10 +1,12 @@
 (*
   Contains the code for the entire CakeML basis library in basis_def.
 *)
-open preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib std_preludeTheory
-     CommandLineProofTheory TextIOProofTheory RuntimeProofTheory PrettyPrinterProgTheory
-
-val _ = new_theory "basisProg"
+Theory basisProg
+Ancestors
+  std_prelude CommandLineProof TextIOProof RuntimeProof
+  PrettyPrinterProg
+Libs
+  preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
 
 val _ = translation_extends"TextIOProg";
 
@@ -136,4 +138,3 @@ Theorem basis_Decls_thm =
   ml_progLib.get_Decls_thm basis_st
   |> REWRITE_RULE [GSYM basis_def];
 
-val _ = export_theory ()

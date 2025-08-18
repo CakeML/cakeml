@@ -2,9 +2,13 @@
   An example showing how to use the monadic translator with
   references, arrays and exceptions.
 *)
-open preamble ml_monad_translator_interfaceLib
+Theory array_global_stateProg
+Libs
+  preamble ml_monad_translator_interfaceLib
+Ancestors
+  ml_monad_translator
 
-val _ = new_theory "array_global_stateProg"
+val _ = set_up_monadic_translator ();
 
 (* Create the data type to handle the references *)
 Datatype:
@@ -90,5 +94,3 @@ End
 val test6_v_thm = test6_def |> m_translate;
 
 (* ... *)
-
-val _ = export_theory ();

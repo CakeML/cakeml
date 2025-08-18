@@ -1,11 +1,13 @@
 (*
    Proofs related to term embeddings for the Candle compute primitive.
  *)
+Theory compute_syntaxProof
+Ancestors
+  holSyntax holSyntaxExtra holSyntaxLib holKernel holKernelProof
+  compute_syntax
+Libs
+  preamble
 
-open preamble holSyntaxTheory holSyntaxExtraTheory holSyntaxLibTheory
-     holKernelTheory holKernelProofTheory compute_syntaxTheory;
-
-val _ = new_theory "compute_syntaxProof";
 
 val _ = numLib.temp_prefer_num ();
 
@@ -2232,6 +2234,4 @@ Proof
   rw [] \\ irule sym_equation
   \\ rw [bool2term_EQ_cexpterm]
 QED
-
-val _ = export_theory ();
 

@@ -1,10 +1,9 @@
 (*
   Algorithm of a copying garbage collector.
 *)
-open HolKernel Parse boolLib bossLib; val _ = new_theory "copying_gc";
-
-open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
-open finite_mapTheory sumTheory relationTheory;
+Theory copying_gc
+Ancestors
+  pred_set arithmetic pair list combin finite_map sum relation
 
 val _ = ParseExtras.temp_loose_equality();
 
@@ -93,4 +92,3 @@ val res = translate CUT_def
 val res = translate rel_gc_def
 *)
 
-val _ = export_theory();

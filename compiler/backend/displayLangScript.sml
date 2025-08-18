@@ -4,10 +4,11 @@
   design of displayLang is intentionally very simple. The language
   supports Tuples, Items (e.g. datatype constructors), and Lists.
 *)
-open preamble jsonLangTheory mlintTheory backend_commonTheory;
-open str_treeTheory;
-
-val _ = new_theory"displayLang";
+Theory displayLang
+Ancestors
+  jsonLang mlint backend_common str_tree
+Libs
+  preamble
 
 Datatype:
   sExp =
@@ -80,4 +81,3 @@ Definition display_to_str_tree_def:
     display_to_str_tree x :: display_to_str_tree_list xs)
 End
 
-val _ = export_theory();
