@@ -5,14 +5,13 @@
   assumed to have been done. This is the language within which stack
   operations get optimised and turned into normal memory accesses.
 *)
+Theory stackLang
+Ancestors
+  asm backend_common
+  misc[qualified] (* for bytes_in_word *)
+Libs
+  preamble
 
-open preamble asmTheory
-     backend_commonTheory
-
-val _ = new_theory "stackLang";
-
-val _ = set_grammar_ancestry["asm", "backend_common",
-  "misc" (* for bytes_in_word *)];
 
 Datatype:
   store_name =
@@ -97,5 +96,3 @@ Theorem gc_stub_location_eq =
   gc_stub_location_def |> CONV_RULE(RAND_CONV EVAL)
 Theorem store_consts_stub_location_eq =
   store_consts_stub_location_def |> CONV_RULE(RAND_CONV EVAL)
-
-val _ = export_theory();

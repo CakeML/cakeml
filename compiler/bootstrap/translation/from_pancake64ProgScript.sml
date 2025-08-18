@@ -1,13 +1,18 @@
 (*
   Translate the pan_to_target part of the 64-bit compiler.
 *)
+Theory from_pancake64Prog
+Ancestors
+  ml_translator to_target64Prog std_prelude panLang crepLang
+  pan_simp loopLang loop_remove loop_to_word pan_to_crep
+  loop_call loop_live crep_arith crep_to_loop pan_to_word
+  word_to_word backend pan_to_target panPtreeConversion
+Libs
+  preamble ml_translatorLib
 
 open preamble;
 open ml_translatorLib ml_translatorTheory;
 open to_target64ProgTheory std_preludeTheory;
-local open backendTheory in end
-
-val _ = new_theory "from_pancake64Prog"
 
 val _ = translation_extends "to_target64Prog";
 
@@ -387,7 +392,7 @@ Termination
   >> gvs[argsNT_def]
 End
 
-val tree = “tree:(token, pancakeNT, α) parsetree”;
+val tree = “tree:(panLexer$token, pancakeNT, α) parsetree”;
 
 Triviality conv_Shapelist_thm:
   (∀tree. conv_Shape_alt tree = conv_Shape ^tree)
@@ -620,8 +625,8 @@ Termination
   >> gvs[argsNT_def]
 End
 
-val tree = “tree:(token, pancakeNT, β) parsetree”;
-val trees = “trees:(token, pancakeNT, β) parsetree list”;
+val tree = “tree:(panLexer$token, pancakeNT, β) parsetree”;
+val trees = “trees:(panLexer$token, pancakeNT, β) parsetree list”;
 
 Triviality conv_Exp_thm:
   (∀trees. (conv_mmap_exp ^trees:'a panLang$exp list option) = OPT_MMAP (λtree. conv_Exp ^tree) ^trees)
@@ -751,5 +756,3 @@ val res = translate $ spec64 parse_funs_to_ast_def;
 val res = translate $ spec64 parse_to_ast_def;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
-
-val _ = export_theory();

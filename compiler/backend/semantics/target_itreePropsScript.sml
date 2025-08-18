@@ -1,13 +1,12 @@
 (*
   Properties about the itree target semantics
 *)
-open preamble targetSemTheory targetPropsTheory;
-open itreeTheory target_itreeSemTheory
-     itree_semanticsTheory itree_semanticsPropsTheory;
-
-
-val _ = new_theory "target_itreeProps"
-
+Theory target_itreeProps
+Ancestors
+  targetSem targetProps itree target_itreeSem itree_semantics
+  itree_semanticsProps
+Libs
+  preamble
 
 (********** machine_sem_itree **********)
 
@@ -498,4 +497,3 @@ QED
 
 (**********)
 
-val _ = export_theory();

@@ -1,15 +1,13 @@
 (*
   Correctness proof for loop_to_word
 *)
+Theory loop_to_wordProof
+Libs
+  preamble
+Ancestors
+  loopSem loopProps wordLang wordSem wordProps pan_common
+  pan_commonProps loop_to_word loop_removeProof wordConvs
 
-open preamble
-     loopSemTheory loopPropsTheory
-     wordLangTheory wordSemTheory wordPropsTheory
-     pan_commonTheory pan_commonPropsTheory
-     loop_to_wordTheory loop_removeProofTheory
-     wordConvsTheory;
-
-val _ = new_theory "loop_to_wordProof";
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"];
 
@@ -2126,5 +2124,3 @@ Proof
   drule_then irule loop_to_word_compile_prog_every_inst_ok_less>>
   gs[every_loop_inst_ok_comp_prog]
 QED
-
-val _ = export_theory();

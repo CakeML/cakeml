@@ -1,12 +1,11 @@
 (*
   Model of floating-point optimizations
 *)
-open HolKernel Parse boolLib bossLib;
-open miscTheory fpValTreeTheory;
+Theory fpOpt
+Ancestors
+  misc fpValTree
 
 val _ = numLib.temp_prefer_num();
-
-val _ = new_theory "fpOpt"
 
 (*
   Definition of the fp_pattern language for Icing optimizations
@@ -232,4 +231,3 @@ Definition no_fp_opts_def:
  no_fp_opts (n:num) = []
 End
 
-val _ = export_theory()

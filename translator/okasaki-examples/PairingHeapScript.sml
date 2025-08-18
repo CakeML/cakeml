@@ -2,13 +2,14 @@
   This is an example of applying the translator to the Pairing
   Heap algorithm from Chris Okasaki's book.
 *)
-open preamble
-open bagTheory bagLib okasaki_miscTheory ml_translatorLib ListProgTheory
+Theory PairingHeap
+Ancestors
+  bag okasaki_misc ListProg
+Libs
+  preamble bagLib ml_translatorLib
 
 val fs = full_simp_tac (srw_ss ())
 val rw = srw_tac []
-
-val _ = new_theory "PairingHeap"
 
 val _ = translation_extends "ListProg";
 
@@ -201,4 +202,3 @@ Proof
 rw [find_min_side_def]
 QED
 
-val _ = export_theory ()

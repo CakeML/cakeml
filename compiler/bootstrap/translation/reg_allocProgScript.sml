@@ -1,6 +1,13 @@
 (*
   Translate the compiler's register allocator.
 *)
+Theory reg_allocProg
+Libs
+  preamble ml_monad_translatorLib
+Ancestors
+  linear_scan state_transformer ml_translator
+  pancake_parseProg reg_alloc reg_allocProof
+
 open preamble
 open reg_allocTheory reg_allocProofTheory state_transformerTheory
 open ml_monad_translatorLib ml_translatorTheory;
@@ -11,8 +18,6 @@ open basisProgTheory
 *)
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "reg_allocProg";
 
 val _ = translation_extends "pancake_parseProg";
 val _ = ml_translatorLib.use_string_type true;
@@ -449,5 +454,3 @@ val _ = disable_astPP()
 *)
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

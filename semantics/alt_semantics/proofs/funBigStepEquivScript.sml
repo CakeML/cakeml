@@ -2,10 +2,11 @@
   Relate functional big-step semantics with relational big-step
   semantics.
 *)
-open preamble evaluateTheory evaluatePropsTheory
-     interpTheory semanticPrimitivesTheory fpSemPropsTheory;
-
-val _ = new_theory"funBigStepEquiv"
+Theory funBigStepEquiv
+Ancestors
+  evaluate evaluateProps interp semanticPrimitives fpSemProps
+Libs
+  preamble
 
 val s = ``s:'ffi state``;
 
@@ -130,4 +131,3 @@ Proof
   Cases_on`r` \\ fs[]
 QED
 
-val _ = export_theory()

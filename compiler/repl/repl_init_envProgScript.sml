@@ -1,11 +1,11 @@
 (*
   This file partially instantiates the eval_state and inserts a Denv declaration.
 *)
-open preamble
-     ml_translatorTheory ml_translatorLib ml_progLib
-     repl_moduleProgTheory
-
-val _ = new_theory "repl_init_envProg";
+Theory repl_init_envProg
+Ancestors
+  ml_translator repl_moduleProg
+Libs
+  preamble ml_translatorLib ml_progLib
 
 val _ = translation_extends "repl_moduleProg";
 
@@ -29,4 +29,3 @@ QED
 
 val () = ml_prog_update (ml_progLib.add_Denv declare_env_thm "repl_init_env");
 
-val _ = export_theory();

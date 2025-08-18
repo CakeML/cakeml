@@ -1,11 +1,11 @@
 (*
   Correctness proof for word_remove
 *)
-open preamble word_removeTheory wordSemTheory wordPropsTheory wordConvsTheory;
-
-val _ = new_theory "word_removeProof";
-
-val _ = set_grammar_ancestry["word_remove","wordSem","wordProps"];
+Theory word_removeProof
+Ancestors
+  word_remove wordSem wordProps wordConvs
+Libs
+  preamble
 
 Definition compile_state_def:
   compile_state clk c s =
@@ -374,4 +374,3 @@ Proof
   \\ rw[]
 QED
 
-val _ = export_theory();

@@ -1,16 +1,17 @@
 (*
   Translation from CakeML floating-point kernels to FloVer input
 *)
-(* CakeML *)
-open semanticsTheory;
-(* FloVer *)
-open RealIntervalInferenceTheory ErrorIntervalInferenceTheory
-     CertificateCheckerTheory ExpressionsTheory CommandsTheory
-     IEEE_connectionTheory;
-open preamble;
-open updateTheory;
 
-val _ = new_theory "CakeMLtoFloVer";
+Theory CakeMLtoFloVer
+Ancestors
+  (* CakeML *)
+  semantics
+  (* FloVer *)
+  RealIntervalInference ErrorIntervalInference
+  CertificateChecker Expressions Commands IEEE_connection
+  update
+Libs
+  preamble
 
 (** Translation from CakeML AST to FloVer AST **)
 
@@ -259,5 +260,3 @@ Definition getError_def:
     | NONE => NONE
     | SOME (iv,errD) => (SOME errD)
 End
-
-val _ = export_theory ();

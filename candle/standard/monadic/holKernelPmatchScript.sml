@@ -4,11 +4,12 @@
   use PMATCH-based case expressions instead of HOL's standard
   per-datatype case constants.
 *)
-open preamble
-open patternMatchesLib patternMatchesSyntax patternMatchesTheory
-open ml_monadBaseTheory holKernelTheory
+Theory holKernelPmatch
+Ancestors
+  patternMatches ml_monadBase holKernel
+Libs
+  preamble patternMatchesLib patternMatchesSyntax
 
-val _ = new_theory"holKernelPmatch"
 val _ = monadsyntax.temp_add_monadsyntax()
 
 Overload monad_bind[local] = ``st_ex_bind``
@@ -305,4 +306,3 @@ val SYM_PMATCH = Q.prove(
   rpt tac)
 val res = fix SYM_def "SYM_def" SYM_PMATCH
 
-val _ = export_theory()

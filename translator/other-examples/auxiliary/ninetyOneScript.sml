@@ -1,10 +1,11 @@
 (*---------------------------------------------------------------------------
            McCarthy's 91 function.
  ---------------------------------------------------------------------------*)
-open bossLib Theory Parse Tactic boolLib Lib
-open TotalDefn numLib prim_recTheory arithmeticTheory;
-
-val _ = new_theory "ninetyOne"
+Theory ninetyOne
+Ancestors
+   prim_rec arithmetic
+Libs
+  Tactic Lib TotalDefn numLib
 
 val _ = ParseExtras.temp_loose_equality()
 
@@ -169,4 +170,3 @@ EVAL ``N 127``;
 
 (* val _ = ml_translatorLib.translate N_def; *)
 
-val _ = export_theory ()

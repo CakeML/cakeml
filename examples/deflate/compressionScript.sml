@@ -1,14 +1,12 @@
 (*
 First simple compressor
 *)
-
-open preamble;
-open stringLib stringTheory string_numTheory ASCIInumbersTheory;
-open rich_listTheory alistTheory listTheory;
-open sortingTheory arithmeticTheory;
-open mllistTheory;
-
-val _ = new_theory "compression";
+Theory compression
+Libs
+  preamble stringLib
+Ancestors
+  string string_num ASCIInumbers rich_list alist list sorting
+  mllist arithmetic
 
 
 (********************************************)
@@ -198,5 +196,3 @@ Proof
   \\ CASE_TAC
   \\ simp[]
 QED
-
-val _ = export_theory();

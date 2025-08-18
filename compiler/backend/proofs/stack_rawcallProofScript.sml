@@ -1,18 +1,20 @@
 (*
   Correctness proof for stack_rawcall
 *)
+Theory stack_rawcallProof
+Libs
+  preamble
+Ancestors
+  stack_rawcall stackLang stackSem stackProps wordSem[qualified]
+  labProps[qualified]
 
-open preamble stackLangTheory stackSemTheory stackPropsTheory stack_rawcallTheory
-local open wordSemTheory labPropsTheory in end
 
-val _ = new_theory"stack_rawcallProof";
 val _ = (max_print_depth := 18);
 
 val word_shift_def = backend_commonTheory.word_shift_def
 val theWord_def = wordSemTheory.theWord_def;
 val isWord_def = wordSemTheory.isWord_def;
 
-val _ = set_grammar_ancestry["stack_rawcall","stackLang","stackSem","stackProps"];
 Overload good_dimindex[local] = ``misc$good_dimindex``
 Overload comp[local] = ``stack_rawcall$comp``
 Overload compile[local] = ``stack_rawcall$compile``
@@ -963,5 +965,3 @@ Proof
   \\ Cases_on `lookup dest i` \\ fs []  \\ rw []
   \\ simp [stack_get_handler_labels_def]
 QED
-
-val _ = export_theory();

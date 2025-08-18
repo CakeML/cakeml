@@ -2,16 +2,15 @@
   Connect FloVer's idealized machine semantics to 64-bit
   IEEE-754 floating-point semantics
 **)
-open machine_ieeeTheory binary_ieeeTheory lift_ieeeTheory realTheory RealArith;
-open MachineTypeTheory ExpressionsTheory RealSimpsTheory FloverTactics
-     CertificateCheckerTheory FPRangeValidatorTheory IntervalValidationTheory
-     ExpressionAbbrevsTheory
-     ExpressionSemanticsTheory FloverMapTheory RealRangeArithTheory
-     TypeValidatorTheory ErrorValidationTheory IntervalArithTheory AbbrevsTheory
-     CommandsTheory ssaPrgsTheory EnvironmentsTheory FloverMapTheory;
-open preambleFloVer;
-
-val _ = new_theory "IEEE_connection";
+Theory IEEE_connection
+Ancestors
+  machine_ieee binary_ieee lift_ieee real MachineType Expressions
+  RealSimps CertificateChecker FPRangeValidator
+  IntervalValidation ExpressionAbbrevs ExpressionSemantics
+  FloverMap RealRangeArith TypeValidator ErrorValidation
+  IntervalArith Abbrevs Commands ssaPrgs Environments FloverMap
+Libs
+  RealArith FloverTactics preambleFloVer
 
 val _ = temp_delsimps ["fromAList_def", "domain_union",
                        "domain_inter", "domain_difference",
@@ -2134,4 +2133,3 @@ Proof
   \\ fs[]
 QED
 
-val _ = export_theory ();

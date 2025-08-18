@@ -1,17 +1,17 @@
 (*
   Part of the correctness proof for data_to_word
 *)
+Theory data_to_word_memoryProof
+Ancestors
+  dataSem dataProps wordSem data_to_word gc_shared gc_combined
+  word_gcFunctions copying_gc int_bitwise set_sep labSem while
+  alignment multiword
+Libs
+  preamble helperLib blastLib[qualified]
 
-open preamble dataSemTheory dataPropsTheory copying_gcTheory
-     int_bitwiseTheory wordSemTheory data_to_wordTheory set_sepTheory
-     labSemTheory whileTheory helperLib alignmentTheory multiwordTheory
-     gc_sharedTheory gc_combinedTheory word_gcFunctionsTheory;
-local open blastLib in end;
 
 val shift_def = backend_commonTheory.word_shift_def;
 val good_dimindex_def = miscTheory.good_dimindex_def;
-
-val _ = new_theory "data_to_word_memoryProof";
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -25,9 +25,6 @@ fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])
 
 val _ = augment_srw_ss[rewrites[LENGTH_REPLICATE]]
 
-val _ = set_grammar_ancestry
-  ["dataSem", "dataProps", "wordSem", "data_to_word",
-   "gc_shared", "gc_combined", "word_gcFunctions"];
 val _ = Parse.hide"el";
 Overload good_dimindex[local] = ``misc$good_dimindex``
 
@@ -14037,4 +14034,3 @@ Proof
     \\ gvs [AC STAR_COMM STAR_ASSOC])
 QED
 
-val _ = export_theory();

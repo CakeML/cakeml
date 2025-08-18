@@ -1,10 +1,12 @@
 (*
   Parsing and pretty printing of s-expressions
 *)
-open preamble basis miscTheory set_sepTheory listTheory mlstringTheory;
-open (* lisp: *) parsingTheory source_valuesTheory printingTheory;
-
-val _ = new_theory "lispProg";
+Theory lispProg
+Libs
+  preamble basis
+Ancestors
+  misc set_sep list mlstring
+  (* lisp: *) parsing source_values printing
 
 val _ = translation_extends "basisProg";
 
@@ -92,5 +94,3 @@ val res = translate dropWhile_def;
 val res = translate is_comment_def;
 val res = translate v2str_def;
 val res = translate vs2str_def;
-
-val _ = export_theory();

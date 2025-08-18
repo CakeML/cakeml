@@ -5,18 +5,19 @@
   using the automation in icing_optimisationsLib.sml with
   the local correctness theorems from icing_optimisationProofsScript.sml.
 *)
-open icing_rewriterTheory icing_rewriterProofsTheory source_to_source2Theory
-     fpOptTheory fpOptPropsTheory
-     fpSemPropsTheory semanticPrimitivesTheory evaluateTheory
-     semanticsTheory semanticsPropsTheory pureExpsTheory floatToRealTheory
-     floatToRealProofsTheory evaluatePropsTheory namespaceTheory
-     fpSemPropsTheory mllistTheory optPlannerTheory;
-     local open ml_progTheory in end;
-open icingTacticsLib preamble;
+
+Theory source_to_source2Proofs
+Ancestors
+  icing_rewriter icing_rewriterProofs source_to_source2 fpOpt
+  fpOptProps fpSemProps semanticPrimitives evaluate semantics
+  semanticsProps pureExps floatToReal floatToRealProofs
+  evaluateProps namespace fpSemProps mllist optPlanner
+  ml_prog[qualified]
+Libs
+  icingTacticsLib preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"];
 
-val _ = new_theory "source_to_source2Proofs";
 
 (**
   Helper theorems and definitions
@@ -3381,5 +3382,3 @@ Theorem is_optimise_with_plan_correct_sing:
 Proof
   rpt strip_tac \\ fs[]
 QED
-
-val _ = export_theory ();

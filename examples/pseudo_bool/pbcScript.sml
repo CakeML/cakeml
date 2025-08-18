@@ -2,9 +2,11 @@
   Formalisation of a flexible surface syntax and semantics for
   pseudo-boolean problems with 'a var type
 *)
-open preamble mlintTheory;
-
-val _ = new_theory "pbc";
+Theory pbc
+Ancestors
+  mlint
+Libs
+  preamble
 
 val _ = numLib.temp_prefer_num();
 
@@ -991,4 +993,3 @@ Proof
       metis_tac[BIJ_SYM,BIJ_TRANS]))
 QED
 
-val _ = export_theory();

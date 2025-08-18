@@ -1,17 +1,13 @@
 (*
   Definition of the Dafny to CakeML compiler.
 *)
+Theory dafny_compiler
+Ancestors
+  result_monad dafny_sexp sexp_to_dafny dafny_to_cakeml
+  dafny_freshen fromSexp simpleSexpParse
+Libs
+  preamble
 
-open preamble
-open result_monadTheory
-open dafny_sexpTheory
-open sexp_to_dafnyTheory
-open dafny_to_cakemlTheory
-open dafny_freshenTheory
-open fromSexpTheory
-open simpleSexpParseTheory
-
-val _ = new_theory "dafny_compiler";
 
 (* Trusted frontend *)
 Definition frontend_def:
@@ -66,4 +62,3 @@ Definition main_function_def:
     implode cml_str
 End
 
-val _ = export_theory ();

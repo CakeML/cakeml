@@ -1,12 +1,13 @@
 (*
   patch example: apply a patch to a file.
 *)
-open preamble basis
-     charsetTheory diffTheory
+Theory patchProg
+Ancestors
+  charset diff cfApp basis_ffi
+Libs
+  preamble basis
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "patchProg";
 
 val _ = translation_extends"basisProg";
 
@@ -244,5 +245,3 @@ Theorem patch_semantics =
   sem_thm |> REWRITE_RULE[GSYM patch_prog_def]
   |> DISCH_ALL
   |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO]
-
-val _ = export_theory ();

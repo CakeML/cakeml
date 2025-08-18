@@ -5,13 +5,16 @@
   memory load and store, functions,
   and foreign function calls.
 *)
+Theory panLang
+Ancestors
+  mlstring
+  asm (* for binop and cmp *)
+  backend_common  (* for overloading the shift operation *)
+Libs
+  preamble
 
-open preamble
-     mlstringTheory
-     asmTheory             (* for binop and cmp *)
-     backend_commonTheory; (* for overloading the shift operation *)
 
-val _ = new_theory "panLang";
+(* for overloading the shift operation *)
 
 Type shift = ``:ast$shift``
 
@@ -168,22 +171,20 @@ End
 
 (*
   for time_to_pancake compiler:
+
+Definition Assigns_def:
+  (Assigns [] n = Skip) ∧
+  (Assigns (v::vs) n =
+    Seq (Assign v n) (Assigns vs n))
+End
+
+Definition Decs_def:
+  (Decs [] p = p) /\
+  (Decs ((v,e)::es) p =
+    Dec v e (Decs es p))
+End
+
 *)
-
-(* optimise this function *)
-Definition assigns_def:
-  (assigns [] n = Skip) ∧
-  (assigns (v::vs) n =
-    Seq (Assign v n) (assigns vs n))
-End
-
-
-Definition decs_def:
-  (decs [] p = p) /\
-  (decs ((v,e)::es) p =
-    Dec v e (decs es p))
-End
-
 
 Definition var_exp_def:
   (var_exp (Const w) = ([]:mlstring list)) ∧
@@ -223,5 +224,3 @@ Definition store_op_def:
   store_op OpW = Store ∧
   store_op Op32 = Store32
 End
-
-val _ = export_theory();

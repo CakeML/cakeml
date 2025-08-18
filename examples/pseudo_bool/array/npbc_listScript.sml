@@ -1,9 +1,11 @@
 (*
   Refine PB proof checker to use arrays
 *)
-open preamble npbc_checkTheory;
-
-val _ = new_theory "npbc_list"
+Theory npbc_list
+Ancestors
+  npbc_check
+Libs
+  preamble
 
 Theorem any_el_update_resize:
   any_el n (update_resize fml def v id) def =
@@ -4904,4 +4906,3 @@ Proof
   metis_tac[]
 QED
 
-val _ = export_theory();

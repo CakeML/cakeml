@@ -2,10 +2,13 @@
   An example showing how to use the monadic translator with
   references, arrays and exceptions.
 *)
+Theory array_local_stateProg
+Libs
+  preamble ml_monad_translator_interfaceLib
+Ancestors
+  ml_monad_translator
 
-open preamble ml_monad_translator_interfaceLib
-
-val _ = new_theory "array_local_stateProg"
+val _ = set_up_monadic_translator ();
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -45,6 +48,7 @@ val config =  local_state_config |>
 val _ = start_translation config;
 
 Overload failwith = ``raise_Fail``
+
 
 (* Monadic translations *)
 
@@ -96,7 +100,7 @@ val run_init_state_def =
   define_run ``:state_refs`` ["farray1", "farray2"] "init_state"
 
 Definition run_test1_def:
-  run_test1 x state = run_init_state (test1 x) state
+  run_test1 (x: num) (state: init_state) = run_init_state (test1 x) (state: init_state)
 End
 val run_test1_v_thm = m_translate_run run_test1_def;
 
@@ -167,5 +171,3 @@ End
 val crun_test6_v_thm = m_translate_run crun_test6_def;
 
 (* ... *)
-
-val _ = export_theory ();
