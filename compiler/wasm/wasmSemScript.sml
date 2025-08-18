@@ -372,19 +372,19 @@ End
 (****************************)
 
 Inductive load_op_rel:
-  (∀ofs al m v  . load 4 ofs al m = (v       ,T) ⇒ load_op_rel (Load Int W32           ofs al) m (I32 v)            )∧
-  (∀ofs al m v s. load 1 ofs al m = (v:word8 ,T) ⇒ load_op_rel (LoadNarrow I8x16 s W32 ofs al) m (I32 $ sext s $ v) )∧
-  (∀ofs al m v s. load 2 ofs al m = (v:word16,T) ⇒ load_op_rel (LoadNarrow I16x8 s W32 ofs al) m (I32 $ sext s $ v) )
+  (∀i ofs a m v  . load 4 i ofs m = (v       ,T) ⇒ load_op_rel i (Load Int W32           ofs a) m (I32 v)            )∧
+  (∀i ofs a m v s. load 1 i ofs m = (v:word8 ,T) ⇒ load_op_rel i (LoadNarrow I8x16 s W32 ofs a) m (I32 $ sext s $ v) )∧
+  (∀i ofs a m v s. load 2 i ofs m = (v:word16,T) ⇒ load_op_rel i (LoadNarrow I16x8 s W32 ofs a) m (I32 $ sext s $ v) )
   ∧
-  (∀ofs al m v  . load 8 ofs al m = (v       ,T) ⇒ load_op_rel (Load Int W64           ofs al) m (I64 v)            )∧
-  (∀ofs al m v s. load 1 ofs al m = (v:word8 ,T) ⇒ load_op_rel (LoadNarrow I8x16 s W64 ofs al) m (I64 $ sext s $ v) )∧
-  (∀ofs al m v s. load 2 ofs al m = (v:word16,T) ⇒ load_op_rel (LoadNarrow I16x8 s W64 ofs al) m (I64 $ sext s $ v) )∧
-  (∀ofs al m v s. load 4 ofs al m = (v:word32,T) ⇒ load_op_rel (LoadNarrow32     s     ofs al) m (I64 $ sext s $ v) )
+  (∀i ofs a m v  . load 8 i ofs m = (v       ,T) ⇒ load_op_rel i (Load Int W64           ofs a) m (I64 v)            )∧
+  (∀i ofs a m v s. load 1 i ofs m = (v:word8 ,T) ⇒ load_op_rel i (LoadNarrow I8x16 s W64 ofs a) m (I64 $ sext s $ v) )∧
+  (∀i ofs a m v s. load 2 i ofs m = (v:word16,T) ⇒ load_op_rel i (LoadNarrow I16x8 s W64 ofs a) m (I64 $ sext s $ v) )∧
+  (∀i ofs a m v s. load 4 i ofs m = (v:word32,T) ⇒ load_op_rel i (LoadNarrow32     s     ofs a) m (I64 $ sext s $ v) )
 End
 
 Theorem load_op_rel_det:
-  ∀ op m r1 r2. load_op_rel op m r1 ∧
-                load_op_rel op m r2 ⇒ r1 = r2
+  ∀x op m r1 r2. load_op_rel x op m r1 ∧
+                 load_op_rel x op m r2 ⇒ r1 = r2
 Proof
   once_rewrite_tac [load_op_rel_cases]
   \\ simp []
@@ -393,11 +393,11 @@ Proof
 QED
 
 Definition do_ld_def:
-  do_ld op m = some res. load_op_rel op m res
+  do_ld x op m = some res. load_op_rel x op m res
 End
 
 Theorem do_ld_thm:
-  do_ld op m = SOME res ⇔ load_op_rel op m res
+  do_ld x op m = SOME res ⇔ load_op_rel x op m res
 Proof
   rw [do_ld_def] \\ DEEP_INTRO_TAC some_intro
   \\ fs [] \\ metis_tac [load_op_rel_det]
@@ -629,14 +629,14 @@ Definition exec_def:
   (**********************)
   (*   Memory - loads   *)
   (**********************)
+  (exec (MemRead op) s = (* TODO: fix *)
+    case pop s               of NONE=>  inv   s  | SOME (x,s) =>
+    case dest_i32 x          of NONE=>  inv   s  | SOME i     =>
+    case do_ld i op s.memory of NONE=> (RTrap,s) | SOME v     =>
+      (RNormal, s with stack := v :: s.stack)
+  ) ∧
   (* CHRC TODO - edit in this region on pain of merge conflicts *)
 
-  (exec (MemRead op) s = (* TODO: fix *)
-    case pop s             of NONE=>inv s| SOME (x,s) =>
-    case dest_i32 x        of NONE=>inv s| SOME w     =>
-    case do_ld op s.memory of NONE=>inv s| SOME v     =>
-      inv s
-  ) ∧
   (***********************)
   (*   Memory - stores   *)
   (***********************)
