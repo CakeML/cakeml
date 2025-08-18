@@ -1216,45 +1216,13 @@ Datatype:
 End
 
 Definition dest_thunk_def:
-  dest_thunk [RefPtr _ ptr] refs =
+  dest_thunk (RefPtr _ ptr) refs =
     (case lookup ptr refs of
      | NONE => BadRef
      | SOME (Thunk Evaluated v) => IsThunk Evaluated v
      | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
      | SOME _ => NotThunk) ∧
-  dest_thunk vs refs = NotThunk
-End
-
-Definition store_thunk_def:
-  store_thunk ptr v refs =
-    case lookup ptr refs of
-    | SOME (Thunk NotEvaluated _) => SOME (insert ptr v refs)
-    | _ => NONE
-End
-
-Definition update_thunk_def:
-  update_thunk [RefPtr _ ptr] refs [v] =
-    (case dest_thunk [v] refs of
-     | NotThunk => store_thunk ptr (Thunk Evaluated v) refs
-     | _ => NONE) ∧
-  update_thunk _ _ _ = NONE
-End
-
-Definition AppUnit_def:
-  AppUnit =
-    Seq
-      (Seq
-        (Assign 1 (BlockOp (ElemAt 1)) [0] NONE)
-        (Assign 2 (BlockOp (EqualConst (Int 0))) [1] NONE))
-      (If 2
-        (Seq
-          (Seq
-            (Assign 3 (BlockOp (Cons 0)) [] NONE)
-            (Assign 4 (BlockOp (ElemAt 0)) [0] NONE))
-          (Call NONE NONE [3; 0; 4] NONE))
-        (Seq
-          (Assign 6 (BlockOp (Cons 0)) [] NONE)
-          (Call NONE (SOME bvl_num_stubs) [6; 0] NONE)))
+  dest_thunk v refs = NotThunk
 End
 
 Definition evaluate_def:
@@ -1270,33 +1238,10 @@ Definition evaluate_def:
      | SOME s =>
        (case get_vars args s.locals of
         | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
-        | SOME xs =>
-           if op = ThunkOp ForceThunk then
-            (case dest_thunk xs s.refs of
-             | BadRef => (SOME (Rerr (Rabort Rtype_error)),s)
-             | NotThunk => (SOME (Rerr (Rabort Rtype_error)),s)
-             | IsThunk Evaluated v => (NONE,set_var dest v s)
-             | IsThunk NotEvaluated f =>
-                if s.clock = 0 then
-                  (SOME (Rerr (Rabort Rtimeout_error)), flush_state T s)
-                else
-                  case evaluate (
-                    AppUnit,s with <|
-                      clock := s.clock - 1;
-                      locals := insert 0 f LN |>) of
-                  | (SOME (Rval x),s1) =>
-                      (case update_thunk xs s1.refs [x] of
-                       | NONE => (SOME (Rerr (Rabort Rtype_error)),s1)
-                       | SOME refs =>
-                           (NONE,set_var dest x (s1 with
-                              <| refs := refs;
-                                 locals := s.locals |>)))
-                  | (err,s) => (err,s))
-           else
-            (case do_app op xs s of
-            | Rerr e => (SOME (Rerr e),flush_state T (install_sfs op s))
-            | Rval (v,s) =>
-               (NONE, set_var dest v (install_sfs op s))))) /\
+        | SOME xs => (case do_app op xs s of
+                      | Rerr e => (SOME (Rerr e),flush_state T (install_sfs op s))
+                      | Rval (v,s) =>
+                        (NONE, set_var dest v (install_sfs op s))))) /\
   (evaluate (Tick,s) =
      if s.clock = 0 then (SOME (Rerr(Rabort Rtimeout_error)),flush_state T s)
                     else (NONE,dec_clock s)) /\
@@ -1325,6 +1270,42 @@ Definition evaluate_def:
      | SOME x => if isBool T x then evaluate (c1,s) else
                  if isBool F x then evaluate (c2,s) else
                    (SOME (Rerr(Rabort Rtype_error)),s)) /\
+  (evaluate (Force ret loc src,s) =
+     case get_var src s.locals of
+     | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
+     | SOME thunk_v =>
+       (case dest_thunk thunk_v s.refs of
+        | BadRef => (SOME (Rerr (Rabort Rtype_error)),s)
+        | NotThunk => (SOME (Rerr (Rabort Rtype_error)),s)
+        | IsThunk Evaluated v =>
+          (case ret of
+           | NONE => (SOME (Rval v),flush_state F s)
+           | SOME (dest,names) => (NONE, set_var dest v s))
+        | IsThunk NotEvaluated f =>
+          (case find_code (SOME loc) [thunk_v; f] s.code s.stack_frame_sizes of
+           | NONE => (SOME (Rerr (Rabort Rtype_error)),s)
+           | SOME (args1,prog,ss) =>
+             (case ret of
+              | NONE =>
+                (if s.clock = 0
+                 then (SOME (Rerr(Rabort Rtimeout_error)),
+                       flush_state T s)
+                 else
+                   (case evaluate (prog, call_env args1 ss (dec_clock s)) of
+                    | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
+                    | (SOME res,s) => (SOME res,s)))
+              | SOME (dest,names) =>
+                (case cut_env names s.locals of
+                 | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
+                 | SOME env =>
+                     let s1 = call_env args1 ss (push_env env F (dec_clock s)) in
+                       if s.clock = 0 then
+                         (SOME (Rerr(Rabort Rtimeout_error)),
+                          s1 with <| stack := [] ; locals := LN |>)
+                       else
+                         (case fix_clock s1 (evaluate (prog, s1)) of
+                          | (SOME (Rval x),s2) => (NONE, set_var dest x s)
+                          | (other,s2) => (other,s2))))))) /\
   (evaluate (Call ret dest args handler,s) =
      case get_vars args s.locals of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
@@ -1365,17 +1346,14 @@ Definition evaluate_def:
                          | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
                          | res => res)))))
 Termination
-  simp [AppUnit_def]
-  \\ WF_REL_TAC `(inv_image (measure I LEX measure prog_size)
-                          (\(xs,s). (s.clock,xs)))`
+  WF_REL_TAC `(inv_image (measure I LEX measure prog_size)
+                         (\(xs,s). (s.clock,xs)))`
   \\ rpt strip_tac
   \\ simp[dec_clock_def]
   \\ imp_res_tac fix_clock_IMP
   \\ imp_res_tac (GSYM fix_clock_IMP)
   \\ FULL_SIMP_TAC (srw_ss()) [set_var_def,push_env_clock, call_env_def,LET_THM]
-  >- gvs [op_requires_names_def, cut_state_opt_def, AllCaseEqs(), cut_state_def]
-  >- fs [LESS_OR_EQ,dec_clock_def]
-  \\ decide_tac
+  \\ fs [dec_clock_def]
 End
 
 val evaluate_ind = theorem"evaluate_ind";
