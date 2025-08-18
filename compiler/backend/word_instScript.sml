@@ -279,7 +279,7 @@ Definition inst_select_exp_def:
       if n = 0 then
         Seq prog (Move 0 [tar,temp])
       else
-        Seq prog (Inst (Arith (Shift sh tar temp n)))
+        Seq prog (Inst (Arith (Shift sh tar temp (Imm (n2w n)))))
     else
       Inst (Const tar 0w)) ∧
   (*Make it total*)
@@ -341,7 +341,7 @@ Theorem inst_select_exp_pmatch:
       if n = 0 then
         Seq prog (Move 0 [tar,temp])
       else
-        Seq prog (Inst (Arith (Shift sh tar temp n)))
+        Seq prog (Inst (Arith (Shift sh tar temp (Imm (n2w n)))))
     else
       Inst (Const tar 0w))
   (*Make it total*)
@@ -565,4 +565,3 @@ Definition three_to_two_reg_prog_def:
   three_to_two_reg_prog b prog =
     if b then three_to_two_reg prog else prog
 End
-
