@@ -40,6 +40,12 @@ Datatype: result
   | RTimeout
 End
 
+(**************************************)
+(*                                    *)
+(*     Helper/ancillary functions     *)
+(*                                    *)
+(**************************************)
+
 (* Returns the function type for tb *)
 Definition functype_of_blocktype_def:
    functype_of_blocktype BlkNil : functype = ([], [] ) ∧
@@ -55,6 +61,10 @@ Definition nonzero_def:
   nonzero (I32 n:value) : bool option = SOME (n ≠ 0w) ∧
   nonzero (I64 n) = NONE
 End
+
+(************************)
+(*   Stack operations   *)
+(************************)
 
 Definition pop_def:
   pop (s:state) : (value # state) option =
@@ -73,10 +83,21 @@ Definition push_def:
   push (x:value) (s:state) = s with stack := x :: s.stack
 End
 
+
 Definition dest_i32_def:
   dest_i32 (I32 w:value) : word32 option = SOME w ∧
   dest_i32 _ = NONE
 End
+
+Definition pop_i32_def:
+  pop_i32 (s:state) : (word32 # state) option =
+    case s.stack of
+    | []                          => NONE
+    | x::stk => case x of (I32 w) => SOME (w, s with stack := stk)
+                          | _     => NONE
+End
+
+
 
 Definition fix_clock_def:
   fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
@@ -107,6 +128,11 @@ Definition inst_size'_def:
   inst_size' _ = 1
 End
 
+
+(**********************************)
+(*   pops leave clock unchanged   *)
+(**********************************)
+
 Theorem pop_clock:
   pop s = SOME (x,s1) ⇒ s1.clock = s.clock
 Proof
@@ -117,6 +143,12 @@ Theorem pop_n_clock:
   pop_n n s = SOME (x,s1) ⇒ s1.clock = s.clock
 Proof
   gvs [pop_n_def,AllCaseEqs()] \\ rw [] \\ simp []
+QED
+
+Theorem pop_i32_clock:
+  pop_i32 s = SOME (w,s1) ⇒ s1.clock = s.clock
+Proof
+  gvs[pop_i32_def, AllCaseEqs()] \\ rw[] \\ simp[]
 QED
 
 Definition lookup_func_tables_def:
@@ -144,11 +176,11 @@ End
 
 
 
-(************************************************************************)
-(*                                                                      *)
-(*     Instructions (hierarchically lower) - starting with Numerics     *)
-(*                                                                      *)
-(************************************************************************)
+(*********************************************************************************)
+(*                                                                               *)
+(*     Instruction semantics (hierarchically lower) - starting with Numerics     *)
+(*                                                                               *)
+(*********************************************************************************)
 
 (* How a instr/op relates its operand and result *)
 Inductive u_op_rel:
@@ -204,48 +236,48 @@ Theorem do_una_cases = REWRITE_RULE [GSYM do_una_thm] u_op_rel_cases;
 Inductive b_op_rel:
   (∀ l r. b_op_rel (Add Int W32) (I32 l) (I32 r) (I32 $ l + r) )∧
   (∀ l r. b_op_rel (Sub Int W32) (I32 l) (I32 r) (I32 $ l - r) )∧
-  (∀ l r. b_op_rel (Mul Int W32) (I32 l) (I32 r) (I32 $ l * r) )∧
-
+  (∀ l r. b_op_rel (Mul Int W32) (I32 l) (I32 r) (I32 $ l * r) )
+  ∧
   (∀ n d. d ≠ 0w ⇒ b_op_rel (Div_ Unsigned W32) (I32 n) (I32 d) (I32 $ n // d) )∧
-  (∀ n d. d ≠ 0w ⇒ b_op_rel (Rem_ Unsigned W32) (I32 n) (I32 d) (I32 $ n // d) )∧
-
+  (∀ n d. d ≠ 0w ⇒ b_op_rel (Rem_ Unsigned W32) (I32 n) (I32 d) (I32 $ n // d) )
+  ∧
   (∀ l r. b_op_rel (And W32) (I32 l) (I32 r) (I32 $ l && r) )∧
   (∀ l r. b_op_rel (Or  W32) (I32 l) (I32 r) (I32 $ l || r) )∧
-  (∀ l r. b_op_rel (Xor W32) (I32 l) (I32 r) (I32 $ l ⊕ r) )∧
-
+  (∀ l r. b_op_rel (Xor W32) (I32 l) (I32 r) (I32 $ l ⊕ r) )
+  ∧
   (∀ w n. n <+ 32w ⇒ b_op_rel (Rotl          W32) (I32 w) (I32 n) (I32 $ w ⇆  (w2n n)) )∧
   (∀ w n. n <+ 32w ⇒ b_op_rel (Rotr          W32) (I32 w) (I32 n) (I32 $ w ⇄  (w2n n)) )∧
   (∀ w n. n <+ 32w ⇒ b_op_rel (Shl           W32) (I32 w) (I32 n) (I32 $ w <<  (w2n n)) )∧
   (∀ w n. n <+ 32w ⇒ b_op_rel (Shr_   Signed W32) (I32 w) (I32 n) (I32 $ w >>  (w2n n)) )∧
-  (∀ w n. n <+ 32w ⇒ b_op_rel (Shr_ Unsigned W32) (I32 w) (I32 n) (I32 $ w >>> (w2n n)) )∧
-
+  (∀ w n. n <+ 32w ⇒ b_op_rel (Shr_ Unsigned W32) (I32 w) (I32 n) (I32 $ w >>> (w2n n)) )
+  ∧
   (∀ l r. b_op_rel (Add Int W64) (I64 l) (I64 r) (I64 $ l + r) )∧
   (∀ l r. b_op_rel (Mul Int W64) (I64 l) (I64 r) (I64 $ l - r) )∧
-  (∀ l r. b_op_rel (Sub Int W64) (I64 l) (I64 r) (I64 $ l * r) )∧
-
+  (∀ l r. b_op_rel (Sub Int W64) (I64 l) (I64 r) (I64 $ l * r) )
+  ∧
   (∀ n d. d ≠ 0w ⇒ b_op_rel (Div_ Unsigned W64) (I64 n) (I64 d) (I64 $ n // d) )∧
-  (∀ n d. d ≠ 0w ⇒ b_op_rel (Rem_ Unsigned W64) (I64 n) (I64 d) (I64 $ n // d) )∧
-
+  (∀ n d. d ≠ 0w ⇒ b_op_rel (Rem_ Unsigned W64) (I64 n) (I64 d) (I64 $ n // d) )
+  ∧
   (∀ l r. b_op_rel (And W64) (I64 l) (I64 r) (I64 $ l && r) )∧
   (∀ l r. b_op_rel (Or  W64) (I64 l) (I64 r) (I64 $ l || r) )∧
-  (∀ l r. b_op_rel (Xor W64) (I64 l) (I64 r) (I64 $ l ⊕ r) )∧
-
+  (∀ l r. b_op_rel (Xor W64) (I64 l) (I64 r) (I64 $ l ⊕ r) )
+  ∧
   (∀ w n. n <+ 64w ⇒ b_op_rel (Rotl          W64) (I64 w) (I64 n) (I64 $ w ⇆  (w2n n)) )∧
   (∀ w n. n <+ 64w ⇒ b_op_rel (Rotr          W64) (I64 w) (I64 n) (I64 $ w ⇄  (w2n n)) )∧
   (∀ w n. n <+ 64w ⇒ b_op_rel (Shl           W64) (I64 w) (I64 n) (I64 $ w <<  (w2n n)) )∧
   (∀ w n. n <+ 64w ⇒ b_op_rel (Shr_   Signed W64) (I64 w) (I64 n) (I64 $ w >>  (w2n n)) )∧
-  (∀ w n. n <+ 64w ⇒ b_op_rel (Shr_ Unsigned W64) (I64 w) (I64 n) (I64 $ w >>> (w2n n)) )∧
-
+  (∀ w n. n <+ 64w ⇒ b_op_rel (Shr_ Unsigned W64) (I64 w) (I64 n) (I64 $ w >>> (w2n n)) )
+  ∧
   (* integer_words$word_rem *)
-  (∀ n d. d ≠ 0w ⇒ b_op_rel (Div_   Signed W32) (I32 n) (I32 d) (I32 $ n // d) )∧ (* TODO *)
-  (∀ n d. d ≠ 0w ⇒ b_op_rel (Rem_   Signed W32) (I32 n) (I32 d) (I32 $ n // d) )∧ (* TODO *)
-  (∀ n d. d ≠ 0w ⇒ b_op_rel (Div_   Signed W64) (I64 n) (I64 d) (I64 $ n // d) )∧ (* TODO *)
-  (∀ n d. d ≠ 0w ⇒ b_op_rel (Rem_   Signed W64) (I64 n) (I64 d) (I64 $ n // d) ) (* TODO *)
+  (∀ n d. d ≠ 0w ⇒ b_op_rel (Div_   Signed W32) (I32 n) (I32 d) (I32 $ n // d) )∧
+  (∀ n d. d ≠ 0w ⇒ b_op_rel (Rem_   Signed W32) (I32 n) (I32 d) (I32 $ n // d) )∧
+  (∀ n d. d ≠ 0w ⇒ b_op_rel (Div_   Signed W64) (I64 n) (I64 d) (I64 $ n // d) )∧
+  (∀ n d. d ≠ 0w ⇒ b_op_rel (Rem_   Signed W64) (I64 n) (I64 d) (I64 $ n // d) )
 End
 
 Theorem b_op_rel_det:
-  ∀b x y r1 r2.   b_op_rel b x y r1 ∧
-                  b_op_rel b x y r2 ⇒ r1 = r2
+  ∀op x y r1 r2.  b_op_rel op x y r1 ∧
+                  b_op_rel op x y r2 ⇒ r1 = r2
 Proof
   once_rewrite_tac [b_op_rel_cases] \\ simp [] \\ rw [] \\ simp []
 QED
@@ -382,8 +414,8 @@ Inductive load_op_rel:
 End
 
 Theorem load_op_rel_det:
-  ∀x op m r1 r2. load_op_rel x op m r1 ∧
-                 load_op_rel x op m r2 ⇒ r1 = r2
+  ∀i op m r1 r2. load_op_rel i op m r1 ∧
+                 load_op_rel i op m r2 ⇒ r1 = r2
 Proof
   once_rewrite_tac [load_op_rel_cases]
   \\ simp [] \\ rw []
@@ -391,11 +423,11 @@ Proof
 QED
 
 Definition do_ld_def:
-  do_ld x op m = some res. load_op_rel x op m res
+  do_ld i op m = some res. load_op_rel i op m res
 End
 
 Theorem do_ld_thm:
-  do_ld x op m = SOME res ⇔ load_op_rel x op m res
+  do_ld i op m = SOME res ⇔ load_op_rel i op m res
 Proof
   rw [do_ld_def] \\ DEEP_INTRO_TAC some_intro
   \\ fs [] \\ metis_tac [load_op_rel_det]
@@ -411,19 +443,19 @@ Theorem do_ld_cases = REWRITE_RULE [GSYM do_ld_thm] load_op_rel_cases;
 (*****************************)
 
 Inductive store_op_rel:
-  (∀ofs al x m m'. store       x        ofs al m = (m',T) ⇒ store_op_rel (Store        Int  W32 ofs al) (I32 x) m m')∧
-  (∀ofs al x m m'. store (w2w x:word8 ) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow I8x16 W32 ofs al) (I32 x) m m')∧
-  (∀ofs al x m m'. store (w2w x:word16) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow I16x8 W32 ofs al) (I32 x) m m')
+  (∀x i ofs a m m'. store      x         i ofs m = (m',T) ⇒ store_op_rel (I32 x) i (Store        Int  W32 ofs a) m m')∧
+  (∀x i ofs a m m'. store (w2w x:word8 ) i ofs m = (m',T) ⇒ store_op_rel (I32 x) i (StoreNarrow I8x16 W32 ofs a) m m')∧
+  (∀x i ofs a m m'. store (w2w x:word16) i ofs m = (m',T) ⇒ store_op_rel (I32 x) i (StoreNarrow I16x8 W32 ofs a) m m')
   ∧
-  (∀ofs al x m m'. store       x        ofs al m = (m',T) ⇒ store_op_rel (Store        Int  W64 ofs al) (I64 x) m m')∧
-  (∀ofs al x m m'. store (w2w x:word8 ) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow I8x16 W64 ofs al) (I64 x) m m')∧
-  (∀ofs al x m m'. store (w2w x:word16) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow I16x8 W64 ofs al) (I64 x) m m')∧
-  (∀ofs al x m m'. store (w2w x:word32) ofs al m = (m',T) ⇒ store_op_rel (StoreNarrow32         ofs al) (I64 x) m m')
+  (∀x i ofs a m m'. store      x         i ofs m = (m',T) ⇒ store_op_rel (I64 x) i (Store        Int  W64 ofs a) m m')∧
+  (∀x i ofs a m m'. store (w2w x:word8 ) i ofs m = (m',T) ⇒ store_op_rel (I64 x) i (StoreNarrow I8x16 W64 ofs a) m m')∧
+  (∀x i ofs a m m'. store (w2w x:word16) i ofs m = (m',T) ⇒ store_op_rel (I64 x) i (StoreNarrow I16x8 W64 ofs a) m m')∧
+  (∀x i ofs a m m'. store (w2w x:word32) i ofs m = (m',T) ⇒ store_op_rel (I64 x) i (StoreNarrow32         ofs a) m m')
 End
 
 Theorem store_op_rel_det:
-  ∀op x m r1 r2.  store_op_rel op x m r1 ∧
-                  store_op_rel op x m r2 ⇒ r1 = r2
+  ∀x i op m r1 r2.  store_op_rel x i op m r1 ∧
+                    store_op_rel x i op m r2 ⇒ r1 = r2
 Proof
   once_rewrite_tac [store_op_rel_cases]
   \\ simp [] \\ rw []
@@ -431,11 +463,11 @@ Proof
 QED
 
 Definition do_st_def:
-  do_st op x m = some res. store_op_rel op x m res
+  do_st x i op m = some res. store_op_rel x i op m res
 End
 
 Theorem do_st_thm:
-  do_st op x m = SOME res ⇔ store_op_rel op x m res
+  do_st x i op m = SOME res ⇔ store_op_rel x i op m res
 Proof
   rw [do_st_def]
   \\ DEEP_INTRO_TAC some_intro
@@ -504,24 +536,25 @@ Definition exec_def:
   ) ∧
   (exec (If tb bl br) s =
     case pop s     of NONE => inv s | SOME (c,s) =>
-    case nonzero c of NONE => inv s | SOME t =>
-    exec (Block tb (if t then bl else br)) s
+    case nonzero c of NONE => inv s | SOME t     =>
+      exec (Block tb (if t then bl else br)) s
   ) ∧
-  (exec (Br w) s = (RBreak (w2n w), s)) ∧
+  (exec (Br w) s =   (RBreak (w2n w), s)
+  ) ∧
   (exec (BrIf w) s =
     case pop s     of NONE => inv s | SOME (c,s) =>
-    case nonzero c of NONE => inv s | SOME t =>
-    if t then (RBreak (w2n w), s) else (RNormal, s)
+    case nonzero c of NONE => inv s | SOME t     =>
+      if t then (RBreak (w2n w), s) else (RNormal, s)
   ) ∧
   (exec (BrTable table default) s =
     case pop s      of NONE => inv s | SOME (x,s) =>
-    case dest_i32 x of NONE => inv s | SOME w =>
-    (RBreak (case oEL (w2n w) table of NONE => w2n default | SOME i => w2n i), s)
+    case dest_i32 x of NONE => inv s | SOME w     =>
+      (RBreak (case oEL (w2n w) table of NONE => w2n default | SOME i => w2n i), s)
   ) ∧
-  (exec Return s = (RReturn, s)
+  (exec Return s =   (RReturn, s)
   ) ∧
   (exec (ReturnCall fi) s =
-    case oEL (w2n fi) s.funcs      of NONE => inv s | SOME f =>
+    case oEL (w2n fi) s.funcs      of NONE => inv s | SOME f          =>
     case oEL (w2n f.ftype) s.types of NONE => inv s | SOME (ins,outs) =>
     let np = LENGTH ins in
     let nr = LENGTH outs in
@@ -581,14 +614,15 @@ Definition exec_def:
   (*   Numerics   *)
   (****************)
   (exec (Numeric op) s =
-    case num_stk_op op s.stack of NONE => inv s | SOME stack1 =>
-    (RNormal, s with stack := stack1)
+    case num_stk_op op s.stack of NONE => inv s | SOME stk =>
+      (RNormal, s with stack := stk)
   ) ∧
   (*******************)
   (*   Parametrics   *)
   (*******************)
   (exec (Parametric Drop) s =
-    case pop s of NONE => inv s | SOME (_,s) => (RNormal, s)
+    case pop s of NONE => inv s | SOME (_,s) =>
+      (RNormal, s)
   ) ∧
   (exec (Parametric Select) s =
     case pop s     of NONE => inv s | SOME (c   ,s) =>
@@ -602,7 +636,7 @@ Definition exec_def:
   (*****************)
   (exec (Variable $ LocalGet n) s =
     case oEL (w2n n) s.locals of NONE => inv s | SOME x =>
-    (RNormal, push x s)
+      (RNormal, push x s)
   ) ∧
   (exec (Variable $ LocalSet n) s =
     case pop s                 of NONE => inv s | SOME (x,s) =>
@@ -616,7 +650,7 @@ Definition exec_def:
   ) ∧
   (exec (Variable $ GlobalGet n) s =
     case oEL (w2n n) s.globals of NONE => inv s | SOME x =>
-    (RNormal, push x s)
+      (RNormal, push x s)
   ) ∧
   (exec (Variable $ GlobalSet n) s =
     case pop s                  of NONE => inv s | SOME (x,s) =>
@@ -627,37 +661,36 @@ Definition exec_def:
   (*   Memory - loads   *)
   (**********************)
   (exec (MemRead op) s =
-    case pop s               of NONE=>  inv   s  | SOME (x,s) =>
-    case dest_i32 x          of NONE=>  inv   s  | SOME i     =>
-    case do_ld i op s.memory of NONE=> (RTrap,s) | SOME v     =>
+    case pop_i32 s           of NONE =>  inv   s  | SOME (i,s) =>
+    case do_ld i op s.memory of NONE => (RTrap,s) | SOME v     =>
       (RNormal, s with stack := v :: s.stack)
   ) ∧
   (***********************)
   (*   Memory - stores   *)
   (***********************)
-
-  (* CHRC TODO - edit in this region on pain of merge conflicts *)
-
   (exec (MemWrite op) s = (* TODO: fix *)
-      inv s
+    case pop s                 of NONE =>  inv   s  | SOME (x,s) =>
+    case pop_i32 s             of NONE =>  inv   s  | SOME (i,s) =>
+    case do_st x i op s.memory of NONE => (RTrap,s) | SOME  m'   =>
+      (RNormal, s with memory := m')
   ) ∧
-
-  (* END CHRC TODO *)
-
-  (exec_list ([]:instr list) (s:state) = (RNormal, s)) ∧
+  (exec_list ([]:instr list) (s:state) = (RNormal, s)
+  ) ∧
   (exec_list (b::bs) s =
     let (res,s) = fix_clock s (exec b s) in
     case res of
     | RNormal => exec_list bs s
-    | _       => (res,s))
+    | _       => (res,s)
+  )
 Termination
   WF_REL_TAC ‘inv_image (measure I LEX measure I) $ λx. case x of
-               | INL (i,s) => (s.clock, inst_size' i)
+               | INL (i ,s) => (s.clock, inst_size' i)
                | INR (is,s) => (s.clock, list_size inst_size' is)’
   \\ gvs [inst_size'_def]
   \\ rw [SF ETA_ss]
   \\ imp_res_tac pop_clock
   \\ imp_res_tac pop_n_clock
+  \\ imp_res_tac pop_i32_clock
   \\ imp_res_tac fix_clock_IMP
   \\ gvs [fix_clock_def]
 End
@@ -696,6 +729,7 @@ Proof
   \\ imp_res_tac fix_clock_leq
   \\ imp_res_tac pop_clock
   \\ imp_res_tac pop_n_clock
+  \\ imp_res_tac pop_i32_clock
   \\ gvs [oneline nonzero_def,AllCaseEqs(),push_def,set_local_def,set_global_def]
 QED
 
