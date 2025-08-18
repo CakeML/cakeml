@@ -46,10 +46,9 @@ Definition functype_of_blocktype_def:
    functype_of_blocktype (BlkVal ty)       = ([],[ty])
 End
 
-(* QQ what is T_i32? *)
 Definition init_val_of_def:
-  init_val_of T_i32 = I32 0w ∧
-  init_val_of T_i64 = I64 0w
+  init_val_of (Tnum Int W32:valtype) : value = I32 0w ∧
+  init_val_of (Tnum Int W64) = I64 0w
 End
 
 Definition nonzero_def:
@@ -387,8 +386,7 @@ Theorem load_op_rel_det:
                  load_op_rel x op m r2 ⇒ r1 = r2
 Proof
   once_rewrite_tac [load_op_rel_cases]
-  \\ simp []
-  \\ rw []
+  \\ simp [] \\ rw []
     >> gvs []
 QED
 
@@ -428,8 +426,7 @@ Theorem store_op_rel_det:
                   store_op_rel op x m r2 ⇒ r1 = r2
 Proof
   once_rewrite_tac [store_op_rel_cases]
-  \\ simp []
-  \\ rw []
+  \\ simp [] \\ rw []
     >> fs []
 QED
 
@@ -629,18 +626,20 @@ Definition exec_def:
   (**********************)
   (*   Memory - loads   *)
   (**********************)
-  (exec (MemRead op) s = (* TODO: fix *)
+  (exec (MemRead op) s =
     case pop s               of NONE=>  inv   s  | SOME (x,s) =>
     case dest_i32 x          of NONE=>  inv   s  | SOME i     =>
     case do_ld i op s.memory of NONE=> (RTrap,s) | SOME v     =>
       (RNormal, s with stack := v :: s.stack)
   ) ∧
-  (* CHRC TODO - edit in this region on pain of merge conflicts *)
-
   (***********************)
   (*   Memory - stores   *)
   (***********************)
-  (exec (MemWrite op) s = (* TODO: fix *) inv s
+
+  (* CHRC TODO - edit in this region on pain of merge conflicts *)
+
+  (exec (MemWrite op) s = (* TODO: fix *)
+      inv s
   ) ∧
 
   (* END CHRC TODO *)
