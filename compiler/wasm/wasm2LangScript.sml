@@ -4,11 +4,9 @@
     HOL lists encode Wasm vectors; latter has max length of 2^32
 *)
 
-Theory wasm2Lang
-Ancestors
-  words arithmetic list mlstring
-Libs
-  wordsLib dep_rewrite
+Theory    wasm2Lang
+Ancestors words arithmetic list mlstring
+Libs      wordsLib dep_rewrite
 
 (* Note :
   Most datatypes closely follow the wasm abstractions. ie,
