@@ -126,8 +126,10 @@ Definition arm7_enc_def:
              enc (Data (ArithLogicImmediate
                            (arm7_bop bop, F, n2w r1, n2w r2, imm12)))
          | NONE => arm7_encode_fail) /\
-   (arm7_enc (Inst (Arith (Shift sh r1 r2 n))) =
-      enc (Data (ShiftImmediate (F, F, n2w r1, n2w r2, arm7_sh sh, n)))) /\
+   (arm7_enc (Inst (Arith (Shift sh r1 r2 (Imm i)))) =
+      enc (Data (ShiftImmediate (F, F, n2w r1, n2w r2, arm7_sh sh, w2n i)))) /\
+   (arm7_enc (Inst (Arith (Shift sh r1 r2 (Reg r3)))) =
+      enc (Data (ShiftRegister (F, F, n2w r1, n2w r2, arm7_sh sh, n2w r3)))) /\
    (arm7_enc (Inst (Arith (Div _ _ _))) = arm7_encode_fail) /\
    (arm7_enc (Inst (Arith (LongMul r1 r2 r3 r4))) =
       enc (Multiply
@@ -300,7 +302,5 @@ End
 
 val (arm7_config, arm7_asm_ok) = asmLib.target_asm_rwts [] ``arm7_config``
 
-Theorem arm7_config =
-  arm7_config
-Theorem arm7_asm_ok =
-  arm7_asm_ok
+Theorem arm7_config = arm7_config
+Theorem arm7_asm_ok = arm7_asm_ok

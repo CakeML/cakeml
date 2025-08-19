@@ -87,8 +87,10 @@ Definition x64_ast_def:
          Zmonop (Znot, Z64, reg r)
        else
          Zbinop (x64_bop bop, Z64, Zrm_i (reg r, i))]) /\
-   (x64_ast (Inst (Arith (Shift sh r _ n))) =
-      [Zbinop (x64_sh sh, Z64, Zrm_i (reg r, n2w n))]) /\
+   (x64_ast (Inst (Arith (Shift sh r _ (Imm i)))) =
+      [Zbinop (x64_sh sh, Z64, Zrm_i (reg r, i))]) /\
+   (x64_ast (Inst (Arith (Shift sh r1 _ (Reg r2)))) =
+      [Zbinop (x64_sh sh, Z64, Zrm_r (reg r1, total_num2Zreg r2))]) /\
    (x64_ast (Inst (Arith (Div _ _ _))) = []) /\
    (x64_ast (Inst (Arith (LongMul _ _ _ r))) = [Zmul (Z64, reg r)]) /\
    (x64_ast (Inst (Arith (LongDiv _ _ _ _ r))) = [Zdiv (Z64, reg r)]) /\
@@ -258,7 +260,5 @@ End
 val (x64_config, x64_asm_ok) =
   asmLib.target_asm_rwts [alignmentTheory.aligned_0] ``x64_config``
 
-Theorem x64_config =
-  x64_config
-Theorem x64_asm_ok =
-  x64_asm_ok
+Theorem x64_config = x64_config
+Theorem x64_asm_ok = x64_asm_ok
