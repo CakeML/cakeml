@@ -170,7 +170,10 @@ Definition var_exp_def:
   (var_exp (Op bop es) = FLAT (MAP var_exp es)) ∧
   (var_exp (Panop op es) = FLAT (MAP var_exp es)) ∧
   (var_exp (Cmp c e1 e2) = var_exp e1 ++ var_exp e2) ∧
-  (var_exp (Shift sh e num) = var_exp e)
+  (var_exp (Shift sh e num) = var_exp e) ∧
+  (var_exp BaseAddr = []) ∧
+  (var_exp TopAddr = []) ∧
+  (var_exp BytesInWord = [])
 Termination
   wf_rel_tac `measure (\e. exp_size ARB e)` >>
   rpt strip_tac >>
