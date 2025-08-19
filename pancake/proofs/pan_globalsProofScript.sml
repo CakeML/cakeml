@@ -4,6 +4,8 @@
 Theory pan_globalsProof
 Ancestors
   panSem pan_globals panProps panLang stack_removeProof
+Libs
+  preamble
 
 val s = ``s:('a,'ffi) panSem$state``
 
@@ -271,7 +273,8 @@ Proof
   >- metis_tac[mem_stores_lookup]
   >- metis_tac[] >>
   ntac 2 $ first_x_assum drule >>
-  disch_then $ qspec_then ‘addr'’ mp_tac >>
+  rename1 ‘mem_loads _ (start_addr + _)’ >>
+  disch_then $ qspec_then ‘start_addr’ mp_tac >>
   impl_tac
   >- (gvs[addresses_thm,DISJOINT_ALT,PULL_EXISTS] >>
       rpt strip_tac >>
@@ -327,7 +330,7 @@ Proof
           gvs[bytes_in_word_def,word_mul_n2w,word_add_n2w,good_dimindex_def,dimword_def]) >>
       simp[mem_load_def] >>
       drule $ cj 2 mem_stores_load_disjoint >>
-      disch_then $ qspecl_then [‘shapes’,‘addr’] mp_tac >>
+      disch_then $ qspecl_then [‘shapes’,‘addr'’] mp_tac >>
       reverse impl_tac >- pop_assum $ simp o single >>
       gvs[shape_of_def,ETA_THM,LENGTH_FLAT,
           MAP_MAP_o,o_DEF,length_flatten_eq_size_of_shape,
@@ -425,17 +428,17 @@ Proof
   rw[mem_stores_def,mem_store_def,AllCaseEqs()] >>
   first_x_assum drule >>
   simp[] >>
-  disch_then $ qspec_then ‘addr'’ mp_tac >>
+  disch_then $ qspec_then ‘addr''’ mp_tac >>
   simp[] >>
   impl_keep_tac
   >- (irule byte_aligned_add >>
       simp[] >>
       gvs[good_dimindex_def,bytes_in_word_def,byte_aligned_def,aligned_def,align_def] >>
       EVAL_TAC >> simp[dimword_def] >> EVAL_TAC >> simp[dimword_def] >> EVAL_TAC) >>
-  Cases_on ‘addr = addr'’ >> gvs[] >>
+  Cases_on ‘addr' = addr''’ >> gvs[] >>
   simp[ADD1,LEFT_ADD_DISTRIB,WORD_LEFT_ADD_DISTRIB] >>
   strip_tac >>
-  Cases_on ‘-1w * addr + addr' + -1w * bytes_in_word = -1w * bytes_in_word’
+  Cases_on ‘-1w * addr' + addr'' + -1w * bytes_in_word = -1w * bytes_in_word’
   >- gvs[WORD_SUM_ZERO] >>
   dxrule $ iffRL ADD_MONO_LESS_EQ >>
   disch_then $ qspec_then ‘w2n(bytes_in_word:'a word)’ mp_tac >>
@@ -537,14 +540,14 @@ Proof
 QED
 
 Theorem mem_load_disjoint:
-  (∀val addr' memory v addr addrs.
-     (addr':'a word) ∉ addresses addr (size_of_shape(shape_of val)) ∧
-     mem_load (shape_of val) addr addrs memory = SOME val ⇒
-     mem_load (shape_of val) addr addrs memory⦇addr' ↦ v⦈ = SOME val) ∧
-  (∀vals addr' memory v addr addrs.
-     (addr':'a word) ∉ addresses addr (SUM(MAP (size_of_shape o shape_of) vals)) ∧
-     mem_loads (MAP shape_of vals) addr addrs memory = SOME vals ⇒
-     mem_loads (MAP shape_of vals) addr addrs memory⦇addr' ↦ v⦈ = SOME vals)
+  (∀val addr'' memory v addr' addrs.
+     (addr'':'a word) ∉ addresses addr' (size_of_shape(shape_of val)) ∧
+     mem_load (shape_of val) addr' addrs memory = SOME val ⇒
+     mem_load (shape_of val) addr' addrs memory⦇addr'' ↦ v⦈ = SOME val) ∧
+  (∀vals addr'' memory v addr' addrs.
+     (addr'':'a word) ∉ addresses addr' (SUM(MAP (size_of_shape o shape_of) vals)) ∧
+     mem_loads (MAP shape_of vals) addr' addrs memory = SOME vals ⇒
+     mem_loads (MAP shape_of vals) addr' addrs memory⦇addr'' ↦ v⦈ = SOME vals)
 Proof
   Induct
   >- (Cases >>
@@ -574,8 +577,8 @@ Proof
 QED
 
 Theorem state_rel_memory_update:
-  state_rel T ctxt s t ∧ addr ∈ s.memaddrs ⇒
-  state_rel T ctxt (s with memory := s.memory⦇addr ↦ h⦈) (t with memory := t.memory⦇addr ↦ h⦈)
+  state_rel T ctxt s t ∧ addr' ∈ s.memaddrs ⇒
+  state_rel T ctxt (s with memory := s.memory⦇addr' ↦ h⦈) (t with memory := t.memory⦇addr' ↦ h⦈)
 Proof
   rw[] >>
   gvs[state_rel_def] >>
@@ -599,14 +602,14 @@ Proof
   rpt $ qpat_x_assum ‘eval _ _ = _’ kall_tac >>
   rename1 ‘mem_stores _ v’ >>
   rpt $ pop_assum mp_tac >>
-  MAP_EVERY qid_spec_tac [‘v’,‘s’,‘t’,‘addr’,‘m’] >>
+  MAP_EVERY qid_spec_tac [‘v’,‘s’,‘t’,‘addr'’,‘m’] >>
   Induct_on ‘v’
   >- (rw[mem_stores_def] >>
       ‘s with memory := s.memory = s’ by simp[state_component_equality] >>
       ‘t with memory := t.memory = t’ by simp[state_component_equality] >>
       simp[]) >>
   rw[mem_stores_def,AllCaseEqs(),mem_store_def] >>
-  ‘addr ∈ t.memaddrs’ by(gvs[state_rel_def,SUBSET_DEF]) >>
+  ‘addr' ∈ t.memaddrs’ by(gvs[state_rel_def,SUBSET_DEF]) >>
   simp[] >>
   drule_all state_rel_memory_update >>
   strip_tac >>
@@ -660,10 +663,10 @@ Proof
   >- (rw[evaluate_def,AllCaseEqs(),compile_def,PULL_EXISTS,lookup_kvar_def] >>
       drule_all_then strip_assume_tac compile_exp_correct >>
       rename1 ‘FLOOKUP _ _ = SOME(Val vv)’ >>
-      ‘∃addr. FLOOKUP ctxt.globals v = SOME(shape_of(Val vv), addr) ∧
-              mem_load (shape_of(Val vv)) (t.top_addr - addr) t.memaddrs t.memory = SOME(Val vv) ∧
-              DISJOINT s.memaddrs (addresses (t.top_addr - addr) (size_of_shape(shape_of(Val vv)))) ∧
-              byte_aligned addr’
+      ‘∃addr'. FLOOKUP ctxt.globals v = SOME(shape_of(Val vv), addr') ∧
+              mem_load (shape_of(Val vv)) (t.top_addr - addr') t.memaddrs t.memory = SOME(Val vv) ∧
+              DISJOINT s.memaddrs (addresses (t.top_addr - addr') (size_of_shape(shape_of(Val vv)))) ∧
+              byte_aligned addr'’
         by gvs[state_rel_def] >>
       ‘s.locals = t.locals’ by gvs[state_rel_def] >>
       ‘s.sh_memaddrs = t.sh_memaddrs’ by gvs[state_rel_def] >>
@@ -1437,8 +1440,8 @@ QED
 
 Theorem state_rel_mem_store_byte:
   state_rel ls ctxt s t ∧
-  mem_store_byte s.memory s.memaddrs s.be addr b = SOME m' ⇒
-  ∃m''. mem_store_byte t.memory t.memaddrs t.be addr b = SOME m'' ∧
+  mem_store_byte s.memory s.memaddrs s.be addr' b = SOME m' ⇒
+  ∃m''. mem_store_byte t.memory t.memaddrs t.be addr' b = SOME m'' ∧
        state_rel ls ctxt (s with memory := m') (t with memory := m'')
 Proof
   rw[mem_store_byte_def,AllCaseEqs(),PULL_EXISTS,state_rel_def,SUBSET_DEF] >>
@@ -1845,9 +1848,9 @@ Proof
 QED
 
 Theorem mem_stores_addrs_IS_SOME:
-  ∀addr ws memaddrs memory.
-    addresses addr (LENGTH ws) ⊆ memaddrs ⇒
-    ∃m. mem_stores addr ws memaddrs memory = SOME m
+  ∀addr' ws memaddrs memory.
+    addresses addr' (LENGTH ws) ⊆ memaddrs ⇒
+    ∃m. mem_stores addr' ws memaddrs memory = SOME m
 Proof
   Induct_on ‘ws’ >>
   rw[addresses_def,mem_stores_def,mem_store_def]
@@ -1886,7 +1889,7 @@ Theorem evaluate_decls_init_globals_lemma:
     free_addrs ⊆ t.memaddrs ∧
     byte_aligned ctxt.globals_size ∧
     s.code = FEMPTY ∧
-    (∀v sh addr. IS_SOME(FLOOKUP s.globals v) ∧ FLOOKUP ctxt.globals v = SOME(sh, addr) ⇒ DISJOINT (addresses (t.top_addr-addr) (size_of_shape sh)) free_addrs) ∧
+    (∀v sh addr'. IS_SOME(FLOOKUP s.globals v) ∧ FLOOKUP ctxt.globals v = SOME(sh, addr') ⇒ DISJOINT (addresses (t.top_addr-addr') (size_of_shape sh)) free_addrs) ∧
     w2n(bytes_in_word:'a word) * (SUM (MAP size_of_shape (dec_shapes decls))) < dimword (:α)
     ⇒
     ∃t'. panSem$evaluate (nested_seq decls',t) = (NONE,t') ∧
@@ -2504,7 +2507,7 @@ Theorem compile_top_semantics_decls:
   mgs = bytes_in_word*n2w(SUM(MAP size_of_shape(dec_shapes code))) ∧
   free_addrs = addresses (s.top_addr) (SUM(MAP size_of_shape(dec_shapes code))) ∧
   DISJOINT s.memaddrs free_addrs ∧
-  (∀addr. addr ∈ s.memaddrs ⇒ s.memory addr = tmem addr) ∧
+  (∀addr'. addr' ∈ s.memaddrs ⇒ s.memory addr' = tmem addr') ∧
   s.top_addr + mgs ∉ s.memaddrs ∧
   w2n(bytes_in_word:'a word)*SUM(MAP size_of_shape(dec_shapes code)) < dimword(:'a) ∧
   semantics_decls s start code <> Fail ==>
@@ -2696,5 +2699,3 @@ Proof
        compile_decs_localised_main
       ]
 QED
-
-val _ = export_theory();
