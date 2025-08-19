@@ -273,6 +273,14 @@ Termination
   \\ gvs []
 End
 
+Definition require_def:
+  require p ⇔ freevars p = ∅ ∧ ⊢ p
+End
+
+Definition dec_assum_def:
+  dec_assum v e = dfy_eq (Var v) e
+End
+
 Inductive stmt_wp:
 [~Skip:]
   ∀m ens post.
@@ -317,6 +325,22 @@ Inductive stmt_wp:
     lhs_tys = rhs_tys
     ⇒
     stmt_wp m [Let (ZIP (ret_names,exps)) (conj post)] (Assign l) post ens decs ls
+[~While:]
+  ∀m guard invs ds mods body post ens decs ls ds_vars.
+    DISJOINT (set ds_vars) (set (MAP FST ls ++ get_vars_stmt body)) ∧
+    LENGTH ds_vars = LENGTH ds ∧
+    get_type ls guard = INR BoolT ∧
+    (* on exit of loop, invs and not guard imply post *)
+    require (Foralls ls (imp (conj (not guard :: invs)) (conj post))) ∧
+    (* when executing the body, invs are maintained *)
+    require (Foralls (MAP (λv. (v,IntT)) ds_vars ++ ls)
+               (imp (conj (guard :: invs ++ MAP2 dec_assum ds_vars ds))
+                    (conj body_wp))) ∧
+    stmt_wp m body_wp body
+      (invs ++ MAP CanEval ds ++ decreases_check (0, ds) (0, MAP Var ds_vars))
+      ens decs (MAP (λv. (v,IntT)) ds_vars ++ ls)
+    ⇒
+    stmt_wp m (invs ++ MAP CanEval ds) (While guard invs ds mods body) post ens decs ls
 [~MetCall:]
   ∀m mname mspec mbody args ret_names rets post ens.
     Method mname mspec mbody ∈ m ∧
@@ -2729,6 +2753,7 @@ Proof
     \\ simp [ALOOKUP_APPEND] \\ rw []
     \\ DEP_REWRITE_TAC [alistTheory.alookup_distinct_reverse]
     \\ simp [MAP_ZIP])
+  >~ [‘While guard invs ds mods body’] >- cheat
   \\ rename [‘MetCall rets mname args’]
   \\ irule_at Any eval_stmt_MetCall \\ gvs []
   \\ qpat_assum ‘compatible_env env m’ mp_tac
