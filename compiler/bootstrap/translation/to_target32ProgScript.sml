@@ -1,14 +1,20 @@
 (*
   Translate the final part of the compiler backend for 32-bit targets.
 *)
+Theory to_target32Prog
+Ancestors
+  evaluate ml_translator to_word32Prog std_prelude word_to_stack
+  stack_alloc stack_remove stack_names stack_to_lab lab_filter
+  lab_to_target asm monadic_enc monadic_enc32
+Libs
+  preamble ml_translatorLib ml_monad_translatorLib
+
 open preamble;
 open evaluateTheory
 open ml_translatorLib ml_translatorTheory;
 open to_word32ProgTheory std_preludeTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "to_target32Prog"
 
 val _ = translation_extends "to_word32Prog";
 val _ = ml_translatorLib.use_string_type true;
@@ -398,5 +404,3 @@ val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

@@ -1,9 +1,11 @@
 (*
   Call optimisation for loopLang
 *)
-open preamble loopLangTheory
-
-val _ = new_theory "loop_call"
+Theory loop_call
+Ancestors
+  loopLang
+Libs
+  preamble
 
 Definition is_load_def:
   (is_load Load = T) ∧
@@ -111,4 +113,3 @@ EVAL “(comp
 *)
 
 
-val _ = export_theory();

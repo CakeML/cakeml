@@ -1,21 +1,14 @@
 (*
   Correctness proof for ---
 *)
+Theory crep_to_loopProof
+Ancestors
+  listRange rich_list crepProps loopProps pan_commonProps
+  loop_liveProof crep_to_loop crepSem loopLang loopSem pan_common
+  crep_arithProof
+Libs
+  preamble
 
-open preamble
-     crepSemTheory crepPropsTheory
-     loopLangTheory loopSemTheory loopPropsTheory
-     pan_commonTheory pan_commonPropsTheory
-     listRangeTheory rich_listTheory
-     loop_liveProofTheory crep_to_loopTheory
-     crep_arithProofTheory
-
-val _ = new_theory "crep_to_loopProof";
-
-val _ = set_grammar_ancestry
-        ["listRange", "rich_list", "crepProps",
-         "loopProps", "pan_commonProps",
-         "loop_liveProof", "crep_to_loop"];
 
 val _ = temp_delsimps ["fromAList_def", "domain_union",
                        "domain_inter", "domain_difference",
@@ -4139,4 +4132,3 @@ Proof
   pairarg_tac>>gs[crep_to_loopTheory.first_name_def]
 QED
 
-val _ = export_theory();

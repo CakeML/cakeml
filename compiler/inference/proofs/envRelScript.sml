@@ -1,12 +1,12 @@
 (*
   Relating inference and type system environments.
 *)
-open preamble;
-open namespacePropsTheory typeSystemTheory astTheory
-semanticPrimitivesTheory inferTheory infer_tTheory unifyTheory inferPropsTheory;
-open astPropsTheory typeSysPropsTheory;
-
-val _ = new_theory "envRel";
+Theory envRel
+Ancestors
+  namespaceProps typeSystem ast semanticPrimitives infer infer_t
+  unify inferProps astProps typeSysProps
+Libs
+  preamble
 
 (* ---------- Converting infer types and envs to type system ones ---------- *)
 
@@ -947,4 +947,3 @@ Proof
   rw [tenv_to_ienv_def, lift_ienv_def, tenvLift_def, namespacePropsTheory.nsLift_nsMap]
 QED
 
-val _ = export_theory ();

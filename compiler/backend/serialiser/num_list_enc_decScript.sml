@@ -2,9 +2,11 @@
   Encoders and decoders to/from types represented as prefixes of lists
   of natural numbers.
 *)
-open preamble integerTheory miscTheory namespaceTheory ml_translatorTheory;
-
-val _ = new_theory "num_list_enc_dec";
+Theory num_list_enc_dec
+Ancestors
+  integer misc namespace ml_translator
+Libs
+  preamble
 
 (* definitions of what good enc/dec functions are *)
 
@@ -840,4 +842,3 @@ Proof
   \\ rw [] \\ EVAL_TAC
 QED
 
-val _ = export_theory();

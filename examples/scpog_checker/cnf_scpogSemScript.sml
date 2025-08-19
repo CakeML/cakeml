@@ -1,9 +1,11 @@
 (*
   Defines the syntax and semantics of CNF / SCPOG
 *)
-open preamble miscTheory;
-
-val _ = new_theory "cnf_scpogSem";
+Theory cnf_scpogSem
+Ancestors
+  misc
+Libs
+  preamble
 
 (* Num-based CNF semantics with 0 treated specially *)
 Type assignment = ``:num -> bool``;
@@ -678,4 +680,3 @@ Definition models_def:
   models D ws = IMAGE (λw. D ∩ w) ws
 End
 
-val _ = export_theory ();

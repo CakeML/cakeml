@@ -1,16 +1,14 @@
 (*
  Translates Dafny's AST types.
 *)
+Theory dafny_astProg
+Ancestors
+  cakeml_astProg dafny_ast
+Libs
+  preamble ml_translatorLib
 
-open preamble
-open ml_translatorLib
-open cakeml_astProgTheory
-open dafny_astTheory
-
-val _ = new_theory "dafny_astProg";
 
 val _ = translation_extends "cakeml_astProg";
 
 val _ = register_type “:program”;
 
-val _ = export_theory ();

@@ -1,24 +1,16 @@
 (*
   Composes the correctness theorems for all of the compiler phases.
 *)
-open preamble primSemEnvTheory semanticsPropsTheory
-     backendTheory
-     source_to_sourceProofTheory
-     source_to_flatProofTheory
-     flat_to_closProofTheory
-     clos_to_bvlProofTheory
-     bvl_to_bviProofTheory
-     bvi_to_dataProofTheory
-     data_to_wordProofTheory
-     word_to_stackProofTheory
-     stack_to_labProofTheory
-     lab_to_targetProofTheory
-     backend_commonTheory
-     backendPropsTheory
-local open dataPropsTheory finite_mapSyntax backend_passesTheory in end
-open word_to_stackTheory
-
-val _ = new_theory"backendProof";
+Theory backendProof
+Ancestors
+  primSemEnv semanticsProps backend source_to_sourceProof
+  source_to_flatProof flat_to_closProof clos_to_bvlProof
+  bvl_to_bviProof bvi_to_dataProof data_to_wordProof
+  word_to_stackProof stack_to_labProof lab_to_targetProof
+  backend_common backendProps word_to_stack dataProps[qualified]
+  backend_passes[qualified]
+Libs
+  preamble finite_mapSyntax[qualified]
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
@@ -4199,4 +4191,3 @@ Proof
   \\ fs [extend_with_resource_limit_def,SUBSET_DEF]
 QED
 
-val _ = export_theory();

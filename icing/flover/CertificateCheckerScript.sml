@@ -4,15 +4,14 @@
   validator and the error bound validator. Running this function on the encoded
   analysis result gives the desired theorem as shown in the soundness theorem.
 **)
-open simpLib realTheory realLib RealArith RealSimpsTheory;
-open AbbrevsTheory ExpressionsTheory FloverTactics ExpressionAbbrevsTheory
-     ExpressionSemanticsTheory ErrorBoundsTheory IntervalArithTheory
-     RealRangeArithTheory IntervalValidationTheory ErrorValidationTheory
-     ssaPrgsTheory FPRangeValidatorTheory TypeValidatorTheory FloverMapTheory;
-
-open preambleFloVer;
-
-val _ = new_theory "CertificateChecker";
+Theory CertificateChecker
+Ancestors
+  real RealSimps Abbrevs Expressions ExpressionAbbrevs
+  ExpressionSemantics ErrorBounds IntervalArith RealRangeArith
+  IntervalValidation ErrorValidation ssaPrgs FPRangeValidator
+  TypeValidator FloverMap
+Libs
+  simpLib realLib RealArith FloverTactics preambleFloVer
 
 Overload abs[local] = “realax$abs”;
 
@@ -159,4 +158,3 @@ Proof
   \\ rpt (TOP_CASE_TAC \\ fs[])
 QED
 
-val _ = export_theory();

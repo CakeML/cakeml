@@ -1,12 +1,12 @@
 (*
   Proves an end-to-end correctness theorem for the bootstrapped compiler.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     compiler64ProgTheory x64BootstrapTheory replProofTheory
-     candle_prover_semanticsTheory
-
-val _ = new_theory"x64BootstrapProof";
+Theory x64BootstrapProof
+Ancestors
+  semanticsProps backendProof x64_configProof compiler64Prog
+  x64Bootstrap replProof candle_prover_semantics
+Libs
+  preamble
 
 Triviality with_clos_conf_simp:
     (mc_init_ok (x64_backend_config with <| clos_conf := z ; bvl_conf updated_by
@@ -343,4 +343,3 @@ val _ = print "Checking that no cheats were used in the proofs.\n";
 val _ = candle_top_level_soundness |> check_thm;
 val _ = cake_compiled_thm |> check_thm;
 
-val _ = export_theory();

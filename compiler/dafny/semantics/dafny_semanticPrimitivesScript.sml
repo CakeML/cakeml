@@ -1,14 +1,13 @@
 (*
   Defines semantic primitives used in Dafny's semantics.
 *)
-
-open preamble
-open dafny_astTheory
-open mlstringTheory
-open mlintTheory  (* int_to_string *)
-open alistTheory
-
-val _ = new_theory "dafny_semanticPrimitives";
+Theory dafny_semanticPrimitives
+Ancestors
+  dafny_ast mlstring
+  mlint (* int_to_string *)
+  alist
+Libs
+  preamble
 
 Datatype:
   sem_env =
@@ -352,5 +351,3 @@ Definition print_string_def:
    | NONE => NONE
    | SOME s => SOME (st with output := SNOC s st.output))
 End
-
-val _ = export_theory ();

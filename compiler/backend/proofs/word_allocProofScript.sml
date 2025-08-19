@@ -1,19 +1,22 @@
 (*
   Correctness proof for word_alloc
 *)
-open preamble
-     reg_allocTheory reg_allocProofTheory linear_scanTheory linear_scanProofTheory
-     wordLangTheory wordSemTheory wordPropsTheory wordConvsTheory word_allocTheory;
+Theory word_allocProof
+Libs
+  preamble
+Ancestors
+  mllist wordLang wordSem wordProps word_alloc reg_alloc
+  reg_allocProof linear_scan linear_scanProof wordConvs
 
-val _ = new_theory "word_allocProof";
+(* Ensures we have the correct ML bindings *)
+open reg_allocTheory reg_allocProofTheory linear_scanTheory
+     linear_scanProofTheory wordLangTheory wordSemTheory wordPropsTheory
+     wordConvsTheory word_allocTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
-val _ = set_grammar_ancestry
-  ["wordLang", "wordSem", "wordProps", "word_alloc",
-   "reg_alloc", "reg_allocProof", "linear_scan", "linear_scanProof"];
 val _ = Parse.bring_to_front_overload"numset_list_insert"
              {Thy="word_alloc",Name="numset_list_insert"};
 val _ = Parse.hide"mem";
@@ -429,8 +432,8 @@ Triviality env_to_list_perm:
 Proof
   srw_tac[][]>>
   full_simp_tac(srw_ss())[env_to_list_def,LET_THM,strong_locals_rel_def]>>
-  qabbrev_tac `xls = QSORT key_val_compare (toAList x)`>>
-  qabbrev_tac `yls = QSORT key_val_compare (toAList y)`>>
+  qabbrev_tac `xls = sort key_val_compare (toAList x)`>>
+  qabbrev_tac `yls = sort key_val_compare (toAList y)`>>
   qabbrev_tac `ls = list_rearrange (perm 0) yls`>>
   full_simp_tac(srw_ss())[(GEN_ALL o SYM o SPEC_ALL) list_rearrange_MAP]>>
   `PERM (MAP (λx,y.f x,y) xls) yls` by
@@ -438,20 +441,20 @@ Proof
     >-
       (match_mp_tac ALL_DISTINCT_MAP_INJ>>srw_tac[][]
       >-
-        (full_simp_tac(srw_ss())[INJ_DEF,Abbr`xls`,QSORT_MEM]>>
+        (full_simp_tac(srw_ss())[INJ_DEF,Abbr`xls`,sort_MEM]>>
         Cases_on`x'`>>Cases_on`y'`>>full_simp_tac(srw_ss())[]>>
         imp_res_tac MEM_toAList>>
         full_simp_tac(srw_ss())[domain_lookup])
       >>
       full_simp_tac(srw_ss())[Abbr`xls`]>>
-      metis_tac[QSORT_PERM,ALL_DISTINCT_MAP_FST_toAList
+      metis_tac[sort_PERM,ALL_DISTINCT_MAP_FST_toAList
                ,ALL_DISTINCT_FST,ALL_DISTINCT_PERM])
     >-
-      metis_tac[QSORT_PERM,ALL_DISTINCT_MAP_FST_toAList
+      metis_tac[sort_PERM,ALL_DISTINCT_MAP_FST_toAList
                ,ALL_DISTINCT_FST,ALL_DISTINCT_PERM]
     >>
       unabbrev_all_tac>>
-      full_simp_tac(srw_ss())[QSORT_MEM,MEM_MAP]>>
+      full_simp_tac(srw_ss())[sort_MEM,MEM_MAP]>>
       full_simp_tac(srw_ss())[EQ_IMP_THM]>>srw_tac[][]
       >-
         (Cases_on`y'`>>full_simp_tac(srw_ss())[MEM_toAList]>>metis_tac[domain_lookup])
@@ -469,7 +472,7 @@ Proof
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
     match_mp_tac PERM_ALL_DISTINCT>>
     CONJ_ASM1_TAC>-
-      metis_tac[QSORT_PERM,ALL_DISTINCT_MAP_FST_toAList
+      metis_tac[sort_PERM,ALL_DISTINCT_MAP_FST_toAList
                ,ALL_DISTINCT_FST,ALL_DISTINCT_PERM]>>
     CONJ_ASM1_TAC>-
       (full_simp_tac(srw_ss())[ALL_DISTINCT_GENLIST]>>srw_tac[][]>>
@@ -525,12 +528,12 @@ Proof
   fs[env_to_list_def,LET_THM]>> rveq >>
   fs[s_val_eq_def,s_val_eq_refl]>>
   CONJ_TAC>-(
-    simp[mem_list_rearrange,MEM_MAP,QSORT_MEM] >>
+    simp[mem_list_rearrange,MEM_MAP,sort_MEM] >>
     simp[EXISTS_PROD,MEM_toAList,GSYM domain_lookup] >>
     metis_tac[INJ_DEF]) >>
   fs[s_frame_val_eq_def]>>
   qpat_abbrev_tac `q = list_rearrange A
-    (QSORT key_val_compare (toAList x))`>>
+    (sort key_val_compare (toAList x))`>>
   `MAP SND (MAP (λx,y.f x,y) q) = MAP SND q` by
     (simp_tac(srw_ss()++ETA_ss)[MAP_MAP_o,ELIM_UNCURRY,o_ABS_R]) >>
   metis_tac[])
@@ -650,9 +653,9 @@ Proof
   srw_tac[][EQ_IMP_THM]
   >-
     (imp_res_tac mem_list_rearrange>>
-    full_simp_tac(srw_ss())[QSORT_MEM,MEM_toAList,domain_lookup])
+    full_simp_tac(srw_ss())[sort_MEM,MEM_toAList,domain_lookup])
   >>
-    full_simp_tac(srw_ss())[mem_list_rearrange,QSORT_MEM,MEM_toAList,domain_lookup]
+    full_simp_tac(srw_ss())[mem_list_rearrange,sort_MEM,MEM_toAList,domain_lookup]
 QED
 
 Theorem list_rearrange_keys:
@@ -669,18 +672,18 @@ Proof
   metis_tac[list_rearrange_keys]
 QED
 
-Theorem MAP_FST_list_rearrange_keys_QSORT:
+Theorem MAP_FST_list_rearrange_keys_SORT:
   set(MAP FST (list_rearrange perm
-    (QSORT key_val_compare (toAList x)))) = domain x
+    (sort key_val_compare (toAList x)))) = domain x
 Proof
   simp[list_rearrange_keys_2]>>
-  simp[EXTENSION,MEM_MAP,QSORT_MEM,MEM_toAList,EXISTS_PROD,domain_lookup]
+  simp[EXTENSION,MEM_MAP,sort_MEM,MEM_toAList,EXISTS_PROD,domain_lookup]
 QED
 
-Triviality MAP_FST_keys_QSORT:
-  set(MAP FST (QSORT f (toAList x))) = domain x
+Triviality MAP_FST_keys_SORT:
+  set(MAP FST (sort f (toAList x))) = domain x
 Proof
-  simp[EXTENSION,MEM_MAP,QSORT_MEM,MEM_toAList,EXISTS_PROD,domain_lookup]
+  simp[EXTENSION,MEM_MAP,sort_MEM,MEM_toAList,EXISTS_PROD,domain_lookup]
 QED
 
 Theorem pop_env_frame:
@@ -1450,7 +1453,7 @@ Proof
       `set (MAP FST lss') = domain y` by
         (qpat_x_assum`A=MAP FST lss'` (SUBST1_TAC o SYM)>>
         full_simp_tac(srw_ss())[EXTENSION]>>srw_tac[][EXISTS_PROD]>>
-        simp[MEM_MAP,QSORT_MEM]>>srw_tac[][EQ_IMP_THM]
+        simp[MEM_MAP,sort_MEM]>>srw_tac[][EQ_IMP_THM]
         >-
           (Cases_on`y''`>>
           full_simp_tac(srw_ss())[MEM_toAList]>>
@@ -1461,11 +1464,11 @@ Proof
           metis_tac[domain_lookup])>>
       `domain (SND names) = set (MAP FST lss)` by
         (qpat_x_assum `A = MAP FST lss` (SUBST1_TAC o SYM)>>
-          full_simp_tac(srw_ss())[EXTENSION,MEM_MAP,QSORT_MEM,MEM_toAList
+          full_simp_tac(srw_ss())[EXTENSION,MEM_MAP,sort_MEM,MEM_toAList
             ,EXISTS_PROD,domain_lookup])>>
       `set (MAP FST e0) = domain x'` by
         (full_simp_tac(srw_ss())[EXTENSION]>>srw_tac[][EXISTS_PROD]>>
-        simp[MEM_MAP,QSORT_MEM]>>srw_tac[][EQ_IMP_THM]
+        simp[MEM_MAP,sort_MEM]>>srw_tac[][EQ_IMP_THM]
         >-
           (Cases_on`y''`>>
           full_simp_tac(srw_ss())[MEM_toAList]>>
@@ -1475,11 +1478,11 @@ Proof
           full_simp_tac(srw_ss())[EXISTS_PROD,MEM_toAList]>>
           metis_tac[domain_lookup])>>
       `domain (FST names) = set (MAP FST e0)` by
-         (full_simp_tac(srw_ss())[EXTENSION,MEM_MAP,QSORT_MEM,MEM_toAList
+         (full_simp_tac(srw_ss())[EXTENSION,MEM_MAP,sort_MEM,MEM_toAList
             ,EXISTS_PROD,domain_lookup])>>
       `set (MAP FST e0') = IMAGE f (domain x')` by
         (full_simp_tac(srw_ss())[EXTENSION]>>srw_tac[][EXISTS_PROD]>>
-        simp[MEM_MAP,QSORT_MEM]>>srw_tac[][EQ_IMP_THM]
+        simp[MEM_MAP,sort_MEM]>>srw_tac[][EQ_IMP_THM]
         >-
           (Cases_on`y''`>>
           full_simp_tac(srw_ss())[MEM_toAList]>>
@@ -1661,9 +1664,9 @@ Proof
       ntac 2 strip_tac>>
       rpt (qpat_x_assum `s_key_eq A B` mp_tac)>>
       qpat_abbrev_tac `lsA = list_rearrange (cst.permute 0)
-        (QSORT key_val_compare ( (toAList y2)))`>>
+        (sort key_val_compare ( (toAList y2)))`>>
       qpat_abbrev_tac `lsB = list_rearrange (perm 0)
-        (QSORT key_val_compare ( (toAList x1)))`>>
+        (sort key_val_compare ( (toAList x1)))`>>
       ntac 4 strip_tac>>
       Q.ISPECL_THEN [`tt.stack`,`cxx`,`ctt`,`NONE:(num#num#num) option`,
          `st.locals_size`, `(toAList y1)`,`lsA`,`cst.stack`] mp_tac (GEN_ALL s_key_eq_val_eq_pop_env)>>
@@ -1693,12 +1696,12 @@ Proof
           simp[MEM_toAList,domain_union]
           >- metis_tac[domain_lookup]>>
           strip_tac>> drule_at Any MEM_ZIP_weak>>
-          simp[Abbr`lsB`,MAP_FST_list_rearrange_keys_QSORT])>>
+          simp[Abbr`lsB`,MAP_FST_list_rearrange_keys_SORT])>>
         `ALOOKUP (ZIP (MAP FST lsB,MAP SND l)) nn =
           ALOOKUP l (f nn)` by (
           simp[Once (GSYM ZIP_MAP_FST_SND_EQ), SimpRHS]>>
           irule ALOOKUP_key_remap_INJ>>
-          simp[Abbr`lsB`,MAP_FST_list_rearrange_keys_QSORT]>>
+          simp[Abbr`lsB`,MAP_FST_list_rearrange_keys_SORT]>>
           irule INJ_less>>
           last_x_assum (irule_at Any)>>
           simp[domain_union,SUBSET_DEF])>>
@@ -1707,7 +1710,7 @@ Proof
           fs[ALOOKUP_NONE]>>
           metis_tac[MEM_MAP])>>
         pop_assum mp_tac>>
-        simp[Abbr`lsB`,MAP_FST_list_rearrange_keys_QSORT]>>
+        simp[Abbr`lsB`,MAP_FST_list_rearrange_keys_SORT]>>
         strip_tac>>
         first_x_assum irule>>
         fs[domain_union])>>
@@ -6780,10 +6783,10 @@ Proof
         qpat_x_assum`set _ = set _` mp_tac>>
         qpat_x_assum`set _ = set _` mp_tac>>
         rpt (pop_assum kall_tac)>>
-        simp[EXTENSION,MEM_MAP,QSORT_MEM,MEM_toAList,EXISTS_PROD,domain_lookup])>>
+        simp[EXTENSION,MEM_MAP,sort_MEM,MEM_toAList,EXISTS_PROD,domain_lookup])>>
       `domain yy1 = set (MAP FST lss)` by (
         qpat_x_assum `A = MAP FST lss` (SUBST1_TAC o SYM)>>
-        full_simp_tac(srw_ss())[EXTENSION,MEM_MAP,QSORT_MEM,MEM_toAList
+        full_simp_tac(srw_ss())[EXTENSION,MEM_MAP,sort_MEM,MEM_toAList
           ,EXISTS_PROD,domain_lookup])>>
       full_simp_tac(srw_ss())[word_state_eq_rel_def]>>
       rev_full_simp_tac(srw_ss())[]>>
@@ -6813,7 +6816,7 @@ Proof
         rpt gen_tac>>
         rename1`lookup xx`>>
         strip_tac>>
-        full_simp_tac (srw_ss()) [MAP_FST_keys_QSORT]>>
+        full_simp_tac (srw_ss()) [MAP_FST_keys_SORT]>>
         `domain (fromAList lss) = domain yy1 ∧
           domain (fromAList e0) = domain yy0` by
           metis_tac[domain_fromAList,set_MAP_FST_toAList_domain]>>
@@ -6924,10 +6927,10 @@ Proof
           <| locals := fromList2 q; locals_size := r';
              stack_max :=  OPTION_MAP2 MAX (OPTION_MAP2 MAX st.stack_max
           (stack_size (StackFrame st.locals_size (toAList yy0)
-            (list_rearrange (perm 0)(QSORT key_val_compare (toAList yy1)))
+            (list_rearrange (perm 0)(sort key_val_compare (toAList yy1)))
             (SOME (st.handler,x''2,x''3))::st.stack)))
         (OPTION_MAP2 $+ (stack_size (StackFrame st.locals_size (toAList yy0)
-         (list_rearrange (perm 0)(QSORT key_val_compare (toAList yy1)))
+         (list_rearrange (perm 0)(sort key_val_compare (toAList yy1)))
       (SOME (st.handler,x''2,x''3))::st.stack)) r')|>`,`perm'`]
         assume_tac permute_swap_lemma>>
       rev_full_simp_tac(srw_ss())[LET_THM,push_env_def,env_to_list_def]>>
@@ -7154,9 +7157,9 @@ Proof
     full_simp_tac(srw_ss())[push_env_def,LET_THM,env_to_list_def]>>
     rpt (qpat_x_assum `s_key_eq A B` mp_tac)>>
     qpat_abbrev_tac `lsA = list_rearrange (rcst.permute 0)
-        (QSORT key_val_compare ( (toAList y2)))`>>
+        (sort key_val_compare ( (toAList y2)))`>>
     qpat_abbrev_tac `lsB = list_rearrange (perm 0)
-        (QSORT key_val_compare ( (toAList x1)))`>>
+        (sort key_val_compare ( (toAList x1)))`>>
     ntac 4 strip_tac>>
     Q.ISPECL_THEN [`x.stack`,`y`,`t'`,`NONE:(num#num#num) option`,
       `rcst.locals_size`,`toAList y1`,`lsA`,`rcst.stack`]
@@ -7207,7 +7210,7 @@ Proof
     `domain x'.locals = domain x0 ∪ domain x1` by (
       full_simp_tac(srw_ss())[domain_fromAList,MAP_ZIP,domain_union]>>
       full_simp_tac(srw_ss())[EXTENSION,Abbr`lsB`]>>
-      full_simp_tac(srw_ss())[MEM_MAP,mem_list_rearrange,QSORT_MEM]>>
+      full_simp_tac(srw_ss())[MEM_MAP,mem_list_rearrange,sort_MEM]>>
       srw_tac[][]>>
       full_simp_tac(srw_ss())[EXISTS_PROD,MEM_toAList,domain_lookup]>>
       metis_tac[])>>
@@ -7229,7 +7232,7 @@ Proof
         rpt gen_tac>>
         rename1`lookup xx`>>
         `set (MAP FST lsB) = domain x1` by
-          simp[Abbr`lsB`, MAP_FST_list_rearrange_keys_QSORT]>>
+          simp[Abbr`lsB`, MAP_FST_list_rearrange_keys_SORT]>>
         strip_tac >>
         `xx ∈ ((domain x0) UNION (domain x1))`
              by ( imp_res_tac$  GSYM domain_lookup >>
@@ -8935,5 +8938,3 @@ Proof
   match_mp_tac get_forced_pairwise_distinct>>
   simp[]
 QED
-
-val _ = export_theory();

@@ -1,10 +1,11 @@
 (*
   Define the target compiler configuration for ARMv8.
 *)
-open HolKernel Parse boolLib bossLib
-open asmLib arm8_stepTheory arithmeticTheory wordsTheory;
-
-val () = new_theory "arm8_target"
+Theory arm8_target
+Ancestors
+  asmProps arm8_step arithmetic words
+Libs
+  asmLib
 
 val () = wordsLib.guess_lengths ()
 
@@ -374,5 +375,3 @@ Proof
   eq_tac>>
   fs[listTheory.EL_GENLIST]
 QED
-
-val () = export_theory ()

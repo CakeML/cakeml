@@ -3,11 +3,12 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     echoProgTheory echoCompileTheory
-
-val _ = new_theory"echoProof";
+Theory echoProof
+Ancestors
+  semanticsProps backendProof x64_configProof echoProg
+  echoCompile
+Libs
+  preamble
 
 val echo_io_events_def = new_specification("echo_io_events_def",["echo_io_events"],
   echo_semantics
@@ -35,4 +36,3 @@ Theorem echo_compiled_thm =
   |> DISCH_ALL
   |> check_thm
 
-val _ = export_theory();

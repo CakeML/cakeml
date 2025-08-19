@@ -1,15 +1,14 @@
 (*
   Compiler correctness for the itree CakeML semantics
 *)
-open preamble;
-open semanticsPropsTheory evaluatePropsTheory ffiTheory targetPropsTheory
-     backendProofTheory primSemEnvTheory alt_semanticsTheory;
-open target_itreeSemTheory target_itreePropsTheory target_itreeEquivTheory
-     itree_semanticsTheory itree_semanticsPropsTheory itree_semanticsEquivTheory;
-
-
-val _ = new_theory "backend_itreeProof"
-
+Theory backend_itreeProof
+Ancestors
+  semanticsProps evaluateProps ffi targetProps lab_to_targetProof
+  backendProof primSemEnv alt_semantics target_itreeSem
+  target_itreeProps target_itreeEquiv itree_semantics
+  itree_semanticsProps itree_semanticsEquiv
+Libs
+  preamble
 
 (*********** Definitions **********)
 
@@ -620,5 +619,3 @@ QED
 
 
 (**********)
-
-val _ = export_theory();

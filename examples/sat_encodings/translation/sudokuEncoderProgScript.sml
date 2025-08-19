@@ -1,14 +1,15 @@
 (*
   Encoding program for the sudoku puzzle
 *)
-open preamble basis miscTheory set_sepTheory listTheory cnfTheory;
-open boolExpToCnfTheory quantifierExpTheory orderEncodingBoolTheory;
-open numBoolExpTheory numBoolExtendedTheory numBoolRangeTheory;
-open unorderedSetsTheory sudokuTheory numberSudokuTheory;
-open (* for parsing: *) parsingTheory source_valuesTheory;
-open toCnfHelperTheory sat_encodersProgTheory;
-
-val _ = new_theory "sudokuEncoderProg";
+Theory sudokuEncoderProg
+Ancestors
+  misc set_sep list cnf boolExpToCnf quantifierExp
+  orderEncodingBool numBoolExp numBoolExtended numBoolRange
+  unorderedSets sudoku numberSudoku
+  (* for parsing: *) parsing source_values
+  toCnfHelper sat_encodersProg
+Libs
+  preamble basis
 
 val _ = translation_extends "sat_encodersProg";
 
@@ -153,5 +154,3 @@ val prog =
 Definition sudoku_encoder_prog_def:
   sudoku_encoder_prog = ^prog
 End
-
-val _ = export_theory();

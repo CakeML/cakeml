@@ -2,11 +2,12 @@
   Basic properties of the AST.
   TODO: delete this theory (it has no content)
 *)
+Theory astProps
+Ancestors
+  ast
+Libs
+  preamble astSyntax
 
-open preamble;
-open astTheory astSyntax;
-
-val _ = new_theory "astProps";
 
 (*
 val _ = export_rewrites ["ast.Tstring_def",
@@ -18,4 +19,3 @@ val _ = export_rewrites ["ast.Tstring_def",
                          "ast.Texn_def"];
                          *)
 
-val _ = export_theory ();

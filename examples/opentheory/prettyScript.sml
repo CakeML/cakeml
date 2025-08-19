@@ -2,9 +2,11 @@
   A pretty printer producing mlstring app_lists.
   Based on the pretty printer from "ML from the working programmer".
 *)
-open preamble holSyntaxTheory holKernelTheory mlstringTheory;
-
-val _ = new_theory "pretty";
+Theory pretty
+Ancestors
+  holSyntax holKernel mlstring
+Libs
+  preamble
 
 Datatype:
   t = Block (t list) num num
@@ -558,6 +560,4 @@ Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV)
   \\ simp [Once dest_binder_def]
 QED
-
-val _ = export_theory ();
 

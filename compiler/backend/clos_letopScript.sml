@@ -4,11 +4,11 @@
   into `Op op [x0; x1; ...]`, which enables further optimisation
   later, e.g. in bvi_tailrec.
 *)
-open preamble closLangTheory;
-
-val _ = new_theory "clos_letop";
-
-val _ = set_grammar_ancestry ["closLang"]
+Theory clos_letop
+Ancestors
+  closLang
+Libs
+  preamble
 
 (* let_op -- a function that optimises Let [...] (Op op [Var ...]) *)
 
@@ -120,4 +120,3 @@ Definition compile_inc_def:
   compile_inc (e, xs) = (let_op e, [])
 End
 
-val _ = export_theory();

@@ -1,9 +1,12 @@
 (*
   This refines xlrup_list to use arrays
 *)
-open preamble basis UnsafeProofTheory xlrupTheory xlrup_listTheory xlrup_parsingTheory blastLib;
+Theory xlrup_arrayProg
+Libs
+  preamble basis blastLib
+Ancestors
+  mllist UnsafeProof xlrup xlrup_list xlrup_parsing mlint
 
-val _ = new_theory "xlrup_arrayProg"
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -1800,48 +1803,6 @@ val res = translate prop_cardc_def;
 val res = translate prop_lit_def;
 val res = translate check_ibnn_def;
 
-val r = translate mergesortTheory.sort2_tail_def;
-val r = translate mergesortTheory.sort3_tail_def;
-val r = translate listTheory.REV_DEF;
-val r = translate mergesortTheory.merge_tail_def;
-val r = translate DROP_def;
-val r = translate (mergesortTheory.mergesortN_tail_def |> SIMP_RULE std_ss [DIV2_def]);
-
-Triviality mergesortn_tail_ind:
-  mergesortn_tail_ind (:'a)
-Proof
-  once_rewrite_tac [fetch "-" "mergesortn_tail_ind_def"]
-  \\ rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac (latest_ind ())
-  \\ rpt strip_tac
-  \\ last_x_assum match_mp_tac
-  \\ rpt strip_tac
-  \\ gvs [FORALL_PROD, DIV2_def]
-QED
-
-val _ = mergesortn_tail_ind |> update_precondition;
-
-Triviality mergesortn_tail_side:
-  ∀w x y z.
-  mergesortn_tail_side w x y z
-Proof
-  completeInduct_on`y`>>
-  rw[Once (fetch "-" "mergesortn_tail_side_def")]>>
-  simp[arithmeticTheory.DIV2_def]
-  >- (
-    first_x_assum match_mp_tac>>
-    simp[]>>
-    match_mp_tac dividesTheory.DIV_POS>>
-    simp[])
-  >>
-    match_mp_tac DIV_LESS_EQ>>
-    simp[]
-QED
-val _ = mergesortn_tail_side |> update_precondition;
-
-val r = translate mergesortTheory.mergesort_tail_def;
-
 val res = translate mk_strict_aux_def;
 val res = translate mk_strict_def;
 val res = translate do_check_ibnn_def;
@@ -1945,7 +1906,7 @@ Theorem conv_bnn_alt:
    in
     case to_vector (&k) 0 0 init_n cs [] of
       NONE =>
-        let cs = mergesort_tail lit_le cs in
+        let cs = sort lit_le cs in
         let init_n = case cs of [] => 0 | c::cs => var_lit c in
         (case to_vector (&k) 0 0 init_n cs [] of
           NONE => (((0,fromList []),0,0,0),NONE)
@@ -1957,12 +1918,11 @@ Proof
   \\ qsuff_tac ‘F’ \\ gvs []
   \\ pop_assum mp_tac \\ gvs []
   \\ irule SORTED_to_vector
-  \\ qabbrev_tac ‘ys = mergesort_tail lit_le cs’
+  \\ qabbrev_tac ‘ys = sort lit_le cs’
   \\ qsuff_tac ‘SORTED lit_le ys’
   >- (Cases_on ‘ys’ \\ gvs [] \\ Cases_on ‘h’ \\ gvs [lit_le_def])
   \\ gvs [Abbr‘ys’]
-  \\ DEP_REWRITE_TAC [mergesortTheory.mergesort_tail_correct]
-  \\ irule_at Any mergesortTheory.mergesort_sorted
+  \\ DEP_REWRITE_TAC [sort_SORTED]
   \\ gvs [transitive_def,total_def,lit_le_def]
 QED
 
@@ -2534,8 +2494,6 @@ Proof
   first_assum (irule_at Any)>>
   fs[contains_emp_list_def,LIST_REL_EL_EQN]
 QED
-
-open mlintTheory;
 
 (* TODO: Mostly copied from mlintTheory *)
 val result = translate (fromChar_unsafe_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
@@ -3563,5 +3521,3 @@ Proof
 QED
 
 val _ = translate rev_enum_full_def;
-
-val _ = export_theory();

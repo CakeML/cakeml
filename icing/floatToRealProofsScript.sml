@@ -3,16 +3,15 @@
   computations. Needed to prove simulations in the end-to-end correctness
   theorems.
 *)
-open icing_rewriterTheory source_to_source2Theory fpOptTheory fpOptPropsTheory
-     fpSemPropsTheory semanticPrimitivesTheory evaluateTheory
-     semanticsTheory semanticsPropsTheory pureExpsTheory floatToRealTheory
-     evaluatePropsTheory fpSemPropsTheory mllistTheory;
-     local open ml_progTheory in end;
-open icingTacticsLib preamble;
+Theory floatToRealProofs
+Ancestors
+  icing_rewriter source_to_source2 fpOpt fpOptProps fpSemProps
+  semanticPrimitives evaluate semantics semanticsProps pureExps
+  floatToReal evaluateProps fpSemProps mllist ml_prog[qualified]
+Libs
+  icingTacticsLib preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"];
-
-val _ = new_theory "floatToRealProofs";
 
 (** Real-valued identitites preserve real semantics **)
 
@@ -1060,5 +1059,3 @@ Theorem is_optimise_with_plan_correct_sing_real_id:
 Proof
   rpt strip_tac \\ fs[]
 QED
-
-val _ = export_theory();

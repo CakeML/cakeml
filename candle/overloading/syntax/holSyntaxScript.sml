@@ -1,9 +1,11 @@
 (*
   Defines the HOL inference system.
 *)
-open preamble holSyntaxLibTheory mlstringTheory totoTheory
-
-val _ = new_theory "holSyntax"
+Theory holSyntax
+Ancestors
+  holSyntaxLib mlstring toto
+Libs
+  preamble
 
 (* HOL types *)
 
@@ -1054,4 +1056,3 @@ Definition definitional_def:
   definitional ctxt = ?l. (set l = set ctxt) /\ definitional_dec l
 End
 
-val _ = export_theory()

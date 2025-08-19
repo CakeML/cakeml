@@ -1,11 +1,12 @@
 (*
   Translate non-target-specific backend functions to cv equations.
 *)
-open preamble cv_transLib cv_stdTheory;
-open backendTheory backend_passesTheory to_data_cvTheory exportTheory;
-open unify_cvTheory infer_cvTheory basis_cvTheory;
-
-val _ = new_theory "backend_cv";
+Theory backend_cv
+Libs
+  preamble cv_transLib
+Ancestors
+  mllist mergesort cv_std backend backend_passes to_data_cv export unify_cv
+  infer_cv basis_cv
 
 val _ = cv_memLib.use_long_names := true;
 
@@ -232,11 +233,11 @@ val _ = cv_auto_trans backend_enc_decTheory.word_to_word_config_enc_def;
 val _ = cv_auto_trans backend_enc_decTheory.word_to_stack_config_enc_def;
 val _ = cv_auto_trans backend_enc_decTheory.stack_to_lab_config_enc_def;
 val _ = cv_auto_trans backend_enc_decTheory.lab_to_target_inc_config_enc_def;
-val _ = cv_auto_trans backend_enc_decTheory.tap_config_enc_def;
+val _ = cv_auto_trans backend_enc_decTheory.presLang_tap_config_enc_def;
 
 (* environment encoding *)
 
-val tms = backend_enc_decTheory.environment_enc_def
+val tms = backend_enc_decTheory.source_to_flat_environment_enc_def
             |> concl |> find_terms (can (match_term “namespace_enc _”)) |> map rand;
 val tm1 = el 1 tms;
 val tm2 = el 2 tms;
@@ -271,7 +272,7 @@ val res2 = spec_namespace_enc' tm2 "_2";
 
 val _ = cv_trans num_list_enc_decTheory.namespace_depth_def;
 
-val _ = cv_trans (backend_enc_decTheory.environment_enc_def
+val _ = cv_trans (backend_enc_decTheory.source_to_flat_environment_enc_def
                     |> SRULE [res1,res2,num_list_enc_decTheory.namespace_enc_def,
                               num_list_enc_decTheory.prod_enc_def]);
 
@@ -279,14 +280,14 @@ val _ = cv_auto_trans backend_enc_decTheory.source_to_flat_config_enc_def;
 
 (* closLang const encoding *)
 
-val const_exp = backend_enc_decTheory.const_enc'_def
+val const_exp = backend_enc_decTheory.closLang_const_enc'_def
                 |> SRULE [SF ETA_ss, num_tree_enc_decTheory.list_enc'_def];
-val const_exps = MAP |> CONJUNCTS |> map (Q.ISPEC ‘const_enc'’);
+val const_exps = MAP |> CONJUNCTS |> map (Q.ISPEC ‘closLang_const_enc'’);
 
 val name = "const_enc_aux"
-val c = “const_enc'”
+val c = “closLang_const_enc'”
 val r = mk_var(name,type_of c)
-val c_list = “MAP const_enc'”
+val c_list = “MAP closLang_const_enc'”
 val r_list = mk_var(name ^ "_list",type_of c_list)
 
 Definition const_enc_aux_def:
@@ -297,11 +298,11 @@ End
 val _ = cv_auto_trans const_enc_aux_def;
 
 Theorem const_enc_aux_thm[cv_inline,local]:
-  const_enc' = const_enc_aux ∧
-  MAP const_enc' = const_enc_aux_list
+  closLang_const_enc' = const_enc_aux ∧
+  MAP closLang_const_enc' = const_enc_aux_list
 Proof
   gvs [FUN_EQ_THM] \\ Induct
-  \\ gvs [const_enc_aux_def,backend_enc_decTheory.const_enc'_def,
+  \\ gvs [const_enc_aux_def,backend_enc_decTheory.closLang_const_enc'_def,
           num_tree_enc_decTheory.list_enc'_def,SF ETA_ss]
 QED
 
@@ -381,14 +382,14 @@ QED
 
 (* closLang val_approx encoding *)
 
-val val_approx_exp = backend_enc_decTheory.val_approx_enc'_def
+val val_approx_exp = backend_enc_decTheory.clos_known_val_approx_enc'_def
                 |> SRULE [SF ETA_ss, num_tree_enc_decTheory.list_enc'_def];
-val val_approx_exps = MAP |> CONJUNCTS |> map (Q.ISPEC ‘val_approx_enc'’);
+val val_approx_exps = MAP |> CONJUNCTS |> map (Q.ISPEC ‘clos_known_val_approx_enc'’);
 
 val name = "val_approx_enc_aux"
-val c = “val_approx_enc'”
+val c = “clos_known_val_approx_enc'”
 val r = mk_var(name,type_of c)
-val c_list = “MAP val_approx_enc'”
+val c_list = “MAP clos_known_val_approx_enc'”
 val r_list = mk_var(name ^ "_list",type_of c_list)
 
 Definition val_approx_enc_aux_def:
@@ -399,17 +400,17 @@ End
 val _ = cv_auto_trans val_approx_enc_aux_def;
 
 Theorem val_approx_enc_aux_thm[cv_inline,local]:
-  val_approx_enc' = val_approx_enc_aux ∧
-  MAP val_approx_enc' = val_approx_enc_aux_list
+  clos_known_val_approx_enc' = val_approx_enc_aux ∧
+  MAP clos_known_val_approx_enc' = val_approx_enc_aux_list
 Proof
   gvs [FUN_EQ_THM] \\ Induct
-  \\ gvs [val_approx_enc_aux_def,backend_enc_decTheory.val_approx_enc'_def,
+  \\ gvs [val_approx_enc_aux_def,backend_enc_decTheory.clos_known_val_approx_enc'_def,
           num_tree_enc_decTheory.list_enc'_def,SF ETA_ss]
 QED
 
 val _ = cv_auto_trans backend_enc_decTheory.clos_to_bvl_config_enc_def;
 
-val _ = cv_auto_trans backend_enc_decTheory.inc_config_enc_def;
+val _ = cv_auto_trans backend_enc_decTheory.backend_inc_config_enc_def;
 val _ = cv_trans backend_enc_decTheory.encode_backend_config_def;
 val _ = cv_auto_trans backend_asmTheory.attach_bitmaps_def;
 
@@ -822,87 +823,79 @@ val _ = word_allocTheory.heu_max_all_def |> cv_auto_trans;
 val _ = word_allocTheory.heu_merge_call_def |> cv_trans;
 
 val tm = word_allocTheory.canonize_moves_def
-           |> concl |> find_term (can (match_term “QSORT _”)) |> rand;
+           |> concl |> find_term (can (match_term “sort _”)) |> rand;
 
-Definition QSORT_canonize_def:
-  QSORT_canonize = QSORT ^tm
+Definition sort_canonize_def:
+  sort_canonize ls =
+    sort ^tm ls
 End
 
-val qsort = sortingTheory.QSORT_DEF
-            |> CONJUNCTS |> map SPEC_ALL |> LIST_CONJ
-            |> Q.GEN ‘ord’ |> ISPEC tm
-            |> SRULE [GSYM QSORT_canonize_def, LAMBDA_PROD]
-            |> GEN_ALL |> SRULE [FORALL_PROD,sortingTheory.PARTITION_DEF]
-            |> REWRITE_RULE [GSYM APPEND_ASSOC,APPEND] |> SPEC_ALL
-
-val tm2 = qsort |> concl |> find_term (can (match_term “PART _”)) |> rand;
-
-Definition PART_canonize_def:
-  PART_canonize p_1 p_1' p_2 = PART ^tm2
+Definition merge_tail_canonize_def:
+  merge_tail_canonize b ls accl accr =
+    merge_tail b ^tm ls accl accr
 End
 
-val part_eq = sortingTheory.PART_DEF
+val merge_tail_eq = merge_tail_def
             |> CONJUNCTS |> map SPEC_ALL |> LIST_CONJ
-            |> Q.GEN ‘P’ |> ISPEC tm2 |> SRULE [GSYM PART_canonize_def]
+            |> Q.GEN ‘R’ |> ISPEC tm |> SRULE [GSYM merge_tail_canonize_def]
             |> GEN_ALL |> SRULE [FORALL_PROD] |> SPEC_ALL
 
-val qsort_eq = qsort |> SRULE [GSYM PART_canonize_def]
+val pre = cv_trans_pre "" merge_tail_eq;
 
-val pre = cv_trans_pre "" part_eq;
-Theorem PART_canonize_pre[cv_pre]:
-  ∀p_1 p_3 p_2 v l1 l2. PART_canonize_pre p_1 p_3 p_2 v l1 l2
+Theorem merge_tail_canonize_pre[cv_pre]:
+  ∀negate v0 v acc. merge_tail_canonize_pre negate v0 v acc
 Proof
-  Induct_on ‘v’ \\ rw [] \\ simp [Once pre]
+  Induct_on`v` \\ rw[]
+  >- simp[Once pre]
+  \\ qid_spec_tac`acc`
+  \\ Induct_on`v0` \\ rw[]
+  >- simp[Once pre]
+  \\ simp[Once pre]
+  \\ rw[]
+  \\ metis_tac[]
 QED
 
-Triviality cv_PART_size_cv_fst:
-  ∀xs acc1 acc2.
-    cv_size (cv_fst (cv_PART_canonize x y z xs acc1 acc2)) ≤
-    cv_size xs + cv_size acc1
+Definition mergesortN_tail_canonize_def:
+  mergesortN_tail_canonize b n ls =
+    mergesortN_tail b ^tm n ls
+End
+
+val mergesortN_tail_eq = mergesortN_tail_def
+            |> CONJUNCTS |> map SPEC_ALL |> LIST_CONJ
+            |> Q.GEN ‘R’ |> ISPEC tm |> SRULE [GSYM mergesortN_tail_canonize_def, GSYM merge_tail_canonize_def]
+            |> GEN_ALL |> SRULE [FORALL_PROD] |> SPEC_ALL;
+
+Triviality c2b_b2c:
+  cv$c2b (b2c b) = b
 Proof
-  Induct \\ simp [Once $ fetch "-" "cv_PART_canonize_def"]
-  \\ rw [] \\ irule LESS_EQ_TRANS \\ first_x_assum $ irule_at Any
-  \\ cv_termination_tac
+  fs[cvTheory.b2c_if,cvTheory.c2b_def]
+  \\ rw[]
 QED
 
-Triviality cv_PART_size_cv_snd:
-  ∀xs acc1 acc2.
-    cv_size (cv_snd (cv_PART_canonize x y z xs acc1 acc2)) ≤
-    cv_size xs + cv_size acc2
+val _ = cv_trans DIV2_def;
+
+val pre = cv_auto_trans_pre_rec "" mergesortN_tail_eq
+  (WF_REL_TAC ‘measure (cv_size o FST o SND)’ \\ rw []
+   \\ rename1`_ < cv_size cvv`
+   \\ Cases_on`cvv`
+   \\ simp[GSYM (fetch "-" "cv_arithmetic_DIV2_thm")]
+   \\ rw[DIV2_def]
+   \\ cv_termination_tac
+   \\ fs[c2b_b2c]
+   \\ intLib.ARITH_TAC);
+
+Theorem mergesortN_tail_canonize_pre[cv_pre]:
+  ∀negate n l. mergesortN_tail_canonize_pre negate n l
 Proof
-  Induct \\ simp [Once $ fetch "-" "cv_PART_canonize_def"]
-  \\ rw [] \\ irule LESS_EQ_TRANS \\ first_x_assum $ irule_at Any
-  \\ cv_termination_tac
+  completeInduct_on`n`>>
+  rw[Once pre,DIV2_def]>>
+  first_x_assum irule>>
+  intLib.ARITH_TAC
 QED
 
-Triviality PART_LENGTH:
-  ∀xs ys zs ys1 zs1.
-    PART ord xs ys zs = (ys1,zs1) ⇒
-    LENGTH ys1 ≤ LENGTH ys + LENGTH xs ∧
-    LENGTH zs1 ≤ LENGTH zs + LENGTH xs
-Proof
-  Induct \\ gvs [sortingTheory.PART_DEF]
-  \\ rw [] \\ res_tac \\ gvs []
-QED
+val pre = cv_auto_trans (sort_canonize_def |> SRULE [sort_def,mergesort_tail_def,GSYM mergesortN_tail_canonize_def]);
 
-val pre = cv_trans_pre_rec "" qsort_eq
-  (WF_REL_TAC ‘measure cv_size’ \\ rw []
-   \\ Cases_on ‘cv_v’ \\ gvs []
-   \\ irule LESS_EQ_LESS_TRANS
-   >- (irule_at Any cv_PART_size_cv_fst \\ gvs [])
-   >- (irule_at Any cv_PART_size_cv_snd \\ gvs []))
-
-Theorem QSORT_canonize_pre[cv_pre]:
-  ∀xs. QSORT_canonize_pre xs
-Proof
-  gen_tac \\ completeInduct_on ‘LENGTH xs’ \\ rw [] \\ gvs [PULL_FORALL]
-  \\ simp [Once pre] \\ rw []
-  \\ last_x_assum irule \\ gvs [PART_canonize_def]
-  \\ imp_res_tac PART_LENGTH \\ gvs []
-QED
-
-val _ = word_allocTheory.canonize_moves_def |> SRULE [GSYM QSORT_canonize_def]
-                                            |> cv_auto_trans;
+val res = word_allocTheory.canonize_moves_def |> SRULE[GSYM sort_canonize_def] |> cv_auto_trans
 
 val _ = cv_trans backendTheory.inc_set_oracle_def;
 
@@ -1061,4 +1054,3 @@ val _ = cv_trans word_copyTheory.copy_prop_def;
 val _ = cv_auto_trans backend_passesTheory.any_prog_pp_def;
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
-val _ = export_theory();

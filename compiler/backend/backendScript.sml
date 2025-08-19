@@ -3,23 +3,15 @@
   a single compile function which is connected (in ../compilerScript.sml)
   to the front-end, i.e. parsing and type inference.
 *)
+Theory backend
+Ancestors
+  source_to_source source_to_flat flat_to_clos clos_to_bvl
+  bvl_to_bvi bvi_to_data data_to_word word_to_stack stack_to_lab
+  lab_to_target word_to_word jsonLang presLang
+  primTypes[qualified]
+Libs
+  preamble
 
-open preamble
-     source_to_sourceTheory
-     source_to_flatTheory
-     flat_to_closTheory
-     clos_to_bvlTheory
-     bvl_to_bviTheory
-     bvi_to_dataTheory
-     data_to_wordTheory
-     word_to_stackTheory
-     stack_to_labTheory
-     lab_to_targetTheory
-local open primTypesTheory in end
-open word_to_wordTheory
-open jsonLangTheory presLangTheory
-
-val _ = new_theory"backend";
 
 Datatype:
   config =
@@ -905,4 +897,3 @@ Proof
        lab_to_targetTheory.config_component_equality]
 QED
 
-val _ = export_theory();

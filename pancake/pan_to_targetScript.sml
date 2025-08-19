@@ -1,12 +1,11 @@
 (*
   Compiler from Pancake to machine code
 *)
-
-open preamble
-     pan_to_wordTheory backendTheory
-     word_depthTheory word_to_wordTheory;
-
-val _ = new_theory "pan_to_target";
+Theory pan_to_target
+Libs
+  preamble
+Ancestors
+  mllist pan_to_word backend word_depth word_to_word
 
 
 Definition compile_prog_def:
@@ -24,7 +23,7 @@ Definition compile_prog_def:
     let c = c with
             word_to_word_conf updated_by (λc. c with col_oracle := col) in
     (* Add user functions to name mapping *)
-    let names = fromAList (ZIP (QSORT $< (MAP FST prog2),  (* func numbers *)
+    let names = fromAList (ZIP (sort $< (MAP FST prog2),  (* func numbers *)
                                 MAP FST prog1              (* func names *)
                           )) : mlstring$mlstring num_map in
     (* Add stubs to name mapping *)
@@ -49,7 +48,7 @@ Theorem compile_prog_eq:
     (* Compiler passes *)
     let prog2 = pan_to_word$compile_prog c.lab_conf.asm_conf.ISA prog1 in
     (* Add user functions to name mapping *)
-    let names = fromAList (ZIP (QSORT $< (MAP FST prog2),  (* func numbers *)
+    let names = fromAList (ZIP (sort $< (MAP FST prog2),  (* func numbers *)
                                 MAP FST prog1              (* func names *)
                           )) : mlstring$mlstring num_map in
     (* Add stubs to name mapping *)
@@ -62,5 +61,3 @@ Proof
   \\ AP_THM_TAC \\ gvs [FUN_EQ_THM] \\ rw []
   \\ pairarg_tac \\ gvs[from_word_0_def]
 QED
-
-val _ = export_theory();

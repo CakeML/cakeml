@@ -1,11 +1,21 @@
 (*
   Correctness proof for word_to_stack
 *)
+Theory word_to_stackProof
+Libs
+  preamble helperLib
+Ancestors
+  mllist
+  semanticsProps (* for extend_with_resource_limit *)
+  stackProps (* for extract_labels *)
+  wordProps stackSem wordSem word_to_stack
+Ancestors[ignore_grammar]
+  wordConvs parmove
+
+(* Set up ML bindings *)
 open preamble semanticsPropsTheory stackSemTheory wordSemTheory
      word_to_stackTheory wordPropsTheory wordConvsTheory stackPropsTheory
      parmoveTheory helperLib;
-
-val _ = new_theory "word_to_stackProof";
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -14,12 +24,6 @@ val _ = temp_delsimps ["fromAList_def", "domain_union", "domain_insert",
                        "sptree.map_def", "sptree.lookup_rwts",
                        "sptree.insert_notEmpty","misc.max3_def"]
 
-val _ = set_grammar_ancestry [
-  "semanticsProps", (* for extend_with_resource_limit *)
-  "stackProps", (* for extract_labels *)
-  "wordProps",
-  "stackSem", "wordSem", "word_to_stack"
-]
 val _ = numLib.temp_prefer_num();
 
 val get_labels_def = stackSemTheory.get_labels_def;
@@ -504,7 +508,7 @@ local
     Induct \\ fs [LUPDATE_def] \\ rw []
     \\ Cases_on `m` \\ fs [LUPDATE_def])
 in
-  Theorem DROP_LUPDATE:
+Theorem DROP_LUPDATE:
      !n h m xs.
         DROP n (LUPDATE h m xs) =
         if m < n then DROP n xs else LUPDATE h (m - n) (DROP n xs)
@@ -1211,14 +1215,14 @@ Proof
   \\ wordsLib.WORD_DECIDE_TAC
 QED
 
-Triviality SORTS_QSORT_key_val_compare:
-  SORTS QSORT key_val_compare
+Triviality SORTS_SORT_key_val_compare:
+  SORTS sort key_val_compare
 Proof
-  match_mp_tac QSORT_SORTS >>
+  match_mp_tac sort_SORTS >>
   MATCH_ACCEPT_TAC (CONJ transitive_key_val_compare total_key_val_compare)
 QED
 
-val MEM_QSORT = SORTS_QSORT_key_val_compare
+val MEM_SORT = SORTS_SORT_key_val_compare
   |> SIMP_RULE std_ss [SORTS_DEF]
   |> SPEC_ALL |> CONJUNCT1
   |> MATCH_MP MEM_PERM |> GSYM |> GEN_ALL
@@ -1257,9 +1261,9 @@ Triviality env_to_list_K_I_IMP:
 Proof
   fs [env_to_list_def,LET_DEF,FUN_EQ_THM,list_rearrange_I] \\ rw []
   \\ pop_assum kall_tac
-  \\ qspec_then `toAList env` mp_tac (SORTS_QSORT_key_val_compare
+  \\ qspec_then `toAList env` mp_tac (SORTS_SORT_key_val_compare
         |> REWRITE_RULE [SORTS_DEF])
-  \\ Q.SPEC_TAC (`QSORT key_val_compare (toAList env)`,`l`) \\ rw []
+  \\ Q.SPEC_TAC (`sort key_val_compare (toAList env)`,`l`) \\ rw []
   \\ `PERM (MAP FST (toAList env)) (MAP FST l)` by (match_mp_tac PERM_MAP \\ fs [])
   \\ `ALL_DISTINCT (MAP FST l)` by metis_tac [ALL_DISTINCT_MAP_FST_toAList,
          sortingTheory.ALL_DISTINCT_PERM]
@@ -1421,7 +1425,7 @@ Proof
       last_x_assum drule>>
       strip_tac>>
       first_assum drule>>
-      fs[oEL_EQ_EL,adjust_names_def,MEM_MAP,FORALL_PROD,MEM_QSORT]>>
+      fs[oEL_EQ_EL,adjust_names_def,MEM_MAP,FORALL_PROD,MEM_SORT]>>
       strip_tac>>
       CONJ_TAC >- (
         CCONTR_TAC>>fs[]>>
@@ -1457,7 +1461,7 @@ Proof
     \\ fsrw_tac[] [ZIP_GENLIST] \\ pop_assum kall_tac
     \\ `?names0 names1. names = (names0,names1)` by metis_tac[PAIR]
     \\ gvs[cut_envs_def,AllCaseEqs(),cut_names_def]
-    \\ qmatch_goalsub_abbrev_tac`QSORT _ (toAList envs1)`
+    \\ qmatch_goalsub_abbrev_tac`sort _ (toAList envs1)`
     \\ qpat_abbrev_tac`ls = MAP _ (toAList _)`
     \\ `!x. MEM x ls <=>
             ?n. x = f' - 1 - (n DIV 2 - k) /\ n IN domain envs1` by (
@@ -1470,15 +1474,15 @@ Proof
     \\ conj_tac
     >- (
       REWRITE_TAC[GSYM inv_image_def,sorted_map] >>
-      qmatch_abbrev_tac`SORTED R' (QSORT R ls)` >>
-      `SORTED R (QSORT R ls)` by (
-        match_mp_tac QSORT_SORTED >>
+      qmatch_abbrev_tac`SORTED R' (sort R ls)` >>
+      `SORTED R (sort R ls)` by (
+        match_mp_tac sort_SORTED >>
         metis_tac[transitive_key_val_compare,total_key_val_compare] ) >>
       match_mp_tac SORTED_weaken2>>fsrw_tac[][]>>CONJ_ASM1_TAC
       >-
-        metis_tac[ALL_DISTINCT_MAP_FST_toAList,QSORT_PERM,ALL_DISTINCT_PERM,ALL_DISTINCT_MAP]
+        metis_tac[ALL_DISTINCT_MAP_FST_toAList,sort_PERM,ALL_DISTINCT_PERM,ALL_DISTINCT_MAP]
       >>
-        simp[MEM_QSORT,Abbr`R`] >>
+        simp[MEM_SORT,Abbr`R`] >>
         simp[Abbr`R'`,inv_image_def,FORALL_PROD,Abbr`ls`,MEM_toAList] >>
         fsrw_tac[][key_val_compare_def,LET_THM]>>
         `∀p v. lookup p envs1 = SOME v ⇒ lookup p s.locals = SOME v` by (
@@ -1512,7 +1516,7 @@ Proof
       fsrw_tac[][SORTED_EL_SUC]>>srw_tac[][]>>
       `n'' < m` by DECIDE_TAC>>
       fsrw_tac[][EL_GENLIST]>>DECIDE_TAC)
-    \\ simp[MEM_MAP,MEM_FILTER,MEM_GENLIST,PULL_EXISTS,MEM_QSORT,
+    \\ simp[MEM_MAP,MEM_FILTER,MEM_GENLIST,PULL_EXISTS,MEM_SORT,
               MEM_toAList,EXISTS_PROD,FORALL_PROD,Abbr`envs1`]
     \\ rw[]
     \\ simp[lookup_inter_alt,domain_inter]
@@ -8582,7 +8586,7 @@ Proof
             by (pop_assum mp_tac >>
               rpt (pop_assum $ K ALL_TAC) >>
               simp[MEM_MAP,env_to_list_def,PULL_EXISTS,
-                   mem_list_rearrange,QSORT_MEM] >>
+                   mem_list_rearrange,sort_MEM] >>
               METIS_TAC[]) >>
           `nn ∈ domain (SND envs)`
              by (fs[toAList_domain]) >>
@@ -9429,7 +9433,7 @@ Proof
           by (pop_assum mp_tac >>
             rpt (pop_assum $ K ALL_TAC) >>
             simp[MEM_MAP,env_to_list_def,PULL_EXISTS,
-                 mem_list_rearrange,QSORT_MEM] >>
+                 mem_list_rearrange,sort_MEM] >>
             METIS_TAC[]) >>
         `nn ∈ domain (SND envs)`
            by (fs[toAList_domain]) >>
@@ -12002,5 +12006,3 @@ Proof
   drule_all ALOOKUP_ALL_DISTINCT_MEM>>
   strip_tac>>res_tac
 QED
-
-val _ = export_theory();

@@ -3,12 +3,11 @@
   expects, e.g. the parser generates a call to a function called "+"
   when it parses 1+2.
 *)
-open preamble
-     semanticPrimitivesTheory ml_translatorTheory
-     ml_translatorLib ml_progLib cfLib basisFunctionsLib
-     StringProgTheory
-
-val _ = new_theory "mlbasicsProg"
+Theory mlbasicsProg
+Ancestors
+  semanticPrimitives ml_translator StringProg
+Libs
+  preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
 
 val _ = translation_extends"StringProg"
 
@@ -122,4 +121,3 @@ val _ = (next_ml_names := ["compare"]);
 val _ = translate comparisonTheory.pair_cmp_def;
 val _ = ml_prog_update (close_module NONE);
 
-val _ = export_theory ()

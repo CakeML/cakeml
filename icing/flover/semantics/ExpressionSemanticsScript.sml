@@ -1,12 +1,11 @@
 (**
   Formalization of the base expression language for the flover framework
  **)
-open realTheory realLib sptreeTheory;
-open AbbrevsTheory MachineTypeTheory ExpressionsTheory;
-open ExpressionAbbrevsTheory;
-open preambleFloVer;
-
-val _ = new_theory "ExpressionSemantics";
+Theory ExpressionSemantics
+Ancestors
+  real sptree Abbrevs MachineType Expressions ExpressionAbbrevs
+Libs
+  realLib preambleFloVer
 
 Overload abs = “realax$abs”
 
@@ -355,4 +354,3 @@ Proof
   \\ metis_tac[]
 QED
 
-val _ = export_theory();

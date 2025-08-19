@@ -1,11 +1,11 @@
 (**
   Formalization of the base expression language for the flover framework
  **)
-open realTheory realLib sptreeTheory
-open AbbrevsTheory MachineTypeTheory
-open preambleFloVer;
-
-val _ = new_theory "Expressions";
+Theory Expressions
+Ancestors
+  real sptree Abbrevs MachineType
+Libs
+  realLib preambleFloVer
 
 Overload abs = “realax$abs”
 
@@ -98,4 +98,3 @@ Definition usedVars_def:
       | _ => LN
 End
 
-val _ = export_theory();

@@ -1,9 +1,11 @@
 (*
    Parsing interface for CNF and SCPOG files
 *)
-open preamble miscTheory lpr_parsingTheory mlintTheory scpogTheory;
-
-val _ = new_theory "scpog_parsing";
+Theory scpog_parsing
+Ancestors
+  misc lpr_parsing mlint scpog
+Libs
+  preamble
 
 (* We'll reuse the existing DIMACS parser from lpr_parsing.
   TODO: some of this material ought to be refactored.
@@ -232,4 +234,3 @@ val scpstepsraw = ``[
 
 val scpsteps = rconc (EVAL ``THE (parse_scpsteps ^(scpstepsraw))``);
 
-val _ = export_theory ();

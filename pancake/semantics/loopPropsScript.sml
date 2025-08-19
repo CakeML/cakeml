@@ -1,16 +1,11 @@
 (*
   Properties of loopLang and loopSem
 *)
-open preamble
-     loopLangTheory loopSemTheory
-     pan_commonTheory pan_commonPropsTheory;
-
-local open wordSemTheory in end;
-
-val _ = new_theory"loopProps";
-
-val _ = set_grammar_ancestry ["loopSem", "pan_commonProps"];
-
+Theory loopProps
+Ancestors
+  loopSem pan_commonProps loopLang pan_common wordSem[qualified]
+Libs
+  preamble
 
 Definition every_prog_def:
   (every_prog p (Seq p1 p2) <=>
@@ -1255,4 +1250,3 @@ Proof
 QED
 
 
-val _ = export_theory();

@@ -1,11 +1,12 @@
 (*
   Define arm7 specialised backend functions.
 *)
+Theory backend_arm7
+Ancestors
+  arm7_target
+Libs
+  preamble backend_asmLib
 
-open preamble backend_asmLib arm7_targetTheory;
-
-val _ = new_theory "backend_arm7";
 
 val _ = define_target_specific_backend arm7_config_def;
 
-val _ = export_theory();

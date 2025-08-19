@@ -1,14 +1,15 @@
 (*
   Prove `encoder_correct` for ARMv8
 *)
-open HolKernel Parse boolLib bossLib
-open asmLib arm8_stepLib arm8_targetTheory arm8_targetProofLib;
+Theory arm8_targetProof
+Ancestors
+  arm8_target
+Libs
+  asmLib arm8_stepLib arm8_targetProofLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val () = new_theory "arm8_targetProof"
 
 val () = wordsLib.guess_lengths ()
 
@@ -718,4 +719,3 @@ Proof
       \\ blastLib.FULL_BBLAST_TAC)
 QED
 
-val () = export_theory ()

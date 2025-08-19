@@ -6,17 +6,14 @@
       3) IRC allocator + spill heuristics;
       4) linear scan register allocator.
 *)
-open preamble wordLangTheory;
-open linear_scanTheory;
-open reg_allocTheory;
+Theory word_alloc
+Libs
+  preamble
+Ancestors
+  mllist
+  asm[qualified] (* for arity-2 Const *)
+  reg_alloc misc[qualified] wordLang linear_scan
 
-val _ = new_theory "word_alloc";
-val _ = set_grammar_ancestry [
-  "asm" (* for arity-2 Const *),
-  "reg_alloc",
-  "misc",
-  "wordLang"
-]
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 Overload Move0[inferior] = ``Move 0n``;
@@ -1463,7 +1460,7 @@ End
 (*
   Canonize by flipping moves (all move x<=y)
   Filter some obviously impossible ones out
-  Then QSORT them by lexicographic order, and count
+  Then SORT them by lexicographic order, and count
   returns (num, maxpriority, (x,y))
 *)
 Definition canonize_moves_aux_def:
@@ -1478,7 +1475,7 @@ End
 Definition canonize_moves_def:
   canonize_moves ls =
   let can1 = MAP (λ(p:num,(x:num,y:num)). if (x<=y) then (p,(x,y)) else (p,(y,x))) ls in
-  let can2 = QSORT
+  let can2 = sort
     (λ(p1,(x1,y1)) (p2,(x2,y2)).
       if x1 = x2 then
         if y1 = y2 then
@@ -1652,5 +1649,3 @@ Definition full_ssa_cc_trans_def:
     let (prog',ssa',na') = ssa_cc_trans prog ssa na in
       Seq mov prog'
 End
-
-val _ = export_theory();

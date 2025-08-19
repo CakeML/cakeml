@@ -2,10 +2,11 @@
   A simple Map datatype for FloVer, implement a version based on lists and one
   based on trees
 **)
-open MachineTypeTheory ExpressionsTheory;
-open preambleFloVer;
-
-val _ = new_theory "FloverMap";
+Theory FloverMap
+Ancestors
+  MachineType Expressions
+Libs
+  preambleFloVer
 
 Datatype:
   cmp = Lt | Eq | Gt
@@ -259,4 +260,3 @@ Proof
   \\ rpt strip_tac \\ Cases_on `e1 = e2` \\ fs[]
 QED
 
-val _ = export_theory();

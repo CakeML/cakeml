@@ -3,9 +3,11 @@
   programs. It is in particular designed to clean up some awkward
   patterns that can be produced by the data_to_word compiler.
 *)
-open preamble wordLangTheory asmTheory sptreeTheory;
-
-val _ = new_theory "word_simp";
+Theory word_simp
+Ancestors
+  wordLang asm sptree
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -448,4 +450,3 @@ Definition compile_exp_def:
       e
 End
 
-val _ = export_theory();

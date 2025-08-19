@@ -2,12 +2,13 @@
   Proves soundness of the type inferencer: any type assignment
   produced by the type inferencer is a valid type for the program.
 *)
-open preamble
-open typeSystemTheory astTheory semanticPrimitivesTheory inferTheory unifyTheory infer_tTheory
-     astPropsTheory inferPropsTheory typeSysPropsTheory infer_eSoundTheory envRelTheory type_eDetermTheory
-     infer_eCompleteTheory namespacePropsTheory
-
-val _ = new_theory "inferSound";
+Theory inferSound
+Ancestors
+  typeSystem ast semanticPrimitives infer unify infer_t astProps
+  inferProps typeSysProps infer_eSound envRel type_eDeterm
+  infer_eComplete namespaceProps
+Libs
+  preamble
 
 Triviality letrec_lemma2:
   !funs_ts l l' s s'.
@@ -1135,4 +1136,3 @@ Proof
 QED
 *)
 
-val _ = export_theory ();
