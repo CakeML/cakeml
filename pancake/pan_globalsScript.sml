@@ -119,7 +119,7 @@ Definition compile_def:
                     p' = compile ctxt p;
                     names = evar::free_var_ids p' ++ FLAT(MAP var_exp cexps);
                     vn'  = fresh_name «» names;
-                    flag = fresh_name «» (vn'::names)
+                    flag = fresh_name «vn'» (vn'::names)
                   in
                     Dec vn' (shape_val sh) $ Dec flag (Const 0w) $
                         Seq (Call (SOME (SOME(Local,vn'), SOME(eid, evar, Seq p' (Assign Local flag (Const 1w))))) e cexps) $
