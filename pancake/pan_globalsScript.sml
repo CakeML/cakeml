@@ -7,8 +7,6 @@ Ancestors
 Libs
   preamble
 
-val _ = new_theory "pan_globals"
-
 Datatype:
   context =
   <| globals  : varname |-> shape # 'a word;
