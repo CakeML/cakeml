@@ -119,6 +119,63 @@ Definition get_types_def:
   get_types ls tys = result_mmap (get_type ls) tys
 End
 
+Definition get_vars_exp_def:
+  get_vars_exp (Lit _) = [] ∧
+  get_vars_exp (Var v) = [v] ∧
+  get_vars_exp (If grd thn els) =
+    get_vars_exp grd ++ get_vars_exp thn ++ get_vars_exp els ∧
+  get_vars_exp (UnOp _ e) = get_vars_exp e ∧
+  get_vars_exp (BinOp _ e₀ e₁) = get_vars_exp e₀ ++ get_vars_exp e₁ ∧
+  get_vars_exp (ArrLen arr) = get_vars_exp arr ∧
+  get_vars_exp (ArrSel arr idx) = get_vars_exp arr ++ get_vars_exp idx ∧
+  get_vars_exp (FunCall _ args) = FLAT (MAP get_vars_exp args) ∧
+  get_vars_exp (Forall _ e) = get_vars_exp e ∧
+  get_vars_exp (Old e) = get_vars_exp e ∧
+  get_vars_exp (Let binds body) =
+    FLAT (MAP get_vars_exp (MAP SND binds)) ++ get_vars_exp body ∧
+  get_vars_exp (ForallHeap mods term) =
+    FLAT (MAP get_vars_exp mods) ++ get_vars_exp term
+Termination
+  wf_rel_tac ‘measure $ exp_size’
+  \\ rpt strip_tac
+  \\ gvs [list_size_pair_size_MAP_FST_SND]
+  \\ rewrite_tac [list_exp_size_snd]
+  \\ drule MEM_list_size
+  \\ disch_then $ qspec_then ‘exp_size’ assume_tac
+  \\ gvs []
+End
+
+Definition get_vars_lhs_exp_def:
+  get_vars_lhs_exp (VarLhs v) = [v] ∧
+  get_vars_lhs_exp (ArrSelLhs arr idx) =
+    get_vars_exp arr ++ get_vars_exp idx
+End
+
+Definition get_vars_rhs_exp_def:
+  get_vars_rhs_exp (ExpRhs e) = get_vars_exp e ∧
+  get_vars_rhs_exp (ArrAlloc len init) =
+    get_vars_exp len ++ get_vars_exp init
+End
+
+Definition get_vars_stmt_def:
+  get_vars_stmt Skip = [] ∧
+  get_vars_stmt (Assert e) = get_vars_exp e ∧
+  get_vars_stmt (Then stmt₁ stmt₂) =
+    get_vars_stmt stmt₁ ++ get_vars_stmt stmt₂ ∧
+  get_vars_stmt (Dec _ scope) = get_vars_stmt scope ∧
+  get_vars_stmt (Assign ass) =
+    FLAT (MAP get_vars_lhs_exp (MAP FST ass)) ++
+    FLAT (MAP get_vars_rhs_exp (MAP SND ass)) ∧
+  get_vars_stmt (While grd invs decrs mods body) =
+    get_vars_exp grd ++ FLAT (MAP get_vars_exp invs) ++
+    FLAT (MAP get_vars_exp decrs) ++ FLAT (MAP get_vars_exp mods) ++
+    get_vars_stmt body ∧
+  get_vars_stmt (Print e _) = get_vars_exp e ∧
+  get_vars_stmt (MetCall lhss _ args) =
+    FLAT (MAP get_vars_lhs_exp lhss) ++ FLAT (MAP get_vars_exp args) ∧
+  get_vars_stmt Return = []
+End
+
 (* TODO Move to AST *)
 Definition Foralls_def:
   Foralls [] e = e ∧
