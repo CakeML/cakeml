@@ -679,13 +679,6 @@ Proof
      \\ rveq \\ fs []
      \\ every_case_tac \\ fs [] \\ rveq \\ fs []
      \\ gvs [AllCaseEqs(), PULL_EXISTS]
-     >>~- ([`evaluate (AppUnit,_) = _`,
-            `dest_thunk _ _ = IsThunk NotEvaluated _`],
-       TRY (
-        first_x_assum $ qspecl_then [`T`, `smx`, `safe`, `peak`] assume_tac
-        \\ gvs [] \\ metis_tac [])
-       \\ first_x_assum $ qspecl_then [`F`, `smx`, `safe`, `peak`] assume_tac
-       \\ gvs [] \\ metis_tac [])
      \\ TRY (simp[state_component_equality] \\ NO_TAC)
      \\ TRY (drule do_app_sm_safe_peak_swap
      \\ disch_then (qspecl_then [`smx`, `safe`, `peak`] strip_assume_tac)
@@ -741,7 +734,56 @@ Proof
   >- (fs [evaluate_def]
       \\ every_case_tac
       \\ full_fs >> metis_tac [])
-
+  (* Force *)
+  >- (
+    reverse $ gvs [evaluate_def, flush_state_def, set_var_def, dec_clock_def,
+                   call_env_def, push_env_def, AllCaseEqs()]
+    >- (
+      IF_CASES_TAC \\ gvs [AllCaseEqs(), PULL_EXISTS]
+      \\ qmatch_goalsub_abbrev_tac ‘stack_max_fupd (K smnew)’
+      \\ qmatch_goalsub_abbrev_tac ‘safe_for_space_fupd (K ssnew)’
+      \\ qmatch_goalsub_abbrev_tac ‘peak_heap_length_fupd (K phlnew)’
+      >- (
+        first_x_assum
+          $ qspecl_then [‘T’, ‘smnew’,‘ssnew’,‘phlnew’] strip_assume_tac
+        \\ simp [set_var_def] \\ rw [state_component_equality]
+        \\ gvs [AllCaseEqs()] \\ metis_tac [])
+      >- (
+        first_x_assum
+          $ qspecl_then [‘F’, ‘smnew’,‘ssnew’,‘phlnew’] strip_assume_tac
+        \\ simp [set_var_def] \\ rw [state_component_equality]
+        \\ gvs [AllCaseEqs()] \\ metis_tac []))
+    >- (
+      IF_CASES_TAC \\ gvs [AllCaseEqs(), PULL_EXISTS]
+      \\ qmatch_goalsub_abbrev_tac ‘stack_max_fupd (K smnew)’
+      \\ qmatch_goalsub_abbrev_tac ‘safe_for_space_fupd (K ssnew)’
+      \\ qmatch_goalsub_abbrev_tac ‘peak_heap_length_fupd (K phlnew)’
+      >- (
+        first_x_assum
+          $ qspecl_then [‘T’, ‘smnew’,‘ssnew’,‘phlnew’] strip_assume_tac
+        \\ simp [set_var_def] \\ rw [state_component_equality]
+        \\ gvs [pop_env_def, AllCaseEqs()])
+      >- (
+        first_x_assum
+            $ qspecl_then [‘F’, ‘smnew’,‘ssnew’,‘phlnew’] strip_assume_tac
+        \\ simp [set_var_def] \\ rw [state_component_equality]
+        \\ gvs [pop_env_def, AllCaseEqs()]))
+    >- (
+      IF_CASES_TAC \\ gvs [AllCaseEqs(), PULL_EXISTS]
+      \\ qmatch_goalsub_abbrev_tac ‘stack_max_fupd (K smnew)’
+      \\ qmatch_goalsub_abbrev_tac ‘safe_for_space_fupd (K ssnew)’
+      \\ qmatch_goalsub_abbrev_tac ‘peak_heap_length_fupd (K phlnew)’
+      >- (
+        first_x_assum
+          $ qspecl_then [‘T’, ‘smnew’,‘ssnew’,‘phlnew’] strip_assume_tac
+        \\ simp [set_var_def] \\ rw [state_component_equality]
+        \\ gvs [pop_env_def, AllCaseEqs()])
+      >- (
+        first_x_assum
+            $ qspecl_then [‘F’, ‘smnew’,‘ssnew’,‘phlnew’] strip_assume_tac
+        \\ simp [set_var_def] \\ rw [state_component_equality]
+        \\ gvs [pop_env_def, AllCaseEqs()]))
+    \\ metis_tac [])
   (* Call *)
   (* to save the outer if to have minimised duplication
      trade-off then is to use explixit cases insteade ofIF_CASES_TAC *)
@@ -923,44 +965,7 @@ Proof
       \\ every_case_tac
       \\ fs[state_component_equality,evaluate_safe_def,evaluate_peak_def])
   (* Assign *)
-  >- (Cases_on `op = ThunkOp ForceThunk`
-      >- (simp [evaluate_def]
-          \\ gvs [op_requires_names_def, op_space_reset_def]
-          \\ IF_CASES_TAC
-          \\ gvs [AllCaseEqs(), cut_state_opt_def]
-          \\ ntac 2 (CASE_TAC \\ gvs [])
-          \\ Cases_on `get_vars args x'.locals` \\ gvs []
-          \\ Cases_on `dest_thunk x'' x'.refs` \\ gvs []
-          \\ Cases_on `t` \\ gvs [PULL_EXISTS]
-          >- (
-            gvs [set_var_def, cut_state_def, cut_env_def, AllCaseEqs()] \\ rw []
-            \\ gvs [state_component_equality])
-          \\ IF_CASES_TAC \\ gvs []
-          >- (
-            gvs [flush_state_def] \\ rw []
-            \\ gvs [cut_state_def, AllCaseEqs()]
-            \\ gvs [state_component_equality])
-          \\ ntac 2 (CASE_TAC \\ gvs [])
-          >- (
-            gvs [set_var_def, cut_state_def, cut_env_def, AllCaseEqs()] \\ rw []
-            \\ first_x_assum drule
-            \\ disch_then $ qspec_then `lsz` assume_tac \\ gvs []
-            \\ gvs [state_component_equality])
-          \\ CASE_TAC \\ gvs []
-          >- (
-            CASE_TAC
-            \\ gvs [set_var_def, cut_state_def, cut_env_def, AllCaseEqs()]
-            \\ rw []
-            \\ first_x_assum $ drule_then $ qspec_then `lsz` assume_tac
-            \\ gvs []
-            \\ gvs [state_component_equality])
-          \\ TOP_CASE_TAC \\ gvs []
-          >- (
-            gvs [jump_exc_def, AllCaseEqs(), PULL_EXISTS]
-            \\ gvs [cut_state_def, cut_env_def, AllCaseEqs()] \\ rw [])
-          \\ TOP_CASE_TAC \\ gvs []
-          \\ gvs [cut_state_def, cut_env_def, AllCaseEqs()])
-     \\ fs[evaluate_def]
+  >- (fs[evaluate_def]
      \\ every_case_tac
      \\ fs[set_var_def,cut_state_opt_with_const,do_app_with_stack_and_locals]
      \\ imp_res_tac do_app_err >> fs[] >> rpt var_eq_tac
@@ -1034,6 +1039,98 @@ Proof
      \\ Cases_on `get_var n s.locals` \\ fs[]
      \\ Cases_on `isBool T x` \\ fs[get_var_def]
      \\ Cases_on `isBool F x` \\ fs[get_var_def])
+  (* Force *)
+  >- (
+    gvs [evaluate_def]
+    \\ TOP_CASE_TAC \\ gvs [] \\ rw []
+    \\ gvs [AllCaseEqs(), flush_state_def, set_var_def, PULL_EXISTS]
+    >- simp [state_component_equality]
+    >- simp [state_component_equality]
+    >- simp [state_component_equality]
+    >- (
+      rpt (PURE_CASE_TAC \\ gvs [])
+      \\ gvs [call_env_def,flush_state_def,dec_clock_def,jump_exc_def,
+              AllCaseEqs(), PULL_EXISTS]
+      \\ rw []
+      \\ first_x_assum drule \\ strip_tac
+      \\ qmatch_goalsub_abbrev_tac `evaluate
+            (q', s with <|locals:= _; locals_size := _;  stack := _;
+                          stack_max := smnew; clock := _;
+                          safe_for_space := ssnew |>)`
+      \\ gvs[]
+      \\ first_x_assum $ qspec_then ‘ss’ strip_assume_tac \\ gvs []
+      \\ drule evaluate_smx_safe_peak_swap_aux \\ gvs []
+      \\ disch_then $ qspecl_then [‘smnew’,‘ssnew’,‘s.peak_heap_length’] mp_tac
+      \\ rw [] \\ gvs []
+      \\ simp [state_component_equality])
+    >- simp [push_env_def, call_env_def, dec_clock_def,
+             state_component_equality]
+    >- (
+      rw []
+      >- gvs [call_env_def, push_env_def, dec_clock_def, pop_env_def,
+              AllCaseEqs()]
+      >- gvs [call_env_def, push_env_def, dec_clock_def, pop_env_def,
+              AllCaseEqs()]
+      \\ gvs [call_env_def, push_env_def, dec_clock_def]
+      \\ qmatch_goalsub_abbrev_tac ‘stack_max_fupd (K smnew)’
+      \\ qmatch_goalsub_abbrev_tac ‘safe_for_space_fupd (K ssnew)’
+      \\ qmatch_goalsub_abbrev_tac ‘stack_fupd (K new_stack)’
+      \\ first_x_assum $ qspecl_then [‘new_stack’,‘ss’] mp_tac
+      \\ qunabbrev_tac ‘new_stack’
+      \\ simp []
+      \\ strip_tac
+      \\ drule evaluate_smx_safe_peak_swap_aux
+      \\ disch_then $ qspecl_then [‘smnew’,‘ssnew’,‘s.peak_heap_length’] mp_tac
+      \\ simp[]
+      \\ strip_tac \\ gvs []
+      \\ gvs [pop_env_def, AllCaseEqs(), PULL_EXISTS]
+      \\ simp[state_component_equality])
+    >- (
+      rpt (TOP_CASE_TAC \\ gvs [])
+      >- (
+        gvs [push_env_def, call_env_def, dec_clock_def]
+        \\ Ho_Rewrite.PURE_REWRITE_TAC [GSYM PULL_EXISTS, CONJ_ASSOC]
+        \\ simp [GSYM PULL_EXISTS, CONJ_ASSOC]
+        \\ conj_tac
+        >- (
+          qmatch_asmsub_abbrev_tac ‘stack_max_fupd (K smnew)’
+          \\ qmatch_asmsub_abbrev_tac ‘safe_for_space_fupd (K ssnew)’
+          \\ gvs [pop_env_def, AllCaseEqs()]
+          \\ gvs [jump_exc_def, AllCaseEqs()]
+          \\ Cases_on ‘s.handler = LENGTH s.stack’ \\ gvs [LASTN_LEMMA]
+          \\ ‘s.handler < LENGTH s.stack’ by DECIDE_TAC \\ gvs []
+          \\ simp [PULL_EXISTS]
+          \\ gvs [LASTN_CONS])
+        \\ rpt strip_tac
+        \\ qmatch_goalsub_abbrev_tac `evaluate
+            (q', s with <|locals:= _; locals_size := _;  stack := _;
+                          stack_max := smnew; clock := _;
+                          safe_for_space := ssnew |>)`
+        \\ first_x_assum $ qspecl_then [‘Env lsz env::xs’] mp_tac
+        \\ gvs [jump_exc_def, AllCaseEqs()]
+        \\ gvs [LASTN_CONS]
+        \\ disch_then $ qspec_then ‘ss’ strip_assume_tac
+        \\ drule evaluate_smx_safe_peak_swap_aux
+        \\ disch_then
+          $ qspecl_then [‘smnew’,‘ssnew’,‘s.peak_heap_length’] mp_tac
+        \\ simp[]
+        \\ strip_tac \\ gvs []
+        \\ simp [state_component_equality])
+      \\ (
+        rw []
+        \\ gvs [call_env_def, push_env_def, dec_clock_def]
+        \\ qmatch_goalsub_abbrev_tac ‘stack_max_fupd (K smnew)’
+        \\ qmatch_goalsub_abbrev_tac ‘safe_for_space_fupd (K ssnew)’
+        \\ qmatch_goalsub_abbrev_tac ‘stack_fupd (K (el1::_))’
+        \\ last_x_assum $ qspec_then ‘el1::xs’ mp_tac
+        \\ qunabbrev_tac ‘el1’
+        \\ simp [] \\ disch_then $ qspec_then ‘ss’ strip_assume_tac
+        \\ drule evaluate_smx_safe_peak_swap_aux
+        \\ disch_then
+            $ qspecl_then [‘smnew’,‘ssnew’,‘s.peak_heap_length’] mp_tac
+        \\ simp []
+        \\ strip_tac \\ fs[]
+        \\ simp[state_component_equality])))
   (* Call *)
   >- (fs[evaluate_def]
      \\ Cases_on `get_vars args s.locals` \\ fs[]
@@ -1500,17 +1597,7 @@ Proof
      \\ fs[lookup_insert,state_component_equality]
      \\ METIS_TAC [])
   (* Assign *)
-  >- (Cases_on `op = ThunkOp ForceThunk` \\ gvs []
-      >- (gvs [op_requires_names_def, op_space_reset_def]
-         \\ Cases_on `names_opt` \\ gvs []
-         \\ gvs [cut_state_opt_def]
-         \\ gvs [cut_state_def]
-         \\ Cases_on `cut_env x s.locals` \\ gvs []
-         \\ imp_res_tac locals_ok_cut_env \\ gvs []
-         \\ gvs [AllCaseEqs()]
-         \\ rw [state_component_equality, locals_ok_def]
-         \\ metis_tac [])
-     \\ Cases_on `names_opt` \\ full_simp_tac(srw_ss())[]
+  >- (Cases_on `names_opt` \\ full_simp_tac(srw_ss())[]
      \\ Cases_on `op_requires_names op` \\ fs [cut_state_opt_def]
      >- (Cases_on `get_vars args s.locals` \\ fs []
         \\ fs [cut_state_opt_def]
@@ -1571,6 +1658,47 @@ Proof
      \\ IMP_RES_TAC locals_ok_get_var \\ full_simp_tac(srw_ss())[]
      \\ Cases_on `isBool T x` \\ full_simp_tac(srw_ss())[]
      \\ Cases_on `isBool F x` \\ full_simp_tac(srw_ss())[])
+  (* Force *)
+  >- (
+    Cases_on ‘get_var src s.locals’ \\ gvs []
+    \\ Cases_on ‘dest_thunk x s.refs’ \\ gvs []
+    \\ Cases_on ‘t’ \\ gvs []
+    >- (
+      imp_res_tac locals_ok_get_var \\ gvs []
+      \\ Cases_on ‘ret’ \\ gvs []
+      >- gvs [flush_state_def, state_component_equality, locals_ok_def]
+      \\ Cases_on ‘x'’ \\ gvs [set_var_def]
+      \\ gvs [state_component_equality, locals_ok_def] \\ rw [lookup_insert])
+    \\ imp_res_tac locals_ok_get_var \\ gvs []
+    \\ Cases_on ‘find_code (SOME loc) [x; v] s.code s.stack_frame_sizes’
+    \\ gvs []
+    \\ Cases_on ‘x'’ \\ gvs []
+    \\ Cases_on ‘r’ \\ gvs []
+    \\ Cases_on ‘ret’ \\ gvs []
+    >- (
+      Cases_on ‘s.clock = 0’ \\ gvs []
+      >- gvs [flush_state_def, state_component_equality, locals_ok_def]
+      \\ `call_env q r' (dec_clock (s with locals := l)) =
+          call_env q r' (dec_clock s)`
+         by fs[state_component_equality, dec_clock_def, call_env_def,
+               flush_state_def]
+      \\ fs[]
+      \\ fs[call_env_def,locals_ok_def,lookup_def,fromList_def, flush_state_def]
+      \\ qexistsl [‘s2.locals’,‘s2.safe_for_space’,‘s2.peak_heap_length’,
+                   ‘s2.stack_max’]
+      \\ gvs [locals_ok_refl]
+      \\ rw [state_component_equality])
+    \\ Cases_on ‘x'’ \\ gvs []
+    \\ Cases_on ‘cut_env r s.locals’ \\ gvs []
+    \\ imp_res_tac locals_ok_cut_env \\ gvs []
+    \\ `call_env q r' (push_env x' F (dec_clock (s with locals := l))) =
+        call_env q r' (push_env x' F (dec_clock s))`
+       by fs[state_component_equality,dec_clock_def,call_env_def,push_env_def, flush_state_def]
+    \\ Cases_on ‘s.clock = 0’ \\ gvs []
+    >- rw [state_component_equality, push_env_def, dec_clock_def, locals_ok_def]
+    \\ qexistsl [‘s2.locals’,‘s2.safe_for_space’,‘s2.peak_heap_length’,
+                 ‘s2.stack_max’]
+    \\ rw [state_component_equality, locals_ok_refl])
   (* Call *)
   >- (Cases_on `get_vars args s.locals` \\ fs []
      \\ IMP_RES_TAC locals_ok_get_vars \\ fs []
@@ -1773,20 +1901,12 @@ Proof
   >- (every_case_tac
      \\ fs[get_var_def,set_var_def]
      \\ srw_tac[][] >> fs[])
-  >- (Cases_on `op = ThunkOp ForceThunk` \\ gvs []
-      >- (
-        gvs [op_requires_names_def, op_space_reset_def]
-        \\ Cases_on `names_opt` \\ gvs [cut_state_opt_def]
-        \\ Cases_on `cut_state x s` \\ gvs []
-        \\ gvs [cut_state_def]
-        \\ Cases_on `cut_env x s.locals` \\ gvs []
-        \\ gvs [AllCaseEqs(), set_var_def])
-     \\ fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,cut_state_opt_def,cut_state_def
-            , bool_case_eq,ffiTheory.call_FFI_def,semanticPrimitivesTheory.result_case_eq
-            , with_fresh_ts_def,bvlSemTheory.ref_case_eq
-            , ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq
-            , semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq
-            , pair_case_eq,consume_space_def]
+  >- (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,cut_state_opt_def,cut_state_def
+          , bool_case_eq,ffiTheory.call_FFI_def,semanticPrimitivesTheory.result_case_eq
+          , with_fresh_ts_def,bvlSemTheory.ref_case_eq
+          , ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq
+          , semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq
+          , pair_case_eq,consume_space_def]
      \\ rveq \\ fs [call_env_def,flush_state_def,do_app_with_clock,do_app_with_locals]
      \\ imp_res_tac do_app_const \\ fs [set_var_def,state_component_equality]
      \\ PairCases_on `y` \\ fs []
@@ -1821,6 +1941,11 @@ Proof
      \\ every_case_tac >> fs[] >> srw_tac[][]
      \\ rfs[] >> srw_tac[][])
   >- (every_case_tac >> fs[] >> srw_tac[][])
+  >- (
+    gvs [AllCaseEqs(), PULL_EXISTS]
+    \\ gvs [flush_state_def, set_var_def, call_env_def, dec_clock_def,
+            push_env_def, pop_env_def]
+    \\ gvs [AllCaseEqs(), PULL_EXISTS])
   >- (every_case_tac >> fs[] >> srw_tac[][] >> rfs[]
      \\ fsrw_tac[ARITH_ss][call_env_def,flush_state_def,dec_clock_def,push_env_def,pop_env_def,set_var_def,LET_THM]
      \\ TRY(first_x_assum(qspec_then`ck`mp_tac) >> simp[]
@@ -1976,22 +2101,6 @@ Proof
          \\ srw_tac[][] >> fs[set_var_with_const,flush_state_def]
          \\ metis_tac[evaluate_io_events_mono,SND,PAIR,IS_PREFIX_TRANS
                      ,set_var_const,set_var_with_const,with_clock_ffi])
-  \\ TRY (
-    rename1 `op = ThunkOp ForceThunk`
-    \\ Cases_on `op = ThunkOp ForceThunk` \\ gvs [] >- (
-      gvs [op_requires_names_def, op_space_reset_def]
-      \\ Cases_on `names_opt` \\ gvs [cut_state_opt_def, cut_state_def]
-      \\ Cases_on `cut_env x s.locals` \\ gvs []
-      \\ every_case_tac >> fs[cut_state_opt_with_const] >> rfs[]
-      \\ imp_res_tac evaluate_io_events_mono >> rfs[]
-      \\ fs [] >> imp_res_tac jump_exc_IMP >> rw[jump_exc_NONE,flush_state_def]
-      \\ metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR])
-    \\ every_case_tac >> fs[cut_state_opt_with_const] >> rfs[]
-    \\ rveq >> fs[] >> rveq >> fs[]
-    \\ fs [do_app_with_clock]
-    \\ TRY (PairCases_on `y`) >> fs []
-    \\ fs [] >> imp_res_tac jump_exc_IMP >> rw[jump_exc_NONE,flush_state_def]
-    \\ NO_TAC)
   \\ rpt (pairarg_tac >> fs[])
   \\ every_case_tac >> fs[cut_state_opt_with_const] >> rfs[]
   \\ rveq >> fs[] >> rveq >> fs[]
@@ -2122,16 +2231,11 @@ Theorem evaluate_safe_for_space_mono:
     evaluate (prog,s) = (res,s1) /\ s1.safe_for_space ==> s.safe_for_space
 Proof
   recInduct evaluate_ind \\ fs [evaluate_def] \\ rw[]
-  \\ TRY (
-    rename1 `op = ThunkOp ForceThunk`
-    \\ Cases_on `op = ThunkOp ForceThunk` \\ gvs [] >- (
-      gvs [op_requires_names_def, op_space_reset_def]
-      \\ Cases_on `names_opt`
-      \\ gvs [cut_state_opt_def, cut_state_def, AllCaseEqs()]
-      \\ gvs [set_var_def, flush_state_def])
-    \\ gvs [cut_state_opt_def, cut_state_def, AllCaseEqs()]
-    \\ gvs [set_var_def, flush_state_def]
-    \\ imp_res_tac do_app_safe_for_space_mono \\ gvs [])
+  >>~- ([‘dest_thunk’],
+    gvs [AllCaseEqs()]
+    \\ gvs [flush_state_def, set_var_def, call_env_def, dec_clock_def, push_env_def,
+            pop_env_def]
+    \\ gvs [AllCaseEqs()])
   \\ fs [CaseEq"option",cut_state_opt_def,CaseEq"result",pair_case_eq,
          cut_state_def,jump_exc_def,CaseEq"stack",CaseEq"list"]
   \\ fs [] \\ rveq \\ fs [set_var_def,call_env_def,flush_state_def,dec_clock_def,add_space_def]
@@ -2173,14 +2277,7 @@ Proof
   >- trivial_tac
   >- (trivial_tac >> EVAL_TAC)
   (* Assign *)
-  >- (
-     Cases_on `op = ThunkOp ForceThunk` >- (
-      gvs [op_requires_names_def, op_space_reset_def, evaluate_def,
-           AllCaseEqs(), PULL_EXISTS]
-      \\ gvs [cut_state_opt_def, cut_state_def, AllCaseEqs()]
-      \\ TRY (last_x_assum $ qspec_then `limits'` assume_tac \\ gvs [])
-      \\ gvs [state_component_equality, set_var_def, flush_state_def])
-     \\ fs [evaluate_def]
+  >- (fs [evaluate_def]
      \\ full_cases >> full_fs
      \\ fs [] \\ rfs[]
      \\ rveq \\ fs []
@@ -2211,6 +2308,55 @@ Proof
      \\ fs[]
      \\ rw[state_component_equality])
   >- basic_tac
+  (* Force *)
+  >- (
+    gvs [evaluate_def]
+    \\ Cases_on ‘get_var src s.locals’ \\ gvs []
+    >- gvs [state_component_equality]
+    \\ Cases_on ‘dest_thunk x s.refs’ \\ gvs []
+    >- gvs [state_component_equality]
+    >- gvs [state_component_equality]
+    \\ Cases_on ‘t’ \\ gvs []
+    >- (
+      Cases_on ‘ret’ \\ gvs []
+      >- gvs [flush_state_def, state_component_equality]
+      \\ Cases_on ‘x'’ \\ gvs [set_var_def, state_component_equality])
+    \\ Cases_on ‘find_code (SOME loc) [x; v] s.code s.stack_frame_sizes’
+    \\ gvs []
+    >- gvs [state_component_equality]
+    \\ Cases_on ‘x'’ \\ gvs []
+    \\ Cases_on ‘r'’ \\ gvs []
+    \\ Cases_on ‘ret’ \\ gvs []
+    >- (
+      Cases_on ‘s.clock = 0’
+      >- gvs [flush_state_def, state_component_equality]
+      \\ gvs [dec_clock_def]
+      \\ Cases_on ‘evaluate (q',call_env q r'' (s with clock := s.clock − 1))’
+      \\ gvs [call_env_def]
+      \\ Cases_on ‘q''’ \\ gvs []
+      \\ first_x_assum $ qspec_then ‘limits'’ strip_assume_tac
+      \\ qpat_abbrev_tac ‘smnew = OPTION_MAP2 MAX _ _’
+      \\ qpat_abbrev_tac ‘ssnew = (_ ∧ _)’
+      \\ drule_then (qspecl_then [‘smnew’,‘ssnew’,‘s.peak_heap_length’]
+                                 strip_assume_tac)
+                    evaluate_smx_safe_peak_swap
+      \\ gvs [state_component_equality])
+    \\ Cases_on ‘x'’ \\ gvs []
+    \\ Cases_on ‘cut_env r' s.locals’ \\ gvs []
+    >- gvs [state_component_equality]
+    \\ Cases_on ‘s.clock = 0’ \\ gvs []
+    >- gvs [push_env_def, call_env_def, dec_clock_def, state_component_equality]
+    \\ gvs [push_env_def, call_env_def, dec_clock_def]
+    \\ gvs [AllCaseEqs(), PULL_EXISTS]
+    \\ qmatch_goalsub_abbrev_tac ‘stack_max_fupd (K smnew)’
+    \\ qmatch_goalsub_abbrev_tac ‘safe_for_space_fupd (K ssnew)’
+    \\ res_tac
+    \\ first_x_assum $ qspec_then ‘limits'’ strip_assume_tac
+    \\ drule_then (qspecl_then [‘smnew’,‘ssnew’,‘s.peak_heap_length’]
+                               strip_assume_tac)
+                  evaluate_smx_safe_peak_swap \\ gvs []
+    \\ gvs [set_var_def, pop_env_def, state_component_equality]
+    \\ gvs [AllCaseEqs()])
   (* Call *)
   >> fs [evaluate_def]
   >> Cases_on `get_vars args s.locals` >> fs [] >> rveq >> fs []
@@ -2346,14 +2492,7 @@ Proof
   >- trivial_tac
   >- (trivial_tac >> EVAL_TAC >> simp[])
   (* Assign *)
-  >- (Cases_on `op = ThunkOp ForceThunk` >- (
-       gvs [op_requires_names_def, op_space_reset_def, evaluate_def,
-            cut_state_opt_def, cut_state_def, AllCaseEqs(), PULL_EXISTS]
-       \\ TRY (
-         last_x_assum $ drule_then $ qspecl_then [`lsz`, `sfs`] assume_tac
-         \\ gvs [])
-       \\ gvs [state_component_equality, set_var_def, flush_state_def])
-     \\ fs [evaluate_def]
+  >- (fs [evaluate_def]
      \\ full_cases >> full_fs
      \\ fs [] \\ rfs[]
      \\ rveq \\ fs []
@@ -2392,6 +2531,69 @@ Proof
      \\ fs[]
      \\ rw[state_component_equality])
   >- basics_tac
+  (* Force *)
+  >- (
+    gvs [evaluate_def]
+    \\ Cases_on ‘get_var src s.locals’ \\ gvs []
+    >- gvs [state_component_equality]
+    \\ Cases_on ‘dest_thunk x s.refs’ \\ gvs []
+    >- gvs [state_component_equality]
+    >- gvs [state_component_equality]
+    \\ Cases_on ‘t’ \\ gvs []
+    >- (
+      Cases_on ‘ret’ \\ gvs []
+      >- gvs [flush_state_def, state_component_equality]
+      \\ Cases_on ‘x'’ \\ gvs [set_var_def, state_component_equality])
+    \\ Cases_on ‘find_code (SOME loc) [x; v] s.code s.stack_frame_sizes’
+    \\ gvs []
+    >- (
+      drule_then (qspec_then ‘sfs’ strip_assume_tac) find_code_upto_size
+      \\ rw [state_component_equality])
+    \\ drule_then (qspec_then ‘sfs’ strip_assume_tac) find_code_upto_size
+    \\ Cases_on ‘x'’ \\ gvs []
+    \\ Cases_on ‘r'’ \\ gvs []
+    \\ Cases_on ‘ret’ \\ gvs []
+    >- (
+      Cases_on ‘s.clock = 0’
+      >- (
+        gvs [flush_state_def, state_component_equality]
+        \\ irule EVERY2_refl
+        \\ Cases \\ rw [stack_frame_size_rel_def])
+      \\ gvs [dec_clock_def]
+      \\ Cases_on ‘evaluate (q',call_env q r'' (s with clock := s.clock − 1))’
+      \\ gvs [call_env_def]
+      \\ Cases_on ‘q''’ \\ gvs []
+      \\ res_tac
+      \\ first_x_assum $ qspecl_then [‘sfs’,‘other_size’] strip_assume_tac
+      \\ qpat_abbrev_tac ‘smnew = OPTION_MAP2 MAX _ _’
+      \\ qpat_abbrev_tac ‘ssnew = (_ ∧ _)’
+      \\ drule_then (qspecl_then [‘smnew’,‘ssnew’,‘s.peak_heap_length’]
+                                 strip_assume_tac)
+                    evaluate_smx_safe_peak_swap
+      \\ gvs [] \\ rw [state_component_equality])
+    \\ Cases_on ‘x'’ \\ gvs []
+    \\ Cases_on ‘cut_env r' s.locals’ \\ gvs []
+    >- gvs [state_component_equality]
+    \\ Cases_on ‘s.clock = 0’ \\ gvs []
+    >- gvs [push_env_def, call_env_def, dec_clock_def, state_component_equality]
+    \\ gvs [push_env_def, call_env_def, dec_clock_def]
+    \\ fs [AllCaseEqs(), PULL_EXISTS] \\ rveq
+    \\ qmatch_goalsub_abbrev_tac ‘stack_max_fupd (K smnew)’
+    \\ qmatch_goalsub_abbrev_tac ‘safe_for_space_fupd (K ssnew)’
+    \\ qmatch_goalsub_abbrev_tac ‘stack_fupd (K (topstack::_))’
+    \\ first_x_assum drule
+    \\ disch_then (mp_tac o CONV_RULE (RESORT_FORALL_CONV rev))
+    \\ disch_then $ qspecl_then [‘xs’,‘topstack’] mp_tac
+    \\ simp[Abbr ‘topstack’, stack_frame_size_rel_def]
+    \\ disch_then $ qspecl_then [‘sfs’,‘other_size’] strip_assume_tac
+    \\ drule_then (qspecl_then [‘smnew’,‘ssnew’,‘s.peak_heap_length’]
+                               strip_assume_tac)
+                  evaluate_smx_safe_peak_swap \\ gvs []
+    \\ simp [set_var_def] \\ rw [state_component_equality]
+    \\ gvs [pop_env_def, AllCaseEqs()]
+    \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
+    \\ fs [pop_env_def, CaseEq"list", CaseEq"stack"] \\ rveq \\ fs[]
+    \\ rfs [] \\ Cases_on ‘y’ \\ fs [stack_frame_size_rel_def])
   (* Call *)
   >> fs [evaluate_def]
   >> Cases_on `get_vars args s.locals` >> fs [] >> rveq >> fs []
@@ -2588,10 +2790,6 @@ Proof
   >- ((* Move *)
       fs[evaluate_def,CaseEq "option",set_var_def] >> rveq >> rw[])
   >- ((* Assign *)
-      Cases_on `op = ThunkOp ForceThunk`
-        >- gvs [op_requires_names_def, op_space_reset_def, evaluate_def,
-                cut_state_opt_def, cut_state_def, AllCaseEqs(), set_var_def,
-                flush_state_def] >>
       fs[evaluate_def,CaseEq"bool",CaseEq"option",CaseEq"result",CaseEq"prod",
          cut_state_opt_def,cut_state_def,set_var_def,get_vars_def] >>
       rveq >> fs[flush_state_def] >>
@@ -2611,7 +2809,16 @@ Proof
       Cases_on `evaluate (c1,s)` >> res_tac >>
       fs[] >> metis_tac[option_le_trans])
   >- ((* If *)
-      fs[evaluate_def,CaseEq"option",CaseEq"bool"]) >>
+      fs[evaluate_def,CaseEq"option",CaseEq"bool"])
+  >- ((* Force *)
+    gvs [evaluate_def, AllCaseEqs(), PULL_EXISTS]
+    \\ gvs [flush_state_def, set_var_def, dec_clock_def, call_env_def,
+            push_env_def, pop_env_def, AllCaseEqs()]
+    \\ (
+      (match_mp_tac option_le_trans \\ HINT_EXISTS_TAC \\ rw []
+       \\ Cases_on ‘s.stack_max’ \\ rw [OPTION_MAP2_DEF, IS_SOME_EXISTS])
+      ORELSE (
+        Cases_on ‘s.stack_max’ \\ rw [OPTION_MAP2_DEF,IS_SOME_EXISTS]))) >>
   (* Call *)
   fs[evaluate_def,CaseEq"option",CaseEq"bool",CaseEq"prod",flush_state_def,
      CaseEq "result", CaseEq "error_result"] >>
@@ -2785,16 +2992,6 @@ Proof
       fs[evaluate_def,CaseEq "option",set_var_def] >> rveq >>
       fs[get_var_def,cc_co_only_diff_def])
   >- ((* Assign *)
-      Cases_on `op = ThunkOp ForceThunk` >- (
-        gvs [op_requires_names_def, op_space_reset_def, evaluate_def,
-             cut_state_opt_def, cut_state_def, cut_env_def,
-             AllCaseEqs(), PULL_EXISTS] >>
-        TRY (
-          last_x_assum
-            $ qspec_then `t with <|locals := insert 0 v LN;
-                                   clock := t.clock - 1|>` assume_tac >>
-          gvs []) >>
-        gvs [cc_co_only_diff_def, set_var_def, flush_state_def]) >>
       fs[evaluate_def] >>
       IF_CASES_TAC >-
         (fs[] >> rveq >> fs[]) >>
@@ -2859,7 +3056,38 @@ Proof
       imp_res_tac evaluate_safe_for_space_mono >>
       res_tac >>
       fs[] >> rfs[] >>
-      fs[cc_co_only_diff_def]) >>
+      fs[cc_co_only_diff_def])
+  >- ((* Force *)
+  qhdtm_assum ‘cc_co_only_diff’
+              (strip_assume_tac o REWRITE_RULE [cc_co_only_diff_def])
+  \\ gvs [evaluate_def]
+  \\ TOP_CASE_TAC \\ gvs []
+  \\ TOP_CASE_TAC \\ gvs [CaseEq "prod"]
+  \\ TOP_CASE_TAC
+  >- (
+   gvs [AllCaseEqs(), PULL_EXISTS, flush_state_def]
+   \\ gvs [cc_co_only_diff_def,state_component_equality,set_var_def])
+  \\ gvs [CaseEq "prod"]
+  \\ ntac 4 (TOP_CASE_TAC \\ gvs [])
+  >- (
+   gvs [AllCaseEqs(), PULL_EXISTS, flush_state_def]
+   >- gvs [cc_co_only_diff_def]
+   \\ first_x_assum (qspec_then ‘call_env q r' (dec_clock t)’ mp_tac)
+   \\ gvs [cc_co_only_diff_def, call_env_def, dec_clock_def]
+   \\ rw [] \\ gvs [])
+  \\ ntac 3 (TOP_CASE_TAC \\ gvs [])
+  >- gvs [cc_co_only_diff_def, call_env_def, push_env_def, dec_clock_def]
+  \\ gvs [CaseEq"prod"]
+  \\ drule_then (qspecl_then [‘x'’,‘r'’,‘F’,‘q’] strip_assume_tac)
+                cc_co_only_diff_call_env
+  \\ gvs [CaseEq "option", CaseEq "result", CaseEq "error_result"]
+  \\ gvs [set_var_def, PULL_EXISTS]
+  \\ imp_res_tac pop_env_safe_for_space \\ gvs []
+  \\ res_tac \\ gvs []
+  >- gvs [pop_env_def, cc_co_only_diff_def, AllCaseEqs()]
+  >- (
+    drule_all_then strip_assume_tac pop_env_cc_co_only_diff
+    \\ goal_assum drule \\ fs[cc_co_only_diff_def])) >>
   (* Call *)
   qhdtm_assum `cc_co_only_diff` (strip_assume_tac o REWRITE_RULE[cc_co_only_diff_def]) >>
   fs[evaluate_def] >>
@@ -2960,10 +3188,6 @@ Proof
   >- ((* Move *)
       fs[evaluate_def,CaseEq "option",set_var_def] >> rveq >> rw[])
   >- ((* Assign *)
-      Cases_on `op = ThunkOp ForceThunk` >- (
-        fs [op_requires_names_def, op_space_reset_def, cut_state_opt_def,
-             cut_state_def, evaluate_def, AllCaseEqs()] >>
-        gvs [set_var_def, flush_state_def]) >>
       fs[evaluate_def,CaseEq"bool",CaseEq"option",CaseEq"result",CaseEq"prod",
          cut_state_opt_def,cut_state_def,set_var_def,get_vars_def] >>
       rveq >> fs[flush_state_def] >>
@@ -2985,7 +3209,20 @@ Proof
       metis_tac[option_le_trans,evaluate_safe_for_space_mono])
   >- ((* If *)
       fs[evaluate_def,CaseEq"option",CaseEq"bool"] >>
-      rveq >> fs[]) >>
+      rveq >> fs[])
+  >- ((* Force *)
+    ntac 3 (pop_assum mp_tac)
+    \\ rw [evaluate_def, AllCaseEqs(), flush_state_def, pop_env_def,
+           PULL_EXISTS]
+    \\ TRY(first_x_assum ACCEPT_TAC)
+    \\ TRY(first_x_assum drule \\ rpt (disch_then drule))
+    \\ imp_res_tac evaluate_stack_limit
+    \\ imp_res_tac evaluate_option_le_stack_max
+    \\ imp_res_tac evaluate_safe_for_space_mono
+    \\ rpt (PRED_ASSUM is_forall kall_tac)
+    \\ gvs [call_env_def, dec_clock_def, push_env_def, set_var_def]
+    \\ imp_res_tac the_le_IMP_option_le
+    \\ gvs [option_le_max]) >>
   (* Call *)
   ntac 3 (pop_assum mp_tac) >>
   rw[evaluate_def,CaseEq"option",CaseEq"bool",CaseEq"prod",flush_state_def,

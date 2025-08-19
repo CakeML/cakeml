@@ -6391,6 +6391,22 @@ Proof
   \\ fs [encode_header_def,AC STAR_ASSOC STAR_COMM,thunk_tag_bits_lemma]
 QED
 
+Theorem memory_rel_Thunk_IMP:
+  memory_rel c be ts refs sp st m dm ((RefPtr bl nn,ptr)::vars) /\
+  lookup nn refs = SOME (Thunk ev v) /\
+  good_dimindex (:'a) ==>
+    ?ptr_w x:'a word.
+      ptr = Word ptr_w /\
+      get_real_addr c st ptr_w = SOME x /\
+      x IN dm /\ (x + bytes_in_word) IN dm /\
+      (ev = Evaluated ⇒ (m x && 0x111100b) = n2w (8 + 6) * 2w) /\
+      (ev = NotEvaluated ⇒ (m x && 0x111100b) = n2w (0 + 6) * 2w) /\
+      memory_rel c be ts refs sp st m dm
+        ((v,m (x + bytes_in_word))::(RefPtr bl nn,ptr)::vars)
+Proof
+  cheat
+QED
+
 Theorem word_list_exists_thm:
    (word_list_exists a 0 = emp) /\
     (word_list_exists a (SUC n) =

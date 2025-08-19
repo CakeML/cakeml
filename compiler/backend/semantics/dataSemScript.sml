@@ -1304,8 +1304,12 @@ Definition evaluate_def:
                           s1 with <| stack := [] ; locals := LN |>)
                        else
                          (case fix_clock s1 (evaluate (prog, s1)) of
-                          | (SOME (Rval x),s2) => (NONE, set_var dest x s)
-                          | (other,s2) => (other,s2))))))) /\
+                          | (SOME (Rval x),s2) =>
+                            (case pop_env s2 of
+                             | NONE => (SOME (Rerr(Rabort Rtype_error)),s2)
+                             | SOME s1 => (NONE, set_var dest x s1))
+                          | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
+                          | res => res)))))) /\
   (evaluate (Call ret dest args handler,s) =
      case get_vars args s.locals of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
