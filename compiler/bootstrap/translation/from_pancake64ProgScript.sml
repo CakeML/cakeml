@@ -143,6 +143,14 @@ val _ = register_type “:64 pan_globals$context”;
 
 val _ = translate $ conv64 compile_exp_def;
 
+val _ = translate $ fresh_name_def;
+
+val _ = translate $ conv64 var_exp_def;
+
+val _ = translate $ conv64 free_var_ids_def;
+
+val _ = translate $ conv64 shape_val_def;
+
 val _ = translate $ conv64 compile_def;
 
 val _ = translate size_of_shape_def;
@@ -173,8 +181,6 @@ val _ = translate fperm_name_def;
 val _ = translate $ spec64 fperm_def;
 
 val _ = translate $ spec64 fperm_decs_def;
-
-val _ = translate $ fresh_name_def;
 
 val _ = translate $ spec64 functions_def;
 
@@ -614,6 +620,7 @@ Definition conv_Exp_alt_def:
         else NONE
     | Lf v12 =>
         if tokcheck (Lf v12) (kw BaseK) then SOME BaseAddr
+        else if tokcheck (Lf v12) (kw TopK) then SOME TopAddr
         else if tokcheck (Lf v12) (kw BiwK) then SOME BytesInWord
         else if tokcheck (Lf v12) (kw TrueK) then SOME $ Const 1w
                    else if tokcheck (Lf v12) (kw FalseK) then SOME $ Const 0w
