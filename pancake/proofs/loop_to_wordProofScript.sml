@@ -344,8 +344,8 @@ Proof
 QED
 
 Theorem comp_exp_preserves_eval:
-  ∀s e v t ctxt.
-    eval s e = SOME v ∧
+  ∀s (e:'a loopLang$exp) v t ctxt.
+    eval s e = SOME v ∧ good_dimindex(:'a) ∧
     state_rel s t /\ locals_rel ctxt s.locals t.locals ==>
     word_exp t (comp_exp ctxt e) = SOME v
 Proof
@@ -372,7 +372,7 @@ Proof
                     (MAP (λa. comp_exp ctxt a) wexps)) = SOME ws’
     >- fs [] >>
     ntac 2 (pop_assum mp_tac) >>
-    ntac 2 (pop_assum kall_tac) >>
+    ntac 3 (pop_assum kall_tac) >>
     rpt (pop_assum mp_tac) >>
     qid_spec_tac ‘ws’ >>
     qid_spec_tac ‘wexps’ >>
