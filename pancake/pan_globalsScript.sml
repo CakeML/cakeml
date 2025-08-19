@@ -1,12 +1,13 @@
 (*
   Allocate globals at the end of heap.
 *)
-
-open preamble panLangTheory byteTheory
+Theory pan_globals
+Ancestors
+  panLang backend_common byte
+Libs
+  preamble
 
 val _ = new_theory "pan_globals"
-
-val _ = set_grammar_ancestry ["panLang","backend_common","byte"];
 
 Datatype:
   context =
@@ -250,5 +251,3 @@ Definition compile_top_def:
       in
         new_main::funs
 End
-
-val _ = export_theory();
