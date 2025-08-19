@@ -1,6 +1,5 @@
 (*
   En- & De- coding between CWasm 1.0 AST & Wasm's binary format
-  14 cheats
 *)
 
 Theory      wasm_binary_format
@@ -9,14 +8,11 @@ Libs        preamble wordsLib
 
 (*  Note:
     enc goes from AST to Wasm Binary format (WBF)
-    dec goes from WBF to AST
- *)
+    dec goes from WBF to AST *)
 
-(************************************)
-(*                                  *)
-(*     Misc notations/helps/etc     *)
-(*                                  *)
-(************************************)
+(********************************)
+(*   Misc notations/helps/etc   *)
+(********************************)
 
 Type byte[local]    = “:word8”
 Type byteSeq[local] = “:word8 list”
@@ -26,6 +22,8 @@ Overload elseB[local] = “0x05w:byte”
 Overload endB[local]  = “0x0Bw:byte”
 Overload B0[local]    = “(λ x. x = zeroB):byte -> bool”
 
+
+(* Type dcdr = “λ α. (:(mlstring + α) # byteSeq)” *)
 Overload error[local] = “λ obj str. (INL $ strlit str,obj)”
 Overload emErr[local] = “λ str. (INL $ strlit $ "[" ++ str ++ "] : Byte sequence unexpectedly empty.\n",[])”
 
@@ -159,11 +157,11 @@ Definition enc_globaltype_def:
 End
 
 Definition dec_globaltype_def:
-  dec_globaltype ([]:byteSeq) : ((mlstring + globaltype) # byteSeq) = emErr "dec_global" ∧
-  dec_globaltype bs = let failure = error bs "[dec_global]"
+  dec_globaltype ([]:byteSeq) : ((mlstring + globaltype) # byteSeq) = emErr "dec_globaltype" ∧
+  dec_globaltype bs = let failure = error bs "[dec_globaltype]"
   in
   case dec_valtype bs of (INL _,_) => failure     | (INR vt, cs) =>
-  case cs             of [] => emErr "dec_global" |  b  ::   rs  =>
+  case cs             of [] => emErr "dec_globaltype" |  b  ::   rs  =>
   if b = 0x00w then (INR $ Gconst vt, rs) else
   if b = 0x01w then (INR $ Gmut   vt, rs) else
   failure
@@ -795,7 +793,7 @@ fun print_dot_tac h = (print "."; all_tac h);
 (*   Vectors (not vector instructions)   *)
 (*****************************************)
 
-Theorem dec_enc_vector:
+Theorem dec_enc_vector[simp]:
   ∀dec enc is encis rest.
     enc_vector enc is = SOME encis ∧
     (∀x rs. dec (enc x ++ rs) = (INR x,rs))
@@ -841,7 +839,7 @@ QED
 (*   Types   *)
 (*************)
 
-Theorem dec_enc_valtype:
+Theorem dec_enc_valtype[simp]:
   ∀ t rest. dec_valtype (enc_valtype t :: rest) = (INR t, rest)
 Proof
      rpt strip_tac
@@ -858,7 +856,7 @@ Proof
   *)
 QED
 
-Theorem dec_enc_valtype_Seq:
+Theorem dec_enc_valtype_Seq[simp]:
   ∀ t rest. dec_valtype (enc_valtype_Seq t ++ rest) = (INR t, rest)
 Proof
      rpt strip_tac
@@ -875,7 +873,7 @@ Proof
   *)
 QED
 
-Theorem dec_enc_functype:
+Theorem dec_enc_functype[simp]:
   ∀sg encsg rest.
     enc_functype sg = SOME encsg ⇒
     dec_functype (encsg ++ rest) = (INR sg, rest)
@@ -894,7 +892,7 @@ Proof
   \\ simp[]
 QED
 
-Theorem dec_enc_limits:
+Theorem dec_enc_limits[simp]:
   ∀ lim rest. dec_limits (enc_limits lim ++ rest) = (INR lim, rest)
 Proof
      rpt gen_tac
@@ -907,7 +905,7 @@ Proof
     >> gvs[dec_limits_def]
 QED
 
-Theorem dec_enc_globaltype:
+Theorem dec_enc_globaltype[simp]:
   ∀ x rest. dec_globaltype (enc_globaltype x ++ rest) = (INR x, rest)
 Proof
      rpt strip_tac
@@ -929,7 +927,7 @@ QED
 (*   Instructions (hierarchically lower)   *)
 (*******************************************)
 
-Theorem dec_enc_numI:
+Theorem dec_enc_numI[simp]:
   ∀ i rest. dec_numI (enc_numI i ++ rest) = (INR i, rest)
 Proof
      rpt gen_tac
@@ -951,19 +949,19 @@ Proof
     )
 QED
 
-Theorem dec_enc_paraI:
+Theorem dec_enc_paraI[simp]:
   ∀ i rest. dec_paraI (enc_paraI i ++ rest) = (INR i, rest)
 Proof
   rw[enc_paraI_def] \\ every_case_tac \\ rw[dec_paraI_def]
 QED
 
-Theorem dec_enc_varI:
+Theorem dec_enc_varI[simp]:
   ∀ i rest. dec_varI (enc_varI i ++ rest) = (INR i, rest)
 Proof
   rw[enc_varI_def] \\ every_case_tac \\ rw[dec_varI_def, dec_enc_unsigned_word]
 QED
 
-Theorem dec_enc_loadI:
+Theorem dec_enc_loadI[simp]:
   ∀ i rest. dec_loadI (enc_loadI i ++ rest) = (INR i, rest)
 Proof
   rpt gen_tac
@@ -975,7 +973,7 @@ Proof
     >> ( pop_assum sym_sub_tac >- simp[dec_loadI_def, AllCaseEqs()] )
 QED
 
-Theorem dec_enc_storeI:
+Theorem dec_enc_storeI[simp]:
   ∀ i rest. dec_storeI (enc_storeI i ++ rest) = (INR i, rest)
 Proof
   rpt gen_tac
@@ -1002,7 +1000,7 @@ QED
 (*                                            *)
 (**********************************************)
 
-Theorem dec_enc_blocktype:
+Theorem dec_enc_blocktype[simp]:
   ∀b rest. dec_blocktype (enc_blocktype b ++ rest) = (INR b, rest)
 Proof
   rpt strip_tac
@@ -1028,11 +1026,20 @@ QED
 (*                 *)
 (*******************)
 
-Theorem dec_enc_global:
+Theorem dec_enc_global[simp]:
   ∀g encg rs.
     enc_global g = SOME encg ⇒
     dec_global $ encg ++ rs = (INR g, rs)
 Proof
+  (*
+  rw[enc_global_def,AllCaseEqs()]
+  \\ Cases_on`g.gtype`
+  \\ rw[dec_global_def]
+
+  rw[enc_global_def,AllCaseEqs(),enc_globaltype_def]
+  \\ Cases_on`g.gtype`
+  \\ rw[dec_global_def, dec_globaltype_def]
+  *)
   cheat
 QED
 
