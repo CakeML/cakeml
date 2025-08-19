@@ -14221,24 +14221,30 @@ Proof[exclude_simps = EXP_LE_LOG_SIMP EXP_LT_LOG_SIMP LE_EXP_LOG_SIMP
   \\ qexists_tac ‘x.space − LENGTH y2’ \\ fs []
 QED
 
+fun foldr1 f (x::xs) = foldr f x xs | foldr1 f [] = fail();
+
+Triviality join_lemma =
+  METIS_PROVE [] “(b1 ⇒ x) ∧ (b2 ⇒ x) ⇒ (b1 ∨ b2 ⇒ x)”;
+
+Triviality imp_assign =
+  DB.match ["-"] “_ ==> ^assign_thm_goal” |> map (#1 o #2)
+  |> foldr1 (fn (x,y) => MATCH_MP join_lemma (CONJ x y));
+
 Theorem assign_thm:
   ^assign_thm_goal
 Proof
   strip_tac
-  \\ Cases_on `op = GlobOp AllocGlobal` \\ fs []
-  THEN1 (fs [do_app] \\ every_case_tac \\ fs [])
-  \\ Cases_on `op = IntOp Greater` \\ fs []
-  THEN1 (fs [do_app] \\ every_case_tac \\ fs [])
-  \\ Cases_on `op = IntOp GreaterEq` \\ fs []
-  THEN1 (fs [do_app] \\ every_case_tac \\ fs [])
-  \\ map_every (fn th =>
-         (Cases_on `^(th |> concl |> dest_imp |> #1)` THEN1 (fs []
-             \\ match_mp_tac th \\ fs [])))
-      (DB.match ["-"] ``_ ==> ^assign_thm_goal`` |> map (#1 o #2))
-  \\ fs [] \\ strip_tac
-  \\ Cases_on`op = MemOp (CopyByte T)` >- (
-    fs[do_app_def,do_space_def,do_app_aux_def]
-    \\ every_case_tac \\ fs[] )
+  \\ Cases_on `op = GlobOp AllocGlobal`
+  >- (fs [do_app] \\ every_case_tac \\ fs [])
+  \\ Cases_on `op = IntOp Greater`
+  >- (fs [do_app] \\ every_case_tac \\ fs [])
+  \\ Cases_on `op = IntOp GreaterEq`
+  >- (fs [do_app] \\ every_case_tac \\ fs [])
+  \\ Cases_on`op = MemOp (CopyByte T)`
+  >- (fs[do_app_def,do_space_def,do_app_aux_def] \\ every_case_tac \\ fs[])
+  \\ irule imp_assign
+  \\ asm_rewrite_tac []
+  \\ rpt $ first_assum $ irule_at Any
   \\ Cases_on ‘∃i. op = IntOp i’
   >- (fs [] \\ fs [] \\ gvs [] \\ Cases_on ‘i’ \\ gvs [])
   \\ Cases_on ‘∃i. op = GlobOp i’
