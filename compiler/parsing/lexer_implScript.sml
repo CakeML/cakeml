@@ -3,13 +3,15 @@
   semicolon is found (semicolons can be hidden in `let`-`in`-`end` blocks,
   structures, signatures, and between parentheses).
 *)
+Theory lexer_impl
+Ancestors
+  misc[qualified] tokens lexer_fun ASCIInumbers[qualified]
+  location[qualified] rich_list
+Libs
+  preamble
 
-open preamble tokensTheory lexer_funTheory
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "lexer_impl";
-val _ = set_grammar_ancestry ["misc", "tokens", "lexer_fun", "ASCIInumbers", "location"]
 
 val tac =
  full_simp_tac (srw_ss()) [char_le_def, char_lt_def] >>
@@ -381,8 +383,6 @@ QED
 
 (* lex_until_toplevel_semicolon_alt *)
 
-open rich_listTheory
-
 Definition lex_aux_alt_def:
   lex_aux_alt acc (d:num) input l =
     case next_sym input l of
@@ -634,4 +634,3 @@ Proof
   SIMP_TAC std_ss [lex_impl_all_tokens_thm,split_top_level_semi_thm]
 QED
 
-val _ = export_theory();

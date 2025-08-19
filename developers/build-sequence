@@ -113,6 +113,7 @@ compiler/dafny
 compiler/dafny/translation
 compiler/dafny/compilation
 compiler/dafny/semantics
+compiler/dafny/vcg
 
 # Scheme compiler
 compiler/scheme
@@ -184,7 +185,6 @@ icing/flover
 icing/flover/Infra
 icing/flover/semantics
 icing/
-icing/examples
 
 # compiler translation
 compiler/repl

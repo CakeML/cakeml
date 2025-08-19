@@ -1,16 +1,15 @@
 (*
     Props for Pancake ITree semantics and correspondence proof.
 *)
+Theory panItreeProps
+Ancestors
+  itreeTau panItreeSem panLang panSem alignment[qualified]
+  misc[qualified] (* for read_bytearray *)
+  wordLang[qualified] (* for word_op and word_sh *)
+  ffi[qualified]
+Libs
+  preamble
 
-open preamble
-     itreeTauTheory panItreeSemTheory
-     panLangTheory panSemTheory;
-local open alignmentTheory
-           miscTheory     (* for read_bytearray *)
-           wordLangTheory (* for word_op and word_sh *)
-           ffiTheory in end;
-
-val _ = new_theory "panItreeProps";
 
 val _ = temp_set_fixity "≈" (Infixl 500);
 Overload "≈" = “itree_wbisim”;
@@ -393,7 +392,3 @@ Proof
           metis_tac[]))
   >- (qpat_x_assum ‘_ = spin’ mp_tac >> rw[Once spin])
 QED
-
-
-
-val _ = export_theory();

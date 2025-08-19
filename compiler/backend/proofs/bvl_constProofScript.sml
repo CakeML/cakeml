@@ -1,11 +1,13 @@
 (*
   Correctness proof for bvl_const
 *)
-open preamble bvl_constTheory bvlSemTheory bvlPropsTheory;
+Theory bvl_constProof
+Ancestors
+  bvl_const bvlSem bvlProps
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory"bvl_constProof";
 
 Definition v_rel_def:
   v_rel (:'c) (:'ffi) a x y xs ys =
@@ -420,4 +422,3 @@ Proof
   \\ rw[] \\ fs[Once(GSYM bvl_constTheory.compile_HD_SING)]
 QED
 
-val _ = export_theory();

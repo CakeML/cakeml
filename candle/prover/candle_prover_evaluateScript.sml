@@ -1,20 +1,15 @@
 (*
   Proving that Candle prover maintains its invariants (i.e. v_ok)
  *)
+Theory candle_prover_evaluate
+Ancestors
+  candle_kernel_funs ast_extras evaluate namespaceProps perms
+  semanticPrimitivesProps misc[qualified] semanticPrimitives
+  evaluateProps sptree candle_kernelProg ml_hol_kernel_funsProg
+  candle_kernel_vals candle_prover_inv
+Libs
+  preamble helperLib ml_progLib[qualified]
 
-open preamble helperLib;
-open semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     evaluateTheory namespacePropsTheory evaluatePropsTheory
-     sptreeTheory candle_kernelProgTheory ml_hol_kernel_funsProgTheory
-open permsTheory candle_kernel_funsTheory candle_kernel_valsTheory
-     candle_prover_invTheory ast_extrasTheory;
-local open ml_progLib in end
-
-val _ = new_theory "candle_prover_evaluate";
-
-val _ = set_grammar_ancestry [
-  "candle_kernel_funs", "ast_extras", "evaluate", "namespaceProps", "perms",
-  "semanticPrimitivesProps", "misc"];
 
 val _ = temp_send_to_back_overload "If" {Name="If",Thy="compute_syntax"};
 val _ = temp_send_to_back_overload "App" {Name="App",Thy="compute_syntax"};
@@ -477,6 +472,14 @@ Proof
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
+  \\ Cases_on ‘op = XorAw8Str_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [v_ok_def, SF SFY_ss]
+    \\ first_assum (irule_at Any) \\ gs [LLOOKUP_EQ_EL]
+    \\ gvs [store_assign_def, EL_LUPDATE, EVERY_EL]
+    \\ rw [ref_ok_def]
+    \\ irule kernel_loc_ok_LUPDATE1
+    \\ rpt strip_tac \\ gvs [])
   \\ Cases_on ‘op = CopyAw8Aw8’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [v_ok_def, SF SFY_ss]
@@ -1222,4 +1225,3 @@ Proof
                   evaluate_v_ok_decs_Dmod, evaluate_v_ok_decs_Dlocal]
 QED
 
-val _ = export_theory ();

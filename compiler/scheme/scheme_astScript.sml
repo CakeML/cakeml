@@ -1,20 +1,23 @@
 (*
   AST of Scheme
 *)
-open preamble;
-open mlstringTheory;
-
-val _ = new_theory "scheme_ast";
+Theory scheme_ast
+Ancestors
+  mlstring
+Libs
+  preamble
 
 Type senv = “:(mlstring |-> num)”
+Type loc = “:num”
 
 (* This needs completing: Var, Lit, ... *)
 Datatype:
   prim = SAdd | SMul | SMinus | SEqv | CallCC
+       | Cons | Car | Cdr | IsNull | IsPair
 End
 
 Datatype:
-  lit = LitPrim prim | LitNum int | LitBool bool
+  lit = LitPrim prim | LitNum int | LitBool bool | LitNull
 End
 
 Datatype:
@@ -39,16 +42,18 @@ Datatype:
        | LetinitK ((mlstring # val) list) mlstring ((mlstring # exp) list) exp
 ;
   val = Prim prim | SNum int | Wrong string | SBool bool
-      | SList (val list)
       | Proc senv (mlstring list) (mlstring option) exp
       (*requires HOL 94eb753a85c5628f4fd0401deb4b7e2972a8eb25*)
       | Throw ((senv # cont) list)
+      | PairP loc
+      | Null
 End
 
 Definition lit_to_val_def:
   lit_to_val (LitPrim p) = Prim p ∧
   lit_to_val (LitNum n) = SNum n ∧
-  lit_to_val (LitBool b) = SBool b
+  lit_to_val (LitBool b) = SBool b ∧
+  lit_to_val (LitNull) = Null
 End
 
 Definition static_scope_def:
@@ -131,4 +136,3 @@ Proof
   >> simp[static_scope_def]
 QED
 
-val _ = export_theory();

@@ -1,10 +1,11 @@
 (*
   The formal semantics of labLang
 *)
-open preamble labLangTheory wordSemTheory;
-local open alignmentTheory targetSemTheory in end;
-
-val _ = new_theory"labSem";
+Theory labSem
+Ancestors
+  labLang wordSem alignment[qualified] targetSem[qualified]
+Libs
+  preamble
 
 Datatype:
   word8_loc = Byte word8 | LocByte num num num
@@ -93,12 +94,12 @@ Definition word_cmp_def:
   (word_cmp Less     (Word w1) (Word w2) = SOME (w1 < w2)) /\
   (word_cmp Lower    (Word w1) (Word w2) = SOME (w1 <+ w2)) /\
   (word_cmp Test     (Word w1) (Word w2) = SOME ((w1 && w2) = 0w)) /\
-  (word_cmp Test     (Loc _ _) (Word w2) = if w2 = 1w then SOME T else NONE) /\
+  (word_cmp Test     (Loc _ n) (Word w2) = if n ≠ 0 then NONE else if w2 = 1w then SOME T else NONE) /\
   (word_cmp NotEqual (Word w1) (Word w2) = SOME (w1 <> w2)) /\
   (word_cmp NotLess  (Word w1) (Word w2) = SOME (~(w1 < w2))) /\
   (word_cmp NotLower (Word w1) (Word w2) = SOME (~(w1 <+ w2))) /\
   (word_cmp NotTest  (Word w1) (Word w2) = SOME ((w1 && w2) <> 0w)) /\
-  (word_cmp NotTest  (Loc _ _) (Word w2) = if w2 = 1w then SOME F else NONE) /\
+  (word_cmp NotTest  (Loc _ n) (Word w2) = if n ≠ 0 then NONE else if w2 = 1w then SOME F else NONE) /\
   (word_cmp _ _ _ = NONE)
 End
 
@@ -630,4 +631,3 @@ Definition semantics_def:
            (IMAGE (λk. fromList (SND (evaluate (s with clock := k))).ffi.io_events) UNIV))
 End
 
-val _ = export_theory();

@@ -11,12 +11,12 @@
   This enables the semantics of let rec to just create Closures rather
   than Recclosures.
 *)
-open preamble astTheory flatLangTheory;
-open flat_elimTheory flat_patternTheory evaluateTheory;
+Theory source_to_flat
+Ancestors
+  ast flatLang evaluate flat_elim flat_pattern
+Libs
+  preamble
 
-
-val _ = new_theory"source_to_flat";
-val _ = set_grammar_ancestry ["ast", "flatLang", "evaluate"];
 val _ = numLib.temp_prefer_num();
 val _ = temp_tight_equality ();
 
@@ -106,6 +106,7 @@ Definition astOp_to_flatOp_def:
   | CopyStrAw8 => flatLang$CopyStrAw8
   | CopyAw8Str => flatLang$CopyAw8Str
   | CopyAw8Aw8 => flatLang$CopyAw8Aw8
+  | XorAw8Str_unsafe => flatLang$Aw8xor_unsafe
   | Ord => flatLang$Ord
   | Chr => flatLang$Chr
   | Chopb opb => flatLang$Chopb opb
@@ -536,4 +537,3 @@ Definition inc_compile_def:
     (c', p')
 End
 
-val _ = export_theory();

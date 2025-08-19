@@ -5,13 +5,12 @@
 (*
  * We take significant inspiration from the Spark ADA development.
  *)
+Theory panPEG
+Ancestors
+  peg pegexec panLexer combin
+Libs
+  stringLib numLib intLib ASCIInumbersLib
 
-open HolKernel Parse boolLib bossLib stringLib numLib intLib;
-
-open pegTheory pegexecTheory panLexerTheory;
-open ASCIInumbersLib combinTheory;
-
-val _ = new_theory "panPEG";
 
 Datatype:
   pancakeNT = TopDecListNT | FunNT | ProgNT | BlockNT | StmtNT | ExpNT
@@ -728,4 +727,3 @@ Proof
   simp(pancake_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts)
 QED
 
-val _ = export_theory();

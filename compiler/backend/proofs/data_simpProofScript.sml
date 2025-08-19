@@ -1,11 +1,11 @@
 (*
   Correctness proof for data_simp
 *)
-open preamble data_simpTheory dataSemTheory dataPropsTheory;
-
-val _ = new_theory"data_simpProof";
-
-val _ = set_grammar_ancestry ["data_simp", "dataSem", "dataProps"];
+Theory data_simpProof
+Ancestors
+  data_simp dataSem dataProps
+Libs
+  preamble
 
 Triviality evaluate_Seq_Skip:
   !c s. evaluate (Seq c Skip,s) = evaluate (c,s)
@@ -56,4 +56,3 @@ Proof
   \\ metis_tac[]
 QED
 
-val _ = export_theory();

@@ -1,6 +1,13 @@
 (*
   Translate the compiler's register allocator.
 *)
+Theory reg_allocProg
+Libs
+  preamble ml_monad_translatorLib
+Ancestors
+  linear_scan state_transformer ml_translator
+  pancake_parseProg reg_alloc reg_allocProof
+
 open preamble
 open reg_allocTheory reg_allocProofTheory state_transformerTheory
 open ml_monad_translatorLib ml_translatorTheory;
@@ -11,8 +18,6 @@ open basisProgTheory
 *)
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "reg_allocProg";
 
 val _ = translation_extends "pancake_parseProg";
 val _ = ml_translatorLib.use_string_type true;
@@ -370,13 +375,13 @@ val res = m_translate list_to_sorted_regs_def;
 val res = m_translate swap_regs_def;
 val res = m_translate partition_regs_def;
 
-val res = m_translate qsort_regs_def;
+val res = m_translate sort_regs_def;
 val res = m_translate sorted_regs_to_list_def;
 val res = m_translate list_to_sorted_moves_def;
 
 val res = m_translate swap_moves_def;
 val res = m_translate partition_moves_def;
-val res = m_translate qsort_moves_def;
+val res = m_translate sort_moves_def;
 val res = m_translate sorted_moves_to_list_def;
 
 val res = m_translate edges_to_adjlist_def;
@@ -449,5 +454,3 @@ val _ = disable_astPP()
 *)
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

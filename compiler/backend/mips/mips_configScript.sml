@@ -1,9 +1,11 @@
 (*
   Define the compiler configuration for MIPS
 *)
-open preamble backendTheory mips_targetTheory mips_targetLib
-
-val _ = new_theory"mips_config";
+Theory mips_config
+Ancestors
+  backend mips_target
+Libs
+  preamble mips_targetLib
 
 Definition mips_names_def:
   mips_names =
@@ -57,4 +59,3 @@ Definition mips_backend_config_def:
                |>
 End
 
-val _ = export_theory();

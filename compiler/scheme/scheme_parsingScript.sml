@@ -1,12 +1,11 @@
 (*
   Parser for Scheme
 *)
-open preamble;
-open mlstringTheory;
-open scheme_valuesTheory;
-open scheme_astTheory;
-
-val _ = new_theory "scheme_parsing";
+Theory scheme_parsing
+Ancestors
+  mlstring scheme_values scheme_ast
+Libs
+  preamble
 
 val _ = monadsyntax.declare_monad("sum", {
   unit = “INR”,
@@ -217,6 +216,11 @@ Definition cons_ast_def:
     if w = "*" then INR (Lit (LitPrim SMul)) else
     if w = "eqv?" then INR (Lit (LitPrim SEqv)) else
     if w = "call/cc" then INR (Lit (LitPrim CallCC)) else
+    if w = "cons" then INR (Lit (LitPrim Cons)) else
+    if w = "car" then INR (Lit (LitPrim Car)) else
+    if w = "cdr" then INR (Lit (LitPrim Cdr)) else
+    if w = "null?" then INR (Lit (LitPrim IsNull)) else
+    if w = "pair?" then INR (Lit (LitPrim IsPair)) else
       INR (Ident (implode w))) ∧
   cons_ast Nil = INL "Empty S expression" ∧
   cons_ast (Pair x y) = (case pair_to_list y of
@@ -326,6 +330,6 @@ EVAL “do e <- do es' <- mapM cons_ast [Word "t"; Word "h"]; return (Apply (Val
 EVAL “parse_to_ast "((if #t + * ) 2 3)"”
 EVAL “parse_to_ast "(lambda (x y . l) 2)"”
 EVAL “parse_to_ast "(letrec ((x 3) (y x)) 2)"”
+EVAL “parse_to_ast "(cons 3 2)"”
 *)
 
-val _ = export_theory();

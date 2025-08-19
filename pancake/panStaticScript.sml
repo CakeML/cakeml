@@ -30,11 +30,11 @@
 
   Shape checks: TODO
 *)
-
-
-open preamble errorLogMonadTheory panLangTheory mlmapTheory mlintTheory;
-
-val _ = new_theory "panStatic";
+Theory panStatic
+Libs
+  preamble
+Ancestors
+  errorLogMonad panLang mlmap mlint mllist
 
 
 val _ = monadsyntax.enable_monadsyntax();
@@ -931,7 +931,7 @@ Definition static_check_funs_def:
       else return ();
       (* check parameter name uniqueness *)
       pnames <<- MAP FST fi.params;
-      case first_repeat $ QSORT mlstring_lt pnames of
+      case first_repeat $ sort mlstring_lt pnames of
         SOME p => error (GenErr $ concat
           [strlit "parameter "; p; strlit " is redeclared in function ";
            fi.name; strlit "\n"])
@@ -998,7 +998,7 @@ Definition static_check_def:
     do
       (* check func name uniqueness *)
       fnames <<- MAP FST (functions decls);
-      case first_repeat $ QSORT mlstring_lt fnames of
+      case first_repeat $ sort mlstring_lt fnames of
         (* TODO: swap this to `get_redec_msg F <loc> f TopLevel` once function locations exist *)
         SOME f => error (GenErr $ concat
           [strlit "function "; f; strlit " is redeclared\n"])
@@ -1008,5 +1008,3 @@ Definition static_check_def:
       static_check_funs fnames gnames decls
     od
 End
-
-val _ = export_theory ();

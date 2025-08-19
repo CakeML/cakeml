@@ -2,10 +2,11 @@
   This simple compiler phase walks the program and gives each closure
   a unique numeric name.
 *)
-open preamble closLangTheory;
-
-val _ = new_theory"clos_number";
-val _ = set_grammar_ancestry ["closLang"]
+Theory clos_number
+Ancestors
+  closLang
+Libs
+  preamble
 
 (* add fresh code locations *)
 
@@ -87,4 +88,3 @@ Definition ignore_table_def:
   ignore_table f st (code,aux) = let (st',code') = f st code in (st',(code',aux))
 End
 
-val _ = export_theory()

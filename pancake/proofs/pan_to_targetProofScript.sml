@@ -3,14 +3,13 @@
 composing semantics correctness from pan to target
 
 *)
+Theory pan_to_targetProof
+Ancestors
+  backendProof stackProps stack_to_labProof lab_to_targetProof
+  pan_to_wordProof pan_to_target wordConvsProof
+Libs
+  preamble blastLib[qualified]
 
-open preamble
-     backendProofTheory pan_to_wordProofTheory
-     pan_to_targetTheory wordConvsProofTheory;
-
-local open blastLib in end
-
-val _ = new_theory "pan_to_targetProof";
 
 Overload stack_remove_prog_comp[local] = ``stack_remove$prog_comp``
 Overload stack_alloc_prog_comp[local] = ``stack_alloc$prog_comp``
@@ -653,11 +652,12 @@ Proof
     \\ fs [CaseEq "wordSem$result"] \\ gvs []
     \\ fs [push_env_mem_upd, push_env_mem_const]
     \\ last_x_assum (qspec_then `m` assume_tac)
-    \\ gs[wordSemTheory.pop_env_def, wordSemTheory.set_var_def]
+    \\ gs[wordSemTheory.pop_env_def, wordSemTheory.set_var_def,
+          wordSemTheory.set_vars_def, alist_insert_def]
     \\ fs [AllCaseEqs ()] \\ gvs []
     \\ imp_res_tac mem_upd_lemma \\ gs []
     \\ imp_res_tac wordPropsTheory.no_install_evaluate_const_code
-    \\ gs []
+    \\ gvs [PULL_EXISTS,SF DNF_ss]
   )
   \\ (
     fs [wordSemTheory.get_var_def, wordSemTheory.set_var_def,
@@ -2380,5 +2380,3 @@ Proof
   rewrite_tac[LE_MULT_RCANCEL]>>
   rw[]
 QED
-
-val _ = export_theory();

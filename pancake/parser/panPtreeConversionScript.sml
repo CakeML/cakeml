@@ -8,18 +8,11 @@
  *
  * Created by Craig McLaughlin on 6/5/2022.
  *)
-
-open HolKernel Parse boolLib bossLib stringLib numLib intLib;
-
-open arithmeticTheory;
-open preamble pegTheory pegexecTheory;
-open grammarTheory;
-open panLexerTheory panLangTheory panPEGTheory;
-open ASCIInumbersLib combinTheory;
-open helperLib;
-open mlmapTheory;
-
-val _ = new_theory "panPtreeConversion";
+Theory panPtreeConversion
+Ancestors
+  arithmetic peg pegexec grammar panLexer panLang panPEG combin mlmap
+Libs
+  stringLib numLib intLib preamble ASCIInumbersLib helperLib
 
 (** Set HOL to parse operations in following definition
   * for Option monad. *)
@@ -831,4 +824,3 @@ Definition parse_topdecs_to_ast_def:
      | INR err => INR err)
 End
 
-val _ = export_theory();

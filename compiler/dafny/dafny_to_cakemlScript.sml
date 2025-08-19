@@ -1,228 +1,21 @@
 (*
-  Definitions to convert Dafny's AST into CakeML's AST.
+  Defines the translation of Dafny's to CakeML's AST.
 *)
+Theory dafny_to_cakeml
+Ancestors
+  dafny_ast
+  ast (* CakeML AST *)
+  mlint (* num_to_str *)
+  result_monad
+Libs
+  preamble
 
-open preamble
-open cfTacticsLib (* process_topdecs *)
-open result_monadTheory
-open astTheory semanticPrimitivesTheory (* CakeML AST *)
-open dafny_astTheory
+(* TODO Remove mk_id; unnecessary *)
 
-open alistTheory
-open mlintTheory
-
-val _ = new_theory "dafny_to_cakeml";
-
-(* TODO Instead of breaking strings with ++, use SML style \ in all files *)
-
-(* TODO Instead of keeping track of types manually, maybe we can add them
-   in the upstream Dafny AST *)
-
-(* Defines the Dafny module containing the Dafny runtime *)
-Quote dafny_module = process_topdecs:
-  structure Dafny =
-  struct
-
-  exception Return;
-  exception Break;
-  exception LabeledBreak string;
-
-  (* Adapted from ABS, ediv, and emod from HOL's integerTheory *)
-  fun abs n = if n < 0 then ~n else n;
-
-  fun ediv i j = if 0 < j then i div j else ~(i div ~j);
-
-  fun emod i j = i mod (abs j);
-
-
-  (* Array functions *)
-  fun array_to_list arr = Array.foldr (fn x => fn xs => x :: xs) [] arr;
-
-
-  (* to_string functions to be used for "Dafny-conform" printing *)
-  fun bool_to_string b = if b then "true" else "false";
-
-  fun int_to_string i = Int.int_to_string #"-" i;
-
-  fun escape_char c =
-    if c = #"'" then "\\'"
-    else if c = #"\"" then "\\\""
-    else if c = #"\\" then "\\\\"
-    else if c = #"\000" then "\\0"
-    else if c = #"\n" then "\\n"
-    (* #"\r" leads to "not terminated with nil" exception *)
-    else if c = #"\013" then "\\r"
-    else if c = #"\t" then "\\t"
-    else String.str c;
-
-  fun char_to_string c = String.concat ["'", escape_char c, "'"];
-
-  fun list_to_string f lst =
-    String.concat ["[", String.concatWith ", " (List.map f lst), "]"];
-
-  fun char_list_to_string cs = list_to_string char_to_string cs;
-
-  (* f converts the tuple into a list of strings *)
-  fun tuple_to_string f tpl =
-    String.concat ["(", String.concatWith ", " (f tpl), ")"];
-
-  (* Commented out because we use CakeML char list's instead of strings *)
-
-  (* In Dafny, strings within collections are printed as a list of chars *)
-  (* fun string_element_to_string s = *)
-  (*   list_to_string char_to_string (String.explode s); *)
-
-  end
-End
-
-(* TODO Check if we can reduce the number of generated cases *)
-(* TODO Check if it makes sense to extract Var (...) into a function
- * in particular look at from_name *)
-
-Overload True = “Con (SOME (Short "True")) []”
-Overload False = “Con (SOME (Short "False")) []”
-Overload None = “Con (SOME (Short "None")) []”
-Overload Some = “λx. Con (SOME (Short "Some")) [x]”
 Overload Unit = “Con NONE []”
-
-Definition int_to_string_def:
-  int_to_string (i: int) = explode (toString i)
-End
-
-Definition num_to_string_def:
-  num_to_string (n: num) = int_to_string (&n)
-End
-
-Definition string_to_int_def:
-  string_to_int s =
-  case (fromString (implode s)) of
-  | SOME i =>
-      return i
-  | NONE =>
-      fail ("Could not convert into int: " ++ s)
-End
-
-Definition string_to_num_def:
-  string_to_num s =
-  do
-    i <- string_to_int s;
-    if i < 0
-    then fail "string_to_num: Number was negative"
-    else return (Num i)
-  od
-End
-
-Definition strip_prefix_def:
-  strip_prefix prefix str =
-  if isPREFIX prefix str
-  then SOME (DROP (LENGTH prefix) str)
-  else NONE
-End
-
-(* TODO move this to dafny_ast? *)
-Definition is_DeclareVar_def:
-  is_DeclareVar s =
-  case s of
-  | DeclareVar _ _ _ => T
-  | _ => F
-End
-
-(* TODO? Merge is_<Con> and dest_<Con> into one def returning an option *)
-Definition is_Eq_def:
-  is_Eq bop =
-  case bop of
-  | Eq _ => T
-  | _ => F
-End
-
-Definition is_Seq_def:
-  is_Seq typ =
-  case typ of
-  | Seq _ => T
-  | _ => F
-End
-
-Definition is_moditem_module_def:
-  is_moditem_module (ModuleItem_Module _) = T ∧
-  is_moditem_module _ = F
-End
-
-Definition is_moditem_class_def:
-  is_moditem_class (ModuleItem_Class _) = T ∧
-  is_moditem_class _ = F
-End
-
-Definition is_moditem_trait_def:
-  is_moditem_trait (ModuleItem_Trait _) = T ∧
-  is_moditem_trait _ = F
-End
-
-Definition is_moditem_newtype_def:
-  is_moditem_newtype (ModuleItem_Newtype _) = T ∧
-  is_moditem_newtype _ = F
-End
-
-Definition is_moditem_synonymtype_def:
-  is_moditem_synonymtype (ModuleItem_SynonymType _) = T ∧
-  is_moditem_synonymtype _ = F
-End
-
-Definition is_moditem_datatype_def:
-  is_moditem_datatype (ModuleItem_Datatype _) = T ∧
-  is_moditem_datatype _ = F
-End
-
-Definition dest_Array_def:
-  dest_Array (Array t dims) = return (t, dims) ∧
-  dest_Array _ = fail "dest_Array: Not an Array"
-End
-
-Definition dest_Arrow_def:
-  dest_Arrow (Arrow argTs retT) = return (argTs, retT) ∧
-  dest_Arrow _ = fail "dest_Arrow: Not an arrow"
-End
-
-Definition dest_singleton_list_def:
-  dest_singleton_list [x] = return x ∧
-  dest_singleton_list _ = fail "dest_singleton_list: Not a singleton list"
-End
-
-Definition dest_Seq_def:
-  dest_Seq (Seq t) = return t ∧
-  dest_Seq _ = fail "dest_Seq: Not a Seq"
-End
-
-Definition dest_Module_def:
-  dest_Module (Module nam attrs requiresExtern body) =
-  (nam, attrs, requiresExtern, body)
-End
-
-(* TODO? Move to dafny_ast *)
-Definition dest_Name_def:
-  dest_Name (Name s) = s
-End
-
-(* TODO move this to dafny_ast? *)
-Definition dest_DeclareVar_def:
-  dest_DeclareVar s =
-  case s of
-  | DeclareVar n t e_opt => return (n, t, e_opt)
-  | _ => fail "dest_DeclareVar: Not a DeclareVar"
-End
-
-(* TODO move this to result_monad? *)
-Definition dest_SOME_def:
-  dest_SOME (SOME x) = return x ∧
-  dest_SOME NONE = fail "dest_SOME: Not a SOME"
-End
-
-Definition cml_ref_ass_def:
-  cml_ref_ass lhs rhs = (App Opassign [lhs; rhs])
-End
-
-Definition cml_ref_def:
-  cml_ref n val_e in_e = (Let (SOME n) ((App Opref [val_e])) in_e)
-End
+Overload False = “Con (SOME (Short "False")) []”
+Overload True = “Con (SOME (Short "True")) []”
+Overload Tuple = “λes. Con NONE es”
 
 (* Converts a HOL list of CakeML expressions into a CakeML list. *)
 Definition cml_list_def:
@@ -231,1467 +24,421 @@ Definition cml_list_def:
    Con (SOME (Short "::")) [x; cml_list rest])
 End
 
-(* Converts a HOL string into a CakeML char list *)
-Definition string_to_cml_char_list_def:
-  string_to_cml_char_list s = cml_list (MAP (λx. (Lit (Char x))) s)
+(* Creates new references initialized with 0. *)
+(* Note that we will use these for references of all types. It doesn't matter
+   that this does not type check, as we are proving correctness anyway. *)
+Definition cml_new_refs_def:
+  cml_new_refs [] cml_e = cml_e ∧
+  cml_new_refs (n::ns) cml_e =
+    Let (SOME n) (App Opref [Lit (IntLit 0)]) (cml_new_refs ns cml_e)
 End
 
-Definition cml_fapp_aux_def:
-  cml_fapp_aux fun_name [] = App Opapp [fun_name; Unit] ∧
-  cml_fapp_aux fun_name (e::rest) =
-  if rest = [] then (App Opapp [fun_name; e])
-  else
-    let inner_app = cml_fapp_aux fun_name rest in
-      (App Opapp [inner_app; e])
+(* Deals with the fact that the first (optional) parameter is treated
+   differently when defining functions with Dletrec *)
+Definition cml_fun_def:
+  cml_fun ins body =
+  (case ins of
+   | [] => ("", body)
+   | (i::ins) => (i, Funs ins body))
+End
+
+(* Generates strings of the form  0,  1, etc., to be used for matching tuples *)
+Definition cml_tup_vname_def:
+  cml_tup_vname (idx : num) = explode (« » ^ (num_to_str idx))
+End
+
+(* S = "Smart" in the sense that it doesn't create singleton tuples. *)
+Definition Stuple_def:
+  Stuple [e] = e ∧
+  Stuple es = Tuple es
+End
+
+Definition Pstuple_def:
+  Pstuple [pvar] = pvar ∧
+  Pstuple pvars = Pcon NONE pvars
+End
+
+(* Generates code of the form: case cml_te of ( 0,  1, ...) => cml_e *)
+Definition cml_tup_case_def:
+  cml_tup_case len cml_te cml_e =
+  let tup_pvars = GENLIST (λn. Pvar (cml_tup_vname n)) len in
+    Mat cml_te [Pstuple tup_pvars, cml_e]
+End
+
+Definition cml_tup_select_def:
+  cml_tup_select len cml_te (idx: num) =
+  cml_tup_case len cml_te (Var (Short (cml_tup_vname idx)))
+End
+
+(* We model Dafny's arrays as a tuple: (length, array). This is closer to what
+   we need, if we support multi-dimensional arrays. Why? In Dafny, it is
+   possible to have arrays where some dimensions have length zero. At the same
+   time, it is always possible to ask the length of all dimensions. Hence,
+   we cannot just index to the appropriate dimension, and then use Array.length
+   - we might get blocked by a dimension with length zero on the way. *)
+
+Definition cml_alloc_arr_def:
+  cml_alloc_arr len init =
+  let len_n = " len" in
+    Let (SOME len_n) len
+        (Tuple [Var (Short len_n); App Aalloc [Var (Short len_n); init]])
+End
+
+Definition cml_get_arr_dim_def:
+  cml_get_arr_dim cml_e = cml_tup_select 2 cml_e 0
+End
+
+Definition cml_get_arr_data_def:
+  cml_get_arr_data cml_e = cml_tup_select 2 cml_e 1
+End
+
+Definition cml_apps_def:
+  cml_apps id [] = App Opapp [id; Unit] ∧
+  cml_apps id args = Apps id args
+End
+
+(* Creates nested lets. *)
+Definition cml_lets_def:
+  cml_lets (lhs::lhss) (cml_rhs::cml_rhss) cml_e =
+  do
+    rest <- cml_lets lhss cml_rhss cml_e;
+    return (Let (SOME lhs) cml_rhs rest)
+  od ∧
+  cml_lets [] [] cml_e = return cml_e ∧
+  cml_lets _ _ _ = fail «cml_lets: Length mismatch»
 End
 
 Definition cml_fapp_def:
-  cml_fapp fun_name args = cml_fapp_aux fun_name (REVERSE args)
+  cml_fapp mns n cml_es = cml_apps (Var (mk_id mns n)) cml_es
 End
 
-Definition cml_id_def:
-  cml_id [] = fail "cml_id: Cannot make id from empty list" ∧
-  cml_id [n] = return (Short n) ∧
-  cml_id (n::rest) = do rest' <- cml_id rest; return (Long n rest') od
+Definition cml_read_var_def:
+  cml_read_var v = App Opderef [Var (Short v)]
 End
 
-Definition cml_tuple_def:
-  cml_tuple [_] = fail "cml_tuple: Cannot create 1-tuple" ∧
-  cml_tuple cml_es = return (Con NONE cml_es)
+Definition from_un_op_def:
+  from_un_op Not cml_e = If cml_e False True
 End
 
-Definition cml_tuple_select_def:
-  cml_tuple_select len cml_te (idx: num) =
-  let field_vars = GENLIST (λn. Pvar ("t" ++ (num_to_string n))) len in
-    Mat cml_te [Pcon NONE field_vars, Var (Short ("t" ++ (num_to_string idx)))]
+Definition from_bin_op_def:
+  from_bin_op Lt cml_e₀ cml_e₁ =
+    App (Opb Lt) [cml_e₀; cml_e₁] ∧
+  from_bin_op Le cml_e₀ cml_e₁ =
+    App (Opb Leq) [cml_e₀; cml_e₁] ∧
+  from_bin_op Ge cml_e₀ cml_e₁ =
+    App (Opb Geq) [cml_e₀; cml_e₁] ∧
+  from_bin_op Eq cml_e₀ cml_e₁ =
+    App Equality [cml_e₀; cml_e₁] ∧
+  from_bin_op Neq cml_e₀ cml_e₁ =
+  (* Make sure that cml_e₁ is evaluated before the rest of the computation as
+     the semantics demand *)
+  (let n_e₁ = " r" in
+     Let (SOME n_e₁) cml_e₁
+         (If (App Equality [cml_e₀; Var (Short n_e₁)]) False True)) ∧
+  from_bin_op Sub cml_e₀ cml_e₁ =
+    App (Opn Minus) [cml_e₀; cml_e₁] ∧
+  from_bin_op Add cml_e₀ cml_e₁ =
+    App (Opn Plus) [cml_e₀; cml_e₁] ∧
+  from_bin_op Mul cml_e₀ cml_e₁ =
+    App (Opn Times) [cml_e₀; cml_e₁] ∧
+  from_bin_op And cml_e₀ cml_e₁ =
+    Log And cml_e₀ cml_e₁ ∧
+  from_bin_op Or cml_e₀ cml_e₁ =
+    Log Or cml_e₀ cml_e₁ ∧
+  from_bin_op Imp cml_e₀ cml_e₁ =
+    If cml_e₀ cml_e₁ True ∧
+  from_bin_op Div cml_e₀ cml_e₁ =
+  (* Make sure that cml_e₁ is evaluated before the rest of the computation as
+     the semantics demand *)
+  let n_e₁ = " r" in
+  (* See HOL's EDIV_DEF: if 0 < j then i div j else ~(i div ~j) *)
+  let neg_cml_e₁ = App (Opn Minus) [Lit (IntLit 0); Var (Short n_e₁)] in
+    Let (SOME n_e₁) cml_e₁
+        (If (App (Opb Lt) [Lit (IntLit 0); Var (Short n_e₁)])
+            (App (Opn Divide) [cml_e₀; Var (Short n_e₁)])
+            (App (Opn Minus)
+                 [Lit (IntLit 0); App (Opn Divide) [cml_e₀; neg_cml_e₁]]))
+Termination
+  wf_rel_tac ‘measure (λx. case x of
+                           | (Neq, _, _) => bin_op_size Neq + 1
+                           | (Imp, _, _) => bin_op_size Imp + 1
+                           | (bop, _, _) => bin_op_size bop)’
 End
 
-Definition zip_with_def:
-  zip_with f [] _ = [] ∧
-  zip_with f _ [] = [] ∧
-  zip_with f (x::xs) (y::ys) = (f x y)::(zip_with f xs ys)
+Definition from_lit_def:
+  from_lit (BoolL b) = (if b then True else False) ∧
+  from_lit (IntL i) = Lit (IntLit i) ∧
+  from_lit (StrL s) = Lit (StrLit (explode s))
 End
 
-(* TODO Find better way to generate internal names *)
-
-Definition varN_from_formal_def:
-  varN_from_formal (Formal n _ attrs) =
-  if attrs ≠ [] then
-    fail "param_from_formals: Attributes currently unsupported"
-  else
-    return (dest_varName n)
+Definition gen_arg_names_def:
+  gen_arg_names args =
+    GENLIST (λn. "a" ++ (explode (num_to_str n))) (LENGTH args)
 End
 
-Definition internal_varN_from_formal_def:
-  internal_varN_from_formal fo =
+Definition from_exp_def:
+  from_exp (Lit l) = return (from_lit l) ∧
+  from_exp (Var v) = return (cml_read_var (explode v)) ∧
+  from_exp (If tst thn els) =
   do
-    n <- varN_from_formal fo;
-    return (n ++ "_CML_param")
+    cml_tst <- from_exp tst;
+    cml_thn <- from_exp thn;
+    cml_els <- from_exp els;
+    return (If cml_tst cml_thn cml_els)
+  od ∧
+  from_exp (UnOp uop e) =
+  do
+    cml_e <- from_exp e;
+    return (from_un_op uop cml_e)
+  od ∧
+  from_exp (BinOp bop e₀ e₁) =
+  do
+    cml_e₀ <- from_exp e₀;
+    cml_e₁ <- from_exp e₁;
+    (* Force left-to-right evaluation order *)
+    n_e₀ <<- " l";
+    return (Let (SOME n_e₀) cml_e₀
+             (from_bin_op bop (Var (Short n_e₀)) cml_e₁))
+  od ∧
+  from_exp (ArrLen arr) =
+  do
+    cml_arr <- from_exp arr;
+    return (cml_get_arr_dim cml_arr)
+  od ∧
+  from_exp (ArrSel arr idx) =
+  do
+    cml_arr <- from_exp arr;
+    cml_idx <- from_exp idx;
+    (* Force left-to-right evaluation order *)
+    n_arr <<- " arr";
+    return (Let (SOME n_arr) cml_arr
+                (App Asub [cml_get_arr_data (Var (Short n_arr)); cml_idx]))
+  od ∧
+  from_exp (FunCall n args) =
+  do
+    cml_args <- map_from_exp args;
+    (* A Dafny function `foo a b c` is compiled to `dfy_foo c b a` to enforce
+       left-to-right evaluation order (since CakeML evaluate right to left).
+       This shouldn't be a problem, as Dafny does not support partial
+       application without defining a new function/lambda. *)
+    return (cml_fapp [] ("dfy_" ++ (explode n)) (REVERSE cml_args))
+  od ∧
+  from_exp (Forall _ _) = fail «from_exp:Forall: Unsupported» ∧
+  map_from_exp [] = return [] ∧
+  map_from_exp (e::es) =
+  do
+    cml_e <- from_exp e;
+    cml_es <- map_from_exp es;
+    return (cml_e::cml_es)
+  od
+Termination
+  wf_rel_tac ‘measure (λx. case x of
+                           | INL e => exp_size e
+                           | INR es => list_size exp_size es)’
+End
+
+Definition map_from_exp_tup_def:
+  map_from_exp_tup [] = return [] ∧
+  map_from_exp_tup ((e, x)::rest) =
+  do
+    cml_e <- from_exp e;
+    cml_rest <- map_from_exp_tup rest;
+    return ((cml_e, x)::cml_rest)
   od
 End
 
-Definition internal_varN_from_varName_def:
-  internal_varN_from_varName (VarName n) = (n ++ "_CML_out_ref")
+Definition from_rhs_exp_def:
+  from_rhs_exp (ExpRhs e) = from_exp e ∧
+  from_rhs_exp (ArrAlloc len init) =
+  do
+    cml_len <- from_exp len;
+    cml_init <- from_exp init;
+    return (cml_alloc_arr cml_len cml_init)
+  od
 End
 
-(* Declares additional parameters using Fun x => ... *)
-Definition fun_from_params_def:
-  (fun_from_params preamble [] = return preamble) ∧
-  (fun_from_params preamble (fo::rest) =
+Definition cml_tmp_vname_def:
+  cml_tmp_vname idx = explode («_tmp» ^ (num_to_str idx))
+End
+
+Definition assign_single_def:
+  (assign_single (VarLhs v) cml_rhs =
+     return (App Opassign [Var (Short (explode v)); cml_rhs])) ∧
+  (assign_single (ArrSelLhs arr idx) cml_rhs =
    do
-     param_name <- internal_varN_from_formal fo;
-     preamble <<- (λx. preamble (Fun param_name x));
-     fun_from_params preamble rest
+     cml_arr <- from_exp arr;
+     cml_idx <- from_exp idx;
+     (* Force left-to-right evaluation order *)
+     n_arr <<- " arr";
+     return (Let (SOME n_arr) cml_arr
+                 (App Aupdate [cml_get_arr_data (Var (Short n_arr));
+                               cml_idx; cml_rhs]))
    od)
 End
 
-Definition local_env_name_def:
-  local_env_name n = (Companion [] [], n)
+Definition par_assign_def:
+  par_assign lhss rhss =
+  do
+    vars <<- GENLIST (λn. cml_tup_vname n) (LENGTH rhss);
+    ass <- if LENGTH lhss = LENGTH rhss
+           then result_mmap2 assign_single lhss (MAP (Var ∘ Short) vars)
+           else return [];
+    return (Mat (Stuple (REVERSE rhss))
+                [Pstuple (MAP Pvar (REVERSE vars)), Seqs ass])
+  od
 End
 
-(* In Dafny, the string and seq<char> type are synonyms. We replace the
- * former with the latter for consistency. We also replace newtypes by their
- * base type (which may be incorrect) *)
-(* TODO? Maybe it is better to implement this with a map as Dafny does it;
-   Seems like Dafny has a function to remove synonyms? *)
-Definition normalize_type_def:
-  normalize_type t =
-  (case t of
-   | Primitive String => Seq (Primitive Char)
-   (* TODO Unsure whether we can ignore these like that *)
-   | UserDefined
-     (ResolvedType _ [] rtb attrs [] extendedTs) =>
-       (* Returning t in this case means it is unsupported *)
-       if attrs ≠ [Attribute "axiom" []] ∧ attrs ≠ [] then
-         t
-       else if extendedTs ≠ [Primitive Int] ∧ extendedTs ≠ [] then
-         t
-       else
-         (case rtb of
-          | ResolvedTypeBase_SynonymType bt => normalize_type bt
-          (* Is dealing with newtype like this really fine? *)
-          | ResolvedTypeBase_Newtype bt _ _ => normalize_type bt
-          | _ => t)
-   | Tuple ts => Tuple (map_normalize_type ts)
-   | Array elem dims => Array (normalize_type elem) dims
-   | Seq t => Seq (normalize_type t)
-   | Set t => Set (normalize_type t)
-   | Multiset t => Multiset (normalize_type t)
-   | Type_Map kt vt => Type_Map (normalize_type kt) (normalize_type vt)
-   | SetBuilder t => SetBuilder (normalize_type t)
-   | MapBuilder kt vt => MapBuilder (normalize_type kt)
-                                    (normalize_type vt)
-   | Arrow argsT resT => Arrow (map_normalize_type argsT)
-                               (normalize_type resT)
-   | _ => t) ∧
-  map_normalize_type ts =
-  (case ts of
-   | [] => []
-   | (t::rest) =>
-       (normalize_type t)::(map_normalize_type rest))
-Termination
-  cheat
+Definition to_string_def:
+  (to_string cml_e BoolT =
+     return (If cml_e (Lit (StrLit "True")) (Lit (StrLit "False")))) ∧
+  (* TODO Is this the best way to print an integer? *)
+  (to_string cml_e IntT =
+     return (cml_fapp ["Int"] "int_to_string" [Lit (Char #"-"); cml_e])) ∧
+  (to_string cml_e StrT = return cml_e) ∧
+  (to_string cml_e _ = fail «to_string: Unsupported»)
 End
 
-Definition compose_all_def:
-  compose_all = FOLDR (o) I
+Definition loop_name_def:
+  loop_name lvl = explode (« w» ^ (num_to_str lvl))
 End
 
-Definition cml_tuple_to_string_list_def:
-  cml_tuple_to_string_list fs =
-  let field_name = GENLIST (λn. ("t" ++ (num_to_string n))) (LENGTH fs);
-      field_pvars = (MAP (λx. Pvar x) field_name);
-      field_vars = (MAP (λx. [Var (Short x)]) field_name);
-      string_list = cml_list (zip_with cml_fapp fs field_vars);
-      tuple_name = "tpl" in
-    Fun tuple_name
-        (Mat (Var (Short tuple_name))
-             [Pcon NONE field_pvars, string_list])
+
+Definition from_stmt_def:
+  (* lvl keeps track of nested while loops to generate new unique names *)
+  from_stmt Skip (lvl: num) = return Unit ∧
+  from_stmt (Assert _) _ = return Unit ∧
+  from_stmt (Then stmt₁ stmt₂) lvl =
+  do
+    cml_stmt₁ <- from_stmt stmt₁ lvl;
+    cml_stmt₂ <- from_stmt stmt₂ lvl;
+    return (Let NONE cml_stmt₁ cml_stmt₂)
+  od ∧
+  from_stmt (If tst thn els) lvl =
+  do
+    cml_tst <- from_exp tst;
+    cml_thn <- from_stmt thn lvl;
+    cml_els <- from_stmt els lvl;
+    return (If cml_tst cml_thn cml_els)
+  od ∧
+  from_stmt (Dec (n, _) scope) lvl =
+  do
+    cml_scope <- from_stmt scope lvl;
+    return (cml_new_refs [explode n] cml_scope)
+  od ∧
+  from_stmt (Assign ass) _ =
+  do
+    cml_rhss <- result_mmap from_rhs_exp (MAP SND ass);
+    par_assign (MAP FST ass) cml_rhss
+  od ∧
+  from_stmt (While grd _ _ _ body) lvl =
+  do
+    cml_grd <- from_exp grd;
+    cml_body <- from_stmt body (lvl + 1);
+    run_loop <<- cml_fapp [] (loop_name lvl) [Unit];
+     (* Example (see The Definition of Standard ML, Appendix A):
+        let val rec w0 = fn () =>
+          if cml_grd then (cml_body; w0()) else ()
+        in
+          w0()
+        end *)
+    return (Letrec [(loop_name lvl, "",
+                     If cml_grd (Let NONE cml_body run_loop) Unit)]
+                   run_loop)
+  od ∧
+  from_stmt (Print e t) _ =
+  do
+    cml_e <- from_exp e;
+    cml_str <- to_string cml_e t;
+    (* TODO Is this the best way to print a string? *)
+    return (cml_fapp [] "print" [cml_str])
+  od ∧
+  from_stmt (MetCall lhss n args) _ =
+  do
+    cml_args <- map_from_exp args;
+    cml_call <<- cml_fapp [] ("dfy_" ++ (explode n)) (REVERSE cml_args);
+    (* Method returns a tuple of size outs_len, so we use case and assign
+       each component to the corresponding left-hand side. *)
+    outs_len <<- LENGTH lhss;
+    outs <<- GENLIST (λn. Var (Short (cml_tup_vname n))) outs_len;
+    cml_assign <- par_assign lhss outs;
+    return (cml_tup_case outs_len cml_call cml_assign);
+  od ∧
+  from_stmt Return _ =
+    return (Raise (Con (SOME (mk_id [] "Return")) []))
 End
 
-Definition raise_return_def:
-  raise_return = Raise (Con (SOME (Long "Dafny" (Short "Return"))) [])
+(* Shadows the parameters with references with the same name (and value). *)
+Definition set_up_in_refs_def:
+  set_up_in_refs [] cml_e = cml_e ∧
+  set_up_in_refs (n::ns) cml_e =
+    Let (SOME n) (App Opref [Var (Short n)]) (set_up_in_refs ns cml_e)
 End
 
-Definition raise_break_def:
-  raise_break = Raise (Con (SOME (Long "Dafny" (Short "Break"))) [])
+(* Sets up the in parameters. *)
+Definition set_up_cml_fun_def:
+  set_up_cml_fun n ins cml_body =
+    let in_ns = MAP (explode ∘ FST) ins in
+    let cml_body = set_up_in_refs in_ns cml_body in
+    (* Reversing the parameters is an easy way to get left-to-right evaluation
+       on them *)
+    let (cml_param, cml_body) = cml_fun (REVERSE in_ns) cml_body in
+      (* Prepending functions with "dfy_" avoids naming issues. *)
+      ("dfy_" ++ (explode n), cml_param, cml_body)
 End
 
-Definition add_break_handle_def:
-  add_break_handle e = Handle e [Pcon (SOME (Long "Dafny" (Short "Break"))) [],
-                                 Unit]
-End
-
-Definition raise_labeled_break_def:
-  raise_labeled_break lbl = Raise (Con (SOME (Long "Dafny"
-                                                   (Short "LabeledBreak")))
-                                       [Lit (StrLit lbl)])
-End
-
-Definition add_labeled_break_handle_def:
-  add_labeled_break_handle cur_lbl e =
-  Handle e [Pcon (SOME (Long "Dafny" (Short "LabeledBreak"))) [Pvar "lbl"],
-            (If (App Equality [Var (Short "lbl"); Lit (StrLit cur_lbl)])
-                (Unit)
-                (Raise (Con (SOME (Long "Dafny" (Short "LabeledBreak")))
-                            [Var (Short "lbl")])))]
-End
-
-Definition cml_while_name_def:
-  cml_while_name (lvl: int) = "CML_while_" ++ (int_to_string lvl)
-End
-
-Definition cml_get_arr_def:
-  cml_get_arr cml_e = (cml_fapp (Var (Long "Option" (Short "valOf"))) [cml_e])
-End
-
-Definition fun_from_lambda_params_def:
-  fun_from_lambda_params [] = return [] ∧
-  fun_from_lambda_params ((Formal nam _ attrs)::rest) =
-  if attrs ≠ [] then
-    fail "fun_from_lambda_params: attributes unsupported"
-  else
+Definition from_member_decl_def:
+  from_member_decl mem : (string # string # ast$exp) result =
+  case mem of
+  (* Constructing methods and functions from bottom to top *)
+  | Method n ins _ _ _ _ outs _ body =>
     do
-      rest <- fun_from_lambda_params rest;
-      return ((λe. Fun (dest_varName nam) e)::rest)
+      cml_body <- from_stmt body 0;
+      (* Method returns a tuple containing the value of the out variables *)
+      out_ns <<- MAP (explode ∘ FST) outs;
+      cml_tup <<- Stuple (MAP cml_read_var out_ns);
+      cml_body <<-
+        Handle cml_body
+          [(Pcon (SOME (mk_id [] "Return")) [], cml_tup)];
+      cml_body <<- cml_new_refs out_ns cml_body;
+      return (set_up_cml_fun n ins cml_body)
+    od
+  | Function n ins _ _ _ _ body =>
+    do
+      cml_body <- from_exp body;
+      return (set_up_cml_fun n ins cml_body)
     od
 End
 
-Definition param_type_env_def:
-  param_type_env [] acc = return acc ∧
-  param_type_env ((Formal n t attrs)::rest) acc =
-  if attrs ≠ [] then
-    fail "param_type_env: Attributes unsupported"
-  else
-    let n = dest_varName n in
-      param_type_env rest ((local_env_name n, (normalize_type t))::acc)
-End
-
-Definition env_and_epilogue_from_outs_def:
-  (env_and_epilogue_from_outs env epilogue [] [] =
-   do
-     epilogue <<- epilogue raise_return;
-     return (env, epilogue)
-   od) ∧
-  (env_and_epilogue_from_outs env epilogue (t::rest_t) (v::rest_v) =
-   do
-     if LENGTH rest_t ≠ LENGTH rest_v then
-       fail ("env_and_epilogue_from_outs: Length of outTypes and outVars " ++
-             "is different")
-     else
-       do
-         v_str <<- dest_varName v;
-         env <<- ((local_env_name v_str, t)::env);
-         out_ref_name <<- internal_varN_from_varName v;
-         epilogue <<- (λx. epilogue (Let NONE (cml_ref_ass
-                                               (Var (Short out_ref_name))
-                                               ((App Opderef
-                                                     [Var (Short v_str)])))
-                                         x));
-         env_and_epilogue_from_outs env epilogue rest_t rest_v
-       od
-   od)
-End
-
-(* Allows us to pass in out references as parameters *)
-Definition fun_from_outs_def:
-  fun_from_outs preamble [] = preamble ∧
-  fun_from_outs preamble (v::rest_v) =
-     fun_from_outs (λx. preamble (Fun (internal_varN_from_varName v) x)) rest_v
-End
-
-(* Declares and initializes references for the parameters that the body will use
- *
- * We do this since within the body the parameter names act as variables, which
- * we encode using references. *)
-Definition ref_from_params_def:
-  (ref_from_params preamble [] = return preamble) ∧
-  (ref_from_params preamble (fo::rest) =
-   do
-     ref_name <- varN_from_formal fo;
-     ref_value_name <- internal_varN_from_formal fo;
-     preamble <<- (λx. preamble ((cml_ref ref_name
-                                          (Var (Short ref_value_name)) x)));
-     ref_from_params preamble rest
-   od)
-End
-
-Definition gen_param_preamble_epilogue_def:
-  gen_param_preamble_epilogue env [] [] [] =
+Definition from_program_def:
+  from_program (Program mems) : (dec list) result =
   do
-    param <<- "";
-    preamble <<- λx. x;
-    (env, epilogue) <- env_and_epilogue_from_outs env (λx. x)
-                                                  [] [];
-    return (env, param, preamble, epilogue)
-  od ∧
-  gen_param_preamble_epilogue env [] (t::rest_t) (v::rest_v) =
-  do
-    param <<- internal_varN_from_varName v;
-    preamble <<- fun_from_outs (λx. x) rest_v;
-    (env, epilogue) <- env_and_epilogue_from_outs env (λx. x)
-                                                  (t::rest_t) (v::rest_v);
-    return (env, param, preamble, epilogue)
-  od ∧
-  gen_param_preamble_epilogue env (p::rest_p) outTypes outVars =
-  do
-    param <- internal_varN_from_formal p;
-    preamble <- fun_from_params (λx. x) rest_p;
-    preamble <<- fun_from_outs preamble outVars;
-    preamble <- ref_from_params preamble (p::rest_p);
-    env <- param_type_env (p::rest_p) env;
-    (env, epilogue) <- env_and_epilogue_from_outs env (λx. x)
-                                                  outTypes outVars;
-    return (env, param, preamble, epilogue)
+    return_exn <<- Dexn unknown_loc "Return" [];
+    cml_funs <- result_mmap from_member_decl mems;
+    (* TODO Optimize: Only put mutually recursive functions together *)
+    cml_funs <<- Dletrec unknown_loc cml_funs;
+    main_call <<- Handle (cml_fapp [] "dfy_Main" [Unit])
+              [(Pcon (SOME (mk_id [] "Return")) [], Unit)];
+    cml_main <<- Dlet unknown_loc Pany main_call;
+    return ([return_exn; cml_funs; cml_main])
   od
 End
 
-Definition gen_param_preamble_def:
-  gen_param_preamble env params =
-  do
-    (env, param, preamble, _) <- gen_param_preamble_epilogue env params [] [];
-    return (env, param, preamble)
-  od
-End
-
-(* Returns a function that can be applied to a CakeML expression to turn it into
- * a string *)
-Definition to_string_fun_def:
-  (to_string_fun _ (Primitive Char) =
-   return (Var (Long "Dafny" (Short "char_to_string")))) ∧
-  (to_string_fun _ (Primitive Int) =
-   return (Var (Long "Dafny" (Short "int_to_string")))) ∧
-  (to_string_fun _ (Primitive Primitive_Bool) =
-   return (Var (Long "Dafny" (Short "bool_to_string")))) ∧
-  (to_string_fun inCol (Seq (Primitive Char)) =
-   if inCol then
-     return (Var (Long "Dafny" (Short "char_list_to_string")))
-   else return (Var (Long "String" (Short "implode")))) ∧
-  (to_string_fun _ (Seq t) =
-   do
-     elem_to_string <- to_string_fun T t;
-     return (cml_fapp (Var (Long "Dafny" (Short "list_to_string")))
-                      [elem_to_string])
-   od) ∧
-  (to_string_fun _ (Tuple ts) =
-   do
-     elems_to_string <- map_to_string_fun T ts;
-     string_list <<- cml_tuple_to_string_list elems_to_string;
-     return (cml_fapp (Var (Long "Dafny" (Short "tuple_to_string")))
-                           [string_list])
-   od) ∧
-  (to_string_fun _ t = fail ("to_string_fun: Unsupported type")) ∧
-  (map_to_string_fun inCol ts =
-   case ts of
-   | [] => return []
-   | (t::rest) =>
-       do
-         t <- to_string_fun inCol t;
-         rest <- map_to_string_fun inCol rest;
-         return (t::rest)
-       od)
-Termination
-  cheat
-End
-
-(* An independent statement must not depend on statements outside of it *)
-(* TODO Fill out cases properly; wildcard means that I did not explicitly
-   consider it yet *)
-Definition is_indep_stmt_def:
-  is_indep_stmt (s: dafny_ast$statement) =
-  case s of
-  | DeclareVar _ _ _=> F
-  | Assign _ _ => T
-  | If _ _ _ => T
-  | Labeled _ _ => T
-  | While _ _ => T
-  | Call _ _ _ _ _ => T
-  | Return _ => T
-  | EarlyReturn => T
-  | Break _ => T
-  | Print _ => T
-  | _ => F
-End
-
-Definition dest_resolvedType_def:
-  dest_resolvedType (ResolvedType path typeArgs kind attrs properMethods
-                                  extendedTypes) =
-  (path, typeArgs, kind, attrs, properMethods, extendedTypes)
-End
-
-Definition arb_value_def:
-  arb_value (t: dafny_ast$type) =
-  (case t of
-   | Primitive Int => return (Lit (IntLit 0))
-   | Primitive Primitive_Bool => return False
-   | Seq _ => return (cml_list [])
-   | Tuple ts =>
-       do
-         arb_elems <- map_arb_value ts;
-         cml_tuple arb_elems
-       od
-   | Array _ _ => return None  (* we essentially initialize with null *)
-   | UserDefined resT => arb_value_resolved_type resT
-   | Arrow ts t =>
-       do
-         arb_ret <- arb_value t;
-         nr_params <<- (LENGTH ts);
-         params <<- if nr_params = 0
-                    then [λx. Fun "u" x]
-                    else GENLIST (λx. Fun ("p" ++ (num_to_string x)))
-                                 (LENGTH ts);
-         return (compose_all params arb_ret)
-       od
-   | _ => fail "arb_value_def: Unsupported type") ∧
-  (arb_value_resolved_type resT =
-   let (_, typeArgs, kind, attrs,
-        properMethods, extendedTypes) = dest_resolvedType resT in
-     if typeArgs ≠ [] then
-       fail "arb_value_resolved_type: type args unsupported"
-     else if attrs ≠ [] ∧ attrs ≠ [Attribute "axiom" []] then
-       fail "arb_value_resolved_type: unsupported attributes"
-     else if properMethods ≠ [] then
-       fail "arb_value_resolved_type: proper methods unsupported"
-     else if extendedTypes ≠ [] ∧ extendedTypes ≠ [Primitive Int] then
-       fail "arb_value_resolved_type: unsupported extended types"
-     else
-       case kind of
-       | ResolvedTypeBase_Newtype baseT rang eras =>
-           if baseT ≠ Primitive Int then
-             fail "arb_value_resolved_type: Unsupported base type"
-           else if rang ≠ NoRange then
-             fail "arb_value_resolved_type: Unsupported range"
-           else if ¬eras then
-             fail "arb_value_resolved_type: non-erased newtypes unsupported"
-           else
-             arb_value baseT
-       | _ => fail "arb_value_resolved_type: unsupported resolved type base") ∧
-  map_arb_value ts =
-  (case ts of
-   | [] => return []
-   | t::rest =>
-       do
-         v <- arb_value t;
-         vs <- map_arb_value rest;
-         return (v::vs)
-       od)
-Termination
-  cheat
-End
-
-(* TODO double check whether this is used *)
-Definition from_varName_def:
-  from_varName n = Var (Short (dest_varName n))
-End
-
-(* TODO double check if this is still used *)
-Definition from_name_def:
-  from_name n = Var (Short (dest_Name n))
-End
-
-(* TODO double check if this is still used *)
-Definition from_ident_def:
-  from_ident (Ident n) = from_name n
-End
-
-(* It appears that function and methods in Dafny are both represented by the
- * same datatype, even though they are slightly different *)
-(* This assumption is incorrect; at the IR level only methods exist since
- * expression can be compiled down to statements in it *)
-(* TODO Handle everything as "method" *)
-(* TODO Currently ignoring inheritedParams, unsure what it does. *)
-Definition method_is_function_def:
-  method_is_function (Method attrs isStatic hasBody _ _ overridingPath nam
-                             typeParams params _ body outTypes outVars) =
-  (* Function has one outType and no outVars *)
-  if LENGTH outTypes ≠ 1 ∨ outVars ≠ NONE then
-    return F
-  else if attrs ≠ [] ∧ attrs ≠ [Attribute "tailrecursion" ["false"]] then
-    fail ("method_is_function: unsupported attributes")
-  else if ¬isStatic then
-    fail ("method_is_function: Did not expect function " ++ (dest_Name nam) ++
-          " to be static")
-  else if ¬hasBody then
-    fail ("method_is_function: Function " ++ (dest_Name nam) ++
-          " did not have a body, even though it must")
-  else if overridingPath ≠ NONE then
-    fail ("method_is_function: Did not expect function " ++ (dest_Name nam) ++
-          " to have an overriding path")
-  else if typeParams ≠ [] then
-    fail ("method_is_function: Type parameters are currently unsupported (in "
-          ++ (dest_Name nam) ++ ")")
-  else
-    return T
-End
-
-Definition method_is_method_def:
-  method_is_method (Method attrs isStatic hasBody _ _ overridingPath nam
-                           typeParams params _ body outTypes outVars) =
-  case outVars of
-  | SOME outVars_list =>
-      if LENGTH outTypes ≠ LENGTH outVars_list then
-        fail ("method_is_method: Function " ++ (dest_Name nam) ++
-              " did not have the same number of outTypes and outVars, even" ++
-              " though it must")
-      else if attrs ≠ [] ∧ attrs ≠ [Attribute "tailrecursion" ["false"]] then
-        fail ("method_is_method: unsupported attributes")
-      else if ¬isStatic then
-        fail ("method_is_method: non-static methods are currently " ++
-              "unsupported (in " ++ (dest_Name nam) ++ ")")
-      else if ¬hasBody then
-        fail ("method_is_method: Method " ++ (dest_Name nam) ++
-              " did not have a body, even though it must")
-      else if overridingPath ≠ NONE then
-        fail ("method_is_method: Overriding path for methods are currently " ++
-              "unsupported (in " ++ (dest_Name nam) ++ ")")
-      else if typeParams ≠ [] then
-        fail ("method_is_method: Type parameters are currently unsupported (in "
-              ++ (dest_Name nam) ++ ")")
-      else
-        return T
-  | NONE => return F
-End
-
-Definition from_literal_def:
-  from_literal (l: dafny_ast$literal) =
-   case l of
-   | BoolLiteral T =>
-       return True
-   | BoolLiteral F =>
-       return False
-   | IntLiteral s (Primitive Int) =>
-       do
-         i <- string_to_int s;
-         return (Lit (IntLit i))
-       od
-   | IntLiteral _ _ =>
-       fail "IntLiteral _ _: Unclear how to handle"
-   (* TODO Look into Rat module in basis *)
-   | DecLiteral s1 s2 typ =>
-       fail "DecLiteral s1 s2 typ: TODO"
-   (* TODO String/Char support incomplete or incorrect - see
-      to_dafny_astScript for more details *)
-   | StringLiteral s verbatim =>
-       return (string_to_cml_char_list (unescape_string s verbatim))
-   | CharLiteral ch =>
-       return (Lit (Char ch))
-   | CharLiteralUTF16 n =>
-       fail "CharLiteralUTF16 n: Unsupported"
-   (* Encode a nullable type as ((a' ref) option) *)
-   | Null typ =>
-       return None
-End
-
-Definition type_from_formals_def:
-  type_from_formals [] = return [] ∧
-  type_from_formals ((Formal _ t attrs)::rest) =
-  if attrs ≠ [] then
-    fail "type_from_formals: Attributes unsupported"
-  else
-    do
-      restTs <- type_from_formals rest;
-      return ((normalize_type t)::(map_normalize_type restTs))
-    od
-End
-
-(* Cannot merge with from_classitem, since methods may be mutually recursive/
- * not defined in the proper order, resulting in being referenced before they
- * have been added to the context *)
-Definition call_type_env_from_class_body_def:
-  call_type_env_from_class_body acc _ [] = return acc ∧
-  call_type_env_from_class_body acc comp ((ClassItem_Method m)::rest) =
-  do
-    is_function <- method_is_function m;
-    is_method <- method_is_method m;
-    if is_function then
-      do
-        (_, _, _, _, _, _, nam, _, params, _, _, outTypes, _) <<- dest_Method m;
-        nam <<- dest_Name nam;
-        param_t <- type_from_formals params;
-        outTypes <<- MAP normalize_type outTypes;
-        acc <<- (((comp, nam), Arrow param_t (HD outTypes))::acc);
-        call_type_env_from_class_body acc comp rest;
-      od
-    else if is_method then
-      do
-        (_, _, _, _, _, _, nam, _, params, _, _, _, _) <<- dest_Method m;
-        nam <<- dest_Name nam;
-        (* outTypes refers to the type of outVars; the method itself returns
-         * Unit (I think) *)
-        param_t <- type_from_formals params;
-        acc <<- (((comp, nam), Arrow param_t (Tuple []))::acc);
-        call_type_env_from_class_body acc comp rest
-      od
-    else
-      fail "call_type_env_from_class_body: ClassItem_Method m was neither \
-           \method nor function."
-  od
-End
-
-Definition tuple_len_def:
-  tuple_len (Tuple ts) = return (LENGTH ts) ∧
-  tuple_len _ = fail "tuple_len: Not a tuple type"
-End
-
-Definition dafny_type_of_def:
-  dafny_type_of (env: (((expression # string), type) alist))
-                (e: dafny_ast$expression) =
-  (case e of
-   | Literal (BoolLiteral _) => return (Primitive Primitive_Bool)
-   | Literal (IntLiteral _ (Primitive Int)) => return (Primitive Int)
-   | Literal (StringLiteral _ _) => return (Seq (Primitive Char))
-   | Literal (CharLiteral _) => return (Primitive Char)
-   | Expression_Ident n =>
-       let n = dest_varName n in
-         (case ALOOKUP env (local_env_name n) of
-          | SOME t => return t
-          | NONE => fail ("dafny_type_of: Unknown name " ++ n))
-   | Expression_Tuple es =>
-       do
-         ts <- map_dafny_type_of env es;
-         return (Tuple ts)
-       od
-   | NewUninitArray [_] typ => return (Array (normalize_type typ) 1)
-   | FinalizeNewArray e t =>
-       do
-         e_t <- dafny_type_of env e;
-         (* Sanity check *)
-         if e_t ≠ (normalize_type t) then
-           fail "dafny_type_of (FinalizeNewArray): Unexpected type mismatch"
-         else
-           return (e_t)
-       od
-   | Convert _ fro tot =>
-       (* Assume that we are given a "correct" Dafny program, and this convert
-        * is safe *)
-       return (normalize_type tot)
-   | SeqConstruct _ fe =>
-       do
-         fe_t <- dafny_type_of env fe;
-         (argTs, retT) <- dest_Arrow fe_t;
-         argT <- dest_singleton_list argTs;
-         if argT ≠ Primitive Int then
-           fail "dafny_type_of (SeqConstruct): Argument of function was not \
-                \an int"
-         else
-           return (Seq retT)
-       od
-   | SeqValue _ t =>
-       return (Seq (normalize_type t))
-   | SeqUpdate se idx v collT exprT =>
-       if collT ≠ exprT then
-         fail "dafny_type_of (SeqUpdate): Unexpectedly, collT <> exprT"
-       else
-         return (normalize_type collT)
-   | Ite cnd thn els =>
-       do
-         thn_t <- dafny_type_of env thn;
-         els_t <- dafny_type_of env els;
-         if (thn_t ≠ els_t) then
-           fail ("dafny_type_of (Ite): Unexpectedly, branches have " ++
-                 "different types")
-         else
-           return thn_t
-       od
-   | UnOp Not e =>
-       do
-         e_t <- dafny_type_of env e;
-         if e_t = (Primitive Primitive_Bool) then
-           return (Primitive Primitive_Bool)
-         else
-           fail "dafny_type_of (UnOp Not): Unsupported type for e"
-       od
-   | UnOp BitwiseNot _ =>
-       fail "dafny_type_of (UnOp BitwiseNot): Unsupported"
-   | UnOp Cardinality e' =>
-       do
-         e'_t <- dafny_type_of env e';
-         if is_Seq e'_t then
-           return (Primitive Int)
-         else
-           fail "dafny_type_of (UnOp Cardinality): Unsupported type"
-       od
-   | BinOp (TypedBinOp _ _ _ resultT) _ _ => return (normalize_type resultT)
-   | ArrayLen _ _ _ _ => return (Primitive Int)
-   | SelectFn comp nam onDt isStatic _ _ =>
-       (* TODO Figure out whether it is fine to ignore arguments *)
-       (* TODO Figure out whether it is fine to ignore isConstant *)
-       if onDt then
-         fail "dafny_type_of (SelectFn): On datatype unsupported"
-       else if ¬isStatic then
-         fail "dafny_type_of (SelectFn): non-static unsupported"
-       else
-         (let nam = dest_varName nam in
-            (case ALOOKUP env (comp, nam) of
-             | SOME t => return t
-             | NONE => fail ("dafny_type_of (SelectFn): Unknown name" ++ nam)))
-   | Index e' cok idxs =>
-       do
-         e'_t <- dafny_type_of env e';
-         if cok = CollKind_Seq then
-           if LENGTH idxs ≠ 1 then
-             fail "dafny_type_of (Index/Seq): Unexpectedly, did not receive \
-                  \exactly one index"
-           else
-             dest_Seq e'_t
-         else if cok = CollKind_Array then
-           if idxs = [] then
-             fail "dafny_type_of (Index/Array): Unexpectedly idxs was empty"
-           else if LENGTH idxs > 1 then
-             fail "dafny_type_of (Index/Array): multi-dimensional indexing \
-                 \unsupported"
-           else
-             do
-               (t, _) <- dest_Array e'_t;
-               return t
-             od
-         else
-           fail "dafny_type_of (Index): Unsupported kind of collection"
-       od
-   | IndexRange se isArray lo hi =>
-       if isArray then
-         do
-           arr_t <- dafny_type_of env se;
-           (elem_t, _) <- dest_Array arr_t;
-           return (Seq elem_t)
-         od
-       else
-         dafny_type_of env se
-   | TupleSelect _ _ fieldT =>
-       return (normalize_type fieldT)
-   | Expression_Call on (CallName nam onType receiverArg receiverAsArgument _)
-                     _ _ =>
-       if onType ≠ NONE then
-         fail "dafny_type_of: (Call) Unsupported onType"
-       else if receiverArg ≠ NONE then
-         fail "dafny_type_of: (Call) Receiver argument unsupported"
-       else if receiverAsArgument then
-         fail "dafny_type_of: (Call) Receiver as argument unsupported"
-       else
-         (let ct_name = dest_Name nam in
-            case ALOOKUP env (on, ct_name) of
-            | SOME (Arrow _ retT) => return retT
-            | NONE => fail ("dafny_type_of: " ++ ct_name ++
-                            " not found or bad type"))
-   | Lambda params retT _ =>
-       do
-         argT <- type_from_formals params;
-         retT <<- normalize_type retT;
-         return (Arrow argT retT)
-       od
-   | Apply e args =>
-       do
-         nr_args <<- LENGTH args;
-         e_t <- dafny_type_of env e;
-         case e_t of
-         | Arrow f_argT f_retT =>
-             (* We do not bother type checking again *)
-             if LENGTH f_argT = nr_args then
-               return f_retT
-             else if LENGTH f_argT > nr_args then
-               return (Arrow (DROP nr_args f_argT) f_retT)
-             else
-               fail "dafny_type_of (Apply): Unexpectedly, tried to apply \
-                    \too many arguments"
-         | _ => fail "dafny_type_of (Apply): Unexpectedly, apply used on \
-                     \non-arrow type"
-       od
-   | _ => fail ("dafny_type_of: Unsupported expression")) ∧
-  map_dafny_type_of env ts =
-  (case ts of
-   | [] => return []
-   | t::rest =>
-       do
-         t <- dafny_type_of env t;
-         rest <- map_dafny_type_of env rest;
-         return (t::rest)
-       od)
-Termination
-  cheat
-End
-
-Definition path_from_companion_def:
-  path_from_companion (Companion comp _) = return comp ∧
-  path_from_companion _ = fail "dest_Companion: Not a Companion"
-End
-
-Definition gen_call_name_def:
-  (gen_call_name comp on (CallName nam onType receiverArg
-                                   receiverAsArgument _) =
-   if onType ≠ NONE then
-     fail "gen_call_name: non-empty onType currently unsupported"
-   else if receiverArg ≠ NONE then
-     fail "gen_call_name: receiverArg unsupported"
-   else if receiverAsArgument then
-     fail "gen_call_name: receiverAsArgument unsupported"
-   else
-     do
-       comp <- path_from_companion comp;
-       on <- path_from_companion on;
-       (* Convert to strings *)
-       comp <<- MAP (dest_Name ∘ dest_Ident) comp;
-       on <<- MAP (dest_Name ∘ dest_Ident) on;
-       (* TODO This only works because we ignore classes at the moment *)
-       comp <<- FILTER (λn. n ≠ "__default") comp;
-       on <<- FILTER (λn. n ≠ "__default") on;
-       if comp = on then
-         cml_id [dest_Name nam]
-       else
-         cml_id (SNOC (dest_Name nam) on)
-     od) ∧
-  gen_call_name _ _ _ =
-  fail "gen_call_name: Passed callName currently unsupported"
-End
-
-(* TODO Clean up from_expression/dafny_type_of: Some code parts may be duplicated,
- some checks may be unnecessary (depending on the assumptions we make about/get from
- the Dafny AST *)
-Definition from_expression_def:
-  (from_expression comp (env: (((expression # string), type) alist))
-                   (e: dafny_ast$expression) : (ast$exp result) =
-   case e of
-   | Literal l =>
-       from_literal l
-   | Expression_Ident n =>
-       return (App Opderef [Var (Short (dest_varName n))])
-   | Expression_Tuple es =>
-       do
-         cml_es <- map_from_expression comp env es;
-         cml_tuple cml_es
-       od
-   | NewUninitArray [dim0] t =>
-       do
-         t <<- normalize_type t;
-         cml_dim0 <- from_expression comp env dim0;
-         fill_val <- arb_value t;
-         return (Some (cml_fapp (Var (Long "Array" (Short "array")))
-                                [cml_dim0; fill_val]))
-       od
-   | FinalizeNewArray e _ =>
-       (* Don't do anything special on finalize *)
-       from_expression comp env e
-   | Convert val fro tot =>
-       do
-         if normalize_type fro ≠ normalize_type tot then
-           fail "from_expression (Convert): Converting different types \
-                \(after normalization) unsupported"
-         else
-           from_expression comp env val
-       od
-   | SeqConstruct len f_e =>
-       do
-         fe_t <- dafny_type_of env f_e;
-         (argTs, retT) <- dest_Arrow fe_t;
-         argT <- dest_singleton_list argTs;
-         if argT ≠ Primitive Int then
-           fail "from_expression (SeqConstruct): Argument of function was not \
-                \an int"
-         else
-           do
-             cml_len <- from_expression comp env len;
-             cml_f <- from_expression comp env f_e;
-             return (cml_fapp (Var (Long "List" (Short "genlist")))
-                              [cml_f; cml_len])
-           od
-       od
-   | SeqValue els _ =>
-       do
-         cml_els <- map_from_expression comp env els;
-         return (cml_list cml_els)
-       od
-   | SeqUpdate se idx v collT exprT =>
-       do
-         idx_t <- dafny_type_of env idx;
-         if collT ≠ exprT then
-           fail "from_expression (SeqUpdate): Unexpectedly, collT <> exprT"
-         else if idx_t ≠ Primitive Int then
-           fail "from_expression (SeqUpdate): Unexpectedly, idx_t wasn't an int"
-         else
-           do
-             cml_se <- from_expression comp env se;
-             cml_idx <- from_expression comp env idx;
-             cml_v <- from_expression comp env v;
-             return (cml_fapp (Var (Long "List" (Short "update")))
-                              [cml_v; cml_idx; cml_se])
-           od
-       od
-   | Ite cnd thn els =>
-       do
-         cml_cnd <- from_expression comp env cnd;
-         cml_thn <- from_expression comp env thn;
-         cml_els <- from_expression comp env els;
-         return (If cml_cnd cml_thn cml_els)
-       od
-   | UnOp uop e =>
-       from_unaryOp comp env uop e
-   | BinOp (TypedBinOp bop _ _ _) e1 e2 =>
-       from_binOp comp env bop e1 e2
-   | ArrayLen e _ dim _ =>
-       if dim ≠ 0 then
-         fail "from_expression (ArrayLen): != 1 dimension unsupported"
-       else
-         do
-           cml_e <- from_expression comp env e;
-           return (cml_fapp (Var (Long "Array" (Short "length")))
-                            [cml_get_arr cml_e])
-         od
-   | SelectFn f_comp nam onDt isStatic _ _ =>
-       (* TODO Figure out whether it is fine to ignore arguments *)
-       (* TODO Figure out whether it is fine to ignore isConstant *)
-       if onDt then
-         fail "from_expression (SelectFn): On datatype unsupported"
-       else if ¬isStatic then
-         fail "from_expression (SelectFn): non-static unsupported"
-       else
-         do
-           nam <<- Name (dest_varName nam);
-           f_name <- gen_call_name comp f_comp
-                                   (CallName nam NONE NONE F
-                                             (CallSignature [] []));
-           return (Var f_name)
-         od
-   | Index ce cok idxs =>
-       if cok = CollKind_Seq then
-         if LENGTH idxs ≠ 1 then
-           fail "from_expression (Index): Unexpectedly, did not receive \
-                \exactly one index"
-         else
-           do
-             cml_ce <- from_expression comp env ce;
-             idx <- from_expression comp env (EL 0 idxs);
-             return (cml_fapp (Var (Long "List" (Short "nth"))) [cml_ce; idx])
-           od
-       else if cok = CollKind_Array then
-         if idxs = [] then
-           fail "from_expression (Index/Array): Unexpectedly received an \
-                \empty list of indices"
-         else if LENGTH idxs > 1 then
-           fail "from_expression (Index/Array): multi-dimensional indexing \
-                \unsupported"
-         else
-           do
-             cml_ce <- from_expression comp env ce;
-             idx <- from_expression comp env (EL 0 idxs);
-             return (cml_fapp (Var (Long "Array" (Short "sub")))
-                              [cml_get_arr cml_ce; idx])
-           od
-       else
-         fail "from_expression: Unsupported kind of collection"
-   | IndexRange ce isArray lo hi =>
-       do
-         cml_ce <- from_expression comp env ce;
-         cml_se <<- if isArray then
-                     cml_fapp (Var (Long "Dafny" (Short "array_to_list")))
-                              [cml_get_arr cml_ce]
-                    else cml_ce;
-         cml_se <- case hi of
-                   | NONE => return cml_se
-                   | SOME hi =>
-                       do
-                         cml_hi <- from_expression comp env hi;
-                         return (cml_fapp (Var (Long "List" (Short "take")))
-                                          [cml_se; cml_hi])
-                       od;
-         case lo of
-         | NONE => return cml_se
-         | SOME lo =>
-               do
-                 cml_lo <- from_expression comp env lo;
-                 return (cml_fapp (Var (Long "List" (Short "drop")))
-                                  [cml_se; cml_lo])
-               od
-       od
-   | TupleSelect te idx type =>
-       do
-         te_t <- dafny_type_of env te;
-         len <- tuple_len te_t;
-         cml_te <- from_expression comp env te;
-         return (cml_tuple_select len cml_te idx)
-       od
-   | Expression_Call on call_nam typeArgs args =>
-       do
-         if typeArgs ≠ [] then
-           fail "from_expression: (Call) type arguments currently unsupported"
-         else
-           do
-             fun_name <- gen_call_name comp on call_nam;
-             cml_args <- map_from_expression comp env args;
-             return (cml_fapp (Var fun_name) cml_args)
-           od
-       od
-   | Lambda params _ body =>
-       do
-         (env, param, preamble) <- gen_param_preamble env params;
-         param <<- if param = "" then "u" else param;
-         (_, cml_e) <- from_stmts comp T env 0 Unit body;
-         return (Fun param (preamble cml_e))
-       od
-   | Apply e args =>
-       do
-         cml_e <- from_expression comp env e;
-         cml_args <- map_from_expression comp env args;
-         return (cml_fapp cml_e cml_args)
-       od
-   | InitializationValue t =>
-       arb_value (normalize_type t)
-   | _ => fail ("from_expression: Unsupported expression")) ∧
-  (map_from_expression comp env es =
-   case es of
-   | [] => return []
-   | (e::rest) =>
-       do
-         se' <- from_expression comp env e;
-         rest' <- map_from_expression comp env rest;
-         return (se'::rest')
-       od) ∧
-  (from_unaryOp comp env (uop: dafny_ast$unaryOp)
-                (e: dafny_ast$expression) =
-   do
-     e_t <- dafny_type_of env e;
-     cml_e <- from_expression comp env e;
-     if uop = Not then
-       return (cml_fapp (Var (Short "not")) [cml_e])
-     else if uop = BitwiseNot then
-       fail "from_unaryOp: BitwiseNot unsupported"
-     else if uop = Cardinality then
-       if is_Seq e_t then
-         return (cml_fapp (Var (Long "List" (Short "length"))) [cml_e])
-       else
-         fail "from_unaryOp (Cardinality): Unsupported type"
-     else
-       fail "from_unaryOp: Unexpected unary operation"
-   od
-  ) ∧
-  (from_binOp comp env (bop: dafny_ast$binOp)
-              (e1: dafny_ast$expression) (e2: dafny_ast$expression) =
-   do
-     e1_t <- dafny_type_of env e1;
-     e2_t <- dafny_type_of env e2;
-     cml_e1 <- from_expression comp env e1;
-     cml_e2 <- from_expression comp env e2;
-     (case bop of
-      | Eq referential =>
-          if referential then
-            fail "from_binOp (Eq): referential unsupported"
-          else if (e1_t = (Primitive Int) ∧ e1_t = e2_t) then
-            (* TODO Unsure whether this is legal/does what I think it does *)
-            return (App Equality [cml_e1; cml_e2])
-          else
-            fail "from_binOp (Eq): Unsupported type"
-      | EuclidianDiv =>
-          if (e1_t = (Primitive Int) ∧ e1_t = e2_t) then
-            return (cml_fapp (Var (Long "Dafny" (Short "ediv")))
-                             [cml_e1; cml_e2])
-          else
-            fail "from_binOp (EuclideanDiv): Unsupported types"
-      | EuclidianMod =>
-          if (e1_t = (Primitive Int) ∧ e1_t = e2_t) then
-            return (cml_fapp (Var (Long "Dafny" (Short "emod")))
-                             [cml_e1; cml_e2])
-          else
-            fail "from_binOp (EuclideanMod): Unexpected types"
-      | Lt =>
-          if (e1_t = (Primitive Int) ∧ e1_t = e2_t) then
-            return (App (Opb Lt) [cml_e1; cml_e2])
-          else
-            fail "from_binOp (Lt): Unsupported types"
-      | Plus overflow =>
-          if (e1_t = (Primitive Int) ∧ e1_t = e2_t ∧ ¬overflow) then
-            return (App (Opn Plus) [cml_e1; cml_e2])
-          else
-            fail "from_binOp (Plus): Unsupported types"
-      | Minus overflow =>
-          if (e1_t = (Primitive Int) ∧ e1_t = e2_t ∧ ¬overflow) then
-            return (App (Opn Minus) [cml_e1; cml_e2])
-          else
-            fail "from_binOp (Minus): Unsupported types"
-      | Times overflow =>
-          if (e1_t = (Primitive Int) ∧ e1_t = e2_t ∧ ¬overflow) then
-            return (App (Opn Times) [cml_e1; cml_e2])
-          else
-            fail "from_binOp (Times): Unsupported types"
-      | And =>
-          if (e1_t = Primitive Primitive_Bool ∧ e1_t = e2_t) then
-            return (Log And cml_e1 cml_e2)
-          else fail "from_binOp (And): Unsupported type"
-      | Or =>
-          if (e1_t = Primitive Primitive_Bool ∧ e1_t = e2_t) then
-            return (Log Or cml_e1 cml_e2)
-          else fail "from_binOp (Or): Unsupported type"
-      | In =>
-          if is_Seq e2_t then
-            do
-              seq_t <- dest_Seq e2_t;
-              if e1_t ≠ seq_t then
-                fail "from_binOp (In): Types did not match"
-              else
-                return (cml_fapp (Var (Long "List" (Short "member")))
-                                 [cml_e1; cml_e2])
-            od
-          else
-            fail "from_binOp (In): Unsupported types"
-      | SeqProperPrefix =>
-          if is_Seq e1_t ∧ is_Seq e2_t then
-            do
-              seq1_t <- dest_Seq e1_t;
-              seq2_t <- dest_Seq e2_t;
-              if seq1_t ≠ seq2_t then
-                fail ("from_binOp (SeqProperPrefix): Unexpectedly types " ++
-                      "did not match")
-              else
-                do
-                  not_eq_check <<- (cml_fapp (Var (Short "not"))
-                                             [App Equality [cml_e1; cml_e2]]);
-                  is_prefix_check <<- (cml_fapp (Var (Long "List"
-                                                           (Short "isPrefix")))
-                                                [cml_e1; cml_e2]);
-                  return (Log And not_eq_check is_prefix_check)
-                od
-            od
-          else
-            fail "from_binOp (SeqPrefix): Unexpected types"
-      | SeqPrefix =>
-          if is_Seq e1_t ∧ is_Seq e2_t then
-            do
-              seq1_t <- dest_Seq e1_t;
-              seq2_t <- dest_Seq e2_t;
-              if seq1_t ≠ seq2_t then
-                fail "from_binOp (SeqPrefix): Unexpectedly types did not match"
-              else
-                return (cml_fapp (Var (Long "List" (Short "isPrefix")))
-                                 [cml_e1; cml_e2])
-            od
-          else
-            fail "from_binOp (SeqPrefix): Unexpected types"
-      | Concat =>
-          if (is_Seq e1_t ∧ e1_t = e2_t) then
-            return (cml_fapp (Var (Long "List" (Short "@"))) [cml_e1; cml_e2])
-          else
-            fail "from_binOp (Concat): Unsupported types"
-      | _ => fail "from_binOp: Unsupported bop")
-   od) ∧
-(* TODO is_<constructor> calls could maybe be replaced using monad choice *)
-(* At the moment we assume that only statements can change env *)
-(* lvl = level of the next while loop *)
-  (from_stmts (comp: expression) (is_function: bool)
-              (env: ((expression # string, type) alist))
-              (lvl: int) epilogue ([]: (dafny_ast$statement list)) =
-   return (env, Unit)) ∧
-  (from_stmts comp is_function env lvl epilogue [s] =
-   if is_indep_stmt s then
-     do
-       cml_e <- from_indep_stmt comp is_function env lvl epilogue s;
-       return (env, cml_e)
-     od
-   else
-     fail ("from_stmts: " ++
-           "Cannot convert single non-self-contained statement")) ∧
-  (from_stmts comp is_function env lvl epilogue (s1::s2::rest) =
-   if is_indep_stmt s1 then
-     do
-       e1 <- from_indep_stmt comp is_function env lvl epilogue s1;
-       (env', e2) <- from_stmts comp is_function env lvl epilogue (s2::rest);
-       return (env', (Let NONE e1 e2))
-     od
-   else if is_DeclareVar s1 then
-     do
-       (n, t, e_opt) <- dest_DeclareVar s1;
-       t <<- normalize_type t;
-       n_str <<- dest_varName n;
-       (* TODO look into when/why this is NONE *)
-       iv_e <- if e_opt = NONE then arb_value t
-               else do e <- dest_SOME e_opt; from_expression comp env e od;
-       (env', in_e) <- from_stmts comp is_function
-                                  ((local_env_name n_str, t)::env)
-                                  lvl epilogue (s2::rest);
-       return (env', cml_ref n_str iv_e in_e)
-     od
-   else
-     fail "from_stmts: Unsupported statement") ∧
-  (from_indep_stmt comp (is_function: bool) env (lvl: int) epilogue
-                   (s: dafny_ast$statement) =
-   (case s of
-    | Assign lhs e =>
-        do
-          cml_rhs <- from_expression comp env e;
-          case lhs of
-          | AssignLhs_Ident id =>
-              return (cml_ref_ass (from_varName id) cml_rhs)
-          | AssignLhs_Index e' [idx] =>
-              do
-                cml_e' <- from_expression comp env e';
-                cml_arr <<- cml_get_arr cml_e';
-                cml_idx <- from_expression comp env idx;
-                return (cml_fapp (Var (Long "Array" (Short "update")))
-                                 [cml_arr; cml_idx; cml_rhs])
-              od
-          | _ =>
-              fail "from_indep_stmt (Assign): Unsupported LHS"
-        od
-    | If cnd thn els =>
-        do
-          cml_cnd <- from_expression comp env cnd;
-          (_, cml_thn) <- from_stmts comp is_function env lvl epilogue thn;
-          (_, cml_els) <- from_stmts comp is_function env lvl epilogue els;
-          return (If cml_cnd cml_thn cml_els)
-        od
-    | Labeled lbl body =>
-        do
-          (_, cml_body) <- from_stmts comp is_function env lvl epilogue body;
-          return (add_labeled_break_handle lbl cml_body)
-        od
-    | While cnd body =>
-        do
-          cml_cnd <- from_expression comp env cnd;
-          (_, cml_body) <- from_stmts comp is_function env (lvl + 1)
-                                           epilogue body;
-          exec_iter <<- (cml_fapp (Var (Short (cml_while_name lvl))) [Unit]);
-          cml_while_def <<- (Letrec [((cml_while_name lvl), "",
-                                     If (cml_cnd)
-                                        (Let NONE cml_body exec_iter) (Unit))]
-                                    (add_break_handle exec_iter));
-          return cml_while_def
-        od
-    | Call on call_nam typeArgs args outs =>
-        do
-          if typeArgs ≠ [] then
-            fail "from_indep_stmt: (Call) type arguments currently unsupported"
-          else
-            do
-              fun_name <- gen_call_name comp on call_nam;
-              cml_param_args <- map_from_expression comp env args;
-              cml_out_args <- (case outs of
-                               | NONE => return []
-                               | SOME outs =>
-                                   return (MAP from_varName outs));
-              return (cml_fapp (Var fun_name) (cml_param_args ++ cml_out_args))
-            od
-        od
-    | Return e =>
-        do
-          if ¬is_function then
-            fail ("from_indep_stmt: Assumption that Return does not occur in " ++
-                  "methods was violated")
-          else
-            from_expression comp env e
-        od
-    | EarlyReturn =>
-        if is_function then
-          fail ("from_indep_stmt: Assumption that EarlyReturn does not occur in " ++
-                "functions was violated")
-        else
-          return epilogue
-    (* TODO Check if we can better test this case
-     * It seems that only non-deterministic while loops make use of this, while
-       other break statements are transformed into labeled ones. *)
-    | Break NONE =>
-        return raise_break
-    | Break (SOME lbl) =>
-        return (raise_labeled_break lbl)
-    | Print e =>
-        do
-          e_t <- dafny_type_of env e;
-          cml_e_to_string <- to_string_fun F e_t;
-          cml_e <- from_expression comp env e;
-          cml_e_string <<- cml_fapp cml_e_to_string [cml_e];
-          return (cml_fapp (Var (Short "print")) [cml_e_string])
-        od
-    | _ => fail ("from_indep_stmt_def: Unsupported or " ++
-                 "not independent statement")))
-Termination
-  cheat
-End
-
-Definition process_function_body_def:
-  process_function_body comp env preamble stmts =
-   do
-     (env, cml_body) <- from_stmts comp T env 0 Unit stmts;
-     return (preamble cml_body)
-   od
-End
-
-Definition process_method_body_def:
-  process_method_body comp env preamble epilogue body =
-  do
-    (_, cml_body) <- from_stmts comp F env 0 epilogue body;
-    cml_body <<- (Handle cml_body
-                   [Pcon (SOME (Long "Dafny" (Short "Return"))) [], Unit]);
-    return (preamble cml_body)
-  od
-End
-
-Definition from_classItem_def:
-  from_classItem comp env (ClassItem_Method m) =
-  do
-    is_function <- method_is_function m;
-    is_method <- method_is_method m;
-    if is_function then
-      do
-        (_, _, _, _, _, _, nam, _, params, _, body, _, _) <<- dest_Method m;
-        fun_name <<- dest_Name nam;
-        (env, cml_param, preamble) <- gen_param_preamble env params;
-        cml_body <- process_function_body comp env preamble body;
-        return (fun_name, cml_param, cml_body)
-      od
-    else if is_method then
-      do
-        (_, _, _, _, _, _, nam, _, params, _,
-         body, outTypes, outVars) <<- dest_Method m;
-        outTypes <<- MAP normalize_type outTypes;
-        outVars <- dest_SOME outVars;
-        fun_name <<- dest_Name nam;
-        (env, cml_param,
-         preamble, epilogue) <- gen_param_preamble_epilogue env params
-                                                            outTypes outVars;
-        cml_body <- process_method_body comp env preamble epilogue body;
-        return (fun_name, cml_param, cml_body)
-      od
-    else
-      fail "(Unreachable) from_method: m was neither a function nor method"
-  od
-End
-
-Definition from_classlist_def:
-  (from_classlist env [] = return (env, [])) ∧
-  (from_classlist env [ModuleItem_Class
-                        (Class name enclosingModule typeParams
-                               superClasses fields body attributes)] =
-   if name ≠ (Name "__default") then
-     fail "from_classlist: Unsupported name"
-   else if typeParams ≠ [] then
-     fail "from_classlist: Type params unsupported"
-   else if superClasses ≠ [] then
-    fail "from_classlist: Superclasses unsupported"
-   else if fields ≠ [] then
-     fail "from_classlist: Fields unsupported"
-   else if attributes ≠ [] then
-     fail "from_classlist: Attributes unsupported"
-   else
-     do
-       comp <<- Companion [enclosingModule; Ident name] [];
-       env <- call_type_env_from_class_body env comp body;
-       fun_defs <- result_mmap (from_classItem comp env) body;
-       (* TODO Look at how PureCake detangles Dletrecs
-        * Having one big Dletrec probably does not result in a performance
-        * penalty unless functions are used in a higher order way *)
-       return (env, [(Dletrec unknown_loc fun_defs)])
-     od) ∧
-  (from_classlist _ _ =
-   fail "from_classlist: Unsupported item list")
-End
-
-(* Pattern matching resulting from from_module (Module nam attrs body) cannot
- * be (automatically) eliminated, hence we use dest_Module *)
-Definition from_module_def:
-  (from_module env m =
-   let (nam, attrs, requiresExtern, body) = dest_Module m in
-     case body of
-   | NONE => fail "from_module: empty body unsupported"
-   | SOME modItems =>
-       if attrs ≠ [] then
-         fail "from_module: attributes unsupported"
-       else if requiresExtern then
-         fail "from_module: extern unsupported"
-       else if EXISTS is_moditem_trait modItems then
-         fail "from_module: traits unsupported"
-       else if EXISTS is_moditem_synonymtype modItems then
-         fail "from_module: synonym types unsupported"
-       else if EXISTS is_moditem_datatype modItems then
-         fail "from_module: datatype unsupported"
-       else if EXISTS is_moditem_module modItems then
-         fail "from_module: Unexpected nested module"
-       else
-         do
-           clss <<- FILTER is_moditem_class modItems;
-           (env, fun_defs) <- from_classlist env clss;
-           return (env, Dmod (dest_Name nam) fun_defs)
-         od)
-End
-
-Definition map_from_module_def:
-  map_from_module env [] = return (env, []) ∧
-  map_from_module env (m::rest) =
-  do
-    (env, cml_mod) <- from_module env m;
-    (env, cml_mods) <- map_from_module env rest;
-    return (env, (cml_mod::cml_mods))
-  od
-End
-
-Definition find_main_def:
-  find_main env =
-  do
-    main_defs <<- FILTER (λ((_, n), _). n = "Main") env;
-    if main_defs = [] then
-      fail "find_main: Main could not be found"
-    else if LENGTH main_defs > 1 then
-      fail "find_main: More than one main found"
-    else
-      do
-        ((on, nam), _) <<- HD main_defs;
-        main_name <- gen_call_name (Companion [] []) on
-                                   (CallName (Name nam) NONE NONE F
-                                             (CallSignature [] []));
-        return (Var main_name)
-      od
-  od
-End
-
-(* TODO Verify that _System module does not get generated anymore *)
-
-(* Definition validate_system_module_body_def: *)
-(*   (validate_system_module_body [] = return ()) ∧ *)
-(*   (validate_system_module_body ((ModuleItem_Newtype *)
-(*                                  (Newtype _ _ _ _ constraint _ _ _))::rest) = *)
-(*    (* We essentially ignore newtypes, since we simply interpret them *)
-(*       as their base type *) *)
-(*    (* TODO Is that really fine? Especially considering type arguments... *) *)
-(*    (* The main issue with newtype constraints is probably that we need to *)
-(*     * account for them in the initialization, i.e. we cannot just initialize *)
-(*     * with 0 *) *)
-(*    if constraint ≠ NONE then *)
-(*      fail "validate_system_module_body: constraint on newtype unsupported" *)
-(*    else *)
-(*      validate_system_module_body rest) ∧ *)
-(*   (validate_system_module_body ((ModuleItem_Datatype *)
-(*                                (Datatype nam enclosingModule *)
-(*                                              _ _ _ _ _)::rest)) = *)
-(*    (* Restrict datatype support to tuples *) *)
-(*    if enclosingModule ≠ (Ident (Name "_System")) then *)
-(*      fail "validate_system_module_body: Unsupported enclosing module" *)
-(*    else *)
-(*      case strip_prefix "Tuple" (dest_Name nam) of *)
-(*      | NONE => fail "validate_system_module_body: Unsupported datatype name" *)
-(*      | SOME sfx => do string_to_num sfx; validate_system_module_body rest od) ∧ *)
-(*   (validate_system_module_body _ = *)
-(*    fail "validate_system_module_body: Unsupported module item") *)
-(* End *)
-
-(* Definition validate_system_module_def: *)
-(*   validate_system_module (Module nam attrs requiresExterns body) = *)
-(*   if nam ≠ Name "_System" then *)
-(*     fail "validate_system_module: Not module _System" *)
-(*   else if attrs ≠ [] then *)
-(*     fail "validate_system_module: Expected empty attribute list" *)
-(*   else if requiresExterns then *)
-(*     fail "validate_system_module: System module should not require externs" *)
-(*   else *)
-(*     case body of *)
-(*     | NONE => fail "validate_system_module: Unexpectedly body was empty" *)
-(*     | SOME body => validate_system_module_body body *)
-(* End *)
-
-Definition compile_def:
-  compile (ms : dafny_ast$module list) =
-  do
-    (* validate_system_module sys_mod; *)
-    (env, cml_ms) <- map_from_module [] ms;
-    main_id <- find_main env;
-    return (^dafny_module ++
-            cml_ms ++
-            [Dlet unknown_loc Pany (cml_fapp main_id [Unit])])
-  od ∧
-  compile _ = fail "compile: Module layout unsupported"
-End
-
-(* Unpacks the AST from M. If the process failed, create a program that prints
-   the error. *)
-Definition unpack_def:
-  unpack m =
-  case m of
-  | INR d =>
-      d
-  | INL s =>
-      [Dlet unknown_loc Pany
-            (cml_fapp (Var (Short "print")) [Lit (StrLit s)])]
-End
 
 (* Testing *)
 (* open dafny_sexpTheory *)
 (* open sexp_to_dafnyTheory *)
-(* open fromSexpTheory simpleSexpParseTheory *)
 (* open TextIO *)
-(* (* val _ = astPP.disable_astPP(); *) *)
+
+(* val _ = astPP.disable_astPP(); *)
 (* val _ = astPP.enable_astPP(); *)
 
-(* val inStream = TextIO.openIn "/home/daniel/dfy-in-cml/scratchpad/string_concat.dfy.sexp" *)
+(* val inStream = TextIO.openIn "./tests/output/binary_search.dfy.sexp" *)
 (* val fileContent = TextIO.inputAll inStream; *)
 (* val _ = TextIO.closeIn inStream; *)
 (* val fileContent_tm = stringSyntax.fromMLstring fileContent; *)
 
 (* val lex_r = EVAL “(lex ^fileContent_tm)” |> concl |> rhs |> rand; *)
 (* val parse_r = EVAL “(parse ^lex_r)” |> concl |> rhs |> rand; *)
-(* val dafny_r = EVAL “(sexp_program ^parse_r)” |> concl |> rhs |> rand; *)
-(* val cakeml_r = EVAL “(compile ^dafny_r)” |> concl |> rhs |> rand; *)
-
-(* val cml_sexp_r = EVAL “implode (print_sexp (listsexp (MAP decsexp  ^cakeml_r)))” *)
-(*                    |> concl |> rhs |> rand; *)
-(* (* Test Dafny module *) *)
-(* (* val cml_sexp_r = EVAL “implode (print_sexp (listsexp (MAP decsexp  ^dafny_module)))” *) *)
-(* (*                    |> concl |> rhs |> rand; *) *)
-(* val cml_sexp_str_r = stringSyntax.fromHOLstring cml_sexp_r; *)
-(* val outFile = TextIO.openOut "./tests/test.cml.sexp"; *)
-(* val _ = TextIO.output (outFile, cml_sexp_str_r); *)
-(* val _ = TextIO.closeOut outFile; *)
-
-val _ = export_theory();
+(* val dafny_r = EVAL “(to_program ^parse_r)” |> concl |> rhs |> rand; *)
+(* val fresh_vars_r = EVAL “(use_fresh_vars ^dafny_r)” |> concl |> rhs; *)
+(* val cakeml_r = EVAL “(from_program ^fresh_vars_r)” |> concl |> rhs |> rand; *)

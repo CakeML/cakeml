@@ -2,13 +2,12 @@
   Reformulates compile definition to expose the result of each internal
   compiler pass
 *)
+Theory pan_passes
+Libs
+  preamble
+Ancestors
+  mllist pan_to_target backend_passes backend presLang
 
-open preamble backendTheory backend_passesTheory presLangTheory;
-open pan_to_targetTheory;
-
-val _ = new_theory"pan_passes";
-
-val _ = set_grammar_ancestry ["pan_to_target","backend_passes"];
 
 Datatype:
   any_pan_prog =
@@ -52,7 +51,7 @@ Definition pan_to_target_all_def:
         prog_c = MAP (λ(name,params,body). (name,params,loop_live$optimise body)) prog_b1;
         prog_c1 = loop_remove$comp_prog prog_c;
         prog2 = loop_to_word$compile_prog prog_c1;
-        names = fromAList (ZIP (QSORT $< (MAP FST prog2), «generated_main»::MAP FST (functions prog1)));
+        names = fromAList (ZIP (sort $< (MAP FST prog2), «generated_main»::MAP FST (functions prog1)));
         names = union (fromAList (word_to_stack$stub_names () ++
                                   stack_alloc$stub_names () ++
                                   stack_remove$stub_names ())) names;
@@ -648,5 +647,3 @@ Proof
   \\ mp_tac compile_prog_eq_pan_to_target_all
   \\ pairarg_tac \\ gvs []
 QED
-
-val _ = export_theory();

@@ -1,14 +1,11 @@
 (**
  * Some simple static checking examples/unit tests/sanity checks for Pancake
  *)
-open HolKernel Parse boolLib bossLib stringLib numLib intLib
-open errorLogMonadTheory;
-open preamble panPtreeConversionTheory panStaticTheory;
-open helperLib;
-
-val _ = new_theory "panStaticExamples";
-
-
+Theory panStaticExamples
+Ancestors
+  errorLogMonad panPtreeConversion panStatic
+Libs
+  stringLib numLib intLib preamble helperLib
 
 (* Following copied from panConcreteExamples*)
 
@@ -1617,4 +1614,3 @@ val warns_redefined_global_var_deccall =
 (* Shape checks - TODO *)
 
 
-val _ = export_theory();

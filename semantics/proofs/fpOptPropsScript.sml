@@ -4,11 +4,12 @@
   It also contains some compatibility lemmas for rwAllValTree, the value tree
   rewriting function
 **)
+Theory fpOptProps
+Ancestors
+  fpOpt fpValTree semanticPrimitives
+Libs
+  preamble
 
-open fpOptTheory fpValTreeTheory semanticPrimitivesTheory;
-open preamble;
-
-val _ = new_theory "fpOptProps";
 
 Theorem substLookup_substUpdate:
   ! s n.
@@ -628,4 +629,3 @@ Proof
   \\ fs[SUBSET_DEF] \\ asm_exists_tac \\ fs[]
 QED
 
-val _ = export_theory();

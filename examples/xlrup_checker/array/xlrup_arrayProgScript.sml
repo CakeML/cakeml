@@ -1,9 +1,12 @@
 (*
   This refines xlrup_list to use arrays
 *)
-open preamble basis UnsafeProofTheory xlrupTheory xlrup_listTheory xlrup_parsingTheory blastLib;
+Theory xlrup_arrayProg
+Libs
+  preamble basis blastLib
+Ancestors
+  mllist UnsafeProof xlrup xlrup_list xlrup_parsing mlint
 
-val _ = new_theory "xlrup_arrayProg"
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -534,15 +537,100 @@ val strxor_c_arr = process_topdecs`
     val ls = Word8Array.length s
   in
     if lt <= ls
-    then strxor_aux_c_arr s t lt
+    then (Unsafe.w8xor_str s t; s)
     else
       let
         val ss = Word8Array.array lt w8z
         val u = Word8Array.copy s 0 ls ss 0
       in
-        strxor_aux_c_arr ss t lt
+        (Unsafe.w8xor_str ss t; ss)
       end
   end` |> append_prog;
+
+Triviality xor_bytes_eq:
+  ∀xs ys zs.
+    LENGTH xs = LENGTH ys ⇒
+    xor_bytes xs (ys ++ zs) = SOME (MAP2 word_xor xs ys ++ zs)
+Proof
+  Induct \\ Cases_on ‘ys’ \\ gvs [semanticPrimitivesTheory.xor_bytes_def]
+QED
+
+Triviality xor_bytes_same:
+  LENGTH xs = LENGTH ys ⇒
+  xor_bytes xs ys = SOME (MAP2 word_xor xs ys)
+Proof
+  strip_tac
+  \\ drule xor_bytes_eq
+  \\ disch_then $ qspec_then ‘[]’ mp_tac
+  \\ gvs []
+QED
+
+Triviality xor_bytes_rest:
+  ∀s ys1 ys2.
+    LENGTH s = LENGTH ys1 ⇒
+    THE (xor_bytes s (ys1 ++ ys2)) =
+    THE (xor_bytes s ys1) ++ ys2
+Proof
+  rw [xor_bytes_eq]
+  \\ qspecl_then [‘s’,‘ys1’,‘[]’] mp_tac xor_bytes_eq
+  \\ gvs []
+QED
+
+Triviality xor_bytes_snoc:
+  ∀xs ys xs1 ys1.
+    LENGTH xs = LENGTH ys ⇒
+    xor_bytes (xs ++ xs1) (ys ++ ys1) =
+    case xor_bytes xs ys of
+    | NONE => NONE
+    | SOME res =>
+       case xor_bytes xs1 ys1 of
+       | NONE => NONE
+       | SOME res1 => SOME (res ++ res1)
+Proof
+  Induct \\ Cases_on ‘ys’ \\ gvs []
+  \\ gvs [semanticPrimitivesTheory.xor_bytes_def]
+  >- (rw [] \\ CASE_TAC \\ gvs [])
+  \\ rw []
+  \\ CASE_TAC \\ asm_simp_tac (srw_ss()) []
+  \\ CASE_TAC \\ asm_simp_tac (srw_ss()) []
+  \\ CASE_TAC \\ asm_simp_tac (srw_ss()) []
+QED
+
+Triviality xor_bytes_lemma:
+  ∀s r ys1 ys2.
+    LENGTH ys1 = LENGTH s ⇒
+    THE (xor_bytes (MAP (n2w ∘ ORD) s) ys1) ++ ys2 =
+    strxor_aux_c (ys1 ++ ys2) (strlit (s ++ r)) (STRLEN s)
+Proof
+  Induct using SNOC_INDUCT
+  \\ gvs [semanticPrimitivesTheory.xor_bytes_def]
+  >- (rw [] \\ EVAL_TAC)
+  \\ Cases_on ‘ys1’ using SNOC_CASES \\ gvs []
+  \\ rw []
+  \\ simp [Once strxor_aux_c_def]
+  \\ simp_tac std_ss [SNOC_APPEND,GSYM APPEND_ASSOC,APPEND]
+  \\ pop_assum $ assume_tac o GSYM
+  \\ asm_simp_tac std_ss [EL_APPEND,EL,HD,LUPDATE_LENGTH]
+  \\ pop_assum $ assume_tac o GSYM \\ asm_rewrite_tac []
+  \\ last_x_assum $ DEP_REWRITE_TAC o single o GSYM
+  \\ simp []
+  \\ DEP_REWRITE_TAC [xor_bytes_snoc]
+  \\ gvs [semanticPrimitivesTheory.xor_bytes_def,toByte_def]
+  \\ DEP_REWRITE_TAC [xor_bytes_same]   \\ gvs []
+QED
+
+Triviality xor_bytes_strxor_aux_c:
+  LENGTH s ≤ LENGTH cs ⇒
+  THE (xor_bytes (MAP (n2w ∘ ORD) s) cs) =
+  strxor_aux_c cs (strlit s) (STRLEN s)
+Proof
+  strip_tac
+  \\ dxrule LESS_EQ_LENGTH
+  \\ strip_tac \\ gvs[]
+  \\ drule xor_bytes_lemma
+  \\ disch_then $ qspec_then ‘[]’ assume_tac o GSYM \\ gvs []
+  \\ irule xor_bytes_rest \\ gvs []
+QED
 
 Theorem strxor_c_arr_spec:
   strxor_TYPE ds dsv
@@ -562,16 +650,19 @@ Proof
   xif
   >- (
     simp[strxor_c_def]>>
-    xapp>>xsimpl)>>
-  assume_tac w8z_v_thm>>
-  xlet_autop>>
-  xlet_autop>>
+    xlet_auto >- xsimpl >>
+    xvar >> xsimpl >>
+    Cases_on ‘ds’ >> gvs [] >>
+    irule xor_bytes_strxor_aux_c >> simp []) >>
+  assume_tac w8z_v_thm >>
+  xlet_autop >>
+  xlet_autop >>
+  xlet_auto >- xsimpl >>
+  xvar >> xsimpl >>
   simp[strxor_c_def]>>
-  xapp>>
-  xsimpl>>
-  qexists_tac`strlen ds`>>
-  qexists_tac`ds`>>simp[]>>
-  rw[w8z_def]
+  DEP_REWRITE_TAC [xor_bytes_strxor_aux_c] >>
+  conj_tac >- gvs [] >>
+  Cases_on ‘ds’ >> gvs [w8z_def]
 QED
 
 val add_xors_aux_c_arr = process_topdecs`
@@ -1712,48 +1803,6 @@ val res = translate prop_cardc_def;
 val res = translate prop_lit_def;
 val res = translate check_ibnn_def;
 
-val r = translate mergesortTheory.sort2_tail_def;
-val r = translate mergesortTheory.sort3_tail_def;
-val r = translate listTheory.REV_DEF;
-val r = translate mergesortTheory.merge_tail_def;
-val r = translate DROP_def;
-val r = translate (mergesortTheory.mergesortN_tail_def |> SIMP_RULE std_ss [DIV2_def]);
-
-Triviality mergesortn_tail_ind:
-  mergesortn_tail_ind (:'a)
-Proof
-  once_rewrite_tac [fetch "-" "mergesortn_tail_ind_def"]
-  \\ rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac (latest_ind ())
-  \\ rpt strip_tac
-  \\ last_x_assum match_mp_tac
-  \\ rpt strip_tac
-  \\ gvs [FORALL_PROD, DIV2_def]
-QED
-
-val _ = mergesortn_tail_ind |> update_precondition;
-
-Triviality mergesortn_tail_side:
-  ∀w x y z.
-  mergesortn_tail_side w x y z
-Proof
-  completeInduct_on`y`>>
-  rw[Once (fetch "-" "mergesortn_tail_side_def")]>>
-  simp[arithmeticTheory.DIV2_def]
-  >- (
-    first_x_assum match_mp_tac>>
-    simp[]>>
-    match_mp_tac dividesTheory.DIV_POS>>
-    simp[])
-  >>
-    match_mp_tac DIV_LESS_EQ>>
-    simp[]
-QED
-val _ = mergesortn_tail_side |> update_precondition;
-
-val r = translate mergesortTheory.mergesort_tail_def;
-
 val res = translate mk_strict_aux_def;
 val res = translate mk_strict_def;
 val res = translate do_check_ibnn_def;
@@ -1857,7 +1906,7 @@ Theorem conv_bnn_alt:
    in
     case to_vector (&k) 0 0 init_n cs [] of
       NONE =>
-        let cs = mergesort_tail lit_le cs in
+        let cs = sort lit_le cs in
         let init_n = case cs of [] => 0 | c::cs => var_lit c in
         (case to_vector (&k) 0 0 init_n cs [] of
           NONE => (((0,fromList []),0,0,0),NONE)
@@ -1869,12 +1918,11 @@ Proof
   \\ qsuff_tac ‘F’ \\ gvs []
   \\ pop_assum mp_tac \\ gvs []
   \\ irule SORTED_to_vector
-  \\ qabbrev_tac ‘ys = mergesort_tail lit_le cs’
+  \\ qabbrev_tac ‘ys = sort lit_le cs’
   \\ qsuff_tac ‘SORTED lit_le ys’
   >- (Cases_on ‘ys’ \\ gvs [] \\ Cases_on ‘h’ \\ gvs [lit_le_def])
   \\ gvs [Abbr‘ys’]
-  \\ DEP_REWRITE_TAC [mergesortTheory.mergesort_tail_correct]
-  \\ irule_at Any mergesortTheory.mergesort_sorted
+  \\ DEP_REWRITE_TAC [sort_SORTED]
   \\ gvs [transitive_def,total_def,lit_le_def]
 QED
 
@@ -2446,8 +2494,6 @@ Proof
   first_assum (irule_at Any)>>
   fs[contains_emp_list_def,LIST_REL_EL_EQN]
 QED
-
-open mlintTheory;
 
 (* TODO: Mostly copied from mlintTheory *)
 val result = translate (fromChar_unsafe_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
@@ -3475,5 +3521,3 @@ Proof
 QED
 
 val _ = translate rev_enum_full_def;
-
-val _ = export_theory();

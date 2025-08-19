@@ -1,13 +1,12 @@
 (*
   Correctness proof for pan_simp
 *)
+Theory pan_simpProof
+Ancestors
+  panSem pan_simp panProps
+Libs
+  preamble
 
-open preamble
-     panSemTheory pan_simpTheory panPropsTheory
-
-val _ = new_theory "pan_simpProof";
-
-val _ = set_grammar_ancestry  ["panSem", "pan_simp", "panProps"];
 
 val s = ``s:('a,'ffi) panSem$state``
 
@@ -1265,5 +1264,3 @@ Proof
   rw[fmap_eq_flookup,flookup_fupdate_list,alookup_distinct_reverse] >>
   TOP_CASE_TAC >> gvs[alookup_distinct_reverse]
 QED
-
-val _ = export_theory();

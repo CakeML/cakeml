@@ -1,14 +1,14 @@
 (*
   The formal semantics of flatLang
 *)
+Theory flatSem
+Ancestors
+  flatLang semanticPrimitivesProps fpSem[qualified] evaluate
+Libs
+  preamble
 
-open preamble
-open evaluateTheory
-open flatLangTheory semanticPrimitivesPropsTheory
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "flatSem";
 
 (* The values of flatLang differ from source semantic values in that
  * the closures do not carry environments for global definitions.
@@ -27,7 +27,6 @@ val _ = new_theory "flatSem";
  * will bind.
  *)
 
-val _ = set_grammar_ancestry ["flatLang", "semanticPrimitivesProps", "fpSem"];
 val _ = temp_tight_equality();
 
 Datatype:
@@ -368,6 +367,16 @@ Definition do_app_def:
               SOME s' => SOME (s with refs := s', Rval Unitv)
             | _ => NONE))
     | _ => NONE)
+  | (Aw8xor_unsafe, [Loc _ dst; Litv (StrLit str_arg)]) =>
+    (case store_lookup dst s.refs of
+     | SOME (W8array ds) =>
+         (case xor_bytes (MAP (n2w o ORD) str_arg) ds of
+          | NONE => NONE
+          | SOME new_bs =>
+              (case store_assign dst (W8array new_bs) s.refs of
+               | NONE => NONE
+               | SOME s' => SOME (s with refs := s', Rval Unitv)))
+     | _ => NONE)
   | (Ord, [Litv (Char c)]) =>
     SOME (s, Rval (Litv(IntLit(int_of_num(ORD c)))))
   | (Chr, [Litv (IntLit i)]) =>
@@ -948,4 +957,3 @@ val _ = map (can delete_const)
   ["do_eq_UNION_aux","do_eq_UNION",
    "pmatch_UNION_aux","pmatch_UNION"];
 
-val _ = export_theory();

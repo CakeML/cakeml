@@ -1,17 +1,16 @@
 (*
   Semantics of panLang
 *)
+Theory panSem
+Ancestors
+  panLang alignment[qualified] finite_map[qualified]
+  misc[qualified] (* for read_bytearray *)
+  wordLang[qualified] (* for word_op and word_sh *)
+  ffi[qualified]
+  lprefix_lub[qualified]
+Libs
+  preamble
 
-open preamble panLangTheory;
-local open alignmentTheory
-           miscTheory     (* for read_bytearray *)
-           wordLangTheory (* for word_op and word_sh *)
-           ffiTheory in end;
-
-val _ = new_theory"panSem";
-val _ = set_grammar_ancestry [
-  "panLang", "alignment",
-  "finite_map", "misc", "wordLang",  "ffi", "lprefix_lub"]
 
 (* TODO: rename or remove *)
 Datatype:
@@ -660,5 +659,3 @@ Definition semantics_decls_def:
 End
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
-
-val _ = export_theory();

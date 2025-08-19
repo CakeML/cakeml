@@ -1,13 +1,11 @@
 (*
   Compiler from pan to word
 *)
-
-open preamble
-     pan_simpTheory pan_to_crepTheory pan_globalsTheory
-     crep_to_loopTheory loop_to_wordTheory
-
-val _ = new_theory "pan_to_word";
-
+Theory pan_to_word
+Ancestors
+  pan_simp pan_globals pan_to_crep crep_to_loop loop_to_word
+Libs
+  preamble
 
 Definition compile_prog_def:
   compile_prog arch prog =
@@ -19,4 +17,3 @@ Definition compile_prog_def:
 End
 
 
-val _ = export_theory();

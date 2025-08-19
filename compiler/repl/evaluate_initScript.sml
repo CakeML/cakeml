@@ -2,14 +2,13 @@
   Lemma used in repl_typesTheory: that evaluate_skip's invariant
   holds at initialisation.
 *)
+Theory evaluate_init
+Ancestors
+  evaluate semanticPrimitives evaluateProps namespaceProps
+  ml_prog evaluate_skip
+Libs
+  preamble helperLib[qualified]
 
-open preamble
-open evaluateTheory semanticPrimitivesTheory evaluatePropsTheory
-open namespacePropsTheory ml_progTheory
-open evaluate_skipTheory
-local open helperLib in end
-
-val _ = new_theory "evaluate_init";
 
 (* TODO: move *)
 
@@ -523,6 +522,12 @@ Proof
   \\ Cases_on ‘op = Ord’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
+  \\ Cases_on ‘op = XorAw8Str_unsafe’ \\ gs []
+  >- (
+    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
+         store_lookup_def, copy_array_def, store_assign_def]
+    \\ gs [state_ok_def, state_rel_def, EL_LUPDATE, FLOOKUP_FUN_FMAP]
+    \\ rw [] \\ gs [ref_rel_def])
   \\ Cases_on ‘op = CopyAw8Aw8’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
@@ -1260,4 +1265,3 @@ Proof
   \\ irule env_ok_extend_dec_env \\ gs []
 QED
 
-val _ = export_theory();

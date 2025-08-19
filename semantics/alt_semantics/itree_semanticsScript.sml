@@ -1,12 +1,11 @@
 (*
   An itree-based semantics for CakeML
 *)
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open namespaceTheory astTheory
-     ffiTheory semanticPrimitivesTheory smallStepTheory;
-open itreeTheory;
-
-val _ = new_theory "itree_semantics"
+Theory itree_semantics
+Ancestors
+  namespace ast ffi semanticPrimitives smallStep itree
+Libs
+  BasicProvers dep_rewrite
 
 (******************** do_app ********************)
 
@@ -226,6 +225,17 @@ Definition do_app_def:
           )
       | _ => NONE
       )
+    | (XorAw8Str_unsafe, [Loc _ dst; Litv (StrLit str_arg)]) =>
+        (case store_lookup dst s of
+          SOME (W8array bs) =>
+            (case xor_bytes (MAP (n2w o ORD) str_arg) bs of
+             | NONE => NONE
+             | SOME new_bs =>
+                case store_assign dst (W8array new_bs) s of
+                | NONE => NONE
+                | SOME s' => SOME (s', Rval (Conv NONE [])))
+        | _ => NONE
+        )
     | (Ord, [Litv (Char c)]) =>
           SOME (s, Rval (Litv(IntLit(int_of_num(ORD c)))))
     | (Chr, [Litv (IntLit i)]) =>
@@ -792,4 +802,3 @@ CoInductive safe_itree:
   ((∀s. P s ⇒ safe_itree P (rest s)) ⇒ safe_itree P (Vis e rest))
 End
 
-val _ = export_theory();

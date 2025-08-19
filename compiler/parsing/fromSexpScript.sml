@@ -5,14 +5,16 @@
   The S-expressions are parsed as *per* the PEG in HOL’s
   `examples/formal-language/context-free/simpleSexpPEGScript.sml`.
 *)
+Theory fromSexp
+Ancestors
+  simpleSexp ast location[qualified] fpSem[qualified]
+  quantHeuristics ASCIInumbers numposrep
+Libs
+  preamble match_goal
 
-open preamble match_goal
-open simpleSexpTheory astTheory quantHeuristicsTheory
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory "fromSexp";
-val _ = set_grammar_ancestry ["simpleSexp", "ast", "location","fpSem"]
 val _ = option_monadsyntax.temp_add_option_monadsyntax()
 
 (* TODO: this is duplicated in parserProgTheory *)
@@ -215,7 +217,6 @@ Proof
   simp[isLower_def, isAlpha_def]
 QED
 
-open ASCIInumbersTheory numposrepTheory
 Theorem encode_decode_control:
    ∀ls r. decode_control ls = SOME r ⇒ ls = encode_control r
 Proof
@@ -713,6 +714,7 @@ Definition sexpop_def:
   if s = "CopyStrAw8" then SOME CopyStrAw8 else
   if s = "CopyAw8Str" then SOME CopyAw8Str else
   if s = "CopyAw8Aw8" then SOME CopyAw8Aw8 else
+  if s = "XorAw8Strunsafe" then SOME XorAw8Str_unsafe else
   if s = "Ord" then SOME Ord else
   if s = "Chr" then SOME Chr else
   if s = "W8fromInt" then SOME (WordFromInt W8) else
@@ -1363,6 +1365,7 @@ Definition opsexp_def:
   (opsexp CopyStrAw8 = SX_SYM "CopyStrAw8") ∧
   (opsexp CopyAw8Str = SX_SYM "CopyAw8Str") ∧
   (opsexp CopyAw8Aw8 = SX_SYM "CopyAw8Aw8") ∧
+  (opsexp XorAw8Str_unsafe = SX_SYM "XorAw8Strunsafe") ∧
   (opsexp Ord = SX_SYM "Ord") ∧
   (opsexp Chr = SX_SYM "Chr") ∧
   (opsexp (WordFromInt W8) = SX_SYM "W8fromInt") ∧
@@ -2185,4 +2188,3 @@ Proof
   \\ simp[EVERY_MAP,EVERY_MEM, FORALL_PROD]
 QED
 
-val _ = export_theory();

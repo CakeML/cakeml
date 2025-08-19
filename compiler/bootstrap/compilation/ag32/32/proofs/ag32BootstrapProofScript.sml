@@ -1,13 +1,13 @@
 (*
   Proves an end-to-end correctness theorem for the bootstrapped compiler.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory
-     ag32_configProofTheory ag32_machine_configTheory
-     ag32_memoryProofTheory ag32_basis_ffiProofTheory ag32_ffi_codeProofTheory
-     compiler32ProgTheory ag32BootstrapTheory
-
-val _ = new_theory"ag32BootstrapProof";
+Theory ag32BootstrapProof
+Ancestors
+  repl_decs_allowed semanticsProps backendProof ag32_configProof
+  ag32_machine_config ag32_memoryProof ag32_basis_ffiProof
+  ag32_ffi_codeProof compiler32Prog ag32Bootstrap
+Libs
+  preamble
 
 Triviality with_clos_conf_simp:
     (mc_init_ok (ag32_backend_config with <| clos_conf := z ; bvl_conf updated_by
@@ -562,5 +562,3 @@ Proof
   \\ goal_assum(first_assum o mp_then Any mp_tac)
   \\ metis_tac[]
 QED
-
-val _ = export_theory();

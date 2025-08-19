@@ -1,11 +1,12 @@
 (*
   Translate x64-specialised functions to cv equations.
 *)
-open preamble cv_transLib cv_stdTheory backend_cvTheory backend_64_cvTheory;
-open backend_x64Theory x64Theory x64_targetTheory to_data_cvTheory;
-open export_x64Theory x64_configTheory;
-
-val _ = new_theory "backend_x64_cv";
+Theory backend_x64_cv
+Ancestors
+  cv_std backend_cv backend_64_cv backend_x64 x64 x64_target
+  to_data_cv export_x64 x64_config
+Libs
+  preamble cv_transLib
 
 (*---------------------------------------------------------------------------*
   Translation of instruction encoder
@@ -133,7 +134,7 @@ val _ = cv_auto_trans (x64_targetTheory.x64_enc_def |>
   Remaining x64-specific functions
  *---------------------------------------------------------------------------*)
 
-val pre = cv_auto_trans_pre comp_x64_def;
+val pre = cv_auto_trans_pre "" comp_x64_def;
 
 Theorem comp_x64_pre[cv_pre,local]:
   ∀v bs kf. comp_x64_pre v bs kf
@@ -148,7 +149,7 @@ QED
 
 val _ = cv_auto_trans compile_prog_x64_def;
 
-val pre = cv_auto_trans_pre compile_word_to_stack_x64_def;
+val pre = cv_auto_trans_pre "" compile_word_to_stack_x64_def;
 
 Theorem compile_word_to_stack_x64_pre[cv_pre]:
   ∀k v bitmaps. compile_word_to_stack_x64_pre k v bitmaps
@@ -164,7 +165,7 @@ val _ = cv_auto_trans asm_ok_x64_def;
 val _ = cv_auto_trans line_ok_light_x64_def;
 val _ = cv_auto_trans sec_ok_light_x64_def;
 
-val pre = cv_trans_pre enc_lines_again_x64_def;
+val pre = cv_trans_pre "" enc_lines_again_x64_def;
 
 Theorem enc_lines_again_x64_pre[cv_pre,local]:
   ∀labs ffis pos v0 v. enc_lines_again_x64_pre labs ffis pos v0 v
@@ -172,7 +173,7 @@ Proof
   Induct_on ‘v0’ \\ simp [Once pre]
 QED
 
-val pre = cv_trans_pre enc_secs_again_x64_def;
+val pre = cv_trans_pre "" enc_secs_again_x64_def;
 
 Theorem enc_secs_again_x64_pre[cv_pre,local]:
   ∀pos labs ffis v. enc_secs_again_x64_pre pos labs ffis v
@@ -180,7 +181,7 @@ Proof
   Induct_on ‘v’ \\ simp [Once pre]
 QED
 
-val pre = cv_auto_trans_pre remove_labels_loop_x64_def;
+val pre = cv_auto_trans_pre "" remove_labels_loop_x64_def;
 
 Theorem remove_labels_loop_x64_pre[cv_pre]:
   ∀clock pos init_labs ffis sec_list.
@@ -202,7 +203,7 @@ val _ = cv_trans (from_stack_x64_def
 
 val _ = cv_auto_trans from_word_x64_def;
 
-val pre = cv_trans_pre get_forced_x64_def;
+val pre = cv_trans_pre "" get_forced_x64_def;
 Theorem get_forced_x64_pre[cv_pre,local]:
   ∀v acc. get_forced_x64_pre v acc
 Proof
@@ -215,7 +216,7 @@ QED
 
 val _ = cv_trans word_alloc_inlogic_x64_def;
 
-val pre = cv_trans_pre inst_select_exp_x64_def;
+val pre = cv_trans_pre "" inst_select_exp_x64_def;
 Theorem inst_select_exp_x64_pre[cv_pre]:
   ∀v tar temp. inst_select_exp_x64_pre tar temp v
 Proof
@@ -227,7 +228,7 @@ Proof
   \\ gvs [wordLangTheory.exp_size_def]
 QED
 
-val pre = cv_trans_pre inst_select_x64_def;
+val pre = cv_trans_pre "" inst_select_x64_def;
 Theorem inst_select_x64_pre[cv_pre,local]:
   ∀v temp. inst_select_x64_pre temp v
 Proof
@@ -237,7 +238,7 @@ Proof
   \\ first_x_assum irule \\ gvs [wordLangTheory.prog_size_def]
 QED
 
-val pre = each_inlogic_x64_def |> cv_trans_pre;
+val pre = each_inlogic_x64_def |> cv_trans_pre "";
 Theorem each_inlogic_x64_pre[cv_pre,local]:
   ∀v. each_inlogic_x64_pre v
 Proof
@@ -304,4 +305,3 @@ Proof
 QED
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
-val _ = export_theory();

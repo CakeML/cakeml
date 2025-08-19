@@ -1,12 +1,10 @@
 (*
   Definition of CakeML abstract syntax (AST).
 *)
-open HolKernel Parse boolLib bossLib;
-open namespaceTheory fpSemTheory fpValTreeTheory realOpsTheory;
-
-local open integerTheory wordsTheory stringTheory namespaceTheory locationTheory in end;
-val _ = new_theory "ast"
-val _ = set_grammar_ancestry ["integer", "words", "string", "namespace", "location"];
+Theory ast
+Ancestors
+  integer[qualified] words[qualified] string[qualified] namespace
+  location[qualified] fpSem fpValTree realOps
 
 (* Literal constants *)
 Datatype:
@@ -96,6 +94,7 @@ Datatype:
   | CopyStrAw8
   | CopyAw8Str
   | CopyAw8Aw8
+  | XorAw8Str_unsafe
   (* Char operations *)
   | Ord
   | Chr
@@ -306,4 +305,18 @@ Definition every_exp_def[simp]:
              p (Letrec funs e) ∧ every_exp p e ∧ EVERY (λ(n,v,e). every_exp p e) funs)
 End
 
-val _ = export_theory()
+Definition Seqs_def:
+  Seqs [] = Con NONE [] ∧
+  Seqs (x::xs) = Let NONE x (Seqs xs)
+End
+
+Definition Apps_def:
+  Apps f [] = f ∧
+  Apps f (x::xs) = Apps (App Opapp [f; x]) xs
+End
+
+Definition Funs_def:
+  Funs [] e = e ∧
+  Funs (x::xs) e = Fun x (Funs xs e)
+End
+

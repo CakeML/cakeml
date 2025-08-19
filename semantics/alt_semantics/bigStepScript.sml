@@ -2,12 +2,11 @@
   A clocked relational big-step semantics for CakeML. This semantics
   is no longer used in the CakeML development.
 *)
-open HolKernel Parse boolLib bossLib;
-open namespaceTheory astTheory ffiTheory semanticPrimitivesTheory smallStepTheory;
+Theory bigStep
+Ancestors
+  namespace ast ffi semanticPrimitives smallStep
 
 val _ = numLib.temp_prefer_num();
-
-val _ = new_theory "bigStep"
 
 (* To get the definition of expression divergence to use in defining definition
  * divergence *)
@@ -27,7 +26,7 @@ Inductive opClass:
        op = Aw8update ∨ op = CopyStrStr ∨ op = CopyStrAw8 ∨
        op = CopyAw8Str ∨ op = CopyAw8Aw8 ∨ op = Chr ∨ op = Ord ∨
        op = Implode ∨ op = Explode ∨ op = Strsub ∨ op = Strlen ∨
-       op = Strcat ∨ op = VfromList ∨ op = Vsub ∨
+       op = Strcat ∨ op = VfromList ∨ op = Vsub ∨ op = XorAw8Str_unsafe ∨
        op = Vlength ∨ op = Aalloc ∨ op = AallocEmpty ∨ op = Asub ∨
        op = Alength ∨ op = Aupdate ∨ op = Asub_unsafe ∨ op = Aupdate_unsafe ∨
        op = Aw8sub_unsafe ∨ op = Aw8update_unsafe ∨ op = ListAppend ∨
@@ -548,4 +547,3 @@ decs_diverges (extend_dec_env new_env env) s2 ds)
 decs_diverges env s1 (d::ds))
 End
 
-val _ = export_theory()

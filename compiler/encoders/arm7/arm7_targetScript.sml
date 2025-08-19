@@ -1,10 +1,11 @@
 (*
   Define the target compiler configuration for ARMv7.
 *)
-open HolKernel Parse boolLib bossLib
-open asmLib arm_stepTheory;
-
-val () = new_theory "arm7_target";
+Theory arm7_target
+Ancestors
+  asmProps arm_step
+Libs
+  asmLib
 
 val () = wordsLib.guess_lengths ();
 
@@ -303,5 +304,3 @@ Theorem arm7_config =
   arm7_config
 Theorem arm7_asm_ok =
   arm7_asm_ok
-
-val () = export_theory ()

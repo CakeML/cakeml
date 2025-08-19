@@ -2,11 +2,11 @@
   Implements a predicate to check whether an expression is pure, i.e. does not
   use memory or the FFI
 *)
-open bossLib semanticPrimitivesTheory fpValTreeTheory fpOptTheory
-     fpOptPropsTheory fpSemPropsTheory;
-open icingTacticsLib preamble;
-
-val _ = new_theory "pureExps";
+Theory pureExps
+Ancestors
+  semanticPrimitives fpValTree fpOpt fpOptProps fpSemProps
+Libs
+  icingTacticsLib preamble
 
 val semState_comp_eq = semanticPrimitivesTheory.state_component_equality;
 
@@ -30,6 +30,7 @@ Definition isPureOp_def:
     | CopyAw8Aw8 => F
     | CopyStrAw8 => F
     | CopyAw8Str => F
+    | XorAw8Str_unsafe => F
     | Eval => F
     | FFI _ => F
     | Opassign => F
@@ -464,4 +465,3 @@ Proof
   \\ fs[fpState_component_equality]
 QED
 
-val _ = export_theory();

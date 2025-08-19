@@ -6,10 +6,11 @@
   uses to known which variables it should treat as roots in a given
   stack frame.
 *)
-open preamble asmTheory wordLangTheory stackLangTheory parmoveTheory
-     word_allocTheory mlstringTheory
-
-val _ = new_theory "word_to_stack";
+Theory word_to_stack
+Ancestors
+  asm wordLang stackLang parmove word_alloc mlstring
+Libs
+  preamble
 
 (* bitmaps_length stores the current length of the bitmaps *)
 Datatype:
@@ -19,7 +20,7 @@ End
 
 (* -- *)
 
-(* Here k = number of regsiters
+(* Here k = number of registers
     and f = size of stack frame
     and f' = number of slots in stack frame (= f - bitmap_size)
     and kf = (k,f,f') *)
@@ -235,10 +236,10 @@ Definition insert_bitmap_def:
 End
 
 Definition wLive_def:
-  wLive (live:num_set) (bitmaps:'a word app_list # num) (k,f:num,f':num) =
+  wLive (live:cutsets) (bitmaps:'a word app_list # num) (k,f:num,f':num) =
     if f = 0 then (Skip,bitmaps)
     else
-      let (new_bitmaps,i) = insert_bitmap (write_bitmap live k f') bitmaps in
+      let (new_bitmaps,i) = insert_bitmap (write_bitmap (SND live) k f') bitmaps in
         (Seq (Inst (Const k (n2w (i+1)))) (StackStore k 0):'a stackLang$prog,new_bitmaps)
 End
 
@@ -329,13 +330,58 @@ Definition const_words_to_bitmap_def:
 End
 
 (* Store a large constant in the second temporary *)
+
+(*
+0                f-1 0    ...   g-1
+| ----------(---)|   |----------|----stack---|
+            ^
+      values returned on stack
+*)
+
+(* Stack slots used in multi-arg return *)
+Definition num_stack_ret_def:
+  num_stack_ret k vs =
+  LENGTH vs + 1 - k
+End
+
+(* Number of slots to free by callee *)
+Definition skip_free_def:
+  skip_free (k,f,f') vs =
+    f - num_stack_ret k vs
+End
+
+(* Caller copying from the previous stack frame into its own *)
+Definition copy_ret_aux_def:
+  (copy_ret_aux k f n =
+    if n = 0 then Skip
+    else
+      let n' = n-1 in
+      list_Seq
+      [
+        StackLoad k n';
+        StackStore k (n'+f);
+        copy_ret_aux k f n'
+      ]
+  )
+End
+
+Definition copy_ret_def:
+  copy_ret is_handle (k,f,f') vs kont =
+  let n = num_stack_ret k vs in
+  if n = 0 then kont
+  else Seq
+      (copy_ret_aux k (if is_handle then f+3 else f) n)
+      (SeqStackFree n kont)
+End
+
+(* Return should be 2,4,6,...,2k,2k+1,... *)
 Definition comp_def:
   (comp conf (Skip:'a wordLang$prog) bs kf = (Skip:'a stackLang$prog,bs)) /\
   (comp conf (Move _ xs) bs kf = (wMove xs kf,bs)) /\
   (comp conf (Inst i) bs kf = (wInst i kf,bs)) /\
-  (comp conf (Return v1 v2) bs kf =
+  (comp conf (Return v1 vs) bs kf =
      let (xs,x) = wReg1 v1 kf in
-       (wStackLoad xs (SeqStackFree (FST (SND kf)) (Return x 1)),bs)) /\
+       (wStackLoad xs (SeqStackFree (skip_free kf vs) (Return x)),bs)) /\
   (comp conf (Raise v) bs kf = (Call NONE (INL raise_stub_location) NONE,bs)) /\
   (comp conf (OpCurrHeap b dst src) bs kf =
      let (xs,src_r) = wReg1 src kf in
@@ -375,23 +421,26 @@ Definition comp_def:
      case ret of
      | NONE => (Seq q0 (SeqStackFree (stack_free dest (LENGTH args) kf)
                  (Call NONE dest NONE)),bs)
-     | SOME (ret_var, live, ret_code, l1, l2) =>
+     | SOME (vs, live, ret_code, l1, l2) =>
          let (q1,bs) = wLive live bs kf in
          let (q2,bs) = comp conf ret_code bs kf in
            case handler of
-           | NONE => (Seq q0
-                     (Seq q1
-                     (Seq (StackArgs dest (LENGTH args + 1) kf)
-                          (Call (SOME (q2,0,l1,l2)) dest NONE))),
-                      bs)
+           | NONE =>
+             let q3 = copy_ret F kf vs q2 in
+               (Seq q0
+                 (Seq q1
+                   (Seq (StackArgs dest (LENGTH args + 1) kf)
+                     (Call (SOME (q3,0,l1,l2)) dest NONE))),
+                bs)
            | SOME (handle_var, handle_code, h1, h2) =>
-               let (q3,bs) = comp conf handle_code bs kf in
-                (Seq q0
-                (Seq q1
-                (Seq (PushHandler h1 h2 kf)
-                (Seq (StackHandlerArgs dest (LENGTH args + 1) kf)
-                     (Call (SOME (PopHandler kf q2,0,l1,l2)) dest (SOME (q3,h1,h2)))))),
-                 bs)) /\
+             let q3 = copy_ret T kf vs (PopHandler kf q2) in
+             let (q4,bs) = comp conf handle_code bs kf in
+               (Seq q0
+                  (Seq q1
+                    (Seq (PushHandler h1 h2 kf)
+                      (Seq (StackHandlerArgs dest (LENGTH args + 1) kf)
+                        (Call (SOME (q3,0,l1,l2)) dest (SOME (q4,h1,h2)))))),
+                bs)) /\
   (comp conf (Alloc r live) bs kf =
      let (q1,bs) = wLive live bs kf in
        (Seq q1 (Alloc 1),bs)) /\
@@ -434,7 +483,7 @@ End
 
 Definition store_consts_stub_def:
   store_consts_stub k =
-    Seq (StoreConsts k (k+1) NONE) (Return 0 0)
+    Seq (StoreConsts k (k+1) NONE) (Return 0)
 End
 
 (*stack args are in wordLang vars 0,2,4,...,2*(k-1), 2*k , ...*)
@@ -475,4 +524,3 @@ Definition stub_names_def:
     (store_consts_stub_location, mlstring$strlit "_StoreConsts")]
 End
 
-val _ = export_theory();

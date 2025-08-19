@@ -2,10 +2,11 @@
   A compiler phase that turns programs of the functional language BVI
   into the first imperative language of the CakeML compiler: dataLang.
 *)
-open preamble bviTheory dataLangTheory
-     data_simpTheory data_liveTheory data_spaceTheory;
-
-val _ = new_theory "bvi_to_data";
+Theory bvi_to_data
+Ancestors
+  bvi dataLang data_simp data_live data_space
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -46,6 +47,7 @@ Theorem op_requires_names_eqn:
                           | FFI n => T
                           | Install => T
                           | MemOp (CopyByte new_flag) => T
+                          | MemOp XorByte => T
                           | _ => F))
 Proof
   strip_tac >> rpt CASE_TAC >> fs[op_requires_names_def]
@@ -57,6 +59,7 @@ Theorem op_requires_names_pmatch:
                         | FFI n => T
                         | Install => T
                         | MemOp (CopyByte new_flag) => T
+                        | MemOp XorByte => T
                         | _ => F))
 Proof
   rpt strip_tac >>
@@ -281,4 +284,3 @@ Proof
   \\ gvs [compile_exp_def]
 QED
 
-val _ = export_theory();

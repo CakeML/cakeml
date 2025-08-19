@@ -1,14 +1,12 @@
 (*
   Build a CakeML program implementing Scheme-to-Cake compiler
 *)
-open preamble basis;
-open to_sexpProgTheory;
-open scheme_astTheory;
-open scheme_parsingTheory;
-open scheme_to_cakeTheory;
-open scheme_compilerTheory;
-
-val _ = new_theory "scheme_compilerProg";
+Theory scheme_compilerProg
+Ancestors
+  to_sexpProg scheme_ast scheme_parsing scheme_to_cake
+  scheme_compiler
+Libs
+  preamble basis
 
 val _ = translation_extends "to_sexpProg";
 
@@ -39,9 +37,8 @@ val r = translate parse_to_ast_def;
 (* codegen *)
 
 val r = translate locationTheory.unknown_loc_def;
-val r = translate lit_to_val_def;
+val r = translate lit_to_ml_val_def;
 val r = translate cake_print_def;
-val r = translate to_ml_vals_def;
 val r = translate cons_list_def;
 val r = translate proc_ml_def;
 val r = translate letpreinit_ml_def;
@@ -49,14 +46,10 @@ val r = translate refunc_set_def;
 val r = translate letinit_ml_def;
 val r = translate cps_transform_def;
 val r = translate compile_scheme_prog_def;
-val r = translate scheme_basis1_def;
-val r = translate scheme_basis2_def;
-val r = translate scheme_basis3_def;
-val r = translate scheme_basis4_def;
-val r = translate scheme_basis5_def;
-val r = translate scheme_basis6_def;
-val r = translate scheme_basis7_def;
+val r = translate scheme_basis_types_def;
 val r = translate scheme_basis_def;
+val r = translate scheme_basis_list_def;
+val r = translate scheme_basis_app_def;
 val r = translate codegen_def;
 
 (* top-level compiler *)
@@ -88,4 +81,3 @@ Definition scheme_compiler_prog_def:
   scheme_compiler_prog = ^prog
 End
 
-val _ = export_theory ();

@@ -1,14 +1,17 @@
 (*
   Translate the data_to_word part of the 64-bit compiler.
 *)
+Theory to_word64Prog
+Ancestors
+  ml_translator printingProg std_prelude data_to_word word_simp
+  word_alloc word_inst backend[qualified]
+Libs
+  preamble ml_translatorLib blastLib[qualified]
 
 open preamble ml_translatorLib ml_translatorTheory
-     printingProgTheory std_preludeTheory
-local open backendTheory in end
+     printingProgTheory std_preludeTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "to_word64Prog"
 
 val _ = translation_extends "printingProg";
 
@@ -397,6 +400,7 @@ val _ = translate (spec64 is_simple_pmatch_def)
 val _ = translate (spec64 dest_Raise_num_pmatch_def)
 val _ = translate (spec64 try_if_hoist2_def)
 val _ = translate (spec64 try_if_hoist1_def)
+val _ = translate (spec64 Seq_assoc_def)
 val _ = translate (spec64 simp_duplicate_if_def)
 
 val _ = translate (spec64 compile_exp_def)
@@ -479,6 +483,7 @@ val _ = translate (wordLangTheory.every_var_inst_def |> conv64)
 val _ = translate select_reg_alloc_def
 val _ = translate (INST_TYPE [alpha|->``:64``,beta|->``:64``]  word_alloc_def)
 
+(* BROKEN
 val res = translate_no_ind (spec64 three_to_two_reg_pmatch);
 
 Triviality three_to_two_reg_ind:
@@ -515,9 +520,12 @@ val word_inst_three_to_two_reg_side = Q.prove(`
 >> POP_ASSUM(ASSUME_TAC o PURE_ONCE_REWRITE_RULE[fetch"-" "word_inst_three_to_two_reg_side_def"])
 >> fs[]
 >> metis_tac[pair_CASES,option_CASES]) |> update_precondition
+*)
 
+val res = translate (spec64 three_to_two_reg_def);
 val res = translate (spec64 three_to_two_reg_prog_def);
 
+(*
 val res = translate_no_ind (spec64 word_removeTheory.remove_must_terminate_pmatch);
 
 Triviality remove_must_terminate_ind:
@@ -557,7 +565,9 @@ val word_remove_remove_must_terminate_side = Q.prove(`
 >> POP_ASSUM(ASSUME_TAC o PURE_ONCE_REWRITE_RULE[fetch"-" "word_remove_remove_must_terminate_side_def"])
 >> fs[]
 >> metis_tac[pair_CASES,option_CASES]) |> update_precondition;
+*)
 
+val res = translate (spec64 word_removeTheory.remove_must_terminate_def);
 val res = translate (spec64 word_to_wordTheory.compile_alt);
 
 (* TODO: remove when pmatch is fixed
@@ -647,7 +657,7 @@ val r = translate(InstallData_code_def |> inline_simp |> conv64)
 val _ = translate(Append_code_def|> inline_simp |> conv64 |> we_simp |> econv |> SIMP_RULE std_ss [shift_left_rwt])
 val _ = translate(AppendMainLoop_code_def|> inline_simp |> conv64)
 val _ = translate(AppendLenLoop_code_def|> inline_simp |> conv64)
-val _ = translate(AppendFastLoop_code_def|> inline_simp |> conv64)
+val _ = translate(XorLoop_code_def|> inline_simp |> conv64)
 
 val _ = translate(Compare1_code_def|> inline_simp |> conv64)
 val _ = translate(Compare_code_def|> inline_simp |> conv64)
@@ -699,5 +709,3 @@ val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

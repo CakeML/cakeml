@@ -5,13 +5,16 @@
   memory load and store, functions,
   and foreign function calls.
 *)
+Theory panLang
+Ancestors
+  mlstring
+  asm (* for binop and cmp *)
+  backend_common  (* for overloading the shift operation *)
+Libs
+  preamble
 
-open preamble
-     mlstringTheory
-     asmTheory             (* for binop and cmp *)
-     backend_commonTheory; (* for overloading the shift operation *)
 
-val _ = new_theory "panLang";
+(* for overloading the shift operation *)
 
 Type shift = ``:ast$shift``
 
@@ -158,6 +161,23 @@ Definition size_of_eids_def:
    LENGTH (nub eids)
 End
 
+(*
+  for time_to_pancake compiler:
+
+Definition Assigns_def:
+  (Assigns [] n = Skip) ∧
+  (Assigns (v::vs) n =
+    Seq (Assign v n) (Assigns vs n))
+End
+
+Definition Decs_def:
+  (Decs [] p = p) /\
+  (Decs ((v,e)::es) p =
+    Dec v e (Decs es p))
+End
+
+*)
+
 Definition var_exp_def:
   (var_exp (Const w) = ([]:mlstring list)) ∧
   (var_exp (Var Local v) = [v]) ∧
@@ -276,5 +296,3 @@ Definition free_var_ids_def:
   (free_var_ids (DecCall vn _ _ args p) = vn::free_var_ids p ++ FLAT (MAP var_exp args)) ∧
   (free_var_ids _ = [])
 End
-
-val _ = export_theory();

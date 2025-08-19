@@ -1,14 +1,13 @@
 (*
   Definition of CakeML's type inferencer.
 *)
-open preamble miscTheory astTheory namespaceTheory typeSystemTheory;
-open namespacePropsTheory;
-open infer_tTheory unifyTheory;
-open stringTheory ;
-open primTypesTheory;
+Theory infer
+Ancestors
+  misc ast namespace typeSystem namespaceProps infer_t unify
+  string primTypes
+Libs
+  preamble
 
-
-val _ = new_theory "infer";
 val _ = monadsyntax.temp_add_monadsyntax()
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -624,6 +623,7 @@ Definition op_to_string_def:
   (op_to_string Aw8update_unsafe = (implode "Aw8update_unsafe", 3)) ∧
   (op_to_string (WordFromInt _) = (implode "WordFromInt", 1)) ∧
   (op_to_string (WordToInt _) = (implode "WordToInt", 1)) ∧
+  (op_to_string XorAw8Str_unsafe = (implode "XorAw8Str_unsafe", 2)) ∧
   (op_to_string CopyStrStr = (implode "CopyStrStr", 3)) ∧
   (op_to_string CopyStrAw8 = (implode "CopyStrAw8", 5)) ∧
   (op_to_string CopyAw8Str = (implode "CopyAw8Str", 3)) ∧
@@ -787,6 +787,7 @@ constrain_op l op ts s =
    | (Aupdate_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
    | (Aw8sub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
    | (Aw8update_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
+   | (XorAw8Str_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
    | (Real_uop _, _) => failwith l (implode "Reals do not have a type") s
    | (Real_bop _, _) => failwith l (implode "Reals do not have a type") s
    | (Real_cmp _, _) => failwith l (implode "Reals do not have a type") s
@@ -1250,7 +1251,6 @@ Definition inf_env_to_types_string_def:
     let xs = MAP (\(n,_,t). concat [implode n; strlit ": ";
                                     inf_type_to_string s.inf_t t;
                                     strlit "\n";]) l in
-      (* QSORT mlstring_le *) REVERSE xs
+      (* sort mlstring_le *) REVERSE xs
 End
 
-val _ = export_theory ();

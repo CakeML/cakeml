@@ -1,12 +1,13 @@
 (*
   The formal semantics of dataLang
 *)
-open preamble data_simpTheory data_liveTheory data_spaceTheory
-     dataLangTheory bvlSemTheory
-     data_to_wordTheory (* TODO: immoral, semantics shouldn't depend on compiler *);
-local open backendPropsTheory in end;
-
-val _ = new_theory"dataSem";
+Theory dataSem
+Ancestors
+  data_simp data_live data_space dataLang bvlSem
+  data_to_word (* TODO: immoral, semantics shouldn't depend on compiler *)
+  backendProps[qualified]
+Libs
+  preamble
 
 Datatype:
   v = Number int              (* integer *)
@@ -294,6 +295,8 @@ Definition stack_consumed_def:
     OPTION_MAP2 MAX
      (lookup RefArray_location sfs)
      (lookup Replicate_location sfs)) /\
+  (stack_consumed sfs lims (MemOp XorByte) vs =
+    lookup XorLoop_location sfs) /\
   (stack_consumed sfs lims (BlockOp (ConsExtend _)) vs =
     lookup MemCopy_location sfs) /\
     (* MemCopy looks not always necessary. Could be refined for more precise bounds. *)
@@ -905,6 +908,13 @@ Definition do_app_aux_def:
                  (ByteArray f (LUPDATE (i2w b) (Num i) bs)) s.refs)
              else Error)
          | _ => Error)
+    | (MemOp XorByte,[RefPtr _ dst; RefPtr _ src]) =>
+        (case (lookup src s.refs, lookup dst s.refs) of
+         | (SOME (ByteArray _ ws),SOME (ByteArray f ds)) =>
+           (case xor_bytes ws ds of
+            | SOME ds1 => Rval (Unit, s with refs := insert dst (ByteArray f ds1) s.refs)
+            | NONE => Error)
+         | _ => Error)
     | (MemOp (CopyByte F),[RefPtr _ src; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
         (case (lookup src s.refs, lookup dst s.refs) of
          | (SOME (ByteArray _ ws), SOME (ByteArray fl ds)) =>
@@ -1446,5 +1456,3 @@ End
 (* clean up *)
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
-
-val _ = export_theory();

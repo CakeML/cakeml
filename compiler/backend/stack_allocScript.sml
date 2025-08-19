@@ -5,9 +5,11 @@
   the compiled program. the inserted code is a stackLang
   implementation of the garbage collector.
 *)
-open preamble stackLangTheory data_to_wordTheory;
-
-val _ = new_theory "stack_alloc";
+Theory stack_alloc
+Ancestors
+  stackLang data_to_word
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -634,7 +636,7 @@ Definition word_gc_code_def:
 End
 
 Definition stubs_def:
-  stubs conf = [(gc_stub_location, Seq (word_gc_code conf) (Return 0 0))]
+  stubs conf = [(gc_stub_location, Seq (word_gc_code conf) (Return 0))]
 End
 
 Definition stub_names_def:
@@ -719,4 +721,3 @@ Definition compile_def:
   compile c prog = stubs c ++ MAP prog_comp prog
 End
 
-val _ = export_theory();

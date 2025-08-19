@@ -1,18 +1,17 @@
 (*
   Properties about stackLang and its semantics
 *)
+Theory stackProps
+Libs
+  preamble
+Ancestors
+  stackSem stack_names backendProps
 
-open preamble stackSemTheory stack_namesTheory backendPropsTheory
 
-val _ = new_theory"stackProps";
-
-val _ = set_grammar_ancestry["stackSem", "stack_names","backendProps"];
-
-fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
 Theorem case_eq_thms =
   (pair_case_eq::
    bool_case_eq::
-   map (prove_case_eq_thm o get_thms)
+   map (TypeBase.case_eq_of)
         [``:'a option``,``:'a list``,``:'a word_loc``,``:'a inst``, ``:binop``,
          ``:'a reg_imm`` ,``:'a arith``,``:'a addr``,``:memop``,``:'a result``,
          ``:'a ffi_result``])
@@ -27,6 +26,7 @@ Theorem set_store_const[simp]:
    (set_store x y z).code = z.code ∧
    (set_store x y z).be = z.be ∧
    (set_store x y z).gc_fun = z.gc_fun ∧
+   (set_store x y z).memory = z.memory ∧
    (set_store x y z).mdomain = z.mdomain ∧
    (set_store x y z).sh_mdomain = z.sh_mdomain ∧
    (set_store x y z).bitmaps = z.bitmaps ∧
@@ -54,12 +54,17 @@ Theorem set_var_const[simp]:
    (set_var x y z).use_stack = z.use_stack ∧
    (set_var x y z).code = z.code ∧
    (set_var x y z).be = z.be ∧
+   (set_var x y z).fp_regs = z.fp_regs ∧
+   (set_var x y z).data_buffer = z.data_buffer ∧
+   (set_var x y z).code_buffer = z.code_buffer ∧
    (set_var x y z).gc_fun = z.gc_fun ∧
+   (set_var x y z).memory = z.memory ∧
    (set_var x y z).mdomain = z.mdomain ∧
    (set_var x y z).sh_mdomain = z.sh_mdomain ∧
    (set_var x y z).bitmaps = z.bitmaps ∧
    (set_var x y z).compile = z.compile ∧
    (set_var x y z).compile_oracle = z.compile_oracle ∧
+   (set_var x y z).store = z.store ∧
    (set_var x y z).stack = z.stack ∧
    (set_var x y z).stack_space = z.stack_space
 Proof
@@ -67,8 +72,11 @@ Proof
 QED
 
 Theorem set_var_with_const[simp]:
-   set_var x y (z with clock := k) = set_var x y z with clock := k ∧
-   set_var x y (z with stack_space := k) = set_var x y z with stack_space := k
+   set_var x y (z with clock := clk) = set_var x y z with clock := clk ∧
+   set_var x y (z with memory := m) = set_var x y z with memory := m ∧
+   set_var x y (z with ffi := ffi) = set_var x y z with ffi := ffi /\
+   set_var x y (z with stack := stk) = set_var x y z with stack := stk /\
+   set_var x y (z with stack_space := stk_space) = set_var x y z with stack_space := stk_space
 Proof
   EVAL_TAC
 QED
@@ -105,8 +113,11 @@ Proof
   EVAL_TAC
 QED
 
-Triviality get_var_with_const[simp]:
-   get_var x (y with clock := k) = get_var x y
+Theorem get_var_with_const[simp]:
+  get_var r (t with clock := clk) =
+  (get_var r t) /\
+  get_var r (t with stack_space := stk_space) =
+  (get_var r t)
 Proof
   EVAL_TAC
 QED
@@ -121,6 +132,13 @@ Theorem get_var_imm_with_const[simp]:
    get_var_imm x (y with clock := k) = get_var_imm x y
 Proof
   Cases_on`x`>>EVAL_TAC
+QED
+
+Theorem set_fp_var_const[simp]:
+  (set_fp_var x y z).stack_space = z.stack_space /\
+  (set_fp_var x y z).stack = z.stack
+Proof
+  EVAL_TAC
 QED
 
 Theorem empty_env_const[simp]:
@@ -321,17 +339,25 @@ Theorem dec_clock_const[simp]:
    (dec_clock z).use_alloc = z.use_alloc ∧
    (dec_clock z).use_store = z.use_store ∧
    (dec_clock z).use_stack = z.use_stack ∧
+   (dec_clock z).stack = z.stack ∧
+   (dec_clock z).store = z.store ∧
    (dec_clock z).code = z.code ∧
+   (dec_clock z).data_buffer = z.data_buffer ∧
+   (dec_clock z).code_buffer = z.code_buffer ∧
+   (dec_clock z).fp_regs = z.fp_regs ∧
    (dec_clock z).be = z.be ∧
    (dec_clock z).gc_fun = z.gc_fun ∧
+   (dec_clock z).memory = z.memory ∧
    (dec_clock z).mdomain = z.mdomain ∧
    (dec_clock z).sh_mdomain = z.sh_mdomain ∧
    (dec_clock z).bitmaps = z.bitmaps ∧
+   (dec_clock z).stack_space = z.stack_space ∧
    (dec_clock z).compile = z.compile ∧
    (dec_clock z).compile_oracle = z.compile_oracle
 Proof
   EVAL_TAC
 QED
+
 
 Theorem sh_mem_op_const[simp]:
    sh_mem_op op a r s = (res,t) ⇒
@@ -760,7 +786,7 @@ Definition stack_asm_ok_def:
   (stack_asm_ok c (If cmp n r p p') ⇔ stack_asm_ok c p ∧ stack_asm_ok c p') ∧
   (stack_asm_ok c (While cmp n r p) ⇔ stack_asm_ok c p) ∧
   (stack_asm_ok c (Raise n) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
-  (stack_asm_ok c (Return n _) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
+  (stack_asm_ok c (Return n) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
   (stack_asm_ok c (Call r tar h) ⇔
     (case tar of INR r => r < c.reg_count ∧ ¬MEM r c.avoid_regs | _ => T) ∧
     case r of
@@ -882,7 +908,7 @@ Definition stack_asm_name_def:
   (stack_asm_name c (If cmp n r p p') ⇔ stack_asm_name c p ∧ stack_asm_name c p') ∧
   (stack_asm_name c (While cmp n r p) ⇔ stack_asm_name c p) ∧
   (stack_asm_name c (Raise n) ⇔ reg_name n c) ∧
-  (stack_asm_name c (Return n _) ⇔ reg_name n c) ∧
+  (stack_asm_name c (Return n) ⇔ reg_name n c) ∧
   (stack_asm_name c (Call r tar h) ⇔
     (case tar of INR r => reg_name r c | _ => T) ∧
     case r of
@@ -1001,8 +1027,8 @@ Definition reg_bound_def:
      v1 < k) /\
   (reg_bound (StoreConsts t1 t2 _) k <=>
      3 < k ∧ t1 < k ∧ t2 < k) /\
-  (reg_bound (Return v1 v2) k <=>
-     v1 < k /\ v2 < k) /\
+  (reg_bound (Return v1) k <=>
+     v1 < k) /\
   (reg_bound (JumpLower v1 v2 dest) k <=>
      v1 < k /\ v2 < k) /\
   (reg_bound ((Seq p1 p2):'a stackLang$prog) k <=>
@@ -1133,5 +1159,3 @@ Definition no_shmemop_def:
   (no_shmemop (ShMemOp _ _ _) = F) /\
   (no_shmemop _ = T)
 End
-
-val _ = export_theory();

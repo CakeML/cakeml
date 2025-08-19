@@ -1,11 +1,12 @@
 (*
   loopLang intermediate language
 *)
-open preamble
-     asmTheory (* for importing binop and cmp *)
-     backend_commonTheory (* for overloading shift operation  *);
-
-val _ = new_theory "loopLang";
+Theory loopLang
+Ancestors
+  asm (* for importing binop and cmp *)
+  backend_common (* for overloading shift operation  *)
+Libs
+  preamble
 
 Type shift = ``:ast$shift``
 
@@ -147,6 +148,3 @@ Definition acc_vars_def:
   (acc_vars (StoreByte n m) l = l) /\
   (acc_vars (FFI name n1 n2 n3 n4 live) l = l)
 End
-
-
-val _ = export_theory();

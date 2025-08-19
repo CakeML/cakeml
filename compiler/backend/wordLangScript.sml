@@ -3,9 +3,11 @@
   that overate over machine words, a list-like stack and a flat memory.
   This is the language where register allocation is performed.
 *)
-open preamble asmTheory stackLangTheory;
-
-val _ = new_theory "wordLang";
+Theory wordLang
+Ancestors
+  asm stackLang
+Libs
+  preamble
 
 Type shift = ``:ast$shift``
 
@@ -26,6 +28,8 @@ Proof
   \\ RES_TAC \\ DECIDE_TAC
 QED
 
+Type cutsets = “:num_set # num_set” (* non-GCed cutset, GCed cutset *)
+
 Datatype:
   prog = Skip
        | Move num ((num # num) list)
@@ -35,26 +39,26 @@ Datatype:
        | Set store_name ('a exp)
        | Store ('a exp) num
        | MustTerminate wordLang$prog
-       | Call ((num # num_set # wordLang$prog # num # num) option)
-              (* return var, cut-set, return-handler code, labels l1,l2*)
+       | Call ((num list # cutsets # wordLang$prog # num # num) option)
+              (* return vars, cut-set, return-handler code, labels l1,l2*)
               (num option) (* target of call *)
               (num list) (* arguments *)
               ((num # wordLang$prog # num # num) option)
               (* handler: varname, exception-handler code, labels l1,l2*)
        | Seq wordLang$prog wordLang$prog
        | If cmp num ('a reg_imm) wordLang$prog wordLang$prog
-       | Alloc num num_set
+       | Alloc num cutsets
        | StoreConsts num num num num ((bool # 'a word) list)
        | Raise num
-       | Return num num
+       | Return num (num list) (* return lab, return values *)
        | Tick
        | OpCurrHeap binop num num (* special case compiled well in stackLang *)
        | LocValue num num        (* assign v1 := Loc v2 0 *)
-       | Install num num num num num_set (* code buffer start, length of new code,
+       | Install num num num num cutsets (* code buffer start, length of new code,
                                       data buffer start, length of new data, cut-set *)
        | CodeBufferWrite num num (* code buffer address, byte to write *)
        | DataBufferWrite num num (* data buffer address, word to write *)
-       | FFI string num num num num num_set (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *)
+       | FFI string num num num num cutsets (* FFI name, conf_ptr, conf_len, array_ptr, array_len, cut-set *)
        | ShareInst memop num ('a exp) (* memory operation, varname, expression for memory address *)
 End
 
@@ -116,8 +120,9 @@ Definition every_var_inst_def:
 End (*catchall*)
 
 Definition every_name_def:
-  every_name P t ⇔
-  EVERY P (MAP FST (toAList t))
+  every_name P (t:cutsets) ⇔
+  EVERY P (MAP FST (toAList (FST t))) ∧
+  EVERY P (MAP FST (toAList (SND t)))
 End
 
 Definition every_var_def:
@@ -139,7 +144,7 @@ Definition every_var_def:
     (case ret of
       NONE => T
     | SOME (v,cutset,ret_handler,l1,l2) =>
-      (P v ∧ every_name P cutset ∧
+      (EVERY P v ∧ every_name P cutset ∧
       every_var P ret_handler ∧
       (case h of
         NONE => T
@@ -154,7 +159,7 @@ Definition every_var_def:
   (every_var P (StoreConsts a b c d ws) =
     (P a ∧ P b ∧ P c ∧ P d)) ∧
   (every_var P (Raise num) = P num) ∧
-  (every_var P (Return num1 num2) = (P num1 ∧ P num2)) ∧
+  (every_var P (Return num1 ns) = (P num1 ∧ EVERY P ns)) ∧
   (every_var P (OpCurrHeap _ num1 num2) = (P num1 ∧ P num2)) ∧
   (every_var P Tick = T) ∧
   (every_var P (Set n exp) = every_var_exp P exp) ∧
@@ -228,6 +233,11 @@ Definition max_var_inst_def:
   (max_var_inst _ = 0)
 End
 
+Definition cutsets_max_def[simp]:
+  cutsets_max (c:cutsets) =
+    MAX (list_max (MAP FST (toAList (FST c)))) (list_max (MAP FST (toAList (SND c))))
+End
+
 Definition max_var_def:
   (max_var Skip = 0) ∧
   (max_var (Move pri ls) =
@@ -241,8 +251,8 @@ Definition max_var_def:
     case ret of
       NONE => n
     | SOME (v,cutset,ret_handler,l1,l2) =>
-      let cutset_max = MAX n (list_max (MAP FST (toAList cutset))) in
-      let ret_max = max3 v cutset_max (max_var ret_handler) in
+      let cutset_max = MAX n (cutsets_max cutset) in
+      let ret_max = max3 (list_max v) cutset_max (max_var ret_handler) in
       (case h of
         NONE => ret_max
       | SOME (v,prog,l1,l2) =>
@@ -253,20 +263,20 @@ Definition max_var_def:
     let r = case ri of Reg r => MAX r r1 | _ => r1 in
       max3 r (max_var e2) (max_var e3)) ∧
   (max_var (Alloc num numset) =
-    MAX num (list_max (MAP FST (toAList numset)))) ∧
+    MAX num (cutsets_max numset)) ∧
   (max_var (StoreConsts a b c d ws) =
     list_max [a;b;c;d]) ∧
   (max_var (Install r1 r2 r3 r4 numset) =
-    (list_max (r1::r2::r3::r4::MAP FST (toAList numset)))) ∧
+    (list_max (r1::r2::r3::r4::cutsets_max numset::[]))) ∧
   (max_var (CodeBufferWrite r1 r2) =
     MAX r1 r2) ∧
   (max_var (DataBufferWrite r1 r2) =
     MAX r1 r2) ∧
   (max_var (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
-    list_max (ptr1::len1::ptr2::len2::MAP FST (toAList numset))) ∧
+    list_max (ptr1::len1::ptr2::len2::cutsets_max numset::[])) ∧
   (max_var (Raise num) = num) ∧
   (max_var (OpCurrHeap _ num1 num2) = MAX num1 num2) ∧
-  (max_var (Return num1 num2) = MAX num1 num2) ∧
+  (max_var (Return num1 ns) = list_max (num1::ns)) ∧
   (max_var Tick = 0) ∧
   (max_var (LocValue r l1) = r) ∧
   (max_var (Set n exp) = max_var_exp exp) ∧
@@ -307,4 +317,3 @@ Datatype:
   word_loc = Word ('a word) | Loc num num
 End
 
-val _ = export_theory();

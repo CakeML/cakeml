@@ -1,14 +1,14 @@
 (*
   Correctness proof for combined pan_to_word compilation.
 *)
+Theory pan_to_wordProof
+Ancestors
+  pan_to_word pan_simpProof pan_to_crepProof crep_to_loopProof
+  loop_to_wordProof pan_globalsProof
+Libs
+  preamble
 
-open preamble pan_to_wordTheory
-     pan_simpProofTheory pan_to_crepProofTheory
-     crep_to_loopProofTheory loop_to_wordProofTheory
-     pan_globalsProofTheory
-
-val _ = new_theory "pan_to_wordProof";
-
+Type prog[local] = “:α panLang$prog”
 
 Definition crep_state_def:
   crep_state (s:('a,'b) panSem$state) pan_code mem =
@@ -1118,5 +1118,3 @@ Proof
   irule every_inst_ok_less_pan_simp_compile_prog>>
   simp []
 QED
-
-val _ = export_theory();

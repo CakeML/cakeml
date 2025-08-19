@@ -1,18 +1,13 @@
 (*
   The formal semantics of loopLang
 *)
-open preamble loopLangTheory;
-local open
-   alignmentTheory
-   wordSemTheory
-   ffiTheory in end;
-
-val _ = new_theory"loopSem";
-val _ = set_grammar_ancestry [
-  "loopLang", "alignment",
-  "finite_map", "misc", "wordSem",
-  "ffi", "machine_ieee" (* for FP *)
-]
+Theory loopSem
+Ancestors
+  loopLang alignment[qualified] finite_map[qualified]
+  misc[qualified] wordSem[qualified] ffi[qualified]
+  machine_ieee[qualified] (* for FP *)
+Libs
+  preamble
 
 Datatype:
   state =
@@ -494,5 +489,3 @@ Definition semantics_def:
            (IMAGE (λk. fromList
               (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))
 End
-
-val _ = export_theory();

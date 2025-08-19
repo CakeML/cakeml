@@ -3,11 +3,11 @@
   This file defines the basic rewriter, used by the optimisation pass later.
   Correctness proofs are in icing_rewriterProofsScript.
 *)
-open bossLib fpValTreeTheory pureExpsTheory;
-
-open preamble;
-
-val _ = new_theory "icing_rewriter";
+Theory icing_rewriter
+Ancestors
+  fpValTree pureExps
+Libs
+  preamble
 
 val _  = monadsyntax.enable_monadsyntax();
 val _ = List.app monadsyntax.enable_monad ["option"];
@@ -136,4 +136,3 @@ Definition rewriteFPexp_def:
     else e
 End
 
-val _ = export_theory ();

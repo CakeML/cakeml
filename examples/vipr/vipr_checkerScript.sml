@@ -1,9 +1,11 @@
 (*
   A pure version of the VIPR checker
 *)
-open preamble milpTheory mllistTheory realLib;
-
-val _ = new_theory "vipr_checker"
+Theory vipr_checker
+Ancestors
+  milp mllist
+Libs
+  preamble realLib
 
 Datatype:
   conf = <| vars : mlstring list ;
@@ -640,4 +642,3 @@ d4 G 1/3  OBJ { lin 2  1 -1/3 3 2/3 } 7
 r5 G 1 OBJ { rnd 1 5 1 } 7
 obj G 1  OBJ { uns 4 2  6 3 } -1’
 
-val _ = export_theory();

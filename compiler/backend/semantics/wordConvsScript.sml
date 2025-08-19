@@ -1,10 +1,11 @@
 (*
   Syntactic properties used by wordLang across passes.
 *)
-open preamble BasicProvers
-     wordLangTheory asmTheory reg_allocTheory ;
-
-val _ = new_theory "wordConvs";
+Theory wordConvs
+Ancestors
+  wordLang asm reg_alloc
+Libs
+  preamble BasicProvers
 
 (*** Mono and conj lemmas for every_var/every_stack_var ***)
 Theorem every_var_inst_mono:
@@ -330,20 +331,25 @@ Definition full_inst_ok_less_def:
 End
 
 (*** All cutsets are well-formed ***)
+Definition wf_names_def:
+  wf_names t =
+    (wf (FST t) ∧ wf (SND t))
+End
+
 Definition wf_cutsets_def:
-  (wf_cutsets (Alloc n s) = wf s) ∧
-  (wf_cutsets (Install _ _ _ _ s) = wf s) ∧
+  (wf_cutsets (Alloc n s) = wf_names s) ∧
+  (wf_cutsets (Install _ _ _ _ s) = wf_names s) ∧
   (wf_cutsets (Call ret dest args h) =
     (case ret of
       NONE => T
     | SOME (v,cutset,ret_handler,l1,l2) =>
-      wf cutset ∧
+      wf_names cutset ∧
       wf_cutsets ret_handler ∧
       (case h of
         NONE => T
       | SOME (v,prog,l1,l2) =>
         wf_cutsets prog))) ∧
-  (wf_cutsets (FFI x1 y1 x2 y2 z args) = wf args) ∧
+  (wf_cutsets (FFI x1 y1 x2 y2 z args) = wf_names args) ∧
   (wf_cutsets (MustTerminate s) = wf_cutsets s) ∧
   (wf_cutsets (Seq s1 s2) =
     (wf_cutsets s1 ∧ wf_cutsets s2)) ∧
@@ -369,7 +375,7 @@ End
 Definition call_arg_convention_def:
   (call_arg_convention (Inst i) =
     inst_arg_convention i) ∧
-  (call_arg_convention (Return x y) = (y=2)) ∧
+  (call_arg_convention (Return x ys) = (ys = GENLIST (\x.2*(x+1)) (LENGTH ys))) ∧
   (call_arg_convention (Raise y) = (y=2)) ∧
   (call_arg_convention (Install ptr len _ _ _) = (ptr = 2 ∧ len = 4)) ∧
   (call_arg_convention (FFI x ptr len ptr2 len2 args) = (ptr = 2 ∧ len = 4 ∧
@@ -380,9 +386,9 @@ Definition call_arg_convention_def:
   (call_arg_convention (Call ret dest args h) =
     (case ret of
       NONE => args = GENLIST (\x.2*x) (LENGTH args)
-    | SOME (v,cutset,ret_handler,l1,l2) =>
+    | SOME (vs,cutset,ret_handler,l1,l2) =>
       args = GENLIST (\x.2*(x+1)) (LENGTH args) ∧
-      (v = 2) ∧ call_arg_convention ret_handler ∧
+      (vs = GENLIST (\x.2*(x+1)) (LENGTH vs)) ∧ call_arg_convention ret_handler ∧
     (case h of  (*Does not check the case where Calls are ill-formed*)
       NONE => T
     | SOME (v,prog,l1,l2) =>
@@ -458,11 +464,13 @@ Proof
     TRY(Cases_on`f`)>>
     fs[max_var_inst_def,every_var_inst_def,every_var_imm_def,MAX_DEF]>>
     EVERY_CASE_TAC>>fs[every_var_imm_def])
-  >-
-    (TOP_CASE_TAC>>unabbrev_all_tac>>fs[list_max_intro]>>
+  >- (
+    TOP_CASE_TAC>>unabbrev_all_tac>>fs[list_max_intro]>>
     EVERY_CASE_TAC>>fs[LET_THM]>>srw_tac[][]>>
     match_mp_tac list_max_intro>>fs[EVERY_APPEND,every_name_def])
-  >> (unabbrev_all_tac>>EVERY_CASE_TAC>>fs[every_var_imm_def])
+  >> (
+    unabbrev_all_tac>>EVERY_CASE_TAC>>
+    fs[every_var_imm_def]>>metis_tac[list_max_intro])
 QED
 
 (*** code_labels ***)
@@ -518,10 +526,10 @@ Definition not_created_subprogs_def:
     (case h of NONE => T | SOME (_, p, h1, _) =>
         P (wordLang$Call NONE NONE [] (SOME (0, Skip, h1, 0))) /\
         not_created_subprogs P p)) /\
-  not_created_subprogs P (Alloc _ _) = P (Alloc 0 LN) /\
+  not_created_subprogs P (Alloc _ _) = P (Alloc 0 (LN,LN)) /\
   not_created_subprogs P (LocValue _ l) = P (LocValue 0 l) /\
   not_created_subprogs P (ShareInst _ _ _) = P (ShareInst ARB 0 (Var 0)) /\
-  not_created_subprogs P (Install _ _ _ _ _) = P (Install 0 0 0 0 LN) /\
+  not_created_subprogs P (Install _ _ _ _ _) = P (Install 0 0 0 0 (LN,LN)) /\
   not_created_subprogs _ _ = T
 End
 
@@ -533,7 +541,7 @@ Theorem not_created_subprogs_P_def = not_created_subprogs_def
 
 (* no_alloc specialisation *)
 
-val no_alloc_P = ``((<>) (Alloc 0 LN))``
+val no_alloc_P = ``((<>) (Alloc 0 (LN,LN)))``
 
 Definition no_alloc_subprogs_def:
   no_alloc p = not_created_subprogs ^no_alloc_P p
@@ -543,7 +551,7 @@ Theorem no_alloc_def = not_created_subprogs_P_def
   |> ISPEC no_alloc_P
   |> REWRITE_RULE [GSYM no_alloc_subprogs_def]
 
-val no_install_P = ``((<>) (Install 0 0 0 0 LN))``
+val no_install_P = ``((<>) (Install 0 0 0 0 (LN,LN)))``
 
 Definition no_install_subprogs_def:
   no_install p = not_created_subprogs ^no_install_P p
@@ -581,4 +589,3 @@ Overload word_get_code_labels = ``wordConvs$get_code_labels``
 Overload word_good_handlers = ``wordConvs$good_handlers``
 Overload word_good_code_labels = ``wordConvs$good_code_labels``
 
-val _ = export_theory();

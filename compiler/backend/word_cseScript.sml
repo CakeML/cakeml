@@ -2,10 +2,12 @@
   Defines a common sub-expression elimination pass on a wordLang program.
   This pass is to run immeidately atfer the SSA-like renaming.
 *)
+Theory word_cse
+Ancestors
+  wordLang words bool balanced_map sptree
+Libs
+  preamble
 
-open preamble wordLangTheory wordsTheory boolTheory balanced_mapTheory sptreeTheory
-
-val _ = new_theory "word_cse";
 
 Type regsE = ``:num list list``
 Type regsM = ``:num num_map``
@@ -426,8 +428,8 @@ Definition word_cse_def:
   (word_cse data (Call ret dest args handler) =
             case ret of
             | NONE => (empty_data, Call ret dest args handler)
-            | SOME (ret_reg, cut_set, p, l1, k) =>
-                      (empty_data with all_names:=inter data.all_names cut_set, Call ret dest args handler)) ∧
+            | SOME (ret_reg, (c1,c2), p, l1, k) =>
+                      (empty_data with all_names:=inter data.all_names (union c1 c2), Call ret dest args handler)) ∧
   (word_cse data (Seq p1 p2) =
             let (data1, p1') = word_cse data p1 in
             let (data2, p2') = word_cse data1 p2 in
@@ -475,4 +477,3 @@ Definition word_common_subexp_elim_def:
       new_prog
 End
 
-val _ = export_theory ();

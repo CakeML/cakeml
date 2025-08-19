@@ -3,13 +3,16 @@
   monadic functions using IO primitives from the basis library.
 *)
 
+Theory helloProg
 (* Load the interface to the monadic translator, and basis for IO *)
-open preamble basisProgTheory ml_monad_translator_interfaceLib
+Ancestors
+  basisProg ml_monad_translator
+Libs
+  preamble ml_monad_translator_interfaceLib
+  (* Load cfMonadLib for the cf app spec *)
+  cfMonadLib
 
-(* Load cfMonadLib for the cf app spec *)
-open cfMonadLib
-
-val _ = new_theory "helloProg"
+val _ = set_up_monadic_translator ();
 
 val _ = translation_extends "basisProg";
 
@@ -82,5 +85,3 @@ val res = m_translate hello_def;
 
 Theorem hello_app_thm =
   cfMonadLib.mk_app_of_ArrowP res |> SPEC_ALL
-
-val _ = export_theory ();

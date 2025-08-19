@@ -6,12 +6,12 @@
   The optimiser definitions rely on the low-level functions from
   icing_rewriterScript implementing pattern matching and pattern instantiation.
 *)
-open semanticPrimitivesTheory evaluateTheory
-     icing_rewriterTheory icing_optimisationsTheory fpOptTheory fpValTreeTheory;
-
-open preamble;
-
-val _ = new_theory "source_to_source2";
+Theory source_to_source2
+Ancestors
+  semanticPrimitives evaluate icing_rewriter icing_optimisations
+  fpOpt fpValTree
+Libs
+  preamble
 
 (**
   Rewriter configuration
@@ -235,8 +235,6 @@ Definition stos_pass_with_plans_decs_def:
     [(Dlet loc p e_opt, res)] )∧
   stos_pass_with_plans_decs cfg plans [d] = [(d, Success)]
 End
-
-val _ = export_theory();
 
 (** UNUSED **)
 (*

@@ -1,9 +1,11 @@
 (*
   Addition of linear terms with real-valued coefficients
 *)
-open preamble sptreeTheory realTheory
-
-val _ = new_theory "real_plus"
+Theory real_plus
+Ancestors
+  sptree real
+Libs
+  preamble
 
 Definition plus_def:
   plus LN t = t ∧
@@ -99,4 +101,3 @@ Proof
   \\ rpt $ irule sptreeTheory.wf_mk_BS \\ fs []
 QED
 
-val _ = export_theory ()

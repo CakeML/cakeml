@@ -1,174 +1,135 @@
 (*
- Correctness proof for the Dafny to CakeML compiler.
+  Correctness proof for the Dafny compiler with all of its passes.
 *)
+Theory dafny_compilerProof
+Ancestors
+  dafny_semanticPrimitives dafny_freshen dafny_freshenProof
+  dafny_to_cakeml dafny_to_cakemlProof dafny_compiler
+  mlstring (* isPrefix *)
+  primTypes evaluate semanticPrimitives namespace
+Libs
+  preamble
 
-open preamble
 
-open dafny_semanticPrimitivesTheory
-open dafny_astTheory
-
-open semanticPrimitivesTheory
-open simpleIOTheory
-open astTheory
-
-open dafny_to_cakemlTheory
-open dafny_evaluateTheory
-open evaluateTheory
-open namespaceTheory
-open primTypesTheory
-open result_monadTheory
-
-val _ = new_theory "dafny_compilerProof";
-
-Type dafny_program = “:dafny_ast$module list”
-Type dafny_state = “:dafny_semanticPrimitives$state”
-Type dafny_env = “:dafny_semanticPrimitives$sem_env”
-Type dafny_exp = “:dafny_ast$expression”
-Type dafny_res = “:dafny_evaluate$dafny_result”
-
-Type cakeml_program = “:ast$dec list”
-Type cakeml_state = “:simpleIO semanticPrimitives$state”
-Type cakeml_env = “:v semanticPrimitives$sem_env”
-Type cakeml_exp = “:ast$exp”
-Type cakeml_res = “:(v list, v) semanticPrimitives$result”
-
-(* NOTE Can be a lot more declarative; i.e. use ∀ instead of implementing it *)
-
-(* TODO/NOTE env_rel can be defined using (parts of) compile *)
-(* TODO Listing env_cml.c like that seems rough; can we generalize this without
-   making the proofs more painful? *)
-Definition env_rel_def:
-  env_rel (env_dfy : dafny_env) (env_cml : cakeml_env) ⇔
-    nsLookup env_cml.c (Short "True") = SOME (0, TypeStamp "True" 0) ∧
-    nsLookup env_cml.c (Short "False") = SOME (0, TypeStamp "False" 0)
-End
-
-Definition dafny_to_cakeml_v_def:
-  dafny_to_cakeml_v UnitV = (Conv NONE []) ∧
-  dafny_to_cakeml_v (BoolV b) = (Boolv b) ∧
-  dafny_to_cakeml_v (IntV i) = (Litv (IntLit i)) ∧
-  dafny_to_cakeml_v (CharV c) = (Litv (Char c)) ∧
-  dafny_to_cakeml_v (StrV s) = (Litv (StrLit s))
-End
-
-Definition res_rel_def:
-  res_rel (Rval v_dfy) (Rval [v_cml]) = (dafny_to_cakeml_v v_dfy = v_cml) ∧
-  res_rel (Rret v_dfy) (Rval [v_cml]) = (dafny_to_cakeml_v v_dfy = v_cml) ∧
-  res_rel (Rerr Rtype_error) (Rerr (Rabort Rtype_error)) = T ∧
-  res_rel (Rerr Rtimeout_error) (Rerr (Rabort Rtimeout_error)) = T ∧
-  res_rel (Rerr Runsupported) (_ : cakeml_res) = T ∧
-  res_rel (_ : dafny_res) (_ : cakeml_res) = F
-End
-
-Theorem res_rel_rval:
-  res_rel (Rval v) x ⇔ ∃w. x = Rval [w] ∧ dafny_to_cakeml_v v = w
+Triviality UNZIP_LENGTH:
+  ∀xs ys zs. UNZIP xs = (ys, zs) ⇒ LENGTH ys = LENGTH zs
 Proof
-  Cases_on ‘x’ >> gvs [oneline res_rel_def]
-  >> Cases_on ‘a’ >> gvs []
-  >> Cases_on ‘t’ >> gvs [EQ_SYM_EQ]
+  Induct \\ gvs []
 QED
 
-Definition is_fail_dfy_def[simp]:
-  is_fail_dfy (Rerr _ : dafny_result) = T ∧
-  is_fail_dfy _ = F
+Triviality UNZIP_EQ_NIL:
+  UNZIP l = ([], []) ⇔ l = []
+Proof
+  Cases_on ‘l’ \\ gvs []
+QED
+
+Triviality has_main_freshen:
+  has_main (Program (MAP freshen_member members)) =
+  has_main (Program members)
+Proof
+  Induct_on ‘members’ \\ simp []
+  \\ qx_gen_tac ‘member’
+  \\ gvs [has_main_def, get_member_def, get_member_aux_def]
+  \\ Cases_on ‘member’ \\ simp [freshen_member_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ imp_res_tac UNZIP_LENGTH
+  \\ IF_CASES_TAC \\ gvs []
+  \\ eq_tac
+  \\ rpt strip_tac
+  \\ gvs [ZIP_EQ_NIL, UNZIP_EQ_NIL]
+QED
+
+Definition valid_members_def:
+  valid_members (Program members) =
+  EVERY (λmember. ALL_DISTINCT (get_param_names member)) members
 End
 
-Theorem exp_not_ret:
-  ∀s1 env_dfy e st' v. evaluate_exp s1 env_dfy e = (st', Rret v) ⇔ F
+Triviality map_freshen_member_is_fresh:
+  EVERY (λmember. ALL_DISTINCT (get_param_names member)) members ⇒
+  EVERY is_fresh_member (MAP freshen_member members)
 Proof
-  ho_match_mp_tac evaluate_exp_ind >> rw [evaluate_exp_def]
-  >- (Cases_on ‘literal_to_value l’ >> gvs [])
-  >- (Cases_on ‘bop’ >> gvs [do_bop_def, AllCaseEqs ()])
+  Induct_on ‘members’ \\ simp []
+  \\ rpt strip_tac
+  \\ irule freshen_member_is_fresh \\ simp []
 QED
 
-Theorem correct_exp:
-  ∀ (s₁ : dafny_state) (env_dfy : dafny_env) (e : dafny_exp) (s₂ : dafny_state)
-    (r_dfy : dafny_res) (t₁ : cakeml_state) (env_cml : cakeml_env)
-    (cml_e : cakeml_exp).
-    evaluate_exp s₁ env_dfy e = (s₂, r_dfy) ∧ ¬(is_fail_dfy r_dfy) ∧
-    (* state_rel s₁ t₁ ∧ *) env_rel env_dfy env_cml ∧
-    (* TODO comp and env for from_expression are sketchy; should they come
-       from state? *)
-    from_expression (Companion [] []) [] e = INR cml_e ⇒
-    ∃ (t₂ : cakeml_state) (r_cml : cakeml_res).
-      evaluate$evaluate t₁ env_cml [cml_e] = (t₂, r_cml) ∧
-      (* state_rel s₂ t₂ ∧ *) res_rel r_dfy r_cml
+Triviality map_freshen_member_no_shadow_method:
+  EVERY (λmember. ALL_DISTINCT (get_param_names member)) members ⇒
+  EVERY no_shadow_method (MAP freshen_member members)
 Proof
-  ho_match_mp_tac evaluate_exp_ind >> rw[]
-  >> pop_assum mp_tac >> simp [Once from_expression_def] >> strip_tac
-  >~ [‘BinOp’]
-  >- (gvs [evaluate_exp_def, CaseEq "prod",
-           CaseEq "dafny_semanticPrimitives$result"]
-      >~ [‘evaluate_exp _ _ _ = (_, Rret _)’] >- gvs [exp_not_ret]
-      >- (Cases_on ‘bop’
-          >> gvs [exp_not_ret, is_lop_def, do_bop_def, AllCaseEqs ()]
-          >> (pop_assum mp_tac >> simp [Once from_expression_def] >> strip_tac
-              >> gvs[AllCaseEqs(), oneline bind_def])
-          >~ [‘Lt’]
-          >- (last_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac
-              >> first_x_assum $ drule_then $ qspec_then ‘t₂’ strip_assume_tac
-              >> gvs [res_rel_rval, dafny_to_cakeml_v_def]
-              >> gvs [evaluate_def, do_app_def, opb_lookup_def])
-          >~ [‘Plus’]
-          >- (last_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac
-              >> first_x_assum $ drule_then $ qspec_then ‘t₂’ strip_assume_tac
-              >> Cases_on ‘vl’ >> Cases_on ‘vr’
-              >> gvs [do_bop_def, dafny_to_cakeml_v_def, res_rel_rval]
-              >> gvs [evaluate_def, do_app_def, opn_lookup_def])
-          >~ [‘Minus’]
-          >- (last_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac
-              >> first_x_assum $ drule_then $ qspec_then ‘t₂’ strip_assume_tac
-              >> Cases_on ‘vl’ >> Cases_on ‘vr’
-              >> gvs [do_bop_def, dafny_to_cakeml_v_def, res_rel_rval]
-              >> gvs [evaluate_def, do_app_def, opn_lookup_def])
-          >~ [‘Times’]
-          >- (last_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac
-              >> first_x_assum $ drule_then $ qspec_then ‘t₂’ strip_assume_tac
-              >> Cases_on ‘vl’ >> Cases_on ‘vr’
-              >> gvs [do_bop_def, dafny_to_cakeml_v_def, res_rel_rval]
-              >> gvs [evaluate_def, do_app_def, opn_lookup_def])
-          >~ [‘And’]
-          >- (Cases_on ‘vl’ >> gvs [do_lop_def]
-              >> Cases_on ‘b’ >> gvs []
-              (* TODO Figure out why it is swapped here *)
-              >> first_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac
-              >> last_x_assum $ drule_then $ qspec_then ‘t₂’ strip_assume_tac
-              >> gvs [res_rel_rval, dafny_to_cakeml_v_def]
-              >> gvs [evaluate_def, do_log_def])
-          >- (Cases_on ‘vl’ >> gvs [do_lop_def]
-              >> Cases_on ‘b’ >> gvs []
-              >> first_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac
-              >> gvs [res_rel_rval, dafny_to_cakeml_v_def]
-              >> gvs [evaluate_def, do_log_def])
-          >- (Cases_on ‘vl’ >> gvs [do_lop_def]
-              >> Cases_on ‘b’ >> gvs []
-              (* TODO Figure out why it is swapped here *)
-              >> first_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac
-              >> last_x_assum $ drule_then $ qspec_then ‘t₂’ strip_assume_tac
-              >> gvs [res_rel_rval, dafny_to_cakeml_v_def]
-              >> gvs [evaluate_def, do_log_def])
-          >- (Cases_on ‘vl’ >> gvs [do_lop_def]
-              >> Cases_on ‘b’ >> gvs []
-              >> first_x_assum $ drule_then $ qspec_then ‘t₁’ strip_assume_tac
-              >> gvs [res_rel_rval, dafny_to_cakeml_v_def]
-              >> gvs [evaluate_def, do_log_def])))
-  >~ [‘Literal’]
-  >- (Cases_on ‘l’ >> gvs [from_literal_def]
-      >~ [‘BoolLiteral’]
-      >- (Cases_on ‘b’ >> gvs [evaluate_exp_def, literal_to_value_def]
-          >> gvs [env_rel_def, evaluate_def, do_con_check_def, build_conv_def]
-          >> gvs [res_rel_def, dafny_to_cakeml_v_def,
-                  Boolv_def, bool_type_num_def])
-      >~ [‘IntLiteral’]
-      >- (gvs [AllCaseEqs (), oneline bind_def]
-          >> gvs [evaluate_exp_def, literal_to_value_def])
-      >~ [‘StringLiteral’]
-      >- gvs [evaluate_exp_def, literal_to_value_def]
-      >~ [‘Char’]
-      >- gvs [evaluate_exp_def, literal_to_value_def]
-      >~ [‘Null’]
-      >- gvs [evaluate_exp_def, literal_to_value_def])
-  >> gvs [evaluate_exp_def, literal_to_value_def]
+  Induct_on ‘members’ \\ simp []
+  \\ rpt strip_tac
+  \\ irule no_shadow_method_freshen_member \\ simp []
 QED
 
-val _ = export_theory ();
+Definition cml_init_state_def:
+  cml_init_state ffi ck =
+    (FST (THE (prim_sem_env ffi))) with clock := ck
+End
+
+Definition cml_init_env_def:
+  cml_init_env ffi = (SND (THE (prim_sem_env ffi)))
+End
+
+Triviality has_basic_cons_cml_init_env:
+  has_basic_cons (cml_init_env ffi)
+Proof
+  gvs [cml_init_env_def, prim_sem_env_def, prim_types_program_def,
+       add_to_sem_env_def, evaluate_decs_def, check_dup_ctors_def,
+       combine_dec_result_def, has_basic_cons_def, build_tdefs_def,
+       build_constrs_def, extend_dec_env_def]
+QED
+
+Triviality cml_init_state_next_exn_stamp:
+  ExnStamp (cml_init_state ffi ck).next_exn_stamp = ret_stamp
+Proof
+  gvs [cml_init_state_def, prim_sem_env_def, prim_types_program_def,
+       add_to_sem_env_def, evaluate_decs_def, check_dup_ctors_def,
+       combine_dec_result_def, has_basic_cons_def, build_tdefs_def,
+       build_constrs_def, extend_dec_env_def]
+  (* By using rewrite_tac here, we get a more useful proof state (i.e., not just
+     F) if the next extension stamp somehow changes in the future. *)
+  \\ rewrite_tac [ret_stamp_def] \\ simp []
+QED
+
+Triviality cml_init_state_clock:
+  (cml_init_state ffi ck).clock = ck
+Proof
+  gvs [cml_init_state_def]
+QED
+
+(* Allows us to irule the correctness theorem for from_program. *)
+Triviality cml_init_state_extra_clock:
+  cml_init_state ffi (dfy_ck + ck) =
+  cml_init_state ffi dfy_ck with clock := (cml_init_state ffi dfy_ck).clock + ck
+Proof
+  gvs [cml_init_state_def]
+QED
+
+Theorem correct_compile:
+  ∀dfy_ck prog s' r_dfy cml_decs (ffi: 'ffi ffi_state).
+    evaluate_program dfy_ck T prog = (s', r_dfy) ∧
+    compile prog = INR cml_decs ∧ has_main prog ∧ valid_members prog ∧
+    0 < dfy_ck ∧ r_dfy ≠ Rstop (Serr Rtype_error) ⇒
+    ∃ck t' m' r_cml.
+      evaluate_decs
+        (cml_init_state ffi (dfy_ck + ck))
+        (cml_init_env ffi) cml_decs = (t', r_cml) ∧
+      state_rel m' FEMPTY s' t' (cml_init_env ffi) ∧
+      stmt_res_rel r_dfy r_cml
+Proof
+  rpt strip_tac
+  \\ rewrite_tac [cml_init_state_extra_clock]
+  \\ irule correct_from_program \\ simp []
+  \\ irule_at Any has_basic_cons_cml_init_env
+  \\ irule_at Any cml_init_state_next_exn_stamp
+  \\ simp [cml_init_state_clock]
+  \\ fs [compile_def]
+  \\ last_assum $ irule_at (Pos last)
+  \\ irule_at (Pos last) correct_freshen_program \\ simp []
+  \\ namedCases_on ‘prog’ ["members"]
+  \\ simp [valid_prog_def, freshen_program_def, has_main_freshen]
+  \\ irule_at (Pos hd) map_freshen_member_is_fresh
+  \\ irule_at (Pos last) map_freshen_member_no_shadow_method
+  \\ fs [valid_members_def]
+QED

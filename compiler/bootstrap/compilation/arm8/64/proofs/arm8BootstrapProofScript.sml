@@ -1,11 +1,12 @@
 (*
   Proves an end-to-end correctness theorem for the bootstrapped compiler.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory arm8_configProofTheory
-     compiler64ProgTheory arm8BootstrapTheory
-
-val _ = new_theory"arm8BootstrapProof";
+Theory arm8BootstrapProof
+Ancestors
+  repl_decs_allowed semanticsProps backendProof arm8_configProof
+  compiler64Prog arm8Bootstrap
+Libs
+  preamble
 
 Triviality with_clos_conf_simp:
     (mc_init_ok (arm8_backend_config with <| clos_conf := z ; bvl_conf updated_by
@@ -78,5 +79,3 @@ Theorem cake_compiled_thm =
   CONJ compile_correct_applied cake_output
   |> DISCH_ALL
   |> check_thm;
-
-val _ = export_theory();

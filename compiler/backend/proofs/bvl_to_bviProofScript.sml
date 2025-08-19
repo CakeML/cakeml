@@ -1,28 +1,22 @@
 (*
   Correctness proof for bvl_to_bvi
 *)
-open preamble backendPropsTheory
-     bvlSemTheory bvlPropsTheory
-     bvl_to_bviTheory
-     bviSemTheory bviPropsTheory;
-local open
-  bvl_constProofTheory
-  bvl_handleProofTheory
-  bvi_letProofTheory
-  bvl_inlineProofTheory
-  bvi_tailrecProofTheory
-in end;
-local open helperLib in end
+Theory bvl_to_bviProof
+Ancestors
+  ffi[qualified] bvlSem bviSem bviProps bvl_to_bvi
+  bvl_handleProof[qualified] backendProps bvlProps
+  bvl_constProof[qualified] bvi_letProof[qualified]
+  bvl_inlineProof[qualified] bvi_tailrecProof[qualified]
+Libs
+  preamble helperLib[qualified]
+
+(* We want bvi's, not bvl's ML bindings. *)
+open bviPropsTheory
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj",
                        "fromAList_def", "domain_union", "domain_insert",
                        "domain_inter"]
 val _ = augment_srw_ss [rewrites [SNOC_APPEND]];
-
-val _ = new_theory"bvl_to_bviProof";
-
-val _ = set_grammar_ancestry
-  ["ffi", "bvlSem", "bviSem", "bviProps", "bvl_to_bvi", "bvl_handleProof"];
 
 val _ = Parse.hide"str";
 
@@ -312,6 +306,17 @@ Proof
     \\ gvs [do_build_const_def]
     \\ drule do_build_ok \\ fs []
     \\ disch_then irule \\ fs [bv_ok_def])
+  \\ Cases_on `op = MemOp XorByte` THEN1
+   (gvs [bvlSemTheory.do_app_def,AllCaseEqs()]
+    \\ fs[state_ok_def,FLOOKUP_UPDATE,EVERY_MEM] \\ rw[]
+    \\ every_case_tac \\ gvs [SF DNF_ss] \\ rw []
+    \\ match_mp_tac bv_ok_SUBSET_IMP
+    \\ res_tac \\ fs[]
+    \\ TRY asm_exists_tac \\ simp[SUBSET_DEF]
+    \\ gvs [FLOOKUP_SIMP,AllCaseEqs()]
+    \\ first_x_assum(qspec_then`k`mp_tac) \\ rw[]
+    \\ res_tac
+    \\ TRY asm_exists_tac \\ simp[SUBSET_DEF])
   \\ Cases_on `op = MemOp El` THEN1
    (full_simp_tac(srw_ss())[bvlSemTheory.do_app_def]
     \\ BasicProvers.EVERY_CASE_TAC \\ rw [] \\ fs []
@@ -1264,7 +1269,7 @@ Theorem do_app_adjust[local]:
   (∀n. op ≠ GlobOp (Global n)) ∧ (∀n. op ≠ GlobOp (SetGlobal n)) ∧ (op ≠ GlobOp AllocGlobal) ∧
   op ≠ Install /\
   (∀n. op ≠ BlockOp (FromList n)) ∧ (op ≠ MemOp FromListByte) ∧
-  (op ≠ MemOp ToListByte) ∧ (∀c. op ≠ BlockOp (Build c)) ∧
+  (op ≠ MemOp ToListByte) ∧ (∀c. op ≠ BlockOp (Build c)) ∧ op ≠ MemOp XorByte ∧
   (∀b. op ≠ MemOp (CopyByte b)) ∧ (op ≠ MemOp ConcatByteVec) ∧ (∀n. op ≠ Label n) ∧
   (do_app op (REVERSE a) s5 = Rval (q,r)) /\ EVERY (bv_ok s5.refs) (REVERSE a) ==>
   ?t3. (do_app op (MAP (adjust_bv b2) (REVERSE a)) t2 =
@@ -2995,6 +3000,50 @@ Proof
       \\ rpt(qhdtm_x_assum`lookup`kall_tac)
       \\ match_mp_tac state_rel_add_bytearray
       \\ METIS_TAC[LEAST_NOTIN_FDOM])
+    \\ Cases_on`op = MemOp XorByte` \\ fs[]
+    >- (
+      note_tac "Op: XorByte" \\
+      CONV_TAC(RESORT_EXISTS_CONV List.rev)
+      \\ qabbrev_tac`pp = LEAST ptr. ptr ∉ FDOM s5.refs`
+      \\ qabbrev_tac`qq = LEAST ptr. ptr ∉ FDOM t2.refs`
+      \\ (`MAP (adjust_bv ((pp =+ qq) b2)) env = MAP (adjust_bv b2) env`
+      by (
+        rw[MAP_EQ_f]
+        \\ match_mp_tac (GEN_ALL bv_ok_IMP_adjust_bv_eq) \\ qexists_tac `s5.refs`
+        \\ imp_res_tac evaluate_refs_SUBSET
+        \\ imp_res_tac bv_ok_SUBSET_IMP
+        \\ fs[EVERY_MEM]
+        \\ rw[APPLY_UPDATE_THM]
+        \\ METIS_TAC[LEAST_NOTIN_FDOM] ))
+      \\ qexists_tac`c`
+      \\ fs[compile_op_def,bEvalOp_def,case_eq_thms,SWAP_REVERSE_SYM]
+      \\ qexists_tac`b2`
+      \\ rw[iEval_def,adjust_bv_def,iEvalOp_def,do_app_aux_def,bEvalOp_def]
+      \\ fs[case_eq_thms,PULL_EXISTS] \\ rw[adjust_bv_def,APPLY_UPDATE_THM]
+      \\ rename1`FLOOKUP s5.refs src = SOME _`
+      \\ (`FLOOKUP t2.refs (b2 src) = FLOOKUP s5.refs src`
+      by (
+        fs[state_rel_def]
+        \\ ntac 4 (first_x_assum(qspec_then`src`mp_tac))
+        \\ simp[] \\ NO_TAC) ) \\ simp[APPLY_UPDATE_THM,bvl_to_bvi_with_refs,bvl_to_bvi_id]
+      \\ (`FLOOKUP t2.refs (b2 src') = FLOOKUP s5.refs src'`
+      by (
+        fs[state_rel_def]
+        \\ ntac 4 (first_x_assum(qspec_then`src'`mp_tac))
+        \\ simp[] \\ NO_TAC) ) \\ simp[APPLY_UPDATE_THM,bvl_to_bvi_with_refs,bvl_to_bvi_id]
+      \\ fs[state_rel_def,FLOOKUP_UPDATE]
+      \\ conj_tac
+      >- (
+        `src INSERT FDOM s5.refs = FDOM s5.refs ∧
+         b2 src INSERT FDOM t2.refs = FDOM t2.refs`
+        by (simp[GSYM ABSORPTION]
+          \\ fs[FLOOKUP_DEF]
+          \\ METIS_TAC[INJ_DEF] ) \\
+        simp[] )
+      \\ rw[]
+      >- (TOP_CASE_TAC \\ fs[FLOOKUP_DEF] \\ METIS_TAC[INJ_DEF])
+      >- ( fs[FLOOKUP_DEF] \\ METIS_TAC[] )
+      \\ METIS_TAC[] )
     \\ Cases_on`op = MemOp (CopyByte F)` \\ fs[]
     >- (
       note_tac "Op: CopyByte F" \\
@@ -4794,5 +4843,3 @@ Proof
   \\ rw[bvl_to_bviTheory.stubs_def]
   \\ metis_tac[UNION_ASSOC, UNION_COMM]
 QED
-
-val _ = export_theory();

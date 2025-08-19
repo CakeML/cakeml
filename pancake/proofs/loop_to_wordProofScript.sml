@@ -1,15 +1,13 @@
 (*
   Correctness proof for loop_to_word
 *)
+Theory loop_to_wordProof
+Libs
+  preamble
+Ancestors
+  loopSem loopProps wordLang wordSem wordProps pan_common
+  pan_commonProps loop_to_word loop_removeProof wordConvs
 
-open preamble
-     loopSemTheory loopPropsTheory
-     wordLangTheory wordSemTheory wordPropsTheory
-     pan_commonTheory pan_commonPropsTheory
-     loop_to_wordTheory loop_removeProofTheory
-     wordConvsTheory;
-
-val _ = new_theory "loop_to_wordProof";
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"];
 
@@ -73,7 +71,7 @@ val goal =
                    (* always return to the label stored in Var 0 for wordLang's prog *)
                    locals_rel ctxt s1.locals t1.locals ∧
                    t1.stack = t.stack ∧ t1.handler = t.handler
-         | SOME (Result v) => res1 = SOME (Result retv v) ∧
+         | SOME (Result v) => res1 = SOME (Result retv [v]) ∧
                                      t1.stack = t.stack ∧ t1.handler = t.handler
          | SOME TimeOut => res1 = SOME TimeOut
          | SOME (FinalFFI f) => res1 = SOME (FinalFFI f)
@@ -289,10 +287,11 @@ QED
 
 Theorem cut_env_mk_new_cutset:
   locals_rel ctxt l1 l2 ∧ domain x1 ⊆ domain l1 ∧ lookup 0 l2 = SOME y ⇒
-  ∃env1. cut_env (mk_new_cutset ctxt x1) l2 = SOME env1 ∧
+  ∃env1. cut_env (mk_new_cutset ctxt x1,LN) l2 = SOME env1 ∧
          locals_rel ctxt (inter l1 x1) env1
 Proof
-  fs [locals_rel_def,SUBSET_DEF,cut_env_def] >> fs [lookup_inter_alt]
+  fs [locals_rel_def,SUBSET_DEF,cut_env_def,cut_envs_def,cut_names_def,AllCaseEqs()]
+  >> fs [lookup_inter_alt]
   >> fs [mk_new_cutset_def,domain_toNumSet,MEM_MAP,set_fromNumSet,PULL_EXISTS]
   >> fs [DISJ_IMP_THM,PULL_EXISTS]
   >> strip_tac >> fs [domain_lookup]
@@ -310,11 +309,30 @@ Proof
   >> fs [EXTENSION,domain_lookup,lookup_fromAList]
 QED
 
+Theorem cut_env_LN_IMP:
+  cut_env (s,LN) l = SOME env ⇒
+  cut_envs (s,LN) l = SOME (env,LN)
+Proof
+  gvs [cut_env_def,cut_envs_def,cut_names_def]
+  \\ IF_CASES_TAC \\ gvs []
+QED
+
+Theorem env_to_list_LN_IMP:
+  env_to_list LN l = (x,p) ⇒ x = []
+Proof
+  strip_tac
+  \\ drule_all env_to_list_lookup_equiv
+  \\ gvs [lookup_def,ALOOKUP_NONE]
+  \\ Cases_on ‘x’ \\ gvs []
+  \\ Cases_on ‘h’ \\ gvs []
+  \\ metis_tac []
+QED
+
 Theorem cut_env_mk_new_cutset_IMP:
-  cut_env (mk_new_cutset ctxt x1) l1 = SOME l2 ⇒
+  cut_env (mk_new_cutset ctxt x1,LN) l1 = SOME l2 ⇒
   lookup 0 l2 = lookup 0 l1
 Proof
-  fs [cut_env_def] >> rw []
+  fs [cut_env_def,cut_envs_def,cut_names_def] >> rw []
   >> fs [SUBSET_DEF,mk_new_cutset_def]
   >> fs [lookup_inter_alt]
 QED
@@ -325,51 +343,53 @@ Proof
   fs [LASTN_CONS]
 QED
 
-
 Theorem comp_exp_preserves_eval:
-  !s e v t ctxt.
-   eval s (e:α loopLang$exp) = SOME v ∧ good_dimindex(:'a) ∧
-   state_rel s t /\ locals_rel ctxt s.locals t.locals ==>
-   word_exp t (comp_exp ctxt e) = SOME v
+  ∀s e v t ctxt.
+    eval s e = SOME v ∧
+    state_rel s t /\ locals_rel ctxt s.locals t.locals ==>
+    word_exp t (comp_exp ctxt e) = SOME v
 Proof
   ho_match_mp_tac eval_ind >>
   rw [] >>
-  fs [eval_def, comp_exp_def, word_exp_def]
-  >- (fs [find_var_def, locals_rel_def] >>
-      TOP_CASE_TAC >> fs [] >>
-      first_x_assum drule >>
-      strip_tac >> fs [] >> rveq >> fs [])
-  >- fs [state_rel_def, globals_rel_def]
-  >- (cases_on ‘eval s e’ >> fs [] >>
-      cases_on ‘x’ >> fs [] >>
-      first_x_assum drule_all >> fs [] >>
-      strip_tac >>
-      fs [state_rel_def, mem_load_def,
-      loopSemTheory.mem_load_def])
-  >- (fs [CaseEq "option"] >>
-      qsuff_tac
-      ‘the_words (MAP (λa. word_exp t a)
-                      (MAP (λa. comp_exp ctxt a) wexps)) = SOME ws’
-      >- fs [] >>
-      ntac 2 (pop_assum mp_tac) >>
-      ntac 3 (pop_assum kall_tac) >>
-      rpt (pop_assum mp_tac) >>
-      qid_spec_tac ‘ws’ >>
-      qid_spec_tac ‘wexps’ >>
-      Induct >> rw [] >>
-      last_assum mp_tac >>
-      impl_tac >- metis_tac [] >>
-      fs [the_words_def, CaseEq"option", CaseEq"word_loc"] >>
-      rveq >> fs [])
-  >- (fs [CaseEq"option", CaseEq"word_loc"] >> rveq >> fs []) >>
-  fs[state_rel_def] >>
+  fs [eval_def, comp_exp_def, word_exp_def, get_var_def]
+  >-
+   (fs [find_var_def, locals_rel_def] >>
+    TOP_CASE_TAC >> fs [] >>
+    first_x_assum drule >>
+    strip_tac >> fs [] >> rveq >> fs [])
+  >- fs [state_rel_def, globals_rel_def, get_store_def]
+  >-
+   (cases_on ‘eval s e’ >> fs [] >>
+    cases_on ‘x’ >> fs [] >>
+    first_x_assum drule_all >> fs [] >>
+    strip_tac >>
+    fs [state_rel_def, mem_load_def,
+        loopSemTheory.mem_load_def])
+  >-
+   (fs [CaseEq "option"] >>
+    qsuff_tac
+    ‘the_words (MAP (λa. word_exp t a)
+                    (MAP (λa. comp_exp ctxt a) wexps)) = SOME ws’
+    >- fs [] >>
+    ntac 2 (pop_assum mp_tac) >>
+    ntac 2 (pop_assum kall_tac) >>
+    rpt (pop_assum mp_tac) >>
+    qid_spec_tac ‘ws’ >>
+    qid_spec_tac ‘wexps’ >>
+    Induct >> rw [] >>
+    last_assum mp_tac >>
+    impl_tac >- metis_tac [] >>
+    fs [the_words_def, CaseEq"option", CaseEq"word_loc"] >>
+    rveq >> fs [])
+  >-
+   (fs [CaseEq"option", CaseEq"word_loc"] >> rveq >> fs []) >>
+  fs[state_rel_def,get_store_def] >>
   Cases_on ‘FLOOKUP t.store CurrHeap’ >> fs[] >>
   rename1 ‘x’ >>
   Cases_on ‘x’ >> fs[theWord_def, isWord_def,word_sh_def, the_words_def, good_dimindex_def,word_op_def] >>
   gvs[] >>
   simp[WORD_MUL_LSL]
 QED
-
 
 Theorem compile_Skip:
   ^(get_goal "comp _ loopLang$Skip") ∧
@@ -414,13 +434,13 @@ Proof
   cases_on ‘lookup n s.locals’ >>
   fs []  >> rveq >>
   TOP_CASE_TAC >>
-  fs [find_var_def, locals_rel_def, get_var_def] >>
+  fs [find_var_def, locals_rel_def, get_var_def, get_vars_def] >>
   res_tac >> rveq >>
+  fs [] >>
   TOP_CASE_TAC >> fs [isWord_def] >>
   fs [flush_state_def, state_rel_def,
       loopSemTheory.call_env_def]
 QED
-
 
 Theorem compile_Raise:
   ^(get_goal "loopLang$Raise")
@@ -438,7 +458,6 @@ Proof
   strip_tac >> fs [] >> rveq >> fs [] >>
   fs [state_rel_def]
 QED
-
 
 Theorem compile_Seq:
   ^(get_goal "comp _ (loopLang$Seq _ _)")
@@ -552,7 +571,7 @@ Proof
   drule locals_rel_intro >>
   strip_tac >>
   res_tac >> fs [] >>
-  fs [find_var_def, the_words_def, word_op_def] >>
+  fs [find_var_def, the_words_def, word_op_def, get_var_def] >>
   drule state_rel_intro >>
   strip_tac >> fs [] >>
   fs [loopSemTheory.set_var_def, set_var_def] >>
@@ -578,7 +597,7 @@ Proof
   drule locals_rel_intro >>
   strip_tac >>
   res_tac >> fs [] >>
-  fs [find_var_def, the_words_def, word_op_def] >>
+  fs [find_var_def, the_words_def, word_op_def, get_var_def] >>
   drule state_rel_intro >>
   strip_tac >> fs [] >>
   fs [loopSemTheory.set_var_def, set_var_def] >>
@@ -652,7 +671,8 @@ QED
 Theorem compile_Call:
   ^(get_goal "comp _ (loopLang$Call _ _ _ _)")
 Proof
-  rw [] >> qpat_x_assum ‘evaluate _ = (res,_)’ mp_tac >> simp [loopSemTheory.evaluate_def]
+  rw [] >> qpat_x_assum ‘evaluate _ = (res,_)’ mp_tac
+  >> simp [loopSemTheory.evaluate_def]
   >> simp [CaseEq"option"]
   >> strip_tac >> fs []
   >> rename [‘find_code _ _ _ = SOME x’]
@@ -783,6 +803,7 @@ Proof
     >> qpat_x_assum ‘locals_rel _ s.locals _’ assume_tac
     >> drule cut_env_mk_new_cutset
     >> rpt (disch_then drule) >> strip_tac >> fs []
+    >> drule cut_env_LN_IMP >> strip_tac >> fs []
     >> (IF_CASES_TAC >> fs [] >- (rveq >> fs [flush_state_def,state_rel_def]))
     >> fs [CaseEq"prod",CaseEq"option"] >> fs [] >> rveq >> fs []
     >> rename [‘_ = (SOME res2,st)’]
@@ -797,17 +818,18 @@ Proof
     >> Cases_on ‘res2’ >> fs [] >> rveq >> fs []
     >-
      (fs [Abbr‘tt’,call_env_def,push_env_def,dec_clock_def]
-      >> pairarg_tac >> fs [pop_env_def,set_var_def]
-      >> imp_res_tac env_to_list_IMP
+      >> pairarg_tac >> fs [pop_env_def,set_var_def,set_vars_def,alist_insert_def]
+      >> imp_res_tac env_to_list_LN_IMP
+      >> fs [domain_union,fromAList_def,domain_fromAList_toAList]
       >> fs [loopSemTheory.set_var_def,loopSemTheory.dec_clock_def]
-      >> fs [state_rel_def]
+      >> fs [state_rel_def,lookup_insert,lookup_fromAList_toAList]
       >> rename [‘find_var ctxt var_name’]
       >> ‘var_name IN domain ctxt’ by fs [loopLangTheory.acc_vars_def]
       >> simp [lookup_insert]
       >> imp_res_tac find_var_neq_0 >> fs []
       >> imp_res_tac cut_env_mk_new_cutset_IMP >> fs []
       >> match_mp_tac locals_rel_insert >> fs []
-      >> fs [locals_rel_def])
+      >> fs [locals_rel_def,lookup_fromAList_toAList])
     >> qunabbrev_tac ‘tt’
     >> pop_assum mp_tac
     >> Cases_on ‘res1’ >- fs []
@@ -827,6 +849,7 @@ Proof
   >> qpat_x_assum ‘locals_rel _ s.locals _’ assume_tac
   >> drule cut_env_mk_new_cutset
   >> rpt (disch_then drule) >> strip_tac >> fs []
+  >> drule cut_env_LN_IMP >> strip_tac >> fs []
   >> (IF_CASES_TAC >> fs [] >- (rveq >> fs [flush_state_def,state_rel_def]))
   >> fs [CaseEq"prod",CaseEq"option"] >> fs [] >> rveq >> fs []
   >> rename [‘_ = (SOME res2,st)’]
@@ -852,8 +875,9 @@ Proof
     >> pairarg_tac >> fs [dec_clock_def,loopSemTheory.dec_clock_def]
     >> pop_assum mp_tac
     >> pairarg_tac >> fs [dec_clock_def,loopSemTheory.dec_clock_def]
-    >> reverse IF_CASES_TAC >- (imp_res_tac env_to_list_IMP >> fs [])
-    >> strip_tac >> fs [] >> pop_assum mp_tac >> fs [set_var_def]
+    >> imp_res_tac env_to_list_LN_IMP
+    >> fs [domain_union,fromAList_def,domain_fromAList_toAList]
+    >> fs [set_vars_def,alist_insert_def]
     >> fs [cut_res_def]
     >> qmatch_goalsub_abbrev_tac ‘wordSem$evaluate (_,tt)’ >> strip_tac
     >> first_x_assum (qspecl_then [‘tt’,‘ctxt’,‘retv’,‘l1'’] mp_tac)
@@ -865,12 +889,14 @@ Proof
       >> once_rewrite_tac [acc_vars_acc] >> fs [] >> strip_tac
       >> qpat_x_assum ‘no_Loops (Call _ _ _ _)’ mp_tac
       >> simp [no_Loops_def,every_prog_def,no_Loop_def] >> strip_tac
-      >> imp_res_tac env_to_list_IMP >> fs []
-      >> fs [lookup_insert]
+      >> imp_res_tac env_to_list_LN_IMP
+      >> fs [domain_union,fromAList_def,domain_fromAList_toAList]
+      >> fs [lookup_insert,lookup_fromAList,ALOOKUP_toAList]
       >> imp_res_tac find_var_neq_0 >> fs []
       >> imp_res_tac cut_env_mk_new_cutset_IMP >> fs []
-      >> match_mp_tac locals_rel_insert >> fs [locals_rel_def])
-    >> fs [] >> strip_tac
+      >> match_mp_tac locals_rel_insert >> fs [locals_rel_def]
+      >> fs [lookup_fromAList,ALOOKUP_toAList])
+    >> fs [lookup_fromAList,ALOOKUP_toAList] >> strip_tac
     >> Cases_on ‘q’ >> fs [] >> rveq >> fs []
     >-
      (rename [‘cut_state names s9’]
@@ -905,9 +931,10 @@ Proof
     (qsuff_tac ‘n1 = LENGTH xs1’ >> fs [LASTN_LENGTH_ID]
      >> unabbrev_all_tac >> fs [])
   >> fs [] >> fs [Abbr‘n1’,Abbr‘xs1’] >> strip_tac >> rveq >> fs []
-  >> ‘t1.locals = fromAList l ∧
+  >> imp_res_tac env_to_list_LN_IMP >> fs [fromAList_def]
+  >> ‘t1.locals = fromAList (toAList env1) ∧
       t1.stack = t.stack ∧ t1.handler = t.handler’ by fs [state_component_equality]
-  >> reverse IF_CASES_TAC >- (imp_res_tac env_to_list_IMP >> fs [] >> rfs [])
+  >> simp [domain_fromAList_toAList]
   >> strip_tac >> fs []
   >> pop_assum mp_tac >> fs [set_var_def]
   >> fs [cut_res_def]
@@ -921,11 +948,11 @@ Proof
     >> once_rewrite_tac [acc_vars_acc] >> fs [] >> strip_tac
     >> qpat_x_assum ‘no_Loops (Call _ _ _ _)’ mp_tac
     >> simp [no_Loops_def,every_prog_def,no_Loop_def] >> strip_tac
-    >> imp_res_tac env_to_list_IMP >> fs []
-    >> fs [lookup_insert]
+    >> fs [lookup_insert,lookup_fromAList,ALOOKUP_toAList]
     >> imp_res_tac find_var_neq_0 >> fs []
     >> imp_res_tac cut_env_mk_new_cutset_IMP >> fs []
-    >> match_mp_tac locals_rel_insert >> fs [locals_rel_def])
+    >> match_mp_tac locals_rel_insert >> fs [locals_rel_def]
+    >> fs [lookup_insert,lookup_fromAList,ALOOKUP_toAList])
   >> fs [] >> strip_tac
   >> Cases_on ‘q’ >> fs [] >> rveq >> fs []
   >-
@@ -964,7 +991,7 @@ Proof
   TOP_CASE_TAC >> fs [] >> rveq >> fs [] >>
   fs [state_rel_def, flush_state_def,
       loopSemTheory.call_env_def] >>
-  fs [cut_env_def] >>
+  fs [cut_env_def,cut_envs_def,cut_names_def,AllCaseEqs()] >>
   rveq >> fs [] >>
   fs [lookup_inter] >>
   TOP_CASE_TAC >>
@@ -2100,5 +2127,3 @@ Proof
   drule_then irule loop_to_word_compile_prog_every_inst_ok_less>>
   gs[every_loop_inst_ok_comp_prog]
 QED
-
-val _ = export_theory();

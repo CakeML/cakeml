@@ -1,11 +1,13 @@
 (*
   The formal semantics of BVL
 *)
-open preamble bvlTheory closSemTheory
-open clos_to_bvlTheory (* for closure_tag and num_added_globals *)
-local open backendPropsTheory in end;
-
-val _ = new_theory"bvlSem"
+Theory bvlSem
+Ancestors
+  bvl closSem
+  clos_to_bvl (* for closure_tag and num_added_globals *)
+  backendProps[qualified]
+Libs
+  preamble
 
 val _ = Parse.hide "str";
 
@@ -374,6 +376,13 @@ Definition do_app_def:
                     refs := s.refs |+ (ptr, ByteArray T ds))
             | _ => Error)
         | _ => Error)
+    | (MemOp XorByte,[RefPtr _ dst; RefPtr _ src]) =>
+        (case (FLOOKUP s.refs src, FLOOKUP s.refs dst) of
+         | (SOME (ByteArray _ ws), SOME (ByteArray fl ds)) =>
+           (case xor_bytes ws ds of
+            | SOME ds1 => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray fl ds1))
+            | NONE => Error)
+         | _ => Error)
     | (BlockOp (TagEq n),[Block tag xs]) =>
         Rval (Boolv (tag = n), s)
     | (BlockOp (LenEq l),[Block tag xs]) =>
@@ -671,5 +680,3 @@ End
 (* clean up *)
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
-
-val _ = export_theory()

@@ -4,11 +4,11 @@
   closLang. It also makes all division-by-zero and out-of-bounds
   exceptions raised explicitly.
 *)
-open preamble flatLangTheory closLangTheory clos_interpTheory;
-
-val _ = new_theory "flat_to_clos"
-
-val _ = set_grammar_ancestry ["flatLang", "closLang", "clos_interp", "backend_common"];
+Theory flat_to_clos
+Ancestors
+  flatLang closLang clos_interp backend_common[qualified]
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -147,6 +147,7 @@ Definition compile_op_def:
     | CopyStrAw8 => Let t xs (CopyByteAw8 t)
     | CopyAw8Str => Let t xs (CopyByteStr t)
     | CopyAw8Aw8 => Let t xs (CopyByteAw8 t)
+    | Aw8xor_unsafe => Op t (MemOp XorByte) xs
     | VfromList => Op t (BlockOp (FromList 0)) xs
     | WordFromInt W64 => Op t (WordOp WordFromInt) xs
     | WordToInt W64 => Op t (WordOp WordToInt) xs
@@ -327,4 +328,3 @@ Proof
   \\ Cases_on `compile m [x]` \\ fs []
 QED
 
-val _ = export_theory()

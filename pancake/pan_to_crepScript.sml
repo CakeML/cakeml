@@ -1,11 +1,11 @@
 (*
   Compilation from panLang to crepLang.
 *)
-open preamble pan_commonTheory panLangTheory crepLangTheory
-
-val _ = new_theory "pan_to_crep"
-
-val _ = set_grammar_ancestry ["pan_common", "panLang","crepLang", "backend_common"];
+Theory pan_to_crep
+Ancestors
+  pan_common panLang crepLang backend_common[qualified]
+Libs
+  preamble
 
 Datatype:
   context =
@@ -376,4 +376,3 @@ Definition compile_prog_def:
            comp params body)) prog
 End
 
-val _ = export_theory();

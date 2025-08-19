@@ -6,17 +6,19 @@
   fragment*. In the independent fragment are all types and constants that are
   not depending on what is introduced by the update.
  *)
-open preamble mlstringTheory setSpecTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
-     holSemanticsTheory holSemanticsExtraTheory holSoundnessTheory holAxiomsSyntaxTheory holBoolTheory
-     holExtensionTheory
+Theory holModelConservativity
+Ancestors
+  mlstring setSpec holSyntaxLib holSyntax holSyntaxExtra
+  holSemantics holSemanticsExtra holSoundness holAxiomsSyntax
+  holBool holExtension
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
-
-val _ = new_theory"holModelConservativity"
 
 val _ = Parse.hide "mem";
 
@@ -9743,4 +9745,3 @@ Proof
   fs[] >> metis_tac[]
 QED
 
-val _ = export_theory()

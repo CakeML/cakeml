@@ -1,10 +1,12 @@
 (*
   The formal semantics of closLang
 *)
-open preamble backend_commonTheory closLangTheory flatLangTheory
-     semanticPrimitivesPropsTheory (* for opw_lookup and others *)
-
-val _ = new_theory"closSem"
+Theory closSem
+Ancestors
+  backend_common closLang flatLang
+  semanticPrimitivesProps (* for opw_lookup and others *)
+Libs
+  preamble
 
 (* differs from store_v by removing the single value Refv,
    also, adds flag to ByteArray for equality semantics *)
@@ -360,6 +362,13 @@ Definition do_app_def:
         | SOME (ByteArray ws) =>
           (case copy_array (ws,srcoff) len NONE of
            | SOME ds => Rval (ByteVector ds, s)
+           | _ => Error)
+        | _ => Error)
+    | (MemOp XorByte,[RefPtr _ dst; ByteVector ws]) =>
+       (case FLOOKUP s.refs dst of
+        | SOME (ByteArray ds) =>
+          (case xor_bytes ws ds of
+           | SOME ds1 => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray ds1))
            | _ => Error)
         | _ => Error)
     | (BlockOp (TagEq n),[Block tag xs]) =>
@@ -794,5 +803,3 @@ Definition semantics_def:
              (IMAGE (λk. fromList
                 (SND (evaluate (es,[],st k))).ffi.io_events) UNIV))
 End
-
-val _ = export_theory()

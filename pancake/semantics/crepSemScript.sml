@@ -1,18 +1,16 @@
 (*
   Semantics of crepLang
 *)
+Theory crepSem
+Ancestors
+  crepLang alignment[qualified] finite_map[qualified]
+  misc[qualified] (* for read_bytearray *)
+  wordLang[qualified] (* for word_op and word_sh *)
+  panSem[qualified] (* for word_lab datatype  *)
+  ffi[qualified] lprefix_lub[qualified]
+Libs
+  preamble
 
-open preamble crepLangTheory;
-local open alignmentTheory
-           miscTheory     (* for read_bytearray *)
-           wordLangTheory (* for word_op and word_sh *)
-           panSemTheory   (* for word_lab datatype  *)
-           ffiTheory in end;
-
-val _ = new_theory"crepSem";
-val _ = set_grammar_ancestry [
-  "crepLang", "alignment",
-  "finite_map", "misc", "wordLang", "panSem", "ffi",  "lprefix_lub"]
 
 (* re-defining them again to avoid varname from panSem *)
 Type varname = ``:num``
@@ -418,5 +416,3 @@ Definition semantics_def:
 End
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
-
-val _ = export_theory();

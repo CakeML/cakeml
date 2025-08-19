@@ -2,11 +2,13 @@
   Proves a connection between the monadic translator's ArrowP
   judgement and CF's app judgement.
 *)
-open ml_monad_translatorBaseTheory ml_monad_translatorTheory cfHeapsBaseTheory set_sepTheory pred_setTheory cfStoreTheory Satisfy
-open semanticPrimitivesTheory cfTacticsLib evaluateTheory ml_translatorTheory
-open evaluateTheory
-
-val _ = new_theory"cfMonad"
+Theory cfMonad
+Ancestors
+  ml_monad_translatorBase ml_monad_translator cfHeapsBase set_sep
+  pred_set cfStore semanticPrimitives evaluate ml_translator
+  evaluate
+Libs
+  Satisfy cfTacticsLib
 
 (* Theorems to convert monadic specifications to cf specifications *)
 
@@ -486,4 +488,3 @@ Proof
   \\ simp[]
 QED
 
-val _ = export_theory();
