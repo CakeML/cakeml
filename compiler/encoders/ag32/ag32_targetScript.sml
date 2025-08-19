@@ -97,8 +97,10 @@ Definition ag32_enc_def:
       ag32_encode
         (ag32_constant (temp_reg, i) ++
         [Normal (ag32_bop bop, n2w r1, Reg (n2w r2), Reg temp_reg)])) /\
-   (ag32_enc (Inst (Arith (asm$Shift sh r1 r2 n))) =
-      enc (Shift (ag32_sh sh, n2w r1, Reg (n2w r2), Imm (n2w n)))) /\
+   (ag32_enc (Inst (Arith (asm$Shift sh r1 r2 (Imm i)))) =
+      enc (Shift (ag32_sh sh, n2w r1, Reg (n2w r2), Imm (w2w i)))) /\
+   (ag32_enc (Inst (Arith (asm$Shift sh r1 r2 (Reg r3)))) =
+      enc (Shift (ag32_sh sh, n2w r1, Reg (n2w r2), Reg (n2w r3)))) /\
    (ag32_enc (Inst (Arith (Div _ _ _))) = enc ReservedInstr) /\
    (ag32_enc (Inst (Arith (LongMul r1 r2 r3 r4))) =
       ag32_encode
@@ -258,7 +260,5 @@ End
 
 val (ag32_config, ag32_asm_ok) = asmLib.target_asm_rwts [] ``ag32_config``
 
-Theorem ag32_config =
-  ag32_config
-Theorem ag32_asm_ok =
-  ag32_asm_ok
+Theorem ag32_config = ag32_config
+Theorem ag32_asm_ok = ag32_asm_ok

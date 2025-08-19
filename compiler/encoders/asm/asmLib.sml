@@ -349,8 +349,9 @@ fun asm_cases_tac i =
         Q.MATCH_GOALSUB_RENAME_TAC `Binop b _ _ r`
         \\ Cases_on `r`
         \\ Cases_on `b`,
-        Q.MATCH_GOALSUB_RENAME_TAC `Shift s _ _ _`
-        \\ Cases_on `s`,
+        Q.MATCH_GOALSUB_RENAME_TAC `Shift s _ _ l`
+        \\ Cases_on `s`
+        \\ Cases_on `l`,
         all_tac, (* Div *)
         all_tac, (* LongMul *)
         all_tac, (* LongDiv *)
