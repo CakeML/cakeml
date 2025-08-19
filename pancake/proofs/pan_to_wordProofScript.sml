@@ -266,7 +266,7 @@ QED
 
 
 Theorem state_rel_imp_semantics:
-  (∀addr. addr ∈ s.memaddrs ⇒ t.memory addr = wlab_wloc(s.memory addr)) ∧
+  (∀addr'. addr' ∈ s.memaddrs ⇒ t.memory addr' = wlab_wloc(s.memory addr')) ∧
   no_labels t.memory t.mdomain ∧
   start = «main» ∧
   globals_size = SUM (MAP size_of_shape (dec_shapes (compile_prog pan_code))) ∧
@@ -1017,8 +1017,8 @@ Proof
 QED
 
 Theorem every_inst_ok_less_shape_val:
-  (∀e. every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2) ((shape_val e):'a exp)) ∧
-  (∀es. EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) ((shape_vals es):'a exp list))
+  (∀e. every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2) ((shape_val e):'a panLang$exp)) ∧
+  (∀es. EVERY (every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2)) ((shape_vals es):'a panLang$exp list))
 Proof
   Induct >>
   rw[pan_globalsTheory.shape_val_def,panPropsTheory.every_exp_def] >>
