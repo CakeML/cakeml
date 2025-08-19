@@ -1,14 +1,11 @@
 (*
   Correctness proof for pan_globals
 *)
-
-open preamble
-     panSemTheory panLangTheory pan_globalsTheory panPropsTheory
-     stack_removeProofTheory (* TODO: just for addresses_def. should this be moved? *)
+Theory pan_globalsProof
+Ancestors
+  panSem pan_globals panProps panLang stack_removeProof
 
 val _ = new_theory "pan_globalsProof";
-
-val _ = set_grammar_ancestry  ["panSem", "pan_globals", "panProps", "panLang", "stack_removeProof"];
 
 val s = ``s:('a,'ffi) panSem$state``
 
