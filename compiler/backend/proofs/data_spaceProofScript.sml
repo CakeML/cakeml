@@ -77,20 +77,7 @@ Proof
     \\ fs[lookup_insert,state_component_equality]
     \\ METIS_TAC [])
   THEN1 (* Assign *)
-   (Cases_on `op = ThunkOp ForceThunk` >- (
-      gvs [op_requires_names_def, op_space_reset_def, cut_state_opt_def,
-           cut_state_def, AllCaseEqs(), PULL_EXISTS]
-      \\ imp_res_tac locals_ok_cut_env \\ gvs []
-      \\ (
-        (qmatch_goalsub_abbrev_tac `locals_ok ss.locals _`)
-           ORELSE (qabbrev_tac `ss = s`)
-        \\ qexistsl [`ss.locals`, `ss.safe_for_space`, `ss.peak_heap_length`,
-                     `ss.stack_max`] \\ gvs [Abbr `ss`, state_component_equality]
-        \\ gvs [cut_env_def]
-        \\ `locals_ok s.locals s.locals` by gvs [locals_ok_refl]
-        \\ gvs [locals_ok_def] \\ rw []
-        \\ gvs [lookup_inter_alt]))
-    \\ gvs []
+   (gvs []
     \\ BasicProvers.TOP_CASE_TAC \\ fs[cut_state_opt_def]
     \\ BasicProvers.CASE_TAC \\ fs[]
     THEN1 (Cases_on `get_vars args s.locals`
@@ -226,22 +213,7 @@ Proof
       \\ MAP_EVERY Q.EXISTS_TAC [`w'`,`safe'''`,`peak'''`,`smx'''`]
       \\ IF_CASES_TAC \\ fs [])
     THEN1 (* Assign *)
-     (Cases_on `o' = ThunkOp ForceThunk`
-      >- (gvs[]
-          \\ Cases_on `o0` \\ gvs []
-          >- gvs [evaluate_def, op_requires_names_def, op_space_reset_def]
-          \\ gvs [space_def, pMakeSpace_def]
-          \\ simp [Once evaluate_def]
-          \\ pairarg_tac \\ gvs []
-          \\ Cases_on `q = SOME (Rerr (Rabort Rtype_error))` \\ gvs []
-          \\ first_x_assum drule \\ strip_tac \\ gvs []
-          \\ reverse $ Cases_on `q = NONE` \\ gvs []
-          >- metis_tac []
-          \\ last_x_assum drule \\ strip_tac \\ gvs []
-          \\ Cases_on `res = NONE` \\ gvs []
-          \\ drule_then (qspecl_then [`smx`, `safe`, `peak`] assume_tac)
-                        evaluate_smx_safe_peak_swap \\ gvs []
-          \\ metis_tac []) \\ gvs []
+     (gvs []
       \\ fs[pMakeSpace_def,space_def] \\ reverse (Cases_on `o0`)
       \\ fs[evaluate_def,cut_state_opt_def]
       THEN1
@@ -478,6 +450,30 @@ Proof
    (Cases_on `get_var n s.locals` \\ fs[]
     \\ IMP_RES_TAC locals_ok_get_var \\ fs[]
     \\ SRW_TAC [] [] \\ fs[])
+  THEN1 (* Force *)
+    (gvs [AllCaseEqs(), PULL_EXISTS]
+     \\ imp_res_tac locals_ok_get_var \\ gvs []
+     \\ imp_res_tac locals_ok_cut_env \\ gvs []
+     >- gvs [flush_state_def, state_component_equality, locals_ok_def]
+     >- (
+      gvs [set_var_def, state_component_equality, locals_ok_def]
+      \\ rw [lookup_insert])
+     >- gvs [flush_state_def, state_component_equality, locals_ok_def]
+     >- (
+      `call_env args1 ss (dec_clock (s with locals := l)) =
+          call_env args1 ss (dec_clock s)`
+        by gvs [state_component_equality, dec_clock_def, call_env_def] \\ gvs []
+      \\ gvs [state_component_equality]
+      \\ metis_tac [locals_ok_refl])
+     >- gvs [call_env_def, dec_clock_def, push_env_def,
+             state_component_equality, locals_ok_def]
+     >- (
+      gvs [PULL_EXISTS]
+      \\ gvs [call_env_def, dec_clock_def, push_env_def, locals_ok_def]
+      \\ gvs [state_component_equality])
+    >- (
+      gvs [call_env_def, push_env_def, dec_clock_def, state_component_equality]
+      \\ metis_tac [locals_ok_refl]))
   THEN1 (* Call *)
    (Cases_on `get_vars args s.locals` \\ fs[]
     \\ IMP_RES_TAC locals_ok_get_vars \\ fs[]
