@@ -5,8 +5,6 @@ Theory pan_globalsProof
 Ancestors
   panSem pan_globals panProps panLang stack_removeProof
 
-val _ = new_theory "pan_globalsProof";
-
 val s = ``s:('a,'ffi) panSem$state``
 
 Definition disjoint_globals_def:
