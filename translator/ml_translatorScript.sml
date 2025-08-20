@@ -1,11 +1,11 @@
-Theory ml_translator
 (*
     This script defines Eval and other core definitions used by the
     translator. The theorems about Eval serve as an interface between
     the source semantics and the translator's automation.
 *)
+Theory ml_translator
 Ancestors
-  integer ml_prog ast semanticPrimitives semanticPrimitivesProps
+  machine_ieee integer ml_prog ast semanticPrimitives semanticPrimitivesProps
   evaluateProps fpSem mlvector
   mlstring evaluate
 Libs
