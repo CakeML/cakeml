@@ -648,41 +648,18 @@ Proof
   \\ rveq \\ fs [state_component_equality]
 QED
 
+Theorem state_rel_dest_thunk:
+  state_rel s t ∧
+  dest_thunk (data_to_bvi_v z) s.refs = IsThunk ev v ⇒
+    ∃v'. dest_thunk z t.refs = IsThunk ev v' ∧
+         data_to_bvi_v v' = v
+Proof
+  rw []
+  \\ gvs [oneline bviSemTheory.dest_thunk_def, oneline dest_thunk_def,
+          state_rel_def, lookup_map, AllCaseEqs()]
+QED
+
 fun note_tac s g = (print ("compile_correct: " ^ s ^ "\n"); ALL_TAC g);
-
-Theorem evaluate_push_Seq:
-  evaluate ((if tail then Seq p (Return n) else p), t) =
-    evaluate (Seq p (if tail then Return n else Skip), t)
-Proof
-  Cases_on `tail` \\ rw [evaluate_def]
-  \\ Cases_on `evaluate (p,t)` \\ rw []
-QED
-
-Theorem AppUnit_eq:
-  evaluate (AppUnit,t) =
-    evaluate (Seq
-               (Seq
-                 (Seq Skip (Assign 1 (BlockOp (ElemAt 1)) [0] NONE))
-                 (Assign 2 (BlockOp (EqualConst (Int 0))) [1] NONE))
-               (If 2
-                 (Seq
-                   (Seq
-                     (Seq Skip (Assign 3 (BlockOp (Cons 0)) [] NONE))
-                     (Seq
-                       Skip
-                       (Seq Skip (Assign 4 (BlockOp (ElemAt 0)) [0] NONE))))
-                   (Call NONE NONE [3; 0; 4] NONE))
-                 (Seq
-                   (Seq (Seq Skip (Assign 6 (BlockOp (Cons 0)) [] NONE)) Skip)
-                   (Call NONE (SOME bvl_num_stubs) [6; 0] NONE))),t)
-Proof
-  simp [AppUnit_def]
-  \\ simp [evaluate_def, dataLangTheory.op_requires_names_def,
-           dataLangTheory.op_space_reset_def, cut_state_opt_def, get_vars_def,
-           do_app_def, do_int_app_def, do_app_aux_def, do_space_def,
-           data_spaceTheory.op_space_req_def,
-           backend_commonTheory.small_enough_int_def]
-QED
 
 Theorem compile_correct:
   ∀xs env s1 res s2 t1 n corr tail live.
@@ -1003,169 +980,6 @@ Proof
        \\ IMP_RES_TAC get_vars_reverse
        \\ rveq \\ fs [])
     \\ gvs []
-    \\ Cases_on `op = ThunkOp ForceThunk` \\ gvs [] >- (
-      gvs [evaluate_push_Seq]
-      \\ gvs [iAssign_def, dataLangTheory.op_requires_names_def,
-              dataLangTheory.op_space_reset_def]
-      \\ gvs [evaluate_def, cut_state_opt_def, cut_state_def, cut_env_def]
-      \\ gvs [oneline bviSemTheory.dest_thunk_def, dest_thunk_def, AllCaseEqs()]
-      \\ pairarg_tac \\ gvs []
-      >- (
-        `lookup ptr (map data_to_bvi_ref t2.refs) =
-            SOME (Thunk Evaluated v)`by gvs [state_rel_def]
-        \\ gvs [lookup_map, set_var_def]
-        \\ Cases_on `tail` \\ gvs [evaluate_def]
-        >- gvs [get_var_def, flush_state_def, data_to_bvi_result_def,
-                state_rel_def]
-        \\ rw []
-        >- gvs [state_rel_def, set_var_def]
-        >- (unabbrev_all_tac \\ gvs [lookup_insert, lookup_inter])
-        >- (
-          unabbrev_all_tac
-          \\ gvs [var_corr_def, get_var_def, LIST_REL_EL_EQN, lookup_map,
-                  lookup_insert, lookup_inter]
-          \\ gvs [lookup_inter_EQ, lookup_list_to_num_set, EL_MAP]
-          \\ rw []
-          \\ res_tac \\ gvs [MEM_EL])
-        >- (
-          unabbrev_all_tac
-          \\ gvs [lookup_insert, AllCaseEqs(), lookup_inter]
-          \\ first_x_assum drule \\ rw [])
-        >- (
-          unabbrev_all_tac
-          \\ gvs [lookup_insert] \\ rw []
-          >- gvs [state_rel_def]
-          \\ gvs [lookup_inter, AllCaseEqs(), lookup_list_to_num_set]
-          \\ Cases_on `MEM k live` \\ gvs [])
-        >- gvs [jump_exc_def]
-        >- gvs [var_corr_def, get_var_def, get_vars_def, lookup_map,
-                state_rel_def, data_to_bvi_ref_def])
-      >- (
-        `lookup ptr (map data_to_bvi_ref t2.refs) =
-            SOME (Thunk NotEvaluated v)` by gvs [state_rel_def]
-        \\ gvs [lookup_map]
-        \\ `r.clock = t2.clock` by gvs [state_rel_def]
-        \\ gvs [flush_state_def, data_to_bvi_result_def, state_rel_def])
-      >- (
-        `lookup ptr (map data_to_bvi_ref t2.refs) =
-            SOME (Thunk NotEvaluated v)`by gvs [state_rel_def]
-        \\ gvs [lookup_map]
-        \\ `r.clock = t2.clock` by gvs [state_rel_def] \\ gvs [PULL_EXISTS]
-        \\ `state_rel (dec_clock 1 r)
-              (t2 with <|
-                locals := insert 0 w' LN;
-                clock := t2.clock - 1 |>)`
-          by gvs [bviSemTheory.dec_clock_def, dec_clock_def, state_rel_def]
-        \\ last_x_assum $ drule_at (Pat `state_rel _ _`) \\ gvs []
-        \\ disch_then $ qspecl_then [`1`, `[0]`, `T`, `[]`] mp_tac
-        \\ impl_tac
-        >- gvs [var_corr_def, get_var_def, dec_clock_def, lookup_map,
-                lookup_insert]
-        \\ strip_tac \\ gvs []
-        \\ Cases_on `pres` \\ gvs []
-        \\ gvs [data_to_bvi_v_def, SF ETA_ss]
-        \\ gvs [bviSemTheory.AppUnit_def, compile_def]
-        \\ gvs [any_el_def, dataLangTheory.mk_ticks_def]
-        \\ gvs [iAssign_def, dataLangTheory.op_requires_names_def,
-                dataLangTheory.op_space_reset_def,
-                data_spaceTheory.op_space_req_def]
-        \\ gvs [AppUnit_eq, PULL_EXISTS]
-        \\ reverse $ Cases_on `x` \\ gvs []
-        >- (Cases_on `e` \\ gvs [data_to_bvi_result_def])
-        \\ imp_res_tac evaluate_locals_LN \\ gvs []
-        \\ qpat_x_assum `evaluate _ = (SOME x,_)` kall_tac
-        \\ qpat_x_assum `update_thunk _ _ _ = SOME _` mp_tac
-        \\ simp [bviSemTheory.update_thunk_def] \\ TOP_CASE_TAC
-        \\ simp [bviSemTheory.store_thunk_def]
-        \\ ntac 3 (TOP_CASE_TAC \\ simp []) \\ strip_tac \\ gvs []
-        \\ gvs [update_thunk_def]
-        \\ `dest_thunk [a] t2'.refs = NotThunk` by (
-          gvs [state_rel_def, oneline bviSemTheory.dest_thunk_def,
-               oneline dest_thunk_def]
-          \\ CASE_TAC \\ gvs [data_to_bvi_v_def]
-          \\ CASE_TAC \\ gvs []
-          \\ gvs [lookup_map]
-          \\ ntac 2 (CASE_TAC \\ gvs [])
-          \\ gvs [data_to_bvi_ref_def]) \\ gvs []
-        \\ gvs [store_thunk_def]
-        \\ `∀n. FLOOKUP s''.refs n = lookup n (map data_to_bvi_ref t2'.refs)`
-          by gvs [state_rel_def] \\ gvs []
-        \\ pop_assum $ qspec_then `ptr` assume_tac \\ gvs []
-        \\ gvs [lookup_map]
-        \\ Cases_on `tail` \\ gvs [evaluate_def]
-        >- (
-          gvs [get_var_def, set_var_def, state_rel_def, flush_state_def,
-               lookup_map, lookup_insert, FLOOKUP_UPDATE,
-               data_to_bvi_result_def]
-          \\ rw [] \\ gvs [data_to_bvi_ref_def])
-        \\ gvs [lookup_insert, map_insert, var_corr_def, get_var_def,
-                set_var_def]
-        \\ conj_tac
-        >- (
-          gvs [state_rel_def, lookup_map, lookup_insert]
-          \\ rw []
-          >- gvs [data_to_bvi_ref_def, FLOOKUP_DEF]
-          \\ gvs [FLOOKUP_UPDATE])
-        \\ conj_tac
-        >- (
-          rw []
-          \\ unabbrev_all_tac \\ gvs []
-          \\ gvs [lookup_inter])
-        \\ conj_tac
-        >- (
-          `¬MEM n1 corr` by (
-            qpat_x_assum `∀k. n1 ≤ k ⇒ _` assume_tac
-            \\ qpat_x_assum `LIST_REL _ corr _` assume_tac
-            \\ CCONTR_TAC \\ gvs []
-            \\ gvs [MEM_EL, LIST_REL_EL_EQN]
-            \\ first_x_assum drule \\ gvs [lookup_map, EL_MAP])
-          \\ gvs [LIST_REL_EL_EQN, MEM_EL]
-          \\ rw []
-          \\ unabbrev_all_tac
-          \\ gvs [lookup_map, lookup_inter_EQ, lookup_list_to_num_set, EL_MAP,
-                  MEM_EL]
-          \\ metis_tac [])
-        \\ conj_tac
-        >- (
-          rw []
-          \\ unabbrev_all_tac
-          \\ gvs [lookup_inter_alt]
-          \\ res_tac
-          \\ fs [])
-        \\ conj_tac
-        >- (
-          rw []
-          \\ unabbrev_all_tac
-          \\ gvs [lookup_inter_EQ, lookup_list_to_num_set, EL_MAP, MEM_EL]
-          \\ metis_tac [])
-        \\ gvs [jump_exc_def]
-        \\ rpt (CASE_TAC \\ gvs []))
-      >- (
-        `lookup ptr (map data_to_bvi_ref t2.refs) =
-            SOME (Thunk NotEvaluated v)` by gvs [state_rel_def]
-        \\ gvs [lookup_map]
-        \\ `r.clock = t2.clock` by gvs [state_rel_def] \\ gvs [PULL_EXISTS]
-        \\ `state_rel (dec_clock 1 r)
-              (t2 with <|
-                locals := insert 0 w' LN;
-                clock := t2.clock - 1 |>)`
-          by gvs [bviSemTheory.dec_clock_def, dec_clock_def, state_rel_def]
-        \\ last_x_assum $ drule_at (Pat `state_rel _ _`) \\ gvs []
-        \\ disch_then $ qspecl_then [`1`, `[0]`, `T`, `[]`] mp_tac
-        \\ impl_tac
-        >- (gvs [var_corr_def, get_var_def, dec_clock_def, lookup_map,
-                lookup_insert]
-            \\ rw [] \\ gvs [jump_exc_def, AllCaseEqs()])
-        \\ gvs [] \\ strip_tac \\ gvs []
-        \\ Cases_on `pres` \\ gvs []
-        \\ Cases_on `x` \\ gvs [data_to_bvi_result_def]
-        \\ gvs [bviSemTheory.AppUnit_def, compile_def]
-        \\ gvs [any_el_def, dataLangTheory.mk_ticks_def]
-        \\ gvs [iAssign_def, dataLangTheory.op_requires_names_def,
-                dataLangTheory.op_space_reset_def,
-                data_spaceTheory.op_space_req_def]
-        \\ gvs [AppUnit_eq, PULL_EXISTS]
-        \\ metis_tac []))
     \\ reverse(Cases_on `do_app op (MAP data_to_bvi_v (REVERSE z')) r`) \\ full_simp_tac(srw_ss())[] >- (
      imp_res_tac bviPropsTheory.do_app_err >> full_simp_tac(srw_ss())[] >>
      rveq >> IF_CASES_TAC >>
@@ -1394,6 +1208,9 @@ Proof
       \\ fs[jump_exc_def]
       \\ TOP_CASE_TAC \\ fs[]
       \\ TOP_CASE_TAC \\ fs[])
+    \\ Cases_on `op = ThunkOp ForceThunk` \\ gvs []
+    >- gvs [bviSemTheory.do_app_def, bvlSemTheory.do_app_def,
+           bviSemTheory.do_app_aux_def, AllCaseEqs()]
     \\ fs []
     \\ fs[bviSemTheory.state_component_equality] \\ rveq
     \\ Cases_on `op_requires_names op`
@@ -1584,6 +1401,66 @@ Proof
     \\ FULL_SIMP_TAC (srw_ss()) [var_corr_def,dataSemTheory.dec_clock_def,
                                  get_var_def,state_rel_def,bviSemTheory.dec_clock_def,
                                  jump_exc_NONE])
+  >- ((* Force *)
+    gvs [evaluate_def, AllCaseEqs(), PULL_EXISTS]
+    >- (
+      gvs [any_el_ALT, var_corr_def, LIST_REL_EL_EQN]
+      \\ last_x_assum $ drule_then assume_tac \\ gvs []
+      \\ gvs [get_var_def, lookup_map]
+      \\ drule_all_then assume_tac state_rel_dest_thunk \\ gvs []
+      \\ Cases_on `tail` \\ gvs []
+      >- gvs [state_rel_def, flush_state_def]
+      \\ gvs [state_rel_def, set_var_def, lookup_insert, lookup_map] \\ rw []
+      >- cheat
+      >- cheat
+      >- cheat
+      >- gvs [jump_exc_def])
+    >- (
+      gvs [any_el_ALT, var_corr_def, LIST_REL_EL_EQN]
+      \\ last_x_assum $ drule_then assume_tac \\ gvs []
+      \\ gvs [get_var_def, lookup_map]
+      \\ drule_all_then assume_tac state_rel_dest_thunk \\ gvs []
+      \\ `t1.clock = s.clock` by gvs [state_rel_def] \\ gvs []
+      \\ gvs [state_rel_def, flush_state_def])
+    \\ gvs [any_el_ALT, var_corr_def, LIST_REL_EL_EQN]
+    \\ first_x_assum $ drule_then assume_tac \\ gvs []
+    \\ gvs [get_var_def, lookup_map]
+    \\ drule_all_then assume_tac state_rel_dest_thunk \\ gvs []
+    \\ `t1.clock = s.clock` by gvs [state_rel_def] \\ gvs []
+    \\ `find_code (SOME force_loc) (MAP data_to_bvi_v [z;v']) s.code =
+          SOME (args,exp)` by gvs []
+    \\ drule_all find_code_lemma \\ rw [] \\ gvs []
+    \\ Cases_on `tail` \\ gvs [PULL_EXISTS]
+    >- (
+      gvs [compile_exp_def]
+      \\ last_x_assum
+        $ qspecl_then [`call_env args' ss (dec_clock t1)`, `LENGTH args'`,
+                       `COUNT_LIST (LENGTH args')`, `T`, `[]`] mp_tac
+      \\ gvs [] \\ impl_tac
+      >- (
+        rw []
+        >- gvs [COUNT_LIST_GENLIST]
+        >- gvs [COUNT_LIST_GENLIST, EL_MAP, dec_clock_def, call_env_def,
+                lookup_fromList]
+        >- gvs [call_env_def, lookup_fromList, dec_clock_def]
+        >- gvs [dec_clock_def, bviSemTheory.dec_clock_def, state_rel_def,
+                call_env_def]
+        >- gvs [jump_exc_def, dec_clock_def, call_env_def, AllCaseEqs()])
+      \\ rw [] \\ gvs []
+      \\ Cases_on `pres` \\ gvs []
+      \\ Cases_on `x` \\ gvs [dec_clock_def]
+      >- (
+        qspecl_then [`prog`,`call_env args' ss (t1 with clock := s.clock - 1)`]
+                    assume_tac optimise_correct \\ gvs []
+        \\ gvs [state_rel_def, call_env_def])
+      \\ qspecl_then [`prog`,`call_env args' ss (t1 with clock := s.clock - 1)`]
+                      assume_tac optimise_correct \\ gvs []
+      \\ Cases_on `e` \\ gvs []
+      >- (
+        gvs [state_rel_def, jump_exc_def, call_env_def, AllCaseEqs()]
+        \\ qexists `ls` \\ gvs [state_component_equality])
+      \\ gvs [state_rel_def])
+    cheat)
   (* Call *)
   \\ note_tac "Call"
   \\ Cases_on `handler`

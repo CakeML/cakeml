@@ -1282,34 +1282,33 @@ Definition evaluate_def:
            | NONE => (SOME (Rval v),flush_state F s)
            | SOME (dest,names) => (NONE, set_var dest v s))
         | IsThunk NotEvaluated f =>
-          (case find_code (SOME loc) [thunk_v; f] s.code s.stack_frame_sizes of
-           | NONE => (SOME (Rerr (Rabort Rtype_error)),s)
-           | SOME (args1,prog,ss) =>
-             (case ret of
-              | NONE =>
-                (if s.clock = 0
-                 then (SOME (Rerr(Rabort Rtimeout_error)),
-                       flush_state T s)
-                 else
-                   (case evaluate (prog, call_env args1 ss (dec_clock s)) of
-                    | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
-                    | (SOME res,s) => (SOME res,s)))
-              | SOME (dest,names) =>
-                (case cut_env names s.locals of
-                 | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
-                 | SOME env =>
-                     let s1 = call_env args1 ss (push_env env F (dec_clock s)) in
-                       if s.clock = 0 then
-                         (SOME (Rerr(Rabort Rtimeout_error)),
-                          s1 with <| stack := [] ; locals := LN |>)
-                       else
-                         (case fix_clock s1 (evaluate (prog, s1)) of
-                          | (SOME (Rval x),s2) =>
-                            (case pop_env s2 of
-                             | NONE => (SOME (Rerr(Rabort Rtype_error)),s2)
-                             | SOME s1 => (NONE, set_var dest x s1))
-                          | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
-                          | res => res)))))) /\
+          (if s.clock = 0 then
+             (SOME (Rerr(Rabort Rtimeout_error)), flush_state T s)
+           else
+             (case find_code (SOME loc) [thunk_v; f] s.code s.stack_frame_sizes of
+              | NONE => (SOME (Rerr (Rabort Rtype_error)),s)
+              | SOME (args1,prog,ss) =>
+                (case ret of
+                 | NONE =>
+                    (case evaluate (prog, call_env args1 ss (dec_clock s)) of
+                     | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
+                     | (SOME res,s) => (SOME res,s))
+                 | SOME (dest,names) =>
+                   (case cut_env names s.locals of
+                    | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
+                    | SOME env =>
+                        let s1 = call_env args1 ss (push_env env F (dec_clock s)) in
+                          if s.clock = 0 then
+                            (SOME (Rerr(Rabort Rtimeout_error)),
+                             s1 with <| stack := [] ; locals := LN |>)
+                          else
+                            (case fix_clock s1 (evaluate (prog, s1)) of
+                             | (SOME (Rval x),s2) =>
+                               (case pop_env s2 of
+                                | NONE => (SOME (Rerr(Rabort Rtype_error)),s2)
+                                | SOME s1 => (NONE, set_var dest x s1))
+                             | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
+                             | res => res))))))) /\
   (evaluate (Call ret dest args handler,s) =
      case get_vars args s.locals of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
