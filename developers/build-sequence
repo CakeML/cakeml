@@ -8,7 +8,7 @@ misc
 
 # build many things in parallel at the start
 compiler/proofs
-compiler/bootstrap/translation
+compiler/bootstrap/compilation/x64/64/proofs
 
 # semantics and metatheory
 semantics/ffi
@@ -199,8 +199,8 @@ compiler/benchmarks/cakeml_benchmarks/cakeml
 compiler/benchmarks/mlton_benchmarks/cakeml
 
 # compiler HOL bootstrap
+compiler/bootstrap/translation
 compiler/bootstrap/compilation/x64/64:cake-x64-64.tar.gz
-compiler/bootstrap/compilation/x64/64/proofs
 compiler/bootstrap/compilation/x64/32:cake-x64-32.tar.gz
 compiler/bootstrap/compilation/x64/32/proofs
 compiler/bootstrap/compilation/arm8/64:cake-arm8-64.tar.gz
