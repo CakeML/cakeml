@@ -181,9 +181,6 @@ compiler/inference/tests
 compiler/printing/test
 
 # Floating-Point optimizer
-icing/flover
-icing/flover/Infra
-icing/flover/semantics
 icing/
 
 # compiler translation
