@@ -412,7 +412,7 @@ Proof
       gvs [AllCaseEqs(), PULL_EXISTS, cut_env_def, state_rel_def, set_var_def]
       \\ gvs [SF DNF_ss, lookup_insert, lookup_inter_alt]
       \\ gvs [SUBSET_DEF, domain_lookup] \\ rw []
-      \\ first_x_assum drule_all \\ rw [])
+      \\ ntac 2 (first_x_assum drule_all \\ rw []))
     \\ ‘t1.code = s.code ∧ t1.stack_frame_sizes = s.stack_frame_sizes ∧
         t1.clock = s.clock’
       by gvs [state_rel_def] \\ gvs []

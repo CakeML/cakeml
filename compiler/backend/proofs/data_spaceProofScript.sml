@@ -465,8 +465,6 @@ Proof
         by gvs [state_component_equality, dec_clock_def, call_env_def] \\ gvs []
       \\ gvs [state_component_equality]
       \\ metis_tac [locals_ok_refl])
-     >- gvs [call_env_def, dec_clock_def, push_env_def,
-             state_component_equality, locals_ok_def]
      >- (
       gvs [PULL_EXISTS]
       \\ gvs [call_env_def, dec_clock_def, push_env_def, locals_ok_def]
