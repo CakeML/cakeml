@@ -35,6 +35,7 @@ End
 Datatype:
   bstate =
     <| locals      : varname |-> 'a v
+     ; globals     : varname |-> 'a v
      ; code        : funname |-> ((varname # shape) list # ('a panLang$prog))
                      (* arguments (with shape), body *)
      ; eshapes     : eid |-> shape
@@ -43,12 +44,14 @@ Datatype:
      ; sh_memaddrs    : ('a word) set
      ; be          : bool
      ; ffi         : 'ffi ffi_state
-     ; base_addr   : 'a word |>
+     ; base_addr   : 'a word
+     ; top_addr    : 'a word |>
 End
 
 Definition unclock_def:
   unclock (s:('a,'b) panSem$state) =
     <| locals      := s.locals
+     ; globals     := s.globals
      ; code        := s.code
      ; eshapes     := s.eshapes
      ; memory      := s.memory
@@ -57,6 +60,8 @@ Definition unclock_def:
      ; be          := s.be
      ; ffi         := s.ffi
      ; base_addr   := s.base_addr
+     ; top_addr    := s.top_addr
+     ; globals     := s.globals
 |>
 End
 
@@ -71,6 +76,8 @@ Definition reclock_def:
      ; be          := s.be
      ; ffi         := s.ffi
      ; base_addr   := s.base_addr
+     ; top_addr    := s.top_addr
+     ; globals     := s.globals
      ; clock       := 0
 |>
 End
@@ -87,6 +94,7 @@ QED
 
 Theorem unclock_reclock_access[simp]:
   (unclock s).locals = s.locals ∧
+  (unclock s).globals = s.globals ∧
   (unclock s).code = s.code ∧
   (unclock s).eshapes = s.eshapes ∧
   (unclock s).memory = s.memory ∧
@@ -95,7 +103,9 @@ Theorem unclock_reclock_access[simp]:
   (unclock s).be = s.be ∧
   (unclock s).ffi = s.ffi ∧
   (unclock s).base_addr = s.base_addr ∧
+  (unclock s).top_addr = s.top_addr ∧
   (reclock t).locals = t.locals ∧
+  (reclock t).globals = t.globals ∧
   (reclock t).code = t.code ∧
   (reclock t).eshapes = t.eshapes ∧
   (reclock t).memory = t.memory ∧
@@ -104,6 +114,7 @@ Theorem unclock_reclock_access[simp]:
   (reclock t).be = t.be ∧
   (reclock t).ffi = t.ffi ∧
   (reclock t).base_addr = t.base_addr ∧
+  (reclock t).top_addr = t.top_addr ∧
   (reclock t).clock = 0
 Proof
   rw[unclock_def,reclock_def]
@@ -111,6 +122,7 @@ QED
 
 Theorem unclock_reclock_update[simp]:
   (∀f. unclock(locals_fupd f s) = locals_fupd f (unclock s)) ∧
+  (∀f. unclock(globals_fupd f s) = globals_fupd f (unclock s)) ∧
   (∀f. unclock(code_fupd f s) = code_fupd f (unclock s)) ∧
   (∀f. unclock(eshapes_fupd f s) = eshapes_fupd f (unclock s)) ∧
   (∀f. unclock(memory_fupd f s) = memory_fupd f (unclock s)) ∧
@@ -119,7 +131,9 @@ Theorem unclock_reclock_update[simp]:
   (∀f. unclock(be_fupd f s) = be_fupd f (unclock s)) ∧
   (∀f. unclock(ffi_fupd f s) = ffi_fupd f (unclock s)) ∧
   (∀f. unclock(base_addr_fupd f s) = base_addr_fupd f (unclock s)) ∧
+  (∀f. unclock(top_addr_fupd f s) = top_addr_fupd f (unclock s)) ∧
   (∀f. reclock(locals_fupd f t) = locals_fupd f (reclock t)) ∧
+  (∀f. reclock(globals_fupd f t) = globals_fupd f (reclock t)) ∧
   (∀f. reclock(code_fupd f t) = code_fupd f (reclock t)) ∧
   (∀f. reclock(eshapes_fupd f t) = eshapes_fupd f (reclock t)) ∧
   (∀f. reclock(memory_fupd f t) = memory_fupd f (reclock t)) ∧
@@ -127,7 +141,8 @@ Theorem unclock_reclock_update[simp]:
   (∀f. reclock(sh_memaddrs_fupd f t) = sh_memaddrs_fupd f (reclock t)) ∧
   (∀f. reclock(be_fupd f t) = be_fupd f (reclock t)) ∧
   (∀f. reclock(ffi_fupd f t) = ffi_fupd f (reclock t)) ∧
-  (∀f. reclock(base_addr_fupd f t) = base_addr_fupd f (reclock t))
+  (∀f. reclock(base_addr_fupd f t) = base_addr_fupd f (reclock t)) ∧
+  (∀f. reclock(top_addr_fupd f t) = top_addr_fupd f (reclock t))
 Proof
   rw[unclock_def,reclock_def] >>
   rw[state_component_equality,fetch "-" "bstate_component_equality"]
@@ -144,6 +159,18 @@ Definition set_var_def:
 End
 
 Theorem set_var_defs = CONJ panSemTheory.set_var_def set_var_def;
+
+Definition set_kvar_def:
+  set_kvar vk x v = unclock ∘ (panSem$set_kvar vk x v) ∘ reclock
+End
+
+Theorem set_kvar_defs = CONJ panSemTheory.set_kvar_def set_kvar_def;
+
+Definition set_global_def:
+  set_global x v = unclock ∘ (panSem$set_global x v) ∘ reclock
+End
+
+Theorem set_global_defs = CONJ panSemTheory.set_global_def set_global_def;
 
 val s = “s:('a,'b) bstate”;
 val s1 = “s1:('a,'b) bstate”;
@@ -233,13 +260,20 @@ Definition h_prog_seq_def:
 End
 
 Definition h_prog_assign_def:
-  h_prog_assign vname e s =
-  case eval (reclock s) e of
+  (h_prog_assign Local vname e s =
+   case eval (reclock s) e of
    | SOME value =>
-      if is_valid_value s.locals vname value
-      then Ret (NONE,s with locals := s.locals |+ (vname,value))
-      else Ret (SOME Error,s)
-   | NONE => Ret (SOME Error,s)
+       if is_valid_value s.locals vname value
+       then Ret (NONE,s with locals := s.locals |+ (vname,value))
+       else Ret (SOME Error,s)
+   | NONE => Ret (SOME Error,s)) ∧
+  (h_prog_assign Global vname e s =
+   case eval (reclock s) e of
+   | SOME value =>
+       if is_valid_value s.globals vname value
+       then Ret (NONE,s with globals := s.globals |+ (vname,value))
+       else Ret (SOME Error,s)
+   | NONE => Ret (SOME Error,s))
 End
 
 Definition h_prog_store_def:
@@ -306,38 +340,40 @@ Definition h_handle_call_ret_def:
   (h_handle_call_ret calltyp s (NONE,s') = Ret (SOME Error,s')) ∧
   (h_handle_call_ret calltyp s (SOME Break,s') = Ret (SOME Error,s')) ∧
   (h_handle_call_ret calltyp s (SOME Continue,s') = Ret (SOME Error,s')) ∧
-  (h_handle_call_ret calltyp s (SOME (Return retv),s') = case calltyp of
-                                                  NONE => Ret (SOME (Return retv),empty_locals s')
-                                                 | SOME (NONE, _) => Ret (NONE, s' with locals := s.locals)
-                                                 | SOME (SOME rt,_) =>
-                                                    if is_valid_value s.locals rt retv
-                                                    then Ret (NONE,set_var rt retv (s' with locals := s.locals))
-                                                    else Ret (SOME Error,s')) ∧
-  (h_handle_call_ret calltyp s (SOME (Exception eid exn),s') = case calltyp of
-                                                        NONE => Ret (SOME (Exception eid exn),empty_locals s')
-                                                       | SOME (_,NONE) => Ret (SOME (Exception eid exn),empty_locals s')
-                                                       | SOME (_,(SOME (eid', evar, p))) =>
-                                                          if eid = eid'
-                                                          then
-                                                            (case FLOOKUP s.eshapes eid of
-                                                              SOME sh =>
-                                                               if shape_of exn = sh ∧ is_valid_value s.locals evar exn
-                                                               then Vis (INL (p,set_var evar exn (s' with locals := s.locals))) Ret
-                                                               else Ret (SOME Error,s')
-                                                             | NONE => Ret (SOME Error,s'))
-                                                          else Ret (SOME (Exception eid exn),empty_locals s')) ∧
+  (h_handle_call_ret calltyp s (SOME (Return retv),s') =
+   case calltyp of
+     NONE => Ret (SOME (Return retv),empty_locals s')
+   | SOME (NONE, _) => Ret (NONE, s' with locals := s.locals)
+   | SOME (SOME (rk,rt),_) =>
+       if is_valid_value (if rk = Local then s.locals else s.globals) rt retv
+       then Ret (NONE,set_kvar rk rt retv (s' with locals := s.locals))
+       else Ret (SOME Error,s')) ∧
+  (h_handle_call_ret calltyp s (SOME (Exception eid exn),s') =
+   case calltyp of
+     NONE => Ret (SOME (Exception eid exn),empty_locals s')
+   | SOME (_,NONE) => Ret (SOME (Exception eid exn),empty_locals s')
+   | SOME (_,(SOME (eid', evar, p))) =>
+       if eid = eid'
+       then
+         (case FLOOKUP s.eshapes eid of
+            SOME sh =>
+              if shape_of exn = sh ∧ is_valid_value s.locals evar exn
+              then Vis (INL (p,set_var evar exn (s' with locals := s.locals))) Ret
+              else Ret (SOME Error,s')
+          | NONE => Ret (SOME Error,s'))
+       else Ret (SOME (Exception eid exn),empty_locals s')) ∧
   (h_handle_call_ret calltyp s (res,s') = Ret (res,empty_locals s'))
 End
 
 Definition h_prog_call_def:
-  h_prog_call calltyp tgtexp argexps s =
-  case (eval (reclock s) tgtexp,OPT_MMAP (eval (reclock s)) argexps) of
-   | (SOME (ValLabel fname),SOME args) =>
+  h_prog_call calltyp fname argexps s =
+  case OPT_MMAP (eval (reclock s)) argexps of
+   | SOME args =>
       (case lookup_code s.code fname args of
         | SOME (callee_prog,newlocals) =>
            Vis (INL (callee_prog,s with locals := newlocals)) (h_handle_call_ret calltyp s)
         | _ => Ret (SOME Error,s))
-   | (_,_) => Ret (SOME Error,s)
+   | _ => Ret (SOME Error,s)
 End
 
 (* Handles the return value and exception passing of function dec calls. *)
@@ -354,14 +390,14 @@ Definition h_handle_deccall_ret_def:
 End
 
 Definition h_prog_deccall_def:
-  h_prog_deccall rt shape tgtexp argexps prog1 s =
-  case (eval (reclock s) tgtexp,OPT_MMAP (eval (reclock s)) argexps) of
-   | (SOME (ValLabel fname),SOME args) =>
+  h_prog_deccall rt shape fname argexps prog1 s =
+  case OPT_MMAP (eval (reclock s)) argexps of
+   | SOME args =>
       (case lookup_code s.code fname args of
         | SOME (callee_prog,newlocals) =>
            Vis (INL (callee_prog,s with locals := newlocals)) (h_handle_deccall_ret rt shape prog1 s)
         | _ => Ret (SOME Error,s))
-   | (_,_) => Ret (SOME Error,s)
+   | _ => Ret (SOME Error,s)
 End
 
 Definition h_prog_ext_call_def:
@@ -406,10 +442,10 @@ Definition h_prog_return_def:
 End
 
 Definition h_prog_sh_mem_load_def:
-  h_prog_sh_mem_load op v ad s =
+  h_prog_sh_mem_load op vk v ad s =
   case eval (reclock s) ad of
     SOME (ValWord addr) =>
-     (case FLOOKUP s.locals v of
+     (case lookup_kvar (reclock s) vk v of
         SOME (Val _) =>
           (let nb = nb_op op in
              if nb = 0 then
@@ -420,7 +456,7 @@ Definition h_prog_sh_mem_load_def:
                                      FFI_final outcome =>
                                        (SOME (FinalFFI outcome),empty_locals s)
                                    | FFI_return new_ffi new_bytes =>
-                                       (NONE, (set_var v (ValWord (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi)))) Ret
+                                       (NONE, (set_kvar vk v (ValWord (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi)))) Ret
                 else Ret (SOME Error,s))
              else
                (if (byte_align addr) IN s.sh_memaddrs then
@@ -430,7 +466,7 @@ Definition h_prog_sh_mem_load_def:
                                      FFI_final outcome =>
                                        (SOME (FinalFFI outcome),empty_locals s)
                                    | FFI_return new_ffi new_bytes =>
-                                       (NONE,(set_var v (ValWord (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi)))) Ret
+                                       (NONE,(set_kvar vk v (ValWord (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi)))) Ret
                 else Ret (SOME Error,s)))
             | _ => Ret (SOME Error, s))
   | _ => Ret (SOME Error, s)
@@ -469,11 +505,11 @@ Definition h_prog_def:
   (h_prog (Skip,s) = Ret (NONE,s)) ∧
   (h_prog (Annot _ _,s) = Ret (NONE,s)) ∧
   (h_prog (Dec vname e p,s) = h_prog_dec vname e p s) ∧
-  (h_prog (Assign vname e,s) = h_prog_assign vname e s) ∧
+  (h_prog (Assign vk vname e,s) = h_prog_assign vk vname e s) ∧
   (h_prog (Store dst src,s) = h_prog_store dst src s) ∧
   (h_prog (Store32 dst src,s) = h_prog_store_32 dst src s) ∧
   (h_prog (StoreByte dst src,s) = h_prog_store_byte dst src s) ∧
-  (h_prog (ShMemLoad op v ad,s) = h_prog_sh_mem_load op v ad s) ∧
+  (h_prog (ShMemLoad op vk v ad,s) = h_prog_sh_mem_load op vk v ad s) ∧
   (h_prog (ShMemStore op ad e,s) = h_prog_sh_mem_store op ad e s) ∧
   (h_prog (Seq p1 p2,s) = h_prog_seq p1 p2 s) ∧
   (h_prog (If gexp p1 p2,s) = h_prog_cond gexp p1 p2 s) ∧

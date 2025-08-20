@@ -27,7 +27,8 @@ Datatype:
      ; clock       : num
      ; be          : bool
      ; ffi         : 'ffi ffi_state
-     ; base_addr   : 'a word |>
+     ; base_addr   : 'a word
+     ; top_addr   : 'a word |>
 End
 
 val state_component_equality = theorem"state_component_equality";
@@ -89,10 +90,6 @@ End
 Definition eval_def:
   (eval (s:('a,'ffi) crepSem$state) ((Const w):'a crepLang$exp) = SOME (Word w)) ∧
   (eval s (Var v) = FLOOKUP s.locals v) ∧
-  (eval s (Label fname) =
-   case FLOOKUP s.code fname of
-    | SOME _ => SOME (Label fname)
-    | _ => NONE) /\
   (eval s (Load addr) =
     case eval s addr of
      | SOME (Word w) => mem_load w s
@@ -135,7 +132,9 @@ Definition eval_def:
      | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
      | _ => NONE) /\
   (eval s BaseAddr =
-        SOME (Word s.base_addr))
+        SOME (Word s.base_addr)) /\
+  (eval s TopAddr =
+        SOME (Word s.top_addr))
 Termination
   wf_rel_tac `measure (exp_size ARB o SND)`
   \\ rpt strip_tac \\ imp_res_tac MEM_IMP_exp_size
@@ -300,9 +299,9 @@ Definition evaluate_def:
  (evaluate (Tick,s) =
    if s.clock = 0 then (SOME TimeOut,empty_locals s)
    else (NONE,dec_clock s)) /\
- (evaluate (Call caltyp trgt argexps,s) =
-   case (eval s trgt, OPT_MMAP (eval s) argexps) of
-    | (SOME (Label fname), SOME args) =>
+ (evaluate (Call caltyp fname argexps,s) =
+   case OPT_MMAP (eval s) argexps of
+    | SOME args =>
        (case lookup_code s.code fname args (LENGTH args) of
          | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s) else
            let eval_prog = fix_clock ((dec_clock s) with locals:= newlocals)
@@ -329,7 +328,7 @@ Definition evaluate_def:
                       else (SOME (Exception eid), empty_locals st))
               | (res,st) => (res,empty_locals st))
          | _ => (SOME Error,s))
-    | (_, _) => (SOME Error,s)) /\
+    | _ => (SOME Error,s)) /\
   (evaluate (ExtCall ffi_index ptr1 len1 ptr2 len2,s) =
    case (FLOOKUP s.locals len1, FLOOKUP s.locals ptr1, FLOOKUP s.locals len2, FLOOKUP s.locals ptr2) of
      | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
@@ -391,7 +390,7 @@ Theorem evaluate_def[allow_rebind,compute] =
 
 Definition semantics_def:
   semantics ^s start =
-   let prog = Call NONE (Label start) [] in
+   let prog = Call NONE start [] in
     if ∃k. case FST (evaluate (prog,s with clock := k)) of
             | SOME TimeOut => F
             | SOME (FinalFFI _) => F

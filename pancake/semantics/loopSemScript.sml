@@ -20,7 +20,8 @@ Datatype:
      ; code    : (num list # ('a loopLang$prog)) num_map
      ; be      : bool
      ; ffi     : 'ffi ffi_state
-     ; base_addr   : 'a word |>
+     ; base_addr   : 'a word
+     ; top_addr   : 'a word |>
 End
 
 val state_component_equality = theorem "state_component_equality";
@@ -83,7 +84,9 @@ Definition eval_def:
      | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
      | _ => NONE) /\
   (eval s BaseAddr =
-        SOME (Word s.base_addr))
+        SOME (Word s.base_addr)) /\
+  (eval s TopAddr =
+        SOME (Word s.top_addr))
 Termination
   WF_REL_TAC `measure (exp_size ARB o SND)`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
