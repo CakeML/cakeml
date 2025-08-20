@@ -1280,7 +1280,10 @@ Definition evaluate_def:
         | IsThunk Evaluated v =>
           (case ret of
            | NONE => (SOME (Rval v),flush_state F s)
-           | SOME (dest,names) => (NONE, set_var dest v s))
+           | SOME (dest,names) =>
+             (case cut_env names s.locals of
+              | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
+              | SOME env => (NONE, set_var dest v (s with locals := env))))
         | IsThunk NotEvaluated f =>
           (if s.clock = 0 then
              (SOME (Rerr(Rabort Rtimeout_error)), flush_state T s)

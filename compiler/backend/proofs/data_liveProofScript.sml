@@ -334,13 +334,13 @@ Proof
       >- gvs [state_rel_def, flush_state_def]
       \\ ‘t1.code = s.code ∧ t1.stack_frame_sizes = s.stack_frame_sizes’
         by gvs [state_rel_def] \\ gvs []
+      \\ ‘t1.clock = s.clock’ by gvs [state_rel_def] \\ gvs []
+      \\ Cases_on ‘s.clock = 0’ \\ gvs []
+      >- gvs [state_rel_def, flush_state_def]
       \\ Cases_on ‘find_code (SOME loc) [x; v] s.code s.stack_frame_sizes’
       \\ gvs []
       \\ Cases_on ‘x'’ \\ gvs []
       \\ Cases_on ‘r’ \\ gvs []
-      \\ ‘t1.clock = s.clock’ by gvs [state_rel_def] \\ gvs []
-      \\  Cases_on ‘s.clock = 0’ \\ gvs []
-      >- gvs [state_rel_def, flush_state_def]
       \\ Cases_on ‘evaluate (q',call_env q r' (dec_clock s))’ \\ gvs []
       \\ Cases_on ‘q''’ \\ gvs []
       \\ fs []
@@ -408,16 +408,24 @@ Proof
     \\ ‘t1.refs = s.refs’ by gvs [state_rel_def] \\ gvs []
     \\ Cases_on ‘dest_thunk x s.refs’ \\ gvs []
     \\ Cases_on ‘t’ \\ gvs []
-    >- (gvs [state_rel_def, set_var_def] \\ rw [lookup_insert])
-    \\ ‘t1.code = s.code ∧ t1.stack_frame_sizes = s.stack_frame_sizes’
+    >- (
+      gvs [AllCaseEqs(), PULL_EXISTS, cut_env_def, state_rel_def, set_var_def]
+      \\ gvs [SF DNF_ss, lookup_insert, lookup_inter_alt]
+      \\ gvs [SUBSET_DEF, domain_lookup] \\ rw []
+      \\ first_x_assum drule_all \\ rw [])
+    \\ ‘t1.code = s.code ∧ t1.stack_frame_sizes = s.stack_frame_sizes ∧
+        t1.clock = s.clock’
       by gvs [state_rel_def] \\ gvs []
+    \\ Cases_on ‘s.clock = 0’ \\ gvs []
+    >- gvs [state_rel_def, flush_state_def]
     \\ Cases_on ‘find_code (SOME loc) [x; v'] s.code s.stack_frame_sizes’
     \\ gvs []
     \\ Cases_on ‘x'’ \\ gvs []
     \\ Cases_on ‘r’ \\ gvs []
     \\ Cases_on ‘cut_env names s.locals’ \\ fs []
-    \\ fs [cut_env_def] \\ reverse (srw_tac [] []) THEN1
-     (pop_assum mp_tac \\ fs []
+    \\ fs [cut_env_def] \\ reverse (srw_tac [] [])
+    >- (
+      pop_assum mp_tac \\ fs []
       \\ fs [SUBSET_DEF,domain_list_insert,domain_inter,
              domain_delete,state_rel_def]
       \\ rpt strip_tac \\ imp_res_tac get_vars_IMP_domain
@@ -440,11 +448,6 @@ Proof
      (unabbrev_all_tac \\ fs [call_env_def, push_env_def, dec_clock_def]
       \\ fs [state_rel_def])
     \\ qspecl_then [‘q'’,‘t4’] mp_tac evaluate_stack_swap
-    \\ Cases_on ‘s.clock = 0’ \\ fs []
-    >- (
-      gvs [state_rel_def, call_env_def]
-      \\ rpt (CASE_TAC \\ gvs [])
-      \\ fs [state_rel_def, call_env_def, state_component_equality])
     \\ Cases_on ‘evaluate (q',t4)’ \\ fs []
     \\ Cases_on ‘q''’ \\ fs [] \\ Cases_on ‘x'’ \\ fs []
     >- (

@@ -124,7 +124,7 @@ Definition compile_def:
      (Force NONE loc src,insert src () LN)) /\
   (compile (Force (SOME (n,names)) loc src) live =
      let l1 = inter names (delete n live) in
-     let l2 = insert src () live in
+     let l2 = insert src () l1 in
        (Force (SOME (n,l1)) loc src,l2)) /\
   (compile (Call NONE dest vs handler) live =
      (Call NONE dest vs handler,list_to_num_set vs)) /\

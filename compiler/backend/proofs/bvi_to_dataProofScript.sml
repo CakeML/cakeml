@@ -1405,15 +1405,35 @@ Proof
     gvs [evaluate_def, AllCaseEqs(), PULL_EXISTS]
     >- (
       gvs [any_el_ALT, var_corr_def, LIST_REL_EL_EQN]
-      \\ last_x_assum $ drule_then assume_tac \\ gvs []
-      \\ gvs [get_var_def, lookup_map]
+      \\ last_assum $ drule_then assume_tac \\ fs []
+      \\ fs [get_var_def, lookup_map] \\ gvs []
       \\ drule_all_then assume_tac state_rel_dest_thunk \\ gvs []
       \\ Cases_on `tail` \\ gvs []
       >- gvs [state_rel_def, flush_state_def]
-      \\ gvs [state_rel_def, set_var_def, lookup_insert, lookup_map] \\ rw []
-      >- cheat
-      >- cheat
-      >- cheat
+      \\ gvs [cut_env_def]
+      \\ `domain (list_to_num_set (live ++ corr)) ⊆ domain t1.locals` by (
+        gvs [SUBSET_DEF, domain_lookup, lookup_list_to_num_set]
+        \\ rw []
+        >- (
+          gvs [EVERY_EL, MEM_EL]
+          \\ first_x_assum drule \\ rw []
+          \\ Cases_on `lookup (EL n'' live) t1.locals` \\ gvs [])
+        >- (
+          gvs [MEM_EL]
+          \\ first_x_assum drule \\ rw []
+          \\ simp [SF SFY_ss]))
+      \\ gvs [set_var_def, state_rel_def, lookup_insert, lookup_inter_alt,
+              domain_list_to_num_set, lookup_map] \\ rw []
+      >- (last_x_assum drule \\ rw [])
+      >- gvs [MEM_EL]
+      >- (
+        gvs [SUBSET_DEF, domain_list_to_num_set]
+        \\ rpt (first_x_assum $ qspec_then `k` assume_tac \\ gvs []))
+      >- (
+        gvs [SUBSET_DEF, domain_list_to_num_set]
+        \\ rpt (first_x_assum $ qspec_then `k` assume_tac \\ gvs []))
+      >- gvs [MEM_EL]
+      >- gvs [MEM_EL]
       >- gvs [jump_exc_def])
     >- (
       gvs [any_el_ALT, var_corr_def, LIST_REL_EL_EQN]
@@ -1423,8 +1443,8 @@ Proof
       \\ `t1.clock = s.clock` by gvs [state_rel_def] \\ gvs []
       \\ gvs [state_rel_def, flush_state_def])
     \\ gvs [any_el_ALT, var_corr_def, LIST_REL_EL_EQN]
-    \\ first_x_assum $ drule_then assume_tac \\ gvs []
-    \\ gvs [get_var_def, lookup_map]
+    \\ first_assum $ drule_then assume_tac \\ fs []
+    \\ fs [get_var_def, lookup_map] \\ gvs []
     \\ drule_all_then assume_tac state_rel_dest_thunk \\ gvs []
     \\ `t1.clock = s.clock` by gvs [state_rel_def] \\ gvs []
     \\ `find_code (SOME force_loc) (MAP data_to_bvi_v [z;v']) s.code =
@@ -1460,7 +1480,70 @@ Proof
         gvs [state_rel_def, jump_exc_def, call_env_def, AllCaseEqs()]
         \\ qexists `ls` \\ gvs [state_component_equality])
       \\ gvs [state_rel_def])
-    cheat)
+    \\ last_x_assum $ qspecl_then [
+      `call_env args' ss (push_env (inter t1.locals
+          (list_to_num_set (live ++ corr))) F (dec_clock t1))`,
+      `LENGTH args'`, `COUNT_LIST (LENGTH args')`, `T`, `[]`] mp_tac
+    \\ gvs [COUNT_LIST_GENLIST, dec_clock_def, bviSemTheory.dec_clock_def]
+    \\ impl_tac
+    >- (
+      rw []
+      >- gvs [call_env_def, push_env_def, lookup_fromList, EL_MAP]
+      >- gvs [call_env_def, push_env_def, lookup_fromList]
+      >- gvs [call_env_def, push_env_def, state_rel_def]
+      >- gvs [call_env_def, push_env_def, jump_exc_def, AllCaseEqs(), LASTN_TL])
+    \\ rw [] \\ gvs []
+    \\ Cases_on `pres` \\ gvs [PULL_EXISTS]
+    \\ `domain (list_to_num_set (live ++ corr)) ⊆ domain t1.locals` by (
+      gvs [SUBSET_DEF, domain_lookup, lookup_list_to_num_set]
+      \\ rw []
+      >- (
+        gvs [EVERY_EL, MEM_EL]
+        \\ first_x_assum drule \\ rw []
+        \\ Cases_on `lookup (EL n'' live) t1.locals` \\ gvs [])
+      >- (
+        gvs [MEM_EL]
+        \\ first_x_assum drule \\ rw []
+        \\ simp [SF SFY_ss]))
+    \\ gvs [cut_env_def, PULL_EXISTS, compile_exp_def, COUNT_LIST_GENLIST]
+    \\ qspecl_then [`prog`,
+      `call_env args' ss (push_env (inter t1.locals (list_to_num_set (live ++ corr)))
+                   F (t1 with clock := s.clock − 1))`]
+                    assume_tac optimise_correct \\ gvs []
+    \\ reverse $ Cases_on `x` \\ gvs []
+    >- (
+      Cases_on `e` \\ gvs []
+      >- (
+        gvs [state_rel_def, jump_exc_def, call_env_def, push_env_def,
+             LASTN_TL, AllCaseEqs()]
+        \\ qexists `ls` \\ gvs [state_component_equality])
+      \\ gvs [state_rel_def])
+    \\ `pop_env (t2 with <| locals_size := ls';
+                            stack_max := smx;
+                            safe_for_space := safe;
+                            peak_heap_length := peak |>) =
+       SOME (t2 with <| stack := t1.stack;
+                        locals := inter t1.locals (list_to_num_set (live ++ corr));
+                        locals_size := t1.locals_size;
+                        stack_max := smx;
+                        safe_for_space := safe;
+                        peak_heap_length := peak|>)`
+      by (Q.PAT_X_ASSUM `xx = t2.stack` (ASSUME_TAC o GSYM)
+          \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,push_env_def,flush_state_def,
+                                       pop_env_def,dataSemTheory.dec_clock_def,bviSemTheory.dec_clock_def,
+                                       FUNPOW_dec_clock_code,LET_DEF])
+    \\ gvs [set_var_def, state_rel_def, lookup_insert, lookup_inter_alt,
+            lookup_map]
+    \\ rw []
+    >- (last_x_assum drule \\ rw [])
+    >- gvs [domain_list_to_num_set, MEM_EL]
+    >- (
+      gvs [domain_list_to_num_set]
+      \\ rpt (first_x_assum $ qspec_then `k` assume_tac \\ gvs []))
+    >- gvs [domain_list_to_num_set]
+    >- gvs [domain_list_to_num_set]
+    >- gvs [call_env_def, push_env_def]
+    >- gvs [jump_exc_def, call_env_def, push_env_def, AllCaseEqs()])
   (* Call *)
   \\ note_tac "Call"
   \\ Cases_on `handler`
