@@ -411,7 +411,7 @@ Definition proved_methods_def:
       ∃wp_pre.
         stmt_wp m wp_pre body [False]
                 (MAP (wrap_Old (set (MAP FST mspec.ins))) mspec.ens ++
-                 vars_have_types mspec.outs)
+              (* MAP (CanEval o Var o FST) mspec.outs *) vars_have_types mspec.outs)
                 (mspec.rank, mspec.decreases)
                 (mspec.ins ++ mspec.outs) ∧
         ∃p.
@@ -3399,6 +3399,12 @@ End
 Theorem stmt_vcg_correct:
   ∀m stmt post ens decs ls res.
     stmt_vcg m stmt (post:exp list) (ens:exp list) decs ls = INR res
+(*
+                                                       ... = INR (loop_vcs,res) ∧
+    EVERY require loop_vcs
+    ⇒
+    stmt_wp (set m) res stmt (post:exp list) (ens:exp list) decs ls
+*)
     ⇒
     stmt_wp (set m) res stmt (post:exp list) (ens:exp list) decs ls
 Proof
