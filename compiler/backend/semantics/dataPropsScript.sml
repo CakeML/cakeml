@@ -1063,8 +1063,6 @@ Proof
       \\ disch_then $ qspecl_then [‘smnew’,‘ssnew’,‘s.peak_heap_length’] mp_tac
       \\ rw [] \\ gvs []
       \\ simp [state_component_equality])
-    >- simp [push_env_def, call_env_def, dec_clock_def,
-             state_component_equality]
     >- (
       rw []
       >- gvs [call_env_def, push_env_def, dec_clock_def, pop_env_def,
@@ -1668,18 +1666,20 @@ Proof
       \\ Cases_on ‘ret’ \\ gvs []
       >- gvs [flush_state_def, state_component_equality, locals_ok_def]
       \\ Cases_on ‘x'’ \\ gvs [set_var_def]
-      \\ gvs [state_component_equality, locals_ok_def] \\ rw [lookup_insert])
+      \\ Cases_on ‘cut_env r s.locals’ \\ gvs []
+      \\ imp_res_tac locals_ok_cut_env \\ gvs []
+      \\ gvs [state_component_equality, locals_ok_def])
     \\ imp_res_tac locals_ok_get_var \\ gvs []
+    \\ Cases_on ‘s.clock = 0’ \\ gvs []
+    >- gvs [flush_state_def, state_component_equality, locals_ok_def]
     \\ Cases_on ‘find_code (SOME loc) [x; v] s.code s.stack_frame_sizes’
     \\ gvs []
     \\ Cases_on ‘x'’ \\ gvs []
     \\ Cases_on ‘r’ \\ gvs []
     \\ Cases_on ‘ret’ \\ gvs []
     >- (
-      Cases_on ‘s.clock = 0’ \\ gvs []
-      >- gvs [flush_state_def, state_component_equality, locals_ok_def]
-      \\ `call_env q r' (dec_clock (s with locals := l)) =
-          call_env q r' (dec_clock s)`
+      ‘call_env q r' (dec_clock (s with locals := l)) =
+          call_env q r' (dec_clock s)’
          by fs[state_component_equality, dec_clock_def, call_env_def,
                flush_state_def]
       \\ fs[]
@@ -1691,11 +1691,10 @@ Proof
     \\ Cases_on ‘x'’ \\ gvs []
     \\ Cases_on ‘cut_env r s.locals’ \\ gvs []
     \\ imp_res_tac locals_ok_cut_env \\ gvs []
-    \\ `call_env q r' (push_env x' F (dec_clock (s with locals := l))) =
-        call_env q r' (push_env x' F (dec_clock s))`
-       by fs[state_component_equality,dec_clock_def,call_env_def,push_env_def, flush_state_def]
-    \\ Cases_on ‘s.clock = 0’ \\ gvs []
-    >- rw [state_component_equality, push_env_def, dec_clock_def, locals_ok_def]
+    \\ ‘call_env q r' (push_env x' F (dec_clock (s with locals := l))) =
+        call_env q r' (push_env x' F (dec_clock s))’
+       by fs [state_component_equality, dec_clock_def, call_env_def,
+              push_env_def, flush_state_def]
     \\ qexistsl [‘s2.locals’,‘s2.safe_for_space’,‘s2.peak_heap_length’,
                  ‘s2.stack_max’]
     \\ rw [state_component_equality, locals_ok_refl])
@@ -2320,7 +2319,11 @@ Proof
     >- (
       Cases_on ‘ret’ \\ gvs []
       >- gvs [flush_state_def, state_component_equality]
-      \\ Cases_on ‘x'’ \\ gvs [set_var_def, state_component_equality])
+      \\ Cases_on ‘x'’ \\ gvs []
+      \\ Cases_on ‘cut_env r' s.locals’ \\ gvs []
+      \\ gvs [set_var_def, state_component_equality])
+    \\ Cases_on ‘s.clock = 0’ \\ gvs []
+    >- gvs [flush_state_def, state_component_equality]
     \\ Cases_on ‘find_code (SOME loc) [x; v] s.code s.stack_frame_sizes’
     \\ gvs []
     >- gvs [state_component_equality]
@@ -2328,9 +2331,7 @@ Proof
     \\ Cases_on ‘r'’ \\ gvs []
     \\ Cases_on ‘ret’ \\ gvs []
     >- (
-      Cases_on ‘s.clock = 0’
-      >- gvs [flush_state_def, state_component_equality]
-      \\ gvs [dec_clock_def]
+      gvs [dec_clock_def]
       \\ Cases_on ‘evaluate (q',call_env q r'' (s with clock := s.clock − 1))’
       \\ gvs [call_env_def]
       \\ Cases_on ‘q''’ \\ gvs []
@@ -2344,8 +2345,6 @@ Proof
     \\ Cases_on ‘x'’ \\ gvs []
     \\ Cases_on ‘cut_env r' s.locals’ \\ gvs []
     >- gvs [state_component_equality]
-    \\ Cases_on ‘s.clock = 0’ \\ gvs []
-    >- gvs [push_env_def, call_env_def, dec_clock_def, state_component_equality]
     \\ gvs [push_env_def, call_env_def, dec_clock_def]
     \\ gvs [AllCaseEqs(), PULL_EXISTS]
     \\ qmatch_goalsub_abbrev_tac ‘stack_max_fupd (K smnew)’
@@ -2543,7 +2542,11 @@ Proof
     >- (
       Cases_on ‘ret’ \\ gvs []
       >- gvs [flush_state_def, state_component_equality]
-      \\ Cases_on ‘x'’ \\ gvs [set_var_def, state_component_equality])
+      \\ Cases_on ‘x'’ \\ gvs []
+      \\ Cases_on ‘cut_env r' s.locals’ \\ gvs []
+      \\ gvs [set_var_def, state_component_equality])
+    \\ Cases_on ‘s.clock = 0’ \\ gvs []
+    >- gvs [flush_state_def, state_component_equality]
     \\ Cases_on ‘find_code (SOME loc) [x; v] s.code s.stack_frame_sizes’
     \\ gvs []
     >- (
@@ -2554,12 +2557,7 @@ Proof
     \\ Cases_on ‘r'’ \\ gvs []
     \\ Cases_on ‘ret’ \\ gvs []
     >- (
-      Cases_on ‘s.clock = 0’
-      >- (
-        gvs [flush_state_def, state_component_equality]
-        \\ irule EVERY2_refl
-        \\ Cases \\ rw [stack_frame_size_rel_def])
-      \\ gvs [dec_clock_def]
+      gvs [dec_clock_def]
       \\ Cases_on ‘evaluate (q',call_env q r'' (s with clock := s.clock − 1))’
       \\ gvs [call_env_def]
       \\ Cases_on ‘q''’ \\ gvs []
@@ -2574,8 +2572,6 @@ Proof
     \\ Cases_on ‘x'’ \\ gvs []
     \\ Cases_on ‘cut_env r' s.locals’ \\ gvs []
     >- gvs [state_component_equality]
-    \\ Cases_on ‘s.clock = 0’ \\ gvs []
-    >- gvs [push_env_def, call_env_def, dec_clock_def, state_component_equality]
     \\ gvs [push_env_def, call_env_def, dec_clock_def]
     \\ fs [AllCaseEqs(), PULL_EXISTS] \\ rveq
     \\ qmatch_goalsub_abbrev_tac ‘stack_max_fupd (K smnew)’
@@ -3067,16 +3063,16 @@ Proof
   >- (
    gvs [AllCaseEqs(), PULL_EXISTS, flush_state_def]
    \\ gvs [cc_co_only_diff_def,state_component_equality,set_var_def])
+  \\ TOP_CASE_TAC \\ gvs []
+  >- gvs [cc_co_only_diff_def, flush_state_def]
   \\ gvs [CaseEq "prod"]
   \\ ntac 4 (TOP_CASE_TAC \\ gvs [])
   >- (
    gvs [AllCaseEqs(), PULL_EXISTS, flush_state_def]
-   >- gvs [cc_co_only_diff_def]
    \\ first_x_assum (qspec_then ‘call_env q r' (dec_clock t)’ mp_tac)
    \\ gvs [cc_co_only_diff_def, call_env_def, dec_clock_def]
    \\ rw [] \\ gvs [])
   \\ ntac 3 (TOP_CASE_TAC \\ gvs [])
-  >- gvs [cc_co_only_diff_def, call_env_def, push_env_def, dec_clock_def]
   \\ gvs [CaseEq"prod"]
   \\ drule_then (qspecl_then [‘x'’,‘r'’,‘F’,‘q’] strip_assume_tac)
                 cc_co_only_diff_call_env
