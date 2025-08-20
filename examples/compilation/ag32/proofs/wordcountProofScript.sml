@@ -3,13 +3,13 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory ag32_configProofTheory
-     ag32_memoryTheory ag32_memoryProofTheory ag32_ffi_codeProofTheory
-     ag32_machine_configTheory ag32_basis_ffiProofTheory
-     wordcountProgTheory wordcountCompileTheory;
-
-val _ = new_theory"wordcountProof";
+Theory wordcountProof
+Ancestors
+  semanticsProps backendProof ag32_configProof ag32_memory
+  ag32_memoryProof ag32_ffi_codeProof ag32_machine_config
+  ag32_basis_ffiProof wordcountProg wordcountCompile
+Libs
+  preamble
 
 val is_ag32_init_state_def = ag32_targetTheory.is_ag32_init_state_def;
 
@@ -234,4 +234,3 @@ Proof
   \\ EVAL_TAC
 QED
 
-val _ = export_theory();

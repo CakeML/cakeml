@@ -3,14 +3,12 @@
   are total, and that they have the proper relationship to the
   unclocked version.
 *)
-
-open preamble;
-open astTheory bigStepTheory semanticPrimitivesTheory;
-open evaluateTheory determTheory;
-open semanticPrimitivesPropsTheory;
-open boolSimps;
-
-val _ = new_theory "bigClock";
+Theory bigClock
+Ancestors
+  ast bigStep semanticPrimitives evaluate determ
+  semanticPrimitivesProps
+Libs
+  preamble boolSimps
 
 val evaluate_ind = bigStepTheory.evaluate_ind;
 val _ = bring_to_front_overload"evaluate_decs"{Name="evaluate_decs",Thy="bigStep"};
@@ -1064,4 +1062,3 @@ Proof
   Cases_on `r` >> gvs[combine_dec_result_def]
 QED
 
-val _ = export_theory ();

@@ -1,9 +1,11 @@
 (*
   This refines the checker to a fixed-size, list-based implementation
 *)
-open preamble basis xlrupTheory;
-
-val _ = new_theory "xlrup_list"
+Theory xlrup_list
+Ancestors
+  xlrup
+Libs
+  preamble basis
 
 Definition w8z_def:
   w8z = (0w:word8)
@@ -1053,4 +1055,3 @@ Proof
   metis_tac[wf_cfml_check_xlrup]
 QED
 
-val _ = export_theory();

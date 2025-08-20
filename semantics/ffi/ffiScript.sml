@@ -1,12 +1,11 @@
 (*
   Definition of the FFI type
 *)
-open HolKernel Parse boolLib bossLib;
-open miscTheory;
+Theory ffi
+Ancestors
+  misc
 
 val _ = numLib.temp_prefer_num();
-
-val _ = new_theory "ffi"
 
 (*
   An oracle says how to perform an FFI call based on its internal
@@ -115,4 +114,3 @@ Definition trace_oracle_def:
       else Oracle_final FFI_failed
 End
 
-val _ = export_theory()

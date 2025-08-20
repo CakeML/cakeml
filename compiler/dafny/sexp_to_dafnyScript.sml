@@ -1,14 +1,12 @@
 (*
   Parses an S-expression into a Dafny AST.
 *)
+Theory sexp_to_dafny
+Ancestors
+  result_monad dafny_sexp dafny_ast mlint
+Libs
+  preamble
 
-open preamble
-open result_monadTheory
-open dafny_sexpTheory
-open dafny_astTheory
-open mlintTheory
-
-val _ = new_theory "sexp_to_dafny";
 
 (* TODO Possible improvement: Use a logging monad instead of result monad,
    to avoid having to write ... <- prefix_error here ... over and over again.
@@ -585,4 +583,3 @@ Definition to_program_def:
    od)
 End
 
-val _ = export_theory ();

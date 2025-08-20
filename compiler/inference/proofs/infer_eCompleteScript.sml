@@ -1,14 +1,12 @@
 (*
   Prove completeness of the type inferencer for the expression-level.
 *)
-open preamble;
-open typeSystemTheory astTheory semanticPrimitivesTheory inferTheory unifyTheory infer_tTheory;
-open astPropsTheory;
-open typeSysPropsTheory;
-open inferPropsTheory;
-open namespaceTheory namespacePropsTheory envRelTheory;
-
-val _ = new_theory "infer_eComplete";
+Theory infer_eComplete
+Ancestors
+  typeSystem ast semanticPrimitives infer unify infer_t astProps
+  typeSysProps inferProps namespace namespaceProps envRel
+Libs
+  preamble
 
 (*Useful lemmas about pure add constraints, some of these imply the others*)
 Theorem pure_add_constraints_success:
@@ -2819,4 +2817,3 @@ Proof
       AP_TERM_TAC>>metis_tac[t_walkstar_no_vars])
 QED ;
 
-val _ = export_theory ();

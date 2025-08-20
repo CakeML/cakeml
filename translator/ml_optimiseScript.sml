@@ -13,14 +13,13 @@
        "x + n - n" --> "x"
        "let x = y in x" --> "y"
 *)
+Theory ml_optimise
+Ancestors
+  ast semanticPrimitives ml_prog ml_translator
+  semanticPrimitivesProps evaluateProps evaluate ml_translator
+Libs
+  preamble
 
-open preamble
-     astTheory semanticPrimitivesTheory
-     ml_progTheory ml_translatorTheory
-     semanticPrimitivesPropsTheory evaluatePropsTheory;
-open evaluateTheory ml_translatorTheory
-
-val _ = new_theory "ml_optimise";
 
 (* first an optimisation combinator: BOTTOM_UP_OPT *)
 
@@ -413,4 +412,3 @@ Proof
   \\ metis_tac [BOTTOM_UP_OPT_THM,opt_sub_add_thm,let_id_thm,abs2let_thm]
 QED
 
-val _ = export_theory();

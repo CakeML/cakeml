@@ -1,12 +1,11 @@
 (*
   Specification of CakeML's type system.
 *)
-open HolKernel Parse boolLib bossLib;
-open astTheory namespaceTheory semanticPrimitivesTheory;
+Theory typeSystem
+Ancestors
+  ast namespace semanticPrimitives
 
 val _ = numLib.temp_prefer_num();
-
-val _ = new_theory "typeSystem"
 
 Type type_ident = “:num”
 
@@ -1037,4 +1036,3 @@ type_prog extra_checks (union_decls decls1 decls) (extend_dec_tenv tenv1 tenv) t
 type_prog extra_checks decls tenv (top :: tops)
   (union_decls decls2 decls1) (extend_dec_tenv tenv2 tenv1)
   *)
-val _ = export_theory()

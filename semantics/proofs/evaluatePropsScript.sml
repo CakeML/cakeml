@@ -1,14 +1,14 @@
 (*
   Properties of the operational semantics.
 *)
-
-open preamble astTheory evaluateTheory
-     namespaceTheory namespacePropsTheory
-     semanticPrimitivesTheory semanticPrimitivesPropsTheory;
+Theory evaluateProps
+Ancestors
+  ast evaluate namespace namespaceProps semanticPrimitives
+  semanticPrimitivesProps
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"evaluateProps";
 
 Theorem call_FFI_LENGTH:
    (call_FFI st index conf x = FFI_return new_st new_bytes) ==>
@@ -1367,4 +1367,3 @@ Proof
   \\ gvs [dec_clock_def,ADD1]
 QED
 
-val _ = export_theory();

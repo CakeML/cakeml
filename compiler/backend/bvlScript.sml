@@ -19,12 +19,12 @@
    to a CodePtr. This first number in the Call expression is how
    many additional ticks the Call should do.
 *)
-open preamble closLangTheory backend_commonTheory
-
-val _ = new_theory "bvl";
-val _ = set_grammar_ancestry [
-   "closLang", (* for op *) "backend_common" (* for tags *)
-]
+Theory bvl
+Ancestors
+  closLang (* for op *)
+  backend_common (* for tags *)
+Libs
+  preamble
 
 Datatype:
   exp = Var num
@@ -44,5 +44,3 @@ End
 Definition mk_tick_def:
   mk_tick n e = FUNPOW Tick n e : bvl$exp
 End
-
-val _ = export_theory();

@@ -2,10 +2,11 @@
   Module with functions that aid converting to and from the byte
   arrays that CakeML foreign-function interface (FFI) uses.
 *)
-open preamble ml_translatorLib ml_progLib basisFunctionsLib cfLib
-     DoubleProgTheory MarshallingTheory Word8ArrayProofTheory
-
-val _ = new_theory "MarshallingProg";
+Theory MarshallingProg
+Ancestors
+  DoubleProg Marshalling Word8ArrayProof ml_translator
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib cfLib
 
 val _ = translation_extends "DoubleProg";
 val cakeml = append_prog o process_topdecs;
@@ -31,8 +32,6 @@ End
 val _ = ml_prog_update (close_module NONE);
 
 (* if any more theorems get added here, probably should create Word8ProofTheory *)
-
-open ml_translatorTheory
 
 Theorem n2w2_UNICITY_R[xlet_auto_match]:
   !n1 n2.n1 < 256**2 ==> ((n2w2 n1 = n2w2 n2 /\ n2 < 256**2) <=> n1 = n2)
@@ -120,4 +119,3 @@ Proof
   xapp >> xsimpl  >> fs[w22n_def,NUM_def,INT_def,integerTheory.INT_ADD]
 QED
 
-val _ = export_theory()

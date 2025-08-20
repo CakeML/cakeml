@@ -2,9 +2,11 @@
   The labLang intermediate language is a target-neutral assembly
   language at the bottom end of the compielr backend.
 *)
-open preamble asmTheory;
-
-val _ = new_theory "labLang";
+Theory labLang
+Ancestors
+  asm
+Libs
+  preamble
 
 Type reg = ``:num``
 
@@ -59,4 +61,3 @@ val _ = export_rewrites["Section_num_def","Section_lines_def"];
 
 Type prog = ``:('a sec) list``
 
-val _ = export_theory();

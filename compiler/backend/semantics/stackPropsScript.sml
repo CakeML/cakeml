@@ -1,12 +1,12 @@
 (*
   Properties about stackLang and its semantics
 *)
+Theory stackProps
+Libs
+  preamble
+Ancestors
+  stackSem stack_names backendProps
 
-open preamble stackSemTheory stack_namesTheory backendPropsTheory
-
-val _ = new_theory"stackProps";
-
-val _ = set_grammar_ancestry["stackSem", "stack_names","backendProps"];
 
 Theorem case_eq_thms =
   (pair_case_eq::
@@ -1159,5 +1159,3 @@ Definition no_shmemop_def:
   (no_shmemop (ShMemOp _ _ _) = F) /\
   (no_shmemop _ = T)
 End
-
-val _ = export_theory();

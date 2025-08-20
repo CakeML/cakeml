@@ -1,12 +1,11 @@
 (*
   Functional big-step semantics for evaluation of CakeML programs.
 *)
-open HolKernel Parse boolLib bossLib;
-open fpSemTheory astTheory namespaceTheory ffiTheory semanticPrimitivesTheory;
+Theory evaluate
+Ancestors
+  fpSem ast namespace ffi semanticPrimitives
 
 val _ = numLib.temp_prefer_num();
-
-val _ = new_theory "evaluate"
 
 (* The semantics is defined here using fix_clock so that HOL4 generates
  * provable termination conditions. However, after termination is proved, we
@@ -341,4 +340,3 @@ Theorem evaluate_decs_ind =
   |> SIMP_RULE std_ss []
   |> Q.GEN ‘P’;
 
-val _ = export_theory()

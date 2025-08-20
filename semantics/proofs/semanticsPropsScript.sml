@@ -1,13 +1,11 @@
 (*
   Theorems about the top-level semantics, including totality and determinism.
 *)
-open preamble
-     evaluateTheory
-     evaluatePropsTheory
-     semanticsTheory lprefix_lubTheory
-     typeSoundTheory;
-
-val _ = new_theory"semanticsProps"
+Theory semanticsProps
+Ancestors
+  evaluate evaluateProps semantics lprefix_lub typeSound
+Libs
+  preamble
 
 Theorem evaluate_prog_events_determ:
    !st env k p k'.
@@ -308,4 +306,3 @@ Proof
   \\ fs [extend_with_resource_limit'_def,extend_with_resource_limit_def,SUBSET_DEF]
 QED
 
-val _ = export_theory()

@@ -1,10 +1,11 @@
 (*
   The formal semantics of labLang
 *)
-open preamble labLangTheory wordSemTheory;
-local open alignmentTheory targetSemTheory in end;
-
-val _ = new_theory"labSem";
+Theory labSem
+Ancestors
+  labLang wordSem alignment[qualified] targetSem[qualified]
+Libs
+  preamble
 
 Datatype:
   word8_loc = Byte word8 | LocByte num num num
@@ -630,4 +631,3 @@ Definition semantics_def:
            (IMAGE (λk. fromList (SND (evaluate (s with clock := k))).ffi.io_events) UNIV))
 End
 
-val _ = export_theory();

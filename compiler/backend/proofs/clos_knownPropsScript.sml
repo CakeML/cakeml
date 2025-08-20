@@ -1,12 +1,11 @@
 (*
   Lemmas used in proof of clos_known
 *)
-open HolKernel Parse boolLib bossLib;
-
-open preamble
-open closPropsTheory clos_knownTheory
-
-val _ = new_theory "clos_knownProps";
+Theory clos_knownProps
+Ancestors
+  closProps clos_known
+Libs
+  preamble
 
 val va_case_eq =
     prove_case_eq_thm{case_def = TypeBase.case_def_of ``:val_approx``,
@@ -179,4 +178,3 @@ Proof
   conj_tac \\ simp [Once mk_Ticks_def]
 QED
 
-val _ = export_theory();

@@ -1,13 +1,19 @@
 (*
   Translate the alternative s-expression parser.
 *)
+Theory sexp_parserProg
+Ancestors
+  decodeProg ml_translator peg simpleSexp simpleSexpPEG
+  simpleSexpParse fromSexp
+Libs
+  preamble ml_translatorLib
+
 open preamble decodeProgTheory
      ml_translatorLib ml_translatorTheory
      pegTheory simpleSexpTheory simpleSexpPEGTheory simpleSexpParseTheory fromSexpTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
-val _ = new_theory"sexp_parserProg";
 val _ = translation_extends "decodeProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "sexp_parserProg");
@@ -475,5 +481,3 @@ val _ = translate type_defsexp_def;
 val _ = translate decsexp_def;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
-
-val _ = export_theory();

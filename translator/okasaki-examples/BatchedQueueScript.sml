@@ -2,9 +2,11 @@
   This is an example of applying the translator to the Batched Queue
   algorithm from Chris Okasaki's book.
 *)
-open HolKernel Parse boolLib bossLib; val _ = new_theory "BatchedQueue";
-
-open listTheory arithmeticTheory ml_translatorLib ListProgTheory;
+Theory BatchedQueue
+Ancestors
+  list arithmetic ListProg
+Libs
+  ml_translatorLib
 
 val _ = translation_extends "ListProg";
 
@@ -88,4 +90,3 @@ Proof
   THEN FULL_SIMP_TAC (srw_ss()) [REVERSE_DEF,REV_DEF]
 QED
 
-val _ = export_theory();

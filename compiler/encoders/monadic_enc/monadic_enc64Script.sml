@@ -1,11 +1,12 @@
 (*
   Implement and prove correct monadic version of encoder
 *)
-open preamble state_transformerTheory
-open ml_monadBaseLib ml_monadBaseTheory
-open asmTheory lab_to_targetTheory monadic_encTheory
+Theory monadic_enc64
+Ancestors
+  state_transformer ml_monadBase asm lab_to_target monadic_enc
+Libs
+  preamble ml_monadBaseLib
 
-val _ = new_theory "monadic_enc64"
 val _ = monadsyntax.temp_add_monadsyntax()
 
 Overload monad_bind[local] = ``st_ex_bind``
@@ -280,4 +281,3 @@ Proof
   fs[enc_sec_list_def]
 QED
 
-val _ = export_theory();

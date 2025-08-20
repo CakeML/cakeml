@@ -2,11 +2,11 @@
   This module contains CakeML code implementing a functional map type
   using a self-balancing binary tree.
 *)
-open preamble
-  ml_translatorLib ml_translatorTheory ml_progLib
-  balanced_mapTheory ArrayProgTheory basisFunctionsLib
-
-val _ = new_theory "MapProg"
+Theory MapProg
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
+Ancestors
+  ml_translator balanced_map ArrayProg
 
 val _ = translation_extends "ArrayProg";
 
@@ -181,5 +181,3 @@ val _ = ml_prog_update (add_dec
              (Atapp [Atvar "'a"; Atvar "'b"] (Short "map"))`` I);
 
 val _ = ml_prog_update close_local_block;
-
-val _ = export_theory ();

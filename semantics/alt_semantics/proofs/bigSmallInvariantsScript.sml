@@ -2,13 +2,11 @@
   Invariants used in the proof relating the big-step and small-step
   version of the CakeML source semantics.
 *)
-open HolKernel Parse boolLib bossLib;
-open namespaceTheory astTheory semanticPrimitivesTheory
-     smallStepTheory bigStepTheory;
+Theory bigSmallInvariants
+Ancestors
+  namespace ast semanticPrimitives smallStep bigStep
 
 val _ = numLib.temp_prefer_num();
-
-val _ = new_theory "bigSmallInvariants"
 
 (* ------ Auxiliary relations for proving big/small step equivalence ------ *)
 
@@ -200,4 +198,3 @@ Inductive evaluate_dec_state:
 End
 
 
-val _ = export_theory()

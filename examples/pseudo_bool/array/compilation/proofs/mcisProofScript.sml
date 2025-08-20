@@ -3,13 +3,12 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     TextIOProofTheory
-     mcisProgTheory
-     mcisTheory mcisCompileTheory;
-
-val _ = new_theory"mcisProof";
+Theory mcisProof
+Ancestors
+  semanticsProps backendProof x64_configProof TextIOProof
+  mcisProg mcis mcisCompile
+Libs
+  preamble
 
 val cake_pb_mcis_io_events_def = new_specification("cake_pb_mcis_io_events_def",["cake_pb_mcis_io_events"],
   main_semantics |> Q.GENL[`cl`,`fs`]
@@ -120,4 +119,3 @@ QED
 
 val chk = machine_code_sound |> check_thm;
 
-val _ = export_theory();

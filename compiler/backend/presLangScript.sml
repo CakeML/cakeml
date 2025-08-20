@@ -2,13 +2,12 @@
   Functions for converting various intermediate languages
   into displayLang representations.
 *)
-open preamble astTheory mlintTheory mloptionTheory
-open flatLangTheory closLangTheory
-     displayLangTheory source_to_flatTheory
-     dataLangTheory wordLangTheory labLangTheory
-     stackLangTheory bvlTheory bviTheory clos_to_bvlTheory;
-
-val _ = new_theory"presLang";
+Theory presLang
+Ancestors
+  ast mlint mloption flatLang closLang displayLang source_to_flat
+  dataLang wordLang labLang stackLang bvl bvi clos_to_bvl
+Libs
+  preamble
 
 (* basics *)
 
@@ -1586,4 +1585,3 @@ val _ = data_to_strs data_prog_tm names_tm |> print_strs
 
 *)
 
-val _ = export_theory();

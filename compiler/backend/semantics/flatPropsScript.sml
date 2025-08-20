@@ -1,16 +1,16 @@
 (*
   Properties about flatLang and its semantics
 *)
-open preamble flatSemTheory flatLangTheory
-local
-  open astTheory semanticPrimitivesPropsTheory
-       evaluatePropsTheory
-in end
+Theory flatProps
+Ancestors
+  flatLang flatSem lprefix_lub[qualified] ast[qualified]
+  semanticPrimitivesProps[qualified] evaluateProps[qualified]
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory"flatProps"
-val _ = set_grammar_ancestry ["flatLang", "flatSem", "lprefix_lub"];
+val _ = temp_tight_equality ();
 
 Theorem ctor_same_type_OPTREL:
    ∀c1 c2. ctor_same_type c1 c2 ⇔ OPTREL (inv_image $= SND) c1 c2
@@ -1427,4 +1427,3 @@ Definition mk_flat_install_conf_def:
     <| compile := cc ; compile_oracle := co |> : 'c flatSem$install_config
 End
 
-val _ = export_theory()

@@ -1,10 +1,14 @@
 (*
   A test file for the support of exceptions
 *)
+Theory exception_arity_testProg
+Libs
+  preamble ml_monad_translator_interfaceLib
+Ancestors
+  ml_monad_translator
 
-open preamble ml_monad_translator_interfaceLib
+val _ = set_up_monadic_translator ();
 
-val _ = new_theory "exception_arity_testProg"
 
 (* Data type for the exceptions *)
 Datatype:
@@ -67,5 +71,3 @@ End
 val rh4 = m_translate handle4_def
 
 (* ... *)
-
-val _ = export_theory();

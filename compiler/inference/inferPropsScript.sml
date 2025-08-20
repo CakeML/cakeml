@@ -2,11 +2,12 @@
   Various lemmas that are handy in the soundness and completeness
   proofs of the type inferencer.
 *)
-open preamble;
-open namespacePropsTheory typeSystemTheory astTheory semanticPrimitivesTheory inferTheory unifyTheory infer_tTheory;
-open astPropsTheory typeSysPropsTheory;
-
-val _ = new_theory "inferProps";
+Theory inferProps
+Ancestors
+  namespaceProps typeSystem ast semanticPrimitives infer unify
+  infer_t astProps typeSysProps
+Libs
+  preamble
 
 Theorem ienv_unchanged[simp]:
    (ienv with inf_v := ienv.inf_v) = ienv ∧
@@ -4341,4 +4342,3 @@ Proof
   \\ metis_tac[]
 QED
 
-val _ = export_theory ();

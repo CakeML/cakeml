@@ -1,13 +1,13 @@
 (*
   Correctness proof for word_unreach
 *)
-open preamble wordLangTheory wordSemTheory wordPropsTheory wordConvsTheory word_unreachTheory;
-
-val _ = new_theory "word_unreachProof";
+Theory word_unreachProof
+Ancestors
+  wordLang wordSem wordProps word_unreach wordConvs
+Libs
+  preamble
 
 val s = ``s:('a,'c,'ffi) wordSem$state``
-
-val _ = set_grammar_ancestry ["wordLang", "wordSem", "wordProps", "word_unreach"];
 
 (* -- proofs about semantics -- *)
 
@@ -329,4 +329,3 @@ Proof
   \\ gvs [evaluate_Seq_Skip]
 QED
 
-val _ = export_theory();

@@ -2,16 +2,14 @@
   Defines EvalM and other judgements that are central to the monadic
   translator.
 *)
-open ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
-open astTheory semanticPrimitivesTheory evaluateTheory evaluatePropsTheory
-open evaluateTheory ml_progLib ml_progTheory
-open set_sepTheory Satisfy
-open cfHeapsBaseTheory AC_Sort
-open ml_monadBaseTheory ml_monad_translatorBaseTheory
-open cfStoreTheory cfTheory cfTacticsLib packLib;
-open preamble;
-
-val _ = new_theory "ml_monad_translator";
+Theory ml_monad_translator
+Ancestors
+  ml_translator ml_pmatch patternMatches ast semanticPrimitives
+  evaluate evaluateProps evaluate ml_prog set_sep cfHeapsBase
+  ml_monadBase ml_monad_translatorBase cfStore cf
+Libs
+  ml_translatorLib ml_progLib Satisfy AC_Sort cfTacticsLib
+  packLib preamble
 
 Overload monad_bind[local] = ``st_ex_bind``;
 Overload monad_unitbind[local] = ``st_ex_ignore_bind``;
@@ -3575,4 +3573,3 @@ QED
 
 val _ = (print_asts := true);
 
-val _ = export_theory();

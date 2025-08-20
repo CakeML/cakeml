@@ -7,13 +7,12 @@
    pretty-printers for user types and by the basis translation
    to set up default pretty-printers for some basis types.
 *)
+Theory typeDecToPP
+Ancestors
+  ast string[qualified] mlint
+Libs
+  stringSyntax[qualified]
 
-open HolKernel Parse boolLib bossLib;
-open astTheory mlintTheory;
-local open stringTheory stringSyntax in end;
-
-val _ = new_theory "typeDecToPP";
-val _ = set_grammar_ancestry ["ast", "string"];
 
 Definition pppre_def:
   pppre nm = "pp_" ++ nm
@@ -94,4 +93,3 @@ Definition pps_for_dec_def:
   pps_for_dec _ dec = []
 End
 
-val _ = export_theory ();

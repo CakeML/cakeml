@@ -2,14 +2,13 @@
   A small-step semantics for CakeML. This semantics is no longer used
   in the main CakeML development, but is used in PureCake and choreographies.
 *)
-open HolKernel Parse boolLib bossLib;
-open namespaceTheory astTheory ffiTheory semanticPrimitivesTheory;
+Theory smallStep
+Ancestors
+  namespace ast ffi semanticPrimitives
 
 val _ = numLib.temp_prefer_num();
 
 
-
-val _ = new_theory "smallStep"
 
 (* Small-step semantics for expressions, modules, and definitions *)
 
@@ -454,4 +453,3 @@ Definition small_decl_diverges_def:
 End
 
 
-val _ = export_theory()

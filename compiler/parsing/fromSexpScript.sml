@@ -5,14 +5,15 @@
   The S-expressions are parsed as *per* the PEG in HOL’s
   `examples/formal-language/context-free/simpleSexpPEGScript.sml`.
 *)
-
-open preamble match_goal fpSemTheory
-open simpleSexpTheory astTheory quantHeuristicsTheory
+Theory fromSexp
+Ancestors
+  simpleSexp ast location[qualified] fpSem
+  quantHeuristics ASCIInumbers numposrep
+Libs
+  preamble match_goal
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory "fromSexp";
-val _ = set_grammar_ancestry ["simpleSexp", "ast", "location","fpSem"]
 val _ = option_monadsyntax.temp_add_option_monadsyntax()
 
 (* TODO: this is duplicated in parserProgTheory *)
@@ -215,7 +216,6 @@ Proof
   simp[isLower_def, isAlpha_def]
 QED
 
-open ASCIInumbersTheory numposrepTheory
 Theorem encode_decode_control:
    ∀ls r. decode_control ls = SOME r ⇒ ls = encode_control r
 Proof
@@ -2121,4 +2121,3 @@ Proof
   \\ simp[EVERY_MAP,EVERY_MEM, FORALL_PROD]
 QED
 
-val _ = export_theory();

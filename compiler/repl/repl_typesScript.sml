@@ -1,14 +1,14 @@
 (*
   Proofs about how the REPL uses types and the type inferencer
 *)
-open preamble
-open semanticsPropsTheory evaluateTheory semanticPrimitivesTheory
-open inferTheory inferSoundTheory typeSoundTheory semanticsTheory
-     envRelTheory primSemEnvTheory typeSoundInvariantsTheory
-     namespacePropsTheory inferPropsTheory repl_check_and_tweakTheory
-open ml_progTheory evaluate_skipTheory evaluate_initTheory
-
-val _ = new_theory "repl_types";
+Theory repl_types
+Ancestors
+  semanticsProps evaluate semanticPrimitives infer inferSound
+  typeSound semantics envRel primSemEnv typeSoundInvariants
+  namespaceProps inferProps repl_check_and_tweak ml_prog
+  evaluate_skip evaluate_init
+Libs
+  preamble
 
 Datatype:
   simple_type = Bool | Str | Exn
@@ -1187,4 +1187,3 @@ Proof
   \\ Cases_on ‘e’ \\ fs []
 QED
 
-val _ = export_theory();

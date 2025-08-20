@@ -3,12 +3,12 @@
   value to one or multiple value arguments. It is in particular used
   in cf to abstract from the concrete representation of closures.
 *)
-open preamble
-open set_sepTheory helperLib semanticPrimitivesTheory
-open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory cfNormaliseTheory
-open cfTacticsBaseLib cfHeapsLib
-
-val _ = new_theory "cfApp"
+Theory cfApp
+Ancestors
+  set_sep semanticPrimitives cfHeapsBase cfHeaps cfStore
+  cfNormalise evaluate evaluateProps
+Libs
+  preamble helperLib cfHeapsBaseLib cfTacticsBaseLib cfHeapsLib
 
 Type state = ``:'ffi semanticPrimitives$state``
 
@@ -360,7 +360,6 @@ Proof
   \\ Cases_on`r` \\ fs[cond_def,EQ_IMP_THM]
 QED
 
-open evaluateTheory evaluatePropsTheory
 val dec_clock_def = evaluateTheory.dec_clock_def
 val evaluate_empty_state_IMP = ml_translatorTheory.evaluate_empty_state_IMP
 
@@ -698,4 +697,3 @@ Proof
   metis_tac[GEN_ALL Arrow_IMP_app_basic, GEN_ALL app_basic_IMP_Arrow]
 QED
 
-val _ = export_theory ()

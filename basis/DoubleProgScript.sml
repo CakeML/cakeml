@@ -4,12 +4,11 @@
   logical operations <, <=, >, >=, and =
   and to-/fromString functions for parsing and pretty-printing constants
 *)
-open preamble
-     ml_translatorLib ml_progLib basisFunctionsLib
-     wordsTheory
-     CommandLineProgTheory;
-
-val _ = new_theory"DoubleProg";
+Theory DoubleProg
+Ancestors
+  words CommandLineProg
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
 
 val _ = translation_extends "CommandLineProg";
 
@@ -302,4 +301,3 @@ val _ = append_prog “
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);
 
-val _ = export_theory();

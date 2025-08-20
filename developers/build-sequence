@@ -180,10 +180,11 @@ compiler/parsing/tests
 compiler/inference/tests
 compiler/printing/test
 
-# floating-point verifier
-examples/flover
-examples/flover/Infra
-examples/flover/semantics
+# Floating-Point optimizer
+icing/flover
+icing/flover/Infra
+icing/flover/semantics
+icing/
 
 # compiler translation
 compiler/repl

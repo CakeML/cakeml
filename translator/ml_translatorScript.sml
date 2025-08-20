@@ -1,19 +1,16 @@
+Theory ml_translator
 (*
     This script defines Eval and other core definitions used by the
     translator. The theorems about Eval serve as an interface between
     the source semantics and the translator's automation.
 *)
-open integerTheory ml_progTheory
-     astTheory semanticPrimitivesTheory
-     semanticPrimitivesPropsTheory evaluatePropsTheory
-     fpSemTheory machine_ieeeTheory
-open mlvectorTheory mlstringTheory packLib;
-open integer_wordSyntax
-open evaluateTheory
-local open integer_wordSyntax in end;
-open preamble;
-
-val _ = new_theory "ml_translator";
+Ancestors
+  integer ml_prog ast semanticPrimitives semanticPrimitivesProps
+  evaluateProps fpSem mlvector
+  mlstring evaluate
+Libs
+  packLib integer_wordSyntax preamble
+  integer_wordSyntax[qualified]
 
 infix \\ val op \\ = op THEN;
 
@@ -3312,4 +3309,3 @@ Proof
   \\ fs [state_component_equality]
 QED
 
-val _ = export_theory();

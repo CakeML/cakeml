@@ -1,21 +1,23 @@
 (*
   Correctness proof for flat_pattern
 *)
+Theory flat_patternProof
+Libs
+  preamble bagSimps[qualified] induct_tweakLib[qualified]
+Ancestors
+  flat_pattern misc[qualified] ffi[qualified] bag[qualified]
+  flatProps backendProps backend_common[qualified]
+  pattern_semantics
+Ancestors[ignore_grammar]
+  semanticPrimitives semanticPrimitivesProps flatLang
+  flatSem
 
-open preamble flat_patternTheory
-     semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     flatLangTheory flatSemTheory flatPropsTheory backendPropsTheory
-     pattern_semanticsTheory
-local open bagSimps induct_tweakLib in end
+(* Set up ML bindings *)
+open flat_patternTheory semanticPrimitivesTheory
+     semanticPrimitivesPropsTheory flatLangTheory flatSemTheory
+     flatPropsTheory backendPropsTheory pattern_semanticsTheory
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "flat_patternProof"
-
-val _ = set_grammar_ancestry ["flat_pattern",
-                              "misc","ffi","bag","flatProps",
-                              "backendProps","backend_common",
-                              "pattern_semantics"];
 
 (* simple properties *)
 Theorem op_sets_globals_gbag:
@@ -1490,8 +1492,8 @@ Theorem evaluate_compile_pat_rhs:
   env_rel (N - 1) (env1 with <| v := l_bindings ++ env1.v |>) ext_env
 Proof
   simp [compile_pat_rhs_def, max_dec_name_LESS_EVERY]
-  \\ qmatch_goalsub_abbrev_tac `evaluate _ _ [SND comp]`
-  \\ PairCases_on `comp`
+  \\ qmatch_goalsub_abbrev_tac `evaluate _ _ [SND comp₁]`
+  \\ PairCases_on `comp₁`
   \\ fs [markerTheory.Abbrev_def, Q.ISPEC `(a, b)` EQ_SYM_EQ]
   \\ rw []
   \\ drule (compile_pat_bindings_simulation |> SPEC_ALL |> Q.GEN `vs`
@@ -2422,5 +2424,3 @@ Proof
   \\ rveq \\ fs []
   \\ imp_res_tac compile_exp_no_Mat
 QED
-
-val _ = export_theory()

@@ -1,13 +1,13 @@
 (*
   Shallow embedding of garbage collector implementation
 *)
-open preamble
-
-open wordSemTheory data_to_wordTheory gc_sharedTheory
+Theory word_gcFunctions
+Ancestors
+  word_simpProof wordSem data_to_word gc_shared
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "word_gcFunctions"
 
 val shift_def = backend_commonTheory.word_shift_def;
 
@@ -789,5 +789,3 @@ Proof
   fs [word_gc_fun_def,FUN_EQ_THM,FORALL_PROD]
   \\ Cases_on `conf.gc_kind` \\ fs []
 QED
-
-val _ = export_theory();

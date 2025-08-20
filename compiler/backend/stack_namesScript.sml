@@ -2,12 +2,12 @@
   This compiler phase renames the registers to fit with the target
   architecture.
 *)
+Theory stack_names
+Ancestors
+  stackLang
+Libs
+  preamble
 
-open preamble stackLangTheory
-
-val _ = new_theory "stack_names";
-
-val _ = set_grammar_ancestry["stackLang"];
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -114,4 +114,3 @@ Definition names_ok_def:
       EVERY (\x. x < reg_count /\ ~(MEM x avoid_regs)) xs
 End
 
-val _ = export_theory();

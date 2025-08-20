@@ -2,15 +2,13 @@
   Proofs that the eval mode of the source semantics can
   be switched to one that includes an oracle.
 *)
-
-open preamble semanticsTheory namespacePropsTheory
-     semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     evaluatePropsTheory evaluateTheory experimentalLib
-
-val _ = new_theory "source_evalProof";
-
-val _ = set_grammar_ancestry ["ast", "string",
-    "semantics", "semanticPrimitivesProps"];
+Theory source_evalProof
+Ancestors
+  ast[qualified] string[qualified] semantics
+  semanticPrimitivesProps namespaceProps semanticPrimitives
+  evaluateProps evaluate fpOpt
+Libs
+  preamble experimentalLib
 
 val _ = temp_delsimps ["getOpClass_def"]
 
@@ -2303,4 +2301,3 @@ Proof
   )
 QED
 
-val _ = export_theory ();
