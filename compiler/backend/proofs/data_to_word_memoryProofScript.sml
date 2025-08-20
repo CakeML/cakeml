@@ -6391,7 +6391,7 @@ Proof
   \\ fs [encode_header_def,AC STAR_ASSOC STAR_COMM,thunk_tag_bits_lemma]
 QED
 
-Theorem memory_rel_Thunk_IMP:
+(*Theorem memory_rel_Thunk_IMP:
   memory_rel c be ts refs sp st m dm ((RefPtr bl nn,ptr)::vars) /\
   lookup nn refs = SOME (Thunk ev v) /\
   good_dimindex (:'a) ==>
@@ -6405,7 +6405,7 @@ Theorem memory_rel_Thunk_IMP:
         ((v,m (x + bytes_in_word))::(RefPtr bl nn,ptr)::vars)
 Proof
   cheat
-QED
+QED*)
 
 Theorem word_list_exists_thm:
    (word_list_exists a 0 = emp) /\

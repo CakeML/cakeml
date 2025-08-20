@@ -1378,6 +1378,10 @@ Proof
     BasicProvers.EVERY_CASE_TAC>>
     fs[extract_labels_def,list_Seq_def,extract_labels_StoreEach,
        extract_labels_StoreAnyConsts,Maxout_bits_code_def])
+  >~ [‘force_thunk’] >- (
+    pairarg_tac \\ gvs [force_thunk_def, AllCaseEqs()]
+    >- gvs [GiveUp_def, extract_labels_def]
+    \\ cheat)
   >>
     (rpt (pairarg_tac>>fs[])>>rveq>>
           fs[extract_labels_def,EVERY_MEM,FORALL_PROD,ALL_DISTINCT_APPEND,
@@ -1533,7 +1537,8 @@ Theorem comp_no_inst:
   addr_offset_ok ac 0w /\ byte_offset_ok ac 0w ⇒
   every_inst (inst_ok_less ac) (FST(comp c n m p))
 Proof
-  ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
+  ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]
+  >~ [‘Force’] >- cheat >>
   simp[Once comp_def,every_inst_def]>>
   every_case_tac>>fs[]>>
   rpt(pairarg_tac>>fs[])>>
@@ -1796,6 +1801,7 @@ Proof
     (fs[SUBSET_DEF]>>metis_tac[])
   >-
     (fs[SUBSET_DEF]>>metis_tac[])
+  >~ [‘force_thunk’] >- cheat
   >>
     EVAL_TAC>>rw[]>>fs[]
 QED
@@ -1850,6 +1856,7 @@ Proof
     metis_tac[])
   >-
     fs[word_good_handlers_assign]
+  >~ [‘force_thunk’] >- cheat
   >>
     EVAL_TAC>>rw[]>>fs[]
 QED
@@ -2056,6 +2063,7 @@ Proof
     IF_CASES_TAC >>
     simp[comp_def,no_share_inst_def,list_Seq_no_share_inst]
   )
+  >~ [‘Force’] >- cheat
   >> gvs[comp_def,no_share_inst_def] (* Raise | Return | Tick *)
 QED
 
