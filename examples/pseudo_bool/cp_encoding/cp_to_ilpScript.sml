@@ -1,10 +1,11 @@
 (*
   Formalization of the CP to ILP phase
 *)
-open preamble cpTheory ilpTheory pbcTheory pbc_encodeTheory;
-open sptreeTheory;
-
-val _ = new_theory "cp_to_ilp";
+Theory cp_to_ilp
+Libs
+  preamble
+Ancestors
+  cp ilp pbc pbc_encode sptree
 
 val eval_raw = LIST_CONJ
   [iconstraint_sem_def,eval_ilin_term_def,iSUM_def,eval_lin_term_def];
@@ -1009,17 +1010,14 @@ Definition domlist_def:
   let
     (lb, ub) = bnd X
   in
-    if lb > ub then [] else GENLIST (λn. &n + lb) (Num (ub - lb) + 1)
+    if ub < lb
+    then []
+    else GENLIST (λn. &n + lb) (Num (ub - lb) + 1)
 End
 
-Theorem not_gt_le:
-  ¬(a > b) ⇔ a ≤ (b:int)
-Proof
-  intLib.ARITH_TAC
-QED
-
-Theorem assgn_mem_domlist:
-  valid_assignment bnd wi ⇒ MEM (wi X) (domlist bnd X)
+Theorem MEM_domlist:
+  valid_assignment bnd wi ⇒
+  MEM (wi X) (domlist bnd X)
 Proof
   Cases_on ‘bnd X’>>
   rw[domlist_def]
@@ -1028,7 +1026,7 @@ Proof
     goal_assum $ drule_at Any>>
     intLib.ARITH_TAC)
   >-(
-    fs[not_gt_le,valid_assignment_def]>>
+    fs[valid_assignment_def]>>
     pop_assum $ drule_then assume_tac>>
     simp[MEM_GENLIST]>>
     intLib.ARITH_TAC)
@@ -1037,8 +1035,7 @@ QED
 (* bijection 0, -1, 1, -2, 2,... ⇔ 0, 1, 2, 3, 4,... and its inverse next *)
 Definition intnum_def:
   intnum (n: int) =
-  if n = 0 then 0n
-  else if n < 0 then 2 * Num (-n) - 1
+  if n < 0 then 2 * Num (-n) - 1
   else 2 * Num n
 End
 
@@ -1056,24 +1053,24 @@ Proof
 QED
 
 Theorem numint_intnum:
-  numint o intnum = I
+  numint (intnum x) = x
 Proof
-  simp[combinTheory.I_EQ_IDABS]>>
-  cong_tac NONE>>
-  simp[o_DEF,intnum_def]>>
-  IF_CASES_TAC
-  >-simp[numint_def]
-  >-(
-    IF_CASES_TAC>>
-    simp[numint_def]>>
-    intLib.ARITH_TAC)
+  simp[intnum_def,numint_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem intnum_numint:
+  intnum (numint x) = x
+Proof
+  simp[intnum_def,numint_def]>>
+  intLib.ARITH_TAC
 QED
 
 Definition numset_to_intlist_def:
   numset_to_intlist t = MAP (numint o FST) $ toSortedAList t
 End
 
-Theorem numset_to_intlist_alldistinct:
+Theorem ALL_DISTINCT_numset_to_intlist:
   ALL_DISTINCT $ numset_to_intlist t
 Proof
   simp[numset_to_intlist_def,GSYM MAP_MAP_o]>>
@@ -1081,107 +1078,44 @@ Proof
   simp[ALL_DISTINCT_MAP_FST_toSortedAList,numint_inj]
 QED
 
+(* Union of all int values in domains of Xs *)
 Definition union_dom_def:
   union_dom bnd Xs =
   numset_to_intlist $ FOLDL union LN $
     MAP (λX. list_to_num_set $ MAP intnum $ domlist bnd X) Xs
 End
 
-Theorem mem_subspt_foldl_union_aux:
-  MEM (t:num_set) ls ⇒ ∀e. subspt t (FOLDL union e ls)
+Theorem MEM_numset_to_intlist:
+  MEM x (numset_to_intlist ns) ⇔
+  intnum x ∈ domain ns
 Proof
-  Induct_on ‘ls’
-  >-simp[MEM]
-  >-(
-    rw[]
-    >-(
-      rename1 ‘subspt x (FOLDL union (union y x) ls)’>>
-      simp[Once union_num_set_sym]>>
-      irule subspt_trans>>
-      qexists ‘union x y’>>
-      simp[subspt_union,subspt_FOLDL_union])
-    >-simp[])
+  rw[numset_to_intlist_def,GSYM MAP_MAP_o,MEM_MAP,EXISTS_PROD,
+    MEM_toSortedAList,domain_lookup]>>
+  metis_tac[intnum_numint,numint_intnum]
 QED
 
-(* to be simplified using Q.SPEC *)
-Theorem mem_subspt_foldl_union:
-  MEM (t:num_set) ls ⇒ subspt t (FOLDL union LN ls)
+Theorem domain_FOLDL_union:
+  ∀ls t.
+  x ∈ domain (FOLDL union t ls) ⇔
+  x ∈ domain t ∨ ∃ns. ns ∈ set ls ∧ x ∈ domain ns
 Proof
-  simp[mem_subspt_foldl_union_aux]
-QED
-
-Definition submem_def:
-  submem t1 t2 ⇔
-  ∀x. MEM x t1 ⇒ MEM x t2
-End
-
-Triviality submem_mem:
-  submem p q ∧ MEM x p ⇒ MEM x q
-Proof
-  rw[submem_def]
-QED
-
-Theorem subspt_submem:
-  subspt (list_to_num_set ls) t ⇒ submem ls (MAP FST $ toSortedAList t)
-Proof
-  rw[subspt_domain,submem_def,Once $ GSYM domain_list_to_num_set,MEM_MAP]>>
-  qrefine ‘(a,b)’>>
-  fs[MEM_toSortedAList,SUBSET_DEF,domain_lookup]
-QED
-
-Theorem map_submem:
-  submem p q ⇒ submem (MAP f p) (MAP f q)
-Proof
-  rw[submem_def,MEM_EL]>>
-  qmatch_asmsub_abbrev_tac ‘m < LENGTH p’>>
-  last_x_assum $ qspec_then ‘EL m p’ assume_tac>>
-  ‘∃n. n < LENGTH q ∧ EL m p = EL n q’ by (
-    pop_assum $ irule>>
-    metis_tac[])>>
-  goal_assum $ drule_at Any>>
-  rw[EL_MAP]
-QED
-
-Theorem invfun_submem:
-  g o f = I ⇒ submem (MAP f t1) t2 ⇒ submem t1 $ MAP g t2
-Proof
-  rw[]>>
-  ‘submem (MAP g (MAP f t1)) (MAP g t2)’ suffices_by simp[MAP_ID,MAP_MAP_o]>>
-  simp[map_submem]
-QED
-
-Theorem assgn_submem_union_dom:
-  valid_assignment bnd wi ⇒
-  EVERY (λA. submem (domlist bnd A) (union_dom bnd Xs)) Xs
-Proof
-  rw[EVERY_MEM,union_dom_def,numset_to_intlist_def,GSYM MAP_MAP_o]>>
-  assume_tac numint_intnum>>
-  irule invfun_submem>>
-  goal_assum $ drule_at Any>>
-  irule subspt_submem>>
-  irule mem_subspt_foldl_union>>
-  simp[MEM_MAP]>>
+  Induct>>rw[]>>
   metis_tac[]
 QED
 
-Theorem assgn_mem_union_dom:
+Theorem EVERY_MEM_union_dom:
   valid_assignment bnd wi ⇒
   EVERY (λA. MEM (wi A) (union_dom bnd Xs)) Xs
 Proof
-  rw[EVERY_MEM]>>
-  irule submem_mem>>
-  drule assgn_submem_union_dom>>
-  rw[EVERY_MEM]>>
-  pop_assum $ drule_then assume_tac>>
-  drule_then assume_tac assgn_mem_domlist>>
-  goal_assum $ drule_at Any>>
-  simp[]
+  rw[EVERY_MEM,union_dom_def,MEM_numset_to_intlist,domain_FOLDL_union]>>
+  simp[MEM_MAP,PULL_EXISTS,domain_list_to_num_set]>>
+  metis_tac[MEM_domlist]
 QED
 
-Theorem union_dom_alldistinct:
+Theorem ALL_DISTINCT_union_dom:
   ALL_DISTINCT $ union_dom bnd Xs
 Proof
-  simp[union_dom_def,numset_to_intlist_alldistinct]
+  simp[union_dom_def,rLL_DISTINCT_numset_to_intlist]
 QED
 
 (* encodes fnvalue_v ⇒ some X = v and ~fnvalue_v ⇒ no X = v *)
@@ -1213,6 +1147,9 @@ Definition reify_some_eq_def:
     ges ++ eqs ++ encode_some_eq bnd Xs v
 End
 
+Theorem FORALL_IMP_EQ = METIS_PROVE []
+  ``(∀x. P x ⇒ (Q x ⇔ R x)) ⇒ ((∀x. P x ⇒ Q x) ⇔ (∀x. P x ⇒ R x))``;
+
 Theorem reify_some_eq_sem:
   valid_assignment bnd wi ⇒ (
   EVERY (λx. iconstraint_sem x (wi,wb)) (FLAT (MAP (reify_some_eq bnd Xs)
@@ -1226,26 +1163,23 @@ Proof
   rw[reify_some_eq_def,EVERY_FLAT,EVERY_MAP]>>
   simp[Once EVERY_MEM,Once $ GSYM CONJ_ASSOC]>>
   ho_match_mp_tac FORALL_IMP_EQ>>
-  rw[Once EQ_SYM_EQ,Once CONJ_ASSOC]>>
-  simp[Once EQ_SYM_EQ]>>
+  rw[EVERY_CONJ,GSYM CONJ_ASSOC]>>
   match_mp_tac LEFT_AND_CONG>>
   CONJ_TAC
-  >-(
-    simp[Once EQ_SYM_EQ,Ntimes EVERY_MEM 3,FORALL_IMP_AND]>>
-    ho_match_mp_tac FORALL_IMP_EQ>>
-    rw[Once EQ_SYM_EQ]>>
-    ho_match_mp_tac EQ_AND_EQ>>
-    simp[encode_ge_sem])
-  >-(
-    simp[Ntimes EVERY_MEM 3]>>
-    rw[FORALL_IMP_AND]>>
-    match_mp_tac LEFT_AND_CONG>>
-    CONJ_TAC>>
-    fs[encode_some_eq_sem]>>
-    simp[Once EQ_SYM_EQ,Once EVERY_MEM]>>
-    simp[Once EQ_SYM_EQ]>>
-    ho_match_mp_tac FORALL_IMP_EQ>>
-    fs[encode_eq_sem])
+  >- (irule EVERY_CONG>>simp[encode_ge_sem])>>
+  strip_tac>>
+  match_mp_tac LEFT_AND_CONG>>
+  CONJ_TAC
+  >- (irule EVERY_CONG>>simp[encode_ge_sem])>>
+  strip_tac>>
+  match_mp_tac LEFT_AND_CONG>>
+  CONJ_TAC
+  >- (
+    irule EVERY_CONG>>
+    rw[]>>
+    irule encode_eq_sem>>
+    fs[EVERY_MEM])>>
+  simp[encode_some_eq_sem]
 QED
 
 (* encodes (sum of the bitlist Bs) = Y *)
@@ -1274,8 +1208,6 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Theorem AND_IMP = METIS_PROVE[] “(P ∧ (P ⇒ Q)) ⇒ (P ∧ Q)”;
-
 Theorem encode_nvalue_sem_aux:
   valid_assignment bnd wi ∧
   (∀v. MEM v (union_dom bnd Xs) ⇒
@@ -1287,21 +1219,14 @@ Proof
   iff_tac>>
   strip_tac
   >-(
-    pure_rewrite_tac[Once CONJ_COMM]>>
-    match_mp_tac AND_IMP>>
-    CONJ_TAC
-    >-(
-      drule_then assume_tac assgn_mem_union_dom>>
-      fs[EVERY_MEM])
-    >-(
-      strip_tac>>
-      fs[EVERY_MEM]>>
-      goal_assum $ drule_at Any>>
-      rfs[]))
-  >-(
-    gs[EVERY_MEM]>>
-    goal_assum $ drule_at Any>>
-    simp[])
+    CONJ_ASM2_TAC
+    >- (
+      gvs[EVERY_MEM]>>
+      metis_tac[])>>
+    drule_then assume_tac EVERY_MEM_union_dom>>
+    fs[EVERY_MEM])>>
+  gvs[EVERY_MEM]>>
+  metis_tac[]
 QED
 
 Theorem list_map_wi_filter_union_dom:
