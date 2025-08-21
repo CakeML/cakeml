@@ -160,16 +160,6 @@ Datatype: ishap2
   | I16x8
 End
 
-Datatype: ishap3
-  = Is2 ishap2
-  | I32x4
-End
-
-Datatype: ishape
-  = Is3 ishap3
-  | I64x2
-End
-
 
 (*******************)
 (*   Parametrics   *)
@@ -199,7 +189,7 @@ End
 (**************)
 
 (* NB:
-  We abuse abstraction by (re)using the ishape (ishap2/ishap3) datatype from vectors
+  We abuse abstraction by (re)using the ishap2 datatype from vectors
   to specify narrowness for loads.
 
   eg,
