@@ -180,9 +180,6 @@ compiler/parsing/tests
 compiler/inference/tests
 compiler/printing/test
 
-# Floating-Point optimizer
-icing/
-
 # compiler translation
 compiler/repl
 
