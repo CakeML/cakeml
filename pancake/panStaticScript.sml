@@ -847,76 +847,11 @@ Definition static_check_prog_def:
       finf <- scope_check_fun_name ctxt trgt;
       esret <- static_check_exps ctxt args;
       (* check for shape match *)
-      if ~(sh_based_has_shape finf.ret_shape vinf.vsh_based)
+      if ~(sh_bd_has_shape finf.ret_shape vinf.vsh_bd)
         then error (ShapeErr $ concat
           [ctxt.loc; strlit "call result assigned to local variable "; rt;
            strlit " does not match declared shape in ";
            get_scope_desc ctxt.scope; strlit "\n"])
-      else return ();
-      (* check arg num and shapes *)
-      check_func_args ctxt trgt finf.params esret.sh_baseds;
-      (* check exception handling info *)
-      case hdl of
-      | NONE => return ()
-        (* check for out of scope exception variable *)
-      | SOME (eid, evar, p) =>
-          do
-            evinf <- scope_check_local_var ctxt evar;
-            static_check_prog (ctxt with locals := insert ctxt.locals evar (evinf with <| vsh_based := sh_based_set Trusted evinf.vsh_based |>)) p;
-            return ()
-          od;
-      (* return prog info with updated var *)
-      return <| exits_fun  := F
-              ; exits_loop := F
-              ; last       := OtherLast
-              ; var_delta  := singleton mlstring$compare rt (vinf with <| vsh_based := sh_based_set Trusted vinf.vsh_based |>)
-              ; curr_loc   := ctxt.loc |>
-    od ∧
-  static_check_prog ctxt (AssignCall (Global,rt) hdl trgt args) =
-    do
-      (* check for out of scope assignment *)
-      vinf <- scope_check_global_var ctxt rt;
-      (* check func ptr exp and arg exps *)
-      finf <- scope_check_fun_name ctxt trgt;
-      esret <- static_check_exps ctxt args;
-      (* check for shape match *)
-      if ~(vinf.glob_shape = finf.ret_shape)
-        then error (ShapeErr $ concat
-          [ctxt.loc; strlit "call result assigned to global variable "; rt;
-           strlit " does not match declared shape in ";
-           get_scope_desc ctxt.scope; strlit "\n"])
-      else return ();
-      (* check arg num and shapes *)
-      check_func_args ctxt trgt finf.params esret.sh_baseds;
-      (* check exception handling info *)
-      case hdl of
-        NONE => return ()
-        (* check for out of scope exception variable *)
-      | SOME (eid, evar, p) =>
-          do
-            evinf <- scope_check_local_var ctxt evar;
-            static_check_prog (ctxt with locals := insert ctxt.locals evar (evinf with <| based := Trusted |>)) p;
-            return ()
-          od;
-      (* return prog info with updated var *)
-      return <| exits_fun  := F
-              ; exits_loop := F
-              ; last       := OtherLast
-              ; var_delta  := empty mlstring$compare
-              ; curr_loc   := ctxt.loc |>
-    od ∧
-  static_check_prog ctxt (AssignCall rt hdl trgt args) =
-    do
-      (* check for out of scope assignment *)
-      vinf <- scope_check_local_var ctxt rt;
-      (* check func ptr exp and arg exps *)
-      finf <- scope_check_fun_name ctxt trgt;
-      esret <- static_check_exps ctxt args;
-      (* check for shape match *)
-      if ~(sh_bd_has_shape finf.ret_shape vinf.vsh_bd)
-        then error (ShapeErr $ get_shape_mismatch_msg (concat [
-            strlit "call result assigned to local variable "; rt
-          ]) ctxt.loc ctxt.scope)
       else return ();
       (* check arg num and shapes *)
       check_func_args ctxt trgt finf.params esret.sh_bds;
@@ -935,6 +870,39 @@ Definition static_check_prog_def:
               ; exits_loop := F
               ; last       := OtherLast
               ; var_delta  := singleton mlstring$compare rt (vinf with <| vsh_bd := sh_bd_from_bd Trusted vinf.vsh_bd |>)
+              ; curr_loc   := ctxt.loc |>
+    od ∧
+  static_check_prog ctxt (AssignCall (Global,rt) hdl trgt args) =
+    do
+      (* check for out of scope assignment *)
+      vinf <- scope_check_global_var ctxt rt;
+      (* check func ptr exp and arg exps *)
+      finf <- scope_check_fun_name ctxt trgt;
+      esret <- static_check_exps ctxt args;
+      (* check for shape match *)
+      if ~(vinf.vshape = finf.ret_shape)
+        then error (ShapeErr $ concat
+          [ctxt.loc; strlit "call result assigned to global variable "; rt;
+           strlit " does not match declared shape in ";
+           get_scope_desc ctxt.scope; strlit "\n"])
+      else return ();
+      (* check arg num and shapes *)
+      check_func_args ctxt trgt finf.params esret.sh_bds;
+      (* check exception handling info *)
+      case hdl of
+      | NONE => return ()
+        (* check for out of scope exception variable *)
+      | SOME (eid, evar, p) =>
+          do
+            evinf <- scope_check_local_var ctxt evar;
+            static_check_prog (ctxt with locals := insert ctxt.locals evar (evinf with <| vsh_bd := sh_bd_from_bd Trusted evinf.vsh_bd |>)) p;
+            return ()
+          od;
+      (* return prog info with updated var *)
+      return <| exits_fun  := F
+              ; exits_loop := F
+              ; last       := OtherLast
+              ; var_delta  := empty mlstring$compare
               ; curr_loc   := ctxt.loc |>
     od ∧
   static_check_prog ctxt (Return rt) =
@@ -1375,7 +1343,7 @@ Definition static_check_decls_def:
       else
         do
           (* check arg name uniqueness *)
-          case first_repeat $ QSORT mlstring_lt (MAP FST fi.params) of
+          case first_repeat $ sort mlstring_lt (MAP FST fi.params) of
             SOME p => error (GenErr $ concat
               [strlit "parameter "; p; strlit " is redeclared in function ";
               fi.name; strlit "\n"])

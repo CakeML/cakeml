@@ -259,7 +259,7 @@ Definition fun_ids_def:
 End
 
 Definition free_var_ids_def:
-  (free_var_ids (Dec vn e p) = var_exp e ++ FILTER ($≠ vn) (free_var_ids p)) ∧
+  (free_var_ids (Dec vn sh e p) = var_exp e ++ FILTER ($≠ vn) (free_var_ids p)) ∧
   (free_var_ids (Seq p q) = free_var_ids p ++ free_var_ids q) ∧
   (free_var_ids (If g p q) = var_exp g ++ free_var_ids p ++ free_var_ids q) ∧
   (free_var_ids (While g p) = var_exp g ++ free_var_ids p) ∧

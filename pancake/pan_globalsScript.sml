@@ -120,7 +120,7 @@ Definition compile_def:
                     vn'  = fresh_name «» names;
                     flag = fresh_name «vn'» (vn'::names)
                   in
-                    Dec vn' (shape_val sh) $ Dec flag (Const 0w) $
+                    Dec vn' sh (shape_val sh) $ Dec flag One (Const 0w) $
                         Seq (Call (SOME (SOME(Local,vn'), SOME(eid, evar, Seq p' (Assign Local flag (Const 1w))))) e cexps) $
                         If (Var Local flag) Skip $
                         Store (Op Sub [TopAddr; Const addr]) (Var Local vn')
