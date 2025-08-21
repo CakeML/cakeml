@@ -7,7 +7,6 @@ compiler/backend/San
 unverified
 
 # Unmaintained + exampleLib does unholy things like calling set_grammar_ancestry
-icing/examples
 
 examples/flover
 examples/flover/Infra
