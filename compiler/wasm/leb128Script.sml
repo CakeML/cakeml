@@ -23,7 +23,7 @@ Libs
   enc_w7s : 7 word list -> lebStream
   or_w7s  : word7 list -> α word
 
-  dec_signed        : lebStream -> (α word # lebStream) option
+  dec_signed_word   : lebStream -> (α word # lebStream) option
   enc_signed_byte   : byte -> lebStream
   enc_signed_word32 : word32 -> lebStream
   enc_signed_word64 : word64 -> lebStream
@@ -142,8 +142,8 @@ Definition or_w7s_def:
   or_w7s ((b:7 word)::bs) = or_w7s bs << 7 || w2w b
 End
 
-Definition dec_signed_def:
-  dec_signed input =
+Definition dec_signed_word_def:
+  dec_signed_word input =
     case dec_w7s input of
     | NONE => NONE
     | SOME (xs,rest) => SOME ((or_w7s xs) :'a word, rest)
@@ -159,9 +159,9 @@ Definition enc_signed_word8_def:
 End
 
 Theorem dec_enc_signed_word8:
-  ∀b xs rest. dec_signed (enc_signed_word8 b ++ rest) = SOME (b,rest)
+  ∀b xs rest. dec_signed_word (enc_signed_word8 b ++ rest) = SOME (b,rest)
 Proof
-  rw [enc_signed_word8_def,dec_signed_def]
+  rw [enc_signed_word8_def,dec_signed_word_def]
   \\ simp [dec_enc_w7s,or_w7s_def]
   \\ pop_assum mp_tac
   \\ blastLib.BBLAST_TAC
@@ -196,9 +196,9 @@ Definition enc_signed_word32_def:
 End
 
 Theorem dec_enc_signed_word32:
-  ∀b xs rest. dec_signed (enc_signed_word32 b ++ rest) = SOME (b,rest)
+  ∀b xs rest. dec_signed_word (enc_signed_word32 b ++ rest) = SOME (b,rest)
 Proof
-  rw [enc_signed_word32_def,dec_signed_def]
+  rw [enc_signed_word32_def,dec_signed_word_def]
   \\ simp [dec_enc_w7s,or_w7s_def]
   \\ pop_assum mp_tac
   \\ blastLib.BBLAST_TAC
@@ -245,13 +245,67 @@ Definition enc_signed_word64_def:
 End
 
 Theorem dec_enc_signed_word64:
-  ∀b xs rest. dec_signed (enc_signed_word64 b ++ rest) = SOME (b,rest)
+  ∀b xs rest. dec_signed_word (enc_signed_word64 b ++ rest) = SOME (b,rest)
 Proof
-  rw [enc_signed_word64_def,dec_signed_def]
+  rw [enc_signed_word64_def,dec_signed_word_def]
   \\ simp [dec_enc_w7s,or_w7s_def]
   \\ pop_assum mp_tac
   \\ blastLib.BBLAST_TAC
 QED
+
+
+
+(*-----------------------*
+    Shortening Lemmas
+ *-----------------------*)
+
+Theorem dec_num_shortens:
+  ∀bs x rs. dec_num bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
+Proof
+  Induct_on ‘bs’ >> simp[dec_num_def]
+  \\ rpt gen_tac
+  \\ Cases_on ‘word_msb h’ >> gvs[]
+  \\ Cases_on ‘dec_num bs’ >> gvs[]
+  \\ PairCases_on `x'`
+  \\ rw[] \\ fs[]
+QED
+
+Theorem dec_unsigned_word_shortens:
+  ∀bs x rs. dec_unsigned_word bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
+Proof
+  Cases_on ‘bs’ >> simp[dec_unsigned_word_def, dec_num_def]
+  \\ rpt gen_tac
+  \\ Cases_on ‘word_msb h’ >> gvs[]
+  \\ Cases_on ‘dec_num t’ >> gvs[]
+  \\ PairCases_on `x'`
+  \\ drule dec_num_shortens
+  \\ rw[] \\ fs[]
+QED
+
+Theorem dec_w7s_shortens:
+  ∀bs x rs. dec_w7s bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
+Proof
+  Induct_on ‘bs’ >> simp[dec_w7s_def]
+  \\ rpt gen_tac
+  \\ Cases_on ‘word_msb h’ >> gvs[]
+  \\ Cases_on ‘dec_w7s bs’ >> gvs[]
+  \\ PairCases_on `x'`
+  \\ rw[] \\ fs[]
+QED
+
+Theorem dec_signed_word_shortens:
+  ∀bs x rs. dec_signed_word bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
+Proof
+  Cases_on ‘bs’ >> simp[dec_signed_word_def, dec_w7s_def]
+  \\ rpt gen_tac
+  \\ Cases_on ‘word_msb h’ >> gvs[]
+  \\ Cases_on ‘dec_w7s t’ >> gvs[]
+  \\ PairCases_on `x'` \\ rw[]
+  \\ drule dec_w7s_shortens
+  \\ rw[]
+QED
+
+
 
 (*----------------------------------------------------------------------------*
    Some tests
