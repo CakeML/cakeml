@@ -39,6 +39,37 @@ Overload enc_s8  = “enc_signed_word8  : byte   -> byteSeq”
 Overload enc_s32 = “enc_signed_word32 : word32 -> byteSeq”
 Overload enc_s64 = “enc_signed_word64 : word64 -> byteSeq”
 
+Theorem dec_num_shortens:
+  dec_num bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
+Proof
+  (* Induct_on ‘bs’
+    >> simp[dec_num_def]
+    \\ rpt strip_tac
+    \\ Cases_on ‘word_msb h’ >>
+    \\ Cases_on ‘dec_num bs’ >>
+
+      >> gvs[]
+      ‘∃ res. dec_num bs = ’ *)
+  cheat
+
+QED
+
+Theorem dec_unsigned_word_shortens:
+  dec_unsigned_word bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
+Proof
+  (* Induct_on ‘bs’ *)
+  cheat
+
+QED
+
+Theorem dec_signed_shortens:
+  dec_signed bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
+Proof
+  (* Induct_on ‘bs’ *)
+  cheat
+
+QED
+
 Definition dec_2u32_def:
   dec_2u32 (bs:byteSeq) : (word32 # word32 # byteSeq) option =
   case dec_u32 bs of NONE=>NONE| SOME(n,cs) =>
