@@ -3,6 +3,7 @@
 *)
 Theory loopLang
 Ancestors
+  sptree (* for num_set *)
   asm (* for importing binop and cmp *)
   backend_common (* for overloading shift operation  *)
 Libs
