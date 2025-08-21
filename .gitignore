@@ -63,17 +63,17 @@ documentation/lem-generated
 *.cgi
 
 # Benchmarks
-compiler/benchmarks/ocaml/*.cmi
-compiler/benchmarks/ocaml/*.cmo
-compiler/benchmarks/ocaml/*.cmx
-compiler/benchmarks/ocaml/ocamlc_*
-compiler/benchmarks/ocaml/ocamlopt_*
+compiler/benchmarks/cakeml_benchmarks/ocaml/*.cmi
+compiler/benchmarks/cakeml_benchmarks/ocaml/*.cmo
+compiler/benchmarks/cakeml_benchmarks/ocaml/*.cmx
+compiler/benchmarks/cakeml_benchmarks/ocaml/ocamlc_*
+compiler/benchmarks/cakeml_benchmarks/ocaml/ocamlopt_*
 compiler/benchmarks/cakeml/basis_ffi.c
 compiler/benchmarks/cakeml/cakemlc
 compiler/benchmarks/cakeml/cake_O4_*
-compiler/benchmarks/sml/mlton_*
-compiler/benchmarks/sml/polyc_*
-compiler/benchmarks/sml/sml_*
+compiler/benchmarks/cakeml_benchmarks/sml/mlton_*
+compiler/benchmarks/cakeml_benchmarks/sml/polyc_*
+compiler/benchmarks/cakeml_benchmarks/sml/sml_*
 compiler/benchmarks/*.dat
 compiler/benchmarks/*.eps
 
