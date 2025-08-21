@@ -1020,16 +1020,12 @@ Theorem MEM_domlist:
   MEM (wi X) (domlist bnd X)
 Proof
   Cases_on ‘bnd X’>>
-  rw[domlist_def]
+  rw[domlist_def,valid_assignment_def,MEM_GENLIST]>>
+  res_tac
   >-(
-    simp[valid_assignment_def]>>
     goal_assum $ drule_at Any>>
-    intLib.ARITH_TAC)
-  >-(
-    fs[valid_assignment_def]>>
-    pop_assum $ drule_then assume_tac>>
-    simp[MEM_GENLIST]>>
-    intLib.ARITH_TAC)
+    intLib.ARITH_TAC)>>
+  intLib.ARITH_TAC
 QED
 
 (* bijection 0, -1, 1, -2, 2,... ⇔ 0, 1, 2, 3, 4,... and its inverse next *)
