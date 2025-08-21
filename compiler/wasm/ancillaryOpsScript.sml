@@ -40,35 +40,64 @@ Overload enc_s32 = “enc_signed_word32 : word32 -> byteSeq”
 Overload enc_s64 = “enc_signed_word64 : word64 -> byteSeq”
 
 Theorem dec_num_shortens:
-  dec_num bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
+  ∀bs x rs. dec_num bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
 Proof
-  (* Induct_on ‘bs’
-    >> simp[dec_num_def]
-    \\ rpt strip_tac
-    \\ Cases_on ‘word_msb h’ >>
-    \\ Cases_on ‘dec_num bs’ >>
-
-      >> gvs[]
-      ‘∃ res. dec_num bs = ’ *)
-  cheat
-
+  Induct_on ‘bs’ >> simp[dec_num_def]
+  \\ rpt gen_tac
+  \\ Cases_on ‘word_msb h’ >> gvs[]
+  \\ Cases_on ‘dec_num bs’ >> gvs[]
+  \\ PairCases_on `x'`
+  \\ rw[] \\ fs[]
 QED
 
 Theorem dec_unsigned_word_shortens:
-  dec_unsigned_word bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
+  ∀bs x rs. dec_unsigned_word bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
 Proof
-  (* Induct_on ‘bs’ *)
-  cheat
+  Cases_on ‘bs’ >> simp[dec_unsigned_word_def, dec_num_def]
+  \\ rpt gen_tac
+  \\ Cases_on ‘word_msb h’ >> gvs[]
+  \\ Cases_on ‘dec_num t’ >> gvs[]
+  \\ PairCases_on `x'`
+  \\ drule dec_num_shortens
+  \\ rw[] \\ fs[]
+QED
 
+Theorem dec_w7s_shortens:
+  ∀bs x rs. dec_w7s bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
+Proof
+  Induct_on ‘bs’ >> simp[dec_w7s_def]
+  \\ rpt gen_tac
+  \\ Cases_on ‘word_msb h’ >> gvs[]
+  \\ Cases_on ‘dec_w7s bs’ >> gvs[]
+  \\ PairCases_on `x'`
+  \\ rw[] \\ fs[]
 QED
 
 Theorem dec_signed_shortens:
-  dec_signed bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
+  ∀bs x rs. dec_signed bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
 Proof
-  (* Induct_on ‘bs’ *)
-  cheat
-
+  Cases_on ‘bs’ >> simp[dec_signed_def, dec_w7s_def]
+  \\ rpt gen_tac
+  \\ Cases_on ‘word_msb h’ >> gvs[]
+  \\ Cases_on ‘dec_w7s t’ >> gvs[]
+  \\ PairCases_on `x'` \\ rw[]
+  \\ drule dec_w7s_shortens
+  \\ rw[]
 QED
+
+(* ASKYK
+Theorem dec_num_shortens:
+  dec_num bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
+Proof
+  Induct_on ‘bs’ >> simp[dec_num_def]
+  \\ rpt gen_tac
+  \\ Cases_on ‘word_msb h’ >> gvs[]
+  \\ Cases_on ‘dec_num bs’ >> gvs[]
+  \\ PairCases_on `x'`
+  \\ rw[] \\ fs[]
+  \\ cheat
+QED
+*)
 
 Definition dec_2u32_def:
   dec_2u32 (bs:byteSeq) : (word32 # word32 # byteSeq) option =
