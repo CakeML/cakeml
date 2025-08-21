@@ -38,7 +38,7 @@ fun parse_pancake q =
   let
     val code = quote_to_strings q |> String.concatWith "\n" |> fromMLstring
   in
-    EVAL “parse_funs_to_ast ^code”
+    EVAL “parse_topdecs_to_ast ^code”
   end
 
 val check_success = assert $ sumSyntax.is_inl o rhs o concl
@@ -246,7 +246,7 @@ val ex9 = ‘
    var d = 1;
    @out_morefun(a,b,c,d);
    st @base, ic;
-   return 0;
+   return @top;
  }’;
 
 val treeEx10 = check_success $ parse_pancake ex9;
@@ -435,23 +435,6 @@ val error_line_ex3 =
 
 val error_line_ex3_parse = check_failure $ parse_pancake error_line_ex3
 
-(** Function pointers
-
-    & can only be used to get the address of functions.
-    Function pointers can be stored in variables, in shapes, passed as arguments,
-    stored on the heap, and invoked.
-    Any other use of them---including but not limited to arithmetic and
-    shared memory operations---is considered undefined behaviour.
- *)
-val fun_pointer_ex1 =
-  ‘fun main () {
-     var x = &main;
-     return *x(); //  this is a recursive call
-   }
-  ’
-
-val fun_pointer_ex1_parse = check_success $ parse_pancake fun_pointer_ex1;
-
 (* Exporting a function, that is, making a function callable for external entry into Pancake,
    uses the `export` keyword. Functions without this keyword are not callable in this way *)
 val entry_fun =
@@ -494,6 +477,43 @@ val empty_blocks =
   ’
 
 val empty_blocks_parse = check_success $ parse_pancake empty_blocks;
+
+(* Various kinds of global variables *)
+val globals1 =
+ ‘
+  var 1 x = 1+1;
+  ’
+
+val globals1_parse = check_success $ parse_pancake globals1;
+
+val globals2 =
+ ‘
+  var 1 x = 1+1;
+
+  fun f() { x = x + 1; return x; }
+
+  var 1 y = x+1;
+  ’
+
+val globals2_parse = check_success $ parse_pancake globals2;
+
+val globals3 =
+ ‘
+  var 1 x = 0;
+
+  fun f(1 y) { x = y + 1; var x = 5; return x; }
+  ’
+
+val globals3_parse = check_success $ parse_pancake globals3;
+
+val globals4 =
+ ‘
+  var 1 x = 0;
+
+  fun f(1 y) { x = f(x); var x = 5; x = f(x); return x; }
+  ’
+
+val globals4_parse = check_success $ parse_pancake globals4;
 
 (* Dec blocks with no subsequent prog *)
 val empty_dec_prog =

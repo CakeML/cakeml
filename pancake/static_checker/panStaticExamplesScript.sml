@@ -24,7 +24,7 @@ fun parse_pancake q =
   let
     val code = quote_to_strings q |> String.concatWith "\n" |> fromMLstring
   in
-    EVAL “parse_funs_to_ast ^code”
+    EVAL “parse_topdecs_to_ast ^code”
   end
 
 (* All examples should parse *)
@@ -311,9 +311,14 @@ val warns_repeat_params =
 (* Error: Incorrect number of Op arguments (impossible from parser) *)
 
 val parse_missing_arg_binop = ``
-  [(«f»,F,([]:(mlstring # shape) list),
-    Seq (Annot «location» «(0:0 0:0)»)
-    (Return (Op Xor [Const 1w])))]
+  [Function
+     <| name   := «f»
+      ; export := F
+      ; params := []
+      ; body := Seq (Annot «location» «(0:0 0:0)»)
+                    (Return (Op Xor [Const 1w]))
+      |>
+  ]
 ``;
 
 val static_missing_arg_binop =
@@ -324,9 +329,14 @@ val warns_missing_arg_binop =
 
 
 val parse_missing_arg_panop = ``
-  [(«f»,F,([]:(mlstring # shape) list),
-    Seq (Annot «location» «(0:0 0:0)»)
-    (Return (Panop Mul [Const 1w])))]
+  [Function
+     <| name   := «f»
+      ; export := F
+      ; params := []
+      ; body := Seq (Annot «location» «(0:0 0:0)»)
+                    (Return (Panop Mul [Const 1w]))
+      |>
+  ]
 ``;
 
 val static_missing_arg_panop =
@@ -337,9 +347,14 @@ val warns_missing_arg_panop =
 
 
 val parse_missing_arg_sub = ``
-  [(«f»,F,([]:(mlstring # shape) list),
-    Seq (Annot «location» «(0:0 0:0)»)
-    (Return (Op Sub [Const 1w])))]
+  [Function
+     <| name   := «f»
+      ; export := F
+      ; params := []
+      ; body := Seq (Annot «location» «(0:0 0:0)»)
+                    (Return (Op Sub [Const 1w]))
+      |>
+  ]
 ``;
 
 val static_missing_arg_sub =
@@ -350,9 +365,14 @@ val warns_missing_arg_sub =
 
 
 val parse_extra_arg_panop = ``
-  [(«f»,F,([]:(mlstring # shape) list),
-    Seq (Annot «location» «(0:0 0:0)»)
-    (Return (Panop Mul [Const 1w; Const 1w; Const 1w])))]
+  [Function
+     <| name   := «f»
+      ; export := F
+      ; params := []
+      ; body := Seq (Annot «location» «(0:0 0:0)»)
+                    (Return (Panop Mul [Const 1w; Const 1w; Const 1w]))
+      |>
+  ]
 ``;
 
 val static_extra_arg_panop =
@@ -363,9 +383,14 @@ val warns_extra_arg_panop =
 
 
 val parse_extra_arg_sub = ``
-  [(«f»,F,([]:(mlstring # shape) list),
-    Seq (Annot «location» «(0:0 0:0)»)
-    (Return (Op Sub [Const 1w; Const 1w; Const 1w])))]
+  [Function
+     <| name   := «f»
+      ; export := F
+      ; params := []
+      ; body := Seq (Annot «location» «(0:0 0:0)»)
+                    (Return (Op Sub [Const 1w; Const 1w; Const 1w]))
+      |>
+  ]
 ``;
 
 val static_extra_arg_sub =
@@ -1396,6 +1421,50 @@ val warns_undefined_var =
   check_static_no_warnings $ static_check_pancake parse_undefined_var;
 
 
+val ex_self_referential_global = `
+  var 1 x = x;
+`;
+
+val parse_self_referential_global =
+  check_parse_success $ parse_pancake ex_self_referential_global;
+
+val static_self_referential_global =
+  check_static_failure $ static_check_pancake parse_self_referential_global;
+
+val warns_self_referential_global =
+  check_static_no_warnings $ static_check_pancake parse_self_referential_global;
+
+
+val ex_well_scoped_globals = `
+  var 1 x = 1;
+  var 2 y = x;
+  var 3 z = x + y;
+`;
+
+val parse_well_scoped_globals =
+  check_parse_success $ parse_pancake ex_well_scoped_globals;
+
+val static_well_scoped_globals =
+  check_static_success $ static_check_pancake parse_well_scoped_globals;
+
+val warns_well_scoped_globals =
+  check_static_no_warnings $ static_check_pancake parse_well_scoped_globals;
+
+
+val ex_global_function_order = `
+  fun f() { return x; }
+  var 1 x = 1;
+`;
+
+val parse_global_function_order =
+  check_parse_success $ parse_pancake ex_global_function_order;
+
+val static_global_function_order =
+  check_static_success $ static_check_pancake parse_global_function_order;
+
+val warns_global_function_order =
+  check_static_no_warnings $ static_check_pancake parse_global_function_order;
+
 (* Error: Redefined functions *)
 
 val ex_redefined_fun = `
@@ -1490,6 +1559,56 @@ val static_redefined_var_deccall_deccall =
 val warns_redefined_var_deccall_deccall =
   check_static_has_warnings $ static_check_pancake parse_redefined_var_deccall_deccall;
 
+
+val ex_redefined_global_var = `
+  var 1 x = 1;
+  var 1 x = 1;
+`;
+
+val parse_redefined_global_var =
+  check_parse_success $ parse_pancake ex_redefined_global_var;
+
+val static_redefined_global_var =
+  check_static_success $ static_check_pancake parse_redefined_global_var;
+
+val warns_redefined_global_var =
+  check_static_has_warnings $ static_check_pancake parse_redefined_global_var;
+
+
+val ex_redefined_global_var_locally = `
+  var 1 x = 1;
+  fun f() {
+    var x = 1;
+    return x;
+  }
+`;
+
+val parse_redefined_global_var_locally =
+  check_parse_success $ parse_pancake ex_redefined_global_var_locally;
+
+val static_redefined_global_var_locally =
+  check_static_success $ static_check_pancake parse_redefined_global_var_locally;
+
+val warns_redefined_global_var_locally =
+  check_static_has_warnings $ static_check_pancake parse_redefined_global_var_locally;
+
+
+val ex_redefined_global_var_deccall = `
+  var 1 x = 1;
+  fun f() {
+    var 1 x = f();
+    return x;
+  }
+`;
+
+val parse_redefined_global_var_deccall =
+  check_parse_success $ parse_pancake ex_redefined_global_var_deccall;
+
+val static_redefined_global_var_deccall =
+  check_static_success $ static_check_pancake parse_redefined_global_var_deccall;
+
+val warns_redefined_global_var_deccall =
+  check_static_has_warnings $ static_check_pancake parse_redefined_global_var_deccall;
 
 
 (* Shape checks - TODO *)
