@@ -21,6 +21,7 @@ config_enc_str.txt
 
 # Developer generated executables
 developers/readme_gen
+developers/lint_build_dirs
 semantics/addancs
 tutorial/solutions/make_ex
 examples/vipr/compilation/cake_vipr
