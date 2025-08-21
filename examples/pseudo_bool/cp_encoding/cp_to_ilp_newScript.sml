@@ -1,9 +1,11 @@
 (*
   Formalization of the CP to ILP phase
 *)
-open preamble cpTheory ilpTheory pbcTheory pbc_encodeTheory;
-
-val _ = new_theory "cp_to_ilp_new";
+Theory cp_to_ilp_new
+Libs
+  preamble
+Ancestors
+  cp ilp pbc pbc_encode
 
 (* The datatype for reified variables in the ILP encoding *)
 Datatype:
@@ -1179,5 +1181,3 @@ abs
   EVAL``encode_abs (λX. (-10,10)) (INL X) (INL Y)``
 
 *)
-
-val _ = export_theory();

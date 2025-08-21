@@ -1,10 +1,11 @@
 (*
   Formalization of the ILP to PB phase and the full encoder CP to PB
 *)
-open preamble ilpTheory pbcTheory pbc_encodeTheory
-  int_bitwiseTheory cpTheory cp_to_ilpTheory;
-
-val _ = new_theory "ilp_to_pb";
+Theory ilp_to_pb
+Libs
+  preamble
+Ancestors
+  ilp pbc pbc_encode int_bitwise cp cp_to_ilp;
 
 Datatype:
   epb =
@@ -530,5 +531,3 @@ Proof
   gvs[cp_sat_def]>>
   intLib.ARITH_TAC
 QED
-
-val _ = export_theory();

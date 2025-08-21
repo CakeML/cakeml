@@ -1,9 +1,11 @@
 (*
   Definition of CP problem syntax and semantics
 *)
-open preamble mlintTheory pbcTheory;
-
-val _ = new_theory "cp";
+Theory cp
+Libs
+  preamble
+Ancestors
+  mlint pbc
 
 Type assignment = ``:('a -> int)``;
 
@@ -177,5 +179,3 @@ Definition cp_maximal_def:
     cp_sat bnd cs w' ⇒
     w' V ≤ w V
 End
-
-val _ = export_theory();

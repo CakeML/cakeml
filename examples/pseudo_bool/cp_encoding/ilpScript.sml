@@ -1,9 +1,11 @@
 (*
   An ILP-style language designed as an intermediate layer for CP encodings
 *)
-open preamble mlintTheory pbcTheory cpTheory;
-
-val _ = new_theory "ilp";
+Theory ilp
+Libs
+  preamble
+Ancestors
+  mlint pbc cp
 
 (*
   This "ILP"-style intermediate language is designed for convenience of
@@ -70,5 +72,3 @@ Proof
   drule norm_varcs_aux_sound>>
   simp[eval_ilin_term_def,iSUM_def]
 QED
-
-val _ = export_theory();

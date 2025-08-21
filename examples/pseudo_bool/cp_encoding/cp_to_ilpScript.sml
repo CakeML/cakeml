@@ -1296,7 +1296,7 @@ Proof
   CONJ_TAC
   >-simp[reify_some_eq_sem]
   >-cheat
-  
+
   (*
   strip_tac>>
     iff_tac
@@ -1507,5 +1507,3 @@ abs
   EVAL``encode_abs (λX. (-10,10)) (INL X) (INL Y)``
 
 *)
-
-val _ = export_theory();
