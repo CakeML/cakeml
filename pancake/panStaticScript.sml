@@ -187,7 +187,7 @@ Definition sh_bd_from_sh_def:
   sh_bd_from_sh b One = WordB b /\
   sh_bd_from_sh b (Comb shs) = StructB $ MAP (sh_bd_from_sh b) shs
 Termination
-	WF_REL_TAC ‘measure (shape_size o SND)’
+  WF_REL_TAC ‘measure (shape_size o SND)’
 End
 
 (* Builds a shaped based with the shape of a given shaped based and single based *)
@@ -195,7 +195,7 @@ Definition sh_bd_from_bd_def:
   sh_bd_from_bd b (WordB b') = WordB b /\
   sh_bd_from_bd b (StructB sbs) = StructB $ MAP (sh_bd_from_bd b) sbs
 Termination
-	WF_REL_TAC ‘measure (shaped_based_size o SND)’
+  WF_REL_TAC ‘measure (shaped_based_size o SND)’
 End
 
 (* Determine if shaped based has a given shape *)
