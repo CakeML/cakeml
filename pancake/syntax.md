@@ -15,13 +15,13 @@ See the [Pancake how-to](/pancake/how-to.md) for a guide on how to use Pancake.
 
 | Feature | Syntax | Notes |
 | --- | --- | --- |
-| Variable declaration | `var VNAME = EXP;`, `var SHAPE VNAME = FUNC(ARGS);` | Note that declaration via function call needs shape annotation. `FUNC` can be an expression (see Pointer operator; deprecated) |
-| Assignment | `VNAME = EXP;`, `VNAME = FUNC(ARGS);` | Variable assignment only; no struct field assignment yet. `FUNC` can be an expression (see Pointer operator; deprecated) |
-| Memory store | `st ADDR, VAR;`, `st8 ADDR, VAR;`, `st32 ADDR, VAR;` |  |
+| Variable declaration | `var VNAME = EXP;`, `var SHAPE VNAME = FNAME(ARGS);` | Note that declaration via function call needs shape annotation. |
+| Assignment | `VNAME = EXP;`, `VNAME = FNAME(ARGS);` | Variable assignment only; no struct field assignment yet. |
+| Memory store | `st ADDR, VAR;`, `st8 ADDR, VAR;`, `st32 ADDR, VAR;` | |
 | Shared memory store | `!stw ADDR, VAR;`, `!st8 ADDR, VAR;`, `!st32 ADDR, VAR;` | |
 | Shared memory load | `!ldw VAR, ADDR;`, `!ld8 VAR, ADDR;`, `!ld32 VAR, ADDR;` | Note that shared memory loads are statements, unlike local loads |
-| Stand-alone function call | `FUNC(ARGS);` | `FUNC` can be an expression (see Pointer operator; deprecated) |
-| Function return | `return EXP;`, `return FUNC(ARGS);` | `FUNC` can be an expression (see Pointer operator; deprecated) |
+| Stand-alone function call | `FNAME(ARGS);` | |
+| Function return | `return EXP;`, `return FNAME(ARGS);` | |
 
 ## Operators
 
@@ -31,7 +31,6 @@ See the [Pancake how-to](/pancake/how-to.md) for a guide on how to use Pancake.
 | Bitwise | `&`, `\|`, `^`, `<<`, `>>>`, `>>`, `#>>` | And, or, xor, logical left shift, logical right shift, arithmetic right shift, circular right shift |
 | Logical | `!`, `&&`, `\|\|` | Not, and, or |
 | Comparison | `==`, `!=`, `<`, `>`, `<=`, `>=`, `<+`, `>+`, `<=+`, `>=+`| Equal, not equal, less than, greater than, less or equal, greater or equal, signed less than, signed greater than, signed less or equal, signed greater or equal |
-| Pointer | `&FUNC`, `*EXP()` | Get function pointer, dereference function pointer (may be an expression); deprecated |
 | Memory load | `lds SHAPE ADDR`, `ld8 ADDR`, `ld32 ADDR` | Note that local memory loads are expressions, unlike shared loads. For loading a single word, use `lds 1 ADDR` |
 
 ## Shapes and Structs
