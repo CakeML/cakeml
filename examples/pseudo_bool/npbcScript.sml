@@ -13,7 +13,7 @@ Type var = “:num”
 
 (* Normalized pseudoboolean constraints (xs,n) represents constraint xs ≥ n
 An additional compactness assumption guarantees uniqueness *)
-Type npbc = ``: ((int # var) list) #num``
+Type npbc = ``: ((int # var) list) # int``
 
 (* semantics *)
 Definition b2n_def[simp]:
@@ -32,8 +32,9 @@ Definition eval_term_def[simp]:
   eval_term w (c,v) = Num (ABS c) * eval_lit w (c < 0) v
 End
 
+(* npbc are trivially satisfied when n is <= 0 *)
 Definition satisfies_npbc_def:
-  satisfies_npbc w (xs,n) ⇔ SUM (MAP (eval_term w) xs) ≥ n
+  satisfies_npbc w ((xs,n):npbc) ⇔ n ≤ &(SUM (MAP (eval_term w) xs))
 End
 
 (* Tentative representation of PBF as a set of constraints *)
@@ -120,7 +121,7 @@ End
 Definition add_def:
   add (xs,m) (ys,n) =
     let (xs,d) = add_lists xs ys in
-      (xs,((m + n) - d))
+      (xs,((m + n) - &d)):npbc
 End
 
 (* addition -- proof *)
@@ -168,6 +169,7 @@ Proof
   \\ drule_all add_lists_thm
   \\ disch_then (qspec_then ‘w’ assume_tac)
   \\ fs []
+  \\ intLib.ARITH_TAC
 QED
 
 (* addition -- compactness *)
