@@ -4,6 +4,47 @@ Pancake Changelog
 User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
+August 20th 2025
+-------------------
+
+## Global variables
+
+Pancake now supports global variables. Syntax examples:
+
+    var 1 x = 5; // Declare a global variable with shape 1 and value 5
+    var 1 y = x+1; // Global variables are initialised sequentially
+    fun f() {
+      var x = 3; // local variables can shadow globals
+      return z+x; // all globals are in scope in all function bodies...
+    }
+    var z = 7; // ...regardless of declaration order
+
+## Top address
+
+The new `@top` keyword is an analogue to `@base`, which tells you where internal memory ends.
+The addressable internal memory is thus all aligned addresses `w` such that `@base <= w < @top`.
+`@base` and `@top` are always word-aligned.
+
+## Function pointers no longer supported
+
+Previous versions of Pancake allowed storing function pointers in variables
+and internal memory. This feature is now dropped.
+
+May 13th 2025
+-------------------
+
+Pancake now supports 32-bit load expressions and store statements for its internal memory.
+The syntax is as exemplified here.
+
+    st32 @base, v; // store 32 bits from variable v to @base
+    v = ld32 @base+4 // load 32 bits from address @base+4 to variable v.
+
+March 27th 2025
+-------------------
+
+An issue where warnings would result in the compiler giving a non-zero exit
+code is now fixed.
+
 March 8th 2025
 -------------------
 

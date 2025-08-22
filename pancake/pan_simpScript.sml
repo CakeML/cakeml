@@ -42,7 +42,7 @@ End
 Definition seq_call_ret_def:
   seq_call_ret prog =
    dtcase prog of
-    | Seq (AssignCall rv1 NONE trgt args) (Return (Var (rv2:mlstring))) =>
+    | Seq (AssignCall (Local,rv1) NONE trgt args) (Return (Var Local (rv2:mlstring))) =>
       if rv1 = rv2 then (TailCall trgt args) else prog
     | other => other
 End
@@ -73,10 +73,11 @@ End
 
 Definition compile_prog_def:
   compile_prog prog =
-    MAP (λ(name, params, body).
-          (name,
-           params,
-           compile body)) prog
+    MAP (λdecl.
+           dtcase decl of
+             Function fi =>
+               Function (fi with body := compile fi.body)
+           | _ => decl) prog
 End
 
 
@@ -135,3 +136,15 @@ Proof
   every_case_tac >> fs[ret_to_tail_def]
 QED
 
+Theorem compile_prog_pmatch:
+  compile_prog prog =
+    MAP (λdecl.
+           case decl of
+             Function fi =>
+               Function (fi with body := compile fi.body)
+           | _ => decl) prog
+Proof
+  rw[compile_prog_def,MAP_EQ_f] >>
+  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >>
+  simp[]
+QED

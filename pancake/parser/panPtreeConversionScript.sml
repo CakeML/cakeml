@@ -10,10 +10,9 @@
  *)
 Theory panPtreeConversion
 Ancestors
-  arithmetic peg pegexec grammar panLexer panLang panPEG combin
+  arithmetic peg pegexec grammar panLexer panLang panPEG combin mlmap
 Libs
   stringLib numLib intLib preamble ASCIInumbersLib helperLib
-
 
 (** Set HOL to parse operations in following definition
   * for Option monad. *)
@@ -99,7 +98,7 @@ Definition conv_ffi_ident_def:
 End
 
 Definition conv_var_def:
-  conv_var t = lift Var (conv_ident t)
+  conv_var t = lift (Var Global) (conv_ident t)
 End
 
 (** Collection of binop expression nodes, n >= 2 *)
@@ -246,14 +245,6 @@ Definition conv_Exp_def:
         [] => NONE
       | [t] => conv_const t ++ conv_var t ++ conv_Exp t
       | t::ts => FOLDL (λe t. lift2 Field (conv_nat t) e) (conv_var t ++ conv_Exp t) ts
-    else if isNT nodeNT LabelNT then
-      case args of
-        [t] => lift Label (conv_ident t)
-      | _ => NONE
-    else if isNT nodeNT FLabelNT then
-      case args of
-        [t] => lift Label (conv_ident t)
-      | _ => NONE
     else if isNT nodeNT StructNT then
       case args of
         [ts] => do es <- conv_ArgList ts;
@@ -317,6 +308,7 @@ Definition conv_Exp_def:
       | (e::es) => conv_panops es ' (conv_Exp e)
     else NONE) ∧
   (conv_Exp leaf = if tokcheck leaf (kw BaseK) then SOME BaseAddr
+                   else if tokcheck leaf (kw TopK) then SOME TopAddr
                    else if tokcheck leaf (kw BiwK) then SOME BytesInWord
                    else if tokcheck leaf (kw TrueK) then SOME $ Const 1w
                    else if tokcheck leaf (kw FalseK) then SOME $ Const 0w
@@ -369,7 +361,7 @@ Definition conv_NonRecStmt_def:
   (conv_NonRecStmt (Nd nodeNT args) =
     if isNT nodeNT AssignNT then
       case args of
-        [dst; src] => lift2 Assign (conv_ident dst) (conv_Exp src)
+        [dst; src] => lift2 (Assign Global) (conv_ident dst) (conv_Exp src)
       | _ => NONE
     else if isNT nodeNT StoreNT then
       case args of
@@ -385,15 +377,15 @@ Definition conv_NonRecStmt_def:
       | _ => NONE
     else if isNT nodeNT SharedLoadNT then
       case args of
-        [v; e] => lift2 (ShMemLoad OpW) (conv_ident v) (conv_Exp e)
+        [v; e] => lift2 (ShMemLoad OpW Global) (conv_ident v) (conv_Exp e)
       | _ => NONE
     else if isNT nodeNT SharedLoadByteNT then
       case args of
-        [v; e] => lift2 (ShMemLoad Op8) (conv_ident v) (conv_Exp e)
+        [v; e] => lift2 (ShMemLoad Op8 Global) (conv_ident v) (conv_Exp e)
       | _ => NONE
     else if isNT nodeNT SharedLoad32NT then
       case args of
-        [v; e] => lift2 (ShMemLoad Op32) (conv_ident v) (conv_Exp e)
+        [v; e] => lift2 (ShMemLoad Op32 Global) (conv_ident v) (conv_Exp e)
       | _ => NONE
     else if isNT nodeNT SharedStoreNT then
       case args of
@@ -517,6 +509,21 @@ Definition conv_Dec_def:
   conv_Dec _ = NONE
 End
 
+Definition conv_GlobalDec_def:
+  (conv_GlobalDec (^Nd nodeNT args) =
+   if isNT nodeNT GlobalDecNT then
+     case args of
+       [sh; id; e] => do sh <- conv_Shape sh;
+                         v <- conv_ident id;
+                         e' <- conv_Exp e;
+                         SOME (sh,v,e')
+                      od
+     | _ => NONE
+   else
+     NONE) ∧
+  conv_GlobalDec _ = NONE
+End
+
 Definition conv_DecCall_def:
   (conv_DecCall (^Nd nodeNT args) =
    if isNT nodeNT DecCallNT then
@@ -524,9 +531,9 @@ Definition conv_DecCall_def:
        s::i::e::ts =>
          do s' <- conv_Shape s;
             i' <- conv_ident i;
-            e' <- conv_Exp e;
+            e' <- conv_ident e;
             args' <- (case ts of [] => SOME [] | args::_ => conv_ArgList args);
-            SOME (s',i',e':'a exp,args': 'a exp list)
+            SOME (s',i',e',args': 'a exp list)
          od
      | _ => NONE
    else
@@ -550,10 +557,10 @@ Definition conv_Prog_def:
      case argsNT tree RetNT of
      | SOME [id; t] => do var <- conv_ident id;
                           hdl <- conv_Handle t;
-                          SOME $ SOME (SOME var, hdl)
+                          SOME $ SOME (SOME(Global,var), hdl)
                        od
      | SOME [id] => do var <- conv_ident id;
-                       SOME $ SOME (SOME var, NONE)
+                       SOME $ SOME (SOME(Global,var), NONE)
                     od
      | _ => NONE) ∧
   (conv_Prog (Nd nodeNT args) =
@@ -597,7 +604,7 @@ Definition conv_Prog_def:
                 (case ts of
                    [] => NONE
                  | r::ts =>
-                     do e' <- conv_Exp r;
+                     do e' <- conv_ident r;
                         args' <- (case ts of [] => SOME []
                                           | args::_ => conv_ArgList args);
                         SOME $ add_locs_annot nd $ TailCall e' args'
@@ -605,7 +612,7 @@ Definition conv_Prog_def:
             | NONE =>
                 (case conv_Handle r of
                    NONE =>
-                     do e' <- conv_Exp r;
+                     do e' <- conv_ident r;
                         args' <- (case ts of [] => SOME []
                                           | args::_ => conv_ArgList args);
                         SOME $ add_locs_annot nd $ StandAloneCall NONE e' args'
@@ -614,7 +621,7 @@ Definition conv_Prog_def:
                      (case ts of
                       | [] => NONE
                       | r::ts =>
-                          do e' <- conv_Exp r;
+                          do e' <- conv_ident r;
                              args' <- (case ts of [] => SOME []
                                                | args::_ => conv_ArgList args);
                              SOME $ add_locs_annot nd $ StandAloneCall h e' args'
@@ -623,7 +630,7 @@ Definition conv_Prog_def:
                 (case ts of
                    [] => NONE
                  | e::xs =>
-                     do e' <- conv_Exp e;
+                     do e' <- conv_ident e;
                         args' <- (case xs of [] => SOME []
                                           | args::_ => conv_ArgList args);
                         SOME $ add_locs_annot nd $ panLang$Call (SOME r') e' args'
@@ -658,16 +665,16 @@ Termination
   Cases_on ‘tree’ >> gvs[argsNT_def]
 End
 
-Definition conv_expos_def:
-  conv_expos tree =
+Definition conv_export_def:
+  conv_export tree =
     case destTOK ' (destLf tree) of
       SOME (KeywordT ExportK) => SOME T
     | SOME (StaticT) => SOME F
     | _ => NONE
 End
 
-Definition conv_Fun_def:
-  conv_Fun tree =
+Definition conv_TopDec_def:
+  conv_TopDec tree =
   case argsNT tree FunNT of
   | SOME [e;n;ps;c] =>
       (case (argsNT ps ParamListNT) of
@@ -675,27 +682,30 @@ Definition conv_Fun_def:
            (do ps'  <- conv_params args;
                body <- conv_Prog c;
                n'   <- conv_ident n;
-               e'   <- conv_expos e;
-               SOME (n', e', ps', body)
+               e'   <- conv_export e;
+               SOME $ Function <| name := n'; export := e'; params := ps'; body := body |>
             od)
        | _ => NONE)
-  | _ => NONE
+  | _ =>
+      (case conv_GlobalDec tree of
+         NONE => NONE
+       | SOME (sh,v,e) => SOME $ Decl sh v e)
 End
 
-Definition conv_FunList_def:
-  conv_FunList tree =
-   case argsNT tree FunListNT of
+Definition conv_TopDecList_def:
+  conv_TopDecList tree =
+   case argsNT tree TopDecListNT of
      SOME [] => SOME []
    | SOME [f; tree'] =>
        (case dest_annot_tok f of
          NONE =>
-           (case conv_Fun f of
+           (case conv_TopDec f of
             | SOME f =>
-                (case conv_FunList tree' of
+                (case conv_TopDecList tree' of
                   NONE => NONE
                  | SOME fs => SOME(f::fs))
             | NONE => NONE)
-       | SOME _ => conv_FunList tree')
+       | SOME _ => conv_TopDecList tree')
    | _ => NONE
 Termination
   wf_rel_tac ‘measure $ ptree_size’ >>
@@ -710,14 +720,105 @@ Definition parse_to_ast_def:
     | _ => NONE
 End
 
-Definition parse_funs_to_ast_def:
-  parse_funs_to_ast s =
+Definition collect_globals_def:
+  collect_globals [] = empty mlstring$compare ∧
+  collect_globals (d::ds) =
+  case d of
+    Decl _ v _ => mlmap$insert (collect_globals ds) v ()
+  | _ => collect_globals ds
+End
+
+Definition localise_exp_def:
+  (localise_exp ls (Var varkind varname) =
+   case lookup ls varname of
+     NONE   => Var varkind varname
+   | SOME _ => Var Local varname) ∧
+  localise_exp ls (Struct exps) = Struct (localise_exps ls exps) ∧
+  localise_exp ls (Field index exp) = Field index (localise_exp ls exp) ∧
+  localise_exp ls (Load shape exp) = Load shape (localise_exp ls exp)∧
+  localise_exp ls (LoadByte exp) = LoadByte (localise_exp ls exp) ∧
+  localise_exp ls (Op binop exps) = Op binop (localise_exps ls exps) ∧
+  localise_exp ls (Panop panop exps) = Panop panop (localise_exps ls exps) ∧
+  localise_exp ls (Cmp cmp exp1 exp2) = Cmp cmp (localise_exp ls exp1) (localise_exp ls exp2) ∧
+  localise_exp ls (Shift shift exp num) = Shift shift (localise_exp ls exp) num ∧
+  localise_exp ls e = e ∧
+  localise_exps ls [] = [] ∧
+  localise_exps ls (e::es) = localise_exp ls e::localise_exps ls es
+End
+
+Definition localise_prog_def:
+  localise_prog ls (Dec varname exp prog) =
+  Dec varname
+      (localise_exp ls exp)
+      (localise_prog (insert ls varname ()) prog) ∧
+  localise_prog ls (Assign varkind varname exp) =
+  Assign (case lookup ls varname of NONE => varkind | SOME _ => Local)
+         varname (localise_exp ls exp) ∧
+  localise_prog ls (Store exp1 exp2) =
+  Store (localise_exp ls exp1)
+        (localise_exp ls exp2) ∧
+  localise_prog ls (StoreByte exp1 exp2) =
+  StoreByte (localise_exp ls exp1)
+            (localise_exp ls exp2) ∧
+  localise_prog ls (Seq prog1 prog2) =
+  Seq (localise_prog ls prog1)
+      (localise_prog ls prog2) ∧
+  localise_prog ls (If exp prog1 prog2) =
+  If (localise_exp ls exp)
+     (localise_prog ls prog1)
+     (localise_prog ls prog2) ∧
+  localise_prog ls (While exp prog) =
+  While (localise_exp ls exp)
+        (localise_prog ls prog) ∧
+  localise_prog ls (panLang$Call call name exps) =
+  panLang$Call (OPTION_MAP
+          (λ(x,y).
+             (OPTION_MAP (λ(varkind,varname). ((case lookup ls varname of NONE => varkind | SOME _ => Local), varname)) x,
+              OPTION_MAP (λ(x,y,z). (x,y,localise_prog (insert ls y ()) z)) y))
+          call)
+       name
+       (MAP (localise_exp ls) exps) ∧
+  localise_prog ls (DecCall varname shape fname exps prog) =
+  DecCall varname shape
+          fname
+          (MAP (localise_exp ls) exps)
+          (localise_prog (insert ls varname ()) prog) ∧
+  localise_prog ls (ExtCall funname exp1 exp2 exp3 exp4) =
+  ExtCall funname
+          (localise_exp ls exp1) (localise_exp ls exp2)
+          (localise_exp ls exp3) (localise_exp ls exp4) ∧
+  localise_prog ls (Raise eid exp) =
+  Raise eid (localise_exp ls exp) ∧
+  localise_prog ls (Return exp) =
+  Return (localise_exp ls exp) ∧
+  localise_prog ls (ShMemLoad opsize varkind varname exp) =
+  ShMemLoad opsize
+            (case lookup ls varname of NONE => varkind | SOME _ => Local)
+            varname
+            (localise_exp ls exp) ∧
+  localise_prog ls (ShMemStore opsize exp1 exp2) =
+  ShMemStore opsize (localise_exp ls exp1) (localise_exp ls exp2) ∧
+  localise_prog ls p = p
+End
+
+Definition localise_topdec_def:
+  localise_topdec ls (Decl sh v e) = Decl sh v e ∧
+  localise_topdec ls (Function fi) =
+  Function $ fi with body := localise_prog (FOLDL (\m p. insert m p ()) ls (MAP FST fi.params)) fi.body
+End
+
+Definition localise_topdecs_def:
+  localise_topdecs decs = MAP (localise_topdec $ empty mlstring$compare) decs
+End
+
+Definition parse_topdecs_to_ast_def:
+  parse_topdecs_to_ast s =
     (case safe_pancake_lex s of
      | INL toks =>
         (case parse toks of
            | INL e =>
-             (case conv_FunList e of
-              | SOME funs => INL funs
+             (case conv_TopDecList e of
+              | SOME funs => INL(localise_topdecs funs)
               | NONE => INR [(«Parse tree conversion failed»,unknown_loc)])
            | INR err => INR err)
      | INR err => INR err)

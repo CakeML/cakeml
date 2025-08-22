@@ -22,6 +22,9 @@ Correctness proof for loop_to_word
 Proof of correspondence between functional big-step
 and itree semantics for Pancake.
 
+[pan_globalsProofScript.sml](pan_globalsProofScript.sml):
+Correctness proof for pan_globals
+
 [pan_simpProofScript.sml](pan_simpProofScript.sml):
 Correctness proof for pan_simp
 
