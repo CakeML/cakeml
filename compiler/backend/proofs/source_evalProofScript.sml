@@ -6,7 +6,7 @@ Theory source_evalProof
 Ancestors
   ast[qualified] string[qualified] semantics
   semanticPrimitivesProps namespaceProps semanticPrimitives
-  evaluateProps evaluate fpOpt
+  evaluateProps evaluate
 Libs
   preamble experimentalLib
 
