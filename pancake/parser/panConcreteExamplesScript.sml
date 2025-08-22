@@ -568,5 +568,3 @@ val opt_shape_dec =
   ’
 
 val opt_shape_dec_parse = check_success $ parse_pancake opt_shape_dec;
-
-val _ = export_theory();
