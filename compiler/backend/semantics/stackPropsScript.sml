@@ -792,7 +792,7 @@ Definition addr_ok_def:
    if op ∈ {Load; Store; Load32; Store32}
    then addr_offset_ok c w
    else if op IN {Load16; Store16}
-   then hw_offset_ok c w else byte_offset_ok c w)
+   then hw_offset_ok c w ∧ c.ISA ≠ Ag32 else byte_offset_ok c w)
 End
 
 (* TODO: This is not updated for Install, CBW and DBW *)
@@ -908,7 +908,8 @@ Definition addr_name_def:
   (if m IN {Load; Store; Load32; Store32}
    then addr_offset_ok c w
    else if m IN {Load16; Store16}
-   then hw_offset_ok c w else byte_offset_ok c w)
+   then hw_offset_ok c w ∧ c.ISA ≠ Ag32
+   else byte_offset_ok c w)
 End
 
 Definition inst_name_def:
