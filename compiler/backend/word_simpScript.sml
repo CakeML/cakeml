@@ -440,13 +440,39 @@ Definition simp_duplicate_if_def:
   | _ => p
 End
 
+(*Optimize pairs where one side is known to terminate due to a Raise or a Return
+the flag is T when its known to halt and F otherwise
+
+*)
+Definition push_out_if_aux_def:
 (* all of them together *)
+  push_out_if_aux p = dtcase p of
+  | MustTerminate q => ((\q. MustTerminate q) ## I) (push_out_if_aux q)
+  | Return _ _ => (p,T)
+  | Raise _ => (p,T)
+  | If cmp r1 ri c1 c2 => (dtcase (push_out_if_aux c1,push_out_if_aux c2) of
+                            | ((c1',T),(c2',T)) => (If cmp r1 ri c1' c2', T)
+                            | ((c1',F),(c2',T)) => (Seq (If cmp r1 ri Skip c2') c1', F)
+                            | ((c1',T),(c2',F)) => (Seq (If cmp r1 ri c1' Skip) c2', F)
+                            | ((c1',F),(c2',F)) => (If cmp r1 ri c1' c2', F))
+  | Seq c1 c2 => (dtcase (push_out_if_aux c1) of
+                   | (c1', T) => ((Seq c1' c2),T) (*Don't have to bother as DCE will get rid of it*)
+                   | (c1', F) => ((\c2'. Seq c1' c2') ## I) (push_out_if_aux c2))
+  | _ => (p,F)
+End
+
+Definition push_out_if_def:
+ push_out_if p = FST (push_out_if_aux p)
+End
+
+
 
 Definition compile_exp_def:
   compile_exp (e:'a wordLang$prog) =
     let e = Seq_assoc Skip e in
     let e = const_fp e in
     let e = simp_duplicate_if e in
+    let e = push_out_if e in
       e
 End
 
