@@ -2126,4 +2126,3 @@ Proof
   fs[EVERY_MEM,FORALL_PROD]
 QED
 
-val _ = export_theory();
