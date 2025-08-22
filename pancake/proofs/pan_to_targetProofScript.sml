@@ -88,14 +88,19 @@ QED
 
 Theorem pan_to_stack_first_ALL_DISTINCT:
   pan_to_word_compile_prog mc.target.config.ISA pan_code = wprog0 ∧
-  word_to_word_compile c.word_to_word_conf mc.target.config wprog0 = (col,wprog) ∧
+  word_to_word_compile c.word_to_word_conf mc.target.config wprog0 = (col,wprog) ∧ mc.target.config.ISA ≠ Ag32 ∧
   word_to_stack_compile mc.target.config wprog = (bitmaps,c'',fs,p) ∧
   ALL_DISTINCT (MAP FST (functions pan_code)) ⇒
   ALL_DISTINCT (MAP FST p)
 Proof
   strip_tac>>drule pan_to_wordProofTheory.first_compile_prog_all_distinct>>
   strip_tac>>
-  drule backendProofTheory.compile_to_word_conventions2>>strip_tac>>
+  drule backendProofTheory.compile_to_word_conventions2>>
+  impl_tac
+  >- (irule_at Any EVERY_MONOTONIC>>
+      qexists ‘λ_. mc.target.config.ISA ≠ Ag32’>>
+      simp[FORALL_PROD])>>
+  strip_tac>>
   gs[]>>
   qpat_x_assum ‘MAP FST wprog = _’ $ assume_tac o GSYM>>gs[]>>
   drule word_to_stack_compile_FST>>
@@ -110,7 +115,7 @@ QED
 
 Theorem pan_to_stack_compile_lab_pres:
   pan_to_word$compile_prog mc.target.config.ISA pan_code = wprog0 ∧
-  word_to_word_compile c.word_to_word_conf mc.target.config wprog0 =(col,wprog) ∧
+  word_to_word_compile c.word_to_word_conf mc.target.config wprog0 =(col,wprog) ∧ mc.target.config.ISA ≠ Ag32 ∧
   word_to_stack_compile mc.target.config wprog = (bitmaps,c'',fs,p) ∧
   ALL_DISTINCT (MAP FST (functions pan_code)) ⇒
   ALL_DISTINCT (MAP FST p) ∧
@@ -127,6 +132,10 @@ Proof
   drule pan_to_wordProofTheory.pan_to_word_compile_lab_pres>>strip_tac>>
   gs[]>>
   drule backendProofTheory.compile_to_word_conventions2>>
+  impl_tac
+  >- (irule_at Any EVERY_MONOTONIC>>
+      qexists ‘λ_. mc.target.config.ISA ≠ Ag32’>>
+      simp[FORALL_PROD])>>
   strip_tac>>
   drule pan_to_wordProofTheory.first_compile_prog_all_distinct>>
   strip_tac>>gs[]>>
@@ -167,7 +176,7 @@ QED
 
 Theorem pan_to_lab_labels_ok:
   pan_to_word_compile_prog mc.target.config.ISA pan_code = wprog0 ∧
-  word_to_word_compile c.word_to_word_conf mc.target.config wprog0 = (col,wprog) ∧
+  word_to_word_compile c.word_to_word_conf mc.target.config wprog0 = (col,wprog) ∧ mc.target.config.ISA ≠ Ag32 ∧
   word_to_stack_compile mc.target.config wprog = (bitmaps,c'',fs,p) ∧
   stack_to_lab_compile c.stack_conf c.data_conf max_heap sp mc.target.config.addr_offset p = lprog ∧
   ALL_DISTINCT (MAP FST (functions pan_code)) ⇒
@@ -184,6 +193,7 @@ QED
 Theorem word_to_stack_good_code_lemma:
   word_to_word_compile c.word_to_word_conf mc.target.config
   (pan_to_word_compile_prog mc.target.config.ISA pan_code) = (col,wprog) ∧
+  mc.target.config.ISA ≠ Ag32 ∧
   word_to_stack_compile mc.target.config wprog = (bitmaps,c'',fs,p) ∧
   LENGTH mc.target.config.avoid_regs + 13 ≤ mc.target.config.reg_count ∧
   (* from backend_config_ok c *)
@@ -198,6 +208,10 @@ Proof
   drule_at (Pat ‘word_to_word_compile _ _ _ = _’) pan_to_stack_compile_lab_pres>>
   disch_then drule_all>>strip_tac>>gs[]>>
   drule backendProofTheory.compile_to_word_conventions2>>
+  impl_tac
+  >- (irule_at Any EVERY_MONOTONIC>>
+      qexists ‘λ_. mc.target.config.ISA ≠ Ag32’>>
+      simp[FORALL_PROD])>>
   strip_tac>>
   drule pan_to_wordProofTheory.first_compile_prog_all_distinct>>
   strip_tac>>gs[]>>
@@ -1061,7 +1075,7 @@ QED
 
 
 Theorem from_pan_to_lab_no_install:
-  ALL_DISTINCT (MAP FST (functions pan_code)) ∧
+  ALL_DISTINCT (MAP FST (functions pan_code)) ∧ ac.ISA ≠ Ag32 ∧
   pan_to_word_compile_prog isa pan_code = wprog0 ∧
   word_to_word_compile wc ac wprog0 = (col, wprog) ∧
   word_to_stack_compile ac wprog = (bm, c, fs, p) ⇒
@@ -1075,7 +1089,11 @@ Proof
   gs[]>>
   drule_all word_to_word_compile_no_install_no_alloc>>strip_tac>>
   ‘MAP FST wprog0 = MAP FST wprog’ by
-    (drule compile_to_word_conventions2>>gvs[])>>fs[]>>
+    (drule compile_to_word_conventions2>>
+     impl_tac
+     >- (irule_at Any EVERY_MONOTONIC>>
+         qexists ‘λ_. ac.ISA ≠ Ag32’>>simp[FORALL_PROD])>>
+     gvs[])>>fs[]>>
   drule_all word_to_stackProofTheory.word_to_stack_compile_no_install>>strip_tac>>
   irule (SRULE[] $ stack_to_labProofTheory.stack_to_lab_compile_no_install)>>fs[]
 QED
@@ -1149,7 +1167,7 @@ Theorem pan_to_target_compile_semantics:
   size_of_eids pan_code < dimword (:α) ∧
   FDOM s.eshapes = FDOM ((get_eids(functions pan_code)):mlstring |-> 'a word) ∧
   backend_config_ok c ∧ lab_to_targetProof$mc_conf_ok mc ∧
-  mc_init_ok c mc ∧
+  mc_init_ok c mc ∧ mc.target.config.ISA ≠ Ag32 ∧
   0w <₊ mc.target.get_reg ms mc.len_reg ∧
   globals_size = SUM (MAP size_of_shape (dec_shapes (compile_prog pan_code))) ∧
   mc.target.get_reg ms mc.len_reg  <₊ mc.target.get_reg ms mc.ptr2_reg ∧
@@ -1213,7 +1231,8 @@ Proof
   ‘no_install lprog’ by
     (fs[Abbr ‘lprog’]>>
      irule from_pan_to_lab_no_install>>
-     rpt (first_assum $ irule_at Any)>>metis_tac[])>>
+     rpt (first_assum $ irule_at Any)>>
+     metis_tac[mc_init_ok_def])>>
   ‘no_install_or_no_share_mem lprog mc.ffi_names’
     by fs[lab_to_targetProofTheory.no_install_or_no_share_mem_def]>>
 
@@ -1258,6 +1277,9 @@ Proof
   first_assum $ irule_at Any>>gs[]>> (* no_install_or_no_share_mem *)
   first_assum $ irule_at Any>>gs[]>>  (* lab_to_target$compile *)
 
+  ‘EVERY (λ(_,_,_). T) (pan_to_word_compile_prog mc.target.config.ISA pan_code)’ by
+    (rw[]>>simp[EVERY_MEM,FORALL_PROD])>>fs[]>>
+
   ‘good_code mc.target.config (LN:num sptree$num_map sptree$num_map) lprog’
     by (
     irule (INST_TYPE [beta|->alpha] pan_to_lab_good_code_lemma)>>
@@ -1288,12 +1310,7 @@ Proof
      first_x_assum (qspecl_then [‘p’, ‘mc.target.config’] assume_tac)>>gs[]>>
      (* reshaping... *)
      gs[GSYM EVERY_CONJ]>>
-     ‘∀x. (λ(n:num,p). stack_asm_name mc.target.config p ∧
-                       stack_asm_remove mc.target.config p) x ⇒
-          (λx. (λ(n,p). stack_asm_name mc.target.config p) x ∧
-               (λ(n,p). stack_asm_remove mc.target.config p) x) x’
-       by (rw[]>>pairarg_tac>>gs[])>>
-     drule_then irule EVERY_MONOTONIC>>
+     simp[LAMBDA_PROD]>>
      ‘p = SND (SND (SND (word_to_stack_compile mc.target.config wprog)))’
        by gs[]>>
      pop_assum $ (fn h => rewrite_tac[h])>>
