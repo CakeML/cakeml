@@ -385,7 +385,7 @@ Definition conv_NonRecStmt_def:
       | _ => NONE
     else if isNT nodeNT SharedLoad16NT then
       case args of
-        [v; e] => lift2 (ShMemLoad Op16) (conv_ident v) (conv_Exp e)
+        [v; e] => lift2 (ShMemLoad Op16 Global) (conv_ident v) (conv_Exp e)
       | _ => NONE
     else if isNT nodeNT SharedLoad32NT then
       case args of
