@@ -149,6 +149,8 @@ Theorem pop_i32_clock:
   pop_i32 s = SOME (x,s') ==> s'.clock = s.clock
 Proof
   gvs[pop_i32_def,AllCaseEqs()]
+  \\ rpt strip_tac
+  \\ rw[]
 QED
 
 Theorem set_local_with_clock[simp]:
