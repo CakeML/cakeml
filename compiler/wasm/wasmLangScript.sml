@@ -273,10 +273,11 @@ Type expr          = “:instr list”
 Type constant_expr = “:instr list”
 
 Datatype: func =
-  <| name   : mlstring
-   ; ftype  : index
+  <| ftype  : index
    ; locals : valtype list
    ; body   : expr
+   ; fname  : mlstring
+   ; lnames : mlstring list
    |>
 End
 
@@ -299,6 +300,7 @@ Datatype: module =
    ; mems    : memtype  list
    ; globals : global   list
    ; datas   : data     list
+   ; mname   : mlstring
    |>
 End
 

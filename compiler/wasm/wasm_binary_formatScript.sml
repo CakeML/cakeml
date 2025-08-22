@@ -734,25 +734,47 @@ End
 End *)
 
 Definition split_funcs_def:
-  split_funcs ([]:func list) =  ( ([] :  index                list)
-                                , ([] : (valtype list # expr) list)
-                                ) ∧
+  split_funcs ([]:func list) =  ( [] :  index                list
+                                , [] : (valtype list # expr) list
+                                , [] :  mlstring             list
+                                , [] :  mlstring list        list
+  ) ∧
   split_funcs (f::fs) =
-  let (typs, lBods) = split_funcs fs in
-  (f.ftype :: typs, (f.locals, f.body) :: lBods)
+    let ( typs
+        , lBods
+        , func_names
+        , local_names
+        ) = split_funcs fs
+    in
+    ( f.ftype            :: typs
+    ,(f.locals, f.body)  :: lBods
+    , f.fname            :: func_names
+    , f.lnames           :: local_names
+    )
 End
 
 Definition zip_funcs_def:
   zip_funcs ([] :  index                list)
-            (_  : (valtype list # expr) list) = [] : func list ∧
-  zip_funcs _ [] = [] ∧
-  zip_funcs (fi::is) ((vs,e)::vles) =
-    (<| name   := strlit ""
-      ; ftype  := fi
-      ; locals := vs
-      ; body   := e
-      |> : func)
-    :: zip_funcs is vles
+            (_  : (valtype list # expr) list)
+            (_  :  mlstring             list)
+            (_  :  mlstring list        list) = [] : func list
+  ∧
+  zip_funcs _ [] _ _ = []
+  ∧
+  zip_funcs _ _ [] _ = []
+  ∧
+  zip_funcs _ _ _ [] = []
+  ∧
+  zip_funcs ( fi            :: is   )
+            ( (vs,e)        :: vles )
+            ( func_name     :: fns  )
+            ( local_names   :: lns  ) =
+  (<| ftype  := fi
+    ; locals := vs
+    ; body   := e
+    ; fname  := func_name
+    ; lnames := local_names
+    |> : func)      :: zip_funcs is vles fns lns
 End
 
 
@@ -760,7 +782,7 @@ End
 (* From CWasm (not Wasm!) modules to WBF *)
 Definition enc_module_def:
   enc_module (m:module) : byteSeq option =
-    let (fTIdxs, locBods) = split_funcs m.funcs in
+    let (fTIdxs, locBods, fns, lns) = split_funcs m.funcs in
     case enc_vector_opt  enc_functype  m.types   of NONE=>NONE| SOME types'   =>
     case enc_vector      enc_u32       fTIdxs    of NONE=>NONE| SOME funcs'   =>
     case enc_vector      enc_limits    m.mems    of NONE=>NONE| SOME mems'    =>
