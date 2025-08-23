@@ -1823,23 +1823,33 @@ Theorem infer_e_complete:
 Proof
   ho_match_mp_tac type_e_strongind >>
   rw [add_constraint_success2,success_eqns,infer_e_def]
-  (*Easy cases*)
+  (*Easy cases*) >~
+  [‘Tapp [] Tint_num = _’]
   >- (qexists_tac `s` >>
       imp_res_tac sub_completion_wfs >>
       rw [t_walkstar_eqn1, convert_t_def] >>
-      metis_tac [t_compat_refl])
+      metis_tac [t_compat_refl]) >~
+  [‘Tapp [] Tchar_num = _’]
   >- (qexists_tac `s` >>
       imp_res_tac sub_completion_wfs >>
       rw [t_walkstar_eqn1, convert_t_def, Tchar_def] >>
-      metis_tac [t_compat_refl])
+      metis_tac [t_compat_refl]) >~
+  [‘Tapp [] Tstring_num = _’]
   >- (qexists_tac `s'` >>
       imp_res_tac sub_completion_wfs >>
       rw [t_walkstar_eqn1, convert_t_def] >>
-      metis_tac [t_compat_refl])
+      metis_tac [t_compat_refl]) >~
+  [‘Tapp [] Tword8_num = _’]
   >- (qexists_tac `s` >>
       imp_res_tac sub_completion_wfs >>
       rw [t_walkstar_eqn1, convert_t_def] >>
-      metis_tac [t_compat_refl])
+      metis_tac [t_compat_refl]) >~
+  [‘Tapp [] Tword64_num = _’]
+  >- (qexists_tac `s` >>
+      imp_res_tac sub_completion_wfs >>
+      rw [t_walkstar_eqn1, convert_t_def] >>
+      metis_tac [t_compat_refl]) >~
+  [‘Tapp [] Tdouble_num = _’]
   >- (qexists_tac `s` >>
       imp_res_tac sub_completion_wfs >>
       rw [t_walkstar_eqn1, convert_t_def] >>

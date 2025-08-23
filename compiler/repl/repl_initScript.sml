@@ -236,7 +236,6 @@ Theorem repl_types_repl_prog:
   (repl_prog_st cl fs).next_type_stamp ≤ st.next_type_stamp ∧
   (repl_prog_st cl fs).next_exn_stamp ≤ st.next_exn_stamp ∧
   st.ffi = (repl_prog_st cl fs).ffi ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧
-  st.fp_state = (init_state (basis_ffi cl fs)).fp_state ∧
   hasFreeFD fs ∧ file_content fs «config_enc_str.txt» = SOME content
   ⇒
   res = Rerr (Rabort Rtimeout_error) ∨
@@ -367,4 +366,3 @@ Proof
   \\ irule repl_types_set_clock
   \\ asm_rewrite_tac []
 QED
-

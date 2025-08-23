@@ -65,8 +65,6 @@ Definition type_ident_to_string_def:
     strlit "byte_array"
   else if ti = Tdouble_num then
     strlit "Double.double"
-  else if ti = Treal_num then
-    strlit "Double.real"
   else
     case get_tyname ti tys of
     | NONE => mlint$toString (&ti)
