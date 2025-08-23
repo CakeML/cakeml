@@ -447,9 +447,12 @@ the flag is T when its known to halt and F otherwise
 Definition push_out_if_aux_def:
 (* all of them together *)
   push_out_if_aux p = dtcase p of
-  | MustTerminate q => ((\q. MustTerminate q) ## I) (push_out_if_aux q)
+  | MustTerminate q =>
+    (dtcase (push_out_if_aux q) of
+    | (c,b) => (MustTerminate c,b))
   | Return _ _ => (p,T)
   | Raise _ => (p,T)
+  | Call NONE _ _ _ => (p, T)
   | If cmp r1 ri c1 c2 => (dtcase (push_out_if_aux c1,push_out_if_aux c2) of
                             | ((c1',T),(c2',T)) => (If cmp r1 ri c1' c2', T)
                             | ((c1',F),(c2',T)) => (Seq (If cmp r1 ri Skip c2') c1', F)
@@ -457,7 +460,9 @@ Definition push_out_if_aux_def:
                             | ((c1',F),(c2',F)) => (If cmp r1 ri c1' c2', F))
   | Seq c1 c2 => (dtcase (push_out_if_aux c1) of
                    | (c1', T) => ((Seq c1' c2),T) (*Don't have to bother as DCE will get rid of it*)
-                   | (c1', F) => ((\c2'. Seq c1' c2') ## I) (push_out_if_aux c2))
+                   | (c1', F) =>
+                      (dtcase (push_out_if_aux c2) of
+                      |  (c2',b) => (Seq c1' c2', b)))
   | _ => (p,F)
 End
 
