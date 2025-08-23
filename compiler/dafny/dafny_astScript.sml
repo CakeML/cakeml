@@ -50,6 +50,8 @@ Datatype:
   | Old exp
   (* Let [(name, rhs)] body *)
   | Let ((mlstring # exp) list) exp
+  (* ForallHeap mods term *)
+  | ForallHeap (exp list) exp
 End
 
 Overload If = “Exp_If”
