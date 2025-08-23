@@ -176,6 +176,19 @@ Definition get_vars_stmt_def:
   get_vars_stmt Return = []
 End
 
+Definition assigned_in_def:
+  assigned_in (Then stmt₁ stmt₂) v =
+    (assigned_in stmt₁ v ∨ assigned_in stmt₂ v) ∧
+  assigned_in (If _ stmt₁ stmt₂) v =
+    (assigned_in stmt₁ v ∨ assigned_in stmt₂ v) ∧
+  assigned_in (Dec n_ty stmt) v =
+    (if v = FST n_ty then F else assigned_in stmt v) ∧
+  assigned_in (Assign ass) v = MEM (VarLhs v) (MAP FST ass) ∧
+  assigned_in (While grd invs decrs mods body) v = assigned_in body v ∧
+  assigned_in (MetCall lhss _ _) v = MEM (VarLhs v) lhss ∧
+  assigned_in _ v = F
+End
+
 (* TODO Move to AST *)
 Definition Foralls_def:
   Foralls [] e = e ∧
@@ -324,8 +337,6 @@ Inductive stmt_wp:
     DISJOINT (set ds_vars) (set (MAP FST ls ++ get_vars_stmt body)) ∧
     LENGTH ds_vars = LENGTH ds ∧
     get_type ls guard = INR BoolT ∧
-    (* on exit of loop, invs and not guard imply post *)
-    require (Foralls ls (imp (conj (not guard :: invs)) (conj post))) ∧
     (* when executing the body, invs are maintained *)
     require (Foralls (MAP (λv. (v,IntT)) ds_vars ++ ls)
                (imp (conj (guard :: invs ++ MAP2 dec_assum ds_vars ds))
@@ -334,7 +345,11 @@ Inductive stmt_wp:
       (invs ++ MAP CanEval ds ++ decreases_check (0, ds) (0, MAP Var ds_vars))
       ens decs (MAP (λv. (v,IntT)) ds_vars ++ ls)
     ⇒
-    stmt_wp m (invs ++ MAP CanEval ds) (While guard invs ds mods body) post ens decs ls
+    stmt_wp m (invs ++ MAP CanEval ds ++
+               (* on exit of loop, invs and not guard imply post *)
+               [Foralls (FILTER (λ(v,ty). assigned_in body v) ls)
+                  (imp (conj (not guard :: invs)) (conj post))])
+            (While guard invs ds mods body) post ens decs ls
 [~MetCall:]
   ∀m mname mspec mbody args ret_names rets post ens.
     Method mname mspec mbody ∈ m ∧
