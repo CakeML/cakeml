@@ -90,6 +90,8 @@ Definition get_type_def:
                 (fail «get_type:BinOp:Mul: Expected int types»)
      | Div => if e₀_ty = IntT ∧ e₁_ty = IntT then return IntT else
                 (fail «get_type:BinOp:Div: Expected int types»)
+     | Mod => if e₀_ty = IntT ∧ e₁_ty = IntT then return IntT else
+                (fail «get_type:BinOp:Mod: Expected int types»)
      | And => if e₀_ty = BoolT ∧ e₁_ty = BoolT then return BoolT else
                 (fail «get_type:BinOp:And: Expected bool types»)
      | Or => if e₀_ty = BoolT ∧ e₁_ty = BoolT then return BoolT else

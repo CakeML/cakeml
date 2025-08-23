@@ -1436,6 +1436,12 @@ Proof
       \\ gvs [evaluate_def, do_app_def, do_if_def, opb_lookup_def]
       \\ Cases_on ‘0 < i₁’
       \\ gvs [evaluate_def, do_app_def, opn_lookup_def, Boolv_def])
+    \\ Cases_on ‘bop = Mod’ \\ gvs [] >-
+     (gvs [do_bop_def, CaseEq "value"]
+      \\ gvs [from_bin_op_def, EMOD_DEF]
+      \\ gvs [evaluate_def, do_app_def, do_if_def, opb_lookup_def]
+      \\ Cases_on ‘i₁ < 0’
+      \\ gvs [evaluate_def, do_app_def, opn_lookup_def, INT_ABS])
     \\ Cases_on ‘bop = Eq’ \\ gvs [] >-
      (gvs [do_bop_def]
       \\ gvs [from_bin_op_def]
@@ -1580,8 +1586,7 @@ Proof
     \\ ‘store_preserve_all t.refs t₂.refs’ by
       (irule store_preserve_all_trans \\ gvs [SF SFY_ss])
     \\ reverse $ Cases_on ‘r’ \\ gvs [evaluate_def])
-  (* These expression do not get compiled *)
-  \\ gvs [from_exp_def]
+  \\ gvs [from_exp_def]  (* These expression do not get compiled *)
 QED
 
 Triviality array_rel_submap:

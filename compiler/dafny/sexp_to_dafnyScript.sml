@@ -188,6 +188,8 @@ Definition to_bin_op_def:
        do _ <- prefix_error here (dest0 args); return Imp od
      else if (cns = «Div») then
        do _ <- prefix_error here (dest0 args); return Div od
+     else if (cns = «Mod») then
+       do _ <- prefix_error here (dest0 args); return Mod od
      else
        bad_con here
    od)

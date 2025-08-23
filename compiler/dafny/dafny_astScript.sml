@@ -21,7 +21,7 @@ Datatype:
 End
 
 Datatype:
-  bin_op = Lt | Le | Ge | Eq | Neq | Sub | Add | Mul | And | Or | Imp | Div
+  bin_op = Lt | Le | Ge | Eq | Neq | Sub | Add | Mul | And | Or | Imp | Div | Mod
 End
 
 Datatype:
