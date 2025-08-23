@@ -3,10 +3,11 @@
   about the Dafny semantics.
 *)
 
-open preamble
-open dafny_semanticPrimitivesTheory
-
-val _ = new_theory "dafnyProps";
+Theory dafnyProps
+Ancestors
+  dafny_semanticPrimitives
+Libs
+  preamble
 
 (* simps *)
 Theorem with_same_locals[simp]:
@@ -208,5 +209,3 @@ Theorem restore_caller_prev_with_clock:
 Proof
   gvs [restore_caller_def]
 QED
-
-val _ = export_theory ();

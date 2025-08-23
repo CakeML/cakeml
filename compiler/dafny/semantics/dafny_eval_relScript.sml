@@ -1,15 +1,15 @@
 (*
   Proves relational big-step-style theorems about Dafny semantics
 *)
-
-open preamble
-open dafny_astTheory
-open dafny_semanticPrimitivesTheory
-open dafnyPropsTheory
-open dafny_evaluateTheory
-open dafny_evaluatePropsTheory
-
-val _ = new_theory "dafny_eval_rel";
+Theory dafny_eval_rel
+Ancestors
+  dafny_ast
+  dafny_semanticPrimitives
+  dafnyProps
+  dafny_evaluate
+  dafny_evaluateProps
+Libs
+  preamble
 
 Overload True = “Lit (BoolL T)”;
 Overload False = “Lit (BoolL F)”;
@@ -477,5 +477,3 @@ Proof
     (gvs [state_component_equality])
   \\ gvs []
 QED
-
-val _ = export_theory ();
