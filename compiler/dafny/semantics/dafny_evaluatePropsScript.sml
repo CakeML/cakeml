@@ -179,8 +179,46 @@ Theorem evaluate_exp_add_to_clock:
 Proof
   ho_match_mp_tac evaluate_exp_ind
   \\ rpt strip_tac
+  >~ [‘ForallHeap mods term’] >-
+   (gvs [evaluate_exp_def, snd_tuple, eval_forall_def,
+         PULL_EXISTS, AllCaseEqs()]
+    >- (first_assum $ irule_at (Pos hd)
+        \\ last_x_assum drule \\ gvs [push_local_def])
+    >- (rpt strip_tac
+        \\ first_x_assum drule
+        \\ rpt strip_tac \\ gvs []
+        \\ reverse $ last_x_assum drule \\ simp []
+        >- (qexists ‘extra’ \\ gvs [push_local_def])
+        >- (qexists ‘extra’ \\ gvs [push_local_def])
+        \\ disch_then $ qspec_then ‘extra’ mp_tac \\ gvs [push_local_def])
+    \\ rename [‘hs ∈ _’]
+    \\ qexists ‘hs’
+    \\ rpt conj_tac \\ gvs []
+    >- (qx_genl_tac [‘hs₁’, ‘y’] \\ disch_tac
+        \\ namedCases_on ‘evaluate_exp (s' with heap := hs₁) env term’ ["s₁ r"]
+        \\ reverse $ namedCases_on ‘r’ ["v₂", "err"]
+        >- (Cases_on ‘err’ \\ gvs [])
+        \\ last_x_assum drule \\ simp []
+        \\ disch_then $ qspec_then ‘extra’ mp_tac
+        \\ gvs [])
+    >- (qx_genl_tac [‘hs₁’, ‘y’] \\ disch_tac
+        \\ namedCases_on ‘evaluate_exp (s' with heap := hs₁) env term’ ["s₁ r"]
+        \\ reverse $ namedCases_on ‘r’ ["v₂", "err"]
+        >- (Cases_on ‘err’ \\ gvs [])
+        \\ last_x_assum drule \\ simp []
+        \\ disch_then $ qspec_then ‘extra’ mp_tac
+        \\ gvs [push_local_def])
+    \\ qx_gen_tac ‘y’
+    \\ first_assum $ qspec_then ‘y’ assume_tac
+    \\ namedCases_on ‘evaluate_exp (s' with heap := hs) env term’ ["s₁ r"]
+    \\ reverse $ namedCases_on ‘r’ ["v₂", "err"]
+    >- (Cases_on ‘err’ \\ gvs [])
+    \\ last_x_assum drule \\ gvs []
+    \\ disch_then $ qspec_then ‘extra’ mp_tac
+    \\ gvs [push_local_def])
   >~ [‘Forall (vn, t) term’] >-
-   (gvs [evaluate_exp_def, snd_tuple, PULL_EXISTS, AllCaseEqs()]
+   (gvs [evaluate_exp_def, snd_tuple, eval_forall_def,
+         PULL_EXISTS, AllCaseEqs()]
     >- (first_assum $ irule_at (Pos hd)
         \\ last_x_assum drule \\ gvs [push_local_def])
     >- (rpt strip_tac
@@ -603,15 +641,17 @@ Proof
     \\ gvs [push_locals_with_output, pop_locals_def, AllCaseEqs()])
   >~ [‘Forall (vn,vt) e’] >-
    (qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
-    \\ simp [evaluate_exp_def]
+    \\ simp [evaluate_exp_def, eval_forall_def] \\ gvs []
     \\ IF_CASES_TAC \\ gvs []
     \\ IF_CASES_TAC \\ gvs []
-    \\ gvs [push_local_with_output]
     \\ ‘∀v. SND (evaluate_exp (push_local s vn v with output := out) env e) =
             SND (evaluate_exp (push_local s vn v) env e)’ by
-      (gen_tac
-       \\ namedCases_on ‘evaluate_exp (push_local s vn v) env e’ ["s₁ r₁"]
+      (qx_gen_tac ‘v₁’
+       \\ namedCases_on ‘evaluate_exp (push_local s vn v₁) env e’ ["s₁ r₁"]
        \\ last_x_assum drule \\ gvs [])
+    \\ gvs [push_local_with_output]
+    >- (rpt strip_tac \\ gvs [AllCaseEqs()]
+        \\ first_assum $ irule_at (Pos hd) \\ gvs [])
     \\ IF_CASES_TAC \\ gvs []
     >- (* Type error *)
      (rpt strip_tac \\ gvs []
@@ -624,7 +664,33 @@ Proof
     >- (* True *)
      (rpt strip_tac \\ gvs [] \\ gvs [AllCaseEqs()])
     (* False *)
-    \\ rpt strip_tac \\ gvs [] \\ gvs [AllCaseEqs()])
+    \\ rpt strip_tac \\ gvs [] \\ gvs [AllCaseEqs()]
+    \\ first_assum $ irule_at $ Pos hd \\ gvs [])
+  >~ [‘ForallHeap mods term’] >-
+   (qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
+    \\ simp [evaluate_exp_def, eval_forall_def] \\ gvs []
+    \\ IF_CASES_TAC \\ gvs []
+    \\ namedCases_on ‘evaluate_exps s env mods’ ["s₁ r₁"] \\ gvs []
+    \\ namedCases_on ‘r₁’ ["vs", "err"] \\ gvs []
+    \\ namedCases_on ‘get_locs vs’ ["", "locs"] \\ gvs []
+    \\ strip_tac \\ gvs []
+    \\ ‘∀hs. SND (evaluate_exp (s' with <|heap := hs; output := out|>) env term) =
+             SND (evaluate_exp (s' with heap := hs) env term)’ by
+      (qx_gen_tac ‘hs₁’
+       \\ namedCases_on ‘evaluate_exp (s' with heap := hs₁) env term’ ["s₁ r₁"]
+       \\ last_x_assum drule \\ gvs [])
+    \\ IF_CASES_TAC \\ gvs []
+    >- (rpt strip_tac \\ gvs [AllCaseEqs()]
+        \\ first_assum $ irule_at (Pos hd) \\ gvs [])
+    \\ IF_CASES_TAC \\ gvs []
+    >- (* Type error *)
+     (rpt strip_tac \\ gvs []
+      \\ gvs [AllCaseEqs()]
+      \\ first_assum $ irule_at $ Pos hd \\ gvs [])
+    \\ IF_CASES_TAC \\ gvs []
+    >- (* Timeout *)
+     (rpt strip_tac \\ gvs [] \\ gvs [AllCaseEqs()])
+    \\ IF_CASES_TAC \\ gvs [])
   \\ gvs [evaluate_exp_def, AllCaseEqs()]
 QED
 

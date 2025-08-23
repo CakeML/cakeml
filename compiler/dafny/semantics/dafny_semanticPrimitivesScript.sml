@@ -358,3 +358,30 @@ Definition print_string_def:
    | NONE => NONE
    | SOME s => SOME (st with output := SNOC s st.output))
 End
+
+Definition eval_forall_def:
+  eval_forall (dom: α set) eval =
+    if (∃v. v ∈ dom ∧ SND (eval v) = Rerr Rtype_error)
+    then Rerr Rtype_error
+    else if (∃v. v ∈ dom ∧ SND (eval v) = Rerr Rtimeout_error)
+    then Rerr Rtimeout_error
+    else if (∀v. v ∈ dom ⇒ SND (eval v) = Rval (BoolV T))
+    then Rval (BoolV T)
+    (* NOTE For now, for simplicity reasons, we do not check whether (eval v) *)
+    (*   is a Bool to throw a type error if not. Instead, we return (BoolV F). *)
+    else Rval (BoolV F)
+End
+
+Definition valid_mod_def:
+  valid_mod h locs h' =
+  ∀loc hv. MEM loc locs ∧ oEL loc h = SOME hv ⇒ oEL loc h' = SOME hv
+End
+
+Definition get_loc_def:
+  get_loc (ArrV _ loc) = SOME loc ∧
+  get_loc _ = NONE
+End
+
+Definition get_locs_def:
+  get_locs vs = OPT_MMAP get_loc vs
+End
