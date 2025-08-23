@@ -310,6 +310,14 @@ Definition to_exp_def:
               term <- prefix_error here (to_exp term);
               return (Forall bound_var term)
             od)
+       else if (cns = «Old») then
+         (case dest1 args of
+          | INL err => fail (here ^ err)
+          | INR old_e =>
+            do
+              old_e <- prefix_error here (to_exp old_e);
+              return (Old old_e)
+            od)
        else
          bad_con here))) ∧
   map_to_exp [] = return [] ∧
