@@ -182,12 +182,6 @@ Definition Foralls_def:
   Foralls (v::vs) e = Forall v (Foralls vs e)
 End
 
-Definition HasType_def:
-  HasType e BoolT = IsBool e ∧
-  HasType e IntT = CanEval (dfy_eq e $ int_lit 0) ∧
-  HasType e _ = False
-End
-
 Definition lex_lt_def:
   lex_lt [] = False ∧
   lex_lt ((x,y)::rest) =
@@ -399,11 +393,6 @@ Definition wrap_Old_def:
   ForallHeap (MAP (wrap_Old vs) mods) (wrap_Old vs term)
 End
 
-Definition vars_have_types_def:
-  vars_have_types vs =
-  MAP (λ(v,ty). HasType (Var v) ty) vs
-End
-
 Definition proved_methods_def:
   proved_methods m ⇔
     ∀name mspec body.
@@ -411,7 +400,7 @@ Definition proved_methods_def:
       ∃wp_pre.
         stmt_wp m wp_pre body [False]
                 (MAP (wrap_Old (set (MAP FST mspec.ins))) mspec.ens ++
-              (* MAP (CanEval o Var o FST) mspec.outs *) vars_have_types mspec.outs)
+                 MAP (CanEval o Var o FST) mspec.outs)
                 (mspec.rank, mspec.decreases)
                 (mspec.ins ++ mspec.outs) ∧
         ∃p.
@@ -1437,7 +1426,7 @@ Definition strict_locals_ok_def:
 End
 
 Triviality strict_locals_ok_IMP_LIST_REL:
-  ∀vs.
+  ∀vs st_locals.
     strict_locals_ok vs st_locals ⇒
     ∃xs.
       LIST_REL
@@ -2110,24 +2099,17 @@ Proof
 QED
 
 Triviality read_out_lemma:
-  LIST_REL (eval_exp st env) (MAP Var names) out_vs ∧
-  MEM n names ∧ ALL_DISTINCT names ⇒
-  ∃v. ALOOKUP st.locals n = SOME v ∧
-      ALOOKUP (ZIP (names,MAP SOME out_vs)) n = SOME v
+  ∀names out_vs n st.
+    OPT_MMAP (read_local st.locals) names = SOME out_vs ∧
+    MEM n names ∧ ALL_DISTINCT names ⇒
+    ∃v. ALOOKUP st.locals n = SOME v ∧
+        ALOOKUP (ZIP (names,MAP SOME out_vs)) n = SOME v
 Proof
-  rw []
-  \\ ‘ALL_DISTINCT (MAP FST (ZIP (names,MAP SOME out_vs)))’ by
-    (imp_res_tac LIST_REL_LENGTH \\ fs [MAP_ZIP])
-  \\ drule (GSYM MEM_ALOOKUP)
-  \\ simp [] \\ disch_then kall_tac
-  \\ imp_res_tac LIST_REL_LENGTH
-  \\ fs [] \\ simp [MEM_ZIP,PULL_EXISTS]
-  \\ gvs [SF CONJ_ss,EL_MAP,LIST_REL_EL_EQN]
-  \\ gvs [MEM_EL]
-  \\ last_x_assum drule
-  \\ gvs [eval_exp_def,evaluate_exp_def,read_local_def,AllCaseEqs()]
-  \\ strip_tac \\ fs []
-  \\ first_assum $ irule_at $ Pos hd \\ fs []
+  Induct \\ simp [PULL_EXISTS]
+  \\ qx_genl_tac [‘n'’, ‘n’, ‘st’, ‘val’, ‘vals’]
+  \\ rpt strip_tac \\ gvs []
+  >- (gvs [read_local_def, CaseEq "option"])
+  \\ IF_CASES_TAC \\ gvs []
 QED
 
 Triviality value_same_type_bool:
@@ -2142,23 +2124,6 @@ Proof
   Cases_on ‘v’ \\ gvs [all_values_def]
 QED
 
-Triviality eval_true_hastype_imp:
-  eval_true st env (HasType e ty) ⇒
-  ∃v. eval_exp st env e v ∧ v ∈ all_values ty
-Proof
-  strip_tac
-  \\ Cases_on ‘ty’ \\ gvs [HasType_def]
-  \\ gvs [IsBool_def]
-  \\gvs [eval_true_def, eval_exp_def, CanEval_def]
-  \\ gvs [evaluate_exp_def, do_sc_def, do_bop_def, value_same_type_def,
-          AllCaseEqs()]
-  \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
-  \\ simp [PULL_EXISTS]
-  \\ last_assum $ irule_at (Pos hd)
-  \\ imp_res_tac value_same_type_bool \\ simp []
-  \\ imp_res_tac value_same_type_int \\ simp []
-QED
-
 (* TODO Move to dafny_eval_rel *)
 Triviality eval_exp_eq_value:
   eval_exp st env e v ∧ eval_exp st env e v' ⇒ v' = v
@@ -2170,16 +2135,6 @@ Proof
   \\ disch_then $ qspec_then ‘ck₂’ assume_tac
   \\ rev_dxrule (cj 1 evaluate_exp_add_to_clock) \\ simp []
   \\ disch_then $ qspec_then ‘ck’ assume_tac \\ gvs []
-QED
-
-Theorem eval_true_HasType_IMP_all_values:
-  eval_true st env (HasType e ty) ∧ eval_exp st env e v ⇒
-  v ∈ all_values ty
-Proof
-  rpt strip_tac
-  \\ drule eval_true_hastype_imp \\ rpt strip_tac
-  \\ drule eval_exp_eq_value
-  \\ disch_then rev_drule \\ gvs []
 QED
 
 Triviality is_some_none:
@@ -2492,22 +2447,6 @@ Proof
   \\ gvs [eval_exp_def, evaluate_exp_def, AllCaseEqs()]
 QED
 
-Triviality vars_have_type_all_values:
-  ∀vars vals.
-    EVERY (eval_true st env) (vars_have_types vars) ∧
-    LIST_REL (eval_exp st env) (MAP Var (MAP FST vars)) vals ⇒
-    LIST_REL (λv ty. v ∈ all_values ty) vals (MAP SND vars)
-Proof
-  Induct \\ gvs [PULL_EXISTS]
-  \\ namedCases ["n ty"]
-  \\ qx_genl_tac [‘val’, ‘vals’]
-  \\ rpt strip_tac
-  \\ gvs [vars_have_types_def]
-  \\ drule eval_true_hastype_imp
-  \\ strip_tac
-  \\ dxrule_all eval_exp_var_eq \\ strip_tac \\ gvs []
-QED
-
 Triviality strict_locals_ok_swap_imp:
   (∀n ty. MEM (n,ty) ls ⇒ ALOOKUP xs n = ALOOKUP ys n)
   ⇒
@@ -2560,6 +2499,17 @@ Proof
   metis_tac [strict_locals_ok_cons_rl, strict_locals_ok_cons_lr]
 QED
 
+Triviality locals_ok_append_left:
+  locals_ok (xs ++ ys) zs ⇔
+    (locals_ok xs zs ∧ locals_ok ys zs ∧
+     (∀e. MEM e (MAP FST xs) ⇒ ¬MEM e (MAP FST ys)))
+Proof
+  iff_tac
+  >- (simp [locals_ok_def, ALL_DISTINCT_APPEND])
+  \\ simp [locals_ok_def, ALL_DISTINCT_APPEND]
+  \\ rpt strip_tac \\ gvs []
+QED
+
 Triviality strict_locals_ok_zip_some:
   ∀ls vs.
     LENGTH vs = LENGTH ls ⇒
@@ -2574,6 +2524,93 @@ Proof
   \\ strip_tac
   \\ last_x_assum drule \\ strip_tac
   \\ simp [strict_locals_ok_cons, AC CONJ_COMM CONJ_ASSOC]
+QED
+
+Triviality MEM_MAP_FST_TUPLE:
+  MEM x (MAP FST xs) ⇒ ∃y. MEM (x,y) xs
+Proof
+  simp [MEM_MAP]
+  \\ strip_tac \\ rename [‘MEM y _’]
+  \\ Cases_on ‘y’ \\ gvs [SF SFY_ss]
+QED
+
+Triviality strict_locals_ok_opt_mmap_read_local:
+  ∀ys xs st_ls.
+    strict_locals_ok xs st_ls ∧ (∀y. MEM y ys ⇒ MEM y (MAP FST xs)) ⇒
+    ∃out_vs. OPT_MMAP (read_local st_ls) ys = SOME out_vs
+Proof
+  Induct \\ gvs []
+  \\ qx_genl_tac [‘y’, ‘xs’, ‘st_ls’]
+  \\ rpt strip_tac \\ simp [PULL_EXISTS]
+  \\ last_x_assum drule \\ simp []
+  \\ strip_tac \\ first_x_assum $ irule_at (Pos last)
+  \\ gvs [strict_locals_ok_def]
+  \\ first_x_assum $ qspec_then ‘y’ mp_tac \\ simp []
+  \\ strip_tac
+  \\ dxrule MEM_MAP_FST_TUPLE \\ simp [PULL_EXISTS]
+  \\ qx_gen_tac ‘ty’ \\ strip_tac
+  \\ first_x_assum drule \\ strip_tac
+  \\ simp [read_local_def]
+QED
+
+(* TODO Upstream? *)
+Triviality OPT_MMAP_LENGTH:
+  ∀xs ys. OPT_MMAP f xs = SOME ys ⇒ LENGTH ys = LENGTH xs
+Proof
+  Induct \\ simp []
+  \\ gen_tac \\ Cases \\ simp []
+QED
+
+Triviality strict_locals_ok_cons_left:
+  strict_locals_ok ((n,ty)::ls) st_ls ⇔
+    strict_locals_ok ls st_ls ∧
+    ∃v.
+      ALOOKUP st_ls n = SOME (SOME v) ∧ v ∈ all_values ty ∧ ¬MEM n (MAP FST ls)
+Proof
+  iff_tac
+  \\ simp [strict_locals_ok_def]
+  \\ rpt strip_tac \\ gvs []
+QED
+
+Triviality locals_ok_cons_left:
+  locals_ok ((n,ty)::ls) st_ls ⇔
+    locals_ok ls st_ls ∧ ¬MEM n (MAP FST ls) ∧
+    ∃oval.
+      ALOOKUP st_ls n = SOME oval ∧
+      ∀v. oval = SOME v ⇒ v ∈ all_values ty
+Proof
+  iff_tac
+  \\ simp [locals_ok_def]
+  \\ rpt strip_tac \\ gvs []
+QED
+
+Triviality strict_locals_ok_opt_mmap_read_local:
+  ∀ls st_ls.
+    strict_locals_ok ls st_ls ⇒
+    ∃vs.
+      OPT_MMAP (read_local st_ls) (MAP FST ls) = SOME vs ∧
+      LIST_REL (λv ty. v ∈ all_values ty) vs (MAP SND ls)
+Proof
+  Induct \\ simp [PULL_EXISTS]
+  \\ namedCases ["n ty"] \\ rpt strip_tac \\ simp []
+  \\ fs [strict_locals_ok_cons_left]
+  \\ simp [read_local_def]
+QED
+
+Triviality locals_ok_list_rel_all_values:
+  ∀ls vals st env.
+    locals_ok ls st.locals ∧
+    LIST_REL (eval_exp st env) (MAP Var (MAP FST ls)) vals
+    ⇒
+    LIST_REL (λv ty. v ∈ all_values ty) vals (MAP SND ls)
+Proof
+  Induct \\ simp [PULL_EXISTS]
+  \\ namedCases ["n ty"] \\ simp []
+  \\ qx_genl_tac [‘st’, ‘env’, ‘v’, ‘vals’]
+  \\ simp [locals_ok_cons_left]
+  \\ rpt strip_tac \\ simp []
+  >- (gvs [eval_exp_def, evaluate_exp_def, read_local_def, AllCaseEqs()])
+  \\ last_assum drule_all \\ simp []
 QED
 
 Theorem stmt_wp_sound:
@@ -2598,7 +2635,6 @@ Theorem stmt_wp_sound:
             st''.heap_old = st'.heap_old ∧
             st''.output = st'.output ∧
             locals_ok (mspec'.ins ++ mspec'.outs) st''.locals ∧
-            EVERY (eval_true st'' env) (vars_have_types mspec'.outs) ∧
             LIST_REL (eval_exp st'' env) (MAP (Var o FST) mspec'.outs) out_vs) ∧
       conditions_hold st env reqs ∧ compatible_env env m ∧
       locals_ok locals st.locals ⇒
@@ -2906,14 +2942,17 @@ Proof
   \\ first_assum $ irule_at $ Pos hd
   \\ fs [GSYM MAP_MAP_o]
   \\ drule LIST_REL_eval_exp_MAP_Var
-  \\ disch_then $ irule_at Any
-  \\ drule LIST_REL_LENGTH \\ strip_tac \\ fs []
+  \\ disch_tac
+  \\ first_assum $ irule_at (Pos hd)
+  \\ drule_then assume_tac OPT_MMAP_LENGTH \\ simp []
   \\ gvs [GSYM conditions_hold_def]
+  \\ rename [‘restore_caller st2 st’]
+  \\ qabbrev_tac ‘st3 = restore_caller st2 st’
+  \\ ‘locals_ok (mspec.outs) st2.locals’ by (fs [locals_ok_append_left])
+  \\ drule_all locals_ok_list_rel_all_values \\ strip_tac
   \\ drule eval_true_Foralls_distinct
   \\ simp [MAP_ZIP] \\ strip_tac
   \\ gvs [conditions_hold_def]
-  \\ rename [‘restore_caller st2 st’]
-  \\ qabbrev_tac ‘st3 = restore_caller st2 st’
   \\ ‘EVERY (λn. IS_SOME (ALOOKUP st3.locals n)) ret_names’ by
     (unabbrev_all_tac
      \\ gvs [restore_caller_def]
@@ -2941,7 +2980,6 @@ Proof
     \\ simp [ALOOKUP_ZIP_MAP_SOME]
     \\ drule_all_then assume_tac list_rel_eval_exp_get_types
     \\ drule_all_then assume_tac get_types_var
-    \\ drule_all vars_have_type_all_values \\ strip_tac
     \\ drule_all lookup_ret_name
     \\ disch_then $ qx_choosel_then [‘val’, ‘lhs_ty’] mp_tac
     \\ strip_tac \\ gvs []
@@ -2952,14 +2990,7 @@ Proof
   \\ irule (iffLR eval_exp_swap_locals_alt)
   \\ pop_assum $ irule_at Any o GSYM
   \\ first_x_assum $ qspec_then ‘ZIP (ret_names,MAP SOME out_vs)’ mp_tac
-  \\ impl_tac
-  >- (gvs [LIST_REL_EL_EQN,EL_ZIP,EL_MAP]
-      \\ qpat_x_assum ‘EVERY _ (vars_have_types mspec.outs)’ mp_tac
-      \\ simp [EVERY_EL,vars_have_types_def,EL_MAP]
-      \\ rpt strip_tac
-      \\ rpt (first_x_assum $ drule_then assume_tac)
-      \\ pairarg_tac \\ fs []
-      \\ drule_all eval_true_HasType_IMP_all_values \\ fs [])
+  \\ impl_tac >- (gvs [LIST_REL_EL_EQN,EL_ZIP,EL_MAP])
   \\ strip_tac
   \\ dxrule eval_true_imp
   \\ ‘st3.locals = st.locals’ by fs [Abbr‘st3’,restore_caller_def]
@@ -3094,18 +3125,6 @@ Proof
   \\ simp [state_component_equality]
 QED
 
-Theorem vars_have_types_IMP:
-  EVERY (eval_true st env) (vars_have_types xs) ⇒
-  EVERY (eval_true st env) (MAP CanEval (MAP (Var o FST) xs))
-Proof
-  fs [EVERY_MEM,vars_have_types_def,MEM_MAP,PULL_EXISTS,FORALL_PROD]
-  \\ strip_tac \\ qx_genl_tac [‘xn’, ‘xt’] \\ strip_tac
-  \\ rw [] \\ last_x_assum dxrule
-  \\ Cases_on ‘xt’ \\ fs [HasType_def, IsBool_def]
-  \\ rpt strip_tac
-  \\ drule caneval_dfy_eq_lhs_imp \\ simp []
-QED
-
 Theorem methods_lemma[local]:
   ∀m.
     proved_methods m ⇒
@@ -3117,6 +3136,8 @@ Theorem methods_lemma[local]:
       conditions_hold st env mspec.reqs ∧ compatible_env env m ∧
       strict_locals_ok mspec.ins st.locals ∧
       locals_ok mspec.outs st.locals ∧
+      (* TODO ∀e. MEM e (MAP FST mspec.ins) ⇒ ¬MEM e (MAP FST mspec.outs)
+           should be enough *)
       ALL_DISTINCT (MAP FST mspec.ins ++ MAP FST mspec.outs) ⇒
       ∃st' out_vs.
         eval_stmt st env body st' (Rstop Sret) ∧
@@ -3126,7 +3147,6 @@ Theorem methods_lemma[local]:
         st'.output = st.output ∧
         locals_ok (mspec.ins ++ mspec.outs) st'.locals ∧
         conditions_hold st' env (MAP (wrap_Old (set (MAP FST mspec.ins))) mspec.ens) ∧
-        EVERY (eval_true st' env) (vars_have_types mspec.outs) ∧
         LIST_REL (eval_exp st' env) (MAP (Var o FST) mspec.outs) out_vs
 Proof
   gen_tac
@@ -3145,6 +3165,7 @@ Proof
     \\ strip_tac \\ gvs []
     \\ imp_res_tac strict_locals_ok_IMP_locals_ok
     \\ simp [locals_ok_append_left]
+    \\ reverse conj_tac >- (fs [ALL_DISTINCT_APPEND])
     \\ rpt strip_tac
     \\ gvs [eval_measure_wrap_old, compatible_env_def]
     \\ last_x_assum $ drule_then drule
@@ -3158,9 +3179,7 @@ Proof
   \\ rpt $ first_assum $ irule_at Any
   \\ fs [conditions_hold_def]
   \\ fs [GSYM MAP_MAP_o]
-  \\ drule vars_have_types_IMP \\ strip_tac
-  \\ drule EVERY_eval_true_CanEval
-  \\ simp [GSYM MAP_MAP_o]
+  \\ drule EVERY_eval_true_CanEval \\ simp []
 QED
 
 Theorem methods_correct = SRULE [] methods_lemma;
@@ -3523,8 +3542,8 @@ Definition met_vcg_def:
   do
     (* ensures should always refer to the locals as they were at the beginning
        of a method; in particular, it should ignore any updates/shadowing *)
-    ens <<- (MAP (wrap_Old_list (MAP FST specs.ins)) specs.ens
-                ++ vars_have_types specs.outs);
+    ens <<- (MAP (wrap_Old_list (MAP FST specs.ins)) specs.ens ++
+             MAP (CanEval ∘ Var ∘ FST) specs.outs);
     vcs <- stmt_vcg mets body [False] ens (specs.rank, specs.decreases)
                     (specs.ins ++ specs.outs);
     p <<- (Foralls specs.ins $ imp (conj specs.reqs) (conj vcs));
