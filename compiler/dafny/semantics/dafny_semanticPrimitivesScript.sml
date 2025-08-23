@@ -231,6 +231,11 @@ Definition do_bop_def:
   (case (v₀, v₁) of
    | (IntV i₀, IntV i₁) =>
        if i₁ = 0 then NONE else SOME (IntV (ediv i₀ i₁))
+   | _ => NONE) ∧
+  do_bop Mod v₀ v₁ =
+  (case (v₀, v₁) of
+   | (IntV i₀, IntV i₁) =>
+       if i₁ = 0 then NONE else SOME (IntV (emod i₀ i₁))
    | _ => NONE)
 End
 

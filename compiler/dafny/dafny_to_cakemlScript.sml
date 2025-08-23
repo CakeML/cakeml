@@ -147,6 +147,13 @@ Definition from_bin_op_def:
     Log Or cml_e₀ cml_e₁ ∧
   from_bin_op Imp cml_e₀ cml_e₁ =
     If cml_e₀ cml_e₁ True ∧
+  from_bin_op Mod cml_e₀ cml_e₁ =
+   (let n_e₁ = " r" in
+    (* See HOL's EMOD_DEF: i % ABS j, INT_ABS: if n < 0 then ~n else n *)
+    let neg_cml_e₁ = App (Opn Minus) [Lit (IntLit 0); Var (Short n_e₁)] in
+    let cml_e₁_abs = If (App (Opb Lt) [Var (Short n_e₁); Lit (IntLit 0)])
+                        (neg_cml_e₁) (Var (Short n_e₁)) in
+      Let (SOME n_e₁) cml_e₁ (App (Opn Modulo) [cml_e₀; cml_e₁_abs])) ∧
   from_bin_op Div cml_e₀ cml_e₁ =
   (* Make sure that cml_e₁ is evaluated before the rest of the computation as
      the semantics demand *)
