@@ -353,9 +353,9 @@ Definition evaluate_stmt_ann_def[nocompute]:
   (case evaluate_exp st₀ env e of
    | (st₁, Rerr err) => (st₁, Rstop (Serr err))
    | (st₁, Rval v) =>
-     (case print_string st₁ v of
-      | NONE => (st₁, Rstop (Serr Rtype_error))
-      | SOME st₂ => (st₂, Rcont))) ∧
+       if ¬value_has_type t v
+       then (st₁, Rstop (Serr Rtype_error))
+       else (st₁, Rcont)  (* TODO Model I/O *)) ∧
   evaluate_stmt st₀ env (MetCall lhss name args) =
   (case get_member name env.prog of
    | NONE => (st₀, Rstop (Serr Rtype_error))
@@ -408,8 +408,7 @@ Proof
   \\ gvs [evaluate_stmt_ann_def]
   \\ rpt (pairarg_tac \\ gvs [])
   \\ gvs [AllCaseEqs (), dec_clock_def, fix_clock_def, restore_caller_def,
-          print_string_def, evaluate_stmt_ann_def, declare_local_clock,
-          pop_locals_def]
+          evaluate_stmt_ann_def, declare_local_clock, pop_locals_def]
   \\ EVERY (map imp_res_tac
                 [set_up_call_clock_eq, restore_caller_clock, fix_clock_IMP,
                  evaluate_rhs_exps_clock, evaluate_exp_clock,

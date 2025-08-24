@@ -11,3 +11,17 @@ method M(n: int) returns (r: int)
     r := n - 10;
   }
 }
+
+
+method TestM(n: int) {
+  var m := M(n);
+  print "M(", n, ") = ", m, "\n";
+}
+
+method Main() {
+  TestM(3);
+  TestM(99);
+  TestM(100);
+  TestM(101);
+  TestM(1013);
+}

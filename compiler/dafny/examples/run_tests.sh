@@ -2,23 +2,25 @@
 # Run the test suite on the Dafny compiler.
 
 # Check if correct number of arguments is provided
-if [ "$#" -ne 2 ]; then
+if [ "$#" -ne 3 ]; then
     echo "Usage: $0 <dafny_path> <cakeml_path>"
     echo "  <dafny_path>   Path to the Dafny binary"
-    echo "  <cakeml_path>  Path to the folder containing the CakeML binary and Makefile"
+    echo "  <cakeml_path>  Path to the folder containing the CakeML binary (see README.md) and Makefile"
+    echo "  <holmake_path>  Path to the Holmake binary"
     exit 1
 fi
 
 # Store arguments in variables
 DAFNY_PATH=$1
 CAKEML_PATH=$2
+HOLMAKE_PATH=$3
 
 # Save current directory
 CURRENT_DIR=$(pwd)
 
 # Change to the compilation directory and run Holmake
 cd ../compilation || { echo "Failed to change to ../compilation directory"; exit 1; }
-if ! Holmake dafny_compiler; then
+if ! "$HOLMAKE_PATH" dafny_compiler; then
     echo "Running Holmake to generate the Dafny compiler failed!"
     cd "$CURRENT_DIR" || { echo "Failed to return to original directory"; exit 1; }
     exit 1

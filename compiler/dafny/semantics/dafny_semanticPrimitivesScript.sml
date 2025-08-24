@@ -3,9 +3,9 @@
 *)
 Theory dafny_semanticPrimitives
 Ancestors
-  dafny_ast mlstring
-  mlint (* int_to_string *)
   alist
+  mlstring
+  dafny_ast
 Libs
   preamble
 
@@ -38,7 +38,6 @@ Datatype:
     clock: num;
     locals: (mlstring, (value option)) alist;
     heap: heap_value list;
-    output: mlstring list;
     (* For old-expressions *)
     locals_old: (mlstring, (value option)) alist;
     heap_old: heap_value list;
@@ -100,7 +99,6 @@ Definition init_state_def:
     clock := ck;
     locals := [];
     heap := [];
-    output := [];
     locals_old := [];
     heap_old := [];
   |>
@@ -184,6 +182,14 @@ Definition value_same_type_def[simp]:
   (value_same_type (StrV _) (StrV _) ⇔ T) ∧
   (value_same_type (ArrV _ _) (ArrV _ _) ⇔ T) ∧
   (value_same_type _ _ ⇔ F)
+End
+
+Definition value_has_type_def[simp]:
+  (value_has_type IntT (IntV _) ⇔ T) ∧
+  (value_has_type BoolT (BoolV _) ⇔ T) ∧
+  (value_has_type StrT (StrV _) ⇔ T) ∧
+  (* TODO Add ArrT once we keep track of type ArrV *)
+  (value_has_type _ _ ⇔ F)
 End
 
 Definition do_bop_def:
@@ -346,22 +352,6 @@ Definition pop_locals_def:
   (case safe_drop n st.locals of
    | NONE => NONE
    | SOME rest => SOME (st with locals := rest))
-End
-
-Definition val_to_string_def:
-  val_to_string (IntV i) =
-    SOME (int_to_string #"-" i) ∧
-  val_to_string (BoolV b) =
-    SOME (if b then (strlit "True") else (strlit "False")) ∧
-  val_to_string (StrV s) = SOME s ∧
-  val_to_string _ = NONE
-End
-
-Definition print_string_def:
-  print_string st v =
-  (case val_to_string v of
-   | NONE => NONE
-   | SOME s => SOME (st with output := SNOC s st.output))
 End
 
 Definition eval_forall_def:

@@ -125,6 +125,8 @@ def dafny_compiler(program_path, dafny_path, dafny_to_cakeml_path, cakeml_path,
     if verbose:
         print("- Generate assembly from CakeML S-expression...")
     command = [cakeml_path / "cake", "--sexp=true",
+               # We currently print by emitting calls to the empty ffi
+               "--emit_empty_ffi=true",
                # Generated code is not type safe (e.g., initializes arrays with
                # 0) - but that's okay, since we proved our own correctness
                # theorem.

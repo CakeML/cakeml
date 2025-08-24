@@ -26,7 +26,7 @@ End
 
 Definition state_rel_def:
   state_rel s t m m_old cnt ⇔
-    s.clock = t.clock ∧ s.output = t.output ∧
+    s.clock = t.clock ∧
     s.heap = t.heap ∧ s.heap_old = t.heap_old ∧
     locals_rel s.locals m t.locals ∧ map_inv m cnt ∧
     locals_rel s.locals_old m_old t.locals_old ∧ map_inv m_old cnt
@@ -1327,14 +1327,6 @@ Proof
   \\ rpt strip_tac \\ gvs []
 QED
 
-Triviality print_string_state_rel:
-  print_string s v = SOME s' ∧ state_rel s t m m_old cnt ⇒
-  ∃t'. print_string t v = SOME t' ∧ state_rel s' t' m m_old cnt
-Proof
-  rpt strip_tac
-  \\ gvs [print_string_def, CaseEq "option", state_rel_def]
-QED
-
 (* Used in the proof for method calls. *)
 Triviality distinct_ins_out_lookup:
   map_add_fresh [] 0 (MAP FST ins) = (cnt, m₀) ∧
@@ -1585,8 +1577,7 @@ Proof
     \\ drule_all (cj 1 correct_freshen_exp) \\ gvs []
     \\ disch_then $ qx_choose_then ‘t₁’ assume_tac \\ gvs []
     \\ reverse $ namedCases_on ‘r’ ["v", "err"] \\ gvs []
-    \\ namedCases_on ‘print_string s₁ v’ ["", "s₂"] \\ gvs []
-    \\ drule_all print_string_state_rel \\ rpt strip_tac \\ gvs [])
+    \\ IF_CASES_TAC \\ gvs [])
   >~ [‘Assert e’] >-
    (gvs [evaluate_stmt_def, freshen_stmt_def]
     \\ rpt (pairarg_tac \\ gvs [])
