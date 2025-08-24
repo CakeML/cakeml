@@ -183,20 +183,6 @@ Proof
   rpt strip_tac \\ gvs [update_array_def, AllCaseEqs()]
 QED
 
-Theorem print_string_some_with_clock:
-  print_string s v = SOME s' ⇒
-  print_string (s with clock := ck) v = SOME (s' with clock := ck)
-Proof
-  rpt strip_tac \\ gvs [print_string_def, AllCaseEqs()]
-QED
-
-Theorem print_string_none_with_clock:
-  print_string s v = NONE ⇒
-  print_string (s with clock := ck) v = NONE
-Proof
-  rpt strip_tac \\ gvs [print_string_def, AllCaseEqs()]
-QED
-
 Theorem restore_caller_cur_with_clock:
   restore_caller (cur with clock := ck) prev =
   (restore_caller cur prev) with clock := ck

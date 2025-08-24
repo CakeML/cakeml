@@ -14,3 +14,19 @@ method Find(a: array<int>, key: int) returns (index: int)
   }
   index := -1;
 }
+
+method Main() {
+  var a := new int[5];
+  a[0], a[1], a[2], a[3], a[4] := 3, 1, 4, 1, 5;
+
+  TestFind(a, 3);   // key at start
+  TestFind(a, 4);   // key in middle
+  TestFind(a, 5);   // key at end
+  TestFind(a, 9);   // key not present
+}
+
+method TestFind(a: array<int>, key: int)
+{
+  var r := Find(a, key);
+  print "Find(", key, ") = ", r, "\n";
+}

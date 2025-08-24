@@ -14,3 +14,16 @@ method SumToN(n: int) returns (sum: int)
     i := i + 1;
   }
 }
+
+method Main() {
+  TestSumToN(0);
+  TestSumToN(1);
+  TestSumToN(5);
+  TestSumToN(10);
+}
+
+method TestSumToN(n: int)
+{
+  var r := SumToN(n);
+  print "SumToN(", n, ") = ", r, "\n";
+}
