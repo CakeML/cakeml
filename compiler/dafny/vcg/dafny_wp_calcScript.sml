@@ -2650,7 +2650,6 @@ Theorem stmt_wp_sound:
             st''.locals_old = st'.locals_old ∧
             st''.heap = st'.heap ∧
             st''.heap_old = st'.heap_old ∧
-            st''.output = st'.output ∧
             locals_ok (mspec'.ins ++ mspec'.outs) st''.locals ∧
             LIST_REL (eval_exp st'' env) (MAP (Var o FST) mspec'.outs) out_vs) ∧
       conditions_hold st env reqs ∧ compatible_env env m ∧
@@ -2660,7 +2659,6 @@ Theorem stmt_wp_sound:
         st'.locals_old = st.locals_old ∧
         st'.heap = st.heap ∧
         st'.heap_old = st.heap_old ∧
-        st'.output = st.output ∧
         locals_ok locals st'.locals ∧
         case ret of
         | Rstop Sret => conditions_hold st' env ens
@@ -2815,7 +2813,7 @@ Proof
        ∃st' ret.
          eval_stmt st env (While guard invs ds mods body) st' ret ∧
          st'.locals_old = st.locals_old ∧ st'.heap = st.heap ∧
-         st'.heap_old = st.heap_old ∧ st'.output = st.output ∧
+         st'.heap_old = st.heap_old ∧
          locals_ok locals st'.locals ∧
          case ret of
          | Rcont => conditions_hold st' env (not guard::invs)
@@ -3010,7 +3008,6 @@ Proof
   \\ conj_tac >- (unabbrev_all_tac \\ fs [restore_caller_def])
   \\ conj_tac >- (unabbrev_all_tac \\ fs [restore_caller_def])
   \\ conj_tac >- (unabbrev_all_tac \\ fs [restore_caller_def])
-  \\ conj_tac >- (unabbrev_all_tac \\ fs [restore_caller_def])
   \\ conj_tac >-
    (gvs []
     \\ drule ALOOKUP_locals_ok_eq \\ simp [] \\ disch_then kall_tac
@@ -3187,7 +3184,6 @@ Theorem methods_lemma[local]:
         st'.locals_old = st.locals_old ∧
         st'.heap = st.heap ∧
         st'.heap_old = st.heap_old ∧
-        st'.output = st.output ∧
         locals_ok (mspec.ins ++ mspec.outs) st'.locals ∧
         conditions_hold st' env (MAP (wrap_Old (set (MAP FST mspec.ins))) mspec.ens) ∧
         LIST_REL (eval_exp st' env) (MAP (Var o FST) mspec.outs) out_vs

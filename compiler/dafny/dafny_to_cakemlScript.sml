@@ -295,12 +295,92 @@ Definition par_assign_def:
   od
 End
 
+
+Definition cml_dec_to_string_name_def[simp]:
+  cml_dec_to_string_name = "dec_to_string"
+End
+
+Definition cml_dec_to_string_param_def[simp]:
+  cml_dec_to_string_param = "n"
+End
+
+Definition cml_dec_to_string_body_def:
+  cml_dec_to_string_body =
+  let arg = Var (Short cml_dec_to_string_param) in
+  let char = App Chr [App (Opn Plus) [Lit (IntLit 48); arg]] in
+    App Implode [cml_list [char]]
+End
+
+Definition cml_dec_to_string_dlet_def:
+  cml_dec_to_string_dlet =
+    Dlet unknown_loc (Pvar cml_dec_to_string_name)
+         (Fun cml_dec_to_string_param cml_dec_to_string_body)
+End
+
+Definition cml_nat_to_string_name_def[simp]:
+  cml_nat_to_string_name = "nat_to_string"
+End
+
+Definition cml_nat_to_string_param_def[simp]:
+  cml_nat_to_string_param = "n"
+End
+
+Definition cml_nat_to_string_body_def:
+  cml_nat_to_string_body =
+  let arg = Var (Short cml_nat_to_string_param) in
+  let n_lt_10 = App (Opb Lt) [arg; Lit (IntLit 10)] in
+  let arg_to_string = App Opapp [Var (Short cml_dec_to_string_name); arg] in
+  let n_div_10 = App (Opn Divide) [arg; Lit (IntLit 10)] in
+  let n_div_10_to_string =
+    App Opapp [Var (Short cml_nat_to_string_name); n_div_10] in
+  let n_mod_10 = App (Opn Modulo) [arg; Lit (IntLit 10)] in
+  let n_mod_10_to_string =
+    App Opapp [Var (Short cml_dec_to_string_name); n_mod_10] in
+    If n_lt_10
+       arg_to_string
+       (App Strcat [cml_list [n_div_10_to_string; n_mod_10_to_string]])
+End
+
+Definition cml_nat_to_string_dletrec_def:
+  cml_nat_to_string_dletrec =
+    Dletrec unknown_loc
+      [(cml_nat_to_string_name, cml_nat_to_string_param,
+        cml_nat_to_string_body)]
+End
+
+Definition cml_int_to_string_name_def[simp]:
+  cml_int_to_string_name = "int_to_string"
+End
+
+Definition cml_int_to_string_param_def[simp]:
+  cml_int_to_string_param = "i"
+End
+
+Definition cml_int_to_string_body_def:
+  cml_int_to_string_body =
+  let arg = Var (Short cml_int_to_string_param) in
+  let i_lt_0 = App (Opb Lt) [arg; Lit (IntLit 0)] in
+  let neg_arg = App (Opn Minus) [Lit (IntLit 0); arg] in
+  let neg_arg_to_string =
+    App Opapp [Var (Short cml_nat_to_string_name); neg_arg] in
+  let arg_to_string =
+    App Opapp [Var (Short cml_nat_to_string_name); arg] in
+    If i_lt_0
+       (App Strcat [cml_list [Lit (StrLit "-"); neg_arg_to_string]])
+       arg_to_string
+End
+
+Definition cml_int_to_string_dlet_def:
+  cml_int_to_string_dlet =
+    Dlet unknown_loc (Pvar cml_int_to_string_name)
+         (Fun cml_int_to_string_param cml_int_to_string_body)
+End
+
 Definition to_string_def:
   (to_string cml_e BoolT =
-     return (If cml_e (Lit (StrLit "True")) (Lit (StrLit "False")))) ∧
-  (* TODO Is this the best way to print an integer? *)
+     return (If cml_e (Lit (StrLit "true")) (Lit (StrLit "false")))) ∧
   (to_string cml_e IntT =
-     return (cml_fapp ["Int"] "int_to_string" [Lit (Char #"-"); cml_e])) ∧
+     return (cml_fapp [] cml_int_to_string_name [cml_e])) ∧
   (to_string cml_e StrT = return cml_e) ∧
   (to_string cml_e _ = fail «to_string: Unsupported»)
 End
@@ -308,7 +388,6 @@ End
 Definition loop_name_def:
   loop_name lvl = explode (« w» ^ (num_to_str lvl))
 End
-
 
 Definition from_stmt_def:
   (* lvl keeps track of nested while loops to generate new unique names *)
@@ -356,8 +435,13 @@ Definition from_stmt_def:
   do
     cml_e <- from_exp e;
     cml_str <- to_string cml_e t;
-    (* TODO Is this the best way to print a string? *)
-    return (cml_fapp [] "print" [cml_str])
+    (* Force left-to-right evaluation order *)
+    n_e <<- " l";
+    (* no-op in semantics, but prints if compiler flag is passed *)
+    pseudo_print <<-
+      (App (FFI "")
+           [Var (Short n_e); App Aw8alloc [Lit (IntLit 0); Lit (Word8 0w)]]);
+    return (Let (SOME n_e) cml_str pseudo_print)
   od ∧
   from_stmt (MetCall lhss n args) _ =
   do
@@ -426,9 +510,15 @@ Definition from_program_def:
     main_call <<- Handle (cml_fapp [] "dfy_Main" [Unit])
               [(Pcon (SOME (mk_id [] "Return")) [], Unit)];
     cml_main <<- Dlet unknown_loc Pany main_call;
-    return ([return_exn; cml_funs; cml_main])
+    return ([return_exn;
+             cml_dec_to_string_dlet;
+             cml_nat_to_string_dletrec;
+             cml_int_to_string_dlet;
+             cml_funs;
+             cml_main])
   od
 End
+
 
 
 (* Testing *)

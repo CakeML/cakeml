@@ -77,7 +77,7 @@ Proof
   gvs [cml_init_env_def, prim_sem_env_def, prim_types_program_def,
        add_to_sem_env_def, evaluate_decs_def, check_dup_ctors_def,
        combine_dec_result_def, has_basic_cons_def, build_tdefs_def,
-       build_constrs_def, extend_dec_env_def]
+       build_constrs_def, extend_dec_env_def, list_type_num_def]
 QED
 
 Triviality cml_init_state_next_exn_stamp:
