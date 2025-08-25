@@ -1024,7 +1024,7 @@ End
 
 Definition exps_of_def:
   (exps_of (Raise _ e) = [e]) ∧
-  (exps_of (Dec _ e p) = e::exps_of p) ∧
+  (exps_of (Dec _ _ e p) = e::exps_of p) ∧
   (exps_of (Seq p q) = exps_of p ++ exps_of q) ∧
   (exps_of (If e p q) = e::exps_of p ++ exps_of q) ∧
   (exps_of (While e p) = e::exps_of p) ∧
@@ -1070,7 +1070,7 @@ End
 
 Definition localised_prog_def:
   (localised_prog (Raise _ e) ⇔ localised_exp e) ∧
-  (localised_prog (Dec _ e p) ⇔ localised_exp e ∧ localised_prog p) ∧
+  (localised_prog (Dec _ _ e p) ⇔ localised_exp e ∧ localised_prog p) ∧
   (localised_prog (Seq p q) ⇔ localised_prog p ∧ localised_prog q) ∧
   (localised_prog (If e p q) ⇔ localised_exp e ∧ localised_prog p ∧ localised_prog q) ∧
   (localised_prog (While e p) ⇔ localised_exp e ∧ localised_prog p) ∧

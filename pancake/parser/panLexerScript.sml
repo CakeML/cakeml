@@ -31,6 +31,7 @@ Datatype:
   | LBrakT | RBrakT | LCurT | RCurT
   | AssignT
   | StaticT
+  | DefaultShT
   | KeywordT keyword
   | AnnotCommentT string
   | LexErrorT mlstring

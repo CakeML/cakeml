@@ -17,8 +17,8 @@ End
 
 Definition seq_assoc_def:
   (seq_assoc p Skip = p) /\
-  (seq_assoc p (Dec v e q) =
-    SmartSeq p (Dec v e (seq_assoc Skip q))) /\
+  (seq_assoc p (Dec v s e q) =
+    SmartSeq p (Dec v s e (seq_assoc Skip q))) /\
   (seq_assoc p (Seq q r) = seq_assoc (seq_assoc p q) r) /\
   (seq_assoc p (If e q r) =
     SmartSeq p (If e (seq_assoc Skip q) (seq_assoc Skip r))) /\
@@ -49,7 +49,7 @@ End
 
 Definition ret_to_tail_def:
   (ret_to_tail Skip = Skip) /\
-  (ret_to_tail (Dec v e q) = Dec v e (ret_to_tail q)) /\
+  (ret_to_tail (Dec v s e q) = Dec v s e (ret_to_tail q)) /\
   (ret_to_tail (Seq p q) =
     seq_call_ret (Seq (ret_to_tail p) (ret_to_tail q))) /\
   (ret_to_tail (If e p q) = If e (ret_to_tail p) (ret_to_tail q)) /\
@@ -86,7 +86,7 @@ Theorem seq_assoc_pmatch:
   seq_assoc p prog =
   case prog of
    | Skip => p
-   | (Dec v e q) => SmartSeq p (Dec v e (seq_assoc Skip q))
+   | (Dec v s e q) => SmartSeq p (Dec v s e (seq_assoc Skip q))
    | (Seq q r) => seq_assoc (seq_assoc p q) r
    | (If e q r) =>
      SmartSeq p (If e (seq_assoc Skip q) (seq_assoc Skip r))
@@ -114,7 +114,7 @@ Theorem ret_to_tail_pmatch:
   ret_to_tail p =
   case p of
    | Skip => Skip
-   | (Dec v e q) => Dec v e (ret_to_tail q)
+   | (Dec v s e q) => Dec v s e (ret_to_tail q)
    | (Seq q r) => seq_call_ret (Seq (ret_to_tail q) (ret_to_tail r))
    | (If e q r) =>
       If e (ret_to_tail q) (ret_to_tail r)

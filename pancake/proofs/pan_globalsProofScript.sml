@@ -526,7 +526,7 @@ Proof
 QED
 
 Theorem compile_Dec:
-  ^(get_goal "compile _ (Dec _ _ _)")
+  ^(get_goal "compile _ (Dec _ _ _ _)")
 Proof
   rpt strip_tac >>
   gvs[evaluate_def,compile_def,AllCaseEqs(),UNCURRY_eq_pair] >>
