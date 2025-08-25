@@ -310,6 +310,10 @@ Inductive stmt_wp:
   ∀m s1 s2 pre1 pre2 post ens g.
     stmt_wp m pre1 s1 post ens decs ls ∧
     stmt_wp m pre2 s2 post ens decs ls
+    (* TODO:
+        - add ‘get_type ls g = INR BoolT’ as a conjunction before ⇒
+        - below replace IsBool by CanEval
+     *)
     ⇒
     stmt_wp m [IsBool g; imp g (conj pre1); imp (not g) (conj pre2)]
       (If g s1 s2) post ens decs ls
@@ -344,10 +348,11 @@ Inductive stmt_wp:
                (imp (conj (guard :: invs ++ MAP2 dec_assum ds_vars ds))
                     (conj body_wp))) ∧
     stmt_wp m body_wp body
-      (invs ++ MAP CanEval ds ++ decreases_check (0, ds) (0, MAP Var ds_vars))
+      (invs ++ [CanEval guard] ++ MAP CanEval ds ++
+       decreases_check (0, ds) (0, MAP Var ds_vars))
       ens decs (MAP (λv. (v,IntT)) ds_vars ++ ls)
     ⇒
-    stmt_wp m (invs ++ MAP CanEval ds ++
+    stmt_wp m (invs ++ [CanEval guard] ++ MAP CanEval ds ++
                (* on exit of loop, invs and not guard imply post *)
                [Foralls (FILTER (λ(v,ty). assigned_in body v) ls)
                   (imp (conj (not guard :: invs)) (conj post))])
@@ -2630,6 +2635,54 @@ Proof
   \\ last_assum drule_all \\ simp []
 QED
 
+Theorem eval_bool_IMP:
+  eval_true st env (CanEval guard) ∧
+  get_type locals guard = INR BoolT ∧
+  locals_ok locals st.locals ⇒
+  ∃guard_b. eval_exp st env guard (BoolV guard_b)
+Proof
+  cheat
+QED
+
+Theorem eval_stmt_While_stop:
+  eval_exp st env guard (BoolV F) ⇒
+  eval_stmt st env (While guard invs ds mods body) st Rcont
+Proof
+  cheat
+QED
+
+Theorem eval_stmt_While_unroll:
+  eval_exp st env guard (BoolV T) ∧
+  eval_stmt st env body st1 res1 ∧
+  (if res1 = Rcont then
+     eval_stmt st1 env (While guard invs ds mods body) st2 res
+   else res = res1)
+  ⇒
+  eval_stmt st env (While guard invs ds mods body) st2 res
+Proof
+  cheat
+QED
+
+Theorem MAP_CanEval_IMP:
+  conditions_hold st env (MAP CanEval ds) ⇒
+  ∃ds_vals. LIST_REL (λe v. eval_exp st env e v) ds ds_vals
+Proof
+  cheat
+QED
+
+Theorem eval_stmt_drop_locals:
+  eval_stmt (st1 with locals := ds1 ++ st1.locals) env body st2 ret ∧
+  locals_ok (MAP (λv. (v,IntT)) ds_vars ++ locals) st2.locals ∧
+  DISJOINT (set (get_vars_stmt body)) (set (MAP FST ds1)) ⇒
+  ∃rest.
+    locals_ok locals rest ∧
+    eval_stmt st1 env body (st2 with locals := rest) ret ∧
+    (∀e. eval_true st2 env e ∧ DISJOINT (set (get_vars_exp e)) (set (MAP FST ds1)) ⇒
+         eval_true (st2 with locals := rest) env e)
+Proof
+  cheat
+QED
+
 Theorem stmt_wp_sound:
   ∀m reqs stmt post ens decs locals.
     stmt_wp m reqs stmt post ens decs locals ⇒
@@ -2808,12 +2861,15 @@ Proof
   >~ [‘While guard invs ds mods body’] >-
 
    (qsuff_tac
-    ‘∀st.
-       conditions_hold st env (invs ++ MAP CanEval ds) ⇒
+    ‘∀stx.
+       conditions_hold stx env (invs ++ [CanEval guard] ++ MAP CanEval ds) ∧
+       locals_ok locals stx.locals ∧
+       stx.locals_old = st.locals_old ∧
+       stx.heap_old = st.heap_old ⇒
        ∃st' ret.
-         eval_stmt st env (While guard invs ds mods body) st' ret ∧
-         st'.locals_old = st.locals_old ∧ st'.heap = st.heap ∧
-         st'.heap_old = st.heap_old ∧
+         eval_stmt stx env (While guard invs ds mods body) st' ret ∧
+         st'.locals_old = stx.locals_old ∧ st'.heap = stx.heap ∧
+         st'.heap_old = stx.heap_old ∧
          locals_ok locals st'.locals ∧
          case ret of
          | Rcont => conditions_hold st' env (not guard::invs)
@@ -2827,9 +2883,100 @@ Proof
       \\ Cases_on ‘ret’ \\ gvs []
       \\ gvs [conditions_hold_def]
       \\ gvs [GSYM conditions_hold_def]
-
-      \\ cheat)
-
+      \\ drule eval_true_Foralls
+      \\ qabbrev_tac ‘vs = FILTER (λ(v,ty). assigned_in body v) locals’
+      \\ qabbrev_tac ‘vals = MAP (λ(v,_). (v,ALOOKUP st'.locals v)) vs’
+      \\ ‘EVERY (IS_SOME o SND) vals’ by cheat (* not quite guaranteed *)
+      \\ disch_then $ qspec_then ‘MAP (λ(v,val). (v,THE val)) vals’ mp_tac
+      \\ impl_keep_tac
+      >- cheat (* ought to be true *)
+      \\ strip_tac
+      \\ qsuff_tac ‘eval_true st' env (imp (conj (not guard::invs)) (conj post))’
+      >-
+       (strip_tac \\ drule eval_true_imp
+        \\ gvs [eval_true_conj_every,conditions_hold_def])
+      \\ cheat (* states are sufficiently similar *))
+    \\ qsuff_tac ‘∀x stx.
+          x = eval_measure stx env (0, ds) ∧
+          conditions_hold stx env (invs ++ [CanEval guard] ++ MAP CanEval ds) ∧
+          locals_ok locals stx.locals ∧
+          stx.locals_old = st.locals_old ∧
+          stx.heap_old = st.heap_old ⇒
+          ∃st' ret.
+            eval_stmt stx env (While guard invs ds mods body) st' ret ∧
+            st'.locals_old = stx.locals_old ∧ st'.heap = stx.heap ∧
+            st'.heap_old = stx.heap_old ∧
+            locals_ok locals st'.locals ∧
+            case ret of
+              Rcont => conditions_hold st' env (not guard::invs)
+            | Rstop Sret => conditions_hold st' env ens
+            | Rstop (Serr v3) => F’
+    >- fs []
+    \\ ho_match_mp_tac WF_ind
+    \\ rpt strip_tac \\ gvs [PULL_FORALL]
+    \\ rename [‘eval_stmt st1 env’]
+    \\ gvs [conditions_hold_def]
+    \\ gvs [GSYM conditions_hold_def]
+    \\ drule_all eval_bool_IMP \\ strip_tac
+    \\ reverse $ Cases_on ‘guard_b’
+    >-
+     (irule_at Any eval_stmt_While_stop
+      \\ drule eval_exp_bool_not
+      \\ simp [GSYM eval_true_def])
+    \\ irule_at Any eval_stmt_While_unroll
+    \\ first_assum $ irule_at $ Pos hd
+    \\ fs [GSYM PULL_FORALL]
+    \\ drule MAP_CanEval_IMP \\ strip_tac
+    \\ qabbrev_tac ‘ds1 = ZIP (ds_vars, MAP SOME ds_vals)’
+    \\ ‘MAP FST ds1 = ds_vars’ by
+     (imp_res_tac LIST_REL_LENGTH
+      \\ gvs [Abbr‘ds1’,MAP_ZIP])
+    \\ last_x_assum $ qspecl_then [‘st1 with locals := ds1 ++ st1.locals’,‘env’] mp_tac
+    \\ ‘eval_measure st env (wrap_old decs) =
+        eval_measure st1 env (wrap_old decs)’ by
+           cheat (* because olds are the same *)
+    \\ impl_tac
+    >-
+     (conj_tac
+      >-
+       (rpt strip_tac
+        \\ last_x_assum irule
+        \\ fs [eval_measure_with_locals_wrap_old]
+        \\ asm_rewrite_tac []
+        \\ first_assum $ irule_at Any)
+      \\ simp []
+      \\ cheat (* reqs should be inv *))
+    \\ simp []
+    \\ strip_tac
+    \\ drule_then drule eval_stmt_drop_locals
+    \\ impl_tac
+    >- (asm_rewrite_tac [])
+    \\ strip_tac
+    \\ rename [‘eval_stmt _ _ _ (st2 with locals := _)’]
+    \\ first_x_assum $ irule_at $ Pos hd
+    \\ reverse $ Cases_on ‘ret’ \\ fs []
+    >-
+     (rename [‘Rstop stop_tm’] \\ Cases_on ‘stop_tm’ \\ gvs []
+      \\ qexists_tac ‘st2’ \\ fs [locals_ok_append_left])
+    \\ first_x_assum $ qspec_then ‘st2 with locals := rest’ mp_tac
+    \\ rewrite_tac [AND_IMP_INTRO]
+    \\ reverse impl_tac >- (simp [])
+    \\ simp []
+    \\ conj_tac
+    >-
+     (simp [eval_measure_def,LEX_DEF]
+      \\ fs [decreases_check_def,decrease_lt_def]
+      \\ gvs []
+      \\ gvs [conditions_hold_def]
+      \\ drule eval_true_lex_lt \\ gvs []
+      \\ ‘eval_decreases st2 env ds =
+          eval_decreases (st2 with locals := rest) env ds’ by cheat
+      \\ ‘eval_decreases st2 env (MAP Var (MAP FST ds1)) =
+          eval_decreases st1 env ds’ by cheat
+      \\ asm_rewrite_tac [])
+    \\ fs [conditions_hold_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]
+    \\ rpt strip_tac
+    \\ first_x_assum irule \\ fs []
     \\ cheat)
   \\ rename [‘MetCall rets mname args’]
   \\ irule_at Any eval_stmt_MetCall \\ gvs []
