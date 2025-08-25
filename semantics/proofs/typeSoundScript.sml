@@ -1602,6 +1602,10 @@ Proof
      >> metis_tac [store_type_extension_trans])
    >> `getOpClass op ≠ FunApp`
      by (Cases_on `op` >> fs[getOpClass_def,AllCaseEqs()])
+   >> Cases_on ‘getOpClass op = Force’
+   >- (
+     Cases_on ‘op’ >> gvs[getOpClass_def,AllCaseEqs()]
+     >> Cases_on ‘ts’ >> fs[type_op_def])
    >> Cases_on ‘getOpClass op = EvalOp’
    >- (
      Cases_on ‘op’ >> gs[getOpClass_def]

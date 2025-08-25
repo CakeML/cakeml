@@ -621,17 +621,16 @@ Proof
   \\ simp [Once do_app_cases] \\ rw [listTheory.SWAP_REVERSE_SYM]
   \\ fs [CaseEq "ffi_result", option_case_eq] \\ rveq \\ fs []
   \\ simp [do_app_def]
-  >>~ [`thunk_op`]
-  >- gvs [thunk_op_def]
+  >~ [`thunk_op`]
   >- (
-    gvs [AllCaseEqs(), thunk_op_def]
+    gvs [AllCaseEqs(), PULL_EXISTS, thunk_op_def]
     >- (
       rpt (pairarg_tac \\ gvs [])
       \\ gvs [store_alloc_def, LIST_REL_EL_EQN])
+    \\ Cases_on ‘xs’ \\ gvs []
     \\ drule_then (drule_then (qsubterm_then `store_assign _ _` mp_tac))
-         store_assign
-    \\ rw [EVERY2_LUPDATE_same]
-    \\ gvs [LIST_REL_EL_EQN])
+         store_assign \\ rw []
+    \\ gvs [])
   \\ simp [div_exn_v_def, sub_exn_v_def, chr_exn_v_def,
         EVERY2_refl, MEM_MAP, PULL_EXISTS]
   \\ TRY (drule_then imp_res_tac (CONJUNCT1 do_eq))
@@ -1809,8 +1808,6 @@ Proof
     >- (drule_then irule record_forward_trans \\ gvs [])
     >- (drule_then irule record_forward_trans \\ gvs [])
     >- (disj2_tac \\ drule_then irule record_forward_trans \\ gvs []))
-  \\ rename1 ‘st2.fp_state.canOpt = FpScope fpValTree$Opt’
-  \\ Cases_on ‘st2.fp_state.canOpt = FpScope fpValTree$Opt’ \\ gs[shift_fp_opts_def]
   \\ gs[]
 QED
 

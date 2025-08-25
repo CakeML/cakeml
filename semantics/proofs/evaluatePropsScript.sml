@@ -831,8 +831,9 @@ Theorem do_app_ffi_unchanged:
   !ffi2. do_app (refs, ffi2) op vs = SOME ((refs',ffi2), r)
 Proof
   disch_then (strip_assume_tac o REWRITE_RULE [do_app_cases])
-  \\ rw [do_app_def] \\ gvs[AllCaseEqs()]
+  \\ rw [do_app_def] \\ gvs[thunk_op_def, AllCaseEqs()]
   >- metis_tac[]
+  >- (pairarg_tac \\ gvs [])
   \\ gvs [call_FFI_return_unchanged,
           Q.SPECL [`x`, `ExtCall ""`] ffiTheory.call_FFI_def]
 QED
