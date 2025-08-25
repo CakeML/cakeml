@@ -234,19 +234,6 @@ Proof
       \\ first_assum (irule_at Any)
       \\ first_x_assum irule \\ gs []
       \\ gs [post_state_ok_def]))
-  >- (Cases_on ‘op’ \\ gs[])
-  >- (Cases_on ‘op’ \\ gs[])
-QED
-
-Theorem evaluate_basis_v_ok_FpOptimise:
-  ^(get_goal "FpOptimise")
-Proof
-  rw [evaluate_def]
-  \\ gvs [CaseEqs ["bool", "option", "prod", "semanticPrimitives$result"], SF SFY_ss]
-  >- (irule EVERY_v_ok_do_fpoptimise \\ first_assum irule \\ gs[simple_exp_def])
-  >- (Cases_on ‘e'’ \\ gs[] \\ first_assum irule \\ gs[simple_exp_def])
-  >- (irule EVERY_v_ok_do_fpoptimise \\ first_assum irule \\ gs[simple_exp_def])
-  >- (Cases_on ‘e'’ \\ gs[] \\ first_assum irule \\ gs[simple_exp_def])
 QED
 
 Theorem evaluate_basis_v_ok_decs_Nil:
@@ -402,7 +389,6 @@ Proof
   \\ rewrite_tac [evaluate_basis_v_ok_Nil, evaluate_basis_v_ok_Cons,
                   evaluate_basis_v_ok_Lit, evaluate_basis_v_ok_Con,
                   evaluate_basis_v_ok_Var, evaluate_basis_v_ok_App,
-                  evaluate_basis_v_ok_FpOptimise,
                   evaluate_basis_v_ok_decs_Nil,
                   evaluate_basis_v_ok_decs_Cons,
                   evaluate_basis_v_ok_decs_Dlet,

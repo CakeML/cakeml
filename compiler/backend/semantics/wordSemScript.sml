@@ -6,11 +6,10 @@ Libs
   preamble
 Ancestors
   mllist wordLang alignment[qualified] finite_map[qualified]
-  misc[qualified] asm[qualified]
+  misc[qualified] asm[qualified] fpSem[qualified]
   ffi[qualified] (* for call_FFI *)
   lprefix_lub[qualified] (* for build_lprefix_lub *)
   machine_ieee[qualified] (* for FP *)
-
 
 Datatype:
   buffer =

@@ -3,7 +3,7 @@
 *)
 Theory evaluate
 Ancestors
-  fpValTree fpSem ast namespace ffi semanticPrimitives
+  fpSem ast namespace ffi semanticPrimitives
 
 val _ = numLib.temp_prefer_num();
 
@@ -45,14 +45,6 @@ Triviality list_size_REVERSE:
 Proof
   Induct \\ fs [listTheory.list_size_def,listTheory.list_size_append]
 QED
-
-Definition do_real_check_def:
-  do_real_check b r=
-  (if b then SOME r
-   else (case r of
-           Rval (Real r) => NONE
-         | _ => SOME r))
-End
 
 (* With `dest_thunk` we check 3 things:
      - The values contain exactly one reference
@@ -190,39 +182,7 @@ Definition evaluate_def[nocompute]:
         (case do_app (st'.refs,st'.ffi) op (REVERSE vs) of
           NONE => (st', Rerr (Rabort Rtype_error))
         | SOME ((refs,ffi),r) =>
-            (( st' with<| refs := refs; ffi := ffi |>), list_result r))
-    | Icing =>
-      (case do_app (st'.refs,st'.ffi) op (REVERSE vs) of
-        NONE => (st', Rerr (Rabort Rtype_error))
-      | SOME ((refs,ffi),r) =>
-        let fp_opt =
-          (if (st'.fp_state.canOpt = FPScope Opt)
-          then
-            ((case (do_fprw r (st'.fp_state.opts 0) st'.fp_state.rws) of
-            (* if it fails, just use the old value tree *)
-              NONE => r
-            | SOME r_opt => r_opt
-            ))
-            (* If we cannot optimize, we should not allow matching on the structure in the oracle *)
-          else r)
-        in
-        let stN = (if (st'.fp_state.canOpt = FPScope Opt) then shift_fp_opts st' else st') in
-        let fp_res =
-          (if (isFpBool op)
-          then (case fp_opt of
-              Rval (FP_BoolTree fv) => Rval (Boolv (compress_bool fv))
-            | v => v
-            )
-          else fp_opt)
-        in ((( stN with<| refs := refs; ffi := ffi |>)), list_result fp_res))
-    | Reals =>
-      if (st'.fp_state.real_sem) then
-      (case do_app (st'.refs,st'.ffi) op (REVERSE vs) of
-        NONE => (st', Rerr (Rabort Rtype_error))
-      | SOME ((refs,ffi),r) =>
-        (( st' with<| refs := refs; ffi := ffi |>), list_result r)
-      )
-      else (shift_fp_opts st', Rerr (Rabort Rtype_error)))
+            (( st' with<| refs := refs; ffi := ffi |>), list_result r)))
     | res => res)
   ∧
   evaluate st env [Log lop e1 e2] =
@@ -264,20 +224,6 @@ Definition evaluate_def[nocompute]:
   evaluate st env [Tannot e t] = evaluate st env [e]
   ∧
   evaluate st env [Lannot e l] = evaluate st env [e]
-  ∧
-  evaluate st env [FpOptimise annot e]=
-   (let newFpState =
-    (if (st.fp_state.canOpt = Strict)
-    then st.fp_state
-    else ( st.fp_state with<| canOpt := (FPScope annot)|>))
-  in
-    (case fix_clock st (evaluate (( st with<| fp_state := newFpState |>)) env [e]) of
-      (st', Rval vs) =>
-    (( st' with<| fp_state := (( st'.fp_state with<| canOpt := (st.fp_state.canOpt) |>)) |>),
-        Rval (do_fpoptimise annot vs))
-    | (st', Rerr e) =>
-    (( st' with<| fp_state := (( st'.fp_state with<| canOpt := (st.fp_state.canOpt) |>)) |>), Rerr e)
-    ))
   ∧
   evaluate_match st env v [] err_v = (st,Rerr (Rraise err_v))
   ∧
@@ -380,7 +326,7 @@ Proof
   ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
   gvs [AllCaseEqs()] >>
   fs[dec_clock_def,fix_clock_def] >> simp[] >>
-  imp_res_tac fix_clock_IMP >> fs[shift_fp_opts_def] >>
+  imp_res_tac fix_clock_IMP >> fs[] >>
   COND_CASES_TAC >> gs[]
 QED
 
@@ -402,18 +348,8 @@ Proof
   \\ fs [arithmeticTheory.MIN_DEF,state_component_equality]
 QED
 
-Theorem fix_clock_fp_state:
-  fix_clock st (evaluate (st with fp_state := newFpState) env [e]) =
-    evaluate (st with fp_state := newFpState) env [e]
-Proof
-  qmatch_goalsub_abbrev_tac ‘evaluate newSt env [e]’
-  \\ Cases_on ‘evaluate newSt env [e]’ \\ gs[fix_clock_def]
-  \\ imp_res_tac evaluate_clock \\ unabbrev_all_tac
-  \\ gs[arithmeticTheory.MIN_DEF,state_component_equality]
-QED
-
 Theorem full_evaluate_def[compute] =
-  REWRITE_RULE [fix_clock_evaluate, fix_clock_do_eval_res, fix_clock_fp_state] evaluate_def;
+  REWRITE_RULE [fix_clock_evaluate, fix_clock_do_eval_res] evaluate_def;
 
 Theorem full_evaluate_ind =
   REWRITE_RULE [fix_clock_evaluate, fix_clock_do_eval_res] evaluate_ind;

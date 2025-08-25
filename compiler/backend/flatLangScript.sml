@@ -38,6 +38,8 @@ Datatype:
   | FP_uop fp_uop
   | FP_bop fp_bop
   | FP_top fp_top
+  | FpFromWord
+  | FpToWord
   (* Function application *)
   | Opapp
   (* Reference operations *)

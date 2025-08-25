@@ -4,7 +4,7 @@
 *)
 Theory funBigStepEquiv
 Ancestors
-  evaluate evaluateProps interp semanticPrimitives fpSemProps
+  evaluate evaluateProps interp semanticPrimitives
 Libs
   preamble
 
@@ -56,24 +56,14 @@ Proof
   cheat (*
   ho_match_mp_tac evaluate_ind >>
   rw[evaluate_def,run_eval_def,
-     result_return_def,result_bind_def, Excl"getOpClass_def"] >> gvs [Excl"getOpClass_def"]
+     result_return_def,result_bind_def, Excl"getOpClass_def"] >>
+  gvs [Excl"getOpClass_def"]
   >~[‘getOpClass op’]
   >- (
     ntac 3 TOP_CASE_TAC >> gs[Excl"getOpClass_def"]
     >- prove_tac
     >- prove_tac
-    >- prove_tac
-    >- (gs[get_store_def] >>
-        ntac 4 (TOP_CASE_TAC >>
-                gs[result_raise_def, set_store_def, state_transformerTheory.UNIT_DEF, shift_fp_opts_def]) >>
-        every_case_tac >> gs[]) >>
-    gs[get_store_def, Excl"getOpClass_def"] >>
-    imp_res_tac (INST_TYPE [alpha |-> “:'ffi”, beta |-> “:'ffi”] fpSemPropsTheory.realOp_determ) >>
-    ntac 5 (TOP_CASE_TAC >>
-            gs[result_raise_def, set_store_def, state_transformerTheory.UNIT_DEF, shift_fp_opts_def]) >>
-    res_tac >> gs[state_component_equality]) >>
-   TRY (rpt $ pop_assum mp_tac >>
-        ntac 2 (TOP_CASE_TAC >> gs[do_fpoptimise_LENGTH]) >> NO_TAC) >>
+    >- prove_tac) >>
   prove_tac *)
 QED
 

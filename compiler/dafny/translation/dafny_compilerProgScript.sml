@@ -233,7 +233,6 @@ val r = translate fromSexpTheory.patsexp_def;
 (* TODO 101 automatically added string IMPLODEs *)
 val r = translate fromSexpTheory.opsexp_def;
 val r = translate fromSexpTheory.lopsexp_def;
-val r = translate fromSexpTheory.scsexp_def;
 (* TODO 24 automatically added string IMPLODEs *)
 val r = translate fromSexpTheory.expsexp_def;
 val r = translate fromSexpTheory.type_defsexp_def;

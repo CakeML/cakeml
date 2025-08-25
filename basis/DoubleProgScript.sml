@@ -250,20 +250,20 @@ End
 
 val _ = append_prog
   “[Dlet unknown_loc (Pvar "fma") (Fun "x" (Fun "y" (Fun "z"
-    (FpOptimise NoOpt (App (FP_top FP_Fma) [Var (Short "z"); Var (Short "x");
-    Var (Short "y")])))))]”
+    (App (FP_top FP_Fma) [Var (Short "z"); Var (Short "x");
+    Var (Short "y")]))))]”
 
 (* --------------------------------------------------------------------------
  * Binary operations
  * ------------------------------------------------------------------------- *)
 
 fun binop s b = “[Dlet unknown_loc (Pvar ^s)
-  (Fun "x" (Fun "y" (FpOptimise NoOpt (App (FP_bop ^b) [Var (Short
-  "x"); Var (Short "y")]))))]”
+  (Fun "x" (Fun "y" (App (FP_bop ^b) [Var (Short
+  "x"); Var (Short "y")])))]”
 
 fun cmp s b = “[Dlet unknown_loc (Pvar ^s)
-  (Fun "x" (Fun "y" (FpOptimise NoOpt (App (FP_cmp ^b) [Var (Short
-  "x"); Var (Short "y")]))))]”
+  (Fun "x" (Fun "y" (App (FP_cmp ^b) [Var (Short
+  "x"); Var (Short "y")])))]”
 
 val _ = append_prog $ binop “"+"” “FP_Add”;
 val _ = append_prog $ binop “"-"” “FP_Sub”;
@@ -281,7 +281,7 @@ val _ = append_prog $ cmp “"="” “FP_Equal”;
  * ------------------------------------------------------------------------- *)
 
 fun monop s b = “[Dlet unknown_loc (Pvar ^s)
-  (Fun "x" (FpOptimise NoOpt (App (FP_uop ^b) [Var (Short "x")])))]”
+  (Fun "x" (App (FP_uop ^b) [Var (Short "x")]))]”
 
 val _ = append_prog $ monop “"abs"” “FP_Abs”;
 val _ = append_prog $ monop “"sqrt"” “FP_Sqrt”;

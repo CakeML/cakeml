@@ -5,8 +5,8 @@
 *)
 Theory ml_translator
 Ancestors
-  integer ml_prog ast semanticPrimitives semanticPrimitivesProps
-  evaluateProps fpOpt fpValTree fpSem fpSemProps mlvector
+  machine_ieee integer ml_prog ast semanticPrimitives semanticPrimitivesProps
+  evaluateProps fpSem mlvector
   mlstring evaluate
 Libs
   packLib integer_wordSyntax preamble
@@ -26,10 +26,6 @@ Definition empty_state_def:
     ffi := initial_ffi_state ARB ();
     next_type_stamp := 0;
     next_exn_stamp := 0;
-    fp_state := <|
-      rws := []; canOpt := FPScope Opt; choices := 0;
-      opts := \x.[];
-      real_sem := F |>;
     eval_state := NONE|>
 End
 
@@ -89,6 +85,11 @@ Definition WORD_def:
           (v = Litv (if dimindex (:'a) <= 8
                      then Word8 (w2w w << (8 - dimindex (:'a)))
                      else Word64 (w2w w << (64 - dimindex (:'a)))))
+End
+
+Definition FLOAT64_def:
+  FLOAT64 (f:(52,11)float) =
+    λv:v. v = Litv (Float64 (machine_ieee$float_to_fp64 f))
 End
 
 Definition CHAR_def:
@@ -181,22 +182,11 @@ in
   val Eval_rw = CONJ evaluate_def Eval_lemma
 end;
 
-Theorem fp_state_eq_thm[local]:
-  s with <| clock := ck1; refs := refsN; fp_state := s.fp_state |> =
-  s with <| clock := ck1; refs := refsN |>
-Proof
-  fs[state_component_equality]
-QED
-
 Theorem evaluate_empty_state_IMP:
    eval_rel (empty_state with refs := s.refs) env exp (empty_state with refs := s.refs ++ refs') x ⇒
    eval_rel (s:'ffi state) env exp (s with refs := s.refs ++ refs') x
 Proof
   rw [eval_rel_def]
-  \\ drule (CONJUNCT1 evaluatePropsTheory.evaluate_fp_intro_canOpt_true)
-  \\ disch_then (qspec_then `s.fp_state` mp_tac) \\ impl_tac
-  >- (fs[fpState_component_equality, state_component_equality, empty_state_def])
-  \\ strip_tac
   \\ dxrule_then (qspec_then `s` mp_tac) evaluatePropsTheory.evaluate_ffi_etc_intro
   \\ simp [empty_state_def]
 QED
@@ -415,7 +405,6 @@ Definition types_match_def:
   (types_match (Loc b1 l1) (Loc b2 l2) = (b1 ∧ b2)) /\
   (types_match (Conv cn1 vs1) (Conv cn2 vs2) =
     (ctor_same_type cn1 cn2 /\ ((cn1 = cn2) ⇒ types_match_list vs1 vs2))) /\
-  (types_match (FP_WordTree (Fp_const w1)) (FP_WordTree (Fp_const w2)) = T) /\
   (types_match _ _ = F) /\
   (types_match_list [] [] = T) /\
   (types_match_list (v1::vs1) (v2::vs2) =
@@ -632,17 +621,15 @@ Proof
 QED
 
 Theorem type_match_implies_do_eq_succeeds:
-   (!v1 v2. types_match v1 v2 ==> (do_eq v1 v2 = Eq_val (v1 = v2))) /\
-    (!vs1 vs2.
-       types_match_list vs1 vs2 ==> (do_eq_list vs1 vs2 = Eq_val (vs1 = vs2)))
+  (!v1 v2. types_match v1 v2 ==> (do_eq v1 v2 = Eq_val (v1 = v2))) /\
+  (!vs1 vs2.
+     types_match_list vs1 vs2 ==> (do_eq_list vs1 vs2 = Eq_val (vs1 = vs2)))
 Proof
   ho_match_mp_tac do_eq_ind
   \\ rw [do_eq_def, types_match_def]
   \\ imp_res_tac types_match_list_length
   \\ fs[] \\ Cases_on`cn1=cn2`\\fs[]
   \\ imp_res_tac types_match_list_length
-  \\ rename1 `types_match (FP_WordTree fp1) (FP_WordTree fp2)`
-  \\ Cases_on `fp1` \\ Cases_on `fp2` \\ fs[types_match_def, compress_word_def]
 QED
 
 Triviality do_eq_succeeds:
@@ -1580,15 +1567,32 @@ Proof
   \\ fs [fcpTheory.CART_EQ,word_ror_def,fcpTheory.FCP_BETA,w2w] \\ rw []
 QED
 
+val _ = augment_srw_ss [
+    rewrites [float_to_fp64_fp64_to_float]
+  ]
+
+Definition lift_fp_top_def:
+  lift_fp_top f f1 f2 f3 =
+  fp64_to_float (fp_top_comp f (float_to_fp64 f1) (float_to_fp64 f2)
+                             (float_to_fp64 f3))
+End
+
+Definition float64_fma_def:
+  float64_fma (f1:(52,11)float) f2 f3 =
+  SND (float_mul_add roundTiesToEven f1 f2 f3)
+End
+
 (* arithmetic for doubles (word64) *)
 Theorem Eval_FP_top:
-  ! f w1 w2 w3.
-        Eval env x2 (WORD (w2:64 word)) ==>
-        Eval env x3 (WORD (w3:64 word)) ==>
-        Eval env x1 (WORD (w1:64 word)) ==>
-        Eval env (FpOptimise NoOpt (App (FpToWord) [App (FP_top f) [x1;x2;x3]])) (WORD (fp_top_comp f w1 w2 w3))
+  ! f f1 f2 f3.
+        Eval env x2 (FLOAT64 (f2:(52,11)float)) ==>
+        Eval env x3 (FLOAT64 f3) ==>
+        Eval env x1 (FLOAT64 f1) ==>
+        Eval env
+             (App (FP_top f) [x1;x2;x3])
+             (FLOAT64 (lift_fp_top f f1 f2 f3))
 Proof
-  rw[Eval_rw,WORD_def]
+  rw[Eval_rw,FLOAT64_def, lift_fp_top_def]
   \\ first_x_assum mp_tac
   \\ first_x_assum (qspec_then `refs` strip_assume_tac)
   \\ strip_tac
@@ -1600,42 +1604,88 @@ Proof
   \\ rpt (disch_then assume_tac)
   \\ pop_assum (qspec_then `ck1' + ck1''` strip_assume_tac)
   \\ fs[] \\ qexists_tac `ck1 + ck1' + ck1''` \\ fs[]
-  \\ pop_assum (mp_then Any mp_tac (CONJUNCT1 evaluate_fp_intro_canOpt_true))
-  \\ fs[empty_state_def, do_app_def, state_component_equality, fp_translate_def,isFpBool_def, do_fpoptimise_def]
-  \\ disch_then kall_tac
-  \\ first_x_assum (qspec_then `ck1'' + ck2` (mp_then Any mp_tac (CONJUNCT1 evaluate_fp_intro_canOpt_true)))
-  \\ fs[empty_state_def, do_app_def, state_component_equality, fp_translate_def,isFpBool_def, do_fpoptimise_def]
-  \\ disch_then kall_tac
-  \\ first_x_assum (qspec_then `ck2 + ck2'` (mp_then Any mp_tac (CONJUNCT1 evaluate_fp_intro_canOpt_true)))
-  \\ fs[fp_translate_def, compress_word_def, fp_top_def, do_fpoptimise_def, do_fprw_def, rwAllWordTree_def,
-        semanticPrimitivesTheory.shift_fp_opts_def, fpState_component_equality, state_component_equality]
-  \\ Cases_on ‘f’ \\ fs[compress_word_def, fpValTreeTheory.fp_top_def, fp_top_comp_def]
+  \\ fs[empty_state_def, do_app_def, state_component_equality, isFpBool_def]
 QED
 
 local
   fun f name q =
-    save_thm("Eval_" ^ name,SIMP_RULE (srw_ss()) [fp_top_comp_def, fpfma_def]
-              (Q.SPEC q Eval_FP_top))
+    save_thm("Eval_" ^ name,
+             SIMP_RULE (srw_ss()) [fp_top_comp_def, fpfma_def,
+                                   lift_fp_top_def, GSYM float64_fma_def,
+                                   fp64_to_float_float_to_fp64,
+                                   fp64_mul_add_def]
+                       (Q.SPEC q Eval_FP_top))
 in
   val Eval_FLOAT_FMA = f "FLOAT_FMA" `FP_Fma`
 end;
 
-Theorem Eval_FP_bop:
-  !f w1 w2.
-        Eval env x1 (WORD (w1:word64)) ==>
-        Eval env x2 (WORD (w2:word64)) ==>
-        Eval env (FpOptimise NoOpt (App (FpToWord) [App (FP_bop f) [x1;x2]])) (WORD (fp_bop_comp f w1 w2))
+Definition lift_fp_bop_def:
+  lift_fp_bop f f1 f2 =
+  fp64_to_float (fp_bop_comp f (float_to_fp64 f1) (float_to_fp64 f2))
+End
+
+Definition float64_add_def:
+  float64_add = lift_fp_bop FP_Add
+End
+
+Theorem float64_add_thm:
+  float64_add f1 f2 = SND (float_add roundTiesToEven f1 f2)
 Proof
-  rw[Eval_rw,WORD_def]
+  simp[float64_add_def, lift_fp_bop_def, fp_bop_comp_def, fp64_add_def,
+       fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
+QED
+
+Definition float64_sub_def:
+  float64_sub = lift_fp_bop FP_Sub
+End
+
+Theorem float64_sub_thm:
+  float64_sub f1 f2 = SND (float_sub roundTiesToEven f1 f2)
+Proof
+  simp[float64_sub_def, lift_fp_bop_def, fp_bop_comp_def, fp64_sub_def,
+       fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
+QED
+
+Definition float64_mul_def:
+  float64_mul = lift_fp_bop FP_Mul
+End
+
+Theorem float64_mul_thm:
+  float64_mul f1 f2 = SND (float_mul roundTiesToEven f1 f2)
+Proof
+  simp[float64_mul_def, lift_fp_bop_def, fp_bop_comp_def, fp64_mul_def,
+       fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
+QED
+
+Definition float64_div_def:
+  float64_div = lift_fp_bop FP_Div
+End
+
+Theorem float64_div_thm:
+  float64_div f1 f2 = SND (float_div roundTiesToEven f1 f2)
+Proof
+  simp[float64_div_def, lift_fp_bop_def, fp_bop_comp_def, fp64_div_def,
+       fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
+QED
+
+Theorem Eval_FP_bop:
+  !f f1 f2.
+        Eval env x1 (FLOAT64 f1) ==>
+        Eval env x2 (FLOAT64 f2) ==>
+        Eval env (App (FP_bop f) [x1;x2]) (FLOAT64 (lift_fp_bop f f1 f2))
+Proof
+  rw[Eval_rw,FLOAT64_def,lift_fp_bop_def]
   \\ Eval2_tac \\ fs [do_app_def] \\ rw []
-  \\ ntac 2 (pop_assum (mp_then Any mp_tac (CONJUNCT1 evaluate_fp_intro_canOpt_true)))
-  \\ fs[empty_state_def, do_app_def, state_component_equality, fp_translate_def,isFpBool_def, do_fpoptimise_def]
-  \\ fs[compress_word_def, fp_bop_def]
+  \\ fs[empty_state_def, do_app_def, state_component_equality,isFpBool_def]
 QED
 
 local
   fun f name q =
-    save_thm("Eval_" ^ name,SIMP_RULE (srw_ss()) [fp_bop_comp_def]
+    save_thm("Eval_" ^ name,
+             SIMP_RULE (srw_ss()) [fp_bop_comp_def,GSYM float64_add_def,
+                                   GSYM float64_sub_def,
+                                   GSYM float64_mul_def,
+                                   GSYM float64_div_def]
               (Q.SPEC q Eval_FP_bop))
 in
   val Eval_FLOAT_ADD  = f "FLOAT_ADD" `FP_Add`
@@ -1644,23 +1694,88 @@ in
   val Eval_FLOAT_DIV  = f "FLOAT_DIV" `FP_Div`
 end;
 
-Theorem Eval_FP_cmp:
-!f w1 w2.
-   Eval env x1 (WORD (w1:word64)) ==>
-   Eval env x2 (WORD (w2:word64)) ==>
-   Eval env (FpOptimise NoOpt (App (FP_cmp f) [x1;x2])) (BOOL (fp_cmp_comp f w1 w2))
+Definition lift_fp_cmp_def:
+  lift_fp_cmp f f1 f2 = fp_cmp_comp f (float_to_fp64 f1) (float_to_fp64 f2)
+End
+
+Definition float64_less_def:
+  float64_less = lift_fp_cmp FP_Less
+End
+
+Theorem float64_less_thm:
+  float64_less f1 f2 = float_less_than f1 f2
 Proof
-  rw[Eval_rw,WORD_def,BOOL_def]
+  simp[float64_less_def, lift_fp_cmp_def, fp_cmp_comp_def, fp64_lessThan_def,
+       fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
+QED
+
+Definition float64_less_equal_def:
+  float64_less_equal = lift_fp_cmp FP_LessEqual
+End
+
+Theorem float64_less_equal_thm:
+  float64_less_equal f1 f2 = float_less_equal f1 f2
+Proof
+  simp[float64_less_equal_def, lift_fp_cmp_def, fp_cmp_comp_def,
+       fp64_lessEqual_def,
+       fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
+QED
+
+Definition float64_greater_def:
+  float64_greater = lift_fp_cmp FP_Greater
+End
+
+Theorem float64_greater_thm:
+  float64_greater f1 f2 = float_greater_than f1 f2
+Proof
+  simp[float64_greater_def, lift_fp_cmp_def, fp_cmp_comp_def, fp64_greaterThan_def,
+       fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
+QED
+
+Definition float64_greater_equal_def:
+  float64_greater_equal = lift_fp_cmp FP_GreaterEqual
+End
+
+Theorem float64_greater_equal_thm:
+  float64_greater_equal f1 f2 = float_greater_equal f1 f2
+Proof
+  simp[float64_greater_equal_def, lift_fp_cmp_def, fp_cmp_comp_def,
+       fp64_greaterEqual_def,
+       fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
+QED
+
+Definition float64_equal_def:
+  float64_equal = lift_fp_cmp FP_Equal
+End
+
+Theorem float64_equal_thm:
+  float64_equal f1 f2 = float_equal f1 f2
+Proof
+  simp[float64_equal_def, lift_fp_cmp_def, fp_cmp_comp_def, fp64_equal_def,
+       fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
+QED
+
+Theorem Eval_FP_cmp:
+  !f f1 f2.
+    Eval env x1 (FLOAT64 f1) ==>
+    Eval env x2 (FLOAT64 f2) ==>
+    Eval env (App (FP_cmp f) [x1;x2]) (BOOL (lift_fp_cmp f f1 f2))
+Proof
+  rw[Eval_rw,FLOAT64_def,BOOL_def,lift_fp_cmp_def]
   \\ Eval2_tac \\ fs [do_app_def] \\ rw []
-  \\ ntac 2 (pop_assum (mp_then Any mp_tac (CONJUNCT1 evaluate_fp_intro_canOpt_true)))
-  \\ fs[empty_state_def, fp_translate_def, isFpBool_def, Boolv_def]
-  \\ Cases_on `compress_bool (fp_cmp f (Fp_const w1) (Fp_const w2))`
-  \\ fs[fp_translate_def, do_fpoptimise_def, fp_cmp_def, compress_bool_def, compress_word_def]
+  \\ fs[empty_state_def, isFpBool_def, Boolv_def]
 QED
 
 local
   fun f name q = let
-    val th = SIMP_RULE (srw_ss()) [fp_cmp_comp_def] (Q.SPEC q Eval_FP_cmp)
+    val th = SIMP_RULE (srw_ss())
+                       [fp_cmp_comp_def,
+                        GSYM float64_less_def,
+                        GSYM float64_less_equal_def,
+                        GSYM float64_greater_def,
+                        GSYM float64_greater_equal_def,
+                        GSYM float64_equal_def]
+                       (Q.SPEC q Eval_FP_cmp)
     val _ = save_thm("Eval_" ^ name,SPEC_ALL th)
    in th end
 in
@@ -1671,23 +1786,60 @@ in
   val Eval_FLOAT_EQ = f "FLOAT_EQ" `FP_Equal`
 end;
 
+Definition lift_fp_uop_def:
+  lift_fp_uop f f1 = fp64_to_float (fp_uop_comp f (float_to_fp64 f1))
+End
+
 Theorem Eval_FP_uop:
-!f w1 w2.
-  Eval env x1 (WORD (w1:64 word)) ==>
-  Eval env (FpOptimise NoOpt (App (FpToWord) [App (FP_uop f) [x1]])) (WORD (fp_uop_comp f w1))
+  !f f1.
+    Eval env x1 (FLOAT64 f1) ==>
+    Eval env (App (FP_uop f) [x1]) (FLOAT64 (lift_fp_uop f f1))
 Proof
-  rw[Eval_rw,WORD_def,BOOL_def]
+  rw[Eval_rw,FLOAT64_def, lift_fp_uop_def]
   \\ first_x_assum (qspec_then `refs` strip_assume_tac)
-  \\ first_x_assum (mp_then Any assume_tac (CONJUNCT1 evaluate_fp_intro_canOpt_true))
   \\ fs[empty_state_def]
   \\ qexists_tac `ck1`
-  \\ Cases_on `f`
-  \\ fs[do_app_def, state_component_equality, fp_translate_def,isFpBool_def, do_fpoptimise_def, fp_uop_def, fp_uop_comp_def, compress_word_def]
+  \\ fs[do_app_def, state_component_equality, isFpBool_def]
+QED
+
+Definition float64_abs_def:
+  float64_abs = lift_fp_uop FP_Abs
+End
+
+Theorem float64_abs_thm:
+  float64_abs f1 = float_abs f1
+Proof
+  simp[float64_abs_def, lift_fp_uop_def, fp_uop_comp_def, fp64_abs_def,
+       fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
+QED
+
+Definition float64_neg_def:
+  float64_neg = lift_fp_uop FP_Neg
+End
+
+Theorem float64_neg_thm:
+  float64_neg f1 = float_negate f1
+Proof
+  simp[float64_neg_def, lift_fp_uop_def, fp_uop_comp_def, fp64_negate_def,
+       fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
+QED
+
+Definition float64_sqrt_def:
+  float64_sqrt = lift_fp_uop FP_Sqrt
+End
+
+Theorem float64_sqrt_thm:
+  float64_sqrt f1 = SND (float_sqrt roundTiesToEven f1)
+Proof
+  simp[float64_sqrt_def, lift_fp_uop_def, fp_uop_comp_def, fp64_sqrt_def,
+       fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
 QED
 
 local
   fun f name q = let
-    val th = SIMP_RULE (srw_ss()) [fp_uop_comp_def] (Q.SPEC q Eval_FP_uop)
+    val th = SIMP_RULE (srw_ss()) [fp_uop_comp_def,GSYM float64_sqrt_def,
+                                   GSYM float64_neg_def, GSYM float64_abs_def]
+                       (Q.SPEC q Eval_FP_uop)
     val _ = save_thm("Eval_" ^ name,SPEC_ALL th)
    in th end
 in
@@ -1695,6 +1847,31 @@ in
   val Eval_FLOAT_NEG = f "FLOAT_NEG" `FP_Neg`
   val Eval_FLOAT_SQRT = f "FLOAT_SQRT" `FP_Sqrt`
 end;
+
+Theorem Eval_FP_fromWord:
+  !w1.
+    Eval env x1 (WORD (w1:word64)) ==>
+    Eval env (App FpFromWord [x1]) (FLOAT64 (fp64_to_float w1))
+Proof
+  rw[Eval_rw,WORD_def,FLOAT64_def] >>
+  first_x_assum (qspec_then `refs` strip_assume_tac) >>
+  fs[empty_state_def] >>
+  qexists_tac `ck1` >>
+  simp[do_app_def]
+QED
+
+Theorem Eval_FP_toWord:
+  !f1.
+    Eval env x1 (FLOAT64 f1) ==>
+    Eval env (App FpToWord [x1]) (WORD (float_to_fp64 f1))
+Proof
+  rw[Eval_rw,WORD_def,FLOAT64_def] >>
+  first_x_assum (qspec_then `refs` strip_assume_tac) >>
+  fs[empty_state_def] >>
+  qexists_tac `ck1` >>
+  simp[do_app_def]
+QED
+
 
 (* list definition *)
 
@@ -2253,7 +2430,7 @@ Proof
   \\ drule evaluate_add_to_clock
   \\ rpt (pop_assum kall_tac) \\ rw []
   \\ first_x_assum (qspec_then `ck1` assume_tac)
-  \\ qexists_tac `ck1' + ck1` \\ fs [pat_bindings_def, compress_def, pmatch_def]
+  \\ qexists_tac `ck1' + ck1` \\ fs [pat_bindings_def, pmatch_def]
   \\ fs [state_component_equality]
   \\ fs [can_pmatch_all_def,pmatch_def]
 QED
@@ -2912,7 +3089,7 @@ Theorem evaluate_match_MAP = Q.prove(`
            (MAP Pvar vars),x)) l1 ++ xs) err =
       evaluate_match s env (Conv (SOME t1) vals) xs err`,
   Induct
-  \\ fs [FORALL_PROD,evaluate_def,compress_def, pmatch_def,pat_bindings_def]
+  \\ fs [FORALL_PROD,evaluate_def,pmatch_def,pat_bindings_def]
   \\ rpt strip_tac
   \\ fs [good_cons_env_def,lookup_cons_def]
   \\ fs [EVERY_MEM]
@@ -2990,7 +3167,7 @@ Proof
     \\ disch_then (qspec_then `ck1'` assume_tac) \\ fs []
     \\ fs [pair_case_eq,result_case_eq,PULL_EXISTS]
     \\ asm_exists_tac \\ fs [Mat_cases_def]
-    \\ fs [can_pmatch_all_def,evaluate_def, compress_def, pmatch_def,pat_bindings_def]
+    \\ fs [can_pmatch_all_def,evaluate_def, pmatch_def,pat_bindings_def]
     \\ fs [pmatch_list_MAP_Pvar,GSYM write_list_thm]
     \\ fs [state_component_equality])
   \\ fs [Eval_def,EXISTS_MEM,EXISTS_PROD,eval_rel_def]

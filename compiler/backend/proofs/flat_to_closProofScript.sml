@@ -29,6 +29,7 @@ Inductive v_rel:
   (!s. v_rel (Litv (StrLit s)) (ByteVector (MAP (n2w o ORD) s))) /\
   (!b. v_rel (Litv (Word8 b)) (Number (& (w2n b)))) /\
   (!w. v_rel (Litv (Word64 w)) (Word64 w)) /\
+  (!f. v_rel (Litv (Float64 f)) (Word64 f)) /\
   (!vs ws. LIST_REL v_rel vs ws ==> v_rel (Conv NONE vs) (Block 0 ws)) /\
   (!vs ws t r. LIST_REL v_rel vs ws ==> v_rel (Conv (SOME (t,r)) vs) (Block t ws)) /\
   (!vs ws. LIST_REL v_rel vs ws ==> v_rel (Vectorv vs) (Block 0 ws)) /\
@@ -58,6 +59,7 @@ Theorem v_rel_def =
    ``v_rel (Litv (Char c)) x1``,
    ``v_rel (Litv (Word8 b)) x1``,
    ``v_rel (Litv (Word64 w)) x1``,
+   ``v_rel (Litv (Float64 w)) x1``,
    ``v_rel (Vectorv y) x1``,
    ``v_rel (Conv x y) x1``,
    ``v_rel (Closure x y z) x1``,
@@ -778,10 +780,21 @@ Theorem op_floats:
   (?f. op = FP_cmp f) \/
   (?f. op = FP_uop f) \/
   (?f. op = FP_bop f) \/
-  (?f. op = FP_top f) ==>
+  (?f. op = FP_top f) \/
+  op = FpToWord \/
+  op = FpFromWord ==>
   ^op_goal
 Proof
-  rw [] \\ Cases_on `f` \\ rveq \\ fs []
+  rw [] >~
+  [‘FpFromWord’]
+  >- (gvs[flatSemTheory.do_app_def, AllCaseEqs(), LENGTH_EQ_NUM_compute,
+          v_rel_def] >>
+      simp[compile_op_def, evaluate_def]) >~
+  [‘FpToWord’]
+  >- (gvs[flatSemTheory.do_app_def, AllCaseEqs(), LENGTH_EQ_NUM_compute,
+          v_rel_def] >>
+      simp[compile_op_def, evaluate_def]) >> (* 4 *)
+  Cases_on `f` \\ rveq \\ fs []
   \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
          CaseEq "ast$lit",store_assign_def,option_case_eq,CaseEq "store_v"]
   \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []

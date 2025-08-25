@@ -234,14 +234,16 @@ Definition do_app_def:
       SOME (s, Rval (Litv (IntLit (opn_lookup op n1 n2))))
   | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
     SOME (s, Rval (Boolv (opb_lookup op n1 n2)))
-  | (FP_top t_op, [Litv (Word64 w1); Litv (Word64 w2); Litv (Word64 w3)] =>
-      SOME (s,Rval (Litv (Word64 (fp_top_comp t_op w1 w2 w3)))))
-  | (FP_bop bop, [Litv (Word64 w1); Litv (Word64 w2)]) =>
-      SOME (s,Rval (Litv (Word64 (fp_bop_comp bop w1 w2))))
-  | (FP_uop uop, [Litv (Word64 w)]) =>
-      SOME (s,Rval (Litv (Word64 (fp_uop_comp uop w))))
-  | (FP_cmp cmp, [Litv (Word64 w1); Litv (Word64 w2)]) =>
+  | (FP_top t_op, [Litv (Float64 w1); Litv (Float64 w2); Litv (Float64 w3)] =>
+      SOME (s,Rval (Litv (Float64 (fp_top_comp t_op w1 w2 w3)))))
+  | (FP_bop bop, [Litv (Float64 w1); Litv (Float64 w2)]) =>
+      SOME (s,Rval (Litv (Float64 (fp_bop_comp bop w1 w2))))
+  | (FP_uop uop, [Litv (Float64 w)]) =>
+      SOME (s,Rval (Litv (Float64 (fp_uop_comp uop w))))
+  | (FP_cmp cmp, [Litv (Float64 w1); Litv (Float64 w2)]) =>
       SOME (s,Rval (Boolv (fp_cmp_comp cmp w1 w2)))
+  | (FpFromWord, [Litv (Word64 w)]) => SOME (s,Rval (Litv (Float64 w)))
+  | (FpToWord, [Litv (Float64 w)]) => SOME (s,Rval (Litv (Word64 w)))
   | (Opw wz op, [Litv w1; Litv w2]) =>
      (case do_word_op op wz w1 w2 of
           | NONE => NONE
@@ -1001,7 +1003,7 @@ Definition semantics_def:
     of SOME res => res
      | NONE =>
        Diverge
-         (build_lprefix_lub
+         (lprefix_lub$build_lprefix_lub
            (IMAGE (λk. fromList
              (FST (evaluate_decs (initial_state ffi k ec) prog)).ffi.io_events)
                UNIV))

@@ -97,6 +97,9 @@ Definition lit_to_display_def:
   /\
   (lit_to_display (Word64 w) =
     Item NONE (strlit "Word64") [word_to_display w])
+  /\
+  (lit_to_display (Float64 w) =
+    Item NONE (strlit "Float64") [word_to_display w])
 End
 
 Overload list_to_display = ``λf xs. displayLang$Tuple (MAP f xs)``
@@ -125,7 +128,7 @@ End
 
 Definition fp_bop_to_display_def:
   fp_bop_to_display op = case op of
-    | fpValTree$FP_Add => empty_item (strlit "FP_Add")
+    | ast$FP_Add => empty_item (strlit "FP_Add")
     | FP_Sub => empty_item (strlit "FP_Sub")
     | FP_Mul => empty_item (strlit "FP_Mul")
     | FP_Div => empty_item (strlit "FP_Div")
@@ -211,10 +214,6 @@ Definition op_to_display_def:
   | FP_top op => fp_top_to_display op
   | FpFromWord => empty_item (strlit "FpFromWord")
   | FpToWord => empty_item (strlit "FpToWord")
-  | Real_cmp cmp => empty_item (strlit "Real_cmp")
-  | Real_uop op => empty_item (strlit "Real_uop")
-  | Real_bop op => empty_item (strlit "Real_bop")
-  | RealFromFP => empty_item (strlit "RealFromFP")
   | Opapp => empty_item (strlit "Opapp")
   | Opassign => empty_item (strlit "Opassign")
   | Opref => empty_item (strlit "Opref")
@@ -350,8 +349,7 @@ Definition exp_to_display_def:
       [Tuple (fun_to_display_list fns);
        exp_to_display e]
   | Tannot e _ => Item NONE «Tannot» [exp_to_display e]
-  | Lannot e _ => Item NONE «Lannot» [exp_to_display e]
-  | FpOptimise _ e => Item NONE «FpOptimise» [exp_to_display e]) ∧
+  | Lannot e _ => Item NONE «Lannot» [exp_to_display e]) ∧
   (exp_to_display_list [] = []) ∧
   (exp_to_display_list (x::xs) =
     exp_to_display x :: exp_to_display_list xs) ∧
@@ -446,6 +444,8 @@ Definition flat_op_to_display_def:
     | FP_uop op => fp_uop_to_display op
     | FP_bop op => fp_bop_to_display op
     | FP_top op => fp_top_to_display op
+    | FpFromWord => empty_item (strlit "FpFromWord")
+    | FpToWord => empty_item (strlit "FpToWord")
     | Opapp => empty_item (strlit "Opapp")
     | Opassign => empty_item (strlit "Opassign")
     | Opref => empty_item (strlit "Opref")

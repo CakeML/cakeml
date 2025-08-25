@@ -155,8 +155,7 @@ Definition EvalM_def:
       REFS_PRED H st s ==>
       ?s2 res st2 ck.
         evaluate (s with clock := ck) env [exp] = (s2,res) /\
-        P st (st2, res) /\ REFS_PRED_FRAME ro H (st, s) (st2, s2) /\
-        s.fp_state = s2.fp_state
+        P st (st2, res) /\ REFS_PRED_FRAME ro H (st, s) (st2, s2)
 End
 
 (* refinement invariant for ``:('a, 'b, 'c) M`` *)
@@ -338,7 +337,6 @@ Definition ArrowP_def:
          !junk. ?st3 s3 res3 ck.
            evaluate (s1 with <| refs := s1.refs ++ junk ; clock := ck |>)
              env [exp] = (s3,res3) /\
-           s1.fp_state = s3.fp_state /\
            b (f x) st1 (st3,res3) /\
            REFS_PRED_FRAME ro H (st1, s1) (st3, s3)
 End
