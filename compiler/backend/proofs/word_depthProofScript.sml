@@ -274,6 +274,7 @@ Proof
       oneline share_inst_def,
       sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def,
       sh_mem_load_def,sh_mem_load_byte_def,sh_mem_load32_def,
+      sh_mem_load16_def,sh_mem_store16_def,
       oneline sh_mem_set_var_def,
       flush_state_def]) (*FIXME should be using share_inst_const*)
   (* Call *)

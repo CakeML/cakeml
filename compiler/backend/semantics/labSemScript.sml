@@ -314,8 +314,8 @@ Definition mem_op_def:
   (mem_op Store32 r a = mem_store32 r a) /\
   (mem_op Load8 r a = mem_load_byte r a) /\
   (mem_op Store8 r a = mem_store_byte r a) /\
-  (mem_op Load32 r (a:'a addr) = assert F) /\
-  (mem_op Store32 r (a:'a addr) = assert F)
+  (mem_op Load16 r (a:'a addr) = assert F) /\
+  (mem_op Store16 r (a:'a addr) = assert F)
 End
 
 Definition asm_inst_def:
@@ -487,8 +487,10 @@ Definition share_mem_op_def:
   (share_mem_op Load r ad (s: ('a,'c,'ffi) labSem$state) =
     share_mem_load r ad s 0) /\
   (share_mem_op Load8 r ad s = share_mem_load r ad s 1) /\
+  (share_mem_op Load16 r ad s = share_mem_load r ad s 2) /\
   (share_mem_op Store r ad s = share_mem_store r ad s 0) /\
   (share_mem_op Store8 r ad s = share_mem_store r ad s 1) /\
+  (share_mem_op Store16 r ad s = share_mem_store r ad s 2) /\
   (share_mem_op Load32 r ad s = share_mem_load r ad s 4) /\
   (share_mem_op Store32 r ad s = share_mem_store r ad s 4)
 End

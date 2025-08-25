@@ -60,9 +60,11 @@ End
 Definition riscv_memop_def:
    (riscv_memop Load    = INL LD) /\
    (riscv_memop Load32  = INL LWU) /\
+   (riscv_memop Load16  = INL LHU) /\
    (riscv_memop Load8   = INL LBU) /\
    (riscv_memop Store   = INR SD) /\
    (riscv_memop Store32 = INR SW) /\
+   (riscv_memop Store16 = INR SH) /\
    (riscv_memop Store8  = INR SB)
 End
 
@@ -276,6 +278,7 @@ Definition riscv_config_def:
     ; valid_imm := (\b i. (if b = INL Sub then ^min12 < i else ^min12 <= i) /\
                           i <= ^max12)
     ; addr_offset := (^min12, ^max12)
+    ; hw_offset := (^min12, ^max12)
     ; byte_offset := (^min12, ^max12)
     ; jump_offset := (^min32, 0x7FFFF7FFw)
     ; cjump_offset := (^min21 + 8w, ^max21 + 4w)

@@ -81,9 +81,11 @@ End
 Definition mips_memop_def:
    (mips_memop Load    = INL LD) /\
    (mips_memop Load32  = INL LWU) /\
+   (mips_memop Load16  = INL LHU) /\
    (mips_memop Load8   = INL LBU) /\
    (mips_memop Store   = INR SD) /\
    (mips_memop Store32 = INR SW) /\
+   (mips_memop Store16 = INR SH) /\
    (mips_memop Store8  = INR SB)
 End
 
@@ -308,6 +310,7 @@ Definition mips_config_def:
               else (if b = INL Sub then ^min16 < i else ^min16 <= i) /\
                    i <= ^max16)
     ; addr_offset := (^min16, ^max16)
+    ; hw_offset := (^min16, ^max16)
     ; byte_offset := (^min16, ^max16)
     ; jump_offset := (^min32 + 12w, ^max32 + 8w)
     ; cjump_offset := (^min18 + 8w, ^max18 + 4w)

@@ -1001,6 +1001,14 @@ Proof
   rw[CPstate_models_def,sh_mem_store32_def,flush_state_def]>>gvs[ACE]
 QED
 
+Theorem sh_mem_store16_model:
+  CPstate_models cs st ⇒
+  sh_mem_store16 a v st = (err, st') ⇒
+  CPstate_models cs st'
+Proof
+  rw[CPstate_models_def,sh_mem_store16_def,flush_state_def]>>gvs[ACE]
+QED
+
 Theorem sh_mem_store_byte_model:
   CPstate_models cs st ⇒
   sh_mem_store_byte a v st = (err, st') ⇒
@@ -1214,7 +1222,7 @@ Proof
     >> fs[CPstate_modelsD_copy_prop_share]
     >> gvs[ACE,remove_eq_inv]
     >> Cases_on‘m’>>gvs[ACE,share_inst_def]
-    >> metis_tac[remove_eq_model_sh_mem_set_var,remove_eq_model,sh_mem_store_model,sh_mem_store_byte_model,sh_mem_store32_model]
+    >> metis_tac[remove_eq_model_sh_mem_set_var,remove_eq_model,sh_mem_store_model,sh_mem_store_byte_model,sh_mem_store32_model,sh_mem_store16_model]
   )
 QED
 

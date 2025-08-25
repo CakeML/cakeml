@@ -61,7 +61,7 @@ Datatype:
 End
 
 Datatype:
-  opsize = Op8 | OpW | Op32
+  opsize = Op8 | OpW | Op32 | Op16
 End
 
 Datatype:
@@ -224,12 +224,14 @@ End
 
 Definition load_op_def:
   load_op Op8 = Load8 ∧
+  load_op Op16 = Load16 ∧
   load_op OpW = Load ∧
   load_op Op32 = Load32
 End
 
 Definition store_op_def:
   store_op Op8 = Store8 ∧
+  store_op Op16 = Store16 ∧
   store_op OpW = Store ∧
   store_op Op32 = Store32
 End

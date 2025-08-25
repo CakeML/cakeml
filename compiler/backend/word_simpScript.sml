@@ -316,12 +316,16 @@ Definition const_fp_loop_def:
     (ShareInst Load v (const_fp_exp e cs), delete v cs)) /\
   (const_fp_loop (ShareInst Load8 v e) cs =
     (ShareInst Load8 v (const_fp_exp e cs), delete v cs)) /\
+  (const_fp_loop (ShareInst Load16 v e) cs =
+    (ShareInst Load16 v (const_fp_exp e cs), delete v cs)) /\
   (const_fp_loop (ShareInst Load32 v e) cs =
     (ShareInst Load32 v (const_fp_exp e cs), delete v cs)) /\
   (const_fp_loop (ShareInst Store v e) cs =
     (ShareInst Store v (const_fp_exp e cs), cs)) /\
   (const_fp_loop (ShareInst Store8 v e) cs =
     (ShareInst Store8 v (const_fp_exp e cs), cs)) /\
+  (const_fp_loop (ShareInst Store16 v e) cs =
+    (ShareInst Store16 v (const_fp_exp e cs), cs)) /\
   (const_fp_loop (ShareInst Store32 v e) cs =
     (ShareInst Store32 v (const_fp_exp e cs), cs)) /\
   (const_fp_loop p cs = (p, cs))

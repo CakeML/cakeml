@@ -7579,6 +7579,11 @@ Proof
           rw[good_dimindex_def] >>
           rw[word_to_bytes_def,
              CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV word_to_bytes_aux_def]) >>
+    ‘∀x:'a word. TAKE 2 (word_to_bytes x F) = word_to_bytes_aux 2 x F’
+      by (qhdtm_x_assum ‘good_dimindex’ mp_tac >>
+          rw[good_dimindex_def] >>
+          rw[word_to_bytes_def,
+             CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV word_to_bytes_aux_def]) >>
     ‘∀x:'a word. TAKE 4 (word_to_bytes x F) = word_to_bytes_aux 4 x F’
       by (qhdtm_x_assum ‘good_dimindex’ mp_tac >>
           rw[good_dimindex_def] >>

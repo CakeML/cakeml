@@ -27,8 +27,8 @@ Datatype:
             | EBaseNT | StructNT
             | ShapeNT | ShapeCombNT
             | EqOpsNT | CmpOpsNT | ShiftOpsNT | AddOpsNT | MulOpsNT
-            | SharedLoadNT | SharedLoadByteNT | SharedLoad32NT
-            | SharedStoreNT | SharedStoreByteNT | SharedStore32NT
+            | SharedLoadNT | SharedLoadByteNT | SharedLoad16NT | SharedLoad32NT
+            | SharedStoreNT | SharedStoreByteNT | SharedStore16NT | SharedStore32NT
 End
 
 Definition mknt_def:
@@ -177,9 +177,11 @@ Definition pancake_peg_def[nocompute]:
                               mknt StoreByteNT;
                               mknt Store32NT;
                               mknt SharedLoadByteNT;
+                              mknt SharedLoad16NT;
                               mknt SharedLoad32NT;
                               mknt SharedLoadNT;
                               mknt SharedStoreByteNT;
+                              mknt SharedStore16NT;
                               mknt SharedStore32NT;
                               mknt SharedStoreNT;
                               keep_kw BrK; keep_kw ContK;
@@ -340,6 +342,9 @@ Definition pancake_peg_def[nocompute]:
         (INL SharedLoadByteNT,seql [consume_tok NotT; consume_kw Ld8K; keep_ident;
                                     consume_tok CommaT; mknt ExpNT]
                                    (mksubtree SharedLoadByteNT));
+        (INL SharedLoad16NT,seql [consume_tok NotT; consume_kw Ld16K; keep_ident;
+                                    consume_tok CommaT; mknt ExpNT]
+                                   (mksubtree SharedLoad16NT));
         (INL SharedLoad32NT,seql [consume_tok NotT; consume_kw Ld32K; keep_ident;
                                     consume_tok CommaT; mknt ExpNT]
                                    (mksubtree SharedLoad32NT));
@@ -349,6 +354,9 @@ Definition pancake_peg_def[nocompute]:
         (INL SharedStoreByteNT,seql [consume_tok NotT; consume_kw St8K; mknt ExpNT;
                                      consume_tok CommaT; mknt ExpNT]
                                     (mksubtree SharedStoreByteNT));
+        (INL SharedStore16NT,seql [consume_tok NotT; consume_kw St16K; mknt ExpNT;
+                                     consume_tok CommaT; mknt ExpNT]
+                                    (mksubtree SharedStore16NT));
         (INL SharedStore32NT,seql [consume_tok NotT; consume_kw St32K; mknt ExpNT;
                                      consume_tok CommaT; mknt ExpNT]
                                     (mksubtree SharedStore32NT));
@@ -667,8 +675,8 @@ val topo_nts = [“MulOpsNT”, “AddOpsNT”, “ShiftOpsNT”, “CmpOpsNT”
                 “HandleNT”, “RetNT”, “RetCallNT”, “CallNT”,
                 “WhileNT”, “IfNT”, “StoreByteNT”, “Store32NT”,
                 “StoreNT”, “AssignNT”,
-                “SharedLoadByteNT”, “SharedLoad32NT”, “SharedLoadNT”,
-                “SharedStoreByteNT”, “SharedStore32NT”, “SharedStoreNT”, “DecNT”,
+                “SharedLoadByteNT”, “SharedLoad16NT”, “SharedLoad32NT”, “SharedLoadNT”,
+                “SharedStoreByteNT”, “SharedStore16NT”, “SharedStore32NT”, “SharedStoreNT”, “DecNT”,
                 “DecCallNT”, “StmtNT”, “BlockNT”, “ParamListNT”, “GlobalDecNT”, “FunNT”
                 ];
 

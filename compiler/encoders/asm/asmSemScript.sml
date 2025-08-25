@@ -215,6 +215,8 @@ Definition mem_op_def:
   (mem_op Store r a = mem_store (dimindex (:'a) DIV 8) r a) /\
   (mem_op Load8 r a = mem_load 1 r a) /\
   (mem_op Store8 r a = mem_store 1 r a) /\
+  (mem_op Load16 r a = mem_load 2 r a) /\
+  (mem_op Store16 r a = mem_store 2 r a) /\
   (mem_op Load32 r (a:'a addr) = mem_load 4 r a) /\
   (mem_op Store32 r (a:'a addr) = mem_store 4 r a)
 End

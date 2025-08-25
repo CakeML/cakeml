@@ -1030,9 +1030,11 @@ Definition asm_memop_to_display_def:
   asm_memop_to_display op = case op of
     | Load => empty_item (strlit "Load")
     | Load8 => empty_item (strlit "Load8")
+    | Load16 => empty_item (strlit "Load16")
     | Load32 => empty_item (strlit "Load32")
     | Store => empty_item (strlit "Store")
     | Store8 => empty_item (strlit "Store8")
+    | Store16 => empty_item (strlit "Store16")
     | Store32 => empty_item (strlit "Store32")
 End
 
