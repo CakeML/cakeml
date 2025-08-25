@@ -21,10 +21,9 @@ method Main() {
 
 method TestSwap(a: array<int>, i: int, j: int)
 {
-  print "Before Swap([";
+  print "Swap([";
   var k := 0;
   while k < a.Length
-    invariant 0 <= k <= a.Length
   {
     if 0 < k { print ", "; }
     print a[k];
@@ -34,14 +33,13 @@ method TestSwap(a: array<int>, i: int, j: int)
 
   Swap(a, i, j);
 
-  print "After  Swap([";
+  print "After Swap: [";
   k := 0;
   while k < a.Length
-    invariant 0 <= k <= a.Length
   {
     if 0 < k { print ", "; }
     print a[k];
     k := k + 1;
   }
-  print "], ", i, ", ", j, ")\n";
+  print "]\n";
 }
