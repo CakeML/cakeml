@@ -341,12 +341,26 @@ QED
 
 Definition divide_def:
   divide ((l,n):npbc) k =
-    (MAP (λ(c,v). (div_ceiling c k, v)) l,n \\ k)
+    (MAP (λ(c,v). (div_ceiling c k, v)) l, div_ceiling n k)
 End
+
+(*** HERE ***)
+Theorem div_ceiling_le_x:
+  ∀k m n. 0 < k ⇒ (div_ceiling n k ≤ m ⇔ n ≤ m * &k)
+Proof
+  cheat
+QED
 
 Theorem divide_thm:
   satisfies_npbc w c ∧ k ≠ 0 ⇒ satisfies_npbc w (divide c k)
 Proof
+  Cases_on ‘c’>>
+  fs[divide_def,NOT_ZERO]>>
+  rw[satisfies_npbc_def]>>
+  drule_then (fn thm => simp[thm]) div_ceiling_le_x>>
+  (* CONTINUE FROM HERE *)
+  cheat
+  (* OLD PROOF BELOW FOR REFERENCE
   Cases_on ‘c’ \\ fs [divide_def]
   \\ rw [satisfies_npbc_def,GREATER_EQ,CEILING_DIV_LE_X]
   \\ irule LESS_EQ_TRANS
@@ -356,6 +370,7 @@ Proof
   \\ irule (DECIDE “m ≤ m1 ∧ n ≤ n1 ⇒ m+n ≤ m1+n1:num”)
   \\ fs[] \\ Cases_on ‘p_1’ \\ gvs [div_ceiling_compute,DIV_CEILING_EQ_0]
   \\ fs [LE_MULT_CEILING_DIV]
+  *)
 QED
 
 Theorem div_ceiling_eq_0:
