@@ -798,8 +798,8 @@ Definition enc_module_def:
       (* Global   *) enc_section  6w    globals' ++
       (* Code     *) enc_section 10w    code'    ++
       (* Data     *) enc_section 11w    datas'
-End
     (* Custom   *) (* enc_section  0w    ???      ++ *)
+End
     (* Import   *) (* enc_section  2w *)
     (* Table    *) (* enc_section  4w *)
     (* Export   *) (* enc_section  7w *)
@@ -879,9 +879,6 @@ Proof
   \\ simp[bvtype_nchotomy]
   \\ rpt strip_tac
     >> gvs[dec_valtype_def]
-  (*
-  rw[enc_valtype_def] >> every_case_tac >> simp[bvtype_nchotomy] >> rw[dec_valtype_def]
-  *)
 QED
 
 Theorem dec_enc_valtype_Seq[simp]:
@@ -896,9 +893,6 @@ Proof
   \\ simp[bvtype_nchotomy]
   \\ rpt strip_tac
     >> gvs[dec_valtype_def]
-  (*
-  rw[enc_valtype_def] >> every_case_tac >> simp[bvtype_nchotomy] >> rw[dec_valtype_def]
-  *)
 QED
 
 Theorem dec_enc_functype[simp]:
@@ -944,9 +938,6 @@ Proof
   \\ simp[AllCaseEqs()]
   \\ rpt strip_tac
     >> gvs[dec_globaltype_def, dec_enc_valtype]
-  (*
-  rw[enc_globaltype_def] >> every_case_tac >> rw[dec_globaltype_def, dec_enc_valtype]
-  *)
 QED
 
 
@@ -1013,11 +1004,6 @@ Proof
   \\ simp[bvtype_nchotomy]
   \\ rpt strip_tac
     >> gvs[dec_storeI_def, dec_enc_2u32]
-  (*
-     rw[enc_storeI_def] \\ every_case_tac
-    >> simp[bvtype_nchotomy]
-    >> rw[dec_storeI_def]
-  *)
 QED
 
 
@@ -1060,13 +1046,24 @@ Theorem dec_enc_global[simp]:
     dec_global $ encg ++ rs = (INR g, rs)
 Proof
   (*
-  rw[enc_global_def,AllCaseEqs()]
-  \\ Cases_on`g.gtype`
-  \\ rw[dec_global_def]
 
-  rw[enc_global_def,AllCaseEqs(),enc_globaltype_def]
-  \\ Cases_on`g.gtype`
-  \\ rw[dec_global_def, dec_globaltype_def]
+  (* attempt 1 *)
+  rpt gen_tac
+  \\ ‘∃ res. encg ++ rs = res’ by simp[]
+  \\ asm_rewrite_tac[]
+  (* why won't this unfold dec_global's defn? *)
+  \\ simp[dec_global_def]
+
+  (* attempt 2 *)
+  rewrite_tac[enc_global_def]
+  \\ simp[AllCaseEqs()]
+  (* why won't this unfold dec_global's defn? *)
+  \\ simp[dec_global_def]
+  \\ Cases_on ‘g.gtype’
+    >> simp[enc_globaltype_def]
+    >> rpt strip_tac
+    >> gvs[dec_global_def, dec_globaltype_def]
+
   *)
   cheat
 QED
@@ -1076,7 +1073,17 @@ Theorem dec_enc_code:
     enc_code cd = SOME encC ⇒
     dec_code $ encC ++ rs = (INR cd, rs)
 Proof
+  rpt gen_tac
+  \\ rewrite_tac[enc_code_def, AllCaseEqs()] \\ gvs[]
+  \\ rpt strip_tac
+  \\ Cases_on ‘enc_vector enc_valtype_Seq (FST cd)’ >> gvs[]
+  (* why won't dec_code unfold? *)
+  \\ rewrite_tac[GSYM APPEND_ASSOC, dec_code_def]
+  \\
   cheat
+  (*
+  \\ PairCases_on ‘enc_vector enc_valtype_Seq (FST cd)’
+  *)
 QED
 
 Theorem dec_enc_data:
@@ -1130,19 +1137,15 @@ Proof
   gvs [oneline check_len_def, AllCaseEqs()] \\ rw [] \\ fs []
 QED
 
-(* ASKMM ASKYK *)
-Theorem dec_u32_shortens:
-  ∀ bs x rs. dec_u32 bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
-Proof
-  Induct_on ‘bs’ >> rpt gen_tac
-    >> gvs[dec_vector_def, Once dec_list_def, dec_unsigned_word_def, dec_num_def]
-    >>
-  cheat
-QED
-
+(* ASKYK *)
 Theorem dec_indxs_shortens:
   ∀ bs xs rs. dec_indxs bs = (INR xs, rs) ⇒ LENGTH rs < LENGTH bs
 Proof
+  Induct_on `xs` >> rpt gen_tac
+    >> simp[dec_vector_def]
+    >> Cases_on `dec_u32 bs` >> gvs[]
+    >> PairCases_on `x` >> simp[]
+\\
   cheat
 QED
 
@@ -1151,13 +1154,15 @@ Theorem dec_functype_shortens:
 Proof
   Cases_on ‘bs’ >> rpt gen_tac
     >> simp[dec_functype_def]
+    >> rpt strip_tac
     (* >> simp[dec_enc_vector]
     >> simp[dec_vector_def, dec_num_def, dec_unsigned_word_def] *)
     >>
     cheat
 QED
 
-Theorem dec_instr_length:
+(* ASKYK *)
+Theorem dec_instr_shortens:
   (∀bs x bs1. dec_instr      bs = (INR x,bs1) ⇒ LENGTH bs1 < LENGTH bs) ∧
   (∀bs x bs1. dec_instr_list bs = (INR x,bs1) ⇒ LENGTH bs1 < LENGTH bs)
 Proof
@@ -1206,11 +1211,11 @@ Proof
    (Cases_on ‘dec_instr bs’ \\ fs []
     \\ Cases_on ‘q’ \\ fs [check_len_def]
     \\ imp_res_tac dec_instr_INL_length \\ fs []
-    \\ imp_res_tac dec_instr_length \\ fs [])
+    \\ imp_res_tac dec_instr_shortens \\ fs [])
   \\ Cases_on ‘dec_instr_list bs’ \\ fs []
   \\ Cases_on ‘q’ \\ fs [check_len_def]
   \\ imp_res_tac dec_instr_INL_length \\ fs []
-  \\ imp_res_tac dec_instr_length \\ fs []
+  \\ imp_res_tac dec_instr_shortens \\ fs []
 QED
 
 Theorem dec_instr_def[allow_rebind] = REWRITE_RULE [check_len_thm] dec_instr_def;
