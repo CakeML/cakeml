@@ -2667,6 +2667,7 @@ Theorem stmt_wp_sound:
         | Rcont => conditions_hold st' env post
         | _ => F
 Proof
+
   Induct_on ‘stmt_wp’ \\ rpt strip_tac
   >~ [‘Skip’] >-
    (irule_at (Pos hd) eval_stmt_Skip \\ simp [])
@@ -2806,7 +2807,32 @@ Proof
     \\ simp [ALOOKUP_APPEND] \\ rw []
     \\ DEP_REWRITE_TAC [alistTheory.alookup_distinct_reverse]
     \\ simp [MAP_ZIP])
-  >~ [‘While guard invs ds mods body’] >- cheat
+  >~ [‘While guard invs ds mods body’] >-
+
+   (qsuff_tac
+    ‘∀st.
+       conditions_hold st env (invs ++ MAP CanEval ds) ⇒
+       ∃st' ret.
+         eval_stmt st env (While guard invs ds mods body) st' ret ∧
+         st'.locals_old = st.locals_old ∧ st'.heap = st.heap ∧
+         st'.heap_old = st.heap_old ∧ st'.output = st.output ∧
+         locals_ok locals st'.locals ∧
+         case ret of
+         | Rcont => conditions_hold st' env (not guard::invs)
+         | Rstop Sret => conditions_hold st' env ens
+         | Rstop (Serr v3) => F’
+    >-
+     (disch_then $ qspec_then ‘st’ mp_tac
+      \\ impl_tac >- gvs [conditions_hold_def]
+      \\ strip_tac
+      \\ first_assum $ irule_at $ Pos hd \\ asm_rewrite_tac []
+      \\ Cases_on ‘ret’ \\ gvs []
+      \\ gvs [conditions_hold_def]
+      \\ gvs [GSYM conditions_hold_def]
+
+      \\ cheat)
+
+    \\ cheat)
   \\ rename [‘MetCall rets mname args’]
   \\ irule_at Any eval_stmt_MetCall \\ gvs []
   \\ qpat_assum ‘compatible_env env m’ mp_tac
