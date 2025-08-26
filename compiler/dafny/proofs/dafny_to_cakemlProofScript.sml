@@ -412,8 +412,8 @@ Definition array_rel_def:
     INJ (λx. m ' x) (FDOM m) 𝕌(:num) ∧
     (∀i. i ∈ FDOM m ⇒ i < LENGTH s_heap) ∧
     (∀i. i ∈ FRANGE m ⇒ i < LENGTH c_store) ∧
-    ∀loc vs.
-      LLOOKUP s_heap loc = SOME (HArr vs) ⇒
+    ∀loc vs ty.
+      LLOOKUP s_heap loc = SOME (HArr vs ty) ⇒
       ∃loc' vs'.
         FLOOKUP m loc = SOME loc' ∧
         store_lookup loc' c_store = SOME (Varray vs') ∧
@@ -650,7 +650,7 @@ QED
 
 Triviality state_rel_llookup:
   state_rel m l s t env ∧
-  LLOOKUP s.heap dfy_loc = SOME (HArr dfy_arr) ∧
+  LLOOKUP s.heap dfy_loc = SOME (HArr dfy_arr ty) ∧
   FLOOKUP m dfy_loc = SOME cml_loc ⇒
   ∃cml_arr.
     store_lookup cml_loc t.refs = SOME (Varray cml_arr) ∧
@@ -1935,7 +1935,7 @@ Triviality array_rel_add:
   val_rel m init_v init_cml_v ⇒
   array_rel
     (m |+ (LENGTH s.heap, LENGTH t.refs))
-    (SNOC (HArr (REPLICATE (Num i) init_v)) s.heap)
+    (SNOC (HArr (REPLICATE (Num i) init_v) ty) s.heap)
     (t.refs ++ [Varray (REPLICATE (Num i) init_cml_v)])
 Proof
   rpt strip_tac
@@ -2219,11 +2219,11 @@ QED
 (* TODO Rename? *)
 Triviality update_array_some_llookup:
   update_array s arr_v idx_v rhs_v = SOME s' ⇒
-  ∃len loc ty idx arr.
+  ∃len loc ty idx arr ty'.
     arr_v = ArrV len loc ty ∧ idx_v = IntV idx ∧ 0 ≤ idx ∧
-    LLOOKUP s.heap loc = SOME (HArr arr) ∧
+    LLOOKUP s.heap loc = SOME (HArr arr ty') ∧
     Num idx < LENGTH arr ∧
-    LLOOKUP s'.heap loc = SOME (HArr (LUPDATE rhs_v (Num idx) arr))
+    LLOOKUP s'.heap loc = SOME (HArr (LUPDATE rhs_v (Num idx) arr) ty')
 Proof
   rpt strip_tac
   \\ gvs [update_array_def, oneline val_to_num_def, LLOOKUP_LUPDATE,
@@ -2236,7 +2236,7 @@ Triviality update_array_state_rel:
   update_array s (ArrV arr_len loc ty) (IntV idx) v = SOME s' ∧
   FLOOKUP m loc = SOME loc_cml ∧
   store_lookup loc_cml t.refs = SOME (Varray varr) ∧
-  LLOOKUP s'.heap loc = SOME (HArr (LUPDATE v (Num idx) harr)) ∧
+  LLOOKUP s'.heap loc = SOME (HArr (LUPDATE v (Num idx) harr) ty') ∧
   LIST_REL (val_rel m) harr varr ∧
   val_rel m v v_cml ∧
   state_rel m l s t env_cml ⇒
@@ -2454,7 +2454,10 @@ Proof
   \\ namedCases_on ‘update_array s₂ arr_v idx_v rhs_v’ ["", "s₃"] \\ gvs []
   \\ drule update_array_some_llookup
   \\ disch_then $
-       qx_choosel_then [‘arr_len’, ‘arr_loc’, ‘arr_ty’, ‘idx_int’, ‘harr’] assume_tac
+       qx_choosel_then
+         [‘arr_len’, ‘arr_loc’, ‘arr_ty’, ‘idx_int’, ‘harr’, ‘harr_ty’]
+         assume_tac
+
   \\ gvs []
   \\ rename [‘val_rel _ _ rhs_v_cml’, ‘Loc T loc_cml’]
   \\ drule_all state_rel_llookup

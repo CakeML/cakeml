@@ -30,7 +30,7 @@ End
 
 Datatype:
   heap_value =
-  | HArr (value list)
+  | HArr (value list) type
 End
 
 Datatype:
@@ -267,7 +267,7 @@ Definition index_array_def:
    | (ArrV len loc _, SOME idx) =>
      (case LLOOKUP st.heap loc of
       | NONE => NONE
-      | SOME (HArr arr) => LLOOKUP arr idx)
+      | SOME (HArr arr _) => LLOOKUP arr idx)
    | _ => NONE)
 End
 
@@ -282,7 +282,7 @@ Definition alloc_array_def:
   (case val_to_num len of
    | NONE => NONE
    | SOME len =>
-     let arr = (HArr (REPLICATE len init)) in
+     let arr = (HArr (REPLICATE len init) ty) in
        SOME (st with heap := SNOC arr st.heap, ArrV len (LENGTH st.heap) ty))
 End
 
@@ -309,10 +309,10 @@ Definition update_array_def:
    | (ArrV len loc _, SOME idx) =>
      (case LLOOKUP st.heap loc of
       | NONE => NONE
-      | SOME (HArr arr) =>
+      | SOME (HArr arr ty) =>
           if idx ≥ LENGTH arr then NONE else
           let new_arr = LUPDATE val idx arr;
-              new_heap = LUPDATE (HArr new_arr) loc st.heap
+              new_heap = LUPDATE (HArr new_arr ty) loc st.heap
           in
             SOME (st with heap := new_heap))
    | _ => NONE)
