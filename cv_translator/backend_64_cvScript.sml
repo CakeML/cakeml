@@ -542,6 +542,13 @@ val _ = cv_trans (data_to_wordTheory.assign_def |> arch_spec |> SRULE
    data_to_wordTheory.arg3_def,
    data_to_wordTheory.arg4_def])
 
+val pre = cv_trans_pre "" (data_to_wordTheory.force_thunk_def |> arch_spec);
+Theorem data_to_word_force_thunk_pre[cv_pre,local]:
+  ∀c secn l ret loc v1. data_to_word_force_thunk_pre c secn l ret loc v1
+Proof
+  cheat
+QED
+
 val pre = data_to_wordTheory.comp_def |> arch_spec |> SRULE [to_adjust_vars] |> cv_trans_pre "";
 Theorem data_to_word_comp_pre[cv_pre,local]:
   ∀c secn l p. data_to_word_comp_pre c secn l p
