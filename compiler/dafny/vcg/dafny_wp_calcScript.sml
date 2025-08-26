@@ -2690,6 +2690,21 @@ Proof
   cheat
 QED
 
+Theorem assigned_in_thm:
+  eval_stmt st env stmt st1 res ⇒
+  ∀v. ~(assigned_in stmt v) ⇒
+      ALOOKUP st'.locals v = ALOOKUP st.locals v
+Proof
+  cheat
+QED
+
+Triviality eval_exp_eq_ignore_clock:
+  (∀ck. (st with clock := ck) = (st' with clock := ck)) ⇒
+  eval_exp st = eval_exp st'
+Proof
+  gvs [eval_exp_def,FUN_EQ_THM]
+QED
+
 Theorem stmt_wp_sound:
   ∀m reqs stmt post ens decs locals.
     stmt_wp m reqs stmt post ens decs locals ⇒
@@ -2902,7 +2917,17 @@ Proof
       >-
        (strip_tac \\ drule eval_true_imp
         \\ gvs [eval_true_conj_every,conditions_hold_def])
-      \\ cheat (* states are sufficiently similar *))
+      \\ drule assigned_in_thm \\ simp [assigned_in_def]
+      \\ strip_tac
+      \\ qabbrev_tac ‘new_locals = REVERSE (MAP (λ(v,val). (v,THE val)) vals) ++ st.locals’
+      \\ ‘ALOOKUP st'.locals = ALOOKUP new_locals’ by cheat
+      \\ qpat_x_assum ‘eval_true _ _ _ ’ mp_tac
+      \\ drule eval_exp_swap_locals
+      \\ simp [eval_true_def] \\ disch_then kall_tac
+      \\ match_mp_tac EQ_IMPLIES
+      \\ rpt AP_THM_TAC
+      \\ irule eval_exp_eq_ignore_clock
+      \\ gvs [state_component_equality])
     \\ qsuff_tac ‘∀x stx.
           x = eval_measure stx env (0, ds) ∧
           conditions_hold stx env (invs ++ [CanEval guard] ++ MAP CanEval ds) ∧
