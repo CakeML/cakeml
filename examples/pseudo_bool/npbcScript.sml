@@ -351,26 +351,29 @@ Proof
   cheat
 QED
 
+Theorem Num_div_ceiling:
+  0 < k ⇒ Num q ≤ k * Num (div_ceiling q k)
+Proof
+  cheat
+QED
+
 Theorem divide_thm:
   satisfies_npbc w c ∧ k ≠ 0 ⇒ satisfies_npbc w (divide c k)
 Proof
   Cases_on ‘c’>>
-  fs[divide_def,NOT_ZERO]>>
-  rw[satisfies_npbc_def]>>
-  drule_then (fn thm => simp[thm]) div_ceiling_le_x>>
-  (* CONTINUE FROM HERE *)
-  cheat
-  (* OLD PROOF BELOW FOR REFERENCE
-  Cases_on ‘c’ \\ fs [divide_def]
-  \\ rw [satisfies_npbc_def,GREATER_EQ,CEILING_DIV_LE_X]
-  \\ irule LESS_EQ_TRANS
-  \\ first_x_assum $ irule_at Any
-  \\ Induct_on ‘q’ \\ fs [FORALL_PROD]
-  \\ fs [LEFT_ADD_DISTRIB] \\ rw []
-  \\ irule (DECIDE “m ≤ m1 ∧ n ≤ n1 ⇒ m+n ≤ m1+n1:num”)
-  \\ fs[] \\ Cases_on ‘p_1’ \\ gvs [div_ceiling_compute,DIV_CEILING_EQ_0]
-  \\ fs [LE_MULT_CEILING_DIV]
-  *)
+  rename1 ‘satisfies_npbc w (q,r)’>>
+  simp[divide_def,satisfies_npbc_def]>>
+  rw[NOT_ZERO,div_ceiling_le_x]>>
+  irule $ intLib.ARITH_PROVE “m ≤ n ∧ n ≤ p ⇒ m ≤ (p:int)”>>
+  goal_assum $ drule_at Any>>
+  irule $ intLib.ARITH_PROVE “(m:num) ≤ n ⇒ int_of_num m ≤ int_of_num n”>>
+  last_x_assum $ kall_tac>>
+  Induct_on ‘q’
+  >-cheat>>
+  Cases>>
+  simp[MAP,LEFT_ADD_DISTRIB,div_ceiling_sign,GSYM integerTheory.Num_EQ_ABS]>>
+  irule LESS_EQ_LESS_EQ_MONO>>
+  simp[Num_div_ceiling]
 QED
 
 Theorem div_ceiling_eq_0:
