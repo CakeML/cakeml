@@ -408,7 +408,7 @@ Definition application_def:
        (case do_opapp vs of
           SOME (env,e) => (Estep (env, s, Exp e, c):estep_result)
         | NONE => Etype_error)
-    | Force =>
+   | Force =>
       (case vs of
          [Loc _ n] => (
            case store_lookup n s of
@@ -416,8 +416,8 @@ Definition application_def:
                return env s v c
            | SOME (Thunk NotEvaluated f) =>
                application Opapp env s [f; Conv NONE []] ((Cforce n,env)::c)
-           | _ => Etype_error
-       | _ => Etype_error
+           | _ => Etype_error)
+       | _ => Etype_error)
    | _ =>
        case op of
        | FFI n => (
