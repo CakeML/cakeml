@@ -563,10 +563,10 @@ Proof
     gs[itree_semanticsTheory.do_app_def] >>
     every_case_tac >> gs[]) >>
   Cases_on ‘op’ >> gs[application_def] >> every_case_tac >>
-  gs[itree_semanticsTheory.do_app_def] >>
+  gs[itree_semanticsTheory.do_app_def, thunk_op_def] >>
   pop_assum $ mp_tac >>
   rpt (TOP_CASE_TAC >> gvs[SF itree_ss]) >> gs[store_alloc_def] >>
-  rpt (FULL_CASE_TAC >> gvs[thunk_op_def, store_alloc_def, store_assign_def])
+  rpt (FULL_CASE_TAC >> gvs[store_alloc_def, store_assign_def])
 QED
 
 Theorem application_FFI_results:
