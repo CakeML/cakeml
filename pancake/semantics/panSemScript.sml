@@ -381,6 +381,7 @@ End
 
 Definition nb_op_def:
   nb_op Op8 = 1:num ∧
+  nb_op Op16 = 2 ∧
   nb_op OpW = 0 ∧
   nb_op Op32 = 4
 End
