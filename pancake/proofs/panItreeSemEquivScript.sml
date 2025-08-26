@@ -109,7 +109,7 @@ Definition itree_semantics_beh_def:
 End
 
 Theorem fbs_sem_div_compos_thm:
-  fbs_semantics_beh s (Dec v e prog) = SemDiverge l ∧
+  fbs_semantics_beh s (Dec v sh e prog) = SemDiverge l ∧
   eval (reclock s) e = SOME x ⇒
   fbs_semantics_beh (s with locals := s.locals |+ (v,x)) prog = SemDiverge l
 Proof
@@ -176,10 +176,10 @@ QED
 Theorem fbs_semantics_beh_simps:
   fbs_semantics_beh s Skip = SemTerminate (NONE,s) ∧
   fbs_semantics_beh s (Annot _ _) = SemTerminate (NONE,s) ∧
-  (eval (reclock s) e = NONE ⇒ fbs_semantics_beh s (Dec v e prog) ≠ SemTerminate p)
+  (eval (reclock s) e = NONE ⇒ fbs_semantics_beh s (Dec v sh e prog) ≠ SemTerminate p)
 Proof
   rw []
-  >~ [‘Dec _ _ _’]
+  >~ [‘Dec _ _ _ _’]
   >- (rw [fbs_semantics_beh_def,
           evaluate_def] >>
       rw [eval_upd_clock_eq] >>
@@ -194,7 +194,7 @@ Proof
 QED
 
 Theorem itree_semantics_beh_Dec:
-  itree_semantics_beh s (Dec vname e prog) =
+  itree_semantics_beh s (Dec vname shape e prog) =
   case eval (reclock s) e of
     NONE => SemFail
   | SOME value =>
@@ -4014,7 +4014,7 @@ Proof
           dxrule FUNPOW_Tau_Vis_eq>>strip_tac>>gvs[]>>
           qmatch_asmsub_abbrev_tac ‘(prog,t)’>>
           last_x_assum $ qspec_then ‘n’ assume_tac>>fs[]>>
-          ‘s.ffi = (reclock t).ffi’ by simp[Abbr‘t’]>>
+          ‘s'.ffi = (reclock t).ffi’ by simp[Abbr‘t’]>>
           pop_assum (fn h => rewrite_tac[h])>>
           first_x_assum irule>>gvs[Abbr‘t’]>>metis_tac[])>>
       imp_res_tac strip_tau_spin>>gvs[spin_bind]>>
@@ -4452,7 +4452,7 @@ Proof
           qmatch_asmsub_abbrev_tac ‘(prog,t)’>>
           first_x_assum $ qspecl_then [‘prog’,‘t’,‘g’,‘a’] assume_tac>>
           gvs[]>>
-          ‘t.ffi = s.ffi’ by simp[Abbr‘t’]>>fs[]>>gvs[]>>
+          ‘t.ffi = s'.ffi’ by simp[Abbr‘t’]>>fs[]>>gvs[]>>
           fs[ltree_lift_Vis_alt]>>
           pairarg_tac>>fs[ltree_lift_monad_law]>>
           Cases_on ‘FST a’>>fs[]>>

@@ -388,7 +388,7 @@ End
 
 Definition evaluate_def:
   (evaluate (Skip:'a panLang$prog,^s) = (NONE,s)) /\
-  (evaluate (Dec v e prog, s) =
+  (evaluate (Dec v shape e prog, s) =
     case (eval s e) of
      | SOME value =>
         let (res,st) = evaluate (prog,s with locals := s.locals |+ (v,value)) in

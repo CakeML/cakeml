@@ -1209,7 +1209,7 @@ QED
 
 
 Theorem compile_Dec:
-  ^(get_goal "compile _ (panLang$Dec _ _ _)")
+  ^(get_goal "compile _ (panLang$Dec _ _ _ _)")
 Proof
   rpt gen_tac >>
   rpt strip_tac >>

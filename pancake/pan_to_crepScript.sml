@@ -132,7 +132,7 @@ End
 
 Definition compile_def:
   (compile _ (Skip:'a panLang$prog) = (Skip:'a crepLang$prog)) /\
-  (compile ctxt (Dec v e p) =
+  (compile ctxt (Dec v s e p) =
    let (es, sh) = compile_exp ctxt e;
        vmax = ctxt.vmax;
        nvars = GENLIST (λx. vmax + SUC x) (size_of_shape sh);

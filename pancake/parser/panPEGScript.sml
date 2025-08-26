@@ -146,6 +146,7 @@ Definition pancake_peg_def[nocompute]:
                                  seql [keep_annot; mknt TopDecListNT] (mksubtree TopDecListNT)]);
         (INL FunNT, seql [try_default (keep_kw ExportK) StaticT;
                           consume_kw FunK;
+                          try_default (mknt ShapeNT) DefaultShT;
                           keep_ident;
                           consume_tok LParT;
                           choicel
@@ -156,9 +157,9 @@ Definition pancake_peg_def[nocompute]:
                           consume_tok LCurT;
                           try_ProgNT]
                           (mksubtree FunNT));
-        (INL ParamListNT, seql [mknt ShapeNT; keep_ident;
+        (INL ParamListNT, seql [try_default (mknt ShapeNT) DefaultShT; keep_ident;
                                 rpt (seql [consume_tok CommaT;
-                                           mknt ShapeNT;
+                                           try_default (mknt ShapeNT) DefaultShT;
                                            keep_ident] I)
                                            FLAT]
                                (mksubtree ParamListNT));
@@ -190,16 +191,16 @@ Definition pancake_peg_def[nocompute]:
                               keep_kw TicK;
                               seql [consume_tok LCurT; try_ProgNT] I
                               ]);
-        (INL DecCallNT, seql [consume_kw VarK; mknt ShapeNT; keep_ident; consume_tok AssignT;
+        (INL DecCallNT, seql [consume_kw VarK; try_default (mknt ShapeNT) DefaultShT; keep_ident; consume_tok AssignT;
                               keep_ident;
                               consume_tok LParT; try (mknt ArgListNT);
                               consume_tok RParT;consume_tok SemiT]
                           (mksubtree DecCallNT));
-        (INL DecNT,seql [consume_kw VarK; keep_ident;
+        (INL DecNT,seql [consume_kw VarK; try_default (mknt ShapeNT) DefaultShT; keep_ident;
                          consume_tok AssignT; mknt ExpNT;
                          consume_tok SemiT]
                          (mksubtree DecNT));
-        (INL GlobalDecNT,seql [consume_kw VarK; mknt ShapeNT; keep_ident;
+        (INL GlobalDecNT,seql [consume_kw VarK; try_default (mknt ShapeNT) DefaultShT; keep_ident;
                          consume_tok AssignT; mknt ExpNT;
                          consume_tok SemiT]
                          (mksubtree GlobalDecNT));

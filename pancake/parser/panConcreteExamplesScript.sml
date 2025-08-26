@@ -548,3 +548,25 @@ val annots = annot_fun_lex |> concl |> rhs |> listSyntax.dest_list |> fst
   |> filter (can (find_term (can (match_term ``AnnotCommentT``))))
 val has_annot = assert (not o null) annots;
 
+(* Default shape annotation *)
+val opt_shape_dec =
+ ‘
+  var 1 x = 0;
+  var y = 0;
+
+  fun 1 f(1 a) {
+    x = a + 1;
+    var 1 z = f(a);
+    var 1 x = 5;
+    return x;
+  }
+
+  fun g(b) {
+    y = b + 1;
+    var z = g(a);
+    var y = 5;
+    return y;
+  }
+  ’
+
+val opt_shape_dec_parse = check_success $ parse_pancake opt_shape_dec;
