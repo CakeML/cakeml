@@ -368,8 +368,10 @@ Inductive stmt_wp:
     stmt_wp m [Let (ZIP (ret_names,exps)) (conj post)] (Assign l) post ens decs ls
 [~While:]
   ∀m guard invs ds mods body post ens decs ls ds_vars ls1 loop_cond.
-    DISJOINT (set ds_vars) (set (MAP FST ls ++ get_vars_stmt body)) ∧
+    DISJOINT (set ds_vars)
+             (set (MAP FST ls ++ get_vars_stmt (While guard invs ds mods body))) ∧
     LENGTH ds_vars = LENGTH ds ∧
+    ALL_DISTINCT ds_vars ∧
     get_type ls guard = INR BoolT ∧
     ls1 = FILTER (λ(v,ty). assigned_in body v) ls ∧
     (* when executing the body, invs are maintained *)
@@ -2777,6 +2779,24 @@ Proof
   gvs [eval_exp_def,FUN_EQ_THM]
 QED
 
+Triviality IMP_dec_assum:
+  LIST_REL (λe v. eval_exp st1 env e v) ds ds_vals ∧
+  Abbrev (ds1 = ZIP (ds_vars,MAP SOME ds_vals)) ∧
+  ALL_DISTINCT ds_vars ⇒
+  EVERY (eval_true (st1 with locals := ds1 ++ st1.locals) env)
+        (MAP2 dec_assum ds_vars ds)
+Proof
+  cheat
+QED
+
+Triviality eval_true_drop_unused:
+  eval_true st1 env guard ∧
+  DISJOINT (set (get_vars_exp guard)) (set (MAP FST ds1)) ⇒
+  eval_true (st1 with locals := ds1 ++ st1.locals) env guard
+Proof
+  cheat (* eval_exp_freevars_lemma *)
+QED
+
 Theorem stmt_wp_sound:
   ∀m reqs stmt post ens decs locals.
     stmt_wp m reqs stmt post ens decs locals ⇒
@@ -3067,18 +3087,29 @@ Proof
       \\ disch_then $ simp o single
       \\ qunabbrev_tac ‘ys’
       \\ ‘eval_true (st with locals := zs) =
-          eval_true (st1 with locals := zs)’ by cheat
+          eval_true (st1 with locals := zs)’ by
+        (rewrite_tac [eval_true_def,FUN_EQ_THM]
+         \\ rpt gen_tac \\ rpt AP_THM_TAC
+         \\ irule eval_exp_eq_ignore_clock
+         \\ fs [state_component_equality])
       \\ asm_rewrite_tac []
       \\ strip_tac
       \\ dxrule eval_true_imp
       \\ simp [eval_true_conj_every,conditions_hold_def]
       \\ disch_then irule
-      \\ cheat)
+      \\ drule_all IMP_dec_assum
+      \\ simp [] \\ strip_tac
+      \\ qunabbrev_tac ‘zs’
+      \\ fs [conditions_hold_def,EVERY_MEM]
+      \\ rpt strip_tac
+      \\ irule eval_true_drop_unused
+      \\ fs [get_vars_stmt_def]
+      \\ fs [eval_true_def,LIST_TO_SET_FLAT,PULL_EXISTS,MEM_MAP])
     \\ simp []
     \\ strip_tac
     \\ drule_then drule eval_stmt_drop_locals
     \\ impl_tac
-    >- (asm_rewrite_tac [])
+    >- (fs [get_vars_stmt_def])
     \\ strip_tac
     \\ rename [‘eval_stmt _ _ _ (st2 with locals := _)’]
     \\ first_x_assum $ irule_at $ Pos hd
@@ -3105,7 +3136,8 @@ Proof
     \\ fs [conditions_hold_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]
     \\ rpt strip_tac
     \\ first_x_assum irule \\ fs []
-    \\ cheat)
+    \\ fs [get_vars_stmt_def,CanEval_def,get_vars_exp_def,LIST_TO_SET_FLAT]
+    \\ fs [MEM_MAP,PULL_EXISTS])
   \\ rename [‘MetCall rets mname args’]
   \\ irule_at Any eval_stmt_MetCall \\ gvs []
   \\ qpat_assum ‘compatible_env env m’ mp_tac
