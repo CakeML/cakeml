@@ -287,6 +287,95 @@ val _ = append_prog $ monop “"abs"” “FP_Abs”;
 val _ = append_prog $ monop “"sqrt"” “FP_Sqrt”;
 val _ = append_prog $ monop “"~"” “FP_Neg”;
 
+(* ----------------------------------------------------------------------
+    Taking floats apart
+   ---------------------------------------------------------------------- *)
+
+Type float64 = “:(52,11)float”
+
+Definition significand_def:
+  significand f = float_to_fp64 f && 0xFFFFFFFFFFFFFw
+End
+
+Theorem significand_correct:
+  significand f = w2w (f.Significand)
+Proof
+  simp[machine_ieeeTheory.float_to_fp64_def, significand_def, word_concat_def,
+       word_join_def, word_bits_w2w, GSYM WORD_BITS_OVER_BITWISE,
+       WORD_BITS_LSL, WORD_ALL_BITS, w2w_w2w, GSYM WORD_w2w_OVER_BITWISE,
+       WORD_LEFT_AND_OVER_OR, w2w_LSL, word_and_lsl_eq_0] >>
+  ‘0xFFFFFFFFFFFFFw : word64 = w2w (UINT_MAXw : 52 word)’
+    by (ONCE_REWRITE_TAC[EQ_SYM_EQ] >> simp[w2w_eq_n2w]) >>
+  pop_assum SUBST1_TAC >>
+  simp[WORD_w2w_OVER_BITWISE]
+QED
+
+Theorem significand_correct':
+  f.Significand = w2w (significand f)
+Proof
+  simp[machine_ieeeTheory.float_to_fp64_def, significand_def, word_concat_def,
+       word_join_def, word_bits_w2w, GSYM WORD_BITS_OVER_BITWISE,
+       WORD_BITS_LSL, WORD_ALL_BITS, w2w_w2w, GSYM WORD_w2w_OVER_BITWISE,
+       WORD_LEFT_AND_OVER_OR, w2w_LSL, word_and_lsl_eq_0]
+QED
+
+Definition exponent_def:
+  exponent f = (float_to_fp64 f >>> 52) && 0x7FFw
+End
+
+Theorem exponent_correct:
+  exponent f = w2w f.Exponent
+Proof
+  simp[machine_ieeeTheory.float_to_fp64_def, exponent_def, word_concat_def,
+       word_join_def, word_bits_w2w, GSYM WORD_BITS_OVER_BITWISE,
+       WORD_BITS_LSL, WORD_ALL_BITS, w2w_w2w, GSYM WORD_w2w_OVER_BITWISE,
+       WORD_LEFT_AND_OVER_OR, w2w_LSL, word_and_lsl_eq_0, lsl_lsr,
+       LSR_LIMIT, word_lsr_n2w, WORD_BITS_ZERO3] >>
+  ‘2047w : word64 = w2w (UINT_MAXw : 11 word)’
+    by (ONCE_REWRITE_TAC[EQ_SYM_EQ] >> simp[w2w_eq_n2w]) >>
+  pop_assum SUBST1_TAC >>
+  simp[WORD_w2w_OVER_BITWISE]
+QED
+
+Definition sign_def:
+  sign f = (float_to_fp64 f >>> 63) && 1w
+End
+
+Theorem sign_correct:
+  sign f = w2w f.Sign
+Proof
+  simp[machine_ieeeTheory.float_to_fp64_def, sign_def, word_concat_def,
+       word_join_def, word_bits_w2w, GSYM WORD_BITS_OVER_BITWISE,
+       WORD_BITS_LSL, WORD_ALL_BITS, w2w_w2w, GSYM WORD_w2w_OVER_BITWISE,
+       WORD_LEFT_AND_OVER_OR, w2w_LSL, word_and_lsl_eq_0, lsl_lsr,
+       LSR_LIMIT, word_lsr_n2w, WORD_BITS_ZERO3] >>
+  ‘1w : word64 = w2w (UINT_MAXw : word1)’
+    by (ONCE_REWRITE_TAC[EQ_SYM_EQ] >> simp[w2w_eq_n2w]) >>
+  pop_assum SUBST1_TAC >>
+  simp[WORD_w2w_OVER_BITWISE]
+QED
+
+val _ = translate significand_def
+val _ = translate exponent_def
+val _ = translate sign_def
+
+
+(* Quote cakeml:
+fun exponent f = Word.andb(Word.lsr(toWord f, 52), Word.fromInt 0x7FF)
+End
+
+Quote cakeml:
+fun sign f = Word.andb(Word.lsr(toWord f, 63), Word.fromInt 0x1)
+End
+
+Quote cakeml:
+fun construct sn e sg =
+  Word.orb (Word.orb(Word.lsl(sn,63),
+                     Word.lsl(Word.andb(e,Word.fromInt 0x7FF),52)),
+            Word.andb(sg,Word.fromInt 0xFFFFFFFFFFFFF))
+End
+*)
+
 (* --------------------------------------------------------------------------
  * Pretty-printer
  * ------------------------------------------------------------------------- *)
