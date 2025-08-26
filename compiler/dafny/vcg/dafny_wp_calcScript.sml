@@ -155,7 +155,7 @@ End
 
 Definition get_vars_rhs_exp_def:
   get_vars_rhs_exp (ExpRhs e) = get_vars_exp e ∧
-  get_vars_rhs_exp (ArrAlloc len init) =
+  get_vars_rhs_exp (ArrAlloc len init _) =
     get_vars_exp len ++ get_vars_exp init
 End
 

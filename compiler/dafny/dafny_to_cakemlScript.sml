@@ -256,7 +256,7 @@ End
 
 Definition from_rhs_exp_def:
   from_rhs_exp (ExpRhs e) = from_exp e ∧
-  from_rhs_exp (ArrAlloc len init) =
+  from_rhs_exp (ArrAlloc len init _) =
   do
     cml_len <- from_exp len;
     cml_init <- from_exp init;

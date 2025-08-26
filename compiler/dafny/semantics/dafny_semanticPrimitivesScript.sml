@@ -24,8 +24,8 @@ Datatype:
   | IntV int
   | BoolV bool
   | StrV mlstring
-  (* ArrV length location *)
-  | ArrV num num
+  (* ArrV length location type *)
+  | ArrV num num type
 End
 
 Datatype:
@@ -180,7 +180,7 @@ Definition value_same_type_def[simp]:
   (value_same_type (IntV _) (IntV _) ⇔ T) ∧
   (value_same_type (BoolV _) (BoolV _) ⇔ T) ∧
   (value_same_type (StrV _) (StrV _) ⇔ T) ∧
-  (value_same_type (ArrV _ _) (ArrV _ _) ⇔ T) ∧
+  (value_same_type (ArrV _ _ ty) (ArrV _ _ ty') ⇔ ty' = ty) ∧
   (value_same_type _ _ ⇔ F)
 End
 
@@ -188,7 +188,7 @@ Definition value_has_type_def[simp]:
   (value_has_type IntT (IntV _) ⇔ T) ∧
   (value_has_type BoolT (BoolV _) ⇔ T) ∧
   (value_has_type StrT (StrV _) ⇔ T) ∧
-  (* TODO Add ArrT once we keep track of type ArrV *)
+  (value_has_type (ArrT ty) (ArrV _ _ ty') ⇔ ty' = ty) ∧
   (value_has_type _ _ ⇔ F)
 End
 
@@ -252,7 +252,7 @@ Definition lit_to_val_def[simp]:
 End
 
 Definition get_array_len_def:
-  get_array_len (ArrV len _) = SOME len ∧
+  get_array_len (ArrV len _ _) = SOME len ∧
   get_array_len _ = NONE
 End
 
@@ -264,7 +264,7 @@ End
 Definition index_array_def:
   index_array st arr idx =
   (case (arr, val_to_num idx) of
-   | (ArrV len loc, SOME idx) =>
+   | (ArrV len loc _, SOME idx) =>
      (case LLOOKUP st.heap loc of
       | NONE => NONE
       | SOME (HArr arr) => LLOOKUP arr idx)
@@ -278,12 +278,12 @@ Definition do_cond_def:
 End
 
 Definition alloc_array_def:
-  alloc_array st len init =
+  alloc_array st len init ty =
   (case val_to_num len of
    | NONE => NONE
    | SOME len =>
      let arr = (HArr (REPLICATE len init)) in
-       SOME (st with heap := SNOC arr st.heap, ArrV len (LENGTH st.heap)))
+       SOME (st with heap := SNOC arr st.heap, ArrV len (LENGTH st.heap) ty))
 End
 
 Definition update_local_aux_def:
@@ -306,7 +306,7 @@ End
 Definition update_array_def:
   update_array st arr idx val =
   (case (arr, val_to_num idx) of
-   | (ArrV len loc, SOME idx) =>
+   | (ArrV len loc _, SOME idx) =>
      (case LLOOKUP st.heap loc of
       | NONE => NONE
       | SOME (HArr arr) =>
@@ -322,7 +322,7 @@ Definition all_values_def:
   all_values IntT      = {IntV i | i ∈ 𝕌(:int)} ∧
   all_values BoolT     = {BoolV T; BoolV F} ∧
   all_values StrT      = {StrV s | s ∈ 𝕌(:mlstring)} ∧
-  all_values (ArrT t)  = {} (* {ArrV len loc |(len,loc)| T } *)
+  all_values (ArrT ty)  = {ArrV len loc ty | len ∈ 𝕌(:num) ∧ loc ∈ 𝕌(:num)}
 End
 
 Definition declare_local_def:
@@ -373,7 +373,7 @@ Definition valid_mod_def:
 End
 
 Definition get_loc_def:
-  get_loc (ArrV _ loc) = SOME loc ∧
+  get_loc (ArrV _ loc _) = SOME loc ∧
   get_loc _ = NONE
 End
 

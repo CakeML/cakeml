@@ -398,14 +398,14 @@ Inductive val_rel:
   val_rel m (StrV s) (Litv (StrLit (explode s)))
 [~arr:]
   len' = &len ∧ FLOOKUP m loc = SOME loc' ⇒
-  val_rel m (ArrV len loc) (Conv NONE [Litv (IntLit (len')); Loc T loc'])
+  val_rel m (ArrV len loc ty) (Conv NONE [Litv (IntLit (len')); Loc T loc'])
 End
 
 Theorem val_rel_simp[simp] = LIST_CONJ $
   map (SCONV [val_rel_cases]) [“val_rel m (BoolV b) v”,
                                “val_rel m (IntV i) v”,
                                “val_rel m (StrV s) v”,
-                               “val_rel m (ArrV len loc) v”];
+                               “val_rel m (ArrV len loc ty) v”];
 
 Definition array_rel_def:
   array_rel m s_heap c_store ⇔
@@ -1758,8 +1758,8 @@ Proof
      (gvs [do_bop_def]
       \\ gvs [from_bin_op_def]
       \\ gvs [evaluate_def, do_app_def]
-      \\ namedCases_on ‘dfy_v₀’ ["i", "b", "str", "len dfy_loc"] \\ gvs []
-      \\ namedCases_on ‘dfy_v₁’ ["i'", "b'", "str'", "len' dfy_loc'"] \\ gvs []
+      \\ namedCases_on ‘dfy_v₀’ ["i", "b", "str", "len dfy_loc ty"] \\ gvs []
+      \\ namedCases_on ‘dfy_v₁’ ["i'", "b'", "str'", "len' dfy_loc' ty'"] \\ gvs []
       >~ [‘do_eq (Boolv _) (Boolv _)’] >-
        (Cases_on ‘b’ \\ Cases_on ‘b'’
         \\ gvs [do_eq_def, lit_same_type_def, Boolv_def, ctor_same_type_def,
@@ -1778,9 +1778,9 @@ Proof
       \\ gvs [from_bin_op_def]
       \\ gvs [evaluate_def, do_app_def]
       \\ namedCases_on
-           ‘dfy_v₀’ ["i", "b", "dfy_str", "len dfy_loc"] \\ gvs []
+           ‘dfy_v₀’ ["i", "b", "dfy_str", "len dfy_loc ty"] \\ gvs []
       \\ namedCases_on
-           ‘dfy_v₁’ ["i'", "b'", "dfy_str'", "len' dfy_loc'"] \\ gvs []
+           ‘dfy_v₁’ ["i'", "b'", "dfy_str'", "len' dfy_loc' ty'"] \\ gvs []
       >~ [‘do_eq (Boolv _) (Boolv _)’] >-
        (Cases_on ‘b’ \\ Cases_on ‘b'’
         \\ gvs [evaluate_def, do_eq_def, lit_same_type_def, Boolv_def,
@@ -2023,7 +2023,7 @@ Proof
     \\ drule_all (cj 1 correct_from_exp)
     \\ disch_then $ qx_choosel_then [‘ck’, ‘t'’, ‘r_cml’] assume_tac
     \\ qexistsl [‘ck’, ‘t'’, ‘m’, ‘r_cml’] \\ gvs [])
-  >~ [‘ArrAlloc len init’] >-
+  >~ [‘ArrAlloc len init ty’] >-
    (gvs [evaluate_rhs_exp_def]
     \\ gvs [from_rhs_exp_def, oneline bind_def, CaseEq "sum"]
     \\ namedCases_on ‘evaluate_exp s env_dfy len’ ["s₁ r"] \\ gvs []
@@ -2068,7 +2068,7 @@ Proof
         \\ disch_then drule \\ rpt strip_tac \\ gvs []
         \\ irule_at Any store_preserve_all_trans \\ gvs [SF SFY_ss])
     \\ rename [‘do_app _ _ [len_cml_v; init_cml_v]’]
-    \\ namedCases_on ‘alloc_array s₂ len_v init_v’ ["", "r"] \\ gvs []
+    \\ namedCases_on ‘alloc_array s₂ len_v init_v ty’ ["", "r"] \\ gvs []
     \\ gvs [alloc_array_def, oneline val_to_num_def,
             CaseEqs ["option", "value"]]
     \\ gvs [do_app_def, store_alloc_def, build_conv_def, INT_ABS]
@@ -2208,7 +2208,7 @@ Proof
 QED
 
 Triviality update_array_some_eqs:
-  update_array s (ArrV len loc) (IntV idx) val = SOME s' ⇒
+  update_array s (ArrV len loc ty) (IntV idx) val = SOME s' ⇒
   s'.clock = s.clock ∧ s'.locals = s.locals ∧
   LENGTH s'.heap = LENGTH s.heap ∧
   ∀loc'. loc' ≠ loc ⇒ LLOOKUP s'.heap loc' = LLOOKUP s.heap loc'
@@ -2219,8 +2219,8 @@ QED
 (* TODO Rename? *)
 Triviality update_array_some_llookup:
   update_array s arr_v idx_v rhs_v = SOME s' ⇒
-  ∃len loc idx arr.
-    arr_v = ArrV len loc ∧ idx_v = IntV idx ∧ 0 ≤ idx ∧
+  ∃len loc ty idx arr.
+    arr_v = ArrV len loc ty ∧ idx_v = IntV idx ∧ 0 ≤ idx ∧
     LLOOKUP s.heap loc = SOME (HArr arr) ∧
     Num idx < LENGTH arr ∧
     LLOOKUP s'.heap loc = SOME (HArr (LUPDATE rhs_v (Num idx) arr))
@@ -2233,7 +2233,7 @@ Proof
 QED
 
 Triviality update_array_state_rel:
-  update_array s (ArrV arr_len loc) (IntV idx) v = SOME s' ∧
+  update_array s (ArrV arr_len loc ty) (IntV idx) v = SOME s' ∧
   FLOOKUP m loc = SOME loc_cml ∧
   store_lookup loc_cml t.refs = SOME (Varray varr) ∧
   LLOOKUP s'.heap loc = SOME (HArr (LUPDATE v (Num idx) harr)) ∧
@@ -2454,7 +2454,7 @@ Proof
   \\ namedCases_on ‘update_array s₂ arr_v idx_v rhs_v’ ["", "s₃"] \\ gvs []
   \\ drule update_array_some_llookup
   \\ disch_then $
-       qx_choosel_then [‘arr_len’, ‘arr_loc’, ‘idx_int’, ‘harr’] assume_tac
+       qx_choosel_then [‘arr_len’, ‘arr_loc’, ‘arr_ty’, ‘idx_int’, ‘harr’] assume_tac
   \\ gvs []
   \\ rename [‘val_rel _ _ rhs_v_cml’, ‘Loc T loc_cml’]
   \\ drule_all state_rel_llookup
