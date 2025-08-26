@@ -2344,7 +2344,7 @@ Proof
 QED
 
 Triviality eval_exp_get_type:
-  ∀locals e ty.
+  ∀locals e ty val st.
     get_type locals e = INR ty ∧
     eval_exp st env e val ∧
     locals_ok locals st.locals ⇒
@@ -2361,8 +2361,9 @@ Proof
   >~ [‘If’] >-
    (gvs [get_type_def, oneline bind_def, eval_exp_def, evaluate_exp_def,
          PULL_EXISTS, AllCaseEqs()]
-    \\ imp_res_tac do_cond_some_cases \\ gvs [do_cond_def]
     \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+    \\ imp_res_tac do_cond_some_cases \\ gvs [do_cond_def]
+    \\ last_x_assum drule \\ simp []
     \\ last_x_assum drule \\ simp [])
   >~ [‘UnOp’] >-
    (gvs [get_type_def, oneline bind_def, eval_exp_def, evaluate_exp_def,
@@ -2370,9 +2371,15 @@ Proof
   >~ [‘BinOp’] >-
    (gvs [get_type_def, oneline bind_def, eval_exp_def, evaluate_exp_def,
          do_sc_def, do_bop_def, all_values_def, AllCaseEqs()])
-  >~ [‘ArrSel’] >-
-   (* TODO fix all_values for array *)
-   (cheat)
+  >~ [‘ArrSel arr idx’] >-
+   (gvs [get_type_def, oneline bind_def, oneline dest_ArrT_def, AllCaseEqs()]
+    \\ gvs [eval_exp_def, evaluate_exp_def, PULL_EXISTS, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+    \\ gvs [state_component_equality]
+    \\ last_x_assum drule \\ simp []
+    \\ last_x_assum drule \\ simp []
+    \\ rpt strip_tac
+    \\ cheat)
   \\ gvs [get_type_def, oneline bind_def, eval_exp_def, evaluate_exp_def,
           all_values_def, AllCaseEqs()]
 QED
