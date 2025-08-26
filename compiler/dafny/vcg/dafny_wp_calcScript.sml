@@ -39,6 +39,32 @@ Definition dest_ArrT_def:
   dest_ArrT _ = fail «dest_ArrT: Not ArrT»
 End
 
+Definition value_inv_def:
+  value_inv heap v ⇔
+    ∀len loc ty.
+      v = ArrV len loc ty ⇒
+      ∃arr. LLOOKUP heap loc = SOME (HArr arr ty) ∧ LENGTH arr = loc
+End
+
+Definition heap_inv_def:
+  heap_inv heap ⇔
+    ∀loc arr ty.
+      LLOOKUP heap loc = SOME (HArr arr ty) ⇒
+      ∀i v.
+        LLOOKUP arr i = SOME v ⇒ value_inv heap v ∧ value_has_type ty v
+End
+
+Definition locals_inv_def:
+  locals_inv heap locals ⇔
+    ∀var val. ALOOKUP locals var = SOME (SOME val) ⇒ value_inv heap val
+End
+
+Definition state_inv_def:
+  state_inv st ⇔
+    locals_inv st.heap st.locals ∧ heap_inv st.heap ∧
+    locals_inv st.heap_old st.locals_old ∧ heap_inv st.heap_old
+End
+
 Definition get_type_def:
   get_type _ (Lit l) =
   (case l of
@@ -2343,11 +2369,48 @@ Proof
   \\ rpt strip_tac \\ gvs []
 QED
 
+Triviality value_has_type_eq_all_values:
+  value_has_type ty val ⇔ val ∈ all_values ty
+Proof
+  Cases_on ‘ty’ \\ Cases_on ‘val’
+  \\ simp [value_has_type_def, all_values_def]
+QED
+
+Triviality index_array_all_values:
+  arr ∈ all_values (ArrT ty) ∧ idx ∈ all_values IntT ∧
+  index_array st arr idx = SOME val ∧
+  value_inv st.heap arr ∧ heap_inv st.heap ⇒
+  val ∈ all_values ty
+Proof
+  rpt strip_tac
+  \\ gvs [index_array_def, all_values_def, val_to_num_def, value_inv_def,
+          heap_inv_def, AllCaseEqs()]
+  \\ first_x_assum drule_all
+  \\ simp [value_has_type_eq_all_values]
+QED
+
+Triviality evaluate_exp_value_inv:
+  (∀st env e st' v.
+     evaluate_exp st env e = (st', Rval v) ∧ state_inv st ⇒
+     state_inv st' ∧ value_inv st.heap v) ∧
+  (∀st env es st' vs.
+     evaluate_exps st env es = (st', Rval vs) ∧ state_inv st ⇒
+     state_inv st' ∧ EVERY (value_inv st.heap) vs)
+Proof
+  ho_match_mp_tac evaluate_exp_ind
+  \\ rpt strip_tac
+  >~ [‘Lit l’] >-
+   (gvs [evaluate_exp_def, value_inv_def, lit_to_val_def]
+    \\ Cases_on ‘l’ \\ gvs [])
+  \\ cheat
+QED
+
 Triviality eval_exp_get_type:
   ∀locals e ty val st.
     get_type locals e = INR ty ∧
     eval_exp st env e val ∧
-    locals_ok locals st.locals ⇒
+    locals_ok locals st.locals ∧
+    state_inv st ⇒
     val ∈ all_values ty
 Proof
   ho_match_mp_tac get_type_ind
@@ -2379,7 +2442,11 @@ Proof
     \\ last_x_assum drule \\ simp []
     \\ last_x_assum drule \\ simp []
     \\ rpt strip_tac
-    \\ cheat)
+    \\ drule index_array_all_values
+    \\ ntac 2 $ disch_then drule
+    \\ impl_tac >-
+     (cheat)
+    \\ simp [])
   \\ gvs [get_type_def, oneline bind_def, eval_exp_def, evaluate_exp_def,
           all_values_def, AllCaseEqs()]
 QED
@@ -2395,7 +2462,8 @@ Proof
   >- (simp [get_types_def, result_mmap_def])
   \\ rpt strip_tac
   \\ gvs [get_types_def, result_mmap_def, oneline bind_def, CaseEq "sum"]
-  \\ drule_all eval_exp_get_type \\ simp []
+  \\ cheat (* TODO Need to adjust premises to mention state_inv *)
+  (* \\ drule_all eval_exp_get_type \\ simp [] *)
 QED
 
 Triviality get_types_var:
