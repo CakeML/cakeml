@@ -308,9 +308,11 @@ Termination
   \\ gvs []
 End
 
+(*
 Definition require_def:
   require p ⇔ freevars p = ∅ ∧ ⊢ p
 End
+*)
 
 Definition dec_assum_def:
   dec_assum v e = dfy_eq (Var v) e
@@ -365,22 +367,24 @@ Inductive stmt_wp:
     ⇒
     stmt_wp m [Let (ZIP (ret_names,exps)) (conj post)] (Assign l) post ens decs ls
 [~While:]
-  ∀m guard invs ds mods body post ens decs ls ds_vars.
+  ∀m guard invs ds mods body post ens decs ls ds_vars ls1 loop_cond.
     DISJOINT (set ds_vars) (set (MAP FST ls ++ get_vars_stmt body)) ∧
     LENGTH ds_vars = LENGTH ds ∧
     get_type ls guard = INR BoolT ∧
+    ls1 = FILTER (λ(v,ty). assigned_in body v) ls ∧
     (* when executing the body, invs are maintained *)
-    require (Foralls (MAP (λv. (v,IntT)) ds_vars ++ ls)
-               (imp (conj (guard :: invs ++ MAP2 dec_assum ds_vars ds))
-                    (conj body_wp))) ∧
+    loop_cond = Foralls (MAP (λv. (v,IntT)) ds_vars ++ ls)
+                  (imp (conj (guard :: invs ++ MAP2 dec_assum ds_vars ds))
+                     (conj body_wp)) ∧
     stmt_wp m body_wp body
       (invs ++ [CanEval guard] ++ MAP CanEval ds ++
        decreases_check (0, ds) (0, MAP Var ds_vars))
       ens decs (MAP (λv. (v,IntT)) ds_vars ++ ls)
     ⇒
     stmt_wp m (invs ++ [CanEval guard] ++ MAP CanEval ds ++
+               MAP (CanEval o Var o FST) ls1 ++ [loop_cond] ++
                (* on exit of loop, invs and not guard imply post *)
-               [Foralls (FILTER (λ(v,ty). assigned_in body v) ls)
+               [Foralls ls1
                   (imp (conj (not guard :: invs)) (conj post))])
             (While guard invs ds mods body) post ens decs ls
 [~MetCall:]
@@ -2955,7 +2959,8 @@ Proof
        conditions_hold stx env (invs ++ [CanEval guard] ++ MAP CanEval ds) ∧
        locals_ok locals stx.locals ∧
        stx.locals_old = st.locals_old ∧
-       stx.heap_old = st.heap_old ⇒
+       stx.heap_old = st.heap_old ∧
+       stx.heap = st.heap ⇒
        ∃st' ret.
          eval_stmt stx env (While guard invs ds mods body) st' ret ∧
          st'.locals_old = stx.locals_old ∧ st'.heap = stx.heap ∧
@@ -2976,7 +2981,7 @@ Proof
       \\ drule eval_true_Foralls
       \\ qabbrev_tac ‘vs = FILTER (λ(v,ty). assigned_in body v) locals’
       \\ qabbrev_tac ‘vals = MAP (λ(v,_). (v,ALOOKUP st'.locals v)) vs’
-      \\ ‘EVERY (IS_SOME o SND) vals’ by cheat (* not quite guaranteed *)
+      \\ ‘EVERY (IS_SOME o SND) vals’ by cheat (* easy *)
       \\ disch_then $ qspec_then ‘MAP (λ(v,val). (v,THE val)) vals’ mp_tac
       \\ impl_keep_tac
       >- cheat (* ought to be true *)
@@ -3001,7 +3006,8 @@ Proof
           conditions_hold stx env (invs ++ [CanEval guard] ++ MAP CanEval ds) ∧
           locals_ok locals stx.locals ∧
           stx.locals_old = st.locals_old ∧
-          stx.heap_old = st.heap_old ⇒
+          stx.heap_old = st.heap_old ∧
+          stx.heap = st.heap ⇒
           ∃st' ret.
             eval_stmt stx env (While guard invs ds mods body) st' ret ∧
             st'.locals_old = stx.locals_old ∧ st'.heap = stx.heap ∧
@@ -3034,8 +3040,10 @@ Proof
     \\ last_x_assum $ qspecl_then [‘st1 with locals := ds1 ++ st1.locals’,‘env’] mp_tac
     \\ ‘eval_measure st env (wrap_old decs) =
         eval_measure st1 env (wrap_old decs)’ by
-           cheat (* because olds are the same *)
+      (Cases_on ‘decs’ \\ fs [eval_measure_def,wrap_old_def]
+       \\ irule eval_decreases_old_eq \\ fs [])
     \\ impl_tac
+
     >-
      (conj_tac
       >-
@@ -3045,7 +3053,27 @@ Proof
         \\ asm_rewrite_tac []
         \\ first_assum $ irule_at Any)
       \\ simp []
-      \\ cheat (* reqs should be inv *))
+      \\ reverse conj_tac
+      >- cheat
+      \\ qpat_x_assum ‘eval_true _ _ (Foralls _ (imp _ (conj reqs)))’ assume_tac
+      \\ dxrule eval_true_Foralls
+      \\ disch_then $ qspec_then ‘ds1 ++ MAP (λ(v,_). (v, THE (ALOOKUP st1.locals v))) locals’ mp_tac
+      \\ impl_tac
+      >- cheat
+      \\ qpat_abbrev_tac ‘ys = REVERSE _ ++ _’
+      \\ qabbrev_tac ‘zs = ds1 ++ st1.locals’
+      \\ ‘ALOOKUP ys = ALOOKUP zs’ by cheat
+      \\ dxrule eval_true_swap_locals_alt
+      \\ disch_then $ simp o single
+      \\ qunabbrev_tac ‘ys’
+      \\ ‘eval_true (st with locals := zs) =
+          eval_true (st1 with locals := zs)’ by cheat
+      \\ asm_rewrite_tac []
+      \\ strip_tac
+      \\ dxrule eval_true_imp
+      \\ simp [eval_true_conj_every,conditions_hold_def]
+      \\ disch_then irule
+      \\ cheat)
     \\ simp []
     \\ strip_tac
     \\ drule_then drule eval_stmt_drop_locals
