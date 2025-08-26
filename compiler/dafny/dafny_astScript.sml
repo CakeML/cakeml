@@ -70,8 +70,8 @@ End
 Datatype:
   rhs_exp =
   | ExpRhs exp
-  (* ArrAlloc length init_value *)
-  | ArrAlloc exp exp
+  (* ArrAlloc length init_value type *)
+  | ArrAlloc exp exp type
 End
 
 Datatype:
@@ -121,4 +121,3 @@ Datatype:
      default class *)
   program = Program (member_decl list)
 End
-

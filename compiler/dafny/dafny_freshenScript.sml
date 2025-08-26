@@ -113,10 +113,10 @@ Definition freshen_rhs_exp_def:
   (freshen_rhs_exp m m_old cnt (ExpRhs e) =
    let (cnt, e) = freshen_exp m m_old cnt e in
      (cnt, ExpRhs e)) ∧
-  freshen_rhs_exp m m_old cnt (ArrAlloc len init_v) =
+  freshen_rhs_exp m m_old cnt (ArrAlloc len init_v ty) =
   let (cnt, len) = freshen_exp m m_old cnt len in
   let (cnt, init_v) = freshen_exp m m_old cnt init_v in
-    (cnt, ArrAlloc len init_v)
+    (cnt, ArrAlloc len init_v ty)
 End
 
 Definition freshen_rhs_exps_def:
@@ -198,4 +198,3 @@ Definition freshen_program_def:
   freshen_program (Program members) =
     Program (MAP freshen_member members)
 End
-

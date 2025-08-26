@@ -144,21 +144,21 @@ Proof
 QED
 
 Theorem alloc_array_none_with_clock:
-  alloc_array s len init = NONE ⇒
-  alloc_array (s with clock := ck) len init = NONE
+  alloc_array s len init ty = NONE ⇒
+  alloc_array (s with clock := ck) len init ty = NONE
 Proof
   rpt strip_tac \\ gvs [alloc_array_def, AllCaseEqs()]
 QED
 
 Theorem alloc_array_some_with_clock:
-  alloc_array s len init = SOME (s', arr) ⇒
-  alloc_array (s with clock := ck) len init = SOME (s' with clock := ck, arr)
+  alloc_array s len init ty = SOME (s', arr) ⇒
+  alloc_array (s with clock := ck) len init ty = SOME (s' with clock := ck, arr)
 Proof
   rpt strip_tac \\ gvs [alloc_array_def, AllCaseEqs()]
 QED
 
 Theorem alloc_array_some_clock_eq:
-  alloc_array s len init = SOME (s', arr) ⇒ s'.clock = s.clock
+  alloc_array s len init ty = SOME (s', arr) ⇒ s'.clock = s.clock
 Proof
   rpt strip_tac \\ gvs [alloc_array_def, AllCaseEqs()]
 QED

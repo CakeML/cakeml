@@ -1688,7 +1688,7 @@ End
 
 Definition is_fresh_rhs_exp[simp]:
   (is_fresh_rhs_exp (ExpRhs e) ⇔ is_fresh_exp e) ∧
-  (is_fresh_rhs_exp (ArrAlloc len init_e) ⇔
+  (is_fresh_rhs_exp (ArrAlloc len init_e _) ⇔
      is_fresh_exp len ∧ is_fresh_exp init_e)
 End
 
