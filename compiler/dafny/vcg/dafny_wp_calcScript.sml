@@ -422,6 +422,7 @@ Inductive stmt_wp:
     LENGTH ds_vars = LENGTH ds ∧
     ALL_DISTINCT ds_vars ∧
     get_type ls guard = INR BoolT ∧
+    EVERY (λd. get_type ls d = INR IntT) ds ∧
     ls1 = FILTER (λ(v,ty). assigned_in body v) ls ∧
     (* when executing the body, invs are maintained *)
     loop_cond = Foralls (MAP (λv. (v,IntT)) ds_vars ++ ls)
@@ -2950,10 +2951,12 @@ QED
 Theorem eval_stmt_drop_locals:
   eval_stmt (st1 with locals := ds1 ++ st1.locals) env body st2 ret ∧
   locals_ok (MAP (λv. (v,IntT)) ds_vars ++ locals) st2.locals ∧
-  DISJOINT (set (get_vars_stmt body)) (set (MAP FST ds1)) ⇒
+  DISJOINT (set (get_vars_stmt body)) (set (MAP FST ds1)) ∧
+  state_inv st2 ⇒
   ∃rest.
     locals_ok locals rest ∧
     eval_stmt st1 env body (st2 with locals := rest) ret ∧
+    state_inv (st2 with locals := rest) ∧
     (∀e v.
        eval_exp st2 env e v ∧
        DISJOINT (set (get_vars_exp e)) (set (MAP FST ds1)) ⇒
@@ -3080,6 +3083,35 @@ Theorem assign_in_IMP_get_vars_stmt:
   assigned_in body v ⇒  MEM v (get_vars_stmt body)
 Proof
   cheat
+QED
+
+Definition IS_SOME_SOME_def:
+  IS_SOME_SOME x = ∃y. x = SOME (SOME (y:'a))
+End
+
+Theorem eval_stmt_assigned_inv:
+  eval_stmt st env stmt st1 res ∧
+  IS_SOME_SOME (ALOOKUP st.locals v) ⇒
+  IS_SOME_SOME (ALOOKUP st1.locals v)
+Proof
+  cheat
+QED
+
+Triviality eval_true_CanEval_Var:
+  eval_true st env (CanEval (Var p_1)) ⇒
+  IS_SOME_SOME (ALOOKUP st.locals p_1)
+Proof
+  fs [eval_true_def, eval_exp_def,evaluate_exp_def,CanEval_def,read_local_def]
+  \\ fs [AllCaseEqs()]
+  \\ rw [] \\ gvs [do_sc_def]
+  \\ fs [IS_SOME_SOME_def]
+QED
+
+Theorem locals_inv_intv:
+  EVERY (λv. ∃i. v = SOME (IntV i)) (MAP SND xs) ⇒ locals_inv heap xs
+Proof
+  gvs [locals_inv_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD]
+  \\ rw [] \\ res_tac \\ gvs [value_inv_def]
 QED
 
 Theorem stmt_wp_sound:
@@ -3302,7 +3334,14 @@ Proof
       \\ drule eval_true_Foralls
       \\ qabbrev_tac ‘vs = FILTER (λ(v,ty). assigned_in body v) locals’
       \\ qabbrev_tac ‘vals = MAP (λ(v,_). (v,ALOOKUP st'.locals v)) vs’
-      \\ ‘EVERY (IS_SOME o SND) vals’ by cheat (* easy *)
+      \\ ‘EVERY (IS_SOME_SOME o SND) vals’ by
+       (gvs [Abbr‘vals’,EVERY_MAP] \\ simp [LAMBDA_PROD]
+        \\ simp [EVERY_MEM,FORALL_PROD] \\ rw []
+        \\ drule_then irule eval_stmt_assigned_inv
+        \\ qpat_x_assum ‘conditions_hold st env (MAP (CanEval ∘ Var ∘ FST) vs)’ assume_tac
+        \\ fs [conditions_hold_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]
+        \\ pop_assum dxrule \\ simp []
+        \\ strip_tac \\ imp_res_tac eval_true_CanEval_Var \\ simp [])
       \\ disch_then $ qspec_then ‘MAP (λ(v,val). (v,THE val)) vals’ mp_tac
       \\ impl_keep_tac
       >- cheat (* ought to be true *)
@@ -3366,6 +3405,7 @@ Proof
       (Cases_on ‘decs’ \\ fs [eval_measure_def,wrap_old_def]
        \\ irule eval_decreases_old_eq \\ fs [])
     \\ impl_tac
+
     >-
      (conj_tac
       >-
@@ -3374,18 +3414,34 @@ Proof
         \\ fs [eval_measure_with_locals_wrap_old]
         \\ asm_rewrite_tac []
         \\ first_assum $ irule_at Any)
+      \\ ‘EVERY (λv. ∃i. v = IntV i) ds_vals’ by
+        (qpat_x_assum ‘EVERY (λd. get_type locals d = INR IntT) ds’ assume_tac
+         \\ fs [EVERY_EL] \\ rpt strip_tac
+         \\ fs [LIST_REL_EL_EQN] \\ rfs []
+         \\ first_x_assum drule
+         \\ first_x_assum dxrule
+         \\ rpt strip_tac
+         \\ drule_all eval_exp_get_type
+         \\ simp [all_values_def])
       \\ simp []
-      \\ conj_tac >- (cheat (* state_inv *))
-      \\ reverse conj_tac
+      \\ conj_tac >-
+       (fs [state_inv_def,locals_inv_append]
+        \\ irule locals_inv_intv
+        \\ simp [Abbr‘ds1’]
+        \\ DEP_REWRITE_TAC [MAP_ZIP |> UNDISCH |> cj 2 |> DISCH_ALL]
+        \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+        \\ gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS])
+      \\ reverse conj_asm2_tac
       >- cheat (* looks true *)
       \\ qpat_x_assum ‘eval_true _ _ (Foralls _ (imp _ (conj reqs)))’ assume_tac
       \\ dxrule eval_true_Foralls
       \\ disch_then $ qspec_then ‘ds1 ++ MAP (λ(v,_). (v, THE (ALOOKUP st1.locals v))) locals’ mp_tac
       \\ impl_tac
-      >- cheat (* looks true *)
+      >- cheat (* looks true, too strict on locals? *)
       \\ qpat_abbrev_tac ‘ys = REVERSE _ ++ _’
       \\ qabbrev_tac ‘zs = ds1 ++ st1.locals’
-      \\ ‘ALOOKUP ys = ALOOKUP zs’ by cheat
+      \\ ‘ALOOKUP ys = ALOOKUP zs’ by
+            cheat (* hmm, what if st1.locals has more than locals *)
       \\ dxrule eval_true_swap_locals_alt
       \\ disch_then $ simp o single
       \\ qunabbrev_tac ‘ys’
@@ -3426,14 +3482,11 @@ Proof
     \\ simp []
     \\ reverse conj_tac
     >-
-     (conj_tac
-      >-
-       (fs [conditions_hold_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,eval_true_def]
-        \\ rpt strip_tac
-        \\ first_x_assum irule \\ fs []
-        \\ fs [get_vars_stmt_def,CanEval_def,get_vars_exp_def,LIST_TO_SET_FLAT]
-        \\ fs [MEM_MAP,PULL_EXISTS])
-      \\ cheat (* state_inv *))
+     (fs [conditions_hold_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,eval_true_def]
+      \\ rpt strip_tac
+      \\ first_x_assum irule \\ fs []
+      \\ fs [get_vars_stmt_def,CanEval_def,get_vars_exp_def,LIST_TO_SET_FLAT]
+      \\ fs [MEM_MAP,PULL_EXISTS])
     \\ simp [eval_measure_def,LEX_DEF]
     \\ fs [decreases_check_def,decrease_lt_def]
     \\ ‘LENGTH ds_vals = LENGTH ds_vars’ by (imp_res_tac LIST_REL_LENGTH \\ fs [])
