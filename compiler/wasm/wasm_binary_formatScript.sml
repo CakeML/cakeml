@@ -793,19 +793,14 @@ Definition enc_module_def:
       SOME $
       0x00w:: 0x61w:: 0x73w:: 0x6Dw:: (* \0asm - magic number         *)
       0x01w:: 0x00w:: 0x00w:: 0x00w:: (* version number of Bin format *)
-      (* Type     *) enc_section  1w    types'   ++
-      (* Function *) enc_section  3w    funcs'   ++
-      (* Memory   *) enc_section  5w    mems'    ++
-      (* Global   *) enc_section  6w    globals' ++
-      (* Code     *) enc_section 10w    code'    ++
-      (* Data     *) enc_section 11w    datas'
-    (* Custom   *) (* enc_section  0w    ???      ++ *)
+      (* Type     *) enc_section  1w    types'    ++
+      (* Function *) enc_section  3w    funcs'    ++
+      (* Memory   *) enc_section  5w    mems'     ++
+      (* Global   *) enc_section  6w    globals'  ++
+      (* Code     *) enc_section 10w    code'     ++
+      (* Data     *) enc_section 11w    datas'    ++
+      (* Custom   *) enc_section  0w    []
 End
-    (* Import   *) (* enc_section  2w *)
-    (* Table    *) (* enc_section  4w *)
-    (* Export   *) (* enc_section  7w *)
-    (* Start    *) (* enc_section  8w *)
-    (* Element  *) (* enc_section  9w *)
 
 
 
@@ -1048,28 +1043,30 @@ Theorem dec_enc_global[simp]:
     enc_global g = SOME encg ⇒
     dec_global $ encg ++ rs = (INR g, rs)
 Proof
-  rw[enc_global_def,AllCaseEqs(), dec_global_def]
-  >- (Cases_on `g.gtype` >> rw[enc_globaltype_def])
-  \\ simp[Once (GSYM APPEND_ASSOC), Excl "APPEND_ASSOC"  ]
-  \\ rpt strip_tac
-\\
-cheat
-QED
+  (*
 
-(*
-Theorem dec_enc_instr:
-  (!e is encis rs.
-    enc_instrs e is = SOME encis ==>
-    dec_instr_list $ encis ++ rs = (INR is, rs)) /\
-  (!e is encis rs.
-    enc_instr e is = SOME encis ==>
-    dec_instr $ encis ++ rs = (INR is, rs))
-Proof
+  (* attempt 1 *)
+  rpt gen_tac
+  \\ ‘∃ res. encg ++ rs = res’ by simp[]
+  \\ asm_rewrite_tac[]
+  (* why won't this unfold dec_global's defn? *)
+  \\ simp[dec_global_def]
+
+  (* attempt 2 *)
+  rewrite_tac[enc_global_def]
+  \\ simp[AllCaseEqs()]
+  (* why won't this unfold dec_global's defn? *)
+  \\ simp[dec_global_def]
+  \\ Cases_on ‘g.gtype’
+    >> simp[enc_globaltype_def]
+    >> rpt strip_tac
+    >> gvs[dec_global_def, dec_globaltype_def]
+
+  *)
   cheat
 QED
-*)
 
-val assok = rewrite_tac[GSYM APPEND_ASSOC]
+(* ASKYK *)
 Theorem dec_enc_code:
   ∀cd encC rs.
     enc_code cd = SOME encC ⇒
@@ -1086,13 +1083,33 @@ Proof
   \\ disch_then ( fn thm => DEP_REWRITE_TAC [thm] )
   \\ rw[dec_enc_valtype_Seq]
   \\ cheat
+  rpt gen_tac
+  \\ rewrite_tac[enc_code_def, AllCaseEqs()] \\ gvs[]
+  \\ Cases_on ‘enc_vector enc_valtype_Seq (FST cd)’ >> gvs[]
+  \\ rpt strip_tac
+  (* why won't dec_code unfold? *)
+  \\ simp[dec_code_def]
+  \\ ‘∃ res. encC ++ rs = res’ by simp[]
+  \\ pop_assum mp_tac
+  \\ simp[]
+  \\
+  cheat
+  (*
+  \\ PairCases_on ‘enc_vector enc_valtype_Seq (FST cd)’
+  *)
 QED
 
+(* ASKYK *)
 Theorem dec_enc_data:
   ∀dt encD rs.
     enc_data dt = SOME encD ⇒
     dec_data $ encD ++ rs = (INR dt, rs)
 Proof
+  Cases_on `dt` >> Cases_on `l` >> Cases_on `l0` >> gvs[]
+  \\ rpt gen_tac
+  \\ gvs[enc_data_def, enc_vector_def, Once enc_instr_def]
+  (* \\ simp[GSYM APPEND_ASSOC, Excl "APPEND_ASSOC", dec_data_def] *)
+  \\
   cheat
 QED
 

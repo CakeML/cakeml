@@ -25,6 +25,7 @@ Overload elseB[local] = “0x05w:byte”
 Overload endB[local]  = “0x0Bw:byte”
 Overload B0[local]    = “(λ x. x = zeroB):byte -> bool”
 
+Type dcdr[local] = “:(mlstring + α) # byteSeq”
 Overload error[local] = “λ obj str. (INL $ strlit str,obj)”
 Overload emErr[local] = “λ str. (INL $ strlit $ "[" ++ str ++ "] : Byte sequence unexpectedly empty.\n",[])”
 
@@ -1420,20 +1421,72 @@ End
 Definition enc_global_def:
   enc_global (g:global) : byteSeq option =
     case enc_expr g.ginit of NONE=>NONE| SOME expr =>
-    SOME $ enc_globaltype g.gtype ++ expr
+      SOME $ enc_globaltype g.gtype ++ expr
 End
+
+Definition dec_global_def:
+  dec_global ([]:byteSeq) : global dcdr = emErr "dec_global"
+  ∧
+  dec_global bs = let failure = error bs "[dec_global]"
+  in
+  case dec_globaltype bs of (INL _,_) => failure | (INR gt, cs) =>
+  case dec_instr_list cs of (INL _,_) => failure | (INR ex, rs) =>
+    (INR <| gtype := gt
+          ; ginit := ex
+          |> : mlstring + global
+    , bs)
+End
+
+
 
 Definition enc_code_def:
   enc_code (c:valtype list # expr) : byteSeq option =
-    case enc_vector enc_valtype_Seq (FST c) of NONE=>NONE| SOME encL =>
     case enc_expr                   (SND c) of NONE=>NONE| SOME encC =>
-    let code = encL ++ encC in
-    SOME $ enc_u32 (n2w $ LENGTH code) ++ code
+    case enc_vector enc_valtype_Seq (FST c) of NONE=>NONE| SOME encL =>
+      let code = encL ++ encC in
+      SOME $ enc_u32 (n2w $ LENGTH code) ++ code
 End
 
-Definition enc_data_def:
-  enc_data (d:data) : byteSeq option = ARB
+Definition dec_code_def:
+  dec_code ([]:byteSeq) : ((mlstring + valtype list # expr) # byteSeq) = emErr "dec_code" ∧
+  dec_code bs = let failure = error bs "[dec_code]" in
+    case dec_u32                bs of  NONE    =>failure|SOME (len,cs) =>
+    case dec_vector dec_valtype cs of (INL _,_)=>failure|(INR vts ,ds) =>
+    case dec_instr_list         ds of (INL _,_)=>failure|(INR code,rs) =>
+      (INR (vts, code), rs)
 End
+
+
+
+(*
+Definition enc_data_def:
+  enc_data (d:data) : byteSeq option =
+    case enc_vector (λ b. [b]) d.dinit of NONE=>NONE| SOME ini =>
+    case enc_expr d.offset             of NONE=>NONE| SOME ofs =>
+      SOME $ enc_u32 d.data ++ ofs ++ ini
+End
+*)
+
+Definition foo_def:
+  foo [] = error [] "bogus" ∧
+  foo (b::bs) = (INR b, bs)
+End
+
+(*
+Definition dec_data_def:
+  dec_data ([]:byteSeq) : data dcdr = emErr "dec_data"
+  ∧
+  dec_data bs = let failure = error bs "[dec_data]" in
+    case dec_u32        bs of  NONE     =>failure| SOME (idx,cs) =>
+    case dec_instr_list cs of (INL _,_) =>failure| (INR ofse,ds) =>
+    case dec_vector foo ds of (INL _,_) =>failure| (INR ini ,rs) =>
+      (INR <| data   := idx
+            ; offset := ofse
+            ; dinit  := ini
+            |> : mlstring + data
+      , rs)
+End
+*)
 
 Definition enc_section_def:
   enc_section (leadByte:byte) (contents:byteSeq) : byteSeq =
@@ -1441,7 +1494,7 @@ Definition enc_section_def:
 End
 
 (* Definition dec_section_def:
-  dec_section ([]:byteSeq) : ((mlstring + byteSeq) # byteSeq) = emErr "dec_section" ∧
+  dec_section ([]:byteSeq) : byteSeq dcdr = emErr "dec_section" ∧
   dec_section bs = let failure = error bs "[dec_section]" in
 
   case dec_u32 of NONE=>NONE| SOME
@@ -1450,57 +1503,83 @@ End
     leadByte :: enc_u32 (n2w $ LENGTH contents) ++ contents
 End *)
 
-Overload enc_custom_sec  = “enc_section  0w”
-Overload enc_type_sec    = “enc_section  1w”
-Overload enc_funcs_sec   = “enc_section  3w”
-Overload enc_memory_sec  = “enc_section  5w”
-Overload enc_global_sec  = “enc_section  6w”
-Overload enc_code_sec    = “enc_section 10w”
-Overload enc_data_sec    = “enc_section 11w”
-(* Overload enc_import_sec  = “enc_section  2w” *)
-(* Overload enc_table_sec   = “enc_section  4w” *)
-(* Overload enc_export_sec  = “enc_section  7w” *)
-(* Overload enc_start_sec   = “enc_section  8w” *)
-(* Overload enc_element_sec = “enc_section  9w” *)
-
-Definition split_funcs_def:
-  split_funcs ([]:func list) : index list # (valtype list # expr) list = ([],[]) ∧
-  split_funcs (f::fs) =
-  let (typs, lBods) = split_funcs fs in
-  (f.ftype :: typs, (f.locals, f.body) :: lBods)
-End
-
-(* Overload enc_types   = enc_vectorO enc_functype
-Overload enc_funcs   = enc_vector  enc_u32
-Overload enc_mems    = enc_vector  enc_limits
-Overload enc_globals = enc_vectorO enc_global
-Overload enc_codes   = enc_vectorO enc_code
-Overload enc_datas   = enc_vectorO enc_data     *)
-
-(* From CWasm (not Wasm!) modules to Wasm binary format *)
 (*
+Definition split_funcs_def:
+  split_funcs ([]:func list) =  ( [] :  index                list
+                                , [] : (valtype list # expr) list
+                                , [] :  mlstring             list
+                                , [] :  mlstring list        list
+  ) ∧
+  split_funcs (f::fs) =
+    let ( typs
+        , lBods
+        , func_names
+        , local_names
+        ) = split_funcs fs
+    in
+    ( f.ftype            :: typs
+    ,(f.locals, f.body)  :: lBods
+    , f.fname            :: func_names
+    , f.lnames           :: local_names
+    )
+End
+*)
+
+(*
+Definition zip_funcs_def:
+  zip_funcs ([] :  index                list)
+            (_  : (valtype list # expr) list)
+            (_  :  mlstring             list)
+            (_  :  mlstring list        list) = [] : func list
+  ∧
+  zip_funcs _ [] _ _ = []
+  ∧
+  zip_funcs _ _ [] _ = []
+  ∧
+  zip_funcs _ _ _ [] = []
+  ∧
+  zip_funcs ( fi            :: is   )
+            ( (vs,e)        :: vles )
+            ( func_name     :: fns  )
+            ( local_names   :: lns  ) =
+  (<| ftype  := fi
+    ; locals := vs
+    ; body   := e
+    ; fname  := func_name
+    ; lnames := local_names
+    |> : func)      :: zip_funcs is vles fns lns
+End
+*)
+
+
+
+(*
+(* From CWasm (not Wasm!) modules to WBF *)
 Definition enc_module_def:
   enc_module (m:module) : byteSeq option =
-
-    let (fTIdxs, locBods) = split_funcs m.funcs in
-    case enc_vectorO  enc_functype  m.types   of NONE=>NONE| SOME types'   =>
-    case enc_vector   enc_u32       fTIdxs    of NONE=>NONE| SOME funcs'   =>
-    case enc_vector   enc_limits    m.mems    of NONE=>NONE| SOME mems'    =>
-    case enc_vectorO  enc_global    m.globals of NONE=>NONE| SOME globals' =>
-    case enc_vectorO  enc_code      locBods   of NONE=>NONE| SOME code'    =>
-    case enc_vectorO  enc_data      m.datas   of NONE=>NONE| SOME datas'   =>
-
-    SOME $
-    0x00w:: 0x61w:: 0x73w:: 0x6Dw:: (* \0asm - magic number         *)
-    0x01w:: 0x00w:: 0x00w:: 0x00w:: (* version number of Bin format *)
-
-    enc_type_sec   types'   ++
-    enc_funcs_sec  funcs'   ++
-    enc_memory_sec mems'    ++
-    enc_global_sec globals' ++
-    enc_code_sec   code'    ++
-    enc_data_sec   datas'
+    let (fTIdxs, locBods, fns, lns) = split_funcs m.funcs in
+    case enc_vector_opt  enc_functype  m.types   of NONE=>NONE| SOME types'   =>
+    case enc_vector      enc_u32       fTIdxs    of NONE=>NONE| SOME funcs'   =>
+    case enc_vector      enc_limits    m.mems    of NONE=>NONE| SOME mems'    =>
+    case enc_vector_opt  enc_global    m.globals of NONE=>NONE| SOME globals' =>
+    case enc_vector_opt  enc_code      locBods   of NONE=>NONE| SOME code'    =>
+    case enc_vector_opt  enc_data      m.datas   of NONE=>NONE| SOME datas'   =>
+      SOME $
+      0x00w:: 0x61w:: 0x73w:: 0x6Dw:: (* \0asm - magic number         *)
+      0x01w:: 0x00w:: 0x00w:: 0x00w:: (* version number of Bin format *)
+      (* Type     *) enc_section  1w    types'    ++
+      (* Function *) enc_section  3w    funcs'    ++
+      (* Memory   *) enc_section  5w    mems'     ++
+      (* Global   *) enc_section  6w    globals'  ++
+      (* Code     *) enc_section 10w    code'     ++
+      (* Data     *) enc_section 11w    datas'    ++
+      (* Custom   *) enc_section  0w    []
 End
+    (* Import   *) (* enc_section  2w *)
+    (* Table    *) (* enc_section  4w *)
+    (* Export   *) (* enc_section  7w *)
+    (* Start    *) (* enc_section  8w *)
+    (* Element  *) (* enc_section  9w *)
 *)
 
 
