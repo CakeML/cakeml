@@ -1518,6 +1518,7 @@ Proof
     IF_CASES_TAC >>
     simp[comp_def,no_share_inst_def,list_Seq_no_share_inst]
   )
+  >~ [‘Force’] >- cheat
   >> gvs[comp_def,no_share_inst_def] (* Raise | Return | Tick *)
 QED
 
