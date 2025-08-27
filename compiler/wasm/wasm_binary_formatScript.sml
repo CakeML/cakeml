@@ -659,16 +659,16 @@ Definition enc_global_def:
 End
 
 Definition dec_global_def:
-  dec_global ([]:byteSeq) : global dcdr = emErr "dec_global"
-  ∧
-  dec_global bs = let failure = error bs "[dec_global]"
-  in
-  case dec_globaltype bs of (INL _,_) => failure | (INR gt, cs) =>
-  case dec_instr_list cs of (INL _,_) => failure | (INR ex, rs) =>
-    (INR <| gtype := gt
-          ; ginit := ex
-          |> : mlstring + global
-    , bs)
+  dec_global (bs:byteSeq) : global dcdr =
+    if NULL bs then emErr "dec_global"
+    else let failure = error bs "[dec_global]"
+    in
+    case dec_globaltype bs of (INL _,_) => failure | (INR gt, cs) =>
+    case dec_instr_list cs of (INL _,_) => failure | (INR ex, rs) =>
+      (INR <| gtype := gt
+            ; ginit := ex
+            |> : mlstring + global
+      , bs)
 End
 
 
@@ -682,8 +682,8 @@ Definition enc_code_def:
 End
 
 Definition dec_code_def:
-  dec_code ([]:byteSeq) : ((mlstring + valtype list # expr) # byteSeq) = emErr "dec_code" ∧
-  dec_code bs = let failure = error bs "[dec_code]" in
+  dec_code (bs:byteSeq) : ((mlstring + valtype list # expr) # byteSeq) =
+  if NULL bs then emErr "dec_code" else let failure = error bs "[dec_code]" in
     case dec_u32                bs of  NONE    =>failure|SOME (len,cs) =>
     case dec_vector dec_valtype cs of (INL _,_)=>failure|(INR vts ,ds) =>
     case dec_instr_list         ds of (INL _,_)=>failure|(INR code,rs) =>
@@ -774,7 +774,8 @@ Definition zip_funcs_def:
     ; body   := e
     ; fname  := func_name
     ; lnames := local_names
-    |> : func)      :: zip_funcs is vles fns lns
+    |> : func)
+  :: zip_funcs is vles fns lns
 End
 
 
@@ -844,6 +845,8 @@ Proof
     \\ asm_rewrite_tac[GSYM APPEND_ASSOC]
     \\ simp[]
 QED
+
+
 
 (*
 Theorem dec_enc_vector_opt:
@@ -1045,45 +1048,44 @@ Theorem dec_enc_global[simp]:
     enc_global g = SOME encg ⇒
     dec_global $ encg ++ rs = (INR g, rs)
 Proof
-  (*
-
-  (* attempt 1 *)
-  rpt gen_tac
-  \\ ‘∃ res. encg ++ rs = res’ by simp[]
-  \\ asm_rewrite_tac[]
-  (* why won't this unfold dec_global's defn? *)
-  \\ simp[dec_global_def]
-
-  (* attempt 2 *)
-  rewrite_tac[enc_global_def]
-  \\ simp[AllCaseEqs()]
-  (* why won't this unfold dec_global's defn? *)
-  \\ simp[dec_global_def]
-  \\ Cases_on ‘g.gtype’
-    >> simp[enc_globaltype_def]
-    >> rpt strip_tac
-    >> gvs[dec_global_def, dec_globaltype_def]
-
-  *)
-  cheat
+  rw[enc_global_def,AllCaseEqs(), dec_global_def]
+  >- (Cases_on `g.gtype` >> rw[enc_globaltype_def])
+  \\ simp[Once (GSYM APPEND_ASSOC), Excl "APPEND_ASSOC"  ]
+  \\ rpt strip_tac
+\\
+cheat
 QED
 
+(*
+Theorem dec_enc_instr:
+  (!e is encis rs.
+    enc_instrs e is = SOME encis ==>
+    dec_instr_list $ encis ++ rs = (INR is, rs)) /\
+  (!e is encis rs.
+    enc_instr e is = SOME encis ==>
+    dec_instr $ encis ++ rs = (INR is, rs))
+Proof
+  cheat
+QED
+*)
+
+val assok = rewrite_tac[GSYM APPEND_ASSOC]
 Theorem dec_enc_code:
   ∀cd encC rs.
     enc_code cd = SOME encC ⇒
     dec_code $ encC ++ rs = (INR cd, rs)
 Proof
-  rpt gen_tac
-  \\ rewrite_tac[enc_code_def, AllCaseEqs()] \\ gvs[]
-  \\ rpt strip_tac
-  \\ Cases_on ‘enc_vector enc_valtype_Seq (FST cd)’ >> gvs[]
-  (* why won't dec_code unfold? *)
-  \\ rewrite_tac[GSYM APPEND_ASSOC, dec_code_def]
-  \\
-  cheat
-  (*
-  \\ PairCases_on ‘enc_vector enc_valtype_Seq (FST cd)’
-  *)
+  PairCases
+  \\ rw[]
+  \\ gvs[enc_code_def, AllCaseEqs()]
+  \\ rw[dec_code_def]
+  >- cheat
+  \\ pop_assum kall_tac
+  \\ simp[GSYM APPEND_ASSOC, Excl "APPEND_ASSOC"]
+  \\ drule dec_enc_vector
+  \\ disch_then ( fn thm => DEP_REWRITE_TAC [thm] )
+  \\ rw[dec_enc_valtype_Seq]
+  \\ cheat
 QED
 
 Theorem dec_enc_data:
@@ -1138,15 +1140,31 @@ Proof
 QED
 
 (* ASKYK *)
+Theorem dec_list_shortens_le:
+  (!bs x rs. dec bs = (INR x, rs) ==> LENGTH rs < LENGTH bs) ==>
+  !n bs xs.
+  dec_list n dec bs = (INR xs,rs) ==>
+  LENGTH rs <= LENGTH bs
+Proof
+  strip_tac>>
+  Induct>>rw[Once dec_list_def]>>
+  gvs[AllCaseEqs()]>>
+  first_x_assum drule>>
+  first_x_assum drule>>
+  simp[]
+QED
+
 Theorem dec_indxs_shortens:
   ∀ bs xs rs. dec_indxs bs = (INR xs, rs) ⇒ LENGTH rs < LENGTH bs
 Proof
-  Induct_on `xs` >> rpt gen_tac
-    >> simp[dec_vector_def]
-    >> Cases_on `dec_u32 bs` >> gvs[]
-    >> PairCases_on `x` >> simp[]
-\\
-  cheat
+  rw[dec_vector_def,AllCaseEqs()]>>
+  drule dec_u32_shortens>>
+  drule_at Any dec_list_shortens_le>>
+  impl_tac
+  >- (
+    rw[lift_dec_u32_def,AllCaseEqs()]>>
+    simp[dec_u32_shortens])>>
+  simp[]
 QED
 
 Theorem dec_functype_shortens:
@@ -1155,6 +1173,7 @@ Proof
   Cases_on ‘bs’ >> rpt gen_tac
     >> simp[dec_functype_def]
     >> rpt strip_tac
+    >> gvs[AllCaseEqs(),dec_vector_def]
     (* >> simp[dec_enc_vector]
     >> simp[dec_vector_def, dec_num_def, dec_unsigned_word_def] *)
     >>
@@ -1173,17 +1192,22 @@ Proof
     >> simp [Once dec_instr_def]
     >> strip_tac
       >> gvs [AllCaseEqs()]
+      >> imp_res_tac dec_u32_shortens \\ fs[]
       >> imp_res_tac dec_blocktype_shortens \\ fs []
+      >> imp_res_tac dec_indxs_shortens \\ fs[]
+      >> cheat
+  (*
       >> imp_res_tac check_len_INL \\ fs []
       >> imp_res_tac check_len_INR \\ fs []
       >> gvs [check_len_def]
+      >> imp_res_tac dec_u32_shortens
       >>~ [‘dec_u32’]
         >> TRY (drule dec_u32_shortens     )
         >> TRY (drule dec_indxs_shortens   )
         >> TRY (drule dec_functype_shortens)
         >> simp[]
         >>
-        cheat
+        cheat *)
 QED
 
 Theorem dec_instr_INL_length:
