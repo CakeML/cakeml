@@ -28,6 +28,8 @@ Overload emErr[local] = “λ str. (INL $ strlit $ "[" ++ str ++ "] : Byte seque
 
 Overload gt2_32[local] = “λ (n:num). 2 ** 32 ≤ n”
 
+val sass = simp[GSYM APPEND_ASSOC, Excl "APPEND_ASSOC"]
+
 (********************************************************)
 (*                                                      *)
 (*     Wasm Binary Format ⇔ WasmCake AST Functions     *)
@@ -824,6 +826,7 @@ Theorem dec_enc_vector[simp]:
     ⇒
     dec_vector dec (encis ++ rest) = (INR is, rest)
 Proof
+
   rpt strip_tac
   \\ last_x_assum mp_tac
   \\ rewrite_tac[dec_vector_def, enc_vector_def]
@@ -843,21 +846,36 @@ QED
 
 
 
-(*
 Theorem dec_enc_vector_opt:
   ∀dec enc is encis rest.
     enc_vector_opt enc is = SOME encis ∧
-    (∀x rs. dec (enc x ++ rs) = (INR x,rs))
+    (∀x encx rs. enc x = SOME encx ⇒ dec (encx ++ rs) = (INR x,rs))
     ⇒
     dec_vector dec (encis ++ rest) = (INR is, rest)
 Proof
   rpt strip_tac
-  last_x_assum mp_tac
-  \\ gvs[dec_vector_def, dec_unsigned_word_def]
-  \\
-  cheat
+  \\ last_x_assum mp_tac
+  \\ rewrite_tac[dec_vector_def, enc_vector_opt_def]
+  \\ simp[AllCaseEqs()]
+  \\ rpt strip_tac
+  \\ gvs[GSYM NOT_LESS]
+  \\ sass
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘rest’
+  \\ qid_spec_tac ‘encxs’
+  \\ qid_spec_tac ‘is’
+  \\ Induct
+    >> rewrite_tac[enc_list_opt_def]
+    >> simp[Once dec_list_def, CaseEq "sum", CaseEq "prod"]
+    \\ rpt gen_tac
+    \\ Cases_on `enc h` >> gvs[]
+    \\ Cases_on `enc_list_opt enc is'` >> gvs[]
+    \\ rpt strip_tac \\ gvs[]
+    \\ last_x_assum dxrule
+    \\ sass
 QED
-*)
+
+
 
 
 
@@ -1078,25 +1096,11 @@ Proof
   \\ rw[dec_code_def]
   >- cheat
   \\ pop_assum kall_tac
-  \\ simp[GSYM APPEND_ASSOC, Excl "APPEND_ASSOC"]
+  \\ sass
   \\ drule dec_enc_vector
-  \\ disch_then ( fn thm => DEP_REWRITE_TAC [thm] )
+  \\ disch_then (fn thm => DEP_REWRITE_TAC [thm])
   \\ rw[dec_enc_valtype_Seq]
   \\ cheat
-  rpt gen_tac
-  \\ rewrite_tac[enc_code_def, AllCaseEqs()] \\ gvs[]
-  \\ Cases_on ‘enc_vector enc_valtype_Seq (FST cd)’ >> gvs[]
-  \\ rpt strip_tac
-  (* why won't dec_code unfold? *)
-  \\ simp[dec_code_def]
-  \\ ‘∃ res. encC ++ rs = res’ by simp[]
-  \\ pop_assum mp_tac
-  \\ simp[]
-  \\
-  cheat
-  (*
-  \\ PairCases_on ‘enc_vector enc_valtype_Seq (FST cd)’
-  *)
 QED
 
 (* ASKYK *)
