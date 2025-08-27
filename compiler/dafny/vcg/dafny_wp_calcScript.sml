@@ -2727,11 +2727,16 @@ Proof
   simp [locals_ok_def, restore_caller_def]
 QED
 
+Theorem eval_exp_11:
+  eval_exp st env e v1 ∧ eval_exp st env e v2 ⇒ v1 = v2
+Proof
+  cheat
+QED
+
 Triviality eval_exp_var_eq:
   eval_exp st env (Var n) v' ∧ eval_exp st env (Var n) v ⇒ v' = v
 Proof
-  rpt strip_tac
-  \\ gvs [eval_exp_def, evaluate_exp_def, AllCaseEqs()]
+  rw [] \\ imp_res_tac eval_exp_11 \\ fs []
 QED
 
 Triviality strict_locals_ok_swap_imp:
@@ -2928,6 +2933,13 @@ Proof
   cheat
 QED
 
+Theorem eval_exp_Var:
+  ALOOKUP st.locals v = SOME (SOME val) ⇒
+  eval_exp st env (Var v) val
+Proof
+  cheat
+QED
+
 Theorem MAP_CanEval_IMP:
   conditions_hold st env (MAP CanEval ds) ⇒
   ∃ds_vals. LIST_REL (λe v. eval_exp st env e v) ds ds_vals
@@ -2942,8 +2954,10 @@ Theorem eval_stmt_drop_locals:
   ∃rest.
     locals_ok locals rest ∧
     eval_stmt st1 env body (st2 with locals := rest) ret ∧
-    (∀e. eval_true st2 env e ∧ DISJOINT (set (get_vars_exp e)) (set (MAP FST ds1)) ⇒
-         eval_true (st2 with locals := rest) env e)
+    (∀e v.
+       eval_exp st2 env e v ∧
+       DISJOINT (set (get_vars_exp e)) (set (MAP FST ds1)) ⇒
+       eval_exp (st2 with locals := rest) env e v)
 Proof
   cheat
 QED
@@ -2951,7 +2965,7 @@ QED
 Theorem assigned_in_thm:
   eval_stmt st env stmt st1 res ⇒
   ∀v. ~(assigned_in stmt v) ⇒
-      ALOOKUP st'.locals v = ALOOKUP st.locals v
+      ALOOKUP st1.locals v = ALOOKUP st.locals v
 Proof
   cheat
 QED
@@ -3037,6 +3051,35 @@ Proof
   simp [EVERY_MEM]
   \\ rpt strip_tac
   \\ gvs [MEM_MAP, can_get_type_def]
+QED
+
+Triviality IMP_evaluate_exp_num:
+  ∀v. eval_exp st1 env1 e1 v ∧ eval_exp st2 env2 e2 v ⇒
+      evaluate_exp_num st1 env1 e1 = evaluate_exp_num st2 env2 e2
+Proof
+  rw [] \\ fs [evaluate_exp_num_def]
+  \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+  \\ fs [evaluate_exp_total_def]
+  \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+  \\ fs [FUN_EQ_THM] \\ rw []
+  \\ metis_tac [eval_exp_11]
+QED
+
+Triviality alookup_zip_lemma_el:
+  ∀ds_n ds_vals ds_vars.
+    ds_n < LENGTH ds_vals ∧
+    LENGTH ds_vars = LENGTH ds_vals ∧
+    ALL_DISTINCT ds_vars ⇒
+    ALOOKUP (ZIP (ds_vars,MAP SOME ds_vals) ++ rest)
+            (EL ds_n ds_vars) = SOME (SOME (EL ds_n ds_vals))
+Proof
+  cheat
+QED
+
+Theorem assign_in_IMP_get_vars_stmt:
+  assigned_in body v ⇒  MEM v (get_vars_stmt body)
+Proof
+  cheat
 QED
 
 Theorem stmt_wp_sound:
@@ -3280,23 +3323,23 @@ Proof
       \\ irule eval_exp_eq_ignore_clock
       \\ gvs [state_component_equality])
     \\ qsuff_tac ‘∀x stx.
-          x = eval_measure stx env (0, ds) ∧
-          conditions_hold stx env (invs ++ [CanEval guard] ++ MAP CanEval ds) ∧
-          state_inv stx ∧
-          locals_ok locals stx.locals ∧
-          stx.locals_old = st.locals_old ∧
-          stx.heap_old = st.heap_old ∧
-          stx.heap = st.heap ⇒
-          ∃st' ret.
-            eval_stmt stx env (While guard invs ds mods body) st' ret ∧
-            st'.locals_old = stx.locals_old ∧ st'.heap = stx.heap ∧
-            st'.heap_old = stx.heap_old ∧
-            state_inv st' ∧
-            locals_ok locals st'.locals ∧
-            case ret of
-              Rcont => conditions_hold st' env (not guard::invs)
-            | Rstop Sret => conditions_hold st' env ens
-            | Rstop (Serr v3) => F’
+                    x = eval_measure stx env (0, ds) ∧
+                    conditions_hold stx env (invs ++ [CanEval guard] ++ MAP CanEval ds) ∧
+                    state_inv stx ∧
+                    locals_ok locals stx.locals ∧
+                    stx.locals_old = st.locals_old ∧
+                    stx.heap_old = st.heap_old ∧
+                    stx.heap = st.heap ⇒
+                    ∃st' ret.
+                      eval_stmt stx env (While guard invs ds mods body) st' ret ∧
+                      st'.locals_old = stx.locals_old ∧ st'.heap = stx.heap ∧
+                      st'.heap_old = stx.heap_old ∧
+                      state_inv st' ∧
+                      locals_ok locals st'.locals ∧
+                      case ret of
+                        Rcont => conditions_hold st' env (not guard::invs)
+                      | Rstop Sret => conditions_hold st' env ens
+                      | Rstop (Serr v3) => F’
     >- fs []
     \\ ho_match_mp_tac WF_ind
     \\ rpt strip_tac \\ gvs [PULL_FORALL]
@@ -3315,15 +3358,14 @@ Proof
     \\ drule MAP_CanEval_IMP \\ strip_tac
     \\ qabbrev_tac ‘ds1 = ZIP (ds_vars, MAP SOME ds_vals)’
     \\ ‘MAP FST ds1 = ds_vars’ by
-     (imp_res_tac LIST_REL_LENGTH
-      \\ gvs [Abbr‘ds1’,MAP_ZIP])
+      (imp_res_tac LIST_REL_LENGTH
+       \\ gvs [Abbr‘ds1’,MAP_ZIP])
     \\ last_x_assum $ qspecl_then [‘st1 with locals := ds1 ++ st1.locals’,‘env’] mp_tac
     \\ ‘eval_measure st env (wrap_old decs) =
         eval_measure st1 env (wrap_old decs)’ by
       (Cases_on ‘decs’ \\ fs [eval_measure_def,wrap_old_def]
        \\ irule eval_decreases_old_eq \\ fs [])
     \\ impl_tac
-
     >-
      (conj_tac
       >-
@@ -3335,12 +3377,12 @@ Proof
       \\ simp []
       \\ conj_tac >- (cheat (* state_inv *))
       \\ reverse conj_tac
-      >- cheat
+      >- cheat (* looks true *)
       \\ qpat_x_assum ‘eval_true _ _ (Foralls _ (imp _ (conj reqs)))’ assume_tac
       \\ dxrule eval_true_Foralls
       \\ disch_then $ qspec_then ‘ds1 ++ MAP (λ(v,_). (v, THE (ALOOKUP st1.locals v))) locals’ mp_tac
       \\ impl_tac
-      >- cheat
+      >- cheat (* looks true *)
       \\ qpat_abbrev_tac ‘ys = REVERSE _ ++ _’
       \\ qabbrev_tac ‘zs = ds1 ++ st1.locals’
       \\ ‘ALOOKUP ys = ALOOKUP zs’ by cheat
@@ -3382,25 +3424,69 @@ Proof
     \\ rewrite_tac [AND_IMP_INTRO]
     \\ reverse impl_tac >- (simp [])
     \\ simp []
-    \\ conj_tac
+    \\ reverse conj_tac
     >-
-     (simp [eval_measure_def,LEX_DEF]
-      \\ fs [decreases_check_def,decrease_lt_def]
-      \\ gvs []
-      \\ gvs [conditions_hold_def]
-      \\ drule eval_true_lex_lt \\ gvs []
-      \\ ‘eval_decreases st2 env ds =
-          eval_decreases (st2 with locals := rest) env ds’ by cheat
-      \\ ‘eval_decreases st2 env (MAP Var (MAP FST ds1)) =
-          eval_decreases st1 env ds’ by cheat
-      \\ asm_rewrite_tac [])
-    \\ reverse conj_tac >- (cheat (* state_inv *))
-    \\ fs [conditions_hold_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]
-    \\ rpt strip_tac
-    \\ first_x_assum irule \\ fs []
-    \\ fs [get_vars_stmt_def,CanEval_def,get_vars_exp_def,LIST_TO_SET_FLAT]
-    \\ fs [MEM_MAP,PULL_EXISTS])
+     (conj_tac
+      >-
+       (fs [conditions_hold_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,eval_true_def]
+        \\ rpt strip_tac
+        \\ first_x_assum irule \\ fs []
+        \\ fs [get_vars_stmt_def,CanEval_def,get_vars_exp_def,LIST_TO_SET_FLAT]
+        \\ fs [MEM_MAP,PULL_EXISTS])
+      \\ cheat (* state_inv *))
+    \\ simp [eval_measure_def,LEX_DEF]
+    \\ fs [decreases_check_def,decrease_lt_def]
+    \\ ‘LENGTH ds_vals = LENGTH ds_vars’ by (imp_res_tac LIST_REL_LENGTH \\ fs [])
+    \\ fs []
+    \\ gs [conditions_hold_def]
+    \\ drule eval_true_lex_lt \\ fs []
+    \\ ‘eval_decreases st2 env ds =
+        eval_decreases (st2 with locals := rest) env ds’ by
+      (simp [eval_decreases_def,MAP_MAP_o]
+       \\ simp [listTheory.LIST_EQ_REWRITE]
+       \\ simp [EL_MAP] \\ rpt strip_tac
+       \\ irule IMP_evaluate_exp_num
+       \\ rename [‘EL ds_n _’]
+       \\ fs [GSYM conditions_hold_def]
+       \\ drule MAP_CanEval_IMP
+       \\ strip_tac
+       \\ qexists_tac ‘EL ds_n ds_vals'’
+       \\ gvs [LIST_REL_EL_EQN]
+       \\ first_x_assum irule \\ fs []
+       \\ fs [get_vars_stmt_def,LIST_TO_SET_FLAT,MEM_MAP,PULL_EXISTS]
+       \\ fs [MEM_EL,PULL_EXISTS])
 
+    \\ ‘eval_decreases st2 env (MAP Var (MAP FST ds1)) =
+        eval_decreases st1 env ds’ by cheat (*
+      (simp [eval_decreases_def,MAP_MAP_o]
+       \\ simp [listTheory.LIST_EQ_REWRITE]
+       \\ conj_asm1_tac
+       >- (imp_res_tac LIST_REL_LENGTH \\ fs [] \\ gvs [Abbr‘ds1’])
+       \\ simp [EL_MAP] \\ rpt strip_tac
+       \\ irule IMP_evaluate_exp_num
+       \\ rename [‘EL ds_n _’]
+       \\ qexists_tac ‘EL ds_n ds_vals’
+       \\ gvs [LIST_REL_EL_EQN]
+       \\ irule eval_exp_Var
+       \\ drule assigned_in_thm
+       \\ disch_then $ DEP_REWRITE_TAC o single
+       \\ ‘FST (EL ds_n ds1) = EL ds_n ds_vars’ by cheat
+       \\ simp []
+       \\ DEP_REWRITE_TAC [EL_ZIP] \\ fs []
+       \\ ‘LENGTH ds1 = LENGTH ds’ by cheat
+       \\ fs []
+       \\ simp []
+       \\ fs [Abbr‘ds1’]
+       \\ irule_at Any alookup_zip_lemma_el \\ simp []
+       \\ fs [get_vars_stmt_def]
+       \\ qpat_x_assum ‘DISJOINT (set (get_vars_stmt body)) (set ds_vars)’ assume_tac
+       \\ fs [IN_DISJOINT]
+       \\ ‘∀x. MEM x ds_vars ⇒ ¬MEM x (get_vars_stmt body)’ by metis_tac []
+       \\ pop_assum mp_tac \\ simp [Once MEM_EL,PULL_EXISTS]
+       \\ disch_then drule \\ strip_tac
+       \\ CCONTR_TAC \\ fs []
+       \\ imp_res_tac assign_in_IMP_get_vars_stmt \\ fs []) *)
+    \\ gvs [])
   \\ rename [‘MetCall rets mname args’]
   \\ irule_at Any eval_stmt_MetCall \\ gvs []
   \\ qpat_assum ‘compatible_env env m’ mp_tac
