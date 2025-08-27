@@ -3191,9 +3191,8 @@ Proof
        \\ first_x_assum irule \\ fs []
        \\ fs [get_vars_stmt_def,LIST_TO_SET_FLAT,MEM_MAP,PULL_EXISTS]
        \\ fs [MEM_EL,PULL_EXISTS])
-
     \\ ‘eval_decreases st2 env (MAP Var (MAP FST ds1)) =
-        eval_decreases st1 env ds’ by cheat (*
+        eval_decreases st1 env ds’ by
       (simp [eval_decreases_def,MAP_MAP_o]
        \\ simp [listTheory.LIST_EQ_REWRITE]
        \\ conj_asm1_tac
@@ -3202,14 +3201,14 @@ Proof
        \\ irule IMP_evaluate_exp_num
        \\ rename [‘EL ds_n _’]
        \\ qexists_tac ‘EL ds_n ds_vals’
+       \\ qpat_x_assum ‘MAP FST ds1 = ds_vars’
+            (assume_tac o SRULE [Once (GSYM markerTheory.Abbrev_def)] o GSYM)
        \\ gvs [LIST_REL_EL_EQN]
        \\ irule eval_exp_Var
        \\ drule assigned_in_thm
        \\ disch_then $ DEP_REWRITE_TAC o single
-       \\ ‘FST (EL ds_n ds1) = EL ds_n ds_vars’ by cheat
-       \\ simp []
-       \\ DEP_REWRITE_TAC [EL_ZIP] \\ fs []
-       \\ ‘LENGTH ds1 = LENGTH ds’ by cheat
+       \\ ‘FST (EL ds_n ds1) = EL ds_n ds_vars’ by
+         (simp [Abbr‘ds1’] \\ DEP_REWRITE_TAC [EL_ZIP] \\ fs [])
        \\ fs []
        \\ simp []
        \\ fs [Abbr‘ds1’]
@@ -3221,7 +3220,7 @@ Proof
        \\ pop_assum mp_tac \\ simp [Once MEM_EL,PULL_EXISTS]
        \\ disch_then drule \\ strip_tac
        \\ CCONTR_TAC \\ fs []
-       \\ imp_res_tac assign_in_IMP_get_vars_stmt \\ fs []) *)
+       \\ imp_res_tac assign_in_IMP_get_vars_stmt \\ fs [])
     \\ gvs [])
   \\ rename [‘MetCall rets mname args’]
   \\ irule_at Any eval_stmt_MetCall \\ gvs []
