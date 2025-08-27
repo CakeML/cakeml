@@ -56,14 +56,19 @@ End
 
 Definition locals_inv_def:
   locals_inv heap locals ⇔
-    ∀var val. ALOOKUP locals var = SOME (SOME val) ⇒ value_inv heap val
+    EVERY (λl. ∀val. SND l = SOME val ⇒ value_inv heap val) locals
 End
 
 Definition state_inv_def:
   state_inv st ⇔
-    locals_inv st.heap st.locals ∧ heap_inv st.heap ∧
-    locals_inv st.heap_old st.locals_old ∧ heap_inv st.heap_old
+    locals_inv st.heap st.locals ∧ heap_inv st.heap
 End
+
+Triviality state_inv_with_clock:
+  state_inv (st with clock := ck) ⇔ state_inv st
+Proof
+  simp [state_inv_def]
+QED
 
 Definition get_type_def:
   get_type _ (Lit l) =
@@ -143,9 +148,53 @@ Definition get_type_def:
   get_type _ _ = fail «get_type: Unsupported expression»
 End
 
-Definition get_types_def:
-  get_types ls tys = result_mmap (get_type ls) tys
+(* In our current setup, we don't really need to get the type of
+   old-expressions, in particular old(x). This allows us to not have to
+   carry around information about locals_old and heap_old.
+   However, this means we need to restrict some theorems.
+   no_Old is not quite enough, because we would have to guarantee that we
+   do not call a function whose body contains old.
+   However, since we do not support function calls at the moment, we will ignore
+   those as well. *)
+Definition can_get_type_def:
+  (can_get_type (Old _) ⇔ F) ∧
+  (can_get_type (FunCall _ _) ⇔ F) ∧
+  (can_get_type (Forall _ _) ⇔ F) ∧
+  (can_get_type (Let _ _) = F) ∧
+  (can_get_type (ForallHeap _ _) ⇔ F) ∧
+  (can_get_type (Lit _) ⇔ T) ∧
+  (can_get_type (Var _) ⇔ T) ∧
+  (can_get_type (If tst thn els) ⇔
+     can_get_type tst ∧ can_get_type thn ∧ can_get_type els) ∧
+  (can_get_type (UnOp _ e) ⇔ can_get_type e) ∧
+  (can_get_type (BinOp _ e₀ e₁) ⇔ can_get_type e₀ ∧ can_get_type e₁) ∧
+  (can_get_type (ArrLen arr) ⇔ can_get_type arr) ∧
+  (can_get_type (ArrSel arr idx) ⇔ can_get_type arr ∧ can_get_type idx)
 End
+
+Triviality get_type_inr_can_get_type:
+  ∀ls e ty. get_type ls e = INR ty ⇒ can_get_type e
+Proof
+  ho_match_mp_tac get_type_ind
+  \\ rpt strip_tac
+  \\ gvs [get_type_def, can_get_type_def, oneline bind_def, PULL_EXISTS,
+          AllCaseEqs()]
+QED
+
+Definition get_types_def:
+  get_types ls es = result_mmap (get_type ls) es
+End
+
+Triviality get_types_inr_every_can_get_type:
+  ∀es ls tys. get_types ls es = INR tys ⇒ EVERY (λe. can_get_type e) es
+Proof
+  Induct >- (simp [get_types_def])
+  \\ gvs [get_types_def, result_mmap_def, oneline bind_def, PULL_EXISTS,
+          AllCaseEqs()]
+  \\ rpt gen_tac \\ strip_tac
+  \\ drule get_type_inr_can_get_type \\ simp []
+  \\ last_x_assum drule \\ simp []
+QED
 
 Definition get_vars_exp_def:
   get_vars_exp (Lit _) = [] ∧
@@ -1369,12 +1418,29 @@ Definition assi_value_def:
       (st' with clock := ck2,Rcont)
 End
 
-(* TODO Move to dafnyProps *)
+Triviality locals_inv_cons_update:
+  locals_inv heap ((n,xv)::xs) ∧
+  value_inv heap v
+  ⇒
+  locals_inv heap ((n,SOME v)::xs)
+Proof
+  simp [locals_inv_def]
+QED
+
+Triviality locals_inv_cons:
+  locals_inv heap ((xn,xv)::xs) ⇔
+    locals_inv heap xs ∧
+    ∀val. xv = SOME val ⇒ value_inv heap val
+Proof
+  iff_tac \\ simp [locals_inv_def]
+QED
+
 Theorem is_some_alookup_update_local_aux:
   ∀(xs: (mlstring # value option) list) n.
-    IS_SOME (ALOOKUP xs n) ⇒
+    IS_SOME (ALOOKUP xs n) ∧ locals_inv heap xs ∧ value_inv heap v' ⇒
     ∃ys. update_local_aux xs n v' = SOME ys ∧
-         ALOOKUP ys = ALOOKUP ((n,SOME v')::xs)
+         ALOOKUP ys = ALOOKUP ((n,SOME v')::xs) ∧
+         locals_inv heap ys
 Proof
   Induct >- (simp [])
   \\ qx_genl_tac [‘x’, ‘n’]
@@ -1382,27 +1448,33 @@ Proof
   \\ namedCases_on ‘x’ ["xn xv"] \\ gvs []
   \\ IF_CASES_TAC \\ gvs []
   >-
-   (simp [update_local_aux_def]
-    \\ simp [FUN_EQ_THM])
+   (rpt strip_tac
+    \\ simp [update_local_aux_def]
+    \\ conj_tac
+    >- (simp [FUN_EQ_THM])
+    >- (drule_all locals_inv_cons_update \\ simp []))
   \\ rpt strip_tac \\ gvs []
+  \\ fs []
   \\ last_x_assum $ drule_then assume_tac
   \\ simp [update_local_aux_def]
   \\ CASE_TAC \\ gvs []
+  \\ gvs [locals_inv_cons]
   \\ gvs [FUN_EQ_THM]
   \\ strip_tac
   \\ IF_CASES_TAC \\ gvs []
 QED
 
-(* TODO Move to dafnyProps *)
 Theorem is_some_alookup_update_local:
-  IS_SOME (ALOOKUP st.locals n) ⇒
+  IS_SOME (ALOOKUP st.locals n) ∧
+  locals_inv st.heap st.locals ∧ value_inv st.heap v ⇒
   ∃l. update_local st n v = SOME (st with locals := l) ∧
-      ALOOKUP l = ALOOKUP ((n, SOME v)::st.locals)
+      ALOOKUP l = ALOOKUP ((n, SOME v)::st.locals) ∧
+      locals_inv st.heap l
 Proof
   strip_tac
   \\ rpt strip_tac
-  \\ drule is_some_alookup_update_local_aux
-  \\ disch_then $ qspec_then ‘v’ assume_tac
+  \\ drule_all is_some_alookup_update_local_aux
+  \\ rpt strip_tac
   \\ gvs [update_local_def, state_component_equality]
 QED
 
@@ -1460,6 +1532,8 @@ Proof
   simp [FUN_EQ_THM, ALOOKUP_APPEND]
 QED
 
+(* TODO Could we have expressed {strict_,}locals_ok using EVERY, and adapted
+   IMP_assi_values and friends instead (similar to locals_inv) ? *)
 Definition locals_ok_def:
   locals_ok (locals: (mlstring # type) list)
             (s_locals: (mlstring # value option) list) ⇔
@@ -1521,6 +1595,13 @@ QED
 
 Triviality MEM_MAP_FST:
   ∀xs. MEM (x,y) xs ⇒ MEM x (MAP FST xs)
+Proof
+  Induct \\ gvs []
+  \\ rpt strip_tac \\ gvs []
+QED
+
+Triviality MEM_MAP_SND:
+  ∀xs. MEM (x,y) xs ⇒ MEM y (MAP SND xs)
 Proof
   Induct \\ gvs []
   \\ rpt strip_tac \\ gvs []
@@ -1607,10 +1688,12 @@ QED
 Theorem IMP_assi_values:
   ∀ret_names out_vs st.
     EVERY (λn. IS_SOME (ALOOKUP st.locals n)) ret_names ∧
-    LENGTH out_vs = LENGTH ret_names
+    LENGTH out_vs = LENGTH ret_names ∧
+    locals_inv st.heap st.locals ∧ EVERY (value_inv st.heap) out_vs
     ⇒
     ∃l. assi_values st env (MAP VarLhs ret_names) out_vs (st with locals := l) ∧
-        ALOOKUP l = ALOOKUP (REVERSE (ZIP(ret_names,MAP SOME out_vs)) ++ st.locals)
+        ALOOKUP l = ALOOKUP (REVERSE (ZIP(ret_names,MAP SOME out_vs)) ++ st.locals) ∧
+        locals_inv st.heap l
 Proof
   Induct >-
    (gvs [assi_values_def, assign_values_def, state_component_equality])
@@ -1618,8 +1701,7 @@ Proof
   \\ rpt strip_tac
   \\ namedCases_on ‘out_vs’ ["", "v out_vs'"] \\ gvs []
   \\ irule_at (Pos hd) assi_values_cons
-  \\ drule is_some_alookup_update_local
-  \\ disch_then $ qspec_then ‘v’ mp_tac
+  \\ drule_all is_some_alookup_update_local
   \\ disch_then $ qx_choose_then ‘l’ mp_tac
   \\ strip_tac
   \\ irule_at (Pos hd) assi_value_VarLhs
@@ -1640,10 +1722,12 @@ QED
 Triviality IMP_assi_values_distinct:
   ∀ret_names out_vs st.
     EVERY (λn. IS_SOME (ALOOKUP st.locals n)) ret_names ∧
-    ALL_DISTINCT ret_names ∧ LENGTH out_vs = LENGTH ret_names
+    ALL_DISTINCT ret_names ∧ LENGTH out_vs = LENGTH ret_names ∧
+    locals_inv st.heap st.locals ∧ EVERY (value_inv st.heap) out_vs
     ⇒
     ∃l. assi_values st env (MAP VarLhs ret_names) out_vs (st with locals := l) ∧
-        ALOOKUP l = ALOOKUP (ZIP(ret_names,MAP SOME out_vs) ++ st.locals)
+        ALOOKUP l = ALOOKUP (ZIP(ret_names,MAP SOME out_vs) ++ st.locals) ∧
+        locals_inv st.heap l
 Proof
   rpt strip_tac
   \\ drule_all IMP_assi_values
@@ -2395,20 +2479,115 @@ Proof
   \\ simp [value_has_type_eq_all_values]
 QED
 
+Triviality value_inv_boolv:
+  value_inv heap (BoolV b)
+Proof
+  simp [value_inv_def]
+QED
+
+Triviality value_inv_intv:
+  value_inv heap (IntV b)
+Proof
+  simp [value_inv_def]
+QED
+
+Triviality arrv_idx_heap_inv:
+  value_inv heap (ArrV len loc ty) ∧
+  LLOOKUP heap loc = SOME (HArr arr ty') ∧
+  LLOOKUP arr idx = SOME v ∧
+  heap_inv heap
+  ⇒
+  value_inv heap v ∧ value_has_type ty v
+Proof
+  rpt strip_tac
+  \\ qpat_x_assum ‘value_inv _ _’ $ mp_tac o SRULE [value_inv_def]
+  \\ strip_tac \\ gvs []
+  \\ gvs [heap_inv_def]
+  \\ last_x_assum drule_all \\ simp []
+QED
+
+Triviality read_local_value_inv:
+  read_local st.locals name = SOME v ∧ state_inv st
+  ⇒
+  value_inv st.heap v
+Proof
+  simp [state_inv_def, locals_inv_def, EVERY_MEM, read_local_def, AllCaseEqs()]
+  \\ rpt strip_tac
+  \\ drule ALOOKUP_MEM \\ strip_tac
+  \\ last_x_assum drule \\ simp []
+QED
+
 Triviality evaluate_exp_value_inv:
   (∀st env e st' v.
-     evaluate_exp st env e = (st', Rval v) ∧ state_inv st ⇒
+     evaluate_exp st env e = (st', Rval v) ∧ state_inv st ∧ can_get_type e ⇒
      state_inv st' ∧ value_inv st.heap v) ∧
   (∀st env es st' vs.
-     evaluate_exps st env es = (st', Rval vs) ∧ state_inv st ⇒
+     evaluate_exps st env es = (st', Rval vs) ∧ state_inv st ∧
+     EVERY (λe. can_get_type e) es ⇒
      state_inv st' ∧ EVERY (value_inv st.heap) vs)
 Proof
   ho_match_mp_tac evaluate_exp_ind
-  \\ rpt strip_tac
+  \\ rpt conj_tac \\ rpt gen_tac \\ rpt disch_tac
+  \\ rpt gen_tac \\ rpt disch_tac
   >~ [‘Lit l’] >-
    (gvs [evaluate_exp_def, value_inv_def, lit_to_val_def]
     \\ Cases_on ‘l’ \\ gvs [])
-  \\ cheat
+  >~ [‘Var’] >-
+   (gvs [evaluate_exp_def, AllCaseEqs()]
+    \\ drule_all read_local_value_inv \\ simp [])
+  >~ [‘If’] >-
+   (gvs [evaluate_exp_def, can_get_type_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+    \\ imp_res_tac do_cond_some_cases \\ gvs [])
+  >~ [‘UnOp’] >-
+   (gvs [evaluate_exp_def, can_get_type_def, AllCaseEqs()]
+    \\ gvs [oneline do_uop_def, AllCaseEqs()]
+    \\ rewrite_tac [value_inv_boolv])
+  >~ [‘BinOp’] >-
+   (gvs [evaluate_exp_def, can_get_type_def, AllCaseEqs()]
+    >- (* Done *)
+     (gvs [oneline do_sc_def, AllCaseEqs()]
+      \\ rewrite_tac [value_inv_boolv])
+    (* Continue *)
+    \\ gvs [oneline do_bop_def, AllCaseEqs()]
+    \\ rewrite_tac [value_inv_boolv, value_inv_intv])
+  >~ [‘ArrLen’] >-
+   (gvs [evaluate_exp_def, can_get_type_def, AllCaseEqs()]
+    \\ rewrite_tac [value_inv_intv])
+  >~ [‘ArrSel’] >-
+   (gvs [evaluate_exp_def, can_get_type_def, AllCaseEqs()]
+    \\ gvs [index_array_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+    \\ gvs [state_inv_def]
+    \\ drule_all arrv_idx_heap_inv \\ simp [])
+  >~ [‘evaluate_exps _ _ []’] >-
+   (gvs [evaluate_exp_def])
+  >~ [‘evaluate_exps _ _ (e::es)’] >-
+   (gvs [evaluate_exp_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs [])
+  \\ gvs [can_get_type_def]
+QED
+
+Triviality eval_exp_value_inv:
+  eval_exp st env e v ∧ state_inv st ∧ can_get_type e ⇒ value_inv st.heap v
+Proof
+  simp [eval_exp_def]
+  \\ rpt strip_tac
+  \\ drule (cj 1 evaluate_exp_value_inv)
+  \\ simp [state_inv_with_clock]
+QED
+
+Triviality list_rel_eval_exp_value_inv:
+  ∀es vs.
+    LIST_REL (eval_exp st env) es vs ∧ state_inv st ∧
+    EVERY (λe. can_get_type e) es ⇒
+    EVERY (value_inv st.heap) vs
+Proof
+  Induct >- (simp [])
+  \\ strip_tac
+  \\ Cases \\ simp []
+  \\ rpt strip_tac
+  \\ drule_all eval_exp_value_inv \\ simp []
 QED
 
 Triviality eval_exp_get_type:
@@ -2451,7 +2630,12 @@ Proof
     \\ drule index_array_all_values
     \\ ntac 2 $ disch_then drule
     \\ impl_tac >-
-     (cheat)
+     (qspecl_then [‘locals’, ‘arr’] mp_tac get_type_inr_can_get_type
+      \\ disch_then drule \\ disch_tac
+      \\ simp []
+      \\ rev_drule (cj 1 evaluate_exp_value_inv)
+      \\ simp [state_inv_with_clock]
+      \\ fs [state_inv_def])
     \\ simp [])
   \\ gvs [get_type_def, oneline bind_def, eval_exp_def, evaluate_exp_def,
           all_values_def, AllCaseEqs()]
@@ -2461,15 +2645,15 @@ Triviality list_rel_eval_exp_get_types:
   ∀exps vs tys.
     LIST_REL (eval_exp st env) exps vs ∧
     get_types locals exps = INR tys ∧
-    locals_ok locals st.locals ⇒
+    locals_ok locals st.locals ∧
+    state_inv st ⇒
     LIST_REL (λv ty. v ∈ all_values ty) vs tys
 Proof
   Induct \\ gvs [PULL_EXISTS]
   >- (simp [get_types_def, result_mmap_def])
   \\ rpt strip_tac
   \\ gvs [get_types_def, result_mmap_def, oneline bind_def, CaseEq "sum"]
-  \\ cheat (* TODO Need to adjust premises to mention state_inv *)
-  (* \\ drule_all eval_exp_get_type \\ simp [] *)
+  \\ drule_all eval_exp_get_type \\ simp []
 QED
 
 Triviality get_types_var:
@@ -2779,6 +2963,7 @@ Proof
   gvs [eval_exp_def,FUN_EQ_THM]
 QED
 
+
 Triviality IMP_dec_assum:
   LIST_REL (λe v. eval_exp st1 env e v) ds ds_vals ∧
   Abbrev (ds1 = ZIP (ds_vars,MAP SOME ds_vals)) ∧
@@ -2797,6 +2982,63 @@ Proof
   cheat (* eval_exp_freevars_lemma *)
 QED
 
+Triviality state_inv_with_locals_cons_none:
+  state_inv st ⇒ state_inv (st with locals := (n, NONE)::st.locals)
+Proof
+  gvs [state_inv_def, locals_inv_def]
+  \\ rpt strip_tac
+  \\ gvs [AllCaseEqs()]
+  \\ last_x_assum drule \\ simp []
+QED
+
+Triviality state_inv_with_locals_drop:
+  state_inv st ⇒ state_inv (st with locals := DROP n st.locals)
+Proof
+  simp [state_inv_def, locals_inv_def]
+  \\ rpt strip_tac
+  \\ irule EVERY_DROP \\ simp []
+QED
+
+Triviality locals_inv_reverse:
+  locals_inv heap (REVERSE xs) ⇔ locals_inv heap xs
+Proof
+  simp [locals_inv_def, EVERY_REVERSE]
+QED
+
+Triviality locals_inv_append:
+  locals_inv heap (xs ++ ys) ⇔ locals_inv heap xs ∧ locals_inv heap ys
+Proof
+  simp [locals_inv_def, EVERY_APPEND]
+QED
+
+Triviality locals_inv_zip_none:
+  ∀xs n. LENGTH xs = n ⇒ locals_inv heap (ZIP (xs, REPLICATE n NONE))
+Proof
+  Induct >- (simp [locals_inv_def])
+  \\ rpt strip_tac \\ gvs []
+  \\ rewrite_tac [locals_inv_cons] \\ simp []
+QED
+
+Triviality locals_inv_zip_some:
+  EVERY (value_inv heap) vs ∧ LENGTH ns = LENGTH vs ⇒
+  locals_inv heap (ZIP (ns, MAP SOME vs))
+Proof
+  simp [locals_inv_def, EVERY_MEM]
+  \\ rpt strip_tac
+  \\ rename [‘SND l’]
+  \\ namedCases_on ‘l’ ["n ov"] \\ gvs []
+  \\ drule MEM_MAP_SND \\ simp [MAP_ZIP]
+  \\ simp [MEM_MAP]
+QED
+
+Triviality can_get_type_map_var:
+  EVERY (λe. can_get_type e) (MAP Var ns)
+Proof
+  simp [EVERY_MEM]
+  \\ rpt strip_tac
+  \\ gvs [MEM_MAP, can_get_type_def]
+QED
+
 Theorem stmt_wp_sound:
   ∀m reqs stmt post ens decs locals.
     stmt_wp m reqs stmt post ens decs locals ⇒
@@ -2806,27 +3048,33 @@ Theorem stmt_wp_sound:
             (eval_measure st' env (mspec'.rank,mspec'.decreases))
             (eval_measure st env (wrap_old decs)) ∧
           Method name' mspec' body' ∈ m ∧ st'.locals_old = st'.locals ∧
-          st'.heap_old = st'.heap ∧ conditions_hold st' env mspec'.reqs ∧
+          st'.heap_old = st'.heap ∧
+          state_inv st' ∧
+          conditions_hold st' env mspec'.reqs ∧
           compatible_env env m ∧
           strict_locals_ok mspec'.ins st'.locals ∧
           locals_ok mspec'.outs st'.locals ∧
           ALL_DISTINCT (MAP FST mspec'.ins ++ MAP FST mspec'.outs) ⇒
           ∃st'' out_vs.
             eval_stmt st' env body' st'' (Rstop Sret) ∧
+            state_inv st'' ∧
             conditions_hold st'' env (MAP (wrap_Old (set (MAP FST mspec'.ins))) mspec'.ens) ∧
             st''.locals_old = st'.locals_old ∧
             st''.heap = st'.heap ∧
             st''.heap_old = st'.heap_old ∧
             locals_ok (mspec'.ins ++ mspec'.outs) st''.locals ∧
             LIST_REL (eval_exp st'' env) (MAP (Var o FST) mspec'.outs) out_vs) ∧
+      state_inv st ∧
       conditions_hold st env reqs ∧ compatible_env env m ∧
-      locals_ok locals st.locals ⇒
+      locals_ok locals st.locals
+      ⇒
       ∃st' ret.
         eval_stmt st env stmt st' ret ∧
         st'.locals_old = st.locals_old ∧
         st'.heap = st.heap ∧
         st'.heap_old = st.heap_old ∧
         locals_ok locals st'.locals ∧
+        state_inv st' ∧
         case ret of
         | Rstop Sret => conditions_hold st' env ens
         | Rcont => conditions_hold st' env post
@@ -2871,7 +3119,7 @@ Proof
   >~ [‘If grd thn els’] >-
    (dxrule conditions_hold_imp_case_split \\ strip_tac \\ gvs []
     >- (* Execute thn branch *)
-     (last_x_assum $ drule_at (Pos $ el 2) \\ simp []
+     (last_x_assum $ drule_at (Pos $ el 3) \\ simp []
       \\ impl_tac >- (gvs [])
       \\ disch_then $ qx_choosel_then [‘st₁’, ‘ret₁’] mp_tac
       \\ strip_tac
@@ -2881,7 +3129,7 @@ Proof
       \\ namedCases_on ‘ret₁’ ["", "err"] \\ gvs []
       \\ Cases_on ‘err’ \\ gvs [])
     (* Execute els branch *)
-    \\ last_x_assum $ drule_at (Pos $ el 2) \\ simp []
+    \\ last_x_assum $ drule_at (Pos $ el 3) \\ simp []
     \\ impl_tac >- (gvs [])
     \\ disch_then $ qx_choosel_then [‘st₁’, ‘ret₁’] mp_tac
     \\ strip_tac
@@ -2903,7 +3151,8 @@ Proof
         \\ rpt strip_tac \\ gvs []
         \\ rpt $ pop_assum $ irule_at Any)
       \\ drule locals_ok_cons \\ simp [] \\ disch_then kall_tac
-      \\ irule conditions_hold_cons_not_free \\ simp [])
+      \\ irule_at (Pos last) conditions_hold_cons_not_free \\ simp []
+      \\ irule state_inv_with_locals_cons_none \\ simp [])
     \\ rpt strip_tac
     \\ first_assum $ irule_at $ Pos hd
     \\ drule eval_stmt_locals
@@ -2915,6 +3164,7 @@ Proof
        \\ asm_rewrite_tac [] \\ simp [])
     \\ simp []
     \\ drule_all locals_ok_cons_drop \\ simp [] \\ disch_then kall_tac
+    \\ conj_tac >- (drule state_inv_with_locals_drop \\ simp [])
     \\ rpt CASE_TAC
     \\ gvs [conditions_hold_cons_drop])
   >~ [‘Assign ass’] >-
@@ -2932,12 +3182,17 @@ Proof
     \\ drule IMP_assi_values
     \\ disch_then $ qspecl_then [‘env’, ‘vs’] mp_tac
     \\ imp_res_tac LIST_REL_LENGTH
-    \\ impl_tac >- simp []
+    \\ impl_tac >-
+     (simp []
+      \\ rev_drule_then assume_tac get_types_inr_every_can_get_type
+      \\ drule_all_then assume_tac list_rel_eval_exp_value_inv \\ simp []
+      \\ fs [state_inv_def])
     \\ strip_tac
     \\ first_x_assum $ irule_at $ Pos hd
     \\ simp [eval_true_def,GSYM eval_true_conj_every]
-    \\ conj_tac >-
-     (pop_assum mp_tac
+    \\ rpt conj_tac
+    >- (* locals_ok *)
+     (qpat_x_assum ‘ALOOKUP _ = ALOOKUP _’ mp_tac
       \\ DEP_REWRITE_TAC [alookup_distinct_reverse_append] \\ simp [MAP_ZIP]
       \\ disch_tac
       \\ drule ALOOKUP_locals_ok_eq \\ simp [] \\ disch_then kall_tac
@@ -2953,6 +3208,7 @@ Proof
       \\ strip_tac \\ gvs []
       \\ drule locals_unique_types
       \\ disch_then $ qspecl_then [‘ty’, ‘lhs_ty’, ‘n’] mp_tac \\ simp [])
+    >- (fs [state_inv_def])
     \\ irule $ iffLR eval_exp_freevars
     \\ qexists_tac ‘ZIP (ret_names,MAP SOME vs) ++ st.locals’
     \\ conj_tac
@@ -2977,6 +3233,7 @@ Proof
    (qsuff_tac
     ‘∀stx.
        conditions_hold stx env (invs ++ [CanEval guard] ++ MAP CanEval ds) ∧
+       state_inv stx ∧
        locals_ok locals stx.locals ∧
        stx.locals_old = st.locals_old ∧
        stx.heap_old = st.heap_old ∧
@@ -2985,6 +3242,7 @@ Proof
          eval_stmt stx env (While guard invs ds mods body) st' ret ∧
          st'.locals_old = stx.locals_old ∧ st'.heap = stx.heap ∧
          st'.heap_old = stx.heap_old ∧
+         state_inv st' ∧
          locals_ok locals st'.locals ∧
          case ret of
          | Rcont => conditions_hold st' env (not guard::invs)
@@ -3024,6 +3282,7 @@ Proof
     \\ qsuff_tac ‘∀x stx.
           x = eval_measure stx env (0, ds) ∧
           conditions_hold stx env (invs ++ [CanEval guard] ++ MAP CanEval ds) ∧
+          state_inv stx ∧
           locals_ok locals stx.locals ∧
           stx.locals_old = st.locals_old ∧
           stx.heap_old = st.heap_old ∧
@@ -3032,6 +3291,7 @@ Proof
             eval_stmt stx env (While guard invs ds mods body) st' ret ∧
             st'.locals_old = stx.locals_old ∧ st'.heap = stx.heap ∧
             st'.heap_old = stx.heap_old ∧
+            state_inv st' ∧
             locals_ok locals st'.locals ∧
             case ret of
               Rcont => conditions_hold st' env (not guard::invs)
@@ -3073,6 +3333,7 @@ Proof
         \\ asm_rewrite_tac []
         \\ first_assum $ irule_at Any)
       \\ simp []
+      \\ conj_tac >- (cheat (* state_inv *))
       \\ reverse conj_tac
       >- cheat
       \\ qpat_x_assum ‘eval_true _ _ (Foralls _ (imp _ (conj reqs)))’ assume_tac
@@ -3133,11 +3394,13 @@ Proof
       \\ ‘eval_decreases st2 env (MAP Var (MAP FST ds1)) =
           eval_decreases st1 env ds’ by cheat
       \\ asm_rewrite_tac [])
+    \\ reverse conj_tac >- (cheat (* state_inv *))
     \\ fs [conditions_hold_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]
     \\ rpt strip_tac
     \\ first_x_assum irule \\ fs []
     \\ fs [get_vars_stmt_def,CanEval_def,get_vars_exp_def,LIST_TO_SET_FLAT]
     \\ fs [MEM_MAP,PULL_EXISTS])
+
   \\ rename [‘MetCall rets mname args’]
   \\ irule_at Any eval_stmt_MetCall \\ gvs []
   \\ qpat_assum ‘compatible_env env m’ mp_tac
@@ -3233,6 +3496,13 @@ Proof
       \\ match_mp_tac EQ_IMPLIES
       \\ rpt AP_THM_TAC \\ AP_TERM_TAC
       \\ simp [state_component_equality])
+    >-
+     (rev_drule_then assume_tac get_types_inr_every_can_get_type
+      \\ drule_all_then assume_tac list_rel_eval_exp_value_inv
+      \\ gvs [Abbr ‘st1’, state_inv_def, Abbr ‘new_l’]
+      \\ rewrite_tac [locals_inv_reverse, locals_inv_append]
+      \\ DEP_REWRITE_TAC [locals_inv_zip_none] \\ simp []
+      \\ irule locals_inv_zip_some \\ simp [])
     >- gvs [Abbr‘st1’]
     >- gvs [Abbr‘st1’]
     \\ PairCases_on ‘decs’ \\ gvs [wrap_old_def]
@@ -3309,7 +3579,14 @@ Proof
      \\ drule_all subset_every \\ simp [])
   \\ drule IMP_assi_values_distinct
   \\ disch_then $ qspecl_then [‘env’, ‘out_vs’] mp_tac
-  \\ impl_tac >- fs []
+  \\ impl_tac >-
+   (fs []
+    \\ gvs [Abbr ‘st3’, restore_caller_def, Abbr ‘st1’]
+    \\ conj_tac >- (fs [state_inv_def])
+    \\ ‘st.heap = st2.heap’ by gvs [] \\ fs []
+    \\ irule list_rel_eval_exp_value_inv \\ simp []
+    \\ first_assum $ irule_at (Pos last)
+    \\ simp [can_get_type_map_var])
   \\ strip_tac
   \\ first_assum $ irule_at $ Pos hd
   \\ conj_tac >- (unabbrev_all_tac \\ fs [restore_caller_def])
@@ -3333,9 +3610,11 @@ Proof
     \\ rev_drule locals_unique_types
     \\ disch_then $ qspecl_then [‘ty’, ‘lhs_ty’, ‘n’] mp_tac \\ simp [])
   \\ rewrite_tac [GSYM eval_true_conj_every]
+  \\ rpt conj_tac >-
+   (gvs [Abbr ‘st3’, restore_caller_def, state_inv_def])
   \\ rewrite_tac [eval_true_def]
   \\ irule (iffLR eval_exp_swap_locals_alt)
-  \\ pop_assum $ irule_at Any o GSYM
+  \\ qpat_x_assum ‘ALOOKUP _ = ALOOKUP _’ $ irule_at Any o GSYM
   \\ first_x_assum $ qspec_then ‘ZIP (ret_names,MAP SOME out_vs)’ mp_tac
   \\ impl_tac >- (gvs [LIST_REL_EL_EQN,EL_ZIP,EL_MAP])
   \\ strip_tac
@@ -3480,6 +3759,7 @@ Theorem methods_lemma[local]:
       Method name mspec body ∈ m ∧
       st.locals_old = st.locals ∧
       st.heap_old = st.heap ∧
+      state_inv st ∧
       conditions_hold st env mspec.reqs ∧ compatible_env env m ∧
       strict_locals_ok mspec.ins st.locals ∧
       locals_ok mspec.outs st.locals ∧
@@ -3492,6 +3772,7 @@ Theorem methods_lemma[local]:
         st'.heap = st.heap ∧
         st'.heap_old = st.heap_old ∧
         locals_ok (mspec.ins ++ mspec.outs) st'.locals ∧
+        state_inv st' ∧
         conditions_hold st' env (MAP (wrap_Old (set (MAP FST mspec.ins))) mspec.ens) ∧
         LIST_REL (eval_exp st' env) (MAP (Var o FST) mspec.outs) out_vs
 Proof
