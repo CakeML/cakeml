@@ -369,6 +369,15 @@ Proof
   >> simp[sadd_def]
 QED
 
+Theorem sadd_not_num_exception:
+  ! v vs n .
+    (! i . v <> SNum i)
+    ==>
+    sadd (v::vs) n = Exception $ strlit "Arith-op applied to non-number"
+Proof
+  Cases >> simp[sadd_def]
+QED
+
 Theorem smul_num_or_exception:
   ∀ vs n .
     (∃ m . smul vs n = Val (SNum m)) ∨
@@ -378,6 +387,15 @@ Proof
   >> simp[smul_def]
   >> Cases
   >> simp[smul_def]
+QED
+
+Theorem smul_not_num_exception:
+  ! v vs n .
+    (! i . v <> SNum i)
+    ==>
+    smul (v::vs) n = Exception $ strlit "Arith-op applied to non-number"
+Proof
+  Cases >> simp[smul_def]
 QED
 
 Theorem sminus_num_or_exception:
@@ -394,6 +412,15 @@ Proof
   >> gvs[]
 QED
 
+Theorem sminus_not_num_exception:
+  ! v vs .
+    (! i . v <> SNum i)
+    ==>
+    sminus (v::vs) = Exception $ strlit "Arith-op applied to non-number"
+Proof
+  Cases >> simp[sminus_def]
+QED
+
 Theorem seqv_bool_or_exception:
   ∀ vs .
     (∃ b . seqv vs = Val (SBool b)) ∨
@@ -405,6 +432,78 @@ Proof
   >> simp[seqv_def]
   >> Cases_on ‘t'’
   >> simp[seqv_def]
+QED
+
+Theorem seqv_not_num_false:
+  ! v i .
+    (! i . v <> SNum i)
+    ==>
+    seqv [SNum i; v] = Val (SBool F)
+Proof
+  Cases >> simp[seqv_def]
+QED
+
+Theorem seqv_not_bool_false:
+  ! v b .
+    (! b . v <> SBool b)
+    ==>
+    seqv [SBool b; v] = Val (SBool F)
+Proof
+  Cases >> simp[seqv_def]
+QED
+
+Theorem seqv_not_num_or_bool_false:
+  ! v v' .
+    (! i . v <> SNum i) /\
+    (! b . v <> SBool b)
+    ==>
+    seqv [v; v'] = Val (SBool F)
+Proof
+  Cases >> simp[seqv_def]
+QED
+
+Theorem car_not_pairp_exception:
+  ! v store ks .
+    (! l . v <> PairP l)
+    ==>
+    (case v of
+    | PairP l => (store,ks,Val (FST (pair_entry (EL l store))))
+    | _ => (store, ks, Exception $ strlit "Can't take car of non-pair")) = (store, ks, Exception $ strlit "Can't take car of non-pair")
+Proof
+  Cases >> simp[]
+QED
+
+Theorem cdr_not_pairp_exception:
+  ! v store ks .
+    (! l . v <> PairP l)
+    ==>
+    (case v of
+    | PairP l => (store,ks,Val (SND (pair_entry (EL l store))))
+    | _ => (store, ks, Exception $ strlit "Can't take cdr of non-pair")) = (store, ks, Exception $ strlit "Can't take cdr of non-pair")
+Proof
+  Cases >> simp[]
+QED
+
+Theorem isnull_not_null_false:
+  ! v store ks .
+    v <> Null
+    ==>
+    (case v of
+    | Null => (store,ks,Val (SBool T))
+    | _ => (store,ks,Val (SBool F))) = (store, ks, Val (SBool F))
+Proof
+  Cases >> simp[]
+QED
+
+Theorem ispair_not_pairp_false:
+  ! v store ks .
+    (! l . v <> PairP l)
+    ==>
+    (case v of
+    | PairP l => (store,ks,Val (SBool T))
+    | _ => (store,ks,Val (SBool F))) = (store, ks, Val (SBool F))
+Proof
+  Cases >> simp[]
 QED
 
 Theorem valid_application_progress:
