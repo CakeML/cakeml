@@ -1,18 +1,10 @@
 (*
-  WebAssembly (Wasm) semantics
+  CWasm Functional Bigstep semantics
 *)
 
 Theory      wasmSem
-Ancestors   wasmLang ancillaryOps option arithmetic
+Ancestors   wasmLang wasm_sem_common ancillaryOps option arithmetic
 Libs        wordsLib
-
-Type mem = “:word8 list”
-Overload b2w[local] = “(λ b. if b then 1w else 0w) : bool -> α word”
-
-Datatype: value
-  = I32 word32
-  | I64 word64
-End
 
 Datatype: state =
   <|
@@ -300,31 +292,31 @@ Theorem do_bin_cases = REWRITE_RULE [GSYM do_bin_thm] b_op_rel_cases;
 
 Inductive cmp_op_rel:
   (* TODO check semantics of these ops *)
-  (∀l r. cmp_op_rel (Eq Int W32) (I32 l) (I32 r) (I32 $ b2w (l =  r)) )∧
-  (∀l r. cmp_op_rel (Ne Int W32) (I32 l) (I32 r) (I32 $ b2w (l <> r)) )
+  (∀l r. cmp_op_rel (Eq Int W32) (I32 l) (I32 r) (b2w32 (l =  r)) )∧
+  (∀l r. cmp_op_rel (Ne Int W32) (I32 l) (I32 r) (b2w32 (l <> r)) )
   ∧
-  (∀l r. cmp_op_rel (Lt_  Unsigned  W32) (I32 l) (I32 r) (I32 $ b2w (l <+  r)) )∧
-  (∀l r. cmp_op_rel (Gt_  Unsigned  W32) (I32 l) (I32 r) (I32 $ b2w (l >+  r)) )∧
-  (∀l r. cmp_op_rel (Le_  Unsigned  W32) (I32 l) (I32 r) (I32 $ b2w (l <=+ r)) )∧
-  (∀l r. cmp_op_rel (Ge_  Unsigned  W32) (I32 l) (I32 r) (I32 $ b2w (l >=+ r)) )
+  (∀l r. cmp_op_rel (Lt_  Unsigned  W32) (I32 l) (I32 r) (b2w32 (l <+  r)) )∧
+  (∀l r. cmp_op_rel (Gt_  Unsigned  W32) (I32 l) (I32 r) (b2w32 (l >+  r)) )∧
+  (∀l r. cmp_op_rel (Le_  Unsigned  W32) (I32 l) (I32 r) (b2w32 (l <=+ r)) )∧
+  (∀l r. cmp_op_rel (Ge_  Unsigned  W32) (I32 l) (I32 r) (b2w32 (l >=+ r)) )
   ∧
-  (∀l r. cmp_op_rel (Eq Int W64) (I64 l) (I64 r) (I32 $ b2w (l =  r)) )∧
-  (∀l r. cmp_op_rel (Ne Int W64) (I64 l) (I64 r) (I32 $ b2w (l <> r)) )
+  (∀l r. cmp_op_rel (Eq Int W64) (I64 l) (I64 r) (b2w32 (l =  r)) )∧
+  (∀l r. cmp_op_rel (Ne Int W64) (I64 l) (I64 r) (b2w32 (l <> r)) )
   ∧
-  (∀l r. cmp_op_rel (Lt_  Unsigned  W64) (I64 l) (I64 r) (I32 $ b2w (l <+  r)) )∧
-  (∀l r. cmp_op_rel (Gt_  Unsigned  W64) (I64 l) (I64 r) (I32 $ b2w (l >+  r)) )∧
-  (∀l r. cmp_op_rel (Le_  Unsigned  W64) (I64 l) (I64 r) (I32 $ b2w (l <=+ r)) )∧
-  (∀l r. cmp_op_rel (Ge_  Unsigned  W64) (I64 l) (I64 r) (I32 $ b2w (l >=+ r)) )
+  (∀l r. cmp_op_rel (Lt_  Unsigned  W64) (I64 l) (I64 r) (b2w32 (l <+  r)) )∧
+  (∀l r. cmp_op_rel (Gt_  Unsigned  W64) (I64 l) (I64 r) (b2w32 (l >+  r)) )∧
+  (∀l r. cmp_op_rel (Le_  Unsigned  W64) (I64 l) (I64 r) (b2w32 (l <=+ r)) )∧
+  (∀l r. cmp_op_rel (Ge_  Unsigned  W64) (I64 l) (I64 r) (b2w32 (l >=+ r)) )
   ∧
-  (∀l r. cmp_op_rel (Lt_    Signed  W32) (I32 l) (I32 r) (I32 $ b2w (l <  r)) )∧
-  (∀l r. cmp_op_rel (Gt_    Signed  W32) (I32 l) (I32 r) (I32 $ b2w (l >  r)) )∧
-  (∀l r. cmp_op_rel (Le_    Signed  W32) (I32 l) (I32 r) (I32 $ b2w (l <= r)) )∧
-  (∀l r. cmp_op_rel (Ge_    Signed  W32) (I32 l) (I32 r) (I32 $ b2w (l >= r)) )
+  (∀l r. cmp_op_rel (Lt_    Signed  W32) (I32 l) (I32 r) (b2w32 (l <  r)) )∧
+  (∀l r. cmp_op_rel (Gt_    Signed  W32) (I32 l) (I32 r) (b2w32 (l >  r)) )∧
+  (∀l r. cmp_op_rel (Le_    Signed  W32) (I32 l) (I32 r) (b2w32 (l <= r)) )∧
+  (∀l r. cmp_op_rel (Ge_    Signed  W32) (I32 l) (I32 r) (b2w32 (l >= r)) )
   ∧
-  (∀l r. cmp_op_rel (Lt_    Signed  W64) (I64 l) (I64 r) (I32 $ b2w (l <  r)) )∧
-  (∀l r. cmp_op_rel (Gt_    Signed  W64) (I64 l) (I64 r) (I32 $ b2w (l >  r)) )∧
-  (∀l r. cmp_op_rel (Le_    Signed  W64) (I64 l) (I64 r) (I32 $ b2w (l <= r)) )∧
-  (∀l r. cmp_op_rel (Ge_    Signed  W64) (I64 l) (I64 r) (I32 $ b2w (l >= r)) )
+  (∀l r. cmp_op_rel (Lt_    Signed  W64) (I64 l) (I64 r) (b2w32 (l <  r)) )∧
+  (∀l r. cmp_op_rel (Gt_    Signed  W64) (I64 l) (I64 r) (b2w32 (l >  r)) )∧
+  (∀l r. cmp_op_rel (Le_    Signed  W64) (I64 l) (I64 r) (b2w32 (l <= r)) )∧
+  (∀l r. cmp_op_rel (Ge_    Signed  W64) (I64 l) (I64 r) (b2w32 (l >= r)) )
 End
 
 Theorem cmp_op_rel_det:
@@ -386,14 +378,15 @@ Theorem do_cvt_cases = REWRITE_RULE [GSYM do_cvt_thm] convert_op_rel_cases;
 (**************************)
 
 Definition num_stk_op_def:
-  num_stk_op (N_const32 Int w)     stk  = SOME (I32  w             :: stk) ∧
-  num_stk_op (N_const64 Int w)     stk  = SOME (I64  w             :: stk) ∧
-  num_stk_op (N_eqz W32) (I32 w :: stk) = SOME (I32 (b2w (w = 0w)) :: stk) ∧
-  num_stk_op (N_eqz W64) (I64 w :: stk) = SOME (I32 (b2w (w = 0w)) :: stk) ∧
+  num_stk_op (N_const32 Int w)     stk  = SOME (I32  w         :: stk) ∧
+  num_stk_op (N_const64 Int w)     stk  = SOME (I64  w         :: stk) ∧
+  num_stk_op (N_eqz W32) (I32 w :: stk) = SOME (b2w32 (w = 0w) :: stk) ∧
+  num_stk_op (N_eqz W64) (I64 w :: stk) = SOME (b2w32 (w = 0w) :: stk) ∧
  (num_stk_op (N_unary   op) (v   ::stk) = case do_una op v   of NONE=>NONE| SOME x => SOME $ x::stk)∧
  (num_stk_op (N_binary  op) (l::r::stk) = case do_bin op l r of NONE=>NONE| SOME x => SOME $ x::stk)∧
  (num_stk_op (N_compare op) (l::r::stk) = case do_cmp op l r of NONE=>NONE| SOME x => SOME $ x::stk)∧
- (num_stk_op (N_convert op) (v   ::stk) = case do_cvt op v   of NONE=>NONE| SOME x => SOME $ x::stk)
+ (num_stk_op (N_convert op) (v   ::stk) = case do_cvt op v   of NONE=>NONE| SOME x => SOME $ x::stk)∧
+  num_stk_op _ _ = NONE
 End
 
 

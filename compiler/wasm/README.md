@@ -34,7 +34,7 @@ Imprecisions:
   HOL lists encode Wasm vectors; latter has max length of 2^32
 
 [wasmSemScript.sml](wasmSemScript.sml):
-WebAssembly (Wasm) semantics
+CWasm Functional Bigstep semantics
 
 [wasm_binary_formatScript.sml](wasm_binary_formatScript.sml):
 En- & De- coding between CWasm 1.0 AST & Wasm's binary format
@@ -42,3 +42,10 @@ En- & De- coding between CWasm 1.0 AST & Wasm's binary format
 [wasm_notationsScript.sml](wasm_notationsScript.sml):
 Notations for cake's Wasm 1.0 AST
 Separated from wasmLangScript for ergonomics/build efficency
+
+[wasm_sem_commonScript.sml](wasm_sem_commonScript.sml):
+CWasm semantic components common to both the Big- & small- step semantics
+(wasmSem & wasm_smallstep resp.)
+
+[wasm_smallstepScript.sml](wasm_smallstepScript.sml):
+WebAssembly (Wasm) smallstep semantics
