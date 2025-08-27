@@ -346,15 +346,20 @@ End
 
 (*** HERE ***)
 Theorem div_ceiling_le_x:
-  ∀k m n. 0 < k ⇒ (div_ceiling n k ≤ m ⇔ n ≤ m * &k)
+  0 < k ⇒ 0 ≤ n ⇒ (div_ceiling n k ≤ m ⇔ n ≤ m * &k)
 Proof
   cheat
+  (*Cases_on ‘n’>>
+  rw[div_ceiling_compute]>>
+  intLib.ARITH_TAC*)
+(*CEILING_DIV_LE_X*)
 QED
 
 Theorem Num_div_ceiling:
   0 < k ⇒ Num q ≤ k * Num (div_ceiling q k)
 Proof
-  cheat
+  Cases_on ‘q’>>
+  rw[div_ceiling_compute,LE_MULT_CEILING_DIV]
 QED
 
 Theorem divide_thm:
@@ -362,16 +367,37 @@ Theorem divide_thm:
 Proof
   Cases_on ‘c’>>
   rename1 ‘satisfies_npbc w (q,r)’>>
-  simp[divide_def,satisfies_npbc_def]>>
-  rw[NOT_ZERO,div_ceiling_le_x]>>
+  rw[divide_def,satisfies_npbc_def,MAP_MAP_o,NOT_ZERO]>>
+  Cases_on ‘r < 0’
+  >-(
+    ‘div_ceiling r k < 0’ suffices_by intLib.ARITH_TAC>>
+    fs[GSYM NOT_ZERO,div_ceiling_sign])>>
+  ‘0 ≤ r’ by intLib.ARITH_TAC>>
+  simp[div_ceiling_le_x]>>
   irule $ intLib.ARITH_PROVE “m ≤ n ∧ n ≤ p ⇒ m ≤ (p:int)”>>
   goal_assum $ drule_at Any>>
   irule $ intLib.ARITH_PROVE “(m:num) ≤ n ⇒ int_of_num m ≤ int_of_num n”>>
   last_x_assum $ kall_tac>>
-  Induct_on ‘q’
-  >-cheat>>
+  Induct_on ‘q’>>
+  simp[MAP]>>
   Cases>>
-  simp[MAP,LEFT_ADD_DISTRIB,div_ceiling_sign,GSYM integerTheory.Num_EQ_ABS]>>
+  simp[LEFT_ADD_DISTRIB,div_ceiling_sign,GSYM integerTheory.Num_EQ_ABS]>>
+  irule LESS_EQ_LESS_EQ_MONO>>
+  simp[Num_div_ceiling]
+QED
+
+Proof
+  Cases_on ‘c’>>
+  rename1 ‘satisfies_npbc w (q,r)’>>
+  rw[divide_def,satisfies_npbc_def,MAP_MAP_o,NOT_ZERO,div_ceiling_le_x]>>
+  irule $ intLib.ARITH_PROVE “m ≤ n ∧ n ≤ p ⇒ m ≤ (p:int)”>>
+  goal_assum $ drule_at Any>>
+  irule $ intLib.ARITH_PROVE “(m:num) ≤ n ⇒ int_of_num m ≤ int_of_num n”>>
+  last_x_assum $ kall_tac>>
+  Induct_on ‘q’>>
+  simp[MAP]>>
+  Cases>>
+  simp[LEFT_ADD_DISTRIB,div_ceiling_sign,GSYM integerTheory.Num_EQ_ABS]>>
   irule LESS_EQ_LESS_EQ_MONO>>
   simp[Num_div_ceiling]
 QED
