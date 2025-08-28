@@ -2957,28 +2957,34 @@ Theorem eval_stmt_While_unroll:
   eval_stmt st env body st1 res1 ∧
   (if res1 = Rcont then
      eval_stmt st1 env (While guard invs ds mods body) st2 res
-   else res = res1)
+   else res = res1 ∧ st2 = st1)
   ⇒
   eval_stmt st env (While guard invs ds mods body) st2 res
 Proof
-  cheat
-  (* simp [eval_exp_def, eval_stmt_def, PULL_EXISTS] *)
-  (* \\ qx_genl_tac [‘ck’, ‘ck₁’, ‘ck₂’, ‘ck₃’] *)
-  (* \\ IF_CASES_TAC \\ rpt strip_tac \\ gvs [] *)
-  (* >- (* res = Rcont *) *)
-  (*  (rename [‘evaluate_stmt (_ with clock := ck₄) _ _ = _’] *)
-  (*   \\ simp [evaluate_stmt_def] *)
-  (*   \\ qrefine ‘ckx + 1’ \\ simp [dec_clock_def] *)
-  (*   \\ rev_dxrule (cj 1 evaluate_exp_add_to_clock) \\ simp [] *)
-  (*   \\ disch_then $ qspec_then ‘ck₄ + ck₂’ assume_tac *)
-  (*   \\ rev_dxrule evaluate_stmt_add_to_clock \\ simp [] *)
-  (*   \\ disch_then $ qspec_then ‘ck₁ + ck₄’ assume_tac *)
-  (*   \\ rev_dxrule evaluate_stmt_add_to_clock \\ simp [] *)
-  (*   \\ disch_then $ qspec_then ‘ck₁ + ck₃’ assume_tac *)
-  (*   \\ qexists ‘ck + ck₂ + ck₄’ \\ gvs [] *)
-  (*   \\ gvs [STOP_def] *)
-  (*   \\ cheat (* todo need to know that eval_stmt does not timeout *) *)
-  (*   ) *)
+  simp [eval_exp_def, eval_stmt_def, PULL_EXISTS]
+  \\ qx_genl_tac [‘ck’, ‘ck₁’, ‘ck₂’, ‘ck₃’]
+  \\ IF_CASES_TAC \\ rpt strip_tac \\ gvs []
+  >- (* res = Rcont *)
+   (rename [‘evaluate_stmt (_ with clock := ck₄) _ _ = _’]
+    \\ simp [evaluate_stmt_def]
+    \\ qrefine ‘ckx + 1’ \\ simp [dec_clock_def]
+    \\ rev_dxrule (cj 1 evaluate_exp_add_to_clock) \\ simp []
+    \\ disch_then $ qspec_then ‘ck₄ + ck₂’ assume_tac
+    \\ rev_dxrule evaluate_stmt_add_to_clock \\ simp []
+    \\ disch_then $ qspec_then ‘ck₁ + ck₄’ assume_tac
+    \\ rev_dxrule evaluate_stmt_add_to_clock \\ simp []
+    \\ disch_then $ qspec_then ‘ck₁ + ck₃’ assume_tac
+    \\ qexists ‘ck + ck₂ + ck₄’ \\ gvs []
+    \\ simp [STOP_def, state_component_equality])
+  \\ simp [evaluate_stmt_def]
+  \\ qrefine ‘ckx + 1’ \\ simp [dec_clock_def]
+  \\ rev_dxrule (cj 1 evaluate_exp_add_to_clock) \\ simp []
+  \\ disch_then $ qspec_then ‘ck₂’ assume_tac
+  \\ rev_dxrule evaluate_stmt_add_to_clock \\ simp []
+  \\ disch_then $ qspec_then ‘ck₁’ assume_tac
+  \\ qexists ‘ck + ck₂’ \\ gvs []
+  \\ namedCases_on ‘res’ ["", "stp"] \\ gvs []
+  \\ simp [state_component_equality]
 QED
 
 (* todo move to dafny_eval_rel *)
@@ -3539,9 +3545,10 @@ Proof
     \\ rename [‘eval_stmt _ _ _ (st2 with locals := _)’]
     \\ first_x_assum $ irule_at $ Pos hd
     \\ reverse $ Cases_on ‘ret’ \\ fs []
+
     >-
      (rename [‘Rstop stop_tm’] \\ Cases_on ‘stop_tm’ \\ gvs []
-      \\ qexists_tac ‘st2’ \\ fs [locals_ok_append_left])
+      \\ cheat (* unsure *))
     \\ first_x_assum $ qspec_then ‘st2 with locals := rest’ mp_tac
     \\ rewrite_tac [AND_IMP_INTRO]
     \\ reverse impl_tac >- (simp [])

@@ -50,7 +50,7 @@ Definition eval_stmt_def:
   eval_stmt st env body st' ret =
     ∃ck1 ck2.
       evaluate_stmt (st with clock := ck1) env body =
-        (st' with clock := ck2, ret)
+        (st' with clock := ck2, ret) ∧ ret ≠ Rstop (Serr Rtimeout_error)
 End
 
 Definition eval_true_def:
