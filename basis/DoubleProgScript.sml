@@ -337,6 +337,16 @@ Proof
   simp[WORD_w2w_OVER_BITWISE]
 QED
 
+Theorem exponent_correct':
+  f.Exponent = w2w (exponent f)
+Proof
+  simp[machine_ieeeTheory.float_to_fp64_def, exponent_def, word_concat_def,
+       word_join_def, word_bits_w2w, GSYM WORD_BITS_OVER_BITWISE,
+       WORD_BITS_LSL, WORD_ALL_BITS, w2w_w2w, GSYM WORD_w2w_OVER_BITWISE,
+       WORD_LEFT_AND_OVER_OR, w2w_LSL, word_and_lsl_eq_0, lsl_lsr,
+       LSR_LIMIT, word_lsr_n2w, WORD_BITS_ZERO3]
+QED
+
 Definition sign_def:
   sign f = (float_to_fp64 f >>> 63) && 1w
 End
@@ -355,26 +365,136 @@ Proof
   simp[WORD_w2w_OVER_BITWISE]
 QED
 
+Theorem sign_correct':
+  f.Sign = w2w (sign f)
+Proof
+  simp[machine_ieeeTheory.float_to_fp64_def, sign_def, word_concat_def,
+       word_join_def, word_bits_w2w, GSYM WORD_BITS_OVER_BITWISE,
+       WORD_BITS_LSL, WORD_ALL_BITS, w2w_w2w, GSYM WORD_w2w_OVER_BITWISE,
+       WORD_LEFT_AND_OVER_OR, w2w_LSL, word_and_lsl_eq_0, lsl_lsr,
+       LSR_LIMIT, word_lsr_n2w, WORD_BITS_ZERO3] >>
+  ‘1w : word1 = UINT_MAXw : word1’
+    by (ONCE_REWRITE_TAC[EQ_SYM_EQ] >> simp[w2w_eq_n2w]) >>
+  pop_assum SUBST1_TAC >>
+  simp[WORD_AND_CLAUSES]
+QED
+
 val _ = translate significand_def
 val _ = translate exponent_def
 val _ = translate sign_def
 
+(* ----------------------------------------------------------------------
+    Putting a float together from its constituent parts (layout order)
+   ---------------------------------------------------------------------- *)
 
-(* Quote cakeml:
-fun exponent f = Word.andb(Word.lsr(toWord f, 52), Word.fromInt 0x7FF)
+Definition construct_def:
+  construct (sgn:word64) (exp:word64) (sgf:word64) =
+    fp64_to_float (
+      ((sgn && 1w) << 63) ||
+      ((exp && 0x7FFw) << 52) ||
+      (sgf && 0xFFFFFFFFFFFFFw)
+    )
 End
 
-Quote cakeml:
-fun sign f = Word.andb(Word.lsr(toWord f, 63), Word.fromInt 0x1)
+Theorem w2w'_11 = w2w_w2w |> GSYM |> INST_TYPE [beta |-> “:11”] |> SRULE[]
+Theorem w2w'_52 = w2w_w2w |> GSYM |> INST_TYPE [beta |-> “:52”] |> SRULE[]
+Theorem w2w'_01 = w2w_w2w |> GSYM |> INST_TYPE [beta |-> “:1”] |> SRULE[]
+
+Theorem w2w_range_11 =
+        word_bits_w2w |> INST_TYPE [alpha |-> “:64”, beta |-> “:11”]
+                      |> SPEC_ALL |> Q.INST [‘h’ |-> ‘10’, ‘l’ |-> ‘0’]
+                      |> SRULE[WORD_ALL_BITS] |> SYM
+Theorem w2w_range_52 =
+        word_bits_w2w |> INST_TYPE [alpha |-> “:64”, beta |-> “:52”]
+                      |> SPEC_ALL
+                      |> Q.INST [‘h’ |-> ‘51’, ‘l’ |-> ‘0’]
+                      |> SRULE[WORD_ALL_BITS] |> SYM
+Theorem w2w_range_01 =
+        word_bits_w2w |> INST_TYPE [alpha |-> “:64”, beta |-> “:1”]
+                      |> SPEC_ALL
+                      |> Q.INST [‘h’ |-> ‘0’, ‘l’ |-> ‘0’]
+                      |> SRULE[WORD_ALL_BITS] |> SYM
+
+
+Theorem construct_correct:
+  construct sig exp sgf = <|
+    Sign := w2w sig;
+    Exponent := w2w exp;
+    Significand := w2w sgf
+  |>
+Proof
+  simp[construct_def, machine_ieeeTheory.fp64_to_float_def,
+       word_extract_def, GSYM WORD_BITS_OVER_BITWISE,
+       WORD_BITS_LSL, GSYM WORD_w2w_OVER_BITWISE] >>
+  simp[w2w'_11, w2w'_52, w2w'_01] >>
+  ‘1w : word1 = UINT_MAXw : word1’
+    by (ONCE_REWRITE_TAC[EQ_SYM_EQ] >> simp[w2w_eq_n2w]) >>
+  pop_assum SUBST1_TAC >>
+  simp[WORD_AND_CLAUSES]
+QED
+
+Theorem construct_correct':
+  <| Sign := sig; Exponent := exp; Significand := sgf |> =
+  construct (w2w sig) (w2w exp) (w2w sgf)
+Proof
+  simp[construct_def, machine_ieeeTheory.fp64_to_float_def,
+       word_extract_def, GSYM WORD_BITS_OVER_BITWISE,
+       WORD_BITS_LSL, GSYM WORD_w2w_OVER_BITWISE,
+       w2w_range_11, w2w_range_52, w2w_range_01] >>
+  simp[w2w_w2w, WORD_ALL_BITS] >>
+  ‘1w : word1 = UINT_MAXw : word1’
+    by (ONCE_REWRITE_TAC[EQ_SYM_EQ] >> simp[w2w_eq_n2w]) >>
+  pop_assum SUBST1_TAC >>
+  simp[WORD_AND_CLAUSES]
+QED
+
+val _ = translate construct_def
+
+Definition fnext_hi_def:
+  fnext_hi f = fp64_to_float (float_to_fp64 f + 1w)
 End
 
-Quote cakeml:
-fun construct sn e sg =
-  Word.orb (Word.orb(Word.lsl(sn,63),
-                     Word.lsl(Word.andb(e,Word.fromInt 0x7FF),52)),
-            Word.andb(sg,Word.fromInt 0xFFFFFFFFFFFFF))
+Definition fnext_lo_def:
+  fnext_lo f = fp64_to_float (float_to_fp64 f - 1w)
 End
-*)
+
+val _ = translate fnext_hi_def
+val _ = translate fnext_lo_def
+
+Theorem float_is_finite_characterisation:
+  float_is_finite f ⇔ exponent f ≠ 0x7FFw
+Proof
+  simp[binary_ieeeTheory.float_is_finite,
+       binary_ieeeTheory.float_is_subnormal_def,
+       binary_ieeeTheory.float_is_normal_def,
+       binary_ieeeTheory.float_is_zero, exponent_correct] >>
+  Cases_on ‘f.Exponent = 0w’ >> simp[w2w_eq_n2w] >>
+  ‘2047w : word11 = UINT_MAXw’ by simp[] >>
+  pop_assum SUBST1_TAC >> simp[]
+QED
+
+val _ = translate float_is_finite_characterisation
+
+Theorem float_is_zero_characterisation:
+  float_is_zero f ⇔ exponent f = 0w ∧ significand f = 0w
+Proof
+  simp[binary_ieeeTheory.float_is_zero, exponent_correct,
+       significand_correct, w2w_eq_n2w]
+QED
+
+val _ = translate float_is_zero_characterisation
+
+Definition flt_max_def:
+  flt_max = float_top(:52#11)
+End
+
+Theorem flt_max_characterisation:
+  flt_max = construct 0w 0x7FEw 0xFFFFFFFFFFFFFw
+Proof
+  simp[binary_ieeeTheory.float_top_def, construct_correct', flt_max_def]
+QED
+
+val _ = translate flt_max_characterisation
 
 (* --------------------------------------------------------------------------
  * Pretty-printer
