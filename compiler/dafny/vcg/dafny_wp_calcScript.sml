@@ -374,6 +374,11 @@ Inductive stmt_wp:
 [~Assert:]
   ∀m ens post e.
     stmt_wp m (e::post) (Assert e) (post:exp list) (ens:exp list) decs ls
+[~Print:]
+  ∀m ens post e t.
+    get_type ls e = INR t
+    ⇒
+    stmt_wp m (CanEval e::post) (Print e t) post ens decs ls
 [~Return:]
   ∀m ens post.
     stmt_wp m (ens:exp list) Return (post:exp list) (ens:exp list) decs ls
@@ -3114,6 +3119,17 @@ Proof
   \\ rw [] \\ res_tac \\ gvs [value_inv_def]
 QED
 
+(* todo move to dafny_evalrel *)
+Triviality eval_stmt_Print:
+  (∃v. eval_exp st env e v ∧ value_has_type t v) ⇒
+  eval_stmt st env (Print e t) st Rcont
+Proof
+  rpt strip_tac
+  \\ gvs [eval_stmt_def, evaluate_stmt_def, eval_exp_def]
+  \\ rename [‘evaluate_exp (_ with clock := ck) _ _ = (_ with clock := ck₁, _)’]
+  \\ qexistsl [‘ck’, ‘ck₁’] \\ simp []
+QED
+
 Theorem stmt_wp_sound:
   ∀m reqs stmt post ens decs locals.
     stmt_wp m reqs stmt post ens decs locals ⇒
@@ -3162,6 +3178,13 @@ Proof
   >~ [‘Assert e’] >-
    (irule_at (Pos hd) eval_stmt_Assert \\ simp []
     \\ gvs [conditions_hold_cons])
+  >~ [‘Print’] >-
+   (irule_at (Pos hd) eval_stmt_Print \\ simp []
+    \\ fs [conditions_hold_cons]
+    \\ drule eval_true_CanEval \\ strip_tac
+    \\ first_assum $ irule_at (Pos hd)
+    \\ drule_all eval_exp_get_type
+    \\ simp [value_has_type_eq_all_values])
   >~ [‘Return’] >-
    (irule_at (Pos hd) eval_stmt_Return \\ simp [])
   >~ [‘Then stmt₁ stmt₂’] >-
@@ -4086,6 +4109,12 @@ QED
 Definition stmt_vcg_def:
   stmt_vcg _ Skip post _ _ _ = return post ∧
   stmt_vcg _ (Assert e) post _ _ _ = return (e::post) ∧
+  stmt_vcg _ (Print e t) post ens decs ls =
+  do
+    e_t <- get_type ls e;
+    () <- if e_t = t then return () else (fail «stmt_vcg:Print: Type mismatch»);
+    return (CanEval e::post)
+  od ∧
   stmt_vcg _ (Return) _ ens _ _ = return ens ∧
   stmt_vcg m (Then s₁ s₂) post ens decs ls =
     do
@@ -4198,6 +4227,10 @@ Proof
    (gvs [stmt_vcg_def, stmt_wp_Skip])
   >~ [‘Assert’] >-
    (gvs [stmt_vcg_def, stmt_wp_Assert])
+  >~ [‘Print’] >-
+   (gvs [stmt_vcg_def]
+    \\ gvs [oneline bind_def, CaseEq "sum"]
+    \\ simp [stmt_wp_Print])
   >~ [‘Return’] >-
    (gvs [stmt_vcg_def, stmt_wp_Return])
   >~ [‘Then’] >-
@@ -4452,7 +4485,7 @@ End
 (* open dafny_compilerTheory; *)
 
 (* val cwd = OS.FileSys.getDir (); *)
-(* val fname = OS.Path.mkCanonical (cwd ^ "/../tests/examples/max_first_two.sexp"); *)
+(* val fname = OS.Path.mkCanonical (cwd ^ "/../examples/mccarthy.sexp"); *)
 
 (* val inStream = TextIO.openIn fname; *)
 (* val dafny = TextIO.inputAll inStream; *)
