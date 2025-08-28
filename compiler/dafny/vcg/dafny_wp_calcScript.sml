@@ -2914,10 +2914,16 @@ QED
 Theorem eval_bool_IMP:
   eval_true st env (CanEval guard) ∧
   get_type locals guard = INR BoolT ∧
-  locals_ok locals st.locals ⇒
+  locals_ok locals st.locals ∧
+  state_inv st ⇒
   ∃guard_b. eval_exp st env guard (BoolV guard_b)
 Proof
-  cheat
+  rpt strip_tac
+  \\ dxrule eval_true_CanEval
+  \\ strip_tac
+  \\ drule_all eval_exp_get_type
+  \\ strip_tac
+  \\ gvs [all_values_def, SF SFY_ss]
 QED
 
 Theorem eval_stmt_While_stop:
