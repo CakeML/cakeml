@@ -20,7 +20,7 @@ Type byteSeq[local] = “:word8 list”
 Overload zeroB[local] = “0x00w:byte”
 Overload elseB[local] = “0x05w:byte”
 Overload endB[local]  = “0x0Bw:byte”
-Overload B0[local]    = “(λ x. x = zeroB):byte -> bool”
+(* Overload b0[local]    = “(λ x. x = zeroB):byte -> bool” *)
 
 Type dcdr[local] = “:(mlstring + α) # byteSeq”
 Overload error[local] = “λ obj str. (INL $ strlit str,obj)”
@@ -476,11 +476,11 @@ Definition enc_instr_def:
   (enc_instrs (exp:bool) ([]:instr list) : byteSeq option = SOME if exp then [endB] else []
   ) ∧
   (enc_instrs e (i::is) =
-    case enc_instr  e i  of NONE=>NONE| SOME enci  =>
+    case enc_instr    i  of NONE=>NONE| SOME enci  =>
     case enc_instrs e is of NONE=>NONE| SOME encis =>
       SOME $ enci ++ encis
   ) ∧
-  enc_instr (e:bool) (inst:instr) : byteSeq option = case inst of
+  enc_instr (inst:instr) : byteSeq option = case inst of
   (* control instructions *)
   | Unreachable => SOME [zeroB]
   | Nop         => SOME [0x01w]
@@ -491,8 +491,8 @@ Definition enc_instr_def:
   | If bT bdT bdE => (case enc_instrs F bdT  of NONE=>NONE| SOME enct =>
                       case enc_instrs T bdE  of NONE=>NONE| SOME ence => SOME $ 0x04w :: enc_blocktype bT ++ enct ++ elseB :: ence)
   (* branches *)
-  | Br           lbl =>                                     SOME $ 0x0Cw ::                            enc_u32 lbl
-  | BrIf         lbl =>                                     SOME $ 0x0Dw ::                            enc_u32 lbl
+  | Br           lbl =>                                                     SOME $ 0x0Cw ::            enc_u32 lbl
+  | BrIf         lbl =>                                                     SOME $ 0x0Dw ::            enc_u32 lbl
   | BrTable lbls lbl => (case enc_indxs lbls of NONE=>NONE| SOME enclbls => SOME $ 0x0Ew :: enclbls ++ enc_u32 lbl)
   (* calls/returns *)
   | Return                    =>                                                      SOME  [0x0Fw]
@@ -635,7 +635,7 @@ Definition dec_instr_def:
     case check_len (b::bs) (dec_instr (b::bs)) of (INL err,bs) => (INL err,bs) | (INR i ,bs) =>
     case dec_instr_list bs                     of (INL err,bs) => (INL err,bs) | (INR is,bs) =>
       (INR $ i::is, bs)                                                                       )
-     (* case mk_shorter (b::bs) dec_instr of (INL err,bs) => (INL err,bs) | (INR i ,bs) => *)
+    (* case mk_shorter (b::bs) dec_instr of (INL err,bs) => (INL err,bs) | (INR i ,bs) => *)
 Termination
   WF_REL_TAC ‘measure $ λx. case x of
                             | INL bs => 2 * LENGTH bs
@@ -739,8 +739,7 @@ Definition split_funcs_def:
   split_funcs ([]:func list) =  ( [] :  index                list
                                 , [] : (valtype list # expr) list
                                 , [] :  mlstring             list
-                                , [] :  mlstring list        list
-  ) ∧
+                                , [] :  mlstring list        list ) ∧
   split_funcs (f::fs) =
     let ( typs
         , lBods
@@ -761,12 +760,9 @@ Definition zip_funcs_def:
             (_  :  mlstring             list)
             (_  :  mlstring list        list) = [] : func list
   ∧
-  zip_funcs _ [] _ _ = []
-  ∧
-  zip_funcs _ _ [] _ = []
-  ∧
-  zip_funcs _ _ _ [] = []
-  ∧
+  zip_funcs _ [] _ _ = [] ∧
+  zip_funcs _ _ [] _ = [] ∧
+  zip_funcs _ _ _ [] = [] ∧
   zip_funcs ( fi            :: is   )
             ( (vs,e)        :: vles )
             ( func_name     :: fns  )
@@ -801,7 +797,7 @@ Definition enc_module_def:
       (* Global   *) enc_section  6w    globals'  ++
       (* Code     *) enc_section 10w    code'     ++
       (* Data     *) enc_section 11w    datas'    ++
-      (* Custom   *) enc_section  0w    []
+      (* Names    *) enc_section  0w    []
 End
 
 
@@ -820,33 +816,30 @@ fun print_dot_tac h = (print "."; all_tac h);
 (*****************************************)
 
 Theorem dec_enc_vector[simp]:
-  ∀dec enc is encis rest.
+  ∀is dec enc encis rest.
     enc_vector enc is = SOME encis ∧
     (∀x rs. dec (enc x ++ rs) = (INR x,rs))
     ⇒
     dec_vector dec (encis ++ rest) = (INR is, rest)
 Proof
-
   rpt strip_tac
   \\ last_x_assum mp_tac
   \\ rewrite_tac[dec_vector_def, enc_vector_def]
   \\ simp[AllCaseEqs()]
   \\ rpt strip_tac
   \\ gvs[GSYM NOT_LESS]
-  \\ rewrite_tac[GSYM APPEND_ASSOC, dec_enc_u32]
-  \\ simp[]
+  \\ sass
   \\ qid_spec_tac ‘rest’  (* ask  hol to generalize rest *)
   \\ qid_spec_tac ‘is’    (* ask  hol to generalize rest *)
   \\ Induct
-    >> rewrite_tac[enc_list_def]
-    >> simp[Once dec_list_def, CaseEq "sum", CaseEq "prod"]
-    \\ asm_rewrite_tac[GSYM APPEND_ASSOC]
-    \\ simp[]
+  >> simp[enc_list_def, Once dec_list_def, CaseEq "sum", CaseEq "prod"]
+  \\ asm_rewrite_tac[GSYM APPEND_ASSOC]
+  \\ simp[]
 QED
 
 
 
-Theorem dec_enc_vector_opt:
+Theorem dec_enc_vector_opt[simp]:
   ∀dec enc is encis rest.
     enc_vector_opt enc is = SOME encis ∧
     (∀x encx rs. enc x = SOME encx ⇒ dec (encx ++ rs) = (INR x,rs))
@@ -865,14 +858,13 @@ Proof
   \\ qid_spec_tac ‘encxs’
   \\ qid_spec_tac ‘is’
   \\ Induct
-    >> rewrite_tac[enc_list_opt_def]
-    >> simp[Once dec_list_def, CaseEq "sum", CaseEq "prod"]
-    \\ rpt gen_tac
-    \\ Cases_on `enc h` >> gvs[]
-    \\ Cases_on `enc_list_opt enc is'` >> gvs[]
-    \\ rpt strip_tac \\ gvs[]
-    \\ last_x_assum dxrule
-    \\ sass
+  >> simp[enc_list_opt_def, Once dec_list_def, CaseEq "sum", CaseEq "prod"]
+  \\ rpt gen_tac
+  \\ Cases_on `enc h` >> gvs[]
+  \\ Cases_on `enc_list_opt enc is'` >> gvs[]
+  \\ rpt strip_tac \\ gvs[]
+  \\ last_x_assum dxrule
+  \\ sass
 QED
 
 
@@ -886,13 +878,11 @@ QED
 Theorem dec_enc_valtype[simp]:
   ∀ t rest. dec_valtype (enc_valtype t :: rest) = (INR t, rest)
 Proof
-     rpt strip_tac
+     rpt gen_tac
   \\ `∃ val. enc_valtype t = val` by simp []
   \\ asm_rewrite_tac[]
   \\ pop_assum mp_tac
-  \\ rewrite_tac[enc_valtype_def]
-  \\ simp[AllCaseEqs()]
-  \\ simp[bvtype_nchotomy]
+  \\ simp[enc_valtype_def, AllCaseEqs(), bvtype_nchotomy]
   \\ rpt strip_tac
     >> gvs[dec_valtype_def]
 QED
@@ -900,15 +890,7 @@ QED
 Theorem dec_enc_valtype_Seq[simp]:
   ∀ t rest. dec_valtype (enc_valtype_Seq t ++ rest) = (INR t, rest)
 Proof
-     rpt strip_tac
-  \\ `∃ val. enc_valtype t = val` by simp []
-  \\ asm_rewrite_tac[]
-  \\ pop_assum mp_tac
-  \\ rewrite_tac[enc_valtype_def, APPEND]
-  \\ simp[AllCaseEqs()]
-  \\ simp[bvtype_nchotomy]
-  \\ rpt strip_tac
-    >> gvs[dec_valtype_def]
+  gvs[]
 QED
 
 Theorem dec_enc_functype[simp]:
@@ -916,15 +898,14 @@ Theorem dec_enc_functype[simp]:
     enc_functype sg = SOME encsg ⇒
     dec_functype (encsg ++ rest) = (INR sg, rest)
 Proof
-     rewrite_tac[enc_functype_def]
-  \\ simp[AllCaseEqs()]
+     simp[AllCaseEqs(), enc_functype_def]
   \\ rpt strip_tac
   \\ gvs[dec_functype_def]
   \\ PairCases_on `sg` \\ gvs[]
   \\ dxrule dec_enc_vector  (* same as drule but then clears the assumption it used *)
   \\ dxrule dec_enc_vector
-  \\ disch_then $ qspec_then `dec_valtype` assume_tac (*  *)
-  \\ disch_then $ qspec_then `dec_valtype` assume_tac (*  *)
+  \\ disch_then $ qspec_then `dec_valtype` assume_tac
+  \\ disch_then $ qspec_then `dec_valtype` assume_tac
   \\ gvs[dec_enc_valtype]
   \\ asm_rewrite_tac[GSYM APPEND_ASSOC]
   \\ simp[]
@@ -946,7 +927,7 @@ QED
 Theorem dec_enc_globaltype[simp]:
   ∀ x rest. dec_globaltype (enc_globaltype x ++ rest) = (INR x, rest)
 Proof
-     rpt strip_tac
+     rpt gen_tac
   \\ `∃ val. enc_globaltype x = val` by simp []
   \\ asm_rewrite_tac[]
   \\ pop_assum mp_tac
@@ -970,13 +951,11 @@ Proof
   \\ asm_rewrite_tac []
   \\ pop_assum mp_tac
   \\ rewrite_tac [enc_numI_def]
-  \\ simp[AllCaseEqs()]
-  \\ simp[bvtype_nchotomy]
-  \\ simp[convert_op_nchotomy]
+  \\ simp[AllCaseEqs(), bvtype_nchotomy, convert_op_nchotomy]
   \\ rpt strip_tac
-    (* single byte encoding cases *)
-    >> asm_rewrite_tac[APPEND, dec_numI_def]
-    >> simp[AllCaseEqs()]
+  (* single byte encoding cases *)
+  >> asm_rewrite_tac[APPEND, dec_numI_def]
+  >> simp[AllCaseEqs()]
     (* cases requiring further encoding (of their "immediates") *)
     >> (
       pop_assum sym_sub_tac
@@ -1002,8 +981,7 @@ Proof
   rpt gen_tac
   \\ ‘∃res. enc_loadI i = res’ by simp [] >> asm_rewrite_tac[]
   \\ pop_assum mp_tac
-  \\ rewrite_tac [enc_loadI_def]
-  \\ simp[AllCaseEqs()] \\ simp[bvtype_nchotomy]
+  \\ simp[enc_loadI_def, AllCaseEqs(), bvtype_nchotomy]
   \\ rpt strip_tac
     >> ( pop_assum sym_sub_tac >- simp[dec_loadI_def, AllCaseEqs()] )
 QED
@@ -1015,11 +993,9 @@ Proof
   \\ ‘∃res. enc_storeI i = res’ by simp []
   \\ asm_rewrite_tac []
   \\ pop_assum mp_tac
-  \\ rewrite_tac [enc_storeI_def]
-  \\ simp[AllCaseEqs()]
-  \\ simp[bvtype_nchotomy]
+  \\ simp[enc_storeI_def, AllCaseEqs(), bvtype_nchotomy]
   \\ rpt strip_tac
-    >> gvs[dec_storeI_def, dec_enc_2u32]
+    >> gvs[dec_storeI_def]
 QED
 
 
@@ -1040,12 +1016,9 @@ Proof
   \\ rewrite_tac[enc_blocktype_def]
   \\ simp[AllCaseEqs()]
   \\ rpt strip_tac
-  >- gvs[dec_blocktype_def]
-  >-(
-     gvs[dec_blocktype_def, dec_enc_valtype]
-    \\ rw[enc_valtype_def]
-    \\ fs[AllCaseEqs()]
-  )
+  >> gvs[dec_blocktype_def, dec_enc_valtype]
+  \\ rw[enc_valtype_def]
+  \\ fs[AllCaseEqs()]
 QED
 
 
@@ -1061,26 +1034,12 @@ Theorem dec_enc_global[simp]:
     enc_global g = SOME encg ⇒
     dec_global $ encg ++ rs = (INR g, rs)
 Proof
-  (*
-
-  (* attempt 1 *)
-  rpt gen_tac
-  \\ ‘∃ res. encg ++ rs = res’ by simp[]
-  \\ asm_rewrite_tac[]
-  (* why won't this unfold dec_global's defn? *)
-  \\ simp[dec_global_def]
-
-  (* attempt 2 *)
-  rewrite_tac[enc_global_def]
-  \\ simp[AllCaseEqs()]
-  (* why won't this unfold dec_global's defn? *)
-  \\ simp[dec_global_def]
-  \\ Cases_on ‘g.gtype’
-    >> simp[enc_globaltype_def]
-    >> rpt strip_tac
-    >> gvs[dec_global_def, dec_globaltype_def]
-
-  *)
+     rpt gen_tac
+  \\ simp[enc_global_def, AllCaseEqs(), dec_global_def, enc_globaltype_def]
+  \\ Cases_on ‘g.gtype’ >> Cases_on  `g.ginit`
+    >> gvs[]
+  \\ rpt strip_tac
+\\
   cheat
 QED
 
@@ -1267,7 +1226,7 @@ Theorem dec_instr_def[allow_rebind] = REWRITE_RULE [check_len_thm] dec_instr_def
 Theorem dec_instr_ind[allow_rebind] = REWRITE_RULE [check_len_thm] dec_instr_ind;
 
 Theorem enc_instr_not_end:
-  ∀i b. ∃h t. enc_instr b i = SOME $ h::t ∧ h ≠ 0x0Bw
+  ∀i b. ∃h t. enc_instr i = SOME $ h::t ∧ h ≠ 0x0Bw
 Proof
   Cases \\ simp [Once enc_instr_def]
   >~ [‘enc_varI’  ] >- (simp [enc_varI_def  ] \\ every_case_tac \\ fs [])
