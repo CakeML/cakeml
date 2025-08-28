@@ -344,7 +344,6 @@ Definition divide_def:
     (MAP (λ(c,v). (div_ceiling c k, v)) l, div_ceiling n k)
 End
 
-(*** HERE ***)
 Theorem div_ceiling_le_x:
   k ≠ 0 ⇒ 0 ≤ n ⇒ (div_ceiling n k ≤ m ⇔ n ≤ m * &k)
 Proof
@@ -364,9 +363,7 @@ Proof
     intLib.ARITH_TAC)>>
   fs[NOT_ZERO]>>
   ‘0 < int_of_num k’ by intLib.ARITH_TAC>>
-  ‘m * int_of_num k < 0’ by (
-    cheat (**  need to prove this: neg * pos = neg  **)
-  )>>
+  ‘m * int_of_num k < 0’ by simp[integerTheory.INT_MUL_SIGN_CASES]>>
   intLib.ARITH_TAC
 QED
 
