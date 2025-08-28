@@ -4,8 +4,17 @@ Pancake Changelog
 User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
-August ??th 2025
+August 26th 2025
 -------------------
+
+### 16-bit shared memory loads and stores
+
+16-bit shared memory loads and stores have now been added. These are
+primarily intended for reading and writing to device registers for 16-bit
+devices. The syntax is as follows:
+
+    !st16 1000, v; // store 16 bits from variable v (12) to shared memory address 1000
+    !ld16 v, 1000 + 12; // load 16 bits from shared memory address 1012 to v
 
 ### Shape declarations
 
@@ -24,6 +33,11 @@ If a shape is not provided in any place it is expected, the compiler assumes a d
 
 The compiler has new errors to enforce sensible usage of shapes.
 Warnings for estimated locations of memory addresses now support struct fields.
+
+### Silver backend not supported
+
+The Silver (`ag32`) compilation target is no longer supported by the Pancake compiler,
+and no longer considered in the Pancake compiler correctness proofs.
 
 August 20th 2025
 -------------------
