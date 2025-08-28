@@ -2926,13 +2926,20 @@ Proof
   \\ gvs [all_values_def, SF SFY_ss]
 QED
 
+(* todo move to dafny_eval_rel *)
 Theorem eval_stmt_While_stop:
   eval_exp st env guard (BoolV F) ⇒
   eval_stmt st env (While guard invs ds mods body) st Rcont
 Proof
-  cheat
+  simp [eval_exp_def, PULL_EXISTS]
+  \\ rpt strip_tac
+  \\ rename [‘evaluate_exp (_ with clock := ck) _ _ = _’]
+  \\ simp [eval_stmt_def, evaluate_stmt_def]
+  \\ qrefinel [‘ck + 1’, ‘_’] \\ simp [dec_clock_def]
+  \\ simp [state_component_equality]
 QED
 
+(* todo move to dafny_eval_rel *)
 Theorem eval_stmt_While_unroll:
   eval_exp st env guard (BoolV T) ∧
   eval_stmt st env body st1 res1 ∧
@@ -2945,6 +2952,7 @@ Proof
   cheat
 QED
 
+(* todo move to dafny_eval_rel *)
 Theorem eval_exp_Var:
   ALOOKUP st.locals v = SOME (SOME val) ⇒
   eval_exp st env (Var v) val
