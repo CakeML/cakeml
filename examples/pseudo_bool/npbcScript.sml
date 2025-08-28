@@ -343,6 +343,7 @@ Definition divide_def:
   divide ((l,n):npbc) k =
     (MAP (λ(c,v). (div_ceiling c k, v)) l, div_ceiling n k)
 End
+‘&(0 \\ k) = 0’ by simp[CEILING_DIV_def,LESS_DIV_EQ_ZERO]
 
 Theorem div_ceiling_le_x:
   k ≠ 0 ⇒ 0 ≤ n ⇒ (div_ceiling n k ≤ m ⇔ n ≤ m * &k)
@@ -361,11 +362,23 @@ Proof
     ‘div_ceiling n k < 0’ by intLib.ARITH_TAC>>
     rfs[div_ceiling_sign]>>
     intLib.ARITH_TAC)>>
-  fs[NOT_ZERO]>>
   ‘0 < int_of_num k’ by intLib.ARITH_TAC>>
   ‘m * int_of_num k < 0’ by simp[integerTheory.INT_MUL_SIGN_CASES]>>
   intLib.ARITH_TAC
 QED
+
+(* ALTERNATIVE PROOF FOR THE ABOVE (cheat to be resolved)
+Proof
+  rw[]>>
+  Cases_on ‘m’>>
+  Cases_on ‘n’>>
+  fs[div_ceiling_compute,CEILING_DIV_LE_X]
+  >-cheat
+  >-(
+    ‘&(0 \\ k) = 0’ by simp[CEILING_DIV_def,LESS_DIV_EQ_ZERO]>>
+    simp[integerTheory.INT_NOT_LE,integerTheory.INT_MUL_SIGN_CASES])
+QED
+*)
 
 Theorem Num_div_ceiling:
   0 < k ⇒ Num q ≤ k * Num (div_ceiling q k)
