@@ -2935,8 +2935,20 @@ Proof
   \\ rpt strip_tac
   \\ rename [‘evaluate_exp (_ with clock := ck) _ _ = _’]
   \\ simp [eval_stmt_def, evaluate_stmt_def]
-  \\ qrefinel [‘ck + 1’, ‘_’] \\ simp [dec_clock_def]
+  \\ qrefine ‘ck + 1’ \\ simp [dec_clock_def]
   \\ simp [state_component_equality]
+QED
+
+(* todo move to dafny_evaluateProps *)
+Theorem evaluate_stmt_add_to_clock:
+  ∀s env stmt s' r extra.
+    evaluate_stmt s env stmt = (s', r) ∧ r ≠ Rstop (Serr Rtimeout_error) ⇒
+    evaluate_stmt (s with clock := s.clock + extra) env stmt =
+      (s' with clock := s'.clock + extra, r)
+Proof
+  ho_match_mp_tac evaluate_stmt_ind
+  \\ rpt strip_tac
+  \\ cheat
 QED
 
 (* todo move to dafny_eval_rel *)
@@ -2950,6 +2962,23 @@ Theorem eval_stmt_While_unroll:
   eval_stmt st env (While guard invs ds mods body) st2 res
 Proof
   cheat
+  (* simp [eval_exp_def, eval_stmt_def, PULL_EXISTS] *)
+  (* \\ qx_genl_tac [‘ck’, ‘ck₁’, ‘ck₂’, ‘ck₃’] *)
+  (* \\ IF_CASES_TAC \\ rpt strip_tac \\ gvs [] *)
+  (* >- (* res = Rcont *) *)
+  (*  (rename [‘evaluate_stmt (_ with clock := ck₄) _ _ = _’] *)
+  (*   \\ simp [evaluate_stmt_def] *)
+  (*   \\ qrefine ‘ckx + 1’ \\ simp [dec_clock_def] *)
+  (*   \\ rev_dxrule (cj 1 evaluate_exp_add_to_clock) \\ simp [] *)
+  (*   \\ disch_then $ qspec_then ‘ck₄ + ck₂’ assume_tac *)
+  (*   \\ rev_dxrule evaluate_stmt_add_to_clock \\ simp [] *)
+  (*   \\ disch_then $ qspec_then ‘ck₁ + ck₄’ assume_tac *)
+  (*   \\ rev_dxrule evaluate_stmt_add_to_clock \\ simp [] *)
+  (*   \\ disch_then $ qspec_then ‘ck₁ + ck₃’ assume_tac *)
+  (*   \\ qexists ‘ck + ck₂ + ck₄’ \\ gvs [] *)
+  (*   \\ gvs [STOP_def] *)
+  (*   \\ cheat (* todo need to know that eval_stmt does not timeout *) *)
+  (*   ) *)
 QED
 
 (* todo move to dafny_eval_rel *)
