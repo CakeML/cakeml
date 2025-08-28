@@ -2736,13 +2736,13 @@ QED
 Theorem eval_exp_11:
   eval_exp st env e v1 ∧ eval_exp st env e v2 ⇒ v1 = v2
 Proof
-  cheat
-QED
-
-Triviality eval_exp_var_eq:
-  eval_exp st env (Var n) v' ∧ eval_exp st env (Var n) v ⇒ v' = v
-Proof
-  rw [] \\ imp_res_tac eval_exp_11 \\ fs []
+  gvs [eval_exp_def, PULL_EXISTS]
+  \\ qx_genl_tac [‘ck’, ‘ck₁’, ‘ck₂’, ‘ck₃’]
+  \\ rpt strip_tac
+  \\ dxrule (cj 1 evaluate_exp_add_to_clock) \\ simp []
+  \\ disch_then $ qspec_then ‘ck’ assume_tac
+  \\ rev_dxrule (cj 1 evaluate_exp_add_to_clock) \\ simp []
+  \\ disch_then $ qspec_then ‘ck₂’ assume_tac \\ gvs []
 QED
 
 Triviality strict_locals_ok_swap_imp:
