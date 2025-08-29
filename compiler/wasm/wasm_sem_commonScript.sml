@@ -12,4 +12,17 @@ Datatype: value
   | I64 word64
 End
 
-Overload b2w32 = “(λ b. if b then I32 1w else I32 0w) : bool -> value”
+Overload b2v = “(λ b. if b then I32 1w else I32 0w) : bool -> value”
+
+Datatype: result
+  = RInvalid
+  (* RInvalid represents cases of going wrong
+     that shouldn't happen in validated modules.
+     ie, any "valid" CWasm module should never
+     be evaluated to RInvalid *)
+  | RBreak num
+  | RReturn
+  | RTrap
+  | RNormal
+  | RTimeout
+End

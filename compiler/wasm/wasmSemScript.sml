@@ -19,19 +19,6 @@ Datatype: state =
   |>
 End
 
-Datatype: result
-  = RInvalid
-  (* RInvalid represents cases of going wrong
-     that shouldn't happen in validated modules.
-     ie, any "valid" CWasm module should never
-     be evaluated to RInvalid *)
-  | RBreak num
-  | RReturn
-  | RTrap
-  | RNormal
-  | RTimeout
-End
-
 (**************************************)
 (*                                    *)
 (*     Helper/ancillary functions     *)
@@ -189,7 +176,7 @@ Inductive u_op_rel:
   ∧
   (∀w. u_op_rel (Extend8s  W64  ) (I64 w) (I64 $ extend8s  w)) ∧
   (∀w. u_op_rel (Extend16s W64  ) (I64 w) (I64 $ extend16s w)) ∧
-  (∀w. u_op_rel  Extend32s        (I64 w) (I64 $ extend32s (w2w w:word32))) ∧
+  (∀w. u_op_rel  Extend32s        (I64 w) (I64 $ extend32s w)) ∧
   (∀w. u_op_rel (ExtendI32_ sign) (I32 w) (I64 $ sext sign $ w))
 End
 
@@ -292,31 +279,31 @@ Theorem do_bin_cases = REWRITE_RULE [GSYM do_bin_thm] b_op_rel_cases;
 
 Inductive cmp_op_rel:
   (* TODO check semantics of these ops *)
-  (∀l r. cmp_op_rel (Eq Int W32) (I32 l) (I32 r) (b2w32 (l =  r)) )∧
-  (∀l r. cmp_op_rel (Ne Int W32) (I32 l) (I32 r) (b2w32 (l <> r)) )
+  (∀l r. cmp_op_rel (Eq Int W32) (I32 l) (I32 r) (b2v (l =  r)) )∧
+  (∀l r. cmp_op_rel (Ne Int W32) (I32 l) (I32 r) (b2v (l <> r)) )
   ∧
-  (∀l r. cmp_op_rel (Lt_  Unsigned  W32) (I32 l) (I32 r) (b2w32 (l <+  r)) )∧
-  (∀l r. cmp_op_rel (Gt_  Unsigned  W32) (I32 l) (I32 r) (b2w32 (l >+  r)) )∧
-  (∀l r. cmp_op_rel (Le_  Unsigned  W32) (I32 l) (I32 r) (b2w32 (l <=+ r)) )∧
-  (∀l r. cmp_op_rel (Ge_  Unsigned  W32) (I32 l) (I32 r) (b2w32 (l >=+ r)) )
+  (∀l r. cmp_op_rel (Lt_  Unsigned  W32) (I32 l) (I32 r) (b2v (l <+  r)) )∧
+  (∀l r. cmp_op_rel (Gt_  Unsigned  W32) (I32 l) (I32 r) (b2v (l >+  r)) )∧
+  (∀l r. cmp_op_rel (Le_  Unsigned  W32) (I32 l) (I32 r) (b2v (l <=+ r)) )∧
+  (∀l r. cmp_op_rel (Ge_  Unsigned  W32) (I32 l) (I32 r) (b2v (l >=+ r)) )
   ∧
-  (∀l r. cmp_op_rel (Eq Int W64) (I64 l) (I64 r) (b2w32 (l =  r)) )∧
-  (∀l r. cmp_op_rel (Ne Int W64) (I64 l) (I64 r) (b2w32 (l <> r)) )
+  (∀l r. cmp_op_rel (Eq Int W64) (I64 l) (I64 r) (b2v (l =  r)) )∧
+  (∀l r. cmp_op_rel (Ne Int W64) (I64 l) (I64 r) (b2v (l <> r)) )
   ∧
-  (∀l r. cmp_op_rel (Lt_  Unsigned  W64) (I64 l) (I64 r) (b2w32 (l <+  r)) )∧
-  (∀l r. cmp_op_rel (Gt_  Unsigned  W64) (I64 l) (I64 r) (b2w32 (l >+  r)) )∧
-  (∀l r. cmp_op_rel (Le_  Unsigned  W64) (I64 l) (I64 r) (b2w32 (l <=+ r)) )∧
-  (∀l r. cmp_op_rel (Ge_  Unsigned  W64) (I64 l) (I64 r) (b2w32 (l >=+ r)) )
+  (∀l r. cmp_op_rel (Lt_  Unsigned  W64) (I64 l) (I64 r) (b2v (l <+  r)) )∧
+  (∀l r. cmp_op_rel (Gt_  Unsigned  W64) (I64 l) (I64 r) (b2v (l >+  r)) )∧
+  (∀l r. cmp_op_rel (Le_  Unsigned  W64) (I64 l) (I64 r) (b2v (l <=+ r)) )∧
+  (∀l r. cmp_op_rel (Ge_  Unsigned  W64) (I64 l) (I64 r) (b2v (l >=+ r)) )
   ∧
-  (∀l r. cmp_op_rel (Lt_    Signed  W32) (I32 l) (I32 r) (b2w32 (l <  r)) )∧
-  (∀l r. cmp_op_rel (Gt_    Signed  W32) (I32 l) (I32 r) (b2w32 (l >  r)) )∧
-  (∀l r. cmp_op_rel (Le_    Signed  W32) (I32 l) (I32 r) (b2w32 (l <= r)) )∧
-  (∀l r. cmp_op_rel (Ge_    Signed  W32) (I32 l) (I32 r) (b2w32 (l >= r)) )
+  (∀l r. cmp_op_rel (Lt_    Signed  W32) (I32 l) (I32 r) (b2v (l <  r)) )∧
+  (∀l r. cmp_op_rel (Gt_    Signed  W32) (I32 l) (I32 r) (b2v (l >  r)) )∧
+  (∀l r. cmp_op_rel (Le_    Signed  W32) (I32 l) (I32 r) (b2v (l <= r)) )∧
+  (∀l r. cmp_op_rel (Ge_    Signed  W32) (I32 l) (I32 r) (b2v (l >= r)) )
   ∧
-  (∀l r. cmp_op_rel (Lt_    Signed  W64) (I64 l) (I64 r) (b2w32 (l <  r)) )∧
-  (∀l r. cmp_op_rel (Gt_    Signed  W64) (I64 l) (I64 r) (b2w32 (l >  r)) )∧
-  (∀l r. cmp_op_rel (Le_    Signed  W64) (I64 l) (I64 r) (b2w32 (l <= r)) )∧
-  (∀l r. cmp_op_rel (Ge_    Signed  W64) (I64 l) (I64 r) (b2w32 (l >= r)) )
+  (∀l r. cmp_op_rel (Lt_    Signed  W64) (I64 l) (I64 r) (b2v (l <  r)) )∧
+  (∀l r. cmp_op_rel (Gt_    Signed  W64) (I64 l) (I64 r) (b2v (l >  r)) )∧
+  (∀l r. cmp_op_rel (Le_    Signed  W64) (I64 l) (I64 r) (b2v (l <= r)) )∧
+  (∀l r. cmp_op_rel (Ge_    Signed  W64) (I64 l) (I64 r) (b2v (l >= r)) )
 End
 
 Theorem cmp_op_rel_det:
@@ -378,10 +365,10 @@ Theorem do_cvt_cases = REWRITE_RULE [GSYM do_cvt_thm] convert_op_rel_cases;
 (**************************)
 
 Definition num_stk_op_def:
-  num_stk_op (N_const32 Int w)     stk  = SOME (I32  w         :: stk) ∧
-  num_stk_op (N_const64 Int w)     stk  = SOME (I64  w         :: stk) ∧
-  num_stk_op (N_eqz W32) (I32 w :: stk) = SOME (b2w32 (w = 0w) :: stk) ∧
-  num_stk_op (N_eqz W64) (I64 w :: stk) = SOME (b2w32 (w = 0w) :: stk) ∧
+  num_stk_op (N_const32 Int w)     stk  = SOME (I32  w       :: stk) ∧
+  num_stk_op (N_const64 Int w)     stk  = SOME (I64  w       :: stk) ∧
+  num_stk_op (N_eqz W32) (I32 w :: stk) = SOME (b2v (w = 0w) :: stk) ∧
+  num_stk_op (N_eqz W64) (I64 w :: stk) = SOME (b2v (w = 0w) :: stk) ∧
  (num_stk_op (N_unary   op) (v   ::stk) = case do_una op v   of NONE=>NONE| SOME x => SOME $ x::stk)∧
  (num_stk_op (N_binary  op) (l::r::stk) = case do_bin op l r of NONE=>NONE| SOME x => SOME $ x::stk)∧
  (num_stk_op (N_compare op) (l::r::stk) = case do_cmp op l r of NONE=>NONE| SOME x => SOME $ x::stk)∧
