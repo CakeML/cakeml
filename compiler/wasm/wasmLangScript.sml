@@ -8,6 +8,8 @@ Theory    wasmLang
 Ancestors words arithmetic list mlstring
 Libs      wordsLib dep_rewrite
 
+(* Overload gt2_32[local] = “λ (n:num). 2 ** 32 ≤ n” *)
+
 (* Note :
   Most datatypes closely follow the wasm abstractions. ie,
   The HOL Datatype: <ABC> is named to wasm's <ABC> type.
@@ -306,6 +308,8 @@ End
 
 
 
+
+
 (*******************)
 (*                 *)
 (*     Modules     *)
@@ -352,3 +356,28 @@ End
 2.5 Modules
 *)
 
+
+
+(*
+Definition too_long_def:
+  too_long = λxs. 2 ** 32 ≤ LENGTH xs
+End
+
+Definition lst_len_chk_def:
+  lst_len_chk (m:module) otherWise =
+    if too_long m.types   then NONE else
+    if too_long m.funcs   then NONE else
+    if too_long m.mems    then NONE else
+    if too_long m.globals then NONE else
+    if too_long m.datas   then NONE else
+    if EXISTS too_long $ MAP (λd. d.dinit) m.datas   then NONE else
+    if EXISTS too_long $ MAP (λg. g.ginit) m.globals then NONE else
+    if EXISTS too_long $ MAP (λf. f.locals) m.funcs  then NONE else
+    if EXISTS too_long $ MAP (λf. f.body  ) m.funcs  then NONE else
+    if EXISTS too_long $ MAP (λf. f.lnames) m.funcs  then NONE else
+    let (tfst,tsnd) = UNZIP m.types in
+    if EXISTS too_long $ tfst then NONE else
+    if EXISTS too_long $ tsnd then NONE else
+    SOME otherWise
+End
+*)
