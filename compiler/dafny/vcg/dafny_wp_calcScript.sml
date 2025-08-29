@@ -423,7 +423,8 @@ Inductive stmt_wp:
 [~While:]
   ∀m guard invs ds mods body post ens decs ls ds_vars ls1 loop_cond.
     DISJOINT (set ds_vars)
-             (set (MAP FST ls ++ get_vars_stmt (While guard invs ds mods body))) ∧
+             (set (MAP FST ls ++ FLAT (MAP get_vars_exp ens) ++
+                   get_vars_stmt (While guard invs ds mods body))) ∧
     LENGTH ds_vars = LENGTH ds ∧
     ALL_DISTINCT ds_vars ∧
     get_type ls guard = INR BoolT ∧
@@ -439,7 +440,7 @@ Inductive stmt_wp:
       ens decs (MAP (λv. (v,IntT)) ds_vars ++ ls)
     ⇒
     stmt_wp m (invs ++ [CanEval guard] ++ MAP CanEval ds ++
-               MAP (CanEval o Var o FST) ls1 ++ [loop_cond] ++
+               MAP (CanEval o Var o FST) ls ++ [loop_cond] ++
                (* on exit of loop, invs and not guard imply post *)
                [Foralls ls1
                   (imp (conj (not guard :: invs)) (conj post))])
@@ -3004,11 +3005,11 @@ QED
 
 Theorem eval_stmt_drop_locals:
   eval_stmt (st1 with locals := ds1 ++ st1.locals) env body st2 ret ∧
-  locals_ok (MAP (λv. (v,IntT)) ds_vars ++ locals) st2.locals ∧
+  strict_locals_ok (MAP (λv. (v,IntT)) ds_vars ++ locals) st2.locals ∧
   DISJOINT (set (get_vars_stmt body)) (set (MAP FST ds1)) ∧
   state_inv st2 ⇒
   ∃rest.
-    locals_ok locals rest ∧
+    strict_locals_ok locals rest ∧
     eval_stmt st1 env body (st2 with locals := rest) ret ∧
     state_inv (st2 with locals := rest) ∧
     (∀e v.
@@ -3177,6 +3178,14 @@ Proof
   \\ gvs [eval_stmt_def, evaluate_stmt_def, eval_exp_def]
   \\ rename [‘evaluate_exp (_ with clock := ck) _ _ = (_ with clock := ck₁, _)’]
   \\ qexistsl [‘ck’, ‘ck₁’] \\ simp []
+QED
+
+Theorem locals_ok_IMP_strict_locals_ok:
+  locals_ok xs st.locals ∧
+  EVERY (eval_true st env) (MAP (CanEval ∘ Var ∘ FST) xs) ⇒
+  strict_locals_ok xs st.locals
+Proof
+  cheat
 QED
 
 Theorem stmt_wp_sound:
@@ -3381,7 +3390,7 @@ Proof
     ‘∀stx.
        conditions_hold stx env (invs ++ [CanEval guard] ++ MAP CanEval ds) ∧
        state_inv stx ∧
-       locals_ok locals stx.locals ∧
+       strict_locals_ok locals stx.locals ∧
        stx.locals_old = st.locals_old ∧
        stx.heap_old = st.heap_old ∧
        stx.heap = st.heap ⇒
@@ -3397,7 +3406,9 @@ Proof
          | Rstop (Serr v3) => F’
     >-
      (disch_then $ qspec_then ‘st’ mp_tac
-      \\ impl_tac >- gvs [conditions_hold_def]
+      \\ impl_tac
+      >- (gvs [conditions_hold_def]
+          \\ drule_all locals_ok_IMP_strict_locals_ok \\ fs [])
       \\ strip_tac
       \\ first_assum $ irule_at $ Pos hd \\ asm_rewrite_tac []
       \\ Cases_on ‘ret’ \\ gvs []
@@ -3405,6 +3416,8 @@ Proof
       \\ gvs [GSYM conditions_hold_def]
       \\ drule eval_true_Foralls
       \\ qabbrev_tac ‘vs = FILTER (λ(v,ty). assigned_in body v) locals’
+      \\ ‘conditions_hold st env (MAP (CanEval ∘ Var ∘ FST) vs)’ by
+        fs [conditions_hold_def,EVERY_MEM,MEM_FILTER,PULL_EXISTS,MEM_MAP,Abbr‘vs’]
       \\ qabbrev_tac ‘vals = MAP (λ(v,_). (v,ALOOKUP st'.locals v)) vs’
       \\ ‘EVERY (IS_SOME_SOME o SND) vals’ by
        (gvs [Abbr‘vals’,EVERY_MAP] \\ simp [LAMBDA_PROD]
@@ -3437,7 +3450,7 @@ Proof
                     x = eval_measure stx env (0, ds) ∧
                     conditions_hold stx env (invs ++ [CanEval guard] ++ MAP CanEval ds) ∧
                     state_inv stx ∧
-                    locals_ok locals stx.locals ∧
+                    strict_locals_ok locals stx.locals ∧
                     stx.locals_old = st.locals_old ∧
                     stx.heap_old = st.heap_old ∧
                     stx.heap = st.heap ⇒
@@ -3457,6 +3470,7 @@ Proof
     \\ rename [‘eval_stmt st1 env’]
     \\ gvs [conditions_hold_def]
     \\ gvs [GSYM conditions_hold_def]
+    \\ ‘locals_ok locals st1.locals’ by (imp_res_tac strict_locals_ok_IMP_locals_ok)
     \\ drule_all eval_bool_IMP \\ strip_tac
     \\ reverse $ Cases_on ‘guard_b’
     >-
@@ -3477,7 +3491,6 @@ Proof
       (Cases_on ‘decs’ \\ fs [eval_measure_def,wrap_old_def]
        \\ irule eval_decreases_old_eq \\ fs [])
     \\ impl_tac
-
     >-
      (conj_tac
       >-
@@ -3509,7 +3522,7 @@ Proof
       \\ dxrule eval_true_Foralls
       \\ disch_then $ qspec_then ‘ds1 ++ MAP (λ(v,_). (v, THE (ALOOKUP st1.locals v))) locals’ mp_tac
       \\ impl_tac
-      >- cheat (* looks true, too strict on locals? *)
+      >- cheat (* looks true *)
       \\ qpat_abbrev_tac ‘ys = REVERSE _ ++ _’
       \\ qabbrev_tac ‘zs = ds1 ++ st1.locals’
       \\ ‘ALOOKUP ys = ALOOKUP zs’ by
@@ -3538,6 +3551,10 @@ Proof
       \\ fs [eval_true_def,LIST_TO_SET_FLAT,PULL_EXISTS,MEM_MAP])
     \\ simp []
     \\ strip_tac
+    \\ ‘strict_locals_ok (MAP (λv. (v,IntT)) ds_vars ++ locals) st''.locals’ by
+     (irule locals_ok_IMP_strict_locals_ok \\ asm_rewrite_tac []
+      \\ qexists_tac ‘env’
+      \\ cheat)
     \\ drule_then drule eval_stmt_drop_locals
     \\ impl_tac
     >- (fs [get_vars_stmt_def])
@@ -3545,10 +3562,14 @@ Proof
     \\ rename [‘eval_stmt _ _ _ (st2 with locals := _)’]
     \\ first_x_assum $ irule_at $ Pos hd
     \\ reverse $ Cases_on ‘ret’ \\ fs []
-
     >-
      (rename [‘Rstop stop_tm’] \\ Cases_on ‘stop_tm’ \\ gvs []
-      \\ cheat (* unsure *))
+      \\ imp_res_tac strict_locals_ok_IMP_locals_ok
+      \\ asm_rewrite_tac []
+      \\ fs [conditions_hold_def,EVERY_MEM,eval_true_def]
+      \\ rpt strip_tac
+      \\ first_x_assum irule \\ simp []
+      \\ fs [LIST_TO_SET_FLAT,MEM_MAP,PULL_EXISTS])
     \\ first_x_assum $ qspec_then ‘st2 with locals := rest’ mp_tac
     \\ rewrite_tac [AND_IMP_INTRO]
     \\ reverse impl_tac >- (simp [])
@@ -3556,10 +3577,11 @@ Proof
     \\ reverse conj_tac
     >-
      (fs [conditions_hold_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,eval_true_def]
-      \\ rpt strip_tac
+      \\ reverse $ rpt strip_tac
       \\ first_x_assum irule \\ fs []
       \\ fs [get_vars_stmt_def,CanEval_def,get_vars_exp_def,LIST_TO_SET_FLAT]
       \\ fs [MEM_MAP,PULL_EXISTS])
+    \\ ‘locals_ok locals rest’ by (imp_res_tac strict_locals_ok_IMP_locals_ok)
     \\ simp [eval_measure_def,LEX_DEF]
     \\ fs [decreases_check_def,decrease_lt_def]
     \\ ‘LENGTH ds_vals = LENGTH ds_vars’ by (imp_res_tac LIST_REL_LENGTH \\ fs [])
