@@ -2445,14 +2445,13 @@ Definition force_thunk_def:
              (dtcase ret of
               | NONE => Return 0 [adjust_var v1]
               | SOME (dest,_) => Assign (adjust_var dest) (Var (adjust_var v1)))
-           (* rest is the implementation of AppUnit + update thunk *)
-             ARB (*
              (list_Seq
                 [Assign 5 (Op And [Load (Op Add [Var 1; Const bytes_in_word])]);
-                 Call (dtcase ret of
-                       | NONE => NONE
-                       | SOME (r,ns) => ([r],adjust_sets ns,Skip,secn,l))
-                      (SOME loc) [adjust_ar v1; 5] NONE])*)]),l+1)
+                 Call
+                   (dtcase ret of
+                    | NONE => NONE
+                    | SOME (r,ns) => SOME ([r],adjust_sets ns,Skip,secn,l))
+                   (SOME loc) [adjust_var v1; 5] NONE])]),l+1)
       : 'a wordLang$prog # num
 End
 
@@ -2798,4 +2797,3 @@ Proof
     \\ pop_assum (fn th => once_rewrite_tac [th])
     \\ rewrite_tac [th_FF,AnyArith_call_tree_def,structure_le_def])
 QED
-
