@@ -50,36 +50,44 @@ Proof
   \\ gvs[do_space_def,AllCaseEqs(),consume_space_def]
 QED
 
-Theorem force_thunk_thm:
-  abs_ml_inv conf (RefPtr b ptr::stack) refs
-             (roots,heap,be,a,sp,sp1,gens) limit ts ∧
-  (lookup ptr refs = SOME (Thunk NotEvaluated v)) ⇒
-    ?p r roots2 v1 heap2 u.
-      (roots = r :: Pointer p u :: roots2) ∧
-      (thunk_deref p heap = SOME v1) ∧
-      (heap_store p [ThunkBlock ev r] heap = (heap2,T)) ∧
-      abs_ml_inv conf (v::(RefPtr b ptr)::stack)
-        refs
-        (roots,heap2,be,a,sp,sp1,gens) limit ts
+Theorem memory_rel_Force_Evaluated:
+   memory_rel c be ts refs sp st m dm ((RefPtr bl nn,ptr)::vars) /\
+    lookup nn refs = SOME (Thunk Evaluated v) /\
+    good_dimindex (:'a) ==>
+    ?ptr_w x:'a word w w'.
+      ptr = Word ptr_w /\
+      get_real_addr c st ptr_w = SOME x /\
+      x IN dm /\ m x = Word w /\
+      (x + bytes_in_word) IN dm /\
+      (15w && w = 14w) (* cheated *) /\
+      m (x + bytes_in_word) = Word w' (* cheated *) /\
+      memory_rel c be ts refs sp st m dm
+        ((v,m (x + bytes_in_word))::(RefPtr bl nn,ptr)::vars)
 Proof
-  cheat
-QED
-
-Theorem memory_rel_force_thunk:
-  memory_rel c be ts refs sp st m dm ((RefPtr bl nn,ptr)::vars) ∧
-  lookup nn refs = SOME (Thunk ev v) ∧
-  good_dimindex (:'a) ⇒
-  ∃ptr_w x:'a word.
-    ptr = Word ptr_w ∧
-    get_real_addr c st ptr_w = SOME x ∧
-    x ∈ dm ∧ (x + bytes_in_word) ∈ dm ∧
-    (ev = Evaluated ⇒
-      ∃w w'. m x = Word w ∧ m (x + bytes_in_word) = Word w' ∧
-             (w && 15w) = 14w) ∧
-    memory_rel c be ts refs sp st m dm
-      ((v,m (x + bytes_in_word))::(RefPtr bl nn,ptr)::vars)
-Proof
-  cheat
+  rewrite_tac [CONJ_ASSOC]
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ fs [memory_rel_def,PULL_EXISTS] \\ rw []
+  \\ asm_exists_tac \\ fs []
+  \\ fs [word_ml_inv_def,PULL_EXISTS] \\ clean_tac
+  \\ rpt_drule (GEN_ALL deref_thm) \\ fs [domain_lookup] \\ strip_tac
+  \\ asm_exists_tac \\ fs []
+  \\ Cases_on `v'` \\ fs [heap_el_def]
+  \\ every_case_tac \\ fs [] \\ clean_tac
+  \\ fs [GSYM CONJ_ASSOC,word_addr_def]
+  \\ fs [heap_in_memory_store_def]
+  \\ rpt_drule get_real_addr_get_addr \\ fs []
+  \\ disch_then kall_tac
+  \\ drule LESS_LENGTH
+  \\ strip_tac \\ fs [] \\ clean_tac
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ fs [EL_LENGTH_APPEND]
+  \\ imp_res_tac heap_lookup_SPLIT
+  \\ PairCases_on `b` \\ fs []
+  \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
+  \\ Cases_on `b0` \\ fs [word_payload_def]
+  \\ fs [word_list_def,word_list_APPEND,SEP_CLAUSES] \\ fs [SEP_F_def]
+  \\ SEP_R_TAC \\ fs []
+  \\ cheat
 QED
 
 Theorem data_compile_correct:
@@ -168,6 +176,7 @@ Proof
       \\ `∃v0 ptr. get_var src s.locals = SOME (RefPtr v0 ptr)`
         by gvs [oneline dest_thunk_def, AllCaseEqs()]
       \\ drule_all state_rel_get_var_RefPtr \\ rw [] \\ gvs []
+      \\ imp_res_tac state_rel_cut_env \\ gvs []
       \\ gvs [state_rel_thm, oneline dest_thunk_def]
       \\ Cases_on `lookup ptr s.refs` \\ gvs []
       \\ Cases_on `x` \\ gvs []
@@ -183,7 +192,7 @@ Proof
               dimword_def, memory_rel_def, heap_in_memory_store_def,
               consume_space_def, arch_size_def]
         \\ rfs[NOT_LESS])
-      \\ drule memory_rel_force_thunk \\ rw [] \\ gvs []
+      \\ drule memory_rel_Force_Evaluated \\ rw [] \\ gvs []
       \\ simp [wordSemTheory.evaluate_def, wordSemTheory.get_var_imm_def,
                word_cmp_Test_1, word_bit_def, get_addr_0]
       \\ simp [list_Seq_def, wordSemTheory.evaluate_def]
@@ -205,7 +214,9 @@ Proof
         \\ conj_tac
         >- (imp_res_tac option_le_add_indv)
         \\ simp [join_env_def]
-        \\ cheat)
+        \\ first_x_assum (fn th =>
+              mp_tac th THEN match_mp_tac memory_rel_rearrange)
+        \\ rw [] \\ gvs [])
       \\ Cases_on `x''` \\ gvs []
       \\ Cases_on `cut_env r s.locals` \\ gvs []
       \\ simp [wordSemTheory.evaluate_def, wordSemTheory.word_exp_def,
@@ -213,6 +224,19 @@ Proof
                wordSemTheory.the_words_def, word_op_def,
                wordSemTheory.mem_load_def]
       \\ gvs [wordSemTheory.set_var_def, set_var_def, lookup_insert]
+      \\ rw []
+      >- (first_x_assum $ drule_at (Pat `cut_env _ _ = _`) \\ rw [])
+      \\ gvs [inter_insert_ODD_adjust_set]
+      \\ pure_rewrite_tac [GSYM APPEND_ASSOC]
+      \\ irule memory_rel_insert \\ gvs []
+      \\ first_x_assum (fn th =>
+            mp_tac th THEN match_mp_tac memory_rel_rearrange)
+      \\ rw [] \\ gvs []
+      \\ ntac 2 disj2_tac \\ ntac 2 disj1_tac \\ gvs []
+      \\ gvs [join_env_def, MEM_MAP, MEM_FILTER]
+      \\ rpt (pairarg_tac \\ gvs [])
+      \\ qexists `(n,v)` \\ gvs []
+      \\ gvs [MEM_toAList,lookup_inter_alt,lookup_insert,AllCaseEqs()]
       \\ cheat)
     \\ cheat)
   >~ [‘evaluate (Tick,s)’] >-
