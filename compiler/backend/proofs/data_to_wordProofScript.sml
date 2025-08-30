@@ -50,6 +50,38 @@ Proof
   \\ gvs[do_space_def,AllCaseEqs(),consume_space_def]
 QED
 
+Theorem force_thunk_thm:
+  abs_ml_inv conf (RefPtr b ptr::stack) refs
+             (roots,heap,be,a,sp,sp1,gens) limit ts ∧
+  (lookup ptr refs = SOME (Thunk NotEvaluated v)) ⇒
+    ?p r roots2 v1 heap2 u.
+      (roots = r :: Pointer p u :: roots2) ∧
+      (thunk_deref p heap = SOME v1) ∧
+      (heap_store p [ThunkBlock ev r] heap = (heap2,T)) ∧
+      abs_ml_inv conf (v::(RefPtr b ptr)::stack)
+        refs
+        (roots,heap2,be,a,sp,sp1,gens) limit ts
+Proof
+  cheat
+QED
+
+Theorem memory_rel_force_thunk:
+  memory_rel c be ts refs sp st m dm ((RefPtr bl nn,ptr)::vars) ∧
+  lookup nn refs = SOME (Thunk ev v) ∧
+  good_dimindex (:'a) ⇒
+  ∃ptr_w x:'a word.
+    ptr = Word ptr_w ∧
+    get_real_addr c st ptr_w = SOME x ∧
+    x ∈ dm ∧ (x + bytes_in_word) ∈ dm ∧
+    (ev = Evaluated ⇒
+      ∃w w'. m x = Word w ∧ m (x + bytes_in_word) = Word w' ∧
+             (w && 15w) = 14w) ∧
+    memory_rel c be ts refs sp st m dm
+      ((v,m (x + bytes_in_word))::(RefPtr bl nn,ptr)::vars)
+Proof
+  cheat
+QED
+
 Theorem data_compile_correct:
    !prog s c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
       (dataSem$evaluate (prog,s) = (res,s1)) /\
@@ -125,7 +157,64 @@ Proof
     \\ Cases_on `names_opt` \\ fs [cut_state_opt_def] \\ srw_tac[][] \\ fs []
     \\ fs [cut_state_def,cut_env_def] \\ every_case_tac
     \\ fs [] \\ rw [] \\ fs [set_var_def])
-  >~ [‘evaluate (Force _ _ _,s)’] >- cheat
+  >~ [‘evaluate (Force _ _ _,s)’] >- (
+    simp [comp_def]
+    \\ gvs [dataSemTheory.evaluate_def]
+    \\ Cases_on `get_var src s.locals` \\ gvs []
+    \\ Cases_on `dest_thunk x s.refs` \\ gvs []
+    \\ Cases_on `t'` \\ gvs []
+    >- (
+      imp_res_tac state_rel_get_var_IMP
+      \\ `∃v0 ptr. get_var src s.locals = SOME (RefPtr v0 ptr)`
+        by gvs [oneline dest_thunk_def, AllCaseEqs()]
+      \\ drule_all state_rel_get_var_RefPtr \\ rw [] \\ gvs []
+      \\ gvs [state_rel_thm, oneline dest_thunk_def]
+      \\ Cases_on `lookup ptr s.refs` \\ gvs []
+      \\ Cases_on `x` \\ gvs []
+      \\ Cases_on `t'` \\ gvs []
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ drule_all memory_rel_get_var_IMP
+      \\ qpat_x_assum `memory_rel _ _ _ _ _ _ _ _ _` kall_tac \\ rw []
+      \\ simp [force_thunk_def, wordSemTheory.evaluate_def]
+      \\ TOP_CASE_TAC \\ gvs []
+      >- (
+        fs[encode_header_def]
+        \\ fs[encode_header_def, state_rel_def, good_dimindex_def, limits_inv_def,
+              dimword_def, memory_rel_def, heap_in_memory_store_def,
+              consume_space_def, arch_size_def]
+        \\ rfs[NOT_LESS])
+      \\ drule memory_rel_force_thunk \\ rw [] \\ gvs []
+      \\ simp [wordSemTheory.evaluate_def, wordSemTheory.get_var_imm_def,
+               word_cmp_Test_1, word_bit_def, get_addr_0]
+      \\ simp [list_Seq_def, wordSemTheory.evaluate_def]
+      \\ `word_exp t (real_addr c (adjust_var src)) = SOME (Word x')`
+        by metis_tac [get_real_addr_lemma] \\ gvs []
+      \\ gvs [wordSemTheory.set_var_def, wordSemTheory.word_exp_def,
+              wordSemTheory.get_var_def, wordSemTheory.mem_load_def,
+              wordSemTheory.the_words_def, word_op_def,
+              wordSemTheory.get_var_imm_def, asmTheory.word_cmp_def]
+      \\ Cases_on `ret` \\ gvs []
+      >- (
+        simp [wordSemTheory.evaluate_def, wordSemTheory.set_var_def,
+              wordSemTheory.word_exp_def, wordSemTheory.get_var_def,
+              lookup_insert, wordSemTheory.the_words_def,
+              word_op_def, wordSemTheory.mem_load_def]
+        \\ gvs [lookup_insert, wordSemTheory.get_vars_def,
+                wordSemTheory.get_var_def, flush_state_def,
+                wordSemTheory.flush_state_def]
+        \\ conj_tac
+        >- (imp_res_tac option_le_add_indv)
+        \\ simp [join_env_def]
+        \\ cheat)
+      \\ Cases_on `x''` \\ gvs []
+      \\ Cases_on `cut_env r s.locals` \\ gvs []
+      \\ simp [wordSemTheory.evaluate_def, wordSemTheory.word_exp_def,
+               wordSemTheory.get_var_def, lookup_insert,
+               wordSemTheory.the_words_def, word_op_def,
+               wordSemTheory.mem_load_def]
+      \\ gvs [wordSemTheory.set_var_def, set_var_def, lookup_insert]
+      \\ cheat)
+    \\ cheat)
   >~ [‘evaluate (Tick,s)’] >-
    (fs [comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ `t.clock = s.clock` by fs [state_rel_def] \\ fs [] \\ srw_tac[][]
@@ -1381,7 +1470,9 @@ Proof
   >~ [‘force_thunk’] >- (
     pairarg_tac \\ gvs [force_thunk_def, AllCaseEqs()]
     >- gvs [GiveUp_def, extract_labels_def]
-    \\ cheat)
+    \\ gvs [extract_labels_def]
+    \\ CASE_TAC \\ gvs [list_Seq_def, extract_labels_def]
+    \\ CASE_TAC \\ gvs [extract_labels_def])
   >>
     (rpt (pairarg_tac>>fs[])>>rveq>>
           fs[extract_labels_def,EVERY_MEM,FORALL_PROD,ALL_DISTINCT_APPEND,
@@ -1518,7 +1609,12 @@ Proof
     IF_CASES_TAC >>
     simp[comp_def,no_share_inst_def,list_Seq_no_share_inst]
   )
-  >~ [‘Force’] >- cheat
+  >~ [‘Force’] >- (
+    gvs [comp_def, force_thunk_def, AllCaseEqs()]
+    >- gvs [GiveUp_def, no_share_inst_def]
+    \\ gvs [no_share_inst_def]
+    \\ CASE_TAC \\ gvs [no_share_inst_def, list_Seq_no_share_inst]
+    \\ CASE_TAC \\ gvs [no_share_inst_def])
   >> gvs[comp_def,no_share_inst_def] (* Raise | Return | Tick *)
 QED
 
@@ -1682,9 +1778,8 @@ Theorem comp_no_inst:
   addr_offset_ok ac 0w /\ byte_offset_ok ac 0w ⇒
   every_inst (inst_ok_less ac) (FST(comp c n m p))
 Proof
-  ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]
-  >~ [‘Force’] >- cheat >>
-  simp[Once comp_def,every_inst_def]>>
+  ho_match_mp_tac comp_ind>>Cases_on`p`>>rw[]>>
+  simp[Once comp_def,every_inst_def,force_thunk_def]>>
   every_case_tac>>fs[]>>
   rpt(pairarg_tac>>fs[])>>
   fs[assign_no_inst]>>
@@ -1968,9 +2063,11 @@ Proof
     (fs[SUBSET_DEF]>>metis_tac[])
   >-
     (fs[SUBSET_DEF]>>metis_tac[])
-  >~ [‘force_thunk’] >- cheat
-  >>
-    EVAL_TAC>>rw[]>>fs[]
+  >~ [‘force_thunk’] >- (
+    gvs [force_thunk_def]
+    \\ every_case_tac \\ gvs [GiveUp_def]
+    \\ cheat) >>
+  EVAL_TAC>>rw[]>>fs[]
 QED
 
 Triviality word_good_handlers_StoreEach:
@@ -2023,7 +2120,10 @@ Proof
     metis_tac[])
   >-
     fs[word_good_handlers_assign]
-  >~ [‘force_thunk’] >- cheat
+  >~ [‘force_thunk’] >- (
+    gvs [force_thunk_def]
+    \\ every_case_tac \\ gvs [GiveUp_def]
+    \\ EVAL_TAC)
   >>
     EVAL_TAC>>rw[]>>fs[]
 QED
