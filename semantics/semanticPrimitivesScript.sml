@@ -1185,3 +1185,35 @@ End
 val _ = set_fixity "+++" (Infixl 480);
 Overload "+++" = “extend_dec_env”;
 
+(* With `dest_thunk` we check 3 things:
+     - The values contain exactly one reference
+     - The reference is valid
+     - The reference points to a thunk
+   We distinguish between `BadRef` and `NotThunk` instead of returning an option
+   with `NONE` for both, because we want `update_thunk` to succeed when
+   `dest_thunk` fails but only when the reference actually exists and points to
+   something other than a thunk. *)
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk [Loc _ n] st =
+    (case store_lookup n st of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk vs st = NotThunk
+End
+
+Definition update_thunk_def:
+  update_thunk [Loc _ n] st [v] =
+    (case dest_thunk [v] st of
+     | NotThunk => store_assign n (Thunk Evaluated v) st
+     | _ => NONE) ∧
+  update_thunk _ st _ = NONE
+End
