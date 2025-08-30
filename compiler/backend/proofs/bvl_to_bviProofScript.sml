@@ -3,10 +3,11 @@
 *)
 Theory bvl_to_bviProof
 Ancestors
-  ffi[qualified] bvlSem bviSem bviProps bvl_to_bvi
+  ffi[qualified] bvlSem bviSem bviProps
   bvl_handleProof[qualified] backendProps bvlProps
   bvl_constProof[qualified] bvi_letProof[qualified]
   bvl_inlineProof[qualified] bvi_tailrecProof[qualified]
+  bvl_to_bvi
 Libs
   preamble helperLib[qualified]
 
