@@ -2065,8 +2065,8 @@ Proof
     (fs[SUBSET_DEF]>>metis_tac[])
   >~ [‘force_thunk’] >- (
     gvs [force_thunk_def]
-    \\ every_case_tac \\ gvs [GiveUp_def]
-    \\ cheat) >>
+    \\ every_case_tac \\ gvs [GiveUp_def, SUBSET_DEF]
+    \\ EVAL_TAC \\ rpt strip_tac \\ disj1_tac \\ gvs []) >>
   EVAL_TAC>>rw[]>>fs[]
 QED
 

@@ -2164,6 +2164,7 @@ Definition get_code_labels_def:
   (get_code_labels (Call r d a h) =
     (case d of SOME x => {x} | _ => {}) ∪
     (case h of SOME (n,p) => get_code_labels p | _ => {})) ∧
+  (get_code_labels (Force _ loc _) = {loc}) ∧
   (get_code_labels (Seq p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
   (get_code_labels (If _ p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
   (get_code_labels (Assign _ op _ _) = closLang$assign_get_code_label op) ∧
