@@ -296,12 +296,13 @@ val evaluate_remove_ticks_thm =
 
 Definition remove_ticks_cc_def:
   remove_ticks_cc cc =
-    (λcfg prog'. cc cfg (MAP (I ## I ## (λx. HD (remove_ticks [x]))) prog'))
+    (λcfg prog'.
+         cc cfg (MAP (I ## I ## (λx. HD (bvl_inline$remove_ticks [x]))) prog'))
 End
 
 Definition remove_ticks_co_def:
   remove_ticks_co =
-    (I ## MAP (I ## I ## (λx. HD (remove_ticks [x]))))
+    (I ## MAP (I ## I ## (λx. HD (bvl_inline$remove_ticks [x]))))
 End
 
 Theorem evaluate_compile_prog:
@@ -561,7 +562,7 @@ Proof
 QED
 
 val remove_ticks_CONS = prove(
-  ``!xs x. remove_ticks (x::xs) =
+  ``!xs x. bvl_inline$remove_ticks (x::xs) =
            HD (remove_ticks [x]) :: remove_ticks xs``,
   Cases \\ fs [remove_ticks_def]);
 
@@ -1432,20 +1433,20 @@ val let_state_rel_def = let_state_rel_def
   |> SIMP_RULE (srw_ss()) [state_component_equality,GSYM CONJ_ASSOC];
 
 Theorem HD_let_op[simp]:
-   [HD (let_op [x])] = let_op [x]
+   [HD (let_op [x :bvl$exp])] = let_op [x]
 Proof
   Cases_on `x` \\ simp_tac std_ss [let_op_def] \\ fs []
   \\ CASE_TAC \\ fs []
 QED
 
 val let_op_sing_thm = prove(
-  ``let_op_sing x = HD (let_op [x])``,
+  ``let_op_sing (x :bvl$exp) = HD (let_op [x])``,
   fs [let_op_sing_def]
   \\ once_rewrite_tac [GSYM HD_let_op] \\ fs []);
 
 val var_list_IMP_evaluate = prove(
-  ``!a2 a1 l xs s.
-      var_list (LENGTH a1) l xs /\ LENGTH (xs:bvl$exp list) = LENGTH a2 ==>
+  ``!a2 a1 l (xs :bvl$exp list) (s :('a, 'b) state).
+      var_list (LENGTH a1) l xs /\ LENGTH xs = LENGTH a2 ==>
       evaluate (l,a1++a2++env,s) = (Rval a2,s)``,
   Induct THEN1
    (fs [APPEND_NIL,var_list_def]
@@ -1464,14 +1465,14 @@ val var_list_IMP_evaluate = prove(
 
 val var_list_IMP_evaluate = prove(
   ``var_list 0 l xs /\ LENGTH (xs:bvl$exp list) = LENGTH a ==>
-    evaluate (l,a++env,s) = (Rval a,s)``,
+    evaluate (l,a++env,(s :('a, 'b) state)) = (Rval a,s)``,
   rw []
   \\ match_mp_tac (Q.SPECL [`xs`,`[]`] var_list_IMP_evaluate
        |> SIMP_RULE std_ss [APPEND,LENGTH])
   \\ asm_exists_tac \\ fs []);
 
 Theorem LENGTH_let_op:
-   !xs. LENGTH (let_op xs) = LENGTH xs
+   !(xs :bvl$exp list). LENGTH (let_op xs) = LENGTH xs
 Proof
   ho_match_mp_tac let_op_ind \\ rw [let_op_def]
   \\ CASE_TAC \\ fs []

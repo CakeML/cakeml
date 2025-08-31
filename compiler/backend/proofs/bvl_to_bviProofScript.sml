@@ -2081,7 +2081,7 @@ Proof
 QED
 
 Theorem compile_inc_next:
-   compile_inc next1 prog1 = (next2,prog2) ==>
+   bvl_to_bvi$compile_inc next1 prog1 = (next2,prog2) ==>
     next1 <= next2
 Proof
   rw [] \\ drule compile_inc_lemma \\ rw []

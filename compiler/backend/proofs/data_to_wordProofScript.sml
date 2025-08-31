@@ -984,7 +984,8 @@ Proof
   Cases_on`res1=SOME NotEnoughSpace`>>full_simp_tac(srw_ss())[]>-(
     first_x_assum(qspec_then`k+ck`mp_tac) >> simp[] >>
     CASE_TAC >> full_simp_tac(srw_ss())[] ) >>
-  qmatch_assum_abbrev_tac`n < LENGTH (SND (evaluate (exps,s))).ffi.io_events` >>
+  qmatch_asmsub_abbrev_tac
+    `n < LENGTH (SND (evaluate (exps,s))).ffi.io_events` >>
   Q.ISPECL_THEN[`exps`,`s`]mp_tac wordPropsTheory.evaluate_add_clock_io_events_mono >>
   disch_then(qspec_then`ck`mp_tac)>>simp[Abbr`s`]>>strip_tac>>
   qexists_tac`k`>>simp[]>>
@@ -1212,7 +1213,8 @@ Proof
   Cases_on`res1=SOME NotEnoughSpace`>>full_simp_tac(srw_ss())[]>-(
     first_x_assum(qspec_then`k+ck`mp_tac) >> simp[] >>
     CASE_TAC >> full_simp_tac(srw_ss())[] ) >>
-  qmatch_assum_abbrev_tac`n < LENGTH (SND (evaluate (exps,s))).ffi.io_events` >>
+  qmatch_asmsub_abbrev_tac
+    `n < LENGTH (SND (evaluate (exps,s))).ffi.io_events` >>
   Q.ISPECL_THEN[`exps`,`s`]mp_tac wordPropsTheory.evaluate_add_clock_io_events_mono >>
   disch_then(qspec_then`ck`mp_tac)>>simp[Abbr`s`]>>strip_tac>>
   qexists_tac`k`>>simp[]>>
