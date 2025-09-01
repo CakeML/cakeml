@@ -410,15 +410,15 @@ Definition application_def:
         | NONE => Etype_error)
    | Force =>
       (case vs of
-         [Loc _ n] => (
-           case store_lookup n s of
-             SOME (Thunk Evaluated v) =>
-               return env s v c
-           | SOME (Thunk NotEvaluated f) =>
-              return env s f
-                ((Capp Opapp [Conv NONE []] [], env)::(Cforce n, env)::c)
-           | _ => Etype_error)
-       | _ => Etype_error)
+         [Loc b n] => (
+            case dest_thunk [Loc b n] s of
+            | BadRef => Etype_error
+            | NotThunk => Etype_error
+            | IsThunk Evaluated v => return env s v c
+            | IsThunk NotEvaluated f =>
+                return env s f
+                  ((Capp Opapp [Conv NONE []] [], env)::(Cforce n, env)::c))
+        | _ => Etype_error)
    | _ =>
        case op of
        | FFI n => (
@@ -446,9 +446,13 @@ Definition continue_def:
   continue s v ((Capp op vs [], env) :: c) = application op env s (v::vs) c ∧
   continue s v ((Capp op vs (e::es), env) :: c) = push env s e (Capp op (v::vs) es) c ∧
   continue s v ((Cforce n, env) :: c) = (
-    case store_assign n (Thunk Evaluated v) s of
-      SOME s' => return env s' v c
-    | NONE => Etype_error) ∧
+    case dest_thunk [v] s of
+    | BadRef => Etype_error
+    | NotThunk => (
+        case store_assign n (Thunk Evaluated v) s of
+        | SOME s' => return env s' v c
+        | NONE => Etype_error)
+    | IsThunk v3 v4 => Etype_error) ∧
   continue s v ((Clog l e, env) :: c) = (
     case do_log l v e of
       SOME (Exp e) => Estep (env, s, Exp e, c)
