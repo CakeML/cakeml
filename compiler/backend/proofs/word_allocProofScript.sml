@@ -1884,8 +1884,8 @@ Proof
     gvs[AllCaseEqs()]>>
     drule apply_colour_exp_lemma >>
     disch_then $ qspecl_then [`cst`,`f`] mp_tac >>
-    rename1`m = Store \/ m = Store8 \/ m = Store32`>>
-    qabbrev_tac `mcase = (m = Store \/ m = Store8 \/ m = Store32)`>>
+    rename1`m = Store \/ m = Store8 \/ m = Store16 \/ m = Store32`>>
+    qabbrev_tac `mcase = (m = Store \/ m = Store8 \/ m = Store16 \/ m = Store32)`>>
     qpat_x_assum `strong_locals_rel _ _ _ _` mp_tac >>
     IF_CASES_TAC >>
     fs[] >>
@@ -1903,6 +1903,7 @@ Proof
         oneline sh_mem_store_def,
         oneline sh_mem_store_byte_def,
         oneline sh_mem_store32_def,
+        oneline sh_mem_store16_def,
         flush_state_def,
         markerTheory.Abbrev_def,AllCaseEqs()] >>
       Cases_on `get_var n st` >> fs[] >>
@@ -1925,6 +1926,7 @@ Proof
         oneline sh_mem_load_def,
         oneline sh_mem_load_byte_def,
         oneline sh_mem_load32_def,
+        oneline sh_mem_load16_def,
         oneline sh_mem_set_var_def,
         flush_state_def,set_var_def,
         markerTheory.Abbrev_def,AllCaseEqs()] >>
@@ -2835,6 +2837,21 @@ Proof
       irule numset_list_insert_eq_UNION >>
       rw[IMAGE_DEF,get_reads_exp_get_live_exp] >>
       metis_tac[wf_insert,wf_get_live_exp])
+  >- ((*ShareInst Store16*)
+      start_tac >>
+      fs[domain_union,UNION_COMM,get_reads_exp_get_live_exp] >>
+      conj_tac >- (
+        drule_then irule INJ_less >> rw[] >>
+        metis_tac[SUBSET_UNION,SUBSET_OF_INSERT,SUBSET_TRANS]) >>
+      CONV_TAC $ RHS_CONV $ SCONV[Once insert_union] >>
+      simp[union_assoc] >>
+      CONV_TAC $ RHS_CONV $ RATOR_CONV $ RAND_CONV $
+        REWRITE_CONV[Once union_num_set_sym] >>
+      simp[union_insert_LN] >>
+      fs[GSYM numset_list_insert_def] >>
+      irule numset_list_insert_eq_UNION >>
+      rw[IMAGE_DEF,get_reads_exp_get_live_exp] >>
+      metis_tac[wf_insert,wf_get_live_exp])
   >- ((*ShareInst Store32*)
       start_tac >>
       fs[domain_union,UNION_COMM,get_reads_exp_get_live_exp] >>
@@ -2850,7 +2867,7 @@ Proof
       irule numset_list_insert_eq_UNION >>
       rw[IMAGE_DEF,get_reads_exp_get_live_exp] >>
       metis_tac[wf_insert,wf_get_live_exp])
-  >- ((*ShareInst Load/Load8/Load32*)
+  >- ((*ShareInst Load/Load8/Load16/Load32*)
     start_tac
     >- (
       conj_tac >- (
@@ -3624,14 +3641,15 @@ Proof
     gvs[]
     >- fs[strong_locals_rel_def]
     >- fs[flush_state_def])
-  >> rename1`m=Store \/ m = Store8 \/ m = Store32` >>
-  qabbrev_tac`mcase=(m=Store \/ m = Store8 \/ m = Store32)`>>
+  >> rename1`m=Store \/ m = Store8 \/ m = Store16 \/ m = Store32` >>
+  qabbrev_tac`mcase=(m=Store \/ m = Store8 \/ m = Store16 \/ m = Store32)`>>
   fs[AllCaseEqs(),PULL_EXISTS] >>
   Cases_on`mcase` >> gvs[]
   >- (
     gvs[oneline share_inst_def,
       oneline sh_mem_store_def,
       oneline sh_mem_store_byte_def,
+      oneline sh_mem_store16_def,
       oneline sh_mem_store32_def,
       markerTheory.Abbrev_def,flush_state_def] >>
     drule_all_then (irule_at (Pos hd)) strong_locals_rel_I_word_exp >>
@@ -3644,6 +3662,7 @@ Proof
   gvs[oneline share_inst_def,
     oneline sh_mem_load_def,
     oneline sh_mem_load_byte_def,
+    oneline sh_mem_load16_def,
     oneline sh_mem_load32_def,
     oneline sh_mem_set_var_def,
     AllCaseEqs(),set_var_def,
@@ -7727,8 +7746,8 @@ Proof
     exists_tac >>
     pairarg_tac >>
     simp[] >>
-    rename1`m = Store \/ m = Store8 \/ m = Store32`>>
-    qabbrev_tac `mcase = (m = Store \/ m = Store8 \/ m = Store32)`>>
+    rename1`m = Store \/ m = Store8 \/ m = Store16 \/ m = Store32`>>
+    qabbrev_tac `mcase = (m = Store \/ m = Store8 \/ m = Store16 \/ m = Store32)`>>
     fs[AllCaseEqs()] >>
     IF_CASES_TAC >>
     gvs[next_var_rename_def,evaluate_def] >>
@@ -7739,6 +7758,7 @@ Proof
       gvs[oneline share_inst_def,
         oneline sh_mem_store_def,
         oneline sh_mem_store_byte_def,
+        oneline sh_mem_store16_def,
         oneline sh_mem_store32_def,
         markerTheory.Abbrev_def,flush_state_def,AllCaseEqs()] >>
       drule_then (drule_then assume_tac) ssa_locals_rel_get_var >>
@@ -7748,6 +7768,7 @@ Proof
     gvs[oneline share_inst_def,
       oneline sh_mem_load_def,
       oneline sh_mem_load_byte_def,
+      oneline sh_mem_load16_def,
       oneline sh_mem_load32_def,
       oneline sh_mem_set_var_def,
       set_var_def,flush_state_def,AllCaseEqs(),

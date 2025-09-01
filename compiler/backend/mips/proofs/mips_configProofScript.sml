@@ -38,6 +38,13 @@ Proof
     \\ fs [stack_removeTheory.store_list_def]
     \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
     \\ rveq \\ fs [] \\ EVAL_TAC)
+  >- (
+    fs [stack_removeTheory.store_offset_def,
+        stack_removeTheory.store_pos_def]
+    \\ every_case_tac \\ fs [] THEN1 EVAL_TAC
+    \\ fs [stack_removeTheory.store_list_def]
+    \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
+    \\ rveq \\ fs [] \\ EVAL_TAC)
   \\ fs[stack_removeTheory.max_stack_alloc_def]
   \\ EVAL_TAC>>fs[]
   \\ match_mp_tac bitTheory.NOT_BIT_GT_TWOEXP

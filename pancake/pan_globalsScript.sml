@@ -70,8 +70,8 @@ Definition shape_val_def:
 End
 
 Definition compile_def:
-  (compile ctxt (Dec v e p) =
-   Dec v (compile_exp ctxt e) (compile ctxt p)) ∧
+  (compile ctxt (Dec v s e p) =
+   Dec v s (compile_exp ctxt e) (compile ctxt p)) ∧
   (compile ctxt (Assign Local v e) =
    Assign Local v (compile_exp ctxt e)) ∧
   (compile ctxt (Assign Global v e) =
@@ -120,7 +120,7 @@ Definition compile_def:
                     vn'  = fresh_name «» names;
                     flag = fresh_name «vn'» (vn'::names)
                   in
-                    Dec vn' (shape_val sh) $ Dec flag (Const 0w) $
+                    Dec vn' sh (shape_val sh) $ Dec flag One (Const 0w) $
                         Seq (Call (SOME (SOME(Local,vn'), SOME(eid, evar, Seq p' (Assign Local flag (Const 1w))))) e cexps) $
                         If (Var Local flag) Skip $
                         Store (Op Sub [TopAddr; Const addr]) (Var Local vn')
@@ -150,8 +150,8 @@ Definition compile_def:
    case FLOOKUP ctxt.globals r of
    | SOME (One, addr) =>
        (let r' = strcat r «'» in
-          Dec r (compile_exp ctxt ad) $
-              Dec r' (Const 0w) $
+          Dec r One (compile_exp ctxt ad) $
+              Dec r' One (Const 0w) $
               Seq (ShMemLoad op Local r' (Var Local r)) $
               Store (Op Sub [TopAddr; Const addr]) (Var Local r'))
    | _ => Skip (* Should never happen *)) ∧
@@ -186,8 +186,8 @@ Definition fperm_name_def:
 End
 
 Definition fperm_def:
-  (fperm f g (Dec v e p) =
-   Dec v e (fperm f g p)) ∧
+  (fperm f g (Dec v s e p) =
+   Dec v s e (fperm f g p)) ∧
   (fperm f g (Seq p p') =
    Seq (fperm f g p) (fperm f g p')) ∧
   (fperm f g (If e p p') =
@@ -245,6 +245,7 @@ Definition compile_top_def:
                                ;  export := F
                                ;  params := args
                                ;  body := Seq (nested_seq decls) (TailCall start' params)
+                               ;  return := One
                               |>
       in
         new_main::funs

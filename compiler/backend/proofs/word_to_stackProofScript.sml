@@ -7171,7 +7171,7 @@ Theorem share_load_lemma1:
   state_rel ac k f f' s t lens 0 /\
   v < f' + k /\
   k <= v /\
-  (op = Load \/ op = Load8 \/ op = Load32) /\
+  (op = Load \/ op = Load8 \/ op = Load16 \/ op = Load32) /\
   res <> SOME Error ==>
   ?t1. sh_mem_op op k ad' t =
       (OPTION_MAP compile_result res, t1) /\
@@ -7192,8 +7192,10 @@ Proof
   gvs[Abbr`ops`,share_inst_def,sh_mem_op_def,
     sh_mem_load_def,sh_mem_load_byte_def,
     sh_mem_load32_def,sh_mem_store32_def,
+    sh_mem_load16_def,sh_mem_store16_def,
     stackSemTheory.sh_mem_load_byte_def,
     stackSemTheory.sh_mem_load32_def,
+    stackSemTheory.sh_mem_load16_def,
     stackSemTheory.sh_mem_load_def,
     oneline sh_mem_set_var_def,
     AllCaseEqs()] >>
@@ -7215,7 +7217,7 @@ Theorem share_load_lemma2:
   share_inst op (2 * v) ad' s = (res,s1) /\
   state_rel ac k f f' s t lens 0 /\
   v < k /\
-  (op = Load \/ op = Load8 \/ op = Load32) /\
+  (op = Load \/ op = Load8 \/ op = Load16 \/ op = Load32) /\
   res <> SOME Error ==>
   ?t1.
     sh_mem_op op v ad' t =
@@ -7232,8 +7234,10 @@ Proof
   gvs[share_inst_def,sh_mem_op_def,
     sh_mem_load_def,sh_mem_load_byte_def,
     sh_mem_load32_def,sh_mem_store32_def,
+    sh_mem_load16_def,sh_mem_store16_def,
     stackSemTheory.sh_mem_load_byte_def,
     stackSemTheory.sh_mem_load32_def,
+    stackSemTheory.sh_mem_load16_def,
     stackSemTheory.sh_mem_load_def,AllCaseEqs(),
     oneline sh_mem_set_var_def] >>
   rpt strip_tac >>
@@ -7257,7 +7261,7 @@ Theorem share_store_lemma1:
   share_inst op (2 * v) ad' s = (res,s1) /\
   state_rel ac k f f' s t lens 0 /\
   ~(v < k) /\
-  (op = Store \/ op = Store8 \/ op = Store32) /\
+  (op = Store \/ op = Store8 \/ op = Store16 \/ op = Store32) /\
   res <> SOME Error ==>
   ?t1.
     sh_mem_op op (k + 1) ad'
@@ -7278,7 +7282,9 @@ Proof
   gvs[share_inst_def,sh_mem_op_def,
     sh_mem_store_def,sh_mem_store_byte_def,
     sh_mem_load32_def,sh_mem_store32_def,
+    sh_mem_load16_def,sh_mem_store16_def,
     stackSemTheory.sh_mem_store_byte_def,
+    stackSemTheory.sh_mem_store16_def,
     stackSemTheory.sh_mem_store32_def,
     stackSemTheory.sh_mem_store_def,AllCaseEqs(),
     PULL_EXISTS] >>
@@ -7305,7 +7311,7 @@ Theorem share_store_lemma2:
   share_inst op (2 * v) ad' s = (res,s1) /\
   state_rel ac k f f' s t lens 0 /\
   v < k /\
-  (op = Store \/ op = Store8 \/ op = Store32) /\
+  (op = Store \/ op = Store8 \/ op = Store16 \/ op = Store32) /\
   res <> SOME Error ==>
   ?t1.
     sh_mem_op op v ad' t =
@@ -7322,8 +7328,10 @@ Proof
   gvs[share_inst_def,sh_mem_op_def,
     sh_mem_store_def,sh_mem_store_byte_def,
     sh_mem_load32_def,sh_mem_store32_def,
+    sh_mem_load16_def,sh_mem_store16_def,
     stackSemTheory.sh_mem_store_byte_def,
     stackSemTheory.sh_mem_store32_def,
+    stackSemTheory.sh_mem_store16_def,
     stackSemTheory.sh_mem_store_def,AllCaseEqs()] >>
   rpt strip_tac >>
   fs[PULL_EXISTS] >>
@@ -7344,7 +7352,7 @@ Theorem evaluate_ShareInst_Load:
   state_rel ac k f f' s t lens 0 /\
   v < f' + k /\
   ad < f' + k /\
-  (op = Load \/ op = Load8 \/ op = Load32) ==>
+  (op = Load \/ op = Load8 \/ op = Load16 \/ op = Load32) ==>
   ?ck t1.
     evaluate
       (wShareInst op (2 * v) (Addr (2 * ad) offset) (k,f,f'),
@@ -7405,7 +7413,7 @@ Theorem evaluate_ShareInst_Store:
   v < f' + k /\
   ad < f' + k /\
   res <> SOME Error /\
-  (op = Store \/ op = Store8 \/ op = Store32) ==>
+  (op = Store \/ op = Store8 \/ op = Store16 \/ op = Store32) ==>
   ?ck t1.
     evaluate
       (wShareInst op (2 * v) (Addr (2 * ad) offset) (k,f,f'),
@@ -10710,6 +10718,7 @@ Theorem word_to_stack_stack_asm_name_lem:
   post_alloc_conventions (FST kf) p ∧
   full_inst_ok_less c p ∧
   (c.two_reg_arith ⇒ every_inst two_reg_inst p) ∧
+  (no_share_inst p ∨ c.ISA ≠ Ag32) ∧
   (FST kf)+1 < c.reg_count - LENGTH c.avoid_regs ∧
   4 < (FST kf) ⇒
   stack_asm_name c (FST (comp c p bs kf))
@@ -10752,18 +10761,31 @@ Proof
     \\ CCONTR_TAC \\ gvs [])
   >- (
     fs wconvs>>
+    last_x_assum irule>>
+    fs[no_share_inst_def]>>
     ntac 4 (pop_assum mp_tac)>>
     EVAL_TAC>>rw[])
   >- (
     fs wconvs>>rpt (pairarg_tac>>fs[])>>
+    EVAL_TAC>>rw[]>>
+    last_x_assum irule>>
+    fs[no_share_inst_def]>>
     ntac 6 (pop_assum mp_tac)>>
     EVAL_TAC>>rw[])
   >- (
-    fs wconvs>>rpt (pairarg_tac>>fs[])>>
-    fs[every_inst_def]>>
-    ntac 4 (pop_assum mp_tac)>>
-    Cases_on`ri`>>
     EVAL_TAC>>rw[]>>
+    fs wconvs>>rpt (pairarg_tac>>fs[])>>
+    Cases_on`ri`>>fs[]>>rpt (pairarg_tac>>fs[])>>
+    rpt (FULL_CASE_TAC>>fs[])>>
+    EVAL_TAC>>rw[]>>
+    simp[Once (oneline wStackLoad_def)]>>
+    EVAL_TAC>>rw[]>>
+    EVAL_TAC>>rw[]>>
+    EVAL_TAC>>rw[]>>
+
+    last_x_assum irule>>
+    fs[no_share_inst_def]>>
+    ntac 10 (pop_assum mp_tac)>>
     EVAL_TAC>>rw[])
   >- (
     every_case_tac>>
@@ -10778,7 +10800,8 @@ Proof
     every_case_tac>>fs[reg_name_def,copy_ret_def,PushHandler_def]>>
     EVAL_TAC>>rw[]>>
     EVAL_TAC>>rw[]>>
-    first_assum match_mp_tac>>fs wconvs>>fs[every_inst_def])
+    first_assum match_mp_tac>>
+    fs wconvs>>fs[every_inst_def,no_share_inst_def])
   >- (
     pairarg_tac>>fs[]>>EVAL_TAC>>
     irule wLive_stack_asm_name>>
@@ -10795,7 +10818,7 @@ Proof
     Cases_on `op` >>
     simp[wShareInst_def] >>
     fs wconvs >>
-    fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,two_reg_inst_def,wordLangTheory.every_var_inst_def,reg_allocTheory.is_phy_var_def,asmTheory.fp_reg_ok_def] >>
+    fs[inst_ok_less_def,inst_arg_convention_def,every_inst_def,two_reg_inst_def,wordLangTheory.every_var_inst_def,reg_allocTheory.is_phy_var_def,asmTheory.fp_reg_ok_def,no_share_inst_def] >>
     ntac 3 (EVAL_TAC >> rw[]) >>
     EVERY_CASE_TAC >>
     fs[wordLangTheory.exp_to_addr_def,asmTheory.offset_ok_def,aligned_def,align_def]
@@ -10932,6 +10955,7 @@ Theorem word_to_stack_stack_asm_convs:
   EVERY (λ(n,m,p).
     full_inst_ok_less c p ∧
     (c.two_reg_arith ⇒ every_inst two_reg_inst p) ∧
+    (no_share_inst p ∨ c.ISA ≠ Ag32) ∧
     post_alloc_conventions (c.reg_count - (LENGTH c.avoid_regs +5)) p) progs ∧
     4 < (c.reg_count - (LENGTH c.avoid_regs +5)) ⇒
   EVERY (λ(n,p). stack_asm_name c p ∧ stack_asm_remove c p) (SND(SND(SND(compile c progs))))
@@ -11321,6 +11345,7 @@ Theorem compile_word_to_stack_convs:
    EVERY (λ(n,m,p).
      full_inst_ok_less c p ∧
      (c.two_reg_arith ⇒ every_inst two_reg_inst p) ∧
+     (no_share_inst p ∨ c.ISA ≠ Ag32) ∧
      post_alloc_conventions k p) p ∧ 4 < k ∧ k + 1 < c.reg_count - LENGTH c.avoid_regs
    ⇒
    EVERY (λ(x,y).
