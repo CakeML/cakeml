@@ -4,10 +4,45 @@ Pancake Changelog
 User-facing changes to the Pancake language and compiler are
 documented here when they are merged into `master`.
 
+August 26th 2025
+-------------------
+
+### 16-bit shared memory loads and stores
+
+16-bit shared memory loads and stores have now been added. These are
+primarily intended for reading and writing to device registers for 16-bit
+devices. The syntax is as follows:
+
+    !st16 1000, v; // store 16 bits from variable v (12) to shared memory address 1000
+    !ld16 v, 1000 + 12; // load 16 bits from shared memory address 1012 to v
+
+### Shape declarations
+
+Shapes are now expected for all local variable declarations and function returns,
+in addition to global variables and function arguments:
+
+    var 1 x = 0;
+    fun 1 foo(1 a) {
+        var 1 y = 0;
+        return y;
+    }
+
+If a shape is not provided in any place it is expected, the compiler assumes a default shape of `1`.
+
+### Extended static errors
+
+The compiler has new errors to enforce sensible usage of shapes.
+Warnings for estimated locations of memory addresses now support struct fields.
+
+### Silver backend not supported
+
+The Silver (`ag32`) compilation target is no longer supported by the Pancake compiler,
+and no longer considered in the Pancake compiler correctness proofs.
+
 August 20th 2025
 -------------------
 
-## Global variables
+### Global variables
 
 Pancake now supports global variables. Syntax examples:
 
@@ -19,13 +54,13 @@ Pancake now supports global variables. Syntax examples:
     }
     var z = 7; // ...regardless of declaration order
 
-## Top address
+### Top address
 
 The new `@top` keyword is an analogue to `@base`, which tells you where internal memory ends.
 The addressable internal memory is thus all aligned addresses `w` such that `@base <= w < @top`.
 `@base` and `@top` are always word-aligned.
 
-## Function pointers no longer supported
+### Function pointers no longer supported
 
 Previous versions of Pancake allowed storing function pointers in variables
 and internal memory. This feature is now dropped.

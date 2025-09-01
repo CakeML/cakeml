@@ -34,8 +34,7 @@ val _ = export_rewrites [
   "typeSystem.Tword64_def",
   "typeSystem.Tword8_def",
   "typeSystem.Tword8array_def",
-  "typeSystem.Tdouble_def",
-  "typeSystem.Treal_def"]
+  "typeSystem.Tdouble_def"]
 
 (* ----------- Basic stuff ----------- *)
 

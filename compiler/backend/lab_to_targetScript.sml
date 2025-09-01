@@ -394,9 +394,11 @@ End
 Definition get_memop_info_def:
   get_memop_info Load = (MappedRead, 0w) /\
   get_memop_info Load32 = (MappedRead,4w) /\
+  get_memop_info Load16 = (MappedRead,2w) /\
   get_memop_info Load8 = (MappedRead,1w) /\
   get_memop_info Store = (MappedWrite, 0w) /\
   get_memop_info Store32 = (MappedWrite,4w) /\
+  get_memop_info Store16 = (MappedWrite,2w) /\
   get_memop_info Store8 =(MappedWrite,1w)
 End
 
