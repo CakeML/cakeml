@@ -189,7 +189,7 @@ Proof
     \\ disch_then (qspec_then `st1.clock` assume_tac)
     \\ asm_exists_tac \\ fs []
     \\ gvs [AllCaseEqs(), dec_clock_def, PULL_EXISTS] >- metis_tac []
-    \\ qpat_x_assum `evaluate _ (sing_env _ _) _ = _` assume_tac
+    \\ qpat_x_assum `evaluate _ env' _ = _` assume_tac
     \\ drule evaluate_add_to_clock \\ rw []
     \\ metis_tac [])
   THEN1 (* App Simple *)
