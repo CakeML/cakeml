@@ -8,8 +8,6 @@ Theory    wasmLang
 Ancestors words arithmetic list mlstring
 Libs      wordsLib dep_rewrite
 
-(* Overload gt2_32[local] = “λ (n:num). 2 ** 32 ≤ n” *)
-
 (* Note :
   Most datatypes closely follow the wasm abstractions. ie,
   The HOL Datatype: <ABC> is named to wasm's <ABC> type.
@@ -328,6 +326,22 @@ End
 
 
 
+
+
+Overload len_wf[local] = “(λxs. LENGTH xs < 2 ** 32 ) : α list -> bool”
+
+Definition wf_i_def:
+  wf_i (i:instr) : bool = case i of
+  | Block _ l     => len_wf l
+  | Loop  _ l     => len_wf l
+  | If    _ l1 l2 => len_wf l1 ∧ len_wf l2
+  | BrTable l _   => len_wf l
+  | ReturnCallIndirect _ (l1,l2) => len_wf l1 ∧ len_wf l2
+  | CallIndirect       _ (l1,l2) => len_wf l1 ∧ len_wf l2
+  | _ => T
+End
+
+
 (*
 2.3 Types
     2.3.1 Number Types
@@ -359,9 +373,7 @@ End
 
 
 (*
-Definition too_long_def:
-  too_long = λxs. 2 ** 32 ≤ LENGTH xs
-End
+Overload too_long[local] = “(λxs. 2 ** 32 ≤ LENGTH xs) : α list -> bool”
 
 Definition lst_len_chk_def:
   lst_len_chk (m:module) otherWise =
