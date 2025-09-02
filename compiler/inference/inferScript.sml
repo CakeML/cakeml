@@ -533,6 +533,8 @@ Definition infer_p_def:
     return (Infer_Tapp [] Tword8_num, [])) ∧
   (infer_p l ienv (Plit (Word64 w)) =
     return (Infer_Tapp [] Tword64_num, [])) ∧
+  (infer_p l ienv (Plit (Float64 f)) =
+    failwith l «Floats cannot be used in patterns» ) ∧
   (infer_p l ienv (Pcon cn_opt ps) =
     dtcase cn_opt of
       | NONE =>
@@ -605,10 +607,6 @@ Definition op_to_string_def:
   (op_to_string (FP_cmp _) = (implode "FP_cmp", 2)) ∧
   (op_to_string (FpToWord) = (implode "FpToWord", 1)) /\
   (op_to_string (FpFromWord) = (implode "FpFromWord", 1)) /\
-  (op_to_string (Real_bop _) = (implode "Real_bop", 2)) ∧
-  (op_to_string (Real_uop _) = (implode "Real_uop", 1)) ∧
-  (op_to_string (Real_cmp _) = (implode "Real_cmp", 2)) ∧
-  (op_to_string (RealFromFP) = (implode "RealFromFP", 1)) ∧
   (op_to_string (Shift _ _ _) = (implode "Shift", 1)) ∧
   (op_to_string Equality = (implode "Equality", 2)) ∧
   (op_to_string Opapp = (implode "Opapp", 2)) ∧
@@ -788,10 +786,6 @@ constrain_op l op ts s =
    | (Aw8sub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
    | (Aw8update_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
    | (XorAw8Str_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
-   | (Real_uop _, _) => failwith l (implode "Reals do not have a type") s
-   | (Real_bop _, _) => failwith l (implode "Reals do not have a type") s
-   | (Real_cmp _, _) => failwith l (implode "Reals do not have a type") s
-   | (RealFromFP, _) => failwith l (implode "Reals do not have a type") s
    | (AallocFixed, _) => failwith l (implode "Unsafe ops do not have a type")  s(* not actually unsafe *)
    | (Eval, _) => failwith l (implode "Unsafe ops do not have a type") s
    | (Env_id, _) => failwith l (implode "Unsafe ops do not have a type") s
@@ -819,11 +813,10 @@ Theorem constrain_op_error_msg_sanity:
   constrain_op l op args s = (Failure (l',msg), s')
   ⇒
   IS_PREFIX (explode msg) "Type mismatch" \/
-  IS_PREFIX (explode msg) "Unsafe" \/
-  IS_PREFIX (explode msg) "Real"
+  IS_PREFIX (explode msg) "Unsafe"
 Proof
  rpt strip_tac >>
- qmatch_abbrev_tac `IS_PREFIX _ m1 \/ IS_PREFIX _ m2 \/ IS_PREFIX _ m3` >>
+ qmatch_abbrev_tac `IS_PREFIX _ m1 \/ IS_PREFIX _ m2` >>
  cases_on `op` >>
  fs [op_to_string_def, constrain_op_dtcase_def, op_simple_constraints_def] >>
  gvs [LENGTH_EQ_NUM_compute] >>
@@ -861,6 +854,8 @@ Definition infer_e_def:
     return (Infer_Tapp [] Tword8_num)) ∧
   (infer_e l ienv (Lit (Word64 _)) =
     return (Infer_Tapp [] Tword64_num)) ∧
+  (infer_e l ienv (Lit (Float64 _)) =
+    return (Infer_Tapp [] Tdouble_num)) ∧
   (infer_e l ienv (Var id) =
     do (tvs,t) <- lookup_st_ex l "variable" id ienv.inf_v;
        uvs <- n_fresh_uvar tvs;
@@ -969,8 +964,6 @@ Definition infer_e_def:
        () <- add_constraint l t' (infer_type_subst [] t'');
        return t'
      od) ∧
-  (infer_e l ienv (FpOptimise annot e) =
-    infer_e l ienv e) /\
   (infer_e l ienv (Lannot e new_l) =
     infer_e (l with loc := SOME new_l) ienv e) ∧
   (infer_es l ienv [] =

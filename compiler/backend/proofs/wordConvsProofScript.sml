@@ -831,6 +831,7 @@ QED
 Theorem inst_select_full_inst_ok_less:
   ∀c temp prog.
     addr_offset_ok c 0w ∧
+    hw_offset_ok c 0w ∧
     byte_offset_ok c 0w ∧
     every_inst (inst_ok_less c) prog
     ⇒

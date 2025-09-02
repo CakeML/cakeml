@@ -68,6 +68,13 @@ val lem5 =
    blastLib.BBLAST_PROVE
       ``~(0w <= c) /\ 0xFFFFF001w <= c ==> -1w * c <=+ 4095w: word32``
 
+val lem4b =
+   blastLib.BBLAST_PROVE ``0w <= c /\ c <= 255w ==> c <=+ 255w: word32``
+
+val lem5b =
+   blastLib.BBLAST_PROVE
+      ``~(0w <= c) /\ 0xFFFFFF01w <= c ==> -1w * c <=+ 255w: word32``
+
 Triviality lem6:
   !s state c n.
       target_state_rel arm7_target s state /\ n < 16 /\ n <> 13 /\ n <> 15 /\
@@ -233,135 +240,35 @@ Proof
    \\ blastLib.FULL_BBLAST_TAC
 QED
 
-Triviality decode_imm8_thm1:
+Triviality decode_imm8_thm:
   !c: word32.
-       8w <= c /\ c <= 263w ==>
-       (EncodeARMImmediate (c + 0xFFFFFFF8w) =
-        SOME ((7 >< 0) (c + 0xFFFFFFF8w)))
+    c <=+ 255w ==>
+    (w2w (v2w [c ' 7; c ' 6;
+               c ' 5; c ' 4; c ' 3; c ' 2; c ' 1; c ' 0] : word8) = c)
 Proof
-  rw [armTheory.EncodeARMImmediate_def,
-       Once armTheory.EncodeARMImmediate_aux_def]
+  blastLib.BBLAST_TAC
+QED
+
+Triviality decode_imm8_thm0:
+    c <=+ 255w ==>
+    (w2w ((v2w [c ' 7; c ' 6; c ' 5; c ' 4] : word4) @@
+              (v2w [c ' 3; c ' 2; c ' 1; c ' 0] : word4)) = c: word32)
+Proof
+  blastLib.FULL_BBLAST_TAC
+QED
+
+Triviality decode_neg_imm8_thm0:
+  !c: word32.
+    0xFFFFFF01w <= c /\ ~(0w <= c) /\ Abbrev (d = -1w * c) ==>
+    (-1w *
+      w2w ((v2w [d ' 7; d ' 6; d ' 5; d ' 4] : word4) @@
+           (v2w [d ' 3; d ' 2; d ' 1; d ' 0] : word4)) = c)
+Proof
+  rw []
+   \\ qunabbrev_tac `d`
    \\ blastLib.FULL_BBLAST_TAC
 QED
 
-val decode_imm8_thm2 =
-   blastLib.BBLAST_PROVE
-     ``!c: word32.
-         8w <= c /\ c + 0xFFFFFFF8w <+ 256w ==>
-         (w2w (v2w [c ' 7 <=> c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
-                    c ' 6 <=> c ' 5 \/ c ' 4 \/ c ' 3; c ' 5 <=> c ' 4 \/ c ' 3;
-                    c ' 4 <=> c ' 3; ~c ' 3; c ' 2; c ' 1; c ' 0]: word8) =
-         c - 8w)``
-
-Triviality decode_imm8_thm3:
-  !c: word32.
-       ~(8w <= c) /\ 0xFFFFFF09w <= c ==>
-       (EncodeARMImmediate (-1w * c + 8w) = SOME ((7 >< 0) (-1w * c + 8w)))
-Proof
-  rw [armTheory.EncodeARMImmediate_def,
-       Once armTheory.EncodeARMImmediate_aux_def]
-   \\ blastLib.FULL_BBLAST_TAC
-QED
-
-val decode_imm8_thm4 =
-   blastLib.BBLAST_PROVE
-     ``!c: word32 p.
-         8w <= c /\ c <= 0x10007w /\ ~(c + 0xFFFFFFF8w <+ 256w) ==>
-  (c + p =
-   w2w
-      (v2w
-         [c ' 7 <=> c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
-          c ' 6 <=> c ' 5 \/ c ' 4 \/ c ' 3; c ' 5 <=> c ' 4 \/ c ' 3;
-          c ' 4 <=> c ' 3; ~c ' 3; c ' 2; c ' 1; c ' 0] : word8) +
-    p +
-    w2w
-      (v2w
-         [c ' 15 <=>
-          c ' 14 \/ c ' 13 \/ c ' 12 \/ c ' 11 \/ c ' 10 \/ c ' 9 \/
-          c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
-          c ' 14 <=>
-          c ' 13 \/ c ' 12 \/ c ' 11 \/ c ' 10 \/ c ' 9 \/ c ' 8 \/
-          c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
-          c ' 13 <=>
-          c ' 12 \/ c ' 11 \/ c ' 10 \/ c ' 9 \/ c ' 8 \/ c ' 7 \/ c ' 6 \/
-          c ' 5 \/ c ' 4 \/ c ' 3;
-          c ' 12 <=>
-          c ' 11 \/ c ' 10 \/ c ' 9 \/ c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/
-          c ' 4 \/ c ' 3;
-          c ' 11 <=>
-          c ' 10 \/ c ' 9 \/ c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/
-          c ' 3;
-          c ' 10 <=>
-          c ' 9 \/ c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
-          c ' 9 <=> c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
-          c ' 8 <=> c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3] : word8) #>> 24 +
-    8w)``
-
-val decode_imm8_thm5 =
-   blastLib.BBLAST_PROVE
-     ``!c: word32 p.
-         ~(8w <= c) /\ 0xFFFF0009w <= c /\ -1w * c + 8w <+ 256w ==>
-  (c + p =
-   -1w *
-   w2w
-     (v2w
-        [c ' 7 <=>
-         ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 6 <=>
-         ~c ' 5 /\ ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 5 <=> ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 4 <=> ~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0;
-         c ' 3 <=> c ' 2 \/ c ' 1 \/ c ' 0; c ' 2 <=> ~c ' 1 /\ ~c ' 0;
-         ~c ' 1 <=> c ' 0; c ' 0]: word8) + p + 8w)``
-
-val decode_imm8_thm6 =
-   blastLib.BBLAST_PROVE
-     ``!c: word32 p.
-         ~(8w <= c) /\ 0xFFFF0009w <= c /\ ~(-1w * c + 8w <+ 256w) ==>
-  (c + p =
-   -1w *
-   w2w
-     (v2w
-        [c ' 7 <=>
-         ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 6 <=>
-         ~c ' 5 /\ ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 5 <=> ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 4 <=> ~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0;
-         c ' 3 <=> c ' 2 \/ c ' 1 \/ c ' 0; c ' 2 <=> ~c ' 1 /\ ~c ' 0;
-         ~c ' 1 <=> c ' 0; c ' 0]: word8) + p +
-   -1w *
-   w2w
-     (v2w
-        [c ' 15 <=>
-         ~c ' 14 /\ ~c ' 13 /\ ~c ' 12 /\ ~c ' 11 /\ ~c ' 10 /\ ~c ' 9 /\
-         ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 14 <=>
-         ~c ' 13 /\ ~c ' 12 /\ ~c ' 11 /\ ~c ' 10 /\ ~c ' 9 /\ ~c ' 8 /\
-         ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 13 <=>
-         ~c ' 12 /\ ~c ' 11 /\ ~c ' 10 /\ ~c ' 9 /\ ~c ' 8 /\ ~c ' 7 /\
-         ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 12 <=>
-         ~c ' 11 /\ ~c ' 10 /\ ~c ' 9 /\ ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\
-         ~c ' 5 /\ ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 11 <=>
-         ~c ' 10 /\ ~c ' 9 /\ ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\
-         ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 10 <=>
-         ~c ' 9 /\ ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 9 <=>
-         ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 8 <=>
-         ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0)]: word8) #>> 24 + 8w)``
 val loc_lem =
   utilsLib.map_conv asmLib.mk_blast_thm
     [``(31 >< 24) (a - 8w : word32) : word8``,
@@ -633,8 +540,8 @@ val encode_rwts =
    end
 
 val enc_rwts =
-   [asmPropsTheory.offset_monotonic_def, lem4, lem5, lem8, decode_imm8_thm1,
-    decode_imm8_thm3, arm_stepTheory.Aligned, alignmentTheory.aligned_0,
+   [asmPropsTheory.offset_monotonic_def, lem4, lem5, lem8, lem4b, lem5b,
+    arm_stepTheory.Aligned, alignmentTheory.aligned_0,
     alignmentTheory.aligned_numeric, arm7_asm_ok, Once valid_immediate2] @
    encode_rwts @ asmLib.asm_rwts
 
@@ -749,6 +656,7 @@ local
          \\ assume_tac step_thm
          \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss())
               [lem1, lem2, lem3, lem3b, lem3c, lem3d, lem4, lem7,
+               lem4b, lem5b, decode_imm8_thm, decode_imm8_thm0,
                decode_imm12_thm, decode_imm_thm, armTheory.FPCompare64_def,
                arm_stepTheory.DecodeRoundingMode_def,
                alignmentTheory.aligned_0, alignmentTheory.aligned_numeric,
@@ -830,16 +738,18 @@ in
       \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()) []
       \\ REPEAT strip_tac
       \\ reg_tac
+      \\ imp_res_tac decode_neg_imm8_thm0
       \\ fs [DISCH_ALL arm_stepTheory.R_x_not_pc, combinTheory.UPDATE_APPLY,
              lem1, lem2, lem3, lem3b, lem3c, lem3d, adc_lem2, adc_lem4,
-             fp_to_int_lem2, mul_long_lem1, mul_long_lem2,
+             fp_to_int_lem2, mul_long_lem1, mul_long_lem2, lem4b,
              GSYM wordsTheory.word_mul_def, alignmentTheory.align_aligned]
       \\ srw_tac []
             [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
              updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1,
-             decode_some_encode_immediate, decode_imm8_thm2, decode_imm8_thm5,
+             decode_some_encode_immediate,
              fp_to_int_lem2]
       \\ fs [adc_lem1, adc_lem3]
+
 end
 
 local
@@ -867,6 +777,7 @@ local
          \\ (if neg_mem then
                qabbrev_tac `d = -1w * c`
                \\ imp_res_tac decode_neg_imm12_thm
+               \\ imp_res_tac decode_neg_imm8_thm0
              else if asmLib.isJumpCmp asm then
                qabbrev_tac `r = c0 + 0xFFFFFFF4w`
              else if asmLib.isJumpReg asm then
