@@ -1321,7 +1321,8 @@ Proof
      rpt strip_tac>>pairarg_tac>>gs[]>>
      first_x_assum $ irule>>
      irule pan_to_word_every_inst_ok_less>>metis_tac[pancake_good_code_def])>>
-    gs[])>>gs[]>>
+    gs[])>>
+  gs[]>>
   first_assum $ irule_at Any>>gs[]>>
   simp[Once SWAP_EXISTS_THM]>>
   qexists_tac ‘sorac’>>fs[]>>

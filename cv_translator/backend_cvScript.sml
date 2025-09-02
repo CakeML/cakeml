@@ -625,9 +625,10 @@ Triviality get_live_exp_eq =
   |> LIST_CONJ |> SRULE [GSYM get_live_exps_def];
 
 val pre = cv_trans_pre "" get_live_exp_eq
+
 Theorem word_alloc_get_live_exp_pre[cv_pre]:
-  (∀v:'a exp. word_alloc_get_live_exp_pre v) ∧
-  (∀v:'a exp list. get_live_exps_pre v)
+  (∀v:'a wordLang$exp. word_alloc_get_live_exp_pre v) ∧
+  (∀v:'a wordLang$exp list. get_live_exps_pre v)
 Proof
   ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
 QED
