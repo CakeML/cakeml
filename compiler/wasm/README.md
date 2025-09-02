@@ -46,6 +46,3 @@ Separated from wasmLangScript for ergonomics/build efficency
 [wasm_sem_commonScript.sml](wasm_sem_commonScript.sml):
 CWasm semantic components common to both the Big- & small- step semantics
 (wasmSem & wasm_smallstep resp.)
-
-[wasm_smallstepScript.sml](wasm_smallstepScript.sml):
-WebAssembly (Wasm) smallstep semantics
