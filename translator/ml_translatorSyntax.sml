@@ -18,7 +18,8 @@ val (PRECONDITION,mk_PRECONDITION,dest_PRECONDITION,is_PRECONDITION) = monop "PR
 val (IsTypeRep,mk_IsTypeRep,dest_IsTypeRep,is_IsTypeRep) = binop "IsTypeRep";
 
 val BOOL        = prim_mk_const{Thy="ml_translator",Name="BOOL"}
-val WORD       = prim_mk_const{Thy="ml_translator",Name="WORD"}
+val WORD        = prim_mk_const{Thy="ml_translator",Name="WORD"}
+val FLOAT64     = prim_mk_const{Thy="ml_translator",Name="FLOAT64"}
 val NUM         = prim_mk_const{Thy="ml_translator",Name="NUM"}
 val INT         = prim_mk_const{Thy="ml_translator",Name="INT"}
 val CHAR        = prim_mk_const{Thy="ml_translator",Name="CHAR"}

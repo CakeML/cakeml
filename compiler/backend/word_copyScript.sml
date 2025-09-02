@@ -153,6 +153,14 @@ Definition copy_prop_inst_def:
     let a' = lookup_eq cs a in
     let r' = lookup_eq cs r in
       (Inst (Mem Store8 r' (Addr a' w)),cs)) ∧
+  (copy_prop_inst (Mem Load16 r (Addr a w)) cs =
+    let a' = lookup_eq cs a in
+      (Inst (Mem Load16 r (Addr a' w)),
+        remove_eq cs r)) ∧
+  (copy_prop_inst (Mem Store16 r (Addr a w)) cs =
+    let a' = lookup_eq cs a in
+    let r' = lookup_eq cs r in
+      (Inst (Mem Store16 r' (Addr a' w)),cs)) ∧
   (copy_prop_inst (Mem Load32 r (Addr a w)) cs =
     let a' = lookup_eq cs a in
       (Inst (Mem Load32 r (Addr a' w)),

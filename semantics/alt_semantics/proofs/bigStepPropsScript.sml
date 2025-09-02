@@ -28,7 +28,7 @@ Theorem evaluate_no_new_types_exns:
      st.eval_state = (FST r).eval_state)
 Proof
   ho_match_mp_tac bigStepTheory.evaluate_ind >>
-  srw_tac[][shift_fp_opts_def]
+  srw_tac[][]
 QED
 
 Theorem evaluate_ignores_types_exns_eval:
@@ -54,7 +54,7 @@ Theorem evaluate_ignores_types_exns_eval:
           SND r))
 Proof
   ho_match_mp_tac bigStepTheory.evaluate_ind >>
-  rw[] >> rw[Once evaluate_cases, state_component_equality, shift_fp_opts_def] >>
+  rw[] >> rw[Once evaluate_cases, state_component_equality] >>
   metis_tac[state_accfupds, K_DEF]
 QED
 
@@ -80,7 +80,7 @@ Theorem big_evaluate_io_events_mono:
     evaluate_match ck env st v pes err_v r ⇒
     io_events_mono (st.ffi) (FST r).ffi)
 Proof
-  ho_match_mp_tac evaluate_ind >> rw[shift_fp_opts_def]
+  ho_match_mp_tac evaluate_ind >> rw[]
   >~ [`do_app`]
   >- (
     drule do_app_io_events_mono >> rw[] >>

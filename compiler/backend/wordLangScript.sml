@@ -5,7 +5,7 @@
 *)
 Theory wordLang
 Ancestors
-  asm stackLang
+  stackLang
 Libs
   preamble
 

@@ -42,7 +42,6 @@ Definition BOTTOM_UP_OPT_def[nocompute]:
   (BOTTOM_UP_OPT f (Letrec z1 z2) = f (Letrec z1 z2)) ∧
   (BOTTOM_UP_OPT f (Tannot x t) = Tannot (BOTTOM_UP_OPT f x) t) ∧
   (BOTTOM_UP_OPT f (Lannot x l) = Lannot (BOTTOM_UP_OPT f x) l) /\
-  (BOTTOM_UP_OPT f (FpOptimise opt e) = FpOptimise opt (BOTTOM_UP_OPT f e)) /\
   (BOTTOM_UP_OPT_LIST f [] = []) /\
   (BOTTOM_UP_OPT_LIST f (y::ys) =
      BOTTOM_UP_OPT f y :: BOTTOM_UP_OPT_LIST f ys) /\
@@ -190,61 +189,6 @@ Proof
              by fs [state_component_equality]
     \\ first_x_assum drule \\ simp [] \\ strip_tac
     \\ asm_exists_tac \\ fs [])
-  THEN1 (* App Icing *)
-   (rename1 `_ = (st1,Rval vs)`
-    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
-          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
-             by fs [state_component_equality]
-    \\ first_x_assum drule \\ simp [] \\ strip_tac
-    \\ asm_exists_tac \\ fs [semanticPrimitivesTheory.shift_fp_opts_def])
-  THEN1 (* App Icing 2 *)
-   (rename1 `_ = (st1,Rval vs)`
-    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
-          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
-             by fs [state_component_equality]
-    \\ first_x_assum drule \\ simp [] \\ strip_tac
-    \\ asm_exists_tac \\ fs [semanticPrimitivesTheory.shift_fp_opts_def])
-  THEN1 (* App Icing 3*)
-   (fs[]
-    \\ `s1.fp_state.canOpt ≠ FPScope Opt` by rfs[fpState_component_equality, state_component_equality]
-    \\ rveq
-    \\ rename1 `_ = (st1,Rval vs)`
-    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
-          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
-             by fs [state_component_equality]
-    \\ first_x_assum drule \\ simp [] \\ strip_tac
-    \\ asm_exists_tac \\ fs [semanticPrimitivesTheory.shift_fp_opts_def])
-  THEN1 (* App Icing 4 *)
-   (rename1 `_ = (st1,Rval vs)`
-    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
-          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
-             by fs [state_component_equality]
-    \\ first_x_assum drule \\ simp [] \\ strip_tac
-    \\ asm_exists_tac \\ fs [semanticPrimitivesTheory.shift_fp_opts_def])
-  THEN1 (* App Icing 5 *)
-   (rename1 `_ = (st1,Rval vs)`
-    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
-          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
-             by fs [state_component_equality]
-    \\ first_x_assum drule \\ simp [] \\ strip_tac
-    \\ asm_exists_tac \\ fs [semanticPrimitivesTheory.shift_fp_opts_def])
-  THEN1 (* App Icing 6*)
-   (fs[]
-    \\ `s1.fp_state.canOpt ≠ FPScope Opt` by rfs[fpState_component_equality, state_component_equality]
-    \\ rveq
-    \\ rename1 `_ = (st1,Rval vs)`
-    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
-          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
-             by fs [state_component_equality]
-    \\ first_x_assum drule \\ simp [] \\ strip_tac
-    \\ asm_exists_tac \\ fs [semanticPrimitivesTheory.shift_fp_opts_def])
-  THEN1 (* App Reals*)
-   (rename1 `_ = (st1,Rval vs)`
-    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
-          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
-             by fs [state_component_equality]
-    \\ first_x_assum drule \\ simp [] \\ strip_tac
-    \\ asm_exists_tac \\ fs [semanticPrimitivesTheory.shift_fp_opts_def])
   THEN1 (* do_log *)
    (
     imp_res_tac evaluate_sing
@@ -308,14 +252,6 @@ Proof
     \\ simp []
     \\ simp [state_component_equality]
    )
-  THEN1 (* fpOptimise *)
-   (imp_res_tac evaluate_sing \\ rveq \\ fs [] \\ rveq \\ fs []
-    \\ rename1 `evaluate (s with <| clock := ck1; fp_state := _ |>) env [x1] = (st5,Rval [v5])`
-    \\ rveq \\ fs []
-    \\ `evaluate (s with <| clock := ck1; fp_state := if s.fp_state.canOpt = Strict then s.fp_state else s.fp_state with canOpt := FPScope opt |>) env [x1] =
-                 ((st5 with clock := s.clock) with clock := st5.clock,Rval [v5])` by
-      fs [state_component_equality]
-    \\ res_tac \\ fs[state_component_equality] \\ asm_exists_tac \\ fs[])
   THEN1 (* cons *)
    (
     ntac 2 (pop_assum mp_tac)

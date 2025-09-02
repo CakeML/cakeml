@@ -33,10 +33,15 @@ val res = translate $ errorLogMonadTheory.bind_def;
 val res = translate $ errorLogMonadTheory.log_def;
 val res = translate $ errorLogMonadTheory.error_def;
 
+val res = translate $ panStaticTheory.sh_bd_from_sh_def;
+val res = translate $ panStaticTheory.sh_bd_from_bd_def;
+val res = translate $ panStaticTheory.sh_bd_has_shape_def;
+val res = translate $ panStaticTheory.sh_bd_eq_shapes_def;
+val res = translate $ panStaticTheory.index_sh_bd_def;
 val res = translate $ panStaticTheory.based_merge_def;
-val res = translate $ panStaticTheory.based_cmp_def;
-val res = translate $ panStaticTheory.branch_vbases_def;
-val res = translate $ panStaticTheory.seq_vbases_def;
+val res = translate $ panStaticTheory.sh_bd_branch_def;
+val res = translate $ panStaticTheory.branch_loc_inf_def;
+val res = translate $ panStaticTheory.seq_loc_inf_def;
 
 val res = translate $ panStaticTheory.last_to_str_def;
 val res = translate $ panStaticTheory.next_is_reachable_def;
@@ -45,22 +50,33 @@ val res = translate $ spec32 $ panStaticTheory.reached_warnable_def;
 val res = translate $ panStaticTheory.branch_last_stmt_def;
 val res = translate $ panStaticTheory.seq_last_stmt_def;
 
+val res = translate $ panStaticTheory.get_scope_desc_def;
 val res = translate $ panStaticTheory.get_scope_msg_def;
 val res = translate $ panStaticTheory.get_redec_msg_def;
 val res = translate $ panStaticTheory.get_memop_msg_def;
 val res = translate $ panStaticTheory.get_oparg_msg_def;
 val res = translate $ panStaticTheory.get_unreach_msg_def;
 val res = translate $ panStaticTheory.get_rogue_msg_def;
+val res = translate $ panStaticTheory.get_non_word_msg_def;
+val res = translate $ panStaticTheory.get_shape_mismatch_msg_def;
 
 val res = translate $ panStaticTheory.first_repeat_def;
 val res = translate $ panStaticTheory.binop_to_str_def;
 val res = translate $ panStaticTheory.panop_to_str_def;
 
+val res = translate $ panStaticTheory.scope_check_fun_name_def;
+val res = translate $ panStaticTheory.scope_check_global_var_def;
+val res = translate $ panStaticTheory.scope_check_local_var_def;
+val res = translate $ panStaticTheory.check_redec_var_def;
+val res = translate $ panStaticTheory.check_export_params_def;
+val res = translate $ panStaticTheory.check_operands_def;
+val res = translate $ panStaticTheory.check_func_args_def;
+
 val res = translate $ spec32 $ panStaticTheory.static_check_exp_def;
 val res = translate $ spec32 $ panStaticTheory.static_check_prog_def;
-val res = translate $
-  INST_TYPE[beta|->``:32``] panStaticTheory.static_check_funs_def;
-val res = translate $ INST_TYPE[beta|->``:32``] panStaticTheory.static_check_def;
+val res = translate $ spec32 $ panStaticTheory.static_check_progs_def;
+val res = translate $ spec32 $ panStaticTheory.static_check_decls_def;
+val res = translate $ spec32 $ panStaticTheory.static_check_def;
 
 Definition max_heap_limit_32_def:
   max_heap_limit_32 c =
@@ -152,6 +168,7 @@ val r = pan_passesTheory.pan_to_target_all_def |> spec32
 val r = pan_passesTheory.opsize_to_display_def |> translate;
 val r = pan_passesTheory.shape_to_str_def |> translate;
 val r = pan_passesTheory.insert_es_def |> translate;
+val r = pan_passesTheory.varkind_to_str_def |> translate;
 Triviality lem:
   dimindex(:32) = 32
 Proof
