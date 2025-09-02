@@ -864,6 +864,7 @@ Proof
           oneline share_inst_def,
           sh_mem_load_def,sh_mem_load_byte_def,sh_mem_store_def,sh_mem_store_byte_def,
           oneline sh_mem_set_var_def, sh_mem_load32_def, sh_mem_store32_def,
+          sh_mem_load16_def,sh_mem_store16_def,
           set_var_def,locals_rel_def,word_exp_def,the_words_def,word_op_def,
           get_var_def,state_component_equality,lookup_insert,flush_state_def] >>
         metis_tac[lookup_insert]
@@ -882,6 +883,7 @@ Proof
         oneline share_inst_def,
         sh_mem_load_def,sh_mem_load_byte_def,sh_mem_store_def,sh_mem_store_byte_def,
         oneline sh_mem_set_var_def, sh_mem_load32_def, sh_mem_store32_def,
+        sh_mem_load16_def,sh_mem_store16_def,
         set_var_def,locals_rel_def,word_exp_def,the_words_def,word_op_def,
         get_var_def,state_component_equality,lookup_insert,flush_state_def] >>
       metis_tac[lookup_insert]) >>
@@ -905,6 +907,7 @@ Proof
       oneline share_inst_def,
       sh_mem_load_def,sh_mem_load_byte_def,sh_mem_store_def,sh_mem_store_byte_def,
       oneline sh_mem_set_var_def, sh_mem_load32_def, sh_mem_store32_def,
+      sh_mem_load16_def,sh_mem_store16_def,
       set_var_def,locals_rel_def,word_exp_def,the_words_def,word_op_def,
       get_var_def,state_component_equality,lookup_insert,flush_state_def] >>
     metis_tac[lookup_insert])

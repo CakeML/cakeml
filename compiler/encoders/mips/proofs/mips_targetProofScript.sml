@@ -114,6 +114,12 @@ val lem9 =
        w2w (b2: word8) << 8) =
        w2w (b0 @@ b1 @@ b2 @@ b3) : word64``
 
+val lem9b =
+   blastLib.BBLAST_PROVE
+    ``(w2w (b1: word8) ||
+       w2w (b0: word8) << 8) =
+       w2w (b0 @@ b1) : word64``
+
 val lem10 =
    blastLib.BBLAST_PROVE
      ``!c: word64.
@@ -358,7 +364,7 @@ fun state_tac asm =
       [asmPropsTheory.all_pcs, mips_ok_def, asmPropsTheory.sym_target_state_rel,
        mips_target_def, mips_config, alignmentTheory.aligned_numeric,
        mipsTheory.IntToDWordMIPS_def, set_sepTheory.fun2set_eq, mips_reg_ok,
-       lem8, lem9, fcc_lem]
+       lem8, lem9, lem9b, fcc_lem]
    \\ (if asmLib.isAddCarry asm then
          REPEAT strip_tac
          \\ Cases_on `i = n2`

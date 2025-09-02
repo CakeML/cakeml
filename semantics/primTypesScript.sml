@@ -33,13 +33,6 @@ Definition prim_sem_env_def:
   add_to_sem_env
   (<|clock := 0; ffi := ffi; refs := []; next_type_stamp := 0;
      next_exn_stamp := 0; eval_state := NONE;
-     fp_state := <|
-       rws := [];
-       opts := (λ x. []);
-       choices := 0;
-       canOpt := Strict;
-       real_sem := F;
-     |>
    |>,
    <|v := nsEmpty; c := nsEmpty|>) prim_types_program
 End

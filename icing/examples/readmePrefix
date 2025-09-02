@@ -1,5 +1,0 @@
-FPBench benchmarks used in the evaluation of PrincessCake.
-
-WARNING: Running all of these at once takes a significant amount of time
-as an instance of FloVer will be spawned for all the 44 benchmarks that
-contain no `sqrt` operation.

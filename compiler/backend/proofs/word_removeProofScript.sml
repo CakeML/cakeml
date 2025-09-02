@@ -284,6 +284,7 @@ Proof
   >- ( (* ShareInst *)
     gvs[oneline share_inst_def,
       sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def,
+      sh_mem_load16_def,sh_mem_store16_def,
       sh_mem_load_def,sh_mem_load_byte_def,sh_mem_load32_def,
       oneline sh_mem_set_var_def,AllCaseEqs()] \\
    simp[compile_state_def,state_component_equality,FUN_EQ_THM,map_union,map_fromAList,map_insert] ) \\

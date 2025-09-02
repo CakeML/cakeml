@@ -2007,6 +2007,7 @@ Proof
     \\ Cases_on ‘op’
     \\ fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,
           sh_mem_load32_def,sh_mem_store32_def,
+          sh_mem_load16_def,sh_mem_store16_def,
           sh_mem_load_byte_def,sh_mem_store_byte_def,get_var_def]
     \\ imp_res_tac state_rel_get_var >> fs[get_var_def]
     \\ ntac 2 (TOP_CASE_TAC>>fs[]) >>TRY (ntac 2 (CASE_TAC>>fs[]))>>

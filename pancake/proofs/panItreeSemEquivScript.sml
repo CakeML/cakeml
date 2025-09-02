@@ -11,7 +11,6 @@ Ancestors
   wordLang[qualified] (* for word_op and word_sh *)
   panProps itreeTau panSem panItreeProps panItreeSem panLang
 
-
 val _ = temp_set_fixity "≈" (Infixl 500);
 Overload "≈" = “itree_wbisim”;
 val _ = temp_set_fixity ">>=" (Infixl 500);
@@ -96,7 +95,7 @@ Definition event_filter_def:
 End
 
 Definition itree_semantics_beh_def:
-  itree_semantics_beh (s:('a,'b) bstate) (prog:'a prog) =
+  itree_semantics_beh (s:('a,'b) bstate) (prog:'a panLang$prog) =
   let lt = ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,s))) in
       case some (r,s'). lt ≈ Ret (r,s') of
       | SOME (r,s') => (case r of
@@ -109,7 +108,7 @@ Definition itree_semantics_beh_def:
 End
 
 Theorem fbs_sem_div_compos_thm:
-  fbs_semantics_beh s (Dec v e prog) = SemDiverge l ∧
+  fbs_semantics_beh s (Dec v sh e prog) = SemDiverge l ∧
   eval (reclock s) e = SOME x ⇒
   fbs_semantics_beh (s with locals := s.locals |+ (v,x)) prog = SemDiverge l
 Proof
@@ -176,10 +175,10 @@ QED
 Theorem fbs_semantics_beh_simps:
   fbs_semantics_beh s Skip = SemTerminate (NONE,s) ∧
   fbs_semantics_beh s (Annot _ _) = SemTerminate (NONE,s) ∧
-  (eval (reclock s) e = NONE ⇒ fbs_semantics_beh s (Dec v e prog) ≠ SemTerminate p)
+  (eval (reclock s) e = NONE ⇒ fbs_semantics_beh s (Dec v sh e prog) ≠ SemTerminate p)
 Proof
   rw []
-  >~ [‘Dec _ _ _’]
+  >~ [‘Dec _ _ _ _’]
   >- (rw [fbs_semantics_beh_def,
           evaluate_def] >>
       rw [eval_upd_clock_eq] >>
@@ -194,7 +193,7 @@ Proof
 QED
 
 Theorem itree_semantics_beh_Dec:
-  itree_semantics_beh s (Dec vname e prog) =
+  itree_semantics_beh s (Dec vname shape e prog) =
   case eval (reclock s) e of
     NONE => SemFail
   | SOME value =>
@@ -2371,7 +2370,7 @@ QED
 Theorem itree_semantics_corres_evaluate:
   ∀prog t r s'.
     good_dimindex (:α) ∧
-    evaluate (prog:'a prog,t) = (r,s') ∧
+    evaluate (prog:'a panLang$prog,t) = (r,s') ∧
     r ≠ SOME TimeOut ⇒
     itree_semantics_beh (unclock t) prog =
     case r of
@@ -2538,7 +2537,7 @@ QED
 
 Theorem ltree_lift_corres_evaluate:
   good_dimindex (:α) ∧
-  evaluate (prog:'a prog,s) = (r,s') ∧
+  evaluate (prog:'a panLang$prog,s) = (r,s') ∧
   r ≠ SOME TimeOut ∧
   r ≠ SOME Error ⇒
   ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,unclock s))) ≈ Ret (r,unclock s')
@@ -2553,7 +2552,7 @@ QED
 
 Theorem ltree_lift_corres_evaluate_error:
   good_dimindex (:α) ∧
-  evaluate (prog:'a prog,s) = (SOME Error,s') ⇒
+  evaluate (prog:'a panLang$prog,s) = (SOME Error,s') ⇒
   ∃s''. ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,unclock s))) ≈ Ret (SOME Error,s'')
 Proof
   rpt strip_tac >>
@@ -2566,7 +2565,7 @@ Proof
 QED
 
 Theorem ltree_Ret_to_evaluate:
-  ∀s r s' prog:'a prog.
+  ∀s r s' prog:'a panLang$prog.
   good_dimindex (:α) ∧
   ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,s))) ≈ Ret (r,s') ⇒
   ∃k k'. evaluate (prog,reclock s with clock := k) = (r,reclock s' with clock := k')
@@ -3234,7 +3233,7 @@ Proof
 QED
 
 Theorem evaluate_stree_trace_LPREFIX:
-  evaluate (prog:'a prog,reclock s with clock := k) = (SOME TimeOut,s') ∧
+  evaluate (prog:'a panLang$prog,reclock s with clock := k) = (SOME TimeOut,s') ∧
   (∀p. ¬(ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,s))) ≈ Ret p)) ∧
   good_dimindex (:α) ⇒
   LPREFIX
@@ -3616,7 +3615,7 @@ Proof
   fs[Once itree_wbisim_cases]
 QED
 Theorem nonret_imp_timeout:
-  ∀s r s' prog:'a prog k.
+  ∀s r s' prog:'a panLang$prog k.
     good_dimindex (:α) ∧
     (∀p. ¬(ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,s))) ≈ Ret p)) ⇒
     ∃s'. evaluate (prog,reclock s with clock := k) = (SOME TimeOut,s')
@@ -3635,7 +3634,7 @@ QED
 Theorem nonret_imp_timeout':
   good_dimindex (:α) ∧
     (∀p. ¬(ltree_lift query_oracle (t:('a,'b)state).ffi (mrec_sem (h_prog (prog,s))) ≈ Ret p)) ∧ t.ffi = s.ffi ⇒
-    ∃s'. evaluate (prog:'a prog,reclock s with clock := k) = (SOME TimeOut,s')
+    ∃s'. evaluate (prog:'a panLang$prog,reclock s with clock := k) = (SOME TimeOut,s')
 Proof
   strip_tac>>
   irule nonret_imp_timeout>>
@@ -3661,7 +3660,7 @@ Theorem not_less_opt_lemma:
   (∀k. ¬less_opt
        n (SOME
           (LENGTH
-           (SND (evaluate (prog:'a prog,reclock s with clock := k))).ffi.
+           (SND (evaluate (prog:'a panLang$prog,reclock s with clock := k))).ffi.
            io_events))) ⇒
   ∃k'. (∀k. k' ≤ k ⇒
             LENGTH
@@ -3679,7 +3678,7 @@ Proof
     by (fs[Abbr‘f’]>>
         rpt strip_tac>>
         drule LESS_EQUAL_ADD>>strip_tac>>fs[]>>
-        assume_tac (Q.SPECL [‘prog:'a prog’,‘reclock s with clock := k’,‘p’]
+        assume_tac (Q.SPECL [‘prog:'a panLang$prog’,‘reclock s with clock := k’,‘p’]
                      evaluate_add_clock_io_events_mono)>>
         fs[IS_PREFIX_APPEND])>>
   ‘∃k. ∀k'. k ≤ k' ⇒ f k' ≤  f k’ by
@@ -4014,7 +4013,7 @@ Proof
           dxrule FUNPOW_Tau_Vis_eq>>strip_tac>>gvs[]>>
           qmatch_asmsub_abbrev_tac ‘(prog,t)’>>
           last_x_assum $ qspec_then ‘n’ assume_tac>>fs[]>>
-          ‘s.ffi = (reclock t).ffi’ by simp[Abbr‘t’]>>
+          ‘s'.ffi = (reclock t).ffi’ by simp[Abbr‘t’]>>
           pop_assum (fn h => rewrite_tac[h])>>
           first_x_assum irule>>gvs[Abbr‘t’]>>metis_tac[])>>
       imp_res_tac strip_tau_spin>>gvs[spin_bind]>>
@@ -4452,7 +4451,7 @@ Proof
           qmatch_asmsub_abbrev_tac ‘(prog,t)’>>
           first_x_assum $ qspecl_then [‘prog’,‘t’,‘g’,‘a’] assume_tac>>
           gvs[]>>
-          ‘t.ffi = s.ffi’ by simp[Abbr‘t’]>>fs[]>>gvs[]>>
+          ‘t.ffi = s'.ffi’ by simp[Abbr‘t’]>>fs[]>>gvs[]>>
           fs[ltree_lift_Vis_alt]>>
           pairarg_tac>>fs[ltree_lift_monad_law]>>
           Cases_on ‘FST a’>>fs[]>>
@@ -4777,7 +4776,7 @@ Proof
 QED
 
 Theorem bounded_trace_eq:
-  (∀k'. s.clock < k' ⇒ (SND(evaluate(prog:'a prog,s))).ffi.io_events
+  (∀k'. s.clock < k' ⇒ (SND(evaluate(prog:'a panLang$prog,s))).ffi.io_events
                        = (SND(evaluate(prog,s with clock:=k'))).ffi.io_events) ∧
   (∀p. ¬(ltree_lift query_oracle s.ffi (mrec_sem (h_prog (prog,unclock s))) ≈ Ret p)) ∧
   good_dimindex (:'a) ⇒
@@ -5568,7 +5567,7 @@ QED
 
 Theorem itree_semantics_corres:
   good_dimindex(:α) ⇒
-  fbs_semantics_beh s prog = itree_semantics_beh s (prog:α prog)
+  fbs_semantics_beh s prog = itree_semantics_beh s (prog:α panLang$prog)
 Proof
   rw [fbs_semantics_beh_def]
   >- (DEEP_INTRO_TAC some_intro >> reverse $ rw []

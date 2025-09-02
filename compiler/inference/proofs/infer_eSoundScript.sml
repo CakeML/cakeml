@@ -602,6 +602,8 @@ Proof
  >- binop_tac
  (* Lit word64 *)
  >- binop_tac
+ (* Lit float64 *)
+ >- binop_tac
  >- ( (* Var *)
    drule env_rel_sound_lookup_some
    >> disch_then drule
@@ -1070,7 +1072,6 @@ Proof
      first_x_assum irule >> rw [] >>
      imp_res_tac sub_completion_unify2 >>
      metis_tac [APPEND_ASSOC, APPEND, sub_completion_add_constraints])
- >- metis_tac [sub_completion_infer_es]
  >- metis_tac [sub_completion_infer_es]
  >- metis_tac [sub_completion_infer_es]
  >- metis_tac [infer_e_wfs, infer_e_next_uvar_mono, ienv_ok_more]

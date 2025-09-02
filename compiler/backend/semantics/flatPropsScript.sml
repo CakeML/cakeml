@@ -3,7 +3,7 @@
 *)
 Theory flatProps
 Ancestors
-  flatLang flatSem ast[qualified]
+  flatLang flatSem lprefix_lub[qualified] ast[qualified]
   semanticPrimitivesProps[qualified] evaluateProps[qualified]
 Libs
   preamble
@@ -769,8 +769,9 @@ Proof
     \\ imp_res_tac evaluate_decs_add_to_clock_initial_state_io_events_mono
     \\ fs [] \\ rveq
     \\ every_case_tac \\ fs [] \\ rw [] \\ fs [])
-  \\ qmatch_abbrev_tac `build_lprefix_lub l1 = build_lprefix_lub l2`
-  \\ `(lprefix_chain l1 /\ lprefix_chain l2) /\ equiv_lprefix_chain l1 l2`
+  \\ qmatch_abbrev_tac
+       ‘build_lprefix_lub l1 = build_lprefix_lub l2’
+  \\ ‘(lprefix_chain l1 /\ lprefix_chain l2) /\ equiv_lprefix_chain l1 l2’
      suffices_by metis_tac [build_lprefix_lub_thm,
                             lprefix_lub_new_chain,
                             unique_lprefix_lub]

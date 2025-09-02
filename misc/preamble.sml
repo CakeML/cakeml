@@ -13,6 +13,19 @@ open ASCIInumbersTheory BasicProvers Defn HolKernel Parse SatisfySimps Tactic
      pairTheory pred_setTheory quantHeuristicsLib relationTheory res_quanTheory
      rich_listTheory sortingTheory sptreeTheory stringTheory sumTheory
      wordsTheory;
+(*Temporary workaround for cache being slow on long files*)
+fun clear_cache_prover (t,tac)  =
+ let
+   val _ = List.app Cache.clear_cache [numSimps.arith_cache, intSimps.omega_cache,
+                                       intSimps.cooper_cache]
+   val res = Tactical.default_prover (t,tac)
+   val _ = List.app Cache.clear_cache [numSimps.arith_cache, intSimps.omega_cache,
+                                       intSimps.cooper_cache]
+ in
+   res
+ end
+val _ = Tactical.set_prover clear_cache_prover;
+
 (* TOOD: move? *)
 val wf_rel_tac = WF_REL_TAC
 val induct_on = Induct_on
