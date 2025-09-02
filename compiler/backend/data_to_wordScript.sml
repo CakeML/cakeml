@@ -1104,10 +1104,10 @@ Definition fp_top_inst_def:
 End
 
 Definition fp_bop_inst_def:
-  fp_bop_inst (FP_Add :fp_bop) = FPAdd 0 0 1 /\
-  fp_bop_inst FP_Sub           = FPSub 0 0 1 /\
-  fp_bop_inst FP_Mul           = FPMul 0 0 1 /\
-  fp_bop_inst FP_Div           = FPDiv 0 0 1
+  fp_bop_inst ast$FP_Add = FPAdd 0 0 1 /\
+  fp_bop_inst ast$FP_Sub = FPSub 0 0 1 /\
+  fp_bop_inst ast$FP_Mul = FPMul 0 0 1 /\
+  fp_bop_inst ast$FP_Div = FPDiv 0 0 1
 End
 
 Definition fp_uop_inst_def:
