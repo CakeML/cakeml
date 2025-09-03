@@ -348,27 +348,6 @@ Theorem div_ceiling_le_x:
   k ≠ 0 ⇒ 0 ≤ n ⇒ (div_ceiling n k ≤ m ⇔ n ≤ m * &k)
 Proof
   rw[]>>
-  Cases_on ‘0 ≤ m’
-  >-(
-    Cases_on ‘m’>>
-    fs[]>>
-    Cases_on ‘n’>>
-    fs[div_ceiling_compute,CEILING_DIV_LE_X])>>
-  ‘m < 0’ by intLib.ARITH_TAC>>
-  iff_tac>>
-  strip_tac
-  >-(
-    ‘div_ceiling n k < 0’ by intLib.ARITH_TAC>>
-    rfs[div_ceiling_sign]>>
-    intLib.ARITH_TAC)>>
-  ‘0 < int_of_num k’ by intLib.ARITH_TAC>>
-  ‘m * int_of_num k < 0’ by simp[integerTheory.INT_MUL_SIGN_CASES]>>
-  intLib.ARITH_TAC
-QED
-
-(* ALTERNATIVE PROOF TO ABOVE
-Proof
-  rw[]>>
   Cases_on ‘m’>>
   Cases_on ‘n’>>
   fs[div_ceiling_compute,CEILING_DIV_LE_X]
@@ -384,7 +363,6 @@ Proof
   ‘&(0 \\ k) = 0’ by simp[CEILING_DIV_def,LESS_DIV_EQ_ZERO]>>
   simp[integerTheory.INT_NOT_LE,integerTheory.INT_MUL_SIGN_CASES]
 QED
-*)
 
 Theorem Num_div_ceiling:
   0 < k ⇒ Num q ≤ k * Num (div_ceiling q k)
@@ -405,12 +383,12 @@ Proof
     fs[div_ceiling_sign])>>
   ‘0 ≤ r’ by intLib.ARITH_TAC>>
   simp[div_ceiling_le_x]>>
-  irule $ intLib.ARITH_PROVE “m ≤ n ∧ n ≤ p ⇒ m ≤ (p:int)”>>
+  irule integerTheory.INT_LE_TRANS>>
   goal_assum $ drule_at Any>>
-  irule $ intLib.ARITH_PROVE “(m:num) ≤ n ⇒ int_of_num m ≤ int_of_num n”>>
+  simp[]>>
   last_x_assum $ kall_tac>>
   Induct_on ‘q’>>
-  simp[MAP]>>
+  simp[]>>
   Cases>>
   simp[LEFT_ADD_DISTRIB,div_ceiling_sign,GSYM integerTheory.Num_EQ_ABS]>>
   irule LESS_EQ_LESS_EQ_MONO>>
