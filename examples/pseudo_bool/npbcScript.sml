@@ -495,25 +495,36 @@ Definition multiply_def:
       (MAP (λ(c,v). (c * & k, v)) l,n * &k)
 End
 
+Theorem nonneg_le_x:
+  0 ≤ (c:int) ⇒ a ≤ b ⇒ c * a ≤ c * b
+Proof
+  Cases_on ‘c = 0’>>
+  rw[]>>
+  ‘0 < c’ by intLib.ARITH_TAC>>
+  fs[integerTheory.INT_LE_MONO]
+QED
+
 Theorem multiply_thm:
   satisfies_npbc w c ⇒ satisfies_npbc w (multiply c k)
 Proof
-  cheat
-  (*
-  Cases_on ‘c’ \\
-  rename1`(l,r)` \\ fs [multiply_def]
-  \\ rw [satisfies_npbc_def,GREATER_EQ]
-  \\ drule LESS_MONO_MULT
-  \\ disch_then (qspec_then`k` mp_tac)
-  \\ REWRITE_TAC [Once MULT_COMM]
-  \\ strip_tac
-  \\ irule LESS_EQ_TRANS
-  \\ first_x_assum $ irule_at Any
-  \\ pop_assum kall_tac
-  \\ Induct_on`l` \\ simp[] \\ Cases \\ rw[]
-  \\ Cases_on ‘q’ \\ gvs []
-  \\ fs [ADD1,integerTheory.INT_MUL_CALCULATE]
-  \\ Cases_on ‘k’ \\ fs [MULT_CLAUSES,LEFT_ADD_DISTRIB,RIGHT_ADD_DISTRIB] *)
+  Cases_on ‘c’>>
+  rename1 ‘satisfies_npbc w (q,r) ⇒ _’>>
+  Cases_on ‘k = 0’>>
+  rw[satisfies_npbc_def,multiply_def,MAP_MAP_o]>>
+  ‘SUM (MAP (eval_term w ∘ (λ(c,v). (c * &k,v))) q) = k * SUM (MAP (eval_term w) q)’ by (
+    pop_assum kall_tac>>
+    Induct_on ‘q’>>
+    simp[]>>
+    Cases>>
+    simp[LEFT_ADD_DISTRIB,GSYM integerTheory.Num_EQ_ABS,integerTheory.INT_MUL_SIGN_CASES]>>
+    disj2_tac>>
+    rename1 ‘Num (s * &k)’>>
+    Cases_on ‘s’>>
+    simp[integerTheory.int_calculate])>>
+  simp[]>>
+  pure_rewrite_tac[GSYM integerTheory.INT_OF_NUM_MUL,Once integerTheory.INT_MUL_COMM]>>
+  irule nonneg_le_x>>
+  intLib.ARITH_TAC
 QED
 
 Theorem compact_multiply:
