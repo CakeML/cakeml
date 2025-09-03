@@ -31,9 +31,9 @@ Overload dec_u8  = “dec_unsigned_word : byteSeq -> (byte   # byteSeq) option�
 Overload dec_u32 = “dec_unsigned_word : byteSeq -> (word32 # byteSeq) option”
 Overload dec_u64 = “dec_unsigned_word : byteSeq -> (word64 # byteSeq) option”
 
-Overload dec_s8  = “dec_signed        : byteSeq -> (byte   # byteSeq) option”
-Overload dec_s32 = “dec_signed        : byteSeq -> (word32 # byteSeq) option”
-Overload dec_s64 = “dec_signed        : byteSeq -> (word64 # byteSeq) option”
+Overload dec_s8  = “dec_signed_word   : byteSeq -> (byte   # byteSeq) option”
+Overload dec_s32 = “dec_signed_word   : byteSeq -> (word32 # byteSeq) option”
+Overload dec_s64 = “dec_signed_word   : byteSeq -> (word64 # byteSeq) option”
 
 Overload enc_u8  = “enc_unsigned_word : byte   -> byteSeq”
 Overload enc_u32 = “enc_unsigned_word : word32 -> byteSeq”
@@ -82,57 +82,11 @@ Definition enc_s33_def:
                  w2w (w >>> 28)]
 End
 
-Overload dec_s33 = “dec_signed : byteSeq ->(33 word # byteSeq) option”
+Overload dec_s33 = “dec_signed_word : byteSeq ->(33 word # byteSeq) option”
 
 (***********************)
 (*   Shortening Thms   *)
 (***********************)
-
-Theorem dec_num_shortens:
-  ∀bs x rs. dec_num bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
-Proof
-  Induct_on ‘bs’ >> simp[dec_num_def]
-  \\ rpt gen_tac
-  \\ Cases_on ‘word_msb h’ >> gvs[]
-  \\ Cases_on ‘dec_num bs’ >> gvs[]
-  \\ PairCases_on `x'`
-  \\ rw[] \\ fs[]
-QED
-
-Theorem dec_unsigned_word_shortens:
-  ∀bs x rs. dec_unsigned_word bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
-Proof
-  Cases_on ‘bs’ >> simp[dec_unsigned_word_def, dec_num_def]
-  \\ rpt gen_tac
-  \\ Cases_on ‘word_msb h’ >> gvs[]
-  \\ Cases_on ‘dec_num t’ >> gvs[]
-  \\ PairCases_on `x'`
-  \\ drule dec_num_shortens
-  \\ rw[] \\ fs[]
-QED
-
-Theorem dec_w7s_shortens:
-  ∀bs x rs. dec_w7s bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
-Proof
-  Induct_on ‘bs’ >> simp[dec_w7s_def]
-  \\ rpt gen_tac
-  \\ Cases_on ‘word_msb h’ >> gvs[]
-  \\ Cases_on ‘dec_w7s bs’ >> gvs[]
-  \\ PairCases_on `x'`
-  \\ rw[] \\ fs[]
-QED
-
-Theorem dec_signed_shortens:
-  ∀bs x rs. dec_signed bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
-Proof
-  Cases_on ‘bs’ >> simp[dec_signed_def, dec_w7s_def]
-  \\ rpt gen_tac
-  \\ Cases_on ‘word_msb h’ >> gvs[]
-  \\ Cases_on ‘dec_w7s t’ >> gvs[]
-  \\ PairCases_on `x'` \\ rw[]
-  \\ drule dec_w7s_shortens
-  \\ rw[]
-QED
 
 (* ASKYK
 Theorem dec_num_shortens:
@@ -148,66 +102,55 @@ Proof
 QED
 *)
 
-(* ASKYK *)
 Theorem dec_u8_shortens:
   ∀bs x rs. dec_u8 bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
 Proof
-  rw[] \\ drule dec_unsigned_word_shortens
-  \\ rewrite_tac[]
+  rpt strip_tac \\ dxrule dec_unsigned_word_shortens \\ rewrite_tac[]
 QED
 
 Theorem dec_u32_shortens:
   ∀bs x rs. dec_u32 bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
 Proof
-  rw[] \\ drule dec_unsigned_word_shortens
-  \\ rewrite_tac[]
+  rpt strip_tac \\ dxrule dec_unsigned_word_shortens \\ rewrite_tac[]
 QED
 
 Theorem dec_u64_shortens:
   ∀bs x rs. dec_u64 bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
 Proof
-  rw[] \\ drule dec_unsigned_word_shortens
-  \\ rewrite_tac[]
+  rpt strip_tac \\ dxrule dec_unsigned_word_shortens \\ rewrite_tac[]
 QED
 
 Theorem dec_s8_shortens:
   ∀bs x rs. dec_s8 bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
 Proof
-  rw[] \\ drule dec_signed_shortens
-  \\ rewrite_tac[]
+  rpt strip_tac \\ dxrule dec_signed_word_shortens \\ rewrite_tac[]
 QED
 
 Theorem dec_s32_shortens:
   ∀bs x rs. dec_s32 bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
 Proof
-  rw[] \\ drule dec_signed_shortens
-  \\ rewrite_tac[]
+  rpt strip_tac \\ dxrule dec_signed_word_shortens \\ rewrite_tac[]
 QED
 
 Theorem dec_s64_shortens:
   ∀bs x rs. dec_s64 bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
 Proof
-  rw[] \\ drule dec_signed_shortens
-  \\ rewrite_tac[]
+  rpt strip_tac \\ dxrule dec_signed_word_shortens \\ rewrite_tac[]
 QED
 
-(* ASKYK *)
 Theorem dec_2u32_shortens:
   ∀bs x y rs. dec_2u32 bs = SOME (x, y, rs) ⇒ LENGTH rs < LENGTH bs
 Proof
-  rw[dec_2u32_def]
-  \\ Cases_on ‘dec_u32 bs’ >> gvs[]
-  \\ PairCases_on ‘x'’ >> gvs[]
-  \\ Cases_on ‘dec_u32 x'1’ >> gvs[]
-  (* \\ drule dec_u32_shortens *)
-  \\ cheat
+  rw[dec_2u32_def, AllCaseEqs()]
+  \\ dxrule dec_u32_shortens
+  \\ dxrule dec_u32_shortens
+  \\ simp[]
 QED
 
 Theorem dec_s33_shortens:
   ∀bs x rs. dec_s33 bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
 Proof
-  rw[] \\ drule dec_signed_shortens
-  \\ rewrite_tac[]
+  rpt strip_tac \\ dxrule dec_signed_word_shortens \\ rewrite_tac[]
 QED
 
 
@@ -216,12 +159,46 @@ QED
 (*   Dec-Enc thms   *)
 (********************)
 
+(* NOTE: these cannot be trivialities because they also do typecasting *)
+Theorem dec_enc_u32[simp]:
+  ∀w rest. dec_u32 (enc_u32 w ++ rest) = SOME (w,rest)
+Proof
+  rw[dec_enc_unsigned_word]
+QED
+
+Theorem dec_enc_s8[simp]:
+  ∀w rest. dec_s8 (enc_s8 w ++ rest) = SOME (w,rest)
+Proof
+  rw[dec_enc_signed_word8]
+QED
+
+Theorem dec_enc_s32[simp]:
+  ∀w rest. dec_s32 (enc_s32 w ++ rest) = SOME (w,rest)
+Proof
+  rw[dec_enc_signed_word32]
+QED
+
+Theorem dec_enc_s64[simp]:
+  ∀w rest. dec_s64 (enc_s64 w ++ rest) = SOME (w,rest)
+Proof
+  rw[dec_enc_signed_word64]
+QED
+
+Theorem dec_enc_s33[simp]:
+  ∀b xs rest. dec_s33 (enc_s33 b ++ rest) = SOME (b,rest)
+Proof
+  rw [enc_s33_def,dec_signed_word_def]
+  >> fs [dec_enc_w7s,or_w7s_def]
+    >> rpt $ pop_assum mp_tac
+    >> blastLib.BBLAST_TAC
+QED
+
+
 Theorem dec_enc_2u32[simp]:
   dec_2u32 (enc_2u32 w v ++ rest) = SOME (w,v,rest)
 Proof
-  rw[enc_2u32_def, dec_2u32_def, dec_enc_unsigned_word]
-  >> rewrite_tac[GSYM APPEND_ASSOC]
-  >> rw[dec_enc_unsigned_word]
+  simp[enc_2u32_def, dec_2u32_def]
+  \\ simp[GSYM APPEND_ASSOC, Excl "APPEND_ASSOC"]
 QED
 
 Definition dec_2u32_u8_def:
@@ -240,40 +217,6 @@ Theorem dec_enc_2u32_u8[simp]:
 Proof
   rw[enc_2u32_u8_def, dec_2u32_u8_def,
     GSYM APPEND_ASSOC,Excl "APPEND_ASSOC",dec_enc_unsigned_word]
-QED
-
-(* NOTE: these cannot be trivialities because they also do typecasting *)
-Theorem dec_enc_u32[simp]:
-  dec_u32 (enc_u32 w ++ rest) = SOME (w,rest)
-Proof
-  rw[dec_enc_unsigned_word]
-QED
-
-Theorem dec_enc_s8[simp]:
-  dec_s8 (enc_s8 w ++ rest) = SOME (w,rest)
-Proof
-  rw[dec_enc_signed_word8]
-QED
-
-Theorem dec_enc_s32[simp]:
-  dec_s32 (enc_s32 w ++ rest) = SOME (w,rest)
-Proof
-  rw[dec_enc_signed_word32]
-QED
-
-Theorem dec_enc_s64[simp]:
-  dec_s64 (enc_s64 w ++ rest) = SOME (w,rest)
-Proof
-  rw[dec_enc_signed_word64]
-QED
-
-Theorem dec_enc_s33[simp]:
-  ∀b xs rest. dec_s33 (enc_s33 b ++ rest) = SOME (b,rest)
-Proof
-  rw [enc_s33_def,dec_signed_def]
-  \\ fs [dec_enc_w7s,or_w7s_def]
-    >> rpt $ pop_assum mp_tac
-    >> blastLib.BBLAST_TAC
 QED
 
 
