@@ -262,47 +262,36 @@ QED
 Theorem dec_num_shortens:
   ∀bs x rs. dec_num bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
 Proof
-  Induct_on ‘bs’ >> simp[dec_num_def]
-  \\ rpt gen_tac
-  \\ Cases_on ‘word_msb h’ >> gvs[]
-  \\ Cases_on ‘dec_num bs’ >> gvs[]
-  \\ PairCases_on `x'`
-  \\ rw[] \\ fs[]
+  Induct_on ‘bs’
+  >> rw[dec_num_def, AllCaseEqs()]
+    >> fs[]
 QED
 
 Theorem dec_unsigned_word_shortens:
   ∀bs x rs. dec_unsigned_word bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
 Proof
-  Cases_on ‘bs’ >> simp[dec_unsigned_word_def, dec_num_def]
-  \\ rpt gen_tac
-  \\ Cases_on ‘word_msb h’ >> gvs[]
-  \\ Cases_on ‘dec_num t’ >> gvs[]
-  \\ PairCases_on `x'`
-  \\ drule dec_num_shortens
-  \\ rw[] \\ fs[]
+  Cases_on ‘bs’
+  >> rw[dec_unsigned_word_def, dec_num_def, AllCaseEqs()]
+    >> fs[]
+    \\ drule dec_num_shortens
+    >> simp[]
 QED
 
 Theorem dec_w7s_shortens:
   ∀bs x rs. dec_w7s bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
 Proof
-  Induct_on ‘bs’ >> simp[dec_w7s_def]
-  \\ rpt gen_tac
-  \\ Cases_on ‘word_msb h’ >> gvs[]
-  \\ Cases_on ‘dec_w7s bs’ >> gvs[]
-  \\ PairCases_on `x'`
-  \\ rw[] \\ fs[]
+  Induct_on ‘bs’
+  >> rw[dec_w7s_def, AllCaseEqs()]
+    \\ gvs[]
 QED
 
 Theorem dec_signed_word_shortens:
   ∀bs x rs. dec_signed_word bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
 Proof
-  Cases_on ‘bs’ >> simp[dec_signed_word_def, dec_w7s_def]
-  \\ rpt gen_tac
-  \\ Cases_on ‘word_msb h’ >> gvs[]
-  \\ Cases_on ‘dec_w7s t’ >> gvs[]
-  \\ PairCases_on `x'` \\ rw[]
-  \\ drule dec_w7s_shortens
-  \\ rw[]
+  Cases_on ‘bs’
+  >> rw[dec_signed_word_def, dec_w7s_def, AllCaseEqs()]
+    >> gvs[]
+    \\ drule dec_w7s_shortens \\ gvs[]
 QED
 
 
