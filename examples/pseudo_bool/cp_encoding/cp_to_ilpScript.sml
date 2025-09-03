@@ -1225,30 +1225,6 @@ Proof
   metis_tac[]
 QED
 
-(**** TO DELETE ****
-
-Theorem list_map_wi_filter_union_dom:
-  valid_assignment bnd wi ∧
-  (∀v. MEM v (union_dom bnd Xs) ⇒
-    EVERY (λX. wb (Eq X v) ⇔ wi X = v) Xs ∧
-    (wb (Nv Xs v) ⇔ ∃A. MEM A Xs ∧ wb (Eq A v))) ⇒
-  ∀v. MEM v (MAP wi Xs) ⇔
-    MEM v (FILTER (λv. wb (Nv Xs v)) (union_dom bnd Xs))
-Proof
-  simp[encode_nvalue_sem_aux]
-QED
-
-Theorem set_map_wi_filter_union_dom:
-  valid_assignment bnd wi ∧
-  (∀v. MEM v (union_dom bnd Xs) ⇒
-    EVERY (λX. wb (Eq X v) ⇔ wi X = v) Xs ∧
-    (wb (Nv Xs v) ⇔ ∃A. MEM A Xs ∧ wb (Eq A v))) ⇒
-  set (MAP wi Xs) = set (FILTER (λv. wb (Nv Xs v)) (union_dom bnd Xs))
-Proof
-  rw[Once $ GSYM list_set_eq,encode_nvalue_sem_aux]
-QED
-*)
-
 Theorem list_set_eq:
   ∀ls1 ls2. (∀v. MEM v ls1 ⇔ MEM v ls2) ⇔ set ls1 = set ls2
 Proof
@@ -1274,18 +1250,9 @@ Definition encode_nvalue_def:
     encode_bitsum (MAP (λv. Nv Xs v) vals) Y
 End
 
-Theorem FORALL_IMP_AND = METIS_PROVE[] “(∀x. P x ⇒ Q x) ∧ (∀x. P x ⇒ R x) ⇔ (∀x. P x ⇒ (Q x ∧ R x))”;
-
-Theorem EQ_AND_EQ = METIS_PROVE[] “(P ⇔ P') ∧ (Q ⇔ Q') ⇒ (P ∧ Q ⇔ P' ∧ Q')”;
-
-Theorem EQ_AND_IMP = METIS_PROVE[] “(P ⇔ P') ∧ (P' ⇒ Q) ⇒ (P ⇔ P' ∧ Q)”;
-
-Theorem EQ_AND_IMP_EQ = METIS_PROVE[] “(Q ⇔ Q') ∧ (Q' ⇒ (P ⇔ P')) ⇒ (P ∧ Q ⇔ P' ∧ Q')”;
-
-(*** TO REVISE THE PROOF ***)
 Theorem encode_nvalue_sem:
   valid_assignment bnd wi ⇒
-  (EVERY (λx. iconstraint_sem x (wi,wb)) (encode_nvalue bnd Y Xs) ⇔
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_nvalue bnd Y Xs) = (
     nvalue_sem Y Xs wi ∧
     ∀v. MEM v (union_dom bnd Xs) ⇒
         EVERY (λX. wb (Ge X v) ⇔ wi X ≥ v) Xs ∧
@@ -1294,98 +1261,23 @@ Theorem encode_nvalue_sem:
         (wb (Nv Xs v) ⇔ ∃A. MEM A Xs ∧ wb (Eq A v)))
 Proof
   rw[encode_nvalue_def,Once CONJ_COMM]>>
-  match_mp_tac EQ_AND_IMP_EQ>>
-  CONJ_TAC
-  >-simp[reify_some_eq_sem]>>
+  match_mp_tac $ METIS_PROVE[] “(Q ⇔ Q') ∧ (Q' ⇒ (P ⇔ P')) ⇒ (P ∧ Q ⇔ P' ∧ Q')”>>
+  CONJ_TAC>>
+  simp[reify_some_eq_sem]>>
   strip_tac>>
   ‘∀v. MEM v (union_dom bnd Xs) ⇒
     EVERY (λX. wb (Eq X v) ⇔ wi X = v) Xs ∧
     (wb (Nv Xs v) ⇔ ∃A. MEM A Xs ∧ wb (Eq A v))’ by metis_tac[]>>
-  drule_then assume_tac encode_nvalue_sem_aux>>
-  pop_assum $ drule_then assume_tac>>
-  drule_then (fn thm => simp[thm]) $ INST_TYPE[“:'b” |-> “:'a eilp”] encode_bitsum_sem>>
-  gs[INST_TYPE[“:'a” |-> “:'a eilp”] iSUM_FILTER,nvalue_sem_def,
-    rich_listTheory.FILTER_MAP,combinTheory.o_ABS_R,list_set_eq]>>
-  iff_tac>>
-  strip_tac
-  >-(
-    CONJ_TAC>>
-    pop_assum (fn thm => simp[GSYM thm])
-    >-intLib.ARITH_TAC>>
-    sym_tac>>
-    irule ALL_DISTINCT_CARD_LIST_TO_SET>>
-    irule FILTER_ALL_DISTINCT>>
-    simp[ALL_DISTINCT_union_dom])>>
-  fs[Once integerTheory.INT_GE]>>
-  sym_tac>>
-  drule_then assume_tac integerTheory.NUM_POSINT_EXISTS>>
-  gs[]>>
-  irule ALL_DISTINCT_CARD_LIST_TO_SET>>
-  irule FILTER_ALL_DISTINCT>>
-  simp[ALL_DISTINCT_union_dom]
+  drule_all_then assume_tac encode_nvalue_sem_aux>>
+  drule_then
+    (fn thm =>
+      gs[thm,INST_TYPE[“:'a” |-> “:'a eilp”] iSUM_FILTER,nvalue_sem_def,
+        rich_listTheory.FILTER_MAP,combinTheory.o_ABS_R,list_set_eq,
+        ALL_DISTINCT_union_dom,FILTER_ALL_DISTINCT,ALL_DISTINCT_CARD_LIST_TO_SET])
+    (INST_TYPE[“:'b” |-> “:'a eilp”] encode_bitsum_sem)>>
+  qabbrev_tac ‘m = FILTER (λv. wb (Nv Xs v)) (union_dom bnd Xs)’>>
+  intLib.ARITH_TAC
 QED
-
-(**** TO DELTE ****
-
-Theorem encode_nvalue_sem:
-  valid_assignment bnd wi ∧ vals = union_dom bnd Xs ⇒
-  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_nvalue bnd Y Xs) = (
-    (∀v. MEM v vals ⇒ (
-      EVERY (λX. wb (Ge X v) ⇔ wi X ≥ v) Xs ∧
-      EVERY (λX. wb (Ge X (v + 1)) ⇔ wi X ≥ v + 1) Xs ∧
-      EVERY (λX. wb (Eq X v) ⇔ wi X = v) Xs ∧
-      (wb (Nv Xs v) ⇔ ∃A. MEM A Xs ∧ wb (Eq A v)))) ∧
-    iSUM (MAP (λv. b2i (wb (Nv Xs v))) vals) = varc wi Y ∧
-    nvalue_sem Y Xs wi)
-Proof
-  rw[encode_nvalue_def,reify_some_eq_def,EVERY_FLAT,EVERY_MAP]>>
-  simp[Once EVERY_MEM,GSYM CONJ_ASSOC]>>
-  match_mp_tac LEFT_AND_CONG>>
-  strip_tac
-  >-(
-    ho_match_mp_tac FORALL_IMP_EQ>>
-    rw[Once EQ_SYM_EQ,Once CONJ_ASSOC]>>
-    simp[Once EQ_SYM_EQ]>>
-    match_mp_tac LEFT_AND_CONG>>
-    CONJ_TAC
-    >-(
-      simp[Once EQ_SYM_EQ,Ntimes EVERY_MEM 3,FORALL_IMP_AND]>>
-      ho_match_mp_tac FORALL_IMP_EQ>>
-      rw[Once EQ_SYM_EQ]>>
-      ho_match_mp_tac EQ_AND_EQ>>
-      simp[encode_ge_sem])
-    >-(
-      simp[Ntimes EVERY_MEM 3]>>
-      rw[FORALL_IMP_AND]>>
-      match_mp_tac LEFT_AND_CONG>>
-      CONJ_TAC>>
-      fs[encode_some_eq_sem]>>
-      simp[Once EQ_SYM_EQ,Once EVERY_MEM]>>
-      simp[Once EQ_SYM_EQ]>>
-      ho_match_mp_tac FORALL_IMP_EQ>>
-      fs[encode_eq_sem]))
-  >-(
-    strip_tac>>
-    match_mp_tac EQ_AND_IMP>>
-    CONJ_TAC
-    >-(
-      assume_tac $ INST_TYPE[“:'b” |-> “:'a eilp”] (Q.GEN ‘Bs’ encode_bitsum_sem)>>
-      rfs[MAP_MAP_o,o_DEF])
-    >-(
-      rw[nvalue_sem_def]
-      >-(
-        pop_assum $ (fn thm => simp[GSYM thm])>>
-        irule iSUM_ge_0>>
-        rw[MEM_MAP]>>
-        simp[b2i_ge_0])
-      >-(
-        drule_then assume_tac set_map_wi_filter_union_dom>>
-        pop_assum $ qspecl_then [‘wb’,‘Xs’] assume_tac>>
-        pop_assum (fn thm => gs[thm,iSUM_FILTER])>>
-        pop_assum (fn thm => simp[GSYM thm])>>
-        simp[union_dom_alldistinct,FILTER_ALL_DISTINCT,ALL_DISTINCT_CARD_LIST_TO_SET])))
-QED
-*)
 
 Definition encode_table_def:
   encode_table bnd Xs Yss =
