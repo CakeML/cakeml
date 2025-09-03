@@ -356,16 +356,34 @@ Proof
   \\ simp []
 QED
 
+Triviality labels_rel_push_out_if:
+  !p. labels_rel (extract_labels p) (extract_labels (push_out_if p))
+Proof
+  simp[push_out_if_def]
+  \\ ho_match_mp_tac push_out_if_aux_ind
+  \\ rw[]
+  \\ simp_tac(srw_ss())[Once push_out_if_aux_def]
+  \\ simp $ map (Q.ISPEC `FST:'free_tyvar # 'free_tyvar2 -> 'free_tyvar` o TypeBase.case_rand_of) $
+     [``:'a prog``, ``:'a # 'b``,``:'a option``,``:bool``]
+  \\ rpt (PURE_TOP_CASE_TAC \\ simp_tac(srw_ss())[])
+  \\ fs[] \\ simp[extract_labels_def]
+  \\ metis_tac[ labels_rel_refl,labels_rel_APPEND,labels_rel_append_imp]
+QED
+
 Theorem extract_labels_compile_exp:
   !p. labels_rel (extract_labels p)
                  (extract_labels (word_simp$compile_exp p))
 Proof
   rw [word_simpTheory.compile_exp_def] >>
   irule labels_rel_TRANS >> ONCE_REWRITE_TAC [CONJ_COMM] >>
+  irule_at Any labels_rel_push_out_if >>
+  irule labels_rel_TRANS >> ONCE_REWRITE_TAC [CONJ_COMM] >>
   irule_at Any labels_rel_simp_duplicate_if >>
   irule labels_rel_TRANS >> ONCE_REWRITE_TAC [CONJ_COMM] >>
   irule_at Any extract_labels_const_fp >>
-  simp [extract_labels_Seq_assoc]
+  irule labels_rel_TRANS >> ONCE_REWRITE_TAC [CONJ_COMM] >>
+  simp [extract_labels_Seq_assoc] >>
+  metis_tac[ labels_rel_refl]
 QED
 
 (* inst_ok_less *)
@@ -460,14 +478,29 @@ Proof
   \\ fs [every_inst_def, Seq_assoc_no_inst, every_inst_const_fp]
 QED
 
+Triviality simp_push_out_if_no_inst:
+  !p. every_inst P p ==> every_inst P (push_out_if p)
+Proof
+  simp [push_out_if_def]
+  \\ ho_match_mp_tac push_out_if_aux_ind
+  \\ rw []
+  \\ simp_tac(srw_ss())[Once push_out_if_aux_def]
+  \\ simp $ map (Q.ISPEC `FST:'free_tyvar # 'free_tyvar2 -> 'free_tyvar` o TypeBase.case_rand_of) $
+     [``:'a prog``, ``:'a # 'b``,``:'a option``,``:bool``]
+  \\ rpt (PURE_TOP_CASE_TAC \\ asm_simp_tac(srw_ss())[])
+  \\ fs[every_inst_def]
+QED
+
 Theorem compile_exp_no_inst:
   ∀prog.
     every_inst P prog ⇒
     every_inst P (compile_exp prog)
 Proof
-  fs[compile_exp_def]>>
-  metis_tac[Seq_assoc_no_inst,every_inst_def,
-            every_inst_const_fp,simp_duplicate_if_no_inst]
+  rw[compile_exp_def]>>
+  rpt (MAP_FIRST irule [Seq_assoc_no_inst,every_inst_def,
+            every_inst_const_fp,simp_duplicate_if_no_inst,
+            simp_push_out_if_no_inst]) >>
+  simp[every_inst_def]
 QED
 
 Triviality not_created_subprogs_SmartSeq:
@@ -559,11 +592,26 @@ Proof
   \\ fs [not_created_subprogs_def]
 QED
 
+Triviality not_created_subprogs_push_out_if:
+  !p.
+  not_created_subprogs P (push_out_if p) =
+  not_created_subprogs P p
+Proof
+  simp [push_out_if_def]
+  \\ ho_match_mp_tac push_out_if_aux_ind
+  \\ rw []
+  \\ simp_tac(srw_ss())[Once push_out_if_aux_def]
+  \\ simp $ map (Q.ISPEC `FST:'free_tyvar # 'free_tyvar2 -> 'free_tyvar` o TypeBase.case_rand_of) $
+     [``:'a prog``, ``:'a # 'b``,``:'a option``,``:bool``]
+  \\ rpt (PURE_TOP_CASE_TAC \\ asm_simp_tac(srw_ss())[])
+  \\ fs[not_created_subprogs_def,EQ_IMP_THM]
+QED
+
 Triviality compile_exp_not_created_subprogs:
   not_created_subprogs P p ==>
   not_created_subprogs P (compile_exp p)
 Proof
-  rw [compile_exp_def, not_created_subprogs_const_fp,
+  rw [compile_exp_def, not_created_subprogs_const_fp,not_created_subprogs_push_out_if,
     not_created_subprogs_simp_duplicate_if, not_created_subprogs_Seq_assoc,
     not_created_subprogs_def]
 QED
@@ -676,6 +724,32 @@ Proof
   \\ fs [word_good_handlers_Seq_assoc]
 QED
 
+Triviality word_good_handlers_simp_push_out_if:
+  !p. word_good_handlers n p ==> word_good_handlers n (push_out_if p)
+Proof
+  simp [push_out_if_def]
+  \\ ho_match_mp_tac push_out_if_aux_ind
+  \\ rw []
+  \\ simp_tac(srw_ss())[Once push_out_if_aux_def]
+  \\ simp $ map (Q.ISPEC `FST:'free_tyvar # 'free_tyvar2 -> 'free_tyvar` o TypeBase.case_rand_of) $
+     [``:'a prog``, ``:'a # 'b``,``:'a option``,``:bool``]
+  \\ rpt (PURE_TOP_CASE_TAC \\ asm_simp_tac(srw_ss())[])
+  \\ fs[]
+QED
+
+Triviality word_good_handlers_word_simp:
+  ∀ps.
+  word_good_handlers n ps ⇒
+  word_good_handlers n (word_simp$compile_exp ps)
+Proof
+  rw[compile_exp_def]>>
+  irule word_good_handlers_simp_push_out_if >>
+  irule word_good_handlers_simp_duplicate_if >>
+  simp [const_fp_def] >>
+  match_mp_tac word_good_handlers_const_fp_loop>>
+  fs[word_good_handlers_Seq_assoc]
+QED
+
 Triviality word_get_code_labels_try_if_hoist2:
   ! N p1 interm dummy p2 s.
   try_if_hoist2 N p1 interm dummy p2 = SOME p3 ==>
@@ -726,29 +800,32 @@ Proof
   \\ metis_tac []
 QED
 
+Triviality word_get_code_labels_push_out_if:
+  !p. word_get_code_labels (push_out_if p) SUBSET word_get_code_labels p
+Proof
+  simp [push_out_if_def]
+  \\ ho_match_mp_tac push_out_if_aux_ind
+  \\ rw []
+  \\ simp_tac(srw_ss())[Once push_out_if_aux_def]
+  \\ simp $ map (Q.ISPEC `FST:'free_tyvar # 'free_tyvar2 -> 'free_tyvar` o TypeBase.case_rand_of) $
+     [``:'a prog``, ``:'a # 'b``,``:'a option``,``:bool``]
+  \\ rpt (PURE_TOP_CASE_TAC \\ asm_simp_tac(srw_ss())[])
+  \\ fs[] \\ ASM_SET_TAC[]
+QED
+
 Triviality word_get_code_labels_word_simp:
   ∀ps.
   word_get_code_labels (word_simp$compile_exp ps) ⊆
   word_get_code_labels ps
 Proof
   rw [compile_exp_def]>>
+  irule SUBSET_TRANS >> irule_at Any word_get_code_labels_push_out_if >>
   irule SUBSET_TRANS >> irule_at Any word_get_code_labels_simp_duplicate_if >>
   simp [const_fp_def] >>
   irule SUBSET_TRANS >> irule_at Any word_get_code_labels_const_fp_loop >>
   simp [word_get_code_labels_Seq_assoc]
 QED
 
-Triviality word_good_handlers_word_simp:
-  ∀ps.
-  word_good_handlers n ps ⇒
-  word_good_handlers n (word_simp$compile_exp ps)
-Proof
-  rw[compile_exp_def]>>
-  irule word_good_handlers_simp_duplicate_if >>
-  simp [const_fp_def] >>
-  match_mp_tac word_good_handlers_const_fp_loop>>
-  fs[word_good_handlers_Seq_assoc]
-QED
 
 (*** inst_select ***)
 
@@ -2723,7 +2800,7 @@ Proof
   strip_tac>>
   qspec_then `MAP (\p. NONE) progs` assume_tac word_good_code_labels_word_to_word_incr_helper>>
   fs[ZIP_MAP,MAP_MAP_o,o_DEF]
-QED;
+QED
 
 Theorem word_good_code_labels_word_to_word:
   word_good_code_labels progs elabs ⇒
@@ -2735,5 +2812,5 @@ Proof
   fs[next_n_oracle_def]>>
   every_case_tac>>fs[]>>
   rveq>>fs[]
-QED;
+QED
 
