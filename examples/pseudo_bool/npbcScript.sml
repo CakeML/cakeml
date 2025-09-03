@@ -495,15 +495,6 @@ Definition multiply_def:
       (MAP (λ(c,v). (c * & k, v)) l,n * &k)
 End
 
-Theorem nonneg_le_x:
-  0 ≤ (c:int) ⇒ a ≤ b ⇒ c * a ≤ c * b
-Proof
-  Cases_on ‘c = 0’>>
-  rw[]>>
-  ‘0 < c’ by intLib.ARITH_TAC>>
-  fs[integerTheory.INT_LE_MONO]
-QED
-
 Theorem multiply_thm:
   satisfies_npbc w c ⇒ satisfies_npbc w (multiply c k)
 Proof
