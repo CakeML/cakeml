@@ -1294,7 +1294,7 @@ QED
 Theorem dec_BlkIdx_shortens:
   ∀ b bs t rs. dec_BlkIdx (b::bs) = SOME (t,rs) ⇒ LENGTH rs < LENGTH bs
 Proof
-     rewrite_tac[dec_BlkIdx_def, dec_signed_def, dec_w7s_def]
+     rewrite_tac[dec_BlkIdx_def, dec_signed_word_def, dec_w7s_def]
   \\ rpt gen_tac
   \\ BBLAST_TAC
   \\
