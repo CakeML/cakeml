@@ -14,138 +14,22 @@ val sass = simp[GSYM APPEND_ASSOC, Excl "APPEND_ASSOC"]
 (*                             *)
 (*******************************)
 
-Theorem dec_list_shortens[simp]:
-T
+(*
+Theorem dec_expr_shortens[simp]:
+  ∀ bs xs rs. dec_expr bs = (INR xs, rs) ⇒ LENGTH rs < LENGTH bs
 Proof
   cheat
 QED
-
-(* ASKYK *)
-Theorem dec_list_shortens_le:
-  (!bs x rs. dec bs = (INR x, rs) ==> LENGTH rs < LENGTH bs) ==>
-  !n bs xs.
-  dec_list n dec bs = (INR xs,rs) ==>
-  LENGTH rs <= LENGTH bs
-Proof
-  strip_tac>>
-  Induct>>rw[Once dec_list_def]>>
-  gvs[AllCaseEqs()]>>
-  first_x_assum drule>>
-  first_x_assum drule>>
-  simp[]
-QED
-
-
-(* Theorem dec_valtype_shortens[simp]:         (* already done *)
-T
-Proof
-  cheat
-QED *)
-
-
-
-Theorem dec_functype_shortens:
-  ∀ bs xs rs. dec_functype bs = (INR xs, rs) ⇒ LENGTH rs < LENGTH bs
-Proof
-  Cases_on ‘bs’ >> rpt gen_tac
-    >> simp[dec_functype_def]
-    >> rpt strip_tac
-    >> gvs[AllCaseEqs(),dec_vector_def]
-    (* >> simp[dec_enc_vector]
-    >> simp[dec_vector_def, dec_num_def, dec_unsigned_word_def] *)
-    >>
-    cheat
-QED
-
-
-Theorem dec_limits_shortens[simp]:
-T
-Proof
-  cheat
-QED
-
-
-Theorem dec_globaltype_shortens[simp]:
-T
-Proof
-  cheat
-QED
-
-
-Theorem dec_numI_shortens[simp]:
-T
-Proof
-  cheat
-QED
-
-
-Theorem dec_paraI_shortens[simp]:
-T
-Proof
-  cheat
-QED
-
-
-Theorem dec_varI_shortens[simp]:
-T
-Proof
-  cheat
-QED
-
-
-Theorem dec_loadI_shortens[simp]:
-T
-Proof
-  cheat
-QED
-
-
-Theorem dec_storeI_shortens[simp]:
-T
-Proof
-  cheat
-QED
-
-
-(* Theorem dec_blocktype_shortens[simp]:         (* already done *)
-T
-Proof
-  cheat
-QED *)
-
-
-
-Theorem dec_indxs_shortens:
-  ∀ bs xs rs. dec_indxs bs = (INR xs, rs) ⇒ LENGTH rs < LENGTH bs
-Proof
-  rw[dec_vector_def,AllCaseEqs()]>>
-  drule dec_u32_shortens>>
-  drule_at Any dec_list_shortens_le>>
-  impl_tac
-  >- (
-    rw[lift_dec_u32_def,AllCaseEqs()]>>
-    simp[dec_u32_shortens])>>
-  simp[]
-QED
-
-
-(* Theorem dec_instr_shortens[simp]:
-T
-Proof
-  cheat
-QED *)
-
-
-Theorem dec_instr_list_shortens[simp]:
-T
-Proof
-  cheat
-QED
-
+*)
 
 Theorem dec_global_shortens[simp]:
-T
+  ∀ bs xs rs. dec_global bs = (INR xs, rs) ⇒ LENGTH rs < LENGTH bs
 Proof
+  Cases_on `bs`
+  >> rw[dec_global_def, AllCaseEqs()]
+  >> dxrule dec_globaltype_shortens
+  \\
+
   cheat
 QED
 
@@ -493,6 +377,8 @@ Proof
   gvs [oneline check_len_def, AllCaseEqs()] \\ rw [] \\ fs []
 QED
 
+
+(*
 (* ASKYK *)
 Theorem dec_instr_shortens:
   (∀bs x bs1. dec_instr      bs = (INR x,bs1) ⇒ LENGTH bs1 < LENGTH bs) ∧
@@ -597,3 +483,4 @@ Proof
     \\ asm_rewrite_tac [GSYM APPEND_ASSOC] \\ simp [])
   \\ cheat (* not yet implemented cases *)
 QED *)
+*)

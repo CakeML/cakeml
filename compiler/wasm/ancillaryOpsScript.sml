@@ -17,6 +17,9 @@ Type byteSeq[local] = “:word8 list”
 
 Overload b2w = “(λ b. if b then 1w else 0w):bool -> α word”
 
+val _ = monadsyntax.enable_monadsyntax()
+val _ = monadsyntax.enable_monad "option"
+
 (******************************************)
 (*                                        *)
 (*     LEB128 Overloads and typecasts     *)
@@ -43,14 +46,26 @@ Overload enc_s8  = “enc_signed_word8  : byte   -> byteSeq”
 Overload enc_s32 = “enc_signed_word32 : word32 -> byteSeq”
 Overload enc_s64 = “enc_signed_word64 : word64 -> byteSeq”
 
-Definition dec_2u32_def:
-  dec_2u32 (bs:byteSeq) : (word32 # word32 # byteSeq) option =
-  case dec_u32 bs of NONE=>NONE| SOME(n,cs) =>
-  case dec_u32 cs of NONE=>NONE| SOME(m,rs) => SOME (n,m,rs)
-End
-
 Definition enc_2u32_def:
   enc_2u32 w v = enc_u32 w ++ enc_u32 v
+End
+
+Definition dec_2u32_def:
+  dec_2u32 (bs:byteSeq) : (word32 # word32 # byteSeq) option = do
+    (n,bs) <- dec_u32 bs;
+    (m,bs) <- dec_u32 bs;
+    return (n,m,bs) od
+End
+
+Definition enc_2u32_u8_def:
+  enc_2u32_u8 ofs al lid = enc_2u32 ofs al ++ enc_u8 lid
+End
+
+Definition dec_2u32_u8_def:
+  dec_2u32_u8 (bs:byteSeq) : (word32 # word32 # byte # byteSeq) option = do
+    (i,j,bs) <- dec_2u32 bs;
+    (k,  bs) <- dec_u8   bs;
+      return (i,j,k,bs) od
 End
 
 (* Due to a perculiarity of Wasm (cf Block types - Index case from Wasm 2.0) *)
@@ -102,52 +117,54 @@ Proof
 QED
 *)
 
-Theorem dec_u8_shortens:
+Theorem dec_u8_shortens[simp]:
   ∀bs x rs. dec_u8 bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
 Proof
   rpt strip_tac \\ dxrule dec_unsigned_word_shortens \\ rewrite_tac[]
 QED
 
-Theorem dec_u32_shortens:
+Theorem dec_u32_shortens[simp]:
   ∀bs x rs. dec_u32 bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
 Proof
   rpt strip_tac \\ dxrule dec_unsigned_word_shortens \\ rewrite_tac[]
 QED
 
-Theorem dec_u64_shortens:
+Theorem dec_u64_shortens[simp]:
   ∀bs x rs. dec_u64 bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
 Proof
   rpt strip_tac \\ dxrule dec_unsigned_word_shortens \\ rewrite_tac[]
 QED
 
-Theorem dec_s8_shortens:
-  ∀bs x rs. dec_s8 bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
-Proof
-  rpt strip_tac \\ dxrule dec_signed_word_shortens \\ rewrite_tac[]
-QED
-
-Theorem dec_s32_shortens:
-  ∀bs x rs. dec_s32 bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
-Proof
-  rpt strip_tac \\ dxrule dec_signed_word_shortens \\ rewrite_tac[]
-QED
-
-Theorem dec_s64_shortens:
-  ∀bs x rs. dec_s64 bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
-Proof
-  rpt strip_tac \\ dxrule dec_signed_word_shortens \\ rewrite_tac[]
-QED
-
-Theorem dec_2u32_shortens:
+Theorem dec_2u32_shortens[simp]:
   ∀bs x y rs. dec_2u32 bs = SOME (x, y, rs) ⇒ LENGTH rs < LENGTH bs
 Proof
   rw[dec_2u32_def, AllCaseEqs()]
+  \\ Cases_on ‘x'’ \\ gvs[]
+  \\ Cases_on ‘x'’ \\ gvs[]
   \\ dxrule dec_u32_shortens
   \\ dxrule dec_u32_shortens
   \\ simp[]
 QED
 
-Theorem dec_s33_shortens:
+Theorem dec_s8_shortens[simp]:
+  ∀bs x rs. dec_s8 bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
+Proof
+  rpt strip_tac \\ dxrule dec_signed_word_shortens \\ rewrite_tac[]
+QED
+
+Theorem dec_s32_shortens[simp]:
+  ∀bs x rs. dec_s32 bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
+Proof
+  rpt strip_tac \\ dxrule dec_signed_word_shortens \\ rewrite_tac[]
+QED
+
+Theorem dec_s64_shortens[simp]:
+  ∀bs x rs. dec_s64 bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
+Proof
+  rpt strip_tac \\ dxrule dec_signed_word_shortens \\ rewrite_tac[]
+QED
+
+Theorem dec_s33_shortens[simp]:
   ∀bs x rs. dec_s33 bs = SOME (x, rs) ⇒ LENGTH rs < LENGTH bs
 Proof
   rpt strip_tac \\ dxrule dec_signed_word_shortens \\ rewrite_tac[]
@@ -195,28 +212,17 @@ QED
 
 
 Theorem dec_enc_2u32[simp]:
-  dec_2u32 (enc_2u32 w v ++ rest) = SOME (w,v,rest)
+  ∀w v rest. dec_2u32 (enc_2u32 w v ++ rest) = SOME (w,v,rest)
 Proof
-  simp[enc_2u32_def, dec_2u32_def]
+  rw[enc_2u32_def, dec_2u32_def, AllCaseEqs()]
   \\ simp[GSYM APPEND_ASSOC, Excl "APPEND_ASSOC"]
 QED
 
-Definition dec_2u32_u8_def:
-  dec_2u32_u8 (bs:byteSeq) : (word32 # word32 # byte # byteSeq) option =
-    case dec_u32 bs of NONE=>NONE| SOME(i,cs) =>
-    case dec_u32 cs of NONE=>NONE| SOME(j,ds) =>
-    case dec_u8  ds of NONE=>NONE| SOME(k,rs) => SOME (i,j,k,rs)
-End
-
-Definition enc_2u32_u8_def:
-  enc_2u32_u8 ofs al lid = enc_u32 ofs ++ enc_u32 al ++ enc_u8 lid
-End
-
 Theorem dec_enc_2u32_u8[simp]:
-  dec_2u32_u8 (enc_2u32_u8 ofs al lid ++ rest) = SOME (ofs,al,lid,rest)
+  ∀ofs al lid rest. dec_2u32_u8 (enc_2u32_u8 ofs al lid ++ rest) = SOME (ofs,al,lid,rest)
 Proof
-  rw[enc_2u32_u8_def, dec_2u32_u8_def,
-    GSYM APPEND_ASSOC,Excl "APPEND_ASSOC",dec_enc_unsigned_word]
+  rw[dec_2u32_u8_def, enc_2u32_u8_def]
+  \\ simp[GSYM APPEND_ASSOC, Excl "APPEND_ASSOC", dec_enc_2u32, dec_enc_unsigned_word]
 QED
 
 
