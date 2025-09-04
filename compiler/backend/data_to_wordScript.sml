@@ -2431,27 +2431,26 @@ Definition force_thunk_def:
         | SOME (dest,_) => Assign (adjust_var dest) (Var (adjust_var v1)))
        (list_Seq
           [Assign 1 (real_addr c (adjust_var v1));
-           Assign 3 (Op And [Load (Var 1); Const 0b1111w]);
-           If Equal 3 (Imm (n2w (8 + 6)))
+           Assign 3 (Op And [Load (Var 1); Const 0b111100w]);
+           If Equal 3 (Imm (n2w ((8 + 6) * 4)))
              (dtcase ret of
               | NONE =>
                  list_Seq
-                   [Assign 1 (Op And [Load (Op Add [Var 1; Const bytes_in_word])]);
+                   [Assign 1 (Load (Op Add [Var 1; Const bytes_in_word]));
                     Return 0 [1]]
               | SOME (dest,_) =>
                   Assign (adjust_var dest)
-                         (Op And [Load (Op Add [Var 1; Const bytes_in_word])])) $
-           If NotEqual 3 (Imm (n2w (0 + 6)))
+                         (Load (Op Add [Var 1; Const bytes_in_word]))) $
+           If NotEqual 3 (Imm (n2w ((0 + 6) * 4)))
              (dtcase ret of
               | NONE => Return 0 [adjust_var v1]
               | SOME (dest,_) => Assign (adjust_var dest) (Var (adjust_var v1)))
              (list_Seq
-                [Assign 5 (Op And [Load (Op Add [Var 1; Const bytes_in_word])]);
-                 Call
-                   (dtcase ret of
-                    | NONE => NONE
-                    | SOME (r,ns) => SOME ([r],adjust_sets ns,Skip,secn,l))
-                   (SOME loc) [adjust_var v1; 5] NONE])]),l+1)
+                [Assign 5 (Load (Op Add [Var 1; Const bytes_in_word]));
+                 (dtcase ret of
+                  | NONE => Call NONE (SOME loc) [0; adjust_var v1; 5] NONE
+                  | SOME (r,ns) => Call (SOME ([r],adjust_sets ns,Skip,secn,l))
+                                     (SOME loc) [adjust_var v1; 5] NONE)])]),l+1)
       : 'a wordLang$prog # num
 End
 

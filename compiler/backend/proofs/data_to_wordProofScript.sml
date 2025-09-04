@@ -50,17 +50,18 @@ Proof
   \\ gvs[do_space_def,AllCaseEqs(),consume_space_def]
 QED
 
-Theorem memory_rel_Force_Evaluated:
+Theorem memory_rel_Force:
    memory_rel c be ts refs sp st m dm ((RefPtr bl nn,ptr)::vars) /\
-    lookup nn refs = SOME (Thunk Evaluated v) /\
+    lookup nn refs = SOME (Thunk ev v) /\
     good_dimindex (:'a) ==>
     ?ptr_w x:'a word w w'.
       ptr = Word ptr_w /\
       get_real_addr c st ptr_w = SOME x /\
       x IN dm /\ m x = Word w /\
       (x + bytes_in_word) IN dm /\
-      (15w && w = 14w) (* cheated *) /\
-      m (x + bytes_in_word) = Word w' (* cheated *) /\
+      (case ev of
+       | Evaluated => 0b111100w && w = n2w ((8 + 6) * 4)
+       | NotEvaluated => 0b111100w && w = n2w ((0 + 6) * 4)) (* cheated *) /\
       memory_rel c be ts refs sp st m dm
         ((v,m (x + bytes_in_word))::(RefPtr bl nn,ptr)::vars)
 Proof
@@ -87,6 +88,43 @@ Proof
   \\ Cases_on `b0` \\ fs [word_payload_def]
   \\ fs [word_list_def,word_list_APPEND,SEP_CLAUSES] \\ fs [SEP_F_def]
   \\ SEP_R_TAC \\ fs []
+  \\ cheat
+QED
+
+Theorem state_rel_call_env_get_var:
+  get_var src s.locals = SOME (RefPtr v0 ptr) /\
+  get_var (adjust_var src) (t:('a,'c,'ffi) wordSem$state) = SOME w /\
+  state_rel c l1 l2 s t [] locs ==>
+  state_rel c l1 l2 (call_env [RefPtr v0 ptr; a] ss (dec_clock s))
+    (call_env [Loc l1 l2; w; t.memory w'] ss (dec_clock t)) [] locs
+Proof
+  full_simp_tac(srw_ss())[state_rel_def,call_env_def,wordSemTheory.call_env_def,LET_THM,
+      dataSemTheory.dec_clock_def,wordSemTheory.dec_clock_def,lookup_adjust_var_fromList2]
+  \\ srw_tac[][lookup_fromList2,lookup_fromList] \\ srw_tac[][]
+  \\ imp_res_tac get_vars_IMP_LENGTH
+  \\ imp_res_tac wordPropsTheory.get_vars_length_lemma \\ full_simp_tac(srw_ss())[]
+  \\ imp_res_tac stack_rel_IMP_size_of_stack \\ fs []
+  THEN1
+   (Cases_on `s.stack_max` \\ fs [OPTION_MAP2_DEF]
+    \\ Cases_on `ss` \\ fs [OPTION_MAP2_DEF]
+    \\ Cases_on `size_of_stack s.stack` \\ fs [OPTION_MAP2_DEF]
+    \\ Cases_on `t.stack_max` \\ fs [OPTION_MAP2_DEF])
+  THEN1
+   (Cases_on `s.stack_max` \\ fs [OPTION_MAP2_DEF]
+    \\ Cases_on `ss` \\ fs [OPTION_MAP2_DEF]
+    \\ Cases_on `size_of_stack s.stack` \\ fs [OPTION_MAP2_DEF]
+    \\ Cases_on `t.stack_max` \\ fs [OPTION_MAP2_DEF])
+  \\ asm_exists_tac
+  \\ full_simp_tac bool_ss [GSYM APPEND_ASSOC]
+  \\ imp_res_tac word_ml_inv_get_var_IMP
+  \\ first_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
+  \\ full_simp_tac(srw_ss())[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+  \\ Cases_on `x` \\ full_simp_tac(srw_ss())[join_env_def,MEM_MAP,MEM_FILTER]
+  \\ Cases_on `y` \\ full_simp_tac(srw_ss())[MEM_toAList,lookup_inter_alt] \\ srw_tac[][MEM_ZIP]
+  \\ full_simp_tac(srw_ss())[lookup_fromList2,lookup_fromList]
+  \\ rpt disj1_tac
+  \\ Q.MATCH_ASSUM_RENAME_TAC `EVEN k`
+  \\ full_simp_tac(srw_ss())[DIV_LT_X]
   \\ cheat
 QED
 
@@ -166,51 +204,49 @@ Proof
     \\ fs [cut_state_def,cut_env_def] \\ every_case_tac
     \\ fs [] \\ rw [] \\ fs [set_var_def])
   >~ [‘evaluate (Force _ _ _,s)’] >- (
-    simp [comp_def]
-    \\ gvs [dataSemTheory.evaluate_def]
+    gvs [evaluate_def]
     \\ Cases_on `get_var src s.locals` \\ gvs []
     \\ Cases_on `dest_thunk x s.refs` \\ gvs []
-    \\ Cases_on `t'` \\ gvs []
+    \\ simp [comp_def, force_thunk_def]
+    \\ TOP_CASE_TAC \\ gvs []
     >- (
-      imp_res_tac state_rel_get_var_IMP
-      \\ `∃v0 ptr. get_var src s.locals = SOME (RefPtr v0 ptr)`
-        by gvs [oneline dest_thunk_def, AllCaseEqs()]
-      \\ drule_all state_rel_get_var_RefPtr \\ rw [] \\ gvs []
-      \\ imp_res_tac state_rel_cut_env \\ gvs []
-      \\ gvs [state_rel_thm, oneline dest_thunk_def]
-      \\ Cases_on `lookup ptr s.refs` \\ gvs []
-      \\ Cases_on `x` \\ gvs []
-      \\ Cases_on `t'` \\ gvs []
-      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
-      \\ drule_all memory_rel_get_var_IMP
-      \\ qpat_x_assum `memory_rel _ _ _ _ _ _ _ _ _` kall_tac \\ rw []
-      \\ simp [force_thunk_def, wordSemTheory.evaluate_def]
-      \\ TOP_CASE_TAC \\ gvs []
-      >- (
-        fs[encode_header_def]
-        \\ fs[encode_header_def, state_rel_def, good_dimindex_def, limits_inv_def,
-              dimword_def, memory_rel_def, heap_in_memory_store_def,
-              consume_space_def, arch_size_def]
-        \\ rfs[NOT_LESS])
-      \\ drule memory_rel_Force_Evaluated \\ rw [] \\ gvs []
-      \\ simp [wordSemTheory.evaluate_def, wordSemTheory.get_var_imm_def,
-               word_cmp_Test_1, word_bit_def, get_addr_0]
-      \\ simp [list_Seq_def, wordSemTheory.evaluate_def]
-      \\ `word_exp t (real_addr c (adjust_var src)) = SOME (Word x')`
-        by metis_tac [get_real_addr_lemma] \\ gvs []
-      \\ gvs [wordSemTheory.set_var_def, wordSemTheory.word_exp_def,
-              wordSemTheory.get_var_def, wordSemTheory.mem_load_def,
-              wordSemTheory.the_words_def, word_op_def,
-              wordSemTheory.get_var_imm_def, asmTheory.word_cmp_def]
+      fs[encode_header_def]
+      \\ fs[encode_header_def, state_rel_def, good_dimindex_def, limits_inv_def,
+            dimword_def, memory_rel_def, heap_in_memory_store_def,
+            consume_space_def, arch_size_def]
+      \\ rfs[NOT_LESS])
+    \\ simp [wordSemTheory.evaluate_def]
+    \\ `∃v0 ptr. get_var src s.locals = SOME (RefPtr v0 ptr)`
+      by gvs [oneline dest_thunk_def, AllCaseEqs()]
+    \\ drule_all state_rel_get_var_RefPtr \\ rw [] \\ gvs []
+    \\ simp [wordSemTheory.get_var_imm_def, word_cmp_Test_1, word_bit_def,
+             get_addr_0]
+    \\ simp [list_Seq_def, wordSemTheory.evaluate_def]
+    \\ gvs [dest_thunk_def]
+    \\ Cases_on `lookup ptr s.refs` \\ gvs []
+    \\ Cases_on `x` \\ gvs []
+    \\ qpat_assum `state_rel _ _ _ _ _ _ _` mp_tac
+    \\ pure_rewrite_tac [state_rel_thm] \\ rw []
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ drule_all memory_rel_get_var_IMP \\ rw [] \\ gvs []
+    \\ drule_all memory_rel_Force \\ rw [] \\ gvs []
+    \\ `word_exp t (real_addr c (adjust_var src)) = SOME (Word x)`
+      by metis_tac [get_real_addr_lemma] \\ gvs []
+    \\ simp [wordSemTheory.set_var_def, wordSemTheory.word_exp_def,
+             wordSemTheory.get_var_def, wordSemTheory.mem_load_def,
+             wordSemTheory.the_words_def, word_op_def, lookup_insert]
+    \\ simp [wordSemTheory.get_var_imm_def]
+    \\ Cases_on `t''` \\ gvs []
+    >- (
+      simp [asmTheory.word_cmp_def]
       \\ Cases_on `ret` \\ gvs []
       >- (
-        simp [wordSemTheory.evaluate_def, wordSemTheory.set_var_def,
-              wordSemTheory.word_exp_def, wordSemTheory.get_var_def,
-              lookup_insert, wordSemTheory.the_words_def,
-              word_op_def, wordSemTheory.mem_load_def]
-        \\ gvs [lookup_insert, wordSemTheory.get_vars_def,
-                wordSemTheory.get_var_def, flush_state_def,
-                wordSemTheory.flush_state_def]
+        simp [wordSemTheory.evaluate_def]
+        \\ simp [wordSemTheory.word_exp_def, wordSemTheory.get_var_def,
+                 lookup_insert, wordSemTheory.the_words_def, word_op_def,
+                 wordSemTheory.mem_load_def, wordSemTheory.get_vars_def,
+                 wordSemTheory.set_var_def]
+        \\ simp [flush_state_def, wordSemTheory.flush_state_def]
         \\ conj_tac
         >- (imp_res_tac option_le_add_indv)
         \\ simp [join_env_def]
@@ -218,25 +254,75 @@ Proof
               mp_tac th THEN match_mp_tac memory_rel_rearrange)
         \\ rw [] \\ gvs [])
       \\ Cases_on `x''` \\ gvs []
+      \\ simp [wordSemTheory.evaluate_def]
+      \\ simp [wordSemTheory.word_exp_def, wordSemTheory.get_var_def,
+               lookup_insert, wordSemTheory.the_words_def, word_op_def,
+               wordSemTheory.mem_load_def, wordSemTheory.set_var_def]
       \\ Cases_on `cut_env r s.locals` \\ gvs []
-      \\ simp [wordSemTheory.evaluate_def, wordSemTheory.word_exp_def,
-               wordSemTheory.get_var_def, lookup_insert,
-               wordSemTheory.the_words_def, word_op_def,
-               wordSemTheory.mem_load_def]
-      \\ gvs [wordSemTheory.set_var_def, set_var_def, lookup_insert]
-      \\ rw []
-      >- (first_x_assum $ drule_at (Pat `cut_env _ _ = _`) \\ rw [])
+      \\ simp [set_var_def]
+      \\ drule_all state_rel_cut_env \\ rw []
+      >- (
+        IF_CASES_TAC \\ gvs []
+        \\ gvs [state_rel_thm, lookup_insert, adjust_var_11])
       \\ gvs [inter_insert_ODD_adjust_set]
       \\ pure_rewrite_tac [GSYM APPEND_ASSOC]
       \\ irule memory_rel_insert \\ gvs []
+      \\ gvs [state_rel_thm]
       \\ first_x_assum (fn th =>
             mp_tac th THEN match_mp_tac memory_rel_rearrange)
       \\ rw [] \\ gvs []
-      \\ ntac 2 disj2_tac \\ ntac 2 disj1_tac \\ gvs []
-      \\ gvs [join_env_def, MEM_MAP, MEM_FILTER]
-      \\ rpt (pairarg_tac \\ gvs [])
-      \\ qexists `(n,v)` \\ gvs []
-      \\ gvs [MEM_toAList,lookup_inter_alt,lookup_insert,AllCaseEqs()]
+      \\ cheat)
+    \\ `¬word_cmp Equal 24w 56w` by cheat \\ gvs []
+    \\ simp [asmTheory.word_cmp_def]
+    \\ simp [wordSemTheory.get_vars_def, wordSemTheory.get_var_def,
+             lookup_insert]
+    \\ simp [GSYM wordSemTheory.get_var_def]
+    \\ simp [wordSemTheory.bad_dest_args_def]
+    \\ Cases_on `s.clock = 0` \\ gvs [] >- cheat
+    \\ Cases_on `find_code (SOME loc) [RefPtr v0 ptr; a] s.code
+                           s.stack_frame_sizes` \\ gvs []
+    \\ Cases_on `x''` \\ gvs []
+    \\ Cases_on `r` \\ gvs []
+    \\ Cases_on `ret` \\ gvs []
+    >- (
+      Cases_on `evaluate (q',call_env q r' (dec_clock s))` \\ gvs []
+      \\ Cases_on `q''` \\ gvs []
+      \\ simp [wordSemTheory.evaluate_def, wordSemTheory.get_vars_def,
+               wordSemTheory.get_var_def, lookup_insert]
+      \\ gvs [wordSemTheory.get_var_def]
+      \\ simp [wordSemTheory.bad_dest_args_def, wordSemTheory.add_ret_loc_def]
+      \\ gvs [find_code_def]
+      \\ Cases_on `lookup loc s.code` \\ gvs []
+      \\ Cases_on `x'''` \\ gvs []
+      \\ simp [wordSemTheory.find_code_def]
+      \\ gvs [code_rel_def]
+      \\ first_x_assum $ drule_at (Pat `lookup _ s.code = _`) \\ rw []
+      \\ gvs [GSYM wordSemTheory.get_var_def]
+      \\ `state_rel c l1 l2 s
+            (t with locals := insert 5 (t.memory (x + bytes_in_word))
+                                (insert 3 (Word 24w)
+                                   (insert 1 (Word x) t.locals))) [] locs` by (
+        fs [state_rel_def] \\ srw_tac[][]
+        \\ fs [lookup_insert,adjust_var_NEQ_1]
+        \\ asm_exists_tac \\ fs []
+        \\ fs [inter_insert,domain_lookup,
+              lookup_3_adjust_set,lookup_1_adjust_set,lookup_5_adjust_set])
+      \\ drule_at (Pat `state_rel _ _ _ _ _ _ _`) state_rel_call_env_get_var
+      \\ disch_then drule
+      \\ simp [wordSemTheory.get_var_def, lookup_insert]
+      \\ simp [GSYM wordSemTheory.get_var_def]
+      \\ disch_then
+        $ qspecl_then [`(x + bytes_in_word)`, `lookup loc s.stack_frame_sizes`, `a`]
+                      assume_tac \\ gvs []
+      \\ last_x_assum drule \\ simp [call_env_def]
+      \\ disch_then $ qspecl_then [`loc`, `2`] assume_tac \\ gvs []
+      \\ Cases_on `res1` \\ gvs []
+      \\ Cases_on `x'''` \\ gvs []
+      >- (
+        Cases_on `x''` \\ gvs []
+        \\ gvs [state_rel_thm, wordSemTheory.get_var_def, code_rel_def])
+      \\ Cases_on `x''` \\ gvs []
+      \\ Cases_on `e` \\ gvs []
       \\ cheat)
     \\ cheat)
   >~ [‘evaluate (Tick,s)’] >-
