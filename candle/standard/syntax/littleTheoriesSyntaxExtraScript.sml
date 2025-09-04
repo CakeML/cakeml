@@ -1719,8 +1719,9 @@ Theorem esubst_ty_abs_body_aconv:
   ∀v v1 body body1 env avds.
     esubsts_ok sig σ ∧
     term_ok sig (Abs v body) ∧
-    esubst_ty0 env σ avds (Abs v body) = Abs v1 body1 ⇒
-    ACONV (esubst_ty0 env σ avds body) body1
+    welltyped (Abs v1 body1) 
+    esubst_ty0 env σ avds (Abs v body) = return (Abs v1 body1) ⇒
+    ACONV body) body1
 Proof
   rw[] >> drule term_ok_welltyped >> rw[]
   >> gvs[esubst_ty_def]
@@ -1735,14 +1736,14 @@ Proof
                  assume_tac db_esubst_ty_thm >> rw[]
   >> gvs[db_esubst_ty_def, esubst_ty0_def, try_eq_return,
          bind_EQ_return, bind_EQ_error]
-  >>
+  >> cheat
 QED
 
 
 Theorem nproves_substitutable:
   ∀n h c.
     theory_ok (sig, axs) ∧
-    ((sig, axs), h, n) |n- c ∧
+    ((sigD, axs), h, n) |n- c ∧
     esubsts_ok sig σ ⇒
     ((sig, IMAGE (esubst σ []) axs), MAP (esubst σ []) h, n)
     |n- esubst σ (FLAT (MAP tm_names h)) c
