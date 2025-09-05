@@ -426,6 +426,7 @@ Inductive stmt_wp:
              (set (MAP FST ls ++ FLAT (MAP get_vars_exp ens) ++
                    get_vars_stmt (While guard invs ds mods body))) ∧
     freevars body_cond ⊆ set (ds_vars ++ MAP FST ls) ∧
+    assigned_in body ⊆ set (MAP FST ls) ∧
     LENGTH ds_vars = LENGTH ds ∧
     ALL_DISTINCT ds_vars ∧
     get_type ls guard = INR BoolT ∧
@@ -3205,6 +3206,24 @@ Proof
   cheat
 QED
 
+Theorem locals_ok_filter:
+  locals_ok locals st.locals ⇒
+  locals_ok (FILTER p locals) st.locals
+Proof
+  simp [locals_ok_def,MEM_FILTER,PULL_EXISTS] \\ rw []
+  \\ last_x_assum kall_tac
+  \\ Induct_on ‘locals’ \\ fs [] \\ rw []
+  \\ fs [MEM_MAP,MEM_FILTER]
+QED
+
+Theorem alookup_eq_mem:
+  ∀xs n v. ALL_DISTINCT (MAP FST xs) ⇒ (ALOOKUP xs n = SOME v ⇔ MEM (n,v) xs)
+Proof
+  Induct \\ fs [ALOOKUP_def,FORALL_PROD] \\ rw []
+  \\ eq_tac \\ rw [] \\ rw []
+  \\ fs [MEM_MAP,EXISTS_PROD] \\ gs []
+QED
+
 Theorem stmt_wp_sound:
   ∀m reqs stmt post ens decs locals.
     stmt_wp m reqs stmt post ens decs locals ⇒
@@ -3421,7 +3440,6 @@ Proof
          | Rcont => conditions_hold st' env (not guard::invs)
          | Rstop Sret => conditions_hold st' env ens
          | Rstop (Serr v3) => F’
-
     >-
      (disch_then $ qspec_then ‘st’ mp_tac
       \\ impl_tac
@@ -3453,7 +3471,11 @@ Proof
           \\ Cases_on ‘EL n vs’ \\ fs []
           \\ first_x_assum drule \\ fs [IS_SOME_SOME_def]
           \\ strip_tac \\ fs []
-          \\ cheat)
+          \\ ‘locals_ok vs st'.locals’ by
+             (simp [Abbr‘vs’] \\ irule locals_ok_filter \\ simp [])
+          \\ pop_assum mp_tac
+          \\ simp [locals_ok_def,MEM_EL,PULL_EXISTS,GSYM AND_IMP_INTRO]
+          \\ disch_then drule \\ simp [])
       \\ strip_tac
       \\ qsuff_tac ‘eval_true st' env (imp (conj (not guard::invs)) (conj post))’
       >-
@@ -3470,7 +3492,30 @@ Proof
         >-
          (CASE_TAC \\ fs [] \\ dxrule ALOOKUP_MEM
           \\ simp [MEM_MAP,EXISTS_PROD,Abbr‘vals’,Abbr‘vs’,MEM_FILTER])
-        \\ cheat)
+        \\ ‘MEM v (MAP FST locals)’ by fs [SUBSET_DEF,IN_DEF]
+        \\ ‘MEM v (MAP FST vs)’ by
+          (pop_assum mp_tac
+           \\ simp [Abbr‘vs’,MEM_MAP,MEM_FILTER,PULL_EXISTS,EXISTS_PROD])
+        \\ pop_assum mp_tac
+        \\ simp [MEM_MAP,PULL_EXISTS,FORALL_PROD]
+        \\ rpt strip_tac \\ simp [CaseEq"option"] \\ disj2_tac
+        \\ ‘ALL_DISTINCT (MAP FST (REVERSE (MAP (λ(v,val). (v,THE val)) vals)))’ by
+         (rewrite_tac [MAP_REVERSE,ALL_DISTINCT_REVERSE]
+          \\ simp [Abbr‘vals’,MAP_MAP_o,o_DEF,LAMBDA_PROD,FST_pair]
+          \\ ‘locals_ok vs st.locals’ by
+             (simp [Abbr‘vs’] \\ irule locals_ok_filter \\ simp [])
+          \\ fs [locals_ok_def])
+        \\ drule alookup_eq_mem \\ simp []
+        \\ disch_then kall_tac
+        \\ drule_all LIST_REL_MEM_IMP
+        \\ simp [EXISTS_PROD] \\ strip_tac \\ rveq
+        \\ first_assum $ irule_at $ Pos hd
+        \\ fs [MEM_MAP,PULL_EXISTS,EXISTS_PROD]
+        \\ qpat_x_assum ‘EVERY _ vals’ (drule o SRULE [EVERY_MEM])
+        \\ simp [IS_SOME_SOME_def] \\ strip_tac \\ gvs []
+        \\ qpat_x_assum ‘MEM _ vals’ mp_tac
+        \\ simp [Abbr‘vals’,MEM_MAP,EXISTS_PROD]
+        \\ strip_tac \\ fs [])
       \\ qpat_x_assum ‘eval_true _ _ _ ’ mp_tac
       \\ drule eval_exp_swap_locals
       \\ simp [eval_true_def] \\ disch_then kall_tac
