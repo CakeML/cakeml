@@ -109,8 +109,10 @@ QED
 Theorem correct_compile:
   ∀dfy_ck prog s' r_dfy cml_decs (ffi: 'ffi ffi_state).
     evaluate_program dfy_ck T prog = (s', r_dfy) ∧
-    compile prog = INR cml_decs ∧ has_main prog ∧ valid_members prog ∧
-    0 < dfy_ck ∧ r_dfy ≠ Rstop (Serr Rtype_error) ⇒
+    r_dfy ≠ Rstop (Serr Rtype_error) ∧
+    compile prog = INR cml_decs ∧
+    has_main prog ∧ valid_members prog
+    ⇒
     ∃ck t' m' r_cml.
       evaluate_decs
         (cml_init_state ffi (dfy_ck + ck))

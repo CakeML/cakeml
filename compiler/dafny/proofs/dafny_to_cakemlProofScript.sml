@@ -4593,7 +4593,7 @@ Theorem correct_from_program:
     evaluate_program dfy_ck T prog = (s', r_dfy) ∧
     from_program prog = INR cml_decs ∧
     valid_prog prog ∧ has_basic_cons env_cml ∧
-    0 < dfy_ck ∧ t.clock = dfy_ck ∧ ExnStamp t.next_exn_stamp = ret_stamp ∧
+    t.clock = dfy_ck ∧ ExnStamp t.next_exn_stamp = ret_stamp ∧
     r_dfy ≠ Rstop (Serr Rtype_error) ⇒
     ∃ck t' m' r_cml.
       evaluate_decs (t with clock := t.clock + ck) env_cml cml_decs =
@@ -4652,6 +4652,12 @@ Proof
   \\ disch_then $ qspecl_then [‘env_cml₁v’, ‘nsEmpty’, ‘cl_env’] mp_tac
   \\ rpt strip_tac
   \\ simp [do_opapp_def, evaluate_def]
+  \\ Cases_on ‘t.clock = 0’ \\ gvs []
+  >-
+   (qrefinel [‘_’, ‘FEMPTY’,‘0’]
+    \\ simp [combine_dec_result_def, restore_caller_def, state_rel_def,
+             array_rel_def, locals_rel_def]
+    \\ simp [oEL_def])
   \\ drule correct_from_stmt
   \\ disch_then drule
   \\ qmatch_goalsub_abbrev_tac ‘evaluate _ env_cml₂’
