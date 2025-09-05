@@ -397,8 +397,8 @@ Inductive val_rel:
 [~str:]
   val_rel m (StrV s) (Litv (StrLit (explode s)))
 [~arr:]
-  len' = &len ∧ FLOOKUP m loc = SOME loc' ⇒
-  val_rel m (ArrV len loc ty) (Conv NONE [Litv (IntLit (len')); Loc T loc'])
+  FLOOKUP m loc = SOME loc' ⇒
+  val_rel m (ArrV len loc ty) (Conv NONE [Litv (IntLit (&len)); Loc T loc'])
 End
 
 Theorem val_rel_simp[simp] = LIST_CONJ $
