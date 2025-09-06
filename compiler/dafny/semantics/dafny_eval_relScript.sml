@@ -332,8 +332,7 @@ QED
 
 Theorem eval_stmt_If_thn:
   eval_true st env grd ∧
-  eval_stmt st env thn st₁ ret ∧
-  ret ≠ Rstop (Serr Rtimeout_error)
+  eval_stmt st env thn st₁ ret
   ⇒
   eval_stmt st env (If grd thn els) st₁ ret
 Proof
@@ -351,8 +350,7 @@ QED
 
 Theorem eval_stmt_If_els:
   eval_true st env (not grd) ∧
-  eval_stmt st env els st₁ ret ∧
-  ret ≠ Rstop (Serr Rtimeout_error)
+  eval_stmt st env els st₁ ret
   ⇒
   eval_stmt st env (If grd thn els) st₁ ret
 Proof
