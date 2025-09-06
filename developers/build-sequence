@@ -4,6 +4,12 @@
 developers
 developers/bin
 
+misc
+
+# build many things in parallel at the start
+compiler/proofs
+compiler/bootstrap/compilation/x64/64/proofs
+
 # semantics and metatheory
 semantics/ffi
 semantics
@@ -21,11 +27,13 @@ characteristic
 
 # monadic translator
 translator/monadic
+translator/monadic/monad_base
 
 # basis library
 basis
 
 # compiler
+compiler
 compiler/inference
 compiler/backend/reg_alloc
 compiler/backend/gc
@@ -34,15 +42,21 @@ compiler/encoders/asm
 compiler/encoders/x64
 compiler/encoders/arm7
 compiler/encoders/arm8
+compiler/encoders/arm8_asl
 compiler/encoders/mips
 compiler/encoders/riscv
 compiler/encoders/ag32
+compiler/encoders/tests
+compiler/encoders/monadic_enc
 compiler/backend/x64
 compiler/backend/arm7
 compiler/backend/arm8
 compiler/backend/mips
 compiler/backend/riscv
 compiler/backend/ag32
+compiler/backend/pattern_matching
+compiler/parsing/ocaml
+compiler/printing
 
 # compiler verification
 compiler/parsing/proofs
@@ -54,33 +68,58 @@ compiler/backend/serialiser
 compiler/encoders/x64/proofs
 compiler/encoders/arm7/proofs
 compiler/encoders/arm8/proofs
+compiler/encoders/arm8_asl/proofs
 compiler/encoders/mips/proofs
 compiler/encoders/riscv/proofs
 compiler/encoders/ag32/proofs
 compiler/backend/x64/proofs
 compiler/backend/arm7/proofs
 compiler/backend/arm8/proofs
+compiler/backend/arm8_asl
 compiler/backend/mips/proofs
 compiler/backend/riscv/proofs
 compiler/backend/ag32/proofs
-compiler/proofs
+compiler/backend/cv_compute
+cv_translator
 
 # candle
+candle
 candle/set-theory
 candle/syntax-lib
+candle/standard
 candle/standard/syntax
 candle/standard/semantics
 candle/standard/monadic
 candle/standard/ml_kernel
+candle/standard/ml_kernel/lisp
+candle/overloading
 candle/overloading/syntax
 candle/overloading/semantics
+candle/overloading/monadic
+candle/overloading/ml_kernel
+candle/overloading/ml_checker
 candle/prover
+candle/prover/compute
 
 # pancake
 pancake
-pancake/ffi
 pancake/semantics
+pancake/parser
+pancake/static_checker
 pancake/proofs
+
+# dafny compiler
+compiler/dafny
+compiler/dafny/translation
+compiler/dafny/compilation
+compiler/dafny/semantics
+compiler/dafny/vcg
+
+# Scheme compiler
+compiler/scheme
+compiler/scheme/translation
+compiler/scheme/compilation
+compiler/scheme/proofs
 
 # examples and tests
 characteristic/examples
@@ -88,33 +127,61 @@ tutorial/solutions
 translator/monadic/examples
 
 examples
+examples/compilation
 examples/compilation/x64
 examples/compilation/x64/proofs
 examples/compilation/ag32
 examples/compilation/ag32/proofs
-examples/cost
 examples/lpr_checker
 examples/lpr_checker/array
 examples/lpr_checker/array/compilation
 examples/lpr_checker/array/compilation/proofs
-examples/opentheory
+examples/lpr_checker/array/compilation/proofsARM8
+.
+
+examples/xlrup_checker
+examples/xlrup_checker/array
+examples/xlrup_checker/array/compilation
+examples/xlrup_checker/array/compilation/proofs
+
+examples/scpog_checker
+examples/scpog_checker/array
+examples/scpog_checker/array/compilation
+examples/scpog_checker/array/compilation/proofs
+
+examples/pseudo_bool
+examples/pseudo_bool/cnf_encoding
+examples/pseudo_bool/graph_encoding
+examples/pseudo_bool/array
+examples/pseudo_bool/array/compilation
+examples/pseudo_bool/array/compilation/proofs
+examples/pseudo_bool/array/compilation/proofsARM8
+
 examples/opentheory
 examples/opentheory/compilation
 examples/opentheory/compilation/proofs
 examples/opentheory/compilation/ag32
 examples/opentheory/compilation/ag32/proofs
 examples/sat_encodings
+examples/sat_encodings/demo
 examples/sat_encodings/case_studies
 examples/sat_encodings/translation
 examples/sat_encodings/translation/compilation
+examples/deflate
+examples/deflate/translation
+examples/deflate/translation/compilation
+examples/vipr
+examples/vipr/compilation
 
 translator/okasaki-examples
 translator/other-examples
+translator/other-examples/auxiliary
 compiler/parsing/tests
 compiler/inference/tests
+compiler/printing/test
 
 # compiler translation
-compiler/bootstrap/translation
+compiler/repl
 
 # compiler sexpr bootstrap
 unverified/sexpr-bootstrap/x64/64:cake-unverified-x64-64.tar.gz
@@ -122,11 +189,15 @@ unverified/sexpr-bootstrap/x64/32:cake-unverified-x64-32.tar.gz
 
 # build benchmarks and report (must come after sexp bootstrap)
 compiler/benchmarks
+compiler/benchmarks/cakeml_benchmarks/cakeml
+compiler/benchmarks/mlton_benchmarks/cakeml
 
 # compiler HOL bootstrap
+compiler/bootstrap/translation
 compiler/bootstrap/compilation/x64/64:cake-x64-64.tar.gz
-compiler/bootstrap/compilation/x64/64/proofs
 compiler/bootstrap/compilation/x64/32:cake-x64-32.tar.gz
 compiler/bootstrap/compilation/x64/32/proofs
+compiler/bootstrap/compilation/arm8/64:cake-arm8-64.tar.gz
+compiler/bootstrap/compilation/arm8/64/proofs
 compiler/bootstrap/compilation/ag32/32
 compiler/bootstrap/compilation/ag32/32/proofs

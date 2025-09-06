@@ -1,11 +1,12 @@
 (*
   Compiles the diff example by evaluation inside the logic of HOL
 *)
-open preamble compilationLib diffProgTheory
+Theory diffCompile
+Ancestors
+  diffProg
+Libs
+  preamble eval_cake_compile_x64Lib
 
-val _ = new_theory "diffCompile"
+Theorem diff_compiled =
+  eval_cake_compile_x64 "" diff_prog_def "diff.S";
 
-val diff_compiled = save_thm("diff_compiled",
-  compile_x64 "diff" diff_prog_def);
-
-val _ = export_theory ();

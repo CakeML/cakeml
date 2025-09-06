@@ -1,0 +1,39 @@
+INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis $(CAKEMLDIR)/compiler $(CAKEMLDIR)/cv_translator .. $(CAKEMLDIR)/unverified/sexpr-bootstrap $(CAKEMLDIR)/compiler/parsing
+CLINE_OPTIONS = -j4
+
+all: $(DEFAULT_TARGETS) README.md
+.PHONY: all
+
+README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
+DIRS = $(wildcard */)
+README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
+	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
+
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap
+endif
+
+ifndef CC
+CC=gcc
+endif
+
+cake_pb.S : *npbc_fullCompileScript.sml
+cake_pb_arm8.S : *npbc_fullCompileScript.sml
+
+cake_pb_cnf.S : *cnfCompileScript.sml
+cake_pb_cnf_arm8.S : *cnfCompileScript.sml
+
+cake_pb_wcnf.S : *wcnfCompileScript.sml
+cake_pb_wcnf_arm8.S : *wcnfCompileScript.sml
+
+cake_pb_iso.S : *subgraph_isoCompileScript.sml
+cake_pb_iso_arm8.S : *subgraph_isoCompileScript.sml
+
+cake_pb_mcis.S : *mcisCompileScript.sml
+cake_pb_mcis_arm8.S : *mcisCompileScript.sml
+
+cake_pb_mccis.S : *mccisCompileScript.sml
+cake_pb_mccis_arm8.S : *mccisCompileScript.sml
+
+cake_pb_clique.S : *cliqueCompileScript.sml
+cake_pb_clique_arm8.S : *cliqueCompileScript.sml

@@ -3,24 +3,26 @@
   value to one or multiple value arguments. It is in particular used
   in cf to abstract from the concrete representation of closures.
 *)
-open preamble
-open set_sepTheory helperLib semanticPrimitivesTheory
-open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory cfNormaliseTheory
-open cfTacticsBaseLib cfHeapsLib
-
-val _ = new_theory "cfApp"
+Theory cfApp
+Ancestors
+  set_sep semanticPrimitives cfHeapsBase cfHeaps cfStore
+  cfNormalise evaluate evaluateProps
+Libs
+  preamble helperLib cfHeapsBaseLib cfTacticsBaseLib cfHeapsLib
 
 Type state = ``:'ffi semanticPrimitives$state``
 
-val evaluate_ck_def = Define `
-  evaluate_ck ck (st: 'ffi state) = evaluate (st with clock := ck)`
+Definition evaluate_ck_def:
+  evaluate_ck ck (st: 'ffi state) = evaluate (st with clock := ck)
+End
 
-val io_prefix_def = Define `
+Definition io_prefix_def:
   io_prefix (s1:'ffi semanticPrimitives$state) (s2:'ffi semanticPrimitives$state) ⇔
     (* TODO: update io_events to an llist and use LPREFIX instead of ≼ *)
-    s1.ffi.io_events ≼ s2.ffi.io_events`;
+    s1.ffi.io_events ≼ s2.ffi.io_events
+End
 
-val evaluate_to_heap_def = Define `
+Definition evaluate_to_heap_def:
   evaluate_to_heap st env exp p heap (r:res) <=>
     case r of
     | Val v => (∃ck st'. evaluate_ck ck st env [exp] = (st', Rval [v]) /\
@@ -33,7 +35,7 @@ val evaluate_to_heap_def = Define `
                          st2heap p st' = heap)
     | FFIDiv name conf bytes => (∃ck st'.
       evaluate_ck ck st env [exp]
-      = (st', Rerr(Rabort(Rffi_error(Final_event name conf bytes FFI_diverged)))) /\
+      = (st', Rerr(Rabort(Rffi_error(Final_event (ExtCall name) conf bytes FFI_diverged)))) /\
       st'.next_type_stamp = st.next_type_stamp /\
       st'.next_exn_stamp = st.next_exn_stamp /\
       st2heap p st' = heap)
@@ -43,20 +45,23 @@ val evaluate_to_heap_def = Define `
                 (* io is the limit of the io_events of all states *)
                 lprefix_lub (IMAGE (λck. fromList (FST(evaluate_ck ck st env [exp])).ffi.io_events)
                                    UNIV)
-                              io`
+                              io
+End
 
 (* [app_basic]: application with one argument *)
-val app_basic_def = Define `
+Definition app_basic_def:
   app_basic (p:'ffi ffi_proj) (f: v) (x: v) (H: hprop) (Q: res -> hprop) =
     !(h_i: heap) (h_k: heap) (st: 'ffi semanticPrimitives$state).
       SPLIT (st2heap p st) (h_i, h_k) ==> H h_i ==>
       ?env exp (r: res) (h_f: heap) (h_g: heap) heap.
         SPLIT3 heap (h_f, h_k, h_g) /\
         do_opapp [f;x] = SOME (env, exp) /\
-        Q r h_f /\ evaluate_to_heap st env exp p heap r`;
+        Q r h_f /\ evaluate_to_heap st env exp p heap r
+End
 
-val app_basic_local = Q.prove (
-  `!f x. is_local (app_basic p f x)`,
+Triviality app_basic_local:
+  !f x. is_local (app_basic p f x)
+Proof
   simp [is_local_def] \\ rpt strip_tac \\
   irule EQ_EXT \\ qx_gen_tac `H` \\ irule EQ_EXT \\ qx_gen_tac `Q` \\
   eq_tac \\ fs [local_elim] \\
@@ -77,15 +82,16 @@ val app_basic_local = Q.prove (
   disch_then (assume_tac o REWRITE_RULE [STAR_def]) \\ fs [] \\
   instantiate \\ rename1 `GC h_g'` \\ qexists_tac `h_g' UNION h_g` \\
   SPLIT_TAC
-);
+QED
 
 (* [app]: n-ary application *)
-val app_def = Define `
+Definition app_def:
   app (p:'ffi ffi_proj) (f: v) ([]: v list) (H: hprop) (Q: res -> hprop) = F /\
   app (p:'ffi ffi_proj) f [x] H Q = app_basic p f x H Q /\
   app (p:'ffi ffi_proj) f (x::xs) H Q =
     app_basic p f x H
-      (POSTv g. SEP_EXISTS H'. H' * cond (app p g xs H' Q))`
+      (POSTv g. SEP_EXISTS H'. H' * cond (app p g xs H' Q))
+End
 
 Theorem app_alt_ind:
    !f xs x H Q.
@@ -187,7 +193,7 @@ Proof
 QED
 
 (* [curried (p:'ffi ffi_proj) n f] states that [f] is curried [n] times *)
-val curried_def = Define `
+Definition curried_def:
   curried (p:'ffi ffi_proj) (n: num) (f: v) =
     case n of
      | 0 => F
@@ -198,7 +204,8 @@ val curried_def = Define `
                   !xs H Q.
                     LENGTH xs = n ==>
                     app (p:'ffi ffi_proj) f (x::xs) H Q ==>
-                    app (p:'ffi ffi_proj) g xs H Q))`;
+                    app (p:'ffi ffi_proj) g xs H Q))
+End
 
 Theorem curried_ge_2_unfold:
    !n f.
@@ -271,8 +278,9 @@ val app_partial = Q.prove (
 (* [spec (p:'ffi ffi_proj) f n P] asserts that [curried (p:'ffi ffi_proj) f n] is true and
 that [P] is a valid specification for [f]. Useful for conciseness and
 tactics. *)
-val spec_def = Define `
-  spec (p:'ffi ffi_proj) f n P = (curried (p:'ffi ffi_proj) n f /\ P)`
+Definition spec_def:
+  spec (p:'ffi ffi_proj) f n P = (curried (p:'ffi ffi_proj) n f /\ P)
+End
 
 (*------------------------------------------------------------------*)
 (* Relating [app] to [_ --> _] from the translator *)
@@ -352,7 +360,6 @@ Proof
   \\ Cases_on`r` \\ fs[cond_def,EQ_IMP_THM]
 QED
 
-open evaluateTheory evaluatePropsTheory
 val dec_clock_def = evaluateTheory.dec_clock_def
 val evaluate_empty_state_IMP = ml_translatorTheory.evaluate_empty_state_IMP
 
@@ -381,38 +388,47 @@ Proof
   \\ simp[]
 QED
 
-val forall_cases = Q.prove(
-  `(!x. P x) <=> (!x1 x2. P (Mem x1 x2)) /\
+Triviality forall_cases:
+  (!x. P x) <=> (!x1 x2. P (Mem x1 x2)) /\
                   (P FFI_split) /\
                   (!x3 x4 x2 x1. P (FFI_part x1 x2 x3 x4)) /\
-                  (!x1. P (FFI_full x1))`,
-  EQ_TAC \\ rw [] \\ Cases_on `x` \\ fs []);
+                  (!x1. P (FFI_full x1))
+Proof
+  EQ_TAC \\ rw [] \\ Cases_on `x` \\ fs []
+QED
 
-val SPLIT_UNION_IMP_SUBSET = Q.prove(
-  `SPLIT x (y UNION y1,y2) ==> y1 SUBSET x`,
-  SPLIT_TAC);
+Triviality SPLIT_UNION_IMP_SUBSET:
+  SPLIT x (y UNION y1,y2) ==> y1 SUBSET x
+Proof
+  SPLIT_TAC
+QED
 
-val FILTER_ffi_has_index_in_EQ_NIL = Q.prove(
-  `~(MEM n xs) /\ EVERY (ffi_has_index_in xs) ys ==>
-    FILTER (ffi_has_index_in [n]) ys = []`,
+Triviality FILTER_ffi_has_index_in_EQ_NIL:
+  ~(MEM n xs) /\ EVERY (ffi_has_index_in xs) ys ==>
+    FILTER (ffi_has_index_in [n]) ys = []
+Proof
   Induct_on `ys` \\ fs [] \\ rw [] \\ fs []
-  \\ Cases_on `h` \\ fs [ffi_has_index_in_def] \\ rw []
-  \\ CCONTR_TAC \\ fs [] \\ fs []);
+  \\ Cases_on `h` \\ Cases_on `f`
+  \\ fs [ffi_has_index_in_def] \\ rw []
+  \\ CCONTR_TAC \\ fs [] \\ fs [ffi_has_index_in_def]
+QED
 
-val FILTER_ffi_has_index_in_MEM = Q.prove(
-  `!ys zs xs x.
+Triviality FILTER_ffi_has_index_in_MEM:
+  !ys zs xs x.
       MEM x xs /\
       FILTER (ffi_has_index_in xs) ys = FILTER (ffi_has_index_in xs) zs ==>
-      FILTER (ffi_has_index_in [x]) ys = FILTER (ffi_has_index_in [x]) zs`,
+      FILTER (ffi_has_index_in [x]) ys = FILTER (ffi_has_index_in [x]) zs
+Proof
   once_rewrite_tac [EQ_SYM_EQ] \\ Induct \\ fs [] THEN1
    (fs [listTheory.FILTER_EQ_NIL] \\ fs [EVERY_MEM] \\ rw []
-    \\ res_tac \\ Cases_on `x'` \\ fs [ffi_has_index_in_def]
+    \\ res_tac \\ Cases_on `x'` \\ Cases_on `f`
+    \\ fs [ffi_has_index_in_def]
     \\ CCONTR_TAC \\ fs [])
   \\ rpt strip_tac
   \\ reverse (Cases_on `ffi_has_index_in xs h` \\ fs [])
   THEN1
    (`~ffi_has_index_in [x] h` by
-        (Cases_on `h` \\ fs [ffi_has_index_in_def] \\ CCONTR_TAC \\ fs [])
+        (Cases_on `h` \\ Cases_on `f` \\ fs [ffi_has_index_in_def] \\ CCONTR_TAC \\ fs [])
     \\ fs [] \\ metis_tac [])
   \\ IF_CASES_TAC \\ fs []
   \\ fs [FILTER_EQ_CONS]
@@ -422,66 +438,78 @@ val FILTER_ffi_has_index_in_MEM = Q.prove(
     \\ reverse conj_tac
     THEN1 (first_x_assum match_mp_tac \\ fs [] \\ asm_exists_tac \\ fs [])
     \\ rw [] \\ res_tac
-    \\ Cases_on `x'` \\ fs [ffi_has_index_in_def]
+    \\ Cases_on `x'` \\ Cases_on `f`
+    \\ fs [ffi_has_index_in_def]
     \\ CCONTR_TAC \\ fs [])
   \\ fs [FILTER_APPEND]
   \\ fs [GSYM FILTER_APPEND]
   \\ first_x_assum match_mp_tac \\ fs [] \\ asm_exists_tac \\ fs []
-  \\ fs [FILTER_APPEND]);
+  \\ fs [FILTER_APPEND]
+QED
 
-val LENGTH_FILTER_EQ_IMP_LENGTH_EQ = Q.prove(
-  `!xs ys.
-      (∀n. LENGTH (FILTER (ffi_has_index_in [n]) xs) =
-           LENGTH (FILTER (ffi_has_index_in [n]) ys)) ==>
-      LENGTH xs = LENGTH ys`,
-  Induct \\ fs [] THEN1
-   (Cases_on `ys` \\ fs [] \\ Cases_on `h` \\ fs [ffi_has_index_in_def]
-    \\ qexists_tac `s` \\ fs [])
-  \\ Cases \\ fs [ffi_has_index_in_def] \\ rw []
-  \\ qpat_assum `_` (qspec_then `s` mp_tac)
-  \\ rewrite_tac [] \\ fs [LENGTH]
-  \\ strip_tac
-  \\ `LENGTH (FILTER (ffi_has_index_in [s]) ys) <> 0` by decide_tac
-  \\ fs [LENGTH_NIL]
-  \\ fs [FILTER_NEQ_NIL]
-  \\ fs [MEM_SPLIT]
-  \\ rveq \\ fs [FILTER_APPEND,ADD1]
-  \\ first_x_assum (qspec_then `l1 ++ l2` mp_tac)
-  \\ impl_tac \\ fs []
-  \\ Cases_on `x` \\ fs [ffi_has_index_in_def] \\ rveq
-  \\ rw [] \\ first_x_assum (qspec_then `n` mp_tac)
-  \\ rw [] \\ fs [FILTER_APPEND]);
+Triviality LENGTH_FILTER_EQ_IMP_EMPTY:
+  !xs l.
+      (!io_ev. MEM io_ev l ==>
+        ?s bs bs'. io_ev = IO_event (ExtCall s) bs bs') /\
+      (∀n. LENGTH (FILTER (ffi_has_index_in [n]) (xs ++ l)) =
+           LENGTH (FILTER (ffi_has_index_in [n]) xs)) ==>
+      l = []
+Proof
+  Induct THEN1
+   (rw[] \\ Cases_on `l` \\ fs []
+    \\ Cases_on `h` \\ Cases_on `f`
+    \\ fs [ffi_has_index_in_def]
+    >- (first_x_assum $ qspec_then `s` assume_tac \\ fs[])
+    \\ last_x_assum mp_tac \\ gvs[]
+    \\ irule_at (Pos hd) OR_INTRO_THM1
+    \\ simp[])
+  \\ rpt gen_tac
+  \\ rpt strip_tac
+  \\ last_x_assum irule
+  \\ rw[]
+  \\ pop_assum $ qspec_then `n` assume_tac
+  \\ Cases_on `ffi_has_index_in [n] h`
+  \\ fs[LENGTH]
+QED
 
-val IN_DISJOINT_LEMMA1 = Q.prove(
-  `!s. x IN h_g /\ DISJOINT s h_g ==> ~(x IN s)`,
-  SPLIT_TAC);
+Triviality IN_DISJOINT_LEMMA1:
+  !s. x IN h_g /\ DISJOINT s h_g ==> ~(x IN s)
+Proof
+  SPLIT_TAC
+QED
 
-val FFI_part_EXISTS = Q.prove(
-  `parts_ok s1 (p0,p1) /\ parts_ok s2 (p0,p1) /\
+Triviality FFI_part_EXISTS:
+  parts_ok s1 (p0,p1) /\ parts_ok s2 (p0,p1) /\
     FFI_part x1 x2 x3 x4 ∈ ffi2heap (p0,p1) s1 ==>
-    ?y1 y2 y4. FFI_part y1 y2 x3 y4 ∈ ffi2heap (p0,p1) s2`,
+    ?y1 y2 y4. FFI_part y1 y2 x3 y4 ∈ ffi2heap (p0,p1) s2
+Proof
   strip_tac \\ rfs [ffi2heap_def] \\ asm_exists_tac \\ fs []
-  \\ fs [parts_ok_def] \\ metis_tac []);
+  \\ fs [parts_ok_def] \\ metis_tac []
+QED
 
-val ALL_DISTINCT_FLAT_MEM_IMP = Q.prove(
-  `!p1 x x2 y2.
+Triviality ALL_DISTINCT_FLAT_MEM_IMP:
+  !p1 x x2 y2.
       ALL_DISTINCT (FLAT (MAP FST p1)) /\ x <> [] /\
-      MEM (x,x2) p1 /\ MEM (x,y2) p1 ==> x2 = y2`,
+      MEM (x,x2) p1 /\ MEM (x,y2) p1 ==> x2 = y2
+Proof
   Induct \\ fs [] \\ Cases \\ fs [ALL_DISTINCT_APPEND]
   \\ rw [] \\ res_tac \\ rveq
   \\ Cases_on `MEM (q,r) p1` \\ fs [] \\ res_tac
   \\ fs [MEM_FLAT,MEM_MAP,FORALL_PROD]
   \\ Cases_on `q` \\ fs []
-  \\ metis_tac [MEM]);
+  \\ metis_tac [MEM]
+QED
 
-val FFI_part_11 = Q.prove(
-  `parts_ok s1 (p0,p1) /\ parts_ok s2 (p0,p1) /\
+Triviality FFI_part_11:
+  parts_ok s1 (p0,p1) /\ parts_ok s2 (p0,p1) /\
     FFI_part x1 x2 x3 x4 ∈ ffi2heap (p0,p1) s1 /\
     FFI_part y1 y2 x3 y4 ∈ ffi2heap (p0,p1) s1 ==>
-    x1 = y1 /\ x2 = y2 /\ x4 = y4`,
+    x1 = y1 /\ x2 = y2 /\ x4 = y4
+Proof
   strip_tac \\ rfs [ffi2heap_def]
   \\ Cases_on `x3` \\ fs [] \\ fs [parts_ok_def]
-  \\ imp_res_tac ALL_DISTINCT_FLAT_MEM_IMP \\ fs []);
+  \\ imp_res_tac ALL_DISTINCT_FLAT_MEM_IMP \\ fs []
+QED
 
 Theorem SPLIT_st2heap_ffi:
    SPLIT (st2heap p st') (st2heap p st, h_g) ⇒
@@ -578,6 +606,49 @@ Proof
   \\ decide_tac
 QED
 
+Theorem do_app_io_events_ExtCall:
+  do_app (refs,ffi) op vs = SOME ((refs',ffi'),r) ==>
+    ?l. ffi'.io_events = ffi.io_events ++ l /\
+      !io_ev. MEM io_ev l ==>
+        ?s bs bs'. io_ev = IO_event (ExtCall s) bs bs'
+Proof
+  strip_tac >>
+  gvs[DefnBase.one_line_ify NONE do_app_def,
+    AllCaseEqs(),ffiTheory.call_FFI_def] >>
+  pairarg_tac >> fs[]
+QED
+
+Theorem evaluate_ExtCall:
+  (!(st:'ffi semanticPrimitives$state) env exp l io_ev.
+    !st' res. evaluate st env exp = (st',res) /\
+      st'.ffi.io_events = st.ffi.io_events ++ l /\
+      MEM io_ev l ==>
+        ?s bs bs'.
+          io_ev = IO_event (ExtCall s) bs bs') /\
+  (!(st:'ffi semanticPrimitives$state) env v pes err_v st' res l io_ev.
+    evaluate_match st env v pes err_v = (st',res) /\
+       st'.ffi.io_events = st.ffi.io_events ++ l /\
+       MEM io_ev l ==>
+        ?s bs bs'.
+          io_ev = IO_event (ExtCall s) bs bs') /\
+  (!(st:'ffi semanticPrimitives$state) env d st' res l io_ev.
+    evaluate_decs st env d = (st',res) /\
+    st'.ffi.io_events = st.ffi.io_events ++ l /\
+        MEM io_ev l ==>
+          ?s bs bs'.
+            io_ev = IO_event (ExtCall s) bs bs')
+Proof
+  ho_match_mp_tac full_evaluate_ind >>
+  rw[] >>
+  gvs[evaluate_def,AllCaseEqs(),evaluate_decs_def] >>
+  imp_res_tac $ cj 1 evaluate_history_irrelevance >>
+  imp_res_tac $ cj 2 evaluate_history_irrelevance >>
+  imp_res_tac $ cj 3 evaluate_history_irrelevance >>
+  imp_res_tac do_app_io_events_ExtCall >>
+  rpt strip_tac >>
+  gvs[do_eval_res_def,AllCaseEqs(),dec_clock_def]
+QED
+
 Theorem app_basic_IMP_Arrow:
    (∀x v1. a x v1 ⇒ app_basic p v v1 emp (POSTv v. cond (b (f x) v))) ⇒
    Arrow a b f v
@@ -587,7 +658,7 @@ Proof
   \\ first_x_assum drule
   \\ fs[evaluate_ck_def]
   \\ fs[POSTv_cond,SPLIT3_emp1,PULL_EXISTS]
-  \\ disch_then( qspec_then`empty_state with <| refs := refs; ffi := ffi_st_x |>` mp_tac)
+  \\ disch_then( qspec_then`empty_state with <| refs := refs; ffi := ffi_st_x; |>` mp_tac)
   \\ rw [] \\ instantiate
   \\ rename1 `SPLIT (st2heap p st1) _`
   \\ drule_then (qspec_then `empty_state with <| clock := ck ;refs := refs |>` mp_tac)
@@ -608,10 +679,17 @@ Proof
   \\ imp_res_tac SPLIT_st2heap_ffi \\ fs []
   \\ qmatch_assum_rename_tac `!n. FILTER (ffi_has_index_in [n]) _ =
                                   FILTER (ffi_has_index_in [n]) st2.io_events`
-  \\ `LENGTH st1.ffi.io_events = LENGTH st2.io_events`
-        by metis_tac [LENGTH_FILTER_EQ_IMP_LENGTH_EQ]
-  \\ metis_tac [IS_PREFIX_LENGTH_ANTI]
+  \\ gvs[IS_PREFIX_APPEND]
+  \\ first_x_assum irule
+  \\ irule LENGTH_FILTER_EQ_IMP_EMPTY
+  \\ rw[]
+  >- (
+    drule_then irule $ cj 1 evaluate_ExtCall >>
+    simp[]
+  ) >>
+  metis_tac[]
 QED
+(* use evaluate to prove st1.io_events = st2.io_events ++ [ExtCall...] *)
 
 Theorem Arrow_eq_app_basic:
    Arrow a b f fv ⇔ (∀x xv. a x xv ⇒ app_basic p fv xv emp (POSTv v'. &b (f x) v'))
@@ -619,4 +697,3 @@ Proof
   metis_tac[GEN_ALL Arrow_IMP_app_basic, GEN_ALL app_basic_IMP_Arrow]
 QED
 
-val _ = export_theory ()

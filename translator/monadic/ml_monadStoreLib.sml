@@ -5,7 +5,7 @@
 structure ml_monadStoreLib :> ml_monadStoreLib = struct
 
 open preamble ml_translatorTheory ml_pmatchTheory patternMatchesTheory
-open astTheory libTheory evaluateTheory semanticPrimitivesTheory
+open astTheory evaluateTheory semanticPrimitivesTheory
 open evaluateTheory ml_progLib ml_progTheory
 open packLib
 open set_sepTheory cfTheory cfStoreTheory cfTacticsLib
@@ -13,6 +13,8 @@ open cfHeapsBaseTheory
 open ml_monadBaseTheory ml_monad_translatorBaseTheory ml_monad_translatorTheory ml_monadStoreTheory
 open Redblackmap AC_Sort Satisfy
 open ml_translatorLib
+
+val filter = List.filter (* reverse masking by Redblackmap's filter *)
 
 (* COPY/PASTE from other manual eval_rel proofs *)
 fun derive_eval_thm for_eval v_name e = let
@@ -44,7 +46,7 @@ local
   structure Parse = struct
     open Parse
      val (Type,Term) =
-         parse_from_grammars ml_monadStoreTheory.ml_monadStore_grammars
+         parse_from_grammars $ valOf $ grammarDB {thyname="ml_monadStore"}
   end
   open Parse
   (* Information about the subscript exceptions *)
@@ -266,7 +268,7 @@ fun create_store refs_init_list rarrays_init_list farrays_init_list =
           val e = mk_opref_expr init_name
           val eval_thm = REWRITE_RULE [ML_code_env_def]
                                       (derive_eval_thm false name e)
-          val _ = ml_prog_update (add_Dlet eval_thm name [])
+          val _ = ml_prog_update (add_Dlet eval_thm name)
           val ref_def = DB.fetch (current_theory()) (name ^ "_def")
         in
           (value_def, ref_def)
@@ -281,7 +283,7 @@ fun create_store refs_init_list rarrays_init_list farrays_init_list =
 
           val (array_v_def, array_loc_def, ref_def, eval_th) =
             derive_eval_thm_ALLOCATE_EMPTY_ARRAY init_name def
-          val _ = ml_prog_update(add_Dlet eval_th name [])
+          val _ = ml_prog_update(add_Dlet eval_th name)
         in
           (array_v_def, array_loc_def, ref_def)
         end
@@ -293,7 +295,7 @@ fun create_store refs_init_list rarrays_init_list farrays_init_list =
       fun create_farray (name, (n, def)) =
         let
           val (array_v_def, array_loc_def, eval_th) = derive_eval_thm_ALLOCATE_ARRAY name n def
-          val _ = ml_prog_update (add_Dlet eval_th name [])
+          val _ = ml_prog_update (add_Dlet eval_th name)
         in
           (array_v_def, array_loc_def)
         end

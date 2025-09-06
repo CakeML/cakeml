@@ -1,7 +1,7 @@
-INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis $(CAKEMLDIR)/compiler ..
+INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis $(CAKEMLDIR)/compiler $(CAKEMLDIR)/cv_translator ..
 CLINE_OPTIONS =
 
-all: $(DEFAULT_TARGETS) README.md exec
+all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
 
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
@@ -9,13 +9,10 @@ DIRS = $(wildcard */)
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
 
-ifndef CC
-CC=gcc
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap
 endif
-lpr_array.S: *lpr_arrayCompileScript.sml
-lpr_ramsey.S: *lpr_arrayRamseyCompileScript.sml
-cake_lpr_array: lpr_array.S $(CAKEMLDIR)/basis/basis_ffi.o
-	$(CC) $< $(protect $(CAKEMLDIR)/basis/basis_ffi.o) $(GCCFLAGS) -o $@
 
-exec: cake_lpr_array
-.PHONY: exec
+cake_lpr.S: *lpr_arrayCompileScript.sml
+cake_lpr_arm8.S: *lpr_arrayCompileARM8Script.sml
+cake_lpr_ramsey.S: *lpr_arrayRamseyCompileScript.sml

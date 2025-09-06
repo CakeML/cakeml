@@ -1,15 +1,17 @@
 (*
   Properties (first sets etc) for non-terminals in the CakeML grammar
 *)
-open HolKernel Parse boolLib bossLib;
+Theory cmlNTProps
+Ancestors
+  gramProps NTproperties gram
+Libs
+  preamble
 
-open preamble
-open NTpropertiesTheory gramTheory gramPropsTheory
-val _ = new_theory "cmlNTProps";
-
-val _ = set_grammar_ancestry ["gramProps"]
-
-val disjImpI = Q.prove(`~p \/ q ⇔ p ⇒ q`, DECIDE_TAC)
+Triviality disjImpI:
+  ~p \/ q ⇔ p ⇒ q
+Proof
+  DECIDE_TAC
+QED
 
 Theorem firstSet_nUQTyOp[simp]:
   firstSet cmlG (NN nUQTyOp::rest) =
@@ -83,9 +85,15 @@ Proof
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied]
 QED
 
+Theorem firstSet_nStructure[simp]:
+  firstSet cmlG [NT (mkNT nStructure)] = {StructureT}
+Proof
+  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied]
+QED
+
 Theorem firstSet_nDecl[simp]:
   firstSet cmlG [NT (mkNT nDecl)] =
-  {ValT; FunT; DatatypeT;ExceptionT;TypeT;LocalT}
+  {ValT; FunT; DatatypeT;ExceptionT;TypeT;LocalT;StructureT}
 Proof
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied,
        INSERT_UNION_EQ]
@@ -93,7 +101,7 @@ QED
 
 Theorem firstSet_nDecls[simp]:
   firstSet cmlG [NN nDecls] =
-  {ValT; DatatypeT; FunT; SemicolonT; ExceptionT; TypeT; LocalT}
+  {ValT; DatatypeT; FunT; SemicolonT; ExceptionT; TypeT; LocalT;StructureT}
 Proof
   simp[firstSetML_eqn, Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
@@ -149,20 +157,6 @@ Theorem firstSet_nListOps[simp]:
 Proof
   simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM, cmlG_applied,
        INSERT_UNION_EQ, INSERT_COMM, IMAGE_GSPEC1]
-QED
-
-Theorem firstSet_nStructure[simp]:
-  firstSet cmlG [NT (mkNT nStructure)] = {StructureT}
-Proof
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied]
-QED
-
-
-Theorem firstSet_nTopLevelDec[simp]:
-  firstSet cmlG [NT (mkNT nTopLevelDec)] =
-  {ValT; FunT; DatatypeT; StructureT; ExceptionT; TypeT; LocalT}
-Proof
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied, INSERT_UNION_EQ, INSERT_COMM]
 QED
 
 Theorem firstSet_nSpecLine[simp]:
@@ -565,29 +559,6 @@ Proof
   simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]
 QED
 
-Theorem firstSet_nE':
-  firstSet cmlG (NT(mkNT nE')::rest) =
-  firstSet cmlG [NT (mkNT nEbase)] ∪ {IfT; RaiseT}
-Proof
-  simp[SimpLHS, firstSetML_eqn] >>
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]) >>
-  simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]
-QED
-
-Theorem firstSetML_nE'[simp]:
-  mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
-  mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
-  mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
-  mkNT nEbefore ∉ sn ∧ mkNT nEtyped ∉ sn ∧ mkNT nElogicAND ∉ sn ∧
-  mkNT nElogicOR ∉ sn ∧ mkNT nE' ∉ sn ∧ mkNT nElistop ∉ sn ∧
-  mkNT nEliteral ∉ sn
-  ⇒
-  firstSetML cmlG sn (NT (mkNT nE')::rest) = firstSet cmlG [NN nE']
-Proof
-  ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM, firstSet_nE']) >>
-  simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]
-QED
-
 Theorem firstSet_nElist1[simp]:
   firstSet cmlG (NT (mkNT nElist1)::rest) = firstSet cmlG [NT (mkNT nE)]
 Proof
@@ -725,6 +696,14 @@ Proof
   simp[SimpLHS, Once firstSet_NT, cmlG_FDOM, cmlG_applied] >> simp[]
 QED
 
+Theorem firstSet_nPEsfx[simp]:
+  firstSet cmlG (NN nPEsfx :: rest) =
+  BarT INSERT HandleT INSERT firstSet cmlG rest
+Proof
+  simp[SimpLHS, Once firstSet_NT, cmlG_FDOM, cmlG_applied,
+       nullable_PEsfx] >> SET_TAC[]
+QED
+
 Theorem NOTIN_firstSet_nV[simp]:
   CommaT ∉ firstSet cmlG [NN nV] ∧ LparT ∉ firstSet cmlG [NN nV] ∧
   RparT ∉ firstSet cmlG [NN nV] ∧ UnderbarT ∉ firstSet cmlG [NN nV] ∧
@@ -754,7 +733,8 @@ Theorem NOTIN_firstSet_nV[simp]:
   TypeT ∉ firstSet cmlG [NN nV] ∧
   SemicolonT ∉ firstSet cmlG [NN nV] ∧ ColonT ∉ firstSet cmlG [NN nV] ∧
   StructureT ∉ firstSet cmlG [NN nV] ∧ WordT w ∉ firstSet cmlG [NN nV] ∧
-  SymbolT "::" ∉ firstSet cmlG [NN nV]
+  SymbolT "::" ∉ firstSet cmlG [NN nV] ∧
+  HandleT ∉ firstSet cmlG [NN nV]
 Proof
   simp[firstSet_nV] >> simp[validPrefixSym_def]
 QED
@@ -794,7 +774,8 @@ Theorem NOTIN_firstSet_nFQV[simp]:
   TypeT ∉ firstSet cmlG [NN nFQV] ∧
   UnderbarT ∉ firstSet cmlG [NN nFQV] ∧
   ValT ∉ firstSet cmlG [NN nFQV] ∧
-  WordT w ∉ firstSet cmlG [NN nFQV]
+  WordT w ∉ firstSet cmlG [NN nFQV] ∧
+  HandleT ∉ firstSet cmlG [NN nV]
 Proof
   simp[firstSet_nFQV]
 QED
@@ -848,4 +829,3 @@ Proof
   fs[firstSet_nV, firstSet_nConstructorName]
 QED
 
-val _ = export_theory();

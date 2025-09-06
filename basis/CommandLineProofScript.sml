@@ -1,19 +1,22 @@
 (*
   Proof about the command-line module of the CakeML standard basis library.
 *)
-open preamble ml_translatorTheory ml_progLib ml_translatorLib cfLib
-     CommandLineProgTheory clFFITheory Word8ArrayProofTheory cfMonadTheory
-
-val _ = new_theory"CommandLineProof";
+Theory CommandLineProof
+Ancestors
+  cfMain cfLetAuto ml_translator CommandLineProg clFFI Word8ArrayProof cfMonad
+Libs
+  preamble ml_progLib ml_translatorLib cfLib
 
 val _ = translation_extends"CommandLineProg";
 
-val wfcl_def = Define`
-  wfcl cl <=> EVERY validArg cl ∧ LENGTH cl < 256 * 256 /\ cl <> []`;
+Definition wfcl_def:
+  wfcl cl <=> EVERY validArg cl ∧ LENGTH cl < 256 * 256 /\ cl <> []
+End
 
-val COMMANDLINE_def = Define `
+Definition COMMANDLINE_def:
   COMMANDLINE cl =
-    IOx cl_ffi_part cl * &wfcl cl`
+    IOx cl_ffi_part cl * &wfcl cl
+End
 
 val set_thm =
   COMMANDLINE_def
@@ -25,10 +28,9 @@ val set_thm =
   |> Q.SPEC`cl`
 val set_tm = set_thm |> concl |> find_term(pred_setSyntax.is_insert)
 
-val COMMANDLINE_precond = Q.prove(
+Theorem COMMANDLINE_precond = Q.prove(
   `wfcl cl ⇒ (COMMANDLINE cl) ^set_tm`,
   rw[set_thm]) |> UNDISCH
-  |> curry save_thm "COMMANDLINE_precond";
 
 Theorem COMMANDLINE_FFI_part_hprop:
    FFI_part_hprop (COMMANDLINE x)
@@ -49,7 +51,8 @@ Theorem CommandLine_read16bit:
      (W8ARRAY av a)
      (POSTv v. W8ARRAY av a * & NUM (w2n (EL 0 a) + 256 * w2n (EL 1 a)) v)
 Proof
-  xcf_with_def "CommandLine.read16bit" CommandLine_read16bit_v_def
+  rpt strip_tac
+  \\ xcf_with_def CommandLine_read16bit_v_def
   \\ xlet_auto THEN1 xsimpl
   \\ xlet_auto THEN1 (fs [] \\ xsimpl)
   \\ xlet_auto THEN1 (fs [] \\ xsimpl)
@@ -68,7 +71,8 @@ Theorem CommandLine_write16bit:
      (W8ARRAY av a)
      (POSTv v. W8ARRAY av (n2w n::n2w (n DIV 256)::TL (TL a)))
 Proof
-  xcf_with_def "CommandLine.write16bit" CommandLine_write16bit_v_def
+  rpt strip_tac
+  \\ xcf_with_def CommandLine_write16bit_v_def
   \\ xlet_auto THEN1 xsimpl
   \\ xlet_auto THEN1 (fs [] \\ xsimpl)
   \\ xlet_auto THEN1 (fs [] \\ xsimpl)
@@ -124,12 +128,12 @@ Proof
   \\ MAP_EVERY qid_spec_tac [`events`, `a`, `cv`, `av`, `nv`, `n`]
   \\ Induct \\ rw []
   THEN1
-   (xcf_with_def "CommandLine.cloop" CommandLine_cloop_v_def
+   (xcf_with_def CommandLine_cloop_v_def
     \\ xlet_auto THEN1 xsimpl
     \\ xif \\ asm_exists_tac \\ fs []
     \\ xvar \\ fs [COMMANDLINE_def, cl_ffi_part_def, IOx_def, IO_def]
     \\ xsimpl \\ qexists_tac `events` \\ xsimpl)
-  \\ xcf_with_def "CommandLine.cloop" CommandLine_cloop_v_def
+  \\ xcf_with_def CommandLine_cloop_v_def
   \\ xlet_auto THEN1 xsimpl
   \\ xif \\ asm_exists_tac \\ fs []
   \\ rpt (xlet_auto THEN1 xsimpl)
@@ -212,7 +216,7 @@ Proof
   rw [] \\ qpat_abbrev_tac `Q = $POSTv _`
   \\ simp [COMMANDLINE_def,cl_ffi_part_def,IOx_def,IO_def]
   \\ xpull \\ qunabbrev_tac `Q`
-  \\ xcf_with_def "CommandLine.cline" CommandLine_cline_v_def
+  \\ xcf_with_def CommandLine_cline_v_def
   \\ fs [UNIT_TYPE_def] \\ rveq
   \\ xmatch
   \\ xlet_auto >- xsimpl
@@ -262,7 +266,8 @@ Theorem CommandLine_name_spec:
     (COMMANDLINE cl)
     (POSTv namev. & STRING_TYPE (HD cl) namev * COMMANDLINE cl)
 Proof
-  xcf_with_def "CommandLine.name" CommandLine_name_v_def
+  rpt strip_tac
+  \\ xcf_with_def CommandLine_name_v_def
   \\ xlet `POSTv cs. & LIST_TYPE STRING_TYPE cl cs * COMMANDLINE cl`
   >-(xapp \\ rw[] \\ fs [])
   \\ Cases_on`cl=[]` >- ( fs[COMMANDLINE_def] \\ xpull \\ fs[wfcl_def] )
@@ -273,8 +278,9 @@ QED
 val tl_v_thm = fetch "ListProg" "tl_v_thm";
 val mlstring_tl_v_thm = tl_v_thm |> INST_TYPE [alpha |-> mlstringSyntax.mlstring_ty]
 
-val name_def = Define `
-  name () = (\cl. (Success (HD cl), cl))`;
+Definition name_def:
+  name () = (\cl. (M_success (HD cl), cl))
+End
 
 Theorem EvalM_name:
    Eval env exp (UNIT_TYPE u) /\
@@ -295,7 +301,8 @@ Theorem CommandLine_arguments_spec:
     (POSTv argv. & LIST_TYPE STRING_TYPE
        (TL cl) argv * COMMANDLINE cl)
 Proof
-  xcf_with_def "CommandLine.arguments" CommandLine_arguments_v_def
+  rpt strip_tac
+  \\ xcf_with_def CommandLine_arguments_v_def
   \\ xlet `POSTv cs. & LIST_TYPE STRING_TYPE cl cs * COMMANDLINE cl`
   >-(xapp \\ rw[] \\ fs [])
   \\ Cases_on`cl=[]` >- ( fs[COMMANDLINE_def] \\ xpull \\ fs[wfcl_def] )
@@ -303,8 +310,9 @@ Proof
   \\ Cases_on `cl` \\ rw[TL_DEF]
 QED
 
-val arguments_def = Define `
-  arguments () = (\cl. (Success (TL cl), cl))`
+Definition arguments_def:
+  arguments () = (\cl. (M_success (TL cl), cl))
+End
 
 Theorem EvalM_arguments:
    Eval env exp (UNIT_TYPE u) /\
@@ -338,5 +346,3 @@ Theorem COMMANDLINE_HPROP_INJ[hprop_inj]:
 Proof
   prove_hprop_inj_tac UNIQUE_COMMANDLINE
 QED
-
-val _ = export_theory();

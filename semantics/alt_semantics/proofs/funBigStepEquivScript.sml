@@ -2,24 +2,15 @@
   Relate functional big-step semantics with relational big-step
   semantics.
 *)
-open preamble evaluateTheory interpTheory semanticPrimitivesTheory
-
-val _ = new_theory"funBigStepEquiv"
+Theory funBigStepEquiv
+Ancestors
+  evaluate evaluateProps interp semanticPrimitives
+Libs
+  preamble
 
 val s = ``s:'ffi state``;
 
-Theorem evaluate_eq_run_eval_list:
-  (∀^s env e.
-    s.eval_state = NONE ⇒
-    evaluate s env e = run_eval_list env e s) ∧
-  (∀^s env v e errv.
-    s.eval_state = NONE ⇒
-    evaluate_match s env v e errv =
-    (I ## list_result) (run_eval_match env v e errv s))
-Proof
-  ho_match_mp_tac evaluate_ind >>
-  rw[evaluate_def,run_eval_def,
-     result_return_def,result_bind_def] >> gvs [] >>
+val prove_tac =
   every_case_tac >> fs[] >> rw[] >> gvs [] >>
   imp_res_tac evaluatePropsTheory.eval_no_eval_simulation >> gvs [] >>
   rpt (qpat_x_assum ‘∀x. _’ kall_tac) >>
@@ -43,7 +34,36 @@ Proof
   fs[set_store_def] >> rw[] >>
   fs[FST_triple] >>
   gvs [do_eval_res_def,do_eval_def] >>
-  gvs [do_app_def,AllCaseEqs()]
+  gvs [do_app_def,AllCaseEqs()];
+
+(*TODO move*)
+Theorem list_result_INJ[simp]:
+  list_result x = list_result y <=>
+  x = y
+Proof
+  rw[oneline list_result_def] >> EVERY_CASE_TAC >> fs[]
+QED
+
+Theorem evaluate_eq_run_eval_list:
+  (∀^s env e.
+    s.eval_state = NONE ⇒
+    evaluate s env e = run_eval_list env e s) ∧
+  (∀^s env v e errv.
+    s.eval_state = NONE ⇒
+    evaluate_match s env v e errv =
+    (I ## list_result) (run_eval_match env v e errv s))
+Proof
+  ho_match_mp_tac evaluate_ind >>
+  rw[evaluate_def,run_eval_def,
+     result_return_def,result_bind_def, Excl"getOpClass_def"] >>
+  gvs [Excl"getOpClass_def"]
+  >~[‘getOpClass op’]
+  >- (
+    ntac 3 TOP_CASE_TAC >> gs[Excl"getOpClass_def"]
+    >- prove_tac
+    >- prove_tac
+    >- prove_tac) >>
+  prove_tac
 QED
 
 Theorem functional_evaluate_list:
@@ -58,9 +78,7 @@ Theorem functional_evaluate_match:
   (evaluate_match s env v pes errv = (s',list_result r) ⇔
      evaluate_match T env s v pes errv (s',r))
 Proof
-  rw[evaluate_run_eval_match,evaluate_eq_run_eval_list] >>
-  Cases_on`run_eval_match env v pes errv s`>>rw[] >>
-  Cases_on`r`>>Cases_on`r'`>>rw[list_result_def]
+  rw[evaluate_run_eval_match,evaluate_eq_run_eval_list]
 QED
 
 Theorem evaluate_decs_eq_run_eval_decs:
@@ -82,15 +100,16 @@ Proof
   imp_res_tac evaluatePropsTheory.eval_no_eval_simulation >> gvs [] >>
   rpt (qpat_x_assum ‘∀x. _’ kall_tac) >>
   gvs [evaluate_eq_run_eval_list] >>
-  gvs [run_eval_def,result_return_def,result_bind_def]
+  gvs [run_eval_def,result_return_def,result_bind_def] >>
+  gvs [EVERY_MEM,EXISTS_MEM]
 QED
 
 Theorem functional_evaluate_decs:
   s.eval_state = NONE ⇒
-  (evaluate_decs s env decs = (s',r) ⇒
+  (evaluate_decs s env decs = (s',r) ⇔
    evaluate_decs T env s decs (s',r))
 Proof
-  rw[evaluate_decs_eq_run_eval_decs,run_eval_decs_spec]
+  rw[evaluate_decs_eq_run_eval_decs,evaluate_decs_run_eval_decs]
 QED
 
 Theorem functional_evaluate:
@@ -102,4 +121,3 @@ Proof
   Cases_on`r` \\ fs[]
 QED
 
-val _ = export_theory()

@@ -2,15 +2,15 @@
   Proofs that the eval mode of the source semantics can
   be switched to one that includes an oracle.
 *)
+Theory source_evalProof
+Ancestors
+  ast[qualified] string[qualified] semantics
+  semanticPrimitivesProps namespaceProps semanticPrimitives
+  evaluateProps evaluate
+Libs
+  preamble experimentalLib
 
-open preamble semanticsTheory namespacePropsTheory
-     semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     evaluatePropsTheory evaluateTheory experimentalLib
-
-val _ = new_theory "source_evalProof";
-
-val _ = set_grammar_ancestry ["ast", "string",
-    "semantics", "semanticPrimitivesProps"];
+val _ = temp_delsimps ["getOpClass_def"]
 
 (* The things the translator is expected to produce from the
    compiler definition etc. *)
@@ -123,7 +123,7 @@ Proof
   Induct
   \\ simp [FORALL_PROD, EXISTS_PROD]
   \\ rw []
-  \\ fs [namespaceTheory.nsBindList_def, quotient_pairTheory.PAIR_REL_THM]
+  \\ fs [namespaceTheory.nsBindList_def]
   \\ irule env_rel_add_nsBind
   \\ simp []
 QED
@@ -200,7 +200,7 @@ Triviality nsSing_eq_bind = namespaceTheory.nsSing_def
     GSYM namespaceTheory.nsEmpty_def]
 
 Triviality pair_CASE_eq_pairarg:
-  pair_CASE p f = (\(x, y). f x y) p
+  pair_CASE p f = (\ (x, y). f x y) p
 Proof
   Cases_on `p` \\ simp []
 QED
@@ -223,14 +223,15 @@ Inductive v_rel:
   (env_rel (v_rel es) env env' ==>
     v_rel es (Recclosure env funs nm) (Recclosure env' funs nm)) /\
   (v_rel es (Litv l) (Litv l)) /\
-  (v_rel es (Loc n) (Loc n))
+  (v_rel es (Loc br n) (Loc br n))
 End
 
 Theorem v_rel_l_simps =
-  [``v_rel es (Litv l) v``, ``v_rel es (Conv cn vs) v``,
-    ``v_rel es (Loc l) v``, ``v_rel es (Vectorv vs) v``,
-    ``v_rel es (Env e id) v``, ``v_rel es (Recclosure env funs nm) v``,
-    ``v_rel es (Closure env nm x) v``]
+  [“v_rel es (Litv l) v”, “v_rel es (Conv cn vs) v”,
+    “v_rel es (Loc b l) v”, “v_rel es (Vectorv vs) v”,
+    “v_rel es (Env e id) v”, “v_rel es (Recclosure env funs nm) v”,
+    “v_rel es (Closure env nm x) v”
+    ]
   |> map (SIMP_CONV (srw_ss ()) [Once v_rel_cases])
   |> map GEN_ALL
   |> LIST_CONJ
@@ -420,8 +421,7 @@ Theorem pmatch:
 Proof
   disch_tac
   \\ ho_match_mp_tac pmatch_ind
-  \\ rw [pmatch_def, match_result_rel_def,
-    quotient_pairTheory.PAIR_REL_THM]
+  \\ rw [pmatch_def, match_result_rel_def]
   \\ rveq \\ fs []
   \\ imp_res_tac v_to_env_id_SOME
   \\ fs [pmatch_def]
@@ -507,9 +507,12 @@ Proof
   \\ imp_res_tac LIST_REL_LENGTH
   \\ imp_res_tac v_to_env_id_SOME
   \\ rveq \\ fs []
-  \\ fs [eq_result_case_eq, bool_case_eq]
+  \\ fs [Boolv_def, eq_result_case_eq, bool_case_eq]
   \\ fs [do_eq_def, nat_to_v_def, lit_same_type_def]
   \\ rw []
+  \\ TRY (Cases_on ‘ys’ ORELSE Cases_on ‘xs’ \\ gs[do_eq_def] \\ NO_TAC)
+  \\ qpat_x_assum `_ = Eq_val _` mp_tac
+  \\ rpt (COND_CASES_TAC \\ gs[])
 QED
 
 Theorem store_assign:
@@ -607,10 +610,10 @@ Theorem do_app_sim:
   r <> Rerr (Rabort Rtype_error)
   ==>
   ? ref1 refs' r' es.
-  es = orac_s t.eval_state /\
-  do_app (t.refs, t.ffi) op (REVERSE ys) = SOME ((refs', ffi), r') /\
-  LIST_REL (sv_rel (v_rel es)) refs refs' /\
-  result_rel (v_rel es) (v_rel es) r r'
+    es = orac_s t.eval_state /\
+    do_app (t.refs, t.ffi) op (REVERSE ys) = SOME ((refs', ffi), r') /\
+    LIST_REL (sv_rel (v_rel es)) refs refs' /\
+    result_rel (v_rel es) (v_rel es) r r'
 Proof
   rw [s_rel_def]
   \\ fs []
@@ -640,7 +643,8 @@ Proof
         \\ rw [EVERY2_LUPDATE_same])
   \\ imp_res_tac LIST_REL_LENGTH
   \\ fs [LIST_REL_REPLICATE_same, EVERY2_LUPDATE_same, LIST_REL_APPEND_EQ]
-  \\ TRY (fs [LIST_REL_EL_EQN] \\ NO_TAC)
+  \\ TRY (Cases_on ‘ys’ using SNOC_CASES \\ gs[SNOC_APPEND, REVERSE_APPEND])
+  \\ TRY (fs [LIST_REL_EL_EQN, EVERY2_REVERSE1] \\ NO_TAC)
 QED
 
 Theorem pairarg_to_pair_map:
@@ -666,130 +670,6 @@ Proof
   ho_match_mp_tac v_rel_ind
   \\ rw []
   \\ fs [EVERY_EL, LIST_REL_EL_EQN, LIST_EQ_REWRITE]
-QED
-
-Theorem concrete_v_enc_option:
-  !opt. concrete_v (enc_option opt) = (!x. opt = SOME x ==> concrete_v x)
-Proof
-  Cases \\ simp [enc_option_def]
-QED
-
-Theorem concrete_v_enc_list:
-  !xs. concrete_v (enc_list xs) = EVERY concrete_v xs
-Proof
-  Induct \\ simp [enc_list_def]
-QED
-
-Theorem concrete_v_enc_id:
-  !id. concrete_v (enc_id id)
-Proof
-  Induct \\ simp [enc_id_def]
-QED
-
-Theorem concrete_v_enc_ast_t:
-  !ast_t. concrete_v (enc_ast_t ast_t)
-Proof
-  recInduct enc_ast_t_ind
-  \\ simp [enc_ast_t_def, concrete_v_enc_id]
-  \\ simp [concrete_v_enc_list, EVERY_MAP]
-  \\ simp [EVERY_MEM]
-QED
-
-Theorem concrete_v_enc_lit:
-  !lit. concrete_v (enc_lit lit)
-Proof
-  Cases
-  \\ simp [enc_lit_def]
-QED
-
-Theorem concrete_v_enc_pat:
-  !pat. concrete_v (enc_pat pat)
-Proof
-  recInduct enc_pat_ind
-  \\ simp [enc_pat_def, concrete_v_enc_ast_t,
-    concrete_v_enc_lit, concrete_v_enc_option]
-  \\ simp [concrete_v_enc_list, EVERY_MAP]
-  \\ simp [EVERY_MEM, PULL_EXISTS, concrete_v_enc_id]
-QED
-
-Theorem concrete_v_enc_lop:
-  !lop. concrete_v (enc_lop lop)
-Proof
-  Cases
-  \\ simp [enc_lop_def]
-QED
-
-Theorem concrete_v_enc_opn:
-  !opn. concrete_v (enc_opn opn)
-Proof
-  Cases
-  \\ simp [enc_opn_def]
-QED
-
-Theorem concrete_v_enc_opb:
-  !opb. concrete_v (enc_opb opb)
-Proof
-  Cases
-  \\ simp [enc_opb_def]
-QED
-
-Theorem concrete_v_enc_opw:
-  !opw. concrete_v (enc_opw opw)
-Proof
-  Cases
-  \\ simp [enc_opw_def]
-QED
-
-Theorem concrete_v_enc_word_size:
-  !word_size. concrete_v (enc_word_size word_size)
-Proof
-  Cases
-  \\ simp [enc_word_size_def]
-QED
-
-Theorem concrete_v_enc_shift:
-  !shift. concrete_v (enc_shift shift)
-Proof
-  Cases
-  \\ simp [enc_shift_def]
-QED
-
-Theorem concrete_v_enc_fp_cmp:
-  !fp_cmp. concrete_v (enc_fp_cmp fp_cmp)
-Proof
-  Cases
-  \\ simp [enc_fp_cmp_def]
-QED
-
-Theorem concrete_v_enc_fp_uop:
-  !fp_uop. concrete_v (enc_fp_uop fp_uop)
-Proof
-  Cases
-  \\ simp [enc_fp_uop_def]
-QED
-
-Theorem concrete_v_enc_fp_bop:
-  !fp_bop. concrete_v (enc_fp_bop fp_bop)
-Proof
-  Cases
-  \\ simp [enc_fp_bop_def]
-QED
-
-Theorem concrete_v_enc_fp_top:
-  !fp_top. concrete_v (enc_fp_top fp_top)
-Proof
-  Cases
-  \\ simp [enc_fp_top_def]
-QED
-
-Theorem concrete_v_enc_op:
-  !op. concrete_v (enc_op op)
-Proof
-  Cases
-  \\ simp [enc_op_def, concrete_v_enc_opn, concrete_v_enc_opb,
-    concrete_v_enc_opw, concrete_v_enc_word_size, concrete_v_enc_shift,
-    nat_to_v_def, concrete_v_enc_fp_cmp, concrete_v_enc_fp_uop,
-    concrete_v_enc_fp_bop, concrete_v_enc_fp_top]
 QED
 
 Theorem v_to_list_concrete:
@@ -892,7 +772,6 @@ Theorem do_eval_sim:
         (orac_s (reset_env_generation t.eval_state t2.eval_state))
   )
 Proof
-
   rw []
   \\ fs [do_eval_def, s_rel_def] \\ fs []
   \\ fs [list_case_eq, v_case_eq, option_case_eq, pair_case_eq]
@@ -1084,27 +963,7 @@ Proof
   rw []
   \\ reverse (fs [pair_case_eq, result_case_eq] \\ rveq \\ fs [])
   \\ insts_tac
-  \\ Cases_on `op = Opapp`
-  >- (
-    rveq \\ fs []
-    \\ imp_res_tac s_rel_clock
-    \\ fs [do_opapp_def]
-    \\ eval_cases_tac
-    \\ fs [listTheory.SWAP_REVERSE_SYM, CaseEq "v"] \\ rveq \\ fs []
-    \\ fs [listTheory.SWAP_REVERSE, miscTheory.FST_triple]
-    \\ eval_cases_tac
-    \\ insts_tac
-    \\ rfs [EVAL ``(dec_clock s).eval_state``]
-    \\ first_x_assum (qsubterm_then `evaluate _ _ _` mp_tac)
-    \\ impl_tac \\ rw [] \\ insts_tac
-    \\ irule env_rel_add_nsBind
-    \\ insts_tac
-    \\ simp [build_rec_env_merge, nsAppend_to_nsBindList]
-    \\ irule env_rel_add_nsBindList
-    \\ simp [LIST_REL_MAP1, SIMP_RULE (bool_ss ++ ETA_ss) [] LIST_REL_MAP2]
-    \\ simp [ELIM_UNCURRY, quotient_pairTheory.PAIR_REL_THM, EVERY2_refl]
-  )
-  \\ Cases_on `op = Eval`
+  \\ Cases_on `getOpClass op`
   >- (
     fs [do_eval_res_def, evaluate_def, do_con_check_def]
     \\ fs [option_case_eq, pair_case_eq] \\ rveq \\ fs []
@@ -1124,6 +983,25 @@ Proof
     \\ insts_tac
     \\ first_x_assum drule \\ impl_tac
     \\ rw [] \\ insts_tac
+  )
+  >- (
+    rveq \\ fs []
+    \\ imp_res_tac s_rel_clock
+    \\ fs [do_opapp_def]
+    \\ eval_cases_tac
+    \\ fs [listTheory.SWAP_REVERSE_SYM, CaseEq "v"] \\ rveq \\ fs []
+    \\ fs [listTheory.SWAP_REVERSE, miscTheory.FST_triple]
+    \\ eval_cases_tac
+    \\ insts_tac
+    \\ rfs [EVAL ``(dec_clock s).eval_state``]
+    \\ first_x_assum (qsubterm_then `evaluate _ _ _` mp_tac)
+    \\ impl_tac \\ rw [] \\ insts_tac
+    \\ irule env_rel_add_nsBind
+    \\ insts_tac
+    \\ simp [build_rec_env_merge, nsAppend_to_nsBindList]
+    \\ irule env_rel_add_nsBindList
+    \\ simp [LIST_REL_MAP1, SIMP_RULE (bool_ss ++ ETA_ss) [] LIST_REL_MAP2]
+    \\ simp [ELIM_UNCURRY, EVERY2_refl]
   )
   \\ eval_cases_tac
   \\ drule_then (drule_then assume_tac) do_app_sim
@@ -1208,7 +1086,7 @@ Proof
   \\ simp [build_rec_env_merge, nsAppend_to_nsBindList]
   \\ irule env_rel_add_nsBindList
   \\ simp [LIST_REL_MAP1, SIMP_RULE (bool_ss ++ ETA_ss) [] LIST_REL_MAP2]
-  \\ simp [quotient_pairTheory.PAIR_REL_THM, ELIM_UNCURRY]
+  \\ simp [ELIM_UNCURRY]
   \\ simp [GSYM pairarg_to_pair_map, ELIM_UNCURRY, EVERY2_refl]
 QED
 
@@ -1247,6 +1125,12 @@ Proof
   \\ insts_tac
 QED
 
+Triviality env_rel_imp_c:
+  env_rel x env env' ⇒ env'.c = env.c
+Proof
+  fs [env_rel_def]
+QED
+
 Triviality eval_simulation_Dletrec:
   ^(#get_goal eval_simulation_setup `Case (_, [Dletrec _ _])`)
 Proof
@@ -1254,11 +1138,12 @@ Proof
   \\ eval_cases_tac
   \\ insts_tac
   \\ fs [miscTheory.FST_triple, MAP_MAP_o, o_DEF, ELIM_UNCURRY, ETA_THM]
+  \\ imp_res_tac env_rel_imp_c
   \\ simp [build_rec_env_merge, nsAppend_to_nsBindList]
   \\ irule env_rel_add_nsBindList
   \\ simp []
   \\ simp [LIST_REL_MAP1, SIMP_RULE (bool_ss ++ ETA_ss) [] LIST_REL_MAP2]
-  \\ simp [quotient_pairTheory.PAIR_REL_THM, ELIM_UNCURRY]
+  \\ simp [ELIM_UNCURRY]
   \\ simp [EVERY2_refl]
 QED
 
@@ -1325,6 +1210,7 @@ Proof
     (* big hammer for similar cases *)
     eval_cases_tac
     \\ fs []
+    \\ imp_res_tac env_rel_imp_c
     \\ insts_tac
     \\ fs [do_con_check_def, build_conv_def, do_log_def, do_if_def]
     \\ TRY (drule_then (drule_then assume_tac) can_pmatch_all)
@@ -1343,8 +1229,11 @@ Proof
   )
 QED
 
+Overload shift_seq = “misc$shift_seq”
+
 Definition do_eval_oracle_def:
-  do_eval_oracle (f : compiler_fun) vs (orac : eval_oracle_fun) =
+  do_eval_oracle (f : compiler_fun) (g : dec list -> dec list) vs
+    (orac : eval_oracle_fun) =
   case vs of
     | [env_id_v; st_v; decs_v; st_v2; bs_v; ws_v] =>
       let (env_id, st, decs) = orac 0 in
@@ -1352,20 +1241,22 @@ Definition do_eval_oracle_def:
             v_to_word64_list ws_v of
         | (SOME (st_v2, c_bs, c_ws), SOME bs, SOME ws) =>
             if bs = c_bs /\ ws = c_ws /\ st_v2 = (FST (SND (orac 1)))
-            then SOME (env_id, shift_seq 1 orac, decs)
+            then SOME (env_id, shift_seq 1 orac, g decs)
             else NONE
         | _ => NONE
       )
     | _ => NONE
 End
 
-Definition insert_oracle_def:
-  insert_oracle ci orac es = case es of
+Definition insert_gen_oracle_def:
+  insert_gen_oracle ci g shift_f orac es = case es of
     | SOME (EvalOracle s) => SOME (EvalOracle (s with <|
-        custom_do_eval := do_eval_oracle (mk_compiler_fun_from_ci ci) ;
-        oracle := shift_seq (FST (FST (s.oracle 0))) orac |>))
+        custom_do_eval := do_eval_oracle (mk_compiler_fun_from_ci ci) g;
+        oracle := shift_seq (shift_f (s.oracle 0)) orac |>))
     | _ => es
 End
+
+Overload insert_oracle[local] = ``\ci. insert_gen_oracle ci I (FST o FST)``;
 
 Definition orac_agrees_def:
   orac_agrees orac es = case es of
@@ -1440,7 +1331,7 @@ Proof
   simp [is_record_def, Once do_eval_def]
   \\ disch_tac
   \\ fs [option_case_eq, eval_state_case_eq, pair_case_eq] \\ rveq \\ fs []
-  \\ fs [do_eval_def, add_env_generation_def, insert_oracle_def]
+  \\ fs [do_eval_def, add_env_generation_def, insert_gen_oracle_def]
   \\ fs [do_eval_record_def, list_case_eq, option_case_eq] \\ rveq \\ fs []
   \\ rpt (pairarg_tac \\ fs [])
   \\ every_case_tac \\ fs []
@@ -1475,7 +1366,7 @@ Theorem insert_declare_env:
   (recorded_orac_wf (ci_comp ci) (orac_s es1).oracle ==>
     recorded_orac_wf (ci_comp ci) (orac_s es2).oracle)
 Proof
-  simp [is_record_def, declare_env_def, insert_oracle_def]
+  simp [is_record_def, declare_env_def, insert_gen_oracle_def]
   \\ every_case_tac \\ fs []
   \\ disch_tac
   \\ fs [] \\ rveq \\ fs []
@@ -1493,7 +1384,7 @@ Theorem reset_env_generation_orac_eqs:
     insert_oracle ci orac (reset_env_generation es1 es2)) ∧
   ((orac_s (reset_env_generation es2 es3)).oracle = (orac_s es3).oracle)
 Proof
-  simp [is_record_def, reset_env_generation_def, insert_oracle_def]
+  simp [is_record_def, reset_env_generation_def, insert_gen_oracle_def]
   \\ every_case_tac \\ fs []
   \\ simp [record_forward_def, orac_agrees_def]
 QED
@@ -1542,7 +1433,7 @@ Proof
   \\ fs []
   \\ simp [record_forward_refl]
   >- (
-    Cases_on `op = Eval` \\ Cases_on `op = Opapp` \\ fs []
+    Cases_on ‘getOpClass op’ \\ fs[]
     \\ full_simp_tac bool_ss [do_eval_res_def, bool_case_eq, pair_case_eq,
         option_case_eq, result_case_eq, dec_clock_def]
     \\ rveq \\ full_simp_tac bool_ss [PAIR_EQ]
@@ -1554,6 +1445,7 @@ Proof
     \\ fs [GSYM PULL_FORALL, reset_env_generation_orac_eqs]
     \\ rpt (drule_then irule record_forward_trans_sym)
     \\ simp [record_forward_refl]
+    \\ COND_CASES_TAC \\ gs[]
   )
   \\ fs [pair_case_eq, option_case_eq, result_case_eq] \\ rveq \\ fs []
   \\ rpt (drule_then irule record_forward_trans_sym)
@@ -1636,16 +1528,7 @@ Triviality insert_oracle_correct_App:
 Proof
   rw []
   \\ fs [pair_case_eq, result_case_eq] \\ rveq \\ fs []
-  \\ fs [bool_case_eq] \\ rveq \\ fs []
-  >- (
-    (* Opapp *)
-    eval_cases_tac
-    \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ] \\ rveq \\ fs []
-    \\ fs [dec_clock_def]
-    \\ imp_res_simp_tac evaluate_is_record_forward
-    \\ agrees_impl_tac
-    \\ simp []
-  )
+  \\ fs [bool_case_eq] \\ rveq \\ fs [] \\ Cases_on ‘getOpClass op’ \\ gs[]
   >- (
     (* Eval *)
     fs [do_eval_res_def, Q.ISPEC `(a, b)` EQ_SYM_EQ, pair_case_eq]
@@ -1671,8 +1554,16 @@ Proof
     \\ simp [reset_env_generation_orac_eqs]
   )
   >- (
+    (* Opapp *)
     eval_cases_tac
+    \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ] \\ rveq \\ fs []
+    \\ fs [dec_clock_def]
+    \\ imp_res_simp_tac evaluate_is_record_forward
+    \\ agrees_impl_tac
+    \\ simp []
   )
+  \\ eval_cases_tac
+  \\ gs[]
 QED
 
 Triviality insert_oracle_correct_Denv:
@@ -1784,6 +1675,7 @@ Proof
   \\ rveq \\ fs []
   \\ simp [record_forward_refl]
   \\ fs [do_eval_res_def]
+  \\ TRY( rename1 ‘getOpClass op’ \\ Cases_on ‘getOpClass op’)
   \\ eval_cases_tac
   \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, dec_clock_def]
   \\ rveq \\ fs []
@@ -1800,6 +1692,7 @@ Proof
             \\ drule_then irule record_forward_trans)
         \\ NO_TAC)
   \\ simp [combine_dec_result_def]
+  \\ gs[]
 QED
 
 (* Constructs the oracle from an evaluation by using the recorded
@@ -2160,4 +2053,251 @@ Proof
   )
 QED
 
-val _ = export_theory ();
+(* for use in source-to-source phases, a proof that the oracle can be adjusted
+   by any stateless compiler *)
+
+Definition adjust_oracle_def:
+  adjust_oracle ci f es = (case es of
+    NONE => es
+  | SOME (EvalDecs _) => es
+  | SOME (EvalOracle o_s) => SOME (EvalOracle
+        (o_s with custom_do_eval := do_eval_oracle (ci_comp ci) f)))
+End
+
+Theorem adjust_oracle_insert_gen_oracle:
+  adjust_oracle ci f (insert_gen_oracle ci g shift_f orac es) =
+    insert_gen_oracle ci f shift_f orac es
+Proof
+  simp [insert_gen_oracle_def, adjust_oracle_def]
+  \\ every_case_tac
+  \\ simp [state_component_equality]
+QED
+
+Overload s_adjust_oracle[local] = ``\ci f s. s with eval_state updated_by (adjust_oracle ci f)``;
+
+Definition is_insert_oracle_def:
+  is_insert_oracle ci f es = (?es' shift_f orac. es = insert_gen_oracle ci f shift_f orac es')
+End
+
+Triviality is_insert_decs:
+  is_insert_oracle ci f (SOME (EvalDecs eds))
+Proof
+  simp [is_insert_oracle_def, insert_gen_oracle_def,
+    Q.ISPEC `SOME _` EQ_SYM_EQ, option_case_eq, eval_state_case_eq]
+  \\ dsimp []
+QED
+
+Triviality do_eval_adjust:
+  do_eval vs es = SOME (env1, decs, es1) ∧
+  is_insert_oracle ci f es ==>
+  (do_eval vs (adjust_oracle ci (g o f) es) = SOME (env1, g decs, adjust_oracle ci (g o f) es1)
+    ∨ do_eval vs (adjust_oracle ci (g o f) es) = SOME (env1, decs, adjust_oracle ci (g o f) es1))
+  ∧
+  is_insert_oracle ci f es1
+Proof
+  rw [do_eval_def]
+  \\ fs [option_case_eq, eval_state_case_eq, list_case_eq, v_case_eq, pair_case_eq] \\ gvs []
+  \\ fs [is_insert_decs]
+  \\ simp [adjust_oracle_def]
+  >- (
+    fs [is_insert_oracle_def, insert_gen_oracle_def, Q.ISPEC `SOME _` EQ_SYM_EQ]
+    \\ fs [option_case_eq, eval_state_case_eq] \\ gvs []
+    \\ fs [do_eval_oracle_def, list_case_eq]
+    \\ rpt (pairarg_tac \\ fs [])
+    \\ gvs [option_case_eq, pair_case_eq, bool_case_eq]
+    \\ Cases_on `env_id`
+    \\ fs [lookup_env_def]
+    \\ simp [add_env_generation_def]
+  )
+  >- (
+    fs [is_insert_oracle_def, insert_gen_oracle_def, Q.ISPEC `SOME _` EQ_SYM_EQ]
+    \\ fs [option_case_eq, eval_state_case_eq] \\ gvs []
+    \\ simp [add_env_generation_def]
+    \\ dsimp []
+    \\ qexists_tac `\_. 0`
+    \\ simp [Q.SPEC `0` shift_seq_def, ETA_THM]
+    \\ irule_at Any EQ_REFL
+  )
+QED
+
+Triviality declare_env_adjust:
+  declare_env (adjust_oracle ci f es) env = (case declare_env es env of
+    NONE => NONE
+  | SOME (x, es2) => SOME (x, adjust_oracle ci f es2))
+Proof
+  simp [adjust_oracle_def, declare_env_def]
+  \\ every_case_tac
+  \\ fs []
+QED
+
+Triviality adjust_oracle_reset:
+  adjust_oracle ci f (reset_env_generation es1 es2) =
+    reset_env_generation (adjust_oracle ci f es1) (adjust_oracle ci f es2)
+Proof
+  simp [adjust_oracle_def, reset_env_generation_def]
+  \\ every_case_tac
+  \\ fs []
+QED
+
+Triviality is_insert_related:
+  is_insert_oracle ci f (SOME (EvalOracle es)) ==>
+  (es2.custom_do_eval = es.custom_do_eval /\ es2.oracle = es.oracle) ==>
+  is_insert_oracle ci f (SOME (EvalOracle es2))
+Proof
+  rw [is_insert_oracle_def, insert_gen_oracle_def, Q.ISPEC `SOME _` EQ_SYM_EQ]
+  \\ fs [option_case_eq, eval_state_case_eq] \\ gvs []
+  \\ dsimp []
+  \\ simp [eval_oracle_state_component_equality]
+  \\ qexists_tac `\_. 0`
+  \\ simp [Q.SPEC `0` shift_seq_def, ETA_THM]
+  \\ irule_at (Pat `_.generation = _`) EQ_REFL
+  \\ simp []
+QED
+
+Triviality is_insert_reset:
+  is_insert_oracle ci f (reset_env_generation es1 es2) = is_insert_oracle ci f es2
+Proof
+  simp [reset_env_generation_def]
+  \\ every_case_tac
+  \\ fs [is_insert_decs]
+  \\ EQ_TAC \\ rw []
+  \\ drule_then irule is_insert_related
+  \\ fs []
+QED
+
+Triviality declare_env_is_insert:
+  declare_env es env = SOME (x, es2) /\
+  is_insert_oracle ci f es ==>
+  is_insert_oracle ci f es2
+Proof
+  rw [declare_env_def]
+  \\ fs [option_case_eq, eval_state_case_eq, pair_case_eq] \\ gvs []
+  \\ fs [is_insert_decs]
+  \\ drule_then irule is_insert_related
+  \\ fs []
+QED
+
+Theorem adjust_oracle_evaluate:
+  (∀ ^s env ds s' res.
+    evaluate_decs s env ds = (s', res) ∧
+    res ≠ Rerr (Rabort Rtype_error) ⇒
+      evaluate_decs s env (compile_decs ds) = (s', res)) ⇒
+  (∀ ^s env exps s' res.
+    evaluate s env exps = (s', res) ∧
+    is_insert_oracle ci f s.eval_state ∧
+    res ≠ Rerr (Rabort Rtype_error) ⇒
+      is_insert_oracle ci f s'.eval_state ∧
+      evaluate (s_adjust_oracle ci (compile_decs o f) s) env exps =
+          (s_adjust_oracle ci (compile_decs o f) s', res)) ∧
+  (∀ ^s env x pes err_x s' res.
+    evaluate_match s env x pes err_x = (s', res) ∧
+    is_insert_oracle ci f s.eval_state ∧
+    res ≠ Rerr (Rabort Rtype_error) ⇒
+      is_insert_oracle ci f s'.eval_state ∧
+      evaluate_match (s_adjust_oracle ci (compile_decs o f) s) env x pes err_x =
+          (s_adjust_oracle ci (compile_decs o f) s', res)) ∧
+  (∀ ^s env ds s' res.
+    evaluate_decs s env ds = (s', res) ∧
+    is_insert_oracle ci f s.eval_state ∧
+    res ≠ Rerr (Rabort Rtype_error) ⇒
+      is_insert_oracle ci f s'.eval_state ∧
+      evaluate_decs (s_adjust_oracle ci (compile_decs o f) s) env ds =
+          (s_adjust_oracle ci (compile_decs o f) s', res))
+Proof
+  disch_tac
+  \\ ho_match_mp_tac (name_ind_cases [] full_evaluate_ind)
+  \\ fs [full_evaluate_def]
+  \\ rpt conj_tac
+  \\ rpt (pairarg_tac \\ gvs [])
+  >~ [`Case [App _ _]`] >- (
+    rpt (gen_tac ORELSE disch_tac)
+    \\ (fs [pair_case_eq, result_case_eq] \\ rveq \\ fs [])
+    \\ reverse (Cases_on `getOpClass op = EvalOp`)
+    >- (
+      fs [astTheory.op_class_case_eq]
+      \\ fs [bool_case_eq, Q.ISPEC `(a, b)` EQ_SYM_EQ]
+      \\ gvs []
+      \\ fs [option_case_eq, pair_case_eq, bool_case_eq, result_case_eq]
+      \\ insts_tac
+      \\ fs [dec_clock_def]
+    )
+    (* Eval *)
+    \\ fs [do_eval_res_def]
+    \\ fs [pair_case_eq, result_case_eq, option_case_eq] \\ gvs []
+    \\ drule_then drule do_eval_adjust
+    \\ disch_then (qspec_then `compile_decs` assume_tac)
+    \\ simp []
+    \\ fs [bool_case_eq] \\ gvs []
+    \\ fs [dec_clock_def]
+    \\ fs [pair_case_eq]
+    \\ TRY (last_x_assum (irule_at Any))
+    \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, pair_case_eq, result_case_eq,
+        option_case_eq, error_result_case_eq] \\ gvs []
+    \\ fs [declare_env_adjust, adjust_oracle_reset, is_insert_reset]
+    \\ drule declare_env_is_insert
+    \\ simp []
+  )
+  >~ [`Case [Denv _]`] >- (
+    rw []
+    \\ fs [option_case_eq, pair_case_eq] \\ gvs []
+    \\ simp [declare_env_adjust]
+    \\ drule_then irule declare_env_is_insert
+    \\ simp []
+  )
+  (* brute force remaining goals *)
+  \\ rw []
+  \\ fs [pair_case_eq, option_case_eq, result_case_eq] \\ rveq \\ fs []
+  \\ eval_cases_tac
+  \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ]
+  \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, combine_dec_result_eq_Rerr]
+  \\ try (drule_then drule declare_env_is_insert)
+  \\ fs [declare_env_adjust]
+QED
+
+Triviality adjust_oracle_ev_decs =
+  adjust_oracle_evaluate |> UNDISCH |> CONJUNCTS |> List.last |> DISCH_ALL
+    |> SIMP_RULE bool_ss [PULL_FORALL]
+    |> Q.SPEC `s with clock := k`
+    |> SIMP_RULE (srw_ss ()) []
+
+Theorem adjust_oracle_semantics_prog:
+  !compile f.
+  (∀ ^s env ds s' res.
+    evaluate_decs s env ds = (s', res) ∧
+    res ≠ Rerr (Rabort Rtype_error) ⇒
+      evaluate_decs s env (compile ds) = (s', res)) ⇒
+  is_insert_oracle ci f ^s.eval_state ∧
+  ¬ semantics_prog ^s env prog Fail ∧
+  semantics_prog ^s env prog outcome ⇒
+  semantics_prog (s_adjust_oracle ci (compile o f) ^s) env prog outcome
+Proof
+  Cases_on ‘outcome’ \\ gs [SF CONJ_ss]
+  >~ [‘Terminate outcome tr’] >- (
+    rw [semantics_prog_def]
+    \\ gs [evaluate_prog_with_clock_def]
+    \\ pairarg_tac \\ gvs []
+    \\ drule_then (drule_then drule) adjust_oracle_ev_decs
+    \\ rw []
+    \\ qexists_tac ‘k’ \\ simp [])
+  >~ [‘Diverge tr’] >- (
+    rw [semantics_prog_def]
+    >- (
+      first_x_assum (qspec_then ‘k’ strip_assume_tac)
+      \\ gs [evaluate_prog_with_clock_def]
+      \\ rpt (pairarg_tac \\ gvs [])
+      \\ drule_then (drule_then drule) adjust_oracle_ev_decs
+      \\ simp [])
+    \\ qmatch_asmsub_abbrev_tac ‘IMAGE f1’
+    \\ qmatch_goalsub_abbrev_tac ‘IMAGE f2’
+    \\ ‘f1 = f2’
+      suffices_by (rw [] \\ gs [])
+    \\ unabbrev_all_tac
+    \\ rw [FUN_EQ_THM]
+    \\ gs [evaluate_prog_with_clock_def]
+    \\ rpt (pairarg_tac \\ gs [])
+    \\ last_x_assum (qspec_then ‘k’ assume_tac) \\ gs []
+    \\ drule_then (drule_then drule) adjust_oracle_ev_decs
+    \\ simp []
+  )
+QED
+

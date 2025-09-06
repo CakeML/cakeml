@@ -1,11 +1,18 @@
 (*
   Compiles the lpr example by evaluation inside the logic of HOL
 *)
-open preamble compilationLib lpr_arrayFullProgTheory
+Theory lpr_arrayCompile
+Ancestors
+  lpr_arrayFullProg
+Libs
+  preamble eval_cake_compile_x64Lib
 
-val _ = new_theory "lpr_arrayCompile"
+Theorem lpr_array_compiled =
+  eval_cake_compile_x64 "" check_unsat_prog_def "cake_lpr.S";
 
-val lpr_array_compiled = save_thm("lpr_array_compiled",
-  compile_x64 "lpr_array" check_unsat_prog_def);
+(*
+val _ =
+  eval_cake_compile_explore_x64 "explore_"
+    check_unsat_prog_def "cake_lpr_explore.txt";
+*)
 
-val _ = export_theory ();

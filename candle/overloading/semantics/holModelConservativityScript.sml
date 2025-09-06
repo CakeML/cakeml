@@ -6,17 +6,19 @@
   fragment*. In the independent fragment are all types and constants that are
   not depending on what is introduced by the update.
  *)
-open preamble mlstringTheory setSpecTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
-     holSemanticsTheory holSemanticsExtraTheory holSoundnessTheory holAxiomsSyntaxTheory holBoolTheory
-     holExtensionTheory
+Theory holModelConservativity
+Ancestors
+  mlstring setSpec holSyntaxLib holSyntax holSyntaxExtra
+  holSemantics holSemanticsExtra holSoundness holAxiomsSyntax
+  holBool holExtension
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
-
-val _ = new_theory"holModelConservativity"
 
 val _ = Parse.hide "mem";
 
@@ -650,6 +652,11 @@ Proof
     >> rveq
     >> qpat_x_assum `IS_SUFFIX _ init_ctxt` (strip_assume_tac o REWRITE_RULE[IS_SUFFIX_APPEND])
     >> fs[init_ctxt_def]
+    >> imp_res_tac proves_term_ok
+    >> gvs[]
+    >> gvs[Once has_type_cases]
+    >> imp_res_tac WELLTYPED_LEMMA
+    >> simp[is_fun_def]
   )
   >> fs[consts_of_upd_def,updates_cases,dependency_cases]
 QED
@@ -1432,6 +1439,7 @@ Theorem rep_abs_indep_frag_upd:
   ∀σ name pred l abs rep ctxt upd.
   MEM upd ctxt
   ∧ MEM (TypeDefn name pred abs rep) ctxt
+  ∧ is_fun (typeof pred)
   ∧ Tyapp name (MAP Tyvar (mlstring_sort (tvars pred))) ∈ nonbuiltin_types
   ∧ ((abs, (TYPE_SUBST σ (Fun (domain (typeof pred)) (Tyapp name (MAP Tyvar (mlstring_sort (tvars pred))))))) ∈ (SND (indep_frag_upd ctxt upd (total_fragment (sigof ctxt))))
   ∨ (rep, (TYPE_SUBST σ (Fun (Tyapp name (MAP Tyvar (mlstring_sort (tvars pred)))) (domain (typeof pred)))))
@@ -1481,6 +1489,7 @@ Theorem rep_abs_indep_frag_upd_TYPE_SUBSTf:
   ∀ctxt upd σ name pred abs rep.
   MEM upd ctxt
   ∧ MEM (TypeDefn name pred abs rep) ctxt
+  ∧ is_fun (typeof pred)
   ∧ Tyapp name (MAP Tyvar (mlstring_sort (tvars pred))) ∈ nonbuiltin_types
   ∧ ((abs, (TYPE_SUBSTf σ (Fun (domain (typeof pred)) (Tyapp name (MAP Tyvar (mlstring_sort (tvars pred))))))) ∈ (SND (indep_frag_upd ctxt upd (total_fragment (sigof ctxt))))
   ∨ (rep, (TYPE_SUBSTf σ (Fun (Tyapp name (MAP Tyvar (mlstring_sort (tvars pred)))) (domain (typeof pred)))))
@@ -1622,7 +1631,7 @@ Proof
   simp[] >>
   drule_then match_mp_tac RTC_RTC >>
   match_mp_tac RTC_SUBSET >>
-  simp[subtype1_def]
+  simp[subtype1_cases]
 QED
 
 (* the independent fragment of an update's dependencies
@@ -1779,7 +1788,11 @@ Proof
       map_every qexists_tac [`name`,`pred`,`abs`,`rep`] >>
       simp[] >>
       rveq >>
-      simp[Abbr `abs_type`,mlstring_sort_def]
+      simp[Abbr `abs_type`,mlstring_sort_def] >>
+      imp_res_tac proves_term_ok >> gvs[] >>
+      gvs[Once has_type_cases] >>
+      imp_res_tac WELLTYPED_LEMMA >>
+      simp[is_fun_def]
     )
     (* abs *)
     >- (
@@ -1795,7 +1808,11 @@ Proof
       rveq >>
       rename1`TypeDefn name pred abs rep` >>
       map_every qexists_tac [`name`,`pred`,`abs`,`rep`] >>
-      fs[GSYM mlstring_sort_def]
+      fs[GSYM mlstring_sort_def] >>
+      imp_res_tac proves_term_ok >> gvs[] >>
+      gvs[Once has_type_cases] >>
+      imp_res_tac WELLTYPED_LEMMA >>
+      simp[is_fun_def]
     ) >>
     Cases_on `type_ok (tysof ctxt) ty` >-
       (res_tac >>
@@ -1909,8 +1926,7 @@ val one_one_conext = EVAL ``conexts_of_upd(EL 3 (mk_infinity_ctxt ARB))`` |> con
 
 (* construction of the model extension basing on the independent fragment *)
 
-val type_interpretation_ext_of_def =
-  tDefine "type_interpretation_ext_of0" `
+Definition type_interpretation_ext_of0_def:
   (type_interpretation_ext_of0
    ^mem ind upd ctxt Δ (Γ :mlstring # type -> 'U) ty =
    if ~terminating(subst_clos (dependency (upd::ctxt))) then
@@ -2055,8 +2071,8 @@ val type_interpretation_ext_of_def =
                        sigma'
                        trm0
          | NONE => One (* cannot happen *)
-  )`
-(
+  )
+Termination
   wf_rel_tac `subst_clos_term_ext_rel`
   >- (
     rw[wellorderTheory.WF_IND,subst_clos_term_ext_rel_def,WF_TC_EQN] >>
@@ -2465,6 +2481,11 @@ val type_interpretation_ext_of_def =
            (reverse FULL_CASE_TAC >- metis_tac[]) >>
            pop_assum kall_tac >>
            fs[] >>
+           ‘is_fun(typeof pred)’
+             by(imp_res_tac proves_term_ok >> gvs[] >>
+                gvs[Once has_type_cases] >>
+                imp_res_tac WELLTYPED_LEMMA >>
+                simp[is_fun_def]) >>
            simp[EXISTS_OR_THM,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR] >>
            rveq >> fs[]) >>
         match_mp_tac(CONJUNCT2(SPEC_ALL TC_RULES)) >>
@@ -2501,6 +2522,11 @@ val type_interpretation_ext_of_def =
         (reverse FULL_CASE_TAC >- metis_tac[]) >>
         pop_assum kall_tac >>
         fs[] >>
+        ‘is_fun(typeof pred)’
+          by(imp_res_tac proves_term_ok >> gvs[] >>
+             gvs[Once has_type_cases] >>
+             imp_res_tac WELLTYPED_LEMMA >>
+             simp[is_fun_def]) >>
         simp[EXISTS_OR_THM,LEFT_AND_OVER_OR,RIGHT_AND_OVER_OR] >>
         rveq >> fs[])) >-
       ((* abs or rep matches two distinct typedefs (impossible) *)
@@ -2577,11 +2603,12 @@ val type_interpretation_ext_of_def =
           fs[extends_init_def]
          )
       )
-  )
+End
 
 Overload type_interpretation_ext_of = ``type_interpretation_ext_of0 ^mem``
 Overload term_interpretation_ext_of = ``term_interpretation_ext_of0 ^mem``
 
+val type_interpretation_ext_of_def = type_interpretation_ext_of0_def;
 val type_interpretation_ext_of_ind = fetch "-" "type_interpretation_ext_of0_ind";
 
 (* symbols from the independent fragment keeps their earlier interpretation *)
@@ -3843,7 +3870,7 @@ QED
 
 (* models that can be extended require that each constant is interpreted as
  * equal to its witness *)
-val models_ConstSpec_witnesses_def = xDefine "models_ConstSpec_witnesses"`
+Definition models_ConstSpec_witnesses_def:
   models_ConstSpec_witnesses0 ^mem (Δ:type->'U) (Γ :mlstring # type -> 'U) ctxt =
     ∀ov cl prop c cdefn ty sigma. MEM (ConstSpec ov cl prop) ctxt
     ∧ MEM (c,cdefn) cl
@@ -3854,7 +3881,8 @@ val models_ConstSpec_witnesses_def = xDefine "models_ConstSpec_witnesses"`
       = termsem (ext_type_frag_builtins Δ)
                 (ext_term_frag_builtins (ext_type_frag_builtins Δ) Γ)
                 empty_valuation (λx. REV_ASSOCD (Tyvar x) sigma (Tyvar x)) cdefn
-`
+End
+
 Overload models_ConstSpec_witnesses = ``models_ConstSpec_witnesses0 ^mem``
 
 Theorem terms_of_frag_uninst_ConstSpec_indep_frag_upd:
@@ -4133,6 +4161,31 @@ Proof
   >> fs[]
 QED
 
+(* TODO: move *)
+Theorem is_fun_pred_extends:
+  ctxt extends [] ∧
+  MEM (TypeDefn name pred abs rep) ctxt ⇒
+  is_fun(typeof pred)
+Proof
+  rw[MEM_SPLIT] >>
+  FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC,APPEND] >>
+  dxrule extends_APPEND_NIL >>
+  rw[extends_def,updates_cases,Once RTC_CASES1] >>
+  imp_res_tac proves_term_ok >> gvs[] >>
+  pop_assum (strip_assume_tac o REWRITE_RULE[Once has_type_cases]) >>
+  gvs[] >>
+  imp_res_tac WELLTYPED_LEMMA >>
+  simp[is_fun_def]
+QED
+
+Theorem is_fun_pred_extends':
+  ctxt extends init_ctxt ∧
+  MEM (TypeDefn name pred abs rep) ctxt ⇒
+  is_fun(typeof pred)
+Proof
+  metis_tac[init_ctxt_extends,extends_trans,is_fun_pred_extends]
+QED
+
 Theorem terms_of_frag_uninst_TypeDefn_indep_frag_upd:
   !ctxt upd name pred abs rep sigma abstype reptype.
   extends_init (upd::ctxt)
@@ -4175,7 +4228,8 @@ Proof
   >> rename1`TypeDefn name pred abs rep`
   >> qspecl_then [`ext`,`upd`,`sigma`,`name`,`pred`,`abs`,`rep`] mp_tac rep_abs_indep_frag_upd_TYPE_SUBSTf
   >> impl_tac
-  >- (unabbrev_all_tac >> fs[TYPE_SUBST_eq_TYPE_SUBSTf])
+  >- (unabbrev_all_tac >> fs[TYPE_SUBST_eq_TYPE_SUBSTf] >>
+      imp_res_tac is_fun_pred_extends)
   >> qpat_x_assum `_ ∈ SND (indep_frag_upd _ _ _)` kall_tac
   >> strip_tac
   >> ONCE_REWRITE_TAC[GSYM PAIR]
@@ -7892,9 +7946,10 @@ Proof
                    imp_res_tac ALOOKUP_MEM >>
                    fs[MEM_MAP,PULL_EXISTS] >> metis_tac[FST]
                   ) >>
+                 ‘is_fun(typeof pred)’
+                   by(drule is_fun_pred_extends' >> rw[]) >>
                  simp[Once dependency_cases,allTypes'_defn,Abbr ‘a1’,RIGHT_AND_OVER_OR,EXISTS_OR_THM,
-                      mlstring_sort_def]
-                ) >>
+                      mlstring_sort_def]) >>
             qpat_x_assum ‘models Δ Γ _’ mp_tac >>
             simp[models_def] >>
             strip_tac >> pop_assum mp_tac >>
@@ -8027,6 +8082,7 @@ Proof
                   impl_tac >-
                     (conj_tac >- (Cases_on ‘ctxt1’ >> simp[]) >>
                      conj_tac >- simp[] >>
+                     conj_tac >- (drule is_fun_pred_extends' >> rw[]) >>
                      conj_tac >-
                        (drule_then match_mp_tac(extends_init_TypeDefn_nonbuiltin_types |> REWRITE_RULE[extends_init_def]) >>
                         simp[RIGHT_AND_OVER_OR,EXISTS_OR_THM,mlstring_sort_def]) >>
@@ -8714,6 +8770,7 @@ Proof
                 imp_res_tac ALOOKUP_MEM >>
                 fs[MEM_MAP,PULL_EXISTS] >> metis_tac[FST]
                ) >>
+              ‘is_fun (typeof pred)’ by(drule is_fun_pred_extends' >> rw[]) >>
               simp[Once dependency_cases,allTypes'_defn,Abbr ‘a1’,RIGHT_AND_OVER_OR,EXISTS_OR_THM,
                    mlstring_sort_def]
              ) >>
@@ -8853,6 +8910,7 @@ Proof
                   impl_tac >-
                     (conj_tac >- (Cases_on ‘ctxt1’ >> simp[]) >>
                      conj_tac >- simp[] >>
+                     conj_tac >- (drule is_fun_pred_extends' >> rw[]) >>
                      conj_tac >-
                        (drule_then match_mp_tac(extends_init_TypeDefn_nonbuiltin_types |> REWRITE_RULE[extends_init_def]) >>
                         simp[RIGHT_AND_OVER_OR,EXISTS_OR_THM,mlstring_sort_def]) >>
@@ -9687,4 +9745,3 @@ Proof
   fs[] >> metis_tac[]
 QED
 
-val _ = export_theory()

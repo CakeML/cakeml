@@ -1,12 +1,11 @@
 (*
   Definition of the FFI type
 *)
-open HolKernel Parse boolLib bossLib;
-open libTheory;
+Theory ffi
+Ancestors
+  misc
 
-val _ = numLib.prefer_num();
-
-val _ = new_theory "ffi"
+val _ = numLib.temp_prefer_num();
 
 (*
   An oracle says how to perform an FFI call based on its internal
@@ -21,19 +20,27 @@ Datatype:
   oracle_result = Oracle_return 'ffi (word8 list) | Oracle_final ffi_outcome
 End
 
+Datatype:
+  shmem_op = MappedRead | MappedWrite
+End
+
+Datatype:
+  ffiname = ExtCall string | SharedMem shmem_op
+End
+
 Type oracle_function = “:'ffi -> word8 list -> word8 list -> 'ffi oracle_result”
-Type oracle = “:string -> 'ffi oracle_function”
+Type oracle = “:ffiname -> 'ffi oracle_function”
 
 (* An I/O event, IO_event s bytes bytes2, represents the call of FFI function s with
  * immutable input bytes and mutable input map fst bytes2,
  * returning map snd bytes2 in the mutable array. *)
 
 Datatype:
-  io_event = IO_event string (word8 list) ((word8 # word8) list)
+  io_event = IO_event ffiname (word8 list) ((word8 # word8) list)
 End
 
 Datatype:
-  final_event = Final_event string (word8 list) (word8 list) ffi_outcome
+  final_event = Final_event ffiname (word8 list) (word8 list) ffi_outcome
 End
 
 Datatype:
@@ -56,7 +63,7 @@ End
 
 Definition call_FFI_def:
   call_FFI (st:'ffi ffi_state) s conf bytes =
-    if s ≠ "" then
+    if s ≠ ExtCall "" then
       case st.oracle s st.ffi_state conf bytes of
         Oracle_return ffi' bytes' =>
           if LENGTH bytes' = LENGTH bytes then
@@ -107,4 +114,3 @@ Definition trace_oracle_def:
       else Oracle_final FFI_failed
 End
 
-val _ = export_theory()

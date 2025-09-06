@@ -2,11 +2,11 @@
   Module about the built-in integer type. Note that CakeML uses
   arbitrary precision integers (the mathematical intergers).
 *)
-open preamble
-     ml_translatorLib ml_progLib mlintTheory
-     mlbasicsProgTheory basisFunctionsLib gcdTheory
-
-val _ = new_theory"IntProg"
+Theory IntProg
+Ancestors
+  mlint mlbasicsProg gcd
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
 
 val _ = translation_extends "mlbasicsProg";
 
@@ -28,44 +28,33 @@ val _ = trans "~" ``\i. - (i:int)``;
 
 val _ = ml_prog_update open_local_block;
 
-val result = translate zero_pad_def
+val res = translate exp_for_dec_enc_def;
+val res = translate toChar_def;
 
-val result = translate toChar_def
-val tochar_side_def = definition"tochar_side_def";
-val tochar_side = Q.prove(
-  `∀x. tochar_side x <=> (~(x < 10) ==> x < 201)`,
-  rw[tochar_side_def])
-  |> update_precondition;
+val res = translate num_to_chars_def;
 
-val result = translate simple_toChars_def
+Triviality tochar_side_dec:
+  i < 10 ==> tochar_side i
+Proof
+  EVAL_TAC \\ simp []
+QED
 
-val simple_toChars_side = Q.prove(
-  `∀x y z. simple_tochars_side x y z = T`,
-  ho_match_mp_tac simple_toChars_ind \\ rw[]
-  \\ rw[Once (theorem"simple_tochars_side_def")])
-  |> update_precondition;
-
-val _ = save_thm("toChars_ind",
-   toChars_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
-val _ = add_preferred_thy "-";
-val result = translate
-  (toChars_def |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+Triviality num_to_chars_side:
+  !i j k acc. num_to_chars_side i j k acc
+Proof
+  ho_match_mp_tac mlintTheory.num_to_chars_ind
+  \\ rw []
+  \\ ONCE_REWRITE_TAC [fetch "-" "num_to_chars_side_def"]
+  \\ simp [tochar_side_dec]
+QED
+val res = update_precondition num_to_chars_side;
 
 val _ = ml_prog_update open_local_in_block;
 
+val int_to_string_v_thm = translate mlintTheory.int_to_string_def;
+
 val _ = next_ml_names := ["toString"];
-
-val toString_v_thm = translate
-  (toString_def |> REWRITE_RULE[maxSmall_DEC_def])
-val tostring_side = Q.prove(
-  `∀x. tostring_side x = T`,
-  rw[definition"tostring_side_def"]
-  \\ intLib.COOPER_TAC)
-  |> update_precondition;
-
-val toString_v_thm = toString_v_thm
-  |> DISCH_ALL |> REWRITE_RULE [tostring_side,ml_translatorTheory.PRECONDITION_def]
-  |> ml_translatorLib.remove_Eq_from_v_thm;
+val toString_v_thm = translate mlintTheory.toString_def1;
 
 val Eval_NUM_toString = Q.prove(
   `!v. (INT --> STRING_TYPE) toString v ==>
@@ -77,14 +66,20 @@ val Eval_NUM_toString = Q.prove(
   |> (fn th => MATCH_MP th toString_v_thm)
   |> add_user_proved_v_thm;
 
+val _ = ml_prog_update close_local_blocks;
+
 val _ = ml_prog_update open_local_block;
 
 val th = EVAL``ORD #"0"``;
-val result = translate (fromChar_unsafe_def |> SIMP_RULE std_ss [th]);
+val result = translate (fromChar_unsafe_def |> SIMP_RULE std_ss [th, GSYM ml_translatorTheory.sub_check_def]);
 val result = translate fromChars_range_unsafe_def;
 
-val _ = save_thm("fromChars_unsafe_ind",
-  fromChars_unsafe_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+val result = translate padLen_DEC_eq;
+val result = translate maxSmall_DEC_def;
+
+val _ = add_preferred_thy "-";
+Theorem fromChars_unsafe_ind =
+  fromChars_unsafe_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]
 val result = translate (fromChars_unsafe_def
   |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
 
@@ -122,8 +117,8 @@ QED
 val result = translate fromChar_thm;
 val result = translate fromChars_range_def;
 
-val _ = save_thm("fromChars_ind",
-  fromChars_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+Theorem fromChars_ind =
+  fromChars_ind |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]
 val result = translate (fromChars_def
   |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
 
@@ -139,7 +134,7 @@ Theorem fromchars_side_thm:
    ∀n s. n ≤ LENGTH s ⇒ fromchars_side n (strlit s)
 Proof
   completeInduct_on`n` \\ rw[]
-  \\ rw[Once fromchars_side_def,fromchars_range_side_def]
+  \\ rw[Once fromchars_side_def,fromchars_range_side_def, padLen_DEC_eq]
 QED
 
 val fromString_side = Q.prove(
@@ -156,19 +151,31 @@ val result = translate fromNatString_def;
 
 (* GCD *)
 
-val gcd_def = Define `
-  gcd a b = if a = 0n then b else gcd (b MOD a) a`
+val _ = ml_prog_update open_local_block;
 
-val _ = delete_const "gcd"; (* keeps induction thm *)
+val res = translate num_gcd_def;
 
-val res = translate GCD_EFFICIENTLY;
+val _ = ml_prog_update open_local_in_block;
 
-val gcd_side = prove(
-  ``!a b. gcd_side a b = T``,
-  recInduct (theorem "gcd_ind") \\ rw []
-  \\ once_rewrite_tac [theorem "gcd_side_def"]
-  \\ fs [ADD1] \\ rw [] \\ fs [])
-  |> update_precondition;
+val _ = (next_ml_names := ["gcd"]);
+val int_gcd_v_thm = translate int_gcd_def;
+
+Theorem gcd_v_thm:
+  (NUM --> NUM --> NUM) gcd$gcd int_gcd_v
+Proof
+  assume_tac int_gcd_v_thm
+  \\ fs [ml_translatorTheory.Arrow_def,ml_translatorTheory.AppReturns_def]
+  \\ fs [ml_translatorTheory.NUM_def]
+  \\ rw [] \\ last_x_assum drule
+  \\ disch_then (strip_assume_tac o SPEC_ALL) \\ fs []
+  \\ first_assum $ irule_at Any
+  \\ rw [] \\ last_x_assum drule
+  \\ disch_then (qspec_then ‘refs''’ strip_assume_tac) \\ fs []
+  \\ first_assum $ irule_at Any
+  \\ fs [int_gcd_def,num_gcd_eq_gcd]
+QED
+
+val _ = add_user_proved_v_thm gcd_v_thm;
 
 (* compare *)
 
@@ -179,4 +186,3 @@ val _ = ml_prog_update close_local_blocks;
 
 val _ = ml_prog_update (close_module NONE);
 
-val _ = export_theory();

@@ -5,20 +5,23 @@
   with no axioms, with all but infinity axiom, with all three axioms) have
   models (under suitable assumptions).
 *)
-open preamble
-     setSpecTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holBoolSyntaxTheory holAxiomsSyntaxTheory
-     holSemanticsTheory holSemanticsExtraTheory holSoundnessTheory holExtensionTheory holBoolTheory holAxiomsTheory
-
-val _ = new_theory"holConsistency"
+Theory holConsistency
+Ancestors
+  setSpec holSyntaxLib holSyntax holSyntaxExtra holBoolSyntax
+  holAxiomsSyntax holSemantics holSemanticsExtra holSoundness
+  holExtension holBool holAxioms
+Libs
+  preamble
 
 val _ = Parse.hide "mem";
 
 val mem = ``mem:'U->'U->bool``
 
-val consistent_theory_def = Define`
+Definition consistent_theory_def:
   consistent_theory thy ⇔
         (thy,[]) |- (Var (strlit"x") Bool === Var (strlit"x") Bool) ∧
-      ¬((thy,[]) |- (Var (strlit"x") Bool === Var (strlit"y") Bool))`
+      ¬((thy,[]) |- (Var (strlit"x") Bool === Var (strlit"y") Bool))
+End
 
 Theorem proves_consistent:
    is_set_theory ^mem ⇒
@@ -87,8 +90,9 @@ Proof
   metis_tac[extends_theory_ok,extends_consistent,init_theory_ok,init_ctxt_has_model]
 QED
 
-val fhol_ctxt_def = Define`
-  fhol_ctxt = mk_select_ctxt (mk_eta_ctxt (mk_bool_ctxt init_ctxt))`
+Definition fhol_ctxt_def:
+  fhol_ctxt = mk_select_ctxt (mk_eta_ctxt (mk_bool_ctxt init_ctxt))
+End
 
 Theorem fhol_extends_bool:
    fhol_ctxt extends (mk_bool_ctxt init_ctxt)
@@ -174,8 +178,9 @@ Proof
   metis_tac[fhol_has_model]
 QED
 
-val hol_ctxt_def = Define`
-  hol_ctxt = mk_infinity_ctxt fhol_ctxt`
+Definition hol_ctxt_def:
+  hol_ctxt = mk_infinity_ctxt fhol_ctxt
+End
 
 Theorem hol_extends_fhol:
    hol_ctxt extends fhol_ctxt
@@ -247,4 +252,3 @@ Proof
   metis_tac[hol_has_model]
 QED
 
-val _ = export_theory()

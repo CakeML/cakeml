@@ -1,9 +1,11 @@
 (*
   Properties about dataLang and its semantics
 *)
-open preamble dataLangTheory dataSemTheory semanticsPropsTheory backendPropsTheory;
-
-val _ = new_theory"dataProps";
+Theory dataProps
+Ancestors
+  dataLang dataSem semanticsProps backendProps
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -17,7 +19,7 @@ Definition approx_of_def:
   (approx_of lims [Number i] refs =
     (if small_num lims.arch_64_bit i then 0 else bignum_size lims.arch_64_bit i)) /\
   (approx_of lims [CodePtr _] refs = 0) /\
-  (approx_of lims [RefPtr r] refs =
+  (approx_of lims [RefPtr _ r] refs =
      case lookup r refs of
      | NONE => 0
      | SOME (ByteArray _ bs) => LENGTH bs DIV (arch_size lims DIV 8) + 2
@@ -27,7 +29,7 @@ Definition approx_of_def:
   (approx_of lims [Block ts tag vs] refs =
     approx_of lims vs refs + LENGTH vs + 1)
 Termination
-  WF_REL_TAC `(inv_image (measure I LEX measure v1_size)
+  WF_REL_TAC `(inv_image (measure I LEX measure (list_size v_size))
                           (\(lims,vs,refs). (sptree$size refs,vs)))`
   \\ rpt strip_tac \\ fs [sptreeTheory.size_delete]
   \\ imp_res_tac miscTheory.lookup_zero \\ fs []
@@ -49,8 +51,7 @@ Proof
   \\ imp_res_tac subspt_trans \\ res_tac \\ simp []
   \\ ntac 2 (pop_assum kall_tac)
   \\ TRY (
-    Cases_on ‘lookup r refs’ \\ fs []
-    \\ Cases_on ‘x’ \\ fs []
+    gvs [AllCaseEqs()]
     \\ rveq \\ fs []
     \\ fs [subspt_lookup] \\ res_tac \\ fs []
     \\ rpt (pairarg_tac \\ fs [])
@@ -116,6 +117,27 @@ Proof
   \\ ho_match_mp_tac lim_safe_ind \\ rw []
 QED
 *)
+Theorem do_stack_const[simp]:
+  (do_stack op vs s).locals             = s.locals
+∧ (do_stack op vs s).locals_size        = s.locals_size
+∧ (do_stack op vs s).stack              = s.stack
+∧ (do_stack op vs s).stack_frame_sizes  = s.stack_frame_sizes
+∧ (do_stack op vs s).global             = s.global
+∧ (do_stack op vs s).handler            = s.handler
+∧ (do_stack op vs s).refs               = s.refs
+∧ (do_stack op vs s).compile            = s.compile
+∧ (do_stack op vs s).clock              = s.clock
+∧ (do_stack op vs s).code               = s.code
+∧ (do_stack op vs s).ffi                = s.ffi
+∧ (do_stack op vs s).space              = s.space
+∧ (do_stack op vs s).tstamps            = s.tstamps
+∧ (do_stack op vs s).limits             = s.limits
+∧ (do_stack op vs s).peak_heap_length   = s.peak_heap_length
+∧ (do_stack op vs s).compile_oracle     = s.compile_oracle
+Proof
+  EVAL_TAC
+QED
+
 Theorem Boolv_11[simp]:
   dataSem$Boolv b1 = Boolv b2 ⇔ b1 = b2
 Proof
@@ -128,9 +150,10 @@ Proof
   full_simp_tac(srw_ss())[state_component_equality]
 QED
 
-val var_corr_def = Define `
+Definition var_corr_def:
   var_corr env corr t <=>
-    EVERY2 (\v x. get_var v t = SOME x) corr env`;
+    EVERY2 (\v x. get_var v t = SOME x) corr env
+End
 
 Theorem get_vars_thm:
    !vs a t2. var_corr a vs t2 ==> (get_vars vs t2 = SOME a)
@@ -191,14 +214,24 @@ Proof
   full_simp_tac(srw_ss())[consume_space_def,add_space_def,state_component_equality] \\ DECIDE_TAC
 QED
 
-val consume_space_with_stack = Q.prove(
-  `consume_space x (y with stack := z) = OPTION_MAP (λs. s with stack := z) (consume_space x y)`,
-  EVAL_TAC >> srw_tac[][])
+Triviality consume_space_with_stack:
+  consume_space x (y with stack := z) = OPTION_MAP (λs. s with stack := z) (consume_space x y)
+Proof
+  EVAL_TAC >> srw_tac[][]
+QED
 
-val consume_space_with_locals = Q.prove(
-  `consume_space x (y with locals := z) = OPTION_MAP (λs. s with locals := z) (consume_space x y)`,
-  EVAL_TAC >> srw_tac[][])
+Triviality consume_space_with_locals:
+  consume_space x (y with locals := z) = OPTION_MAP (λs. s with locals := z) (consume_space x y)
+Proof
+  EVAL_TAC >> srw_tac[][]
+QED
+(*fs[] is slower than full_simp_tac(srw_ss())[]*)
+fun cases_on_op_fs q = Cases_on q \\ full_simp_tac(srw_ss()) []
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [‘BlockOp b_’]) (Cases_on `b_`)
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [‘GlobOp g_’]) (Cases_on `g_`)
+  >>> SELECT_LT_THEN (Q.RENAME_TAC [‘MemOp m_’]) (Cases_on `m_`);
 
+(*fs[] is slower than full_simp_tac(srw_ss())[]*)
 val do_app_with_stack = time Q.prove(
   `do_app op vs (s with stack := z) =
    map_result (λ(x,y). (x,y with <| stack := z
@@ -207,20 +240,21 @@ val do_app_with_stack = time Q.prove(
                                   ; peak_heap_length := do_app_peak op vs (s with stack := z) |>))
               I (do_app op vs s)`,
   Cases_on `do_app op vs (s with stack := z)`
-  \\ Cases_on `op`
-  \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-              bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
-              with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
-              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def] >>
-          TRY (pairarg_tac \\ fs []) >>
-          rveq >> fs []) >>
-          fs[allowed_op_def]>>
-          rw [state_component_equality] \\ simp [Once CONJ_COMM] \\
-          rw[EQ_IMP_THM] >> fs[stack_consumed_def,allowed_op_def]
-    );
+  \\ cases_on_op_fs `op`
+  \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
+  \\ full_simp_tac(srw_ss()) [LET_DEF,
+      do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+      bool_case_eq,Once do_app_def,do_stack_def,do_space_def,
+      with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
+      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+      pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,UNCURRY_EQ]
+    \\ rveq \\ full_simp_tac(srw_ss()) []
+  \\ full_simp_tac(srw_ss())[allowed_op_def]
+  \\ rw [state_component_equality] \\ simp [Once CONJ_COMM]
+  \\ rw [EQ_IMP_THM] \\ fs[stack_consumed_def,allowed_op_def,PULL_EXISTS]);
 
+(*fs[] is slower than full_simp_tac(srw_ss())[]*)
 val do_app_with_stack_and_locals = time Q.prove(
   `do_app op vs (s with <|locals_size := lsz; stack := z|>) =
    map_result (λ(x,y). (x,y with <| stack := z
@@ -230,49 +264,56 @@ val do_app_with_stack_and_locals = time Q.prove(
                                   ; peak_heap_length := do_app_peak op vs (s with <|locals_size := lsz; stack := z|>) |>))
               I (do_app op vs s)`,
   Cases_on `do_app op vs (s with <|locals_size := lsz; stack := z|>)`
-  \\ Cases_on `op`
-  \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-              bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
-              with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
-              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def] >>
-          TRY (pairarg_tac \\ fs []) >>
-          rveq >> fs []) >>
-          fs[allowed_op_def] >>
-          rw [state_component_equality] \\ simp [Once CONJ_COMM] \\
-          rw[EQ_IMP_THM] >> fs[stack_consumed_def,allowed_op_def]);
+  \\ cases_on_op_fs `op`
+  \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
+  \\ (
+    full_simp_tac(srw_ss()) [LET_THM,
+        do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+        bool_case_eq,do_app_def,do_stack_def,do_space_def,
+        with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
+        ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+        semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+        pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,UNCURRY_EQ]
+    \\ rveq \\ full_simp_tac(srw_ss()) [])
+  \\ full_simp_tac(srw_ss())[allowed_op_def]
+  \\ rw [state_component_equality] \\ simp [Once CONJ_COMM]
+  \\ rw[EQ_IMP_THM] \\ fs[stack_consumed_def,allowed_op_def]);
 
+(*fs[] is slower than full_simp_tac(srw_ss())[]*)
 Theorem do_app_aux_with_space:
   do_app_aux op vs (s with space := z) = map_result (λ(x,y). (x,y with space := z)) I (do_app_aux op vs s)
 Proof
   Cases_on `do_app_aux op vs (s with space := z)`
-  \\ Cases_on `op`
-  \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-              bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
-              with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
-              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def,check_lim_def] >>
-          TRY (pairarg_tac \\ fs []) >>
-          rveq >> fs [] \\ rw [])
+  \\ cases_on_op_fs `op`
+  \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
+  \\ (
+    full_simp_tac(srw_ss()) [LET_THM,do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+      bool_case_eq,do_app_def,do_stack_def,do_space_def,
+      with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
+      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+      pair_case_eq,consume_space_def,check_lim_def]
+    \\ rveq \\ full_simp_tac(srw_ss()) [] \\ rw [])
 QED
 
+(*fs[] is slower than full_simp_tac(srw_ss())[]*)
 Theorem do_app_aux_with_locals:
   do_app_aux op vs (s with locals := z) = map_result (λ(x,y). (x,y with locals := z)) I (do_app_aux op vs s)
 Proof
   Cases_on `do_app_aux op vs (s with locals := z)`
-  \\ Cases_on `op`
-  \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-              bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
-              with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
-              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def,check_lim_def] >>
-          TRY (pairarg_tac \\ fs []) >>
-          rveq >> fs [] >> rw [])
+  \\ cases_on_op_fs `op`
+  \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
+  \\ (
+    full_simp_tac(srw_ss()) [LET_THM,do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+      bool_case_eq,do_app_def,do_stack_def,do_space_def,
+      with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
+      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+      pair_case_eq,consume_space_def,check_lim_def,UNCURRY_EQ]
+    \\ rveq \\ fs [] \\ rw [])
 QED
 
+(*fs[] is slower than full_simp_tac(srw_ss())[]*)
 val do_app_with_locals = time Q.prove(
   `do_app op vs (s with locals := z) =
    map_result (λ(x,y). (x,y with <| locals := z
@@ -281,24 +322,27 @@ val do_app_with_locals = time Q.prove(
                                   ; peak_heap_length := do_app_peak op vs (s with locals := z)|>))
                        I (do_app op vs s)`,
   Cases_on `do_app op vs (s with locals := z)`
-  \\ Cases_on `op`
-  \\ ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-              bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
-              with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
-              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def,check_lim_def] >>
-          TRY (pairarg_tac \\ fs []) >>
-          rveq >> fs []) >>
-          fs [allowed_op_def]>>
-          rw [state_component_equality] \\ simp [Once CONJ_COMM] \\ rw[EQ_IMP_THM] >> fs[stack_consumed_def,allowed_op_def]);
+  \\ cases_on_op_fs `op`
+  \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
+  \\ (
+    full_simp_tac(srw_ss()) [LET_THM,
+      do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+      bool_case_eq,do_app_def,do_stack_def,do_space_def,
+      with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
+      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+      pair_case_eq,consume_space_def,check_lim_def,UNCURRY_EQ]
+    \\ rveq \\ full_simp_tac(srw_ss()) [])
+  \\ full_simp_tac(srw_ss()) [allowed_op_def]
+  \\ rw [state_component_equality] \\ simp [Once CONJ_COMM]
+  \\ rw[EQ_IMP_THM] \\ fs[stack_consumed_def,allowed_op_def]);
 
 Theorem do_app_aux_err:
    do_app_aux op vs s = Rerr e ⇒ (e = Rabort Rtype_error)
                              \/
                              (?i x. op = FFI i /\ e = Rabort (Rffi_error x))
 Proof
-  rw [ do_app_aux_def,case_eq_thms
+  rw [ do_app_aux_def,case_eq_thms, AllCaseEqs()
      , do_install_def,do_space_def,with_fresh_ts_def
      , PULL_EXISTS, UNCURRY,consume_space_def]
   \\ fs []
@@ -309,7 +353,7 @@ Theorem do_app_aux_const:
     z.stack = x.stack ∧ z.handler = x.handler ∧ z.locals = x.locals ∧
     z.clock = x.clock ∧ z.compile = x.compile
 Proof
-  rw [ do_app_aux_def,case_eq_thms
+  rw [ do_app_aux_def,case_eq_thms, AllCaseEqs()
      , do_install_def,do_space_def,with_fresh_ts_def
      , PULL_EXISTS, UNCURRY,consume_space_def, check_lim_def]
   \\ fs []
@@ -320,32 +364,11 @@ Theorem do_app_err:
                              \/
                              (?i x. op = FFI i /\ e = Rabort (Rffi_error x))
 Proof
-  rw [ do_app_def,do_stack_def,case_eq_thms
+  rw [ do_app_def,do_stack_def,case_eq_thms, AllCaseEqs()
      , do_install_def,do_space_def,with_fresh_ts_def
      , PULL_EXISTS, UNCURRY,consume_space_def]
   \\ fs []
   \\ METIS_TAC [do_app_aux_err]
-QED
-
-Theorem do_stack_const[simp]:
-  (do_stack op vs s).locals             = s.locals
-∧ (do_stack op vs s).locals_size        = s.locals_size
-∧ (do_stack op vs s).stack              = s.stack
-∧ (do_stack op vs s).stack_frame_sizes  = s.stack_frame_sizes
-∧ (do_stack op vs s).global             = s.global
-∧ (do_stack op vs s).handler            = s.handler
-∧ (do_stack op vs s).refs               = s.refs
-∧ (do_stack op vs s).compile            = s.compile
-∧ (do_stack op vs s).clock              = s.clock
-∧ (do_stack op vs s).code               = s.code
-∧ (do_stack op vs s).ffi                = s.ffi
-∧ (do_stack op vs s).space              = s.space
-∧ (do_stack op vs s).tstamps            = s.tstamps
-∧ (do_stack op vs s).limits             = s.limits
-∧ (do_stack op vs s).peak_heap_length   = s.peak_heap_length
-∧ (do_stack op vs s).compile_oracle     = s.compile_oracle
-Proof
-  EVAL_TAC
 QED
 
 Theorem do_app_const:
@@ -354,7 +377,7 @@ Theorem do_app_const:
     z.clock = x.clock ∧ z.compile = x.compile
 Proof
   rw [ do_app_def,do_stack_def,do_app_aux_def,case_eq_thms
-     , do_install_def,do_space_def,with_fresh_ts_def
+     , do_install_def,do_space_def,with_fresh_ts_def, AllCaseEqs()
      , PULL_EXISTS, UNCURRY,consume_space_def, check_lim_def]
   \\ fs []
 QED
@@ -411,8 +434,12 @@ Proof
   EVAL_TAC \\ rw []
 QED
 
+(*fs[] is slower than full_simp_tac(srw_ss())[]*)
 val do_app_swap_tac =
-   Cases \\ rw [do_app_def,do_stack_def
+   Count.apply (strip_tac
+   \\ cases_on_op_fs ‘op’
+   \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
+   \\ rw[do_app_def,do_stack_def
               , do_install_def
               , do_app_aux_def
               , with_fresh_ts_def
@@ -422,17 +449,14 @@ val do_app_swap_tac =
               , consume_space_def
               , stack_consumed_def
               , size_of_heap_with_safe
-              , MAX_DEF
               , check_lim_def]
-  \\ TRY (pairarg_tac \\ fs [])
-  \\ TRY (fs [list_case_eq,option_case_eq,v_case_eq,bool_case_eq,closSemTheory.ref_case_eq
+  \\ TRY (full_simp_tac(srw_ss())[LET_DEF,UNCURRY_EQ,list_case_eq,option_case_eq,v_case_eq,bool_case_eq,bvlSemTheory.ref_case_eq
         , ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq, state_component_equality
         , semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,pair_case_eq
         , limits_component_equality,stack_consumed_def]
-          \\ fs  [data_spaceTheory.op_space_req_def,stack_consumed_def]
-          \\ rfs [data_spaceTheory.op_space_req_def]
-          \\ simp [Once CONJ_COMM] \\ NO_TAC) \\
-  rpt(PURE_TOP_CASE_TAC \\ fs[] \\ rveq) \\ fs[state_component_equality,stack_consumed_def];
+          \\ full_simp_tac(srw_ss())  [data_spaceTheory.op_space_req_def,stack_consumed_def]
+          \\ rev_full_simp_tac(srw_ss())[data_spaceTheory.op_space_req_def]
+          \\ simp [Once CONJ_COMM] \\ NO_TAC));
 
 
 Theorem do_app_aux_safe_peak_swap:
@@ -441,7 +465,7 @@ Theorem do_app_aux_safe_peak_swap:
         do_app_aux op vs (s with <| safe_for_space := safe; peak_heap_length := peak |>) =
         Rval (q,s' with <| safe_for_space := safe'; peak_heap_length := peak' |>)
 Proof
-   do_app_swap_tac
+  do_app_swap_tac
 QED
 
 Theorem do_app_safe_peak_swap:
@@ -462,7 +486,6 @@ Proof
   do_app_swap_tac
 QED
 
-
 Theorem do_app_lss_sm_safe_peak_swap_aux[local]:
   ∀op vs s q s' lss smx safe peak. do_app op vs s = Rval (q,s')
     ⇒ ∃safe' peak' lss' smx'.
@@ -474,8 +497,8 @@ Proof
   do_app_swap_tac
 QED
 
-
-Theorem do_app_lss_sm_safe_peak_swap = do_app_lss_sm_safe_peak_swap_aux |> SIMP_RULE std_ss [LET_DEF]
+Theorem do_app_lss_sm_safe_peak_swap =
+  do_app_lss_sm_safe_peak_swap_aux |> SIMP_RULE std_ss [LET_DEF];
 
 Theorem do_app_sm_safe_peak_swap_aux[local]:
   ∀op vs s q s' smx safe peak. do_app op vs s = Rval (q,s')
@@ -488,7 +511,8 @@ Proof
   do_app_swap_tac
 QED
 
-Theorem do_app_sm_safe_peak_swap = do_app_sm_safe_peak_swap_aux |> SIMP_RULE std_ss [LET_DEF]
+Theorem do_app_sm_safe_peak_swap =
+  do_app_sm_safe_peak_swap_aux |> SIMP_RULE std_ss [LET_DEF];
 
 Theorem do_app_aux_sm_safe_peak_swap:
   ∀op vs s q s' smx safe peak. do_app_aux op vs s = Rval (q,s')
@@ -604,7 +628,7 @@ val full_fs = fs[ get_var_def, set_var_def
 val full_cases = fs [ list_case_eq,option_case_eq
                           , v_case_eq
                           , bool_case_eq
-                          , closSemTheory.ref_case_eq
+                          , bvlSemTheory.ref_case_eq
                           , ffiTheory.ffi_result_case_eq
                           , ffiTheory.oracle_result_case_eq
                           , semanticPrimitivesTheory.eq_result_case_eq
@@ -642,13 +666,13 @@ Proof
      \\ fs [] \\ rfs[]
      \\ rveq \\ fs []
      \\ every_case_tac \\ fs [] \\ rveq \\ fs []
-     \\ TRY (metis_tac [] \\ NO_TAC)
+     \\ TRY (simp[state_component_equality] \\ NO_TAC)
      \\ TRY (drule do_app_sm_safe_peak_swap
-     \\ disch_then (qspecl_then [`smx`, `safe`, `peak`] assume_tac)
-     \\ fs [] \\ metis_tac [] \\ NO_TAC)
+     \\ disch_then (qspecl_then [`smx`, `safe`, `peak`] strip_assume_tac)
+     \\ fs[] \\ simp[state_component_equality] \\ NO_TAC)
      \\ TRY (drule do_app_err_sm_safe_peak_swap
-     \\ disch_then (qspecl_then [`smx`, `safe`, `peak`] assume_tac)
-     \\ fs [] \\ metis_tac [] \\ NO_TAC)
+     \\ disch_then (qspecl_then [`smx`, `safe`, `peak`] strip_assume_tac)
+     \\ fs[] \\ simp[state_component_equality] \\ NO_TAC)
      \\ TRY (drule do_app_safe_peak_swap
      \\ disch_then (qspecl_then [`safe`, `peak`] assume_tac)
      \\ Cases_on `s` \\ Cases_on `r'` \\ fs [state_fn_updates] \\ NO_TAC)
@@ -660,14 +684,23 @@ Proof
      \\ full_cases >>  full_fs
      \\ rveq \\ fs []
      \\ every_case_tac
-     \\ TRY (metis_tac [] \\ NO_TAC)
-     \\ TRY (first_assum (mp_then Any (qspecl_then [`smx`, `safe`,`peak`] assume_tac)
-          do_app_sm_safe_peak_swap))
-     \\ TRY (first_assum (mp_then Any (qspecl_then [`smx`, `safe`,`peak`] assume_tac)
-          do_app_err_sm_safe_peak_swap))
-     \\ rfs [] \\ rveq \\ fs [])
+     \\ TRY (simp[state_component_equality] \\ NO_TAC))
   >- basic_tac
-  >- basic_tac
+  >- (qpat_x_assum `evaluate _ = (_,_)` (strip_assume_tac o
+        SIMP_RULE(srw_ss())[evaluate_def,AllCaseEqs()]) >>
+      rveq >> simp[evaluate_def] >> simp[state_component_equality]
+      >~ [`jump_exc _ = NONE`]
+      >- (qmatch_goalsub_abbrev_tac `jump_exc A` >>
+      `jump_exc A = NONE` by fs[Abbr`A`,jump_exc_def,AllCaseEqs()] >>
+      simp[Abbr`A`] >>
+      qmatch_goalsub_abbrev_tac `jump_exc A` >>
+      `jump_exc A = NONE` by fs[Abbr`A`,jump_exc_def,AllCaseEqs()] >>
+      simp[Abbr`A`] >>
+      simp[state_component_equality])
+      >~ [`jump_exc _ = SOME s`]
+      >- (
+      fs[jump_exc_def,AllCaseEqs()] >>
+      rveq >> simp[state_component_equality]))
   >- basic_tac
   (* Seq *)
   >- (IF_CASES_TAC
@@ -1310,19 +1343,21 @@ Proof
   \\ SRW_TAC [] []
 QED
 
-val evaluate_locals_LN_lemma = Q.prove(
-  `!c ^s.
+Triviality evaluate_locals_LN_lemma:
+  !c ^s.
       FST (evaluate (c,s)) <> NONE /\
       FST (evaluate (c,s)) <> SOME (Rerr(Rabort Rtype_error)) ==>
       ((SND (evaluate (c,s))).locals = LN) \/
-      ?t. FST (evaluate (c,s)) = SOME (Rerr(Rraise t))`,
+      ?t. FST (evaluate (c,s)) = SOME (Rerr(Rraise t))
+Proof
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[evaluate_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[call_env_def,flush_state_def,fromList_def]
   \\ imp_res_tac do_app_err >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[LET_DEF] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
   \\ rpt(TOP_CASE_TAC >> fs[] >> rveq)
   \\ fs[markerTheory.Abbrev_def]
-  \\ rpt(TOP_CASE_TAC >> fs[] >> rveq));
+  \\ rpt(TOP_CASE_TAC >> fs[] >> rveq)
+QED
 
 Theorem evaluate_locals_LN:
    !c ^s res t.
@@ -1332,9 +1367,10 @@ Proof
   REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL evaluate_locals_LN_lemma) \\ full_simp_tac(srw_ss())[]
 QED
 
-val locals_ok_def = Define `
+Definition locals_ok_def:
   locals_ok l1 l2 =
-    !v x. (sptree$lookup v l1 = SOME x) ==> (sptree$lookup v l2 = SOME x)`;
+    !v x. (sptree$lookup v l1 = SOME x) ==> (sptree$lookup v l2 = SOME x)
+End
 
 Theorem locals_ok_IMP:
    locals_ok l1 l2 ==> domain l1 SUBSET domain l2
@@ -1413,7 +1449,7 @@ Proof
         \\ fs [cut_state_opt_def]
         \\ IMP_RES_TAC locals_ok_get_vars \\ fs []
         \\ fs [do_app_with_locals]
-        \\ fs [case_eq_thms,semanticPrimitivesTheory.result_case_eq]
+        \\ fs [case_eq_thms,semanticPrimitivesTheory.result_case_eq,AllCaseEqs()]
         \\ fs [call_env_def,set_var_def,flush_state_def, state_component_equality]
         \\ fs [locals_ok_def,lookup_insert] \\ rw []
         \\ rpt (qpat_x_assum `insert _ _ _ = _` (assume_tac o GSYM))
@@ -1601,6 +1637,7 @@ Proof
   \\ simp [space_consumed_def]
 QED
 
+(*fs[] is slower than full_simp_tac(srw_ss())[]*)
 Theorem do_app_with_clock:
   do_app op vs (s with clock := z) =
    map_result (λ(x,y). (x,y with clock := z)) I (do_app op vs s)
@@ -1612,54 +1649,29 @@ Proof
     \\ every_case_tac \\ fs [] \\ rw [] \\ fs []) >>
   Cases_on `do_app op vs s` >>
   fs[do_app_def,do_stack_def,do_space_def] >>
-  Cases_on `op` >>
-  ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-              bool_case_eq,ffiTheory.call_FFI_def,stack_consumed_def,
-              with_fresh_ts_def,closSemTheory.ref_case_eq,space_consumed_with_clock,
-              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def,size_of_heap_with_clock,check_lim_def] >>
-          rveq >> fs [] >> rw [])
+  cases_on_op_fs `op` >> TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) >>
+  ntac 2 (
+    full_simp_tac(srw_ss()) [LET_THM,do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+      bool_case_eq,stack_consumed_def,
+      with_fresh_ts_def,bvlSemTheory.ref_case_eq,space_consumed_with_clock,
+      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
+      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
+      pair_case_eq,consume_space_def,size_of_heap_with_clock,check_lim_def]
+    \\ rveq \\ fs [] \\ rw [])
 QED
 
 Theorem do_app_change_clock:
   (do_app op args s1 = Rval (res,s2)) ==>
    (do_app op args (s1 with clock := ck) = Rval (res,s2 with clock := ck))
 Proof
-  Cases_on `op = Install` THEN1
-   (fs [do_app_def,do_stack_def,do_install_def]
-    \\ every_case_tac \\ fs []
-    \\ pairarg_tac \\ fs []
-    \\ every_case_tac \\ fs [] \\ rw [] \\ fs []) >>
-  srw_tac[][do_app_def,do_stack_def,do_space_def] >>
-  Cases_on `op` >>
-  ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-              bool_case_eq,ffiTheory.call_FFI_def,stack_consumed_def,
-              with_fresh_ts_def,closSemTheory.ref_case_eq,space_consumed_with_clock,
-              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def,size_of_heap_with_clock,check_lim_def] >>
-          rveq >> fs [] >> rw [])
+  fs[do_app_with_clock]
 QED
 
 Theorem do_app_change_clock_err:
   (do_app op args s1 = Rerr e) ==>
   (do_app op args (s1 with clock := ck) = Rerr e)
 Proof
-  Cases_on `op = Install` THEN1
-   (fs [do_app_def,do_stack_def,do_install_def]
-    \\ every_case_tac \\ fs []
-    \\ pairarg_tac \\ fs []
-    \\ every_case_tac \\ fs [] \\ rw [] \\ fs []) >>
-  srw_tac[][do_app_def,do_stack_def,do_space_def] >>
-  Cases_on `op` >>
-  ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-              bool_case_eq,ffiTheory.call_FFI_def,
-              with_fresh_ts_def,closSemTheory.ref_case_eq,
-              ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
-              semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-              pair_case_eq,consume_space_def,check_lim_def] >>
-          rveq >> fs [] >> rw [])
+  fs[do_app_with_clock]
 QED
 
 Theorem cut_state_eq_some:
@@ -1693,7 +1705,7 @@ Proof
      \\ srw_tac[][] >> fs[])
   >- (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,cut_state_opt_def,cut_state_def
          , bool_case_eq,ffiTheory.call_FFI_def,semanticPrimitivesTheory.result_case_eq
-         , with_fresh_ts_def,closSemTheory.ref_case_eq
+         , with_fresh_ts_def,bvlSemTheory.ref_case_eq
          , ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq
          , semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq
          , pair_case_eq,consume_space_def]
@@ -1776,10 +1788,10 @@ Proof
     \\ every_case_tac \\ fs [] \\ rw [] \\ fs []) >>
   srw_tac[][do_app_def,do_stack_def,do_space_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  Cases_on `x` >>
+  cases_on_op_fs `x` >> TRY (rename [‘EqualConst cc’] >> Cases_on ‘cc’) >>
   ntac 2 (fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
               bool_case_eq,ffiTheory.call_FFI_def,
-              with_fresh_ts_def,closSemTheory.ref_case_eq,
+              with_fresh_ts_def,bvlSemTheory.ref_case_eq,
               ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
               semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
               pair_case_eq,consume_space_def,check_lim_def] >>
@@ -1945,20 +1957,22 @@ Proof
   \\ imp_res_tac semantics_Term_IMP_PREFIX \\ fs []
 QED
 
-val get_code_labels_def = Define`
+Definition get_code_labels_def:
   (get_code_labels (Call r d a h) =
     (case d of SOME x => {x} | _ => {}) ∪
     (case h of SOME (n,p) => get_code_labels p | _ => {})) ∧
   (get_code_labels (Seq p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
   (get_code_labels (If _ p1 p2) = get_code_labels p1 ∪ get_code_labels p2) ∧
   (get_code_labels (Assign _ op _ _) = closLang$assign_get_code_label op) ∧
-  (get_code_labels _ = {})`;
+  (get_code_labels _ = {})
+End
 val _ = export_rewrites["get_code_labels_def"];
 
-val good_code_labels_def = Define`
+Definition good_code_labels_def:
   good_code_labels p elabs ⇔
     (BIGUNION (set (MAP (λ(n,m,pp). (get_code_labels pp)) p))) ⊆
-    (set (MAP FST p)) ∪ elabs`
+    (set (MAP FST p)) ∪ elabs
+End
 
 Theorem get_code_labels_mk_ticks:
    ∀n m. get_code_labels (mk_ticks n m) ⊆ get_code_labels m
@@ -1977,7 +1991,7 @@ Proof
   \\ rw [] \\ fs [v_to_list_def,list_to_v_def]
   \\ TRY (eq_tac \\ rw [list_to_v_def])
   \\ fs [v_to_list_def,list_to_v_def]
-  \\ fs [case_eq_thms] \\ rveq \\ fs []
+  \\ fs [case_eq_thms,AllCaseEqs()] \\ rveq \\ fs []
   \\ rveq \\ fs [list_to_v_def]
   \\ Cases_on `in2` \\ fs [list_to_v_def]
 QED
@@ -1991,19 +2005,20 @@ Proof
   \\ every_case_tac \\ fs []
 QED
 
+(*fs[] is slower than full_simp_tac(srw_ss())[]*)
 Theorem do_app_safe_for_space_mono:
   (do_app op xs s = Rval (r,s1)) /\ s1.safe_for_space ==> s.safe_for_space
 Proof
-  Cases_on `op` \\
-  fs [do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
-      bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
-      with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
+  cases_on_op_fs `op` \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) \\
+  full_simp_tac(srw_ss()) [LET_THM,
+      do_app_aux_def,list_case_eq,option_case_eq,v_case_eq,
+      bool_case_eq,do_app_def,do_stack_def,do_space_def,
+      with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
       ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,check_lim_def,
       semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
-      pair_case_eq,consume_space_def,op_space_reset_def,data_spaceTheory.op_space_req_def]
+      pair_case_eq,consume_space_def,op_space_reset_def,data_spaceTheory.op_space_req_def,
+      UNCURRY_EQ]
   \\ rw [] \\ fs [state_component_equality] \\ rw []
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ EVERY_CASE_TAC \\ fs []
 QED
 
 Theorem evaluate_safe_for_space_mono:
@@ -2034,6 +2049,10 @@ Definition zero_limits_def   :
 End
 
 
+val trivial_tac = qpat_x_assum `evaluate _ = (_,_)` (strip_assume_tac o
+                   SIMP_RULE(srw_ss())[evaluate_def,AllCaseEqs()] ) >>
+                  rveq >> simp[evaluate_def] >>
+                  simp[state_component_equality];
 
 Theorem evaluate_swap_limits:
   ∀c s r s' limits.
@@ -2045,8 +2064,8 @@ Theorem evaluate_swap_limits:
                                                          peak_heap_length := peak|>)
 Proof
   recInduct evaluate_ind \\ REPEAT STRIP_TAC
-  >- basic_tac
-  >- basic_tac
+  >- trivial_tac
+  >- (trivial_tac >> EVAL_TAC)
   (* Assign *)
   >- (
      fs [evaluate_def]
@@ -2062,14 +2081,12 @@ Proof
      \\ disch_then (qspecl_then [`limits'`] assume_tac)
      \\ fs [state_component_equality] \\ metis_tac [] \\ NO_TAC))
   (*  Tick *)
-  >- (fs [evaluate_def]
-     \\ full_cases >>  full_fs
-     \\ rveq \\ fs []
-     \\ every_case_tac
-     \\ rw[state_component_equality])
-  >- basic_tac
-  >- basic_tac
-  >- basic_tac
+  >- (trivial_tac >> EVAL_TAC)
+  >- (trivial_tac >> EVAL_TAC)
+  >- (trivial_tac >>
+      fs[jump_exc_def,AllCaseEqs()] >> rveq >>
+      simp[state_component_equality])
+  >- (trivial_tac >> EVAL_TAC)
   (* Seq *)
   >- (fs[evaluate_def,ELIM_UNCURRY]
      \\ Cases_on `evaluate (c1,s)`
@@ -2214,8 +2231,8 @@ Proof
   PURE_REWRITE_TAC[LET_THM] >>
   CONV_TAC(DEPTH_CONV BETA_CONV) >>
   recInduct evaluate_ind \\ REPEAT STRIP_TAC
-  >- basics_tac
-  >- basics_tac
+  >- trivial_tac
+  >- (trivial_tac >> EVAL_TAC >> simp[])
   (* Assign *)
   >- (fs [evaluate_def]
      \\ full_cases >> full_fs
@@ -2231,19 +2248,17 @@ Proof
      \\ disch_then (qspecl_then [`lsz`, `xs`, `sfs`] assume_tac)
      \\ fs [state_component_equality] \\ NO_TAC))
   (*  Tick *)
-  >- (fs [evaluate_def]
-     \\ full_cases >>  full_fs
-     \\ rveq \\ fs []
-     \\ every_case_tac
-     \\ rw[state_component_equality])
-  >- basics_tac
-  >- (basics_tac >>
+  >- (trivial_tac >> EVAL_TAC >> simp[])
+  >- (trivial_tac >> EVAL_TAC >> simp[])
+  >- (trivial_tac >>
+      fs[jump_exc_def,AllCaseEqs()] >>
       imp_res_tac LIST_REL_LENGTH >>
+      rfs[] >> rveq >> simp[state_component_equality] >>
       `LIST_REL stack_frame_size_rel (LASTN (s.handler+1) s.stack) (LASTN (s.handler+1) xs)`
         by(match_mp_tac list_rel_lastn \\ rw[]) >>
-      fs[CaseEq"list",CaseEq"stack"] >> rfs[stack_frame_size_rel_def] >>
-      fs[] >> rveq >> fs[stack_frame_size_rel_def])
-  >- basics_tac
+      rfs[] >>
+      fs[oneline stack_frame_size_rel_def,AllCasePreds()])
+  >- (trivial_tac >> EVAL_TAC >> simp[])
   (* Seq *)
   >- (fs[evaluate_def,ELIM_UNCURRY]
      \\ Cases_on `evaluate (c1,s)`
@@ -2440,7 +2455,8 @@ Proof
      check_lim_def,
      CaseEq "bool",CaseEq"option",CaseEq"list",CaseEq"prod",CaseEq"closLang$op",
      CaseEq "v",CaseEq"ref",CaseEq"ffi_result",CaseEq"eq_result",CaseEq"word_size",
-     ELIM_UNCURRY,consume_space_def] >> rw[option_le_max_right]
+     ELIM_UNCURRY,consume_space_def] >> rw[option_le_max_right,AllCaseEqs()]
+  \\ gvs [AllCaseEqs()] \\ rw[option_le_max_right]
 QED
 
 Theorem evaluate_option_le_stack_max:
@@ -2536,23 +2552,40 @@ Definition cc_co_only_diff_def:
     s.peak_heap_length = t.peak_heap_length
 End
 
+(*fs[] is slower than full_simp_tac(srw_ss())[]*)
 Theorem do_app_cc_co_only_diff_rval:
     dataSem$do_app op vs s = Rval (v,s1) /\ s1.safe_for_space /\ cc_co_only_diff s t ==>
     ?t1. dataSem$do_app op vs t = Rval (v,t1) /\ cc_co_only_diff s1 t1
 Proof
   rpt strip_tac >>
+  cases_on_op_fs ‘op’ \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) \\ fs []
+  >~[`IntOp`]
+  >-(
+   qpat_x_assum `do_app _ _ _ = _` mp_tac >>
+   simp[Once do_app_def,AllCaseEqs(),do_app_aux_def,
+   Once $ oneline do_int_app_def] >>
+   strip_tac  >> rveq >>
+   fs[do_stack_def,do_space_def,do_app_def,consume_space_def,
+   op_space_reset_def,data_spaceTheory.op_space_req_def,
+   space_consumed_def,stack_consumed_def,size_of_heap_def,
+   stack_to_vs_def] >>
+   rveq >>
+   simp[do_app_aux_def,do_int_app_def] >>
+   fs[cc_co_only_diff_def] >>
+   gvs[]) >>
   ntac 2(
-  fs[do_app_aux_def,cc_co_only_diff_def,do_app_def,do_stack_def,list_case_eq,option_case_eq,v_case_eq,
-     bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
-     with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,stack_consumed_def,
+  full_simp_tac(srw_ss())[LET_THM,do_app_aux_def,cc_co_only_diff_def,do_app_def,do_stack_def,list_case_eq,option_case_eq,v_case_eq,
+     bool_case_eq,do_app_def,do_stack_def,do_space_def,
+     with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,stack_consumed_def,
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,space_consumed_def,
      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
      pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
      CaseEq"closLang$op",ELIM_UNCURRY,size_of_heap_def,stack_to_vs_def] >>
-    rveq >> fs[]) >>
-  rfs[]
+    rveq >> fs[])
+  >> gvs []
 QED
 
+(*fs[] is slower than full_simp_tac(srw_ss())[]*)
 Theorem do_app_cc_co_only_diff_rerr:
     dataSem$do_app op vs s = Rerr r /\
     op ≠ Install /\ cc_co_only_diff s t ==>
@@ -2580,9 +2613,10 @@ Proof
   rename1 `cc_co_only_diff s1 s2` >>
   qpat_x_assum `cc_co_only_diff y x` kall_tac >>
   rpt(qpat_x_assum `do_space _ _ _ = _` kall_tac) >>
-  fs[do_app_aux_def,cc_co_only_diff_def,do_app_def,list_case_eq,option_case_eq,v_case_eq,
-     bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
-     with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
+  cases_on_op_fs ‘op’ \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) \\ fs [] >>
+  full_simp_tac(srw_ss())[LET_THM,do_app_aux_def,cc_co_only_diff_def,do_app_def,list_case_eq,option_case_eq,v_case_eq,
+     bool_case_eq,do_app_def,do_stack_def,do_space_def,
+     with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
      pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
@@ -2671,7 +2705,7 @@ Proof
       rfs[stack_to_vs_def,size_of_heap_def] >>
       fs[])
   >- ((* Raise *)
-      fs[evaluate_def,CaseEq "option",set_var_def,jump_exc_def,
+      fs[evaluate_def,CaseEq "option",CaseEq "bool", set_var_def,jump_exc_def,
          CaseEq "list", CaseEq "stack",add_space_def,cc_co_only_diff_def] >> rveq >>
       fs[])
   >- ((* Return *)
@@ -2749,18 +2783,20 @@ Theorem the_le_IMP_option_le:
   ==>
   option_le m (SOME n)
 Proof
-  Cases_on `m` >> rw[libTheory.the_def]
+  Cases_on `m` >> rw[miscTheory.the_def]
 QED
 
+(*fs[] is slower than full_simp_tac(srw_ss())[]*)
 Theorem do_app_stack_max_le_stack_limit:
   do_app op xs s = Rval(res,s1) /\ s1.safe_for_space /\
   option_le s.stack_max (SOME s.limits.stack_limit) ==>
   option_le s1.stack_max (SOME s1.limits.stack_limit)
 Proof
   rpt strip_tac >>
-  fs[do_app_aux_def,cc_co_only_diff_def,do_app_def,do_stack_def,list_case_eq,option_case_eq,v_case_eq,
-     bool_case_eq,ffiTheory.call_FFI_def,do_app_def,do_stack_def,do_space_def,
-     with_fresh_ts_def,closSemTheory.ref_case_eq,do_install_def,
+  cases_on_op_fs ‘op’ \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’) \\ fs [] >>
+  full_simp_tac(srw_ss())[LET_THM,do_app_aux_def,cc_co_only_diff_def,do_app_def,do_stack_def,list_case_eq,option_case_eq,v_case_eq,
+     bool_case_eq,do_app_def,do_stack_def,do_space_def,
+     with_fresh_ts_def,bvlSemTheory.ref_case_eq,do_install_def,
      ffiTheory.ffi_result_case_eq,ffiTheory.oracle_result_case_eq,
      semanticPrimitivesTheory.eq_result_case_eq,astTheory.word_size_case_eq,
      pair_case_eq,consume_space_def,op_space_reset_def,check_lim_def,
@@ -2776,10 +2812,10 @@ Proof
 QED
 
 Theorem evaluate_stack_max_le_stack_limit:
-  !prog s res s1.
-  dataSem$evaluate (prog,s) = (res,s1) /\ s1.safe_for_space /\
-  option_le s.stack_max (SOME s.limits.stack_limit) ==>
-  option_le s1.stack_max (SOME s1.limits.stack_limit)
+  ∀prog s res s1.
+    dataSem$evaluate (prog,s) = (res,s1) ∧ s1.safe_for_space ∧
+    option_le s.stack_max (SOME s.limits.stack_limit) ⇒
+    option_le s1.stack_max (SOME s1.limits.stack_limit)
 Proof
   recInduct evaluate_ind >> rpt strip_tac
   >- ((* Skip *)
@@ -2830,4 +2866,3 @@ Proof
   fs[option_le_max]
 QED
 
-val _ = export_theory();

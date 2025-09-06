@@ -1,12 +1,12 @@
 (*
   End-to-end correctness theorems for the OpenTheory article checker.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     readerProgTheory readerCompileTheory readerProofTheory
-     readerSoundnessTheory;
-
-val _ = new_theory "readerProgProof";
+Theory readerProgProof
+Ancestors
+  semanticsProps backendProof x64_configProof readerProg
+  readerCompile readerProof readerSoundness
+Libs
+  preamble
 
 val reader_io_events_def = new_specification (
   "reader_io_events_def", ["reader_io_events"],
@@ -17,11 +17,12 @@ val reader_io_events_def = new_specification (
 val (reader_sem, reader_output) =
   reader_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR;
 
-val (reader_not_fail, reader_sem_sing) =
-  MATCH_MP semantics_prog_Terminate_not_Fail reader_sem |> CONJ_PAIR;
+val (reader_not_fail,reader_sem_sing) = reader_sem
+  |> SRULE [reader_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR;
 
 val compile_correct_applied =
-  MATCH_MP compile_correct reader_compiled
+  MATCH_MP compile_correct (cj 1 reader_compiled)
   |> SIMP_RULE (srw_ss()) [LET_THM, ml_progTheory.init_state_env_thm,
                            GSYM AND_IMP_INTRO]
   |> C MATCH_MP reader_not_fail
@@ -45,18 +46,19 @@ Theorem reader_compiled_thm =
 Definition installed_x64_def:
   installed_x64 ((code, data, cfg) :
       (word8 list # word64 list # 64 backend$config))
-    ffi mc ms ⇔
+    mc ms ⇔
     ∃cbspace data_sp.
       is_x64_machine_config mc ∧
       installed
         code cbspace
         data data_sp
-        cfg.lab_conf.ffi_names ffi
-        (heap_regs x64_backend_config.stack_conf.reg_names) mc ms
+        cfg.lab_conf.ffi_names
+        (heap_regs x64_backend_config.stack_conf.reg_names) mc
+        cfg.lab_conf.shmem_extra ms
 End
 
 Definition reader_code_def:
-  reader_code = (code, data, config)
+  reader_code = (code, data, info)
 End
 
 val _ = Parse.hide "mem";
@@ -67,7 +69,7 @@ Theorem machine_code_sound:
    wfcl cl ∧
    wfFS fs ∧
    STD_streams fs ⇒
-     (installed_x64 reader_code (basis_ffi cl fs) mc ms ⇒
+     (installed_x64 reader_code mc ms ⇒
         machine_sem mc (basis_ffi cl fs) ms ⊆
           extend_with_resource_limit
             {Terminate Success (reader_io_events cl fs)}) ∧
@@ -88,6 +90,4 @@ Proof
               FST, SND, reader_success_stderr, input_exists_def,
               reader_sound]
 QED
-
-val _ = export_theory ();
 

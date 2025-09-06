@@ -1,10 +1,13 @@
 (*
   Context extensions for asserting the mathematical axioms.
 *)
-open preamble holBoolSyntaxTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
-val _ = temp_delsimps ["NORMEQ_CONV"]
+Theory holAxiomsSyntax
+Ancestors
+  holBoolSyntax holSyntaxLib holSyntax holSyntaxExtra
+Libs
+  preamble
 
-val _ = new_theory"holAxiomsSyntax"
+val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = Parse.hide "mem"
 
@@ -16,8 +19,9 @@ Overload x[local] = ``Var (strlit "x") A``
 Overload g[local] = ``Var (strlit "f") (Fun A B)``
 
 (* ETA_AX *)
-val mk_eta_ctxt_def = Define`
-  mk_eta_ctxt ctxt = NewAxiom ((Abs x (Comb g x)) === g)::ctxt`
+Definition mk_eta_ctxt_def:
+  mk_eta_ctxt ctxt = NewAxiom ((Abs x (Comb g x)) === g)::ctxt
+End
 
 Theorem eta_extends:
    ∀ctxt. is_std_sig (sigof ctxt) ⇒ mk_eta_ctxt ctxt extends ctxt
@@ -33,11 +37,12 @@ Overload Select = ``λty. Const (strlit "@") (Fun (Fun ty Bool) ty)``
 Overload P[local] = ``Var (strlit "P") (Fun A Bool)``
 
 (* SELECT_AX *)
-val mk_select_ctxt_def = Define`
+Definition mk_select_ctxt_def:
   mk_select_ctxt ctxt =
     NewAxiom (Implies (Comb P x) (Comb P (Comb (Select A) P))) ::
     NewConst (strlit "@") (Fun (Fun A Bool) A) ::
-    ctxt`
+    ctxt
+End
 
 Theorem select_extends:
    ∀ctxt. is_std_sig (sigof ctxt) ∧
@@ -70,19 +75,22 @@ Overload h[local] = ``Var (strlit "f") (Fun Ind Ind)``
 Overload Exh[local] = ``Exists (strlit "f") (Fun Ind Ind)``
 
  (* INFINITY_AX *)
-val mk_infinity_ctxt_def = Define`
+Definition mk_infinity_ctxt_def:
   mk_infinity_ctxt ctxt =
     NewAxiom (Exh (And (One_One h) (Not (Onto h)))) ::
     NewType (strlit "ind") 0 ::
     ConstDef (strlit "ONTO") (Abs g (FAy (EXx (y === Comb g x)))) ::
     ConstDef (strlit "ONE_ONE")
       (Abs g (FAx1 (FAx2 (Implies (Comb g x1 === Comb g x2) (x1 === x2))))) ::
-    ctxt`
+    ctxt
+End
 
-val tyvar_inst_exists = Q.prove(
-  `∃i. ty = REV_ASSOCD (Tyvar a) i b`,
+Triviality tyvar_inst_exists:
+  ∃i. ty = REV_ASSOCD (Tyvar a) i b
+Proof
   qexists_tac`[(ty,Tyvar a)]` >>
-  rw[REV_ASSOCD])
+  rw[REV_ASSOCD]
+QED
 
 Theorem infinity_extends:
    ∀ctxt. theory_ok (thyof ctxt) ∧
@@ -141,4 +149,3 @@ Proof
   PROVE_TAC[]
 QED
 
-val _ = export_theory()

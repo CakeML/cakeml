@@ -1,14 +1,10 @@
 (*
   Definition of CakeML abstract syntax (AST).
 *)
-open HolKernel Parse boolLib bossLib;
-open namespaceTheory fpSemTheory;
-
-val _ = numLib.prefer_num();
-
-local open integerTheory wordsTheory stringTheory namespaceTheory locationTheory in end;
-val _ = new_theory "ast"
-val _ = set_grammar_ancestry ["integer", "words", "string", "namespace", "location"];
+Theory ast
+Ancestors
+  integer[qualified] words[qualified] string[qualified] namespace
+  location[qualified]
 
 (* Literal constants *)
 Datatype:
@@ -18,6 +14,7 @@ Datatype:
   | StrLit string
   | Word8 word8
   | Word64 word64
+  | Float64 word64
 End
 
 (* Built-in binary operations *)
@@ -37,6 +34,21 @@ Datatype:
   shift = Lsl | Lsr | Asr | Ror
 End
 
+Datatype:
+  fp_cmp = FP_Less | FP_LessEqual | FP_Greater | FP_GreaterEqual | FP_Equal
+End
+
+Datatype:
+  fp_uop = FP_Abs | FP_Neg | FP_Sqrt
+End
+
+Datatype:
+  fp_bop = FP_Add | FP_Sub | FP_Mul | FP_Div
+End
+
+Datatype:
+  fp_top = FP_Fma
+End
 
 (* Module names *)
 Type modN = “:string”
@@ -71,6 +83,9 @@ Datatype:
   | FP_uop fp_uop
   | FP_bop fp_bop
   | FP_top fp_top
+  (* Floating-point <-> word translations *)
+  | FpFromWord
+  | FpToWord
   (* Function application *)
   | Opapp
   (* Reference operations *)
@@ -90,6 +105,7 @@ Datatype:
   | CopyStrAw8
   | CopyAw8Str
   | CopyAw8Aw8
+  | XorAw8Str_unsafe
   (* Char operations *)
   | Ord
   | Chr
@@ -107,6 +123,7 @@ Datatype:
   (* Array operations *)
   | Aalloc
   | AallocEmpty
+  | AallocFixed
   | Asub
   | Alength
   | Aupdate
@@ -125,6 +142,25 @@ Datatype:
   | Eval
   (* Get the identifier of an env object *)
   | Env_id
+End
+
+(* Define operator classes, that allow to group their behavior later *)
+Datatype:
+ op_class =
+    EvalOp (* Eval primitive *)
+  | FunApp (* function application *)
+  | Simple (* arithmetic operation, no finite-precision/reals *)
+End
+Definition getOpClass_def[simp]:
+ getOpClass op =
+ case op of
+  | Opapp => FunApp
+  | Eval => EvalOp
+  | _ => Simple
+End
+
+Definition isFpBool_def:
+  isFpBool op = case op of FP_cmp _ => T | _ => F
 End
 
 (* Logical operations *)
@@ -240,4 +276,49 @@ Definition pat_bindings_def:
   pats_bindings ps (pat_bindings p already_bound)
 End
 
-val _ = export_theory()
+Definition every_exp_def[simp]:
+  (every_exp p (Raise e) ⇔
+             p (Raise e) ∧ every_exp p e) ∧
+  (every_exp p (Handle e pes) ⇔
+             p (Handle e pes) ∧ every_exp p e ∧ EVERY (λ(pat,e). every_exp p e) pes) ∧
+  (every_exp p (ast$Lit l) ⇔
+             p (ast$Lit l)) ∧
+  (every_exp p (Con cn es) ⇔
+             p (Con cn es) ∧ EVERY (every_exp p) es) ∧
+  (every_exp p (Var v) ⇔
+             p (Var v)) ∧
+  (every_exp p (Fun x e) ⇔
+             p (Fun x e) ∧ every_exp p e) ∧
+  (every_exp p (App op es) ⇔
+             p (App op es) ∧ EVERY (every_exp p) es) ∧
+  (every_exp p (Log lop e1 e2) ⇔
+             p (Log lop e1 e2) ∧ every_exp p e1 ∧ every_exp p e2) ∧
+  (every_exp p (If e1 e2 e3) ⇔
+             p (If e1 e2 e3) ∧ every_exp p e1 ∧ every_exp p e2 ∧ every_exp p e3) ∧
+  (every_exp p (Mat e pes) ⇔
+             p (Mat e pes) ∧ every_exp p e ∧ EVERY (λ(pat,e). every_exp p e) pes) ∧
+  (every_exp p (Let x e1 e2) ⇔
+             p (Let x e1 e2) ∧ every_exp p e1 ∧ every_exp p e2) ∧
+  (every_exp p (Tannot e a) ⇔
+             p (Tannot e a) ∧ every_exp p e) ∧
+  (every_exp p (Lannot e a) ⇔
+             p (Lannot e a) ∧ every_exp p e) ∧
+  (every_exp p (Letrec funs e) ⇔
+             p (Letrec funs e) ∧ every_exp p e ∧ EVERY (λ(n,v,e). every_exp p e) funs)
+End
+
+Definition Seqs_def:
+  Seqs [] = Con NONE [] ∧
+  Seqs (x::xs) = Let NONE x (Seqs xs)
+End
+
+Definition Apps_def:
+  Apps f [] = f ∧
+  Apps f (x::xs) = Apps (App Opapp [f; x]) xs
+End
+
+Definition Funs_def:
+  Funs [] e = e ∧
+  Funs (x::xs) e = Fun x (Funs xs e)
+End
+

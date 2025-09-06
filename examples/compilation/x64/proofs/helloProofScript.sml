@@ -3,11 +3,12 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     helloProgTheory helloCompileTheory
-
-val _ = new_theory"helloProof";
+Theory helloProof
+Ancestors
+  semanticsProps backendProof x64_configProof helloProg
+  helloCompile
+Libs
+  preamble
 
 val hello_io_events_def =
   new_specification("hello_io_events_def",["hello_io_events"],
@@ -15,10 +16,12 @@ val hello_io_events_def =
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (hello_sem,hello_output) = hello_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
-val (hello_not_fail,hello_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail hello_sem |> CONJ_PAIR
+val (hello_not_fail,hello_sem_sing) = hello_sem
+  |> SRULE [hello_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val compile_correct_applied =
-  MATCH_MP compile_correct hello_compiled
+  MATCH_MP compile_correct (cj 1 hello_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP hello_not_fail
   |> C MATCH_MP x64_backend_config_ok
@@ -28,10 +31,8 @@ val compile_correct_applied =
   |> DISCH(#1(dest_imp(concl x64_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
-val hello_compiled_thm =
+Theorem hello_compiled_thm =
   CONJ compile_correct_applied hello_output
   |> DISCH_ALL
   |> check_thm
-  |> curry save_thm "hello_compiled_thm";
 
-val _ = export_theory();

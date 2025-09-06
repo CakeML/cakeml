@@ -1,10 +1,11 @@
 (*
   Defines what is means for a CF separation logic assertion to be "local".
 *)
-open preamble set_sepTheory
-open cfHeapsBaseTheory cfHeapsBaseLib
-
-val _ = new_theory "cfHeaps"
+Theory cfHeaps
+Ancestors
+  set_sep cfHeapsBase
+Libs
+  preamble cfHeapsBaseLib
 
 fun sing x = [x]
 
@@ -38,15 +39,17 @@ QED
 
 (* local = frame rule + consequence rule + garbage collection *)
 
-val local_def = Define `
+Definition local_def:
   local cf (H: hprop) (Q: res -> hprop) =
     !(h: heap). H h ==> ?H1 H2 Q1.
       (H1 * H2) h /\
       cf H1 Q1 /\
-      (Q1 *+ H2 ==+> Q *+ GC)`
+      (Q1 *+ H2 ==+> Q *+ GC)
+End
 
-val is_local_def = Define `
-  is_local cf = (cf = local cf)`
+Definition is_local_def:
+  is_local cf = (cf = local cf)
+End
 
 (* Properties of [local] *)
 
@@ -226,4 +229,3 @@ Proof
   fs [local_extract_exists]
 QED
 
-val _ = export_theory()

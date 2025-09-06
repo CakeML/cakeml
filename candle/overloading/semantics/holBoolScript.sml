@@ -2,13 +2,15 @@
   Define semantics for the Boolean operations and show the definitions are
   correct.
 *)
-open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holBoolSyntaxTheory
-     holSemanticsTheory holSemanticsExtraTheory setSpecTheory
+Theory holBool
+Ancestors
+  holSyntaxLib holSyntax holSyntaxExtra holBoolSyntax
+  holSemantics holSemanticsExtra setSpec
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"holBool"
 
 val _ = Parse.hide "mem";
 
@@ -39,55 +41,73 @@ Proof
   rw[] >> simp[Once ext_type_frag_builtins_def]
 QED
 
-val Boolrel_def = xDefine"Boolrel"`
+Definition Boolrel_def:
   Boolrel0 ^mem R =
       (Abstract boolset (Funspace boolset boolset)
            (λp. (Abstract boolset boolset
-              (λq. Boolean (R (p = True) (q = True))))))`
+              (λq. Boolean (R (p = True) (q = True))))))
+End
+
 Overload Boolrel = ``Boolrel0 ^mem``
 
-val is_true_interpretation_def = xDefine"is_true_interpretation"`
-  is_true_interpretation0 ^mem γ ⇔ γ(strlit "T",Bool) = True:'U`
+Definition is_true_interpretation_def:
+  is_true_interpretation0 ^mem γ ⇔ γ(strlit "T",Bool) = True:'U
+End
+
 Overload is_true_interpretation = ``is_true_interpretation0 ^mem``
 
-val is_and_interpretation_def = xDefine"is_and_interpretation"`
-  is_and_interpretation0 ^mem γ ⇔ γ(strlit "/\\", Fun Bool (Fun Bool Bool)) = Boolrel $/\`
+Definition is_and_interpretation_def:
+  is_and_interpretation0 ^mem γ ⇔ γ(strlit "/\\", Fun Bool (Fun Bool Bool)) = Boolrel $/\
+End
+
 Overload is_and_interpretation = ``is_and_interpretation0 ^mem``
 
-val is_implies_interpretation_def = xDefine"is_implies_interpretation"`
-  is_implies_interpretation0 ^mem γ ⇔ γ(strlit "==>",Fun Bool (Fun Bool Bool)) = Boolrel $==>`
+Definition is_implies_interpretation_def:
+  is_implies_interpretation0 ^mem γ ⇔ γ(strlit "==>",Fun Bool (Fun Bool Bool)) = Boolrel $==>
+End
+
 Overload is_implies_interpretation = ``is_implies_interpretation0 ^mem``
 
-val is_forall_interpretation_def = xDefine"is_forall_interpretation"`
+Definition is_forall_interpretation_def:
   is_forall_interpretation0 ^mem γ δ ty ⇔
     γ(strlit "!",Fun (Fun ty Bool) Bool) = Abstract (Funspace (δ ty) boolset) boolset
-              (λP. Boolean (∀x. x <: δ ty ⇒ Holds P x))`
+              (λP. Boolean (∀x. x <: δ ty ⇒ Holds P x))
+End
+
 Overload is_forall_interpretation = ``is_forall_interpretation0 ^mem``
 
-val is_exists_interpretation_def = xDefine"is_exists_interpretation"`
+Definition is_exists_interpretation_def:
   is_exists_interpretation0 ^mem γ δ ty ⇔
     γ(strlit "?",Fun (Fun ty Bool) Bool) =
        Abstract (Funspace (δ ty) boolset) boolset
-              (λP. Boolean (∃x. x <: (δ ty) ∧ Holds P x))`
+              (λP. Boolean (∃x. x <: (δ ty) ∧ Holds P x))
+End
+
 Overload is_exists_interpretation = ``is_exists_interpretation0 ^mem``
 
-val is_or_interpretation_def = xDefine"is_or_interpretation"`
-  is_or_interpretation0 ^mem γ ⇔ γ(strlit "\\/",Fun Bool (Fun Bool Bool)) = Boolrel $\/`
+Definition is_or_interpretation_def:
+  is_or_interpretation0 ^mem γ ⇔ γ(strlit "\\/",Fun Bool (Fun Bool Bool)) = Boolrel $\/
+End
+
 Overload is_or_interpretation = ``is_or_interpretation0 ^mem``
 
-val is_false_interpretation_def = xDefine"is_false_interpretation"`
-  is_false_interpretation0 ^mem γ ⇔ γ(strlit "F",Bool) = False:'U`
+Definition is_false_interpretation_def:
+  is_false_interpretation0 ^mem γ ⇔ γ(strlit "F",Bool) = False:'U
+End
+
 Overload is_false_interpretation = ``is_false_interpretation0 ^mem``
 
-val is_not_interpretation_def = xDefine"is_not_interpretation"`
-  is_not_interpretation0 ^mem γ ⇔ γ(strlit "~",Fun Bool Bool) = Abstract boolset boolset (λp. Boolean (p ≠ True))`
+Definition is_not_interpretation_def:
+  is_not_interpretation0 ^mem γ ⇔ γ(strlit "~",Fun Bool Bool) = Abstract boolset boolset (λp. Boolean (p ≠ True))
+End
+
 Overload is_not_interpretation = ``is_not_interpretation0 ^mem``
 
 val ints = [is_true_interpretation_def,is_and_interpretation_def,is_implies_interpretation_def,
             is_forall_interpretation_def,is_exists_interpretation_def,is_or_interpretation_def,
             is_false_interpretation_def,is_not_interpretation_def]
 
-val is_bool_interpretation_def = xDefine"is_bool_interpretation"`
+Definition is_bool_interpretation_def:
   is_bool_interpretation0 ^mem sig δ γ ⇔
     is_std_interpretation (types_of_frag(total_fragment sig)) δ γ ∧
     is_true_interpretation γ ∧
@@ -97,14 +117,18 @@ val is_bool_interpretation_def = xDefine"is_bool_interpretation"`
     (!ty. ty ∈ ground_types sig ==> is_exists_interpretation γ δ ty) ∧
     is_or_interpretation γ ∧
     is_false_interpretation γ ∧
-    is_not_interpretation γ`
+    is_not_interpretation γ
+End
+
 Overload is_bool_interpretation = ``is_bool_interpretation0 ^mem``
 
-val is_bool_interpretation_ext_def = xDefine"is_bool_interpretation_ext"`
+Definition is_bool_interpretation_ext_def:
   is_bool_interpretation_ext0 ^mem sig δ γ ⇔
   is_bool_interpretation sig
     (ext_type_frag_builtins δ)
-    (ext_term_frag_builtins (ext_type_frag_builtins δ) γ)`
+    (ext_term_frag_builtins (ext_type_frag_builtins δ) γ)
+End
+
 Overload is_bool_interpretation_ext = ``is_bool_interpretation_ext0 ^mem``
 
 Theorem boolrel_in_funspace:
@@ -274,11 +298,13 @@ Proof
 QED
 
 (* TODO: move *)
-val builtins_std_assignment = Q.prove(
-  `is_std_type_assignment(ext_type_frag_builtins δ)`,
+Triviality builtins_std_assignment:
+  is_std_type_assignment(ext_type_frag_builtins δ)
+Proof
   rw[is_std_type_assignment_def]
   >> CONV_TAC(RATOR_CONV(PURE_ONCE_REWRITE_CONV [ext_type_frag_builtins_def]))
-  >> rw[]);
+  >> rw[]
+QED
 
 (* TODO: move *)
 Theorem is_std_interpretation_total_fragment:
@@ -1285,4 +1311,3 @@ Proof
   simp[apply_abstract,boolean_in_boolset]
 QED
 
-val _ = export_theory()

@@ -3,11 +3,13 @@
   table and tries to change calls to known closures into fast C-style
   function calls.
 *)
-open preamble closLangTheory db_varsTheory;
+Theory clos_call
+Ancestors
+  closLang db_vars
+Libs
+  preamble
 
-val _ = new_theory "clos_call";
-
-val free_def = tDefine "free" `
+Definition free_def:
   (free [] = ([],Empty)) /\
   (free ((x:closLang$exp)::y::xs) =
      let (c1,l1) = free [x] in
@@ -55,11 +57,87 @@ val free_def = tDefine "free" `
        ([Handle t (HD c1) (HD c2)],mk_Union l1 (Shift 1 l2))) /\
   (free [Call t ticks dest xs] =
      let (c1,l1) = free xs in
-       ([Call t ticks dest c1],l1))`
- (WF_REL_TAC `measure exp3_size`
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ DECIDE_TAC);
+       ([Call t ticks dest c1],l1))
+End
 
 val free_ind = theorem "free_ind";
+
+Definition free_sing_def:
+  (free_sing (Var t v) = (Var t v, Var v)) /\
+  (free_sing (If t x1 x2 x3) =
+     let (c1,l1) = free_sing x1 in
+     let (c2,l2) = free_sing x2 in
+     let (c3,l3) = free_sing x3 in
+       (If t c1 c2 c3,mk_Union l1 (mk_Union l2 l3))) /\
+  (free_sing (Let t xs x2) =
+     let (c1,l1) = free_list xs in
+     let (c2,l2) = free_sing x2 in
+       (Let t c1 c2,mk_Union l1 (Shift (LENGTH xs) l2))) /\
+  (free_sing (Raise t x1) =
+     let (c1,l1) = free_sing x1 in
+       (Raise t c1,l1)) /\
+  (free_sing (Tick t x1) =
+     let (c1,l1) = free_sing x1 in
+       (Tick t c1,l1)) /\
+  (free_sing (Op t op xs) =
+     let (c1,l1) = free_list xs in
+       (Op t op c1,l1)) /\
+  (free_sing (App t loc_opt x1 xs2) =
+     let (c1,l1) = free_sing x1 in
+     let (c2,l2) = free_list xs2 in
+       (App t loc_opt c1 c2,mk_Union l1 l2)) /\
+  (free_sing (Fn t loc _ num_args x1) =
+     let (c1,l1) = free_sing x1 in
+     let l2 = Shift num_args l1 in
+       (Fn t loc (SOME (vars_to_list l2)) num_args c1,l2)) /\
+  (free_sing (Letrec t loc _ fns x1) =
+     let m = LENGTH fns in
+     let res = MAP (\(n,x). let (c,l) = free_sing x in
+                              ((n,c),Shift (n + m) l)) fns in
+     let c1 = MAP FST res in
+     let l1 = list_mk_Union (MAP SND res) in
+     let (c2,l2) = free_sing x1 in
+       (Letrec t loc (SOME (vars_to_list l1)) c1 c2,
+        mk_Union l1 (Shift (LENGTH fns) l2))) /\
+  (free_sing (Handle t x1 x2) =
+     let (c1,l1) = free_sing x1 in
+     let (c2,l2) = free_sing x2 in
+       (Handle t c1 c2,mk_Union l1 (Shift 1 l2))) /\
+  (free_sing (Call t ticks dest xs) =
+     let (c1,l1) = free_list xs in
+       (Call t ticks dest c1,l1)) ∧
+
+  (free_list [] = ([],Empty)) /\
+  (free_list ((x:closLang$exp)::xs) =
+     let (c1,l1) = free_sing x in
+     let (c2,l2) = free_list xs in
+       (c1 :: c2,mk_Union l1 l2))
+End
+
+Theorem free_sing_eq:
+  (∀e. free [e] = (λ(e,vs). ([e],vs)) $ free_sing e) ∧
+  (∀es. free es = free_list es)
+Proof
+  ho_match_mp_tac free_sing_ind >>
+  reverse $ rw[free_def, free_sing_def] >>
+  rpt (pairarg_tac >> gvs[])
+  >- (Cases_on `es` >> gvs[free_def, free_sing_def]) >>
+  simp[MAP_MAP_o, combinTheory.o_DEF, ELIM_UNCURRY] >> rw[]
+  >- (
+    ntac 2 AP_TERM_TAC >>
+    rw[MAP_EQ_f] >> PairCases_on `x` >>
+    last_x_assum drule >> pairarg_tac >> gvs[]
+    )
+  >- (
+    rw[MAP_EQ_f] >> PairCases_on `x` >>
+    last_x_assum drule >> pairarg_tac >> gvs[]
+    )
+  >- (
+    AP_THM_TAC >> ntac 2 AP_TERM_TAC >>
+    rw[MAP_EQ_f] >> PairCases_on `x` >>
+    last_x_assum drule >> pairarg_tac >> gvs[]
+    )
+QED
 
 val free_LENGTH_LEMMA = Q.prove(
   `!xs. (case free xs of (ys,s1) => (LENGTH xs = LENGTH ys))`,
@@ -105,38 +183,53 @@ Proof
   \\ Cases_on `free (h::t)` \\ fs [SING_HD]
 \\ IMP_RES_TAC free_SING \\ fs []
 QED
-val closed_def = Define `
-  closed x = isEmpty (db_to_set (SND (free [x])))`
+Definition closed_def:
+  closed x = isEmpty (db_to_set (SND (free [x])))
+End
 
-val EL_MEM_LEMMA = Q.prove(
-  `!xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs`,
-  Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []);
+Theorem closed_eq:
+  closed x = isEmpty (db_to_set (SND (free_sing x)))
+Proof
+  simp[closed_def, free_sing_eq] >> pairarg_tac >> gvs[]
+QED
 
-val insert_each_def = Define `
+Triviality EL_MEM_LEMMA:
+  !xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs
+Proof
+  Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []
+QED
+
+Definition insert_each_def:
   (insert_each p 0 g = g) /\
-  (insert_each p (SUC n) (g1,g2) = insert_each (p+2) n (insert p () g1,g2))`
+  (insert_each p (SUC n) (g1,g2) = insert_each (p+2) n (insert p () g1,g2))
+End
 
-val code_list_def = Define `
+Definition code_list_def:
   (code_list loc [] g = g) /\
   (code_list loc ((n,p)::xs) (g1,g2) =
-     code_list (loc+2n) xs (g1,(loc+1,n,p)::g2))`
+     code_list (loc+2n) xs (g1,(loc+1,n,p)::g2))
+End
 
-val GENLIST_Var_def = Define `
-  GENLIST_Var t i n =
+Definition GENLIST_Var_def:
+  GENLIST_Var t (i:num) n =
     if n = 0 then [] else
-      GENLIST_Var t (i+1) (n-1:num) ++ [Var t (n-1)]`;
+      GENLIST_Var t (i+1) (n-1:num) ++ [Var t (n-1)]
+End
 
-val calls_list_def = Define `
-  (calls_list t i loc [] = []) /\
+Definition calls_list_def:
+  (calls_list t (i:num) loc [] = []) /\
   (calls_list t i loc ((n,_)::xs) =
      (n,Call t 0 (loc+1) (GENLIST_Var t 1 n))::
-          calls_list t (i+1) (loc+2n) xs)`;
+          calls_list t (i+1) (loc+2n) xs)
+End
 
-val exp3_size_MAP_SND = Q.prove(
-  `!fns. exp3_size (MAP SND fns) <= exp1_size fns`,
-  Induct \\ fs [exp_size_def,FORALL_PROD]);
+Triviality exp3_size_MAP_SND:
+  !fns. exp3_size (MAP SND fns) <= exp1_size fns
+Proof
+  Induct \\ fs [exp_size_def,FORALL_PROD]
+QED
 
-val calls_def = tDefine "calls" `
+Definition calls_def:
   (calls [] g = ([],g)) /\
   (calls ((x:closLang$exp)::y::xs) g =
      let (e1,g) = calls [x] g in
@@ -212,26 +305,131 @@ val calls_def = tDefine "calls" `
        else
          let (fns1,g) = calls (MAP SND fns) g in
          let (e1,g) = calls [x1] g in
-           ([Letrec t loc_opt ws (ZIP (MAP FST fns,fns1)) (HD e1)],g))`
- (WF_REL_TAC `measure (exp3_size o FST)`
+           ([Letrec t loc_opt ws (ZIP (MAP FST fns,fns1)) (HD e1)],g))
+Termination
+  WF_REL_TAC `measure (exp3_size o FST)`
   \\ REPEAT STRIP_TAC
-  \\ fs [GSYM NOT_LESS]
+  \\ fs [GSYM NOT_LESS,exp_size_def]
   \\ IMP_RES_TAC EL_MEM_LEMMA
   \\ IMP_RES_TAC exp1_size_lemma
   \\ assume_tac (SPEC_ALL exp3_size_MAP_SND)
-  \\ DECIDE_TAC);
+  \\ DECIDE_TAC
+End
 
-val compile_def = Define `
+Definition calls_sing_def:
+  (calls_sing (Var t v) g =
+     (Var t v,g)) /\
+  (calls_sing (If t x1 x2 x3) g =
+     let (e1,g) = calls_sing x1 g in
+     let (e2,g) = calls_sing x2 g in
+     let (e3,g) = calls_sing x3 g in
+       (If t e1 e2 e3,g)) /\
+  (calls_sing (Let t xs x2) g =
+     let (e1,g) = calls_sing_list xs g in
+     let (e2,g) = calls_sing x2 g in
+       (Let t e1 e2,g)) /\
+  (calls_sing (Raise t x1) g =
+     let (e1,g) = calls_sing x1 g in
+       (Raise t e1,g)) /\
+  (calls_sing (Tick t x1) g =
+     let (e1,g) = calls_sing x1 g in
+       (Tick t e1,g)) /\
+  (calls_sing (Handle t x1 x2) g =
+     let (e1,g) = calls_sing x1 g in
+     let (e2,g) = calls_sing x2 g in
+       (Handle t e1 e2,g)) /\
+  (calls_sing (Call t ticks dest xs) g =
+     let (xs,g) = calls_sing_list xs g in
+       (Call t ticks dest xs,g)) /\
+  (calls_sing (Op t op xs) g =
+     let (e1,g) = calls_sing_list xs g in
+       (Op t op e1,g)) /\
+  (calls_sing (App t loc_opt x xs) g =
+     let (es,g) = calls_sing_list xs g in
+     let (e1,g) = calls_sing x g in
+     let loc = (case loc_opt of SOME loc => loc | NONE => 0) in
+       if IS_SOME loc_opt /\ IS_SOME (lookup loc (FST g)) then
+         if pure x then (Call t (LENGTH es) (loc+1) es,g) else
+           (Let (t§0) (SNOC e1 es)
+              (Call (t§1) (LENGTH es) (loc+1) (GENLIST_Var None 2 (LENGTH es))),g)
+       else (App t loc_opt e1 es,g)) /\
+  (calls_sing (Fn t loc_opt ws num_args x1) g =
+     (* loc_opt ought to be SOME loc, with loc being EVEN *)
+     let loc = (case loc_opt of SOME loc => loc | NONE => 0) in
+     let new_g = insert_each loc 1 g in
+     let (e1,new_g) = calls_sing x1 new_g in
+     let new_g = (FST new_g,(loc+1,num_args,e1)::SND new_g) in
+       (* Closedness is checked on the transformed program because
+          the calls function can sometimes remove free variables. *)
+       if closed (Fn t loc_opt ws num_args e1) then
+         (Fn t loc_opt ws num_args
+             (Call None 0 (loc+1) (GENLIST_Var None 1 num_args)),new_g)
+       else
+         let (e1,g) = calls_sing x1 g in
+           (Fn t loc_opt ws num_args e1,g)) /\
+  (calls_sing (Letrec t loc_opt ws fns x1) g =
+     let loc = (case loc_opt of SOME loc => loc | NONE => 0) in
+     let new_g = insert_each loc (LENGTH fns) g in
+     let (fns1,new_g) = calls_sing_list (MAP SND fns) new_g in
+       if EVERY2 (\(n,_) p. closed (Fn (strlit "") NONE NONE n p)) fns fns1 then
+         let new_g = code_list loc (ZIP (MAP FST fns,fns1)) new_g in
+         let (e1,g) = calls_sing x1 new_g in
+           (Letrec t loc_opt ws (calls_list None 1 loc fns) e1,g)
+       else
+         let (fns1,g) = calls_sing_list (MAP SND fns) g in
+         let (e1,g) = calls_sing x1 g in
+           (Letrec t loc_opt ws (ZIP (MAP FST fns,fns1)) e1,g)) ∧
+
+  (calls_sing_list [] g = ([],g)) /\
+  (calls_sing_list ((x:closLang$exp)::xs) g =
+     let (e1,g) = calls_sing x g in
+     let (e2,g) = calls_sing_list xs g in
+       (e1 :: e2,g))
+Termination
+  WF_REL_TAC `measure $ λx. case x of INL (e,_) => exp_size e
+                                    | INR (es,_) => list_size exp_size es`
+  \\ REPEAT STRIP_TAC
+  \\ fs [GSYM NOT_LESS,list_size_pair_size_MAP_FST_SND]
+End
+
+Theorem calls_sing_eq:
+  (∀e g. calls [e] g = (λ(e,rest). ([e], rest)) $ calls_sing e g) ∧
+  (∀es g. calls es g = calls_sing_list es g)
+Proof
+  ho_match_mp_tac calls_sing_ind >> rw[calls_def, calls_sing_def] >>
+  rpt (pairarg_tac >> gvs[]) >> rpt (TOP_CASE_TAC >> gvs[]) >>
+  Cases_on `es` >> gvs[calls_def, calls_sing_def]
+QED
+
+Definition compile_def:
   compile F x = (x,(LN,[])) /\
-  compile T x = let (xs,g) = calls x (LN,[]) in (xs,g)`
+  compile T x = let (xs,g) = calls x (LN,[]) in (xs,g)
+End
 
-val compile_inc_def = Define `
+Definition compile_inc_def:
   compile_inc d (e,xs) =
     let (ea, d1, new_code) = calls e (d,[]) in
-      (d1, ea, new_code)`;
+      (d1, ea, new_code)
+End
 
-val cond_call_compile_inc_def = Define`
-  cond_call_compile_inc do_it = if do_it then compile_inc else CURRY I`;
+Theorem compile_eq:
+  compile F x = (x,(LN,[])) ∧
+  compile T x = let (xs,g) = calls_sing_list x (LN,[]) in (xs,g)
+Proof
+  simp[compile_def, calls_sing_eq]
+QED
+
+Theorem compile_inc_eq:
+  compile_inc d (e,xs) =
+    let (ea, d1, new_code) = calls_sing_list e (d,[]) in
+      (d1, ea, new_code)
+Proof
+  simp[compile_inc_def, calls_sing_eq]
+QED
+
+Definition cond_call_compile_inc_def:
+  cond_call_compile_inc do_it = if do_it then compile_inc else CURRY I
+End
 
 Theorem calls_length:
    ∀xs g0 ys g. calls xs g0 = (ys,g) ⇒ LENGTH ys = LENGTH xs
@@ -265,9 +463,9 @@ QED
 
 val selftest = let
   (* example code *)
-  val f = ``Fn (strlit "") (SOME 800) NONE 1 (Op None Add [Var None 0; Op None (Const 1) []])``
+  val f = ``Fn (strlit "") (SOME 800) NONE 1 (Op None (IntOp Add) [Var None 0; Op None (IntOp (Const 1)) []])``
   val g = ``Fn (strlit "") (SOME 900) NONE 1 (App None (SOME 800) (Var None 1) [Var None 0])``
-  val f_g_5 = ``App None (SOME 800) (Var None 1) [App None (SOME 900) (Var None 0) [Op None (Const 5) []]]``
+  val f_g_5 = ``App None (SOME 800) (Var None 1) [App None (SOME 900) (Var None 0) [Op None (IntOp (Const 5)) []]]``
   val let_let = ``[Let None [^f] (Let None [^g] ^f_g_5)]``
   (* compiler evaluation *)
   val tm = EVAL ``compile T ^let_let`` |> concl
@@ -275,4 +473,3 @@ val selftest = let
   val _ = (n = 5) orelse failwith "clos_call implementation broken"
   in tm end
 
-val _ = export_theory();

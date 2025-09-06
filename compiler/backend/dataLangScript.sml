@@ -23,43 +23,45 @@
   translation from dataLang into more concete forms must implement a
   GC that only looks at the variables in the SOME annotations.
 *)
-
-open preamble;
-local open closLangTheory in end;
-
-val _ = new_theory "dataLang";
-val _ = set_grammar_ancestry ["closLang" (* for op *), "misc" (* for num_set *)]
-
+Theory dataLang
+Ancestors[qualified]
+  closLang (* for op *)
+  misc (* for num_set *)
+Libs
+  preamble
 
 
 (* --- Syntax of dataLang --- *)
-val op_space_reset_def = Define `
-  (op_space_reset Add = T) /\
-  (op_space_reset Sub = T) /\
-  (op_space_reset Mult = T) /\
-  (op_space_reset Div = T) /\
-  (op_space_reset Mod = T) /\
-  (op_space_reset Less = T) /\
-  (op_space_reset LessEq = T) /\
-  (op_space_reset Greater = T) /\
-  (op_space_reset GreaterEq = T) /\
-  (op_space_reset Equal = T) /\
-  (op_space_reset ListAppend = T) /\
-  (op_space_reset (FromList _) = T) /\
-  (op_space_reset RefArray = T) /\
-  (op_space_reset (RefByte _) = T) /\
-  (op_space_reset (ConsExtend _) = T) /\
-  (op_space_reset (CopyByte new_flag) = new_flag) /\
-  (op_space_reset ConfigGC = T) /\
+Definition op_space_reset_def:
+  (op_space_reset (IntOp Add) = T) /\
+  (op_space_reset (IntOp Sub) = T) /\
+  (op_space_reset (IntOp Mult) = T) /\
+  (op_space_reset (IntOp Div) = T) /\
+  (op_space_reset (IntOp Mod) = T) /\
+  (op_space_reset (IntOp Less) = T) /\
+  (op_space_reset (IntOp LessEq) = T) /\
+  (op_space_reset (IntOp Greater) = T) /\
+  (op_space_reset (IntOp GreaterEq) = T) /\
+  (op_space_reset (BlockOp Equal) = T) /\
+  (op_space_reset (BlockOp ListAppend) = T) /\
+  (op_space_reset (BlockOp (FromList _)) = T) /\
+  (op_space_reset (MemOp RefArray) = T) /\
+  (op_space_reset (MemOp (RefByte _)) = T) /\
+  (op_space_reset (BlockOp (ConsExtend _)) = T) /\
+  (op_space_reset (MemOp (CopyByte new_flag)) = new_flag) /\
+  (op_space_reset (MemOp ConfigGC) = T) /\
   (op_space_reset (FFI _) = T) /\
-  (op_space_reset _ = F)`;
+  (op_space_reset _ = F)
+End
 
-val op_requires_names_def = Define`
+Definition op_requires_names_def:
   op_requires_names op = (op_space_reset op ∨ (∃n. op = FFI n) ∨
-                         (∃new_flag. op = CopyByte new_flag) ∨
-                         (op = Install))`;
+                         (∃new_flag. op = (MemOp (CopyByte new_flag))) ∨
+                         (op = MemOp XorByte) ∨
+                         (op = Install))
+End
 
-val _ = Datatype `
+Datatype:
   prog = Skip
        | Move num num
        | Call ((num # num_set) option) (* return var, cut-set *)
@@ -72,9 +74,9 @@ val _ = Datatype `
        | MakeSpace num num_set
        | Raise num
        | Return num
-       | Tick`;
+       | Tick
+End
 
-val mk_ticks_def = Define `
-  mk_ticks n e = FUNPOW (Seq Tick) n e`;
-
-val _ = export_theory();
+Definition mk_ticks_def:
+  mk_ticks n e = FUNPOW (Seq Tick) n e
+End

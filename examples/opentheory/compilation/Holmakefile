@@ -1,14 +1,21 @@
-INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/compiler $(CAKEMLDIR)/examples/cost ..
+INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/cv_translator $(CAKEMLDIR)/compiler ..
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all
+
+CFLAGS+=-O2
+LDLIBS+=-lm
 
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
 DIRS = $(wildcard */)
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
 
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap
+endif
+
 reader: reader.S $(CAKEMLDIR)/basis/basis_ffi.o
-	$(CC) $< $(protect $(CAKEMLDIR)/basis/basis_ffi.o) $(GCCFLAGS) -o $@
+	$(CC) $(CFLAGS) -o $@ $< $(protect $(CAKEMLDIR)/basis/basis_ffi.o) $(LDLIBS)
 
 EXTRA_CLEANS=reader reader.S

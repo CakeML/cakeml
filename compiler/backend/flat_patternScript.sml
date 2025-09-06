@@ -6,17 +6,17 @@
   - decodes decision tree to if-tree
   - encodes the variable bindings of each case as let-bindings
 *)
+Theory flat_pattern
+Ancestors
+  misc flatLang sptree pattern_semantics pattern_comp
+Libs
+  preamble
 
-open preamble sptreeTheory flatLangTheory pattern_semanticsTheory
-  pattern_compTheory
 
-val _ = new_theory "flat_pattern";
-
-val _ = set_grammar_ancestry ["misc","flatLang","sptree",
-    "pattern_semantics"];
-
-val _ = Datatype `config =
-  <| pat_heuristic : (* pattern_matching$branch list *) (* unit -> *) num |>`;
+Datatype:
+  config =
+  <| pat_heuristic : (* pattern_matching$branch list *) (* unit -> *) num |>
+End
 
 Definition init_config_def:
   init_config ph = <| pat_heuristic := ph |>
@@ -107,24 +107,36 @@ Definition decode_test_def:
 End
 
 Definition simp_guard_def:
-  simp_guard (Conj x y) = (if x = True then simp_guard y
-    else if y = True then simp_guard x
-    else if x = Not True \/ y = Not True then Not True
-    else Conj (simp_guard x) (simp_guard y)) /\
-  simp_guard (Disj x y) = (if x = True \/ y = True then True
-    else if x = Not True then simp_guard y
-    else if y = Not True then simp_guard x
-    else Disj (simp_guard  x) (simp_guard y)) /\
-  simp_guard (Not (Not x)) = simp_guard x /\
-  simp_guard (Not x) = Not (simp_guard x) /\
+  simp_guard (Conj x y) =
+    (let v = simp_guard x in
+     let w = simp_guard y in
+     if v = Not True \/ w = Not True then
+       Not True
+     else if v = True then w
+     else if w = True then v
+     else Conj v w) /\
+  simp_guard (Disj x y) =
+    (let v = simp_guard x in
+     let w = simp_guard y in
+     if v = True \/ w = True then
+       True
+     else if v = Not True then w
+     else if w = Not True then v
+     else Disj v w) /\
+  simp_guard (Not x) =
+    (let v = simp_guard x in
+     case v of
+       Not True => True
+     | Not w => w
+     | _ => Not v) /\
   simp_guard x = x
 End
 
 Definition decode_guard_def:
   decode_guard t v (Not gd) = App t Equality [decode_guard t v gd; Bool t F] /\
-  decode_guard t v (Conj gd1 gd2) = If t (decode_guard t v gd1)
+  decode_guard t v (Conj gd1 gd2) = SmartIf t (decode_guard t v gd1)
     (decode_guard t v gd2) (Bool t F) /\
-  decode_guard t v (Disj gd1 gd2) = If t (decode_guard t v gd1) (Bool t T)
+  decode_guard t v (Disj gd1 gd2) = SmartIf t (decode_guard t v gd1) (Bool t T)
     (decode_guard t v gd2) /\
   decode_guard t v True = Bool t T /\
   decode_guard t v (PosTest pos test) = decode_test t test (decode_pos t v pos)
@@ -141,7 +153,7 @@ Definition decode_dtree_def:
   let dec2 = decode_dtree t br_spt v df dt2 in
   if guard = True then dec1
   else if guard = Not True then dec2
-  else If t (decode_guard t v guard) dec1 dec2
+  else SmartIf t (decode_guard t v guard) dec1 dec2
 End
 
 Definition encode_pat_def:
@@ -165,14 +177,14 @@ Definition naive_pattern_match_def:
   naive_pattern_match t ((flatLang$Pany, _) :: mats) = naive_pattern_match t mats
   /\
   naive_pattern_match t ((Pvar _, _) :: mats) = naive_pattern_match t mats /\
-  naive_pattern_match t ((Plit l, v) :: mats) = If t
+  naive_pattern_match t ((Plit l, v) :: mats) = SmartIf t
     (App t Equality [v; Lit t l]) (naive_pattern_match t mats) (Bool t F) /\
   naive_pattern_match t ((Pcon NONE ps, v) :: mats) =
     naive_pattern_match t (MAPi (\i p. (p, App t (El i) [v])) ps ++ mats) /\
   naive_pattern_match t ((Pas p i, v) :: mats) =
     naive_pattern_match t ((p, v) :: mats) /\
   naive_pattern_match t ((Pcon (SOME stmp) ps, v) :: mats) =
-    If t (App t (TagLenEq (FST stmp) (LENGTH ps)) [v])
+    SmartIf t (App t (TagLenEq (FST stmp) (LENGTH ps)) [v])
       (naive_pattern_match t (MAPi (\i p. (p, App t (El i) [v])) ps ++ mats))
       (Bool t F)
   /\
@@ -188,7 +200,7 @@ End
 Definition naive_pattern_matches_def:
   naive_pattern_matches t v [] dflt_x = dflt_x /\
   naive_pattern_matches t v ((p, x) :: ps) dflt_x =
-  If t (naive_pattern_match t [(p, v)]) x (naive_pattern_matches t v ps dflt_x)
+  SmartIf t (naive_pattern_match t [(p, v)]) x (naive_pattern_matches t v ps dflt_x)
 End
 
 Definition compile_pats_def:
@@ -258,7 +270,7 @@ Definition compile_exp_def:
   (compile_exp cfg (flatLang$Letrec t fs x) =
     let ys = MAP (\(a,b,c). (a, b, compile_exp cfg c)) fs in
     let (i, sgx, y) = compile_exp cfg x in
-    let j = list_max (MAP (\(_,_,(j,_,_)). j) ys) in
+    let j = MAX_LIST (MAP (\(_,_,(j,_,_)). j) ys) in
     let sgfs = EXISTS (\(_,_,(_,sg,_)). sg) ys in
     let fs2 = MAP (\(a, b, (_, _, exp)). (a, b, exp)) ys in
     (MAX i j, sgfs \/ sgx, flatLang$Letrec t fs2 y)) /\
@@ -266,7 +278,7 @@ Definition compile_exp_def:
     let (i, sg1, y1) = compile_exp cfg x1 in
     let (j, sg2, y2) = compile_exp cfg x2 in
     let (k, sg3, y3) = compile_exp cfg x3 in
-    (MAX i (MAX j k), sg1 \/ sg2 \/ sg3, If t y1 y2 y3)) /\
+    (MAX i (MAX j k), sg1 \/ sg2 \/ sg3, SmartIf t y1 y2 y3)) /\
   (compile_exp cfg exp = (0, F, exp)) /\
   (compile_exps cfg [] = (0, F, [])) /\
   (compile_exps cfg (x::xs) =
@@ -279,13 +291,6 @@ Definition compile_exp_def:
     let j = max_dec_name (pat_bindings p []) in
     let (k, sgp, ps2) = compile_match cfg ps in
     (MAX i (MAX j k), sgx \/ sgp, ((p, y) :: ps2)))
-Termination
-  WF_REL_TAC `measure (\x. case x of INL (_, x) => exp_size x
-    | INR (INL (_, xs)) => exp6_size xs
-    | INR (INR (_, ps)) => exp3_size ps)`
-  \\ rw [flatLangTheory.exp_size_def]
-  \\ imp_res_tac flatLangTheory.exp_size_MEM
-  \\ fs []
 End
 
 Theorem LENGTH_compile_exps_IMP:
@@ -315,5 +320,3 @@ Definition compile_dec_def:
   compile_dec cfg (Dtype tid amap) = Dtype tid amap /\
   compile_dec cfg (Dexn n n') = Dexn n n'
 End
-
-val _ = export_theory()

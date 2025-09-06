@@ -1,12 +1,12 @@
 (*
    loop_call proof
 *)
+Theory loop_callProof
+Ancestors
+  loopSem loopProps loop_call
+Libs
+  preamble
 
-open preamble
-     loopSemTheory loopPropsTheory
-     loop_callTheory
-
-val _ = new_theory "loop_callProof";
 
 Definition labels_in_def:
   labels_in l locals =
@@ -119,6 +119,24 @@ Proof
   rveq >> fs [lookup_delete]
 QED
 
+Theorem compile_Load32:
+  ^(get_goal "comp _ (loopLang$Load32 _ _)")
+Proof
+  rpt gen_tac >>
+  strip_tac >>
+  fs [evaluate_def,labels_in_def, comp_def] >>
+  rveq >> fs [] >>
+  fs [evaluate_def] >>
+  cases_on ‘res’ >> fs []  >>
+  every_case_tac >> fs [] >>
+  last_x_assum (assume_tac o GSYM) >>
+  rveq >> fs [set_var_def] >>
+  rw [] >>
+  fs [lookup_insert] >>
+  every_case_tac >> fs [] >>
+  rveq >> fs [lookup_delete]
+QED
+
 Theorem compile_LoadByte:
   ^(get_goal "comp _ (loopLang$LoadByte _ _)")
 Proof
@@ -217,6 +235,20 @@ Proof
   fs [cut_res_def]
 QED
 
+Theorem compile_Store32:
+  ^(get_goal "comp _ (loopLang$Store32 _ _)")
+Proof
+  rpt gen_tac >>
+  strip_tac >>
+  fs [evaluate_def, labels_in_def, comp_def] >>
+  rveq >> fs [] >>
+  fs [evaluate_def] >>
+  cases_on ‘res’ >> fs []  >>
+  every_case_tac >> fs [] >>
+  last_x_assum (assume_tac o GSYM) >>
+  rveq >> fs []
+QED
+
 Theorem compile_StoreByte:
   ^(get_goal "comp _ (loopLang$StoreByte _ _)")
 Proof
@@ -230,7 +262,6 @@ Proof
   last_x_assum (assume_tac o GSYM) >>
   rveq >> fs []
 QED
-
 
 Theorem compile_Store:
   ^(get_goal "comp _ (loopLang$Store _ _)")
@@ -370,6 +401,51 @@ Proof
   fs [labels_in_def, lookup_def]
 QED
 
+Theorem compile_Arith:
+  ^(get_goal "comp _ (loopLang$Arith _)")
+Proof
+  rpt conj_tac >>
+  rpt gen_tac >> strip_tac >>
+  gvs [evaluate_def, labels_in_def, comp_def,AllCaseEqs(),
+      DefnBase.one_line_ify NONE loop_arith_def
+      ] >>
+  rw[set_var_def,lookup_insert,lookup_delete]
+QED
+
+Theorem evaluate_ShMem_neq_locals:
+  evaluate (ShMem op v ad, s) = (res, s') ∧ v ≠ n ∧
+  ¬ (∃x. res = SOME (FinalFFI x)) ∧ lookup n s.locals = x ⇒
+  lookup n s'.locals = x
+Proof
+  strip_tac>>
+  cases_on ‘op’>>fs[evaluate_def]>>
+  fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,set_var_def,call_env_def]>>
+  fs[AllCaseEqs()]>>
+  rveq>>fs[lookup_insert,lookup_fromList]
+QED
+
+Theorem evaluate_ShMem_not_load_locals:
+  loopSem$evaluate (ShMem op v ad, s) = (res, s') ∧ ¬is_load op ∧
+  ¬ (∃x. res = SOME (FinalFFI x))⇒
+  s.locals = s'.locals
+Proof
+  strip_tac>>
+  cases_on ‘op’>>fs[evaluate_def,is_load_def]>>
+  fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,set_var_def,call_env_def]>>
+  fs[ffiTheory.call_FFI_def,AllCaseEqs()]>>
+  rveq>>fs[]
+QED
+
+Theorem compile_ShMem:
+  ^(get_goal "comp _ (loopLang$ShMem _ _ _)")
+Proof
+  rpt conj_tac >>
+  rpt gen_tac >> strip_tac >>
+  fs [evaluate_def, labels_in_def, comp_def] >>
+  rveq >> fs [eval_def] >>
+  fs [evaluate_def,is_load_def] >>
+  rpt strip_tac>>every_case_tac>>fs[]
+QED
 
 Theorem compile_others:
   ^(get_goal "comp _ loopLang$Skip") ∧
@@ -398,10 +474,10 @@ Proof
   match_mp_tac (the_ind_thm()) >>
   EVERY (map strip_assume_tac
          [compile_others,compile_LocValue,compile_LoadByte,compile_StoreByte,
-          compile_Mark, compile_Assign, compile_Store,
+          compile_Mark, compile_Assign, compile_Store, compile_Arith,
+          compile_ShMem, compile_Load32, compile_Store32,
           compile_Call, compile_Seq, compile_If, compile_FFI, compile_Loop]) >>
   asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
 QED
 
 
-val _ = export_theory();

@@ -1,13 +1,16 @@
 (*
   Translate the backend phase from BVI to dataLang.
 *)
+Theory to_dataProg
+Ancestors
+  ml_translator to_bviProg backend[qualified]
+Libs
+  preamble ml_translatorLib
 
-open preamble ml_translatorLib ml_translatorTheory to_bviProgTheory
-local open backendTheory in end
+open preamble ml_translatorLib ml_translatorTheory to_bviProgTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory "to_dataProg"
 val _ = translation_extends "to_bviProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_dataProg");
@@ -32,9 +35,11 @@ fun list_mk_fun_type [ty] = ty
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-val NOT_NIL_AND_LEMMA = Q.prove(
-  `(b <> [] /\ x) = if b = [] then F else x`,
-  Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
+Triviality NOT_NIL_AND_LEMMA:
+  (b <> [] /\ x) = if b = [] then F else x
+Proof
+  Cases_on `b` THEN FULL_SIMP_TAC std_ss []
+QED
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
 
@@ -102,4 +107,3 @@ val r = translate bvi_to_dataTheory.compile_prog_def;
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 val _ = ml_translatorLib.clean_on_exit := true;
-val _ = export_theory ();

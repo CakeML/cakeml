@@ -26,6 +26,10 @@ val get_default_simpset = cfLetAutoLib.get_default_simpset
  *
  *********************************************************************************)
 
+(*TODO gen rid of every usage of this*)
+fun CONV_TERM conv t = (conv t) |> concl |> rhs
+                       handle UNCHANGED => t
+
 (* Auxiliary function for the exporters *)
 fun mk_export_f f (thy_name : string) (named_thms : ('a * thm) list) =
   f (List.map snd named_thms);
@@ -392,8 +396,7 @@ val (exp2v_tm, mk_exp2v, dest_exp2v, is_exp2v) = HolKernel.syntax_fns2 "cfNormal
 (* Manipulation of expressions *)
 
 fun get_value env e =
-  cfTacticsLib.reduce_conv (mk_exp2v (env, e))
-  |> concl |> rhs |> optionSyntax.dest_some;
+  (CONV_TERM cfTacticsLib.reduce_conv (mk_exp2v (env, e))) |> optionSyntax.dest_some;
 
 (* Rename a variable by adding numbers rather than adding primes - useful for
    xlet_auto, which introduces variables (Postv, Poste, Post) *)
@@ -807,8 +810,7 @@ fun xlet_subst_parameters env app_info asl let_pre app_spec  =
       (* NOT SURE if proper way: rewrite the values to prevent conflicts with the
          parameters found by xapp_spec *)
       val asl_thms = List.map ASSUME asl
-      val params_tm_list = List.map (fn x => QCONV (SIMP_CONV bool_ss asl_thms) x
-                                |> concl |> dest_eq |> snd) params_tm_list
+      val params_tm_list = List.map (fn x => CONV_TERM (SIMP_CONV bool_ss asl_thms) x) params_tm_list
       (*************************************************)
 
       (* Find the app variable *)
@@ -1076,8 +1078,6 @@ fun match_hconds rewrite_thms avoid_tms let_pre app_spec =
 
       val app_pre = concl (UNDISCH_ALL app_spec) |> list_dest dest_imp |> List.last |>
                           dest_comb |> fst |> dest_comb |> snd
-      val rw_app_pre = (QCONV (SIMP_CONV sset rewrite_thms) app_pre |> concl |> dest_eq |> snd)
-      val rw_let_pre = (QCONV (SIMP_CONV sset rewrite_thms) let_pre |> concl |> dest_eq |> snd)
       val (substsl, _, _) = match_heap_conditions let_pre app_pre
       val filt_subst =
           List.filter (fn {redex = x, residue = y} => not (HOLset.member (avoid_tms, x))) substsl
@@ -1666,8 +1666,6 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
       (* Compute the frame *)
       val app_pre = concl (UNDISCH_ALL hsimp_app_spec') |> list_dest dest_imp |> List.last |>
                           dest_comb |> fst |> dest_comb |> snd
-      val rw_app_pre = (QCONV (SIMP_CONV list_ss all_rw_thms) app_pre |> concl |> dest_eq |> snd)
-      val rw_let_pre = (QCONV (SIMP_CONV list_ss all_rw_thms) let_pre |> concl |> dest_eq |> snd)
       val (vars_subst, frame_hpl, rest) = match_heap_conditions let_pre app_pre
       val () = if List.null rest then () else
                raise (generate_XLET_ERR "xlet_simp_spec" "cannot extract the frame" asl let_pre hsimp_app_spec')
@@ -1692,7 +1690,7 @@ fun xlet_simp_spec asl app_info let_pre app_spec =
       (final_spec, frame_hpl)
   end
   handle HOL_ERR{message = msg, origin_function = fname,
-                 origin_structure  = sname} => raise (ERR "xlet_simp_spec" msg);
+                 origin_structure  = sname, ...} => raise (ERR "xlet_simp_spec" msg);
 
 (* [xlet_mk_post_conditions] *)
 fun xlet_mk_post_condition asl frame_hpl app_spec =
@@ -1731,24 +1729,6 @@ fun xlet_mk_post_condition asl frame_hpl app_spec =
       val let_heap_condition =
           mk_post_condition (post_postv_vo, post_postv_po', post_poste_vo, post_poste_po',
                              post_postf_argso, post_postf_po', post_postd_ioo, post_postd_po)
-
-      (* Retrieve the assumptions defining equalities between variables and terms *)
-      fun transf_vt_eq a =
-          let
-              val (lt, rt) = dest_eq a
-          in
-              if is_var lt andalso (not o is_var) rt then ASSUME (mk_eq (rt, lt))
-              else if is_var rt andalso (not o is_var) lt then ASSUME a
-              else failwith "transf_vt_eq"
-          end
-      val eqs = mapfilter transf_vt_eq asl
-
-      (* Perform rewrites on the post-conditions *)
-      val rw_conv = (PURE_REWRITE_CONV (get_retract_thms())) THENC
-                                (PURE_REWRITE_CONV eqs)
-      val rw_let_heap_condition =
-          (rw_conv let_heap_condition |> concl |> dest_eq |> snd
-           handle UNCHANGED => let_heap_condition)
   in
       let_heap_condition
   end;
@@ -1804,7 +1784,7 @@ fun xlet_expr_con let_expr_args asl w env pre post =
       val con_args_list_tm = listSyntax.mk_list (con_args_tms,
                                                  semanticPrimitivesSyntax.v_ty)
       val con_tm = mk_build_conv (mk_sem_env_c env,con_name,con_args_list_tm)
-                                 |> cfTacticsLib.reduce_conv |> concl |> rhs
+                                 |> CONV_TERM cfTacticsLib.reduce_conv
                                  |> optionSyntax.dest_some
 
       (* Build the post-condition *)
@@ -1829,8 +1809,7 @@ fun xlet_expr_con let_expr_args asl w env pre post =
       val rw_conv = (PURE_REWRITE_CONV (get_retract_thms())) THENC
                                         (PURE_REWRITE_CONV eqs)
       val rw_post_condition =
-          (rw_conv post_condition |> concl |> dest_eq |> snd
-           handle UNCHANGED => post_condition)
+           CONV_TERM rw_conv post_condition
   in
       rw_post_condition
   end;
@@ -1921,7 +1900,7 @@ fun xlet_auto_spec (opt_spec : thm option) (g as (asl, w)) =
 (* [xlet_auto] *)
 fun xlet_auto (g as (asl, w)) =
   xlet_auto_spec NONE g
-  handle HOL_ERR {origin_structure = _, origin_function = fname, message = msg}
+  handle HOL_ERR {message = msg, ...}
          => raise (ERR "xlet_auto" msg);
 
 end

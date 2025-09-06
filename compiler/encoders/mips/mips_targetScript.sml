@@ -1,10 +1,11 @@
 (*
   Define the target compiler configuration for MIPS.
 *)
-open HolKernel Parse boolLib bossLib
-open asmLib mips_stepTheory;
-
-val () = new_theory "mips_target"
+Theory mips_target
+Ancestors
+  asmProps mips_step
+Libs
+  asmLib
 
 (* --- The next-state function --- *)
 
@@ -18,65 +19,77 @@ val () = new_theory "mips_target"
    and we don't attempt to model or verify this behaviour.
    -------------------------------------------------------------------------- *)
 
-val mips_next_def = Define`
+Definition mips_next_def:
    mips_next s =
    let s' = THE (NextStateMIPS s) in
-     if IS_SOME s'.BranchDelay then THE (NextStateMIPS s') else s'`
+     if IS_SOME s'.BranchDelay then THE (NextStateMIPS s') else s'
+End
 
 (* --- Valid MIPS states --- *)
 
-val mips_ok_def = Define`
+Definition mips_ok_def:
    mips_ok ms <=>
    ms.CP0.Config.BE /\ ~ms.CP0.Status.RE /\
    ms.CP0.Status.CU1 /\ ms.fcsr.ABS2008 /\ ~ms.fcsr.FS /\ (ms.fcsr.RM = 0w) /\
    (ms.BranchDelay = NONE) /\ (ms.BranchTo = NONE) /\
-   ~ms.exceptionSignalled /\ (ms.exception = NoException) /\ aligned 2 ms.PC`
+   ~ms.exceptionSignalled /\ (ms.exception = NoException) /\ aligned 2 ms.PC
+End
 
 (* --- Encode ASM instructions to MIPS bytes. --- *)
 
 val nop = ``Shift (SLL (0w, 0w, 0w))``
 
-val mips_encode_fail_def = Define `mips_encode_fail = [^nop]`
+Definition mips_encode_fail_def:
+  mips_encode_fail = [^nop]
+End
 
-val mips_encode_def = Define`
+Definition mips_encode_def:
    mips_encode i =
    let w = mips$Encode i in
-     [(31 >< 24) w; (23 >< 16) w; (15 >< 8) w; (7 >< 0) w] : word8 list`
+     [(31 >< 24) w; (23 >< 16) w; (15 >< 8) w; (7 >< 0) w] : word8 list
+End
 
-val mips_bop_r_def = Define`
+Definition mips_bop_r_def:
    (mips_bop_r Add = DADDU) /\
    (mips_bop_r Sub = DSUBU) /\
    (mips_bop_r And = AND) /\
    (mips_bop_r Or  = OR) /\
-   (mips_bop_r Xor = XOR)`
+   (mips_bop_r Xor = XOR)
+End
 
-val mips_bop_i_def = Define`
+Definition mips_bop_i_def:
    (mips_bop_i Add = DADDIU) /\
    (mips_bop_i And = ANDI) /\
    (mips_bop_i Or  = ORI) /\
-   (mips_bop_i Xor = XORI)`
+   (mips_bop_i Xor = XORI)
+End
 
-val mips_sh_def = Define`
+Definition mips_sh_def:
    (mips_sh Lsl = DSLL) /\
    (mips_sh Lsr = DSRL) /\
    (mips_sh Asr = DSRA) /\
-   (mips_sh _   = DSRA)`
+   (mips_sh _   = DSRA)
+End
 
-val mips_sh32_def = Define`
+Definition mips_sh32_def:
    (mips_sh32 Lsl = DSLL32) /\
    (mips_sh32 Lsr = DSRL32) /\
    (mips_sh32 Asr = DSRA32) /\
-   (mips_sh32 _   = DSRA32)`
+   (mips_sh32 _   = DSRA32)
+End
 
-val mips_memop_def = Define`
+Definition mips_memop_def:
    (mips_memop Load    = INL LD) /\
-(* (mips_memop Load32  = INL LWU) /\ *)
+   (mips_memop Load32  = INL LWU) /\
+   (mips_memop Load16  = INL LHU) /\
    (mips_memop Load8   = INL LBU) /\
    (mips_memop Store   = INR SD) /\
-(* (mips_memop Store32 = INR SW) /\ *)
-   (mips_memop Store8  = INR SB)`
+   (mips_memop Store32 = INR SW) /\
+   (mips_memop Store16 = INR SH) /\
+   (mips_memop Store8  = INR SB)
+End
 
-val mips_cmp_def = Define`
+Definition mips_cmp_def:
    (mips_cmp Equal    = (NONE, BEQ)) /\
    (mips_cmp Less     = (SOME (SLT, SLTI), BNE)) /\
    (mips_cmp Lower    = (SOME (SLTU, SLTIU), BNE)) /\
@@ -84,13 +97,15 @@ val mips_cmp_def = Define`
    (mips_cmp NotEqual = (NONE, BNE)) /\
    (mips_cmp NotLess  = (SOME (SLT, SLTI), BEQ)) /\
    (mips_cmp NotLower = (SOME (SLTU, SLTIU), BEQ)) /\
-   (mips_cmp NotTest  = (SOME (AND, ANDI), BNE))`
+   (mips_cmp NotTest  = (SOME (AND, ANDI), BNE))
+End
 
-val mips_fp_cmp_def = Define`
+Definition mips_fp_cmp_def:
    mips_fp_cmp c n d1 d2 =
      [COP1 (C_cond_D (n2w d1, n2w d2, c, 0w));
       ArithI (ORI (0w, n2w n, 1w));
-      COP1 (MOVF (n2w n, 0w, 0w))]`
+      COP1 (MOVF (n2w n, 0w, 0w))]
+End
 
 val eval = rhs o concl o EVAL
 val min16 = eval ``sw2sw (INT_MINw: word16) : word64``
@@ -104,7 +119,7 @@ val umax16 = eval ``w2w (UINT_MAXw: word16) : word64``
 Overload temp_reg[local] = ``1w : word5``
 Overload temp_reg2[local] = ``30w : word5``
 
-val mips_ast_def = Define`
+Definition mips_ast_def:
    (mips_ast (Inst Skip) = [^nop]) /\
    (mips_ast (Inst (Const r (i: word64))) =
       let top    = (63 >< 32) i : word32
@@ -270,14 +285,16 @@ val mips_ast_def = Define`
            ArithI (LUI (n2w r, (31 >< 16) b));
            ArithI (ORI (n2w r, n2w r, (15 >< 0) b));  (* r := i - 12  *)
            ArithR (DADDU (n2w r, 31w, n2w r));        (* r := pc + i  *)
-           ArithI (ORI (temp_reg, 31w, 0w))])`        (* LR := tmp    *)
+           ArithI (ORI (temp_reg, 31w, 0w))])
+End        (* LR := tmp    *)
 
-val mips_enc_def = zDefine`
-  mips_enc = combin$C LIST_BIND mips_encode o mips_ast`
+Definition mips_enc_def[nocompute]:
+  mips_enc = combin$C LIST_BIND mips_encode o mips_ast
+End
 
 (* --- Configuration for MIPS --- *)
 
-val mips_config_def = Define`
+Definition mips_config_def:
    mips_config =
    <| ISA := MIPS
     ; encode := mips_enc
@@ -293,21 +310,24 @@ val mips_config_def = Define`
               else (if b = INL Sub then ^min16 < i else ^min16 <= i) /\
                    i <= ^max16)
     ; addr_offset := (^min16, ^max16)
+    ; hw_offset := (^min16, ^max16)
     ; byte_offset := (^min16, ^max16)
     ; jump_offset := (^min32 + 12w, ^max32 + 8w)
     ; cjump_offset := (^min18 + 8w, ^max18 + 4w)
     ; loc_offset := (^min32 + 12w, ^max32 + 8w)
     ; code_alignment := 2
-    |>`
+    |>
+End
 
-val mips_proj_def = Define`
+Definition mips_proj_def:
    mips_proj d s =
    (s.CP0.Config, s.CP0.Status.RE,
     s.CP0.Status.CU1, s.fcsr.ABS2008, s.fcsr.FS, s.fcsr.RM, s.fcsr.FCC,
     s.exceptionSignalled, s.BranchDelay, s.BranchTo, s.exception, s.gpr,
-    s.lo, s.hi, s.FGR, fun2set (s.MEM,d), s.PC)`
+    s.lo, s.hi, s.FGR, fun2set (s.MEM,d), s.PC)
+End
 
-val mips_target_def = Define`
+Definition mips_target_def:
    mips_target =
    <| next := mips_next
     ; config := mips_config
@@ -317,18 +337,20 @@ val mips_target_def = Define`
     ; get_byte := mips_state_MEM
     ; state_ok := mips_ok
     ; proj := mips_proj
-    |>`
+    |>
+End
 
-val mips_reg_ok_def = Define`
-  mips_reg_ok n = ~MEM n mips_config.avoid_regs`
+Definition mips_reg_ok_def:
+  mips_reg_ok n = ~MEM n mips_config.avoid_regs
+End
 
-val mips_reg_ok = save_thm("mips_reg_ok",
-  GSYM (SIMP_RULE (srw_ss()) [mips_config_def] mips_reg_ok_def))
+Theorem mips_reg_ok =
+  GSYM (SIMP_RULE (srw_ss()) [mips_config_def] mips_reg_ok_def)
 
 val (mips_config, mips_asm_ok) =
   asmLib.target_asm_rwts [mips_reg_ok] ``mips_config``
 
-val mips_config = save_thm("mips_config", mips_config)
-val mips_asm_ok = save_thm("mips_asm_ok", mips_asm_ok)
-
-val () = export_theory ()
+Theorem mips_config =
+  mips_config
+Theorem mips_asm_ok =
+  mips_asm_ok

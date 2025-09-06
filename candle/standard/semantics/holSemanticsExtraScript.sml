@@ -1,9 +1,11 @@
 (*
   Some lemmas about the semantics.
 *)
-open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory setSpecTheory
-
-val _ = new_theory"holSemanticsExtra"
+Theory holSemanticsExtra
+Ancestors
+  holSyntaxLib holSyntax holSyntaxExtra holSemantics setSpec
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -417,6 +419,7 @@ Proof
     simp[Abbr`P`,Abbr`sw`,combinTheory.o_DEF,UNCURRY,LAMBDA_PROD] ) >>
   qunabbrev_tac`ls` >>
   simp[ALOOKUP_FILTER,Abbr`P`,Abbr`sw`,combinTheory.o_DEF,LAMBDA_PROD] >- (
+    simp[IF_NONE_EQUALS_OPTION] >>
     rw[combinTheory.APPLY_UPDATE_THM,APPLY_UPDATE_LIST_ALOOKUP] >>
     qmatch_assum_abbrev_tac`P ⇒ ALOOKUP ls vv = NONE` >>
     Q.ISPECL_THEN[`ls`,`termsem Γ i v`,`z`,`tyr`]mp_tac ALOOKUP_MAP_dest_var >>
@@ -584,10 +587,11 @@ QED
 
 (* one interpretation being compatible with another in a signature *)
 
-val equal_on_def = Define`
+Definition equal_on_def:
   equal_on (sig:sig) i i' ⇔
   (∀name. name ∈ FDOM (tysof sig) ⇒ tyaof i' name = tyaof i name) ∧
-  (∀name. name ∈ FDOM (tmsof sig) ⇒ tmaof i' name = tmaof i name)`
+  (∀name. name ∈ FDOM (tmsof sig) ⇒ tmaof i' name = tmaof i name)
+End
 
 Theorem equal_on_refl:
    ∀sig i. equal_on sig i i
@@ -774,9 +778,9 @@ QED
 (* special cases of interprets *)
 
 val rwt = MATCH_MP (PROVE[]``P x ⇒ ((∀x. P x ⇒ Q) ⇔ Q)``) is_type_valuation_exists
-val interprets_nil = save_thm("interprets_nil",
+Theorem interprets_nil =
   interprets_def |> SPEC_ALL |> Q.GEN`vs` |> Q.SPEC`[]`
-  |> SIMP_RULE (std_ss++listSimps.LIST_ss) [rwt] |> GEN_ALL)
+  |> SIMP_RULE (std_ss++listSimps.LIST_ss) [rwt] |> GEN_ALL
 
 Theorem interprets_one:
    i interprets name on [v] as f ⇔
@@ -897,4 +901,3 @@ Proof
   metis_tac[]
 QED
 
-val _ = export_theory()

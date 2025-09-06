@@ -1,0 +1,591 @@
+(*
+  This file gives the CakeML REPL multi-line input and file loading
+  capabilities.
+ *)
+
+fun failwith msg = raise Failure msg;
+
+fun pp_exn e =
+  case e of
+    Chr  => PrettyPrinter.token "Chr"
+  | Div  => PrettyPrinter.token "Div"
+  | Bind => PrettyPrinter.token "Bind"
+  | Subscript => PrettyPrinter.token "Subscript"
+  | Interrupt => PrettyPrinter.token "Interrupt"
+  | Failure s => PrettyPrinter.app_block "Failure" [PrettyPrinter.pp_string s]
+  | _ => PrettyPrinter.token "<exn>";
+
+(* ------------------------------------------------------------------------- *
+ * Operations on filenames
+ * ------------------------------------------------------------------------- *)
+
+structure Filename = struct
+  val currentDir = ".";
+  val parentDir = "..";
+  val dirSep = "/";
+  fun isRelative fname =
+    String.sub fname 0 <> #"/"
+    handle Subscript => True;
+  fun concat dname fname =
+    if dname = currentDir then fname
+    else String.concat [dname, dirSep, fname];
+  local
+    fun trimSep s = (* trim trailing separators *)
+      let
+        val len = String.size s
+        val dsl = String.size dirSep
+        fun search i =
+          if i < dsl then s
+          else if String.substring s i dsl = dirSep then
+            search (i - dsl)
+          else
+            String.substring s 0 i
+      in
+        search (len - 1)
+      end;
+    fun splitPath s =
+      let
+        val len = String.size s
+        val dsl = String.size dirSep
+        val s = trimSep s
+        fun search i =
+          if i <= dsl then
+            (currentDir, s)
+          else if String.substring s i dsl = dirSep then
+            (String.substring s 0 (i - 1),
+             String.extract s (i + dsl) None)
+          else
+            search (i - dsl)
+      in
+        search (len - 1)
+      end;
+  in
+    fun basename s =
+      let val (_, b) = splitPath s in b
+      end;
+    fun dirname s =
+      let val (d, _) = splitPath s in d
+      end;
+  end (* local *)
+end (* struct *)
+
+(* ------------------------------------------------------------------------- *
+ * Double-ended functional queue
+ * ------------------------------------------------------------------------- *)
+
+structure Queue = struct
+  type 'a queue = 'a list * 'a list;
+  fun push_back (xs, ys) y = (xs, y::ys);
+  fun push_front (xs, ys) x = (x::xs, ys);
+  fun dequeue (xs, ys) =
+    case xs of
+      x::xs => Some (x, (xs, ys))
+    | [] =>
+        case ys of
+          [] => None
+        | _ => dequeue (List.rev ys, []);
+  val empty = ([], []);
+  fun flush (xs, ys) = xs @ List.rev ys;
+end (* struct *)
+
+(* ------------------------------------------------------------------------- *
+ * Imperative wrapper around Queue
+ * ------------------------------------------------------------------------- *)
+
+structure Buffer = struct
+  type 'a buffer = 'a Queue.queue ref;
+  fun push_back q x = q := Queue.push_back (!q) x;
+  fun push_front q x = q := Queue.push_front (!q) x;
+  fun dequeue q =
+    case Queue.dequeue (!q) of
+      None => None
+    | Some (x, q') =>
+        (q := q';
+         Some x);
+  fun empty () = Ref Queue.empty;
+  fun flush q =
+    let val els = Queue.flush (!q) in
+      q := Queue.empty;
+      els
+    end;
+end (* struct *)
+
+(* ------------------------------------------------------------------------- *
+ * Operations on files
+ * ------------------------------------------------------------------------- *)
+
+fun isFile fname =
+  let
+    val ins = TextIO.b_openIn fname
+  in
+    TextIO.b_closeIn ins;
+    True
+  end
+  handle TextIO.BadFileName => False;
+
+(* ------------------------------------------------------------------------- *
+ * Lexer for enough parts of the language to keep track on whether semi-colons
+ * appear on the top-level or not.
+ * ------------------------------------------------------------------------- *)
+
+structure Lexer = struct
+  datatype directive =
+      D_load
+    | D_need
+    | D_use;
+  fun dir2string d =
+    case d of
+      D_load => "load"
+    | D_need => "need"
+    | D_use => "use";
+  datatype token =
+      T_let | T_local | T_end | T_struct | T_sig | T_semi | T_newline
+    | T_lpar | T_rpar
+    | T_other string
+    | T_symb string
+    | T_directive directive string
+    | T_comment string
+    | T_string string
+    | T_quote string
+    | T_char string
+    | T_number string
+    | T_spaces string
+    | T_done (* pseudo-token at switch from loading to user input *)
+    ;
+  fun tok2string unquote tok =
+    case tok of
+      T_let => "let"
+    | T_local => "local"
+    | T_end => "end"
+    | T_struct => "struct"
+    | T_sig => "sig"
+    | T_semi => ";\n"
+    | T_newline => "\n"
+    | T_lpar => "("
+    | T_rpar => ")"
+    | T_string s => "\"" ^ s ^ "\""
+    | T_quote s =>
+        (case unquote of
+            None => "`" ^ s ^ "`"
+          | Some f => "(" ^ f s ^ ")")
+    | T_char s => "#\"" ^ s ^ "\""
+    | T_directive d f =>
+        String.concat ["#", dir2string d, " ", "\"", f, "\";"]
+    | T_comment s => s
+    | T_other s => s
+    | T_symb s => s
+    | T_number s => s
+    | T_spaces s => s
+    | T_done => "(* shouldn't happen *)";
+  local
+    fun trimLeft str =
+      let
+        fun nom n =
+          if n >= String.size str then str
+          else if Char.isSpace (String.sub str n) then nom (n + 1)
+          else String.extract str n None
+      in
+        nom 0
+      end;
+    fun trimRight str =
+      let
+        fun nom n =
+          if n < 1 then str
+          else if Char.isSpace (String.sub str n) then nom (n - 1)
+          else String.substring str 0 (n + 1)
+      in
+        nom (String.size str - 1)
+      end;
+    fun quoteSym c = c = #"`";
+    val keywords = [
+      ("let",    T_let),
+      ("local",  T_local),
+      ("end",    T_end),
+      ("struct", T_struct),
+      ("sig",    T_sig)];
+    fun tok_from_keyword s =
+      case Alist.lookup keywords s of
+        None => T_other s
+      | Some tok => tok;
+    val symchars = String.explode "#$&*+-/=>@^|~!?%<:.[]{},";
+    fun is_symbol c = List.exists (fn x => x = c) symchars;
+    val dirs = [
+      ("load", D_load),
+      ("need", D_need),
+      ("use",  D_use)];
+    val dir_from_string =
+      Alist.lookup dirs;
+    fun is_alpha c =
+      Char.<= #"a" c andalso Char.<= c #"z" orelse
+      Char.<= #"A" c andalso Char.<= c #"Z";
+    fun is_digit c =
+      Char.<= #"0" c andalso Char.<= c #"9";
+    fun is_name_char c =
+      is_alpha c orelse is_digit c orelse c = #"_" orelse c = #"'";
+    fun is_int_char c =
+      is_digit c orelse
+      c = #"_" orelse
+      c = #"l" orelse
+      c = #"L" orelse
+      c = #"n";
+  in
+    fun scan nextChar peekChar =
+      let
+        fun scan_while acc pred =
+          let
+            fun nom acc =
+              (Interrupt.check ();
+               case peekChar () of
+                 None => None
+               | Some c =>
+                   if pred c then
+                     (nextChar ();
+                      nom (c::acc))
+                   else
+                     Some (String.implode (List.rev acc))
+               | _ => Some (String.implode (List.rev acc)))
+          in
+            nom acc
+          end
+        fun scan_comment () =
+          let
+            fun nom acc level =
+              if level = 0 then
+                Some (String.implode (#"(" :: #"*"::List.rev acc))
+              else
+                (Interrupt.check ();
+                 case nextChar () of
+                   Some #"(" =>
+                     (case peekChar () of
+                        Some #"*" =>
+                          (nextChar ();
+                           nom (#"*" :: #"("::acc) (level + 1))
+                      | _ => nom (#"("::acc) level)
+                 | Some #"*" =>
+                     (case peekChar () of
+                        Some #")" =>
+                          (nextChar ();
+                           nom (#")" :: #"*"::acc) (level - 1))
+                      | _ => nom (#"*" :: acc) level)
+                 | Some c => nom (c::acc) level
+                 | None => None)
+          in
+            nom [] 1
+          end
+        fun scan_name c =
+          case scan_while [c] is_name_char of
+            None => None
+          | Some s => Some (tok_from_keyword s)
+        fun scan_symb c =
+          Option.map (fn s => T_symb s)
+                     (scan_while [c] is_symbol)
+        fun scan_int c =
+          Option.map (fn s => T_number s)
+                     (scan_while [c] is_int_char)
+        fun scan_quote () =
+          case scan_while [] (not o quoteSym) of
+            None => None
+          | Some str =>
+              (nextChar ();
+               Some (T_quote str))
+        fun skip_line () =
+          (scan_while [] (fn x => x <> #"\n");
+           nextChar ())
+        fun scan_spaces c =
+          Option.map (fn s => T_spaces s)
+                     (scan_while [c] (fn c => c <> #"\n" andalso
+                                              Char.isSpace c))
+        fun scan_directive () = (* TODO *)
+          case scan_while [] (fn x => x <> #";") of
+            None => None
+          | Some s =>
+              (nextChar ();
+               case String.fields (fn x => x = #"\"") s of
+                 [dir, fname, rest] =>
+                   let
+                     val dir = trimRight dir
+                     val rest = trimLeft rest
+                   in
+                     if rest <> "" then Some (T_other ("#" ^ s ^ ";")) else
+                       case dir_from_string dir of
+                         None => Some (T_other ("#" ^ s ^ ";"))
+                       | Some d => Some (T_directive d fname)
+                   end
+               | _ => Some (T_other ("#" ^ s ^ ";")))
+        fun scan_escaped ch =
+          let
+            fun nom acc =
+              (Interrupt.check ();
+               case nextChar () of
+                 None => None
+               | Some #"\\" =>
+                   (case nextChar () of
+                      None => nom (#"\\"::acc)
+                    | Some c => nom (c:: #"\\"::acc))
+               | Some c =>
+                   if c = ch then
+                     Some (String.implode (List.rev acc))
+                   else
+                     nom (c::acc))
+           in
+             nom []
+          end
+        fun scan_strlit () =
+          Option.map (fn s => T_string s)
+                     (scan_escaped #"\"")
+        fun scan_charlit () =
+          Option.map (fn s => T_char s)
+                     (scan_escaped #"\"")
+        fun nextToken () =
+          case nextChar () of
+            None => None
+          (* Scan semi *)
+          | Some #";" => Some T_semi
+          (* Attempt to scan comment *)
+          | Some #"(" =>
+              (case peekChar () of
+                 Some #"*" =>
+                   (nextChar ();
+                    case scan_comment () of
+                      None => Some (T_symb "(*")
+                    | Some str => Some (T_comment str))
+                | _ => Some T_lpar)
+          | Some #")" => Some T_rpar
+          (* Attempt to scan char literal or load directive *)
+          | Some #"#" =>
+              (case peekChar () of
+                 Some #"\"" =>
+                   (nextChar ();
+                    scan_charlit ())
+               | _ => scan_directive ())
+          (* Attempt to scan string literal *)
+          | Some #"\"" => scan_strlit ()
+          (* Newlines *)
+          | Some #"\n" => Some T_newline
+          (* Anything else *)
+          | Some c =>
+              if quoteSym c then
+                scan_quote ()
+              else if is_digit c then
+                scan_int c
+              else if is_symbol c then
+                scan_symb c
+              else if is_alpha c orelse c = #"_" then
+                scan_name c
+              else if Char.isSpace c then
+                scan_spaces c
+              else
+                Some (T_other (String.str c))
+      in
+        fn () => (Interrupt.check (); nextToken ())
+      end
+  end (* local *)
+end (* struct *)
+
+(* ------------------------------------------------------------------------- *
+ * CakeML struct: setting up REPL, reading/loading.
+ * ------------------------------------------------------------------------- *)
+
+ structure CakeML = struct
+  val loadPath = Ref [Filename.currentDir];
+  val (input1: (unit -> char option) ref) =
+    Ref (fn () => TextIO.input1 TextIO.stdIn);
+  val prompt1 = Ref "> ";
+  val prompt2 = Ref "# ";
+  val userInput = Ref True;
+  val unquote = Ref (fn (s: string) => s);
+  (**)
+  local
+    val prompt = Ref (!prompt2);
+  (**)
+  local
+    val lookahead = Ref (None: char option);
+  in
+    fun peekChar () =
+      case !lookahead of
+        Some c => Some c
+      | None =>
+          case (!input1) () of
+            None => None
+          | Some c =>
+              (lookahead := Some c;
+               Some c);
+    fun nextChar () =
+      case !lookahead of
+        None => (!input1) ()
+      | Some c =>
+          (lookahead := None;
+           Some c);
+  end; (* local *)
+  (* Load files from disk and keep track on what has been loaded.
+   *)
+  local
+    val loadedFiles = (Ref [] : string list ref);
+    fun loadMsg s = print ("- Loading " ^ s ^ "\n");
+    fun load_use fname =
+      let val _ = loadMsg fname in
+        TextIO.b_inputLinesFrom #"\n" fname
+      end;
+    fun load fname =
+      let val _ = loadMsg fname in
+        case TextIO.b_inputLinesFrom #"\n" fname of
+          None => None
+        | Some lns =>
+            (if List.exists (fn x => x = fname) (!loadedFiles) then () else
+              loadedFiles := fname :: !loadedFiles;
+             Some lns)
+      end;
+    fun load1 fname =
+      if List.exists (fn x => x = fname) (!loadedFiles) then
+        (print ("- Already loaded: " ^ fname ^ "\n");
+         None)
+      else
+        load fname;
+  in
+    val load = fn pragma => fn fname =>
+      let val paths = List.map (fn p => Filename.concat p fname) (!loadPath) in
+        case List.find isFile paths of
+          None =>
+            (print ("- No such file: " ^ fname ^ "\n");
+             Repl.nextString := "";
+             failwith ("No such file : " ^ fname))
+        | Some fname =>
+            let val loader =
+                  case pragma of
+                    Lexer.D_load => load
+                  | Lexer.D_need => load1
+                  | Lexer.D_use => load_use in
+              case loader fname of
+                None => []
+              | Some ls => ls
+            end
+      end;
+  end (* local *)
+  (* Instantiate lexer *)
+  val scan1 = Lexer.scan nextChar peekChar;
+  (* Enqueue input here *)
+  val input_buffer = (Buffer.empty () : Lexer.token Buffer.buffer);
+  (* Set up a nextChar/peekChar pair on the list of lines, lex all of it,
+   * and then stuff it all into input_buffer.
+   *)
+  local
+    val inp = Ref ([]: string list);
+    val idx = Ref 0;
+    fun peekChar () =
+      case !inp of
+        [] => None
+      | s::ss =>
+          Some (String.sub s (!idx))
+          handle Subscript =>
+            (* Look into next string. It should not be empty. *)
+            case ss of
+              [] => None
+            | s::ss => Some (String.sub s 0)
+                       handle Subscript => None;
+    fun nextChar () =
+      case !inp of
+        [] => None
+      | s::ss =>
+          let val res = String.sub s (!idx) in
+            idx := (!idx) + 1;
+            Some res
+          end
+          handle Subscript =>
+            (idx := 0;
+             inp := ss;
+             nextChar ());
+    val scan = Lexer.scan nextChar peekChar;
+  in
+    fun scan_lines lines =
+      let
+        val _ = inp := lines
+        val _ = idx := 0
+        fun nom acc =
+          case scan () of
+            None => List.app (Buffer.push_front input_buffer) acc
+          | Some tok => nom (tok::acc)
+      in
+        nom [];
+        Buffer.push_back input_buffer Lexer.T_done
+      end;
+  end (* local *)
+  fun next () =
+    case Buffer.dequeue input_buffer of
+      Some tok => Some tok
+    | None => scan1 ();
+  val output_buffer = (Buffer.empty () : Lexer.token Buffer.buffer);
+  exception Repl_error;
+  fun scan level =
+    (case next () of
+       None => None
+     | Some (Lexer.T_done) =>
+         (userInput := True;
+          scan level)
+     | Some (Lexer.T_directive dir fname) =>
+         let val lines = load dir fname in
+           if List.null lines then scan level else
+             (userInput := False;
+              scan_lines lines;
+              scan level)
+         end
+     | Some tok =>
+         let val _ = Buffer.push_back output_buffer tok in
+           (* TODO:
+            * It might be reasonable to flush input when an 'end' is seen
+            *)
+           case tok of
+             Lexer.T_let => scan (level + 1)
+           | Lexer.T_local => scan (level + 1)
+           | Lexer.T_struct => scan (level + 1)
+           | Lexer.T_sig => scan (level + 1)
+           | Lexer.T_lpar => scan (level + 1)
+           | Lexer.T_end => scan (level - 1)
+           | Lexer.T_rpar => scan (level - 1)
+           | Lexer.T_semi =>
+               if level = 0 then
+                 (prompt := !prompt1;
+                  Some (Buffer.flush output_buffer))
+               else
+                 scan level
+           | Lexer.T_newline =>
+               if !userInput then
+                 (print (!prompt);
+                  prompt := !prompt2;
+                  scan level)
+               else
+                 scan level
+           | _ => scan level
+         end)
+    handle Interrupt =>
+      (print "Compilation interrupted\n";
+       raise Repl_error);
+  fun checkError () =
+    let val err = !Repl.errorMessage in
+      Repl.errorMessage := "";
+      if err <> "" then raise Repl_error else ()
+    end;
+  fun next () =
+    (checkError ();
+     case scan 0 of
+       None =>
+         (Repl.isEOF := True;
+          Repl.nextString := "")
+     | Some ts =>
+         (Repl.isEOF := False;
+          Repl.nextString :=
+            String.concat
+              (List.map (Lexer.tok2string (Some (!unquote))) ts)))
+    handle Repl_error =>
+      (if not (!userInput) then print (!prompt1) else ();
+       Buffer.flush input_buffer;
+       Buffer.flush output_buffer;
+       Repl.nextString := "");
+  in
+    val _ = Repl.readNextString := (fn () =>
+      (print (!prompt1);
+       next ();
+       Repl.readNextString := next));
+  end (* local *)
+end (* struct *)
+
+(* vim: set ft=sml : *)

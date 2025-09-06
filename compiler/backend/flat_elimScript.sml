@@ -5,12 +5,13 @@
   Closes this next-step function to give a set of reachable globals.
   Removes unreachable globals from the code.
 *)
+Theory flat_elim
+Ancestors
+  spt_closure flatLang misc[qualified] sptree
+Libs
+  preamble
 
-open preamble sptreeTheory flatLangTheory spt_closureTheory
 
-val _ = new_theory "flat_elim";
-
-val _ = set_grammar_ancestry ["spt_closure", "flatLang", "misc"]
 val _ = temp_tight_equality();
 
 (**************************** ANALYSIS FUNCTIONS *****************************)
@@ -44,8 +45,6 @@ Definition is_hidden_def:
     (is_hidden (Letrec t funs e) = is_hidden e) ∧
         (* local def of mutually recursive funs *)
     (is_hidden _ = F)
-Termination
-  WF_REL_TAC `measure (λ e . exp_size e)` >> rw[exp_size_def]
 End
 
 Definition total_pat_def:
@@ -56,9 +55,6 @@ Definition total_pat_def:
   total_pat _ = F /\
   total_pat_list [] = T /\
   total_pat_list (p::ps) = (total_pat p /\ total_pat_list ps)
-Termination
-  WF_REL_TAC `measure (\x. case x of INL p => pat_size p
-                                   | INR ps => pat1_size ps)`
 End
 
 (* check if expression is pure in that it does not make any visible changes
@@ -79,7 +75,8 @@ Definition is_pure_def:
 Termination
   WF_REL_TAC `measure (λ e . exp_size e)` >> rw[exp_size_def] >> fs[] >>
   fs [MEM_MAP, EXISTS_PROD] >>
-  fs [exp1_size, exp3_size, exp6_size, MEM_SPLIT, SUM_APPEND, exp_size_def]
+  fs [exp1_size, exp3_size, exp6_size, MEM_SPLIT, SUM_APPEND, exp_size_def]>>
+  simp[list_size_append,list_size_def,basicSizeTheory.pair_size_def]
 End
 
 Theorem is_pure_def1 = CONV_RULE (DEPTH_CONV ETA_CONV) is_pure_def
@@ -101,22 +98,17 @@ Definition has_Eval_def:
   (has_Eval_pats ((p,e)::pes) ⇔ has_Eval e ∨ has_Eval_pats pes) ∧
   (has_Eval_funs [] ⇔ F) ∧
   (has_Eval_funs ((_,_,e)::fs) ⇔ has_Eval e ∨ has_Eval_funs fs)
-Termination
-  wf_rel_tac `inv_image $< (\x. case x of INL e => exp_size e
-                                | INR (INL es) => exp6_size es
-                                | INR (INR (INL pes)) => exp3_size pes
-                                | INR (INR (INR funs)) => exp1_size funs)`
 End
 
-val dest_GlobalVarInit_def = Define `
+Definition dest_GlobalVarInit_def:
     dest_GlobalVarInit (GlobalVarInit n) = SOME n ∧
     dest_GlobalVarInit _ = NONE
-`
+End
 
-val dest_GlobalVarLookup_def = Define `
+Definition dest_GlobalVarLookup_def:
     dest_GlobalVarLookup (GlobalVarLookup n) = SOME n ∧
     dest_GlobalVarLookup _ = NONE
-`
+End
 
 Theorem exp_size_map_snd:
      ∀ p_es . exp6_size (MAP SND p_es) ≤ exp3_size p_es
@@ -157,17 +149,10 @@ Definition find_loc_def:
     (find_locL [] = LN) ∧
     (find_locL (e::es) = union (find_loc e) (find_locL es))
 Termination
-        WF_REL_TAC `measure (λ e . case e of
-            | INL x => exp_size x
-            | INR y => exp6_size y)` >>
-        rw[exp_size_def]
-        >- (qspec_then `vv_es` mp_tac exp_size_map_snd_snd >>
-            Cases_on
-                `exp6_size(MAP (λ x . SND (SND x)) vv_es) = exp1_size vv_es` >>
-            rw[])
-        >- (qspec_then `p_es` mp_tac exp_size_map_snd >>
-            Cases_on `flatLang$exp6_size(MAP SND p_es) = exp3_size p_es` >>
-            rw[])
+  WF_REL_TAC `measure (λ e . case e of
+      | INL x => exp_size x
+      | INR y => list_size exp_size y)` >>
+  rw[list_size_pair_size_MAP_FST_SND]
 End
 
 Definition find_lookups_def:
@@ -193,17 +178,11 @@ Definition find_lookups_def:
     (find_lookupsL [] = LN) ∧
     (find_lookupsL (e::es) = union (find_lookups e) (find_lookupsL es))
 Termination
-        WF_REL_TAC `measure (λ e . case e of
-                | INL x => exp_size x
-                | INR (y:flatLang$exp list) =>
-                    flatLang$exp6_size y)` >> rw[exp_size_def]
-        >- (qspec_then `vv_es` mp_tac exp_size_map_snd_snd >>
-            Cases_on
-                `exp6_size(MAP (λ x . SND (SND x)) vv_es) = exp1_size vv_es` >>
-            rw[])
-        >- (qspec_then `p_es` mp_tac exp_size_map_snd >>
-            Cases_on `exp6_size(MAP SND p_es) = exp3_size p_es` >>
-            rw[])
+  WF_REL_TAC `measure (λ e . case e of
+          | INL x => exp_size x
+          | INR (y:flatLang$exp list) =>
+              list_size exp_size y)` >>
+  rw[list_size_pair_size_MAP_FST_SND]
 End
 
 Definition analyse_exp_def:
@@ -261,4 +240,3 @@ Definition remove_flat_prog_def:
         remove_unreachable reachable code
 End
 
-val _ = export_theory();

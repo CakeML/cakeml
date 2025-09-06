@@ -3,13 +3,11 @@
   `rename_apart r c` gives a function f, such that
   f(r) ∩ c = ∅ ,  f(r) ∩ r = ∅  and dom(f) = r ∩ c.
  *)
-open preamble mlstringTheory holSyntaxLibTheory
-
-val _ = new_theory"holSyntaxRenaming"
-
-val _ = temp_delsimps ["NORMEQ_CONV"]
-val _ = diminish_srw_ss ["ABBREV"]
-val _ = set_trace "BasicProvers.var_eq_old" 1
+Theory holSyntaxRenaming
+Ancestors
+  mlstring holSyntaxLib
+Libs
+  preamble
 
 Theorem ALL_DISTINCT_MAP_inj:
   !l f. (!x y. f x = f y <=> x = y) ==> ALL_DISTINCT l = ALL_DISTINCT (MAP f l)
@@ -20,20 +18,21 @@ Proof
   >> fs[]
 QED
 
-Theorem MEM_MAP_f:
-  !f l a. MEM a l ==> MEM (f a) (MAP f l)
-Proof
-  rw[MEM_MAP] >> qexists_tac `a` >> fs[]
-QED
-
 Theorem REPLICATE_inj1:
   !x y z. REPLICATE x z = REPLICATE y z <=> x = y
 Proof
-  CONV_TAC SWAP_FORALL_CONV
-  >> Induct
-  >> rw[EQ_IMP_THM,REPLICATE,REPLICATE_NIL]
-  >> Cases_on `x`
-  >> fs[REPLICATE]
+  Induct
+  >> fs[EQ_IMP_THM,REPLICATE,REPLICATE_NIL]
+  >> Cases >> rw[REPLICATE]
+  >> res_tac
+QED
+
+Theorem REPLICATE_inj:
+  !n m x y. REPLICATE n x = REPLICATE m y <=> n = m ∧ (0 < m ⇒ x = y)
+Proof
+  Induct
+  >> fs[EQ_IMP_THM,REPLICATE,REPLICATE_NIL]
+  >> Cases >> rw[REPLICATE]
   >> res_tac
 QED
 
@@ -69,18 +68,8 @@ QED
 Theorem nub_FILTER:
   !P l. nub (FILTER P l) = FILTER P (nub l)
 Proof
-  CONV_TAC SWAP_FORALL_CONV
-  >> Induct
-  >> rw[nub_def]
+  gen_tac >> Induct >> rw[nub_def]
   >> fs[MEM_FILTER]
-QED
-
-Theorem MEM_nub_EQ:
-  !x l. MEM x (nub l) = MEM x l
-Proof
-  CONV_TAC SWAP_FORALL_CONV
-  >> Induct
-  >> rw[nub_def]
 QED
 
 Theorem LENGTH_nub_LEQ:
@@ -92,18 +81,8 @@ QED
 Theorem MEM_UNIQUE_nub:
   !x l. MEM x l ==> UNIQUE x (nub l)
 Proof
-  CONV_TAC SWAP_FORALL_CONV
-  >> Induct
-  >> rw[]
-  >> fs[UNIQUE_FILTER,GSYM nub_FILTER,nub_def,MEM_FILTER]
-  >> rw[]
-  >- (
-    qspecl_then [`$= h`,`l`]  assume_tac (REWRITE_RULE[NULL_EQ,EQ_IMP_THM] (GSYM NULL_FILTER))
-    >> fs[EQ_IMP_THM,nub_def]
-  )
-  >> first_x_assum drule
-  >> rw[]
-  >> fs[nub_def,MEM_FILTER]
+  CONV_TAC SWAP_FORALL_CONV >> gen_tac
+  >> REWRITE_TAC[UNIQUE_FILTER,Once $ GSYM MEM_nub,GSYM ALL_DISTINCT_FILTER,all_distinct_nub]
 QED
 
 (* rename_apart_by *)
@@ -111,7 +90,7 @@ Definition rename_apart_by_def:
   rename_apart_by chr r c =
     let inter = nub(list_inter c r) in
     let m = SUC (list_max (MAP strlen c ++ MAP strlen r)) in
-    ZIP (MAP (λn. strlit(REPLICATE (m+n) chr)) (COUNT_LIST (LENGTH inter)), inter)
+    ZIP (MAP (λn. implode $ REPLICATE (m+n) chr) (COUNT_LIST (LENGTH inter)), inter)
 End
 
 Theorem rename_apart_by_ALL_DISTINCT:
@@ -119,17 +98,18 @@ Theorem rename_apart_by_ALL_DISTINCT:
   /\ ALL_DISTINCT (MAP FST (rename_apart_by chr r c))
 Proof
   rw[rename_apart_by_def]
-  >> (qmatch_goalsub_abbrev_tac `ZIP (l1,l2)`)
+  >> qmatch_goalsub_abbrev_tac `ZIP (l1,l2)`
   >> `LENGTH l1 = LENGTH l2` by (unabbrev_all_tac >> fs[LENGTH_MAP,LENGTH_COUNT_LIST])
-  >> Q.ISPECL_THEN [`l1`,`l2`] assume_tac MEM_ZIP
-  >> rfs[]
   >> unabbrev_all_tac
-  >- fs[MAP_ZIP,all_distinct_nub]
-  >> fs[MAP_ZIP]
-  >> qmatch_goalsub_abbrev_tac `MAP f ls`
-  >> Q.ISPECL_THEN [`ls`,`f`] assume_tac (GSYM ALL_DISTINCT_MAP_inj)
-  >> unabbrev_all_tac
-  >> fs[ETA_THM,REPLICATE_inj1,all_distinct_count_list]
+  >> gs[MEM_ZIP,MAP_ZIP,all_distinct_nub]
+  >> dep_rewrite.DEP_REWRITE_TAC[GSYM ALL_DISTINCT_MAP_inj]
+  >> fs[REPLICATE_inj1,all_distinct_count_list,implode_def]
+QED
+
+Theorem SUC_MAX:
+  !a b. SUC (MAX a b) = MAX (SUC a) (SUC b)
+Proof
+  fs[MAX_DEF]
 QED
 
 Theorem rename_apart_by_MEM:
@@ -139,45 +119,30 @@ Proof
   >> (qmatch_goalsub_abbrev_tac `ZIP (l1,l2)` ORELSE
     qmatch_asmsub_abbrev_tac `ZIP (l1,l2)`)
   >> `LENGTH l1 = LENGTH l2` by (unabbrev_all_tac >> fs[LENGTH_MAP,LENGTH_COUNT_LIST])
-  >> Q.ISPECL_THEN [`l1`,`l2`] assume_tac MEM_ZIP
-  >> rfs[]
   >> unabbrev_all_tac
   >- (
-    fs[rename_apart_by_def,MEM_ZIP,MEM_MAP,EL_MAP,EL_COUNT_LIST]
-    >> CCONTR_TAC
-    >> fs[]
-    >> imp_res_tac (INST_TYPE [alpha |-> ``:mlstring``,beta|->``:num``] MEM_MAP_f)
-    >> first_x_assum (qspec_then `strlen` assume_tac)
+    spose_not_then assume_tac
+    >> gs[MEM_ZIP,MEM_MAP,EL_MAP,EL_COUNT_LIST,implode_def]
+    >> drule_then (qspec_then `strlen` assume_tac) MEM_MAP_f
     >> fs[STRLEN_DEF]
-    >> imp_res_tac (REWRITE_RULE[EVERY_MEM] list_max_max)
-    >> fs[list_max_APPEND]
-    >> fs[Q.prove(`!a b. SUC (MAX a b) = MAX (SUC a) (SUC b)`,rw[MAX_DEF])]
-    >> imp_res_tac (Q.prove(`!a b c. (a:num) + b <= c ==> b <= c /\ a <= c`,rw[]))
+    >> dxrule_then assume_tac $ REWRITE_RULE[EVERY_MEM] list_max_max
+    >> fs[list_max_APPEND,SUC_MAX]
+    >> dxrule $ Q.prove(`!a b c. (a:num) + b <= c ==> b <= c /\ a <= c`,rw[])
     >> fs[MAX_LE]
   )
-  >- (
-    fs[MEM_ZIP]
-    >> imp_res_tac EL_MEM
-    >> fs[MEM_nub_EQ]
-  )
+  >> fs[Once $ GSYM MEM_nub,EL_MEM,MEM_ZIP,Excl"nub_set"]
 QED
 
 Theorem rename_apart_by_chr_FST:
-  !chr r c. EVERY (λx. ?n. x = strlit(REPLICATE n chr)) (MAP FST (rename_apart_by chr r c))
+  !chr r c. EVERY (λx. ?n. x = implode $ REPLICATE n chr) (MAP FST (rename_apart_by chr r c))
 Proof
   CONV_TAC SWAP_FORALL_CONV
   >> Induct
   >- rw[rename_apart_by_def,list_inter_def,nub_def,COUNT_LIST_def]
   >> rw[rename_apart_by_def]
-  >> (qmatch_goalsub_abbrev_tac `ZIP (l1,l2)` ORELSE
-    qmatch_asmsub_abbrev_tac `ZIP (l1,l2)`)
-  >> `LENGTH l1 = LENGTH l2` by (unabbrev_all_tac >> fs[LENGTH_MAP,LENGTH_COUNT_LIST])
-  >> fs[MAP_ZIP,EVERY_MEM]
-  >> qunabbrev_tac `l1`
+  >> fs[MAP_ZIP,EVERY_MEM,LENGTH_MAP,LENGTH_COUNT_LIST]
   >> rw[MEM_MAP]
-  >> qmatch_goalsub_abbrev_tac `REPLICATE m chr`
-  >> qexists_tac `m`
-  >> fs[]
+  >> irule_at Any EQ_REFL
 QED
 
 Theorem rename_apart_by_strlen_FST:
@@ -187,14 +152,10 @@ Proof
   >> Induct
   >- rw[rename_apart_by_def,list_inter_def,nub_def,COUNT_LIST_def]
   >> rw[rename_apart_by_def]
-  >> (qmatch_goalsub_abbrev_tac `ZIP (l1,l2)` ORELSE
-    qmatch_asmsub_abbrev_tac `ZIP (l1,l2)`)
-  >> `LENGTH l1 = LENGTH l2` by (unabbrev_all_tac >> fs[LENGTH_MAP,LENGTH_COUNT_LIST])
-  >> fs[MAP_ZIP,EVERY_MEM]
-  >> qunabbrev_tac `l1`
+  >> fs[MAP_ZIP,EVERY_MEM,LENGTH_COUNT_LIST,LENGTH_MAP]
   >> rw[MEM_MAP,MEM_COUNT_LIST,strlen_def]
   >> ONCE_REWRITE_TAC[CONS_APPEND]
-  >> rw[list_max_APPEND,list_max_def,MAX_DEF]
+  >> rw[list_max_APPEND,MAX_DEF]
 QED
 
 (* dom(f) = r ∩ c *)
@@ -204,40 +165,24 @@ Proof
   CONV_TAC SWAP_FORALL_CONV
   >> Induct
   >- rw[rename_apart_by_def,list_inter_def,nub_def,COUNT_LIST_def]
-  >> rw[rename_apart_by_def,EQ_IMP_THM]
-  >> (qmatch_goalsub_abbrev_tac `ZIP (l1,l2)` ORELSE
-    qmatch_asmsub_abbrev_tac `ZIP (l1,l2)`)
-  >> `LENGTH l1 = LENGTH l2` by (unabbrev_all_tac >> fs[LENGTH_MAP,LENGTH_COUNT_LIST])
-  >> fs[MAP_ZIP,EVERY_MEM]
-  >> unabbrev_all_tac
-  >- fs[MEM_nub_EQ]
-  >> fs[MAP_ZIP]
+  >> fs[rename_apart_by_def,MAP_ZIP,LENGTH_MAP,LENGTH_COUNT_LIST]
 QED
 
 Theorem rename_apart_by_MEM_SND = ONCE_REWRITE_RULE[list_inter_set_comm] rename_apart_by_MEM_SND1
 
-Theorem NULL_MAP_INJ:
-  !f l. (!x y. f x = f y ==> x = y) ==> NULL (MAP f l) = NULL l
-Proof
-  CONV_TAC SWAP_FORALL_CONV
-  >> Induct
-  >> fs[]
-QED
-
 Theorem rename_apart_by_NULL:
   !chr r c. NULL (rename_apart_by chr r c) = NULL (list_inter c r)
 Proof
-  rw[EQ_IMP_THM]
-  >> qmatch_goalsub_abbrev_tac `NULL ls`
-  >> Cases_on `ls`
-  >> fs[]
-  >> qspecl_then [`chr`,`r`,`c`] assume_tac rename_apart_by_MEM_SND1
-  >> TRY (first_x_assum (qspec_then `h` assume_tac))
-  >> TRY (first_x_assum (qspec_then `SND h` assume_tac))
-  >> fs[markerTheory.Abbrev_def,NULL_EQ]
-  >> qpat_x_assum `_::_ = _` (assume_tac o GSYM)
-  >> rfs[]
-  >> fs[]
+  REWRITE_TAC[EQ_IMP_THM]
+  >> rpt gen_tac >> strip_tac
+  >> rw[Once MONO_NOT_EQ,NOT_NULL_MEM]
+  >- (
+    dxrule_then (qspec_then `chr` assume_tac) $ cj 1 $ REWRITE_RULE[EQ_IMP_THM] rename_apart_by_MEM_SND1
+    >> fs[MEM_MAP]
+    >> goal_assum drule
+  )
+  >> imp_res_tac $ Q.ISPEC `SND` MEM_MAP_f
+  >> dxrule_then (irule_at Any) $ cj 2 $ REWRITE_RULE[EQ_IMP_THM] rename_apart_by_MEM_SND1
 QED
 
 Theorem rename_apart_by_disj_dom_img:
@@ -426,48 +371,6 @@ Proof
   >> rw[]
 QED
 
-Theorem list_complement_MAP_INJ1:
-  !f a b x. (!x y. (MEM x a \/ MEM x b) /\ (MEM y a \/ MEM y b) ==> f x = f y ==> x = y) ==>
-  (MEM x (MAP f (list_complement a b))) = MEM x (list_complement (MAP f a) (MAP f b))
-Proof
-  rw[EQ_IMP_THM]
-  >> rw[list_complement_def,EVERY_MEM]
-  >> fs[MEM_MAP,MEM_FILTER,list_complement_def]
-  >> rw[]
-  >- (
-    CCONTR_TAC
-    >> fs[]
-    >> last_x_assum imp_res_tac
-    >> rveq
-    >> rfs[]
-  )
-  >- (
-    goal_assum (first_assum o mp_then Any mp_tac)
-    >> fs[]
-  )
-  >> CCONTR_TAC
-  >> fs[]
-  >> rpt (first_x_assum (qspec_then `y` assume_tac))
-  >> fs[]
-QED
-
-(*
-Theorem rename_apart_by_ALOOKUP_inj:
-  !chr r s c x y. MEM x (list_inter r s) /\ MEM y (list_inter r s) ==>
-  let f = λx. ALOOKUP (MAP SWAP (rename_apart_by chr (list_complement r s) (LIST_UNION s c))) x
-  in  f x = f y ==> x = y
-Proof
-  rw[GSYM rename_apart_by_ALOOKUP]
-  >> CCONTR_TAC
-  >> qmatch_asmsub_abbrev_tac `ALOOKUP ss x`
-  >> Cases_on `ALOOKUP ss x`
-  >> qunabbrev_tac `ss`
-  >> fs[GSYM rename_apart_by_ALOOKUP_NONE,GSYM rename_apart_by_ALOOKUP]
-  >> qspecl_then [`chr`,`list_complement r s`,`LIST_UNION s c`] assume_tac rename_apart_by_MEM_SND
-  >> fs[list_inter_set]
-QED
-*)
-
 Theorem rename_apart_by_list_complement:
   !chr r rc c. NULL (list_inter (MAP SND (rename_apart_by chr (list_complement r rc) c)) rc)
 Proof
@@ -483,21 +386,9 @@ Theorem rename_apart_by_chrs:
   ==> NULL (list_inter (MAP FST (rename_apart_by chr1 r1 c1)) (MAP FST (rename_apart_by chr2 r2 c2)))
 Proof
   rw[NULL_FILTER,list_inter_def]
-  >> CCONTR_TAC
-  >> fs[]
-  >> imp_res_tac (REWRITE_RULE[EVERY_MEM] rename_apart_by_strlen_FST)
-  >> imp_res_tac (REWRITE_RULE[EVERY_MEM] rename_apart_by_chr_FST)
-  >> fs[]
-  >> rveq
-  >> Cases_on `n = 0`
-  >> Cases_on `n' = 0` >> fs[]
-  >> rveq
-  >> fs[NOT_ZERO_LT_ZERO,REPLICATE_NIL]
-  >> `MEM chr2 (REPLICATE n chr1)` by (
-    qpat_x_assum `REPLICATE _ _ = REPLICATE _ _` (fn x => REWRITE_TAC[GSYM x])
-    >> fs[MEM_REPLICATE]
-  )
-  >> fs[MEM_REPLICATE_EQ]
+  >> spose_not_then assume_tac
+  >> imp_res_tac $ REWRITE_RULE[EVERY_MEM] rename_apart_by_strlen_FST
+  >> imp_res_tac $ REWRITE_RULE[EVERY_MEM] rename_apart_by_chr_FST
+  >> gvs[implode_def, REPLICATE_inj]
 QED
 
-val _ = export_theory()

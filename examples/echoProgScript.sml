@@ -1,9 +1,11 @@
 (*
   echo program example: print the command line arguments.
 *)
-open preamble basis
-
-val _ = new_theory "echoProg";
+Theory echoProg
+Ancestors
+  cfApp basis_ffi
+Libs
+  preamble basis
 
 val _ = translation_extends"basisProg";
 
@@ -17,7 +19,7 @@ val echo = process_topdecs
 
 val () = append_prog echo;
 
-val st = get_ml_prog_state()
+val st = get_ml_prog_state();
 
 Theorem echo_spec:
    app (p:'ffi ffi_proj) ^(fetch_v "echo" st) [Conv NONE []]
@@ -62,11 +64,11 @@ Proof
 QED
 
 val (call_thm_echo, echo_prog_tm) = whole_prog_thm st "echo" echo_whole_prog_spec;
-val echo_prog_def = Define`echo_prog = ^echo_prog_tm`;
+Definition echo_prog_def:
+  echo_prog = ^echo_prog_tm
+End
 
-val echo_semantics = save_thm("echo_semantics",
+Theorem echo_semantics =
   call_thm_echo |> ONCE_REWRITE_RULE[GSYM echo_prog_def]
   |> DISCH_ALL
-  |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]);
-
-val _ = export_theory();
+  |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]

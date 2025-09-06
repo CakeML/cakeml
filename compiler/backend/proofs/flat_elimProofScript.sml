@@ -1,19 +1,14 @@
 (*
   Correctness proof for flatLang dead code elimination
 *)
-open preamble sptreeTheory flatLangTheory flat_elimTheory
-     flatSemTheory flatPropsTheory spt_closureTheory
+Theory flat_elimProof
+Ancestors
+  flat_elim flatSem flatLang flatProps spt_closure
+  misc[qualified] ffi[qualified] sptree
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "flat_elimProof";
-
-val grammar_ancestry =
-  ["flat_elim", "flatSem", "flatLang", "flatProps",
-   "spt_closure",  "misc", "ffi", "sptree"];
-
-val _ = set_grammar_ancestry grammar_ancestry;
-
 
 (************************** LEMMAS ***************************)
 
@@ -123,8 +118,11 @@ Definition find_v_globals_def:
 Termination
     WF_REL_TAC `measure (λ e . case e of
             | INL x => v_size x
-            | INR y => v4_size y)` >>
-    rw[v_size_def, v_size_aux, SUM_MAP_v3_size, MAP_MAP_o]
+            | INR y => list_size v_size y)`
+    \\ rw [list_size_pair_size_MAP_FST_SND]
+    \\ Cases_on ‘env’
+    \\ gvs [environment_size_def]
+    \\ gvs [list_size_pair_size_MAP_FST_SND]
 End
 
 val find_v_globals_ind = theorem "find_v_globals_ind";
@@ -213,32 +211,16 @@ Proof
     Induct >> fs[list_to_v_def, find_v_globals_def, domain_union]
 QED
 
-val find_refs_globals_def = Define `
+Definition find_refs_globals_def:
     (find_refs_globals (Refv a::t) =
         union (find_v_globals a) (find_refs_globals t)) ∧
     (find_refs_globals (Varray l::t) =
         union (find_v_globalsL l) (find_refs_globals t)) ∧
     (find_refs_globals (_::t) = find_refs_globals t) ∧
     (find_refs_globals [] = LN)
-`
+End
 
 val find_refs_globals_ind = theorem "find_refs_globals_ind";
-
-Theorem find_refs_globals_EL:
-     ∀ n l . n < LENGTH l ⇒
-        (∀ a . EL n l = Refv a
-            ⇒ domain (find_v_globals a) ⊆ domain (find_refs_globals l)) ∧
-        (∀ vs . EL n l = Varray vs
-            ⇒ domain (find_v_globalsL vs) ⊆ domain (find_refs_globals l))
-Proof
-    Induct >> rw[]
-    >- (Cases_on `l` >> fs[find_refs_globals_def, domain_union])
-    >- (Cases_on `l` >> fs[find_refs_globals_def, domain_union])
-    >> fs[EL] >> first_x_assum (qspec_then `TL l` mp_tac) >> rw[] >>
-       `n < LENGTH (TL l)` by fs[LENGTH_TL] >> fs[] >>
-       Cases_on `l` >> fs[] >>
-       Cases_on `h` >> fs[find_refs_globals_def, domain_union, SUBSET_DEF]
-QED
 
 Theorem find_refs_globals_MEM:
      ∀ refs reachable:num_set .
@@ -290,23 +272,23 @@ Proof
     Cases_on `h` >> fs[find_refs_globals_def] >> fs[union_assoc]
 QED
 
-val find_env_globals_def = Define `
+Definition find_env_globals_def:
     find_env_globals env = find_v_globalsL (MAP SND env.v)
-`
+End
 
-val find_result_globals_def = Define `
+Definition find_result_globals_def:
     (find_result_globals (SOME (Rraise v)) = find_v_globals v) ∧
     (find_result_globals _ = LN)
-`
+End
 
 val find_result_globals_ind = theorem "find_result_globals_ind";
 
-val find_sem_prim_res_globals_def = Define `
+Definition find_sem_prim_res_globals_def:
     (find_sem_prim_res_globals (Rerr e :
         (flatSem$v list, flatSem$v) semanticPrimitives$result) =
         find_result_globals (SOME e)) ∧
     (find_sem_prim_res_globals (Rval e) = find_v_globalsL e)
-`
+End
 
 val s =  ``s:('c,'ffi) state``
 val t = mk_var ("t", type_of s)
@@ -323,15 +305,18 @@ Definition v_has_Eval_def1:
   (v_has_Eval (Vectorv vl) = EXISTS v_has_Eval vl) ∧
   (v_has_Eval _ = F)
 Termination
-  WF_REL_TAC `measure (λe. v_size e)`
-  \\ rw [v_size_def]
-  \\ fs [v_size_aux, MEM_MAP, EXISTS_PROD, MEM_SPLIT, SUM_APPEND, v_size_def]
+  WF_REL_TAC `measure v_size`
+  \\ gvs [list_size_pair_size_MAP_FST_SND] \\ rw []
+  \\ Cases_on ‘env’ \\ gvs [environment_size_def]
+  \\ imp_res_tac MEM_list_size
+  \\ pop_assum $ qspec_then ‘v_size’ mp_tac
+  \\ gvs [list_size_pair_size_MAP_FST_SND]
 End
 
 Theorem v_has_Eval_def = CONV_RULE (DEPTH_CONV ETA_CONV) v_has_Eval_def1
 
 (* s_g = state globals, t_g = removed state globals *)
-val globals_rel_def = Define `
+Definition globals_rel_def:
     globals_rel
       (reachable : num_set) s_g t_g ⇔
         LENGTH s_g = LENGTH t_g ∧
@@ -344,7 +329,7 @@ val globals_rel_def = Define `
         (∀ n x . n ∈ domain reachable ∧ n < LENGTH t_g ∧
           EL n t_g = SOME x
             ⇒ ~ v_has_Eval x ∧ domain (find_v_globals x) ⊆ domain reachable)
-`
+End
 
 Theorem globals_rel_trans:
      ∀ reachable s1 s2 s3 .
@@ -354,12 +339,12 @@ Proof
     rw[globals_rel_def]
 QED
 
-val decs_closed_def = Define `
+Definition decs_closed_def:
     decs_closed (reachable : num_set) decs ⇔  ∀ r t . analyse_code decs = (r,t)
     ⇒ domain r ⊆ domain reachable ∧
       (∀ n m . n ∈ domain reachable ∧ is_reachable t n m
       ⇒ m ∈ domain reachable)
-`
+End
 
 Theorem decs_closed_reduce:
      ∀ reachable h t . decs_closed reachable (h::t) ⇒ decs_closed reachable t
@@ -393,14 +378,14 @@ Proof
 QED
 
 (* s = state, t = removed state *)
-val flat_state_rel_def = Define `
+Definition flat_state_rel_def:
     flat_state_rel reachable ^s ^t ⇔
       s.clock = t.clock ∧ s.refs = t.refs ∧
       s.ffi = t.ffi ∧ globals_rel reachable s.globals t.globals ∧
       s.c = t.c ∧
       domain (find_refs_globals s.refs) ⊆ domain reachable ∧
       EVERY (EVERY ($~ ∘ v_has_Eval) ∘ store_v_vs) s.refs
-`
+End
 
 Theorem flat_state_rel_trans:
   ∀ reachable s1 s2 s3 .
@@ -1057,7 +1042,7 @@ Proof
     Cases_on `r` >> fs[] >>
     first_x_assum (qspecl_then [`reachable`, `new_removed_state`]
         match_mp_tac) >> fs[] >>
-    fs[find_env_globals_def, libTheory.opt_bind_def] >>
+    fs[find_env_globals_def, miscTheory.opt_bind_def] >>
     Cases_on `n` >> fs[] >>
     fs[find_v_globals_def, domain_union] >>
     fs[find_sem_prim_res_globals_def] >> imp_res_tac evaluate_sing >>
@@ -1462,7 +1447,7 @@ Proof
       fs[] >>
       impl_tac >> fs[] >>
       imp_res_tac evaluate_sing >>
-      fs[libTheory.opt_bind_def] >>
+      fs[miscTheory.opt_bind_def] >>
       every_case_tac >> simp []
       )
     >- (
@@ -1619,28 +1604,34 @@ Proof
   \\ rfs []
 QED
 
-val flat_remove_semantics = save_thm ("flat_remove_semantics",
+Theorem flat_remove_semantics =
   MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO] IMP_semantics_eq)
-           flat_remove_eval_sim |> SIMP_RULE (srw_ss()) []);
+           flat_remove_eval_sim |> SIMP_RULE (srw_ss()) []
 
 (* syntactic results *)
 
-val elist_globals_filter = Q.prove (
-  `elist_globals (MAP dest_Dlet (FILTER is_Dlet ds)) = {||}
+Triviality elist_globals_filter:
+  elist_globals (MAP dest_Dlet (FILTER is_Dlet ds)) = {||}
    ==>
-   elist_globals (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds))) = {||}`,
-  Induct_on `ds` \\ rw [] \\ fs [SUB_BAG_UNION]);
+   elist_globals (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds))) = {||}
+Proof
+  Induct_on `ds` \\ rw [] \\ fs [SUB_BAG_UNION]
+QED
 
-val esgc_free_filter = Q.prove (
-  `EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds))
+Triviality esgc_free_filter:
+  EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds))
    ==>
-   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds)))`,
-  Induct_on `ds` \\ rw []);
+   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds)))
+Proof
+  Induct_on `ds` \\ rw []
+QED
 
-val elist_globals_filter_SUB_BAG = Q.prove (
-  `elist_globals (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds))) <=
-   elist_globals (MAP dest_Dlet (FILTER is_Dlet ds))`,
-  Induct_on `ds` \\ rw [] \\ fs [SUB_BAG_UNION]);
+Triviality elist_globals_filter_SUB_BAG:
+  elist_globals (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds))) <=
+   elist_globals (MAP dest_Dlet (FILTER is_Dlet ds))
+Proof
+  Induct_on `ds` \\ rw [] \\ fs [SUB_BAG_UNION]
+QED
 
 Theorem remove_flat_prog_elist_globals_eq_empty:
    elist_globals (MAP dest_Dlet (FILTER is_Dlet ds)) = {||}
@@ -1678,4 +1669,3 @@ Proof
   metis_tac [remove_flat_prog_sub_bag, BAG_ALL_DISTINCT_SUB_BAG]
 QED
 
-val _ = export_theory();

@@ -1,12 +1,11 @@
 (*
   Lemmas used in proof of clos_known
 *)
-open HolKernel Parse boolLib bossLib;
-
-open preamble
-open closPropsTheory clos_knownTheory
-
-val _ = new_theory "clos_knownProps";
+Theory clos_knownProps
+Ancestors
+  closProps clos_known
+Libs
+  preamble
 
 val va_case_eq =
     prove_case_eq_thm{case_def = TypeBase.case_def_of ``:val_approx``,
@@ -57,9 +56,9 @@ Proof
   res_tac >> simp[]
 QED
 
-val subapprox_def = Define`
+Definition subapprox_def:
   subapprox a1 a2 ⇔ merge a1 a2 = a2
-`;
+End
 
 val _ = set_fixity "◁" (Infix(NONASSOC,450))
 Overload "◁" = ``subapprox``
@@ -133,10 +132,10 @@ Proof
   simp[LIST_EQ_REWRITE, EL_MAP, EL_ZIP] >> metis_tac[]
 QED
 
-val better_definedg_def = Define`
+Definition better_definedg_def:
   better_definedg g1 g2 ⇔
     ∀k. k ∈ domain g1 ⇒ k ∈ domain g2 ∧ THE (lookup k g1) ◁ THE (lookup k g2)
-`;
+End
 
 Theorem better_definedg_refl[simp]:
    better_definedg g g
@@ -153,10 +152,12 @@ QED
 Theorem known_op_better_definedg:
    known_op opn apxs g0 = (a,g) ⇒ better_definedg g0 g
 Proof
-  Cases_on `opn` >>
-  simp[known_op_def, pair_case_eq, closSemTheory.case_eq_thms, va_case_eq, bool_case_eq] >> rw[] >>
-  rw[better_definedg_def, lookup_insert] >>
-  rw[] >> fs[lookup_NONE_domain]
+  Cases_on `opn`
+  >> simp[known_op_def, pair_case_eq, closSemTheory.case_eq_thms, va_case_eq, bool_case_eq]
+  >| map Cases_on [`i`,`b`,`g'`,`m`]
+  >> simp[known_op_def, pair_case_eq, closSemTheory.case_eq_thms, va_case_eq, bool_case_eq] >> rw[]
+  >> rw[better_definedg_def, lookup_insert]
+  >> rw[] >> fs[lookup_NONE_domain]
 QED
 
 Theorem known_better_definedg:
@@ -177,4 +178,3 @@ Proof
   conj_tac \\ simp [Once mk_Ticks_def]
 QED
 
-val _ = export_theory();

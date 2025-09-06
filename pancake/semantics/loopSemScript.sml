@@ -1,18 +1,13 @@
 (*
   The formal semantics of loopLang
 *)
-open preamble loopLangTheory;
-local open
-   alignmentTheory
-   wordSemTheory
-   ffiTheory in end;
-
-val _ = new_theory"loopSem";
-val _ = set_grammar_ancestry [
-  "loopLang", "alignment",
-  "finite_map", "misc", "wordSem",
-  "ffi", "machine_ieee" (* for FP *)
-]
+Theory loopSem
+Ancestors
+  loopLang alignment[qualified] finite_map[qualified]
+  misc[qualified] wordSem[qualified] ffi[qualified]
+  machine_ieee[qualified] (* for FP *)
+Libs
+  preamble
 
 Datatype:
   state =
@@ -20,10 +15,13 @@ Datatype:
      ; globals : 5 word  |-> 'a word_loc
      ; memory  : 'a word -> 'a word_loc
      ; mdomain : ('a word) set
+     ; sh_mdomain : ('a word) set
      ; clock   : num
      ; code    : (num list # ('a loopLang$prog)) num_map
      ; be      : bool
-     ; ffi     : 'ffi ffi_state |>
+     ; ffi     : 'ffi ffi_state
+     ; base_addr   : 'a word
+     ; top_addr   : 'a word |>
 End
 
 val state_component_equality = theorem "state_component_equality";
@@ -84,7 +82,11 @@ Definition eval_def:
   (eval s (Shift sh wexp n) =
      case eval s wexp of
      | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
-     | _ => NONE)
+     | _ => NONE) /\
+  (eval s BaseAddr =
+        SOME (Word s.base_addr)) /\
+  (eval s TopAddr =
+        SOME (Word s.top_addr))
 Termination
   WF_REL_TAC `measure (exp_size ARB o SND)`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
@@ -110,6 +112,35 @@ End
 Definition set_vars_def:
   set_vars vs xs ^s =
   (s with locals := (alist_insert vs xs s.locals))
+End
+
+Definition loop_arith_def:
+  (loop_arith ^s (LDiv r1 r2 r3) =
+   case (lookup r3 s.locals, lookup r2 s.locals) of
+     (SOME (Word q), SOME(Word w2)) =>
+       if q ≠ 0w then
+         SOME(set_var r1 (Word (w2 / q)) s)
+       else NONE
+   | _  => NONE
+  ) ∧
+  (loop_arith ^s (LLongMul r1 r2 r3 r4) =
+   case (lookup r3 s.locals, lookup r4 s.locals) of
+     (SOME (Word w3), SOME(Word w4)) =>
+       (let r = w2n w3 * w2n w4 in
+          SOME (set_var r2 (Word (n2w r)) (set_var r1 (Word (n2w (r DIV dimword(:'a)))) s)))
+   | _  => NONE) ∧
+  (loop_arith ^s (LLongDiv r1 r2 r3 r4 r5) =
+   case (lookup r3 s.locals, lookup r4 s.locals, lookup r5 s.locals) of
+     (SOME (Word w3), SOME(Word w4), SOME(Word w5)) =>
+       (let n = w2n w3 * dimword (:'a) + w2n w4;
+            d = w2n w5;
+            q = n DIV d
+        in
+          if (d ≠ 0 ∧ q < dimword(:'a)) then
+            SOME (set_var r1 (Word (n2w q)) (set_var r2 (Word (n2w (n MOD d))) s))
+          else NONE)
+   | _  => NONE
+  )
 End
 
 Definition find_code_def:
@@ -163,6 +194,61 @@ Definition cut_res_def:
                   else (res,dec_clock s)
 End
 
+Definition sh_mem_load_def:
+  sh_mem_load v (addr:'a word) nb ^s =
+  if nb = 0 then
+    (if addr IN s.sh_mdomain then
+       (case call_FFI s.ffi (SharedMem MappedRead) [n2w nb] (word_to_bytes addr F) of
+          FFI_final outcome => (SOME (FinalFFI outcome), call_env [] s)
+        | FFI_return new_ffi new_bytes =>
+            (NONE, (set_var v (Word (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi))
+     else (SOME Error, s))
+  else
+    (if (byte_align addr) IN s.sh_mdomain then
+       (case call_FFI s.ffi (SharedMem MappedRead) [n2w nb] (word_to_bytes addr F) of
+          FFI_final outcome => (SOME (FinalFFI outcome), call_env [] s)
+        | FFI_return new_ffi new_bytes =>
+            (NONE, (set_var v (Word (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi)
+             | _ => (SOME Error, s))
+     else (SOME Error, s))
+End
+
+Definition sh_mem_store_def:
+  sh_mem_store v (addr:'a word) nb ^s =
+  case lookup v s.locals of
+    SOME (Word w) =>
+      (if nb = 0 then
+         (if addr IN s.sh_mdomain then
+            (case call_FFI s.ffi (SharedMem MappedWrite) [n2w nb]
+                           (word_to_bytes w F
+                            ++ word_to_bytes addr F) of
+               FFI_final outcome => (SOME (FinalFFI outcome), call_env [] s)
+             | FFI_return new_ffi new_bytes =>
+                 (NONE, s with ffi := new_ffi))
+          else (SOME Error, s))
+       else
+         (if (byte_align addr) IN s.sh_mdomain then
+            (case call_FFI s.ffi (SharedMem MappedWrite) [n2w nb]
+                           (TAKE nb (word_to_bytes w F)
+                            ++ word_to_bytes addr F) of
+               FFI_final outcome => (SOME (FinalFFI outcome), call_env [] s)
+             | FFI_return new_ffi new_bytes =>
+                 (NONE, s with ffi := new_ffi))
+          else (SOME Error, s)))
+  | _ => (SOME Error, s)
+End
+
+Definition sh_mem_op_def:
+  (sh_mem_op Load r (ad:'a word) (s:('a,'ffi) loopSem$state) = sh_mem_load r ad 0 s) ∧
+  (sh_mem_op Store r ad s = sh_mem_store r ad 0 s) ∧
+  (sh_mem_op Load8 r ad s = sh_mem_load r ad 1 s) ∧
+  (sh_mem_op Store8 r ad s = sh_mem_store r ad 1 s) ∧
+  (sh_mem_op Load16 r ad s = sh_mem_load r ad 2 s) ∧
+  (sh_mem_op Store16 r ad s = sh_mem_store r ad 2 s) ∧
+  (sh_mem_op Load32 r ad s = sh_mem_load r ad 4 s) ∧
+  (sh_mem_op Store32 r ad s = sh_mem_store r ad 4 s)
+End
+
 Definition evaluate_def:
   (evaluate (Skip:'a loopLang$prog,^s) = (NONE, s)) /\
   (evaluate (Fail:'a loopLang$prog,^s) = (SOME Error, s)) /\
@@ -170,6 +256,10 @@ Definition evaluate_def:
      case eval s exp of
      | NONE => (SOME Error, s)
      | SOME w => (NONE, set_var v w s)) /\
+  (evaluate (Arith arith,s) =
+     case loop_arith s arith of
+       NONE => (SOME Error, s)
+     | SOME s' => (NONE,s')) /\
   (evaluate (Store exp v,s) =
      case (eval s exp, lookup v s.locals) of
      | (SOME (Word adr), SOME w) =>
@@ -181,11 +271,25 @@ Definition evaluate_def:
      case eval s exp of
      | SOME w => (NONE, set_globals dst w s)
      | _ => (SOME Error, s)) /\
+  (evaluate (Load32 a v,s) =
+     case lookup a s.locals of
+     | SOME (Word w) =>
+        (case mem_load_32 s.memory s.mdomain s.be w of
+         | SOME b => (NONE, set_var v (Word (w2w b)) s)
+         | _ => (SOME Error, s))
+     | _ => (SOME Error, s)) /\
   (evaluate (LoadByte a v,s) =
      case lookup a s.locals of
      | SOME (Word w) =>
         (case mem_load_byte_aux s.memory s.mdomain s.be w of
          | SOME b => (NONE, set_var v (Word (w2w b)) s)
+         | _ => (SOME Error, s))
+     | _ => (SOME Error, s)) /\
+  (evaluate (Store32 a w,s) =
+     case lookup a s.locals, lookup w s.locals of
+     | (SOME (Word w), SOME (Word b)) =>
+        (case mem_store_32 s.memory s.mdomain s.be w (w2w b) of
+         | SOME m => (NONE, s with memory := m)
          | _ => (SOME Error, s))
      | _ => (SOME Error, s)) /\
   (evaluate (StoreByte a w,s) =
@@ -224,6 +328,18 @@ Definition evaluate_def:
      case lookup n s.locals of
      | SOME v => (SOME (Result v),call_env [] s)
      | _ => (SOME Error,s)) /\
+  (evaluate (ShMem op v ad,s) =
+   case eval s ad of
+   | SOME (Word addr) =>
+       (if is_load op then
+          (case lookup v s.locals of
+             SOME _ => sh_mem_op op v addr s
+           | _ => (SOME Error, s))
+        else
+          (case lookup v s.locals of
+             SOME (Word _) => sh_mem_op op v addr s
+           | _ => (SOME Error, s)))
+   | _ => (SOME Error, s)) /\
   (evaluate (Tick,s) =
      if s.clock = 0 then (SOME TimeOut,s with locals := LN)
      else (NONE,dec_clock s)) /\
@@ -270,13 +386,13 @@ Definition evaluate_def:
                     | res => res)
              | res => res)))) /\
   (evaluate (FFI ffi_index ptr1 len1 ptr2 len2 cutset,s) =
-    case (lookup len1 s.locals, lookup ptr1 s.locals, lookup len2 s.locals, lookup ptr2 s.locals, cut_state cutset s) of
+     case (lookup len1 s.locals, lookup ptr1 s.locals, lookup len2 s.locals, lookup ptr2 s.locals, cut_state cutset s) of
     | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4),SOME s =>
        (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.mdomain s.be),
                read_bytearray w4 (w2n w3) (mem_load_byte_aux s.memory s.mdomain s.be))
                of
           | SOME bytes,SOME bytes2 =>
-             (case call_FFI s.ffi ffi_index bytes bytes2 of
+             (case call_FFI s.ffi (ExtCall ffi_index) bytes bytes2 of
               | FFI_final outcome => (SOME (FinalFFI outcome),call_env [] s)
               | FFI_return new_ffi new_bytes =>
                 let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
@@ -317,8 +433,12 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ fs [CaseEq"option",CaseEq"word_loc",mem_store_def,CaseEq"bool",CaseEq"result",
          pair_case_eq,cut_res_def]
-  \\ fs [] \\ rveq \\ fs [set_var_def,set_globals_def]
-  \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ fs []
+  \\ fs[DefnBase.one_line_ify NONE loop_arith_def,CaseEq "loop_arith",
+       CaseEq "option", CaseEq "word_loc",set_var_def] \\ rveq \\ fs[]
+  \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ fs []>>
+  TRY (Cases_on ‘op’>>fs[sh_mem_op_def,sh_mem_store_def,sh_mem_load_def]>>
+       fs[ffiTheory.call_FFI_def]>>every_case_tac>>fs[]>>
+       rveq>>fs[set_var_def,call_env_def])
   \\ rename [‘cut_res _ xx’] \\ PairCases_on ‘xx’ \\ fs []
   \\ fs [cut_res_def]
   \\ every_case_tac \\ fs [] \\ rveq \\ fs [cut_state_def]
@@ -334,8 +454,8 @@ QED
 
 (* we store the theorems without fix_clock *)
 
-Theorem evaluate_ind = REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
-Theorem evaluate_def = REWRITE_RULE [fix_clock_evaluate] evaluate_def;
+Theorem evaluate_ind[allow_rebind] = REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
+Theorem evaluate_def[allow_rebind] = REWRITE_RULE [fix_clock_evaluate] evaluate_def;
 
 (* observational semantics *)
 
@@ -371,5 +491,3 @@ Definition semantics_def:
            (IMAGE (λk. fromList
               (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))
 End
-
-val _ = export_theory();

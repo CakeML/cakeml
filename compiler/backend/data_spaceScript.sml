@@ -4,24 +4,42 @@
   wordLang code. By lumping together MakeSpace operations we turn
   several calls to the memory allocator into a single efficient call.
 *)
-open preamble dataLangTheory;
-
-val _ = new_theory "data_space";
+Theory data_space
+Ancestors
+  dataLang
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
-val op_space_req_def = Define `
-  (op_space_req (Cons _) l = if l = 0n then 0 else l+1) /\
-  (op_space_req Ref l = l + 1) /\
-  (op_space_req (WordOp W64 _) _ = 3) /\
-  (op_space_req (WordShift W64 _ _) _ = 3) /\
-  (op_space_req WordFromInt _ = 3) /\
-  (op_space_req WordToInt _ = 3) /\
-  (op_space_req (WordFromWord F) _ = 3) /\
-  (op_space_req (FP_uop _) v9 = 3) /\
-  (op_space_req (FP_bop _) v9 = 3) /\
-  (op_space_req (FP_top _) v9 = 3) /\
-  (op_space_req _ _ = 0)`;
+Definition num_size_def:
+  num_size (n:num) =
+    if n < 2**32 then 2:num else 1 + num_size (n DIV 2 ** 32)
+End
+
+Definition part_space_req_def:
+  part_space_req (W64 s) = 3 ∧
+  part_space_req (Int i) =
+    (if Num (ABS i) < 2**29 then 0 else num_size (Num (ABS i))) ∧
+  part_space_req (Str s) = strlen s DIV 4 + 2 ∧
+  part_space_req (Con t ns) =
+    let l = LENGTH ns in if l = 0n then 0 else l+1
+End
+
+Definition op_space_req_def:
+  (op_space_req (MemOp Ref) l = l + 1) /\
+  (op_space_req (BlockOp (Cons _)) l = if l = 0n then 0 else l+1) /\
+  (op_space_req (BlockOp (Build parts)) l = SUM (MAP part_space_req parts)) /\
+  (op_space_req (WordOp (WordOpw W64 _)) _ = 3) /\
+  (op_space_req (WordOp (WordShift W64 _ _)) _ = 3) /\
+  (op_space_req (WordOp WordFromInt) _ = 3) /\
+  (op_space_req (WordOp WordToInt) _ = 3) /\
+  (op_space_req (WordOp (WordFromWord F)) _ = 3) /\
+  (op_space_req (WordOp (FP_uop _)) _ = 3) /\
+  (op_space_req (WordOp (FP_bop _)) _ = 3) /\
+  (op_space_req (WordOp (FP_top _)) _ = 3) /\
+  (op_space_req _ _ = 0)
+End
 
 (*
 Theorem op_space_req_pmatch:
@@ -30,7 +48,7 @@ Theorem op_space_req_pmatch:
     case op of
       Cons _ => if l = 0n then 0 else l+1
     | Ref => l + 1
-    | WordOp W64 _ => 3
+    | WordOp (WordOpw W64 _) => 3
     | WordShift W64 _ _ => 3
     | WordFromInt => 3
     | WordToInt => 3
@@ -45,11 +63,12 @@ Proof
 QED
 *)
 
-val pMakeSpace_def = Define `
+Definition pMakeSpace_def:
   (pMakeSpace (INL c) = c) /\
-  (pMakeSpace (INR (k,names,c)) = Seq (MakeSpace k names) c)`;
+  (pMakeSpace (INR (k,names,c)) = Seq (MakeSpace k names) c)
+End
 
-val space_def = Define `
+Definition space_def:
   (space (MakeSpace k names) = INR (k,names,Skip)) /\
   (space (Seq c1 c2) =
      let d1 = pMakeSpace (space c1) in
@@ -74,7 +93,8 @@ val space_def = Define `
            | _ => INL (Seq d1 (pMakeSpace x2)))) /\
   (space (If n c2 c3) =
      INL (If n (pMakeSpace (space c2)) (pMakeSpace (space c3)))) /\
-  (space c = INL c)`;
+  (space c = INL c)
+End
 
 Theorem space_pmatch:
   ∀c.
@@ -112,7 +132,7 @@ Proof
   >> fs[space_def]
 QED
 
-val compile_def = Define `
-  compile c = pMakeSpace (space c)`;
+Definition compile_def:
+  compile c = pMakeSpace (space c)
+End
 
-val _ = export_theory();

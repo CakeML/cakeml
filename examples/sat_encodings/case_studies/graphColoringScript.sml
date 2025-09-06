@@ -1,10 +1,11 @@
 (*
   Encoding of graph coloring problem
 *)
-
-open preamble miscTheory unorderedSetsTheory;
-
-val _ = new_theory "graphColoring";
+Theory graphColoring
+Ancestors
+  misc unorderedSets
+Libs
+  preamble
 
 
 (* --------------------- Types ---------------------- *)
@@ -69,13 +70,6 @@ Definition graphColoring_to_cnf_def:
   (graphColoring_to_equation graph)
 End
 
-Definition graphColoring_to_cnf_def:
-  graphColoring_to_cnf (colors:colorList) graph =
-  equation_to_cnf
-  (colorList_to_setList colors)
-  (graphColoring_to_equation graph)
-End
-
 Definition assignment_to_vertexColorAssignment_def:
   assignment_to_vertexColorAssognment w (colors:colorList) graph =
   assignment_to_elementVarAssignment
@@ -83,4 +77,3 @@ Definition assignment_to_vertexColorAssignment_def:
 End
 
 
-val _ = export_theory();

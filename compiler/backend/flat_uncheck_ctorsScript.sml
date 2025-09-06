@@ -1,12 +1,14 @@
 (*
   This compiler phase replaces tuples with constructors (with tag 0).
 *)
-open preamble astTheory flatLangTheory;
+Theory flat_uncheck_ctors
+Ancestors
+  flatLang misc[qualified] ast
+Libs
+  preamble
 
-val _ = numLib.prefer_num();
+val _ = numLib.temp_prefer_num();
 
-val _ = new_theory "flat_uncheck_ctors";
-val _ = set_grammar_ancestry ["flatLang", "lib"];
 val _ = temp_tight_equality ();
 
 Definition compile_pat_def:
@@ -36,8 +38,6 @@ Definition compile_def:
   (compile [Letrec t funs e] =
       [Letrec t (MAP (\(a, b, e). (a,b, HD (compile [e]))) funs) (HD (compile [e]))]) /\
   (compile (x::y::xs) = compile [x] ++ compile (y::xs))
-Termination
-  WF_REL_TAC `measure exp6_size` \\ simp []
 End
 
 Theorem compile_length[simp]:
@@ -55,7 +55,8 @@ Proof
   \\ simp_tac(std_ss++listSimps.LIST_ss)[LENGTH_EQ_NUM_compute]
 QED
 
-val compile_nil = save_thm ("compile_nil[simp]", EVAL ``compile []``);
+Theorem compile_nil[simp] =
+  EVAL ``compile []``
 
 Theorem compile_not_nil[simp]:
    compile [x] <> []
@@ -107,4 +108,3 @@ Definition compile_decs_def:
   (compile_decs (_::ds) = compile_decs ds)
 End
 
-val _ = export_theory();

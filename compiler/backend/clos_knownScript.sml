@@ -7,10 +7,11 @@
   inline the body of the called closure. The function inlining is
   recurisve and controlled using configurable parameters.
 *)
-open preamble closLangTheory;
-open db_varsTheory clos_ticksTheory clos_letopTheory clos_fvsTheory clos_opTheory;
-
-val _ = new_theory "clos_known";
+Theory clos_known
+Ancestors
+  closLang db_vars clos_ticks clos_letop clos_fvs clos_op
+Libs
+  preamble
 
 (* val _ = set_grammar_ancestry ["closLang", "sptree", "misc", "backend_common"] *)
 
@@ -60,18 +61,15 @@ Definition get_size_sc_aux_def:
      let n = get_size_sc_aux n [x1] in if n = 0 then 0 else
        get_size_sc_aux n xs)
 Termination
-  WF_REL_TAC `measure (exp3_size o SND)`
-  \\ simp [] \\ rpt strip_tac
-  \\ `exp3_size (MAP SND fns) <= exp1_size fns`
-     by (Induct_on `fns` \\ simp [exp_size_def] \\ Cases \\ simp [exp_size_def])
-  \\ simp []
+  WF_REL_TAC `measure (list_size exp_size o SND)`
+  \\ fs[list_size_pair_size_MAP_FST_SND]
 End
 
-val get_size_sc_def = Define `
+Definition get_size_sc_def:
   get_size_sc limit e =
     let n = get_size_sc_aux (limit + 1) [e] in
       if n = 0 then NONE else SOME (limit + 1 - n)
-`;
+End
 
 Definition get_size_aux_def:
   (get_size_aux [] = 0n) /\
@@ -99,16 +97,15 @@ Definition get_size_aux_def:
   (get_size_aux [App t loc_opt x1 xs] =
      1 + get_size_aux [x1] + get_size_aux xs)
 Termination
-  WF_REL_TAC `measure exp3_size`
-  \\ simp [] \\ rpt strip_tac
-  \\ `exp3_size (MAP SND fns) <= exp1_size fns`
-    by (Induct_on `fns` \\ simp [exp_size_def] \\ Cases \\ simp [exp_size_def])
-  \\ simp []
+  WF_REL_TAC `measure (list_size exp_size)`
+  \\ simp [list_size_pair_size_MAP_FST_SND]
 End
 
 val get_size_aux_ind = theorem "get_size_aux_ind";
 
-val get_size_def = Define `get_size e = get_size_aux [e]`;
+Definition get_size_def:
+  get_size e = get_size_aux [e]
+End
 
 Theorem get_size_sc_aux_correct:
    !xs limit n. get_size_sc_aux limit xs = limit - get_size_aux xs
@@ -173,9 +170,6 @@ Definition free_def:
   (free [Call t ticks dest xs] =
      let (c1,l1) = free xs in
        ([Call t ticks dest c1],l1))
-Termination
-  WF_REL_TAC `measure exp3_size`
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ DECIDE_TAC
 End
 
 (*
@@ -225,8 +219,9 @@ Proof
 QED
 *)
 
-val closed_def = Define `
-  closed x = isEmpty (db_to_set (SND (free [x])))`
+Definition closed_def:
+  closed x = isEmpty (db_to_set (SND (free [x])))
+End
 
 Definition contains_closures_def:
   (contains_closures [] = F) /\
@@ -253,8 +248,6 @@ Definition contains_closures_def:
   (contains_closures [App t loc_opt x1 xs] =
      if contains_closures [x1] then T else
        contains_closures xs)
-Termination
-  wf_rel_tac `measure exp3_size`
 End
 
 (* -----------------------------------------------------------------
@@ -271,17 +264,18 @@ End
 
    ----------------------------------------------------------------- *)
 
-val _ = Datatype `
+Datatype:
   val_approx =
     ClosNoInline num num        (* location in code table, arity *)
   | Clos num num exp num        (* loc, arity, body, body size *)
   | Tuple num (val_approx list) (* conses or tuples *)
   | Int int                     (* used to index tuples *)
   | Other                       (* unknown *)
-  | Impossible`                 (* value 'returned' by Raise *)
+  | Impossible                  (* value 'returned' by Raise *)
+End
 val val_approx_size_def = definition "val_approx_size_def"
 
-Definition merge_def:
+Definition merge_def[nocompute]:
   (merge Impossible y = y) ∧
   (merge x Impossible = x) ∧
   (merge (Tuple tg1 xs) (Tuple tg2 ys) =
@@ -295,17 +289,10 @@ Definition merge_def:
        then Clos m1 n1 e1 s1 else Other) ∧
   (merge (Int i) (Int j) = if i = j then Int i else Other) ∧
   (merge _ _ = Other)
-Termination
-  WF_REL_TAC `measure (val_approx_size o FST)` >> Induct_on `xs` >>
-  rw[val_approx_size_def] >> simp[] >>
-  rename[`MEM x xs`, `MEM y ys`, `SUC (LENGTH xs) = LENGTH ys`,
-          `tag + (val_approx1_size xs + _)`, `val_approx_size x < _`] >>
-  first_x_assum (qspecl_then [`tag`, `y::TL (TL ys)`, `x`, `y`] mp_tac) >>
-  impl_tac >> simp[] >> Cases_on `ys` >> fs[] >> Cases_on `xs` >> fs[] >>
-  rename1 `SUC (LENGTH _) = LENGTH ll` >> Cases_on `ll` >> fs[]
 End
 
-Theorem merge_def[simp,compute] = SIMP_RULE (bool_ss ++ ETA_ss) [] merge_def;
+Theorem merge_def[simp,compute,allow_rebind] =
+        SIMP_RULE (bool_ss ++ ETA_ss) [] merge_def;
 
 (* Avoid MAP2 *)
 Definition merge_tup_def:
@@ -362,23 +349,23 @@ Proof
   first_x_assum match_mp_tac>>metis_tac[MEM_EL]
 QED
 
-val known_op_def = Define `
-  (known_op (Global n) as g =
+Definition known_op_def:
+  (known_op (GlobOp (Global n)) as g =
    if NULL as then
      dtcase lookup n g of
        | NONE => (Other,g)
        | SOME x => (x,g)
    else (Other,g)) /\
-  (known_op (SetGlobal n) as g =
+  (known_op (GlobOp (SetGlobal n)) as g =
      dtcase as of
      | [] => (Other,g)
      | (a::xs) =>
        dtcase lookup n g of
        | NONE => (Other, insert n a g)
        | SOME other => (Other, insert n (merge other a) g)) /\
-  (known_op (Cons tg) as g = (Tuple tg as,g)) /\
-  (known_op (Const i) as g = (Int i,g)) /\
-  (known_op El as g =
+  (known_op (BlockOp (Cons tg)) as g = (Tuple tg as,g)) /\
+  (known_op (IntOp (Const i)) as g = (Int i,g)) /\
+  (known_op (MemOp El) as g =
      dtcase as of
      | [Tuple _ xs; Int i] =>
          if 0 <= i /\ i < &LENGTH xs
@@ -387,28 +374,29 @@ val known_op_def = Define `
      | Impossible::xs => (Impossible,g)
      | _ :: Impossible :: xs => (Impossible,g)
      | _ => (Other,g)) /\
-(known_op op as g = (Other,g))`
+(known_op op as g = (Other,g))
+End
 
 Theorem known_op_pmatch:
   !op as g.
 known_op op as g =
   case op of
-    Global n =>
+    GlobOp (Global n) =>
      if NULL as then
        case lookup n g of
          | NONE => (Other,g)
          | SOME x => (x,g)
      else (Other,g)
-  | SetGlobal n =>
+  | GlobOp (SetGlobal n) =>
     (case as of
      | [] => (Other,g)
      | (a::xs) =>
        dtcase lookup n g of
        | NONE => (Other, insert n a g)
        | SOME other => (Other, insert n (merge other a) g))
-  | Cons tg => (Tuple tg as,g)
-  | Const i => (Int i,g)
-  | El =>
+  | BlockOp (Cons tg) => (Tuple tg as,g)
+  | IntOp (Const i) => (Int i,g)
+  | MemOp El =>
     (case as of
      | [Tuple _ xs; Int i] =>
          if 0 <= i /\ i < &LENGTH xs
@@ -424,33 +412,39 @@ Proof
   >> fs[known_op_def]
 QED
 
-val EL_MEM_LEMMA = Q.prove(
-  `!xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs`,
-  Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []);
+Triviality EL_MEM_LEMMA:
+  !xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs
+Proof
+  Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []
+QED
 
-val clos_approx_def = Define `
+Definition clos_approx_def:
   clos_approx max_size loc num_args body =
     dtcase get_size_sc max_size body of
       | NONE => ClosNoInline loc num_args
       | SOME body_size => Clos loc num_args body body_size
-`;
+End
 
-val clos_gen_noinline_def = Define`
+Definition clos_gen_noinline_def:
   (clos_gen_noinline n i [] = []) /\
   (clos_gen_noinline n i ((a,e)::xs) =
-    ClosNoInline (n+2*i) a::clos_gen_noinline n (i+1) xs)`;
+    ClosNoInline (n+2*i) a::clos_gen_noinline n (i+1) xs)
+End
 
-val _ = Datatype `globalOpt = gO_Int int | gO_NullTuple num | gO_None`
+Datatype:
+  globalOpt = gO_Int int | gO_NullTuple num | gO_None
+End
 
-val isGlobal_def = Define`
-  (isGlobal (Global _) ⇔ T) ∧
-  (isGlobal _ ⇔ F)`;
+Definition isGlobal_def:
+  (isGlobal (GlobOp (Global _)) ⇔ T) ∧
+  (isGlobal _ ⇔ F)
+End
 
 Theorem isGlobal_pmatch:
   ∀op.
     isGlobal op =
     case op of
-      Global _ => T
+      GlobOp (Global _) => T
     | _ => F
 Proof
   rpt strip_tac
@@ -458,11 +452,12 @@ Proof
   >> fs[isGlobal_def]
 QED
 
-val gO_destApx_def = Define`
+Definition gO_destApx_def:
   (gO_destApx (Int i) = gO_Int i) ∧
   (gO_destApx (Tuple tag args) = if NULL args then gO_NullTuple tag
                                  else gO_None) ∧
-  (gO_destApx _ = gO_None)`;
+  (gO_destApx _ = gO_None)
+End
 
 Definition mk_Ticks_def:
   mk_Ticks t tc n e =
@@ -471,41 +466,49 @@ Termination
   wf_rel_tac `measure (FST o SND o SND)`
 End
 
-val _ = Datatype `
+Datatype:
   inliningDecision = inlD_Nothing
                    | inlD_Annotate num
                    | inlD_LetInline exp
-`;
+End
 
-val _ = Datatype`
+Datatype:
   config = <| inline_max_body_size : num
             ; inline_factor : num (* As in 'Inline expansion: when and how?' by Manuel Serrano *)
             ; initial_inline_factor : num
             ; val_approx_spt : val_approx spt (* TODO: this could replace the explicit g argument in known_def *)
-            |>`;
+            |>
+End
 
-val default_inline_factor_def = Define`default_inline_factor = 8n`;
-val default_max_body_size_def = Define`
-  default_max_body_size max_app inline_factor = (max_app + 1n) * inline_factor`;
+Definition default_inline_factor_def:
+  default_inline_factor = 8n
+End
+Definition default_max_body_size_def:
+  default_max_body_size max_app inline_factor = (max_app + 1n) * inline_factor
+End
 
-val mk_config_def = Define`
+Definition mk_config_def:
   mk_config max_body_size inline_factor = <|
       inline_max_body_size := max_body_size
     ; inline_factor := inline_factor
     ; initial_inline_factor := inline_factor
     ; val_approx_spt := LN
-  |>`;
+  |>
+End
 
-val default_config_def = Define`
-  default_config max_app = mk_config (default_max_body_size max_app default_inline_factor) default_inline_factor`;
+Definition default_config_def:
+  default_config max_app = mk_config (default_max_body_size max_app default_inline_factor) default_inline_factor
+End
 
-val dec_inline_factor_def = Define `
-  dec_inline_factor c = c with inline_factor := c.inline_factor DIV 2`;
+Definition dec_inline_factor_def:
+  dec_inline_factor c = c with inline_factor := c.inline_factor DIV 2
+End
 
-val reset_inline_factor_def = Define `
-  reset_inline_factor c = c with inline_factor := c.initial_inline_factor`;
+Definition reset_inline_factor_def:
+  reset_inline_factor c = c with inline_factor := c.initial_inline_factor
+End
 
-val decide_inline_def = Define `
+Definition decide_inline_def:
   decide_inline c fapx app_lopt app_arity =
     dtcase fapx of
       | ClosNoInline loc arity =>
@@ -523,7 +526,7 @@ val decide_inline_def = Define `
                else inlD_Annotate loc)
           else inlD_Nothing
       | _ => inlD_Nothing
-`;
+End
 
 Theorem decide_inline_LetInline:
    !c fapx lopt arity body.
@@ -579,8 +582,8 @@ Definition known_def:
          (if isGlobal op then
            dtcase gO_destApx a of
              | gO_None => SmartOp t op
-             | gO_Int i => Op t (Const i)
-             | gO_NullTuple tag => Op t (Cons tag)
+             | gO_Int i => Op t (IntOp (Const i))
+             | gO_NullTuple tag => Op t (BlockOp (Cons tag))
           else SmartOp t op) (MAP FST ea1)
      in
        ([(e,a)],g)) /\
@@ -626,9 +629,13 @@ Definition known_def:
        ([(Letrec t loc_opt NONE new_fns e1,a1)],g))
 Termination
   wf_rel_tac `inv_image (measure I LEX measure I)
-                        (\(c, xs, vs, g). (c.inline_factor, exp3_size xs))`
+                        (\(c, xs, vs, g). (c.inline_factor, list_size exp_size xs))`
   \\ simp [dec_inline_factor_def] \\ rpt strip_tac
-  \\ imp_res_tac decide_inline_LetInline \\ fs []
+  \\ imp_res_tac decide_inline_LetInline
+  \\ fs []
+  \\ drule MEM_list_size
+  \\ disch_then (qspec_then `pair_size (λx. x) exp_size` mp_tac)
+  \\ simp[list_size_pair_size_MAP_FST_SND]
 End
 
 Theorem known_LENGTH:
@@ -661,39 +668,45 @@ Proof
   metis_tac[PAIR_EQ, known_sing]
 QED
 
-val compile_def = Define `
+Definition compile_def:
   compile NONE exps = (NONE, exps) /\
   compile (SOME c) exps =
     let exps = clos_fvs$compile exps in
     let (es, g) = known c exps [] LN in
     let es1 = remove_ticks (MAP FST es) in
     let es2 = let_op es1 in
-      (SOME (c with val_approx_spt := g), es2)`;
+      (SOME (c with val_approx_spt := g), es2)
+End
 
-val compile_inc_def = Define `
+Definition compile_inc_def:
   compile_inc c g (es,xs) =
-    let (eas, g') = known (reset_inline_factor c) es [] g in (g', MAP FST eas, xs)`;
+    let (eas, g') = known (reset_inline_factor c) es [] g in (g', MAP FST eas, xs)
+End
 
-val known_static_conf_def = Define `
+Definition known_static_conf_def:
   known_static_conf kc = (dtcase kc of NONE => NONE
-    | SOME kc => SOME (reset_inline_factor kc with val_approx_spt := LN))`;
+    | SOME kc => SOME (reset_inline_factor kc with val_approx_spt := LN))
+End
 
-val known_compile_inc_def = Define`
+Definition known_compile_inc_def:
   known_compile_inc NONE spt p = (spt, p) /\
   known_compile_inc (SOME c) spt p =
     let (p : clos_prog) = clos_fvs$compile_inc p in
     let (spt, p) = clos_known$compile_inc c spt p in
     let (p : clos_prog) = clos_ticks$compile_inc p in
     let p = clos_letop$compile_inc p in
-    (spt, p)`;
+    (spt, p)
+End
 
-val option_val_approx_spt_def = Define `
+Definition option_val_approx_spt_def:
   option_val_approx_spt kc = (dtcase kc of NONE => LN
-    | SOME kcfg => kcfg.val_approx_spt)`;
+    | SOME kcfg => kcfg.val_approx_spt)
+End
 
-val option_upd_val_spt_def = Define`
+Definition option_upd_val_spt_def:
   option_upd_val_spt spt NONE = NONE /\
-  option_upd_val_spt spt (SOME kc) = SOME (kc with val_approx_spt := spt)`;
+  option_upd_val_spt spt (SOME kc) = SOME (kc with val_approx_spt := spt)
+End
 
 (*
 
@@ -702,15 +715,15 @@ val t0 = ``SourceLoc 0 0 0 0``;
 val t1 = ``SourceLoc 1 1 1 1``;
 
 (* The numerical constant 1 *)
-val const1 = ``Op None (Const 1) []``;
-val const2 = ``Op None (Const 2) []``;
+val const1 = ``Op None (IntOp (Const 1)) []``;
+val const2 = ``Op None (IntOp (Const 2)) []``;
 
 
 (* fn f x => f x *)
 val apply = ``Fn None (SOME 0) NONE 2 (App ^t0 NONE (Var None 0) [Var None 1])``;
 
 (* fn x => x + 1 *)
-val succ = ``Fn None (SOME 2) NONE 1 (Op None Add [Var None 0; ^const1])``;
+val succ = ``Fn None (SOME 2) NONE 1 (Op None (IntOp Add) [Var None 0; ^const1])``;
 
 (* -------------------------------*)
 
@@ -720,7 +733,7 @@ val example_direct = ``App ^t1 NONE ^apply [^succ; ^const2]``;
 val inline_direct = ``clos_known$compile T ^example_direct``;
 EVAL inline_direct;
 
-val exp = ``Let None [^const1; ^const2] (Op None Add [Var None 0; Var None 1])``
+val exp = ``Let None [^const1; ^const2] (Op None (IntOp Add) [Var None 0; Var None 1])``
 
 EVAL ``clos_letop$let_op [^exp]``;
 
@@ -742,12 +755,12 @@ EVAL inline_local;
 (*-------------------------------*)
 
 (* fun apply <f,x> = f x *)
-val sg_apply = ``Op None (SetGlobal 0) [^apply]``;
-val g_apply = ``Op None (Global 0) []``;
+val sg_apply = ``Op None (GlobOp (SetGlobal 0)) [^apply]``;
+val g_apply = ``Op None (GlobOp (Global 0)) []``;
 
 (* fun succ <x> = x + 1 *)
-val sg_succ = ``Op None (SetGlobal 1) [^succ]``;
-val g_succ = ``Op None (Global 1) []``;
+val sg_succ = ``Op None (GlobOp (SetGlobal 1)) [^succ]``;
+val g_succ = ``Op None (GlobOp (Global 1)) []``;
 
 (*
 let _ = SetGlobal 0 (fn f x => f x)
@@ -790,8 +803,8 @@ EVAL ``
   in f 6 end
 
   val t = ``SourceLoc 0 0 0 0``
-  val f = ``Fn None (SOME 900) NONE 1 (Op None (Const 1) [])``
-  val exp = ``Let None [^f] (App ^t NONE (Var None 0) [Op None (Const 6) []])``
+  val f = ``Fn None (SOME 900) NONE 1 (Op None (IntOp (Const 1)) [])``
+  val exp = ``Let None [^f] (App ^t NONE (Var None 0) [Op None (IntOp (Const 6)) []])``
 
   val ev = EVAL ``compile T ^exp``
 
@@ -805,8 +818,8 @@ EVAL ``
   val t1 = ``SourceLoc 1 1 1 1``
   val t2 = ``SourceLoc 2 2 2 2``
   val app = ``Fn None (SOME 100) NONE 2 (App ^t1 NONE (Var None 0) [Var None 1])``
-  val f = ``Fn None (SOME 200) NONE 1 (Op None Add [Var None 0; Op None (Const 1) []])``
-  val exp = ``Let None [^app] (Let None [^f] (App ^t2 NONE (Var None 1) [Var None 0; Op None (Const 10) []]))``
+  val f = ``Fn None (SOME 200) NONE 1 (Op None (IntOp Add) [Var None 0; Op None (IntOp (Const 1)) []])``
+  val exp = ``Let None [^app] (Let None [^f] (App ^t2 NONE (Var None 1) [Var None 0; Op None (IntOp (Const 10)) []]))``
 
   val ev = EVAL ``compile T ^exp``
 
@@ -828,9 +841,9 @@ EVAL ``
 
   val t1 = ``SourceLoc 1 1 1 1``
   val t2 = ``SourceLoc 2 2 2 2``
-  val f = ``Fn None (SOME 900) NONE 1 (App ^t1 NONE (Op None (Global 60) []) [Op None Add [Var None 0; Op None (Const 1) []]])``
-  val g = ``closLang$Op None (SetGlobal 60) [Var None 0]``
-  val exp = ``Let None [^f] (Let None [^g] (App ^t2 NONE (Var None 1) [Op None (Const 4) []]))``
+  val f = ``Fn None (SOME 900) NONE 1 (App ^t1 NONE (Op None (GlobOp (Global 60)) []) [Op None (IntOp Add) [Var None 0; Op None (IntOp (Const 1)) []]])``
+  val g = ``closLang$Op None (GlobOp (SetGlobal 60)) [Var None 0]``
+  val exp = ``Let None [^f] (Let None [^g] (App ^t2 NONE (Var None 1) [Op None (IntOp (Const 4)) []]))``
 
   val kn = EVAL ``(I ## sptree$toList) (known (100,2) [^exp] [] LN)``
   val ev = EVAL ``compile T ^exp``
@@ -845,10 +858,10 @@ EVAL ``
   end
 
   val t1 = ``SourceLoc 1 1 1 1``
-  val f = ``Fn None (SOME 900) NONE 1 (Op None Add [Var None 0; Op None (Const 1) []])``
-  val g = ``closLang$Op None (SetGlobal 60) [Var None 0]``
+  val f = ``Fn None (SOME 900) NONE 1 (Op None (IntOp Add) [Var None 0; Op None (IntOp (Const 1)) []])``
+  val g = ``closLang$Op None (GlobOp (SetGlobal 60)) [Var None 0]``
   val exp = ``Let None [^f] (Let None [^g]
-                (App ^t1 NONE (Op None (Global 60) []) [Op None (Const 3) []]))``
+                (App ^t1 NONE (Op None (GlobOp (Global 60)) []) [Op None (IntOp (Const 3)) []]))``
 
   val ev = EVAL ``compile T ^exp``
 
@@ -863,7 +876,7 @@ EVAL ``
     h
   end
 
-  val h = ``closLang$Op None (SetGlobal 62) [Op None (Global 60) []]``
+  val h = ``closLang$Op None (GlobOp (SetGlobal 62)) [Op None (GlobOp (Global 60)) []]``
   val exp = ``Let None [^f] (Let None [^g] (Let None [^h] (Var None 0)))``
 
   val ev1 = EVAL ``known (0, 0) [^exp] [] LN``
@@ -880,9 +893,9 @@ EVAL ``
   end
 
   val h = ``Fn None (SOME 800) NONE 1
-               (closLang$Op None (SetGlobal 62) [Op None (Global 60) []])``
+               (closLang$Op None (GlobOp (SetGlobal 62)) [Op None (GlobOp (Global 60)) []])``
   val exp = ``Let None [^f] (Let None [^h]
-                (Let None [^g] (App None NONE (Var None 1) [Op None (Const 1) []])))``
+                (Let None [^g] (App None NONE (Var None 1) [Op None (IntOp (Const 1)) []])))``
 
   val ev1 = EVAL ``known (0, 0) [^exp] [] LN``
   val ev2 = EVAL ``known (0, 0) [^exp] [] ^(#2 (dest_pair (rhs (concl ev1))))``
@@ -898,13 +911,12 @@ EVAL ``
 
 
   val t = ``SourceLoc 0 0 0 0``
-  val f = ``Fn None (SOME 800) NONE 1 (Op None Add [Var None 0; Op None (Const 1) []])``
-  val g = ``Fn None (SOME 900) NONE 1 (Op None Sub [Var None 0; Op None (Const 1) []])``
-  val xy = ``Let None [^f;^g] (Op None (Cons 0) [Var None 0; Var None 1])``
-  val app = ``Let None [^xy] (App ^t NONE (Op None El [Op None (Const 0) []; Var None 0]) [Op None (Const 4) []])``
+  val f = ``Fn None (SOME 800) NONE 1 (Op None (IntOp Add) [Var None 0; Op None (IntOp (Const 1)) []])``
+  val g = ``Fn None (SOME 900) NONE 1 (Op None (IntOp Sub) [Var None 0; Op None (IntOp (Const 1)) []])``
+  val xy = ``Let None [^f;^g] (Op None (BlockOp (Cons 0)) [Var None 0; Var None 1])``
+  val app = ``Let None [^xy] (App ^t NONE (Op None (MemOp El) [Op None (IntOp (Const 0)) []; Var None 0]) [Op None (IntOp (Const 4)) []])``
 
   val ev = EVAL ``compile T ^app``
 
 *)
 
-val _ = export_theory();

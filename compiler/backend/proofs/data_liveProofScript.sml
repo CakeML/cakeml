@@ -1,20 +1,24 @@
 (*
   Correctness proof for data_live
 *)
-open preamble data_liveTheory dataSemTheory dataPropsTheory;
+Theory data_liveProof
+Ancestors
+  data_live dataSem dataProps
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"data_liveProof";
 
 val _ = temp_bring_to_front_overload"get_vars"{Name="get_vars",Thy="dataSem"};
 val _ = temp_bring_to_front_overload"cut_env"{Name="cut_env",Thy="dataSem"};
 
-val SPLIT_PAIR = Q.prove(
-  `!x y z. (x = (y,z)) <=> (y = FST x) /\ (z = SND x)`,
-  Cases \\ SRW_TAC [] [] \\ METIS_TAC []);
+Triviality SPLIT_PAIR:
+  !x y z. (x = (y,z)) <=> (y = FST x) /\ (z = SND x)
+Proof
+  Cases \\ SRW_TAC [] [] \\ METIS_TAC []
+QED
 
-val state_rel_def = Define `
+Definition state_rel_def:
   state_rel (s1:('a,'ffi) dataSem$state) (t1:('a,'ffi) dataSem$state) (live:num_set) <=>
     s1.code = t1.code /\ s1.clock = t1.clock /\ s1.space = t1.space /\
     s1.ffi = t1.ffi /\ s1.refs = t1.refs /\ s1.global = t1.global /\
@@ -24,25 +28,33 @@ val state_rel_def = Define `
     s1.limits  = t1.limits /\
     s1.stack_frame_sizes  = t1.stack_frame_sizes /\
     (* s1.safe_for_space = t1.safe_for_space /\ *) (* ASK: Probably don't need it *)
-    (!x. x IN domain live ==> (lookup x s1.locals = lookup x t1.locals))`;
+    (!x. x IN domain live ==> (lookup x s1.locals = lookup x t1.locals))
+End
 
-val state_rel_ID = Q.prove(
-  `!s live. state_rel s s live`,
-  fs [state_rel_def]);
+Triviality state_rel_ID:
+  !s live. state_rel s s live
+Proof
+  fs [state_rel_def]
+QED
 
-val jump_exc_IMP_state_rel = Q.prove(
-  `!s1 t1 s2 t2.
+Triviality jump_exc_IMP_state_rel:
+  !s1 t1 s2 t2.
       (jump_exc s1 = SOME s2) /\ (jump_exc t1 = SOME t2) /\
       state_rel s1 t1 LN /\ (LENGTH s2.stack = LENGTH t2.stack) ==>
       state_rel (s2 with handler := s1.handler)
-                (t2 with handler := t1.handler) LN`,
+                (t2 with handler := t1.handler) LN
+Proof
   REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [jump_exc_def]
   \\ every_case_tac >> fs[]
-  \\ SRW_TAC [] [] \\ fs [state_rel_def]);
+  \\ SRW_TAC [] [] \\ fs [state_rel_def]
+QED
 
-val state_rel_IMP_do_app_aux = Q.prove(
-  `(do_app_aux op args s1 = Rval (v,s2)) /\
+fun cases_on_op q = Cases_on q >|
+  map (MAP_EVERY Cases_on) [[], [], [], [], [`b`], [`g`], [`m`], []];
+
+Triviality state_rel_IMP_do_app_aux:
+  (do_app_aux op args s1 = Rval (v,s2)) /\
     state_rel s1 t1 anything ==>
     (s1.handler = s2.handler) /\ (s1.stack = s2.stack) /\
     (∃safe peak smx lss.
@@ -54,16 +66,18 @@ val state_rel_IMP_do_app_aux = Q.prove(
                             handler := t1.handler ;
                             safe_for_space := safe ;
                             peak_heap_length := peak ;
-                            |>))`,
+                            |>))
+Proof
   STRIP_TAC
-  \\ Cases_on `op`
+  \\ cases_on_op `op` \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
   \\ fs [do_app_aux_def,do_space_def,with_fresh_ts_def,state_rel_def,check_lim_def]
   \\ fs [state_rel_def,consume_space_def,case_eq_thms,do_install_def,UNCURRY]
   \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
-  \\ SRW_TAC [] [] \\ fs[]);
+  \\ SRW_TAC [] [] \\ fs[]
+QED
 
-val state_rel_IMP_do_app = Q.prove(
-  `(do_app op args s1 = Rval (v,s2)) /\
+Triviality state_rel_IMP_do_app:
+  (do_app op args s1 = Rval (v,s2)) /\
     state_rel s1 t1 anything ==>
     (s1.handler = s2.handler) /\ (s1.stack = s2.stack) /\
     (∃safe peak smx lss. do_app op args t1 = Rval (v,s2 with <| locals := t1.locals ;
@@ -72,7 +86,8 @@ val state_rel_IMP_do_app = Q.prove(
                                                    stack_max := smx ;
                                                    handler := t1.handler ;
                                                    safe_for_space := safe ;
-                                                   peak_heap_length := peak|>))`,
+                                                   peak_heap_length := peak|>))
+Proof
   STRIP_TAC
   \\ IMP_RES_TAC do_app_const
   \\ fs [do_app_def, do_space_def, do_install_def
@@ -85,21 +100,25 @@ val state_rel_IMP_do_app = Q.prove(
  \\ `state_rel s1' t1' anything` by (UNABBREV_ALL_TAC \\ fs [state_rel_def])
  \\ drule_then (qspecl_then [`t1'`,`anything`] mp_tac) state_rel_IMP_do_app_aux
  \\ fs [state_rel_def] \\ rfs [] \\ rveq
- \\ fs [Abbr `t1'`]);
+ \\ fs [Abbr `t1'`]
+QED
 
-val state_rel_IMP_do_app_aux_err = Q.prove(
-  `(do_app_aux op args s1 = Rerr e) /\ state_rel s1 t1 anything ==>
-    (do_app_aux op args t1 = Rerr e)`,
+Triviality state_rel_IMP_do_app_aux_err:
+  (do_app_aux op args s1 = Rerr e) /\ state_rel s1 t1 anything ==>
+    (do_app_aux op args t1 = Rerr e)
+Proof
   STRIP_TAC
-  \\ Cases_on `op`
+  \\ cases_on_op `op` \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
   \\ fs [do_app_aux_def,do_space_def,with_fresh_ts_def]
   \\ fs [state_rel_def,consume_space_def,case_eq_thms,do_install_def,UNCURRY]
   \\ ASM_SIMP_TAC (srw_ss()) [dataSemTheory.state_component_equality]
-  \\ SRW_TAC [] [] \\ fs[]);
+  \\ SRW_TAC [] [] \\ fs[]
+QED
 
-val state_rel_IMP_do_app_err = Q.prove(
-  `(do_app op args s1 = Rerr e) /\ state_rel s1 t1 anything ==>
-    (do_app op args t1 = Rerr e)`,
+Triviality state_rel_IMP_do_app_err:
+  (do_app op args s1 = Rerr e) /\ state_rel s1 t1 anything ==>
+    (do_app op args t1 = Rerr e)
+Proof
   STRIP_TAC
   \\ fs [do_app_def,do_space_def]
   \\ fs [state_rel_def,consume_space_def,case_eq_thms,do_install_def,UNCURRY]
@@ -109,41 +128,52 @@ val state_rel_IMP_do_app_err = Q.prove(
   \\ `state_rel s1' t1' anything` by (UNABBREV_ALL_TAC \\ fs [state_rel_def])
   \\ drule_then (qspecl_then [`t1'`,`anything`] mp_tac) state_rel_IMP_do_app_aux_err
   \\ fs [state_rel_def] \\ rfs []
-);
+QED
 
-val state_rel_IMP_get_vars = Q.prove(
-  `!args s1 t1 t xs.
+Triviality state_rel_IMP_get_vars:
+  !args s1 t1 t xs.
       state_rel s1 t1 (list_insert args t) /\
       (get_vars args s1.locals = SOME xs) ==>
-      (get_vars args t1.locals = SOME xs)`,
+      (get_vars args t1.locals = SOME xs)
+Proof
   Induct \\ fs [get_vars_def] \\ REPEAT STRIP_TAC
   \\ `state_rel s1 t1 (list_insert args t) /\
       (get_var h s1.locals = get_var h t1.locals)` by
    (fs [state_rel_def,list_insert_def,domain_list_insert,get_var_def]
     \\ METIS_TAC []) \\ fs []
   \\ every_case_tac >> fs[]
-  \\ RES_TAC \\ fs [] \\ SRW_TAC [] []);
+  \\ RES_TAC \\ fs [] \\ SRW_TAC [] []
+QED
 
-val is_pure_do_app_Rerr_IMP = Q.prove(
-  `is_pure op /\ do_app op xs s = Rerr e ==>
-    Rabort Rtype_error = e`,
-  Cases_on `op` \\ fs [is_pure_def,do_app_def,do_app_aux_def]
+Triviality is_pure_do_app_Rerr_IMP:
+  is_pure op /\ do_app op xs s = Rerr e ==>
+    Rabort Rtype_error = e
+Proof
+  cases_on_op `op` \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
+  \\ fs [is_pure_def,do_app_def,do_app_aux_def]
   \\ simp[do_space_def,data_spaceTheory.op_space_req_def,
-          case_eq_thms,do_install_def,UNCURRY] \\ rw[]);
+          case_eq_thms,do_install_def,UNCURRY] \\ rw[]
+QED
 
-val is_pure_do_app_Rval_IMP = Q.prove(
-  `is_pure op /\ do_app op x s = Rval (q,r)
+Triviality is_pure_do_app_Rval_IMP:
+  is_pure op /\ do_app op x s = Rval (q,r)
    ⇒  ∃safe smax. r = s with <| safe_for_space := safe;
-                                stack_max := smax |>`,
-  Cases_on `op` \\ fs [is_pure_def,do_app_def,do_app_aux_def]
-  \\ simp[do_space_def,dataLangTheory.op_space_reset_def,data_spaceTheory.op_space_req_def,
-          consume_space_def,do_install_def,UNCURRY,case_eq_thms]
+                                stack_max := smax |>
+Proof
+  cases_on_op `op` \\ TRY (rename [‘EqualConst cc’] \\ Cases_on ‘cc’)
+  \\ dsimp[oneline is_pure_def,do_app_def,do_app_aux_def,AllCaseEqs(),
+    AllCasePreds()]
+  \\ simp[do_space_def,dataLangTheory.op_space_reset_def,
+          data_spaceTheory.op_space_req_def,
+          consume_space_def,do_install_def,UNCURRY,AllCaseEqs()]
   \\ rw[] \\ fs [state_component_equality,is_pure_def
+                ,dataLangTheory.op_space_reset_def
                 ,data_spaceTheory.op_space_req_def,allowed_op_def
-                ,do_stack_def]);
+                ,do_stack_def,AllCaseEqs()]
+QED
 
-val evaluate_compile = Q.prove(
-  `!c s1 res s2 l2 t1 l1 d.
+Triviality evaluate_compile:
+  !c s1 res s2 l2 t1 l1 d.
       (evaluate (c,s1) = (res,s2)) /\ state_rel s1 t1 l1 /\
       (compile c l2 = (d,l1)) /\ (res <> SOME (Rerr (Rabort Rtype_error))) /\
       (!s3. (jump_exc s1 = SOME s3) ==>
@@ -151,7 +181,8 @@ val evaluate_compile = Q.prove(
                  (t3.handler = s3.handler) /\
                  (LENGTH t3.stack = LENGTH s3.stack)) ==>
       ?t2. (evaluate (d,t1) = (res,t2)) /\
-           state_rel s2 t2 (case res of NONE => l2 | _ => LN)`,
+           state_rel s2 t2 (case res of NONE => l2 | _ => LN)
+Proof
   ONCE_REWRITE_TAC [EQ_SYM_EQ]
   \\ recInduct evaluate_ind \\ REPEAT STRIP_TAC
   THEN1 (* Skip *)
@@ -650,7 +681,8 @@ val evaluate_compile = Q.prove(
   \\ SRW_TAC [] [] \\ fs []
   \\ Cases_on `LASTN (t1.handler + 1) t1.stack` \\ fs []
   \\ Cases_on `h` \\ fs []
-  \\ SRW_TAC [] [] \\ fs []);
+  \\ SRW_TAC [] [] \\ fs []
+QED
 
 Theorem compile_correct:
    !c s. FST (evaluate (c,s)) <> SOME (Rerr(Rabort Rtype_error)) /\
@@ -689,4 +721,3 @@ Proof
   \\ fs[SUBSET_DEF]
 QED
 
-val _ = export_theory();

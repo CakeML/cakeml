@@ -4,80 +4,100 @@
   monadic translator proves certificate theorems that state a formal
   connection between the generated code and the input HOL functions.
 *)
-open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
-open astTheory libTheory evaluateTheory semanticPrimitivesTheory
-open ml_progLib ml_progTheory evaluateTheory
-open set_sepTheory cfTheory cfStoreTheory cfTacticsLib Satisfy
-open cfHeapsBaseTheory basisFunctionsLib
-open ml_monadBaseTheory ml_monad_translatorTheory ml_monadStoreLib ml_monad_translatorLib
-open holKernelTheory
-open basisProgTheory
-open holAxiomsSyntaxTheory (* for setting up the context *)
-local open holKernelPmatchTheory in end
+Theory ml_hol_kernel_funsProg
+Ancestors
+  ml_translator ml_pmatch patternMatches ast evaluate
+  semanticPrimitives ml_prog evaluate set_sep cf cfStore
+  cfHeapsBase ml_monadBase ml_monad_translator holKernel
+  basisProg
+  holAxiomsSyntax (* for setting up the context *)
+  runtime_check (* Adds runtime type checks *)
+  holKernelPmatch[qualified]
+Libs
+  preamble ml_translatorLib ml_progLib cfTacticsLib Satisfy
+  basisFunctionsLib ml_monadStoreLib ml_monad_translatorLib
+  runtime_checkLib (* Adds runtime type checks *)
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory "ml_hol_kernel_funsProg";
 val _ = translation_extends "basisProg"
 
 val _ = (use_full_type_names := false);
 
 val _ = hide "abs";
 
-val _ = ml_prog_update (open_module "Kernel");
-
 Type state = ``:'ffi semanticPrimitives$state``
 
 (* construct type refinement invariants *)
 
-val _ = register_type ``:type``;
+val _ = register_type “:type”;
+val _ = register_type “:term”;
+val _ = register_type “:thm”;
 
 (* check ``:type`` is known to be an EqualityType *)
 val EqualityType_TYPE = EqualityType_rule [] ``:type``;
 
-val _ = register_type ``:term``;
 val _ = register_exn_type ``:hol_exn``;
-val _ = register_type ``:thm``;
 val _ = register_type ``:update``;
 val HOL_EXN_TYPE_def = theorem"HOL_EXN_TYPE_def";
+
+(* add an abbreviation mapping hol_type to type for HOL Light *)
+
+val _ = ml_prog_update
+  (add_Dtabbrev “unknown_loc” “[]:string list” “"hol_type"”
+                “Atapp [] (Short "type")”);
+
+val _ = ml_prog_update (open_module "Kernel");
 
 val _ = ml_prog_update open_local_block;
 
 (* Initialize the translation *)
 
-val init_type_constants_def = Define `
-  init_type_constants = [(strlit"bool",0); (strlit"fun",2:num)]`;
+Definition init_type_constants_def:
+  init_type_constants = [(strlit"bool",0); (strlit"fun",2:num)]
+End
 
-val init_term_constants_def = Define `
+Definition init_term_constants_def:
   init_term_constants = [(strlit"=",
     Tyapp (strlit"fun")
       [Tyvar (strlit"A");
        Tyapp (strlit"fun")
          [Tyvar (strlit"A");
-          Tyapp (strlit"bool") []]])]`;
+          Tyapp (strlit"bool") []]])]
+End
 
-val init_axioms_def = Define `
-  init_axioms = []:thm list`;
+Definition init_axioms_def:
+  init_axioms = []:thm list
+End
 
-val init_context_def = Define `
-  init_context = ^(rhs(concl(holSyntaxTheory.init_ctxt_def)))`;
+Triviality init_axioms_alt:
+  init_axioms = case [Sequent [] (Var (strlit "") (Tyvar (strlit "")))] of
+                | [] => []
+                | (_ :: xs) => xs
+Proof
+  EVAL_TAC
+QED
+
+Definition init_context_def:
+  init_context = ^(rhs(concl(holSyntaxTheory.init_ctxt_def)))
+End
 
 val refs_init_list = [
   ("the_type_constants", init_type_constants_def, get_the_type_constants_def,
   set_the_type_constants_def),
   ("the_term_constants", init_term_constants_def, get_the_term_constants_def,
   set_the_term_constants_def),
-  ("the_axioms", init_axioms_def, get_the_axioms_def, set_the_axioms_def),
+  ("the_axioms", init_axioms_alt, get_the_axioms_def, set_the_axioms_def),
   ("the_context", init_context_def, get_the_context_def, set_the_context_def)
 ];
 
 val rarrays_init_list = [] : (string * thm * thm * thm * thm * thm * thm * thm) list;
 val farrays_init_list = [] : (string * (int * thm) * thm * thm * thm * thm * thm) list;
 
-val raise_functions = [raise_Fail_def, raise_Clash_def];
-val handle_functions = [handle_Fail_def, handle_Clash_def];
+val raise_functions = [raise_Failure_def, raise_Clash_def];
+val handle_functions = [handle_Failure_def, handle_Clash_def];
 val exn_functions = zip raise_functions handle_functions;
 
 val store_hprop_name = "HOL_STORE";
@@ -96,69 +116,11 @@ val (monad_parameters, store_translation, exn_specs) =
                                               NONE
                                               NONE;
 
-(* mechanism for adding type checking annotations *)
-
-val pure_seq_intro = prove(“x = y ⇒ ∀z. x = pure_seq z y”, fs [pure_seq_def]);
-
-fun mlstring_check s = “mlstring$strlen ^s”
-fun type_check ty = “case ^ty of Tyvar _ => () | _ => abc” |> subst [“abc:unit”|->“()”]
-fun term_check tm = “case ^tm of Const _ _ => () | _ => abc” |> subst [“abc:unit”|->“()”]
-
-val t1 = type_check “t1:type”
-val t2 = type_check “t2:type”
-val tm = term_check “tm:term”
-val tm' = term_check “tm':term”
-
-Definition check_ty_def:
-  check_ty [] = () ∧
-  check_ty (t1::l) = pure_seq ^t1 (check_ty l)
-End
-
-Definition check_tm_def:
-  check_tm [] = () ∧
-  check_tm (tm::l) = pure_seq ^tm (check_tm l)
-End
-
-Definition check_ty_ty_def:
-  check_ty_ty [] = () ∧
-  check_ty_ty ((t1,t2)::l) = pure_seq ^t1 (pure_seq ^t2 (check_ty_ty l))
-End
-
-Definition check_tm_tm_def:
-  check_tm_tm [] = () ∧
-  check_tm_tm ((tm,tm')::l) = pure_seq ^tm (pure_seq ^tm' (check_tm_tm l))
-End
-
-fun ty_list_check ty = “check_ty ^ty”;
-fun tm_list_check tm = “check_tm ^tm”;
-fun ty_ty_list_check tyty = “check_ty_ty ^tyty”;
-fun tm_tm_list_check tmtm = “check_tm_tm ^tmtm”;
-
-fun guess_check tm =
-  if type_of tm = “:mlstring” then mlstring_check else
-  if type_of tm = “:type” then type_check else
-  if type_of tm = “:term” then term_check else
-  if type_of tm = “:type list” then ty_list_check else
-  if type_of tm = “:term list” then tm_list_check else
-  if type_of tm = “:(type # type) list” then ty_ty_list_check else
-  if type_of tm = “:(term # term) list” then tm_tm_list_check else fail()
-
-fun add_type_check v f def = let
-  val def = SPEC_ALL def
-  val tm = f v
-  in MATCH_MP pure_seq_intro def |> ISPEC tm end
-
-fun check [] def = SPEC_ALL def
-  | check (v::vs) def =
-    let
-      val def = check vs def
-      val tm = Parse.parse_in_context (free_vars (concl def)) v
-      val f = guess_check tm
-      val def = add_type_check tm f def
-    in def end
+(* Translate type-checking code from checkTheory *)
 
 val res = translate check_ty_def;
 val res = translate check_tm_def;
+val res = translate check_thm_def;
 val res = translate check_ty_ty_def;
 val res = translate check_tm_tm_def;
 
@@ -170,9 +132,11 @@ val res = translate check_tm_tm_def;
 (*
 val res = translate mlstringTheory.explode_aux_def;
 val res = translate mlstringTheory.explode_def;
-val explode_aux_side_thm = Q.prove(
-  `∀s n m. n + m = strlen s ==> explode_aux_side s n m `,
-  Induct_on`m` \\ rw[Once (theorem"explode_aux_side_def")]);
+Triviality explode_aux_side_thm:
+  ∀s n m. n + m = strlen s ==> explode_aux_side s n m
+Proof
+  Induct_on`m` \\ rw[Once (theorem"explode_aux_side_def")]
+QED
 val explode_side_thm = Q.prove(
   `explode_side x`,
   rw[definition"explode_side_def",explode_aux_side_thm])
@@ -216,12 +180,6 @@ val _ = ml_prog_update open_local_block;
 
 val res = translate alphavars_def;
 val res = translate holKernelPmatchTheory.raconv_def;
-
-Theorem raconv_side = Q.prove(`
-  !x y z. raconv_side x y z`,
-  ho_match_mp_tac holKernelTheory.raconv_ind
-  \\ ntac 4 (rw [Once (fetch "-" "raconv_side_def")]))
-  |> update_precondition;
 
 val res = translate (check [‘tm1’,‘tm2’] aconv_def);
 
@@ -301,7 +259,7 @@ val res = translate concl_def;
 
 val _ = ml_prog_update open_local_block;
 
-val type_compare_def = tDefine "type_compare" `
+Definition type_compare_def:
   (type_compare t1 t2 =
      case (t1,t2) of
      | (Tyvar x1,Tyvar x2) => mlstring$compare x1 x2
@@ -319,10 +277,8 @@ val type_compare_def = tDefine "type_compare" `
      | (t1::ts1,t2::ts2) =>
          (case type_compare t1 t2 of
           | Equal => type_list_compare ts1 ts2
-          | other => other))`
-  (WF_REL_TAC `measure (\x. case x of
-                  INR (x,_) => type1_size x
-                | INL (x,_) => type_size x)`)
+          | other => other))
+End
 
 val type_cmp_thm = Q.prove(
   `(type_cmp = type_compare) /\
@@ -337,11 +293,11 @@ val type_cmp_thm = Q.prove(
   |> CONJUNCT1;
 
 val _ = add_preferred_thy "-";
-val _ = save_thm("type_cmp_ind",
-          (fetch "-" "type_compare_ind") |> RW [GSYM type_cmp_thm]);
+Theorem type_cmp_ind =
+  (fetch "-" "type_compare_ind") |> RW [GSYM type_cmp_thm]
 val res = translate (type_compare_def |> RW [GSYM type_cmp_thm]);
 
-val term_compare_def = Define `
+Definition term_compare_def:
   term_compare t1 t2 =
      case (t1,t2) of
        (Var x1 ty1,Var x2 ty2) =>
@@ -375,21 +331,24 @@ val term_compare_def = Define `
          case term_compare s1' s2' of
            Less => Less
          | Equal => term_compare t1' t2'
-         | Greater => Greater`;
+         | Greater => Greater
+End
 
-val term_cmp_thm = Q.prove(
-  `term_cmp = term_compare`,
+Triviality term_cmp_thm:
+  term_cmp = term_compare
+Proof
   fs [FUN_EQ_THM]
   \\ HO_MATCH_MP_TAC (fetch "-" "term_compare_ind")
   \\ REPEAT STRIP_TAC \\ fs []
   \\ ONCE_REWRITE_TAC [holSyntaxExtraTheory.term_cmp_thm]
   \\ ONCE_REWRITE_TAC [term_compare_def]
   \\ REPEAT BasicProvers.CASE_TAC
-  \\ fs [comparisonTheory.pair_cmp_def])
+  \\ fs [comparisonTheory.pair_cmp_def]
+QED
 
 val _ = add_preferred_thy "-";
-val _ = save_thm("term_cmp_ind",
-          (fetch "-" "term_compare_ind") |> RW [GSYM term_cmp_thm]);
+Theorem term_cmp_ind =
+  (fetch "-" "term_compare_ind") |> RW [GSYM term_cmp_thm]
 val res = translate (term_compare_def |> RW [GSYM term_cmp_thm]);
 
 val res = translate (check [‘ty’] holKernelPmatchTheory.codomain_def);
@@ -443,12 +402,38 @@ val def = mk_const_def |> Q.SPEC ‘n’ |> check [‘n’,‘theta’] |> m_tra
 
 val _ = ml_prog_update open_local_block;
 
-val fdM_def = new_definition("fdM_def",``fdM = first_dup``)
-val fdM_intro = SYM fdM_def
-val fdM_ind = save_thm("fdM_ind",REWRITE_RULE[MEMBER_INTRO]first_dup_ind)
-val fdM_eqs = REWRITE_RULE[MEMBER_INTRO,fdM_intro]first_dup_def
-val def = fdM_eqs |> translate
-val def = REWRITE_RULE[fdM_intro]add_constants_def |> m_translate
+Definition check_for_dups_def:
+  check_for_dups ls cs =
+    case ls of
+    | [] => st_ex_return ()
+    | (x::xs) => if MEMBER x cs then
+                   raise_Failure
+                      («add_constants: » ^ x ^
+                       « appears twice or has already been declared»)
+                 else check_for_dups xs (x::cs)
+End
+
+Theorem add_constants_alt:
+  add_constants ls =
+       st_ex_bind get_the_term_constants (λcs.
+       st_ex_bind (check_for_dups (MAP FST ls) (MAP FST cs)) (λ_.
+         (set_the_term_constants (ls ++ cs))))
+Proof
+  fs [add_constants_def]
+  \\ AP_TERM_TAC \\ fs [FUN_EQ_THM]
+  \\ strip_tac
+  \\ qspec_tac (‘MAP FST cs’,‘ys’)
+  \\ qspec_tac (‘MAP FST ls’,‘xs’)
+  \\ Induct_on ‘xs’
+  \\ simp [Once first_dup_def,Once check_for_dups_def,st_ex_return_def,
+           st_ex_bind_def,MEMBER_INTRO]
+  \\ rw [] \\ fs [raise_Failure_def]
+  \\ simp [Once first_dup_def,st_ex_bind_def]
+QED
+
+val res = m_translate check_for_dups_def
+val res = m_translate add_constants_alt
+
 val def = add_def_def |> m_translate
 
 val _ = ml_prog_update open_local_in_block;
@@ -462,7 +447,7 @@ val def = add_type_def |> m_translate
 Definition call_new_type_def[simp]:
   call_new_type (n:mlstring, arity:int) =
     if 0 ≤ arity then new_type (n, Num (ABS arity))
-    else raise_Fail (strlit "negative arity")
+    else raise_Failure (strlit "negative arity")
 End
 
 val _ = next_ml_names := ["new_type_num"];
@@ -491,6 +476,7 @@ val def = inst_def |> check [‘tyin’,‘tm’] |> m_translate
 val _ = ml_prog_update open_local_block;
 
 val def = mk_eq_def |> check [‘l’,‘r’] |> m_translate
+val def = list_to_hypset_def |> translate
 
 val _ = ml_prog_update open_local_in_block;
 
@@ -524,14 +510,30 @@ val def = list_to_hypset_def |> translate
 
 val _ = ml_prog_update open_local_in_block;
 
-val def = m_translate axioms_def;
-val def = m_translate types_def;
-val def = m_translate constants_def;
+Triviality axioms_eq:
+  axioms u = one_CASE u get_the_axioms
+Proof
+  fs [axioms_def]
+QED
+
+Triviality types_eq:
+  types u = one_CASE u get_the_type_constants
+Proof
+  fs [types_def]
+QED
+
+Triviality constants_eq:
+  constants u = one_CASE u get_the_term_constants
+Proof
+  fs [constants_def]
+QED
+
+val def = m_translate axioms_eq;
+val def = m_translate types_eq;
+val def = m_translate constants_eq;
 
 (* The kernel module is closed in subsequent script files:
    ml_hol_kernelProgScript.sml and candle_kernelProgScript.sml *)
 
 val _ = Globals.max_print_depth := 10;
 val _ = print_asts := false;
-
-val _ = export_theory();

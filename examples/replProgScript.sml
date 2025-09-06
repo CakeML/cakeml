@@ -1,8 +1,11 @@
 (*
   The CakeML REPL
 *)
+Theory replProg
+Libs
+  preamble basis
 
-open preamble basis
+
 (*
   TODO: add this to INCLUDES as necessary, depending where this file ends up
   val () = loadPath := "../compiler/inference/" :: !loadPath;
@@ -11,8 +14,6 @@ local open lexer_funTheory cmlParseTheory
            infer_tTheory inferTheory
 in end
 *)
-
-val _ = new_theory"replProg";
 
 (*
 
@@ -25,11 +26,13 @@ val _ = temp_tight_equality();
 
 val () = ml_translatorLib.translation_extends"basisProg";
 
-val welcome_message_def = Define`
-  welcome_message = strlit"Welcome to CakeML\n"`;
+Definition welcome_message_def:
+  welcome_message = strlit"Welcome to CakeML\n"
+End
 
-val prompt_def = Define`
-  prompt = strlit"> "`;
+Definition prompt_def:
+  prompt = strlit"> "
+End
 
 val res = translate welcome_message_def;
 val res = translate prompt_def;
@@ -51,13 +54,15 @@ val add_envlookup =
 val () = ml_translatorLib.ml_prog_update add_magic_eval;
 val () = ml_translatorLib.ml_prog_update add_envlookup;
 
-val SEM_ENV_def = Define`
-  SEM_ENV env ⇔ (λv. v = Env env)`;
+Definition SEM_ENV_def:
+  SEM_ENV env ⇔ (λv. v = Env env)
+End
 
 val () = ml_translatorLib.register_type ``:('a,'b) id``;
 
-val envlookup_def = Define`
-  envlookup (env:v sem_env) id = nsLookup env.v id`;
+Definition envlookup_def:
+  envlookup (env:v sem_env) id = nsLookup env.v id
+End
 
 val envlookup_v_def = definition"envlookup_v_def";
 
@@ -103,13 +108,15 @@ Proof
   \\ EVAL_TAC
 QED
 
-val exn_infer_t_def = Define`
-  exn_infer_t = Infer_Tapp [] Texn_num`;
+Definition exn_infer_t_def:
+  exn_infer_t = Infer_Tapp [] Texn_num
+End
 
-val _ = Datatype`
-  top_level = REPLCommand mlstring exp | TopLevelDecs (dec list)`;
+Datatype:
+  top_level = REPLCommand mlstring exp | TopLevelDecs (dec list)
+End
 
-val ptree_REPLCommand_def = Define`
+Definition ptree_REPLCommand_def:
   ptree_REPLCommand (Lf _) = NONE ∧
   ptree_REPLCommand (Nd nont args) =
     if FST nont <> mkNT nREPLCommand then NONE
@@ -121,9 +128,10 @@ val ptree_REPLCommand_def = Define`
             (λtok. OPTION_BIND (destREPLIDT tok)
               (λrid. OPTION_BIND (ptree_Expr nEbase pt2)
                        (λexp. SOME (REPLCommand (implode rid) exp)))))
-      | _ => NONE`;
+      | _ => NONE
+End
 
-val ptree_TopLevel_def = Define`
+Definition ptree_TopLevel_def:
   ptree_TopLevel (Lf _) = NONE ∧
   ptree_TopLevel (Nd nont args) =
     if FST nont <> mkNT nTopLevel then NONE
@@ -133,61 +141,74 @@ val ptree_TopLevel_def = Define`
           OPTION_CHOICE
             (ptree_REPLCommand pt)
             (OPTION_MAP TopLevelDecs (ptree_TopLevelDecs pt))
-      | _ => NONE`;
+      | _ => NONE
+End
 
-val lex_and_parse_TopLevel_def = Define`
+Definition lex_and_parse_TopLevel_def:
   lex_and_parse_TopLevel line =
     case destResult (cmlpegexec nTopLevel (lexer_fun line)) of
     | SOME ([], [pt]) => (ptree_TopLevel pt)
-    | _ => NONE`;
+    | _ => NONE
+End
 
-val repl_printer_name_def = Define`
-  repl_printer_name = "_ pp"`;
+Definition repl_printer_name_def:
+  repl_printer_name = "_ pp"
+End
   (* TODO: not a strlit, since the AST doesn't have mlstrings in it *)
 
-val add_repl_printer_name_dec_def = Define`
+Definition add_repl_printer_name_dec_def:
   add_repl_printer_name_dec exp =
-    Dlet unknown_loc (Pvar repl_printer_name) exp`;
+    Dlet unknown_loc (Pvar repl_printer_name) exp
+End
 
-val _ = Datatype`repl_inf_state = <| ienv : inf_env; next_id : num |>`;
+Datatype:
+  repl_inf_state = <| ienv : inf_env; next_id : num |>
+End
 
-val repl_infertype_prog_def = Define`
+Definition repl_infertype_prog_def:
   repl_infertype_prog inf_state prog =
     case infer_ds inf_state.ienv prog
            (init_infer_state <| next_uvar := 0; subst := FEMPTY;
                                 next_id := inf_state.next_id |>)
     of
-      (Success new_ienv, st) =>
-        Success <| ienv := new_ienv; next_id := st.next_id |>
-    | (Failure x, _) => Failure x`;
+      (M_success new_ienv, st) =>
+        M_success <| ienv := new_ienv; next_id := st.next_id |>
+    | (M_failure x, _) => M_failure x
+End
 
-val repl_extend_inf_state_def = Define`
+Definition repl_extend_inf_state_def:
   repl_extend_inf_state inf_state new_stuff =
     <| ienv := extend_dec_ienv new_stuff.ienv inf_state.ienv
-     ; next_id := new_stuff.next_id |>`;
+     ; next_id := new_stuff.next_id |>
+End
 
-val repl_get_pp_type_key_def = Define`
+Definition repl_get_pp_type_key_def:
   repl_get_pp_type_key new_stuff =
-    nsLookup new_stuff.ienv.inf_v (Short repl_printer_name)`;
+    nsLookup new_stuff.ienv.inf_v (Short repl_printer_name)
+End
 
-val repl_extend_pp_map_def = Define`
+Definition repl_extend_pp_map_def:
   repl_extend_pp_map pp_map key v =
-    (key, v) :: pp_map`;
+    (key, v) :: pp_map
+End
 
-val dummy_printer_def = Define`
-  dummy_printer _ = strlit"?"`;
+Definition dummy_printer_def:
+  dummy_printer _ = strlit"?"
+End
 
-val val_string_def = Define`
+Definition val_string_def:
   val_string inf_state name inf_type ppd_value =
     concat [strlit"val "; name;
             strlit": "; FST(inf_type_to_string inf_state.ienv.inf_t inf_type);
-            strlit" = "; ppd_value; strlit"\n"]`;
+            strlit" = "; ppd_value; strlit"\n"]
+End
 
-val repl_pp_fun_def = Define`
+Definition repl_pp_fun_def:
   repl_pp_fun pp_map inf_type =
     case ALOOKUP pp_map inf_type of
     | NONE => dummy_printer
-    | SOME pp_fun => pp_fun`;
+    | SOME pp_fun => pp_fun
+End
 
 val repl_build_and_format_output
 
@@ -208,11 +229,11 @@ val rep_ast = process_topdecs`
           case lex_and_parse_TopLevel line of
             Some (TopLevelDecs prog) =>
               case repl_infertype_prog inf_state prog of
-                Failure (_, msg) =>
+                M_failure (_, msg) =>
                   (TextIO.print_err msg;
                    TextIO.print_err "\n";
                    Some state)
-              | Success new_stuff =>
+              | M_success new_stuff =>
                   case Some (magic_eval env prog)
                         handle e =>
                           (TextIO.print_err "Exception raised: ";
@@ -234,11 +255,11 @@ val rep_ast = process_topdecs`
           | Some (REPLCommand ("InstallPP", parsed_exp)) =>
               let val prog = add_repl_printer_name_dec parsed_exp in
                 case repl_infertype_prog inf_state prog of
-                  Failure (_, msg) =>
+                  M_failure (_, msg) =>
                     (TextIO.print_err "Printer does not typecheck: ";
                      TextIO.print_err msg;
                      Some state)
-                | Success new_stuff =>
+                | M_success new_stuff =>
                     case Some (magic_eval env prog)
                          handle _ => None
                     of
@@ -264,4 +285,3 @@ val main_ast = process_topdecs`
 
 *)
 
-val _ = export_theory();

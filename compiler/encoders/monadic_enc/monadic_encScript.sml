@@ -1,26 +1,30 @@
 (*
   Implement and prove correct monadic version of encoder
 *)
-open preamble
-open asmTheory lab_to_targetTheory
+Theory monadic_enc
+Ancestors
+  asm lab_to_target
+Libs
+  preamble
 
-val _ = new_theory "monadic_enc"
 (*
   This hash function is roughly a rolling hash
   The modulus m is a hash size parameter
 *)
-val hash_reg_imm_def = Define`
+Definition hash_reg_imm_def:
   (hash_reg_imm m (Reg reg) = reg) ∧
-  (hash_reg_imm m (Imm imm) = 67n + (w2n imm MOD m))`
+  (hash_reg_imm m (Imm imm) = 67n + (w2n imm MOD m))
+End
 
-val hash_binop_def = Define`
+Definition hash_binop_def:
   (hash_binop Add = 0n) ∧
   (hash_binop Sub = 1n) ∧
   (hash_binop And = 2n) ∧
   (hash_binop Or  = 3n) ∧
-  (hash_binop Xor = 4n)`
+  (hash_binop Xor = 4n)
+End
 
-val hash_cmp_def = Define`
+Definition hash_cmp_def:
   (hash_cmp Equal = 5n) ∧
   (hash_cmp Lower = 6n) ∧
   (hash_cmp Less  = 7n) ∧
@@ -28,23 +32,31 @@ val hash_cmp_def = Define`
   (hash_cmp NotEqual = 9n) ∧
   (hash_cmp NotLower = 10n) ∧
   (hash_cmp NotLess  = 11n) ∧
-  (hash_cmp NotTest  = 12n)`
+  (hash_cmp NotTest  = 12n)
+End
 
-val hash_shift_def = Define`
+Definition hash_shift_def:
   (hash_shift Lsl = 13n) ∧
   (hash_shift Lsr = 14n) ∧
   (hash_shift Asr = 15n) ∧
-  (hash_shift Ror = 16n)`
+  (hash_shift Ror = 16n)
+End
 
-val hash_memop_def = Define`
+Definition hash_memop_def:
   (hash_memop Load   = 17n) ∧
   (hash_memop Load8  = 18n) ∧
+  (hash_memop Load16  = 57n) ∧
+  (hash_memop Load32  = 56n) ∧
   (hash_memop Store  = 19n) ∧
-  (hash_memop Store8 = 20n)`
+  (hash_memop Store8 = 20n) ∧
+  (hash_memop Store16 = 57n) ∧
+  (hash_memop Store32  = 56n)
+End
 
-val roll_hash_def = Define`
+Definition roll_hash_def:
   (roll_hash [] acc = acc) ∧
-  (roll_hash (x::xs) acc = roll_hash xs (31n * acc + x))`
+  (roll_hash (x::xs) acc = roll_hash xs (31n * acc + x))
+End
 
 (*
 Roughly, roll_hash [b;c;d;e] a
@@ -54,7 +66,7 @@ roll_hash [b; c; d; e] a = 31 * (31 * (31 * (31 * a + b) + c) + d) + e
 Try to put largest terms at the end of the list!
 *)
 
-val hash_arith_def = Define`
+Definition hash_arith_def:
   (hash_arith m (Binop bop r1 r2 ri) =
     roll_hash [hash_binop bop; r1; r2; hash_reg_imm m ri] 21n) ∧
   (hash_arith m (Shift sh r1 r2 n) =
@@ -70,9 +82,10 @@ val hash_arith_def = Define`
   (hash_arith m (AddOverflow r1 r2 r3 r4) =
     roll_hash [r1;r2;r3;r4] 27n) ∧
   (hash_arith m (SubOverflow r1 r2 r3 r4) =
-    roll_hash [r1;r2;r3;r4] 28n)`
+    roll_hash [r1;r2;r3;r4] 28n)
+End
 
-val hash_fp_def = Define`
+Definition hash_fp_def:
   (hash_fp (FPLess r f1 f2) =
     roll_hash [r;f1;f2] 29n) ∧
   (hash_fp (FPLessEqual r f1 f2) =
@@ -108,9 +121,10 @@ val hash_fp_def = Define`
   (hash_fp (FPToInt f1 f2) =
     roll_hash [f1;f2] 43n) ∧
   (hash_fp (FPFromInt f1 f2) =
-    roll_hash [f1;f2] 44n)`
+    roll_hash [f1;f2] 44n)
+End
 
-val hash_inst_def = Define`
+Definition hash_inst_def:
   (hash_inst m Skip = 45n) ∧
   (hash_inst m (Const r w) =
     roll_hash [r;w2n w MOD m] 46n) ∧
@@ -119,9 +133,10 @@ val hash_inst_def = Define`
   (hash_inst m (Mem mop r (Addr rr w)) =
     roll_hash [hash_memop mop; r; rr; w2n w MOD m] 48n) ∧
   (hash_inst m (FP fp) =
-    roll_hash [hash_fp fp] 49n)`
+    roll_hash [hash_fp fp] 49n)
+End
 
-val hash_asm_def = Define`
+Definition hash_asm_def:
   (hash_asm m (Inst i) =
     roll_hash [hash_inst m i] 50n) ∧
   (hash_asm m (Jump w) =
@@ -133,6 +148,6 @@ val hash_asm_def = Define`
   (hash_asm m (JumpReg r) =
     roll_hash [r] 54n) ∧
   (hash_asm m (Loc r w) =
-    roll_hash [r; w2n w MOD m] 55n)`
+    roll_hash [r; w2n w MOD m] 55n)
+End
 
-val _ = export_theory();

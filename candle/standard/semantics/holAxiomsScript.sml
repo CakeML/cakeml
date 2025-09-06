@@ -2,13 +2,15 @@
   Prove consistency of each of the axioms. (For the axiom of infinity, this
   requires an additional assumption on the set theory.)
 *)
-open preamble holBoolTheory holBoolSyntaxTheory
-     holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holAxiomsSyntaxTheory
-     setSpecTheory holSemanticsTheory holSemanticsExtraTheory holExtensionTheory
+Theory holAxioms
+Ancestors
+  holBool holBoolSyntax holSyntaxLib holSyntax holSyntaxExtra
+  holAxiomsSyntax setSpec holSemantics holSemanticsExtra
+  holExtension
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory"holAxioms"
 
 Overload A[local] = ``Tyvar (strlit "A")``
 Overload B[local] = ``Tyvar (strlit "B")``
@@ -66,8 +68,10 @@ Proof
   rw[]
 QED
 
-val good_select_def = xDefine"good_select"`
-  good_select0 ^mem select = (∀ty p x. x <: ty ⇒ select ty p <: ty ∧ (p x ⇒ p (select ty p)))`
+Definition good_select_def:
+  good_select0 ^mem select = (∀ty p x. x <: ty ⇒ select ty p <: ty ∧ (p x ⇒ p (select ty p)))
+End
+
 Overload good_select = ``good_select0 ^mem``
 
 Theorem select_has_model_gen:
@@ -189,11 +193,13 @@ Proof
   simp[combinTheory.APPLY_UPDATE_THM]
 QED
 
-val base_select_def = xDefine "base_select"`
+Definition base_select_def:
   base_select0 ^mem ty p =
     if inhabited ty then
       (case some x. x <: ty ∧ p x of NONE => (@x. x <: ty) | SOME v => v)
-    else ARB`
+    else ARB
+End
+
 Overload base_select = ``base_select0 ^mem``
 
 Theorem good_select_base_select:
@@ -705,4 +711,3 @@ Proof
   metis_tac[infinity_has_model_gen]
 QED
 
-val _ = export_theory()

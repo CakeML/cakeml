@@ -2,14 +2,21 @@
   Implements the foreign function interface (FFI) used in the CakeML basis
   library, as a thin wrapper around the relevant system calls.
 */
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
+#include <assert.h>
+#include <errno.h>
 #include <fcntl.h>
+#include <math.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#ifdef EVAL
+#include <signal.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/time.h>
-#include <assert.h>
+#endif
 
 /* This flag is on by default. It catches CakeML's out-of-memory exit codes
  * and prints a helpful message to stderr.
@@ -27,6 +34,46 @@ extern void cml_main(void);
 extern void *cml_heap;
 extern void *cml_stack;
 extern void *cml_stackend;
+
+extern char cake_text_begin;
+extern char cake_codebuffer_begin;
+extern char cake_codebuffer_end;
+
+#ifdef EVAL
+
+/* Signal handler for SIGINT */
+
+/* This is set to 1 when the runtime traps a SIGINT */
+volatile sig_atomic_t caught_sigint = 0;
+
+void do_sigint(int sig_num)
+{
+    signal(SIGINT, do_sigint);
+    caught_sigint = 1;
+}
+
+void ffipoll_sigint (unsigned char *c, long clen, unsigned char *a, long alen)
+{
+    if (alen < 1) {
+        return;
+    }
+    a[0] = (unsigned char) caught_sigint;
+    caught_sigint = 0;
+}
+
+void ffikernel_ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
+    for (long i = 0; i < clen; i++) {
+        putc(c[i], stdout);
+    }
+}
+
+#else
+
+void ffipoll_sigint (unsigned char *c, long clen, unsigned char *a, long alen) { }
+
+void ffikernel_ffi (unsigned char *c, long clen, unsigned char *a, long alen) { }
+
+#endif
 
 void ffiget_arg_count (unsigned char *c, long clen, unsigned char *a, long alen) {
   a[0] = (char) argc;
@@ -96,8 +143,8 @@ void ffiopen_in (unsigned char *c, long clen, unsigned char *a, long alen) {
 
 void ffiopen_out (unsigned char *c, long clen, unsigned char *a, long alen) {
   assert(9 <= alen);
-  #ifdef __WIN32
-  int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC);
+  #ifdef EVAL
+  int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
   #else
   int fd = open((const char *) c, O_RDWR|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
   #endif
@@ -154,6 +201,8 @@ struct timeval t1,t2,lastT;
 long microsecs = 0;
 int numGC = 0;
 int hasT = 0;
+long prevOcc = 0;
+long numAllocBytes = 0;
 
 void cml_exit(int arg) {
 
@@ -172,10 +221,19 @@ void cml_exit(int arg) {
       fprintf(stderr,"CakeML stack space exhausted.\n");
     }
     fprintf(stderr,"GCNum: %d, GCTime(us): %ld\n",numGC,microsecs);
+    fprintf(stderr,"Total allocated heap data: %ld bytes\n",numAllocBytes);
   }
   #endif
 
   exit(arg);
+}
+
+void cml_err(int arg) {
+  if (arg == 3) {
+    fprintf(stderr,"Memory not ready for entry. You may have not run the init code yet, or be trying to enter during an FFI call.\n");
+  }
+
+  cml_exit(arg);
 }
 
 void ffiexit (unsigned char *c, long clen, unsigned char *a, long alen) {
@@ -196,11 +254,19 @@ void ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
         microsecs += (t2.tv_usec - t1.tv_usec) + (t2.tv_sec - t1.tv_sec)*1e6;
         numGC++;
         inGC = 0;
+        long occ = (long)c; // number of bytes in occupied in heap (all live after standard GC)
+        // long len = (long)a;
+        // fprintf(stderr,"GC stops  %ld %ld \n",occ,len);
+        prevOcc = occ;
       }
       else
       {
         inGC = 1;
         gettimeofday(&t1, NULL);
+        long occ = (long)c;
+        // long len = (long)a;
+        // fprintf(stderr,"GC starts %ld %ld \n",occ,len);
+        numAllocBytes += (occ - prevOcc);
       }
     } else {
       int indent = 30;
@@ -227,33 +293,86 @@ void ffi (unsigned char *c, long clen, unsigned char *a, long alen) {
   #endif
 }
 
+// ---------------------------------------------------------------------------
+// Functions on doubles for the Double module
+// ---------------------------------------------------------------------------
+
 typedef union {
-  double d;
-  char bytes[8];
+    double num;
+    char bytes[sizeof(double)];
 } double_bytes;
 
-// FFI calls for floating-point parsing
-void ffidouble_fromString (char *c, long clen, char *a, long alen) {
-  double_bytes d;
-  sscanf(c, "%lf",&d.d);
-  assert (8 == alen);
-  for (int i = 0; i < 8; i++){
-    a[i] = d.bytes[i];
-  }
+typedef union {
+    int64_t num;
+    char bytes[sizeof(int64_t)];
+} int_bytes;
+
+void ffidouble_fromString(char *c, long clen, char *a, long alen) {
+    double_bytes d;
+    char *endp;
+    errno = 0;
+    d.num = strtod(c, &endp);
+    if (errno == ERANGE || endp && *endp != '\0') {
+        a[0] = 1;
+    } else {
+        a[0] = 0;
+        memcpy(&a[1], d.bytes, sizeof d.bytes);
+    }
 }
 
-void ffidouble_toString (char *c, long clen, char *a, long alen) {
-  double_bytes d;
-  assert (256 == alen);
-  for (int i = 0; i < 8; i++){
-    d.bytes[i] = a[i];
-  }
-  //snprintf always terminates with a 0 byte if space was sufficient
-  int bytes_written = snprintf(&a[0], 255, "%.20g", d.d);
-  // snprintf returns number of bytes it would have written if the buffer was
-  // large enough -> check that it did not write more than the buffer size - 1
-  // for the 0 byte
-  assert (bytes_written <= 255);
+void ffidouble_toString(char *c, long clen, char *a, long alen) {
+    double_bytes d;
+    memcpy(d.bytes, a, sizeof d.bytes);
+    snprintf(a, 255, "%.20g", d.num);
+}
+
+void ffidouble_fromInt(char *c, long clen, char *a, long alen) {
+    double_bytes d;
+    int_bytes i;
+    memcpy(i.bytes, a, sizeof i.bytes);
+    d.num = (double) i.num;
+    memcpy(a, d.bytes, sizeof d.bytes);
+}
+
+void ffidouble_toInt(char *c, long clen, char *a, long alen) {
+    double_bytes d;
+    int_bytes i;
+    memcpy(d.bytes, a, sizeof d.bytes);
+    i.num = (int64_t) d.num;
+    memcpy(a, i.bytes, sizeof i.bytes);
+}
+
+void ffidouble_pow(char *c, long clen, char *a, long alen) {
+    double_bytes x, y;
+    memcpy(x.bytes, a, sizeof x.bytes);
+    memcpy(y.bytes, &a[8], sizeof y.bytes);
+    x.num = pow(x.num, y.num);
+    memcpy(a, x.bytes, sizeof x.bytes);
+}
+
+void ffidouble_ln(char *c, long clen, char *a, long alen) {
+    double_bytes d;
+    memcpy(d.bytes, a, sizeof d.bytes);
+    d.num = log(d.num);
+    memcpy(a, d.bytes, sizeof d.bytes);
+}
+
+void ffidouble_exp(char *c, long clen, char *a, long alen) {
+    double_bytes d;
+    memcpy(d.bytes, a, sizeof d.bytes);
+    d.num = exp(d.num);
+    memcpy(a, d.bytes, sizeof d.bytes);
+}
+
+void ffidouble_floor(char *c, long clen, char *a, long alen) {
+    double_bytes d;
+    memcpy(d.bytes, a, sizeof d.bytes);
+    d.num = floor(d.num);
+    memcpy(a, d.bytes, sizeof d.bytes);
+}
+
+void cml_clear() {
+  __builtin___clear_cache(&cake_codebuffer_begin, &cake_codebuffer_end);
 }
 
 int main (int local_argc, char **local_argv) {
@@ -322,13 +441,38 @@ int main (int local_argc, char **local_argv) {
   if(cml_heap == NULL)
   {
     #ifdef STDERR_MEM_EXHAUST
-    fprintf(stderr,"malloc() failed to allocate sufficient CakeML heap and stack space.\n");
+    fprintf(stderr,"failed to allocate sufficient CakeML heap and stack space.\n");
+    perror("malloc");
     #endif
     exit(3);
   }
 
   cml_stack = cml_heap + cml_heap_sz;
   cml_stackend = cml_stack + cml_stack_sz;
+
+  #ifdef EVAL
+
+  /** Set up the "eval" code buffer to be read-write-execute. **/
+  if(mprotect(&cake_text_begin, &cake_codebuffer_end - &cake_text_begin,
+              PROT_READ | PROT_WRITE | PROT_EXEC))
+  {
+    #ifdef STDERR_MEM_EXHAUST
+    fprintf(stderr,"failed to set permissions for CakeML code buffer.\n");
+    perror("mprotect");
+    #endif
+    exit(3);
+  }
+
+  /* Set up the signal handler for SIGINTs when running the REPL. */
+  for (int i = 0; i < local_argc; i++) {
+      if (strcmp(local_argv[i], "--repl") == 0 ||
+          strcmp(local_argv[i], "--candle") == 0) {
+        signal(SIGINT, do_sigint);
+        break;
+      }
+  }
+
+  #endif
 
   cml_main(); // Passing control to CakeML
 

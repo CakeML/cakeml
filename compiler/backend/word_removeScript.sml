@@ -3,15 +3,17 @@
   semantic-device used to help keep the logical clocks in sync in the
   data_to_word correctness proofs.
 *)
-open preamble wordLangTheory
-
-val _ = new_theory "word_remove";
+Theory word_remove
+Ancestors
+  wordLang
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 (*Removes MustTerminate*)
 
-val remove_must_terminate_def = Define`
+Definition remove_must_terminate_def:
   (remove_must_terminate (Seq p0 p1) = Seq (remove_must_terminate p0) (remove_must_terminate p1)) ∧
   (remove_must_terminate (If cmp r1 ri e2 e3) =
     If cmp r1 ri (remove_must_terminate e2) (remove_must_terminate e3)) ∧
@@ -23,7 +25,8 @@ val remove_must_terminate_def = Define`
     let h = dtcase h of NONE => NONE
                     | SOME (v,prog,l1,l2) => SOME (v,remove_must_terminate prog,l1,l2) in
       Call ret dest args h) ∧
-  (remove_must_terminate prog = prog)`
+  (remove_must_terminate prog = prog)
+End
 
 Theorem remove_must_terminate_pmatch:
   !prog.
@@ -48,4 +51,3 @@ Proof
          PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC)
     >> fs[remove_must_terminate_def])
 QED
-val _ = export_theory();

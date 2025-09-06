@@ -3,13 +3,11 @@
   nullability results for various non-terminals, and results about
   the grammar’s rules finite map.
 *)
-open HolKernel Parse boolLib bossLib
-
-open boolSimps
-open gramTheory
-open NTpropertiesTheory
-open pred_setTheory
-open preamble
+Theory gramProps
+Ancestors
+  gram NTproperties pred_set
+Libs
+  boolSimps preamble
 
 fun dsimp thl = asm_simp_tac (srw_ss() ++ DNF_ss) thl
 fun asimp thl = asm_simp_tac (srw_ss() ++ ARITH_ss) thl
@@ -37,10 +35,7 @@ val APPEND_EQ_SING' = CONV_RULE (LAND_CONV (ONCE_REWRITE_CONV [EQ_SYM_EQ]))
                                 listTheory.APPEND_EQ_SING
 val _ = augment_srw_ss [rewrites [APPEND_EQ_SING']]
 
-val _ = new_theory "gramProps"
-val _ = set_grammar_ancestry ["gram", "NTproperties"]
-
-val NT_rank_def = Define`
+Definition NT_rank_def:
   NT_rank N =
     case N of
       | INR _ => 0n
@@ -48,11 +43,10 @@ val NT_rank_def = Define`
         if n = nElist1                 then 16
         else if n = nEseq              then 16
         else if n = nTopLevelDecs      then 16
-(*      else if n = nREPLTop           then 16 *)
         else if n = nElist2            then 16
         else if n = nE                 then 15
-        else if n = nE'                then 15
         else if n = nEhandle           then 14
+        else if n = nPE                then 14
         else if n = nElogicOR          then 13
         else if n = nElogicAND         then 12
         else if n = nEtyped            then 11
@@ -82,9 +76,8 @@ val NT_rank_def = Define`
         else if n = nTypeName          then  2
         else if n = nUQTyOp            then  1
         else if n = nNonETopLevelDecs  then  4
-        else if n = nTopLevelDec       then  3
         else if n = nDecls             then  3
-        else if n = nStructure         then  2
+        else if n = nStructure         then  1
         else if n = nDecl              then  2
         else if n = nTypeDec           then  1
         else if n = nSpecLineList      then  3
@@ -98,8 +91,6 @@ val NT_rank_def = Define`
         else if n = nPattern           then  7
         else if n = nPatternList       then  8
         else if n = nPEs               then  9
-        else if n = nPE                then  8
-        else if n = nPE'               then  8
         else if n = nLetDecs           then  2
         else if n = nLetDec            then  1
         else if n = nDtypeDecl         then  3
@@ -108,7 +99,7 @@ val NT_rank_def = Define`
         else if n = nTyVarList         then  2
         else if n = nTyvarN            then  1
         else                                 0
-`
+End
 
 val rules_t = ``cmlG.rules``
 fun ty2frag ty = let
@@ -121,7 +112,7 @@ val rules = SIMP_CONV (bool_ss ++ ty2frag ``:(α,β)grammar``)
                       [cmlG_def, combinTheory.K_DEF,
                        finite_mapTheory.FUPDATE_LIST_THM] rules_t
 val cmlG_applied = let
-  val app0 = finite_mapSyntax.fapply_t
+  val app0 = finite_mapSyntax.fapply_tm
   val theta =
       Type.match_type (type_of app0 |> dom_rng |> #1) (type_of rules_t)
   val app = inst theta app0
@@ -139,25 +130,34 @@ in
     save_thm("cmlG_applied", LIST_CONJ ths)
 end
 
-val cmlG_FDOM = save_thm("cmlG_FDOM",
-  SIMP_CONV (srw_ss()) [cmlG_def] ``FDOM cmlG.rules``)
+Theorem cmlG_FDOM =
+  SIMP_CONV (srw_ss()) [cmlG_def] ``FDOM cmlG.rules``
 
-val paireq = Q.prove(
-  `(x,y) = z ⇔ x = FST z ∧ y = SND z`, Cases_on `z` >> simp[])
+Triviality paireq:
+  (x,y) = z ⇔ x = FST z ∧ y = SND z
+Proof
+  Cases_on `z` >> simp[]
+QED
 
-val GSPEC_INTER = Q.prove(
-  `GSPEC f ∩ Q =
-    GSPEC (S ($, o FST o f) (S ($/\ o SND o f) (Q o FST o f)))`,
+Triviality GSPEC_INTER:
+  GSPEC f ∩ Q =
+    GSPEC (S ($, o FST o f) (S ($/\ o SND o f) (Q o FST o f)))
+Proof
   simp[GSPECIFICATION, EXTENSION, SPECIFICATION] >> qx_gen_tac `e` >>
-  simp[paireq] >> metis_tac[])
+  simp[paireq] >> metis_tac[]
+QED
 
-val RIGHT_INTER_OVER_UNION = Q.prove(
-  `(a ∪ b) ∩ c = (a ∩ c) ∪ (b ∩ c)`,
-  simp[EXTENSION] >> metis_tac[]);
+Triviality RIGHT_INTER_OVER_UNION:
+  (a ∪ b) ∩ c = (a ∩ c) ∪ (b ∩ c)
+Proof
+  simp[EXTENSION] >> metis_tac[]
+QED
 
-val GSPEC_applied = Q.prove(
-  `GSPEC f x ⇔ x IN GSPEC f`,
-  simp[SPECIFICATION])
+Triviality GSPEC_applied:
+  GSPEC f x ⇔ x IN GSPEC f
+Proof
+  simp[SPECIFICATION]
+QED
 
 val c1 = Cong (DECIDE ``(p = p') ==> ((p /\ q) = (p' /\ q))``)
 val condc =
@@ -178,16 +178,20 @@ val safenml = LIST_CONJ (List.take(CONJUNCTS nullableML_def, 2))
 
 val nullML_t = prim_mk_const {Thy = "NTproperties", Name = "nullableML"}
 
-val nullloop_th = Q.prove(
-  `nullableML G (N INSERT sn) (NT N :: rest) = F`,
-  simp[Once nullableML_def]);
+Triviality nullloop_th:
+  nullableML G (N INSERT sn) (NT N :: rest) = F
+Proof
+  simp[Once nullableML_def]
+QED
 
-val null2 = Q.prove(
-  `nullableML G sn (x :: y :: z) <=>
+Triviality null2:
+  nullableML G sn (x :: y :: z) <=>
       nullableML G sn [x] ∧ nullableML G sn [y] ∧
-      nullableML G sn z`,
+      nullableML G sn z
+Proof
   simp[Once nullableML_by_singletons, SimpLHS] >>
-  dsimp[] >> simp[GSYM nullableML_by_singletons]);
+  dsimp[] >> simp[GSYM nullableML_by_singletons]
+QED
 
 
 fun prove_nullable domapp sn acc G_t t = let
@@ -248,12 +252,12 @@ val nullacc =
     foldl fold_nullprove []
           [“nE”, “nPTbase”, “nTbaseList”, “nType”, “nTyvarN”, “nSpecLine”,
            “nPtuple”, “nPConApp”, “nPbase”, “nLetDec”,
-           “nTyVarList”, “nDtypeDecl”, “nDecl”, “nE'”,
-           “nElist1”, “nCompOps”, “nListOps”,
-           “nPapp”, “nPattern”, “nRelOps”, “nMultOps”,
+           “nTyVarList”, “nDtypeDecl”, “nDecl”, “nPE”,
+           “nElist1”, “nCompOps”, “nListOps”, “nPEsfx”,
+           “nPapp”, “nPattern”, “nPEs” , “nRelOps”, “nMultOps”,
            “nAddOps”, “nDconstructor”, “nFDecl”,
            “nPatternList”, “nPbaseList1”, “nElist2”,
-           “nEseq”, “nEtuple”, “nTopLevelDecs”, “nTopLevelDec”]
+           “nEseq”, “nEtuple”, “nTopLevelDecs”]
 
 local
   fun appthis th = let
@@ -263,7 +267,7 @@ local
     val t = th' |> concl |> trydn |> rand |> lhand |> rand |> rand
     val nm = "nullable_" ^ String.extract(term_to_string t, 1, NONE)
   in
-    save_thm(nm, th'); export_rewrites [nm]
+    save_thm(nm ^ "[allow_rebind]", th'); export_rewrites [nm]
   end
 in
 val _ = List.app appthis nullacc
@@ -281,9 +285,9 @@ val rank_assum =
        assert (Lib.can
                  (find_term (same_const ``NT_rank``) o concl)))
 
-val fringe_lengths_def = Define`
+Definition fringe_lengths_def:
   fringe_lengths G sf = { LENGTH i | derives G sf (MAP TOK i) }
-`
+End
 
 val RTC_R_I = relationTheory.RTC_RULES |> SPEC_ALL |> CONJUNCT2 |> GEN_ALL
 Theorem fringe_length_ptree:
@@ -334,8 +338,7 @@ Proof
   simp[stringTheory.isUpper_def]
 QED
 
-val parsing_ind = save_thm(
-  "parsing_ind",
+Theorem parsing_ind =
   relationTheory.WF_INDUCTION_THM
     |> Q.ISPEC `inv_image
                   (measure (LENGTH:((token,MMLnonT)grammar$symbol # locs) list
@@ -345,6 +348,5 @@ val parsing_ind = save_thm(
                   (λpt. (real_fringe pt, ptree_head pt))`
     |> SIMP_RULE (srw_ss()) [pairTheory.WF_LEX, relationTheory.WF_inv_image]
     |> SIMP_RULE (srw_ss()) [relationTheory.inv_image_def,
-                             pairTheory.LEX_DEF]);
+                             pairTheory.LEX_DEF]
 
-val _ = export_theory()

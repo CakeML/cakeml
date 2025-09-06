@@ -10,23 +10,24 @@
   typically open HolKernel boolLib bossLib and Parse (at least). CakeML's
   preamble wrapper includes all of those structures and more.
 *)
+Theory arith_exp_demo
+Libs
+  preamble
 
-open preamble
 
 (*
   Create the logical theory in which we will work. Its name should match the name
   of this file, before the "Script.sml" suffix.
 *)
 
-val _ = new_theory "arith_exp_demo";
-
 (*
   Define the arithmetic expression type.
   This shows how to define an inductive datatype in HOL.
 *)
 
-val _ = Datatype`
-  exp = Num num | Add exp exp | Sub exp exp`;
+Datatype:
+  exp = Num num | Add exp exp | Sub exp exp
+End
 
 (*
 Try, for example
@@ -41,10 +42,11 @@ type_of ``Add``;
   This shows how to define recursive functions in HOL.
 *)
 
-val sem_def = Define`
+Definition sem_def:
   sem (Num n) = n ∧
   sem (Add e1 e2) = sem e1 + sem e2 ∧
-  sem (Sub e1 e2) = sem e1 - sem e2`;
+  sem (Sub e1 e2) = sem e1 - sem e2
+End
 
 (*
   We can "run" such definitions in the logic, producing a theorem as the result.
@@ -66,8 +68,9 @@ val _ = export_rewrites["sem_def"];
   an addition of that expression with itself.
 *)
 
-val double_def = Define`
-  double e = Add e e`;
+Definition double_def:
+  double e = Add e e
+End
 
 (*
   Now let's prove a theorem about ``double``.
@@ -102,4 +105,3 @@ QED
   >- ...
 *)
 
-val _ = export_theory();

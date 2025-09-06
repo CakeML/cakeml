@@ -7,7 +7,7 @@ structure ml_monad_translatorLib :> ml_monad_translatorLib = struct
 (******************************************************************************)
 
 open preamble
-     astTheory libTheory semanticPrimitivesTheory evaluateTheory
+     astTheory semanticPrimitivesTheory evaluateTheory
      ml_translatorTheory ml_progTheory ml_progLib
      ml_pmatchTheory ml_monadBaseTheory ml_monad_translatorBaseTheory
      ml_monad_translatorTheory evaluateTheory cfTacticsLib
@@ -54,8 +54,7 @@ local
   structure Parse = struct
     open Parse
      val (Type,Term) =
-         parse_from_grammars
-           ml_monad_translatorTheory.ml_monad_translator_grammars
+         parse_from_grammars $ valOf $ grammarDB {thyname="ml_monad_translator"}
   end
   open Parse
 
@@ -91,7 +90,7 @@ local
      ("Fun_const",``ast$Fun``),
      ("Var_const",``ast$Var``),
      ("Closure_const",``semanticPrimitives$Closure``),
-     ("failure_pat",``\v. (Failure(C v), state_var)``),
+     ("failure_pat",``\v. (M_failure(C v), state_var)``),
      ("Eval_pat",``Eval env exp (P (res:'a))``),
      ("Eval_pat2",``Eval env exp P``),
      ("derive_case_EvalM_abs",
@@ -460,8 +459,8 @@ fun abbrev_nsLookup_code th = let
     List.filter (not o is_const o snd)
 
   fun find_abbrev (name, code) = let
-    val n = Theory.temp_binding ("[[ " ^ name ^ "_code ]]")
-    val code_def = new_definition(n,mk_eq(mk_var(n,type_of code),code))
+    val n = Theory.temp_binding ("____" ^ name ^ "_code____")
+    val code_def = Definition.new_definition(n,mk_eq(mk_var(n,type_of code),code))
   in code_def end
   val abbrevs = List.map find_abbrev name_code_pairs
 in
@@ -1299,7 +1298,7 @@ local
                          (!(#type_theories translator_state))
           handle  HOL_ERR _ =>
             let
-              val thms = DB.find (name ^ "_def") |> List.map (fst o snd)
+              val thms = DB.find (name ^ "_def") |> List.map (#1 o snd)
               val inv_ty = mk_type("fun", [ty, v_bool_ty])
               fun is_valid th = let
                   val th_body = CONJUNCTS th |> List.hd |> concl |> strip_forall
@@ -2430,8 +2429,8 @@ local (* ported from ml_translatorLib *)
     val const_thy = const_tm |> dest_thy_const |> #Thy
     fun try_find_in thys = let
       val xs = DB.match thys def_tm
-      val xs = filter (aconv def_tm o concl o fst o snd) xs
-      val ((thy,name),_) = first (fn x => Def = (x |> snd |> snd)) xs
+      val xs = filter (aconv def_tm o concl o #1 o snd) xs
+      val ((thy,name),_) = first (fn x => Def = (x |> snd |> #2)) xs
                            handle HOL_ERR _ => hd xs handle Empty => fail ()
       in (thy,name) end
     val (thy,name) = try_find_in [const_thy]
@@ -2748,7 +2747,7 @@ fun extract_precondition_non_rec th pre_var =
     val rw_thms = FALSE_def::TRUE_def::rw_thms
     val c = (REWRITE_CONV [CONTAINER_def, PRECONDITION_def] THENC
              ONCE_REWRITE_CONV [GSYM PRECONDITION_def] THENC
-             SIMP_CONV (srw_ss()) rw_thms)
+             SIMP_CONV (srw_ss()++ARITH_ss) rw_thms)
     val c = (RATOR_CONV o RAND_CONV) c
     val th = CONV_RULE c th
     val rhs = th |> concl |> dest_imp |> fst |> rand
@@ -2812,7 +2811,7 @@ fun extract_precondition_rec thms = let
   fun is_true_pre (fname,ml_fname,def,th,pre_var,tm1,tm2,rw2) =
     ((tm2 |> subst ss
           |> QCONV (REWRITE_CONV
-                ([rw2, PreImp_def, PRECONDITION_def, CONTAINER_def] @ rw_thms))
+                ([rw2, PreImp_def, PRECONDITION_def, CONTAINER_def] @ rw_thms) THENC SIMP_CONV (srw_ss()++ARITH_ss) [FALSE_def,TRUE_def])
           |> concl |> rand) |> Teq)
   val no_pre = (not o (List.exists (fn x => not x))) (List.map is_true_pre thms)
 
@@ -2915,8 +2914,8 @@ handle HOL_ERR _ => failwith "extract_precondition_rec failed";
 fun abbrev_code (fname,ml_fname,def,th,v) = let
   val th = th |> UNDISCH_ALL
   val exp = th |> concl |> rator |> rator |> rand
-  val n = Theory.temp_binding ("[[ " ^ fname ^ "_code ]]")
-  val code_def = new_definition(n,mk_eq(mk_var(n,type_of exp),exp))
+  val n = Theory.temp_binding ("____" ^ fname ^ "_code____")
+  val code_def = Definition.new_definition(n,mk_eq(mk_var(n,type_of exp),exp))
   val th =
     CONV_RULE ((RATOR_CONV o RATOR_CONV o RAND_CONV) (K (GSYM code_def))) th
   in (code_def,(fname,ml_fname,def,th,v)) end
@@ -3700,7 +3699,7 @@ fun m_translate_run def =
 
     val run_def = if using_monadBase_run then ml_monadBaseTheory.run_def else
       let val run_name = dest_const run_tm |> fst
-          val pos_defs = DB.find (run_name ^ "_def") |> List.map (fst o snd)
+          val pos_defs = DB.find (run_name ^ "_def") |> List.map (#1 o snd)
           fun is_def th =
             let val constant = CONJUNCTS th |> List.hd |> concl |>
                                strip_forall |> snd |> lhs |> strip_comb |> fst
@@ -3793,7 +3792,7 @@ fun m_translate_run def =
                         DB.find "ML_MONADBASE_EXC_TYPE_def"
                        else
                         DB.find "EXC_TYPE_def")
-                       |> List.hd |> snd |> fst
+                       |> List.hd |> #2 |> #1
                        handle Empty =>
                         raise (ERR "m_translate_run" "The `exc` type needs to \
                                \be registered in the current program")

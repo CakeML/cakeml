@@ -1,10 +1,12 @@
 (*
   Extend numBoolExp with more functionality
 *)
+Theory numBoolExtended
+Ancestors
+  misc boolExpToCnf numBoolExp cnf
+Libs
+  preamble
 
-open preamble miscTheory boolExpToCnfTheory numBoolExpTheory cnfTheory;
-
-val _ = new_theory "numBoolExtended";
 
 (* -------------------------------- Datatypes ------------------------------- *)
 
@@ -233,12 +235,6 @@ Definition numBoolExtended_to_numBoolExp_def:
   numBoolExtended_to_numBoolExp (EConstGeq n x) = NLeqConst x n
 End
 
-Definition numBoolExtended_to_cnf_def:
-  numBoolExtended_to_cnf l e =
-  let e' = numBoolExtended_to_numBoolExp e in
-    numBool_to_cnf l e'
-End
-
 Definition encode_assignment_numBoolExtended_def:
   encode_assignment_numBoolExtended w w' l e =
   let e' = numBoolExtended_to_numBoolExp e in
@@ -373,4 +369,3 @@ QED
 
 *)
 
-val _ = export_theory();

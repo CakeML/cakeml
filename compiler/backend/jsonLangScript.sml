@@ -5,46 +5,54 @@
   in {}, in which case it can be viewed as a key-value store of names
   (strings) and JSON objects.
 *)
-open preamble mlintTheory mlstringTheory
+Theory jsonLang
+Ancestors
+  mlint mlstring
+Libs
+  preamble
 
-val _ = new_theory"jsonLang";
-
-val _ = Datatype`
+Datatype:
   obj =
      Object ((mlstring # obj ) list)
    | Array (obj list)
    | String mlstring
    | Int int
    | Bool bool
-   | Null`;
+   | Null
+End
 
 Overload "++"[local] = ``Append``
 
-val concat_with_def = Define`
+Definition concat_with_def:
   (concat_with [] c = List []) /\
   (concat_with [s] c = s) /\
-  (concat_with (s::ss) c = s ++ (c ++ concat_with ss c))`;
+  (concat_with (s::ss) c = s ++ (c ++ concat_with ss c))
+End
 
-val printable_def = Define`
-  printable c <=> ORD c >= 32 /\ ORD c < 127 /\ c <> #"\"" /\ c <> #"\\"`;
+Definition printable_def:
+  printable c <=> ORD c >= 32 /\ ORD c < 127 /\ c <> #"\"" /\ c <> #"\\"
+End
 
-val num_to_hex_digit_def = Define `
+Definition num_to_hex_digit_def:
   num_to_hex_digit n =
     if n < 10 then [CHR (48 + n)] else
-    if n < 16 then [CHR (55 + n)] else []`;
+    if n < 16 then [CHR (55 + n)] else []
+End
 
-val n_rev_hex_digs = Define `
+Definition n_rev_hex_digs:
   n_rev_hex_digs 0 x = [] /\
   n_rev_hex_digs (SUC n) x = (num_to_hex_digit (x MOD 16) ++
-    n_rev_hex_digs n (x DIV 16))`;
+    n_rev_hex_digs n (x DIV 16))
+End
 
-val encode_str_def = Define`
+Definition encode_str_def:
   encode_str unicode s =
   let s2 = explode s in
   if EVERY printable s2 then s
   else concat (MAP (\c. if printable c then implode [c]
     else if unicode then implode ("\\u" ++ REVERSE (n_rev_hex_digs 4 (ORD c)))
-    else concat [strlit "\\"; toString (ORD c)]) s2)`;
+    else concat [strlit "\\"; toString (ORD c)]) s2)
+End
 
 Definition json_to_mlstring_def:
   (json_to_mlstring obj =
@@ -62,10 +70,5 @@ Definition json_to_mlstring_def:
   /\
   (mem_to_string n_obj = let (n, obj) = n_obj in
         List [strlit "\""; n; strlit "\":"] ++ json_to_mlstring obj)
-Termination
-   WF_REL_TAC `measure (\x. case x of
-       | INL obj => obj_size obj
-       | INR p => obj2_size p)` \\ rw []
 End
 
-val _ = export_theory();

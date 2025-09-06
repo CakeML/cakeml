@@ -2,9 +2,13 @@
   An example showing how to use the monadic translator to translate
   monadic functions using references (no arrays, no exceptions).
 *)
-open preamble ml_monad_translator_interfaceLib
+Theory ref_stateProg
+Libs
+  preamble ml_monad_translator_interfaceLib
+Ancestors
+  ml_monad_translator
 
-val _ = new_theory "ref_stateProg"
+val _ = set_up_monadic_translator ();
 
 (* Pattern matching
  * Note that `dtcase` has to be used from now on in the function definitions (and not `case`)
@@ -30,24 +34,30 @@ val config =  global_state_config |>
  *)
 
 (* A very simple monadic function *)
-val simple_fun_def = Define `simple_fun x = return x`;
+Definition simple_fun_def:
+  simple_fun x = return x
+End
 
 (* A recursive monadic function *)
-val rec_fun_def = Define `
+Definition rec_fun_def:
   rec_fun l = dtcase l of [] => return (0 : num)
-                   | x::l' => do x <- rec_fun l'; return (1+x) od`;
+                   | x::l' => do x <- rec_fun l'; return (1+x) od
+End
 
 (* A monadic function calling other monadic functions *)
-val calling_fun_def = Define `
-  calling_fun l = do x <- rec_fun l; simple_fun x od`;
+Definition calling_fun_def:
+  calling_fun l = do x <- rec_fun l; simple_fun x od
+End
 
 (* A monadic function using the store *)
-val store_fun_def = Define `
-  store_fun x = do y <- get_the_num_ref; set_the_num_ref (x + y) od`;
+Definition store_fun_def:
+  store_fun x = do y <- get_the_num_ref; set_the_num_ref (x + y) od
+End
 
 (* Other *)
-val if_fun_def = Define `
-  if_fun (x : num) y = if x > y then return T else return F`;
+Definition if_fun_def:
+  if_fun (x : num) y = if x > y then return T else return F
+End
 
 (* ... *)
 
@@ -67,5 +77,3 @@ val store_fun_v_thm = store_fun_def |> m_translate;
 val if_fun_v_thm = if_fun_def |> m_translate;
 
 (* ... *)
-
-val _ = export_theory ();

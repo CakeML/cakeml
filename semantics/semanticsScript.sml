@@ -1,12 +1,11 @@
 (*
   The top-level semantics of CakeML programs.
 *)
-open preamble;
-open lexer_funTheory
-open cmlPtreeConversionTheory;
-open primTypesTheory;
-
-val _ = new_theory "semantics";
+Theory semantics
+Ancestors
+  lexer_fun cmlPtreeConversion primTypes
+Libs
+  preamble
 
 Definition parse_def:
   parse toks =
@@ -88,10 +87,9 @@ End
 
 Definition semantics_init_def:
   semantics_init ffi =
-    semantics <| sem_st := FST(THE (prim_sem_env ffi));
+    semantics <| sem_st := FST (THE (prim_sem_env ffi));
                  sem_env := SND(THE (prim_sem_env ffi));
                  tenv := prim_tenv;
                  type_ids := prim_type_ids |>
 End
 
-val _ = export_theory();

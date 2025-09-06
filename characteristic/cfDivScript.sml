@@ -2,16 +2,13 @@
   Defines the repeat function and the corresponding lemma used to prove
   non-termination of programs in cf.
 *)
-open preamble
-open set_sepTheory helperLib ml_translatorTheory
-open ml_translatorTheory semanticPrimitivesTheory
-open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory
-open cfNormaliseTheory cfAppTheory evaluateTheory
-open cfTacticsBaseLib cfTacticsLib cfTheory
-open std_preludeTheory;
-
-
-val _ = new_theory "cfDiv";
+Theory cfDiv
+Ancestors
+  set_sep ml_translator ml_translator semanticPrimitives
+  cfHeapsBase cfHeaps cfStore cfNormalise cfApp evaluate cf
+  std_prelude
+Libs
+  preamble helperLib cfHeapsBaseLib cfTacticsBaseLib cfTacticsLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -19,6 +16,10 @@ val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = ml_translatorLib.translation_extends "std_prelude";
 
+(* Make sure we are using the option monad even in the presence of other
+   monads *)
+val _ = monadsyntax.temp_enable_monadsyntax ();
+val _ = monadsyntax.temp_enable_monad "option";
 
 (* -- general set up -- *)
 
@@ -41,9 +42,8 @@ Theorem dest_opapp_exp_size:
 Proof
   ho_match_mp_tac cfNormaliseTheory.dest_opapp_ind
   >> rw[cfNormaliseTheory.dest_opapp_def]
-  >> every_case_tac >> fs[]
-  >> gvs [astTheory.exp_size_eq,listTheory.list_size_def,astTheory.exp_size_def,
-          list_size_append]
+  >> every_case_tac
+  >> gvs [list_size_append]
 QED
 
 Theorem dest_opapp_eq_nil_IMP:
@@ -112,11 +112,15 @@ val tailrec_clos = cfTacticsLib.process_topdecs `
 
 val tailrec_body = tailrec_clos |> rator |> rand |> rand |> rand |> rand
 
-val mk_inl_def = Define `mk_inl e =
-  Let (SOME "x") e (Con(SOME(Short "Inl")) [Var(Short "x")])`
+Definition mk_inl_def:
+  mk_inl e =
+  Let (SOME "x") e (Con(SOME(Short "Inl")) [Var(Short "x")])
+End
 
-val mk_inr_def = Define `mk_inr e =
-  Let (SOME "x") e (Con(SOME(Short "Inr")) [Var(Short "x")])`
+Definition mk_inr_def:
+  mk_inr e =
+  Let (SOME "x") e (Con(SOME(Short "Inr")) [Var(Short "x")])
+End
 
 Definition mk_single_app_def:
    (mk_single_app fname allow_fname (Raise e) =
@@ -304,24 +308,24 @@ Termination
    | INR (INR (INR (t,x,funs))) =>
        list_size (pair_size (list_size char_size)
                   (pair_size (list_size char_size) exp_size)) funs)`
-  \\ gvs [astTheory.exp_size_eq] \\ rw []
+  \\ rw[]
   \\ gvs [Once (dest_opapp_def |> DefnBase.one_line_ify NONE)]
   \\ gvs [AllCaseEqs()]
-  \\ fs [list_size_def,astTheory.exp_size_def]
 End
 
 val mk_single_app_ind = fetch "-" "mk_single_app_ind"
 
-val mk_stepfun_closure_def = Define
-  `(mk_stepfun_closure env fname farg fbody =
+Definition mk_stepfun_closure_def:
+  (mk_stepfun_closure env fname farg fbody =
     do
      gbody <- mk_single_app (SOME fname) T fbody;
      SOME(let benv = build_rec_env [(fname,farg,fbody)] env env.v
           in Closure (env with v := benv) farg gbody)
-    od) /\ mk_stepfun_closure _ _ _ _ = NONE`
+    od) /\ mk_stepfun_closure _ _ _ _ = NONE
+End
 
-val mk_tailrec_closure_def = Define
-  `(mk_tailrec_closure (Recclosure env [(fname,farg,fbody)] name2) =
+Definition mk_tailrec_closure_def:
+  (mk_tailrec_closure (Recclosure env [(fname,farg,fbody)] name2) =
     do
      gclosure <- mk_stepfun_closure  env fname farg fbody;
      SOME(Closure (env with <| v :=
@@ -333,10 +337,11 @@ val mk_tailrec_closure_def = Define
                 Var(Short farg)]
           )
          )
-    od) /\ mk_tailrec_closure _ = NONE`
+    od) /\ mk_tailrec_closure _ = NONE
+End
 
-val mk_single_app_F_unchanged_gen = Q.prove(
-  `(!fname allow_fname e e'. mk_single_app fname allow_fname e = SOME e'
+Triviality mk_single_app_F_unchanged_gen:
+  (!fname allow_fname e e'. mk_single_app fname allow_fname e = SOME e'
                /\ allow_fname = F ==> e = e') /\
    (!fname allow_fname es es'. mk_single_apps fname allow_fname es = SOME es'
                /\ allow_fname = F ==> es = es') /\
@@ -344,44 +349,49 @@ val mk_single_app_F_unchanged_gen = Q.prove(
                 /\ allow_fname = F ==> pes = pes') /\
    (!fname allow_fname recfuns recfuns'. mk_single_appr fname allow_fname recfuns = SOME recfuns'
                 /\ allow_fname = F ==> recfuns = recfuns')
-  `,
+Proof
   ho_match_mp_tac mk_single_app_ind >>
   rw[mk_single_app_def] >> fs[] >>
   every_case_tac >> fs[] >> rfs[] >>
   first_x_assum drule >> simp[] >>
   imp_res_tac dest_opapp_eq_single_IMP >>
-  fs[]);
+  fs[]
+QED
 
-val mk_single_app_F_unchanged = save_thm("mk_single_app_F_unchanged",
-  SIMP_RULE std_ss [] mk_single_app_F_unchanged_gen);
+Theorem mk_single_app_F_unchanged =
+  SIMP_RULE std_ss [] mk_single_app_F_unchanged_gen
 
-val mk_inr_res_def = Define `
+Definition mk_inr_res_def:
   (mk_inr_res(Rval vs) =
    Rval(MAP (λv. Conv (SOME (TypeStamp "Inr" 4)) [v]) vs)
   ) /\
-  (mk_inr_res res = res)`
+  (mk_inr_res res = res)
+End
 
-val mk_inl_res_def = Define `
+Definition mk_inl_res_def:
   (mk_inl_res(Rval vs) =
    Rval(MAP (λv. Conv (SOME (TypeStamp "Inl" 4)) [v]) vs)
   ) /\
-  (mk_inl_res res = res)`
+  (mk_inl_res res = res)
+End
 
-val dest_inr_v_def = Define `
+Definition dest_inr_v_def:
   (dest_inr_v (Conv (SOME (TypeStamp txt n)) [v]) =
    if txt = "Inr" /\ n = 4 then
      SOME v
    else
      NONE) /\
-  (dest_inr_v _ = NONE)`
+  (dest_inr_v _ = NONE)
+End
 
-val dest_inl_v_def = Define `
+Definition dest_inl_v_def:
   (dest_inl_v (Conv (SOME (TypeStamp txt n)) [v]) =
    if txt = "Inl" /\ n = 4 then
      SOME v
    else
      NONE) /\
-  (dest_inl_v _ = NONE)`
+  (dest_inl_v _ = NONE)
+End
 
 Theorem dest_inr_v_IMP:
   !e1 v. dest_inr_v e1 = SOME v ==> e1 = Conv (SOME (TypeStamp "Inr" 4)) [v]
@@ -413,16 +423,17 @@ Proof
     fs[quantHeuristicsTheory.LIST_LENGTH_1]
 QED
 
-val build_conv_check_IMP_nsLookup = Q.prove(
-  `!env const v consname stamp n.
+Triviality build_conv_check_IMP_nsLookup:
+  !env const v consname stamp n.
   (∀v. build_conv env (SOME const) [v] =
    SOME (Conv (SOME stamp) [v])) /\
   do_con_check env (SOME const) n
   ==> nsLookup env const = SOME(n,stamp)
-  `,
+Proof
   rw[semanticPrimitivesTheory.build_conv_def,semanticPrimitivesTheory.do_con_check_def,
      namespaceTheory.nsLookup_def] >>
-  every_case_tac >> fs[]);
+  every_case_tac >> fs[]
+QED
 
 Theorem evaluate_IMP_inl:
     do_con_check env.c (SOME (Short "Inl")) 1 = T /\
@@ -477,8 +488,8 @@ Proof
   \\ rw [] \\ fs [] \\ res_tac \\ fs []
 QED
 
-val mk_single_app_NONE_evaluate = Q.prove(
-  `(!^st env es es'. mk_single_apps NONE T es = SOME es'
+Triviality mk_single_app_NONE_evaluate:
+  (!^st env es es'. mk_single_apps NONE T es = SOME es'
     /\ do_con_check env.c (SOME (Short "Inr")) 1 = T
     /\ (!v. build_conv env.c (SOME (Short "Inr")) [v] =
            SOME(Conv (SOME (TypeStamp "Inr" 4)) [v]))
@@ -494,7 +505,7 @@ val mk_single_app_NONE_evaluate = Q.prove(
         = case evaluate_match st env v pes err_v of
            (st',res) => (st', mk_inr_res res)
    )
-   `,
+Proof
   ho_match_mp_tac evaluate_ind >> rpt strip_tac >> PURE_TOP_CASE_TAC
   (* Nil *)
   >- (fs[mk_single_app_def] >> rveq >> fs[evaluate_def,mk_inr_res_def])
@@ -620,24 +631,26 @@ val mk_single_app_NONE_evaluate = Q.prove(
       fs[Once evaluate_def] >> rveq >>
       reverse IF_CASES_TAC >-
         (fs[] >> rveq >> fs[mk_inr_res_def]) >>
-      fs[] >> TOP_CASE_TAC >>
-      fs[] >> rveq >> fs[mk_inr_res_def])
-  );
+      fs[] >> rveq >> fs[mk_inr_res_def] >>
+      TOP_CASE_TAC >> gs[] >> rveq >> fs[mk_inr_res_def])
+QED
 
-val mk_single_app_NONE_evaluate_single = Q.prove(
-  `(!^st env e e'. mk_single_app NONE T e = SOME e'
+Triviality mk_single_app_NONE_evaluate_single:
+  (!^st env e e'. mk_single_app NONE T e = SOME e'
     /\ do_con_check env.c (SOME (Short "Inr")) 1
     /\ (!v. build_conv env.c (SOME (Short "Inr")) [v] =
            SOME(Conv (SOME (TypeStamp "Inr" 4)) [v]))
     ==> evaluate st env [e']
         = case evaluate st env [e] of
            (st',res) => (st', mk_inr_res res)
-   )`,
+   )
+Proof
   rpt strip_tac >>
   match_mp_tac(CONJUNCT1 mk_single_app_NONE_evaluate) >>
-  simp[mk_single_app_def]);
+  simp[mk_single_app_def]
+QED
 
-val partially_evaluates_to_def = Define `
+Definition partially_evaluates_to_def:
 partially_evaluates_to fv env st [] = T /\
 partially_evaluates_to fv env st ((e1,e2)::r) =
   case evaluate st env [e1] of
@@ -656,9 +669,9 @@ partially_evaluates_to fv env st ((e1,e2)::r) =
                   | _ => T)
           | NONE => res = Rerr (Rabort Rtype_error))
    | (st',rerr) => evaluate st env [e2] = (st',rerr)
-`;
+End
 
-val partially_evaluates_to_match_def = Define `
+Definition partially_evaluates_to_match_def:
 partially_evaluates_to_match fv mv err_v env st (pr1,pr2) =
   case evaluate_match st env mv pr1 err_v of
     (st',Rval v1) =>
@@ -672,10 +685,10 @@ partially_evaluates_to_match fv mv err_v env st (pr1,pr2) =
                    evaluate (dec_clock st') env' [e3] = (st'',res)
             | NONE => res = Rerr (Rabort Rtype_error))
    | (st',rerr) => evaluate_match st env mv pr2 err_v = (st',rerr)
-`;
+End
 
-val mk_single_app_evaluate = Q.prove(
-  `(!^st env es es' fname fv. mk_single_apps (SOME fname) T es = SOME es'
+Triviality mk_single_app_evaluate:
+  (!^st env es es' fname fv. mk_single_apps (SOME fname) T es = SOME es'
     /\ do_con_check env.c (SOME (Short "Inr")) 1 = T
     /\ (!v. build_conv env.c (SOME (Short "Inr")) [v] =
            SOME(Conv (SOME (TypeStamp "Inr" 4)) [v]))
@@ -695,7 +708,7 @@ val mk_single_app_evaluate = Q.prove(
     /\ nsLookup env.v (Short fname) = SOME fv
     ==> partially_evaluates_to_match fv v err_v env st (pes',pes)
    )
-   `,
+Proof
   ho_match_mp_tac evaluate_ind >> rpt strip_tac
   (* Nil *)
   >- (fs[mk_single_app_def] >> rveq >> fs[partially_evaluates_to_def])
@@ -807,6 +820,7 @@ val mk_single_app_evaluate = Q.prove(
           fs[quantHeuristicsTheory.LIST_LENGTH_1] >> rveq >>
           fs[mk_inl_res_def] >> rveq >>
           fs[dest_inl_v_def,dest_inr_v_def] >>
+          fs[astTheory.getOpClass_def] >>
           qmatch_goalsub_abbrev_tac `a1 = _` >>
           MAP_EVERY qexists_tac [`FST a1`,`SND a1`] >>
           simp[] >> PURE_TOP_CASE_TAC >> simp[]) >>
@@ -933,7 +947,7 @@ val mk_single_app_evaluate = Q.prove(
       Cases_on `result` >> fs[mk_inr_res_def] >> rveq >> fs[dest_inr_v_def] >>
       imp_res_tac evaluatePropsTheory.evaluate_length >>
       fs[quantHeuristicsTheory.LIST_LENGTH_1] >> fs[dest_inr_v_def])
-    );
+QED
 
 Theorem mk_single_app_evaluate_single:
   !^st env e e' fname fv. mk_single_app (SOME fname) T e = SOME e'
@@ -952,8 +966,8 @@ Proof
   rpt(disch_then drule) >> simp[]
 QED
 
-val evaluate_tailrec_ind_lemma = Q.prove(
-  `!ck fbody gbody env env' ^st farg x v fname st' res.
+Triviality evaluate_tailrec_ind_lemma:
+  !ck fbody gbody env env' ^st farg x v fname st' res.
    mk_single_app (SOME fname) T fbody = SOME gbody /\
    do_con_check env.c (SOME (Short "Inr")) 1 /\
    (∀v.
@@ -993,7 +1007,8 @@ val evaluate_tailrec_ind_lemma = Q.prove(
        evaluate_ck ck ^st
          (env with
           v := nsBind farg v (build_rec_env [(fname,farg,fbody)] env env.v))
-         [fbody] = (st' with clock := ck',res)`,
+         [fbody] = (st' with clock := ck',res)
+Proof
   ho_match_mp_tac COMPLETE_INDUCTION >> rw[evaluate_ck_def] >>
   pop_assum mp_tac >>
   ntac 5 (simp[Once evaluate_def]) >>
@@ -1105,10 +1120,10 @@ val evaluate_tailrec_ind_lemma = Q.prove(
         rveq) >>
       rpt strip_tac >>
       fs[semanticPrimitivesTheory.state_component_equality])
-  );
+QED
 
-val evaluate_tailrec_lemma = Q.prove(
- `!ck fbody gbody env ^st farg x fname st' res.
+Triviality evaluate_tailrec_lemma:
+  !ck fbody gbody env ^st farg x fname st' res.
    mk_single_app (SOME fname) T fbody = SOME gbody /\
    do_con_check env.c (SOME (Short "Inr")) 1 /\
    (∀v.
@@ -1136,7 +1151,8 @@ val evaluate_tailrec_lemma = Q.prove(
     ∃ck'.evaluate_ck ck ^st
          (env with
           v := nsBind farg x (build_rec_env [(fname,farg,fbody)] env env.v))
-         [fbody] = (st' with clock := ck',res)`,
+         [fbody] = (st' with clock := ck',res)
+Proof
   rpt strip_tac >>
   fs[evaluate_ck_def] >>
   pop_assum mp_tac >>
@@ -1156,10 +1172,11 @@ val evaluate_tailrec_lemma = Q.prove(
   drule evaluatePropsTheory.evaluate_add_to_clock >>
   simp[] >>
   disch_then(qspec_then `2` mp_tac) >>
-  simp[semanticPrimitivesTheory.state_component_equality]);
+  simp[semanticPrimitivesTheory.state_component_equality]
+QED
 
-val mk_single_app_unroll_lemma = Q.prove(
-  `!fname fbody gbody ^st st' ck1 env farg ck2 x v.
+Triviality mk_single_app_unroll_lemma:
+  !fname fbody gbody ^st st' ck1 env farg ck2 x v.
     mk_single_app (SOME fname) T fbody = SOME gbody /\
     evaluate (^st with clock := ck1)
                (env with
@@ -1189,7 +1206,8 @@ val mk_single_app_unroll_lemma = Q.prove(
                  v :=
              nsBind farg v
                     (nsBind fname (Recclosure env [(fname,farg,fbody)] fname) env.v))
-            [fbody]`,
+            [fbody]
+Proof
   rpt strip_tac >>
   drule mk_single_app_evaluate_single >>
   disch_then(qspecl_then [`st with clock := ck1 + ck2 + 1`,
@@ -1202,10 +1220,11 @@ val mk_single_app_unroll_lemma = Q.prove(
   simp[dest_inr_v_def,dest_inl_v_def,evaluateTheory.dec_clock_def,do_opapp_def,
        Once find_recfun_def] >>
   rpt strip_tac >>
-  simp[] >> fs[build_rec_env_def]);
+  simp[] >> fs[build_rec_env_def]
+QED
 
-val evaluate_tailrec_diverge_lemma = Q.prove(
-  `!ck fbody gbody env env' ^st farg x v fname.
+Triviality evaluate_tailrec_diverge_lemma:
+  !ck fbody gbody env env' ^st farg x v fname.
    mk_single_app (SOME fname) T fbody = SOME gbody /\
    do_con_check env.c (SOME (Short "Inr")) 1 /\
    (∀v.
@@ -1244,7 +1263,8 @@ val evaluate_tailrec_diverge_lemma = Q.prove(
        evaluate_ck ck ^st
          (env with
           v := nsBind farg v (build_rec_env [(fname,farg,fbody)] env env.v))
-         [fbody] = (st',Rerr(Rabort(Rtimeout_error)))`,
+         [fbody] = (st',Rerr(Rabort(Rtimeout_error)))
+Proof
   ho_match_mp_tac COMPLETE_INDUCTION >> rw[evaluate_ck_def] >>
   pop_assum mp_tac >>
   ntac 5 (simp[Once evaluate_def]) >>
@@ -1370,10 +1390,10 @@ val evaluate_tailrec_diverge_lemma = Q.prove(
         disch_then(qspecl_then [`aenv`,`aenv'`,`ast`,`farg`,`argx`,`argv`] mp_tac) >>
         simp[] >> simp[build_rec_env_def])
     )
-  );
+QED
 
-val evaluate_tailrec_div_ind_lemma = Q.prove(
-  `!ck fbody gbody env env' ^st farg x v fname st' res.
+Triviality evaluate_tailrec_div_ind_lemma:
+  !ck fbody gbody env env' ^st farg x v fname st' res.
    mk_single_app (SOME fname) T fbody = SOME gbody /\
    do_con_check env.c (SOME (Short "Inr")) 1 /\
    (∀v.
@@ -1413,7 +1433,8 @@ val evaluate_tailrec_div_ind_lemma = Q.prove(
        evaluate_ck ck' ^st
          (env with
           v := nsBind farg v (build_rec_env [(fname,farg,fbody)] env env.v))
-         [fbody] = (st',Rerr(Rabort(Rtimeout_error)))`,
+         [fbody] = (st',Rerr(Rabort(Rtimeout_error)))
+Proof
   ho_match_mp_tac COMPLETE_INDUCTION >> rw[evaluate_ck_def] >>
   pop_assum mp_tac >>
   ntac 5 (simp[Once evaluate_def]) >>
@@ -1511,10 +1532,10 @@ val evaluate_tailrec_div_ind_lemma = Q.prove(
       disch_then match_mp_tac >>
       simp[] >>
       asm_exists_tac >> first_x_assum ACCEPT_TAC)
-  );
+QED
 
-val evaluate_tailrec_div_ind_lemma2 = Q.prove(
-  `!ck fbody gbody env env' ^st farg x v fname st' res.
+Triviality evaluate_tailrec_div_ind_lemma2:
+  !ck fbody gbody env env' ^st farg x v fname st' res.
    mk_single_app (SOME fname) T fbody = SOME gbody /\
    do_con_check env.c (SOME (Short "Inr")) 1 /\
    (∀v.
@@ -1552,7 +1573,8 @@ val evaluate_tailrec_div_ind_lemma2 = Q.prove(
                                 (Recclosure env [(fname,farg,fbody)] fname)
                                 env.v) farg gbody) env.v))
                 env')))
-     [^tailrec_body] = (st',Rerr(Rabort(Rtimeout_error)))`,
+     [^tailrec_body] = (st',Rerr(Rabort(Rtimeout_error)))
+Proof
   ho_match_mp_tac COMPLETE_INDUCTION >> rw[evaluate_ck_def] >>
   Q.REFINE_EXISTS_TAC `ck' + 1` >>
   ntac 5 (simp[Once evaluate_def]) >>
@@ -1619,24 +1641,25 @@ val evaluate_tailrec_div_ind_lemma2 = Q.prove(
       fs[evaluateTheory.dec_clock_def] >>
       HINT_EXISTS_TAC >> simp[] >>
       imp_res_tac evaluate_clock >> fs[])
-  );
+QED
 
-val lprefix_mono_lprefix = Q.prove(
- `!f i k.
+Triviality lprefix_mono_lprefix:
+  !f i k.
  (!i. LPREFIX (f i) (f(i + 1)))
  ==> LPREFIX (f i) (f(i + (k:num)))
- `,
- rw[] >> Induct_on `k` >> fs[] >>
+Proof
+  rw[] >> Induct_on `k` >> fs[] >>
  first_x_assum(qspec_then `i + k` assume_tac) >>
  fs[ADD1] >>
- metis_tac[LPREFIX_TRANS]);
+ metis_tac[LPREFIX_TRANS]
+QED
 
-val gify = Q.prove(
- `!g n.
+Triviality gify:
+  !g n.
  (!i. g i < g (i +1))
  ==> ?k (i:num). g i = (n:num) + k
- `,
- rpt strip_tac >>
+Proof
+  rpt strip_tac >>
  `n <= g n`
    by(Induct_on `n` >> simp[] >>
       qpat_x_assum `!i. _ < _` (qspec_then `n` mp_tac) >>
@@ -1644,25 +1667,7 @@ val gify = Q.prove(
       fs[LESS_EQ,LESS_EQ_EXISTS,ADD1] >>
       metis_tac[ADD_ASSOC]) >>
  fs[LESS_EQ_EXISTS] >>
- metis_tac[ADD_SYM]);
-
-Theorem lprefix_lub_skip:
-  (!i. LPREFIX (f i) (f(i + 1))) /\
-  (!i. g i < g(i+1)) /\
-  lprefix_lub (IMAGE (\i. f (g i)) (UNIV:num set)) l
-  ==>
-  lprefix_lub (IMAGE (\i. f i) (UNIV:num set)) l
-Proof
- rw[lprefix_lubTheory.lprefix_lub_def]
- >- (drule gify >>
-     disch_then(qspec_then `i` strip_assume_tac) >>
-     drule lprefix_mono_lprefix >>
-     disch_then(qspecl_then [`i`,`k`] assume_tac) >>
-     match_mp_tac(GEN_ALL LPREFIX_TRANS) >> asm_exists_tac >> simp[] >>
-     metis_tac[]) >>
- last_x_assum match_mp_tac >>
- rpt strip_tac >>
- first_x_assum match_mp_tac >> metis_tac[]
+ metis_tac[ADD_SYM]
 QED
 
 Theorem lprefix_lub_unskip:
@@ -1816,8 +1821,9 @@ Proof
   metis_tac[mk_tailrec_closure_sound_basic,app_def]
 QED
 
-val some_tailrec_clos_def = Define `
-  some_tailrec_clos env = Recclosure env ^tailrec_clos "tailrec"`;
+Definition some_tailrec_clos_def:
+  some_tailrec_clos env = Recclosure env ^tailrec_clos "tailrec"
+End
 
 Theorem POSTv_eq:
   $POSTv Q r h <=> ?v. r = Val v /\ Q v h
@@ -1830,9 +1836,10 @@ fun rename_conv s tm =
     val (v,body) = dest_abs tm
   in ALPHA_CONV (mk_var(s,type_of v)) tm end;
 
-val get_index_def = Define `
+Definition get_index_def:
   get_index st states i = if i = 0:num then (i,st) else
-                            (i, states (get_index st states (i-1)))`
+                            (i, states (get_index st states (i-1)))
+End
 
 Theorem FFI_full_IN_st2heap_IMP:
   FFI_full io ∈ st2heap p s ==> s.ffi.io_events = io
@@ -1857,21 +1864,22 @@ Proof
   \\ qexists_tac `ck-ck0` \\ fs []
 QED
 
-val lprefix_mono_lprefix = Q.prove(
-  `!f i k.
+Triviality lprefix_mono_lprefix:
+  !f i k.
   (!i. LPREFIX (f i) (f(i + 1)))
   ==> LPREFIX (f i) (f(i + (k:num)))
-  `,
+Proof
   rw[] >> Induct_on `k` >> fs[] >>
   first_x_assum(qspec_then `i + k` assume_tac) >>
   fs[ADD1] >>
-  metis_tac[LPREFIX_TRANS]);
+  metis_tac[LPREFIX_TRANS]
+QED
 
-val gify = Q.prove(
-  `!g n.
+Triviality gify:
+  !g n.
   (!i. g i < g (i +1))
   ==> ?k (i:num). g i = (n:num) + k
-  `,
+Proof
   rpt strip_tac >>
   `n <= g n`
     by(Induct_on `n` >> simp[] >>
@@ -1880,7 +1888,8 @@ val gify = Q.prove(
        fs[LESS_EQ,LESS_EQ_EXISTS,ADD1] >>
        metis_tac[ADD_ASSOC]) >>
   fs[LESS_EQ_EXISTS] >>
-  metis_tac[ADD_SYM]);
+  metis_tac[ADD_SYM]
+QED
 
 Theorem lprefix_lub_skip:
    (!i. LPREFIX (f i) (f(i + 1))) /\
@@ -2247,7 +2256,9 @@ val repeat_clos = cfTacticsLib.process_topdecs `
 
 val repeat_body = repeat_clos |> rator |> rand |> rand |> rand |> rand
 
-val cause_type_error_def = Define `cause_type_error = App Ord [Lit(IntLit 0)]`
+Definition cause_type_error_def:
+  cause_type_error = App Ord [Lit(IntLit 0)]
+End
 
 Theorem evaluate[simp]:
   evaluate s env [cause_type_error] = (s,Rerr (Rabort Rtype_error))
@@ -2256,8 +2267,10 @@ Proof
       semanticPrimitivesTheory.do_opapp_def,semanticPrimitivesTheory.do_app_def]
 QED
 
-val then_tyerr_def = Define `then_tyerr e =
-  Let NONE e cause_type_error`;
+Definition then_tyerr_def:
+  then_tyerr e =
+  Let NONE e cause_type_error
+End
 
 Definition make_single_app_def:
    (make_single_app fname allow_fname (Raise e) =
@@ -2444,24 +2457,24 @@ Termination
                                  | INR (INR (INR (t,funs))) =>
        list_size (pair_size (list_size char_size)
                   (pair_size (list_size char_size) exp_size)) funs)`
-  \\ gvs [astTheory.exp_size_eq] \\ rw []
+  \\ rw []
   \\ gvs [Once (dest_opapp_def |> DefnBase.one_line_ify NONE)]
   \\ gvs [AllCaseEqs()]
-  \\ fs [list_size_def,astTheory.exp_size_def]
 End
 
 val make_single_app_ind = fetch "-" "make_single_app_ind"
 
-val make_stepfun_closure_def = Define
-  ` make_stepfun_closure env fname farg fbody =
+Definition make_stepfun_closure_def:
+  make_stepfun_closure env fname farg fbody =
     do
      gbody <- make_single_app (SOME fname) T fbody;
      SOME(let benv = build_rec_env [(fname,farg,fbody)] env env.v
           in Closure (env with v := benv) farg gbody)
-    od`
+    od
+End
 
-val make_repeat_closure_def = Define
-  `(make_repeat_closure (Recclosure env [(fname,farg,fbody)] name2) =
+Definition make_repeat_closure_def:
+  (make_repeat_closure (Recclosure env [(fname,farg,fbody)] name2) =
     do
      gclosure <- make_stepfun_closure  env fname farg fbody;
      SOME(Closure (env with <| v :=
@@ -2473,10 +2486,11 @@ val make_repeat_closure_def = Define
                 Var(Short farg)]
           )
          )
-    od) /\ make_repeat_closure _ = NONE`
+    od) /\ make_repeat_closure _ = NONE
+End
 
-val make_single_app_F_unchanged_gen = Q.prove(
-  `(!fname allow_fname e e'. make_single_app fname allow_fname e = SOME e'
+Triviality make_single_app_F_unchanged_gen:
+  (!fname allow_fname e e'. make_single_app fname allow_fname e = SOME e'
                /\ allow_fname = F ==> e = e') /\
    (!fname es es'. make_single_apps fname es = SOME es'
                ==> es = es') /\
@@ -2484,20 +2498,22 @@ val make_single_app_F_unchanged_gen = Q.prove(
                /\ allow_fname = F ==> pes = pes') /\
    (!fname recfuns recfuns'. make_single_appr fname recfuns = SOME recfuns'
                ==> recfuns = recfuns')
-  `,
+Proof
   ho_match_mp_tac make_single_app_ind >>
   rw[make_single_app_def] >> fs[] >>
   every_case_tac >> fs[] >> rfs[] >>
   first_x_assum drule >> simp[] >>
   imp_res_tac dest_opapp_eq_single_IMP >>
-  fs[]);
+  fs[]
+QED
 
-val make_single_app_F_unchanged = save_thm("make_single_app_F_unchanged",
-  SIMP_RULE std_ss [] make_single_app_F_unchanged_gen);
+Theorem make_single_app_F_unchanged =
+  SIMP_RULE std_ss [] make_single_app_F_unchanged_gen
 
-val mk_tyerr_res_def = Define `
+Definition mk_tyerr_res_def:
   mk_tyerr_res (Rerr e) = Rerr e /\
-  mk_tyerr_res r = Rerr (Rabort Rtype_error)`;
+  mk_tyerr_res r = Rerr (Rabort Rtype_error)
+End
 
 Theorem evaluate_then_tyerr[simp]:
   evaluate st env [then_tyerr e] =
@@ -2649,7 +2665,7 @@ QED
 val make_single_app_NONE_evaluate_exp =
   make_single_app_NONE_evaluate |> CONJUNCT1 |> SIMP_RULE std_ss [];
 
-val part_evaluates_to_def = Define `
+Definition part_evaluates_to_def:
   part_evaluates_to fv env st (e1,e2) =
     case evaluate st env [e1] of
       (st',Rval v1) =>
@@ -2662,9 +2678,10 @@ val part_evaluates_to_def = Define `
             | NONE => res = Rerr (Rabort Rtype_error))
      | (st',Rerr (Rabort Rtype_error)) =>
          (?res. evaluate st env [e2] = (st',res))
-     | (st',Rerr err) => evaluate st env [e2] = (st',Rerr err)`;
+     | (st',Rerr err) => evaluate st env [e2] = (st',Rerr err)
+End
 
-val part_evaluates_to_match_def = Define `
+Definition part_evaluates_to_match_def:
   part_evaluates_to_match fv mv err_v env st (pr1,pr2) =
     case evaluate_match st env mv pr1 err_v of
       (st',Rval v1) =>
@@ -2678,7 +2695,8 @@ val part_evaluates_to_match_def = Define `
               | NONE => res = Rerr (Rabort Rtype_error))
      | (st',Rerr (Rabort Rtype_error)) =>
          (?res. evaluate_match st env mv pr2 err_v = (st',res))
-     | (st',Rerr err) => evaluate_match st env mv pr2 err_v = (st',Rerr err)`;
+     | (st',Rerr err) => evaluate_match st env mv pr2 err_v = (st',Rerr err)
+End
 
 Theorem make_single_app_SOME_evaluate:
    (!fname allow_fname e e' ^st env f fv.
@@ -2945,8 +2963,8 @@ QED
 val make_single_app_SOME_evaluate_exp =
   make_single_app_SOME_evaluate |> CONJUNCT1 |> SIMP_RULE std_ss [];
 
-val make_single_app_unroll_lemma = Q.prove(
-  `!fname fbody gbody ^st st' ck1 env farg ck2 x v.
+Triviality make_single_app_unroll_lemma:
+  !fname fbody gbody ^st st' ck1 env farg ck2 x v.
     make_single_app (SOME fname) T fbody = SOME gbody /\
     evaluate (^st with clock := ck1)
                (env with
@@ -2968,7 +2986,8 @@ val make_single_app_unroll_lemma = Q.prove(
                  v :=
              nsBind farg v
                     (nsBind fname (Recclosure env [(fname,farg,fbody)] fname) env.v))
-            [fbody]`,
+            [fbody]
+Proof
   rpt strip_tac >>
   drule make_single_app_SOME_evaluate_exp >>
   disch_then(qspecl_then [`st with clock := ck1 + ck2 + 1`,
@@ -2980,10 +2999,11 @@ val make_single_app_unroll_lemma = Q.prove(
   simp[evaluateTheory.dec_clock_def,do_opapp_def,
        Once find_recfun_def] >>
   rpt strip_tac >>
-  simp[] >> fs[build_rec_env_def]);
+  simp[] >> fs[build_rec_env_def]
+QED
 
-val evaluate_repeat_diverge_lemma = Q.prove(
-  `!ck fbody gbody env env' ^st farg x v fname.
+Triviality evaluate_repeat_diverge_lemma:
+  !ck fbody gbody env env' ^st farg x v fname.
    make_single_app (SOME fname) T fbody = SOME gbody /\
    fname <> farg /\
    (!ck. ?st'. evaluate_ck ck ^st
@@ -3014,7 +3034,8 @@ val evaluate_repeat_diverge_lemma = Q.prove(
        evaluate_ck ck ^st
          (env with
           v := nsBind farg v (build_rec_env [(fname,farg,fbody)] env env.v))
-         [fbody] = (st',Rerr(Rabort Rtimeout_error))`,
+         [fbody] = (st',Rerr(Rabort Rtimeout_error))
+Proof
   ho_match_mp_tac COMPLETE_INDUCTION >> rw[evaluate_ck_def] >>
   pop_assum mp_tac >>
   ntac 5 (simp[Once evaluate_def]) >>
@@ -3126,10 +3147,11 @@ val evaluate_repeat_diverge_lemma = Q.prove(
    impl_tac >- metis_tac[ADD_SYM,ADD_ASSOC] >>
    disch_then drule >>
    disch_then(qspecl_then [`aenv`,`aenv'`,`ast`,`farg`,`argx`,`argv`] mp_tac) >>
-   simp[] >> simp[build_rec_env_def]);
+   simp[] >> simp[build_rec_env_def]
+QED
 
-val evaluate_repeat_div_ind_lemma = Q.prove(
-  `!ck fbody gbody env env' ^st farg x v fname st' res.
+Triviality evaluate_repeat_div_ind_lemma:
+  !ck fbody gbody env env' ^st farg x v fname st' res.
    make_single_app (SOME fname) T fbody = SOME gbody /\
    fname <> farg /\
    ck > 0 /\
@@ -3161,7 +3183,8 @@ val evaluate_repeat_div_ind_lemma = Q.prove(
        evaluate_ck ck' ^st
          (env with
           v := nsBind farg v (build_rec_env [(fname,farg,fbody)] env env.v))
-         [fbody] = (st',Rerr(Rabort Rtimeout_error))`,
+         [fbody] = (st',Rerr(Rabort Rtimeout_error))
+Proof
   ho_match_mp_tac COMPLETE_INDUCTION >> rw[evaluate_ck_def] >>
   pop_assum mp_tac >>
   ntac 5 (simp[Once evaluate_def]) >>
@@ -3237,10 +3260,11 @@ val evaluate_repeat_div_ind_lemma = Q.prove(
   simp[build_rec_env_def] >>
   disch_then match_mp_tac >>
   simp[] >>
-  asm_exists_tac >> first_x_assum ACCEPT_TAC);
+  asm_exists_tac >> first_x_assum ACCEPT_TAC
+QED
 
-val evaluate_repeat_div_ind_lemma2 = Q.prove(
-  `!ck fbody gbody env env' ^st farg x v fname st' res.
+Triviality evaluate_repeat_div_ind_lemma2:
+  !ck fbody gbody env env' ^st farg x v fname st' res.
    make_single_app (SOME fname) T fbody = SOME gbody /\
    fname <> farg /\
    evaluate_ck ck ^st
@@ -3271,7 +3295,8 @@ val evaluate_repeat_div_ind_lemma2 = Q.prove(
                                 env.v) farg gbody) env.v))
                 env')))
      [^repeat_body] = (st',Rerr(Rabort res2)) /\
-     (res2 <> Rtimeout_error ==> res2 = Rtype_error)`,
+     (res2 <> Rtimeout_error ==> res2 = Rtype_error)
+Proof
   ho_match_mp_tac COMPLETE_INDUCTION >> rw[evaluate_ck_def] >>
   Q.REFINE_EXISTS_TAC `ck' + 1` >>
   ntac 5 (simp[Once evaluate_def]) >>
@@ -3325,7 +3350,8 @@ val evaluate_repeat_div_ind_lemma2 = Q.prove(
   first_x_assum(match_mp_tac o MP_CANON) >>
   fs[evaluateTheory.dec_clock_def,build_rec_env_def] >>
   HINT_EXISTS_TAC >> simp[] >>
-  imp_res_tac evaluate_clock >> fs[]);
+  imp_res_tac evaluate_clock >> fs[]
+QED
 
 Theorem make_repeat_closure_sound_basic:
    !fv env .
@@ -3445,42 +3471,18 @@ Proof
   metis_tac[make_repeat_closure_sound_basic,app_def]
 QED;
 
-val some_repeat_clos_def = Define `
-  some_repeat_clos env = Recclosure env ^repeat_clos "repeat"`;
+Definition some_repeat_clos_def:
+  some_repeat_clos env = Recclosure env ^repeat_clos "repeat"
+End
 
 fun rename_conv s tm =
   let
     val (v,body) = dest_abs tm
   in ALPHA_CONV (mk_var(s,type_of v)) tm end;
 
-val get_index_def = Define `
-  get_index st states i = if i = 0:num then (i,st) else
-                            (i, states (get_index st states (i-1)))`
-
-Theorem FFI_full_IN_st2heap_IMP:
-  FFI_full io ∈ st2heap p s ==> s.ffi.io_events = io
-Proof
-  strip_tac \\ fs [st2heap_def]
-  THEN1 fs [store2heap_def,FFI_full_NOT_IN_store2heap_aux]
-  \\ Cases_on `p` \\ fs [ffi2heap_def]
-  \\ Cases_on `parts_ok s.ffi (q,r)` \\ fs []
-QED
-
 val let_a = repeat_clos |> rator |> rand |> rand |> rand |> rand
 
-Theorem evaluate_ck_timeout_error_IMP:
-    evaluate_ck ck st env exps = (st1,Rerr (Rabort Rtimeout_error)) /\
-    ck0 <= ck ==>
-    ?st2. evaluate_ck ck0 st env exps = (st2,Rerr (Rabort Rtimeout_error))
-Proof
-  rw [] \\ CCONTR_TAC \\ fs []
-  \\ fs [evaluate_ck_def]
-  \\ Cases_on `evaluate (st with clock := ck0) env exps` \\ fs []
-  \\ drule evaluatePropsTheory.evaluate_add_to_clock \\ fs []
-  \\ qexists_tac `ck-ck0` \\ fs []
-QED
-
-Theorem repeat_POSTd:
+Theorem repeat_POSTd0:
     !p env fv xv H Q.
       (?Hs events vs io.
          vs 0 = xv /\ H ==>> Hs 0 /\
@@ -3692,7 +3694,7 @@ Proof
   \\ match_mp_tac app_opapp_intro
   \\ fs [evaluate_def,build_rec_env_def]
   \\ fs [GSYM some_repeat_clos_def]
-  \\ match_mp_tac (GEN_ALL repeat_POSTd) \\ fs []
+  \\ match_mp_tac (GEN_ALL repeat_POSTd0) \\ fs []
   \\ qexists_tac `\i. Hs i * one (FFI_full (events i))`
   \\ qexists_tac `events`
   \\ qexists_tac `vs`
@@ -3704,9 +3706,10 @@ QED
 
 (* -- FFI_part -- *)
 
-val limited_parts_def = Define `
+Definition limited_parts_def:
   limited_parts ns ((proj,parts):'ffi ffi_proj) <=>
-    ns = FLAT (MAP FST parts)`
+    ns = FLAT (MAP FST parts)
+End
 
 Theorem FFI_part_IN_st2heap_IMP:
   FFI_part s u ns events ∈ st2heap p st ==>
@@ -4178,25 +4181,25 @@ Proof
 QED
 
 Theorem repeat_POSTe:
-    !p fv xv H Q.
-      (?Hs vs j.
-         vs 0 = xv /\ H ==>> Hs 0 /\
-         (!i. i < j ==>
-            app p fv [vs i] (Hs i)
-                            (POSTv v. &(v = vs (SUC i)) * Hs (SUC i))) /\
-         app p fv [vs j] (Hs j) ($POSTe Q))
-      ==>
-      app p repeat_v [fv; xv] H ($POSTe Q)
+  !(p: 'ffi ffi_proj) fv xv H Q.
+    (?Hs vs j.
+        vs 0 = xv /\ H ==>> Hs 0 /\
+        (!i. i < j ==>
+          app p fv [vs i] (Hs i) (POSTv v. &(v = vs (SUC i)) * Hs (SUC i))) /\
+        app p fv [vs j] (Hs j) ($POSTe Q)) ==>
+          app p repeat_v [fv; xv] H ($POSTe Q)
 Proof
   rpt strip_tac
   \\ `!i. i <= j ==> app p repeat_v [fv; vs i] (Hs i) ($POSTe Q)` by (
     rpt strip_tac
     \\ Induct_on `j - i`
     THEN1 (
-      xcf "repeat" st
+      rpt strip_tac
+      \\ xcf "repeat" st
       \\ `i = j` by decide_tac \\ rveq
       \\ xlet `$POSTe Q` THEN1 xapp
       \\ xsimpl)
+    \\ rpt strip_tac
     \\ xcf "repeat" st
     \\ `i < j` by decide_tac
     \\ xlet `POSTv v. &(v = vs (SUC i)) * Hs (SUC i)`
@@ -4364,11 +4367,12 @@ Proof
  simp[LNTH_LUNFOLD,FUNPOW]
 QED
 
-val every_LGENLIST = Q.prove(`
+Triviality every_LGENLIST:
   every P (LGENLIST f NONE)
   = !x. P(f x)
-  `,
-  rw[every_LNTH,LNTH_LGENLIST,EQ_IMP_THM]);
+Proof
+  rw[every_LNTH,LNTH_LGENLIST,EQ_IMP_THM]
+QED
 
 Theorem LFLATTEN_LAPPEND_fromList:
   !l1 ll2.
@@ -4449,13 +4453,17 @@ Proof
   \\ fs[o_DEF]
 QED
 
-val list_length_eq = Q.prove(
-   `l1 = l2 ==> LENGTH l1 = LENGTH l2`,
-   simp[])
+Triviality list_length_eq:
+  l1 = l2 ==> LENGTH l1 = LENGTH l2
+Proof
+  simp[]
+QED
 
-val list_length_eq2 = Q.prove(
-   `l1 = l2 ==> LENGTH(FLAT(MAP FST l1)) = LENGTH(FLAT(MAP FST l2))`,
-   simp[])
+Triviality list_length_eq2:
+  l1 = l2 ==> LENGTH(FLAT(MAP FST l1)) = LENGTH(FLAT(MAP FST l2))
+Proof
+  simp[]
+QED
 
 Theorem MEM_FLAT_MAP_FST_SING:
   MEM (FLAT (MAP FST r),u) r
@@ -4809,5 +4817,3 @@ Proof
   \\ qexists_tac `ns` \\ fs []
   \\ asm_exists_tac \\ fs[] \\ asm_exists_tac \\ fs[]
 QED
-
-val _ = export_theory();

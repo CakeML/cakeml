@@ -5,27 +5,31 @@
   the compiled program. the inserted code is a stackLang
   implementation of the garbage collector.
 *)
-open preamble stackLangTheory data_to_wordTheory;
-
-val _ = new_theory "stack_alloc";
+Theory stack_alloc
+Ancestors
+  stackLang data_to_word
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
-val memcpy_code_def = Define `
+Definition memcpy_code_def:
   memcpy_code =
     While NotEqual 0 (Imm 0w)
       (list_Seq [load_inst 1 2;
                  add_bytes_in_word_inst 2;
                  sub_1_inst 0;
                  store_inst 1 3;
-                 add_bytes_in_word_inst 3])`
+                 add_bytes_in_word_inst 3])
+End
 
-val clear_top_inst_def = Define `
+Definition clear_top_inst_def:
   clear_top_inst i n =
     Seq (left_shift_inst i (dimindex(:'a) - n - 1))
-        (right_shift_inst i (dimindex(:'a) - n - 1)):'a stackLang$prog`;
+        (right_shift_inst i (dimindex(:'a) - n - 1)):'a stackLang$prog
+End
 
-val word_gc_move_code_def = Define `
+Definition word_gc_move_code_def:
   word_gc_move_code conf =
     If Test 5 (Imm (1w:'a word)) Skip
       (list_Seq
@@ -63,18 +67,20 @@ val word_gc_move_code_def = Define `
                       left_shift_inst 1 (shift_length conf);
                       or_inst 5 1;
                       (* add to i in 4 *)
-                      add_inst 4 6])])`
+                      add_inst 4 6])])
+End
 
-val word_gc_move_list_code_def = Define `
+Definition word_gc_move_list_code_def:
   word_gc_move_list_code conf =
     While NotEqual 7 (Imm (0w:'a word))
       (list_Seq [load_inst 5 8;
                  sub_1_inst 7;
                  word_gc_move_code conf;
                  store_inst 5 8;
-                 add_bytes_in_word_inst 8])`
+                 add_bytes_in_word_inst 8])
+End
 
-val word_gc_move_loop_code_def = Define `
+Definition word_gc_move_loop_code_def:
   word_gc_move_loop_code conf =
     While NotEqual 3 (Reg 8)
      (list_Seq [load_inst 7 8;
@@ -85,10 +91,11 @@ val word_gc_move_loop_code_def = Define `
                   (list_Seq [right_shift_inst 7 (dimindex (:α) - conf.len_size);
                              add_1_inst 7;
                              left_shift_inst 7 (word_shift (:'a));
-                             add_inst 8 7])]):'a stackLang$prog`
+                             add_inst 8 7])]):'a stackLang$prog
+End
 
 (* 7 is w, 8 is index into stack, 5 is input to word_gc_move_code *)
-val word_gc_move_bitmap_code_def = Define `
+Definition word_gc_move_bitmap_code_def:
   word_gc_move_bitmap_code conf =
     While NotLower 7 (Imm 2w)
      (If Test 7 (Imm 1w)
@@ -98,29 +105,32 @@ val word_gc_move_bitmap_code_def = Define `
                    right_shift_inst 7 1;
                    word_gc_move_code conf;
                    StackStoreAny 5 8;
-                   add_bytes_in_word_inst 8]))`
+                   add_bytes_in_word_inst 8]))
+End
 
 (* 9 is w, 8 is index into stack *)
-val word_gc_move_bitmaps_code_def = Define `
+Definition word_gc_move_bitmaps_code_def:
   (word_gc_move_bitmaps_code conf):'a stackLang$prog =
     While NotTest 0 (Reg 0)
       (list_Seq [BitmapLoad 7 9;
                  word_gc_move_bitmap_code conf;
                  BitmapLoad 0 9;
                  add_1_inst 9;
-                 right_shift_inst 0 (dimindex (:'a) - 1)])`
+                 right_shift_inst 0 (dimindex (:'a) - 1)])
+End
 
 (* 9 is w, 8 is index into stack *)
-val word_gc_move_roots_bitmaps_code_def = Define `
+Definition word_gc_move_roots_bitmaps_code_def:
   (word_gc_move_roots_bitmaps_code conf):'a stackLang$prog =
     While NotTest 9 (Reg 9)
       (list_Seq [move 0 9;
                  sub_1_inst 9;
                  add_bytes_in_word_inst 8;
                  word_gc_move_bitmaps_code conf;
-                 StackLoadAny 9 8])`
+                 StackLoadAny 9 8])
+End
 
-val word_gen_gc_move_code_def = Define `
+Definition word_gen_gc_move_code_def:
   word_gen_gc_move_code conf =
     If Test 5 (Imm (1w:'a word)) Skip
       (list_Seq
@@ -192,9 +202,10 @@ val word_gen_gc_move_code_def = Define `
                           left_shift_inst 1 (shift_length conf);
                           or_inst 5 1;
                           (* add to i in 4 *)
-                          add_inst 4 6])])]) :'a stackLang$prog`;
+                          add_inst 4 6])])]) :'a stackLang$prog
+End
 
-val word_gen_gc_partial_move_code_def = Define `
+Definition word_gen_gc_partial_move_code_def:
   word_gen_gc_partial_move_code conf =
     (* uses 0,1,2,6 as temps *)
     If Test 5 (Imm (1w:'a word)) Skip
@@ -240,9 +251,10 @@ val word_gen_gc_partial_move_code_def = Define `
                           left_shift_inst 1 (shift_length conf);
                           or_inst 5 1;
                           (* add to i in 4 *)
-                          add_inst 4 6])])))]) :'a stackLang$prog`;
+                          add_inst 4 6])])))]) :'a stackLang$prog
+End
 
-val word_gen_gc_move_bitmap_code_def = Define `
+Definition word_gen_gc_move_bitmap_code_def:
   word_gen_gc_move_bitmap_code conf =
     While NotLower 7 (Imm 2w)
      (If Test 7 (Imm 1w)
@@ -252,9 +264,10 @@ val word_gen_gc_move_bitmap_code_def = Define `
                    right_shift_inst 7 1;
                    word_gen_gc_move_code conf;
                    StackStoreAny 5 8;
-                   add_bytes_in_word_inst 8]))`
+                   add_bytes_in_word_inst 8]))
+End
 
-val word_gen_gc_partial_move_bitmap_code_def = Define `
+Definition word_gen_gc_partial_move_bitmap_code_def:
   word_gen_gc_partial_move_bitmap_code conf =
     While NotLower 7 (Imm 2w)
      (If Test 7 (Imm 1w)
@@ -264,67 +277,74 @@ val word_gen_gc_partial_move_bitmap_code_def = Define `
                    right_shift_inst 7 1;
                    word_gen_gc_partial_move_code conf;
                    StackStoreAny 5 8;
-                   add_bytes_in_word_inst 8]))`
+                   add_bytes_in_word_inst 8]))
+End
 
 (* 9 is w, 8 is index into stack *)
-val word_gen_gc_move_bitmaps_code_def = Define `
+Definition word_gen_gc_move_bitmaps_code_def:
   (word_gen_gc_move_bitmaps_code conf):'a stackLang$prog =
     While NotTest 0 (Reg 0)
       (list_Seq [BitmapLoad 7 9;
                  word_gen_gc_move_bitmap_code conf;
                  BitmapLoad 0 9;
                  add_1_inst 9;
-                 right_shift_inst 0 (dimindex (:'a) - 1)])`
+                 right_shift_inst 0 (dimindex (:'a) - 1)])
+End
 
 (* 9 is w, 8 is index into stack *)
-val word_gen_gc_partial_move_bitmaps_code_def = Define `
+Definition word_gen_gc_partial_move_bitmaps_code_def:
   (word_gen_gc_partial_move_bitmaps_code conf):'a stackLang$prog =
     While NotTest 0 (Reg 0)
       (list_Seq [BitmapLoad 7 9;
                  word_gen_gc_partial_move_bitmap_code conf;
                  BitmapLoad 0 9;
                  add_1_inst 9;
-                 right_shift_inst 0 (dimindex (:'a) - 1)])`
+                 right_shift_inst 0 (dimindex (:'a) - 1)])
+End
 
 (* 9 is w, 8 is index into stack *)
-val word_gen_gc_move_roots_bitmaps_code_def = Define `
+Definition word_gen_gc_move_roots_bitmaps_code_def:
   (word_gen_gc_move_roots_bitmaps_code conf):'a stackLang$prog =
     While NotTest 9 (Reg 9)
       (list_Seq [move 0 9;
                  sub_1_inst 9;
                  add_bytes_in_word_inst 8;
                  word_gen_gc_move_bitmaps_code conf;
-                 StackLoadAny 9 8])`
+                 StackLoadAny 9 8])
+End
 
 (* 9 is w, 8 is index into stack *)
-val word_gen_gc_partial_move_roots_bitmaps_code_def = Define `
+Definition word_gen_gc_partial_move_roots_bitmaps_code_def:
   (word_gen_gc_partial_move_roots_bitmaps_code conf):'a stackLang$prog =
     While NotTest 9 (Reg 9)
       (list_Seq [move 0 9;
                  sub_1_inst 9;
                  add_bytes_in_word_inst 8;
                  word_gen_gc_partial_move_bitmaps_code conf;
-                 StackLoadAny 9 8])`
+                 StackLoadAny 9 8])
+End
 
-val word_gen_gc_move_list_code_def = Define `
+Definition word_gen_gc_move_list_code_def:
   word_gen_gc_move_list_code conf =
     While NotEqual 7 (Imm (0w:'a word))
       (list_Seq [load_inst 5 8;
                  sub_1_inst 7;
                  word_gen_gc_move_code conf;
                  store_inst 5 8;
-                 add_bytes_in_word_inst 8])`
+                 add_bytes_in_word_inst 8])
+End
 
-val word_gen_gc_partial_move_list_code_def = Define `
+Definition word_gen_gc_partial_move_list_code_def:
   word_gen_gc_partial_move_list_code conf =
     While NotEqual 7 (Imm (0w:'a word))
       (list_Seq [load_inst 5 8;
                  sub_1_inst 7;
                  word_gen_gc_partial_move_code conf;
                  store_inst 5 8;
-                 add_bytes_in_word_inst 8])`
+                 add_bytes_in_word_inst 8])
+End
 
-val word_gen_gc_move_data_code_def = Define `
+Definition word_gen_gc_move_data_code_def:
   word_gen_gc_move_data_code conf =
     While NotEqual 3 (Reg 8)
      (list_Seq [load_inst 7 8;
@@ -335,17 +355,19 @@ val word_gen_gc_move_data_code_def = Define `
                   (list_Seq [right_shift_inst 7 (dimindex (:α) - conf.len_size);
                              add_1_inst 7;
                              left_shift_inst 7 (word_shift (:'a));
-                             add_inst 8 7])]):'a stackLang$prog`
+                             add_inst 8 7])]):'a stackLang$prog
+End
 
-val word_gen_gc_partial_move_ref_list_code_def = Define `
+Definition word_gen_gc_partial_move_ref_list_code_def:
   word_gen_gc_partial_move_ref_list_code conf =
     While NotEqual 9 (Reg 8)
      (list_Seq [load_inst 7 8;
                 right_shift_inst 7 (dimindex (:α) - conf.len_size);
                 add_bytes_in_word_inst 8;
-                word_gen_gc_partial_move_list_code conf]):'a stackLang$prog`
+                word_gen_gc_partial_move_list_code conf]):'a stackLang$prog
+End
 
-val word_gen_gc_partial_move_data_code_def = Define `
+Definition word_gen_gc_partial_move_data_code_def:
   word_gen_gc_partial_move_data_code conf =
     While NotEqual 3 (Reg 8)
      (list_Seq [load_inst 7 8;
@@ -356,9 +378,10 @@ val word_gen_gc_partial_move_data_code_def = Define `
                   (list_Seq [right_shift_inst 7 (dimindex (:α) - conf.len_size);
                              add_1_inst 7;
                              left_shift_inst 7 (word_shift (:'a));
-                             add_inst 8 7])]):'a stackLang$prog`
+                             add_inst 8 7])]):'a stackLang$prog
+End
 
-val word_gen_gc_move_refs_code_def = Define `
+Definition word_gen_gc_move_refs_code_def:
   word_gen_gc_move_refs_code conf =
     (* r2a in 8, r1a in 0 and Temp 4w *)
     While NotEqual 0 (Reg 8)
@@ -366,9 +389,10 @@ val word_gen_gc_move_refs_code_def = Define `
                 right_shift_inst 7 (dimindex (:α) - conf.len_size);
                 add_bytes_in_word_inst 8;
                 word_gen_gc_move_list_code conf;
-                Get 0 (Temp 4w)]):'a stackLang$prog`
+                Get 0 (Temp 4w)]):'a stackLang$prog
+End
 
-val word_gen_gc_move_loop_code_def = Define `
+Definition word_gen_gc_move_loop_code_def:
   word_gen_gc_move_loop_code conf =
     (* 7 is 0w iff pbx = pb and pax = pa, 1 is pbx (Temp 4w), 2 is pb,
        8 is pax, 3 is pa *)
@@ -399,9 +423,10 @@ val word_gen_gc_move_loop_code_def = Define `
                     Get 8 (Temp 6w); (* pax *)
                     move 5 8; (* pax - pa' *)
                     sub_inst 5 3;
-                    or_inst 7 5]))`
+                    or_inst 7 5]))
+End
 
-val word_gc_partial_or_full_def = Define `
+Definition word_gc_partial_or_full_def:
   word_gc_partial_or_full gen_sizes partial_code full_code =
     dtcase gen_sizes of
     | [] => list_Seq ([Get 8 TriggerGC; Get 7 EndOfHeap; sub_inst 7 8] ++ full_code)
@@ -411,9 +436,10 @@ val word_gc_partial_or_full_def = Define `
               sub_inst 7 8;
               If NotLower 7 (Reg 1)
                 (list_Seq partial_code)
-                (list_Seq full_code)]`;
+                (list_Seq full_code)]
+End
 
-val SetNewTrigger_def = Define `
+Definition SetNewTrigger_def:
   SetNewTrigger (endh:num) (ib:num) gs =
     list_Seq [const_inst 1 ((get_gen_size gs):'a word);
               Get 7 AllocSize;
@@ -427,9 +453,10 @@ val SetNewTrigger_def = Define `
                      (Set TriggerGC endh)))
                 (If Lower 4 (Reg 1)
                    (Set TriggerGC endh)
-                   (Seq (add_inst 1 ib) (Set TriggerGC 1)))]`
+                   (Seq (add_inst 1 ib) (Set TriggerGC 1)))]
+End
 
-val word_gc_code_def = Define `
+Definition word_gc_code_def:
   word_gc_code conf =
     dtcase conf.gc_kind of
     | None =>
@@ -605,13 +632,16 @@ val word_gc_code_def = Define `
                Get 2 TriggerGC;
                sub_inst 2 3;
                If Lower 2 (Reg 1) (Seq (const_inst 1 1w) (Halt 1)) Skip ])
-                 :'a stackLang$prog`
+                 :'a stackLang$prog
+End
 
-val stubs_def = Define `
-  stubs conf = [(gc_stub_location,Seq (word_gc_code conf) (Return 0 0))]`
+Definition stubs_def:
+  stubs conf = [(gc_stub_location, Seq (word_gc_code conf) (Return 0))]
+End
 
-val stub_names_def = Define`
-  stub_names () = [(gc_stub_location,«_Gc»)]`
+Definition stub_names_def:
+  stub_names () = [(gc_stub_location, «_GC»)]
+End
 
 (* compiler *)
 
@@ -641,7 +671,7 @@ Theorem next_lab_pmatch = Q.prove(
    >> rpt strip_tac
    >> rw[Once next_lab_def]
    >> every_case_tac >> fs[]);
-end
+end;
 
 local
 val comp_quotation = `
@@ -667,6 +697,7 @@ val comp_quotation = `
               let (q2,m) = comp n m p2 in
                 (Call (SOME (q1,lr,l1,l2)) dest (SOME (q2,k1,k2)),m))
     | Alloc k => (Call (SOME (Skip,0,n,m)) (INL gc_stub_location) NONE,m+1)
+    | StoreConsts k1 k2 (SOME loc) => (Call (SOME (Skip,0,n,m)) (INL loc) NONE,m+1)
     | _ => (p,m) `
 in
 val comp_def = Define comp_quotation
@@ -681,10 +712,12 @@ Theorem comp_pmatch = Q.prove(
    >> rpt strip_tac
    >> rw[Once comp_def,pairTheory.ELIM_UNCURRY] >> every_case_tac >> fs[]);
 end
-val prog_comp_def = Define `
-  prog_comp (n,p) = (n,FST (comp n (next_lab p 2) p))`
 
-val compile_def = Define `
-  compile c prog = stubs c ++ MAP prog_comp prog`;
+Definition prog_comp_def:
+  prog_comp (n,p) = (n,FST (comp n (next_lab p 2) p))
+End
 
-val _ = export_theory();
+Definition compile_def:
+  compile c prog = stubs c ++ MAP prog_comp prog
+End
+

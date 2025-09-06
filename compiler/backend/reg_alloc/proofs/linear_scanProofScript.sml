@@ -1,12 +1,13 @@
 (*
   Proves correctness of the linear-scan register allocator.
 *)
-open preamble sptreeTheory reg_allocTheory linear_scanTheory reg_allocProofTheory libTheory
-open ml_monadBaseTheory ml_monadBaseLib;
+Theory linear_scanProof
+Libs
+  preamble ml_monadBaseLib
+Ancestors
+  mllist sptree reg_alloc linear_scan reg_allocProof ml_monadBase
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "linear_scanProof"
 
 val _ = disable_tyabbrev_printing "type_ident"
 val _ = disable_tyabbrev_printing "alist"
@@ -62,10 +63,6 @@ Theorem lookup_insert_id:
 Proof
     recInduct insert_ind >>
     rw []
-    THEN1 (
-        imp_res_tac domain_lookup >>
-        fs [domain_empty]
-    )
     THEN1 (
         fs [lookup_def] >>
         once_rewrite_tac [insert_def] >>
@@ -2027,9 +2024,9 @@ QED
 Theorem colors_sub_eqn[simp]:
     colors_sub n s =
   if n < LENGTH s.colors then
-    (Success (EL n s.colors),s)
+    (M_success (EL n s.colors),s)
   else
-    (Failure (Subscript),s)
+    (M_failure (Subscript),s)
 Proof
   rw[colors_sub_def]>>
   fs[Marray_sub_def]
@@ -2038,9 +2035,9 @@ QED
 Theorem update_colors_eqn[simp]:
     update_colors n t s =
   if n < LENGTH s.colors then
-     (Success (),s with colors := LUPDATE t n s.colors)
+     (M_success (),s with colors := LUPDATE t n s.colors)
   else
-     (Failure (Subscript),s)
+     (M_failure (Subscript),s)
 Proof
   rw[update_colors_def]>>
   fs[Marray_update_def]
@@ -2049,9 +2046,9 @@ QED
 Theorem int_beg_sub_eqn[simp]:
    int_beg_sub n s =
   if n < LENGTH s.int_beg then
-    (Success (EL n s.int_beg),s)
+    (M_success (EL n s.int_beg),s)
   else
-    (Failure (Subscript),s)
+    (M_failure (Subscript),s)
 Proof
   rw[int_beg_sub_def]>>
   fs[Marray_sub_def]
@@ -2060,9 +2057,9 @@ QED
 Theorem update_int_beg_eqn[simp]:
    update_int_beg n t s =
   if n < LENGTH s.int_beg then
-     (Success (),s with int_beg := LUPDATE t n s.int_beg)
+     (M_success (),s with int_beg := LUPDATE t n s.int_beg)
   else
-     (Failure (Subscript),s)
+     (M_failure (Subscript),s)
 Proof
   rw[update_int_beg_def]>>
   fs[Marray_update_def]
@@ -2071,9 +2068,9 @@ QED
 Theorem int_end_sub_eqn[simp]:
    int_end_sub n s =
   if n < LENGTH s.int_end then
-    (Success (EL n s.int_end),s)
+    (M_success (EL n s.int_end),s)
   else
-    (Failure (Subscript),s)
+    (M_failure (Subscript),s)
 Proof
   rw[int_end_sub_def]>>
   fs[Marray_sub_def]
@@ -2082,9 +2079,9 @@ QED
 Theorem update_int_end_eqn[simp]:
    update_int_end n t s =
   if n < LENGTH s.int_end then
-     (Success (),s with int_end := LUPDATE t n s.int_end)
+     (M_success (),s with int_end := LUPDATE t n s.int_end)
   else
-     (Failure (Subscript),s)
+     (M_failure (Subscript),s)
 Proof
   rw[update_int_end_def]>>
   fs[Marray_update_def]
@@ -2093,9 +2090,9 @@ QED
 Theorem sorted_regs_sub_eqn[simp]:
    sorted_regs_sub n s =
   if n < LENGTH s.sorted_regs then
-    (Success (EL n s.sorted_regs),s)
+    (M_success (EL n s.sorted_regs),s)
   else
-    (Failure (Subscript),s)
+    (M_failure (Subscript),s)
 Proof
   rw[sorted_regs_sub_def]>>
   fs[Marray_sub_def]
@@ -2104,9 +2101,9 @@ QED
 Theorem update_sorted_regs_eqn[simp]:
    update_sorted_regs n t s =
   if n < LENGTH s.sorted_regs then
-     (Success (),s with sorted_regs := LUPDATE t n s.sorted_regs)
+     (M_success (),s with sorted_regs := LUPDATE t n s.sorted_regs)
   else
-     (Failure (Subscript),s)
+     (M_failure (Subscript),s)
 Proof
   rw[update_sorted_regs_def]>>
   fs[Marray_update_def]
@@ -2115,9 +2112,9 @@ QED
 Theorem sorted_moves_sub_eqn[simp]:
    sorted_moves_sub n s =
   if n < LENGTH s.sorted_moves then
-    (Success (EL n s.sorted_moves),s)
+    (M_success (EL n s.sorted_moves),s)
   else
-    (Failure (Subscript),s)
+    (M_failure (Subscript),s)
 Proof
   rw[sorted_moves_sub_def]>>
   fs[Marray_sub_def]
@@ -2126,9 +2123,9 @@ QED
 Theorem update_sorted_moves_eqn[simp]:
    update_sorted_moves n t s =
   if n < LENGTH s.sorted_moves then
-     (Success (),s with sorted_moves := LUPDATE t n s.sorted_moves)
+     (M_success (),s with sorted_moves := LUPDATE t n s.sorted_moves)
   else
-     (Failure (Subscript),s)
+     (M_failure (Subscript),s)
 Proof
   rw[update_sorted_moves_def]>>
   fs[Marray_update_def]
@@ -2136,23 +2133,23 @@ QED
 
 val msimps = [st_ex_bind_def,st_ex_return_def];
 
-val lookup_default_id_def = Define`
+Definition lookup_default_id_def:
     lookup_default_id s x = option_CASE (lookup x s) x (\x.x)
-`;
+End
 
-val find_reg_exchange_step_def = Define`
+Definition find_reg_exchange_step_def:
     find_reg_exchange_step colors r (exch, invexch) =
         let col1 = EL r colors in
         let fcol1 = r DIV 2 in
         let col2 = lookup_default_id invexch fcol1 in
         let fcol2 = lookup_default_id exch col1 in
         (insert col1 fcol1 (insert col2 fcol2 exch), insert fcol1 col1 (insert fcol2 col2 invexch))
-`;
+End
 
 Theorem find_reg_exchange_FOLDL:
      !l colors exch invexch sth.
     (!r. MEM r l ==> r < LENGTH sth.colors) ==>
-    find_reg_exchange l exch invexch sth = (Success (FOLDL (\a b. find_reg_exchange_step sth.colors b a) (exch, invexch) l), sth)
+    find_reg_exchange l exch invexch sth = (M_success (FOLDL (\a b. find_reg_exchange_step sth.colors b a) (exch, invexch) l), sth)
 Proof
     Induct_on `l` >>
     rw [FOLDL, find_reg_exchange_def, find_reg_exchange_step_def, lookup_default_id_def] >>
@@ -2166,7 +2163,9 @@ Proof
     rw [lookup_default_id_def, lookup_insert]
 QED
 
-val id_def = Define `id x = x`
+Definition id_def:
+  id x = x
+End
 
 Theorem find_reg_exchange_FOLDR_correct:
      !l colors exch invexch k.
@@ -2290,7 +2289,7 @@ Theorem find_reg_exchange_correct:
     ALL_DISTINCT (MAP (\r. EL r sth.colors) l) /\
     (!r. MEM r l ==> is_phy_var r) /\
     (!r. MEM r l ==> r < LENGTH sth.colors) ==>
-    ?exch invexch. find_reg_exchange l LN LN sth = (Success (exch, invexch), sth) /\
+    ?exch invexch. find_reg_exchange l LN LN sth = (M_success (exch, invexch), sth) /\
     ((lookup_default_id exch) o (lookup_default_id invexch) = (\x.x) /\ (lookup_default_id invexch) o (lookup_default_id exch) = (\x.x)) /\
     (!r. MEM r l ==> lookup_default_id exch (EL r sth.colors) = r DIV 2) /\
     ((!r. MEM r l ==> (k <= EL r sth.colors <=> k <= r DIV 2)) ==>
@@ -2318,7 +2317,7 @@ QED
 Theorem MAP_colors_eq_lemma:
      !sth n f.
     n <= LENGTH sth.colors ==>
-    ?sthout. (Success (), sthout) = MAP_colors f n sth /\
+    ?sthout. (M_success (), sthout) = MAP_colors f n sth /\
     LENGTH sth.colors = LENGTH sthout.colors /\
     sthout.int_beg = sth.int_beg /\ sthout.int_end = sth.int_end /\
     (!n'. n' < n ==> EL n' sthout.colors = f (EL n' sth.colors)) /\
@@ -2356,7 +2355,7 @@ QED
 
 Theorem MAP_colors_eq:
      !sth f.
-    ?sthout. (Success (), sthout) = MAP_colors f (LENGTH sth.colors) sth /\
+    ?sthout. (M_success (), sthout) = MAP_colors f (LENGTH sth.colors) sth /\
     (!n. n < LENGTH sth.colors ==> EL n sthout.colors = f (EL n sth.colors)) /\
     LENGTH sth.colors = LENGTH sthout.colors /\
     sthout.int_beg = sth.int_beg /\ sthout.int_end = sth.int_end
@@ -2371,7 +2370,7 @@ Theorem apply_reg_exchange_correct:
     ALL_DISTINCT (MAP (\r. EL r sth.colors) l) /\
     (!r. MEM r l ==> is_phy_var r) /\
     (!r. MEM r l ==> r < LENGTH sth.colors) ==>
-    ?sthout. (Success (), sthout) = apply_reg_exchange l sth /\
+    ?sthout. (M_success (), sthout) = apply_reg_exchange l sth /\
     LENGTH sthout.colors = LENGTH sth.colors /\
     sthout.int_beg = sth.int_beg /\ sthout.int_end = sth.int_end /\
     (!r1 r2. r1 < LENGTH sth.colors /\ r2 < LENGTH sth.colors ==> EL r1 sthout.colors = EL r2 sthout.colors ==> EL r1 sth.colors = EL r2 sth.colors) /\
@@ -2406,9 +2405,9 @@ Proof
     )
 QED
 
-val less_FST_def = Define`
+Definition less_FST_def:
     less_FST (x:int#num) y = (FST x <= FST y)
-`;
+End
 
 Theorem transitive_less_FST:
      transitive less_FST
@@ -2417,7 +2416,7 @@ Proof
     intLib.COOPER_TAC
 QED
 
-val good_linear_scan_state_def = Define`
+Definition good_linear_scan_state_def:
     good_linear_scan_state st sth l (pos:int) forced mincol = (
         LENGTH sth.int_beg = LENGTH sth.colors /\ LENGTH sth.int_end = LENGTH sth.colors /\
         ALL_DISTINCT (st.colorpool ++ MAP (\(e,r). EL r sth.colors) st.active) /\
@@ -2444,7 +2443,7 @@ val good_linear_scan_state_def = Define`
         mincol <= st.colornum /\
         EVERY (\c. mincol <= c) (st.colorpool ++ MAP (\r. EL r sth.colors) l)
     )
-`;
+End
 
 val good_linear_scan_state_def' = let
   val inj_rwt = Q.prove(‘(f x = f y ==> x = y) ⇔ (f x = f y ⇔ x = y)’,
@@ -2459,7 +2458,7 @@ Theorem remove_inactive_intervals_invariants:
      !beg st sth l pos forced mincol.
     good_linear_scan_state st sth l pos forced mincol /\
     pos <= beg ==>
-    ?stout. (Success stout, sth) = remove_inactive_intervals beg st sth /\
+    ?stout. (M_success stout, sth) = remove_inactive_intervals beg st sth /\
     good_linear_scan_state stout sth l beg forced mincol /\
     stout.colormax = st.colormax
 Proof
@@ -2729,7 +2728,7 @@ Proof
 QED
 
 (* TODO: this should be part of the standard library, but I couldn't find it *)
-val IS_SPARSE_SUBLIST_def = Define`
+Definition IS_SPARSE_SUBLIST_def:
   (
     IS_SPARSE_SUBLIST [] l2 = T
   ) /\ (
@@ -2737,7 +2736,8 @@ val IS_SPARSE_SUBLIST_def = Define`
   ) /\ (
     IS_SPARSE_SUBLIST (x::xs) (y::ys) =
       ((x=y /\ IS_SPARSE_SUBLIST xs ys) \/ IS_SPARSE_SUBLIST (x::xs) ys)
-  )`
+  )
+End
 
 Theorem FILTER_IS_SPARSE_SUBLIST:
      !l. IS_SPARSE_SUBLIST (FILTER P l) l
@@ -2810,7 +2810,7 @@ Theorem spill_register_FILTER_invariants_hidden:
     good_linear_scan_state st sth l pos forced mincol /\
     reg < LENGTH sth.colors /\
     EL reg sth.int_beg <= pos ==>
-    ?stout sthout. (Success stout, sthout) = spill_register (st with active := FILTER (\e,r. r <> reg) st.active) reg sth /\
+    ?stout sthout. (M_success stout, sthout) = spill_register (st with active := FILTER (\e,r. r <> reg) st.active) reg sth /\
     good_linear_scan_state stout sthout (reg::l) pos forced mincol /\
     LENGTH sthout.colors = LENGTH sth.colors /\
     (!r. r <> reg ==> EL r sth.colors = EL r sthout.colors) /\
@@ -2915,10 +2915,9 @@ Proof
     THEN1 (* 1 *) simp [EL_LUPDATE]
 QED
 
-val spill_register_FILTER_invariants =
+Theorem spill_register_FILTER_invariants =
   spill_register_FILTER_invariants_hidden
-  |> REWRITE_RULE [id_def]
-  |> curry save_thm "spill_register_FILTER_invariants"
+    |> REWRITE_RULE [id_def]
 
 Theorem FILTER_MEM_active:
      !(reg:num) l. (!(e:int). ~(MEM (e,reg) l)) ==> FILTER (\e,r. r <> reg) l = l
@@ -2935,7 +2934,7 @@ Theorem spill_register_invariants:
     good_linear_scan_state st sth l pos forced mincol /\
     reg < LENGTH sth.colors /\
     EL reg sth.int_beg <= pos ==>
-    ?stout sthout. (Success stout, sthout) = spill_register st reg sth /\
+    ?stout sthout. (M_success stout, sthout) = spill_register st reg sth /\
     good_linear_scan_state stout sthout (reg::l) pos forced mincol /\
     LENGTH sthout.colors = LENGTH sth.colors /\
     sthout.int_beg = sth.int_beg /\ sthout.int_end = sth.int_end /\
@@ -2949,7 +2948,7 @@ Proof
     metis_tac [spill_register_FILTER_invariants]
 QED
 
-val edges_to_adjlist_step_def = Define`
+Definition edges_to_adjlist_step_def:
     edges_to_adjlist_step sth (a,b) acc =
       if a = b then
         acc
@@ -2957,12 +2956,12 @@ val edges_to_adjlist_step_def = Define`
         insert b (a::(the [] (lookup b acc))) acc
       else
         insert a (b::(the [] (lookup a acc))) acc
-`;
+End
 
 Theorem edges_to_adjlist_FOLDL:
      !forced sth acc.
     EVERY (\r1,r2. r1 < LENGTH sth.int_beg /\ r2 < LENGTH sth.int_beg) forced ==>
-    edges_to_adjlist forced acc sth = (Success (FOLDL (\acc pair. edges_to_adjlist_step sth pair acc) acc forced), sth)
+    edges_to_adjlist forced acc sth = (M_success (FOLDL (\acc pair. edges_to_adjlist_step sth pair acc) acc forced), sth)
 Proof
     Induct_on `forced`
     THEN1 rw (edges_to_adjlist_def::msimps) >>
@@ -2974,31 +2973,31 @@ Proof
     every_case_tac
 QED
 
-val forbidden_is_from_forced_def = Define`
+Definition forbidden_is_from_forced_def:
     forbidden_is_from_forced forced (int_beg : int list) reg forbidden =
         !reg2. (reg <> reg2 /\ (MEM (reg2, reg) forced \/ MEM (reg, reg2) forced) /\
         ($< LEX $<=) (EL reg2 int_beg, reg2) (EL reg int_beg, reg)) <=> MEM reg2 forbidden
-`;
+End
 
-val forbidden_is_from_forced_sublist_def = Define`
+Definition forbidden_is_from_forced_sublist_def:
     forbidden_is_from_forced_sublist l forced (int_beg : int list) reg forbidden =
         !reg2. (reg <> reg2 /\ (MEM (reg2, reg) forced \/ MEM (reg, reg2) forced) /\
         ($< LEX $<=) (EL reg2 int_beg, reg2) (EL reg int_beg, reg)) <=> (MEM reg2 forbidden /\ MEM reg l)
-`;
+End
 
-val forbidden_is_from_forced_list_def = Define`
+Definition forbidden_is_from_forced_list_def:
     forbidden_is_from_forced_list forced l reg forbidden =
         !reg2. MEM reg2 l /\
                (MEM (reg2, reg) forced \/ MEM (reg, reg2) forced) ==>
                MEM reg2 forbidden
-`;
+End
 
-val forbidden_is_from_map_color_forced_def = Define`
+Definition forbidden_is_from_map_color_forced_def:
     forbidden_is_from_map_color_forced forced l colors reg (forbidden:num_set) =
         !reg2. MEM reg2 l /\
                (MEM (reg2, reg) forced \/ MEM (reg, reg2) forced) ==>
                EL reg2 colors IN domain forbidden
-`;
+End
 
 Theorem edges_to_adjlist_FOLDR_output:
      !forced sth.
@@ -3067,7 +3066,7 @@ QED
 Theorem edges_to_adjlist_output:
      !forced sth.
     EVERY (\r1,r2. r1 < LENGTH sth.int_beg /\ r2 < LENGTH sth.int_beg) forced ==>
-    ?adjlist. edges_to_adjlist forced LN sth = (Success adjlist, sth) /\
+    ?adjlist. edges_to_adjlist forced LN sth = (M_success adjlist, sth) /\
     !reg. forbidden_is_from_forced forced sth.int_beg reg (the [] (lookup reg adjlist))
 Proof
     rw [edges_to_adjlist_FOLDL, GSYM FOLDR_REVERSE] >>
@@ -3091,7 +3090,7 @@ QED
 Theorem find_last_stealable_success:
      !forbidden sth active.
     EVERY (\e,r. r < LENGTH sth.colors) active ==>
-    ?optout. find_last_stealable active forbidden sth = (Success optout, sth)
+    ?optout. find_last_stealable active forbidden sth = (M_success optout, sth)
 Proof
     NTAC 2 gen_tac >>
     Induct_on `active` >>
@@ -3104,7 +3103,7 @@ QED
 
 Theorem find_last_stealable_output:
      !forbidden sth active steal rest.
-    find_last_stealable active forbidden sth = (Success (SOME (steal, rest)), sth) ==>
+    find_last_stealable active forbidden sth = (M_success (SOME (steal, rest)), sth) ==>
     ~is_phy_var (SND steal) /\ lookup (EL (SND steal) sth.colors) forbidden = NONE /\
     ?l1 l2. rest = l1 ++ l2 /\ active = l1 ++ steal::l2
 Proof
@@ -3177,7 +3176,7 @@ Theorem color_register_invariants:
     reg < LENGTH sth.colors /\
     ~MEM reg l
     ==>
-    ?stout sthout. (Success stout, sthout) = color_register st reg col (EL reg sth.int_end) sth /\
+    ?stout sthout. (M_success stout, sthout) = color_register st reg col (EL reg sth.int_end) sth /\
     good_linear_scan_state stout sthout (reg::l) pos forced mincol /\
     LENGTH sthout.colors = LENGTH sth.colors /\
     sthout.int_beg = sth.int_beg /\ sthout.int_end = sth.int_end /\
@@ -3372,7 +3371,7 @@ Theorem find_spill_invariants:
     forbidden_is_from_map_color_forced forced l sth.colors reg forbidden /\
     (is_phy_var reg ==> domain st.phyregs SUBSET domain forbidden) /\
     EL reg sth.int_beg <= EL reg sth.int_end ==>
-    ?stout sthout. (Success stout, sthout) = find_spill st forbidden reg (EL reg sth.int_end) force sth /\
+    ?stout sthout. (M_success stout, sthout) = find_spill st forbidden reg (EL reg sth.int_end) force sth /\
     good_linear_scan_state stout sthout (reg::l) (EL reg sth.int_beg) forced mincol /\
     LENGTH sthout.colors = LENGTH sth.colors /\
     sthout.int_beg = sth.int_beg /\ sthout.int_end = sth.int_end /\
@@ -3383,7 +3382,7 @@ Proof
     rw [find_spill_def] >> simp msimps >>
     `!e. ~(MEM (e,reg) st.active)` by (CCONTR_TAC >> fs [good_linear_scan_state_def', EVERY_MEM, FORALL_PROD]) >>
     imp_res_tac good_linear_scan_state_active_length_colors >>
-    `?optsteal. find_last_stealable st.active forbidden sth = (Success optsteal, sth)` by metis_tac [find_last_stealable_success] >>
+    `?optsteal. find_last_stealable st.active forbidden sth = (M_success optsteal, sth)` by metis_tac [find_last_stealable_success] >>
     simp [] >>
     CASE_TAC
     THEN1 (
@@ -3392,7 +3391,7 @@ Proof
       metis_tac [spill_register_invariants]
     ) >>
     PairCases_on `x` >>
-    rename1 `find_last_stealable _ _ _ = (Success (SOME ((stealend, stealreg), rest)), _)` >>
+    rename1 `find_last_stealable _ _ _ = (M_success (SOME ((stealend, stealreg), rest)), _)` >>
     simp [] >>
     reverse CASE_TAC
     THEN1 (
@@ -3489,7 +3488,7 @@ Theorem linear_reg_alloc_step_aux_invariants:
     (is_phy_var reg ==> domain st.phyregs SUBSET domain forbidden) /\
     domain forbidden SUBSET {EL r sth.colors | r | MEM r l} /\
     EL reg sth.int_beg <= EL reg sth.int_end ==>
-    ?stout sthout. (Success stout, sthout) = linear_reg_alloc_step_aux st forbidden preferred reg (EL reg sth.int_end) force sth /\
+    ?stout sthout. (M_success stout, sthout) = linear_reg_alloc_step_aux st forbidden preferred reg (EL reg sth.int_end) force sth /\
     good_linear_scan_state stout sthout (reg::l) (EL reg sth.int_beg) forced mincol /\
     LENGTH sthout.colors = LENGTH sth.colors /\
     sthout.int_beg = sth.int_beg /\ sthout.int_end = sth.int_end /\
@@ -3547,15 +3546,15 @@ QED
 Theorem st_ex_MAP_colors_sub:
      !l sth.
     EVERY (\r. r < LENGTH sth.colors) l ==>
-    st_ex_MAP colors_sub l sth = (Success (MAP (\r. EL r sth.colors) l), sth)
+    st_ex_MAP colors_sub l sth = (M_success (MAP (\r. EL r sth.colors) l), sth)
 Proof
     Induct_on `l` >> rw (st_ex_MAP_def::msimps)
 QED
 
-val phystack_on_stack_def = Define`
+Definition phystack_on_stack_def:
     phystack_on_stack l st sth =
       !r. MEM r l /\ is_phy_var r /\ 2*st.colormax <= r ==> st.colormax <= EL r sth.colors
-`;
+End
 
 Theorem linear_reg_alloc_step_pass1_invariants:
      !st sth l moves forced_adj forced reg pos mincol.
@@ -3568,7 +3567,7 @@ Theorem linear_reg_alloc_step_pass1_invariants:
     EVERY (\r. r < LENGTH sth.colors) (the [] (lookup reg forced_adj)) /\
     EVERY (\r. r < LENGTH sth.colors) (the [] (lookup reg moves)) /\
     EL reg sth.int_beg <= EL reg sth.int_end ==>
-    ?stout sthout. (Success stout, sthout) = linear_reg_alloc_step_pass1 forced_adj moves st reg sth /\
+    ?stout sthout. (M_success stout, sthout) = linear_reg_alloc_step_pass1 forced_adj moves st reg sth /\
     good_linear_scan_state stout sthout (reg::l) (EL reg sth.int_beg) forced mincol /\
     LENGTH sthout.colors = LENGTH sth.colors /\
     sthout.int_beg = sth.int_beg /\ sthout.int_end = sth.int_end /\
@@ -3649,7 +3648,7 @@ Theorem linear_reg_alloc_step_pass2_invariants:
     EVERY (\r. r < LENGTH sth.colors) (the [] (lookup reg forced_adj)) /\
     EVERY (\r. r < LENGTH sth.colors) (the [] (lookup reg moves)) /\
     EL reg sth.int_beg <= EL reg sth.int_end ==>
-    ?stout sthout. (Success stout, sthout) = linear_reg_alloc_step_pass2 forced_adj moves st reg sth /\
+    ?stout sthout. (M_success stout, sthout) = linear_reg_alloc_step_pass2 forced_adj moves st reg sth /\
     good_linear_scan_state stout sthout (reg::l) (EL reg sth.int_beg) forced mincol /\
     LENGTH sthout.colors = LENGTH sth.colors /\
     sthout.int_beg = sth.int_beg /\ sthout.int_end = sth.int_end /\
@@ -3694,9 +3693,9 @@ Proof
 QED
 
 (* TODO: move *)
-val intbeg_less_def = Define`
+Definition intbeg_less_def:
     intbeg_less (int_beg : int list) r1 r2 = ($< LEX $<=) (EL r1 int_beg, r1) (EL r2 int_beg, r2)
-`;
+End
 
 Theorem intbeg_less_transitive:
      !int_beg. transitive (intbeg_less int_beg)
@@ -3726,7 +3725,7 @@ Theorem st_ex_FOLDL_linear_reg_alloc_step_passn_invariants_lemma:
     (!r1. EVERY (\r2. r2 < LENGTH sth.colors) (the [] (lookup r1 forced_adj))) /\
     (!r1. EVERY (\r2. r2 < LENGTH sth.colors) (the [] (lookup r1 moves))) /\
     EVERY (\r. EL r sth.int_beg <= EL r sth.int_end) regl ==>
-    ?stout sthout posout. (Success stout, sthout) = st_ex_FOLDL ((if b then linear_reg_alloc_step_pass1 else linear_reg_alloc_step_pass2) forced_adj moves) st regl sth /\
+    ?stout sthout posout. (M_success stout, sthout) = st_ex_FOLDL ((if b then linear_reg_alloc_step_pass1 else linear_reg_alloc_step_pass2) forced_adj moves) st regl sth /\
     good_linear_scan_state stout sthout ((REVERSE regl) ++ l) (posout) forced mincol /\
     LENGTH sthout.colors = LENGTH sth.colors /\
     sthout.int_beg = sth.int_beg /\ sthout.int_end = sth.int_end /\
@@ -3742,7 +3741,7 @@ Proof
     ) >>
     rpt gen_tac >> strip_tac >>
     SIMP_TAC std_ss (st_ex_FOLDL_def::msimps) >>
-    sg `?stmid sthmid. (if b then linear_reg_alloc_step_pass1 else linear_reg_alloc_step_pass2) forced_adj moves st h sth = (Success stmid, sthmid) /\
+    sg `?stmid sthmid. (if b then linear_reg_alloc_step_pass1 else linear_reg_alloc_step_pass2) forced_adj moves st h sth = (M_success stmid, sthmid) /\
           good_linear_scan_state stmid sthmid (h::l) (EL h sth.int_beg) forced mincol /\
           LENGTH sthmid.colors = LENGTH sth.colors /\ sthmid.int_beg = sth.int_beg /\ sthmid.int_end = sth.int_end /\
           (!r. ~MEM r (h::l) ==> EL r sthmid.colors = EL r sth.colors) /\
@@ -3809,7 +3808,7 @@ Theorem st_ex_FOLDL_linear_reg_alloc_step_passn_invariants:
     (!r1. EVERY (\r2. r2 < LENGTH sth.colors) (the [] (lookup r1 forced_adj))) /\
     (!r1. EVERY (\r2. r2 < LENGTH sth.colors) (the [] (lookup r1 moves))) /\
     EVERY (\r. EL r sth.int_beg <= EL r sth.int_end) regl ==>
-    ?stout sthout posout. (Success stout, sthout) = st_ex_FOLDL ((if b then linear_reg_alloc_step_pass1 else linear_reg_alloc_step_pass2) forced_adj moves) st regl sth /\
+    ?stout sthout posout. (M_success stout, sthout) = st_ex_FOLDL ((if b then linear_reg_alloc_step_pass1 else linear_reg_alloc_step_pass2) forced_adj moves) st regl sth /\
     good_linear_scan_state stout sthout (REVERSE regl) (posout) forced mincol /\
     LENGTH sthout.colors = LENGTH sth.colors /\
     sthout.int_beg = sth.int_beg /\ sthout.int_end = sth.int_end /\
@@ -3826,7 +3825,7 @@ QED
 Theorem swap_regs_eq:
      !sth i1 i2.
     i1 < LENGTH sth.sorted_regs /\ i2 < LENGTH sth.sorted_regs ==>
-    ?sthout. swap_regs i1 i2 sth = (Success (), sthout) /\
+    ?sthout. swap_regs i1 i2 sth = (M_success (), sthout) /\
     sthout = sth with sorted_regs := LUPDATE (EL i1 sth.sorted_regs) i2 (LUPDATE (EL i2 sth.sorted_regs) i1 sth.sorted_regs)
 Proof
     rw (swap_regs_def::msimps)
@@ -3928,7 +3927,7 @@ QED
 
 Theorem swap_regs_perm:
      !sth i1 i2 sthout.
-    swap_regs i1 i2 sth = (Success (), sthout) ==>
+    swap_regs i1 i2 sth = (M_success (), sthout) ==>
     (!n. i1 < n /\ i2 < n /\ n <= LENGTH sth.sorted_regs ==> PERM (TAKE n sth.sorted_regs) (TAKE n sthout.sorted_regs))
 Proof
     rw (swap_regs_def::msimps) >>
@@ -3944,7 +3943,7 @@ Theorem partition_regs_correct:
     (!i. l <= i /\ i < r ==> EL i sth.sorted_regs < LENGTH sth.int_beg) /\
     l <= LENGTH sth.sorted_regs /\
     r <= LENGTH sth.sorted_regs ==>
-    ?mid sthout. partition_regs l rpiv begrpiv r sth = (Success mid, sthout) /\
+    ?mid sthout. partition_regs l rpiv begrpiv r sth = (M_success mid, sthout) /\
     sthout = sth with sorted_regs := sthout.sorted_regs /\
     LENGTH sthout.sorted_regs = LENGTH sth.sorted_regs /\
     (l <= r ==> l <= mid /\ mid <= r) /\
@@ -4029,7 +4028,7 @@ Proof
     rw []
 QED
 
-Theorem qsort_regs_prop_lemma:
+Theorem sort_regs_prop_lemma:
      !(P : num -> bool) l1 l2 l r.
     l <= LENGTH l1 /\
     r <= LENGTH l1 /\
@@ -4073,12 +4072,12 @@ Proof
     fs [EL_APPEND_EQN]
 QED
 
-Theorem qsort_regs_correct:
+Theorem sort_regs_correct:
      !l r sth.
     (!i. l <= i /\ i < r ==> EL i sth.sorted_regs < LENGTH sth.int_beg) /\
     l <= LENGTH sth.sorted_regs /\
     r <= LENGTH sth.sorted_regs ==>
-    ?sthout. qsort_regs l r sth = (Success (), sthout) /\
+    ?sthout. sort_regs l r sth = (M_success (), sthout) /\
     sthout = sth with sorted_regs := sthout.sorted_regs /\
     LENGTH sthout.sorted_regs = LENGTH sth.sorted_regs /\
     (!n. l <= n /\ r <= n /\ n <= LENGTH sth.sorted_regs ==> PERM (TAKE n sth.sorted_regs) (TAKE n sthout.sorted_regs)) /\
@@ -4089,9 +4088,9 @@ Theorem qsort_regs_correct:
         ($< LEX $<=) (EL reg1 sth.int_beg, reg1) (EL reg2 sth.int_beg, reg2)
     )
 Proof
-    recInduct qsort_regs_ind >>
+    recInduct sort_regs_ind >>
     rpt strip_tac >>
-    once_rewrite_tac [qsort_regs_def] >>
+    once_rewrite_tac [sort_regs_def] >>
     rw msimps
     THEN1 rw [linear_scan_hidden_state_component_equality]
     THEN1 (
@@ -4104,25 +4103,21 @@ Proof
     rename1 `partition_regs _ _ _ _ _ = (_, sthpart)` >>
     qspecl_then [`sthpart`, `l`, `mid-1`] assume_tac swap_regs_eq >>
     rfs [] >>
-
     `PERM sth.sorted_regs sthpart.sorted_regs` by (
         first_x_assum (qspec_then `LENGTH sth.sorted_regs` assume_tac) >>
         rfs [] >>
         metis_tac [TAKE_LENGTH_ID]
     ) >>
     sg `!i. l <= i /\ i < r ==> EL i sthpart.sorted_regs < LENGTH sth.int_beg` THEN1 (
-      qspecl_then [`\reg. reg < LENGTH sth.int_beg`, `sth.sorted_regs`, `sthpart.sorted_regs`, `l`, `r`] mp_tac qsort_regs_prop_lemma >>
+      qspecl_then [`\reg. reg < LENGTH sth.int_beg`, `sth.sorted_regs`, `sthpart.sorted_regs`, `l`, `r`] mp_tac sort_regs_prop_lemma >>
       impl_tac >> rw [] >> rw []
     ) >>
-
     simp [] >>
     `?sthswap. sthpart with sorted_regs := LUPDATE (EL l sth.sorted_regs) (mid - 1) (LUPDATE (EL (mid - 1) sthpart.sorted_regs) l sthpart.sorted_regs) = sthswap` by simp [] >>
     simp [] >> fs [linear_scan_hidden_state_component_equality] >>
     `LENGTH sthswap.sorted_regs = LENGTH sthpart.sorted_regs` by metis_tac[LENGTH_LUPDATE] >>
-
     NTAC 2 (last_x_assum (qspec_then `mid` assume_tac)) >>
     rfs [] >>
-
     sg `!i. l <= i /\ i < r ==> EL i sthswap.sorted_regs < LENGTH sth.int_beg` THEN1 (
         qpat_x_assum `_ = sthswap.sorted_regs` (fn th => assume_tac (GSYM th)) >>
         rw [EL_LUPDATE]
@@ -4136,21 +4131,19 @@ Proof
     `PERM sth.sorted_regs sthswap.sorted_regs` by metis_tac [PERM_TRANS] >>
     last_x_assum (qspec_then `sthswap` assume_tac) >>
     rfs [] >>
-    rename1 `qsort_regs _ _ _ = (_, sthqsort)` >>
+    rename1 `sort_regs _ _ _ = (_, sthqsort)` >>
     `PERM sthswap.sorted_regs sthqsort.sorted_regs` by (
         first_x_assum (qspec_then `LENGTH sth.sorted_regs` assume_tac) >>
         rfs [] >>
         metis_tac [TAKE_LENGTH_ID]
     ) >>
-
     sg `!i. l <= i /\ i < r ==> EL i sthqsort.sorted_regs < LENGTH sth.int_beg` THEN1 (
-      qspecl_then [`\reg. reg < LENGTH sth.int_beg`, `sthswap.sorted_regs`, `sthqsort.sorted_regs`, `l`, `r`] mp_tac qsort_regs_prop_lemma >>
+      qspecl_then [`\reg. reg < LENGTH sth.int_beg`, `sthswap.sorted_regs`, `sthqsort.sorted_regs`, `l`, `r`] mp_tac sort_regs_prop_lemma >>
       impl_tac >> rw [] >> rw []
     ) >>
     `LENGTH sthqsort.sorted_regs = LENGTH sthswap.sorted_regs` by simp [PERM_LENGTH] >>
     last_x_assum (qspec_then `sthqsort` assume_tac) >>
     rfs [] >>
-
     `!ind. ind < l ==> ind < mid` by simp [] >>
     `!ind. r <= ind ==> mid <= ind+1` by simp [] >>
     `!ind. ind < l ==> ind < l+1` by simp [] >>
@@ -4167,7 +4160,6 @@ Proof
     ) >>
     strip_tac
     THEN1 metis_tac [] >>
-
     sg `
     let rpiv = EL (mid-1) sthswap.sorted_regs in
     let begrpiv = EL rpiv sthswap.int_beg in
@@ -4190,7 +4182,6 @@ Proof
         metis_tac [TAKE_LENGTH_ID]
     ) >>
     `LENGTH sthout.sorted_regs = LENGTH sthqsort.sorted_regs` by simp [PERM_LENGTH] >>
-
     sg `!ind. mid <= ind /\ ind < r ==>
         let reg1 = EL (mid-1) sthout.sorted_regs in
         let reg2 = EL ind sthout.sorted_regs in
@@ -4207,11 +4198,10 @@ Proof
         metis_tac []
       ) >>
       qspecl_then [`\reg. ($< LEX $<=) (EL (EL (mid-1) sthswap.sorted_regs) sthswap.int_beg, EL (mid-1) sthswap.sorted_regs) (EL reg sthswap.int_beg, reg)`,
-                   `sthqsort.sorted_regs`, `sthout.sorted_regs`, `mid`, `r`] mp_tac qsort_regs_prop_lemma >>
+                   `sthqsort.sorted_regs`, `sthout.sorted_regs`, `mid`, `r`] mp_tac sort_regs_prop_lemma >>
       impl_tac THEN1 ( rw [] >> metis_tac [] ) >>
       rw []
     ) >>
-
     sg `!ind. l <= ind /\ ind < mid-1 ==>
         let reg1 = EL ind sthout.sorted_regs in
         let reg2 = EL (mid-1) sthout.sorted_regs in
@@ -4219,11 +4209,10 @@ Proof
     THEN1 (
       rw [] >>
       qspecl_then [`\reg. ($< LEX $<=) (EL reg sthswap.int_beg, reg) (EL (EL (mid-1) sthswap.sorted_regs) sthswap.int_beg, EL (mid-1) sthswap.sorted_regs)`,
-                   `sthswap.sorted_regs`, `sthqsort.sorted_regs`, `l`, `mid-1`] mp_tac qsort_regs_prop_lemma >>
+                   `sthswap.sorted_regs`, `sthqsort.sorted_regs`, `l`, `mid-1`] mp_tac sort_regs_prop_lemma >>
       impl_tac THEN1 ( rw [] >> metis_tac [] ) >>
       rw []
     ) >>
-
     rw [] >>
     Cases_on `i1 <= mid-1` >>
     Cases_on `i1 = mid-1` >>
@@ -4256,7 +4245,7 @@ QED
 Theorem swap_moves_eq:
      !sth i1 i2.
     i1 < LENGTH sth.sorted_moves /\ i2 < LENGTH sth.sorted_moves ==>
-    ?sthout. swap_moves i1 i2 sth = (Success (), sthout) /\
+    ?sthout. swap_moves i1 i2 sth = (M_success (), sthout) /\
     sthout = sth with sorted_moves := LUPDATE (EL i1 sth.sorted_moves) i2 (LUPDATE (EL i2 sth.sorted_moves) i1 sth.sorted_moves)
 Proof
     rw (swap_moves_def::msimps)
@@ -4265,7 +4254,7 @@ QED
 Theorem swap_moves_correct:
      !sth i1 i2.
     i1 < LENGTH sth.sorted_moves /\ i2 < LENGTH sth.sorted_moves ==>
-    ?sthout. swap_moves i1 i2 sth = (Success (), sthout) /\
+    ?sthout. swap_moves i1 i2 sth = (M_success (), sthout) /\
     sthout = sth with sorted_moves := sthout.sorted_moves /\
     LENGTH sthout.sorted_moves = LENGTH sth.sorted_moves /\
     (!n. i1 < n /\ i2 < n /\ n <= LENGTH sth.sorted_moves ==> PERM (TAKE n sth.sorted_moves) (TAKE n sthout.sorted_moves))
@@ -4280,7 +4269,7 @@ Theorem partition_moves_correct:
      !l ppiv r sth.
     l <= LENGTH sth.sorted_moves /\
     r <= LENGTH sth.sorted_moves ==>
-    ?mid sthout. partition_moves l ppiv r sth = (Success mid, sthout) /\
+    ?mid sthout. partition_moves l ppiv r sth = (M_success mid, sthout) /\
     (l <= r ==> l <= mid /\ mid <= r) /\
     sthout = sth with sorted_moves := sthout.sorted_moves /\
     LENGTH sthout.sorted_moves = LENGTH sth.sorted_moves /\
@@ -4309,18 +4298,18 @@ Proof
     metis_tac [PERM_TRANS]
 QED
 
-Theorem qsort_moves_correct:
+Theorem sort_moves_correct:
      !l r sth.
     l <= LENGTH sth.sorted_moves /\
     r <= LENGTH sth.sorted_moves ==>
-    ?sthout. qsort_moves l r sth = (Success (), sthout) /\
+    ?sthout. sort_moves l r sth = (M_success (), sthout) /\
     sthout = sth with sorted_moves := sthout.sorted_moves /\
     LENGTH sthout.sorted_moves = LENGTH sth.sorted_moves /\
     (!n. l <= n /\ r <= n /\ n <= LENGTH sth.sorted_moves ==> PERM (TAKE n sth.sorted_moves) (TAKE n sthout.sorted_moves))
 Proof
-    recInduct qsort_moves_ind >>
+    recInduct sort_moves_ind >>
     rw [] >>
-    once_rewrite_tac [qsort_moves_def] >>
+    once_rewrite_tac [sort_moves_def] >>
     rw msimps
     THEN1 rw [linear_scan_hidden_state_component_equality] >>
     qspecl_then [`l+1`, `FST (EL l sth.sorted_moves)`, `r`, `sth`] assume_tac partition_moves_correct >>
@@ -4333,7 +4322,7 @@ Proof
     rfs [] >>
     first_x_assum (qspec_then `sthswap` assume_tac) >>
     rfs [] >>
-    rename1 `qsort_moves _ _ _ = (_, sthqsort)` >>
+    rename1 `sort_moves _ _ _ = (_, sthqsort)` >>
     first_x_assum (qspec_then `sthqsort` assume_tac) >>
     rfs [] >>
     fs [linear_scan_hidden_state_component_equality] >>
@@ -4401,7 +4390,7 @@ Theorem st_ex_FILTER_good_stack:
         return (is_stack_var r \/ k <= col);
       od
     ) reglist sth =
-    (Success (FILTER (\r. is_stack_var r \/ k <= EL r sth.colors) reglist), sth)
+    (M_success (FILTER (\r. is_stack_var r \/ k <= EL r sth.colors) reglist), sth)
 Proof
     simp msimps >>
     Induct_on `reglist` >>
@@ -4479,7 +4468,7 @@ QED
 Theorem list_to_sorted_regs_correct:
      !l n sth.
     n + LENGTH l <= LENGTH sth.sorted_regs ==>
-    ?sthout. (Success (), sthout) = list_to_sorted_regs l n sth /\
+    ?sthout. (M_success (), sthout) = list_to_sorted_regs l n sth /\
     LENGTH sthout.sorted_regs = LENGTH sth.sorted_regs /\
     sthout = sth with sorted_regs := sthout.sorted_regs /\
     TAKE n sthout.sorted_regs = TAKE n sth.sorted_regs /\
@@ -4517,7 +4506,7 @@ QED
 Theorem sorted_regs_to_list_correct:
      !n last sth.
     last <= LENGTH sth.sorted_regs ==>
-    sorted_regs_to_list n last sth = (Success (TAKE (last-n) (DROP n sth.sorted_regs)), sth)
+    sorted_regs_to_list n last sth = (M_success (TAKE (last-n) (DROP n sth.sorted_regs)), sth)
 Proof
     recInduct sorted_regs_to_list_ind >>
     rw [] >>
@@ -4534,7 +4523,7 @@ QED
 Theorem list_to_sorted_moves_correct:
      !l n sth.
     n + LENGTH l <= LENGTH sth.sorted_moves ==>
-    ?sthout. (Success (), sthout) = list_to_sorted_moves l n sth /\
+    ?sthout. (M_success (), sthout) = list_to_sorted_moves l n sth /\
     LENGTH sthout.sorted_moves = LENGTH sth.sorted_moves /\
     sthout = sth with sorted_moves := sthout.sorted_moves /\
     TAKE n sthout.sorted_moves = TAKE n sth.sorted_moves /\
@@ -4572,7 +4561,7 @@ QED
 Theorem sorted_moves_to_list_correct:
      !n last sth.
     last <= LENGTH sth.sorted_moves ==>
-    sorted_moves_to_list n last sth = (Success (TAKE (last-n) (DROP n sth.sorted_moves)), sth)
+    sorted_moves_to_list n last sth = (M_success (TAKE (last-n) (DROP n sth.sorted_moves)), sth)
 Proof
     recInduct sorted_moves_to_list_ind >>
     rw [] >>
@@ -4598,7 +4587,7 @@ Theorem linear_reg_alloc_intervals_correct:
     LENGTH sth.int_end = LENGTH sth.int_beg /\
     LENGTH reglist_unsorted <= LENGTH sth.sorted_regs /\
     LENGTH moves <= LENGTH sth.sorted_moves ==>
-    ?sthout. linear_reg_alloc_intervals k forced moves reglist_unsorted sth = (Success (), sthout) /\
+    ?sthout. linear_reg_alloc_intervals k forced moves reglist_unsorted sth = (M_success (), sthout) /\
     (!r1 r2. MEM r1 reglist_unsorted /\ MEM r2 reglist_unsorted /\
         interval_intersect (EL r1 sth.int_beg, EL r1 sth.int_end) (EL r2 sth.int_beg, EL r2 sth.int_end) /\
         EL r1 sthout.colors = EL r2 sthout.colors ==>
@@ -4619,18 +4608,18 @@ Proof
 
     qspecl_then [`reglist_unsorted`, `0`, `sth`] assume_tac list_to_sorted_regs_correct >>
     rfs [linear_scan_hidden_state_component_equality] >>
-    rename1 `(Success (), sthm3) = _` >>
+    rename1 `(M_success (), sthm3) = _` >>
     qpat_x_assum `(_,_) = _` (fn th => assume_tac (GSYM th)) >>
     simp [] >>
 
-    qspecl_then [`0`, `LENGTH reglist_unsorted`, `sthm3`] mp_tac qsort_regs_correct >>
+    qspecl_then [`0`, `LENGTH reglist_unsorted`, `sthm3`] mp_tac sort_regs_correct >>
     impl_tac THEN1 (
         rw [] >>
         `EL i sthm3.sorted_regs = EL i (TAKE (LENGTH reglist_unsorted) sthm3.sorted_regs)` by simp [EL_TAKE] >>
         fs [EVERY_EL]
     ) >>
     strip_tac >>
-    rename1 `qsort_regs _ _ _ = (Success (), sthm2)` >>
+    rename1 `sort_regs _ _ _ = (M_success (), sthm2)` >>
     qpat_x_assum `!n. _ ==> PERM _ _` (qspec_then `LENGTH reglist_unsorted` assume_tac) >>
     fs [] >>
 
@@ -4641,14 +4630,14 @@ Proof
 
     qspecl_then [`moves`, `0`, `sthm2`] assume_tac list_to_sorted_moves_correct >>
     rfs [linear_scan_hidden_state_component_equality] >>
-    rename1 `(Success (), sthm1) = _` >>
+    rename1 `(M_success (), sthm1) = _` >>
     qpat_x_assum `(_,_) = _` (fn th => assume_tac (GSYM th)) >>
     simp [] >>
 
-    qspecl_then [`0`, `LENGTH moves`, `sthm1`] mp_tac qsort_moves_correct >>
+    qspecl_then [`0`, `LENGTH moves`, `sthm1`] mp_tac sort_moves_correct >>
     impl_tac THEN1 rw [] >>
     strip_tac >>
-    rename1 `qsort_moves _ _ _ = (Success (), sth0)` >>
+    rename1 `sort_moves _ _ _ = (M_success (), sth0)` >>
     qpat_x_assum `!n. _ ==> PERM _ _` (qspec_then `LENGTH moves` assume_tac) >>
     fs [] >>
 
@@ -4660,7 +4649,7 @@ Proof
     qspecl_then [`(MAP SND sorted_moves)`, `sth0`] mp_tac edges_to_adjlist_output >>
     impl_tac THEN1 metis_tac [PERM_MAP, PERM_EVERY_EQ] >>
     strip_tac >>
-    rename1 `edges_to_adjlist _ _ _ = (Success moves_adjlist, _)` >>
+    rename1 `edges_to_adjlist _ _ _ = (M_success moves_adjlist, _)` >>
     simp [] >>
 
     qspecl_then [`forced`, `sth0`] mp_tac edges_to_adjlist_output >>
@@ -4670,7 +4659,7 @@ Proof
       PairCases_on `e` >> rfs []
     ) >>
     strip_tac >>
-    rename1 `edges_to_adjlist _ _ _ = (Success forced_adjlist, _)` >>
+    rename1 `edges_to_adjlist _ _ _ = (M_success forced_adjlist, _)` >>
     rfs [] >>
 
     `?phyregs. FILTER is_phy_var reglist = phyregs` by simp [] >>
@@ -4717,7 +4706,7 @@ Proof
     qspecl_then [`reglist`, `linear_reg_alloc_pass1_initial_state k`, `sth0`, `pos`, `T`, `moves_adjlist`,
                  `forced_adjlist`, `forced`, `0`] mp_tac st_ex_FOLDL_linear_reg_alloc_step_passn_invariants >>
     simp [] >> strip_tac >> rfs [] >>
-    rename1 `(Success st1, sth1) = _` >>
+    rename1 `(M_success st1, sth1) = _` >>
     qpat_x_assum `(_,_) = _` (fn th => assume_tac (GSYM th)) >>
     simp [] >>
 
@@ -4799,7 +4788,7 @@ Proof
       )
     ) >>
     simp [] >> strip_tac >>
-    rename1 `(Success st3, sth3) = _` >>
+    rename1 `(M_success st3, sth3) = _` >>
     qpat_x_assum `(_,_) = _` (fn th => assume_tac (GSYM th)) >>
     simp [] >>
     fs [good_linear_scan_state_REVERSE] >>
@@ -4869,7 +4858,7 @@ Proof
         )
     ) >>
     simp [] >> strip_tac >>
-    rename1 `(Success st4, sth4) = _` >>
+    rename1 `(M_success st4, sth4) = _` >>
     qpat_x_assum `(_,_) = _` (fn th => assume_tac (GSYM th)) >>
     simp [] >>
 
@@ -5009,7 +4998,7 @@ Proof
     )
 QED
 
-val good_bijection_state_def = Define`
+Definition good_bijection_state_def:
     good_bijection_state st regset = (
         regset = domain st.bij /\
         (
@@ -5028,7 +5017,7 @@ val good_bijection_state_def = Define`
         ) /\
         (!r. the 0 (lookup r st.bij) <= st.nmax)
     )
-`;
+End
 
 Theorem convention_partitions_or:
      !r. ( is_phy_var r /\ ~is_stack_var r /\ ~is_alloc_var r) \/
@@ -5218,19 +5207,19 @@ Proof
     simp [good_bijection_state_def, find_bijection_init_def, sp_inverts_def, lookup_def, is_stack_var_def, is_alloc_var_def, the_def]
 QED
 
-val sptree_eq_list_def = Define`
+Definition sptree_eq_list_def:
     sptree_eq_list (s : int num_map) l = !i.
       i < LENGTH l ==>
       (0 < EL i l <=> lookup i s = NONE) /\
       (EL i l <= 0 <=> lookup i s = SOME (EL i l))
-`
+End
 
 Theorem numset_list_add_if_lt_monad_correct:
      !int_beg sth l v.
     v <= 0 /\
     sptree_eq_list int_beg sth.int_beg /\
     EVERY (\r. r < LENGTH sth.int_beg) l ==>
-    ?sthout. numset_list_add_if_lt_monad l v sth = (Success (), sthout) /\
+    ?sthout. numset_list_add_if_lt_monad l v sth = (M_success (), sthout) /\
     sptree_eq_list (numset_list_add_if_lt l v int_beg) sthout.int_beg /\
     sthout = sth with int_beg := sthout.int_beg /\
     LENGTH sthout.int_beg = LENGTH sth.int_beg
@@ -5251,7 +5240,7 @@ Theorem numset_list_add_if_gt_monad_correct:
     v <= 0 /\
     sptree_eq_list int_end sth.int_end /\
     EVERY (\r. r < LENGTH sth.int_end) l ==>
-    ?sthout. numset_list_add_if_gt_monad l v sth = (Success (), sthout) /\
+    ?sthout. numset_list_add_if_gt_monad l v sth = (M_success (), sthout) /\
     sptree_eq_list (numset_list_add_if_gt l v int_end) sthout.int_end /\
     sthout = sth with int_end := sthout.int_end /\
     LENGTH sthout.int_end = LENGTH sth.int_end
@@ -5276,7 +5265,7 @@ Theorem get_intervals_ct_monad_aux_correct:
     LENGTH sth.int_end = LENGTH sth.int_beg /\
     (!r. in_clash_tree ct r ==> r < LENGTH sth.int_beg) /\
     (!r. r IN domain live ==> r < LENGTH sth.int_beg) ==>
-    ?sthout. get_intervals_ct_monad_aux ct n live sth = (Success (nout, liveout), sthout) /\
+    ?sthout. get_intervals_ct_monad_aux ct n live sth = (M_success (nout, liveout), sthout) /\
     sptree_eq_list int_begout sthout.int_beg /\
     sptree_eq_list int_endout sthout.int_end /\
     LENGTH sthout.int_beg = LENGTH sth.int_beg /\
@@ -5292,14 +5281,14 @@ Proof
         qspecl_then [`int_beg`, `sth`, `l`, `n`] mp_tac numset_list_add_if_lt_monad_correct >>
         impl_tac THEN1 fs [in_clash_tree_def, EVERY_MEM] >>
         strip_tac >> rw [] >>
-        rename1 `_ = (Success (), sth1)` >>
+        rename1 `_ = (M_success (), sth1)` >>
         `?int_beg1. numset_list_add_if_lt l n int_beg = int_beg1` by simp [] >>
         fs [linear_scan_hidden_state_component_equality] >>
 
         qspecl_then [`int_end`, `sth1`, `l`, `n`] mp_tac numset_list_add_if_gt_monad_correct >>
         impl_tac THEN1 fs [in_clash_tree_def, EVERY_MEM] >>
         strip_tac >> rw [] >>
-        rename1 `_ = (Success (), sth2)` >>
+        rename1 `_ = (M_success (), sth2)` >>
         `?int_end2. numset_list_add_if_gt l n int_end = int_end2` by simp [] >>
         fs [linear_scan_hidden_state_component_equality] >>
 
@@ -5309,7 +5298,7 @@ Proof
           intLib.COOPER_TAC
         ) >>
         strip_tac >> rw [] >>
-        rename1 `_ = (Success (), sth3)` >>
+        rename1 `_ = (M_success (), sth3)` >>
         fs [linear_scan_hidden_state_component_equality, domain_numset_list_insert, domain_numset_list_delete, in_clash_tree_def] >>
         intLib.COOPER_TAC
     )
@@ -5330,12 +5319,12 @@ Proof
           first_x_assum (qspecl_then [`sth`, `live`, `n`, `int_beg`, `int_end`, `n2`, `int_beg2`, `int_end2`, `live2`] mp_tac) >>
           impl_tac THEN1 fs [in_clash_tree_def] >>
           strip_tac >> rw [] >>
-          rename1 `_ = (Success _, sth2)` >>
+          rename1 `_ = (M_success _, sth2)` >>
 
           first_x_assum (qspecl_then [`sth2`, `live`, `n2`, `int_beg2`, `int_end2`, `n1`, `int_beg1`, `int_end1`, `live1`] mp_tac) >>
           impl_tac THEN1 fs [in_clash_tree_def] >>
           strip_tac >> rw [] >>
-          rename1 `_ = (Success _, sth1)` >>
+          rename1 `_ = (M_success _, sth1)` >>
           rfs [linear_scan_hidden_state_component_equality, domain_union, in_clash_tree_def] >> (
             qspecl_then [`int_end1`, `sth1`, `MAP FST (toAList x)`, `n1`] mp_tac numset_list_add_if_gt_monad_correct >>
             impl_tac THEN1 fs [EVERY_MEM, in_clash_tree_def, domain_union, set_MAP_FST_toAList_eq_domain] >>
@@ -5352,7 +5341,7 @@ Proof
         first_x_assum (qspecl_then [`sth`, `live`, `n`, `int_beg`, `int_end`, `n2`, `int_beg2`, `int_end2`, `live2`] mp_tac) >>
         impl_tac THEN1 fs [in_clash_tree_def] >>
         strip_tac >> rw [] >>
-        rename1 `_ = (Success _, sth2)` >>
+        rename1 `_ = (M_success _, sth2)` >>
 
         first_x_assum (qspecl_then [`sth2`, `live2`, `n2`, `int_beg2`, `int_end2`, `nout`, `int_begout`, `int_endout`, `liveout`] mp_tac) >>
         impl_tac THEN1 fs [in_clash_tree_def] >>
@@ -5368,7 +5357,7 @@ Theorem get_intervals_ct_monad_correct:
     get_intervals_ct ct = (n, int_beg, int_end) /\
     LENGTH sth.int_end = LENGTH sth.int_beg /\
     (!r. in_clash_tree ct r ==> r < LENGTH sth.int_beg) ==>
-    ?sthout. get_intervals_ct_monad ct sth = (Success n, sthout) /\
+    ?sthout. get_intervals_ct_monad ct sth = (M_success n, sthout) /\
     sptree_eq_list int_beg sthout.int_beg /\
     sptree_eq_list int_end sthout.int_end /\
     LENGTH sthout.int_beg = LENGTH sth.int_beg /\
@@ -5383,18 +5372,18 @@ Proof
     qspecl_then [`ct`, `sth`, `LN`, `0`, `LN`, `LN`, `n1`, `int_beg1`, `int_end1`, `live`] mp_tac get_intervals_ct_monad_aux_correct >>
     impl_tac THEN1 rw [sptree_eq_list_def, lookup_def] >>
     strip_tac >> rw [] >>
-    rename1 `_ = (Success _, sth1)` >>
+    rename1 `_ = (M_success _, sth1)` >>
 
     qspecl_then [`int_beg1`, `sth1`, `MAP FST (toAList live)`, `n1`] mp_tac numset_list_add_if_lt_monad_correct >>
     impl_tac THEN1 rw [EVERY_MEM, set_MAP_FST_toAList_eq_domain] >>
     strip_tac >> rw [] >>
-    rename1 `_ = (Success _, sth2)` >>
+    rename1 `_ = (M_success _, sth2)` >>
     fs [linear_scan_hidden_state_component_equality] >>
 
     qspecl_then [`int_end1`, `sth2`, `MAP FST (toAList live)`, `n1`] mp_tac numset_list_add_if_gt_monad_correct >>
     impl_tac THEN1 rw [EVERY_MEM, set_MAP_FST_toAList_eq_domain] >>
     strip_tac >> simp [] >>
-    rename1 `_ = (Success _, sth2)` >>
+    rename1 `_ = (M_success _, sth2)` >>
     fs [linear_scan_hidden_state_component_equality]
 QED
 
@@ -5502,7 +5491,7 @@ Theorem linear_reg_alloc_without_renaming_correct:
     do
       get_intervals_ct_monad ct;
       linear_reg_alloc_intervals k forced moves reglist_unsorted;
-    od sth = (Success (), sthout) /\
+    od sth = (M_success (), sthout) /\
     check_clash_tree (\r. EL r sthout.colors) ct LN LN = SOME (livein, flivein) /\
     (!r. in_clash_tree ct r ==>
       if is_phy_var r then
@@ -5520,7 +5509,7 @@ Proof
     qspecl_then [`ct`, `sth`, `n`, `int_beg`, `int_end`] mp_tac get_intervals_ct_monad_correct >>
     impl_tac THEN1 rw [] >>
     strip_tac >> simp [] >>
-    rename1 `_ = (Success _, sthint)` >>
+    rename1 `_ = (M_success _, sthint)` >>
     fs [linear_scan_hidden_state_component_equality] >>
 
     `?n' int_beg' int_end'. get_intervals (fix_domination (get_live_tree ct)) 0 LN LN = (n', int_beg', int_end')` by simp [GSYM EXISTS_PROD] >>
@@ -5885,7 +5874,7 @@ Theorem extract_coloration_output:
     sp_inverts invbij bij /\
     EVERY (\r. r IN domain invbij) l /\
     EVERY(\r. r < LENGTH sth.colors) l ==>
-    ?col. extract_coloration invbij l acc sth = (Success col, sth) /\
+    ?col. extract_coloration invbij l acc sth = (M_success col, sth) /\
     (!r. r IN domain bij ==>
       if MEM (the 0 (lookup r bij)) l then
         lookup r col = SOME (EL (the 0 (lookup r bij)) sth.colors)
@@ -5945,20 +5934,15 @@ Proof
 QED
 
 Theorem check_col_equal_col:
-     !s f1 f2.
+  !s f1 f2.
     (!r. r IN domain s ==> f1 r = f2 r) ==>
     check_col f1 s = check_col f2 s
 Proof
-    rpt strip_tac >>
-    sg `MAP (f1 o FST) (toAList s) = MAP (f2 o FST) (toAList s)` THEN1 (
-        simp [LIST_EQ_REWRITE] >>
-        rw [EL_MAP] >>
-        first_x_assum match_mp_tac >>
-        imp_res_tac EL_MEM >>
-        `MEM (FST (EL x (toAList s))) (MAP FST (toAList s))` by (simp [MEM_MAP, EXISTS_PROD] >> metis_tac [PAIR]) >>
-        fs [set_MAP_FST_toAList_eq_domain]
-    ) >>
-    simp [check_col_def]
+  rpt strip_tac >>
+  ‘MAP (f1 o FST) (toAList s) = MAP (f2 o FST) (toAList s)’
+    suffices_by simp [check_col_def] >>
+  simp[GSYM MAP_MAP_o] >>
+  simp [MAP_EQ_f, set_MAP_FST_toAList_domain]
 QED
 
 Theorem check_partial_col_equal_col:
@@ -6025,12 +6009,11 @@ Proof
     )
 QED
 
-
 Theorem linear_scan_reg_alloc_correct:
-     !k moves ct forced.
+  !k moves ct forced.
     EVERY (\r1,r2. in_clash_tree ct r1 /\ in_clash_tree ct r2) forced ==>
     ?col livein flivein.
-    linear_scan_reg_alloc k moves ct forced = Success col /\
+    linear_scan_reg_alloc k moves ct forced = M_success col /\
     check_clash_tree (sp_default col) ct LN LN = SOME (livein, flivein) /\
     (!r. in_clash_tree ct r ==>
       r IN domain col /\
@@ -6043,7 +6026,7 @@ Theorem linear_scan_reg_alloc_correct:
     ) /\
     (!r. r IN domain col ==> in_clash_tree ct r) /\
     EVERY (\r1,r2. (sp_default col) r1 = (sp_default col) r2 ==> r1 = r2) forced
-Proof
+Proof[exclude_simps = sptree.LENGTH_toAList]
     rpt strip_tac >>
     simp [linear_scan_reg_alloc_def, run_linear_reg_alloc_intervals_def, run_i_linear_scan_hidden_state_def, run_def, linear_reg_alloc_and_extract_coloration_def] >>
 
@@ -6249,5 +6232,3 @@ Proof
         metis_tac [SOME_11]
     )
 QED
-
-val _ = export_theory ();

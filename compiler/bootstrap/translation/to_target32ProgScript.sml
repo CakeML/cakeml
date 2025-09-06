@@ -1,6 +1,14 @@
 (*
   Translate the final part of the compiler backend for 32-bit targets.
 *)
+Theory to_target32Prog
+Ancestors
+  evaluate ml_translator to_word32Prog std_prelude word_to_stack
+  stack_alloc stack_remove stack_names stack_to_lab lab_filter
+  lab_to_target asm monadic_enc monadic_enc32
+Libs
+  preamble ml_translatorLib ml_monad_translatorLib
+
 open preamble;
 open evaluateTheory
 open ml_translatorLib ml_translatorTheory;
@@ -8,10 +16,11 @@ open to_word32ProgTheory std_preludeTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory "to_target32Prog"
-
 val _ = translation_extends "to_word32Prog";
 val _ = ml_translatorLib.use_string_type true;
+val _ = ml_translatorLib.use_sub_check true;
+
+val () = computeLib.set_skip computeLib.the_compset “COND” (SOME 1);
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_target32Prog");
 
@@ -19,9 +28,11 @@ val RW = REWRITE_RULE
 
 val _ = add_preferred_thy "-";
 
-val NOT_NIL_AND_LEMMA = Q.prove(
-  `(b <> [] /\ x) = if b = [] then F else x`,
-  Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
+Triviality NOT_NIL_AND_LEMMA:
+  (b <> [] /\ x) = if b = [] then F else x
+Proof
+  Cases_on `b` THEN FULL_SIMP_TAC std_ss []
+QED
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
 
@@ -71,6 +82,11 @@ val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``,``foo:'a wor
 val _ = inst_tyargs := [alpha]
 
 open word_to_stackTheory
+
+val r = translate (chunk_to_bits_def |> conv32);
+val r = translate (chunk_to_bitmap_def |> conv32);
+Theorem const_words_to_bitmap_ind = const_words_to_bitmap_ind |> conv32;
+val r = translate (const_words_to_bitmap_def |> conv32);
 
 val _ = translate (conv32 write_bitmap_def|> (RW (!extra_preprocessing)))
 
@@ -171,6 +187,15 @@ val stack_alloc_compile_side = Q.prove(`∀conf prog. stack_alloc_compile_side c
 
 open stack_removeTheory
 
+val each_def =
+  copy_each_def |> inline_simp |> conv32 |> SPEC_ALL |> CONV_RULE (RAND_CONV EVAL);
+val loop_def =
+  (copy_loop_def |> inline_simp |> conv32 |> SPEC_ALL |> CONV_RULE (RAND_CONV EVAL)
+    |> REWRITE_RULE [GSYM each_def]);
+
+val _ = translate each_def;
+val _ = translate loop_def;
+
 (* Might be better to inline this *)
 val _ = translate (conv32 word_offset_def)
 val _ = translate (conv32 store_offset_def |> SIMP_RULE std_ss [word_mul_def,word_2comp_def] |> conv32)
@@ -203,6 +228,8 @@ val _ = translate (flatten_def |> spec32)
 val _ = translate (stack_to_labTheory.is_Seq_def |> spec32)
 
 val _ = translate (compile_def |> spec32)
+
+val _ = translate (stack_to_labTheory.compile_no_stubs_def |> spec32)
 
 open lab_filterTheory lab_to_targetTheory asmTheory
 open monadic_encTheory monadic_enc32Theory ml_monad_translatorLib;
@@ -263,23 +290,27 @@ val _ = m_translate_run enc_secs_32_aux_def;
 
 val _ = translate enc_secs_32_def;
 
-val monadic_enc32_enc_line_hash_32_ls_side_def = Q.prove(`
+Triviality monadic_enc32_enc_line_hash_32_ls_side_def:
   ∀a b c d e.
   d ≠ 0 ⇒
-  monadic_enc32_enc_line_hash_32_ls_side a b c d e ⇔ T`,
+  monadic_enc32_enc_line_hash_32_ls_side a b c d e ⇔ T
+Proof
   Induct_on`e`>>
   simp[Once (fetch "-" "monadic_enc32_enc_line_hash_32_ls_side_def")]>>
-  EVAL_TAC>>rw[]>>fs[]);
+  EVAL_TAC>>rw[]>>fs[]
+QED
 
-val monadic_enc32_enc_sec_hash_32_ls_side_def = Q.prove(`
+Triviality monadic_enc32_enc_sec_hash_32_ls_side_def:
   ∀a b c d e.
   d ≠ 0 ⇒
-  monadic_enc32_enc_sec_hash_32_ls_side a b c d e ⇔ T`,
+  monadic_enc32_enc_sec_hash_32_ls_side a b c d e ⇔ T
+Proof
   Induct_on`e`>>
   simp[Once (fetch "-" "monadic_enc32_enc_sec_hash_32_ls_side_def")]>>
-  metis_tac[monadic_enc32_enc_line_hash_32_ls_side_def]);
+  metis_tac[monadic_enc32_enc_line_hash_32_ls_side_def]
+QED
 
-Theorem monadic_enc32_enc_secs_32_side_def = Q.prove(`
+Theorem monadic_enc32_enc_secs_32_side_def[allow_rebind] = Q.prove(`
   monadic_enc32_enc_secs_32_side a b c ⇔ T`,
   EVAL_TAC>>
   rw[]>>
@@ -313,29 +344,63 @@ val res = translate (get_zero_labs_acc_def |> spec32)
 val res = translate (zero_labs_acc_exist_def |> INST_TYPE[alpha |-> ``:num``, beta |->``:32``])
 
 (* Add in hidden argument to compile_lab *)
-val remove_labels_hash_def = Define `
+Definition remove_labels_hash_def:
   remove_labels_hash init_clock c pos labs ffis hash_size sec_list =
-    remove_labels_loop init_clock c pos labs ffis (enc_secs_32 c.encode hash_size sec_list)`;
+    remove_labels_loop init_clock c pos labs ffis (enc_secs_32 c.encode hash_size sec_list)
+End
 
-val remove_labels_hash_correct = Q.prove(`
+Triviality remove_labels_hash_correct:
   remove_labels_hash c.init_clock c.asm_conf c.pos c.labels ffis c.hash_size sec_list =
-  remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list`,
+  remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list
+Proof
   simp [FUN_EQ_THM, remove_labels_hash_def, remove_labels_def,
-        enc_secs_32_correct]);
+        enc_secs_32_correct]
+QED
 
 val res = translate (remove_labels_hash_def |> spec32);
+
+val res = translate $ INST_TYPE[alpha|->``:8``] $ get_memop_info_def;
+val res = translate_no_ind $ spec32 $ get_shmem_info_def;
+
+Theorem get_shmem_info_ind:
+  lab_to_target_get_shmem_info_ind
+Proof
+  PURE_REWRITE_TAC [fetch "-" "lab_to_target_get_shmem_info_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (spec32 $ latest_ind ())
+  \\ rpt strip_tac >>
+  TRY (last_x_assum match_mp_tac>>
+       rpt strip_tac>>fs[])>>
+  gvs[]>>
+  qmatch_asmsub_abbrev_tac ‘shmem_info ++ X’>>
+  qpat_abbrev_tac ‘RH = shmem_info ++ _’>>
+  ‘RH = shmem_info ++ X’ by simp[Abbr ‘RH’, Abbr ‘X’,shmem_rec_component_equality]>>
+  fs[Abbr ‘X’]
+QED
+
+val _ = get_shmem_info_ind |> update_precondition;
 
 val compile_lab_thm = compile_lab_def
   |> spec32 |> REWRITE_RULE [GSYM remove_labels_hash_correct];
 
 val res = translate compile_lab_thm;
-
 val res = translate (spec32 compile_def)
+
+(* explorer specific functions *)
+
+val res = presLangTheory.asm_cmp_to_display_def |> spec32 |> translate;
+val res = presLangTheory.asm_asm_to_display_def |> spec32 |> translate;
+val res = presLangTheory.lab_asm_to_display_def |> spec32
+          |> REWRITE_RULE [presLangTheory.string_imp_def] |> translate;
+val res = presLangTheory.lab_line_to_display_def |> spec32 |> translate;
+val res = presLangTheory.lab_fun_to_display_def |> spec32 |> translate;
+val res = presLangTheory.stack_prog_to_display_def |> spec32
+          |> REWRITE_RULE [presLangTheory.string_imp_def] |> translate;
+val res = presLangTheory.stack_fun_to_display_def |> spec32 |> translate;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

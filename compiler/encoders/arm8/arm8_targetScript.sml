@@ -1,43 +1,50 @@
 (*
   Define the target compiler configuration for ARMv8.
 *)
-open HolKernel Parse boolLib bossLib
-open asmLib arm8_stepTheory;
-
-val () = new_theory "arm8_target"
+Theory arm8_target
+Ancestors
+  asmProps arm8_step arithmetic words
+Libs
+  asmLib
 
 val () = wordsLib.guess_lengths ()
 
 (* --- The next-state function --- *)
 
-val arm8_next_def = Define `arm8_next = THE o NextStateARM8`
+Definition arm8_next_def:
+  arm8_next = THE o NextStateARM8
+End
 
 (* --- Valid ARMv8 states --- *)
 
-val arm8_ok_def = Define`
+Definition arm8_ok_def:
    arm8_ok ms <=>
    (ms.PSTATE.EL = 0w) /\
    ~ms.SCTLR_EL1.E0E  /\ ~ms.SCTLR_EL1.SA0 /\
    ~ms.TCR_EL1.TBI1 /\ ~ms.TCR_EL1.TBI0 /\
-   (ms.exception = NoException) /\ aligned 2 ms.PC`
+   (ms.exception = NoException) /\ aligned 2 ms.PC
+End
 
 (* --- Encode ASM instructions to ARM bytes. --- *)
 
-val arm8_encode_fail_def = zDefine`
-  arm8_encode_fail = [NoOperation]`
+Definition arm8_encode_fail_def[nocompute]:
+  arm8_encode_fail = [NoOperation]
+End
 
-val arm8_encode_def = Define`
+Definition arm8_encode_def:
    arm8_encode i =
    case arm8$Encode i of
       ARM8 w => [(7 >< 0) w; (15 >< 8) w; (23 >< 16) w; (31 >< 24) w]
-    | _ => [0w; 0w; 0w; 0w]`
+    | _ => [0w; 0w; 0w; 0w]
+End
 
-val bop_enc_def = Define`
+Definition bop_enc_def:
    (bop_enc And = LogicalOp_AND) /\
    (bop_enc Or  = LogicalOp_ORR) /\
-   (bop_enc Xor = LogicalOp_EOR)`
+   (bop_enc Xor = LogicalOp_EOR)
+End
 
-val cmp_cond_def = Define`
+Definition cmp_cond_def:
    (cmp_cond Less     = 0b1011w:word4) /\
    (cmp_cond Lower    = 0b0011w) /\
    (cmp_cond Equal    = 0b0000w) /\
@@ -45,9 +52,10 @@ val cmp_cond_def = Define`
    (cmp_cond NotLess  = 0b1010w) /\
    (cmp_cond NotLower = 0b0010w) /\
    (cmp_cond NotEqual = 0b0001w) /\
-   (cmp_cond NotTest  = 0b0001w)`
+   (cmp_cond NotTest  = 0b0001w)
+End
 
-val arm8_enc_mov_imm_def = Define`
+Definition arm8_enc_mov_imm_def:
    arm8_enc_mov_imm (i: word64) =
    if (i && 0xFFFFFFFFFFFF0000w) = 0w then
       SOME ((15 >< 0) i, 0w: word2)
@@ -58,11 +66,12 @@ val arm8_enc_mov_imm_def = Define`
    else if (i && 0x0000FFFFFFFFFFFFw) = 0w then
       SOME ((63 >< 48) i, 3w)
    else
-      NONE`
+      NONE
+End
 
 val temp = ``26w : word5``
 
-val arm8_load_store_ast_def = Define`
+Definition arm8_load_store_ast_def:
   arm8_load_store_ast ls r1 r2 a =
   let unsigned = ~word_msb a in
   if a <> sw2sw ((8 >< 0) a : word9) /\
@@ -78,9 +87,48 @@ val arm8_load_store_ast_def = Define`
     [LoadStore
        (LoadStoreImmediate@64
           (3w, F, ls, AccType_NORMAL, F, F, F, F, F, unsigned, a,
-           n2w r2, n2w r1))]`
+           n2w r2, n2w r1))]
+End
 
-val arm8_ast_def = Define`
+Definition arm8_load_store_ast32_def:
+  arm8_load_store_ast32 ls r1 r2 a =
+  let unsigned = ~word_msb a in
+  if a <> sw2sw ((8 >< 0) a : word9) /\
+     (unsigned ==> a <> w2w ((11 >< 0) (a >>> 2) : word12) << 2) then
+    let (b, c) = if unsigned then (a - 0xFFw, 0xFFw) else (-a - 0x100w, -0x100w)
+    in
+      [Data (AddSubImmediate@64 (1w, ~unsigned, F, b, n2w r2, ^temp));
+       LoadStore
+         (LoadStoreImmediate@32
+            (2w, T, ls, AccType_NORMAL, F, F, F, F, F, unsigned, c,
+             ^temp, n2w r1))]
+  else
+    [LoadStore
+       (LoadStoreImmediate@32
+          (2w, T, ls, AccType_NORMAL, F, F, F, F, F, unsigned, a,
+           n2w r2, n2w r1))]
+End
+
+Definition arm8_load_store_ast16_def:
+  arm8_load_store_ast16 ls r1 r2 a =
+  let unsigned = ~word_msb a in
+  if a <> sw2sw ((8 >< 0) a : word9) /\
+     (unsigned ==> a <> w2w ((11 >< 0) (a >>> 1) : word12) << 1) then
+    let (b, c) = if unsigned then (a - 0xFFw, 0xFFw) else (-a - 0x100w, -0x100w)
+    in
+      [Data (AddSubImmediate@64 (1w, ~unsigned, F, b, n2w r2, ^temp));
+       LoadStore
+         (LoadStoreImmediate@16
+            (1w, T, ls, AccType_NORMAL, F, F, F, F, F, unsigned, c,
+             ^temp, n2w r1))]
+  else
+    [LoadStore
+       (LoadStoreImmediate@16
+          (1w, T, ls, AccType_NORMAL, F, F, F, F, F, unsigned, a,
+           n2w r2, n2w r1))]
+End
+
+Definition arm8_ast_def:
    (arm8_ast (Inst Skip) = [NoOperation]) /\
    (arm8_ast (Inst (Const r i)) =
       case arm8_enc_mov_imm i of
@@ -167,13 +215,10 @@ val arm8_ast_def = Define`
        Data (ConditionalSelect@64 (1w, F, T, 7w, 31w, 31w, n2w r4))]) /\
    (arm8_ast (Inst (Mem Load r1 (Addr r2 a))) =
       arm8_load_store_ast MemOp_LOAD r1 r2 a) /\
-   (*
    (arm8_ast (Inst (Mem Load32 r1 (Addr r2 a))) =
-        (LoadStore
-           (LoadStoreImmediate@32
-              (2w, T, MemOp_LOAD, AccType_NORMAL, F, F, F, F, F, ~word_msb a,
-               a, n2w r2, n2w r1)))) /\
-   *)
+    arm8_load_store_ast32 MemOp_LOAD r1 r2 a) /\
+   (arm8_ast (Inst (Mem Load16 r1 (Addr r2 a))) =
+    arm8_load_store_ast16 MemOp_LOAD r1 r2 a) /\
    (arm8_ast (Inst (Mem Load8 r1 (Addr r2 a))) =
       [LoadStore
          (LoadStoreImmediate@8
@@ -181,13 +226,10 @@ val arm8_ast_def = Define`
              a, n2w r2, n2w r1))]) /\
    (arm8_ast (Inst (Mem Store r1 (Addr r2 a))) =
       arm8_load_store_ast MemOp_STORE r1 r2 a) /\
-   (*
    (arm8_ast (Inst (Mem Store32 r1 (Addr r2 a))) =
-        (LoadStore
-           (LoadStoreImmediate@32
-              (2w, T, MemOp_STORE, AccType_NORMAL, F, F, F, F, F, ~word_msb a,
-               a, n2w r2, n2w r1)))) /\
-   *)
+    arm8_load_store_ast32 MemOp_STORE r1 r2 a) /\
+   (arm8_ast (Inst (Mem Store16 r1 (Addr r2 a))) =
+    arm8_load_store_ast16 MemOp_STORE r1 r2 a) /\
    (arm8_ast (Inst (Mem Store8 r1 (Addr r2 a))) =
       [LoadStore
          (LoadStoreImmediate@8
@@ -233,10 +275,12 @@ val arm8_ast_def = Define`
                 (1w, MoveWideOp_K, 3w, (63 >< 48) i, ^temp));
         Data (AddSubShiftedRegister@64
                 (1w, F, F, ShiftType_LSL, ^temp, 0w, n2w r, n2w r))
-        ])`
+        ])
+End
 
-val arm8_enc_def = zDefine
-  `arm8_enc = combin$C LIST_BIND arm8_encode o arm8_ast`
+Definition arm8_enc_def[nocompute]:
+  arm8_enc = combin$C LIST_BIND arm8_encode o arm8_ast
+End
 
 (* --- Configuration for ARMv8 --- *)
 
@@ -254,16 +298,17 @@ val cjump_max = eval ``sw2sw (INT_MAXw: 21 word) + 4w : word64``
 val jump_min = eval ``sw2sw (INT_MINw: word28) : word64``
 val jump_max = eval ``sw2sw (INT_MAXw: word28) : word64``
 
-val valid_immediate_def = Define`
+Definition valid_immediate_def:
    valid_immediate (c:binop+cmp) (i: word64) =
    if c IN {INL Add; INL Sub;
             INR Less; INR Lower; INR Equal;
             INR NotLess; INR NotLower; INR NotEqual} then
       ((~0xFFFw && i) = 0w) \/ ((~0xFFF000w && i) = 0w)
    else
-      IS_SOME (EncodeBitMask i)`
+      IS_SOME (EncodeBitMask i)
+End
 
-val arm8_config_def = Define`
+Definition arm8_config_def:
    arm8_config =
    <| ISA := ARMv8
     ; encode := arm8_enc
@@ -277,18 +322,21 @@ val arm8_config_def = Define`
     ; code_alignment := 2
     ; valid_imm := valid_immediate
     ; addr_offset := (^off_min, ^off_max)
+    ; hw_offset := (^off_min, ^off_max)
     ; byte_offset := (^off_min9, ^off_max12)
     ; jump_offset := (^jump_min, ^jump_max)
     ; cjump_offset := (^cjump_min, ^cjump_max)
     ; loc_offset := (^loc_min, ^loc_max)
-    |>`
+    |>
+End
 
-val arm8_proj_def = Define`
+Definition arm8_proj_def:
    arm8_proj d s =
    (s.PSTATE, s.SCTLR_EL1, s.TCR_EL1, s.exception, s.REG, fun2set (s.MEM,d),
-    s.PC)`
+    s.PC)
+End
 
-val arm8_target_def = Define`
+Definition arm8_target_def:
    arm8_target =
    <| next := arm8_next
     ; config := arm8_config
@@ -297,14 +345,57 @@ val arm8_target_def = Define`
     ; get_byte := arm8_state_MEM
     ; state_ok := arm8_ok
     ; proj := arm8_proj
-    |>`
+    |>
+End
 
 val (arm8_config, arm8_asm_ok) =
   asmLib.target_asm_rwts
     [DECIDE ``a < 32 /\ a <> 26 /\ a <> 31n <=> a <> 26 /\ a < 31``]
     ``arm8_config``
 
-val arm8_config = save_thm("arm8_config", arm8_config)
-val arm8_asm_ok = save_thm("arm8_asm_ok", arm8_asm_ok)
+Theorem arm8_config =
+  arm8_config
+Theorem arm8_asm_ok =
+  arm8_asm_ok
 
-val () = export_theory ()
+(* lemmas used in bootstrap translation *)
+
+Definition log2_def:
+  log2 n =
+  if n < 2 then 0n
+  else (log2 (n DIV 2)) + 1
+End
+
+Theorem LOG2_log2:
+  ∀n. n ≠ 0 ⇒
+  log2 n = LOG2 n
+Proof
+  ho_match_mp_tac (fetch "-" "log2_ind")>>rw[]>>
+  simp[Once log2_def,bitTheory.LOG2_def]>>
+  PURE_REWRITE_TAC [Once numeral_bitTheory.LOG_compute]>>
+  IF_CASES_TAC>>fs[ADD1,GSYM bitTheory.LOG2_def]>>
+  first_assum match_mp_tac>>
+  `2 ≤ n` by fs[]>>
+  drule bitTheory.DIV_GT0>>
+  fs[]
+QED
+
+Theorem hsb_compute:
+  HighestSetBit (w:word7) =
+  if w = 0w then -1 else w2i(n2w(log2 (w2n w)):word7)
+Proof
+  rw[word_log2_def,arm8Theory.HighestSetBit_def]>>
+  `w2n w ≠ 0` by fs[]>>
+  metis_tac[LOG2_log2]
+QED
+
+Theorem v2w_Ones:
+  (v2w (Ones n)):word6 = n2w (2 ** n -1)
+Proof
+  rw[arm8Theory.Ones_def]>>
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss][]>>
+  rewrite_tac [bitstringTheory.word_index_v2w,word_index_n2w] >>
+  simp [bitstringTheory.testbit, listTheory.PAD_LEFT,bitTheory.BIT_EXP_SUB1]>>
+  eq_tac>>
+  fs[listTheory.EL_GENLIST]
+QED

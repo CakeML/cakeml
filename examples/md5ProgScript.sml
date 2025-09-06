@@ -1,9 +1,11 @@
 (*
   Translate md5 function
 *)
-open preamble basis md5Theory UnsafeProgTheory cfLib basisFunctionsLib;
-
-val _ = new_theory "md5Prog"
+Theory md5Prog
+Libs
+  preamble basis cfLib basisFunctionsLib
+Ancestors
+  md5 UnsafeProg
 
 val _ = translation_extends "UnsafeProg";
 
@@ -44,12 +46,12 @@ val mul8add_thm = mul8add_def
   |> SIMP_RULE std_ss [LET_THM,WORD_MUL_LSL,word_mul_n2w,
        WORD_ADD_0,WORD_LO,w2n_n2w,EVAL “dimword (:32)”];
 
-val res = translate (update1_def |> REWRITE_RULE [mul8add_simp]);
+val res = translate (update1_def |> REWRITE_RULE [mul8add_simp, GSYM ml_translatorTheory.sub_check_def]);
 
 val res = translate mul8add_thm;
 val res = translate genlist_rev_def;
-val res = translate update_def;
-val final_v = translate final_def;
+val res = translate (update_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
+val final_v = translate (final_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 val res = translate hxd_def;
 val res = translate EL;
 
@@ -101,7 +103,7 @@ val _ = (append_prog o process_topdecs) `
       Some s => md5_final s
     | None => None`;
 
-Theorem md5_of_v_def = fetch "-" "md5_of_v_def";
+val md5_of_v_def = fetch "-" "md5_of_v_def";
 
 Theorem md5_of_SOME:
   OPTION_TYPE FILENAME (SOME s) fnv ∧
@@ -115,7 +117,7 @@ Theorem md5_of_SOME:
                       retv))
 Proof
   rpt strip_tac
-  \\ xcf_with_def "md5_of" md5_of_v_def
+  \\ xcf_with_def md5_of_v_def
   \\ assume_tac md5_update_v
   \\ assume_tac init_v
   \\ drule_all (foldChars_SOME |> GEN_ALL)
@@ -144,7 +146,7 @@ Theorem md5_of_NONE:
                  & (OPTION_TYPE STRING_TYPE (SOME (implode (md5 text))) retv))
 Proof
   rpt strip_tac
-  \\ xcf_with_def "md5_of" md5_of_v_def
+  \\ xcf_with_def md5_of_v_def
   \\ assume_tac md5_update_v
   \\ assume_tac init_v
   \\ drule_all (foldChars_NONE |> GEN_ALL)
@@ -161,5 +163,3 @@ Proof
   \\ gvs [std_preludeTheory.OPTION_TYPE_def,md5_final_def]
   \\ fs [md5_lem]
 QED
-
-val _ = export_theory();

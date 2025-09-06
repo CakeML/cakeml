@@ -2,18 +2,22 @@
   Some common helper functions for writing the final byte list ->
   string exporter.
 *)
-open preamble mlstringTheory mlvectorTheory mlintTheory;
+Theory export
+Ancestors
+  mlstring mlvector mlint
+Libs
+  preamble
 
-val _ = new_theory "export";
-
-val split16_def = tDefine "split16" `
+Definition split16_def:
   (split16 f [] = Nil) /\
   (split16 f xs =
      let xs1 = TAKE 16 xs in
      let xs2 = DROP 16 xs in
-       SmartAppend (f xs1) (split16 f xs2))`
-  (WF_REL_TAC `measure (LENGTH o SND)`
-   \\ fs [listTheory.LENGTH_DROP]);
+       SmartAppend (f xs1) (split16 f xs2))
+Termination
+  WF_REL_TAC `measure (LENGTH o SND)`
+   \\ fs [listTheory.LENGTH_DROP]
+End
 
 val preamble_tm =
   ``(MAP (\n. strlit(n ++ "\n"))
@@ -34,9 +38,23 @@ val preamble_tm =
        "#endif";
        "";
        "#if defined(__APPLE__)";
-       "# define makesym(name,base,len)";
+       "# define wcml(s) s";
        "#elif defined(__WIN32)";
-       "# define makesym(name,base,len)";
+       "# define wcml(s) windows_##s";
+       "#else";
+       "# define wcml(s) s";
+       "#endif";
+       "";
+       "#if defined(__APPLE__)";
+       ".macro _makesym name, base, len";
+       ".set \\name, cake_main+\\base";
+       ".endm";
+       "# define makesym(name,base,len) _makesym name, base, len";
+       "#elif defined(__WIN32)";
+       ".macro _makesym name, base, len";
+       ".set \\name, cake_main+\\base";
+       ".endm";
+       "# define makesym(name,base,len) _makesym name, base, len";
        "#else";
        ".macro _makesym name, base, len";
        ".local \\name";
@@ -47,46 +65,95 @@ val preamble_tm =
        "# define makesym(name,base,len) _makesym name, base, len";
        "#endif";
        "";
+       "#define DATA_BUFFER_SIZE    65536";
+       "#define CODE_BUFFER_SIZE  5242880";
+       "";
        "     .file        \"cake.S\"";
        ""])`` |> EVAL |> rconc;
-val preamble_def = Define`preamble = ^preamble_tm`;
+Definition preamble_def:
+  preamble = ^preamble_tm
+End
 
-val data_section_def = Define`data_section word_directive =
+Definition data_section_def:
+  data_section word_directive ret =
      MAP (\n. strlit (n ++ "\n"))
-       ["     .data";
+       (["     .data";
         "     .p2align 3";
         "cdecl(cml_heap): " ++ word_directive ++ " 0";
         "cdecl(cml_stack): " ++ word_directive ++ " 0";
-        "cdecl(cml_stackend): " ++ word_directive ++ " 0";
-        "     .p2align 3";
-        "cake_bitmaps:"]`;
+        "cdecl(cml_stackend): " ++ word_directive ++ " 0"] ++
+        (if ret then
+          ["ret_base: " ++ word_directive ++ " 0";
+           "ret_stack: " ++ word_directive ++ " 0";
+           "ret_stackend: " ++ word_directive ++ " 0";
+           "can_enter: " ++ word_directive ++ " 0"]
+         else []) ++
+        ["     .p2align 3";
+        "cake_bitmaps:"])
+End
 
-val comm_strlit_def = Define `comm_strlit = strlit ","`;
-val newl_strlit_def = Define `newl_strlit = strlit "\n"`;
+Definition data_buffer_def:
+  data_buffer =
+     MAP (\n. strlit (n ++ "\n"))
+       ["     .globl cdecl(cake_bitmaps_buffer_begin)";
+        "cdecl(cake_bitmaps_buffer_begin):";
+        "#if defined(EVAL)";
+        "     .space DATA_BUFFER_SIZE";
+        "#endif";
+        "     .globl cdecl(cake_bitmaps_buffer_end)";
+        "cdecl(cake_bitmaps_buffer_end):"]
+End
 
-val comma_cat_def = Define `
+Definition code_buffer_def:
+  code_buffer =
+     MAP (\n. strlit (n ++ "\n"))
+       ["     .globl cdecl(cake_codebuffer_begin)";
+        "cdecl(cake_codebuffer_begin):";
+        "#if defined(EVAL)";
+        "     .space CODE_BUFFER_SIZE";
+        "#endif";
+        "     .p2align 12";
+        "     .globl cdecl(cake_codebuffer_end)";
+        "cdecl(cake_codebuffer_end):";
+        "     .space 4096"]
+End
+
+Definition comm_strlit_def:
+  comm_strlit = strlit ","
+End
+Definition newl_strlit_def:
+  newl_strlit = strlit "\n"
+End
+
+Definition comma_cat_def:
   comma_cat f x =
     case x of
     | [] => [newl_strlit]
     | [x] => [f x; newl_strlit]
-    | (x::xs) => f x :: comm_strlit :: comma_cat f xs`;
+    | (x::xs) => f x :: comm_strlit :: comma_cat f xs
+End
 
-val words_line_def = Define`
+Definition words_line_def:
   words_line word_directive to_string ls =
-    List (word_directive :: comma_cat to_string ls)`;
+    List (word_directive :: comma_cat to_string ls)
+End
 
-val word_to_string_def = Define`
-  word_to_string w = toString(w2n w)`;
+Definition word_to_string_def:
+  word_to_string w = toString(w2n w)
+End
 
-val byte_to_string_def = Define `
+Definition byte_to_string_def:
   byte_to_string (b:word8) =
     strlit ("0x" ++ [EL (w2n b DIV 16) "0123456789ABCDEF"]
-                 ++ [EL (w2n b MOD 16) "0123456789ABCDEF"])`;
+                 ++ [EL (w2n b MOD 16) "0123456789ABCDEF"])
+End
 
-val all_bytes_def = Define `
-  all_bytes = Vector (GENLIST (\n. byte_to_string (n2w n)) 256)`;
+Definition all_bytes_def:
+  all_bytes = Vector (GENLIST (\n. byte_to_string (n2w n)) 256)
+End
 
-val all_bytes_eq = save_thm("all_bytes_eq",EVAL ``all_bytes``);
+Theorem all_bytes_eq =
+  EVAL ``all_bytes``
 
 Theorem byte_to_string_eq:
    !b. byte_to_string b = sub all_bytes (w2n b)
@@ -100,19 +167,35 @@ QED
 (* gas allows 0-9a-zA-Z_$. in labels as long as the first is _A-Za-z *)
 (* we prefix labels and reserve $; . is special *)
 
-val escape_sym_char_def = Define`
+Definition escape_sym_char_def:
   escape_sym_char ch = let code = ORD ch in
     if code >= 0x61 /\ code <= 0x7A \/ code >= 0x41 /\ code <= 0x5A \/
        code >= 0x30 /\ code <= 0x39 \/ code = 0x5F then str ch else
-    «$» ^ toString(code) ^ «_»`
+    «$» ^ toString(code) ^ «_»
+End
 
-val emit_symbol_def = Define`
-  emit_symbol (ix,appl) (name,start,len) = (ix + 1, misc$Append appl (misc$List
-      [«    makesym(cml_» ^ concat (MAP escape_sym_char (explode name)) ^
-      «_» ^ toString(ix) ^ «, » ^ toString(start) ^ «, » ^
-      toString(len) ^ «)\n»]))`
+Definition get_sym_label_def:
+  get_sym_label (ix,appl) (name,start,len) =
+    let label =
+      «cml_» ^ concat (MAP escape_sym_char (explode name)) ^
+      «_» ^ toString(ix) in
+    (ix + 1, appl ++ [(name,label,start,len)])
+End
 
-val emit_symbols_def = Define `
-  emit_symbols ls = SND $ FOLDL emit_symbol (0, misc$Nil) ls`;
+Definition get_sym_labels_def:
+  get_sym_labels syms =
+    SND $ FOLDL get_sym_label (0, []) syms
+End
 
-val _ = export_theory ();
+Definition emit_symbol_def:
+  emit_symbol appl (name,label,start,len) =
+    misc$Append appl (misc$List
+      [«    makesym(» ^ label ^ «, » ^ toString(start) ^ «, » ^
+      toString(len) ^ «)\n»])
+End
+
+Definition emit_symbols_def:
+  emit_symbols lsyms =
+    FOLDL emit_symbol misc$Nil lsyms
+End
+

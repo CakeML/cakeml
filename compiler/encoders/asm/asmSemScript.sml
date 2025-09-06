@@ -1,15 +1,14 @@
 (*
   The semantics of the asm instruction description.
 *)
-open HolKernel Parse boolLib bossLib
-open asmTheory machine_ieeeTheory
-open miscTheory (* for bytes_in_memory *)
-
-val () = new_theory "asmSem"
+Theory asmSem
+Ancestors
+  asm machine_ieee
+  misc (* for bytes_in_memory *)
 
 (* -- semantics of ASM program -- *)
 
-val () = Datatype `
+Datatype:
   asm_state =
     <| regs       : num -> 'a word
      ; fp_regs    : num -> word64
@@ -20,38 +19,60 @@ val () = Datatype `
      ; align      : num
      ; be         : bool
      ; failed     : bool
-     |>`
+     |>
+End
 
-val upd_pc_def      = Define `upd_pc pc s = s with pc := pc`
-val upd_reg_def     = Define `upd_reg r v s = s with regs := (r =+ v) s.regs`
-val upd_fp_reg_def  = Define `upd_fp_reg r v s = s with fp_regs := (r =+ v) s.fp_regs`
-val upd_mem_def     = Define `upd_mem a b s = s with mem := (a =+ b) s.mem`
-val read_reg_def    = Define `read_reg r s = s.regs r`
-val read_fp_reg_def = Define `read_fp_reg r s = s.fp_regs r`
-val read_mem_def    = Define `read_mem a s = s.mem a`
+Definition upd_pc_def:
+  upd_pc pc s = s with pc := pc
+End
+Definition upd_reg_def:
+  upd_reg r v s = s with regs := (r =+ v) s.regs
+End
+Definition upd_fp_reg_def:
+  upd_fp_reg r v s = s with fp_regs := (r =+ v) s.fp_regs
+End
+Definition upd_mem_def:
+  upd_mem a b s = s with mem := (a =+ b) s.mem
+End
+Definition read_reg_def:
+  read_reg r s = s.regs r
+End
+Definition read_fp_reg_def:
+  read_fp_reg r s = s.fp_regs r
+End
+Definition read_mem_def:
+  read_mem a s = s.mem a
+End
 
-val assert_def = Define `assert b s = s with failed := (~b \/ s.failed)`
+Definition assert_def:
+  assert b s = s with failed := (~b \/ s.failed)
+End
 
-val reg_imm_def = Define `
+Definition reg_imm_def:
   (reg_imm (Reg r) s = read_reg r s) /\
-  (reg_imm (Imm w) s = w)`
+  (reg_imm (Imm w) s = w)
+End
 
-val binop_upd_def = Define `
+Definition binop_upd_def:
   (binop_upd r Add w1 w2 = upd_reg r (w1 + w2)) /\
   (binop_upd r Sub w1 w2 = upd_reg r (w1 - w2)) /\
   (binop_upd r And w1 w2 = upd_reg r (word_and w1 w2)) /\
   (binop_upd r Or w1 w2  = upd_reg r (word_or w1 w2)) /\
-  (binop_upd r Xor w1 w2 = upd_reg r (word_xor w1 w2))`
+  (binop_upd r Xor w1 w2 = upd_reg r (word_xor w1 w2))
+End
 
-val is_test_def = Define `is_test c <=> (c = Test) \/ (c = NotTest)`
+Definition is_test_def:
+  is_test c <=> (c = Test) \/ (c = NotTest)
+End
 
-val word_shift_def = Define `
+Definition word_shift_def:
   (word_shift Lsl w n = w << n) /\
   (word_shift Lsr w n = w >>> n) /\
   (word_shift Asr w n = w >> n) /\
-  (word_shift Ror w n = word_ror w n)`;
+  (word_shift Ror w n = word_ror w n)
+End
 
-val arith_upd_def = Define `
+Definition arith_upd_def:
   (arith_upd (Binop b r1 r2 (ri:'a reg_imm)) s =
      binop_upd r1 b (read_reg r2 s) (reg_imm ri s) s) /\
   (arith_upd (Shift l r1 r2 n) s =
@@ -87,9 +108,10 @@ val arith_upd_def = Define `
      let w3 = read_reg r3 s
      in
        upd_reg r4 (if w2i (w2 - w3) <> w2i w2 - w2i w3 then 1w else 0w)
-         (upd_reg r1 (w2 - w3) s))`
+         (upd_reg r1 (w2 - w3) s))
+End
 
-val fp_upd_def = Define `
+Definition fp_upd_def:
   (fp_upd (FPLess r d1 d2) s =
      upd_reg r (if fp64_lessThan (read_fp_reg d1 s) (read_fp_reg d2 s)
                   then 1w
@@ -150,55 +172,68 @@ val fp_upd_def = Define `
              else let v = read_fp_reg (d2 DIV 2) s in
                w2i (if ODD d2 then (63 >< 32) v else (31 >< 0) v : 'a word)
      in
-       upd_fp_reg d1 (int_to_fp64 roundTiesToEven i) s)`
+       upd_fp_reg d1 (int_to_fp64 roundTiesToEven i) s)
+End
 
-val addr_def = Define `addr (Addr r offset) s = read_reg r s + offset`
+Definition addr_def:
+  addr (Addr r offset) s = read_reg r s + offset
+End
 
-val read_mem_word_def = Define `
+Definition read_mem_word_def:
   (read_mem_word a 0 s = (0w:'a word,s)) /\
   (read_mem_word a (SUC n) s =
      let (w,s1) = read_mem_word (if s.be then a - 1w else a + 1w) n s in
        (word_or (w << 8) (w2w (read_mem a s1)),
-          assert (a IN s1.mem_domain) s1))`
+          assert (a IN s1.mem_domain) s1))
+End
 
-val mem_load_def = Define `
+Definition mem_load_def:
   mem_load n r a s =
     let a = addr a s in
     let (w,s) = read_mem_word (if s.be then a + n2w (n - 1) else a) n s in
     let s = upd_reg r w s in
-      assert (aligned (LOG2 n) a) s`
+      assert (aligned (LOG2 n) a) s
+End
 
-val write_mem_word_def = Define `
+Definition write_mem_word_def:
   (write_mem_word a 0 w s = s) /\
   (write_mem_word a (SUC n) w s =
      let s1 = write_mem_word (if s.be then a - 1w else a + 1w) n (w >>> 8) s in
-       assert (a IN s1.mem_domain) (upd_mem a (w2w w) s1))`
+       assert (a IN s1.mem_domain) (upd_mem a (w2w w) s1))
+End
 
-val mem_store_def = Define `
+Definition mem_store_def:
   mem_store n r a s =
     let a = addr a s in
     let w = read_reg r s in
     let s = write_mem_word (if s.be then a + n2w (n - 1) else a) n w s in
-      assert (aligned (LOG2 n) a) s`
+      assert (aligned (LOG2 n) a) s
+End
 
-val mem_op_def = Define `
+Definition mem_op_def:
   (mem_op Load r a = mem_load (dimindex (:'a) DIV 8) r a) /\
   (mem_op Store r a = mem_store (dimindex (:'a) DIV 8) r a) /\
   (mem_op Load8 r a = mem_load 1 r a) /\
   (mem_op Store8 r a = mem_store 1 r a) /\
+  (mem_op Load16 r a = mem_load 2 r a) /\
+  (mem_op Store16 r a = mem_store 2 r a) /\
   (mem_op Load32 r (a:'a addr) = mem_load 4 r a) /\
-  (mem_op Store32 r (a:'a addr) = mem_store 4 r a)`
+  (mem_op Store32 r (a:'a addr) = mem_store 4 r a)
+End
 
-val inst_def = Define `
+Definition inst_def:
   (inst Skip s = s) /\
   (inst (Const r imm) s = upd_reg r imm s) /\
   (inst (Arith x) s = arith_upd x s) /\
   (inst (Mem m r a) s = mem_op m r a s) /\
-  (inst (FP fp) s = fp_upd fp s)`
+  (inst (FP fp) s = fp_upd fp s)
+End
 
-val jump_to_offset_def = Define `jump_to_offset w s = upd_pc (s.pc + w) s`
+Definition jump_to_offset_def:
+  jump_to_offset w s = upd_pc (s.pc + w) s
+End
 
-val asm_def = Define `
+Definition asm_def:
   (asm (Inst i) pc s = upd_pc pc (inst i s)) /\
   (asm (Jump l) pc s = jump_to_offset l s) /\
   (asm (JumpCmp cmp r ri l) pc s =
@@ -208,15 +243,15 @@ val asm_def = Define `
   (asm (Call l) pc s = jump_to_offset l (upd_reg s.lr pc s)) /\
   (asm (JumpReg r) pc s =
      let a = read_reg r s in upd_pc a (assert (aligned s.align a) s)) /\
-  (asm (Loc r l) pc s = upd_pc pc (upd_reg r (s.pc + l) s))`
+  (asm (Loc r l) pc s = upd_pc pc (upd_reg r (s.pc + l) s))
+End
 
-val asm_step_def = Define `
+Definition asm_step_def:
   asm_step c s1 i s2 <=>
     bytes_in_memory s1.pc (c.encode i) s1.mem s1.mem_domain /\
     (case c.link_reg of SOME r => s1.lr = r | NONE => T) /\
     (s1.be = c.big_endian) /\
     (s1.align = c.code_alignment) /\
     (asm i (s1.pc + n2w (LENGTH (c.encode i))) s1 = s2) /\
-    ~s2.failed /\ asm_ok i c`
-
-val () = export_theory ()
+    ~s2.failed /\ asm_ok i c
+End

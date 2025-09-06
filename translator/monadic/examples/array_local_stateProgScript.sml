@@ -2,10 +2,13 @@
   An example showing how to use the monadic translator with
   references, arrays and exceptions.
 *)
+Theory array_local_stateProg
+Libs
+  preamble ml_monad_translator_interfaceLib
+Ancestors
+  ml_monad_translator
 
-open preamble ml_monad_translator_interfaceLib
-
-val _ = new_theory "array_local_stateProg"
+val _ = set_up_monadic_translator ();
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -46,39 +49,49 @@ val _ = start_translation config;
 
 Overload failwith = ``raise_Fail``
 
+
 (* Monadic translations *)
 
-val test1_def = Define `test1 x =
+Definition test1_def:
+  test1 x =
   do
       y <- get_ref1;
       return (x + y)
-  od`;
+  od
+End
 val test1_v_thm = test1_def |> m_translate;
 
-val test2_def = Define `test2 n =
+Definition test2_def:
+  test2 n =
   do
       x <- rarray1_sub n;
       return x
-  od`;
+  od
+End
 val test2_v_thm = test2_def |> m_translate;
 
-val test3_def = Define `test3 n =
+Definition test3_def:
+  test3 n =
   do
       x <- farray1_sub n;
       return x
-  od`;
+  od
+End
 val test3_v_thm = test3_def |> m_translate;
 
-val test4_def = Define `
-  test4 n x = update_rarray1 n x`;
+Definition test4_def:
+  test4 n x = update_rarray1 n x
+End
 val test4_v_thm = test4_def |> m_translate;
 
-val test5_def = Define `
-  test5 n x = update_farray1 n x`;
+Definition test5_def:
+  test5 n x = update_farray1 n x
+End
 val test5_v_thm = test5_def |> m_translate;
 
-val test6_def = Define `
-  test6 n x = alloc_rarray1 n x`;
+Definition test6_def:
+  test6 n x = alloc_rarray1 n x
+End
 val test6_v_thm = test6_def |> m_translate;
 
 (* run translations *)
@@ -86,65 +99,75 @@ val test6_v_thm = test6_def |> m_translate;
 val run_init_state_def =
   define_run ``:state_refs`` ["farray1", "farray2"] "init_state"
 
-val run_test1_def = Define `
-  run_test1 x state = run_init_state (test1 x) state`;
+Definition run_test1_def:
+  run_test1 (x: num) (state: init_state) = run_init_state (test1 x) (state: init_state)
+End
 val run_test1_v_thm = m_translate_run run_test1_def;
 
-val crun_test1_def = Define `
+Definition crun_test1_def:
   crun_test1 x =
-    run_init_state (test1 x) (init_state 0 0 [] [] (10, 0) (11, 0))`;
+    run_init_state (test1 x) (init_state 0 0 [] [] (10, 0) (11, 0))
+End
 val crun_test1_v_thm = m_translate_run crun_test1_def;
 
 (* test 2 *)
-val run_test2_def = Define `
-  run_test2 x state = run_init_state (test2 x) state`;
+Definition run_test2_def:
+  run_test2 x state = run_init_state (test2 x) state
+End
 val run_test2_v_thm = m_translate_run run_test2_def;
 
-val crun_test2_def = Define `
+Definition crun_test2_def:
   crun_test2 x =
-    run_init_state (test2 x) (init_state 0 0 [] [] (10, 0) (11, 0))`;
+    run_init_state (test2 x) (init_state 0 0 [] [] (10, 0) (11, 0))
+End
 val crun_test2_v_thm = m_translate_run crun_test2_def;
 
 (* test 3 *)
-val run_test3_def = Define `
-  run_test3 x state = run_init_state (test3 x) state`;
+Definition run_test3_def:
+  run_test3 x state = run_init_state (test3 x) state
+End
 val run_test3_v_thm = m_translate_run run_test3_def;
 
-val crun_test3_def = Define `
+Definition crun_test3_def:
   crun_test3 x =
-    run_init_state (test3 x) (init_state 0 0 [] [] (10, 0) (11, 0))`;
+    run_init_state (test3 x) (init_state 0 0 [] [] (10, 0) (11, 0))
+End
 val crun_test3_v_thm = m_translate_run crun_test3_def;
 
 (* test 4 *)
-val run_test4_def = Define `
-  run_test4 n x state = run_init_state (test4 n x) state`;
+Definition run_test4_def:
+  run_test4 n x state = run_init_state (test4 n x) state
+End
 val run_test4_v_thm = m_translate_run run_test4_def;
 
-val crun_test4_def = Define `
+Definition crun_test4_def:
   crun_test4 n x =
-    run_init_state (test4 n x) (init_state 0 0 [] [] (10, 0) (11, 0))`;
+    run_init_state (test4 n x) (init_state 0 0 [] [] (10, 0) (11, 0))
+End
 val crun_test4_v_thm = m_translate_run crun_test4_def;
 
 (* test 5 *)
-val run_test5_def = Define `
-  run_test5 n x state = run_init_state (test5 n x) state`;
+Definition run_test5_def:
+  run_test5 n x state = run_init_state (test5 n x) state
+End
 val run_test5_v_thm = m_translate_run run_test5_def;
 
-val crun_test5_def = Define `
+Definition crun_test5_def:
   crun_test5 n x =
-    run_init_state (test5 n x) (init_state 0 0 [] [] (10, 0) (11, 0))`;
+    run_init_state (test5 n x) (init_state 0 0 [] [] (10, 0) (11, 0))
+End
 val crun_test5_v_thm = m_translate_run crun_test5_def;
 
 (* test 6 *)
-val run_test6_def = Define `
-  run_test6 n x state = run_init_state (test6 n x) state`;
+Definition run_test6_def:
+  run_test6 n x state = run_init_state (test6 n x) state
+End
 val run_test6_v_thm = m_translate_run run_test6_def;
 
-val crun_test6_def = Define `
+Definition crun_test6_def:
   crun_test6 n x =
-    run_init_state (test6 n x) (init_state 0 0 [] [] (10, 0) (11, 0))`;
+    run_init_state (test6 n x) (init_state 0 0 [] [] (10, 0) (11, 0))
+End
 val crun_test6_v_thm = m_translate_run crun_test6_def;
 
 (* ... *)
-
-val _ = export_theory ();

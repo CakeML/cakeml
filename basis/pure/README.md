@@ -6,6 +6,9 @@ from these by the translator.
 [basisComputeLib.sml](basisComputeLib.sml):
 compset for the pure basis functions.
 
+[basis_cvScript.sml](basis_cvScript.sml):
+Translation of basis types and functions for use with cv_compute.
+
 [mlintScript.sml](mlintScript.sml):
 Pure functions for the Int module.
 
@@ -23,7 +26,14 @@ as an explicit argument everywhere.
 Pure functions for the Option module.
 
 [mlprettyprinterScript.sml](mlprettyprinterScript.sml):
-Pure functions for the PrettyPrinter module.
+Types and pure functions for pretty printing
+
+[mlratScript.sml](mlratScript.sml):
+Pure functions for the Rat module.
+
+[mlsetScript.sml](mlsetScript.sml):
+Pure functions for the Set module.
+This file defines a wrapper around the balanced_map type.
 
 [mlstringLib.sml](mlstringLib.sml):
 More ML functions for manipulating HOL terms involving mlstrings.
@@ -39,3 +49,8 @@ Pure functions for the Vector module.
 
 [mlvectorSyntax.sml](mlvectorSyntax.sml):
 ML functions for manipulating HOL terms and types involving vectors.
+
+[typeDecToPPScript.sml](typeDecToPPScript.sml):
+Maps a Dtype or Dtabbrev declaration (the ast syntax) to
+the default pretty-printer function definition for it
+(also as ast syntax).

@@ -23,7 +23,7 @@ open Parse
 val add_namespace_compset = computeLib.extend_compset
   [computeLib.Defs
     [namespaceTheory.mk_id_def
-    ,namespacePropsTheory.nsSub_compute_thm
+(*  ,namespacePropsTheory.nsSub_compute_thm *)
     ,namespacePropsTheory.nsSub_compute_def
     ,namespacePropsTheory.alistSub_def
     ,namespacePropsTheory.alist_rel_restr_def
@@ -55,7 +55,7 @@ val add_namespace_compset = computeLib.extend_compset
 val add_ast_compset = computeLib.extend_compset
   [computeLib.Defs
     [gramTheory.nt_distinct_ths
-    ,libTheory.opt_bind_def
+    ,miscTheory.opt_bind_def
     ,typeSystemTheory.is_value_def
     ,astTheory.pat_bindings_def
     ,typeSystemTheory.check_ctor_tenv_def
@@ -156,8 +156,6 @@ val add_lexparse_compset = computeLib.extend_compset
     let open cmlPtreeConversionTheory in
       [tuplify_def
       ,ptree_TopLevelDecs_def
-      ,ptree_TopLevelDec_def
-      ,ptree_Structure_def
       ,ptree_StructName_def
       (*
       ,ptree_SignatureValue_def

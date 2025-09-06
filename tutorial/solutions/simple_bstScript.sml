@@ -15,15 +15,23 @@
   typically open HolKernel boolLib bossLib and Parse (at least). CakeML's
   preamble wrapper includes all of those structures and more.
 *)
+Theory simple_bst
+Ancestors
+  comparison finite_map
+Libs
+  preamble
 
-open preamble comparisonTheory
 
 (*
   Create the logical theory in which we will work. Its name should match the name
   of this file, before the "Script.sml" suffix.
 *)
 
-val _ = new_theory "simple_bst";
+val _ = Parse.hide "cmp";
+
+Overload Less = “ternaryComparisons$LESS”
+Overload Equal = “ternaryComparisons$EQUAL”
+Overload Greater = “ternaryComparisons$GREATER”
 
 (*
   Define the binary tree type.
@@ -31,8 +39,9 @@ val _ = new_theory "simple_bst";
   value type.
 *)
 
-val _ = Datatype`
-  btree = Leaf | Node 'k 'v btree btree`;
+Datatype:
+  btree = Leaf | Node 'k 'v btree btree
+End
 
 (*
 Try, for example
@@ -51,28 +60,30 @@ type_of ``Node``;
   TypeBase.constructors_of``:cpn``;
 *)
 
-val singleton_def = Define`
-  singleton k v = Node k v Leaf Leaf`;
+Definition singleton_def:
+  singleton k v = Node k v Leaf Leaf
+End
 
-val lookup_def = Define`
+Definition lookup_def:
   lookup cmp k Leaf = NONE ∧
   lookup cmp k (Node k' v' l r) =
     case cmp k k' of
     | Less => lookup cmp k l
     | Greater => lookup cmp k r
-    | Equal => SOME v'`;
+    | Equal => SOME v'
+End
 
-val insert_def =
+Definition insert_def:
 (* EXERCISE: fill in your definition here *)
 (*ex *)
-Define`
   insert cmp k v Leaf = singleton k v ∧
   insert cmp k v (Node k' v' l r) =
     case cmp k k' of
     | Less => Node k' v' (insert cmp k v l) r
     | Greater => Node k' v' l (insert cmp k v r)
-    | Equal => Node k' v l r`;
+    | Equal => Node k' v l r
 (* ex*)
+End
 
 (*
   Since we are working with an abstract comparison function, different keys (k,
@@ -83,8 +94,9 @@ Define`
   which reveals that this is defined in comparisonTheory
 *)
 
-val key_set_def = Define`
-  key_set cmp k = { k' | cmp k k' = Equal } `;
+Definition key_set_def:
+  key_set cmp k = { k' | cmp k k' = Equal }
+End
 
 (*
   For a good comparison function cmp, the key_set cmp relation should be an
@@ -126,8 +138,8 @@ QED
 
 (* A helper theorem, expanding out the definition of key_set, for use with
    metis_tac later. *)
-val IN_key_set = save_thm("IN_key_set",
-  ``k' ∈ key_set cmp k`` |> SIMP_CONV (srw_ss()) [key_set_def]);
+Theorem IN_key_set =
+  “k' ∈ key_set cmp k” |> SIMP_CONV (srw_ss()) [key_set_def];
 
 (*
   Now let us define the (abstract) finite map from key-equivalence-classes to
@@ -135,10 +147,11 @@ val IN_key_set = save_thm("IN_key_set",
   standard against which we can verify correctness of the operations.
 *)
 
-val to_fmap_def = Define`
+Definition to_fmap_def:
   to_fmap cmp Leaf = FEMPTY ∧
   to_fmap cmp (Node k v l r) =
-  to_fmap cmp l ⊌ to_fmap cmp r |+ (key_set cmp k, v)`;
+  to_fmap cmp l ⊌ to_fmap cmp r |+ (key_set cmp k, v)
+End
 
 Theorem to_fmap_key_set:
    ∀ks t.
@@ -161,24 +174,26 @@ QED
   We start by defining what a predicate on trees indicating
   whether they have the binary search tree property
 *)
-val key_ordered_def = Define`
+Definition key_ordered_def:
   (key_ordered cmp k Leaf res ⇔ T) ∧
   (key_ordered cmp k (Node k' _ l r) res ⇔
    cmp k k' = res ∧
    key_ordered cmp k l res ∧
-   key_ordered cmp k r res)`;
+   key_ordered cmp k r res)
+End
 
 (* We make this definition an automatic rewrite, so it is expanded
    automatically by simplification tactics (such as rw, fs, and simp) *)
 val _ = export_rewrites["key_ordered_def"];
 
-val wf_tree_def = Define`
+Definition wf_tree_def:
   (wf_tree cmp Leaf ⇔ T) ∧
   (wf_tree cmp (Node k _ l r) ⇔
    key_ordered cmp k l Greater ∧
    key_ordered cmp k r Less ∧
    wf_tree cmp l ∧
-   wf_tree cmp r)`;
+   wf_tree cmp r)
+End
 
 (*
   We can prove that all the operations preserve wf_tree
@@ -303,5 +318,3 @@ Proof
   metis_tac[cmp_thms]
   (* ex*)
 QED
-
-val _ = export_theory();

@@ -1,48 +1,50 @@
 (*
   The formal semantics of wordLang
 *)
-open preamble wordLangTheory;
-local open alignmentTheory asmTheory ffiTheory in end;
+Theory wordSem
+Libs
+  preamble
+Ancestors
+  mllist wordLang alignment[qualified] finite_map[qualified]
+  misc[qualified] asm[qualified] fpSem[qualified]
+  ffi[qualified] (* for call_FFI *)
+  lprefix_lub[qualified] (* for build_lprefix_lub *)
+  machine_ieee[qualified] (* for FP *)
 
-val _ = new_theory"wordSem";
-val _ = set_grammar_ancestry [
-  "wordLang", "alignment", "finite_map", "misc", "asm",
-  "ffi", (* for call_FFI *)
-  "lprefix_lub", (* for build_lprefix_lub *)
-  "machine_ieee" (* for FP *)
-]
-val _ = Datatype `
+Datatype:
   buffer =
     <| position   : 'a word
      ; buffer     : 'b word list
-     ; space_left : num |>`
+     ; space_left : num |>
+End
 
-val buffer_flush_def = Define`
+Definition buffer_flush_def:
   buffer_flush cb (w1:'a word) w2 =
     if cb.position = w1 ∧ cb.position + (n2w(dimindex(:'b) DIV 8)) * n2w(LENGTH cb.buffer) = w2 then
       SOME ((cb.buffer:'b word list),
             cb with <| position := w2 ; buffer := [] |>)
-    else NONE`;
+    else NONE
+End
 
-val buffer_write_def = Define`
+Definition buffer_write_def:
   buffer_write cb (w:'a word) (b:'b word) =
     if cb.position + (n2w(dimindex(:'b) DIV 8)) * n2w(LENGTH cb.buffer) = w ∧ 0 < cb.space_left then
       SOME (cb with <| buffer := cb.buffer++[b] ; space_left := cb.space_left-1|>)
-    else NONE`;
+    else NONE
+End
 
-val _ = Datatype `
-  word_loc = Word ('a word) | Loc num num `;
-
-
-val is_fwd_ptr_def = Define `
+Definition is_fwd_ptr_def:
   (is_fwd_ptr (Word w) = ((w && 3w) = 0w)) /\
-  (is_fwd_ptr _ = F)`;
+  (is_fwd_ptr _ = F)
+End
 
-val theWord_def = Define `
-  theWord (Word w) = w`
+Definition theWord_def:
+  theWord (Word w) = w
+End
 
-val isWord_def = Define `
-  (isWord (Word w) = T) /\ (isWord _ = F)`;
+Definition isWord_def:
+  (isWord (Word w) = T) /\ (isWord _ = F)
+End
 
 Theorem isWord_exists:
    isWord x ⇔ ∃w. x = Word w
@@ -50,32 +52,87 @@ Proof
   Cases_on`x` \\ rw[isWord_def]
 QED
 
-val mem_load_byte_aux_def = Define `
+Definition mem_load_32_def:
+  mem_load_32 m dm be (w:'a word) =
+  if aligned 2 w
+  then case m (byte_align w) of
+       | Loc _ _ => NONE
+       | Word v =>
+           if byte_align w IN dm
+           then
+             let b0 = get_byte w v be in
+             let b1 = get_byte (w + 1w) v be in
+             let b2 = get_byte (w + 2w) v be in
+             let b3 = get_byte (w + 3w) v be in
+               let v' =
+                   (if be
+                    then
+                      (w2w b0) ≪ 24 ‖ (w2w b1) ≪ 16 ‖ (w2w b2) ≪ 8 ‖ (w2w b3)
+                    else
+                      (w2w b0) ‖ (w2w b1) ≪ 8 ‖ (w2w b2) ≪ 16 ‖ (w2w b3) ≪ 24)
+             in SOME (v': word32)
+           else NONE
+  else NONE
+End
+
+Definition mem_store_32_def:
+  mem_store_32 m dm be (w:'a word) (hw: word32) =
+  if aligned 2 w
+  then case m (byte_align w) of
+       | Word v =>
+           if byte_align w IN dm
+           then
+             if be
+             then
+               let v0 = set_byte w (w2w (hw ⋙  24)) v be in
+               let v1 = set_byte (w + 1w) (w2w (hw ⋙  16)) v0 be in
+               let v2 = set_byte (w + 2w) (w2w (hw ⋙  8)) v1 be in
+               let v3 = set_byte (w + 3w) (w2w hw) v2 be in
+                 SOME ((byte_align w =+ Word v3) m)
+             else
+               let v0 = set_byte w (w2w hw) v be in
+               let v1 = set_byte (w + 1w) (w2w (hw ⋙  8)) v0 be in
+               let v2 = set_byte (w + 2w) (w2w (hw ⋙  16)) v1 be in
+               let v3 = set_byte (w + 3w) (w2w (hw ⋙  24)) v2 be in
+                 SOME ((byte_align w =+ Word v3) m)
+           else NONE
+       | _ => NONE
+  else NONE
+End
+
+Definition mem_load_byte_aux_def:
   mem_load_byte_aux m dm be w =
     case m (byte_align w) of
     | Loc _ _ => NONE
     | Word v =>
         if byte_align w IN dm
-        then SOME (get_byte w v be) else NONE`
+        then SOME (get_byte w v be) else NONE
+End
 
-val mem_store_byte_aux_def = Define `
+Definition mem_store_byte_aux_def:
   mem_store_byte_aux m dm be w b =
     case m (byte_align w) of
     | Word v =>
         if byte_align w IN dm
         then SOME ((byte_align w =+ Word (set_byte w b v be)) m)
         else NONE
-    | _ => NONE`
+    | _ => NONE
+End
 
-val write_bytearray_def = Define `
+Definition write_bytearray_def:
   (write_bytearray a [] m dm be = m) /\
   (write_bytearray a (b::bs) m dm be =
      case mem_store_byte_aux (write_bytearray (a+1w) bs m dm be) dm be a b of
      | SOME m => m
-     | NONE => m)`;
+     | NONE => m)
+End
 
-val _ = Datatype `
-  stack_frame = StackFrame (num option) ((num # ('a word_loc)) list) ((num # num # num)option) `;
+Datatype:
+  stack_frame = StackFrame (num option)
+                           ((num # ('a word_loc)) list) (* non-GCed cutset *)
+                           ((num # ('a word_loc)) list) (* GCed cutset *)
+                           ((num # num # num)option)
+End
 
 Type gc_fun_type =
   ``: ('a word_loc list) # (('a word) -> ('a word_loc)) # ('a word) set #
@@ -83,10 +140,11 @@ Type gc_fun_type =
       (('a word_loc list) # (('a word) -> ('a word_loc)) #
       (store_name |-> 'a word_loc)) option``
 
-val gc_bij_ok_def = Define `
-  gc_bij_ok (seq':num->num->num) = !n. BIJ (seq' n) UNIV UNIV`;
+Definition gc_bij_ok_def:
+  gc_bij_ok (seq':num->num->num) = !n. BIJ (seq' n) UNIV UNIV
+End
 
-val _ = Datatype `
+Datatype:
   state =
     <| locals  : ('a word_loc) num_map
      ; locals_size : num option (* size of locals when pushed to stack, NONE if unbounded *)
@@ -98,6 +156,7 @@ val _ = Datatype `
      ; stack_size : num num_map (* stack frame size of function, unbounded if unmapped *)
      ; memory  : 'a word -> 'a word_loc
      ; mdomain : ('a word) set
+     ; sh_mdomain : ('a word) set
      ; permute : num -> num -> num (* sequence of bijective mappings *)
      ; compile : 'c -> (num # num # 'a wordLang$prog) list -> (word8 list # 'a word list # 'c) option
      ; compile_oracle : num -> 'c # (num # num # 'a wordLang$prog) list
@@ -109,11 +168,12 @@ val _ = Datatype `
      ; termdep : num (* count of how many MustTerminates we can still enter *)
      ; code    : (num # ('a wordLang$prog)) num_map
      ; be      : bool (*is big-endian*)
-     ; ffi     : 'ffi ffi_state |> `
+     ; ffi     : 'ffi ffi_state |>
+End
 
 Definition stack_size_frame_def:
-  stack_size_frame (StackFrame n _ NONE) = n /\
-  stack_size_frame (StackFrame n _ (SOME _)) = OPTION_MAP ($+ 3) n
+  stack_size_frame (StackFrame n _ _ NONE) = n /\
+  stack_size_frame (StackFrame n _ _ (SOME _)) = OPTION_MAP ($+ 3) n
 End
 
 Definition stack_size_def:
@@ -122,63 +182,109 @@ End
 
 val state_component_equality = theorem"state_component_equality";
 
-val _ = Datatype `
-  result = Result ('w word_loc) ('w word_loc)
+Datatype:
+  result = Result ('w word_loc) (('w word_loc) list)
          | Exception ('w word_loc) ('w word_loc)
          | TimeOut
          | NotEnoughSpace
          | FinalFFI final_event
-         | Error `
+         | Error
+End
 
-val isResult_def = Define `
-  (isResult (Result a b) = T) /\ (isResult _ = F)`;
+Definition isResult_def:
+  (isResult (Result a b) = T) /\ (isResult _ = F)
+End
 
-val isException_def = Define `
-  (isException (Exception a b) = T) /\ (isException _ = F)`;
+Definition isException_def:
+  (isException (Exception a b) = T) /\ (isException _ = F)
+End
 
 val s = ``(s:('a,'c,'ffi) wordSem$state)``
 
-val dec_clock_def = Define `
-  dec_clock ^s = s with clock := s.clock - 1`;
+Definition dec_clock_def:
+  dec_clock ^s = s with clock := s.clock - 1
+End
 
-val fix_clock_def = Define `
+Definition fix_clock_def:
   fix_clock old_s (res,new_s) =
     (res,new_s with
       <| clock := if old_s.clock < new_s.clock then old_s.clock else new_s.clock ;
-         termdep := old_s.termdep |>)`
+         termdep := old_s.termdep |>)
+End
 
-val is_word_def = Define `
+Definition is_word_def:
   (is_word (Word w) = T) /\
-  (is_word _ = F)`
+  (is_word _ = F)
+End
 
-val get_word_def = Define `
-  get_word (Word w) = w`
+Definition get_word_def:
+  get_word (Word w) = w
+End
 
 val _ = export_rewrites["is_word_def","get_word_def"];
 
-val mem_store_def = Define `
+Definition mem_store_def:
   mem_store (addr:'a word) (w:'a word_loc) ^s =
     if addr IN s.mdomain then
       SOME (s with memory := (addr =+ w) s.memory)
-    else NONE`
+    else NONE
+End
 
-val mem_load_def = Define `
+Definition mem_load_def:
   mem_load (addr:'a word) ^s =
     if addr IN s.mdomain then
       SOME (s.memory addr)
-    else NONE`
+    else NONE
+End
 
-val the_words_def = Define `
+Definition the_words_def:
   (the_words [] = SOME []) /\
   (the_words (w::ws) =
      case (w,the_words ws) of
      | SOME (Word x), SOME xs => SOME (x::xs)
-     | _ => NONE)`
+     | _ => NONE)
+End
 
-val word_exp_def = tDefine "word_exp" `
+Definition get_var_def:
+  get_var v ^s = sptree$lookup v s.locals
+End
+
+Definition get_vars_def:
+  (get_vars [] ^s = SOME []) /\
+  (get_vars (v::vs) s =
+     case get_var v s of
+     | NONE => NONE
+     | SOME x => (case get_vars vs s of
+                  | NONE => NONE
+                  | SOME xs => SOME (x::xs)))
+End
+
+Definition set_var_def:
+  set_var v x ^s =
+    (s with locals := (insert v x s.locals))
+End
+
+Definition unset_var_def:
+  unset_var v ^s = (s with locals := delete v s.locals)
+End
+
+Definition set_vars_def:
+  set_vars vs xs ^s =
+    (s with locals := (alist_insert vs xs s.locals))
+End
+
+Definition get_store_def:
+  get_store v ^s = (FLOOKUP s.store v)
+End
+
+Definition set_store_def:
+  set_store v x ^s = (s with store := s.store |+ (v,x))
+End
+
+Definition word_exp_def:
   (word_exp ^s (Const w) = SOME (Word w)) /\
-  (word_exp s (Var v) = lookup v s.locals) /\
-  (word_exp s (Lookup name) = FLOOKUP s.store name) /\
+  (word_exp s (Var v) = get_var v s) /\
+  (word_exp s (Lookup name) = get_store name s) /\
   (word_exp s (Load addr) =
      case word_exp s addr of
      | SOME (Word w) => mem_load w s
@@ -190,50 +296,129 @@ val word_exp_def = tDefine "word_exp" `
   (word_exp s (Shift sh wexp n) =
      case word_exp s wexp of
      | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
-     | _ => NONE)`
-  (WF_REL_TAC `measure (exp_size ARB o SND)`
+     | _ => NONE)
+Termination
+  WF_REL_TAC `measure (exp_size ARB o SND)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-   \\ DECIDE_TAC);
-
-val get_var_def = Define `
-  get_var v ^s = sptree$lookup v s.locals`;
-
-val get_vars_def = Define `
-  (get_vars [] ^s = SOME []) /\
-  (get_vars (v::vs) s =
-     case get_var v s of
-     | NONE => NONE
-     | SOME x => (case get_vars vs s of
-                  | NONE => NONE
-                  | SOME xs => SOME (x::xs)))`;
-
-val set_var_def = Define `
-  set_var v x ^s =
-    (s with locals := (insert v x s.locals))`;
-
-val set_vars_def = Define `
-  set_vars vs xs ^s =
-    (s with locals := (alist_insert vs xs s.locals))`;
-
-val set_store_def = Define `
-  set_store v x ^s = (s with store := s.store |+ (v,x))`;
+   \\ DECIDE_TAC
+End
 
 (* Flushes the locals and (optionally) the stack *)
-val flush_state_def = Define `
+Definition flush_state_def:
    flush_state T ^s = s with <| locals := LN
                               ; stack := []
                               ; locals_size := SOME 0 |>
 /\ flush_state F ^s = s with <| locals := LN
-                              ; locals_size := SOME 0 |>`;
+                              ; locals_size := SOME 0 |>
+End
 
-val call_env_def = Define `
+Definition sh_mem_store_def:
+  sh_mem_store (a:'a word) (w:'a word) ^s =
+    if a IN s.sh_mdomain then
+      case call_FFI s.ffi (SharedMem MappedWrite) [0w:word8]
+                    (word_to_bytes w F ++ word_to_bytes a F) of
+      | FFI_final outcome => (SOME (FinalFFI outcome), flush_state T s)
+      | FFI_return new_ffi new_bytes => (NONE, (s with ffi := new_ffi))
+    else (SOME Error, s)
+End
+
+Definition sh_mem_load_def:
+  sh_mem_load (a:'a word) ^s =
+    if a IN s.sh_mdomain then
+      SOME $ call_FFI s.ffi (SharedMem MappedRead) [0w:word8]
+                    (word_to_bytes a F)
+    else NONE
+End
+
+Definition sh_mem_store_byte_def:
+  sh_mem_store_byte (a:'a word) (w:'a word) ^s =
+    if byte_align a IN s.sh_mdomain then
+      case call_FFI s.ffi (SharedMem MappedWrite) [1w:word8]
+                    ([get_byte 0w w F] ++ word_to_bytes a F) of
+        FFI_final outcome => (SOME (FinalFFI outcome), flush_state T s)
+      | FFI_return new_ffi new_bytes => (NONE, (s with ffi := new_ffi))
+    else (SOME Error, s)
+End
+
+Definition sh_mem_store16_def:
+  sh_mem_store16 (a:'a word) (w:'a word) ^s =
+    if byte_align a IN s.sh_mdomain then
+      case call_FFI s.ffi (SharedMem MappedWrite) [2w:word8]
+                    (TAKE 2 (word_to_bytes w F) ++ word_to_bytes a F) of
+        FFI_final outcome => (SOME (FinalFFI outcome), flush_state T s)
+      | FFI_return new_ffi new_bytes => (NONE, (s with ffi := new_ffi))
+    else (SOME Error, s)
+End
+
+Definition sh_mem_store32_def:
+  sh_mem_store32 (a:'a word) (w:'a word) ^s =
+    if byte_align a IN s.sh_mdomain then
+      case call_FFI s.ffi (SharedMem MappedWrite) [4w:word8]
+                    (TAKE 4 (word_to_bytes w F) ++ word_to_bytes a F) of
+        FFI_final outcome => (SOME (FinalFFI outcome), flush_state T s)
+      | FFI_return new_ffi new_bytes => (NONE, (s with ffi := new_ffi))
+    else (SOME Error, s)
+End
+
+Definition sh_mem_load_byte_def:
+  sh_mem_load_byte (a:'a word) ^s =
+    if byte_align a IN s.sh_mdomain then
+      SOME $ call_FFI s.ffi (SharedMem MappedRead) [1w:word8]
+                    (word_to_bytes a F)
+    else NONE
+End
+
+Definition sh_mem_load16_def:
+  sh_mem_load16 (a:'a word) ^s =
+    if byte_align a IN s.sh_mdomain then
+      SOME $ call_FFI s.ffi (SharedMem MappedRead) [2w:word8]
+                    (word_to_bytes a F)
+    else NONE
+End
+
+Definition sh_mem_load32_def:
+  sh_mem_load32 (a:'a word) ^s =
+    if byte_align a IN s.sh_mdomain then
+      SOME $ call_FFI s.ffi (SharedMem MappedRead) [4w:word8]
+                    (word_to_bytes a F)
+    else NONE
+End
+
+(* set variable given the output from ShareLoad(Byte) *)
+Definition sh_mem_set_var_def:
+  (sh_mem_set_var (SOME (FFI_final outcome)) _ ^s = (SOME (FinalFFI outcome), flush_state T s)) /\
+  (sh_mem_set_var (SOME (FFI_return new_ffi new_bytes)) v s = (NONE, set_var v (Word (word_of_bytes F 0w new_bytes)) (s with ffi := new_ffi))) /\
+  (sh_mem_set_var _ _ s = (SOME Error, s))
+End
+
+Definition share_inst_def:
+  (share_inst Load v ad s = sh_mem_set_var (sh_mem_load ad s) v s) /\
+  (share_inst Load8 v ad s = sh_mem_set_var (sh_mem_load_byte ad s) v s) /\
+  (share_inst Load16 v ad s = sh_mem_set_var (sh_mem_load16 ad s) v s) /\
+  (share_inst Load32 v ad s = sh_mem_set_var (sh_mem_load32 ad s) v s) /\
+  (share_inst Store v ad s = case get_var v s of
+    | SOME (Word v) => sh_mem_store ad v s
+    | _ => (SOME Error,s)) /\
+  (share_inst Store8 v ad s = case get_var v s of
+    | SOME (Word v) => sh_mem_store_byte ad v s
+    | _ => (SOME Error,s)) /\
+  (share_inst Store16 v ad s = case get_var v s of
+    | SOME (Word v) => sh_mem_store16 ad v s
+    | _ => (SOME Error,s)) /\
+  (share_inst Store32 v ad s = case get_var v s of
+    | SOME (Word v) => sh_mem_store32 ad v s
+    | _ => (SOME Error,s))
+End
+
+Definition call_env_def:
   call_env args size ^s =
     s with <| locals := fromList2 args; locals_size := size;
               stack_max := OPTION_MAP2 MAX s.stack_max (OPTION_MAP2 $+ (stack_size s.stack) size)
-            |>`;
+            |>
+End
 
-val list_rearrange_def = Define `
+Definition list_rearrange_def:
   list_rearrange mover xs =
     (* if the mover function is actually a permutation,
      i.e. it bijects (or injects) the keys 0...n-1 to 0...n-1
@@ -241,11 +426,12 @@ val list_rearrange_def = Define `
     if (BIJ mover (count (LENGTH xs)) (count (LENGTH xs))) then
       GENLIST (\i. EL (mover i) xs) (LENGTH xs)
     else (* if it isn't well-formed, just pretend it is I *)
-      xs`
+      xs
+End
 
 (* Compare on keys, if keys match (never), then compare on
    the word_loc vals. Treat Words as < Locs *)
-val key_val_compare_def = Define `
+Definition key_val_compare_def:
   key_val_compare x y =
     let (a:num,b) = x in
     let (a':num,b') = y in
@@ -253,91 +439,121 @@ val key_val_compare_def = Define `
       (a = a' /\
         case b of
           Word x => (case b' of Word y => x <= y | _ => T)
-        | Loc a b => case b' of Loc a' b' => (a>a') \/ (a=a' /\ b>=b') | _ => F)`
+        | Loc a b => case b' of Loc a' b' => (a>a') \/ (a=a' /\ b>=b') | _ => F)
+End
 
 (*
 EVAL ``key_val_compare (1,Loc 3 4) (1,Loc 1 2)``
 *)
 
-val env_to_list_def = Define `
+Definition env_to_list_def:
   env_to_list env (bij_seq:num->num->num) =
     let mover = bij_seq 0 in
     let permute = (\n. bij_seq (n + 1)) in
     let l = toAList env in
-    let l = QSORT key_val_compare l in
+    let l = mllist$sort key_val_compare l in
     let l = list_rearrange mover l in
-      (l,permute)`
+      (l,permute)
+End
 
-val push_env_def = Define `
-  (push_env env NONE ^s =
-    let (l,permute) = env_to_list env s.permute;
-        stack = StackFrame s.locals_size l NONE :: s.stack
+Definition push_env_def:
+  (push_env envs NONE ^s =
+    let l0 = toAList (FST envs);
+        (l,permute) = env_to_list (SND envs) s.permute;
+        stack = StackFrame s.locals_size l0 l NONE :: s.stack
     in
       s with <| stack := stack
               ; stack_max := OPTION_MAP2 MAX s.stack_max (stack_size stack)
               ; permute := permute|>) ∧
-  (push_env env (SOME (w:num,h:'a wordLang$prog,l1,l2)) s =
-    let (l,permute) = env_to_list env s.permute;
+  (push_env envs (SOME (w:num,h:'a wordLang$prog,l1,l2)) s =
+    let l0 = toAList (FST envs);
+        (l,permute) = env_to_list (SND envs) s.permute;
         handler = SOME (s.handler,l1,l2);
-        stack = StackFrame s.locals_size l handler :: s.stack
+        stack = StackFrame s.locals_size l0 l handler :: s.stack
     in
       s with <| stack := stack
               ; stack_max := OPTION_MAP2 MAX s.stack_max (stack_size stack)
               ; permute := permute
-              ; handler := LENGTH s.stack|>)`;
+              ; handler := LENGTH s.stack|>)
+End
 
-val pop_env_def = Define `
+Definition pop_env_def:
   pop_env ^s =
     case s.stack of
-    | (StackFrame m e NONE::xs) =>
-         SOME (s with <| locals := fromAList e ; stack := xs ; locals_size := m
+    | (StackFrame m e0 e NONE::xs) =>
+         SOME (s with <| locals := union (fromAList e) (fromAList e0); stack := xs ; locals_size := m
                        |>)
-    | (StackFrame m e (SOME (n,_,_))::xs) =>
-         SOME (s with <| locals := fromAList e ; stack := xs ; locals_size := m ; handler := n |>)
-    | _ => NONE`;
+    | (StackFrame m e0 e (SOME (n,_,_))::xs) =>
+         SOME (s with <| locals := union (fromAList e) (fromAList e0); stack := xs ; locals_size := m ; handler := n |>)
+    | _ => NONE
+End
 
-val push_env_clock = Q.prove(
-  `(wordSem$push_env env b ^s).clock = s.clock`,
+Triviality push_env_clock:
+  (wordSem$push_env env b ^s).clock = s.clock
+Proof
   Cases_on `b` \\ TRY(PairCases_on`x`) \\ full_simp_tac(srw_ss())[push_env_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-  \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
+  \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+QED
 
-val pop_env_clock = Q.prove(
-  `(wordSem$pop_env ^s = SOME s1) ==> (s1.clock = s.clock)`,
+Triviality pop_env_clock:
+  (wordSem$pop_env ^s = SOME s1) ==> (s1.clock = s.clock)
+Proof
   full_simp_tac(srw_ss())[pop_env_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-  \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
+  \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+QED
 
-val jump_exc_def = Define `
+Definition jump_exc_def:
   jump_exc ^s =
     if s.handler < LENGTH s.stack then
       case LASTN (s.handler+1) s.stack of
-      | StackFrame m e (SOME (n,l1,l2)) :: xs =>
-          SOME (s with <| handler := n ; locals := fromAList e ; stack := xs; locals_size := m |>,l1,l2)
+      | StackFrame m e0 e (SOME (n,l1,l2)) :: xs =>
+          SOME (s with <| handler := n ;
+                          locals := union (fromAList e) (fromAList e0);
+                          stack := xs;
+                          locals_size := m |>,l1,l2)
       | _ => NONE
-    else NONE`;
+    else NONE
+End
 
-(* TODO: reuse this from dataSem? *)
-val cut_env_def = Define `
-  cut_env (name_set:num_set) env =
-    if domain name_set SUBSET domain env
-    then SOME (inter env name_set)
-    else NONE`
+Definition cut_names_def:
+  cut_names name_set env =
+      if domain name_set SUBSET domain env
+      then SOME (inter env name_set)
+      else NONE
+End
+
+Definition cut_envs_def:
+  cut_envs (name_sets:cutsets) env =
+    case cut_names (FST name_sets) env, cut_names (SND name_sets) env of
+    | (SOME e1, SOME e2) => SOME (e1, e2)
+    | _ => NONE
+End
+
+Definition cut_env_def:
+  cut_env (name_sets:cutsets) env =
+    case cut_envs name_sets env of
+    | SOME (e1, e2) => SOME (union e2 e1)
+    | _ => NONE
+End
 (* -- *)
 
-val cut_state_def = Define `
+Definition cut_state_def:
   cut_state names ^s =
     case cut_env names s.locals of
     | NONE => NONE
-    | SOME env => SOME (s with locals := env)`;
+    | SOME env => SOME (s with locals := env)
+End
 
-val cut_state_opt_def = Define `
+Definition cut_state_opt_def:
   cut_state_opt names ^s =
     case names of
     | NONE => SOME s
-    | SOME names => cut_state names s`;
+    | SOME names => cut_state names s
+End
 
-val find_code_def = Define `
+Definition find_code_def:
   (find_code (SOME p) args code ssize =
      case sptree$lookup p code of
      | NONE => NONE
@@ -352,23 +568,27 @@ val find_code_def = Define `
             | SOME (arity,exp) => if LENGTH args = arity + 1
                                   then SOME (FRONT args,exp,sptree$lookup loc ssize)
                                   else NONE)
-       | other => NONE)`
+       | other => NONE)
+End
 
-val enc_stack_def = Define `
+Definition enc_stack_def:
   (enc_stack [] = []) /\
-  (enc_stack ((StackFrame n l handler :: st)) = MAP SND l ++ enc_stack st)`;
+  (enc_stack ((StackFrame n _ l handler :: st)) = MAP SND l ++ enc_stack st)
+End
 
-val dec_stack_def = Define `
+Definition dec_stack_def:
   (dec_stack [] [] = SOME []) /\
-  (dec_stack xs ((StackFrame n l handler :: st)) =
+  (dec_stack xs ((StackFrame n l0 l handler :: st)) =
      if LENGTH xs < LENGTH l then NONE else
        case dec_stack (DROP (LENGTH l) xs) st of
        | NONE => NONE
-       | SOME s => SOME (StackFrame n
+       | SOME s => SOME (StackFrame n l0
            (ZIP (MAP FST l,TAKE (LENGTH l) xs)) handler :: s)) /\
-  (dec_stack _ _ = NONE)`
+  (dec_stack _ _ = NONE)
+End
 
-val gc_def = Define `  (* gc runs the garbage collector algorithm *)
+Definition gc_def:
+  (* gc runs the garbage collector algorithm *)
   gc ^s =
     let wl_list = enc_stack s.stack in
       case s.gc_fun (wl_list, s.memory, s.mdomain, s.store) of
@@ -379,24 +599,26 @@ val gc_def = Define `  (* gc runs the garbage collector algorithm *)
         | SOME stack =>
             SOME (s with <| stack := stack
                           ; store := st
-                          ; memory := m |>))`
+                          ; memory := m |>))
+End
 
-val has_space_def = Define `
+Definition has_space_def:
   has_space wl ^s =
-    case (wl, FLOOKUP s.store NextFree, FLOOKUP s.store TriggerGC) of
+    case (wl, get_store NextFree s, get_store TriggerGC s) of
     | (Word w, SOME (Word n), SOME (Word l)) => SOME (w2n w <= w2n (l - n))
-    | _ => NONE`
+    | _ => NONE
+End
 
 (* to_ask: should we not update stack size here?  *)
-val alloc_def = Define `
+Definition alloc_def:
   alloc (w:'a word) names ^s =
     (* prune local names *)
-    case cut_env names s.locals of
-    | NONE => (SOME (Error:'a result),s)
-    | SOME env =>
+    case cut_envs names s.locals of
+    | NONE => (SOME (Error:'a result),flush_state T s)
+    | SOME envs =>
      (* perform garbage collection *)
-     (case gc (push_env env (NONE:(num # 'a wordLang$prog # num # num) option) (set_store AllocSize (Word w) s)) of
-      | NONE => (SOME Error,s)
+     (case gc (push_env envs (NONE:(num # 'a wordLang$prog # num # num) option) (set_store AllocSize (Word w) s)) of
+      | NONE => (SOME Error,flush_state T s)
       | SOME s =>
        (* restore local variables *)
        (case pop_env s of
@@ -405,7 +627,7 @@ val alloc_def = Define `
         | NONE => (SOME Error, flush_state T s)
         | SOME s =>
          (* read how much space should be allocated *)
-         (case FLOOKUP s.store AllocSize of
+         (case get_store AllocSize s of
           | NONE => (SOME Error, s)
           | SOME w =>
            (* check how much space there is *)
@@ -414,22 +636,26 @@ val alloc_def = Define `
             | SOME T => (* success there is that much space *)
                         (NONE,s)
             | SOME F => (* fail, GC didn't free up enough space *)
-                        (SOME NotEnoughSpace,flush_state T s)))))`
+                        (SOME NotEnoughSpace,flush_state T s)))))
+End
 
-val assign_def = Define `
+Definition assign_def:
   assign reg exp ^s =
     case word_exp s exp of
      | NONE => NONE
-     | SOME w => SOME (set_var reg w s)`;
+     | SOME w => SOME (set_var reg w s)
+End
 
-val get_fp_var_def = Define`
-  get_fp_var v (s:('a,'c,'ffi) wordSem$state) = FLOOKUP s.fp_regs v`
+Definition get_fp_var_def:
+  get_fp_var v (s:('a,'c,'ffi) wordSem$state) = FLOOKUP s.fp_regs v
+End
 
-val set_fp_var_def = Define `
+Definition set_fp_var_def:
   set_fp_var v x (s:('a,'c,'ffi) wordSem$state) =
-    (s with fp_regs := (s.fp_regs |+ (v,x)))`;
+    (s with fp_regs := (s.fp_regs |+ (v,x)))
+End
 
-val inst_def = Define `
+Definition inst_def:
   inst i ^s =
     case i of
     | Skip => SOME s
@@ -456,7 +682,6 @@ val inst_def = Define `
           let res = w2n l + w2n r + if c = (0w:'a word) then 0 else 1 in
             SOME (set_var r4 (Word (if dimword(:'a) ≤ res then (1w:'a word) else 0w))
                  (set_var r1 (Word (n2w res)) s))
-
         | _ => NONE)
     | Arith (AddOverflow r1 r2 r3 r4) =>
         (let vs = get_vars [r2;r3] s in
@@ -504,6 +729,14 @@ val inst_def = Define `
             | NONE => NONE
             | SOME w => SOME (set_var r (Word (w2w w)) s))
         | _ => NONE)
+    | Mem Load16 _ _ => NONE
+    | Mem Load32 r (Addr a w) =>
+       (case word_exp s (Op Add [Var a; Const w]) of
+        | SOME (Word w) =>
+           (case mem_load_32 s.memory s.mdomain s.be w of
+            | NONE => NONE
+            | SOME w => SOME (set_var r (Word (w2w w)) s))
+        | _ => NONE)
     | Mem Store r (Addr a w) =>
        (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME (Word a), SOME w) =>
@@ -515,6 +748,14 @@ val inst_def = Define `
        (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME (Word a), SOME (Word w)) =>
             (case mem_store_byte_aux s.memory s.mdomain s.be a (w2w w) of
+             | SOME new_m => SOME (s with memory := new_m)
+             | NONE => NONE)
+        | _ => NONE)
+    | Mem Store16 _ _ => NONE
+    | Mem Store32 r (Addr a w) =>
+       (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
+        | (SOME (Word a), SOME (Word w)) =>
+            (case mem_store_32 s.memory s.mdomain s.be a (w2w w) of
              | SOME new_m => SOME (s with memory := new_m)
              | NONE => NONE)
         | _ => NONE)
@@ -636,44 +877,76 @@ val inst_def = Define `
           let i =  w2i (if ODD d2 then (63 >< 32) v else (31 >< 0) v : 'a word) in
             SOME (set_fp_var d1 (int_to_fp64 roundTiesToEven i) s)
         | NONE => NONE
-    | _ => NONE`
+    | _ => NONE
+End
 
-val get_var_imm_def = Define`
+Definition get_var_imm_def:
   (get_var_imm ((Reg n):'a reg_imm) ^s = get_var n s) ∧
-  (get_var_imm (Imm w) s = SOME(Word w))`
+  (get_var_imm (Imm w) s = SOME(Word w))
+End
 
-val add_ret_loc_def = Define `
+Definition add_ret_loc_def:
   (add_ret_loc NONE xs = xs) /\
-  (add_ret_loc (SOME (n,names,ret_handler,l1,l2)) xs = (Loc l1 l2)::xs)`
+  (add_ret_loc (SOME (n,names,ret_handler,l1,l2)) xs = (Loc l1 l2)::xs)
+End
 
 (*Avoid case split*)
-val bad_dest_args_def = Define`
-  bad_dest_args dest args ⇔ dest = NONE ∧ args = []`
+Definition bad_dest_args_def:
+  bad_dest_args dest args ⇔ dest = NONE ∧ args = []
+End
 
-val termdep_rw = Q.prove(
-  `((call_env p_1 ss ^s).termdep = s.termdep) /\
+Triviality termdep_rw:
+  ((call_env p_1 ss ^s).termdep = s.termdep) /\
     ((dec_clock s).termdep = s.termdep) /\
-    ((set_var n v s).termdep = s.termdep)`,
-  EVAL_TAC \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
+    ((set_var n v s).termdep = s.termdep)
+Proof
+  EVAL_TAC \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+QED
 
-val fix_clock_IMP_LESS_EQ = Q.prove(
-  `!x. fix_clock ^s x = (res,s1) ==> s1.clock <= s.clock /\ s1.termdep = s.termdep`,
-  full_simp_tac(srw_ss())[fix_clock_def,FORALL_PROD] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac);
+Triviality fix_clock_IMP_LESS_EQ:
+  !x. fix_clock ^s x = (res,s1) ==> s1.clock <= s.clock /\ s1.termdep = s.termdep
+Proof
+  full_simp_tac(srw_ss())[fix_clock_def,FORALL_PROD] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac
+QED
 
-val MustTerminate_limit_def = zDefine `
+Definition MustTerminate_limit_def[nocompute]:
   MustTerminate_limit (:'a) =
     (* This is just a number that's large enough for our purposes.
        It stated in a way that makes proofs easy. *)
     2 * dimword (:'a) +
     dimword (:'a) * dimword (:'a) +
     dimword (:'a) ** dimword (:'a) +
-    dimword (:'a) ** dimword (:'a) ** dimword (:'a)`;
+    dimword (:'a) ** dimword (:'a) ** dimword (:'a)
+End
 
-val evaluate_def = tDefine "evaluate" `
+Definition const_addresses_def:
+  const_addresses a [] d = T ∧
+  const_addresses a (x::xs) d =
+    (a IN d ∧ const_addresses (a + bytes_in_word) xs d)
+End
+
+Definition const_writes_def:
+  const_writes a off [] m = m ∧
+  const_writes (a:'a word) off ((b,x:'a word)::xs) m =
+    const_writes (a + bytes_in_word) off xs
+      ((a =+ Word (if b then x + off else x)) m)
+End
+
+Definition evaluate_def:
   (evaluate (Skip:'a wordLang$prog,^s) = (NONE,s)) /\
   (evaluate (Alloc n names,s) =
      case get_var n s of
      | SOME (Word w) => alloc w names s
+     | _ => (SOME Error,s)) /\
+  (evaluate (StoreConsts t1 t2 addr offset words,s) =
+     case (get_var addr s, get_var offset s) of
+     | (SOME (Word a), SOME (Word off)) =>
+        (if ~ const_addresses a words s.mdomain then
+           (SOME Error,s)
+         else
+           let s = s with memory := const_writes a off words s.memory in
+           let s = set_var offset (Word off) (unset_var t1 (unset_var t2 s)) in
+             (NONE, set_var addr (Word (a + bytes_in_word * n2w (LENGTH words))) s))
      | _ => (SOME Error,s)) /\
   (evaluate (Move pri moves,s) =
      if ALL_DISTINCT (MAP FST moves) then
@@ -690,7 +963,7 @@ val evaluate_def = tDefine "evaluate" `
      | NONE => (SOME Error, s)
      | SOME w => (NONE, set_var v w s)) /\
   (evaluate (Get v name,s) =
-     case FLOOKUP s.store name of
+     case get_store name s of
      | NONE => (SOME Error, s)
      | SOME x => (NONE, set_var v x s)) /\
   (evaluate (Set v exp,s) =
@@ -723,9 +996,9 @@ val evaluate_def = tDefine "evaluate" `
   (evaluate (Seq c1 c2,s) =
      let (res,s1) = fix_clock s (evaluate (c1,s)) in
        if res = NONE then evaluate (c2,s1) else (res,s1)) /\
-  (evaluate (Return n m,s) =
-     case (get_var n s ,get_var m s) of
-     | (SOME (Loc l1 l2),SOME y) => (SOME (Result (Loc l1 l2) y),flush_state F s)
+  (evaluate (Return n ms,s) =
+     case (get_var n s, get_vars ms s) of
+     | (SOME (Loc l1 l2),SOME ys) => (SOME (Result (Loc l1 l2) ys),flush_state F s)
      | _ => (SOME Error,s)) /\
   (evaluate (Raise n,s) =
      case get_var n s of
@@ -803,7 +1076,7 @@ val evaluate_def = tDefine "evaluate" `
                read_bytearray w4 (w2n w3) (mem_load_byte_aux s.memory s.mdomain s.be))
                of
           | SOME bytes,SOME bytes2 =>
-             (case call_FFI s.ffi ffi_index bytes bytes2 of
+             (case call_FFI s.ffi (ExtCall ffi_index) bytes bytes2 of
               | FFI_final outcome => (SOME (FinalFFI outcome),flush_state T s)
               | FFI_return new_ffi new_bytes =>
                 let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
@@ -812,72 +1085,76 @@ val evaluate_def = tDefine "evaluate" `
                                    ffi := new_ffi |>))
           | _ => (SOME Error,s)))
     | res => (SOME Error,s)) /\
+  (evaluate (ShareInst op v exp, s) =
+    (case word_exp s exp of
+    | SOME (Word ad) => share_inst op v ad s
+    | _ => (SOME Error,s))) /\
   (evaluate (Call ret dest args handler,s) =
-    case get_vars args s of
-    | NONE => (SOME Error,s)
-    | SOME xs =>
-    if bad_dest_args dest args then (SOME Error,s)
-    else
-    case find_code dest (add_ret_loc ret xs) s.code s.stack_size of
-          | NONE => (SOME Error,s)
-          | SOME (args1,prog,ss) =>
-          case ret of
-          | NONE (* tail call *) =>
-      if handler = NONE then
-        if s.clock = 0 then (SOME TimeOut,flush_state T s)
-        else (case evaluate (prog, call_env args1 ss (dec_clock s)) of
-         | (NONE,s) => (SOME Error,s)
-         | (SOME res,s) => (SOME res,s))
-      else (SOME Error,s)
-          | SOME (n,names,ret_handler,l1,l2) (* returning call, returns into var n *) =>
-    if domain names = {} then (SOME Error,s)
-    else
-          (case cut_env names s.locals of
-                | NONE => (SOME Error,s)
-                | SOME env =>
-               if s.clock = 0 then
-                 (SOME TimeOut,
-                  flush_state T
-                           (s with <|stack := [];
-                                     stack_max := (call_env args1 ss
-                                                            (push_env env handler s)
-                                                  ).stack_max|>))
-               else
-               (case fix_clock (call_env args1 ss (push_env env handler (dec_clock s)))
-                       (evaluate (prog, call_env args1 ss
-                               (push_env env handler (dec_clock s)))) of
-                | (SOME (Result x y),s2) =>
-      if x ≠ Loc l1 l2 then (SOME Error,s2)
-      else
-                   (case pop_env s2 of
-                    | NONE => (SOME Error,s2)
-                    | SOME s1 =>
-                        (if domain s1.locals = domain env
-                         then evaluate(ret_handler,set_var n y s1)
-                         else (SOME Error,s1)))
-                | (SOME (Exception x y),s2) =>
-                   (case handler of (* if handler is present, then handle exc *)
-                    | NONE => (SOME (Exception x y),s2)
-                    | SOME (n,h,l1,l2) =>
-        if x ≠ Loc l1 l2 then (SOME Error,s2)
-        else
-          (if domain s2.locals = domain env
-           then evaluate (h, set_var n y s2)
-           else (SOME Error,s2)))
-        | (NONE,s) => (SOME Error,s)
-                | res => res)))`
-  (WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure (prog_size (K 0)))
-                  (\(xs,^s). (s.termdep,s.clock,xs)))`
-   \\ REPEAT STRIP_TAC \\ TRY (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
-   \\ full_simp_tac(srw_ss())[termdep_rw] \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ full_simp_tac(srw_ss())[]
-   \\ imp_res_tac (GSYM fix_clock_IMP_LESS_EQ)
-   \\ TRY (Cases_on `handler`) \\ TRY (PairCases_on `x`)
-   \\ full_simp_tac(srw_ss())[set_var_def,push_env_def,call_env_def,dec_clock_def,LET_THM]
-   \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
-   \\ full_simp_tac(srw_ss())[pop_env_def] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-   \\ decide_tac)
-
-val evaluate_ind = theorem"evaluate_ind";
+   case get_vars args s of
+   | NONE => (SOME Error,s)
+   | SOME xs =>
+       if bad_dest_args dest args then (SOME Error,s)
+       else
+         case find_code dest (add_ret_loc ret xs) s.code s.stack_size of
+         | NONE => (SOME Error,s)
+         | SOME (args1,prog,ss) =>
+             case ret of
+             | NONE (* tail call *) =>
+                 if handler = NONE then
+                   if s.clock = 0 then (SOME TimeOut,flush_state T s)
+                   else (case evaluate (prog, call_env args1 ss (dec_clock s)) of
+                         | (NONE,s) => (SOME Error,s)
+                         | (SOME res,s) => (SOME res,s))
+                 else (SOME Error,s)
+             | SOME (n,names,ret_handler,l1,l2) (* returning call, returns into var n *) =>
+                 if domain (FST names) = {} ∨ ¬ALL_DISTINCT n then (SOME Error,s)
+                 else
+                   (case cut_envs names s.locals of
+                    | NONE => (SOME Error,s)
+                    | SOME envs =>
+                        if s.clock = 0 then
+                          (SOME TimeOut,
+                           flush_state T
+                                       (s with <|stack := [];
+                                                 stack_max := (call_env args1 ss
+                                                               (push_env envs handler s)
+                                                              ).stack_max|>))
+                        else
+                          (case fix_clock (call_env args1 ss (push_env envs handler (dec_clock s)))
+                                          (evaluate (prog, call_env args1 ss
+                                                                    (push_env envs handler (dec_clock s)))) of
+                           | (SOME (Result x ys),s2) =>
+                               if x ≠ Loc l1 l2 ∨ LENGTH ys ≠ LENGTH n then (SOME Error,s2)
+                               else
+                                 (case pop_env s2 of
+                                  | NONE => (SOME Error,s2)
+                                  | SOME s1 =>
+                                      (if domain s1.locals = domain (FST envs) UNION domain (SND envs)
+                                       then evaluate(ret_handler,set_vars n ys s1)
+                                       else (SOME Error,s1)))
+                           | (SOME (Exception x y),s2) =>
+                               (case handler of (* if handler is present, then handle exc *)
+                                | NONE => (SOME (Exception x y),s2)
+                                | SOME (n,h,l1,l2) =>
+                                    if x ≠ Loc l1 l2 then (SOME Error,s2)
+                                    else
+                                      (if domain s2.locals = domain (FST envs) UNION domain (SND envs)
+                                       then evaluate (h, set_var n y s2)
+                                       else (SOME Error,s2)))
+                           | (NONE,s) => (SOME Error,s)
+                           | res => res)))
+Termination
+  WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure (prog_size (K 0)))
+               (\(xs,^s). (s.termdep,s.clock,xs)))`
+  \\ REPEAT STRIP_TAC \\ TRY (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
+  \\ full_simp_tac(srw_ss())[termdep_rw] \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ full_simp_tac(srw_ss())[]
+  \\ imp_res_tac (GSYM fix_clock_IMP_LESS_EQ)
+  \\ TRY (Cases_on `handler`) \\ TRY (PairCases_on `x`)
+  \\ full_simp_tac(srw_ss())[set_var_def,set_vars_def,push_env_def,call_env_def,dec_clock_def,LET_THM]
+  \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
+  \\ full_simp_tac(srw_ss())[pop_env_def] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+  \\ decide_tac
+End
 
 (* We prove that the clock never increases and that termdep is constant. *)
 
@@ -905,17 +1182,45 @@ Proof
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
 QED
 
-val inst_clock = Q.prove(
-  `inst i s = SOME s2 ==> s2.clock <= s.clock /\ s2.termdep = s.termdep`,
+Theorem sh_mem_set_var_clock:
+  !v s1 v2 s2 res.
+    (sh_mem_set_var res v s1 = (v2,s2)) ==>
+    s2.clock <= s1.clock /\ s2.termdep = s1.termdep
+Proof
+  Cases_on `res` >>
+  simp[sh_mem_set_var_def] >>
+  Cases_on `x` >>
+  simp[sh_mem_set_var_def,set_var_def,flush_state_def]
+QED
+
+Theorem share_inst_clock:
+  !op v ad s1 v1 s2.
+    (share_inst op v ad s1 = (v2, s2)) ==>
+    s2.clock <= s1.clock /\ s2.termdep = s1.termdep
+Proof
+  Cases_on `op` >>
+  simp[share_inst_def] >>
+  rpt strip_tac >>
+  gvs[AllCaseEqs(),sh_mem_store_def,sh_mem_store_byte_def,flush_state_def,
+      sh_mem_store32_def,sh_mem_store16_def
+     ] >>
+  drule sh_mem_set_var_clock >>
+  simp[]
+QED
+
+Triviality inst_clock:
+  inst i s = SOME s2 ==> s2.clock <= s.clock /\ s2.termdep = s.termdep
+Proof
   Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,get_vars_def,LET_THM]
   \\ every_case_tac
   \\ SRW_TAC [] [set_var_def] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[mem_store_def] \\ SRW_TAC [] []
-  \\ EVAL_TAC \\ fs[]);
+  \\ EVAL_TAC \\ fs[]
+QED
 
 Theorem evaluate_clock:
-   !xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==>
-                 s2.clock <= s1.clock /\ s2.termdep = s1.termdep
+  !xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==>
+  s2.clock <= s1.clock /\ s2.termdep = s1.termdep
 Proof
   recInduct evaluate_ind \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
@@ -926,9 +1231,10 @@ Proof
   \\ rpt (disch_then strip_assume_tac)
   \\ imp_res_tac alloc_clock \\ full_simp_tac(srw_ss())[]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[set_vars_def,set_var_def,set_store_def]
+  \\ full_simp_tac(srw_ss())[set_vars_def,set_var_def,set_store_def,unset_var_def]
   \\ imp_res_tac inst_clock \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[mem_store_def,call_env_def,dec_clock_def,flush_state_def]
+  \\ imp_res_tac share_inst_clock
+  \\ fs[mem_store_def,call_env_def,dec_clock_def,flush_state_def]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[LET_THM] \\ rpt (pairarg_tac \\ full_simp_tac(srw_ss())[])
   \\ full_simp_tac(srw_ss())[jump_exc_def,pop_env_def]
@@ -944,23 +1250,24 @@ Proof
   \\ decide_tac
 QED
 
-val fix_clock_evaluate = Q.prove(
-  `fix_clock s (evaluate (c1,s)) = evaluate (c1,s)`,
+Triviality fix_clock_evaluate:
+  fix_clock s (evaluate (c1,s)) = evaluate (c1,s)
+Proof
   Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[fix_clock_def]
   \\ imp_res_tac evaluate_clock \\ full_simp_tac(srw_ss())[GSYM NOT_LESS]
-  \\ full_simp_tac(srw_ss())[state_component_equality]);
+  \\ full_simp_tac(srw_ss())[state_component_equality]
+QED
 
 (* We store the theorems without fix_clock *)
 
-val evaluate_ind = save_thm("evaluate_ind",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
-
-val evaluate_def = save_thm("evaluate_def[compute]",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_def);
+Theorem evaluate_ind[allow_rebind] =
+        REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
+Theorem evaluate_def[allow_rebind] =
+        REWRITE_RULE [fix_clock_evaluate] evaluate_def;
 
 (* observational semantics *)
 
-val semantics_def = Define `
+Definition semantics_def:
   semantics ^s start =
   let prog = Call NONE (SOME start) [0] NONE in
   if ∃k. case FST(evaluate (prog,s with clock := k)) of
@@ -986,17 +1293,16 @@ val semantics_def = Define `
       Diverge
          (build_lprefix_lub
            (IMAGE (λk. fromList
-              (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))`;
+              (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))
+End
 
 Definition word_lang_safe_for_space_def:
   word_lang_safe_for_space (s:('a,'c,'ffi) wordSem$state) start =
     let prog = Call NONE (SOME start) [0] NONE in
-      (!k res t. wordSem$evaluate (prog, s with clock := k) = (res,t) ==>
-        ?max. t.stack_max = SOME max /\ max <= t.stack_limit)
+      (∀k res t. wordSem$evaluate (prog, s with clock := k) = (res,t) ==>
+        ∃max. t.stack_max = SOME max /\ max <= t.stack_limit)
 End
 
 (* clean up *)
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
-
-val _ = export_theory();

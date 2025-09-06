@@ -2,19 +2,15 @@
   Definitions of invariants that are to be maintained during
   evaluate of Candle prover
  *)
+Theory candle_prover_inv
+Ancestors
+  candle_kernel_vals ast_extras evaluate namespaceProps perms
+  holKernelProof[qualified] semanticPrimitivesProps
+  misc[qualified] semanticPrimitives evaluateProps sptree
+  candle_kernelProg ml_hol_kernel_funsProg
+Libs
+  preamble helperLib ml_progLib[qualified]
 
-open preamble helperLib;
-open semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     evaluateTheory namespacePropsTheory evaluatePropsTheory
-     sptreeTheory candle_kernelProgTheory ml_hol_kernel_funsProgTheory;
-open permsTheory candle_kernel_valsTheory ast_extrasTheory;
-local open ml_progLib in end
-
-val _ = new_theory "candle_prover_inv";
-
-val _ = set_grammar_ancestry [
-  "candle_kernel_vals", "ast_extras", "evaluate", "namespaceProps", "perms",
-  "semanticPrimitivesProps", "misc"];
 
 (* -------------------------------------------------------------------------
  * Expressions are safe if they do not construct anything with a name from the
@@ -78,47 +74,47 @@ Inductive v_ok:
 [~Inferred:]
   (∀ctxt v.
      inferred ctxt v ⇒
-       kernel_vals ctxt v) ∧
+       kernel_vals ctxt v)
 [~PartialApp:]
   (∀ctxt f v g.
      kernel_vals ctxt f ∧
      v_ok ctxt v ∧
      do_partial_app f v = SOME g ⇒
-       kernel_vals ctxt g) ∧
+       kernel_vals ctxt g)
 [~KernelVals:]
   (∀ctxt v.
      kernel_vals ctxt v ⇒
-       v_ok ctxt v) ∧
+       v_ok ctxt v)
 [~Conv:]
   (∀ctxt opt vs.
      EVERY (v_ok ctxt) vs ∧
      (∀tag x. opt = SOME (TypeStamp tag x) ⇒ x ∉ kernel_types) ⇒
-       v_ok ctxt (Conv opt vs)) ∧
+       v_ok ctxt (Conv opt vs))
 [~Closure:]
   (∀ctxt env n x.
      env_ok ctxt env ∧
      safe_exp x ⇒
-       v_ok ctxt (Closure env n x)) ∧
+       v_ok ctxt (Closure env n x))
 [~Recclosure:]
   (∀ctxt env f n.
      env_ok ctxt env ∧
      EVERY safe_exp (MAP (SND o SND) f) ⇒
-       v_ok ctxt (Recclosure env f n)) ∧
+       v_ok ctxt (Recclosure env f n))
 [~Vectorv:]
   (∀ctxt vs.
      EVERY (v_ok ctxt) vs ⇒
-       v_ok ctxt (Vectorv vs)) ∧
+       v_ok ctxt (Vectorv vs))
 [~Lit:]
   (∀ctxt lit.
-     v_ok ctxt (Litv lit)) ∧
+     v_ok ctxt (Litv lit))
 [~Loc:]
-  (∀ctxt loc.
+  (∀ctxt loc b.
      loc ∉ kernel_locs ⇒
-       v_ok ctxt (Loc loc)) ∧
+       v_ok ctxt (Loc b loc))
 [~Env:]
   (∀ctxt env ns.
      env_ok ctxt env ⇒
-       v_ok ctxt (Env env ns)) ∧
+       v_ok ctxt (Env env ns))
 [env_ok:]
   (∀ctxt env.
      (∀id len tag tn.
@@ -158,7 +154,7 @@ Proof
 QED
 
 Theorem kernel_vals_Loc[simp]:
-  ¬kernel_vals ctxt (Loc loc)
+  ¬kernel_vals ctxt (Loc b loc)
 Proof
   rw [Once v_ok_cases] \\ gs [do_partial_app_def, CaseEqs ["exp", "v"]]
 QED
@@ -169,7 +165,7 @@ Theorem v_ok_def =
    “v_ok ctxt (Recclosure env f n)”,
    “v_ok ctxt (Vectorv vs)”,
    “v_ok ctxt (Litv lit)”,
-   “v_ok ctxt (Loc loc)”,
+   “v_ok ctxt (Loc b loc)”,
    “v_ok ctxt (Env env ns)”]
   |> map (SIMP_CONV (srw_ss()) [Once v_ok_cases])
   |> LIST_CONJ;
@@ -215,13 +211,13 @@ End
 Definition kernel_loc_ok_def:
   kernel_loc_ok s loc refs ⇔
     ∃v. LLOOKUP refs loc = SOME (Refv v) ∧
-        (the_type_constants = Loc loc ⇒
+        (the_type_constants = Loc T loc ⇒
            LIST_TYPE (PAIR_TYPE STRING_TYPE NUM) s.the_type_constants v) ∧
-        (the_term_constants = Loc loc ⇒
+        (the_term_constants = Loc T loc ⇒
            LIST_TYPE (PAIR_TYPE STRING_TYPE TYPE_TYPE) s.the_term_constants v) ∧
-        (the_axioms = Loc loc ⇒
+        (the_axioms = Loc T loc ⇒
            LIST_TYPE THM_TYPE s.the_axioms v) ∧
-        (the_context = Loc loc ⇒
+        (the_context = Loc T loc ⇒
            LIST_TYPE UPDATE_TYPE s.the_context v)
 End
 
@@ -369,20 +365,6 @@ Theorem env_ok_init_env:
 Proof
   rw [env_ok_def, ml_progTheory.init_env_def]
   \\ gvs [nsLookup_Bind_v_some, CaseEqs ["bool", "option"], kernel_types_def]
-QED
-
-Theorem v_ok_bind_exn_v[simp]:
-  v_ok ctxt bind_exn_v
-Proof
-  fs [bind_exn_v_def]
-  \\ fs [Once v_ok_cases,bind_stamp_def]
-QED
-
-Theorem v_ok_sub_exn_v[simp]:
-  v_ok ctxt sub_exn_v
-Proof
-  rw [v_ok_def, sub_exn_v_def]
-  \\ rw [Once v_ok_cases, subscript_stamp_def, kernel_types_def]
 QED
 
 Theorem v_ok_Cons:
@@ -553,6 +535,18 @@ Proof
   \\ metis_tac[v_ok_TERM_TYPE_HEAD]
 QED
 
+Theorem v_ok_LIST_THM_TYPE_HEAD:
+  v_ok ctxt v ∧
+  LIST_TYPE_HEAD THM_TYPE_HEAD v ⇒
+    ∃ths. LIST_TYPE THM_TYPE ths v
+Proof
+  strip_tac
+  \\ irule v_ok_LIST_TYPE_HEAD
+  \\ first_assum (irule_at Any)
+  \\ first_assum (irule_at Any)
+  \\ rw [v_ok_THM_TYPE_HEAD, SF SFY_ss]
+QED
+
 Theorem v_ok_PAIR_TYPE_HEAD:
   v_ok ctxt v ∧
   (!v. v_ok ctxt v ∧ A_HEAD v ==> ?a. A a v) ∧
@@ -647,6 +641,16 @@ Proof
   \\ first_assum $ irule_at Any
   \\ first_assum $ irule_at Any
   \\ metis_tac[v_ok_TERM]
+QED
+
+Theorem v_ok_LIST_THM:
+  ∀ths v ctxt. LIST_TYPE THM_TYPE ths v ∧ v_ok ctxt v ⇒ EVERY (THM ctxt) ths
+Proof
+  rpt strip_tac
+  \\ irule v_ok_LIST
+  \\ first_assum (irule_at Any)
+  \\ first_assum (irule_at Any)
+  \\ rw [v_ok_THM, SF SFY_ss]
 QED
 
 Theorem v_ok_LIST_TYPE:
@@ -760,6 +764,14 @@ Proof
   \\ fs [TYPE_TYPE_perms_ok, SF SFY_ss]
 QED
 
+Theorem LIST_TYPE_THM_perms_ok:
+  ∀tm v. LIST_TYPE THM_TYPE th v ⇒ perms_ok ps v
+Proof
+  rw []
+  \\ drule_at Any LIST_TYPE_perms_ok
+  \\ fs [THM_TYPE_perms_ok, SF SFY_ss]
+QED
+
 Theorem UPDATE_TYPE_perms_ok:
   ∀u v. UPDATE_TYPE u v ⇒ perms_ok ps v
 Proof
@@ -841,4 +853,3 @@ Proof
   \\ first_assum $ irule_at Any
 QED
 
-val _ = export_theory ();

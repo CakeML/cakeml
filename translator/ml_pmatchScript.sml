@@ -2,32 +2,32 @@
   Theory support for translation of deeply-embedded (PMATCH-based)
   pattern-matches occurring in HOL functions.
 *)
-open preamble
-     astTheory libTheory semanticPrimitivesTheory
-     patternMatchesTheory patternMatchesLib
-     ml_progTheory ml_translatorTheory evaluateTheory
-     semanticPrimitivesPropsTheory evaluatePropsTheory;
-open ml_translatorTheory integerTheory;
-
-val _ = new_theory "ml_pmatch";
+Theory ml_pmatch
+Ancestors
+  ast semanticPrimitives patternMatches ml_prog ml_translator
+  evaluate semanticPrimitivesProps evaluateProps ml_translator
+  integer
+Libs
+  preamble patternMatchesLib
 
 val write_def = ml_progTheory.write_def;
 
-val EvalPatRel_def = Define`
+Definition EvalPatRel_def:
   EvalPatRel env a p pat ⇔
     ∀x av. a x av ⇒ ∀refs.
       evaluate_match (empty_state with refs := refs) env av
         [(p,Con NONE [])] ARB =
         (empty_state with refs := refs,
          if ∃vars. pat vars = x
-         then Rval([Conv NONE []]) else Rerr(Rraise ARB))`
+         then Rval([Conv NONE []]) else Rerr(Rraise ARB))
+End
 
 (*
   This is very similar to pmatch_list (see theorems proving connection below).
   It omits some checks, which are unnecessary for the translator but needed in
   the semantics; it thereby makes the translator's automation easier.
 *)
-val Pmatch_def = tDefine"Pmatch"`
+Definition Pmatch_def:
   (Pmatch env refs [] [] = SOME env) ∧
   (Pmatch env refs (p1::p2::ps) (v1::v2::vs) =
      case Pmatch env refs [p1] [v1] of | NONE => NONE
@@ -51,22 +51,23 @@ val Pmatch_def = tDefine"Pmatch"`
      if LENGTH ps = LENGTH vs then
        Pmatch env refs ps vs
      else NONE) ∧
-  (Pmatch env refs [Pref p] [Loc lnum] =
+  (Pmatch env refs [Pref p] [Loc b lnum] =
    case store_lookup lnum refs of
    | SOME (Refv v) => Pmatch env refs [p] [v]
    | _ => NONE) ∧
   (Pmatch env refs [Ptannot p t] [v] = Pmatch env refs [p] [v]) ∧
-  (Pmatch env refs _ _ = NONE)`
-  (WF_REL_TAC`measure (pat1_size o FST o SND o SND)`)
+  (Pmatch env refs _ _ = NONE)
+End
 
 val Pmatch_ind = theorem"Pmatch_ind"
 
-val EvalPatBind_def = Define`
+Definition EvalPatBind_def:
   EvalPatBind env a p pat vars env2 ⇔
     ∃x av refs.
       a x av ∧
       (Pmatch env refs [p] [av] = SOME env2) ∧
-      (pat vars = x)`
+      (pat vars = x)
+End
 
 Theorem Pmatch_cons:
    ∀ps vs.
@@ -79,7 +80,7 @@ Proof
   Cases_on`ps`>>simp[Pmatch_def]
 QED
 
-val pmatch_imp_Pmatch = Q.prove(
+Theorem pmatch_imp_Pmatch = Q.prove(
   `(∀envC s p v env aenv.
       envC = aenv.c ⇒
       case pmatch envC s p v env of
@@ -133,7 +134,6 @@ val pmatch_imp_Pmatch = Q.prove(
     BasicProvers.CASE_TAC >> simp[Once Pmatch_cons] >>
     rw[] \\ rw[]))
   |> SIMP_RULE std_ss []
-  |> curry save_thm "pmatch_imp_Pmatch"
 
 Theorem Pmatch_SOME_const:
    ∀env refs ps vs env'.
@@ -312,4 +312,3 @@ Proof
   fs [CONTAINER_def]
 QED
 
-val _ = export_theory()

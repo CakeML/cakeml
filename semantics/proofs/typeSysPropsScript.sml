@@ -1,16 +1,15 @@
 (*
   Theorems about the type system.
 *)
+Theory typeSysProps
+Ancestors
+  ast namespace typeSystem typeSoundInvariants astProps
+  namespaceProps semanticPrimitivesProps[qualified]
+Libs
+  preamble
 
-open preamble
-open libTheory astTheory namespaceTheory typeSystemTheory typeSoundInvariantsTheory;
-open astPropsTheory;
-open namespacePropsTheory;
-local open semanticPrimitivesPropsTheory in end
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "typeSysProps";
 
 val find_recfun_def = semanticPrimitivesTheory.find_recfun_def;
 (*
@@ -34,7 +33,8 @@ val _ = export_rewrites [
   "typeSystem.Tvector_def",
   "typeSystem.Tword64_def",
   "typeSystem.Tword8_def",
-  "typeSystem.Tword8array_def"]
+  "typeSystem.Tword8array_def",
+  "typeSystem.Tdouble_def"]
 
 (* ----------- Basic stuff ----------- *)
 
@@ -110,13 +110,14 @@ Proof
  rw [tenv_ok_def, tenv_val_ok_def, tenv_ctor_ok_def, tenv_abbrev_ok_def]
 QED
 
-val type_pes_def = Define `
+Definition type_pes_def:
   type_pes tvs tvs' tenv tenvE pes t1 t2 ⇔
     (∀(p,e)::set pes.
       ∃bindings.
         ALL_DISTINCT (pat_bindings p []) ∧
         type_p tvs tenv p t1 bindings ∧
-        type_e tenv (bind_var_list tvs' bindings tenvE) e t2)`;
+        type_e tenv (bind_var_list tvs' bindings tenvE) e t2)
+End
 
 Theorem type_pes_cons:
    !tvs tvs' tenv tenvE p e pes t1 t2.
@@ -215,25 +216,28 @@ induct_on `ts` >>
 full_simp_tac(srw_ss())[]
 QED
 
-val deBuijn_inc_lem1 = Q.prove (
-`!sk i2 t i1.
-  deBruijn_inc sk i1 (deBruijn_inc 0 (sk + i2) t) = deBruijn_inc 0 (i1 + (sk + i2)) t`,
-ho_match_mp_tac deBruijn_inc_ind >>
+Triviality deBuijn_inc_lem1:
+  !sk i2 t i1.
+  deBruijn_inc sk i1 (deBruijn_inc 0 (sk + i2) t) = deBruijn_inc 0 (i1 + (sk + i2)) t
+Proof
+  ho_match_mp_tac deBruijn_inc_ind >>
 srw_tac[][deBruijn_inc_def] >>
 srw_tac[][] >-
 decide_tac >-
 decide_tac >>
 induct_on `ts` >>
-srw_tac[][]);
+srw_tac[][]
+QED
 
-val type_subst_deBruijn_inc_single = Q.prove (
-`!s t ts tvs inc sk.
+Triviality type_subst_deBruijn_inc_single:
+  !s t ts tvs inc sk.
   (LENGTH tvs = LENGTH ts) ∧
   (s = alist_to_fmap (ZIP (tvs,ts))) ∧
   check_freevars 0 tvs t ⇒
   (deBruijn_inc sk inc (type_subst s t) =
-   type_subst (alist_to_fmap (ZIP (tvs, MAP (\t. deBruijn_inc sk inc t) ts))) t)`,
- recInduct type_subst_ind >>
+   type_subst (alist_to_fmap (ZIP (tvs, MAP (\t. deBruijn_inc sk inc t) ts))) t)
+Proof
+  recInduct type_subst_ind >>
  srw_tac[][deBruijn_inc_def, type_subst_def, check_freevars_def]
  >- (every_case_tac >>
      full_simp_tac(srw_ss())[deBruijn_inc_def, ALOOKUP_NONE]
@@ -248,7 +252,8 @@ val type_subst_deBruijn_inc_single = Q.prove (
          simp [ALOOKUP_ZIP_MAP_SND]))
  >- (srw_tac[][rich_listTheory.MAP_EQ_f, MAP_MAP_o] >>
      full_simp_tac(srw_ss())[EVERY_MEM] >>
-     metis_tac []));
+     metis_tac [])
+QED
 
 Theorem type_subst_deBruijn_inc_list:
  !ts' ts tvs inc sk.
@@ -262,14 +267,16 @@ Proof
  metis_tac [type_subst_deBruijn_inc_single]
 QED
 
-val check_freevars_deBruijn_inc = Q.prove (
-`!tvs tvs' t. check_freevars tvs tvs' t ⇒
-  !n n'. check_freevars (n+tvs) tvs' (deBruijn_inc n' n t)`,
-ho_match_mp_tac check_freevars_ind >>
+Triviality check_freevars_deBruijn_inc:
+  !tvs tvs' t. check_freevars tvs tvs' t ⇒
+  !n n'. check_freevars (n+tvs) tvs' (deBruijn_inc n' n t)
+Proof
+  ho_match_mp_tac check_freevars_ind >>
 srw_tac[][check_freevars_def, deBruijn_inc_def] >>
 full_simp_tac(srw_ss())[EVERY_MAP, EVERY_MEM] >>
 srw_tac[][check_freevars_def] >>
-decide_tac);
+decide_tac
+QED
 
 Theorem nil_deBruijn_inc:
  ∀skip tvs t.
@@ -362,14 +369,15 @@ decide_tac >>
 decide_tac
 QED
 
-val type_subst_deBruijn_subst_single = Q.prove (
-`!s t tvs tvs' ts ts' inc.
+Triviality type_subst_deBruijn_subst_single:
+  !s t tvs tvs' ts ts' inc.
   (LENGTH tvs = LENGTH ts) ∧
   check_freevars 0 tvs t ∧
   (s = alist_to_fmap (ZIP (tvs,ts))) ⇒
   (deBruijn_subst inc ts' (type_subst (alist_to_fmap (ZIP (tvs,ts))) t) =
-   type_subst (alist_to_fmap (ZIP (tvs,MAP (\t. deBruijn_subst inc ts' t) ts))) t)`,
- recInduct type_subst_ind >>
+   type_subst (alist_to_fmap (ZIP (tvs,MAP (\t. deBruijn_subst inc ts' t) ts))) t)
+Proof
+  recInduct type_subst_ind >>
  srw_tac[][deBruijn_subst_def, deBruijn_inc_def, type_subst_def, check_freevars_def]
  >- (every_case_tac >>
      full_simp_tac(srw_ss())[deBruijn_subst_def, deBruijn_inc_def] >>
@@ -377,7 +385,8 @@ val type_subst_deBruijn_subst_single = Q.prove (
      simp [ALOOKUP_ZIP_MAP_SND])
  >- (srw_tac[][rich_listTheory.MAP_EQ_f, MAP_MAP_o] >>
      full_simp_tac(srw_ss())[EVERY_MEM] >>
-     metis_tac []));
+     metis_tac [])
+QED
 
 Theorem type_subst_deBruijn_subst_list:
  !t tvs tvs' ts ts' ts'' inc.
@@ -391,16 +400,17 @@ srw_tac[][] >>
 metis_tac [type_subst_deBruijn_subst_single]
 QED
 
-val check_freevars_lem = Q.prove (
-`!l tvs' t.
+Triviality check_freevars_lem:
+  !l tvs' t.
   check_freevars l tvs' t ⇒
   !targs n1 tvs.
     (l = n1 + (LENGTH targs)) ∧
     EVERY (check_freevars tvs tvs') targs
      ⇒
      check_freevars (n1 + tvs) tvs'
-       (deBruijn_subst n1 (MAP (deBruijn_inc 0 n1) targs) t)`,
-ho_match_mp_tac check_freevars_ind >>
+       (deBruijn_subst n1 (MAP (deBruijn_inc 0 n1) targs) t)
+Proof
+  ho_match_mp_tac check_freevars_ind >>
 srw_tac[][deBruijn_inc_def, deBruijn_subst_def, check_freevars_def] >|
 [full_simp_tac(srw_ss())[EVERY_MAP, EVERY_MEM] >>
      metis_tac [],
@@ -412,7 +422,8 @@ srw_tac[][deBruijn_inc_def, deBruijn_subst_def, check_freevars_def] >|
                      arithmeticTheory.ADD_COMM, arithmeticTheory.ADD_ASSOC],
       decide_tac,
       decide_tac,
-      decide_tac]]);
+      decide_tac]]
+QED
 
 Theorem nil_deBruijn_subst:
  ∀skip tvs t. check_freevars skip [] t ⇒ (deBruijn_subst skip tvs t = t)
@@ -460,8 +471,8 @@ full_simp_tac (srw_ss()++ARITH_ss) [check_freevars_def, EL_MAP, MEM_EL] >>
 metis_tac [check_freevars_deBruijn_inc]
 QED
 
-val type_e_subst_lem5 = Q.prove (
-`(!t n inc n' targs.
+Triviality type_e_subst_lem5:
+  (!t n inc n' targs.
    deBruijn_inc n inc
          (deBruijn_subst (n + n') (MAP (deBruijn_inc 0 (n + n')) targs) t) =
    deBruijn_subst (n + inc + n') (MAP (deBruijn_inc 0 (n + inc + n')) targs)
@@ -470,12 +481,14 @@ val type_e_subst_lem5 = Q.prove (
    MAP (deBruijn_inc n inc)
          (MAP (deBruijn_subst (n + n') (MAP (deBruijn_inc 0 (n + n')) targs)) ts) =
    MAP (deBruijn_subst (n + inc + n') (MAP (deBruijn_inc 0 (n + inc + n')) targs))
-         (MAP (deBruijn_inc n inc) ts))`,
-ho_match_mp_tac t_induction >>
+         (MAP (deBruijn_inc n inc) ts))
+Proof
+  ho_match_mp_tac t_induction >>
 srw_tac[][deBruijn_subst_def, deBruijn_inc_def] >>
 srw_tac[][] >>
 full_simp_tac (srw_ss()++ARITH_ss) [EL_MAP] >>
-metis_tac [deBuijn_inc_lem1]);
+metis_tac [deBuijn_inc_lem1]
+QED
 
 Theorem subst_inc_cancel:
  (!t ts inc.
@@ -493,22 +506,24 @@ full_simp_tac (srw_ss()++ARITH_ss) [] >>
 metis_tac []
 QED
 
-val type_e_subst_lem7 = Q.prove (
-`(!t sk targs targs' tvs' tvs''.
+Triviality type_e_subst_lem7:
+  (!t sk targs targs' tvs' tvs''.
   (deBruijn_subst sk (MAP (deBruijn_inc 0 sk) targs') (deBruijn_subst 0 targs t) =
    deBruijn_subst 0 (MAP (deBruijn_subst sk (MAP (deBruijn_inc 0 sk) targs')) targs)
      (deBruijn_subst (LENGTH targs + sk) (MAP (deBruijn_inc 0 (LENGTH targs + sk)) targs') t))) ∧
  (!ts sk targs targs' tvs' tvs''.
   (MAP (deBruijn_subst sk (MAP (deBruijn_inc 0 sk) targs')) (MAP (deBruijn_subst 0 targs) ts) =
   (MAP (deBruijn_subst 0 (MAP (deBruijn_subst sk (MAP (deBruijn_inc 0 sk) targs')) targs))
-       (MAP (deBruijn_subst (LENGTH targs + sk) (MAP (deBruijn_inc 0 (LENGTH targs + sk)) targs')) ts))))`,
-ho_match_mp_tac t_induction >>
+       (MAP (deBruijn_subst (LENGTH targs + sk) (MAP (deBruijn_inc 0 (LENGTH targs + sk)) targs')) ts))))
+Proof
+  ho_match_mp_tac t_induction >>
 srw_tac[][deBruijn_subst_def, deBruijn_inc_def] >>
 full_simp_tac(srw_ss())[EL_MAP, MAP_MAP_o, combinTheory.o_DEF] >>
 srw_tac[][] >>
 full_simp_tac (srw_ss()++ARITH_ss) [EL_MAP, deBruijn_subst_def, check_freevars_def] >>
 rw[] >> fs[] >>
-metis_tac [subst_inc_cancel, LENGTH_MAP]);
+metis_tac [subst_inc_cancel, LENGTH_MAP]
+QED
 
 Theorem deBruijn_subst_id:
  (!t n. check_freevars n [] t ⇒ (deBruijn_subst 0 (MAP Tvar_db (COUNT_LIST n)) t = t)) ∧
@@ -616,7 +631,7 @@ QED
 
 (* ---------- tenv_val_exp stuff ---------- *)
 
-val deBruijn_subst_tenvE_def = Define `
+Definition deBruijn_subst_tenvE_def:
 (deBruijn_subst_tenvE targs Empty = Empty) ∧
 (deBruijn_subst_tenvE targs (Bind_tvar tvs env) =
   Bind_tvar tvs (deBruijn_subst_tenvE targs env)) ∧
@@ -624,12 +639,14 @@ val deBruijn_subst_tenvE_def = Define `
   Bind_name x tvs (deBruijn_subst (tvs + num_tvs env)
                                   (MAP (deBruijn_inc 0 (tvs + num_tvs env)) targs)
                                   t)
-       (deBruijn_subst_tenvE targs env))`;
+       (deBruijn_subst_tenvE targs env))
+End
 
-val db_merge_def = Define `
+Definition db_merge_def:
 (db_merge Empty e = e) ∧
 (db_merge (Bind_tvar tvs e1) e2 = Bind_tvar tvs (db_merge e1 e2)) ∧
-(db_merge (Bind_name x tvs t e1) e2 = Bind_name x tvs t (db_merge e1 e2))`;
+(db_merge (Bind_name x tvs t e1) e2 = Bind_name x tvs t (db_merge e1 e2))
+End
 
 Theorem bind_tvar_rewrites[simp]:
    (!tvs e1 e2. db_merge (bind_tvar tvs e1) e2 = bind_tvar tvs (db_merge e1 e2)) ∧
@@ -671,6 +688,7 @@ Theorem tveLookup_db_merge_none:
 Proof
  Induct_on `e1`
  >> rw [tveLookup_def, db_merge_def]
+ >> metis_tac[]
 QED
 
 Theorem tveLookup_inc_none:
@@ -816,18 +834,20 @@ induct_on `e1` >>
 srw_tac[][tenv_val_exp_ok_def, db_merge_def]
 QED
 
-val tveLookup_freevars = Q.prove (
-`!e n inc t tvs.
+Triviality tveLookup_freevars:
+  !e n inc t tvs.
   tenv_val_exp_ok e ∧
   tveLookup n inc e = SOME (tvs, t)
   ⇒
-  check_freevars (tvs+inc+num_tvs e) [] t`,
- induct_on `e` >>
+  check_freevars (tvs+inc+num_tvs e) [] t
+Proof
+  induct_on `e` >>
  srw_tac[][tveLookup_def, num_tvs_def, tenv_val_exp_ok_def] >|
  [metis_tac [arithmeticTheory.ADD_ASSOC],
   imp_res_tac check_freevars_deBruijn_inc >>
       metis_tac [arithmeticTheory.ADD_ASSOC, arithmeticTheory.ADD_COMM],
-  metis_tac []]);
+  metis_tac []]
+QED
 
 Theorem tveLookup_no_tvs:
  !tvs l tenv n t.
@@ -895,11 +915,11 @@ val thms = [ op_thms, list_thms, t_thms, word_size_thms, id_thms ];
 val eqs = ([pair_case_eq,bool_case_eq]@(List.map prove_case_eq_thm thms));
 val elims = List.map prove_case_elim_thm thms;
 
-val type_op_cases = save_thm("type_op_cases",
+Theorem type_op_cases =
   ``type_op op ts t3``
   |> (SIMP_CONV(srw_ss())(type_op_def::eqs@elims) THENC
       SIMP_CONV (bool_ss++DNF_ss) [
-        PULL_EXISTS]));
+        PULL_EXISTS])
 
 (* ---------- type_p ---------- *)
 
@@ -1314,6 +1334,7 @@ Proof
      full_simp_tac(srw_ss())[type_op_cases] >>
      srw_tac[][] >>
      TRY(cases_on`wz`\\CHANGED_TAC(fs[])) >>
+     TRY (Cases_on ‘v31’ >> fs[]) >>
      full_simp_tac(srw_ss())[deBruijn_subst_def] >>
      metis_tac [])
    >- metis_tac [SIMP_RULE (srw_ss()) [PULL_FORALL] type_e_subst_lem3, ADD_COMM])
@@ -1616,8 +1637,8 @@ Proof
  >> metis_tac []
 QED
 
-val type_e_subst_lem = Q.prove (
-`∀tenv tenvE e t targs tvs targs'.
+Triviality type_e_subst_lem:
+  ∀tenv tenvE e t targs tvs targs'.
   type_e tenv (Bind_name x 0 t1 (bind_tvar (LENGTH targs) tenvE)) e t ∧
   num_tvs tenvE = 0 ∧
   tenv_abbrev_ok tenv.t ∧
@@ -1627,13 +1648,16 @@ val type_e_subst_lem = Q.prove (
   EVERY (check_freevars tvs []) targs ∧
   check_freevars (LENGTH targs) [] t1
   ⇒
-  type_e tenv (Bind_name x 0 (deBruijn_subst 0 targs t1) (bind_tvar tvs tenvE)) e (deBruijn_subst 0 targs t)`,
- srw_tac[][] >>
+  type_e tenv (Bind_name x 0 (deBruijn_subst 0 targs t1) (bind_tvar tvs tenvE)) e (deBruijn_subst 0 targs t)
+Proof
+  srw_tac[][] >>
  drule (GEN_ALL (CONJUNCT1 type_e_subst))
  >> simp [tenv_val_exp_ok_def]
  >> rpt (disch_then drule)
  >> disch_then (qspec_then `Bind_name x 0 t1 Empty` mp_tac)
- >> simp [db_merge_def, deBruijn_subst_tenvE_def, deBruijn_inc0]);
+ >> simp [db_merge_def, deBruijn_subst_tenvE_def, deBruijn_inc0]
+QED
+
 
  (*
 (* ---------- tid_exn_to_tc ---------- *)
@@ -1671,14 +1695,15 @@ QED
 (* ---------- ctMap stuff ---------- *)
 
 
-val type_def_to_ctMap_def = Define `
+Definition type_def_to_ctMap_def:
   (type_def_to_ctMap tenvT next_stamp [] [] = []) ∧
   (type_def_to_ctMap tenvT next_stamp ((tvs,tn,ctors)::tds) (id::ids) =
     type_def_to_ctMap tenvT (next_stamp + 1) tds ids ++
     REVERSE
       (MAP (\(cn,ts).
         (TypeStamp cn next_stamp, (tvs, MAP (type_name_subst tenvT) ts, id)))
-        ctors))`;
+        ctors))
+End
 
 Theorem mem_type_def_to_ctMap:
    !tenvT next tds ids stamp x.
@@ -1697,10 +1722,12 @@ Proof
   fs []
 QED
 
-val o_f_FRANGE2 = Q.prove (
-  `(?x. y = f x ∧ x ∈ FRANGE g) ⇒ y ∈ FRANGE (f o_f g)`,
+Triviality o_f_FRANGE2:
+  (?x. y = f x ∧ x ∈ FRANGE g) ⇒ y ∈ FRANGE (f o_f g)
+Proof
   rw [FRANGE_DEF] >>
-  metis_tac [o_f_FAPPLY]);
+  metis_tac [o_f_FAPPLY]
+QED
 
 Theorem ctMap_ok_merge_imp:
    !ctMap1 ctMap2.
@@ -1785,10 +1812,12 @@ Proof
   fs []
 QED
 
-val fupdate2_union = Q.prove (
-  `!m a1 a2. m |++ a1 |++ a2 = FEMPTY |++ a2 ⊌ (m |++ a1)`,
+Triviality fupdate2_union:
+  !m a1 a2. m |++ a1 |++ a2 = FEMPTY |++ a2 ⊌ (m |++ a1)
+Proof
   rw [FLOOKUP_EXT, FUN_EQ_THM, FLOOKUP_FUNION, flookup_fupdate_list] >>
-  every_case_tac);
+  every_case_tac
+QED
 
 Theorem ctMap_ok_type_defs:
    !tenvT next tds tids.
@@ -1960,26 +1989,29 @@ Proof
 QED
  *)
 
-val all_distinct_map_fst_lemma = Q.prove (
-`!l v. ALL_DISTINCT (MAP (\(x,y). x) l) ⇒ ALL_DISTINCT (MAP (\(x,y). (x, v)) l)`,
- Induct_on `l`
+Triviality all_distinct_map_fst_lemma:
+  !l v. ALL_DISTINCT (MAP (\(x,y). x) l) ⇒ ALL_DISTINCT (MAP (\(x,y). (x, v)) l)
+Proof
+  Induct_on `l`
  >> rw [MEM_MAP]
  >> pairarg_tac
  >> rw []
  >> pairarg_tac
  >> rw []
  >> fs [MEM_MAP, LAMBDA_PROD, FORALL_PROD]
- >> metis_tac []);
+ >> metis_tac []
+QED
 
  (*
-val check_ctor_tenv_type_decs_to_ctMap_lemma = Q.prove (
-  `!tenvT tds mn tvs tn c cn ts.
+Triviality check_ctor_tenv_type_decs_to_ctMap_lemma:
+  !tenvT tds mn tvs tn c cn ts.
     check_ctor_tenv tenvT (REVERSE tds) ∧
     MEM (tvs,tn,c) (REVERSE tds) ∧
     MEM (cn,ts) c
     ⇒
-    FLOOKUP (type_decs_to_ctMap mn tenvT (REVERSE tds)) (cn, TypeId (mk_id mn tn)) = SOME (tvs, MAP (type_name_subst tenvT) ts)`,
- Induct_on `tds`
+    FLOOKUP (type_decs_to_ctMap mn tenvT (REVERSE tds)) (cn, TypeId (mk_id mn tn)) = SOME (tvs, MAP (type_name_subst tenvT) ts)
+Proof
+  Induct_on `tds`
  >> rw [check_ctor_tenv_def]
  >> fs [MEM_MAP]
  >- (
@@ -2014,7 +2046,8 @@ val check_ctor_tenv_type_decs_to_ctMap_lemma = Q.prove (
    >> rw [ALOOKUP_NONE, MEM_MAP]
    >> rw [METIS_PROVE [] ``x ∨ y ⇔ ~x ⇒ y``]
    >> pairarg_tac
-   >> fs []));
+   >> fs [])
+QED
 
 Theorem check_ctor_tenv_type_decs_to_ctMap:
    !tenvT tds mn tvs tn c cn ts.
@@ -2218,11 +2251,13 @@ Proof
                arithmeticTheory.GREATER_EQ]
 QED
 
-val remove_lambda_prod = Q.prove (
-`(\(x,y). P x y) = (\xy. P (FST xy) (SND xy))`,
- rw [FUN_EQ_THM]
+Triviality remove_lambda_prod:
+  (\(x,y). P x y) = (\xy. P (FST xy) (SND xy))
+Proof
+  rw [FUN_EQ_THM]
  >> pairarg_tac
- >> rw []);
+ >> rw []
+QED
 
 val type_subst_lem1 =
 (GEN_ALL o
@@ -2608,8 +2643,8 @@ QED
  *)
 
  (*
-val type_ds_no_dup_types_helper = Q.prove (
-`!uniq mn decls tenv ds decls' tenv'.
+Triviality type_ds_no_dup_types_helper:
+  !uniq mn decls tenv ds decls' tenv'.
   type_ds uniq mn decls tenv ds decls' tenv'
   ⇒
   DISJOINT decls.defined_types decls'.defined_types ∧
@@ -2620,8 +2655,9 @@ val type_ds_no_dup_types_helper = Q.prove (
                 | Dletrec _ v8 => []
                 | Dtabbrev _ x y z => []
                 | Dtype _ tds => MAP (λ(tvs,tn,ctors). mk_id mn tn) tds
-                | Dexn _ v10 v11 => []) ds))`,
- induct_on `ds` >>
+                | Dexn _ v10 v11 => []) ds))
+Proof
+  induct_on `ds` >>
  srw_tac[][empty_decls_def] >>
  pop_assum (assume_tac o SIMP_RULE (srw_ss()) [Once type_ds_cases,EXISTS_PROD]) >>
  full_simp_tac(srw_ss())[empty_decls_def,EXISTS_PROD,extend_dec_tenv_def] >>
@@ -2638,7 +2674,8 @@ val type_ds_no_dup_types_helper = Q.prove (
  full_simp_tac(srw_ss())[] >>
  srw_tac[][] >>
  full_simp_tac(srw_ss())[DISJOINT_DEF, EXTENSION] >>
- metis_tac []);
+ metis_tac []
+QED
 
 Theorem type_ds_no_dup_types:
  !uniq mn decls tenv ds decls' tenv'.
@@ -2910,13 +2947,14 @@ Proof
  >> metis_tac [type_top_decls_ok]
 QED
 
-val type_no_dup_top_types_lem = Q.prove (
-`!uniq decls1 tenv prog decls1' res.
+Triviality type_no_dup_top_types_lem:
+  !uniq decls1 tenv prog decls1' res.
   type_prog uniq decls1 tenv prog decls1' res
   ⇒
   ALL_DISTINCT (prog_to_top_types prog) ∧
-  DISJOINT decls1.defined_types (IMAGE (mk_id []) (set (prog_to_top_types prog)))`,
- ho_match_mp_tac type_prog_ind >>
+  DISJOINT decls1.defined_types (IMAGE (mk_id []) (set (prog_to_top_types prog)))
+Proof
+  ho_match_mp_tac type_prog_ind >>
  srw_tac[][semanticPrimitivesTheory.prog_to_top_types_def] >>
  every_case_tac >>
  srw_tac[][] >>
@@ -2950,14 +2988,16 @@ val type_no_dup_top_types_lem = Q.prove (
      full_simp_tac(srw_ss())[DISJOINT_DEF, EXTENSION, union_decls_def] >>
      srw_tac[][] >>
      full_simp_tac(srw_ss())[MEM_MAP,LAMBDA_PROD, EXISTS_PROD, mk_id_def, FORALL_PROD] >>
-     metis_tac []));
+     metis_tac [])
+QED
 
-val type_no_dup_top_types_lem2 = Q.prove (
-`!uniq decls1 tenv prog decls1' tenv'.
+Triviality type_no_dup_top_types_lem2:
+  !uniq decls1 tenv prog decls1' tenv'.
   type_prog uniq decls1 tenv prog decls1' tenv'
   ⇒
-  no_dup_top_types prog (IMAGE TypeId decls1.defined_types)`,
- srw_tac[][semanticPrimitivesTheory.no_dup_top_types_def]
+  no_dup_top_types prog (IMAGE TypeId decls1.defined_types)
+Proof
+  srw_tac[][semanticPrimitivesTheory.no_dup_top_types_def]
  >- metis_tac [type_no_dup_top_types_lem] >>
  imp_res_tac type_no_dup_top_types_lem >>
  full_simp_tac(srw_ss())[DISJOINT_DEF, EXTENSION] >>
@@ -2965,7 +3005,8 @@ val type_no_dup_top_types_lem2 = Q.prove (
  cases_on `x` >>
  srw_tac[][MEM_MAP] >>
  full_simp_tac(srw_ss())[mk_id_def] >>
- metis_tac []);
+ metis_tac []
+QED
 
 Theorem type_no_dup_top_types:
  !decls1 tenv prog decls1' tenv' uniq decls2 decls_no_sig.
@@ -2990,13 +3031,14 @@ Proof
  metis_tac []
 QED
 
-val type_no_dup_mods_lem = Q.prove (
-`!uniq decls1 tenv prog decls1' res.
+Triviality type_no_dup_mods_lem:
+  !uniq decls1 tenv prog decls1' res.
   type_prog uniq decls1 tenv prog decls1' res
   ⇒
   ALL_DISTINCT (prog_to_mods prog) ∧
-  DISJOINT decls1.defined_mods (set (prog_to_mods prog))`,
- ho_match_mp_tac type_prog_ind >>
+  DISJOINT decls1.defined_mods (set (prog_to_mods prog))
+Proof
+  ho_match_mp_tac type_prog_ind >>
  srw_tac[][semanticPrimitivesTheory.prog_to_mods_def] >>
  every_case_tac >>
  srw_tac[][] >>
@@ -3007,7 +3049,8 @@ val type_no_dup_mods_lem = Q.prove (
  >- (full_simp_tac(srw_ss())[union_decls_def, DISJOINT_DEF, EXTENSION] >>
      metis_tac [])
  >- (full_simp_tac(srw_ss())[union_decls_def, DISJOINT_DEF, EXTENSION] >>
-     metis_tac []));
+     metis_tac [])
+QED
 
 Theorem type_no_dup_mods:
  !uniq decls1 tenv prog decls1' tenv'.
@@ -3029,10 +3072,11 @@ Overload tmenv_dom =
 
 open boolSimps semanticPrimitivesPropsTheory
 
-val tenv_names_def = Define`
+Definition tenv_names_def:
   (tenv_names Empty = {}) ∧
   (tenv_names (Bind_tvar _ e) = tenv_names e) ∧
-  (tenv_names (Bind_name n _ _ e) = n INSERT tenv_names e)`
+  (tenv_names (Bind_name n _ _ e) = n INSERT tenv_names e)
+End
 val _ = export_rewrites["tenv_names_def"]
 
 Theorem lookup_tenv_names:
@@ -3056,30 +3100,34 @@ Proof
   simp[EXTENSION] >> metis_tac[]
 QED
 
-val type_p_closed = Q.prove(
-  `(∀tvs tcenv p t tenv.
+Triviality type_p_closed:
+  (∀tvs tcenv p t tenv.
        type_p tvs tcenv p t tenv ⇒
        pat_bindings p [] = MAP FST tenv) ∧
     (∀tvs cenv ps ts tenv.
       type_ps tvs cenv ps ts tenv ⇒
-      pats_bindings ps [] = MAP FST tenv)`,
+      pats_bindings ps [] = MAP FST tenv)
+Proof
   ho_match_mp_tac type_p_ind >>
   simp[astTheory.pat_bindings_def] >>
   srw_tac[][] >> full_simp_tac(srw_ss())[SUBSET_DEF] >>
-  srw_tac[][Once pat_bindings_accum]);
+  srw_tac[][Once pat_bindings_accum]
+QED
 
-val type_funs_dom = Q.prove (
-  `!tenv funs tenv'.
+Triviality type_funs_dom:
+  !tenv funs tenv'.
     type_funs tenv funs tenv'
     ⇒
-    IMAGE FST (set funs) = IMAGE FST (set tenv')`,
-   Induct_on `funs` >>
+    IMAGE FST (set funs) = IMAGE FST (set tenv')
+Proof
+  Induct_on `funs` >>
    srw_tac[][Once type_e_cases] >>
    srw_tac[][] >>
-   metis_tac []);
+   metis_tac []
+QED
 
-val type_e_closed = Q.prove(
-  `(∀tenv e t.
+Triviality type_e_closed:
+  (∀tenv e t.
       type_e tenv e t
       ⇒
       FV e ⊆ (IMAGE Short (tenv_names tenv.v) ∪ tmenv_dom tenv.m)) ∧
@@ -3089,7 +3137,8 @@ val type_e_closed = Q.prove(
       FV_list es ⊆ (IMAGE Short (tenv_names tenv.v) ∪ tmenv_dom tenv.m)) ∧
     (∀tenv funs ts.
       type_funs tenv funs ts ⇒
-      FV_defs funs ⊆ (IMAGE Short (tenv_names tenv.v)) ∪ tmenv_dom tenv.m)`,
+      FV_defs funs ⊆ (IMAGE Short (tenv_names tenv.v)) ∪ tmenv_dom tenv.m)
+Proof
   ho_match_mp_tac type_e_strongind >>
   strip_tac >- simp[] >>
   strip_tac >- simp[] >>
@@ -3189,12 +3238,14 @@ val type_e_closed = Q.prove(
   res_tac >>
   fsrw_tac[DNF_ss][MEM_MAP,FV_defs_MAP,UNCURRY] >>
   srw_tac[][] >>
-  metis_tac []);
+  metis_tac []
+QED
 
-val type_d_closed = Q.prove(
-  `∀uniq mno decls tenv d w x.
+Triviality type_d_closed:
+  ∀uniq mno decls tenv d w x.
       type_d uniq mno decls tenv d w x ⇒
-        FV_dec d ⊆ (IMAGE Short (tenv_names tenv.v) ∪ tmenv_dom tenv.m)`,
+        FV_dec d ⊆ (IMAGE Short (tenv_names tenv.v) ∪ tmenv_dom tenv.m)
+Proof
   ho_match_mp_tac type_d_ind >>
   strip_tac >- (
     simp[bind_tvar_def] >>
@@ -3221,27 +3272,31 @@ val type_d_closed = Q.prove(
     imp_res_tac type_funs_dom >>
     full_simp_tac(srw_ss())[EXTENSION] >>
     metis_tac[]) >>
-  simp[]);
+  simp[]
+QED
 
   (*
-val type_d_new_dec_vs = Q.prove (
-  `!uniq mn decls tenv d decls' new_tenv.
+Triviality type_d_new_dec_vs:
+  !uniq mn decls tenv d decls' new_tenv.
     type_d uniq mn decls tenv d decls' new_tenv
     ⇒
-    set (new_dec_vs d) = set (MAP FST tenv')`,
-   srw_tac[][type_d_cases, new_dec_vs_def] >>
+    set (new_dec_vs d) = set (MAP FST tenv')
+Proof
+  srw_tac[][type_d_cases, new_dec_vs_def] >>
    srw_tac[][new_dec_vs_def] >>
    imp_res_tac type_p_closed >>
    srw_tac[][tenv_add_tvs_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
    full_simp_tac(srw_ss())[LET_THM, LIST_TO_SET_MAP, FST_pair, IMAGE_COMPOSE] >>
-   metis_tac [type_funs_dom]);
+   metis_tac [type_funs_dom]
+QED
    *)
 
    (*
-val type_ds_closed = Q.prove(
-  `∀uniq mn decls tenv ds w x. type_ds uniq mn decls tenv ds w x ⇒
+Triviality type_ds_closed:
+  ∀uniq mn decls tenv ds w x. type_ds uniq mn decls tenv ds w x ⇒
      !mn'. mn = SOME mn' ⇒
-      FV_decs ds ⊆ (IMAGE Short (tenv_names tenv.v) ∪ tmenv_dom tenv.m)`,
+      FV_decs ds ⊆ (IMAGE Short (tenv_names tenv.v) ∪ tmenv_dom tenv.m)
+Proof
   ho_match_mp_tac type_ds_ind >>
   srw_tac[][FV_decs_def] >>
   imp_res_tac type_d_closed >>
@@ -3252,7 +3307,8 @@ val type_ds_closed = Q.prove(
   full_simp_tac(srw_ss())[] >>
   srw_tac[][] >>
   full_simp_tac(srw_ss())[MEM_MAP] >>
-  metis_tac [type_d_new_dec_vs,MEM_MAP]);
+  metis_tac [type_d_new_dec_vs,MEM_MAP]
+QED
   *)
 
   (*
@@ -3274,24 +3330,27 @@ Proof
 QED
   *)
 
-val type_env_dom = Q.prove (
-  `!ctMap tenvS env tenv.
+Triviality type_env_dom:
+  !ctMap tenvS env tenv.
     type_env ctMap tenvS env tenv ⇒
-    IMAGE Short (set (MAP FST env)) = IMAGE Short (tenv_names tenv)`,
-   induct_on `env` >>
+    IMAGE Short (set (MAP FST env)) = IMAGE Short (tenv_names tenv)
+Proof
+  induct_on `env` >>
    ONCE_REWRITE_TAC [typeSoundInvariantsTheory.type_v_cases] >>
    full_simp_tac(srw_ss())[tenv_names_def] >>
    full_simp_tac(srw_ss())[tenv_names_def] >>
    srw_tac[][] >>
    srw_tac[][] >>
-   metis_tac []);
+   metis_tac []
+QED
 
-val weakM_dom = Q.prove (
-  `!tenvM1 tenvM2.
+Triviality weakM_dom:
+  !tenvM1 tenvM2.
     weakM tenvM1 tenvM2
     ⇒
-    tmenv_dom tenvM2 ⊆ tmenv_dom tenvM1`,
-   srw_tac[][weakM_def, SUBSET_DEF] >>
+    tmenv_dom tenvM2 ⊆ tmenv_dom tenvM1
+Proof
+  srw_tac[][weakM_def, SUBSET_DEF] >>
    res_tac >>
    srw_tac[][] >>
    full_simp_tac(srw_ss())[weakE_def] >>
@@ -3301,13 +3360,15 @@ val weakM_dom = Q.prove (
    srw_tac[][] >>
    imp_res_tac ALOOKUP_MEM >>
    full_simp_tac(srw_ss())[MEM_MAP] >>
-   metis_tac [FST, pair_CASES]);
+   metis_tac [FST, pair_CASES]
+QED
 
-val type_env_dom2 = Q.prove (
-  `!ctMap tenvS env tenv.
+Triviality type_env_dom2:
+  !ctMap tenvS env tenv.
     type_env ctMap tenvS env (bind_var_list2 tenv Empty) ⇒
-    (set (MAP FST env) = set (MAP FST tenv))`,
-   induct_on `env` >>
+    (set (MAP FST env) = set (MAP FST tenv))
+Proof
+  induct_on `env` >>
    ONCE_REWRITE_TAC [typeSoundInvariantsTheory.type_v_cases] >>
    full_simp_tac(srw_ss())[bind_var_list2_def, tenv_names_def] >>
    full_simp_tac(srw_ss())[tenv_names_def] >>
@@ -3316,14 +3377,16 @@ val type_env_dom2 = Q.prove (
    cases_on `tenv` >>
    TRY (PairCases_on `h`) >>
    full_simp_tac(srw_ss())[bind_var_list2_def] >>
-   metis_tac []);
+   metis_tac []
+QED
 
-val consistent_mod_env_dom = Q.prove (
-  `!tenvS tenvC envM tenvM.
+Triviality consistent_mod_env_dom:
+  !tenvS tenvC envM tenvM.
     consistent_mod_env tenvS tenvC envM tenvM
     ⇒
-    (tmenv_dom tenvM = {Long m x | ∃e. ALOOKUP envM m = SOME e ∧ MEM x (MAP FST e)})`,
-   induct_on `envM` >>
+    (tmenv_dom tenvM = {Long m x | ∃e. ALOOKUP envM m = SOME e ∧ MEM x (MAP FST e)})
+Proof
+  induct_on `envM` >>
    srw_tac[][]
    >- (Cases_on `tenvM` >>
        full_simp_tac(srw_ss())[Once type_v_cases]) >>
@@ -3342,7 +3405,8 @@ val consistent_mod_env_dom = Q.prove (
    srw_tac[][] >>
    res_tac >>
    full_simp_tac(srw_ss())[] >>
-   metis_tac []);
+   metis_tac []
+QED
    *)
 
    (*
@@ -3371,4 +3435,3 @@ Proof
 QED
   *)
 
-val _ = export_theory ();

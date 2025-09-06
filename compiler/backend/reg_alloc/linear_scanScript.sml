@@ -1,10 +1,11 @@
 (*
   A linear-scan register allocator.
 *)
-open preamble sptreeTheory reg_allocTheory libTheory
-open state_transformerTheory ml_monadBaseLib ml_monadBaseTheory
-
-val _ = new_theory "linear_scan"
+Theory linear_scan
+Libs
+  preamble ml_monadBaseLib
+Ancestors
+  mllist sptree reg_alloc state_transformer ml_monadBase
 
 val _ = ParseExtras.temp_tight_equality();
 val _ = monadsyntax.temp_add_monadsyntax()
@@ -16,22 +17,25 @@ Overload return[local] = ``st_ex_return``
 
 val _ = hide "state";
 
-val _ = Datatype`
+Datatype:
   live_tree = Writes (num list)
             | Reads (num list)
             | Branch live_tree live_tree
-            | Seq live_tree live_tree`
+            | Seq live_tree live_tree
+End
 
 
-val numset_list_insert_def = Define`
+Definition numset_list_insert_def:
   (numset_list_insert [] t = t) ∧
-  (numset_list_insert (x::xs) t = numset_list_insert xs (insert x () t))`
+  (numset_list_insert (x::xs) t = numset_list_insert xs (insert x () t))
+End
 
-val numset_list_insert_nottailrec_def = Define`
+Definition numset_list_insert_nottailrec_def:
   (numset_list_insert_nottailrec [] t = t) ∧
-  (numset_list_insert_nottailrec (x::xs) t = insert x () (numset_list_insert_nottailrec xs t))`
+  (numset_list_insert_nottailrec (x::xs) t = insert x () (numset_list_insert_nottailrec xs t))
+End
 
-val get_live_tree_def = Define`
+Definition get_live_tree_def:
     (
       get_live_tree (reg_alloc$Delta wr rd) =
         Seq (Reads rd) (Writes wr)
@@ -53,9 +57,10 @@ val get_live_tree_def = Define`
         let lt2 = get_live_tree ct2 in
         let lt1 = get_live_tree ct1 in
         Seq lt1 lt2
-    )`
+    )
+End
 
-val check_live_tree_def = Define`
+Definition check_live_tree_def:
     (
       check_live_tree f (Writes l) live flive =
         case check_partial_col f l live flive of
@@ -82,9 +87,10 @@ val check_live_tree_def = Define`
         | NONE => NONE
         | SOME (livein2, flivein2) =>
           check_live_tree f lt1 livein2 flivein2
-    )`
+    )
+End
 
-val get_live_backward_def = Define`
+Definition get_live_backward_def:
     (
       get_live_backward (Writes l) live =
         numset_list_delete l live
@@ -99,16 +105,17 @@ val get_live_backward_def = Define`
     ) /\ (
       get_live_backward (Seq lt1 lt2) live =
         get_live_backward lt1 (get_live_backward lt2 live)
-    )`
+    )
+End
 
-val fix_domination_def = Define`
+Definition fix_domination_def:
     fix_domination lt =
         let live = get_live_backward lt LN in
         if live = LN then lt
         else Seq (Writes (MAP FST (toAList live))) lt
-`
+End
 
-val numset_list_add_if_def = Define`
+Definition numset_list_add_if_def:
     (
       numset_list_add_if [] (v:int) s P = s
     ) /\ (
@@ -120,17 +127,17 @@ val numset_list_add_if_def = Define`
         | NONE =>
             numset_list_add_if xs v (insert x v s) P
     )
-`
+End
 
-val numset_list_add_if_lt_def = Define`
+Definition numset_list_add_if_lt_def:
     numset_list_add_if_lt l (v:int) s = numset_list_add_if l v s $<=
-`
+End
 
-val numset_list_add_if_gt_def = Define`
+Definition numset_list_add_if_gt_def:
     numset_list_add_if_gt l (v:int) s = numset_list_add_if l v s (\a b. b <= a)
-`
+End
 
-val size_of_live_tree_def = Define`
+Definition size_of_live_tree_def:
     (
       size_of_live_tree (Writes l) =
         1 : int
@@ -144,9 +151,9 @@ val size_of_live_tree_def = Define`
       size_of_live_tree (Seq lt1 lt2) =
         size_of_live_tree lt1 + size_of_live_tree lt2
     )
-`
+End
 
-val get_intervals_def = Define`
+Definition get_intervals_def:
     (
       get_intervals (Writes l) (n : int) int_beg int_end =
         (n-1, numset_list_add_if_lt l n int_beg, numset_list_add_if_gt l n int_end)
@@ -162,11 +169,11 @@ val get_intervals_def = Define`
         let (n2, int_beg2, int_end2) = get_intervals lt2 n int_beg int_end in
         get_intervals lt1 n2 int_beg2 int_end2
     )
-`
+End
 
 (* compute the same thing as `get_intervals` (as says the `get_intervals_withlive_beg_eq_get_intervals_beg` theorem),
  * but has the following invariant: !r. r IN domain live ==> r NOTIN domain beg_in (as stated by the `get_intervals_withlive_live_intbeg` theorem *)
-val get_intervals_withlive_def = Define`
+Definition get_intervals_withlive_def:
     (
       get_intervals_withlive (Writes l) (n : int) int_beg int_end live =
         (n-1, numset_list_add_if_lt l n int_beg, numset_list_add_if_gt l n int_end)
@@ -184,9 +191,9 @@ val get_intervals_withlive_def = Define`
         let (n1, int_beg1, int_end1) = get_intervals_withlive lt1 n2 int_beg2 int_end2 (get_live_backward lt2 live) in
         (n1, int_beg1, int_end1)
     )
-`
+End
 
-val check_number_property_def = Define`
+Definition check_number_property_def:
   (
     check_number_property (P : int -> num_set -> bool) (Writes l) n live =
         let n_out = n-1 in
@@ -208,9 +215,9 @@ val check_number_property_def = Define`
         let r1 = check_number_property P lt1 (n-size_of_live_tree lt2) (get_live_backward lt2 live) in
         r1 /\ r2
   )
-`
+End
 
-val check_number_property_strong_def = Define`
+Definition check_number_property_strong_def:
   (
     check_number_property_strong (P : int -> num_set -> bool) (Writes l) n live =
         let n_out = n-1 in
@@ -232,9 +239,9 @@ val check_number_property_strong_def = Define`
         let r1 = check_number_property_strong P lt1 (n-size_of_live_tree lt2) (get_live_backward lt2 live) in
         r1 /\ r2
   )
-`
+End
 
-val check_startlive_prop_def = Define`
+Definition check_startlive_prop_def:
   (
     check_startlive_prop (Writes l) n beg end ndef =
         !r. MEM r l ==> (option_CASE (lookup r beg) ndef (\x.x) <= n /\
@@ -252,33 +259,34 @@ val check_startlive_prop_def = Define`
         let r2 = check_startlive_prop lt2 n beg end ndef in
         let r1 = check_startlive_prop lt1 (n-size_of_live_tree lt2) beg end ndef in
         r1 /\ r2
-  )`
+  )
+End
 
-val live_tree_registers_def = Define`
+Definition live_tree_registers_def:
     (live_tree_registers (Writes l) = set l) /\
     (live_tree_registers (Reads l) = set l) /\
     (live_tree_registers (Branch lt1 lt2) = live_tree_registers lt1 UNION live_tree_registers lt2) /\
     (live_tree_registers (Seq lt1 lt2) = live_tree_registers lt1 UNION live_tree_registers lt2)
-`
+End
 
-val interval_intersect_def = Define`
+Definition interval_intersect_def:
     interval_intersect (l1:int, r1:int) (l2, r2) = (l1 <= r2 /\ l2 <= r1)
-`
+End
 
-val point_inside_interval_def = Define`
+Definition point_inside_interval_def:
     point_inside_interval (l:int, r:int) n = (l <= n /\ n <= r)
-`
+End
 
-val check_intervals_def = Define`
+Definition check_intervals_def:
     check_intervals f int_beg int_end = !r1 r2.
       r1 IN domain int_beg /\ r2 IN domain int_beg /\
       interval_intersect (THE (lookup r1 int_beg), THE (lookup r1 int_end)) (THE (lookup r2 int_beg), THE (lookup r2 int_end)) /\
       f r1 = f r2
       ==>
       r1 = r2
-`
+End
 
-val get_intervals_ct_aux_def = Define`
+Definition get_intervals_ct_aux_def:
     (
       get_intervals_ct_aux (reg_alloc$Delta wr rd) (n : int) int_beg int_end live =
         (n-2, numset_list_add_if_lt wr n int_beg, numset_list_add_if_gt rd (n-1) (numset_list_add_if_gt wr n int_end), numset_list_insert rd (numset_list_delete wr live))
@@ -297,16 +305,16 @@ val get_intervals_ct_aux_def = Define`
         let (n2, int_beg2, int_end2, live2) = get_intervals_ct_aux ct2 n int_beg int_end live in
         get_intervals_ct_aux ct1 n2 int_beg2 int_end2 live2
     )
-`
+End
 
-val get_intervals_ct_def = Define`
+Definition get_intervals_ct_def:
     get_intervals_ct ct =
         let (n, int_beg, int_end, live) = get_intervals_ct_aux ct 0 LN LN LN in
         let listlive = MAP FST (toAList live) in
         (n-1, numset_list_add_if_lt listlive n int_beg, numset_list_add_if_gt listlive n int_end)
-`
+End
 
-val _ = Datatype `
+Datatype:
   linear_scan_state =
     <| active: (int # num) list (* interval end # reg *)
      ; colorpool: num list
@@ -314,16 +322,18 @@ val _ = Datatype `
      ; colornum: num
      ; colormax: num
      ; stacknum: num
-     |>`
+     |>
+End
 
-val _ = Datatype `
+Datatype:
   linear_scan_hidden_state =
     <| colors : num list
      ; int_beg : int list
      ; int_end : int list
      ; sorted_regs : num list
      ; sorted_moves : (num # (num # num)) list
-     |>`
+     |>
+End
 
 val accessors = define_monad_access_funs ``:linear_scan_hidden_state``;
 
@@ -361,11 +371,16 @@ val int_end_manip = el 3 arr_manip;
 val sorted_regs_manip = el 4 arr_manip;
 val sorted_moves_manip = el 5 arr_manip;
 
-val colors_accessor = save_thm("colors_accessor",accessor_thm colors_manip);
-val int_beg_accessor = save_thm("int_beg_accessor",accessor_thm int_beg_manip);
-val int_end_accessor = save_thm("int_end_accessor",accessor_thm int_end_manip);
-val sorted_regs_accessor = save_thm("sorted_regs_accessor",accessor_thm sorted_regs_manip);
-val sorted_moves_accessor = save_thm("sorted_moves_accessor",accessor_thm sorted_moves_manip);
+Theorem colors_accessor =
+  accessor_thm colors_manip
+Theorem int_beg_accessor =
+  accessor_thm int_beg_manip
+Theorem int_end_accessor =
+  accessor_thm int_end_manip
+Theorem sorted_regs_accessor =
+  accessor_thm sorted_regs_manip
+Theorem sorted_moves_accessor =
+  accessor_thm sorted_moves_manip
 
 val colors_length_def = fetch "-" "colors_length_def";
 val colors_sub_def    = fetch "-" "colors_sub_def";
@@ -387,7 +402,7 @@ val sorted_moves_length_def = fetch "-" "sorted_moves_length_def";
 val sorted_moves_sub_def    = fetch "-" "sorted_moves_sub_def";
 val update_sorted_moves_def = fetch "-" "update_sorted_moves_def";
 
-val numset_list_add_if_lt_monad_def = Define`
+Definition numset_list_add_if_lt_monad_def:
   (
     numset_list_add_if_lt_monad [] v =
       return ()
@@ -409,9 +424,9 @@ val numset_list_add_if_lt_monad_def = Define`
           numset_list_add_if_lt_monad rs v
       od
   )
-`
+End
 
-val numset_list_add_if_gt_monad_def = Define`
+Definition numset_list_add_if_gt_monad_def:
   (
     numset_list_add_if_gt_monad [] v =
       return ()
@@ -433,9 +448,9 @@ val numset_list_add_if_gt_monad_def = Define`
           numset_list_add_if_gt_monad rs v
       od
   )
-`
+End
 
-val get_intervals_ct_monad_aux_def = Define`
+Definition get_intervals_ct_monad_aux_def:
     (
       get_intervals_ct_monad_aux (reg_alloc$Delta wr rd) (n : int) live =
         do
@@ -470,9 +485,9 @@ val get_intervals_ct_monad_aux_def = Define`
           get_intervals_ct_monad_aux ct1 n2 live2;
         od
     )
-`
+End
 
-val get_intervals_ct_monad_def = Define`
+Definition get_intervals_ct_monad_def:
     get_intervals_ct_monad ct =
       do
         (n, live) <- get_intervals_ct_monad_aux ct 0 LN;
@@ -480,9 +495,9 @@ val get_intervals_ct_monad_def = Define`
         numset_list_add_if_gt_monad (MAP FST (toAList live)) n;
         return (n-1)
       od
-`
+End
 
-val remove_inactive_intervals_def = tDefine "remove_inactive_intervals" `
+Definition remove_inactive_intervals_def:
     remove_inactive_intervals beg st =
       case st.active of
       | [] => return st
@@ -499,12 +514,12 @@ val remove_inactive_intervals_def = tDefine "remove_inactive_intervals" `
         else
           return st
       )
-`(
+Termination
     WF_REL_TAC `measure (\(_,st). LENGTH (st.active))` >>
     rw []
-);
+End
 
-val add_active_interval_def = Define `
+Definition add_active_interval_def:
   (
     add_active_interval v [] = [v]
   ) /\ (
@@ -514,9 +529,9 @@ val add_active_interval_def = Define `
         else
             v2::(add_active_interval v1 tail)
   )
-`
+End
 
-val find_color_in_list_def = Define`
+Definition find_color_in_list_def:
   (
     find_color_in_list [] (forbidden:num_set) = NONE
   ) /\ (
@@ -527,32 +542,33 @@ val find_color_in_list_def = Define`
           case find_color_in_list rs forbidden of
           | NONE => NONE
           | SOME (col, rest) => SOME (col, r::rest)
-  )`
+  )
+End
 
-val find_color_in_colornum_def = Define`
+Definition find_color_in_colornum_def:
     find_color_in_colornum st (forbidden:num_set) =
         if st.colormax <= st.colornum then
           (st, NONE)
         else
           (st with colornum  updated_by ($+1), SOME st.colornum)
-`
+End
 
-val find_color_def = Define`
+Definition find_color_def:
     find_color st (forbidden:num_set) =
         case find_color_in_list st.colorpool forbidden of
         | SOME (col, rest) => (st with colorpool := rest, SOME col)
         | NONE => find_color_in_colornum st forbidden
-`
+End
 
-val spill_register_def = Define`
+Definition spill_register_def:
     spill_register st reg =
       do
         update_colors reg st.stacknum;
         return (st with stacknum updated_by $+1);
       od
-`
+End
 
-val color_register_def = Define`
+Definition color_register_def:
     color_register st reg col rend =
       do
         update_colors reg col;
@@ -566,9 +582,9 @@ val color_register_def = Define`
         else
           return (st with active  updated_by add_active_interval (rend, reg))
       od
-`
+End
 
-val find_last_stealable_def = Define`
+Definition find_last_stealable_def:
   (
     find_last_stealable [] (forbidden:num_set) =
         return NONE
@@ -589,9 +605,9 @@ val find_last_stealable_def = Define`
         )
       od
   )
-`
+End
 
-val find_spill_def = Define`
+Definition find_spill_def:
     find_spill st (forbidden:num_set) reg rend force =
       do
         stealable <- find_last_stealable st.active forbidden;
@@ -607,9 +623,9 @@ val find_spill_def = Define`
           else
             spill_register st reg
       od
-`
+End
 
-val linear_reg_alloc_step_aux_def = Define`
+Definition linear_reg_alloc_step_aux_def:
     linear_reg_alloc_step_aux st (forbidden:num_set) preferred reg rend force =
       (* TODO: this might be slow *)
       let preferred_filtered = FILTER (\c. MEM c st.colorpool) preferred in
@@ -620,9 +636,9 @@ val linear_reg_alloc_step_aux_def = Define`
         | (st', SOME col) => color_register st' reg col rend
         | (st', NONE) => find_spill st' forbidden reg rend force
       )
-`
+End
 
-val linear_reg_alloc_step_pass1_def = Define`
+Definition linear_reg_alloc_step_pass1_def:
     linear_reg_alloc_step_pass1 forced moves st reg =
       do
         rbeg <- int_beg_sub reg;
@@ -647,9 +663,9 @@ val linear_reg_alloc_step_pass1_def = Define`
               od
           od
         od
-`
+End
 
-val linear_reg_alloc_step_pass2_def = Define`
+Definition linear_reg_alloc_step_pass2_def:
     linear_reg_alloc_step_pass2 forced moves st reg =
       do
         rbeg <- int_beg_sub reg;
@@ -666,10 +682,10 @@ val linear_reg_alloc_step_pass2_def = Define`
         else
           linear_reg_alloc_step_aux st' forced_forbidden moves_preferred reg rend F;
       od
-`
+End
 
 
-val linear_reg_alloc_pass1_initial_state_def = Define`
+Definition linear_reg_alloc_pass1_initial_state_def:
     linear_reg_alloc_pass1_initial_state k =
       <| active    := []
        ; colorpool := []
@@ -677,9 +693,10 @@ val linear_reg_alloc_pass1_initial_state_def = Define`
        ; colormax  := k
        ; phyregs   := LN
        ; stacknum  := k
-       |>`
+       |>
+End
 
-val linear_reg_alloc_pass2_initial_state_def = Define`
+Definition linear_reg_alloc_pass2_initial_state_def:
     linear_reg_alloc_pass2_initial_state k nreg =
       <| active    := []
        ; colorpool := []
@@ -687,9 +704,10 @@ val linear_reg_alloc_pass2_initial_state_def = Define`
        ; colormax  := k+nreg
        ; phyregs   := LN
        ; stacknum  := k+nreg
-       |>`
+       |>
+End
 
-val find_reg_exchange_def = Define`
+Definition find_reg_exchange_def:
   (
     find_reg_exchange [] exch invexch = return (exch, invexch)
   ) /\ (
@@ -701,9 +719,10 @@ val find_reg_exchange_def = Define`
         let fcol2 = option_CASE (lookup col1 exch) col1 (\x.x) in
         find_reg_exchange rs (insert col1 fcol1 (insert col2 fcol2 exch)) (insert fcol1 col1 (insert fcol2 col2 invexch))
       od
-  )`
+  )
+End
 
-val MAP_colors_def = Define`
+Definition MAP_colors_def:
   (
     MAP_colors f 0 = return ()
   ) /\ (
@@ -714,18 +733,18 @@ val MAP_colors_def = Define`
         MAP_colors f n;
       od
   )
-`
+End
 
-val apply_reg_exchange_def = Define`
+Definition apply_reg_exchange_def:
     apply_reg_exchange phyregs =
       do
         (exch, invexch) <- find_reg_exchange phyregs LN LN;
         col_size <- colors_length;
         MAP_colors (\c. option_CASE (lookup c exch) c (\x.x)) col_size;
       od
-`
+End
 
-val st_ex_FOLDL_def = Define`
+Definition st_ex_FOLDL_def:
   (
     st_ex_FOLDL f e [] = return e
   ) /\ (
@@ -734,10 +753,11 @@ val st_ex_FOLDL_def = Define`
         e' <- f e x;
         st_ex_FOLDL f e' xs;
       od
-  )`
+  )
+End
 
 (* like st_ex_FILTER, but preserve the order *)
-val st_ex_FILTER_good_def = Define`
+Definition st_ex_FILTER_good_def:
   (
     st_ex_FILTER_good P [] = return []
   ) /\ (
@@ -752,9 +772,10 @@ val st_ex_FILTER_good_def = Define`
         else
           st_ex_FILTER_good P xs;
       od
-  )`
+  )
+End
 
-val edges_to_adjlist_def = Define`
+Definition edges_to_adjlist_def:
   (
     edges_to_adjlist [] acc = return acc
   ) /\ (
@@ -771,13 +792,14 @@ val edges_to_adjlist_def = Define`
             edges_to_adjlist abs (insert a (b::(the [] (lookup a acc))) acc)
         od
   )
-`
+End
 
-val sort_moves_rev_def = Define`
+Definition sort_moves_rev_def:
   sort_moves_rev ls =
-    QSORT (\p:num,x p',x'. p<p') ls`
+    sort (\p:num,x p',x'. p<p') ls
+End
 
-val swap_regs_def = Define`
+Definition swap_regs_def:
     swap_regs i1 i2 =
       do
         r1 <- sorted_regs_sub i1;
@@ -785,9 +807,9 @@ val swap_regs_def = Define`
         update_sorted_regs i1 r2;
         update_sorted_regs i2 r1;
       od
-`
+End
 
-val partition_regs_def = tDefine "partition_regs" `
+Definition partition_regs_def:
     partition_regs l rpiv begrpiv r =
       if r <= l then
         return l
@@ -803,12 +825,12 @@ val partition_regs_def = tDefine "partition_regs" `
               partition_regs l rpiv begrpiv (r-1);
             od
         od
-` (
+Termination
   WF_REL_TAC `measure (\l,rpiv,begrpiv,r. r-l)`
-);
+End
 
-val qsort_regs_def = tDefine "qsort_regs" `
-    qsort_regs l r =
+Definition sort_regs_def:
+    sort_regs l r =
       if r <= l+1 then
         return ()
       else
@@ -822,15 +844,15 @@ val qsort_regs_def = tDefine "qsort_regs" `
             return ()
           else
             do
-              qsort_regs l (m-1);
-              qsort_regs m r;
+              sort_regs l (m-1);
+              sort_regs m r;
             od
         od
-`(
+Termination
     WF_REL_TAC `measure (\l,r. r-l)`
-)
+End
 
-val list_to_sorted_regs_def = Define`
+Definition list_to_sorted_regs_def:
   (
     list_to_sorted_regs [] n =
         return ()
@@ -840,9 +862,10 @@ val list_to_sorted_regs_def = Define`
         update_sorted_regs n r;
         list_to_sorted_regs rs (n+1);
       od
-  )`
+  )
+End
 
-val sorted_regs_to_list_def = tDefine "sorted_regs_to_list" `
+Definition sorted_regs_to_list_def:
     sorted_regs_to_list n last =
       if last <= n then
         return []
@@ -852,11 +875,11 @@ val sorted_regs_to_list_def = tDefine "sorted_regs_to_list" `
           l <- sorted_regs_to_list (n+1) last;
           return (r::l);
         od
-` (
+Termination
   WF_REL_TAC `measure (\n,last. last-n)`
-);
+End
 
-val swap_moves_def = Define`
+Definition swap_moves_def:
     swap_moves i1 i2 =
       do
         r1 <- sorted_moves_sub i1;
@@ -864,9 +887,9 @@ val swap_moves_def = Define`
         update_sorted_moves i1 r2;
         update_sorted_moves i2 r1;
       od
-`
+End
 
-val partition_moves_def = tDefine "partition_moves" `
+Definition partition_moves_def:
     partition_moves l ppiv r =
       if r <= l then
         return l
@@ -881,12 +904,12 @@ val partition_moves_def = tDefine "partition_moves" `
               partition_moves l ppiv (r-1);
             od
         od
-` (
+Termination
   WF_REL_TAC `measure (\l,piv,r. r-l)`
-);
+End
 
-val qsort_moves_def = tDefine "qsort_moves" `
-    qsort_moves l r =
+Definition sort_moves_def:
+    sort_moves l r =
       if r <= l+1 then
         return ()
       else
@@ -899,16 +922,16 @@ val qsort_moves_def = tDefine "qsort_moves" `
             return ()
           else
             do
-              qsort_moves l (m-1);
-              qsort_moves m r;
+              sort_moves l (m-1);
+              sort_moves m r;
             od
         od
-`(
+Termination
     WF_REL_TAC `measure (\l,r. r-l)`
-)
+End
 
 
-val list_to_sorted_moves_def = Define`
+Definition list_to_sorted_moves_def:
   (
     list_to_sorted_moves [] n =
         return ()
@@ -918,9 +941,10 @@ val list_to_sorted_moves_def = Define`
         update_sorted_moves n r;
         list_to_sorted_moves rs (n+1);
       od
-  )`
+  )
+End
 
-val sorted_moves_to_list_def = tDefine "sorted_moves_to_list" `
+Definition sorted_moves_to_list_def:
     sorted_moves_to_list n len =
       if len <= n then
         return []
@@ -930,24 +954,24 @@ val sorted_moves_to_list_def = tDefine "sorted_moves_to_list" `
           l <- sorted_moves_to_list (n+1) len;
           return (r::l);
         od
-` (
+Termination
   WF_REL_TAC `measure (\n,len. len-n)`
-);
+End
 
-val linear_reg_alloc_intervals_def = Define`
+Definition linear_reg_alloc_intervals_def:
     linear_reg_alloc_intervals k forced moves reglist_unsorted =
         let lenreg = LENGTH reglist_unsorted in
         let lenmoves = LENGTH moves in
         let st_init_pass1 = linear_reg_alloc_pass1_initial_state k in
         do
           list_to_sorted_regs reglist_unsorted 0;
-          qsort_regs 0 lenreg;
+          sort_regs 0 lenreg;
           reglist <- sorted_regs_to_list 0 lenreg;
           phyregs <- return (FILTER is_phy_var reglist);
           phyphyregs <- return (FILTER (\r. r < 2*k) phyregs);
           stackphyregs <- return (FILTER (\r. 2*k <= r) phyregs);
           list_to_sorted_moves moves 0;
-          qsort_moves 0 lenmoves;
+          sort_moves 0 lenmoves;
           smoves <- sorted_moves_to_list 0 lenmoves;
           moves_adjlist <- edges_to_adjlist (MAP SND smoves) LN;
           forced_adjlist <- edges_to_adjlist forced LN;
@@ -966,9 +990,9 @@ val linear_reg_alloc_intervals_def = Define`
           st_end_pass2 <- st_ex_FOLDL (linear_reg_alloc_step_pass2 forced_adjlist' moves_adjlist') st_init_pass2 stacklist;
           apply_reg_exchange stackphyregs;
         od
-`
+End
 
-val extract_coloration_def = Define`
+Definition extract_coloration_def:
   (
     extract_coloration invbij [] acc = return acc
   ) /\ (
@@ -978,27 +1002,29 @@ val extract_coloration_def = Define`
         extract_coloration invbij rs (insert (the 0 (lookup r invbij)) col acc);
       od
   )
-`
+End
 
-val _ = Datatype `
+Datatype:
   bijection_state =
     <| bij : num num_map
      ; invbij : num num_map
      ; nmax : num
      ; nstack : num
      ; nalloc : num
-     |>`
+     |>
+End
 
-val find_bijection_init_def = Define`
+Definition find_bijection_init_def:
     find_bijection_init =
         <| bij := LN
          ; invbij := LN
          ; nmax := 0
          ; nstack := 3
          ; nalloc := 1
-         |>`
+         |>
+End
 
-val find_bijection_step_def = Define`
+Definition find_bijection_step_def:
     find_bijection_step state r =
       if lookup r state.bij <> NONE then
         state
@@ -1022,9 +1048,9 @@ val find_bijection_step_def = Define`
            ; nmax := MAX state.nalloc state.nmax
            ; nalloc := state.nalloc+4
            |>
-`
+End
 
-val find_bijection_clash_tree_def = Define`
+Definition find_bijection_clash_tree_def:
   (
     find_bijection_clash_tree state (Delta wr rd) =
       FOLDL find_bijection_step (FOLDL find_bijection_step state rd) wr
@@ -1043,12 +1069,13 @@ val find_bijection_clash_tree_def = Define`
     find_bijection_clash_tree state (Seq ct1 ct2) =
       let state1 = find_bijection_clash_tree state ct1 in
       find_bijection_clash_tree state1 ct2
-  )`
+  )
+End
 
-val apply_bijection_def = Define`
+Definition apply_bijection_def:
     apply_bijection bij (interval : int num_map) =
         foldi (\r i acc. insert (the 0 (lookup r bij)) i acc) 0 LN interval
-`
+End
 
 val array_fields_names = ["colors", "int_beg", "int_end", "sorted_regs", "sorted_moves"];
 val run_i_linear_scan_hidden_state_def =
@@ -1056,16 +1083,16 @@ val run_i_linear_scan_hidden_state_def =
   array_fields_names
   "i_linear_scan_hidden_state";
 
-val linear_reg_alloc_and_extract_coloration_def = Define`
+Definition linear_reg_alloc_and_extract_coloration_def:
     linear_reg_alloc_and_extract_coloration ct k forced moves reglist_unsorted invbij nmax =
       do
         get_intervals_ct_monad ct;
         linear_reg_alloc_intervals k forced moves reglist_unsorted;
         extract_coloration invbij reglist_unsorted LN;
       od
-`
+End
 
-val size_of_clash_tree_def = Define`
+Definition size_of_clash_tree_def:
   (
     size_of_clash_tree (Delta wr rd) =
       2i
@@ -1078,9 +1105,10 @@ val size_of_clash_tree_def = Define`
   ) /\ (
     size_of_clash_tree (Seq ct1 ct2) =
       size_of_clash_tree ct1 + size_of_clash_tree ct2
-  )`
+  )
+End
 
-val run_linear_reg_alloc_intervals_def = Define`
+Definition run_linear_reg_alloc_intervals_def:
     run_linear_reg_alloc_intervals ct k forced moves reglist_unsorted invbij nmax =
         run_i_linear_scan_hidden_state
           (linear_reg_alloc_and_extract_coloration ct k forced moves reglist_unsorted invbij nmax)
@@ -1090,9 +1118,9 @@ val run_linear_reg_alloc_intervals_def = Define`
            ; sorted_regs := (nmax+1, 0)
            ; sorted_moves := (LENGTH moves, (0,(0,0)))
            |>
-`
+End
 
-val apply_bij_on_clash_tree_def = Define`
+Definition apply_bij_on_clash_tree_def:
   (
     apply_bij_on_clash_tree (Delta wr rd) bij =
       Delta (MAP (\r. the 0n (lookup r bij)) wr) (MAP (\r. the 0n (lookup r bij)) rd)
@@ -1105,11 +1133,12 @@ val apply_bij_on_clash_tree_def = Define`
   ) /\ (
     apply_bij_on_clash_tree (Seq ct1 ct2) bij =
       Seq (apply_bij_on_clash_tree ct1 bij) (apply_bij_on_clash_tree ct2 bij)
-  )`
+  )
+End
 
 
 
-val linear_scan_reg_alloc_def = Define`
+Definition linear_scan_reg_alloc_def:
     linear_scan_reg_alloc k moves ct forced =
         let bijstate = find_bijection_clash_tree find_bijection_init ct in
         let ct' = apply_bij_on_clash_tree ct bijstate.bij in
@@ -1117,7 +1146,7 @@ val linear_scan_reg_alloc_def = Define`
         let moves' = MAP (\p,(r1,r2). (p,(the 0 (lookup r1 bijstate.bij), the 0 (lookup r2 bijstate.bij)))) moves in
         let reglist_unsorted = (MAP SND (toAList bijstate.bij)) in
         run_linear_reg_alloc_intervals ct' k forced' moves' reglist_unsorted bijstate.invbij bijstate.nmax (* (0i-((size_of_clash_tree ct') + 1)) *)
-`
+End
 
 (*
 (* === translation (TODO: move to bootstrap translation) === *)
@@ -1235,10 +1264,11 @@ val res = translate FOLDL;
 
 (* Translate linear scan register allocator *)
 
-val map_colors_sub_def = Define `
+Definition map_colors_sub_def:
   (map_colors_sub [] = return []) ∧
   (map_colors_sub (x::xs) =
-     do fx <- colors_sub x; fxs <- map_colors_sub xs; return (fx::fxs) od)`
+     do fx <- colors_sub x; fxs <- map_colors_sub xs; return (fx::fxs) od)
+End
 
 Theorem map_colors_sub_eq:
    map_colors_sub = st_ex_MAP colors_sub
@@ -1299,4 +1329,3 @@ val res = translate get_intervals_def;
 val res = translate linear_scan_reg_alloc_def;
 
 *)
-val _ = export_theory ();

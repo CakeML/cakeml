@@ -1,6 +1,9 @@
-INCLUDES = $(HOLDIR)/examples/algorithms/unification/triangular/first-order\
-					 $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics $(CAKEMLDIR)/semantics/proofs\
-					 $(CAKEMLDIR)/basis/pure
+HOLUNIFDIR = $(HOLDIR)/examples/algorithms/unification/triangular/first-order
+
+INCLUDES = $(HOLUNIFDIR) $(HOLUNIFDIR)/compilation \
+           $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics \
+           $(CAKEMLDIR)/semantics/proofs $(CAKEMLDIR)/basis/pure \
+           ../../translator
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

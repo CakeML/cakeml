@@ -1,14 +1,14 @@
 (*
   Properties of the operational semantics.
 *)
-
-open preamble evaluateTheory
-     namespaceTheory namespacePropsTheory
-     semanticPrimitivesTheory semanticPrimitivesPropsTheory;
+Theory evaluateProps
+Ancestors
+  ast evaluate namespace namespaceProps semanticPrimitives
+  semanticPrimitivesProps
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"evaluateProps";
 
 Theorem call_FFI_LENGTH:
    (call_FFI st index conf x = FFI_return new_st new_bytes) ==>
@@ -17,8 +17,9 @@ Proof
   fs[ffiTheory.call_FFI_def] \\ every_case_tac \\ rw[] \\ fs[LENGTH_MAP]
 QED
 
-val call_FFI_rel_def = Define `
-  call_FFI_rel s1 s2 <=> ?n conf bytes t. call_FFI s1 n conf bytes = FFI_return s2 t`;
+Definition call_FFI_rel_def:
+  call_FFI_rel s1 s2 <=> ?n conf bytes t. call_FFI s1 n conf bytes = FFI_return s2 t
+End
 
 Theorem call_FFI_rel_consts:
    call_FFI_rel s1 s2 ⇒ (s2.oracle = s1.oracle)
@@ -37,14 +38,16 @@ Proof
   \\ rw[call_FFI_rel_consts]
 QED
 
-val dest_IO_event_def = Define`
-  dest_IO_event (IO_event s c b) = (s,c,b)`;
+Definition dest_IO_event_def:
+  dest_IO_event (IO_event s c b) = (s,c,b)
+End
 val _ = export_rewrites["dest_IO_event_def"];
 
-val io_events_mono_def = Define`
+Definition io_events_mono_def:
   io_events_mono s1 s2 ⇔
     s1.io_events ≼ s2.io_events ∧
-    (s2.io_events = s1.io_events ⇒ s2 = s1)`;
+    (s2.io_events = s1.io_events ⇒ s2 = s1)
+End
 
 Theorem io_events_mono_refl[simp]:
    io_events_mono ffi ffi
@@ -85,10 +88,11 @@ Theorem do_app_call_FFI_rel:
    call_FFI_rel^* ffi ffi'
 Proof
   srw_tac[][do_app_cases] >> rw[] >>
-  FULL_CASE_TAC
-  >- (match_mp_tac RTC_SUBSET >> rw[call_FFI_rel_def] >> fs[] >> every_case_tac
-      >> fs[] >> metis_tac[])
-  >- fs[]
+  FULL_CASE_TAC >>
+  fs[option_case_eq] >>
+  rpt (FULL_CASE_TAC \\ fs[]) >>
+  match_mp_tac RTC_SUBSET >> rw[call_FFI_rel_def] >> fs[] >> every_case_tac
+  >> fs[] >> metis_tac[]
 QED
 
 Theorem evaluate_call_FFI_rel:
@@ -102,16 +106,9 @@ Proof
   ho_match_mp_tac full_evaluate_ind >>
   srw_tac[][full_evaluate_def, do_eval_res_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
-  TRY (
-    rename1`op ≠ Opapp` >>
-    imp_res_tac do_app_call_FFI_rel >>
-    metis_tac[RTC_TRANSITIVE,transitive_def] ) >>
-  TRY (
-    rename1`op = Opapp` >>
-    rev_full_simp_tac(srw_ss())[dec_clock_def] >>
-    metis_tac[RTC_TRANSITIVE,transitive_def] ) >>
-  rfs [] >> fs [dec_clock_def] >>
-  fsrw_tac [SATISFY_ss] [RTC_TRANSITIVE] >>
+  fs[astTheory.isFpBool_def] >>
+  imp_res_tac do_app_call_FFI_rel >>
+  rev_full_simp_tac(srw_ss())[dec_clock_def] >>
   metis_tac[RTC_TRANSITIVE,transitive_def,FST]
 QED
 
@@ -129,13 +126,15 @@ Proof
   metis_tac[PAIR,FST,evaluate_call_FFI_rel]
 QED
 
-val evaluate_decs_call_FFI_rel = Q.prove(
-  `∀s e d.
-     RTC call_FFI_rel s.ffi (FST (evaluate_decs s e d)).ffi`,
+Triviality evaluate_decs_call_FFI_rel:
+  ∀s e d.
+     RTC call_FFI_rel s.ffi (FST (evaluate_decs s e d)).ffi
+Proof
   ho_match_mp_tac evaluate_decs_ind >>
   srw_tac[][evaluate_decs_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
-  metis_tac[RTC_TRANSITIVE,transitive_def,evaluate_call_FFI_rel,FST]);
+  metis_tac[RTC_TRANSITIVE,transitive_def,evaluate_call_FFI_rel,FST]
+QED
 
 Theorem evaluate_decs_call_FFI_rel_imp:
    ∀s e p s' r.
@@ -176,8 +175,8 @@ Proof
   metis_tac[PAIR,FST,evaluate_io_events_mono]
 QED
 
-val is_clock_io_mono_def = Define
-  `is_clock_io_mono f s = (case f s of (s', r) =>
+Definition is_clock_io_mono_def:
+  is_clock_io_mono f s = (case f s of (s', r) =>
         io_events_mono s.ffi s'.ffi
         /\ s'.clock <= s.clock
         /\ s.next_type_stamp <= s'.next_type_stamp
@@ -195,7 +194,8 @@ val is_clock_io_mono_def = Define
                 ==> clk <= s.clock
                 ==> ~ (r = Rerr (Rabort Rtimeout_error)))
             /\ (clk <= s.clock ==> io_events_mono s''.ffi s'.ffi)
-        ))`;
+        ))
+End
 
 Theorem is_clock_io_mono_cong:
   s = t ==>
@@ -272,6 +272,28 @@ Proof
   simp [dec_clock_def, adj_clock_def, with_same_clock]
 QED
 
+Theorem do_app_refs_length:
+   do_app refs_ffi op vs = SOME res ==>
+   LENGTH (FST refs_ffi) <= LENGTH (FST (FST res))
+Proof
+  rw [] \\ Cases_on `refs_ffi` \\ Cases_on `op`
+  \\ gvs [do_app_def, AllCaseEqs(), store_assign_def, store_alloc_def]
+QED
+
+Theorem is_clock_io_mono_do_app_simple:
+  ! xs (st:'ffi state).
+   is_clock_io_mono (\st'.
+    case do_app (st'.refs, st'.ffi) op xs of
+      NONE => (st', Rerr (Rabort Rtype_error))
+    | SOME ((refs,ffi),r) =>
+      (st' with<| refs := refs; ffi := ffi |>, list_result r)) st
+Proof
+  fs [is_clock_io_mono_def]
+  \\ rpt (CASE_TAC ORELSE CHANGED_TAC (fs []) ORELSE CHANGED_TAC rveq ORELSE gen_tac)
+  \\ imp_res_tac do_app_refs_length \\ gs[]
+  \\ metis_tac [do_app_io_events_mono]
+QED
+
 Theorem is_clock_io_mono_acc_safe:
   !v g. (!st clk. f (st with clock := clk) = f st) /\
   (f st = v \/ f st <> v) /\
@@ -296,15 +318,12 @@ Theorem is_clock_io_mono_match_case_pair_safe = is_clock_io_mono_acc_safe
     | Match_type_error => h st | Match env => j env st)`
   |> SIMP_RULE bool_ss []
 
-Theorem do_app_refs_length:
-   do_app refs_ffi op vs = SOME res ==>
-   LENGTH (FST refs_ffi) <= LENGTH (FST (FST res))
-Proof
-  rw [] \\ Cases_on `refs_ffi` \\ Cases_on `op` \\ fs [do_app_def]
-  \\ every_case_tac \\ fs []
-  \\ fs [store_assign_def,store_alloc_def]
-  \\ rveq \\ fs [] \\ rveq \\ fs[]
-QED
+val step_tac =
+  rpt (FIRST ([strip_tac]
+    @ map ho_match_mp_tac [is_clock_io_mono_bind, is_clock_io_mono_check]
+    @ [CHANGED_TAC (fs [Cong is_clock_io_mono_cong,
+                        is_clock_io_mono_return, is_clock_io_mono_err,
+                        do_eval_res_def, dec_inc_clock]), TOP_CASE_TAC]))
 
 Theorem is_clock_io_mono_evaluate:
    (!(s : 'ffi state) env es. is_clock_io_mono (\s. evaluate s env es) s) /\
@@ -313,16 +332,30 @@ Theorem is_clock_io_mono_evaluate:
    (!(s : 'ffi state) env ds.
         is_clock_io_mono (\s. evaluate_decs s env ds) s)
 Proof
-  ho_match_mp_tac full_evaluate_ind
-  \\ rpt strip_tac \\ fs [full_evaluate_def,combine_dec_result_def]
-  \\ rpt (FIRST ([strip_tac]
-    @ map ho_match_mp_tac [is_clock_io_mono_bind, is_clock_io_mono_check]
-    @ [CHANGED_TAC (fs [Cong is_clock_io_mono_cong,
-            is_clock_io_mono_return, is_clock_io_mono_err,
-            do_eval_res_def, dec_inc_clock]), TOP_CASE_TAC]))
-  \\ imp_res_tac do_app_io_events_mono
-  \\ imp_res_tac do_app_refs_length
-  \\ TRY (fs [is_clock_io_mono_def] \\ NO_TAC)
+ ho_match_mp_tac full_evaluate_ind
+ \\ rpt strip_tac \\ fs [full_evaluate_def, combine_dec_result_def]
+ \\ TRY (step_tac \\ NO_TAC)
+ >- (
+  ho_match_mp_tac is_clock_io_mono_bind \\ fs[]
+  \\ rpt strip_tac
+  \\ ntac 2 (TOP_CASE_TAC
+            \\ fs [is_clock_io_mono_return, is_clock_io_mono_err])
+  >-  (
+    fs[Cong is_clock_io_mono_cong, do_eval_res_def]
+    \\ ho_match_mp_tac is_clock_io_mono_bind
+    \\ gs[]
+    \\ rpt conj_tac
+    \\ step_tac \\ gs[is_clock_io_mono_def, fix_clock_def])
+  >- (
+    TOP_CASE_TAC \\ fs[]
+    \\ rpt (FIRST [CHANGED_TAC (fs[is_clock_io_mono_return, is_clock_io_mono_err,
+                                   is_clock_io_mono_do_app_simple]), CASE_TAC])
+    \\ ho_match_mp_tac is_clock_io_mono_check \\ gs[] \\ rpt strip_tac
+    \\ res_tac \\ gs[dec_inc_clock])
+  >- (assume_tac (SIMP_RULE std_ss [] is_clock_io_mono_do_app_simple) \\ fs[]))
+ >- (step_tac \\ fs[is_clock_io_mono_def])
+ >- (step_tac \\ fs[is_clock_io_mono_def])
+ \\ step_tac \\ fs[is_clock_io_mono_def]
 QED
 
 Theorem is_clock_io_mono_evaluate_decs:
@@ -423,7 +456,7 @@ Theorem evaluate_length:
 Proof
   ho_match_mp_tac full_evaluate_ind >>
   srw_tac[][evaluate_def,LENGTH_NIL] >> srw_tac[][] >>
-  every_case_tac >> full_simp_tac(srw_ss())[list_result_eq_Rval] >> srw_tac[][]
+  gvs[AllCaseEqs()]
 QED
 
 Theorem evaluate_nil[simp]:
@@ -467,7 +500,7 @@ Proof
  >> Cases_on `r`
  >> simp []
  >> drule evaluate_sing
- >> rw [] \\ rw[]
+ >> rw [] >> rw[]
 QED
 
 Theorem evaluate_append:
@@ -516,6 +549,24 @@ Proof
  >> simp [combine_dec_result_def, sem_env_component_equality]
 QED
 
+Theorem evaluate_decs_append:
+  ∀ds1 s env ds2.
+    evaluate_decs s env (ds1 ++ ds2) =
+    case evaluate_decs s env ds1 of
+      (s1,Rval env1) =>
+        (case evaluate_decs s1 (extend_dec_env env1 env) ds2 of
+           (s2,r) => (s2,combine_dec_result env1 r))
+    | (s1,Rerr v7) => (s1,Rerr v7)
+Proof
+  Induct \\ rw []
+  >- (
+    rw [extend_dec_env_def, combine_dec_result_def]
+    \\ rpt CASE_TAC)
+  \\ once_rewrite_tac [evaluate_decs_cons] \\ simp []
+  \\ gs [combine_dec_result_def, extend_dec_env_def]
+  \\ rpt CASE_TAC \\ gs []
+QED
+
 Theorem evaluate_match_list_result:
    evaluate_match s e v p er = (s',r) ⇒
    ∃r'. r = list_result r'
@@ -540,12 +591,17 @@ Proof
   simp_tac bool_ss evaluate_decs_lemmas
 QED
 
-val add_lemma = Q.prove (
- `!(k:num) k'. ?extra. k = k' + extra ∨ k' = k + extra`,
- intLib.ARITH_TAC);
+Triviality add_lemma:
+  !(k:num) k'. ?extra. k = k' + extra ∨ k' = k + extra
+Proof
+  intLib.ARITH_TAC
+QED
 
-val with_clock_ffi = Q.prove(
-  `(s with clock := k).ffi = s.ffi`,EVAL_TAC);
+Triviality with_clock_ffi:
+  (s with clock := k).ffi = s.ffi
+Proof
+  EVAL_TAC
+QED
 
 Theorem evaluate_decs_clock_determ:
  !s e p s1 r1 s2 r2 k1 k2.
@@ -645,7 +701,7 @@ Proof
  >> rw [evaluate_def]
  >> every_case_tac
  >> fs []
- >> rw [dec_clock_def]
+ >> rw [dec_clock_def, shift_fp_opts_def]
 QED
 *)
 
@@ -714,6 +770,8 @@ Proof
   \\ rpt conj_tac \\ rpt gen_tac \\ strip_tac \\ rpt gen_tac
   \\ strip_tac
   \\ fs [evaluate_case_eqs, dec_clock_def, do_eval_res_def]
+  \\ TRY (Cases_on ‘getOpClass op’)
+  \\ fs [evaluate_case_eqs, dec_clock_def, do_eval_res_def]
   \\ rveq \\ fs []
   \\ fs [Q.ISPEC `(_, _)` EQ_SYM_EQ]
   \\ rveq \\ fs []
@@ -721,11 +779,15 @@ Proof
   \\ imp_res_tac evaluate_next_exn_stamp_mono
   \\ rw []
   \\ fs [build_tdefs_def]
+  \\ qpat_x_assum `fix_clock _ _ = _` mp_tac
+  \\ rpt (TOP_CASE_TAC \\ gs[fix_clock_def])
+  \\ rpt strip_tac \\ rveq
+  \\ gs[fix_clock_def]
 QED
 
 Theorem call_FFI_return_unchanged:
   call_FFI ffi s conf bytes = FFI_return ffi bytes' <=>
-  (s = "" /\ bytes' = bytes)
+  (s = ExtCall "" /\ bytes' = bytes)
 Proof
   simp [ffiTheory.call_FFI_def]
   \\ every_case_tac
@@ -740,12 +802,10 @@ Theorem do_app_ffi_unchanged:
   !ffi2. do_app (refs, ffi2) op vs = SOME ((refs',ffi2), r)
 Proof
   disch_then (strip_assume_tac o REWRITE_RULE [do_app_cases])
-  \\ rw [do_app_def] \\ rveq \\ fs []
-  \\ every_case_tac \\ rveq \\ fs [] \\ rveq \\ fs []
-  \\ fs [call_FFI_return_unchanged, Q.SPECL [`x`, `[]`] ffiTheory.call_FFI_def]
-  \\ rveq \\ fs []
-  \\ fs [store_assign_def, store_lookup_def]
-  \\ rfs [store_v_same_type_def]
+  \\ rw [do_app_def] \\ gvs[AllCaseEqs()]
+  >- metis_tac[]
+  \\ gvs [call_FFI_return_unchanged,
+          Q.SPECL [`x`, `ExtCall ""`] ffiTheory.call_FFI_def]
 QED
 
 Theorem evaluate_ffi_intro:
@@ -775,20 +835,20 @@ Theorem evaluate_ffi_intro:
 Proof
   ho_match_mp_tac full_evaluate_ind
   \\ rpt strip_tac \\ fs [full_evaluate_def,combine_dec_result_def]
-  \\ gs [pair_case_eq, CaseEq "result", CaseEq "error_result", bool_case_eq,
-        option_case_eq, list_case_eq, CaseEq "exp_or_val", do_eval_res_def]
-  \\ full_simp_tac bool_ss [CaseEq "match_result"]
-  \\ fs [Q.ISPEC `(a, b)` EQ_SYM_EQ] \\ rveq \\ fs []
+  \\ gvs [AllCaseEqs(), do_eval_res_def, PULL_EXISTS]
   \\ imp_res_tac evaluate_io_events_mono_imp
   \\ rfs [dec_clock_def]
   \\ TRY (drule_then (drule_then assume_tac) io_events_mono_antisym)
   \\ fs []
   \\ TRY (imp_res_tac do_app_io_events_mono
-    \\ imp_res_tac io_events_mono_trans
-    \\ CHANGED_TAC (rpt
-        (drule_then (drule_then assume_tac) io_events_mono_antisym \\ fs [])))
+          \\ imp_res_tac io_events_mono_trans
+          \\ CHANGED_TAC
+             (rpt
+              (drule_then (drule_then assume_tac) io_events_mono_antisym
+               \\ fs [])))
   \\ fsrw_tac [SATISFY_ss] [do_app_NONE_ffi]
   \\ TRY (drule_then (simp o single) do_app_ffi_unchanged)
+  \\ TOP_CASE_TAC  \\ gs[state_component_equality]
 QED
 
 Theorem is_clock_io_mono_set_clock:
@@ -932,26 +992,28 @@ QED
 
 Theorem eval_no_eval_simulation:
   (! (s:'ffi state) env exps s' res.
-  evaluate s env exps = (s', res) /\
-  s.eval_state = NONE /\
-  res <> Rerr (Rabort Rtype_error) ==>
-  s'.eval_state = NONE /\
-  evaluate (s with eval_state := es) env exps = (s' with eval_state := es, res))
+     evaluate s env exps = (s', res) /\
+     s.eval_state = NONE /\
+     res <> Rerr (Rabort Rtype_error) ==>
+     s'.eval_state = NONE /\
+     evaluate (s with eval_state := es) env exps =
+     (s' with eval_state := es, res))
   /\
   (! (s:'ffi state) env x pes err_x s' res.
-  evaluate_match s env x pes err_x = (s', res) /\
-  s.eval_state = NONE /\
-  res <> Rerr (Rabort Rtype_error) ==>
-  s'.eval_state = NONE /\
-  evaluate_match (s with eval_state := es) env x pes err_x =
-    (s' with eval_state := es, res))
+     evaluate_match s env x pes err_x = (s', res) /\
+     s.eval_state = NONE /\
+     res <> Rerr (Rabort Rtype_error) ==>
+     s'.eval_state = NONE /\
+     evaluate_match (s with eval_state := es) env x pes err_x =
+     (s' with eval_state := es, res))
   /\
   (! (s:'ffi state) env decs s' res.
-  evaluate_decs s env decs = (s', res) /\
-  s.eval_state = NONE /\
-  res <> Rerr (Rabort Rtype_error) ==>
-  s'.eval_state = NONE /\
-  evaluate_decs (s with eval_state := es) env decs = (s' with eval_state := es, res))
+     evaluate_decs s env decs = (s', res) /\
+     s.eval_state = NONE /\
+     res <> Rerr (Rabort Rtype_error) ==>
+     s'.eval_state = NONE /\
+     evaluate_decs (s with eval_state := es) env decs =
+     (s' with eval_state := es, res))
 Proof
   ho_match_mp_tac (name_ind_cases [] full_evaluate_ind)
   \\ rpt conj_tac
@@ -962,6 +1024,7 @@ Proof
   \\ TRY (rename [`Case ([App _ _])`] ORELSE cheat)
   *)
   \\ TRY (rename [`Case ([App _ _])`]
+    \\ Cases_on ‘getOpClass op’ \\ gs[]
     \\ rpt (MAP_FIRST (dxrule_then (strip_assume_tac o SIMP_RULE bool_ss []))
       [hd (RES_CANON pair_case_eq), hd (RES_CANON result_case_eq), hd (RES_CANON bool_case_eq)]
     )
@@ -971,6 +1034,7 @@ Proof
     \\ rfs [Q.SPECL [`vs`, `NONE`] do_eval_def]
     \\ fs [dec_clock_def]
     \\ fs [option_case_eq, pair_case_eq] \\ rveq \\ fs []
+    \\ COND_CASES_TAC \\ gs[]
   )
   \\ fs [evaluate_case_eqs]
   \\ rveq \\ fs []
@@ -1108,6 +1172,7 @@ Theorem evaluate_history_irrelevance:
 Proof
   ho_match_mp_tac full_evaluate_ind
   \\ rw[full_evaluate_def]
+  \\ TRY (Cases_on ‘getOpClass op’ \\ gs[])
   \\ fs [do_eval_res_def,error_result_case_eq,option_case_eq,
          exp_or_val_case_eq,list_case_eq,match_result_case_eq,
          pair_case_eq,result_case_eq,bool_case_eq]
@@ -1120,6 +1185,7 @@ Proof
        do_app_SOME_ffi_same_oracle_state)
   \\ imp_res_tac do_app_ffi_mono
   \\ simp [rich_listTheory.DROP_APPEND2]
+  \\ COND_CASES_TAC \\ gs[]
 QED
 
 Theorem evaluate_add_history:
@@ -1138,4 +1204,166 @@ Proof
   \\ simp [state_component_equality, ffiTheory.ffi_state_component_equality]
 QED
 
-val _ = export_theory();
+Theorem Apps_append:
+  ∀xs ys f. Apps f (xs ++ ys) = Apps (Apps f xs) ys
+Proof
+  Induct \\ gvs [Apps_def]
+QED
+
+Theorem evaluate_Apps_Rerr:
+  ∀xs f (st:'ffi state) env s1 e.
+    evaluate st env xs = (s1,Rerr e) ⇒
+    evaluate st env [Apps f (REVERSE xs)] = (s1,Rerr e)
+Proof
+  Induct >- gvs [evaluate_def]
+  \\ simp [Once evaluate_cons,Apps_append,Apps_def]
+  \\ qx_gen_tac ‘h’ \\ rpt gen_tac
+  \\ gvs [evaluate_def]
+  \\ namedCases_on ‘evaluate st env [h]’ ["s' r"] \\ gvs []
+  \\ Cases_on ‘r’ \\ gvs []
+  \\ gvs [AllCaseEqs()]
+  \\ strip_tac
+  \\ last_x_assum drule
+  \\ strip_tac \\ gvs []
+QED
+
+Theorem evaluate_Apps_Funs:
+  ∀l x ns vs (st: 'ffi state) s1 s2 env env1 e.
+    evaluate st env l = (s1,Rval vs) ∧
+    evaluate s1 env [x] = (s2,Rval [Closure env1 (HD ns) (Funs (TL ns) e)]) ∧
+    LENGTH l = LENGTH ns ∧ ns ≠ [] ∧ LENGTH ns ≤ s2.clock ⇒
+    evaluate st env [Apps x (REVERSE l)] =
+    evaluate
+      (s2 with clock := s2.clock - LENGTH ns)
+      (env1 with v := nsAppend (alist_to_ns (ZIP (REVERSE ns,vs))) env1.v) [e]
+Proof
+  Induct using SNOC_INDUCT
+  \\ gvs [] \\ rpt gen_tac
+  \\ simp [SNOC_APPEND,evaluate_append,AllCaseEqs(),PULL_EXISTS]
+  \\ gvs [] \\ rpt gen_tac \\ strip_tac \\ gvs []
+  \\ Cases_on ‘ns’ \\ gvs [Apps_def,Apps_append]
+  \\ gvs [REVERSE_APPEND,Apps_def]
+  \\ Cases_on ‘l = []’ \\ gvs [evaluate_def,Apps_def]
+  >-
+   (gvs [do_opapp_def,dec_clock_def]
+    \\ imp_res_tac evaluate_sing \\ gvs [Funs_def])
+  \\ imp_res_tac evaluate_sing \\ gvs [Funs_def]
+  \\ last_x_assum drule
+  \\ strip_tac
+  \\ irule EQ_TRANS
+  \\ pop_assum $ irule_at $ Pos hd
+  \\ simp [evaluate_def,do_opapp_def]
+  \\ rename [‘Funs t _’]
+  \\ Cases_on ‘t’ \\ gvs [Funs_def,evaluate_def]
+  \\ qrefine ‘a::as’ \\ gvs []
+  \\ irule_at (Pos hd) EQ_REFL
+  \\ gvs [dec_clock_def,ADD1]
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ gvs [sem_env_component_equality]
+  \\ rewrite_tac [GSYM SNOC_APPEND]
+  \\ DEP_REWRITE_TAC [ZIP_SNOC]
+  \\ gvs [SNOC_APPEND]
+  \\ imp_res_tac evaluate_length
+  \\ Cases_on ‘env1.v’
+  \\ gvs [alist_to_ns_def,nsBind_def,nsAppend_def]
+QED
+
+Theorem evaluate_Apps_f_err:
+  ∀xs vs (st:'ffi state) envs1 f s1 s2.
+    evaluate st env xs = (s1,Rval vs) ∧
+    evaluate s1 env [f] = (s2,Rerr r) ⇒
+    evaluate st env [Apps f (REVERSE xs)] = (s2,Rerr r)
+Proof
+  Induct using SNOC_INDUCT
+  \\ gvs [evaluate_def,Apps_def]
+  \\ simp [evaluate_append,SNOC_APPEND]
+  \\ gvs [AllCaseEqs()] \\ rw []
+  \\ gvs [Apps_append,Apps_def,REVERSE_APPEND]
+  \\ last_x_assum $ irule
+  \\ gvs [evaluate_def]
+QED
+
+Theorem evaluate_Apps_Funs_timeout:
+  ∀l x ns vs (st: 'ffi state) s1 s2 env env1 e.
+    evaluate st env l = (s1,Rval vs) ∧
+    evaluate s1 env [x] = (s2,Rval [Closure env1 (HD ns) (Funs (TL ns) e)]) ∧
+    LENGTH l = LENGTH ns ∧ ns ≠ [] ∧ s2.clock < LENGTH ns ⇒
+    evaluate st env [Apps x (REVERSE l)] =
+      (s2 with clock := 0, Rerr (Rabort Rtimeout_error))
+Proof
+  Induct using SNOC_INDUCT
+  \\ gvs [] \\ rpt gen_tac
+  \\ simp [SNOC_APPEND,evaluate_append,AllCaseEqs(),PULL_EXISTS]
+  \\ gvs [] \\ rpt gen_tac \\ strip_tac \\ gvs []
+  \\ Cases_on ‘ns’ \\ gvs [Apps_def,Apps_append]
+  \\ gvs [REVERSE_APPEND,Apps_def]
+  \\ Cases_on ‘l = []’ \\ gvs [evaluate_def,Apps_def]
+  >- (gvs [do_opapp_def,dec_clock_def,state_component_equality])
+  \\ imp_res_tac evaluate_sing \\ gvs [Funs_def]
+  \\ Cases_on ‘s2.clock’
+  >-
+   (irule evaluate_Apps_f_err \\ gvs []
+    \\ gvs [evaluate_def,do_opapp_def]
+    \\ gvs [state_component_equality])
+  \\ gvs []
+  \\ last_x_assum drule
+  \\ rename [‘App Opapp [x'; x]’]
+  \\ disch_then $ qspec_then ‘App Opapp [x'; x]’ mp_tac
+  \\ gvs [evaluate_def,do_opapp_def]
+  \\ rename [‘Funs t _’]
+  \\ Cases_on ‘t’ \\ gvs [Funs_def,evaluate_def,dec_clock_def]
+  \\ disch_then irule
+  \\ qrefinel [‘_’,‘_ :: _’] \\ gvs []
+  \\ rpt $ irule_at Any EQ_REFL \\ gvs []
+QED
+
+Theorem evaluate_Apps:
+  ∀xs (st:'ffi state) env s1 s2 vs.
+    evaluate st env xs = (s1,Rval vs) ∧
+    LENGTH xs = SUC (LENGTH ns) ∧
+    nsLookup env.v n = SOME clos_v ∧
+    do_opapp [clos_v; LAST vs] = SOME (env1,Funs ns e) ⇒
+    evaluate st env [Apps (Var n) (REVERSE xs)] =
+    if s1.clock < LENGTH xs then
+      (s1 with clock := 0,Rerr (Rabort Rtimeout_error))
+    else
+      evaluate
+        (s1 with clock := s1.clock - LENGTH xs)
+        (env1 with v := nsAppend (alist_to_ns (ZIP (REVERSE ns,BUTLAST vs))) env1.v) [e]
+Proof
+  Cases using SNOC_CASES \\ gvs [REVERSE_SNOC,Apps_def]
+  \\ simp [Once SNOC_APPEND]
+  \\ simp [evaluate_append,AllCaseEqs(),PULL_EXISTS]
+  \\ rpt strip_tac
+  \\ imp_res_tac evaluate_sing \\ gvs []
+  \\ Cases_on ‘ns = []’
+  \\ gvs [Apps_def]
+  >-
+   (gvs [evaluate_def]
+    \\ Cases_on ‘s1.clock’
+    \\ gvs [dec_clock_def,Funs_def]
+    \\ gvs [state_component_equality])
+  \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ Cases_on ‘s1.clock < SUC (LENGTH ns)’ \\ gvs []
+  >-
+   (Cases_on ‘s1.clock’ \\ gvs []
+    >- (irule evaluate_Apps_f_err \\ gvs [evaluate_def]
+        \\ gvs [state_component_equality])
+    \\ irule EQ_TRANS
+    \\ irule_at Any evaluate_Apps_Funs_timeout \\ gvs []
+    \\ gvs [evaluate_def]
+    \\ Cases_on ‘ns’ \\ gvs [Funs_def,evaluate_def,dec_clock_def]
+    \\ qrefinel [‘_ :: _’,‘_’] \\ gvs []
+    \\ rpt $ irule_at Any EQ_REFL \\ gvs [])
+  \\ rewrite_tac [GSYM SNOC_APPEND,FRONT_SNOC]
+  \\ irule EQ_TRANS
+  \\ irule_at (Pos hd) evaluate_Apps_Funs
+  \\ last_x_assum $ irule_at Any
+  \\ simp [evaluate_def]
+  \\ namedCases_on ‘ns’ ["", "h t"] \\ gvs [Funs_def]
+  \\ simp [evaluate_def]
+  \\ qexists_tac ‘h::t’ \\ gvs []
+  \\ irule_at (Pos hd) EQ_REFL
+  \\ gvs [dec_clock_def,ADD1]
+QED
+

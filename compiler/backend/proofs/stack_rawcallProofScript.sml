@@ -1,19 +1,21 @@
 (*
   Correctness proof for stack_rawcall
 *)
+Theory stack_rawcallProof
+Libs
+  preamble
+Ancestors
+  stack_rawcall stackLang stackSem stackProps wordSem[qualified]
+  labProps[qualified]
 
-open preamble stackLangTheory stackSemTheory stackPropsTheory stack_rawcallTheory
-local open wordSemTheory labPropsTheory in end
 
-val _ = new_theory"stack_rawcallProof";
 val _ = (max_print_depth := 18);
 
 val word_shift_def = backend_commonTheory.word_shift_def
 val theWord_def = wordSemTheory.theWord_def;
 val isWord_def = wordSemTheory.isWord_def;
 
-val _ = set_grammar_ancestry["stack_rawcall","stackLang","stackSem","stackProps"];
-Overload good_dimindex[local] = ``labProps$good_dimindex``
+Overload good_dimindex[local] = ``misc$good_dimindex``
 Overload comp[local] = ``stack_rawcall$comp``
 Overload compile[local] = ``stack_rawcall$compile``
 Type prog[pp] = “:α stackLang$prog”
@@ -21,8 +23,8 @@ Type prog[pp] = “:α stackLang$prog”
 Definition state_ok_def:
   state_ok i code <=>
     !n v.
-      lookup n i = SOME v ==>
-      ?p. lookup n code = SOME (Seq (StackAlloc v) p)
+      sptree$lookup n i = SOME v ==>
+      ?p. sptree$lookup n code = SOME (Seq (StackAlloc v) p)
 End
 
 Definition state_rel_def:
@@ -36,7 +38,7 @@ Definition state_rel_def:
       t.compile_oracle = (I ## compile ## I) o s.compile_oracle /\ *)
       state_ok i s.code /\
       !n b.
-        lookup n s.code = SOME b ==>
+        sptree$lookup n s.code = SOME b ==>
         ?i. state_ok i s.code /\
             lookup n c = SOME (comp_top i b)
 End
@@ -106,7 +108,8 @@ val simple_case =
   qexists_tac `0`
   \\ fs [Once comp_def,evaluate_def,get_var_def,set_var_def,loc_check_def,mem_load_def,
          alloc_def,gc_def,set_store_def,inst_def,assign_def,word_exp_def,get_vars_def,
-         mem_store_def,get_fp_var_def,set_fp_var_def,wordLangTheory.word_op_def]
+         mem_store_def,get_fp_var_def,set_fp_var_def,wordLangTheory.word_op_def,
+         store_const_sem_def]
   \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq,CaseEq"ffi_result",pair_case_eq,
          CaseEq"inst",CaseEq"arith",IS_SOME_EXISTS,CaseEq"list",CaseEq"memop",
          CaseEq"addr",CaseEq"fp",CaseEq"binop"] \\ rfs []
@@ -152,6 +155,12 @@ Proof
    (rename [`Halt`] \\ simple_case)
   THEN1
    (rename [`Alloc`] \\ simple_case)
+  THEN1
+   (rename [`StoreConsts`] \\ simple_case \\ rw []
+    \\ fs [unset_var_def,check_store_consts_opt_def]
+    \\ Cases_on ‘stub_opt’
+    \\ fs [unset_var_def,check_store_consts_opt_def]
+    \\ res_tac \\ fs [comp_top_def,Once comp_def])
   THEN1
    (rename [`Inst`] \\ match_mp_tac evaluate_comp_Inst \\ fs [])
   THEN1
@@ -520,6 +529,21 @@ Proof
     \\ fs [domain_lookup,EXTENSION]
     \\ last_x_assum (qspec_then `n` mp_tac)
     \\ Cases_on `lookup n t.code` \\ fs [])
+  THEN1
+   (qexists_tac `0` >> Cases_on ‘op’
+    \\ fs [Once comp_def,evaluate_def,sh_mem_op_def,get_var_def,
+           mem_store_def,word_exp_def,wordLangTheory.word_op_def,
+           sh_mem_load_def,sh_mem_store_def,
+           sh_mem_load32_def,sh_mem_store32_def,
+           sh_mem_load16_def,sh_mem_store16_def,
+           sh_mem_load_byte_def,sh_mem_store_byte_def]
+    \\ fs [CaseEq"option",CaseEq"word_loc",bool_case_eq,CaseEq"ffi_result",pair_case_eq,
+           CaseEq"inst",CaseEq"arith",IS_SOME_EXISTS,CaseEq"list",CaseEq"memop",
+           CaseEq"addr",CaseEq"fp",CaseEq"binop"] \\ rfs []
+    \\ rveq \\ fs []
+    \\ simp [state_rel_def,PULL_EXISTS]
+    \\ fs [state_rel_thm,state_component_equality,empty_env_def]
+    \\ fs [state_rel_thm,state_component_equality,empty_env_def,dec_clock_def])
   THEN1
    (rename [`CodeBufferWrite`] \\ simple_case)
   THEN1
@@ -942,5 +966,3 @@ Proof
   \\ Cases_on `lookup dest i` \\ fs []  \\ rw []
   \\ simp [stack_get_handler_labels_def]
 QED
-
-val _ = export_theory();

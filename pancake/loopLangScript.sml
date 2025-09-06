@@ -1,11 +1,13 @@
 (*
   loopLang intermediate language
 *)
-open preamble
-     asmTheory (* for importing binop and cmp *)
-     backend_commonTheory (* for overloading shift operation  *);
-
-val _ = new_theory "loopLang";
+Theory loopLang
+Ancestors
+  sptree (* for num_set *)
+  asm (* for importing binop and cmp *)
+  backend_common (* for overloading shift operation  *)
+Libs
+  preamble
 
 Type shift = ``:ast$shift``
 
@@ -16,14 +18,23 @@ Datatype:
       | Load exp
       | Op binop (exp list)
       | Shift shift exp num
+      | BaseAddr
+      | TopAddr
+End
+
+Datatype:
+  loop_arith = LLongMul num num num num | LLongDiv num num num num num | LDiv num num num
 End
 
 Datatype:
   prog = Skip
        | Assign num ('a exp)           (* dest, source *)
+       | Arith loop_arith
        | Store ('a exp) num            (* dest, source *)
        | SetGlobal (5 word) ('a exp)   (* dest, source *)
+       | Load32 num num               (* TODISC: have removed imm, why num num? *)
        | LoadByte num num               (* TODISC: have removed imm, why num num? *)
+       | Store32 num num
        | StoreByte num num
        | Seq prog prog
        | If cmp num ('a reg_imm) prog prog num_set
@@ -32,6 +43,7 @@ Datatype:
        | Continue
        | Raise num
        | Return num
+       | ShMem memop num ('a exp)
        | Tick
        | Mark prog
        | Fail
@@ -66,7 +78,9 @@ Definition locals_touched_def:
   (locals_touched (Lookup name) = []) /\
   (locals_touched (Load addr) = locals_touched addr) /\
   (locals_touched (Op op wexps) = FLAT (MAP locals_touched wexps)) /\
-  (locals_touched (Shift sh wexp n) = locals_touched wexp)
+  (locals_touched (Shift sh wexp n) = locals_touched wexp) ∧
+  (locals_touched BaseAddr = []) ∧
+  (locals_touched TopAddr = [])
 Termination
   wf_rel_tac `measure (\e. exp_size ARB e)` >>
   rpt strip_tac >>
@@ -78,10 +92,17 @@ End
 Definition assigned_vars_def:
   (assigned_vars Skip = []) ∧
   (assigned_vars (Assign n e) = [n]) ∧
+  (assigned_vars (Arith arith) =
+   case arith of
+     LLongMul v1 v2 v3 v4 => [v1;v2]
+   | LLongDiv v1 v2 v3 v4 v5 => [v1;v2]
+   | LDiv v1 v2 v3 => [v1]) ∧
+  (assigned_vars (Load32 n m) = [m]) ∧
   (assigned_vars (LoadByte n m) = [m]) ∧
   (assigned_vars (Seq p q) = assigned_vars p ++ assigned_vars q) ∧
   (assigned_vars (If cmp n r p q ns) = assigned_vars p ++ assigned_vars q) ∧
   (assigned_vars (LocValue n m) = [n]) ∧
+  (assigned_vars (ShMem op n e) = [n]) ∧
   (assigned_vars (Mark p) = assigned_vars p) ∧
   (assigned_vars (Loop _ p _) = assigned_vars p) ∧
   (assigned_vars (Call NONE _ _ _) = []) ∧
@@ -97,6 +118,11 @@ Definition acc_vars_def:
   (acc_vars Continue l = l) ∧
   (acc_vars (Loop l1 body l2) l = acc_vars body l) ∧
   (acc_vars (If x1 x2 x3 p1 p2 l1) l = acc_vars p1 (acc_vars p2 l)) ∧
+  (acc_vars (Arith arith) l =
+   case arith of
+     LLongMul v1 v2 v3 v4 => insert v1 () $ insert v2 () l
+   | LLongDiv v1 v2 v3 v4 v5 => insert v1 () $ insert v2 () l
+   | LDiv v1 v2 v3 => insert v1 () l) ∧
   (acc_vars (Mark p1) l = acc_vars p1 l) /\
   (acc_vars Tick l = l) /\
   (acc_vars Skip l = l) /\
@@ -114,12 +140,12 @@ Definition acc_vars_def:
                acc_vars p1 (acc_vars p2 (insert n () l))) /\
   (acc_vars (LocValue n m) l = insert n () l) /\
   (acc_vars (Assign n exp) l = insert n () l) /\
+  (acc_vars (ShMem op n exp) l = insert n () l) /\
   (acc_vars (Store exp n) l = l) /\
   (acc_vars (SetGlobal w exp) l = l) /\
+  (acc_vars (Load32 n m) l = insert m () l) /\
   (acc_vars (LoadByte n m) l = insert m () l) /\
+  (acc_vars (Store32 n m) l = l) /\
   (acc_vars (StoreByte n m) l = l) /\
   (acc_vars (FFI name n1 n2 n3 n4 live) l = l)
 End
-
-
-val _ = export_theory();

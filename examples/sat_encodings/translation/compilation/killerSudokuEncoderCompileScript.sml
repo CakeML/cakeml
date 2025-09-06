@@ -1,12 +1,13 @@
 (*
   Compile the encoder for the killer sudoku puzzle
 *)
-
-open preamble compilationLib killerSudokuEncoderProgTheory;
-
-val _ = new_theory "killerSudokuEncoderCompile"
+Theory killerSudokuEncoderCompile
+Ancestors
+  killerSudokuEncoderProg
+Libs
+  preamble eval_cake_compile_x64Lib
 
 Theorem killerSudoku_encoder_compiled =
-  compile_x64 "killerSudoku_encoder" killerSudoku_encoder_prog_def;
+  eval_cake_compile_x64 "" killerSudoku_encoder_prog_def
+                          "killerSudoku_encoder.S";
 
-val _ = export_theory ();

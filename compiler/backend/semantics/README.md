@@ -60,6 +60,18 @@ The formal semantics of the target machine language. This semantics
 is parametrised by the target configuration, which includes the next
 state function of the target architecture.
 
+[target_itreeEquivScript.sml](target_itreeEquivScript.sml):
+Theorem expressing `machine_sem` in terms of target itree semantics
+
+[target_itreePropsScript.sml](target_itreePropsScript.sml):
+Properties about the itree target semantics
+
+[target_itreeSemScript.sml](target_itreeSemScript.sml):
+An itree-based semantics for the target machine code
+
+[wordConvsScript.sml](wordConvsScript.sml):
+Syntactic properties used by wordLang across passes.
+
 [wordPropsScript.sml](wordPropsScript.sml):
 Properties about wordLang and its semantics
 

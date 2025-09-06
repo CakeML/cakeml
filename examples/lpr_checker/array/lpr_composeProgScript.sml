@@ -5,9 +5,11 @@
   s VERIFIED RANGE md5(cnf_file) md5(proof_file) i-j
 
 *)
-open preamble basis md5ProgTheory cfLib basisFunctionsLib spt_closureTheory lpr_parsingTheory;
-
-val _ = new_theory "lpr_composeProg"
+Theory lpr_composeProg
+Ancestors
+  md5Prog spt_closure lpr_parsing
+Libs
+  preamble basis cfLib basisFunctionsLib
 
 val _ = translation_extends "md5Prog";
 
@@ -110,19 +112,13 @@ End
 
 val _ = translate parse_rng_def;
 
-val parse_rng_side_def = fetch "-" "parse_rng_side_def"
-
-val parse_rng_side = Q.prove(`
-  !x. parse_rng_side x ⇔ T`,
-  simp[parse_rng_side_def]) |> update_precondition;
-
-val res = translate get_range_def;
+val res = translate (get_range_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 
 Theorem get_range_side:
   get_range_side x y = T
 Proof
   fs [fetch "-" "get_range_side_def"]>>
-  fs [isPrefix_def]
+  fs [isPrefix_def,ml_translatorTheory.sub_check_def]
 QED
 
 val _ = update_precondition get_range_side;
@@ -195,7 +191,20 @@ val add_one_v = translate add_one_def;
 
 val _ = (append_prog o process_topdecs) `
   fun line_count_of fname =
-    TextIO.foldLines add_one 0 (Some fname)`;
+    TextIO.foldLines #"\n" add_one 0 (Some fname)`;
+
+(* TODO move? *)
+Theorem line_of_gen_lines_of[simp]:
+  lines_of_gen #"\n" = lines_of
+Proof
+  rw[FUN_EQ_THM,lines_of_gen_def,lines_of_def,splitlines_at_def,splitlines_def,str_def]
+QED
+
+Theorem all_lines_gen_all_lines[simp]:
+  all_lines_gen #"\n" = all_lines
+Proof
+  rw[FUN_EQ_THM,all_lines_gen_def,all_lines_def]
+QED
 
 Theorem line_count_of_spec:
   FILENAME proof_fname proofv ∧ file_content fs proof_fname = SOME proof ∧
@@ -207,10 +216,10 @@ Theorem line_count_of_spec:
       & (OPTION_TYPE NUM (SOME (LENGTH (lines_of (strlit proof)))) retv))
 Proof
   rpt strip_tac
-  \\ xcf_with_def "line_count_of" (fetch "-" "line_count_of_v_def")
+  \\ xcf_with_def (fetch "-" "line_count_of_v_def")
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ assume_tac add_one_v
-  \\ drule TextIOProofTheory.foldLines_SOME
+  \\ drule_at Any TextIOProofTheory.foldLines_SOME
   \\ strip_tac
   \\ xapp
   \\ first_x_assum $ irule_at $ Pos hd
@@ -224,8 +233,9 @@ Proof
   \\ Induct \\ fs [mllistTheory.foldl_def,add_one_def,ADD1]
 QED
 
-val notfound_string_def = Define`
-  notfound_string f = concat[strlit"c Input file: ";f;strlit" no such file or directory\n"]`;
+Definition notfound_string_def:
+  notfound_string f = concat[strlit"c Input file: ";f;strlit" no such file or directory\n"]
+End
 
 val r = translate notfound_string_def;
 
@@ -237,7 +247,7 @@ val _ = (append_prog o process_topdecs) `
       case md5_of (Some proof_fname) of
         None => TextIO.output TextIO.stdErr (notfound_string proof_fname)
       | Some proof_md5 =>
-        case TextIO.b_inputLinesFrom lines_fname of
+        case TextIO.b_inputLinesFrom #"\n" lines_fname of
           None => TextIO.output TextIO.stdErr (notfound_string lines_fname)
         | Some lines =>
           case line_count_of proof_fname of
@@ -262,7 +272,7 @@ Theorem check_compose_spec:
       & (UNIT_TYPE () retv))
 Proof
   rpt strip_tac
-  \\ xcf_with_def "check_compose" (fetch "-" "check_compose_v_def")
+  \\ xcf_with_def (fetch "-" "check_compose_v_def")
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ rw []
   \\ xlet ‘(POSTv retv. STDIO fs * &OPTION_TYPE STRING_TYPE
@@ -325,7 +335,7 @@ Theorem check_compose_spec_fail:
         STDIO (add_stderr fs err))
 Proof
   rpt strip_tac
-  \\ xcf_with_def "check_compose" (fetch "-" "check_compose_v_def")
+  \\ xcf_with_def (fetch "-" "check_compose_v_def")
   \\ reverse (Cases_on ‘STD_streams fs’)
   THEN1 (fs [STDIO_def] \\ xpull)
   \\ reverse (Cases_on ‘consistentFS fs’)
@@ -392,7 +402,7 @@ Proof
   rw[]>>qexists_tac`notfound_string lines_fname`>>xsimpl
 QED
 
-Theorem is_adjacent_build_sets:
+Theorem is_adjacent_build_sets_lemma:
   ∀xs t m n.
     is_adjacent (build_sets xs t) m n ⇔
     MEM (m,n) xs ∨ is_adjacent t m n
@@ -408,7 +418,7 @@ QED
 Theorem is_adjacent_build_sets:
   is_adjacent (build_sets xs LN) m n = MEM (m,n) xs
 Proof
-  fs [is_adjacent_build_sets]
+  fs [is_adjacent_build_sets_lemma]
   \\ fs [is_adjacent_def,lookup_def]
 QED
 
@@ -477,4 +487,3 @@ Proof
   \\ gvs [lookup_insert,lookup_def]
 QED
 
-val _ = export_theory();

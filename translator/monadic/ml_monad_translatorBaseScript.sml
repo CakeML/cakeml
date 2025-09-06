@@ -2,15 +2,14 @@
   Assertions about references and arrays are defined. Lemmas for these
   are proved, including reasoning in separation logic.
 *)
-open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
-open astTheory libTheory semanticPrimitivesTheory evaluateTheory
-open evaluateTheory ml_progLib ml_progTheory
-open set_sepTheory Satisfy
-open cfHeapsBaseTheory (* basisFunctionsLib *) AC_Sort
-open ml_monadBaseTheory
-open cfStoreTheory cfTheory cfTacticsLib
-
-val _ = new_theory "ml_monad_translatorBase";
+Theory ml_monad_translatorBase
+Ancestors
+  ml_translator ml_pmatch patternMatches ast semanticPrimitives
+  evaluate evaluate ml_prog set_sep cfHeapsBase ml_monadBase
+  cfStore cf
+Libs
+  preamble ml_translatorLib ml_progLib Satisfy AC_Sort
+  cfTacticsLib
 
 val HCOND_EXTRACT = cfLetAutoTheory.HCOND_EXTRACT;
 
@@ -42,25 +41,30 @@ Proof
 QED
 
 (* REF_REL *)
-val REF_REL_def = Define `REF_REL TYPE r x = SEP_EXISTS v. REF r v * &TYPE x v`;
+Definition REF_REL_def:
+  REF_REL TYPE r x = SEP_EXISTS v. REF r v * &TYPE x v
+End
 
 val H = mk_var("H",``:('a -> hprop) # 'ffi ffi_proj``);
 
 (* REFS_PRED *)
-val REFS_PRED_def = Define `
-  REFS_PRED (h,p:'ffi ffi_proj) refs s = (h refs * GC) (st2heap p s)`;
+Definition REFS_PRED_def:
+  REFS_PRED (h,p:'ffi ffi_proj) refs s = (h refs * GC) (st2heap p s)
+End
 
-val VALID_REFS_PRED_def = Define `
-  VALID_REFS_PRED ^H = ?(s : 'ffi state) refs. REFS_PRED H refs s`;
+Definition VALID_REFS_PRED_def:
+  VALID_REFS_PRED ^H = ?(s : 'ffi state) refs. REFS_PRED H refs s
+End
 
 (* Frame rule for EvalM *)
 
-val REFS_PRED_FRAME_def = Define `
+Definition REFS_PRED_FRAME_def:
   REFS_PRED_FRAME ro (h,p:'ffi ffi_proj) (refs1, s1) (refs2, s2) <=>
     (ro ==> ?refs. s2 = s1 with refs := refs) /\
     s2.next_type_stamp = s1.next_type_stamp /\
     s2.next_exn_stamp = s1.next_exn_stamp /\
-    !F. (h refs1 * F) (st2heap p s1) ==> (h refs2 * F * GC) (st2heap p s2)`;
+    !F. (h refs1 * F) (st2heap p s1) ==> (h refs2 * F * GC) (st2heap p s2)
+End
 
 Theorem EMP_STAR_GC:
    !H. emp * H = H
@@ -144,9 +148,11 @@ Proof
   metis_tac[]
 QED
 
-val NEG_DISJ_TO_IMP = Q.prove(
-  `!A B. ~A \/ ~B <=> A /\ B ==> F`,
-  rw[]);
+Triviality NEG_DISJ_TO_IMP:
+  !A B. ~A \/ ~B <=> A /\ B ==> F
+Proof
+  rw[]
+QED
 
 Theorem store2heap_aux_DISJOINT:
    !n s1 s2. DISJOINT (store2heap_aux n s1) (store2heap_aux (n + LENGTH s1) s2)
@@ -335,7 +341,7 @@ QED
 
 (*
  * Proof of STORE_EXTRACT_FROM_HPROP:
- * `!l xv H s. (REF (Loc l) xv * H) (store2heap s) ==> ?ps. ((ps ++ [Refv xv]) ≼ s) /\ LENGTH ps = l`
+ * `!l xv H s. (REF (Loc T l) xv * H) (store2heap s) ==> ?ps. ((ps ++ [Refv xv]) ≼ s) /\ LENGTH ps = l`
  *)
 
 Theorem HEAP_LOC_MEM:
@@ -354,7 +360,7 @@ Proof
 QED
 
 Theorem st2heap_REF_MEM:
-   (Loc l ~~> xv * H) (st2heap p s) ==> Mem l (Refv xv) IN (store2heap s.refs)
+   (Loc T l ~~> xv * H) (st2heap p s) ==> Mem l (Refv xv) IN (store2heap s.refs)
 Proof
   rw[REF_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
   fs[GSYM STAR_ASSOC, HCOND_EXTRACT] >>
@@ -362,7 +368,7 @@ Proof
 QED
 
 Theorem st2heap_ARRAY_MEM:
-   (ARRAY (Loc l) av * H) (st2heap p s) ==> Mem l (Varray av) IN (store2heap s.refs)
+   (ARRAY (Loc T l) av * H) (st2heap p s) ==> Mem l (Varray av) IN (store2heap s.refs)
 Proof
   rw[ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
   fs[GSYM STAR_ASSOC, HCOND_EXTRACT] >>
@@ -425,7 +431,7 @@ Proof
 QED
 
 Theorem STATE_DECOMPOS_FROM_HPROP_REF:
-   !l xv H p s. (REF (Loc l) xv * H) (st2heap p s) ==>
+   !l xv H p s. (REF (Loc T l) xv * H) (st2heap p s) ==>
                 ?ps. ((ps ++ [Refv xv]) ≼ s.refs) /\ LENGTH ps = l
 Proof
   rw[REF_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
@@ -435,7 +441,7 @@ Proof
 QED
 
 Theorem STATE_DECOMPOS_FROM_HPROP_ARRAY:
-   !l av H p s. (ARRAY (Loc l) av * H) (st2heap p s) ==>
+   !l av H p s. (ARRAY (Loc T l) av * H) (st2heap p s) ==>
                 ?ps. ((ps ++ [Varray av]) ≼ s.refs) /\ LENGTH ps = l
 Proof
   rw[ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
@@ -460,7 +466,7 @@ Proof
 QED
 
 Theorem STATE_EXTRACT_FROM_HPROP_REF:
-   !l xv H p s. ((Loc l) ~~> xv * H) (st2heap p s) ==>
+   !l xv H p s. ((Loc T l) ~~> xv * H) (st2heap p s) ==>
   !junk. EL l (s.refs ++ junk) = Refv xv
 Proof
   rw[REF_def, ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
@@ -470,7 +476,7 @@ Proof
 QED
 
 Theorem STATE_EXTRACT_FROM_HPROP_ARRAY:
-   !l av H p s. (ARRAY (Loc l) av * H) (st2heap p s) ==>
+   !l av H p s. (ARRAY (Loc T l) av * H) (st2heap p s) ==>
   !junk. EL l (s.refs ++ junk) = Varray av
 Proof
   rw[REF_def, ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
@@ -511,13 +517,13 @@ Proof
 QED
 
 Theorem REF_HPROP_SAT_EQ:
-   !l xv s. REF (Loc l) xv s <=> s = {Mem l (Refv xv)}
+   !l xv s. REF (Loc T l) xv s <=> s = {Mem l (Refv xv)}
 Proof
   fs[REF_def, SEP_EXISTS, HCOND_EXTRACT, cell_def, one_def]
 QED
 
 Theorem ARRAY_HPROP_SAT_EQ:
-   !l av s. ARRAY (Loc l) av s <=> s = {Mem l (Varray av)}
+   !l av s. ARRAY (Loc T l) av s <=> s = {Mem l (Varray av)}
 Proof
   fs[ARRAY_def, SEP_EXISTS, HCOND_EXTRACT, cell_def, one_def]
 QED
@@ -577,7 +583,7 @@ QED
 
 Theorem STATE_SAT_REF_STAR_H_EQ:
    !p s s0 xv s1 H.
-     (Loc (LENGTH s0) ~~> xv * H)
+     (Loc T (LENGTH s0) ~~> xv * H)
         (st2heap p (s with refs := s0 ++ [Refv xv] ++ s1)) <=>
      H ((store2heap s0) UNION
         (store2heap_aux (LENGTH s0 + 1) s1) UNION (ffi2heap p s.ffi))
@@ -589,7 +595,7 @@ QED
 
 Theorem STATE_SAT_ARRAY_STAR_H_EQ:
    !p s s0 av s1 H.
-     (ARRAY (Loc (LENGTH s0)) av * H)
+     (ARRAY (Loc T (LENGTH s0)) av * H)
         (st2heap p (s with refs := s0 ++ [Varray av] ++ s1)) <=>
      H ((store2heap s0) UNION
         (store2heap_aux (LENGTH s0 + 1) s1) UNION (ffi2heap p s.ffi))
@@ -623,7 +629,7 @@ Proof
 QED
 
 Theorem STATE_UPDATE_HPROP_REF:
-   (Loc l ~~> xv * H) (st2heap p s) ==> (Loc l ~~> xv' * H)
+   (Loc T l ~~> xv * H) (st2heap p s) ==> (Loc T l ~~> xv' * H)
      (st2heap p (s with refs := (LUPDATE (Refv xv') l s.refs)))
 Proof
   rw[REF_def, ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
@@ -633,7 +639,7 @@ Proof
 QED
 
 Theorem STATE_UPDATE_HPROP_ARRAY:
-   (ARRAY (Loc l) av * H) (st2heap p s) ==> (ARRAY (Loc l) av' * H)
+   (ARRAY (Loc T l) av * H) (st2heap p s) ==> (ARRAY (Loc T l) av' * H)
      (st2heap p (s with refs := (LUPDATE (Varray av') l s.refs)))
 Proof
   rw[REF_def, ARRAY_def, SEP_CLAUSES, SEP_EXISTS_THM] >>
@@ -659,19 +665,22 @@ QED
 *)
 
 (* Fixed-size arrays *)
-val ARRAY_REL = Define `
-  ARRAY_REL TYPE rv l = SEP_EXISTS av. ARRAY rv av * &LIST_REL TYPE l av`;
+Definition ARRAY_REL_def:
+  ARRAY_REL TYPE rv l = SEP_EXISTS av. ARRAY rv av * &LIST_REL TYPE l av
+End
 
 (* Resizable arrays *)
-val RARRAY_def = Define `
-  RARRAY rv av = SEP_EXISTS arv. REF rv arv * ARRAY arv av`;
+Definition RARRAY_def:
+  RARRAY rv av = SEP_EXISTS arv. REF rv arv * ARRAY arv av
+End
 
-val RARRAY_REL_def = Define `
-  RARRAY_REL TYPE rv l = SEP_EXISTS av. RARRAY rv av * &LIST_REL TYPE l av`;
+Definition RARRAY_REL_def:
+  RARRAY_REL TYPE rv l = SEP_EXISTS av. RARRAY rv av * &LIST_REL TYPE l av
+End
 
 Theorem RARRAY_HPROP_SAT_EQ:
-   RARRAY (Loc l) av s <=>
-  ?l'. s = {Mem l' (Varray av); Mem l (Refv (Loc l'))}
+   RARRAY (Loc T l) av s <=>
+  ?l'. s = {Mem l' (Varray av); Mem l (Refv (Loc T l'))}
 Proof
   fs[RARRAY_def, ARRAY_def, REF_def, SEP_EXISTS,
      HCOND_EXTRACT, cell_def, one_def, STAR_def]
@@ -682,20 +691,23 @@ Proof
      \\ irule EQ_EXT
      \\ rw[])
   \\ rw[SPLIT_def, cond_def]
-  \\ qexists_tac `Loc l'`
+  \\ qexists_tac `Loc T l'`
   \\ rw[]
   \\ PURE_ONCE_REWRITE_TAC[UNION_COMM]
   \\ irule EQ_EXT
   \\ rw[]
 QED
 
-val GC_ABSORB_L = Q.prove(`!A B s. (A * B * GC) s ==> (A * GC) s`,
-rw[]
+Triviality GC_ABSORB_L:
+  !A B s. (A * B * GC) s ==> (A * GC) s
+Proof
+  rw[]
 \\ fs[GSYM STAR_ASSOC]
 \\ fs[Once STAR_def]
 \\ qexists_tac `u`
 \\ qexists_tac `v`
-\\ fs[SAT_GC]);
+\\ fs[SAT_GC]
+QED
 
 Theorem st2heap_SPLIT:
   SPLIT (st2heap ffi (s with refs := s.refs ++ junk))
@@ -737,4 +749,3 @@ Proof
   \\ fs[]
 QED
 
-val _ = export_theory();

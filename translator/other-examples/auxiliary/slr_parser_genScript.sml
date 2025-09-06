@@ -4,41 +4,54 @@
   Her definitions are reproduced below so that we can try our
   hol2miniml translator on them.
 *)
-open HolKernel Parse boolLib bossLib;
-val _ = new_theory "slr_parser_gen";
-open arithmeticTheory listTheory combinTheory stringTheory;
+Theory slr_parser_gen
+Ancestors
+  arithmetic list combin string
 
-val push_def = Define `push l e = e::l`;
+Definition push_def:
+  push l e = e::l
+End
 
-val pop_def = Define `
+Definition pop_def:
   (pop [] _ = []) /\
-  (pop (h::t) n = if (n = 0) then (h::t) else pop t (n-1))`;
+  (pop (h::t) n = if (n = 0) then (h::t) else pop t (n-1))
+End
 
-val take1_def = tDefine "take1" `
+Definition take1_def:
   (take1 0 [] = []) /\
-  (take1 n (x::xs) = (if n=0 then [] else x::take1 (n - 1) xs))`
-  (WF_REL_TAC (`measure (\(n,l).LENGTH l)`) THEN SRW_TAC [] []);
+  (take1 n (x::xs) = (if n=0 then [] else x::take1 (n - 1) xs))
+Termination
+  WF_REL_TAC (`measure (\(n,l).LENGTH l)`) THEN SRW_TAC [] []
+End
 
-val take_def = Define `
+Definition take_def:
   (take n l = if (LENGTH l >= n) then SOME (take1 n l)
-                                 else NONE)`;
+                                 else NONE)
+End
 
 Datatype:
   symbol = TS string | NTS string
 End
 
-val isNonTmnlSym = Define `
+Definition isNonTmnlSym_def:
   (isNonTmnlSym (NTS _) = T) /\
-  (isNonTmnlSym _ = F)`;
+  (isNonTmnlSym _ = F)
+End
 
-val sym2Str = Define `(sym2Str (TS s) = s) /\ (sym2Str (NTS s) = s)`;
+Definition sym2Str_def:
+  (sym2Str (TS s) = s) /\ (sym2Str (NTS s) = s)
+End
 
 Datatype:
   rule = rule string (symbol list)
 End
 
-val ruleRhs = Define `ruleRhs (rule l r) = r`;
-val ruleLhs = Define `ruleLhs (rule l r) = l`;
+Definition ruleRhs_def:
+  ruleRhs (rule l r) = r
+End
+Definition ruleLhs_def:
+  ruleLhs (rule l r) = l
+End
 
 Datatype:
   ptree = Leaf string | Node string (ptree list)
@@ -58,11 +71,12 @@ Datatype:
   action = REDUCE rule | GOTO state | NA
 End
 
-val ptree2Sym = Define `
+Definition ptree2Sym_def:
   (ptree2Sym (Node nt ptl) = NTS nt) /\
-  (ptree2Sym (Leaf tm) = TS tm)`;
+  (ptree2Sym (Leaf tm) = TS tm)
+End
 
-val buildTree = Define `
+Definition buildTree_def:
   (buildTree p r =
      let s = take (LENGTH r) (MAP (ptree2Sym o SND) p) in
        if s = NONE then
@@ -70,32 +84,35 @@ val buildTree = Define `
        else if r = THE s then
          take (LENGTH r) (MAP SND p)
        else
-         NONE)`;
+         NONE)
+End
 
-val addRule = Define `
+Definition addRule_def:
   (addRule p (rule l r) =
          let x =  buildTree p (REVERSE r) in
               if (x = NONE) then NONE
-              else SOME (Node l (REVERSE (THE x))))`
+              else SOME (Node l (REVERSE (THE x))))
+End
 
-val stackSyms = Define `stackSyms stl = (REVERSE (MAP FST (MAP FST stl)))`
-
-val findItemInRules = Define `
+Definition findItemInRules_def:
   (findItemInRules (item l1 (r1,[])) [] = F) /\
   (findItemInRules (item l1 (r1,[])) ((rule l2 r2)::rst) = T) /\
   (findItemInRules (item l1 (r1,[])) (_::rst) = findItemInRules (item l1 (r1,[])) rst) /\
-  (findItemInRules _ _ = F)`;
+  (findItemInRules _ _ = F)
+End
 
-val itemEqRuleList_defn = tDefine "itemEqRuleList" `
+Definition itemEqRuleList_def:
   (itemEqRuleList [] [] = T) /\
   (itemEqRuleList [] _ = T) /\
   (itemEqRuleList _ [] = F) /\
   (itemEqRuleList l1 l2 =
      if ~(LENGTH l1 = LENGTH l2) then F else
-       if (findItemInRules (HD l1) l2) then itemEqRuleList (TL l1) l2 else F)`
-  (WF_REL_TAC (`measure (\(l1,l2).LENGTH l1)`) THEN SRW_TAC [] [])
+       if (findItemInRules (HD l1) l2) then itemEqRuleList (TL l1) l2 else F)
+Termination
+  WF_REL_TAC (`measure (\(l1,l2).LENGTH l1)`) THEN SRW_TAC [] []
+End
 
-val getState = Define `
+Definition getState_def:
    getState (sg,red) (itl:item list) sym =
       let newitl = sg itl sym and rl = red itl (sym2Str sym) in
         case (newitl,rl) of
@@ -106,20 +123,25 @@ val getState = Define `
             if itemEqRuleList (x::xs) (y'::ys') then
               REDUCE (HD rl)
             else
-              NA`;
+              NA
+End
 
-val stackSyms = Define `stackSyms stl = (REVERSE (MAP FST (MAP FST stl)))`
+Definition stackSyms_def:
+  stackSyms stl = (REVERSE (MAP FST (MAP FST stl)))
+End
 
-val exitCond = Define `
+Definition exitCond_def:
   exitCond (eof,oldSym)  (inp,stl,csl) =
     (~(stl=([]:((symbol # state) # ptree) list)) /\
      (stackSyms stl = [oldSym]) /\
-     (inp = [TS eof]))`
+     (inp = [TS eof]))
+End
 
-val init = Define `
-  init inis sl =  (sl,([]:((symbol# state) # ptree) list),[inis])`
+Definition init_def:
+  init inis sl =  (sl,([]:((symbol# state) # ptree) list),[inis])
+End
 
-val doReduce = Define `
+Definition doReduce_def:
   doReduce m ((sym::rst), os, ((s, itl)::rem)) ru =
      if isNonTmnlSym sym then
        NONE
@@ -146,9 +168,10 @@ val doReduce = Define `
                          in
                            SOME
                              (sym::rst,[(ns,p)] ++ newStk,
-                              push newStateStk ns)))))`;
+                              push newStateStk ns)))))
+End
 
-val parse = Define `
+Definition parse_def:
   parse mac (inp, os, ((s, itl)::rem)) =
     case mac of NONE => NONE
     | (SOME m) =>
@@ -165,15 +188,17 @@ val parse = Define `
                          if (isNonTmnlSym sym) then NONE
                          else (* shift goto *)
                              SOME (rst,((sym,st),Leaf (sym2Str sym))::os, push ((s, itl)::rem) (sym,st))
-                           | (REDUCE ru) => doReduce m ((sym::rst), os, ((s, itl)::rem)) ru)`
+                           | (REDUCE ru) => doReduce m ((sym::rst), os, ((s, itl)::rem)) ru)
+End
 
-val mwhile = Define`
+Definition mwhile_def:
   mwhile g f s =
     OWHILE (\opt. case opt of NONE => F | SOME s => g s)
            (\opt. case opt of NONE => NONE | SOME s => f s)
-           (SOME s)`;
+           (SOME s)
+End
 
-val parser = Define `
+Definition parser_def:
   parser (initState, eof, oldS) m sl =
     let
       out = (mwhile (\s. ~(exitCond (eof,NTS oldS) s))
@@ -183,7 +208,7 @@ val parser = Define `
       case out of NONE => NONE
                 | (SOME (SOME (slo,[(st1,pt)],cs))) => SOME (SOME pt)
                 | SOME (NONE) => SOME (NONE)
-                | SOME _ => SOME NONE`
+                | SOME _ => SOME NONE
+End
 
 
-val _ = export_theory ();

@@ -2,10 +2,11 @@
   This is an example of applying the translator to the Lazy Pairing
   Heap algorithm from Chris Okasaki's book.
 *)
-open preamble
-open bagTheory bagLib okasaki_miscTheory ml_translatorLib ListProgTheory
-
-val _ = new_theory "LazyPairingHeap"
+Theory LazyPairingHeap
+Ancestors
+  bag okasaki_misc ListProg
+Libs
+  preamble bagLib ml_translatorLib
 
 val _ = translation_extends "ListProg";
 
@@ -14,35 +15,42 @@ val _ = translation_extends "ListProg";
 (* Note, we're following Chargueraud and just cutting out the laziness since it
  * shouldn't affect functional correctness *)
 
-val _ = Datatype`
-  heap = Empty | Tree 'a heap heap`;
+Datatype:
+  heap = Empty | Tree 'a heap heap
+End
 
 val fs = full_simp_tac (srw_ss ())
 val rw = srw_tac []
 val heap_size_def = fetch "-" "heap_size_def"
 
-val heap_to_bag_def = Define `
+Definition heap_to_bag_def:
 (heap_to_bag Empty = {||}) ∧
 (heap_to_bag (Tree x h1 h2) =
-  BAG_INSERT x (BAG_UNION (heap_to_bag h1) (heap_to_bag h2)))`;
+  BAG_INSERT x (BAG_UNION (heap_to_bag h1) (heap_to_bag h2)))
+End
 
-val is_heap_ordered_def = Define `
+Definition is_heap_ordered_def:
 (is_heap_ordered get_key leq Empty <=> T) ∧
 (is_heap_ordered get_key leq (Tree x h1 h2) <=>
   is_heap_ordered get_key leq h1 ∧
   is_heap_ordered get_key leq h2 ∧
   BAG_EVERY (\y. leq (get_key x) (get_key y)) (heap_to_bag h1) ∧
-  BAG_EVERY (\y. leq (get_key x) (get_key y)) (heap_to_bag h2))`;
+  BAG_EVERY (\y. leq (get_key x) (get_key y)) (heap_to_bag h2))
+End
 
-val empty_def = mlDefine `
-empty = Empty`;
+Definition empty_def:
+empty = Empty
+End
+val r = translate empty_def;
 
-val is_empty = mlDefine `
+Definition is_empty:
 (is_empty Empty = T) ∧
-(is_empty _ = F)`;
+(is_empty _ = F)
+End
+val r = translate is_empty;
 
 (*
-val merge_def = Define `
+Definition merge_def:
 (merge get_key leq a Empty = a) ∧
 (merge get_key leq Empty b = b) ∧
 (merge get_key leq (Tree x h1 h2) (Tree y h1' h2') =
@@ -53,13 +61,14 @@ val merge_def = Define `
 
 (link get_key leq (Tree x Empty m) a = Tree x a m) ∧
 (link get_key leq (Tree x b m) a =
-  Tree x Empty (merge get_key leq (merge get_key leq a b) m))`;
+  Tree x Empty (merge get_key leq (merge get_key leq a b) m))
+End
 *)
 
 (* Without mutual recursion, and with size constraints to handle the nested
  * recursion *)
 
-val merge_def = Define `
+Definition merge_def:
  (merge get_key leq a Empty = a) /\
  (merge get_key leq Empty b = b) /\
  (merge get_key leq (Tree x h1 h2) (Tree y h1' h2') =
@@ -84,13 +93,15 @@ val merge_def = Define `
                   heap_size (\x.0) h1' + 2 then
                  Tree y Empty (merge get_key leq h3 h2')
                else
-                 Empty))`;
+                 Empty))
+End
 
-val merge_size = Q.prove (
-`!get_key leq h1 h2.
+Triviality merge_size:
+  !get_key leq h1 h2.
   heap_size (\x.0) (merge get_key leq h1 h2) =
-  heap_size (\x.0) h1 + heap_size (\x.0) h2`,
-recInduct (fetch "-" "merge_ind") >>
+  heap_size (\x.0) h1 + heap_size (\x.0) h2
+Proof
+  recInduct (fetch "-" "merge_ind") >>
 srw_tac [ARITH_ss] [merge_def, heap_size_def] >|
 [cases_on `h1`, cases_on `h1'`] >>
 full_simp_tac (srw_ss()++ARITH_ss) [] >>
@@ -101,24 +112,29 @@ cases_on `leq (get_key y) (get_key a)` >>
 full_simp_tac (srw_ss()++ARITH_ss) [] >>
 cases_on `leq (get_key x) (get_key a)` >>
 full_simp_tac (srw_ss()++numSimps.ARITH_AC_ss) [heap_size_def, merge_def] >>
-full_simp_tac (srw_ss()++ARITH_ss) []);
+full_simp_tac (srw_ss()++ARITH_ss) []
+QED
 
-val merge_size_lem = Q.prove (
-`(heap_size (\x.0) (merge get_key leq (Tree x h1 h2) h1') <
-  heap_size (\x.0) h1 + heap_size (\x.0) h2 + heap_size (\x.0) h1' + 2) = T`,
-rw [merge_size, heap_size_def] >>
-decide_tac);
+Triviality merge_size_lem:
+  (heap_size (\x.0) (merge get_key leq (Tree x h1 h2) h1') <
+  heap_size (\x.0) h1 + heap_size (\x.0) h2 + heap_size (\x.0) h1' + 2) = T
+Proof
+  rw [merge_size, heap_size_def] >>
+decide_tac
+QED
 
 (* Remove the size constraints *)
 
 val merge_def = SIMP_RULE (srw_ss()) [merge_size_lem, LET_THM] merge_def;
-val _ = save_thm ("merge_def[compute]",merge_def);
+Theorem merge_def[compute,allow_rebind] =
+  merge_def
 
 val merge_ind =
   SIMP_RULE (srw_ss()) [merge_size_lem, LET_THM] (fetch "-" "merge_ind");
-val _ = save_thm ("merge_ind",merge_ind);
+Theorem merge_ind[allow_rebind] =
+  merge_ind
 
-val merge_thm = Q.prove(`
+Triviality merge_thm:
   merge get_key leq a b =
     case (a,b) of
     | (a,Empty) => a
@@ -135,19 +151,27 @@ val merge_thm = Q.prove(`
           | Empty => Tree y (Tree x h1 h2) h2'
           | _ =>
             Tree y Empty (merge get_key leq
-                         (merge get_key leq (Tree x h1 h2) h1') h2')`,
-  Cases_on `a` THEN Cases_on `b` THEN SIMP_TAC (srw_ss()) [merge_def]);
+                         (merge get_key leq (Tree x h1 h2) h1') h2')
+Proof
+  Cases_on `a` THEN Cases_on `b` THEN SIMP_TAC (srw_ss()) [merge_def]
+QED
 
 val _ = translate merge_thm;
 
-val insert_def = mlDefine `
-insert get_key leq x a = merge get_key leq (Tree x Empty Empty) a`;
+Definition insert_def:
+insert get_key leq x a = merge get_key leq (Tree x Empty Empty) a
+End
+val r = translate insert_def;
 
-val find_min_def = mlDefine `
-find_min (Tree x _ _) = x`;
+Definition find_min_def:
+find_min (Tree x _ _) = x
+End
+val r = translate find_min_def;
 
-val delete_min_def = mlDefine `
-delete_min get_key leq (Tree _ a b) = merge get_key leq a b`;
+Definition delete_min_def:
+delete_min get_key leq (Tree _ a b) = merge get_key leq a b
+End
+val r = translate delete_min_def;
 
 (* Functional correctness *)
 
@@ -259,14 +283,17 @@ QED
 val delete_min_side_def = fetch "-" "delete_min_side_def"
 val find_min_side_def = fetch "-" "find_min_side_def"
 
-val delete_min_side = Q.prove (
-`!get_key leq h. delete_min_side get_key leq h = (h ≠ Empty)`,
-cases_on `h` >>
-rw [delete_min_side_def]);
+Triviality delete_min_side:
+  !get_key leq h. delete_min_side get_key leq h = (h ≠ Empty)
+Proof
+  cases_on `h` >>
+rw [delete_min_side_def]
+QED
 
-val find_min_side = Q.prove (
-`!h. find_min_side h = (h ≠ Empty)`,
-cases_on `h` >>
-rw [find_min_side_def]);
+Triviality find_min_side:
+  !h. find_min_side h = (h ≠ Empty)
+Proof
+  cases_on `h` >>
+rw [find_min_side_def]
+QED
 
-val _ = export_theory ();

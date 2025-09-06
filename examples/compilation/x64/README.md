@@ -31,6 +31,9 @@ x86 machine code.
 [sortCompileScript.sml](sortCompileScript.sml):
 Compiles the sort example by evaluation inside the logic of HOL
 
+[test_interpreterScript.sml](test_interpreterScript.sml):
+Test insertion of interpreter
+
 [wordcountCompileScript.sml](wordcountCompileScript.sml):
 Compile the wordcount program to machine code by evaluation of the compiler
 in the logic.

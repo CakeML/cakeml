@@ -13,37 +13,17 @@
        "x + n - n" --> "x"
        "let x = y in x" --> "y"
 *)
+Theory ml_optimise
+Ancestors
+  ast semanticPrimitives ml_prog ml_translator
+  semanticPrimitivesProps evaluateProps evaluate ml_translator
+Libs
+  preamble
 
-open preamble
-     astTheory libTheory semanticPrimitivesTheory
-     ml_progTheory ml_translatorTheory
-     semanticPrimitivesPropsTheory evaluatePropsTheory;
-open evaluateTheory ml_translatorTheory
-
-val _ = new_theory "ml_optimise";
 
 (* first an optimisation combinator: BOTTOM_UP_OPT *)
 
-val MEM_exp_size1 = Q.prove(
-  `!xs a. MEM a xs ==> exp_size a <= exp6_size xs`,
-  Induct THEN FULL_SIMP_TAC (srw_ss()) [exp_size_def]
-  THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC THEN DECIDE_TAC);
-
-val MEM_exp_size2 = Q.prove(
-  `!ys p x. MEM (p,x) ys ==> exp_size x < exp3_size ys`,
-  Induct THEN FULL_SIMP_TAC (srw_ss()) [exp_size_def] THEN Cases
-  THEN FULL_SIMP_TAC std_ss [exp_size_def]
-  THEN REPEAT STRIP_TAC THEN FULL_SIMP_TAC std_ss [] THEN RES_TAC THEN DECIDE_TAC);
-
-val exp6_size_SNOC = prove(
-  ``!xs y. exp6_size (xs ++ [y]) = exp6_size xs + exp6_size [y]``,
-  Induct \\ fs [exp_size_def]);
-
-val exp6_size_REVERSE = prove(
-  ``!xs. exp6_size (REVERSE xs) = exp6_size xs``,
-  Induct \\ fs [exp_size_def,exp6_size_SNOC]);
-
-val BOTTOM_UP_OPT_def = tDefine "BOTTOM_UP_OPT" `
+Definition BOTTOM_UP_OPT_def[nocompute]:
   (BOTTOM_UP_OPT f (Lit v) = f (Lit v)) /\
   (BOTTOM_UP_OPT f (Raise ex) = f (Raise ex)) /\
   (BOTTOM_UP_OPT f (Var name) = f (Var name)) /\
@@ -67,15 +47,11 @@ val BOTTOM_UP_OPT_def = tDefine "BOTTOM_UP_OPT" `
      BOTTOM_UP_OPT f y :: BOTTOM_UP_OPT_LIST f ys) /\
   (BOTTOM_UP_OPT_PAT f [] = []) /\
   (BOTTOM_UP_OPT_PAT f ((p,y)::ys) =
-     (p,BOTTOM_UP_OPT f y) :: BOTTOM_UP_OPT_PAT f ys)`
-  (WF_REL_TAC `measure (\x. case x of
-                  | INL x => (exp_size o SND) x
-                  | INR (INL x) => (exp6_size o SND) x
-                  | INR (INR x) => (exp3_size o SND) x)`
-   \\ rw [exp6_size_REVERSE]);
+     (p,BOTTOM_UP_OPT f y) :: BOTTOM_UP_OPT_PAT f ys)
+End
 
-val BOTTOM_UP_OPT_def = save_thm("BOTTOM_UP_OPT_def[compute]",
-  BOTTOM_UP_OPT_def |> SIMP_RULE std_ss [LET_THM]);
+Theorem BOTTOM_UP_OPT_def[allow_rebind,compute] =
+  BOTTOM_UP_OPT_def |> SIMP_RULE std_ss [LET_THM];
 
 val LENGTH_BOTTOM_UP_OPT_LIST = prove(
   ``!xs. LENGTH (BOTTOM_UP_OPT_LIST f xs) = LENGTH xs``,
@@ -141,7 +117,7 @@ Triviality BOTTOM_UP_OPT_THM1:
     eval_match_rel s env v (BOTTOM_UP_OPT_PAT f pats) w s1 r)
 Proof
   disch_tac
-  \\ ho_match_mp_tac (fetch "-" "BOTTOM_UP_OPT_ind")
+  \\ ho_match_mp_tac BOTTOM_UP_OPT_ind
   \\ rpt strip_tac
   \\ simp [eval_rel_def |> ONCE_REWRITE_RULE [CONJ_COMM],
            eval_list_rel_def |> ONCE_REWRITE_RULE [CONJ_COMM],
@@ -150,7 +126,9 @@ Proof
          eval_list_rel_def |> ONCE_REWRITE_RULE [CONJ_COMM],
          eval_match_rel_def |> ONCE_REWRITE_RULE [CONJ_COMM]]
   \\ fs [evaluate_def,pair_case_eq,result_case_eq,PULL_EXISTS,
-         bool_case_eq,option_case_eq,state_component_equality]
+         bool_case_eq,option_case_eq,state_component_equality,
+         Excl "getOpClass_def"]
+  \\ TRY (rename1 ‘getOpClass op’ \\ Cases_on `getOpClass op` \\ fs[])
   \\ rpt strip_tac \\ fs []
   \\ rveq \\ fs [BOTTOM_UP_OPT_def] \\ fs [evaluate_def]
   \\ TRY (first_x_assum match_mp_tac) \\ fs [evaluate_def]
@@ -160,8 +138,6 @@ Proof
          bool_case_eq,option_case_eq,state_component_equality,
          REVERSE_BOTTOM_UP_OPT_LIST]
   \\ TRY (asm_exists_tac \\ fs [state_component_equality] \\ NO_TAC)
-  \\ TRY (qpat_x_assum `(_,_) = _` (assume_tac o GSYM)
-          \\ asm_exists_tac \\ fs [state_component_equality] \\ NO_TAC)
   THEN1 (* Con *)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
@@ -169,25 +145,9 @@ Proof
              by fs [state_component_equality]
     \\ first_x_assum drule \\ simp [] \\ strip_tac
     \\ asm_exists_tac \\ fs [])
-  THEN1 (* App Opapp *)
-   (rename1 `_ = (st1,Rval vs)`
-    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
-          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
-             by fs [state_component_equality]
-    \\ first_x_assum drule \\ simp [] \\ strip_tac
-    \\ qpat_x_assum `(_,_) = _` (assume_tac o GSYM)
-    \\ drule evaluate_add_to_clock \\ fs []
-    \\ disch_then (qspec_then `ck2' + 1` assume_tac)
-    \\ rfs [EVAL ``(dec_clock st1).clock``]
-    \\ qpat_x_assum `evaluate _ _
-         (BOTTOM_UP_OPT_LIST f (REVERSE xs)) = _` assume_tac
-    \\ drule evaluate_add_to_clock \\ fs []
-    \\ disch_then (qspec_then `st1.clock+1` assume_tac)
-    \\ asm_exists_tac \\ fs []
-    \\ fs [evaluateTheory.dec_clock_def,state_component_equality])
   THEN1 (* App Eval *)
    (
-    fs [evaluateTheory.do_eval_res_def, Q.ISPEC `(_, _)` EQ_SYM_EQ]
+    fs [evaluateTheory.do_eval_res_def]
     \\ fs [list_case_eq,option_case_eq,bool_case_eq,pair_case_eq,result_case_eq]
     \\ rveq \\ fs [PULL_EXISTS]
     \\ `? st_x ck_x. st' = (st_x with clock := ck_x) /\ st_x.clock = s.clock`
@@ -206,7 +166,23 @@ Proof
    (
    fs [error_result_case_eq]
    )
-  THEN1 (* App other *)
+  THEN1 (* App Opapp *)
+   (rename1 `_ = (st1,Rval vs)`
+    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
+          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
+             by fs [state_component_equality]
+    \\ first_x_assum drule \\ simp [] \\ strip_tac
+    \\ qpat_x_assum `evaluate _ _ _  = (s1 with clock := _ ,_)` assume_tac
+    \\ drule evaluate_add_to_clock \\ fs []
+    \\ disch_then (qspec_then `ck2' + 1` assume_tac)
+    \\ rfs [EVAL ``(dec_clock st1).clock``]
+    \\ qpat_x_assum `evaluate _ _
+         (BOTTOM_UP_OPT_LIST f (REVERSE xs)) = _` assume_tac
+    \\ drule evaluate_add_to_clock \\ fs []
+    \\ disch_then (qspec_then `st1.clock+1` assume_tac)
+    \\ asm_exists_tac \\ fs []
+    \\ fs [evaluateTheory.dec_clock_def,state_component_equality])
+  THEN1 (* App Simple *)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
           ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
@@ -256,7 +232,7 @@ Proof
     imp_res_tac evaluate_sing \\ rveq \\ fs []
     \\ `? st_x ck_x. st' = (st_x with clock := ck_x) /\ st_x.clock = s.clock`
       by (qexists_tac `st' with clock := s.clock` \\ simp [state_component_equality])
-    \\ fs [Q.ISPEC `(_, _)` EQ_SYM_EQ]
+    \\ fs []
     \\ rpt (first_x_assum drule \\ rw [])
     \\ dxrule_then dxrule evaluate_and_match_clock
     \\ rw []
@@ -268,7 +244,7 @@ Proof
    (imp_res_tac evaluate_sing \\ rveq \\ fs [] \\ rveq \\ fs []
     \\ `? st_x ck_x. st' = (st_x with clock := ck_x) /\ st_x.clock = s.clock`
       by (qexists_tac `st' with clock := s.clock` \\ simp [state_component_equality])
-    \\ fs [Q.ISPEC `(_, _)` EQ_SYM_EQ]
+    \\ fs []
     \\ rpt (first_x_assum drule \\ rw [])
     \\ dxrule_then dxrule evaluate_two_steps_clock
     \\ rw []
@@ -296,7 +272,7 @@ Proof
    )
   THEN1 (* match *)
    (
-    fs [Q.ISPEC `(_, _)` EQ_SYM_EQ, match_result_case_eq]
+    fs [match_result_case_eq]
     \\ fsrw_tac [SATISFY_ss] []
    )
 QED
@@ -307,14 +283,16 @@ Theorem BOTTOM_UP_OPT_THM = BOTTOM_UP_OPT_THM1
 
 (* rewrite optimisation: (fn x => exp) y --> let x = y in exp *)
 
-val abs2let_def = Define `
+Definition abs2let_def:
   abs2let x =
      case x of App Opapp [Fun v exp; y] => Let (SOME v) y exp
-             | rest => rest`;
+             | rest => rest
+End
 
-val abs2let_thm = Q.prove(
-  `!env s exp t res. eval_rel s env exp t res ==>
-                     eval_rel s env (abs2let exp) t res`,
+Triviality abs2let_thm:
+  !env s exp t res. eval_rel s env exp t res ==>
+                     eval_rel s env (abs2let exp) t res
+Proof
   rpt strip_tac
   \\ Cases_on `abs2let exp = exp` \\ fs []
   \\ `?v e y. exp = App Opapp [Fun v e; y]` by
@@ -324,23 +302,25 @@ val abs2let_thm = Q.prove(
   \\ rveq \\ fs [] \\ rveq \\ fs [do_opapp_def,bool_case_eq,PULL_EXISTS]
   \\ fs [evaluateTheory.dec_clock_def,evaluate_def,abs2let_def]
   \\ qexists_tac `ck1` \\ fs []
-  \\ first_x_assum (assume_tac o SYM) \\ fs []
   \\ drule evaluate_add_to_clock \\ fs []
   \\ disch_then (qspec_then `1` mp_tac) \\ fs []
   \\ `(st' with clock := st'.clock) = st'` by fs [state_component_equality]
   \\ fs [namespaceTheory.nsOptBind_def]
-  \\ rw [] \\ fs [state_component_equality]);
+  \\ rw [] \\ fs [state_component_equality]
+QED
 
 (* rewrite optimisation: let x = y in x --> y *)
 
-val let_id_def = Define `
+Definition let_id_def:
   (let_id (Let (SOME v) x y) =
      if (y = Var (Short v)) then x else Let (SOME v) x y) /\
-  (let_id rest = rest)`;
+  (let_id rest = rest)
+End
 
-val let_id_thm = Q.prove(
-  `!env s exp t res. eval_rel s env exp t res ==>
-                     eval_rel s env (let_id exp) t res`,
+Triviality let_id_thm:
+  !env s exp t res. eval_rel s env exp t res ==>
+                     eval_rel s env (let_id exp) t res
+Proof
   rpt strip_tac
   \\ Cases_on `let_id exp = exp` \\ fs []
   \\ `?v x y. exp = Let (SOME v) x (Var (Short v))` by
@@ -351,16 +331,18 @@ val let_id_thm = Q.prove(
   \\ qexists_tac `ck1`
   \\ rveq \\ fs []
   \\ fs [state_component_equality,namespaceTheory.nsOptBind_def]
-  \\ imp_res_tac evaluate_sing \\ fs []);
+  \\ imp_res_tac evaluate_sing \\ fs []
+QED
 
 
 (* rewrite optimisations: x - n + n --> x and x + n - n --> x *)
 
-val dest_binop_def = Define `
+Definition dest_binop_def:
   (dest_binop (App (Opn op) [x;y]) = SOME (op,x,y)) /\
-  (dest_binop rest = NONE)`;
+  (dest_binop rest = NONE)
+End
 
-val opt_sub_add_def = Define `
+Definition opt_sub_add_def:
   opt_sub_add x =
     case dest_binop x of
      | NONE => x
@@ -371,16 +353,20 @@ val opt_sub_add_def = Define `
               if (op1 = Plus) /\ (op2 = Minus) then x1 else
               if (op2 = Plus) /\ (op1 = Minus) then x1 else x
             else x
-         | _ => x`;
+         | _ => x
+End
 
-val dest_binop_thm = Q.prove(
-  `!x. (dest_binop x = SOME (x1,x2,x3)) <=> (x = App (Opn x1) [x2; x3])`,
+Triviality dest_binop_thm:
+  !x. (dest_binop x = SOME (x1,x2,x3)) <=> (x = App (Opn x1) [x2; x3])
+Proof
   HO_MATCH_MP_TAC (fetch "-" "dest_binop_ind")
-  \\ FULL_SIMP_TAC (srw_ss()) [dest_binop_def]);
+  \\ FULL_SIMP_TAC (srw_ss()) [dest_binop_def]
+QED
 
-val opt_sub_add_thm = Q.prove(
-  `!env s exp t res. eval_rel s env exp t res ==>
-                     eval_rel s env (opt_sub_add exp) t res`,
+Triviality opt_sub_add_thm:
+  !env s exp t res. eval_rel s env exp t res ==>
+                     eval_rel s env (opt_sub_add exp) t res
+Proof
   rpt strip_tac
   \\ Cases_on `opt_sub_add exp = exp` \\ fs []
   \\ fs [opt_sub_add_def]
@@ -405,13 +391,15 @@ val opt_sub_add_thm = Q.prove(
   \\ rveq \\ fs [] \\ rveq \\ fs []
   \\ fs [opn_lookup_def, dest_binop_def,
        intLib.COOPER_PROVE ``i + i2 - i2 = i:int``,
-       intLib.COOPER_PROVE ``i - i2 + i2 = i:int``]);
+       intLib.COOPER_PROVE ``i - i2 + i2 = i:int``]
+QED
 
 (* top-level optimiser *)
 
-val OPTIMISE_def = Define `
+Definition OPTIMISE_def:
   OPTIMISE =
-    BOTTOM_UP_OPT (opt_sub_add o let_id) o BOTTOM_UP_OPT abs2let`;
+    BOTTOM_UP_OPT (opt_sub_add o let_id) o BOTTOM_UP_OPT abs2let
+End
 
 Theorem Eval_OPTIMISE:
    Eval env exp P ==> Eval env (OPTIMISE exp) P
@@ -424,4 +412,3 @@ Proof
   \\ metis_tac [BOTTOM_UP_OPT_THM,opt_sub_add_thm,let_id_thm,abs2let_thm]
 QED
 
-val _ = export_theory();

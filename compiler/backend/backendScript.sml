@@ -3,54 +3,51 @@
   a single compile function which is connected (in ../compilerScript.sml)
   to the front-end, i.e. parsing and type inference.
 *)
+Theory backend
+Ancestors
+  source_to_source source_to_flat flat_to_clos clos_to_bvl
+  bvl_to_bvi bvi_to_data data_to_word word_to_stack stack_to_lab
+  lab_to_target word_to_word jsonLang presLang
+  primTypes[qualified]
+Libs
+  preamble
 
-open preamble
-     source_to_flatTheory
-     flat_to_closTheory
-     clos_to_bvlTheory
-     bvl_to_bviTheory
-     bvi_to_dataTheory
-     data_to_wordTheory
-     word_to_stackTheory
-     stack_to_labTheory
-     lab_to_targetTheory
-local open primTypesTheory in end
-open word_to_wordTheory
-open jsonLangTheory presLangTheory
 
-val _ = new_theory"backend";
-
-val _ = Datatype`config =
+Datatype:
+  config =
   <| source_conf : source_to_flat$config
    ; clos_conf : clos_to_bvl$config
    ; bvl_conf : bvl_to_bvi$config
    ; data_conf : data_to_word$config
    ; word_to_word_conf : word_to_word$config
-   ; word_conf : 'a word_to_stack$config
+   ; word_conf : word_to_stack$config
    ; stack_conf : stack_to_lab$config
    ; lab_conf : 'a lab_to_target$config
    ; symbols : (mlstring # num # num) list
    ; tap_conf : tap_config
-   |>`;
+   ; exported : mlstring list (* field for Pancake entry points - empty for CakeML *)
+   |>
+End
 
 val config_component_equality = theorem"config_component_equality";
 
-val attach_bitmaps_def = Define `
-  attach_bitmaps names c (SOME (bytes, c')) =
-    SOME (bytes, c.word_conf.bitmaps,
+Definition attach_bitmaps_def:
+  attach_bitmaps names c bm (SOME (bytes, c')) =
+    SOME (bytes, bm,
           c with <| lab_conf := c'
                   ; symbols := MAP (\(n,p,l). (lookup_any n names «NOTFOUND»,p,l)) c'.sec_pos_len
                   |>) /\
-  attach_bitmaps names c NONE = NONE`
+  attach_bitmaps names c bm NONE = NONE
+End
 
-val compile_tap_def = Define`
-  compile_tap c p =
+Definition compile_def:
+  compile c p =
+    let p = source_to_source$compile p in
+    let _ = empty_ffi (strlit "finished: source_to_source") in
     let (c',p) = source_to_flat$compile c.source_conf p in
-    let td = tap_flat c.tap_conf p [] in
     let _ = empty_ffi (strlit "finished: source_to_flat") in
     let c = c with source_conf := c' in
-    let p = flat_to_clos$compile_decs p in
-    let td = tap_clos c.tap_conf p td in
+    let p = flat_to_clos$compile_prog p in
     let _ = empty_ffi (strlit "finished: flat_to_clos") in
     let (c',p,names) = clos_to_bvl$compile c.clos_conf p in
     let c = c with clos_conf := c' in
@@ -60,53 +57,51 @@ val compile_tap_def = Define`
     let c = c with bvl_conf updated_by (λc. c with <| inlines := l; next_name1 := n1; next_name2 := n2 |>) in
     let _ = empty_ffi (strlit "finished: bvl_to_bvi") in
     let p = bvi_to_data$compile_prog p in
-    let td = tap_data_lang c.tap_conf (p,names) td in
     let _ = empty_ffi (strlit "finished: bvi_to_data") in
     let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
     let names = sptree$union (sptree$fromAList $ (data_to_word$stub_names () ++
       word_to_stack$stub_names () ++ stack_alloc$stub_names () ++
       stack_remove$stub_names ())) names in
-    let td = tap_word c.tap_conf (p,names) td in
     let _ = empty_ffi (strlit "finished: data_to_word") in
-    let (c',fs,p) = word_to_stack$compile c.lab_conf.asm_conf p in
-    let td = tap_stack c.tap_conf (p,names) td in
+    let (bm,c',fs,p) = word_to_stack$compile c.lab_conf.asm_conf p in
     let c = c with word_conf := c' in
     let _ = empty_ffi (strlit "finished: word_to_stack") in
     let p = stack_to_lab$compile
       c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
       (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3))
       (c.lab_conf.asm_conf.addr_offset) p in
-    let td = tap_lab c.tap_conf (p,names) td in
     let _ = empty_ffi (strlit "finished: stack_to_lab") in
-    let res = attach_bitmaps names c
-      (lab_to_target$compile c.lab_conf (p:'a prog)) in
+    let res = attach_bitmaps names c bm
+      (lab_to_target$compile c.lab_conf (p:'a labLang$prog)) in
     let _ = empty_ffi (strlit "finished: lab_to_target") in
-      (res, td)`;
+      res
+End
 
-val compile_def = Define`
-  compile c p = FST (compile_tap c p)`;
-
-val to_flat_def = Define`
+Definition to_flat_def:
   to_flat c p =
+    let p = source_to_source$compile p in
     let (c',p) = source_to_flat$compile c.source_conf p in
     let c = c with source_conf := c' in
-    (c,p)`;
+    (c,p)
+End
 
-val to_clos_def = Define`
+Definition to_clos_def:
   to_clos c p =
   let (c,p) = to_flat c p in
-  let p = flat_to_clos$compile_decs p in
-  (c,p)`;
+  let p = flat_to_clos$compile_prog p in
+  (c,p)
+End
 
-val to_bvl_def = Define`
+Definition to_bvl_def:
   to_bvl c p =
   let (c,p) = to_clos c p in
   let (c',p,names) = clos_to_bvl$compile c.clos_conf p in
   let c = c with clos_conf := c' in
-  (c,p,names)`;
+  (c,p,names)
+End
 
-val to_bvi_def = Define`
+Definition to_bvi_def:
   to_bvi c p =
   let (c,p,names) = to_bvl c p in
   let (s,p,l,n1,n2,names) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf names p in
@@ -115,26 +110,30 @@ val to_bvi_def = Define`
     stack_remove$stub_names ())) names in
   let c = c with clos_conf updated_by (λc. c with start := s) in
   let c = c with bvl_conf updated_by (λc. c with <| inlines := l; next_name1 := n1; next_name2 := n2 |>) in
-  (c,p,names)`;
+  (c,p,names)
+End
 
-val to_data_def = Define`
+Definition to_data_def:
   to_data c p =
   let (c,p,names) = to_bvi c p in
   let p = bvi_to_data$compile_prog p in
-  (c,p,names)`;
+  (c,p,names)
+End
 
-val to_word_0_def = Define`
+Definition to_word_0_def:
   to_word_0 c p =
   let (c,p,names) = to_data c p in
   let p = data_to_word$compile_0 c.data_conf c.lab_conf.asm_conf p in
-  (c,p,names)`;
+  (c,p,names)
+End
 
-val to_word_def = Define`
+Definition to_word_def:
   to_word c p =
   let (c,p,names) = to_data c p in
   let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
-  (c,p,names)`;
+  (c,p,names)
+End
 
 Theorem to_word_thm:
   to_word c p =
@@ -147,31 +146,34 @@ Proof
   \\ pairarg_tac \\ fs []
 QED
 
-val to_stack_def = Define`
+Definition to_stack_def:
   to_stack c p =
   let (c,p,names) = to_word c p in
-  let (c',fs,p) = word_to_stack$compile c.lab_conf.asm_conf p in
+  let (bm,c',fs,p) = word_to_stack$compile c.lab_conf.asm_conf p in
   let c = c with word_conf := c' in
-  (c,p,names)`;
+  (bm,c,p,names)
+End
 
-val to_lab_def = Define`
+Definition to_lab_def:
   to_lab c p =
-  let (c,p,names) = to_stack c p in
+  let (bm,c,p,names) = to_stack c p in
   let p = stack_to_lab$compile
     c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
     (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3))
     (c.lab_conf.asm_conf.addr_offset) p in
-  (c,p:'a prog,names)`;
+  (bm,c,p:'a labLang$prog,names)
+End
 
-val to_target_def = Define`
+Definition to_target_def:
   to_target c p =
-  let (c,p,names) = to_lab c p in
-    attach_bitmaps names c (lab_to_target$compile c.lab_conf p)`;
+  let (bm,c,p,names) = to_lab c p in
+    attach_bitmaps names c bm (lab_to_target$compile c.lab_conf p)
+End
 
 Theorem compile_eq_to_target:
    compile = to_target
 Proof
-  srw_tac[][FUN_EQ_THM,compile_def,compile_tap_def,
+  srw_tac[][FUN_EQ_THM,compile_def,
      to_target_def,
      to_lab_def,
      to_stack_def,
@@ -194,42 +196,48 @@ End
 
 Theorem prim_src_config_eq = EVAL ``prim_src_config``
 
-val prim_config_def = Define`
+Definition prim_config_def:
   prim_config =
-    FST (to_flat <| source_conf := empty_config |> (prim_types_program))`;
+    FST (to_flat <| source_conf := empty_config |> (prim_types_program))
+End
 
-val prim_config_eq = save_thm("prim_config_eq",
-  EVAL ``prim_config`` |> SIMP_RULE std_ss [FUNION_FUPDATE_1,FUNION_FEMPTY_1]);
+Theorem prim_config_eq =
+  EVAL ``prim_config`` |> SIMP_RULE std_ss [FUNION_FUPDATE_1,FUNION_FEMPTY_1]
 
-val from_lab_def = Define`
-  from_lab c names p =
-    attach_bitmaps names c (lab_to_target$compile c.lab_conf p)`;
+Definition from_lab_def:
+  from_lab c names p bm =
+    attach_bitmaps names c bm (lab_to_target$compile c.lab_conf p)
+End
 
-val from_stack_def = Define`
-  from_stack c names p =
+Definition from_stack_def:
+  from_stack c names p bm =
   let p = stack_to_lab$compile
     c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
     (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3))
     (c.lab_conf.asm_conf.addr_offset) p in
-  from_lab c names (p:'a prog)`;
+  from_lab c names (p:'a labLang$prog) bm
+End
 
-val from_word_def = Define`
+Definition from_word_def:
   from_word c names p =
-  let (c',fs,p) = word_to_stack$compile c.lab_conf.asm_conf p in
+  let (bm,c',fs,p) = word_to_stack$compile c.lab_conf.asm_conf p in
   let c = c with word_conf := c' in
-  from_stack c names p`;
+  from_stack c names p bm
+End
 
-val from_word_0_def = Define`
+Definition from_word_0_def:
   from_word_0 c names p =
   let (col,prog) = word_to_word$compile c.word_to_word_conf c.lab_conf.asm_conf p in
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
-  from_word c names prog`;
+  from_word c names prog
+End
 
-val from_data_def = Define`
+Definition from_data_def:
   from_data c names p =
   let (col,p) = data_to_word$compile c.data_conf c.word_to_word_conf c.lab_conf.asm_conf p in
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
-  from_word c names p`;
+  from_word c names p
+End
 
 Theorem from_data_thm:
   from_data c names p =
@@ -240,12 +248,13 @@ Proof
       from_word_0_def]
 QED
 
-val from_bvi_def = Define`
+Definition from_bvi_def:
   from_bvi c names p =
   let p = bvi_to_data$compile_prog p in
-    from_data c names p`;
+    from_data c names p
+End
 
-val from_bvl_def = Define`
+Definition from_bvl_def:
   from_bvl c names p =
   let (s,p,l,n1,n2,names) = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf names p in
   let names = sptree$union (sptree$fromAList $ (data_to_word$stub_names () ++
@@ -253,29 +262,34 @@ val from_bvl_def = Define`
     stack_remove$stub_names ())) names in
   let c = c with clos_conf updated_by (λc. c with start:=s) in
   let c = c with bvl_conf updated_by (λc. c with <| inlines := l; next_name1 := n1; next_name2 := n2 |>) in
-  from_bvi c names p`;
+  from_bvi c names p
+End
 
-val from_clos_def = Define`
+Definition from_clos_def:
   from_clos c e =
   let (c',p,names) = clos_to_bvl$compile c.clos_conf e in
   let c = c with clos_conf := c' in
-  from_bvl c names p`;
+  from_bvl c names p
+End
 
-val from_flat_def = Define`
+Definition from_flat_def:
   from_flat c p =
-  let p = flat_to_clos$compile_decs p in
-  from_clos c p`;
+  let p = flat_to_clos$compile_prog p in
+  from_clos c p
+End
 
-val from_source_def = Define`
+Definition from_source_def:
   from_source c p =
+  let p = source_to_source$compile p in
   let (c',p) = source_to_flat$compile c.source_conf p in
   let c = c with source_conf := c' in
-  from_flat c p`;
+  from_flat c p
+End
 
 Theorem compile_eq_from_source:
    compile = from_source
 Proof
-  srw_tac[][FUN_EQ_THM,compile_def,compile_tap_def,
+  srw_tac[][FUN_EQ_THM,compile_def,
      from_source_def,
      from_lab_def,
      from_stack_def,
@@ -289,7 +303,7 @@ Proof
   rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[]))
 QED
 
-val to_livesets_def = Define`
+Definition to_livesets_def:
   to_livesets (c:α backend$config) p =
   let (c',p,names) = to_data c p in
   let (data_conf,word_conf,asm_conf) = (c.data_conf,c.word_to_word_conf,c.lab_conf.asm_conf) in
@@ -304,17 +318,22 @@ val to_livesets_def = Define`
     let maxv = max_var prog + 1 in
     let inst_prog = inst_select asm_conf maxv prog in
     let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
-    let rm_prog = FST(remove_dead ssa_prog LN) in
-    let prog = if two_reg_arith then three_to_two_reg rm_prog
-                                else rm_prog in
-     (name_num,arg_count,prog)) p in
+    let rm_ssa_prog = remove_dead_prog ssa_prog in
+    let cse_prog = word_common_subexp_elim rm_ssa_prog in
+    let cp_prog = copy_prop cse_prog in
+    let two_prog = three_to_two_reg_prog two_reg_arith cp_prog in
+    let unreach_prog = remove_unreach two_prog in
+    let rm_prog = remove_dead_prog unreach_prog in
+     (name_num,arg_count,rm_prog)) p in
   let data = MAP (\(name_num,arg_count,prog).
     let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
-    (get_clash_tree prog,heu_moves,spillcosts,get_forced c.lab_conf.asm_conf prog [])) p
+    (get_clash_tree prog,heu_moves,spillcosts,
+      get_forced c.lab_conf.asm_conf prog [],get_stack_only prog)) p
   in
-    ((reg_count,data),c',names,p)`
+    ((reg_count,data),c',names,p)
+End
 
-val to_livesets_0_def = Define`
+Definition to_livesets_0_def:
   to_livesets_0 (c:α backend$config,p,names: mlstring num_map) =
   let (word_conf,asm_conf) = (c.word_to_word_conf,c.lab_conf.asm_conf) in
   let alg = word_conf.reg_alg in
@@ -325,15 +344,20 @@ val to_livesets_0_def = Define`
     let maxv = max_var prog + 1 in
     let inst_prog = inst_select asm_conf maxv prog in
     let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
-    let rm_prog = FST(remove_dead ssa_prog LN) in
-    let prog = if two_reg_arith then three_to_two_reg rm_prog
-                                else rm_prog in
-     (name_num,arg_count,prog)) p in
+    let rm_ssa_prog = remove_dead_prog ssa_prog in
+    let cse_prog = word_common_subexp_elim rm_ssa_prog in
+    let cp_prog = copy_prop cse_prog in
+    let two_prog = three_to_two_reg_prog two_reg_arith cp_prog in
+    let unreach_prog = remove_unreach two_prog in
+    let rm_prog = remove_dead_prog unreach_prog in
+     (name_num,arg_count,rm_prog)) p in
   let data = MAP (\(name_num,arg_count,prog).
     let (heu_moves,spillcosts) = get_heuristics alg name_num prog in
-    (get_clash_tree prog,heu_moves,spillcosts,get_forced c.lab_conf.asm_conf prog [])) p
+    (get_clash_tree prog,heu_moves,spillcosts,
+      get_forced c.lab_conf.asm_conf prog [],get_stack_only prog)) p
   in
-    ((reg_count,data),c,names,p)`
+    ((reg_count,data),c,names,p)
+End
 
 Theorem to_data_conf_inv:
   to_data c p = (c',p',names) ⇒
@@ -360,25 +384,26 @@ Proof
   \\ imp_res_tac to_data_conf_inv \\ fs []
 QED
 
-val from_livesets_def = Define`
+Definition from_livesets_def:
   from_livesets ((k,data),c,names,p) =
   let (word_conf,asm_conf) = (c.word_to_word_conf,c.lab_conf.asm_conf) in
   let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
   let alg = word_conf.reg_alg in
   let prog_with_oracles = ZIP (n_oracles,ZIP(data,p)) in
   let p =
-    MAP (λ(col_opt,((tree,heu_moves,spillcosts,forced),name_num,arg_count,prog)).
+    MAP (λ(col_opt,((tree,heu_moves,spillcosts,forced,fs),name_num,arg_count,prog)).
       case oracle_colour_ok k col_opt tree prog forced of
         NONE =>
           let cp =
-            (case select_reg_alloc alg spillcosts k heu_moves tree forced of
-              Success col =>
+            (case select_reg_alloc alg spillcosts k heu_moves tree forced fs of
+              M_success col =>
                 (apply_colour (total_colour col) prog)
-            | Failure _ => prog (*cannot happen*)) in
+            | M_failure _ => prog (*cannot happen*)) in
           (name_num,arg_count,remove_must_terminate cp)
       | SOME col_prog => (name_num,arg_count,remove_must_terminate col_prog)) prog_with_oracles in
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
-  from_word c names p`;
+  from_word c names p
+End
 
 Triviality ZIP_MAP_MAP:
   ∀xs. ZIP (MAP f xs, MAP g xs) = MAP (λx. (f x, g x)) xs
@@ -423,7 +448,7 @@ Proof
      to_bvl_def,
      to_clos_def,
      to_flat_def,to_livesets_def] >>
-  fs[compile_def,compile_tap_def]>>
+  fs[compile_def]>>
   pairarg_tac>>
   fs[data_to_wordTheory.compile_def,word_to_wordTheory.compile_def]>>
   fs[from_livesets_def,from_word_def,from_stack_def,from_lab_def]>>
@@ -508,10 +533,11 @@ Proof
   \\ simp[config_component_equality]
 QED
 
-val ensure_fp_conf_ok_def = Define `
+Definition ensure_fp_conf_ok_def:
   ensure_fp_conf_ok asm_c c =
   c with <|has_fp_ops := (1 < asm_c.fp_reg_count);
-          has_fp_tern := (asm_c.ISA = ARMv7 ∧ 2 < asm_c.fp_reg_count)|>`;
+          has_fp_tern := (asm_c.ISA = ARMv7 ∧ 2 < asm_c.fp_reg_count)|>
+End
 
 Overload bvl_inline_compile_prog[local] = ``bvl_inline$compile_prog``
 Overload bvi_tailrec_compile_prog[local] = ``bvi_tailrec$compile_prog``
@@ -547,20 +573,22 @@ Datatype:
    |>
 End
 
-val empty_progs_def = Define `
+Definition empty_progs_def:
   empty_progs = <| env_id := (0, 0); source_prog := []; flat_prog := [];
     clos_prog := ([], []); bvl_prog := []; bvi_prog := [];
     data_prog := []; word_prog := []; stack_prog := []; cur_bm := [];
-    lab_prog := []; target_prog := SOME ([], []) |>`;
+    lab_prog := []; target_prog := SOME ([], []) |>
+End
 
 Definition keep_progs_def:
   keep_progs k ps = (case k of T => ps | _ => [])
 End
 
-val compile_inc_progs_def = Define`
+Definition compile_inc_progs_def:
   compile_inc_progs k c p_tup =
     let (env_id,p) = p_tup in
     let ps = empty_progs with <| env_id := env_id; source_prog := p |> in
+    let p = source_to_source$compile p in
     let (c',p) = source_to_flat$inc_compile env_id c.source_conf p in
     let ps = ps with <| flat_prog := keep_progs k p |> in
     let c = c with source_conf := c' in
@@ -581,22 +609,23 @@ val compile_inc_progs_def = Define`
     let p = MAP (\p. full_compile_single asm_c.two_reg_arith reg_count1
         c.word_to_word_conf.reg_alg asm_c (p, NONE)) p in
     let ps = ps with <| word_prog := keep_progs k p |> in
-    let bm0 = c.word_conf.bitmaps in
-    let (p, fs, bm) = compile_word_to_stack reg_count1 p bm0 in
-    let cur_bm = DROP (LENGTH bm0) bm in
-    let c = c with word_conf := <|bitmaps := bm|> in
+    let bm0 = c.word_conf.bitmaps_length in
+    let (p, fs, bm) = compile_word_to_stack c.lab_conf.asm_conf reg_count1 p (Nil, bm0) in
+    let cur_bm = append (FST bm) in
+    let c = c with word_conf := (c.word_conf with bitmaps_length := SND bm) in
     let ps = ps with <| stack_prog := keep_progs k p ; cur_bm := cur_bm |> in
     let reg_count2 = asm_c.reg_count - (3 + LENGTH asm_c.avoid_regs) in
     let p = stack_to_lab$compile_no_stubs
         c.stack_conf.reg_names c.stack_conf.jump asm_c.addr_offset
         reg_count2 p in
     let ps = ps with <| lab_prog := keep_progs k p |> in
-    let target = lab_to_target$compile c.lab_conf (p:'a prog) in
+    let target = lab_to_target$compile c.lab_conf (p:'a labLang$prog) in
     let ps = ps with <| target_prog := OPTION_MAP
-        (\(bytes, _). (bytes, c.word_conf.bitmaps)) target |> in
+        (\(bytes, _). (bytes, cur_bm)) target |> in
     let c = c with lab_conf updated_by (case target of NONE => I
         | SOME (_, c') => K c') in
-    (c, ps)`;
+    (c, ps)
+End
 
 (* this type is used to construct the oracle in the eval semantics,
    and must be translated so that its IsTypeRep thm is proven *)
@@ -607,11 +636,12 @@ Datatype:
    ; inc_bvl_conf : bvl_to_bvi$config
    ; inc_data_conf : data_to_word$config
    ; inc_word_to_word_conf : word_to_word$config
-   ; inc_word_conf : 'a word_to_stack$config
+   ; inc_word_conf : word_to_stack$config
    ; inc_stack_conf : stack_to_lab$config
    ; inc_lab_conf : lab_to_target$inc_config
    ; inc_symbols : (mlstring # num # num) list
    ; inc_tap_conf : tap_config
+   ; inc_exported : mlstring list
    |>
 End
 
@@ -627,6 +657,7 @@ Definition config_to_inc_config_def:
    ; inc_lab_conf := lab_to_target$config_to_inc_config c.lab_conf
    ; inc_symbols := c.symbols
    ; inc_tap_conf := c.tap_conf
+   ; inc_exported := c.exported
    |>
 End
 
@@ -642,17 +673,40 @@ Definition inc_config_to_config_def:
    ; lab_conf := lab_to_target$inc_config_to_config asm_c c.inc_lab_conf
    ; symbols := c.inc_symbols
    ; tap_conf := c.inc_tap_conf
+   ; exported := c.inc_exported
    |>
 End
 
 val components = theorem "config_component_equality"
 
+Theorem to_shmem_info_to_inc_shmem_info_inv[simp]:
+  MAP to_shmem_info (MAP to_inc_shmem_info ls) = ls
+Proof
+  Induct_on ‘ls’>>rw[]>>
+  simp[lab_to_targetTheory.to_inc_shmem_info_def,
+       lab_to_targetTheory.to_shmem_info_def,
+       lab_to_targetTheory.shmem_rec_component_equality]>>
+  Cases_on ‘h.access_addr’>>fs[]
+QED
+
+Theorem to_inc_shmem_info_to_shmem_info_inv[simp]:
+  EVERY (λh. h.entry_pc < dimword (:α) ∧
+             h.addr_off < dimword (:α) ∧
+             h.exit_pc < dimword (:α)) ls ⇒
+  MAP to_inc_shmem_info ((MAP to_shmem_info ls):'a shmem_info) = ls
+Proof
+  Induct_on ‘ls’>>rw[]>>
+  simp[lab_to_targetTheory.to_inc_shmem_info_def,
+       lab_to_targetTheory.to_shmem_info_def,
+       lab_to_targetTheory.shmem_info_num_component_equality]>>fs[]
+QED
+
 Theorem inc_config_to_config_inv:
   asm_c = c.lab_conf.asm_conf ==>
-  inc_config_to_config asm_c (config_to_inc_config c) = c
+  inc_config_to_config asm_c  (config_to_inc_config c) = c
 Proof
   simp [config_to_inc_config_def, inc_config_to_config_def, components]
-  \\ simp [lab_to_targetTheory.config_to_inc_config_def,
+  \\ simp [lab_to_targetTheory.config_to_inc_config_def, MAP_MAP_o, o_DEF,
     lab_to_targetTheory.inc_config_to_config_def,
     lab_to_targetTheory.config_component_equality]
 QED
@@ -660,13 +714,48 @@ QED
 val inc_components = theorem "inc_config_component_equality"
 
 Theorem config_to_inc_config_inv:
-  config_to_inc_config (inc_config_to_config asm_c c) = c
+  EVERY
+     (λh.
+        h.entry_pc < dimword (:α) ∧ h.addr_off < dimword (:α) ∧
+        h.exit_pc < dimword (:α)) c.inc_lab_conf.inc_shmem_extra ⇒
+  config_to_inc_config (inc_config_to_config (asm_c:'a asm_config) c) = c
 Proof
   simp [config_to_inc_config_def, inc_config_to_config_def, inc_components]
   \\ simp [lab_to_targetTheory.config_to_inc_config_def,
     lab_to_targetTheory.inc_config_to_config_def,
-    lab_to_targetTheory.inc_config_component_equality]
+    lab_to_targetTheory.inc_config_component_equality]>>
+  strip_tac>>irule to_inc_shmem_info_to_shmem_info_inv>>fs[]
 QED
+
+Theorem config_to_inc_bounded:
+  EVERY (λh. h.entry_pc < dimword (:α) ∧ h.addr_off < dimword (:α) ∧
+             h.exit_pc < dimword (:α))
+  (config_to_inc_config (cfg:'a config)).inc_lab_conf.inc_shmem_extra
+Proof
+  simp[config_to_inc_config_def,
+       config_component_equality,
+       lab_to_targetTheory.config_to_inc_config_def,
+       lab_to_targetTheory.config_component_equality]>>
+  simp[EVERY_MAP,
+       lab_to_targetTheory.to_inc_shmem_info_def,
+       lab_to_targetTheory.config_component_equality]>>
+  simp[EVERY_MEM]>>strip_tac>>strip_tac>>
+  CASE_TAC>>fs[w2n_lt]
+QED
+
+Definition upper_w2w_def:
+  upper_w2w (w:'a word) =
+    if dimindex (:'a) = 32 then w2w w << 32 else (w2w w):word64
+End
+
+Definition compile_inc_progs_for_eval_def:
+  compile_inc_progs_for_eval asm_c x =
+  let (env_id, inc_c', decs) = x in
+  let c' = inc_config_to_config asm_c inc_c' in
+  let (c'', ps) = compile_inc_progs T c' (env_id, decs) in
+    OPTION_MAP (\(bs, ws). (config_to_inc_config c'', bs, MAP upper_w2w ws))
+        ps.target_prog
+End
 
 Theorem to_word_0_invariant:
   (wc.reg_alg = c.word_to_word_conf.reg_alg) ⇒
@@ -684,21 +773,104 @@ Proof
   rpt(rfs[]>>fs[])
 QED
 
-(* used in compilationLib *)
-Theorem MAP_ZIP_ZIP:
-  ∀n xs ys zs.
-    LENGTH xs = n ∧ LENGTH ys = n ∧ LENGTH zs = n ⇒
-    MAP f (ZIP (xs, ZIP (ys, zs))) =
-    MAP3 (λx (y1,y2,y3,y4) (z1,z2,z3). f (x,(y1,y2,y3,y4),(z1,z2,z3))) xs ys zs
+Theorem compile_inc_progs_for_eval_eq:
+  compile_inc_progs_for_eval asm_c' (env_id,inc_c,p) =
+    let c = inc_config_to_config asm_c' inc_c in
+    let p = source_to_source$compile p in
+    let (c',p) = source_to_flat$inc_compile env_id c.source_conf p in
+    let _ = empty_ffi (strlit "finished: source_to_flat") in
+    let c = c with source_conf := c' in
+    let p = flat_to_clos_inc_compile p in
+    let _ = empty_ffi (strlit "finished: flat_to_clos") in
+    let (c',p) = clos_to_bvl_compile_inc c.clos_conf p in
+    let _ = empty_ffi (strlit "finished: clos_to_bvl") in
+    let c = c with clos_conf := c' in
+    let (c', p) = bvl_to_bvi_compile_inc_all c.bvl_conf p in
+    let _ = empty_ffi (strlit "finished: bvl_to_bvi") in
+    let c = c with <| bvl_conf := c' |> in
+    let p = bvi_to_data_compile_prog p in
+    let _ = empty_ffi (strlit "finished: bvi_to_data") in
+    let dc = ensure_fp_conf_ok asm_c' c.data_conf in
+    let p = MAP (compile_part dc) p in
+    let reg_count1 = asm_c'.reg_count - (5 + LENGTH asm_c'.avoid_regs) in
+    let p = MAP (\p. full_compile_single_for_eval asm_c'.two_reg_arith reg_count1
+        c.word_to_word_conf.reg_alg asm_c' (p, NONE)) p in
+    let _ = empty_ffi (strlit "finished: data_to_word") in
+    let bm0 = c.word_conf.bitmaps_length in
+    let (p, fs, bm) = compile_word_to_stack asm_c' reg_count1 p (Nil, bm0) in
+    let _ = empty_ffi (strlit "finished: word_to_stack") in
+    let cur_bm = append (FST bm) in
+    let c = c with word_conf := (c.word_conf with bitmaps_length := SND bm) in
+    let reg_count2 = asm_c'.reg_count - (3 + LENGTH asm_c'.avoid_regs) in
+    let p = stack_to_lab$compile_no_stubs
+        c.stack_conf.reg_names c.stack_conf.jump asm_c'.addr_offset
+        reg_count2 p in
+    let _ = empty_ffi (strlit "finished: stack_to_lab") in
+    let target = lab_to_target$compile c.lab_conf (p:'a labLang$prog) in
+    let _ = empty_ffi (strlit "finished: lab_to_target") in
+    let c = c with lab_conf updated_by (case target of NONE => I
+                                        | SOME (_, c') => K c') in
+      OPTION_MAP (λx. (config_to_inc_config c,FST x,MAP upper_w2w cur_bm)) target
 Proof
-  Induct \\ fs [LENGTH_NIL,LENGTH_CONS,PULL_EXISTS,FORALL_PROD]
+  fs [compile_inc_progs_for_eval_def,compile_inc_progs_def, full_compile_single_for_eval_eq]
+  \\ rpt (pairarg_tac \\ gvs [EVAL “(inc_config_to_config asm_c' inc_c).lab_conf.asm_conf”])
+  \\ fs [optionTheory.OPTION_MAP_COMPOSE]
+  \\ AP_THM_TAC
+  \\ AP_TERM_TAC
+  \\ fs [FUN_EQ_THM,FORALL_PROD]
 QED
 
-(* used in compilationLib *)
-Theorem TAKE_DROP_PAIR_LEMMA:
-  LENGTH xs = n ⇒ (TAKE n xs, DROP n xs) = (xs, [])
+Definition ffinames_to_string_list_def:
+  (ffinames_to_string_list [] = []) ∧
+  (ffinames_to_string_list ((ExtCall s)::rest) =
+    s::(ffinames_to_string_list rest)) ∧
+  (ffinames_to_string_list ((SharedMem _)::rest) =
+    ffinames_to_string_list rest)
+End
+
+
+Definition inc_set_oracle_def:
+  inc_set_oracle c oracle =
+    c with inc_word_to_word_conf :=
+        (c.inc_word_to_word_conf with col_oracle := oracle)
+End
+
+Definition set_oracle_def:
+  set_oracle c oracle =
+    c with
+    word_to_word_conf := c.word_to_word_conf with col_oracle := oracle
+End
+
+Definition set_asm_conf_def:
+  set_asm_conf c asm_c =
+    c with lab_conf := c.lab_conf with asm_conf := asm_c
+End
+
+Theorem inc_set_oracle_pull:
+  ∀oracle c. inc_config_to_config b (inc_set_oracle c oracle) =
+             set_oracle (inc_config_to_config b c) oracle
 Proof
-  rw []
+  gvs [inc_set_oracle_def,inc_config_to_config_def,set_oracle_def]
 QED
 
-val _ = export_theory();
+Theorem inc_config_to_config_config_to_inc_config:
+  inc_config_to_config asm_c (config_to_inc_config c) =
+  set_asm_conf c asm_c
+Proof
+  gvs [inc_config_to_config_def,
+       config_to_inc_config_def,
+       lab_to_targetTheory.inc_config_to_config_def,
+       lab_to_targetTheory.config_to_inc_config_def,
+       config_component_equality,
+       lab_to_targetTheory.config_component_equality,
+       set_asm_conf_def]
+QED
+
+Theorem set_asm_conf_id:
+  c.lab_conf.asm_conf = asm_c ⇒
+  set_asm_conf c asm_c = c
+Proof
+  gvs [set_asm_conf_def, fetch "-" "config_component_equality",
+       lab_to_targetTheory.config_component_equality]
+QED
+

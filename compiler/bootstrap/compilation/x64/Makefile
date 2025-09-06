@@ -13,26 +13,31 @@ OS ?= $(shell uname)
 ifeq ($(OS),Windows_NT)
 	PREF =
 	SUFF = .exe
+	EVALFLAG =
 else
 	PREF = ./
 	SUFF =
+	EVALFLAG = -DEVAL
 endif
 
 ifeq ($(OS),Darwin)
 	# These options avoid linker warnings on macOS
 	LDFLAGS += -Wl,-no_pie
+	EVALFLAG =
 endif
 
+CFLAGS+=-O2
+LDLIBS+=-lm
 CMLS = $(wildcard *.cml)
 CML_PROGS = $(patsubst %.cml,%.cake$(SUFF),$(CMLS))
 
 # Links the CakeML compiler and compiles all the .cml files in this directory
-all: cake$(SUFF) $(CML_PROGS)
+all: cake$(SUFF)
 
 # Linking the CakeML compiler
 
-cake$(SUFF): cake.o basis_ffi.o
-	$(CC) $(LDFLAGS) $< basis_ffi.o $(LOADLIBES) $(LDLIBS) -o $@
+cake$(SUFF): cake.S basis_ffi.c
+	$(CC) $(CFLAGS) $< basis_ffi.c $(LOADLIBES) $(EVALFLAG) -o $@ $(LDFLAGS) $(LDLIBS)
 
 # Note: While this Makefile is shared the sexpr files used in the example rules
 # below are only included in the verified cake-x64-64.tar.gz release package
@@ -42,20 +47,20 @@ cake$(SUFF): cake.o basis_ffi.o
 
 cake_verbose$(SUFF): cake-sexpr-64 basis_ffi.c cake$(SUFF)
 	CML_STACK_SIZE=1000 CML_HEAP_SIZE=6000 $(PREF)cake$(SUFF) --sexp=true --exclude_prelude=true --skip_type_inference=true --emit_empty_ffi=true --reg_alg=0 < $< > $<.S
-	$(CC) $(CFLAGS) $(LDFLAGS) -DDEBUG_FFI -o $@ $<.S basis_ffi.c
+	$(CC) $(CFLAGS) -DDEBUG_FFI -o $@ $<.S basis_ffi.c $(LDFLAGS) $(LDLIBS)
 
 # *UNVERIFIED* compiler supporting 32-bit targets; see cake-x64-32.tar.gz for a
 # verified compiler
 
 cake_unverified32$(SUFF): cake-sexpr-32 basis_ffi.c cake$(SUFF)
 	CML_STACK_SIZE=1000 CML_HEAP_SIZE=6000 $(PREF)cake$(SUFF) --sexp=true --exclude_prelude=true --skip_type_inference=true --reg_alg=0 < $< > $<.S
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<.S basis_ffi.c
+	$(CC) $(CFLAGS) -o $@ $<.S basis_ffi.c $(LDFLAGS) $(LDLIBS)
 
 # Example of cross-compiling the compiler itself
 RISCV_CC ?= riscv64-unknown-linux-gnu-cc
 cake_riscv_host: cake-sexpr-64 basis_ffi.c cake$(SUFF)
 	CML_STACK_SIZE=1000 CML_HEAP_SIZE=6000 $(PREF)cake$(SUFF) --sexp=true --exclude_prelude=true --skip_type_inference=true --target=riscv --reg_alg=0 < $< > $<.riscv.S
-	$(RISCV_CC) $(CFLAGS) $(LDFLAGS) -o $@ $<.riscv.S basis_ffi.c
+	$(RISCV_CC) $(CFLAGS) -o $@ $<.riscv.S basis_ffi.c $(LDFLAGS) $(LDLIBS)
 
 # Using the CakeML compiler
 
@@ -69,8 +74,8 @@ cake_riscv_host: cake-sexpr-64 basis_ffi.c cake$(SUFF)
 %.cake.S : %.cml cake$(SUFF)
 	$(PREF)cake$(SUFF) $(CAKEFLAGS) <$< >$@
 
-%.cake$(SUFF) : %.cake.S basis_ffi.o
-	$(CC) $(LDFLAGS) $< basis_ffi.o $(LOADLIBES) $(LDLIBS) -o $@
+%.cake$(SUFF) : %.cake.S basis_ffi.c
+	$(CC) $< basis_ffi.c $(LOADLIBES) $(LDLIBS) -o $@ $(LDFLAGS) $(LDLIBS)
 
 clean:
 	$(RM) basis_ffi.o cake.o cake$(SUFF) *.cake.o *.cake.S *.cake$(SUFF)

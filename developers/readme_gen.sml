@@ -28,23 +28,33 @@ val OUTPUT_FILENAME = "README.md"
 val CHECK_OPT = "--check"
 val AUTO_INCLUDE_SUFFIXES = ["Script.sml","Syntax.sml","Lib.sml",".lem",".c",".cml"]
 val FIRST_TARGET_PREFIX = "all: $(DEFAULT_TARGETS) README.md"
+val PHONY_SUGGESTION = ".PHONY: all"
 
 val HOLMAKEFILE_SUGGESTION =
- concat ["README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) ",
-         "$(wildcard *Syntax.sml)\n",
-         "DIRS = $(wildcard */)\n",
-         "README.md: $(CAKEMLDIR)/developers/readme_gen",
-         " readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)\n",
-         "\t$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)\n"]
+concat ["INCLUDES =\n\n",
+        FIRST_TARGET_PREFIX ^ "\n",
+        PHONY_SUGGESTION ^ "\n\n",
+        "README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) ",
+        "$(wildcard *Syntax.sml)\n",
+        "DIRS = $(wildcard */)\n",
+        "README.md: $(CAKEMLDIR)/developers/readme_gen",
+        " readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)\n",
+        "\t$(CAKEMLDIR)/developers/readme_gen $(README_SOURCES)\n"]
 
 val ILLEGAL_STRINGS =
   [("store_thm(\"", "The Theorem syntax is to be used instead of store_thm."),
    ("type_abbrev(\"", "The Type syntax is to be used instead of type_abbrev."),
    ("overload_on(\"", "Use Overload ... = ``...`` instead of overload_on."),
    ("Hol_datatype"^"`", "Use Datatype: ... End syntax instead of Hol_datatype."),
+   ("Datatype"^"`", "Use Datatype: ... End syntax instead of Datatype with `"),
+   (* \226\128\152 corresponds to ‘ *)
+   ("Datatype"^"\226\128\152", "Use Datatype: ... End syntax instead of Datatype\226\128\152."),
    ("Hol_rel"^"n`","Use Inductive ... End instead of old Hol_reln."),
    ("Hol_rel"^"n\"","Use Inductive ... End instead of old Hol_reln."),
-   ("Hol_corel"^"n`","Use CoInductive ... End instead of old Hol_coreln.")]
+   ("Hol_corel"^"n`","Use CoInductive ... End instead of old Hol_coreln."),
+   (* HACK Stop readme_gen from flagging itself by using \ \ in strings *)
+   ("new_\ \theory","Use Theory syntax instead of old new_\ \theory"),
+   ("export_\ \theory","Use Theory sytnax instead of old export_\ \theory")]
 
 (* Helper functions *)
 
@@ -261,7 +271,7 @@ fun read_comment_from_script filename = let
     in all_lines end handle e => (TextIO.closeIn(f); raise e)
   end;
 
-(* Read from a raw text file, e.g. COPYING *)
+(* Read from a raw text file, e.g. LICENSE *)
 
 fun read_comment_from_raw filename = let
   val f = open_textfile filename

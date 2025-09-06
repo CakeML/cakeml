@@ -2,14 +2,18 @@
 An example of a stack data structure implemented using CakeML arrays, verified
 using CF.
 *)
+Theory stackProg
+Libs
+  preamble basis
+Ancestors
+  cfApp mlbasicsProg
 
-open preamble basis
-
-val _ = new_theory "stackProg";
 
 val _ = translation_extends"basisProg";
 
-val _ = Datatype `exn_type = EmptyStack`;
+Datatype:
+  exn_type = EmptyStack
+End
 val _ = register_exn_type ``:exn_type``;
 
 val stack_decls = process_topdecs
@@ -35,21 +39,23 @@ val stack_decls = process_topdecs
 
 val _ = append_prog stack_decls;
 
-val EmptyStack_exn_def = Define`
-  EmptyStack_exn v = STACKPROG_EXN_TYPE_TYPE EmptyStack v`;
+Definition EmptyStack_exn_def:
+  EmptyStack_exn v = STACKPROG_EXN_TYPE_TYPE EmptyStack v
+End
 
 val EmptyStack_exn_def = EVAL ``EmptyStack_exn v``;
 
 (* Heap predicate for stacks:
    STACK A vs qv means qv is a reference to a stack of
    elements vs, with A the refinement invariant satsfied by the elements of the stack *)
-val STACK_def  = Define `
+Definition STACK_def:
   STACK A vs qv =
   SEP_EXISTS av iv vvs junk.
     REF qv (Conv NONE [av;iv]) *
     & NUM (LENGTH vs) iv *
     ARRAY av (vvs ++ junk) *
-    & LIST_REL A vs vvs`;
+    & LIST_REL A vs vvs
+End
 
 (* Some simple auto tactics *)
 val xsimpl_tac = rpt(FIRST [xcon, (CHANGED_TAC xsimpl), xif, xmatch, xapp]);
@@ -57,10 +63,11 @@ val xs_auto_tac = rpt (FIRST [xcon, (CHANGED_TAC xsimpl), xif, xmatch, xapp, xle
 
 val st = get_ml_prog_state ();
 
-Theorem empty_stack_spec:
+Theorem empty_stack_spec':
      !uv. app (p:'ffi ffi_proj) ^(fetch_v "empty_stack" st) [uv]
           emp (POSTv qv. STACK A [] qv)
 Proof
+    strip_tac \\
     xcf "empty_stack" st \\
     xlet `POSTv v. &UNIT_TYPE () v` THEN1(xcon \\ xsimpl) \\
     xlet `POSTv av. ARRAY av []` THEN1(xapp \\ fs[]) \\
@@ -74,14 +81,17 @@ Theorem empty_stack_spec:
      !uv. app (p:'ffi ffi_proj) ^(fetch_v "empty_stack" st) [uv]
           emp (POSTv qv. STACK A [] qv)
 Proof
-    xcf "empty_stack" st >> simp[STACK_def] >> xs_auto_tac
+    strip_tac >>
+    xcf "empty_stack" st >> xs_auto_tac >> simp[STACK_def] >>
+    xs_auto_tac
 QED
 
-Theorem push_spec:
+Theorem push_spec':
      !qv xv vs x. app (p:'ffi ffi_proj) ^(fetch_v "push" st) [qv; xv]
           (STACK A vs qv * & A x xv)
           (POSTv uv. STACK A (vs ++ [x]) qv)
 Proof
+    rpt strip_tac >>
     xcf "push" st >>
     simp[STACK_def] >>
     xpull >>
@@ -133,6 +143,7 @@ Theorem push_spec:
           (STACK A vs qv * & A x xv)
           (POSTv uv. STACK A (vs ++ [x]) qv)
 Proof
+    rpt strip_tac >>
     xcf "push" st >>
     simp[STACK_def] >>
     xpull >>
@@ -175,6 +186,7 @@ Theorem pop_spec:
    (POSTve (\v. &(not(NULL vs) /\ A (LAST vs) v) * STACK A (FRONT vs) qv)
            (\e. &(NULL vs /\ EmptyStack_exn e) * STACK A vs qv))
 Proof
+   rpt strip_tac >>
    xcf "pop" st >>
    simp[STACK_def] >>
    xpull >>
@@ -226,5 +238,3 @@ Proof
   rw[] >>
   fs[NULL_EQ]
 QED
-
-val _ = export_theory ()

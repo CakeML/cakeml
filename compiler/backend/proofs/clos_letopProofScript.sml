@@ -1,15 +1,16 @@
 (*
   Correctness proof for clos_letop
 *)
+Theory clos_letopProof
+Ancestors
+  closProps clos_letop closSem closLang backendProps
+Libs
+  preamble
 
-open preamble closPropsTheory clos_letopTheory closSemTheory
-     closLangTheory backendPropsTheory
 
 fun bump_assum pat = qpat_x_assum pat assume_tac;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "clos_letopProof";
 
 Overload let_op = ``clos_letop$let_op``
 Overload var_list = ``clos_letop$var_list``
@@ -27,9 +28,10 @@ Proof
   strip_tac \\ strip_assume_tac (Q.SPEC `x` let_op_SING) \\ simp []
 QED
 
-val code_rel_def = Define `
+Definition code_rel_def:
   code_rel e1 e2 <=>
-    e2 = let_op e1`;
+    e2 = let_op e1
+End
 
 Theorem code_rel_IMP_LENGTH:
    !xs ys. code_rel xs ys ==> LENGTH xs = LENGTH ys
@@ -46,15 +48,16 @@ QED
 
 (* value relation *)
 
-val f_rel_def = Define `
+Definition f_rel_def:
   f_rel (a1, e1) (a2, e2) <=>
-     a1 = a2 /\ code_rel [e1] [e2]`;
+     a1 = a2 /\ code_rel [e1] [e2]
+End
 
 Inductive v_rel:
   (!i. v_rel (Number i) (Number i)) /\
   (!w. v_rel (Word64 w) (Word64 w)) /\
   (!w. v_rel (ByteVector w) (ByteVector w)) /\
-  (!n. v_rel (RefPtr n) (RefPtr n)) /\
+  (!n b. v_rel (RefPtr b n) (RefPtr b n)) /\
   (!tag xs ys.
      LIST_REL v_rel xs ys ==>
        v_rel (Block tag xs) (Block tag ys)) /\
@@ -70,35 +73,37 @@ Inductive v_rel:
        v_rel (Recclosure loc args1 env1 funs1 k) (Recclosure loc args2 env2 funs2 k))
 End
 
-val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ [
+Theorem v_rel_simps[simp] =
+  LIST_CONJ [
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Number n) x``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Block n p) x``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Word64 p) x``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (ByteVector p) x``,
-  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (RefPtr p) x``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (RefPtr b p) x``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Closure x1 x2 x3 x4 x5) x``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Recclosure y1 y2 y3 y4 y5) x``,
   prove(``v_rel (Boolv b) x <=> x = Boolv b``,
         Cases_on `b` \\ fs [Boolv_def,Once v_rel_cases]),
   prove(``v_rel Unit x <=> x = Unit``,
-        fs [closSemTheory.Unit_def,Once v_rel_cases])])
+        fs [closSemTheory.Unit_def,Once v_rel_cases])]
 
 (* state relation *)
 
 Inductive ref_rel:
-  (!b bs. ref_rel (ByteArray b bs) (ByteArray b bs)) /\
+  (!bs. ref_rel (ByteArray bs) (ByteArray bs)) /\
   (!xs ys.
     LIST_REL v_rel xs ys ==>
     ref_rel (ValueArray xs) (ValueArray ys))
 End
 
-val FMAP_REL_def = Define `
+Definition FMAP_REL_def:
   FMAP_REL r f1 f2 <=>
     FDOM f1 = FDOM f2 /\
     !k v. FLOOKUP f1 k = SOME v ==>
-          ?v2. FLOOKUP f2 k = SOME v2 /\ r v v2`;
+          ?v2. FLOOKUP f2 k = SOME v2 /\ r v v2
+End
 
-val state_rel_def = Define `
+Definition state_rel_def:
   state_rel (s:('c, 'ffi) closSem$state) (t:('c, 'ffi) closSem$state) <=>
     (!n. SND (SND (s.compile_oracle n)) = []) /\
     s.code = FEMPTY /\ t.code = FEMPTY /\
@@ -108,7 +113,8 @@ val state_rel_def = Define `
     LIST_REL (OPTREL v_rel) s.globals t.globals /\
     FMAP_REL ref_rel s.refs t.refs /\
     s.compile = pure_cc compile_inc t.compile /\
-    t.compile_oracle = pure_co compile_inc o s.compile_oracle`;
+    t.compile_oracle = pure_co compile_inc o s.compile_oracle
+End
 
 (* *)
 
@@ -837,4 +843,3 @@ Proof
   \\ res_tac \\ fs[]
 QED
 
-val _ = export_theory();

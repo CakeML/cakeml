@@ -1,11 +1,13 @@
 (*
   Define the compiler configuration for RISC-V
 *)
-open preamble backendTheory riscv_targetTheory riscv_targetLib
+Theory riscv_config
+Ancestors
+  backend riscv_target
+Libs
+  preamble riscv_targetLib
 
-val _ = new_theory"riscv_config";
-
-val riscv_names_def = Define `
+Definition riscv_names_def:
   riscv_names =
   (* arguments: 10-17
        including return values: 10-11
@@ -37,20 +39,21 @@ val riscv_names_def = Define `
    insert 27 0 o
    insert 28 2 o
    insert 29 3 o
-   insert 30 4) LN:num num_map`;
+   insert 30 4) LN:num num_map
+End
 
-val riscv_names_def = save_thm("riscv_names_def[compute]",
-  CONV_RULE (RAND_CONV EVAL) riscv_names_def);
+Theorem riscv_names_def[compute,allow_rebind] =
+  CONV_RULE (RAND_CONV EVAL) riscv_names_def
 
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
 val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
 val word_to_word_conf = ``<| reg_alg:=3; col_oracle := [] |>``
-val riscv_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=T; has_longdiv:=F; has_fp_ops:=F; has_fp_tern:=F; call_empty_ffi:=F; gc_kind:=Simple|>``
-val riscv_word_conf = ``<| bitmaps := []:64 word list; stack_frame_size := LN |>``
+val riscv_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=T; has_longdiv:=F; has_fp_ops:=F; has_fp_tern:=F; be:=F; call_empty_ffi:=F; gc_kind:=Simple|>``
+val riscv_word_conf = ``<| bitmaps_length := 0; stack_frame_size := LN |>``
 val riscv_stack_conf = ``<|jump:=F;reg_names:=riscv_names|>``
-val riscv_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];asm_conf:=riscv_config;init_clock:=5;hash_size:=104729n|>``
+val riscv_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];asm_conf:=riscv_config;init_clock:=5;hash_size:=104729n;shmem_extra:=[]|>``
 
-val riscv_backend_config_def = Define`
+Definition riscv_backend_config_def:
   riscv_backend_config =
              <|source_conf:=prim_src_config;
                clos_conf:=^(clos_conf);
@@ -61,7 +64,8 @@ val riscv_backend_config_def = Define`
                stack_conf:=^(riscv_stack_conf);
                lab_conf:=^(riscv_lab_conf);
                symbols:=[];
-               tap_conf:=default_tap_config
-               |>`;
+               tap_conf:=default_tap_config;
+               exported:=[]
+               |>
+End
 
-val _ = export_theory();

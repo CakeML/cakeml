@@ -3,10 +3,12 @@
   be extended to a model of the context obtained by applying one of the
   non-axiomatic context updates.
 *)
-open preamble mlstringTheory setSpecTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
-     holSemanticsTheory holSemanticsExtraTheory holSoundnessTheory
-
-val _ = new_theory"holExtension"
+Theory holExtension
+Ancestors
+  mlstring setSpec holSyntaxLib holSyntax holSyntaxExtra
+  holSemantics holSemanticsExtra holSoundness
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -16,11 +18,13 @@ val _ = Parse.hide "mem";
 
 val mem = ``mem:'U->'U->bool``
 
-val sound_update_def = xDefine"sound_update"`
+Definition sound_update_def:
   sound_update0 ^mem ctxt upd ⇔
     ∀i. i models (thyof ctxt) ⇒
       ∃i'. equal_on (sigof ctxt) i i' ∧
-           i' models (thyof (upd::ctxt))`
+           i' models (thyof (upd::ctxt))
+End
+
 
 Overload sound_update = ``sound_update0 ^mem``
 
@@ -878,4 +882,3 @@ Proof
   fs[EVERY_MEM]
 QED
 
-val _ = export_theory()

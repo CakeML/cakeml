@@ -1,12 +1,13 @@
 (*
   Correctness proof for clos_fvs
 *)
-open preamble closLangTheory clos_fvsTheory closSemTheory closPropsTheory;
-local open backendPropsTheory in end;
+Theory clos_fvsProof
+Ancestors
+  closLang clos_fvs closSem closProps backendProps[qualified]
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "clos_fvsProof";
 
 Theorem LENGTH_remove_fvs:
    !fvs xs. LENGTH (remove_fvs fvs xs) = LENGTH xs
@@ -32,9 +33,10 @@ Proof
   strip_assume_tac(SPEC_ALL remove_fvs_SING) \\ rw[]
 QED
 
-val code_rel_def = Define `
+Definition code_rel_def:
   code_rel fvs e1 e2 <=>
-    e2 = remove_fvs fvs e1`;
+    e2 = remove_fvs fvs e1
+End
 
 Theorem code_rel_IMP_LENGTH:
    !xs ys. code_rel fvs xs ys ==> LENGTH xs = LENGTH ys
@@ -51,15 +53,16 @@ QED
 
 (* value relation *)
 
-val f_rel_def = Define `
+Definition f_rel_def:
   f_rel fvs (a1, e1) (a2, e2) <=>
-     a1 = a2 /\ code_rel (a1+fvs) [e1] [e2]`;
+     a1 = a2 /\ code_rel (a1+fvs) [e1] [e2]
+End
 
 Inductive v_rel:
   (!i. v_rel (Number i) (Number i)) /\
   (!w. v_rel (Word64 w) (Word64 w)) /\
   (!w. v_rel (ByteVector w) (ByteVector w)) /\
-  (!n. v_rel (RefPtr n) (RefPtr n)) /\
+  (!n b. v_rel (RefPtr b n) (RefPtr b n)) /\
   (!tag xs ys.
      LIST_REL v_rel xs ys ==>
        v_rel (Block tag xs) (Block tag ys)) /\
@@ -75,29 +78,30 @@ Inductive v_rel:
        v_rel (Recclosure loc args1 env1 funs1 k) (Recclosure loc args2 env2 funs2 k))
 End
 
-val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ [
+Theorem v_rel_simps[simp] =
+  LIST_CONJ [
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Number n) x``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Block n p) x``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Word64 p) x``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (ByteVector p) x``,
-  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (RefPtr p) x``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (RefPtr b p) x``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Closure x1 x2 x3 x4 x5) x``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel (Recclosure y1 y2 y3 y4 y5) x``,
   prove(``v_rel (Boolv b) x <=> x = Boolv b``,
         Cases_on `b` \\ fs [Boolv_def,Once v_rel_cases]),
   prove(``v_rel Unit x <=> x = Unit``,
-        fs [closSemTheory.Unit_def,Once v_rel_cases])])
+        fs [closSemTheory.Unit_def,Once v_rel_cases])]
 
 (* state relation *)
 
 Inductive ref_rel:
-  (!b bs. ref_rel (ByteArray b bs) (ByteArray b bs)) /\
+  (!bs. ref_rel (ByteArray bs) (ByteArray bs)) /\
   (!xs ys.
     LIST_REL v_rel xs ys ==>
     ref_rel (ValueArray xs) (ValueArray ys))
 End
 
-val state_rel_def = Define `
+Definition state_rel_def:
   state_rel (s:('c, 'ffi) closSem$state) (t:('c, 'ffi) closSem$state) <=>
     (!n. SND (SND (s.compile_oracle n)) = []) /\
     s.code = FEMPTY /\ t.code = FEMPTY /\
@@ -107,7 +111,8 @@ val state_rel_def = Define `
     LIST_REL (OPTREL v_rel) s.globals t.globals /\
     fmap_rel ref_rel s.refs t.refs /\
     s.compile = pure_cc compile_inc t.compile /\
-    t.compile_oracle = pure_co compile_inc o s.compile_oracle`;
+    t.compile_oracle = pure_co compile_inc o s.compile_oracle
+End
 
 (* *)
 
@@ -479,20 +484,18 @@ Proof
   \\ `s1.max_app = t1.max_app` by fs [state_rel_def]
   \\ fs [case_eq_thms] \\ rveq \\ fs []
   THEN1 (* dest_closure returns NONE *) (
-    rw[evaluate_def]
+    first_assum $ irule_at $ Pos last
+    \\ rw[evaluate_def]
+    \\ qsuff_tac ‘dest_closure t1.max_app loc_opt f2 (y::ys) = NONE’ >- gvs []
     \\ fs [dest_closure_def]
-    \\ fs [case_eq_thms] \\ rveq \\ fs[]
-    >- (
-      rw[] \\ fs[CaseEq"bool"]
-      \\ imp_res_tac LIST_REL_LENGTH \\ fs [] )
+    \\ gvs [AllCaseEqs()]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ gvs [LIST_REL_EL_EQN]
+    \\ Cases_on ‘i < LENGTH fns’ \\ gvs []
+    \\ res_tac
     \\ rpt(pairarg_tac \\ fs[]) \\ rveq
-    \\ imp_res_tac LIST_REL_LENGTH
-    \\ qpat_x_assum`_ ⇒ _`mp_tac
-    \\ simp[Once COND_RAND]
-    \\ Cases_on`i < LENGTH fns` \\ fs[]
-    \\ imp_res_tac LIST_REL_EL_EQN
-    \\ rfs[f_rel_def] \\ rveq
-    \\ strip_tac \\ fs[] )
+    \\ fs [f_rel_def]
+    \\ gvs [AllCaseEqs()])
   THEN1 (* dest_closure returns SOME Partial_app *)
    (imp_res_tac dest_closure_SOME_IMP
     \\ rveq \\ fs [] \\ rveq
@@ -730,4 +733,3 @@ Proof
   \\ rw[] \\ fs[]
 QED
 
-val _ = export_theory();

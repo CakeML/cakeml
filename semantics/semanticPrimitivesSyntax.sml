@@ -41,7 +41,6 @@ structure semanticPrimitivesSyntax = struct
   val (ExnStamp_tm,mk_ExnStamp,dest_ExnStamp,is_ExnStamp) = s "ExnStamp";
   val (Exp_tm,mk_Exp,dest_Exp,is_Exp) = s "Exp";
   val (Litv_tm,mk_Litv,dest_Litv,is_Litv) = s "Litv";
-  val (Loc_tm,mk_Loc,dest_Loc,is_Loc) = s "Loc";
   val (Match_tm,mk_Match,dest_Match,is_Match) = s "Match";
   val (Rabort_tm,mk_Rabort,dest_Rabort,is_Rabort) = s "Rabort";
   val (Refv_tm,mk_Refv,dest_Refv,is_Refv) = s "Refv";
@@ -56,6 +55,7 @@ structure semanticPrimitivesSyntax = struct
   local val s = HolKernel.syntax_fns2 "semanticPrimitives" in
   (* two-argument functions *)
   val (Conv_tm,mk_Conv,dest_Conv,is_Conv) = s "Conv";
+  val (Loc_tm,mk_Loc,dest_Loc,is_Loc) = s "Loc";
   val (TypeStamp_tm,mk_TypeStamp,dest_TypeStamp,is_TypeStamp) = s "TypeStamp";
   end
   local val s = HolKernel.syntax_fns3 "semanticPrimitives" in

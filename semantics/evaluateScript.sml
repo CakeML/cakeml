@@ -1,12 +1,11 @@
 (*
   Functional big-step semantics for evaluation of CakeML programs.
 *)
-open HolKernel Parse boolLib bossLib;
-open libTheory astTheory namespaceTheory ffiTheory semanticPrimitivesTheory;
+Theory evaluate
+Ancestors
+  fpSem ast namespace ffi semanticPrimitives
 
-val _ = numLib.prefer_num();
-
-val _ = new_theory "evaluate"
+val _ = numLib.temp_prefer_num();
 
 (* The semantics is defined here using fix_clock so that HOL4 generates
  * provable termination conditions. However, after termination is proved, we
@@ -92,46 +91,41 @@ Definition evaluate_def[nocompute]:
   evaluate st env [Fun x e] = (st,Rval [Closure env x e])
   ∧
   evaluate st env [App op es] =
-    (case fix_clock st (evaluate st env (REVERSE es)) of
-       (st',Rval vs) =>
-         if op = Opapp then
-           case do_opapp (REVERSE vs) of
-             NONE => (st',Rerr (Rabort Rtype_error))
-           | SOME (env',e) =>
-             if st'.clock = 0 then (st',Rerr (Rabort Rtimeout_error))
-             else evaluate (dec_clock st') env' [e]
-         else if op = Eval then
-           case fix_clock st' (do_eval_res (REVERSE vs) st') of
-             (st1,Rval (env1,decs)) =>
-               if st1.clock = 0 then (st1,Rerr (Rabort Rtimeout_error))
-               else
-                 (case
-                    fix_clock (dec_clock st1)
-                      (evaluate_decs (dec_clock st1) env1 decs)
-                  of
-                    (st2,Rval env2) =>
-                      (case
-                         declare_env st2.eval_state
-                           (extend_dec_env env2 env1)
-                       of
-                         NONE => (st2,Rerr (Rabort Rtype_error))
-                       | SOME (x,es2) =>
-                         (st2 with
-                          eval_state :=
-                            reset_env_generation st'.eval_state es2,Rval [x]))
-                  | (st2,Rerr (Rraise v7)) =>
-                    (st2 with
-                     eval_state :=
-                       reset_env_generation st'.eval_state st2.eval_state,
-                     Rerr (Rraise v7))
-                  | (st2,Rerr (Rabort a)) => (st2,Rerr (Rabort a)))
-           | (st1,Rerr e) => (st1,Rerr e)
-         else
-           (case do_app (st'.refs,st'.ffi) op (REVERSE vs) of
-              NONE => (st',Rerr (Rabort Rtype_error))
-            | SOME ((refs,ffi),r) =>
-              (st' with <|refs := refs; ffi := ffi|>,list_result r))
-     | (st',Rerr v14) => (st',Rerr v14))
+   (case fix_clock st (evaluate st env (REVERSE es)) of
+    (st', Rval vs) =>
+    (case (getOpClass op) of
+      FunApp =>
+        (case do_opapp (REVERSE vs) of
+          SOME (env',e) =>
+            if st'.clock =( 0 : num) then
+              (st', Rerr (Rabort Rtimeout_error))
+            else
+              evaluate (dec_clock st') env'  [e]
+        | NONE => (st', Rerr (Rabort Rtype_error))
+        )
+     |EvalOp =>
+        (case fix_clock st' (do_eval_res (REVERSE vs) st') of
+          (st1, Rval (env1, decs)) =>
+            if st1.clock = 0 then
+              (st1, Rerr (Rabort Rtimeout_error))
+            else
+              (case fix_clock (dec_clock st1)
+                      (evaluate_decs (dec_clock st1) env1 decs) of
+                (st2, Rval env2) => (case declare_env st2.eval_state
+                  (extend_dec_env env2 env1) of
+                  SOME (x, es2) => (( st2 with<| eval_state :=
+                    (reset_env_generation st'.eval_state es2) |>), Rval [x])
+                | NONE => (st2, Rerr (Rabort Rtype_error)))
+              | (st2, Rerr (Rabort a)) => (st2, Rerr (Rabort a))
+              | (st2, Rerr e) => (( st2 with<| eval_state :=
+                  (reset_env_generation st'.eval_state st2.eval_state) |>), Rerr e))
+        | (st1, Rerr e) => (st1, Rerr e))
+    | Simple =>
+        (case do_app (st'.refs,st'.ffi) op (REVERSE vs) of
+          NONE => (st', Rerr (Rabort Rtype_error))
+        | SOME ((refs,ffi),r) =>
+            (( st' with<| refs := refs; ffi := ffi |>), list_result r)))
+    | res => res)
   ∧
   evaluate st env [Log lop e1 e2] =
     (case fix_clock st (evaluate st env [e1]) of
@@ -199,7 +193,9 @@ Definition evaluate_def[nocompute]:
      | (st1,Rerr v7) => (st1,Rerr v7))
   ∧
   evaluate_decs st env [Dlet locs p e] =
-    (if ALL_DISTINCT (pat_bindings p []) then
+    (if ALL_DISTINCT (pat_bindings p []) ∧
+        every_exp (one_con_check env.c) e
+     then
        case evaluate st env [e] of
          (st',Rval v) =>
            (st',
@@ -213,7 +209,9 @@ Definition evaluate_def[nocompute]:
   ∧
   evaluate_decs st env [Dletrec locs funs] =
     (st,
-     if ALL_DISTINCT (MAP (λ(x,y,z). x) funs) then
+     if ALL_DISTINCT (MAP (λ(x,y,z). x) funs) ∧
+        EVERY (λ(f,n,e). every_exp (one_con_check env.c) e) funs
+     then
        Rval <|v := build_rec_env funs env nsEmpty; c := nsEmpty|>
      else Rerr (Rabort Rtype_error))
   ∧
@@ -264,7 +262,7 @@ Termination
          | INR(INR (s,_,ds)) => (s.clock,list_size dec_size ds))’
   \\ rw [do_if_def,do_log_def,do_eval_res_def,dec_clock_def]
   \\ imp_res_tac fix_clock_IMP \\ fs []
-  \\ fs [listTheory.list_size_def,dec_size_eq,exp_size_eq,list_size_REVERSE]
+  \\ fs [listTheory.list_size_def,list_size_REVERSE]
 End
 
 (* tidy up evalute_def and evaluate_ind *)
@@ -280,7 +278,8 @@ Proof
   ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
   gvs [AllCaseEqs()] >>
   fs[dec_clock_def,fix_clock_def] >> simp[] >>
-  imp_res_tac fix_clock_IMP >> fs[]
+  imp_res_tac fix_clock_IMP >> fs[] >>
+  COND_CASES_TAC >> gs[]
 QED
 
 Theorem fix_clock_do_eval_res:
@@ -327,13 +326,13 @@ val evaluate_decs_conjs =
   |> filter (fn th => (th |> SPEC_ALL |> concl |> dest_eq |> fst
                           |> can (match_term decs_pat)));
 
-Theorem evaluate_def = LIST_CONJ (evaluate_conjs @ evaluate_match_conjs);
+Theorem evaluate_def[allow_rebind] = LIST_CONJ (evaluate_conjs @ evaluate_match_conjs);
 
 Theorem evaluate_match_def = LIST_CONJ evaluate_match_conjs;
 
 Theorem evaluate_decs_def = LIST_CONJ evaluate_decs_conjs;
 
-Theorem evaluate_ind =
+Theorem evaluate_ind[allow_rebind] =
   full_evaluate_ind
   |> Q.SPECL [‘P1’,‘P2’,‘λv1 v2 v3. T’]
   |> SIMP_RULE std_ss []
@@ -351,4 +350,3 @@ Theorem evaluate_decs_ind =
   |> SIMP_RULE std_ss []
   |> Q.GEN ‘P’;
 
-val _ = export_theory()

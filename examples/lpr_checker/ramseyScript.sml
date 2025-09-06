@@ -1,9 +1,11 @@
 (*
    Defining the Ramsey number and SAT encoding
 *)
-open preamble miscTheory lprTheory satSemTheory;
-
-val _ = new_theory "ramsey";
+Theory ramsey
+Libs
+  preamble
+Ancestors
+  misc mllist lpr satSem
 
 (* TODO MOVE *)
 Theorem ALL_DISTINCT_MAP_FST_enumerate:
@@ -37,7 +39,7 @@ QED
 
 Type edges = ``:num -> num -> bool``;
 
-val is_clique_def = Define`
+Definition is_clique_def:
   is_clique e t b <=>
   ∀x y.
     (*
@@ -48,16 +50,19 @@ val is_clique_def = Define`
       if all vertices are not connected
     *)
     x ∈ t ∧ y ∈ t ∧ x ≠ y ⇒
-    e x y = b`
+    e x y = b
+End
 
-val is_ramsey_def = Define`
+Definition is_ramsey_def:
   is_ramsey k n =
   ∀(e:edges). symmetric e ⇒
-    ∃t b. t ⊆ count n ∧ CARD t = k ∧ is_clique e t b`
+    ∃t b. t ⊆ count n ∧ CARD t = k ∧ is_clique e t b
+End
 
-val ramsey_number_def = Define`
+Definition ramsey_number_def:
   ramsey_number k =
-  LEAST n. is_ramsey k n`
+  LEAST n. is_ramsey k n
+End
 
 Theorem ramsey_number_0:
   ramsey_number 0 = 0
@@ -158,11 +163,12 @@ Proof
 QED
 
 (* all lists of choosing k items from a list slowly *)
-val choose_def = Define`
+Definition choose_def:
   (choose _ 0 = [[]]) ∧
   (choose [] k = []) ∧
   (choose (x::xs) (SUC k) =
-    (MAP (λls. x::ls) (choose xs k)) ++ choose xs (SUC k))`
+    (MAP (λls. x::ls) (choose xs k)) ++ choose xs (SUC k))
+End
 
 val choose_ind = (fetch "-" "choose_ind")
 
@@ -323,8 +329,9 @@ QED
 
 *)
 
-val transpose_def = Define`
-  transpose ls = MAP (λ(a,b).(b,a)) ls`
+Definition transpose_def:
+  transpose ls = MAP (λ(a,b).(b,a)) ls
+End
 
 Theorem MEM_transpose:
    MEM (y,x) (transpose ls) ⇔ MEM (x,y) ls
@@ -361,26 +368,30 @@ Proof
     fs[])
 QED
 
-val encoder_def = Define`
+Definition encoder_def:
   encoder ls = λa b.
-  case ALOOKUP ls [a;b] of NONE => 1n | SOME v => v`
+  case ALOOKUP ls [a;b] of NONE => 1n | SOME v => v
+End
 
-val clique_edges_def = Define`
+Definition clique_edges_def:
   (clique_edges (f:num->num->num) [] = []) ∧
   (clique_edges f (x::xs) =
-  MAP (f x) xs ++ clique_edges f xs)`
+  MAP (f x) xs ++ clique_edges f xs)
+End
 
-val ramsey_lpr_def = Define`
+Definition ramsey_lpr_def:
   ramsey_lpr k n =
   let ls = choose (COUNT_LIST n) k in
   let pairs = transpose (enumerate 1n (choose (COUNT_LIST n) 2)) in
   let enc = encoder pairs in
   let cli = MAP (clique_edges enc) ls in
-  (MAP (λns. MAP (λn. &n:int) ns) cli ++ MAP (λns. MAP (λn. -&n:int) ns) cli)`
+  (MAP (λns. MAP (λn. &n:int) ns) cli ++ MAP (λns. MAP (λn. -&n:int) ns) cli)
+End
 
-val decoder_def = Define`
+Definition decoder_def:
   decoder ls = λn.
-  case ALOOKUP ls n of NONE => (0n,0n) | SOME [a;b] => (a,b) | _ => (0,0)`
+  case ALOOKUP ls n of NONE => (0n,0n) | SOME [a;b] => (a,b) | _ => (0,0)
+End
 
 Theorem decoder_encoder:
   MEM [a;b] (MAP FST ls) ∧ ALL_DISTINCT (MAP FST ls) ∧ ALL_DISTINCT (MAP SND ls) ⇒
@@ -561,16 +572,18 @@ QED
 (*
   Check that ramsey number 4 is not 17
 *)
-val index_edge_def = Define`
+Definition index_edge_def:
   index_edge n x y =
-    n * x + (y:num)`
+    n * x + (y:num)
+End
 
-val fast_ramsey_lpr_def = Define`
+Definition fast_ramsey_lpr_def:
   fast_ramsey_lpr k n =
   let ls = choose (COUNT_LIST n) k in
   let enc = index_edge n in
   let cli = MAP (clique_edges enc) ls in
-  build_fml 1 (MAP (λns. MAP (λn. &n:int) ns) cli ++ MAP (λns. MAP (λn. -&n:int) ns) cli)`
+  build_fml 1 (MAP (λns. MAP (λn. &n:int) ns) cli ++ MAP (λns. MAP (λn. -&n:int) ns) cli)
+End
 
 Theorem clique_edges_SORTED_complete:
   ∀ls f n.
@@ -607,31 +620,31 @@ Proof
   simp[LIST_TO_SET_MAP,satisfies_def,PULL_EXISTS]>>
   `FINITE (count n)` by fs[]>>
   `FINITE t` by metis_tac[ SUBSET_FINITE]>>
-  `PERM (SET_TO_LIST t) (QSORT $<= (SET_TO_LIST t))` by
-        metis_tac[QSORT_PERM]>>
-  `ALL_DISTINCT (QSORT $<= (SET_TO_LIST t))` by
+  `PERM (SET_TO_LIST t) (sort $<= (SET_TO_LIST t))` by
+        metis_tac[sort_PERM]>>
+  `ALL_DISTINCT (sort $<= (SET_TO_LIST t))` by
      (pop_assum (assume_tac o GSYM o MATCH_MP ALL_DISTINCT_PERM)>>
      fs[])>>
   `∃k. LENGTH (SET_TO_LIST t) = k` by fs[]>>
-  `SORTED $< (QSORT $<= (SET_TO_LIST t))` by
-    (`SORTED $<= (QSORT $<= (SET_TO_LIST t))` by
-          (match_mp_tac QSORT_SORTED>>
+  `SORTED $< (sort $<= (SET_TO_LIST t))` by
+    (`SORTED $<= (sort $<= (SET_TO_LIST t))` by
+          (match_mp_tac sort_SORTED>>
           simp[transitive_def,total_def])>>
         match_mp_tac ALL_DISTINCT_SORTED_WEAKEN>>simp[]>>
         qexists_tac`$<=`>>simp[])>>
-  `MEM (QSORT $<= (SET_TO_LIST t)) (choose (COUNT_LIST n) k)` by
-    (qspecl_then [`COUNT_LIST n`,`k`,`QSORT $<= (SET_TO_LIST t)`] mp_tac choose_complete>>
+  `MEM (sort $<= (SET_TO_LIST t)) (choose (COUNT_LIST n) k)` by
+    (qspecl_then [`COUNT_LIST n`,`k`,`sort $<= (SET_TO_LIST t)`] mp_tac choose_complete>>
     simp[]>>impl_tac>-
-      (simp[EVERY_MEM,QSORT_MEM]>>
+      (simp[EVERY_MEM]>>
       fs[SUBSET_DEF,LENGTH_COUNT_LIST])>>
     qmatch_goalsub_abbrev_tac`MEM aa _ ⇒ MEM bb _`>>
     `aa=bb` by
-      (unabbrev_all_tac>>fs[MAP_EQ_ID,QSORT_MEM]>>
+      (unabbrev_all_tac>>fs[MAP_EQ_ID]>>
       rw[]>>
       match_mp_tac EL_COUNT_LIST>>fs[SUBSET_DEF])>>
     simp[])>>
   simp[GSYM EXISTS_OR_THM]>>
-  qexists_tac`QSORT $<= (SET_TO_LIST t)`>>simp[]>>
+  qexists_tac`sort $<= (SET_TO_LIST t)`>>simp[]>>
   drule SET_TO_LIST_CARD >> strip_tac >> fs [] >>
   Cases_on`b`>>fs[]
   >- (
@@ -648,7 +661,7 @@ Proof
     drule clique_edges_SORTED_complete>>
     disch_then drule>>
     strip_tac>>rfs[]>>
-    fs[QSORT_MEM]>>
+    fs[]>>
     rfs[MEM_SET_TO_LIST]>>
     `a ≠ b` by fs[]>>
     metis_tac[])
@@ -666,29 +679,32 @@ Proof
     drule clique_edges_SORTED_complete>>
     disch_then drule>>
     strip_tac>>rfs[]>>
-    fs[QSORT_MEM]>>
+    fs[]>>
     rfs[MEM_SET_TO_LIST]>>
     `a ≠ b` by fs[]>>
     metis_tac[]
 QED
 
-val check_lit_def = Define`
+Definition check_lit_def:
   check_lit (asg:num->bool) lit =
   if lit < 0:int then
     ¬ asg (Num (-lit))
   else
-    asg (Num lit)`
+    asg (Num lit)
+End
 
-val check_clause_def = Define`
+Definition check_clause_def:
   (check_clause asg [] = F) ∧
   (check_clause asg (x::xs) =
     if x = 0 then check_clause asg xs else
-    (check_lit asg x ∨ check_clause asg xs))`
+    (check_lit asg x ∨ check_clause asg xs))
+End
 
-val check_sat_def = Define`
+Definition check_sat_def:
   check_sat asg fml =
   let ls = MAP SND (toAList fml) in
-  EVERY (check_clause asg) ls`
+  EVERY (check_clause asg) ls
+End
 
 Theorem check_lit_satisfies_literal:
   check_lit asg h ∧ h ≠ 0 ⇒
@@ -721,7 +737,7 @@ Theorem check_sat_satisfies:
   check_sat asg fml ⇒
   satisfies asg (interp_spt fml)
 Proof
-  rw[check_sat_def,satisfies_def,interp_spt_def,values_def]>>
+  rw[check_sat_def,satisfies_def,interp_spt_def,range_def]>>
   fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,MEM_toAList]>>
   first_x_assum drule>>fs[]>>
   metis_tac[check_clause_satisfies_clause]
@@ -732,8 +748,9 @@ val sol = rconc (EVAL ``
   FOLDR (λn t. insert n () t) LN
   [1; 3; 5; 6; 7; 10; 11; 12; 14; 15; 16; 17; 18; 19]``)
 
-val solf_def = Define`
-  solf n = case lookup n ^sol of NONE => F | _ => T`
+Definition solf_def:
+  solf n = case lookup n ^sol of NONE => F | _ => T
+End
 
 val thm = EVAL ``check_sat solf (fast_ramsey_lpr 3 5)``;
 
@@ -801,18 +818,17 @@ val sol = rconc (EVAL ``
       250; 251; 252; 253; 254; 255; 256; 257; 258; 259; 260; 261; 262; 263;
       264; 265; 266; 267; 268; 269; 270]``);
 
-val solf_def = Define`
-  solf n = case lookup n ^sol of NONE => F | _ => T`
+Definition solf'_def:
+  solf' n = case lookup n ^sol of NONE => F | _ => T
+End
 
-val thm = EVAL ``check_sat solf (fast_ramsey_lpr 4 17)``;
+val thm = EVAL ``check_sat solf' (fast_ramsey_lpr 4 17)``;
 
 Theorem not_is_ramsey_4_17:
   ¬(is_ramsey 4 17)
 Proof
   match_mp_tac fast_ramsey_lpr_correct>>
   simp[satisfiable_def]>>
-  qexists_tac`solf`>>match_mp_tac check_sat_satisfies>>
+  qexists_tac`solf'`>>match_mp_tac check_sat_satisfies>>
   simp[thm]
 QED
-
-val _ = export_theory ();

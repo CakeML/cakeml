@@ -13,7 +13,7 @@ references, arrays and exceptions.
 An example showing how to use the monadic translator to translate monadic
 array search functions, including exceptions.
 
-[doubleProgScript.sml](doubleProgScript.sml):
+[doubleArgProgScript.sml](doubleArgProgScript.sml):
 An example showing how to use the monadic translator to translate monadic
 doubling functions, including using references (no arrays, no exceptions).
 

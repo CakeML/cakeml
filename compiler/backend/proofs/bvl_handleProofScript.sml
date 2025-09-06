@@ -1,11 +1,151 @@
 (*
   Correctness proof for bvl_handle
 *)
-open preamble bvl_handleTheory bvlSemTheory bvlPropsTheory;
+Theory bvl_handleProof
+Ancestors
+  bvlSem bvl_handle bvlProps bvl_constProof[qualified]
+Libs
+  preamble
 
-val _ = new_theory"bvl_handleProof";
+Theorem can_raise_thm:
+  (∀e env s (s:('a,'b) state).
+    evaluate ([e],env,s) = (Rerr (Rraise a),r) ⇒ can_raise e) ∧
+  (∀es env s (s:('a,'b) state).
+    evaluate (es,env,s) = (Rerr (Rraise a),r) ⇒ can_raise1 es)
+Proof
+  Induct
+  \\ fs [can_raise_def,evaluate_def,AllCaseEqs()]
+  \\ rw [] \\ res_tac \\ fs []
+  \\ pop_assum mp_tac
+  \\ simp [Once evaluate_CONS,AllCaseEqs()]
+  \\ rw [] \\ res_tac \\ fs []
+  \\ gvs [do_app_def,AllCaseEqs()]
+  \\ gvs [do_install_def,AllCaseEqs()]
+  \\ rw [] \\ rpt (pairarg_tac \\ fs [AllCaseEqs()])
+QED
 
-val _ = set_grammar_ancestry["bvlSem","bvl_handle","bvlProps"];
+Theorem handle_adj_vars_0[simp]:
+  (∀x l. handle_adj_vars l 0 x = x) ∧
+  (∀x l. handle_adj_vars1 l 0 x = x)
+Proof
+  Induct \\ fs [handle_adj_vars_def]
+QED
+
+Theorem evaluate_handle_adj_vars_lemma:
+  (∀x xs a env (r:('a,'b) state).
+     evaluate ([handle_adj_vars (LENGTH xs) (LENGTH a) x],xs++(a ++ env),r) =
+     evaluate ([x],xs++env,r)) ∧
+  (∀x xs a env (r:('a,'b) state).
+     evaluate (handle_adj_vars1 (LENGTH xs) (LENGTH a) x,xs++(a ++ env),r) =
+     evaluate (x,xs++env,r))
+Proof
+  Induct
+  >-
+   (fs [handle_adj_vars_def] \\ rw []
+    \\ fs [evaluate_def]
+    \\ asm_simp_tac std_ss [GSYM APPEND_ASSOC, EL_APPEND1, EL_APPEND2]
+    \\ rw [] \\ fs [NOT_LESS, EL_APPEND2])
+  \\ fs [evaluate_def,handle_adj_vars_def]
+  \\ rpt gen_tac
+  >-
+   (rpt (CASE_TAC \\ fs [])
+    \\ first_x_assum (qspec_then ‘a'++xs’ mp_tac)
+    \\ imp_res_tac evaluate_IMP_LENGTH \\ fs [])
+  >-
+   (rpt (CASE_TAC \\ fs [])
+    \\ first_x_assum (qspec_then ‘a'::xs’ mp_tac)
+    \\ imp_res_tac evaluate_IMP_LENGTH \\ fs [ADD1])
+  \\ once_rewrite_tac [evaluate_CONS] \\ fs []
+QED
+
+Theorem evaluate_handle_adj_vars:
+  ∀xs l a env r.
+    l ≤ LENGTH env ⇒
+    evaluate ([handle_adj_vars (LENGTH xs) (l + LENGTH a) x2],xs++(a ++ env),r) =
+    evaluate ([handle_adj_vars (LENGTH xs) l x2],xs++env,r)
+Proof
+  rw []
+  \\ imp_res_tac LESS_EQ_LENGTH \\ gvs []
+  \\ qspecl_then [‘x2’,‘xs’,‘a++ys1’,‘ys2’,‘r’] mp_tac
+    (evaluate_handle_adj_vars_lemma |> CONJUNCT1)
+  \\ qspecl_then [‘x2’,‘xs’,‘ys1’,‘ys2’,‘r’] mp_tac
+    (evaluate_handle_adj_vars_lemma |> CONJUNCT1)
+  \\ fs []
+QED
+
+Theorem handle_adj_vars_evaluate:
+  (∀env. evaluate ([x1],env,r) = evaluate ([x2],env,r)) ∧ d + l ≤ LENGTH env ⇒
+  evaluate ([handle_adj_vars d l x1],env,r) = evaluate ([handle_adj_vars d l x2],env,r)
+Proof
+  rw []
+  \\ imp_res_tac LESS_EQ_LENGTH \\ gvs []
+  \\ gvs [LENGTH_EQ_SUM]
+  \\ qspecl_then [‘x1’,‘l1’,‘l2’,‘ys2’,‘r’] mp_tac
+    (evaluate_handle_adj_vars_lemma |> CONJUNCT1)
+  \\ qspecl_then [‘x2’,‘l1’,‘l2’,‘ys2’,‘r’] mp_tac
+    (evaluate_handle_adj_vars_lemma |> CONJUNCT1)
+  \\ fs []
+QED
+
+Theorem evaluate_handle_simp:
+  (∀x env (s:('a,'b) state).
+     evaluate ([handle_simp x], env, s) =
+     evaluate ([x], env, s)) ∧
+  (∀xs env (s:('a,'b) state).
+     evaluate (handle_simp_list xs, env, s) =
+     evaluate (xs, env, s)) ∧
+  (∀x1 x2 l env (s:('a,'b) state).
+     l ≤ LENGTH env ⇒
+     evaluate ([make_handle x1 x2 l], env, s) =
+     evaluate ([Handle x1 (handle_adj_vars 1 l x2)], env, s))
+Proof
+  ho_match_mp_tac handle_simp_ind
+  \\ rpt strip_tac
+  \\ once_rewrite_tac [handle_simp_def]
+  \\ TRY (fs [evaluate_def]
+          \\ once_rewrite_tac [evaluate_CONS] \\ fs [] \\ NO_TAC)
+  \\ reverse (Cases_on ‘dest_handle_Raise x1’) \\ gvs []
+  >-
+   (gvs [DefnBase.one_line_ify NONE dest_handle_Raise_def,AllCaseEqs()]
+    \\ simp [evaluate_def]
+    \\ TOP_CASE_TAC
+    \\ Cases_on ‘q’ \\ fs []
+    \\ imp_res_tac evaluate_SING \\ gvs []
+    \\ TRY (irule handle_adj_vars_evaluate \\ fs [])
+    \\ Cases_on ‘e’ \\ fs []
+    \\ imp_res_tac can_raise_thm \\ fs [])
+  \\ reverse (Cases_on ‘dest_handle_Let x1’) \\ gvs []
+  >-
+   (PairCases_on ‘x’ \\ rename [‘dest_handle_Let x1 = SOME (ys,y)’] \\ gvs []
+    \\ Cases_on ‘x1’ \\ gvs [dest_handle_Let_def]
+    \\ gvs [evaluate_def]
+    \\ TOP_CASE_TAC \\ reverse (Cases_on ‘q’) \\ fs []
+    >- (Cases_on ‘e'’ \\ fs [] \\ imp_res_tac can_raise_thm \\ fs [])
+    \\ TOP_CASE_TAC \\ Cases_on ‘q’ \\ fs []
+    \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
+    \\ Cases_on ‘e'’ \\ fs [] \\ imp_res_tac can_raise_thm \\ fs []
+    \\ irule (evaluate_handle_adj_vars |> Q.SPEC ‘[x]’
+              |> SIMP_RULE std_ss [LENGTH,ADD1,APPEND]) \\ fs [])
+  \\ Cases_on ‘dest_handle_If x1’ \\ gvs []
+  >-
+   (fs [evaluate_def]
+    \\ TOP_CASE_TAC
+    \\ Cases_on ‘q’ \\ fs []
+    \\ imp_res_tac evaluate_SING \\ gvs []
+    \\ TRY (irule handle_adj_vars_evaluate \\ fs [])
+    \\ Cases_on ‘e’ \\ fs []
+    \\ TRY (irule handle_adj_vars_evaluate \\ fs []))
+  \\ gvs [DefnBase.one_line_ify NONE dest_handle_If_def,AllCaseEqs()]
+  \\ simp [evaluate_def]
+  \\ CASE_TAC
+  \\ reverse (Cases_on ‘q’)
+  \\ fs []
+  \\ TRY (Cases_on ‘e’ \\ fs [] \\ imp_res_tac can_raise_thm \\ fs [])
+  \\ simp [handle_simp_def]
+  \\ imp_res_tac evaluate_SING \\ gvs []
+  \\ rpt (CASE_TAC \\ fs [])
+  \\ imp_res_tac can_raise_thm \\ fs []
+QED
 
 Theorem evaluate_SmartLet[simp]:
    bvlSem$evaluate ([SmartLet xs x],env,s) = evaluate ([Let xs x],env,s)
@@ -13,11 +153,12 @@ Proof
   rw [SmartLet_def] \\ fs [NULL_EQ,evaluate_def]
 QED
 
-val let_ok_def = Define `
+Definition let_ok_def:
   (let_ok (Let xs b) <=> EVERY isVar xs /\ bVarBound (LENGTH xs) [b]) /\
-  (let_ok _ = F)`;
+  (let_ok _ = F)
+End
 
-val handle_ok_def = tDefine "handle_ok" `
+Definition handle_ok_def:
   (handle_ok [] <=> T) /\
   (handle_ok ((x:bvl$exp)::y::xs) <=>
      handle_ok [x] /\ handle_ok (y::xs)) /\
@@ -38,19 +179,22 @@ val handle_ok_def = tDefine "handle_ok" `
          EVERY isVar xs /\ bVarBound (LENGTH xs) [b] /\
          handle_ok [b] /\ handle_ok [x2]
      | _ => F) /\
-  (handle_ok [Call ticks dest xs] <=> handle_ok xs)`
-  (WF_REL_TAC `measure (exp1_size)`
+  (handle_ok [Call ticks dest xs] <=> handle_ok xs)
+Termination
+  WF_REL_TAC `measure (exp1_size)`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
-   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC);
+   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC
+End
 
-val evaluate_GENLIST = save_thm("evaluate_GENLIST",
+Theorem evaluate_GENLIST =
   evaluate_genlist_vars
   |> Q.SPECL[`0`,`env ++ ys`,`LENGTH (env:bvlSem$v list)`,`s`]
-  |> SIMP_RULE(srw_ss()++ETA_ss)[TAKE_APPEND1]);
+  |> SIMP_RULE(srw_ss()++ETA_ss)[TAKE_APPEND1]
 
-val env_rel_def = Define `
+Definition env_rel_def:
   env_rel l env env1 =
-    LIST_RELi (\i v1 v2. has_var i l ==> v1 = v2) env env1`
+    LIST_RELi (\i v1 v2. has_var i l ==> v1 = v2) env env1
+End
 
 Theorem env_rel_mk_Union:
    !env env1. env_rel (mk_Union lx ly) env env1 <=>
@@ -153,7 +297,7 @@ Proof
     \\ TRY (match_mp_tac ALOOKUP_MAPi_APPEND2)
     \\ fs [MEM_FILTER,MEM_GENLIST,ALOOKUP_NONE,o_DEF,MAPi_ID] \\ NO_TAC)
   \\ fs [] \\ reverse (Cases_on `has_var (LENGTH env) l1`) \\ fs []
-  \\ fs [evaluate_def,do_app_def,MAPi_def,MAPi_APPEND]
+  \\ fs [evaluate_def,do_app_def,do_int_app_def,MAPi_def,MAPi_APPEND]
   \\ fs [EL_APPEND2] \\ match_mp_tac IMP_EL_SING \\ fs []
 QED
 
@@ -163,16 +307,19 @@ Proof
   fs [LIST_RELi_EL_EQN,env_rel_def]
 QED
 
-val opt_lemma = Q.prove(
-  `x = y <=> (x = SOME () <=> y = SOME ())`,
-  Cases_on `x` \\ Cases_on `y` \\ fs []);
+Triviality opt_lemma:
+  x = y <=> (x = SOME () <=> y = SOME ())
+Proof
+  Cases_on `x` \\ Cases_on `y` \\ fs []
+QED
 
-val OptionalLetLet_IMP = Q.prove(
-  `(ys,l,s',nr') = OptionalLetLet y (LENGTH env) lx s1 limit nr /\
+Triviality OptionalLetLet_IMP:
+  (ys,l,s',nr') = OptionalLetLet y (LENGTH env) lx s1 limit nr /\
     (∀env2 extra.
       env_rel l env env2 ⇒ evaluate ([y],env2 ++ extra,s) = res) /\
     env_rel l env env1 /\ b ==>
-    evaluate (ys,env1 ++ extra,s) = res /\ b`,
+    evaluate (ys,env1 ++ extra,s) = res /\ b
+Proof
   rw [OptionalLetLet_def,evaluate_def]
   \\ drule evaluate_LetLet \\ fs []
   \\ fs [GSYM db_varsTheory.vars_flatten_def,GSYM db_varsTheory.vars_to_list_def]
@@ -180,7 +327,8 @@ val OptionalLetLet_IMP = Q.prove(
   \\ fs [spt_eq_thm,db_varsTheory.wf_db_to_set]
   \\ rw [] \\ once_rewrite_tac [opt_lemma]
   \\ rewrite_tac [GSYM db_varsTheory.lookup_db_to_set]
-  \\ fs []);
+  \\ fs []
+QED
 
 Theorem OptionalLetLet_limit:
    (ys,l,s',nr') = OptionalLetLet e (LENGTH env) lx s1 limit nr /\
@@ -310,17 +458,21 @@ Theorem compile_correct = Q.prove(`
   |> Q.SPECL [`xs`,`env`,`s1`,`ys`,`env`,`res`,`s2`,`[]`]
   |> SIMP_RULE std_ss [APPEND_NIL,env_rel_refl];
 
-val _ = save_thm("compile_correct",compile_correct);
+Theorem compile_correct[allow_rebind] =
+  compile_correct
 
-Theorem compile_correct:
+Theorem compile_correct[allow_rebind]:
    (evaluate ([x],env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\
     k = LENGTH env ==>
     (evaluate ([compile_exp l k x],env,s1) = (res,s2))
 Proof
   fs [compile_exp_def]
-  \\ Cases_on `compile l (LENGTH env) [bvl_const$compile_exp x]`
+  \\ Cases_on `compile l (LENGTH env) [handle_simp (bvl_const$compile_exp x)]`
   \\ PairCases_on `r` \\ rw []
   \\ drule bvl_constProofTheory.evaluate_compile_exp \\ fs [] \\ rw []
+  \\ pop_assum mp_tac
+  \\ simp [Once (GSYM (CONJUNCT1 evaluate_handle_simp))]
+  \\ strip_tac
   \\ drule compile_sing \\ rw []
   \\ drule compile_correct \\ fs []
 QED
@@ -474,12 +626,11 @@ Theorem compile_exp_bVarBound:
    bVarBound n [compile_exp l n x]
 Proof
   fs [compile_exp_def]
-  \\ Cases_on `compile l n [bvl_const$compile_exp x]`
+  \\ Cases_on `compile l n [handle_simp (bvl_const$compile_exp x)]`
   \\ Cases_on `r` \\ fs []
   \\ drule compile_IMP_bVarBound
   \\ drule compile_IMP_LENGTH
   \\ Cases_on `q` \\ fs []
-  \\ Cases_on `t` \\ fs []
 QED
 
 Theorem compile_seqs_bVarBound:
@@ -505,7 +656,7 @@ Proof
 QED
 
 Theorem handle_ok_Var_Const_list:
-   EVERY (\x. ?v i. x = Var v \/ x = Op (Const i) []) xs ==> handle_ok xs
+   EVERY (\x. ?v i. x = Var v \/ x = Op (IntOp (Const i)) []) xs ==> handle_ok xs
 Proof
   Induct_on `xs` \\ fs [handle_ok_def,PULL_EXISTS] \\ rw []
   \\ Cases_on `xs` \\ fs [handle_ok_def]
@@ -573,10 +724,10 @@ Theorem compile_exp_handle_ok:
    handle_ok [compile_exp l n x]
 Proof
   fs [bvl_handleTheory.compile_exp_def]
-  \\ Cases_on `compile l n [bvl_const$compile_exp x]`
+  \\ Cases_on `compile l n [handle_simp (bvl_const$compile_exp x)]`
   \\ fs [] \\ PairCases_on `r`
   \\ imp_res_tac bvl_handleTheory.compile_sing \\ fs []
-  \\ qspecl_then [`l`,`n`,`[bvl_const$compile_exp x]`] mp_tac compile_handle_ok
+  \\ qspecl_then [`l`,`n`,`[handle_simp (bvl_const$compile_exp x)]`] mp_tac compile_handle_ok
   \\ fs []
 QED
 
@@ -642,17 +793,64 @@ Proof
   \\ EVAL_TAC
 QED
 
+Triviality get_code_labels_dest_handle_Raise:
+  ∀c x. dest_handle_Raise c = SOME x ⇒
+        get_code_labels c = get_code_labels x
+Proof
+  ho_match_mp_tac dest_handle_Raise_ind
+  \\ rpt strip_tac \\ gvs [dest_handle_Raise_def,AllCaseEqs()]
+QED
+
+Triviality get_code_labels_handle_adj_vars:
+  (∀x d l. get_code_labels (handle_adj_vars d l x) = get_code_labels x) ∧
+  (∀x d l. MAP get_code_labels (handle_adj_vars1 d l x) = MAP get_code_labels x)
+Proof
+  Induct \\ fs [handle_adj_vars_def]
+QED
+
+Theorem get_code_labels_handle_simp:
+  (∀c. get_code_labels (handle_simp c) ⊆ get_code_labels c) ∧
+  (∀c. BIGUNION (set(MAP get_code_labels (handle_simp_list c))) ⊆
+       BIGUNION (set(MAP get_code_labels c))) ∧
+  (∀c d l. get_code_labels (make_handle c d l) ⊆
+           get_code_labels c ∪ get_code_labels d)
+Proof
+  ho_match_mp_tac handle_simp_ind
+  \\ rw [] \\ once_rewrite_tac [handle_simp_def] \\ fs []
+  >- fs [SUBSET_DEF]
+  >- fs [SUBSET_DEF]
+  >- fs [SUBSET_DEF]
+  >- fs [SUBSET_DEF]
+  >- fs [SUBSET_DEF]
+  \\ reverse (Cases_on ‘dest_handle_Raise c’) \\ gvs []
+  >-
+   (gvs [DefnBase.one_line_ify NONE dest_handle_Raise_def, AllCaseEqs()]
+    \\ gvs [get_code_labels_handle_adj_vars] \\ fs [SUBSET_DEF])
+  \\ reverse (Cases_on ‘dest_handle_Let c’) \\ gvs []
+  >-
+   (gvs [DefnBase.one_line_ify NONE dest_handle_Let_def, AllCaseEqs()]
+    \\ fs [SUBSET_DEF] \\ metis_tac [])
+  \\ Cases_on ‘dest_handle_If c’ \\ fs []
+  \\ gvs [DefnBase.one_line_ify NONE dest_handle_If_def, AllCaseEqs()]
+  \\ gvs [get_code_labels_handle_adj_vars] \\ fs [SUBSET_DEF]
+  \\ metis_tac []
+QED
+
 Theorem compile_exp_code_labels:
    ∀a b c. get_code_labels (compile_exp a b c) ⊆ get_code_labels c
 Proof
   rw[bvl_handleTheory.compile_exp_def]
-  \\ Cases_on`bvl_handle$compile a b [compile_exp c]`
+  \\ Cases_on`bvl_handle$compile a b [handle_simp (compile_exp c)]`
   \\ PairCases_on`r`
   \\ imp_res_tac bvl_handleTheory.compile_sing \\ rveq \\ fs[]
   \\ pop_assum mp_tac
   \\ specl_args_of_then``bvl_handle$compile``compile_code_labels mp_tac
   \\ rw[] \\ fs[]
-  \\ metis_tac[bvl_constProofTheory.compile_exp_code_labels, SUBSET_TRANS]
+  \\ irule SUBSET_TRANS
+  \\ first_x_assum $ irule_at Any
+  \\ irule SUBSET_TRANS
+  \\ irule_at Any bvl_constProofTheory.compile_exp_code_labels
+  \\ fs [get_code_labels_handle_simp]
 QED
 
 Theorem compile_seqs_code_labels:
@@ -668,4 +866,3 @@ Proof
   \\ metis_tac [compile_exp_code_labels, SUBSET_UNION, SUBSET_TRANS, UNION_SUBSET]
 QED
 
-val _ = export_theory();

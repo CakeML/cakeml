@@ -2,15 +2,46 @@
   A clocked relational big-step semantics for CakeML. This semantics
   is no longer used in the CakeML development.
 *)
-open HolKernel Parse boolLib bossLib;
-open libTheory namespaceTheory astTheory ffiTheory semanticPrimitivesTheory smallStepTheory;
+Theory bigStep
+Ancestors
+  namespace ast ffi semanticPrimitives smallStep
 
-val _ = numLib.prefer_num();
-
-val _ = new_theory "bigStep"
+val _ = numLib.temp_prefer_num();
 
 (* To get the definition of expression divergence to use in defining definition
  * divergence *)
+
+(* getOpClass as a inductive to make the proofs potentially easier *)
+Inductive opClass:
+(∀ op. opClass (Chopb op) Simple) ∧
+(∀ op. opClass (Opn op) Simple) ∧
+(∀ op. opClass (Opb op) Simple) ∧
+(∀ op. opClass (FFI op) Simple) ∧
+(∀ op. opClass (WordFromInt op) Simple) ∧
+(∀ op. opClass (WordToInt op) Simple) ∧
+(∀ op. opClass (FP_cmp op) Simple) ∧
+(∀ op. opClass (FP_uop op) Simple) ∧
+(∀ op. opClass (FP_bop op) Simple) ∧
+(∀ op. opClass (FP_top op) Simple) ∧
+(∀ op1 op2. opClass (Opw op1 op2) Simple) ∧
+(∀ op1 op2 op3. opClass (Shift op1 op2 op3) Simple) ∧
+(∀ op. op = Equality ∨ op = FpFromWord ∨ op = FpToWord ∨ op = Opassign ∨
+       op = Opref ∨ op = Aw8alloc ∨ op = Aw8sub ∨ op = Aw8length ∨
+       op = Aw8update ∨ op = CopyStrStr ∨ op = CopyStrAw8 ∨
+       op = CopyAw8Str ∨ op = CopyAw8Aw8 ∨ op = Chr ∨ op = Ord ∨
+       op = Implode ∨ op = Explode ∨ op = Strsub ∨ op = Strlen ∨
+       op = Strcat ∨ op = VfromList ∨ op = Vsub ∨ op = XorAw8Str_unsafe ∨
+       op = Vlength ∨ op = Aalloc ∨ op = AallocEmpty ∨ op = Asub ∨
+       op = Alength ∨ op = Aupdate ∨ op = Asub_unsafe ∨ op = Aupdate_unsafe ∨
+       op = Aw8sub_unsafe ∨ op = Aw8update_unsafe ∨ op = ListAppend ∨
+       op = ConfigGC ∨ op = Env_id ∨ op = Opderef ∨ op = AallocFixed
+       ⇒
+       opClass op Simple) ∧
+(* FunApp *)
+(opClass Opapp FunApp) ∧
+(* Eval *)
+(opClass Eval EvalOp)
+End
 
 (* ------------------------ Big step semantics -------------------------- *)
 
@@ -94,37 +125,40 @@ evaluate ck env s (Fun n e) (s, Rval (Closure env n e)))
 (evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
 (do_opapp (REVERSE vs) = SOME (env', e)) /\
 (ck ==> ~ (s2.clock =(( 0 : num)))) /\
+(opClass op FunApp) /\
 evaluate ck env' (if ck then ( s2 with<| clock := (s2.clock -( 1 : num)) |>) else s2) e bv)
 ==>
-evaluate ck env s1 (App Opapp es) bv)
+evaluate ck env s1 (App op es) bv)
 
 /\ (! ck env es vs env' e s1 s2.
 (evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
 (do_opapp (REVERSE vs) = SOME (env', e)) /\
 (s2.clock =( 0 : num)) /\
+(opClass op FunApp) /\
 ck)
 ==>
-evaluate ck env s1 (App Opapp es) (s2, Rerr (Rabort Rtimeout_error)))
+evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtimeout_error)))
 
 /\ (! ck env es vs s1 s2.
 (evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
-(do_opapp (REVERSE vs) = NONE))
+(do_opapp (REVERSE vs) = NONE)) /\
+(opClass op FunApp)
 ==>
-evaluate ck env s1 (App Opapp es) (s2, Rerr (Rabort Rtype_error)))
+evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtype_error)))
 
 /\ (! ck env op es vs res s1 s2 refs' ffi'.
 (evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
 (do_app (s2.refs,s2.ffi) op (REVERSE vs) = SOME ((refs',ffi'), res)) /\
-(op <> Opapp))
+(opClass op Simple))
 ==>
 evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
 
 /\ (! ck env op es vs s1 s2.
-(evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
-(do_app (s2.refs,s2.ffi) op (REVERSE vs) = NONE) /\
-(op <> Opapp))
+      evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
+      do_app (s2.refs,s2.ffi) op (REVERSE vs) = NONE /\
+      ¬opClass op FunApp
 ==>
-evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtype_error)))
+      evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtype_error)))
 
 /\ (! ck env op es err s1 s2.
 (evaluate_list ck env s1 (REVERSE es) (s2, Rerr err))
@@ -292,6 +326,7 @@ Inductive evaluate_dec:
 (! ck env p e v env' s1 s2 locs.
 (evaluate ck env s1 e (s2, Rval v) /\
 ALL_DISTINCT (pat_bindings p []) /\
+every_exp (one_con_check env.c) e /\
 (pmatch env.c s2.refs p v [] = Match env'))
 ==>
 evaluate_dec ck env s1 (Dlet locs p e) (s2, Rval <| v := (alist_to_ns env'); c := nsEmpty |>))
@@ -299,6 +334,7 @@ evaluate_dec ck env s1 (Dlet locs p e) (s2, Rval <| v := (alist_to_ns env'); c :
 /\ (! ck env p e v s1 s2 locs.
 (evaluate ck env s1 e (s2, Rval v) /\
 ALL_DISTINCT (pat_bindings p []) /\
+every_exp (one_con_check env.c) e /\
 (pmatch env.c s2.refs p v [] = No_match))
 ==>
 evaluate_dec ck env s1 (Dlet locs p e) (s2, Rerr (Rraise bind_exn_v)))
@@ -306,28 +342,33 @@ evaluate_dec ck env s1 (Dlet locs p e) (s2, Rerr (Rraise bind_exn_v)))
 /\ (! ck env p e v s1 s2 locs.
 (evaluate ck env s1 e (s2, Rval v) /\
 ALL_DISTINCT (pat_bindings p []) /\
+every_exp (one_con_check env.c) e /\
 (pmatch env.c s2.refs p v [] = Match_type_error))
 ==>
 evaluate_dec ck env s1 (Dlet locs p e) (s2, Rerr (Rabort Rtype_error)))
 
 /\ (! ck env p e s locs.
-(~ (ALL_DISTINCT (pat_bindings p [])))
+(~ (ALL_DISTINCT (pat_bindings p []) /\
+    every_exp (one_con_check env.c) e))
 ==>
 evaluate_dec ck env s (Dlet locs p e) (s, Rerr (Rabort Rtype_error)))
 
 /\ (! ck env p e err s s' locs.
 (evaluate ck env s e (s', Rerr err) /\
-ALL_DISTINCT (pat_bindings p []))
+ALL_DISTINCT (pat_bindings p []) /\
+every_exp (one_con_check env.c) e)
 ==>
 evaluate_dec ck env s (Dlet locs p e) (s', Rerr err))
 
 /\ (! ck env funs s locs.
-(ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs))
+(ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) /\
+ EVERY (λ(f,n,e). every_exp (one_con_check env.c) e) funs)
 ==>
 evaluate_dec ck env s (Dletrec locs funs) (s, Rval <| v := (build_rec_env funs env nsEmpty); c := nsEmpty |>))
 
 /\ (! ck env funs s locs.
-(~ (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs)))
+(~ (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) /\
+    EVERY (λ(f,n,e). every_exp (one_con_check env.c) e) funs))
 ==>
 evaluate_dec ck env s (Dletrec locs funs) (s, Rerr (Rabort Rtype_error)))
 
@@ -414,62 +455,11 @@ evaluate_decs ck env s1 (d::ds) (s3, combine_dec_result new_env r))
 
 End
 
-(*
-indreln [evaluate_top : forall 'ffi. bool -> sem_env v -> state 'ffi -> top ->
-              state 'ffi * result (sem_env v) v -> bool]
-
-tdec1 : forall ck s1 s2 env d new_env.
-evaluate_dec ck env s1 d (s2, Rval new_env)
-==>
-evaluate_top ck env s1 (Tdec d) (s2, Rval new_env)
-and
-
-tdec2 : forall ck s1 s2 env d err.
-evaluate_dec ck env s1 d (s2, Rerr err)
-==>
-evaluate_top ck env s1 (Tdec d) (s2, Rerr err)
-
-and
-
-tmod1 : forall ck s1 s2 env ds mn specs new_env.
-evaluate_decs ck env s1 ds (s2, Rval new_env)
-==>
-evaluate_top ck env s1 (Tmod mn specs ds) (s2, Rval <| v = nsLift mn new_env.v; c = nsLift mn new_env.c |>)
-
-and
-
-tmod2 : forall ck s1 s2 env ds mn specs err.
-evaluate_decs ck env s1 ds (s2, Rerr err)
-==>
-evaluate_top ck env s1 (Tmod mn specs ds) (s2, Rerr err)
-
-indreln [evaluate_prog : forall 'ffi. bool -> sem_env v -> state 'ffi -> prog ->
-             state 'ffi * result (sem_env v) v -> bool]
-
-empty : forall ck env s.
-true
-==>
-evaluate_prog ck env s [] (s, Rval <| v = nsEmpty; c = nsEmpty |>)
-
-and
-
-cons1 : forall ck s1 s2 s3 env top tops new_env r.
-evaluate_top ck env s1 top (s2, Rval new_env) &&
-evaluate_prog ck (extend_dec_env new_env env) s2 tops (s3,r)
-==>
-evaluate_prog ck env s1 (top::tops) (s3, combine_dec_result new_env r)
-
-and
-
-cons2 : forall ck s1 s2 env top tops err.
-evaluate_top ck env s1 top (s2, Rerr err)
-==>
-evaluate_prog ck env s1 (top::tops) (s2, Rerr err)
-*)
-
 Inductive dec_diverges:
 (! env st locs p e.
-(ALL_DISTINCT (pat_bindings p []) /\ e_diverges env (st.refs, st.ffi) e)
+(ALL_DISTINCT (pat_bindings p []) /\
+ every_exp (one_con_check env.c) e /\
+ e_diverges env (st.refs, st.ffi) e)
 ==>
 dec_diverges env st (Dlet locs p e))
 
@@ -501,34 +491,3 @@ decs_diverges (extend_dec_env new_env env) s2 ds)
 decs_diverges env s1 (d::ds))
 End
 
-(*
-indreln [top_diverges : forall 'ffi. sem_env v -> state 'ffi -> top -> bool]
-
-tdec : forall st env d.
-dec_diverges env st d
-==>
-top_diverges env st (Tdec d)
-
-and
-
-tmod : forall env s1 ds mn specs.
-decs_diverges env s1 ds
-==>
-top_diverges env s1 (Tmod mn specs ds)
-
-indreln [prog_diverges : forall 'ffi. sem_env v -> state 'ffi -> prog -> bool]
-
-cons1 : forall st env top tops.
-top_diverges env st top
-==>
-prog_diverges env st (top::tops)
-
-and
-
-cons2 : forall s1 s2 env top tops new_env.
-evaluate_top false env s1 top (s2, Rval new_env) &&
-prog_diverges (extend_dec_env new_env env) s2 tops
-==>
-prog_diverges env s1 (top::tops)
-*)
-val _ = export_theory()

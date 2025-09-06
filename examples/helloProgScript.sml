@@ -1,9 +1,11 @@
 (*
   Hello World example, printing to standard output.
 *)
-open preamble basis
-
-val _ = new_theory "helloProg"
+Theory helloProg
+Ancestors
+  basis_ffi
+Libs
+  preamble basis
 
 val _ = translation_extends"basisProg";
 
@@ -39,10 +41,10 @@ val spec = hello_whole_prog_spec
 val name = "hello";
 
 val (call_thm_hello, hello_prog_tm) = whole_prog_thm st name spec;
-val hello_prog_def = Define`hello_prog = ^hello_prog_tm`;
+Definition hello_prog_def:
+  hello_prog = ^hello_prog_tm
+End
 
-val hello_semantics = save_thm("hello_semantics",
+Theorem hello_semantics =
   call_thm_hello |> ONCE_REWRITE_RULE[GSYM hello_prog_def]
-  |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]);
-
-val _ = export_theory ()
+  |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]

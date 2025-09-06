@@ -1,14 +1,18 @@
 (*
   Translate the compiler's parser.
 *)
+Theory parserProg
+Ancestors
+  cmlParse cmlPEG lexerProg ml_translator semanticPrimitives
+Libs
+  preamble ml_translatorLib
+
 open preamble
      cmlParseTheory cmlPEGTheory lexerProgTheory
      ml_translatorLib ml_translatorTheory
-     semanticPrimitivesTheory
+     semanticPrimitivesTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "parserProg"
 
 val _ = translation_extends "lexerProg";
 
@@ -62,11 +66,11 @@ val _ = (find_def_for_const := def_of_const);
 
 (* parsing: peg_exec and cmlPEG *)
 
-val res = register_type``:(token,MMLnonT,locs) parsetree``;
+val res = register_type``:(tokens$token,MMLnonT,locs) parsetree``;
 val res = register_type``:MMLnonT``;
 
 (* checking GRAMMAR_PARSETREE_TYPE etc is known to be an EqualityType *)
-val EqType_PT_rule = EqualityType_rule [] ``:(token,MMLnonT,locs) parsetree``;
+val EqType_PT_rule = EqualityType_rule [] ``:(tokens$token,MMLnonT,locs) parsetree``;
 
 val _ = translate (def_of_const ``validAddSym``);
 
@@ -111,9 +115,11 @@ val _ = translate (def_of_const ``peg_exec``);
 
 (* parsing: cmlvalid *)
 
-val monad_unitbind_assert = Q.prove(
-  `!b x. OPTION_IGNORE_BIND (OPTION_GUARD b) x = if b then x else NONE`,
-  Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []);
+Theorem monad_unitbind_assert:
+  !b x. OPTION_IGNORE_BIND (OPTION_GUARD b) x = if b then x else NONE
+Proof
+  Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []
+QED
 
 val _ = translate grammarTheory.ptree_head_def
 
@@ -143,7 +149,74 @@ val _ = translate maybe_handleRef_eq
 
 val _ = translate (def_of_const ``ptree_Expr``);
 
-val _ = translate (def_of_const ``ptree_Decl``);
+val _ = translate (def_of_const ``ptree_linfix``);
+
+val _ = translate (def_of_const ``ptree_TypeDec``);
+
+val _ = def_of_const “ptree_DtypeDecl” |> translate;
+
+val def = cmlPtreeConversionTheory.ptree_SpeclineList_def
+  |> SIMP_RULE (srw_ss()) [OPTION_CHOICE_def |> DefnBase.one_line_ify NONE,
+                           OPTION_BIND_def |> DefnBase.one_line_ify NONE,
+                           OPTION_IGNORE_BIND_def |> DefnBase.one_line_ify NONE,
+                           OPTION_GUARD_def |> DefnBase.one_line_ify NONE]
+
+val res = translate def;
+
+val _ = def_of_const “ptree_SignatureValue” |> translate
+
+Triviality ptree_Decls:
+  ptree_Decls x =
+     case x of
+     | Lf t => ptree_Decls (Lf t)
+     | Nd (a1,a2) b => ptree_Decls (Nd (a1,a2) b)
+Proof
+  Cases_on ‘x’ \\ fs []
+  \\ rename [‘Nd p’] \\ PairCases_on ‘p’ \\ fs []
+QED
+
+Triviality ptree_Structure:
+  ptree_Structure x =
+     case x of
+     | Lf t => ptree_Structure (Lf t)
+     | Nd (a1,a2) b => ptree_Structure (Nd (a1,a2) b)
+Proof
+  Cases_on ‘x’ \\ fs []
+  \\ rename [‘Nd p’] \\ PairCases_on ‘p’ \\ fs []
+QED
+
+val def =
+  LIST_CONJ
+    [cmlPtreeConversionTheory.ptree_Decl_def |> CONJUNCT1 |> SPEC_ALL,
+     ptree_Decls
+     |> ONCE_REWRITE_RULE  [cmlPtreeConversionTheory.ptree_Decl_def],
+     ptree_Structure
+     |> ONCE_REWRITE_RULE  [cmlPtreeConversionTheory.ptree_Decl_def]]
+  |> SIMP_RULE (srw_ss()) [OPTION_CHOICE_def |> DefnBase.one_line_ify NONE,
+                           OPTION_BIND_def |> DefnBase.one_line_ify NONE,
+                           OPTION_IGNORE_BIND_def |> DefnBase.one_line_ify NONE,
+                           OPTION_GUARD_def |> DefnBase.one_line_ify NONE]
+
+val res = translate_no_ind def;
+
+Triviality ind_lemma:
+  ptree_decl_ind
+Proof
+  rewrite_tac [fetch "-" "ptree_decl_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac
+      (cmlPtreeConversionTheory.ptree_Decl_ind
+       |> SIMP_RULE (srw_ss()) [AllCaseEqs(),PULL_EXISTS])
+  \\ rpt conj_tac
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ fs []
+  \\ rpt strip_tac
+  \\ gvs [AllCaseEqs()]
+QED
+
+val _ = ind_lemma |> update_precondition;
 
 val _ = translate (def_of_const ``ptree_TopLevelDecs``);
 
@@ -166,5 +239,3 @@ val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

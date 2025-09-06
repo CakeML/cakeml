@@ -10,6 +10,8 @@ open preamble
 (* TODO: process_topdecs is exported here, but should probably be in a parsing
          library instead *)
 
+fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f;
+
 fun get_module_prefix () = let
   val mods = ml_progLib.get_open_modules (get_ml_prog_state ())
   in case mods of [] => ""
@@ -39,7 +41,7 @@ fun trans ml_name rhs = let
   val v_thm = v_thm |> DISCH_ALL
                     |> CONV_RULE (ONCE_DEPTH_CONV (PRECOND_CONV EVAL))
                     |> UNDISCH_ALL
-  val _ = save_thm(v_name ^ "_thm",v_thm)
+  val _ = allowing_rebind save_thm (v_name ^ "_thm",v_thm)
   in v_thm end
 
 fun append_prog tm = let

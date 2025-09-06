@@ -1,41 +1,39 @@
 (*
   Correctness proof for bvi_inline
 *)
+Theory bvl_inlineProof
+Ancestors
+  bvlSem bvlProps backendProps
+  bvl_handleProof[qualified] bvl_inline
+Libs
+  preamble
 
-open preamble backendPropsTheory
-     bvlSemTheory bvlPropsTheory
-     bvl_inlineTheory
-local open bvl_handleProofTheory in end
-
-val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"bvl_inlineProof";
-
-val _ = set_grammar_ancestry [ "bvlSem", "bvlProps", "bvl_inline" ];
-
-val drule = old_drule
+val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "fromAList_def"]
 
 (* removal of ticks *)
 
-val state_rel_def = Define `
+Definition state_rel_def:
   state_rel (s:('c,'ffi) bvlSem$state) (t:('c,'ffi) bvlSem$state) <=>
     t = s with <| code := map (I ## (\x. HD (remove_ticks [x]))) s.code
                 ; compile := t.compile
                 ; compile_oracle := (I ##
       MAP (I ## I ## (\x. HD (remove_ticks [x])))) o s.compile_oracle |> /\
     s.compile = \cfg prog. t.compile cfg
-                   (MAP (I ## I ## (\x. HD (remove_ticks [x]))) prog)`
+                   (MAP (I ## I ## (\x. HD (remove_ticks [x]))) prog)
+End
 
 val state_rel_alt = state_rel_def
 
 val state_rel_def =
   state_rel_def |> SIMP_RULE (srw_ss()) [state_component_equality,GSYM CONJ_ASSOC];
 
-val do_app_lemma = prove(
-  ``state_rel t' r ==>
+Theorem do_app_lemma[local]:
+  state_rel t' r ==>
     case do_app op (REVERSE a) r of
     | Rerr err => do_app op (REVERSE a) t' = Rerr err
-    | Rval (v,r2) => ?t2. state_rel t2 r2 /\ do_app op (REVERSE a) t' = Rval (v,t2)``,
+    | Rval (v,r2) => ?t2. state_rel t2 r2 /\
+                          do_app op (REVERSE a) t' = Rval (v,t2)
+Proof
   Cases_on `op = Install` THEN1
    (rw [] \\ fs [do_app_def]
     \\ every_case_tac \\ fs []
@@ -43,15 +41,13 @@ val do_app_lemma = prove(
     \\ rveq \\ fs [PULL_EXISTS]
     \\ fs [SWAP_REVERSE_SYM] \\ rveq \\ fs []
     \\ fs [state_rel_def] \\ rveq \\ fs []
-    \\ fs [domain_map]
     \\ fs [state_component_equality]
     THEN1
      (fs [shift_seq_def,o_DEF] \\ rfs []
       \\ Cases_on `t'.compile_oracle 0` \\ fs []
       \\ Cases_on `r'` \\ fs [] \\ Cases_on `h` \\ fs [] \\ rveq \\ fs []
-      \\ fs [domain_map]
       \\ fs [map_union] \\ AP_TERM_TAC
-      \\ fs [map_fromAList] \\ AP_TERM_TAC \\ fs []
+      \\ simp [map_fromAList, map_insert] \\ AP_TERM_TAC \\ fs []
       \\ rpt (AP_THM_TAC ORELSE AP_TERM_TAC)
       \\ fs [FUN_EQ_THM,FORALL_PROD])
     \\ CCONTR_TAC \\ fs []
@@ -67,7 +63,6 @@ val do_app_lemma = prove(
         `r.compile`,`(I ## MAP (I ## I ## (λx. HD (remove_ticks [x])))) ∘
           t'.compile_oracle`] mp_tac)
     \\ qpat_x_assum `r = _` (assume_tac o GSYM) \\ fs []
-    \\ impl_tac THEN1 fs [domain_map]
     \\ strip_tac \\ fs []
     \\ qpat_x_assum `_ = r` (assume_tac o GSYM) \\ fs []
     \\ rw [] \\ fs [state_component_equality]
@@ -78,7 +73,7 @@ val do_app_lemma = prove(
       `r.compile`,`(I ## MAP (I ## I ## (λx. HD (remove_ticks [x])))) ∘
         t'.compile_oracle`] mp_tac)
   \\ qpat_x_assum `r = _` (assume_tac o GSYM) \\ fs []
-  \\ impl_tac THEN1 fs [domain_map] \\ fs []);
+QED
 
 Theorem evaluate_remove_ticks:
    !k xs env s (t:('c,'ffi) bvlSem$state) res s'.
@@ -218,7 +213,9 @@ Proof
     \\ disch_then drule \\ strip_tac
     \\ qexists_tac `ck` \\ fs []
     \\ reverse (Cases_on `q`) \\ fs [] \\ rveq \\ fs []
-    \\ drule do_app_lemma \\ every_case_tac \\ fs []
+    \\ drule do_app_lemma
+    \\ disch_then(qspecl_then [`op`,`a`] assume_tac)
+    \\ every_case_tac \\ fs []
     \\ rveq \\ fs [])
   THEN1 (* Tick *)
    (fs [remove_ticks_def]
@@ -286,13 +283,15 @@ val evaluate_remove_ticks_thm =
   |> Q.SPEC `[Call 0 (SOME start) []]`
   |> SIMP_RULE std_ss [remove_ticks_def];
 
-val remove_ticks_cc_def = Define `
+Definition remove_ticks_cc_def:
   remove_ticks_cc cc =
-    (λcfg prog'. cc cfg (MAP (I ## I ## (λx. HD (remove_ticks [x]))) prog'))`;
+    (λcfg prog'. cc cfg (MAP (I ## I ## (λx. HD (remove_ticks [x]))) prog'))
+End
 
-val remove_ticks_co_def = Define `
+Definition remove_ticks_co_def:
   remove_ticks_co =
-    (I ## MAP (I ## I ## (λx. HD (remove_ticks [x]))))`;
+    (I ## MAP (I ## I ## (λx. HD (remove_ticks [x]))))
+End
 
 Theorem evaluate_compile_prog:
    evaluate ([Call 0 (SOME start) []], [],
@@ -588,15 +587,16 @@ Inductive exp_rel:
               [Let ys (mk_tick (SUC ticks) y)])
 End
 
-val in_cc_def = Define `
+Definition in_cc_def:
   in_cc limit cc =
     (λ(cs,cfg) prog.
         let (cs1,prog1) = tick_compile_prog limit cs prog in
           case cc cfg prog1 of
           | NONE => NONE
-          | SOME (code,data,cfg1) => SOME (code,data,(cs1,cfg1)))`
+          | SOME (code,data,cfg1) => SOME (code,data,(cs1,cfg1)))
+End
 
-val in_state_rel_def = Define `
+Definition in_state_rel_def:
   in_state_rel limit s t <=>
     t.globals = s.globals ∧
     t.refs = s.refs ∧
@@ -612,7 +612,8 @@ val in_state_rel_def = Define `
     (!k arity exp.
        lookup k s.code = SOME (arity,exp) ==>
        ?exp2. lookup k t.code = SOME (arity,exp2) /\
-              exp_rel s.code [exp] [exp2])`;
+              exp_rel s.code [exp] [exp2])
+End
 
 Theorem subspt_exp_rel:
    !s1 s2 xs ys. subspt s1 s2 /\ exp_rel s1 xs ys ==> exp_rel s2 xs ys
@@ -767,8 +768,8 @@ Proof
   \\ qexists_tac `aa1` \\ fs []
 QED
 
-val tick_compile_prog_IMP_exp_rel = prove(
-  ``!limit cs0 in1 cs1 in2 k arity exp src_code.
+Theorem tick_compile_prog_IMP_exp_rel[local]:
+  !limit cs0 in1 cs1 in2 k arity exp src_code.
       tick_compile_prog limit cs0 in1 = (cs1,in2) /\
       ALOOKUP in1 k = SOME (arity,exp) /\
       ALL_DISTINCT (MAP FST in1) /\
@@ -780,7 +781,8 @@ val tick_compile_prog_IMP_exp_rel = prove(
       DISJOINT (domain cs0) (set (MAP FST in1)) ==>
       ∃exp2.
         ALOOKUP in2 k = SOME (arity,exp2) /\
-        exp_rel (union src_code (fromAList in1)) [exp] [exp2]``,
+        exp_rel (union src_code (fromAList in1)) [exp] [exp2]
+Proof
   Induct_on `in1`
   \\ fs [FORALL_PROD,tick_compile_prog_def,tick_inline_all_def]
   \\ once_rewrite_tac [tick_inline_all_acc]
@@ -794,7 +796,7 @@ val tick_compile_prog_IMP_exp_rel = prove(
     \\ match_mp_tac exp_rel_tick_inline \\ metis_tac [])
   \\ first_x_assum drule
   \\ disch_then (qspec_then `k` mp_tac) \\ fs []
-  \\ qmatch_goalsub_rename_tac `(p1,p2,p3)::in1`
+  \\ qmatch_goalsub_rename_tac `(p1,p2,p3) :: in1`
   \\ disch_then (qspec_then `union src_code (insert p1 (p2,p3) LN)` mp_tac)
   \\ fs [exp_rel_rw] \\ disch_then match_mp_tac
   \\ reverse (IF_CASES_TAC \\ fs [])
@@ -808,7 +810,6 @@ val tick_compile_prog_IMP_exp_rel = prove(
       \\ fs [subspt_lookup,lookup_union])
     \\ CCONTR_TAC \\ fs [] \\ metis_tac [])
   \\ reverse (rw [])
-  THEN1 (fs [DISJOINT_DEF,domain_union,EXTENSION] \\ metis_tac [])
   \\ fs [lookup_insert,case_eq_thms] \\ rveq
   THEN1
    (rename1 `must_inline k2 _ _`
@@ -817,19 +818,21 @@ val tick_compile_prog_IMP_exp_rel = prove(
     \\ qexists_tac `src_code`
     \\ conj_tac THEN1 fs [subspt_lookup,lookup_union]
     \\ match_mp_tac exp_rel_tick_inline \\ metis_tac [])
-  \\ fs [lookup_union,case_eq_thms,GSYM lookup_NONE_domain,lookup_insert,lookup_def]
-  \\ pop_assum (assume_tac o GSYM)
+  \\ fs [lookup_union,case_eq_thms,GSYM lookup_NONE_domain,lookup_insert,
+         lookup_def]
   \\ first_x_assum drule \\ strip_tac \\ fs []
   \\ match_mp_tac (subspt_exp_rel |> ONCE_REWRITE_RULE [CONJ_COMM])
   \\ asm_exists_tac \\ fs []
-  \\ fs [subspt_lookup,lookup_union]);
+  \\ fs [subspt_lookup,lookup_union]
+QED
 
-val in_do_app_lemma = prove(
-  ``in_state_rel limit s1 t1 ==>
+Theorem in_do_app_lemma[local]:
+  in_state_rel limit s1 t1 ==>
     case do_app op a s1 of
     | Rerr err => (err <> Rabort Rtype_error ==> do_app op a t1 = Rerr err)
     | Rval (v,s2) => ?t2. in_state_rel limit s2 t2 /\
-                          do_app op a t1 = Rval (v,t2)``,
+                          do_app op a t1 = Rval (v,t2)
+Proof
   Cases_on `op = Install`
   THEN1
    (rw [] \\ fs [do_app_def]
@@ -898,7 +901,8 @@ val in_do_app_lemma = prove(
   \\ impl_tac THEN1 fs [in_state_rel_def]
   \\ fs [] \\ disch_then kall_tac
   \\ fs [in_state_rel_def]
-  \\ imp_res_tac do_app_const \\ fs []);
+  \\ imp_res_tac do_app_const \\ fs []
+QED
 
 Theorem evaluate_inline:
    !es env s1 res t1 s2 es2.
@@ -963,7 +967,8 @@ Proof
     \\ disch_then drule \\ strip_tac
     \\ fs [evaluate_def]
     \\ drule (Q.GEN `a` in_do_app_lemma)
-    \\ disch_then (qspec_then `REVERSE vs` mp_tac) \\ fs []
+    \\ disch_then (qspecl_then [`op`,`REVERSE vs`] mp_tac)
+    \\ fs []
     \\ strip_tac \\ fs [])
   THEN1
    (`s.clock = t1.clock` by fs [in_state_rel_def]
@@ -1027,13 +1032,14 @@ Proof
   \\ Cases_on `x'` \\ fs []
 QED
 
-val in_co_def = Define `
+Definition in_co_def:
   in_co limit co = (λn.
       (let
          ((cs,cfg),progs) = co n ;
          (cs1,progs) = tick_compile_prog limit cs progs
        in
-         (cfg,progs)))`;
+         (cfg,progs)))
+End
 
 Theorem MAP_FST_tick_inline_all:
    !limit cs prog.
@@ -1383,18 +1389,20 @@ val semantics_tick_inline = prove(
 
 (* let_op *)
 
-val let_opt_def = Define `
+Definition let_opt_def:
   let_opt split_seq cut_size (arity, prog) =
-    (arity, compile_any split_seq cut_size arity (let_op_sing prog))`
+    (arity, compile_any split_seq cut_size arity (let_op_sing prog))
+End
 
-val let_state_rel_def = Define `
+Definition let_state_rel_def:
   let_state_rel split_seq cut_size
            (s:('c,'ffi) bvlSem$state) (t:('c,'ffi) bvlSem$state) <=>
     t = s with <| code := map (let_opt split_seq cut_size) s.code
                 ; compile := t.compile
                 ; compile_oracle := (I ##
       MAP (I ## let_opt split_seq cut_size)) o s.compile_oracle |> /\
-    s.compile = \cfg prog. t.compile cfg (MAP (I ## let_opt split_seq cut_size) prog)`
+    s.compile = \cfg prog. t.compile cfg (MAP (I ## let_opt split_seq cut_size) prog)
+End
 
 val let_state_rel_alt = let_state_rel_def
 
@@ -1447,11 +1455,13 @@ Proof
   \\ CASE_TAC \\ fs []
 QED
 
-val do_app_lemma = prove(
-  ``let_state_rel q4 l4 s1 t1 ==>
+Theorem do_app_lemma[local]:
+  let_state_rel q4 l4 s1 t1 ==>
     case do_app op a s1 of
     | Rerr err => do_app op a t1 = Rerr err
-    | Rval (v,s2) => ?t2. let_state_rel q4 l4 s2 t2 /\ do_app op a t1 = Rval (v,t2)``,
+    | Rval (v,s2) => ?t2. let_state_rel q4 l4 s2 t2 /\
+                          do_app op a t1 = Rval (v,t2)
+Proof
   Cases_on `op = Install` THEN1
    (rw [] \\ fs [do_app_def]
     \\ every_case_tac \\ fs []
@@ -1479,7 +1489,6 @@ val do_app_lemma = prove(
         `t1.compile`,`(I ## MAP (I ## let_opt q4 l4)) ∘
           s1.compile_oracle`] mp_tac)
     \\ qpat_x_assum `t1 = _` (assume_tac o GSYM) \\ fs []
-    \\ impl_tac THEN1 fs [domain_map]
     \\ strip_tac \\ fs []
     \\ qpat_x_assum `_ = t1` (assume_tac o GSYM) \\ fs []
     \\ rw [] \\ fs [state_component_equality]
@@ -1490,7 +1499,7 @@ val do_app_lemma = prove(
       `t1.compile`,`(I ## MAP (I ##  let_opt q4 l4)) ∘
         s1.compile_oracle`] mp_tac)
   \\ qpat_x_assum `t1 = _` (assume_tac o GSYM) \\ fs []
-  \\ impl_tac THEN1 fs [domain_map] \\ fs []);
+QED
 
 Theorem evaluate_let_op:
    !es env s1 res t1 s2.
@@ -1506,11 +1515,10 @@ Proof
     \\ res_tac \\ fs [])
   THEN1 (rw [] \\ fs [])
   THEN1
-   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
-    \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM))
-    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs [])
+   (fs [case_eq_thms] \\ rveq \\ fs []
+   \\ res_tac \\ fs [] \\ res_tac \\ fs [])
   THEN1
-   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
+   (fs [case_eq_thms] \\ rveq \\ fs []
     \\ first_x_assum drule \\ rw [] \\ fs []
     THEN1
      (first_x_assum drule \\ rw [] \\ fs []
@@ -1527,24 +1535,21 @@ Proof
     \\ TOP_CASE_TAC \\ fs []
     \\ fs [evaluate_def])
   THEN1
-   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
-    \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM))
-    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs [])
+   (fs [case_eq_thms] \\ rveq \\ fs []
+   \\ res_tac \\ fs [] \\ res_tac \\ fs [])
   THEN1
-   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
-    \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM))
-    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs [])
+   (fs [case_eq_thms] \\ rveq \\ fs []
+   \\ res_tac \\ fs [] \\ res_tac \\ fs [])
   THEN1
-   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
-    \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM)) \\ fs []
-    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs []
+   (fs [case_eq_thms] \\ rveq \\ fs []
+    \\ res_tac \\ fs [] \\ res_tac \\ fs []
     \\ rveq \\ fs []
-    \\ drule (do_app_lemma |> Q.GEN `a` |> Q.SPEC `REVERSE vs`)
+    \\ drule do_app_lemma
+    \\ disch_then (qspecl_then [`op`,`REVERSE vs`] mp_tac)
     \\ fs [] \\ rw [] \\ fs [])
   THEN1
-   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
-    \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM))
-    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs []
+   (fs [case_eq_thms] \\ rveq \\ fs []
+    \\ res_tac \\ fs [] \\ res_tac \\ fs []
     THEN1 (fs [let_state_rel_def])
     \\ `let_state_rel q4 l4 (dec_clock 1 s) (dec_clock 1 t1)`
            by fs [let_state_rel_def,dec_clock_def]
@@ -1552,9 +1557,8 @@ Proof
     \\ rveq \\ fs []
     \\ qexists_tac `t2` \\ fs [] \\ fs [let_state_rel_def])
   THEN1
-   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
-    \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM))
-    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs [] \\ rveq
+   (fs [case_eq_thms] \\ rveq \\ fs []
+    \\ res_tac \\ fs [] \\ res_tac \\ fs [] \\ rveq
     \\ res_tac \\ fs [PULL_EXISTS]
     THEN1
      (qexists_tac `t2' with clock := 0` \\ fs [let_state_rel_def]
@@ -1575,17 +1579,17 @@ Proof
     \\ res_tac \\ fs [] \\ rfs [let_state_rel_def]
     \\ rename1 `_ = (res,t9)`
     \\ qexists_tac `t9` \\ fs []
-    \\ once_rewrite_tac [EQ_SYM_EQ]
     \\ match_mp_tac bvl_handleProofTheory.compile_any_correct \\ fs []
     \\ fs [let_op_sing_thm,HD_let_op])
 QED
 
-val let_op_cc_def = Define `
+Definition let_op_cc_def:
   let_op_cc q4 l4 cc =
-     (λcfg prog. cc cfg (MAP (I ## let_opt q4 l4) prog))`;
+     (λcfg prog. cc cfg (MAP (I ## let_opt q4 l4) prog))
+End
 
-val let_evaluate_Call = Q.prove(
-  `evaluate ([Call 0 (SOME start) []], [],
+Triviality let_evaluate_Call:
+  evaluate ([Call 0 (SOME start) []], [],
              initial_state ffi0 prog co (let_op_cc q4 l4 cc) k) = (r, s) /\
    r <> Rerr (Rabort Rtype_error) ⇒
    ∃(s2:('c,'ffi) bvlSem$state).
@@ -1594,7 +1598,8 @@ val let_evaluate_Call = Q.prove(
         initial_state ffi0 (map (let_opt q4 l4) prog)
           ((I ## MAP (I ## let_opt q4 l4)) o co)
           cc k) = (r, s2) ∧
-     s2.ffi = s.ffi /\ s.clock = s2.clock`,
+     s2.ffi = s.ffi /\ s.clock = s2.clock
+Proof
   strip_tac \\ fs [let_op_cc_def]
   \\ imp_res_tac evaluate_let_op
   \\ fs [let_op_def]
@@ -1602,7 +1607,8 @@ val let_evaluate_Call = Q.prove(
   \\ first_x_assum (qspecl_then [`t4`,`q4`,`l4`] mp_tac)
   \\ impl_tac \\ rw [] \\ fs []
   \\ fs [let_state_rel_def]
-  \\ unabbrev_all_tac \\ fs [initial_state_def]);
+  \\ unabbrev_all_tac \\ fs [initial_state_def]
+QED
 
 val semantics_let_op = prove(
   ``semantics ffi prog co (let_op_cc q4 l4 cc) start <> Fail ==>
@@ -1856,9 +1862,10 @@ val must_inline_remove_ticks = prove(
   \\ fs [is_small_def,is_rec_def,is_small_aux_remove_ticks]
   \\ fs [is_rec_remove_ticks]);
 
-val let_opt_remove_def = Define `
+Definition let_opt_remove_def:
   let_opt_remove b l (arity,prog) =
-    let_opt b l (arity,HD (remove_ticks [prog]))`;
+    let_opt b l (arity,HD (remove_ticks [prog]))
+End
 
 val map_fromAList_HASH = prove(
   ``map f (fromAList ls) = fromAList (MAP (I ## f) ls)``,
@@ -1899,14 +1906,16 @@ val comp_lemma = prove(
     (I ## let_opt_remove q4 l4)``,
   fs [FUN_EQ_THM,FORALL_PROD,let_opt_remove_def,let_opt_def]);
 
-val bvl_inline_cc_def = Define `
+Definition bvl_inline_cc_def:
   bvl_inline_cc limit q4 l4 cc =
-    (in_cc limit (remove_ticks_cc (let_op_cc q4 l4 cc)))`;
+    (in_cc limit (remove_ticks_cc (let_op_cc q4 l4 cc)))
+End
 
-val bvl_inline_co_def = Define `
+Definition bvl_inline_co_def:
   bvl_inline_co limit q4 l4 co =
    (λx. (I ## MAP (I ## let_opt q4 l4))
-          (remove_ticks_co (in_co limit co x)))`;
+          (remove_ticks_co (in_co limit co x)))
+End
 
 val MAP_optimise = prove(
   ``!prog.
@@ -1920,7 +1929,7 @@ Theorem state_cc_compile_inc_eq:
       (in_cc limit (remove_ticks_cc (let_op_cc o1 o2 cc)))
 Proof
   fs [state_cc_def,compile_inc_def,in_cc_def,FUN_EQ_THM,remove_ticks_cc_def,
-      let_op_cc_def] \\ rw []
+      let_op_cc_def,FORALL_PROD] \\ rw []
   \\ rpt (pairarg_tac \\ fs []) \\ rveq
   \\ fs [MAP_optimise]
 QED
@@ -2055,6 +2064,8 @@ Proof
     \\ match_mp_tac SUBSET_TRANS
     \\ asm_exists_tac \\ simp[]
     \\ match_mp_tac SUBSET_TRANS
+    \\ irule_at Any (bvl_handleProofTheory.get_code_labels_handle_simp |> CONJUNCT1)
+    \\ match_mp_tac SUBSET_TRANS
     \\ specl_args_of_then``bvl_const$compile_exp`` bvl_constProofTheory.compile_exp_code_labels mp_tac
     \\ strip_tac \\ asm_exists_tac \\ simp[]
     \\ specl_args_of_then``bvl_inline$remove_ticks`` remove_ticks_code_labels mp_tac
@@ -2145,4 +2156,3 @@ Proof
   \\ fs [o_DEF, toList_def, toListA_def]
 QED
 
-val _ = export_theory();

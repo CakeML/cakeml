@@ -4,11 +4,12 @@
   use PMATCH-based case expressions instead of HOL's standard
   per-datatype case constants.
 *)
-open preamble
-open patternMatchesLib patternMatchesSyntax patternMatchesTheory
-open ml_monadBaseTheory holKernelTheory
+Theory holKernelPmatch
+Ancestors
+  patternMatches ml_monadBase holKernel
+Libs
+  preamble patternMatchesLib patternMatchesSyntax
 
-val _ = new_theory"holKernelPmatch"
 val _ = monadsyntax.temp_add_monadsyntax()
 
 Overload monad_bind[local] = ``st_ex_bind``
@@ -16,7 +17,7 @@ Overload monad_unitbind[local] = ``\x y. st_ex_bind x (\z. y)``
 Overload monad_ignore_bind[local] = ``\x y. st_ex_bind x (\z. y)``
 Overload return[local] = ``st_ex_return``
 Overload ex_return[local] = ``st_ex_return``
-Overload failwith[local] = ``raise_Fail``
+Overload failwith[local] = ``raise_Failure``
 Overload raise_clash[local] = ``raise_Clash``
 Overload handle_clash[local] = ``handle_Clash``
 
@@ -25,9 +26,11 @@ val _ = hide "state";
 Type M = ``: hol_refs -> ('a, hol_exn) exc # hol_refs``
 
 (* TODO: stolen from deepMatchesLib.sml; should be exported? *)
-val PAIR_EQ_COLLAPSE = Q.prove (
-`(((FST x = (a:'a)) /\ (SND x = (b:'b))) = (x = (a, b)))`,
-Cases_on `x` THEN SIMP_TAC std_ss [] THEN METIS_TAC[])
+Triviality PAIR_EQ_COLLAPSE:
+  (((FST x = (a:'a)) /\ (SND x = (b:'b))) = (x = (a, b)))
+Proof
+  Cases_on `x` THEN SIMP_TAC std_ss [] THEN METIS_TAC[]
+QED
 
 val pabs_elim_ss =
     simpLib.conv_ss
@@ -303,4 +306,3 @@ val SYM_PMATCH = Q.prove(
   rpt tac)
 val res = fix SYM_def "SYM_def" SYM_PMATCH
 
-val _ = export_theory()

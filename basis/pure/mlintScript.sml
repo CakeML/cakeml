@@ -1,13 +1,16 @@
 (*
   Pure functions for the Int module.
 *)
-open preamble mlstringTheory
+Theory mlint
+Ancestors
+  mlstring gcd
+Libs
+  preamble
 
-val _ = new_theory"mlint";
-
-val toChar_def = Define`
+Definition toChar_def:
   toChar digit = if digit < 10 then CHR (ORD #"0" + digit)
-  else CHR (ORD #"A" + digit - 10)`;
+  else CHR (ORD #"A" + digit - 10)
+End
 
 Theorem toChar_HEX:
    d < 16 ⇒ (toChar d = HEX d)
@@ -15,120 +18,99 @@ Proof
   strip_tac \\ rpt(fs[Once NUMERAL_LESS_THM] >- EVAL_TAC)
 QED
 
-(* This should be smaller than the maximum smallint supported by the compiler
-(see bvl_to_bviTheory for that. 2**28-1?) Also it must be a power of the radix
-*)
-val maxSmall_DEC_def = Define`maxSmall_DEC = 100000000n`;
-val padLen_DEC_def = Define`
-  padLen_DEC = LOG 10 maxSmall_DEC`;
-val padLen_DEC_eq = save_thm("padLen_DEC_eq",CONV_RULE(RAND_CONV EVAL)padLen_DEC_def);
+(* decimal encoding is very slightly faster if we avoid dividing large big-ints
+   by 10, and instead divide them by a power of 10 that fits in 28 bits *)
+Definition exp_for_dec_enc_def:
+  exp_for_dec_enc = 8n
+End
 
-(* TODO: this might all be faster (less allocation in particular) using byte
-arrays (and therefore not in pure) Without a strcat primitive, though, this way
-could still make sense. *)
+(* compatibility with previous version*)
+Definition padLen_DEC_def:
+  padLen_DEC = exp_for_dec_enc
+End
+Theorem padLen_DEC_eq = EVAL ``padLen_DEC``
+Definition maxSmall_DEC_def1:
+  maxSmall_DEC = 10n ** exp_for_dec_enc
+End
+Theorem maxSmall_DEC_def = EVAL ``maxSmall_DEC``
 
-val zero_pad_def = Define`
-  (zero_pad 0 acc = acc) ∧
-  (zero_pad (SUC n) acc = zero_pad n (#"0" :: acc))`;
+val exp_thm = EVAL ``10n ** exp_for_dec_enc``
+val exp_tm = rhs (concl exp_thm)
 
-Theorem zero_pad_thm:
-   ∀n acc. zero_pad n acc = REPLICATE n #"0" ++ acc
+Definition num_to_chars_def:
+  num_to_chars i 0 k acc = num_to_chars (i DIV ^exp_tm)
+        exp_for_dec_enc ((i MOD ^exp_tm) + k) acc /\
+  num_to_chars i (SUC j) k acc = (if k < 10 /\ i = 0 then toChar k :: acc
+        else num_to_chars i j (k DIV 10) (toChar (k MOD 10) :: acc))
+Termination
+  WF_REL_TAC `inv_image (measure I LEX measure I)
+    (\(i, j, k, _). (i * (10 ** j)) + k, exp_for_dec_enc - j)`
+  \\ simp [GSYM DIVISION, GSYM exp_thm]
+  \\ rw [exp_for_dec_enc_def]
+  \\ simp [EXP]
+  \\ irule (Q.prove (`a <= d /\ b <= c /\ (a < d \/ b < c) ==> (a : num) + b < c + d`, simp []))
+  \\ simp [arithmeticTheory.DIV_LESS_EQ]
+  \\ Cases_on `i = 0` \\ fs []
+End
+
+Triviality add_lt_divisible_iff:
+  y MOD n = 0n ==> (x + y < n <=> x < n /\ y = 0)
 Proof
-  Induct \\ fs [] \\ fs [zero_pad_def]
-  \\ rewrite_tac [GSYM SNOC_APPEND,SNOC_REPLICATE]
-  \\ rewrite_tac [GSYM REPLICATE]
+  rw []
+  \\ EQ_TAC
+  \\ fs []
+  \\ CCONTR_TAC \\ fs []
 QED
 
-val simple_toChars_def = Define`
-  simple_toChars pad i acc =
-    if i < 10 then zero_pad (pad-1) (toChar i :: acc)
-    else simple_toChars (pad-1) (i DIV 10) (toChar (i MOD 10) :: acc)`;
-val simple_toChars_ind = theorem"simple_toChars_ind";
-
-Theorem simple_toChars_thm:
-   ∀pad i acc. simple_toChars pad i acc =
-    REPLICATE (pad - LENGTH (num_to_dec_string i)) #"0" ++ num_to_dec_string i ++ acc
+Theorem num_to_chars_thm:
+  !i j k acc.
+    num_to_chars i j k acc =
+    num_to_dec_string (k + (i * (10 ** j))) ++ acc
 Proof
-  ho_match_mp_tac simple_toChars_ind \\
-  rw[ASCIInumbersTheory.num_to_dec_string_def,
-     ASCIInumbersTheory.n2s_def] \\
-  rw[Once simple_toChars_def]
-  >- ( fs[NUMERAL_LESS_THM,zero_pad_thm] \\ EVAL_TAC )
-  \\ rw[Once numposrepTheory.n2l_def,SimpRHS,ADD1]
-  \\ rw[Once numposrepTheory.n2l_def,SimpRHS]
-  \\ match_mp_tac toChar_HEX
-  \\ `i MOD 10 < 10` by simp[MOD_LESS]
-  \\ rw[]
+  ho_match_mp_tac num_to_chars_ind
+  \\ simp [GSYM DIVISION, GSYM exp_thm]
+  \\ simp [num_to_dec_string_def, n2s_def]
+  \\ rw []
+  >- simp [num_to_chars_def, GSYM exp_thm]
+  \\ REWRITE_TAC [Once numposrepTheory.n2l_def]
+  \\ simp [num_to_chars_def, ZERO_EXP, add_lt_divisible_iff]
+  \\ simp [arithmeticTheory.ADD_DIV_RWT, EXP]
+  \\ simp [arithmeticTheory.MULT_DIV |> REWRITE_RULE [Once MULT_COMM]]
+  \\ rw []
+  \\ irule toChar_HEX
+  \\ simp [Q.SPECL [`i`, `10`] arithmeticTheory.LESS_LESS_EQ_TRANS]
 QED
 
-val toChars_def = tDefine"toChars"`
-  toChars chunk rest acc =
-    if rest = 0 then simple_toChars 0 chunk acc
-    else if rest < maxSmall_DEC then
-      simple_toChars 0 rest
-        (simple_toChars padLen_DEC chunk acc)
-    else
-      toChars (rest MOD maxSmall_DEC) (rest DIV maxSmall_DEC)
-        (simple_toChars padLen_DEC chunk acc)`
-(wf_rel_tac`measure (FST o SND)`
- \\ rw[maxSmall_DEC_def,DIV_LT_X] \\ fs[maxSmall_DEC_def]);
-val toChars_ind = theorem"toChars_ind";
+Definition int_to_string_def:
+  int_to_string neg_char i =
+    (if 0i <= i
+        then implode (num_to_chars (Num i) 0 0 [])
+        else implode (neg_char :: num_to_chars (Num (ABS i)) 0 0 []))
+End
 
-Theorem toChars_thm:
-   ∀chunk rest acc. chunk < maxSmall_DEC ⇒
-    (toChars chunk rest acc =
-      num_to_dec_string (rest * maxSmall_DEC + chunk) ++ acc)
+Definition toString_def1:
+  toString i = int_to_string #"~" i
+End
+
+Theorem toString_def = toString_def1 |> REWRITE_RULE [int_to_string_def]
+
+Theorem int_to_string_thm:
+  int_to_string neg_char i =
+  implode ((if i < 0i then [neg_char] else []) ++ num_to_dec_string (Num (ABS i)))
 Proof
-  ho_match_mp_tac toChars_ind
-  \\ rw[]
-  \\ rw[Once toChars_def]
-  \\ rw[simple_toChars_thm,REPLICATE]
-  \\ TRY (
-    qspec_then`maxSmall_DEC`mp_tac DIVISION
-    \\ impl_tac >- EVAL_TAC
-    \\ disch_then(qspec_then`rest`mp_tac)
-    \\ disch_then(CHANGED_TAC o SUBST1_TAC o SYM o ONCE_REWRITE_RULE[MULT_COMM] o CONJUNCT1))
-  \\ rw[ASCIInumbersTheory.num_to_dec_string_def,ASCIInumbersTheory.n2s_def]
-  \\ qspecl_then[`10`,`chunk + rest * maxSmall_DEC`,`padLen_DEC`]mp_tac n2l_DIV_MOD
-  \\ (impl_tac >- ( EVAL_TAC \\ simp[] ))
-  \\ disch_then (SUBST1_TAC o SYM)
-  \\ `10 ** padLen_DEC = maxSmall_DEC` by EVAL_TAC
-  \\ pop_assum (SUBST_ALL_TAC)
-  \\ simp[GSYM MAP_REVERSE,REVERSE_REPLICATE,map_replicate]
-  \\ qspecl_then[`maxSmall_DEC`,`chunk`]mp_tac DIV_MULT
-  \\ simp[]
+  rw[int_to_string_def, num_to_chars_thm, integerTheory.INT_ABS]
+  \\ `F` by intLib.COOPER_TAC
 QED
-
-val toString_def = Define`
-  toString i =
-    if 0i ≤ i ∧ i < 10 then
-      str (toChar (Num (ABS i)))
-    else
-      implode ((if i < 0i then "~" else "")++
-               (toChars (Num (ABS i) MOD maxSmall_DEC) (Num (ABS i) DIV maxSmall_DEC) ""))`;
 
 Theorem toString_thm:
    toString i = implode ((if i < 0i then "~" else "") ++ num_to_dec_string (Num (ABS i)))
 Proof
-  rw[toString_def]
-  >- (`F` by intLib.COOPER_TAC)
-  >- (
-    rw[str_def]
-    \\ AP_TERM_TAC
-    \\ `Num (ABS i) < 10` by intLib.COOPER_TAC
-    \\ simp[toChar_HEX]
-    \\ simp[ASCIInumbersTheory.num_to_dec_string_def]
-    \\ simp[ASCIInumbersTheory.n2s_def]
-    \\ simp[Once numposrepTheory.n2l_def])
-  \\ (
-    AP_TERM_TAC \\ simp[]
-    \\ `0 < maxSmall_DEC` by EVAL_TAC
-    \\ simp[toChars_thm]
-    \\ qspec_then`maxSmall_DEC`mp_tac DIVISION
-    \\ simp[] )
+  simp [toString_def1, int_to_string_thm]
 QED
 
-val num_to_str_def = Define `num_to_str (n:num) = toString (&n)`;
+Definition num_to_str_def:
+  num_to_str (n:num) = toString (&n)
+End
 
 Overload toString = ``num_to_str``
 
@@ -139,10 +121,11 @@ Proof
 QED
 
 (* fromString Definitions *)
-val fromChar_unsafe_def = Define`
-  fromChar_unsafe char = ORD char - ORD #"0"`;
+Definition fromChar_unsafe_def:
+  fromChar_unsafe char = ORD char - ORD #"0"
+End
 
-val fromChar_def = Define`
+Definition fromChar_def:
   fromChar char =
     case char of
       | #"0" => SOME 0n
@@ -155,7 +138,8 @@ val fromChar_def = Define`
       | #"7" => SOME 7n
       | #"8" => SOME 8n
       | #"9" => SOME 9n
-      | _    => NONE`;
+      | _    => NONE
+End
 
 (* Equivalence between the safe and unsafe versions of fromChar *)
 Theorem fromChar_eq_unsafe:
@@ -166,17 +150,19 @@ Proof
   \\ fs [LE])
 QED
 
-val fromChars_range_unsafe_def = Define`
+Definition fromChars_range_unsafe_def:
   fromChars_range_unsafe l 0       str = 0 ∧
   fromChars_range_unsafe l (SUC n) str =
-    fromChars_range_unsafe l n str * 10 + fromChar_unsafe (strsub str (l + n))`;
+    fromChars_range_unsafe l n str * 10 + fromChar_unsafe (strsub str (l + n))
+End
 
-val fromChars_range_def = Define`
+Definition fromChars_range_def:
   fromChars_range l 0       str = SOME 0 ∧
   fromChars_range l (SUC n) str =
     let rest = OPTION_MAP ($* 10n) (fromChars_range l n str) and
         head = fromChar (strsub str (l + n))
-    in OPTION_MAP2 $+ rest head`;
+    in OPTION_MAP2 $+ rest head
+End
 
 Theorem fromChars_range_eq_unsafe:
    ∀str l r. EVERY isDigit str ∧ l + r <= STRLEN str ⇒
@@ -190,7 +176,7 @@ Proof
         , EVERY_EL]
 QED
 
-val fromChars_unsafe_def = tDefine "fromChars_unsafe" `
+Definition fromChars_unsafe_def:
   fromChars_unsafe 0 str = 0n ∧ (* Shouldn't happend *)
   fromChars_unsafe n str =
     if n ≤ padLen_DEC
@@ -198,24 +184,28 @@ val fromChars_unsafe_def = tDefine "fromChars_unsafe" `
     else let n'    = n - padLen_DEC;
              front = fromChars_unsafe n' str * maxSmall_DEC;
              back  = fromChars_range_unsafe n' padLen_DEC str
-         in front + back`
-(wf_rel_tac `measure FST` \\ rw [padLen_DEC_eq]);
+         in front + back
+Termination
+  wf_rel_tac `measure FST` \\ rw [padLen_DEC_eq]
+End
 val fromChars_unsafe_ind = theorem"fromChars_unsafe_ind"
 
-val fromChars_def = tDefine "fromChars" `
-  fromChars 0 str = SOME 0n ∧ (* Shouldn't happend *)
+Definition fromChars_def:
+  fromChars 0 str = NONE ∧ (* Shouldn't happend *)
   fromChars n str =
     if n ≤ padLen_DEC
     then fromChars_range 0 n str
     else let n'    = n - padLen_DEC;
              front = OPTION_MAP ($* maxSmall_DEC) (fromChars n' str);
              back  = fromChars_range n' padLen_DEC str
-         in OPTION_MAP2 $+ front back`
-(wf_rel_tac `measure FST` \\ rw [padLen_DEC_eq]);
+         in OPTION_MAP2 $+ front back
+Termination
+  wf_rel_tac `measure FST` \\ rw [padLen_DEC_eq]
+End
 val fromChars_ind = theorem"fromChars_ind"
 
 Theorem fromChars_eq_unsafe:
-   ∀n s. EVERY isDigit (explode s) ∧ n ≤ strlen s ⇒
+   ∀n s. EVERY isDigit (explode s) ∧ n ≤ strlen s ∧ n ≥ 1 ⇒
     fromChars n s = SOME (fromChars_unsafe n s)
 Proof
   let val tactics = [fromChars_def
@@ -231,16 +221,17 @@ Proof
   end
 QED
 
-val fromString_unsafe_def = Define`
+Definition fromString_unsafe_def:
   fromString_unsafe str =
     if strlen str = 0
     then 0i
     else if strsub str 0 = #"~"
       then ~&fromChars_unsafe (strlen str - 1)
                               (substring str 1 (strlen str - 1))
-      else &fromChars_unsafe (strlen str) str`;
+      else &fromChars_unsafe (strlen str) str
+End
 
-val fromString_def = Define`
+Definition fromString_def:
   fromString str =
     if strlen str = 0
     then (NONE : int option)
@@ -253,13 +244,15 @@ val fromString_def = Define`
       then OPTION_MAP $&
              (fromChars (strlen str - 1)
                         (substring str 1 (strlen str - 1)))
-      else OPTION_MAP $& (fromChars (strlen str) str)`;
+      else OPTION_MAP $& (fromChars (strlen str) str)
+End
 
-val fromNatString_def = Define `
+Definition fromNatString_def:
   fromNatString str =
     case fromString str of
       NONE => NONE
-    | SOME i => if 0 <= i then SOME (Num i) else NONE`;
+    | SOME i => if 0 <= i then SOME (Num i) else NONE
+End
 
 (* fromString auxiliar lemmas *)
 Theorem fromChars_range_unsafe_0_substring_thm:
@@ -278,7 +271,7 @@ Theorem fromChars_range_unsafe_split:
 Proof
   Induct_on `m`
   >- rw []
-  >- (`∀m k w. 10**SUC m*k + 10*w = 10*(10**m*k + w)` by simp [EXP]
+  >- (`∀m (k: num) (w: num). 10**SUC m*k + 10*w = 10*(10**m*k + w)` by simp [EXP]
       \\ Cases_on `n`
       \\ rw [fromChars_range_unsafe_def]
       \\ Cases_on `m`
@@ -371,7 +364,7 @@ Theorem fromString_thm:
   ∀str.
     str ≠ "" ∧
     (HD str ≠ #"~" ∧ HD str ≠ #"-" ∧ HD str ≠ #"+" ⇒ EVERY isDigit str) ∧
-    (HD str = #"~" ∨ HD str = #"-" ∨ HD str = #"+" ⇒ EVERY isDigit (DROP 1 str)) ⇒
+    (HD str = #"~" ∨ HD str = #"-" ∨ HD str = #"+" ⇒ EVERY isDigit (DROP 1 str) ∧ STRLEN str ≥ 2) ⇒
       fromString (strlit str) = SOME
         if HD str = #"~" ∨ HD str = #"-"
         then ~&num_from_dec_string (DROP 1 str)
@@ -379,15 +372,18 @@ Theorem fromString_thm:
         then &num_from_dec_string (DROP 1 str)
         else &num_from_dec_string str
 Proof
-  Cases
+  Cases \\ rw[fromString_def]
+  \\ DEP_REWRITE_TAC[fromChars_eq_unsafe] \\ simp[substring_def, SEG_TAKE_DROP]
   \\ rw [fromString_def, fromChars_eq_unsafe, fromChars_range_unsafe_eq,
          fromChars_range_unsafe_thm, substring_def, SEG_TAKE_DROP,
          TAKE_LENGTH_ID_rwt,
          fromChars_range_lemma]
+  \\ gs[]
+  \\ metis_tac[fromChars_range_lemma,EVERY_DEF]
 QED
 
-val fromString_eq_unsafe = save_thm("fromString_eq_unsafe",
-  fromString_thm |> SIMP_RULE std_ss [GSYM fromString_unsafe_thm]);
+Theorem fromString_eq_unsafe =
+  fromString_thm |> SIMP_RULE std_ss [GSYM fromString_unsafe_thm]
 
 Theorem fromString_toString_Num:
    0 ≤ n ⇒ fromString (strlit (num_to_dec_string (Num n))) = SOME n
@@ -397,34 +393,69 @@ Proof
   \\ qspec_then`Num n`assume_tac EVERY_isDigit_num_to_dec_string
   \\ Cases_on`num_to_dec_string (Num n)` \\ fs[]
   \\ rw[]
-  \\ TRY ( qhdtm_x_assum`isDigit`mp_tac \\ EVAL_TAC \\ NO_TAC )
-  \\ mp_tac ASCIInumbersTheory.num_dec_string
-  \\ simp[FUN_EQ_THM]
-  \\ disch_then(qspec_then`Num n`mp_tac)
-  \\ simp[]
-  \\ simp[integerTheory.INT_OF_NUM]
+  \\ gs[stringTheory.isDigit_def]
+  \\ qpat_x_assum ‘toString _ = _’ (SUBST1_TAC o SYM)
+  \\ simp[toNum_toString, integerTheory.INT_OF_NUM]
+QED
+
+Triviality fromString_helper:
+  HD (toString (i : num)) = c ==> isDigit c
+Proof
+  qspec_then `i` mp_tac EVERY_isDigit_num_to_dec_string
+  \\ Cases_on `toString i : string` \\ fs []
+  \\ rw []
+  \\ simp []
+QED
+
+Triviality fromString_hd:
+  HD (toString (i : num)) = c ==> isDigit c
+Proof
+  qspec_then `i` mp_tac EVERY_isDigit_num_to_dec_string
+  \\ Cases_on `toString i : string` \\ fs []
+  \\ rw []
+  \\ simp []
+QED
+
+Triviality toString_len:
+  STRLEN (toString (i : num)) + 1 ≥ 2
+Proof
+  Cases_on `toString i : string` \\ fs []
+QED
+
+Triviality toString_len_1:
+  ¬ (HD (toString (i:num)) = #"~") ∧
+  ¬ (HD (toString (i:num)) = #"-") ∧
+  ¬ (HD (toString (i:num)) = #"+")
+Proof
+  CCONTR_TAC>>fs[]>>
+  drule fromString_hd>>
+  EVAL_TAC
+QED
+
+Theorem fromString_int_to_string[simp]:
+  neg_char = #"~" \/ neg_char = #"-" ==>
+  fromString (int_to_string neg_char i) = SOME i
+Proof
+  simp [int_to_string_thm,implode_def]
+  \\ disch_tac
+  \\ DEP_REWRITE_TAC [fromString_thm]
+  \\ CONJ_TAC >- (
+    rename1`toString s`
+    \\ Cases_on`toString s`>>simp[]
+    \\ rw [EVERY_isDigit_num_to_dec_string, EVERY_DROP]
+    \\ Cases_on`toString s`>>simp[]
+    \\ metis_tac[toString_len,toString_len_1])
+  \\ rw [EVERY_isDigit_num_to_dec_string, EVERY_DROP]
+  \\ gs [ASCIInumbersTheory.toNum_toString]
+  \\ simp [Q.prove (`&(Num (ABS i)) = (if i < 0 then (- i) else i)`, intLib.COOPER_TAC)]
+  \\ drule_then (mp_tac o CONV_RULE EVAL) fromString_helper
+  \\ simp []
 QED
 
 Theorem fromString_toString[simp]:
    !i:int. fromString (toString i) = SOME i
 Proof
-  rw [toString_thm,implode_def]
-  \\ qmatch_goalsub_abbrev_tac `strlit sss`
-  \\ qspec_then `sss` mp_tac fromString_thm
-  THEN1
-   (reverse impl_tac THEN1
-     (fs [Abbr`sss`,toString_thm,ASCIInumbersTheory.toNum_toString]
-      \\ rw [] \\ last_x_assum mp_tac \\ intLib.COOPER_TAC)
-    \\ fs [Abbr `sss`,EVERY_isDigit_num_to_dec_string])
-  \\ `HD sss ≠ #"~" ∧ HD sss ≠ #"-" ∧ HD sss ≠ #"+"` by
-   (fs [Abbr `sss`]
-    \\ qspec_then `Num (ABS i)` mp_tac EVERY_isDigit_num_to_dec_string
-    \\ Cases_on `num_to_dec_string (Num (ABS i))`
-    \\ fs []
-    \\ CCONTR_TAC \\ fs [] \\ rveq  \\ fs [isDigit_def])
-  \\ fs [Abbr `sss`,EVERY_isDigit_num_to_dec_string]
-  \\ fs [toString_thm,ASCIInumbersTheory.toNum_toString]
-  \\ rw [] \\ last_x_assum mp_tac \\ intLib.COOPER_TAC
+  simp [toString_def1]
 QED
 
 Theorem fromNatString_toString[simp]:
@@ -474,7 +505,7 @@ Proof
 QED
 
 Theorem fromChars_IS_SOME_IFF:
-   ∀n s. n ≤ strlen s ⇒ (IS_SOME (fromChars n s) ⇔ EVERY isDigit (TAKE n (explode s)))
+   ∀n s. n ≤ strlen s ∧ n ≥ 1 ⇒ (IS_SOME (fromChars n s) ⇔ EVERY isDigit (TAKE n (explode s)))
 Proof
   recInduct fromChars_ind
   \\ rw[fromChars_def]
@@ -509,8 +540,100 @@ Proof
 QED
 
 (* this formulation avoids a comparsion using = for better performance *)
-val int_cmp_def = Define `
+Definition int_cmp_def:
   int_cmp i (j:int) = if i < j then LESS else
-                      if j < i then GREATER else EQUAL`
+                      if j < i then GREATER else EQUAL
+End
 
-val _ = export_theory();
+Definition num_gcd_def:
+  num_gcd a b = if a = 0n then b else num_gcd (b MOD a) a
+End
+
+Theorem num_gcd_eq_gcd:
+  num_gcd = gcd
+Proof
+  simp [FUN_EQ_THM]
+  \\ ho_match_mp_tac num_gcd_ind
+  \\ rw []
+  \\ once_rewrite_tac [GCD_EFFICIENTLY,num_gcd_def]
+  \\ rw []
+QED
+
+Definition int_gcd_def:
+  int_gcd (m:int) (n:int) = & num_gcd (Num (ABS m)) (Num (ABS n)) :int
+End
+
+(* lemmas *)
+
+Theorem num_to_str_11:
+  num_to_str n0 = num_to_str n1 ⇔ n0 = n1:num
+Proof
+  fs [num_to_str_def,toString_thm,mlstringTheory.implode_def]
+QED
+
+Theorem num_to_str_not_nil:
+  num_to_str (i:num) = strlit s ⇒ s ≠ ""
+Proof
+  fs [num_to_str_def,toString_thm,mlstringTheory.implode_def]
+  \\ rw [] \\ fs [num_to_dec_string_def]
+QED
+
+Triviality ORD_HEX_BOUND1:
+  i < 10 ⇒ 48 ≤ ORD (HEX (i:num))
+Proof
+  Cases_on ‘i’ \\ fs [] \\ ntac 6 (Cases_on ‘n’ \\ fs [] \\ Cases_on ‘n'’ \\ fs [])
+QED
+
+Triviality ORD_HEX_BOUND2:
+  i < 10 ⇒ ORD (HEX (i:num)) ≤ 57
+Proof
+  Cases_on ‘i’ \\ fs [] \\ ntac 6 (Cases_on ‘n’ \\ fs [] \\ Cases_on ‘n'’ \\ fs [])
+QED
+
+Theorem num_to_str_every:
+  num_to_str (i:num) = strlit s ⇒ EVERY (λx. 48 ≤ ORD x ∧ ORD x ≤ 57) s
+Proof
+  fs [num_to_str_def,toString_thm,mlstringTheory.implode_def]
+  \\ rw [] \\ fs [num_to_dec_string_def] \\ fs [n2s_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]
+  \\ completeInduct_on ‘i’
+  \\ once_rewrite_tac [numposrepTheory.n2l_def]
+  \\ rw [] \\ fs []
+  \\ TRY (irule ORD_HEX_BOUND1 \\ fs [] \\ NO_TAC)
+  \\ TRY (irule ORD_HEX_BOUND2 \\ fs [] \\ NO_TAC)
+  \\ gvs [SF DNF_ss, AND_IMP_INTRO]
+  \\ res_tac \\ fs [DIV_LT_X]
+QED
+
+Theorem num_to_str_imp_cons:
+  toString (i:num) = strlit s ⇒
+  ∃x xs. s = x :: xs ∧ 48 ≤ ORD x ∧ ORD x ≤ 57 ∧ EVERY (λx. 48 ≤ ORD x ∧ ORD x ≤ 57) xs
+Proof
+  rw []
+  \\ imp_res_tac num_to_str_every
+  \\ imp_res_tac num_to_str_not_nil
+  \\ Cases_on ‘s’ \\ fs []
+QED
+
+Theorem num_to_str_APPEND_11:
+  STRCAT s1 (STRING x1 xs1) = STRCAT s2 (STRING x2 xs2) ∧
+  toString n1 = strlit s1 ∧
+  toString n2 = strlit s2 ∧
+  ~(48 ≤ ORD x1 ∧ ORD x1 ≤ 57) ∧
+  ~(48 ≤ ORD x2 ∧ ORD x2 ≤ 57) ⇒
+  n1 = n2 ∧ x1::xs1 = x2::xs2
+Proof
+  Cases_on ‘n1 = n2’ \\ gvs [APPEND]
+  >-
+   (full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC] \\ rw [] \\ fs []
+    \\ full_simp_tac std_ss [APPEND,GSYM APPEND_ASSOC] \\ fs [])
+  \\ rw []
+  \\ Cases_on ‘s1 = s2’ >- metis_tac [num_to_str_11]
+  \\ imp_res_tac num_to_str_every
+  \\ rpt $ qpat_x_assum ‘toString _ = strlit _’ kall_tac
+  \\ last_x_assum kall_tac
+  \\ rpt $ pop_assum mp_tac
+  \\ qid_spec_tac ‘s2’
+  \\ qid_spec_tac ‘s1’
+  \\ Induct \\ fs [] \\ rw []
+  \\ Cases_on ‘s2’ \\ gvs []
+QED

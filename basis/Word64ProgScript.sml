@@ -1,10 +1,11 @@
 (*
   Module about the built-in word64 type.
 *)
-open preamble ml_translatorLib ml_progLib basisFunctionsLib
-     CharProgTheory
-
-val _ = new_theory "Word64Prog";
+Theory Word64Prog
+Ancestors
+  CharProg
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
 
 val _ = translation_extends "CharProg";
 
@@ -20,6 +21,7 @@ val _ = ml_prog_update (add_dec
 (* to/from int *)
 val _ = trans "fromInt" ``n2w:num->word64``;
 val _ = trans "toInt" ``w2n:word64->num``;
+val _ = trans "toIntSigned" ``w2i:word64->int``;
 
 (* bitwise operations *)
 val _ = trans "andb" ``word_and:word64->word64->word64``;;
@@ -39,7 +41,7 @@ val _ = trans "-" ``word_sub:word64->word64->word64``;
 
 (* shifts *)
 
-val var_word_lsl_def = Define `
+Definition var_word_lsl_def:
   var_word_lsl (w:word64) (n:num) = if 64 < n then 0w
     else if n < 8 then
     if n < 4 then
@@ -48,7 +50,8 @@ val var_word_lsl_def = Define `
       else w << 3
     else if n < 6 then if n < 5 then w << 4 else w << 5
     else if n < 7 then w << 6
-    else w << 7 else var_word_lsl (w << 8) (n − 8)`
+    else w << 7 else var_word_lsl (w << 8) (n − 8)
+End
 
 Theorem var_word_lsl_thm[simp]:
    var_word_lsl w n = word_lsl w n
@@ -59,7 +62,7 @@ Proof
   \\ ntac 9 (once_rewrite_tac [var_word_lsl_def] \\ fs [])
 QED
 
-val var_word_lsr_def = Define `
+Definition var_word_lsr_def:
   var_word_lsr (w:word64) (n:num) = if 64 < n then 0w
     else if n < 8 then
     if n < 4 then
@@ -68,7 +71,8 @@ val var_word_lsr_def = Define `
       else w >>> 3
     else if n < 6 then if n < 5 then w >>> 4 else w >>> 5
     else if n < 7 then w >>> 6
-    else w >>> 7 else var_word_lsr (w >>> 8) (n − 8)`
+    else w >>> 7 else var_word_lsr (w >>> 8) (n − 8)
+End
 
 Theorem var_word_lsr_thm[simp]:
    var_word_lsr w n = word_lsr w n
@@ -79,7 +83,7 @@ Proof
   \\ ntac 9 (once_rewrite_tac [var_word_lsr_def] \\ fs [])
 QED
 
-val var_word_asr_def = Define `
+Definition var_word_asr_def:
   var_word_asr (w:word64) (n:num) = if 64 < n then w >> 64
     else if n < 8 then
     if n < 4 then
@@ -88,14 +92,15 @@ val var_word_asr_def = Define `
       else w >> 3
     else if n < 6 then if n < 5 then w >> 4 else w >> 5
     else if n < 7 then w >> 6
-    else w >> 7 else var_word_asr (w >> 8) (n − 8)`
+    else w >> 7 else var_word_asr (w >> 8) (n − 8)
+End
 
 Theorem var_word_asr_thm[simp]:
    var_word_asr w n = word_asr w n
 Proof
   ntac 32 (
-    Cases_on `n` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [ASR_ADD])
-    \\ Cases_on `n'` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [ASR_ADD]))
+    Cases_on `n` \\ fs [ADD1] THEN1 (rw [] \\ EVAL_TAC \\ fs [ASR_ADD])
+    \\ Cases_on `n'` \\ fs [ADD1] THEN1 (rw [] \\ EVAL_TAC \\ fs [ASR_ADD]))
   \\ ntac 9 (once_rewrite_tac [var_word_asr_def] \\ fs [])
 QED
 
@@ -108,9 +113,10 @@ val _ = translate var_word_lsr_def;
 val _ = (next_ml_names := ["~>>"]);
 val _ = translate var_word_asr_def;
 
-val concat_all_def = Define `
+Definition concat_all_def:
   concat_all (a:word8) b c d e f g h =
-    concat_word_list [a;b;c;d;e;f;g;h]:64 word`
+    concat_word_list [a;b;c;d;e;f;g;h]:64 word
+End
 
 val concat_all_impl =
   REWRITE_RULE [concat_word_list_def, dimindex_8, ZERO_SHIFT, WORD_OR_CLAUSES] concat_all_def;
@@ -123,4 +129,3 @@ val sigs = module_signatures ["fromInt", "toInt", "andb",
 
 val _ = ml_prog_update (close_module (SOME sigs));
 
-val _ = export_theory();

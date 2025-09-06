@@ -2,7 +2,8 @@ ARCH = x64
 WORD_SIZE = 32
 INCLUDES = $(CAKEMLDIR)/semantics $(CAKEMLDIR)/basis ../../../..\
 					 ../../../../encoders/asm ../../../../encoders/$(ARCH)\
-					 ../../../../backend/$(ARCH) ../../../translation
+					 ../../../../backend/$(ARCH) ../../../translation \
+                                         $(CAKEMLDIR)/cv_translator
 
 all: $(DEFAULT_TARGETS) README.md cake-$(ARCH)-$(WORD_SIZE).tar.gz
 .PHONY: all
@@ -14,7 +15,11 @@ README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmeP
 
 cake.S: *$(ARCH)BootstrapScript.sml
 
-cake-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile how-to.md
-	tar -chzf $@ --transform='s|^|cake-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile how-to.md
+cake-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile hello.cml how-to.md
+	tar -chzf $@ --transform='s|^|cake-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile hello.cml how-to.md
 
 EXTRA_CLEANS = cake.S cake-$(ARCH)-$(WORD_SIZE).tar.gz
+
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap
+endif

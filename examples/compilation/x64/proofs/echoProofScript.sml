@@ -3,11 +3,12 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     echoProgTheory echoCompileTheory
-
-val _ = new_theory"echoProof";
+Theory echoProof
+Ancestors
+  semanticsProps backendProof x64_configProof echoProg
+  echoCompile
+Libs
+  preamble
 
 val echo_io_events_def = new_specification("echo_io_events_def",["echo_io_events"],
   echo_semantics
@@ -15,10 +16,12 @@ val echo_io_events_def = new_specification("echo_io_events_def",["echo_io_events
   |> SIMP_RULE bool_ss [SKOLEM_THM,GSYM RIGHT_EXISTS_IMP_THM]);
 
 val (echo_sem,echo_output) = echo_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
-val (echo_not_fail,echo_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail echo_sem |> CONJ_PAIR
+val (echo_not_fail,echo_sem_sing) = echo_sem
+  |> SRULE [echo_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val compile_correct_applied =
-  MATCH_MP compile_correct echo_compiled
+  MATCH_MP compile_correct (cj 1 echo_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP echo_not_fail
   |> C MATCH_MP x64_backend_config_ok
@@ -28,10 +31,8 @@ val compile_correct_applied =
   |> DISCH(#1(dest_imp(concl x64_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
-val echo_compiled_thm =
+Theorem echo_compiled_thm =
   CONJ compile_correct_applied echo_output
   |> DISCH_ALL
   |> check_thm
-  |> curry save_thm "echo_compiled_thm";
 
-val _ = export_theory();

@@ -1,10 +1,11 @@
 (*
   Encoding from Boolean expressions to CNF.
 *)
-
-open preamble miscTheory ASCIInumbersTheory cnfTheory;
-
-val _ = new_theory "old_boolExpToCnf";
+Theory old_boolExpToCnf
+Ancestors
+  misc ASCIInumbers cnf
+Libs
+  preamble
 
 
 (* ----------------------- Types --------------------------------------- *)
@@ -306,4 +307,3 @@ Theorem example3 =
                   (Lit (INR 1))
                   (Lit (INR 3))))))”;
 
-val _ = export_theory();

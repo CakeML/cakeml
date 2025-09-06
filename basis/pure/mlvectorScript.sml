@@ -1,35 +1,43 @@
 (*
   Pure functions for the Vector module.
 *)
-open preamble
-      mllistTheory miscTheory regexp_compilerTheory
+Theory mlvector
+Libs
+  preamble
+Ancestors
+  misc mllist regexp_compiler
 
-val _ = new_theory"mlvector"
+Theorem vector_nchotomy =
+  regexp_compilerTheory.vector_nchotomy
 
-val _ = set_grammar_ancestry ["mllist", "regexp_compiler"]
+Theorem sub_def =
+  regexp_compilerTheory.sub_def
 
-val vector_nchotomy = save_thm("vector_nchotomy",regexp_compilerTheory.vector_nchotomy);
+Theorem length_def =
+  regexp_compilerTheory.length_def
 
-val sub_def = save_thm("sub_def",regexp_compilerTheory.sub_def);
+Definition tabulate_def:
+  tabulate n f = Vector (GENLIST f n)
+End
 
-val length_def = save_thm("length_def",regexp_compilerTheory.length_def);
-
-val tabulate_def = Define`
-  tabulate n f = Vector (GENLIST f n)`;
-
-val toList_aux_def = tDefine "toList_aux"`
+Definition toList_aux_def:
   toList_aux vec n =
   if length(vec) <= n
     then []
-  else sub vec n::toList_aux vec (n + 1)`
-(wf_rel_tac `measure (\(vec, n). length(vec) - n)`)
+  else sub vec n::toList_aux vec (n + 1)
+Termination
+  wf_rel_tac `measure (\(vec, n). length(vec) - n)`
+End
 
 val toList_aux_ind = theorem"toList_aux_ind";
 
-val toList_def = Define`toList vec = toList_aux vec 0`;
+Definition toList_def:
+  toList vec = toList_aux vec 0
+End
 
-val toList_aux_thm = Q.prove (
-  `!vec n. toList_aux vec n = case vec of Vector vs => DROP n vs`,
+Triviality toList_aux_thm:
+  !vec n. toList_aux vec n = case vec of Vector vs => DROP n vs
+Proof
   ho_match_mp_tac toList_aux_ind \\
   rw [] \\
   ONCE_REWRITE_TAC [toList_aux_def] \\
@@ -38,7 +46,7 @@ val toList_aux_thm = Q.prove (
   fs [] \\
   Cases_on `vec` \\
   fs [sub_def, length_def, DROP_EL_CONS]
-);
+QED
 
 Theorem toList_thm:
    !ls. toList (Vector ls) = ls
@@ -70,8 +78,9 @@ Proof
   Cases_on `v` >> fs[toList_thm,fromList_def]
 QED
 
-val update_def = Define`
-  update vec i x = Vector (LUPDATE x i (toList(vec)))`;
+Definition update_def:
+  update vec i x = Vector (LUPDATE x i (toList(vec)))
+End
 
 Theorem update_thm:
    !vec i x. sub (update vec i x) i = if i < length vec then x
@@ -83,18 +92,22 @@ QED
 
 
 
-val concat_def = Define`
-  concat l = Vector (FLAT (MAP toList l))`;
+Definition concat_def:
+  concat l = Vector (FLAT (MAP toList l))
+End
 
-val map_def = Define`
-  map vec f = Vector (MAP f (toList vec))`;
+Definition map_def:
+  map vec f = Vector (MAP f (toList vec))
+End
 
-val mapi_def = Define`
-  mapi vec f = Vector (MAPi f (toList vec))`;
+Definition mapi_def:
+  mapi vec f = Vector (MAPi f (toList vec))
+End
 
 
-val less_than_length_thm = Q.prove (
-  `!xs n. (n < LENGTH xs) ==> (?ys z zs. (xs = ys ++ z::zs) /\ (LENGTH ys = n))`,
+Triviality less_than_length_thm:
+  !xs n. (n < LENGTH xs) ==> (?ys z zs. (xs = ys ++ z::zs) /\ (LENGTH ys = n))
+Proof
   rw[] \\
   qexists_tac`TAKE n xs` \\
   rw[] \\
@@ -102,23 +115,26 @@ val less_than_length_thm = Q.prove (
   qexists_tac`TL (DROP n xs)` \\
   Cases_on`DROP n xs` \\ fs[] \\
   metis_tac[TAKE_DROP,APPEND_ASSOC,CONS_APPEND]
-);
+QED
 
-val foldli_aux_def = Define`
+Definition foldli_aux_def:
   (foldli_aux f e vec n 0 = e) /\
-  (foldli_aux f e vec n (SUC len) = foldli_aux f (f n (sub vec n) e) vec (n + 1) len)`;
+  (foldli_aux f e vec n (SUC len) = foldli_aux f (f n (sub vec n) e) vec (n + 1) len)
+End
 
-val foldli_def = Define`
-  foldli f e vec = foldli_aux f e vec 0 (length vec)`;
+Definition foldli_def:
+  foldli f e vec = foldli_aux f e vec 0 (length vec)
+End
 
-val foldli_aux_thm = Q.prove (
-  `!f e vec n len. (n + len = length vec) ==>
-    (foldli_aux f e vec n len = mllist$foldli_aux f e n (DROP n (toList vec)))`,
+Triviality foldli_aux_thm:
+  !f e vec n len. (n + len = length vec) ==>
+    (foldli_aux f e vec n len = mllist$foldli_aux f e n (DROP n (toList vec)))
+Proof
   Cases_on `vec` \\ Induct_on `len` \\
   rw [foldli_aux_def, toList_thm, length_def, sub_def]
   >-(rw [DROP_LENGTH_TOO_LONG, mllistTheory.foldli_aux_def])
   \\ rw [DROP_EL_CONS, mllistTheory.foldli_aux_def, ADD1]
-);
+QED
 
 Theorem foldli_thm:
    !f e vec. foldli f e vec = mllist$foldli f e (toList vec)
@@ -126,16 +142,19 @@ Proof
   rw [foldli_def, mllistTheory.foldli_def, foldli_aux_thm]
 QED
 
-val foldl_aux_def = Define`
+Definition foldl_aux_def:
   (foldl_aux f e vec n 0 = e) /\
-  (foldl_aux f e vec n (SUC len) = foldl_aux f (f e (sub vec n)) vec (n + 1) len)`;
+  (foldl_aux f e vec n (SUC len) = foldl_aux f (f e (sub vec n)) vec (n + 1) len)
+End
 
-val foldl_def = Define`
-  foldl f e vec = foldl_aux f e vec 0 (length vec)`;
+Definition foldl_def:
+  foldl f e vec = foldl_aux f e vec 0 (length vec)
+End
 
-val foldl_aux_thm = Q.prove (
-  `!f e vec x len. (x + len = length vec) ==>
-    (foldl_aux f e vec x len = FOLDL f e (DROP x (toList vec)))`,
+Triviality foldl_aux_thm:
+  !f e vec x len. (x + len = length vec) ==>
+    (foldl_aux f e vec x len = FOLDL f e (DROP x (toList vec)))
+Proof
   Induct_on `len` \\ Cases_on `vec` \\
   rw [foldl_aux_def, DROP_LENGTH_TOO_LONG, length_def, toList_thm] \\
   rw [length_def, sub_def, toList_thm] \\
@@ -146,7 +165,7 @@ val foldl_aux_thm = Q.prove (
   `LENGTH ys + 1 = LENGTH (ys ++ [z])` by (fs [] \\ NO_TAC) \\ ASM_REWRITE_TAC [DROP_LENGTH_APPEND]\\
   simp_tac std_ss [GSYM APPEND_ASSOC, APPEND, EL_LENGTH_APPEND, NULL, HD,
         FOLDL,  DROP_LENGTH_APPEND]
-);
+QED
 
 Theorem foldl_thm:
    !f e vec. foldl f e vec = FOLDL f e (toList vec)
@@ -156,21 +175,24 @@ QED
 
 
 
-val foldri_aux_def = Define`
+Definition foldri_aux_def:
   (foldri_aux f e vec 0 = e) /\
-  (foldri_aux f e vec (SUC len) = foldri_aux f (f len (sub vec len) e) vec len)`;
+  (foldri_aux f e vec (SUC len) = foldri_aux f (f len (sub vec len) e) vec len)
+End
 
-val foldri_def = Define`
-  foldri f e vec = foldri_aux f e vec (length vec)`;
+Definition foldri_def:
+  foldri f e vec = foldri_aux f e vec (length vec)
+End
 
 
-val foldri_aux_thm = Q.prove (
-  `!f e vec len. len <= length vec ==>
-    (foldri_aux f e vec len = FOLDRi f e (TAKE len (toList vec)))`,
+Triviality foldri_aux_thm:
+  !f e vec len. len <= length vec ==>
+    (foldri_aux f e vec len = FOLDRi f e (TAKE len (toList vec)))
+Proof
   Induct_on `len` \\ rw[foldri_aux_def] \\
   Cases_on `vec` \\ fs[length_def, toList_thm, sub_def] \\
   rw [ADD1, TAKE_SUM, TAKE1_DROP, FOLDRi_APPEND]
-);
+QED
 
 Theorem foldri_thm:
    !f e vec. foldri f e vec = FOLDRi f e (toList vec)
@@ -181,20 +203,23 @@ QED
 
 
 
-val foldr_aux_def = Define`
+Definition foldr_aux_def:
   (foldr_aux f e vec 0 = e) /\
-  (foldr_aux f e vec (SUC len) = foldr_aux f (f (sub vec len) e) vec len)`;
+  (foldr_aux f e vec (SUC len) = foldr_aux f (f (sub vec len) e) vec len)
+End
 
-val foldr_def = Define`
-  foldr f e vec = foldr_aux f e vec (length vec)`;
+Definition foldr_def:
+  foldr f e vec = foldr_aux f e vec (length vec)
+End
 
-val foldr_aux_thm = Q.prove (
-  `!f e vec len. len <= length vec ==>
-    (foldr_aux f e vec len = FOLDR f e (TAKE len (toList vec)))`,
+Triviality foldr_aux_thm:
+  !f e vec len. len <= length vec ==>
+    (foldr_aux f e vec len = FOLDR f e (TAKE len (toList vec)))
+Proof
   Induct_on `len` \\ rw[foldr_aux_def] \\
   Cases_on `vec` \\ fs[length_def, toList_thm, sub_def] \\
   rw [ADD1, TAKE_SUM, TAKE1_DROP, FOLDR_APPEND]
-);
+QED
 
 Theorem foldr_thm:
    !f e vec. foldr f e vec = FOLDR f e (toList vec)
@@ -204,36 +229,41 @@ Proof
 QED
 
 
-val findi_aux_def = Define`
+Definition findi_aux_def:
   (findi_aux f vec n 0 = NONE) /\
   (findi_aux f vec n (SUC len) =
   if f n (sub vec n)
     then SOME(n, (sub vec n))
-  else findi_aux f vec (n + 1) len)`;
+  else findi_aux f vec (n + 1) len)
+End
 
-val findi_def = Define`
-  findi f vec = findi_aux f vec 0 (length vec)`;
+Definition findi_def:
+  findi f vec = findi_aux f vec 0 (length vec)
+End
 
 
 
-val find_aux_def = Define`
+Definition find_aux_def:
   (find_aux f vec n 0 = NONE) /\
   (find_aux f vec n (SUC len) =
   if f (sub vec n)
     then SOME(sub vec n)
-  else find_aux f vec (n + 1) len)`;
+  else find_aux f vec (n + 1) len)
+End
 
-val find_def = Define `
-  find f vec = find_aux f vec 0 (length vec)`;
+Definition find_def:
+  find f vec = find_aux f vec 0 (length vec)
+End
 
-val find_aux_thm = Q.prove (
-  `!f vec n len. (n + len = length vec) ==> (find_aux f vec n len = FIND f (DROP n (toList vec)))`,
+Triviality find_aux_thm:
+  !f vec n len. (n + len = length vec) ==> (find_aux f vec n len = FIND f (DROP n (toList vec)))
+Proof
   Induct_on `len` \\ Cases_on `vec` \\ rw [find_aux_def, sub_def, length_def,
   toList_thm, FIND_def, INDEX_FIND_def] \\
   rw[DROP_LENGTH_NIL, INDEX_FIND_def] THEN1
   (qexists_tac`(0, EL n l)` \\ rw [DROP_EL_CONS, INDEX_FIND_def]) \\
   rw [DROP_EL_CONS, INDEX_FIND_def, index_find_thm]
-);
+QED
 
 Theorem find_thm:
    !f vec. find f vec = FIND f (toList vec)
@@ -243,23 +273,27 @@ QED
 
 
 
-val exists_aux_def = Define`
+Definition exists_aux_def:
   (exists_aux f vec n 0 = F) /\
   (exists_aux f vec n (SUC len) =
     if f (sub vec n)
       then T
-    else exists_aux f vec (n + 1) len)`;
+    else exists_aux f vec (n + 1) len)
+End
 
-val exists_def = Define`
-  exists f vec = exists_aux f vec 0 (length vec)`;
+Definition exists_def:
+  exists f vec = exists_aux f vec 0 (length vec)
+End
 
-val exists_aux_thm = Q.prove(
-  `!f vec n len. (n + len = length (vec)) ==>
-    (exists_aux f vec n len = EXISTS f (DROP n (toList vec)))`,
-  Induct_on `len` \\ Cases_on `vec` \\ rw[toList_thm, length_def, sub_def, exists_aux_def] THEN1
-  rw [DROP_LENGTH_NIL, EVERY_DEF] \\
+Theorem exists_aux_thm[local]:
+  !f vec n len.
+    n + len = length vec ==>
+    exists_aux f vec n len = EXISTS f (DROP n (toList vec))
+Proof
+  Induct_on `len` \\ Cases_on `vec` \\
+  rw[toList_thm, length_def, sub_def, exists_aux_def] \\
   rw [DROP_EL_CONS]
-);
+QED
 
 Theorem exists_thm:
    !f vec. exists f vec = EXISTS f (toList vec)
@@ -268,24 +302,26 @@ Proof
   rw [exists_def, exists_aux_thm]
 QED
 
-
-
-val all_aux_def = Define`
+Definition all_aux_def:
   (all_aux f vec n 0 = T) /\
   (all_aux f vec n (SUC len) =
     if f (sub vec n)
       then all_aux f vec (n + 1) len
-    else F)`;
+    else F)
+End
 
-val all_def = Define`
-  all f vec = all_aux f vec 0 (length vec)`;
+Definition all_def: all f vec = all_aux f vec 0 (length vec)
+End
 
-val all_aux_thm = Q.prove (
-  `!f vec n len. (n + len = length vec) ==> (all_aux f vec n len = EVERY f (DROP n (toList vec)))`,
-  Induct_on `len` \\ Cases_on `vec` \\ rw[toList_thm, length_def, sub_def, all_aux_def] THEN1
-  rw [DROP_LENGTH_NIL] \\
+Theorem all_aux_thm[local]:
+  !f vec n len.
+    n + len = length vec ==>
+    all_aux f vec n len = EVERY f (DROP n (toList vec))
+Proof
+  Induct_on `len` \\ Cases_on `vec` \\
+  rw[toList_thm, length_def, sub_def, all_aux_def] \\
   rw [DROP_EL_CONS]
-);
+QED
 
 Theorem all_thm:
    !f vec. all f vec = EVERY f (toList vec)
@@ -293,54 +329,62 @@ Proof
   Cases_on `vec` \\ rw[all_def, all_aux_thm]
 QED
 
-
-
-val collate_aux_def = Define`
+Definition collate_aux_def:
   (collate_aux f vec1 vec2 n ord 0 = ord) /\
   (collate_aux f vec1 vec2 n ord (SUC len) =
     if f (sub vec1 n) (sub vec2 n) = EQUAL
       then collate_aux f vec1 vec2 (n + 1) ord len
-    else f (sub vec1 n) (sub vec2 n))`;
+    else f (sub vec1 n) (sub vec2 n))
+End
 
-val collate_def = Define`
+Definition collate_def:
   collate f vec1 vec2 =
   if (length vec1) < (length vec2)
     then collate_aux f vec1 vec2 0 LESS (length vec1)
   else if (length vec2) < (length vec1)
     then collate_aux f vec1 vec2 0 GREATER (length vec2)
-  else collate_aux f vec1 vec2 0 EQUAL (length vec2)`;
+  else collate_aux f vec1 vec2 0 EQUAL (length vec2)
+End
 
-val collate_aux_less_thm = Q.prove (
-  `!f vec1 vec2 n len. (n + len = length vec1) /\ (length vec1 < length vec2) ==>
-    (collate_aux f vec1 vec2 n Less len = mllist$collate f (DROP n (toList vec1)) (DROP n (toList vec2)))`,
-      Cases_on `vec1` \\ Cases_on `vec2` \\ Induct_on `len` \\
-      rw [collate_aux_def, mllistTheory.collate_def, length_def, toList_thm, sub_def, DROP_EL_CONS]
-      >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def]
-);
-
-val collate_aux_equal_thm = Q.prove (
-  `!f vec1 vec2 n len. (n + len = length vec2) /\ (length vec1 = length vec2) ==>
-    (collate_aux f vec1 vec2 n Equal len =
-      mllist$collate f (DROP n (toList vec1)) (DROP n (toList vec2)))`,
-  Cases_on `vec1` \\ Cases_on `vec2` \\ Induct_on `len` \\
-  rw [collate_aux_def, mllistTheory.collate_def, length_def, toList_thm, sub_def]
-  >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def] \\
-  fs [DROP_EL_CONS, mllistTheory.collate_def]
-);
-
-val collate_aux_greater_thm = Q.prove (
-  `!f vec1 vec2 n len. (n + len = length vec2) /\ (length vec2 < length vec1) ==>
-    (collate_aux f vec1 vec2 n Greater len =
-      mllist$collate f (DROP n (toList vec1)) (DROP n (toList vec2)))`,
-  Cases_on `vec1` \\ Cases_on `vec2` \\ Induct_on `len` \\
-  rw [collate_aux_def, mllistTheory.collate_def, length_def, toList_thm, sub_def, DROP_EL_CONS]
-  >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def]
-);
-
-Theorem collate_thm:
-   !f vec1 vec2. collate f vec1 vec2 = mllist$collate f (toList vec1) (toList vec2)
+Theorem collate_aux_less_thm[local]:
+  !f vec1 vec2 n len.
+    n + len = length vec1 /\ length vec1 < length vec2 ==>
+    collate_aux f vec1 vec2 n Less len =
+    mllist$collate f (DROP n (toList vec1)) (DROP n (toList vec2))
 Proof
-  rw [collate_def, collate_aux_greater_thm, collate_aux_equal_thm, collate_aux_less_thm]
+  Cases_on ‘vec1’ \\ Cases_on ‘vec2’ \\ Induct_on ‘len’ \\
+  rw [collate_aux_def, mllistTheory.collate_def, length_def, toList_thm,
+      sub_def, DROP_EL_CONS]
 QED
 
-val _ = export_theory()
+Theorem collate_aux_equal_thm[local]:
+  !f vec1 vec2 n len.
+    n + len = length vec2 /\ length vec1 = length vec2 ==>
+    collate_aux f vec1 vec2 n Equal len =
+    mllist$collate f (DROP n (toList vec1)) (DROP n (toList vec2))
+Proof
+  Cases_on ‘vec1’ \\ Cases_on ‘vec2’ \\ Induct_on ‘len’ \\
+  rw [collate_aux_def, mllistTheory.collate_def, length_def, toList_thm,
+      sub_def]
+  >- rw [DROP_LENGTH_TOO_LONG, mllistTheory.collate_def] \\
+  fs [DROP_EL_CONS, mllistTheory.collate_def]
+QED
+
+Theorem collate_aux_greater_thm[local]:
+  !f vec1 vec2 n len.
+    n + len = length vec2 /\ length vec2 < length vec1 ==>
+    collate_aux f vec1 vec2 n Greater len =
+      mllist$collate f (DROP n (toList vec1)) (DROP n (toList vec2))
+Proof
+  Cases_on ‘vec1’ \\ Cases_on ‘vec2’ \\ Induct_on ‘len’ \\
+  rw [collate_aux_def, mllistTheory.collate_def, length_def, toList_thm,
+      sub_def, DROP_EL_CONS]
+QED
+
+Theorem collate_thm:
+  !f vec1 vec2.
+    collate f vec1 vec2 = mllist$collate f (toList vec1) (toList vec2)
+Proof
+  rw [collate_def, collate_aux_greater_thm, collate_aux_equal_thm,
+      collate_aux_less_thm]
+QED

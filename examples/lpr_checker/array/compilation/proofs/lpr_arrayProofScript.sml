@@ -3,23 +3,25 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     TextIOProofTheory
-     satSemTheory lprTheory lpr_listTheory lpr_arrayFullProgTheory
-     lpr_parsingTheory lpr_arrayCompileTheory lpr_composeProgTheory;
-
-val _ = new_theory"lpr_arrayProof";
+Theory lpr_arrayProof
+Ancestors
+  semanticsProps backendProof x64_configProof TextIOProof satSem
+  lpr lpr_list lpr_arrayFullProg lpr_parsing lpr_arrayCompile
+  lpr_composeProg
+Libs
+  preamble
 
 val check_unsat_io_events_def = new_specification("check_unsat_io_events_def",["check_unsat_io_events"],
   check_unsat_semantics |> Q.GENL[`cl`,`fs`]
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (check_unsat_sem,check_unsat_output) = check_unsat_io_events_def |> SPEC_ALL |> UNDISCH |> SIMP_RULE std_ss [GSYM PULL_EXISTS]|> CONJ_PAIR
-val (check_unsat_not_fail,check_unsat_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail check_unsat_sem |> CONJ_PAIR
+val (check_unsat_not_fail,check_unsat_sem_sing) = check_unsat_sem
+  |> SRULE [lpr_array_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val compile_correct_applied =
-  MATCH_MP compile_correct lpr_array_compiled
+  MATCH_MP compile_correct (cj 1 lpr_array_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP check_unsat_not_fail
   |> C MATCH_MP x64_backend_config_ok
@@ -29,17 +31,16 @@ val compile_correct_applied =
   |> DISCH(#1(dest_imp(concl x64_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
-val check_unsat_compiled_thm =
+Theorem check_unsat_compiled_thm =
   CONJ compile_correct_applied check_unsat_output
   |> DISCH_ALL
   (* |> check_thm *)
-  |> curry save_thm "check_unsat_compiled_thm";
 
 (* Prettifying the standard parts of all the theorems *)
-val installed_x64_def = Define `
+Definition installed_x64_def:
   installed_x64 ((code, data, cfg) :
       (word8 list # word64 list # 64 backend$config))
-    ffi mc ms
+    mc ms
   <=>
     ?cbspace data_sp.
       is_x64_machine_config mc /\
@@ -47,19 +48,20 @@ val installed_x64_def = Define `
         code cbspace
         data data_sp
         cfg.lab_conf.ffi_names
-        ffi
-        (heap_regs x64_backend_config.stack_conf.reg_names) mc ms
-    `;
+        (heap_regs x64_backend_config.stack_conf.reg_names) mc
+        cfg.lab_conf.shmem_extra ms
+End
 
-val check_unsat_code_def = Define `
-  check_unsat_code = (code, data, config)
-  `;
+Definition check_unsat_code_def:
+  check_unsat_code = (code, data, info)
+End
 
 (* A standard run of cake_lpr satisfying all the default assumptions *)
-val cake_lpr_run_def = Define`
+Definition cake_lpr_run_def:
   cake_lpr_run cl fs mc ms ⇔
   wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧ hasFreeFD fs ∧
-  installed_x64 check_unsat_code (basis_ffi cl fs) mc ms`
+  installed_x64 check_unsat_code mc ms
+End
 
 Theorem concat_success_str:
   ∀a b c. concat [strlit "s VERIFIED INTERVALS COVER 0-"; toString (d:num); strlit "\n"] ≠ success_str a b c
@@ -82,6 +84,13 @@ Proof
   metis_tac[concat_success_str]
 QED
 
+Theorem TL_eq_hd_exists:
+  TL cl = ls ⇒
+  (ls ≠ [] ⇒ ∃x. cl = x :: ls)
+Proof
+  Cases_on`cl`>>rw[]
+QED
+
 Theorem machine_code_sound:
   cake_lpr_run cl fs mc ms ⇒
   machine_sem mc (basis_ffi cl fs) ms ⊆
@@ -90,52 +99,51 @@ Theorem machine_code_sound:
   ∃out err.
     extract_fs fs (check_unsat_io_events cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
+  (out ≠ strlit "" ⇒
   if LENGTH cl = 2 then
-    if inFS_fname fs (EL 1 cl)
-    then
-      case parse_dimacs (all_lines fs (EL 1 cl)) of
-        NONE => out = strlit ""
-      | SOME fml => out = concat (print_dimacs fml)
-    else out = strlit ""
+    inFS_fname fs (EL 1 cl) ∧
+    ∃fml.
+      parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
+      out = concat (print_dimacs fml)
   else if LENGTH cl = 3 then
-    if out = strlit "s VERIFIED UNSAT\n" then
-      inFS_fname fs (EL 1 cl) ∧
-      ∃fml.
-        parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
-        unsatisfiable (interp fml)
-    else out = strlit ""
+    inFS_fname fs (EL 1 cl) ∧
+    ∃fml.
+      parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
+      out = strlit "s VERIFIED UNSAT\n" ∧
+      unsatisfiable (interp fml)
   else if LENGTH cl = 4 then
-    if out = strlit "s VERIFIED TRANSFORMATION\n" then
     inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 3 cl) ∧
     ∃fml fml2.
       parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
       parse_dimacs (all_lines fs (EL 3 cl)) = SOME fml2 ∧
+      out = strlit "s VERIFIED TRANSFORMATION\n" ∧
       (satisfiable (interp fml) ⇒ satisfiable (interp fml2))
-    else out = strlit ""
   else if LENGTH cl = 5 then
-    if ∃cnf_md5 proof_md5 rng. out = success_str cnf_md5 proof_md5 rng then
-    inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧
-    inFS_fname fs (EL 4 cl) ∧
-    ∃i j fml pf.
-      out = success_str
-        (implode (md5 (THE (file_content fs (EL 1 cl)))))
-        (implode (md5 (THE (file_content fs (EL 2 cl)))))
-        (print_rng i j) ∧
-      parse_rng (EL 3 cl) = SOME (i,j) ∧
-      parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
-      parse_proof (all_lines fs (EL 2 cl)) = SOME pf ∧
-      i ≤ j ∧ j ≤ LENGTH pf ∧
-      (satisfiable (interp (run_proof fml (TAKE i pf))) ⇒
-       satisfiable (interp (run_proof fml (TAKE j pf))))
-    else if ?n:num. out = concat [strlit "s VERIFIED INTERVALS COVER 0-"; toString n; strlit "\n"] then
-    inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧ inFS_fname fs (EL 4 cl) ∧
-    EL 3 cl = strlit "-check" ∧
-    check_lines (implode (md5 (THE (file_content fs (EL 1 cl)))))
-                (implode (md5 (THE (file_content fs (EL 2 cl)))))
-                (all_lines fs (EL 4 cl)) (LENGTH (all_lines fs (EL 2 cl))) = INR out
-    else out = strlit ""
-  else
-    out = strlit ""
+    case parse_rng_or_check (EL 3 cl) of NONE => F
+    | SOME (INL()) =>
+        inFS_fname fs (EL 1 cl) ∧
+        inFS_fname fs (EL 2 cl) ∧
+        inFS_fname fs (EL 4 cl) ∧
+        check_lines
+          (implode (md5 (THE (file_content fs (EL 1 cl)))))
+          (implode (md5 (THE (file_content fs (EL 2 cl)))))
+          (all_lines fs (EL 4 cl))
+          (LENGTH (all_lines fs (EL 2 cl))) = INR out ∧
+          ∃n:num.
+            out = concat [strlit "s VERIFIED INTERVALS COVER 0-"; toString n; strlit "\n"]
+    | SOME (INR (i,j)) =>
+      inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧
+      ∃fml pf.
+        out = success_str
+          (implode (md5 (THE (file_content fs (EL 1 cl)))))
+          (implode (md5 (THE (file_content fs (EL 2 cl)))))
+          (print_rng i j) ∧
+        parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
+        parse_proof (all_lines fs (EL 2 cl)) = SOME pf ∧
+        i ≤ j ∧ j ≤ LENGTH pf ∧
+        (satisfiable (interp (run_proof fml (TAKE i pf))) ⇒
+         satisfiable (interp (run_proof fml (TAKE j pf))))
+  else F)
 Proof
   strip_tac>>
   fs[installed_x64_def,check_unsat_code_def,cake_lpr_run_def]>>
@@ -143,209 +151,67 @@ Proof
   simp[AND_IMP_INTRO]>>
   disch_then drule>>
   disch_then (qspecl_then [`ms`,`mc`,`data_sp`,`cbspace`] mp_tac)>>
-  simp[]>> strip_tac>>
+  simp[]>>
+  strip_tac>>
+  gvs[]>>
+  qexists_tac`out`>>
+  qexists_tac`err`>>
   fs[check_unsat_sem_def]>>
-  Cases_on`cl`>>fs[]
-  >- (
-    (* 0 arg *)
-    fs[]>>
-    qexists_tac`err`>>rw[]>>
-    metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-  TOP_CASE_TAC >> fs[] >- (
-    qexists_tac`err`>>rw[]>>
-    metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-  TOP_CASE_TAC
+  pop_assum mp_tac>>
+  fs[CasePred "list"]>> strip_tac>> gvs[]>>
+  drule TL_eq_hd_exists>> simp[]>>strip_tac>>gvs[]
   >- (
     (* 1 arg *)
     fs[check_unsat_1_sem_def]>>
-    reverse IF_CASES_TAC>>fs[]
-    >- (
-      qexists_tac`err`>>rw[]>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    TOP_CASE_TAC>>fs[]
-    >- (
-      qexists_tac`err`>>rw[]>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    qexists_tac`strlit ""` >>
-    simp[STD_streams_stderr,add_stdo_nil])>>
-  TOP_CASE_TAC>>fs[]
+    every_case_tac>>gvs[get_fml_def]>>rw[]>>
+    simp[parse_dimacs_def])
   >- (
     (* 2 arg *)
     fs[check_unsat_2_sem_def]>>
-    reverse IF_CASES_TAC>>fs[]
-    >- (
-      qexists_tac`err`>>rw[]>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    TOP_CASE_TAC>>fs[]
-    >- (
-      qexists_tac`strlit ""`>>simp[]>>
-      qexists_tac`err`>>rw[]>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    PairCases_on`x`>>fs[]>>
-    reverse IF_CASES_TAC>>fs[]
-    >- (
-      qexists_tac`strlit ""`>>simp[]>>
-      qexists_tac`err`>>rw[]>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    TOP_CASE_TAC>>fs[]
-    >- (
-      qexists_tac`strlit ""`>>simp[]>>
-      qexists_tac`err`>>rw[]>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    reverse IF_CASES_TAC>>fs[]
-    >- (
-      qexists_tac`strlit ""`>>simp[]>>
-      qexists_tac`err`>>rw[]>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    qexists_tac`strlit "s VERIFIED UNSAT\n"` >>
-    qexists_tac`strlit ""`>> simp[]>>
-    CONJ_TAC >-
-      metis_tac[STD_streams_stderr,add_stdo_nil]>>
-    simp[parse_dimacs_def]>>
-    match_mp_tac (GEN_ALL lpr_arrayProgTheory.check_lpr_unsat_list_sound)>>
-    asm_exists_tac>>simp[]>>
-    CONJ_TAC >- (
-      match_mp_tac (GEN_ALL parse_dimacs_wf)>>simp[parse_dimacs_def]>>
-      qexists_tac`all_lines fs h'`>>fs[])>>
-    metis_tac[parse_lpr_wf])>>
-  TOP_CASE_TAC>>fs[]
+    every_case_tac>>gvs[get_fml_def]>>rw[]>>
+    simp[parse_dimacs_def]>>gvs[]>>
+    match_mp_tac (GEN_ALL lpr_arrayParsingProgTheory.check_lpr_unsat_list_sound)>>
+    first_x_assum (irule_at Any)>>
+    gvs[]>>
+    match_mp_tac (GEN_ALL parse_dimacs_wf)>>
+    simp[parse_dimacs_def,AllCaseEqs()]>>
+    metis_tac[])
   >- (
     (* 3 arg *)
     fs[check_unsat_3_sem_def]>>
-    reverse IF_CASES_TAC>>fs[]
-    >- (
-      qexists_tac`err`>>rw[]>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    TOP_CASE_TAC>>fs[]
-    >- (
-      qexists_tac`strlit ""`>>simp[]>>
-      qexists_tac`err`>>rw[]>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    PairCases_on`x`>>fs[]>>
-    reverse IF_CASES_TAC>>fs[]
-    >- (
-      qexists_tac`err`>>rw[]>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    TOP_CASE_TAC>>fs[]
-    >- (
-      qexists_tac`strlit ""`>>simp[]>>
-      qexists_tac`err`>>rw[]>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    PairCases_on`x`>>fs[]>>
-    reverse IF_CASES_TAC>>fs[]
-    >- (
-      qexists_tac`strlit ""`>>simp[]>>
-      qexists_tac`err`>>rw[]>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    TOP_CASE_TAC>>fs[]
-    >- (
-      qexists_tac`strlit ""`>>simp[]>>
-      qexists_tac`err`>>rw[]>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    reverse IF_CASES_TAC>>fs[]
-    >- (
-      qexists_tac`strlit ""`>>simp[]>>
-      qexists_tac`err`>>rw[]>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    qexists_tac`strlit "s VERIFIED TRANSFORMATION\n"` >>
-    qexists_tac`strlit ""`>> simp[]>>
-    CONJ_TAC >-
-      metis_tac[STD_streams_stderr,add_stdo_nil]>>
-    fs[parse_dimacs_def]>>
-    match_mp_tac (GEN_ALL check_lpr_sat_equiv_list_sound)>>
+    every_case_tac>>gvs[get_fml_def]>>rw[]>>
+    simp[parse_dimacs_def]>>gvs[]>>
+    match_mp_tac (GEN_ALL lpr_arrayParsingProgTheory.check_lpr_sat_equiv_list_sound)>>
     asm_exists_tac>>simp[]>>
-    CONJ_TAC >- (
-      match_mp_tac (GEN_ALL parse_dimacs_wf)>>simp[parse_dimacs_def]>>
-      qexists_tac`all_lines fs h'`>>fs[])>>
-    metis_tac[parse_lpr_wf])>>
-  TOP_CASE_TAC>>fs[]
+    match_mp_tac (GEN_ALL parse_dimacs_wf)>>
+    simp[parse_dimacs_def,AllCaseEqs()]>>
+    metis_tac[])
   >- (
     (* 4 arg *)
-    `∀a b c. success_str a b c ≠ strlit ""` by (rw[]>>EVAL_TAC)>>
-    `∀n:num. concat [strlit "s VERIFIED INTERVALS COVER 0-" ; toString n; strlit"\n"]  ≠ strlit ""` by
-      (rw[]>>
-      qmatch_goalsub_abbrev_tac`_ :: lss`>>
-      EVAL_TAC)>>
     fs[check_unsat_4_sem_def]>>
-    reverse IF_CASES_TAC>>fs[]
+    fs[CasePred "option"]>>
+    rename1`get_fml fs f1 = SOME ff`>>
+    PairCases_on`ff`>>gvs[CasePred "sum"]
     >- (
-      qexists_tac`err`>>rw[] >>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    TOP_CASE_TAC>>fs[]
-    >- (
-      qexists_tac`strlit ""`>>simp[]>>
-      qexists_tac`err`>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    PairCases_on`x`>>fs[]>>
-    reverse IF_CASES_TAC>>fs[]
-    >- (
-      qexists_tac`err`>>rw[]>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    TOP_CASE_TAC>>fs[]
-    >- (
-      qexists_tac`strlit ""`>>simp[]>>
-      qexists_tac`err`>>rw[]>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    TOP_CASE_TAC>>fs[]
-    >- (
-      qexists_tac`strlit""`>>qexists_tac`err`>>rw[]>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    TOP_CASE_TAC>>fs[]
-    (* -check option*)
-    >- (
-      reverse IF_CASES_TAC
-      >- (
-        qexists_tac`strlit ""`>>simp[]>>
-        qexists_tac`err`>>rw[]>>
-        metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-      TOP_CASE_TAC
-      >- (
-        qexists_tac`strlit ""`>>simp[]>>
-        qexists_tac`err`>>rw[]>>
-        metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-      qexists_tac`y`>>qexists_tac`strlit ""`>>simp[]>>
-      CONJ_TAC >-
-        metis_tac[STD_streams_stderr,add_stdo_nil]>>
+      (* -check *)
+      pop_assum mp_tac >> IF_CASES_TAC>>simp[]>>
+      fs[parse_rng_or_check_def,AllCaseEqs()]>>
+      strip_tac>>simp[]>>
+      gvs[get_fml_def,get_proof_def,AllCaseEqs()]>>
+      drule parse_proof_toks_LENGTH>> rw[]>>gvs[]>>
       drule check_lines_success_str>>
-      simp[]>> rw[]
-      >- metis_tac[]
-      >-  (fs[parse_rng_or_check_def]>>
-        qpat_x_assum`_=SOME (INL _)` mp_tac>>IF_CASES_TAC>>fs[])>>
-      drule parse_proof_toks_LENGTH>>
       rw[]>>
       metis_tac[])>>
-    TOP_CASE_TAC>>fs[]>>
-    reverse IF_CASES_TAC
-    >- (
-      qexists_tac`strlit ""`>>simp[]>>
-      qexists_tac`err`>>rw[]>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    TOP_CASE_TAC>>fs[]
-    >- (
-      qexists_tac`strlit ""`>>simp[]>>
-      qexists_tac`err`>>rw[]>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    reverse IF_CASES_TAC>>fs[]
-    >- (
-      qexists_tac`strlit ""`>>simp[]>>
-      qexists_tac`err`>>rw[]>>
-      metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil])>>
-    qmatch_goalsub_abbrev_tac`success_str a b c`>>
-    qexists_tac`success_str a b c`>>
-    qexists_tac`strlit ""`>> simp[]>>
-    CONJ_TAC >-
-      metis_tac[STD_streams_stderr,add_stdo_nil]>>
-    reverse IF_CASES_TAC>- (
-      rw[]>>
-      metis_tac[])>>
-    fs[parse_dimacs_def,parse_proof_def]>>
-    rw[]>>fs[]>>
-    fs[parse_rng_or_check_def]>>
-    qpat_x_assum`_ = SOME (INR _)` mp_tac>>
-    IF_CASES_TAC>>fs[]>>
-    strip_tac>>
-    match_mp_tac (GEN_ALL check_lpr_range_list_sound)>>
-    `x1 + 1 = LENGTH x2 +1 ` by (
+    gvs[parse_rng_or_check_def,AllCaseEqs()]>>
+    rename1`parse_rng _ = SOME ij`>>
+    Cases_on`ij`>>
+    gvs[get_fml_def,get_proof_def,AllCaseEqs()]>>
+    rw[]>>gvs[]>>
+    simp[parse_dimacs_def,parse_proof_def]>>
+    gvs[]>>
+    match_mp_tac (GEN_ALL lpr_arrayParsingProgTheory.check_lpr_range_list_sound)>>
+    first_x_assum (irule_at Any)>>
+    `ff1 + 1 = LENGTH ff2 +1 ` by (
       fs[parse_dimacs_toks_def]>>
       qpat_x_assum `_ = SOME (x0,x1,x2)` mp_tac>>
       rpt (pop_assum kall_tac)>>
@@ -353,20 +219,23 @@ Proof
       drule LENGTH_parse_dimacs_body>>
       rw[]>> simp[])>>
     pop_assum SUBST_ALL_TAC>>
-    asm_exists_tac>>simp[]>>
+    first_x_assum (irule_at Any)>>
     fs[GSYM parse_proof_def]>>
     drule parse_proof_wf_proof>>
-    drule parse_lpr_wf>>
     simp[]>>
-    `parse_dimacs (all_lines fs h') = SOME x2` by
+    `parse_dimacs (all_lines fs f1) = SOME ff2` by
       fs[parse_dimacs_def]>>
-    drule parse_dimacs_wf>>simp[])>>
-  qexists_tac`err`>>rw[]>>
-  metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]
+    drule parse_dimacs_wf>>simp[])
 QED
 
 Theorem run_proof_empty:
   run_proof fml [] = fml
+Proof
+  EVAL_TAC
+QED
+
+Theorem success_str_nonempty:
+  success_str a b c ≠ strlit ""
 Proof
   EVAL_TAC
 QED
@@ -378,7 +247,7 @@ Theorem par_check_sound:
     inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧
     file_content fs (EL 1 cl) = SOME fmlstr ∧
     file_content fs (EL 2 cl) = SOME pfstr ∧
-    parse_rng (EL 3 cl) = SOME(i,j)
+    parse_rng_or_check (EL 3 cl) = SOME (INR (i,j))
   ) nodes ∧
   parse_dimacs (lines_of (strlit fmlstr)) = SOME fml ∧
   parse_proof (lines_of (strlit pfstr)) = SOME pf ∧
@@ -406,7 +275,10 @@ Proof
   ∃out err.
     extract_fs fs (check_unsat_io_events cl fs) =
       SOME (add_stdout (add_stderr fs err) out) ∧
-    (out = success_str (implode (md5 fmlstr)) (implode (md5 pfstr)) (print_rng i j) ⇒
+    (out ≠ strlit "" ⇒
+      ∃fml pf.
+      parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
+      parse_proof (all_lines fs (EL 2 cl)) = SOME pf ∧
       i ≤ j ∧ j ≤ LENGTH pf ∧
       (satisfiable (interp (run_proof fml (TAKE i pf))) ⇒
        satisfiable (interp (run_proof fml (TAKE j pf)))))) nodes` by (
@@ -417,12 +289,7 @@ Proof
     simp[]>>  rpt(disch_then drule)>>
     rw[]>>
     asm_exists_tac>>simp[]>>
-    pop_assum mp_tac>>
-    reverse IF_CASES_TAC
-    >- metis_tac[]>>
-    strip_tac>> strip_tac>>
-    imp_res_tac all_lines_lines_of>>
-    gs[])>>
+    strip_tac>>gvs[])>>
   CONJ_TAC >- (
     pop_assum mp_tac>>match_mp_tac MONO_EVERY>>
     simp[FORALL_PROD]>>
@@ -438,11 +305,15 @@ Proof
     fs[cake_lpr_run_def]>>
     drule STD_streams_stdout>>rw[]>>
     drule add_stdout_inj>>
-    metis_tac[stdout_add_stderr])>>
+    disch_then drule>>
+    rw[]>>gvs[stdout_add_stderr]>>
+    gvs[success_str_nonempty]>>
+    imp_res_tac all_lines_lines_of>>
+    gvs[])>>
   simp[]
 QED
 
-val check_successful_def = Define`
+Definition check_successful_def:
   check_successful fmlstr pfstr (i:num,j:num) =
   ∃cl fs mc ms err.
     cake_lpr_run cl fs mc ms ∧
@@ -450,10 +321,11 @@ val check_successful_def = Define`
     inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧
     file_content fs (EL 1 cl) = SOME fmlstr ∧
     file_content fs (EL 2 cl) = SOME pfstr ∧
-    parse_rng (EL 3 cl) = SOME (i,j) ∧
+    parse_rng_or_check (EL 3 cl) = SOME (INR (i,j)) ∧
     extract_fs fs (check_unsat_io_events cl fs) =
       SOME (add_stdout (add_stderr fs err)
-        (success_str (implode (md5 fmlstr)) (implode (md5 pfstr)) (print_rng i j)))`
+        (success_str (implode (md5 fmlstr)) (implode (md5 pfstr)) (print_rng i j)))
+End
 
 Theorem par_check_sound_2:
   parse_dimacs (lines_of (strlit fmlstr)) = SOME fml ∧
@@ -472,16 +344,12 @@ Proof
     drule machine_code_sound>> rpt(disch_then drule)>>
     simp[]>>  rpt(disch_then drule)>>
     rw[]>>
-    pop_assum mp_tac>>
-    TOP_CASE_TAC>>fs[]
-    >- (
-      imp_res_tac all_lines_lines_of>>
-      gs[])>>
+    imp_res_tac all_lines_lines_of>>
     fs[cake_lpr_run_def]>>
     drule STD_streams_stdout>>rw[]>>
     drule add_stdout_inj>>
     disch_then(qspec_then`out'` mp_tac)>>
-    metis_tac[stdout_add_stderr])>>
+    rw[]>>gvs[stdout_add_stderr,success_str_nonempty])>>
   simp[]
 QED
 
@@ -505,7 +373,7 @@ Proof
   every_case_tac>>fs[]
 QED
 
-val check_successful_par_def = Define`
+Definition check_successful_par_def:
   check_successful_par fmlstr pfstr =
   ∃outstr.
     (∀out. MEM out outstr ⇒
@@ -526,7 +394,8 @@ val check_successful_par_def = Define`
       all_lines fs (EL 4 cl) = outstr ∧
       extract_fs fs (check_unsat_io_events cl fs) =
         SOME (add_stdout fs
-          (concat [«s VERIFIED INTERVALS COVER 0-» ; toString (LENGTH (lines_of (strlit pfstr))); «\n»])))`
+          (concat [«s VERIFIED INTERVALS COVER 0-» ; toString (LENGTH (lines_of (strlit pfstr))); «\n»])))
+End
 
 Theorem par_check_sound_3:
   parse_dimacs (lines_of (strlit fmlstr)) = SOME fml ∧
@@ -545,11 +414,10 @@ Proof
   disch_then drule>>
   simp[stdout_add_stderr]>>
   rw[]>>fs[concat_success_str]>>
-  qpat_x_assum`if _ then _ else _` mp_tac>>
-  reverse IF_CASES_TAC>>fs[]
-  >-
-    metis_tac[]>>
-  rw[]>>
+  qpat_x_assum`_ ⇒ _` mp_tac>>
+  impl_tac >-
+    simp[mlstringTheory.concat_def]>>
+  every_case_tac>>rw[]>>
   drule lpr_composeProgTheory.check_lines_correct>>
   rw[]>>
   qpat_x_assum`satisfiable _` mp_tac>>
@@ -584,11 +452,13 @@ Proof
     drule add_stdout_inj>>
     disch_then match_mp_tac>>
     metis_tac[stdout_add_stderr])>>
-  unabbrev_all_tac>>fs[]>>
-  pop_assum sym_sub_tac>>
-  pop_assum mp_tac>>
-  reverse IF_CASES_TAC >- metis_tac[]>>
-  fs[]>>strip_tac>>
+  unabbrev_all_tac>>
+  gvs[success_str_nonempty]>>
+  pop_assum mp_tac>>every_case_tac>>gvs[]
+  >-
+    metis_tac[concat_success_str]>>
+  rw[]>>
+  qmatch_asmsub_rename_tac`print_rng i j`>>
   `out = print_rng i j` by
     metis_tac[success_str_inj]>>
   rveq>>
@@ -596,4 +466,3 @@ Proof
   metis_tac[stdout_add_stderr]
 QED
 
-val _ = export_theory();

@@ -1,11 +1,13 @@
 (*
   Define the compiler configuration for x64
 *)
-open preamble backendTheory x64_targetTheory x64_targetLib
+Theory x64_config
+Ancestors
+  backend x64_target
+Libs
+  preamble x64_targetLib
 
-val _ = new_theory"x64_config";
-
-val x64_names_def = Define `
+Definition x64_names_def:
   x64_names =
     (* 16 regs, must avoid 4 and 5, names:
          r0=rax, r1=rcx, r2=rdx, r3=rbx, r4=rbp, r5=rsp, r6=rsi,
@@ -22,29 +24,30 @@ val x64_names_def = Define `
      insert 4 1 o
      insert 5 8 o
      insert 6 9 o
-     insert 11 12 o
+     insert 11 14 o
      insert 12 13 o
-     insert 13 14 o
+     insert 13 12 o
      (* the rest just ensures that the mapping is well-formed *)
      insert 7 3 o
      insert 8 15 o
      insert 9 11 o
      insert 14 4 o
-     insert 15 5) LN:num num_map`;
+     insert 15 5) LN:num num_map
+End
 
-val x64_names_def = save_thm("x64_names_def[compute]",
-  CONV_RULE (RAND_CONV EVAL) x64_names_def);
+Theorem x64_names_def[compute,allow_rebind] =
+  CONV_RULE (RAND_CONV EVAL) x64_names_def
 
 val clos_conf = rconc (EVAL ``clos_to_bvl$default_config``)
 val bvl_conf = rconc (EVAL``bvl_to_bvi$default_config``)
 val word_to_word_conf = ``<| reg_alg:=2; col_oracle := [] |>``
 
-val x64_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=F; has_longdiv:=T; has_fp_ops:=T; has_fp_tern:=F; call_empty_ffi:=F; gc_kind:=Simple|>``
-val x64_word_conf = ``<| bitmaps := []:64 word list; stack_frame_size := LN |>``
+val x64_data_conf = ``<| tag_bits:=4; len_bits:=4; pad_bits:=2; len_size:=32; has_div:=F; has_longdiv:=T; has_fp_ops:=T; has_fp_tern:=F; be:=F; call_empty_ffi:=F; gc_kind:=Simple|>``
+val x64_word_conf = ``<| bitmaps_length := 0; stack_frame_size := LN |>``
 val x64_stack_conf = ``<|jump:=T;reg_names:=x64_names|>``
-val x64_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];asm_conf:=x64_config;init_clock:=5;hash_size:=104729n|>``
+val x64_lab_conf = ``<|pos:=0;ffi_names:=NONE;labels:=LN;sec_pos_len:=[];asm_conf:=x64_config;init_clock:=5;hash_size:=104729n;shmem_extra:=[]|>``
 
-val x64_backend_config_def = Define`
+Definition x64_backend_config_def:
   x64_backend_config =
              <|source_conf:=prim_src_config;
                clos_conf:=^(clos_conf);
@@ -55,7 +58,8 @@ val x64_backend_config_def = Define`
                stack_conf:=^(x64_stack_conf);
                lab_conf:=^(x64_lab_conf);
                symbols:=[];
-               tap_conf:=default_tap_config
-               |>`;
+               tap_conf:=default_tap_config;
+               exported:=[]
+               |>
+End
 
-val _ = export_theory();

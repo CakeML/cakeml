@@ -2,9 +2,11 @@
   Encoders and decoders to/from types represented as prefixes of lists
   of natural numbers.
 *)
-open preamble integerTheory miscTheory namespaceTheory ml_translatorTheory;
-
-val _ = new_theory "num_list_enc_dec";
+Theory num_list_enc_dec
+Ancestors
+  integer misc namespace ml_translator
+Libs
+  preamble
 
 (* definitions of what good enc/dec functions are *)
 
@@ -116,6 +118,27 @@ Theorem num_enc_dec_ok:
 Proof
   fs [enc_dec_ok_def,num_dec_def,num_enc_def]
   \\ fs [dec_ok_def,num_dec_def]
+  \\ Cases \\ fs []
+QED
+
+(* word64 *)
+
+Definition word64_enc_def:
+  word64_enc (w:word64) = List [w2n w]
+End
+
+Definition word64_dec_def:
+  word64_dec ns =
+    case ns of
+    | [] => (0w:word64,[])
+    | (r::rs) => (n2w r,rs)
+End
+
+Theorem word64_enc_dec_ok:
+  enc_dec_ok word64_enc word64_dec
+Proof
+  fs [enc_dec_ok_def,word64_dec_def,word64_enc_def]
+  \\ fs [dec_ok_def,word64_dec_def]
   \\ Cases \\ fs []
 QED
 
@@ -577,10 +600,6 @@ Definition namespace_enc'_def:
   namespace_enc'_list e ((m,x)::xs) =
     Append (Append (List [1]) (list_enc char_enc m))
       (Append (namespace_enc' e x) (namespace_enc'_list e xs))
-Termination
-  WF_REL_TAC ‘measure (λx. case x of
-                           | INL (_,x) => namespace_size (K 0) (K 0) (K 0) x
-                           | INR (_,x) => namespace1_size (K 0) (K 0) (K 0) x)’
 End
 
 Definition namespace_depth_def:
@@ -588,10 +607,6 @@ Definition namespace_depth_def:
   namespace_depth_list [] = 0 ∧
   namespace_depth_list ((m,x)::xs) =
     1 + MAX (namespace_depth x) (namespace_depth_list xs)
-Termination
-  WF_REL_TAC ‘measure (λx. case x of
-                           | INL x => namespace_size (K 0) (K 0) (K 0) x
-                           | INR x => namespace1_size (K 0) (K 0) (K 0) x)’
 End
 
 Definition namespace_enc_def:
@@ -827,4 +842,3 @@ Proof
   \\ rw [] \\ EVAL_TAC
 QED
 
-val _ = export_theory();

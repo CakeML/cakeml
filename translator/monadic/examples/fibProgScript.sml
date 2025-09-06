@@ -5,9 +5,13 @@
 *)
 
 (* Load the interface to the monadic translator, and basis for IO *)
-open preamble basisProgTheory ml_monad_translator_interfaceLib
+Theory fibProg
+Ancestors
+  basisProg ml_monad_translator
+Libs
+  preamble ml_monad_translator_interfaceLib
 
-val _ = new_theory "fibProg"
+val _ = set_up_monadic_translator ();
 
 val _ = translation_extends "basisProg";
 
@@ -19,9 +23,10 @@ val _ = translation_extends "basisProg";
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 (* Create the data type to handle the references and I/O. *)
-val _ = Datatype `
+Datatype:
   state_references = <| commandline : mlstring list
-                      ; stdio : IO_fs |>`;
+                      ; stdio : IO_fs |>
+End
 
 (* Data type for the exceptions *)
 Datatype:
@@ -37,22 +42,26 @@ val config =  global_state_config |>
 val _ = start_translation config;
 
 (* Monadic translations *)
-val hd_def = Define `
-  hd l = dtcase l of [] => raise_Fail | x::l' => return x`;
+Definition hd_def:
+  hd l = dtcase l of [] => raise_Fail | x::l' => return x
+End
 
-val str_to_num_def = Define `
+Definition str_to_num_def:
   str_to_num (s:mlstring) =
     dtcase mlint$fromString s of
       NONE => raise_Fail
-    | SOME i => if i < 0i then raise_Fail else return (Num i)`;
+    | SOME i => if i < 0i then raise_Fail else return (Num i)
+End
 
-val fiba_def = Define`
-  fiba i j n = if n = 0n then (i:num) else fiba j (i+j) (n-1)`;
+Definition fiba_def:
+  fiba i j n = if n = 0n then (i:num) else fiba j (i+j) (n-1)
+End
 
-val num_to_str_def = Define `
-  num_to_str (n:num) = mlint$toString (& n)`
+Definition num_to_str_def:
+  num_to_str (n:num) = mlint$toString (& n)
+End
 
-val fibm_def = Define`
+Definition fibm_def:
   fibm () =
     do
       (args:mlstring list) <- commandline (arguments ()) ;
@@ -63,7 +72,8 @@ val fibm_def = Define`
     od otherwise do
             name <- commandline (name ()) ;
             stdio (print_err (strlit"usage: " ^ name ^ strlit" <n>\n"))
-          od`
+          od
+End
 
 val res = m_translate hd_def
 val res = m_translate str_to_num_def
@@ -77,5 +87,3 @@ val str_to_num_side = Q.prove (
 val res = translate num_to_str_def
 val res = translate fiba_def
 val res = m_translate fibm_def
-
-val _ = export_theory ();

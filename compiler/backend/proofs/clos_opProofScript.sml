@@ -1,13 +1,12 @@
 (*
   Correctness proof for clos_op
 *)
+Theory clos_opProof
+Ancestors
+  closLang closSem closProps clos_op
+Libs
+  preamble
 
-open preamble;
-open closLangTheory closSemTheory closPropsTheory clos_opTheory;
-
-val _ = new_theory "clos_opProof";
-
-val _ = set_grammar_ancestry ["closLang", "closSem", "closProps", "clos_op"];
 
 Triviality list_split3:
   ∀P. P [] ∧ (∀x y z zs. P (x::y::z::zs)) ∧ (∀x. P [x]) ∧ (∀x y. P [x; y]) ⇒
@@ -39,20 +38,35 @@ Proof
 QED
 
 Theorem dest_Const_thm:
-  dest_Const x = SOME i ⇔ x = Const i
+  dest_Const x = SOME i ⇔ x = IntOp (Const i)
 Proof
   Cases_on ‘x’ \\ fs [dest_Const_def]
+  \\ Cases_on ‘i'’ \\ fs [dest_Const_def]
+QED
+
+Theorem dest_Constant_thm:
+  dest_Constant x = SOME i ⇔
+  ∃s w j.
+    x = BlockOp (Constant (ConstStr s)) ∧ i = Str s ∨
+    x = BlockOp (Constant (ConstInt j)) ∧ i = Int j ∨
+    x = BlockOp (Constant (ConstWord64 w)) ∧ i = W64 w
+Proof
+  Cases_on ‘x’ \\ fs [dest_Constant_def]
+  \\ Cases_on ‘b’ \\ fs [dest_Constant_def]
+  \\ Cases_on ‘c’ \\ fs [dest_Constant_def]
+  \\ eq_tac \\ rw []
 QED
 
 Theorem dest_Cons_thm:
-  dest_Cons x = SOME i ⇔ x = Cons i
+  dest_Cons x = SOME i ⇔ x = BlockOp (Cons i)
 Proof
   Cases_on ‘x’ \\ fs [dest_Cons_def]
+  \\ Cases_on ‘b’ \\ fs [dest_Cons_def]
 QED
 
 Theorem eq_direct_thm:
   ∀x y env s res s1 t z.
-    evaluate ([Op t Equal [x; y]],env,s) = (res,s1) ∧
+    evaluate ([Op t (BlockOp Equal) [x; y]],env,s) = (res,s1) ∧
     res ≠ Rerr (Rabort Rtype_error) ∧
     eq_direct x y = SOME z ⇒
     evaluate ([z],env,s) = (res,s1)
@@ -61,7 +75,7 @@ Proof
   \\ reverse (Cases_on ‘eq_direct_const x y’) \\ fs []
   THEN1
    (gvs [eq_direct_const_def,AllCaseEqs(),dest_Op_Nil_thm,dest_Const_thm]
-    \\ fs [evaluate_def,do_app_def]
+    \\ fs [evaluate_def,do_app_def,do_int_app_def]
     THEN1
      (Cases_on ‘evaluate ([x],env,s)’ \\ fs [] \\ Cases_on ‘q’ \\ fs []
       \\ rw [] \\ fs [evaluate_def]
@@ -74,6 +88,24 @@ Proof
       \\ Cases_on ‘r1’ \\ gvs [do_eq_def,do_app_def]
       \\ rw [] \\ eq_tac \\ rw [])
     \\ EVAL_TAC \\ rw [] \\ fs [] \\ EVAL_TAC)
+  \\ reverse (Cases_on ‘eq_direct_constant x y’) \\ fs []
+  THEN1
+   (gvs [eq_direct_constant_def,AllCaseEqs(),dest_Op_Nil_thm,dest_Constant_thm]
+    \\ rw []
+    \\ fs [evaluate_def,do_app_def] \\ rw []
+    \\ gvs [AllCaseEqs(),PULL_EXISTS,make_const_def,do_eq_def]
+    \\ fs [do_eq_def] \\ rw [evaluate_MakeBool]
+    \\ imp_res_tac evaluate_SING \\ gvs []
+    \\ TRY (eq_tac \\ fs [] \\ NO_TAC)
+    \\ once_rewrite_tac [EQ_SYM_EQ]
+    \\ rename [‘MAP _ _ = MAP _ _ ⇔ t1 = t2’]
+    \\ Cases_on ‘t1’
+    \\ Cases_on ‘t2’ \\ fs []
+    \\ pop_assum kall_tac
+    \\ qid_spec_tac ‘s’
+    \\ qid_spec_tac ‘s'’
+    \\ Induct \\ Cases_on ‘s’ \\ fs []
+    \\ fs [ORD_BOUND,ORD_11])
   \\ reverse (Cases_on ‘eq_direct_nil x y’) \\ fs []
   THEN1
    (gvs [eq_direct_nil_def,AllCaseEqs(),dest_Op_Nil_thm,dest_Cons_thm]
@@ -94,12 +126,18 @@ QED
 
 Theorem dont_lift_thm:
   dont_lift x ⇔
-  (∃t n. x = Op t (Cons n) []) ∨
-  (∃t i. x = Op t (Const i) [])
+  (∃t i. x = Op t (IntOp (Const i)) []) ∨
+  (∃t n. x = Op t (BlockOp (Cons n)) []) ∨
+  (∃t s. x = Op t (BlockOp (Constant (ConstStr s))) []) ∨
+  (∃t i. x = Op t (BlockOp (Constant (ConstInt i))) []) ∨
+  (∃t w. x = Op t (BlockOp (Constant (ConstWord64 w))) [])
 Proof
   Cases_on ‘x’ \\ fs [dont_lift_def,dest_Op_Nil_def,dest_Op_def]
-  \\ Cases_on ‘o'’ \\ fs [dest_Const_def,dest_Cons_def]
-  \\ Cases_on ‘l’ \\ fs [dest_Const_def,dest_Cons_def]
+  \\ Cases_on ‘o'’ \\ fs [dest_Const_def,dest_Cons_def,dest_Constant_def]
+  >| [Cases_on ‘i’, Cases_on `b`] \\ fs [dest_Const_def,dest_Cons_def,dest_Constant_def]
+  \\ Cases_on ‘l’ \\ fs [dest_Const_def,dest_Cons_def,dest_Constant_def]
+  \\ rename [‘Constant ll’]
+  \\ Cases_on ‘ll’ \\ fs [dest_Const_def,dest_Cons_def,dest_Constant_def]
 QED
 
 Theorem dont_lift_pure:
@@ -269,12 +307,17 @@ QED
 Inductive simple_exp:
   (∀t i. simple_exp (Var t i)) ∧
   (∀t x y z. simple_exp x ∧ simple_exp y ∧ simple_exp z ⇒ simple_exp (If t x y z)) ∧
-  (∀t i. simple_exp (Op t (Const i) [])) ∧
-  (∀t i xs. EVERY simple_exp xs ⇒ simple_exp (Op t (Cons i) xs)) ∧
-  (∀t i x. simple_exp x ⇒ simple_exp (Op t (EqualInt i) [x])) ∧
-  (∀t i x. simple_exp x ⇒ simple_exp (Op t (ElemAt i) [x])) ∧
-  (∀t x y. simple_exp x ∧ simple_exp y ⇒ simple_exp (Op t Equal [x;y])) ∧
-  (∀t l y x. simple_exp x ⇒ simple_exp (Op t (TagLenEq l y) [x]))
+  (∀t i. simple_exp (Op t (IntOp (Const i)) [])) ∧
+  (∀t i. simple_exp (Op t (BlockOp (Constant (ConstInt i))) [])) ∧
+  (∀t i. simple_exp (Op t (BlockOp (Constant (ConstStr i))) [])) ∧
+  (∀t i. simple_exp (Op t (BlockOp (Constant (ConstWord64 i))) [])) ∧
+  (∀t i xs. EVERY simple_exp xs ⇒ simple_exp (Op t (BlockOp (Cons i)) xs)) ∧
+  (∀t i x. simple_exp x ⇒ simple_exp (Op t (BlockOp (EqualConst (Int i))) [x])) ∧
+  (∀t i x. simple_exp x ⇒ simple_exp (Op t (BlockOp (EqualConst (Str i))) [x])) ∧
+  (∀t i x. simple_exp x ⇒ simple_exp (Op t (BlockOp (EqualConst (W64 i))) [x])) ∧
+  (∀t i x. simple_exp x ⇒ simple_exp (Op t (BlockOp (ElemAt i)) [x])) ∧
+  (∀t x y. simple_exp x ∧ simple_exp y ⇒ simple_exp (Op t (BlockOp Equal) [x;y])) ∧
+  (∀t l y x. simple_exp x ⇒ simple_exp (Op t (BlockOp (TagLenEq l y)) [x]))
 End
 
 Theorem simple_exp_pure:
@@ -354,8 +397,9 @@ QED
 Theorem eq_direct_simple_exp:
   eq_direct x y = SOME z ∧ simple_exp x ∧ simple_exp y ⇒ simple_exp z
 Proof
-  fs [eq_direct_def,AllCaseEqs(),eq_direct_const_def,eq_direct_nil_def]
+  fs [eq_direct_def,AllCaseEqs(),eq_direct_const_def,eq_direct_nil_def,eq_direct_constant_def]
   \\ rw [MakeBool_def] \\ simp [Once simple_exp_cases]
+  \\ gvs [dest_Op_Nil_thm,dest_Constant_thm]
 QED
 
 Theorem simple_exp_eq_pure_list:
@@ -410,7 +454,7 @@ Proof
 QED
 
 Theorem simpl_exp_Cons_EL:
-  simple_exp (Op tra (Cons n) xs) ∧ i < LENGTH xs ⇒
+  simple_exp (Op tra (BlockOp (Cons n)) xs) ∧ i < LENGTH xs ⇒
   simple_exp (EL i xs)
 Proof
   simp [Once simple_exp_cases,EVERY_EL]
@@ -477,7 +521,7 @@ Proof
       \\ strip_tac
       \\ gvs [dest_Op_thm,dest_Cons_thm]
       \\ qpat_x_assum ‘evaluate _ = _’ mp_tac
-      \\ ‘∃tt. evaluate ([Op tra (Cons x'0) x'1],env1,r) = tt’ by fs []
+      \\ ‘∃tt. evaluate ([Op tra (BlockOp (Cons x'0)) x'1],env1,r) = tt’ by fs []
       \\ PairCases_on ‘tt’ \\ fs []
       \\ drule evaluate_pure
       \\ pop_assum mp_tac
@@ -584,41 +628,45 @@ Proof
    (gvs [AllCaseEqs()]
     \\ Cases_on ‘x’ \\ fs [dest_Op_def] \\ gvs [AllCaseEqs()]
     \\ Cases_on ‘o'’ \\ gvs [dest_Cons_def]
-    \\ Cases_on ‘∃k. op = ElemAt k’
+    \\ Cases_on ‘b’ \\ gvs [dest_Cons_def]
+    \\ Cases_on ‘∃k. op = BlockOp (ElemAt k)’
     THEN1
      (gvs [cons_op_def,dest_ElemAt_def]
       \\ gvs [evaluate_def,AllCaseEqs(),do_app_def]
       \\ imp_res_tac evaluate_IMP_LENGTH
       \\ fs [EL_REVERSE,PRE_SUB1,EL_APPEND1])
-    \\ Cases_on ‘∃k1 k2. op = TagLenEq k1 k2’
+    \\ Cases_on ‘∃k1 k2. op = BlockOp (TagLenEq k1 k2)’
     THEN1
      (gvs [cons_op_def,dest_ElemAt_def,dest_TagLenEq_def]
       \\ gvs [evaluate_def,AllCaseEqs(),do_app_def,evaluate_MakeBool]
       \\ rw [] \\ eq_tac \\ rw []
       \\ imp_res_tac evaluate_IMP_LENGTH \\ fs [])
-    \\ Cases_on ‘∃k. op = TagEq k’
+    \\ Cases_on ‘∃k. op = BlockOp (TagEq k)’
     THEN1
      (gvs [cons_op_def,dest_ElemAt_def,dest_TagLenEq_def,dest_TagEq_def]
       \\ gvs [evaluate_def,AllCaseEqs(),do_app_def,evaluate_MakeBool])
-    \\ Cases_on ‘∃k. op = LenEq k’
+    \\ Cases_on ‘∃k. op = BlockOp (LenEq k)’
     THEN1
      (gvs [cons_op_def,dest_ElemAt_def,dest_TagLenEq_def,dest_TagEq_def,dest_LenEq_def]
       \\ gvs [evaluate_def,AllCaseEqs(),do_app_def,evaluate_MakeBool]
       \\ rw [] \\ eq_tac \\ rw []
       \\ imp_res_tac evaluate_IMP_LENGTH \\ fs [])
     \\ last_x_assum mp_tac
-    \\ Cases_on ‘op’ \\ fs [] \\ EVAL_TAC)
+    \\ Cases_on ‘op’ \\ fs [] \\ EVAL_TAC
+    \\ Cases_on ‘b’ \\ fs [] \\ EVAL_TAC)
   \\ reverse (Cases_on ‘dest_Op_Consts x y’) \\ gvs []
   THEN1
    (gvs [AllCaseEqs()]
     \\ Cases_on ‘x’ \\ fs [dest_Op_Consts_def,dest_Op_Nil_def,dest_Op_def,dest_Const_def]
     \\ Cases_on ‘o'’ \\ fs [dest_Op_Consts_def,dest_Op_def,dest_Const_def]
+    \\ Cases_on ‘i'’ \\ fs [dest_Op_Consts_def,dest_Op_def,dest_Const_def]
     \\ Cases_on ‘l’ \\ fs [dest_Op_Consts_def,dest_Op_def,dest_Const_def]
     \\ Cases_on ‘y’ \\ fs [dest_Op_Consts_def,dest_Op_def,dest_Const_def]
     \\ Cases_on ‘o'’ \\ fs [dest_Op_Consts_def,dest_Op_def,dest_Const_def]
+    \\ Cases_on ‘i'’ \\ fs [dest_Op_Consts_def,dest_Op_def,dest_Const_def]
     \\ Cases_on ‘l’ \\ gvs []
     \\ gvs [int_op_def,AllCaseEqs(),MakeInt_def]
-    \\ gvs [evaluate_def,AllCaseEqs(),do_app_def,evaluate_MakeBool]
+    \\ gvs [evaluate_def,AllCaseEqs(),do_app_def,do_int_app_def,evaluate_MakeBool]
     \\ gvs [do_eq_def] \\ intLib.COOPER_TAC)
   \\ last_x_assum mp_tac
   \\ simp [eq_op_def,GSYM AND_IMP_INTRO]
@@ -649,26 +697,34 @@ QED
 
 Inductive red_rel:
 [red_rel_Op:]
-  (∀xs ys t op i tag t1 t2.
+  (∀xs ys t op iop i tag t1 t2 s w.
     red_rel xs ys ∧
-    MEM op [Add;Sub;Mult;Div;Mod;Less;LessEq;Greater;GreaterEq;Equal;Const i;
-            Cons tag; TagEq tag; TagLenEq t1 t2; LenEq n; EqualInt i; ElemAt t1] ⇒
+    MEM op [
+      IntOp iop;
+      BlockOp Equal; BlockOp (Cons tag); BlockOp (ElemAt t1);
+      BlockOp (TagLenEq t1 t2); BlockOp (LenEq n); BlockOp (TagEq tag);
+      BlockOp (EqualConst (Str s));
+      BlockOp (EqualConst (W64 w));
+      BlockOp (EqualConst (Int i));
+      BlockOp (Constant (ConstInt i));
+      BlockOp (Constant (ConstStr s));
+      BlockOp (Constant (ConstWord64 w))] ⇒
     red_rel [Op t op xs] ys)
-  ∧
+[∧]
   (red_rel [] [])
-  ∧
+[∧]
   (∀x. red_rel [x] [x])
-  ∧
+[∧]
   (∀v t. red_rel [Var t v] [])
-  ∧
 [red_rel_multi:]
   (∀x y zs x1 x2.
     red_rel [x] x1 ∧ red_rel (y::zs) x2 ⇒
-    red_rel (x::y::zs) (x1 ++ x2)) ∧
+    red_rel (x::y::zs) (x1 ++ x2))
 [red_rel_Let:]
   (∀xs x x1 t.
     red_rel xs x1 ∧ red_rel [x] [] ⇒
-    red_rel [Let t xs x] x1) ∧
+    red_rel [Let t xs x] x1)
+[∧]
   (∀x y z x1 x2 x3.
     red_rel [x] x1 ∧ red_rel [y] x2 ∧  red_rel [z] x3 ⇒
     red_rel [If t x y z] (x1 ++ x2 ++ x3))
@@ -780,8 +836,10 @@ Proof
     \\ gvs [dont_lift_def,AllCaseEqs()]
     \\ Cases_on ‘dest_Op_Nil dest_Const x’ \\ gvs [dest_Op_Nil_thm]
     \\ Cases_on ‘dest_Op_Nil dest_Cons x’ \\ gvs [dest_Op_Nil_thm]
+    \\ Cases_on ‘dest_Op_Nil dest_Constant x’ \\ gvs [dest_Op_Nil_thm]
     \\ gvs [dest_Cons_thm]
     \\ gvs [dest_Const_thm]
+    \\ gvs [dest_Constant_thm]
     \\ simp [Once red_rel_cases]
     \\ simp [Once red_rel_cases])
   \\ Cases_on ‘dest_Op dest_Cons x’ \\ gvs []
@@ -812,14 +870,15 @@ Theorem eq_direct_red_rel:
 Proof
   rw [] \\ gvs [eq_direct_def,AllCaseEqs()]
   \\ gvs [eq_direct_const_def,AllCaseEqs()]
+  \\ gvs [eq_direct_constant_def,AllCaseEqs()]
   \\ gvs [eq_direct_nil_def,AllCaseEqs(),MakeBool_def]
   \\ irule_at Any red_rel_Op \\ fs []
-  \\ gvs [dest_Op_Nil_thm,dest_Cons_thm,dest_Const_thm]
-  \\ irule_at Any red_rel_multi \\ fs []
+  \\ gvs [dest_Op_Nil_thm,dest_Cons_thm,dest_Const_thm,dest_Constant_thm]
+  \\ TRY (irule_at Any red_rel_multi \\ fs []
   \\ rpt (irule_at Any red_rel_Op \\ fs [])
   \\ fs [red_rel_nil]
   \\ simp [Once red_rel_cases]
-  \\ metis_tac []
+  \\ metis_tac [])
 QED
 
 Theorem red_rel_refl:
@@ -837,6 +896,8 @@ Proof
   \\ gvs [SmartOp'_def,AllCaseEqs()]
   THEN1
    (Cases_on ‘op’ \\ gvs [cons_op_def,dest_ElemAt_def,dest_TagLenEq_def,
+      dest_TagEq_def,dest_LenEq_def]
+    \\ Cases_on `b` \\ gvs [cons_op_def,dest_ElemAt_def,dest_TagLenEq_def,
       dest_TagEq_def,dest_LenEq_def]
     \\ gvs [dest_Op_thm,dest_Cons_thm,MakeBool_def]
     \\ rpt (irule_at (Pos hd) red_rel_Op \\ fs [])
@@ -901,26 +962,30 @@ Proof
 QED
 
 Theorem SmartOp_Const:
-  ∀xs. SmartOp t (Const i) xs = Op t (Const i) xs
+  ∀xs. SmartOp t (IntOp (Const i)) xs = Op t (IntOp (Const i)) xs
 Proof
   ho_match_mp_tac list_split3 \\ EVAL_TAC \\ rw []
   \\ Cases_on ‘x’ \\ fs [dest_Op_def,dest_Const_def]
   \\ Cases_on ‘o'’ \\ fs [dest_Op_def,dest_Const_def,dest_Cons_def]
+  >| map Cases_on [‘b’, ‘i'’] \\ fs [dest_Op_def,dest_Const_def,dest_Cons_def]
   \\ Cases_on ‘l’ \\ fs [dest_Op_def,dest_Const_def]
   \\ Cases_on ‘y’ \\ fs [dest_Op_def,dest_Const_def]
   \\ Cases_on ‘o'’ \\ fs [dest_Op_def,dest_Const_def]
+  \\ Cases_on ‘i'’ \\ fs [dest_Op_def,dest_Const_def]
   \\ Cases_on ‘l’ \\ fs [dest_Op_def,dest_Const_def]
 QED
 
 Theorem SmartOp_Cons:
-  ∀xs. SmartOp t (Cons n) xs = Op t (Cons n) xs
+  ∀xs. SmartOp t (BlockOp (Cons n)) xs = Op t (BlockOp (Cons n)) xs
 Proof
   ho_match_mp_tac list_split3 \\ EVAL_TAC \\ rw []
   \\ Cases_on ‘x’ \\ fs [dest_Op_def,dest_Const_def]
   \\ Cases_on ‘o'’ \\ fs [dest_Op_def,dest_Const_def,dest_Cons_def]
+  >| map Cases_on [‘b’, ‘i’] \\ fs [dest_Op_def,dest_Const_def,dest_Cons_def]
   \\ Cases_on ‘l’ \\ fs [dest_Op_def,dest_Const_def]
   \\ Cases_on ‘y’ \\ fs [dest_Op_def,dest_Const_def]
   \\ Cases_on ‘o'’ \\ fs [dest_Op_def,dest_Const_def]
+  \\ Cases_on ‘i’ \\ fs [dest_Op_def,dest_Const_def]
   \\ Cases_on ‘l’ \\ fs [dest_Op_def,dest_Const_def]
 QED
 
@@ -931,9 +996,11 @@ Proof
   \\ ho_match_mp_tac list_split3 \\ EVAL_TAC \\ rw []
   \\ Cases_on ‘x’ \\ fs [dest_Op_def,dest_Const_def]
   \\ Cases_on ‘o'’ \\ fs [dest_Op_def,dest_Const_def,dest_Cons_def]
+  >| map Cases_on [‘b’, ‘i’] \\ fs [dest_Op_def,dest_Const_def,dest_Cons_def]
   \\ Cases_on ‘l’ \\ fs [dest_Op_def,dest_Const_def]
   \\ Cases_on ‘y’ \\ fs [dest_Op_def,dest_Const_def]
   \\ Cases_on ‘o'’ \\ fs [dest_Op_def,dest_Const_def]
+  \\ Cases_on ‘i’ \\ fs [dest_Op_def,dest_Const_def]
   \\ Cases_on ‘l’ \\ fs [dest_Op_def,dest_Const_def]
 QED
 
@@ -1057,7 +1124,7 @@ Proof
   \\ rw [] \\ gvs []
   \\ reverse (Cases_on ‘eq_direct x y’ \\ fs [])
   THEN1
-   (gvs [eq_direct_def,eq_direct_const_def,eq_direct_nil_def,AllCaseEqs()]
+   (gvs [eq_direct_def,eq_direct_const_def,eq_direct_nil_def,eq_direct_constant_def,AllCaseEqs()]
     \\ gvs [dest_Op_Nil_thm]
     \\ full_simp_tac std_ss [fv1_def,fv_def,MakeBool_def])
   \\ Cases_on ‘dest_Op dest_Cons x’ \\ gvs []
@@ -1082,7 +1149,7 @@ Proof
   \\ disch_then kall_tac
   \\ reverse (Cases_on ‘eq_direct x y’) \\ fs [] \\ rw []
   THEN1
-   (gvs [eq_direct_def,AllCaseEqs(),eq_direct_nil_def,eq_direct_const_def]
+   (gvs [eq_direct_def,AllCaseEqs(),eq_direct_nil_def,eq_direct_const_def,eq_direct_constant_def]
     \\ pop_assum mp_tac
     \\ rewrite_tac [fv1_def,fv_def,MakeBool_def] \\ fs [])
   \\ gvs [eq_any_def,AllCaseEqs()]
@@ -1112,4 +1179,3 @@ Proof
   \\ rewrite_tac [fv1_def,fv_def]
 QED
 
-val _ = export_theory();

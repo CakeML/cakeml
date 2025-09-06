@@ -3,11 +3,13 @@
   Booleans, and some basic syntactic properties about these
   extensions.
 *)
-open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
+Theory holBoolSyntax
+Ancestors
+  holSyntaxLib holSyntax holSyntaxExtra
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory"holBoolSyntax"
 
 Overload True = ``Const (strlit "T") Bool``
 Overload And = ``λp1 p2. Comb (Comb (Const (strlit "/\\") (Fun Bool (Fun Bool Bool))) p1) p2``
@@ -30,16 +32,32 @@ Overload P[local] = ``Var (strlit "P") (Fun A Bool)``
 Overload x[local] = ``Var (strlit "x") A``
 Overload FAx[local] = ``Forall (strlit "x") A``
 
-val TrueDef_def = Define`TrueDef = Abs p p === Abs p p`
-val AndDef_def = Define`AndDef = Abs p (Abs q (Abs f (Comb (Comb f p) q) === Abs f (Comb (Comb f True) True)))`
-val ImpliesDef_def = Define`ImpliesDef = Abs p (Abs q (And p q === p))`
-val ForallDef_def = Define`ForallDef = Abs P (P === Abs x True)`
-val ExistsDef_def = Define`ExistsDef = Abs P (FAq (Implies (FAx (Implies (Comb P x) q)) q))`
-val OrDef_def = Define`OrDef = Abs p (Abs q (FAr (Implies (Implies p r) (Implies (Implies q r) r))))`
-val FalseDef_def = Define`FalseDef = FAp p`
-val NotDef_def = Define`NotDef = Abs p (Implies p False)`
+Definition TrueDef_def:
+  TrueDef = Abs p p === Abs p p
+End
+Definition AndDef_def:
+  AndDef = Abs p (Abs q (Abs f (Comb (Comb f p) q) === Abs f (Comb (Comb f True) True)))
+End
+Definition ImpliesDef_def:
+  ImpliesDef = Abs p (Abs q (And p q === p))
+End
+Definition ForallDef_def:
+  ForallDef = Abs P (P === Abs x True)
+End
+Definition ExistsDef_def:
+  ExistsDef = Abs P (FAq (Implies (FAx (Implies (Comb P x) q)) q))
+End
+Definition OrDef_def:
+  OrDef = Abs p (Abs q (FAr (Implies (Implies p r) (Implies (Implies q r) r))))
+End
+Definition FalseDef_def:
+  FalseDef = FAp p
+End
+Definition NotDef_def:
+  NotDef = Abs p (Implies p False)
+End
 val Defs = [TrueDef_def, AndDef_def, ImpliesDef_def, ForallDef_def, ExistsDef_def, OrDef_def, FalseDef_def, NotDef_def]
-val mk_bool_ctxt_def = Define`
+Definition mk_bool_ctxt_def:
   mk_bool_ctxt ctxt =
     ConstDef (strlit "~") NotDef ::
     ConstDef (strlit "F") FalseDef ::
@@ -49,7 +67,8 @@ val mk_bool_ctxt_def = Define`
     ConstDef (strlit "==>") ImpliesDef ::
     ConstDef (strlit "/\\") AndDef ::
     ConstDef (strlit "T")  TrueDef ::
-    ctxt`
+    ctxt
+End
 
 (* bool is a good extension *)
 
@@ -120,22 +139,30 @@ QED
 
 (* signatures of Boolean constants *)
 
-val is_true_sig_def = Define`
-  is_true_sig tmsig ⇔ FLOOKUP tmsig (strlit "T") = SOME Bool`
-val is_false_sig_def = Define`
-  is_false_sig tmsig ⇔ FLOOKUP tmsig (strlit "F") = SOME Bool`
-val is_implies_sig_def = Define`
-  is_implies_sig tmsig ⇔ FLOOKUP tmsig (strlit "==>") = SOME (Fun Bool (Fun Bool Bool))`
-val is_and_sig_def = Define`
-  is_and_sig tmsig ⇔ FLOOKUP tmsig (strlit "/\\") = SOME (Fun Bool (Fun Bool Bool))`
-val is_or_sig_def = Define`
-  is_or_sig tmsig ⇔ FLOOKUP tmsig (strlit "\\/") = SOME (Fun Bool (Fun Bool Bool))`
-val is_not_sig_def = Define`
-  is_not_sig tmsig ⇔ FLOOKUP tmsig (strlit "~") = SOME (Fun Bool Bool)`
-val is_forall_sig_def = Define`
-  is_forall_sig tmsig ⇔ FLOOKUP tmsig (strlit "!") = SOME (Fun (Fun A Bool) Bool)`
-val is_exists_sig_def = Define`
-  is_exists_sig tmsig ⇔ FLOOKUP tmsig (strlit "?") = SOME (Fun (Fun A Bool) Bool)`
+Definition is_true_sig_def:
+  is_true_sig tmsig ⇔ FLOOKUP tmsig (strlit "T") = SOME Bool
+End
+Definition is_false_sig_def:
+  is_false_sig tmsig ⇔ FLOOKUP tmsig (strlit "F") = SOME Bool
+End
+Definition is_implies_sig_def:
+  is_implies_sig tmsig ⇔ FLOOKUP tmsig (strlit "==>") = SOME (Fun Bool (Fun Bool Bool))
+End
+Definition is_and_sig_def:
+  is_and_sig tmsig ⇔ FLOOKUP tmsig (strlit "/\\") = SOME (Fun Bool (Fun Bool Bool))
+End
+Definition is_or_sig_def:
+  is_or_sig tmsig ⇔ FLOOKUP tmsig (strlit "\\/") = SOME (Fun Bool (Fun Bool Bool))
+End
+Definition is_not_sig_def:
+  is_not_sig tmsig ⇔ FLOOKUP tmsig (strlit "~") = SOME (Fun Bool Bool)
+End
+Definition is_forall_sig_def:
+  is_forall_sig tmsig ⇔ FLOOKUP tmsig (strlit "!") = SOME (Fun (Fun A Bool) Bool)
+End
+Definition is_exists_sig_def:
+  is_exists_sig tmsig ⇔ FLOOKUP tmsig (strlit "?") = SOME (Fun (Fun A Bool) Bool)
+End
 val sigs = [is_true_sig_def, is_false_sig_def, is_implies_sig_def, is_and_sig_def,
             is_or_sig_def, is_not_sig_def, is_forall_sig_def, is_exists_sig_def]
 
@@ -152,7 +179,7 @@ Definition bool_ops_not_overloadable_def:
     ~overloadable_in (strlit "=") ctxt)
 End
 
-val is_bool_sig_def = Define`
+Definition is_bool_sig_def:
   is_bool_sig (sig:sig) ⇔
   is_std_sig sig ∧
   is_true_sig (tmsof sig) ∧
@@ -162,7 +189,8 @@ val is_bool_sig_def = Define`
   is_or_sig (tmsof sig) ∧
   is_not_sig (tmsof sig) ∧
   is_forall_sig (tmsof sig) ∧
-  is_exists_sig (tmsof sig)`
+  is_exists_sig (tmsof sig)
+End
 
 Theorem bool_has_bool_sig:
    ∀ctxt. is_std_sig (sigof ctxt)
@@ -284,4 +312,3 @@ Proof
   PROVE_TAC[term_ok_welltyped]
 QED
 
-val _ = export_theory()

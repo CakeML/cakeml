@@ -1,9 +1,11 @@
 (*
    Basic specification of an LPR checker (minimal optimization)
 *)
-open preamble miscTheory mlstringTheory satSemTheory;
-
-val _ = new_theory "lpr";
+Theory lpr
+Libs
+  preamble
+Ancestors
+  mllist mlstring satSem sptree[qualified] integer[qualified] misc
 
 (*
   Bridging implementation and semantics
@@ -22,61 +24,32 @@ Type cclause = ``:lit list``;
 Type ccnf = ``:cclause list``;
 Type tccnf = ``:cclause spt``;
 
-val interp_lit_def = Define`
+Definition interp_lit_def:
   interp_lit (l:lit) =
   if l > 0 then INL (Num (ABS l))
-  else INR (Num (ABS l))`
+  else INR (Num (ABS l))
+End
 
-val interp_cclause_def = Define`
+Definition interp_cclause_def:
   interp_cclause (ls:cclause) =
-  IMAGE interp_lit (set ls DIFF {0})`
+  IMAGE interp_lit (set ls DIFF {0})
+End
 
-val interp_def = Define`
+Definition interp_def:
   interp (fml:ccnf) =
-  IMAGE interp_cclause (set fml)`
+  IMAGE interp_cclause (set fml)
+End
 
-val values_def = Define`
-  values s = {v | ∃n. lookup n s = SOME v}`
-
-val interp_spt_def = Define`
-  interp_spt (fml:tccnf) = IMAGE interp_cclause (values fml)`
-
-Theorem values_delete:
-  values (delete h v) ⊆ values v
-Proof
-  simp[values_def,lookup_delete,SUBSET_DEF]>>
-  metis_tac[]
-QED
-
-Theorem values_insert:
-  C ∈ values (insert n l fml) ⇒ C ∈ values fml ∨ C = l
-Proof
-  fs[values_def,lookup_insert]>>
-  rw[]>>
-  every_case_tac>>fs[]>>
-  metis_tac[]
-QED
-
-Theorem values_insert2:
-  values (insert n l fml) ⊆ l INSERT values fml
-Proof
-  rw[SUBSET_DEF]>>
-  metis_tac[values_insert]
-QED
-
-Theorem values_insert_fresh:
-  (∀x. x ∈ domain fml ⇒ x ≠ n) ⇒
-  values (insert n l fml) = l INSERT values fml
-Proof
-  rw[values_def,EXTENSION,lookup_insert,domain_lookup]>>
-  metis_tac[SOME_11]
-QED
+Definition interp_spt_def:
+  interp_spt (fml:tccnf) = IMAGE interp_cclause (range fml)
+End
 
 (* Implementation *)
-val _ = Datatype`
+Datatype:
   lprstep =
   | Delete (num list) (* Clauses to delete *)
-  | PR num cclause (cclause option) (num list) ((num,(num list)) alist)`
+  | PR num cclause (cclause option) (num list) ((num,(num list)) alist)
+End
     (* PR step:
       PR n C wopt i0 (ik id ~> ik)
       n is the new id of the clause C
@@ -88,9 +61,10 @@ val _ = Datatype`
 
 Type lpr = ``:lprstep list``
 
-val delete_literals_def = Define`
+Definition delete_literals_def:
   delete_literals (C:cclause) (D:cclause) =
-  FILTER (λx. ¬MEM x D) C`
+  FILTER (λx. ¬MEM x D) C
+End
 
 (*
   Checking for asymmetric tautology via unit propagation using the given hints.
@@ -99,38 +73,42 @@ val delete_literals_def = Define`
   SOME (INL ()) => C is an AT
   SOME (INR C) => hints were insufficient, but C is now extended with units
 *)
-val is_AT_def = Define`
+Definition is_AT_def:
   (is_AT fml [] (C:cclause) = SOME (INR C)) ∧
   (is_AT fml (i::is) C =
-  case lookup i fml of
+  case sptree$lookup i fml of
     NONE => NONE
   | SOME Ci =>
   case delete_literals Ci C of
     [] => SOME (INL ())
   | [l] => is_AT fml is (-l :: C)
-  | _ => NONE)`
+  | _ => NONE)
+End
 
 (* Check if Ci overlaps with a list of assignments *)
-val check_overlap_def = Define`
+Definition check_overlap_def:
   (check_overlap Ci [] = F) ∧
   (check_overlap Ci (a::as) =
-    (MEM a Ci ∨ check_overlap Ci as))`
+    (MEM a Ci ∨ check_overlap Ci as))
+End
 
 (* flips a clause/assignment.
   for a clause, this yields its blocked assignment *)
-val flip_def = Define`
-  flip (C:cclause) = MAP (λi. -i) C`
+Definition flip_def:
+  flip (C:cclause) = MAP (λi. -i) C
+End
 
 (* Construct the overlapping assignment
   { w ∪ negate (C) }
   where w overrides everything in negate(C)
 *)
-val overlap_assignment_def = Define`
+Definition overlap_assignment_def:
   overlap_assignment w C =
-    w ++ flip (delete_literals C w)`
+    w ++ flip (delete_literals C w)
+End
 
 (* The (L)RAT check (no witnesses) *)
-val check_RAT_def = Define`
+Definition check_RAT_def:
   check_RAT fml p C ik (i,Ci) =
   (* Step 5.1: if Ci contains -p do work, else skip *)
   if check_overlap Ci [-p] then
@@ -145,15 +123,17 @@ val check_RAT_def = Define`
       (* Step 5.3-5.5: Otherwise, use full hints *)
       is_AT fml is (C ++ (delete_literals Ci [-p])) = SOME (INL ())
   else
-    T`
+    T
+End
 
 (* Adding debug messages
 open mlintTheory
 
-val guard_def = Define`
+Definition guard_def:
   guard P s =
   if P then P else
-  (let _ = empty_ffi s in F)`
+  (let _ = empty_ffi s in F)
+End
 
 guard (check_overlap Ci w) (strlit "5.2.1 failed: " ^ mlint$toString (&i))
 guard (check_overlap Ci (overlap_assignment w C)) (strlit "5.2.2 failed: " ^ mlint$toString (&i))
@@ -161,7 +141,7 @@ guard (is_AT fml is (C ++ (delete_literals Ci (flip (overlap_assignment w C)))) 
 *)
 
 (* The (L)PR check (witness given) *)
-val check_PR_def = Define`
+Definition check_PR_def:
   check_PR fml w C ik (i,Ci) =
   (* Step 5.1: if Ci is touched by w do work, else skip *)
   if check_overlap Ci (flip w) then
@@ -179,9 +159,10 @@ val check_PR_def = Define`
       (* Step 5.3-5.5: Otherwise use full hints *)
       is_AT fml is (C ++ (delete_literals Ci (flip (overlap_assignment w C)))) = SOME (INL ())
   else
-    T`
+    T
+End
 
-val is_PR_def = Define`
+Definition is_PR_def:
   is_PR fml p (C:cclause) wopt i0 ik =
   (* First, do the asymmetric tautology check *)
   case is_AT fml i0 C of
@@ -194,14 +175,15 @@ val is_PR_def = Define`
       NONE => EVERY (check_RAT fml p D ik) iCs
     | SOME w => ¬(check_overlap w (flip w)) ∧ EVERY (check_PR fml w D ik) iCs
   else
-     F`
+     F
+End
 
 (*
   Deletions and updates can only happen above position index mindel
   By convention, setting mindel = 0 enables all deletions
   (clauses are 1-indexed by the parser)
 *)
-val check_lpr_step_def = Define`
+Definition check_lpr_step_def:
   check_lpr_step mindel step fml =
   case step of
     Delete cl =>
@@ -213,27 +195,31 @@ val check_lpr_step_def = Define`
     let p = case C of [] => 0 | (x::xs) => x in
     if is_PR fml p C w i0 ik ∧ mindel < n then
       SOME (insert n C fml)
-    else NONE`
+    else NONE
+End
 
 (* Run the LPR checker on fml, returning an option *)
-val check_lpr_def = Define`
+Definition check_lpr_def:
   (check_lpr mindel [] fml = SOME fml) ∧
   (check_lpr mindel (step::steps) fml =
     case check_lpr_step mindel step fml of
       NONE => NONE
-    | SOME fml' => check_lpr mindel steps fml')`
+    | SOME fml' => check_lpr mindel steps fml')
+End
 
 (* Checking that the final formula contains a list of clauses *)
 
 (* Canonical form for a clause, making transformation proofs easier to check *)
-val sorted_dup_def = Define`
+Definition sorted_dup_def:
   (sorted_dup (x::y::xs) =
   if x = (y:int) then sorted_dup (x::xs)
   else x::(sorted_dup (y::xs))) ∧
-  (sorted_dup ls = ls)`
+  (sorted_dup ls = ls)
+End
 
-val canon_clause_def = Define`
-  canon_clause cl = sorted_dup (QSORT (λi j. i ≤ (j:int)) cl)`
+Definition canon_clause_def:
+  canon_clause cl = sorted_dup (sort (λi j. i ≤ (j:int)) cl)
+End
 
 Theorem set_sorted_dup:
   ∀cl.
@@ -243,53 +229,53 @@ Proof
   rw[sorted_dup_def]
 QED
 
-Theorem set_QSORT:
-  set (QSORT R ls) = set ls
-Proof
-  rw[EXTENSION,QSORT_MEM]
-QED
-
 Theorem canon_clause_interp:
   interp_cclause (canon_clause cl) = interp_cclause cl
 Proof
   rw[canon_clause_def,interp_cclause_def]>>
-  simp[set_sorted_dup,set_QSORT]
+  simp[set_sorted_dup,sort_set]
 QED
 
-val contains_clauses_def = Define`
+Definition contains_clauses_def:
   contains_clauses fml cls =
   let ls = MAP (canon_clause o SND) (toAList fml) in
-  EVERY (λcl. MEM (canon_clause cl) ls) cls`
+  EVERY (λcl. MEM (canon_clause cl) ls) cls
+End
 
 (* Checking unsatisfiability *)
-val check_lpr_unsat_def = Define`
+Definition check_lpr_unsat_def:
   check_lpr_unsat lpr fml =
   case check_lpr 0 lpr fml of
     NONE => F
-  | SOME fml' => contains_clauses fml' [[]]`
+  | SOME fml' => contains_clauses fml' [[]]
+End
 
 (* Checking satisfiability equivalence after adding clauses *)
-val check_lpr_sat_equiv_def = Define`
+Definition check_lpr_sat_equiv_def:
   check_lpr_sat_equiv lpr fml mindel cls =
   case check_lpr mindel lpr fml of
     NONE => F
-  | SOME fml' => contains_clauses fml' cls`
+  | SOME fml' => contains_clauses fml' cls
+End
 
 (* Proofs *)
-val wf_clause_def = Define`
-  wf_clause (C:cclause) ⇔ ¬ MEM 0 C`
+Definition wf_clause_def:
+  wf_clause (C:cclause) ⇔ ¬ MEM 0 C
+End
 
-val wf_fml_def = Define`
+Definition wf_fml_def:
   wf_fml (fml:tccnf) ⇔
-  ∀C. C ∈ values fml ⇒ wf_clause C`
+  ∀C. C ∈ range fml ⇒ wf_clause C
+End
 
-val wf_lpr_def = Define`
+Definition wf_lpr_def:
   (wf_lpr (Delete _) = T) ∧
   (wf_lpr (PR n C wopt i0 ik) =
     (wf_clause C ∧
     case C of [] => T
     | h::t => case wopt of SOME w => MEM h w | _ => T)
-  )`
+  )
+End
 
 Theorem filter_unit_preserves_satisfies:
   ∀C.
@@ -406,7 +392,7 @@ Proof
     qmatch_goalsub_abbrev_tac`unsatisfiable fml'`>>
     `fml' = (interp_cclause x) INSERT fml'` by
       (match_mp_tac (GSYM ABSORPTION_RWT)>>
-      fs[Abbr`fml'`,values_def,interp_spt_def]>>
+      fs[Abbr`fml'`,range_def,interp_spt_def]>>
       metis_tac[])>>
     pop_assum SUBST1_TAC>>
     match_mp_tac filter_unit_preserves_unsatisfiable>>
@@ -418,7 +404,7 @@ Proof
     simp[interp_cclause_def])
   >>
   `wf_clause x` by
-    (fs[wf_fml_def,values_def]>>
+    (fs[wf_fml_def,range_def]>>
     metis_tac[])>>
   `MEM h' (delete_literals x C)` by fs[]>>
   `-h' ≠ 0` by
@@ -434,7 +420,7 @@ Proof
   qmatch_goalsub_abbrev_tac`unsatisfiable fml'`>>
   `(interp_cclause x) INSERT fml' = fml'` by
     (match_mp_tac ABSORPTION_RWT>>
-    fs[Abbr`fml'`,values_def,interp_spt_def]>>
+    fs[Abbr`fml'`,range_def,interp_spt_def]>>
     metis_tac[])>>
   pop_assum (SUBST1_TAC  o SYM)>>
   match_mp_tac filter_unit_preserves_unsatisfiable>>
@@ -477,7 +463,7 @@ Proof
   `interp_cclause x DIFF interp_cclause C = interp_cclause (delete_literals x C)` by
     fs[interp_cclause_delete_literals]>>
   `wf_clause x` by
-    (fs[wf_fml_def,values_def]>>
+    (fs[wf_fml_def,range_def]>>
     metis_tac[])>>
   `MEM h' (delete_literals x C)` by fs[]>>
   `-h' ≠ 0` by
@@ -497,7 +483,7 @@ Proof
   strip_tac>>
   fs[satisfies_INSERT]>>
   `satisfies_clause w (interp_cclause x)` by
-    (fs[satisfies_def,interp_spt_def,values_def]>>
+    (fs[satisfies_def,interp_spt_def,range_def]>>
     metis_tac[])>>
   CCONTR_TAC >> fs[]>>
   `interp_cclause x DIFF interp_cclause C = interp_cclause [h']` by
@@ -634,7 +620,7 @@ Proof
 QED
 
 Theorem check_PR_sat_implies:
-  check_PR fml w C ik (i,Ci) ∧ Ci ∈ values fml ∧
+  check_PR fml w C ik (i,Ci) ∧ Ci ∈ range fml ∧
   wf_fml fml ∧ wf_clause C ∧ consistent_par (interp_cclause C) ⇒
   sat_implies (par (IMAGE negate_literal (interp_cclause C)) (interp_spt fml))
     (par
@@ -737,8 +723,8 @@ Proof
   metis_tac[satisfiable_def]
 QED
 
-Theorem sat_implies_values:
-  (∀C. C ∈ values fml ⇒ sat_implies A (par w {interp_cclause C})) ⇒
+Theorem sat_implies_range:
+  (∀C. C ∈ range fml ⇒ sat_implies A (par w {interp_cclause C})) ⇒
   sat_implies A (par w (interp_spt fml))
 Proof
   rw[sat_implies_def,satisfies_def,interp_spt_def,par_def]>>
@@ -827,14 +813,14 @@ Proof
         fs[interp_cclause_def]>>
       simp[EXTENSION]>>
       metis_tac[])>>
-    match_mp_tac sat_implies_values>>
-    rw[values_def]>>fs[EVERY_MEM,MEM_toAList,FORALL_PROD]>>
+    match_mp_tac sat_implies_range>>
+    rw[range_def]>>fs[EVERY_MEM,MEM_toAList,FORALL_PROD]>>
     first_x_assum drule>>
     strip_tac>>
     drule check_PR_sat_implies>>
     simp[]>>
     impl_tac >-
-      (fs[values_def]>>
+      (fs[range_def]>>
       metis_tac[])>>
     simp[])
   >>
@@ -856,8 +842,8 @@ Proof
         fs[interp_cclause_def]>>
       simp[EXTENSION]>>
       metis_tac[])>>
-    match_mp_tac sat_implies_values>>
-    rw[values_def]>>fs[EVERY_MEM,MEM_toAList,FORALL_PROD]>>
+    match_mp_tac sat_implies_range>>
+    rw[range_def]>>fs[EVERY_MEM,MEM_toAList,FORALL_PROD]>>
     first_x_assum drule>>
     strip_tac>>
     drule check_RAT_imp_check_PR>>
@@ -865,7 +851,7 @@ Proof
     drule check_PR_sat_implies>>
     simp[]>>
     impl_tac >-
-      (fs[values_def]>>
+      (fs[range_def]>>
       metis_tac[])>>
     simp[interp_cclause_def]
 QED
@@ -877,7 +863,7 @@ Proof
   match_mp_tac satisfiable_SUBSET>>
   simp[interp_spt_def]>>
   match_mp_tac IMAGE_SUBSET>>
-  metis_tac[values_delete]
+  metis_tac[range_delete]
 QED
 
 Theorem delete_clauses_sound:
@@ -892,7 +878,9 @@ Theorem interp_insert:
   interp_spt (insert n p fml) ⊆ interp_cclause p INSERT interp_spt fml
 Proof
   simp[interp_spt_def,SUBSET_DEF,PULL_EXISTS]>>
-  rw[]>>drule values_insert>>rw[]>>
+  rw[]>>
+  drule range_insert_2>>
+  rw[]>>
   metis_tac[]
 QED
 
@@ -937,8 +925,8 @@ Proof
   Induct_on`ll`>>
   rw[]>>first_x_assum drule>>
   rw[wf_fml_def]>>
-  `C ∈ values (FOLDR (\b a . delete b a) fml ll)` by
-    metis_tac[values_delete,SUBSET_DEF]>>
+  `C ∈ range (FOLDR (\b a . delete b a) fml ll)` by
+    metis_tac[range_delete,SUBSET_DEF]>>
   fs[]
 QED
 
@@ -947,7 +935,7 @@ Theorem wf_fml_insert:
   wf_fml (insert n l fml)
 Proof
   fs[wf_fml_def]>>rw[]>>
-  drule values_insert>>
+  drule range_insert_2>>
   metis_tac[]
 QED
 
@@ -993,7 +981,7 @@ Proof
 QED
 
 (* Theorems about mindel *)
-Theorem lookup_FOLDL_delete:
+Theorem lookup_FOLDL_delete':
   ∀l fml.
   lookup n fml = SOME c ∧
   EVERY ($< mindel) l ∧ n ≤ mindel ⇒
@@ -1013,7 +1001,7 @@ Theorem check_lpr_step_mindel:
 Proof
   rw[check_lpr_step_def]>>
   every_case_tac>>fs[]>>rw[lookup_insert]>>
-  match_mp_tac lookup_FOLDL_delete>>
+  match_mp_tac lookup_FOLDL_delete'>>
   fs[EVERY_MEM]
 QED
 
@@ -1036,10 +1024,11 @@ Proof
 QED
 
 (* Build a tccnf from a ccnf *)
-val build_fml_def = Define`
+Definition build_fml_def:
   (build_fml (id:num) [] = LN:tccnf) ∧
   (build_fml id (cl::cls) =
-    insert id cl (build_fml (id+1) cls))`
+    insert id cl (build_fml (id+1) cls))
+End
 
 Theorem lookup_build_fml:
   ∀ls n acc i.
@@ -1053,10 +1042,10 @@ Proof
   simp[]
 QED
 
-Theorem values_build_fml:
-  ∀ls id. values (build_fml id ls) = set ls
+Theorem range_build_fml:
+  ∀ls id. range (build_fml id ls) = set ls
 Proof
-  Induct>>fs[build_fml_def,values_def,lookup_def]>>
+  Induct>>fs[build_fml_def,range_def,lookup_def]>>
   fs[EXTENSION]>>
   rw[lookup_insert]>>
   rw[EQ_IMP_THM]
@@ -1073,14 +1062,14 @@ QED
 Theorem interp_build_fml:
   interp_spt (build_fml id fml) = interp fml
 Proof
-  simp[interp_spt_def,values_build_fml,interp_def]
+  simp[interp_spt_def,range_build_fml,interp_def]
 QED
 
 Theorem wf_fml_build_fml:
   EVERY wf_clause ls ⇒
   wf_fml (build_fml id ls)
 Proof
-  simp[wf_fml_def,values_build_fml,EVERY_MEM]
+  simp[wf_fml_def,range_build_fml,EVERY_MEM]
 QED
 
 (* Connect theorems to ccnf representation *)
@@ -1094,7 +1083,7 @@ Proof
   `unsatisfiable (interp_spt x)` by (
     match_mp_tac empty_clause_imp_unsatisfiable>>
     fs[contains_clauses_def]>>
-    fs[MEM_MAP]>>Cases_on`y`>>fs[MEM_toAList,interp_spt_def,values_def]>>
+    fs[MEM_MAP]>>Cases_on`y`>>fs[MEM_toAList,interp_spt_def,range_def]>>
     qexists_tac`r`>>
     simp[]>>
     `canon_clause [] = [] ∧ interp_cclause [] = {}` by
@@ -1126,7 +1115,7 @@ Proof
     drule check_lpr_mindel>>
     simp[lookup_build_fml]>>
     rw[interp_build_fml,interp_def]>>
-    simp[interp_spt_def,values_def,SUBSET_DEF]>>
+    simp[interp_spt_def,range_def,SUBSET_DEF]>>
     rw[]>>
     fs[MEM_EL]>>
     first_x_assum(qspec_then `n+id` mp_tac)>>simp[]>>
@@ -1135,7 +1124,7 @@ Proof
     rw[SUBSET_DEF]>>
     fs[EVERY_MEM,MEM_toAList,EXISTS_PROD,MEM_MAP]>>
     first_x_assum drule>>rw[]>>
-    fs[interp_spt_def,values_def]>>
+    fs[interp_spt_def,range_def]>>
     metis_tac[canon_clause_interp])>>
   qpat_x_assum`satisfiable _` mp_tac>>
   match_mp_tac (satisfiable_SUBSET)>>
@@ -1160,7 +1149,7 @@ Proof
     rw[SUBSET_DEF]>>
     fs[EVERY_MEM,MEM_toAList,EXISTS_PROD,MEM_MAP]>>
     first_x_assum drule>>rw[]>>
-    fs[interp_spt_def,values_def]>>
+    fs[interp_spt_def,range_def]>>
     metis_tac[canon_clause_interp])>>
   qpat_x_assum`satisfiable _` mp_tac>>
   match_mp_tac (satisfiable_SUBSET)>>
@@ -1168,46 +1157,53 @@ Proof
 QED
 
 (* Top-level DRAT-style proofs, i.e., every line is a clause that is either deleted or added *)
-val _ = Datatype`
+Datatype:
   step =
     Del cclause (* Clause to delete *)
-  | Add cclause` (* Clause to add *)
+  | Add cclause (* Clause to add *)
+End
 
 Type proof = ``:step list``
 
 (* Run the top-level proof operations on a formula *)
-val run_proof_step_def = Define`
+Definition run_proof_step_def:
   (run_proof_step fml (Del cl) = FILTER ($≠ cl) fml) ∧
-  (run_proof_step fml (Add cl) = fml ++ [cl])`
+  (run_proof_step fml (Add cl) = fml ++ [cl])
+End
 
-val run_proof_def = Define`
-  run_proof fml pf = FOLDL run_proof_step fml pf`
+Definition run_proof_def:
+  run_proof fml pf = FOLDL run_proof_step fml pf
+End
 
 (* Del case not technically necessary, but useful for parsing *)
-val wf_proof_def = Define`
+Definition wf_proof_def:
   (wf_proof (Del C) = wf_clause C) ∧
-  (wf_proof (Add C) = wf_clause C)`
+  (wf_proof (Add C) = wf_clause C)
+End
 
 (* As a first step towards verification, define a version operating over sptrees *)
-val run_proof_step_spt_def = Define`
+Definition run_proof_step_spt_def:
   (run_proof_step_spt (fml,n) (Del cl) =
     let kv = toAList fml in
     let l = MAP FST (FILTER (λ(k,v). cl = v) kv) in
       (FOLDL (\a b. delete b a) fml l, n)) ∧
   (run_proof_step_spt (fml,n:num) (Add cl) =
-    (insert n cl fml,n+1))`
+    (insert n cl fml,n+1))
+End
 
-val run_proof_spt_def = Define`
-  run_proof_spt fmln pf = FOLDL run_proof_step_spt fmln pf`
+Definition run_proof_spt_def:
+  run_proof_spt fmln pf = FOLDL run_proof_step_spt fmln pf
+End
 
-val check_lpr_range_def = Define`
+Definition check_lpr_range_def:
   check_lpr_range lpr fml n pf i j =
   if i ≤ j then
     let (fml1,n1) = run_proof_spt (fml,n) (TAKE i pf) in
     let (fml2,n2) = run_proof_spt (fml1,n1) (DROP i (TAKE j pf)) in
     let vals = MAP SND (toAList fml2) in
     check_lpr_sat_equiv lpr fml1 0 vals
-  else F`
+  else F
+End
 
 Theorem lookup_FOLDL_delete:
   ∀l k fml.
@@ -1233,9 +1229,9 @@ Proof
   disch_then match_mp_tac>>
   fs[wf_fml_def]
   >- (
-    fs[values_def,lookup_FOLDL_delete,MEM_MAP,MEM_FILTER,EXISTS_PROD,MEM_toAList]>>
+    fs[range_def,lookup_FOLDL_delete,MEM_MAP,MEM_FILTER,EXISTS_PROD,MEM_toAList]>>
     metis_tac[])>>
-  metis_tac[values_insert]
+  metis_tac[range_insert_2]
 QED
 
 Theorem MAP_ALL_DISTINCT_FILTER:
@@ -1248,10 +1244,10 @@ QED
 Theorem run_proof_spt_interp:
   ∀pf fmlspt n fmlspt' n' fml.
   run_proof_spt (fmlspt,n) pf = (fmlspt',n') ∧
-  values fmlspt = set fml ∧
+  range fmlspt = set fml ∧
   (∀x. x ∈ domain fmlspt ⇒ x < n)
   ⇒
-  values fmlspt' = set (run_proof fml pf) ∧
+  range fmlspt' = set (run_proof fml pf) ∧
   (∀x. x ∈ domain fmlspt' ⇒ x < n')
 Proof
   Induct>>fs[run_proof_def,run_proof_spt_def]>>
@@ -1260,17 +1256,17 @@ Proof
   first_x_assum drule>>
   disch_then match_mp_tac
   >- (
-    fs[values_def,domain_lookup,lookup_FOLDL_delete,MEM_MAP,MEM_FILTER,EXISTS_PROD,MEM_toAList]>>
+    fs[range_def,domain_lookup,lookup_FOLDL_delete,MEM_MAP,MEM_FILTER,EXISTS_PROD,MEM_toAList]>>
     fs[domain_lookup]>>
     reverse CONJ_TAC >- metis_tac[]>>
     pop_assum kall_tac>>
     last_x_assum kall_tac>>
-    fs[EXTENSION,MEM_MAP,MEM_FILTER,MEM_toAList,values_def,EXISTS_PROD]>>
+    fs[EXTENSION,MEM_MAP,MEM_FILTER,MEM_toAList,range_def,EXISTS_PROD]>>
     metis_tac[SOME_11])
   >>
-    DEP_REWRITE_TAC [values_insert_fresh]>>
+    DEP_REWRITE_TAC [range_insert]>>
     CONJ_TAC>-
-      (rw[]>>first_x_assum drule>>simp[])>>
+      (CCONTR_TAC>>rw[]>>first_x_assum drule>>simp[])>>
     CONJ_TAC>-
       (fs[EXTENSION]>>metis_tac[])>>
     rw[]>>fs[]>>
@@ -1305,7 +1301,7 @@ Proof
   drule run_proof_spt_interp>>
   disch_then(qspec_then`fml` mp_tac)>>
   impl_tac>-
-    simp[values_build_fml,domain_lookup,lookup_build_fml]>>
+    simp[range_build_fml,domain_lookup,lookup_build_fml]>>
   rw[]>>
   qpat_x_assum` _ ⇒ _` mp_tac>>
   impl_tac >-
@@ -1322,14 +1318,12 @@ Proof
   `interp (run_proof fml (TAKE j pf)) ⊆ interp_spt x` by (
     fs[contains_clauses_def,EVERY_MEM,MEM_toAList,EXISTS_PROD,MEM_MAP,interp_def]>>
     qpat_x_assum`value _ = set _` sym_sub_tac>>
-    rw[SUBSET_DEF,values_def]>>
+    rw[SUBSET_DEF,range_def]>>
     fs[PULL_EXISTS]>>
     first_x_assum drule>>rw[]>>
-    fs[interp_spt_def,values_def]>>
+    fs[interp_spt_def,range_def]>>
     metis_tac[canon_clause_interp])>>
   qpat_x_assum`satisfiable _` mp_tac>>
   match_mp_tac (satisfiable_SUBSET)>>
   fs[interp_def]
 QED
-
-val _ = export_theory ();

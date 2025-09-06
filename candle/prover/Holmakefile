@@ -9,7 +9,8 @@ INCLUDES = ../../developers \
 	   ../standard/ml_kernel \
 	   ../standard/monadic \
 	   ../standard/semantics \
-	   ../standard/syntax
+	   ../standard/syntax \
+	   compute
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

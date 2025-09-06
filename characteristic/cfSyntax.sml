@@ -47,6 +47,11 @@ val (cf_var_tm, mk_cf_var, dest_cf_var, is_cf_var) = s4 "cf_var"
 val (cf_fun_tm, mk_cf_fun, dest_cf_fun, is_cf_fun) = s8 "cf_fun"
 val (cf_fun_rec_tm, mk_cf_fun_rec, dest_cf_fun_rec, is_cf_fun_rec) = s6 "cf_fun_rec"
 val (cf_app_tm, mk_cf_app, dest_cf_app, is_cf_app) = s6 "cf_app"
+val (cf_log_tm, mk_cf_log, dest_cf_log, is_cf_log) = s6 "cf_log"
+val (cf_if_tm, mk_cf_if, dest_cf_if, is_cf_if) = s6 "cf_if"
+val (cf_match_tm, mk_cf_match, dest_cf_match, is_cf_match) = s5 "cf_match"
+val (cf_handle_tm, mk_cf_handle, dest_cf_handle, is_cf_handle) = s5 "cf_handle"
+val (cf_raise_tm, mk_cf_raise, dest_cf_raise, is_cf_raise) = s4 "cf_raise"
 
 end
 

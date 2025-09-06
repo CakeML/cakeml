@@ -2,10 +2,13 @@
   Auxiliary functions and lemmas for defining and reasoning about the
   model extension function.
 *)
-open preamble mlstringTheory setSpecTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
-     holSemanticsTheory holSemanticsExtraTheory holSoundnessTheory holAxiomsSyntaxTheory holBoolTheory
-
-val _ = new_theory"holExtension"
+Theory holExtension
+Ancestors
+  mlstring setSpec holSyntaxLib holSyntax holSyntaxExtra
+  holSemantics holSemanticsExtra holSoundness holAxiomsSyntax
+  holBool
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
@@ -39,7 +42,7 @@ Proof
   strip_tac >> drule terminating_IMP_wellfounded_INV >> rw[inv_inv]
 QED
 
-val type_matches_def = Define `
+Definition type_matches_def:
   type_matches ty defn =
   case defn of
   | TypeDefn name pred abs rep =>
@@ -53,17 +56,17 @@ val type_matches_def = Define `
            else
              NONE)
   | _ => NONE
-  `
+End
 
-val defn_matches_def = Define `
+Definition defn_matches_def:
   defn_matches name ty defn =
   case defn of
   | ConstSpec ov eqs prop =>
       FILTER (λ(name0,trm). name = name0 /\ is_instance (typeof trm) ty) eqs
   | _ => []
-  `
+End
 
-val rep_matches_def = Define `
+Definition rep_matches_def:
   rep_matches name ty defn =
   case defn of
   | TypeDefn tyname pred abs rep =>
@@ -76,9 +79,9 @@ val rep_matches_def = Define `
          else
            NONE)
   | _ => NONE
-  `
+End
 
-val abs_matches_def = Define `
+Definition abs_matches_def:
   abs_matches name ty defn =
   case defn of
   | TypeDefn tyname pred abs rep =>
@@ -91,9 +94,9 @@ val abs_matches_def = Define `
           else
             NONE)
   | _ => NONE
-  `
+End
 
-val abs_or_rep_matches_def = Define `
+Definition abs_or_rep_matches_def:
   abs_or_rep_matches name ty defn =
   case abs_matches name ty defn of
     NONE =>
@@ -103,7 +106,7 @@ val abs_or_rep_matches_def = Define `
        SOME(F,rep,abs_type,rep_type))
   | SOME(abs,abs_type,rep_type) =>
     SOME(T,abs,abs_type,rep_type)
-  `
+End
 
 Theorem abs_matches_is_instance:
   mapPartial(abs_or_rep_matches c ty) ctxt = [(T,name0,abs_type,rep_type)] ==>
@@ -1229,4 +1232,3 @@ Proof
   fs[]
 QED
 
-val _ = export_theory()

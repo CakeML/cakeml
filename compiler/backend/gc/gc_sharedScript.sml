@@ -1,24 +1,28 @@
 (*
   Types, functions and lemmas that are shared between GC definitions
 *)
-open preamble wordsTheory wordsLib integer_wordTheory;
-
-val _ = new_theory "gc_shared";
+Theory gc_shared
+Ancestors
+  finite_map words integer_word
+Libs
+  preamble wordsLib
 
 val _ = ParseExtras.temp_loose_equality();
 
 (* The ML heap is represented as a list of heap_elements. *)
 
-val _ = Datatype `
-  heap_address = Pointer num 'a | Data 'a`;
+Datatype:
+  heap_address = Pointer num 'a | Data 'a
+End
 
-val _ = Datatype `
+Datatype:
   heap_element = Unused num
                | ForwardPointer num 'a num
-               | DataElement (('a heap_address) list) num 'b`;
+               | DataElement (('a heap_address) list) num 'b
+End
 
 
-val _ = Datatype `
+Datatype:
   gc_state =
     <| old : ('a, 'b) heap_element list (* old generations *)
      ; h1 : ('a, 'b) heap_element list (* final left heap *)
@@ -32,9 +36,10 @@ val _ = Datatype `
      ; ok : bool                       (* OK *)
      ; heap : ('a, 'b) heap_element list (* old heap (w/ fwd pointers) *)
      ; heap0 : ('a, 'b) heap_element list (* old heap *)
-     |>`;
+     |>
+End
 
-val empty_state_def = Define `
+Definition empty_state_def:
   empty_state =
     <| old := []
      ; h1 := []
@@ -49,14 +54,16 @@ val empty_state_def = Define `
      ; ok := T
      ; heap := []
      ; heap0 := []
-     |>`;
+     |>
+End
 
 (* The heap is accessed using the following lookup function. *)
 
-val el_length_def = Define `
+Definition el_length_def:
   (el_length (Unused l) = l+1) /\
   (el_length (ForwardPointer n d l) = l+1) /\
-  (el_length (DataElement xs l data) = l+1)`;
+  (el_length (DataElement xs l data) = l+1)
+End
 
 Theorem el_length_NOT_0:
    !el. el_length el <> 0
@@ -70,8 +77,9 @@ Proof
   Cases \\ fs [el_length_def]
 QED
 
-val heap_length_def = Define `
-  heap_length heap = SUM (MAP el_length heap)`;
+Definition heap_length_def:
+  heap_length heap = SUM (MAP el_length heap)
+End
 
 Theorem heap_length_NIL[simp]:
    heap_length [] = 0
@@ -91,11 +99,12 @@ Proof
   SRW_TAC [] [heap_length_def,SUM_APPEND]
 QED
 
-val heap_lookup_def = Define `
+Definition heap_lookup_def:
   (heap_lookup a [] = NONE) /\
   (heap_lookup a (x::xs) =
      if a = 0 then SOME x else
-     if a < el_length x then NONE else heap_lookup (a - el_length x) xs)`;
+     if a < el_length x then NONE else heap_lookup (a - el_length x) xs)
+End
 
 Theorem heap_lookup_MEM:
    !heap n x. (heap_lookup n heap = SOME x) ==> MEM x heap
@@ -121,7 +130,7 @@ Proof
       [heap_length_def,el_length_def] \\ decide_tac
 QED
 
-val heap_split_def = Define `
+Definition heap_split_def:
   (heap_split a [] = if a = 0 then SOME ([],[]) else NONE) /\
   (heap_split a (el::heap) =
     if a = 0 then SOME ([],el::heap) else
@@ -129,7 +138,8 @@ val heap_split_def = Define `
     case heap_split (a - el_length el) heap of
     | NONE => NONE
     | SOME (h1,h2) =>
-      SOME (el::h1,h2))`;
+      SOME (el::h1,h2))
+End
 
 Theorem heap_lookup_SPLIT:
    !heap n x. (heap_lookup n heap = SOME x) ==>
@@ -141,17 +151,19 @@ Proof
   \\ full_simp_tac (srw_ss()) [heap_length_def] \\ decide_tac
 QED
 
-val heap_drop_def = Define `
+Definition heap_drop_def:
   heap_drop n (heap:('a,'b) heap_element list) =
     case heap_split n heap of
     | NONE => ARB
-    | SOME (h1,h2) => h2`
+    | SOME (h1,h2) => h2
+End
 
-val heap_take_def = Define `
+Definition heap_take_def:
   heap_take n (heap:('a,'b) heap_element list) =
     case heap_split n heap of
     | NONE => ARB
-    | SOME (h1,h2) => h1`
+    | SOME (h1,h2) => h1
+End
 
 Theorem heap_split_heap_length:
    !heap h1 h2 a.
@@ -181,7 +193,7 @@ Proof
   \\ fs [heap_length_def]
 QED
 
-val heap_segment_def = Define `
+Definition heap_segment_def:
   heap_segment (a, b) heap =
     case heap_split a heap of
     | NONE => NONE
@@ -189,7 +201,8 @@ val heap_segment_def = Define `
       if b < a then NONE else
       case heap_split (b - heap_length h1) heap' of
       | NONE => NONE
-      | SOME (h2,h3) => SOME (h1,h2,h3)`;
+      | SOME (h2,h3) => SOME (h1,h2,h3)
+End
 
 Theorem heap_segment_IMP:
    !heap a b h1 h2 h3.
@@ -217,44 +230,52 @@ Proof
   \\ fs [heap_length_APPEND]
 QED
 
-val heap_restrict_def = Define `
+Definition heap_restrict_def:
   heap_restrict start end (heap:('a,'b) heap_element list) =
      case heap_segment (start,end) heap of
      | NONE => []
-     | SOME (h1,h2,h3) => h2`;
+     | SOME (h1,h2,h3) => h2
+End
 
 (* The heap is well-formed if heap_ok *)
 
-val isDataElement_def = Define `
-  isDataElement x = ?ys l d. x = DataElement ys l d`;
+Definition isDataElement_def:
+  isDataElement x = ?ys l d. x = DataElement ys l d
+End
 
-val isSomeDataElement_def = Define `
-  isSomeDataElement x = ?ys l d. x = SOME (DataElement ys l d)`;
+Definition isSomeDataElement_def:
+  isSomeDataElement x = ?ys l d. x = SOME (DataElement ys l d)
+End
 
-val isSomeForwardPointer_def = Define `
-  isSomeForwardPointer x = ?ptr d l. x = SOME (ForwardPointer ptr d l)`;
+Definition isSomeForwardPointer_def:
+  isSomeForwardPointer x = ?ptr d l. x = SOME (ForwardPointer ptr d l)
+End
 
-val isSomeDataOrForward_def = Define `
-  isSomeDataOrForward x = isSomeForwardPointer x \/ isSomeDataElement x`;
+Definition isSomeDataOrForward_def:
+  isSomeDataOrForward x = isSomeForwardPointer x \/ isSomeDataElement x
+End
 
-val roots_ok_def = Define `
+Definition roots_ok_def:
   roots_ok roots heap =
-    !ptr u. MEM (Pointer ptr u) roots ==> isSomeDataElement (heap_lookup ptr heap)`;
+    !ptr u. MEM (Pointer ptr u) roots ==> isSomeDataElement (heap_lookup ptr heap)
+End
 
-val isForwardPointer_def = Define `
+Definition isForwardPointer_def:
   (isForwardPointer (ForwardPointer n d l) = T) /\
-  (isForwardPointer _ = F)`;
+  (isForwardPointer _ = F)
+End
 
-val heap_ok_def = Define `
+Definition heap_ok_def:
   heap_ok heap limit =
     (heap_length heap = limit) /\
     (* no forward pointers *)
     (FILTER isForwardPointer heap = []) /\
     (* all pointers in DataElements point to some DataElement *)
     (!xs l d ptr u. MEM (DataElement xs l d) heap /\ MEM (Pointer ptr u) xs ==>
-                    isSomeDataElement (heap_lookup ptr heap))`;
+                    isSomeDataElement (heap_lookup ptr heap))
+End
 
-val gc_forward_ptr_def = Define `
+Definition gc_forward_ptr_def:
   (* replace cell at a with a forwardpointer to ptr *)
   (gc_forward_ptr a [] ptr d ok = ([],F)) /\
   (gc_forward_ptr a (x::xs) ptr d ok =
@@ -262,7 +283,8 @@ val gc_forward_ptr_def = Define `
        (ForwardPointer ptr d ((el_length x)-1) :: xs, isDataElement x /\ ok) else
      if a < el_length x then (x::xs,F) else
        let (xs,ok) = gc_forward_ptr (a - el_length x) xs ptr d ok in
-         (x::xs,ok))`;
+         (x::xs,ok))
+End
 
 Theorem gc_forward_ptr_ok:
    !heap n a c x. (gc_forward_ptr n heap a d c = (x,T)) ==> c
@@ -304,26 +326,31 @@ Proof
   \\ fs []
 QED*)
 
-val heap_expand_def = Define `
-  heap_expand n = if n = 0 then [] else [Unused (n-1)]`;
+Definition heap_expand_def:
+  heap_expand n = if n = 0 then [] else [Unused (n-1)]
+End
 
-val heap_map_def = Define `
+Definition heap_map_def:
   (heap_map a [] = FEMPTY) /\
   (heap_map a (ForwardPointer ptr d l::xs) =
      heap_map (a + l + 1) xs |+ (a,ptr)) /\
-  (heap_map a (x::xs) = heap_map (a + el_length x) xs)`;
+  (heap_map a (x::xs) = heap_map (a + el_length x) xs)
+End
 
-val heap_map1_def = Define `
-  heap_map1 heap = (\a. heap_map 0 heap ' a)`;
+Definition heap_map1_def:
+  heap_map1 heap = (\a. heap_map 0 heap ' a)
+End
 
-val heap_addresses_def = Define `
+Definition heap_addresses_def:
   (heap_addresses a [] = {}) /\
-  (heap_addresses a (x::xs) = a INSERT heap_addresses (a + el_length x) xs)`;
+  (heap_addresses a (x::xs) = a INSERT heap_addresses (a + el_length x) xs)
+End
 
-val ADDR_MAP_def = Define `
+Definition ADDR_MAP_def:
   (ADDR_MAP f [] = []) /\
   (ADDR_MAP f (Data x::xs) = Data x :: ADDR_MAP f xs) /\
-  (ADDR_MAP f (Pointer a d::xs) = Pointer (f a) d :: ADDR_MAP f xs)`;
+  (ADDR_MAP f (Pointer a d::xs) = Pointer (f a) d :: ADDR_MAP f xs)
+End
 
 Theorem ADDR_MAP_EQ:
    !xs. (!p d. MEM (Pointer p d) xs ==> (f p = g p)) ==>
@@ -348,11 +375,13 @@ Proof
   \\ Cases \\ fs [ADDR_MAP_def]
 QED
 
-val ADDR_APPLY_def = Define `
+Definition ADDR_APPLY_def:
   (ADDR_APPLY f (Pointer x d) = Pointer (f x) d) /\
-  (ADDR_APPLY f (Data y) = Data y)`;
+  (ADDR_APPLY f (Data y) = Data y)
+End
 
-val heap_lookup_FLOOKUP = save_thm("heap_lookup_FLOOKUP",Q.prove(
+Theorem heap_lookup_FLOOKUP =
+  Q.prove(
   `!heap n k.
       (heap_lookup n heap = SOME (ForwardPointer ptr u l)) ==>
       (FLOOKUP (heap_map k heap) (n+k) = SOME ptr)`,
@@ -363,15 +392,16 @@ val heap_lookup_FLOOKUP = save_thm("heap_lookup_FLOOKUP",Q.prove(
   \\ full_simp_tac std_ss []
   \\ Cases_on `h` \\ full_simp_tac std_ss [heap_map_def,el_length_def]
   \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF,ADD_ASSOC,FAPPLY_FUPDATE_THM])
-  |> Q.SPECL [`heap`,`n`,`0`] |> SIMP_RULE std_ss []);
+  |> Q.SPECL [`heap`,`n`,`0`] |> SIMP_RULE std_ss []
 
 val _ = augment_srw_ss [rewrites [LIST_REL_def]];
 
-val heaps_similar_def = Define `
+Definition heaps_similar_def:
   heaps_similar heap0 heap =
     EVERY2 (\h0 h. if isForwardPointer h then
                      (el_length h = el_length h0) /\ isDataElement h0
-                   else (h = h0)) heap0 heap`
+                   else (h = h0)) heap0 heap
+End
 
 Theorem IN_heap_map_IMP:
    !heap n k. n IN FDOM (heap_map k heap) ==> k <= n
@@ -381,7 +411,8 @@ Proof
   \\ full_simp_tac (srw_ss()) [heap_length_def,el_length_def] \\ decide_tac
 QED
 
-val NOT_IN_heap_map = save_thm("NOT_IN_heap_map", Q.prove(
+Theorem NOT_IN_heap_map =
+  Q.prove(
   `!ha n. ~(n + heap_length ha IN FDOM (heap_map n (ha ++ DataElement ys l d::hb)))`,
   Induct \\ full_simp_tac (srw_ss()) [heap_map_def,APPEND,heap_length_def]
   \\ rpt strip_tac \\ imp_res_tac IN_heap_map_IMP
@@ -389,7 +420,7 @@ val NOT_IN_heap_map = save_thm("NOT_IN_heap_map", Q.prove(
   THEN1 (full_simp_tac std_ss [el_length_def] \\ decide_tac)
   \\ Cases_on `h` \\ full_simp_tac std_ss [heap_map_def]
   \\ res_tac \\ full_simp_tac (srw_ss()) [el_length_def,ADD_ASSOC] \\ res_tac
-  \\ decide_tac) |> Q.SPECL [`ha`,`0`] |> SIMP_RULE std_ss [])
+  \\ decide_tac) |> Q.SPECL [`ha`,`0`] |> SIMP_RULE std_ss []
 
 Theorem isSomeDataOrForward_lemma:
    !ha ptr.
@@ -459,13 +490,14 @@ Proof
   \\ full_simp_tac std_ss [FUNION_FUPDATE_1,el_length_def,ADD_ASSOC]
 QED
 
-val FDOM_heap_map = save_thm("FDOM_heap_map", Q.prove(
+Theorem FDOM_heap_map =
+  Q.prove(
   `!xs n. ~(n + heap_length xs IN FDOM (heap_map n xs))`,
   Induct \\ TRY (Cases_on `h`)
   \\ full_simp_tac (srw_ss()) [heap_map_def,heap_length_def,ADD_ASSOC]
   \\ rpt strip_tac \\ full_simp_tac std_ss [el_length_def,ADD_ASSOC]
   \\ TRY decide_tac \\ metis_tac [])
-  |> Q.SPECL [`xs`,`0`] |> SIMP_RULE std_ss []);
+  |> Q.SPECL [`xs`,`0`] |> SIMP_RULE std_ss []
 
 Theorem heap_addresses_APPEND:
    !xs ys n. heap_addresses n (xs ++ ys) =
@@ -589,25 +621,28 @@ QED
 
 (* --- *)
 
-val gc_related_def = Define `
+Definition gc_related_def:
   gc_related (f:num|->num) heap1 heap2 =
     INJ (FAPPLY f) (FDOM f) { a | isSomeDataElement (heap_lookup a heap2) } /\
     (!i. i IN FDOM f ==> isSomeDataElement (heap_lookup i heap1)) /\
     !i xs l d.
       i IN FDOM f /\ (heap_lookup i heap1 = SOME (DataElement xs l d)) ==>
       (heap_lookup (f ' i) heap2 = SOME (DataElement (ADDR_MAP (FAPPLY f) xs) l d)) /\
-      !ptr u. MEM (Pointer ptr u) xs ==> ptr IN FDOM f`;
+      !ptr u. MEM (Pointer ptr u) xs ==> ptr IN FDOM f
+End
 
 (* an edge in the heap *)
 
-val gc_edge_def = Define `
+Definition gc_edge_def:
   gc_edge heap x y <=>
     ?xs l d t. (heap_lookup x heap = SOME (DataElement xs l d)) /\
-               MEM (Pointer y t) xs`;
+               MEM (Pointer y t) xs
+End
 
-val reachable_addresses_def = Define `
+Definition reachable_addresses_def:
   reachable_addresses roots heap y =
-    ?t x. MEM (Pointer x t) roots /\ RTC (gc_edge heap) x y`
+    ?t x. MEM (Pointer x t) roots /\ RTC (gc_edge heap) x y
+End
 
 Theorem heap_addresses_LESS_heap_length:
    ∀heap n k. k ∈ heap_addresses n heap ⇒ k < n + heap_length heap
@@ -639,13 +674,15 @@ Proof
   \\ Cases_on `h` \\ fs [el_length_def]
 QED
 
-val heap_filter_aux_def = Define `
+Definition heap_filter_aux_def:
   (heap_filter_aux n P [] = []) /\
   (heap_filter_aux n P (x::xs) =
-     (if n IN P then [x] else []) ++ heap_filter_aux (n + el_length x) P xs)`;
+     (if n IN P then [x] else []) ++ heap_filter_aux (n + el_length x) P xs)
+End
 
-val heap_filter_def = Define `
-  heap_filter = heap_filter_aux 0`;
+Definition heap_filter_def:
+  heap_filter = heap_filter_aux 0
+End
 
 Theorem heap_filter_EMPTY:
    !heap. heap_filter ∅ heap = []
@@ -756,5 +793,3 @@ Proof
       heap_addresses (n + el_length h) xs ∪ (n INSERT s)` by
         (fs [EXTENSION] \\ metis_tac []) \\ fs []
 QED
-
-val _ = export_theory();

@@ -1,10 +1,11 @@
 (*
   Module about the built-in word8 type.
 *)
-open preamble ml_translatorLib ml_progLib basisFunctionsLib
-     Word64ProgTheory
-
-val _ = new_theory "Word8Prog";
+Theory Word8Prog
+Ancestors
+  Word64Prog ml_translator
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
 
 val _ = translation_extends "Word64Prog";
 
@@ -23,6 +24,7 @@ val _ = ml_prog_update (add_dec
 (* to/from int *)
 val _ = trans "fromInt" ``n2w:num->word8``;
 val _ = trans "toInt" ``w2n:word8->num``;
+val _ = trans "toIntSigned" ``w2i:word8->int``;
 
 (* bitwise operations *)
 val _ = trans "andb" ``word_and:word8->word8->word8``;
@@ -42,7 +44,7 @@ val _ = trans "-" ``word_sub:word8->word8->word8``;
 
 (* shifts *)
 
-val var_word_lsl_def = Define `
+Definition var_word_lsl_def:
   var_word_lsl (w:word8) (n:num) =
     if n < 8 then
     if n < 4 then
@@ -51,7 +53,8 @@ val var_word_lsl_def = Define `
       else w << 3
     else if n < 6 then if n < 5 then w << 4 else w << 5
     else if n < 7 then w << 6
-    else w << 7 else 0w`
+    else w << 7 else 0w
+End
 
 Theorem var_word_lsl_thm[simp]:
    var_word_lsl w n = word_lsl w n
@@ -62,7 +65,7 @@ Proof
   \\ ntac 9 (once_rewrite_tac [var_word_lsl_def] \\ fs [])
 QED
 
-val var_word_lsr_def = Define `
+Definition var_word_lsr_def:
   var_word_lsr (w:word8) (n:num) =
     if n < 8 then
     if n < 4 then
@@ -71,7 +74,8 @@ val var_word_lsr_def = Define `
       else w >>> 3
     else if n < 6 then if n < 5 then w >>> 4 else w >>> 5
     else if n < 7 then w >>> 6
-    else w >>> 7 else 0w`
+    else w >>> 7 else 0w
+End
 
 Theorem var_word_lsr_thm[simp]:
    var_word_lsr w n = word_lsr w n
@@ -82,7 +86,7 @@ Proof
   \\ ntac 9 (once_rewrite_tac [var_word_lsr_def] \\ fs [])
 QED
 
-val var_word_asr_def = Define `
+Definition var_word_asr_def:
   var_word_asr (w:word8) (n:num) =
     if n < 8 then
     if n < 4 then
@@ -91,14 +95,15 @@ val var_word_asr_def = Define `
       else w >> 3
     else if n < 6 then if n < 5 then w >> 4 else w >> 5
     else if n < 7 then w >> 6
-    else w >> 7 else w >> 8`
+    else w >> 7 else w >> 8
+End
 
 Theorem var_word_asr_thm[simp]:
    var_word_asr w n = word_asr w n
 Proof
   ntac 32 (
-    Cases_on `n` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [ASR_ADD])
-    \\ Cases_on `n'` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [ASR_ADD]))
+    Cases_on `n` \\ fs [ADD1] THEN1 (rw [] \\ EVAL_TAC \\ fs [ASR_ADD])
+    \\ Cases_on `n'` \\ fs [ADD1] THEN1 (rw [] \\ EVAL_TAC \\ fs [ASR_ADD]))
   \\ ntac 9 (once_rewrite_tac [var_word_asr_def] \\ fs [])
 QED
 
@@ -117,8 +122,6 @@ val sigs = module_signatures ["fromInt", "toInt", "andb",
 val _ = ml_prog_update (close_module (SOME sigs));
 
 (* if any more theorems get added here, probably should create Word8ProofTheory *)
-
-open ml_translatorTheory
 
 Theorem WORD_UNICITY_R[xlet_auto_match]:
  !f fv fv'. WORD (f :word8) fv ==> (WORD f fv' <=> fv' = fv)
@@ -148,4 +151,3 @@ QED
 
 Overload WORD8 = ``WORD:word8 -> v -> bool``
 
-val _ = export_theory()

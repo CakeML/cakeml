@@ -2,11 +2,12 @@
   In-logic compilation of the OPenTHeory article checker to the
   Silver ISA.
 *)
-open preamble compilationLib readerProgTheory
+Theory readerCompile
+Ancestors
+  readerProg
+Libs
+  preamble eval_cake_compile_ag32Lib
 
-val _ = new_theory "readerCompile"
+Theorem reader_compiled =
+  eval_cake_compile_ag32 "" reader_prog_def "reader.S";
 
-val reader_compiled = save_thm ("reader_compiled",
-  compile_ag32 "reader" reader_prog_def);
-
-val _ = export_theory ();

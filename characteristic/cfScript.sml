@@ -2,28 +2,23 @@
   Defines the characteristic formula (CF) function cf_def and proves
   that it is sound w.r.t. the evaluate semantics of CakeML.
 *)
-open preamble
-open set_sepTheory helperLib ml_translatorTheory ConseqConv
-open ml_translatorTheory semanticPrimitivesTheory
-open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory
-open cfNormaliseTheory cfAppTheory
-open cfTacticsBaseLib evaluateTheory
+Theory cf
+Ancestors
+  cfHeapsBase cfHeaps cfStore cfNormalise cfApp ml_translator
+  ffi[qualified] set_sep semanticPrimitives fpSem evaluate
+Libs
+  preamble helperLib ConseqConv cfHeapsBaseLib cfTacticsBaseLib
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "cf"
-
-val _ = set_grammar_ancestry
-  ["cfHeapsBase","cfHeaps","cfStore","cfNormalise","cfApp",
-   "ml_translator", "ffi"];
 
 val _ = monadsyntax.temp_disable_monadsyntax()
 
 (*------------------------------------------------------------------*)
 (* Characteristic formula for not-implemented or impossible cases *)
 
-val cf_bottom_def = Define `
-  cf_bottom = \env. local (\H Q. F)`
+Definition cf_bottom_def:
+  cf_bottom = \env. local (\H Q. F)
+End
 
 (*------------------------------------------------------------------*)
 (* Machinery for dealing with n-ary applications/functions in cf.
@@ -37,67 +32,76 @@ val cf_bottom_def = Define `
 
 (** 1) n-ary applications *)
 
-val dest_opapp_not_empty_arglist = Q.prove (
-  `!e f args. dest_opapp e = SOME (f, args) ==> args <> []`,
+Theorem dest_opapp_not_empty_arglist[local]:
+  !e f args. dest_opapp e = SOME (f, args) ==> args <> []
+Proof
   Cases \\ fs [dest_opapp_def] \\ rename1 `App op _` \\
   Cases_on `op` \\ fs [dest_opapp_def] \\ every_case_tac \\
   fs []
-)
+QED
 
 (** 2) n-ary single non-recursive functions *)
 
 (* An auxiliary definition *)
-val is_bound_Fun_def = Define `
-  is_bound_Fun (SOME _) (Fun _ _) = T /\
-  is_bound_Fun _ _ = F`
+Definition is_bound_Fun_def:
+  is_bound_Fun (SOME _: string option) (Fun _ _) = T /\
+  is_bound_Fun _ _ = F
+End
 
 (* [Fun_body]: walk down successive lambdas and return the inner
    function body *)
-val Fun_body_def = Define `
+Definition Fun_body_def:
   Fun_body (Fun _ body) =
     (case Fun_body body of
        | NONE => SOME body
        | SOME body' => SOME body') /\
-  Fun_body _ = NONE`
+  Fun_body _ = NONE
+End
 
-val Fun_body_exp_size = Q.prove (
-  `!e e'. Fun_body e = SOME e' ==> exp_size e' < exp_size e`,
+Theorem Fun_body_exp_size[local]:
+  !e e'. Fun_body e = SOME e' ==> exp_size e' < exp_size e
+Proof
   Induct \\ fs [Fun_body_def] \\ every_case_tac \\
   fs [astTheory.exp_size_def]
-)
+QED
 
-val is_bound_Fun_unfold = Q.prove (
-  `!opt e. is_bound_Fun opt e ==> (?n body. e = Fun n body)`,
+Theorem is_bound_Fun_unfold[local]:
+  !opt e. is_bound_Fun opt e ==> (?n body. e = Fun n body)
+Proof
   Cases_on `e` \\ fs [is_bound_Fun_def]
-)
+QED
 
 (* [Fun_params]: walk down successive lambdas and return the list of
    parameters *)
-val Fun_params_def = Define `
+Definition Fun_params_def:
   Fun_params (Fun n body) =
     n :: (Fun_params body) /\
   Fun_params _ =
-    []`
+    []
+End
 
-val Fun_params_Fun_body_NONE = Q.prove (
-  `!e. Fun_body e = NONE ==> Fun_params e = []`,
+Theorem Fun_params_Fun_body_NONE[local]:
+  !e. Fun_body e = NONE ==> Fun_params e = []
+Proof
   Cases \\ fs [Fun_body_def, Fun_params_def] \\ every_case_tac
-)
+QED
 
 (* [naryFun]: build the AST for a n-ary function *)
-val naryFun_def = Define `
+Definition naryFun_def:
   naryFun [] body = body /\
-  naryFun (n::ns) body = Fun n (naryFun ns body)`
+  naryFun (n::ns) body = Fun n (naryFun ns body)
+End
 
-val Fun_params_Fun_body_repack = Q.prove (
-  `!e e'.
-     Fun_body e = SOME e' ==>
-     naryFun (Fun_params e) e' = e`,
+Theorem Fun_params_Fun_body_repack[local]:
+  !e e'.
+    Fun_body e = SOME e' ==>
+    naryFun (Fun_params e) e' = e
+Proof
   Induct \\ fs [Fun_body_def, Fun_params_def] \\ every_case_tac \\
   rpt strip_tac \\ fs [Once naryFun_def] \\ TRY every_case_tac \\
   TRY (fs [Fun_params_Fun_body_NONE, Once naryFun_def] \\ NO_TAC) \\
   once_rewrite_tac [naryFun_def] \\ fs []
-)
+QED
 
 (** 3) n-ary (mutually)recursive functions *)
 
@@ -106,13 +110,14 @@ val Fun_params_Fun_body_repack = Q.prove (
     "n-ary" version of this list, that is, a list of tuples:
     (function name, parameters names, inner body)
 *)
-val letrec_pull_params_def = Define `
+Definition letrec_pull_params_def:
   letrec_pull_params [] = [] /\
   letrec_pull_params ((f, n, body)::funs) =
     (case Fun_body body of
        | NONE => (f, [n], body)
        | SOME body' => (f, n::Fun_params body, body')) ::
-    (letrec_pull_params funs)`
+    (letrec_pull_params funs)
+End
 
 Theorem letrec_pull_params_names:
    !funs P.
@@ -187,27 +192,41 @@ QED
 *)
 
 (* [naryClosure] *)
-val naryClosure_def = Define `
-  naryClosure env (n::ns) body = Closure env n (naryFun ns body)`
+Definition naryClosure_def:
+  naryClosure env (n::ns) body = Closure env n (naryFun ns body)
+End
 
 (* Properties of [naryClosure] *)
 
-val with_clock_clock = Q.prove(
-  `(s with clock := k).clock = k`,
-  EVAL_TAC);
-val with_clock_with_clock = Q.prove(
-  `((s with clock := k1) with clock := k2) = s with clock := k2`,
-  EVAL_TAC);
-val with_clock_self = Q.prove(
-  `(s with clock := s.clock) = s`,
-  fs [state_component_equality]);
-val with_clock_self_eq = Q.prove(
-  `!ck. (s with clock := ck) = s <=> ck = s.clock`,
-  fs [state_component_equality]);
+Theorem with_clock_clock[local]:
+  (s with clock := k).clock = k
+Proof
+  EVAL_TAC
+QED
 
-val evaluate_to_heap_with_clock = prove(
-  ``evaluate_to_heap (st with clock := ck) = evaluate_to_heap st``,
-  fs [evaluate_to_heap_def,FUN_EQ_THM,evaluate_ck_def]);
+Theorem with_clock_with_clock[local]:
+  ((s with clock := k1) with clock := k2) = s with clock := k2
+Proof
+  EVAL_TAC
+QED
+
+Theorem with_clock_self[local]:
+  (s with clock := s.clock) = s
+Proof
+  fs [state_component_equality]
+QED
+
+Theorem with_clock_self_eq[local]:
+  !ck. (s with clock := ck) = s <=> ck = s.clock
+Proof
+  fs [state_component_equality]
+QED
+
+Theorem evaluate_to_heap_with_clock[local]:
+  evaluate_to_heap (st with clock := ck) = evaluate_to_heap st
+Proof
+  fs [evaluate_to_heap_def,FUN_EQ_THM,evaluate_ck_def]
+QED
 
 Theorem app_one_naryClosure:
    !env n ns x xs body H Q.
@@ -264,11 +283,12 @@ Proof
 QED
 
 (* [naryRecclosure] *)
-val naryRecclosure_def = Define `
+Definition naryRecclosure_def:
   naryRecclosure env naryfuns f =
     Recclosure env
     (MAP (\ (f, ns, body). (f, HD ns, naryFun (TL ns) body)) naryfuns)
-    f`;
+    f
+End
 
 (* Properties of [naryRecclosure] *)
 
@@ -362,13 +382,15 @@ QED
 
 (* TODO: there's a version of this already defined ...*)
 (* [extend_env] *)
-val extend_env_v_def = Define `
+Definition extend_env_v_def:
   extend_env_v [] [] env_v = env_v /\
   extend_env_v (n::ns) (xv::xvs) env_v =
-    extend_env_v ns xvs (nsBind n xv env_v)`;
+    extend_env_v ns xvs (nsBind n xv env_v)
+End
 
-val extend_env_def = Define `
-  extend_env ns xvs (env:'v sem_env) = (env with v := extend_env_v ns xvs env.v)`;
+Definition extend_env_def:
+  extend_env ns xvs (env:'v sem_env) = (env with v := extend_env_v ns xvs env.v)
+End
 
 Theorem extend_env_v_rcons:
    !ns xvs n xv env_v.
@@ -392,25 +414,27 @@ Proof
 QED
 
 (* [build_rec_env_aux] *)
-val build_rec_env_aux_def = Define `
+Definition build_rec_env_aux_def:
   build_rec_env_aux funs (fs: (tvarN, tvarN # exp) alist) env add_to_env =
     FOLDR
       (\ (f,x,e) env'. nsBind f (Recclosure env funs f) env')
       add_to_env
-      fs`;
+      fs
+End
 
-val build_rec_env_zip_aux = Q.prove (
-  `!(fs: (tvarN, tvarN # exp) alist) funs env env_v.
+Theorem build_rec_env_zip_aux[local]:
+  !(fs: (tvarN, tvarN # exp) alist) funs env env_v.
     nsAppend
     (alist_to_ns
       (ZIP (MAP (\ (f,_,_). f) fs,
          MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) fs)))
       env_v =
-    FOLDR (\ (f,x,e) env'. nsBind f (Recclosure env funs f) env') env_v fs`,
+    FOLDR (\ (f,x,e) env'. nsBind f (Recclosure env funs f) env') env_v fs
+Proof
   Induct \\ rpt strip_tac THEN1 (fs []) \\
   rename1 `ftuple::fs` \\ PairCases_on `ftuple` \\ rename1 `(f,n,body)` \\
   fs [letrec_pull_params_repack]
-);
+QED
 
 Theorem build_rec_env_zip:
    !funs env env_v.
@@ -425,13 +449,15 @@ Proof
 QED
 
 (* [extend_env_rec] *)
-val extend_env_v_rec_def = Define `
+Definition extend_env_v_rec_def:
   extend_env_v_rec rec_ns rec_xvs ns xvs env_v =
-    extend_env_v ns xvs (nsAppend (alist_to_ns (ZIP (rec_ns, rec_xvs))) env_v)`;
+    extend_env_v ns xvs (nsAppend (alist_to_ns (ZIP (rec_ns, rec_xvs))) env_v)
+End
 
-val extend_env_rec_def = Define `
+Definition extend_env_rec_def:
   extend_env_rec rec_ns rec_xvs ns xvs (env:'v sem_env) =
-    env with v := extend_env_v_rec rec_ns rec_xvs ns xvs env.v`;
+    env with v := extend_env_v_rec rec_ns rec_xvs ns xvs env.v
+End
 
 Theorem extend_env_rec_build_rec_env:
    !funs env env_v.
@@ -454,12 +480,10 @@ QED
 *)
 
 val pat_bindings_def = astTheory.pat_bindings_def
-val pmatch_def = pmatch_def
-val pmatch_ind = pmatch_ind
 
 (* [pat_wildcards]: computes the number of wildcards a pattern contains. *)
 
-val pat_wildcards_def = tDefine "pat_wildcards" `
+Definition pat_wildcards_def:
   pat_wildcards Pany = 1n /\
   pat_wildcards (Pvar _) = 0n /\
   pat_wildcards (Plit _) = 0n /\
@@ -470,21 +494,23 @@ val pat_wildcards_def = tDefine "pat_wildcards" `
 
   pats_wildcards [] = 0n /\
   pats_wildcards (p::ps) =
-    (pat_wildcards p) + (pats_wildcards ps)`
-
-  (WF_REL_TAC `measure pat_size`)
+    (pat_wildcards p) + (pats_wildcards ps)
+Termination
+  WF_REL_TAC `measure pat_size`
+End
 
 (* [v_of_pat]: from a pattern and a list of instantiations for the pattern
    variables, produce a semantic value
 *)
 
-val v_of_matching_pat_aux_measure_def = Define `
+Definition v_of_matching_pat_aux_measure_def:
   v_of_matching_pat_aux_measure x =
     sum_CASE x
-      (\(_,p,_,_). pat_size p)
-      (\(_,ps,_,_). list_size pat_size ps)`;
+      (\ (_,p,_,_). pat_size p)
+      (\ (_,ps,_,_). list_size pat_size ps)
+End
 
-val v_of_pat_def = tDefine "v_of_pat" `
+Definition v_of_pat_def:
   v_of_pat envC (Pvar x) insts wildcards =
     (case insts of
          xv::rest => SOME (xv, rest, wildcards)
@@ -525,14 +551,13 @@ val v_of_pat_def = tDefine "v_of_pat" `
                 SOME (v::vs, insts_rest', wildcards_rest')
             | NONE => NONE)
        | NONE => NONE) /\
-  v_of_pat_list _ _ _ _ = NONE`
-
-  (WF_REL_TAC `measure v_of_matching_pat_aux_measure` \\
-   fs [v_of_matching_pat_aux_measure_def, list_size_def,
-       astTheory.pat_size_def] \\
-   gen_tac \\ Induct \\ fs [list_size_def, astTheory.pat_size_def]);
-
-val v_of_pat_ind = fetch "-" "v_of_pat_ind";
+  v_of_pat_list _ _ _ _ = NONE
+Termination
+  WF_REL_TAC `measure v_of_matching_pat_aux_measure` \\
+  fs [v_of_matching_pat_aux_measure_def, list_size_def,
+      astTheory.pat_size_def] \\
+  gen_tac \\ Induct \\ fs [list_size_def, astTheory.pat_size_def]
+End
 
 Theorem v_of_pat_list_length:
    !envC pats insts wildcards vs rest.
@@ -760,11 +785,12 @@ QED
    instantiations and wildcards instantiations
 *)
 
-val v_of_pat_norest_def = Define `
+Definition v_of_pat_norest_def:
   v_of_pat_norest envC pat insts wildcards =
     case v_of_pat envC pat insts wildcards of
         SOME (v, [], []) => SOME v
-      | _ => NONE`;
+      | _ => NONE
+End
 
 Theorem v_of_pat_norest_insts_length:
    !envC pat insts wildcards v.
@@ -807,9 +833,10 @@ QED
 *)
 
 (* might be wrong *)
-val pat_typechecks_def = Define `
+Definition pat_typechecks_def:
   pat_typechecks envC s pat v =
-    (pmatch envC s pat v [] <> Match_type_error)`;
+    (pmatch envC s pat v [] <> Match_type_error)
+End
 
 Definition pat_without_Pref_Pas_def:
   pat_without_Pref_Pas (Pcon _ args) = EVERY pat_without_Pref_Pas args /\
@@ -824,11 +851,12 @@ Termination
   first_assum progress \\ fs []
 End
 
-val validate_pat_def = Define `
+Definition validate_pat_def:
   validate_pat envC s pat v env =
     (pat_typechecks envC s pat v /\
      pat_without_Pref_Pas pat /\
-     ALL_DISTINCT (pat_bindings pat []))`;
+     ALL_DISTINCT (pat_bindings pat []))
+End
 
 (* Lemmas that relate [v_of_pat] and [pmatch], the pattern-matching function
    from the semantics.
@@ -879,11 +907,10 @@ Proof
   )
   THEN1 (
     fs [pmatch_def, pat_bindings_def, v_of_pat_def] \\
-    every_case_tac \\ fs [] \\ rw [] \\
-    try_finally (
-      progress (fst (CONJ_PAIR v_of_pat_remove_rest_insts)) \\ rw [] \\
-      rename1 `insts' ++ rest` \\ first_assum (qspec_then `insts'` (fs o sing))
-    ) \\
+    gvs [AllCaseEqs()] \\
+    Cases_on ‘pmatch envC s pat v env_v’ \\ gvs [] \\
+    progress (fst (CONJ_PAIR v_of_pat_remove_rest_insts)) \\ rw [] \\
+    res_tac \\
     once_rewrite_tac [snd (CONJ_PAIR semanticPrimitivesPropsTheory.pat_bindings_accum)] \\
     fs [] \\ progress (fst (CONJ_PAIR v_of_pat_remove_rest_insts)) \\ rw [] \\
     fs [REVERSE_APPEND] \\ progress (snd (CONJ_PAIR v_of_pat_insts_length)) \\
@@ -949,21 +976,22 @@ Proof
   THEN1 (fs [pat_without_Pref_Pas_def,pat_bindings_def,v_of_pat_def,pmatch_def]
          \\ metis_tac[])
   THEN1 (
-    fs [pmatch_def] \\ every_case_tac \\ fs [] \\ rw [] \\
-    first_assum progress \\ rw [] \\ fs [pat_bindings_def] \\
+    gvs [pmatch_def,AllCaseEqs()] \\
+    fs [pat_bindings_def] \\
     once_rewrite_tac [semanticPrimitivesPropsTheory.pat_bindings_accum] \\ fs [] \\
-    rename1 `v_of_pat _ _ insts wildcards = _` \\
-    rename1 `v_of_pat_list _ _ insts' wildcards' = _` \\
-    qexists_tac `insts ++ insts'` \\ qexists_tac `wildcards ++ wildcards'` \\
+    fs [AllCaseEqs(),PULL_EXISTS] \\
+    rename1 `v_of_pat _ _ insts1 wildcards1 = _` \\
+    rename1 `v_of_pat_list _ _ insts2 wildcards2 = _` \\
+    qexists_tac `insts1 ++ insts2` \\ qexists_tac `wildcards1 ++ wildcards2` \\
     progress (fst (CONJ_PAIR v_of_pat_insts_length)) \\
     progress (snd (CONJ_PAIR v_of_pat_insts_length)) \\ fs [ZIP_APPEND] \\
-    progress_then (qspec_then `insts'` assume_tac)
+    progress_then (qspec_then `insts2` assume_tac)
       (fst (CONJ_PAIR v_of_pat_extend_insts)) \\
-    progress_then (qspec_then `wildcards'` assume_tac)
+    progress_then (qspec_then `wildcards2` assume_tac)
       (fst (CONJ_PAIR v_of_pat_extend_wildcards)) \\
-    progress_then (qspec_then `insts'` assume_tac)
+    progress_then (qspec_then `insts1` assume_tac)
       (snd (CONJ_PAIR v_of_pat_extend_insts)) \\
-    progress_then (qspec_then `wildcards'` assume_tac)
+    progress_then (qspec_then `wildcards1` assume_tac)
       (snd (CONJ_PAIR v_of_pat_extend_insts)) \\
     fs [v_of_pat_def]
   )
@@ -983,7 +1011,7 @@ QED
 
 (* The nested ifs corresponding to a list of patterns *)
 
-val cf_cases_def = Define `
+Definition cf_cases_def:
   cf_cases v nomatch_exn [] env H Q =
     local (\H Q. H ==>> Q (Exn nomatch_exn) /\ Q =~e> POST_F) H Q /\
   cf_cases v nomatch_exn ((pat, row_cf)::rows) env H Q =
@@ -994,7 +1022,8 @@ val cf_cases_def = Define `
              row_cf (extend_env (REVERSE (pat_bindings pat [])) insts env) H Q)
         else cf_cases v nomatch_exn rows env H Q) /\
        (!s. validate_pat env.c s pat v env.v))
-    ) H Q`;
+    ) H Q
+End
 
 fun NETA_CONV t = let
     val (params, body) = strip_abs t
@@ -1032,14 +1061,15 @@ QED
 (* Soundness predicate & lemmas *)
 
 (* States that a hoare triple {H} e {Q} is valid in environment [env] *)
-val htriple_valid_def = Define `
+Definition htriple_valid_def:
   htriple_valid (p:'ffi ffi_proj) e env H Q =
     !st h_i h_k.
       SPLIT (st2heap p st) (h_i, h_k) ==>
       H h_i ==>
       ?r h_f h_g heap.
         SPLIT3 heap (h_f, h_k, h_g) /\ Q r h_f /\
-        evaluate_to_heap st env e p heap r`;
+        evaluate_to_heap st env e p heap r
+End
 
 (* Not used, but interesting: app_basic as an instance of htriple_valid *)
 Theorem app_basic_iff_htriple_valid:
@@ -1062,22 +1092,23 @@ Proof
 QED
 
 (* Soundness for relation [R] *)
-val sound_def = Define `
+Definition sound_def:
   sound (p:'ffi ffi_proj) e R =
     !env H Q.
       R env H Q ==>
-      htriple_valid p e env H Q`;
+      htriple_valid p e env H Q
+End
 
-
-val star_split = Q.prove (
-  `!H1 H2 H3 H4 h1 h2 h3 h4.
-     ((H1 * H2) (h1 UNION h2) ==> (H3 * H4) (h3 UNION h4)) ==>
-     DISJOINT h1 h2 ==> H1 h1 ==> H2 h2 ==>
-     ?u v. H3 u /\ H4 v /\ SPLIT (h3 UNION h4) (u, v)`,
+Theorem star_split[local]:
+  !H1 H2 H3 H4 h1 h2 h3 h4.
+    ((H1 * H2) (h1 UNION h2) ==> (H3 * H4) (h3 UNION h4)) ==>
+    DISJOINT h1 h2 ==> H1 h1 ==> H2 h2 ==>
+    ?u v. H3 u /\ H4 v /\ SPLIT (h3 UNION h4) (u, v)
+Proof
   fs [STAR_def] \\ rpt strip_tac \\
   `SPLIT (h1 UNION h2) (h1, h2)` by SPLIT_TAC \\
   metis_tac []
-);
+QED
 
 Theorem sound_local:
    !e R. sound (p:'ffi ffi_proj) e R ==> sound (p:'ffi ffi_proj) e (\env. local (R env))
@@ -1105,30 +1136,34 @@ Proof
   rewrite_tac [sound_def]
 QED
 
-val sound_local_false = Q.prove (
-  `!e. sound (p:'ffi ffi_proj) e (\env. local (\H Q. F))`,
+Theorem sound_local_false[local]:
+  !e. sound (p:'ffi ffi_proj) e (\env. local (\H Q. F))
+Proof
   strip_tac \\ HO_MATCH_MP_TAC sound_local \\ fs [sound_false]
-);
+QED
 
 (*------------------------------------------------------------------*)
 (* Lemmas relating [app], and [htriple_valid] (usually on the
    expression composing the body of the applied function).
 *)
 
-val app_basic_of_htriple_valid = Q.prove (
-  `!clos body x env v H Q.
+Theorem app_basic_of_htriple_valid[local]:
+  !clos body x env v H Q.
     do_opapp [clos; x] = SOME (env, body) ==>
     htriple_valid (p:'ffi ffi_proj) body env H Q ==>
-    app_basic (p:'ffi ffi_proj) clos x H Q`,
+    app_basic (p:'ffi ffi_proj) clos x H Q
+Proof
   fs [app_basic_def, htriple_valid_def] \\ rpt strip_tac \\
-  first_x_assum progress \\ instantiate \\ SPLIT_TAC);
+  first_x_assum progress \\ instantiate \\ SPLIT_TAC
+QED
 
-val app_of_htriple_valid = Q.prove (
-  `!ns xvs env body H Q.
-     ns <> [] ==>
-     LENGTH ns = LENGTH xvs ==>
-     htriple_valid (p:'ffi ffi_proj) body (extend_env ns xvs env) H Q ==>
-     app (p:'ffi ffi_proj) (naryClosure env ns body) xvs H Q`,
+Theorem app_of_htriple_valid[local]:
+  !ns xvs env body H Q.
+    ns <> [] ==>
+    LENGTH ns = LENGTH xvs ==>
+    htriple_valid (p:'ffi ffi_proj) body (extend_env ns xvs env) H Q ==>
+    app (p:'ffi ffi_proj) (naryClosure env ns body) xvs H Q
+Proof
   Induct \\ rpt strip_tac \\ fs [naryClosure_def, LENGTH_CONS] \\ rw [] \\
   rename1 `extend_env (n::ns) (xv::xvs) _` \\
   Cases_on `ns` \\ fs [LENGTH_NIL, LENGTH_CONS, PULL_EXISTS] \\ rw [] \\
@@ -1139,20 +1174,22 @@ val app_of_htriple_valid = Q.prove (
   Q.REFINE_EXISTS_TAC `Val v` \\ simp [evaluate_to_heap_def] \\
   fs [POSTv_def, SEP_EXISTS, cond_def, STAR_def, PULL_EXISTS, SPLIT_emp2] \\
   fs [evaluate_ck_def, evaluate_def, st2heap_clock] \\
-  progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\ fs [naryClosure_def]);
+  progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\ fs [naryClosure_def]
+QED
 
-val app_rec_of_htriple_valid_aux = Q.prove (
-  `!f body params xvs funs naryfuns env H Q fvs.
-     params <> [] ==>
-     LENGTH params = LENGTH xvs ==>
-     naryfuns = letrec_pull_params funs ==>
-     ALL_DISTINCT (MAP (\ (f,_,_). f) naryfuns) ==>
-     find_recfun f naryfuns = SOME (params, body) ==>
-     htriple_valid (p:'ffi ffi_proj) body
-       (extend_env_rec (MAP (\ (f,_,_). f) naryfuns) fvs params xvs env)
-       H Q ==>
-     fvs = MAP (\ (f,_,_). naryRecclosure env naryfuns f) naryfuns ==>
-     app (p:'ffi ffi_proj) (naryRecclosure env naryfuns f) xvs H Q`,
+Theorem app_rec_of_htriple_valid_aux[local]:
+  !f body params xvs funs naryfuns env H Q fvs.
+    params <> [] ==>
+    LENGTH params = LENGTH xvs ==>
+    naryfuns = letrec_pull_params funs ==>
+    ALL_DISTINCT (MAP (\ (f,_,_). f) naryfuns) ==>
+    find_recfun f naryfuns = SOME (params, body) ==>
+    htriple_valid (p:'ffi ffi_proj) body
+      (extend_env_rec (MAP (\ (f,_,_). f) naryfuns) fvs params xvs env)
+      H Q ==>
+    fvs = MAP (\ (f,_,_). naryRecclosure env naryfuns f) naryfuns ==>
+    app (p:'ffi ffi_proj) (naryRecclosure env naryfuns f) xvs H Q
+Proof
   Cases_on `params` \\ rpt strip_tac \\ rw [] \\
   fs [LENGTH_CONS] \\ rfs [] \\ qpat_x_assum `xvs = _` (K all_tac) \\
   rename1 `extend_env_rec _ _ (n::params) (xv::xvs) _` \\
@@ -1184,25 +1221,28 @@ val app_rec_of_htriple_valid_aux = Q.prove (
   fs [naryFun_def, naryClosure_def] \\
   fs [evaluate_ck_def, evaluate_def, with_clock_self] \\
   fs [letrec_pull_params_cancel, letrec_pull_params_names] \\
-  fs [build_rec_env_zip]);
+  fs [build_rec_env_zip]
+QED
 
-val app_rec_of_htriple_valid = Q.prove (
-  `!f params body funs xvs env H Q.
-     params <> [] ==>
-     LENGTH params = LENGTH xvs ==>
-     ALL_DISTINCT (MAP (\ (f,_,_). f) funs) ==>
-     find_recfun f (letrec_pull_params funs) = SOME (params, body) ==>
-     htriple_valid (p:'ffi ffi_proj) body
-       (extend_env_rec
-          (MAP (\ (f,_,_). f) funs)
-          (MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) funs)
-          params xvs env)
-        H Q ==>
-     app (p:'ffi ffi_proj) (naryRecclosure env (letrec_pull_params funs) f) xvs H Q`,
+Theorem app_rec_of_htriple_valid[local]:
+  !f params body funs xvs env H Q.
+    params <> [] ==>
+    LENGTH params = LENGTH xvs ==>
+    ALL_DISTINCT (MAP (\ (f,_,_). f) funs) ==>
+    find_recfun f (letrec_pull_params funs) = SOME (params, body) ==>
+    htriple_valid (p:'ffi ffi_proj) body
+      (extend_env_rec
+         (MAP (\ (f,_,_). f) funs)
+         (MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) funs)
+         params xvs env)
+       H Q ==>
+    app (p:'ffi ffi_proj) (naryRecclosure env (letrec_pull_params funs) f) xvs H Q
+Proof
   rpt strip_tac \\ irule app_rec_of_htriple_valid_aux \\ rpt conj_tac
   THEN1 (fs [letrec_pull_params_names])
   THEN1 (qexists_tac `funs` \\ fs [])
-  THEN1 (instantiate \\ fs [letrec_pull_params_names]));
+  THEN1 (instantiate \\ fs [letrec_pull_params_names])
+QED
 
 (*------------------------------------------------------------------*)
 (* Lemmas used in the soundness proof of FFI *)
@@ -1213,9 +1253,11 @@ Proof
   SPLIT_TAC
 QED
 
-val SUBSET_IN = Q.prove(
-  `!s t x. s SUBSET t /\ x IN s ==> x IN t`,
-  fs [SUBSET_DEF] \\ metis_tac []);
+Theorem SUBSET_IN[local]:
+  !s t x. s SUBSET t /\ x IN s ==> x IN t
+Proof
+  fs [SUBSET_DEF] \\ metis_tac []
+QED
 
 Theorem SPLIT_FFI_SET_IMP_DISJOINT:
    SPLIT (st2heap p st) (c,{FFI_part s u ns ts}) ==>
@@ -1278,111 +1320,124 @@ QED
 (* Definition of the [cf] functions, that generates the characteristic
    formula of a cakeml expression *)
 
-val app_ref_def = Define `
+Definition app_ref_def:
   app_ref (x: v) H Q =
     ((!r. H * r ~~> x ==>> Q (Val r)) /\
-     Q =~v> POST_F)`
+     Q =~v> POST_F)
+End
 
-val app_assign_def = Define `
+Definition app_assign_def:
   app_assign r (x: v) H Q =
     ((?x' F.
         (H ==>> F * r ~~> x') /\
         (F * r ~~> x ==>> Q (Val (Conv NONE [])))) /\
-     Q =~v> POST_F)`
+     Q =~v> POST_F)
+End
 
-val app_deref_def = Define `
+Definition app_deref_def:
   app_deref r H Q =
     ((?x F.
         (H ==>> F * r ~~> x) /\
         (H ==>> Q (Val x))) /\
-     Q =~v> POST_F)`
+     Q =~v> POST_F)
+End
 
-val app_aalloc_def = Define `
+Definition app_aalloc_def:
   app_aalloc (n: int) v H Q =
     ((!a.
         n >= 0 /\
         (H * ARRAY a (REPLICATE (Num n) v) ==>> Q (Val a))) /\
-     Q =~v> POST_F)`
+     Q =~v> POST_F)
+End
 
-val app_asub_def = Define `
+Definition app_asub_def:
   app_asub a (i: int) H Q =
     ((?vs F.
         0 <= i /\ (Num i) < LENGTH vs /\
         (H ==>> F * ARRAY a vs) /\
         (H ==>> Q (Val (EL (Num i) vs)))) /\
-     Q =~v> POST_F)`
+     Q =~v> POST_F)
+End
 
-val app_alength_def = Define `
+Definition app_alength_def:
   app_alength a H Q =
     ((?vs F.
         (H ==>> F * ARRAY a vs) /\
         (H ==>> Q (Val (Litv (IntLit (& LENGTH vs)))))) /\
-     Q =~v> POST_F)`
+     Q =~v> POST_F)
+End
 
-val app_aupdate_def = Define `
+Definition app_aupdate_def:
   app_aupdate a (i: int) v H Q =
     ((?vs F.
         0 <= i /\ (Num i) < LENGTH vs /\
         (H ==>> F * ARRAY a vs) /\
         (F * ARRAY a (LUPDATE v (Num i) vs) ==>> Q (Val (Conv NONE [])))) /\
-     Q =~v> POST_F)`
+     Q =~v> POST_F)
+End
 
-val app_aw8alloc_def = Define `
+Definition app_aw8alloc_def:
   app_aw8alloc (n: int) w H Q =
     ((!a.
         n >= 0 /\
         (H * W8ARRAY a (REPLICATE (Num n) w) ==>> Q (Val a))) /\
-     Q =~v> POST_F)`
+     Q =~v> POST_F)
+End
 
-val app_aw8sub_def = Define `
+Definition app_aw8sub_def:
   app_aw8sub a (i: int) H Q =
     ((?ws F.
         0 <= i /\ (Num i) < LENGTH ws /\
         (H ==>> F * W8ARRAY a ws) /\
         (H ==>> Q (Val (Litv (Word8 (EL (Num i) ws)))))) /\
-     Q =~v> POST_F)`
+     Q =~v> POST_F)
+End
 
-val app_aw8length_def = Define `
+Definition app_aw8length_def:
   app_aw8length a H Q =
     ((?ws F.
         (H ==>> F * W8ARRAY a ws) /\
         (H ==>> Q (Val (Litv (IntLit (& LENGTH ws)))))) /\
-     Q =~v> POST_F)`
+     Q =~v> POST_F)
+End
 
-val app_aw8update_def = Define `
+Definition app_aw8update_def:
   app_aw8update a (i: int) w H Q =
     ((?ws F.
         0 <= i /\ (Num i) < LENGTH ws /\
         (H ==>> F * W8ARRAY a ws) /\
         (F * W8ARRAY a (LUPDATE w (Num i) ws) ==>> Q (Val (Conv NONE [])))) /\
-     Q =~v> POST_F)`
+     Q =~v> POST_F)
+End
 
-val app_copyaw8aw8_def = Define `
+Definition app_copyaw8aw8_def:
   app_copyaw8aw8 s so l d do' H Q =
     ((?ws wd F.
         0 <= do' /\ 0 <= so /\ 0 <= l /\
-        (Num do' + Num l) <= LENGTH wd /\(Num so + Num l) <= LENGTH ws /\
+        (Num do' + Num l) <= LENGTH wd /\ (Num so + Num l) <= LENGTH ws /\
         (H ==>> F * W8ARRAY s ws * W8ARRAY d wd) /\
         (F * W8ARRAY s ws *
              W8ARRAY d (TAKE (Num do') wd ⧺
                         TAKE (Num l) (DROP (Num so) ws) ⧺
                         DROP (Num do' + Num l) wd)
             ==>> Q (Val (Conv NONE [])))) /\
-     Q =~v> POST_F)`
+     Q =~v> POST_F)
+End
 
-val app_copystraw8_def = Define `
+Definition app_copystraw8_def:
   app_copystraw8 s so l d do' H Q =
     ((?wd F.
         0 <= do' /\ 0 <= so /\ 0 <= l /\
-        (Num do' + Num l) <= LENGTH wd /\(Num so + Num l) <= LENGTH s /\
+        (Num do' + Num l) <= LENGTH wd /\ (Num so + Num l) <= LENGTH s /\
         (H ==>> F * W8ARRAY d wd) /\
         (F * W8ARRAY d (TAKE (Num do') wd ⧺
                         MAP (n2w o ORD) (TAKE (Num l) (DROP (Num so) s)) ⧺
                         DROP (Num do' + Num l) wd)
             ==>> Q (Val (Conv NONE [])))) /\
-     Q =~v> POST_F)`
+     Q =~v> POST_F)
+End
 
-val app_copyaw8str_def = Define `
+Definition app_copyaw8str_def:
   app_copyaw8str s so l H Q =
     ((?ws F.
         0 <= so /\ 0 <= l /\
@@ -1390,25 +1445,39 @@ val app_copyaw8str_def = Define `
         (H ==>> F * W8ARRAY s ws) /\
         (F * W8ARRAY s ws
             ==>> Q (Val (Litv (StrLit (MAP (CHR o w2n) (TAKE (Num l) (DROP (Num so) ws)))))))) /\
-     Q =~v> POST_F)`
+     Q =~v> POST_F)
+End
 
-val app_wordFromInt_W8_def = Define `
+Definition app_xoraw8str_def:
+  app_xoraw8str s d H Q =
+    ((?wd F.
+        LENGTH s ≤ LENGTH wd /\
+        (H ==>> F * W8ARRAY d wd) /\
+        (F * W8ARRAY d (THE (xor_bytes (MAP (n2w o ORD) s) wd))
+            ==>> Q (Val (Conv NONE [])))) /\
+     Q =~v> POST_F)
+End
+
+Definition app_wordFromInt_W8_def:
   app_wordFromInt_W8 (i: int) H Q =
     (H ==>> Q (Val (Litv (Word8 (i2w i)))) /\
-     Q =~v> POST_F)`
+     Q =~v> POST_F)
+End
 
-val app_wordFromInt_W64_def = Define `
+Definition app_wordFromInt_W64_def:
   app_wordFromInt_W64 (i: int) H Q =
     (H ==>> Q (Val (Litv (Word64 (i2w i)))) /\
-     Q =~v> POST_F)`
+     Q =~v> POST_F)
+End
 
-val app_wordToInt_def = Define `
+Definition app_wordToInt_def:
   app_wordToInt w H Q =
     (H ==>> Q (Val (Litv (IntLit (& w2n w)))) /\
-     Q =~v> POST_F)`
+     Q =~v> POST_F)
+End
 
 (*
-val app_opn_def = Define `
+Definition app_opn_def:
   app_opn opn i1 i2 H Q =
     if (opn = Divide \/ opn = Modulo) /\ i2 = 0 then
       H ==>> Q (Exn (prim_exn "Div"))
@@ -1416,79 +1485,90 @@ val app_opn_def = Define `
       H ==>> Q (Val (Litv (IntLit (opn_lookup opn i1 i2))))
 *)
 
-val app_opn_def = Define `
+Definition app_opn_def:
   app_opn opn i1 i2 H Q =
     ((if opn = Divide \/ opn = Modulo then i2 <> 0 else T) /\
      H ==>> Q (Val (Litv (IntLit (opn_lookup opn i1 i2)))) /\
-     Q =~v> POST_F)`
+     Q =~v> POST_F)
+End
 
-val app_opb_def = Define `
+Definition app_opb_def:
   app_opb opb i1 i2 H Q =
     (H ==>> Q (Val (Boolv (opb_lookup opb i1 i2))) /\
-     Q =~v> POST_F)`
+     Q =~v> POST_F)
+End
 
-val app_equality_def = Define `
+Definition app_equality_def:
   app_equality v1 v2 H Q =
     (no_closures v1 /\ no_closures v2 /\
      types_match v1 v2 /\
      H ==>> Q (Val (Boolv (v1 = v2))) /\
-     Q =~v> POST_F)`
+     Q =~v> POST_F)
+End
 
-val cf_lit_def = Define `
-  cf_lit l = \env. local (\H Q.
+Definition cf_lit_def:
+  cf_lit l = \env: v sem_env. local (\H Q.
     H ==>> Q (Val (Litv l)) /\
-    Q =~v> POST_F)`
+    Q =~v> POST_F)
+End
 
-val cf_con_def = Define `
+Definition cf_con_def:
   cf_con cn args = \env. local (\H Q.
     (?argsv cv.
        do_con_check env.c cn (LENGTH args) /\
        (build_conv env.c cn argsv = SOME cv) /\
        (exp2v_list env args = SOME argsv) /\
        H ==>> Q (Val cv)) /\
-    Q =~v> POST_F)`
+    Q =~v> POST_F)
+End
 
-val cf_var_def = Define `
+Definition cf_var_def:
   cf_var name = \env. local (\H Q.
     (?v.
        nsLookup env.v name = SOME v /\
        H ==>> Q (Val v)) /\
-    Q =~v> POST_F)`
+    Q =~v> POST_F)
+End
 
-val cf_let_def = Define `
+Definition cf_let_def:
   cf_let n F1 F2 = \env. local (\H Q.
     ?Q'. (F1 env H Q' /\ Q' =~v> Q) /\
-         (!xv. F2 (env with <| v := nsOptBind n xv env.v |>) (Q' (Val xv)) Q))`
+         (!xv. F2 (env with <| v := nsOptBind n xv env.v |>) (Q' (Val xv)) Q))
+End
 
-val cf_opn_def = Define `
+Definition cf_opn_def:
   cf_opn opn x1 x2 = \env. local (\H Q.
     ?i1 i2.
       exp2v env x1 = SOME (Litv (IntLit i1)) /\
       exp2v env x2 = SOME (Litv (IntLit i2)) /\
-      app_opn opn i1 i2 H Q)`
+      app_opn opn i1 i2 H Q)
+End
 
-val cf_opb_def = Define `
+Definition cf_opb_def:
   cf_opb opb x1 x2 = \env. local (\H Q.
     ?i1 i2.
       exp2v env x1 = SOME (Litv (IntLit i1)) /\
       exp2v env x2 = SOME (Litv (IntLit i2)) /\
-      app_opb opb i1 i2 H Q)`
+      app_opb opb i1 i2 H Q)
+End
 
-val cf_equality_def = Define `
+Definition cf_equality_def:
   cf_equality x1 x2 = \env. local (\H Q.
     ?v1 v2.
       exp2v env x1 = SOME v1 /\
       exp2v env x2 = SOME v2 /\
-      app_equality v1 v2 H Q)`
+      app_equality v1 v2 H Q)
+End
 
-val cf_app_def = Define `
+Definition cf_app_def:
   cf_app (p:'ffi ffi_proj) f args = \env. local (\H Q.
     ?fv argsv.
       exp2v env f = SOME fv /\
       exp2v_list env args = SOME argsv /\
-      app (p:'ffi ffi_proj) fv argsv H Q)`
+      app (p:'ffi ffi_proj) fv argsv H Q)
+End
 
-val cf_fun_def = Define `
+Definition cf_fun_def:
   cf_fun (p:'ffi ffi_proj) f ns F1 F2 = \env. local (\H Q.
     !fv.
       curried (p:'ffi ffi_proj) (LENGTH ns) fv /\
@@ -1497,9 +1577,10 @@ val cf_fun_def = Define `
         F1 (extend_env ns xvs env) H' Q' ==>
         app (p:'ffi ffi_proj) fv xvs H' Q')
       ==>
-      F2 (env with v := nsBind f fv env.v) H Q)`
+      F2 (env with v := nsBind f fv env.v) H Q)
+End
 
-val fun_rec_aux_def = Define `
+Definition fun_rec_aux_def:
   fun_rec_aux (p:'ffi ffi_proj) fs fvs [] [] [] F2 env H Q =
     (F2 (extend_env_rec fs fvs [] [] env) H Q) /\
   fun_rec_aux (p:'ffi ffi_proj) fs fvs (ns::ns_acc) (fv::fv_acc) (Fbody::Fs) F2 env H Q =
@@ -1510,100 +1591,114 @@ val fun_rec_aux_def = Define `
         app (p:'ffi ffi_proj) fv xvs H' Q')
      ==>
      (fun_rec_aux (p:'ffi ffi_proj) fs fvs ns_acc fv_acc Fs F2 env H Q)) /\
-  fun_rec_aux _ _ _ _ _ _ _ _ _ _ = F`
+  fun_rec_aux _ _ _ _ _ _ _ _ _ _ = F
+End
 
-val cf_fun_rec_def = Define `
+Definition cf_fun_rec_def:
   cf_fun_rec (p:'ffi ffi_proj) fs_Fs F2 = \env. local (\H Q.
-    let fs = MAP (\ (f, _). f) fs_Fs in
+    let fs = MAP (\ (f: (string # string list # exp), _). f) fs_Fs in
     let Fs = MAP (\ (_, F). F) fs_Fs in
     let f_names = MAP (\ (f,_,_). f) fs in
     let f_args = MAP (\ (_,ns,_). ns) fs in
     !(fvs: v list).
       LENGTH fvs = LENGTH fs ==>
       ALL_DISTINCT f_names /\
-      fun_rec_aux (p:'ffi ffi_proj) f_names fvs f_args fvs Fs F2 env H Q)`
+      fun_rec_aux (p:'ffi ffi_proj) f_names fvs f_args fvs Fs F2 env H Q)
+End
 
-val cf_ref_def = Define `
+Definition cf_ref_def:
   cf_ref x = \env. local (\H Q.
     ?xv.
       exp2v env x = SOME xv /\
-      app_ref xv H Q)`
+      app_ref xv H Q)
+End
 
-val cf_assign_def = Define `
+Definition cf_assign_def:
   cf_assign r x = \env. local (\H Q.
     ?rv xv.
       exp2v env r = SOME rv /\
       exp2v env x = SOME xv /\
-      app_assign rv xv H Q)`
+      app_assign rv xv H Q)
+End
 
-val cf_deref_def = Define `
+Definition cf_deref_def:
   cf_deref r = \env. local (\H Q.
     ?rv.
       exp2v env r = SOME rv /\
-      app_deref rv H Q)`
+      app_deref rv H Q)
+End
 
-val cf_aalloc_def = Define `
+Definition cf_aalloc_def:
   cf_aalloc xn xv = \env. local (\H Q.
     ?n v.
       exp2v env xn = SOME (Litv (IntLit n)) /\
       exp2v env xv = SOME v /\
-      app_aalloc n v H Q)`
+      app_aalloc n v H Q)
+End
 
-val cf_aalloc_empty_def = Define `
+Definition cf_aalloc_empty_def:
   cf_aalloc_empty xu = \env. local (\H Q.
     exp2v env xu = SOME (Conv NONE []) /\
-    app_aalloc (&0) (Litv (IntLit &0)) H Q)`;
+    app_aalloc (&0) (Litv (IntLit &0)) H Q)
+End
 
-val cf_asub_def = Define `
+Definition cf_asub_def:
   cf_asub xa xi = \env. local (\H Q.
     ?a i.
       exp2v env xa = SOME a /\
       exp2v env xi = SOME (Litv (IntLit i)) /\
-      app_asub a i H Q)`
+      app_asub a i H Q)
+End
 
-val cf_alength_def = Define `
+Definition cf_alength_def:
   cf_alength xa = \env. local (\H Q.
     ?a.
       exp2v env xa = SOME a /\
-      app_alength a H Q)`
+      app_alength a H Q)
+End
 
-val cf_aupdate_def = Define `
+Definition cf_aupdate_def:
   cf_aupdate xa xi xv = \env. local (\H Q.
     ?a i v.
       exp2v env xa = SOME a /\
       exp2v env xi = SOME (Litv (IntLit i)) /\
       exp2v env xv = SOME v /\
-      app_aupdate a i v H Q)`
+      app_aupdate a i v H Q)
+End
 
-val cf_aw8alloc_def = Define `
+Definition cf_aw8alloc_def:
   cf_aw8alloc xn xw = \env. local (\H Q.
     ?n w.
       exp2v env xn = SOME (Litv (IntLit n)) /\
       exp2v env xw = SOME (Litv (Word8 w)) /\
-      app_aw8alloc n w H Q)`
+      app_aw8alloc n w H Q)
+End
 
-val cf_aw8sub_def = Define `
+Definition cf_aw8sub_def:
   cf_aw8sub xa xi = \env. local (\H Q.
     ?a i.
       exp2v env xa = SOME a /\
       exp2v env xi = SOME (Litv (IntLit i)) /\
-      app_aw8sub a i H Q)`
+      app_aw8sub a i H Q)
+End
 
-val cf_aw8length_def = Define `
+Definition cf_aw8length_def:
   cf_aw8length xa = \env. local (\H Q.
     ?a.
       exp2v env xa = SOME a /\
-      app_aw8length a H Q)`
+      app_aw8length a H Q)
+End
 
-val cf_aw8update_def = Define `
+Definition cf_aw8update_def:
   cf_aw8update xa xi xw = \env. local (\H Q.
     ?a i w.
       exp2v env xa = SOME a /\
       exp2v env xi = SOME (Litv (IntLit i)) /\
       exp2v env xw = SOME (Litv (Word8 w)) /\
-      app_aw8update a i w H Q)`
+      app_aw8update a i w H Q)
+End
 
-val cf_copyaw8aw8_def = Define `
+Definition cf_copyaw8aw8_def:
   cf_copyaw8aw8 xs xso xl xd xdo = \env. local (\H Q.
     ?s so l d do'.
       exp2v env xs = SOME s /\
@@ -1611,9 +1706,10 @@ val cf_copyaw8aw8_def = Define `
       exp2v env xl = SOME (Litv (IntLit l)) /\
       exp2v env xso = SOME (Litv (IntLit so)) /\
       exp2v env xdo = SOME (Litv (IntLit do')) /\
-      app_copyaw8aw8 s so l d do' H Q)`
+      app_copyaw8aw8 s so l d do' H Q)
+End
 
-val cf_copystraw8_def = Define `
+Definition cf_copystraw8_def:
   cf_copystraw8 xs xso xl xd xdo = \env. local (\H Q.
     ?s so l d do'.
       exp2v env xs = SOME (Litv (StrLit s)) /\
@@ -1621,41 +1717,79 @@ val cf_copystraw8_def = Define `
       exp2v env xl = SOME (Litv (IntLit l)) /\
       exp2v env xso = SOME (Litv (IntLit so)) /\
       exp2v env xdo = SOME (Litv (IntLit do')) /\
-      app_copystraw8 s so l d do' H Q)`
+      app_copystraw8 s so l d do' H Q)
+End
 
-val cf_copyaw8str_def = Define `
+Definition cf_copyaw8str_def:
   cf_copyaw8str xs xso xl = \env. local (\H Q.
     ?s so l.
       exp2v env xs = SOME s /\
       exp2v env xso = SOME (Litv (IntLit so)) /\
       exp2v env xl = SOME (Litv (IntLit l)) /\
-      app_copyaw8str s so l H Q)`
+      app_copyaw8str s so l H Q)
+End
 
-val cf_wordFromInt_W8_def = Define `
+Definition cf_xoraw8str_def:
+  cf_xoraw8str xs xd = \env. local (\H Q.
+    ?s d.
+      exp2v env xs = SOME (Litv (StrLit s)) /\
+      exp2v env xd = SOME d /\
+      app_xoraw8str s d H Q)
+End
+
+Definition cf_wordFromInt_W8_def:
   cf_wordFromInt_W8 xi = \env. local (\H Q.
     ?i.
       exp2v env xi = SOME (Litv (IntLit i)) /\
-      app_wordFromInt_W8 i H Q)`
+      app_wordFromInt_W8 i H Q)
+End
 
-val cf_wordFromInt_W64_def = Define `
+Definition cf_wordFromInt_W64_def:
   cf_wordFromInt_W64 xi = \env. local (\H Q.
     ?i.
       exp2v env xi = SOME (Litv (IntLit i)) /\
-      app_wordFromInt_W64 i H Q)`
+      app_wordFromInt_W64 i H Q)
+End
 
-val cf_wordToInt_W8_def = Define `
+Definition cf_wordToInt_W8_def:
   cf_wordToInt_W8 xw = \env. local (\H Q.
     ?w.
       exp2v env xw = SOME (Litv (Word8 w)) /\
-      app_wordToInt w H Q)`
+      app_wordToInt w H Q)
+End
 
-val cf_wordToInt_W64_def = Define `
+Definition cf_wordToInt_W64_def:
   cf_wordToInt_W64 xw = \env. local (\H Q.
     ?w.
       exp2v env xw = SOME (Litv (Word64 w)) /\
-      app_wordToInt w H Q)`
+      app_wordToInt w H Q)
+End
 
-val app_ffi_def = Define `
+Definition app_fptoword_def:
+   app_fptoword fp H Q =
+   (H ==>> Q (Val (Litv (Word64 fp))) ∧ Q =~v> POST_F)
+End
+
+Definition cf_fptoword_def:
+ cf_fptoword xd = λ env. local ( λ H Q.
+   ∃ fp.
+   exp2v env xd = SOME (Litv (Float64 fp)) ∧
+   app_fptoword fp H Q)
+End
+
+Definition app_fpfromword_def:
+ app_fpfromword w H Q =
+ (H ==>> Q (Val (Litv (Float64 w))) ∧ Q =~v> POST_F)
+End
+
+Definition cf_fpfromword_def:
+ cf_fpfromword xw = λ env. local (λ H Q.
+   ∃ w.
+   exp2v env xw = SOME (Litv (Word64 w)) ∧
+   app_fpfromword w H Q)
+End
+
+Definition app_ffi_def:
   app_ffi ffi_index c a H Q =
     ((?conf ws frame s u ns events.
          MEM ffi_index ns /\
@@ -1665,22 +1799,24 @@ val app_ffi_def = Define `
          (case u ffi_index conf ws s of
             SOME(FFIreturn vs s') =>
              (frame * W8ARRAY a vs * one (FFI_part s' u ns
-                 (events ++ [IO_event ffi_index conf (ZIP (ws, vs))])) *
+                 (events ++ [IO_event (ExtCall ffi_index) conf (ZIP (ws, vs))])) *
               cond (~MEM "" ns)) ==>> Q (Val (Conv NONE []))
           | SOME(FFIdiverge) =>
              (frame * W8ARRAY a ws * one (FFI_part s u ns events) *
               cond (~MEM "" ns)) ==>> Q (FFIDiv ffi_index conf ws)
           | NONE => F)) /\
-     Q ==e> POST_F /\ Q ==d> POST_F)`
+     Q ==e> POST_F /\ Q ==d> POST_F)
+End
 
-val cf_ffi_def = Define `
+Definition cf_ffi_def:
   cf_ffi ffi_index c r = \env. local (\H Q.
     ?conf rv.
       exp2v env r = SOME rv /\
       exp2v env c = SOME conf /\
-      app_ffi ffi_index conf rv H Q)`
+      app_ffi ffi_index conf rv H Q)
+End
 
-val cf_log_def = Define `
+Definition cf_log_def:
   cf_log lop e1 cf2 = \env. local (\H Q.
     ?v b.
       exp2v env e1 = SOME v /\
@@ -1689,36 +1825,41 @@ val cf_log_def = Define `
            (And, T) => cf2 env H Q
          | (Or, F) => cf2 env H Q
          | (Or, T) => (H ==>> Q (Val v) /\ Q =~v> POST_F)
-         | (And, F) => (H ==>> Q (Val v) /\ Q =~v> POST_F)))`
+         | (And, F) => (H ==>> Q (Val v) /\ Q =~v> POST_F)))
+End
 
-val cf_if_def = Define `
+Definition cf_if_def:
   cf_if cond cf1 cf2 = \env. local (\H Q.
     ?condv b.
       exp2v env cond = SOME condv /\
       BOOL b condv /\
       (b = T ==> cf1 env H Q) /\
-      (b = F ==> cf2 env H Q))`
+      (b = F ==> cf2 env H Q))
+End
 
-val cf_match_def = Define `
+Definition cf_match_def:
   cf_match e rows = \env. local (\H Q.
     ?v.
       exp2v env e = SOME v /\
-      cf_cases v bind_exn_v rows env H Q)`
+      cf_cases v bind_exn_v rows env H Q)
+End
 
-val cf_raise_def = Define `
+Definition cf_raise_def:
   cf_raise e = \env. local (\H Q.
     ?v.
       exp2v env e = SOME v /\
       H ==>> Q (Exn v) /\
-      Q =~e> POST_F)`
+      Q =~e> POST_F)
+End
 
-val cf_handle_def = Define `
+Definition cf_handle_def:
   cf_handle Fe rows = \env. local (\H Q.
     ?Q'.
       (Fe env H Q' /\ Q' =~e> Q) /\
-      (!ev. cf_cases ev ev rows env (Q' (Exn ev)) Q))`;
+      (!ev. cf_cases ev ev rows env (Q' (Exn ev)) Q))
+End
 
-val cf_def = tDefine "cf" `
+Definition cf_def:
   cf (p:'ffi ffi_proj) (Lit l) = cf_lit l /\
   cf (p:'ffi ffi_proj) (Con opt args) = cf_con opt args /\
   cf (p:'ffi ffi_proj) (Var name) = cf_var name /\
@@ -1829,6 +1970,10 @@ val cf_def = tDefine "cf" `
           (case args of
              | [s; so; l] => cf_copyaw8str s so l
              | _ => cf_bottom)
+        | XorAw8Str_unsafe =>
+          (case args of
+             | [d; s] => cf_xoraw8str s d
+             | _ => cf_bottom)
         | WordFromInt W8 =>
           (case args of
              | [i] => cf_wordFromInt_W8 i
@@ -1849,6 +1994,14 @@ val cf_def = tDefine "cf" `
           (case args of
              | [c;w] => cf_ffi ffi_index c w
              | _ => cf_bottom)
+        | FpFromWord =>
+          (case args of
+             | [w] => cf_fpfromword w
+             | _ => cf_bottom)
+        | FpToWord =>
+          (case args of
+             | [w] => cf_fptoword w
+             | _ => cf_bottom)
         | _ => cf_bottom) /\
   cf (p:'ffi ffi_proj) (Log lop e1 e2) =
     cf_log lop e1 (cf p e2) /\
@@ -1862,23 +2015,20 @@ val cf_def = tDefine "cf" `
   cf (p:'ffi ffi_proj) (Lannot e _) = cf p e /\
   cf (p:'ffi ffi_proj) (Tannot e _) = cf p e /\
   cf _ _ = cf_bottom
-`
-  (WF_REL_TAC `measure (exp_size o SND)` \\ rw []
-     THEN1 (
-       Cases_on `opt` \\ Cases_on `e1` \\ fs [is_bound_Fun_def] \\
-       drule Fun_body_exp_size \\ strip_tac \\ fs [astTheory.exp_size_def]
-     )
-     THEN1 (
-       Induct_on `funs` \\ fs [MEM, letrec_pull_params_def] \\ rpt strip_tac \\
-       rename1 `f::funs` \\ PairCases_on `f` \\ rename1 `(f,ns,body)::funs` \\
-       fs [letrec_pull_params_def] \\ fs [astTheory.exp_size_def] \\
-       every_case_tac \\ fs [astTheory.exp_size_def] \\
-       drule Fun_body_exp_size \\ strip_tac \\ fs [astTheory.exp_size_def]
-     )
-  )
-
-val cf_ind = fetch "-" "cf_ind"
-
+Termination
+  WF_REL_TAC `measure (exp_size o SND)` \\ rw []
+    THEN1 (
+      Cases_on `opt` \\ Cases_on `e1` \\ fs [is_bound_Fun_def] \\
+      drule Fun_body_exp_size \\ strip_tac \\ fs [astTheory.exp_size_def]
+    )
+    THEN1 (
+      Induct_on `funs` \\ fs [MEM, letrec_pull_params_def] \\ rpt strip_tac \\
+      rename1 `f::funs` \\ PairCases_on `f` \\ rename1 `(f,ns,body)::funs` \\
+      fs [letrec_pull_params_def] \\ fs [astTheory.exp_size_def] \\
+      every_case_tac \\ fs [astTheory.exp_size_def] \\
+      drule Fun_body_exp_size \\ strip_tac \\ fs [astTheory.exp_size_def]
+    )
+End
 val cf_defs = [
   cf_def,
   cf_lit_def,
@@ -1901,10 +2051,13 @@ val cf_defs = [
   cf_copyaw8aw8_def,
   cf_copystraw8_def,
   cf_copyaw8str_def,
+  cf_xoraw8str_def,
   cf_wordFromInt_W8_def,
   cf_wordFromInt_W64_def,
   cf_wordToInt_W8_def,
   cf_wordToInt_W64_def,
+  cf_fpfromword_def,
+  cf_fptoword_def,
   cf_app_def,
   cf_ref_def,
   cf_assign_def,
@@ -1954,7 +2107,7 @@ val cf_strip_sound_tac =
 
 val cf_evaluate_step_tac =
   simp [evaluate_to_heap_def, evaluate_ck_def, evaluate_def] \\
-  fs [libTheory.opt_bind_def, PULL_EXISTS]
+  fs [miscTheory.opt_bind_def, PULL_EXISTS]
 
 val cf_strip_sound_full_tac = cf_strip_sound_tac \\ cf_evaluate_step_tac
 
@@ -1968,40 +2121,44 @@ fun cf_exp2v_evaluate_tac st =
     )
   ) \\ rw []
 
-val DROP_EL_CONS = Q.prove (
-  `!l n.
-    n < LENGTH l ==>
-    DROP n l = EL n l :: DROP (SUC n) l`,
+Theorem DROP_EL_CONS[local]:
+  !l n.
+   n < LENGTH l ==>
+   DROP n l = EL n l :: DROP (SUC n) l
+Proof
   Induct \\ rpt strip_tac \\ fs [] \\ every_case_tac \\ fs [] \\
   Cases_on `n` \\ fs []
-);
+QED
 
-val FST_rw = Q.prove(
-  `(\(x,_,_). x) = FST`,
-  fs [FUN_EQ_THM,FORALL_PROD]);
+Theorem FST_rw[local]:
+  (\ (x,_,_). x) = FST
+Proof
+  fs [FUN_EQ_THM,FORALL_PROD]
+QED
 
 val _ = print "Proving cf_letrec_sound_aux\n";
-val cf_letrec_sound_aux = Q.prove (
-  `!funs e.
-     let naryfuns = letrec_pull_params funs in
-     (∀x. MEM x naryfuns ==>
-          sound (p:'ffi ffi_proj) (SND (SND x))
-            (cf (p:'ffi ffi_proj) (SND (SND x)))) ==>
-     sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e) ==>
-     !fns rest.
-       funs = rest ++ fns ==>
-       let naryrest = letrec_pull_params rest in
-       let naryfns = letrec_pull_params fns in
-       sound (p:'ffi ffi_proj) (Letrec funs e)
-         (\env H Q.
-            let fvs = MAP (\ (f,_,_). naryRecclosure env naryfuns f) naryfuns in
-            ALL_DISTINCT (MAP (\ (f,_,_). f) naryfuns) /\
-            fun_rec_aux (p:'ffi ffi_proj)
-              (MAP (\ (f,_,_). f) naryfuns) fvs
-              (MAP (\ (_,ns,_). ns) naryfns)
-              (DROP (LENGTH naryrest) fvs)
-              (MAP (\x. cf (p:'ffi ffi_proj) (SND (SND x))) naryfns)
-              (cf (p:'ffi ffi_proj) e) env H Q)`,
+Theorem cf_letrec_sound_aux[local]:
+  !funs e.
+    let naryfuns = letrec_pull_params funs in
+    (∀x. MEM x naryfuns ==>
+         sound (p:'ffi ffi_proj) (SND (SND x))
+           (cf (p:'ffi ffi_proj) (SND (SND x)))) ==>
+    sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e) ==>
+    !fns rest.
+      funs = rest ++ fns ==>
+      let naryrest = letrec_pull_params rest in
+      let naryfns = letrec_pull_params fns in
+      sound (p:'ffi ffi_proj) (Letrec funs e)
+        (\env H Q.
+           let fvs = MAP (\ (f,_,_). naryRecclosure env naryfuns f) naryfuns in
+           ALL_DISTINCT (MAP (\ (f,_,_). f) naryfuns) /\
+           fun_rec_aux (p:'ffi ffi_proj)
+             (MAP (\ (f,_,_). f) naryfuns) fvs
+             (MAP (\ (_,ns,_). ns) naryfns)
+             (DROP (LENGTH naryrest) fvs)
+             (MAP (\x. cf (p:'ffi ffi_proj) (SND (SND x))) naryfns)
+             (cf (p:'ffi ffi_proj) e) env H Q)
+Proof
   rpt gen_tac \\ rpt (CONV_TAC let_CONV) \\ rpt DISCH_TAC \\ Induct
   THEN1 (
     rpt strip_tac \\ fs [letrec_pull_params_def, DROP_LENGTH_TOO_LONG] \\
@@ -2061,7 +2218,6 @@ val cf_letrec_sound_aux = Q.prove (
     fs [LENGTH_CONS, LENGTH_NIL, PULL_EXISTS] \\
     fs [letrec_pull_params_LENGTH, letrec_pull_params_names] \\
     impl_tac
-
     THEN1 (
       sg `MEM (f, params, inner_body) (letrec_pull_params funs)`
       THEN1 (
@@ -2094,31 +2250,33 @@ val cf_letrec_sound_aux = Q.prove (
     fs [evaluate_to_heap_def, evaluate_ck_def] \\
     disch_then progress \\ instantiate \\
     rfs [evaluate_def]
-  ));
+  )
+QED
 
 val _ = print "Proving cf_letrec_sound\n";
-val cf_letrec_sound = Q.prove (
-  `!funs e.
-    (!x. MEM x (letrec_pull_params funs) ==>
-         sound (p:'ffi ffi_proj) (SND (SND x))
-           (cf (p:'ffi ffi_proj) (SND (SND x)))) ==>
-    sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e) ==>
-    sound (p:'ffi ffi_proj) (Letrec funs e)
-      (\env H Q.
-        let fvs = MAP
-          (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f)
-          funs in
-        ALL_DISTINCT (MAP (\ (f,_,_). f) funs) /\
-        fun_rec_aux (p:'ffi ffi_proj)
-          (MAP (\ (f,_,_). f) funs) fvs
-          (MAP (\ (_,ns,_). ns) (letrec_pull_params funs)) fvs
-          (MAP (\x. cf (p:'ffi ffi_proj) (SND (SND x)))
-             (letrec_pull_params funs))
-          (cf (p:'ffi ffi_proj) e) env H Q)`,
+Theorem cf_letrec_sound[local]:
+  !funs e.
+   (!x. MEM x (letrec_pull_params funs) ==>
+        sound (p:'ffi ffi_proj) (SND (SND x))
+          (cf (p:'ffi ffi_proj) (SND (SND x)))) ==>
+   sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e) ==>
+   sound (p:'ffi ffi_proj) (Letrec funs e)
+     (\env H Q.
+       let fvs = MAP
+         (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f)
+         funs in
+       ALL_DISTINCT (MAP (\ (f,_,_). f) funs) /\
+       fun_rec_aux (p:'ffi ffi_proj)
+         (MAP (\ (f,_,_). f) funs) fvs
+         (MAP (\ (_,ns,_). ns) (letrec_pull_params funs)) fvs
+         (MAP (\x. cf (p:'ffi ffi_proj) (SND (SND x)))
+            (letrec_pull_params funs))
+         (cf (p:'ffi ffi_proj) e) env H Q)
+Proof
   rpt strip_tac \\ mp_tac (Q.SPECL [`funs`, `e`] cf_letrec_sound_aux) \\
   fs [] \\ disch_then (qspecl_then [`funs`, `[]`] mp_tac) \\
   fs [letrec_pull_params_names, letrec_pull_params_def]
-);
+QED
 
 Theorem pmatch_NIL_IMP:
   (!envC refs p v env.
@@ -2135,39 +2293,39 @@ Proof
 QED
 
 val _ = print "Proving cf_cases_evaluate_match\n";
-val cf_cases_evaluate_match = Q.prove (
-  `!v env H Q nomatch_exn rows p st h_i h_k.
-    EVERY (\b. sound p (SND b) (cf p (SND b))) rows ==>
-    cf_cases v nomatch_exn (MAP (\r. (FST r, cf p (SND r))) rows) env H Q ==>
-    SPLIT (st2heap p st) (h_i, h_k) ==> H h_i ==>
-    ?r h_f h_g heap.
-      can_pmatch_all env.c st.refs (MAP FST rows) v /\
-      SPLIT3 heap (h_f, h_k, h_g) /\
-      Q r h_f /\
-      case r of
-        | Val v' => ?ck st'.
-          evaluate_match (st with clock := ck) env v rows nomatch_exn =
-          (st', Rval [v']) /\
-          st'.next_type_stamp = st.next_type_stamp /\
-          st'.next_exn_stamp = st.next_exn_stamp /\
-          st2heap p st' = heap
-        | Exn e => ?ck st'.
-          evaluate_match (st with clock := ck) env v rows nomatch_exn =
-          (st', Rerr (Rraise e)) /\
-          st'.next_type_stamp = st.next_type_stamp /\
-          st'.next_exn_stamp = st.next_exn_stamp /\
-          st2heap p st' = heap
-        | FFIDiv name conf bytes => ∃ck st'.
-          evaluate_match (st with clock := ck) env v rows nomatch_exn =
-          (st', Rerr (Rabort (Rffi_error (Final_event name conf bytes FFI_diverged)))) /\
-          st'.next_type_stamp = st.next_type_stamp /\
-          st'.next_exn_stamp = st.next_exn_stamp /\
-          st2heap p st' = heap
-        | Div io =>
-          (∀ck. ?st'. evaluate_match (st with clock := ck) env v rows nomatch_exn =
-              (st', Rerr (Rabort Rtimeout_error))) /\
-          lprefix_lub$lprefix_lub (IMAGE (\ck. fromList (FST(evaluate_match (st with clock := ck) env v rows nomatch_exn)).ffi.io_events) UNIV) io`,
-
+Theorem cf_cases_evaluate_match[local]:
+  !v env H Q nomatch_exn rows p st h_i h_k.
+   EVERY (\b. sound p (SND b) (cf p (SND b))) rows ==>
+   cf_cases v nomatch_exn (MAP (\r. (FST r, cf p (SND r))) rows) env H Q ==>
+   SPLIT (st2heap p st) (h_i, h_k) ==> H h_i ==>
+   ?r h_f h_g heap.
+     can_pmatch_all env.c st.refs (MAP FST rows) v /\
+     SPLIT3 heap (h_f, h_k, h_g) /\
+     Q r h_f /\
+     case r of
+       | Val v' => ?ck st'.
+         evaluate_match (st with clock := ck) env v rows nomatch_exn =
+         (st', Rval [v']) /\
+         st'.next_type_stamp = st.next_type_stamp /\
+         st'.next_exn_stamp = st.next_exn_stamp /\
+         st2heap p st' = heap
+       | Exn e => ?ck st'.
+         evaluate_match (st with clock := ck) env v rows nomatch_exn =
+         (st', Rerr (Rraise e)) /\
+         st'.next_type_stamp = st.next_type_stamp /\
+         st'.next_exn_stamp = st.next_exn_stamp /\
+         st2heap p st' = heap
+       | FFIDiv name conf bytes => ∃ck st'.
+         evaluate_match (st with clock := ck) env v rows nomatch_exn =
+         (st', Rerr (Rabort (Rffi_error (Final_event (ExtCall name) conf bytes FFI_diverged)))) /\
+         st'.next_type_stamp = st.next_type_stamp /\
+         st'.next_exn_stamp = st.next_exn_stamp /\
+         st2heap p st' = heap
+       | Div io =>
+         (∀ck. ?st'. evaluate_match (st with clock := ck) env v rows nomatch_exn =
+             (st', Rerr (Rabort Rtimeout_error))) /\
+         lprefix_lub$lprefix_lub (IMAGE (\ck. fromList (FST(evaluate_match (st with clock := ck) env v rows nomatch_exn)).ffi.io_events) UNIV) io
+Proof
   Induct_on `rows` \\ rpt gen_tac
   \\ rpt (disch_then assume_tac)
   \\ fs [cf_cases_def,evaluatePropsTheory.can_pmatch_all_EVERY]
@@ -2182,7 +2340,6 @@ val cf_cases_evaluate_match = Q.prove (
     impl_tac THEN1 instantiate \\ strip_tac \\ instantiate \\
     rename1 `SPLIT h_i (h1', h2')` \\ qexists_tac `h2'` \\ SPLIT_TAC
   ) \\
-
   fs [local_def] \\ first_x_assum progress \\
   rename1 `(H1 * H2) h_i` \\ fs [STAR_def] \\
   rename1 `H1 h1` \\ rename1 `H2 h2` \\
@@ -2221,23 +2378,27 @@ val cf_cases_evaluate_match = Q.prove (
     (assume_tac o REWRITE_RULE [sound_def, htriple_valid_def]) \\
   pop_assum progress \\
   progress v_of_pat_norest_insts_length \\
-  fs [extend_env_def, extend_env_v_zip, evaluate_to_heap_def, evaluate_ck_def] \\ instantiate \\
+  fs [extend_env_def, extend_env_v_zip, evaluate_to_heap_def, evaluate_ck_def] \\
   first_assum (qspecl_then [`r`, `h_f UNION h2`] mp_tac) \\
   impl_tac THEN1 (instantiate \\ SPLIT_TAC) \\ strip_tac \\
-  instantiate \\ fs [GC_def, SEP_EXISTS] \\
+  instantiate \\
+  fs [GC_def, SEP_EXISTS] \\
   fs [MAP_MAP_o,o_DEF] \\
   rename1 `SPLIT (h_f UNION h2) (h_f', h_g')` \\
   qexists_tac `h_g UNION h_g'` \\
-  reverse conj_tac THEN1 SPLIT_TAC \\
-  fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS] \\ rw [] \\ res_tac \\
-  imp_res_tac (CONJUNCT1 pmatch_NIL_IMP) \\ fs []);
+  reverse $ rpt conj_tac
+  >- SPLIT_TAC
+  \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS] \\ rw [] \\ res_tac \\
+  imp_res_tac (CONJUNCT1 pmatch_NIL_IMP) \\ fs []
+QED
 
 val _ = print "Proving cf_ffi_sound\n";
-val cf_ffi_sound = Q.prove (
-  `sound (p:'ffi ffi_proj) (App (FFI ffi_index) [c; r]) (\env. local (\H Q.
-     ?cv rv. exp2v env r = SOME rv /\
-          exp2v env c = SOME cv /\
-          app_ffi ffi_index cv rv H Q))`,
+Theorem cf_ffi_sound[local]:
+  sound (p:'ffi ffi_proj) (App (FFI ffi_index) [c; r]) (\env. local (\H Q.
+    ?cv rv. exp2v env r = SOME rv /\
+         exp2v env c = SOME cv /\
+         app_ffi ffi_index cv rv H Q))
+Proof
    cf_strip_sound_tac \\
    fs[app_ffi_def] \\
    Cases_on `u ffi_index conf ws s`
@@ -2337,7 +2498,7 @@ val cf_ffi_sound = Q.prove (
    first_assum progress \\ fs [MAP_MAP_o,o_DEF,IMPLODE_EXPLODE_I] \\
    qabbrev_tac `events1 = (FILTER (ffi_has_index_in ns) st.ffi.io_events)` \\
    qabbrev_tac `new_events = events1 ++ [IO_event
-                                           ffi_index
+                                           (ExtCall ffi_index)
                                            conf
                                            (ZIP (ws,vs))]` \\
    qexists_tac `
@@ -2446,27 +2607,30 @@ val cf_ffi_sound = Q.prove (
    \\ `x IN u2 ∪ h_k ∪ {FFI_part (p0 st.ffi.ffi_state ' ffi_index) u ns events1}
          UNION {Mem y (W8array ws)}` by SPLIT_TAC
    \\ pop_assum mp_tac
-   \\ fs [] \\ fs [ffi2heap_def] \\ rfs[]);
+   \\ fs [] \\ fs [ffi2heap_def] \\ rfs[]
+QED
 
 val _ = print "Proving evaluate_add_to_clock_lemma\n";
-val evaluate_add_to_clock_lemma = Q.prove (
-  `!extra p (s: 'ffi semanticPrimitives$state) s' r e.
-     evaluate s e p = (s', r) ==>
-     r <> Rerr (Rabort Rtimeout_error) ==>
-     evaluate (s with clock := s.clock + extra) e p =
-     (s' with clock := s'.clock + extra, r)`,
+Theorem evaluate_add_to_clock_lemma[local]:
+  !extra p (s: 'ffi semanticPrimitives$state) s' r e.
+    evaluate s e p = (s', r) ==>
+    r <> Rerr (Rabort Rtimeout_error) ==>
+    evaluate (s with clock := s.clock + extra) e p =
+    (s' with clock := s'.clock + extra, r)
+Proof
   fs [evaluatePropsTheory.evaluate_add_to_clock]
-);
+QED
 
 val _ = print "Proving evaluate_match_add_to_clock_lemma\n";
-val evaluate_match_add_to_clock_lemma = Q.prove (
-  `!extra (s: 'ffi semanticPrimitives$state) env v rows err_v s' r.
-     evaluate_match s env v rows err_v = (s', r) ==>
-     r <> Rerr (Rabort Rtimeout_error) ==>
-     evaluate_match (s with clock := s.clock + extra) env v rows err_v =
-     (s' with clock := s'.clock + extra, r)`,
+Theorem evaluate_match_add_to_clock_lemma[local]:
+  !extra (s: 'ffi semanticPrimitives$state) env v rows err_v s' r.
+    evaluate_match s env v rows err_v = (s', r) ==>
+    r <> Rerr (Rabort Rtimeout_error) ==>
+    evaluate_match (s with clock := s.clock + extra) env v rows err_v =
+    (s' with clock := s'.clock + extra, r)
+Proof
   fs [evaluatePropsTheory.evaluate_match_add_to_clock]
-);
+QED
 
 fun add_to_clock qtm th g =
   ((fn g =>
@@ -2518,22 +2682,27 @@ Proof
   \\ rw [] \\ res_tac \\ fs [pmatch_NIL_IMP]
 QED
 
+Triviality IMP_xor_bytes_SOME:
+  ∀s wd.
+    STRLEN s ≤ LENGTH wd ⇒
+    ∃xor_res. xor_bytes (MAP (n2w ∘ ORD) s) wd = SOME xor_res
+Proof
+  Induct \\ Cases_on ‘wd’ \\ gvs [xor_bytes_def]
+  \\ rw [] \\ res_tac \\ gvs []
+QED
+
 Theorem cf_sound:
    !p e. sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e)
 Proof
   recInduct cf_ind \\ rpt strip_tac \\
   rewrite_tac cf_defs \\ fs [sound_local, sound_false]
-
   THEN1 (* Lit *) cf_base_case_tac
-
   THEN1 (
     (* Con *)
     cf_base_case_tac \\ progress exp2v_list_REVERSE \\
     fs [with_clock_self_eq]
   )
-
   THEN1 (* Var *) cf_base_case_tac
-
   THEN1 (
     (* Let *)
     Cases_on `is_bound_Fun opt e1` \\ fs []
@@ -2621,7 +2790,8 @@ Proof
           (* e2 ~> Rval v' || e2 ~> Rerr (Rraise v') *)
           fs [PULL_EXISTS]
           \\ rename1 `st2heap _ st2 = heap`
-          \\ GEN_EXISTS_TAC "st'" `st2 with clock := st'.clock + st2.clock`
+          \\ (GEN_EXISTS_TAC "st'" `st2 with clock := st'.clock + st2.clock`
+            ORELSE (GEN_EXISTS_TAC "st'''" `st2 with clock := st'.clock + st2.clock`))
           \\ `SPLIT3 (st2heap (p:'ffi ffi_proj) st2) (h_f',h_k, h_g UNION h_g')`
             by SPLIT_TAC
           \\ simp [st2heap_clock] \\ rveq \\ instantiate
@@ -2639,7 +2809,8 @@ Proof
       )
       THEN1 (
         (* e1 ~> FFI diverge *)
-        rename1 `evaluate _ _ [e1] = (_, Rerr (Rabort (Rffi_error (Final_event name conf bytes FFI_diverged))))` \\
+        rename1 `evaluate _ _ [e1] = (_, Rerr (Rabort (Rffi_error (Final_event
+        (ExtCall name) conf bytes FFI_diverged))))` \\
         fs [SEP_IMPPOST_VARIANTS, SEP_IMP_def] \\ first_assum progress \\
         qexists_tac `FFIDiv name conf bytes` \\
         instantiate \\ qexists_tac `ck` \\ rw []
@@ -2679,8 +2850,7 @@ Proof
       `MAP (\ (f,_,_). naryRecclosure env (letrec_pull_params funs) f) funs` \\
     fs [letrec_pull_params_LENGTH] \\ res_tac \\ instantiate
   )
-
-  THEN1 (
+  >~ [‘sound p (App op args)’] >- (
     (* App *)
     Cases_on `?ffi_index. op = FFI ffi_index` THEN1 (
       (* FFI *)
@@ -2692,8 +2862,30 @@ Proof
       (fs [sound_def,local_def] \\ rw [] \\ fs [htriple_valid_def]) \\
     Cases_on `op` \\ fs [] \\ TRY (MATCH_ACCEPT_TAC sound_local_false) \\
     (every_case_tac \\ TRY (MATCH_ACCEPT_TAC sound_local_false)) \\
-    cf_strip_sound_tac \\
-    TRY (
+    cf_strip_sound_tac
+    >~ [‘App XorAw8Str_unsafe’] >-
+     (Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
+      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+      cf_exp2v_evaluate_tac `st` \\
+      fs [st2heap_def,app_xoraw8str_def] \\
+      fs [W8ARRAY_def] \\
+      fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
+      first_x_assum progress
+      \\ rename1 `d = Loc T ld` \\ rw [] \\
+      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+      rename1 `W8array _` \\
+      `Mem ld (W8array wd) IN (store2heap st.refs)` by SPLIT_TAC \\
+      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
+      fs [do_app_def, store_lookup_def, store_assign_def, store_v_same_type_def, IMPLODE_EXPLODE_I] \\
+      drule IMP_xor_bytes_SOME \\ strip_tac \\ gvs [] \\
+      qexists_tac `Mem ld (W8array xor_res) INSERT u` \\
+      qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
+      THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC) \\
+      first_assum irule \\
+      qexists_tac`u` \\
+      qexists_tac`{Mem ld (W8array xor_res)}` \\ fs[] \\
+      SPLIT_TAC)
+    \\ TRY (
       (* Opn & Opb *)
       (rename1 `app_opn op` ORELSE rename1 `app_opb op`) \\
       Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
@@ -2713,6 +2905,24 @@ Proof
       fs [SEP_IMP_def] \\ first_assum progress \\ instantiate \\
       qexists_tac `{}` \\ fs [st2heap_def] \\ SPLIT_TAC
     )
+    THEN1 (
+     (* FpFromWord *)
+     Q.REFINE_EXISTS_TAC ‘Val v’ \\ simp[] \\ cf_evaluate_step_tac
+     \\ simp[]
+     \\ progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+     \\ GEN_EXISTS_TAC "ck" ‘st.clock’ \\ fs[with_clock_self]
+     \\ cf_exp2v_evaluate_tac ‘st’ \\ fs [do_app_def, app_fpfromword_def]
+     \\ fs [SEP_IMP_def]
+     \\ fs [state_component_equality])
+    THEN1 (
+     (* FpToWord *)
+     Q.REFINE_EXISTS_TAC ‘Val v’ \\ simp[] \\ cf_evaluate_step_tac
+     \\ simp[]
+     \\ progress SPLIT3_of_SPLIT_emp3 \\ instantiate
+     \\ GEN_EXISTS_TAC "ck" ‘st.clock’ \\ fs[with_clock_self]
+     \\ cf_exp2v_evaluate_tac ‘st’ \\ fs [do_app_def, app_fptoword_def]
+     \\ fs [SEP_IMP_def]
+     \\ fs [state_component_equality])
     THEN1 (
       (* Opapp *)
       rename1 `dest_opapp _ = SOME (f, xs)` \\
@@ -2888,7 +3098,7 @@ Proof
       cf_exp2v_evaluate_tac `st` \\ first_assum progress \\
       rename1 `SPLIT h_i (h_i', _)` \\ rename1 `FF h_i'` \\
       fs [do_app_def, store_assign_def] \\
-      rename1 `rv = Loc r` \\ rw [] \\
+      rename1 `rv = Loc T r` \\ rw [] \\
       `Mem r (Refv x') IN (st2heap p st)` by SPLIT_TAC \\
       `Mem r (Refv x') IN (store2heap st.refs)` by
           fs [st2heap_def,Mem_NOT_IN_ffi2heap] \\
@@ -2915,7 +3125,7 @@ Proof
       fs [st2heap_def, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
       GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
       cf_exp2v_evaluate_tac `st` \\
-      first_x_assum (qspec_then `Loc (LENGTH st.refs)` strip_assume_tac) \\
+      first_x_assum (qspec_then `Loc T (LENGTH st.refs)` strip_assume_tac) \\
       first_x_assum (qspec_then `Mem (LENGTH st.refs) (Refv xv) INSERT h_i` mp_tac) \\
       assume_tac store2heap_alloc_disjoint \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
@@ -2937,7 +3147,7 @@ Proof
       rpt (first_x_assum progress) \\
       fs [do_app_def, store_lookup_def] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
-      rename1 `rv = Loc r` \\ rw [] \\
+      rename1 `rv = Loc T r` \\ rw [] \\
       `Mem r (Refv x) IN (store2heap st.refs)` by SPLIT_TAC \\
       progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
       fs [state_component_equality]
@@ -2950,7 +3160,7 @@ Proof
       fs [do_app_def, store_alloc_def, st2heap_def] \\
       fs [app_aalloc_def, app_aw8alloc_def, W8ARRAY_def, ARRAY_def] \\
       fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, cell_def, one_def] \\
-      first_x_assum (qspec_then `Loc (LENGTH st.refs)` strip_assume_tac) \\
+      first_x_assum (qspec_then `Loc T (LENGTH st.refs)` strip_assume_tac) \\
       qmatch_asmsub_rename_tac(`REPLICATE (Num n) vv`) \\
       ((rename1 `W8array _` \\ (fn l => first_x_assum (qspecl_then l mp_tac))
           [`Mem (LENGTH st.refs) (W8array (REPLICATE (Num n) vv)) INSERT h_i`])
@@ -2976,7 +3186,7 @@ Proof
       fs [do_app_def, store_alloc_def, st2heap_def] \\
       fs [app_aalloc_def, app_aw8alloc_def, W8ARRAY_def, ARRAY_def] \\
       fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, cell_def, one_def] \\
-      first_x_assum (qspec_then `Loc (LENGTH st.refs)` strip_assume_tac) \\
+      first_x_assum (qspec_then `Loc T (LENGTH st.refs)` strip_assume_tac) \\
       ((rename1 `W8array _` \\ (fn l => first_x_assum (qspecl_then l mp_tac))
           [`Mem (LENGTH st.refs) (W8array []) INSERT h_i`])
         ORELSE (fn l => first_x_assum (qspecl_then l mp_tac))
@@ -3001,7 +3211,7 @@ Proof
       fs [st2heap_def, app_aw8sub_def, app_asub_def, W8ARRAY_def, ARRAY_def] \\
       fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
       progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
-      rpt (first_x_assum progress) \\ rename1 `a = Loc l` \\ rw [] \\
+      rpt (first_x_assum progress) \\ rename1 `a = Loc T l` \\ rw [] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       fs [do_app_def, store_lookup_def] \\
       ((`Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC) ORELSE
@@ -3021,7 +3231,7 @@ Proof
       fs [SEP_EXISTS, SEP_IMP_def, STAR_def, one_def, cell_def, cond_def] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
-      rpt (first_x_assum progress) \\ rename1 `a = Loc l` \\ rw [] \\
+      rpt (first_x_assum progress) \\ rename1 `a = Loc T l` \\ rw [] \\
       fs [do_app_def, store_lookup_def] \\
       ((`Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC) ORELSE
        (`Mem l (Varray vs) IN (store2heap st.refs)` by SPLIT_TAC)) \\
@@ -3036,7 +3246,7 @@ Proof
       fs [st2heap_def, app_aw8update_def, app_aupdate_def] \\
       fs [W8ARRAY_def, ARRAY_def] \\
       fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
-      first_x_assum progress \\ rename1 `a = Loc l` \\ rw [] \\
+      first_x_assum progress \\ rename1 `a = Loc T l` \\ rw [] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       ((rename1 `W8array _` \\
         `Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC) ORELSE
@@ -3072,7 +3282,7 @@ Proof
       fs [W8ARRAY_def] \\
       fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
       first_x_assum progress
-      \\ rename1 `d = Loc ld` \\ rw [] \\
+      \\ rename1 `d = Loc T ld` \\ rw [] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       (rename1 `W8array _` \\
         `Mem ld (W8array wd) IN (store2heap st.refs)` by SPLIT_TAC) \\
@@ -3106,7 +3316,7 @@ Proof
       fs [W8ARRAY_def] \\
       fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
       first_x_assum progress
-      \\ rename1 `s = Loc ls` \\ rw [] \\
+      \\ rename1 `s = Loc T ls` \\ rw [] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       (rename1 `W8array _` \\
         `Mem ls (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC) \\
@@ -3132,7 +3342,7 @@ Proof
       fs [W8ARRAY_def] \\
       fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
       first_x_assum progress
-      \\ rename1 `s = Loc ls` \\ rename1 `d = Loc ld` \\ rw [] \\
+      \\ rename1 `s = Loc T ls` \\ rename1 `d = Loc T ld` \\ rw [] \\
       assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
       rename1`Mem ls (W8array ws)` \\
       (rename1 `W8array _` \\
@@ -3157,7 +3367,6 @@ Proof
       SPLIT_TAC
     )
   )
-
   THEN1 (
     (* Log *)
     cf_strip_sound_full_tac \\
@@ -3198,7 +3407,6 @@ Proof
       \\ cf_exp2v_evaluate_tac `st` \\ fs [do_log_def, Boolv_def]
     )
   )
-
   THEN1 (
     (* If *)
     cf_strip_sound_full_tac \\ fs [do_if_def]
@@ -3228,7 +3436,6 @@ Proof
       \\ cf_exp2v_evaluate_tac `st with clock := ck`
     )
   )
-
   THEN1 (
     (* Mat: the bulk of the proof is done in [cf_cases_evaluate_match] *)
     cf_strip_sound_full_tac
@@ -3258,7 +3465,6 @@ Proof
       \\ cf_exp2v_evaluate_tac `st with clock := ck`
     )
   )
-
   THEN1 (
     (* Raise *)
     cf_strip_sound_full_tac \\ qexists_tac `Exn v` \\ fs [] \\
@@ -3267,7 +3473,6 @@ Proof
     qexists_tac `st.clock` \\
     cf_exp2v_evaluate_tac `st with clock := st.clock` \\ fs [with_clock_self]
   )
-
   THEN1 (
     (* Handle *)
     cf_strip_sound_full_tac \\
@@ -3340,7 +3545,8 @@ Proof
     )
     THEN1 (
       (* e ~> FFI diverge *)
-      rename1 `evaluate_ck _ _ _ [e] = (_, Rerr (Rabort (Rffi_error (Final_event s conf bytes _))))` \\
+      rename1 `evaluate_ck _ _ _ [e] = (_, Rerr (Rabort (Rffi_error (Final_event
+      (ExCall s) conf bytes _))))` \\
       asm_exists_tac \\
       qexists_tac `FFIDiv s conf bytes` \\
       fs[evaluate_ck_def,SEP_IMPPOST_VARIANTS,SEP_IMP_def] \\
@@ -3361,14 +3567,12 @@ Proof
       metis_tac[]
     )
   )
-
   THEN1 (
     (* Lannot *)
     cf_strip_sound_full_tac \\ fs [sound_def, htriple_valid_def] \\
     first_assum progress \\ fs [evaluate_to_heap_def, evaluate_ck_def] \\
     metis_tac[]
   )
-
   THEN1 (
     (* Tannot *)
     cf_strip_sound_full_tac \\ fs [sound_def, htriple_valid_def] \\
@@ -3396,7 +3600,7 @@ Theorem cf_sound':
             st2heap p st' = heap
           | FFIDiv name conf bytes => ∃ck st'.
             evaluate (st with clock := ck) env [e] =
-            (st', Rerr (Rabort (Rffi_error (Final_event name conf bytes FFI_diverged)))) /\
+            (st', Rerr (Rabort (Rffi_error (Final_event (ExtCall name) conf bytes FFI_diverged)))) /\
             st'.next_type_stamp = st.next_type_stamp ∧
             st'.next_exn_stamp = st.next_exn_stamp ∧
             st2heap p st' = heap
@@ -3433,7 +3637,7 @@ Theorem cf_sound_local:
             st2heap p st' = heap
           | FFIDiv name conf bytes => ∃ck st'.
             evaluate (st with clock := ck) env [e] =
-            (st', Rerr (Rabort (Rffi_error (Final_event name conf bytes FFI_diverged)))) /\
+            (st', Rerr (Rabort (Rffi_error (Final_event (ExtCall name) conf bytes FFI_diverged)))) /\
             st'.next_type_stamp = st.next_type_stamp ∧
             st'.next_exn_stamp = st.next_exn_stamp ∧
             st2heap p st' = heap
@@ -3463,7 +3667,7 @@ Proof
 QED
 
 Theorem app_of_cf:
-   !ns env body xvs env' H Q.
+   !ns env body xvs H Q.
      ns <> [] ==>
      LENGTH xvs = LENGTH ns ==>
      cf (p:'ffi ffi_proj) body (extend_env ns xvs env) H Q ==>
@@ -3491,4 +3695,3 @@ Proof
   progress (REWRITE_RULE [sound_def] cf_sound)
 QED
 
-val _ = export_theory();

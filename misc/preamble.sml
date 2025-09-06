@@ -13,6 +13,19 @@ open ASCIInumbersTheory BasicProvers Defn HolKernel Parse SatisfySimps Tactic
      pairTheory pred_setTheory quantHeuristicsLib relationTheory res_quanTheory
      rich_listTheory sortingTheory sptreeTheory stringTheory sumTheory
      wordsTheory;
+(*Temporary workaround for cache being slow on long files*)
+fun clear_cache_prover (t,tac)  =
+ let
+   val _ = List.app Cache.clear_cache [numSimps.arith_cache, intSimps.omega_cache,
+                                       intSimps.cooper_cache]
+   val res = Tactical.default_prover (t,tac)
+   val _ = List.app Cache.clear_cache [numSimps.arith_cache, intSimps.omega_cache,
+                                       intSimps.cooper_cache]
+ in
+   res
+ end
+val _ = Tactical.set_prover clear_cache_prover;
+
 (* TOOD: move? *)
 val wf_rel_tac = WF_REL_TAC
 val induct_on = Induct_on
@@ -24,6 +37,13 @@ fun asm_match q = Q.MATCH_ASSUM_RENAME_TAC q
 val match_exists_tac = part_match_exists_tac (hd o strip_conj)
 val asm_exists_tac = first_assum(match_exists_tac o concl)
 val has_pair_type = can dest_prod o type_of
+fun impl_subgoal_tac th =
+  let
+    val hyp_to_prove = lhand (concl th)
+  in
+    SUBGOAL_THEN hyp_to_prove (fn thm => assume_tac (MP th thm))
+  end;
+
 (* -- *)
 
 fun check_tag t = Tag.isEmpty t orelse Tag.isDisk t

@@ -2,15 +2,12 @@
   Defines the normalise_prog function which puts an arbitrary program
   in A-normal form.
 *)
-open preamble
-open set_sepTheory helperLib ml_translatorTheory ConseqConv
-open semanticPrimitivesTheory cfHeapsTheory
-open cfHeapsBaseLib cfStoreTheory
-open cfTacticsBaseLib;
-open evaluateTheory
-open ASCIInumbersTheory
-
-val _ = new_theory "cfNormalise"
+Theory cfNormalise
+Ancestors
+  set_sep ml_translator semanticPrimitives cfHeaps cfStore
+  evaluate ASCIInumbers
+Libs
+  preamble helperLib ConseqConv cfHeapsBaseLib cfTacticsBaseLib
 
 (*------------------------------------------------------------------*)
 (** The [cf] function assumes that programs are in "normal form"
@@ -21,10 +18,11 @@ val _ = new_theory "cfNormalise"
     program in normal form.
 *)
 
-val exp2v_def = Define `
+Definition exp2v_def:
   exp2v _ (Lit l) = SOME (Litv l) /\
   exp2v env (Var name) = nsLookup env.v name /\
-  exp2v _ _ = NONE`
+  exp2v _ _ = NONE
+End
 
 Theorem exp2v_evaluate:
    !e env st v. exp2v env e = SOME v ==>
@@ -33,7 +31,7 @@ Proof
   Induct \\ fs [exp2v_def, evaluate_def]
 QED
 
-val exp2v_list_def = Define `
+Definition exp2v_list_def:
   exp2v_list env [] = SOME [] /\
   exp2v_list env (x :: xs) =
     (case exp2v env x of
@@ -41,7 +39,8 @@ val exp2v_list_def = Define `
       | SOME v =>
         (case exp2v_list env xs of
           | NONE => NONE
-          | SOME vs => SOME (v :: vs)))`;
+          | SOME vs => SOME (v :: vs)))
+End
 
 Theorem exp2v_list_evaluate:
    !l lv env st. exp2v_list env l = SOME lv ==>
@@ -117,7 +116,7 @@ Proof
 QED
 
 (* [dest_opapp]: destruct an n-ary application. *)
-val dest_opapp_def = Define `
+Definition dest_opapp_def:
   dest_opapp (App Opapp l) =
        (case l of
           | [f; x] =>
@@ -125,7 +124,8 @@ val dest_opapp_def = Define `
                | SOME (f', args) => SOME (f', args ++ [x])
                | NONE => SOME (f, [x]))
           | _ => NONE) /\
-  dest_opapp _ = NONE`
+  dest_opapp _ = NONE
+End
 
 (*------------------------------------------------------------------*)
 
@@ -136,54 +136,69 @@ val dest_opapp_def = Define `
 *)
 
 (* [mk_opapp]: construct an n-ary application. *)
-val mk_opapp_def = tDefine "mk_opapp" `
+Definition mk_opapp_def:
   mk_opapp xs =
     if LENGTH xs < 2 then HD xs else
-      App Opapp [mk_opapp (FRONT xs); LAST xs]`
- (WF_REL_TAC `measure LENGTH`
-  \\ fs [LENGTH_FRONT] \\ Cases \\ fs []);
+      App Opapp [mk_opapp (FRONT xs); LAST xs]
+Termination
+  WF_REL_TAC `measure LENGTH`
+  \\ fs [LENGTH_FRONT] \\ Cases \\ fs []
+End
 
-val MEM_exp_size = Q.prove(
-  `!args a. MEM a args ==> exp_size a <= exp6_size args`,
-  Induct \\ fs [astTheory.exp_size_def] \\ rw [] \\ res_tac \\ fs []);
-
-val MEM_exp1_size = Q.prove(
-  `!rs. MEM (v,a,e') rs ==> exp_size e' < exp1_size rs`,
+Triviality MEM_exp_size:
+  !args a. MEM a args ==> exp_size a <= exp6_size args
+Proof
   Induct \\ fs [astTheory.exp_size_def] \\ rw [] \\ res_tac \\ fs []
-  \\ fs [astTheory.exp_size_def]);
+QED
 
-val exp6_size_lemma = Q.prove(
-  `!xs ys. exp6_size (xs ++ ys) = exp6_size xs + exp6_size ys`,
-  Induct \\ fs [astTheory.exp_size_def]);
+Triviality MEM_exp1_size:
+  !rs. MEM (v,a,e') rs ==> exp_size e' < exp1_size rs
+Proof
+  Induct \\ fs [astTheory.exp_size_def] \\ rw [] \\ res_tac \\ fs []
+  \\ fs [astTheory.exp_size_def]
+QED
 
-val dest_opapp_size = Q.prove(
-  `!xs p_1 p_2.
+Triviality exp6_size_lemma:
+  !xs ys. exp6_size (xs ++ ys) = exp6_size xs + exp6_size ys
+Proof
+  Induct \\ fs [astTheory.exp_size_def]
+QED
+
+Triviality dest_opapp_size:
+  !xs p_1 p_2.
       dest_opapp xs = SOME (p_1,p_2) ==>
-      exp_size p_1 + exp6_size p_2 < exp_size xs`,
+      exp_size p_1 + exp6_size p_2 < exp_size xs
+Proof
   recInduct (theorem "dest_opapp_ind") \\ fs [dest_opapp_def]
   \\ rw [] \\ every_case_tac \\ fs [] \\ rw []
   \\ fs [astTheory.exp_size_def]
-  \\ res_tac \\ fs [exp6_size_lemma,astTheory.exp_size_def]);
+  \\ res_tac \\ fs [exp6_size_lemma,astTheory.exp_size_def]
+QED
 
-val get_name_aux_def = tDefine "get_name_aux" `
+Definition get_name_aux_def:
   get_name_aux n vs =
     let v = "t" ++ num_toString n in
-      if MEM v vs then get_name_aux (n+1) (FILTER (\x. v <> x) vs) else v`
- (WF_REL_TAC `measure (\(n,vs). LENGTH vs)`
+      if MEM v vs then get_name_aux (n+1) (FILTER (\x. v <> x) vs) else v
+Termination
+  WF_REL_TAC `measure (\(n,vs). LENGTH vs)`
   \\ rw [] \\ fs [MEM_SPLIT,FILTER_APPEND]
   \\ match_mp_tac (DECIDE ``m <= m1 /\ n <= n1 ==> m + n < m1 + (n1 + 1n)``)
-  \\ fs [LENGTH_FILTER_LEQ]);
+  \\ fs [LENGTH_FILTER_LEQ]
+End
 
 val alpha = EVAL ``GENLIST (\n. CHR (n + ORD #"a")) 26`` |> concl |> rand
 
-val alpha_def = Define `alpha = ^alpha`;
+Definition alpha_def:
+  alpha = ^alpha
+End
 
 (* [get_name vs] returns a fresh name given a list [vs] of already
    used names. *)
-val get_name_def = Define `
+Definition get_name_def:
   get_name vs =
     let ws = FILTER (\s. ~(MEM [s] vs)) alpha in
-      if NULL ws then get_name_aux 0 vs else [HD ws]`;
+      if NULL ws then get_name_aux 0 vs else [HD ws]
+End
 
 (* [Lets [(n1, x1); ...; (nm, xm)] e] is the sequence of Lets:
 
@@ -193,20 +208,22 @@ val get_name_def = Define `
    let nm = xm in
    e
 *)
-val Lets_def = Define `
+Definition Lets_def:
   Lets [] e = e /\
-  Lets ((n,x)::xs) e = Let (SOME n) x (Lets xs e)`
+  Lets ((n,x)::xs) e = Let (SOME n) x (Lets xs e)
+End
 
-val wrap_if_needed_def = Define `
+Definition wrap_if_needed_def:
   wrap_if_needed needs_wrapping ns e b =
     if needs_wrapping then (
       let x = get_name ns in
       (Var (Short x), x::ns, SNOC (x,e) b)
     ) else (
       (e, ns, b)
-    )`;
+    )
+End
 
-val strip_annot_pat_def = Define `
+Definition strip_annot_pat_def:
   strip_annot_pat (Pvar v) = Pvar v /\
   strip_annot_pat (Plit l) = Plit l /\
   strip_annot_pat (Pcon c xs) = Pcon c (strip_annot_pat_list xs) /\
@@ -215,9 +232,10 @@ val strip_annot_pat_def = Define `
   strip_annot_pat Pany = Pany /\
   strip_annot_pat_list [] = [] /\
   strip_annot_pat_list (x::xs) =
-    strip_annot_pat x :: strip_annot_pat_list xs`;
+    strip_annot_pat x :: strip_annot_pat_list xs
+End
 
-val strip_annot_exp_def = tDefine"strip_annot_exp"`
+Definition strip_annot_exp_def:
   (strip_annot_exp (Raise e) =
     ast$Raise (strip_annot_exp e))
   ∧
@@ -274,15 +292,17 @@ val strip_annot_exp_def = tDefine"strip_annot_exp"`
   (strip_annot_funs [] = [])
   ∧
   (strip_annot_funs ((f,x,e)::funs) =
-    (f,x,strip_annot_exp e) :: strip_annot_funs funs)`
-  (WF_REL_TAC `inv_image $< (\x. case x of INL e => exp_size e
+    (f,x,strip_annot_exp e) :: strip_annot_funs funs)
+Termination
+  WF_REL_TAC `inv_image $< (\x. case x of INL e => exp_size e
                                  | INR (INL es) => exps_size es
                                  | INR (INR (INL pes)) => pes_size pes
                                  | INR (INR (INR funs)) => funs_size funs)` >>
-   srw_tac [ARITH_ss] [size_abbrevs, astTheory.exp_size_def]);
+   srw_tac [ARITH_ss] [size_abbrevs, astTheory.exp_size_def]
+End
 
 (*
-val norm_def = tDefine "norm" `
+Definition norm_def:
   norm (is_named: bool) (as_value: bool) (ns: string list) (Lit l) = (Lit l, ns, ([]: (string # exp) list)) /\
   norm is_named as_value ns (Var (Short name)) = (Var (Short name), name::ns, []) /\
   norm is_named as_value ns (Var long) = (Var long, ns, []) /\
@@ -387,28 +407,36 @@ val norm_def = tDefine "norm" `
      ((FST row, row_e'), ns)) /\
   protect_letrec_branch is_named ns branch =
     (let (branch_e', ns) = protect is_named ns (SND (SND branch)) in
-     ((FST branch, FST (SND branch), branch_e'), ns))`
- (...);
+     ((FST branch, FST (SND branch), branch_e'), ns))
+Termination
+  ...
+End
 (* TODO: prove the termination of [norm]. This is probably a bit tricky and
    requires refactoring the way [norm] is defined. *)
 *)
 
-val full_normalise_def = Define `
-  full_normalise ns e = FST (protect T ns (strip_annot_exp e))`;
+Definition full_normalise_def:
+  full_normalise ns e = FST (protect T ns (strip_annot_exp e))
+End
 
-val MEM_v_size = Q.prove(
-  `!xs. MEM a xs ==> v_size a < v7_size xs`,
-  Induct  \\ fs [v_size_def] \\ rw [] \\ res_tac \\ fs []);
+Triviality MEM_v_size:
+  !xs. MEM a xs ==> v_size a < v7_size xs
+Proof
+  Induct  \\ fs [v_size_def] \\ rw [] \\ res_tac \\ fs []
+QED
 
-val norm_exp_rel_def = Define `
+Definition norm_exp_rel_def:
   norm_exp_rel ns e1 e2 <=> (e1 = e2) \/
-                            (full_normalise ns e1 = e2)`
+                            (full_normalise ns e1 = e2)
+End
 
-val free_in_def = Define ` (* TODO: complete *)
+Definition free_in_def:
+  (* TODO: complete *)
   free_in (Lit l) v = T /\
   free_in (Var w) v = (w = v) /\
   free_in (Let NONE e1 e2) v = (free_in e1 v \/ free_in e2 v) /\
-  free_in (Let (SOME x) e1 e2) v = (free_in e1 v \/ (free_in e2 v /\ v <> Short x))`
+  free_in (Let (SOME x) e1 e2) v = (free_in e1 v \/ (free_in e2 v /\ v <> Short x))
+End
 
 Inductive norm_rel:
   (!i.
@@ -450,13 +478,14 @@ Inductive norm_res_rel:
   (!a. norm_rel v1 v2 ==> norm_res_rel (Rerr (Rabort a)) (Rerr (Rabort a)))
 End
 
-val norm_state_rel_def = Define `
+Definition norm_state_rel_def:
   norm_state_rel s1 s2 <=>
      s1.clock = s2.clock ∧
      EVERY2 norm_ref_rel s1.refs s2.refs ∧
      s1.ffi = s2.ffi ∧
      s1.defined_types = s2.defined_types ∧
-     s1.defined_mods = s2.defined_mods`
+     s1.defined_mods = s2.defined_mods
+End
 
 (*
 Theorem full_normalise_correct:
@@ -469,23 +498,26 @@ Proof
 QED TODO
 *)
 
-val full_normalise_exp_def = Define `
-  full_normalise_exp exp = full_normalise [] exp`
+Definition full_normalise_exp_def:
+  full_normalise_exp exp = full_normalise [] exp
+End
 
-val full_normalise_decl_def = Define `
+Definition full_normalise_decl_def:
   full_normalise_decl (Dlet locs pat exp) =
     Dlet locs pat (full_normalise [] exp) /\
   full_normalise_decl (Dletrec locs l) =
     Dletrec locs (MAP (\ (f, n, e). (f, n, full_normalise [f; n] e)) l) /\
-  full_normalise_decl decl = decl`;
+  full_normalise_decl decl = decl
+End
 
-val full_normalise_top_def = Define `
+Definition full_normalise_top_def:
   full_normalise_top (Tdec decl) = Tdec (full_normalise_decl decl) /\
-  full_normalise_top top = top`;
+  full_normalise_top top = top
+End
 
-val full_normalise_prog_def = Define `
-  full_normalise_prog prog = MAP full_normalise_top prog`;
+Definition full_normalise_prog_def:
+  full_normalise_prog prog = MAP full_normalise_top prog
+End
 
 *)
 
-val _ = export_theory ()

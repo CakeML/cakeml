@@ -2,11 +2,13 @@
   Proves a connection between the monadic translator's ArrowP
   judgement and CF's app judgement.
 *)
-open ml_monad_translatorBaseTheory ml_monad_translatorTheory cfHeapsBaseTheory set_sepTheory pred_setTheory cfStoreTheory Satisfy
-open semanticPrimitivesTheory cfTacticsLib evaluateTheory ml_translatorTheory
-open evaluateTheory
-
-val _ = new_theory"cfMonad"
+Theory cfMonad
+Ancestors
+  ml_monad_translatorBase ml_monad_translator cfHeapsBase set_sep
+  pred_set cfStore semanticPrimitives evaluate ml_translator
+  evaluate
+Libs
+  Satisfy cfTacticsLib
 
 (* Theorems to convert monadic specifications to cf specifications *)
 
@@ -63,35 +65,42 @@ fun EXTRACT_PURE_FACTS_TAC (g as (asl, w)) =
   end;
 (***********************************************************************************************)
 
-val REFS_PRED_lemma = Q.prove(
-`SPLIT (st2heap (p : 'ffi ffi_proj)  st) (h1, h2) /\ H refs h1 ==> REFS_PRED (H,p) refs st`,
-rw[REFS_PRED_def, STAR_def]
+Triviality REFS_PRED_lemma:
+  SPLIT (st2heap (p : 'ffi ffi_proj)  st) (h1, h2) /\ H refs h1 ==> REFS_PRED (H,p) refs st
+Proof
+  rw[REFS_PRED_def, STAR_def]
 \\ qexists_tac `h1`
 \\ qexists_tac `h2`
 \\ fs[SAT_GC]
-);
+QED
 
-val HPROP_SPLIT3 = Q.prove(
-`(H1 * H2 * H3) h ==> ?h1 h2 h3. SPLIT3 h (h1, h2, h3) /\ H1 h1 /\ H2 h2 /\ H3 h3`,
-rw[STAR_def, SPLIT_def, SPLIT3_def]
+Triviality HPROP_SPLIT3:
+  (H1 * H2 * H3) h ==> ?h1 h2 h3. SPLIT3 h (h1, h2, h3) /\ H1 h1 /\ H2 h2 /\ H3 h3
+Proof
+  rw[STAR_def, SPLIT_def, SPLIT3_def]
 \\ fs[DISJOINT_UNION]
-\\ metis_tac[]);
+\\ metis_tac[]
+QED
 
-val HPROP_SPLIT3_clock0 = Q.prove(
-`(H1 * H2 * H3) (st2heap p st) ==>
- ?h1 h2 h3. SPLIT3 (st2heap p (st with clock := 0)) (h1, h2, h3) /\ H1 h1 /\ H2 h2 /\ H3 h3`,
-rw[STAR_def, SPLIT_def, SPLIT3_def]
+Triviality HPROP_SPLIT3_clock0:
+  (H1 * H2 * H3) (st2heap p st) ==>
+ ?h1 h2 h3. SPLIT3 (st2heap p (st with clock := 0)) (h1, h2, h3) /\ H1 h1 /\ H2 h2 /\ H3 h3
+Proof
+  rw[STAR_def, SPLIT_def, SPLIT3_def]
 \\ fs[DISJOINT_UNION, st2heap_def]
-\\ metis_tac[]);
+\\ metis_tac[]
+QED
 
-val REFS_PRED_from_SPLIT = Q.prove(
-  `!state (st : 'ffi semanticPrimitives$state) H p h1 h2.
+Triviality REFS_PRED_from_SPLIT:
+  !state (st : 'ffi semanticPrimitives$state) H p h1 h2.
    H state h1 ==>
    SPLIT (st2heap p st) (h1,h2) ==>
-   REFS_PRED (H,p) state st`,
-   rw[REFS_PRED_def]
+   REFS_PRED (H,p) state st
+Proof
+  rw[REFS_PRED_def]
    \\ rw[STAR_def]
-   \\ metis_tac[SAT_GC]);
+   \\ metis_tac[SAT_GC]
+QED
 
 Theorem ArrowP_PURE_to_app:
    !A B f fv x1 xv1 xv2 xvl H Q ro state p.
@@ -132,9 +141,9 @@ Theorem ArrowP_MONAD_to_app:
      app (p : 'ffi ffi_proj) fv [xv] (H refs)
      (POSTve
         (\rv. SEP_EXISTS refs' r. H refs' *
-              &(f x refs = (Success r, refs')) * &(B r rv))
+              &(f x refs = (M_success r, refs')) * &(B r rv))
         (\ev. SEP_EXISTS refs' e. H refs' *
-              &(f x refs = (Failure e, refs')) * &(C e ev)))
+              &(f x refs = (M_failure e, refs')) * &(C e ev)))
 Proof
   rw [app_def, app_basic_def, ArrowP_def, EqSt_def, PURE_def]
   \\ fs [PULL_EXISTS]
@@ -172,9 +181,9 @@ Theorem ArrowP_MONAD_EqSt_to_app:
      app (p : 'ffi ffi_proj) fv [xv] (H refs)
      (POSTve
           (\rv. SEP_EXISTS refs' r. H refs' *
-                &(f x refs = (Success r, refs')) * &(B r rv))
+                &(f x refs = (M_success r, refs')) * &(B r rv))
           (\ev. SEP_EXISTS refs' e. H refs' *
-                &(f x refs = (Failure e, refs')) * &(C e ev)))
+                &(f x refs = (M_failure e, refs')) * &(C e ev)))
 Proof
   rw [app_def, app_basic_def, ArrowP_def, EqSt_def, PURE_def]
   \\ fs [PULL_EXISTS]
@@ -248,11 +257,11 @@ QED
 
 Theorem EvalM_from_app_gen:
    !(eff_v:v) ARG_TYPE EXC_TYPE P.
-   (!x s. ?r t. f x s = (Success r, t)) /\
+   (!x s. ?r t. f x s = (M_success r, t)) /\
    (!x xv s ret new_s.
      P s ==>
      ARG_TYPE x xv ==>
-     (f x s = (Success ret, new_s)) ==>
+     (f x s = (M_success ret, new_s)) ==>
      app (p: 'ffi ffi_proj) fun_v [xv] (H s)
        (POSTv rv. &RET_TYPE ret rv * (H new_s)))
    ==>
@@ -281,7 +290,7 @@ Proof
   \\ rpt (disch_then drule) \\ rw []
   \\ fs [cfHeapsBaseTheory.POSTv_def, cfHeapsBaseTheory.POST_def]
   \\ FULL_CASE_TAC \\ fs [set_sepTheory.cond_def]
-  \\ rw [evaluate_def, PULL_EXISTS]
+  \\ rw [evaluate_def, astTheory.getOpClass_def, PULL_EXISTS]
   \\ CONV_TAC SWAP_EXISTS_CONV
   \\ rename1 `RET_TYPE r val`
   \\ qexists_tac `Rval [val]` \\ fs [PULL_EXISTS]
@@ -345,10 +354,10 @@ QED
 
 Theorem EvalM_from_app:
    !(eff_v:v) ARG_TYPE EXC_TYPE.
-   (!x s. ?r t. f x s = (Success r, t)) /\
+   (!x s. ?r t. f x s = (M_success r, t)) /\
    (!x xv s ret new_s.
      ARG_TYPE x xv ==>
-     (f x s = (Success ret, new_s)) ==>
+     (f x s = (M_success ret, new_s)) ==>
      app (p: 'ffi ffi_proj) fun_v [xv] (H s)
        (POSTv rv. &RET_TYPE ret rv * (H new_s)))
    ==>
@@ -365,11 +374,11 @@ QED
 
 Theorem EvalM_from_app_unit_gen:
    !(eff_v:v) EXC_TYPE P.
-   (!s. ?r t. f s = (Success r, t)) /\
+   (!s. ?r t. f s = (M_success r, t)) /\
    (!xv s ret new_s.
      P s ==>
      UNIT_TYPE () xv ==>
-     (f s = (Success ret, new_s)) ==>
+     (f s = (M_success ret, new_s)) ==>
      app (p: 'ffi ffi_proj) fun_v [xv] (H s)
        (POSTv rv. &RET_TYPE ret rv * (H new_s)))
    ==>
@@ -397,7 +406,7 @@ Proof
   \\ rpt (disch_then drule) \\ rw []
   \\ fs [cfHeapsBaseTheory.POSTv_def, cfHeapsBaseTheory.POST_def]
   \\ FULL_CASE_TAC \\ fs [set_sepTheory.cond_def]
-  \\ rw [evaluate_def, PULL_EXISTS]
+  \\ rw [evaluate_def, astTheory.getOpClass_def, PULL_EXISTS]
   \\ CONV_TAC SWAP_EXISTS_CONV
   \\ rename1 `RET_TYPE r val`
   \\ qexists_tac `Rval [val]` \\ fs [PULL_EXISTS]
@@ -460,10 +469,10 @@ QED
 
 Theorem EvalM_from_app_unit:
    !(eff_v:v) EXC_TYPE.
-   (!s. ?r t. f s = (Success r, t)) /\
+   (!s. ?r t. f s = (M_success r, t)) /\
    (!xv s ret new_s.
      UNIT_TYPE () xv ==>
-     (f s = (Success ret, new_s)) ==>
+     (f s = (M_success ret, new_s)) ==>
      app (p: 'ffi ffi_proj) fun_v [xv] (H s)
        (POSTv rv. &RET_TYPE ret rv * (H new_s)))
    ==>
@@ -479,4 +488,3 @@ Proof
   \\ simp[]
 QED
 
-val _ = export_theory();

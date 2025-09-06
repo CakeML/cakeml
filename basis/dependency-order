@@ -15,6 +15,7 @@ Vector
 String
 mlbasics (defines Bool, Pair)
 Int
+PrettyPrinter
 Rat
 Char
 Word64
@@ -22,9 +23,9 @@ Word8
 Word8Array
 Array
 Map
+Set
 Hashtable
 CommandLine
 Double
 TextIO
-PrettyPrinter
 basis

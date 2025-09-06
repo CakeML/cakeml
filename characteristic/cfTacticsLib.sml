@@ -9,6 +9,7 @@ open ConseqConv
 open set_sepTheory cfAppTheory cfHeapsTheory cfTheory cfTacticsTheory
 open helperLib cfHeapsBaseLib cfHeapsLib cfTacticsBaseLib evarsConseqConvLib
 open cfAppLib cfSyntax semanticPrimitivesSyntax
+open xcf;
 
 val ERR = mk_HOL_ERR "cfTacticsLib";
 
@@ -106,12 +107,20 @@ val reducible_pats = [
   ``Fun_body _``
 ]
 
-val reduce_conv =
+val old_reduce_conv =
     DEPTH_CONV (
       List.foldl (fn (pat, conv) => (eval_pat pat) ORELSEC conv)
                  ALL_CONV reducible_pats
     ) THENC
     (simp_conv [])
+
+val reduce_conv =
+    (DEPTH_CONV (
+      List.foldl (fn (pat, conv) => (eval_pat pat) ORELSEC conv)
+                 ALL_CONV reducible_pats
+    )) THENC
+    (STRIP_QUANT_CONV (simp_conv []))
+    THENC (SIMP_CONV (list_ss) [])
 
 val reduce_tac = CONV_TAC reduce_conv
 
@@ -187,62 +196,9 @@ val xsimpl =
   CHANGED_TAC (rpt (hsimpl \\ sep_imp_instantiate_tac))
   ORELSE sep_imp_instantiate_tac
 
-(* [xcf] *)
+(* [xcf], [xcfs] *)
 
-fun naryFun_repack_conv tm =
-  let
-    val (base_case, rec_case) = CONJ_PAIR (GSYM naryFun_def)
-    val Fun_pat = ``Fun _ _``
-    val conv =
-        if can (match_term Fun_pat) tm then
-          (RAND_CONV naryFun_repack_conv) THENC
-          (REWR_CONV rec_case)
-        else
-          REWR_CONV base_case
-  in conv tm
-  end
-
-val naryClosure_repack_conv =
-  (RAND_CONV naryFun_repack_conv) THENC (REWR_CONV (GSYM naryClosure_def))
-
-fun xcf_with_def name f_def =
-  let
-    val Closure_tac =
-      CONV_TAC (DEPTH_CONV naryClosure_repack_conv) \\
-      irule app_of_cf THEN
-      CONJ_TAC THEN1 eval_tac THEN
-      CONJ_TAC THEN1 eval_tac THEN simp [cf_def]
-
-    val Recclosure_tac =
-      CONV_TAC (DEPTH_CONV (REWR_CONV (GSYM letrec_pull_params_repack))) \\
-      irule app_rec_of_cf THEN
-      CONJ_TAC THEN1 eval_tac THEN
-        rpt(CHANGED_TAC(simp[Once cf_def] \\ reduce_tac))\\
-        CONV_TAC (
-          DEPTH_CONV (
-            REWR_CONV letrec_pull_params_repack THENC
-            REWR_CONV (GSYM f_def)))
-    fun closure_tac (g as (_, w)) =
-      let val (_, c, _, _, _) = cfAppSyntax.dest_app w in
-          if is_Closure c then
-            Closure_tac g
-          else if is_Recclosure c then
-            Recclosure_tac g
-          else
-            err_tac "xcf" "argument of app is not a closure" g
-      end
-      handle HOL_ERR _ =>
-             err_tac "xcf" "goal is not an app" g
-  in
-    rpt strip_tac \\ simp [f_def] \\ closure_tac \\ reduce_tac
-  end;
-
-fun xcf name st =
-  let
-    val f_def = fetch_def name st
-  in
-    xcf_with_def name f_def
-  end;
+(* Implemented in xcf.sml *)
 
 (* [xlet] *)
 
@@ -471,7 +427,7 @@ fun xspec_in_asl f asl : (spec_kind * term) option =
 
 fun xspec_in_db f : (string * string * spec_kind * thm) option =
   case DB.matchp (fn thm => is_spec_for f (concl thm)) [] of
-      ((thy, name), (thm, _)) :: _ =>
+      ((thy, name), (thm, _, _)) :: _ =>
       (case spec_kind_for f (concl thm) of
            SOME k => SOME (thy, name, k, thm)
          | NONE => fail())
@@ -669,7 +625,7 @@ in if Teq (rhs (concl th)) then th else fail () end
 
 val validate_pat_all_conv =
   REPEATC (
-    RAND_CONV validate_pat_conv THENC RW.RW_CONV [boolTheory.AND_CLAUSES]
+    RAND_CONV validate_pat_conv THENC PURE_REWRITE_CONV [boolTheory.AND_CLAUSES]
   )
 
 local

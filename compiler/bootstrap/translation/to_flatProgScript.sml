@@ -1,14 +1,18 @@
 (*
   Translate backend phases up to and including flatLang.
 *)
-open preamble ml_translatorLib ml_translatorTheory basisProgTheory
+Theory to_flatProg
+Ancestors
+  ml_translator decProg source_to_flat[qualified]
+  source_to_source[qualified]
+Libs
+  preamble ml_translatorLib
 
-local open source_to_flatTheory in end;
+open preamble ml_translatorLib ml_translatorTheory decProgTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
-val _ = new_theory "to_flatProg";
-val _ = translation_extends "basisProg";
+val _ = translation_extends "decProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_flatProg");
 
@@ -31,9 +35,11 @@ fun list_mk_fun_type [ty] = ty
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-val NOT_NIL_AND_LEMMA = Q.prove(
-  `(b <> [] /\ x) = if b = [] then F else x`,
-  Cases_on `b` THEN FULL_SIMP_TAC std_ss []);
+Triviality NOT_NIL_AND_LEMMA:
+  (b <> [] /\ x) = if b = [] then F else x
+Proof
+  Cases_on `b` THEN FULL_SIMP_TAC std_ss []
+QED
 
 val extra_preprocessing = ref [MEMBER_INTRO,MAP];
 
@@ -76,7 +82,7 @@ val res = translate EL;
 val list_el_side = Q.prove(
   `!n xs. list_el_side n xs = (n < LENGTH xs)`,
   Induct THEN Cases_on `xs` THEN ONCE_REWRITE_TAC [fetch "-" "list_el_side_def"]
-  THEN FULL_SIMP_TAC (srw_ss()) [CONTAINER_def])
+  THEN fs[CONTAINER_def])
   |> update_precondition;
 
 (* -- *)
@@ -92,13 +98,21 @@ val res = translate source_to_flatTheory.alloc_tags1_def;
 val res = translate (DefnBase.one_line_ify NONE namespaceTheory.nsMap_def);
 val res = translate source_to_flatTheory.alloc_tags_def;
 val res = translate source_to_flatTheory.alloc_env_ref_def;
-val res = translate source_to_flatTheory.glob_alloc_def;
+val res = translate (source_to_flatTheory.glob_alloc_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 
 val res = translate source_to_flatTheory.compile_decs_def;
 val res = translate source_to_flatTheory.compile_prog_def;
 
 val _ = (length (hyp res) = 0)
         orelse failwith "Unproved side condition: source_to_flat_compile_prog";
+(* ------------------------------------------------------------------------- *)
+(* source_to_source                                                          *)
+(* ------------------------------------------------------------------------- *)
+
+val res = translate source_to_sourceTheory.compile_def;
+
+val _ = (length (hyp res) = 0)
+        orelse failwith "Unproved side condition: source_to_source_compile";
 
 (* ------------------------------------------------------------------------- *)
 (* flat_elim                                                                 *)
@@ -111,6 +125,7 @@ val res = translate flat_elimTheory.remove_flat_prog_def;
 (* flat_pattern                                                              *)
 (* ------------------------------------------------------------------------- *)
 
+val _ = translate flatLangTheory.SmartIf_PMATCH
 val _ = translate pattern_compTheory.is_True_def
 val _ = translate pattern_compTheory.is_Any_def
 val _ = translate pattern_compTheory.take_until_Any_def
@@ -118,19 +133,8 @@ val _ = translate pattern_compTheory.comp_def
 
 val res = translate flat_patternTheory.enc_num_to_name_def;
 
-val enc_side = Q.prove(
-  `!n s. flat_pattern_enc_num_to_name_side n s = T`,
-  gen_tac
-  \\ measureInduct_on `I n`
-  \\ simp [fetch "-" "flat_pattern_enc_num_to_name_side_def"]
-  ) |> update_precondition;
-
+val res = translate (flat_patternTheory.sum_string_ords_def |> RW [GSYM sub_check_def]);
 val res = translate flat_patternTheory.dec_name_to_num_def;
-
-val dec_side = Q.prove(
-  `!s. flat_pattern_dec_name_to_num_side s = T`,
-  simp [fetch "-" "flat_pattern_dec_name_to_num_side_def"]
-  ) |> update_precondition;
 
 val res = translate rich_listTheory.COUNT_LIST_compute;
 
@@ -144,9 +148,16 @@ val res = translate source_to_flatTheory.compile_flat_def;
 
 val res = translate source_to_flatTheory.compile_def;
 
+val _ = (length (hyp res) = 0)
+        orelse failwith "Unproved side condition: source_to_flat_compile";
+
+val res = translate source_to_flatTheory.inc_compile_def;
+
+val _ = (length (hyp res) = 0)
+        orelse failwith "Unproved side condition: source_to_flat_inc_compile";
+
 (* ------------------------------------------------------------------------- *)
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 val _ = ml_translatorLib.clean_on_exit := true;
-val _ = export_theory ();

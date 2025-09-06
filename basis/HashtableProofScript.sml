@@ -1,13 +1,12 @@
 (*
 Proof of the hashtable module
 *)
-
-open preamble ml_translatorTheory ml_translatorLib cfLib
-     mlbasicsProgTheory ArrayProgTheory ArrayProofTheory ListProgTheory
-     MapProgTheory HashtableProgTheory
-     comparisonTheory;
-
-val _ = new_theory"HashtableProof";
+Theory HashtableProof
+Ancestors
+  mlmap ml_translator mlbasicsProg ArrayProg ArrayProof ListProg
+  MapProg HashtableProg comparison
+Libs
+  preamble ml_translatorLib cfLib
 
 val _ = translation_extends "HashtableProg";
 
@@ -19,30 +18,36 @@ val hashtable_st = get_ml_prog_state();
 (* the vlv list contains the buckets *)
 (* each bucket only contains keys that hash there *)
 
-val hash_key_set_def = Define`
-  hash_key_set hf length idx  = { k' | hf k' MOD length = idx }`;
+Definition hash_key_set_def:
+  hash_key_set hf length idx  = { k' | hf k' MOD length = idx }
+End
 
-val bucket_ok_def = Define `
+Definition bucket_ok_def:
 bucket_ok b hf idx length  = !k v.
-      (mlmap$lookup b k = SOME v ==> k ∈ (hash_key_set hf length idx))`;
+      (mlmap$lookup b k = SOME v ==> k ∈ (hash_key_set hf length idx))
+End
 
-val buckets_empty_def = Define `
-  buckets_empty bs = (MAP mlmap$to_fmap bs = (REPLICATE (LENGTH bs) FEMPTY))`;
+Definition buckets_empty_def:
+  buckets_empty bs = (MAP mlmap$to_fmap bs = (REPLICATE (LENGTH bs) FEMPTY))
+End
 
 
-val buckets_to_fmap_def = Define `
-  buckets_to_fmap xs = alist_to_fmap (FLAT (MAP mlmap$toAscList xs))`;
+Definition buckets_to_fmap_def:
+  buckets_to_fmap xs = alist_to_fmap (FLAT (MAP mlmap$toAscList xs))
+End
 
-val list_union_def = Define `
+Definition list_union_def:
   list_union [x] = x /\
-  list_union (x::xs) = mlmap$union x (list_union xs)`;
+  list_union (x::xs) = mlmap$union x (list_union xs)
+End
 
-val buckets_ok_def = Define `
+Definition buckets_ok_def:
    buckets_ok bs hf =
      !i. i < LENGTH bs ==>
-       bucket_ok (EL i bs) hf i (LENGTH bs)`;
+       bucket_ok (EL i bs) hf i (LENGTH bs)
+End
 
-val hashtable_inv_def = Define `
+Definition hashtable_inv_def:
   hashtable_inv a b hf cmp (h:('a|->'b)) vlv =
     ?buckets.
       h = to_fmap (list_union buckets) /\
@@ -50,29 +55,31 @@ val hashtable_inv_def = Define `
       0 <> (LENGTH vlv)  /\
       LIST_REL (MAP_TYPE a b) buckets vlv /\
       EVERY mlmap$map_ok buckets /\
-      EVERY (\t. mlmap$cmp_of t = cmp) buckets`;
+      EVERY (\t. mlmap$cmp_of t = cmp) buckets
+End
 
 
 
-val REF_NUM_def = Define `
+Definition REF_NUM_def:
   REF_NUM loc n =
-    SEP_EXISTS v. REF loc v * & (NUM n v)`;
+    SEP_EXISTS v. REF loc v * & (NUM n v)
+End
 
-val REF_ARRAY_def = Define `
-  REF_ARRAY loc arr content = REF loc arr * ARRAY arr content`;
+Definition REF_ARRAY_def:
+  REF_ARRAY loc arr content = REF loc arr * ARRAY arr content
+End
 
-
-
-val HASHTABLE_def = Define
- `HASHTABLE a b hf cmp h v =
+Definition HASHTABLE_def:
+  HASHTABLE a b hf cmp h v =
     SEP_EXISTS ur ar hfv vlv arr cmpv heuristic_size.
-      &(v = (Conv (SOME (TypeStamp "Hashtable" 27)) [ur; ar; hfv; cmpv]) /\
+      &(v = (Conv hashtable_con_stamp [ur; ar; hfv; cmpv]) /\
         (a --> NUM) hf hfv /\
         (a --> a --> ORDERING_TYPE) cmp cmpv /\
         TotOrd cmp /\
         hashtable_inv a b hf cmp h vlv) *
       REF_NUM ur heuristic_size *
-      REF_ARRAY ar arr vlv`;
+      REF_ARRAY ar arr vlv
+End
 
 Theorem hashtable_initBuckets_spec:
   !a b n nv cmp cmpv.
@@ -83,7 +90,8 @@ Theorem hashtable_initBuckets_spec:
       (POSTv ar. SEP_EXISTS mpv. &(MAP_TYPE a b (mlmap$empty cmp) mpv) *
                                  ARRAY ar (REPLICATE n mpv))
 Proof
-  xcf_with_def "Hashtable.initBuckets" Hashtable_initBuckets_v_def
+  rpt strip_tac
+  \\ xcf_with_def Hashtable_initBuckets_v_def
   \\ xlet `POSTv r1. & (MAP_TYPE a b (mlmap$empty cmp) r1)`
     >-(xapp
     \\ simp[])
@@ -486,7 +494,8 @@ Theorem hashtable_empty_spec:
         emp
         (POSTv htv. HASHTABLE a b hf cmp FEMPTY htv)
 Proof
-  xcf_with_def "Hashtable.empty" Hashtable_empty_v_def
+  rpt strip_tac
+  \\ xcf_with_def Hashtable_empty_v_def
   \\ xlet_auto
     >-(xsimpl)
   \\ xlet `POSTv v. &(NUM 1 v \/ (NUM size' v /\ BOOL F bv))`
@@ -507,7 +516,7 @@ Proof
       \\ fs[REF_ARRAY_def, REF_NUM_def]
       \\ xsimpl)
     \\ xcon
-    \\ fs[HASHTABLE_def]
+    \\ fs[HASHTABLE_def, hashtable_con_stamp_def]
     \\ xsimpl
     \\ qexists_tac `(REPLICATE 1 mpv)`
     \\ qexists_tac `arr`
@@ -535,7 +544,7 @@ Proof
       \\ fs[REF_ARRAY_def, REF_NUM_def]
       \\ xsimpl)
   \\ xcon
-  \\ fs[HASHTABLE_def]
+  \\ fs[HASHTABLE_def, hashtable_con_stamp_def]
   \\ xsimpl
   \\ qexists_tac `(REPLICATE size' mpv)`
   \\ qexists_tac `arr`
@@ -808,124 +817,125 @@ Theorem hashtable_staticInsert_spec:
         (HASHTABLE a b hf cmp h htv)
         (POSTv uv. &(UNIT_TYPE () uv) * HASHTABLE a b hf cmp (h|+(k,v)) htv)
 Proof
-xcf_with_def "Hashtable.staticInsert" Hashtable_staticInsert_v_def
-\\ fs[HASHTABLE_def]
-\\ xpull
-\\ xmatch
-\\ fs[hashtable_inv_def]
-\\ xlet `POSTv arr. SEP_EXISTS aRef arr2 avl uRef uv uvv.
-    &(aRef = ar /\ arr2 = arr /\ avl = vlv /\ uRef = ur /\ uv = heuristic_size) *
-    REF_ARRAY ar arr vlv * REF ur uvv * & (NUM heuristic_size uvv)`
-  >-(xapp
-    \\qexists_tac `ARRAY arr vlv * REF_NUM ur heuristic_size`
-    \\qexists_tac `arr`
-    \\fs[REF_ARRAY_def, REF_NUM_def]
-    \\xsimpl)
-\\ xlet `POSTv v. SEP_EXISTS length. &(length = LENGTH vlv /\ NUM length v) * REF_ARRAY aRef arr2 avl * REF_NUM uRef uv`
-  >-(xapp
-    \\qexists_tac `aRef ~~> arr2 * REF_NUM uRef uv`
-    \\qexists_tac `avl`
-    \\fs[REF_ARRAY_def,REF_NUM_def]
-    \\xsimpl)
-\\ xlet `POSTv v. SEP_EXISTS hashval. &(hashval = (hf k) /\ NUM hashval v) * REF_ARRAY aRef arr2 avl * REF_NUM uRef uv`
-  >-(xapp
-    \\qexists_tac `REF_ARRAY aRef arr2 avl * REF_NUM uRef uv`
-    \\qexists_tac `k`
-    \\qexists_tac `hf`
-    \\conj_tac
-     >-(qexists_tac `a`
-      \\simp[])
-    \\xsimpl)
-\\ xlet `POSTv v. SEP_EXISTS idx. &(idx = (hashval MOD length') /\ NUM idx v /\
-    idx < LENGTH avl /\ idx < LENGTH buckets /\ LENGTH buckets = LENGTH avl) * REF_ARRAY aRef arr2 avl * REF_NUM uRef uv`
-  >-(xapp
-    \\qexists_tac `REF_ARRAY aRef arr2 avl * REF_NUM uRef uv`
-    \\qexists_tac `&length'`
-    \\qexists_tac `&hashval`
-    \\fs[NOT_NIL_EQ_LENGTH_NOT_0,X_MOD_Y_EQ_X,LENGTH_NIL_SYM,NUM_def, hashtable_inv_def, LIST_REL_LENGTH]
-    \\xsimpl
-    \\EVAL_TAC
-    \\fs[LIST_REL_LENGTH,NOT_NIL_EQ_LENGTH_NOT_0,LIST_REL_EL_EQN, X_MOD_Y_EQ_X])
-\\ xlet `POSTv mp. SEP_EXISTS oldMap. &(oldMap = mp /\ MAP_TYPE a b (EL idx buckets) mp) * REF_ARRAY aRef arr2 avl * REF_NUM uRef uv`
- >-(xapp
-    \\qexists_tac `aRef ~~> arr2 * REF_NUM uRef uv`
-    \\qexists_tac `idx`
-    \\qexists_tac `vlv`
-    \\fs[hashtable_inv_def,NOT_NIL_EQ_LENGTH_NOT_0,LIST_REL_EL_EQN, X_MOD_Y_EQ_X,REF_ARRAY_def]
-    \\xsimpl)
-\\ xlet `POSTv retv. SEP_EXISTS newMp.
-      &(newMp = retv /\  MAP_TYPE a b (mlmap$insert (EL idx buckets)  k v) retv) * REF_ARRAY aRef arr2 avl * REF_NUM uRef uv`
- >-(xapp
-    \\qexists_tac `REF_ARRAY aRef arr2 avl * REF_NUM uRef uv`
-    \\qexists_tac `v`
-    \\qexists_tac `k`
-    \\qexists_tac `EL idx buckets`
-    \\qexists_tac `b`
-    \\qexists_tac `a`
-    \\fs[LIST_REL_EL_EQN]
-    \\xsimpl)
-\\ xlet `POSTv unitv. SEP_EXISTS newBuckets.
-    &(UNIT_TYPE () unitv /\ newBuckets = (LUPDATE newMp idx avl)) *
-    REF_ARRAY aRef arr2 newBuckets * REF_NUM uRef uv`
-  >-(xapp
-    \\qexists_tac `aRef ~~> arr2 * REF_NUM uRef uv`
-    \\qexists_tac `idx`
-    \\qexists_tac `vlv`
-    \\fs[REF_ARRAY_def]
-    \\xsimpl)
-\\ xlet `POSTv b. &(BOOL (mlmap$null (EL idx buckets)) b) * REF_ARRAY aRef arr2 newBuckets * REF_NUM uRef uv`
-  >-(xapp
-    \\qexists_tac `REF_ARRAY aRef arr2 newBuckets * REF_NUM uRef uv`
-    \\qexists_tac `EL idx buckets`
-    \\xsimpl
-    \\qexists_tac `a`
-    \\qexists_tac `b`
-    \\fs[])
-THEN1 (xif
-THEN1 (xlet `POSTv usedv. &(NUM uv usedv) * REF_ARRAY aRef arr2 newBuckets * REF_NUM uRef uv`
-  >-(xapp
+  rpt strip_tac
+  \\ xcf_with_def Hashtable_staticInsert_v_def
+  \\ fs[HASHTABLE_def, hashtable_con_stamp_def]
+  \\ xpull
+  \\ xmatch
+  \\ fs[hashtable_inv_def]
+  \\ xlet `POSTv arr. SEP_EXISTS aRef arr2 avl uRef uv uvv.
+      &(aRef = ar /\ arr2 = arr /\ avl = vlv /\ uRef = ur /\ uv = heuristic_size) *
+      REF_ARRAY ar arr vlv * REF ur uvv * & (NUM heuristic_size uvv)`
+    >-(xapp
+      \\qexists_tac `ARRAY arr vlv * REF_NUM ur heuristic_size`
+      \\qexists_tac `arr`
+      \\fs[REF_ARRAY_def, REF_NUM_def]
+      \\xsimpl)
+  \\ xlet `POSTv v. SEP_EXISTS length. &(length = LENGTH vlv /\ NUM length v) * REF_ARRAY aRef arr2 avl * REF_NUM uRef uv`
+    >-(xapp
+      \\qexists_tac `aRef ~~> arr2 * REF_NUM uRef uv`
+      \\qexists_tac `avl`
+      \\fs[REF_ARRAY_def,REF_NUM_def]
+      \\xsimpl)
+  \\ xlet `POSTv v. SEP_EXISTS hashval. &(hashval = (hf k) /\ NUM hashval v) * REF_ARRAY aRef arr2 avl * REF_NUM uRef uv`
+    >-(xapp
+      \\qexists_tac `REF_ARRAY aRef arr2 avl * REF_NUM uRef uv`
+      \\qexists_tac `k`
+      \\qexists_tac `hf`
+      \\conj_tac
+       >-(qexists_tac `a`
+        \\simp[])
+      \\xsimpl)
+  \\ xlet `POSTv v. SEP_EXISTS idx. &(idx = (hashval MOD length') /\ NUM idx v /\
+      idx < LENGTH avl /\ idx < LENGTH buckets /\ LENGTH buckets = LENGTH avl) * REF_ARRAY aRef arr2 avl * REF_NUM uRef uv`
+    >-(xapp
+      \\qexists_tac `REF_ARRAY aRef arr2 avl * REF_NUM uRef uv`
+      \\qexists_tac `&length'`
+      \\qexists_tac `&hashval`
+      \\fs[NOT_NIL_EQ_LENGTH_NOT_0,X_MOD_Y_EQ_X,LENGTH_NIL_SYM,NUM_def, hashtable_inv_def, LIST_REL_LENGTH]
+      \\xsimpl
+      \\EVAL_TAC
+      \\fs[LIST_REL_LENGTH,NOT_NIL_EQ_LENGTH_NOT_0,LIST_REL_EL_EQN, X_MOD_Y_EQ_X])
+  \\ xlet `POSTv mp. SEP_EXISTS oldMap. &(oldMap = mp /\ MAP_TYPE a b (EL idx buckets) mp) * REF_ARRAY aRef arr2 avl * REF_NUM uRef uv`
+   >-(xapp
+      \\qexists_tac `aRef ~~> arr2 * REF_NUM uRef uv`
+      \\qexists_tac `idx`
+      \\qexists_tac `vlv`
+      \\fs[hashtable_inv_def,NOT_NIL_EQ_LENGTH_NOT_0,LIST_REL_EL_EQN, X_MOD_Y_EQ_X,REF_ARRAY_def]
+      \\xsimpl)
+  \\ xlet `POSTv retv. SEP_EXISTS newMp.
+        &(newMp = retv /\  MAP_TYPE a b (mlmap$insert (EL idx buckets)  k v) retv) * REF_ARRAY aRef arr2 avl * REF_NUM uRef uv`
+   >-(xapp
+      \\qexists_tac `REF_ARRAY aRef arr2 avl * REF_NUM uRef uv`
+      \\qexists_tac `v`
+      \\qexists_tac `k`
+      \\qexists_tac `EL idx buckets`
+      \\qexists_tac `b`
+      \\qexists_tac `a`
+      \\fs[LIST_REL_EL_EQN]
+      \\xsimpl)
+  \\ xlet `POSTv unitv. SEP_EXISTS newBuckets.
+      &(UNIT_TYPE () unitv /\ newBuckets = (LUPDATE newMp idx avl)) *
+      REF_ARRAY aRef arr2 newBuckets * REF_NUM uRef uv`
+    >-(xapp
+      \\qexists_tac `aRef ~~> arr2 * REF_NUM uRef uv`
+      \\qexists_tac `idx`
+      \\qexists_tac `vlv`
+      \\fs[REF_ARRAY_def]
+      \\xsimpl)
+  \\ xlet `POSTv b. &(BOOL (mlmap$null (EL idx buckets)) b) * REF_ARRAY aRef arr2 newBuckets * REF_NUM uRef uv`
+    >-(xapp
+      \\qexists_tac `REF_ARRAY aRef arr2 newBuckets * REF_NUM uRef uv`
+      \\qexists_tac `EL idx buckets`
+      \\xsimpl
+      \\qexists_tac `a`
+      \\qexists_tac `b`
+      \\fs[])
+  THEN1 (xif
+  THEN1 (xlet `POSTv usedv. &(NUM uv usedv) * REF_ARRAY aRef arr2 newBuckets * REF_NUM uRef uv`
+    >-(xapp
+      \\qexists_tac `REF_ARRAY aRef arr2 newBuckets`
+      \\qexists_tac `uvv`
+      \\fs[REF_NUM_def, NUM_def, INT_def]
+      \\xsimpl)
+  \\ xlet_auto
+    >-(qexists_tac `REF_ARRAY aRef arr2 newBuckets * REF_NUM uRef uv`
+      \\xsimpl)
+    THEN1( xapp
     \\qexists_tac `REF_ARRAY aRef arr2 newBuckets`
-    \\qexists_tac `uvv`
+    \\qexists_tac `usedv`
     \\fs[REF_NUM_def, NUM_def, INT_def]
-    \\xsimpl)
-\\ xlet_auto
-  >-(qexists_tac `REF_ARRAY aRef arr2 newBuckets * REF_NUM uRef uv`
-    \\xsimpl)
-  THEN1( xapp
-  \\qexists_tac `REF_ARRAY aRef arr2 newBuckets`
-  \\qexists_tac `usedv`
-  \\fs[REF_NUM_def, NUM_def, INT_def]
-  \\xsimpl
-  \\strip_tac
-  \\strip_tac
-  \\qexists_tac `uRef`
-  \\qexists_tac `aRef`
-  \\qexists_tac `hfv`
-  \\qexists_tac `newBuckets`
-  \\qexists_tac `arr2`
-  \\qexists_tac `cmpv`
-  \\qexists_tac `heuristic_size + 1`
-  \\xsimpl
-  \\qexists_tac `LUPDATE (mlmap$insert (EL (hf k MOD LENGTH buckets) buckets) k v) (hf k MOD LENGTH buckets) buckets`
-  \\`buckets <> []` by simp[NOT_NIL_EQ_LENGTH_NOT_0]
-  \\ imp_res_tac list_union_lupdate_insert
-  \\ simp[]
-  \\fs[every_cmp_of_insert, buckets_ok_insert, list_rel_insert, every_map_ok_insert]))
-  \\xcon
-  \\xsimpl
-  \\qexists_tac `uRef`
-  \\qexists_tac `aRef`
-  \\qexists_tac `hfv`
-  \\qexists_tac `newBuckets`
-  \\qexists_tac `arr2`
-  \\qexists_tac `cmpv`
-  \\qexists_tac `heuristic_size`
-  \\xsimpl
-  \\qexists_tac `LUPDATE (mlmap$insert (EL (hf k MOD LENGTH buckets) buckets) k v) (hf k MOD LENGTH buckets) buckets`
-  \\`buckets <> []` by simp[NOT_NIL_EQ_LENGTH_NOT_0]
-  \\ imp_res_tac list_union_lupdate_insert
-  \\ simp[]
-  \\fs[every_cmp_of_insert, buckets_ok_insert, list_rel_insert, every_map_ok_insert])
+    \\xsimpl
+    \\strip_tac
+    \\strip_tac
+    \\qexists_tac `uRef`
+    \\qexists_tac `aRef`
+    \\qexists_tac `hfv`
+    \\qexists_tac `newBuckets`
+    \\qexists_tac `arr2`
+    \\qexists_tac `cmpv`
+    \\qexists_tac `heuristic_size + 1`
+    \\xsimpl
+    \\qexists_tac `LUPDATE (mlmap$insert (EL (hf k MOD LENGTH buckets) buckets) k v) (hf k MOD LENGTH buckets) buckets`
+    \\`buckets <> []` by simp[NOT_NIL_EQ_LENGTH_NOT_0]
+    \\ imp_res_tac list_union_lupdate_insert
+    \\ simp[]
+    \\fs[every_cmp_of_insert, buckets_ok_insert, list_rel_insert, every_map_ok_insert]))
+    \\xcon
+    \\xsimpl
+    \\qexists_tac `uRef`
+    \\qexists_tac `aRef`
+    \\qexists_tac `hfv`
+    \\qexists_tac `newBuckets`
+    \\qexists_tac `arr2`
+    \\qexists_tac `cmpv`
+    \\qexists_tac `heuristic_size`
+    \\xsimpl
+    \\qexists_tac `LUPDATE (mlmap$insert (EL (hf k MOD LENGTH buckets) buckets) k v) (hf k MOD LENGTH buckets) buckets`
+    \\`buckets <> []` by simp[NOT_NIL_EQ_LENGTH_NOT_0]
+    \\ imp_res_tac list_union_lupdate_insert
+    \\ simp[]
+    \\fs[every_cmp_of_insert, buckets_ok_insert, list_rel_insert, every_map_ok_insert])
 QED
 
 Theorem list_app_pairs_spec:
@@ -937,9 +947,9 @@ Theorem list_app_pairs_spec:
   app (p:'ffi ffi_proj) List_app_v [fv; lv] (eff start)
     (POSTv v. &UNIT_TYPE () v * (eff (start + (LENGTH l))))
 Proof
- Induct_on `l` \\ rw[LIST_TYPE_def]
- >- ( xcf_with_def "List.app" List_app_v_def \\ xmatch \\ xcon \\ xsimpl )
- \\ xcf_with_def "List.app" List_app_v_def
+ Induct_on `l` \\ rw[LIST_TYPE_def] \\ rpt strip_tac
+ >- ( xcf_with_def List_app_v_def \\ xmatch \\ xcon \\ xsimpl )
+ \\ xcf_with_def List_app_v_def
  \\ xmatch
  \\ xlet`POSTv v. &UNIT_TYPE () v * eff (start+1)`
  >- (
@@ -977,7 +987,8 @@ Theorem hashtable_insertList_spec:
         (POSTv uv. &(UNIT_TYPE () uv) *
           HASHTABLE a b hf cmp (h|++l) htv)
 Proof
-  xcf_with_def "Hashtable.insertList" Hashtable_insertList_v_def
+  rpt strip_tac
+  \\ xcf_with_def Hashtable_insertList_v_def
   \\xfun_spec `f`
    `!k v pv h' n.
       n < LENGTH l /\
@@ -1074,8 +1085,9 @@ Theorem hashtable_toAscList_spec:
           (FEMPTY |++ bsalist = h))
         * HASHTABLE a b hf cmp h htv)
 Proof
-  xcf_with_def "Hashtable.toAscList" Hashtable_toAscList_v_def
-  \\fs[HASHTABLE_def]
+  rpt strip_tac
+  \\ xcf_with_def Hashtable_toAscList_v_def
+  \\fs[HASHTABLE_def, hashtable_con_stamp_def]
   \\xpull
   \\fs[hashtable_inv_def]
   \\xmatch
@@ -1131,8 +1143,9 @@ Theorem hashtable_doubleCapacity_spec:
         (POSTv uv. &(UNIT_TYPE () uv) *
           HASHTABLE a b hf cmp h htv)
 Proof
-  xcf_with_def "Hashtable.doubleCapacity" Hashtable_doubleCapacity_v_def
-  \\ fs[HASHTABLE_def]
+  rpt strip_tac
+  \\ xcf_with_def Hashtable_doubleCapacity_v_def
+  \\ fs[HASHTABLE_def, hashtable_con_stamp_def]
   \\ xpull
   \\ xmatch
   \\ xlet `POSTv oldArr. &(oldArr = arr) *
@@ -1155,11 +1168,11 @@ Proof
     xapp
     \\MAP_EVERY qexists_tac [`emp`,`hf`, `h`, `cmp`, `b`, `a`]
     \\xsimpl
-    \\fs[HASHTABLE_def]
+    \\fs[HASHTABLE_def, hashtable_con_stamp_def]
     \\xsimpl
     \\MAP_EVERY qexists_tac [`vlv`,`arr`, `heuristic_size`]
     \\ xsimpl)
-  \\ fs[HASHTABLE_def,REF_NUM_def]
+  \\ fs[HASHTABLE_def, hashtable_con_stamp_def,REF_NUM_def]
   \\ xpull
   \\ rename [`REF_ARRAY ar arr1 vlv1`]
   \\ rveq
@@ -1178,7 +1191,7 @@ Proof
   \\ xlet_auto >- xsimpl
   \\ xapp
   \\ asm_exists_tac \\ fs []
-  \\ fs [HASHTABLE_def,REF_NUM_def,REF_ARRAY_def]
+  \\ fs [HASHTABLE_def, hashtable_con_stamp_def,REF_NUM_def,REF_ARRAY_def]
   \\ xsimpl
   \\ fs [PULL_EXISTS]
   \\ rpt (asm_exists_tac \\ fs [])
@@ -1208,8 +1221,9 @@ Theorem hashtable_insert_spec:
         (POSTv uv. &(UNIT_TYPE () uv) *
           HASHTABLE a b hf cmp (h|+(k,v)) htv)
 Proof
-     xcf_with_def "Hashtable.insert" Hashtable_insert_v_def
-  \\ fs[HASHTABLE_def]
+  rpt strip_tac
+  \\ xcf_with_def Hashtable_insert_v_def
+  \\ fs[HASHTABLE_def, hashtable_con_stamp_def]
   \\ fs[REF_ARRAY_def]
   \\ xpull
   \\ xmatch
@@ -1236,7 +1250,8 @@ Proof
   \\fs[REF_NUM_def]
   \\xpull
   >-(xif
-    >-(fs[REF_ARRAY_def] \\ xapp \\ fs[HASHTABLE_def, REF_NUM_def] \\ xsimpl
+    >-(fs[REF_ARRAY_def] \\ xapp
+      \\ fs[HASHTABLE_def, hashtable_con_stamp_def, REF_NUM_def] \\ xsimpl
       \\ fs[PULL_EXISTS]
       \\CONV_TAC(RESORT_EXISTS_CONV List.rev)
       \\ rpt (asm_exists_tac \\ fs[]) \\ xsimpl
@@ -1246,15 +1261,15 @@ Proof
     >-( fs[REF_ARRAY_def]
       \\xlet `POSTv uv. HASHTABLE a b hf cmp h htv`
       >-( xapp \\ xsimpl
-        \\ fs[HASHTABLE_def, REF_ARRAY_def, REF_NUM_def] \\ xsimpl
+        \\ fs[HASHTABLE_def, hashtable_con_stamp_def, REF_ARRAY_def, REF_NUM_def] \\ xsimpl
         \\ fs[PULL_EXISTS]
         \\ rpt (asm_exists_tac \\ fs[]) \\ xsimpl
         \\ rpt strip_tac
         \\ asm_exists_tac \\ fs[])
-      >-(  fs[HASHTABLE_def, REF_NUM_def, REF_ARRAY_def]
+      >-(  fs[HASHTABLE_def, hashtable_con_stamp_def, REF_NUM_def, REF_ARRAY_def]
         \\ xpull
         \\ xapp
-        \\ fs[HASHTABLE_def, REF_ARRAY_def, REF_NUM_def]
+        \\ fs[HASHTABLE_def, hashtable_con_stamp_def, REF_ARRAY_def, REF_NUM_def]
         \\ xsimpl
         \\ fs[PULL_EXISTS]
         \\ rpt (asm_exists_tac \\ fs[]) \\ xsimpl
@@ -1270,8 +1285,9 @@ Theorem hashtable_lookup_spec:
         (POSTv v. &(OPTION_TYPE b (FLOOKUP h k) v) *
                     HASHTABLE a b hf cmp h htv)
 Proof
-  xcf_with_def "Hashtable.lookup" Hashtable_lookup_v_def
-  \\ fs[HASHTABLE_def, REF_ARRAY_def]
+  rpt strip_tac
+  \\ xcf_with_def Hashtable_lookup_v_def
+  \\ fs[HASHTABLE_def, hashtable_con_stamp_def, REF_ARRAY_def]
   \\ xpull
   \\ xmatch
   \\ xlet_auto
@@ -1314,8 +1330,9 @@ Theorem hashtable_delete_spec:
         (HASHTABLE a b hf cmp h htv)
         (POSTv uv. &(UNIT_TYPE () uv) * HASHTABLE a b hf cmp (h \\ k) htv)
 Proof
-  xcf_with_def "Hashtable.delete" Hashtable_delete_v_def
-  \\ fs [HASHTABLE_def, REF_ARRAY_def, hashtable_inv_def]
+  rpt strip_tac
+  \\ xcf_with_def Hashtable_delete_v_def
+  \\ fs [HASHTABLE_def, hashtable_con_stamp_def, REF_ARRAY_def, hashtable_inv_def]
   \\ xpull
   \\ xmatch
   \\ xlet_auto >- xsimpl
@@ -1401,8 +1418,9 @@ Theorem hashtable_clear_spec:
         (HASHTABLE a b hf cmp h htv)
         (POSTv uv. &(UNIT_TYPE () uv) * HASHTABLE a b hf cmp FEMPTY htv)
 Proof
-  xcf_with_def "Hashtable.clear" Hashtable_clear_v_def
-  \\ fs[HASHTABLE_def, REF_ARRAY_def, hashtable_inv_def]
+  rpt strip_tac
+  \\ xcf_with_def Hashtable_clear_v_def
+  \\ fs[HASHTABLE_def, hashtable_con_stamp_def, REF_ARRAY_def, hashtable_inv_def]
   \\ xpull
   \\ xmatch
   \\ xlet_auto
@@ -1441,5 +1459,3 @@ Proof
       \\ imp_res_tac replicate_empty_map_thm
       \\ fs[list_union_empty_maps]))
 QED
-
-val _ = export_theory();

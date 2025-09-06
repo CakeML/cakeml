@@ -8,6 +8,8 @@ struct
 open preamble;
 open ml_progTheory astSyntax packLib alist_treeLib comparisonTheory;
 
+fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f
+
 (* state *)
 
 datatype ml_prog_state = ML_code of (thm list) (* state const definitions *) *
@@ -116,7 +118,7 @@ val nsLookup_rewrs = List.concat (map BODY_CONJUNCTS
         boolTheory.REFL_CLAUSE,
         nsLookup_pf_nsBind, nsLookup_Short_nsAppend, nsLookup_Mod1_nsAppend,
         nsLookup_Short_Bind, nsLookup_Mod1_Bind, nsLookup_merge_env_eqs,
-        nsLookup_empty_eqs])
+        nsLookup_empty_eqs, alistTheory.ALOOKUP_def])
 
 fun nsLookup_conv tm = REPEATC (BETA_CONV ORELSEC FIRST_CONV
   (map REWR_CONV nsLookup_rewrs
@@ -155,6 +157,13 @@ fun prove_assum_by_conv conv th = let
 
 val prove_assum_by_eval = prove_assum_by_conv reduce_conv
 
+(*
+val eval_every_exp_one_con_check =
+  SIMP_CONV (srw_ss()) [semanticPrimitivesTheory.do_con_check_def,ML_code_env_def]
+  THENC DEPTH_CONV nsLookup_conv
+  THENC reduce_conv;
+*)
+
 fun is_const_str str = can prim_mk_const {Thy=current_theory(), Name=str};
 
 fun find_name name = let
@@ -185,7 +194,7 @@ fun define_abbrev for_eval name tm = let
              val n = mk_var(name,mk_type("fun",[type_of vars, type_of tm]))
              in mk_eq(mk_comb(n,vars),tm) end
   val def_name = name ^ "_def"
-  val def = (*Definition.*)new_definition(def_name,tm)
+  val def = Definition.new_definition(def_name,tm)
   val _ = if for_eval then computeLib.add_persistent_funs [def_name] else ()
   in def end
 
@@ -248,7 +257,7 @@ fun derive_nsLookup_thms def = let
                       nsLookup_empty_eqs]
     val pfun_eqs = LIST_CONJ (map (REWRITE_CONV rewrs) xs)
     val thm_name = "nsLookup_" ^ fst (dest_const env_const) ^ "_pfun_eqs"
-  in save_thm (thm_name, pfun_eqs) end
+  in allowing_rebind save_thm (thm_name, pfun_eqs) end
 
 fun let_env_abbrev conv op_nm (th, ML_code (ss, envs, vs, ml_th)) = let
     val (th, abbrev_defs) = cond_let_abbrev true false
@@ -259,6 +268,28 @@ fun let_env_abbrev conv op_nm (th, ML_code (ss, envs, vs, ml_th)) = let
 fun let_v_abbrev nm conv op_nm (th, ML_code (ss, envs, vs, ml_th)) = let
     val (th, abbrev_defs) = cond_let_abbrev false false nm conv op_nm th
   in (th, ML_code (ss, envs, abbrev_defs @ vs, ml_th)) end
+
+(*
+val tm = ``!n. n = 5 ==> n < 8``
+*)
+fun unwind_forall_conv tm =
+  let
+    val (v,_) = dest_forall tm
+  in
+    (QUANT_CONV (RAND_CONV (UNBETA_CONV v))
+     THENC (REWR_CONV UNWIND_FORALL_THM1 ORELSEC
+            REWR_CONV UNWIND_FORALL_THM2)
+     THENC BETA_CONV) tm
+  end
+
+fun forall_nsLookup_upd nm (th,x) =
+  (CONV_RULE
+    (QUANT_CONV
+      ((RATOR_CONV o RAND_CONV o RATOR_CONV o RAND_CONV) (nsLookup_conv THENC EVAL)
+       THENC (RATOR_CONV o RAND_CONV) (REWR_CONV SOME_11))
+     THENC unwind_forall_conv) th,
+   x) handle HOL_ERR _ =>
+  failwith "forall_nsLookup_upd: nsLookup failed to produce SOME"
 
 fun solve_ml_imp f nm (th, ML_code code) = let
     val msg = "solve_ml_imp: " ^ nm ^ ": not imp"
@@ -365,11 +396,29 @@ fun add_Dexn loc n_tm l_tm = ML_code_upd "add_Dexn"
 fun add_Dtabbrev loc l1_tm l2_tm l3_tm = ML_code_upd "add_Dtabbrev"
     (SPECL [l1_tm,l2_tm,l3_tm,loc] ML_code_Dtabbrev) []
 
-fun add_Dlet eval_thm var_str v_thms = let
+fun add_Dlet eval_thm var_str = let
     val (_, eval_thm_xs) = strip_comb (concl eval_thm)
     val mp_thm = ML_code_Dlet_var |> SPECL (tl eval_thm_xs
         @ [stringSyntax.fromMLstring var_str,unknown_loc])
   in ML_code_upd "add_Dlet" mp_thm
+    [solve_ml_imp_mp eval_thm,
+     solve_ml_imp_conv (SIMP_CONV bool_ss []
+                        THENC SIMP_CONV bool_ss [ML_code_env_def]),
+     let_env_abbrev ALL_CONV, let_st_abbrev reduce_conv]
+  end
+
+fun add_Dlet_lit loc n l =
+  let
+    val mp_thm = SPECL [loc,n,l] ML_code_Dlet_var_lit
+  in
+    ML_code_upd "add_Dlet_lit" mp_thm [let_env_abbrev ALL_CONV, let_env_abbrev ALL_CONV]
+end
+
+fun add_Denv eval_thm var_str = let
+    val (_, eval_thm_xs) = strip_comb (concl eval_thm)
+    val mp_thm = ML_code_Denv |> SPECL (
+      stringSyntax.fromMLstring var_str :: tl eval_thm_xs)
+  in ML_code_upd "add_Denv" mp_thm
     [solve_ml_imp_mp eval_thm,
         solve_ml_imp_conv (SIMP_CONV bool_ss []
             THENC SIMP_CONV bool_ss [ML_code_env_def]),
@@ -384,7 +433,23 @@ val (n,v,exp) = (v_tm,w,body)
 fun add_Dlet_Fun loc n v exp v_name = ML_code_upd "add_Dlet_Fun"
     (SPECL [n, v, exp, loc] ML_code_Dlet_Fun)
     [let_conv_ML_upd (REWRITE_CONV [ML_code_env_def]),
-        let_v_abbrev v_name ALL_CONV, let_env_abbrev ALL_CONV]
+     let_v_abbrev v_name ALL_CONV,
+     let_env_abbrev ALL_CONV]
+
+fun add_Dlet_Var_Var loc n var_name = ML_code_upd "add_Dlet_Var_Var"
+    (SPECL [n, var_name, loc] ML_code_Dlet_Var_Var)
+    [let_conv_ML_upd (REWRITE_CONV [ML_code_env_def]),
+     forall_nsLookup_upd,
+     let_env_abbrev ALL_CONV]
+
+fun add_Dlet_Var_Ref_Var loc n var_name v_name = ML_code_upd "add_Dlet_Var_Ref_Var"
+    (SPECL [n, var_name, loc] ML_code_Dlet_Var_Ref_Var)
+    [let_conv_ML_upd (REWRITE_CONV [ML_code_env_def]),
+     forall_nsLookup_upd,
+     let_conv_ML_upd EVAL,
+     let_v_abbrev v_name ALL_CONV,
+     let_env_abbrev ALL_CONV,
+     let_st_abbrev reduce_conv]
 
 val Recclosure_pat =
   semanticPrimitivesTheory.v_nchotomy
@@ -406,8 +471,9 @@ fun add_Dletrec loc funs v_names = let
         (th, ML_code (ss,envs,v_defs @ vs,mlth)) end
   in ML_code_upd "add_Dletrec"
     (SPECL [funs, loc] ML_code_Dletrec)
-    [solve_ml_imp_conv EVAL, let_conv_ML_upd (REWRITE_CONV [ML_code_env_def]),
-        proc]
+    [solve_ml_imp_conv EVAL,
+     let_conv_ML_upd (REWRITE_CONV [ML_code_env_def]),
+     proc]
   end
 
 fun get_block_names (ML_code (ss,envs,vs,th))
@@ -431,7 +497,6 @@ fun close_local_blocks code = case get_block_names code of
 (*
 val dec_tm = dec1_tm
 *)
-
 fun add_dec dec_tm pick_name s =
   if is_Dexn dec_tm then let
     val (loc,x1,x2) = dest_Dexn dec_tm
@@ -458,6 +523,33 @@ fun add_dec dec_tm pick_name s =
     val prefix = get_mod_prefix s
     val v_name = prefix ^ pick_name (stringSyntax.fromHOLstring v_tm) ^ "_v"
     in add_Dlet_Fun loc v_tm w body v_name s end
+  else if is_Dlet dec_tm
+          andalso is_Lit (rand dec_tm)
+          andalso is_Pvar (rand (rator dec_tm)) then let
+    val (loc,p,lit) = dest_Dlet dec_tm
+    val l = dest_Lit lit
+    val n = dest_Pvar p
+    in add_Dlet_lit loc n l s end
+  else if is_Dlet dec_tm
+          andalso is_Var (rand dec_tm)
+          andalso is_Pvar (rand (rator dec_tm)) then let
+    val (loc,p,f) = dest_Dlet dec_tm
+    val v_tm = dest_Pvar p
+    val var_name = dest_Var f
+    in add_Dlet_Var_Var loc v_tm var_name s end
+  else if is_Dlet dec_tm
+          andalso is_App (rand dec_tm)
+          andalso aconv Opref (rand (rator (rand dec_tm)))
+          andalso length (fst (listSyntax.dest_list (rand (rand dec_tm)))) = 1
+          andalso is_Var (rand (rator (rand (rand dec_tm))))
+          andalso is_Pvar (rand (rator dec_tm)) then let
+    val (loc,p,f) = dest_Dlet dec_tm
+    val n = dest_Pvar p
+    val (_,args) = dest_App f
+    val var_name = dest_Var (listSyntax.dest_list args |> fst |> hd)
+    val prefix = get_mod_prefix s
+    val v_name = prefix ^ pick_name (stringSyntax.fromHOLstring n) ^ "_v"
+    in add_Dlet_Var_Ref_Var loc n var_name v_name s end
   else if is_Dmod dec_tm then let
     val (name,(*spec,*)decs) = dest_Dmod dec_tm
     val ds = fst (listSyntax.dest_list decs)
@@ -535,6 +627,14 @@ fun unpack_ml_prog_state t =
   ML_code (unpack_4tuple (unpack_list unpack_thm) (unpack_list unpack_thm)
     (unpack_list unpack_thm) unpack_thm t)
 
+fun set_eval_state es (ML_code (ss,envs,vs,th)) = let
+  val th1 = MATCH_MP ML_code_set_eval_state th
+  val th2 = th1 |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL)
+  val th3 = MP th2 TRUTH handle HOL_ERR _ =>
+            failwith "set_eval_state: unable to prove that eval_state was NONE"
+  val th4 = SPEC es th3
+  in ML_code (ss,envs,vs,th4) end
+
 fun clean_state (ML_code (ss,envs,vs,th)) = let
   fun FIRST_CONJUNCT th = CONJUNCTS th |> hd handle HOL_ERR _ => th
   fun delete_def def = let
@@ -571,9 +671,11 @@ fun pick_name str =
 (*
 
 val s = init_state
-val dec1_tm = ``Dlet (ARB 1) (Pvar "f") (Fun "x" (Var (Short "x")))``
+val dec1_tm = ``Dlet (ARB 1) (Pvar "f") (Lit (IntLit 5))``
 val dec2_tm = ``Dlet (ARB 2) (Pvar "g") (Fun "x" (Var (Short "x")))``
-val prog_tm = ``[^dec1_tm; ^dec2_tm]``
+val dec3_tm = ``Dletrec (ARB 3) [("foo","n",Con (SOME (Short "::"))
+                  [Var (Short "n");Var (Short "n")])]``
+val prog_tm = ``[^dec1_tm; ^dec2_tm; ^dec3_tm]``
 
 val s = (add_prog prog_tm pick_name init_state)
 

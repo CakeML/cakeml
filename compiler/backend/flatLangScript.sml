@@ -15,16 +15,16 @@
   of the constructors rather than the types. Type annotations are
   also gone.
 *)
+Theory flatLang
+Ancestors
+  ast backend_common
+Libs
+  preamble
 
-open preamble astTheory backend_commonTheory
-
-val _ = new_theory "flatLang";
-
-val _ = set_grammar_ancestry ["ast", "backend_common"];
 
 (* Copied from the semantics, but with AallocEmpty missing. GlobalVar ops have
  * been added, also TagLenEq and El for pattern match compilation. *)
-val _ = Datatype `
+Datatype:
  op =
   (* Operations on integers *)
     Opn opn
@@ -38,6 +38,8 @@ val _ = Datatype `
   | FP_uop fp_uop
   | FP_bop fp_bop
   | FP_top fp_top
+  | FpFromWord
+  | FpToWord
   (* Function application *)
   | Opapp
   (* Reference operations *)
@@ -73,6 +75,7 @@ val _ = Datatype `
   | Vlength
   (* Array operations *)
   | Aalloc
+  | AallocFixed
   | Asub
   | Alength
   | Aupdate
@@ -81,6 +84,7 @@ val _ = Datatype `
   | Aupdate_unsafe
   | Aw8sub_unsafe
   | Aw8update_unsafe
+  | Aw8xor_unsafe
   (* List operations *)
   | ListAppend
   (* Configure the GC *)
@@ -98,21 +102,25 @@ val _ = Datatype `
   (* for pattern match compilation *)
   | TagLenEq num num
   | LenEq num
-  | El num`;
+  | El num
+  (* No-op step for a single value *)
+  | Id
+End
 
 Type ctor_id = ``:num``
 (* NONE represents the exception type *)
 Type type_id = ``:num option``
 Type type_group_id = ``:(num # (ctor_id # num) list) option``
 
-val _ = Datatype `
+Datatype:
   pat =
   | Pany
   | Pvar varN
   | Plit lit
   | Pcon ((ctor_id # type_group_id) option) (pat list)
   | Pas pat varN
-  | Pref pat`;
+  | Pref pat
+End
 
 Definition pat_bindings_def:
   (pat_bindings Pany already_bound = already_bound) ∧
@@ -125,7 +133,7 @@ Definition pat_bindings_def:
   (pats_bindings (p::ps) already_bound = pats_bindings ps (pat_bindings p already_bound))
 End
 
-val _ = Datatype`
+Datatype:
   exp =
     Raise tra exp
   | Handle tra exp ((pat # exp) list)
@@ -137,7 +145,8 @@ val _ = Datatype`
   | If tra exp exp exp
   | Mat tra exp ((pat # exp) list)
   | Let tra (varN option) exp exp
-  | Letrec varN ((varN # varN # exp) list) exp`;
+  | Letrec varN ((varN # varN # exp) list) exp
+End
 
 val exp_size_def = definition"exp_size_def";
 
@@ -204,7 +213,7 @@ Proof
   \\ decide_tac
 QED
 
-val _ = Datatype`
+Datatype:
  dec =
     Dlet exp
   (* The first number is the identity for the type. The sptree maps arities to
@@ -212,12 +221,45 @@ val _ = Datatype`
   | Dtype num (num spt)
   (* The first number is the identity of the exception. The second number is the
    * constructor's arity *)
-  | Dexn num num`;
+  | Dexn num num
+End
 
-val bool_id_def = Define `
-  bool_id = 0n`;
+Definition bool_id_def:
+  bool_id = 0n
+End
 
-val Bool_def = Define`
-  Bool t b = Con t (SOME (backend_common$bool_to_tag b, SOME bool_id)) []`;
+Definition Bool_def:
+  Bool t b = Con t (SOME (backend_common$bool_to_tag b, SOME bool_id)) []
+End
 
-val _ = export_theory ();
+Definition SmartIf_def:
+  SmartIf t e p q =
+    case e of
+      Con _ (SOME (tag, SOME id)) [] =>
+        if id = bool_id then
+          if tag = backend_common$true_tag then p
+          else if tag = backend_common$false_tag then q
+          else If t e p q
+        else If t e p q
+    | _ => If t e p q
+End
+
+val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
+
+Theorem SmartIf_PMATCH:
+  !t e p q.
+    SmartIf t e p q =
+      case e of
+        Con _ (SOME (tag, SOME id)) [] =>
+          if id = bool_id then
+            if tag = backend_common$true_tag then p
+            else if tag = backend_common$false_tag then q
+            else If t e p q
+          else If t e p q
+      | _ => If t e p q
+Proof
+  rpt strip_tac
+  \\ CONV_TAC (RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
+  \\ rw [SmartIf_def]
+QED
+

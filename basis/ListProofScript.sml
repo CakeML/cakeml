@@ -1,15 +1,17 @@
 (*
   Proofs about the module about the list tyoe.
 *)
-open preamble ml_translatorTheory ml_translatorLib cfLib ListProgTheory
-
-val _ = new_theory "ListProof";
+Theory ListProof
+Ancestors
+  ml_translator ListProg
+Libs
+  preamble ml_translatorLib cfLib
 
 val _ = translation_extends "ListProg";
 
 val st = get_ml_prog_state();
 
-val app_spec = Q.prove(
+Theorem app_spec = Q.prove(
   `∀l start lv A.
    LIST_TYPE A l lv /\
    (!n xv. n < LENGTH l ∧ A (EL n l) xv ==>
@@ -38,6 +40,4 @@ val app_spec = Q.prove(
 |> CONV_RULE SWAP_FORALL_CONV
 |> Q.SPEC`0` |> SIMP_RULE(srw_ss())[]
 |> Q.GENL[`eff`,`fv`]
-|> curry save_thm "app_spec";
 
-val _ = export_theory();

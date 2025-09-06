@@ -15,15 +15,18 @@
 
     Seq (Seq x1 x2) x3 --> Seq x1 (Seq x2 x3)
 *)
-open preamble dataLangTheory;
+Theory data_simp
+Ancestors
+  dataLang
+Libs
+  preamble
 
-val _ = new_theory "data_simp";
-
-val pSeq_def = Define `
+Definition pSeq_def:
   pSeq c1 c2 =
-    if c2 = Skip then c1 else Seq c1 c2`;
+    if c2 = Skip then c1 else Seq c1 c2
+End
 
-val simp_def = Define `
+Definition simp_def:
   (simp Skip c = c) /\
   (simp (Return n) c = Return n) /\
   (simp (Raise n) c = Raise n) /\
@@ -32,6 +35,6 @@ val simp_def = Define `
      pSeq (If n (simp c2 Skip) (simp c3 Skip)) c) /\
   (simp (Call ret dest args (SOME (v,handler))) c =
      pSeq (Call ret dest args (SOME (v,simp handler Skip))) c) /\
-  (simp c1 c2 = pSeq c1 c2)`;
+  (simp c1 c2 = pSeq c1 c2)
+End
 
-val _ = export_theory();

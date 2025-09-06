@@ -12,7 +12,7 @@ local
   structure Parse = struct
     open Parse
      val (Type,Term) =
-         parse_from_grammars ml_monadBaseTheory.ml_monadBase_grammars
+         parse_from_grammars (valOf (grammarDB {thyname="ml_monadBase"}))
   end
   open Parse
 
@@ -30,8 +30,8 @@ val terms_alist = [
      ("SND", ``SND : 'a # 'b -> 'b``),
      ("REPLICATE", ``REPLICATE : num -> 'a -> 'a list``),
      ("unit", ``()``),
-     ("Failure", ``Failure : 'a -> ('b, 'a) exc``),
-     ("Success", ``Success : 'a -> ('a, 'b) exc``),
+     ("M_failure", ``M_failure : 'a -> ('b, 'a) exc``),
+     ("M_success", ``M_success : 'a -> ('a, 'b) exc``),
      ("Marray_length", Marray_length_const),
      ("Marray_sub", Marray_sub_const),
      ("Marray_update", Marray_update_const),
@@ -66,8 +66,8 @@ val FST_const = get_term "FST"
 val SND_const = get_term "SND"
 val REPLICATE_const = get_term "REPLICATE"
 val unit_const = get_term "unit"
-val Failure_const = get_term "Failure"
-val Success_const = get_term "Success"
+val M_failure_const = get_term "M_failure"
+val M_success_const = get_term "M_success"
 val Marray_length_const = get_term "Marray_length"
 val Marray_sub_const = get_term "Marray_sub"
 val Marray_update_const = get_term "Marray_update"
@@ -95,7 +95,7 @@ fun mk_Mtype a b c =
 fun mk_Failure exn x_ty =
   let
     val exn_ty = type_of exn
-    val tm = Term.inst [a_ty |-> exn_ty, b_ty |-> x_ty] Failure_const
+    val tm = Term.inst [a_ty |-> exn_ty, b_ty |-> x_ty] M_failure_const
     val tm = mk_comb (tm, exn)
   in
     tm
@@ -105,7 +105,7 @@ fun mk_Failure exn x_ty =
 fun mk_Success x exn_ty =
   let
     val x_ty = type_of x
-    val tm = Term.inst [a_ty |-> x_ty, b_ty |-> exn_ty] Success_const
+    val tm = Term.inst [a_ty |-> x_ty, b_ty |-> exn_ty] M_success_const
     val tm = mk_comb(tm, x)
   in
     tm
@@ -269,13 +269,13 @@ fun define_monad_exception_functions exn_type state_type =
     (* case x st of (res, st) => ... *)
     val x_st_tm = mk_comb(x_var, state_var)
     val case_x_st_tm = case_const_of pair_ty |>
-        Term.inst [alpha |-> pair_exc_type, beta |-> exc_type, gamma |-> state_type]
+        Term.inst [alpha |-> exc_type, beta |-> state_type, gamma |-> pair_exc_type]
     val case_x_st_tm = mk_comb(case_x_st_tm, x_st_tm)
     val res_var = mk_var("res", exc_type)
 
     (*
        case res of
-         Success y => (Success y, st)
+         M_success y => (M_success y, st)
        | Failure e => ... *)
     val case_res_tm = case_const_of exc_type |>
         Term.inst [beta |-> exn_type, gamma |-> pair_exc_type]

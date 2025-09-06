@@ -1,6 +1,8 @@
 INCLUDES = $(HOLDIR)/examples/formal-languages/context-free\
 					 $(CAKEMLDIR)/developers $(CAKEMLDIR)/misc\
 					 $(CAKEMLDIR)/semantics $(CAKEMLDIR)/basis $(CAKEMLDIR)/characteristic\
+					 $(CAKEMLDIR)/pancake\
+					 $(CAKEMLDIR)/pancake/parser\
 					 parsing inference encoders/asm\
 					 backend backend/reg_alloc\
            backend/arm7 backend/arm8 backend/mips backend/riscv\
@@ -13,3 +15,7 @@ README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax
 DIRS = $(patsubst bootstrap/,,$(patsubst encoders/,,$(wildcard */)))
 README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmePrefix,$(DIRS)) $(README_SOURCES)
 	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
+
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/basis/basis-heap
+endif

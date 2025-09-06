@@ -20,10 +20,7 @@ sig
 
     val get_ml_prog_state : unit -> ml_progLib.ml_prog_state
 
-    (* wrapper functions *)
-
-    val mlDefine   : term quotation -> thm
-    val mltDefine  : string -> term quotation -> tactic -> thm
+    val declare_new_ref : string -> term -> thm
 
     (* interface for teaching the translator about new types *)
 
@@ -162,5 +159,8 @@ sig
 
     (* configure whether HOL_STRING_TYPE is to be used *)
     val use_string_type : bool -> unit
+
+    (* configure whether sub_check is default for num subtraction *)
+    val use_sub_check : bool -> unit
 
 end

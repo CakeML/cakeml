@@ -23,8 +23,8 @@ version of CakeML. See the [version2](../../tree/version2) or
 Directory structure
 -------------------
 
-[COPYING](COPYING):
-CakeML Copyright Notice, License, and Disclaimer.
+[LICENSE](LICENSE):
+BSD 3-Clause License
 
 [basis](basis):
 Contains the beginnings of a standard basis library for CakeML,
@@ -47,6 +47,9 @@ A verified compiler for CakeML, including:
  - type inference,
  - compilation to ASM assembly language, and,
  - code generation to x86, ARM, and more.
+
+[cv_translator](cv_translator):
+Translator to cv type used by cv_compute
 
 [developers](developers):
 This directory contains scripts for automating routine tasks, e.g., for

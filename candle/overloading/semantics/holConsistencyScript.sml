@@ -5,11 +5,13 @@
   with no axioms, with all but infinity axiom, with all three axioms) have
   models (under suitable assumptions).
 *)
-open preamble
-     setSpecTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holBoolSyntaxTheory holAxiomsSyntaxTheory
-     holSemanticsTheory holSemanticsExtraTheory holSoundnessTheory holExtensionTheory holBoolTheory holModelConservativityTheory
-
-val _ = new_theory"holConsistency"
+Theory holConsistency
+Ancestors
+  setSpec holSyntaxLib holSyntax holSyntaxExtra holBoolSyntax
+  holAxiomsSyntax holSemantics holSemanticsExtra holSoundness
+  holExtension holBool holModelConservativity
+Libs
+  preamble
 
 val _ = Parse.hide "mem";
 
@@ -22,10 +24,11 @@ Definition definitional_extension_def:
     (ctxt1 extends ctxt2 /\ (!p. ~MEM (NewAxiom p) (TAKE (LENGTH ctxt1 - LENGTH ctxt2) ctxt1)))
 End
 
-val consistent_theory_def = Define`
+Definition consistent_theory_def:
   consistent_theory thy ⇔
         (thy,[]) |- (Var (strlit"x") Bool === Var (strlit"x") Bool) ∧
-      ¬((thy,[]) |- (Var (strlit"x") Bool === Var (strlit"y") Bool))`
+      ¬((thy,[]) |- (Var (strlit"x") Bool === Var (strlit"y") Bool))
+End
 
 Theorem proves_consistent:
    is_set_theory ^mem ⇒
@@ -220,4 +223,3 @@ Proof
             extends_trans,hol_ctxt_extends_init,indset_inhabited]
 QED
 
-val _ = export_theory()

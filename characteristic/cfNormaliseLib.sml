@@ -146,20 +146,15 @@ fun mk_opapp xs =
     )
   ) (List.hd xs) (List.tl xs)
 
-val alpha = List.tabulate (26, fn n => Char.chr (n + Char.ord #"a") |> Char.toString)
-
 fun fresh_name_in used = let
   fun aux n used = let
-    val v = "t" ^ (Int.toString n)
+    val v = " v" ^ (Int.toString n)
   in
     if mem v used then aux (n + 1) used
     else v
   end
-  val ws = subtract alpha used
 in
-  case ws of
-     [] => aux 0 used
-   | w :: _ => w
+  aux 0 used
 end
 
 fun mk_names_generator () = let

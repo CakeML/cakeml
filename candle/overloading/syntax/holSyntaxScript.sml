@@ -1,9 +1,11 @@
 (*
   Defines the HOL inference system.
 *)
-open preamble holSyntaxLibTheory mlstringTheory totoTheory
-
-val _ = new_theory "holSyntax"
+Theory holSyntax
+Ancestors
+  holSyntaxLib mlstring toto
+Libs
+  preamble
 
 (* HOL types *)
 
@@ -36,8 +38,10 @@ Proof
   REPEAT STRIP_TAC \\ EVAL_TAC
 QED
 
-val _ = save_thm("domain_raw",domain_raw);
-val _ = save_thm("codomain_raw",codomain_raw);
+Theorem domain_raw[allow_rebind] =
+  domain_raw
+Theorem codomain_raw[allow_rebind] =
+  codomain_raw
 
 fun type_rec_tac proj =
 (WF_REL_TAC(`measure (type_size o `@[QUOTE proj]@`)`) >> simp[] >>
@@ -99,9 +103,13 @@ Definition wellformed_compute_def:
   /\ (wellformed_compute (Const n ty) = T)
   /\ (wellformed_compute (Comb s t) =
     (wellformed_compute s
-    /\ wellformed_compute t
-    /\ is_fun (typeof s)
-    /\ (domain (typeof s) = typeof t))
+    /\ wellformed_compute t ∧
+    (case typeof s of
+       Tyapp n tys =>
+         (n = strlit "fun") ∧
+         (LENGTH tys = 2) ∧
+         (HD tys = typeof t)
+     | Tyvar _ => F))
   )
   /\ (wellformed_compute (Abs (Var x ty) t) = wellformed_compute t)
   /\ (wellformed_compute (Abs _ _) = F)
@@ -432,8 +440,10 @@ End
 
 val _ = Parse.add_infix("===",460,Parse.RIGHT)
 
-val equation_def = xDefine "equation"`
-  (s === t) = Comb (Comb (Equal(typeof s)) s) t`
+Definition equation_def:
+  (s === t) = Comb (Comb (Equal(typeof s)) s) t
+End
+
 
 (* Signature of a theory: indicates the defined type operators, with arities,
    and defined constants, with types. *)
@@ -624,10 +634,10 @@ Definition is_reserved_name_def:
 End
 
 
-val overloadable_in_def = Define `
+Definition overloadable_in_def:
   overloadable_in name ctxt =
     (~is_builtin_name name /\ ?ty. MEM (NewConst name ty) ctxt)
-  `
+End
 
   (* From this we can recover a signature *)
 Overload sigof = ``λctxt:update list. (tysof ctxt, tmsof ctxt)``
@@ -712,9 +722,11 @@ Definition is_builtin_type_def:
        (m = strlit "bool" /\ LENGTH ty = 0)))
 End
 
-val type1_size_append = Q.prove(
-  `∀l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2`,
-  Induct >> simp[fetch "-" "type_size_def"]);
+Triviality type1_size_append:
+  ∀l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2
+Proof
+  Induct >> simp[fetch "-" "type_size_def"]
+QED
 
 (* allTypes(\sigma) -- the smallest set of non-built-in types that can produce
  * \sigma by combinations of built-in types.
@@ -807,6 +819,7 @@ Inductive dependency:
        dependency ctxt (INL (Tyapp name (MAP Tyvar tynames))) (INL(Tyvar tyname))) /\
   (!ctxt name pred abs rep rep_type abs_type ty0 const.
        MEM (TypeDefn name pred abs rep) ctxt /\
+       is_fun(typeof pred) /\
        rep_type = domain(typeof pred) /\
        abs_type = Tyapp name (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars pred))))) /\
        MEM ty0 (abs_type::allTypes' rep_type) /\
@@ -822,14 +835,19 @@ Definition dependency_compute_def:
   dependency_compute = FLAT o MAP (λx.
     case x of
         (TypeDefn name t abs rep) =>
-          let rep_type = domain(typeof t);
-              abs_type = Tyapp name (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars t)))));
-              ty = INL abs_type
+          let abs_type = Tyapp name (MAP Tyvar (MAP implode (STRING_SORT (MAP explode (tvars t)))));
+               ty = INL abs_type
           in
            (MAP (λv. (ty, INR v)) (allCInsts t)
-           ++ MAP (λv. (ty, INL v)) (allTypes t)
-           ++ MAP (λv. (INR(Const abs (Fun rep_type abs_type)), INL v)) (abs_type::allTypes' rep_type)
-           ++ MAP (λv. (INR(Const rep (Fun abs_type rep_type)), INL v)) (abs_type::allTypes' rep_type))
+           ++ MAP (λv. (ty, INL v)) (allTypes t))
+           ++
+          (case typeof t of
+             Tyapp name [rep_type; _] =>
+               (if name = strlit "fun" then
+                  MAP (λv. (INR(Const abs (Fun rep_type abs_type)), INL v)) (abs_type::allTypes' rep_type)
+                  ++ MAP (λv. (INR(Const rep (Fun abs_type rep_type)), INL v)) (abs_type::allTypes' rep_type)
+                else [])
+           | _ => [])
         | (ConstSpec ov cl _) =>
           FLAT (MAP (λ(cname,t).
             if ~ wellformed_compute t then [] else
@@ -932,10 +950,6 @@ Definition monotone_def:
     !x y. R x y ==> list_subset (FV y) (FV x)
 End
 
-Definition monotone_compute_def:
-  monotone_compute = T (*EVERY (\(x,y). list_subset (ARB(*sum_tyvars*) x) (ARB(*sum_tyvars*) y))*)
-End
-
 (* overload is_instance to terms: c is an instance of c0  if  (is_instance c0 c) *)
 Overload is_instance = ``λc0 c. ∃sigma. c = INST sigma c0``
 
@@ -973,12 +987,6 @@ End
 Definition wf_ctxt_def:
   wf_ctxt ctxt =
   (orth_ctxt ctxt /\ terminating(subst_clos(dependency ctxt)))
-End
-
-(* The cyclicity check ensures that the dependency relation terminates.
- *)
-Definition cyclic_def:
-  cyclic = ARB:(update list -> bool)
 End
 
 Definition constspec_ok_def:
@@ -1048,4 +1056,3 @@ Definition definitional_def:
   definitional ctxt = ?l. (set l = set ctxt) /\ definitional_dec l
 End
 
-val _ = export_theory()

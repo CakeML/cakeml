@@ -3,10 +3,12 @@
   proved using a backwards simulation, i.e. against the direction of
   compilation.
 *)
-open preamble backendPropsTheory closPropsTheory
-clos_mtiTheory closSemTheory helperLib;
+Theory clos_mtiProof
+Ancestors
+  backendProps closProps clos_mti closSem
+Libs
+  preamble helperLib
 
-val _ = new_theory "clos_mtiProof";
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
@@ -20,9 +22,10 @@ val _ = bring_fwd_ctors "closLang" ``:closLang$exp``
 Theorem no_mti_def = closPropsTheory.no_mti_def
     |> CONV_RULE (DEPTH_CONV ETA_CONV)
 
-val code_rel_def = Define `
+Definition code_rel_def:
   code_rel max_app e1 e2 <=>
-    EVERY no_mti e1 /\ (e2 = intro_multi max_app e1)`
+    EVERY no_mti e1 /\ (e2 = intro_multi max_app e1)
+End
 
 Theorem code_rel_IMP_LENGTH:
    code_rel max_app xs ys ==> LENGTH ys = LENGTH xs
@@ -57,21 +60,23 @@ QED
 
 (* value relation *)
 
-val mk_Fns_def = Define `
+Definition mk_Fns_def:
   mk_Fns [] e = e /\
-  mk_Fns (t::ts) e = Fn t NONE NONE 1 (mk_Fns ts e)`
+  mk_Fns (t::ts) e = Fn t NONE NONE 1 (mk_Fns ts e)
+End
 
-val f_rel_def = Define `
+Definition f_rel_def:
   f_rel max_app (a1,e1) (a2,e2) <=>
     ?b1 ts.
       code_rel max_app [b1] [e2] /\ a2 <= max_app /\ no_mti b1 /\
-      a1 = 1n /\ e1 = mk_Fns ts b1 /\ a2 = LENGTH ts + 1`
+      a1 = 1n /\ e1 = mk_Fns ts b1 /\ a2 = LENGTH ts + 1
+End
 
 Inductive v_rel:
   (!i. v_rel (max_app:num) (Number i) (closSem$Number i)) /\
   (!w. v_rel max_app (Word64 w) (Word64 w)) /\
   (!w. v_rel max_app (ByteVector w) (ByteVector w)) /\
-  (!n. v_rel max_app (RefPtr n) (RefPtr n)) /\
+  (!n b. v_rel max_app (RefPtr b n) (RefPtr b n)) /\
   (!tag xs ys.
      LIST_REL (v_rel max_app) xs ys ==>
      v_rel max_app (Block tag xs) (Block tag ys)) /\
@@ -104,33 +109,35 @@ Inductive v_rel:
        (Recclosure NONE args2 env2 funs2 n))
 End
 
-val v_rel_opt_def = Define `
+Definition v_rel_opt_def:
   (v_rel_opt max_app NONE NONE <=> T) /\
   (v_rel_opt max_app (SOME x) (SOME y) <=> v_rel max_app x y) /\
-  (v_rel_opt max_app _ _ = F)`;
+  (v_rel_opt max_app _ _ = F)
+End
 
 Inductive ref_rel:
-  (!b bs. ref_rel max_app (ByteArray b bs) (ByteArray b bs)) /\
+  (!bs. ref_rel max_app (ByteArray bs) (ByteArray bs)) /\
   (!xs ys.
     LIST_REL (v_rel max_app) xs ys ==>
     ref_rel max_app (ValueArray xs) (ValueArray ys))
 End
 
-val FMAP_REL_def = Define `
+Definition FMAP_REL_def:
   FMAP_REL r f1 f2 <=>
     FDOM f1 = FDOM f2 /\
     !k v. FLOOKUP f1 k = SOME v ==>
-          ?v2. FLOOKUP f2 k = SOME v2 /\ r v v2`;
+          ?v2. FLOOKUP f2 k = SOME v2 /\ r v v2
+End
 
 (* state relation *)
 
 Theorem SND_compile_inc[simp]:
-   SND (compile_inc max_app p) = []
+   SND (clos_mti$compile_inc max_app p) = []
 Proof
   Cases_on`p` \\ EVAL_TAC
 QED
 
-val state_rel_def = Define `
+Definition state_rel_def:
   state_rel (s:('c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
     (!n. SND (SND (s.compile_oracle n)) = [] /\
          EVERY no_mti (FST (SND (s.compile_oracle n)))) /\
@@ -140,8 +147,9 @@ val state_rel_def = Define `
     t.ffi = s.ffi /\
     LIST_REL (v_rel_opt s.max_app) s.globals t.globals /\
     FMAP_REL (ref_rel s.max_app) s.refs t.refs /\
-    s.compile = pure_cc (compile_inc s.max_app) t.compile /\
-    t.compile_oracle = pure_co (compile_inc s.max_app) o s.compile_oracle`;
+    s.compile = pure_cc (clos_mti$compile_inc s.max_app) t.compile /\
+    t.compile_oracle = pure_co (clos_mti$compile_inc s.max_app) o s.compile_oracle
+End
 
 (* evaluation theorem *)
 
@@ -166,13 +174,9 @@ Proof
   \\ fs [collect_args_def] \\ rveq
   \\ TRY (fs [collect_args_def] \\ rveq
           \\ qexists_tac `[]` \\ fs [mk_Fns_def] \\ NO_TAC)
-  \\ FULL_CASE_TAC \\ rveq
-  \\ TRY (fs [collect_args_def] \\ rveq
-          \\ qexists_tac `[]` \\ fs [mk_Fns_def] \\ NO_TAC)
-  \\ first_x_assum drule
-  \\ fs [no_mti_def] \\ rveq
-  \\ strip_tac \\ fs [] \\ rveq
-  \\ qexists_tac `t::ts` \\ fs [mk_Fns_def]
+  \\ NORM_TAC (srw_ss()) []
+  \\ gvs [no_mti_def,mk_Fns_def]
+  \\ qexists_tac `t::ts` \\ rw [mk_Fns_def]
 QED
 
 Theorem dest_closure_SOME_IMP:
@@ -220,9 +224,10 @@ val collect_apps_cons = prove(
        |> Q.SPECL [`e1`,`m`,`[x]`]
        |> SIMP_RULE std_ss [LENGTH,APPEND]] \\ rw []);
 
-val mk_Apps_def = Define `
+Definition mk_Apps_def:
   mk_Apps e [] = e /\
-  mk_Apps e ((t,other)::ts) = App t NONE (mk_Apps e ts) [other]`
+  mk_Apps e ((t,other)::ts) = App t NONE (mk_Apps e ts) [other]
+End
 
 Theorem collect_apps_IMP_mk_Apps:
   !e max_app (acc:closLang$exp list) other e3.
@@ -295,20 +300,22 @@ val evaluate_mk_Apps_err = prove(
   \\ simp [Once evaluate_CONS] \\ rw []
   \\ fs [case_eq_thms,pair_case_eq] \\ rveq);
 
-val evaluate_apps_def = Define `
+Definition evaluate_apps_def:
   evaluate_apps f [] s = (Rval [f], s) /\
   evaluate_apps f (x::xs) s =
     case evaluate_apps f xs s of
     | (Rval [v], s1) => evaluate_app NONE v [x] s1
-    | res => res`;
+    | res => res
+End
 
-val evaluate_mk_Apps_ok = prove(
-  ``!other ts env1 s1 vs.
+Triviality evaluate_mk_Apps_ok:
+  !other ts env1 s1 vs.
       evaluate ([e],env1,s3) = (Rval [f],s2') /\
       evaluate (other,env1,s1) = (Rval vs,s3) /\
       LENGTH other = LENGTH ts ==>
       evaluate ([mk_Apps e (ZIP (ts,other))],env1,s1) =
-      evaluate_apps f vs s2'``,
+      evaluate_apps f vs s2'
+Proof
   once_rewrite_tac [CONJ_COMM]
   \\ Induct \\ Cases_on `ts` \\ fs [mk_Apps_def]
   \\ fs [evaluate_def,evaluate_apps_def]
@@ -323,22 +330,26 @@ val evaluate_mk_Apps_ok = prove(
   \\ fs [evaluate_apps_def]
   \\ Cases_on `q` \\ fs []
   \\ imp_res_tac evaluate_SING \\ fs []
-  \\ rveq \\ fs []);
+  \\ rveq \\ fs []
+QED
 
-val dest_closure_NONE_IMP_apps = prove(
-  ``!xs f1 s1.
+Triviality dest_closure_NONE_IMP_apps:
+  !xs f1 s1.
       dest_closure s1.max_app NONE f1 [LAST xs] = NONE /\ xs <> [] ==>
-      evaluate_apps f1 xs s1 = (Rerr (Rabort Rtype_error),s1)``,
+      evaluate_apps f1 xs s1 = (Rerr (Rabort Rtype_error),s1)
+Proof
   Induct \\ fs [evaluate_apps_def]
   \\ Cases_on `xs` \\ fs [evaluate_apps_def]
-  \\ fs [evaluate_apps_def,evaluate_def]);
+  \\ fs [evaluate_apps_def,evaluate_def]
+QED
 
-val evaluate_apps_SNOC = prove(
-  ``!xs x f s.
+Triviality evaluate_apps_SNOC:
+  !xs x f s.
       evaluate_apps f (SNOC x xs) s =
       case evaluate_app NONE f [x] s of
       | (Rval [v], s) => evaluate_apps v xs s
-      | res => res``,
+      | res => res
+Proof
   Induct
   THEN1 (fs [evaluate_apps_def] \\ rw []
          \\ every_case_tac \\ fs [])
@@ -347,14 +358,16 @@ val evaluate_apps_SNOC = prove(
   \\ Cases_on `evaluate_app NONE f [x] s` \\ fs []
   \\ Cases_on `q` \\ fs []
   \\ Cases_on `a` \\ fs []
-  \\ Cases_on `t` \\ fs []);
+  \\ Cases_on `t` \\ fs []
+QED
 
-val evaluate_apps_Clos_timeout = prove(
-  ``!ys ts s1 e1 env.
+Triviality evaluate_apps_Clos_timeout:
+  !ys ts s1 e1 env.
       s1.clock < LENGTH ys /\ LENGTH ys <= LENGTH ts /\
       1 ≤ s1.max_app ==>
       evaluate_apps (Closure NONE [] env 1 (mk_Fns ts e1))
-        ys s1 = (Rerr (Rabort Rtimeout_error),s1 with clock := 0)``,
+        ys s1 = (Rerr (Rabort Rtimeout_error),s1 with clock := 0)
+Proof
   recInduct SNOC_INDUCT \\ rw []
   \\ fs [evaluate_apps_SNOC]
   \\ fs [evaluate_def,dest_closure_def,check_loc_def]
@@ -363,14 +376,16 @@ val evaluate_apps_Clos_timeout = prove(
   \\ fs [EVAL ``(dec_clock 1 s).max_app``]
   \\ `(dec_clock 1 s1).clock < LENGTH l` by (EVAL_TAC \\ fs [])
   \\ first_x_assum drule
-  \\ fs [dec_clock_def]);
+  \\ fs [dec_clock_def]
+QED
 
-val evaluate_apps_Clos_timeout_alt = prove(
-  ``!ys ts s1 e1 env.
+Triviality evaluate_apps_Clos_timeout_alt:
+  !ys ts s1 e1 env.
       s1.clock <= LENGTH ts /\ LENGTH ts < LENGTH ys /\
       1 ≤ s1.max_app ==>
       evaluate_apps (Closure NONE [] env 1 (mk_Fns ts e1))
-        ys s1 = (Rerr (Rabort Rtimeout_error),s1 with clock := 0)``,
+        ys s1 = (Rerr (Rabort Rtimeout_error),s1 with clock := 0)
+Proof
   recInduct SNOC_INDUCT \\ rw []
   \\ fs [evaluate_apps_SNOC]
   \\ fs [evaluate_def,dest_closure_def,check_loc_def]
@@ -379,16 +394,18 @@ val evaluate_apps_Clos_timeout_alt = prove(
   \\ fs [EVAL ``(dec_clock 1 s).max_app``]
   \\ `(dec_clock 1 s1).clock <= LENGTH t` by (EVAL_TAC \\ fs [])
   \\ first_x_assum drule
-  \\ fs [dec_clock_def]);
+  \\ fs [dec_clock_def]
+QED
 
-val evaluate_apps_Clos_short = prove(
-  ``!ys ts s1 e1 env.
+Triviality evaluate_apps_Clos_short:
+  !ys ts s1 e1 env.
       LENGTH ys <= s1.clock /\ LENGTH ys <= LENGTH ts /\
       1 ≤ s1.max_app ==>
       evaluate_apps (Closure NONE [] env 1 (mk_Fns ts e1)) ys s1 =
          (Rval [Closure NONE [] (ys ++ env) 1
                    (mk_Fns (DROP (LENGTH ys) ts) e1)],
-          dec_clock (LENGTH ys) s1)``,
+          dec_clock (LENGTH ys) s1)
+Proof
   recInduct SNOC_INDUCT \\ rw []
   \\ fs [evaluate_apps_SNOC,evaluate_apps_def]
   THEN1 (fs [state_component_equality,dec_clock_def])
@@ -399,10 +416,11 @@ val evaluate_apps_Clos_short = prove(
   \\ first_x_assum drule
   \\ fs [EVAL ``(dec_clock 1 s).max_app``]
   \\ disch_then drule
-  \\ fs [dec_clock_def,ADD1]);
+  \\ fs [dec_clock_def,ADD1]
+QED
 
-val evaluate_apps_Clos_long = prove(
-  ``!ys ts s1 e1 env.
+Triviality evaluate_apps_Clos_long:
+  !ys ts s1 e1 env.
       LENGTH ts < s1.clock /\ LENGTH ts < LENGTH ys /\
       1 ≤ s1.max_app ==>
       evaluate_apps (Closure NONE [] env 1 (mk_Fns ts e1)) ys s1 =
@@ -410,7 +428,8 @@ val evaluate_apps_Clos_long = prove(
                 dec_clock (1+LENGTH ts) s1) of
         | (Rval [v],s) =>
              evaluate_apps v (REVERSE (DROP (1+LENGTH ts) (REVERSE ys))) s
-        | res => res``,
+        | res => res
+Proof
   recInduct SNOC_INDUCT \\ rw []
   \\ fs [evaluate_apps_SNOC,evaluate_apps_def]
   \\ fs [evaluate_def,Once dest_closure_def,check_loc_def]
@@ -428,27 +447,31 @@ val evaluate_apps_Clos_long = prove(
   \\ disch_then kall_tac
   \\ fs [REVERSE_SNOC] \\ fs [ADD1]
   \\ fs [dec_clock_def,ADD1]
-  \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]);
+  \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+QED
 
-val LIST_REL_f_rel_IMP = prove(
-  ``!fns funs1. LIST_REL (f_rel max_app) funs1 fns ==> !x. ~(MEM (0,x) fns)``,
+Triviality LIST_REL_f_rel_IMP:
+  !fns funs1. LIST_REL (f_rel max_app) funs1 fns ==> !x. ~(MEM (0,x) fns)
+Proof
   Induct \\ fs [PULL_EXISTS] \\ rw [] \\ res_tac
   \\ res_tac \\ fs []
-  \\ Cases_on `x` \\ Cases_on `h` \\ fs [f_rel_def]);
+  \\ Cases_on `x` \\ Cases_on `h` \\ fs [f_rel_def]
+QED
 
-val v_rel_simps = save_thm("v_rel_simps[simp]",LIST_CONJ ([
+Theorem v_rel_simps[simp] =
+  LIST_CONJ ([
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (Number n)``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (Block n p)``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (Word64 p)``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (ByteVector p)``,
-  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (RefPtr p)``,
+  SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (RefPtr b p)``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (Closure x1 x2 x3 x4 x5)``,
   SIMP_CONV (srw_ss()) [v_rel_cases] ``v_rel max_app x (Recclosure y1 y2 y3 y4 y5)``,
   prove(``v_rel max_app x (Boolv b) <=> x = Boolv b``,
         Cases_on `b` \\ fs [Boolv_def,Once v_rel_cases]),
   prove(``v_rel max_app x Unit <=> x = Unit``,
         fs [closSemTheory.Unit_def,Once v_rel_cases])]
-  |> map GEN_ALL))
+  |> map GEN_ALL)
 
 val v_rel_opt_thm = prove(
   ``v_rel_opt m = OPTREL (v_rel m)``,
@@ -513,7 +536,7 @@ val do_install_inst =
   |> Q.INST [`sr`|->`\r t. (r.max_app = s.max_app) /\ state_rel r t`,
         `cr`|->`code_rel s.max_app`]
   |> SIMP_RULE bool_ss [simple_val_rel, simple_state_rel]
-  |> Q.SPEC `compile_inc s.max_app`
+  |> Q.SPEC `clos_mti$compile_inc s.max_app`
 
 val do_install_lemma = prove(
   ``state_rel s t /\ LIST_REL (v_rel s.max_app) xs ys ==>
@@ -938,6 +961,7 @@ Proof
       \\ qexists_tac `funs1` \\ fs []
       \\ qexists_tac `DROP (LENGTH ys) t` \\ fs []
       \\ qexists_tac `b1` \\ fs []
+      \\ simp[GSYM SNOC_APPEND]
       \\ qpat_x_assum `x::xs = _` (fn th => simp [GSYM th])
       \\ fs [LIST_REL_GENLIST] \\ rw []
       \\ simp [ADD1])
@@ -1244,20 +1268,24 @@ Proof
   rpt strip_tac >> metis_tac[set_globals_empty_esgc_free]
 QED
 
-val every_Fn_vs_NONE_collect_apps = Q.prove(
-  `∀max_app es e x y. collect_apps max_app es e = (x,y) ⇒
+Triviality every_Fn_vs_NONE_collect_apps:
+  ∀max_app es e x y. collect_apps max_app es e = (x,y) ⇒
   (every_Fn_vs_NONE x ∧ every_Fn_vs_NONE [y] ⇔
-   every_Fn_vs_NONE es ∧ every_Fn_vs_NONE [e])`,
+   every_Fn_vs_NONE es ∧ every_Fn_vs_NONE [e])
+Proof
   ho_match_mp_tac collect_apps_ind >>
   srw_tac[][collect_apps_def] >> full_simp_tac(srw_ss())[] >>
   ONCE_REWRITE_TAC[every_Fn_vs_NONE_EVERY] >>
-  srw_tac[][] >> metis_tac[]);
+  srw_tac[][] >> metis_tac[]
+QED
 
-val every_Fn_vs_NONE_collect_args = Q.prove(
-  `∀max_app es e x y. collect_args max_app es e = (x,y) ⇒
-    (every_Fn_vs_NONE [y] ⇔ every_Fn_vs_NONE [e])`,
+Triviality every_Fn_vs_NONE_collect_args:
+  ∀max_app es e x y. collect_args max_app es e = (x,y) ⇒
+    (every_Fn_vs_NONE [y] ⇔ every_Fn_vs_NONE [e])
+Proof
   ho_match_mp_tac collect_args_ind >>
-  srw_tac[][collect_args_def] >> full_simp_tac(srw_ss())[]);
+  srw_tac[][collect_args_def] >> full_simp_tac(srw_ss())[]
+QED
 
 Theorem every_Fn_vs_NONE_intro_multi[simp]:
    ∀max_app es. every_Fn_vs_NONE (intro_multi max_app es) = every_Fn_vs_NONE es
@@ -1295,9 +1323,11 @@ Proof
   Cases_on`do_mti` \\ rw[clos_mtiTheory.compile_def, clos_mtiTheory.intro_multi_length]
 QED
 
-val EVERY_HD = Q.prove(
-  `EVERY P l ∧ l ≠ [] ⇒ P (HD l)`,
-  Cases_on `l` >> simp[]);
+Triviality EVERY_HD:
+  EVERY P l ∧ l ≠ [] ⇒ P (HD l)
+Proof
+  Cases_on `l` >> simp[]
+QED
 
 Theorem collect_apps_preserves_set_globals:
    ∀max_app es e es' e'.
@@ -1306,7 +1336,7 @@ Theorem collect_apps_preserves_set_globals:
 Proof
   ho_match_mp_tac clos_mtiTheory.collect_apps_ind >>
   simp[clos_mtiTheory.collect_apps_def, bool_case_eq] >> rpt strip_tac
-  >- (pop_assum (assume_tac o SYM) >> fs[elist_globals_append] >>
+  >- (fs[elist_globals_append] >>
       metis_tac[bagTheory.COMM_BAG_UNION, bagTheory.ASSOC_BAG_UNION])
   >- (rveq >> simp[])
 QED
@@ -1501,14 +1531,14 @@ QED
 
 Theorem semantics_intro_multi:
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (pure_cc (compile_inc max_app) cc) xs <> Fail ==>
+     co (pure_cc (clos_mti$compile_inc max_app) cc) xs <> Fail ==>
    (∀n. SND (SND (co n)) = [] ∧ EVERY no_mti (FST (SND (co n)))) ∧
    1 <= max_app /\ EVERY no_mti xs ==>
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
      (pure_co (compile_inc max_app) ∘ co) cc
      (intro_multi max_app xs) =
    semantics (ffi:'ffi ffi_state) max_app FEMPTY
-     co (pure_cc (compile_inc max_app) cc) xs
+     co (pure_cc (clos_mti$compile_inc max_app) cc) xs
 Proof
   strip_tac
   \\ ho_match_mp_tac IMP_semantics_eq
@@ -1516,9 +1546,9 @@ Proof
   \\ drule (intro_multi_correct |> SIMP_RULE std_ss [])
   \\ fs []
   \\ disch_then (qspec_then `initial_state ffi max_app FEMPTY
-       (pure_co (compile_inc max_app) ∘ co) cc k` mp_tac)
+       (pure_co (clos_mti$compile_inc max_app) ∘ co) cc k` mp_tac)
   \\ impl_tac
-  THEN1 (fs [state_rel_def,initial_state_def,FMAP_REL_def])
+  THEN1 (fs [state_rel_def,initial_state_def,FMAP_REL_def, v_rel_opt_def])
   \\ strip_tac \\ fs []
   \\ qexists_tac `0`
   \\ fs [] \\ fs [state_rel_def]
@@ -1528,8 +1558,8 @@ QED
 
 Theorem semantics_compile:
    semantics ffi max_app FEMPTY co cc1 xs ≠ Fail ∧
-   cc1 = (if do_mti then pure_cc (compile_inc max_app) else I) cc ∧
-   co1 = (if do_mti then pure_co (compile_inc max_app) else I) o co ∧
+   cc1 = (if do_mti then pure_cc (clos_mti$compile_inc max_app) else I) cc ∧
+   co1 = (if do_mti then pure_co (clos_mti$compile_inc max_app) else I) o co ∧
    (do_mti ⇒ (∀n. SND (SND (co n)) = [] ∧ EVERY no_mti (FST (SND (co n)))) ∧
         1 ≤ max_app ∧ EVERY no_mti xs) ⇒
    semantics ffi max_app FEMPTY co1 cc (compile do_mti max_app xs) =
@@ -1541,4 +1571,3 @@ Proof
   \\ fs[]
 QED
 
-val _ = export_theory();

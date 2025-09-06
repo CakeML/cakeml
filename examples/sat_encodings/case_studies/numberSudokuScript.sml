@@ -1,11 +1,12 @@
 (*
   Encoding of sudoku to numBoolRange and to cnf
 *)
+Theory numberSudoku
+Ancestors
+  misc ASCIInumbers set_sep quantifierExp numBoolRange sudoku
+Libs
+  preamble
 
-open preamble miscTheory ASCIInumbersTheory set_sepTheory;
-open quantifierExpTheory numBoolRangeTheory sudokuTheory;
-
-val _ = new_theory "numberSudoku";
 
 (* ------------------------ Types --------------------------- *)
 
@@ -107,13 +108,6 @@ End
 Definition get_sudoku_rangeList_def:
   get_sudoku_rangeList =
   ZIP (FLAT get_positions, GENLIST (λ _. ((1:num), (9:num))) 81)
-End
-
-Definition numberSudoku_to_cnf_def:
-  numberSudoku_to_cnf (sudoku:sudoku) =
-  let e = ns_sudoku_to_numBoolRange sudoku in
-    let l = get_sudoku_rangeList in
-      numBoolRange_to_cnf l e
 End
 
 Definition numberSudoku_to_cnf_def:
@@ -607,4 +601,3 @@ Proof
   rw[get_sudoku_rangeList_lemma]
 QED
 
-val _ = export_theory();

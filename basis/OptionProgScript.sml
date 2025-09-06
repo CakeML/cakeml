@@ -1,10 +1,11 @@
 (*
   Module about the option tyoe.
 *)
-open preamble ml_translatorLib ml_progLib RuntimeProgTheory
-     mloptionTheory
-
-val _ = new_theory"OptionProg"
+Theory OptionProg
+Libs
+  preamble ml_translatorLib ml_progLib
+Ancestors
+  RuntimeProg mloption
 
 val _ = translation_extends "RuntimeProg"
 
@@ -51,4 +52,3 @@ val () = next_ml_names := ["compare"];
 val res = translate mloptionTheory.compare_def;
 
 val _ = ml_prog_update (close_module NONE);
-val _ = export_theory();

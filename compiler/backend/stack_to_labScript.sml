@@ -3,21 +3,25 @@
   such as If, While, Return etc, to labLang programs that are a soup
   of goto-like jumps.
 *)
-open preamble stackLangTheory labLangTheory;
-local open stack_allocTheory stack_removeTheory stack_namesTheory
-           word_to_stackTheory bvl_to_bviTheory stack_rawcallTheory in end
-
-val _ = new_theory "stack_to_lab";
+Theory stack_to_lab
+Ancestors
+  stackLang labLang stack_alloc[qualified]
+  stack_remove[qualified] stack_names[qualified]
+  word_to_stack[qualified] bvl_to_bvi[qualified]
+  stack_rawcall[qualified]
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 Overload Asm[local] = ``λa. Asm (Asmi a)``
 
-val compile_jump_def = Define `
+Definition compile_jump_def:
   (compile_jump (INL n) = LabAsm (Jump (Lab n 0)) 0w [] 0) /\
-  (compile_jump (INR r) = Asm (JumpReg r) [] 0)`;
+  (compile_jump (INR r) = Asm (JumpReg r) [] 0)
+End
 
-val negate_def = Define `
+Definition negate_def:
   (negate Less = NotLess) /\
   (negate Equal = NotEqual) /\
   (negate Lower = NotLower) /\
@@ -25,7 +29,8 @@ val negate_def = Define `
   (negate NotLess = Less) /\
   (negate NotEqual = Equal) /\
   (negate NotLower = Lower) /\
-  (negate NotTest = Test)`
+  (negate NotTest = Test)
+End
 
 val _ = export_rewrites ["negate_def"];
 
@@ -67,7 +72,7 @@ local val flatten_quotation = `
           (List [Label n m 0; LabAsm (JumpCmp (negate c) r ri (Lab n (m+1))) 0w [] 0] ++
            xs ++ List [LabAsm (Jump (Lab n m)) 0w [] 0; Label n (m+1) 0],F,m+2)
     | Raise r => (List [Asm (JumpReg r) [] 0],T,m)
-    | Return r _ => (List [Asm (JumpReg r) [] 0],T,m)
+    | Return r => (List [Asm (JumpReg r) [] 0],T,m)
     | RawCall n => (List [LabAsm (Jump (Lab n 1)) 0w [] 0],T,m)
     | Call NONE dest handler => (List [compile_jump dest],T,m)
     | Call (SOME (p1,lr,l1,l2)) dest handler =>
@@ -90,6 +95,7 @@ local val flatten_quotation = `
       (List [LabAsm (LocValue ret (Lab n m)) 0w [] 0;
       LabAsm Install 0w [] 0;
       Label n m 0],F,m+1)
+    | ShMemOp op r ad => (List [Asm (ShareMem op r ad) [] 0],F,m)
     | CodeBufferWrite r1 r2 =>
       (List [Asm (Cbw r1 r2) [] 0],F,m)
     | _  => (List [],F,m)`
@@ -112,35 +118,40 @@ Definition is_Seq_def:
   is_Seq _ = F
 End
 
-val prog_to_section_def = Define `
+Definition prog_to_section_def:
   prog_to_section (n,p) =
     let (lines,_,m) = (flatten T p n (next_lab p 2)) in
       Section n (append (Append lines
-        (List [Label n (if is_Seq p then m else 1) 0])))`
+        (List [Label n (if is_Seq p then m else 1) 0])))
+End
 
-val is_gen_gc_def = Define `
+Definition is_gen_gc_def:
   (is_gen_gc (Generational l) = T) /\
-  (is_gen_gc _ = F)`
+  (is_gen_gc _ = F)
+End
 
-val _ = Datatype`config =
+Datatype:
+  config =
   <| reg_names : num num_map
    ; jump : bool (* whether to compile to JumpLower or If Lower ... in stack_remove*)
-   |>`;
+   |>
+End
 
-val compile_def = Define `
+Definition compile_def:
  compile stack_conf data_conf max_heap sp offset prog =
    let prog = stack_rawcall$compile prog in
    let prog = stack_alloc$compile data_conf prog in
    let prog = stack_remove$compile stack_conf.jump offset (is_gen_gc data_conf.gc_kind)
                 max_heap sp InitGlobals_location prog in
    let prog = stack_names$compile stack_conf.reg_names prog in
-     MAP prog_to_section prog`;
+     MAP prog_to_section prog
+End
 
-val compile_no_stubs_def = Define`
+Definition compile_no_stubs_def:
   compile_no_stubs f jump offset sp prog =
   MAP prog_to_section
     (stack_names$compile f
       (MAP (prog_comp jump offset sp)
-        (MAP prog_comp prog)))`;
+        (MAP prog_comp prog)))
+End
 
-val _ = export_theory();

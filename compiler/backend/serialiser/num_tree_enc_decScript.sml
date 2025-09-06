@@ -2,14 +2,13 @@
   Encoders and decoders to/from types represented as trees
   consisting of natural numbers.
 *)
-open integerTheory ml_progTheory
-     astTheory semanticPrimitivesTheory
-     semanticPrimitivesPropsTheory evaluatePropsTheory
-     fpSemTheory mlvectorTheory mlstringTheory
-     ml_translatorTheory miscTheory num_list_enc_decTheory;
-open preamble;
-
-val _ = new_theory "num_tree_enc_dec";
+Theory num_tree_enc_dec
+Ancestors
+  integer ml_prog ast semanticPrimitives semanticPrimitivesProps
+  evaluateProps fpSem mlvector mlstring ml_translator misc
+  num_list_enc_dec
+Libs
+  preamble
 
 Datatype:
   num_tree = Tree num (num_tree list)
@@ -20,8 +19,6 @@ Definition num_tree_enc'_def:
   num_tree_enc' ((Tree k xs)::ts) =
     Append (Append (List [k; LENGTH xs]) (num_tree_enc' xs))
            (num_tree_enc' ts)
-Termination
-  WF_REL_TAC ‘measure num_tree1_size’
 End
 
 Theorem fix_res_IMP:
@@ -65,10 +62,10 @@ Proof
   \\ Cases_on ‘num_tree_dec' (l − 1) r’ \\ fs [fix_res_def]
 QED
 
-Theorem num_tree_dec'_def = num_tree_dec'_def
+Theorem num_tree_dec'_def[allow_rebind] = num_tree_dec'_def
   |> SIMP_RULE std_ss [MATCH_MP dec_ok_fix_res (SPEC_ALL dec_ok_num_tree_dec')];
 
-Theorem num_tree_dec'_ind = num_tree_dec'_ind
+Theorem num_tree_dec'_ind[allow_rebind] = num_tree_dec'_ind
   |> SIMP_RULE std_ss [MATCH_MP dec_ok_fix_res (SPEC_ALL dec_ok_num_tree_dec')];
 
 Definition num_tree_enc_def:
@@ -314,4 +311,19 @@ Proof
   Cases_on ‘x’ \\ fs [option_enc'_def,option_dec'_def,MAP_MAP_o,o_DEF]
 QED
 
-val _ = export_theory();
+(* word64 *)
+
+Definition word64_enc'_def:
+  word64_enc' (n:word64) = Tree (w2n n) []
+End
+
+Definition word64_dec'_def[simp]:
+  word64_dec' (Tree n xs) = n2w n :word64
+End
+
+Theorem word64_dec_enc'[simp]:
+  word64_dec' (word64_enc' n) = n
+Proof
+  fs [word64_dec'_def,word64_enc'_def]
+QED
+

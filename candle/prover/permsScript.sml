@@ -1,14 +1,13 @@
 (*
   Permissions for CakeML values.
  *)
+Theory perms
+Ancestors
+  semanticPrimitives semanticPrimitivesProps namespaceProps
+  evaluateProps evaluate sptree ml_prog ast_extras
+Libs
+  preamble
 
-open preamble;
-open semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     namespacePropsTheory evaluatePropsTheory evaluateTheory
-     sptreeTheory ml_progTheory;
-open ast_extrasTheory;
-
-val _ = new_theory "perms";
 
 Type loc = “:num”;
 
@@ -35,6 +34,7 @@ Definition perms_ok_exp_def:
           (op = Opref ⇒ RefAlloc ∈ ps) ∧
           (op = Aalloc ⇒ RefAlloc ∈ ps) ∧
           (op = AallocEmpty ⇒ RefAlloc ∈ ps) ∧
+          (op = AallocFixed ⇒ RefAlloc ∈ ps) ∧
           (op = Aw8alloc ⇒ W8Alloc ∈ ps) ∧
           (op = Opassign ⇒ RefUpdate ∈ ps) ∧
           (∀chn. op = FFI chn ⇒ FFIWrite chn ∈ ps ∧ DoFFI ∈ ps)
@@ -86,12 +86,12 @@ Inductive perms_ok:
 [~Conv:]
   (∀ps opt vs.
      EVERY (perms_ok ps) vs ⇒
-       perms_ok ps (Conv opt vs)) ∧
+       perms_ok ps (Conv opt vs))
 [~Closure:]
   (∀ps env n x.
      perms_ok_env ps (freevars x DIFF {Short n}) env ∧
      perms_ok_exp ps x ⇒
-       perms_ok ps (Closure env n x)) ∧
+       perms_ok ps (Closure env n x))
 [~Recclosure:]
   (∀ps env f n.
      perms_ok_env ps
@@ -99,22 +99,22 @@ Inductive perms_ok:
                                                    {Short fn; Short vn}) f)))
                   env ∧
      EVERY (perms_ok_exp ps) (MAP (SND o SND) f) ⇒
-       perms_ok ps (Recclosure env f n)) ∧
+       perms_ok ps (Recclosure env f n))
 [~Vectorv:]
   (∀ps vs.
      EVERY (perms_ok ps) vs ⇒
-       perms_ok ps (Vectorv vs)) ∧
+       perms_ok ps (Vectorv vs))
 [~Litv:]
   (∀ps lit.
-     perms_ok ps (Litv lit)) ∧
+     perms_ok ps (Litv lit))
 [~Loc:]
-  (∀ps loc.
+  (∀ps b loc.
      RefMention loc ∈ ps ⇒
-       perms_ok ps (Loc loc)) ∧
+       perms_ok ps (Loc b loc))
 [~Env:]
   (∀ps env ns.
      perms_ok_env ps UNIV env  ⇒
-       perms_ok ps (Env env ns)) ∧
+       perms_ok ps (Env env ns))
 [~env:]
   (∀ps fvs env.
      (∀n v.
@@ -129,7 +129,7 @@ Theorem perms_ok_def =
    “perms_ok ps (Conv opt vs)”,
    “perms_ok ps (Closure env n x)”,
    “perms_ok ps (Recclosure env f n)”,
-   “perms_ok ps (Loc loc)”,
+   “perms_ok ps (Loc b loc)”,
    “perms_ok ps (Vectorv vs)”,
    “perms_ok ps (Env env ns)”]
   |> map (SIMP_CONV (srw_ss()) [Once perms_ok_cases])
@@ -291,6 +291,7 @@ Theorem do_app_perms:
   (op = Opref ⇒ RefAlloc ∈ ps) ∧
   (op = Aalloc ⇒ RefAlloc ∈ ps) ∧
   (op = AallocEmpty ⇒ RefAlloc ∈ ps) ∧
+  (op = AallocFixed ⇒ RefAlloc ∈ ps) ∧
   (op = Aw8alloc ⇒ W8Alloc ∈ ps) ∧
   (op = Opassign ⇒ RefUpdate ∈ ps) ∧
   (∀chn. op = FFI chn ⇒ FFIWrite chn ∈ ps ∧ DoFFI ∈ ps) ∧
@@ -299,8 +300,8 @@ Theorem do_app_perms:
     (RefAlloc ∉ ps ∧ W8Alloc ∉ ps ⇒ LENGTH refs1 = LENGTH refs) ∧
     (DoFFI ∉ ps ⇒ ffi1 = ffi) ∧
     (∀ch out y.
-       MEM (IO_event ch out y) ffi1.io_events ⇒
-       MEM (IO_event ch out y) ffi.io_events ∨ FFIWrite ch ∈ ps) ∧
+       MEM (IO_event (ExtCall ch) out y) ffi1.io_events ⇒
+       MEM (IO_event (ExtCall ch) out y) ffi.io_events ∨ FFIWrite ch ∈ ps) ∧
     case list_result res of
       Rval vs => EVERY (perms_ok ps) vs
     | Rerr (Rraise v) => perms_ok ps v
@@ -381,6 +382,12 @@ Proof
     \\ gvs [perms_ok_def, store_alloc_def, SUBSET_DEF, PULL_EXISTS]
     \\ rw [EL_APPEND_EQN]
     \\ gs [NOT_LESS, LESS_OR_EQ, perms_ok_ref_def])
+  \\ Cases_on ‘op = AallocFixed’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ gvs [perms_ok_def, store_alloc_def, SUBSET_DEF, PULL_EXISTS]
+    \\ rw [EL_APPEND_EQN]
+    \\ gs [NOT_LESS, LESS_OR_EQ, perms_ok_ref_def])
   \\ Cases_on ‘op = Aalloc’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
@@ -434,6 +441,11 @@ Proof
   >- (
     rw [do_app_cases] \\ gs []
     \\ simp [perms_ok_def])
+  \\ Cases_on ‘op = XorAw8Str_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [perms_ok_def]
+    \\ gvs [store_assign_def, EL_LUPDATE]
+    \\ rw [perms_ok_ref_def])
   \\ Cases_on ‘op = CopyAw8Aw8’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [perms_ok_def]
@@ -536,6 +548,14 @@ Proof
     \\ simp [EL_APPEND_EQN]
     \\ rw [] \\ gs []
     \\ gvs [NOT_LESS, LESS_OR_EQ, perms_ok_ref_def])
+  \\ Cases_on ‘op = FpFromWord’ \\ gs[]
+  >- (
+    rw [do_app_cases] \\ gs[]
+    \\ rw [perms_ok_def])
+  \\ Cases_on ‘op = FpToWord’ \\ gs[]
+  >- (
+    rw [do_app_cases] \\ gs[]
+    \\ rw [perms_ok_def])
   \\ Cases_on ‘op’ \\ gs []
 QED
 
@@ -590,8 +610,8 @@ Theorem evaluate_perms_ok:
        (DoFFI ∉ ps ⇒ s'.ffi = s.ffi) ∧
        perms_ok_state ps s' ∧
        (∀ffi out y.
-          MEM (IO_event ffi out y) s'.ffi.io_events ⇒
-          MEM (IO_event ffi out y) s.ffi.io_events ∨ FFIWrite ffi ∈ ps) ∧
+          MEM (IO_event (ExtCall ffi) out y) s'.ffi.io_events ⇒
+          MEM (IO_event (ExtCall ffi) out y) s.ffi.io_events ∨ FFIWrite ffi ∈ ps) ∧
        case res of
          Rerr (Rraise v) => perms_ok ps v
        | Rval vs => EVERY (perms_ok ps) vs
@@ -613,8 +633,8 @@ Theorem evaluate_perms_ok:
        (DoFFI ∉ ps ⇒ s'.ffi = s.ffi) ∧
        perms_ok_state ps s' ∧
        (∀ffi out y.
-          MEM (IO_event ffi out y) s'.ffi.io_events ⇒
-          MEM (IO_event ffi out y) s.ffi.io_events ∨ FFIWrite ffi ∈ ps) ∧
+          MEM (IO_event (ExtCall ffi) out y) s'.ffi.io_events ⇒
+          MEM (IO_event (ExtCall ffi) out y) s.ffi.io_events ∨ FFIWrite ffi ∈ ps) ∧
        case res of
          Rerr (Rraise v) => perms_ok ps v
        | Rval vs => EVERY (perms_ok ps) vs
@@ -630,8 +650,8 @@ Theorem evaluate_perms_ok:
        (DoFFI ∉ ps ⇒ s'.ffi = s.ffi) ∧
        perms_ok_state ps s' ∧
        (∀ffi out y.
-          MEM (IO_event ffi out y) s'.ffi.io_events ⇒
-          MEM (IO_event ffi out y) s.ffi.io_events ∨ FFIWrite ffi ∈ ps) ∧
+          MEM (IO_event (ExtCall ffi) out y) s'.ffi.io_events ⇒
+          MEM (IO_event (ExtCall ffi) out y) s.ffi.io_events ∨ FFIWrite ffi ∈ ps) ∧
        case res of
          Rerr (Rraise v) => perms_ok ps v
        | Rval env1 => perms_ok_env ps UNIV env1
@@ -727,20 +747,23 @@ Proof
                EXISTS_PROD]
         \\ first_assum (irule_at Any)
         \\ first_assum (irule_at Any) \\ gs []))
-    \\ ‘EVERY (λx. perms_ok_env ps (freevars x) env) xs’
+    \\ rename1 `perms_ok_env ps (BIGUNION (set (MAP _ es))) env`
+    \\ ‘EVERY (λx. perms_ok_env ps (freevars x) env) es’
       by gs [EVERY_perms_ok_env_BIGUNION, SF ETA_ss]
     \\ Cases_on ‘op = Eval’ \\ gs []
-    \\ ‘EVERY (λx. perms_ok_env ps (freevars x) env) xs’
-      by gs [EVERY_perms_ok_env_BIGUNION, SF ETA_ss]
-    \\ gvs [CaseEqs ["result", "prod", "bool", "option"]]
-    \\ drule_then (qspec_then ‘ps’ mp_tac) do_app_perms
-    \\ impl_tac
-    >- (
-      gs [perms_ok_state_def, SUBSET_DEF])
-    \\ strip_tac \\ gs []
-    \\ gs [perms_ok_state_def]
-    \\ rw [] \\ gs []
-    \\ first_x_assum (drule_then assume_tac) \\ gs [])
+    \\ Cases_on ‘getOpClass op’ \\ gs[]
+    >~ [‘EvalOp’] >- (Cases_on ‘op’ \\ gs[])
+    >~ [‘FunApp’] >- (Cases_on ‘op’ \\ gs[])
+    >~ [‘Simple’] >- (
+      gvs [CaseEqs ["result", "prod", "bool", "option"]]
+      \\ drule_then (qspec_then ‘ps’ mp_tac) do_app_perms
+      \\ impl_tac
+      >- (
+        gs [perms_ok_state_def, SUBSET_DEF])
+      \\ strip_tac \\ gs []
+      \\ gs [perms_ok_state_def]
+      \\ rw [] \\ gs []
+      \\ first_x_assum (drule_then assume_tac) \\ gs []))
   >~ [‘Log lop x y’] >- (
     gvs [evaluate_def, perms_ok_env_UNION, do_log_def,
          CaseEqs ["option", "exp_or_val", "result", "prod", "bool"]]
@@ -764,7 +787,8 @@ Proof
   >~ [‘Let opt x y’] >- (
     gvs [evaluate_def, CaseEqs ["result", "prod"], perms_ok_env_UNION]
     \\ drule_then strip_assume_tac evaluate_sing \\ gs []
-    \\ Cases_on ‘opt’ \\ gs [namespaceTheory.nsOptBind_def]
+    \\ rename1 `evaluate _ (env with v := nsOptBind opt _ _) _ = _`
+    \\ Cases_on ‘opt’ \\ gs [namespaceTheory.nsOptBind_def,AllCaseEqs()]
     >- (
       rw [] \\ first_x_assum (drule_then assume_tac) \\ gs [])
     \\ last_x_assum mp_tac
@@ -898,4 +922,3 @@ Theorem evaluate_perms_ok_dec =
   |> GEN_ALL
   |> SIMP_RULE (srw_ss()) [];
 
-val _ = export_theory ();

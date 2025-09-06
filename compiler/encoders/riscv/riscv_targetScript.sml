@@ -1,69 +1,82 @@
 (*
   Define the target compiler configuration for RISC-V.
 *)
-open HolKernel Parse boolLib bossLib
-open asmLib riscv_stepTheory;
-
-val () = new_theory "riscv_target"
+Theory riscv_target
+Ancestors
+  asmProps riscv_step
+Libs
+  asmLib
 
 val () = wordsLib.guess_lengths()
 
-val riscv_next_def = Define `riscv_next s = THE (NextRISCV s)`
+Definition riscv_next_def:
+  riscv_next s = THE (NextRISCV s)
+End
 
 (* --- Valid RISC-V states --- *)
 
 (* We assume virtual memory is turned off and a 64-bit architecture (RV64I) *)
-val riscv_ok_def = Define`
+Definition riscv_ok_def:
    riscv_ok ms <=>
    ((ms.c_MCSR ms.procID).mstatus.VM = 0w) /\
    ((ms.c_MCSR ms.procID).mcpuid.ArchBase = 2w) /\
    (ms.c_NextFetch ms.procID = NONE) /\
-   (ms.exception = NoException) /\ aligned 2 (ms.c_PC ms.procID)`
+   (ms.exception = NoException) /\ aligned 2 (ms.c_PC ms.procID)
+End
 
 (* --- Encode ASM instructions to RISC-V bytes. --- *)
 
-val riscv_encode_fail_def = Define`
-  riscv_encode_fail = [ArithI (ADDI (0w, 0w, 0w))]`
+Definition riscv_encode_fail_def:
+  riscv_encode_fail = [ArithI (ADDI (0w, 0w, 0w))]
+End
 
-val riscv_encode_def = Define`
+Definition riscv_encode_def:
    riscv_encode i =
    let w = riscv$Encode i in
-     [(7 >< 0) w; (15 >< 8) w; (23 >< 16) w; (31 >< 24) w] : word8 list`
+     [(7 >< 0) w; (15 >< 8) w; (23 >< 16) w; (31 >< 24) w] : word8 list
+End
 
-val riscv_bop_r_def = Define`
+Definition riscv_bop_r_def:
    (riscv_bop_r Add = ADD) /\
    (riscv_bop_r Sub = SUB) /\
    (riscv_bop_r And = AND) /\
    (riscv_bop_r Or  = OR) /\
-   (riscv_bop_r Xor = XOR)`
+   (riscv_bop_r Xor = XOR)
+End
 
-val riscv_bop_i_def = Define`
+Definition riscv_bop_i_def:
    (riscv_bop_i Add = ADDI) /\
    (riscv_bop_i And = ANDI) /\
    (riscv_bop_i Or  = ORI) /\
-   (riscv_bop_i Xor = XORI)`
+   (riscv_bop_i Xor = XORI)
+End
 
-val riscv_sh_def = Define`
+Definition riscv_sh_def:
    (riscv_sh Lsl = SLLI) /\
    (riscv_sh Lsr = SRLI) /\
-   (riscv_sh Asr = SRAI)`
+   (riscv_sh Asr = SRAI)
+End
 
-val riscv_memop_def = Define`
+Definition riscv_memop_def:
    (riscv_memop Load    = INL LD) /\
-(* (riscv_memop Load32  = INL LWU) /\ *)
+   (riscv_memop Load32  = INL LWU) /\
+   (riscv_memop Load16  = INL LHU) /\
    (riscv_memop Load8   = INL LBU) /\
    (riscv_memop Store   = INR SD) /\
-(* (riscv_memop Store32 = INR SW) /\ *)
-   (riscv_memop Store8  = INR SB)`
+   (riscv_memop Store32 = INR SW) /\
+   (riscv_memop Store16 = INR SH) /\
+   (riscv_memop Store8  = INR SB)
+End
 
-val riscv_const32_def = Define`
+Definition riscv_const32_def:
   riscv_const32 r (i: word32) =
   if i ' 11 then
     [ArithI (LUI (r, ~((31 >< 12) i)));
      ArithI (XORI (r, r, (11 >< 0) i))]
   else
     [ArithI (LUI (r, (31 >< 12) i));
-     ArithI (ADDI (r, r, (11 >< 0) i))]`
+     ArithI (ADDI (r, r, (11 >< 0) i))]
+End
 
 val eval = rhs o concl o EVAL
 val min12 = eval ``sw2sw (INT_MINw: word12) : word64``
@@ -74,7 +87,7 @@ val min32 = eval ``sw2sw (INT_MINw: word32) : word64``
 
 Overload temp_reg[local] = ``31w : word5``
 
-val riscv_ast_def = Define`
+Definition riscv_ast_def:
    (riscv_ast (Inst Skip) = [ArithI (ADDI (0w, 0w, 0w))]) /\
    (riscv_ast (Inst (Const r (i: word64))) =
       let imm12 = (11 >< 0) i in
@@ -236,14 +249,16 @@ val riscv_ast_def = Define`
    (riscv_ast (Loc r i) =
       let imm12 = (11 >< 0) i in
       [ArithI (AUIPC (n2w r, (31 >< 12) (i - sw2sw imm12)));
-       ArithI (ADDI (n2w r, n2w r, imm12))])`
+       ArithI (ADDI (n2w r, n2w r, imm12))])
+End
 
-val riscv_enc_def = zDefine`
-  riscv_enc = combin$C LIST_BIND riscv_encode o riscv_ast`
+Definition riscv_enc_def[nocompute]:
+  riscv_enc = combin$C LIST_BIND riscv_encode o riscv_ast
+End
 
 (* --- Configuration for RISC-V --- *)
 
-val riscv_config_def = Define`
+Definition riscv_config_def:
    riscv_config =
    <| ISA := RISC_V
     ; encode := riscv_enc
@@ -263,14 +278,16 @@ val riscv_config_def = Define`
     ; valid_imm := (\b i. (if b = INL Sub then ^min12 < i else ^min12 <= i) /\
                           i <= ^max12)
     ; addr_offset := (^min12, ^max12)
+    ; hw_offset := (^min12, ^max12)
     ; byte_offset := (^min12, ^max12)
     ; jump_offset := (^min32, 0x7FFFF7FFw)
     ; cjump_offset := (^min21 + 8w, ^max21 + 4w)
     ; loc_offset := (^min32, 0x7FFFF7FFw)
     ; code_alignment := 2
-    |>`
+    |>
+End
 
-val riscv_proj_def = Define`
+Definition riscv_proj_def:
    riscv_proj d s =
    ((s.c_MCSR s.procID).mstatus.VM,
     (s.c_MCSR s.procID).mcpuid.ArchBase,
@@ -278,9 +295,10 @@ val riscv_proj_def = Define`
     s.exception,
     s.c_gpr s.procID,
     fun2set (s.MEM8,d),
-    s.c_PC s.procID)`
+    s.c_PC s.procID)
+End
 
-val riscv_target_def = Define`
+Definition riscv_target_def:
    riscv_target =
    <| next := riscv_next
     ; config := riscv_config
@@ -289,11 +307,12 @@ val riscv_target_def = Define`
     ; get_byte := riscv_state_MEM8
     ; state_ok := riscv_ok
     ; proj := riscv_proj
-    |>`
+    |>
+End
 
 val (riscv_config, riscv_asm_ok) = asmLib.target_asm_rwts [] ``riscv_config``
 
-val riscv_config = save_thm("riscv_config", riscv_config)
-val riscv_asm_ok = save_thm("riscv_asm_ok", riscv_asm_ok)
-
-val () = export_theory ()
+Theorem riscv_config =
+  riscv_config
+Theorem riscv_asm_ok =
+  riscv_asm_ok

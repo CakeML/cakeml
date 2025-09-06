@@ -1,31 +1,36 @@
 (*
   Define the target compiler configuration for x64.
 *)
-open HolKernel Parse boolLib bossLib
-open asmLib x64_stepTheory;
-
-val () = new_theory "x64_target"
+Theory x64_target
+Ancestors
+  asmProps x64_step
+Libs
+  asmLib
 
 val () = wordsLib.guess_lengths()
 
 (* --- The next-state function --- *)
 
-val x64_next_def = Define `x64_next = THE o NextStateX64`
+Definition x64_next_def:
+  x64_next = THE o NextStateX64
+End
 
 (* --- Valid x64 states --- *)
 
 (* All floating-point exceptions are masked; don't flush to zero and denormals
    are not treated as zero. Rounding mode is TiesToEven *)
 
-val x64_ok_def = Define`
+Definition x64_ok_def:
   x64_ok ms = (~ms.MXCSR.FZ /\ ms.MXCSR.PM /\ ms.MXCSR.UM /\ ms.MXCSR.OM /\
                 ms.MXCSR.ZM /\ ms.MXCSR.DM /\ ms.MXCSR.IM /\ ~ms.MXCSR.DAZ /\
-                (ms.MXCSR.RC = 0w) /\ (ms.exception = NoException))`
+                (ms.MXCSR.RC = 0w) /\ (ms.exception = NoException))
+End
 
 (* --- Encode ASM instructions to x86-64 bytes. --- *)
 
-val total_num2Zreg_def = Define`
-  total_num2Zreg n = if n < 16 then num2Zreg n else RAX`
+Definition total_num2Zreg_def:
+  total_num2Zreg n = if n < 16 then num2Zreg n else RAX
+End
 
 Overload reg[local] = ``\r. Zr (total_num2Zreg r)``
 Overload xr[local] = ``\r. xmm_reg (n2w r)``
@@ -38,20 +43,22 @@ Overload st[local] =
     ``\r1 r2 a.
        Zrm_r (Zm (NONE, ZregBase (total_num2Zreg r2), a), total_num2Zreg r1)``
 
-val x64_bop_def = Define`
+Definition x64_bop_def:
    (x64_bop Add = Zadd) /\
    (x64_bop Sub = Zsub) /\
    (x64_bop And = Zand) /\
    (x64_bop Or  = Zor) /\
-   (x64_bop Xor = Zxor)`
+   (x64_bop Xor = Zxor)
+End
 
-val x64_sh_def = Define`
+Definition x64_sh_def:
    (x64_sh Lsl = Zshl) /\
    (x64_sh Lsr = Zshr) /\
    (x64_sh Asr = Zsar) /\
-   (x64_sh Ror = Zror)`
+   (x64_sh Ror = Zror)
+End
 
-val x64_cmp_def = Define`
+Definition x64_cmp_def:
    (x64_cmp Less  = Z_L) /\
    (x64_cmp Lower = Z_B) /\
    (x64_cmp Equal = Z_E) /\
@@ -59,9 +66,10 @@ val x64_cmp_def = Define`
    (x64_cmp NotLess  = Z_NL) /\
    (x64_cmp NotLower = Z_NB) /\
    (x64_cmp NotEqual = Z_NE) /\
-   (x64_cmp NotTest  = Z_NE)`
+   (x64_cmp NotTest  = Z_NE)
+End
 
-val x64_ast_def = Define`
+Definition x64_ast_def:
    (x64_ast (Inst Skip) = [Znop(1)]) /\
    (x64_ast (Inst (Const r i)) =
       let sz = if (63 >< 31) i = 0w: 33 word then Z32 else Z64
@@ -100,18 +108,18 @@ val x64_ast_def = Define`
        Zset (Z_O, T, reg r3)]) /\
    (x64_ast (Inst (Mem Load r1 (Addr r2 a))) =
       [Zmov (Z_ALWAYS, Z64, ld r1 r2 a)]) /\
-   (*
    (x64_ast (Inst (Mem Load32 r1 (Addr r2 a))) =
       [Zmov (Z_ALWAYS, Z32, ld r1 r2 a)]) /\
-   *)
+   (x64_ast (Inst (Mem Load16 r1 (Addr r2 a))) =
+      [Zmovzx (Z16, ld r1 r2 a, Z64)]) /\
    (x64_ast (Inst (Mem Load8 r1 (Addr r2 a))) =
       [Zmovzx (Z8 T, ld r1 r2 a, Z64)]) /\
    (x64_ast (Inst (Mem Store r1 (Addr r2 a))) =
       [Zmov (Z_ALWAYS, Z64, st r1 r2 a)]) /\
-   (*
    (x64_ast (Inst (Mem Store32 r1 (Addr r2 a))) =
       [Zmov (Z_ALWAYS, Z32, st r1 r2 a)]) /\
-   *)
+   (x64_ast (Inst (Mem Store16 r1 (Addr r2 a))) =
+      [Zmov (Z_ALWAYS, Z16, st r1 r2 a)]) /\
    (x64_ast (Inst (Mem Store8 r1 (Addr r2 a))) =
       [Zmov (Z_ALWAYS, Z8 (3 < r1), st r1 r2 a)]) /\
 (**)
@@ -180,10 +188,11 @@ val x64_ast_def = Define`
    (x64_ast (Call _) = []) /\
    (x64_ast (JumpReg r) = [Zjmp (reg r)]) /\
    (x64_ast (Loc r i) =
-      [Zlea (Z64, Zr_rm (total_num2Zreg r, Zm (NONE, (ZripBase, i - 7w))))])`
+      [Zlea (Z64, Zr_rm (total_num2Zreg r, Zm (NONE, (ZripBase, i - 7w))))])
+End
 
 (* Avoid x64$encode when encoding jcc because it can produce short jumps. *)
-val x64_encode_def = Define`
+Definition x64_encode_def:
   (x64_encode (Zjcc (cond, imm)) =
      if cond = Z_ALWAYS then
         0xE9w :: e_imm32 imm
@@ -191,15 +200,19 @@ val x64_encode_def = Define`
         x64$encode (Zjcc (cond, imm))
      else
         [0x0Fw; 0x80w || n2w (Zcond2num cond)] ++ e_imm32 imm) /\
-  (x64_encode i = x64$encode i)`;
+  (x64_encode i = x64$encode i)
+End
 
-val x64_dec_fail_def = zDefine `x64_dec_fail = [0w] : word8 list`
+Definition x64_dec_fail_def[nocompute]:
+  x64_dec_fail = [0w] : word8 list
+End
 
-val x64_enc_def = Define`
+Definition x64_enc_def:
   x64_enc i =
   case LIST_BIND (x64_ast i) x64_encode of
      [] => x64_dec_fail
-   | l => l`
+   | l => l
+End
 
 (* --- Configuration for x86-64 --- *)
 
@@ -207,7 +220,7 @@ val eval = rhs o concl o EVAL
 val min32 = eval ``sw2sw (INT_MINw: word32) : word64``
 val max32 = eval ``sw2sw (INT_MAXw: word32) : word64``
 
-val x64_config_def = Define`
+Definition x64_config_def:
    x64_config =
    <| ISA := x86_64
     ; encode := x64_enc
@@ -219,19 +232,22 @@ val x64_config_def = Define`
     ; big_endian := F
     ; valid_imm := \b i. ^min32 <= i /\ i <= ^max32
     ; addr_offset := (^min32, ^max32)
+    ; hw_offset := (^min32, ^max32)
     ; byte_offset := (^min32, ^max32)
     ; jump_offset := (^min32 + 13w, ^max32 + 5w)
     ; cjump_offset := (^min32 + 13w, ^max32 + 5w)
     ; loc_offset := (^min32 + 7w, ^max32 + 7w)
     ; code_alignment := 0
-    |>`
+    |>
+End
 
-val x64_proj_def = Define`
+Definition x64_proj_def:
    x64_proj d s =
    (s.RIP, s.REG, s.XMM_REG, fun2set (s.MEM, d), s.EFLAGS, s.MXCSR,
-    s.exception)`
+    s.exception)
+End
 
-val x64_target_def = Define`
+Definition x64_target_def:
    x64_target =
    <| next := x64_next
     ; config := x64_config
@@ -241,12 +257,13 @@ val x64_target_def = Define`
     ; get_byte := x64_state_MEM
     ; state_ok := x64_ok
     ; proj := x64_proj
-    |>`
+    |>
+End
 
 val (x64_config, x64_asm_ok) =
   asmLib.target_asm_rwts [alignmentTheory.aligned_0] ``x64_config``
 
-val x64_config = save_thm("x64_config", x64_config)
-val x64_asm_ok = save_thm("x64_asm_ok", x64_asm_ok)
-
-val () = export_theory ()
+Theorem x64_config =
+  x64_config
+Theorem x64_asm_ok =
+  x64_asm_ok

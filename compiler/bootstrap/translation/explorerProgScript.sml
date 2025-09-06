@@ -1,18 +1,23 @@
 (*
   Translate the compiler explorer parts of the compiler.
 *)
+Theory explorerProg
+Ancestors
+  inferProg
+Libs
+  preamble ml_translatorLib
+
 open preamble
      ml_translatorLib
-     inferProgTheory
+     inferProgTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "explorerProg"
 
 val _ = translation_extends "inferProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "explorerProg");
 val _ = ml_translatorLib.use_string_type false;
+val _ = ml_translatorLib.use_sub_check true;
 
 (* TODO: this is copied in many bootstrap translation files - should be in a lib? *)
 fun def_of_const tm = let
@@ -34,46 +39,41 @@ val _ = (find_def_for_const := def_of_const);
 
 val res = translate jsonLangTheory.num_to_hex_digit_def;
 
-val num_to_hex_digit_side = prove(
-  ``num_to_hex_digit_side n = T``,
-  EVAL_TAC \\ fs [])
-  |> update_precondition;
-
 val res = translate jsonLangTheory.encode_str_def;
 val res = translate jsonLangTheory.concat_with_def;
 
-val res = translate jsonLangTheory.json_to_mlstring_def;
+val res = translate_no_ind jsonLangTheory.json_to_mlstring_def;
 
-val ind_lemma = Q.prove(
-  `^(first is_forall (hyp res))`,
-  rpt gen_tac
+Triviality json_to_mlstring_ind:
+  json_to_mlstring_ind
+Proof
+  rewrite_tac [fetch "-" "json_to_mlstring_ind_def"]
+  \\ rpt gen_tac
   \\ rpt (disch_then strip_assume_tac)
   \\ match_mp_tac jsonLangTheory.json_to_mlstring_ind
-  \\ metis_tac [])
-  |> update_precondition;
+  \\ metis_tac []
+QED
+
+val _ = json_to_mlstring_ind |> update_precondition;
+
+(* str_tree and displayLang *)
+
+val r = translate str_treeTheory.v2strs_def;
+val r = translate displayLangTheory.display_to_str_tree_def;
+
+(* presLang *)
 
 val res = translate presLangTheory.num_to_hex_def;
+val res = translate (presLangTheory.word_to_display_def |> INST_TYPE [``:'a``|->``:8``]);
+val res = translate (presLangTheory.word_to_display_def |> INST_TYPE [``:'a``|->``:64``]);
 
-val res = translate
-  (presLangTheory.display_word_to_hex_string_def |> INST_TYPE [``:'a``|->``:8``]);
-val res = translate
-  (presLangTheory.display_word_to_hex_string_def |> INST_TYPE [``:'a``|->``:64``]);
-
-val res = translate displayLangTheory.trace_to_json_def;
-val res = translate displayLangTheory.display_to_json_def;
-
-(* fixme: flat op datatype has been translated with use_string_type, which
-   for compatibility here needs that switch on, and looks like it results
-   in an unnecessary explode/implode pair *)
 val _ = ml_translatorLib.use_string_type true;
-val res = translate (presLangTheory.flat_op_to_display_def);
+val res = translate presLangTheory.source_to_strs_def;
 val _ = ml_translatorLib.use_string_type false;
 
-val _ = translate presLangTheory.lang_to_json_def
-
-(* again *)
 val _ = ml_translatorLib.use_string_type true;
-val r = translate presLangTheory.lit_to_display_def
+val res = translate presLangTheory.flat_to_strs_def;
+val res = translate presLangTheory.clos_op_to_display_def;
 val _ = ml_translatorLib.use_string_type false;
 
 val r = translate presLangTheory.num_to_varn_def
@@ -84,43 +84,38 @@ val num_to_varn_side = Q.prove(`
   `n MOD 26 < 26` by simp[] \\ decide_tac)
   |> update_precondition;
 
-Theorem string_imp_lam:
-  string_imp = \s. String (implode s)
+val r = presLangTheory.display_num_as_varn_def
+          |> REWRITE_RULE [presLangTheory.string_imp_def]
+          |> translate;
+
+val r = translate presLangTheory.data_prog_to_display_def;
+val r = translate presLangTheory.data_fun_to_display_def;
+val r = translate presLangTheory.data_to_strs_def;
+
+val r = translate presLangTheory.bvl_to_display_def;
+val r = translate presLangTheory.bvl_fun_to_display_def;
+val r = translate presLangTheory.bvl_to_strs_def;
+
+val r = translate presLangTheory.bvi_to_display_def;
+val r = translate presLangTheory.bvi_fun_to_display_def;
+val r = translate presLangTheory.bvi_to_strs_def;
+
+Triviality string_imp_thm:
+  string_imp = λs. String (implode s)
 Proof
   fs [FUN_EQ_THM,presLangTheory.string_imp_def]
 QED
 
-val string_imp = SIMP_RULE bool_ss [string_imp_lam];
-
-val r = translate (presLangTheory.display_num_as_varn_def |> string_imp);
 val _ = ml_translatorLib.use_string_type true;
-val res = translate (presLangTheory.flat_to_display_def)
-val _ = ml_translatorLib.use_string_type false;
+val r = presLangTheory.clos_to_display_def
+          |> REWRITE_RULE [string_imp_thm]
+          |> translate
 
-val res = translate presLangTheory.tap_flat_def;
-
-val _ = ml_translatorLib.use_string_type true;
-val r = translate (presLangTheory.clos_op_to_display_def |> string_imp);
-val _ = ml_translatorLib.use_string_type false;
-
-val r = translate (presLangTheory.clos_to_display_def |> string_imp);
-
-val res = translate presLangTheory.tap_clos_def;
-
-val res = translate presLangTheory.tap_data_lang_def;
-
-(* we can't translate the tap_word bits yet, because that's 32/64 specific.
-   that's done in the to_word* scripts. *)
-
-(* more parts of the external interface *)
-val res = translate presLangTheory.default_tap_config_def;
-val res = translate presLangTheory.mk_tap_config_def;
-val res = translate presLangTheory.tap_data_mlstrings_def;
+val r = translate presLangTheory.clos_dec_to_display_def;
+val r = translate presLangTheory.clos_to_strs_def;
 
 val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

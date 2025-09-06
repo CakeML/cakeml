@@ -1,11 +1,12 @@
 (*
   Compiles the lpr example by evaluation inside the logic of HOL
 *)
-open preamble compilationLib lpr_arrayRamseyProgTheory
+Theory lpr_arrayRamseyCompile
+Ancestors
+  lpr_arrayRamseyProg
+Libs
+  preamble eval_cake_compile_x64Lib
 
-val _ = new_theory "lpr_arrayRamseyCompile"
+Theorem lpr_ramsey_compiled =
+  eval_cake_compile_x64 "" check_unsat_prog_def "cake_lpr_ramsey.S";
 
-val lpr_array_compiled = save_thm("lpr_ramsey_compiled",
-  compile_x64 "lpr_ramsey" check_unsat_prog_def);
-
-val _ = export_theory ();

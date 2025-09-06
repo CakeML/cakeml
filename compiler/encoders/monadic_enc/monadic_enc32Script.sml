@@ -1,11 +1,12 @@
 (*
   Implement and prove correct monadic version of encoder
 *)
-open preamble state_transformerTheory
-open ml_monadBaseLib ml_monadBaseTheory
-open asmTheory lab_to_targetTheory monadic_encTheory
+Theory monadic_enc32
+Ancestors
+  state_transformer ml_monadBase asm lab_to_target monadic_enc
+Libs
+  preamble ml_monadBaseLib
 
-val _ = new_theory "monadic_enc32"
 val _ = monadsyntax.temp_add_monadsyntax()
 
 Overload monad_bind[local] = ``st_ex_bind``
@@ -47,9 +48,10 @@ val arr_manip = define_MFarray_manip_funs
 
 val hash_tab_32_manip = el 1 arr_manip;
 
-val hash_tab_32_accessor = save_thm("hash_tab_32_accessor",accessor_thm hash_tab_32_manip);
+Theorem hash_tab_32_accessor =
+  accessor_thm hash_tab_32_manip
 
-val lookup_ins_table_32_def = Define`
+Definition lookup_ins_table_32_def:
   lookup_ins_table_32 enc n a =
   let v = hash_asm n a MOD n in
   do
@@ -63,9 +65,10 @@ val lookup_ins_table_32_def = Define`
       od
     | SOME res =>
       return res
-  od`
+  od
+End
 
-val enc_line_hash_32_def = Define `
+Definition enc_line_hash_32_def:
   (enc_line_hash_32 enc skip_len n (Label n1 n2 n3) =
     return (Label n1 n2 skip_len)) ∧
   (enc_line_hash_32 enc skip_len n (Asm a _ _) =
@@ -77,18 +80,20 @@ val enc_line_hash_32_def = Define `
      do
        bs <- lookup_ins_table_32 enc n (lab_inst 0w l);
        return (LabAsm l 0w bs (LENGTH bs))
-     od)`
+     od)
+End
 
-val enc_line_hash_32_ls_def = Define`
+Definition enc_line_hash_32_ls_def:
   (enc_line_hash_32_ls enc skip_len n [] = return []) ∧
   (enc_line_hash_32_ls enc skip_len n (x::xs) =
   do
     fx <- enc_line_hash_32 enc skip_len n x;
     fxs <- enc_line_hash_32_ls enc skip_len n xs;
     return (fx::fxs)
-  od)`
+  od)
+End
 
-val enc_sec_hash_32_ls_def = Define`
+Definition enc_sec_hash_32_ls_def:
   (enc_sec_hash_32_ls enc skip_len n [] = return []) ∧
   (enc_sec_hash_32_ls enc skip_len n (x::xs) =
   case x of Section k ys =>
@@ -96,11 +101,13 @@ val enc_sec_hash_32_ls_def = Define`
     ls <- enc_line_hash_32_ls enc skip_len n ys;
     rest <- enc_sec_hash_32_ls enc skip_len n xs;
     return (Section k ls::rest)
-  od)`
+  od)
+End
 
-val enc_sec_hash_32_ls_full_def = Define`
+Definition enc_sec_hash_32_ls_full_def:
   enc_sec_hash_32_ls_full enc n xs =
-  enc_sec_hash_32_ls enc (LENGTH (enc (Inst Skip))) n xs`
+  enc_sec_hash_32_ls enc (LENGTH (enc (Inst Skip))) n xs
+End
 
 (* As we are using fixed-size array, we need to define a different record type for the initialization *)
 val array_fields_names = ["hash_tab_32"];
@@ -108,23 +115,25 @@ val run_ienc_state_32_def = define_run ``:enc_state_32``
                                       array_fields_names
                                       "ienc_state_32";
 
-val enc_secs_32_aux_def = Define`
+Definition enc_secs_32_aux_def:
   enc_secs_32_aux enc n xs =
-    run_ienc_state_32 (enc_sec_hash_32_ls_full enc n xs) <| hash_tab_32 := (n, []) |>`
+    run_ienc_state_32 (enc_sec_hash_32_ls_full enc n xs) <| hash_tab_32 := (n, []) |>
+End
 
-val enc_secs_32_def = Define`
+Definition enc_secs_32_def:
   enc_secs_32 enc n xs =
     case enc_secs_32_aux enc (if n = 0 then 1 else n) xs of
-      Success xs => xs
-    | Failure _ => []`
+      M_success xs => xs
+    | M_failure _ => []
+End
 
 val msimps = [st_ex_bind_def,st_ex_return_def];
 
 Theorem Msub_eqn[simp]:
     ∀e n ls v.
   Msub e n ls =
-  if n < LENGTH ls then Success (EL n ls)
-                   else Failure e
+  if n < LENGTH ls then M_success (EL n ls)
+                   else M_failure e
 Proof
   ho_match_mp_tac Msub_ind>>rw[]>>
   simp[Once Msub_def]>>
@@ -136,9 +145,9 @@ QED
 Theorem hash_tab_32_sub_eqn[simp]:
     hash_tab_32_sub n s =
   if n < LENGTH s.hash_tab_32 then
-    (Success (EL n s.hash_tab_32),s)
+    (M_success (EL n s.hash_tab_32),s)
   else
-    (Failure (Subscript),s)
+    (M_failure (Subscript),s)
 Proof
   rw[fetch "-" "hash_tab_32_sub_def"]>>
   fs[Marray_sub_def]
@@ -148,9 +157,9 @@ Theorem Mupdate_eqn[simp]:
     ∀e x n ls.
   Mupdate e x n ls =
   if n < LENGTH ls then
-    Success (LUPDATE x n ls)
+    M_success (LUPDATE x n ls)
   else
-    Failure e
+    M_failure e
 Proof
   ho_match_mp_tac Mupdate_ind>>rw[]>>
   simp[Once Mupdate_def]>>
@@ -162,25 +171,27 @@ QED
 Theorem update_hash_tab_32_eqn[simp]:
     update_hash_tab_32 n t s =
   if n < LENGTH s.hash_tab_32 then
-     (Success (),s with hash_tab_32 := LUPDATE t n s.hash_tab_32)
+     (M_success (),s with hash_tab_32 := LUPDATE t n s.hash_tab_32)
   else
-     (Failure (Subscript),s)
+     (M_failure (Subscript),s)
 Proof
   rw[fetch "-" "update_hash_tab_32_def"]>>
   fs[Marray_update_def]
 QED
 
-val good_table_32_def = Define`
+Definition good_table_32_def:
   good_table_32 enc n s ⇔
   EVERY (λls. EVERY (λ(x,y). enc x = y) ls) s.hash_tab_32 ∧
-  LENGTH s.hash_tab_32 = n`;
+  LENGTH s.hash_tab_32 = n
+End
 
-val lookup_ins_table_32_correct = Q.prove(`
+Triviality lookup_ins_table_32_correct:
   good_table_32 enc n s ∧
   0 < n ⇒
   ∃s'.
-  lookup_ins_table_32 enc n aa s = (Success (enc aa), s') ∧
-  good_table_32 enc n s'`,
+  lookup_ins_table_32 enc n aa s = (M_success (enc aa), s') ∧
+  good_table_32 enc n s'
+Proof
   rw[]>>fs[lookup_ins_table_32_def]>>
   simp msimps>>
   reverse IF_CASES_TAC
@@ -201,43 +212,49 @@ val lookup_ins_table_32_correct = Q.prove(`
   fs[EVERY_MEM]>>
   rw[]>> first_x_assum drule>>
   disch_then drule>>
-  fs[]);
+  fs[]
+QED
 
-val enc_line_hash_32_correct = Q.prove(‘
+Triviality enc_line_hash_32_correct:
   ∀line.
     good_table_32 enc n s ∧ 0 < n ⇒
     ∃s'.
      enc_line_hash_32 enc skip_len n line s =
-       (Success (enc_line enc skip_len line),s') ∧
-     good_table_32 enc n s'’,
+       (M_success (enc_line enc skip_len line),s') ∧
+     good_table_32 enc n s'
+Proof
   Cases>>fs[enc_line_hash_32_def,enc_line_def]>>
   fs msimps>>
   qmatch_goalsub_abbrev_tac`lookup_ins_table_32 _ _ aa`>>
   rw[]>>
-  old_drule lookup_ins_table_32_correct>>rw[]>>simp[]);
+  old_drule lookup_ins_table_32_correct>>rw[]>>simp[]
+QED
 
-val enc_line_hash_32_ls_correct = Q.prove(`
+Triviality enc_line_hash_32_ls_correct:
   ∀xs s.
   good_table_32 enc n s ∧ 0 < n ⇒
   ∃s'.
   enc_line_hash_32_ls enc skip_len n xs s =
-  (Success (MAP (enc_line enc skip_len) xs), s') ∧
-  good_table_32 enc n s'`,
+  (M_success (MAP (enc_line enc skip_len) xs), s') ∧
+  good_table_32 enc n s'
+Proof
   Induct>>fs[enc_line_hash_32_ls_def]>>
   fs msimps>>
   rw[]>> simp[]>>
   old_drule enc_line_hash_32_correct>>
   disch_then (qspec_then `h` assume_tac)>>rfs[]>>
   first_x_assum drule>>
-  rw[]>>simp[]);
+  rw[]>>simp[]
+QED
 
-val enc_sec_hash_32_ls_correct = Q.prove(`
+Triviality enc_sec_hash_32_ls_correct:
   ∀xs s.
   good_table_32 enc n s ∧ 0 < n ⇒
   ∃s'.
   enc_sec_hash_32_ls enc skip_len n xs s =
-  (Success (MAP (enc_sec enc skip_len) xs), s') ∧
-  good_table_32 enc n s'`,
+  (M_success (MAP (enc_sec enc skip_len) xs), s') ∧
+  good_table_32 enc n s'
+Proof
   Induct>>fs[enc_sec_hash_32_ls_def]>>
   fs msimps>>
   rw[]>> simp[]>>
@@ -246,7 +263,8 @@ val enc_sec_hash_32_ls_correct = Q.prove(`
   simp[]>>
   disch_then(qspec_then`l` assume_tac)>>fs[]>>
   first_x_assum drule>>rw[]>>
-  simp[enc_sec_def]);
+  simp[enc_sec_def]
+QED
 
 Theorem enc_secs_32_correct:
   enc_secs_32 enc n xs =
@@ -263,4 +281,3 @@ Proof
   fs[enc_sec_list_def]
 QED
 
-val _ = export_theory();

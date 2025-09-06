@@ -3,16 +3,17 @@
   translations of the functions which are used by both versions so that we
   do not translate more than once.
 *)
-open preamble basis ml_monadBaseTheory ml_monad_translator_interfaceLib
-     cfMonadTheory cfMonadLib holKernelTheory holKernelProofTheory
-     ml_hol_kernel_funsProgTheory ml_hol_kernelProgTheory
-     readerTheory readerProofTheory reader_initTheory
-     prettyTheory;
+Theory reader_commonProg
+Ancestors
+  ml_monadBase cfMonad holKernel holKernelProof
+  ml_hol_kernel_funsProg ml_hol_kernelProg reader readerProof
+  reader_init pretty
+Libs
+  preamble basis ml_monad_translator_interfaceLib cfMonadLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory "reader_commonProg"
 val _ = m_translation_extends "ml_hol_kernelProg"
 
 val _ = use_full_type_names := true;
@@ -26,9 +27,25 @@ val _ = use_full_type_names := true;
 val r = translate newline_def;
 val r = translate breakdist_def;
 val r = translate REPLICATE;
-val r = translate blanks_def;
+val r = translate (blanks_def |> REWRITE_RULE [GSYM sub_check_def]);
 val r = translate SmartAppend_def;
-val r = translate print_list_def;
+val r = translate (print_list_def |> REWRITE_RULE [GSYM sub_check_def]);
+
+Triviality print_list_ind:
+  print_list_ind
+Proof
+  once_rewrite_tac [fetch "-" "print_list_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD,sub_check_def]
+QED
+
+val _ = print_list_ind |> update_precondition;
+
 val r = translate pr_def;
 val r = translate tlength_def;
 val r = translate mk_blo_def;
@@ -96,8 +113,8 @@ val r = translate stringTheory.isDigit_def;
 
 val _ = (use_mem_intro := true);
 val _ = translate rev_assocd_def
-val tymatch_ind = save_thm ("tymatch_ind",
-  REWRITE_RULE [GSYM rev_assocd_thm] holSyntaxExtraTheory.tymatch_ind);
+Theorem tymatch_ind =
+  REWRITE_RULE [GSYM rev_assocd_thm] holSyntaxExtraTheory.tymatch_ind
 val _ = add_preferred_thy"-";
 val r = holSyntaxExtraTheory.tymatch_def
         |> REWRITE_RULE [GSYM rev_assocd_thm]
@@ -159,27 +176,20 @@ val r = translate next_line_def;
 val r = translate line_Fail_def;
 val r = translate strh_aux_def;
 
-Theorem strh_aux_side[local]:
-  ∀a b c. strh_aux_side a b c
-Proof
-  ho_match_mp_tac strh_aux_ind \\ rw []
-  \\ simp [Once (fetch "-" "strh_aux_side_def")]
-QED
-val _ = update_precondition strh_aux_side;
-
 val r = translate strh_def;
-val r = translate s2c_def;
+val r = translate (s2c_def |> REWRITE_RULE [GSYM sub_check_def]);
 
 Theorem s2c_side[local]:
   ∀s. s2c_side s
 Proof
   namedCases ["x"]
   \\ rw [fetch "-" "s2c_side_def"]
-  \\ Cases_on ‘x’ \\ fs []
+  \\ Cases_on ‘x’ \\ fs [sub_check_def]
 QED
 val _ = update_precondition s2c_side;
 
-val r = translate str_prefix_def;
+val r = translate (str_prefix_def |> REWRITE_RULE [GSYM sub_check_def]);
+
 val r = translate tokenize_def;
 
 val r = m_translate readLines_def;
@@ -221,50 +231,49 @@ val r = translate upd2str_applist_def;
 val r = translate msg_success_def;
 val r = translate msg_usage_def;
 val r = translate msg_bad_name_def;
-val r = translate str_prefix_def;
 
 (* ------------------------------------------------------------------------- *)
 (* Things needed by whole_prog_spec                                          *)
 (* ------------------------------------------------------------------------- *)
 
+val st = get_state (get_ml_prog_state ())
+val refs = EVAL ``(^st).refs`` |> concl |> rhs |> listSyntax.strip_append;
+val t = `` init_type_constants_v``;
+fun prior_length t = let
+    val refv_t = mk_Refv t
+    val n = index (can (find_term (term_eq refv_t))) refs
+    val xs = List.take (refs, n)
+    val ns = mapfilter (length o fst o listSyntax.dest_list) xs
+    val ys = filter (not o can (listSyntax.dest_list)) xs
+      |> listSyntax.list_mk_append
+  in numSyntax.mk_plus (numSyntax.term_of_int (sum ns), listSyntax.mk_length ys) end
+
 Theorem HOL_STORE_init_precond:
    HOL_STORE init_refs
-   {Mem (1+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs
-                             ++some_chars_vector_refs
-                             ++stderr_refs++init_type_constants_refs)))
+   {Mem (^(prior_length ``init_type_constants_v``))
         (Refv init_type_constants_v);
-    Mem (2+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs
-                             ++some_chars_vector_refs
-                             ++stderr_refs++init_type_constants_refs
-                             ++init_term_constants_refs)))
+    Mem (^(prior_length ``init_term_constants_v``))
         (Refv init_term_constants_v);
-    Mem (3+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs
-                             ++some_chars_vector_refs
-                             ++stderr_refs++init_type_constants_refs
-                             ++init_term_constants_refs++init_axioms_refs)))
+    Mem (^(prior_length ``init_axioms_v``))
         (Refv init_axioms_v);
-    Mem (4+(LENGTH(delta_refs++empty_refs++ratio_refs++stdin_refs++stdout_refs
-                             ++some_chars_vector_refs
-                             ++stderr_refs++init_type_constants_refs
-                             ++init_term_constants_refs++init_axioms_refs
-                             ++init_context_refs)))
+    Mem (^(prior_length ``init_context_v``))
         (Refv init_context_v)}
 Proof
-  qmatch_goalsub_abbrev_tac`1 + l1`
-  \\ qmatch_goalsub_abbrev_tac`2 + l2`
-  \\ qmatch_goalsub_abbrev_tac`3 + l3`
-  \\ qmatch_goalsub_abbrev_tac`4 + l4`
+  qmatch_goalsub_abbrev_tac`2 + l1`
+  \\ qmatch_goalsub_abbrev_tac`3 + l2`
+  \\ qmatch_goalsub_abbrev_tac`4 + l3`
+  \\ qmatch_goalsub_abbrev_tac`5 + l4`
   \\ rw[HOL_STORE_def,ml_monad_translatorBaseTheory.REF_REL_def,init_refs_def]
   \\ rw[STAR_def,SEP_EXISTS_THM]
-  \\ qmatch_goalsub_abbrev_tac`Mem (l1+1) v1`
-  \\ qmatch_goalsub_abbrev_tac`Mem (l2+2) v2`
-  \\ qmatch_goalsub_abbrev_tac`Mem (l3+3) v3`
-  \\ qmatch_goalsub_abbrev_tac`Mem (l4+4) v4`
-  \\ qexists_tac`{Mem(l1+1)v1;Mem(l2+2)v2;Mem(l3+3)v3}`
-  \\ qexists_tac`{Mem(l4+4)v4}`
-  \\ `l1+1 < l2+2` by simp[Abbr`l1`,Abbr`l2`]
-  \\ `l2+2 < l3+3` by simp[Abbr`l2`,Abbr`l3`]
-  \\ `l3+3 < l4+4` by simp[Abbr`l3`,Abbr`l4`]
+  \\ qmatch_goalsub_abbrev_tac`Mem (l1+2) v1`
+  \\ qmatch_goalsub_abbrev_tac`Mem (l2+3) v2`
+  \\ qmatch_goalsub_abbrev_tac`Mem (l3+4) v3`
+  \\ qmatch_goalsub_abbrev_tac`Mem (l4+5) v4`
+  \\ qexists_tac`{Mem(l1+2)v1;Mem(l2+3)v2;Mem(l3+4)v3}`
+  \\ qexists_tac`{Mem(l4+5)v4}`
+  \\ `l1+2 < l2+3` by simp[Abbr`l1`,Abbr`l2`]
+  \\ `l2+3 < l3+4` by simp[Abbr`l2`,Abbr`l3`]
+  \\ `l3+4 < l4+5` by simp[Abbr`l3`,Abbr`l4`]
   \\ conj_tac >- SPLIT_TAC
   \\ reverse conj_tac
   >- (
@@ -275,8 +284,8 @@ Proof
     \\ simp[init_context_v_thm]
     \\ unabbrev_all_tac
     \\ SPLIT_TAC )
-  \\ qexists_tac`{Mem(l1+1)v1;Mem(l2+2)v2}`
-  \\ qexists_tac`{Mem(l3+3)v3}`
+  \\ qexists_tac`{Mem(l1+2)v1;Mem(l2+3)v2}`
+  \\ qexists_tac`{Mem(l3+4)v3}`
   \\ conj_tac >- SPLIT_TAC
   \\ reverse conj_tac
   >- (
@@ -287,8 +296,8 @@ Proof
     \\ simp[init_axioms_v_thm]
     \\ unabbrev_all_tac
     \\ SPLIT_TAC )
-  \\ qexists_tac`{Mem(l1+1)v1}`
-  \\ qexists_tac`{Mem(l2+2)v2}`
+  \\ qexists_tac`{Mem(l1+2)v1}`
+  \\ qexists_tac`{Mem(l2+3)v2}`
   \\ conj_tac >- SPLIT_TAC
   \\ reverse conj_tac
   >- (
@@ -316,4 +325,3 @@ QED
 Theorem context_spec =
   mk_app_of_ArrowP (fetch "ml_hol_kernelProg" "context_v_thm");
 
-val _ = export_theory ();

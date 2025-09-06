@@ -2,73 +2,92 @@
   This is an example of applying the translator to the Leftist
   Heap algorithm from Chris Okasaki's book.
 *)
-open preamble
-open bagTheory bagLib okasaki_miscTheory;
-open ml_translatorLib ListProgTheory;
+Theory LeftistHeap
+Ancestors
+  bag okasaki_misc ListProg
+Libs
+  preamble bagLib ml_translatorLib
 
 val fs = full_simp_tac (srw_ss ())
 val rw = srw_tac []
-
-val _ = new_theory "LeftistHeap"
 
 val _ = translation_extends "ListProg";
 
 (* Okasaki page 20 *)
 
-val _ = Datatype`
-  heap = Empty | Tree num 'a heap heap`;
+Datatype:
+  heap = Empty | Tree num 'a heap heap
+End
 
-val heap_to_bag_def = Define `
+Definition heap_to_bag_def:
 (heap_to_bag Empty = {||}) ∧
 (heap_to_bag (Tree _ x h1 h2) =
-  BAG_INSERT x (BAG_UNION (heap_to_bag h1) (heap_to_bag h2)))`;
+  BAG_INSERT x (BAG_UNION (heap_to_bag h1) (heap_to_bag h2)))
+End
 
-val rank_def = mlDefine `
+Definition rank_def:
 (rank Empty = 0) ∧
-(rank (Tree r _ _ _) = r)`;
+(rank (Tree r _ _ _) = r)
+End
+val r = translate rank_def;
 
-val is_heap_ordered_def = Define `
+Definition is_heap_ordered_def:
 (is_heap_ordered get_key leq Empty <=> T) ∧
 (is_heap_ordered get_key leq (Tree _ x h1 h2) <=>
   is_heap_ordered get_key leq h1 ∧
   is_heap_ordered get_key leq h2 ∧
   BAG_EVERY (\y. leq (get_key x) (get_key y)) (heap_to_bag h1) ∧
   BAG_EVERY (\y. leq (get_key x) (get_key y)) (heap_to_bag h2) ∧
-  rank h1 ≥ rank h2)`;
+  rank h1 ≥ rank h2)
+End
 
-val make_node_def = mlDefine `
+Definition make_node_def:
 make_node x a b =
   if rank a >= rank b then
     Tree (rank b + 1) x a b
   else
-    Tree (rank a + 1) x b a`;
+    Tree (rank a + 1) x b a
+End
+val r = translate make_node_def;
 
-val _ = mlDefine `
-empty = Empty`;
+Definition empty_def:
+  empty = Empty
+End
+val r = translate empty_def;
 
-val is_empty_def = mlDefine `
+Definition is_empty_def:
 (is_empty Empty = T) ∧
-(is_empty _ = F)`;
+(is_empty _ = F)
+End
+val r = translate is_empty_def;
 
-val merge_def = mlDefine `
+Definition merge_def:
 (merge get_key leq h Empty = h) ∧
 (merge get_key leq Empty h = h) ∧
 (merge get_key leq (Tree n1 x a1 b1) (Tree n2 y a2 b2) =
   if leq (get_key x) (get_key y) then
     make_node x a1 (merge get_key leq b1 (Tree n2 y a2 b2))
   else
-    make_node y a2 (merge get_key leq (Tree n1 x a1 b1) b2))`;
+    make_node y a2 (merge get_key leq (Tree n1 x a1 b1) b2))
+End
+val r = translate merge_def;
 
 val merge_ind = fetch "-" "merge_ind"
 
-val insert_def = mlDefine `
-insert get_key leq x h = merge get_key leq (Tree 1 x Empty Empty) h`;
+Definition insert_def:
+insert get_key leq x h = merge get_key leq (Tree 1 x Empty Empty) h
+End
+val r = translate insert_def;
 
-val find_min_def = mlDefine `
-find_min (Tree _ x _ _) = x`;
+Definition find_min_def:
+find_min (Tree _ x _ _) = x
+End
+val r = translate find_min_def;
 
-val delete_min_def = mlDefine `
-delete_min get_key leq (Tree _ x a b) = merge get_key leq a b`;
+Definition delete_min_def:
+delete_min get_key leq (Tree _ x a b) = merge get_key leq a b
+End
+val r = translate delete_min_def;
 
 
 (* Functional correctness proof *)
@@ -164,20 +183,23 @@ QED
 val delete_min_side_def = fetch "-" "delete_min_side_def"
 val find_min_side_def = fetch "-" "find_min_side_def"
 
-val delete_min_side = Q.prove (
-`!get_key leq h. delete_min_side get_key leq h = (h ≠ Empty)`,
-rw [delete_min_side_def] >>
+Triviality delete_min_side:
+  !get_key leq h. delete_min_side get_key leq h = (h ≠ Empty)
+Proof
+  rw [delete_min_side_def] >>
 eq_tac >>
 rw [] >>
 cases_on `h` >>
-rw []);
+rw []
+QED
 
-val find_min_side = Q.prove (
-`!h. find_min_side h = (h ≠ Empty)`,
-rw [find_min_side_def] >>
+Triviality find_min_side:
+  !h. find_min_side h = (h ≠ Empty)
+Proof
+  rw [find_min_side_def] >>
 eq_tac >>
 rw [] >>
 cases_on `h` >>
-rw []);
+rw []
+QED
 
-val _ = export_theory ();

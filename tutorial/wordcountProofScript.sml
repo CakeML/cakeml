@@ -3,11 +3,12 @@
   by composing the application-specific correctness theorem, the
   compiler evaluation theorem and the compiler correctness theorem.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     wordcountProgTheory wordcountCompileTheory
-
-val _ = new_theory"wordcountProof";
+Theory wordcountProof
+Ancestors
+  semanticsProps backendProof x64_configProof wordcountProg
+  wordcountCompile
+Libs
+  preamble
 
 val _ = temp_clear_overloads_on"STRCAT"; (* " *)
 
@@ -16,10 +17,12 @@ val wordcount_io_events_def = new_specification("wordcount_io_events_def",["word
   |> SIMP_RULE bool_ss [SKOLEM_THM,Once(GSYM RIGHT_EXISTS_IMP_THM)]);
 
 val (wordcount_sem,wordcount_output) = wordcount_io_events_def |> SPEC_ALL |> UNDISCH |> CONJ_PAIR
-val (wordcount_not_fail,wordcount_sem_sing) = MATCH_MP semantics_prog_Terminate_not_Fail wordcount_sem |> CONJ_PAIR
+val (wordcount_not_fail,wordcount_sem_sing) = wordcount_sem
+  |> SRULE [wordcount_compiled,ml_progTheory.prog_syntax_ok_semantics]
+  |> MATCH_MP semantics_prog_Terminate_not_Fail |> CONJ_PAIR
 
 val compile_correct_applied =
-  MATCH_MP compile_correct wordcount_compiled
+  MATCH_MP compile_correct (cj 1 wordcount_compiled)
   |> SIMP_RULE(srw_ss())[LET_THM,ml_progTheory.init_state_env_thm,GSYM AND_IMP_INTRO]
   |> C MATCH_MP wordcount_not_fail
   |> C MATCH_MP x64_backend_config_ok
@@ -29,10 +32,8 @@ val compile_correct_applied =
   |> DISCH(#1(dest_imp(concl x64_init_ok)))
   |> REWRITE_RULE[AND_IMP_INTRO]
 
-val wordcount_compiled_thm =
+Theorem wordcount_compiled_thm =
   CONJ compile_correct_applied wordcount_output
   |> DISCH_ALL
   |> check_thm
-  |> curry save_thm "wordcount_compiled_thm";
 
-val _ = export_theory();

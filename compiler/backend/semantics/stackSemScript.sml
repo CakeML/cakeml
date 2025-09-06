@@ -1,38 +1,39 @@
 (*
   The formal semantics of stackLang
 *)
+Theory stackSem
+Ancestors
+  stackLang
+  wordSem[qualified] (* for word_loc *)
+  labSem[qualified]
+Libs
+  preamble
 
-open preamble stackLangTheory
-local open wordSemTheory labSemTheory in end
 
-val _ = new_theory"stackSem";
-
-val _ = set_grammar_ancestry
-  ["stackLang",
-   "wordSem" (* for word_loc *)
-  ];
-
-val _ = Datatype `
+Datatype:
   result = Result ('w word_loc)
          | Exception ('w word_loc)
          | Halt ('w word_loc)
          | TimeOut
          | FinalFFI final_event
-         | Error `
+         | Error
+End
 
-val bit_length_def = Define `
-  bit_length w = if w = 0w then (0:num) else bit_length (w >>> 1) + 1`;
+Definition bit_length_def:
+  bit_length w = if w = 0w then (0:num) else bit_length (w >>> 1) + 1
+End
 
-val filter_bitmap_def = Define `
+Definition filter_bitmap_def:
   (filter_bitmap [] rs = SOME ([],rs)) /\
   (filter_bitmap (F::bs) (r::rs) = filter_bitmap bs rs) /\
   (filter_bitmap (T::bs) (r::rs) =
      case filter_bitmap bs rs of
      | NONE => NONE
      | SOME (ts,rs') => SOME (r::ts,rs')) /\
-  (filter_bitmap _ _ = NONE)`
+  (filter_bitmap _ _ = NONE)
+End
 
-val map_bitmap_def = Define `
+Definition map_bitmap_def:
   (map_bitmap [] ts rs = SOME ([],ts,rs)) /\
   (map_bitmap (F::bs) ts (r::rs) =
      case map_bitmap bs ts rs of
@@ -42,7 +43,8 @@ val map_bitmap_def = Define `
      case map_bitmap bs ts rs of
      | NONE => NONE
      | SOME (xs,ys,zs) => SOME (t::xs,ys,zs)) /\
-  (map_bitmap _ _ _ = NONE)`
+  (map_bitmap _ _ _ = NONE)
+End
 
 Theorem filter_bitmap_LENGTH:
    !bs xs x y. (filter_bitmap bs xs = SOME (x,y)) ==> LENGTH y <= LENGTH xs
@@ -67,7 +69,7 @@ Proof
   \\ res_tac \\ fs[] \\ decide_tac
 QED
 
-val read_bitmap_def = Define `
+Definition read_bitmap_def:
   (read_bitmap [] = NONE) /\
   (read_bitmap ((w:'a word)::ws) =
      if word_msb w then (* there is a continuation *)
@@ -75,9 +77,10 @@ val read_bitmap_def = Define `
        | NONE => NONE
        | SOME bs => SOME (GENLIST (\i. w ' i) (dimindex (:'a) - 1) ++ bs)
      else (* this is the last bitmap word *)
-       SOME (GENLIST (\i. w ' i) (bit_length w - 1)))`
+       SOME (GENLIST (\i. w ' i) (bit_length w - 1)))
+End
 
-val _ = Datatype `
+Datatype:
   state =
     <| regs    : num |-> 'a word_loc
      ; fp_regs : num |-> word64
@@ -86,6 +89,7 @@ val _ = Datatype `
      ; stack_space : num
      ; memory  : 'a word -> 'a word_loc
      ; mdomain : ('a word) set
+     ; sh_mdomain : ('a word) set
      ; bitmaps : 'a word list
      ; compile : 'c -> (num # 'a stackLang$prog) list -> (word8 list # 'c) option
      ; compile_oracle : num -> 'c # (num # 'a stackLang$prog) list # 'a word list
@@ -99,24 +103,28 @@ val _ = Datatype `
      ; code    : ('a stackLang$prog) num_map
      ; ffi     : 'ffi ffi_state
      ; ffi_save_regs : num set
-     ; be      : bool (* is big-endian *) |> `
+     ; be      : bool (* is big-endian *) |>
+End
 
-val mem_store_def = Define `
+Definition mem_store_def:
   mem_store (addr:'a word) (w:'a word_loc) (s:('a,'c,'ffi) stackSem$state) =
     if addr IN s.mdomain then
       SOME (s with memory := (addr =+ w) s.memory)
-    else NONE`
+    else NONE
+End
 
-val mem_load_def = Define `
+Definition mem_load_def:
   mem_load (addr:'a word) (s:('a,'c,'ffi) stackSem$state) =
     if addr IN s.mdomain then
       SOME (s.memory addr)
-    else NONE`
+    else NONE
+End
 
-val dec_clock_def = Define `
-  dec_clock (s:('a,'c,'ffi) stackSem$state) = s with clock := s.clock - 1`;
+Definition dec_clock_def:
+  dec_clock (s:('a,'c,'ffi) stackSem$state) = s with clock := s.clock - 1
+End
 
-val word_exp_def = tDefine "word_exp" `
+Definition word_exp_def:
   (word_exp s (Const w) = SOME w) /\
   (word_exp s (Var v) =
      case FLOOKUP s.regs v of
@@ -138,48 +146,174 @@ val word_exp_def = tDefine "word_exp" `
   (word_exp s (Shift sh wexp n) =
      case word_exp s wexp of
      | NONE => NONE
-     | SOME w => word_sh sh w n)`
-  (WF_REL_TAC `measure (exp_size ARB o SND)`
+     | SOME w => word_sh sh w n)
+Termination
+  WF_REL_TAC `measure (exp_size ARB o SND)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC wordLangTheory.MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-   \\ DECIDE_TAC);
+   \\ DECIDE_TAC
+End
 
-val get_var_def = Define `
-  get_var v (s:('a,'c,'ffi) stackSem$state) = FLOOKUP s.regs v`;
+Definition get_var_def:
+  get_var v (s:('a,'c,'ffi) stackSem$state) = FLOOKUP s.regs v
+End
 
-val get_vars_def = Define `
+Definition get_vars_def:
   (get_vars [] s = SOME []) /\
   (get_vars (v::vs) s =
      case get_var v s of
      | NONE => NONE
      | SOME x => (case get_vars vs s of
                   | NONE => NONE
-                  | SOME xs => SOME (x::xs)))`;
+                  | SOME xs => SOME (x::xs)))
+End
 
-val get_fp_var_def = Define`
-  get_fp_var v (s:('a,'c,'ffi) stackSem$state) = FLOOKUP s.fp_regs v`
+Definition get_fp_var_def:
+  get_fp_var v (s:('a,'c,'ffi) stackSem$state) = FLOOKUP s.fp_regs v
+End
 
-val set_var_def = Define `
+Definition set_var_def:
   set_var v x (s:('a,'c,'ffi) stackSem$state) =
-    (s with regs := (s.regs |+ (v,x)))`;
+    (s with regs := (s.regs |+ (v,x)))
+End
 
-val set_fp_var_def = Define `
+Definition set_fp_var_def:
   set_fp_var v x (s:('a,'c,'ffi) stackSem$state) =
-    (s with fp_regs := (s.fp_regs |+ (v,x)))`;
+    (s with fp_regs := (s.fp_regs |+ (v,x)))
+End
 
-val set_store_def = Define `
-  set_store v x (s:('a,'c,'ffi) stackSem$state) = (s with store := s.store |+ (v,x))`;
+Definition set_store_def:
+  set_store v x (s:('a,'c,'ffi) stackSem$state) = (s with store := s.store |+ (v,x))
+End
 
-val empty_env_def = Define `
-  empty_env (s:('a,'c,'ffi) stackSem$state) = s with <| regs := FEMPTY ; stack := [] |>`;
+Definition empty_env_def:
+  empty_env (s:('a,'c,'ffi) stackSem$state) = s with <| regs := FEMPTY ; stack := [] |>
+End
 
-val full_read_bitmap_def = Define `
+Definition sh_mem_store_def:
+  sh_mem_store r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
+  (case get_var r s of
+     SOME (Word w) =>
+       if a IN s.sh_mdomain then
+         (case call_FFI s.ffi (SharedMem MappedWrite) [0w:word8]
+                        (word_to_bytes w F ++ word_to_bytes a F) of
+            FFI_final outcome => (SOME (FinalFFI outcome), s)
+          | FFI_return new_ffi new_bytes => (NONE, s with ffi := new_ffi))
+       else (SOME Error, s)
+   | _ => (SOME Error, s))
+End
+
+Definition sh_mem_load_def:
+  sh_mem_load r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
+  if a IN s.sh_mdomain then
+    (case call_FFI s.ffi (SharedMem MappedRead) [0w:word8]
+                   (word_to_bytes a F) of
+       FFI_final outcome => (SOME (FinalFFI outcome), s)
+     | FFI_return new_ffi new_bytes =>
+         (NONE,
+          s with <|
+              regs := s.regs |+ (r,Word (word_of_bytes F 0w new_bytes)) ;
+              ffi := new_ffi |>))
+  else (SOME Error, s)
+End
+
+Definition sh_mem_store_byte_def:
+  sh_mem_store_byte r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
+  (case get_var r s of
+     SOME (Word w) =>
+       if byte_align a IN s.sh_mdomain then
+         (case call_FFI s.ffi (SharedMem MappedWrite) [1w:word8]
+                        ([get_byte 0w w F] ++ word_to_bytes a F) of
+            FFI_final outcome => (SOME (FinalFFI outcome), s)
+          | FFI_return new_ffi new_bytes => (NONE,s with ffi := new_ffi))
+       else (SOME Error, s)
+   | _ => (SOME Error, s))
+End
+
+Definition sh_mem_store16_def:
+  sh_mem_store16 r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
+  (case get_var r s of
+     SOME (Word w) =>
+       if byte_align a IN s.sh_mdomain then
+         (case call_FFI s.ffi (SharedMem MappedWrite) [2w:word8]
+                        (TAKE 2 (word_to_bytes w F) ++ word_to_bytes a F) of
+            FFI_final outcome => (SOME (FinalFFI outcome), s)
+          | FFI_return new_ffi new_bytes => (NONE,s with ffi := new_ffi))
+       else (SOME Error, s)
+   | _ => (SOME Error, s))
+End
+
+Definition sh_mem_store32_def:
+  sh_mem_store32 r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
+  (case get_var r s of
+     SOME (Word w) =>
+       if byte_align a IN s.sh_mdomain then
+         (case call_FFI s.ffi (SharedMem MappedWrite) [4w:word8]
+                        (TAKE 4 (word_to_bytes w F) ++ word_to_bytes a F) of
+            FFI_final outcome => (SOME (FinalFFI outcome), s)
+          | FFI_return new_ffi new_bytes => (NONE,s with ffi := new_ffi))
+       else (SOME Error, s)
+   | _ => (SOME Error, s))
+End
+
+Definition sh_mem_load_byte_def:
+  sh_mem_load_byte r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
+  if byte_align a IN s.sh_mdomain then
+    (case call_FFI s.ffi (SharedMem MappedRead) [1w:word8] (word_to_bytes a F) of
+       FFI_final outcome => (SOME (FinalFFI outcome), s)
+     | FFI_return new_ffi new_bytes =>
+         (NONE,
+          s with <|
+              regs := s.regs |+ (r, Word (word_of_bytes F 0w new_bytes)) ;
+              ffi := new_ffi |>))
+  else (SOME Error, s)
+End
+
+Definition sh_mem_load16_def:
+  sh_mem_load16 r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
+  if byte_align a IN s.sh_mdomain then
+    (case call_FFI s.ffi (SharedMem MappedRead) [2w:word8] (word_to_bytes a F) of
+       FFI_final outcome => (SOME (FinalFFI outcome), s)
+     | FFI_return new_ffi new_bytes =>
+         (NONE,
+          s with <|
+              regs := s.regs |+ (r, Word (word_of_bytes F 0w new_bytes)) ;
+              ffi := new_ffi |>))
+  else (SOME Error, s)
+End
+
+Definition sh_mem_load32_def:
+  sh_mem_load32 r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
+  if byte_align a IN s.sh_mdomain then
+    (case call_FFI s.ffi (SharedMem MappedRead) [4w:word8] (word_to_bytes a F) of
+       FFI_final outcome => (SOME (FinalFFI outcome), s)
+     | FFI_return new_ffi new_bytes =>
+         (NONE,
+          s with <|
+              regs := s.regs |+ (r, Word (word_of_bytes F 0w new_bytes)) ;
+              ffi := new_ffi |>))
+  else (SOME Error, s)
+End
+
+Definition sh_mem_op_def:
+  (sh_mem_op Load r ad (s:('a,'c,'ffi) stackSem$state) = sh_mem_load r ad s) ∧
+  (sh_mem_op Store r ad s = sh_mem_store r ad s) ∧
+  (sh_mem_op Load8 r ad s = sh_mem_load_byte r ad s) ∧
+  (sh_mem_op Store8 r ad s = sh_mem_store_byte r ad s) ∧
+  (sh_mem_op Load16 r ad s = sh_mem_load16 r ad s) ∧
+  (sh_mem_op Store16 r ad s = sh_mem_store16 r ad s) ∧
+  (sh_mem_op Load32 r ad s = sh_mem_load32 r ad s) ∧
+  (sh_mem_op Store32 r ad s = sh_mem_store32 r ad s)
+End
+
+Definition full_read_bitmap_def:
   (full_read_bitmap bitmaps (Word w) =
      if w = 0w then NONE
      else read_bitmap (DROP (w2n (w - 1w)) bitmaps)) /\
-  (full_read_bitmap bitmaps _ = NONE)`
+  (full_read_bitmap bitmaps _ = NONE)
+End
 
-val enc_stack_def = tDefine "enc_stack" `
+Definition enc_stack_def:
   (enc_stack bitmaps [] = NONE) /\
   (enc_stack bitmaps (w::ws) =
      if w = Word 0w then (if ws = [] then SOME [] else NONE) else
@@ -191,12 +325,14 @@ val enc_stack_def = tDefine "enc_stack" `
           | SOME (ts,ws') =>
               case enc_stack bitmaps ws' of
               | NONE => NONE
-              | SOME rs => SOME (ts ++ rs))`
- (WF_REL_TAC `measure (LENGTH o SND)` \\ REPEAT STRIP_TAC
+              | SOME rs => SOME (ts ++ rs))
+Termination
+  WF_REL_TAC `measure (LENGTH o SND)` \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC filter_bitmap_LENGTH
-  \\ fs [] \\ decide_tac)
+  \\ fs [] \\ decide_tac
+End
 
-val dec_stack_def = tDefine "dec_stack" `
+Definition dec_stack_def:
   (dec_stack bitmaps _ [] = NONE) ∧
   (dec_stack bitmaps ts (w::ws) =
     if w = Word 0w then (if ts = [] ∧ ws = [] then SOME [Word 0w] else NONE) else
@@ -208,13 +344,15 @@ val dec_stack_def = tDefine "dec_stack" `
         | SOME (hd,ts',ws') =>
            case dec_stack bitmaps ts' ws' of
            | NONE => NONE
-           | SOME rest => SOME ([w] ++ hd ++ rest))`
-  (WF_REL_TAC `measure (LENGTH o SND o SND)` \\ rw []
+           | SOME rest => SOME ([w] ++ hd ++ rest))
+Termination
+  WF_REL_TAC `measure (LENGTH o SND o SND)` \\ rw []
    \\ IMP_RES_TAC map_bitmap_LENGTH
    \\ fs [LENGTH_NIL] \\ rw []
-   \\ fs [map_bitmap_def] \\ rw [] \\ decide_tac)
+   \\ fs [map_bitmap_def] \\ rw [] \\ decide_tac
+End
 
-val gc_def = Define `
+Definition gc_def:
   gc s =
     if LENGTH s.stack < s.stack_space then NONE else
       let unused = TAKE s.stack_space s.stack in
@@ -231,15 +369,17 @@ val gc_def = Define `
                 SOME (s with <| stack := unused ++ stack
                               ; store := st
                               ; regs := FEMPTY
-                              ; memory := m |>))`
+                              ; memory := m |>))
+End
 
-val has_space_def = Define `
+Definition has_space_def:
   has_space wl store =
     case (wl, FLOOKUP store NextFree, FLOOKUP store TriggerGC) of
     | (Word w, SOME (Word n), SOME (Word l)) => SOME (w2n w <= w2n (l - n))
-    | _ => NONE`
+    | _ => NONE
+End
 
-val alloc_def = Define `
+Definition alloc_def:
   alloc (w:'a word) (s:('a,'c,'ffi) stackSem$state) =
     (* perform garbage collection *)
       case gc (set_store AllocSize (Word w) s) of
@@ -255,15 +395,17 @@ val alloc_def = Define `
             | SOME T => (* success there is that much space *)
                         (NONE,s)
             | SOME F => (* fail, GC didn't free up enough space *)
-                        (SOME (Halt (Word (1w:'a word))),empty_env s)))`
+                        (SOME (Halt (Word (1w:'a word))),empty_env s)))
+End
 
-val assign_def = Define `
+Definition assign_def:
   assign reg exp s =
     case word_exp s exp of
      | NONE => NONE
-     | SOME w => SOME (set_var reg (Word w) s)`;
+     | SOME w => SOME (set_var reg (Word w) s)
+End
 
-val inst_def = Define `
+Definition inst_def:
   inst i (s:('a,'c,'ffi) stackSem$state) =
     case i of
     | Skip => SOME s
@@ -295,7 +437,6 @@ val inst_def = Define `
           let res = w2n l + w2n r + if c = (0w:'a word) then 0 else 1 in
             SOME (set_var r4 (Word (if dimword(:'a) ≤ res then (1w:'a word) else 0w))
                  (set_var r1 (Word (n2w res)) s))
-
         | _ => NONE)
     | Arith (AddOverflow r1 r2 r3 r4) =>
         (let vs = get_vars [r2;r3] s in
@@ -343,6 +484,14 @@ val inst_def = Define `
             | NONE => NONE
             | SOME w => SOME (set_var r (Word (w2w w)) s))
         | _ => NONE)
+    | Mem Load16 _ _ => NONE
+    | Mem Load32 r (Addr a w) =>
+       (case word_exp s (Op Add [Var a; Const w]) of
+        | SOME w =>
+           (case mem_load_32 s.memory s.mdomain s.be w of
+            | NONE => NONE
+            | SOME w => SOME (set_var r (Word (w2w w)) s))
+        | _ => NONE)
     | Mem Store r (Addr a w) =>
        (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME a, SOME w) =>
@@ -354,6 +503,14 @@ val inst_def = Define `
        (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME a, SOME (Word w)) =>
             (case mem_store_byte_aux s.memory s.mdomain s.be a (w2w w) of
+             | SOME new_m => SOME (s with memory := new_m)
+             | NONE => NONE)
+        | _ => NONE)
+    | Mem Store16 _ _ => NONE
+    | Mem Store32 r (Addr a w) =>
+       (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
+        | (SOME a, SOME (Word w)) =>
+            (case mem_store_32 s.memory s.mdomain s.be a (w2w w) of
              | SOME new_m => SOME (s with memory := new_m)
              | NONE => NONE)
         | _ => NONE)
@@ -475,29 +632,37 @@ val inst_def = Define `
           let i =  w2i (if ODD d2 then (63 >< 32) v else (31 >< 0) v : 'a word) in
             SOME (set_fp_var d1 (int_to_fp64 roundTiesToEven i) s)
         | NONE => NONE
-    | _ => NONE`
+    | _ => NONE
+End
 
-val get_var_imm_def = Define`
+Definition get_var_imm_def:
   (get_var_imm ((Reg n):'a reg_imm) s = get_var n s) /\
-  (get_var_imm (Imm w) s = SOME(Word w))`
+  (get_var_imm (Imm w) s = SOME(Word w))
+End
 
-val find_code_def = Define `
+Definition find_code_def:
   (find_code (INL p) regs code = sptree$lookup p code) /\
   (find_code (INR r) regs code =
      case FLOOKUP regs r of
        SOME (Loc loc 0) => lookup loc code
-     | other => NONE)`
+     | other => NONE)
+End
 
-val fix_clock_def = Define `
-  fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)`
+Definition fix_clock_def:
+  fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
+End
 
-val fix_clock_IMP = Q.prove(
-  `fix_clock s x = (res,s1) ==> s1.clock <= s.clock`,
-  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
+Triviality fix_clock_IMP:
+  fix_clock s x = (res,s1) ==> s1.clock <= s.clock
+Proof
+  Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
+QED
 
-val STOP_def = Define `STOP x = x`;
+Definition STOP_def:
+  STOP x = x
+End
 
-val get_labels_def = Define `
+Definition get_labels_def:
   (get_labels (Seq p1 p2) = get_labels p1 UNION get_labels p2) /\
   (get_labels (If _ _ _ p1 p2) = get_labels p1 UNION get_labels p2) /\
   (get_labels (Call ret _ handler) =
@@ -508,19 +673,82 @@ val get_labels_def = Define `
            | NONE => {}
            | SOME (r,l1,l2) => (l1,l2) INSERT get_labels r))) /\
   (get_labels (Halt _) = {}) /\
-  (get_labels _ = {})`
+  (get_labels _ = {})
+End
 
-val loc_check_def = Define `
+Definition loc_check_def:
   loc_check code (l1,l2) <=>
     (l2 = 0 /\ l1 ∈ domain code) \/
-    ?n e. lookup n code = SOME e /\ (l1,l2) IN get_labels e`;
+    ?n e. lookup n code = SOME e /\ (l1,l2) IN get_labels e
+End
+
+Definition copy_words_for_pattern_def:
+  copy_words_for_pattern (pattern :'a word) (i:num) (a :'a word) (off :'a word) bs dm m =
+    if pattern = 0w then NONE else
+    if pattern = 1w then SOME (i,a,m) else
+      if a IN dm ∧ i < LENGTH bs then
+        let b = pattern ' 0 in
+        let w = EL i bs in
+        let m = (a =+ Word (if b then w + off else w)) m in
+          copy_words_for_pattern
+            (pattern >>> 1) (i + 1) (a + bytes_in_word) off bs dm m
+      else NONE
+End
+
+Theorem copy_words_for_pattern_LESS_EQ:
+  ∀p i a f bs dm m j a1.
+    copy_words_for_pattern p i a f bs dm m = SOME (j,a1) ⇒ i ≤ j
+Proof
+  ho_match_mp_tac copy_words_for_pattern_ind \\ rw []
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [copy_words_for_pattern_def]
+  \\ fs [] \\ rw [] \\ gvs []
+QED
+
+Definition copy_words_def:
+  copy_words i a off bs dm m =
+    if LENGTH bs ≤ i then NONE else
+      let pattern = EL i bs in
+        case copy_words_for_pattern pattern (i + 1) a off bs dm m of
+        | NONE => NONE
+        | SOME (i1,a1,m1) =>
+            if word_msb pattern then copy_words i1 a1 off bs dm m1 else
+              SOME (a1,m1)
+Termination
+  WF_REL_TAC ‘measure (λ(i,a,f,bs,dm,m). LENGTH bs - i)’
+  \\ rw [] \\ imp_res_tac copy_words_for_pattern_LESS_EQ \\ fs []
+End
+
+Definition unset_var_def:
+  unset_var v (s:('a,'c,'ffi) stackSem$state) = s with regs := s.regs \\ v
+End
+
+Definition store_const_sem_def:
+  store_const_sem t1 t2 (s:('a,'c,'ffi) stackSem$state) =
+    if ~ ALL_DISTINCT [0;1;2;3;t1;t2] then (SOME Error, s) else
+      case (get_var 1 s, get_var 2 s, get_var 3 s) of
+      | (SOME (Word i), SOME (Word a), SOME (Word off)) =>
+          (case copy_words (w2n i) a off s.bitmaps s.mdomain s.memory of
+           | NONE => (SOME Error, s)
+           | SOME (a,m) => (NONE,
+              (if s.use_alloc then unset_var 0 else I)
+                (set_var t1 (Word 1w) (set_var t2 (Word 1w)
+                  (set_var 1 (Word 1w) (set_var 2 (Word a) (s with memory := m)))))))
+      | _ => (SOME Error, s)
+End
+
+Definition check_store_consts_opt_def:
+  check_store_consts_opt t1 t2 NONE _ = T ∧
+  check_store_consts_opt t1 t2 (SOME n) c =
+    (lookup n c = SOME (Seq (StoreConsts t1 t2 NONE) (Return 0)))
+End
 
 Definition dest_Seq_def:
   dest_Seq (Seq p1 p2) = SOME (p1,p2:'a stackLang$prog) /\
   dest_Seq _ = NONE
 End
 
-val evaluate_def = tDefine "evaluate" `
+Definition evaluate_def:
   (evaluate (Skip:'a stackLang$prog,s) = (NONE,s:('a,'c,'ffi) stackSem$state)) /\
   (evaluate (Halt v,s) =
      case get_var v s of
@@ -531,6 +759,11 @@ val evaluate_def = tDefine "evaluate" `
      case get_var n s of
      | SOME (Word w) => alloc w s
      | _ => (SOME Error,s)) /\
+  (evaluate (StoreConsts t1 t2 stub_opt,s) =
+     if ~s.use_store then (SOME Error,s) else
+     if ~s.use_alloc ∧ IS_SOME stub_opt then (SOME Error,s) else
+     if ~check_store_consts_opt t1 t2 stub_opt s.code then (SOME Error,s) else
+       store_const_sem t1 t2 s) /\
   (evaluate (Inst i,s) =
      case inst i s of
      | SOME s1 => (NONE, s1)
@@ -556,9 +789,9 @@ val evaluate_def = tDefine "evaluate" `
   (evaluate (Seq c1 c2,s) =
      let (res,s1) = fix_clock s (evaluate (c1,s)) in
        if res = NONE then evaluate (c2,s1) else (res,s1)) /\
-  (evaluate (Return n m,s) =
-     case (get_var n s ,get_var m s) of
-     | (SOME (Loc l1 l2),SOME _) => (SOME (Result (Loc l1 l2)),s)
+  (evaluate (Return n,s) =
+     case get_var n s of
+     | SOME (Loc l1 l2) => (SOME (Result (Loc l1 l2)),s)
      | _ => (SOME Error,s)) /\
   (evaluate (Raise n,s) =
      case get_var n s of
@@ -666,6 +899,12 @@ val evaluate_def = tDefine "evaluate" `
           | _ => (SOME Error,s))
         | _ => (SOME Error,s))
       | _ => (SOME Error,s)) /\
+  (evaluate (ShMemOp op r (Addr a w),s) =
+    (case word_exp s (Op Add [Var a; Const w]) of
+     | SOME a =>
+         if s.clock = 0 then (SOME TimeOut,empty_env s) else
+           sh_mem_op op r a (dec_clock s)
+     | _ => (SOME Error,s))) /\
   (evaluate (CodeBufferWrite r1 r2,s) =
     (case (get_var r1 s,get_var r2 s) of
         | (SOME (Word w1), SOME (Word w2)) =>
@@ -684,12 +923,12 @@ val evaluate_def = tDefine "evaluate" `
           | _ => (SOME Error,s))
         | _ => (SOME Error,s))) /\
   (evaluate (FFI ffi_index ptr len ptr2 len2 ret,s) =
-    case (get_var len s, get_var ptr s,get_var len2 s, get_var ptr2 s) of
+   (case (get_var len s, get_var ptr s,get_var len2 s, get_var ptr2 s) of
     | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
          (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.mdomain s.be),
                 read_bytearray w4 (w2n w3) (mem_load_byte_aux s.memory s.mdomain s.be)) of
           | SOME bytes,SOME bytes2 =>
-             (case call_FFI s.ffi ffi_index bytes bytes2 of
+             (case call_FFI s.ffi (ExtCall ffi_index) bytes bytes2 of
               | FFI_final outcome => (SOME (FinalFFI outcome),s)
               | FFI_return new_ffi new_bytes =>
                   let new_m = write_bytearray w4 new_bytes s.memory s.mdomain s.be in
@@ -697,7 +936,7 @@ val evaluate_def = tDefine "evaluate" `
                                      regs := DRESTRICT s.regs s.ffi_save_regs;
                                      ffi := new_ffi |>))
           | _ => (SOME Error,s))
-    | res => (SOME Error,s)) /\
+     | res => (SOME Error,s))) /\
   (evaluate (LocValue r l1 l2,s) =
      if loc_check s.code (l1,l2) then
        (NONE,set_var r (Loc l1 l2) s)
@@ -758,15 +997,15 @@ val evaluate_def = tDefine "evaluate" `
      | SOME (Word w) =>
          if LENGTH s.bitmaps <= w2n w then (SOME Error,s)
          else (NONE, set_var r (Word (EL (w2n w) s.bitmaps)) s)
-     | _ => (SOME Error,s))`
-  (WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
+     | _ => (SOME Error,s))
+Termination
+  WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
                              (\(xs,(s:('a,'c,'ffi) stackSem$state)). (s.clock,xs)))`
    \\ rpt strip_tac
    \\ fs[empty_env_def,dec_clock_def,set_var_def,STOP_def]
    \\ imp_res_tac fix_clock_IMP \\ fs []
-   \\ imp_res_tac (GSYM fix_clock_IMP) \\ fs [] \\ decide_tac)
-
-val evaluate_ind = theorem"evaluate_ind";
+   \\ imp_res_tac (GSYM fix_clock_IMP) \\ fs [] \\ decide_tac
+End
 
 (* We prove that the clock never increases. *)
 
@@ -791,12 +1030,30 @@ Proof
   \\ EVAL_TAC \\ decide_tac
 QED
 
-val inst_clock = Q.prove(
-  `inst i s = SOME s2 ==> s2.clock <= s.clock`,
+Theorem store_const_sem_clock:
+  ∀s1 v s2. (store_const_sem t1 t2 s1 = (v,s2)) ==> s2.clock <= s1.clock
+Proof
+  rw [store_const_sem_def,AllCaseEqs(),unset_var_def] \\ fs [set_var_def]
+QED
+
+Theorem inst_clock[local]:
+  inst i s = SOME s2 ==> s2.clock <= s.clock
+Proof
   Cases_on `i` \\ fs [inst_def,assign_def] \\ every_case_tac
   \\ SRW_TAC [] [set_var_def] \\ fs []
   \\ fs [mem_store_def] \\ SRW_TAC [] []\\
-  EVAL_TAC \\ fs[]);
+  EVAL_TAC \\ fs[]
+QED
+
+Theorem sh_mem_op_clock[local]:
+  sh_mem_op op r a s = (res, s') ⇒ s'. clock ≤ s.clock
+Proof
+  strip_tac>>Cases_on ‘op’>>
+  fs[sh_mem_op_def,sh_mem_store_def,sh_mem_load_def,sh_mem_store32_def,
+     sh_mem_load32_def,sh_mem_load16_def,sh_mem_store16_def,
+     sh_mem_store_byte_def,sh_mem_load_byte_def,ffiTheory.call_FFI_def]>>
+  every_case_tac>>gvs[]
+QED
 
 Theorem evaluate_clock:
    !xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock
@@ -809,6 +1066,8 @@ Proof
     \\ REPEAT STRIP_TAC \\ SRW_TAC [] [empty_env_def]
     \\ IMP_RES_TAC inst_clock
     \\ IMP_RES_TAC alloc_clock
+    \\ IMP_RES_TAC store_const_sem_clock
+    \\ IMP_RES_TAC sh_mem_op_clock
     \\ fs [set_var_def,set_store_def,dec_clock_def,LET_THM]
     \\ rpt (pairarg_tac \\ fs [])
     \\ every_case_tac \\ fs []
@@ -825,15 +1084,15 @@ Proof
   \\ fs [MIN_DEF,GSYM NOT_LESS,theorem "state_component_equality"]
 QED
 
-val evaluate_def = save_thm("evaluate_def[compute]",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_def);
+Theorem evaluate_def[compute,allow_rebind] =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_def;
 
-val evaluate_ind = save_thm("evaluate_ind",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
+Theorem evaluate_ind[allow_rebind] =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
 
 (* observational semantics *)
 
-val semantics_def = Define `
+Definition semantics_def:
   semantics start s =
   let prog = Call NONE (INL start) NONE in
   if ∃k. let res = FST (evaluate (prog, s with clock := k)) in
@@ -856,7 +1115,8 @@ val semantics_def = Define `
     | NONE =>
       Diverge
          (build_lprefix_lub
-           (IMAGE (λk. fromList (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))`;
+           (IMAGE (λk. fromList (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))
+End
 
 (* record accessors *)
 
@@ -871,5 +1131,3 @@ End
 (* clean up *)
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
-
-val _ = export_theory();

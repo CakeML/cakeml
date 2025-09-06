@@ -4,6 +4,9 @@ different phases of the compiler backend.
 [backendProofScript.sml](backendProofScript.sml):
 Composes the correctness theorems for all of the compiler phases.
 
+[backend_itreeProofScript.sml](backend_itreeProofScript.sml):
+Compiler correctness for the itree CakeML semantics
+
 [bvi_letProofScript.sml](bvi_letProofScript.sml):
 Correctness proof for bvi_let
 
@@ -34,8 +37,16 @@ Correctness proof for clos_annotate
 [clos_callProofScript.sml](clos_callProofScript.sml):
 Correctness proof for clos_call
 
+[clos_constantProofScript.sml](clos_constantProofScript.sml):
+Some functions that flatten a closLang/BVL/BVI/dataLang const tree
+into a sequence of operations that share common data.
+
 [clos_fvsProofScript.sml](clos_fvsProofScript.sml):
 Correctness proof for clos_fvs
+
+[clos_interpProofScript.sml](clos_interpProofScript.sml):
+Correctness proof for closLang interpreter used by the REPL, i.e. Install,
+to avoid spending time compiling simple run-once code in declarations.
 
 [clos_knownProofScript.sml](clos_knownProofScript.sml):
 Correctness proof for clos_known
@@ -110,8 +121,14 @@ Correctness proof for lab_to_target
 Proofs that the eval mode of the source semantics can
 be switched to one that includes an oracle.
 
+[source_letProofScript.sml](source_letProofScript.sml):
+Correctness for the source_let pass.
+
 [source_to_flatProofScript.sml](source_to_flatProofScript.sml):
 Correctness proof for source_to_flat
+
+[source_to_sourceProofScript.sml](source_to_sourceProofScript.sml):
+Proof of correctness for source_to_source.
 
 [stack_allocProofScript.sml](stack_allocProofScript.sml):
 Correctness proof for stack_alloc
@@ -128,11 +145,20 @@ Correctness proof for stack_remove
 [stack_to_labProofScript.sml](stack_to_labProofScript.sml):
 Correctness proof for stack_to_lab
 
+[wordConvsProofScript.sml](wordConvsProofScript.sml):
+Syntactic properties proofs for word_to_word.
+
 [word_allocProofScript.sml](word_allocProofScript.sml):
 Correctness proof for word_alloc
 
 [word_bignumProofScript.sml](word_bignumProofScript.sml):
 Correctness proof for word_bignum
+
+[word_copyProofScript.sml](word_copyProofScript.sml):
+Correctness proof for word_copy
+
+[word_cseProofScript.sml](word_cseProofScript.sml):
+Correctness proof for word_cse
 
 [word_depthProofScript.sml](word_depthProofScript.sml):
 Proves correctness of the max_depth applied to the call graph of a
@@ -158,3 +184,6 @@ Correctness proof for word_to_stack
 
 [word_to_wordProofScript.sml](word_to_wordProofScript.sml):
 Correctness proof for word_to_word
+
+[word_unreachProofScript.sml](word_unreachProofScript.sml):
+Correctness proof for word_unreach

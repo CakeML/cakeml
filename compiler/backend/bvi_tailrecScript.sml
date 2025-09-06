@@ -2,18 +2,21 @@
   A compiler phase that turns some non-tail-recursive functions into
   tail-recursive functions.
 *)
+Theory bvi_tailrec
+Ancestors
+  bvi backend_common
+Libs
+  preamble
 
-open preamble bviTheory backend_commonTheory
 
-val _ = new_theory "bvi_tailrec";
-
-val _ = set_grammar_ancestry["bvi", "backend_common"];
 val _ = temp_tight_equality();
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES ();
 val PMATCH_ELIM_CONV = patternMatchesLib.PMATCH_ELIM_CONV;
 
-val dummy_def = Define `dummy = bvi$Var 1234567890`;
+Definition dummy_def:
+  dummy = bvi$Var 1234567890
+End
 
 Theorem MEM_exp_size_imp:
    ∀xs a. MEM a xs ⇒ bvi$exp_size a < exp2_size xs
@@ -21,16 +24,10 @@ Proof
   Induct \\ rw [bviTheory.exp_size_def] \\ res_tac \\ fs []
 QED
 
-(* TODO defined in bviSemTheory, should be moved to bviTheory?
-   On the other hand: its use here is temporary.
-*)
-val small_int_def = Define `
-  small_int (i:int) <=> -268435457 <= i /\ i <= 268435457`;
-
-val is_rec_def = Define `
+Definition is_rec_def:
   (is_rec name (bvi$Call _ d _ NONE) ⇔ d = SOME name) ∧
   (is_rec _    _                     ⇔ F)
-  `;
+End
 
 Theorem is_rec_PMATCH:
    !expr. is_rec name expr =
@@ -44,73 +41,79 @@ Proof
   \\ Cases_on `hdl` \\ fs [is_rec_def]
 QED
 
-val is_const_def = Define `
-  (is_const (Const i) <=> small_int i) /\
-  (is_const _         <=> F)`;
+Definition is_const_def:
+  (is_const (IntOp (Const i)) <=> small_enough_int i) /\
+  (is_const _                 <=> F)
+End
 
 Theorem is_const_PMATCH:
    !op. is_const op =
     case op of
-      Const i => small_int i
-    | _       => F
+      IntOp (Const i) => small_enough_int i
+    | _               => F
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV)
-  \\ Cases \\ rw [is_const_def]
+  \\ Cases \\ rpt CASE_TAC \\ rw [is_const_def]
 QED
 
 val _ = export_rewrites ["is_const_def"];
 
-val _ = Datatype `
+Datatype:
   assoc_op = Plus
            | Times
            | Append
-           | Noop`;
+           | Noop
+End
 
-val _ = Datatype `v_ty = Int | List | Any`;
+Datatype:
+  v_ty = Int | List | Any
+End
 
-val op_type_def = Define `
+Definition op_type_def:
   op_type Append = List /\
   op_type Noop   = Any /\
-  op_type _      = Int`;
+  op_type _      = Int
+End
 
-val to_op_def = Define `
-  to_op Plus   = Add        /\
-  to_op Times  = Mult       /\
-  to_op Append = ListAppend /\
-  to_op Noop   = Mod
-  `;
+Definition to_op_def:
+  to_op Plus   = IntOp Add          /\
+  to_op Times  = IntOp Mult         /\
+  to_op Append = BlockOp ListAppend /\
+  to_op Noop   = IntOp Mod
+End
 
-val from_op_def = Define `
+Definition from_op_def:
   from_op op =
-    if op = Add then Plus
-    else if op = Mult then Times
-    else if op = ListAppend then Append
+    if op = IntOp Add then Plus
+    else if op = IntOp Mult then Times
+    else if op = BlockOp ListAppend then Append
     else Noop
-  `;
+End
 
 Theorem from_op_PMATCH:
    !op.
     from_op op =
       case op of
-        Add        => Plus
-      | Mult       => Times
-      | ListAppend => Append
-      | _          => Noop
+        IntOp Add          => Plus
+      | IntOp Mult         => Times
+      | BlockOp ListAppend => Append
+      | _                  => Noop
 Proof
-  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [from_op_def]
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ strip_tac \\ rpt CASE_TAC \\ rw [from_op_def]
 QED
 
-val from_op_thm = save_thm("from_op_thm[simp]",
+Theorem from_op_thm[simp] =
   map (fn tm => EVAL ``from_op ^tm``)
   (TypeBase.case_def_of ``:closLang$op``
    |> CONJUNCTS |> map (el 1 o #2 o strip_comb o lhs o concl o SPEC_ALL))
-  |> LIST_CONJ)
+  |> LIST_CONJ
 
-val op_eq_def = Define `
-  (op_eq Plus   (Op op xs) <=> op = Add) /\
-  (op_eq Times  (Op op xs) <=> op = Mult) /\
-  (op_eq Append (Op op xs) <=> op = ListAppend) /\
-  (op_eq _      _          <=> F)`;
+Definition op_eq_def:
+  (op_eq Plus   (Op op xs) <=> op = IntOp Add) /\
+  (op_eq Times  (Op op xs) <=> op = IntOp Mult) /\
+  (op_eq Append (Op op xs) <=> op = BlockOp ListAppend) /\
+  (op_eq _      _          <=> F)
+End
 
 Theorem op_eq_PMATCH:
    !a expr.
@@ -118,9 +121,9 @@ Theorem op_eq_PMATCH:
        case expr of
          Op op xs =>
            (case a of
-             Plus   => op = Add
-           | Times  => op = Mult
-           | Append => op = ListAppend
+             Plus   => op = IntOp Add
+           | Times  => op = IntOp Mult
+           | Append => op = BlockOp ListAppend
            | _      => F)
        | _ => F
 Proof
@@ -136,21 +139,21 @@ Proof
   Cases \\ Cases \\ fs [op_eq_def, to_op_def]
 QED
 
-val apply_op_def = Define `
+Definition apply_op_def:
   apply_op op e1 e2 = Op (to_op op) [e1; e2]
-  `;
+End
 
-val id_from_op_def = Define `
-  id_from_op Plus   = bvi$Op (Const 0) []       /\
-  id_from_op Times  = bvi$Op (Const 1) []       /\
-  id_from_op Append = bvi$Op (Cons nil_tag) []  /\
+Definition id_from_op_def:
+  id_from_op Plus   = bvi$Op (IntOp (Const 0)) []       /\
+  id_from_op Times  = bvi$Op (IntOp (Const 1)) []       /\
+  id_from_op Append = bvi$Op (BlockOp (Cons nil_tag)) []  /\
   id_from_op Noop   = dummy
-  `;
+End
 
-val index_of_def = Define `
+Definition index_of_def:
   (index_of (bvi$Var i) = SOME i) ∧
   (index_of _           = NONE)
-  `;
+End
 
 Theorem index_of_PMATCH:
    !expr.
@@ -162,10 +165,10 @@ Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [index_of_def]
 QED
 
-val args_from_def = Define `
+Definition args_from_def:
   (args_from (bvi$Call t (SOME d) as hdl) = SOME (t, d, as, hdl)) ∧
   (args_from _                            = NONE)
-  `;
+End
 
 Theorem args_from_PMATCH:
    !expr.
@@ -179,11 +182,12 @@ Proof
   \\ Cases_on `nm` \\ rw [args_from_def]
 QED
 
-val get_bin_args_def = Define `
+Definition get_bin_args_def:
   get_bin_args op =
     dtcase op of
     | bvi$Op _ [e1; e2] => SOME (e1, e2)
-    | _ => NONE`;
+    | _ => NONE
+End
 
 Theorem get_bin_args_PMATCH:
    !op.
@@ -206,111 +210,118 @@ Proof
   \\ fs [exp_size_def]
 QED
 
-val opbinargs_def = Define `
-  opbinargs opr exp = if ~op_eq opr exp then NONE else get_bin_args exp`;
+Definition opbinargs_def:
+  opbinargs opr exp = if ~op_eq opr exp then NONE else get_bin_args exp
+End
 
-val try_update_def = Define `
+Definition try_update_def:
   (try_update vty NONE     ts = ts) ∧
   (try_update vty (SOME n) ts =
     if n < LENGTH ts then
       if EL n ts = Any then
         TAKE n ts ++ [vty] ++ DROP (n + 1) ts
       else ts
-    else ts)`;
+    else ts)
+End
 
 (* --- Checking termination guarantees --- *)
 
-val is_arith_def = Define `
+Definition is_arith_def:
   is_arith op =
     dtcase op of
-      Add  => T
-    | Sub  => T
-    | Mult => T
-    | _    => F`;
+      IntOp Add  => T
+    | IntOp Sub  => T
+    | IntOp Mult => T
+    | _          => F
+End
 
 Theorem is_arith_PMATCH:
    !op.
      is_arith op =
        case op of
-         Add  => T
-       | Sub  => T
-       | Mult => T
-       | _    => F
+         IntOp Add  => T
+       | IntOp Sub  => T
+       | IntOp Mult => T
+       | _          => F
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [is_arith_def]
 QED
 
-val is_rel_def = Define `
+Definition is_rel_def:
   is_rel op =
     dtcase op of
-      Less      => T
-    | LessEq    => T
-    | Greater   => T
-    | GreaterEq => T
-    | _         => F`;
+      IntOp Less      => T
+    | IntOp LessEq    => T
+    | IntOp Greater   => T
+    | IntOp GreaterEq => T
+    | _               => F
+End
 
 Theorem is_rel_PMATCH:
    !op.
      is_rel op =
        case op of
-         Less      => T
-       | LessEq    => T
-       | Greater   => T
-       | GreaterEq => T
-       | _         => F
+         IntOp Less      => T
+       | IntOp LessEq    => T
+       | IntOp Greater   => T
+       | IntOp GreaterEq => T
+       | _               => F
 Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [is_rel_def]
 QED
 
-val term_ok_int_def = tDefine "term_ok_int" `
-  (term_ok_int ts expr =
+Definition term_ok_int_def:
+  term_ok_int ts expr =
     dtcase expr of
       Var i => if i < LENGTH ts then EL i ts = Int else F
     | Op op xs =>
         (dtcase get_bin_args expr of
           NONE       => xs = [] /\ is_const op
         | SOME (x,y) => is_arith op /\ term_ok_int ts x /\ term_ok_int ts y)
-    | _ => F)`
-  (WF_REL_TAC `measure (exp_size o SND)` \\ rw []
+    | _ => F
+Termination
+  WF_REL_TAC ‘measure (exp_size o SND)’ \\ rw []
   \\ imp_res_tac exp_size_get_bin_args
-  \\ fs [bviTheory.exp_size_def]);
+  \\ fs[]
+End
 
-val term_ok_int_ind = save_thm ("term_ok_int_ind",
-  theorem "term_ok_int_ind" |> SIMP_RULE (srw_ss()) []);
+Theorem term_ok_int_ind[allow_rebind] = term_ok_int_ind |> SRULE[]
 
-val term_ok_any_def = tDefine "term_ok_any" `
+Definition term_ok_any_def:
   (term_ok_any ts list (Var i) <=>
     if ~list then i < LENGTH ts
     else if i < LENGTH ts then EL i ts = List
     else F) /\
   (term_ok_any ts list (Op op xs) <=>
     dtcase get_bin_args (Op op xs) of
-      NONE       => xs = [] /\ if list then op = Cons 0 else is_const op
+      NONE       => xs = [] /\ if list then op = BlockOp (Cons 0) else is_const op
     | SOME (x,y) =>
-        if op = ListAppend then term_ok_any ts T x /\ term_ok_any ts T y
+        if op = BlockOp ListAppend then term_ok_any ts T x /\ term_ok_any ts T y
         else if ~list /\ is_arith op then term_ok_int ts x /\ term_ok_int ts y
         else if ~list /\ is_rel op   then term_ok_int ts x /\ term_ok_int ts y
-        else if op = Cons 0 then term_ok_any ts T x /\ term_ok_any ts F y
+        else if op = BlockOp (Cons 0) then term_ok_any ts T x /\ term_ok_any ts F y
         else F) /\
-  (term_ok_any ts list expr <=> F)`
-  (WF_REL_TAC `measure (exp_size o SND o SND)` \\ rw []
+  (term_ok_any ts list expr <=> F)
+Termination
+  WF_REL_TAC `measure (exp_size o SND o SND)` \\ rw []
    \\ imp_res_tac exp_size_get_bin_args
-   \\ fs [bviTheory.exp_size_def, closLangTheory.op_size_def]);
+   \\ fs []
+End
 
 Theorem is_op_thms:
-   ~is_arith (Cons 0) /\ ~is_arith ListAppend /\
-   ~is_rel (Cons 0) /\ ~is_rel ListAppend /\
-   (!op. op <> ListAppend /\ is_arith op <=> is_arith op) /\
-   (!op. op <> ListAppend /\ ~is_arith op /\ is_rel op <=> is_rel op) /\
-   (!op. ~is_arith op /\ ~is_rel op /\ op = Cons 0 <=> op = Cons 0) /\
-   (!op. op <> ListAppend /\ op = Cons 0 <=> op = Cons 0)
+   ~is_arith (BlockOp (Cons 0)) /\ ~is_arith (BlockOp ListAppend) /\
+   ~is_rel (BlockOp (Cons 0)) /\ ~is_rel (BlockOp ListAppend) /\
+   (!op. op <> BlockOp ListAppend /\ is_arith op <=> is_arith op) /\
+   (!op. op <> BlockOp ListAppend /\ ~is_arith op /\ is_rel op <=> is_rel op) /\
+   (!op. ~is_arith op /\ ~is_rel op /\ op = BlockOp (Cons 0) <=> op = BlockOp (Cons 0)) /\
+   (!op. op <> BlockOp ListAppend /\ op = BlockOp (Cons 0) <=> op = BlockOp (Cons 0))
 Proof
   rw [is_arith_def, is_rel_def] \\ fs []
-  \\ Cases_on `op` \\ fs []
+  \\ rpt CASE_TAC \\ fs []
+  \\ Cases_on `op = BlockOp (Cons 0)` \\ simp []
 QED
 
-val term_ok_any_ind = save_thm ("term_ok_any_ind",
-  theorem "term_ok_any_ind" |> SIMP_RULE (srw_ss()) [is_op_thms]);
+Theorem term_ok_any_ind[allow_rebind] = term_ok_any_ind |> SRULE[is_op_thms]
 
 (* TODO the translator does not accept this with the induction theorem
    above (yet):
@@ -336,26 +347,28 @@ Proof
 QED
 *)
 
-val term_ok_def = Define `
+Definition term_ok_def:
   term_ok ts ty expr =
     dtcase ty of
       Any  => term_ok_any ts F expr
     | Int  => term_ok_int ts expr
-    | List => term_ok_any ts T expr`;
+    | List => term_ok_any ts T expr
+End
 
 (* --- Simple tail checking before rewriting --- *)
 
 (* Swap arguments when commutative *)
-val try_swap_def = Define `
+Definition try_swap_def:
   (try_swap loc Append exp = exp) /\
   (try_swap loc opr    exp =
     dtcase opbinargs opr exp of
       NONE => exp
     | SOME (l, r) =>
-        if is_rec loc l then apply_op opr r l else exp)`;
+        if is_rec loc l then apply_op opr r l else exp)
+End
 
 (* Check if ok to lift xs into accumulator *)
-val check_op_def = Define `
+Definition check_op_def:
   check_op ts opr loc exp =
     dtcase opbinargs opr (try_swap loc opr exp) of
       NONE => NONE
@@ -363,14 +376,16 @@ val check_op_def = Define `
         if is_rec loc f /\ term_ok ts (op_type opr) xs then
           SOME (apply_op opr xs f)
         else
-          NONE`
+          NONE
+End
 
 (* --- Type analysis --- *)
 
-val decide_ty_def = Define `
+Definition decide_ty_def:
   (decide_ty Int  Int  = Int)  /\
   (decide_ty List List = List) /\
-  (decide_ty _    _    = Any)`;
+  (decide_ty _    _    = Any)
+End
 
 Theorem decide_ty_PMATCH:
    !ty1 ty2.
@@ -385,75 +400,79 @@ QED
 
 val _ = export_rewrites ["decide_ty_def"]
 
-val LAST1_def = Define `
+Definition LAST1_def:
   LAST1 []      = NONE   /\
   LAST1 [x]     = SOME x /\
-  LAST1 (x::xs) = LAST1 xs`;
+  LAST1 (x::xs) = LAST1 xs
+End
 
-val update_context_def = Define `
+Definition update_context_def:
   update_context ty ts x1 x2 =
-    try_update ty (index_of x2) (try_update ty (index_of x1) ts)`;
+    try_update ty (index_of x2) (try_update ty (index_of x1) ts)
+End
 
-val arg_ty_def = Define `
-  (arg_ty (Const i)  = if small_int i then Int else Any) /\
-  arg_ty Add        = Int /\
-  arg_ty Sub        = Int /\
-  arg_ty Mult       = Int /\
-  arg_ty Div        = Int /\
-  arg_ty Mod        = Int /\
-  arg_ty LessEq     = Int /\
-  arg_ty Less       = Int /\
-  arg_ty Greater    = Int /\
-  arg_ty GreaterEq  = Int /\
-  arg_ty ListAppend = List /\
-  arg_ty _          = Any`;
+Definition arg_ty_def:
+  arg_ty (IntOp (Const i))    = (if small_enough_int i then Int else Any) /\
+  arg_ty (IntOp Add)          = Int /\
+  arg_ty (IntOp Sub)          = Int /\
+  arg_ty (IntOp Mult)         = Int /\
+  arg_ty (IntOp Div)          = Int /\
+  arg_ty (IntOp Mod)          = Int /\
+  arg_ty (IntOp LessEq)       = Int /\
+  arg_ty (IntOp Less)         = Int /\
+  arg_ty (IntOp Greater)      = Int /\
+  arg_ty (IntOp GreaterEq)    = Int /\
+  arg_ty (BlockOp ListAppend) = List /\
+  arg_ty _                    = Any
+End
 
 Theorem arg_ty_PMATCH:
    !op.
      arg_ty op =
        case op of
-         Add        => Int
-       | Sub        => Int
-       | Mult       => Int
-       | Div        => Int
-       | Mod        => Int
-       | LessEq     => Int
-       | Less       => Int
-       | Greater    => Int
-       | GreaterEq  => Int
-       | ListAppend => List
-       | Const i    => if small_int i then Int else Any
-       | _          => Any
+         IntOp Add          => Int
+       | IntOp Sub          => Int
+       | IntOp Mult         => Int
+       | IntOp Div          => Int
+       | IntOp Mod          => Int
+       | IntOp LessEq       => Int
+       | IntOp Less         => Int
+       | IntOp Greater      => Int
+       | IntOp GreaterEq    => Int
+       | IntOp (Const i)    => if small_enough_int i then Int else Any
+       | BlockOp ListAppend => List
+       | _                  => Any
 Proof
-  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [arg_ty_def]
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ strip_tac \\ rpt CASE_TAC \\ rw [arg_ty_def]
 QED
 
-val op_ty_def = Define `
-  (op_ty Add        = Int) /\
-  (op_ty Sub        = Int) /\
-  (op_ty Mult       = Int) /\
-  (op_ty Div        = Int) /\
-  (op_ty Mod        = Int) /\
-  (op_ty ListAppend = List) /\
-  (op_ty (Cons tag) = if tag = nil_tag \/ tag = cons_tag then List else Any) /\
-  (op_ty (Const i)  = if small_int i then Int else Any) /\
-  (op_ty _          = Any)`;
+Definition op_ty_def:
+  (op_ty (IntOp Add)          = Int) /\
+  (op_ty (IntOp Sub)          = Int) /\
+  (op_ty (IntOp Mult)         = Int) /\
+  (op_ty (IntOp Div)          = Int) /\
+  (op_ty (IntOp Mod)          = Int) /\
+  (op_ty (BlockOp ListAppend) = List) /\
+  (op_ty (BlockOp (Cons tag)) = if tag = nil_tag \/ tag = cons_tag then List else Any) /\
+  (op_ty (IntOp (Const i))    = if small_enough_int i then Int else Any) /\
+  (op_ty _          = Any)
+End
 
 Theorem op_ty_PMATCH:
    !op.
      op_ty op =
        case op of
-         Add        => Int
-       | Sub        => Int
-       | Mult       => Int
-       | Div        => Int
-       | Mod        => Int
-       | ListAppend => List
-       | Cons tag   => if tag = cons_tag \/ tag = nil_tag then List else Any
-       | Const i    => if small_int i then Int else Any
-       | _          => Any
+         IntOp Add          => Int
+       | IntOp Sub          => Int
+       | IntOp Mult         => Int
+       | IntOp Div          => Int
+       | IntOp Mod          => Int
+       | BlockOp ListAppend => List
+       | BlockOp (Cons tag) => if tag = cons_tag \/ tag = nil_tag then List else Any
+       | IntOp (Const i)    => if small_enough_int i then Int else Any
+       | _                  => Any
 Proof
-  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [op_ty_def]
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ strip_tac \\ rpt CASE_TAC \\ rw [op_ty_def]
 QED
 
 (* Gather information about expressions:
@@ -467,7 +486,7 @@ QED
        branch of origin for the operation in conditionals.
 *)
 
-val scan_expr_def = tDefine "scan_expr" `
+Definition scan_expr_def:
   (scan_expr ts loc [] = []) ∧
   (scan_expr ts loc (x::y::xs) =
     let (tx, ty, r, op) = HD (scan_expr ts loc [x]) in
@@ -510,7 +529,7 @@ val scan_expr_def = tDefine "scan_expr" `
                   [(update_context Int ts x y, Any, F, NONE)]
                 else
                   [(ts, Any, F, NONE)]
-          else if op = Cons 0 /\ xs = [] then (* list nil *)
+          else if op = BlockOp (Cons 0) /\ xs = [] then (* list nil *)
             [(ts, List, F, NONE)]
           else
             [(ts, Any, F, NONE)]
@@ -523,16 +542,86 @@ val scan_expr_def = tDefine "scan_expr" `
             | SOME (x, y) =>
                 [(update_context opt ts x y, opt, F, NONE)]
           else
-            [(ts, Any, F, NONE)])`
-    (WF_REL_TAC `measure (exp2_size o SND o SND)`);
+            [(ts, Any, F, NONE)])
+End
 
-val push_call_def = Define `
+Definition scan_expr_sing_def:
+  (scan_expr_sing ts loc (Var n) =
+    let ty = if n < LENGTH ts then EL n ts else Any in
+      (ts, ty, F, NONE)) ∧
+  (scan_expr_sing ts loc (If xi xt xe) =
+    let (ti, tyi, _, oi) = scan_expr_sing ts loc xi in
+    let (tt, ty1, _, ot) = scan_expr_sing ti loc xt in
+    let (te, ty2, _, oe) = scan_expr_sing ti loc xe in
+    let op = dtcase ot of NONE => oe | _ => ot in
+    let ty = dtcase op of
+               NONE => decide_ty ty1 ty2
+             | SOME opr => decide_ty ty1 (decide_ty ty2 (op_type opr)) in
+      (MAP2 decide_ty tt te, ty, IS_SOME oe, op)) ∧
+  (scan_expr_sing ts loc (Let xs x) =
+    let ys = scan_expr_list ts loc xs in
+    let tt = MAP (FST o SND) ys in
+    let tr = (dtcase LAST1 ys of SOME c => FST c | NONE => ts) in
+    let (tu, ty, _, op) = scan_expr_sing (tt ++ tr) loc x in
+      (DROP (LENGTH ys) tu, ty, F, op)) ∧
+  (scan_expr_sing ts loc (Raise x) = (ts, Any, F, NONE)) ∧
+  (scan_expr_sing ts loc (Tick x) = scan_expr_sing ts loc x) ∧
+  (scan_expr_sing ts loc (Call t d xs h) = (ts, Any, F, NONE)) ∧
+  (scan_expr_sing ts loc (Op op xs) =
+    let opr = from_op op in
+    let opt = op_type opr in
+      dtcase opr of
+        Noop => (* Constants? *)
+          if arg_ty op = Int then
+            dtcase get_bin_args (Op op xs) of
+              NONE =>
+                if is_const op then
+                  (ts, Int, F, NONE)
+                else
+                  (ts, Any, F, NONE)
+            | SOME (x, y) =>
+                if ~is_const op then
+                  (update_context Int ts x y, Any, F, NONE)
+                else
+                  (ts, Any, F, NONE)
+          else if op = BlockOp (Cons 0) /\ xs = [] then (* list nil *)
+            (ts, List, F, NONE)
+          else
+            (ts, Any, F, NONE)
+      | _ => (* Things we can optimize *)
+          if IS_SOME (check_op ts opr loc (Op op xs)) then
+            (ts, opt, F, SOME opr)
+          else if term_ok ts opt (Op op xs) then
+            dtcase get_bin_args (Op op xs) of
+              NONE => (ts, Any, F, NONE)
+            | SOME (x, y) =>
+                (update_context opt ts x y, opt, F, NONE)
+          else
+            (ts, Any, F, NONE)) ∧
+
+  (scan_expr_list ts loc [] = []) ∧
+  (scan_expr_list ts loc (x::xs) =
+    let (tx, ty, r, op) = scan_expr_sing ts loc x in
+      (tx, ty, r, op)::scan_expr_list tx loc xs)
+End
+
+Theorem scan_expr_eq:
+  (∀e ts loc. scan_expr ts loc [e] = [scan_expr_sing ts loc e]) ∧
+  (∀es ts loc. scan_expr ts loc es = scan_expr_list ts loc es)
+Proof
+  Induct >> rw[] >> gvs[scan_expr_def, scan_expr_sing_def] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  rpt (TOP_CASE_TAC >> gvs[]) >>
+  Cases_on `es` >> simp[Once scan_expr_def, scan_expr_sing_def]
+QED
+
+Definition push_call_def:
   (push_call n op acc exp (SOME (ticks, dest, args, handler)) =
     Call ticks (SOME n) (args ++ [apply_op op (Var acc) exp]) handler) ∧
   (push_call _ _ _ _ _ = dummy)
-  `;
+End
 
-val rewrite_def = Define `
+Definition rewrite_def:
   (rewrite loc next opr acc ts (Var n) = (F, Var n)) /\
   (rewrite loc next opr acc ts (If x1 x2 x3) =
     let t1 = FST (HD (scan_expr ts loc [x1])) in
@@ -556,7 +645,8 @@ val rewrite_def = Define `
     | SOME exp =>
         dtcase opbinargs opr exp of
           NONE => (F, apply_op opr (Var acc) exp)
-        | SOME (xs, f) => (T, push_call next opr acc xs (args_from f)))`
+        | SOME (xs, f) => (T, push_call next opr acc xs (args_from f)))
+End
 
 Theorem rewrite_PMATCH:
    !loc next opr acc ts expr.
@@ -590,9 +680,13 @@ Proof
   \\ recInduct (theorem "rewrite_ind") \\ rw [rewrite_def]
 QED
 
+
+Theorem rewrite_eq = rewrite_def |> SRULE [scan_expr_eq];
+
+
 (* --- Top-level expression check --- *)
 
-val has_rec_def = tDefine "has_rec" `
+Definition has_rec_def:
   (has_rec loc [] = F) /\
   (has_rec loc (x::y::xs) =
     if has_rec loc [x] then T
@@ -605,10 +699,37 @@ val has_rec_def = tDefine "has_rec" `
   (has_rec loc [Op op xs] =
     if EXISTS (is_rec loc) xs then T
     else has_rec loc xs) /\
-  (has_rec loc [x] = F)`
-  (WF_REL_TAC `measure (exp2_size o SND)`);
+  (has_rec loc [x] = F)
+End
 
-val has_rec1_def = Define `has_rec1 loc x = has_rec loc [x]`;
+Definition has_rec1_def:
+  has_rec1 loc x = has_rec loc [x]
+End
+
+Definition has_rec_sing_def:
+  (has_rec_sing loc (If x1 x2 x3) =
+    if has_rec_sing loc x2 then T
+    else has_rec_sing loc x3) /\
+  (has_rec_sing loc (Let xs x) = has_rec_sing loc x) /\
+  (has_rec_sing loc (Tick x) = has_rec_sing loc x) /\
+  (has_rec_sing loc (Op op xs) =
+    if EXISTS (is_rec loc) xs then T
+    else has_rec_list loc xs) /\
+  (has_rec_sing loc x = F) ∧
+
+  (has_rec_list loc [] = F) /\
+  (has_rec_list loc (x::xs) =
+    if has_rec_sing loc x then T
+    else has_rec_list loc xs)
+End
+
+Theorem has_rec_eq:
+  (∀e loc. has_rec loc [e] = has_rec_sing loc e) ∧
+  (∀es loc. has_rec loc es = has_rec_list loc es)
+Proof
+  Induct >> rw[has_rec_def, has_rec_sing_def] >>
+  Cases_on `es` >> gvs[has_rec_def]
+QED
 
 val test1_tm = ``Let [] (Call 0 (SOME 0) [] NONE)``
 Theorem has_rec_test1:
@@ -617,14 +738,14 @@ Proof
 EVAL_TAC
 QED
 
-val test2_tm = ``Op Add [Call 0 (SOME 0) [] NONE; Var 0]``
+val test2_tm = ``Op (IntOp Add) [Call 0 (SOME 0) [] NONE; Var 0]``
 Theorem has_rec_test2:
    has_rec1 0 ^test2_tm <=> T
 Proof
 EVAL_TAC
 QED
 
-val check_exp_def = Define `
+Definition check_exp_def:
   check_exp loc arity exp =
     if ~has_rec1 loc exp then NONE else
       let context = REPLICATE arity Any in
@@ -634,17 +755,23 @@ val check_exp_def = Define `
             dtcase opr of
               NONE => NONE
             | SOME op =>
-                if ty <> op_type op then NONE else opr`;
+                if ty <> op_type op then NONE else opr
+End
 
-val let_wrap_def = Define `
+Theorem check_exp_eq = check_exp_def |>
+                       SRULE [scan_expr_eq, has_rec1_def, has_rec_eq];
+
+Definition let_wrap_def:
   let_wrap arity id exp =
-    Let ((GENLIST (λi. Var i) arity) ++ [id]) exp`;
+    Let ((GENLIST (λi. Var i) arity) ++ [id]) exp
+End
 
-val mk_aux_call_def = Define `
+Definition mk_aux_call_def:
   mk_aux_call loc arity id =
-    Call 0 (SOME loc) (id :: GENLIST (λi. Var i) arity) NONE`;
+    Call 0 (SOME loc) (id :: GENLIST (λi. Var i) arity) NONE
+End
 
-val compile_exp_def = Define `
+Definition compile_exp_def:
   compile_exp loc next arity exp =
     dtcase check_exp loc arity exp of
       NONE => NONE
@@ -652,9 +779,10 @@ val compile_exp_def = Define `
       let context = REPLICATE arity Any in
       let (r, opt) = rewrite loc next op arity context exp in
       let aux      = let_wrap arity (id_from_op op) opt in
-        SOME (aux, opt)`;
+        SOME (aux, opt)
+End
 
-val compile_prog_def = Define `
+Definition compile_prog_def:
   (compile_prog next [] = (next, [])) ∧
   (compile_prog next ((loc, arity, exp)::xs) =
     dtcase compile_exp loc next arity exp of
@@ -664,7 +792,7 @@ val compile_prog_def = Define `
     | SOME (exp_aux, exp_opt) =>
         let (n, ys) = compile_prog (next + bvl_to_bvi_namespaces) xs in
         (n, (loc, arity, exp_aux)::(next, arity + 1, exp_opt)::ys))
-  `;
+End
 
 Theorem scan_expr_not_nil[simp]:
    !x. scan_expr ts loc [x] <> []
@@ -715,19 +843,19 @@ QED
 (* --- Test rewriting --- *)
 
 val fac_tm = ``
-  Let [Op LessEq [Var 0; Op (Const 1) []]]
+  Let [Op (IntOp LessEq) [Var 0; Op (IntOp (Const 1)) []]]
     (If (Var 0)
-       (Op (Const 1) [])
-       (Let [Op Sub [Op (Const 1) []; Var 1]]
-         (Op Mult [Var 2; Call 0 (SOME 0) [Var 0] NONE])))``
+       (Op (IntOp (Const 1)) [])
+       (Let [Op (IntOp Sub) [Op (IntOp (Const 1)) []; Var 1]]
+         (Op (IntOp Mult) [Var 2; Call 0 (SOME 0) [Var 0] NONE])))``
 
 val opt_tm = ``
-  Let [Op LessEq [Var 0; Op (Const 1) []]]
-     (If (Var 0) (Op Mult [Var 2; Op (Const 1) []])
-        (Let [Op Sub [Op (Const 1) []; Var 1]]
-           (Call 0 (SOME 1) [Var 0; Op Mult [Var 3; Var 2]]
+  Let [Op (IntOp LessEq) [Var 0; Op (IntOp (Const 1)) []]]
+     (If (Var 0) (Op (IntOp Mult) [Var 2; Op (IntOp (Const 1)) []])
+        (Let [Op (IntOp Sub) [Op (IntOp (Const 1)) []; Var 1]]
+           (Call 0 (SOME 1) [Var 0; Op (IntOp Mult) [Var 3; Var 2]]
               NONE)))``
-val aux_tm = ``Let [Var 0; Op (Const 1) []] ^opt_tm``
+val aux_tm = ``Let [Var 0; Op (IntOp (Const 1)) []] ^opt_tm``
 
 Theorem fac_check_exp:
    check_exp 0 1 ^fac_tm = SOME Times
@@ -742,27 +870,27 @@ EVAL_TAC
 QED
 
 val rev_tm = ``
-  Let [Op (Const 0) []]
-    (If (Op (TagLenEq 0 0) [Var 1])
-        (Op (Cons 0) [])
-        (Let [Op El [Op (Const 0) []; Var 1]]
-          (Let [Op El [Op (Const 1) []; Var 2]]
-            (Op ListAppend
-              [Op (Cons 0) [Op (Cons 0) []; Var 1];
+  Let [Op (IntOp (Const 0)) []]
+    (If (Op (BlockOp (TagLenEq 0 0)) [Var 1])
+        (Op (BlockOp (Cons 0)) [])
+        (Let [Op (MemOp El) [Op (IntOp (Const 0)) []; Var 1]]
+          (Let [Op (MemOp El) [Op (IntOp (Const 1)) []; Var 2]]
+            (Op (BlockOp ListAppend)
+              [Op (BlockOp (Cons 0)) [Op (BlockOp (Cons 0)) []; Var 1];
                Call 0 (SOME 444) [Var 0] NONE]))))``
 
 val opt_tm = ``
-  Let [Op (Const 0) []]
-    (If (Op (TagLenEq 0 0) [Var 1])
-        (Op ListAppend [Var 2; Op (Cons 0) []])
-        (Let [Op El [Op (Const 0) []; Var 1]]
-          (Let [Op El [Op (Const 1) []; Var 2]]
+  Let [Op (IntOp (Const 0)) []]
+    (If (Op (BlockOp (TagLenEq 0 0)) [Var 1])
+        (Op (BlockOp ListAppend) [Var 2; Op (BlockOp (Cons 0)) []])
+        (Let [Op (MemOp El) [Op (IntOp (Const 0)) []; Var 1]]
+          (Let [Op (MemOp El) [Op (IntOp (Const 1)) []; Var 2]]
             (Call 0 (SOME 445)
               [Var 0;
-               Op ListAppend [Var 4; Op (Cons 0) [Op (Cons 0) []; Var 1]]]
+               Op (BlockOp ListAppend) [Var 4; Op (BlockOp (Cons 0)) [Op (BlockOp (Cons 0)) []; Var 1]]]
               NONE))))``
 
-val aux_tm = ``Let [Var 0; Op (Cons 0) []] ^opt_tm``
+val aux_tm = ``Let [Var 0; Op (BlockOp (Cons 0)) []] ^opt_tm``
 
 Theorem rev_check_exp:
    check_exp 444 1 ^rev_tm = SOME Append
@@ -776,4 +904,3 @@ Proof
 EVAL_TAC
 QED
 
-val _ = export_theory();

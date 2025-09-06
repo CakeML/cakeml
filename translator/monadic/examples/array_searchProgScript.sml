@@ -2,14 +2,20 @@
   An example showing how to use the monadic translator to translate monadic
   array search functions, including exceptions.
  *)
+Theory array_searchProg
+Libs
+  preamble ml_monad_translator_interfaceLib
+Ancestors
+  ml_monad_translator
 
-open preamble ml_monad_translator_interfaceLib
+val _ = set_up_monadic_translator ();
 
-val _ = new_theory "array_searchProg"
+fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f
 
 (* Create the data type to handle the array. *)
-val _ = Datatype `
-  state_array = <| arr : num list |>`; (* single resizeable array *)
+Datatype:
+  state_array = <| arr : num list |> (* single resizeable array *)
+End
 
 (* Data type for the exceptions *)
 Datatype:
@@ -28,7 +34,7 @@ val _ = start_translation config;
 
 (* Monadic definitions *)
 
-val linear_search_aux_def = mtDefine "linear_search_aux" `
+val linear_search_aux_def = allowing_rebind (mtDefine "linear_search_aux" `
   linear_search_aux (value:num) (start_index:num) =
     do
       len <- arr_length;
@@ -42,7 +48,7 @@ val linear_search_aux_def = mtDefine "linear_search_aux" `
           else
             linear_search_aux value (start_index + 1)
         od
-    od`
+    od`)
 (
   rw[fetch "-" "arr_length_def"] >>
   rw[ml_monadBaseTheory.Marray_length_def] >>
@@ -51,11 +57,12 @@ val linear_search_aux_def = mtDefine "linear_search_aux" `
   WF_REL_TAC `measure (λ (value, start, state) . LENGTH state.arr - start)`
 );
 
-val linear_search_def = Define `
-  linear_search value = linear_search_aux value 0n`
+Definition linear_search_def:
+  linear_search value = linear_search_aux value 0n
+End
 
 
-val binary_search_aux_def = tDefine "binary_search_aux" `
+Definition binary_search_aux_def:
   binary_search_aux value start finish =
     do
       len <- arr_length;
@@ -70,19 +77,17 @@ val binary_search_aux_def = tDefine "binary_search_aux" `
                 binary_search_aux value (mid + 1n) finish
             od
   od
-`
-  (
-    WF_REL_TAC `measure (λ (_, start, finish) . finish - start)` >>
-    rw[] >>
-    fs[NOT_GREATER_EQ, NOT_GREATER, ADD1] >>
-    `start <= (finish + start) DIV 2` by fs[X_LE_DIV]
-    >- DECIDE_TAC
-    >- fs[DIV_LT_X]
-  );
+Termination
+  simp[]>>
+  WF_REL_TAC `measure (λ (value, start, finish) . finish - start)`>>
+  rw[]>>
+  intLib.ARITH_TAC
+End
 
-val binary_search_def = Define `
+Definition binary_search_def:
   binary_search value =
-    do len <- arr_length; binary_search_aux value 0 len od`;
+    do len <- arr_length; binary_search_aux value 0 len od
+End
 
 (* Monadic translation *)
 
@@ -91,5 +96,3 @@ val linear_search_v_thm = m_translate linear_search_def;
 
 val binary_search_aux_v_thm = m_translate binary_search_aux_def;
 val binary_search_v_thm = m_translate binary_search_def;
-
-val _ = export_theory ();

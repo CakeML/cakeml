@@ -2,7 +2,8 @@ INCLUDES = $(HOLDIR)/examples/balanced_bst\
 					 $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics $(CAKEMLDIR)/semantics/proofs\
 					 $(CAKEMLDIR)/basis/pure $(CAKEMLDIR)/basis\
 					 $(CAKEMLDIR)/translator $(CAKEMLDIR)/characteristic\
-					 $(CAKEMLDIR)/compiler $(CAKEMLDIR)/compiler/backend/proofs\
+					 $(CAKEMLDIR)/cv_translator\
+                                         $(CAKEMLDIR)/compiler $(CAKEMLDIR)/compiler/backend/proofs\
 					 $(CAKEMLDIR)/compiler/backend/x64/proofs
 
 all: $(DEFAULT_TARGETS) README.md exercises
@@ -14,6 +15,10 @@ README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmeP
 	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
 
 SOLUTIONS = wordfreqProgScript.sml simple_bstScript.sml
+
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap
+endif
 
 exercises: $(SOLUTIONS) make_ex
 	./make_ex $(SOLUTIONS)

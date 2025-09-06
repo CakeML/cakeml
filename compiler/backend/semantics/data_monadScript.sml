@@ -1,9 +1,11 @@
 (*
   Define a monad to make dataLang ASTs nicer to work with
 *)
-open preamble dataLangTheory dataSemTheory;
-
-val _ = new_theory"data_monad";
+Theory data_monad
+Ancestors
+  dataLang dataSem
+Libs
+  preamble
 
 Type M = ``:('c,'ffi) dataSem$state -> (v, v) result option # ('c,'ffi) dataSem$state``
 
@@ -41,7 +43,7 @@ End
 
 Definition if_var_def:
   if_var n ^f ^g s =
-    case lookup n s.locals of
+    case sptree$lookup n s.locals of
     | NONE => fail s
     | SOME v => if isBool T v then f s else
                 if isBool F v then g s else fail s
@@ -49,7 +51,7 @@ End
 
 Definition return_def[simp]:
   return n s =
-    case lookup n s.locals of
+    case sptree$lookup n s.locals of
     | NONE => fail s
     | SOME v => (SOME (Rval v), flush_state F s)
 End
@@ -124,7 +126,7 @@ val _ = set_fixity ":≡" (Infixl 480);
 
 Definition move_def:
   move dest src s =
-    case lookup src s.locals of
+    case sptree$lookup src s.locals of
     | NONE => fail s
     | SOME v => (NONE, set_var dest v s)
 End
@@ -201,13 +203,13 @@ Overload return[local] = ``return``
 val _ = monadsyntax.temp_add_monadsyntax()
 
 val challenge_program =
-  ``Seq (Assign 2 (TagLenEq 0 0) [0] NONE)
+  ``Seq (Assign 2 (BlockOp (TagLenEq 0 0)) [0] NONE)
         (If 2 (Return 1)
-              (Seq (Assign 5 (Const 0) [] NONE)
-              (Seq (Assign 3 El [0; 5] NONE)
-              (Seq (Assign 5 (Const 1) [] NONE)
-              (Seq (Assign 6 El [0; 5] NONE)
-              (Seq (Assign 4 (Cons 0) [5; 1] NONE)
+              (Seq (Assign 5 (IntOp (Const 0)) [] NONE)
+              (Seq (Assign 3 (MemOp El) [0; 5] NONE)
+              (Seq (Assign 5 (IntOp (Const 1)) [] NONE)
+              (Seq (Assign 6 (MemOp El) [0; 5] NONE)
+              (Seq (Assign 4 (BlockOp (Cons 0)) [5; 1] NONE)
                    (Call NONE (SOME 500) [6; 4] NONE)))))))``
 
 val to_shallow_thm =
@@ -279,4 +281,3 @@ Proof
   \\ rw [] \\ fs [data_safe_def]
 QED
 
-val _ = export_theory();

@@ -1,28 +1,33 @@
 (*
   Demonstration of using the translator to produce a CakeML module.
 *)
-open HolKernel Parse boolLib bossLib;
-open ml_translatorLib ml_progLib;
-
-val _ = new_theory "ml_module_demo";
+Theory ml_module_demo
+Libs
+  ml_translatorLib ml_progLib
 
 val _ = (use_full_type_names := false);
 
 val _ = ml_prog_update (open_module "Even");
 
-val _ = Datatype `
-  even = Even num`;
+Datatype:
+  even = Even num
+End
 
-val zero_def = mlDefine `
-  zero = Even 0`;
+Definition zero_def:
+  zero = Even 0
+End
+val r = translate zero_def;
 
-val two_def = mlDefine `
-  two = Even 2`;
+Definition two_def:
+  two = Even 2
+End
+val r = translate two_def;
 
-val add_def = mlDefine `
+Definition add_def:
   add x y =
-    case x of Even m => case y of Even n => Even (m + n)`;
+    case x of Even m => case y of Even n => Even (m + n)
+End
+val r = translate add_def;
 
 val _ = ml_prog_update (close_module NONE);
 
-val _ = export_theory();

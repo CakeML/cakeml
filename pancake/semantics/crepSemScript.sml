@@ -1,18 +1,16 @@
 (*
   Semantics of crepLang
 *)
+Theory crepSem
+Ancestors
+  crepLang alignment[qualified] finite_map[qualified]
+  misc[qualified] (* for read_bytearray *)
+  wordLang[qualified] (* for word_op and word_sh *)
+  panSem[qualified] (* for word_lab datatype  *)
+  ffi[qualified] lprefix_lub[qualified]
+Libs
+  preamble
 
-open preamble crepLangTheory;
-local open alignmentTheory
-           miscTheory     (* for read_bytearray *)
-           wordLangTheory (* for word_op and word_sh *)
-           panSemTheory   (* for word_lab datatype  *)
-           ffiTheory in end;
-
-val _ = new_theory"crepSem";
-val _ = set_grammar_ancestry [
-  "crepLang", "alignment",
-  "finite_map", "misc", "wordLang", "panSem", "ffi",  "lprefix_lub"]
 
 (* re-defining them again to avoid varname from panSem *)
 Type varname = ``:num``
@@ -25,9 +23,12 @@ Datatype:
      ; code        : funname |-> (varname list # ('a crepLang$prog))
      ; memory      : 'a word -> 'a word_lab
      ; memaddrs    : ('a word) set
+     ; sh_memaddrs    : ('a word) set
      ; clock       : num
      ; be          : bool
-     ; ffi         : 'ffi ffi_state |>
+     ; ffi         : 'ffi ffi_state
+     ; base_addr   : 'a word
+     ; top_addr   : 'a word |>
 End
 
 val state_component_equality = theorem"state_component_equality";
@@ -81,16 +82,24 @@ Definition lookup_code_def:
       | _ => NONE
 End
 
+Definition crep_op_def:
+  crep_op crepLang$Mul [w1:'a word;w2] = SOME(w1 * w2) ∧
+  crep_op _ _ = NONE
+End
+
 Definition eval_def:
   (eval (s:('a,'ffi) crepSem$state) ((Const w):'a crepLang$exp) = SOME (Word w)) ∧
   (eval s (Var v) = FLOOKUP s.locals v) ∧
-  (eval s (Label fname) =
-   case FLOOKUP s.code fname of
-    | SOME _ => SOME (Label fname)
-    | _ => NONE) /\
   (eval s (Load addr) =
     case eval s addr of
      | SOME (Word w) => mem_load w s
+     | _ => NONE) /\
+  (eval s (Load32 addr) =
+    case eval s addr of
+     | SOME (Word w) =>
+        (case mem_load_32 s.memory s.memaddrs s.be w of
+           | NONE => NONE
+           | SOME w => SOME (Word (w2w w)))
      | _ => NONE) /\
   (eval s (LoadByte addr) =
     case eval s addr of
@@ -107,14 +116,25 @@ Definition eval_def:
        then OPTION_MAP Word
             (word_op op (MAP (\w. case w of Word n => n) ws)) else NONE
       | _ => NONE) /\
+  (eval s (Crepop op es) =
+    case (OPT_MMAP (eval s) es) of
+     | SOME ws =>
+       if (EVERY (\w. case w of (Word _) => T | _ => F) ws)
+       then OPTION_MAP Word
+            (crep_op op (MAP (\w. case w of Word n => n) ws)) else NONE
+      | _ => NONE) /\
   (eval s (Cmp cmp e1 e2) =
     case (eval s e1, eval s e2) of
-     | (SOME (Word w1), SOME (Word w2)) => SOME (Word (v2w [word_cmp cmp w1 w2]))
+     | (SOME (Word w1), SOME (Word w2)) => SOME (Word (bitstring$v2w [word_cmp cmp w1 w2]))
      | _ => NONE) /\
   (eval s (Shift sh e n) =
     case eval s e of
      | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
-     | _ => NONE)
+     | _ => NONE) /\
+  (eval s BaseAddr =
+        SOME (Word s.base_addr)) /\
+  (eval s TopAddr =
+        SOME (Word s.top_addr))
 Termination
   wf_rel_tac `measure (exp_size ARB o SND)`
   \\ rpt strip_tac \\ imp_res_tac MEM_IMP_exp_size
@@ -145,6 +165,59 @@ Definition res_var_def:
   (res_var lc (n, SOME v) = lc |+ (n,v))
 End
 
+Definition sh_mem_load_def:
+  sh_mem_load v (addr:'a word) nb ^s =
+  if nb = 0 then
+    (if addr IN s.sh_memaddrs then
+       (case call_FFI s.ffi (SharedMem MappedRead) [n2w nb] (word_to_bytes addr F) of
+          FFI_final outcome => (SOME (FinalFFI outcome), empty_locals s)
+        | FFI_return new_ffi new_bytes =>
+            (NONE, (set_var v (Word (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi))
+     else (SOME Error, s))
+  else
+    (if (byte_align addr) IN s.sh_memaddrs then
+       (case call_FFI s.ffi (SharedMem MappedRead) [n2w nb] (word_to_bytes addr F) of
+          FFI_final outcome => (SOME (FinalFFI outcome), empty_locals s)
+        | FFI_return new_ffi new_bytes =>
+            (NONE, (set_var v (Word (word_of_bytes F 0w new_bytes)) s) with ffi := new_ffi))
+     else (SOME Error, s))
+End
+
+Definition sh_mem_store_def:
+  sh_mem_store v (addr:'a word) nb ^s =
+  case FLOOKUP s.locals v of
+    SOME (Word w) =>
+      (if nb = 0 then
+         (if addr IN s.sh_memaddrs then
+            (case call_FFI s.ffi (SharedMem MappedWrite) [n2w nb]
+                           (word_to_bytes w F ++ word_to_bytes addr F) of
+               FFI_final outcome => (SOME (FinalFFI outcome), s)
+             | FFI_return new_ffi new_bytes =>
+                 (NONE, s with ffi := new_ffi))
+          else (SOME Error, s))
+       else
+         (if (byte_align addr) IN s.sh_memaddrs then
+            (case call_FFI s.ffi (SharedMem MappedWrite) [n2w nb]
+                           (TAKE nb (word_to_bytes w F)
+                            ++ word_to_bytes addr F) of
+               FFI_final outcome => (SOME (FinalFFI outcome), s)
+             | FFI_return new_ffi new_bytes =>
+                 (NONE, s with ffi := new_ffi))
+          else (SOME Error, s)))
+  | _ => (SOME Error, s)
+End
+
+Definition sh_mem_op_def:
+  (sh_mem_op Load r (ad:'a word) (s:('a,'ffi) crepSem$state) = sh_mem_load r ad 0 s) ∧
+  (sh_mem_op Store r ad s = sh_mem_store r ad 0 s) ∧
+  (sh_mem_op Load8 r ad s = sh_mem_load r ad 1 s) ∧
+  (sh_mem_op Store8 r ad s = sh_mem_store r ad 1 s) ∧
+  (sh_mem_op Load16 r ad s = sh_mem_load r ad 2 s) ∧
+  (sh_mem_op Store16 r ad s = sh_mem_store r ad 2 s) ∧
+  (sh_mem_op Load32 r ad s = sh_mem_load r ad 4 s) ∧
+  (sh_mem_op Store32 r ad s = sh_mem_store r ad 4 s)
+End
+
 Definition evaluate_def:
   (evaluate (Skip:'a crepLang$prog,^s) = (NONE,s)) /\
   (evaluate (Dec v e prog, s) =
@@ -167,6 +240,13 @@ Definition evaluate_def:
           | SOME m => (NONE, s with memory := m)
           | NONE => (SOME Error, s))
      | _ => (SOME Error, s)) /\
+  (evaluate (Store32 dst src,s) =
+    case (eval s dst, eval s src) of
+     | (SOME (Word adr), SOME (Word w)) =>
+        (case mem_store_32 s.memory s.memaddrs s.be adr (w2w w) of
+          | SOME m => (NONE, s with memory := m)
+          | NONE => (SOME Error, s))
+     | _ => (SOME Error, s)) /\
   (evaluate (StoreByte dst src,s) =
     case (eval s dst, eval s src) of
      | (SOME (Word adr), SOME (Word w)) =>
@@ -178,6 +258,18 @@ Definition evaluate_def:
     case eval s src of
      | SOME w => (NONE, set_globals dst w s)
      | _ => (SOME Error, s)) /\
+  (evaluate (ShMem op v ad,s) =
+    case eval s ad of
+    | SOME (Word addr) =>
+        (if is_load op then
+           (case FLOOKUP s.locals v of
+              SOME _ => sh_mem_op op v addr s
+            | _ => (SOME Error, s))
+         else
+           (case FLOOKUP s.locals v of
+              SOME (Word _) => sh_mem_op op v addr s
+            | _ => (SOME Error, s)))
+    | _ => (SOME Error, s)) /\
   (evaluate (Seq c1 c2,s) =
      let (res,s1) = fix_clock s (evaluate (c1,s)) in
      if res = NONE then evaluate (c2,s1) else (res,s1)) /\
@@ -209,9 +301,9 @@ Definition evaluate_def:
  (evaluate (Tick,s) =
    if s.clock = 0 then (SOME TimeOut,empty_locals s)
    else (NONE,dec_clock s)) /\
- (evaluate (Call caltyp trgt argexps,s) =
-   case (eval s trgt, OPT_MMAP (eval s) argexps) of
-    | (SOME (Label fname), SOME args) =>
+ (evaluate (Call caltyp fname argexps,s) =
+   case OPT_MMAP (eval s) argexps of
+    | SOME args =>
        (case lookup_code s.code fname args (LENGTH args) of
          | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s) else
            let eval_prog = fix_clock ((dec_clock s) with locals:= newlocals)
@@ -222,36 +314,36 @@ Definition evaluate_def:
               | (SOME Continue,st) => (SOME Error,st)
               | (SOME (Return retv),st) =>
                    (case caltyp of
-                    | Tail    => (SOME (Return retv),empty_locals st)
-                    | Ret NONE p _ => evaluate (p, st with locals := s.locals)
-                    | Ret (SOME rt) p _ =>
+                    | NONE    => (SOME (Return retv),empty_locals st)
+                    | SOME (NONE, p, _) => evaluate (p, st with locals := s.locals)
+                    | SOME (SOME rt, p, _) =>
                      (case FLOOKUP s.locals rt of
                        | SOME _ => evaluate (p, st with locals := s.locals |+ (rt,retv))
                        | _ => (SOME Error, st)))
               | (SOME (Exception eid),st) =>
                    (case caltyp of
-                    | Tail    => (SOME (Exception eid),empty_locals st)
-                    | Ret _ _ NONE => (SOME (Exception eid),empty_locals st)
-                    | Ret _ _ (SOME (Handle eid' p)) =>
+                    | NONE    => (SOME (Exception eid),empty_locals st)
+                    | SOME (_, _, NONE) => (SOME (Exception eid),empty_locals st)
+                    | SOME (_, _, SOME (eid', p)) =>
                       if eid = eid' then
                         evaluate (p, st with locals := s.locals)
                       else (SOME (Exception eid), empty_locals st))
               | (res,st) => (res,empty_locals st))
          | _ => (SOME Error,s))
-    | (_, _) => (SOME Error,s)) /\
+    | _ => (SOME Error,s)) /\
   (evaluate (ExtCall ffi_index ptr1 len1 ptr2 len2,s) =
    case (FLOOKUP s.locals len1, FLOOKUP s.locals ptr1, FLOOKUP s.locals len2, FLOOKUP s.locals ptr2) of
-    | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
+     | SOME (Word w),SOME (Word w2),SOME (Word w3),SOME (Word w4) =>
        (case (read_bytearray w2 (w2n w) (mem_load_byte s.memory s.memaddrs s.be),
               read_bytearray w4 (w2n w3) (mem_load_byte s.memory s.memaddrs s.be)) of
-         | SOME bytes,SOME bytes2 =>
-            (case call_FFI s.ffi (explode ffi_index) bytes bytes2 of
-              | FFI_final outcome => (SOME (FinalFFI outcome),s)
-              | FFI_return new_ffi new_bytes =>
-                let nmem = write_bytearray w4 new_bytes s.memory s.memaddrs s.be in
-                  (NONE, s with <| memory := nmem; ffi := new_ffi |>))
-         | _ => (SOME Error,s))
-       | res => (SOME Error,s))
+        | SOME bytes,SOME bytes2 =>
+            (case call_FFI s.ffi (ExtCall (explode ffi_index)) bytes bytes2 of
+             | FFI_final outcome => (SOME (FinalFFI outcome),s)
+             | FFI_return new_ffi new_bytes =>
+                 let nmem = write_bytearray w4 new_bytes s.memory s.memaddrs s.be in
+                   (NONE, s with <| memory := nmem; ffi := new_ffi |>))
+        | _ => (SOME Error,s))
+     | res => (SOME Error,s))
 Termination
   wf_rel_tac `(inv_image (measure I LEX measure (prog_size (K 0)))
                (\(xs,^s). (s.clock,xs)))` >>
@@ -278,25 +370,29 @@ Proof
   every_case_tac >> fs [] >> rveq >>
   imp_res_tac fix_clock_IMP_LESS_EQ >>
   imp_res_tac LESS_EQ_TRANS >> fs [] >>
+  TRY (Cases_on ‘op’>>fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def]>>
+       every_case_tac>>fs[set_var_def,empty_locals_def]>>rveq>>fs[])>>
   rpt (res_tac >> fs [])
 QED
 
-val fix_clock_evaluate = Q.prove(
-  `fix_clock s (evaluate (prog,s)) = evaluate (prog,s)`,
+Triviality fix_clock_evaluate:
+  fix_clock s (evaluate (prog,s)) = evaluate (prog,s)
+Proof
   Cases_on `evaluate (prog,s)` \\ fs [fix_clock_def]
-  \\ imp_res_tac evaluate_clock \\ fs [GSYM NOT_LESS, state_component_equality]);
+  \\ imp_res_tac evaluate_clock \\ fs [GSYM NOT_LESS, state_component_equality]
+QED
 
-val evaluate_ind = save_thm("evaluate_ind",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
+Theorem evaluate_ind[allow_rebind] =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_ind
 
-val evaluate_def = save_thm("evaluate_def[compute]",
-  REWRITE_RULE [fix_clock_evaluate] evaluate_def);
+Theorem evaluate_def[allow_rebind,compute] =
+  REWRITE_RULE [fix_clock_evaluate] evaluate_def
 
 (* observational semantics *)
 
 Definition semantics_def:
   semantics ^s start =
-   let prog = Call Tail (Label start) [] in
+   let prog = Call NONE start [] in
     if ∃k. case FST (evaluate (prog,s with clock := k)) of
             | SOME TimeOut => F
             | SOME (FinalFFI _) => F
@@ -322,5 +418,3 @@ Definition semantics_def:
 End
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
-
-val _ = export_theory();

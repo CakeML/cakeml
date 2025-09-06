@@ -679,6 +679,27 @@ val _=add_astPP ("w8subrealprint", ``App (Aw8sub) ls``,genPrint (prefixargsPrint
 val _=add_astPP ("w8lengthrealprint", ``App (Aw8length) ls``,genPrint (prefixargsPrint "Word8Array.length"));
 val _=add_astPP ("w8updaterealprint", ``App (Aw8update) ls``,genPrint (prefixargsPrint "Word8Array.update"));
 
+(* Doubles *)
+val _ = add_astPP ("fp_lessequal_print", “App (FP_cmp FP_LessEqual) ls”,
+  genPrint (prefixargsPrint "Double.<="));
+val _ = add_astPP ("fp_less_print", “App (FP_cmp FP_Less) ls”,
+  genPrint (prefixargsPrint "Double.<"));
+val _ = add_astPP ("fp_equal_print", “App (FP_cmp FP_Equal) ls”,
+  genPrint (prefixargsPrint "Double.="));
+val _ = add_astPP ("fp_greater_print", “App (FP_cmp FP_Greater) ls”,
+  genPrint (prefixargsPrint "Double.>"));
+val _ = add_astPP ("fp_greaterequal_print", “App (FP_cmp FP_GreaterEqual) ls”,
+  genPrint (prefixargsPrint "Double.>="));
+val _ = map add_astPP [
+  ("fp_neg_print", “App (FP_uop FP_Neg) ls”, genPrint (prefixargsPrint "Double.~")),
+  ("fp_abs_print", “App (FP_uop FP_Abs) ls”, genPrint (prefixargsPrint "Double.abs")),
+  ("fp_sqrt_print", “App (FP_uop FP_Sqrt) ls”, genPrint (prefixargsPrint "Double.sqrt")),
+  ("fp_add_print", “App (FP_bop FP_Add) ls”, genPrint (prefixargsPrint "Double.+")),
+  ("fp_sub_print", “App (FP_bop FP_Sub) ls”, genPrint (prefixargsPrint "Double.-")),
+  ("fp_mul_print", “App (FP_bop FP_Mul) ls”, genPrint (prefixargsPrint "Double.*")),
+  ("fp_div_print", “App (FP_bop FP_Div) ls”, genPrint (prefixargsPrint "Double./")),
+  ("fp_fma_print", “App (FP_top FP_Fma) ls”, genPrint (prefixargsPrint "Double.FMA"))]
+
 (*Char curried, not checking arity*)
 
 val _=add_astPP ("charordrealprint", ``App Ord ls``,genPrint (prefixargsPrint "Char.ord"));

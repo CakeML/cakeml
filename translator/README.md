@@ -1,7 +1,9 @@
 A proof-producing translator from HOL functions to CakeML.
 
-[decProgScript.sml](decProgScript.sml):
-Translation of CakeML source AST
+[evaluate_decScript.sml](evaluate_decScript.sml):
+Defines evaluate_dec_list which is an alternative version of
+evaluate_decs from evaluateTheory.  This alternative version is
+adjusted to make translation faster.
 
 [ml_module_demoScript.sml](ml_module_demoScript.sml):
 Demonstration of using the translator to produce a CakeML module.

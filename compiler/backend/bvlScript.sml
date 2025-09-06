@@ -19,14 +19,14 @@
    to a CodePtr. This first number in the Call expression is how
    many additional ticks the Call should do.
 *)
-open preamble closLangTheory backend_commonTheory
+Theory bvl
+Ancestors
+  closLang (* for op *)
+  backend_common (* for tags *)
+Libs
+  preamble
 
-val _ = new_theory "bvl";
-val _ = set_grammar_ancestry [
-   "closLang", (* for op *) "backend_common" (* for tags *)
-]
-
-val _ = Datatype `
+Datatype:
   exp = Var num
       | If exp exp exp
       | Let (exp list) exp
@@ -34,12 +34,13 @@ val _ = Datatype `
       | Handle exp exp
       | Tick exp
       | Call num (num option) (exp list)
-      | Op closLang$op (exp list) `
+      | Op closLang$op (exp list)
+End
 
-val Bool_def = Define`
-  Bool b = Op (Cons (bool_to_tag b)) []`;
+Definition Bool_def:
+  Bool b = Op (BlockOp (Cons (bool_to_tag b))) []
+End
 
-val mk_tick_def = Define `
-  mk_tick n e = FUNPOW Tick n e : bvl$exp`;
-
-val _ = export_theory();
+Definition mk_tick_def:
+  mk_tick n e = FUNPOW Tick n e : bvl$exp
+End

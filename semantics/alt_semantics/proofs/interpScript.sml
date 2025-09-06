@@ -1,11 +1,14 @@
 (*
   Deriviation of a functional big-step semantics from the relational one.
 *)
-open preamble;
-open semanticPrimitivesTheory bigStepTheory;
-open determTheory bigClockTheory;
+Theory interp
+Ancestors
+  ast semanticPrimitives bigStep determ bigClock
+  state_transformer[qualified]
+Libs
+  preamble
 
-val _ = new_theory "interp";
+val _ = monadsyntax.enable_monadsyntax()
 
 val st = ``st:'ffi state``;
 
@@ -18,27 +21,27 @@ Theorem run_eval_spec_lem:
     (!env v pes err_v ^st.
        evaluate_match T env st v pes err_v (run_eval_match env v pes err_v st))
 Proof
-  simp [METIS_PROVE [] ``(?x y z. P x ∧ Q y ∧ R z) =
-                         ((?x. P x) ∧ (?y. Q y) ∧ (?z. R z))``, GSYM SKOLEM_THM] >>
+  simp [METIS_PROVE [] “(?x y z. P x ∧ Q y ∧ R z) =
+                         ((?x. P x) ∧ (?y. Q y) ∧ (?z. R z))”, GSYM SKOLEM_THM] >>
   strip_tac
   >- metis_tac [big_clocked_total, pair_CASES] >>
   strip_tac
-  >- (induct_on `es` >>
+  >- (induct_on ‘es’ >>
       rw [Once evaluate_cases] >>
-      `?s' r. evaluate T env st h (s',r)` by metis_tac [big_clocked_total, pair_CASES] >>
+      ‘?s' r. evaluate T env st h (s',r)’ by metis_tac [big_clocked_total, pair_CASES] >>
       metis_tac [pair_CASES, result_nchotomy]) >>
   strip_tac
   >-
-   (induct_on `pes` >>
+   (induct_on ‘pes’ >>
     rw [Once evaluate_cases] >>
-    `(?p e. h = (p,e))` by metis_tac [pair_CASES] >>
+    ‘(?p e. h = (p,e))’ by metis_tac [pair_CASES] >>
     rw [] >>
     rw [] >>
-    cases_on `pmatch env.c st.refs p v []` >>
+    cases_on ‘pmatch env.c st.refs p v []’ >>
     rw []
     >- metis_tac []
     >- metis_tac []
-    >- (`?s' r. evaluate T (env with v := nsAppend (alist_to_ns a) env.v) st e (s',r)` by
+    >- (‘?s' r. evaluate T (env with v := nsAppend (alist_to_ns a) env.v) st e (s',r)’ by
           metis_tac [big_clocked_total, pair_CASES] >>
         metis_tac []))
 QED
@@ -117,19 +120,29 @@ val _ = monadsyntax.temp_enable_monad "result_state";
 Overload raise[local] = ``result_raise``
 
 Theorem remove_lambda_pair:
-  ((\(x,y). f x y) z) = f (FST z) (SND z)
+  ((\ (x,y). f x y) z) = f (FST z) (SND z)
 Proof
   PairCases_on `z` >>
   rw []
 QED
 
 Theorem fst_lem:
-  FST = (\(x,y, z).x)
+  FST = (\ (x,y, z).x)
 Proof
   rw [FUN_EQ_THM] >>
   PairCases_on `x` >>
   fs []
 QED
+
+val _ = temp_delsimps["getOpClass_def"]
+
+Theorem getOpClass_opClass:
+  (getOpClass op = FunApp ⇔ opClass op FunApp) ∧
+  (getOpClass op = Simple ⇔ opClass op Simple)
+Proof
+  Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases]
+QED
+
 
 Theorem run_eval_def:
   (!^st env l.
@@ -183,22 +196,25 @@ Theorem run_eval_def:
   (!env op e1 e2.
      run_eval env (App op es)
      =
-     do vs <- run_eval_list env (REVERSE es);
-        ^st <- get_store;
-        if op = Opapp then
-          case do_opapp (REVERSE vs) of
-          | NONE => raise (Rabort Rtype_error)
-          | SOME (env', e3) =>
-              do () <- dec_clock;
-                 run_eval env' e3
-              od
-        else
-          case do_app (st.refs,st.ffi) op (REVERSE vs) of
-          | NONE => raise (Rabort Rtype_error)
-          | SOME ((refs',ffi'),res) =>
+     do
+       vs <- run_eval_list env (REVERSE es);
+       ^st <- get_store;
+       (case getOpClass op of
+        | FunApp =>
+            (case do_opapp (REVERSE vs) of
+             | NONE => raise (Rabort Rtype_error)
+             | SOME (env', e3) =>
+                 do () <- dec_clock;
+                    run_eval env' e3
+                 od)
+        | Simple =>
+            (case do_app (st.refs,st.ffi) op (REVERSE vs) of
+             | NONE => raise (Rabort Rtype_error)
+             | SOME ((refs',ffi'),res) =>
               do () <- set_store (st with <| refs := refs'; ffi := ffi' |>);
                  combin$C return res
-              od
+              od)
+        | _ => raise (Rabort Rtype_error))
      od) ∧
   (!env lop e1 e2.
      run_eval env (Log lop e1 e2)
@@ -224,7 +240,7 @@ Theorem run_eval_def:
         ^st <- get_store;
         (if can_pmatch_all env.c st.refs (MAP FST pes) v then
            run_eval_match env v pes bind_exn_v
-         else raise (Rabort Rtype_error))
+         else result_raise (Rabort Rtype_error))
      od) ∧
   (!env x e1 e2.
      run_eval env (Let x e1 e2)
@@ -293,15 +309,35 @@ Proof
       fs [GSYM evaluate_run_eval] >>
       metis_tac [])
   >- (rw [dec_clock_def] >>
-      every_case_tac >>
-      rw [] >>
-      fs [remove_lambda_pair] >>
-      rw [] >>
-      every_case_tac >>
-      fs [GSYM evaluate_run_eval] >>
-      rw [] >>
-      rw [] >> fs[state_transformerTheory.UNIT_DEF] >>
-      metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec])
+      Cases_on ‘getOpClass op = FunApp’ >> gs[]
+      >- (every_case_tac >>
+          rw [] >>
+          fs [remove_lambda_pair, getOpClass_opClass] >>
+          rw [] >>
+          every_case_tac >>
+          fs [GSYM evaluate_run_eval_list] >>
+          rw [] >>
+          rw [] >> fs[state_transformerTheory.UNIT_DEF] >>
+          metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec]) >>
+      Cases_on ‘getOpClass op = Simple’ >> gs[]
+      >- (‘~ opClass op FunApp’ by (Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases]) >>
+          gs[getOpClass_opClass] >>
+          every_case_tac >>
+          rw [] >>
+          fs [remove_lambda_pair] >>
+          rw [] >>
+          every_case_tac >>
+          fs [GSYM evaluate_run_eval_list] >>
+          rw [] >>
+          rw [] >> fs[state_transformerTheory.UNIT_DEF] >>
+          metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec]) >>
+      ‘getOpClass op = EvalOp’
+        by (Cases_on ‘op’ >> gs[opClass_cases, getOpClass_def]) >> gs[] >>
+      ‘~ opClass op FunApp’ by (Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases]) >>
+      gs[] >> every_case_tac >> gs[remove_lambda_pair] >>
+      fs [GSYM evaluate_run_eval_list] >>
+      Cases_on ‘op’ >> gs[opClass_cases, getOpClass_def] >> gs[do_app_def]
+      >> disj1_tac >> first_x_assum $ irule_at Any >> every_case_tac >> gs[])
   >- (every_case_tac >>
       rw [] >>
       fs [remove_lambda_pair, GSYM evaluate_run_eval] >>
@@ -347,7 +383,8 @@ QED
 
 Definition run_eval_dec_def:
   (run_eval_dec env ^st (Dlet _ p e) =
-   if ALL_DISTINCT (pat_bindings p []) then
+   if ALL_DISTINCT (pat_bindings p []) ∧
+      every_exp (one_con_check env.c) e then
      case run_eval env e st of
      | (st', Rval v) =>
          (case pmatch env.c st'.refs p v [] of
@@ -358,7 +395,8 @@ Definition run_eval_dec_def:
    else
      (st, Rerr (Rabort Rtype_error))) ∧
   (run_eval_dec env ^st (Dletrec _ funs) =
-   if ALL_DISTINCT (MAP FST funs) then
+   if ALL_DISTINCT (MAP FST funs) ∧
+      EVERY (λ(_,_,e). every_exp (one_con_check env.c) e) funs then
      (st, Rval <| v := build_rec_env funs env nsEmpty; c := nsEmpty |>)
    else
      (st, Rerr (Rabort Rtype_error))) ∧
@@ -417,4 +455,23 @@ Proof
   metis_tac []
 QED
 
-val _ = export_theory ();
+Theorem evaluate_dec_run_eval_dec:
+  ∀env d r st. evaluate_dec T env st d r ⇔ run_eval_dec env st d = r
+Proof
+  rw[] >> reverse eq_tac >> rw[] >>
+  Cases_on `run_eval_dec env st d`
+  >- metis_tac[run_eval_decs_spec] >>
+  drule $ cj 1 run_eval_decs_spec >> rw[] >>
+  metis_tac[decs_determ]
+QED
+
+Theorem evaluate_decs_run_eval_decs:
+  ∀env ds r st. evaluate_decs T env st ds r ⇔ run_eval_decs env st ds = r
+Proof
+  rw[] >> reverse eq_tac >> rw[] >>
+  Cases_on `run_eval_decs env st ds`
+  >- metis_tac[run_eval_decs_spec] >>
+  drule $ cj 2 run_eval_decs_spec >> rw[] >>
+  metis_tac[decs_determ]
+QED
+

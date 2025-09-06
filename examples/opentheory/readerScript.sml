@@ -2,15 +2,17 @@
   Shallowly embedded (monadic) functions that implement the OpenTheory
   article checker.
 *)
-open preamble ml_hol_kernelProgTheory mlintTheory StringProgTheory prettyTheory;
-
-val _ = new_theory "reader";
+Theory reader
+Ancestors
+  ml_hol_kernelProg mlint StringProg pretty
+Libs
+  preamble
 
 val st_ex_monadinfo : monadinfo = {
   bind = “st_ex_bind”,
   ignorebind = SOME “st_ex_ignore_bind”,
   unit = “st_ex_return”,
-  fail = SOME “raise_Fail”,
+  fail = SOME “raise_Failure”,
   choice = SOME “$otherwise”,
   guard = NONE
   };
@@ -20,7 +22,7 @@ val _ = enable_monadsyntax ();
 val _ = enable_monad "st_ex";
 
 Overload return[local] = “st_ex_return”;
-Overload failwith[local] = “raise_Fail”;
+Overload failwith[local] = “raise_Failure”;
 
 (* -------------------------------------------------------------------------
  * Commands.
@@ -157,21 +159,24 @@ End
 
 Type name = ``mlstring list # mlstring``
 
-val name_to_string_def = Define`
+Definition name_to_string_def:
   (name_to_string ([],s) = s) ∧
   (name_to_string (n::ns,s) =
-   strcat (strcat n («.»)) (name_to_string ns s))`;
+   strcat (strcat n («.»)) (name_to_string ns s))
+End
 
-val charlist_to_name_def = Define`
+Definition charlist_to_name_def:
   (charlist_to_name ns a [#"""] = (REVERSE ns,implode(REVERSE a))) ∧
   (charlist_to_name ns a (#"\"::#"."::cs) = charlist_to_name ns (#"."::a) cs) ∧
   (charlist_to_name ns a (#"\"::#"""::cs) = charlist_to_name ns (#"""::a) cs) ∧
   (charlist_to_name ns a (#"\"::#"\"::cs) = charlist_to_name ns (#"\"::a) cs) ∧
   (charlist_to_name ns a (#"."::cs) = charlist_to_name (implode(REVERSE a)::ns) [] cs) ∧
-  (charlist_to_name ns a (c::cs) = charlist_to_name ns (c::a) cs)`;
+  (charlist_to_name ns a (c::cs) = charlist_to_name ns (c::a) cs)
+End
 
-val qstring_to_name_def = Define`
-  qstring_to_name s = charlist_to_name [] [] (TL(explode s))`;
+Definition qstring_to_name_def:
+  qstring_to_name s = charlist_to_name [] [] (TL(explode s))
+End
 *)
 
 Datatype:
@@ -353,9 +358,9 @@ End
 
 Definition BETA_CONV_def:
   BETA_CONV tm =
-    handle_Fail (BETA tm)
+    handle_Failure (BETA tm)
       (λe.
-        handle_Fail
+        handle_Failure
           (do
             (f, arg) <- dest_comb tm;
             (v, body) <- dest_abs f;
@@ -642,7 +647,7 @@ Definition readLine_def:
     | pragma =>
         do
           (obj,s) <- pop s;
-          nm <- handle_Fail (getName obj)
+          nm <- handle_Failure (getName obj)
                     (λe. return «bogus»);
           (* TODO Had to drop the debug pragma because of the rigidity
            * of the exception types: we inherit a single exception from
@@ -848,9 +853,9 @@ Definition readLines_def:
       []    => return (s, lines_read s)
     | l::ls =>
         do
-          s <- handle_Fail
+          s <- handle_Failure
                  (readLine s l)
-                 (λe. raise_Fail (line_Fail s e));
+                 (λe. raise_Failure (line_Fail s e));
           readLines (next_line s) ls
         od
 End
@@ -974,4 +979,3 @@ Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [Once unescape_def]
 QED
 
-val _ = export_theory()

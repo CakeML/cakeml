@@ -1,11 +1,13 @@
 (*
   Correctness proof for data_space
 *)
-open preamble data_spaceTheory dataSemTheory dataPropsTheory;
+Theory data_spaceProof
+Ancestors
+  data_space dataSem dataProps
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory"data_spaceProof";
 
 val _ = temp_bring_to_front_overload"get_vars"{Name="get_vars",Thy="dataSem"};
 val _ = temp_bring_to_front_overload"cut_env"{Name="cut_env",Thy="dataSem"};
@@ -14,13 +16,17 @@ val _ = temp_bring_to_front_overload"lookup"{Name="lookup",Thy="sptree"};
 val _ = temp_bring_to_front_overload"insert"{Name="insert",Thy="sptree"};
 val _ = temp_bring_to_front_overload"wf"{Name="wf",Thy="sptree"};
 
-val IMP_sptree_eq = Q.prove(
-  `wf x /\ wf y /\ (!a. lookup a x = lookup a y) ==> (x = y)`,
-  METIS_TAC [spt_eq_thm]);
+Triviality IMP_sptree_eq:
+  wf x /\ wf y /\ (!a. lookup a x = lookup a y) ==> (x = y)
+Proof
+  METIS_TAC [spt_eq_thm]
+QED
 
-val mk_wf_inter = Q.prove(
-  `!t1 t2. inter t1 t2 = mk_wf (inter t1 t2)`,
-  full_simp_tac(srw_ss())[]);
+Triviality mk_wf_inter:
+  !t1 t2. inter t1 t2 = mk_wf (inter t1 t2)
+Proof
+  full_simp_tac(srw_ss())[]
+QED
 
 Theorem get_vars_IMP_LENGTH:
    !xs s l. get_vars xs s = SOME l ==> (LENGTH l = LENGTH xs)
@@ -43,8 +49,8 @@ Proof
   rw [do_stack_def,stack_consumed_def]
 QED
 
-val evaluate_compile = Q.prove(
-  `!c s res s2 vars l.
+Triviality evaluate_compile:
+  !c s res s2 vars l.
      res <> SOME (Rerr(Rabort Rtype_error)) /\ (evaluate (c,s) = (res,s2)) /\
      locals_ok s.locals l ==>
      ?w safe peak smx.
@@ -56,7 +62,8 @@ val evaluate_compile = Q.prove(
                             else s2 with <| safe_for_space := safe;
                                             peak_heap_length := peak;
                                             stack_max := smx |>)) /\
-         locals_ok s2.locals w`,
+         locals_ok s2.locals w
+Proof
   SIMP_TAC std_ss [compile_def]
   \\ recInduct evaluate_ind \\ REPEAT STRIP_TAC
   \\ fs[evaluate_def,space_def,pMakeSpace_def]
@@ -290,6 +297,8 @@ val evaluate_compile = Q.prove(
          \\ fs[case_eq_thms] \\ rveq
          \\ fs [] \\ rfs []
          \\ fs[state_component_equality] \\ rveq
+         \\ qpat_abbrev_tac `v4_locals = v4.locals`
+         \\ rveq
          \\ fs[op_space_req_def]
          \\ first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]evaluate_locals))
          \\ disch_then drule
@@ -487,7 +496,8 @@ val evaluate_compile = Q.prove(
                                       , `s2.safe_for_space`
                                       , `s2.peak_heap_length`
                                       , `s2.stack_max`]
-    \\ rw [locals_ok_refl,with_same_locals,state_component_equality]));
+    \\ rw [locals_ok_refl,with_same_locals,state_component_equality])
+QED
 
 Theorem compile_correct:
    !c s.
@@ -537,4 +547,3 @@ Proof
   \\ imp_res_tac get_code_labels_space
 QED
 
-val _ = export_theory();

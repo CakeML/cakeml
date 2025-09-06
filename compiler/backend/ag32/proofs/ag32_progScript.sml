@@ -2,12 +2,13 @@
   Defines an ag32 instantiation of the machine-code Hoare triple for
   the decompiler.
 *)
-open preamble
-open set_sepTheory progTheory ag32Theory temporal_stateTheory
+Theory ag32_prog
+Libs
+  preamble
+Ancestors
+  set_sep prog ag32 ag32_memory temporal_state
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val () = new_theory "ag32_prog"
 
 Theorem v2w_F_T: (* TODO: move *)
   (v2w [F] = 0w) /\ (v2w [T] = 1w)
@@ -22,43 +23,63 @@ QED
 
 (* basic definitions *)
 
-val _ = Datatype `
+Datatype:
   ag32_el = aState ag32_state
           | aMem word32 word8
-          | aPc word32`;
+          | aPc word32
+End
 
 val ag32_el_11 = DB.fetch "-" "ag32_el_11";
 val ag32_el_distinct = DB.fetch "-" "ag32_el_distinct";
 
 Type ag32_set = ``:ag32_el set``
 
-val ag32_instr_def = Define`
+Definition ag32_instr_def:
   ag32_instr (a, w: word32) =
   { aMem (a+3w) ((31 >< 24) w) ;
     aMem (a+2w) ((23 >< 16) w) ;
     aMem (a+1w) ((15 ><  8) w) ;
-    aMem (a+0w) (( 7 ><  0) w) }`;
+    aMem (a+0w) (( 7 ><  0) w) }
+End
 
-val ag32_proj'_def = Define `
+Definition ag32_proj'_def:
   ag32_proj' (fs,ms,pc) (s:ag32_state) =
     (if fs then { aState s } else {}) UNION
     IMAGE (\a. aMem a (s.MEM a)) ms UNION
-    (if pc then { aPc (s.PC) } else {})`;
+    (if pc then { aPc (s.PC) } else {})
+End
 
-val ag32_proj_def   = Define `ag32_proj s = ag32_proj' (T,UNIV,T) s`;
-val ag32_proj''_def = Define `ag32_proj'' x s = ag32_proj s DIFF ag32_proj' x s`;
+Definition ag32_proj_def:
+  ag32_proj s = ag32_proj' (T,UNIV,T) s
+End
+Definition ag32_proj''_def:
+  ag32_proj'' x s = ag32_proj s DIFF ag32_proj' x s
+End
 
-val AG32_MODEL_def = Define`
+Definition AG32_MODEL_def:
    AG32_MODEL = (ag32_proj, (\x y. y = Next x), ag32_instr, (=), K F)
-                :(ag32_state, ag32_el, word32 # word32) processor`
+                :(ag32_state, ag32_el, word32 # word32) processor
+End
 
-val aP_def = Define `aP x = SEP_EQ {aPc x}`;
-val aM_def = Define `aM a x = SEP_EQ {aMem a x}`;
-val aS_def = Define `aS x = SEP_EQ {aState x}`;
-val aB_def = Define `aB md m = SEP_EQ { aMem a (m a) | a IN md }`;
+Definition aP_def:
+  aP x = SEP_EQ {aPc x}
+End
+Definition aM_def:
+  aM a x = SEP_EQ {aMem a x}
+End
+Definition aS_def:
+  aS x = SEP_EQ {aState x}
+End
+Definition aB_def:
+  aB md m = SEP_EQ { aMem a (m a) | a IN md }
+End
 
-val aD_def = Define `aD md = SEP_EXISTS m. aB md m`;
-val aPC_def = Define `aPC x = aP x * cond (aligned 2 x)`;
+Definition aD_def:
+  aD md = SEP_EXISTS m. aB md m
+End
+Definition aPC_def:
+  aPC x = aP x * cond (aligned 2 x)
+End
 
 (* lemmas about proj *)
 
@@ -277,13 +298,14 @@ Proof
   SRW_TAC [wordsLib.WORD_EXTRACT_ss] []
 QED
 
-val IMP_AG32_SPEC = save_thm("IMP_AG32_SPEC",
+Theorem IMP_AG32_SPEC =
   (ONCE_REWRITE_RULE [STAR_COMM] o REWRITE_RULE [AG32_SPEC_CODE] o
    SPECL [``CODE_POOL ag32_instr c * p'``,
-          ``CODE_POOL ag32_instr c * q'``]) IMP_AG32_SPEC_LEMMA);
+          ``CODE_POOL ag32_instr c * q'``]) IMP_AG32_SPEC_LEMMA
 
-val mem_unchanged_def = Define `
-  mem_unchanged md m1 m2 = (!a. ~(a IN md) ==> m1 a = m2 a)`;
+Definition mem_unchanged_def:
+  mem_unchanged md m1 m2 = (!a. ~(a IN md) ==> m1 a = m2 a)
+End
 
 Theorem mem_unchanged_same[simp]:
    mem_unchanged md m m
@@ -361,9 +383,10 @@ QED
 
 (* SPEC implies FUNPOW Next *)
 
-val code_set_def = Define `
+Definition code_set_def:
   code_set a [] = {} /\
-  code_set a (i::is) = (a:word32,i) INSERT code_set (a+4w) is`;
+  code_set a (i::is) = (a:word32,i) INSERT code_set (a+4w) is
+End
 
 Theorem IN_code_set:
    !a xs p x.
@@ -464,5 +487,3 @@ Proof
   \\ rpt (pop_assum kall_tac)
   \\ blastLib.BBLAST_TAC
 QED
-
-val () = export_theory()

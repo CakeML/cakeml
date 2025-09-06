@@ -1,13 +1,12 @@
 (*
   Correctness proof for loop_remove
 *)
+Theory loop_removeProof
+Ancestors
+  loopLang loopSem loopProps loop_remove wordSem[qualified]
+Libs
+  preamble
 
-open preamble loopLangTheory loopSemTheory
-     loopPropsTheory loop_removeTheory
-
-local open wordSemTheory in end
-
-val _ = new_theory"loop_removeProof";
 
 Definition has_code_def:
   has_code (n,funs) code =
@@ -173,6 +172,7 @@ Proof
        by fs [EXTENSION,domain_lookup,MEM_MAP,EXISTS_PROD]
   \\ fs [spt_eq_thm,wf_inter,wf_fromAList,lookup_fromAList,lookup_inter_alt]
   \\ pop_assum kall_tac \\ pop_assum kall_tac
+  \\ rewrite_tac [GSYM sptreeTheory.LENGTH_toAList]
   \\ rename [‘MAP FST xs’]
   \\ Induct_on ‘xs’ \\ fs [get_vars_def,FORALL_PROD]
   \\ rw [] \\ fs [domain_lookup] \\ rw [] \\ fs []
@@ -393,7 +393,7 @@ Proof
          \\ rw [] \\ res_tac)
       \\ ‘breaks_ok (Fail:'a loopLang$prog,Fail:'a loopLang$prog) ∧
           break_ok (Fail:'a loopLang$prog)’ by EVAL_TAC
-      \\ fs [CaseEq"prod",CaseEq"result",CaseEq"option"] \\ rveq \\ fs []
+      \\ fs [CaseEq"prod",CaseEq"loopSem$result",CaseEq"option"] \\ rveq \\ fs []
       \\ first_x_assum drule \\ disch_then drule \\ rewrite_tac [GSYM AND_IMP_INTRO]
       \\ disch_then drule \\ fs [dec_clock_def] \\ fs [])
     \\ PairCases_on ‘x'’ \\ fs []
@@ -914,7 +914,9 @@ QED
 
 Theorem compile_Store:
   ^(get_goal "loopLang$Store") ∧
+  ^(get_goal "loopLang$Store32") ∧
   ^(get_goal "loopLang$StoreByte") ∧
+  ^(get_goal "loopLang$Load32") ∧
   ^(get_goal "loopLang$LoadByte")
 Proof
   fs [syntax_ok_def,no_Loop_def,every_prog_def]
@@ -929,6 +931,24 @@ Proof
   \\ rw [] \\ res_tac
   \\ fs [set_var_def]
   \\ res_tac \\ fs []
+QED
+
+Theorem compile_ShMem:
+  ^(get_goal "loopLang$ShMem")
+Proof
+  fs [syntax_ok_def,no_Loop_def,every_prog_def]
+  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
+  \\ rw [] \\ fs [comp_no_loop_def]
+  \\ fs [evaluate_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS]
+  \\ imp_res_tac eval_lemma \\ fs []>>
+  cases_on ‘op’>>fs[sh_mem_op_def,sh_mem_store_def,sh_mem_load_def,set_var_def,call_env_def]>>
+  fs [CaseEq"bool",CaseEq"option",CaseEq"word_loc",CaseEq"ffi_result",PULL_EXISTS]>>
+  rpt (CASE_TAC>>fs[])>>
+  rveq \\ gvs [state_rel_def]>>
+  irule_at Any EQ_REFL>>
+  rpt gen_tac>>strip_tac>>
+  res_tac>>
+  rfs[state_component_equality]
 QED
 
 Theorem compile_SetGlobal:
@@ -959,14 +979,24 @@ Proof
   \\ fs [call_env_def]
 QED
 
+Theorem compile_Arith:
+  ^(get_goal "loopLang$Arith")
+Proof
+  fs [syntax_ok_def,no_Loop_def,every_prog_def] \\ rpt strip_tac
+  \\ gvs[evaluate_def,AllCaseEqs(),DefnBase.one_line_ify NONE loop_arith_def,
+         comp_no_loop_def,PULL_EXISTS
+        ]
+  \\ gvs[state_rel_def,set_var_def,state_component_equality] \\ metis_tac[]
+QED
+
 Theorem compile_correct:
   ^(compile_correct_tm())
 Proof
   match_mp_tac (the_ind_thm())
-  \\ EVERY (map strip_assume_tac [compile_Skip, compile_Continue,
+  \\ EVERY (map strip_assume_tac [compile_Skip, compile_Continue, compile_ShMem,
        compile_Mark, compile_Return, compile_Assign, compile_Store,
        compile_SetGlobal, compile_Call, compile_Seq, compile_If,
-       compile_FFI, compile_Loop])
+       compile_FFI, compile_Loop,compile_Arith])
   \\ asm_rewrite_tac [] \\ rw [] \\ rpt (pop_assum kall_tac)
 QED
 
@@ -1863,4 +1893,84 @@ Proof
   fs []
 QED
 
-val _ = export_theory();
+(* first_name offset *)
+
+Theorem store_const_lab_min:
+  x ≤ FST prog ∧
+  EVERY (λp. x ≤ FST p) (SND prog) ∧
+  store_cont s cont prog = (cont',prog') ⇒
+  x ≤ FST prog' ∧ EVERY (λp. x ≤ FST p) (SND prog')
+Proof
+  strip_tac>>
+  PairCases_on ‘prog’>>
+  gs[loop_removeTheory.store_cont_def]>>
+  rveq>>
+  gs[EVERY_MEM]>>strip_tac>>strip_tac>>rveq>>gs[]
+QED
+
+Theorem comp_with_loop_lab_min:
+  comp_with_loop p p' cont prog = (q2, s')∧
+  x ≤ FST prog ∧
+  EVERY (λp. x ≤ FST p) (SND prog) ⇒
+  (x ≤ FST s' ∧ EVERY (λp. x ≤ FST p) (SND s'))
+Proof
+  MAP_EVERY qid_spec_tac [‘s'’, ‘q2’, ‘prog’, ‘cont’, ‘p'’, ‘p’]>>
+  recInduct loop_removeTheory.comp_with_loop_ind>>rw[]>>
+  qpat_x_assum ‘comp_with_loop _ _ _ _ = _’ mp_tac>>
+  rewrite_tac[loop_removeTheory.comp_with_loop_def]>>
+  strip_tac>>fs[]>>
+  rpt (pairarg_tac>>fs[])
+  >- metis_tac[store_const_lab_min]
+  >- metis_tac[store_const_lab_min]
+  >- (Cases_on ‘handler’>>fs[]>>
+      PairCases_on ‘x'’>>fs[]>>
+      rpt (pairarg_tac>>fs[])>>
+      metis_tac[store_const_lab_min])
+  >- (Cases_on ‘handler’>>fs[]>>
+      PairCases_on ‘x'’>>fs[]>>
+      rpt (pairarg_tac>>fs[])>>
+      metis_tac[store_const_lab_min])>>
+  rveq>>gs[]>>
+  drule_all store_const_lab_min>>
+  strip_tac>>gs[]
+QED
+
+Theorem FOLDR_min:
+  EVERY (λp. x ≤ FST p) prog ∧ prog ≠ [] ⇒
+  x ≤ FOLDR MAX 0 (MAP FST prog)
+Proof
+  Induct_on ‘prog’>>gs[]
+QED
+
+Theorem loop_remove_comp_lab_min:
+  FOLDR comp (m + 1,[]) prog = (n, prog') ∧
+  (prog ≠ [] ⇒ x ≤ m) ∧
+  EVERY (λp. x ≤ FST p) prog ⇒
+  (prog ≠[] ⇒ x ≤ n) ∧ EVERY (λp. x ≤ FST p) prog'
+Proof
+  MAP_EVERY qid_spec_tac [‘n’, ‘m’, ‘prog'’, ‘prog’]>>
+  Induct>>gs[]>>ntac 5 strip_tac>>
+  PairCases_on ‘h’>>gs[loop_removeTheory.comp_def]>>
+  pairarg_tac>>gs[]>>rveq>>gs[]>>
+  drule comp_with_loop_lab_min>>
+  disch_then $ qspec_then ‘x’ mp_tac>>
+  qmatch_goalsub_abbrev_tac ‘FST xxx’>>
+  Cases_on ‘xxx’>>gs[]>>
+  first_x_assum $ qspecl_then [‘r’, ‘m’, ‘q’] assume_tac>>
+  gs[]>>
+  Cases_on ‘prog’>>gs[]
+QED
+
+Theorem loop_remove_comp_prog_lab_min:
+  comp_prog prog = prog' ∧
+  EVERY (λp. x ≤ FST p) prog ⇒
+  EVERY (λp. x ≤ FST p) prog'
+Proof
+  gs[loop_removeTheory.comp_prog_def]>>strip_tac>>
+  qmatch_asmsub_abbrev_tac ‘SND xxx’>>
+  Cases_on ‘xxx’>>gs[]>>
+  drule loop_remove_comp_lab_min>>
+  disch_then $ qspec_then ‘x’ mp_tac>>gs[]>>
+  impl_tac >-metis_tac[FOLDR_min]>>rw[]
+QED
+

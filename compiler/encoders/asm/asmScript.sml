@@ -61,10 +61,9 @@
    of the semantics is relational but it only allows deterministic behaviour.
 
    ------------------------------------------------------------------------- *)
-open HolKernel Parse boolLib bossLib
-open wordsTheory alignmentTheory astTheory
-
-val () = new_theory "asm"
+Theory asm
+Ancestors
+  words alignment ast
 
 (* -- syntax of ASM instruction -- *)
 
@@ -72,16 +71,19 @@ Type reg = ``:num``
 Type fp_reg = ``:num``
 Type imm = ``:'a word``
 
-val () = Datatype `
-  reg_imm = Reg reg | Imm ('a imm)`
+Datatype:
+  reg_imm = Reg reg | Imm ('a imm)
+End
 
-val () = Datatype `
-  binop = Add | Sub | And | Or | Xor`
+Datatype:
+  binop = Add | Sub | And | Or | Xor
+End
 
-val () = Datatype `
-  cmp = Equal | Lower | Less | Test | NotEqual | NotLower | NotLess | NotTest`
+Datatype:
+  cmp = Equal | Lower | Less | Test | NotEqual | NotLower | NotLess | NotTest
+End
 
-val () = Datatype `
+Datatype:
   arith = Binop binop reg reg ('a reg_imm)
         | Shift shift reg reg num
         | Div reg reg reg
@@ -89,9 +91,10 @@ val () = Datatype `
         | LongDiv reg reg reg reg reg
         | AddCarry reg reg reg reg
         | AddOverflow reg reg reg reg
-        | SubOverflow reg reg reg reg`
+        | SubOverflow reg reg reg reg
+End
 
-val () = Datatype `
+Datatype:
   fp = (* orderings *)
        FPLess reg fp_reg fp_reg
      | FPLessEqual reg fp_reg fp_reg
@@ -112,41 +115,42 @@ val () = Datatype `
      | FPMovToReg reg reg fp_reg
      | FPMovFromReg fp_reg reg reg
      | FPToInt fp_reg fp_reg
-     | FPFromInt fp_reg fp_reg`
+     | FPFromInt fp_reg fp_reg
+End
 
-val () = Datatype `
-  addr = Addr reg ('a word)`
+Datatype:
+  addr = Addr reg ('a word)
+End
 
-(* old version
-val () = Datatype `
-  mem_op = Load  | Load8  | Load32
-         | Store | Store8 | Store32`
-*)
+Datatype:
+  memop = Load  | Load8  | Load16  | Load32
+        | Store | Store8 | Store16 | Store32
+End
 
-val () = Datatype `
-  memop = Load  | Load8 | Store | Store8`
-
-val () = Datatype `
+Datatype:
   inst = Skip
        | Const reg ('a word)
        | Arith ('a arith)
        | Mem memop reg ('a addr)
-       | FP fp`
+       | FP fp
+End
 
-val () = Datatype `
+Datatype:
   asm = Inst ('a inst)
       | Jump ('a word)
       | JumpCmp cmp reg ('a reg_imm) ('a word)
       | Call ('a word)
       | JumpReg reg
-      | Loc reg ('a word)`
+      | Loc reg ('a word)
+End
 
 (* -- ASM target-specific configuration -- *)
 
-val () = Datatype `
-  architecture = ARMv7 | ARMv8 | MIPS | RISC_V | Ag32 | x86_64`
+Datatype:
+  architecture = ARMv7 | ARMv8 | MIPS | RISC_V | Ag32 | x86_64
+End
 
-val () = Datatype `
+Datatype:
   asm_config =
     <| ISA            : architecture
      ; encode         : 'a asm -> word8 list
@@ -159,27 +163,32 @@ val () = Datatype `
      ; two_reg_arith  : bool
      ; valid_imm      : (binop + cmp) -> 'a word -> bool
      ; addr_offset    : 'a word # 'a word
+     ; hw_offset      : 'a word # 'a word
      ; byte_offset    : 'a word # 'a word
      ; jump_offset    : 'a word # 'a word
      ; cjump_offset   : 'a word # 'a word
      ; loc_offset     : 'a word # 'a word
-     |>`
+     |>
+End
 
-val reg_ok_def = Define `
-  reg_ok r c <=> r < c.reg_count /\ ~MEM r c.avoid_regs`
+Definition reg_ok_def:
+  reg_ok r c <=> r < c.reg_count /\ ~MEM r c.avoid_regs
+End
 
-val fp_reg_ok_def = Define `
-  fp_reg_ok d c <=> d < c.fp_reg_count`
+Definition fp_reg_ok_def:
+  fp_reg_ok d c <=> d < c.fp_reg_count
+End
 
-val reg_imm_ok_def = Define `
+Definition reg_imm_ok_def:
   (reg_imm_ok b (Reg r) c = reg_ok r c) /\
   (reg_imm_ok b (Imm w) c =
      (* Always permit Xor by -1 in order to provide 1's complement *)
-     ((b = INL Xor) /\ (w = -1w) \/ c.valid_imm b w))`
+     ((b = INL Xor) /\ (w = -1w) \/ c.valid_imm b w))
+End
 
 
 (* Requires register inequality for some architectures *)
-val arith_ok_def = Define `
+Definition arith_ok_def:
   (arith_ok (Binop b r1 r2 ri) c <=>
      (* note: register to register moves can be implmented with
               "Or" on "two_reg_arith" architectures. *)
@@ -211,9 +220,10 @@ val arith_ok_def = Define `
   (arith_ok (SubOverflow r1 r2 r3 r4) c <=>
      (c.two_reg_arith ==> (r1 = r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c /\
-     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r3))`
+     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 <> r3))
+End
 
-val fp_ok_def = Define `
+Definition fp_ok_def:
   (fp_ok (FPLess r d1 d2) c <=>
       reg_ok r c /\ fp_reg_ok d1 c /\ fp_reg_ok d2 c) /\
   (fp_ok (FPLessEqual r d1 d2) c <=>
@@ -249,35 +259,42 @@ val fp_ok_def = Define `
       reg_ok r1 c /\ ((dimindex(:'a) = 32) ==> r1 <> r2 /\ reg_ok r2 c) /\
       fp_reg_ok d c) /\
   (fp_ok (FPToInt r d) c <=> fp_reg_ok r c /\ fp_reg_ok d c) /\
-  (fp_ok (FPFromInt d r) c <=> fp_reg_ok r c /\ fp_reg_ok d c)`
+  (fp_ok (FPFromInt d r) c <=> fp_reg_ok r c /\ fp_reg_ok d c)
+End
 
-val cmp_ok_def = Define `
-  cmp_ok (cmp: cmp) r ri c <=> reg_ok r c /\ reg_imm_ok (INR cmp) ri c`
+Definition cmp_ok_def:
+  cmp_ok (cmp: cmp) r ri c <=> reg_ok r c /\ reg_imm_ok (INR cmp) ri c
+End
 
-val offset_ok_def = Define`
+Definition offset_ok_def:
   offset_ok a offset w =
-  let (min, max) = offset in min <= w /\ w <= max /\ aligned a w`
+  let (min, max) = offset in min <= w /\ w <= max /\ aligned a w
+End
 
 val () = List.app overload_on
   [("addr_offset_ok",  ``\c. offset_ok 0 c.addr_offset``),
+   ("hw_offset_ok",  ``\c. offset_ok 0 c.hw_offset``),
    ("byte_offset_ok",  ``\c. offset_ok 0 c.byte_offset``),
    ("jump_offset_ok",  ``\c. offset_ok c.code_alignment c.jump_offset``),
    ("cjump_offset_ok", ``\c. offset_ok c.code_alignment c.cjump_offset``),
    ("loc_offset_ok",   ``\c. offset_ok c.code_alignment c.loc_offset``)]
 
-val inst_ok_def = Define `
+Definition inst_ok_def:
   (inst_ok Skip c = T) /\
   (inst_ok (Const r w) c = reg_ok r c) /\
   (inst_ok (Arith x) c = arith_ok x c) /\
   (inst_ok (FP x) c = fp_ok x c) /\
   (inst_ok (Mem m r1 (Addr r2 w) : 'a inst) c <=>
      reg_ok r1 c /\ reg_ok r2 c /\
-     (if m IN {Load; Store} then
+     (if m IN {Load; Store; Load32; Store32} then
         addr_offset_ok c w
+      else if m IN {Load16; Store16} then
+        hw_offset_ok c w ∧ c.ISA ≠ Ag32
       else
-        byte_offset_ok c w))`
+        byte_offset_ok c w))
+End
 
-val asm_ok_def = Define `
+Definition asm_ok_def:
   (asm_ok (Inst i) c <=> inst_ok i c) /\
   (asm_ok (Jump w) c <=> jump_offset_ok c w) /\
   (asm_ok (JumpCmp cmp r ri w) c <=>
@@ -286,9 +303,10 @@ val asm_ok_def = Define `
      (case c.link_reg of SOME r => reg_ok r c | NONE => F) /\
      jump_offset_ok c w) /\
   (asm_ok (JumpReg r) c <=> reg_ok r c) /\
-  (asm_ok (Loc r w) c <=> reg_ok r c /\ loc_offset_ok c w)`
+  (asm_ok (Loc r w) c <=> reg_ok r c /\ loc_offset_ok c w)
+End
 
-val word_cmp_def = Define `
+Definition word_cmp_def:
   (word_cmp Equal w1 w2 = (w1 = w2)) /\
   (word_cmp Less w1 w2  = (w1 < w2)) /\
   (word_cmp Lower w1 w2 = (w1 <+ w2)) /\
@@ -296,6 +314,14 @@ val word_cmp_def = Define `
   (word_cmp NotEqual w1 w2 = (w1 <> w2)) /\
   (word_cmp NotLess w1 w2  = ~(w1 < w2)) /\
   (word_cmp NotLower w1 w2 = ~(w1 <+ w2)) /\
-  (word_cmp NotTest w1 w2  = ((w1 && w2) <> 0w))`
+  (word_cmp NotTest w1 w2  = ((w1 && w2) <> 0w))
+End
 
-val () = export_theory ()
+Definition is_load_def[simp]:
+  (is_load Load = T) ∧
+  (is_load Load8 = T) ∧
+  (is_load Load16 = T) ∧
+  (is_load Load32 = T) ∧
+  (is_load _ = F)
+End
+

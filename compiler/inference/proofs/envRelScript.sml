@@ -1,33 +1,38 @@
 (*
   Relating inference and type system environments.
 *)
-open preamble;
-open libTheory namespacePropsTheory typeSystemTheory astTheory
-semanticPrimitivesTheory inferTheory unifyTheory inferPropsTheory;
-open astPropsTheory typeSysPropsTheory;
-
-val _ = new_theory "envRel";
+Theory envRel
+Ancestors
+  namespaceProps typeSystem ast semanticPrimitives infer infer_t
+  unify inferProps astProps typeSysProps
+Libs
+  preamble
 
 (* ---------- Converting infer types and envs to type system ones ---------- *)
 
-val convert_t_def = tDefine "convert_t" `
+Definition convert_t_def:
 (convert_t (Infer_Tvar_db n) = Tvar_db n) ∧
-(convert_t (Infer_Tapp ts tc) = Tapp (MAP convert_t ts) tc)`
-(WF_REL_TAC `measure infer_t_size` >>
+(convert_t (Infer_Tapp ts tc) = Tapp (MAP convert_t ts) tc)
+Termination
+  WF_REL_TAC `measure infer_t_size` >>
  rw [] >>
  induct_on `ts` >>
  rw [infer_tTheory.infer_t_size_def] >>
  res_tac >>
- decide_tac);
+ decide_tac
+End
 
-val convert_env_def = Define `
-convert_env s env = MAP (\(x,t). (x, convert_t (t_walkstar s t))) env`;
+Definition convert_env_def:
+convert_env s env = MAP (\(x,t). (x, convert_t (t_walkstar s t))) env
+End
 
-(* val convert_decls_def = Define `
-convert_decls idecls =
+(*
+Definition convert_decls_def:
+  convert_decls idecls =
   <| defined_mods := set idecls.inf_defined_mods;
      defined_types :=  set idecls.inf_defined_types;
-     defined_exns := set idecls.inf_defined_exns|>`;
+     defined_exns := set idecls.inf_defined_exns|>
+End
 
 Theorem convert_append_decls:
  !decls1 decls2. convert_decls (append_decls decls1 decls2) = union_decls (convert_decls decls1) (convert_decls decls2)
@@ -100,7 +105,7 @@ Theorem db_subst_infer_subst_swap:
 Proof
 ho_match_mp_tac infer_t_induction >>
 rw [convert_t_def, deBruijn_subst_def, EL_MAP, t_walkstar_eqn1,
-    infer_deBruijn_subst_def, MAP_MAP_o, combinTheory.o_DEF, check_t_def,
+    infer_deBruijn_subst_alt, MAP_MAP_o, combinTheory.o_DEF, check_t_def,
     LENGTH_COUNT_LIST] >|
 [`t_wfs (infer_deBruijn_inc tvs o_f s)` by metis_tac [inc_wfs] >>
      fs [t_walkstar_eqn1, convert_t_def, deBruijn_subst_def,
@@ -142,7 +147,7 @@ Theorem convert_t_subst:
     MAP (type_subst (alist_to_fmap (ZIP (tvs, MAP convert_t ts')))) ts)
 Proof
 ho_match_mp_tac t_induction >>
-rw [check_freevars_def, convert_t_def, type_subst_def, infer_type_subst_def] >|
+rw [check_freevars_def, convert_t_def, type_subst_def, infer_type_subst_alt] >|
 [full_case_tac >>
      full_case_tac >>
      fs [ALOOKUP_FAILS] >>
@@ -172,7 +177,7 @@ Theorem deBruijn_subst_convert:
 Proof
   ho_match_mp_tac infer_tTheory.infer_t_induction>>
   rw[check_t_def]>>
-  fs[convert_t_def,deBruijn_subst_def,infer_deBruijn_subst_def]
+  fs[convert_t_def,deBruijn_subst_def,infer_deBruijn_subst_alt]
   >-
     (IF_CASES_TAC>>fs[EL_MAP,convert_t_def])
   >>
@@ -211,7 +216,7 @@ Theorem infer_type_subst_nil:
     (∀ts. EVERY (check_freevars n []) ts ⇒ MAP (infer_type_subst []) ts = MAP unconvert_t ts)
 Proof
   ho_match_mp_tac(TypeBase.induction_of(``:t``)) >>
-  rw[infer_type_subst_def,convert_t_def,unconvert_t_def,check_freevars_def] >>
+  rw[infer_type_subst_alt,convert_t_def,unconvert_t_def,check_freevars_def] >>
   fsrw_tac[boolSimps.ETA_ss][]
 QED
 
@@ -254,7 +259,7 @@ QED
  *
  * *)
 
-val tscheme_approx_def = Define `
+Definition tscheme_approx_def:
   tscheme_approx max_tvs s (tvs,t) (tvs',t') ⇔
     ?subst'.
       LENGTH subst' = tvs' ∧
@@ -263,7 +268,8 @@ val tscheme_approx_def = Define `
        LENGTH subst = tvs
        ⇒
        t_walkstar s (infer_deBruijn_subst subst t) =
-       t_walkstar s (infer_deBruijn_subst (MAP (infer_deBruijn_subst subst) subst') t')`;
+       t_walkstar s (infer_deBruijn_subst (MAP (infer_deBruijn_subst subst) subst') t')
+End
 
 Theorem tscheme_approx_thm:
    ∀t' max_tvs s tvs tvs' t.
@@ -294,7 +300,7 @@ Proof
   rw [tscheme_approx_def] >>
   qexists_tac `MAP Infer_Tvar_db (COUNT_LIST tvs)` >>
   rw [LENGTH_COUNT_LIST, EVERY_MAP, every_count_list, check_t_def,
-      MAP_MAP_o, combinTheory.o_DEF, infer_deBruijn_subst_def] >>
+      MAP_MAP_o, combinTheory.o_DEF, infer_deBruijn_subst_alt] >>
   irule (METIS_PROVE [] ``y = y' ⇒ f x y = f x y'``) >>
   irule (METIS_PROVE [] ``y = y' ⇒ f y x = f y' x``) >>
   irule LIST_EQ >>
@@ -335,7 +341,7 @@ Theorem unconvert_db_subst:
      infer_deBruijn_subst (MAP unconvert_t subst) (unconvert_t t)
 Proof
  ho_match_mp_tac t_ind >>
- rw [deBruijn_subst_def, unconvert_t_def, infer_deBruijn_subst_def,
+ rw [deBruijn_subst_def, unconvert_t_def, infer_deBruijn_subst_alt,
      check_freevars_def, EL_MAP] >>
  irule LIST_EQ >>
  rw [EL_MAP] >>
@@ -364,7 +370,7 @@ Proof
   rw [MAP_MAP_o, combinTheory.o_DEF]
 QED
 
-val env_rel_sound_def = Define `
+Definition env_rel_sound_def:
   env_rel_sound s ienv tenv tenvE ⇔
     ienv.inf_t = tenv.t ∧
     ienv.inf_c = tenv.c ∧
@@ -374,7 +380,8 @@ val env_rel_sound_def = Define `
       ?tvs' t'.
         check_freevars (tvs' + num_tvs tenvE) [] t' ∧
         lookup_var x tenvE tenv = SOME (tvs', t') ∧
-        tscheme_approx (num_tvs tenvE) s ts (tvs', unconvert_t t')`;
+        tscheme_approx (num_tvs tenvE) s ts (tvs', unconvert_t t')
+End
 
 Theorem env_rel_sound_lookup_none:
    !ienv tenv s tenvE id.
@@ -417,7 +424,7 @@ Theorem db_subst_infer_subst_swap3:
     deBruijn_subst 0 (MAP (convert_t o t_walkstar s) subst) t
 Proof
  ho_match_mp_tac unconvert_t_ind
- >> rw [unconvert_t_def, infer_deBruijn_subst_def, deBruijn_subst_def,
+ >> rw [unconvert_t_def, infer_deBruijn_subst_alt, deBruijn_subst_def,
         check_freevars_def, convert_t_def, t_walkstar_eqn1]
  >- rw [EL_MAP]
  >> rw [MAP_MAP_o, combinTheory.o_DEF]
@@ -602,7 +609,7 @@ Proof
   >> metis_tac []
 QED
 
-val env_rel_complete_def = Define `
+Definition env_rel_complete_def:
   env_rel_complete s ienv tenv tenvE ⇔
     ienv.inf_t = tenv.t ∧
     ienv.inf_c = tenv.c ∧
@@ -615,7 +622,8 @@ val env_rel_complete_def = Define `
         nsLookup ienv.inf_v x = SOME (tvs', t') ∧
         (* A stronger version is guaranteed by ienv_ok
         check_t (tvs' + num_tvs tenvE) {} t' ∧*)
-        tscheme_approx (num_tvs tenvE) s (tvs, unconvert_t t) (tvs', t')`;
+        tscheme_approx (num_tvs tenvE) s (tvs, unconvert_t t) (tvs', t')
+End
 
 Theorem env_rel_complete_lookup_none:
    !ienv tenv s tenvE x.
@@ -653,14 +661,15 @@ Proof
 QED
 
 (* Environment relation at infer_d and above *)
-val env_rel_def = Define`
+Definition env_rel_def:
  env_rel tenv ienv ⇔
   ienv_ok {} ienv ∧
   tenv_ok tenv ∧
   (* To rule out 1 env with an empty module and the other without that module at all *)
   (!x. nsLookupMod ienv.inf_v x = NONE ⇔ nsLookupMod tenv.v x = NONE) ∧
   env_rel_sound FEMPTY ienv tenv Empty ∧
-  env_rel_complete FEMPTY ienv tenv Empty`;
+  env_rel_complete FEMPTY ienv tenv Empty
+End
 
 Theorem lookup_varE_empty[simp]:
    !x. lookup_varE x Empty = NONE
@@ -791,11 +800,12 @@ Proof
     rw [])
 QED
 
-val ienv_to_tenv_def = Define `
+Definition ienv_to_tenv_def:
   ienv_to_tenv ienv =
     <| v := nsMap (\(tvs, t). (tvs, convert_t t)) ienv.inf_v;
        c := ienv.inf_c;
-       t := ienv.inf_t |>`;
+       t := ienv.inf_t |>
+End
 
 Theorem ienv_to_tenv_extend:
    !ienv1 ienv2.
@@ -866,11 +876,12 @@ Proof
     rw [tscheme_approx_refl])
 QED
 
-val tenv_to_ienv_def = Define `
+Definition tenv_to_ienv_def:
   tenv_to_ienv tenv =
     <| inf_v := nsMap (\(tvs, t). (tvs, unconvert_t t)) tenv.v;
        inf_c := tenv.c;
-       inf_t := tenv.t |>`;
+       inf_t := tenv.t |>
+End
 
 Theorem tenv_to_ienv_extend:
    !tenv1 tenv2.
@@ -936,4 +947,3 @@ Proof
   rw [tenv_to_ienv_def, lift_ienv_def, tenvLift_def, namespacePropsTheory.nsLift_nsMap]
 QED
 
-val _ = export_theory ();

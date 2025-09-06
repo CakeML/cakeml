@@ -1,22 +1,20 @@
 (*
   Prove determinism lemmas about the type inferencer.
 *)
-open preamble;
-open libTheory typeSystemTheory astTheory semanticPrimitivesTheory evaluateTheory inferTheory unifyTheory;
-open astPropsTheory;
-open typeSysPropsTheory;
-open inferPropsTheory;
-open infer_eSoundTheory;
-open infer_eCompleteTheory;
-open envRelTheory namespacePropsTheory;
-open namespaceTheory
+Theory type_eDeterm
+Ancestors
+  typeSystem ast semanticPrimitives evaluate infer unify astProps
+  typeSysProps inferProps infer_eSound infer_eComplete envRel
+  namespaceProps namespace
+Libs
+  preamble
 
-val _ = new_theory "type_eDeterm";
-
-val sub_completion_empty = Q.prove (
-`!m n s s'. sub_completion m n s [] s' ⇔ count n ⊆ FDOM s' ∧ (∀uv. uv ∈ FDOM s' ⇒ check_t m ∅ (t_walkstar s' (Infer_Tuvar uv))) ∧ s = s'`,
- rw [sub_completion_def, pure_add_constraints_def] >>
- metis_tac []);
+Triviality sub_completion_empty:
+  !m n s s'. sub_completion m n s [] s' ⇔ count n ⊆ FDOM s' ∧ (∀uv. uv ∈ FDOM s' ⇒ check_t m ∅ (t_walkstar s' (Infer_Tuvar uv))) ∧ s = s'
+Proof
+  rw [sub_completion_def, pure_add_constraints_def] >>
+ metis_tac []
+QED
 
 Theorem type_p_pat_bindings:
  (∀tvs tenv p t new_bindings.
@@ -149,10 +147,11 @@ Proof
     metis_tac[check_freevars_empty_convert_unconvert_id]
 QED
 
-val unconvert_11 = Q.prove (
-`!t1 t2. check_freevars 0 [] t1 ∧ check_freevars 0 [] t2 ⇒
-  (unconvert_t t1 = unconvert_t t2 ⇔ t1 = t2)`,
- ho_match_mp_tac unconvert_t_ind >>
+Triviality unconvert_11:
+  !t1 t2. check_freevars 0 [] t1 ∧ check_freevars 0 [] t2 ⇒
+  (unconvert_t t1 = unconvert_t t2 ⇔ t1 = t2)
+Proof
+  ho_match_mp_tac unconvert_t_ind >>
  rw [unconvert_t_def] >>
  Cases_on `t2` >>
  fs [unconvert_t_def, check_freevars_def] >>
@@ -165,7 +164,8 @@ val unconvert_11 = Q.prove (
  `x < LENGTH l` by metis_tac [LENGTH_MAP] >>
  `EL x (MAP (λa. unconvert_t a) ts) = EL x (MAP (λa. unconvert_t a) l)` by metis_tac [] >>
  rfs [EL_MAP] >>
- metis_tac [EL_MEM]);
+ metis_tac [EL_MEM]
+QED
 
 Theorem infer_e_type_pe_determ:
  !loc ienv p e st st' t t' tenv' s.
@@ -232,14 +232,13 @@ Proof
   metis_tac[]
 QED
 
-val env_rel_sound_weaken = Q.prove(
+Theorem env_rel_sound_weaken = Q.prove(
   `env_rel_sound FEMPTY ienv tenv tenvE ∧ t_wfs s ⇒
    env_rel_sound s ienv tenv tenvE`,
   fs[env_rel_sound_def]>>rw[]>>res_tac>>
   qexists_tac`tvs'`>>fs[]>>
   match_mp_tac tscheme_approx_weakening>>fs[]>>
   qexists_tac`num_tvs tenvE`>>qexists_tac`FEMPTY`>>fs[SUBMAP_FEMPTY])|>GEN_ALL
-  |> curry save_thm "env_rel_sound_weaken";
 
 Theorem type_pe_determ_infer_e:
  !loc ienv p e st st' t t' new_bindings s.
@@ -638,4 +637,3 @@ Proof
     asm_exists_tac>>fs[ienv_ok_def,init_infer_state_def,check_s_def]
 QED
 
-val _ = export_theory ();

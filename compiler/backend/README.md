@@ -1,5 +1,8 @@
 The CakeML compiler backend.
 
+[San](San):
+A case study for the shared memory feature.
+
 [ag32](ag32):
 This directory contains the Silver-specific part of the compiler
 backend and associated proofs.
@@ -10,8 +13,9 @@ This directory contains the ARMv7-specific part of the compiler backend.
 [arm8](arm8):
 This directory contains the ARMv8-specific part of the compiler backend.
 
-[backendComputeLib.sml](backendComputeLib.sml):
-A compset for evaluating the compiler backend inside the logic of HOL.
+[arm8_asl](arm8_asl):
+This directory contains proofs for the ASL-derived ARMv8-specific part of the
+compiler backend.
 
 [backendScript.sml](backendScript.sml):
 Composes all of the compiler phases within the compiler backend into
@@ -20,6 +24,10 @@ to the front-end, i.e. parsing and type inference.
 
 [backend_commonScript.sml](backend_commonScript.sml):
 Definitions that are common for many parts of the compiler backend.
+
+[backend_passesScript.sml](backend_passesScript.sml):
+Reformulates compile definition to expose the result of each internal
+compiler pass
 
 [bviScript.sml](bviScript.sml):
 The BVI intermediate language. This language is very similar to BVL.
@@ -89,6 +97,9 @@ function calls.
 [clos_fvsScript.sml](clos_fvsScript.sml):
 Replaces free variables with constant type errors.
 
+[clos_interpScript.sml](clos_interpScript.sml):
+Implementation of interpreter for closLang expressions written in closLang.
+
 [clos_knownScript.sml](clos_knownScript.sml):
 This complicated compiler phase tracks where closure values flow
 in a program. It attempts to annotate function applications with the
@@ -130,6 +141,10 @@ by several optimisations.
 This compiler phase performs closure conversion.  This phase puts
 all of the code into a table of first-order, closed, multi-argument
 functions.
+
+[cv_compute](cv_compute):
+Files that prepare the compiler backend for computation using HOL4's
+cv_compute mechanism.
 
 [dataLangScript.sml](dataLangScript.sml):
 The dataLang intermediate lannguage is the last language with a
@@ -227,6 +242,9 @@ This directory contains the mips-specific part of the compiler backend.
 [pattern_matching](pattern_matching):
 The CakeML pattern matching expressions compiler
 
+[presLangLib.sml](presLangLib.sml):
+Library that helps pretty print code
+
 [presLangScript.sml](presLangScript.sml):
 Functions for converting various intermediate languages
 into displayLang representations.
@@ -251,9 +269,16 @@ intermediate language.
 [serialiser](serialiser):
 Proofs and automation for serialising HOL values.
 
+[source_letScript.sml](source_letScript.sml):
+This is a source-to-source transformation that lifts Let/Letrec expressions
+that sit at the top of Dlet:s into their own Dlet/Dletrec:s.
+
 [source_to_flatScript.sml](source_to_flatScript.sml):
 This is the compiler phase that translates the CakeML source
 language into flatLang.
+
+[source_to_sourceScript.sml](source_to_sourceScript.sml):
+This phase collects all source-to-source transformations.
 
 [stackLangScript.sml](stackLangScript.sml):
 The stackLang intermediate language is a structured programming
@@ -289,6 +314,9 @@ This compiler phase maps stackLang programs, which has structure
 such as If, While, Return etc, to labLang programs that are a soup
 of goto-like jumps.
 
+[str_treeScript.sml](str_treeScript.sml):
+A Lisp inspired tree of mlstrings and a pretty printing function
+
 [wordLangScript.sml](wordLangScript.sml):
 The wordLang intermediate language consists of structured programs
 that overate over machine words, a list-like stack and a flat memory.
@@ -309,6 +337,14 @@ This is the compiler's regsiter allocator. It supports different modes:
 The bignum library used by the CakeML compiler. Note that the
 implementation is automatically generated from a shallow embedding
 that is part of the HOL distribution in mc_multiwordTheory.
+
+[word_copyScript.sml](word_copyScript.sml):
+This compilation pass performs a copy propagation phase.
+NOTE: Copy propagation may be incomplete if input is not in SSA form.
+
+[word_cseScript.sml](word_cseScript.sml):
+Defines a common sub-expression elimination pass on a wordLang program.
+This pass is to run immeidately atfer the SSA-like renaming.
 
 [word_depthScript.sml](word_depthScript.sml):
 Computes the call graph for wordLang program with an acyclic call
@@ -342,12 +378,12 @@ stack frame.
 
 [word_to_wordScript.sml](word_to_wordScript.sml):
 This compiler phase composes the phases internal to wordLang:
-    1) Inst select (with a few optimizations);
-    2) SSA;
-    3) Dead code elim (not written yet);
-    4) 3-to-2 regs for certain configs;
-    5) reg_alloc;
-    6) word_to_stack.
+    1) word_simp ; 2) inst_select ; 3) SSA ; 4) remove_dead
+    5) word_cse ; 6) copy_prop ; 7) three-to-two reg
+    8) remove_unreach ; 9) remove_dead ; 10) word_alloc
+
+[word_unreachScript.sml](word_unreachScript.sml):
+This compilation pass removes trivially unreachable code.
 
 [x64](x64):
 This directory contains the x64-specific part of the compiler backend.

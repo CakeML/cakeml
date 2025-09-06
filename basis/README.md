@@ -27,11 +27,6 @@ Defines basic arithmetic operations like +,-,*,/, and FMA,
 logical operations <, <=, >, >=, and =
 and to-/fromString functions for parsing and pretty-printing constants
 
-[DoubleProofScript.sml](DoubleProofScript.sml):
-Proofs that the to-/fromString functions in the Double
-module correctly produce a string representation from a double,
-and vice versa assuming that the FFI is implemented correctly.
-
 [HashtableProgScript.sml](HashtableProgScript.sml):
 A module about hash tables for the CakeML standard basis library.
 
@@ -64,8 +59,8 @@ CakeML foreign-function interface (FFI) uses.
 Module about the option tyoe.
 
 [PrettyPrinterProgScript.sml](PrettyPrinterProgScript.sml):
-Module providing various functions that can be used to efficiently
-pretty-print values of different types.
+Module providing pretty-printer implementation, and setup
+of the global builtin pretty-printer functions.
 
 [RatProgScript.sml](RatProgScript.sml):
 Module for computing over the rational numbers.
@@ -76,6 +71,10 @@ forcing a full GC to run, a function for producing debug output.
 
 [RuntimeProofScript.sml](RuntimeProofScript.sml):
 Proof about the exit function in the Runtime module.
+
+[SetProgScript.sml](SetProgScript.sml):
+This module contains CakeML code implementing a functional set type
+using a self-balancing binary tree.
 
 [StringProgScript.sml](StringProgScript.sml):
 Module about the built-in string tyoe.
@@ -108,6 +107,11 @@ Proof about the code in the byte-array module Word8Array.
 
 [Word8ProgScript.sml](Word8ProgScript.sml):
 Module about the built-in word8 type.
+
+[addPrettyPrintersLib.sml](addPrettyPrintersLib.sml):
+Library code for applying the type-dec to pp-dec functions
+to the ml_progLib state. Used in the basis to install
+default pretty-printers for some of the basis types.
 
 [basisFunctionsLib.sml](basisFunctionsLib.sml):
 Functions that aid building the CakeML code for the basis library.

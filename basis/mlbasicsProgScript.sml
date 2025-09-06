@@ -3,22 +3,23 @@
   expects, e.g. the parser generates a call to a function called "+"
   when it parses 1+2.
 *)
-open preamble
-     semanticPrimitivesTheory ml_translatorTheory
-     ml_translatorLib ml_progLib cfLib basisFunctionsLib
-     StringProgTheory
-
-val _ = new_theory "mlbasicsProg"
+Theory mlbasicsProg
+Ancestors
+  semanticPrimitives ml_translator StringProg
+Libs
+  preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
 
 val _ = translation_extends"StringProg"
 
-val mk_binop_def = Define `
+Definition mk_binop_def:
   mk_binop name prim = Dlet unknown_loc (Pvar name)
-    (Fun "x" (Fun "y" (App prim [Var (Short "x"); Var (Short "y")])))`;
+    (Fun "x" (Fun "y" (App prim [Var (Short "x"); Var (Short "y")])))
+End
 
-val mk_unop_def = Define `
+Definition mk_unop_def:
   mk_unop name prim = Dlet unknown_loc (Pvar name)
-    (Fun "x" (App prim [Var (Short "x")]))`;
+    (Fun "x" (App prim [Var (Short "x")]))
+End
 
 (* no longer necessary
 (* list, bool, and option come from the primitive types in
@@ -61,6 +62,7 @@ val _ = append_prog
   (* mk_unop "ref" Opref *)]``
 
 fun prove_ref_spec op_name =
+  rpt strip_tac \\
   xcf op_name (get_ml_prog_state()) \\
   fs [cf_ref_def, cf_deref_def, cf_assign_def] \\ irule local_elim \\
   reduce_tac \\ fs [app_ref_def, app_deref_def, app_assign_def] \\
@@ -90,8 +92,9 @@ Proof
   prove_ref_spec "op :="
 QED
 
-val bool_toString_def = Define `
-  bool_toString b = if b then strlit "True" else strlit"False"`;
+Definition bool_toString_def:
+  bool_toString b = if b then strlit "True" else strlit"False"
+End
 
 val _ = ml_prog_update (open_module "Bool");
 val _ = (next_ml_names := ["toString"]);
@@ -100,13 +103,14 @@ val _ = (next_ml_names := ["compare"]);
 val _ = translate comparisonTheory.bool_cmp_def;
 val _ = ml_prog_update (close_module NONE);
 
-val pair_toString_def = Define `
+Definition pair_toString_def:
   pair_toString f1 f2 (x,y) =
     concat [strlit"(";
             f1 x;
             strlit", ";
             f2 y;
-            strlit")"]`;
+            strlit")"]
+End
 
 val _ = ml_prog_update (open_module "Pair");
 val _ = (next_ml_names := ["map"]);
@@ -117,4 +121,3 @@ val _ = (next_ml_names := ["compare"]);
 val _ = translate comparisonTheory.pair_cmp_def;
 val _ = ml_prog_update (close_module NONE);
 
-val _ = export_theory ()

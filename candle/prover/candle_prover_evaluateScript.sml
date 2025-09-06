@@ -1,20 +1,20 @@
 (*
   Proving that Candle prover maintains its invariants (i.e. v_ok)
  *)
+Theory candle_prover_evaluate
+Ancestors
+  candle_kernel_funs ast_extras evaluate namespaceProps perms
+  semanticPrimitivesProps misc[qualified] semanticPrimitives
+  evaluateProps sptree candle_kernelProg ml_hol_kernel_funsProg
+  candle_kernel_vals candle_prover_inv
+Libs
+  preamble helperLib ml_progLib[qualified]
 
-open preamble helperLib;
-open semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     evaluateTheory namespacePropsTheory evaluatePropsTheory
-     sptreeTheory candle_kernelProgTheory ml_hol_kernel_funsProgTheory
-open permsTheory candle_kernel_funsTheory candle_kernel_valsTheory
-     candle_prover_invTheory ast_extrasTheory;
-local open ml_progLib in end
 
-val _ = new_theory "candle_prover_evaluate";
-
-val _ = set_grammar_ancestry [
-  "candle_kernel_funs", "ast_extras", "evaluate", "namespaceProps", "perms",
-  "semanticPrimitivesProps", "misc"];
+val _ = temp_send_to_back_overload "If" {Name="If",Thy="compute_syntax"};
+val _ = temp_send_to_back_overload "App" {Name="App",Thy="compute_syntax"};
+val _ = temp_send_to_back_overload "Var" {Name="Var",Thy="compute_syntax"};
+val _ = temp_send_to_back_overload "Let" {Name="Let",Thy="compute_syntax"};
 
 Theorem pmatch_v_ok:
   (∀envC s p v ws env.
@@ -216,7 +216,7 @@ Proof
 QED
 
 Theorem evaluate_v_ok_Eval:
-  op = Eval ⇒ ^(get_goal "App")
+  op = Eval ⇒ ^(get_goal "ast$App")
 Proof
   rw [evaluate_def]
   \\ gvs [AllCaseEqs(), evaluateTheory.do_eval_res_def]
@@ -399,6 +399,20 @@ Proof
     \\ strip_tac
     \\ first_x_assum (drule_then assume_tac)
     \\ drule kernel_loc_ok_LENGTH \\ gs [])
+  \\ Cases_on ‘op = AallocFixed’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [SF SFY_ss]
+    \\ gvs [v_ok_def, store_alloc_def, EVERY_EL, LLOOKUP_EQ_EL]
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ rw [EL_APPEND_EQN] \\ gs [NOT_LESS, LESS_OR_EQ, ref_ok_def]
+    \\ TRY (
+      gs [kernel_loc_ok_def, LLOOKUP_EQ_EL, EL_APPEND_EQN]
+      \\ first_x_assum (drule_then strip_assume_tac)
+      \\ rw [] \\ gs [SF SFY_ss])
+    \\ gvs [EVERY_EL]
+    \\ strip_tac
+    \\ first_x_assum (drule_then assume_tac)
+    \\ drule kernel_loc_ok_LENGTH \\ gs [])
   \\ Cases_on ‘op = Vlength’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [SF SFY_ss]
@@ -458,6 +472,14 @@ Proof
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
+  \\ Cases_on ‘op = XorAw8Str_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [v_ok_def, SF SFY_ss]
+    \\ first_assum (irule_at Any) \\ gs [LLOOKUP_EQ_EL]
+    \\ gvs [store_assign_def, EL_LUPDATE, EVERY_EL]
+    \\ rw [ref_ok_def]
+    \\ irule kernel_loc_ok_LUPDATE1
+    \\ rpt strip_tac \\ gvs [])
   \\ Cases_on ‘op = CopyAw8Aw8’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [v_ok_def, SF SFY_ss]
@@ -603,26 +625,39 @@ Proof
     \\ rw [EL_APPEND_EQN] \\ gs [NOT_LESS, LESS_OR_EQ, ref_ok_def]
     \\ first_x_assum (drule_then assume_tac)
     \\ drule kernel_loc_ok_LENGTH \\ gs [])
+  \\ Cases_on ‘op = FpFromWord’ \\ gs[]
+  >- (
+    rw[do_app_cases] \\ gs [SF SFY_ss]
+    \\ first_assum (irule_at Any)
+    \\ simp [v_ok_def])
+  \\ Cases_on ‘op = FpToWord’ \\ gs[]
+  >- (
+    rw[do_app_cases] \\ gs [SF SFY_ss]
+    \\ first_assum (irule_at Any)
+    \\ simp [v_ok_def])
   \\ Cases_on ‘op’ \\ gs []
 QED
 
 Theorem evaluate_v_ok_Op:
-  op ≠ Opapp ∧ op ≠ Eval ⇒ ^(get_goal "App")
+  op ≠ Opapp ∧ op ≠ Eval ⇒ ^(get_goal "ast$App")
 Proof
-  rw [evaluate_def]
-  \\ gvs [AllCaseEqs()]
-  \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs [state_ok_def]
-  \\ rename1 ‘EVERY (v_ok ctxt1)’
-  \\ qexists_tac ‘ctxt1’ \\ gs []
-  \\ drule do_app_ok \\ gs []
-  \\ disch_then drule_all \\ simp []
-  \\ strip_tac \\ gs []
-  \\ rpt CASE_TAC \\ gs []
-  \\ first_assum (irule_at Any) \\ gs []
+  rw [evaluate_def] \\ Cases_on ‘getOpClass op’ \\ gs[]
+  >~ [‘EvalOp’] >- (Cases_on ‘op’ \\ gs[])
+  >~ [‘FunApp’] >- (Cases_on ‘op’ \\ gs[])
+  >~ [‘Simple’] >- (
+    gvs [AllCaseEqs()]
+    \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs [state_ok_def]
+    \\ rename1 ‘EVERY (v_ok ctxt1)’
+    \\ qexists_tac ‘ctxt1’ \\ gs []
+    \\ drule do_app_ok \\ gs []
+    \\ disch_then drule_all \\ simp []
+    \\ strip_tac \\ gs []
+    \\ rpt CASE_TAC \\ gs []
+    \\ first_assum (irule_at Any) \\ gs [])
 QED
 
 Theorem evaluate_v_ok_Opapp:
-  op = Opapp ⇒ ^(get_goal "App")
+  op = Opapp ⇒ ^(get_goal "ast$App")
 Proof
   rw [evaluate_def]
   \\ gvs [AllCaseEqs()]
@@ -688,7 +723,7 @@ Proof
 QED
 
 Theorem evaluate_v_ok_App:
-  ^(get_goal "App")
+  ^(get_goal "ast$App")
 Proof
   Cases_on ‘op = Opapp’ >- (match_mp_tac evaluate_v_ok_Opapp \\ gs [])
   \\ Cases_on ‘op = Eval’ >- (match_mp_tac evaluate_v_ok_Eval \\ gs [])
@@ -716,7 +751,7 @@ Proof
 QED
 
 Theorem evaluate_v_ok_If:
-  ^(get_goal "If")
+  ^(get_goal "ast$If")
 Proof
   rw [evaluate_def]
   \\ gvs [AllCaseEqs(), do_if_def]
@@ -755,7 +790,7 @@ Proof
 QED
 
 Theorem evaluate_v_ok_Let:
-  ^(get_goal "Let")
+  ^(get_goal "ast$Let")
 Proof
   rw [evaluate_def]
   \\ gvs [AllCaseEqs()]
@@ -869,10 +904,9 @@ QED
 Theorem evaluate_v_ok_decs_Dlet:
   ^(get_goal "Dlet")
 Proof
-  rw [evaluate_decs_def]
-  >~ [‘¬ALL_DISTINCT _’] >- (
-    gs [state_ok_def]
-    \\ first_assum (irule_at Any) \\ gs [SF SFY_ss])
+  reverse $ rw [evaluate_decs_def]
+  >- (gs [state_ok_def]
+      \\ first_assum (irule_at Any) \\ gs [SF SFY_ss])
   \\ gvs [CaseEqs ["prod", "semanticPrimitives$result"]]
   \\ drule_then strip_assume_tac evaluate_sing \\ gvs []
   \\ first_x_assum (drule_all_then strip_assume_tac)
@@ -890,10 +924,9 @@ QED
 Theorem evaluate_v_ok_decs_Dletrec:
   ^(get_goal "Dletrec")
 Proof
-  rw [evaluate_decs_def]
-  >~ [‘¬ALL_DISTINCT _’] >- (
-    gs [state_ok_def]
-    \\ first_assum (irule_at Any) \\ gs [])
+  reverse $ rw [evaluate_decs_def]
+  >- (gs [state_ok_def]
+      \\ first_assum (irule_at Any) \\ gs [SF SFY_ss])
   \\ gvs [CaseEqs ["prod", "semanticPrimitives$result"]]
   \\ first_assum (irule_at Any) \\ gs []
   \\ gs [extend_dec_env_def, build_rec_env_merge, env_ok_def,
@@ -1027,4 +1060,3 @@ Proof
                   evaluate_v_ok_decs_Dmod, evaluate_v_ok_decs_Dlocal]
 QED
 
-val _ = export_theory ();

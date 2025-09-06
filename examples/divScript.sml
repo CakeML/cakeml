@@ -1,12 +1,13 @@
 (*
   Examples of non-termination.
 *)
-open preamble basis
-open integerTheory cfDivTheory cfDivLib
+Theory div
+Ancestors
+  integer cfDiv mlbasicsProg Word8Prog
+Libs
+  preamble basis cfDivLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "div";
 
 val _ = translation_extends "basisProg";
 
@@ -32,8 +33,11 @@ QED
 
 (* Lemma needed for examples with integers *)
 
-val eq_v_INT_thm = Q.prove(`(INT --> INT --> BOOL) $= eq_v`,
-  metis_tac[DISCH_ALL mlbasicsProgTheory.eq_v_thm,EqualityType_NUM_BOOL]);
+Triviality eq_v_INT_thm:
+  (INT --> INT --> BOOL) $= eq_v
+Proof
+  metis_tac[DISCH_ALL mlbasicsProgTheory.eq_v_thm,EqualityType_NUM_BOOL]
+QED
 
 (* A conditionally terminating loop *)
 
@@ -55,7 +59,7 @@ Proof
   strip_tac \\ Cases_on `x`
   THEN1 (
     pop_assum (K ALL_TAC) \\ qid_spec_tac `n`
-    \\ Induct_on `n`
+    \\ Induct_on `n` \\ rpt strip_tac
     THEN1 (
       xcf "condLoop" st
       \\ xlet_auto THEN1 xsimpl
@@ -79,6 +83,7 @@ Proof
     \\ xif \\ fs[]
     \\ xlet_auto >- xsimpl
     \\ xvar \\ xsimpl \\ fs[INT_def] \\ intLib.COOPER_TAC)
+  \\ rpt strip_tac
   \\ xcf "condLoop" st
   \\ xlet_auto THEN1 xsimpl
   \\ xif \\ instantiate
@@ -135,7 +140,7 @@ Theorem outerLoop_spec:
 Proof
   strip_tac \\ Cases_on `n <= 5000`
   THEN1 (
-    Induct_on `5000 - n`
+    Induct_on `5000 - n` \\ rw []
     THEN1 (
       xcf "outerLoop" st
       \\ xlet_auto THEN1 xsimpl
@@ -160,19 +165,25 @@ QED
 
 (* A small IO model needed for IO examples *)
 
-val names_def = Define `names = ["put_char"; "get_char"]`;
+Definition names_def:
+  names = ["put_char"; "get_char"]
+End
 
-val put_char_event_def = Define `
-  put_char_event c = IO_event "put_char" [n2w (ORD c)] []`;
+Definition put_char_event_def:
+  put_char_event c = IO_event (ExtCall "put_char") [n2w (ORD c)] []
+End
 
-val put_str_event_def = Define `
-  put_str_event cs = IO_event "put_char" (MAP (n2w o ORD) cs) []`;
+Definition put_str_event_def:
+  put_str_event cs = IO_event (ExtCall "put_char") (MAP (n2w o ORD) cs) []
+End
 
-val get_char_event_def = Define `
-  get_char_event c = IO_event "get_char" [] [0w, 1w; 0w, n2w (ORD c)]`;
+Definition get_char_event_def:
+  get_char_event c = IO_event (ExtCall "get_char") [] [0w, 1w; 0w, n2w (ORD c)]
+End
 
-val get_char_eof_event_def = Define `
-  get_char_eof_event = IO_event "get_char" [] [0w, 0w; 0w, 0w]`;
+Definition get_char_eof_event_def:
+  get_char_eof_event = IO_event (ExtCall "get_char") [] [0w, 0w; 0w, 0w]
+End
 
 val update_def = PmatchHeuristics.with_classic_heuristic Define `
   (update "put_char" cs [] s = SOME (FFIreturn [] s)) /\
@@ -184,12 +195,14 @@ val update_def = PmatchHeuristics.with_classic_heuristic Define `
          SOME (FFIreturn [1w; n2w (THE (LHD ll))]
                          (Stream (THE (LTL ll)))))`
 
-val State_def = Define `
-  State input = Stream (LMAP ORD input)`
+Definition State_def:
+  State input = Stream (LMAP ORD input)
+End
 
-val SIO_def = Define `
+Definition SIO_def:
   SIO input events =
-    one (FFI_part (State input) update names events)`
+    one (FFI_part (State input) update names events)
+End
 
 val _ = process_topdecs `
   fun put_char c = let
@@ -228,7 +241,8 @@ Theorem put_char_spec:
     (POSTv v. &UNIT_TYPE () v *
               SIO input (SNOC (put_char_event c) events))
 Proof
-  xcf "put_char" st
+  rpt strip_tac
+  \\ xcf "put_char" st
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ xlet
@@ -258,7 +272,8 @@ Theorem put_line_spec:
     (POSTv v. &UNIT_TYPE () v *
               SIO input (SNOC (put_str_event (l ++ "\n")) events))
 Proof
-  xcf "put_line" st
+  rpt strip_tac
+  \\ xcf "put_line" st
   \\ xlet_auto THEN1 xsimpl
   \\ xlet_auto THEN1 xsimpl
   \\ xlet_auto THEN1 xsimpl
@@ -278,6 +293,12 @@ Proof
   \\ xcon \\ xsimpl
 QED
 
+Triviality eq_v_WORD8_thm:
+  (WORD8 --> WORD8 --> BOOL) $= eq_v
+Proof
+  metis_tac[DISCH_ALL mlbasicsProgTheory.eq_v_thm,EqualityType_NUM_BOOL]
+QED
+
 Theorem get_char_spec:
   !uv c input events.
   limited_parts names p /\ UNIT_TYPE () uv ==>
@@ -290,7 +311,8 @@ Theorem get_char_spec:
                 SIO (THE (LTL input))
                     (SNOC (get_char_event (THE (LHD input))) events))
 Proof
-  xcf "get_char" st
+  rpt strip_tac
+  \\ xcf "get_char" st
   \\ qmatch_goalsub_abbrev_tac `_ * sio`
   \\ qabbrev_tac `a:word8 list = if input = [||] then
                                    [0w; 0w]
@@ -309,6 +331,7 @@ Proof
              names_def, SNOC_APPEND, EVAL ``REPLICATE 2 0w``, State_def]
       \\ xsimpl)
     \\ rpt (xlet_auto THEN1 xsimpl)
+    \\ assume_tac eq_v_WORD8_thm
     \\ xlet_auto THEN1 (xsimpl \\ fs [WORD_def])
     \\ xif \\ instantiate
     \\ rpt (xlet_auto THEN1 xsimpl)
@@ -317,9 +340,10 @@ QED
 
 (* TODO: Move REPLICATE_LIST and lemmas to an appropriate theory *)
 
-val REPLICATE_LIST_def = Define `
-  (!l. REPLICATE_LIST l 0 = []) /\
-  (!l n. REPLICATE_LIST l (SUC n) = REPLICATE_LIST l n ++ l)`
+Definition REPLICATE_LIST_def:
+  (REPLICATE_LIST l 0 = []) /\
+  (REPLICATE_LIST l (SUC n) = REPLICATE_LIST l n ++ l)
+End
 
 Theorem REPLICATE_LIST_SNOC:
   !x n. SNOC x (REPLICATE_LIST [x] n) = REPLICATE_LIST [x] (SUC n)
@@ -480,12 +504,13 @@ val _ = process_topdecs `
 
 val st = ml_translatorLib.get_ml_prog_state();
 
-val io_events_def = Define `
-  io_events = SIO [||]`;
+Definition io_events_def:
+  io_events = SIO [||]
+End
 
 Overload yes = ``yes_v``
 
-Theorem yes_spec:
+Theorem yes_spec_lemma:
   !uv.
     limited_parts names p ==>
     app (p:'ffi ffi_proj) ^(fetch_v "yes" st) [arg]
@@ -515,7 +540,8 @@ Proof
   \\ irule REPLICATE_LIST_LREPEAT \\ fs []
 QED
 
-val yes_spec = save_thm("yes_spec",yes_spec |> SPEC_ALL |> UNDISCH_ALL);
+Theorem yes_spec =
+  yes_spec_lemma |> SPEC_ALL |> UNDISCH_ALL
 
 (* An IO-conditional loop with side effects *)
 
@@ -527,9 +553,10 @@ val _ = process_topdecs `
 
 val st = ml_translatorLib.get_ml_prog_state();
 
-val cat_def = Define `
+Definition cat_def:
   cat ll = LFLATTEN (LMAP (\c. fromList [get_char_event c;
-                                         put_char_event c]) ll)`
+                                         put_char_event c]) ll)
+End
 
 Theorem cat_LCONS:
   !h t. cat (h ::: t) = LAPPEND (fromList [get_char_event h;
@@ -776,27 +803,27 @@ QED
 
 (* Infinite lists encoded as cyclic pointer structures in the heap *)
 
-val REF_LIST_def = Define `
- (REF_LIST rv [] A [] = SEP_EXISTS loc. cond(rv=Loc loc))
+Definition REF_LIST_def:
+ (REF_LIST rv [] A [] = SEP_EXISTS loc. cond(rv=Loc T loc))
  /\
  (REF_LIST rv (rv2::rvs) A (x::l) =
   (SEP_EXISTS loc v1.
-    cond(rv = Loc loc)
+    cond(rv = Loc T loc)
     * cell loc (Refv(Conv NONE [v1;rv2]))
     * cond(A x v1)
     * REF_LIST rv2 rvs A l
   ) /\
   (REF_LIST _ _ _ _ = &F)
  )
-`
+End
 
 Theorem REF_LIST_extend:
   !rv rvs A l x v1.
    (REF_LIST rv rvs A l *
     SEP_EXISTS v1 loc loc'.
-     cond(LAST(rv::rvs) = Loc loc)
+     cond(LAST(rv::rvs) = Loc T loc)
      * cell loc (Refv(Conv NONE [v1;rv2]))
-     * cond(rv2 = Loc loc')
+     * cond(rv2 = Loc T loc')
      * cond(A x v1))
    = (REF_LIST rv (SNOC rv2 rvs) A (SNOC x l))
 Proof
@@ -876,19 +903,21 @@ Proof
 QED
 
 Theorem REF_cell_eq:
-  loc ~~>> Refv v = Loc loc ~~> v
+  loc ~~>> Refv v = Loc T loc ~~> v
 Proof
   rw[FUN_EQ_THM,cell_def,REF_def,SEP_EXISTS,cond_STAR]
 QED
 
-val LTAKE_LNTH_EQ = Q.prove(
-  `!x ll y. LTAKE (LENGTH x) ll = SOME x
+Triviality LTAKE_LNTH_EQ:
+  !x ll y. LTAKE (LENGTH x) ll = SOME x
    /\ y < LENGTH x
-   ==> LNTH y ll = SOME(EL y x)`,
+   ==> LNTH y ll = SOME(EL y x)
+Proof
   Induct_on `x` >> rw[LTAKE] >>
   Cases_on `ll` >> fs[] >>
   PURE_FULL_CASE_TAC >> fs[] >> rveq >>
-  Cases_on `y` >> fs[]);
+  Cases_on `y` >> fs[]
+QED
 
 Theorem LTAKE_LPREFIX:
   !x ll.
@@ -950,7 +979,7 @@ Proof
 QED
 
 Theorem REF_LIST_is_loc:
-  !rv rvs A l h. REF_LIST rv rvs A l h ==> ?loc. rv = Loc loc
+  !rv rvs A l h. REF_LIST rv rvs A l h ==> ?loc. rv = Loc T loc
 Proof
   ho_match_mp_tac (fetch "-" "REF_LIST_ind") >>
   rw[REF_LIST_def,SEP_CLAUSES,SEP_F_def,STAR_def,SEP_EXISTS,cond_def]
@@ -979,32 +1008,39 @@ Proof
   metis_tac[]
 QED
 
-val push_cond = Q.prove(`
-   m ~~>> v * (&C * B) = cond C * (m ~~>> v * B)
+Triviality push_cond:
+  m ~~>> v * (&C * B) = cond C * (m ~~>> v * B)
 /\ m ~~>> v * &C = &C * m ~~>> v
 /\ REF_LIST rv rvs A l * (&C * B) = cond C * (REF_LIST rv rvs A l * B)
 /\ REF_LIST rv rvs A l * &C = &C * REF_LIST rv rvs A l
-`,
-  simp[AC STAR_COMM STAR_ASSOC]);
+Proof
+  simp[AC STAR_COMM STAR_ASSOC]
+QED
 
-val EL_LENGTH_TAKE = Q.prove(
-  `!h e. EL (LENGTH l) (h::TAKE (LENGTH l) (e::l))
-   = EL(LENGTH l) (h::e::l)`,
- Induct_on `l` >> fs[]);
+Triviality EL_LENGTH_TAKE:
+  !h e. EL (LENGTH l) (h::TAKE (LENGTH l) (e::l))
+   = EL(LENGTH l) (h::e::l)
+Proof
+  Induct_on `l` >> fs[]
+QED
 
-val EL_LENGTH_TAKE2 = Q.prove(
-  `!h e l. n < LENGTH l ==>
+Triviality EL_LENGTH_TAKE2:
+  !h e l. n < LENGTH l ==>
    EL n (h::TAKE n (e::l))
-   = EL n (h::e::l)`,
- Induct_on `n` >> rw[] >>
- Cases_on `l` >> fs[]);
+   = EL n (h::e::l)
+Proof
+  Induct_on `n` >> rw[] >>
+ Cases_on `l` >> fs[]
+QED
 
-val PRE_SUB = Q.prove(
-  `!n. n <> 0 ==> PRE n = n - 1`,
-  Cases >> simp[]);
+Triviality PRE_SUB:
+  !n. n <> 0 ==> PRE n = n - 1
+Proof
+  Cases >> simp[]
+QED
 
 Theorem REF_LIST_rv_loc:
-  REF_LIST rv rvs n l h ==> ?loc. rv = Loc loc
+  REF_LIST rv rvs n l h ==> ?loc. rv = Loc T loc
 Proof
   rpt strip_tac >>
   imp_res_tac REF_LIST_LENGTH >>
@@ -1097,18 +1133,21 @@ Proof
   simp[]
 QED
 
-val highly_specific_MOD_lemma = Q.prove(
-  `!n a. n < a
+Triviality highly_specific_MOD_lemma:
+  !n a. n < a
    ==> (n + 2) MOD (a + 1)
-    = if n + 1 = a then 0 else (n + 1) MOD a + 1`,
-  rw[] >> rw[]);
+    = if n + 1 = a then 0 else (n + 1) MOD a + 1
+Proof
+  rw[] >> rw[]
+QED
 
-val highly_specific_MOD_lemma2 = Q.prove(
- `0 < LENGTH l
+Triviality highly_specific_MOD_lemma2:
+  0 < LENGTH l
   ==>
   EL ((i+1) MOD LENGTH l) (CONS (LAST l) (FRONT l))
-  = EL (i MOD LENGTH l) l`,
-strip_tac >>
+  = EL (i MOD LENGTH l) l
+Proof
+  strip_tac >>
 Cases_on `1 < LENGTH l` >-
   (Cases_on `i MOD LENGTH l = LENGTH l - 1` >-
      (drule(GSYM MOD_PLUS) >>
@@ -1117,7 +1156,7 @@ Cases_on `1 < LENGTH l` >-
       pop_assum(fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
       simp[ONE_MOD] >>
       Q.ISPEC_THEN `l` assume_tac SNOC_CASES >>
-      fs[] >> rveq >> fs[EL_APPEND2]) >>
+      fs[] >> rveq >> fs[EL_APPEND2,SNOC_APPEND]) >>
    drule(GSYM MOD_PLUS) >>
    disch_then(qspecl_then[`i`,`1`] mp_tac) >>
    disch_then(fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
@@ -1132,8 +1171,9 @@ Cases_on `1 < LENGTH l` >-
    simp[DECIDE ``!n. PRE(n+1) = n``] >>
    match_mp_tac EL_FRONT >>
    Q.ISPEC_THEN `l` assume_tac SNOC_CASES >>
-   fs[] >> rveq >> fs[FRONT_APPEND]) >>
-  Cases_on `l` >> fs[] >> Cases_on `t` >> fs[]);
+   fs[] >> rveq >> fs[FRONT_APPEND,SNOC_APPEND]) >>
+  Cases_on `l` >> fs[] >> Cases_on `t` >> fs[]
+QED
 
 Theorem LIST_ROTATE_CONS_NEXT:
   !n l. n < LENGTH l ==> ?l'.
@@ -1158,8 +1198,8 @@ Proof
   >> Cases_on `t` >> fs[]
 QED
 
-val LNTH_LREPEAT_ub = Q.prove(
-  `!n l.
+Triviality LNTH_LREPEAT_ub:
+  !n l.
     (l <> []
     /\
     ∀x.
@@ -1170,7 +1210,7 @@ val LNTH_LREPEAT_ub = Q.prove(
     LNTH n ub
     =
     LNTH n (LAPPEND (fromList (MAP put_char_event l)) ub)
-  `,
+Proof
   rpt strip_tac >>
   `~LFINITE(LREPEAT l)`
     by(rw[LFINITE_LLENGTH,LLENGTH_MAP,LLENGTH_LREPEAT,NULL_EQ] >>
@@ -1211,21 +1251,24 @@ val LNTH_LREPEAT_ub = Q.prove(
   simp[EL_MAP] >>
   IF_CASES_TAC >- simp[] >>
   `0 < LENGTH l` by(Cases_on `l` >> fs[]) >>
-  simp[SUB_MOD]);
+  simp[SUB_MOD]
+QED
 
-val LPREFIX_ub_LAPPEND = Q.prove(
-  `l <> [] /\
+Triviality LPREFIX_ub_LAPPEND:
+  l <> [] /\
    (∀x.
     LPREFIX
      (fromList (THE (LTAKE x (LMAP put_char_event (LREPEAT l)))))
      ub
    )
-   ==> ub = LAPPEND (fromList(MAP put_char_event l)) ub`,
+   ==> ub = LAPPEND (fromList(MAP put_char_event l)) ub
+Proof
   rpt strip_tac >>
   simp[LTAKE_EQ,PULL_FORALL] >>
   Induct_on `n` >> rw[] >>
   fs[LTAKE_SNOC_LNTH] >>
-  metis_tac[LNTH_LREPEAT_ub]);
+  metis_tac[LNTH_LREPEAT_ub]
+QED
 
 val _ = process_topdecs `
   fun pointerLoop c = (
@@ -1392,5 +1435,3 @@ Proof
   xlet_auto >- (xcon >> xsimpl) >>
   xvar >> xsimpl
 QED
-
-val _ = export_theory();

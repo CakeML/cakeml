@@ -1,12 +1,11 @@
 (*
   A functional specification of lexing from strings to token lists.
 *)
-open HolKernel Parse boolLib bossLib;
-
-val _ = new_theory "lexer_fun";
-
-open preamble locationTheory;
-open stringTheory stringLib listTheory tokensTheory ASCIInumbersTheory intLib;
+Theory lexer_fun
+Ancestors
+  location string list tokens ASCIInumbers
+Libs
+  preamble stringLib intLib
 
 (* This script defines the functional spec for the assembly
    implementation of the lexer. This lexer specification consists of
@@ -21,7 +20,7 @@ Datatype:
          | CharS char
          | NumberS int
          | WordS num
-         | LongS string (* identifiers with a . in them *)
+         | LongS (string list) string (* ["Foo";"Bar"] "<" is Foo.Bar.< *)
          | FFIS string
          | OtherS string
          | ErrorS
@@ -67,6 +66,34 @@ Definition next_line_def:
   next_line x = x
 End
 
+Definition read_char_as_3digits_def:
+  read_char_as_3digits str =
+  let ds = TAKE 3 str ;
+      rest = DROP 3 str ;
+  in
+    if LENGTH ds < 3 then NONE
+    else
+      case FOLDL (λA d. case A of
+                          NONE => NONE
+                        | SOME A0 => if isDigit d then
+                                       SOME (10 * A0 + (ORD d - 48))
+                                     else NONE)
+                 (SOME 0) ds of
+        NONE => NONE
+      | SOME ci =>
+          if ci < 256 then SOME (CHR ci, rest)
+          else NONE
+End
+
+Theorem read_char_as_3digits_reduces:
+  ∀str0 c str.
+    read_char_as_3digits str0 = SOME (c, str) ⇒
+    LENGTH str0 = LENGTH str + 3
+Proof
+  simp[read_char_as_3digits_def, LENGTH_DROP, NOT_LESS, LENGTH_TAKE_EQ,
+       AllCaseEqs(), PULL_EXISTS]
+QED
+
 Definition read_string_def:
   read_string str s (loc:locn) =
     if str = "" then (ErrorS, loc, "") else
@@ -78,12 +105,24 @@ Definition read_string_def:
       case TL str of
       | #"\\"::cs => read_string cs (s ++ "\\") (next_loc 2 loc)
       | #"\""::cs => read_string cs (s ++ "\"") (next_loc 2 loc)
-      | #"n"::cs => read_string cs (s ++ "\n") (next_loc 2 loc)
-      | #"t"::cs => read_string cs (s ++ "\t") (next_loc 2 loc)
+      | #"a"::cs => read_string cs (s ++ [CHR 7]) (next_loc 2 loc)
+      | #"b"::cs => read_string cs (s ++ [CHR 8]) (next_loc 2 loc)
+      | #"t"::cs => read_string cs (s ++ [CHR 9]) (next_loc 2 loc)
+      | #"n"::cs => read_string cs (s ++ [CHR 10]) (next_loc 2 loc)
+      | #"v"::cs => read_string cs (s ++ [CHR 11]) (next_loc 2 loc)
+      | #"f"::cs => read_string cs (s ++ [CHR 12]) (next_loc 2 loc)
+      | #"r"::cs => read_string cs (s ++ [CHR 13]) (next_loc 2 loc)
+      | c::cs => if isDigit c then
+                   case read_char_as_3digits (c::cs) of
+                     NONE => (ErrorS, loc, c::cs)
+                   | SOME (c, cs') => read_string cs' (s ++ [c])
+                                                      (next_loc 4 loc)
+                 else (ErrorS, loc, TL str)
       | _ => (ErrorS, loc, TL str)
 Termination
-  WF_REL_TAC `measure (LENGTH o FST)` THEN REPEAT STRIP_TAC
-  THEN Cases_on `str` THEN FULL_SIMP_TAC (srw_ss()) [] THEN DECIDE_TAC
+  WF_REL_TAC `measure (LENGTH o FST)` THEN REPEAT STRIP_TAC THEN
+  Cases_on `str` THEN FULL_SIMP_TAC (srw_ss()) [] THEN
+  imp_res_tac read_char_as_3digits_reduces >> gs[]
 End
 
 Theorem read_string_thm:
@@ -102,7 +141,7 @@ Proof
   \\ SIMP_TAC std_ss [] \\ SRW_TAC [] []
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ RES_TAC \\ TRY DECIDE_TAC \\ CCONTR_TAC
-  \\ FULL_SIMP_TAC std_ss [LENGTH] \\ DECIDE_TAC
+  \\ gvs[AllCaseEqs()] \\ drule read_char_as_3digits_reduces >> simp[]
 QED
 
 Definition skip_comment_def:
@@ -147,7 +186,7 @@ Theorem read_FFIcall_reduces_input:
      read_FFIcall s0 a l0 = (t, l, s) ⇒ LENGTH s < LENGTH s0 + 1
 Proof
   Induct >> dsimp[read_FFIcall_def, bool_case_eq] >> rw[] >>
-  qpat_x_assum `_ = _` (assume_tac o SYM) >> res_tac >> simp[]
+  res_tac >> simp[]
 QED
 
 Definition read_REPLcommand_def:
@@ -167,11 +206,47 @@ Theorem read_REPLcommand_reduces_input:
     read_REPLcommand s0 a l0 = (t, l, s) ⇒ LENGTH s < LENGTH s0 + 1
 Proof
   Induct >> dsimp[read_REPLcommand_def, bool_case_eq] >> rw[] >>
-  qpat_x_assum `_ = _` (assume_tac o SYM) >> res_tac >> simp[]
+  res_tac >> simp[]
 QED
 
 Definition isAlphaNumPrime_def:
   isAlphaNumPrime c <=> isAlphaNum c \/ (c = #"'") \/ (c = #"_")
+End
+
+Definition read_Ident_ret_def:
+  read_Ident_ret acc n new_loc rest =
+    if NULL acc then
+      (OtherS n, new_loc, rest)
+    else
+      (LongS (REVERSE acc) n, new_loc, rest)
+End
+
+Definition read_Ident_def:
+  read_Ident [] loc acc = (ErrorS, loc, []) ∧
+  read_Ident (c::str) loc acc =
+    if is_single_char_symbol c then (* single character tokens, i.e. delimiters *)
+      if NULL acc then
+        (OtherS [c], next_loc 1 loc, str)
+      else
+        (ErrorS, loc, str)
+    else if isSymbol c then
+      let (n,rest) = read_while isSymbol str [c] in
+      let new_loc = next_loc (LENGTH n) loc in
+        read_Ident_ret acc n new_loc rest
+    else if isAlpha c then
+      let (n,rest) = read_while isAlphaNumPrime str [c] in
+      let new_loc = next_loc (LENGTH n) loc in
+        case rest of
+        | [] => read_Ident_ret acc n new_loc rest
+        | c1::rest1 =>
+          if c1 = #"." then read_Ident rest1 new_loc (n::acc)
+          else read_Ident_ret acc n new_loc rest
+    else (* input not recognised *)
+      (ErrorS, loc, str)
+Termination
+  wf_rel_tac ‘measure (LENGTH o FST)’ \\ rw []
+  \\ imp_res_tac (GSYM read_while_thm)
+  \\ Cases_on ‘str’ \\ gvs []
 End
 
 (* next_sym reads the next symbol from a string, returning NONE if at eof *)
@@ -210,7 +285,7 @@ Definition next_sym_def:
      else if c = #"~" /\ str <> "" /\ isDigit (HD str) then (* read negative number *)
        let (n,rest) = read_while isDigit str [] in
          SOME (NumberS (0- &(num_from_dec_string n)),
-               Locs loc (next_loc (LENGTH n) loc),
+               Locs loc (next_loc (LENGTH n + 1) loc),
                rest)
      else if c = #"'" then (* read type variable *)
        let (n,rest) = read_while isAlphaNumPrime str [c] in
@@ -231,50 +306,19 @@ Definition next_sym_def:
        case skip_comment (TL str) 0 (next_loc 2 loc) of
        | NONE => SOME (ErrorS, Locs loc (next_loc 2 loc), "")
        | SOME (rest, loc') => next_sym rest loc'
-     else if is_single_char_symbol c then (* single character tokens, i.e. delimiters *)
-       SOME (OtherS [c], Locs loc loc, str)
-     else if isSymbol c then
-       let (n,rest) = read_while isSymbol str [c] in
-         SOME (OtherS n, Locs loc (next_loc (LENGTH n - 1) loc),
-               rest)
-     else if isAlpha c then (* read identifier *)
-       let (n,rest) = read_while isAlphaNumPrime str [c] in
-         case rest of
-              #"."::rest' =>
-                (case rest' of
-                      c'::rest' =>
-                        if isAlpha c' then
-                          let (n', rest'') = read_while isAlphaNumPrime rest' [c'] in
-                            SOME (LongS (n ++ "." ++ n'),
-                                  Locs loc
-                                       (next_loc (LENGTH n + LENGTH n') loc),
-                                  rest'')
-                        else if isSymbol c' then
-                          let (n', rest'') = read_while isSymbol rest' [c'] in
-                            SOME (LongS (n ++ "." ++ n'),
-                                  Locs loc
-                                       (next_loc (LENGTH n + LENGTH n') loc),
-                                  rest'')
-                        else
-                          SOME (ErrorS,
-                                Locs loc (next_loc (LENGTH n) loc),
-                                rest')
-                    | "" => SOME (ErrorS,
-                                  Locs loc (next_loc (LENGTH n) loc),
-                                  []))
-            | _ => SOME (OtherS n,
-                         Locs loc (next_loc (LENGTH n - 1) loc),
-                         rest)
      else if c = #"_" then SOME (OtherS "_", Locs loc loc, str)
-     else (* input not recognised *)
-       SOME (ErrorS, Locs loc loc, str))
+     else
+       let (tok,end_loc,rest) = read_Ident (c::str) loc [] in
+         SOME (tok, Locs loc end_loc, rest))
 Termination
-  WF_REL_TAC `measure (LENGTH o FST) ` THEN REPEAT STRIP_TAC
-   THEN IMP_RES_TAC (GSYM read_while_thm)
-   THEN IMP_RES_TAC (GSYM read_string_thm)
-   THEN IMP_RES_TAC skip_comment_thm THEN Cases_on `str`
-   THEN FULL_SIMP_TAC (srw_ss()) [LENGTH] THEN DECIDE_TAC
+  wf_rel_tac ‘measure (LENGTH o FST)’ \\ rw []
+  \\ imp_res_tac (GSYM read_while_thm)
+  \\ imp_res_tac (GSYM read_string_thm)
+  \\ Cases_on ‘str’ \\ gvs []
+  \\ imp_res_tac skip_comment_thm \\ gvs []
 End
+
+(* EVAL “next_sym "  Foo.Bar.<  " (POSN 0 0)” *)
 
 Theorem lem1[local]:
   ((let (x,y) = z a in f x y) = P a) = (let (x,y) = z a in (f x y = P a))
@@ -305,27 +349,37 @@ QED
 val listeq = CaseEq "list"
 val optioneq = CaseEq "option"
 
-Theorem next_sym_LESS:
-   ∀input l s l' rest.
-     (next_sym input l = SOME (s, l', rest)) ⇒ LENGTH rest < LENGTH input
+Theorem read_Ident_LESS:
+  ∀xs l acc s loc rest.
+    read_Ident xs l acc = (s,loc,rest) ⇒
+    if xs = [] then rest = [] else LENGTH rest < LENGTH xs
 Proof
-  ho_match_mp_tac (fetch "-" "next_sym_ind") >>
-  simp[next_sym_def, bool_case_eq, listeq, optioneq] >> rw[] >> fs[] >>
-  rpt (pairarg_tac >> fs[]) >> rveq >> fs[NOT_NIL_EXISTS_CONS] >>
-  rveq >> fs[] >> rveq >> fs[] >>
-  MAP_EVERY imp_res_tac [read_while_thm,read_string_thm] >> every_case_tac >>
-  fs[listeq, optioneq, bool_case_eq] >> rveq >> fs[] >>
-  TRY (rename1 `skip_comment` >>
-       res_tac >> imp_res_tac skip_comment_thm >> simp[] >> NO_TAC) >>
-  TRY (rename1 `UNCURRY` >>
-       rpt (pairarg_tac>> fs[]) >> rveq >>
-       imp_res_tac read_while_thm >> simp[] >> NO_TAC) >>
-  TRY (rename1 `read_FFIcall` >>
-       imp_res_tac read_FFIcall_reduces_input >> simp[] >> NO_TAC) >>
-  TRY (rename1 `read_REPLcommand` >>
-       imp_res_tac read_REPLcommand_reduces_input >> simp[] >> NO_TAC) >>
-  qpat_x_assum ‘SOME _ = next_sym _ _’ (assume_tac o SYM) >>
-  first_x_assum drule >> simp[]
+  ho_match_mp_tac read_Ident_ind \\ rpt strip_tac
+  \\ gvs [read_Ident_def,AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [read_Ident_ret_def,AllCaseEqs()]
+  \\ imp_res_tac read_while_thm \\ gvs []
+  \\ Cases_on ‘rest1’ \\ gvs []
+QED
+
+Theorem next_sym_LESS:
+  ∀input l s l' rest.
+    next_sym input l = SOME (s, l', rest) ⇒
+    LENGTH rest < LENGTH input
+Proof
+  ho_match_mp_tac next_sym_ind \\ rw []
+  >- simp [next_sym_def]
+  \\ pop_assum mp_tac
+  \\ simp [next_sym_def,AllCaseEqs()]
+  \\ rpt strip_tac \\ gvs []
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ imp_res_tac skip_comment_thm \\ simp[]
+  \\ imp_res_tac read_while_thm \\ gvs []
+  \\ imp_res_tac read_string_thm \\ gvs []
+  \\ imp_res_tac read_FFIcall_reduces_input \\ gvs []
+  \\ imp_res_tac read_Ident_LESS \\ gvs []
+  \\ Cases_on ‘input’ \\ gvs []
+  \\ Cases_on ‘t’ \\ gvs []
 QED
 
 Definition init_loc_def:
@@ -411,6 +465,11 @@ Definition get_token_def[nocompute]:
     processIdent s
 End
 
+Definition to_path_def:
+  to_path [] = End ∧
+  to_path (x::xs) = Mod x (to_path xs)
+End
+
 Definition token_of_sym_def:
   token_of_sym s =
     case s of
@@ -419,8 +478,7 @@ Definition token_of_sym_def:
     | CharS c => CharT c
     | NumberS i => IntT i
     | WordS n => WordT n
-    | LongS s => let (s1,s2) = SPLITP (\x. x = #".") s in
-                   LongidT s1 (case s2 of "" => "" | (c::cs) => cs)
+    | LongS xs s => LongidT (to_path xs) s
     | FFIS s => FFIT s
     | OtherS s  => get_token s
 End
@@ -518,4 +576,3 @@ Termination
   metis_tac [toplevel_semi_dex_non0, DECIDE ``0 < 1:num``, DECIDE ``∀x:num. 0 < x + 1``]
 End
 
-val _ = export_theory();

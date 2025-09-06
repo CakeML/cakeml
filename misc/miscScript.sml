@@ -3,25 +3,39 @@
    development.
 *)
 
-open HolKernel bossLib boolLib boolSimps Parse libTheory mp_then
-open alignmentTheory alistTheory arithmeticTheory bitstringTheory bagTheory
-     byteTheory combinTheory dep_rewrite containerTheory listTheory
-     pred_setTheory finite_mapTheory rich_listTheory llistTheory optionTheory
-     pairTheory sortingTheory relationTheory totoTheory comparisonTheory
-     bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory BasicProvers
-     indexedListsTheory stringTheory ASCIInumbersLib machine_ieeeTheory
-local open bagLib addressTheory blastLib in end
-
 (* Misc. lemmas (without any compiler constants) *)
-val _ = new_theory "misc"
+Theory misc
+Ancestors
+  alignment alist arithmetic blast[qualified] bitstring bag byte
+  combin container list pred_set finite_map rich_list llist option
+  pair sorting relation toto comparison bit sptree words set_sep
+  indexedLists string machine_ieee integer_word address[qualified]
+  path[qualified] res_quan[qualified] lprefix_lub[qualified]
+Libs
+  boolSimps mp_then dep_rewrite wordsLib BasicProvers
+  ASCIInumbersLib bagLib[qualified] blastLib[qualified]
+
 val _ = ParseExtras.tight_equality()
+
+(* Total version of THE *)
+Definition the_def:
+  the _ (SOME x) = x ∧
+  the x NONE =  x
+End
+
+Definition opt_bind_def:
+ opt_bind n v e =
+   case n of
+   | NONE => e
+   | SOME n' => (n',v)::e
+End
 
 (* Note: This globally hides constants over the reals that gets imported through machine_ieeeTheory *)
 
-val _ = remove_ovl_mapping "max" {Name="max", Thy="real"}
-val _ = remove_ovl_mapping "min" {Name="min", Thy="real"}
+val _ = remove_ovl_mapping "max" {Name="max", Thy="realax"}
+val _ = remove_ovl_mapping "min" {Name="min", Thy="realax"}
 val _ = remove_ovl_mapping "pos" {Name="pos", Thy="real"}
-val _ = remove_ovl_mapping "abs" {Name="abs", Thy="real"}
+val _ = remove_ovl_mapping "abs" {Name="abs", Thy="realax"}
 val _ = remove_ovl_mapping "inf" {Name="inf", Thy="real"}
 
 (* this is copied in preamble.sml, but needed here to avoid cyclic dep *)
@@ -34,10 +48,11 @@ val asm_exists_tac = first_assum(match_exists_tac o concl)
 
 (* TODO: move/categorize *)
 
-val _ = numLib.prefer_num();
+val _ = numLib.temp_prefer_num();
 
 (* theorem behind impl_tac *)
-val IMP_IMP = save_thm("IMP_IMP",METIS_PROVE[]``(P /\ (Q ==> R)) ==> ((P ==> Q) ==> R)``);
+Theorem IMP_IMP =
+  METIS_PROVE[]``(P /\ (Q ==> R)) ==> ((P ==> Q) ==> R)``
 
 (* used elsewhere in cakeml *)
 Theorem SUBSET_IMP:
@@ -95,14 +110,15 @@ QED
 (* this is
      read_bytearray a c gb = OPT_MMAP gb (GENLIST (λi. a + n2w i) c)
 *)
-val read_bytearray_def = Define `
+Definition read_bytearray_def:
   (read_bytearray a 0 get_byte = SOME []) /\
   (read_bytearray a (SUC n) get_byte =
      case get_byte a of
      | NONE => NONE
      | SOME b => case read_bytearray (a+1w) n get_byte of
                  | NONE => NONE
-                 | SOME bs => SOME (b::bs))`
+                 | SOME bs => SOME (b::bs))
+End
 
 (* HOL to have OPT_MMAP f l1 = SOME l2 ==> (LENGTH l2 = LENGTH l1) *)
 Theorem read_bytearray_LENGTH:
@@ -113,8 +129,9 @@ Proof
   \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rw [] \\ res_tac
 QED
 
-val shift_seq_def = Define `
-  shift_seq k s = \i. s (i + k:num)`;
+Definition shift_seq_def:
+  shift_seq k s = \i. s (i + k:num)
+End
 
 (* TODO: Used once in all of CakeML: could probably be pushed back to use-site*)
 Theorem SUM_SET_IN_LT:
@@ -164,24 +181,33 @@ QED
 
 Overload LLOOKUP = “λl n. oEL n l”
 
-val LLOOKUP_def      = save_thm("LLOOKUP_def", listTheory.oEL_def);
-val LLOOKUP_EQ_EL    = save_thm("LLOOKUP_EQ_EL", listTheory.oEL_EQ_EL);
-val LLOOKUP_THM      = save_thm("LLOOKUP_THM", listTheory.oEL_THM);
-val LLOOOKUP_DROP    = save_thm("LLOOKUP_DROP", listTheory.oEL_DROP);
-val LLOOKUP_TAKE_IMP = save_thm("LLOOKUP_TAKE_IMP", listTheory.oEL_TAKE_E);
-val LLOOKUP_LUPDATE  = save_thm("LLOOKUP_LUPDATE", listTheory.oEL_LUPDATE);
+Theorem LLOOKUP_def =
+  listTheory.oEL_def
+Theorem LLOOKUP_EQ_EL =
+  listTheory.oEL_EQ_EL
+Theorem LLOOKUP_THM =
+  listTheory.oEL_THM
+Theorem LLOOKUP_DROP =
+  listTheory.oEL_DROP
+Theorem LLOOKUP_TAKE_IMP =
+  listTheory.oEL_TAKE_E
+Theorem LLOOKUP_LUPDATE =
+  listTheory.oEL_LUPDATE
 
 (* app_list stuff should be in an app_list theory *)
-val _ = Datatype `
-  app_list = List ('a list) | Append app_list app_list | Nil`
+Datatype:
+  app_list = List ('a list) | Append app_list app_list | Nil
+End
 
-val append_aux_def = Define `
+Definition append_aux_def:
   (append_aux Nil aux = aux) /\
   (append_aux (List xs) aux = xs ++ aux) /\
-  (append_aux (Append l1 l2) aux = append_aux l1 (append_aux l2 aux))`;
+  (append_aux (Append l1 l2) aux = append_aux l1 (append_aux l2 aux))
+End
 
-val append_def = Define `
-  append l = append_aux l []`;
+Definition append_def:
+  append l = append_aux l []
+End
 
 Theorem append_aux_thm:
    !l xs. append_aux l xs = append_aux l [] ++ xs
@@ -198,10 +224,11 @@ Proof
   \\ once_rewrite_tac [append_aux_thm] \\ fs []
 QED
 
-val SmartAppend_def = Define`
+Definition SmartAppend_def:
   (SmartAppend Nil l2 = l2) ∧
   (SmartAppend l1 Nil = l1) ∧
-  (SmartAppend l1 l2 = Append l1 l2)`;
+  (SmartAppend l1 l2 = Append l1 l2)
+End
 val _ = export_rewrites["SmartAppend_def"];
 
 Theorem SmartAppend_thm:
@@ -211,6 +238,13 @@ Theorem SmartAppend_thm:
       if l2 = Nil then l1 else Append l1 l2
 Proof
   Cases \\ Cases \\ rw[]
+QED
+
+Theorem SmartAppend_Nil:
+  SmartAppend l Nil = l ∧
+  SmartAppend Nil l = l
+Proof
+  Cases_on ‘l’ \\ gvs [SmartAppend_def]
 QED
 
 Theorem append_SmartAppend[simp]:
@@ -236,9 +270,10 @@ Proof
 QED
 
 (* MAP3 never used *)
-val MAP3_def = Define`
+Definition MAP3_def:
   (MAP3 f [] [] [] = []) /\
-  (MAP3 f (h1::t1) (h2::t2) (h3::t3) = f h1 h2 h3::MAP3 f t1 t2 t3)`;
+  (MAP3 f (h1::t1) (h2::t2) (h3::t3) = f h1 h2 h3::MAP3 f t1 t2 t3)
+End
 val _ = export_rewrites["MAP3_def"];
 
 val MAP3_ind = theorem"MAP3_ind";
@@ -318,34 +353,40 @@ Proof
     [`l1`,`l2`]
 QED
 
-val lemmas = Q.prove(
-  `(2 + 2 * n - 1 = 2 * n + 1:num) /\
+Triviality lemmas:
+  (2 + 2 * n - 1 = 2 * n + 1:num) /\
     (2 + 2 * n' = 2 * n'' + 2 <=> n' = n'':num) /\
     (2 * m = 2 * n <=> (m = n)) /\
     ((2 * n'' + 1) DIV 2 = n'') /\
     ((2 * n) DIV 2 = n) /\
     (2 + 2 * n' <> 2 * n'' + 1) /\
-    (2 * m + 1 <> 2 * n' + 2)`,
-  intLib.ARITH_TAC);
+    (2 * m + 1 <> 2 * n' + 2)
+Proof
+  intLib.ARITH_TAC
+QED
 
-val lookup_any_def = Define `
+Definition lookup_any_def:
   lookup_any x sp d =
     case lookup x sp of
     | NONE => d
-    | SOME m => m`;
+    | SOME m => m
+End
 
-val fromList2_def = Define `
-  fromList2 l = SND (FOLDL (\(i,t) a. (i + 2,insert i a t)) (0,LN) l)`
+Definition fromList2_def:
+  fromList2 l = SND (FOLDL (\(i,t) a. (i + 2,insert i a t)) (0,LN) l)
+End
 
-val EVEN_fromList2_lemma = Q.prove(
-  `!l n t.
+Triviality EVEN_fromList2_lemma:
+  !l n t.
       EVEN n /\ (!x. x IN domain t ==> EVEN x) ==>
-      !x. x IN domain (SND (FOLDL (\(i,t) a. (i + 2,insert i a t)) (n,t) l)) ==> EVEN x`,
+      !x. x IN domain (SND (FOLDL (\(i,t) a. (i + 2,insert i a t)) (n,t) l)) ==> EVEN x
+Proof
   Induct \\ full_simp_tac(srw_ss())[FOLDL] \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[PULL_FORALL]
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n+2`,`insert n h t`,`x`])
   \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ POP_ASSUM MATCH_MP_TAC
   \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[EVEN_EXISTS]
-  \\ Q.EXISTS_TAC `SUC m` \\ DECIDE_TAC);
+  \\ Q.EXISTS_TAC `SUC m` \\ DECIDE_TAC
+QED
 
 Theorem EVEN_fromList2:
    !l n. n IN domain (fromList2 l) ==> EVEN n
@@ -497,11 +538,13 @@ Proof
   \\ metis_tac[]
 QED
 
-val zlookup_def = Define `
-  zlookup m k = case lookup k m of NONE => 0n | SOME k => k`;
+Definition zlookup_def:
+  zlookup m k = case lookup k m of NONE => 0n | SOME k => k
+End
 
-val tlookup_def = Define `
-  tlookup m k = case lookup k m of NONE => k | SOME k => k`;
+Definition tlookup_def:
+  tlookup m k = case lookup k m of NONE => k | SOME k => k
+End
 
 Theorem tlookup_id:
    x ∉ domain names
@@ -566,16 +609,26 @@ Proof
   \\ metis_tac[]
 QED
 
-(* should be composition of oEL and as-yet-undefined "THEdflt" *)
-val any_el_def = Define `
+(* should be composition of oEL and as-yet-undefined "THE default" *)
+Definition any_el_def:
   (any_el n [] d = d) /\
-  (any_el n (x::xs) d = if n = 0 then x else any_el (n-1:num) xs d)`
+  (any_el n (x::xs) d = if n = 0 then x else any_el (n-1:num) xs d)
+End
 
-val list_max_def = Define `
+Definition update_resize_def:
+  update_resize ls default v n =
+    if n < LENGTH ls then
+      LUPDATE v n ls
+    else
+      LUPDATE v n (ls ++ REPLICATE (n * 2 + 1 - LENGTH ls) default)
+End
+
+Definition list_max_def:
   (list_max [] = 0:num) /\
   (list_max (x::xs) =
      let m = list_max xs in
-       if m < x then x else m)`
+       if m < x then x else m)
+End
 
 Theorem list_max_max:
    ∀ls.  EVERY (λx. x ≤ list_max ls) ls
@@ -599,12 +652,14 @@ Proof
 QED
 
 (* never used *)
-val list_inter_def = Define `
-  list_inter xs ys = FILTER (\y. MEM y xs) ys`;
+Definition list_inter_def:
+  list_inter xs ys = FILTER (\y. MEM y xs) ys
+End
 
-val max3_def = Define`
+Definition max3_def:
   max3 (x:num) y z = if x > y then (if z > x then z else x)
-                     else (if z > y then z else y)`
+                     else (if z > y then z else y)
+End
 val _ = export_rewrites["max3_def"];
 
 Theorem ALOOKUP_SNOC:
@@ -645,11 +700,12 @@ QED
 
 (* TODO - candidate for move to HOL, but in simpler form without accumulator *)
 (* only used in inferProg *)
-val anub_def = Define`
+Definition anub_def:
   (anub [] acc = []) ∧
   (anub ((k,v)::ls) acc =
    if MEM k acc then anub ls acc else
-   (k,v)::(anub ls (k::acc)))`
+   (k,v)::(anub ls (k::acc)))
+End
 
 val anub_ind = theorem"anub_ind"
 
@@ -745,12 +801,6 @@ Proof
   Q.ISPECL_THEN [`ls`,`k`,`[]`] assume_tac (GEN_ALL ALOOKUP_anub)>>
   full_simp_tac(srw_ss())[]>>
   metis_tac[ALOOKUP_ALL_DISTINCT_MEM]
-QED
-
-Theorem IS_SOME_EXISTS:
-   ∀opt. IS_SOME opt ⇔ ∃x. opt = SOME x
-Proof
-  Cases >> simp[]
 QED
 
 Type num_set = ``:unit spt``
@@ -935,12 +985,13 @@ Proof
   srw_tac[][] >>
   MATCH_MP_TAC NOT_BIT_GT_TWOEXP >>
   MATCH_MP_TAC arithmeticTheory.LESS_LESS_EQ_TRANS >>
-  qexists_tac`2 ** LENGTH l` >>
+  qexists_tac`2 ** LENGTH (REVERSE l)` >>
   simp[numposrepTheory.l2n_lt]
 QED
 
-val least_from_def = Define`
-  least_from P n = if (∃x. P x ∧ n ≤ x) then $LEAST (λx. P x ∧ n ≤ x) else $LEAST P`
+Definition least_from_def:
+  least_from P n = if (∃x. P x ∧ n ≤ x) then $LEAST (λx. P x ∧ n ≤ x) else $LEAST P
+End
 
 Theorem LEAST_thm:
    $LEAST P = least_from P 0
@@ -999,8 +1050,9 @@ Proof
   srw_tac[][optionTheory.OPTREL_def]
 QED
 
-val UPDATE_LIST_def = Define`
-  UPDATE_LIST = FOLDL (combin$C (UNCURRY UPDATE))`
+Definition UPDATE_LIST_def:
+  UPDATE_LIST = FOLDL (combin$C (UNCURRY UPDATE))
+End
 val _ = Parse.add_infix("=++",500,Parse.LEFT)
 
 Overload "=++" = ``UPDATE_LIST``
@@ -1020,9 +1072,10 @@ Proof
 QED
 
 (* should be using indexedLists$findi, or INDEX_OF *)
-val find_index_def = Define`
+Definition find_index_def:
   (find_index _ [] _ = NONE) ∧
-  (find_index y (x::xs) n = if x = y then SOME n else find_index y xs (n+1))`
+  (find_index y (x::xs) n = if x = y then SOME n else find_index y xs (n+1))
+End
 
 Theorem INDEX_FIND_CONS_EQ_SOME:
    (INDEX_FIND n f (x::xs) = SOME y) <=>
@@ -1048,14 +1101,14 @@ QED
 Theorem find_index_NOT_MEM:
    ∀ls x n. ¬MEM x ls = (find_index x ls n = NONE)
 Proof
-  Induct >> srw_tac[][find_index_def]
+  Induct >> srw_tac[][find_index_def]>>
+  metis_tac[]
 QED
 
 Theorem find_index_MEM:
    !ls x n. MEM x ls ==> ?i. (find_index x ls n = SOME (n+i)) /\ i < LENGTH ls /\ (EL i ls = x)
 Proof
-  Induct >> srw_tac[][find_index_def] >- (
-    qexists_tac`0`>>srw_tac[][] ) >>
+  Induct >> srw_tac[][find_index_def] >>
   first_x_assum(qspecl_then[`x`,`n+1`]mp_tac) >>
   srw_tac[][]>>qexists_tac`SUC i`>>srw_tac[ARITH_ss][ADD1]
 QED
@@ -1063,14 +1116,14 @@ QED
 Theorem find_index_LEAST_EL:
    ∀ls x n. find_index x ls n = if MEM x ls then SOME (n + (LEAST n. x = EL n ls)) else NONE
 Proof
-  Induct >- srw_tac[][find_index_def] >>
+  Induct >>
   simp[find_index_def] >>
   rpt gen_tac >>
   Cases_on`h=x`>>full_simp_tac(srw_ss())[] >- (
     numLib.LEAST_ELIM_TAC >>
     conj_tac >- (qexists_tac`0` >> srw_tac[][]) >>
     Cases >> srw_tac[][] >>
-    first_x_assum (qspec_then`0`mp_tac) >> srw_tac[][] ) >>
+    qexists_tac`0` >>simp[])>>
   srw_tac[][] >>
   numLib.LEAST_ELIM_TAC >>
   conj_tac >- metis_tac[MEM_EL,MEM] >>
@@ -1098,18 +1151,20 @@ QED
 Theorem ALOOKUP_find_index_NONE:
    (ALOOKUP env k = NONE) ⇒ (find_index k (MAP FST env) m = NONE)
 Proof
-  srw_tac[][ALOOKUP_FAILS] >> srw_tac[][GSYM find_index_NOT_MEM,MEM_MAP,EXISTS_PROD]
+  srw_tac[][ALOOKUP_FAILS] >>
+  srw_tac[][GSYM find_index_NOT_MEM,MEM_MAP,EXISTS_PROD]
 QED
 
 val ALOOKUP_find_index_SOME = Q.prove(
   `∀env. (ALOOKUP env k = SOME v) ⇒
       ∀m. ∃i. (find_index k (MAP FST env) m = SOME (m+i)) ∧
           (v = EL i (MAP SND env))`,
-  Induct >> simp[] >> Cases >> srw_tac[][find_index_def] >-
-    (qexists_tac`0`>>simp[]) >> full_simp_tac(srw_ss())[] >>
+  Induct >> simp[] >> Cases >>
+  srw_tac[][find_index_def] >> full_simp_tac(srw_ss())[] >>
   first_x_assum(qspec_then`m+1`mp_tac)>>srw_tac[][]>>srw_tac[][]>>
   qexists_tac`SUC i`>>simp[])
 |> SPEC_ALL |> UNDISCH_ALL |> Q.SPEC`0` |> DISCH_ALL |> SIMP_RULE (srw_ss())[]
+
 Theorem ALOOKUP_find_index_SOME:
    (ALOOKUP env k = SOME v) ⇒
     ∃i. (find_index k (MAP FST env) 0 = SOME i) ∧
@@ -1455,8 +1510,9 @@ Proof
   srw_tac[][] >> first_x_assum (qspecl_then[`x`,`SUC n`] mp_tac) >> srw_tac[][]
 QED
 
-val between_def = Define`
-  between x y z ⇔ x:num ≤ z ∧ z < y`
+Definition between_def:
+  between x y z ⇔ x:num ≤ z ∧ z < y
+End
 
 Theorem IN_between:
    x ∈ between y z ⇔ y ≤ x ∧ x < z
@@ -1490,8 +1546,9 @@ Proof
 QED
 
 (* never used *)
-val fmap_linv_def = Define`
-  fmap_linv f1 f2 ⇔ (FDOM f2 = FRANGE f1) /\ (!x. x IN FDOM f1 ==> (FLOOKUP f2 (FAPPLY f1 x) = SOME x))`
+Definition fmap_linv_def:
+  fmap_linv f1 f2 ⇔ (FDOM f2 = FRANGE f1) /\ (!x. x IN FDOM f1 ==> (FLOOKUP f2 (FAPPLY f1 x) = SOME x))
+End
 
 (* never used *)
 Theorem fmap_linv_unique:
@@ -1735,10 +1792,10 @@ Proof
   \\ MP_TAC (Q.SPEC `x::xs` LASTN_LENGTH_ID) \\ full_simp_tac(srw_ss())[ADD1]
 QED
 
-val LASTN_TL = save_thm("LASTN_TL",
+Theorem LASTN_TL =
   LASTN_CONS |> Q.SPECL[`n+1`,`xs`]
   |> C MP (DECIDE``n < LENGTH xs ⇒ n + 1 ≤ LENGTH xs`` |> UNDISCH)
-  |> SPEC_ALL |> DISCH_ALL);
+  |> SPEC_ALL |> DISCH_ALL
 
 Theorem LASTN_LENGTH_LESS_EQ:
    !xs n. LENGTH xs <= n ==> LASTN n xs = xs
@@ -1775,8 +1832,8 @@ Proof
 QED
 (*
 NB: this is weaker:
-val MAP_EQ_MAP_IMP = save_thm("MAP_EQ_MAP_IMP",
-  INJ_MAP_EQ |> SIMP_RULE (srw_ss()) [INJ_DEF]);
+Theorem MAP_EQ_MAP_IMP =
+  INJ_MAP_EQ |> SIMP_RULE (srw_ss()) [INJ_DEF]
 *)
 
 Theorem INJ_MAP_EQ_2:
@@ -1815,23 +1872,26 @@ QED
 
 (* move into HOL? *)
 
-val word_list_def = Define `
+Definition word_list_def:
   (word_list a [] = emp) /\
-  (word_list a (x::xs) = set_sep$one (a,x) * word_list (a + bytes_in_word) xs)`;
+  (word_list a (x::xs) = set_sep$one (a,x) * word_list (a + bytes_in_word) xs)
+End
 
-val word_list_exists_def = Define `
+Definition word_list_exists_def:
   word_list_exists a n =
-    SEP_EXISTS xs. word_list a xs * cond (LENGTH xs = n)`;
+    SEP_EXISTS xs. word_list a xs * cond (LENGTH xs = n)
+End
 
 (* lookup_vars vs env = OPT_MMAP (\i. oEL i env) vs *)
-val lookup_vars_def = Define `
+Definition lookup_vars_def:
   (lookup_vars [] env = SOME []) /\
   (lookup_vars (v::vs) env =
      if v < LENGTH env then
        case lookup_vars vs env of
        | SOME xs => SOME (EL v env :: xs)
        | NONE => NONE
-     else NONE)`
+     else NONE)
+End
 
 Theorem EVERY_lookup_vars:
    ∀vs env env'. EVERY P env ∧ lookup_vars vs env = SOME env' ⇒ EVERY P env'
@@ -1945,9 +2005,10 @@ QED
 (* TODO - candidate for move to HOL - though
      enumerate i0 l = MAPi (λx i. (i + i0, x)) l
 *)
-val enumerate_def = Define`
+Definition enumerate_def:
   (enumerate n [] = []) ∧
-  (enumerate n (x::xs) = (n,x)::enumerate (n+1n) xs)`
+  (enumerate n (x::xs) = (n,x)::enumerate (n+1n) xs)
+End
 
 (* TODO - candidate for move to HOL *)
 Theorem LENGTH_enumerate:
@@ -1990,11 +2051,34 @@ Proof
 QED
 
 Theorem MEM_enumerate_IMP:
-    ∀xs i e.
-  MEM (i,e) (enumerate 0 xs) ⇒ MEM e xs
+  ∀ls k.
+  MEM (i,e) (enumerate k ls) ⇒ MEM e ls
 Proof
-  fs[MEM_EL,LENGTH_enumerate]>>rw[]>>imp_res_tac EL_enumerate>>
-  qexists_tac`n`>>fs[]
+  Induct_on`ls`>>fs[enumerate_def]>>rw[]>>
+  metis_tac[]
+QED
+
+Theorem MAP_FST_enumerate:
+  MAP FST (enumerate k ls) = GENLIST ($+ k) (LENGTH ls)
+Proof
+  rw[LIST_EQ_REWRITE,LENGTH_enumerate]>>
+  simp[EL_MAP,LENGTH_enumerate,EL_enumerate]
+QED
+
+Theorem ALL_DISTINCT_MAP_FST_enumerate:
+  ALL_DISTINCT (MAP FST (enumerate k ls))
+Proof
+  simp[MAP_FST_enumerate,ALL_DISTINCT_GENLIST]
+QED
+
+Theorem ALOOKUP_enumerate:
+  ∀ls k x.
+  ALOOKUP (enumerate k ls) x =
+  if k ≤ x ∧ x < LENGTH ls + k then SOME (EL (x-k) ls) else NONE
+Proof
+  Induct>>rw[enumerate_def]>>
+  `x-k = SUC(x-(k+1))` by DECIDE_TAC>>
+  simp[]
 QED
 
 Theorem SUM_MAP_LENGTH_REPLICATE:
@@ -2168,19 +2252,6 @@ Proof
   metis_tac[sortingTheory.PERM_MAP]
 QED
 
-Theorem bool_case_eq:
-   COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f
-Proof
-  srw_tac[][] >> metis_tac[]
-QED
-
-Theorem pair_case_eq:
- pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v
-Proof
- Cases_on `x` >>
- srw_tac[][]
-QED
-
 Theorem lookup_fromList2:
    !l n. lookup n (fromList2 l) =
           if EVEN n then lookup (n DIV 2) (fromList l) else NONE
@@ -2209,9 +2280,8 @@ Theorem domain_fromList2:
    ∀q. domain(fromList2 q) = set(GENLIST (λx. 2n*x) (LENGTH q))
 Proof
   rw[EXTENSION,domain_lookup,lookup_fromList2,MEM_GENLIST,
-     lookup_fromList,EVEN_EXISTS]
-  \\ rw[EQ_IMP_THM] \\ rename1`2 * m`
-  \\ qspecl_then[`2`,`m`]mp_tac MULT_DIV \\ simp[]
+     lookup_fromList,EVEN_EXISTS, PULL_EXISTS, SF CONJ_ss] \\
+  metis_tac[]
 QED
 
 Theorem UNCURRY_eq_pair:
@@ -2299,9 +2369,10 @@ Proof
   \\ fs [MOD_MULT_MOD]
 QED
 
-val option_fold_def = Define `
+Definition option_fold_def:
   (option_fold f x NONE = x) ∧
-  (option_fold f x (SOME y) = f y x)`;
+  (option_fold f x (SOME y) = f y x)
+End
 
 Theorem SPLITP_CONS_IMP:
    ∀ls l' r. (SPLITP P ls = (l', r)) /\ (r <> []) ==> (EXISTS P ls)
@@ -2379,45 +2450,51 @@ Proof
     \\ fs[DROP_EL_CONS]
 QED
 
-val FRONT_APPEND' = Q.prove(
-  `!l h a b t. l = h ++ [a; b] ++ t ==>
-      FRONT l = h ++ FRONT([a; b] ++ t)`,
-      Induct \\ rw[FRONT_DEF, FRONT_APPEND]
+Triviality FRONT_APPEND':
+  !l h a b t. l = h ++ [a; b] ++ t ==>
+      FRONT l = h ++ FRONT([a; b] ++ t)
+Proof
+  Induct \\ rw[FRONT_DEF, FRONT_APPEND]
       >-(rw[LIST_EQ_REWRITE])
       \\ Cases_on `h'` \\ fs[FRONT_APPEND, FRONT_DEF]
-);
+QED
 
 
-val EVERY_NOT_IMP = Q.prove(
-  `!ls a. (EVERY ($~ o (\x. x = a)) ls) ==> (LIST_ELEM_COUNT a ls = 0)`,
-    Induct \\ rw[LIST_ELEM_COUNT_DEF] \\ fs[LIST_ELEM_COUNT_DEF]
-);
+Triviality EVERY_NOT_IMP:
+  !ls a. (EVERY ($~ o (\x. x = a)) ls) ==> (LIST_ELEM_COUNT a ls = 0)
+Proof
+  Induct \\ rw[LIST_ELEM_COUNT_DEF] \\ fs[LIST_ELEM_COUNT_DEF]
+QED
 
-val LIST_ELEM_COUNT_CONS = Q.prove(
-  `!h t a. LIST_ELEM_COUNT a (h::t) = LIST_ELEM_COUNT a [h] + LIST_ELEM_COUNT a t`,
-    simp_tac std_ss [Once CONS_APPEND, LIST_ELEM_COUNT_THM]
-);
+Triviality LIST_ELEM_COUNT_CONS:
+  !h t a. LIST_ELEM_COUNT a (h::t) = LIST_ELEM_COUNT a [h] + LIST_ELEM_COUNT a t
+Proof
+  simp_tac std_ss [Once CONS_APPEND, LIST_ELEM_COUNT_THM]
+QED
 
-val FRONT_COUNT_IMP = Q.prove(
-  `!l1 l2 a. l1 <> [] /\ FRONT l1 = l2 ==> (LIST_ELEM_COUNT a l2 = LIST_ELEM_COUNT a l1) \/ (LIST_ELEM_COUNT a l2 + 1 = LIST_ELEM_COUNT a l1)`,
-    gen_tac \\ Induct_on `l1` \\ gen_tac \\ Cases_on `l2` \\ rw[FRONT_DEF]
+Triviality FRONT_COUNT_IMP:
+  !l1 l2 a. l1 <> [] /\ FRONT l1 = l2 ==> (LIST_ELEM_COUNT a l2 = LIST_ELEM_COUNT a l1) \/ (LIST_ELEM_COUNT a l2 + 1 = LIST_ELEM_COUNT a l1)
+Proof
+  gen_tac \\ Induct_on `l1` \\ gen_tac \\ Cases_on `l2` \\ rw[FRONT_DEF]
     >-(Cases_on `h = a` \\ rw[LIST_ELEM_COUNT_DEF])
     \\ rw[LIST_ELEM_COUNT_DEF] \\ fs[LIST_ELEM_COUNT_DEF]
     \\ Cases_on `LENGTH (FILTER (\x. x = a) l1)`
     \\ first_x_assum (qspecl_then [`a`] mp_tac) \\ rw[] \\ rfs[]
-);
+QED
 
-val CONCAT_WITH_aux_def = Define`
+Definition CONCAT_WITH_aux_def:
     (CONCAT_WITH_aux [] l fl = REVERSE fl ++ FLAT l) /\
     (CONCAT_WITH_aux (h::t) [] fl = REVERSE fl) /\
     (CONCAT_WITH_aux (h::t) ((h1::t1)::ls) fl = CONCAT_WITH_aux (h::t) (t1::ls) (h1::fl)) /\
     (CONCAT_WITH_aux (h::t) ([]::[]) fl = REVERSE fl) /\
-    (CONCAT_WITH_aux (h::t) ([]::(h'::t')) fl = CONCAT_WITH_aux (h::t) (h'::t') (REVERSE(h::t) ++ fl))`
+    (CONCAT_WITH_aux (h::t) ([]::(h'::t')) fl = CONCAT_WITH_aux (h::t) (h'::t') (REVERSE(h::t) ++ fl))
+End
 
 val CONCAT_WITH_AUX_ind = theorem"CONCAT_WITH_aux_ind";
 
-val CONCAT_WITH_def = Define`
-    CONCAT_WITH s l = CONCAT_WITH_aux s l [] `
+Definition CONCAT_WITH_def:
+    CONCAT_WITH s l = CONCAT_WITH_aux s l []
+End
 
 Theorem OPT_MMAP_MAP_o:
    !ls. OPT_MMAP f (MAP g ls) = OPT_MMAP (f o g) ls
@@ -2535,9 +2612,8 @@ Proof
   Induct_on `l` >> simp[findi_def, bool_case_eq, ADD1] >> metis_tac[]
 QED
 
-val NOT_MEM_findi = save_thm( (* more useful as conditional rewrite *)
-  "NOT_MEM_findi",
-  NOT_MEM_findi_IFF |> EQ_IMP_RULE |> #1);
+Theorem NOT_MEM_findi =
+  NOT_MEM_findi_IFF |> EQ_IMP_RULE |> #1
 
 Theorem ORD_eq_0:
    (ORD c = 0 ⇔ c = CHR 0) ∧ (0 = ORD c ⇔ c = CHR 0)
@@ -2559,10 +2635,9 @@ Proof
   fs []
 QED
 
-val w2n_lt_256 =
+Theorem w2n_lt_256 =
   w2n_lt |> INST_TYPE [``:'a``|->``:8``]
          |> SIMP_RULE std_ss [EVAL ``dimword (:8)``]
-         |> curry save_thm "w2n_lt_256"
 
 Theorem CHR_w2n_n2w_ORD:
    (CHR o w2n o (n2w:num->word8) o ORD) = I
@@ -2602,14 +2677,15 @@ Proof
   Induct_on`ls` \\ rw[REPLICATE]
 QED
 
-val shift_left_def = Define`
+Definition shift_left_def:
   shift_left (a : 'a word) n =
   if n = 0 then a
   else if (a = 0w) \/ n > dimindex(:'a) then 0w
   else if n > 32 then shift_left (a << 32) (n - 32)
   else if n > 16 then shift_left (a << 16) (n - 16)
   else if n > 8 then shift_left (a << 8) (n - 8)
-  else shift_left (a << 1) (n - 1)`
+  else shift_left (a << 1) (n - 1)
+End
 
 Theorem shift_left_rwt:
    !a n. a << n = shift_left a n
@@ -2620,14 +2696,15 @@ Proof
   \\ fs []
 QED
 
-val shift_right_def = Define`
+Definition shift_right_def:
   shift_right (a : 'a word) n =
   if n = 0 then a
   else if (a = 0w) \/ n > dimindex(:'a) then 0w
   else if n > 32 then shift_right (a >>> 32) (n - 32)
   else if n > 16 then shift_right (a >>> 16) (n - 16)
   else if n > 8 then shift_right (a >>> 8) (n - 8)
-  else shift_right (a >>> 1) (n - 1)`
+  else shift_right (a >>> 1) (n - 1)
+End
 
 Theorem shift_right_rwt:
    !a n. a >>> n = shift_right a n
@@ -2638,7 +2715,7 @@ Proof
   \\ fs []
 QED
 
-val arith_shift_right_def = Define`
+Definition arith_shift_right_def:
   arith_shift_right (a : 'a word) n =
   if n = 0 then a
   else if (a = 0w) \/ n > dimindex(:'a) /\ ~word_msb a then 0w
@@ -2646,7 +2723,8 @@ val arith_shift_right_def = Define`
   else if n > 32 then arith_shift_right (a >> 32) (n - 32)
   else if n > 16 then arith_shift_right (a >> 16) (n - 16)
   else if n > 8 then arith_shift_right (a >> 8) (n - 8)
-  else arith_shift_right (a >> 1) (n - 1)`
+  else arith_shift_right (a >> 1) (n - 1)
+End
 
 Theorem arith_shift_right_rwt:
    !a n. a >> n = arith_shift_right a n
@@ -2657,7 +2735,7 @@ Proof
   \\ fs [SIMP_RULE (srw_ss()) [] wordsTheory.ASR_UINT_MAX]
 QED
 
-val any_word64_ror_def = Define `
+Definition any_word64_ror_def:
   any_word64_ror (w:word64) (n:num) =
     if 64 <= n then any_word64_ror w (n - 64) else
     if 32 <= n then any_word64_ror (word_ror w 32) (n - 32) else
@@ -2665,7 +2743,8 @@ val any_word64_ror_def = Define `
     if 8 <= n then any_word64_ror (word_ror w 8) (n - 8) else
     if 4 <= n then any_word64_ror (word_ror w 4) (n - 4) else
     if 2 <= n then any_word64_ror (word_ror w 2) (n - 2) else
-    if 1 <= n then word_ror w 1 else w`
+    if 1 <= n then word_ror w 1 else w
+End
 
 Theorem word_ror_eq_any_word64_ror:
    !a n. word_ror a n = any_word64_ror a n
@@ -2848,11 +2927,12 @@ Proof
   Cases_on`x` \\ EVAL_TAC
 QED
 
-val splitlines_def = Define`
+Definition splitlines_def:
   splitlines ls =
   let lines = FIELDS ((=) #"\n") ls in
   (* discard trailing newline *)
-  if NULL (LAST lines) then FRONT lines else lines`;
+  if NULL (LAST lines) then FRONT lines else lines
+End
 
 Theorem splitlines_next:
    splitlines ls = ln::lns ⇒
@@ -2984,8 +3064,8 @@ rw[FUN_EQ_THM]
 QED
 
 (* used once *)
-val SUM_COUNT_LIST = save_thm("SUM_COUNT_LIST",
-  SUM_MAP_COUNT_LIST |> Q.SPECL [`n`,`0`] |> SIMP_RULE (srw_ss()) []);
+Theorem SUM_COUNT_LIST =
+  SUM_MAP_COUNT_LIST |> Q.SPECL [`n`,`0`] |> SIMP_RULE (srw_ss()) []
 
 Theorem OPTION_MAP_I[simp]:
    OPTION_MAP I x = x
@@ -3039,11 +3119,13 @@ Proof
 QED
 
 (* should be set l1 ⊆ set l2 *)
-val list_subset_def = Define `
-list_subset l1 l2 = EVERY (\x. MEM x l2) l1`;
+Definition list_subset_def:
+  list_subset l1 l2 = EVERY (\x. MEM x l2) l1
+End
 
-val list_set_eq = Define `
-list_set_eq l1 l2 ⇔ list_subset l1 l2 ∧ list_subset l2 l1`;
+Definition list_set_eq_def:
+  list_set_eq l1 l2 ⇔ list_subset l1 l2 ∧ list_subset l2 l1
+End
 
 Theorem list_subset_LENGTH:
     !l1 l2.ALL_DISTINCT l1 ∧
@@ -3122,12 +3204,13 @@ Proof
 QED
 
 (* computes the next position for which P holds *)
-val Lnext_def = tDefine "Lnext" `
+Definition Lnext_def:
   Lnext P ll = if eventually P ll then
                         if P ll then 0
                         else SUC(Lnext P (THE (LTL ll)))
-                     else ARB`
- (exists_tac``\(P,ll') (P',ll).
+                     else ARB
+Termination
+  exists_tac``\(P,ll') (P',ll).
     ((P = P') /\ eventually P ll /\ eventually P ll' /\
     (LTL ll = SOME ll') /\ ¬ P ll)`` >>
     reverse(rw[relationTheory.WF_DEF,eventually_thm])
@@ -3140,10 +3223,12 @@ val Lnext_def = tDefine "Lnext" `
   HO_MATCH_MP_TAC eventually_ind >> rw[]
   >-(qexists_tac`(P,ll)` >> rw[] >> pairarg_tac >> fs[] >> res_tac >> rfs[]) >>
   Cases_on`B(P,ll)` >-(metis_tac[]) >>
-  qexists_tac`(P,h:::ll)` >> fs[] >> rw[] >> pairarg_tac >> fs[]);
+  qexists_tac`(P,h:::ll)` >> fs[] >> rw[] >> pairarg_tac >> fs[]
+End
 
-val Lnext_pos_def = Define`
-  Lnext_pos (ll :num llist) = Lnext (λll. ∃k. LHD ll = SOME k ∧ k ≠ 0) ll`
+Definition Lnext_pos_def:
+  Lnext_pos (ll :num llist) = Lnext (λll. ∃k. LHD ll = SOME k ∧ k ≠ 0) ll
+End
 
 Theorem OPTION_CHOICE_EQUALS_OPTION:
    !(x:'a option) y z. (OPTION_CHOICE x y = SOME z) <=>
@@ -3152,11 +3237,11 @@ Proof
  rw[] \\ Cases_on `x` \\ Cases_on `y` \\ fs[]
 QED
 
-val _ =  save_thm("option_eq_some",
-    LIST_CONJ [
+Theorem option_eq_some =
+  LIST_CONJ [
     OPTION_IGNORE_BIND_EQUALS_OPTION,
     OPTION_BIND_EQUALS_OPTION,
-    OPTION_CHOICE_EQUALS_OPTION]);
+    OPTION_CHOICE_EQUALS_OPTION]
 
 Theorem ALL_DISTINCT_alist_to_fmap_REVERSE:
    ALL_DISTINCT (MAP FST ls) ⇒ alist_to_fmap (REVERSE ls) = alist_to_fmap ls
@@ -3227,19 +3312,17 @@ Theorem TOKENS_FLAT_MAP_SNOC:
    TOKENS ((=) x) (FLAT (MAP (SNOC x) ls)) = ls
 Proof
   Induct_on`ls` \\ rw[TOKENS_NIL]
-  \\ Q.ISPEC_THEN`x`(mp_tac o GSYM) CONS_APPEND
-  \\ rewrite_tac[GSYM APPEND_ASSOC]
-  \\ disch_then(rewrite_tac o mlibUseful.sing)
+  \\ rewrite_tac[GSYM APPEND_ASSOC,SNOC_APPEND,APPEND]
   \\ DEP_REWRITE_TAC[TOKENS_APPEND] \\ rw[]
   \\ DEP_REWRITE_TAC[TOKENS_unchanged]
   \\ fs[EVERY_MEM]
 QED
 
 (* insert a string (l1) at specified index (n) in a list (l2) *)
-val insert_atI_def = Define`
+Definition insert_atI_def:
   insert_atI l1 n l2 =
     TAKE n l2 ++ l1 ++ DROP (n + LENGTH l1) l2
-`;
+End
 
 Theorem insert_atI_NIL:
    ∀n l.insert_atI [] n l = l
@@ -3316,8 +3399,8 @@ Proof
   \\ srw_tac [] [ADD1]
 QED
 
-val IN_EVEN =
-  save_thm("IN_EVEN", SIMP_CONV std_ss [IN_DEF] ``x ∈ EVEN``);
+Theorem IN_EVEN =
+  SIMP_CONV std_ss [IN_DEF] ``x ∈ EVEN``
 
 Theorem FOLDL_OPTION_CHOICE_EQ_SOME_IMP_MEM:
    FOLDL OPTION_CHOICE x ls = SOME y ⇒ MEM (SOME y) (x::ls)
@@ -3348,12 +3431,13 @@ QED
 
 (* TODO - candidate for move to HOL *)
 (* N.B.: there is a different is_subsequence defined in lcsTheory; these should be merged *)
-val is_subseq_def = Define`
+Definition is_subseq_def:
   (is_subseq ls [] ⇔ T) ∧
   (is_subseq [] (x::xs) ⇔ F) ∧
   (is_subseq (y::ys) (x::xs) ⇔
    (x = y ∧ is_subseq ys xs) ∨
-   (is_subseq ys (x::xs)))`;
+   (is_subseq ys (x::xs)))
+End
 
 (* TODO - candidate for move to HOL *)
 val is_subseq_ind = theorem"is_subseq_ind";
@@ -3480,8 +3564,9 @@ Proof
   \\ asm_rewrite_tac [LAST_SNOC] \\ fs [LIST_REL_SNOC]
 QED
 
-val make_even_def = Define`
-  make_even n = if EVEN n then n else n+1`;
+Definition make_even_def:
+  make_even n = if EVEN n then n else n+1
+End
 
 Theorem EVEN_make_even[simp]:
    EVEN (make_even x)
@@ -3600,8 +3685,6 @@ Proof
   \\ rfs [] \\ metis_tac [LT_MULT_LCANCEL]
 QED
 
-open pathTheory
-
 Theorem toPath_fromList:
    (toPath (x, fromList []) = stopped_at x) ∧
    (toPath (x, fromList ((y,z)::t)) = pcons x y (toPath (z, fromList t)))
@@ -3610,18 +3693,20 @@ Proof
   \\ rw[pathTheory.pcons_def, pathTheory.first_def, pathTheory.path_rep_bijections_thm]
 QED
 
-val steps_def = Define`
+Definition steps_def:
   (steps f x [] = []) ∧
   (steps f x (j::js) =
    let y = f x j in
    let tr = steps f y js in
-     ((j,y)::tr))`;
+     ((j,y)::tr))
+End
 
-val steps_rel_def = Define`
+Definition steps_rel_def:
   (steps_rel R x [] ⇔ T) ∧
   (steps_rel R x ((j,y)::tr) ⇔
     R x j y ∧
-    steps_rel R y tr)`;
+    steps_rel R y tr)
+End
 
 val steps_rel_ind = theorem"steps_rel_ind";
 
@@ -3652,9 +3737,10 @@ Proof
   Induct_on`ls` \\ rw[steps_def]
 QED
 
-val all_words_def = Define `
+Definition all_words_def:
   (all_words base 0 = ∅) /\
-  (all_words base (SUC n) = base INSERT (all_words (base + 1w) n))`;
+  (all_words base (SUC n) = base INSERT (all_words (base + 1w) n))
+End
 
 Theorem IN_all_words:
    x ∈ all_words base n ⇔ (∃i. i < n ∧ x = base + n2w i)
@@ -3699,9 +3785,10 @@ Proof
   \\ res_tac \\ fs[] \\ rfs[]
 QED
 
-val asm_write_bytearray_def = Define `
+Definition asm_write_bytearray_def:
   (asm_write_bytearray a [] (m:'a word -> word8) = m) /\
-  (asm_write_bytearray a (x::xs) m = (a =+ x) (asm_write_bytearray (a+1w) xs m))`
+  (asm_write_bytearray a (x::xs) m = (a =+ x) (asm_write_bytearray (a+1w) xs m))
+End
 
 Theorem mem_eq_imp_asm_write_bytearray_eq:
    ∀a bs.
@@ -3805,12 +3892,13 @@ QED
 
 (* TODO: move to sptTheory *)
 
-val eq_shape_def = Define `
+Definition eq_shape_def:
   eq_shape LN LN = T /\
   eq_shape (LS _) (LS _) = T /\
   eq_shape (BN t1 t2) (BN u1 u2) = (eq_shape t1 u1 /\ eq_shape t2 u2) /\
   eq_shape (BS t1 _ t2) (BS u1 _ u2) = (eq_shape t1 u1 /\ eq_shape t2 u2) /\
-  eq_shape _ _ = F`;
+  eq_shape _ _ = F
+End
 
 Theorem spt_eq:
    !t1 t2.
@@ -3841,7 +3929,7 @@ Proof
   \\ rw [] \\ fs [eq_shape_def]
 QED
 
-val copy_shape_def = Define `
+Definition copy_shape_def:
   copy_shape LN LN = LN /\
   copy_shape LN (LS y) = LN /\
   copy_shape LN (BN t1 t2) = BN (copy_shape LN t1) (copy_shape LN t2) /\
@@ -3858,7 +3946,8 @@ val copy_shape_def = Define `
   copy_shape (BS u1 x u2) (LS y) =
      (if domain (BN u1 u2) = {} then LS x else BS u1 x u2) /\
   copy_shape (BS u1 x u2) (BN t1 t2) = BS u1 x u2 /\
-  copy_shape (BS u1 x u2) (BS t1 y t2) = BS (copy_shape u1 t1) x (copy_shape u2 t2)`
+  copy_shape (BS u1 x u2) (BS t1 y t2) = BS (copy_shape u1 t1) x (copy_shape u2 t2)
+End
 
 val eq_shape_copy_shape = prove(
   ``!s. domain s = {} ==> eq_shape (copy_shape LN s) s``,
@@ -3970,6 +4059,43 @@ Proof
     >- (qexists_tac `n DIV 2` >> fs[])
 QED
 
+(* The range is the set of values taken on by an sptree.
+  Not sure if these are worth moving. *)
+Definition range_def:
+  range s = {v | ∃n. lookup n s = SOME v}
+End
+
+Theorem range_delete:
+  range (delete h v) ⊆ range v
+Proof
+  simp[range_def,lookup_delete,SUBSET_DEF]>>
+  metis_tac[]
+QED
+
+Theorem range_insert:
+  n ∉ domain fml ⇒
+  range (insert n l fml) = l INSERT range fml
+Proof
+  rw[range_def,EXTENSION,lookup_insert,domain_lookup]>>
+  metis_tac[SOME_11]
+QED
+
+Theorem range_insert_2:
+  C ∈ range (insert n l fml) ⇒ C ∈ range fml ∨ C = l
+Proof
+  fs[range_def,lookup_insert]>>
+  rw[]>>
+  every_case_tac>>fs[]>>
+  metis_tac[]
+QED
+
+Theorem range_insert_SUBSET:
+  range (insert n l fml) ⊆ l INSERT range fml
+Proof
+  rw[SUBSET_DEF]>>
+  metis_tac[range_insert_2]
+QED
+
 (* END TODO *)
 
 Theorem TWOxDIV2:
@@ -3977,16 +4103,6 @@ Theorem TWOxDIV2:
 Proof
   ONCE_REWRITE_TAC[MULT_COMM]
   \\ simp[MULT_DIV]
-QED
-
-Theorem alist_insert_pull_insert:
-   ∀xs ys z. ¬MEM x xs ⇒
-   alist_insert xs ys (insert x y z) =
-   insert x y (alist_insert xs ys z)
-Proof
-  ho_match_mp_tac alist_insert_ind
-  \\ simp[alist_insert_def] \\ rw[] \\ fs[]
-  \\ metis_tac[insert_swap]
 QED
 
 Theorem alist_insert_REVERSE:
@@ -4050,7 +4166,7 @@ Proof
   \\ Cases_on`0 < n` \\ simp[]
   \\ simp[word_msb_n2w_numeric]
   \\ simp[NOT_LESS_EQUAL]
-  \\ simp[INT_MIN_def]
+  \\ simp[wordsTheory.INT_MIN_def]
   \\ simp[dimword_def]
   \\ Cases_on`dimindex(:'a)`\\simp[]
   \\ simp[EXP]
@@ -4079,10 +4195,11 @@ QED
 
 (* see #521 *)
 
-val bytes_in_memory_def = Define `
+Definition bytes_in_memory_def:
   (bytes_in_memory a [] m dm <=> T) /\
   (bytes_in_memory a ((x:word8)::xs) m dm <=>
-     (m a = x) /\ a IN dm /\ bytes_in_memory (a + 1w) xs m dm)`
+     (m a = x) /\ a IN dm /\ bytes_in_memory (a + 1w) xs m dm)
+End
 
 Theorem bytes_in_memory_APPEND:
    !l1 l2 pc mem mem_domain.
@@ -4151,11 +4268,12 @@ Proof
   \\ simp[ADD1, GSYM word_add_n2w]
 QED
 
-val bytes_in_mem_def = Define `
+Definition bytes_in_mem_def:
   (bytes_in_mem a [] m md k <=> T) /\
   (bytes_in_mem a (b::bs) m md k <=>
      a IN md /\ ~(a IN k) /\ (m a = b) /\
-     bytes_in_mem (a+1w) bs m md k)`
+     bytes_in_mem (a+1w) bs m md k)
+End
 
 Theorem bytes_in_mem_IMP:
    !xs p. bytes_in_mem p xs m dm dm1 ==> bytes_in_memory p xs m dm
@@ -4205,4 +4323,129 @@ Proof
   \\ fs [MEM_MAP,EXISTS_PROD] \\ metis_tac []
 QED
 
-val _ = export_theory()
+Theorem ALL_DISTINCT_MAP_FST_toSortedAList:
+  ALL_DISTINCT (MAP FST (toSortedAList t))
+Proof
+  `SORTED $< (MAP FST (toSortedAList t))` by
+    simp[SORTED_toSortedAList]>>
+  pop_assum mp_tac>>
+  match_mp_tac SORTED_ALL_DISTINCT>>
+  simp[irreflexive_def]
+QED
+
+
+Definition good_dimindex_def:
+  good_dimindex (:'a) ⇔ dimindex (:'a) = 32 ∨ dimindex (:'a) = 64
+End
+
+Theorem good_dimindex_get_byte_set_byte:
+  good_dimindex (:'a) ==>
+    (get_byte a (set_byte (a:'a word) b w be) be = b)
+Proof
+  strip_tac \\
+  match_mp_tac get_byte_set_byte \\
+  fs[good_dimindex_def]
+QED
+
+Triviality byte_index_LESS_IMP:
+  (dimindex (:'a) = 32 \/ dimindex (:'a) = 64) /\
+    byte_index (a:'a word) be < byte_index (a':'a word) be /\ i < 8 ==>
+    byte_index a be + i < byte_index a' be /\
+    byte_index a be <= i + byte_index a' be /\
+    byte_index a be + 8 <= i + byte_index a' be /\
+    i + byte_index a' be < byte_index a be + dimindex (:α)
+Proof
+  fs [byte_index_def,LET_DEF] \\ Cases_on `be` \\ fs []
+  \\ rpt strip_tac \\ rfs [] \\ fs []
+  \\ `w2n a MOD 4 < 4` by (match_mp_tac MOD_LESS \\ decide_tac)
+  \\ `w2n a' MOD 4 < 4` by (match_mp_tac MOD_LESS \\ decide_tac)
+  \\ `w2n a MOD 8 < 8` by (match_mp_tac MOD_LESS \\ decide_tac)
+  \\ `w2n a' MOD 8 < 8` by (match_mp_tac MOD_LESS \\ decide_tac)
+  \\ decide_tac
+QED
+
+Triviality NOT_w2w_bit:
+  8 <= i /\ i < dimindex (:'b) ==> ~((w2w:word8->'b word) w ' i)
+Proof
+  rpt strip_tac \\ rfs [w2w] \\ decide_tac
+QED
+
+val LESS4 = DECIDE ``n < 4 <=> (n = 0) \/ (n = 1) \/ (n = 2) \/ (n = 3:num)``
+val LESS8 = DECIDE ``n < 8 <=> (n = 0) \/ (n = 1) \/ (n = 2) \/ (n = 3:num) \/
+                               (n = 4) \/ (n = 5) \/ (n = 6) \/ (n = 7)``
+
+Triviality DIV_EQ_DIV_IMP:
+  0 < d /\ n <> n' /\ (n DIV d * d = n' DIV d * d) ==> n MOD d <> n' MOD d
+Proof
+  rpt strip_tac \\ Q.PAT_X_ASSUM `n <> n'` mp_tac \\ fs []
+  \\ MP_TAC (Q.SPEC `d` DIVISION) \\ fs []
+  \\ rpt strip_tac \\ pop_assum (fn th => once_rewrite_tac [th])
+  \\ fs []
+QED
+
+Theorem get_byte_set_byte_diff:
+   good_dimindex (:'a) /\ a <> a' /\ (byte_align a = byte_align a') ==>
+    (get_byte a (set_byte (a':'a word) b w be) be = get_byte a w be)
+Proof
+  fs [get_byte_def,set_byte_def,LET_DEF] \\ rpt strip_tac
+  \\ `byte_index a be <> byte_index a' be` by
+   (fs [good_dimindex_def]
+    THENL
+     [`w2n a MOD 4 < 4 /\ w2n a' MOD 4 < 4` by fs []
+      \\ `w2n a MOD 4 <> w2n a' MOD 4` by
+       (fs [alignmentTheory.byte_align_def,byte_index_def] \\ rfs [LET_DEF]
+        \\ Cases_on `a` \\ Cases_on `a'` \\ fs [w2n_n2w] \\ rw []
+        \\ rfs [alignmentTheory.align_w2n]
+        \\ `(n DIV 4 * 4 + n MOD 4) < dimword (:'a) /\
+            (n' DIV 4 * 4 + n' MOD 4) < dimword (:'a)` by
+          (METIS_TAC [DIVISION,DECIDE ``0<4:num``])
+        \\ `(n DIV 4 * 4) < dimword (:'a) /\
+            (n' DIV 4 * 4) < dimword (:'a)` by decide_tac
+        \\ match_mp_tac DIV_EQ_DIV_IMP \\ fs []),
+      `w2n a MOD 8 < 8 /\ w2n a' MOD 8 < 8` by fs []
+      \\ `w2n a MOD 8 <> w2n a' MOD 8` by
+       (fs [alignmentTheory.byte_align_def,byte_index_def] \\ rfs [LET_DEF]
+        \\ Cases_on `a` \\ Cases_on `a'` \\ fs [w2n_n2w] \\ rw []
+        \\ rfs [alignmentTheory.align_w2n]
+        \\ `(n DIV 8 * 8 + n MOD 8) < dimword (:'a) /\
+            (n' DIV 8 * 8 + n' MOD 8) < dimword (:'a)` by
+          (METIS_TAC [DIVISION,DECIDE ``0<8:num``])
+        \\ `(n DIV 8 * 8) < dimword (:'a) /\
+            (n' DIV 8 * 8) < dimword (:'a)` by decide_tac
+        \\ match_mp_tac DIV_EQ_DIV_IMP \\ fs [])]
+    \\ full_simp_tac bool_ss [LESS4,LESS8] \\ fs [] \\ rfs []
+    \\ fs [byte_index_def,LET_DEF] \\ rw [])
+  \\ fs [fcpTheory.CART_EQ,w2w,good_dimindex_def] \\ rpt strip_tac
+  \\ `i' < dimindex (:'a)` by decide_tac
+  \\ fs [word_or_def,fcpTheory.FCP_BETA,word_lsr_def,word_lsl_def]
+  \\ `i' + byte_index a be < dimindex (:'a)` by
+   (fs [byte_index_def,LET_DEF] \\ rw []
+    \\ `w2n a MOD 4 < 4` by (match_mp_tac MOD_LESS \\ decide_tac)
+    \\ `w2n a MOD 8 < 8` by (match_mp_tac MOD_LESS \\ decide_tac)
+    \\ decide_tac)
+  \\ fs [word_or_def,fcpTheory.FCP_BETA,word_lsr_def,word_lsl_def,
+         word_slice_alt_def,w2w] \\ rfs []
+  \\ fs [DECIDE ``m <> n <=> m < n \/ n < m:num``]
+  \\ Cases_on `w ' (i' + byte_index a be)` \\ fs []
+  \\ imp_res_tac byte_index_LESS_IMP
+  \\ fs [w2w] \\ TRY (match_mp_tac NOT_w2w_bit)
+  \\ fs [] \\ decide_tac
+QED
+
+(* helpful theorems for _size *)
+Theorem list_size_pair_size_MAP_FST_SND:
+  list_size (pair_size f g) ls =
+  list_size f (MAP FST ls) +
+  list_size g (MAP SND ls)
+Proof
+  Induct_on`ls`>>simp[]>>
+  Cases>>rw[]
+QED
+
+Theorem MEM_list_size:
+  MEM x ls ⇒
+  f x ≤ list_size f ls
+Proof
+  Induct_on`ls`>>simp[]>>
+  rw[]>>gvs[]
+QED

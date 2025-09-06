@@ -1,11 +1,11 @@
 (*
   In-place insertion sort on a polymorphic array.
 *)
-open preamble semanticPrimitivesTheory
-     ml_translatorTheory ml_translatorLib ml_progLib cfLib
-     basisFunctionsLib ArrayProofTheory
-
-val _ = new_theory "insertSortProg";
+Theory insertSortProg
+Ancestors
+  semanticPrimitives ml_translator ArrayProof
+Libs
+  preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
 
 val _ = translation_extends"ArrayProg";
 
@@ -40,16 +40,18 @@ end;
 `;
 val insertsort_st = ml_progLib.add_prog insertsort ml_progLib.pick_name (basis_st());
 
-val list_rel_perm_help = Q.prove (
-  `!l1 l2.
+Triviality list_rel_perm_help:
+  !l1 l2.
     PERM l1 l2
     ⇒
     !l3 l4.
       LIST_REL r (MAP FST l1) (MAP SND l1)
       ⇒
-      LIST_REL r (MAP FST l2) (MAP SND l2)`,
+      LIST_REL r (MAP FST l2) (MAP SND l2)
+Proof
   ho_match_mp_tac PERM_IND >>
-  rw []);
+  rw []
+QED
 
 Theorem list_rel_perm:
    !r l1 l2 l3 l4.
@@ -91,9 +93,11 @@ Proof
   metis_tac [ZIP_APPEND, LENGTH]
 QED
 
-val arith = Q.prove (
-  `!x:num. x ≠ 0 ⇒ &(x-1) = &x - 1:int`,
-  rw [int_arithTheory.INT_NUM_SUB]);
+Triviality arith:
+  !x:num. x ≠ 0 ⇒ &(x-1) = &x - 1:int
+Proof
+  rw [int_arithTheory.INT_NUM_SUB]
+QED
 
 val eq_num_v_thm =
   MATCH_MP
@@ -116,6 +120,7 @@ Theorem insertsort_spec:
               PERM (ZIP (elems', elem_vs')) (ZIP (elems, elem_vs)) ∧
               SORTED (\x y. ¬(cmp y x)) elems'))
 Proof
+  rpt strip_tac >>
   xcf "insertsort" insertsort_st >>
   xfun_spec `outer_loop`
     `!elem_vs2 elems1 elems2 elem_vs1 prefix_v.
@@ -483,4 +488,3 @@ Proof
     simp [])
 QED
 
-val _ = export_theory ();

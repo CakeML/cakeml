@@ -2,16 +2,11 @@
   This is a simple example of applying the translator to an
   efficient primaliy tester formalised by Joe Hurd.
 *)
-open HolKernel Parse boolLib bossLib;
-
-val _ = new_theory "example_primality_test";
-
-open miller_rabinTheory;
-open arithmeticTheory;
-open combinTheory;
-open ListProgTheory;
-
-open ml_translatorLib;
+Theory example_primality_test
+Ancestors
+  miller_rabin arithmetic combin ListProg
+Libs
+  ml_translatorLib
 
 fun find_def tm = let
   val thy = #Thy (dest_thy_const tm)
@@ -27,18 +22,22 @@ val _ = translation_extends "ListProg";
 
 val res = translate EVEN_MOD2;
 
-val UNIT_thm = Q.prove(
-  `UNIT x s = (x,s)`,
-  FULL_SIMP_TAC std_ss [state_transformerTheory.UNIT_DEF]);
+Triviality UNIT_thm:
+  UNIT x s = (x,s)
+Proof
+  FULL_SIMP_TAC std_ss [state_transformerTheory.UNIT_DEF]
+QED
 
 val _ = translate UNIT_thm;
 
 val def = find_def ``BIND``;
 val _ = translate (SIMP_RULE std_ss [FUN_EQ_THM] def);
 
-val lemma = Q.prove(
-  `prob_while_cut c b n = \x. prob_while_cut c b n x`,
-  SIMP_TAC std_ss [FUN_EQ_THM]);
+Triviality lemma:
+  prob_while_cut c b n = \x. prob_while_cut c b n x
+Proof
+  SIMP_TAC std_ss [FUN_EQ_THM]
+QED
 
 val def = find_def ``prob_while_cut``
           |> ONCE_REWRITE_RULE [lemma] |> SIMP_RULE std_ss []
@@ -81,4 +80,3 @@ val _ = translate miller_rabin_1_def;
 
 val _ = translate miller_rabin_def;
 
-val _ = export_theory();

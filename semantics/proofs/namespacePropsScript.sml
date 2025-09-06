@@ -1,11 +1,11 @@
 (*
   Proofs about the namespace datatype.
 *)
-open preamble;
-open astTheory;
-open namespaceTheory;
-
-val _ = new_theory "namespaceProps";
+Theory namespaceProps
+Ancestors
+  ast namespace
+Libs
+  preamble
 
 Theorem mk_id_11[simp]:
    !a b c d. mk_id a b = mk_id c d ⇔ (a = c) ∧ (b = d)
@@ -449,20 +449,6 @@ QED
 
 Theorem nsLookup_nsAppend_none:
    ∀e1 id e2.
-    nsLookup e1 id = NONE ∧ nsLookup e2 id = NONE
-    ⇒
-    nsLookup (nsAppend e1 e2) id = NONE
-Proof
- ho_match_mp_tac nsLookup_ind
- >> rw []
- >> Cases_on `e2`
- >> fs [nsAppend_def, nsLookup_def, ALOOKUP_APPEND]
- >> every_case_tac
- >> fs []
-QED
-
-Theorem nsLookup_nsAppend_none:
-   ∀e1 id e2.
     nsLookup (nsAppend e1 e2) id = NONE
     ⇔
     (nsLookup e1 id = NONE ∧
@@ -814,7 +800,7 @@ Proof
   \\ simp[id_to_mods_def, id_to_n_def, mk_id_thm]
 QED
 
-val alist_rel_restr_def = Define `
+Definition alist_rel_restr_def:
   (alist_rel_restr R l1 l2 [] ⇔ T) ∧
   (alist_rel_restr R l1 l2 (k1::keys) ⇔
     case ALOOKUP l1 k1 of
@@ -822,7 +808,8 @@ val alist_rel_restr_def = Define `
     | SOME v1 =>
       case ALOOKUP l2 k1 of
       | NONE => F
-      | SOME v2 => R k1 v1 v2 ∧ alist_rel_restr R l1 l2 keys)`;
+      | SOME v2 => R k1 v1 v2 ∧ alist_rel_restr R l1 l2 keys)
+End
 
 Theorem alist_rel_restr_thm:
    !R e1 e2 keys.
@@ -836,8 +823,9 @@ Proof
  >> metis_tac [NOT_SOME_NONE, SOME_11, option_nchotomy]
 QED
 
-val alistSub_def = Define `
-  alistSub R e1 e2 ⇔ alist_rel_restr R e1 e2 (MAP FST e1)`;
+Definition alistSub_def:
+  alistSub R e1 e2 ⇔ alist_rel_restr R e1 e2 (MAP FST e1)
+End
 
 Theorem alistSub_cong:
    !l1 l2 l1' l2' R R'.
@@ -854,11 +842,12 @@ QED
 
 val _ = DefnBase.export_cong "alistSub_cong";
 
-val nsSub_compute_def = tDefine "nsSub_compute" `
+Definition nsSub_compute_def:
   nsSub_compute path R (Bind e1V e1M) (Bind e2V e2M) ⇔
     alistSub (\k v1 v2. R (mk_id (REVERSE path) k) v1 v2) e1V e2V ∧
-    alistSub (\k v1 v2. nsSub_compute (k::path) R v1 v2) e1M e2M`
- (wf_rel_tac `measure (\(p,r,env,_). namespace_size (\x.0) (\x.0) (\x.0) env)`
+    alistSub (\k v1 v2. nsSub_compute (k::path) R v1 v2) e1M e2M
+Termination
+  wf_rel_tac `measure (\(p,r,env,_). namespace_size (\x.0) (\x.0) (\x.0) env)`
  >> rw []
  >> Induct_on `e1M`
  >> rw [namespace_size_def]
@@ -866,7 +855,8 @@ val nsSub_compute_def = tDefine "nsSub_compute" `
  >> fs [ALOOKUP_def]
  >> every_case_tac
  >> fs []
- >> rw [namespace_size_def]);
+ >> rw [namespace_size_def,basicSizeTheory.pair_size_def]
+End
 
 Theorem nsLookup_FOLDR_nsLift:
    !e p k. nsLookup (FOLDR nsLift e p) (mk_id p k) = nsLookup e (Short k)
@@ -906,6 +896,7 @@ Proof
  >> rw [nsLookupMod_def, mk_id_def]
 QED
 
+(*
 Theorem nsSub_compute_thm_general:
    !p R e1 e2.
     nsSub R (FOLDR nsLift e1 (REVERSE p)) (FOLDR nsLift e2 (REVERSE p)) ⇔
@@ -1053,6 +1044,7 @@ Theorem nsSub_compute_thm:
 Proof
  rw [GSYM nsSub_compute_thm_general]
 QED
+*)
 
 (* -------------- nsAll2 ---------------- *)
 
@@ -1260,10 +1252,12 @@ Proof
   rw [nsLookupMod_def]
 QED
 
-val lemma = Q.prove (
-  `(?x. y = SOME x) ⇔ y ≠ NONE`,
+Triviality lemma:
+  (?x. y = SOME x) ⇔ y ≠ NONE
+Proof
   Cases_on `y` >>
-  rw []);
+  rw []
+QED
 
 Theorem nsDom_nsAppend_equal:
    !n1 n2 n3 n4.
@@ -1340,4 +1334,3 @@ Proof
     metis_tac [option_nchotomy])
 QED
 
-val _ = export_theory ();

@@ -1,26 +1,24 @@
 (*
   Weakening lemmas used in type soundness
 *)
-open preamble;
-open optionTheory rich_listTheory alistTheory;
-open miscTheory;
-open libTheory astTheory typeSystemTheory typeSysPropsTheory;
-open namespacePropsTheory;
-open semanticPrimitivesTheory;
-open astPropsTheory;
-open typeSoundInvariantsTheory;
+Theory weakening
+Ancestors
+  option rich_list alist ast typeSystem typeSysProps
+  namespaceProps semanticPrimitives astProps typeSoundInvariants
+Libs
+  preamble
 
-val _ = new_theory "weakening";
-
-val weak_tenvE_def = Define `
+Definition weak_tenvE_def:
 weak_tenvE tenv tenv' =
   (num_tvs tenv ≥ num_tvs tenv' ∧
    ∀n inc tvs t.
     (tveLookup n inc tenv' = SOME (tvs,t)) ⇔
-    (tveLookup n inc tenv = SOME (tvs,t)))`;
+    (tveLookup n inc tenv = SOME (tvs,t)))
+End
 
-val weakS_def = Define `
-weakS tenvS tenvS' ⇔ tenvS' SUBMAP tenvS`;
+Definition weakS_def:
+weakS tenvS tenvS' ⇔ tenvS' SUBMAP tenvS
+End
 
 Theorem weak_tenvE_refl:
    !tenvE. weak_tenvE tenvE tenvE
@@ -71,80 +69,96 @@ Proof
  rw [weakS_def, FLOOKUP_UPDATE, flookup_thm]
 QED
 
-val weak_tenvE_freevars = Q.prove (
-`!tenv tenv' tvs t.
+Triviality weak_tenvE_freevars:
+  !tenv tenv' tvs t.
   weak_tenvE tenv' tenv ∧
   check_freevars (num_tvs tenv) tvs t ⇒
-  check_freevars (num_tvs tenv') tvs t`,
-rw [weak_tenvE_def] >>
-metis_tac [check_freevars_add]);
+  check_freevars (num_tvs tenv') tvs t
+Proof
+  rw [weak_tenvE_def] >>
+metis_tac [check_freevars_add]
+QED
 
-val weak_tenvE_bind = Q.prove (
-`!tenv tenv' n tvs t.
+Triviality weak_tenvE_bind:
+  !tenv tenv' n tvs t.
   weak_tenvE tenv' tenv ⇒
-  weak_tenvE (Bind_name n tvs t tenv') (Bind_name n tvs t tenv)`,
-rw [weak_tenvE_def, tveLookup_def] >>
+  weak_tenvE (Bind_name n tvs t tenv') (Bind_name n tvs t tenv)
+Proof
+  rw [weak_tenvE_def, tveLookup_def] >>
 every_case_tac >>
-rw []);
+rw []
+QED
 
-val weak_tenvE_opt_bind = Q.prove (
-`!tenv tenv' n tvs t.
+Triviality weak_tenvE_opt_bind:
+  !tenv tenv' n tvs t.
   weak_tenvE tenv' tenv ⇒
-  weak_tenvE (opt_bind_name n tvs t tenv') (opt_bind_name n tvs t tenv)`,
- rw [weak_tenvE_def, num_tvs_def, opt_bind_name_def, tveLookup_def] >>
+  weak_tenvE (opt_bind_name n tvs t tenv') (opt_bind_name n tvs t tenv)
+Proof
+  rw [weak_tenvE_def, num_tvs_def, opt_bind_name_def, tveLookup_def] >>
  every_case_tac >>
  fs [tveLookup_def, num_tvs_def] >>
  every_case_tac >>
- fs []);
+ fs []
+QED
 
-val weak_tenvE_bind_tvar = Q.prove (
-`!tenv tenv' tvs.
+Triviality weak_tenvE_bind_tvar:
+  !tenv tenv' tvs.
   weak_tenvE tenv' tenv ⇒
-  weak_tenvE (bind_tvar tvs tenv') (bind_tvar tvs tenv)`,
-rw [weak_tenvE_def, num_tvs_def, bind_tvar_def, tveLookup_def] >>
-decide_tac);
+  weak_tenvE (bind_tvar tvs tenv') (bind_tvar tvs tenv)
+Proof
+  rw [weak_tenvE_def, num_tvs_def, bind_tvar_def, tveLookup_def] >>
+decide_tac
+QED
 
-val weak_tenvE_bind_tvar2 = Q.prove (
-`!tenv tenv' n tvs t.
+Triviality weak_tenvE_bind_tvar2:
+  !tenv tenv' n tvs t.
   tenv_val_exp_ok tenv ∧
   num_tvs tenv = 0 ∧
   weak_tenvE tenv' tenv ⇒
-  weak_tenvE (bind_tvar tvs tenv') (bind_tvar 0 tenv)`,
- rw [weak_tenvE_def, num_tvs_def, bind_tvar_def]
- >> metis_tac [tveLookup_no_tvs]);
+  weak_tenvE (bind_tvar tvs tenv') (bind_tvar 0 tenv)
+Proof
+  rw [weak_tenvE_def, num_tvs_def, bind_tvar_def]
+ >> metis_tac [tveLookup_no_tvs]
+QED
 
-val weak_tenvE_bind_var_list = Q.prove (
-`!bindings tenvE tenvE' n tvs t .
+Triviality weak_tenvE_bind_var_list:
+  !bindings tenvE tenvE' n tvs t .
   weak_tenvE tenvE' tenvE ⇒
-  weak_tenvE (bind_var_list tvs bindings tenvE') (bind_var_list tvs bindings tenvE)`,
-induct_on `bindings` >>
+  weak_tenvE (bind_var_list tvs bindings tenvE') (bind_var_list tvs bindings tenvE)
+Proof
+  induct_on `bindings` >>
 rw [weak_tenvE_def, bind_var_list_def, num_tvs_def] >>
 PairCases_on `h` >>
 fs [bind_var_list_def, tveLookup_def] >>
 every_case_tac >>
 fs [weak_tenvE_def] >>
-PROVE_TAC []);
+PROVE_TAC []
+QED
 
-val eLookupC_weak = Q.prove (
-  `∀cn tenv tenv' tvs ts tn.
+Triviality eLookupC_weak:
+  ∀cn tenv tenv' tvs ts tn.
     weak_tenv tenv' tenv ∧
     nsLookup tenv.c cn = SOME (tvs,ts,tn)
     ⇒
-    nsLookup tenv'.c cn = SOME (tvs,ts,tn)`,
- rw [weak_tenv_def, namespaceTheory.nsSub_def]);
+    nsLookup tenv'.c cn = SOME (tvs,ts,tn)
+Proof
+  rw [weak_tenv_def, namespaceTheory.nsSub_def]
+QED
 
-val eLookupV_weak = Q.prove (
-  `∀n tenv tenv' tvs t.
+Triviality eLookupV_weak:
+  ∀n tenv tenv' tvs t.
     weak_tenv tenv' tenv ∧
     nsLookup tenv.v n = SOME (tvs,t)
     ⇒
-    ∃tvs' t'. nsLookup tenv'.v n = SOME (tvs',t') ∧ tscheme_inst (tvs,t) (tvs',t')`,
- rw [weak_tenv_def, namespaceTheory.nsSub_def, tscheme_inst2_def]
- >> metis_tac [pair_CASES]);
+    ∃tvs' t'. nsLookup tenv'.v n = SOME (tvs',t') ∧ tscheme_inst (tvs,t) (tvs',t')
+Proof
+  rw [weak_tenv_def, namespaceTheory.nsSub_def, tscheme_inst2_def]
+ >> metis_tac [pair_CASES]
+QED
 
       (*
-val weakE_lookup = Q.prove (
-`!n env env' tvs t.
+Triviality weakE_lookup:
+  !n env env' tvs t.
   weakE env' env ∧
   (ALOOKUP env n = SOME (tvs, t))
   ⇒
@@ -153,36 +167,43 @@ val weakE_lookup = Q.prove (
     check_freevars tvs' [] t' ∧
     (LENGTH subst = tvs') ∧
     EVERY (check_freevars tvs []) subst ∧
-    (deBruijn_subst 0 subst t' = t)`,
- rw [weakE_def] >>
+    (deBruijn_subst 0 subst t' = t)
+Proof
+  rw [weakE_def] >>
  qpat_x_assum `!cn. P cn` (MP_TAC o Q.SPEC `n`) >>
  rw [] >>
  every_case_tac >>
  fs [] >>
- metis_tac []);
+ metis_tac []
+QED
 
-val weak_tenvM_lookup_lem = Q.prove (
-`!tvs.
-  EVERY (λx. check_freevars tvs [] (Tvar_db x)) (COUNT_LIST tvs)`,
-Induct >>
+Triviality weak_tenvM_lookup_lem:
+  !tvs.
+  EVERY (λx. check_freevars tvs [] (Tvar_db x)) (COUNT_LIST tvs)
+Proof
+  Induct >>
 rw [COUNT_LIST_def, check_freevars_def, EVERY_MAP] >>
-fs [check_freevars_def]);
+fs [check_freevars_def]
+QED
 
-val weak_tenvM_lookup = Q.prove (
-`!mn tenvM tenvM' tenv tenv' tvs t.
+Triviality weak_tenvM_lookup:
+  !mn tenvM tenvM' tenv tenv' tvs t.
   weakM tenvM' tenvM ∧
   FLOOKUP tenvM mn = SOME tenv
   ⇒
   ?tenv'.
     FLOOKUP tenvM' mn = SOME tenv' ∧
-    weakE tenv' tenv`,
- rw [weakM_def]);
+    weakE tenv' tenv
+Proof
+  rw [weakM_def]
+QED
 
  *)
 
-val weak_def = Define `
+Definition weak_def:
 weak tenv' tenv ⇔
-  tenv'.t = tenv.t ∧ weak_tenv tenv' tenv`;
+  tenv'.t = tenv.t ∧ weak_tenv tenv' tenv
+End
 
 Theorem type_p_weakening_strong:
  (!tvs tenv p t bindings. type_p tvs tenv p t bindings ⇒
@@ -216,14 +237,14 @@ Proof
   \\ rw[]
 QED
 
-(*
-val type_e_weakening_lem = Q.prove (
-`(!tenv tenvE e t. type_e tenv tenvE e t ⇒
+Triviality type_e_weakening_lem:
+  (!tenv tenvE e t. type_e tenv tenvE e t ⇒
     ∀tenv' tenvE'. weak tenv' tenv ∧ weak_tenvE tenvE' tenvE ⇒ type_e tenv' tenvE' e t) ∧
  (!tenv tenvE es ts. type_es tenv tenvE es ts ⇒
     ∀tenv' tenvE'. weak tenv' tenv ∧ weak_tenvE tenvE' tenvE ⇒ type_es tenv' tenvE' es ts) ∧
  (!tenv tenvE funs bindings. type_funs tenv tenvE funs bindings ⇒
-    ∀tenv' tenvE'. weak tenv' tenv ∧ weak_tenvE tenvE' tenvE ⇒ type_funs tenv' tenvE' funs bindings)`,
+    ∀tenv' tenvE'. weak tenv' tenv ∧ weak_tenvE tenvE' tenvE ⇒ type_funs tenv' tenvE' funs bindings)
+Proof
   ho_match_mp_tac type_e_ind >>
   rw [weak_def] >>
   rw [Once type_e_cases]
@@ -317,7 +338,8 @@ val type_e_weakening_lem = Q.prove (
   >- (
     first_x_assum match_mp_tac  >>
     rw [] >>
-    metis_tac [weak_tenvE_bind, weak_tenvE_bind_tvar, weak_tenvE_freevars]));
+    metis_tac [weak_tenvE_bind, weak_tenvE_bind_tvar, weak_tenvE_freevars])
+QED
 
 Theorem type_e_weakening:
  (!tenv tenvE e t tenv' tenvE'.
@@ -329,7 +351,6 @@ Theorem type_e_weakening:
 Proof
 metis_tac [type_e_weakening_lem]
 QED
-*)
 
 Theorem type_p_weakening:
  (!tvs tenv p t bindings. type_p tvs tenv p t bindings ⇒
@@ -443,21 +464,26 @@ Proof
 metis_tac [type_e_weakening_lem]
 QED
 
-val gt_0 = Q.prove (
-`!x:num.x ≥ 0`,
-decide_tac);
+Triviality gt_0:
+  !x:num.x ≥ 0
+Proof
+  decide_tac
+QED
 
-val weakCT_def = Define `
-weakCT cenv_impl cenv_spec ⇔ cenv_spec SUBMAP cenv_impl`;
+Definition weakCT_def:
+weakCT cenv_impl cenv_spec ⇔ cenv_spec SUBMAP cenv_impl
+End
 
-val weak_ctMap_lookup = Q.prove (
-`∀ctMap ctMap' tvs ts stamp.
+Triviality weak_ctMap_lookup:
+  ∀ctMap ctMap' tvs ts stamp.
   weakCT ctMap' ctMap ∧
   FLOOKUP ctMap stamp = SOME (tvs,ts)
   ⇒
-  FLOOKUP ctMap' stamp = SOME (tvs,ts)`,
-rw [weakCT_def] >>
-metis_tac [FLOOKUP_SUBMAP]);
+  FLOOKUP ctMap' stamp = SOME (tvs,ts)
+Proof
+  rw [weakCT_def] >>
+metis_tac [FLOOKUP_SUBMAP]
+QED
 
 Theorem weakCT_refl:
  !ctMap. weakCT ctMap ctMap
@@ -507,8 +533,8 @@ Proof
  >> metis_tac [FLOOKUP_SUBMAP]
 QED
 
-val type_tenv_val_weakening_lemma = Q.prove (
-`!ctMap tenvS tenvV envV ctMap' tenvS'.
+Triviality type_tenv_val_weakening_lemma:
+  !ctMap tenvS tenvV envV ctMap' tenvS'.
   weakCT ctMap' ctMap ∧
   weakS tenvS' tenvS ∧
   nsAll2 (λi v (tvs,t).
@@ -520,8 +546,9 @@ val type_tenv_val_weakening_lemma = Q.prove (
             type_v tvs' ctMap' tenvS' v t)
          envV tenvV
   ⇒
-  nsAll2 (λi v (tvs,t). type_v tvs ctMap' tenvS' v t) envV tenvV`,
- rw [type_all_env_def, weakCT_def, weakS_def]
+  nsAll2 (λi v (tvs,t). type_v tvs ctMap' tenvS' v t) envV tenvV
+Proof
+  rw [type_all_env_def, weakCT_def, weakS_def]
  >> irule nsAll2_mono
  >> qexists_tac `(λi v (tvs,t).
            ∀tvs' ctMap' tenvS'.
@@ -530,13 +557,16 @@ val type_tenv_val_weakening_lemma = Q.prove (
              type_v tvs' ctMap' tenvS' v t) `
  >> rw []
  >> pairarg_tac
- >> fs []);
+ >> fs []
+QED
 
-val remove_lambda_prod = Q.prove (
-`(\(x,y). P x y) = (\xy. P (FST xy) (SND xy))`,
- rw [FUN_EQ_THM]
+Triviality remove_lambda_prod:
+  (\(x,y). P x y) = (\xy. P (FST xy) (SND xy))
+Proof
+  rw [FUN_EQ_THM]
  >> pairarg_tac
- >> rw []);
+ >> rw []
+QED
 
 (*
 Theorem type_v_weakening:
@@ -780,20 +810,23 @@ Proof
 QED
 
  (*
-val weakCT_only_other_mods_def = Define `
+Definition weakCT_only_other_mods_def:
 weakCT_only_other_mods mn ctMap' ctMap =
   !cn tn.
     ((cn,tn) ∈ FDOM ctMap' ∧ (cn,tn) ∉ FDOM ctMap)
     ⇒
-    (?mn' x. mn ≠ SOME mn' ∧ (tn = TypeId (Long mn' x) ∨ tn = TypeExn (Long mn' x)))`;
+    (?mn' x. mn ≠ SOME mn' ∧ (tn = TypeId (Long mn' x) ∨ tn = TypeExn (Long mn' x)))
+End
 
-val weakCT_only_other_mods_merge = Q.prove (
-`!mn ctMap1 ctMap2 ctMap3.
+Triviality weakCT_only_other_mods_merge:
+  !mn ctMap1 ctMap2 ctMap3.
   weakCT_only_other_mods mn ctMap2 ctMap3
   ⇒
-  weakCT_only_other_mods mn (FUNION ctMap1 ctMap2) (FUNION ctMap1 ctMap3)`,
-rw [weakCT_only_other_mods_def] >>
-metis_tac []);
+  weakCT_only_other_mods mn (FUNION ctMap1 ctMap2) (FUNION ctMap1 ctMap3)
+Proof
+  rw [weakCT_only_other_mods_def] >>
+metis_tac []
+QED
 
 Theorem weak_decls_only_mods_union:
  !decls1 decls2 decls3.
@@ -835,10 +868,11 @@ Proof
  fs [weak_decls_def, SUBSET_DEF]
 QED
 
-val weak_decls_other_mods_def = Define `
+Definition weak_decls_other_mods_def:
 weak_decls_other_mods mn d' d ⇔
   (!tid. tid ∈ d'.defined_types ∧ tid ∉ d.defined_types ⇒ ¬?tn. tid = mk_id mn tn) ∧
-  (!cid. cid ∈ d'.defined_exns ∧ cid ∉ d.defined_exns ⇒ ¬?cn. cid = mk_id mn cn)`;
+  (!cid. cid ∈ d'.defined_exns ∧ cid ∉ d.defined_exns ⇒ ¬?cn. cid = mk_id mn cn)
+End
 
 Theorem weak_decls_other_mods_refl:
  !mn decls. weak_decls_other_mods mn decls decls
@@ -1134,4 +1168,3 @@ Proof
 QED
  *)
 
-val _ = export_theory ();

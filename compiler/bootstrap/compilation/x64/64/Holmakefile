@@ -2,10 +2,11 @@ ARCH = x64
 WORD_SIZE = 64
 INCLUDES = $(CAKEMLDIR)/semantics $(CAKEMLDIR)/basis ../../../.. $(CAKEMLDIR)/unverified/sexpr-bootstrap \
 					 ../../../../encoders/asm ../../../../encoders/$(ARCH)\
-					 ../../../../backend/$(ARCH) ../../../../backend/serialiser ../../../translation
+					 ../../../../backend/$(ARCH) ../../../../backend/serialiser ../../../translation \
+                                         $(CAKEMLDIR)/cv_translator
 
-all: $(DEFAULT_TARGETS) README.md cake-$(ARCH)-$(WORD_SIZE).tar.gz
-.PHONY: all
+all: $(DEFAULT_TARGETS) README.md cake-$(ARCH)-$(WORD_SIZE).tar.gz test-hello-cake test-candle-records
+.PHONY: all test-hello-cake test-candle-records
 
 README_SOURCES = $(wildcard *Script.sml) $(wildcard *Lib.sml) $(wildcard *Syntax.sml)
 DIRS = $(wildcard */)
@@ -13,15 +14,29 @@ README.md: $(CAKEMLDIR)/developers/readme_gen readmePrefix $(patsubst %,%readmeP
 	$(protect $(CAKEMLDIR)/developers/readme_gen) $(README_SOURCES)
 
 cake.S: *$(ARCH)BootstrapScript.sml
+config_enc_str.txt: *$(ARCH)BootstrapScript.sml
 
 cake-sexpr-32: *sexprBootstrap32Script.sml
 cake-sexpr-64: *sexprBootstrap64Script.sml
 
-cake-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile how-to.md cake-sexpr-32 cake-sexpr-64
-	tar -chzf $@ --transform='s|^|cake-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile how-to.md cake-sexpr-32 cake-sexpr-64
+cake: cake.S
+	make cake
+
+test-hello-cake: cake-$(ARCH)-$(WORD_SIZE).tar.gz cake
 	make test-hello.cake   # the following lines are a basic test
 	./test-hello.cake >output
 	echo 'Hello!'>expected_output
 	diff output expected_output   # returns non-zero if files differ
 
+test-candle-records: cake-$(ARCH)-$(WORD_SIZE).tar.gz cake
+	./cake --candle < candle_records.ml | tail -n29 > candle.out
+	diff candle.out candle.expected
+
+cake-$(ARCH)-$(WORD_SIZE).tar.gz: cake.S basis_ffi.c Makefile hello.cml how-to.md cake-sexpr-32 cake-sexpr-64 config_enc_str.txt candle_boot.ml repl_boot.cml
+	tar -chzf $@ --transform='s|^|cake-$(ARCH)-$(WORD_SIZE)/|' cake.S basis_ffi.c Makefile hello.cml how-to.md cake-sexpr-32 cake-sexpr-64 config_enc_str.txt candle_boot.ml repl_boot.cml
+
 EXTRA_CLEANS = cake.S cake-$(ARCH)-$(WORD_SIZE).tar.gz cake test-hello.cake output expected_output
+
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/cv_translator/cake_compile_heap
+endif

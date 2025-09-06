@@ -2,20 +2,17 @@
   Prove top-level correctness theorem for complete compiler, i.e. the
   combination of parsing, type inference, compiler backend.
 *)
-open preamble
-     compilerTheory
-     semanticsTheory targetSemTheory
-     evaluatePropsTheory typeSoundTheory typeSoundInvariantsTheory
-     pegSoundTheory pegCompleteTheory
-     inferTheory inferSoundTheory inferCompleteTheory
-     inferPropsTheory envRelTheory
-     backendProofTheory
-
-val _ = new_theory"compilerProof";
+Theory compilerProof
+Ancestors
+  compiler semantics targetSem evaluateProps typeSound
+  typeSoundInvariants pegSound pegComplete infer inferSound
+  inferComplete inferProps envRel lab_to_targetProof backendProof
+Libs
+  preamble
 
 val _ = diminish_srw_ss ["ABBREV"]
 
-val config_ok_def = Define`
+Definition config_ok_def:
   config_ok (cc:α compiler$config) mc ⇔
     env_rel prim_tenv cc.inferencer_config ∧
     inf_set_tids_ienv prim_type_ids cc.inferencer_config ∧ (* TODO: ok? *)
@@ -25,9 +22,10 @@ val config_ok_def = Define`
     ¬cc.only_print_types ∧
     ¬cc.only_print_sexp ∧
     backend_config_ok cc.backend_config ∧
-    mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
+    mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc
+End
 
-val initial_condition_def = Define`
+Definition initial_condition_def:
   initial_condition (st:'ffi semantics$state) (cc:α compiler$config) mc ⇔
     (st.sem_st,st.sem_env) = THE (prim_sem_env st.sem_st.ffi) ∧
     (?ctMap.
@@ -45,7 +43,8 @@ val initial_condition_def = Define`
     ¬cc.only_print_types ∧
     ¬cc.only_print_sexp ∧
     backend_config_ok cc.backend_config ∧
-    mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc`;
+    mc_conf_ok mc ∧ mc_init_ok cc.backend_config mc
+End
 
 Theorem parse_prog_correct:
   (parse_prog s = Failure y1 y2 ⇒ parse s = NONE) ∧
@@ -88,10 +87,11 @@ Proof
 QED
 
 Theorem compile_tap_compile:
-   ∀conf p res td. backend$compile_tap conf p = (res,td) ⇒
+  ∀conf p res td.
+    backend_passes$compile_tap conf p = (res,td) ⇒
     backend$compile conf p = res
 Proof
-  simp[backendTheory.compile_def]
+  metis_tac [backend_passesTheory.compile_alt,FST]
 QED
 
 Definition read_limits_def:
@@ -115,8 +115,8 @@ Theorem compile_correct_gen:
         (semantics st prelude input = Execute behaviours) ∧
         parse (lexer_fun input) = SOME source_decs ∧
         ∀ms.
-          installed code cbspace data data_sp c.lab_conf.ffi_names st.sem_st.ffi
-            (heap_regs cc.backend_config.stack_conf.reg_names) mc ms
+          installed code cbspace data data_sp c.lab_conf.ffi_names
+            (heap_regs cc.backend_config.stack_conf.reg_names) mc c.lab_conf.shmem_extra ms
             ⇒
             machine_sem mc st.sem_st.ffi ms ⊆
               extend_with_resource_limit'
@@ -146,6 +146,7 @@ Proof
   \\ IF_CASES_TAC \\ fs[]
   \\ simp[semantics_def]
   \\ rpt (BasicProvers.CASE_TAC \\ simp[])
+  \\ fs[]
   \\ drule compile_tap_compile
   \\ rpt strip_tac
   \\ (backendProofTheory.compile_correct'
@@ -188,7 +189,7 @@ Theorem compile_correct_lemma:
         (semantics_init ffi prelude input = Execute behaviours) ∧
         parse (lexer_fun input) = SOME source_decs ∧
         ∀ms.
-          installed code cbspace data data_sp c.lab_conf.ffi_names ffi (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
+          installed code cbspace data data_sp c.lab_conf.ffi_names (heap_regs cc.backend_config.stack_conf.reg_names) mc c.lab_conf.shmem_extra ms ⇒
             machine_sem mc ffi ms ⊆
               extend_with_resource_limit'
                 (is_safe_for_space ffi cc
@@ -238,8 +239,8 @@ Theorem compile_correct_safe_for_space:
         ∀ms.
           is_safe_for_space ffi cc (prelude ++ source_decs)              (* cost semantics *)
             (read_limits cc mc ms) ∧
-          installed code cbspace data data_sp c.lab_conf.ffi_names ffi
-            (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
+          installed code cbspace data data_sp c.lab_conf.ffi_names
+            (heap_regs cc.backend_config.stack_conf.reg_names) mc c.lab_conf.shmem_extra ms ⇒
           machine_sem mc ffi ms = behaviours                             (* <-- equality *)
 Proof
   rw [] \\ mp_tac (SPEC_ALL compile_correct_lemma) \\ fs []
@@ -272,8 +273,8 @@ Theorem compile_correct = Q.prove(`
       ∃behaviours.
         (semantics_init ffi prelude input = Execute behaviours) ∧
         ∀ms.
-          installed code cbspace data data_sp c.lab_conf.ffi_names ffi
-            (heap_regs cc.backend_config.stack_conf.reg_names) mc ms ⇒
+          installed code cbspace data data_sp c.lab_conf.ffi_names
+            (heap_regs cc.backend_config.stack_conf.reg_names) mc c.lab_conf.shmem_extra ms ⇒
           machine_sem mc ffi ms ⊆
             extend_with_resource_limit behaviours
           (* see the compile_correct_safe_for_space version above
@@ -303,5 +304,3 @@ Proof
     rw [unconvert_t_def, inf_set_tids_def,typeSystemTheory.check_freevars_def]) >>
   rw [typeSystemTheory.prim_type_nums_def]
 QED
-
-val _ = export_theory();

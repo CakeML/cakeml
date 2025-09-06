@@ -1,9 +1,19 @@
 (*
   Call optimisation for loopLang
 *)
-open preamble loopLangTheory
+Theory loop_call
+Ancestors
+  loopLang
+Libs
+  preamble
 
-val _ = new_theory "loop_call"
+Definition is_load_def:
+  (is_load Load = T) ∧
+  (is_load Load8 = T) ∧
+  (is_load Load16 = T) ∧
+  (is_load Load32 = T) ∧
+  (is_load _ = F)
+End
 
 Definition comp_def:
   (comp l Skip = (Skip, l)) /\
@@ -27,6 +37,11 @@ Definition comp_def:
                           case lookup n l of
                            | NONE => l
                            | _ => delete n l)) /\
+  (comp l (ShMem op n e) = (ShMem op n e, LN)) /\
+  (comp l (Load32 m n) = (Load32 m n,
+                            case lookup n l of
+                             | NONE => l
+                             | _ => delete n l)) /\
   (comp l (LoadByte m n) = (LoadByte m n,
                             case lookup n l of
                              | NONE => l
@@ -50,6 +65,28 @@ Definition comp_def:
   (comp l Tick = (Tick, LN)) /\
   (comp l (Raise n) = (Raise n, LN)) /\
   (comp l (Return n) = (Return n, LN)) /\
+  (comp l (Arith arith) =
+   (Arith arith,
+    case arith of
+      LLongMul r1 r2 r3 r4 =>
+        (case (lookup r1 l, lookup r2 l) of
+           (NONE, NONE) => l
+         | (SOME _ , NONE) => delete r1 l
+         | (NONE, SOME loc) => delete r2 l
+         | _ => delete r1 $ delete r2 l
+        )
+    | LLongDiv r1 r2 r3 r4 r5 =>
+        (case (lookup r1 l, lookup r2 l) of
+           (NONE, NONE) => l
+         | (SOME _ , NONE) => delete r1 l
+         | (NONE, SOME loc) => delete r2 l
+         | _ => delete r1 $ delete r2 l
+        )
+    | LDiv r1 r2 r3 =>
+        (case lookup r1 l of
+           NONE => l
+         | _ => delete r1 l)
+    | _ => l)) ∧
   (comp l p = (p, l))
 End
 
@@ -77,4 +114,3 @@ EVAL “(comp
 *)
 
 
-val _ = export_theory();

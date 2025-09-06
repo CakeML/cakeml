@@ -1,0 +1,4 @@
+Formalization of idealized semantics of FloVer that handle both real-numbered
+semantics and finite-precision semantics.
+
+Supported types are defined in `Infra/MachineTypesScript.sml`.
