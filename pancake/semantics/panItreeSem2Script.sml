@@ -754,252 +754,10 @@ Type rtree[pp] = “:((ffi_outcome + word8 list) + α result option # α bstate,
                     α panLang$prog # α bstate + ev,
      (ffi_outcome + word8 list) + α result option # α bstate) itree”;
 
-(*** retry ***)
+Type fst[pp] = “:(ffiname -> β -> word8 list -> word8 list -> β oracle_result) # β”;
 
-Definition ltree_def:
-  (ltree (x,x') (t:'a ptree)) =
-  itree_iter
-  (λ(t,st).
-     case t of
-       Ret r => Ret (INR r)
-     | Tau u => Ret (INL (u,st))
-     | Vis (s,c,ws) g =>
-         (case x s st c ws of
-            Oracle_return fs' ws' => Ret (INL (g (INL (INR ws')), fs'))
-          | Oracle_final outcome => Ret (INL (g (INL (INR ws)), st))))
-  (t,x')
-End
 
-Theorem ltree_simps[simp]:
-  (ltree (x,x') (Ret r) = Ret r) ∧
-  (ltree (x,x') (Tau u) = Tau (ltree (x,x') u)) ∧
-  (ltree (x,x') (Vis (s,c,ws) g) =
-         (case x s x' c ws of
-            Oracle_return fs' ws' =>
-              Tau (ltree (x,fs') (g (INL (INR ws'))))
-          | Oracle_final outcome =>
-              Tau (ltree (x,x') (g (INL (INR ws))))))
-Proof
-  rw[]>>simp[ltree_def,Once itree_iter_thm]>>
-  CASE_TAC>>simp[itree_bind_thm]>>
-  simp[Once ltree_def]
-QED
-
-(***)
-
-Definition comp_ffi_def:
-  comp_ffi (x,x') (t:'a ptree) =
-  WHILE
-    (λ(t,st). case t of Ret _ => F | _ => T)
-    (λ(t,st).
-        case t of
-        | Ret _ => (t,st)
-        | Tau t => (t,st)
-        | Vis (s,c,ws) g =>
-            case x s st c ws of
-              Oracle_return fs' ws' => (g (INL (INR ws')), fs')
-            | Oracle_final outcome => (g (INL (INR ws)), st)
-    )
-    (t,x')
-End
-
-Theorem comp_ffi_simps[simp]:
-  comp_ffi (x,x') (Ret r) = (Ret r, x') ∧
-  comp_ffi (x,x') (Tau t) = comp_ffi (x,x') t ∧
-  comp_ffi (x,x') (Vis (s,c,ws) g) =
-  case x s x' c ws of
-    Oracle_return fs' ws' => comp_ffi (x,fs') (g (INL (INR ws')))
-  | Oracle_final outcome => comp_ffi (x,x') (g (INL (INR ws)))
-Proof
-  rw[comp_ffi_def]>>simp[Once whileTheory.WHILE] >>
-  rw[ELIM_UNCURRY] >>
-  PURE_TOP_CASE_TAC >> rw[]
-QED        
-
-(*** traces ***)
-
-Definition trace_prefix'_def:
-  trace_prefix' (x,x') (th:'a ptree) =
-  LFLATTEN $ LUNFOLD
-  (λ(fs,t). case t of
-               Ret r => NONE
-             | Tau u => SOME ((fs,u),LNIL)
-             | Vis (s,conf,ws) k =>
-                 (case x s fs conf ws of
-                  | Oracle_return fs' ws' =>
-                      if LENGTH ws ≠ LENGTH ws'
-                      then SOME ((fs', k (INL (INR ws'))),LNIL)
-                      else
-                        SOME ((fs',k (INL (INR ws'))),[|IO_event s conf (ZIP (ws,ws'))|])
-                  | Oracle_final outcome =>
-                      SOME ((fs, k (INL (INR ws))),LNIL)))
-  (x',th)
-End
-
-Theorem trace_prefix_simps[simp]:
-  trace_prefix' (x,x') (Ret r) = [||] ∧
-  trace_prefix' (x,x') (Tau u) = trace_prefix' (x,x') u ∧
-  trace_prefix' (x,x') (Vis (s,c,ws) k) =
-    case x s x' c ws of
-    | Oracle_return fs' ws' =>
-        if LENGTH ws ≠ LENGTH ws'
-        then trace_prefix' (x,fs') (k (INL (INR ws')))
-        else
-          IO_event s c (ZIP (ws,ws')):::trace_prefix' (x,fs') (k (INL (INR ws')))
-    | Oracle_final outcome => trace_prefix' (x,x') (k (INL (INR ws)))
-Proof
-  rw[trace_prefix'_def]>>
-  simp[Once LUNFOLD]>>
-  CASE_TAC>>fs[]>>
-  CASE_TAC>>fs[]
-QED
-
-(****)
-
-Theorem ltree_bind[simp]:
-  ltree (x,x') (itree_bind t k) =
-  itree_bind (ltree (x,x') t) (ltree (x,SND (comp_ffi (x,x') t)) o k)
-Proof
-  simp[Once itree_strong_bisimulation] >>
-  qexists ‘CURRY {(ltree (x,x') (itree_bind t k),
-                   itree_bind (ltree (x,x') t) (ltree (x, SND (comp_ffi (x,x') t)) o k))|x',t,k|T}’ >>
-  rw[EXISTS_PROD]>- metis_tac[]>>
-  rename [‘ltree (x,_) (itree_bind t _)’]
-  >- (Cases_on ‘t’>>fs[itree_bind_thm]>>
-      PairCases_on ‘a’>>simp[]>>
-      CASE_TAC>>fs[])
-  >- (Cases_on ‘t’ >>fs[itree_bind_thm]
-      >- metis_tac[]
-      >- metis_tac[]>>
-      PairCases_on ‘a’>>fs[]>>
-      CASE_TAC>>fs[]>>
-      metis_tac[])>>
-  Cases_on ‘t’ >>fs[itree_bind_thm]
-  >- metis_tac[]>>
-  PairCases_on ‘a'’>>fs[]>>
-  CASE_TAC>>fs[]
-QED
-
-Theorem ltree_FUNPOW_Tau[simp]:
-  ltree (x,x') (FUNPOW Tau n t) = FUNPOW Tau n (ltree (x,x') t)
-Proof
-  map_every qid_spec_tac [‘x'’,‘t’,‘n’]>>
-  Induct>>rw[FUNPOW_SUC]
-QED
-
-Theorem comp_ffi_FUNPOW_Tau[simp]:
-comp_ffi (x,x') (FUNPOW Tau n t) = comp_ffi (x,x') t
-Proof
-  map_every qid_spec_tac [‘x'’,‘t’,‘n’]>>
-  Induct>>rw[FUNPOW_SUC]
-QED
-
-Theorem nonret_imp_spin:
-  (∀n r. ltree (x,x') t ≠ FUNPOW Tau n (Ret r)) ⇒
-        ltree (x,x') t = spin
-Proof
-  rw[]>>
-  irule EQ_SYM>>
-  simp[Once itree_bisimulation] >>
-  qexists ‘CURRY {(spin,ltree (x,x') t)|x',t|
-           ∀n r. ltree (x,x') t ≠ FUNPOW Tau n (Ret r)}’>>
-  rw[EXISTS_PROD]>- metis_tac[]>>
-  TRY (qpat_x_assum ‘_ = spin’ mp_tac >> rw[Once spin]>>NO_TAC)>>
-  last_x_assum kall_tac>>
-  rename1 ‘ltree (x,x') t’ >>
-  Cases_on ‘t’ >>fs[]
-  >- (rename1 ‘Ret r’>>
-      first_x_assum $ qspecl_then [‘0’,‘r’] assume_tac>>
-      fs[])
-  >- (qpat_x_assum ‘_ = spin’ mp_tac>>simp[Once spin]>>
-      metis_tac[FUNPOW_SUC])>>
-  PairCases_on ‘a’>>fs[]>>
-  CASE_TAC>>fs[]>>
-  qpat_x_assum ‘_ = spin’ mp_tac>>simp[Once spin]>>
-  metis_tac[FUNPOW_SUC]
-QED
-
-Theorem trace_prefix_bind_append:
-  (∃n. ltree (x,x') t = FUNPOW Tau n (Ret r)) ⇒
-  trace_prefix' (x,x') (itree_bind t k) =
-    LAPPEND (trace_prefix' (x,x') t) (trace_prefix' (x,SND (comp_ffi (x,x') t)) (k r))
-Proof
-  simp[PULL_EXISTS]>>
-  map_every qid_spec_tac [‘x'’,‘r’,‘k’,‘t’] >>
-  Induct_on ‘n’ >>
-  rw[FUNPOW_SUC]
-  >- (Cases_on ‘t’ >> fs[]>>
-      PairCases_on ‘a’>>fs[]>>
-      CASE_TAC>>fs[])>>
-  Cases_on ‘t’ >> fs[] >>
-  PairCases_on ‘a’>>fs[]>>
-  rpt (CASE_TAC>>fs[])
-QED
-
-(***************************)
-
-Definition trace_prefix_def:
-  trace_prefix 0 (oracle, ffi_st) itree = ([], NONE) ∧
-  trace_prefix (SUC n) (oracle, ffi_st) (Ret r) = ([], SOME r) ∧
-  trace_prefix (SUC n) (oracle, ffi_st) (Tau t) = trace_prefix n (oracle, ffi_st) t ∧
-  trace_prefix (SUC n) (oracle, ffi_st) (Vis (s, conf, ws) f) =
-    case oracle s ffi_st conf ws of
-    | Oracle_return ffi_st' ws' =>
-        let (io, res) = trace_prefix n (oracle, ffi_st') (f $ INR ws') in
-        if LENGTH ws ≠ LENGTH ws' then (io, res)
-        else (IO_event s conf (ZIP (ws,ws'))::io, res)
-    | Oracle_final outcome => trace_prefix n (oracle, ffi_st) (f $ INL outcome)
-End
-
-Theorem trace_prefix_Ret_FST[simp]:
-  FST (trace_prefix n (or, ffi) (Ret r)) = []
-Proof
-  Cases_on ‘n’>>simp[trace_prefix_def]
-QED
-
-Theorem trace_prefix_Ret_SND[simp]:
-  n ≠ 0 ⇒ SND (trace_prefix n (or, ffi) (Ret r)) = SOME r
-Proof
-  Cases_on ‘n’>>simp[trace_prefix_def]
-QED
-
-Theorem trace_prefix_Ret_simp[simp]:
-  trace_prefix n (or,ffi) (Ret r) = ([], if n = 0 then NONE else SOME r)
-Proof
-  Cases_on ‘n’>>simp[trace_prefix_def]
-QED
-
-Theorem trace_prefix_FUNPOW_Tau:
-  trace_prefix n x (FUNPOW Tau m ht) = trace_prefix (n - m) x ht
-Proof
-  map_every qid_spec_tac [‘ht’,‘m’,‘n’]>>
-  Induct>>rw[]>>Cases_on ‘x’
-  >- simp[trace_prefix_def]>>
-  Cases_on ‘m’>>fs[FUNPOW_SUC]>>
-  simp[trace_prefix_def]
-QED
-
-Theorem trace_prefix_Vis[simp]:
-  trace_prefix n (x,x') (Vis a g) =
-  (case n of
-     0 => ([],NONE)
-   | SUC n =>
-       (case x (FST a) x' (FST(SND a)) (SND(SND a)) of
-          Oracle_final f => trace_prefix n (x,x') (g (INL f))
-        | Oracle_return f l =>
-            (let (io,res) = trace_prefix n (x,f) (g (INR l))
-             in
-               if LENGTH (SND(SND a)) ≠ LENGTH l
-               then (io,res)
-               else (IO_event (FST a) (FST(SND a)) (ZIP (SND(SND a),l))::io,res))))
-Proof
-  Cases_on ‘n’>>simp[trace_prefix_def]>>
-  simp[trace_prefix_def]>>
-  PairCases_on ‘a’>>simp[]>>
-  CASE_TAC>>
-  simp[trace_prefix_def]>>
-  rpt (pairarg_tac>>fs[])
-QED
+(******)
 
 Theorem itree_unfold_FUNPOW_Tau:
   (∀u. f (Tau u) = Tau' u) ⇒
@@ -1008,294 +766,6 @@ Proof
   qid_spec_tac ‘n’>>Induct>>rw[FUNPOW_SUC]>>
   simp[Once itree_unfold]
 QED
-
-Definition trace_prefix0_def:
-  trace_prefix0 0 (oracle, ffi_st) (itr:'a ptree) = ([], NONE) ∧
-  trace_prefix0 (SUC n) (oracle, ffi_st) (Ret (INL l)) = ([], SOME ARB) ∧
-  trace_prefix0 (SUC n) (oracle, ffi_st) (Ret (INR r)) = ([], SOME r) ∧
-  trace_prefix0 (SUC n) (oracle, ffi_st) (Tau t) = trace_prefix0 n (oracle, ffi_st) t ∧
-  trace_prefix0 (SUC n) (oracle, ffi_st) ((Vis (s, conf, ws) f):'a ptree) =
-    case oracle s ffi_st conf ws of
-    | Oracle_return ffi_st' ws' =>
-        let (io, res) = trace_prefix0 n (oracle, ffi_st') (f $ INL $ INR ws') in
-        if LENGTH ws ≠ LENGTH ws' then (io, res)
-        else (IO_event s conf (ZIP (ws,ws'))::io, res)
-    | Oracle_final outcome => trace_prefix0 n (oracle, ffi_st) (f $ INL $ INL outcome)
-End
-
-Theorem trace_prefix0_Ret[simp]:
-  FST (trace_prefix0 n (or, ffi) (Ret r)) = []
-Proof
-  Cases_on ‘n’>>Cases_on ‘r’>>simp[trace_prefix0_def]
-QED
-
-Theorem trace_prefix0_Ret_SND[simp]:
-  n ≠ 0 ⇒ SND (trace_prefix0 n (or, ffi) (Ret (INR r))) = SOME r
-Proof
-  Cases_on ‘n’>>simp[trace_prefix0_def]
-QED
-
-Theorem trace_prefix0_Ret_simp[simp]:
-  trace_prefix0 n (or,ffi) (Ret x) =
-  ([], if n = 0 then NONE
-       else (case x of INL _ => SOME ARB | INR r => SOME r))
-Proof
-  Cases_on ‘n’>>Cases_on ‘x’>>simp[trace_prefix0_def]
-QED
-
-Theorem trace_prefix0_FUNPOW_Tau:
-  trace_prefix0 n x (FUNPOW Tau m ht) = trace_prefix0 (n - m) x ht
-Proof
-  map_every qid_spec_tac [‘ht’,‘m’,‘n’]>>
-  Induct>>rw[]>>Cases_on ‘x’
-  >- simp[trace_prefix0_def]>>
-  Cases_on ‘m’>>fs[FUNPOW_SUC]>>
-  simp[trace_prefix0_def]
-QED
-
-Theorem trace_prefix0_Vis[simp]:
-  trace_prefix0 n (x,x') (Vis a g) =
-  (case n of
-     0 => ([],NONE)
-   | SUC n =>
-       (case x (FST a) x' (FST(SND a)) (SND(SND a)) of
-          Oracle_final f => trace_prefix0 n (x,x') (g (INL (INL f)))
-        | Oracle_return f l =>
-            (let (io,res) = trace_prefix0 n (x,f) (g (INL (INR l)))
-             in
-               if LENGTH (SND(SND a)) ≠ LENGTH l
-               then (io,res)
-               else (IO_event (FST a) (FST(SND a)) (ZIP (SND(SND a),l))::io,res))))
-Proof
-  Cases_on ‘n’>>simp[trace_prefix0_def]>>
-  PairCases_on ‘a’>>simp[]>>
-  CASE_TAC>>
-  simp[trace_prefix0_def]
-QED
-
-Theorem trace_prefix_eq0:
-  trace_prefix n (x,x')
-  (itree_unfold
-   (λx.
-      case x of
-        Ret r => Ret' (case r of INL l => ARB | INR r => r)
-      | Tau t => Tau' t
-      | Vis e f => Vis' e (λx. f (INL x))) ht) =
-  trace_prefix0 n (x,x') ht
-Proof
-  map_every qid_spec_tac [‘ht’,‘x’,‘x'’,‘p’,‘s’,‘n’]>>
-  completeInduct_on ‘n’>>
-  Cases_on ‘n’>>rw[]
-  >-simp[trace_prefix_def,trace_prefix0_def]>>
-  Cases_on ‘∃t. strip_tau ht t’>>fs[]
-  >- (imp_res_tac strip_tau_FUNPOW>>
-      simp[itree_unfold_FUNPOW_Tau,trace_prefix_FUNPOW_Tau,
-           trace_prefix0_FUNPOW_Tau,FUNPOW_Tau_bind]>>
-      Cases_on ‘t’>>fs[]>>
-      simp[Once itree_unfold]>>
-      simp[trace_prefix_def,trace_prefix0_def]
-      >- FULL_CASE_TAC>>
-      Cases_on ‘SUC n' - n’>>
-      PairCases_on ‘a’>>fs[])>>
-  imp_res_tac strip_tau_spin>>fs[]>>
-  once_rewrite_tac[spin]>>
-  simp[Once itree_unfold]>>
-  simp[trace_prefix_def,trace_prefix0_def]
-QED
-
-Theorem trace_prefix0_prefix:
-  ∀n m oracle ffi t io res io' res'. n ≤ m ∧
-    trace_prefix0 n (oracle,ffi) t = (io,res) ∧
-    trace_prefix0 m (oracle,ffi) t = (io',res')
-  ⇒ io ≼ io'
-Proof
-  Induct >> rw[] >> gvs[trace_prefix0_def] >>
-  Cases_on `m` >> gvs[] >> rename1 `_ ≤ m` >>
-  first_x_assum drule >> rw[] >>
-  Cases_on `t` >> gvs[trace_prefix0_def]
-  >- res_tac>>
-  PairCases_on `a` >> gvs[trace_prefix0_def] >>
-  every_case_tac >> gvs[] >> rpt (pairarg_tac >> gvs[]) >> res_tac
-QED
-
-Theorem trace_prefix0_bind_Ret[simp]:
-  FST (trace_prefix0 n (x,x') (itree_bind t (λa. Ret (f a))))
-  = FST (trace_prefix0 n (x,x') t)
-Proof
-  map_every qid_spec_tac [‘t’,‘x'’,‘f’,‘n’]>>
-  completeInduct_on ‘n’>>rw[]>>
-  Cases_on ‘n’>>fs[trace_prefix0_def]>>
-  Cases_on ‘∃t'. strip_tau t t'’>>fs[]
-  >- (imp_res_tac strip_tau_FUNPOW>>
-      simp[FUNPOW_Tau_bind,trace_prefix0_FUNPOW_Tau]>>
-      Cases_on ‘t'’>>fs[]>>
-      TOP_CASE_TAC>>fs[]>>
-      CASE_TAC>>fs[]>>
-      pairarg_tac>>fs[]>>
-      pairarg_tac>>fs[]>>
-      last_x_assum $ qspec_then ‘n''’ assume_tac>>fs[]>>
-      ‘n'' < SUC n'’ by simp[]>>fs[]>>
-      first_x_assum $ qspecl_then [‘f’,‘f'’,‘g(INL(INR l))’] assume_tac>>fs[]>>
-      CASE_TAC>>gvs[])>>
-  imp_res_tac strip_tau_spin>>fs[spin_bind]
-QED
-
-Theorem trace_prefix0_spin[simp]:
-  trace_prefix0 n (x,x') spin = ([],NONE)
-Proof
-  rewrite_tac[Once (Q.SPEC ‘n’ spin_FUNPOW_Tau)]>>
-  simp[trace_prefix0_FUNPOW_Tau]>>
-  simp[trace_prefix0_def]
-QED
-
-Theorem trace_prefix0_length:
-  LENGTH (FST (trace_prefix0 n (x,x') t)) ≤ n
-Proof
-  map_every qid_spec_tac [‘t’,‘x’,‘x'’,‘n’]>>
-  completeInduct_on ‘n’>>rw[]>>fs[trace_prefix0_def]>>
-  Cases_on ‘n’>>fs[trace_prefix0_def]>>
-  rename1 ‘SUC n’>>
-  Cases_on ‘∃t'. strip_tau t t'’>>fs[]
-  >- (
-  imp_res_tac strip_tau_FUNPOW>>
-  Cases_on ‘n'’>>fs[]
-  >- (
-    Cases_on ‘t'’>>fs[]>>
-    rpt (CASE_TAC>>fs[])>>
-    rpt (pairarg_tac>>fs[])>>
-    last_x_assum $ qspec_then ‘n’ assume_tac>>fs[]>>
-    TRY (last_x_assum $ qspecl_then [‘f’,‘x’,‘g(INL(INR l))’] assume_tac>>
-         gvs[]>>NO_TAC)>>
-    last_x_assum $ qspecl_then [‘x'’,‘x’,‘g(INL(INL f))’] assume_tac>>
-    gvs[])>>
-  simp[FUNPOW_Tau_bind,trace_prefix0_FUNPOW_Tau]>>
-  irule LESS_EQ_TRANS>>
-  last_x_assum $ irule_at Any>>
-  simp[])>>
-  imp_res_tac strip_tau_spin>>simp[]
-QED
-
-(***)
-
-Theorem trace_prefix'_bind[simp]:
-  trace_prefix' (x,x') ((itree_bind (t:'a ptree) g):'a ptree)
-  = LAPPEND (trace_prefix' (x,x') t)
-            (trace_prefix' (x,SND (comp_ffi (x,x') t)) (FST (comp_ffi (x,x') t)))
-Proof
-  map_every qid_spec_tac [‘e’,‘g’,‘g'’,‘X’,‘x'’,‘n’]>>
-  completeInduct_on ‘n’>>rw[]>>
-  Cases_on ‘n’>>fs[trace_prefix0_def]>-cheat (* n = 0 ==> X = [] *)>>
-  rename1 ‘SUC n’>>
-  rpt CASE_TAC>>fs[]>>
-  rpt (pairarg_tac>>fs[])
-QED (* not done*)
-
-
-
-(***)
-
-Theorem trace_prefix0_Ret_bind[simp]:
-  FST (trace_prefix0 k (x,x') (itree_bind (Ret r) g))
-  = FST (trace_prefix0 k (x,x') (g r))
-Proof
-  simp[]
-QED
-
-
-Theorem trace_prefix0_Nil_cases:
-  FST (trace_prefix0 n (x,x') t) = [] ⇔
-    (∃r m. t = FUNPOW Tau m (Ret r)) ∨ n = 0 ∨ t = spin ∨
-    (∃e g m. t = FUNPOW Tau m (Vis e g) ∧
-             (m < n ⇒
-              let (s,c,w) = e in
-              case x s x' c w of
-                Oracle_return x'' w' =>
-                  LENGTH w ≠ LENGTH w' ∧
-                  FST (trace_prefix0 (n - SUC m) (x,x'') (g (INL (INR w')))) = []
-              | Oracle_final oc =>
-                  FST (trace_prefix0 (n - SUC m) (x,x') (g (INL (INL oc)))) = []))
-Proof
-  EQ_TAC
-  >- (map_every qid_spec_tac [‘t’,‘x'’,‘n’]>>
-      completeInduct_on ‘n’>>
-      Cases_on ‘n’>>rw[trace_prefix0_def]>>
-      rename1 ‘SUC n’>>
-      Cases_on ‘∃t'. strip_tau t t'’>>fs[]
-      >- (
-       imp_res_tac strip_tau_FUNPOW>>
-       Cases_on ‘t'’>>fs[]>>rw[]>>
-       fs[trace_prefix0_FUNPOW_Tau]>>
-       irule OR_INTRO_THM2>>
-       Cases_on ‘SUC n - n'’>>gvs[]>>
-       pairarg_tac>>fs[]>>
-       CASE_TAC>>fs[]
-       >- (pairarg_tac>>fs[]>>
-           FULL_CASE_TAC>>fs[]>>
-           ‘n - n' = n''’ by gvs[]>>fs[])>>
-       ‘n - n' = n''’ by gvs[]>>fs[])>>
-      imp_res_tac strip_tau_spin>>fs[])>>
-  rw[]>>simp[trace_prefix0_def,trace_prefix0_FUNPOW_Tau]>>
-  TOP_CASE_TAC>>fs[]>>
-  rpt (CASE_TAC>>fs[])>>
-  rpt (pairarg_tac>>fs[])>>
-  ‘n - SUC m = n'’ by gvs[]>>fs[]
-QED
-
-Theorem trace_prefix0_bind_Ret:
-  (∀a. ∃x. strip_tau (h a) (Ret (INR x))) ⇒
-  ∃m. FST (trace_prefix0 m (or,f) (itree_bind t h)) =
-      FST (trace_prefix0 n (or,f) t)
-Proof
-  rw[]>>irule_at Any EQ_SYM>>pop_assum mp_tac>>
-  map_every qid_spec_tac [‘h’,‘t’,‘f’,‘or’,‘n’]>>
-  recInduct trace_prefix0_ind>>
-  rw[]
-  >- (qexists ‘0’>>simp[trace_prefix0_def])
-  >- (qexists ‘0’>>simp[trace_prefix0_def])
-  >- (qexists ‘0’>>simp[trace_prefix0_def])
-  >- (qrefine ‘SUC m’>>simp[trace_prefix0_def])>>
-  qrefine ‘SUC m’>>simp[]>>
-  FULL_CASE_TAC>>fs[]>>
-  rpt (pairarg_tac>>fs[])>>
-  FULL_CASE_TAC>>fs[]
-  >- simp[GSYM LAMBDA_PROD]>>
-  qmatch_goalsub_abbrev_tac ‘FST (X _)’>>
-  ‘X =((λx. IO_event s conf (ZIP (ws,l))::x) ## I)’
-    by simp[Abbr‘X’,FUN_EQ_THM,FORALL_PROD]>>
-  simp[]
-QED
-
-Theorem test:
-  FST (trace_prefix0 (SUC n) (x,x') (Vis e (λa. itree_bind (g a) g'))) =
-  (let (e1,e2,e3) = e in
-     case x e1 x' e2 e3 of
-       Oracle_return f l =>
-         if LENGTH e3 ≠ LENGTH l then
-           FST (trace_prefix0 n (x,f) (itree_bind (g (INL (INR l))) g'))
-         else
-           (IO_event e1 e2 (ZIP (e3,l)))::
-              FST (trace_prefix0 n (x,f) (itree_bind (g (INL (INR l))) g'))
-       | Oracle_final f =>
-           FST (trace_prefix0 n (x,x') (itree_bind (g (INL (INR l))) g')))
-Proof
-  map_every qid_spec_tac [‘g’,‘g'’,‘e’,‘x'’,‘n’]>>
-  Induct>-simp[]>>simp[Excl "trace_prefix0_Vis"]>>rw[]>>
-  first_x_assum $ qspecl_then [‘x'’, ‘e’,‘g'’,‘g’] assume_tac>>
-  rpt (CASE_TAC>>fs[Excl "trace_prefix0_Vis"])>>
-  rpt (pairarg_tac>>fs[Excl "trace_prefix0_Vis"])>>
-  CASE_TAC>>fs[]>>
-
-  last_x_assum mp_tac>>simp[]>>
-  TOP_CASE_TAC>>fs[]>>
-  pairarg_tac>>fs[]>>rw[]>>
-  qmatch_goalsub_abbrev_tac ‘_ = FST X’>>Cases_on ‘X’>>gvs[]
-
-  FULL_CASE_TAC>>fs[]>>
-  FULL_CASE_TAC>>fs[]
-  
-QED
-                      
-
 
 (***)
 
@@ -2190,6 +1660,595 @@ val mrec_prog_nonrec =
             mrec_Call,mrec_DecCall];
 
 
+(*** retry ***)
+
+Definition ltree_def:
+  (ltree (fs:'b fst) (t:'a ptree)) =
+  itree_iter
+  (λ(t,st).
+     case t of
+       Ret r => Ret (INR r)
+     | Tau u => Ret (INL (u,st))
+     | Vis (s,c,ws) g =>
+         (case (FST fs) s st c ws of
+            Oracle_return fs' ws' => Ret (INL (g (INL (INR ws')), fs'))
+(*          | Oracle_final outcome => Ret (INL (g (INL (INR ws)), st))))*)
+          | Oracle_final outcome => Ret (INL (g (INL (INL outcome)), st))))
+  (t,SND fs)
+End
+
+Theorem ltree_simps[simp]:
+  (ltree fs (Ret r) = Ret r) ∧
+  (ltree fs (Tau u) = Tau (ltree fs u)) ∧
+  (ltree fs (Vis (s,c,ws) g) =
+         (case (FST fs) s (SND fs) c ws of
+            Oracle_return fs' ws' =>
+              Tau (ltree (FST fs,fs') (g (INL (INR ws'))))
+          | Oracle_final outcome =>
+              Tau (ltree fs (g (INL (INL outcome))))))
+Proof
+  rw[]>>simp[ltree_def,Once itree_iter_thm]>>
+  CASE_TAC>>simp[itree_bind_thm]>>
+  simp[Once ltree_def]
+QED
+
+Theorem ltree_FUNPOW_Tau[simp]:
+  ltree fs (FUNPOW Tau n t) = FUNPOW Tau n (ltree fs t)
+Proof
+  map_every qid_spec_tac [‘fs’,‘t’,‘n’]>>
+  Induct>>rw[FUNPOW_SUC]
+QED
+
+Theorem ltree_not_Vis[simp]:
+  ∀n e k. ltree fs t ≠ FUNPOW Tau n (Vis e k)
+Proof
+  qid_spec_tac ‘t’>>simp[Once SWAP_FORALL_THM]>>
+  qid_spec_tac ‘fs’>>simp[Once SWAP_FORALL_THM]>>
+  Induct>>rw[]
+  >- (Cases_on ‘t’>>fs[]>>
+      PairCases_on ‘a’>>simp[]>>
+      CASE_TAC>>simp[])>>
+  Cases_on ‘t’>>fs[FUNPOW_SUC]>>
+  PairCases_on ‘a’>>simp[]>>
+  CASE_TAC>>simp[]
+QED
+
+(***)
+
+Definition comp_ffi_def:
+  comp_ffi fs (t:'a ptree) =
+  WHILE
+    (λ(t,st). case t of Ret _ => F | _ => T)
+    (λ(t,st).
+        case t of
+        | Ret _ => (t,st)
+        | Tau t => (t,st)
+        | Vis (s,c,ws) g =>
+            case (FST fs) s st c ws of
+              Oracle_return fs' ws' => (g (INL (INR ws')), fs')
+            | Oracle_final outcome => (g (INL (INL outcome)), st)
+    )
+    (t,SND fs)
+End
+
+Theorem comp_ffi_simps[simp]:
+  comp_ffi fs (Ret r) = (Ret r, SND fs) ∧
+  comp_ffi fs (Tau t) = comp_ffi fs t ∧
+  comp_ffi fs (Vis (s,c,ws) g) =
+  case (FST fs) s (SND fs) c ws of
+    Oracle_return fs' ws' => comp_ffi (FST fs,fs') (g (INL (INR ws')))
+  | Oracle_final outcome => comp_ffi fs (g (INL (INL outcome)))
+Proof
+  rw[comp_ffi_def]>>simp[Once whileTheory.WHILE] >>
+  rw[ELIM_UNCURRY] >>
+  PURE_TOP_CASE_TAC >> rw[]
+QED        
+
+Theorem comp_ffi_FUNPOW_Tau[simp]:
+comp_ffi fs (FUNPOW Tau n t) = comp_ffi fs t
+Proof
+  map_every qid_spec_tac [‘fs’,‘t’,‘n’]>>
+  Induct>>rw[FUNPOW_SUC]
+QED
+
+Theorem ltree_bind[simp]:
+  ltree (fs:'b fst) (itree_bind t k) =
+  itree_bind (ltree fs t) (ltree (FST fs,SND (comp_ffi fs t)) o k)
+Proof
+  simp[Once itree_strong_bisimulation] >>
+  qexists ‘CURRY {(ltree (fs:'b fst) (itree_bind t k),
+                   itree_bind (ltree fs t) (ltree (FST fs, SND (comp_ffi fs t)) o k))|T}’ >>
+  rw[EXISTS_PROD]>-metis_tac[PAIR]>>
+  rename [‘ltree _ (itree_bind t _)’]
+  >- (Cases_on ‘t’>>fs[itree_bind_thm]>>
+      PairCases_on ‘a’>>simp[]>>
+      CASE_TAC>>fs[])
+  >- (Cases_on ‘t’ >>fs[itree_bind_thm]
+      >- metis_tac[]
+      >- metis_tac[]>>
+      PairCases_on ‘a’>>fs[]>>
+      CASE_TAC>>fs[]>>
+      metis_tac[])>>
+  Cases_on ‘t’ >>fs[itree_bind_thm]
+  >- metis_tac[]>>
+  PairCases_on ‘a'’>>fs[]>>
+  CASE_TAC>>fs[]
+QED
+
+(***************************)
+
+Definition div_def:
+  div (fs:'b fst) t =
+  ∀n r. ltree fs t ≠ FUNPOW Tau n (Ret r):'a ptree
+End
+
+Theorem div_FUNPOW_Tau[simp]:
+  div fs (FUNPOW Tau n X) = div fs X
+Proof
+  eq_tac>>
+  Cases_on ‘fs’>>rw[div_def]
+  >- (first_x_assum $ qspecl_then [‘n+n'’,‘r'’] assume_tac>>
+      fs[FUNPOW_ADD,FUNPOW_eq_elim])>>
+  strip_tac>>
+  fs[FUNPOW_Ret_simp]
+QED
+
+Theorem ltree_div_bind[simp]:
+  div fs X ⇒
+  ltree fs (itree_bind X k) = ltree fs X:'a ptree
+Proof
+  strip_tac>>
+  irule EQ_SYM>>
+  rewrite_tac[Once itree_bisimulation]>>
+  qexists ‘CURRY {(ltree fs X, ltree fs (itree_bind X k):'a ptree) | div fs X}’ >>
+  fs[div_def]>>rw[EXISTS_PROD]>- metis_tac[PAIR]
+  >- metis_tac[FUNPOW]
+  >- (rename1 ‘ltree _ t’>>
+      Cases_on ‘t’>>fs[]>>
+      TRY (PairCases_on ‘a’>>fs[])>>
+      rpt (CASE_TAC>>fs[])>>
+      irule_at Any EQ_REFL>>
+      irule_at Any EQ_REFL>>
+      rpt strip_tac>>fs[GSYM FUNPOW_SUC])>>
+  rename1 ‘ltree _ t’>>
+  Cases_on ‘t’>>fs[]>>
+  PairCases_on ‘a'’>>fs[]>>
+  rpt (CASE_TAC>>fs[])
+QED
+
+Theorem div_bind1[simp]:
+  div fs (X:'a ptree) ⇒ div fs (itree_bind X Y)
+Proof
+  rw[div_def]
+QED
+
+Theorem nondiv_eq_Ret[simp]:
+  (¬ div fs X) = (∃n r. ltree fs X = FUNPOW Tau n (Ret r):'a ptree)
+Proof
+  simp[div_def]>>metis_tac[]
+QED
+
+Theorem div_bind2[simp]:
+  ltree fs X = FUNPOW Tau n (Ret r):'a ptree ⇒
+  div fs (itree_bind X Y) = div (FST fs, SND (comp_ffi fs X)) (Y r)
+Proof
+  rw[]>>
+  simp[]>>eq_tac>>rw[div_def]>>gs[FUNPOW_Tau_bind]>>
+  strip_tac>>fs[]
+  >- metis_tac[FUNPOW_ADD]>>
+  fs[FUNPOW_Ret_simp]
+QED
+
+Theorem div_Tau[simp]:
+  div fs (Tau u) = div fs u
+Proof
+  simp[div_def]>>
+  EQ_TAC>>rpt strip_tac>>fs[]
+  >- fs[GSYM FUNPOW_SUC]>>
+  Cases_on ‘n’>>fs[FUNPOW_SUC]
+QED
+
+Theorem div_Ret[simp]:
+  div fs (Ret r) = F
+Proof
+  simp[div_def]>>metis_tac[FUNPOW]
+QED
+
+Theorem div_imp_spin:
+  div fs t ⇒ ltree fs t = spin:'a ptree
+Proof
+  rw[]>>
+  irule EQ_SYM>>
+  simp[Once itree_bisimulation] >>
+  qexists ‘CURRY {(spin,ltree fs t)|fs,t| div fs t}’>>
+  rw[EXISTS_PROD]>- metis_tac[PAIR]>>
+  TRY (qpat_x_assum ‘_ = spin’ mp_tac >> rw[Once spin]>>NO_TAC)>>
+  last_x_assum kall_tac>>
+  rename1 ‘ltree fs t’ >>
+  Cases_on ‘t’ >>fs[]
+  >- (qpat_x_assum ‘_ = spin’ mp_tac>>simp[Once spin]>>rw[]>>
+      Cases_on ‘fs’>>fs[]>>
+      first_x_assum $ irule_at Any>>simp[])>>
+  PairCases_on ‘a’>>fs[]>>
+  CASE_TAC>>fs[]>>
+  qpat_x_assum ‘_ = spin’ mp_tac>>simp[Once spin]>>
+  Cases_on ‘fs’>>fs[div_def]>>
+  metis_tac[FUNPOW_SUC]
+QED
+
+(**************************)
+
+Theorem nondiv_INR:
+  ltree fs (mrec h_prog (h_prog (p,s))) = FUNPOW Tau n (Ret r): 'a ptree ⇒
+  ∃x. r = INR x
+Proof
+  map_every qid_spec_tac [‘r’,‘fs’,‘s’,‘p’,‘n’]>>
+  completeInduct_on ‘n’>>fs[]>>
+  Cases_on ‘n’>>rw[]
+  >- (rpt (pop_assum mp_tac)>>
+      map_every qid_spec_tac [‘r’,‘fs’,‘s’,‘p’]>>
+      Induct>>
+      rw[mrec_prog_simps,mrec_If,Once mrec_While,mrec_Call,mrec_DecCall,
+         mrec_Seq]>>
+      TRY (rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>NO_TAC)>>
+      fs[mrec_ExtCall,mrec_ShMemLoad,mrec_ShMemStore]>>
+      rpt (PURE_FULL_CASE_TAC>>fs[])>>
+      gvs[]>>
+      FULL_CASE_TAC>>fs[]>>
+      Cases_on ‘n’>>fs[FUNPOW_SUC]>>rename1 ‘FUNPOW Tau n _’>>
+      Cases_on ‘n’>>fs[FUNPOW_SUC]>>rename1 ‘FUNPOW Tau n _’>>
+      Cases_on ‘n’>>fs[FUNPOW_SUC]>>gvs[])>>
+  rpt (pop_assum mp_tac)>>
+  map_every qid_spec_tac [‘r’,‘fs’,‘s’,‘p’]>>
+  rename1 ‘SUC n’>>fs[FUNPOW_SUC]>>
+  Induct>>
+  rw[mrec_prog_simps]>>
+  TRY (rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>NO_TAC)
+  >~ [‘ExtCall’]>-
+   (fs[mrec_ExtCall,mrec_ShMemLoad,mrec_ShMemStore]>>
+    rpt (PURE_FULL_CASE_TAC>>fs[])>>gvs[]>>
+    rename1 ‘FUNPOW Tau n _’>>Cases_on ‘n’>>fs[FUNPOW_SUC]>>
+    rename1 ‘FUNPOW Tau n _’>>Cases_on ‘n’>>fs[FUNPOW_SUC]>>gvs[])
+  >~ [‘ShMemLoad’]>-
+   (fs[mrec_ExtCall,mrec_ShMemLoad,mrec_ShMemStore]>>
+    rpt (PURE_FULL_CASE_TAC>>fs[])>>gvs[]>>
+    rename1 ‘FUNPOW Tau n _’>>Cases_on ‘n’>>fs[FUNPOW_SUC]>>
+    rename1 ‘FUNPOW Tau n _’>>Cases_on ‘n’>>fs[FUNPOW_SUC]>>gvs[])
+  >~ [‘ShMemStore’]>-
+   (fs[mrec_ExtCall,mrec_ShMemLoad,mrec_ShMemStore]>>
+    rpt (PURE_FULL_CASE_TAC>>fs[])>>gvs[]>>
+    rename1 ‘FUNPOW Tau n _’>>Cases_on ‘n’>>fs[FUNPOW_SUC]>>
+    rename1 ‘FUNPOW Tau n _’>>Cases_on ‘n’>>fs[FUNPOW_SUC]>>gvs[])
+  (* Dec *) >-
+   (rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
+    qmatch_asmsub_abbrev_tac ‘itree_bind (ltree _ X) _’>>
+    Cases_on ‘div fs X’>>fs[]
+    >- (imp_res_tac div_imp_spin>>fs[spin_bind]>>
+        qhdtm_x_assum ‘FUNPOW’ mp_tac>>
+        rewrite_tac[Once (Q.SPEC ‘SUC n’ spin_FUNPOW_Tau)]>>
+        rw[]>>fs[FUNPOW_Ret_simp])>>
+    fs[FUNPOW_Tau_bind]>>gvs[])
+  >~ [‘Seq’] >-
+   (fs[mrec_Seq]>>
+    qmatch_asmsub_abbrev_tac ‘itree_bind (ltree _ X) _’>>
+    Cases_on ‘div fs X’>>fs[]
+    >- (imp_res_tac div_imp_spin>>fs[spin_bind]>>
+        qhdtm_x_assum ‘FUNPOW’ mp_tac>>
+        rewrite_tac[Once (Q.SPEC ‘SUC n’ spin_FUNPOW_Tau)]>>
+        rw[]>>fs[FUNPOW_Ret_simp])>>
+    fs[FUNPOW_Tau_bind]>>
+    rpt (FULL_CASE_TAC>>fs[])>>gvs[GSYM FUNPOW]>>
+    fs[FUNPOW_Ret_simp]>>
+    qmatch_asmsub_abbrev_tac ‘itree_bind (ltree _ Y) _’>>
+    Cases_on ‘div (FST fs, SND (comp_ffi fs X)) Y’>>fs[]
+    >- (imp_res_tac div_imp_spin>>fs[spin_bind]>>
+        qhdtm_x_assum ‘FUNPOW’ mp_tac>>
+        rewrite_tac[Once (Q.SPEC ‘SUC (n - SUC n')’ spin_FUNPOW_Tau)]>>
+        rw[]>>fs[FUNPOW_Ret_simp])>>
+    fs[FUNPOW_Tau_bind]>>gvs[])
+  >~ [‘If’] >-
+   (fs[mrec_If]>>
+    rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
+    qmatch_asmsub_abbrev_tac ‘itree_bind (ltree _ X) _’>>
+    Cases_on ‘div fs X’>>fs[]>>
+    fs[FUNPOW_Tau_bind]>>gvs[]>>
+    imp_res_tac div_imp_spin>>fs[spin_bind]
+    >- (qhdtm_x_assum ‘FUNPOW’ mp_tac>>  (* ??? *)
+        rewrite_tac[Once (Q.SPEC ‘SUC n’ spin_FUNPOW_Tau)]>>
+        rw[]>>fs[FUNPOW_Ret_simp])>>
+    qhdtm_x_assum ‘FUNPOW’ mp_tac>>
+    rewrite_tac[Once (Q.SPEC ‘SUC n’ spin_FUNPOW_Tau)]>>
+    rw[]>>fs[FUNPOW_Ret_simp])
+  >~ [‘While’] >-
+   (fs[Once mrec_While]>>
+    rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
+    qmatch_asmsub_abbrev_tac ‘itree_bind (ltree _ X) _’>>
+    Cases_on ‘div fs X’>>fs[]
+    >- (imp_res_tac div_imp_spin>>fs[spin_bind]>>
+        qhdtm_x_assum ‘FUNPOW’ mp_tac>>
+        rewrite_tac[Once (Q.SPEC ‘SUC n’ spin_FUNPOW_Tau)]>>
+        rw[]>>fs[FUNPOW_Ret_simp])>>
+    fs[FUNPOW_Tau_bind]>>
+    rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
+    fs[GSYM FUNPOW]>>
+    fs[FUNPOW_Ret_simp]>>
+    ‘n - SUC n' < SUC n’ by simp[]>>
+    res_tac>>gvs[])
+  (* Call / DecCall *)
+  >- (fs[mrec_Call,mrec_DecCall]>>
+      rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
+      qmatch_asmsub_abbrev_tac ‘itree_bind (ltree _ X) _’>>
+      (Cases_on ‘div fs X’>>fs[]
+       >- (imp_res_tac div_imp_spin>>fs[spin_bind]>>
+           qhdtm_x_assum ‘FUNPOW’ mp_tac>>
+           rewrite_tac[Once (Q.SPEC ‘SUC n’ spin_FUNPOW_Tau)]>>
+           rw[]>>fs[FUNPOW_Ret_simp]))>>
+      fs[FUNPOW_Tau_bind]>>
+      fs[mrec_h_handle_call_ret_lemma]>>
+      fs[mrec_h_handle_deccall_ret_lemma]>>
+      (rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
+      fs[GSYM FUNPOW]>>
+      fs[FUNPOW_Ret_simp]>>
+      qmatch_asmsub_abbrev_tac ‘itree_bind (ltree _ Y) _’>>
+      Cases_on ‘div (FST fs, SND (comp_ffi fs X)) Y’>>fs[]>>
+      fs[FUNPOW_Tau_bind]>>gvs[]>>
+      imp_res_tac div_imp_spin>>fs[spin_bind]
+       >- (qhdtm_x_assum ‘FUNPOW’ mp_tac>>
+           rewrite_tac[Once (Q.SPEC ‘SUC (n - SUC n')’ spin_FUNPOW_Tau)]>>
+           rw[]>>fs[FUNPOW_Ret_simp]))>>
+      qhdtm_x_assum ‘FUNPOW’ mp_tac>>
+      rewrite_tac[Once (Q.SPEC ‘SUC (n - SUC n')’ spin_FUNPOW_Tau)]>>
+      rw[]>>fs[FUNPOW_Ret_simp])>>
+  (fs[mrec_Call,mrec_DecCall]>>
+   rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
+   qmatch_asmsub_abbrev_tac ‘itree_bind (ltree _ X) _’>>
+   (Cases_on ‘div fs X’>>fs[]
+    >- (imp_res_tac div_imp_spin>>fs[spin_bind]>>
+        qhdtm_x_assum ‘FUNPOW’ mp_tac>>
+        rewrite_tac[Once (Q.SPEC ‘SUC n’ spin_FUNPOW_Tau)]>>
+        rw[]>>fs[FUNPOW_Ret_simp]))>>
+   fs[FUNPOW_Tau_bind]>>
+   fs[mrec_h_handle_call_ret_lemma]>>
+   fs[mrec_h_handle_deccall_ret_lemma]>>
+   (rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
+   fs[GSYM FUNPOW]>>
+   fs[FUNPOW_Ret_simp]>>
+   qmatch_asmsub_abbrev_tac ‘itree_bind (ltree _ Y) _’>>
+   Cases_on ‘div (FST fs, SND (comp_ffi fs X)) Y’>>fs[]>>
+   fs[FUNPOW_Tau_bind]>>gvs[]>>
+   (imp_res_tac div_imp_spin>>fs[spin_bind]
+    >- (qhdtm_x_assum ‘FUNPOW’ mp_tac>>
+        rewrite_tac[Once (Q.SPEC ‘SUC (n - SUC n')’ spin_FUNPOW_Tau)]>>
+        rw[]>>fs[FUNPOW_Ret_simp])))>>
+   qhdtm_x_assum ‘FUNPOW’ mp_tac>>
+   rewrite_tac[Once (Q.SPEC ‘SUC (n - SUC n')’ spin_FUNPOW_Tau)]>>
+   rw[]>>fs[FUNPOW_Ret_simp])
+QED
+
+Theorem test:
+  ltree fs t = FUNPOW Tau n (Ret r) ⇒
+  comp_ffi fs t = (X,
+
+Theorem comp_ffi_bind_div[simp]:
+  div fs t ⇒
+  comp_ffi fs (itree_bind t k) = comp_ffi fs t
+Proof
+  simp[div_def]>>
+  simp[Once (GSYM CONTRAPOS_THM)]>>rw[]>>
+  CCONTR_TAC>>fs[]>>
+  map_every qid_spec_tac [‘t’,‘fs’,‘n’]>>
+  Induct>>rw[FUNPOW_SUC]>>
+  Cases_on ‘t’>>fs[]>>
+  PairCases_on ‘a’>>fs[]>>
+  CASE_TAC>>fs[]
+QED
+
+Theorem comp_ffi_bind[simp]:
+  ltree fs t = FUNPOW Tau n (Ret r) ⇒
+  comp_ffi fs (itree_bind t k) =
+  comp_ffi (FST fs, SND (comp_ffi fs t)) (k r)
+Proof
+  map_every qid_spec_tac [‘t’,‘fs’,‘n’]>>
+  Induct>>rw[FUNPOW_SUC]>>
+  Cases_on ‘t’>>fs[]>>
+  PairCases_on ‘a’>>fs[]>>
+  CASE_TAC>>fs[]
+QED
+
+Theorem comp_ffi_evaluate[simp]:
+  evaluate (p,s) = (res,t) ⇒
+  SND (comp_ffi (s.ffi.oracle,s.ffi.ffi_state) (mrec h_prog (h_prog (p,bst s)))) = t.ffi.ffi_state
+Proof
+  map_every qid_spec_tac [‘res’,‘t’,‘s’,‘p’]>>
+  recInduct evaluate_ind>>rw[]>>
+  pop_assum mp_tac >> simp[]>>
+  fs[Once evaluate_def,sh_mem_load_def,sh_mem_store_def]>>
+
+
+
+  >~ [‘ExtCall’]>- cheat>>
+  rpt (CASE_TAC>>fs[])>>rw[]
+  simp[mrec_prog_simps]
+
+
+  simp[mrec_Dec]>>
+  rpt (CASE_TAC>>fs[])>>rw[]>>
+  rpt (pairarg_tac>>fs[])>>
+
+  gvs[res_var_def]
+
+
+
+QED
+
+
+Theorem evaluate_mrec_Ret_corres:
+  evaluate (p, s) = (res,t) ∧ res ≠ SOME TimeOut ⇒
+        ∃n. ltree (s.ffi.oracle, s.ffi.ffi_state)
+                  (mrec h_prog (h_prog (p, bst s))) =
+            FUNPOW Tau n (Ret (INR (res,bst t))):'a ptree
+Proof
+  map_every qid_spec_tac [‘res’,‘t’,‘s’,‘p’]>>
+  recInduct evaluate_ind>>rw[]>>
+  pop_assum mp_tac >> simp[]>>
+  fs[Once evaluate_def,sh_mem_load_def,sh_mem_store_def]>>rw[]
+  >~[‘ShMemLoad’]>-
+   (simp[mrec_ShMemLoad]>>
+    rpt (CASE_TAC>>fs[])>>
+    fs[call_FFI_def,set_var_defs,empty_locals_defs]>>
+    gvs[bst_def]>>metis_tac[FUNPOW])
+  >~[‘ShMemStore’]>-
+   (simp[mrec_ShMemStore]>>
+    rpt (CASE_TAC>>fs[])>>gvs[]>>rw[]>>
+    fs[call_FFI_def,set_var_defs,empty_locals_defs]>>
+    gvs[bst_def]>>metis_tac[FUNPOW])
+  >~[‘ExtCall’]>-
+   (simp[mrec_ExtCall]>>
+    fs[call_FFI_def,set_var_defs,empty_locals_defs]>>
+    rpt (PURE_CASE_TAC>>fs[])>>
+    rpt (PURE_FULL_CASE_TAC>>fs[])>>gvs[bst_def]>>
+    metis_tac[FUNPOW])
+  >~[‘Dec’]>-
+   (fs[mrec_Dec]>>
+    rpt (CASE_TAC>>fs[])>>
+    rpt (pairarg_tac>>fs[])
+    >- metis_tac[FUNPOW]>>
+    gvs[FUNPOW_Tau_bind]>>
+    metis_tac[FUNPOW_SUC])
+  >~[‘If’]>-
+   (fs[mrec_If]>>
+    rpt (CASE_TAC>>fs[])
+    >>~- ([‘res = SOME Error’],metis_tac[FUNPOW])>>
+    gvs[FUNPOW_Tau_bind]>>
+    metis_tac[FUNPOW_SUC])
+  >~[‘While’]>-
+   (simp[Once mrec_While]>>
+    rpt (CASE_TAC>>fs[])
+    >>~- ([‘res = SOME Error’],metis_tac[FUNPOW])>>
+    TRY (qexists ‘0’>>simp[FUNPOW]>>NO_TAC)>>
+
+    pairarg_tac>>fs[]>>
+    Cases_on ‘s.clock=0’>>fs[dec_clock_def]
+
+    >- (qpat_x_assum ‘_ = (NONE,t)’ mp_tac>>
+        rpt (CASE_TAC>>fs[])>>
+(*NONE*)
+        simp[FUNPOW_Tau_bind,GSYM FUNPOW_SUC,GSYM FUNPOW]>>
+        simp[Once evaluate_def]>>
+        rpt (CASE_TAC>>fs[])>>rw[]>>gs[]>>
+
+        rpt (FULL_CASE_TAC>>fs[])>>simp[comp_ffi_def]>>
+        simp[R
+
+
+        first_x_assum $ qspecl_then [‘s'’,‘ffi’,‘k-1’] assume_tac>>
+        rw[]>>imp_res_tac panPropsTheory.evaluate_io_events_mono>>
+        gvs[IS_PREFIX_ANTISYM]>>simp[FUNPOW_Tau_bind]
+        >~ [‘Break’]>- (gvs[]>>metis_tac[GSYM FUNPOW_SUC])>>
+        qpat_x_assum ‘evaluate (While _ _,_)=_’ mp_tac>>
+        simp[Once evaluate_def]>>
+        rpt (CASE_TAC>>fs[])>>rw[]>>
+        TRY (pairarg_tac>>fs[])>>
+        rpt (FULL_CASE_TAC>>fs[])>>
+        first_x_assum $ qspecl_then [‘bst s1’,‘s1.ffi’,‘s1.clock’] assume_tac>>
+        rfs[IS_PREFIX_ANTISYM]>>fs[FUNPOW_Tau_bind]>>
+        simp[GSYM FUNPOW_SUC,GSYM FUNPOW]>>
+        metis_tac[GSYM FUNPOW_ADD])>>
+    qpat_x_assum ‘_ = (SOME _,t)’ mp_tac>>
+    rpt (CASE_TAC>>fs[])>>
+    first_x_assum $ qspecl_then [‘s'’,‘ffi’,‘k-1’] assume_tac>>
+    rw[]>>imp_res_tac panPropsTheory.evaluate_io_events_mono>>
+    gvs[IS_PREFIX_ANTISYM]>>simp[FUNPOW_Tau_bind]>>
+    TRY (qpat_x_assum ‘evaluate (While _ _,_)=_’ mp_tac>>
+         simp[Once evaluate_def]>>
+         rpt (CASE_TAC>>fs[])>>rw[]>>
+         TRY (pairarg_tac>>fs[])>>
+         rpt (FULL_CASE_TAC>>fs[])>>
+         first_x_assum $ qspecl_then [‘bst s1’,‘s1.ffi’,‘s1.clock’] assume_tac>>
+         rfs[IS_PREFIX_ANTISYM]>>fs[FUNPOW_Tau_bind]>>
+         simp[GSYM FUNPOW_SUC,GSYM FUNPOW]>>
+         metis_tac[GSYM FUNPOW_ADD])>>
+    rw[]>>gvs[]>>metis_tac[GSYM FUNPOW_SUC])
+  >~[‘Seq’]>-
+   (fs[Once mrec_While,mrec_prog_nonrec,mrec_If]>>gvs[]>>
+    rpt (CASE_TAC>>fs[])>>
+    TRY (pairarg_tac>>fs[])>>
+    rpt (FULL_CASE_TAC>>fs[])>>
+    simp[Once itree_unfold,call_FFI_def]>>rw[]
+    >- (qrefine ‘SUC n’>>simp[FUNPOW_SUC]>>fs[]>>
+        first_x_assum $ qspecl_then [‘s'’,‘ffi’,‘k’] assume_tac>>
+        imp_res_tac panPropsTheory.evaluate_io_events_mono>>
+        rfs[]>>fs[IS_PREFIX_ANTISYM,FUNPOW_Tau_bind]>>
+        simp[GSYM FUNPOW]>>
+        first_x_assum $ qspecl_then [‘bst s1’,‘s1.ffi’,‘s1.clock’] assume_tac>>
+        gvs[IS_PREFIX_ANTISYM]>>fs[FUNPOW_Tau_bind,GSYM FUNPOW_SUC]>>
+        qexists ‘n' + SUC n’>>fs[GSYM FUNPOW_ADD])>>
+    qrefine ‘SUC n’>>simp[FUNPOW_SUC]>>fs[]>>
+    first_x_assum $ qspecl_then [‘s'’,‘ffi’,‘k’] assume_tac>>
+    fs[FUNPOW_Tau_bind]>>
+    rpt (CASE_TAC>>fs[]))
+  >~[‘Call’]>-
+   (simp[mrec_Call]>>
+    rpt (CASE_TAC>>fs[])
+    >~[‘TimeOut’]>-
+     (Cases_on ‘k=0’>>fs[]>>
+      FULL_CASE_TAC>>fs[]
+      >- (rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
+          first_x_assum $ qspecl_then [‘s' with locals := r’,‘ffi’,‘k-1’] assume_tac>>
+          gvs[empty_locals_defs]>>fs[FUNPOW_Tau_bind]>>
+          simp[h_handle_call_ret_def]>>
+          gvs[empty_locals_defs]>>metis_tac[GSYM FUNPOW_SUC])>>
+      rpt (FULL_CASE_TAC>>fs[])>>gvs[set_var_defs]>>
+      first_x_assum $ qspecl_then [‘s' with locals := r’,‘ffi’,‘k-1’] assume_tac>>
+      gvs[empty_locals_defs]>>fs[FUNPOW_Tau_bind]>>
+      rpt (CASE_TAC>>fs[])>>
+      simp[h_handle_call_ret_def,mrec_bind,set_var_defs]>>
+      rpt (FULL_CASE_TAC>>fs[])
+          (*      >>~[‘itree_bind __’]>-*)
+          >>~- ([‘itree_bind __’],
+                gvs[set_var_defs]>>
+                first_x_assum $ qspecl_then [‘bst r' with locals := s'.locals |+(q'',v)’,‘r'.ffi’,‘r'.clock’] assume_tac>>
+                imp_res_tac panPropsTheory.evaluate_io_events_mono>>
+                gvs[IS_PREFIX_ANTISYM]>>rw[]>>fs[]>>
+                simp[FUNPOW_Tau_bind,GSYM FUNPOW_SUC]>>
+                simp[h_handle_call_ret_def,mrec_bind,set_var_defs]>>
+                simp[FUNPOW_Tau_bind,GSYM FUNPOW_SUC]>>
+                simp[GSYM FUNPOW_ADD])>>
+      gvs[empty_locals_defs]>>metis_tac[GSYM FUNPOW_SUC])>>
+    gvs[]>>metis_tac[FUNPOW])
+  >~[‘DecCall’]>-
+   (simp[mrec_DecCall]>>
+    rpt (CASE_TAC>>fs[])
+    >~[‘TimeOut’]>-
+     (Cases_on ‘k=0’>>fs[]>>
+      rpt (FULL_CASE_TAC>>fs[])>>gvs[empty_locals_defs]>>
+      first_x_assum $ qspecl_then [‘s' with locals := r’,‘ffi’,‘k-1’] assume_tac>>
+      fs[FUNPOW_Tau_bind]>>gvs[]>>
+      fs[h_handle_deccall_ret_def,mrec_bind,set_var_defs,res_var_def]
+      >~ [‘TimeOut’]>-
+       (pairarg_tac>>fs[]>>
+        first_x_assum $ qspecl_then [‘bst r' with locals := s'.locals |+ (rt,v)’,‘r'.ffi’,‘r'.clock’] assume_tac>>
+        imp_res_tac panPropsTheory.evaluate_io_events_mono>>
+        gvs[IS_PREFIX_ANTISYM]>>rw[]>>fs[FUNPOW_Tau_bind]>>
+        simp[h_handle_deccall_ret_def,mrec_bind,set_var_defs]>>
+        fs[FUNPOW_Tau_bind]>>
+        simp[GSYM FUNPOW_SUC]>>simp[GSYM FUNPOW_ADD])>>
+      gvs[empty_locals_defs]>>metis_tac[GSYM FUNPOW_SUC])>>
+    gvs[]>>metis_tac[FUNPOW])>>
+  fs[Once mrec_While,mrec_prog_nonrec,mrec_If]>>gvs[]>>
+  rpt (CASE_TAC>>fs[])>>
+  TRY (pairarg_tac>>fs[])>>
+  rpt (FULL_CASE_TAC>>fs[])>>
+  simp[Once itree_unfold,call_FFI_def]>>rw[]>>
+  TRY (metis_tac[FUNPOW])
+QED
+
+
+
+
+(**************************)
+(**************************)
+(**************************)
 (*** evaluate -> itree (no ffi) ***)
 
 Theorem evaluate_mrec_Ret_weak_io_events:
@@ -3118,6 +3177,402 @@ Proof
       simp[GSYM FUNPOW_SUC]
 QED
 
+
+(*** traces ***)
+
+Definition trace_prefix'_def:
+  trace_prefix' (x,x') (th:'a ptree) =
+  LFLATTEN $ LUNFOLD
+  (λ(fs,t). case t of
+               Ret r => NONE
+             | Tau u => SOME ((fs,u),LNIL)
+             | Vis (s,conf,ws) k =>
+                 (case x s fs conf ws of
+                  | Oracle_return fs' ws' =>
+                      if LENGTH ws ≠ LENGTH ws'
+                      then SOME ((fs', k (INL (INR ws'))),LNIL)
+                      else
+                        SOME ((fs',k (INL (INR ws'))),[|IO_event s conf (ZIP (ws,ws'))|])
+                  | Oracle_final outcome =>
+                      SOME ((fs, k (INL (INR ws))),LNIL)))
+  (x',th)
+End
+
+Theorem trace_prefix_simps[simp]:
+  trace_prefix' (x,x') (Ret r) = [||] ∧
+  trace_prefix' (x,x') (Tau u) = trace_prefix' (x,x') u ∧
+  trace_prefix' (x,x') (Vis (s,c,ws) k) =
+    case x s x' c ws of
+    | Oracle_return fs' ws' =>
+        if LENGTH ws ≠ LENGTH ws'
+        then trace_prefix' (x,fs') (k (INL (INR ws')))
+        else
+          IO_event s c (ZIP (ws,ws')):::trace_prefix' (x,fs') (k (INL (INR ws')))
+    | Oracle_final outcome => trace_prefix' (x,x') (k (INL (INR ws)))
+Proof
+  rw[trace_prefix'_def]>>
+  simp[Once LUNFOLD]>>
+  CASE_TAC>>fs[]>>
+  CASE_TAC>>fs[]
+QED
+
+(****)
+
+Theorem trace_prefix_bind_append:
+  (∃n. ltree (x,x') t = FUNPOW Tau n (Ret r)) ⇒
+  trace_prefix' (x,x') (itree_bind t k) =
+    LAPPEND (trace_prefix' (x,x') t) (trace_prefix' (x,SND (comp_ffi (x,x') t)) (k r))
+Proof
+  simp[PULL_EXISTS]>>
+  map_every qid_spec_tac [‘x'’,‘r’,‘k’,‘t’] >>
+  Induct_on ‘n’ >>
+  rw[FUNPOW_SUC]
+  >- (Cases_on ‘t’ >> fs[]>>
+      PairCases_on ‘a’>>fs[]>>
+      CASE_TAC>>fs[])>>
+  Cases_on ‘t’ >> fs[] >>
+  PairCases_on ‘a’>>fs[]>>
+  rpt (CASE_TAC>>fs[])
+QED
+
+(***************************)
+
+Definition trace_prefix_def:
+  trace_prefix 0 (oracle, ffi_st) itree = ([], NONE) ∧
+  trace_prefix (SUC n) (oracle, ffi_st) (Ret r) = ([], SOME r) ∧
+  trace_prefix (SUC n) (oracle, ffi_st) (Tau t) = trace_prefix n (oracle, ffi_st) t ∧
+  trace_prefix (SUC n) (oracle, ffi_st) (Vis (s, conf, ws) f) =
+    case oracle s ffi_st conf ws of
+    | Oracle_return ffi_st' ws' =>
+        let (io, res) = trace_prefix n (oracle, ffi_st') (f $ INR ws') in
+        if LENGTH ws ≠ LENGTH ws' then (io, res)
+        else (IO_event s conf (ZIP (ws,ws'))::io, res)
+    | Oracle_final outcome => trace_prefix n (oracle, ffi_st) (f $ INL outcome)
+End
+
+Theorem trace_prefix_Ret_FST[simp]:
+  FST (trace_prefix n (or, ffi) (Ret r)) = []
+Proof
+  Cases_on ‘n’>>simp[trace_prefix_def]
+QED
+
+Theorem trace_prefix_Ret_SND[simp]:
+  n ≠ 0 ⇒ SND (trace_prefix n (or, ffi) (Ret r)) = SOME r
+Proof
+  Cases_on ‘n’>>simp[trace_prefix_def]
+QED
+
+Theorem trace_prefix_Ret_simp[simp]:
+  trace_prefix n (or,ffi) (Ret r) = ([], if n = 0 then NONE else SOME r)
+Proof
+  Cases_on ‘n’>>simp[trace_prefix_def]
+QED
+
+Theorem trace_prefix_FUNPOW_Tau:
+  trace_prefix n x (FUNPOW Tau m ht) = trace_prefix (n - m) x ht
+Proof
+  map_every qid_spec_tac [‘ht’,‘m’,‘n’]>>
+  Induct>>rw[]>>Cases_on ‘x’
+  >- simp[trace_prefix_def]>>
+  Cases_on ‘m’>>fs[FUNPOW_SUC]>>
+  simp[trace_prefix_def]
+QED
+
+Theorem trace_prefix_Vis[simp]:
+  trace_prefix n (x,x') (Vis a g) =
+  (case n of
+     0 => ([],NONE)
+   | SUC n =>
+       (case x (FST a) x' (FST(SND a)) (SND(SND a)) of
+          Oracle_final f => trace_prefix n (x,x') (g (INL f))
+        | Oracle_return f l =>
+            (let (io,res) = trace_prefix n (x,f) (g (INR l))
+             in
+               if LENGTH (SND(SND a)) ≠ LENGTH l
+               then (io,res)
+               else (IO_event (FST a) (FST(SND a)) (ZIP (SND(SND a),l))::io,res))))
+Proof
+  Cases_on ‘n’>>simp[trace_prefix_def]>>
+  simp[trace_prefix_def]>>
+  PairCases_on ‘a’>>simp[]>>
+  CASE_TAC>>
+  simp[trace_prefix_def]>>
+  rpt (pairarg_tac>>fs[])
+QED
+
+Definition trace_prefix0_def:
+  trace_prefix0 0 (oracle, ffi_st) (itr:'a ptree) = ([], NONE) ∧
+  trace_prefix0 (SUC n) (oracle, ffi_st) (Ret (INL l)) = ([], SOME ARB) ∧
+  trace_prefix0 (SUC n) (oracle, ffi_st) (Ret (INR r)) = ([], SOME r) ∧
+  trace_prefix0 (SUC n) (oracle, ffi_st) (Tau t) = trace_prefix0 n (oracle, ffi_st) t ∧
+  trace_prefix0 (SUC n) (oracle, ffi_st) ((Vis (s, conf, ws) f):'a ptree) =
+    case oracle s ffi_st conf ws of
+    | Oracle_return ffi_st' ws' =>
+        let (io, res) = trace_prefix0 n (oracle, ffi_st') (f $ INL $ INR ws') in
+        if LENGTH ws ≠ LENGTH ws' then (io, res)
+        else (IO_event s conf (ZIP (ws,ws'))::io, res)
+    | Oracle_final outcome => trace_prefix0 n (oracle, ffi_st) (f $ INL $ INL outcome)
+End
+
+Theorem trace_prefix0_Ret[simp]:
+  FST (trace_prefix0 n (or, ffi) (Ret r)) = []
+Proof
+  Cases_on ‘n’>>Cases_on ‘r’>>simp[trace_prefix0_def]
+QED
+
+Theorem trace_prefix0_Ret_SND[simp]:
+  n ≠ 0 ⇒ SND (trace_prefix0 n (or, ffi) (Ret (INR r))) = SOME r
+Proof
+  Cases_on ‘n’>>simp[trace_prefix0_def]
+QED
+
+Theorem trace_prefix0_Ret_simp[simp]:
+  trace_prefix0 n (or,ffi) (Ret x) =
+  ([], if n = 0 then NONE
+       else (case x of INL _ => SOME ARB | INR r => SOME r))
+Proof
+  Cases_on ‘n’>>Cases_on ‘x’>>simp[trace_prefix0_def]
+QED
+
+Theorem trace_prefix0_FUNPOW_Tau:
+  trace_prefix0 n x (FUNPOW Tau m ht) = trace_prefix0 (n - m) x ht
+Proof
+  map_every qid_spec_tac [‘ht’,‘m’,‘n’]>>
+  Induct>>rw[]>>Cases_on ‘x’
+  >- simp[trace_prefix0_def]>>
+  Cases_on ‘m’>>fs[FUNPOW_SUC]>>
+  simp[trace_prefix0_def]
+QED
+
+Theorem trace_prefix0_Vis[simp]:
+  trace_prefix0 n (x,x') (Vis a g) =
+  (case n of
+     0 => ([],NONE)
+   | SUC n =>
+       (case x (FST a) x' (FST(SND a)) (SND(SND a)) of
+          Oracle_final f => trace_prefix0 n (x,x') (g (INL (INL f)))
+        | Oracle_return f l =>
+            (let (io,res) = trace_prefix0 n (x,f) (g (INL (INR l)))
+             in
+               if LENGTH (SND(SND a)) ≠ LENGTH l
+               then (io,res)
+               else (IO_event (FST a) (FST(SND a)) (ZIP (SND(SND a),l))::io,res))))
+Proof
+  Cases_on ‘n’>>simp[trace_prefix0_def]>>
+  PairCases_on ‘a’>>simp[]>>
+  CASE_TAC>>
+  simp[trace_prefix0_def]
+QED
+
+Theorem trace_prefix_eq0:
+  trace_prefix n (x,x')
+  (itree_unfold
+   (λx.
+      case x of
+        Ret r => Ret' (case r of INL l => ARB | INR r => r)
+      | Tau t => Tau' t
+      | Vis e f => Vis' e (λx. f (INL x))) ht) =
+  trace_prefix0 n (x,x') ht
+Proof
+  map_every qid_spec_tac [‘ht’,‘x’,‘x'’,‘p’,‘s’,‘n’]>>
+  completeInduct_on ‘n’>>
+  Cases_on ‘n’>>rw[]
+  >-simp[trace_prefix_def,trace_prefix0_def]>>
+  Cases_on ‘∃t. strip_tau ht t’>>fs[]
+  >- (imp_res_tac strip_tau_FUNPOW>>
+      simp[itree_unfold_FUNPOW_Tau,trace_prefix_FUNPOW_Tau,
+           trace_prefix0_FUNPOW_Tau,FUNPOW_Tau_bind]>>
+      Cases_on ‘t’>>fs[]>>
+      simp[Once itree_unfold]>>
+      simp[trace_prefix_def,trace_prefix0_def]
+      >- FULL_CASE_TAC>>
+      Cases_on ‘SUC n' - n’>>
+      PairCases_on ‘a’>>fs[])>>
+  imp_res_tac strip_tau_spin>>fs[]>>
+  once_rewrite_tac[spin]>>
+  simp[Once itree_unfold]>>
+  simp[trace_prefix_def,trace_prefix0_def]
+QED
+
+Theorem trace_prefix0_prefix:
+  ∀n m oracle ffi t io res io' res'. n ≤ m ∧
+    trace_prefix0 n (oracle,ffi) t = (io,res) ∧
+    trace_prefix0 m (oracle,ffi) t = (io',res')
+  ⇒ io ≼ io'
+Proof
+  Induct >> rw[] >> gvs[trace_prefix0_def] >>
+  Cases_on `m` >> gvs[] >> rename1 `_ ≤ m` >>
+  first_x_assum drule >> rw[] >>
+  Cases_on `t` >> gvs[trace_prefix0_def]
+  >- res_tac>>
+  PairCases_on `a` >> gvs[trace_prefix0_def] >>
+  every_case_tac >> gvs[] >> rpt (pairarg_tac >> gvs[]) >> res_tac
+QED
+
+Theorem trace_prefix0_bind_Ret[simp]:
+  FST (trace_prefix0 n (x,x') (itree_bind t (λa. Ret (f a))))
+  = FST (trace_prefix0 n (x,x') t)
+Proof
+  map_every qid_spec_tac [‘t’,‘x'’,‘f’,‘n’]>>
+  completeInduct_on ‘n’>>rw[]>>
+  Cases_on ‘n’>>fs[trace_prefix0_def]>>
+  Cases_on ‘∃t'. strip_tau t t'’>>fs[]
+  >- (imp_res_tac strip_tau_FUNPOW>>
+      simp[FUNPOW_Tau_bind,trace_prefix0_FUNPOW_Tau]>>
+      Cases_on ‘t'’>>fs[]>>
+      TOP_CASE_TAC>>fs[]>>
+      CASE_TAC>>fs[]>>
+      pairarg_tac>>fs[]>>
+      pairarg_tac>>fs[]>>
+      last_x_assum $ qspec_then ‘n''’ assume_tac>>fs[]>>
+      ‘n'' < SUC n'’ by simp[]>>fs[]>>
+      first_x_assum $ qspecl_then [‘f’,‘f'’,‘g(INL(INR l))’] assume_tac>>fs[]>>
+      CASE_TAC>>gvs[])>>
+  imp_res_tac strip_tau_spin>>fs[spin_bind]
+QED
+
+Theorem trace_prefix0_spin[simp]:
+  trace_prefix0 n (x,x') spin = ([],NONE)
+Proof
+  rewrite_tac[Once (Q.SPEC ‘n’ spin_FUNPOW_Tau)]>>
+  simp[trace_prefix0_FUNPOW_Tau]>>
+  simp[trace_prefix0_def]
+QED
+
+Theorem trace_prefix0_length:
+  LENGTH (FST (trace_prefix0 n (x,x') t)) ≤ n
+Proof
+  map_every qid_spec_tac [‘t’,‘x’,‘x'’,‘n’]>>
+  completeInduct_on ‘n’>>rw[]>>fs[trace_prefix0_def]>>
+  Cases_on ‘n’>>fs[trace_prefix0_def]>>
+  rename1 ‘SUC n’>>
+  Cases_on ‘∃t'. strip_tau t t'’>>fs[]
+  >- (
+  imp_res_tac strip_tau_FUNPOW>>
+  Cases_on ‘n'’>>fs[]
+  >- (
+    Cases_on ‘t'’>>fs[]>>
+    rpt (CASE_TAC>>fs[])>>
+    rpt (pairarg_tac>>fs[])>>
+    last_x_assum $ qspec_then ‘n’ assume_tac>>fs[]>>
+    TRY (last_x_assum $ qspecl_then [‘f’,‘x’,‘g(INL(INR l))’] assume_tac>>
+         gvs[]>>NO_TAC)>>
+    last_x_assum $ qspecl_then [‘x'’,‘x’,‘g(INL(INL f))’] assume_tac>>
+    gvs[])>>
+  simp[FUNPOW_Tau_bind,trace_prefix0_FUNPOW_Tau]>>
+  irule LESS_EQ_TRANS>>
+  last_x_assum $ irule_at Any>>
+  simp[])>>
+  imp_res_tac strip_tau_spin>>simp[]
+QED
+
+(***)
+
+
+
+(***)
+
+Theorem trace_prefix0_Ret_bind[simp]:
+  FST (trace_prefix0 k (x,x') (itree_bind (Ret r) g))
+  = FST (trace_prefix0 k (x,x') (g r))
+Proof
+  simp[]
+QED
+
+
+Theorem trace_prefix0_Nil_cases:
+  FST (trace_prefix0 n (x,x') t) = [] ⇔
+    (∃r m. t = FUNPOW Tau m (Ret r)) ∨ n = 0 ∨ t = spin ∨
+    (∃e g m. t = FUNPOW Tau m (Vis e g) ∧
+             (m < n ⇒
+              let (s,c,w) = e in
+              case x s x' c w of
+                Oracle_return x'' w' =>
+                  LENGTH w ≠ LENGTH w' ∧
+                  FST (trace_prefix0 (n - SUC m) (x,x'') (g (INL (INR w')))) = []
+              | Oracle_final oc =>
+                  FST (trace_prefix0 (n - SUC m) (x,x') (g (INL (INL oc)))) = []))
+Proof
+  EQ_TAC
+  >- (map_every qid_spec_tac [‘t’,‘x'’,‘n’]>>
+      completeInduct_on ‘n’>>
+      Cases_on ‘n’>>rw[trace_prefix0_def]>>
+      rename1 ‘SUC n’>>
+      Cases_on ‘∃t'. strip_tau t t'’>>fs[]
+      >- (
+       imp_res_tac strip_tau_FUNPOW>>
+       Cases_on ‘t'’>>fs[]>>rw[]>>
+       fs[trace_prefix0_FUNPOW_Tau]>>
+       irule OR_INTRO_THM2>>
+       Cases_on ‘SUC n - n'’>>gvs[]>>
+       pairarg_tac>>fs[]>>
+       CASE_TAC>>fs[]
+       >- (pairarg_tac>>fs[]>>
+           FULL_CASE_TAC>>fs[]>>
+           ‘n - n' = n''’ by gvs[]>>fs[])>>
+       ‘n - n' = n''’ by gvs[]>>fs[])>>
+      imp_res_tac strip_tau_spin>>fs[])>>
+  rw[]>>simp[trace_prefix0_def,trace_prefix0_FUNPOW_Tau]>>
+  TOP_CASE_TAC>>fs[]>>
+  rpt (CASE_TAC>>fs[])>>
+  rpt (pairarg_tac>>fs[])>>
+  ‘n - SUC m = n'’ by gvs[]>>fs[]
+QED
+
+Theorem trace_prefix0_bind_Ret:
+  (∀a. ∃x. strip_tau (h a) (Ret (INR x))) ⇒
+  ∃m. FST (trace_prefix0 m (or,f) (itree_bind t h)) =
+      FST (trace_prefix0 n (or,f) t)
+Proof
+  rw[]>>irule_at Any EQ_SYM>>pop_assum mp_tac>>
+  map_every qid_spec_tac [‘h’,‘t’,‘f’,‘or’,‘n’]>>
+  recInduct trace_prefix0_ind>>
+  rw[]
+  >- (qexists ‘0’>>simp[trace_prefix0_def])
+  >- (qexists ‘0’>>simp[trace_prefix0_def])
+  >- (qexists ‘0’>>simp[trace_prefix0_def])
+  >- (qrefine ‘SUC m’>>simp[trace_prefix0_def])>>
+  qrefine ‘SUC m’>>simp[]>>
+  FULL_CASE_TAC>>fs[]>>
+  rpt (pairarg_tac>>fs[])>>
+  FULL_CASE_TAC>>fs[]
+  >- simp[GSYM LAMBDA_PROD]>>
+  qmatch_goalsub_abbrev_tac ‘FST (X _)’>>
+  ‘X =((λx. IO_event s conf (ZIP (ws,l))::x) ## I)’
+    by simp[Abbr‘X’,FUN_EQ_THM,FORALL_PROD]>>
+  simp[]
+QED
+
+Theorem test:
+  FST (trace_prefix0 (SUC n) (x,x') (Vis e (λa. itree_bind (g a) g'))) =
+  (let (e1,e2,e3) = e in
+     case x e1 x' e2 e3 of
+       Oracle_return f l =>
+         if LENGTH e3 ≠ LENGTH l then
+           FST (trace_prefix0 n (x,f) (itree_bind (g (INL (INR l))) g'))
+         else
+           (IO_event e1 e2 (ZIP (e3,l)))::
+              FST (trace_prefix0 n (x,f) (itree_bind (g (INL (INR l))) g'))
+       | Oracle_final f =>
+           FST (trace_prefix0 n (x,x') (itree_bind (g (INL (INR l))) g')))
+Proof
+  map_every qid_spec_tac [‘g’,‘g'’,‘e’,‘x'’,‘n’]>>
+  Induct>-simp[]>>simp[Excl "trace_prefix0_Vis"]>>rw[]>>
+  first_x_assum $ qspecl_then [‘x'’, ‘e’,‘g'’,‘g’] assume_tac>>
+  rpt (CASE_TAC>>fs[Excl "trace_prefix0_Vis"])>>
+  rpt (pairarg_tac>>fs[Excl "trace_prefix0_Vis"])>>
+  CASE_TAC>>fs[]>>
+
+  last_x_assum mp_tac>>simp[]>>
+  TOP_CASE_TAC>>fs[]>>
+  pairarg_tac>>fs[]>>rw[]>>
+  qmatch_goalsub_abbrev_tac ‘_ = FST X’>>Cases_on ‘X’>>gvs[]
+
+  FULL_CASE_TAC>>fs[]>>
+  FULL_CASE_TAC>>fs[]
+  
+QED
+                      
 (*********************************************)
 
 (**** divergence ****)
@@ -3192,51 +3647,6 @@ Proof
   drule_all trace_prefix0_prefix>>simp[]
 QED
 
-Theorem trace_prefix'_bind_Ret[simp]:
-  (∀a. ∃x. strip_tau (h a) (Ret (INR x))) ⇒
-  trace_prefix' (x,x') (itree_bind t h)
-  = trace_prefix' (x,x') t
-Proof
-  rw[]>>
-  simp[trace_prefix'_def]>>
-  AP_TERM_TAC>>
-  simp[Once LUNFOLD_BISIMULATION]>>
-  qexists ‘CURRY {((x',t),(x', FUNPOW Tau n (itree_bind t h)))|t,h,n|
-           ∀a. ∃x. strip_tau (h a) (Ret (INR x))}’>>
-  rw[]>>
-
- 
-
-  fs[EXISTS_PROD]
-  >- (
-  simp[EXISTS_PROD]>>
-  Cases_On ‘t’>>simp[]
-
-
-  simp[itree_bind_assoc]
-
-qexists ‘h’>>
-      pop_assum $ irule_at Any>>
-
-  map_every qid_spec_tac [‘t’,‘x'’,‘f’,‘n’]>>
-  completeInduct_on ‘n’>>rw[]>>
-  Cases_on ‘n’>>fs[trace_prefix0_def]>>
-  Cases_on ‘∃t'. strip_tau t t'’>>fs[]
-  >- (imp_res_tac strip_tau_FUNPOW>>
-      simp[FUNPOW_Tau_bind,trace_prefix0_FUNPOW_Tau]>>
-      Cases_on ‘t'’>>fs[]>>
-      TOP_CASE_TAC>>fs[]>>
-      CASE_TAC>>fs[]>>
-      pairarg_tac>>fs[]>>
-      pairarg_tac>>fs[]>>
-      last_x_assum $ qspec_then ‘n''’ assume_tac>>fs[]>>
-      ‘n'' < SUC n'’ by simp[]>>fs[]>>
-      first_x_assum $ qspecl_then [‘f’,‘f'’,‘g(INL(INR l))’] assume_tac>>fs[]>>
-      CASE_TAC>>gvs[])>>
-  imp_res_tac strip_tau_spin>>fs[spin_bind]
-QED
-
-
 
 (*** bounded case ***)
 
@@ -3283,7 +3693,12 @@ Proof
 (*    fs[mrec_If]>>*)
     rpt (CASE_TAC>>fs[])>>
     rpt (FULL_CASE_TAC>>fs[])>>
-    simp[LAPPEND_NIL_2ND,GSYM LAPPEND_fromList]>>
+    simp[LAPPEND_NIL_2ND,GSYM LAPPEND_fromList]
+    >- (last_x_assum mp_tac>>
+        simp[evaluate_def,
+             panPropsTheory.eval_upd_clock_eq]>>rw[]>>fs[]>>
+        fs[mrec_If]>>
+        
     
 
 
