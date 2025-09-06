@@ -3196,6 +3196,14 @@ Proof
   cheat
 QED
 
+Triviality strict_locals_ok_split:
+  strict_locals_ok vs1 xs1 ∧ strict_locals_ok vs2 xs2 ∧
+  DISJOINT (set (MAP FST vs1)) (set (MAP FST vs2)) ⇒
+  strict_locals_ok (vs1 ++ vs2) (xs1 ++ xs2)
+Proof
+  cheat
+QED
+
 Triviality locals_ok_IntT_MAP_ZIP:
   EVERY (λv. ∃i. v = IntV i) ds_vals ∧
   LENGTH ds_vars = LENGTH ds_vals ∧
@@ -3222,6 +3230,15 @@ Proof
   Induct \\ fs [ALOOKUP_def,FORALL_PROD] \\ rw []
   \\ eq_tac \\ rw [] \\ rw []
   \\ fs [MEM_MAP,EXISTS_PROD] \\ gs []
+QED
+
+Theorem eval_stmt_strict_locals_ok:
+  eval_stmt st1 env body st2 ret ∧
+  strict_locals_ok ls st1.locals ∧
+  locals_ok ls st2.locals ⇒
+  strict_locals_ok ls st2.locals
+Proof
+  cheat
 QED
 
 Theorem stmt_wp_sound:
@@ -3562,6 +3579,7 @@ Proof
     \\ ‘MAP FST ds1 = ds_vars’ by
       (imp_res_tac LIST_REL_LENGTH
        \\ gvs [Abbr‘ds1’,MAP_ZIP])
+   \\ ‘strict_locals_ok (MAP (λv. (v,IntT)) ds_vars) ds1’ by cheat
     \\ last_x_assum $ qspecl_then [‘st1 with locals := ds1 ++ st1.locals’,‘env’] mp_tac
     \\ ‘eval_measure st env (wrap_old decs) =
         eval_measure st1 env (wrap_old decs)’ by
@@ -3608,7 +3626,9 @@ Proof
       \\ disch_then $ qspec_then
            ‘ds1 ++ MAP (λ(v,_). (v, THE (ALOOKUP st1.locals v))) locals’ mp_tac
       \\ impl_tac
-      >- cheat (* looks true *)
+
+      >- (irule EVERY2_APPEND_suff
+          \\ cheat)
       \\ qpat_abbrev_tac ‘ys = REVERSE _ ++ _’
       \\ qabbrev_tac ‘zs = ds1 ++ st1.locals’
       \\ once_rewrite_tac [GSYM conditions_hold_sing_conj]
@@ -3626,9 +3646,40 @@ Proof
         \\ rewrite_tac [IN_UNION,IN_DISJOINT] \\ simp []
         \\ disch_then $ qspec_then ‘n’ mp_tac
         \\ Cases_on ‘MEM n ds_vars’ \\ simp [] \\ rpt strip_tac
-        >- (simp [Abbr‘ys’,Abbr‘zs’,REVERSE_APPEND]
-            \\ cheat)
-        \\ cheat)
+        >-
+         (simp [Abbr‘ys’,Abbr‘zs’,REVERSE_APPEND]
+          \\ rewrite_tac [GSYM APPEND_ASSOC]
+          \\ simp_tac std_ss [Once ALOOKUP_APPEND]
+          \\ simp [CaseEq"option"] \\ disj1_tac
+          \\ conj_tac
+          >- (simp [ALOOKUP_NONE,MAP_REVERSE,MAP_MAP_o,o_DEF,LAMBDA_PROD,FST_pair])
+          \\ rewrite_tac [ALOOKUP_APPEND]
+          \\ DEP_REWRITE_TAC [alistTheory.alookup_distinct_reverse]
+            \\ asm_rewrite_tac []
+          \\ Cases_on ‘ALOOKUP ds1 n’ \\ fs []
+          \\ qsuff_tac ‘F’ \\ simp []
+          \\ pop_assum mp_tac
+          \\ rewrite_tac [ALOOKUP_NONE]
+          \\ asm_rewrite_tac [])
+        \\ simp [Abbr‘ys’,Abbr‘zs’,REVERSE_APPEND]
+        \\ rewrite_tac [GSYM APPEND_ASSOC]
+        \\ simp_tac std_ss [Once ALOOKUP_APPEND]
+        \\ simp [CaseEq"option"] \\ disj2_tac
+        \\ qabbrev_tac ‘ts = (REVERSE (MAP (λ(v,_0). (v,THE (ALOOKUP st1.locals v))) locals))’
+        \\ ‘ALL_DISTINCT (MAP FST ts)’ by
+          (simp [Abbr‘ts’,MAP_REVERSE,MAP_MAP_o,o_DEF,LAMBDA_PROD,FST_pair]
+           \\ fs [locals_ok_def])
+        \\ dxrule alookup_eq_mem \\ disch_then $ rw o single
+        \\ simp_tac std_ss [Once ALOOKUP_APPEND]
+        \\ ‘ALOOKUP ds1 n = NONE’ by asm_rewrite_tac [ALOOKUP_NONE]
+        \\ simp [] \\ simp [Once EQ_SYM_EQ, Abbr ‘ts’]
+        \\ simp [MEM_MAP,EXISTS_PROD,PULL_EXISTS]
+        \\ fs [MEM_MAP,EXISTS_PROD]
+        \\ first_assum $ irule_at $ Pos hd
+        \\ qpat_x_assum ‘strict_locals_ok locals st1.locals’ mp_tac
+        \\ simp [strict_locals_ok_def, GSYM AND_IMP_INTRO]
+        \\ disch_then drule \\ simp []
+        \\ strip_tac \\ fs [])
       \\ ‘eval_true (st with locals := zs) =
           eval_true (st1 with locals := zs)’ by
         (rewrite_tac [eval_true_def,FUN_EQ_THM]
@@ -3651,9 +3702,12 @@ Proof
     \\ simp []
     \\ strip_tac
     \\ ‘strict_locals_ok (MAP (λv. (v,IntT)) ds_vars ++ locals) st''.locals’ by
-     (irule locals_ok_IMP_strict_locals_ok \\ asm_rewrite_tac []
-      \\ qexists_tac ‘env’
-      \\ cheat)
+     (irule eval_stmt_strict_locals_ok
+      \\ first_assum $ irule_at $ Pos last \\ simp []
+      \\ irule strict_locals_ok_split \\ simp []
+      \\ simp [MAP_MAP_o,LAMBDA_PROD,o_DEF]
+      \\ once_rewrite_tac [DISJOINT_SYM]
+      \\ simp [])
     \\ drule_then drule eval_stmt_drop_locals
     \\ impl_tac
     >- (fs [get_vars_stmt_def])
