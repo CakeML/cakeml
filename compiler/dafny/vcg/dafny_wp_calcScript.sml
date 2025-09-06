@@ -3263,7 +3263,19 @@ Proof
   Induct \\ fs []
 QED
 
-Theorem stmt_wp_sound:
+fun setup (q : term quotation, t : tactic) = let
+    val the_concl = Parse.typedTerm q bool
+    val t2 = (t \\ rpt (pop_assum mp_tac))
+    val (goals, validation) = t2 ([], the_concl)
+    fun get_goal q = first (can (rename [q])) goals |> snd
+    fun init thms st = if null (fst st) andalso aconv (snd st) the_concl
+      then ((K (goals, validation)) \\ TRY (MAP_FIRST ACCEPT_TAC thms)) st
+      else failwith "setup tactic: mismatching starting state"
+  in {get_goal = get_goal, concl = fn () => the_concl,
+      init = (init : thm list -> tactic),
+      all_goals = fn () => map snd goals} end
+
+val stmt_wp_sound_setup = setup (`
   ∀m reqs stmt post ens decs locals.
     stmt_wp m reqs stmt post ens decs locals ⇒
     ∀st env.
@@ -3303,163 +3315,213 @@ Theorem stmt_wp_sound:
         | Rstop Sret => conditions_hold st' env ens
         | Rcont => conditions_hold st' env post
         | _ => F
+  `,
+  Induct_on ‘stmt_wp’ \\ rpt strip_tac)
+
+Theorem stmt_wp_sound_Skip:
+  ^(#get_goal stmt_wp_sound_setup `Skip`)
 Proof
-  Induct_on ‘stmt_wp’ \\ rpt strip_tac
-  >~ [‘Skip’] >-
-   (irule_at (Pos hd) eval_stmt_Skip \\ simp [])
-  >~ [‘Assert e’] >-
-   (irule_at (Pos hd) eval_stmt_Assert \\ simp []
-    \\ gvs [conditions_hold_cons])
-  >~ [‘Print’] >-
-   (irule_at (Pos hd) eval_stmt_Print \\ simp []
-    \\ fs [conditions_hold_cons]
-    \\ drule eval_true_CanEval \\ strip_tac
-    \\ first_assum $ irule_at (Pos hd)
-    \\ drule_all eval_exp_get_type
-    \\ simp [value_has_type_eq_all_values])
-  >~ [‘Return’] >-
-   (irule_at (Pos hd) eval_stmt_Return \\ simp [])
-  >~ [‘Then stmt₁ stmt₂’] >-
-   (last_x_assum drule \\ simp []
-    \\ disch_then $ qx_choosel_then [‘st₁’, ‘ret₁’] mp_tac
-    \\ strip_tac
-    \\ reverse $ namedCases_on ‘ret₁’ ["", "stp"] \\ gvs []
-    >-
-     (Cases_on ‘stp’ \\ gvs []
-      (* First statement has returned *)
-      \\ irule_at (Pos hd) eval_stmt_Then_ret
-      \\ first_assum $ irule_at (Pos hd) \\ simp [])
-    \\ last_x_assum $ drule_at (Pos last)
-    \\ disch_then $ drule_at (Pos last)
-    \\ imp_res_tac Rcont_eval_measure \\ gvs []
-    \\ impl_tac >- (gvs [])
-    \\ disch_then $ qx_choosel_then [‘st₂’, ‘ret₂’] mp_tac
-    \\ strip_tac
-    \\ reverse $ namedCases_on ‘ret₂’ ["", "stp"] \\ gvs []
-    >-
-     (Cases_on ‘stp’ \\ gvs []
-      (* Second statement has returned *)
-      \\ irule_at (Pos hd) eval_stmt_Then_cont_ret
-      \\ first_assum $ irule_at (Pos hd) \\ simp []
-      \\ first_assum $ irule_at (Pos hd) \\ simp [])
-    (* Both statements continued *)
-    \\ irule_at (Pos hd) eval_stmt_Then_cont
+  rpt strip_tac
+  \\ irule_at (Pos hd) eval_stmt_Skip \\ simp []
+QED
+
+Theorem stmt_wp_sound_Return:
+  ^(#get_goal stmt_wp_sound_setup `Return`)
+Proof
+  rpt strip_tac
+  \\ irule_at (Pos hd) eval_stmt_Return \\ simp []
+QED
+
+Theorem stmt_wp_sound_Assert:
+  ^(#get_goal stmt_wp_sound_setup `Assert`)
+Proof
+  rpt strip_tac
+  \\ rename [‘Assert e’]
+  \\ irule_at (Pos hd) eval_stmt_Assert \\ simp []
+  \\ gvs [conditions_hold_cons]
+QED
+
+Theorem stmt_wp_sound_Print:
+  ^(#get_goal stmt_wp_sound_setup `Print`)
+Proof
+  rpt strip_tac
+  \\ irule_at (Pos hd) eval_stmt_Print \\ simp []
+  \\ fs [conditions_hold_cons]
+  \\ drule eval_true_CanEval \\ strip_tac
+  \\ first_assum $ irule_at (Pos hd)
+  \\ drule_all eval_exp_get_type
+  \\ simp [value_has_type_eq_all_values]
+QED
+
+Theorem stmt_wp_sound_Then:
+  ^(#get_goal stmt_wp_sound_setup `Then`)
+Proof
+  rpt strip_tac
+  \\ rename [‘Then stmt₁ stmt₂’]
+  \\ last_x_assum drule \\ simp []
+  \\ disch_then $ qx_choosel_then [‘st₁’, ‘ret₁’] mp_tac
+  \\ strip_tac
+  \\ reverse $ namedCases_on ‘ret₁’ ["", "stp"] \\ gvs []
+  >-
+   (Cases_on ‘stp’ \\ gvs []
+    (* First statement has returned *)
+    \\ irule_at (Pos hd) eval_stmt_Then_ret
+    \\ first_assum $ irule_at (Pos hd) \\ simp [])
+  \\ last_x_assum $ drule_at (Pos last)
+  \\ disch_then $ drule_at (Pos last)
+  \\ imp_res_tac Rcont_eval_measure \\ gvs []
+  \\ impl_tac >- (gvs [])
+  \\ disch_then $ qx_choosel_then [‘st₂’, ‘ret₂’] mp_tac
+  \\ strip_tac
+  \\ reverse $ namedCases_on ‘ret₂’ ["", "stp"] \\ gvs []
+  >-
+   (Cases_on ‘stp’ \\ gvs []
+    (* Second statement has returned *)
+    \\ irule_at (Pos hd) eval_stmt_Then_cont_ret
     \\ first_assum $ irule_at (Pos hd) \\ simp []
     \\ first_assum $ irule_at (Pos hd) \\ simp [])
-  >~ [‘If grd thn els’] >-
-   (dxrule conditions_hold_imp_case_split \\ strip_tac \\ gvs []
-    >- (* Execute thn branch *)
-     (last_x_assum $ drule_at (Pos $ el 3) \\ simp []
-      \\ impl_tac >- (gvs [])
-      \\ disch_then $ qx_choosel_then [‘st₁’, ‘ret₁’] mp_tac
-      \\ strip_tac
-      \\ irule_at (Pos hd) eval_stmt_If_thn
-      \\ gvs [conditions_hold_def]
-      \\ first_assum $ irule_at (Pos hd) \\ simp []
-      \\ namedCases_on ‘ret₁’ ["", "err"] \\ gvs []
-      \\ Cases_on ‘err’ \\ gvs [])
-    (* Execute els branch *)
-    \\ last_x_assum $ drule_at (Pos $ el 3) \\ simp []
+  (* Both statements continued *)
+  \\ irule_at (Pos hd) eval_stmt_Then_cont
+  \\ first_assum $ irule_at (Pos hd) \\ simp []
+  \\ first_assum $ irule_at (Pos hd) \\ simp []
+QED
+
+Theorem stmt_wp_sound_If:
+  ^(#get_goal stmt_wp_sound_setup `If`)
+Proof
+  rpt strip_tac
+  \\ rename [‘If grd thn els’]
+  \\ dxrule conditions_hold_imp_case_split \\ strip_tac \\ gvs []
+  >- (* Execute thn branch *)
+   (last_x_assum $ drule_at (Pos $ el 3) \\ simp []
     \\ impl_tac >- (gvs [])
     \\ disch_then $ qx_choosel_then [‘st₁’, ‘ret₁’] mp_tac
     \\ strip_tac
-    \\ irule_at (Pos hd) eval_stmt_If_els
+    \\ irule_at (Pos hd) eval_stmt_If_thn
     \\ gvs [conditions_hold_def]
     \\ first_assum $ irule_at (Pos hd) \\ simp []
     \\ namedCases_on ‘ret₁’ ["", "err"] \\ gvs []
     \\ Cases_on ‘err’ \\ gvs [])
-  >~ [‘Dec (n,ty) stmt’] >-
-   (irule_at (Pos hd) eval_stmt_Dec \\ simp []
-    \\ qmatch_goalsub_abbrev_tac ‘eval_stmt st_inner’
-    \\ last_x_assum $ qspecl_then [‘st_inner’, ‘env’] mp_tac \\ simp []
-    \\ impl_tac >-
-     (simp [Abbr ‘st_inner’]
-      \\ conj_tac >-
-       (simp [eval_measure_with_locals_wrap_old, SF SFY_ss]
-        \\ rpt strip_tac
-        \\ first_x_assum drule_all
-        \\ rpt strip_tac \\ gvs []
-        \\ rpt $ pop_assum $ irule_at Any)
-      \\ drule locals_ok_cons \\ simp [] \\ disch_then kall_tac
-      \\ irule_at (Pos last) conditions_hold_cons_not_free \\ simp []
-      \\ irule state_inv_with_locals_cons_none \\ simp [])
-    \\ rpt strip_tac
-    \\ first_assum $ irule_at $ Pos hd
-    \\ drule eval_stmt_locals
-    \\ simp [Abbr ‘st_inner’]
+  (* Execute els branch *)
+  \\ last_x_assum $ drule_at (Pos $ el 3) \\ simp []
+  \\ impl_tac >- (gvs [])
+  \\ disch_then $ qx_choosel_then [‘st₁’, ‘ret₁’] mp_tac
     \\ strip_tac
-    \\ simp [pop_locals_def, safe_drop_def]
-    \\ ‘1 ≤ LENGTH st'.locals’ by
-      (qsuff_tac ‘1 ≤ LENGTH (MAP FST st'.locals)’ >- (simp [])
-       \\ asm_rewrite_tac [] \\ simp [])
-    \\ simp []
-    \\ drule_all locals_ok_cons_drop \\ simp [] \\ disch_then kall_tac
-    \\ conj_tac >- (drule state_inv_with_locals_drop \\ simp [])
-    \\ rpt CASE_TAC
-    \\ gvs [conditions_hold_cons_drop])
-  >~ [‘Assign ass’] >-
-   (irule_at (Pos hd) eval_stmt_Assign \\ simp []
-    \\ qpat_x_assum ‘∀x._’ kall_tac
-    \\ fs [conditions_hold_def]
-    \\ drule eval_true_Let_IMP \\ simp []
-    \\ strip_tac
-    \\ irule_at Any IMP_eval_rhs_exps_MAP_ExpRhs
-    \\ first_assum $ irule_at $ Pos hd
-    \\ fs [GSYM MAP_MAP_o]
-    \\ drule_then mp_tac locals_ok_is_some_alookup
-    \\ strip_tac
-    \\ dxrule_all subset_every \\ strip_tac
-    \\ drule IMP_assi_values
-    \\ disch_then $ qspecl_then [‘env’, ‘vs’] mp_tac
-    \\ imp_res_tac LIST_REL_LENGTH
-    \\ impl_tac >-
-     (simp []
-      \\ rev_drule_then assume_tac get_types_inr_every_can_get_type
-      \\ drule_all_then assume_tac list_rel_eval_exp_value_inv \\ simp []
-      \\ fs [state_inv_def])
-    \\ strip_tac
-    \\ first_x_assum $ irule_at $ Pos hd
-    \\ simp [eval_true_def,GSYM eval_true_conj_every]
-    \\ rpt conj_tac
-    >- (* locals_ok *)
-     (qpat_x_assum ‘ALOOKUP _ = ALOOKUP _’ mp_tac
-      \\ DEP_REWRITE_TAC [alookup_distinct_reverse_append] \\ simp [MAP_ZIP]
-      \\ disch_tac
-      \\ drule ALOOKUP_locals_ok_eq \\ simp [] \\ disch_then kall_tac
-      \\ irule locals_ok_append_right \\ simp [MAP_ZIP]
-      \\ qx_genl_tac [‘n’, ‘ty’]
-      \\ strip_tac \\ gvs []
-      \\ qrefine ‘SOME val’
-      \\ simp [ALOOKUP_ZIP_MAP_SOME]
-      \\ drule_all_then assume_tac list_rel_eval_exp_get_types
-      \\ drule_all_then assume_tac get_types_var
-      \\ drule_all lookup_ret_name
-      \\ disch_then $ qx_choosel_then [‘val’, ‘lhs_ty’] mp_tac
-      \\ strip_tac \\ gvs []
-      \\ drule locals_unique_types
-      \\ disch_then $ qspecl_then [‘ty’, ‘lhs_ty’, ‘n’] mp_tac \\ simp [])
-    >- (fs [state_inv_def])
-    \\ irule $ iffLR eval_exp_freevars
-    \\ qexists_tac ‘ZIP (ret_names,MAP SOME vs) ++ st.locals’
-    \\ conj_tac
-    >- (rpt strip_tac \\ gvs []
-        \\ irule $ SRULE [FUN_EQ_THM] ALOOKUP_APPEND_same
-        \\ strip_tac
-        \\ DEP_REWRITE_TAC [alookup_distinct_reverse]
-        \\ simp [MAP_ZIP])
-    \\ qpat_x_assum ‘eval_true st env (Let _ _)’ mp_tac
-    \\ simp [eval_true_def]
-    \\ strip_tac
-    \\ drule_at (Pos last) eval_exp_Let_lr
-    \\ disch_then drule
-    \\ impl_tac >- simp []
-    \\ match_mp_tac EQ_IMPLIES
-    \\ match_mp_tac eval_exp_freevars
-    \\ simp [ALOOKUP_APPEND] \\ rw []
-    \\ DEP_REWRITE_TAC [alistTheory.alookup_distinct_reverse]
-    \\ simp [MAP_ZIP])
-  >~ [‘While guard invs ds mods body’] >-
-   (qsuff_tac
+  \\ irule_at (Pos hd) eval_stmt_If_els
+  \\ gvs [conditions_hold_def]
+  \\ first_assum $ irule_at (Pos hd) \\ simp []
+  \\ namedCases_on ‘ret₁’ ["", "err"] \\ gvs []
+  \\ Cases_on ‘err’ \\ gvs []
+QED
+
+Theorem stmt_wp_sound_Dec:
+  ^(#get_goal stmt_wp_sound_setup `Dec`)
+Proof
+  rpt strip_tac
+  \\ rename [‘Dec (n,ty) stmt’]
+  \\ irule_at (Pos hd) eval_stmt_Dec \\ simp []
+  \\ qmatch_goalsub_abbrev_tac ‘eval_stmt st_inner’
+  \\ last_x_assum $ qspecl_then [‘st_inner’, ‘env’] mp_tac \\ simp []
+  \\ impl_tac >-
+   (simp [Abbr ‘st_inner’]
+    \\ conj_tac >-
+     (simp [eval_measure_with_locals_wrap_old, SF SFY_ss]
+      \\ rpt strip_tac
+      \\ first_x_assum drule_all
+      \\ rpt strip_tac \\ gvs []
+      \\ rpt $ pop_assum $ irule_at Any)
+    \\ drule locals_ok_cons \\ simp [] \\ disch_then kall_tac
+    \\ irule_at (Pos last) conditions_hold_cons_not_free \\ simp []
+    \\ irule state_inv_with_locals_cons_none \\ simp [])
+  \\ rpt strip_tac
+  \\ first_assum $ irule_at $ Pos hd
+  \\ drule eval_stmt_locals
+  \\ simp [Abbr ‘st_inner’]
+  \\ strip_tac
+  \\ simp [pop_locals_def, safe_drop_def]
+  \\ ‘1 ≤ LENGTH st'.locals’ by
+    (qsuff_tac ‘1 ≤ LENGTH (MAP FST st'.locals)’ >- (simp [])
+     \\ asm_rewrite_tac [] \\ simp [])
+  \\ simp []
+  \\ drule_all locals_ok_cons_drop \\ simp [] \\ disch_then kall_tac
+  \\ conj_tac >- (drule state_inv_with_locals_drop \\ simp [])
+  \\ rpt CASE_TAC
+  \\ gvs [conditions_hold_cons_drop]
+QED
+
+Theorem stmt_wp_sound_Assign:
+  ^(#get_goal stmt_wp_sound_setup `Assign`)
+Proof
+  rpt strip_tac
+  \\ rename [‘Assign ass’]
+  \\ irule_at (Pos hd) eval_stmt_Assign \\ simp []
+  \\ qpat_x_assum ‘∀x._’ kall_tac
+  \\ fs [conditions_hold_def]
+  \\ drule eval_true_Let_IMP \\ simp []
+  \\ strip_tac
+  \\ irule_at Any IMP_eval_rhs_exps_MAP_ExpRhs
+  \\ first_assum $ irule_at $ Pos hd
+  \\ fs [GSYM MAP_MAP_o]
+  \\ drule_then mp_tac locals_ok_is_some_alookup
+  \\ strip_tac
+  \\ dxrule_all subset_every \\ strip_tac
+  \\ drule IMP_assi_values
+  \\ disch_then $ qspecl_then [‘env’, ‘vs’] mp_tac
+  \\ imp_res_tac LIST_REL_LENGTH
+  \\ impl_tac >-
+   (simp []
+    \\ rev_drule_then assume_tac get_types_inr_every_can_get_type
+    \\ drule_all_then assume_tac list_rel_eval_exp_value_inv \\ simp []
+    \\ fs [state_inv_def])
+  \\ strip_tac
+  \\ first_x_assum $ irule_at $ Pos hd
+  \\ simp [eval_true_def,GSYM eval_true_conj_every]
+  \\ rpt conj_tac
+  >- (* locals_ok *)
+   (qpat_x_assum ‘ALOOKUP _ = ALOOKUP _’ mp_tac
+    \\ DEP_REWRITE_TAC [alookup_distinct_reverse_append] \\ simp [MAP_ZIP]
+    \\ disch_tac
+    \\ drule ALOOKUP_locals_ok_eq \\ simp [] \\ disch_then kall_tac
+    \\ irule locals_ok_append_right \\ simp [MAP_ZIP]
+    \\ qx_genl_tac [‘n’, ‘ty’]
+    \\ strip_tac \\ gvs []
+    \\ qrefine ‘SOME val’
+    \\ simp [ALOOKUP_ZIP_MAP_SOME]
+    \\ drule_all_then assume_tac list_rel_eval_exp_get_types
+    \\ drule_all_then assume_tac get_types_var
+    \\ drule_all lookup_ret_name
+    \\ disch_then $ qx_choosel_then [‘val’, ‘lhs_ty’] mp_tac
+    \\ strip_tac \\ gvs []
+    \\ drule locals_unique_types
+    \\ disch_then $ qspecl_then [‘ty’, ‘lhs_ty’, ‘n’] mp_tac \\ simp [])
+  >- (fs [state_inv_def])
+  \\ irule $ iffLR eval_exp_freevars
+  \\ qexists_tac ‘ZIP (ret_names,MAP SOME vs) ++ st.locals’
+  \\ conj_tac
+  >- (rpt strip_tac \\ gvs []
+      \\ irule $ SRULE [FUN_EQ_THM] ALOOKUP_APPEND_same
+      \\ strip_tac
+      \\ DEP_REWRITE_TAC [alookup_distinct_reverse]
+      \\ simp [MAP_ZIP])
+  \\ qpat_x_assum ‘eval_true st env (Let _ _)’ mp_tac
+  \\ simp [eval_true_def]
+  \\ strip_tac
+  \\ drule_at (Pos last) eval_exp_Let_lr
+  \\ disch_then drule
+  \\ impl_tac >- simp []
+  \\ match_mp_tac EQ_IMPLIES
+  \\ match_mp_tac eval_exp_freevars
+  \\ simp [ALOOKUP_APPEND] \\ rw []
+  \\ DEP_REWRITE_TAC [alistTheory.alookup_distinct_reverse]
+  \\ simp [MAP_ZIP]
+QED
+
+Theorem stmt_wp_sound_While:
+  ^(#get_goal stmt_wp_sound_setup `While`)
+Proof
+  rpt strip_tac
+  \\ rename [‘While guard invs ds mods body’]
+  \\ qsuff_tac
     ‘∀stx.
        conditions_hold stx env (invs ++ [CanEval guard] ++ MAP CanEval ds) ∧
        state_inv stx ∧
@@ -3477,362 +3539,368 @@ Proof
          | Rcont => conditions_hold st' env (not guard::invs)
          | Rstop Sret => conditions_hold st' env ens
          | Rstop (Serr v3) => F’
-    >-
-     (disch_then $ qspec_then ‘st’ mp_tac
-      \\ impl_tac
-      >- (gvs [conditions_hold_def]
-          \\ drule_all locals_ok_IMP_strict_locals_ok \\ fs [])
-      \\ strip_tac
-      \\ first_assum $ irule_at $ Pos hd \\ asm_rewrite_tac []
-      \\ Cases_on ‘ret’ \\ gvs []
-      \\ gvs [conditions_hold_def]
-      \\ gvs [GSYM conditions_hold_def]
-      \\ drule eval_true_Foralls
-      \\ qabbrev_tac ‘vs = FILTER (λ(v,ty). assigned_in body v) locals’
-      \\ ‘conditions_hold st env (MAP (CanEval ∘ Var ∘ FST) vs)’ by
-        fs [conditions_hold_def,EVERY_MEM,MEM_FILTER,PULL_EXISTS,MEM_MAP,Abbr‘vs’]
-      \\ qabbrev_tac ‘vals = MAP (λ(v,_). (v,ALOOKUP st'.locals v)) vs’
-      \\ ‘EVERY (IS_SOME_SOME o SND) vals’ by
-       (gvs [Abbr‘vals’,EVERY_MAP] \\ simp [LAMBDA_PROD]
-        \\ simp [EVERY_MEM,FORALL_PROD] \\ rw []
-        \\ drule_then irule eval_stmt_assigned_inv
-        \\ qpat_x_assum ‘conditions_hold st env (MAP (CanEval ∘ Var ∘ FST) vs)’ assume_tac
-        \\ fs [conditions_hold_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]
-        \\ pop_assum dxrule \\ simp []
-        \\ strip_tac \\ imp_res_tac eval_true_CanEval_Var \\ simp [])
-      \\ disch_then $ qspec_then ‘MAP (λ(v,val). (v,THE val)) vals’ mp_tac
-      \\ impl_keep_tac
-      >- (gvs [Abbr‘vals’,MAP_MAP_o]
-          \\ gvs [LIST_REL_EL_EQN,EL_MAP,EVERY_EL]
-          \\ rpt strip_tac
-          \\ Cases_on ‘EL n vs’ \\ fs []
-          \\ first_x_assum drule \\ fs [IS_SOME_SOME_def]
-          \\ strip_tac \\ fs []
-          \\ ‘locals_ok vs st'.locals’ by
-             (simp [Abbr‘vs’] \\ irule locals_ok_filter \\ simp [])
-          \\ pop_assum mp_tac
-          \\ simp [locals_ok_def,MEM_EL,PULL_EXISTS,GSYM AND_IMP_INTRO]
-          \\ disch_then drule \\ simp [])
-      \\ strip_tac
-      \\ qsuff_tac ‘eval_true st' env (imp (conj (not guard::invs)) (conj post))’
-      >-
-       (strip_tac \\ drule eval_true_imp
-        \\ gvs [eval_true_conj_every,conditions_hold_def])
-      \\ drule assigned_in_thm \\ simp [assigned_in_def]
-      \\ strip_tac
-      \\ qabbrev_tac ‘new_locals = REVERSE (MAP (λ(v,val). (v,THE val)) vals) ++ st.locals’
-      \\ ‘ALOOKUP st'.locals = ALOOKUP new_locals’ by
-       (simp [FUN_EQ_THM] \\ strip_tac
-        \\ rename [‘ALOOKUP st1.locals v = ALOOKUP new_locals v’]
-        \\ simp [Abbr‘new_locals’,ALOOKUP_APPEND]
-        \\ reverse $ Cases_on ‘assigned_in body v’
-        >-
-         (CASE_TAC \\ fs [] \\ dxrule ALOOKUP_MEM
-          \\ simp [MEM_MAP,EXISTS_PROD,Abbr‘vals’,Abbr‘vs’,MEM_FILTER])
-        \\ ‘MEM v (MAP FST locals)’ by fs [SUBSET_DEF,IN_DEF]
-        \\ ‘MEM v (MAP FST vs)’ by
-          (pop_assum mp_tac
-           \\ simp [Abbr‘vs’,MEM_MAP,MEM_FILTER,PULL_EXISTS,EXISTS_PROD])
+  >-
+   (disch_then $ qspec_then ‘st’ mp_tac
+    \\ impl_tac
+    >- (gvs [conditions_hold_def]
+        \\ drule_all locals_ok_IMP_strict_locals_ok \\ fs [])
+    \\ strip_tac
+    \\ first_assum $ irule_at $ Pos hd \\ asm_rewrite_tac []
+    \\ Cases_on ‘ret’ \\ gvs []
+    \\ gvs [conditions_hold_def]
+    \\ gvs [GSYM conditions_hold_def]
+    \\ drule eval_true_Foralls
+    \\ qabbrev_tac ‘vs = FILTER (λ(v,ty). assigned_in body v) locals’
+    \\ ‘conditions_hold st env (MAP (CanEval ∘ Var ∘ FST) vs)’ by
+      fs [conditions_hold_def,EVERY_MEM,MEM_FILTER,PULL_EXISTS,MEM_MAP,Abbr‘vs’]
+    \\ qabbrev_tac ‘vals = MAP (λ(v,_). (v,ALOOKUP st'.locals v)) vs’
+    \\ ‘EVERY (IS_SOME_SOME o SND) vals’ by
+      (gvs [Abbr‘vals’,EVERY_MAP] \\ simp [LAMBDA_PROD]
+       \\ simp [EVERY_MEM,FORALL_PROD] \\ rw []
+       \\ drule_then irule eval_stmt_assigned_inv
+       \\ qpat_x_assum ‘conditions_hold st env (MAP (CanEval ∘ Var ∘ FST) vs)’ assume_tac
+       \\ fs [conditions_hold_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]
+       \\ pop_assum dxrule \\ simp []
+       \\ strip_tac \\ imp_res_tac eval_true_CanEval_Var \\ simp [])
+    \\ disch_then $ qspec_then ‘MAP (λ(v,val). (v,THE val)) vals’ mp_tac
+    \\ impl_keep_tac
+    >- (gvs [Abbr‘vals’,MAP_MAP_o]
+        \\ gvs [LIST_REL_EL_EQN,EL_MAP,EVERY_EL]
+        \\ rpt strip_tac
+        \\ Cases_on ‘EL n vs’ \\ fs []
+        \\ first_x_assum drule \\ fs [IS_SOME_SOME_def]
+        \\ strip_tac \\ fs []
+        \\ ‘locals_ok vs st'.locals’ by
+          (simp [Abbr‘vs’] \\ irule locals_ok_filter \\ simp [])
         \\ pop_assum mp_tac
-        \\ simp [MEM_MAP,PULL_EXISTS,FORALL_PROD]
-        \\ rpt strip_tac \\ simp [CaseEq"option"] \\ disj2_tac
-        \\ ‘ALL_DISTINCT (MAP FST (REVERSE (MAP (λ(v,val). (v,THE val)) vals)))’ by
+        \\ simp [locals_ok_def,MEM_EL,PULL_EXISTS,GSYM AND_IMP_INTRO]
+        \\ disch_then drule \\ simp [])
+    \\ strip_tac
+    \\ qsuff_tac ‘eval_true st' env (imp (conj (not guard::invs)) (conj post))’
+    >-
+     (strip_tac \\ drule eval_true_imp
+      \\ gvs [eval_true_conj_every,conditions_hold_def])
+    \\ drule assigned_in_thm \\ simp [assigned_in_def]
+    \\ strip_tac
+    \\ qabbrev_tac ‘new_locals = REVERSE (MAP (λ(v,val). (v,THE val)) vals) ++ st.locals’
+    \\ ‘ALOOKUP st'.locals = ALOOKUP new_locals’ by
+      (simp [FUN_EQ_THM] \\ strip_tac
+       \\ rename [‘ALOOKUP st1.locals v = ALOOKUP new_locals v’]
+       \\ simp [Abbr‘new_locals’,ALOOKUP_APPEND]
+       \\ reverse $ Cases_on ‘assigned_in body v’
+       >-
+        (CASE_TAC \\ fs [] \\ dxrule ALOOKUP_MEM
+         \\ simp [MEM_MAP,EXISTS_PROD,Abbr‘vals’,Abbr‘vs’,MEM_FILTER])
+       \\ ‘MEM v (MAP FST locals)’ by fs [SUBSET_DEF,IN_DEF]
+       \\ ‘MEM v (MAP FST vs)’ by
+         (pop_assum mp_tac
+          \\ simp [Abbr‘vs’,MEM_MAP,MEM_FILTER,PULL_EXISTS,EXISTS_PROD])
+       \\ pop_assum mp_tac
+       \\ simp [MEM_MAP,PULL_EXISTS,FORALL_PROD]
+       \\ rpt strip_tac \\ simp [CaseEq"option"] \\ disj2_tac
+       \\ ‘ALL_DISTINCT (MAP FST (REVERSE (MAP (λ(v,val). (v,THE val)) vals)))’ by
          (rewrite_tac [MAP_REVERSE,ALL_DISTINCT_REVERSE]
           \\ simp [Abbr‘vals’,MAP_MAP_o,o_DEF,LAMBDA_PROD,FST_pair]
           \\ ‘locals_ok vs st.locals’ by
-             (simp [Abbr‘vs’] \\ irule locals_ok_filter \\ simp [])
+            (simp [Abbr‘vs’] \\ irule locals_ok_filter \\ simp [])
           \\ fs [locals_ok_def])
-        \\ drule alookup_eq_mem \\ simp []
-        \\ disch_then kall_tac
-        \\ drule_all LIST_REL_MEM_IMP
-        \\ simp [EXISTS_PROD] \\ strip_tac \\ rveq
-        \\ first_assum $ irule_at $ Pos hd
-        \\ fs [MEM_MAP,PULL_EXISTS,EXISTS_PROD]
-        \\ qpat_x_assum ‘EVERY _ vals’ (drule o SRULE [EVERY_MEM])
-        \\ simp [IS_SOME_SOME_def] \\ strip_tac \\ gvs []
-        \\ qpat_x_assum ‘MEM _ vals’ mp_tac
-        \\ simp [Abbr‘vals’,MEM_MAP,EXISTS_PROD]
-        \\ strip_tac \\ fs [])
-      \\ qpat_x_assum ‘eval_true _ _ _ ’ mp_tac
-      \\ drule eval_exp_swap_locals
-      \\ simp [eval_true_def] \\ disch_then kall_tac
-      \\ match_mp_tac EQ_IMPLIES
-      \\ rpt AP_THM_TAC
-      \\ irule eval_exp_eq_ignore_clock
-      \\ gvs [state_component_equality])
-    \\ qsuff_tac ‘∀x stx.
-                    x = eval_measure stx env (0, ds) ∧
-                    conditions_hold stx env (invs ++ [CanEval guard] ++ MAP CanEval ds) ∧
-                    state_inv stx ∧
-                    strict_locals_ok locals stx.locals ∧
-                    stx.locals_old = st.locals_old ∧
-                    stx.heap_old = st.heap_old ∧
-                    stx.heap = st.heap ⇒
-                    ∃st' ret.
-                      eval_stmt stx env (While guard invs ds mods body) st' ret ∧
-                      st'.locals_old = stx.locals_old ∧ st'.heap = stx.heap ∧
-                      st'.heap_old = stx.heap_old ∧
-                      state_inv st' ∧
-                      locals_ok locals st'.locals ∧
-                      case ret of
-                        Rcont => conditions_hold st' env (not guard::invs)
-                      | Rstop Sret => conditions_hold st' env ens
-                      | Rstop (Serr v3) => F’
-    >- fs []
-    \\ ho_match_mp_tac WF_ind
-    \\ rpt strip_tac \\ gvs [PULL_FORALL]
-    \\ rename [‘eval_stmt st1 env’]
-    \\ gvs [conditions_hold_def]
-    \\ gvs [GSYM conditions_hold_def]
-    \\ ‘locals_ok locals st1.locals’ by (imp_res_tac strict_locals_ok_IMP_locals_ok)
-    \\ drule_all eval_bool_IMP \\ strip_tac
-    \\ reverse $ Cases_on ‘guard_b’
+       \\ drule alookup_eq_mem \\ simp []
+       \\ disch_then kall_tac
+       \\ drule_all LIST_REL_MEM_IMP
+       \\ simp [EXISTS_PROD] \\ strip_tac \\ rveq
+       \\ first_assum $ irule_at $ Pos hd
+       \\ fs [MEM_MAP,PULL_EXISTS,EXISTS_PROD]
+       \\ qpat_x_assum ‘EVERY _ vals’ (drule o SRULE [EVERY_MEM])
+       \\ simp [IS_SOME_SOME_def] \\ strip_tac \\ gvs []
+       \\ qpat_x_assum ‘MEM _ vals’ mp_tac
+       \\ simp [Abbr‘vals’,MEM_MAP,EXISTS_PROD]
+       \\ strip_tac \\ fs [])
+    \\ qpat_x_assum ‘eval_true _ _ _ ’ mp_tac
+    \\ drule eval_exp_swap_locals
+    \\ simp [eval_true_def] \\ disch_then kall_tac
+    \\ match_mp_tac EQ_IMPLIES
+    \\ rpt AP_THM_TAC
+    \\ irule eval_exp_eq_ignore_clock
+    \\ gvs [state_component_equality])
+  \\ qsuff_tac ‘∀x stx.
+                  x = eval_measure stx env (0, ds) ∧
+                  conditions_hold stx env (invs ++ [CanEval guard] ++ MAP CanEval ds) ∧
+                  state_inv stx ∧
+                  strict_locals_ok locals stx.locals ∧
+                  stx.locals_old = st.locals_old ∧
+                  stx.heap_old = st.heap_old ∧
+                  stx.heap = st.heap ⇒
+                  ∃st' ret.
+                    eval_stmt stx env (While guard invs ds mods body) st' ret ∧
+                    st'.locals_old = stx.locals_old ∧ st'.heap = stx.heap ∧
+                    st'.heap_old = stx.heap_old ∧
+                    state_inv st' ∧
+                    locals_ok locals st'.locals ∧
+                    case ret of
+                      Rcont => conditions_hold st' env (not guard::invs)
+                    | Rstop Sret => conditions_hold st' env ens
+                    | Rstop (Serr v3) => F’
+  >- fs []
+  \\ ho_match_mp_tac WF_ind
+  \\ rpt strip_tac \\ gvs [PULL_FORALL]
+  \\ rename [‘eval_stmt st1 env’]
+  \\ gvs [conditions_hold_def]
+  \\ gvs [GSYM conditions_hold_def]
+  \\ ‘locals_ok locals st1.locals’ by (imp_res_tac strict_locals_ok_IMP_locals_ok)
+  \\ drule_all eval_bool_IMP \\ strip_tac
+  \\ reverse $ Cases_on ‘guard_b’
+  >-
+   (irule_at Any eval_stmt_While_stop
+    \\ drule eval_exp_bool_not
+    \\ simp [GSYM eval_true_def])
+  \\ irule_at Any eval_stmt_While_unroll
+  \\ first_assum $ irule_at $ Pos hd
+  \\ fs [GSYM PULL_FORALL]
+  \\ drule MAP_CanEval_IMP \\ strip_tac
+  \\ qabbrev_tac ‘ds1 = ZIP (ds_vars, MAP SOME ds_vals)’
+  \\ ‘MAP FST ds1 = ds_vars’ by
+    (imp_res_tac LIST_REL_LENGTH
+     \\ gvs [Abbr‘ds1’,MAP_ZIP])
+  \\ ‘EVERY (λv. ∃i. v = IntV i) ds_vals’ by
+    (qpat_x_assum ‘EVERY (λd. get_type locals d = INR IntT) ds’ assume_tac
+     \\ fs [EVERY_EL] \\ rpt strip_tac
+     \\ fs [LIST_REL_EL_EQN] \\ rfs []
+     \\ first_x_assum drule
+     \\ first_x_assum dxrule
+     \\ rpt strip_tac
+     \\ drule_all eval_exp_get_type
+     \\ simp [all_values_def])
+  \\ ‘strict_locals_ok (MAP (λv. (v,IntT)) ds_vars) ds1’ by
+    (simp [strict_locals_ok_def,MAP_MAP_o,o_DEF]
+     \\ simp [MEM_MAP,PULL_EXISTS]
+     \\ rpt strip_tac \\ fs [EVERY_MEM]
+     \\ ‘ALL_DISTINCT (MAP FST ds1)’ by asm_rewrite_tac []
+     \\ dxrule alookup_eq_mem
+     \\ disch_then $ simp o single
+     \\ ntac 2 $ pop_assum mp_tac
+     \\ simp [Abbr‘ds1’,MEM_EL,PULL_EXISTS]
+     \\ rpt strip_tac
+     \\ rename [‘EL k _’]
+     \\ imp_res_tac LIST_REL_LENGTH
+     \\ ‘k < LENGTH ds_vals’ by simp []
+     \\ first_x_assum drule \\ strip_tac
+     \\ qrefinel [‘IntV i’,‘k’]
+     \\ simp [all_values_def]
+     \\ DEP_REWRITE_TAC [EL_ZIP] \\ simp [EL_MAP])
+  \\ last_x_assum $ qspecl_then [‘st1 with locals := ds1 ++ st1.locals’,‘env’] mp_tac
+  \\ ‘eval_measure st env (wrap_old decs) =
+      eval_measure st1 env (wrap_old decs)’ by
+    (Cases_on ‘decs’ \\ fs [eval_measure_def,wrap_old_def]
+     \\ irule eval_decreases_old_eq \\ fs [])
+  \\ impl_tac
+  >-
+   (conj_tac
     >-
-     (irule_at Any eval_stmt_While_stop
-      \\ drule eval_exp_bool_not
-      \\ simp [GSYM eval_true_def])
-    \\ irule_at Any eval_stmt_While_unroll
-    \\ first_assum $ irule_at $ Pos hd
-    \\ fs [GSYM PULL_FORALL]
-    \\ drule MAP_CanEval_IMP \\ strip_tac
-    \\ qabbrev_tac ‘ds1 = ZIP (ds_vars, MAP SOME ds_vals)’
-    \\ ‘MAP FST ds1 = ds_vars’ by
-      (imp_res_tac LIST_REL_LENGTH
-       \\ gvs [Abbr‘ds1’,MAP_ZIP])
-    \\ ‘EVERY (λv. ∃i. v = IntV i) ds_vals’ by
-      (qpat_x_assum ‘EVERY (λd. get_type locals d = INR IntT) ds’ assume_tac
-       \\ fs [EVERY_EL] \\ rpt strip_tac
-       \\ fs [LIST_REL_EL_EQN] \\ rfs []
-       \\ first_x_assum drule
-       \\ first_x_assum dxrule
-       \\ rpt strip_tac
-       \\ drule_all eval_exp_get_type
-       \\ simp [all_values_def])
-    \\ ‘strict_locals_ok (MAP (λv. (v,IntT)) ds_vars) ds1’ by
-     (simp [strict_locals_ok_def,MAP_MAP_o,o_DEF]
-      \\ simp [MEM_MAP,PULL_EXISTS]
-      \\ rpt strip_tac \\ fs [EVERY_MEM]
-      \\ ‘ALL_DISTINCT (MAP FST ds1)’ by asm_rewrite_tac []
-      \\ dxrule alookup_eq_mem
-      \\ disch_then $ simp o single
-      \\ ntac 2 $ pop_assum mp_tac
-      \\ simp [Abbr‘ds1’,MEM_EL,PULL_EXISTS]
-      \\ rpt strip_tac
-      \\ rename [‘EL k _’]
+     (rpt strip_tac
+      \\ last_x_assum irule
+      \\ fs [eval_measure_with_locals_wrap_old]
+      \\ asm_rewrite_tac []
+      \\ first_assum $ irule_at Any)
+    \\ simp []
+    \\ conj_tac >-
+     (fs [state_inv_def,locals_inv_append]
+      \\ irule locals_inv_intv
+      \\ simp [Abbr‘ds1’]
+      \\ DEP_REWRITE_TAC [MAP_ZIP |> UNDISCH |> cj 2 |> DISCH_ALL]
+      \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+      \\ gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS])
+    \\ reverse conj_asm2_tac >-
+     (irule locals_ok_split
+      \\ ‘MAP FST (MAP (λv. (v,IntT)) ds_vars) = ds_vars’ by simp [MAP_MAP_o,o_DEF]
+      \\ simp [] \\ rpt strip_tac
+      >~ [‘DISJOINT’] >- (fs [IN_DISJOINT] \\ metis_tac [])
+      \\ simp [Abbr‘ds1’]
       \\ imp_res_tac LIST_REL_LENGTH
-      \\ ‘k < LENGTH ds_vals’ by simp []
-      \\ first_x_assum drule \\ strip_tac
-      \\ qrefinel [‘IntV i’,‘k’]
-      \\ simp [all_values_def]
-      \\ DEP_REWRITE_TAC [EL_ZIP] \\ simp [EL_MAP])
-    \\ last_x_assum $ qspecl_then [‘st1 with locals := ds1 ++ st1.locals’,‘env’] mp_tac
-    \\ ‘eval_measure st env (wrap_old decs) =
-        eval_measure st1 env (wrap_old decs)’ by
-      (Cases_on ‘decs’ \\ fs [eval_measure_def,wrap_old_def]
-       \\ irule eval_decreases_old_eq \\ fs [])
+      \\ irule locals_ok_IntT_MAP_ZIP
+      \\ fs [])
+    \\ qpat_x_assum ‘eval_true _ _ (Foralls _ (imp _ (conj reqs)))’ assume_tac
+    \\ dxrule eval_true_Foralls
+    \\ disch_then $ qspec_then
+                  ‘ds1 ++ MAP (λ(v,_). (v, THE (ALOOKUP st1.locals v))) locals’ mp_tac
+    \\ impl_tac
+    >- (irule EVERY2_APPEND_suff
+        \\ conj_tac
+        >-
+         (simp [Abbr‘ds1’]
+          \\ irule strict_locals_ok_IMP_LIST_REL
+          \\ imp_res_tac LIST_REL_LENGTH
+          \\ asm_rewrite_tac [])
+        \\ rewrite_tac [EVERY2_MAP,LIST_REL_same]
+        \\ simp [LAMBDA_PROD]
+        \\ qpat_x_assum ‘strict_locals_ok locals st1.locals’ mp_tac
+        \\ simp [strict_locals_ok_def,EVERY_MEM,FORALL_PROD]
+        \\ rpt strip_tac
+        \\ first_x_assum drule
+        \\ strip_tac \\ fs [])
+    \\ qpat_abbrev_tac ‘ys = REVERSE _ ++ _’
+    \\ qabbrev_tac ‘zs = ds1 ++ st1.locals’
+    \\ once_rewrite_tac [GSYM conditions_hold_sing_conj]
+    \\ rewrite_tac [conditions_hold_def,EVERY_DEF,eval_true_def]
+    \\ strip_tac
+    \\ drule_at (Pos last) eval_exp_freevars_lemma
+    \\ disch_then $ qspec_then ‘zs’ mp_tac
+    \\ rewrite_tac [GSYM eval_true_def]
     \\ impl_tac
     >-
-     (conj_tac
+     (strip_tac \\ rename [‘n ∈ _ ⇒ _’] \\ strip_tac
+      \\ ‘n ∈ set ds_vars ∪ set (MAP FST locals)’ by fs [SUBSET_DEF]
+      \\ pop_assum mp_tac
+      \\ qpat_x_assum ‘DISJOINT (set (MAP FST locals)) (set ds_vars)’ mp_tac
+      \\ rewrite_tac [IN_UNION,IN_DISJOINT] \\ simp []
+      \\ disch_then $ qspec_then ‘n’ mp_tac
+      \\ Cases_on ‘MEM n ds_vars’ \\ simp [] \\ rpt strip_tac
       >-
-       (rpt strip_tac
-        \\ last_x_assum irule
-        \\ fs [eval_measure_with_locals_wrap_old]
-        \\ asm_rewrite_tac []
-        \\ first_assum $ irule_at Any)
-      \\ simp []
-      \\ conj_tac >-
-       (fs [state_inv_def,locals_inv_append]
-        \\ irule locals_inv_intv
-        \\ simp [Abbr‘ds1’]
-        \\ DEP_REWRITE_TAC [MAP_ZIP |> UNDISCH |> cj 2 |> DISCH_ALL]
-        \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-        \\ gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS])
-      \\ reverse conj_asm2_tac >-
-       (irule locals_ok_split
-        \\ ‘MAP FST (MAP (λv. (v,IntT)) ds_vars) = ds_vars’ by simp [MAP_MAP_o,o_DEF]
-        \\ simp [] \\ rpt strip_tac
-        >~ [‘DISJOINT’] >- (fs [IN_DISJOINT] \\ metis_tac [])
-        \\ simp [Abbr‘ds1’]
-        \\ imp_res_tac LIST_REL_LENGTH
-        \\ irule locals_ok_IntT_MAP_ZIP
-        \\ fs [])
-      \\ qpat_x_assum ‘eval_true _ _ (Foralls _ (imp _ (conj reqs)))’ assume_tac
-      \\ dxrule eval_true_Foralls
-      \\ disch_then $ qspec_then
-           ‘ds1 ++ MAP (λ(v,_). (v, THE (ALOOKUP st1.locals v))) locals’ mp_tac
-      \\ impl_tac
-      >- (irule EVERY2_APPEND_suff
-          \\ conj_tac
-          >-
-           (simp [Abbr‘ds1’]
-            \\ irule strict_locals_ok_IMP_LIST_REL
-            \\ imp_res_tac LIST_REL_LENGTH
-            \\ asm_rewrite_tac [])
-          \\ rewrite_tac [EVERY2_MAP,LIST_REL_same]
-          \\ simp [LAMBDA_PROD]
-          \\ qpat_x_assum ‘strict_locals_ok locals st1.locals’ mp_tac
-          \\ simp [strict_locals_ok_def,EVERY_MEM,FORALL_PROD]
-          \\ rpt strip_tac
-          \\ first_x_assum drule
-          \\ strip_tac \\ fs [])
-      \\ qpat_abbrev_tac ‘ys = REVERSE _ ++ _’
-      \\ qabbrev_tac ‘zs = ds1 ++ st1.locals’
-      \\ once_rewrite_tac [GSYM conditions_hold_sing_conj]
-      \\ rewrite_tac [conditions_hold_def,EVERY_DEF,eval_true_def]
-      \\ strip_tac
-      \\ drule_at (Pos last) eval_exp_freevars_lemma
-      \\ disch_then $ qspec_then ‘zs’ mp_tac
-      \\ rewrite_tac [GSYM eval_true_def]
-      \\ impl_tac
-      >-
-       (strip_tac \\ rename [‘n ∈ _ ⇒ _’] \\ strip_tac
-        \\ ‘n ∈ set ds_vars ∪ set (MAP FST locals)’ by fs [SUBSET_DEF]
-        \\ pop_assum mp_tac
-        \\ qpat_x_assum ‘DISJOINT (set (MAP FST locals)) (set ds_vars)’ mp_tac
-        \\ rewrite_tac [IN_UNION,IN_DISJOINT] \\ simp []
-        \\ disch_then $ qspec_then ‘n’ mp_tac
-        \\ Cases_on ‘MEM n ds_vars’ \\ simp [] \\ rpt strip_tac
-        >-
-         (simp [Abbr‘ys’,Abbr‘zs’,REVERSE_APPEND]
-          \\ rewrite_tac [GSYM APPEND_ASSOC]
-          \\ simp_tac std_ss [Once ALOOKUP_APPEND]
-          \\ simp [CaseEq"option"] \\ disj1_tac
-          \\ conj_tac
-          >- (simp [ALOOKUP_NONE,MAP_REVERSE,MAP_MAP_o,o_DEF,LAMBDA_PROD,FST_pair])
-          \\ rewrite_tac [ALOOKUP_APPEND]
-          \\ DEP_REWRITE_TAC [alistTheory.alookup_distinct_reverse]
-            \\ asm_rewrite_tac []
-          \\ Cases_on ‘ALOOKUP ds1 n’ \\ fs []
-          \\ qsuff_tac ‘F’ \\ simp []
-          \\ pop_assum mp_tac
-          \\ rewrite_tac [ALOOKUP_NONE]
-          \\ asm_rewrite_tac [])
-        \\ simp [Abbr‘ys’,Abbr‘zs’,REVERSE_APPEND]
+       (simp [Abbr‘ys’,Abbr‘zs’,REVERSE_APPEND]
         \\ rewrite_tac [GSYM APPEND_ASSOC]
         \\ simp_tac std_ss [Once ALOOKUP_APPEND]
-        \\ simp [CaseEq"option"] \\ disj2_tac
-        \\ qabbrev_tac ‘ts = (REVERSE (MAP (λ(v,_0). (v,THE (ALOOKUP st1.locals v))) locals))’
-        \\ ‘ALL_DISTINCT (MAP FST ts)’ by
-          (simp [Abbr‘ts’,MAP_REVERSE,MAP_MAP_o,o_DEF,LAMBDA_PROD,FST_pair]
-           \\ fs [locals_ok_def])
-        \\ dxrule alookup_eq_mem \\ disch_then $ rw o single
-        \\ simp_tac std_ss [Once ALOOKUP_APPEND]
-        \\ ‘ALOOKUP ds1 n = NONE’ by asm_rewrite_tac [ALOOKUP_NONE]
-        \\ simp [] \\ simp [Once EQ_SYM_EQ, Abbr ‘ts’]
-        \\ simp [MEM_MAP,EXISTS_PROD,PULL_EXISTS]
-        \\ fs [MEM_MAP,EXISTS_PROD]
-        \\ first_assum $ irule_at $ Pos hd
-        \\ qpat_x_assum ‘strict_locals_ok locals st1.locals’ mp_tac
-        \\ simp [strict_locals_ok_def, GSYM AND_IMP_INTRO]
-        \\ disch_then drule \\ simp []
-        \\ strip_tac \\ fs [])
-      \\ ‘eval_true (st with locals := zs) =
-          eval_true (st1 with locals := zs)’ by
-        (rewrite_tac [eval_true_def,FUN_EQ_THM]
-         \\ rpt gen_tac \\ rpt AP_THM_TAC
-         \\ irule eval_exp_eq_ignore_clock
-         \\ fs [state_component_equality])
-      \\ asm_rewrite_tac []
-      \\ strip_tac
-      \\ dxrule eval_true_imp
-      \\ simp [eval_true_conj_every,conditions_hold_def]
-      \\ disch_then irule
-      \\ drule_all IMP_dec_assum
-      \\ simp [] \\ strip_tac
-      \\ qunabbrev_tac ‘zs’
-      \\ fs [conditions_hold_def,EVERY_MEM]
-      \\ rpt strip_tac
-      \\ irule eval_true_drop_unused
-      \\ fs [get_vars_stmt_def]
-      \\ fs [eval_true_def,LIST_TO_SET_FLAT,PULL_EXISTS,MEM_MAP])
-    \\ simp []
+        \\ simp [CaseEq"option"] \\ disj1_tac
+        \\ conj_tac
+        >- (simp [ALOOKUP_NONE,MAP_REVERSE,MAP_MAP_o,o_DEF,LAMBDA_PROD,FST_pair])
+        \\ rewrite_tac [ALOOKUP_APPEND]
+        \\ DEP_REWRITE_TAC [alistTheory.alookup_distinct_reverse]
+        \\ asm_rewrite_tac []
+        \\ Cases_on ‘ALOOKUP ds1 n’ \\ fs []
+        \\ qsuff_tac ‘F’ \\ simp []
+        \\ pop_assum mp_tac
+        \\ rewrite_tac [ALOOKUP_NONE]
+        \\ asm_rewrite_tac [])
+      \\ simp [Abbr‘ys’,Abbr‘zs’,REVERSE_APPEND]
+      \\ rewrite_tac [GSYM APPEND_ASSOC]
+      \\ simp_tac std_ss [Once ALOOKUP_APPEND]
+      \\ simp [CaseEq"option"] \\ disj2_tac
+      \\ qabbrev_tac ‘ts = (REVERSE (MAP (λ(v,_0). (v,THE (ALOOKUP st1.locals v))) locals))’
+      \\ ‘ALL_DISTINCT (MAP FST ts)’ by
+        (simp [Abbr‘ts’,MAP_REVERSE,MAP_MAP_o,o_DEF,LAMBDA_PROD,FST_pair]
+         \\ fs [locals_ok_def])
+      \\ dxrule alookup_eq_mem \\ disch_then $ rw o single
+      \\ simp_tac std_ss [Once ALOOKUP_APPEND]
+      \\ ‘ALOOKUP ds1 n = NONE’ by asm_rewrite_tac [ALOOKUP_NONE]
+      \\ simp [] \\ simp [Once EQ_SYM_EQ, Abbr ‘ts’]
+      \\ simp [MEM_MAP,EXISTS_PROD,PULL_EXISTS]
+      \\ fs [MEM_MAP,EXISTS_PROD]
+      \\ first_assum $ irule_at $ Pos hd
+      \\ qpat_x_assum ‘strict_locals_ok locals st1.locals’ mp_tac
+      \\ simp [strict_locals_ok_def, GSYM AND_IMP_INTRO]
+      \\ disch_then drule \\ simp []
+      \\ strip_tac \\ fs [])
+    \\ ‘eval_true (st with locals := zs) =
+        eval_true (st1 with locals := zs)’ by
+      (rewrite_tac [eval_true_def,FUN_EQ_THM]
+       \\ rpt gen_tac \\ rpt AP_THM_TAC
+       \\ irule eval_exp_eq_ignore_clock
+       \\ fs [state_component_equality])
+    \\ asm_rewrite_tac []
     \\ strip_tac
-    \\ ‘strict_locals_ok (MAP (λv. (v,IntT)) ds_vars ++ locals) st''.locals’ by
-     (irule eval_stmt_strict_locals_ok
-      \\ first_assum $ irule_at $ Pos last \\ simp []
-      \\ irule strict_locals_ok_split \\ simp []
-      \\ simp [MAP_MAP_o,LAMBDA_PROD,o_DEF]
-      \\ once_rewrite_tac [DISJOINT_SYM]
-      \\ simp [])
-    \\ drule_then drule eval_stmt_drop_locals
-    \\ impl_tac
-    >- (fs [get_vars_stmt_def])
-    \\ strip_tac
-    \\ rename [‘eval_stmt _ _ _ (st2 with locals := _)’]
-    \\ first_x_assum $ irule_at $ Pos hd
-    \\ reverse $ Cases_on ‘ret’ \\ fs []
-    >-
-     (rename [‘Rstop stop_tm’] \\ Cases_on ‘stop_tm’ \\ gvs []
-      \\ imp_res_tac strict_locals_ok_IMP_locals_ok
-      \\ asm_rewrite_tac []
-      \\ fs [conditions_hold_def,EVERY_MEM,eval_true_def]
-      \\ rpt strip_tac
-      \\ first_x_assum irule \\ simp []
-      \\ fs [LIST_TO_SET_FLAT,MEM_MAP,PULL_EXISTS])
-    \\ first_x_assum $ qspec_then ‘st2 with locals := rest’ mp_tac
-    \\ rewrite_tac [AND_IMP_INTRO]
-    \\ reverse impl_tac >- (simp [])
-    \\ simp []
-    \\ reverse conj_tac
-    >-
-     (fs [conditions_hold_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,eval_true_def]
-      \\ reverse $ rpt strip_tac
-      \\ first_x_assum irule \\ fs []
-      \\ fs [get_vars_stmt_def,CanEval_def,get_vars_exp_def,LIST_TO_SET_FLAT]
-      \\ fs [MEM_MAP,PULL_EXISTS])
-    \\ ‘locals_ok locals rest’ by (imp_res_tac strict_locals_ok_IMP_locals_ok)
-    \\ simp [eval_measure_def,LEX_DEF]
-    \\ fs [decreases_check_def,decrease_lt_def]
-    \\ ‘LENGTH ds_vals = LENGTH ds_vars’ by (imp_res_tac LIST_REL_LENGTH \\ fs [])
-    \\ fs []
-    \\ gs [conditions_hold_def]
-    \\ drule eval_true_lex_lt \\ fs []
-    \\ ‘eval_decreases st2 env ds =
-        eval_decreases (st2 with locals := rest) env ds’ by
-      (simp [eval_decreases_def,MAP_MAP_o]
-       \\ simp [listTheory.LIST_EQ_REWRITE]
-       \\ simp [EL_MAP] \\ rpt strip_tac
-       \\ irule IMP_evaluate_exp_num
-       \\ rename [‘EL ds_n _’]
-       \\ fs [GSYM conditions_hold_def]
-       \\ drule MAP_CanEval_IMP
-       \\ strip_tac
-       \\ qexists_tac ‘EL ds_n ds_vals'’
-       \\ gvs [LIST_REL_EL_EQN]
-       \\ first_x_assum irule \\ fs []
-       \\ fs [get_vars_stmt_def,LIST_TO_SET_FLAT,MEM_MAP,PULL_EXISTS]
-       \\ fs [MEM_EL,PULL_EXISTS])
-    \\ ‘eval_decreases st2 env (MAP Var (MAP FST ds1)) =
-        eval_decreases st1 env ds’ by
-      (simp [eval_decreases_def,MAP_MAP_o]
-       \\ simp [listTheory.LIST_EQ_REWRITE]
-       \\ conj_asm1_tac
-       >- (imp_res_tac LIST_REL_LENGTH \\ fs [] \\ gvs [Abbr‘ds1’])
-       \\ simp [EL_MAP] \\ rpt strip_tac
-       \\ irule IMP_evaluate_exp_num
-       \\ rename [‘EL ds_n _’]
-       \\ qexists_tac ‘EL ds_n ds_vals’
-       \\ qpat_x_assum ‘MAP FST ds1 = ds_vars’
-            (assume_tac o SRULE [Once (GSYM markerTheory.Abbrev_def)] o GSYM)
-       \\ gvs [LIST_REL_EL_EQN]
-       \\ irule eval_exp_Var
-       \\ drule assigned_in_thm
-       \\ disch_then $ DEP_REWRITE_TAC o single
-       \\ ‘FST (EL ds_n ds1) = EL ds_n ds_vars’ by
-         (simp [Abbr‘ds1’] \\ DEP_REWRITE_TAC [EL_ZIP] \\ fs [])
-       \\ fs []
-       \\ simp []
-       \\ fs [Abbr‘ds1’]
-       \\ irule_at Any alookup_zip_lemma_el \\ simp []
-       \\ fs [get_vars_stmt_def]
-       \\ qpat_x_assum ‘DISJOINT (set (get_vars_stmt body)) (set ds_vars)’ assume_tac
-       \\ fs [IN_DISJOINT]
-       \\ ‘∀x. MEM x ds_vars ⇒ ¬MEM x (get_vars_stmt body)’ by metis_tac []
-       \\ pop_assum mp_tac \\ simp [Once MEM_EL,PULL_EXISTS]
-       \\ disch_then drule \\ strip_tac
-       \\ CCONTR_TAC \\ fs []
-       \\ imp_res_tac assign_in_IMP_get_vars_stmt \\ fs [])
-    \\ gvs [])
+    \\ dxrule eval_true_imp
+    \\ simp [eval_true_conj_every,conditions_hold_def]
+    \\ disch_then irule
+    \\ drule_all IMP_dec_assum
+    \\ simp [] \\ strip_tac
+    \\ qunabbrev_tac ‘zs’
+    \\ fs [conditions_hold_def,EVERY_MEM]
+    \\ rpt strip_tac
+    \\ irule eval_true_drop_unused
+    \\ fs [get_vars_stmt_def]
+    \\ fs [eval_true_def,LIST_TO_SET_FLAT,PULL_EXISTS,MEM_MAP])
+  \\ simp []
+  \\ strip_tac
+  \\ ‘strict_locals_ok (MAP (λv. (v,IntT)) ds_vars ++ locals) st''.locals’ by
+    (irule eval_stmt_strict_locals_ok
+     \\ first_assum $ irule_at $ Pos last \\ simp []
+     \\ irule strict_locals_ok_split \\ simp []
+     \\ simp [MAP_MAP_o,LAMBDA_PROD,o_DEF]
+     \\ once_rewrite_tac [DISJOINT_SYM]
+     \\ simp [])
+  \\ drule_then drule eval_stmt_drop_locals
+  \\ impl_tac
+  >- (fs [get_vars_stmt_def])
+  \\ strip_tac
+  \\ rename [‘eval_stmt _ _ _ (st2 with locals := _)’]
+  \\ first_x_assum $ irule_at $ Pos hd
+  \\ reverse $ Cases_on ‘ret’ \\ fs []
+  >-
+   (rename [‘Rstop stop_tm’] \\ Cases_on ‘stop_tm’ \\ gvs []
+    \\ imp_res_tac strict_locals_ok_IMP_locals_ok
+    \\ asm_rewrite_tac []
+    \\ fs [conditions_hold_def,EVERY_MEM,eval_true_def]
+    \\ rpt strip_tac
+    \\ first_x_assum irule \\ simp []
+    \\ fs [LIST_TO_SET_FLAT,MEM_MAP,PULL_EXISTS])
+  \\ first_x_assum $ qspec_then ‘st2 with locals := rest’ mp_tac
+  \\ rewrite_tac [AND_IMP_INTRO]
+  \\ reverse impl_tac >- (simp [])
+  \\ simp []
+  \\ reverse conj_tac
+  >-
+   (fs [conditions_hold_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,eval_true_def]
+    \\ reverse $ rpt strip_tac
+    \\ first_x_assum irule \\ fs []
+    \\ fs [get_vars_stmt_def,CanEval_def,get_vars_exp_def,LIST_TO_SET_FLAT]
+    \\ fs [MEM_MAP,PULL_EXISTS])
+  \\ ‘locals_ok locals rest’ by (imp_res_tac strict_locals_ok_IMP_locals_ok)
+  \\ simp [eval_measure_def,LEX_DEF]
+  \\ fs [decreases_check_def,decrease_lt_def]
+  \\ ‘LENGTH ds_vals = LENGTH ds_vars’ by (imp_res_tac LIST_REL_LENGTH \\ fs [])
+  \\ fs []
+  \\ gs [conditions_hold_def]
+  \\ drule eval_true_lex_lt \\ fs []
+  \\ ‘eval_decreases st2 env ds =
+      eval_decreases (st2 with locals := rest) env ds’ by
+    (simp [eval_decreases_def,MAP_MAP_o]
+     \\ simp [listTheory.LIST_EQ_REWRITE]
+     \\ simp [EL_MAP] \\ rpt strip_tac
+     \\ irule IMP_evaluate_exp_num
+     \\ rename [‘EL ds_n _’]
+     \\ fs [GSYM conditions_hold_def]
+     \\ drule MAP_CanEval_IMP
+     \\ strip_tac
+     \\ qexists_tac ‘EL ds_n ds_vals'’
+     \\ gvs [LIST_REL_EL_EQN]
+     \\ first_x_assum irule \\ fs []
+     \\ fs [get_vars_stmt_def,LIST_TO_SET_FLAT,MEM_MAP,PULL_EXISTS]
+     \\ fs [MEM_EL,PULL_EXISTS])
+  \\ ‘eval_decreases st2 env (MAP Var (MAP FST ds1)) =
+      eval_decreases st1 env ds’ by
+    (simp [eval_decreases_def,MAP_MAP_o]
+     \\ simp [listTheory.LIST_EQ_REWRITE]
+     \\ conj_asm1_tac
+     >- (imp_res_tac LIST_REL_LENGTH \\ fs [] \\ gvs [Abbr‘ds1’])
+     \\ simp [EL_MAP] \\ rpt strip_tac
+     \\ irule IMP_evaluate_exp_num
+     \\ rename [‘EL ds_n _’]
+     \\ qexists_tac ‘EL ds_n ds_vals’
+     \\ qpat_x_assum ‘MAP FST ds1 = ds_vars’
+                     (assume_tac o SRULE [Once (GSYM markerTheory.Abbrev_def)] o GSYM)
+     \\ gvs [LIST_REL_EL_EQN]
+     \\ irule eval_exp_Var
+     \\ drule assigned_in_thm
+     \\ disch_then $ DEP_REWRITE_TAC o single
+     \\ ‘FST (EL ds_n ds1) = EL ds_n ds_vars’ by
+       (simp [Abbr‘ds1’] \\ DEP_REWRITE_TAC [EL_ZIP] \\ fs [])
+     \\ fs []
+     \\ simp []
+     \\ fs [Abbr‘ds1’]
+     \\ irule_at Any alookup_zip_lemma_el \\ simp []
+     \\ fs [get_vars_stmt_def]
+     \\ qpat_x_assum ‘DISJOINT (set (get_vars_stmt body)) (set ds_vars)’ assume_tac
+     \\ fs [IN_DISJOINT]
+     \\ ‘∀x. MEM x ds_vars ⇒ ¬MEM x (get_vars_stmt body)’ by metis_tac []
+     \\ pop_assum mp_tac \\ simp [Once MEM_EL,PULL_EXISTS]
+     \\ disch_then drule \\ strip_tac
+     \\ CCONTR_TAC \\ fs []
+     \\ imp_res_tac assign_in_IMP_get_vars_stmt \\ fs [])
+  \\ gvs []
+QED
+
+Theorem stmt_wp_sound_MetCall:
+  ^(#get_goal stmt_wp_sound_setup `MetCall`)
+Proof
+  rpt strip_tac
   \\ rename [‘MetCall rets mname args’]
   \\ irule_at Any eval_stmt_MetCall \\ gvs []
   \\ qpat_assum ‘compatible_env env m’ mp_tac
@@ -4143,6 +4211,22 @@ Proof
   \\ fs [ALL_DISTINCT_APPEND]
   \\ drule_all read_out_lemma
   \\ strip_tac \\ fs []
+QED
+
+Theorem stmt_wp_sound:
+  ^(#concl stmt_wp_sound_setup ())
+Proof
+  #init stmt_wp_sound_setup [
+    stmt_wp_sound_Skip,
+    stmt_wp_sound_Return,
+    stmt_wp_sound_Assert,
+    stmt_wp_sound_Print,
+    stmt_wp_sound_Then,
+    stmt_wp_sound_If,
+    stmt_wp_sound_Dec,
+    stmt_wp_sound_Assign,
+    stmt_wp_sound_While,
+    stmt_wp_sound_MetCall]
 QED
 
 Triviality evaluate_exp_total_old:
