@@ -2,7 +2,7 @@
 
 method M(n: int) returns (r: int)
   ensures r == if n <= 100 then 91 else n - 10
-  decreases 100 - n
+  decreases 111 - n
 {
   if n <= 100 {
     var tmp := M(n + 11);
