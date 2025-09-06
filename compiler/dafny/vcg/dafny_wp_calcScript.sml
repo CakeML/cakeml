@@ -2950,7 +2950,7 @@ Theorem evaluate_stmt_add_to_clock:
 Proof
   ho_match_mp_tac evaluate_stmt_ind
   \\ rpt strip_tac
-  \\ cheat
+  \\ cheat (* reserved *)
 QED
 
 (* todo move to dafny_eval_rel *)
@@ -2994,14 +2994,14 @@ Theorem eval_exp_Var:
   ALOOKUP st.locals v = SOME (SOME val) ⇒
   eval_exp st env (Var v) val
 Proof
-  cheat
+  cheat (* reserved *)
 QED
 
 Theorem MAP_CanEval_IMP:
   conditions_hold st env (MAP CanEval ds) ⇒
   ∃ds_vals. LIST_REL (λe v. eval_exp st env e v) ds ds_vals
 Proof
-  cheat
+  cheat (* reserved *)
 QED
 
 Theorem eval_stmt_drop_locals:
@@ -3018,7 +3018,7 @@ Theorem eval_stmt_drop_locals:
        DISJOINT (set (get_vars_exp e)) (set (MAP FST ds1)) ⇒
        eval_exp (st2 with locals := rest) env e v)
 Proof
-  cheat
+  cheat (* reserved *)
 QED
 
 Theorem assigned_in_thm:
@@ -3026,7 +3026,7 @@ Theorem assigned_in_thm:
   ∀v. ~(assigned_in stmt v) ⇒
       ALOOKUP st1.locals v = ALOOKUP st.locals v
 Proof
-  cheat
+  cheat (* reserved *)
 QED
 
 Triviality eval_exp_eq_ignore_clock:
@@ -3043,7 +3043,7 @@ Triviality IMP_dec_assum:
   EVERY (eval_true (st1 with locals := ds1 ++ st1.locals) env)
         (MAP2 dec_assum ds_vars ds)
 Proof
-  cheat
+  cheat (* reserved *)
 QED
 
 Triviality eval_true_drop_unused:
@@ -3051,7 +3051,8 @@ Triviality eval_true_drop_unused:
   DISJOINT (set (get_vars_exp guard)) (set (MAP FST ds1)) ⇒
   eval_true (st1 with locals := ds1 ++ st1.locals) env guard
 Proof
-  cheat (* eval_exp_freevars_lemma *)
+  (* eval_exp_freevars_lemma *)
+  cheat (* reserved *)
 QED
 
 Triviality state_inv_with_locals_cons_none:
@@ -3131,13 +3132,13 @@ Triviality alookup_zip_lemma_el:
     ALOOKUP (ZIP (ds_vars,MAP SOME ds_vals) ++ rest)
             (EL ds_n ds_vars) = SOME (SOME (EL ds_n ds_vals))
 Proof
-  cheat
+  cheat (* reserved *)
 QED
 
 Theorem assign_in_IMP_get_vars_stmt:
   assigned_in body v ⇒  MEM v (get_vars_stmt body)
 Proof
-  cheat
+  cheat (* reserved *)
 QED
 
 Definition IS_SOME_SOME_def:
@@ -3149,7 +3150,7 @@ Theorem eval_stmt_assigned_inv:
   IS_SOME_SOME (ALOOKUP st.locals v) ⇒
   IS_SOME_SOME (ALOOKUP st1.locals v)
 Proof
-  cheat
+  cheat (* reserved *)
 QED
 
 Triviality eval_true_CanEval_Var:
@@ -3185,7 +3186,7 @@ Theorem locals_ok_IMP_strict_locals_ok:
   EVERY (eval_true st env) (MAP (CanEval ∘ Var ∘ FST) xs) ⇒
   strict_locals_ok xs st.locals
 Proof
-  cheat
+  cheat (* reserved *)
 QED
 
 Triviality locals_ok_split:
@@ -3193,7 +3194,7 @@ Triviality locals_ok_split:
   DISJOINT (set (MAP FST vs1)) (set (MAP FST vs2)) ⇒
   locals_ok (vs1 ++ vs2) (xs1 ++ xs2)
 Proof
-  cheat
+  cheat (* reserved *)
 QED
 
 Triviality strict_locals_ok_split:
@@ -3201,7 +3202,7 @@ Triviality strict_locals_ok_split:
   DISJOINT (set (MAP FST vs1)) (set (MAP FST vs2)) ⇒
   strict_locals_ok (vs1 ++ vs2) (xs1 ++ xs2)
 Proof
-  cheat
+  cheat (* reserved *)
 QED
 
 Triviality locals_ok_IntT_MAP_ZIP:
@@ -3211,7 +3212,7 @@ Triviality locals_ok_IntT_MAP_ZIP:
   locals_ok (MAP (λv. (v,IntT)) ds_vars)
             (ZIP (ds_vars,MAP SOME ds_vals))
 Proof
-  cheat
+  cheat (* reserved *)
 QED
 
 Theorem locals_ok_filter:
@@ -3238,7 +3239,7 @@ Theorem eval_stmt_strict_locals_ok:
   locals_ok ls st2.locals ⇒
   strict_locals_ok ls st2.locals
 Proof
-  cheat
+  cheat (* reserved *)
 QED
 
 Triviality strict_locals_ok_IMP_LIST_REL:
