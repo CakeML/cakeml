@@ -106,6 +106,7 @@ Proof
   gvs [cml_init_state_def]
 QED
 
+(* TODO I suspect valid_members is not strictly necessary *)
 Theorem correct_compile:
   ∀dfy_ck prog s' r_dfy cml_decs (ffi: 'ffi ffi_state).
     evaluate_program dfy_ck T prog = (s', r_dfy) ∧
