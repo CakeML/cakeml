@@ -14,38 +14,76 @@ val sass = simp[GSYM APPEND_ASSOC, Excl "APPEND_ASSOC"]
 (*                             *)
 (*******************************)
 
-(*
-Theorem dec_expr_shortens[simp]:
-  ∀ bs xs rs. dec_expr bs = (INR xs, rs) ⇒ LENGTH rs < LENGTH bs
+Theorem enc_numI_nEmp:
+  ∀i. ∃b bs. enc_numI i = b::bs
 Proof
-  cheat
-QED
-*)
-
-Theorem dec_global_shortens[simp]:
-  ∀ bs xs rs. dec_global bs = (INR xs, rs) ⇒ LENGTH rs < LENGTH bs
-Proof
-  Cases_on `bs`
-  >> rw[dec_global_def, AllCaseEqs()]
-  >> dxrule dec_globaltype_shortens
-  \\
-
-  cheat
+  gen_tac
+  \\ `∃val. enc_numI i = val` by simp[]
+  \\ asm_rewrite_tac[]
+  \\ pop_assum mp_tac
+  \\ rw[Once enc_numI_def, AllCaseEqs()]
 QED
 
-
-Theorem dec_code_shortens[simp]:
-T
+Theorem enc_paraI_nEmp:
+  ∀i. ∃b bs. enc_paraI i = b::bs
 Proof
-  cheat
+  Cases \\ simp[Once enc_paraI_def, AllCaseEqs()]
 QED
 
-
-Theorem dec_data_shortens[simp]:
-T
+Theorem enc_varI_nEmp:
+  ∀i. ∃b bs. enc_varI i = b::bs
 Proof
-  cheat
+  Cases \\ simp[Once enc_varI_def, AllCaseEqs()]
 QED
+
+Theorem enc_loadI_nEmp:
+  ∀i. ∃b bs. enc_loadI i = b::bs
+Proof
+  gen_tac
+  \\ `∃val. enc_loadI i = val` by simp[]
+  \\ asm_rewrite_tac[]
+  \\ pop_assum mp_tac
+  \\ rw[Once enc_loadI_def, AllCaseEqs()]
+QED
+
+Theorem enc_storeI_nEmp:
+  ∀i. ∃b bs. enc_storeI i = b::bs
+Proof
+  gen_tac
+  \\ `∃val. enc_storeI i = val` by simp[]
+  \\ asm_rewrite_tac[]
+  \\ pop_assum mp_tac
+  \\ rw[Once enc_storeI_def, AllCaseEqs()]
+QED
+
+Theorem enc_instr_nEmp:
+  ∀i lst b bs. enc_instr i = SOME lst ⇒ ∃b bs. lst = b::bs
+Proof
+  Cases
+  >> rw[Once enc_instr_def, AllCaseEqs()]
+  >> mp_tac enc_numI_nEmp
+  >> mp_tac enc_paraI_nEmp
+  >> mp_tac enc_varI_nEmp
+  >> mp_tac enc_loadI_nEmp
+  >> mp_tac enc_storeI_nEmp
+  >> simp[]
+QED
+
+Theorem dec_enc_expr:
+  ∀is encis rest. enc_expr is = SOME $ encis ⇒
+  dec_expr (encis ++ rest) = (INR is, rest)
+Proof
+  Cases_on ‘is’ >> rpt gen_tac
+  >> gvs[Once enc_instr_def, dec_instr_def]
+  \\ rpt strip_tac
+  \\ imp_res_tac enc_instr_nEmp
+  \\ gvs[]
+  \\ simp[dec_instr_def, AllCaseEqs()]
+  \\ rpt strip_tac
+  \\ cheat
+  (* what now? *)
+QED
+
 
 
 Theorem dec_module_shortens[simp]:
@@ -356,7 +394,7 @@ QED *)
 (*             *)
 (***************)
 
-Theorem check_len_IMP_INL:
+(* Theorem check_len_IMP_INL:
   check_len bs xs = (INL x,bs1) ⇒ LENGTH bs1 ≤ LENGTH bs
 Proof
   PairCases_on ‘xs’
@@ -375,7 +413,7 @@ Triviality check_len_INL:
   check_len bs0 y = (INL x,bs1) ⇒ ∃y1 y2. y = (INL y1,y2)
 Proof
   gvs [oneline check_len_def, AllCaseEqs()] \\ rw [] \\ fs []
-QED
+QED *)
 
 
 (*
