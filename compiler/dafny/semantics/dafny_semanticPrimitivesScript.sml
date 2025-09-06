@@ -41,6 +41,9 @@ Datatype:
     (* For old-expressions *)
     locals_old: (mlstring, (value option)) alist;
     heap_old: heap_value list;
+    (* For prev-expressions *)
+    locals_prev: (mlstring, (value option)) alist;
+    heap_prev: heap_value list;
   |>
 End
 
@@ -101,6 +104,8 @@ Definition init_state_def:
     heap := [];
     locals_old := [];
     heap_old := [];
+    locals_prev := [];
+    heap_prev := [];
   |>
 End
 
@@ -142,6 +147,22 @@ End
 
 Definition unuse_old_def:
   unuse_old cur prev = cur with <| locals := prev.locals; heap := prev.heap |>
+End
+
+Definition use_prev_def:
+  use_prev st = st with <| locals := st.locals_prev; heap := st.heap_prev |>
+End
+
+Definition unuse_prev_def:
+  unuse_prev cur prev = cur with <| locals := prev.locals; heap := prev.heap |>
+End
+
+Definition set_prev_def:
+  set_prev st = st with <| locals_prev := st.locals; heap_prev := st.heap |>
+End
+
+Definition unset_prev_def:
+  unset_prev cur prev = cur with <| locals_prev := prev.locals_prev; heap_prev := prev.heap_prev |>
 End
 
 Definition read_local_def:

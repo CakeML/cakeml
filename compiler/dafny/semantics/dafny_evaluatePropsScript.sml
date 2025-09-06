@@ -53,6 +53,7 @@ Proof
     \\ DEP_REWRITE_TAC [drop_push_locals]
     \\ gvs [push_locals_def])
   \\ gvs [evaluate_exp_def, unuse_old_def, use_old_def, restore_caller_def,
+          unuse_prev_def, use_prev_def, unset_prev_def, set_prev_def,
           set_up_call_def, dec_clock_def, AllCaseEqs()]
   \\ simp [state_component_equality]
 QED
@@ -269,6 +270,10 @@ Proof
          dec_clock_def, AllCaseEqs()])
   >~ [‘Old’] >-
    (gvs [evaluate_exp_def, use_old_def, unuse_old_def, AllCaseEqs()])
+  >~ [‘Prev’] >-
+   (gvs [evaluate_exp_def, use_prev_def, unuse_prev_def, AllCaseEqs()])
+  >~ [‘SetPrev’] >-
+   (gvs [evaluate_exp_def, set_prev_def, unset_prev_def, AllCaseEqs()])
   >~ [‘ArrSel’] >-
    (gvs [evaluate_exp_def, index_array_def, AllCaseEqs()])
   \\ gvs [evaluate_exp_def, AllCaseEqs()]
@@ -590,7 +595,8 @@ QED
 
 Theorem evaluate_exp_old_Rval_eq:
   evaluate_exp st₁ env (Old e) = (st₁', Rval v) ∧
-  st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ⇒
+  st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ∧
+  st₁.locals_prev = st.locals_prev ∧ st₁.heap_prev = st.heap_prev ⇒
   ∃ck st'. evaluate_exp (st with clock := ck) env (Old e) = (st', Rval v)
 Proof
   rpt strip_tac
