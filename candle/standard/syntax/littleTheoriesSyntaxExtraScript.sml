@@ -885,7 +885,10 @@ Theorem esubst_ty0_impossible1:
        ⇒ ∃e. esubst_ty0 env σ avds tm = error e) ∧
     (∀subst_tm. esubst_ty0 env σ avds tm = return subst_tm ⇒
                 typeof subst_tm = ty_esubst σ (typeof tm) ∧
-                ∀n. MEM n (tm_names tm) ⇒ MEM n (tm_names subst_tm))
+                (∀n. MEM n (tm_names tm) ⇒ MEM n (tm_names subst_tm)) ∧
+                (∀u uty. VFREE_IN (Var u uty) subst_tm ⇔
+                           ∃oty. VFREE_IN (Var u oty) tm ∧
+                                 uty = ty_esubst σ oty))
 Proof
   recInduct esubst_ty0_ind >> REWRITE_TAC[esubst_ty0_def] >> rpt strip_tac
   >- (gvs[AllCaseEqs()]
@@ -895,11 +898,12 @@ Proof
   >- gvs[LET_THM, AllCaseEqs()]
   >- gvs[LET_THM, AllCaseEqs()]
   >- gvs[LET_THM, AllCaseEqs()]
+  >- (gvs[LET_THM, AllCaseEqs()] >> metis_tac[])
   >- gvs[LET_THM, AllCaseEqs()]
   >- gvs[LET_THM, AllCaseEqs()]
   >- gvs[LET_THM, AllCaseEqs()]
-  >- (gvs[bind_EQ_error, bind_EQ_return, term_ok_def, try_eq_error, AllCaseEqs()]
-      >> metis_tac[TypeBase.nchotomy_of “:(α, β) error”])
+  >- (gvs[LET_THM, AllCaseEqs()] >> metis_tac[])
+  >- (gvs[LET_THM, AllCaseEqs()] >> metis_tac[])
   >- (gvs[bind_EQ_error, bind_EQ_return, term_ok_def, try_eq_error, AllCaseEqs()]
       >> metis_tac[TypeBase.nchotomy_of “:(α, β) error”])
   >- (gvs[bind_EQ_error, bind_EQ_return, term_ok_def, try_eq_error, AllCaseEqs()]
@@ -908,6 +912,9 @@ Proof
           welltyped_def, has_type_comb, ty_esubst_def]
       >> metis_tac[codomain_ty_esubst])
   >- gvs[bind_EQ_error, bind_EQ_return, term_ok_def, try_eq_error, AllCaseEqs()]
+  >- (with_flag (Cond_rewr.stack_limit, 0)
+                (gvs[bind_EQ_error, bind_EQ_return, term_ok_def, try_eq_error, AllCaseEqs()])
+      >> rw[EQ_IMP_THM] >> metis_tac[])
   >- (with_flag (Cond_rewr.stack_limit, 0)
                 (gvs[bind_EQ_error, bind_EQ_return, term_ok_def, try_eq_error, AllCaseEqs()])
       >- (gvs[DISJ_IMP_THM, FORALL_AND_THM, REV_ASSOCD_def, AllCaseEqs()]
@@ -960,6 +967,11 @@ Proof
       >> qspecl_then [‘body’, ‘[(Var (NVARIANT x avds body1) ty,Var x ty)]’, ‘n’]
                      assume_tac tm_names_vsubst_different_name
       >> gvs[term_ok_def])
+  >- (rw[EQ_IMP_THM] >> metis_tac[FVs_VFREE_in])
+  >> (last_x_assum $ qspec_then ‘body1’ mp_tac >> rw[]
+      >> first_x_assum $ qspecl_then [‘u’, ‘uty’] assume_tac >> gvs[]
+      >> rw[EQ_IMP_THM]
+      >> cheat)
 QED
 
 
@@ -1531,8 +1543,6 @@ Proof
   >> gvs[]
 QED
 
-Theorem term_ok_def[simp] = term_ok_def;
-
 Theorem nproves_term_ok:
   ∀tm. ((sig, axs), h, n) |n- tm ⇒ term_ok sig tm
 Proof
@@ -1546,6 +1556,33 @@ Theorem term_union_left_nil[simp]:
   ∀h. term_union [] h = h
 Proof
   Induct_on ‘h’ >> rw[Once term_union_def]
+QED
+
+Theorem nproves_theory_ok:
+  ∀thy h n c. (thy, h, n) |n- c ⇒ theory_ok thy
+Proof
+  cheat
+QED
+
+Theorem nproves_ACONV_concl:
+  ∀thy h n c c'.
+    (thy,h,n) |n- c ∧ welltyped c' ∧ ACONV c c' ⇒
+    (thy,h,n) |n- c'
+Proof
+  rw[]
+  >> qspecl_then [‘c'’, ‘thy’] mp_tac nproves_REFL
+  >> imp_res_tac nproves_theory_ok
+  >> imp_res_tac nproves_term_ok >> fs[]
+  >> imp_res_tac term_ok_aconv >> rw[] >> gvs[SF SFY_ss]
+  >> first_x_assum $ qspecl_then [‘c’, ‘sigof thy’] mp_tac >> impl_tac
+  >> Cases_on ‘thy’ >> gvs[]
+  >- metis_tac[nproves_term_ok]
+  >> rw[] >> gvs[]
+  >> rename [‘((sig, axs), h, n)’]
+  >> drule nproves_EQ_MP >> rw[]
+  >> first_x_assum $ qspecl_then [‘h’, ‘n’, ‘c’] assume_tac
+  >> gvs[ACONV_SYM]
+  >> cheat (* hmmmm *)
 QED
 
 Theorem nproves_ACONV:
@@ -1563,6 +1600,7 @@ Proof
   >- metis_tac[nproves_proves]
   >> qspecl_then [‘[]’, ‘h’, ‘n’, ‘0’, ‘c'’, ‘c’, ‘c'’, ‘thy’]
                  mp_tac nproves_EQ_MP
+                        
   >> impl_tac >> rw[ACONV_SYM]
   >- (irule nproves_REFL >> rw[]
       >- metis_tac[proves_theory_ok]
@@ -1741,9 +1779,10 @@ QED
 
 Theorem db_esubst_ty_thm:
   ∀tm env subst_tm avds.
+    esubsts_ok sig σ ∧
     term_ok sig tm ∧
     welltyped tm ∧
-    (∀s s'. MEM (s,s') env ⇒ ∃x ty. s = Var x ty ∧ s' = Var x (ty_esubst σ ty)) ∧
+    (∀k v. MEM (v,k) env ⇒ ∃n ty. k = Var n (ty_esubst σ ty) ∧ v = Var n ty) ∧
     esubst_ty0 env σ avds tm = return subst_tm ⇒
     db subst_tm = db_esubst_ty σ (db tm)
 Proof
@@ -1757,15 +1796,28 @@ Proof
       >> metis_tac[])
   >> gvs[try_eq_return, bind_EQ_return, bind_EQ_error]
   >> rename [‘sizeof tm’, ‘db body’]
-  >> first_x_assum $ qspec_then ‘sizeof tm’ assume_tac
-  >- (qspecl_then [‘db tm’, ‘(n, ty)’, ‘0’, ‘σ’] assume_tac db_esubst_ty_bind
-      >> gvs[] >> first_x_assum $ qspec_then ‘tm’ assume_tac
-      >> gvs[] >> first_x_assum $ qspecl_then
-                                [‘(Var n ty,Var n (ty_esubst σ ty))::env’,
-                                 ‘body’, ‘avds’] assume_tac
-      >> gvs[DISJ_IMP_THM, FORALL_AND_THM]
-      >> sym_tac >> first_x_assum irule >> rw[]
-      >> cheat)
+  >- (first_x_assum $ qspec_then ‘sizeof tm’ mp_tac >> impl_tac
+      >> rw[]
+      >> first_x_assum $ qspec_then ‘tm’ mp_tac >> impl_tac
+      >- simp[]
+      >> rw[]
+      >> first_x_assum $ qspecl_then [‘(Var n ty,Var n (ty_esubst σ ty))::env’,
+                                      ‘body’, ‘avds’] mp_tac
+      >> impl_tac
+      >- gvs[DISJ_IMP_THM, FORALL_AND_THM]
+      >> rw[]
+      >> qspecl_then [‘db tm’, ‘(n, ty)’, ‘0’, ‘σ’] mp_tac db_esubst_ty_bind
+      >> impl_tac
+      >- (qspecl_then [‘(Var n ty,Var n (ty_esubst σ ty))::env’, ‘σ’, ‘avds’, ‘tm’]
+                     mp_tac esubst_ty0_impossible1
+          >> rw[] >> gvs[DISJ_IMP_THM, FORALL_AND_THM]
+          >> first_x_assum $ qspecl_then [‘n’, ‘ty_esubst σ ty'’] mp_tac
+          >> ‘dbVar n ty' = db (Var n ty')’ by simp[db_def]
+          >> qpat_x_assum ‘dbVar _ _ = db _’ SUBST_ALL_TAC
+          >> drule_all $ iffLR dbVFREE_IN_VFREE_IN >> rw[]
+          >> first_x_assum drule >> rw[] >> gvs[REV_ASSOCD_def]
+          >> metis_tac[FVs_VFREE_in])
+      >> rw[])
   >> gvs[AllCaseEqs(), bind_EQ_return]
   >> first_x_assum $ qspec_then ‘VSUBST [(Var (NVARIANT n avds body1) ty,
                                           Var n ty)] tm’
@@ -1776,7 +1828,7 @@ Proof
                     ‘body''’, ‘avds’] mp_tac
   >> impl_tac
   >> gvs[DISJ_IMP_THM, FORALL_AND_THM, VSUBST_WELLTYPED, term_ok_VSUBST]
-  >> cheat
+  >> rw[]
 QED
 
 Theorem db_esubst_thm:
