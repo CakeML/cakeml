@@ -114,16 +114,17 @@ Definition evaluate_def[nocompute]:
          | NotThunk => (st', Rerr (Rabort Rtype_error))
          | IsThunk Evaluated v => (st', Rval [v])
          | IsThunk NotEvaluated f =>
+            if st'.clock = 0 then (st', Rerr (Rabort Rtimeout_error)) else
             case do_opapp [f; Conv NONE []] of
             | SOME (env',e) =>
-                if st'.clock = 0 then (st', Rerr (Rabort Rtimeout_error)) else
-                  (case evaluate (dec_clock st') env' [e] of
+                if (dec_clock st').clock = 0 then (dec_clock st', Rerr (Rabort Rtimeout_error)) else
+                  (case evaluate (dec_clock (dec_clock st')) env' [e] of
                    | (st2, Rval vs2) =>
                        (case update_thunk (REVERSE vs) st2.refs vs2 of
                         | NONE => (st2, Rerr (Rabort Rtype_error))
                         | SOME refs => (st2 with refs := refs, Rval vs2))
                    | (st2, Rerr e) => (st2, Rerr e))
-            | NONE => (st', Rerr (Rabort Rtype_error)))
+            | NONE => (dec_clock st', Rerr (Rabort Rtype_error)))
      | EvalOp =>
         (case fix_clock st' (do_eval_res (REVERSE vs) st') of
           (st1, Rval (env1, decs)) =>

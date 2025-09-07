@@ -1414,7 +1414,8 @@ Theorem evaluate_Force_alt:
         | NotThunk => (st', Rerr (Rabort Rtype_error))
         | IsThunk Evaluated v => (st', Rval [v])
         | IsThunk NotEvaluated f => (
-            case evaluate st' (sing_env "f" f) [App Opapp [Var (Short "f"); Con NONE []]] of
+            if st'.clock = 0 then (st', Rerr (Rabort Rtimeout_error)) else
+            case evaluate (dec_clock st') (sing_env "f" f) [App Opapp [Var (Short "f"); Con NONE []]] of
             | (st2, Rval vs2) => (
                 case update_thunk (REVERSE vs) st2.refs vs2 of
                 | NONE => (st2, Rerr (Rabort Rtype_error))

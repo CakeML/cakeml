@@ -4221,13 +4221,14 @@ Proof
   >- (
     Cases_on ‘op’ >> gvs[astTheory.getOpClass_def] >>
     Cases_on ‘t'’ >> gvs[] >>
-    gvs[AllCaseEqs(), dec_clock_def, PULL_EXISTS] >> rw[]
+    gvs[AllCaseEqs(), evaluateTheory.dec_clock_def, flatSemTheory.dec_clock_def,
+        PULL_EXISTS] >> rw[]
     >- (
       gvs[astOp_to_flatOp_def, evaluate_def, compile_exps_reverse,
           AllCaseEqs()] >>
       qpat_x_assum `result_rel _ _ _ r_i1` mp_tac >>
       rw[Once result_rel_cases] >>
-      gvs[oneline evaluateTheory.dest_thunk_def, AllCaseEqs()] >>
+      gvs[oneline semanticPrimitivesTheory.dest_thunk_def, AllCaseEqs()] >>
       rgs[Once v_rel_cases] >> gvs[] >>
       simp[dest_thunk_def, AllCaseEqs(), PULL_EXISTS] >>
       gvs[store_lookup_def, s_rel_cases, LIST_REL_EL_EQN] >>
@@ -4243,7 +4244,7 @@ Proof
           AllCaseEqs()] >>
       qpat_x_assum `result_rel _ _ _ r_i1` mp_tac >>
       rw[Once result_rel_cases] >>
-      gvs[oneline evaluateTheory.dest_thunk_def, AllCaseEqs()] >>
+      gvs[oneline semanticPrimitivesTheory.dest_thunk_def, AllCaseEqs()] >>
       rgs[Once v_rel_cases] >> gvs[] >>
       simp[dest_thunk_def, AllCaseEqs(), PULL_EXISTS] >>
       gvs[store_lookup_def, s_rel_cases, LIST_REL_EL_EQN] >>
@@ -4259,7 +4260,7 @@ Proof
           AllCaseEqs()] >>
       qpat_x_assum `result_rel _ _ _ r_i1` mp_tac >>
       rw[Once result_rel_cases] >>
-      gvs[oneline evaluateTheory.dest_thunk_def, AllCaseEqs()] >>
+      gvs[oneline semanticPrimitivesTheory.dest_thunk_def, AllCaseEqs()] >>
       rgs[Once v_rel_cases] >> gvs[] >>
       simp[dest_thunk_def, AllCaseEqs(), PULL_EXISTS] >>
       gvs[store_lookup_def, s_rel_cases, LIST_REL_EL_EQN] >>
@@ -4269,34 +4270,43 @@ Proof
              v_rel genv' v v'` by (
         first_x_assum drule >> gvs[] >> rw[Once sv_rel_cases]) >>
       simp[REWRITE_RULE [ADD1] EL, Once result_rel_cases, PULL_EXISTS] >>
-      last_x_assum mp_tac >>
-      disch_then $ qspecl_then [
-        `genv'`, `<|c := nsEmpty; v := nsSing "f" (Local None "f")|>`,
-        `<|v := [("f",v')]|>`, `dec_clock s'_i1`, `["f"]`, `t`, `[None]`, `gen`,
-        `idxs`] mp_tac >>
-      impl_tac
-      >- (
-        gvs[invariant_def, evaluateTheory.dec_clock_def, dec_clock_def] >>
-        gvs[s_rel_cases] >>
-        gvs[env_all_rel_cases] >> rw[] >>
-        qexistsl [`nsBind "f" v nsEmpty`, `<|c := nsEmpty; v := nsEmpty|>`] >>
-        rw[evaluateTheory.sing_env_def]
-        >- (qexists `[("f",v)]` >> rw[])
-        >- simp[Once v_rel_cases]
-        >- ntac 2 (simp[Once v_rel_cases])) >>
-      rw[] >> gvs[] >>
-      gvs[evaluateTheory.AppUnit_def, compile_exp_def, astOp_to_flatOp_def,
-          bind_locals_def, namespaceTheory.nsBindList_def, compile_var_def] >>
-      simp[AppUnit_def] >>
-      qpat_x_assum `result_rel _ _ (Rval _) _` mp_tac >>
+      simp[AppUnit_def, dec_clock_def] >>
+      ntac 5 $ simp[Once evaluate_def] >>
+      drule do_opapp >> simp[PULL_EXISTS] >>
+      disch_then drule >> simp[Once v_rel_cases] >> strip_tac >> gvs[] >>
+      goal_assum drule >> simp[]
+      )
+    >- (
+      gvs[astOp_to_flatOp_def, evaluate_def, compile_exps_reverse,
+          AllCaseEqs()] >>
+      qpat_x_assum `result_rel _ _ _ r_i1` mp_tac >>
       rw[Once result_rel_cases] >>
-      gvs[oneline evaluateTheory.update_thunk_def, AllCaseEqs()] >>
-      simp[update_thunk_def] >>
+      gvs[oneline semanticPrimitivesTheory.dest_thunk_def, AllCaseEqs()] >>
+      rgs[Once v_rel_cases] >> gvs[] >>
+      simp[dest_thunk_def, AllCaseEqs(), PULL_EXISTS] >>
+      gvs[store_lookup_def, s_rel_cases, LIST_REL_EL_EQN] >>
+      `n + 1 < LENGTH s'_i1.refs` by (Cases_on `s'_i1.refs` >> gvs[]) >>
+      gvs[] >>
+      `∃v'. EL n (TL s'_i1.refs) = Thunk NotEvaluated v' ∧
+             v_rel genv' v v'` by (
+        first_x_assum drule >> gvs[] >> rw[Once sv_rel_cases]) >>
+      simp[REWRITE_RULE [ADD1] EL, Once result_rel_cases, PULL_EXISTS] >>
+      simp[AppUnit_def, dec_clock_def] >>
+      ntac 5 $ simp[Once evaluate_def] >>
+      drule do_opapp >> simp[PULL_EXISTS] >>
+      disch_then drule >> simp[Once v_rel_cases] >> strip_tac >> gvs[] >>
+      dxrule invariant_dec_clock >> strip_tac >>
+      dxrule invariant_dec_clock >> strip_tac >>
+      gvs[evaluateTheory.dec_clock_def, flatSemTheory.dec_clock_def] >>
+      last_x_assum drule_all >> disch_then $ qspec_then ‘t1’ assume_tac >> gvs[] >>
+      gvs[Once result_rel_cases] >>
+      gvs[oneline semanticPrimitivesTheory.update_thunk_def,
+          oneline flatSemTheory.update_thunk_def, AllCaseEqs()] >>
       `dest_thunk [y] s'_i1'.refs = NotThunk` by (
         qpat_x_assum `v_rel _ v'3' y` mp_tac >>
         Cases_on `v'3'` >> Cases_on `y` >>
         rw[Once v_rel_cases, dest_thunk_def, Boolv_def] >>
-        gvs[evaluateTheory.dest_thunk_def, store_lookup_def] >>
+        gvs[semanticPrimitivesTheory.dest_thunk_def, store_lookup_def] >>
         reverse $ rw []
         >- (Cases_on `s'_i1'.refs` >> gvs []) >>
         `n' < LENGTH (TL s'_i1'.refs)` by (Cases_on `s'_i1'.refs` >> gvs[]) >>
@@ -4327,13 +4337,14 @@ Proof
         rw[EL_LUPDATE] >> simp[Once sv_rel_cases])
       >- (
         gvs[evaluateTheory.dec_clock_def] >>
-        drule_then irule orac_forward_rel_trans >> gvs[]))
+        drule_then irule orac_forward_rel_trans >> gvs[])
+      )
     >- (
       gvs[astOp_to_flatOp_def, evaluate_def, compile_exps_reverse,
           AllCaseEqs()] >>
       qpat_x_assum `result_rel _ _ _ r_i1` mp_tac >>
       rw[Once result_rel_cases] >>
-      gvs[oneline evaluateTheory.dest_thunk_def, AllCaseEqs()] >>
+      gvs[oneline semanticPrimitivesTheory.dest_thunk_def, AllCaseEqs()] >>
       rgs[Once v_rel_cases] >> gvs[] >>
       simp[dest_thunk_def, AllCaseEqs(), PULL_EXISTS] >>
       gvs[store_lookup_def, s_rel_cases, LIST_REL_EL_EQN] >>
@@ -4343,34 +4354,21 @@ Proof
              v_rel genv' v v'` by (
         first_x_assum drule >> gvs[] >> rw[Once sv_rel_cases]) >>
       simp[REWRITE_RULE [ADD1] EL, Once result_rel_cases, PULL_EXISTS] >>
-      last_x_assum mp_tac >>
-      disch_then $ qspecl_then [
-        `genv'`, `<|c := nsEmpty; v := nsSing "f" (Local None "f")|>`,
-        `<|v := [("f",v')]|>`, `dec_clock s'_i1`, `["f"]`, `t`, `[None]`, `gen`,
-        `idxs`] mp_tac >>
-      impl_tac
-      >- (
-        gvs[invariant_def, evaluateTheory.dec_clock_def, dec_clock_def] >>
-        gvs[s_rel_cases] >>
-        gvs[env_all_rel_cases] >> rw[] >>
-        qexistsl [`nsBind "f" v nsEmpty`, `<|c := nsEmpty; v := nsEmpty|>`] >>
-        rw[evaluateTheory.sing_env_def]
-        >- (qexists `[("f",v)]` >> rw[])
-        >- simp[Once v_rel_cases]
-        >- ntac 2 (simp[Once v_rel_cases])) >>
-      rw[] >> gvs[] >>
-      gvs[evaluateTheory.AppUnit_def, compile_exp_def, astOp_to_flatOp_def,
-          bind_locals_def, namespaceTheory.nsBindList_def, compile_var_def] >>
-      simp[AppUnit_def] >>
-      qpat_x_assum `result_rel _ _ (Rerr _) _` mp_tac >>
-      rw[Once result_rel_cases]
-      >- (
-        qexists `genv'3'` >> gvs[] >>
-        imp_res_tac SUBMAP_TRANS >> gvs[] >>
-        imp_res_tac subglobals_trans >> gvs[] >>
-        gvs[evaluateTheory.dec_clock_def] >>
-        imp_res_tac orac_forward_rel_trans)
-      >- metis_tac[])) >>
+      simp[AppUnit_def, dec_clock_def] >>
+      ntac 5 $ simp[Once evaluate_def] >>
+      drule do_opapp >> simp[PULL_EXISTS] >>
+      disch_then drule >> simp[Once v_rel_cases] >> strip_tac >> gvs[] >>
+      dxrule invariant_dec_clock >> strip_tac >>
+      dxrule invariant_dec_clock >> strip_tac >>
+      gvs[evaluateTheory.dec_clock_def, flatSemTheory.dec_clock_def] >>
+      last_x_assum drule_all >> disch_then $ qspec_then ‘t1’ assume_tac >> gvs[] >>
+      qpat_x_assum `result_rel _ _ _ r_i1` mp_tac >> rw[Once result_rel_cases] >>
+      goal_assum drule >> simp[] >>
+      imp_res_tac SUBMAP_TRANS >> gvs[] >>
+      imp_res_tac subglobals_trans >> gvs[] >>
+      drule_then irule orac_forward_rel_trans >> gvs[]
+      )
+    ) >>
   fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, option_case_eq, pair_case_eq] >>
   rw [] >>
   rveq >> fs [] >>
