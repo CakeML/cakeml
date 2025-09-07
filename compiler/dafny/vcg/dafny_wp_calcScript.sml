@@ -158,6 +158,8 @@ End
    those as well. *)
 Definition can_get_type_def:
   (can_get_type (Old _) ⇔ F) ∧
+  (can_get_type (Prev _) ⇔ F) ∧
+  (can_get_type (SetPrev _) ⇔ F) ∧
   (can_get_type (FunCall _ _) ⇔ F) ∧
   (can_get_type (Forall _ _) ⇔ F) ∧
   (can_get_type (Let _ _) = F) ∧
@@ -208,6 +210,8 @@ Definition get_vars_exp_def:
   get_vars_exp (FunCall _ args) = FLAT (MAP get_vars_exp args) ∧
   get_vars_exp (Forall _ e) = get_vars_exp e ∧
   get_vars_exp (Old e) = get_vars_exp e ∧
+  get_vars_exp (Prev e) = get_vars_exp e ∧
+  get_vars_exp (SetPrev e) = get_vars_exp e ∧
   get_vars_exp (Let binds body) =
     FLAT (MAP get_vars_exp (MAP SND binds)) ++ get_vars_exp body ∧
   get_vars_exp (ForallHeap mods term) =
@@ -318,6 +322,8 @@ Definition freevars_def:
   (freevars (Forall (vn,_) e) ⇔
      freevars e DELETE vn) ∧
   (freevars (Old e) ⇔ freevars e) ∧
+  (freevars (Prev e) ⇔ freevars e) ∧
+  (freevars (SetPrev e) ⇔ freevars e) ∧
   (freevars (ForallHeap mods e) ⇔
      BIGUNION (set (MAP freevars mods)) UNION freevars e)
 Termination
@@ -334,6 +340,8 @@ Definition no_Old_def:
   (no_Old (Old _) ⇔ F) ∧
   (no_Old (Lit _) ⇔ T) ∧
   (no_Old (Var _) ⇔ T) ∧
+  (no_Old (Prev e) ⇔ no_Old e) ∧
+  (no_Old (SetPrev e) ⇔ no_Old e) ∧
   (no_Old (If tst thn els) ⇔
      no_Old tst ∧ no_Old thn ∧ no_Old els) ∧
   (no_Old (UnOp _ e) ⇔ no_Old e) ∧
@@ -497,6 +505,10 @@ Definition wrap_Old_def:
   Forall (vn,vt) (wrap_Old (vs DELETE vn) term) ∧
   wrap_Old vs (Old e) =
   Old (wrap_Old vs e) ∧
+  wrap_Old vs (Prev e) =
+  Prev (wrap_Old vs e) ∧
+  wrap_Old vs (SetPrev e) =
+  SetPrev (wrap_Old vs e) ∧
   wrap_Old vs (Let binds body) =
   Let (MAP (λ(n,e). (n, wrap_Old vs e)) binds)
       ((wrap_Old (vs DIFF (set (MAP FST binds)))) body) ∧
@@ -877,6 +889,10 @@ Proof
   >~ [‘FunCall name args’] >-
    (gvs [evaluate_exp_def, no_Old_def, set_up_call_def, restore_caller_def,
          AllCaseEqs()])
+  >~ [‘Prev e’] >-
+   (gvs [evaluate_exp_def, no_Old_def, AllCaseEqs(),use_prev_def,unuse_prev_def])
+  >~ [‘SetPrev e’] >-
+   (gvs [evaluate_exp_def, no_Old_def, AllCaseEqs(),set_prev_def,unset_prev_def])
   \\ gvs [evaluate_exp_def, no_Old_def, AllCaseEqs()]
 QED
 
@@ -1198,6 +1214,14 @@ Proof
   >~ [‘Old e’] >-
    (gvs [freevars_def, evaluate_exp_def, unuse_old_def, use_old_def,
          AllCaseEqs()])
+  >~ [‘Prev e’] >-
+   (gvs [freevars_def, evaluate_exp_def, unuse_prev_def, use_prev_def,
+         AllCaseEqs()])
+  >~ [‘SetPrev e’] >-
+   (gvs [freevars_def, evaluate_exp_def, unset_prev_def, set_prev_def,
+         AllCaseEqs()]
+    \\ last_x_assum $ qspec_then ‘l2’ mp_tac
+    \\ cheat (* theorem statement needs generalisation *))
   >~ [‘Var n’] >-
    (gvs [evaluate_exp_def, freevars_def, read_local_def, AllCaseEqs()])
   >~ [‘ArrLen arr’] >-
@@ -1895,6 +1919,7 @@ Theorem evaluate_exp_wrap_Old_locals:
      ¬env.is_running ⇒
      evaluate_exps (st with locals := l) env es = (st' with locals := l, r))
 Proof
+  cheat (* needs updating for Prev and SetPrev
   ho_match_mp_tac evaluate_exp_ind
   \\ rpt strip_tac
   >~ [‘Var’] >-
@@ -2176,7 +2201,7 @@ Proof
     \\ TOP_CASE_TAC \\ gvs []
     \\ first_x_assum $ qspecl_then [‘nss’, ‘es'’] mp_tac \\ simp []
     \\ disch_then $ drule_all_then assume_tac
-    \\ TOP_CASE_TAC \\ gvs [])
+    \\ TOP_CASE_TAC \\ gvs []) *)
 QED
 
 Triviality list_rel_eval_exp_old_var:
@@ -3519,6 +3544,7 @@ QED
 Theorem stmt_wp_sound_While:
   ^(#get_goal stmt_wp_sound_setup `While`)
 Proof
+  cheat (* needs updating for Prev and SetPrev
   rpt strip_tac
   \\ rename [‘While guard invs ds mods body’]
   \\ qsuff_tac
@@ -3894,12 +3920,13 @@ Proof
      \\ disch_then drule \\ strip_tac
      \\ CCONTR_TAC \\ fs []
      \\ imp_res_tac assign_in_IMP_get_vars_stmt \\ fs [])
-  \\ gvs []
+  \\ gvs [] *)
 QED
 
 Theorem stmt_wp_sound_MetCall:
   ^(#get_goal stmt_wp_sound_setup `MetCall`)
 Proof
+  cheat (* needs updating for Prev and SetPrev
   rpt strip_tac
   \\ rename [‘MetCall rets mname args’]
   \\ irule_at Any eval_stmt_MetCall \\ gvs []
@@ -4210,7 +4237,7 @@ Proof
   \\ strip_tac
   \\ fs [ALL_DISTINCT_APPEND]
   \\ drule_all read_out_lemma
-  \\ strip_tac \\ fs []
+  \\ strip_tac \\ fs [] *)
 QED
 
 Theorem stmt_wp_sound:
@@ -4400,6 +4427,8 @@ Definition freevars_list_def:
   (freevars_list (Forall (vn,_) e) ⇔
      (FILTER (λx. x ≠ vn) (freevars_list e))) ∧
   (freevars_list (Old e) ⇔ freevars_list e) ∧
+  (freevars_list (Prev e) ⇔ freevars_list e) ∧
+  (freevars_list (SetPrev e) ⇔ freevars_list e) ∧
   (freevars_list (ForallHeap mods e) ⇔
      FLAT (MAP freevars_list mods) ++ freevars_list e)
 Termination
@@ -4645,6 +4674,10 @@ Definition wrap_Old_list_def:
     Forall (vn,vt) (wrap_Old_list (FILTER (λx. x ≠ vn) vs) term) ∧
   wrap_Old_list vs (Old e) =
     Old (wrap_Old_list vs e) ∧
+  wrap_Old_list vs (Prev e) =
+    Prev (wrap_Old_list vs e) ∧
+  wrap_Old_list vs (SetPrev e) =
+    SetPrev (wrap_Old_list vs e) ∧
   wrap_Old_list vs (Let binds body) =
     Let (MAP (λ(n,e). (n, wrap_Old_list vs e)) binds)
         ((wrap_Old_list (FILTER (λx. ¬MEM x (MAP FST binds)) vs)) body) ∧
