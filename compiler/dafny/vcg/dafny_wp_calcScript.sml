@@ -655,8 +655,7 @@ Triviality Rcont_eval_measure:
   eval_measure st env (wrap_old decs)
 Proof
   strip_tac
-  \\ imp_res_tac eval_stmt_Rcont_old
-  \\ imp_res_tac eval_stmt_Rcont_prev
+  \\ imp_res_tac eval_stmt_Rcont_const
   \\ namedCases_on ‘decs’ ["rank es"]
   \\ simp [wrap_old_def, eval_measure_def]
   \\ DEP_REWRITE_TAC [eval_decreases_old_eq]

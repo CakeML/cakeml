@@ -426,20 +426,13 @@ Proof
   \\ simp [state_component_equality]
 QED
 
-Theorem eval_stmt_Rcont_old:
+Theorem eval_stmt_Rcont_const:
   eval_stmt st env stmt st' Rcont ⇒
-  st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old
-Proof
-  simp [eval_stmt_def] \\ strip_tac
-  \\ imp_res_tac evaluate_stmt_Rcont_old \\ gvs []
-QED
-
-Theorem eval_stmt_Rcont_prev:
-  eval_stmt st env stmt st' Rcont ⇒
+  st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old ∧
   st'.locals_prev = st.locals_prev ∧ st'.heap_prev = st.heap_prev
 Proof
   simp [eval_stmt_def] \\ strip_tac
-  \\ imp_res_tac evaluate_stmt_Rcont_prev \\ gvs []
+  \\ imp_res_tac evaluate_stmt_Rcont_const \\ gvs []
 QED
 
 Triviality eval_exp_old_eq:
