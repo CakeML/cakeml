@@ -128,7 +128,8 @@ Definition set_up_call_def:
       SOME (st with <|
                  locals := REVERSE new_locals;
                  locals_old := REVERSE new_locals;
-                 heap_old := st.heap;
+                 locals_prev := REVERSE new_locals;
+                 heap_old := st.heap
                |>)))
 End
 
@@ -137,7 +138,9 @@ Definition restore_caller_def:
     cur with <|
       locals := prev.locals;
       locals_old := prev.locals_old;
-      heap_old := prev.heap_old
+      locals_prev := prev.locals_prev;
+      heap_old := prev.heap_old;
+      heap_prev := prev.heap_prev
     |>
 End
 
