@@ -436,6 +436,7 @@ QED
 
 Triviality eval_exp_old_eq:
   st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ∧
+  st₁.locals_prev = st.locals_prev ∧ st₁.heap_prev = st.heap_prev ∧
   eval_exp st₁ env (Old e) v ⇒
   eval_exp st env (Old e) v
 Proof
@@ -450,7 +451,8 @@ Proof
 QED
 
 Theorem eval_exp_old_eq:
-  st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ⇒
+  st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ∧
+  st₁.locals_prev = st.locals_prev ∧ st₁.heap_prev = st.heap_prev ⇒
   eval_exp st₁ env (Old e) v = eval_exp st env (Old e) v
 Proof
   metis_tac [eval_exp_old_eq]
