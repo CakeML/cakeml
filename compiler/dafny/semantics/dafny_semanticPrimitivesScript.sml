@@ -367,9 +367,9 @@ Definition eval_forall_def:
     else Rval (BoolV F)
 End
 
-Definition valid_mod_def:
+Definition valid_mod_def: (* all locations outside of locs must stay the same *)
   valid_mod h locs h' =
-  ∀loc hv. MEM loc locs ∧ oEL loc h = SOME hv ⇒ oEL loc h' = SOME hv
+  ∀loc hv. ¬(MEM loc locs) ∧ oEL loc h = SOME hv ⇒ oEL loc h' = SOME hv
 End
 
 Definition get_loc_def:
