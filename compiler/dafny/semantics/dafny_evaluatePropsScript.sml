@@ -610,3 +610,110 @@ Proof
     (gvs [use_old_def, state_component_equality])
   \\ gvs []
 QED
+
+(* {locals,heap}_prev is preserved *)
+
+Theorem assign_value_Rcont_prev:
+  assign_value st env lhs v = (st', Rcont) ⇒
+  st'.locals_prev = st.locals_prev ∧ st'.heap_prev = st.heap_prev
+Proof
+  disch_tac
+  \\ Cases_on ‘lhs’
+  \\ gvs [assign_value_def, update_local_def, update_array_def, AllCaseEqs()]
+  \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+QED
+
+Theorem assign_values_Rcont_prev:
+  ∀lhss vs st env st'.
+    assign_values st env lhss vs = (st', Rcont) ⇒
+    st'.locals_prev = st.locals_prev ∧ st'.heap_prev = st.heap_prev
+Proof
+  Induct \\ namedCases_on ‘vs’ ["", "v vs₁"]
+  \\ simp [assign_values_def]
+  \\ rpt gen_tac \\ strip_tac
+  \\ gvs [AllCaseEqs()]
+  \\ imp_res_tac assign_value_Rcont_prev
+  \\ res_tac \\ gvs []
+QED
+
+Theorem evaluate_rhs_exp_Rval_prev:
+  evaluate_rhs_exp st env rhs = (st', Rval v) ⇒
+  st'.locals_prev = st.locals_prev ∧ st'.heap_prev = st.heap_prev
+Proof
+  disch_tac
+  \\ Cases_on ‘rhs’
+  \\ gvs [evaluate_rhs_exp_def, alloc_array_def, AllCaseEqs()]
+  \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+QED
+
+Theorem evaluate_rhs_exps_Rval_prev:
+  ∀rhss st st' env vs.
+    evaluate_rhs_exps st env rhss = (st', Rval vs) ⇒
+    st'.locals_prev = st.locals_prev ∧ st'.heap_prev = st.heap_prev
+Proof
+  Induct \\ gvs [evaluate_rhs_exps_def]
+  \\ rpt gen_tac \\ disch_tac
+  \\ gvs [AllCaseEqs()]
+  \\ res_tac \\ imp_res_tac evaluate_rhs_exp_Rval_prev \\ gvs []
+QED
+
+Theorem evaluate_stmt_Rcont_prev:
+  ∀st env stmt st'.
+    evaluate_stmt st env stmt = (st', Rcont) ⇒
+    st'.locals_prev = st.locals_prev ∧ st'.heap_prev = st.heap_prev
+Proof
+  ho_match_mp_tac evaluate_stmt_ind
+  \\ rpt conj_tac \\ rpt (gen_tac ORELSE disch_tac)
+  >~ [‘Skip’] >-
+   (gvs [evaluate_stmt_def])
+  >~ [‘Assert e’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs [])
+  >~ [‘Then stmt₁ stmt₂’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ res_tac \\ gvs [])
+  >~ [‘If grd thn els’] >-
+   (strip_tac
+    \\ gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+    \\ gvs [oneline do_cond_def, AllCaseEqs()]
+    \\ res_tac \\ gvs [])
+  >~ [‘Dec local scope’] >-
+   (gvs [evaluate_stmt_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [pop_locals_def, safe_drop_def, declare_local_def, AllCaseEqs()]
+    \\ last_x_assum drule \\ gvs [])
+  >~ [‘Assign ass’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_rhs_exps_Rval_prev
+    \\ imp_res_tac assign_values_Rcont_prev \\ gvs [])
+  >~ [‘While grd invs decrs mods body’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs [dec_clock_def])
+  >~ [‘Print e t’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock
+    \\ gvs [])
+  >~ [‘MetCall lhss name args’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+    \\ imp_res_tac assign_values_Rcont_prev \\ gvs []
+    \\ gvs [restore_caller_def])
+  >~ [‘Return’] >-
+   (gvs [evaluate_stmt_def])
+QED
+
+Theorem evaluate_exp_prev_Rval_eq:
+  evaluate_exp st₁ env (Prev e) = (st₁', Rval v) ∧
+  st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ∧
+  st₁.locals_prev = st.locals_prev ∧ st₁.heap_prev = st.heap_prev ⇒
+  ∃ck st'. evaluate_exp (st with clock := ck) env (Prev e) = (st', Rval v)
+Proof
+  rpt strip_tac
+  \\ gvs [evaluate_exp_def, AllCaseEqs()]
+  \\ qexists ‘st₁.clock’
+  \\ ‘use_prev st₁ =
+      use_prev (st with clock := st₁.clock)’ by
+    (gvs [use_prev_def, state_component_equality])
+  \\ gvs []
+QED

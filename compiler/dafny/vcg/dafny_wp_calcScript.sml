@@ -9,7 +9,6 @@ Ancestors
 Libs
   preamble
 
-
 Datatype:
   met_spec = <| ins       : (mlstring # type) list
               ; reqs      : exp list
@@ -634,7 +633,8 @@ QED
 
 Triviality eval_decreases_old_eq:
   ∀es st st₁ env.
-    st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ⇒
+    st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ∧
+    st₁.locals_prev = st.locals_prev ∧ st₁.heap_prev = st.heap_prev ⇒
     eval_decreases st₁ env (MAP Old es) =
     eval_decreases st env (MAP Old es)
 Proof
@@ -656,6 +656,7 @@ Triviality Rcont_eval_measure:
 Proof
   strip_tac
   \\ imp_res_tac eval_stmt_Rcont_old
+  \\ imp_res_tac eval_stmt_Rcont_prev
   \\ namedCases_on ‘decs’ ["rank es"]
   \\ simp [wrap_old_def, eval_measure_def]
   \\ DEP_REWRITE_TAC [eval_decreases_old_eq]
