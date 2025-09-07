@@ -160,6 +160,14 @@ Definition unuse_prev_def:
   unuse_prev cur prev = cur with <| locals := prev.locals; heap := prev.heap |>
 End
 
+Definition use_prev_heap_def:
+  use_prev_heap st = st with <| heap := st.heap_prev |>
+End
+
+Definition unuse_prev_heap_def:
+  unuse_prev_heap cur prev = cur with <| heap := prev.heap |>
+End
+
 Definition set_prev_def:
   set_prev st = st with <| locals_prev := st.locals; heap_prev := st.heap |>
 End

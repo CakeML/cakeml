@@ -54,6 +54,7 @@ Proof
     \\ gvs [push_locals_def])
   \\ gvs [evaluate_exp_def, unuse_old_def, use_old_def, restore_caller_def,
           unuse_prev_def, use_prev_def, unset_prev_def, set_prev_def,
+          unuse_prev_heap_def, use_prev_heap_def,
           set_up_call_def, dec_clock_def, AllCaseEqs()]
   \\ simp [state_component_equality]
 QED
@@ -272,6 +273,8 @@ Proof
    (gvs [evaluate_exp_def, use_old_def, unuse_old_def, AllCaseEqs()])
   >~ [‘Prev’] >-
    (gvs [evaluate_exp_def, use_prev_def, unuse_prev_def, AllCaseEqs()])
+  >~ [‘PrevHeap’] >-
+   (gvs [evaluate_exp_def, use_prev_heap_def, unuse_prev_heap_def, AllCaseEqs()])
   >~ [‘SetPrev’] >-
    (gvs [evaluate_exp_def, set_prev_def, unset_prev_def, AllCaseEqs()])
   >~ [‘ArrSel’] >-

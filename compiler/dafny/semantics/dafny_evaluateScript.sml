@@ -117,6 +117,10 @@ Definition evaluate_exp_ann_def[nocompute]:
   (if env.is_running then (st, Rerr Rtype_error) else
    (case evaluate_exp (use_prev st) env e of
     | (st₁, r) => (unuse_prev st₁ st, r))) ∧
+  evaluate_exp st env (PrevHeap e) =
+  (if env.is_running then (st, Rerr Rtype_error) else
+   (case evaluate_exp (use_prev_heap st) env e of
+    | (st₁, r) => (unuse_prev_heap st₁ st, r))) ∧
   evaluate_exp st env (SetPrev e) =
   (if env.is_running then (st, Rerr Rtype_error) else
    (case evaluate_exp (set_prev st) env e of
@@ -165,6 +169,7 @@ Termination
   \\ gvs [do_sc_def, dec_clock_def, set_up_call_def, push_local_def,
           push_locals_def, use_old_def, unuse_old_def, oneline do_cond_def,
           use_prev_def, unuse_prev_def, set_prev_def, unset_prev_def,
+          use_prev_heap_def, unuse_prev_heap_def,
           UNZIP_MAP, list_size_pair_size_MAP_FST_SND, AllCaseEqs ()]
 End
 
@@ -183,6 +188,7 @@ Proof
   \\ gvs [dec_clock_def, fix_clock_def, restore_caller_def,
           push_locals_def, pop_locals_def,
           use_prev_def, unuse_prev_def, set_prev_def, unset_prev_def,
+          use_prev_heap_def, unuse_prev_heap_def,
           use_old_def, unuse_old_def, evaluate_exp_ann_def, AllCaseEqs ()]
   \\ EVERY (map imp_res_tac
                 [set_up_call_clock_eq, restore_caller_clock, fix_clock_IMP])
