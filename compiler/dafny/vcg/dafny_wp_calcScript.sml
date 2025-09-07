@@ -159,6 +159,7 @@ End
 Definition can_get_type_def:
   (can_get_type (Old _) ⇔ F) ∧
   (can_get_type (Prev _) ⇔ F) ∧
+  (can_get_type (PrevHeap _) ⇔ F) ∧
   (can_get_type (SetPrev _) ⇔ F) ∧
   (can_get_type (FunCall _ _) ⇔ F) ∧
   (can_get_type (Forall _ _) ⇔ F) ∧
@@ -211,6 +212,7 @@ Definition get_vars_exp_def:
   get_vars_exp (Forall _ e) = get_vars_exp e ∧
   get_vars_exp (Old e) = get_vars_exp e ∧
   get_vars_exp (Prev e) = get_vars_exp e ∧
+  get_vars_exp (PrevHeap e) = get_vars_exp e ∧
   get_vars_exp (SetPrev e) = get_vars_exp e ∧
   get_vars_exp (Let binds body) =
     FLAT (MAP get_vars_exp (MAP SND binds)) ++ get_vars_exp body ∧
@@ -323,6 +325,7 @@ Definition freevars_def:
      freevars e DELETE vn) ∧
   (freevars (Old e) ⇔ freevars e) ∧
   (freevars (Prev e) ⇔ freevars e) ∧
+  (freevars (PrevHeap e) ⇔ freevars e) ∧
   (freevars (SetPrev e) ⇔ freevars e) ∧
   (freevars (ForallHeap mods e) ⇔
      BIGUNION (set (MAP freevars mods)) UNION freevars e)
@@ -341,6 +344,7 @@ Definition no_Old_def:
   (no_Old (Lit _) ⇔ T) ∧
   (no_Old (Var _) ⇔ T) ∧
   (no_Old (Prev e) ⇔ no_Old e) ∧
+  (no_Old (PrevHeap e) ⇔ no_Old e) ∧
   (no_Old (SetPrev e) ⇔ no_Old e) ∧
   (no_Old (If tst thn els) ⇔
      no_Old tst ∧ no_Old thn ∧ no_Old els) ∧
@@ -507,6 +511,8 @@ Definition wrap_Old_def:
   Old (wrap_Old vs e) ∧
   wrap_Old vs (Prev e) =
   Prev (wrap_Old vs e) ∧
+  wrap_Old vs (PrevHeap e) =
+  PrevHeap (wrap_Old vs e) ∧
   wrap_Old vs (SetPrev e) =
   SetPrev (wrap_Old vs e) ∧
   wrap_Old vs (Let binds body) =
@@ -891,6 +897,8 @@ Proof
          AllCaseEqs()])
   >~ [‘Prev e’] >-
    (gvs [evaluate_exp_def, no_Old_def, AllCaseEqs(),use_prev_def,unuse_prev_def])
+  >~ [‘PrevHeap e’] >-
+   (gvs [evaluate_exp_def, no_Old_def, AllCaseEqs(),use_prev_heap_def,unuse_prev_heap_def])
   >~ [‘SetPrev e’] >-
    (gvs [evaluate_exp_def, no_Old_def, AllCaseEqs(),set_prev_def,unset_prev_def])
   \\ gvs [evaluate_exp_def, no_Old_def, AllCaseEqs()]
@@ -1216,6 +1224,9 @@ Proof
          AllCaseEqs()])
   >~ [‘Prev e’] >-
    (gvs [freevars_def, evaluate_exp_def, unuse_prev_def, use_prev_def,
+         AllCaseEqs()])
+  >~ [‘PrevHeap e’] >-
+   (gvs [freevars_def, evaluate_exp_def, unuse_prev_heap_def, use_prev_heap_def,
          AllCaseEqs()])
   >~ [‘SetPrev e’] >-
    (gvs [freevars_def, evaluate_exp_def, unset_prev_def, set_prev_def,
@@ -4428,6 +4439,7 @@ Definition freevars_list_def:
      (FILTER (λx. x ≠ vn) (freevars_list e))) ∧
   (freevars_list (Old e) ⇔ freevars_list e) ∧
   (freevars_list (Prev e) ⇔ freevars_list e) ∧
+  (freevars_list (PrevHeap e) ⇔ freevars_list e) ∧
   (freevars_list (SetPrev e) ⇔ freevars_list e) ∧
   (freevars_list (ForallHeap mods e) ⇔
      FLAT (MAP freevars_list mods) ++ freevars_list e)
@@ -4676,6 +4688,8 @@ Definition wrap_Old_list_def:
     Old (wrap_Old_list vs e) ∧
   wrap_Old_list vs (Prev e) =
     Prev (wrap_Old_list vs e) ∧
+  wrap_Old_list vs (PrevHeap e) =
+    PrevHeap (wrap_Old_list vs e) ∧
   wrap_Old_list vs (SetPrev e) =
     SetPrev (wrap_Old_list vs e) ∧
   wrap_Old_list vs (Let binds body) =
