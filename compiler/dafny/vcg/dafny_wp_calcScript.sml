@@ -304,6 +304,33 @@ Definition wrap_old_def:
   wrap_old (x,es) = (x,MAP Old es)
 End
 
+Definition freevars_aux_def:
+  (freevars_aux (Var n) ⇔ ({n},{})) ∧
+  (freevars_aux (Lit _) ⇔ ({},{})) ∧
+  (freevars_aux (UnOp _ e) ⇔
+     freevars_aux e) ∧
+  (freevars_aux (BinOp _ e₀ e₁) ⇔
+     let (v₀,s₀) = freevars_aux e₀ in
+     let (v₁,s₁) = freevars_aux e₁ in
+       (v₀ ∪ v₁, s₀ ∪ s₁)) ∧
+  (freevars_aux (Prev e) ⇔
+     let (v,s) = freevars_aux e in
+       ({}, v ∪ s)) ∧
+  (freevars_aux (PrevHeap e) ⇔
+     freevars_aux e) ∧
+  (freevars_aux (SetPrev e) ⇔
+     let (v,s) = freevars_aux e in
+       (v ∪ s, {}))
+Termination
+  wf_rel_tac ‘measure $ exp_size’
+  \\ rpt strip_tac
+  \\ gvs [list_size_pair_size_MAP_FST_SND]
+  \\ rewrite_tac [list_exp_size_snd]
+  \\ drule MEM_list_size
+  \\ disch_then $ qspec_then ‘exp_size’ assume_tac
+  \\ gvs []
+End
+
 Definition freevars_def:
   (freevars (Let binds body) ⇔
      (BIGUNION (set (MAP freevars (MAP SND binds))))
@@ -358,6 +385,36 @@ Definition no_Old_def:
      EVERY (λe. no_Old e) (MAP SND binds) ∧ no_Old body) ∧
   (no_Old (ForallHeap mods e) ⇔
      EVERY (λe. no_Old e) mods ∧ no_Old e)
+Termination
+  wf_rel_tac ‘measure $ exp_size’
+  \\ rpt strip_tac
+  \\ gvs [list_size_pair_size_MAP_FST_SND]
+  \\ rewrite_tac [list_exp_size_snd]
+  \\ drule MEM_list_size
+  \\ disch_then $ qspec_then ‘exp_size’ assume_tac
+  \\ gvs []
+End
+
+Definition no_Prev_def: (* checks that no Prev or PrevHeap is outside a SetPrev *)
+  (no_Prev (Lit _) ⇔ T) ∧
+  (no_Prev (Var _) ⇔ T) ∧
+  (no_Prev (Prev e) ⇔ F) ∧
+  (no_Prev (PrevHeap e) ⇔ F) ∧
+  (no_Prev (SetPrev e) ⇔ T) ∧
+  (no_Prev (Old e) ⇔ no_Prev e) ∧
+  (no_Prev (If tst thn els) ⇔
+     no_Prev tst ∧ no_Prev thn ∧ no_Prev els) ∧
+  (no_Prev (UnOp _ e) ⇔ no_Prev e) ∧
+  (no_Prev (BinOp _ e₀ e₁) ⇔
+     no_Prev e₀ ∧ no_Prev e₁) ∧
+  (no_Prev (ArrLen arr) ⇔ no_Prev arr) ∧
+  (no_Prev (ArrSel arr idx) ⇔ no_Prev arr ∧ no_Prev idx) ∧
+  (no_Prev (FunCall _ args) ⇔ EVERY (λe. no_Prev e) args) ∧
+  (no_Prev (Forall _ term) ⇔ no_Prev term) ∧
+  (no_Prev (Let binds body) ⇔
+     EVERY (λe. no_Prev e) (MAP SND binds) ∧ no_Prev body) ∧
+  (no_Prev (ForallHeap mods e) ⇔
+     EVERY (λe. no_Prev e) mods ∧ no_Prev e)
 Termination
   wf_rel_tac ‘measure $ exp_size’
   \\ rpt strip_tac
@@ -1097,6 +1154,47 @@ Triviality push_locals_zip:
   s with locals := REVERSE (ZIP (xs, MAP SOME ys)) ++ s.locals
 Proof
   gvs [push_locals_def, map_lambda_pair_zip]
+QED
+
+Theorem evaluate_exp_freevars_aux:
+  (∀st env e st' r l2 p2.
+     (∀n. n ∈ FST (freevars_aux e) ⇒ ALOOKUP st.locals n = ALOOKUP l2 n) ∧
+     (∀n. n ∈ SND (freevars_aux e) ⇒ ALOOKUP st.locals_prev n = ALOOKUP p2 n) ⇒
+     evaluate_exp st env e = (st', r) ⇒
+     evaluate_exp (st with <| locals := l2; locals_prev := p2 |>) env e =
+                  (st' with <| locals := l2; locals_prev := p2 |>, r)) ∧
+  (∀st env es st' r l2 p2.
+     EVERY (λe.
+       (∀n. n ∈ FST (freevars_aux e) ⇒ ALOOKUP st.locals n = ALOOKUP l2 n) ∧
+       (∀n. n ∈ SND (freevars_aux e) ⇒ ALOOKUP st.locals_prev n = ALOOKUP p2 n)) es ⇒
+     evaluate_exps st env es = (st', r) ⇒
+     evaluate_exps (st with <| locals := l2; locals_prev := p2 |>) env es =
+                   (st' with <| locals := l2; locals_prev := p2 |>, r))
+Proof
+  ho_match_mp_tac evaluate_exp_ind
+  \\ rpt strip_tac
+  >~ [‘Lit’] >-
+   (gvs [evaluate_exp_def])
+  >~ [‘Var’] >-
+   (gvs [evaluate_exp_def,read_local_def,freevars_aux_def]
+    \\ Cases_on ‘ALOOKUP l2 name’ \\ fs []
+    \\ Cases_on ‘x’ \\ fs [])
+  >~ [‘If’] >- cheat
+  >~ [‘UnOp’] >- cheat
+  >~ [‘BinOp’] >- cheat
+  >~ [‘ArrLen’] >- cheat
+  >~ [‘ArrSel’] >- cheat
+  >~ [‘FunCall’] >- cheat
+  >~ [‘Forall’] >- cheat
+  >~ [‘Old’] >- cheat
+  >~ [‘Prev’] >- cheat
+  >~ [‘PrevHeap’] >- cheat
+  >~ [‘SetPrev’] >-
+   (gvs [evaluate_exp_def,AllCaseEqs(),set_prev_def]
+    \\ cheat)
+  >~ [‘Let’] >- cheat
+  >~ [‘ForallHeap’] >- cheat
+  \\ cheat
 QED
 
 Theorem evaluate_exp_freevars:
