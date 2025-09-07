@@ -178,8 +178,19 @@ evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
   evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) ∧
   opClass op Force ∧
   dest_thunk (REVERSE vs) s2.refs = IsThunk NotEvaluated f ∧
+  ck ∧ s2.clock = 0
+ ⇒ evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtimeout_error)))
+
+∧
+
+(∀ck env op es vs s1 s2 f.
+  evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) ∧
+  opClass op Force ∧
+  dest_thunk (REVERSE vs) s2.refs = IsThunk NotEvaluated f ∧
+  (ck ⇒ s2.clock ≠ 0) ∧
   do_opapp [f; Conv NONE []] = NONE
- ⇒ evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtype_error)))
+ ⇒ evaluate ck env s1 (App op es)
+    (if ck then s2 with clock := s2.clock - 1 else s2, Rerr (Rabort Rtype_error)))
 
 ∧
 
@@ -196,8 +207,8 @@ evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
   opClass op Force ∧
   dest_thunk (REVERSE vs) s2.refs = IsThunk NotEvaluated f ∧
   do_opapp [f; Conv NONE []] = SOME env_e ∧
-  ck ∧ s2.clock = 0
- ⇒ evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtimeout_error)))
+  ck ∧ s2.clock = 1
+ ⇒ evaluate ck env s1 (App op es) (s2 with clock := 0, Rerr (Rabort Rtimeout_error)))
 
 ∧
 
@@ -206,8 +217,8 @@ evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
   opClass op Force ∧
   dest_thunk (REVERSE vs) s2.refs = IsThunk NotEvaluated f ∧
   do_opapp [f; Conv NONE []] = SOME (env', e) ∧
-  (ck ⇒ s2.clock ≠ 0) ∧
-  evaluate ck env' (if ck then (s2 with clock := s2.clock - 1) else s2) e (s3, Rerr err)
+  (ck ⇒ ¬(s2.clock ≤ 1)) ∧
+  evaluate ck env' (if ck then (s2 with clock := s2.clock - 2) else s2) e (s3, Rerr err)
  ⇒ evaluate ck env s1 (App op es) (s3, Rerr err))
 
 ∧
@@ -217,8 +228,8 @@ evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
   opClass op Force ∧
   dest_thunk (REVERSE vs) s2.refs = IsThunk NotEvaluated f ∧
   do_opapp [f; Conv NONE []] = SOME (env', e) ∧
-  (ck ⇒ s2.clock ≠ 0) ∧
-  evaluate ck env' (if ck then (s2 with clock := s2.clock - 1) else s2) e (s3, Rval vs2) ∧
+  (ck ⇒ ¬(s2.clock ≤ 1)) ∧
+  evaluate ck env' (if ck then (s2 with clock := s2.clock - 2) else s2) e (s3, Rval vs2) ∧
   update_thunk (REVERSE vs) s3.refs [vs2] = NONE
  ⇒ evaluate ck env s1 (App op es) (s3, Rerr (Rabort Rtype_error)))
 
@@ -229,8 +240,8 @@ evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
   opClass op Force ∧
   dest_thunk (REVERSE vs) s2.refs = IsThunk NotEvaluated f ∧
   do_opapp [f; Conv NONE []] = SOME (env', e) ∧
-  (ck ⇒ s2.clock ≠ 0) ∧
-  evaluate ck env' (if ck then (s2 with clock := s2.clock - 1) else s2) e (s3, Rval vs2) ∧
+  (ck ⇒ ¬(s2.clock ≤ 1)) ∧
+  evaluate ck env' (if ck then (s2 with clock := s2.clock - 2) else s2) e (s3, Rval vs2) ∧
   update_thunk (REVERSE vs) s3.refs [vs2] = SOME refs
  ⇒ evaluate ck env s1 (App op es) (s3 with refs := refs, Rval vs2))
 

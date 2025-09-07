@@ -131,6 +131,7 @@ Proof
   >- metis_tac[]
   >- metis_tac[]
   >- metis_tac[]
+  >- metis_tac[]
   >- (
     ntac 3 disj2_tac >> disj1_tac >>
     last_x_assum $ irule_at Any >> simp[]
@@ -300,21 +301,26 @@ Proof
     first_assum(match_exists_tac o concl) >> simp[] >> NO_TAC)
   >>~ [‘ThunkOp ForceThunk’]
   >- (
-    gvs[] >> ntac 4 disj2_tac >> disj1_tac >>
+    gvs[] >> ntac 2 disj2_tac >> disj1_tac >>
     dxrule $ cj 2 add_to_counter >> simp[] >>
-    disch_then $ qspec_then ‘c' + 1’ assume_tac >>
-    goal_assum drule >> simp[]
+    disch_then $ qspec_then ‘1’ $ irule_at Any >> simp[]
+    )
+  >- (
+    gvs[] >> ntac 5 disj2_tac >> disj1_tac >>
+    dxrule $ cj 2 add_to_counter >> simp[] >>
+    disch_then $ qspec_then ‘c' + 2’ $ irule_at Any >> simp[] >>
+    goal_assum drule
     )
   >- (
     gvs[] >> ntac 4 disj2_tac >> disj1_tac >>
     dxrule $ cj 2 add_to_counter >> simp[] >>
-    disch_then $ qspec_then ‘c' + 1’ assume_tac >>
+    disch_then $ qspec_then ‘c' + 2’ assume_tac >>
     rpt (goal_assum drule >> simp[])
     )
   >- (
     gvs[] >> disj2_tac >>
     dxrule $ cj 2 add_to_counter >> simp[] >>
-    disch_then $ qspec_then ‘c' + 1’ assume_tac >>
+    disch_then $ qspec_then ‘c' + 2’ assume_tac >>
     goal_assum $ drule_at Any >> simp[] >>
     goal_assum $ drule_at $ Pat ‘evaluate _ _ _ _ _’ >> simp[]
     ) >>
@@ -596,18 +602,21 @@ Proof
         ntac 2 disj2_tac >>
         Cases_on ‘t’ >> gvs[] >- metis_tac[] >>
         rename1 ‘IsThunk _ f’ >>
-        Cases_on ‘do_opapp [f; Conv NONE []]’ >- metis_tac[] >>
-        rename1 ‘SOME env_e’ >> PairCases_on ‘env_e’ >>
-        ntac 2 disj2_tac >>
         Cases_on ‘s2.clock = 0’ >- metis_tac[] >>
-        disj2_tac >>
-        last_x_assum $ qspec_then ‘s2.clock - 1’ mp_tac >>
+        Cases_on ‘do_opapp [f; Conv NONE []]’ >- metis_tac[] >>
+        Cases_on ‘s2.clock = 1’ >- metis_tac[] >>
+        ‘¬(s2.clock ≤ 1)’ by gvs[] >> gvs[] >>
+        rename1 ‘SOME env_e’ >> PairCases_on ‘env_e’ >>
+        ntac 4 disj2_tac >>
+        last_x_assum $ qspec_then ‘s2.clock - 2’ mp_tac >>
         last_x_assum kall_tac >> impl_tac
         >- (imp_res_tac clock_monotone >> gvs[]) >>
         disch_then $ qspecl_then [‘env_e1’,‘env_e0’,‘s2’] $
           qx_choosel_then [‘s3’,‘res’] assume_tac >>
-        reverse $ Cases_on ‘res’ >- metis_tac[] >>
-        disj2_tac >> Cases_on ‘update_thunk (REVERSE v) s3.refs [a]’ >> metis_tac[]) >>
+        reverse $ Cases_on ‘res’
+        >- metis_tac[] >>
+        disj2_tac >> Cases_on ‘update_thunk (REVERSE v) s3.refs [a]’ >> metis_tac[]
+        ) >>
       `(do_app (s2.refs,s2.ffi) o' (REVERSE v) = NONE) ∨
        (?s3 e2. do_app (s2.refs,s2.ffi) o' (REVERSE v) = SOME (s3,e2))`
         by metis_tac [optionTheory.option_nchotomy, pair_CASES]
@@ -797,10 +806,18 @@ Proof
   >- simp[SF SFY_ss]
   >- simp[SF SFY_ss]
   >- simp[SF SFY_ss]
-  >- simp[SF SFY_ss]
+  >- (
+    ntac 5 disj2_tac >> disj1_tac >>
+    last_x_assum $ irule_at Any >> simp[] >>
+    qexists ‘count'' + 1’ >> simp[]
+    )
   >- simp[SF SFY_ss]
   >- (
-    ntac 8 disj2_tac >> disj1_tac >>
+    ntac 4 disj2_tac >> disj1_tac >>
+    last_x_assum $ irule_at Any >> simp[]
+    )
+  >- (
+    ntac 9 disj2_tac >> disj1_tac >>
     last_x_assum $ irule_at Any >> simp[] >>
     first_x_assum $ irule_at Any >> simp[] >>
     qexists ‘s2.clock - extra’ >> simp[] >>

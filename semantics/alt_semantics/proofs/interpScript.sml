@@ -213,19 +213,22 @@ Theorem run_eval_def:
              | NotThunk => raise (Rabort Rtype_error)
              | IsThunk Evaluated v => return v
              | IsThunk NotEvaluated f =>
-                case do_opapp [f; Conv NONE []] of
-                | SOME (env',e) => do
-                    () <- dec_clock;
-                    v2 <- run_eval env' e;
-                    ^st <- get_store;
-                    (case update_thunk (REVERSE vs) st.refs [v2] of
-                     | NONE => raise (Rabort Rtype_error)
-                     | SOME refs => do
-                        () <- set_store (st with refs := refs);
-                        return v2;
-                     od)
-                  od
-                | NONE => raise (Rabort Rtype_error))
+                do
+                  () <- dec_clock;
+                  case do_opapp [f; Conv NONE []] of
+                  | SOME (env',e) => do
+                      () <- dec_clock;
+                      v2 <- run_eval env' e;
+                      ^st <- get_store;
+                      (case update_thunk (REVERSE vs) st.refs [v2] of
+                       | NONE => raise (Rabort Rtype_error)
+                       | SOME refs => do
+                          () <- set_store (st with refs := refs);
+                          return v2;
+                       od)
+                    od
+                  | NONE => raise (Rabort Rtype_error)
+                od)
         | Simple =>
             (case do_app (st.refs,st.ffi) op (REVERSE vs) of
              | NONE => raise (Rabort Rtype_error)
@@ -344,7 +347,7 @@ Proof
         ‘¬opClass op FunApp ∧ ¬opClass op Simple’ by (Cases_on ‘op’ >> gvs[opClass_cases]) >>
         simp[] >>
         every_case_tac >> gvs[GSYM evaluate_run_eval_list, GSYM evaluate_run_eval] >>
-        metis_tac[]
+        gvs[LESS_OR_EQ] >> metis_tac[]
         ) >>
       Cases_on ‘getOpClass op = Simple’ >> gs[]
       >- (‘~ opClass op FunApp ∧ ¬opClass op Force’ by

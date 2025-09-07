@@ -872,14 +872,26 @@ Proof
   >- (
     disj2_tac >> disj1_tac >> simp[Once evaluate_cases, PULL_EXISTS, SF SFY_ss]
     )
+  >- simp[SF SFY_ss]
+  >- (
+    ntac 2 disj2_tac >> disj1_tac >>
+    simp[Once evaluate_cases, PULL_EXISTS, SF SFY_ss] >>
+    irule_at Any EQ_REFL >> simp[SF SFY_ss]
+    )
   >- (
     ntac 2 disj2_tac >> disj1_tac >>
     simp[Once evaluate_cases, PULL_EXISTS, SF SFY_ss]
     )
-  >- simp[SF SFY_ss]
-  >- simp[SF SFY_ss]
   >- (
-    ntac 4 disj2_tac >> disj1_tac >>
+    disj1_tac >> rpt $ goal_assum $ drule_at Any >>
+    qspec_then ‘s2'’ assume_tac $ GEN_ALL with_same_clock >> gvs[]
+    )
+  >- (
+    disj2_tac >> disj1_tac >> irule_at Any EQ_REFL >>
+    simp[Once evaluate_cases, PULL_EXISTS, SF SFY_ss]
+    )
+  >- (
+    ntac 5 disj2_tac >> disj1_tac >>
     simp[Once evaluate_cases, PULL_EXISTS, SF SFY_ss]
     )
   >- (
@@ -965,13 +977,37 @@ Proof
           by gvs[getOpClass_opClass, opClass_cases] >>
         simp[SF DNF_ss, GSYM DISJ_ASSOC] >> gvs[AllCaseEqs()]
         >- (
-          ntac 3 disj2_tac >> disj1_tac >> simp[Once evaluate_cases, SF SFY_ss]
+          ntac 2 disj2_tac >> disj1_tac >> simp[Once evaluate_cases, SF SFY_ss]
           ) >>
         once_rewrite_tac[cj 2 evaluate_cases] >> simp[] >>
         gvs[evaluate_ctxts_cons] >>
         gvs[evaluate_ctxt_cases, update_thunk_def, AllCaseEqs(), SF SFY_ss] >>
-        gvs[Once $ cj 2 evaluate_cases] >>
-        gvs[opClass_cases] >> metis_tac[]
+        gvs[Once $ cj 2 evaluate_cases, opClass_cases] >>
+        (reverse $ Cases_on ‘ck’ >> gvs[] >- metis_tac[])
+        >- (
+          ntac 3 disj2_tac >> disj1_tac >>
+          qexists ‘clk + 1’ >> simp[] >> goal_assum drule >> simp[]
+          )
+        >- (
+          ntac 3 disj2_tac >> disj1_tac >>
+          qexists ‘clk + 1’ >> simp[] >> goal_assum drule >> simp[]
+          )
+        >- (
+          ntac 3 disj2_tac >> disj1_tac >>
+          qexists ‘clk + 1’ >> simp[] >> goal_assum drule >> simp[]
+          )
+        >- (
+          rpt disj2_tac >>
+          qexists ‘clk + 1’ >> simp[] >> goal_assum drule >> simp[]
+          )
+        >- (
+          ntac 2 disj2_tac >> disj1_tac >>
+          qexists ‘clk + 1’ >> simp[] >> goal_assum drule >> simp[]
+          )
+        >- (
+          disj1_tac >>
+          qexists ‘clk + 1’ >> simp[] >> goal_assum drule >> simp[]
+          )
         ) >>
       once_rewrite_tac[cj 2 evaluate_cases] >> simp[] >>
       every_case_tac >> gvs[SF DNF_ss, SF SFY_ss] >>
@@ -1783,7 +1819,20 @@ Proof
   >- ( (* App - do_app timeout *)
     drule do_app_not_timeout >> simp[]
     )
-  >- ( (* Force - timeout *)
+  >- ( (* Force - timeout 1 *)
+    dxrule big_clocked_to_unclocked_list >> rw[] >>
+    dxrule $ cj 2 big_exp_to_small_exp >> rw[] >>
+    gvs[oneline dest_thunk_def, AllCaseEqs(), to_small_res_def] >>
+    imp_res_tac small_eval_list_length >> gvs[LENGTH_EQ_NUM_compute] >>
+    ntac 2 $ gvs[Once small_eval_list_cases] >>
+    irule_at Any $ cj 2 RTC_rules >>
+    simp[e_step_reln_def, e_step_def, push_def, application_thm] >>
+    irule_at Any $ cj 2 RTC_RULES_RIGHT1 >>
+    dxrule e_step_add_ctxt >> simp[] >> disch_then $ irule_at Any >>
+    simp[e_step_reln_def, e_step_def, continue_def, application_thm, getOpClass_def] >>
+    gvs[dest_thunk_def, to_small_st_def]
+    )
+  >- ( (* Force - timeout 2 *)
     dxrule big_clocked_to_unclocked_list >> rw[] >>
     dxrule $ cj 2 big_exp_to_small_exp >> rw[] >>
     gvs[oneline dest_thunk_def, AllCaseEqs(), to_small_res_def] >>
@@ -2251,10 +2300,12 @@ Proof
       rename1 ‘evaluate_list _ _ _ _ (s2,Rval vs2)’ >>
       Cases_on ‘dest_thunk (REVERSE vs2 ++ [v] ++ l) s2.refs’ >> gvs[SF SFY_ss] >>
       rename1 ‘IsThunk t f’ >> Cases_on ‘t’ >> gvs[SF SFY_ss] >>
+      Cases_on ‘s2.clock = 0’ >> gvs[SF SFY_ss] >>
       Cases_on ‘do_opapp [f; Conv NONE []]’ >> gvs[SF SFY_ss] >>
       rename1 ‘SOME env_e’ >> PairCases_on ‘env_e’ >>
-      Cases_on ‘s2.clock = 0’ >> gvs[SF SFY_ss] >>
-      qspecl_then [‘s2 with clock := s2.clock - 1’,‘env_e0’,‘env_e1’]
+      Cases_on ‘s2.clock = 1’ >> gvs[SF SFY_ss] >>
+      ‘¬ (s2.clock ≤ 1)’ by gvs[] >> gvs[] >>
+      qspecl_then [‘s2 with clock := s2.clock - 2’,‘env_e0’,‘env_e1’]
         assume_tac big_clocked_total >> gvs[] >>
       rename1 ‘evaluate _ _ _ _ (s3, res)’ >>
       Cases_on ‘res’ >> gvs[SF SFY_ss] >> rename1 ‘Rval v'’ >>
