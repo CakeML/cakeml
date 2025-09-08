@@ -4399,8 +4399,16 @@ Proof
   \\ impl_tac >-
    (fs []
     \\ gvs [Abbr ‘st3’, restore_caller_def, Abbr ‘st1’]
-    \\ conj_tac >- cheat (* (fs [state_inv_def]) *)
-   (* \\ ‘st.heap = st2.heap’ by gvs [] \\ fs [] *)
+    \\ conj_tac >-
+     (fs [state_inv_def]
+      \\ qpat_x_assum ‘locals_inv st.heap st.locals’ mp_tac
+      \\ qpat_x_assum ‘valid_mod st.heap _ st2.heap’ mp_tac
+      \\ simp [valid_mod_def,locals_inv_def]
+      \\ rpt $ pop_assum kall_tac
+      \\ gvs [EVERY_MEM] \\ rw [] \\ fs []
+      \\ first_x_assum drule_all
+      \\ Cases_on ‘val’ \\ fs [value_inv_def]
+      \\ rw[] \\ res_tac \\ fs [])
     \\ irule list_rel_eval_exp_value_inv \\ simp []
     \\ first_assum $ irule_at (Pos last)
     \\ simp [can_get_type_map_var])
