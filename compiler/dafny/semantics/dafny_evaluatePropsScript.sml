@@ -53,6 +53,8 @@ Proof
     \\ DEP_REWRITE_TAC [drop_push_locals]
     \\ gvs [push_locals_def])
   \\ gvs [evaluate_exp_def, unuse_old_def, use_old_def, restore_caller_def,
+          unuse_prev_def, use_prev_def, unset_prev_def, set_prev_def,
+          unuse_prev_heap_def, use_prev_heap_def,
           set_up_call_def, dec_clock_def, AllCaseEqs()]
   \\ simp [state_component_equality]
 QED
@@ -269,6 +271,12 @@ Proof
          dec_clock_def, AllCaseEqs()])
   >~ [‘Old’] >-
    (gvs [evaluate_exp_def, use_old_def, unuse_old_def, AllCaseEqs()])
+  >~ [‘Prev’] >-
+   (gvs [evaluate_exp_def, use_prev_def, unuse_prev_def, AllCaseEqs()])
+  >~ [‘PrevHeap’] >-
+   (gvs [evaluate_exp_def, use_prev_heap_def, unuse_prev_heap_def, AllCaseEqs()])
+  >~ [‘SetPrev’] >-
+   (gvs [evaluate_exp_def, set_prev_def, unset_prev_def, AllCaseEqs()])
   >~ [‘ArrSel’] >-
    (gvs [evaluate_exp_def, index_array_def, AllCaseEqs()])
   \\ gvs [evaluate_exp_def, AllCaseEqs()]
@@ -496,11 +504,12 @@ Proof
    (gvs [evaluate_stmt_def])
 QED
 
-(* {locals,heap}_old is preserved *)
+(* {locals,heap}_{old,prev} is preserved *)
 
-Theorem assign_value_Rcont_old:
+Theorem assign_value_Rcont_const:
   assign_value st env lhs v = (st', Rcont) ⇒
-  st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old
+  st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old ∧
+  st'.locals_prev = st.locals_prev ∧ st'.heap_prev = st.heap_prev
 Proof
   disch_tac
   \\ Cases_on ‘lhs’
@@ -508,22 +517,24 @@ Proof
   \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
 QED
 
-Theorem assign_values_Rcont_old:
+Theorem assign_values_Rcont_const:
   ∀lhss vs st env st'.
     assign_values st env lhss vs = (st', Rcont) ⇒
-    st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old
+    st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old ∧
+    st'.locals_prev = st.locals_prev ∧ st'.heap_prev = st.heap_prev
 Proof
   Induct \\ namedCases_on ‘vs’ ["", "v vs₁"]
   \\ simp [assign_values_def]
   \\ rpt gen_tac \\ strip_tac
   \\ gvs [AllCaseEqs()]
-  \\ imp_res_tac assign_value_Rcont_old
+  \\ imp_res_tac assign_value_Rcont_const
   \\ res_tac \\ gvs []
 QED
 
-Theorem evaluate_rhs_exp_Rval_old:
+Theorem evaluate_rhs_exp_Rval_const:
   evaluate_rhs_exp st env rhs = (st', Rval v) ⇒
-  st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old
+  st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old ∧
+  st'.locals_prev = st.locals_prev ∧ st'.heap_prev = st.heap_prev
 Proof
   disch_tac
   \\ Cases_on ‘rhs’
@@ -531,21 +542,23 @@ Proof
   \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
 QED
 
-Theorem evaluate_rhs_exps_Rval_old:
+Theorem evaluate_rhs_exps_Rval_const:
   ∀rhss st st' env vs.
     evaluate_rhs_exps st env rhss = (st', Rval vs) ⇒
-    st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old
+    st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old ∧
+    st'.locals_prev = st.locals_prev ∧ st'.heap_prev = st.heap_prev
 Proof
   Induct \\ gvs [evaluate_rhs_exps_def]
   \\ rpt gen_tac \\ disch_tac
   \\ gvs [AllCaseEqs()]
-  \\ res_tac \\ imp_res_tac evaluate_rhs_exp_Rval_old \\ gvs []
+  \\ res_tac \\ imp_res_tac evaluate_rhs_exp_Rval_const \\ gvs []
 QED
 
-Theorem evaluate_stmt_Rcont_old:
+Theorem evaluate_stmt_Rcont_const:
   ∀st env stmt st'.
     evaluate_stmt st env stmt = (st', Rcont) ⇒
-    st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old
+    st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old ∧
+    st'.locals_prev = st.locals_prev ∧ st'.heap_prev = st.heap_prev
 Proof
   ho_match_mp_tac evaluate_stmt_ind
   \\ rpt conj_tac \\ rpt (gen_tac ORELSE disch_tac)
@@ -570,8 +583,8 @@ Proof
     \\ last_x_assum drule \\ gvs [])
   >~ [‘Assign ass’] >-
    (gvs [evaluate_stmt_def, AllCaseEqs()]
-    \\ imp_res_tac evaluate_rhs_exps_Rval_old
-    \\ imp_res_tac assign_values_Rcont_old \\ gvs [])
+    \\ imp_res_tac evaluate_rhs_exps_Rval_const
+    \\ imp_res_tac assign_values_Rcont_const \\ gvs [])
   >~ [‘While grd invs decrs mods body’] >-
    (gvs [evaluate_stmt_def, AllCaseEqs()]
     \\ imp_res_tac evaluate_exp_with_clock \\ gvs [dec_clock_def])
@@ -582,7 +595,7 @@ Proof
   >~ [‘MetCall lhss name args’] >-
    (gvs [evaluate_stmt_def, AllCaseEqs()]
     \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
-    \\ imp_res_tac assign_values_Rcont_old \\ gvs []
+    \\ imp_res_tac assign_values_Rcont_const \\ gvs []
     \\ gvs [restore_caller_def])
   >~ [‘Return’] >-
    (gvs [evaluate_stmt_def])
@@ -590,7 +603,8 @@ QED
 
 Theorem evaluate_exp_old_Rval_eq:
   evaluate_exp st₁ env (Old e) = (st₁', Rval v) ∧
-  st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ⇒
+  st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ∧
+  st₁.locals_prev = st.locals_prev ∧ st₁.heap_prev = st.heap_prev ⇒
   ∃ck st'. evaluate_exp (st with clock := ck) env (Old e) = (st', Rval v)
 Proof
   rpt strip_tac
@@ -601,3 +615,4 @@ Proof
     (gvs [use_old_def, state_component_equality])
   \\ gvs []
 QED
+

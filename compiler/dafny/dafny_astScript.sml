@@ -52,6 +52,10 @@ Datatype:
   | Let ((mlstring # exp) list) exp
   (* ForallHeap mods term *)
   | ForallHeap (exp list) exp
+  (* Prev, PrevHeap, SetPrev used in VCG output *)
+  | Prev exp
+  | PrevHeap exp
+  | SetPrev exp
 End
 
 Overload If = “Exp_If”
