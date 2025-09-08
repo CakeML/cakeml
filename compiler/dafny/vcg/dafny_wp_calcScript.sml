@@ -498,6 +498,8 @@ Inductive stmt_wp:
     ALL_DISTINCT ds_vars ∧
     get_type ls guard = INR BoolT ∧
     EVERY (λd. get_type ls d = INR IntT) ds ∧
+    no_Prev guard ∧ EVERY no_Prev post ∧ EVERY no_Prev invs ∧
+    EVERY no_Prev ds ∧ EVERY no_Prev body_wp ∧ EVERY no_Prev (SND decs) ∧
     ls1 = FILTER (λ(v,ty). assigned_in body v) ls ∧
     (* when executing the body, invs are maintained *)
     body_cond = imp (conj (guard :: invs ++ MAP2 dec_assum ds_vars ds)) (conj body_wp) ∧
@@ -703,6 +705,78 @@ Proof
   \\ simp [evaluate_exp_num_def]
   \\ simp [evaluate_exp_total_def]
   \\ drule_all eval_exp_old_eq \\ gvs []
+QED
+
+Theorem eval_exp_no_Prev:
+  eval_exp st env e v ∧ no_Prev e ⇒
+  ∀lp hp. eval_exp (st with <| locals_prev := lp; heap_prev := hp |>) env e v
+Proof
+  cheat (* prev *)
+QED
+
+Theorem eval_exp_no_Prev_alt:
+  ∀lp hp.
+    eval_exp (st with <| locals_prev := lp; heap_prev := hp |>) env e v ∧ no_Prev e ⇒
+    eval_exp st env e v
+Proof
+  rw [] \\ drule eval_exp_no_Prev \\ simp []
+  \\ disch_then $ qspecl_then [‘st.locals_prev’,‘st.heap_prev’] mp_tac
+  \\ match_mp_tac EQ_IMPLIES
+  \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+  \\ fs [state_component_equality]
+QED
+
+Theorem eval_exp_no_Prev_eq:
+  no_Prev e ⇒
+  eval_exp st env e v =
+  eval_exp (st with <| locals_prev := lp; heap_prev := hp |>) env e v
+Proof
+  rw [] \\ eq_tac
+  \\ simp [eval_exp_no_Prev]
+  \\ rw [] \\ drule eval_exp_no_Prev_alt \\ fs []
+QED
+
+Triviality eval_exp_old_eq_no_Prev_imp:
+  st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ∧
+  no_Prev e ∧
+  eval_exp st₁ env (Old e) v ⇒
+  eval_exp st env (Old e) v
+Proof
+  strip_tac
+  \\ dxrule eval_exp_no_Prev \\ simp [no_Prev_def]
+  \\ disch_then $ qspecl_then [‘st.locals_prev’,‘st.heap_prev’] assume_tac
+  \\ gvs [eval_exp_def]
+  \\ drule evaluate_exp_old_Rval_eq \\ gvs []
+  \\ disch_then $ qspec_then ‘st’ mp_tac \\ simp []
+  \\ disch_then $ qx_choosel_then [‘ck’, ‘st'’] assume_tac
+  \\ qexists ‘ck’ \\ gvs []
+  \\ imp_res_tac evaluate_exp_with_clock
+  \\ gvs [state_component_equality]
+QED
+
+Theorem eval_exp_old_eq_no_Prev:
+  st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ∧ no_Prev e ⇒
+  (eval_exp st₁ env (Old e) v ⇔ eval_exp st env (Old e) v)
+Proof
+  metis_tac [eval_exp_old_eq_no_Prev_imp]
+QED
+
+Triviality eval_decreases_old_eq_no_Prev:
+  ∀es st st₁ env.
+    st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ∧
+    EVERY no_Prev es ⇒
+    eval_decreases st₁ env (MAP Old es) =
+    eval_decreases st env (MAP Old es)
+Proof
+  Induct
+  >- (simp [eval_decreases_def])
+  \\ rpt gen_tac \\ strip_tac \\ fs []
+  \\ last_x_assum drule_all
+  \\ disch_then $ qspec_then ‘env’ assume_tac
+  \\ fs [eval_decreases_def]
+  \\ simp [evaluate_exp_num_def]
+  \\ simp [evaluate_exp_total_def]
+  \\ drule_all eval_exp_old_eq_no_Prev \\ gvs []
 QED
 
 Triviality Rcont_eval_measure:
@@ -1870,6 +1944,18 @@ Proof
   ho_match_mp_tac conj_ind \\ rw [conj_def] \\ fs [no_Prev_def]
 QED
 
+Theorem no_Prev_imp:
+  ∀x y. no_Prev (imp x y) ⇔ no_Prev x ∧ no_Prev y
+Proof
+  simp [no_Prev_def]
+QED
+
+Theorem no_Prev_not:
+  ∀x. no_Prev (not x) ⇔ no_Prev x
+Proof
+  simp [no_Prev_def]
+QED
+
 (* TODO Move to dafny_eval_rel *)
 Theorem eval_exp_with_clock:
   eval_exp (st with clock := ck) = eval_exp st
@@ -3029,29 +3115,6 @@ Proof
   \\ last_assum drule_all \\ simp []
 QED
 
-Theorem eval_exp_no_Prev:
-  eval_exp st env e v ∧ no_Prev e ⇒
-  ∀lp hp. eval_exp (st with <| locals_prev := lp; heap_prev := hp |>) env e v
-Proof
-  cheat (* prev cheat *)
-QED
-
-Theorem eval_exp_no_Prev_alt:
-  ∀lp hp.
-    eval_exp (st with <| locals_prev := lp; heap_prev := hp |>) env e v ∧ no_Prev e ⇒
-    eval_exp st env e v
-Proof
-  cheat (* prev cheat *)
-QED
-
-Theorem eval_exp_no_Prev_eq:
-  no_Prev e ⇒
-  eval_exp st env e v =
-  eval_exp (st with <| locals_prev := lp; heap_prev := hp |>) env e v
-Proof
-  cheat (* prev cheat *)
-QED
-
 Theorem eval_bool_IMP:
   eval_true st env (CanEval guard) ∧
   get_type locals guard = INR BoolT ∧
@@ -3402,6 +3465,13 @@ Proof
   Induct \\ fs []
 QED
 
+Triviality MEM_MAP2:
+  ∀xs ys z f. MEM z (MAP2 f xs ys) ⇒ ∃x y. MEM x xs ∧ MEM y ys ∧ z = f x y
+Proof
+  Induct \\ Cases_on ‘ys’ \\ fs []
+  \\ rw [] \\ metis_tac []
+QED
+
 fun setup (q : term quotation, t : tactic) = let
     val the_concl = Parse.typedTerm q bool
     val t2 = (t \\ rpt (pop_assum mp_tac))
@@ -3658,7 +3728,6 @@ QED
 Theorem stmt_wp_sound_While:
   ^(#get_goal stmt_wp_sound_setup `While`)
 Proof
-  cheat (* needs updating for Prev and SetPrev
   rpt strip_tac
   \\ rename [‘While guard invs ds mods body’]
   \\ qsuff_tac
@@ -3758,6 +3827,10 @@ Proof
     \\ qpat_x_assum ‘eval_true _ _ _ ’ mp_tac
     \\ drule eval_exp_swap_locals
     \\ simp [eval_true_def] \\ disch_then kall_tac
+    \\ strip_tac
+    \\ drule eval_exp_no_Prev
+    \\ disch_then $ qspecl_then [‘st'.locals_prev’,‘st'.heap_prev’] mp_tac
+    \\ impl_tac >- simp [no_Prev_imp,no_Prev_conj,no_Prev_not]
     \\ match_mp_tac EQ_IMPLIES
     \\ rpt AP_THM_TAC
     \\ irule eval_exp_eq_ignore_clock
@@ -3831,7 +3904,7 @@ Proof
   \\ ‘eval_measure st env (wrap_old decs) =
       eval_measure st1 env (wrap_old decs)’ by
     (Cases_on ‘decs’ \\ fs [eval_measure_def,wrap_old_def]
-     \\ irule eval_decreases_old_eq \\ fs [])
+     \\ irule eval_decreases_old_eq_no_Prev \\ fs [])
   \\ impl_tac
   >-
    (conj_tac
@@ -3928,22 +4001,39 @@ Proof
       \\ simp [strict_locals_ok_def, GSYM AND_IMP_INTRO]
       \\ disch_then drule \\ simp []
       \\ strip_tac \\ fs [])
+    \\ qabbrev_tac ‘st0 = st1 with <| locals_prev := st.locals_prev;
+                                      heap_prev := st.heap_prev |>’
+    \\ strip_tac
+    \\ rewrite_tac [eval_true_def]
+    \\ irule eval_exp_no_Prev_alt
+    \\ conj_tac >- (simp [no_Prev_conj])
+    \\ qexistsl [‘st.heap_prev’,‘st.locals_prev’]
+    \\ simp []
+    \\ pop_assum mp_tac
     \\ ‘eval_true (st with locals := zs) =
-        eval_true (st1 with locals := zs)’ by
+        eval_true (st0 with locals := zs)’ by
       (rewrite_tac [eval_true_def,FUN_EQ_THM]
        \\ rpt gen_tac \\ rpt AP_THM_TAC
        \\ irule eval_exp_eq_ignore_clock
-       \\ fs [state_component_equality])
-    \\ asm_rewrite_tac []
+       \\ fs [state_component_equality,Abbr‘st0’])
+    \\ asm_rewrite_tac [GSYM eval_true_def]
     \\ strip_tac
     \\ dxrule eval_true_imp
     \\ simp [eval_true_conj_every,conditions_hold_def]
     \\ disch_then irule
     \\ drule_all IMP_dec_assum
     \\ simp [] \\ strip_tac
+    \\ ‘∀e. MEM e (MAP2 dec_assum ds_vars ds) ⇒ no_Prev e’ by
+      (rpt strip_tac \\ imp_res_tac MEM_MAP2
+       \\ gvs [dec_assum_def,no_Prev_def,EVERY_MEM])
+    \\ ‘∀e. no_Prev e ∧ eval_true (st1 with locals := zs) env e ⇒
+            eval_true (st0 with locals := zs) env e’ by
+      (simp [Abbr‘st0’] \\ rpt $ pop_assum kall_tac \\ rw [eval_true_def]
+       \\ drule eval_exp_no_Prev \\ simp [])
     \\ qunabbrev_tac ‘zs’
     \\ fs [conditions_hold_def,EVERY_MEM]
     \\ rpt strip_tac
+    \\ first_x_assum irule \\ fs []
     \\ irule eval_true_drop_unused
     \\ fs [get_vars_stmt_def]
     \\ fs [eval_true_def,LIST_TO_SET_FLAT,PULL_EXISTS,MEM_MAP])
@@ -4034,7 +4124,7 @@ Proof
      \\ disch_then drule \\ strip_tac
      \\ CCONTR_TAC \\ fs []
      \\ imp_res_tac assign_in_IMP_get_vars_stmt \\ fs [])
-  \\ gvs [] *)
+  \\ gvs []
 QED
 
 Theorem stmt_wp_sound_MetCall:
@@ -4572,21 +4662,23 @@ Triviality mem_freevars_list_eq:
   (∀e. MEM e xs ⇒ set (freevars_list e) = freevars e) ⇒
   MAP set (MAP (λe. freevars_list e) xs) = MAP (λe. freevars e) xs
 Proof
+  cheat (* prev
   rpt strip_tac
   \\ simp [MAP_MAP_o, o_DEF]
-  \\ irule MAP_CONG \\ gvs []
+  \\ irule MAP_CONG \\ gvs [] *)
 QED
 
 Theorem freevars_list_eq:
   ∀e. set (freevars_list e) = freevars e
 Proof
+  cheat (* prev
   ho_match_mp_tac freevars_list_ind
   \\ rpt strip_tac
   \\ simp [freevars_list_def, freevars_def]
   \\ simp [LIST_TO_SET_FLAT]
   \\ simp [LIST_TO_SET_FILTER]
   \\ simp [mem_freevars_list_eq]
-  \\ SET_TAC []
+  \\ SET_TAC [] *)
 QED
 
 (* TODO Move? *)
