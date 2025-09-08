@@ -523,11 +523,12 @@ Inductive stmt_wp:
     ALL_DISTINCT (MAP FST mspec.ins ++ MAP FST mspec.outs) ∧
     ALL_DISTINCT ret_names ∧
     rets = (MAP VarLhs ret_names) ∧
-    EVERY (λe. DISJOINT (freevars e) (set ret_names)) args ∧
+    EVERY no_Prev args ∧
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e ∧ no_Prev e) mspec.reqs ∧
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e ∧ no_Prev e) mspec.decreases ∧
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins ++ MAP FST mspec.outs) ∧
                no_Old e ∧ no_Prev e) mspec.ens ∧
+    EVERY no_Prev post ∧
     set ret_names ⊆ set (MAP FST ls) ∧
     get_types ls args = INR (MAP SND mspec.ins) ∧
     get_types ls (MAP Var ret_names) = INR (MAP SND mspec.outs)
@@ -537,9 +538,10 @@ Inductive stmt_wp:
                decreases_check (mspec.rank,
                                 MAP (Let (ZIP (MAP FST mspec.ins,args))) mspec.decreases)
                                (wrap_old decs) ++
-               [Foralls (ZIP (ret_names, MAP SND mspec.outs))
+               [SetPrev $
+                Foralls (ZIP (ret_names, MAP SND mspec.outs))
                   (imp (Let (ZIP(MAP FST mspec.ins ++ MAP FST mspec.outs,
-                                 args              ++ MAP Var ret_names))
+                                 MAP Prev args     ++ MAP Var ret_names))
                           (conj mspec.ens))
                        (conj post))])
               (MetCall rets mname args) post ens decs ls
@@ -3472,6 +3474,29 @@ Proof
   \\ rw [] \\ metis_tac []
 QED
 
+Theorem eval_true_SetPrev:
+  eval_true st env (SetPrev e) ⇒
+  eval_true (st with <| locals_prev := st.locals; heap_prev := st.heap |>) env e
+Proof
+  fs [eval_true_def,eval_exp_def,evaluate_exp_def,set_prev_def,unset_prev_def]
+  \\ rw [] \\ gvs [CaseEq"bool",CaseEq"prod"]
+  \\ qexists_tac ‘ck1’ \\ simp []
+  \\ gvs [state_component_equality]
+  \\ imp_res_tac evaluate_exp_with_clock \\ fs []
+QED
+
+Theorem eval_exp_Prev:
+  ¬env.is_running ⇒
+  (eval_exp st env (Prev e) v ⇔
+   eval_exp (st with <| locals := st.locals_prev; heap := st.heap_prev |>) env e v)
+Proof
+  fs [eval_true_def,eval_exp_def,evaluate_exp_def,use_prev_def,unuse_prev_def]
+  \\ rw [] \\ gvs [CaseEq"bool",CaseEq"prod"] \\ eq_tac \\ rw []
+  \\ qexists_tac ‘ck1’ \\ simp []
+  \\ gvs [state_component_equality]
+  \\ imp_res_tac evaluate_exp_with_clock \\ fs []
+QED
+
 fun setup (q : term quotation, t : tactic) = let
     val the_concl = Parse.typedTerm q bool
     val t2 = (t \\ rpt (pop_assum mp_tac))
@@ -4308,7 +4333,8 @@ Proof
   \\ qabbrev_tac ‘st3 = restore_caller st2 st’
   \\ ‘locals_ok (mspec.outs) st2.locals’ by (fs [locals_ok_append_left])
   \\ drule_all locals_ok_list_rel_all_values \\ strip_tac
-  \\ drule eval_true_Foralls_distinct
+  \\ dxrule eval_true_SetPrev \\ strip_tac
+  \\ dxrule eval_true_Foralls_distinct
   \\ simp [MAP_ZIP] \\ strip_tac
   \\ gvs [conditions_hold_def]
   \\ ‘EVERY (λn. IS_SOME (ALOOKUP st3.locals n)) ret_names’ by
@@ -4350,7 +4376,7 @@ Proof
     \\ rev_drule locals_unique_types
     \\ disch_then $ qspecl_then [‘ty’, ‘lhs_ty’, ‘n’] mp_tac \\ simp [])
   \\ rewrite_tac [GSYM eval_true_conj_every]
-  \\ rpt conj_tac >-
+  \\ conj_tac >-
    (gvs [Abbr ‘st3’, restore_caller_def, state_inv_def])
   \\ rewrite_tac [eval_true_def]
   \\ irule (iffLR eval_exp_swap_locals_alt)
@@ -4361,6 +4387,9 @@ Proof
   \\ dxrule eval_true_imp
   \\ ‘st3.locals = st.locals’ by fs [Abbr‘st3’,restore_caller_def]
   \\ strip_tac
+  \\ irule eval_exp_no_Prev_alt
+  \\ conj_tac >- simp [no_Prev_conj]
+  \\ qexistsl [‘st.heap’,‘st.locals’]
   \\ irule eval_exp_swap_state
   \\ simp [GSYM eval_true_def]
   \\ pop_assum $ irule_at Any
@@ -4369,27 +4398,25 @@ Proof
   \\ fs [GSYM eval_true_def,GSYM eval_true_conj_every]
   \\ qmatch_goalsub_abbrev_tac ‘eval_true st5’
   \\ ‘LIST_REL (eval_exp st5 env)
-        (args ++ MAP Var ret_names) (in_vs ++ out_vs)’ by
+        (MAP Prev args ++ MAP Var ret_names) (in_vs ++ out_vs)’ by
    (irule listTheory.LIST_REL_APPEND_suff
     \\ reverse conj_tac
     >- (irule IMP_LIST_REL_eval_exp_MAP_Var \\ simp [Abbr‘st5’])
     \\ qpat_x_assum ‘LIST_REL (eval_exp st env) args in_vs’ mp_tac
     \\ qpat_x_assum ‘EVERY _ args’ mp_tac
-    \\ simp [LIST_REL_EL_EQN,EVERY_EL]
+    \\ simp [LIST_REL_EL_EQN,EVERY_EL,EL_MAP]
     \\ rpt strip_tac
     \\ first_x_assum drule
     \\ first_x_assum drule
     \\ strip_tac \\ simp [Abbr‘st5’]
+    \\ simp [eval_exp_Prev]
+    \\ strip_tac
+    \\ drule eval_exp_no_Prev
+    \\ disch_then $ qspecl_then [‘st.locals’,‘st.heap’] mp_tac
+    \\ impl_tac >- asm_rewrite_tac []
     \\ match_mp_tac EQ_IMPLIES
-    \\ irule EQ_TRANS
-    \\ irule_at (Pos last) eval_exp_freevars
-    \\ qexists_tac ‘st.locals’ \\ fs []
-    \\ rpt strip_tac
-    \\ simp [ALOOKUP_APPEND,CaseEq"option"]
-    \\ disj1_tac
-    \\ simp [ALOOKUP_NONE]
-    \\ simp [MAP_ZIP] \\ fs [IN_DISJOINT]
-    \\ metis_tac [])
+    \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+    \\ simp [state_component_equality])
   \\ drule eval_exp_Let
   \\ rewrite_tac [eval_true_def]
   \\ disch_then $ DEP_REWRITE_TAC o single
@@ -4772,20 +4799,20 @@ Definition stmt_vcg_def:
     vars <- result_mmap dest_VarLhs lhss;
     () <- if ALL_DISTINCT vars then return () else
             (fail «stmt_vcg:MetCall: left-hand side names not distinct»);
-    () <- if EVERY (λe. list_disjoint (freevars_list e) vars) args
+    () <- if EVERY no_Prev args ∧ EVERY no_Prev post
           then return ()
           else (fail «stmt_vcg:MetCall: Cannot read and assign a variable in one statement»);
     () <- if EVERY (λe. list_subset (freevars_list e) (MAP FST spec.ins) ∧
-                        no_Old e) spec.reqs
+                        no_Old e ∧ no_Prev e) spec.reqs
           then return ()
           else (fail «stmt_vcg:MetCall: Bad requires spec»);
     () <- if EVERY (λe. list_subset (freevars_list e) (MAP FST spec.ins) ∧
-                        no_Old e) spec.decreases
+                        no_Old e ∧ no_Prev e) spec.decreases
           then return ()
           else (fail «stmt_vcg:MetCall: Bad decreases spec»);
     () <- if EVERY (λe. list_subset (freevars_list e) (MAP FST spec.ins
                                                    ++ MAP FST spec.outs) ∧
-                        no_Old e) spec.ens
+                        no_Old e ∧ no_Prev e) spec.ens
           then return ()
           else (fail «stmt_vcg:MetCall: Bad ensures spec»);
     () <- if list_subset vars (MAP FST ls) then return () else
@@ -4803,9 +4830,10 @@ Definition stmt_vcg_def:
           (spec.rank,
            MAP (Let (ZIP (MAP FST spec.ins,args))) spec.decreases)
           (wrap_old decs)
-       ++ [Foralls (ZIP (vars, MAP SND spec.outs))
+       ++ [SetPrev $
+           Foralls (ZIP (vars, MAP SND spec.outs))
                    (imp (Let (ZIP(MAP FST spec.ins ++ MAP FST spec.outs,
-                                  args             ++ MAP Var vars))
+                                  MAP Prev args    ++ MAP Var vars))
                              (conj spec.ens))
                         (conj post))])
   od ∧
@@ -4815,12 +4843,6 @@ End
 Theorem stmt_vcg_correct:
   ∀m stmt post ens decs ls res.
     stmt_vcg m stmt (post:exp list) (ens:exp list) decs ls = INR res
-(*
-                                                       ... = INR (loop_vcs,res) ∧
-    EVERY require loop_vcs
-    ⇒
-    stmt_wp (set m) res stmt (post:exp list) (ens:exp list) decs ls
-*)
     ⇒
     stmt_wp (set m) res stmt (post:exp list) (ens:exp list) decs ls
 Proof
