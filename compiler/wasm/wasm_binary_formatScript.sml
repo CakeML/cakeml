@@ -1,7 +1,6 @@
 (*
   En- & De- coding between CWasm 1.0 AST & Wasm's binary format
 *)
-
 Theory      wasm_binary_format
 Ancestors   wasmLang leb128 ancillaryOps
 Libs        preamble wordsLib
@@ -971,16 +970,24 @@ Definition dec_data_def:
       , rs)
 End
 
-(* askyk *)
 Theorem dec_data_shortens:
   ∀bs xs rs. dec_data bs = (INR xs, rs) ⇒ lst_st rs bs
 Proof
   Cases_on `bs`
-  >> rw[dec_data_def, AllCaseEqs()]
+  \\ rw[dec_data_def, AllCaseEqs()]
   \\ dxrule dec_u32_shortens
   \\ dxrule dec_instr_list_shortens
-  \\ assume_tac dec_byte_shortens
-  \\ qspec_then `dec_byte` assume_tac dec_vector_shortens_lt
+  \\ drule_at Any dec_vector_shortens_lt
+  \\ simp[dec_byte_shortens]
+QED
+
+(* for study
+MATCH_MP
+dec_vector_shortens_lt
+(dec_byte_shortens  |> INST_TYPE [alpha |-> ``:byte``])
+
+
+  \\ (qspec_then `dec_byte` assume_tac (dec_vector_shortens_lt |> INST_TYPE [alpha |-> ``:byte``]))
   (* why don't the following work? *)
   \\ TRY (first_assum drule)
   \\ TRY (last_assum drule)
@@ -988,8 +995,7 @@ Proof
   \\ TRY (drule dec_vector_shortens_lt)
   \\ cheat
 QED
-
-
+*)
 
 Definition split_funcs_def:
   split_funcs ([]:func list) =  ( [] :  index                list
@@ -1125,35 +1131,10 @@ QED
 Theorem dec_module_shortens:
   ∀bs x rs. dec_module bs = (INR x, rs) ⇒ lst_se rs bs
 Proof
-  (* askyk *)
   (* is there a better way to do this? *)
   rw[dec_module_def, AllCaseEqs()]
-  \\
-     assume_tac dec_functype_shortens
-  \\ dxrule dec_section_shortens
-  \\ disch_then dxrule
-  \\
-     assume_tac lift_dec_u32_shortens
-  \\ dxrule dec_section_shortens
-  \\ disch_then dxrule
-  \\
-     assume_tac dec_limits_shortens
-  \\ dxrule dec_section_shortens
-  \\ disch_then dxrule
-  \\
-     assume_tac dec_global_shortens
-  \\ dxrule dec_section_shortens
-  \\ disch_then dxrule
-  \\
-     assume_tac dec_code_shortens
-  \\ dxrule dec_section_shortens
-  \\ disch_then dxrule
-  \\
-     assume_tac dec_data_shortens
-  \\ dxrule dec_section_shortens
-  \\ disch_then dxrule
-  \\
-     rw[]
+  \\ rpt (dxrule_at Any dec_section_shortens)
+  \\ simp[dec_functype_shortens, dec_code_shortens,dec_data_shortens]
 QED
 
 (*
