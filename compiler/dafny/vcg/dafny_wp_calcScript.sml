@@ -522,10 +522,10 @@ Inductive stmt_wp:
     ALL_DISTINCT ret_names ∧
     rets = (MAP VarLhs ret_names) ∧
     EVERY (λe. DISJOINT (freevars e) (set ret_names)) args ∧
-    EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e) mspec.reqs ∧
-    EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e) mspec.decreases ∧
+    EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e ∧ no_Prev e) mspec.reqs ∧
+    EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e ∧ no_Prev e) mspec.decreases ∧
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins ++ MAP FST mspec.outs) ∧
-               no_Old e) mspec.ens ∧
+               no_Old e ∧ no_Prev e) mspec.ens ∧
     set ret_names ⊆ set (MAP FST ls) ∧
     get_types ls args = INR (MAP SND mspec.ins) ∧
     get_types ls (MAP Var ret_names) = INR (MAP SND mspec.outs)
@@ -1864,6 +1864,12 @@ Proof
   ho_match_mp_tac conj_ind \\ rw [conj_def] \\ fs [no_Old_def]
 QED
 
+Theorem no_Prev_conj:
+  ∀xs. no_Prev (conj xs) = EVERY no_Prev xs
+Proof
+  ho_match_mp_tac conj_ind \\ rw [conj_def] \\ fs [no_Prev_def]
+QED
+
 (* TODO Move to dafny_eval_rel *)
 Theorem eval_exp_with_clock:
   eval_exp (st with clock := ck) = eval_exp st
@@ -3023,6 +3029,29 @@ Proof
   \\ last_assum drule_all \\ simp []
 QED
 
+Theorem eval_exp_no_Prev:
+  eval_exp st env e v ∧ no_Prev e ⇒
+  ∀lp hp. eval_exp (st with <| locals_prev := lp; heap_prev := hp |>) env e v
+Proof
+  cheat (* prev cheat *)
+QED
+
+Theorem eval_exp_no_Prev_alt:
+  ∀lp hp.
+    eval_exp (st with <| locals_prev := lp; heap_prev := hp |>) env e v ∧ no_Prev e ⇒
+    eval_exp st env e v
+Proof
+  cheat (* prev cheat *)
+QED
+
+Theorem eval_exp_no_Prev_eq:
+  no_Prev e ⇒
+  eval_exp st env e v =
+  eval_exp (st with <| locals_prev := lp; heap_prev := hp |>) env e v
+Proof
+  cheat (* prev cheat *)
+QED
+
 Theorem eval_bool_IMP:
   eval_true st env (CanEval guard) ∧
   get_type locals guard = INR BoolT ∧
@@ -4011,7 +4040,6 @@ QED
 Theorem stmt_wp_sound_MetCall:
   ^(#get_goal stmt_wp_sound_setup `MetCall`)
 Proof
-  cheat (* needs updating for Prev and SetPrev
   rpt strip_tac
   \\ rename [‘MetCall rets mname args’]
   \\ irule_at Any eval_stmt_MetCall \\ gvs []
@@ -4105,6 +4133,10 @@ Proof
           \\ simp [ALOOKUP_NONE, MAP_ZIP]
           \\ fs [MEM_MAP,EXISTS_PROD]
           \\ first_x_assum $ irule_at Any)
+      \\ strip_tac
+      \\ drule eval_exp_no_Prev
+      \\ disch_then $ qspecl_then [‘new_l’,‘st.heap_prev’] mp_tac
+      \\ impl_tac >- fs [no_Prev_conj,EVERY_MEM]
       \\ match_mp_tac EQ_IMPLIES
       \\ rpt AP_THM_TAC \\ AP_TERM_TAC
       \\ simp [state_component_equality])
@@ -4152,7 +4184,13 @@ Proof
     >- (irule EQ_TRANS
         \\ irule_at (Pos hd) eval_exp_no_old
         \\ qexistsl [‘new_l’,‘st.heap’]
-        \\ fs [EVERY_MEM] \\ res_tac \\ simp [])
+        \\ fs [EVERY_MEM]
+        \\ irule EQ_TRANS
+        \\ irule_at (Pos hd) eval_exp_no_Prev_eq
+        \\ qexistsl [‘new_l’,‘st1.heap_prev’]
+        \\ simp [Abbr‘st1’]
+        \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+        \\ simp [state_component_equality])
     \\ rw []
     \\ ‘MEM n (MAP FST mspec.ins)’ by
       (fs [EVERY_MEM,SUBSET_DEF] \\ res_tac \\ simp [])
@@ -4295,6 +4333,9 @@ Proof
   >- (fs [no_Old_conj,EVERY_MEM] \\ rw [] \\ res_tac \\ fs [])
   \\ qexists_tac ‘st2.heap_old’
   \\ qexists_tac ‘st2.locals_old’
+  \\ irule eval_exp_no_Prev_alt
+  \\ conj_tac >- gvs [EVERY_MEM,no_Prev_conj]
+  \\ qexistsl [‘st2.heap_prev’,‘st2.locals_prev’]
   \\ irule eval_exp_swap_state
   \\ qexists_tac ‘st2 with locals := l2’
   \\ conj_tac
@@ -4322,7 +4363,7 @@ Proof
   \\ strip_tac
   \\ fs [ALL_DISTINCT_APPEND]
   \\ drule_all read_out_lemma
-  \\ strip_tac \\ fs [] *)
+  \\ strip_tac \\ fs []
 QED
 
 Theorem stmt_wp_sound:
