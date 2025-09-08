@@ -3027,12 +3027,67 @@ Proof
   cheat (* reserved *)
 QED
 
-Theorem assigned_in_thm:
-  eval_stmt st env stmt st1 res ⇒
-  ∀v. ~(assigned_in stmt v) ⇒
-      ALOOKUP st1.locals v = ALOOKUP st.locals v
+(* todo move to evaluateProps *)
+Triviality evaluate_stmt_declare_local_alookup:
+  evaluate_stmt (declare_local s v) env stmt = (s₁, r) ∧
+  pop_locals 1 s₁ = SOME s'
+  ⇒
+  ALOOKUP s'.locals v = ALOOKUP s.locals v
 Proof
   cheat (* reserved *)
+QED
+
+Theorem evaluate_stmt_not_assigned_in:
+  ∀st env stmt st' r.
+    evaluate_stmt st env stmt = (st', r) ⇒
+    (∀v. ¬assigned_in stmt v ⇒ ALOOKUP st'.locals v = ALOOKUP st.locals v)
+Proof
+  ho_match_mp_tac evaluate_stmt_ind
+  \\ rpt strip_tac
+  >~ [‘Skip’] >-
+   (gvs [evaluate_stmt_def])
+  >~ [‘Assert’] >-
+   (gvs [evaluate_stmt_def, assigned_in_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs [])
+  >~ [‘Then’] >-
+   (gvs [evaluate_stmt_def, assigned_in_def, AllCaseEqs()])
+  >~ [‘If’] >-
+   (gvs [evaluate_stmt_def, assigned_in_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+    \\ imp_res_tac do_cond_some_cases \\ gvs [])
+  >~ [‘Dec local’] >-
+   (namedCases_on ‘local’ ["n ty"]
+    \\ gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ namedCases_on
+         ‘evaluate_stmt (declare_local st n) env stmt’
+         ["st₁ r₁"]
+    \\ gvs []
+    \\ ‘st₁.locals ≠ []’ by
+      (spose_not_then assume_tac
+       \\ imp_res_tac evaluate_stmt_locals
+       \\ gvs [declare_local_def])
+    \\ imp_res_tac pop_local_some \\ gvs []
+    \\ Cases_on ‘n = v’ \\ gvs []
+    >- (* assignment does not matter, as we are cleaning up the local *)
+     (drule evaluate_stmt_declare_local_alookup \\ strip_tac \\ gvs [])
+    \\ gvs [assigned_in_def]
+    \\ last_x_assum drule \\ strip_tac
+    \\ gvs [declare_local_def]
+    \\ drule evaluate_stmt_locals \\ strip_tac \\ gvs []
+    \\ namedCases_on ‘st₁.locals’ ["", "local' locals"] \\ gvs []
+    \\ gvs [pop_locals_def, safe_drop_def]
+    \\ namedCases_on ‘local'’ ["n' ov"] \\ gvs [])
+  \\ cheat (* reserved *)
+QED
+
+Theorem assigned_in_thm:
+  eval_stmt st env stmt st1 res ⇒
+  ∀v. ¬assigned_in stmt v ⇒
+      ALOOKUP st1.locals v = ALOOKUP st.locals v
+Proof
+  simp [eval_stmt_def]
+  \\ rpt strip_tac
+  \\ drule_all evaluate_stmt_not_assigned_in  \\ simp []
 QED
 
 Triviality eval_exp_eq_ignore_clock:
