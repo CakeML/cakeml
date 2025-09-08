@@ -6,13 +6,14 @@ Theory      wasm_binary_format_proofs
 Ancestors   leb128 ancillaryOps wasmLang wasm_binary_format
 Libs        preamble wordsLib
 
-val sass = simp[GSYM APPEND_ASSOC, Excl "APPEND_ASSOC"]
+val ssaa = fn xs => [GSYM APPEND_ASSOC, Excl "APPEND_ASSOC"] @ xs
+val ssa  = [GSYM APPEND_ASSOC, Excl "APPEND_ASSOC"]
 
-(*******************************)
-(*                             *)
-(*     Shortening Theorems     *)
-(*                             *)
-(*******************************)
+(******************************)
+(*                            *)
+(*     non-empty Theorems     *)
+(*                            *)
+(******************************)
 
 Theorem enc_numI_nEmp:
   ∀i. ∃b bs. enc_numI i = b::bs
@@ -57,7 +58,8 @@ Proof
 QED
 
 Theorem enc_instr_nEmp:
-  ∀i lst b bs. enc_instr i = SOME lst ⇒ ∃b bs. lst = b::bs
+  ∀i enci. enc_instr i = SOME enci ⇒
+  ∃b bs. enci = b::bs
 Proof
   Cases
   >> rw[Once enc_instr_def, AllCaseEqs()]
@@ -67,29 +69,6 @@ Proof
   >> mp_tac enc_loadI_nEmp
   >> mp_tac enc_storeI_nEmp
   >> simp[]
-QED
-
-Theorem dec_enc_expr:
-  ∀is encis rest. enc_expr is = SOME $ encis ⇒
-  dec_expr (encis ++ rest) = (INR is, rest)
-Proof
-  Cases_on ‘is’ >> rpt gen_tac
-  >> gvs[Once enc_instr_def, dec_instr_def]
-  \\ rpt strip_tac
-  \\ imp_res_tac enc_instr_nEmp
-  \\ gvs[]
-  \\ simp[dec_instr_def, AllCaseEqs()]
-  \\ rpt strip_tac
-  \\ cheat
-  (* what now? *)
-QED
-
-
-
-Theorem dec_module_shortens[simp]:
-T
-Proof
-  cheat
 QED
 
 
@@ -102,7 +81,7 @@ QED
 (*                                 *)
 (***********************************)
 
-(* neat trick to check if we're making progress - due to MM *)
+(* MM's neat trick to check if we're making progress *)
 fun print_dot_tac h = (print "."; all_tac h);
 
 (*****************************************)
@@ -118,20 +97,13 @@ Theorem dec_enc_vector[simp]:
 Proof
   rpt strip_tac
   \\ last_x_assum mp_tac
-  \\ rewrite_tac[dec_vector_def, enc_vector_def]
-  \\ simp[AllCaseEqs()]
-  \\ rpt strip_tac
-  \\ gvs[GSYM NOT_LESS]
-  \\ sass
-  \\ qid_spec_tac ‘rest’  (* ask  hol to generalize rest *)
-  \\ qid_spec_tac ‘is’    (* ask  hol to generalize rest *)
+  \\ rw[dec_vector_def, enc_vector_def, AllCaseEqs()]
+  \\ gvs $ ssaa [GSYM NOT_LESS]
+  \\ qid_spec_tac ‘rest’
+  \\ qid_spec_tac ‘is’
   \\ Induct
-  >> simp[enc_list_def, Once dec_list_def, CaseEq "sum", CaseEq "prod"]
-  \\ asm_rewrite_tac[GSYM APPEND_ASSOC]
-  \\ simp[]
+  >> simp $ ssaa [enc_list_def, Once dec_list_def, CaseEq "sum", CaseEq "prod"]
 QED
-
-
 
 Theorem dec_enc_vector_opt[simp]:
   ∀dec enc is encis rest.
@@ -142,23 +114,18 @@ Theorem dec_enc_vector_opt[simp]:
 Proof
   rpt strip_tac
   \\ last_x_assum mp_tac
-  \\ rewrite_tac[dec_vector_def, enc_vector_opt_def]
-  \\ simp[AllCaseEqs()]
-  \\ rpt strip_tac
-  \\ gvs[GSYM NOT_LESS]
-  \\ sass
+  \\ rw[dec_vector_def, enc_vector_opt_def, AllCaseEqs()]
+  \\ gvs $ ssaa [GSYM NOT_LESS]
   \\ pop_assum mp_tac
   \\ qid_spec_tac ‘rest’
   \\ qid_spec_tac ‘encxs’
   \\ qid_spec_tac ‘is’
   \\ Induct
   >> simp[enc_list_opt_def, Once dec_list_def, CaseEq "sum", CaseEq "prod"]
-  \\ rpt gen_tac
-  \\ Cases_on `enc h` >> gvs[]
-  \\ Cases_on `enc_list_opt enc is'` >> gvs[]
-  \\ rpt strip_tac \\ gvs[]
+  \\ rpt strip_tac
+  \\ gvs[]
   \\ last_x_assum dxrule
-  \\ sass
+  \\ simp ssa
 QED
 
 
@@ -170,7 +137,7 @@ QED
 (*************)
 
 Theorem dec_enc_valtype[simp]:
-  ∀ t rest. dec_valtype (enc_valtype t :: rest) = (INR t, rest)
+  ∀t rest. dec_valtype (enc_valtype t ++ rest) = (INR t, rest)
 Proof
      rpt gen_tac
   \\ `∃ val. enc_valtype t = val` by simp []
@@ -181,28 +148,21 @@ Proof
     >> gvs[dec_valtype_def]
 QED
 
-Theorem dec_enc_valtype_Seq[simp]:
-  ∀ t rest. dec_valtype (enc_valtype_Seq t ++ rest) = (INR t, rest)
-Proof
-  gvs[]
-QED
-
+(* askyk about this kind of conditional rewrite *)
 Theorem dec_enc_functype[simp]:
   ∀sg encsg rest.
     enc_functype sg = SOME encsg ⇒
     dec_functype (encsg ++ rest) = (INR sg, rest)
 Proof
-     simp[AllCaseEqs(), enc_functype_def]
-  \\ rpt strip_tac
-  \\ gvs[dec_functype_def]
-  \\ PairCases_on `sg` \\ gvs[]
-  \\ dxrule dec_enc_vector  (* same as drule but then clears the assumption it used *)
+     rw[AllCaseEqs(), enc_functype_def]
+  \\ PairCases_on `sg`
+  \\ gvs[dec_functype_def, AllCaseEqs()]
   \\ dxrule dec_enc_vector
   \\ disch_then $ qspec_then `dec_valtype` assume_tac
+  \\ dxrule dec_enc_vector
   \\ disch_then $ qspec_then `dec_valtype` assume_tac
   \\ gvs[dec_enc_valtype]
-  \\ asm_rewrite_tac[GSYM APPEND_ASSOC]
-  \\ simp[]
+  \\ simp ssa
 QED
 
 Theorem dec_enc_limits[simp]:
@@ -228,7 +188,7 @@ Proof
   \\ rewrite_tac[enc_globaltype_def]
   \\ simp[AllCaseEqs()]
   \\ rpt strip_tac
-    >> gvs[dec_globaltype_def, dec_enc_valtype]
+    >> gvs $ ssaa [dec_globaltype_def, dec_enc_valtype]
 QED
 
 
@@ -307,14 +267,71 @@ Proof
   \\ `∃ val. enc_blocktype b = val` by simp []
   \\ asm_rewrite_tac[]
   \\ pop_assum mp_tac
-  \\ rewrite_tac[enc_blocktype_def]
-  \\ simp[AllCaseEqs()]
+  \\ gvs[enc_blocktype_def, AllCaseEqs()]
   \\ rpt strip_tac
-  >> gvs[dec_blocktype_def, dec_enc_valtype]
-  \\ rw[enc_valtype_def]
-  \\ fs[AllCaseEqs()]
+  >> gvs[dec_blocktype_def]
+  \\ Cases_on `vt` \\ Cases_on `w`
+  >> simp[enc_valtype_def, AllCaseEqs()]
 QED
 
+(*
+Theorem dec_enc_instructions:
+  ∀e is encis rest. enc_instr_list e is = SOME encis ⇒ dec_expr  (encis ++ rest) = (INR is, rest) ∧
+  ∀  i  enci  rest. enc_instr        i  = SOME enci  ⇒ dec_instr (enci  ++ rest) = (INR i , rest)
+Proof
+  ho_match_mp_tac enc_instr_ind
+  cheat
+QED *)
+
+
+(*
+Theorem dec_enc_instr:
+  ∀i enci rest. enc_instr i = SOME enci ⇒
+  dec_instr (enci ++ rest) = (INR i, rest)
+Proof
+
+  Cases >> rpt gen_tac
+  >> rw[Once enc_instr_def]
+  >- simp $ ssaa [Once dec_instr_def]
+  >- simp $ ssaa [Once dec_instr_def]
+  >-
+  gvs $ ssaa [Once dec_instr_def]
+gvs
+
+
+  strip_tac
+ simp[]
+QED
+
+
+
+(* askyk *)
+Theorem dec_enc_expr:
+  ∀is encis rest. enc_expr is = SOME encis ⇒
+  dec_expr (encis ++ rest) = (INR is, rest)
+Proof
+
+  Induct >> rpt gen_tac
+  >> gvs[Once enc_instr_def, dec_instr_def]
+  \\ rpt strip_tac
+  \\ gvs ssa
+  \\ rewrite_tac[dec_instr_def]
+
+  \\ last_assum drule
+  \\ rpt strip_tac
+  (* \\ gvs[AllCaseEqs()] *)
+
+  \\ imp_res_tac enc_instr_nEmp
+  (* what now? How to make this more managable *)
+\\ cheat
+(*
+  \\ simp[dec_instr_def, AllCaseEqs()]
+  \\ rpt strip_tac
+  \\ cheat
+  (* what now? How to make this more managable *)
+*)
+QED
+ *)
 
 
 (*******************)
@@ -322,39 +339,93 @@ QED
 (*     Modules     *)
 (*                 *)
 (*******************)
-
+(*
 Theorem dec_enc_global[simp]:
   ∀g encg rs.
     enc_global g = SOME encg ⇒
     dec_global $ encg ++ rs = (INR g, rs)
 Proof
+
      rpt gen_tac
-  \\ simp[enc_global_def, AllCaseEqs(), dec_global_def, enc_globaltype_def]
+  \\ simp[enc_global_def, dec_global_def, AllCaseEqs()]
+  \\ rpt strip_tac
+  >> Cases_on `g.gtype` >> gvs[enc_globaltype_def]
+    >> simp $ ssaa [dec_globaltype_def]
+
+
+drule dec
+rpt strip_tac
+    simp[]
+    >> rw $ ssaa [dec_globaltype_def]
+
+
+    rw[]
+  \\ simp[]
+], enc_globaltype_def]
   \\ Cases_on ‘g.gtype’ >> Cases_on  `g.ginit`
     >> gvs[]
-  \\ rpt strip_tac
 \\
   cheat
+QED *)
+
+Theorem enc_u32_nEmp:
+  ∀w. ¬ (NULL $ enc_u32 w)
+Proof
+  gen_tac
+  \\ rw[enc_unsigned_word_def, Once enc_num_def]
 QED
 
+Theorem enc_u32_nEmp':
+  ∀w. (NULL $ enc_u32 w) ⇒ F
+Proof
+  gen_tac
+  \\ rw[enc_unsigned_word_def, Once enc_num_def]
+QED
+
+
 (* ASKYK *)
-Theorem dec_enc_code:
+(* Theorem dec_enc_code:
   ∀cd encC rs.
     enc_code cd = SOME encC ⇒
     dec_code $ encC ++ rs = (INR cd, rs)
 Proof
+
   PairCases
+  \\ rw[enc_code_def, AllCaseEqs(), dec_code_def]
+  >-( mp_tac enc_u32_nEmp \\ simp[] )
+  \\ rewrite_tac[GSYM APPEND_ASSOC, dec_enc_u32]
+  \\ gvs[]
+  \\ dxrule dec_enc_vector
+
+
+  \\ disch_then $ qspec_tac `dec_valtype` assume_tac
+
+
+
+  \\ qspec_tac `dec_valtype` assume_tac dec_enc_valtype_Seq
+assume_tac dec_enc_valtype_Seq
+
+  \\ pop_assum mp_tac
+  \\ Cases_on `cd0` >> gvs[enc_vector_def]
+rpt strip_tac
+gvs[]
+
+
   \\ rw[]
-  \\ gvs[enc_code_def, AllCaseEqs()]
-  \\ rw[dec_code_def]
-  >- cheat
+
+
+  \\ rpt strip_tac
+gvs[]
+  \\ simp ssa
+
+
+  \\ rpt strip_tac
   \\ pop_assum kall_tac
   \\ sass
-  \\ drule dec_enc_vector
   \\ disch_then (fn thm => DEP_REWRITE_TAC [thm])
   \\ rw[dec_enc_valtype_Seq]
   \\ cheat
-QED
+QED *)
 
 (* ASKYK *)
 Theorem dec_enc_data:

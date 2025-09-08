@@ -153,9 +153,9 @@ QED
 (*************)
 
 Definition enc_valtype_def:
-  enc_valtype (t:valtype) : byte = case t of
-  | Tnum   Int W32 => 0x7Fw
-  | Tnum   Int W64 => 0x7Ew
+  enc_valtype (t:valtype) : byteSeq = case t of
+  | Tnum   Int W32 => [0x7Fw]
+  | Tnum   Int W64 => [0x7Ew]
 End
 
 Definition dec_valtype_def:
@@ -168,8 +168,6 @@ Definition dec_valtype_def:
   failure
 End
 
-Overload enc_valtype_Seq = “λ t. [enc_valtype t] : byteSeq”
-
 Theorem dec_valtype_shortens:
   ∀bs t rs. dec_valtype bs = (INR t,rs) ⇒ lst_st rs bs
 Proof
@@ -179,7 +177,7 @@ Proof
 QED
 
 Theorem dec_valtype_iso:
-  ∀ b bs t rs. dec_valtype (b::bs) = (INR t,rs) ⇒ bs = rs
+  ∀b bs t rs. dec_valtype (b::bs) = (INR t,rs) ⇒ bs = rs
 Proof
   simp[oneline dec_valtype_def, AllCaseEqs()] \\ rpt strip_tac
 QED
@@ -188,8 +186,8 @@ QED
 
 Definition enc_functype_def:
   enc_functype (sg:functype) : byteSeq option = do
-    argTs <- enc_vector enc_valtype_Seq (FST sg);
-    resTs <- enc_vector enc_valtype_Seq (SND sg);
+    argTs <- enc_vector enc_valtype (FST sg);
+    resTs <- enc_vector enc_valtype (SND sg);
     return $ 0x60w :: argTs ++ resTs od
 End
 
@@ -243,21 +241,21 @@ QED
 
 Definition enc_globaltype_def:
   enc_globaltype (t:globaltype) : byteSeq = case t of
-  | Gconst vt => enc_valtype vt :: [0x00w]
-  | Gmut   vt => enc_valtype vt :: [0x01w]
+  | Gconst vt => enc_valtype vt ++ [0x00w]
+  | Gmut   vt => enc_valtype vt ++ [0x01w]
 End
 
 Definition dec_globaltype_def:
-  dec_globaltype ([]:byteSeq) : globaltype dcdr = emErr "dec_globaltype"
-  ∧
-  dec_globaltype bs = let failure = error bs "[dec_globaltype]"
-  in
-  case dec_valtype bs of
-  | (INL _ , _   ) => failure
-  | (INR vt, []  ) => emErr "dec_globaltype"
-  | (INR vt,b::bs) => if b = 0x00w then (INR $ Gconst vt, bs) else
-                      if b = 0x01w then (INR $ Gmut   vt, bs) else
-                      failure
+  dec_globaltype (bs:byteSeq) : globaltype dcdr =
+    if NULL bs then emErr "dec_globaltype"
+    else
+    let failure = error bs "[dec_globaltype]"
+    in
+    case dec_valtype bs of
+    | (INR vt,b::bs) => if b = 0x00w then (INR $ Gconst vt, bs) else
+                        if b = 0x01w then (INR $ Gmut   vt, bs) else
+                        failure
+    | _              => failure
 End
 
 Theorem dec_globaltype_shortens[simp]:
@@ -611,61 +609,57 @@ QED
 (*                                           *)
 (*********************************************)
 
+(* Used in enc-dec of Block-y instructions *)
 Definition enc_blocktype_def:
   enc_blocktype (bt:blocktype) : byteSeq = case bt of
   | BlkNil    => [0x40w]
-  | BlkVal vt => [enc_valtype vt]
+  | BlkVal vt => enc_valtype vt
 End
 
 Definition dec_blocktype_def:
-  dec_blocktype ([]:byteSeq) : blocktype dcdr = emErr "dec_blocktype"
-  ∧
-  dec_blocktype bs = let failure = error bs "[dec_blocktype]"
-  in
-  case bs of []=>failure| b::rs => if b = 0x40w then (INR   BlkNil  , rs) else
-  case dec_valtype bs of (INR t ,rs)            =>   (INR $ BlkVal t, rs) | _ =>
-  error (b::bs) "[dec_blocktype] : Not a blocktype.\n"
+  dec_blocktype (bs:byteSeq) : blocktype dcdr = let failure = error bs "[dec_blocktype]"
+    in
+    case bs of [] => emErr "dec_blocktype" | b::rs
+    =>
+    if   b = 0x40w       then             (INR   BlkNil  , rs) else
+    case dec_valtype bs of (INR t ,rs) => (INR $ BlkVal t, rs) | _ => failure
+    (* error bs "[dec_blocktype] : Not a blocktype.\n" *)
 End
 
 Theorem dec_blocktype_shortens:
-  ∀ bs t rs. dec_blocktype bs = (INR t,rs) ⇒ lst_st rs bs
+  ∀bs t rs. dec_blocktype bs = (INR t,rs) ⇒ lst_st rs bs
 Proof
-  Cases_on ‘bs’ >> simp[dec_blocktype_def]
-  \\ rpt gen_tac
-  \\ simp[AllCaseEqs()]
-  \\ rpt strip_tac
-  >> gvs[]
-  \\ drule dec_valtype_iso
-  \\ simp[]
+  Cases_on ‘bs’
+  >> rw[dec_blocktype_def, AllCaseEqs()]
+    >> imp_res_tac dec_valtype_iso
+    >> simp[]
 QED
 
 
-
+(* Used in BrTable *)
 Definition lift_dec_u32_def:
   lift_dec_u32 bs = case dec_u32 bs of
     | NONE        => error bs "[dec_indxs] : not a u32/index."
     | SOME (i,rs) => (INR i,rs)
 End
 
-Overload enc_indxs = “enc_vector enc_u32”
-Overload dec_indxs = “dec_vector lift_dec_u32”
+Overload enc_indxs[local] = “enc_vector enc_u32”
+Overload dec_indxs[local] = “dec_vector lift_dec_u32”
 
 Theorem lift_dec_u32_shortens[simp]:
   ∀bs xs rs. lift_dec_u32 bs = (INR xs, rs) ⇒ lst_st rs bs
 Proof
-  Cases_on ‘dec_u32 bs’
-  >> rw[lift_dec_u32_def, AllCaseEqs()]
+  simp[lift_dec_u32_def, AllCaseEqs()]
 QED
 
 Theorem dec_indxs_shortens:
   ∀ bs xs rs. dec_indxs bs = (INR xs, rs) ⇒ lst_st rs bs
 Proof
-  rw[dec_vector_def,AllCaseEqs(), lift_dec_u32_def]
-  >> dxrule dec_u32_shortens
-  >> assume_tac lift_dec_u32_shortens
-  >> dxrule_all dec_list_shortens_maybe_lt
-  >> simp[]
+     rpt strip_tac
+  \\ assume_tac lift_dec_u32_shortens
+  \\ imp_res_tac dec_vector_shortens_lt
 QED
+
 
 
 Definition enc_instr_def:
@@ -732,10 +726,22 @@ QED
 
 Overload force_shtr = “λ f xs. shorten xs (f xs)”
 
+(*
+Definition force_shtr_def:
+  (* force shorter forces the result of a decoder, f, to be shorter than it's input *)
+  force_shtr f xs : α dcdr = let fxs = f xs in
+    case fxs of
+    | (INR x, rs) => if lst_st rs xs then fxs else (INR x,[])  (* if f doesn't shorten, drop result entirely *)
+    | (INL x, rs) => if lst_se rs xs then fxs else (INL x,xs)  (* if f lengthens  err case, replace w the orig arg *)
+End
+*)
+
 Definition dec_instr_def:
   (dec_instr_list (_elseB_allowed:bool) ([]:byteSeq) : (byte#instr list) dcdr = emErr "dec_instr_list"
   ) ∧
-  (dec_instr_list e (b::bs) = let failure = error (b::bs) "[dec_instr_list]" in
+  (dec_instr_list e (b::bs) =
+    let failure = error (b::bs) "[dec_instr_list]"
+    in
     if b = endB ∨ (e ∧ b = elseB) then (INR (b,[]),bs)
     else
     case force_shtr dec_instr (b::bs) of (INL err,bs)=>failure| (INR i         ,bs) =>
@@ -812,21 +818,21 @@ Proof
   ho_match_mp_tac dec_instr_ind \\ rw []
   >~ [‘dec_instr        []’] >- simp [dec_instr_def]
   >~ [‘dec_instr_list b []’] >- simp [dec_instr_def]
-  >> pop_assum mp_tac
-  >> simp[Once dec_instr_def]
-  >> strip_tac
-  >> gvs[AllCaseEqs()]
-  >> imp_res_tac shorten_IMP
-  >> imp_res_tac dec_u32_shortens
-  >> imp_res_tac dec_functype_shortens
-  >> imp_res_tac dec_blocktype_shortens
-  >> imp_res_tac dec_indxs_shortens
-  >> imp_res_tac dec_varI_shortens
-  >> imp_res_tac dec_paraI_shortens
-  >> imp_res_tac dec_numI_shortens
-  >> imp_res_tac dec_loadI_shortens
-  >> imp_res_tac dec_storeI_shortens
-  >> fs[]
+    >> pop_assum mp_tac
+    >> simp[Once dec_instr_def]
+    >> strip_tac
+    >> gvs[AllCaseEqs()]
+    >> imp_res_tac shorten_IMP
+    >> imp_res_tac dec_u32_shortens
+    >> imp_res_tac dec_functype_shortens
+    >> imp_res_tac dec_blocktype_shortens
+    >> imp_res_tac dec_indxs_shortens
+    >> imp_res_tac dec_varI_shortens
+    >> imp_res_tac dec_paraI_shortens
+    >> imp_res_tac dec_numI_shortens
+    >> imp_res_tac dec_loadI_shortens
+    >> imp_res_tac dec_storeI_shortens
+    >> fs[]
 QED
 
 Theorem dec_instr_shortens:
@@ -866,8 +872,6 @@ QED
 
 
 
-
-
 (*******************)
 (*                 *)
 (*     Modules     *)
@@ -881,11 +885,9 @@ Definition enc_global_def:
 End
 
 Definition dec_global_def:
-  dec_global ([]:byteSeq) : global dcdr = emErr "dec_global"
-  ∧
   dec_global (bs:byteSeq) : global dcdr =
-    (* if NULL bs then emErr "dec_global"
-    else *)
+    if NULL bs then emErr "dec_global"
+    else
     let failure = error bs "[dec_global]"
     in
     case dec_globaltype bs of (INL _,_) => failure | (INR gt, bs) =>
@@ -897,10 +899,9 @@ Definition dec_global_def:
 End
 
 Theorem dec_global_shortens[simp]:
-  ∀ bs xs rs. dec_global bs = (INR xs, rs) ⇒ lst_st rs bs
+  ∀bs xs rs. dec_global bs = (INR xs, rs) ⇒ lst_st rs bs
 Proof
-  Cases_on `bs`
-  >> rw[dec_global_def, AllCaseEqs()]
+  rw[dec_global_def, AllCaseEqs()]
   \\ dxrule dec_globaltype_shortens
   \\ dxrule dec_instr_list_shortens
   \\ rw[]
@@ -909,10 +910,10 @@ QED
 
 Definition enc_code_def:
   enc_code (c:valtype list # expr) : byteSeq option = do
-    encC <- enc_expr                   (SND c);
-    encL <- enc_vector enc_valtype_Seq (FST c);
+    encC <- enc_expr               (SND c);
+    encL <- enc_vector enc_valtype (FST c);
     let code = encL ++ encC in
-    return $ enc_u32 (n2w $ LENGTH code) ++ code od
+    SOME $ enc_u32 (n2w $ LENGTH code) ++ code od
 End
 
 Definition dec_code_def:
@@ -945,31 +946,32 @@ Definition enc_data_def:
     SOME $ enc_u32 d.data ++ ofs ++ ini od
 End
 
-Definition dec_byteSeq_def:
-  dec_byteSeq [] = error [] "bogus" ∧
-  dec_byteSeq (b::bs) = (INR b, bs)
+Definition dec_byte_def:
+  dec_byte [] = error [] "bogus" ∧
+  dec_byte (b::bs) = (INR b, bs)
 End
 
-Theorem dec_byteSeq_shortens:
-  ∀bs b rs. dec_byteSeq bs = (INR b, rs) ⇒ lst_st rs bs
+Theorem dec_byte_shortens:
+  ∀bs b rs. dec_byte bs = (INR b, rs) ⇒ lst_st rs bs
 Proof
-  Cases >> rw[dec_byteSeq_def]
+  Cases >> rw[dec_byte_def]
 QED
 
 Definition dec_data_def:
   dec_data ([]:byteSeq) : data dcdr = emErr "dec_data"
   ∧
   dec_data bs = let failure = error bs "[dec_data]" in
-    case dec_u32                bs of  NONE     =>failure| SOME (idx,bs) =>
-    case dec_expr               bs of (INL _,_) =>failure| (INR ofse,bs) =>
-    case dec_vector dec_byteSeq bs of (INL _,_) =>failure| (INR ini ,rs) =>
+    case dec_u32             bs of  NONE     =>failure| SOME (idx,bs) =>
+    case dec_expr            bs of (INL _,_) =>failure| (INR ofse,bs) =>
+    case dec_vector dec_byte bs of (INL _,_) =>failure| (INR ini ,rs) =>
       (INR <| data   := idx
             ; offset := ofse
             ; dinit  := ini
-            |> : mlstring + data
+            |>
       , rs)
 End
 
+(* askyk *)
 Theorem dec_data_shortens:
   ∀bs xs rs. dec_data bs = (INR xs, rs) ⇒ lst_st rs bs
 Proof
@@ -977,8 +979,9 @@ Proof
   >> rw[dec_data_def, AllCaseEqs()]
   \\ dxrule dec_u32_shortens
   \\ dxrule dec_instr_list_shortens
-  \\ assume_tac dec_byteSeq_shortens
-  \\ qspec_then `dec_byteSeq` assume_tac dec_vector_shortens_lt
+  \\ assume_tac dec_byte_shortens
+  \\ qspec_then `dec_byte` assume_tac dec_vector_shortens_lt
+  (* why don't the following work? *)
   \\ TRY (first_assum drule)
   \\ TRY (last_assum drule)
   \\ TRY (imp_res_tac dec_vector_shortens_lt)
@@ -986,15 +989,7 @@ Proof
   \\ cheat
 QED
 
-(* Definition dec_section_def:
-  dec_section ([]:byteSeq) : byteSeq dcdr = emErr "dec_section" ∧
-  dec_section bs = let failure = error bs "[dec_section]" in
 
-  case dec_u32 of NONE=>NONE| SOME
-
-  dec_section (leadByte:byte) (contents:byteSeq) : byteSeq =
-    leadByte :: enc_u32 (n2w $ LENGTH contents) ++ contents
-End *)
 
 Definition split_funcs_def:
   split_funcs ([]:func list) =  ( [] :  index                list
@@ -1048,7 +1043,7 @@ Definition enc_module_def:
   enc_module (m:module) : byteSeq option =
     let (fTIdxs, locBods, fns, lns) = split_funcs m.funcs in do
     types'   <- enc_vector_opt  enc_functype  m.types  ;
-    funcs'   <- enc_vector      enc_u32       fTIdxs   ;
+    fTIdxs'  <- enc_vector      enc_u32       fTIdxs   ;
     mems'    <- enc_vector      enc_limits    m.mems   ;
     globals' <- enc_vector_opt  enc_global    m.globals;
     code'    <- enc_vector_opt  enc_code      locBods  ;
@@ -1057,7 +1052,7 @@ Definition enc_module_def:
       0x00w:: 0x61w:: 0x73w:: 0x6Dw:: (* \0asm - magic number         *)
       0x01w:: 0x00w:: 0x00w:: 0x00w:: (* version number of Bin format *)
       (* Type     *)  1w :: enc_section   types'    ++
-      (* Function *)  3w :: enc_section   funcs'    ++
+      (* Function *)  3w :: enc_section   fTIdxs'   ++
       (* Memory   *)  5w :: enc_section   mems'     ++
       (* Global   *)  6w :: enc_section   globals'  ++
       (* Code     *) 10w :: enc_section   code'     ++
@@ -1076,51 +1071,92 @@ Definition emp_module_def:
 End
 
 Definition dec_section_def:
-  dec_section (dec:byteSeq -> α dcdr) (bs:byteSeq) : (α list # byteSeq) option =
-    if NULL bs then NONE
-    else do
-      (w,bs) <- dec_u32 bs;
-      case dec_vector dec $ TAKE (w2n w) bs of
-      | (INR lst,[]) => SOME (lst, DROP (w2n w) bs)
-      | _            => NONE
-    od
+  dec_section ( _:byte)
+              ( _:byteSeq -> α dcdr)
+              ([]:byteSeq)
+              ( _:module ) = emErr "dec_section"
+  ∧
+  dec_section leadByte dec (b::bs) m : (module # α list) dcdr =
+    let failure = error bs "dec_section"
+    in
+    if b ≠ leadByte then (INR (m,[]), b::bs)
+    else
+    case dec_u32 bs of NONE => failure | SOME (w,bs) =>
+    case dec_vector dec bs of
+    | (INR res,bs) => (INR (m,res), bs)
+    | _            => failure
 End
 
 
 
 Definition dec_module_def:
-  dec_module ([]:byteSeq) : module dcdr = emErr "dec_module"
-  ∧
-  dec_module (b::bs) = let failure = error (b::bs) "[dec_module]" in
-    (* (λme. case me of
-          | (INR m, b::bs)=> (if b ≠ 3w then me else
-                              case dec_section dec
-
-          | _ => failure
-         ) *)
-    (λm. if b ≠ 1w then (INR m, bs) else
-      case dec_section dec_functype bs of
-      | NONE             => failure
-      | SOME (types',bs) => (INR $ m with types := types', bs))
-    emp_module
+  dec_module (bs:byteSeq) : module dcdr =
+    if NULL bs then emErr "dec_module"
+    else
+    let failure = error bs "[dec_module]"
+    in
+    case dec_section  1w dec_functype bs   emp_module                 of (INL _,_)=>failure|(INR (m,types'  ), bs) =>
+    case dec_section  3w lift_dec_u32 bs $ m with types   := types'   of (INL _,_)=>failure|(INR (m,fTIdxs  ), bs) =>
+    case dec_section  5w dec_limits   bs $ m                          of (INL _,_)=>failure|(INR (m,mems'   ), bs) =>
+    case dec_section  6w dec_global   bs $ m with mems    := mems'    of (INL _,_)=>failure|(INR (m,globals'), bs) =>
+    case dec_section 10w dec_code     bs $ m with globals := globals' of (INL _,_)=>failure|(INR (m,code    ), bs) =>
+    case dec_section 11w dec_data     bs $ m                          of (INL _,_)=>failure|(INR (m,datas'  ), rs) =>
+    let m      = m with datas := datas' in
+    let funcs' = zip_funcs fTIdxs code [] []
+    in
+    (INR $ m with funcs := funcs', rs)
 End
 
 
+Theorem dec_section_shortens:
+  ∀dec.
+  (∀bs x rs. dec bs = (INR x, rs) ⇒ lst_st rs bs) ⇒
+  ∀bs lb m dc rs. dec_section lb dec bs m = (INR dc, rs) ⇒ lst_se rs bs
+Proof
+  strip_tac
+  \\ strip_tac
+  \\ Cases >> rw[dec_section_def, AllCaseEqs()]
+    >> simp[]
+    \\ dxrule dec_u32_shortens
+    \\ dxrule_all dec_vector_shortens_lt
+    \\ simp[]
+QED
 
+Theorem dec_module_shortens:
+  ∀bs x rs. dec_module bs = (INR x, rs) ⇒ lst_se rs bs
+Proof
+  (* askyk *)
+  (* is there a better way to do this? *)
+  rw[dec_module_def, AllCaseEqs()]
+  \\
+     assume_tac dec_functype_shortens
+  \\ dxrule dec_section_shortens
+  \\ disch_then dxrule
+  \\
+     assume_tac lift_dec_u32_shortens
+  \\ dxrule dec_section_shortens
+  \\ disch_then dxrule
+  \\
+     assume_tac dec_limits_shortens
+  \\ dxrule dec_section_shortens
+  \\ disch_then dxrule
+  \\
+     assume_tac dec_global_shortens
+  \\ dxrule dec_section_shortens
+  \\ disch_then dxrule
+  \\
+     assume_tac dec_code_shortens
+  \\ dxrule dec_section_shortens
+  \\ disch_then dxrule
+  \\
+     assume_tac dec_data_shortens
+  \\ dxrule dec_section_shortens
+  \\ disch_then dxrule
+  \\
+     rw[]
+QED
 
-
-
-
-
-
-
-(* Definition force_shtr_def:
-  (* force shorter forces the result of a decoder, f, to be shorter than it's input *)
-  force_shtr f xs : α dcdr = let fxs = f xs in
-    case fxs of
-    | (INR x, rs) => if lst_st rs xs then fxs else (INR x,[])  (* if f doesn't shorten, drop result entirely *)
-    | (INL x, rs) => if lst_se rs xs then fxs else (INL x,xs)  (* if f lengthens  err case, replace w the orig arg *)
-End
+(*
 
 Theorem foo:
   ∀xs f. force_shtr f xs  = check_len xs (f xs)
