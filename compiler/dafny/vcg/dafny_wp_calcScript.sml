@@ -2941,18 +2941,6 @@ Proof
   \\ simp [state_component_equality]
 QED
 
-(* todo move to dafny_evaluateProps *)
-Theorem evaluate_stmt_add_to_clock:
-  ∀s env stmt s' r extra.
-    evaluate_stmt s env stmt = (s', r) ∧ r ≠ Rstop (Serr Rtimeout_error) ⇒
-    evaluate_stmt (s with clock := s.clock + extra) env stmt =
-      (s' with clock := s'.clock + extra, r)
-Proof
-  ho_match_mp_tac evaluate_stmt_ind
-  \\ rpt strip_tac
-  \\ cheat (* reserved *)
-QED
-
 (* todo move to dafny_eval_rel *)
 Theorem eval_stmt_While_unroll:
   eval_exp st env guard (BoolV T) ∧
@@ -2994,14 +2982,32 @@ Theorem eval_exp_Var:
   ALOOKUP st.locals v = SOME (SOME val) ⇒
   eval_exp st env (Var v) val
 Proof
-  cheat (* reserved *)
+  gvs [eval_exp_def, evaluate_exp_def, read_local_def, state_component_equality]
+QED
+
+Theorem CanEval_IMP:
+  eval_true st env (CanEval d) ⇒  ∃v. eval_exp st env d v
+Proof
+  rpt strip_tac
+  \\ gvs [eval_true_def, eval_exp_def, CanEval_def, evaluate_exp_def, do_sc_def,
+          AllCaseEqs()]
+  \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+  \\ first_assum $ irule_at (Pos hd)
 QED
 
 Theorem MAP_CanEval_IMP:
-  conditions_hold st env (MAP CanEval ds) ⇒
-  ∃ds_vals. LIST_REL (λe v. eval_exp st env e v) ds ds_vals
+  ∀ds.
+    conditions_hold st env (MAP CanEval ds) ⇒
+    ∃ds_vals. LIST_REL (λe v. eval_exp st env e v) ds ds_vals
 Proof
-  cheat (* reserved *)
+  Induct >- (simp [])
+  \\ qx_gen_tac ‘d’
+  \\ simp [conditions_hold_cons]
+  \\ strip_tac
+  \\ drule CanEval_IMP \\ strip_tac
+  \\ last_x_assum drule \\ strip_tac
+  \\ first_assum $ irule_at (Pos hd)
+  \\ first_assum $ irule_at (Pos hd)
 QED
 
 Theorem eval_stmt_drop_locals:
