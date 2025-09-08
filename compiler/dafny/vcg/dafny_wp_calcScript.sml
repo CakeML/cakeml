@@ -709,11 +709,95 @@ Proof
   \\ drule_all eval_exp_old_eq \\ gvs []
 QED
 
+Triviality push_local_with_prev:
+  push_local (s with <|locals_prev := l; heap_prev := h|>) vn v =
+  push_local s vn v with <|locals_prev := l; heap_prev := h|>
+Proof
+  gvs [push_local_def]
+QED
+
+Triviality push_locals_with_prev:
+  push_locals (s with <|locals_prev := l; heap_prev := h|>) binds =
+  push_locals s binds with <|locals_prev := l; heap_prev := h|>
+Proof
+  gvs [push_locals_def]
+QED
+
+Theorem evaluate_exp_no_Prev:
+  (∀s env e s' r h l.
+     evaluate_exp s env e = (s', r) ∧ no_Prev e ⇒
+     evaluate_exp (s with <| heap_prev := h; locals_prev := l |>) env e =
+     (s' with <| heap_prev := h; locals_prev := l |>, r)) ∧
+  (∀s env es s' r h l.
+     evaluate_exps s env es = (s', r) ∧ EVERY (λe. no_Prev e) es ⇒
+     evaluate_exps (s with <| heap_prev := h; locals_prev := l |>) env es =
+     (s' with <| heap_prev := h; locals_prev := l |>, r))
+Proof
+  ho_match_mp_tac evaluate_exp_ind
+  \\ rpt strip_tac
+  >~ [‘Lit’] >-
+    fs[evaluate_exp_def]
+  >~ [‘Var’] >-
+    gvs[evaluate_exp_def,read_local_def,AllCaseEqs()]
+  >~ [‘If’] >-
+    gvs[evaluate_exp_def,read_local_def,AllCaseEqs(),no_Prev_def,oneline do_cond_def]
+  >~ [‘UnOp’] >-
+    gvs[evaluate_exp_def,AllCaseEqs(),no_Prev_def]
+  >~ [‘BinOp’] >-
+    gvs[evaluate_exp_def,AllCaseEqs(),no_Prev_def]
+  >~ [‘ArrLen’] >-
+    gvs[evaluate_exp_def,AllCaseEqs(),no_Prev_def]
+  >~ [‘ArrSel’] >-
+    gvs[evaluate_exp_def,AllCaseEqs(),no_Prev_def,index_array_def]
+  >~ [‘FunCall’] >-
+    gvs[evaluate_exp_def,AllCaseEqs(),no_Prev_def,set_up_call_def,restore_caller_def]
+  >~ [‘Forall’] >- (
+    gvs[evaluate_exp_def,AllCaseEqs(),no_Prev_def]
+    \\ rename1`push_local (ss with <| locals_prev :=l; heap_prev :=h|>) vn _`
+    \\ ‘∀v. SND (evaluate_exp
+                 (push_local ss vn v with <|locals_prev := l; heap_prev := h|>) env e) =
+            SND (evaluate_exp (push_local ss vn v) env e)’ by
+      (gen_tac
+       \\ namedCases_on ‘evaluate_exp (push_local ss vn v) env e’ ["s₁ r₁"]
+       \\ last_x_assum drule \\ gvs [])
+    \\ fs[eval_forall_def,push_local_with_prev])
+  >~ [‘Old’] >-
+    gvs[evaluate_exp_def,AllCaseEqs(),no_Prev_def,use_old_def,unuse_old_def]
+  >~ [‘Prev’] >-
+    gvs[evaluate_exp_def,AllCaseEqs(),no_Prev_def]
+  >~ [‘PrevHeap’] >-
+    gvs[evaluate_exp_def,AllCaseEqs(),no_Prev_def]
+  >~ [‘SetPrev’] >-
+    gvs[evaluate_exp_def,AllCaseEqs(),no_Prev_def,set_prev_def,unset_prev_def]
+  >~ [‘Let’] >- (
+    gvs[evaluate_exp_def,AllCaseEqs(),no_Prev_def,UNZIP_MAP]>>
+    rpt (pairarg_tac>>gvs[])>>
+    gvs[AllCaseEqs(),push_locals_with_prev,pop_locals_def])
+  >~ [‘ForallHeap’] >- (
+    gvs[evaluate_exp_def,AllCaseEqs(),no_Prev_def,UNZIP_MAP]
+    \\ rename1`evaluate_exp (ss with <| heap := _ ;locals_prev :=l; heap_prev :=h|>) env e`
+    \\ ‘∀hs.
+          SND (evaluate_exp
+               (ss with <|heap := hs; locals_prev := l; heap_prev := h|>) env e)
+          = SND (evaluate_exp (ss with heap := hs) env e)’ by
+      (gen_tac
+       \\ namedCases_on ‘evaluate_exp (ss with heap := hs) env e’ ["s₂ r₁"]
+       \\ last_x_assum drule \\ gvs [])
+    \\ simp [eval_forall_def])
+  >~ [‘[]’] >-
+    gvs[evaluate_exp_def]
+  >~ [‘e::es’] >-
+    gvs[evaluate_exp_def,AllCaseEqs()]
+QED
+
 Theorem eval_exp_no_Prev:
   eval_exp st env e v ∧ no_Prev e ⇒
   ∀lp hp. eval_exp (st with <| locals_prev := lp; heap_prev := hp |>) env e v
 Proof
-  cheat (* prev *)
+  simp [eval_exp_def]
+  \\ rpt strip_tac
+  \\ drule_all (cj 1 evaluate_exp_no_Prev) \\ gvs []
+  \\ disch_then $ irule_at (Pos hd)
 QED
 
 Theorem eval_exp_no_Prev_alt:

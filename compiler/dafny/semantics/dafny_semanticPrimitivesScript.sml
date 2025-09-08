@@ -129,7 +129,8 @@ Definition set_up_call_def:
                  locals := REVERSE new_locals;
                  locals_old := REVERSE new_locals;
                  locals_prev := REVERSE new_locals;
-                 heap_old := st.heap
+                 heap_old := st.heap;
+                 heap_prev := st.heap
                |>)))
 End
 
