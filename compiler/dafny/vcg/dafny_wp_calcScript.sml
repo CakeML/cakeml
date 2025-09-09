@@ -240,6 +240,8 @@ Definition get_vars_stmt_def:
   get_vars_stmt (Assert e) = get_vars_exp e ∧
   get_vars_stmt (Then stmt₁ stmt₂) =
     get_vars_stmt stmt₁ ++ get_vars_stmt stmt₂ ∧
+  get_vars_stmt (If grd thn els) =
+    get_vars_exp grd ++ get_vars_stmt thn ++ get_vars_stmt els ∧
   get_vars_stmt (Dec _ scope) = get_vars_stmt scope ∧
   get_vars_stmt (Assign ass) =
     FLAT (MAP get_vars_lhs_exp (MAP FST ass)) ++
@@ -3835,10 +3837,21 @@ Proof
   \\ drule EL_MEM \\ strip_tac \\ gvs []
 QED
 
-Theorem assign_in_IMP_get_vars_stmt:
-  assigned_in body v ⇒  MEM v (get_vars_stmt body)
+Triviality mem_varlhs_get_vars:
+  ∀lhss v. MEM (VarLhs v) lhss ⇒ MEM v (FLAT (MAP get_vars_lhs_exp lhss))
 Proof
-  cheat (* reserved *)
+  Induct >- (simp [])
+  \\ rpt strip_tac \\ gvs []
+  \\ simp [get_vars_lhs_exp_def]
+QED
+
+Theorem assign_in_IMP_get_vars_stmt:
+  ∀body v. assigned_in body v ⇒ MEM v (get_vars_stmt body)
+Proof
+  ho_match_mp_tac assigned_in_ind
+  \\ rpt strip_tac
+  \\ gvs [assigned_in_def, get_vars_stmt_def]
+  \\ drule mem_varlhs_get_vars \\ simp []
 QED
 
 Definition IS_SOME_SOME_def:
