@@ -3858,12 +3858,183 @@ Definition IS_SOME_SOME_def:
   IS_SOME_SOME x = ∃y. x = SOME (SOME (y:'a))
 End
 
+Triviality update_local_assigned_inv:
+  ∀locals locals'.
+    update_local_aux locals var val = SOME locals' ∧
+    IS_SOME_SOME (ALOOKUP locals v) ⇒
+    IS_SOME_SOME (ALOOKUP locals' v)
+Proof
+  Induct >- (simp [update_local_aux_def])
+  \\ namedCases ["n ov"]
+  \\ simp [update_local_aux_def]
+  \\ reverse IF_CASES_TAC \\ gvs []
+  >-
+   (IF_CASES_TAC \\ gvs []
+    \\ Cases_on ‘ov’ \\ gvs [IS_SOME_SOME_def])
+  \\ TOP_CASE_TAC \\ gvs []
+  \\ IF_CASES_TAC \\ gvs []
+QED
+
+Triviality update_local_assigned_inv:
+  update_local s var val = SOME s' ∧
+  IS_SOME_SOME (ALOOKUP s.locals v) ⇒
+  IS_SOME_SOME (ALOOKUP s'.locals v)
+Proof
+  simp [update_local_def]
+  \\ CASE_TAC \\ rpt strip_tac
+  \\ drule_all update_local_assigned_inv
+  \\ strip_tac \\ gvs []
+QED
+
+Triviality assign_value_assigned_inv:
+  assign_value s env lhs rhs = (s', r) ∧
+  IS_SOME_SOME (ALOOKUP s.locals v) ⇒
+  IS_SOME_SOME (ALOOKUP s'.locals v)
+Proof
+  Cases_on ‘lhs’
+  >~ [‘VarLhs’] >-
+   (simp [assign_value_def]
+    \\ CASE_TAC \\ strip_tac \\ gvs []
+    \\ drule_all update_local_assigned_inv \\ simp [])
+  >~ [‘ArrSelLhs’] >-
+   (simp [assign_value_def]
+    \\ TOP_CASE_TAC
+    \\ dxrule_then assume_tac (cj 1 evaluate_exp_with_clock) \\ gvs []
+    \\ reverse TOP_CASE_TAC >- (strip_tac \\ gvs [])
+    \\ TOP_CASE_TAC
+    \\ dxrule_then assume_tac (cj 1 evaluate_exp_with_clock) \\ gvs []
+    \\ reverse TOP_CASE_TAC >- (strip_tac \\ gvs [])
+    \\ rpt strip_tac
+    \\ gvs [update_array_def, AllCaseEqs()])
+QED
+
+Triviality assign_values_assigned_inv:
+  ∀s env lhss rhss.
+    assign_values s env lhss rhss = (s', r) ∧
+    IS_SOME_SOME (ALOOKUP s.locals v) ⇒
+    IS_SOME_SOME (ALOOKUP s'.locals v)
+Proof
+  ho_match_mp_tac assign_values_ind
+  \\ simp [assign_values_def]
+  \\ rpt strip_tac
+  \\ gvs [AllCaseEqs()]
+  \\ drule assign_value_assigned_inv \\ simp []
+QED
+
+(* TODO Instead of proving it separately; maybe we could just strengthen
+   locals_rel to say that something that has been assigned cannot go back to
+   being unassigned - would definitely be cleaner. *)
+Triviality evaluate_stmt_assigned_inv:
+  ∀s env stmt s' r.
+    evaluate_stmt s env stmt = (s', r) ∧
+    IS_SOME_SOME (ALOOKUP s.locals v) ⇒
+    IS_SOME_SOME (ALOOKUP s'.locals v)
+Proof
+  ho_match_mp_tac evaluate_stmt_ind
+  \\ rpt strip_tac
+  >~ [‘Skip’] >-
+   (gvs [evaluate_stmt_def])
+  >~ [‘Assert’] >-
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ IF_CASES_TAC >- (strip_tac \\ gvs [])
+    \\ TOP_CASE_TAC
+    \\ dxrule_then assume_tac (cj 1 evaluate_exp_with_clock) \\ gvs []
+    \\ reverse TOP_CASE_TAC >- (strip_tac \\ gvs [])
+    \\ IF_CASES_TAC
+    \\ strip_tac \\ gvs [])
+  >~ [‘Then’] >-
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ reverse TOP_CASE_TAC
+    \\ strip_tac \\ gvs [])
+  >~ [‘If’] >-
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ TOP_CASE_TAC
+    \\ dxrule_then assume_tac (cj 1 evaluate_exp_with_clock) \\ gvs []
+    \\ reverse TOP_CASE_TAC >- (strip_tac \\ gvs [])
+    \\ TOP_CASE_TAC
+    \\ strip_tac \\ gvs [])
+  >~ [‘Dec local’] >-
+   (namedCases_on ‘local’ ["n ty"]
+    \\ gvs [evaluate_stmt_def]
+    \\ namedCases_on
+       ‘evaluate_stmt (declare_local s n) env stmt’
+       ["s₁ r₁"]
+    \\ gvs []
+    \\ ‘s₁.locals ≠ []’ by
+      (spose_not_then assume_tac
+       \\ imp_res_tac evaluate_stmt_locals
+       \\ gvs [declare_local_def])
+    \\ imp_res_tac pop_local_some \\ gvs []
+    \\ Cases_on ‘n = v’ \\ gvs []
+    >- (drule evaluate_stmt_declare_local_alookup \\ strip_tac \\ gvs [])
+    \\ gvs [declare_local_def]
+    \\ drule evaluate_stmt_locals \\ strip_tac \\ gvs []
+    \\ namedCases_on ‘s₁.locals’ ["", "local' locals"] \\ gvs []
+    \\ gvs [pop_locals_def, safe_drop_def]
+    \\ namedCases_on ‘local'’ ["n' ov"] \\ gvs [])
+  >~ [‘Assign’] >-
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ TOP_CASE_TAC
+    \\ dxrule_then assume_tac evaluate_rhs_exps_same_locals
+    \\ reverse TOP_CASE_TAC >- (strip_tac \\ gvs [])
+    \\ strip_tac
+    \\ drule assign_values_assigned_inv \\ simp [])
+  >~ [‘While’] >-
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ IF_CASES_TAC >- (strip_tac \\ gvs [])
+    \\ TOP_CASE_TAC \\ rfs []
+    \\ dxrule_then assume_tac (cj 1 evaluate_exp_with_clock)
+    \\ reverse TOP_CASE_TAC
+    >- (strip_tac \\ gvs [dec_clock_def])
+    \\ IF_CASES_TAC >- (strip_tac \\ gvs [dec_clock_def])
+    \\ reverse IF_CASES_TAC >- (strip_tac \\ gvs [dec_clock_def])
+    \\ TOP_CASE_TAC
+    \\ reverse TOP_CASE_TAC \\ rfs []
+    \\ strip_tac \\ gvs [dec_clock_def])
+  >~ [‘Print’] >-
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ TOP_CASE_TAC
+    \\ dxrule_then assume_tac (cj 1 evaluate_exp_with_clock)
+    \\ reverse TOP_CASE_TAC >- (strip_tac \\ gvs [])
+    \\ IF_CASES_TAC
+    \\ strip_tac \\ gvs [])
+  >~ [‘MetCall’] >-
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ TOP_CASE_TAC >- (strip_tac \\ gvs [])
+    \\ reverse TOP_CASE_TAC >- (strip_tac \\ gvs [])
+    \\ TOP_CASE_TAC
+    \\ dxrule_then assume_tac (cj 2 evaluate_exp_with_clock)
+    \\ reverse TOP_CASE_TAC >- (strip_tac \\ gvs [])
+    \\ rfs []
+    \\ TOP_CASE_TAC >- (strip_tac \\ gvs [])
+    \\ IF_CASES_TAC >- (strip_tac \\ gvs [restore_caller_def])
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ TOP_CASE_TAC >- (strip_tac \\ gvs [restore_caller_def])
+    \\ reverse TOP_CASE_TAC >- (strip_tac \\ gvs [restore_caller_def])
+    \\ TOP_CASE_TAC >- (strip_tac \\ gvs [restore_caller_def])
+    \\ IF_CASES_TAC >- (strip_tac \\ gvs [restore_caller_def])
+    \\ strip_tac \\ drule assign_values_assigned_inv
+    \\ simp [restore_caller_def])
+  >~ [‘Return’] >-
+   (gvs [evaluate_stmt_def])
+QED
+
 Theorem eval_stmt_assigned_inv:
   eval_stmt st env stmt st1 res ∧
   IS_SOME_SOME (ALOOKUP st.locals v) ⇒
   IS_SOME_SOME (ALOOKUP st1.locals v)
 Proof
-  cheat (* reserved *)
+  simp [eval_stmt_def]
+  \\ strip_tac
+  \\ drule evaluate_stmt_assigned_inv \\ simp []
 QED
 
 Triviality eval_true_CanEval_Var:
