@@ -3631,6 +3631,17 @@ Proof
   \\ rewrite_tac [disjoint_freevars_eval_exp_locals]
 QED
 
+Triviality not_mem_var_eval_exp_locals:
+  eval_exp st env e v ∧ ¬MEM ds_var (get_vars_exp e) ⇒
+  eval_exp (st with locals := (ds_var,ov)::st.locals) env e v
+Proof
+  rpt strip_tac
+  \\ ‘DISJOINT (set (get_vars_exp e)) (set (MAP FST [(ds_var, ov)]))’ by
+    (gvs [])
+  \\ drule disjoint_vars_eval_exp_locals
+  \\ disch_then $ mp_tac o iffLR \\ simp []
+QED
+
 Triviality eval_true_drop_unused:
   eval_true st1 env guard ∧
   DISJOINT (set (get_vars_exp guard)) (set (MAP FST ds1)) ⇒
@@ -3642,15 +3653,99 @@ Proof
   \\ simp []
 QED
 
+Triviality eval_true_dec_assum_eq:
+  eval_true s env (dec_assum var d) ⇔
+    ∃ds_val. eval_exp s env d ds_val ∧ eval_exp s env (Var var) ds_val
+Proof
+  simp [eval_true_def, dec_assum_def]
+  \\ iff_tac
+  >-
+   (simp [eval_exp_def, PULL_EXISTS]
+    \\ rpt strip_tac
+    \\ gvs [evaluate_exp_def, do_sc_def, do_bop_def, AllCaseEqs()]
+    \\ first_assum $ irule_at (Pos hd)
+    \\ simp [state_component_equality])
+  \\ simp [eval_exp_def, evaluate_exp_def, do_sc_def, do_bop_def, PULL_EXISTS]
+  \\ rpt strip_tac
+  \\ gvs [AllCaseEqs()]
+  \\ first_assum $ irule_at (Pos hd)
+QED
+
+Triviality eval_exp_eval_true_dec_assum:
+  ¬MEM ds_var (get_vars_exp d) ∧
+  eval_exp (s with locals := xs) env d ds_val ⇒
+  eval_true (s with locals := (ds_var, SOME ds_val)::xs) env
+    (dec_assum ds_var d)
+Proof
+  strip_tac
+  \\ dxrule_all not_mem_var_eval_exp_locals
+  \\ disch_then $ qspec_then ‘SOME ds_val’ assume_tac
+  \\ gvs [eval_exp_def, eval_true_def, dec_assum_def, evaluate_exp_def,
+          read_local_def, do_sc_def, do_bop_def, PULL_EXISTS]
+  \\ rename [‘evaluate_exp (_ with <|clock := ck; locals := _|>)’]
+  \\ qexists ‘ck’
+  \\ simp [state_component_equality]
+QED
+
+Triviality every_eval_true_dec_assum:
+  ∀ds ds_vars.
+    ¬MEM ds_var ds_vars ∧ ¬MEM ds_var (FLAT (MAP get_vars_exp ds)) ∧
+    EVERY (eval_true (s with locals := xs) env)
+      (MAP2 dec_assum ds_vars ds) ⇒
+    EVERY (eval_true (s with locals := (ds_var,ov)::xs) env)
+      (MAP2 dec_assum ds_vars ds)
+Proof
+  Induct >- (simp [])
+  \\ qx_gen_tac ‘d’
+  \\ namedCases ["", "ds_var' ds_vars"] >- (simp [])
+  \\ rpt strip_tac \\ gvs []
+  \\ gvs [eval_true_dec_assum_eq]
+  \\ rename [‘eval_exp _ _ _ ds_val’]
+  \\ qexists ‘ds_val’
+  \\ every_drule not_mem_var_eval_exp_locals
+  \\ simp [get_vars_exp_def]
+QED
+
+Triviality IMP_dec_assum_no_abbrev:
+  ∀ds ds_vals ds_vars.
+    LIST_REL (λe v. eval_exp st1 env e v) ds ds_vals ∧
+    LENGTH ds_vals = LENGTH ds_vars ∧
+    DISJOINT (set (FLAT (MAP get_vars_exp ds))) (set ds_vars) ∧
+    ALL_DISTINCT ds_vars ⇒
+    EVERY (eval_true (st1 with locals :=
+                        ZIP (ds_vars,MAP SOME ds_vals) ++ st1.locals) env)
+          (MAP2 dec_assum ds_vars ds)
+Proof
+  Induct >- (simp [])
+  \\ qx_gen_tac ‘d’
+  \\ namedCases ["", "ds_val ds_vals"] >- (simp [])
+  \\ namedCases ["", "ds_vars ds_vars"] >- (simp [])
+  \\ rpt strip_tac \\ gvs []
+  \\ last_x_assum $ drule_all_then assume_tac
+  \\ conj_tac
+  >-
+   (irule eval_exp_eval_true_dec_assum
+    \\ qmatch_goalsub_abbrev_tac ‘ds₁ ++ _’ \\ gvs []
+    \\ rename [‘DISJOINT (set (get_vars_exp _)) (set ds_vars₂)’]
+    \\ ‘ds_vars₂ = MAP FST ds₁’ by (simp [Abbr ‘ds₁’, MAP_ZIP]) \\ gvs []
+    \\ drule disjoint_vars_eval_exp_locals
+    \\ disch_then $ mp_tac o iffLR
+    \\ disch_then irule \\ simp [])
+  \\ drule_all every_eval_true_dec_assum \\ simp []
+QED
+
 Triviality IMP_dec_assum:
   LIST_REL (λe v. eval_exp st1 env e v) ds ds_vals ∧
   Abbrev (ds1 = ZIP (ds_vars,MAP SOME ds_vals)) ∧
+  LENGTH ds_vals = LENGTH ds_vars ∧
   DISJOINT (set (FLAT (MAP get_vars_exp ds))) (set ds_vars) ∧
   ALL_DISTINCT ds_vars ⇒
   EVERY (eval_true (st1 with locals := ds1 ++ st1.locals) env)
         (MAP2 dec_assum ds_vars ds)
 Proof
-  cheat (* reserved *)
+  rpt strip_tac
+  \\ unabbrev_all_tac
+  \\ drule_all IMP_dec_assum_no_abbrev \\ simp []
 QED
 
 Triviality state_inv_with_locals_cons_none:
@@ -4406,7 +4501,8 @@ Proof
     \\ simp [eval_true_conj_every,conditions_hold_def]
     \\ disch_then irule
     \\ drule_then assume_tac disjoint_vars_while_ds
-
+    \\ ‘LENGTH ds_vals = LENGTH ds_vars’ by
+      (imp_res_tac LIST_REL_LENGTH \\ asm_rewrite_tac [])
     \\ drule_all IMP_dec_assum
     \\ simp [] \\ strip_tac
     \\ qunabbrev_tac ‘zs’
