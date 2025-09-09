@@ -440,9 +440,9 @@ Theorem EqualityType_NUM_BOOL:
   EqualityType BOOL /\ EqualityType WORD /\
   EqualityType CHAR /\ EqualityType STRING_TYPE /\
   EqualityType UNIT_TYPE /\ EqualityType HOL_STRING_TYPE /\
-  EqualityType WORD
+  EqualityType WORD /\ EqualityType FLOAT64
 Proof
-  EVAL_TAC \\ fs [no_closures_def,
+  EVAL_TAC \\ fs [no_closures_def, float_to_fp64_11,
     types_match_def, lit_same_type_def,
     stringTheory.ORD_11,mlstringTheory.explode_11]
   \\ SRW_TAC [] [] \\ EVAL_TAC
