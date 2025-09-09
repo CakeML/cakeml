@@ -105,9 +105,8 @@ Definition nvalue_sem_def:
 End
 
 Definition table_sem_def:
-  table_sem (Xs: ('a varc) list) (Tss: int list list) (w: 'a assignment) =
-  let n = LENGTH Xs in
-    EVERY (λTs. LENGTH Ts = n) Tss ∧ MEM (MAP (varc w) Xs) Tss
+  table_sem (Xs: 'a list) (Tss: int list list) (w: 'a assignment) ⇔
+  EVERY (λTs. LENGTH Ts = LENGTH Xs) Tss ∧ MEM (MAP w Xs) Tss
 End
 
 Datatype:
@@ -122,7 +121,7 @@ Datatype:
   | ArrMin ('a varc) ('a varc list)
   | Count ('a varc) ('a varc) ('a varc list)
   | Nvalue ('a varc) ('a list)
-  | Table ('a varc list) (int list list)
+  | Table ('a list) (int list list)
 End
 
 Definition constraint_sem_def:

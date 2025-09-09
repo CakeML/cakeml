@@ -19,7 +19,7 @@ Datatype:
   | Gem ('a + int) ('a + int) (* Used to force X ≥ Y in Array Max *)
   | Eqc ('a + int) ('a + int) (* Used to force X = Y in Count *)
   | Nv ('a list) int (* Used to force some element in As = v *)
-  | Tb (('a + int) list) (int list list)
+  | Tb ('a list) (int list)
 End
 
 Definition min_iterm_def:
@@ -1279,20 +1279,86 @@ Proof
   intLib.ARITH_TAC
 QED
 
+(* encodes ftable_i ⇒ some X = v and ~fnvalue_v ⇒ no X = v,
+   provided that LENGTH Xs = LENGTH Ys *)
+Definition encode_tuple_eq_def:
+  encode_tuple_eq bnd Xs Ys = [
+    bits_imply bnd [Pos (Tb Xs Ys)]
+      ([], MAP (λ(X,Y). (1i, Pos (Eq X Y))) (ZIP (Xs,Ys)), &LENGTH Xs);
+    bits_imply bnd [Neg (Tb Xs Ys)]
+      ([], MAP (λ(X,Y). (-1i, Pos (Eq X Y))) (ZIP (Xs,Ys)), -&LENGTH Xs + 1)]
+End
+
+Definition reify_tuple_eq_def:
+  reify_tuple_eq bnd Xs Ys =
+  let
+    ges = FLAT $ MAP (λ(X,Y). encode_ge bnd X Y ++ encode_ge bnd X (Y + 1)) (ZIP (Xs,Ys));
+    eqs = FLAT $ MAP (λ(X,Y). encode_eq bnd X Y) (ZIP (Xs,Ys))
+  in
+    ges ++ eqs ++ encode_tuple_eq bnd Xs Ys
+End
+
+Theorem reify_tuple_eq_sem:
+  valid_assignment bnd wi ∧
+  LENGTH Xs = LENGTH Ys ⇒ (
+  EVERY (λx. iconstraint_sem x (wi,wb)) (reify_tuple_eq bnd Xs Ys) ⇔
+    (∀(X,Y). MEM (X,Y) (ZIP (Xs,Ys)) ⇒
+      (wb (Ge X Y) ⇔ wi X ≥ Y) ∧
+      (wb (Ge X (Y + 1)) ⇔ wi X ≥ Y + 1) ∧
+      (wb (Eq X Y) ⇔ wi X = Y)) ∧
+    (wb (Tb Xs Ys) ⇔
+      ∀(X,Y). MEM (X,Y) (ZIP (Xs,Ys)) ⇒ wb (Eq X Y)))
+Proof
+  cheat
+QED
+
 Definition encode_table_def:
   encode_table bnd Xs Yss =
   let n = LENGTH Xs in
     if EVERY (λYs. LENGTH Ys = n) Yss
     then
-      let
-        all_eq = λYs. ([], MAP (λ(X, Y). (1i, Pos (Eqc X Y))) (ZIP (Xs, Ys)), &n);
-        some_neq = λYs. ([], MAP (λ(X, Y). (-1i, Pos (Eqc X Y))) (ZIP (Xs, Ys)), -&n + 1i)
-      in
-        MAP (λYs. bits_imply bnd [Pos (Tb Xs Ys)] (all_eq Ys)) Yss ++
-        MAP (λYs. bits_imply bnd [Neg (Tb Xs Ys)] (some_neq Ys)) Yss ++
-        [([], MAP (λYs. (1i, Pos (Tb Xs Ys))) Yss, 1i)]
-    else [([], [], 1i)]
+      (FLAT $ MAP (λYs. reify_tuple_eq bnd Xs Ys) Yss) ++
+      [([], MAP (λYs. (1i, Pos (Tb Xs Ys))) Yss, 1)]
+    else
+      [([], [], 1i)]
 End
+
+Theorem FORALL_IMP_AND = METIS_PROVE[] “(∀x. P x ⇒ Q x ∧ R x) ⇔ (∀x. P x ⇒ Q x) ∧ (∀x. P x ⇒ R x)”;
+
+(* assume that Xs are all variables *)
+Theorem encode_table_sem:
+  valid_assignment bnd wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_table bnd Xs Yss) = (
+    (∀Ys. MEM Ys Yss ⇒
+      ∀(X,Y). MEM (X,Y) (ZIP (Xs,Ys)) ⇒
+        (wb (Ge X Y) ⇔ wi X ≥ Y) ∧
+        (wb (Ge X (Y + 1)) ⇔ wi X ≥ Y + 1) ∧
+        (wb (Eq X Y) ⇔ wi X = Y)) ∧
+    (∀Ys. MEM Ys Yss ⇒
+      (wb (Tb Xs Ys) ⇔
+        ∀(X,Y). MEM (X,Y) $ ZIP (Xs,Ys) ⇒ wb (Eq X Y))) ∧
+    (∃Ys. MEM Ys Yss ∧ wb (Tb Xs Ys)) ∧
+    table_sem Xs Yss wi)
+Proof
+  rw[encode_table_def,table_sem_def,iconstraint_sem_def,
+    eval_ilin_term_def,eval_lin_term_def,iSUM_def]
+  >-(
+    simp[EVERY_FLAT,EVERY_MAP,Once EVERY_MEM,
+      MAP_MAP_o,combinTheory.o_ABS_R]>>
+    simp[Once $ GSYM combinTheory.o_ABS_R,iSUM_FILTER]>>
+    simp[Once integerTheory.INT_GE,intLib.ARITH_PROVE “1i ≤ m ⇔ 0i < m”,
+      GSYM integerTheory.INT_LT_LE1,rich_listTheory.LENGTH_NOT_NULL,
+      listTheory.NULL_FILTER]>>
+    match_mp_tac (METIS_PROVE[]
+      “(P ⇔ Q1 ∧ Q2) ∧ (Q1 ∧ Q2 ∧ R ⇒ Q3) ⇒ (P ∧ R ⇔ Q1 ∧ Q2 ∧ R ∧ Q3)”)>>
+    simp[CONJ_ASSOC, GSYM FORALL_IMP_AND]>>
+    CONJ_TAC
+    >-(
+      ho_match_mp_tac FORALL_IMP_EQ>>
+      last_x_assum $ mp_tac>>
+      simp[Once EVERY_MEM,reify_tuple_eq_sem,GSYM CONJ_ASSOC])>>
+    cheat)
+QED
 
 (* The top-level encodings *)
 Definition encode_cp_one_def:
