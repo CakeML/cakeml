@@ -434,64 +434,78 @@ Definition dec_assum_def:
   dec_assum v e = dfy_eq (Var v) e
 End
 
+Definition dest_Var_def:
+  dest_Var (Var v) = SOME v ∧
+  dest_Var _ = NONE
+End
+
+Definition dest_Vars_def:
+  dest_Vars [] = SOME [] ∧
+  dest_Vars (x :: xs) =
+    case (dest_Var x, dest_Vars xs) of
+    | (SOME v, SOME vs) => SOME (v::vs)
+    | _ => NONE
+End
+
 Inductive stmt_wp:
 [~Skip:]
-  ∀m ens post.
-    stmt_wp m post Skip (post:exp list) (ens:exp list) decs (ls:(mlstring # type) list)
+  ∀m ens post (mods:mlstring list).
+    stmt_wp m post Skip (post:exp list) (ens:exp list) decs mods (ls:(mlstring # type) list)
 [~Assert:]
-  ∀m ens post e.
-    stmt_wp m (e::post) (Assert e) (post:exp list) (ens:exp list) decs ls
+  ∀m ens post e mods.
+    stmt_wp m (e::post) (Assert e) (post:exp list) (ens:exp list) decs mods ls
 [~Print:]
-  ∀m ens post e t.
+  ∀m ens post e t mods.
     get_type ls e = INR t
     ⇒
-    stmt_wp m (CanEval e::post) (Print e t) post ens decs ls
+    stmt_wp m (CanEval e::post) (Print e t) post ens decs mods ls
 [~Return:]
-  ∀m ens post.
-    stmt_wp m (ens:exp list) Return (post:exp list) (ens:exp list) decs ls
+  ∀m ens post mods.
+    stmt_wp m (ens:exp list) Return (post:exp list) (ens:exp list) decs mods ls
 [~Then:]
-  ∀m s1 s2 pre1 pre2 post ens.
-    stmt_wp m pre1 s1 pre2 ens decs ls ∧
-    stmt_wp m pre2 s2 post ens decs ls
+  ∀m s1 s2 pre1 pre2 post ens mods.
+    stmt_wp m pre1 s1 pre2 ens decs mods ls ∧
+    stmt_wp m pre2 s2 post ens decs mods ls
     ⇒
-    stmt_wp m pre1 (Then s1 s2) post ens decs ls
+    stmt_wp m pre1 (Then s1 s2) post ens decs mods ls
 [~If:]
-  ∀m s1 s2 pre1 pre2 post ens g.
-    stmt_wp m pre1 s1 post ens decs ls ∧
-    stmt_wp m pre2 s2 post ens decs ls
+  ∀m s1 s2 pre1 pre2 post ens g mods.
+    stmt_wp m pre1 s1 post ens decs mods ls ∧
+    stmt_wp m pre2 s2 post ens decs mods ls
     (* TODO:
         - add ‘get_type ls g = INR BoolT’ as a conjunction before ⇒
         - below replace IsBool by CanEval
      *)
     ⇒
     stmt_wp m [IsBool g; imp g (conj pre1); imp (not g) (conj pre2)]
-      (If g s1 s2) post ens decs ls
+      (If g s1 s2) post ens decs mods ls
 [~Dec:]
-  ∀m wp stmt post ens decs n ty ls.
-    stmt_wp m wp stmt post ens decs ((n,ty)::ls) ∧
+  ∀m wp stmt post ens decs n ty ls mods.
+    stmt_wp m wp stmt post ens decs mods ((n,ty)::ls) ∧
     EVERY (λe. n ∉ freevars e) wp ∧
     EVERY (λe. n ∉ freevars e) post ∧
     EVERY (λe. n ∉ freevars e) ens ∧
     ¬MEM n (MAP FST ls)
     ⇒
-    stmt_wp m wp (Dec (n,ty) stmt) post ens decs ls
+    stmt_wp m wp (Dec (n,ty) stmt) post ens decs mods ls
 [~Assign:]
-  ∀m ret_names exps l post ens rhs_tys.
+  ∀m ret_names exps l post ens rhs_tys mods.
     (MAP FST l) = (MAP VarLhs ret_names) ∧
     (MAP SND l) = (MAP ExpRhs exps) ∧
     ALL_DISTINCT ret_names ∧
+    EVERY (λv. ~MEM v mods) ret_names ∧
     LENGTH exps = LENGTH ret_names ∧
     set ret_names ⊆ set (MAP FST ls) ∧
     get_types ls exps = INR rhs_tys ∧
     get_types ls (MAP Var ret_names) = INR lhs_tys ∧
     lhs_tys = rhs_tys
     ⇒
-    stmt_wp m [Let (ZIP (ret_names,exps)) (conj post)] (Assign l) post ens decs ls
+    stmt_wp m [Let (ZIP (ret_names,exps)) (conj post)] (Assign l) post ens decs mods ls
 [~While:]
-  ∀m guard invs ds mods body post ens decs ls ds_vars ls1 loop_cond body_cond.
+  ∀m guard invs ds ms body post ens decs ls ds_vars ls1 loop_cond body_cond mods ms_vars.
     DISJOINT (set ds_vars)
              (set (MAP FST ls ++ FLAT (MAP get_vars_exp ens) ++
-                   get_vars_stmt (While guard invs ds mods body))) ∧
+                   get_vars_stmt (While guard invs ds ms body))) ∧
     freevars body_cond ⊆ set (ds_vars ++ MAP FST ls) ∧
     assigned_in body ⊆ set (MAP FST ls) ∧
     LENGTH ds_vars = LENGTH ds ∧
@@ -500,6 +514,7 @@ Inductive stmt_wp:
     EVERY (λd. get_type ls d = INR IntT) ds ∧
     no_Prev guard ∧ EVERY no_Prev post ∧ EVERY no_Prev invs ∧
     EVERY no_Prev ds ∧ EVERY no_Prev body_wp ∧ EVERY no_Prev (SND decs) ∧
+    dest_Vars ms = SOME ms_vars ∧ set ms_vars ⊆ set mods ∧
     ls1 = FILTER (λ(v,ty). assigned_in body v) ls ∧
     (* when executing the body, invs are maintained *)
     body_cond = imp (conj (guard :: invs ++ MAP2 dec_assum ds_vars ds)) (conj body_wp) ∧
@@ -507,7 +522,7 @@ Inductive stmt_wp:
     stmt_wp m body_wp body
       (invs ++ [CanEval guard] ++ MAP CanEval ds ++
        decreases_check (0, ds) (0, MAP Var ds_vars))
-      ens decs (MAP (λv. (v,IntT)) ds_vars ++ ls)
+      ens decs ms_vars (MAP (λv. (v,IntT)) ds_vars ++ ls)
     ⇒
     stmt_wp m (invs ++ [CanEval guard] ++ MAP CanEval ds ++
                MAP (CanEval o Var o FST) ls ++ [loop_cond] ++
@@ -515,9 +530,9 @@ Inductive stmt_wp:
                [ForallHeap [] $
                   Foralls ls1
                     (imp (conj (not guard :: invs)) (conj post))])
-            (While guard invs ds mods body) post ens decs ls
+            (While guard invs ds ms body) post ens decs mods ls
 [~MetCall:]
-  ∀m mname mspec mbody args ret_names rets post ens.
+  ∀m mname mspec mbody args ret_names rets post ens mods.
     Method mname mspec mbody ∈ m ∧
     LENGTH mspec.ins = LENGTH args ∧
     LENGTH mspec.outs = LENGTH rets ∧
@@ -545,7 +560,7 @@ Inductive stmt_wp:
                                  MAP Prev args     ++ MAP Var ret_names))
                           (conj mspec.ens))
                        (conj post))])
-              (MetCall rets mname args) post ens decs ls
+              (MetCall rets mname args) post ens decs mods ls
 End
 
 (* TODO rename definition *)
@@ -586,12 +601,13 @@ Definition proved_methods_def:
   proved_methods m ⇔
     ∀name mspec body.
       Method name mspec body ∈ m ⇒
-      ∃wp_pre.
+      ∃wp_pre mod_vars.
         stmt_wp m wp_pre body [False]
                 (MAP (wrap_Old (set (MAP FST mspec.ins))) mspec.ens ++
                  MAP (CanEval o Var o FST) mspec.outs)
-                (mspec.rank, mspec.decreases)
+                (mspec.rank, mspec.decreases) mod_vars
                 (mspec.ins ++ mspec.outs) ∧
+        dest_Vars mspec.mods = SOME mod_vars ∧
         ∃p.
           p = Foralls mspec.ins (imp (conj mspec.reqs) (conj wp_pre)) ∧
           freevars p = {} ∧
@@ -3540,8 +3556,8 @@ fun setup (q : term quotation, t : tactic) = let
       all_goals = fn () => map snd goals} end
 
 val stmt_wp_sound_setup = setup (`
-  ∀m reqs stmt post ens decs locals.
-    stmt_wp m reqs stmt post ens decs locals ⇒
+  ∀m reqs stmt post ens decs mods locals.
+    stmt_wp m reqs stmt post ens decs mods locals ⇒
     ∀st env.
       (∀st' name' mspec' body'.
           ($< LEX SHORTLEX opt_lt)
@@ -4796,29 +4812,29 @@ Proof
 QED
 
 Definition stmt_vcg_def:
-  stmt_vcg _ Skip post _ _ _ = return post ∧
-  stmt_vcg _ (Assert e) post _ _ _ = return (e::post) ∧
-  stmt_vcg _ (Print e t) post ens decs ls =
+  stmt_vcg _ Skip post ens decs mods ls = return post ∧
+  stmt_vcg _ (Assert e) post ens decs mods ls = return (e::post) ∧
+  stmt_vcg _ (Print e t) post ens decs mods ls =
   do
     e_t <- get_type ls e;
     () <- if e_t = t then return () else (fail «stmt_vcg:Print: Type mismatch»);
     return (CanEval e::post)
   od ∧
-  stmt_vcg _ (Return) _ ens _ _ = return ens ∧
-  stmt_vcg m (Then s₁ s₂) post ens decs ls =
+  stmt_vcg _ (Return) _ ens decs mods ls = return ens ∧
+  stmt_vcg m (Then s₁ s₂) post ens decs mods ls =
     do
-      pre' <- stmt_vcg m s₂ post ens decs ls;
-      stmt_vcg m s₁ pre' ens decs ls;
+      pre' <- stmt_vcg m s₂ post ens decs mods ls;
+      stmt_vcg m s₁ pre' ens decs mods ls;
     od ∧
-  stmt_vcg m (If grd thn els) post ens decs ls =
+  stmt_vcg m (If grd thn els) post ens decs mods ls =
   do
-    pre_thn <- stmt_vcg m thn post ens decs ls;
-    pre_els <- stmt_vcg m els post ens decs ls;
+    pre_thn <- stmt_vcg m thn post ens decs mods ls;
+    pre_els <- stmt_vcg m els post ens decs mods ls;
     return [IsBool grd; imp grd (conj pre_thn); imp (not grd) (conj pre_els)]
   od ∧
-  stmt_vcg m (Dec (n,ty) stmt) post ens decs ls =
+  stmt_vcg m (Dec (n,ty) stmt) post ens decs mods ls =
   do
-    wp <- stmt_vcg m stmt post ens decs ((n,ty)::ls);
+    wp <- stmt_vcg m stmt post ens decs mods ((n,ty)::ls);
     () <- if EVERY (λe. ¬MEM n (freevars_list e)) wp then return () else
             (fail «stmt_vcg:Dec: Name occurs freely in wp»);
     () <- if EVERY (λe. ¬MEM n (freevars_list e)) post then return () else
@@ -4829,13 +4845,15 @@ Definition stmt_vcg_def:
             (fail «stmt_vcg:Dec: Shadowing variables disallowed»);
     return wp
   od ∧
-  stmt_vcg _ (Assign ass) post _ _ ls =
+  stmt_vcg _ (Assign ass) post _ _ mods ls =
   do
     (lhss, rhss) <<- UNZIP ass;
     vars <- result_mmap dest_VarLhs lhss;
     es <- result_mmap dest_ExpRhs rhss;
     () <- if ALL_DISTINCT vars then return () else
             (fail «stmt_vcg:Assign: variables not distinct»);
+    () <- if EVERY (λv. ~MEM v mods) vars then return () else
+            (fail «stmt_vcg:Assign: assigning to mods»);
     () <- if list_subset vars (MAP FST ls) then return () else
             (fail «stmt_vcg:Assign: Trying to assign to undeclared variables»);
     es_tys <- get_types ls es;
@@ -4844,7 +4862,7 @@ Definition stmt_vcg_def:
             (fail «stmt_vcg:Assign: lhs and rhs types do not match»);
     return [Let (ZIP (vars, es)) (conj post)]
   od ∧
-  stmt_vcg m (MetCall lhss name args) post ens decs ls =
+  stmt_vcg m (MetCall lhss name args) post ens decs mods ls =
   do
     method <- find_met name m;
     (name, spec, body) <<- dest_met method;
@@ -4896,14 +4914,14 @@ Definition stmt_vcg_def:
                              (conj spec.ens))
                         (conj post))])
   od ∧
-  stmt_vcg _ _ _ _ _ _ = fail «stmt_vcg: Unsupported statement»
+  stmt_vcg _ _ _ _ _ _ _ = fail «stmt_vcg: Unsupported statement»
 End
 
 Theorem stmt_vcg_correct:
-  ∀m stmt post ens decs ls res.
-    stmt_vcg m stmt (post:exp list) (ens:exp list) decs ls = INR res
+  ∀m stmt post ens decs mods ls res.
+    stmt_vcg m stmt (post:exp list) (ens:exp list) decs mods ls = INR res
     ⇒
-    stmt_wp (set m) res stmt (post:exp list) (ens:exp list) decs ls
+    stmt_wp (set m) res stmt (post:exp list) (ens:exp list) decs mods ls
 Proof
   ho_match_mp_tac stmt_vcg_ind
   \\ rpt strip_tac
@@ -5027,12 +5045,15 @@ QED
 
 Definition met_vcg_def:
   met_vcg mets (Method name specs body) =
+  case dest_Vars specs.mods of
+  | NONE => fail «met_vcg: mods are not variables»
+  | SOME mod_vars =>
   do
     (* ensures should always refer to the locals as they were at the beginning
        of a method; in particular, it should ignore any updates/shadowing *)
     ens <<- (MAP (wrap_Old_list (MAP FST specs.ins)) specs.ens ++
              MAP (CanEval ∘ Var ∘ FST) specs.outs);
-    vcs <- stmt_vcg mets body [False] ens (specs.rank, specs.decreases)
+    vcs <- stmt_vcg mets body [False] ens (specs.rank, specs.decreases) mod_vars
                     (specs.ins ++ specs.outs);
     p <<- (Foralls specs.ins $ imp (conj specs.reqs) (conj vcs));
     if freevars_list p = [] then
@@ -5068,7 +5089,7 @@ Proof
   \\ rpt strip_tac
   \\ drule_all mem_result_mmap_inr
   \\ strip_tac
-  \\ gvs [met_vcg_def, oneline bind_def, CaseEq "sum"]
+  \\ gvs [met_vcg_def, oneline bind_def, CaseEq "sum", CaseEq "option"]
   \\ drule stmt_vcg_correct \\ gvs []
   \\ simp [wrap_Old_list_eq]
   \\ disch_then $ irule_at (Pos hd)
