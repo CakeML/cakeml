@@ -529,7 +529,7 @@ Inductive stmt_wp:
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e ∧ no_Prev b e) mspec.reqs ∧
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e ∧ no_Prev b e) mspec.decreases ∧
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins ++ MAP FST mspec.outs) ∧
-               no_Old e ∧ no_Prev b e) mspec.ens ∧
+               no_Old e ∧ no_Prev F e) mspec.ens ∧
     EVERY (no_Prev b) post ∧
     set ret_names ⊆ set (MAP FST ls) ∧
     get_types ls args = INR (MAP SND mspec.ins) ∧
@@ -3975,7 +3975,7 @@ Proof
     \\ simp [eval_true_def] \\ disch_then kall_tac
     \\ strip_tac
     \\ drule eval_exp_no_Prev
-    \\ disch_then $ qspecl_then [‘st'.locals_prev’,‘st'.heap_prev’] mp_tac
+    \\ disch_then $ qspecl_then [‘b’,‘st'.locals_prev’,‘st'.heap_prev’] mp_tac
     \\ impl_tac >- simp [no_Prev_imp,no_Prev_conj,no_Prev_not]
     \\ match_mp_tac EQ_IMPLIES
     \\ rpt AP_THM_TAC
@@ -4050,7 +4050,8 @@ Proof
   \\ ‘eval_measure st env (wrap_old decs) =
       eval_measure st1 env (wrap_old decs)’ by
     (Cases_on ‘decs’ \\ fs [eval_measure_def,wrap_old_def]
-     \\ irule eval_decreases_old_eq_no_Prev \\ fs [])
+     \\ irule eval_decreases_old_eq_no_Prev \\ fs []
+     \\ metis_tac[])
   \\ impl_tac
   >-
    (conj_tac
@@ -4152,7 +4153,7 @@ Proof
     \\ strip_tac
     \\ rewrite_tac [eval_true_def]
     \\ irule eval_exp_no_Prev_alt
-    \\ conj_tac >- (simp [no_Prev_conj])
+    \\ conj_tac >- (metis_tac[no_Prev_conj])
     \\ qexistsl [‘st.heap_prev’,‘st.locals_prev’]
     \\ simp []
     \\ pop_assum mp_tac
@@ -4169,13 +4170,13 @@ Proof
     \\ disch_then irule
     \\ drule_all IMP_dec_assum
     \\ simp [] \\ strip_tac
-    \\ ‘∀e. MEM e (MAP2 dec_assum ds_vars ds) ⇒ no_Prev e’ by
+    \\ ‘∀e. MEM e (MAP2 dec_assum ds_vars ds) ⇒ no_Prev b e’ by
       (rpt strip_tac \\ imp_res_tac MEM_MAP2
        \\ gvs [dec_assum_def,no_Prev_def,EVERY_MEM])
-    \\ ‘∀e. no_Prev e ∧ eval_true (st1 with locals := zs) env e ⇒
+    \\ ‘∀e. no_Prev b e ∧ eval_true (st1 with locals := zs) env e ⇒
             eval_true (st0 with locals := zs) env e’ by
       (simp [Abbr‘st0’] \\ rpt $ pop_assum kall_tac \\ rw [eval_true_def]
-       \\ drule eval_exp_no_Prev \\ simp [])
+       \\ drule_all eval_exp_no_Prev \\ simp [])
     \\ qunabbrev_tac ‘zs’
     \\ fs [conditions_hold_def,EVERY_MEM]
     \\ rpt strip_tac
@@ -4371,7 +4372,7 @@ Proof
           \\ first_x_assum $ irule_at Any)
       \\ strip_tac
       \\ drule eval_exp_no_Prev
-      \\ disch_then $ qspecl_then [‘new_l’,‘st.heap_prev’] mp_tac
+      \\ disch_then $ qspecl_then [‘b’,‘new_l’,‘st.heap’] mp_tac
       \\ impl_tac >- fs [no_Prev_conj,EVERY_MEM]
       \\ match_mp_tac EQ_IMPLIES
       \\ rpt AP_THM_TAC \\ AP_TERM_TAC
@@ -4423,10 +4424,9 @@ Proof
         \\ fs [EVERY_MEM]
         \\ irule EQ_TRANS
         \\ irule_at (Pos hd) eval_exp_no_Prev_eq
-        \\ qexistsl [‘new_l’,‘st1.heap_prev’]
+        \\ qexistsl [‘new_l’,‘st1.heap’]
         \\ simp [Abbr‘st1’]
-        \\ rpt AP_THM_TAC \\ AP_TERM_TAC
-        \\ simp [state_component_equality])
+        \\ metis_tac[])
     \\ rw []
     \\ ‘MEM n (MAP FST mspec.ins)’ by
       (fs [EVERY_MEM,SUBSET_DEF] \\ res_tac \\ simp [])
@@ -4509,7 +4509,7 @@ Proof
   \\ ‘st3.locals = st.locals’ by fs [Abbr‘st3’,restore_caller_def]
   \\ strip_tac
   \\ irule eval_exp_no_Prev_alt
-  \\ conj_tac >- simp [no_Prev_conj]
+  \\ conj_tac >- metis_tac[no_Prev_conj]
   \\ qexistsl [‘st.heap’,‘st.locals’]
   \\ irule eval_exp_swap_state
   \\ simp [GSYM eval_true_def]
@@ -4532,9 +4532,8 @@ Proof
     \\ strip_tac \\ simp [Abbr‘st5’]
     \\ simp [eval_exp_Prev]
     \\ strip_tac
-    \\ drule eval_exp_no_Prev
+    \\ drule_all eval_exp_no_Prev
     \\ disch_then $ qspecl_then [‘st.locals’,‘st.heap’] mp_tac
-    \\ impl_tac >- asm_rewrite_tac []
     \\ match_mp_tac EQ_IMPLIES
     \\ rpt AP_THM_TAC \\ AP_TERM_TAC
     \\ simp [state_component_equality])
@@ -4551,18 +4550,20 @@ Proof
   \\ impl_tac
   >-
    (conj_tac
-    \\ simp [Once listTheory.LIST_REL_MAP1]
-    \\ simp [LIST_REL_EL_EQN,eval_exp_def,evaluate_exp_def,
-             use_old_def,AllCaseEqs()]
-    \\ simp [AllCaseEqs(),unuse_old_def,read_local_def,
-             state_component_equality]
-    \\ fs [Abbr‘st1’,Abbr‘new_l’] \\ rpt gen_tac
-    \\ DEP_REWRITE_TAC [alookup_distinct_reverse] \\ fs [MAP_ZIP]
-    \\ fs [ALOOKUP_APPEND,CaseEq"option"]
-    \\ strip_tac \\ disj2_tac
-    \\ DEP_REWRITE_TAC [GSYM MEM_ALOOKUP]
-    \\ fs [MAP_ZIP,MEM_ZIP,ALL_DISTINCT_APPEND]
-    \\ first_assum $ irule_at $ Pos hd \\ fs [EL_MAP])
+    >- (
+      simp [Once listTheory.LIST_REL_MAP1]
+      \\ simp [LIST_REL_EL_EQN,eval_exp_def,evaluate_exp_def,
+               use_old_def,AllCaseEqs()]
+      \\ simp [AllCaseEqs(),unuse_old_def,read_local_def,
+               state_component_equality]
+      \\ fs [Abbr‘st1’,Abbr‘new_l’] \\ rpt gen_tac
+      \\ DEP_REWRITE_TAC [alookup_distinct_reverse] \\ fs [MAP_ZIP]
+      \\ fs [ALOOKUP_APPEND,CaseEq"option"]
+      \\ strip_tac \\ disj2_tac
+      \\ DEP_REWRITE_TAC [GSYM MEM_ALOOKUP]
+      \\ fs [MAP_ZIP,MEM_ZIP,ALL_DISTINCT_APPEND]
+      \\ first_assum $ irule_at $ Pos hd \\ fs [EL_MAP])>>
+    fs[no_Prev_conj,EVERY_MEM])
   \\ qmatch_goalsub_abbrev_tac ‘eval_exp (_ with locals := l1) _ _ _ ⇒ _’
   \\ qmatch_goalsub_abbrev_tac ‘_ ⇒ eval_exp (_ with locals := l2) _ _ _’
   \\ strip_tac
@@ -4572,7 +4573,9 @@ Proof
   \\ qexists_tac ‘st2.heap_old’
   \\ qexists_tac ‘st2.locals_old’
   \\ irule eval_exp_no_Prev_alt
-  \\ conj_tac >- gvs [EVERY_MEM,no_Prev_conj]
+  \\ conj_tac >- (
+    gvs [EVERY_MEM,no_Prev_conj]>>
+    metis_tac[])
   \\ qexistsl [‘st2.heap_prev’,‘st2.locals_prev’]
   \\ irule eval_exp_swap_state
   \\ qexists_tac ‘st2 with locals := l2’
