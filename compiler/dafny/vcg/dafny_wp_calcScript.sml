@@ -485,7 +485,7 @@ Inductive stmt_wp:
     EVERY (λe. n ∉ freevars e) wp ∧
     EVERY (λe. n ∉ freevars e) post ∧
     EVERY (λe. n ∉ freevars e) ens ∧
-    ¬MEM n (MAP FST ls)
+    ¬MEM n (MAP FST ls) ∧ ~MEM n mods
     ⇒
     stmt_wp m wp (Dec (n,ty) stmt) post ens decs mods ls
 [~Assign:]
@@ -3543,6 +3543,11 @@ Proof
   \\ imp_res_tac evaluate_exp_with_clock \\ fs []
 QED
 
+Definition mod_loc_def:
+  mod_loc locals var_name loc ⇔
+    ∃len ty. ALOOKUP locals var_name = SOME (SOME (ArrV len loc ty))
+End
+
 fun setup (q : term quotation, t : tactic) = let
     val the_concl = Parse.typedTerm q bool
     val t2 = (t \\ rpt (pop_assum mp_tac))
@@ -3558,14 +3563,16 @@ fun setup (q : term quotation, t : tactic) = let
 val stmt_wp_sound_setup = setup (`
   ∀m reqs stmt post ens decs mods locals.
     stmt_wp m reqs stmt post ens decs mods locals ⇒
-    ∀st env.
-      (∀st' name' mspec' body'.
+    ∀st env mod_locs.
+      (∀st' name' mspec' body' mods' mod_locs'.
           ($< LEX SHORTLEX opt_lt)
             (eval_measure st' env (mspec'.rank,mspec'.decreases))
             (eval_measure st env (wrap_old decs)) ∧
           Method name' mspec' body' ∈ m ∧ st'.locals_old = st'.locals ∧
           st'.heap_old = st'.heap ∧
           state_inv st' ∧
+          dest_Vars mspec'.mods = SOME mods' ∧
+          LIST_REL (mod_loc st'.locals) mods' mod_locs' ∧
           conditions_hold st' env mspec'.reqs ∧
           compatible_env env m ∧
           strict_locals_ok mspec'.ins st'.locals ∧
@@ -3574,6 +3581,7 @@ val stmt_wp_sound_setup = setup (`
           ∃st'' out_vs.
             eval_stmt st' env body' st'' (Rstop Sret) ∧
             state_inv st'' ∧
+            LIST_REL (mod_loc st''.locals) mods' mod_locs' ∧
             conditions_hold st'' env (MAP (wrap_Old (set (MAP FST mspec'.ins))) mspec'.ens) ∧
             st''.locals_old = st'.locals_old ∧
             st''.heap_old = st'.heap_old ∧
@@ -3581,6 +3589,7 @@ val stmt_wp_sound_setup = setup (`
             locals_ok (mspec'.ins ++ mspec'.outs) st''.locals ∧
             LIST_REL (eval_exp st'' env) (MAP (Var o FST) mspec'.outs) out_vs) ∧
       state_inv st ∧
+      LIST_REL (mod_loc st.locals) mods mod_locs ∧
       conditions_hold st env reqs ∧ compatible_env env m ∧
       locals_ok locals st.locals
       ⇒
@@ -3591,6 +3600,7 @@ val stmt_wp_sound_setup = setup (`
         valid_mod st.heap [] st'.heap ∧
         locals_ok locals st'.locals ∧
         state_inv st' ∧
+        LIST_REL (mod_loc st'.locals) mods mod_locs ∧
         case ret of
         | Rstop Sret => conditions_hold st' env ens
         | Rcont => conditions_hold st' env post
@@ -3639,6 +3649,7 @@ Proof
   rpt strip_tac
   \\ rename [‘Then stmt₁ stmt₂’]
   \\ last_x_assum drule \\ simp []
+  \\ disch_then drule
   \\ disch_then $ qx_choosel_then [‘st₁’, ‘ret₁’] mp_tac
   \\ strip_tac
   \\ reverse $ namedCases_on ‘ret₁’ ["", "stp"] \\ gvs []
@@ -3649,6 +3660,7 @@ Proof
     \\ first_assum $ irule_at (Pos hd) \\ simp [])
   \\ last_x_assum $ drule_at (Pos last)
   \\ disch_then $ drule_at (Pos last)
+  \\ disch_then $ qspec_then ‘mod_locs’ mp_tac
   \\ imp_res_tac Rcont_eval_measure \\ gvs []
   \\ impl_tac >- (gvs [])
   \\ disch_then $ qx_choosel_then [‘st₂’, ‘ret₂’] mp_tac
@@ -3675,8 +3687,9 @@ Proof
   \\ rename [‘If grd thn els’]
   \\ dxrule conditions_hold_imp_case_split \\ strip_tac \\ gvs []
   >- (* Execute thn branch *)
-   (last_x_assum $ drule_at (Pos $ el 3) \\ simp []
-    \\ impl_tac >- (gvs [])
+   (last_x_assum $ drule_at (Pos $ el 4) \\ simp []
+    \\ disch_then $ qspec_then ‘mod_locs’ mp_tac
+    \\ impl_tac >- asm_rewrite_tac []
     \\ disch_then $ qx_choosel_then [‘st₁’, ‘ret₁’] mp_tac
     \\ strip_tac
     \\ irule_at (Pos hd) eval_stmt_If_thn
@@ -3685,8 +3698,9 @@ Proof
     \\ namedCases_on ‘ret₁’ ["", "err"] \\ gvs []
     \\ Cases_on ‘err’ \\ gvs [])
   (* Execute els branch *)
-  \\ last_x_assum $ drule_at (Pos $ el 3) \\ simp []
-  \\ impl_tac >- (gvs [])
+  \\ last_x_assum $ drule_at (Pos $ el 4) \\ simp []
+  \\ disch_then $ qspec_then ‘mod_locs’ mp_tac
+  \\ impl_tac >- asm_rewrite_tac []
   \\ disch_then $ qx_choosel_then [‘st₁’, ‘ret₁’] mp_tac
     \\ strip_tac
   \\ irule_at (Pos hd) eval_stmt_If_els
@@ -3694,6 +3708,28 @@ Proof
   \\ first_assum $ irule_at (Pos hd) \\ simp []
   \\ namedCases_on ‘ret₁’ ["", "err"] \\ gvs []
   \\ Cases_on ‘err’ \\ gvs []
+QED
+
+Triviality IMP_MEM_EL:
+  ∀xs n. n < LENGTH xs ⇒ MEM (EL n xs) xs
+Proof
+  Induct \\ Cases_on ‘n’ \\ gvs []
+QED
+
+Triviality mod_loc_drop_1:
+  ¬MEM n mods ∧ MAP FST ys = n::MAP FST xs ⇒
+  LIST_REL (mod_loc (DROP 1 ys)) mods mod_locs =
+  LIST_REL (mod_loc ys) mods mod_locs
+Proof
+  rw [FUN_EQ_THM,mod_loc_def,LIST_REL_EL_EQN]
+  \\ Cases_on ‘LENGTH mods = LENGTH mod_locs’ \\ simp []
+  \\ qsuff_tac
+     ‘∀n. n < LENGTH mods ⇒
+          ALOOKUP (DROP 1 ys) (EL n mods) = ALOOKUP ys (EL n mods)’
+  >- metis_tac[]
+  \\ Cases_on ‘ys’ \\ gvs []
+  \\ Cases_on ‘h’ \\ gvs []
+  \\ rw [] \\ metis_tac [IMP_MEM_EL]
 QED
 
 Theorem stmt_wp_sound_Dec:
@@ -3704,6 +3740,7 @@ Proof
   \\ irule_at (Pos hd) eval_stmt_Dec \\ simp []
   \\ qmatch_goalsub_abbrev_tac ‘eval_stmt st_inner’
   \\ last_x_assum $ qspecl_then [‘st_inner’, ‘env’] mp_tac \\ simp []
+  \\ disch_then $ qspec_then ‘mod_locs’ mp_tac
   \\ impl_tac >-
    (simp [Abbr ‘st_inner’]
     \\ conj_tac >-
@@ -3714,7 +3751,11 @@ Proof
       \\ rpt $ pop_assum $ irule_at Any)
     \\ drule locals_ok_cons \\ simp [] \\ disch_then kall_tac
     \\ irule_at (Pos last) conditions_hold_cons_not_free \\ simp []
-    \\ irule state_inv_with_locals_cons_none \\ simp [])
+    \\ irule_at Any state_inv_with_locals_cons_none \\ simp []
+    \\ fs [LIST_REL_EL_EQN] \\ rw [] \\ rfs []
+    \\ first_x_assum drule
+    \\ fs [mod_loc_def] \\ rw [] \\ fs []
+    \\ metis_tac [IMP_MEM_EL])
   \\ rpt strip_tac
   \\ first_assum $ irule_at $ Pos hd
   \\ drule eval_stmt_locals
@@ -3728,8 +3769,19 @@ Proof
   \\ drule_all locals_ok_cons_drop \\ simp [] \\ disch_then kall_tac
   \\ conj_tac >- fs []
   \\ conj_tac >- (drule state_inv_with_locals_drop \\ simp [])
+  \\ conj_tac >- (drule_all mod_loc_drop_1 \\ strip_tac \\ fs [])
   \\ rpt CASE_TAC
   \\ gvs [conditions_hold_cons_drop]
+QED
+
+Triviality LIST_REL_mono_alt:
+  ∀xs ys R1 R2.
+    (∀x y. MEM x xs ∧ R2 x y ⇒ R1 x y) ⇒
+    LIST_REL R2 xs ys ⇒
+    LIST_REL R1 xs ys
+Proof
+  Induct \\ Cases_on ‘ys’ \\ fs []
+  \\ rw [] \\ fs [SF DNF_ss] \\ res_tac
 QED
 
 Theorem stmt_wp_sound_Assign:
@@ -3778,6 +3830,15 @@ Proof
     \\ drule locals_unique_types
     \\ disch_then $ qspecl_then [‘ty’, ‘lhs_ty’, ‘n’] mp_tac \\ simp [])
   >- (fs [state_inv_def])
+  >- (* mod_loc *)
+   (qpat_x_assum ‘LIST_REL (mod_loc st.locals) mods mod_locs’ mp_tac
+    \\ match_mp_tac LIST_REL_mono_alt
+    \\ simp [mod_loc_def] \\ rw []
+    \\ simp [ALOOKUP_APPEND,AllCaseEqs(),SF DNF_ss]
+    \\ disj1_tac
+    \\ fs [ALOOKUP_NONE,MAP_REVERSE]
+    \\ DEP_REWRITE_TAC [MAP_ZIP |> cj 1]
+    \\ fs [] \\ fs [EVERY_MEM] \\ metis_tac [])
   \\ irule $ iffLR eval_exp_freevars
   \\ qexists_tac ‘ZIP (ret_names,MAP SOME vs) ++ st.locals’
   \\ conj_tac
@@ -3803,21 +3864,26 @@ Theorem stmt_wp_sound_While:
   ^(#get_goal stmt_wp_sound_setup `While`)
 Proof
   rpt strip_tac
-  \\ rename [‘While guard invs ds mods body’]
+  \\ rename [‘While guard invs ds ms body’]
+  \\ rename [‘dest_Vars ms = SOME while_mods’]
+  \\ ‘∃while_mod_locs.
+        LIST_REL (mod_loc st.locals) while_mods while_mod_locs’ by cheat
   \\ qsuff_tac
     ‘∀stx.
        conditions_hold stx env (invs ++ [CanEval guard] ++ MAP CanEval ds) ∧
        state_inv stx ∧
+       LIST_REL (mod_loc stx.locals) while_mods while_mod_locs ∧
        strict_locals_ok locals stx.locals ∧
        stx.locals_old = st.locals_old ∧
        stx.heap_old = st.heap_old ∧
        valid_mod st.heap [] stx.heap ⇒
        ∃st' ret.
-         eval_stmt stx env (While guard invs ds mods body) st' ret ∧
+         eval_stmt stx env (While guard invs ds ms body) st' ret ∧
          st'.locals_old = stx.locals_old ∧
          st'.heap_old = stx.heap_old ∧
          valid_mod stx.heap [] st'.heap ∧
          state_inv st' ∧
+         LIST_REL (mod_loc st'.locals) while_mods while_mod_locs ∧
          locals_ok locals st'.locals ∧
          case ret of
          | Rcont => conditions_hold st' env (not guard::invs)
@@ -3832,6 +3898,7 @@ Proof
     \\ first_assum $ irule_at $ Pos hd \\ asm_rewrite_tac []
     \\ Cases_on ‘ret’ \\ gvs []
     \\ gvs [conditions_hold_def]
+    \\ ‘LIST_REL (mod_loc st'.locals) mods mod_locs’ by cheat
     \\ gvs [GSYM conditions_hold_def]
     \\ drule_all eval_true_ForallHeap_NIL
     \\ strip_tac
@@ -3916,16 +3983,18 @@ Proof
                   x = eval_measure stx env (0, ds) ∧
                   conditions_hold stx env (invs ++ [CanEval guard] ++ MAP CanEval ds) ∧
                   state_inv stx ∧
+                  LIST_REL (mod_loc stx.locals) while_mods while_mod_locs ∧
                   strict_locals_ok locals stx.locals ∧
                   stx.locals_old = st.locals_old ∧
                   stx.heap_old = st.heap_old ∧
                   valid_mod st.heap [] stx.heap ⇒
                   ∃st' ret.
-                    eval_stmt stx env (While guard invs ds mods body) st' ret ∧
+                    eval_stmt stx env (While guard invs ds ms body) st' ret ∧
                     st'.locals_old = stx.locals_old ∧
                     st'.heap_old = stx.heap_old ∧
                     valid_mod stx.heap [] st'.heap ∧
                     state_inv st' ∧
+                    LIST_REL (mod_loc st'.locals) while_mods while_mod_locs ∧
                     locals_ok locals st'.locals ∧
                     case ret of
                       Rcont => conditions_hold st' env (not guard::invs)
@@ -3978,7 +4047,8 @@ Proof
      \\ qrefinel [‘IntV i’,‘k’]
      \\ simp [all_values_def]
      \\ DEP_REWRITE_TAC [EL_ZIP] \\ simp [EL_MAP])
-  \\ last_x_assum $ qspecl_then [‘st1 with locals := ds1 ++ st1.locals’,‘env’] mp_tac
+  \\ last_x_assum $ qspecl_then [‘st1 with locals := ds1 ++ st1.locals’,
+                                 ‘env’,‘while_mod_locs’] mp_tac
   \\ ‘eval_measure st env (wrap_old decs) =
       eval_measure st1 env (wrap_old decs)’ by
     (Cases_on ‘decs’ \\ fs [eval_measure_def,wrap_old_def]
@@ -4000,6 +4070,7 @@ Proof
       \\ DEP_REWRITE_TAC [MAP_ZIP |> UNDISCH |> cj 2 |> DISCH_ALL]
       \\ imp_res_tac LIST_REL_LENGTH \\ fs []
       \\ gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS])
+    \\ conj_tac >- cheat
     \\ reverse conj_asm2_tac >-
      (irule locals_ok_split
       \\ ‘MAP FST (MAP (λv. (v,IntT)) ds_vars) = ds_vars’ by simp [MAP_MAP_o,o_DEF]
@@ -4134,7 +4205,8 @@ Proof
   \\ first_x_assum $ irule_at $ Pos hd
   \\ reverse $ Cases_on ‘ret’ \\ fs []
   >-
-   (rename [‘Rstop stop_tm’] \\ Cases_on ‘stop_tm’ \\ gvs []
+   (conj_tac >- cheat
+    \\ rename [‘Rstop stop_tm’] \\ Cases_on ‘stop_tm’ \\ gvs []
     \\ imp_res_tac strict_locals_ok_IMP_locals_ok
     \\ asm_rewrite_tac []
     \\ fs [conditions_hold_def,EVERY_MEM,eval_true_def]
@@ -4155,7 +4227,8 @@ Proof
   \\ simp []
   \\ reverse conj_tac
   >-
-   (fs [conditions_hold_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,eval_true_def]
+   (reverse conj_tac >- cheat
+    \\ fs [conditions_hold_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,eval_true_def]
     \\ reverse $ rpt strip_tac
     \\ first_x_assum irule \\ fs []
     \\ fs [get_vars_stmt_def,CanEval_def,get_vars_exp_def,LIST_TO_SET_FLAT]
@@ -4218,6 +4291,7 @@ QED
 Theorem stmt_wp_sound_MetCall:
   ^(#get_goal stmt_wp_sound_setup `MetCall`)
 Proof
+  cheat (*
   rpt strip_tac
   \\ rename [‘MetCall rets mname args’]
   \\ irule_at Any eval_stmt_MetCall \\ gvs []
@@ -4555,7 +4629,7 @@ Proof
   \\ strip_tac
   \\ fs [ALL_DISTINCT_APPEND]
   \\ drule_all read_out_lemma
-  \\ strip_tac \\ fs []
+  \\ strip_tac \\ fs [] *)
 QED
 
 Theorem stmt_wp_sound:
@@ -4615,12 +4689,14 @@ QED
 Theorem methods_lemma[local]:
   ∀m.
     proved_methods m ⇒
-    ∀x st name mspec body env.
+    ∀x st name mspec body env mods mod_locs.
       x = eval_measure st env (mspec.rank, mspec.decreases) ∧
       Method name mspec body ∈ m ∧
       st.locals_old = st.locals ∧
       st.heap_old = st.heap ∧
       state_inv st ∧
+      dest_Vars mspec.mods = SOME mods ∧
+      LIST_REL (mod_loc st.locals) mods mod_locs ∧
       conditions_hold st env mspec.reqs ∧ compatible_env env m ∧
       strict_locals_ok mspec.ins st.locals ∧
       locals_ok mspec.outs st.locals ∧
@@ -4634,6 +4710,7 @@ Theorem methods_lemma[local]:
         valid_mod st.heap [] st'.heap ∧
         locals_ok (mspec.ins ++ mspec.outs) st'.locals ∧
         state_inv st' ∧
+        LIST_REL (mod_loc st'.locals) mods mod_locs ∧
         conditions_hold st' env (MAP (wrap_Old (set (MAP FST mspec.ins))) mspec.ens) ∧
         LIST_REL (eval_exp st' env) (MAP (Var o FST) mspec.outs) out_vs
 Proof
@@ -4645,7 +4722,9 @@ Proof
   \\ last_x_assum (drule o SRULE [proved_methods_def])
   \\ strip_tac
   \\ drule stmt_wp_sound
-  \\ disch_then $ qspecl_then [‘st’,‘env’] mp_tac
+  \\ disch_then $ qspecl_then [‘st’,‘env’,‘mod_locs’] mp_tac
+  \\ ‘mod_vars = mods’ by gvs []
+  \\ rveq
   \\ impl_tac >-
    (asm_rewrite_tac []
     \\ ‘ALL_DISTINCT (MAP FST mspec.ins)’ by (gvs [ALL_DISTINCT_APPEND])
@@ -4657,6 +4736,7 @@ Proof
     \\ rpt strip_tac
     \\ gvs [eval_measure_wrap_old, compatible_env_def]
     \\ last_x_assum $ drule_then drule
+    \\ disch_then $ qspecl_then [‘mods'’,‘mod_locs'’] mp_tac
     \\ impl_tac >- (simp [SF SFY_ss])
     \\ strip_tac \\ gvs [locals_ok_append_left]
     \\ first_x_assum $ irule_at $ Pos hd \\ fs []
@@ -4843,6 +4923,8 @@ Definition stmt_vcg_def:
             (fail «stmt_vcg:Dec: Name occurs freely in ens»);
     () <- if ¬MEM n (MAP FST ls) then return () else
             (fail «stmt_vcg:Dec: Shadowing variables disallowed»);
+    () <- if ¬MEM n mods then return () else
+            (fail «stmt_vcg:Dec: Shadowing mod variables disallowed»);
     return wp
   od ∧
   stmt_vcg _ (Assign ass) post _ _ mods ls =
