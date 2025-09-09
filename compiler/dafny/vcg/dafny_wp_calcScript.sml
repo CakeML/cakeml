@@ -542,6 +542,7 @@ Inductive stmt_wp:
     LENGTH mspec.outs = LENGTH rets ∧
     ALL_DISTINCT (MAP FST mspec.ins ++ MAP FST mspec.outs) ∧
     ALL_DISTINCT ret_names ∧
+    EVERY (λv. ~MEM v ret_names) mods ∧
     rets = (MAP VarLhs ret_names) ∧
     EVERY (no_Prev b) args ∧
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e ∧ no_Prev b e) mspec.reqs ∧
@@ -549,6 +550,11 @@ Inductive stmt_wp:
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins ++ MAP FST mspec.outs) ∧
                no_Old e ∧ no_Prev F e) mspec.ens ∧
     EVERY (no_Prev b) post ∧
+    dest_Vars mspec.mods = SOME callee_mod_params ∧
+    dest_Vars (MAP SND (FILTER (λ(v,a). MEM v callee_mod_params)
+      (ZIP (MAP FST mspec.ins,args)))) = SOME callee_mod_arg_vars ∧
+    set callee_mod_arg_vars ⊆ set mods ∧
+    set callee_mod_params ⊆ set (MAP FST mspec.ins) ∧
     set ret_names ⊆ set (MAP FST ls) ∧
     get_types ls args = INR (MAP SND mspec.ins) ∧
     get_types ls (MAP Var ret_names) = INR (MAP SND mspec.outs)
@@ -2602,6 +2608,12 @@ Proof
   \\ rpt strip_tac \\ gvs []
   >- (gvs [read_local_def, CaseEq "option"])
   \\ IF_CASES_TAC \\ gvs []
+QED
+
+Triviality IMP_LIST_REL_EXISTS:
+  EVERY (λx. ∃y. R x y) xs ⇒ ∃ys. LIST_REL R xs ys
+Proof
+  cheat
 QED
 
 Triviality value_same_type_bool:
@@ -5134,10 +5146,19 @@ Proof
   \\ gvs []
 QED
 
+Theorem dest_Vars_MAP_FILTER_lemma:
+  dest_Vars (MAP SND (FILTER (λ(v,a). MEM v ts) (ZIP (xs,ys)))) = SOME zs ∧
+  MEM p ts ∧ MEM p xs ∧ LENGTH xs = LENGTH ys
+  ⇒
+  ∃i v.
+    i < LENGTH xs ∧ EL i ys = Var v ∧ MEM v zs ∧ EL i xs = p
+Proof
+  cheat
+QED
+
 Theorem stmt_wp_sound_MetCall:
   ^(#get_goal stmt_wp_sound_setup `MetCall`)
 Proof
-  cheat (*
   rpt strip_tac
   \\ rename [‘MetCall rets mname args’]
   \\ irule_at Any eval_stmt_MetCall \\ gvs []
@@ -5156,7 +5177,29 @@ Proof
   \\ qpat_abbrev_tac ‘new_l = REVERSE _’
   \\ qmatch_goalsub_abbrev_tac ‘eval_stmt st1’
   \\ first_x_assum $ drule_at $ Pos $ el 2
-  \\ disch_then $ qspec_then ‘st1’ mp_tac
+  \\ ‘∃callee_mod_locs.
+        LIST_REL (mod_loc st1.locals) callee_mod_params callee_mod_locs’ by
+   (irule IMP_LIST_REL_EXISTS
+    \\ simp [EVERY_MEM,Abbr‘st1’]
+    \\ rpt gen_tac \\ rename [‘MEM p _ ⇒ _’]
+    \\ strip_tac
+    \\ ‘MEM p (MAP FST mspec.ins)’ by fs [SUBSET_DEF]
+    \\ drule dest_Vars_MAP_FILTER_lemma \\ simp []
+    \\ disch_then drule_all \\ strip_tac
+    \\ ‘MEM v mods’ by fs [SUBSET_DEF]
+    \\ ‘∃z. mod_loc st.locals v z’ by
+      (imp_res_tac LIST_REL_MEM_IMP
+       \\ first_x_assum $ irule_at Any \\ fs [])
+    \\ simp [mod_loc_def,Abbr‘new_l’]
+    \\ DEP_REWRITE_TAC [alookup_distinct_reverse]
+    \\ conj_tac >- cheat
+    \\ simp [ALOOKUP_APPEND,CaseEq"option",SF DNF_ss]
+    \\ disj2_tac
+    \\ ‘ALL_DISTINCT (MAP FST (ZIP (MAP FST mspec.ins,MAP SOME in_vs)))’ by cheat
+    \\ drule alookup_eq_mem \\ simp []
+    \\ disch_then kall_tac
+    \\ cheat)
+  \\ disch_then $ qspecl_then [‘st1’,‘callee_mod_params’,‘callee_mod_locs’] mp_tac
   \\ impl_tac
   >-
    (reverse $ rpt conj_tac
@@ -5238,6 +5281,8 @@ Proof
       \\ match_mp_tac EQ_IMPLIES
       \\ rpt AP_THM_TAC \\ AP_TERM_TAC
       \\ simp [state_component_equality])
+    >- (asm_rewrite_tac [])
+    >- (asm_rewrite_tac [])
     >-
      (rev_drule_then assume_tac get_types_inr_every_can_get_type
       \\ drule_all_then assume_tac list_rel_eval_exp_value_inv
@@ -5372,6 +5417,16 @@ Proof
   \\ rewrite_tac [GSYM eval_true_conj_every]
   \\ conj_tac >-
    (gvs [Abbr ‘st3’, restore_caller_def, state_inv_def])
+  \\ conj_tac >-
+   (simp [] \\ fs [Abbr‘st3’,restore_caller_def]
+    \\ qpat_x_assum ‘EVERY (λv. ¬MEM v ret_names) mods’ assume_tac
+    \\ qpat_x_assum ‘LIST_REL (mod_loc st.locals) mods mod_locs’ mp_tac
+    \\ match_mp_tac LIST_REL_mono_alt \\ simp [mod_loc_def]
+    \\ rpt strip_tac
+    \\ simp [ALOOKUP_APPEND,CaseEq"option",SF DNF_ss]
+    \\ disj1_tac
+    \\ simp [ALOOKUP_NONE]
+    \\ DEP_REWRITE_TAC [cj 1 MAP_ZIP] \\ fs [EVERY_MEM])
   \\ rewrite_tac [eval_true_def]
   \\ irule (iffLR eval_exp_swap_locals_alt)
   \\ qpat_x_assum ‘ALOOKUP _ = ALOOKUP _’ $ irule_at Any o GSYM
@@ -5477,7 +5532,7 @@ Proof
   \\ strip_tac
   \\ fs [ALL_DISTINCT_APPEND]
   \\ drule_all read_out_lemma
-  \\ strip_tac \\ fs [] *)
+  \\ strip_tac \\ fs []
 QED
 
 Theorem stmt_wp_sound:
