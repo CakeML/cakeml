@@ -244,6 +244,8 @@ Definition get_vars_stmt_def:
   get_vars_stmt (Assert e) = get_vars_exp e ∧
   get_vars_stmt (Then stmt₁ stmt₂) =
     get_vars_stmt stmt₁ ++ get_vars_stmt stmt₂ ∧
+  get_vars_stmt (If grd thn els) =
+    get_vars_exp grd ++ get_vars_stmt thn ++ get_vars_stmt els ∧
   get_vars_stmt (Dec _ scope) = get_vars_stmt scope ∧
   get_vars_stmt (Assign ass) =
     FLAT (MAP get_vars_lhs_exp (MAP FST ass)) ++
@@ -3285,18 +3287,6 @@ Proof
   \\ simp [state_component_equality]
 QED
 
-(* todo move to dafny_evaluateProps *)
-Theorem evaluate_stmt_add_to_clock:
-  ∀s env stmt s' r extra.
-    evaluate_stmt s env stmt = (s', r) ∧ r ≠ Rstop (Serr Rtimeout_error) ⇒
-    evaluate_stmt (s with clock := s.clock + extra) env stmt =
-      (s' with clock := s'.clock + extra, r)
-Proof
-  ho_match_mp_tac evaluate_stmt_ind
-  \\ rpt strip_tac
-  \\ cheat (* reserved *)
-QED
-
 (* todo move to dafny_eval_rel *)
 Theorem eval_stmt_While_unroll:
   eval_exp st env guard (BoolV T) ∧
@@ -3338,14 +3328,32 @@ Theorem eval_exp_Var:
   ALOOKUP st.locals v = SOME (SOME val) ⇒
   eval_exp st env (Var v) val
 Proof
-  cheat (* reserved *)
+  gvs [eval_exp_def, evaluate_exp_def, read_local_def, state_component_equality]
+QED
+
+Theorem CanEval_IMP:
+  eval_true st env (CanEval d) ⇒  ∃v. eval_exp st env d v
+Proof
+  rpt strip_tac
+  \\ gvs [eval_true_def, eval_exp_def, CanEval_def, evaluate_exp_def, do_sc_def,
+          AllCaseEqs()]
+  \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+  \\ first_assum $ irule_at (Pos hd)
 QED
 
 Theorem MAP_CanEval_IMP:
-  conditions_hold st env (MAP CanEval ds) ⇒
-  ∃ds_vals. LIST_REL (λe v. eval_exp st env e v) ds ds_vals
+  ∀ds.
+    conditions_hold st env (MAP CanEval ds) ⇒
+    ∃ds_vals. LIST_REL (λe v. eval_exp st env e v) ds ds_vals
 Proof
-  cheat (* reserved *)
+  Induct >- (simp [])
+  \\ qx_gen_tac ‘d’
+  \\ simp [conditions_hold_cons]
+  \\ strip_tac
+  \\ drule CanEval_IMP \\ strip_tac
+  \\ last_x_assum drule \\ strip_tac
+  \\ first_assum $ irule_at (Pos hd)
+  \\ first_assum $ irule_at (Pos hd)
 QED
 
 Theorem eval_stmt_drop_locals:
@@ -3365,12 +3373,512 @@ Proof
   cheat (* reserved *)
 QED
 
+
+(* todo move to evaluateProps *)
+Definition locals_rel_def:
+  (locals_rel seen [] [] ⇔ T) ∧
+  (locals_rel seen ((n₁,v₁)::rest₁) ((n₂,v₂)::rest₂) ⇔
+     n₁ = n₂ ∧ locals_rel (n₁ INSERT seen) rest₁ rest₂ ∧
+     (n₁ ∈ seen ⇒ v₁ = v₂)) ∧
+  (locals_rel _ _ _ ⇔ F)
+End
+
+(* todo move to evaluateProps *)
+Theorem locals_rel_same[simp]:
+  ∀xs seen. locals_rel seen xs xs
+Proof
+  Induct >- (simp [locals_rel_def])
+  \\ Cases \\ simp [locals_rel_def]
+QED
+
+(* todo move to evaluateProps *)
+Theorem locals_rel_trans:
+  ∀seen xs ys zs.
+    locals_rel seen xs ys ∧ locals_rel seen ys zs ⇒
+    locals_rel seen xs zs
+Proof
+  ho_match_mp_tac locals_rel_ind \\ gvs [locals_rel_def]
+  >-
+   (qx_genl_tac [‘seen’, ‘n₁’, ‘v₁’, ‘xs’, ‘ns₂’, ‘v₂’, ‘ys’]
+    \\ rpt strip_tac \\ gvs []
+    \\ namedCases_on ‘zs’ ["", "z zs'"]
+    >- (gvs [locals_rel_def])
+    \\ namedCases_on ‘z’ ["n₃ v₃"]
+    \\ gvs [locals_rel_def])
+QED
+
+(* todo move to evaluateProps *)
+Triviality locals_rel_seen_imp:
+  ∀seen xs ys.
+    locals_rel seen xs ys ⇒
+    (∀n. n ∈ seen ⇒ LIST_REL (λ(n₁,v₁) (n₂,v₂). n₁ = n ⇒ v₁ = v₂) xs ys)
+Proof
+  ho_match_mp_tac locals_rel_ind \\ gvs [locals_rel_def]
+QED
+
+(* todo move to evaluateProps *)
+Triviality locals_rel_insert_imp:
+  ∀xs ys seen. locals_rel (n INSERT seen) xs ys ⇒ locals_rel seen xs ys
+Proof
+  Induct
+  >-
+   (namedCases ["", "y ys'"] \\ gvs []
+    \\ Cases_on ‘y’ \\ gvs [locals_rel_def])
+  \\ Cases
+  \\ namedCases ["", "y ys'"] \\ gvs [locals_rel_def]
+  \\ rpt strip_tac
+  \\ Cases_on ‘y’ \\ gvs [locals_rel_def]
+  \\ last_x_assum $ irule_at (Pos hd)
+  \\ gvs [INSERT_DEF, AC DISJ_COMM DISJ_ASSOC]
+QED
+
+(* todo move to evaluateProps *)
+Triviality locals_rel_insert_lr:
+  locals_rel (n INSERT seen) xs ys ⇒
+  locals_rel seen xs ys ∧
+  LIST_REL (λ(n₁,v₁) (n₂,v₂). n₁ = n ⇒ v₁ = v₂) xs ys
+Proof
+  rpt strip_tac
+  >- (drule locals_rel_insert_imp \\ simp [])
+  \\ drule locals_rel_seen_imp
+  \\ disch_then $ qspec_then ‘n’ assume_tac \\ gvs []
+QED
+
+(* todo move to evaluateProps *)
+Triviality locals_rel_insert_rl:
+  ∀seen xs ys.
+    locals_rel seen xs ys ∧
+    LIST_REL (λ(n₁,v₁) (n₂,v₂). n₁ = n ⇒ v₁ = v₂) xs ys ⇒
+    locals_rel (n INSERT seen) xs ys
+Proof
+  ho_match_mp_tac locals_rel_ind \\ gvs [locals_rel_def]
+  \\ rpt strip_tac \\ gvs []
+  \\ gvs [INSERT_DEF, AC DISJ_COMM DISJ_ASSOC]
+QED
+
+(* todo move to evaluateProps *)
+Theorem locals_rel_insert:
+  locals_rel (n INSERT seen) xs ys ⇔
+  locals_rel seen xs ys ∧
+  LIST_REL (λ(n₁,v₁) (n₂,v₂). n₁ = n ⇒ v₁ = v₂) xs ys
+Proof
+  metis_tac [locals_rel_insert_lr, locals_rel_insert_rl]
+QED
+
+(* todo move to evaluateProps *)
+Theorem locals_rel_seen_subset:
+  ∀seen xs ys.
+    locals_rel seen xs ys ∧ seen₁ ⊆ seen ⇒ locals_rel seen₁ xs ys
+Proof
+  ho_match_mp_tac locals_rel_ind \\ gvs [locals_rel_def]
+  \\ rpt gen_tac
+  \\ rpt disch_tac \\ gvs []
+  \\ reverse conj_tac
+  >- (gvs [SUBSET_DEF])
+  \\ ‘seen₁ ⊆ n₁ INSERT seen’ by (gvs [INSERT_DEF, SUBSET_DEF]) \\ gvs []
+  \\ gvs [locals_rel_insert]
+QED
+
+(* todo move to evaluateProps *)
+Theorem locals_rel_length:
+  ∀seen xs ys. locals_rel seen xs ys ⇒ LENGTH ys = LENGTH xs
+Proof
+  ho_match_mp_tac locals_rel_ind \\ gvs [locals_rel_def]
+QED
+
+(* todo move to evaluateProps *)
+Theorem evaluate_rhs_exp_same_locals:
+  evaluate_rhs_exp s env rhs = (s', r) ⇒ s'.locals = s.locals
+Proof
+  Cases_on ‘rhs’
+  \\ rpt strip_tac
+  >~ [‘ExpRhs e’] >-
+   (gvs [evaluate_rhs_exp_def]
+    \\ imp_res_tac evaluate_exp_with_clock
+    \\ gvs [state_component_equality])
+  >~ [‘ArrAlloc len initv ty’] >-
+   (gvs [evaluate_rhs_exp_def]
+    \\ namedCases_on ‘evaluate_exp s env len’ ["s₁ r₁"] \\ gvs []
+    \\ dxrule_then assume_tac (cj 1 evaluate_exp_with_clock) \\ gvs []
+    \\ reverse $ namedCases_on ‘r₁’ ["len", "err"] \\ gvs []
+    \\ qmatch_asmsub_abbrev_tac ‘evaluate_exp s₁’
+    \\ namedCases_on ‘evaluate_exp s₁ env initv’ ["s₂ r₂"] \\ gvs []
+    \\ dxrule_then assume_tac (cj 1 evaluate_exp_with_clock) \\ gvs []
+    \\ reverse $ namedCases_on ‘r₂’ ["init", "err"] \\ gvs []
+    \\ unabbrev_all_tac
+    >- (simp [state_component_equality])
+    \\ gvs [AllCaseEqs()]
+    \\ gvs [alloc_array_def, AllCaseEqs()])
+QED
+
+(* todo move to evaluateProps *)
+Theorem evaluate_rhs_exps_same_locals:
+  ∀rhss s env s' r.
+    evaluate_rhs_exps s env rhss = (s', r) ⇒ s'.locals = s.locals
+Proof
+  Induct >- (simp [evaluate_rhs_exps_def, state_component_equality])
+  \\ rpt strip_tac
+  \\ gvs [evaluate_rhs_exps_def]
+  \\ rename [‘evaluate_rhs_exp _ _ rhs’]
+  \\ namedCases_on ‘evaluate_rhs_exp s env rhs’ ["s₁ r₁"] \\ gvs []
+  \\ drule_then assume_tac evaluate_rhs_exp_same_locals
+  \\ Cases_on ‘r₁’ \\ gvs []
+  \\ namedCases_on ‘evaluate_rhs_exps s₁ env rhss’ ["s₂ r₂"] \\ gvs []
+  \\ last_x_assum drule \\ rpt strip_tac
+  \\ gvs [AllCaseEqs()]
+QED
+
+(* todo move to evaluateProps *)
+Theorem evaluate_rhs_exps_locals_rel:
+  evaluate_rhs_exps s env rhss = (s', r) ⇒ locals_rel ∅ s.locals s'.locals
+Proof
+  strip_tac \\ drule evaluate_rhs_exps_same_locals \\ simp []
+QED
+
+(* todo move to evaluateProps *)
+Theorem update_local_aux_locals_rel:
+  ∀locals locals' seen.
+    update_local_aux locals var val = SOME locals' ∧ var ∉ seen ⇒
+    locals_rel seen locals locals'
+Proof
+  Induct >- (simp [update_local_aux_def])
+  \\ namedCases ["n ov"]
+  \\ simp [update_local_aux_def]
+  \\ reverse IF_CASES_TAC \\ gvs []
+  >- (rpt strip_tac \\ simp [locals_rel_def])
+  \\ TOP_CASE_TAC \\ gvs []
+  \\ simp [locals_rel_def]
+QED
+
+(* todo move to evaluateProps *)
+Theorem update_local_locals_rel:
+  update_local s var val = SOME s' ∧ var ∉ seen ⇒
+  locals_rel seen s.locals s'.locals
+Proof
+  simp [update_local_def]
+  \\ TOP_CASE_TAC \\ strip_tac \\ gvs []
+  \\ drule update_local_aux_locals_rel
+  \\ simp []
+QED
+
+(* todo move to evaluateProps *)
+Theorem assign_value_locals_rel:
+  assign_value s env lhs rhs = (s', r) ⇒
+  locals_rel ∅ s.locals s'.locals
+Proof
+  Cases_on ‘lhs’
+  >~ [‘VarLhs’] >-
+   (simp [assign_value_def]
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ rpt strip_tac \\ gvs []
+    \\ drule update_local_locals_rel \\ simp [])
+  >~ [‘ArrSelLhs’] >-
+   (simp [assign_value_def]
+    \\ TOP_CASE_TAC
+    \\ dxrule (cj 1 evaluate_exp_with_clock) \\ strip_tac \\ gvs []
+    \\ reverse TOP_CASE_TAC
+    >- (gvs [state_component_equality])
+    \\ TOP_CASE_TAC
+    \\ dxrule (cj 1 evaluate_exp_with_clock) \\ strip_tac \\ gvs []
+    \\ reverse TOP_CASE_TAC
+    >- (gvs [state_component_equality])
+    \\ TOP_CASE_TAC
+    >- (gvs [state_component_equality])
+    \\ rpt strip_tac \\ gvs []
+    \\ gvs [update_array_def, AllCaseEqs()])
+QED
+
+(* todo move to evaluateProps *)
+Theorem assign_values_locals_rel:
+  ∀s env lhss rhss.
+    assign_values s env lhss rhss = (s', r) ⇒
+    locals_rel ∅ s.locals s'.locals
+Proof
+  ho_match_mp_tac assign_values_ind \\ gvs [assign_values_def]
+  \\ rpt gen_tac \\ disch_tac
+  \\ TOP_CASE_TAC \\ gvs []
+  \\ dxrule assign_value_locals_rel \\ strip_tac \\ gvs []
+  \\ reverse TOP_CASE_TAC \\ gvs []
+  \\ rpt strip_tac \\ gvs []
+  \\ dxrule_all locals_rel_trans \\ simp []
+QED
+
+(* todo move to evaluateProps *)
+(* todo can we prove evaluate_stmt_locals with this? *)
+Theorem evaluate_stmt_locals_rel:
+  ∀s env stmt s' r.
+    evaluate_stmt s env stmt = (s', r) ⇒ locals_rel ∅ s.locals s'.locals
+Proof
+  ho_match_mp_tac evaluate_stmt_ind
+  \\ rpt strip_tac
+  >~ [‘Skip’] >-
+   (gvs [evaluate_stmt_def])
+  >~ [‘Assert’] >-
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ IF_CASES_TAC \\ simp []
+    \\ TOP_CASE_TAC
+    \\ dxrule_then assume_tac (cj 1 evaluate_exp_with_clock) \\ gvs []
+    \\ TOP_CASE_TAC \\ simp [state_component_equality]
+    \\ IF_CASES_TAC \\ simp [state_component_equality])
+  >~ [‘Then’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ irule locals_rel_trans
+    \\ first_assum $ irule_at Any \\ simp [])
+  >~ [‘If’] >-
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ TOP_CASE_TAC
+    \\ dxrule_then assume_tac (cj 1 evaluate_exp_with_clock) \\ gvs []
+    \\ reverse TOP_CASE_TAC
+    >- (simp [state_component_equality])
+    \\ TOP_CASE_TAC
+    >- (simp [state_component_equality])
+    \\ strip_tac \\ gvs [])
+  >~ [‘Dec local’] >-
+   (namedCases_on ‘local’ ["n ty"]
+    \\ gvs [evaluate_stmt_def]
+    \\ namedCases_on ‘evaluate_stmt (declare_local s n) env stmt’ ["s₁ r₁"]
+    \\ gvs []
+    \\ drule_then assume_tac locals_rel_length
+    \\ gvs [declare_local_def]
+    \\ namedCases_on ‘s₁.locals’ ["", "h rest"] \\ gvs []
+    \\ namedCases_on ‘h’ ["v' ov"]
+    \\ gvs [pop_locals_def, safe_drop_def]
+    \\ gvs [locals_rel_def]
+    \\ irule locals_rel_seen_subset
+    \\ last_assum $ irule_at (Pos last) \\ simp [])
+  >~ [‘Assign ass’] >-
+   (gvs [evaluate_stmt_def]
+    \\ Cases_on ‘evaluate_rhs_exps s env (MAP SND ass)’ \\ gvs []
+    \\ dxrule evaluate_rhs_exps_locals_rel \\ strip_tac
+    \\ gvs [AllCaseEqs()]
+    \\ dxrule assign_values_locals_rel \\ strip_tac
+    \\ dxrule_all locals_rel_trans \\ simp [])
+  >~ [‘While’] >-
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ IF_CASES_TAC >- (simp [])
+    \\ gvs [dec_clock_def]
+    \\ TOP_CASE_TAC
+    \\ dxrule_then assume_tac (cj 1 evaluate_exp_with_clock) \\ gvs []
+    \\ reverse TOP_CASE_TAC
+    >- (simp [state_component_equality])
+    \\ IF_CASES_TAC
+    >- (simp [state_component_equality])
+    \\ reverse IF_CASES_TAC
+    >- (simp [state_component_equality])
+    \\ TOP_CASE_TAC
+    \\ reverse TOP_CASE_TAC
+    >- (simp [state_component_equality])
+    \\ strip_tac \\ gvs []
+    \\ dxrule_all locals_rel_trans \\ simp [])
+  >~ [‘Print’] >-
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ CASE_TAC
+    \\ dxrule (cj 1 evaluate_exp_with_clock)
+    \\ rpt strip_tac \\ gvs [AllCaseEqs()])
+  >~ [‘MetCall’] >-
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ TOP_CASE_TAC \\ simp []
+    \\ TOP_CASE_TAC \\ simp []
+    \\ TOP_CASE_TAC \\ simp []
+    \\ dxrule_then assume_tac (cj 2 evaluate_exp_with_clock) \\ gvs []
+    \\ reverse TOP_CASE_TAC
+    >- (simp [state_component_equality])
+    \\ TOP_CASE_TAC
+    >- (simp [state_component_equality])
+    \\ IF_CASES_TAC
+    >- (simp [restore_caller_def, state_component_equality])
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ TOP_CASE_TAC
+    >- (simp [restore_caller_def, state_component_equality])
+    \\ reverse TOP_CASE_TAC
+    >- (simp [restore_caller_def, state_component_equality])
+    \\ TOP_CASE_TAC
+    >- (simp [restore_caller_def, state_component_equality])
+    \\ IF_CASES_TAC
+    >- (simp [restore_caller_def, state_component_equality])
+    \\ strip_tac
+    \\ dxrule assign_values_locals_rel \\ strip_tac
+    \\ gvs [restore_caller_def])
+  >~ [‘Return’] >-
+   (gvs [evaluate_stmt_def])
+QED
+
+Theorem locals_rel_seen_alookup:
+  ∀seen xs ys.
+    locals_rel seen xs ys ⇒ (∀n. n ∈ seen ⇒ ALOOKUP ys n = ALOOKUP xs n)
+Proof
+  ho_match_mp_tac locals_rel_ind \\ gvs [locals_rel_def]
+QED
+
+(* todo move to evaluateProps *)
+Triviality evaluate_stmt_declare_local_alookup:
+  evaluate_stmt (declare_local s v) env stmt = (s₁, r) ∧
+  pop_locals 1 s₁ = SOME s'
+  ⇒
+  ALOOKUP s'.locals v = ALOOKUP s.locals v
+Proof
+  rpt strip_tac
+  \\ drule evaluate_stmt_locals_rel \\ strip_tac
+  \\ fs [declare_local_def]
+  \\ drule_then assume_tac locals_rel_length \\ gvs []
+  \\ namedCases_on ‘s₁.locals’ ["", "h rest"] \\ gvs []
+  \\ namedCases_on ‘h’ ["v' ov"]
+  \\ gvs [locals_rel_def]
+  \\ gvs [pop_locals_def, safe_drop_def]
+  \\ drule_then assume_tac locals_rel_seen_alookup \\ gvs []
+QED
+
+(* todo move to evaluateProps *)
+Theorem varlhs_neq_assign_value:
+  VarLhs v ≠ lhs ∧ assign_value s env lhs val = (s',r) ⇒
+  ALOOKUP s'.locals v = ALOOKUP s.locals v
+Proof
+  namedCases_on ‘lhs’ ["v'", ""]
+  >~ [‘VarLhs’] >-
+   (simp [assign_value_def]
+    \\ CASE_TAC \\ strip_tac \\ gvs []
+    \\ drule update_local_locals_rel
+    \\ disch_then $ qspec_then ‘{v}’ mp_tac \\ simp []
+    \\ strip_tac
+    \\ drule locals_rel_seen_alookup \\ simp [])
+  >~ [‘ArrSelLhs’] >-
+   (simp [assign_value_def]
+    \\ TOP_CASE_TAC
+    \\ dxrule (cj 1 evaluate_exp_with_clock) \\ strip_tac \\ gvs []
+    \\ reverse TOP_CASE_TAC
+    >- (simp [state_component_equality])
+    \\ TOP_CASE_TAC
+    \\ dxrule (cj 1 evaluate_exp_with_clock) \\ strip_tac \\ gvs []
+    \\ reverse TOP_CASE_TAC
+    >- (simp [state_component_equality])
+    \\ rpt strip_tac \\ gvs [update_array_def, AllCaseEqs()])
+QED
+
+(* todo move to evaluateProps *)
+Theorem not_mem_assign_values:
+  ∀lhss vals st.
+    ¬MEM (VarLhs v) lhss ∧
+    assign_values st env lhss vals = (st', r) ⇒
+    ALOOKUP st'.locals v = ALOOKUP st.locals v
+Proof
+  Induct >- (Cases \\ simp [assign_values_def])
+  \\ gen_tac \\ Cases \\ gen_tac \\ simp [assign_values_def]
+  \\ CASE_TAC \\ strip_tac \\ gvs []
+  \\ dxrule_all_then assume_tac varlhs_neq_assign_value
+  \\ gvs [AllCaseEqs()]
+  \\ last_x_assum $ drule_then assume_tac \\ gvs []
+QED
+
+Theorem evaluate_stmt_not_assigned_in:
+  ∀st env stmt st' r.
+    evaluate_stmt st env stmt = (st', r) ⇒
+    (∀v. ¬assigned_in stmt v ⇒ ALOOKUP st'.locals v = ALOOKUP st.locals v)
+Proof
+  ho_match_mp_tac evaluate_stmt_ind
+  \\ rpt strip_tac
+  >~ [‘Skip’] >-
+   (gvs [evaluate_stmt_def])
+  >~ [‘Assert’] >-
+   (gvs [evaluate_stmt_def, assigned_in_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs [])
+  >~ [‘Then’] >-
+   (gvs [evaluate_stmt_def, assigned_in_def, AllCaseEqs()])
+  >~ [‘If’] >-
+   (gvs [evaluate_stmt_def, assigned_in_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+    \\ imp_res_tac do_cond_some_cases \\ gvs [])
+  >~ [‘Dec local’] >-
+   (namedCases_on ‘local’ ["n ty"]
+    \\ gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ namedCases_on
+         ‘evaluate_stmt (declare_local st n) env stmt’
+         ["st₁ r₁"]
+    \\ gvs []
+    \\ ‘st₁.locals ≠ []’ by
+      (spose_not_then assume_tac
+       \\ imp_res_tac evaluate_stmt_locals
+       \\ gvs [declare_local_def])
+    \\ imp_res_tac pop_local_some \\ gvs []
+    \\ Cases_on ‘n = v’ \\ gvs []
+    >- (* assignment does not matter, as we are cleaning up the local *)
+     (drule evaluate_stmt_declare_local_alookup \\ strip_tac \\ gvs [])
+    \\ gvs [assigned_in_def]
+    \\ last_x_assum drule \\ strip_tac
+    \\ gvs [declare_local_def]
+    \\ drule evaluate_stmt_locals \\ strip_tac \\ gvs []
+    \\ namedCases_on ‘st₁.locals’ ["", "local' locals"] \\ gvs []
+    \\ gvs [pop_locals_def, safe_drop_def]
+    \\ namedCases_on ‘local'’ ["n' ov"] \\ gvs [])
+  >~ [‘Assign’] >-
+   (gvs [evaluate_stmt_def, assigned_in_def, AllCaseEqs()]
+    \\ dxrule evaluate_rhs_exps_same_locals \\ simp []
+    \\ dxrule_all not_mem_assign_values \\ simp [])
+  >~ [‘While’] >-
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ IF_CASES_TAC \\ simp []
+    \\ TOP_CASE_TAC
+    \\ dxrule (cj 1 evaluate_exp_with_clock)
+    \\ strip_tac \\ gvs [dec_clock_def]
+    \\ reverse TOP_CASE_TAC
+    >- (simp [state_component_equality])
+    \\ IF_CASES_TAC
+    >- (simp [state_component_equality])
+    \\ reverse IF_CASES_TAC
+    >- (simp [state_component_equality])
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ reverse TOP_CASE_TAC
+    \\ gvs [assigned_in_def]
+    >- (strip_tac \\ gvs [state_component_equality])
+    \\ strip_tac \\ gvs [assigned_in_def, STOP_def])
+  >~ [‘Print’] >-
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ CASE_TAC
+    \\ dxrule (cj 1 evaluate_exp_with_clock) \\ strip_tac \\ gvs []
+    \\ strip_tac \\ gvs [AllCaseEqs()])
+  >~ [‘MetCall’] >-
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ TOP_CASE_TAC
+    \\ TOP_CASE_TAC
+    \\ TOP_CASE_TAC
+    \\ dxrule (cj 2 evaluate_exp_with_clock) \\ strip_tac \\ gvs []
+    \\ reverse TOP_CASE_TAC
+    >- (simp [state_component_equality])
+    \\ TOP_CASE_TAC
+    >- (simp [state_component_equality])
+    \\ IF_CASES_TAC
+    >- (simp [restore_caller_def, state_component_equality])
+    \\ TOP_CASE_TAC
+    \\ TOP_CASE_TAC
+    >- (simp [restore_caller_def, state_component_equality])
+    \\ reverse TOP_CASE_TAC
+    >- (simp [restore_caller_def, state_component_equality])
+    \\ TOP_CASE_TAC
+    >- (simp [restore_caller_def, state_component_equality])
+    \\ IF_CASES_TAC
+    >- (simp [restore_caller_def, state_component_equality])
+    \\ strip_tac
+    \\ fs [assigned_in_def]
+    \\ dxrule_all not_mem_assign_values \\ simp [restore_caller_def])
+  >~ [‘Return’] >-
+   (gvs [evaluate_stmt_def])
+QED
+
 Theorem assigned_in_thm:
   eval_stmt st env stmt st1 res ⇒
-  ∀v. ~(assigned_in stmt v) ⇒
+  ∀v. ¬assigned_in stmt v ⇒
       ALOOKUP st1.locals v = ALOOKUP st.locals v
 Proof
-  cheat (* reserved *)
+  simp [eval_stmt_def]
+  \\ rpt strip_tac
+  \\ drule_all evaluate_stmt_not_assigned_in  \\ simp []
 QED
 
 Triviality eval_exp_eq_ignore_clock:
@@ -3380,14 +3888,104 @@ Proof
   gvs [eval_exp_def,FUN_EQ_THM]
 QED
 
-Triviality IMP_dec_assum:
-  LIST_REL (λe v. eval_exp st1 env e v) ds ds_vals ∧
-  Abbrev (ds1 = ZIP (ds_vars,MAP SOME ds_vals)) ∧
-  ALL_DISTINCT ds_vars ⇒
-  EVERY (eval_true (st1 with locals := ds1 ++ st1.locals) env)
-        (MAP2 dec_assum ds_vars ds)
+Triviality bigunion_freevars_subset_vars:
+  ∀xs.
+    (∀e. MEM e xs ⇒ freevars e ⊆ set (get_vars_exp e)) ⇒
+    BIGUNION (set (MAP (λa. freevars a) xs)) ⊆
+    BIGUNION (set (MAP set (MAP (λa. get_vars_exp a) xs)))
 Proof
-  cheat (* reserved *)
+  Induct >- (simp [])
+  \\ qx_gen_tac ‘x’
+  \\ rpt strip_tac \\ gvs []
+  \\ first_x_assum $ qspec_then ‘x’ mp_tac
+  \\ gvs [SUBSET_DEF]
+QED
+
+Triviality freevars_subset_vars:
+  ∀e. freevars e ⊆ set (get_vars_exp e)
+Proof
+  cheat (* needs updating for Prev
+  ho_match_mp_tac freevars_ind
+  \\ rpt strip_tac
+  >~ [‘Let’] >-
+   (gvs [freevars_def, get_vars_exp_def]
+    \\ simp [LIST_TO_SET_FLAT]
+    \\ drule bigunion_freevars_subset_vars
+    \\ gvs [SUBSET_DEF])
+  >~ [‘Var’] >-
+   (gvs [freevars_def, get_vars_exp_def])
+  >~ [‘Lit’] >-
+   (gvs [freevars_def, get_vars_exp_def])
+  >~ [‘If’] >-
+   (gvs [freevars_def, get_vars_exp_def]
+    \\ gvs [SUBSET_DEF])
+  >~ [‘UnOp’] >-
+   (gvs [freevars_def, get_vars_exp_def])
+  >~ [‘BinOp’] >-
+   (gvs [freevars_def, get_vars_exp_def]
+    \\ gvs [SUBSET_DEF])
+  >~ [‘ArrLen’] >-
+   (gvs [freevars_def, get_vars_exp_def])
+  >~ [‘ArrSel’] >-
+   (gvs [freevars_def, get_vars_exp_def]
+    \\ gvs [SUBSET_DEF])
+  >~ [‘FunCall’] >-
+   (gvs [freevars_def, get_vars_exp_def]
+    \\ simp [LIST_TO_SET_FLAT]
+    \\ drule bigunion_freevars_subset_vars \\ simp [])
+  >~ [‘Forall’] >-
+   (gvs [freevars_def, get_vars_exp_def]
+    \\ gvs [SUBSET_DEF])
+  >~ [‘Old’] >-
+   (gvs [freevars_def, get_vars_exp_def])
+  >~ [‘ForallHeap’] >-
+   (gvs [freevars_def, get_vars_exp_def]
+    \\ simp [LIST_TO_SET_FLAT]
+    \\ drule_then assume_tac bigunion_freevars_subset_vars
+    \\ gvs [SUBSET_DEF]) *)
+QED
+
+Triviality disjoint_alookup_append:
+  ∀vs.
+    DISJOINT (set (MAP FST vs)) xs ⇒
+    (∀n. n ∈ xs ⇒ ALOOKUP (vs ++ ys) n = ALOOKUP ys n)
+Proof
+  Induct >- simp []
+  \\ namedCases ["n val"] \\ rpt strip_tac \\ gvs []
+  \\ IF_CASES_TAC \\ gvs []
+QED
+
+Triviality disjoint_freevars_eval_exp_locals:
+  DISJOINT (set (MAP FST vs)) (freevars e) ⇒
+  (eval_exp st env e v ⇔ eval_exp (st with locals := vs ++ st.locals) env e v)
+Proof
+  strip_tac
+  \\ drule disjoint_alookup_append
+  \\ disch_then $ qspec_then ‘st.locals’ assume_tac
+  \\ drule eval_exp_freevars \\ simp []
+QED
+
+Triviality disjoint_vars_eval_exp_locals:
+  DISJOINT (set (get_vars_exp e)) (set (MAP FST vs)) ⇒
+  (eval_exp st env e v ⇔ eval_exp (st with locals := vs ++ st.locals) env e v)
+Proof
+  once_rewrite_tac [DISJOINT_SYM]
+  \\ strip_tac
+  \\ dxrule DISJOINT_SUBSET
+  \\ disch_then $ qspec_then ‘freevars e’ mp_tac
+  \\ impl_tac >- (simp [freevars_subset_vars])
+  \\ rewrite_tac [disjoint_freevars_eval_exp_locals]
+QED
+
+Triviality not_mem_var_eval_exp_locals:
+  eval_exp st env e v ∧ ¬MEM ds_var (get_vars_exp e) ⇒
+  eval_exp (st with locals := (ds_var,ov)::st.locals) env e v
+Proof
+  rpt strip_tac
+  \\ ‘DISJOINT (set (get_vars_exp e)) (set (MAP FST [(ds_var, ov)]))’ by
+    (gvs [])
+  \\ drule disjoint_vars_eval_exp_locals
+  \\ disch_then $ mp_tac o iffLR \\ simp []
 QED
 
 Triviality eval_true_drop_unused:
@@ -3395,8 +3993,105 @@ Triviality eval_true_drop_unused:
   DISJOINT (set (get_vars_exp guard)) (set (MAP FST ds1)) ⇒
   eval_true (st1 with locals := ds1 ++ st1.locals) env guard
 Proof
-  (* eval_exp_freevars_lemma *)
-  cheat (* reserved *)
+  simp [eval_true_def]
+  \\ strip_tac
+  \\ DEP_REWRITE_TAC [GSYM disjoint_vars_eval_exp_locals]
+  \\ simp []
+QED
+
+Triviality eval_true_dec_assum_eq:
+  eval_true s env (dec_assum var d) ⇔
+    ∃ds_val. eval_exp s env d ds_val ∧ eval_exp s env (Var var) ds_val
+Proof
+  simp [eval_true_def, dec_assum_def]
+  \\ iff_tac
+  >-
+   (simp [eval_exp_def, PULL_EXISTS]
+    \\ rpt strip_tac
+    \\ gvs [evaluate_exp_def, do_sc_def, do_bop_def, AllCaseEqs()]
+    \\ first_assum $ irule_at (Pos hd)
+    \\ simp [state_component_equality])
+  \\ simp [eval_exp_def, evaluate_exp_def, do_sc_def, do_bop_def, PULL_EXISTS]
+  \\ rpt strip_tac
+  \\ gvs [AllCaseEqs()]
+  \\ first_assum $ irule_at (Pos hd)
+QED
+
+Triviality eval_exp_eval_true_dec_assum:
+  ¬MEM ds_var (get_vars_exp d) ∧
+  eval_exp (s with locals := xs) env d ds_val ⇒
+  eval_true (s with locals := (ds_var, SOME ds_val)::xs) env
+    (dec_assum ds_var d)
+Proof
+  strip_tac
+  \\ dxrule_all not_mem_var_eval_exp_locals
+  \\ disch_then $ qspec_then ‘SOME ds_val’ assume_tac
+  \\ gvs [eval_exp_def, eval_true_def, dec_assum_def, evaluate_exp_def,
+          read_local_def, do_sc_def, do_bop_def, PULL_EXISTS]
+  \\ rename [‘evaluate_exp (_ with <|clock := ck; locals := _|>)’]
+  \\ qexists ‘ck’
+  \\ simp [state_component_equality]
+QED
+
+Triviality every_eval_true_dec_assum:
+  ∀ds ds_vars.
+    ¬MEM ds_var ds_vars ∧ ¬MEM ds_var (FLAT (MAP get_vars_exp ds)) ∧
+    EVERY (eval_true (s with locals := xs) env)
+      (MAP2 dec_assum ds_vars ds) ⇒
+    EVERY (eval_true (s with locals := (ds_var,ov)::xs) env)
+      (MAP2 dec_assum ds_vars ds)
+Proof
+  Induct >- (simp [])
+  \\ qx_gen_tac ‘d’
+  \\ namedCases ["", "ds_var' ds_vars"] >- (simp [])
+  \\ rpt strip_tac \\ gvs []
+  \\ gvs [eval_true_dec_assum_eq]
+  \\ rename [‘eval_exp _ _ _ ds_val’]
+  \\ qexists ‘ds_val’
+  \\ every_drule not_mem_var_eval_exp_locals
+  \\ simp [get_vars_exp_def]
+QED
+
+Triviality IMP_dec_assum_no_abbrev:
+  ∀ds ds_vals ds_vars.
+    LIST_REL (λe v. eval_exp st1 env e v) ds ds_vals ∧
+    LENGTH ds_vals = LENGTH ds_vars ∧
+    DISJOINT (set (FLAT (MAP get_vars_exp ds))) (set ds_vars) ∧
+    ALL_DISTINCT ds_vars ⇒
+    EVERY (eval_true (st1 with locals :=
+                        ZIP (ds_vars,MAP SOME ds_vals) ++ st1.locals) env)
+          (MAP2 dec_assum ds_vars ds)
+Proof
+  Induct >- (simp [])
+  \\ qx_gen_tac ‘d’
+  \\ namedCases ["", "ds_val ds_vals"] >- (simp [])
+  \\ namedCases ["", "ds_vars ds_vars"] >- (simp [])
+  \\ rpt strip_tac \\ gvs []
+  \\ last_x_assum $ drule_all_then assume_tac
+  \\ conj_tac
+  >-
+   (irule eval_exp_eval_true_dec_assum
+    \\ qmatch_goalsub_abbrev_tac ‘ds₁ ++ _’ \\ gvs []
+    \\ rename [‘DISJOINT (set (get_vars_exp _)) (set ds_vars₂)’]
+    \\ ‘ds_vars₂ = MAP FST ds₁’ by (simp [Abbr ‘ds₁’, MAP_ZIP]) \\ gvs []
+    \\ drule disjoint_vars_eval_exp_locals
+    \\ disch_then $ mp_tac o iffLR
+    \\ disch_then irule \\ simp [])
+  \\ drule_all every_eval_true_dec_assum \\ simp []
+QED
+
+Triviality IMP_dec_assum:
+  LIST_REL (λe v. eval_exp st1 env e v) ds ds_vals ∧
+  Abbrev (ds1 = ZIP (ds_vars,MAP SOME ds_vals)) ∧
+  LENGTH ds_vals = LENGTH ds_vars ∧
+  DISJOINT (set (FLAT (MAP get_vars_exp ds))) (set ds_vars) ∧
+  ALL_DISTINCT ds_vars ⇒
+  EVERY (eval_true (st1 with locals := ds1 ++ st1.locals) env)
+        (MAP2 dec_assum ds_vars ds)
+Proof
+  rpt strip_tac
+  \\ unabbrev_all_tac
+  \\ drule_all IMP_dec_assum_no_abbrev \\ simp []
 QED
 
 Triviality state_inv_with_locals_cons_none:
@@ -3476,13 +4171,31 @@ Triviality alookup_zip_lemma_el:
     ALOOKUP (ZIP (ds_vars,MAP SOME ds_vals) ++ rest)
             (EL ds_n ds_vars) = SOME (SOME (EL ds_n ds_vals))
 Proof
-  cheat (* reserved *)
+  Induct_on ‘ds_vals’ >- (simp [])
+  \\ qx_gen_tac ‘ds_val’
+  \\ namedCases ["", "ds_n'"] \\ simp []
+  \\ namedCases ["", "ds_var ds_vars'"] \\ simp []
+  \\ rpt strip_tac
+  \\ IF_CASES_TAC \\ gvs []
+  \\ ‘ds_n' < LENGTH ds_vars'’ by (gvs [])
+  \\ drule EL_MEM \\ strip_tac \\ gvs []
+QED
+
+Triviality mem_varlhs_get_vars:
+  ∀lhss v. MEM (VarLhs v) lhss ⇒ MEM v (FLAT (MAP get_vars_lhs_exp lhss))
+Proof
+  Induct >- (simp [])
+  \\ rpt strip_tac \\ gvs []
+  \\ simp [get_vars_lhs_exp_def]
 QED
 
 Theorem assign_in_IMP_get_vars_stmt:
-  assigned_in body v ⇒  MEM v (get_vars_stmt body)
+  ∀body v. assigned_in body v ⇒ MEM v (get_vars_stmt body)
 Proof
-  cheat (* reserved *)
+  ho_match_mp_tac assigned_in_ind
+  \\ rpt strip_tac
+  \\ gvs [assigned_in_def, get_vars_stmt_def]
+  \\ drule mem_varlhs_get_vars \\ simp []
 QED
 
 Definition IS_SOME_SOME_def:
@@ -3981,6 +4694,13 @@ Proof
   \\ simp [MAP_ZIP]
 QED
 
+Triviality disjoint_vars_while_ds:
+  DISJOINT (set (get_vars_stmt (While guard invs ds mods body))) xs ⇒
+  DISJOINT (set (FLAT (MAP get_vars_exp ds))) xs
+Proof
+  simp [get_vars_stmt_def]
+QED
+
 Theorem stmt_wp_sound_While:
   ^(#get_goal stmt_wp_sound_setup `While`)
 Proof
@@ -4176,6 +4896,7 @@ Proof
      \\ irule eval_decreases_old_eq_no_Prev \\ fs []
      \\ metis_tac[])
   \\ impl_tac
+
   >-
    (conj_tac
     >-
@@ -4294,6 +5015,9 @@ Proof
     \\ dxrule eval_true_imp
     \\ simp [eval_true_conj_every,conditions_hold_def]
     \\ disch_then irule
+    \\ drule_then assume_tac disjoint_vars_while_ds
+    \\ ‘LENGTH ds_vals = LENGTH ds_vars’ by
+      (imp_res_tac LIST_REL_LENGTH \\ asm_rewrite_tac [])
     \\ drule_all IMP_dec_assum
     \\ simp [] \\ strip_tac
     \\ ‘∀e. MEM e (MAP2 dec_assum ds_vars ds) ⇒ no_Prev b e’ by
