@@ -3825,7 +3825,14 @@ Triviality alookup_zip_lemma_el:
     ALOOKUP (ZIP (ds_vars,MAP SOME ds_vals) ++ rest)
             (EL ds_n ds_vars) = SOME (SOME (EL ds_n ds_vals))
 Proof
-  cheat (* reserved *)
+  Induct_on ‘ds_vals’ >- (simp [])
+  \\ qx_gen_tac ‘ds_val’
+  \\ namedCases ["", "ds_n'"] \\ simp []
+  \\ namedCases ["", "ds_var ds_vars'"] \\ simp []
+  \\ rpt strip_tac
+  \\ IF_CASES_TAC \\ gvs []
+  \\ ‘ds_n' < LENGTH ds_vars'’ by (gvs [])
+  \\ drule EL_MEM \\ strip_tac \\ gvs []
 QED
 
 Theorem assign_in_IMP_get_vars_stmt:
