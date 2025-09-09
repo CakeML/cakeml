@@ -3142,8 +3142,8 @@ Proof
 QED
 
 (* todo move to evaluateProps *)
-Theorem evaluate_rhs_exp_locals_rel:
-  evaluate_rhs_exp s env rhs = (s', r) ⇒ locals_rel ∅ s.locals s'.locals
+Theorem evaluate_rhs_exp_same_locals:
+  evaluate_rhs_exp s env rhs = (s', r) ⇒ s'.locals = s.locals
 Proof
   Cases_on ‘rhs’
   \\ rpt strip_tac
@@ -3167,22 +3167,27 @@ Proof
 QED
 
 (* todo move to evaluateProps *)
-Theorem evaluate_rhs_exps_locals_rel:
+Theorem evaluate_rhs_exps_same_locals:
   ∀rhss s env s' r.
-    evaluate_rhs_exps s env rhss = (s', r) ⇒
-    locals_rel ∅ s.locals s'.locals
+    evaluate_rhs_exps s env rhss = (s', r) ⇒ s'.locals = s.locals
 Proof
   Induct >- (simp [evaluate_rhs_exps_def, state_component_equality])
   \\ rpt strip_tac
   \\ gvs [evaluate_rhs_exps_def]
   \\ rename [‘evaluate_rhs_exp _ _ rhs’]
   \\ namedCases_on ‘evaluate_rhs_exp s env rhs’ ["s₁ r₁"] \\ gvs []
-  \\ drule_then assume_tac evaluate_rhs_exp_locals_rel
+  \\ drule_then assume_tac evaluate_rhs_exp_same_locals
   \\ Cases_on ‘r₁’ \\ gvs []
   \\ namedCases_on ‘evaluate_rhs_exps s₁ env rhss’ ["s₂ r₂"] \\ gvs []
   \\ last_x_assum drule \\ rpt strip_tac
-  \\ dxrule_all locals_rel_trans \\ strip_tac
   \\ gvs [AllCaseEqs()]
+QED
+
+(* todo move to evaluateProps *)
+Theorem evaluate_rhs_exps_locals_rel:
+  evaluate_rhs_exps s env rhss = (s', r) ⇒ locals_rel ∅ s.locals s'.locals
+Proof
+  strip_tac \\ drule evaluate_rhs_exps_same_locals \\ simp []
 QED
 
 (* todo move to evaluateProps *)
@@ -3202,11 +3207,13 @@ QED
 
 (* todo move to evaluateProps *)
 Theorem update_local_locals_rel:
-  update_local s var val = SOME s' ⇒
-  locals_rel ∅ s.locals s'.locals
+  update_local s var val = SOME s' ∧ var ∉ seen ⇒
+  locals_rel seen s.locals s'.locals
 Proof
   simp [update_local_def]
   \\ TOP_CASE_TAC \\ strip_tac \\ gvs []
+  \\ drule update_local_aux_locals_rel
+  \\ simp []
 QED
 
 (* todo move to evaluateProps *)
@@ -3247,7 +3254,7 @@ Proof
   \\ TOP_CASE_TAC \\ gvs []
   \\ dxrule assign_value_locals_rel \\ strip_tac \\ gvs []
   \\ reverse TOP_CASE_TAC \\ gvs []
-  >- (rpt strip_tac \\ gvs [])
+  \\ rpt strip_tac \\ gvs []
   \\ dxrule_all locals_rel_trans \\ simp []
 QED
 
@@ -3262,9 +3269,27 @@ Proof
   >~ [‘Skip’] >-
    (gvs [evaluate_stmt_def])
   >~ [‘Assert’] >-
-   (cheat) (* reserved *)
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ IF_CASES_TAC \\ simp []
+    \\ TOP_CASE_TAC
+    \\ dxrule_then assume_tac (cj 1 evaluate_exp_with_clock) \\ gvs []
+    \\ TOP_CASE_TAC \\ simp [state_component_equality]
+    \\ IF_CASES_TAC \\ simp [state_component_equality])
+  >~ [‘Then’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ irule locals_rel_trans
+    \\ first_assum $ irule_at Any \\ simp [])
   >~ [‘If’] >-
-   (cheat) (* reserved *)
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ TOP_CASE_TAC
+    \\ dxrule_then assume_tac (cj 1 evaluate_exp_with_clock) \\ gvs []
+    \\ reverse TOP_CASE_TAC
+    >- (simp [state_component_equality])
+    \\ TOP_CASE_TAC
+    >- (simp [state_component_equality])
+    \\ strip_tac \\ gvs [])
   >~ [‘Dec local’] >-
    (namedCases_on ‘local’ ["n ty"]
     \\ gvs [evaluate_stmt_def]
@@ -3285,11 +3310,57 @@ Proof
     \\ gvs [AllCaseEqs()]
     \\ dxrule assign_values_locals_rel \\ strip_tac
     \\ dxrule_all locals_rel_trans \\ simp [])
-  >~ [‘Then’] >-
-   (gvs [evaluate_stmt_def, AllCaseEqs()]
-    \\ irule locals_rel_trans
-    \\ first_assum $ irule_at Any \\ simp [])
-  \\ cheat (* reserved *)
+  >~ [‘While’] >-
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ IF_CASES_TAC >- (simp [])
+    \\ gvs [dec_clock_def]
+    \\ TOP_CASE_TAC
+    \\ dxrule_then assume_tac (cj 1 evaluate_exp_with_clock) \\ gvs []
+    \\ reverse TOP_CASE_TAC
+    >- (simp [state_component_equality])
+    \\ IF_CASES_TAC
+    >- (simp [state_component_equality])
+    \\ reverse IF_CASES_TAC
+    >- (simp [state_component_equality])
+    \\ TOP_CASE_TAC
+    \\ reverse TOP_CASE_TAC
+    >- (simp [state_component_equality])
+    \\ strip_tac \\ gvs []
+    \\ dxrule_all locals_rel_trans \\ simp [])
+  >~ [‘Print’] >-
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ CASE_TAC
+    \\ dxrule (cj 1 evaluate_exp_with_clock)
+    \\ rpt strip_tac \\ gvs [AllCaseEqs()])
+  >~ [‘MetCall’] >-
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ TOP_CASE_TAC \\ simp []
+    \\ TOP_CASE_TAC \\ simp []
+    \\ TOP_CASE_TAC \\ simp []
+    \\ dxrule_then assume_tac (cj 2 evaluate_exp_with_clock) \\ gvs []
+    \\ reverse TOP_CASE_TAC
+    >- (simp [state_component_equality])
+    \\ TOP_CASE_TAC
+    >- (simp [state_component_equality])
+    \\ IF_CASES_TAC
+    >- (simp [restore_caller_def, state_component_equality])
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ TOP_CASE_TAC
+    >- (simp [restore_caller_def, state_component_equality])
+    \\ reverse TOP_CASE_TAC
+    >- (simp [restore_caller_def, state_component_equality])
+    \\ TOP_CASE_TAC
+    >- (simp [restore_caller_def, state_component_equality])
+    \\ IF_CASES_TAC
+    >- (simp [restore_caller_def, state_component_equality])
+    \\ strip_tac
+    \\ dxrule assign_values_locals_rel \\ strip_tac
+    \\ gvs [restore_caller_def])
+  >~ [‘Return’] >-
+   (gvs [evaluate_stmt_def])
 QED
 
 Theorem locals_rel_seen_alookup:
@@ -3315,6 +3386,47 @@ Proof
   \\ gvs [locals_rel_def]
   \\ gvs [pop_locals_def, safe_drop_def]
   \\ drule_then assume_tac locals_rel_seen_alookup \\ gvs []
+QED
+
+(* todo move to evaluateProps *)
+Theorem varlhs_neq_assign_value:
+  VarLhs v ≠ lhs ∧ assign_value s env lhs val = (s',r) ⇒
+  ALOOKUP s'.locals v = ALOOKUP s.locals v
+Proof
+  namedCases_on ‘lhs’ ["v'", ""]
+  >~ [‘VarLhs’] >-
+   (simp [assign_value_def]
+    \\ CASE_TAC \\ strip_tac \\ gvs []
+    \\ drule update_local_locals_rel
+    \\ disch_then $ qspec_then ‘{v}’ mp_tac \\ simp []
+    \\ strip_tac
+    \\ drule locals_rel_seen_alookup \\ simp [])
+  >~ [‘ArrSelLhs’] >-
+   (simp [assign_value_def]
+    \\ TOP_CASE_TAC
+    \\ dxrule (cj 1 evaluate_exp_with_clock) \\ strip_tac \\ gvs []
+    \\ reverse TOP_CASE_TAC
+    >- (simp [state_component_equality])
+    \\ TOP_CASE_TAC
+    \\ dxrule (cj 1 evaluate_exp_with_clock) \\ strip_tac \\ gvs []
+    \\ reverse TOP_CASE_TAC
+    >- (simp [state_component_equality])
+    \\ rpt strip_tac \\ gvs [update_array_def, AllCaseEqs()])
+QED
+
+(* todo move to evaluateProps *)
+Theorem not_mem_assign_values:
+  ∀lhss vals st.
+    ¬MEM (VarLhs v) lhss ∧
+    assign_values st env lhss vals = (st', r) ⇒
+    ALOOKUP st'.locals v = ALOOKUP st.locals v
+Proof
+  Induct >- (Cases \\ simp [assign_values_def])
+  \\ gen_tac \\ Cases \\ gen_tac \\ simp [assign_values_def]
+  \\ CASE_TAC \\ strip_tac \\ gvs []
+  \\ dxrule_all_then assume_tac varlhs_neq_assign_value
+  \\ gvs [AllCaseEqs()]
+  \\ last_x_assum $ drule_then assume_tac \\ gvs []
 QED
 
 Theorem evaluate_stmt_not_assigned_in:
@@ -3357,7 +3469,61 @@ Proof
     \\ namedCases_on ‘st₁.locals’ ["", "local' locals"] \\ gvs []
     \\ gvs [pop_locals_def, safe_drop_def]
     \\ namedCases_on ‘local'’ ["n' ov"] \\ gvs [])
-  \\ cheat (* reserved *)
+  >~ [‘Assign’] >-
+   (gvs [evaluate_stmt_def, assigned_in_def, AllCaseEqs()]
+    \\ dxrule evaluate_rhs_exps_same_locals \\ simp []
+    \\ dxrule_all not_mem_assign_values \\ simp [])
+  >~ [‘While’] >-
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ IF_CASES_TAC \\ simp []
+    \\ TOP_CASE_TAC
+    \\ dxrule (cj 1 evaluate_exp_with_clock)
+    \\ strip_tac \\ gvs [dec_clock_def]
+    \\ reverse TOP_CASE_TAC
+    >- (simp [state_component_equality])
+    \\ IF_CASES_TAC
+    >- (simp [state_component_equality])
+    \\ reverse IF_CASES_TAC
+    >- (simp [state_component_equality])
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ reverse TOP_CASE_TAC
+    \\ gvs [assigned_in_def]
+    >- (strip_tac \\ gvs [state_component_equality])
+    \\ strip_tac \\ gvs [assigned_in_def, STOP_def])
+  >~ [‘Print’] >-
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ CASE_TAC
+    \\ dxrule (cj 1 evaluate_exp_with_clock) \\ strip_tac \\ gvs []
+    \\ strip_tac \\ gvs [AllCaseEqs()])
+  >~ [‘MetCall’] >-
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ TOP_CASE_TAC
+    \\ TOP_CASE_TAC
+    \\ TOP_CASE_TAC
+    \\ dxrule (cj 2 evaluate_exp_with_clock) \\ strip_tac \\ gvs []
+    \\ reverse TOP_CASE_TAC
+    >- (simp [state_component_equality])
+    \\ TOP_CASE_TAC
+    >- (simp [state_component_equality])
+    \\ IF_CASES_TAC
+    >- (simp [restore_caller_def, state_component_equality])
+    \\ TOP_CASE_TAC
+    \\ TOP_CASE_TAC
+    >- (simp [restore_caller_def, state_component_equality])
+    \\ reverse TOP_CASE_TAC
+    >- (simp [restore_caller_def, state_component_equality])
+    \\ TOP_CASE_TAC
+    >- (simp [restore_caller_def, state_component_equality])
+    \\ IF_CASES_TAC
+    >- (simp [restore_caller_def, state_component_equality])
+    \\ strip_tac
+    \\ fs [assigned_in_def]
+    \\ dxrule_all not_mem_assign_values \\ simp [restore_caller_def])
+  >~ [‘Return’] >-
+   (gvs [evaluate_stmt_def])
 QED
 
 Theorem assigned_in_thm:
