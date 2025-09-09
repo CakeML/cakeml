@@ -3543,14 +3543,92 @@ Proof
   gvs [eval_exp_def,FUN_EQ_THM]
 QED
 
-Triviality IMP_dec_assum:
-  LIST_REL (λe v. eval_exp st1 env e v) ds ds_vals ∧
-  Abbrev (ds1 = ZIP (ds_vars,MAP SOME ds_vals)) ∧
-  ALL_DISTINCT ds_vars ⇒
-  EVERY (eval_true (st1 with locals := ds1 ++ st1.locals) env)
-        (MAP2 dec_assum ds_vars ds)
+Triviality bigunion_freevars_subset_vars:
+  ∀xs.
+    (∀e. MEM e xs ⇒ freevars e ⊆ set (get_vars_exp e)) ⇒
+    BIGUNION (set (MAP (λa. freevars a) xs)) ⊆
+    BIGUNION (set (MAP set (MAP (λa. get_vars_exp a) xs)))
 Proof
-  cheat (* reserved *)
+  Induct >- (simp [])
+  \\ qx_gen_tac ‘x’
+  \\ rpt strip_tac \\ gvs []
+  \\ first_x_assum $ qspec_then ‘x’ mp_tac
+  \\ gvs [SUBSET_DEF]
+QED
+
+Triviality freevars_subset_vars:
+  ∀e. freevars e ⊆ set (get_vars_exp e)
+Proof
+  ho_match_mp_tac freevars_ind
+  \\ rpt strip_tac
+  >~ [‘Let’] >-
+   (gvs [freevars_def, get_vars_exp_def]
+    \\ simp [LIST_TO_SET_FLAT]
+    \\ drule bigunion_freevars_subset_vars
+    \\ gvs [SUBSET_DEF])
+  >~ [‘Var’] >-
+   (gvs [freevars_def, get_vars_exp_def])
+  >~ [‘Lit’] >-
+   (gvs [freevars_def, get_vars_exp_def])
+  >~ [‘If’] >-
+   (gvs [freevars_def, get_vars_exp_def]
+    \\ gvs [SUBSET_DEF])
+  >~ [‘UnOp’] >-
+   (gvs [freevars_def, get_vars_exp_def])
+  >~ [‘BinOp’] >-
+   (gvs [freevars_def, get_vars_exp_def]
+    \\ gvs [SUBSET_DEF])
+  >~ [‘ArrLen’] >-
+   (gvs [freevars_def, get_vars_exp_def])
+  >~ [‘ArrSel’] >-
+   (gvs [freevars_def, get_vars_exp_def]
+    \\ gvs [SUBSET_DEF])
+  >~ [‘FunCall’] >-
+   (gvs [freevars_def, get_vars_exp_def]
+    \\ simp [LIST_TO_SET_FLAT]
+    \\ drule bigunion_freevars_subset_vars \\ simp [])
+  >~ [‘Forall’] >-
+   (gvs [freevars_def, get_vars_exp_def]
+    \\ gvs [SUBSET_DEF])
+  >~ [‘Old’] >-
+   (gvs [freevars_def, get_vars_exp_def])
+  >~ [‘ForallHeap’] >-
+   (gvs [freevars_def, get_vars_exp_def]
+    \\ simp [LIST_TO_SET_FLAT]
+    \\ drule_then assume_tac bigunion_freevars_subset_vars
+    \\ gvs [SUBSET_DEF])
+QED
+
+Triviality disjoint_alookup_append:
+  ∀vs.
+    DISJOINT (set (MAP FST vs)) xs ⇒
+    (∀n. n ∈ xs ⇒ ALOOKUP (vs ++ ys) n = ALOOKUP ys n)
+Proof
+  Induct >- simp []
+  \\ namedCases ["n val"] \\ rpt strip_tac \\ gvs []
+  \\ IF_CASES_TAC \\ gvs []
+QED
+
+Triviality disjoint_freevars_eval_exp_locals:
+  DISJOINT (set (MAP FST vs)) (freevars e) ⇒
+  (eval_exp st env e v ⇔ eval_exp (st with locals := vs ++ st.locals) env e v)
+Proof
+  strip_tac
+  \\ drule disjoint_alookup_append
+  \\ disch_then $ qspec_then ‘st.locals’ assume_tac
+  \\ drule eval_exp_freevars \\ simp []
+QED
+
+Triviality disjoint_vars_eval_exp_locals:
+  DISJOINT (set (get_vars_exp e)) (set (MAP FST vs)) ⇒
+  (eval_exp st env e v ⇔ eval_exp (st with locals := vs ++ st.locals) env e v)
+Proof
+  once_rewrite_tac [DISJOINT_SYM]
+  \\ strip_tac
+  \\ dxrule DISJOINT_SUBSET
+  \\ disch_then $ qspec_then ‘freevars e’ mp_tac
+  \\ impl_tac >- (simp [freevars_subset_vars])
+  \\ rewrite_tac [disjoint_freevars_eval_exp_locals]
 QED
 
 Triviality eval_true_drop_unused:
@@ -3558,7 +3636,20 @@ Triviality eval_true_drop_unused:
   DISJOINT (set (get_vars_exp guard)) (set (MAP FST ds1)) ⇒
   eval_true (st1 with locals := ds1 ++ st1.locals) env guard
 Proof
-  (* eval_exp_freevars_lemma *)
+  simp [eval_true_def]
+  \\ strip_tac
+  \\ DEP_REWRITE_TAC [GSYM disjoint_vars_eval_exp_locals]
+  \\ simp []
+QED
+
+Triviality IMP_dec_assum:
+  LIST_REL (λe v. eval_exp st1 env e v) ds ds_vals ∧
+  Abbrev (ds1 = ZIP (ds_vars,MAP SOME ds_vals)) ∧
+  DISJOINT (set (FLAT (MAP get_vars_exp ds))) (set ds_vars) ∧
+  ALL_DISTINCT ds_vars ⇒
+  EVERY (eval_true (st1 with locals := ds1 ++ st1.locals) env)
+        (MAP2 dec_assum ds_vars ds)
+Proof
   cheat (* reserved *)
 QED
 
@@ -4023,6 +4114,13 @@ Proof
   \\ simp [MAP_ZIP]
 QED
 
+Triviality disjoint_vars_while_ds:
+  DISJOINT (set (get_vars_stmt (While guard invs ds mods body))) xs ⇒
+  DISJOINT (set (FLAT (MAP get_vars_exp ds))) xs
+Proof
+  simp [get_vars_stmt_def]
+QED
+
 Theorem stmt_wp_sound_While:
   ^(#get_goal stmt_wp_sound_setup `While`)
 Proof
@@ -4200,6 +4298,7 @@ Proof
     (Cases_on ‘decs’ \\ fs [eval_measure_def,wrap_old_def]
      \\ irule eval_decreases_old_eq \\ fs [])
   \\ impl_tac
+
   >-
    (conj_tac
     >-
@@ -4306,6 +4405,8 @@ Proof
     \\ dxrule eval_true_imp
     \\ simp [eval_true_conj_every,conditions_hold_def]
     \\ disch_then irule
+    \\ drule_then assume_tac disjoint_vars_while_ds
+
     \\ drule_all IMP_dec_assum
     \\ simp [] \\ strip_tac
     \\ qunabbrev_tac ‘zs’
