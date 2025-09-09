@@ -394,28 +394,30 @@ Termination
   \\ gvs []
 End
 
-Definition no_Prev_def: (* checks that no Prev or PrevHeap is outside a SetPrev *)
-  (no_Prev (Lit _) ⇔ T) ∧
-  (no_Prev (Var _) ⇔ T) ∧
-  (no_Prev (Prev e) ⇔ F) ∧
-  (no_Prev (PrevHeap e) ⇔ F) ∧
-  (no_Prev (SetPrev e) ⇔ T) ∧
-  (no_Prev (Old e) ⇔ no_Prev e) ∧
-  (no_Prev (If tst thn els) ⇔
-     no_Prev tst ∧ no_Prev thn ∧ no_Prev els) ∧
-  (no_Prev (UnOp _ e) ⇔ no_Prev e) ∧
-  (no_Prev (BinOp _ e₀ e₁) ⇔
-     no_Prev e₀ ∧ no_Prev e₁) ∧
-  (no_Prev (ArrLen arr) ⇔ no_Prev arr) ∧
-  (no_Prev (ArrSel arr idx) ⇔ no_Prev arr ∧ no_Prev idx) ∧
-  (no_Prev (FunCall _ args) ⇔ EVERY (λe. no_Prev e) args) ∧
-  (no_Prev (Forall _ term) ⇔ no_Prev term) ∧
-  (no_Prev (Let binds body) ⇔
-     EVERY (λe. no_Prev e) (MAP SND binds) ∧ no_Prev body) ∧
-  (no_Prev (ForallHeap mods e) ⇔
-     EVERY (λe. no_Prev e) mods ∧ no_Prev e)
+(* if b = T, this checks that no Prev or PrevHeap is outside a SetPrev
+  if b = F, then none of the Prev ops appear at all *)
+Definition no_Prev_def:
+  (no_Prev b (Lit _) ⇔ T) ∧
+  (no_Prev b (Var _) ⇔ T) ∧
+  (no_Prev b (Prev e) ⇔ F) ∧
+  (no_Prev b (PrevHeap e) ⇔ F) ∧
+  (no_Prev b (SetPrev e) ⇔ b) ∧
+  (no_Prev b (Old e) ⇔ no_Prev b e) ∧
+  (no_Prev b (If tst thn els) ⇔
+     no_Prev b tst ∧ no_Prev b thn ∧ no_Prev b els) ∧
+  (no_Prev b (UnOp _ e) ⇔ no_Prev b e) ∧
+  (no_Prev b (BinOp _ e₀ e₁) ⇔
+     no_Prev b e₀ ∧ no_Prev b e₁) ∧
+  (no_Prev b (ArrLen arr) ⇔ no_Prev b arr) ∧
+  (no_Prev b (ArrSel arr idx) ⇔ no_Prev b arr ∧ no_Prev b idx) ∧
+  (no_Prev b (FunCall _ args) ⇔ EVERY (λe. no_Prev b e) args) ∧
+  (no_Prev b (Forall _ term) ⇔ no_Prev b term) ∧
+  (no_Prev b (Let binds body) ⇔
+     EVERY (λe. no_Prev b e) (MAP SND binds) ∧ no_Prev b body) ∧
+  (no_Prev b (ForallHeap mods e) ⇔
+     EVERY (λe. no_Prev b e) mods ∧ no_Prev b e)
 Termination
-  wf_rel_tac ‘measure $ exp_size’
+  wf_rel_tac ‘measure $ exp_size o SND’
   \\ rpt strip_tac
   \\ gvs [list_size_pair_size_MAP_FST_SND]
   \\ rewrite_tac [list_exp_size_snd]
@@ -498,8 +500,8 @@ Inductive stmt_wp:
     ALL_DISTINCT ds_vars ∧
     get_type ls guard = INR BoolT ∧
     EVERY (λd. get_type ls d = INR IntT) ds ∧
-    no_Prev guard ∧ EVERY no_Prev post ∧ EVERY no_Prev invs ∧
-    EVERY no_Prev ds ∧ EVERY no_Prev body_wp ∧ EVERY no_Prev (SND decs) ∧
+    no_Prev b guard ∧ EVERY (no_Prev b) post ∧ EVERY (no_Prev b) invs ∧
+    EVERY (no_Prev b) ds ∧ EVERY (no_Prev b) body_wp ∧ EVERY (no_Prev b) (SND decs) ∧
     ls1 = FILTER (λ(v,ty). assigned_in body v) ls ∧
     (* when executing the body, invs are maintained *)
     body_cond = imp (conj (guard :: invs ++ MAP2 dec_assum ds_vars ds)) (conj body_wp) ∧
@@ -523,12 +525,12 @@ Inductive stmt_wp:
     ALL_DISTINCT (MAP FST mspec.ins ++ MAP FST mspec.outs) ∧
     ALL_DISTINCT ret_names ∧
     rets = (MAP VarLhs ret_names) ∧
-    EVERY no_Prev args ∧
-    EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e ∧ no_Prev e) mspec.reqs ∧
-    EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e ∧ no_Prev e) mspec.decreases ∧
+    EVERY (no_Prev b) args ∧
+    EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e ∧ no_Prev b e) mspec.reqs ∧
+    EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e ∧ no_Prev b e) mspec.decreases ∧
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins ++ MAP FST mspec.outs) ∧
-               no_Old e ∧ no_Prev e) mspec.ens ∧
-    EVERY no_Prev post ∧
+               no_Old e ∧ no_Prev b e) mspec.ens ∧
+    EVERY (no_Prev b) post ∧
     set ret_names ⊆ set (MAP FST ls) ∧
     get_types ls args = INR (MAP SND mspec.ins) ∧
     get_types ls (MAP Var ret_names) = INR (MAP SND mspec.outs)
@@ -568,12 +570,9 @@ Definition wrap_Old_def:
   Forall (vn,vt) (wrap_Old (vs DELETE vn) term) ∧
   wrap_Old vs (Old e) =
   Old (wrap_Old vs e) ∧
-  wrap_Old vs (Prev e) =
-  Prev (wrap_Old vs e) ∧
-  wrap_Old vs (PrevHeap e) =
-  PrevHeap (wrap_Old vs e) ∧
-  wrap_Old vs (SetPrev e) =
-  SetPrev (wrap_Old vs e) ∧
+  wrap_Old vs (Prev e) = Prev e ∧ (* Impossible *)
+  wrap_Old vs (PrevHeap e) = PrevHeap e ∧ (* Impossible *)
+  wrap_Old vs (SetPrev e) = SetPrev e ∧
   wrap_Old vs (Let binds body) =
   Let (MAP (λ(n,e). (n, wrap_Old vs e)) binds)
       ((wrap_Old (vs DIFF (set (MAP FST binds)))) body) ∧
@@ -723,13 +722,31 @@ Proof
   gvs [push_locals_def]
 QED
 
+Triviality no_Prev_b_mono:
+  ∀b e.
+  ¬ b ∧ no_Prev b e ⇒
+  no_Prev T e
+Proof
+  ho_match_mp_tac no_Prev_ind>>
+  rw[no_Prev_def]>>gvs[]>>
+  irule EVERY_MEM_MONO >>
+  first_x_assum (irule_at Any)>>rw[]
+QED
+
+Theorem no_Prev_b_mono:
+  no_Prev F e ⇒
+  no_Prev T e
+Proof
+  metis_tac[no_Prev_b_mono]
+QED
+
 Theorem evaluate_exp_no_Prev:
   (∀s env e s' r h l.
-     evaluate_exp s env e = (s', r) ∧ no_Prev e ⇒
+     evaluate_exp s env e = (s', r) ∧ no_Prev b e ⇒
      evaluate_exp (s with <| heap_prev := h; locals_prev := l |>) env e =
      (s' with <| heap_prev := h; locals_prev := l |>, r)) ∧
   (∀s env es s' r h l.
-     evaluate_exps s env es = (s', r) ∧ EVERY (λe. no_Prev e) es ⇒
+     evaluate_exps s env es = (s', r) ∧ EVERY (λe. no_Prev b e) es ⇒
      evaluate_exps (s with <| heap_prev := h; locals_prev := l |>) env es =
      (s' with <| heap_prev := h; locals_prev := l |>, r))
 Proof
@@ -791,7 +808,7 @@ Proof
 QED
 
 Theorem eval_exp_no_Prev:
-  eval_exp st env e v ∧ no_Prev e ⇒
+  eval_exp st env e v ∧ no_Prev b e ⇒
   ∀lp hp. eval_exp (st with <| locals_prev := lp; heap_prev := hp |>) env e v
 Proof
   simp [eval_exp_def]
@@ -802,10 +819,10 @@ QED
 
 Theorem eval_exp_no_Prev_alt:
   ∀lp hp.
-    eval_exp (st with <| locals_prev := lp; heap_prev := hp |>) env e v ∧ no_Prev e ⇒
+    eval_exp (st with <| locals_prev := lp; heap_prev := hp |>) env e v ∧ no_Prev b e ⇒
     eval_exp st env e v
 Proof
-  rw [] \\ drule eval_exp_no_Prev \\ simp []
+  rw [] \\ drule_all eval_exp_no_Prev \\ simp []
   \\ disch_then $ qspecl_then [‘st.locals_prev’,‘st.heap_prev’] mp_tac
   \\ match_mp_tac EQ_IMPLIES
   \\ rpt AP_THM_TAC \\ AP_TERM_TAC
@@ -813,23 +830,25 @@ Proof
 QED
 
 Theorem eval_exp_no_Prev_eq:
-  no_Prev e ⇒
+  no_Prev b e ⇒
   eval_exp st env e v =
   eval_exp (st with <| locals_prev := lp; heap_prev := hp |>) env e v
 Proof
   rw [] \\ eq_tac
-  \\ simp [eval_exp_no_Prev]
-  \\ rw [] \\ drule eval_exp_no_Prev_alt \\ fs []
+  >- metis_tac[eval_exp_no_Prev]
+  \\ rw []
+  \\ drule_all eval_exp_no_Prev_alt \\ fs []
 QED
 
 Triviality eval_exp_old_eq_no_Prev_imp:
   st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ∧
-  no_Prev e ∧
+  no_Prev b e ∧
   eval_exp st₁ env (Old e) v ⇒
   eval_exp st env (Old e) v
 Proof
   strip_tac
   \\ dxrule eval_exp_no_Prev \\ simp [no_Prev_def]
+  \\ disch_then drule
   \\ disch_then $ qspecl_then [‘st.locals_prev’,‘st.heap_prev’] assume_tac
   \\ gvs [eval_exp_def]
   \\ drule evaluate_exp_old_Rval_eq \\ gvs []
@@ -841,7 +860,7 @@ Proof
 QED
 
 Theorem eval_exp_old_eq_no_Prev:
-  st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ∧ no_Prev e ⇒
+  st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ∧ no_Prev b e ⇒
   (eval_exp st₁ env (Old e) v ⇔ eval_exp st env (Old e) v)
 Proof
   metis_tac [eval_exp_old_eq_no_Prev_imp]
@@ -850,7 +869,7 @@ QED
 Triviality eval_decreases_old_eq_no_Prev:
   ∀es st st₁ env.
     st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ∧
-    EVERY no_Prev es ⇒
+    EVERY (no_Prev b) es ⇒
     eval_decreases st₁ env (MAP Old es) =
     eval_decreases st env (MAP Old es)
 Proof
@@ -2025,19 +2044,19 @@ Proof
 QED
 
 Theorem no_Prev_conj:
-  ∀xs. no_Prev (conj xs) = EVERY no_Prev xs
+  ∀xs. no_Prev b (conj xs) = EVERY (no_Prev b) xs
 Proof
   ho_match_mp_tac conj_ind \\ rw [conj_def] \\ fs [no_Prev_def]
 QED
 
 Theorem no_Prev_imp:
-  ∀x y. no_Prev (imp x y) ⇔ no_Prev x ∧ no_Prev y
+  ∀x y. no_Prev b (imp x y) ⇔ no_Prev b x ∧ no_Prev b y
 Proof
   simp [no_Prev_def]
 QED
 
 Theorem no_Prev_not:
-  ∀x. no_Prev (not x) ⇔ no_Prev x
+  ∀x. no_Prev b (not x) ⇔ no_Prev b x
 Proof
   simp [no_Prev_def]
 QED
@@ -2158,7 +2177,7 @@ Proof
 QED
 
 Triviality not_mem_alookup_zip_none =
-SRULE [AND_IMP_INTRO] $ iffRL ALOOKUP_ZIP_FAIL
+  SRULE [AND_IMP_INTRO] $ iffRL ALOOKUP_ZIP_FAIL
 
 Theorem evaluate_exp_wrap_Old_locals:
   (∀st env e' nss e st' r l.
@@ -2168,6 +2187,7 @@ Theorem evaluate_exp_wrap_Old_locals:
           ∃v. read_local st.locals_old n = SOME v ∧
               ALOOKUP l n = SOME (SOME v)) ∧
      (∀n. n ∉ nss ⇒ ALOOKUP l n = ALOOKUP st.locals n) ∧
+     no_Prev F e ∧
      ¬env.is_running ⇒
      evaluate_exp (st with locals := l) env e = (st' with locals := l, r)) ∧
   (∀st env es' nss es st' r l.
@@ -2177,31 +2197,31 @@ Theorem evaluate_exp_wrap_Old_locals:
           ∃v. read_local st.locals_old n = SOME v ∧
               ALOOKUP l n = SOME (SOME v)) ∧
      (∀n. n ∉ nss ⇒ ALOOKUP l n = ALOOKUP st.locals n) ∧
+     EVERY (no_Prev F) es ∧
      ¬env.is_running ⇒
      evaluate_exps (st with locals := l) env es = (st' with locals := l, r))
 Proof
-  cheat (* needs updating for Prev and SetPrev
   ho_match_mp_tac evaluate_exp_ind
   \\ rpt strip_tac
-  >~ [‘Var’] >-
-   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
-    \\ simp [Once $ oneline wrap_Old_def]
-    \\ simp [AllCaseEqs()]
-    \\ rpt strip_tac \\ gvs []
-    \\ gvs [evaluate_exp_def, read_local_def, AllCaseEqs()])
   >~ [‘Lit’] >-
    (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
     \\ simp [Once $ oneline wrap_Old_def]
     \\ simp [AllCaseEqs()]
     \\ rpt strip_tac \\ gvs []
     \\ gvs [evaluate_exp_def])
+  >~ [‘Var’] >-
+   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
+    \\ simp [Once $ oneline wrap_Old_def]
+    \\ simp [AllCaseEqs()]
+    \\ rpt strip_tac \\ gvs []
+    \\ gvs [evaluate_exp_def, read_local_def, AllCaseEqs()])
   >~ [‘If’] >-
    (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
     \\ simp [Once $ oneline wrap_Old_def]
     \\ simp [AllCaseEqs()]
     \\ rpt strip_tac \\ gvs []
     \\ rename [‘If grd thn els’]
-    \\ gvs [evaluate_exp_def]
+    \\ gvs [evaluate_exp_def,no_Prev_def]
     \\ namedCases_on ‘evaluate_exp st env (wrap_Old nss grd)’ ["st₁ r₁"]
     \\ gvs []
     \\ drule (cj 1 evaluate_exp_with_clock)
@@ -2216,11 +2236,104 @@ Proof
     \\ imp_res_tac do_cond_some_cases \\ gvs [do_cond_def]
     >- (last_x_assum $ qspecl_then [‘nss’, ‘thn’] mp_tac \\ simp [])
     \\ last_x_assum $ qspecl_then [‘nss’, ‘els’] mp_tac \\ simp [])
+  >~ [‘UnOp’] >-
+   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
+    \\ simp [Once $ oneline wrap_Old_def]
+    \\ simp [AllCaseEqs()]
+    \\ rpt strip_tac \\ gvs [no_Prev_def]
+    \\ rename [‘UnOp uop e’]
+    \\ gvs [evaluate_exp_def]
+    \\ namedCases_on ‘evaluate_exp st env (wrap_Old nss e)’ ["st₁ r₁"] \\ gvs []
+    \\ drule (cj 1 evaluate_exp_with_clock)
+    \\ disch_then $ qx_choose_then ‘ck’ assume_tac \\ gvs []
+    \\ last_x_assum $ qspecl_then [‘nss’, ‘e’] mp_tac \\ simp []
+    \\ disch_then $ drule_all_then assume_tac
+    \\ CASE_TAC \\ gvs []
+    \\ CASE_TAC \\ gvs [])
+  >~ [‘BinOp’] >-
+   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
+    \\ simp [Once $ oneline wrap_Old_def]
+    \\ simp [AllCaseEqs()]
+    \\ rpt strip_tac \\ gvs [no_Prev_def]
+    \\ rename [‘BinOp bop e₀ e₁’]
+    \\ gvs [evaluate_exp_def]
+    \\ namedCases_on ‘evaluate_exp st env (wrap_Old nss e₀)’ ["st₁ r₁"]
+    \\ gvs []
+    \\ drule (cj 1 evaluate_exp_with_clock)
+    \\ disch_then $ qx_choose_then ‘ck’ assume_tac \\ gvs []
+    \\ first_x_assum $ qspecl_then [‘nss’, ‘e₀’] mp_tac \\ simp []
+    \\ disch_then $ drule_all_then assume_tac
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ pop_assum mp_tac
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ first_x_assum $ qspecl_then [‘nss’, ‘e₁’] mp_tac \\ simp []
+    \\ disch_then $ drule_all_then assume_tac
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ TOP_CASE_TAC \\ gvs [])
+  >~ [‘ArrLen’] >-
+   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
+    \\ simp [Once $ oneline wrap_Old_def]
+    \\ simp [AllCaseEqs()]
+    \\ rpt strip_tac \\ gvs [no_Prev_def]
+    \\ rename [‘ArrLen arr’]
+    \\ qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
+    \\ gvs [evaluate_exp_def]
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ first_x_assum $ qspecl_then [‘nss’, ‘arr’] mp_tac \\ simp []
+    \\ disch_then $ drule_all_then assume_tac
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ TOP_CASE_TAC \\ gvs [])
+  >~ [‘ArrSel’] >-
+   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
+    \\ simp [Once $ oneline wrap_Old_def]
+    \\ simp [AllCaseEqs()]
+    \\ rpt strip_tac \\ gvs [no_Prev_def]
+    \\ rename [‘ArrSel arr idx’]
+    \\ qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
+    \\ gvs [evaluate_exp_def]
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ drule (cj 1 evaluate_exp_with_clock) \\ strip_tac \\ gvs []
+    \\ last_x_assum $ qspecl_then [‘nss’, ‘arr’] mp_tac \\ simp []
+    \\ disch_then $ drule_all_then assume_tac
+    \\ reverse TOP_CASE_TAC \\ gvs []
+    >- (simp [state_component_equality])
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ first_x_assum $ qspecl_then [‘nss’, ‘idx’] mp_tac \\ simp []
+    \\ disch_then $ drule_all_then assume_tac
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ simp [index_array_with_locals]
+    \\ TOP_CASE_TAC \\ gvs [])
+  >~ [‘FunCall’] >-
+   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
+    \\ simp [Once $ oneline wrap_Old_def]
+    \\ simp [AllCaseEqs()]
+    \\ rpt strip_tac \\ gvs [no_Prev_def]
+    \\ rename [‘FunCall name args’]
+    \\ qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
+    \\ simp [evaluate_exp_def]
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ drule (cj 2 evaluate_exp_with_clock) \\ strip_tac \\ gvs []
+    \\ last_x_assum $ qspecl_then [‘nss’, ‘args’] mp_tac
+    \\ fs[SF ETA_ss]
+    \\ disch_then $ drule_all_then assume_tac
+    \\ reverse TOP_CASE_TAC \\ gvs []
+    >- (simp [state_component_equality])
+    \\ simp [set_up_call_with_clock_locals]
+    \\ TOP_CASE_TAC \\ gvs []
+    >- (simp [state_component_equality])
+    \\ IF_CASES_TAC \\ gvs []
+    >- (simp [restore_caller_def, state_component_equality])
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ simp [restore_caller_def, state_component_equality])
   >~ [‘Forall’] >-
    (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
     \\ simp [Once $ oneline wrap_Old_def]
     \\ simp [AllCaseEqs()]
-    \\ rpt strip_tac \\ gvs []
+    \\ rpt strip_tac \\ gvs [no_Prev_def]
     \\ rename [‘Forall (vn,vt) e’]
     \\ qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
     \\ simp [evaluate_exp_def, eval_forall_def, wrap_Old_def]
@@ -2240,11 +2353,52 @@ Proof
        \\ disch_then $ irule_at (Pos hd)
        \\ rpt strip_tac \\ gvs [])
     \\ gvs [])
+  >~ [‘Old e’] >-
+   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
+    \\ simp [Once $ oneline wrap_Old_def]
+    \\ simp [AllCaseEqs()]
+    \\ rpt strip_tac \\ gvs [no_Prev_def]
+    >-
+     (rename [‘Var n’]
+      \\ drule (cj 1 evaluate_exp_with_clock) \\ strip_tac \\ gvs []
+      \\ gvs [evaluate_exp_def]
+      \\ first_x_assum drule \\ strip_tac \\ gvs []
+      \\ gvs [read_local_def, use_old_def, unuse_old_def,
+              state_component_equality])
+    \\ rename [‘Old e'’]
+    \\ qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
+    \\ simp [evaluate_exp_def]
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ first_x_assum $ qspecl_then [‘nss’, ‘e'’] mp_tac \\ simp []
+    \\ simp [use_old_def]
+    \\ disch_then $ qspec_then ‘st.locals_old’ mp_tac
+    \\ impl_tac \\ gvs []
+    >- (rpt strip_tac
+        \\ last_x_assum drule
+        \\ rpt strip_tac
+        \\ first_assum $ irule_at (Pos hd)
+        \\ gvs [read_local_def, AllCaseEqs()])
+    \\ gvs [unuse_old_def, state_component_equality])
+  >~ [‘Prev’] >-
+   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
+    \\ simp [Once $ oneline wrap_Old_def]
+    \\ simp [AllCaseEqs()]
+    \\ rw[] \\ gvs[no_Prev_def])
+  >~ [‘PrevHeap’] >-
+   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
+    \\ simp [Once $ oneline wrap_Old_def]
+    \\ simp [AllCaseEqs()]
+    \\ rw[] \\ gvs[no_Prev_def])
+  >~ [‘SetPrev’] >-
+   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
+    \\ simp [Once $ oneline wrap_Old_def]
+    \\ simp [AllCaseEqs()]
+    \\ rw[] \\ gvs[no_Prev_def])
   >~ [‘Let’] >-
    (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
     \\ simp [Once $ oneline wrap_Old_def]
     \\ simp [AllCaseEqs()]
-    \\ rpt strip_tac \\ gvs []
+    \\ rpt strip_tac \\ gvs [no_Prev_def]
     \\ rename [‘Let binds body’]
     \\ gvs [evaluate_exp_def]
     \\ gvs [UNZIP_MAP, fst_lambda, snd_lambda, MAP_MAP_o, MAP_ZIP]
@@ -2253,7 +2407,7 @@ Proof
     \\ qmatch_asmsub_abbrev_tac ‘evaluate_exps _ _ wrapped_es’
     \\ namedCases_on ‘evaluate_exps st env wrapped_es’ ["st₁ r₁"] \\ gvs []
     \\ first_x_assum $ qspecl_then [‘nss’, ‘MAP SND binds’] mp_tac
-    \\ simp [Abbr ‘wrapped_es’, SF ETA_ss]
+    \\ fs[Abbr ‘wrapped_es’, SF ETA_ss]
     \\ disch_then $ drule_all_then assume_tac \\ gvs []
     \\ namedCases_on ‘r₁’ ["vs", "err"] \\ gvs []
     \\ imp_res_tac evaluate_exps_len_eq \\ gvs []
@@ -2295,7 +2449,7 @@ Proof
    (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
     \\ simp [Once $ oneline wrap_Old_def]
     \\ simp [AllCaseEqs()]
-    \\ rpt strip_tac \\ gvs []
+    \\ rpt strip_tac \\ gvs [no_Prev_def]
     \\ rename [‘ForallHeap mods e’]
     \\ qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
     \\ simp [evaluate_exp_def]
@@ -2305,7 +2459,7 @@ Proof
     \\ drule (cj 2 evaluate_exp_with_clock)
     \\ disch_then $ qx_choose_then ‘ck’ assume_tac \\ gvs []
     \\ first_x_assum $ qspecl_then [‘nss’, ‘mods’] mp_tac
-    \\ simp [SF ETA_ss]
+    \\ fs[SF ETA_ss]
     \\ disch_then $ drule_all_then assume_tac \\ gvs []
     \\ reverse $ namedCases_on ‘r₁’ ["vs", "err"] \\ gvs []
     >- (simp [state_component_equality])
@@ -2328,124 +2482,6 @@ Proof
        \\ last_x_assum drule
        \\ disch_then $ qspecl_then [‘nss’, ‘e’] mp_tac \\ gvs [])
     \\ gvs [])
-  >~ [‘UnOp’] >-
-   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
-    \\ simp [Once $ oneline wrap_Old_def]
-    \\ simp [AllCaseEqs()]
-    \\ rpt strip_tac \\ gvs []
-    \\ rename [‘UnOp uop e’]
-    \\ gvs [evaluate_exp_def]
-    \\ namedCases_on ‘evaluate_exp st env (wrap_Old nss e)’ ["st₁ r₁"] \\ gvs []
-    \\ drule (cj 1 evaluate_exp_with_clock)
-    \\ disch_then $ qx_choose_then ‘ck’ assume_tac \\ gvs []
-    \\ last_x_assum $ qspecl_then [‘nss’, ‘e’] mp_tac \\ simp []
-    \\ disch_then $ drule_all_then assume_tac
-    \\ CASE_TAC \\ gvs []
-    \\ CASE_TAC \\ gvs [])
-  >~ [‘BinOp’] >-
-   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
-    \\ simp [Once $ oneline wrap_Old_def]
-    \\ simp [AllCaseEqs()]
-    \\ rpt strip_tac \\ gvs []
-    \\ rename [‘BinOp bop e₀ e₁’]
-    \\ gvs [evaluate_exp_def]
-    \\ namedCases_on ‘evaluate_exp st env (wrap_Old nss e₀)’ ["st₁ r₁"]
-    \\ gvs []
-    \\ drule (cj 1 evaluate_exp_with_clock)
-    \\ disch_then $ qx_choose_then ‘ck’ assume_tac \\ gvs []
-    \\ first_x_assum $ qspecl_then [‘nss’, ‘e₀’] mp_tac \\ simp []
-    \\ disch_then $ drule_all_then assume_tac
-    \\ TOP_CASE_TAC \\ gvs []
-    \\ TOP_CASE_TAC \\ gvs []
-    \\ pop_assum mp_tac
-    \\ TOP_CASE_TAC \\ gvs []
-    \\ first_x_assum $ qspecl_then [‘nss’, ‘e₁’] mp_tac \\ simp []
-    \\ disch_then $ drule_all_then assume_tac
-    \\ TOP_CASE_TAC \\ gvs []
-    \\ TOP_CASE_TAC \\ gvs [])
-  >~ [‘ArrLen’] >-
-   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
-    \\ simp [Once $ oneline wrap_Old_def]
-    \\ simp [AllCaseEqs()]
-    \\ rpt strip_tac \\ gvs []
-    \\ rename [‘ArrLen arr’]
-    \\ qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
-    \\ gvs [evaluate_exp_def]
-    \\ TOP_CASE_TAC \\ gvs []
-    \\ first_x_assum $ qspecl_then [‘nss’, ‘arr’] mp_tac \\ simp []
-    \\ disch_then $ drule_all_then assume_tac
-    \\ TOP_CASE_TAC \\ gvs []
-    \\ TOP_CASE_TAC \\ gvs [])
-  >~ [‘ArrSel’] >-
-   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
-    \\ simp [Once $ oneline wrap_Old_def]
-    \\ simp [AllCaseEqs()]
-    \\ rpt strip_tac \\ gvs []
-    \\ rename [‘ArrSel arr idx’]
-    \\ qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
-    \\ gvs [evaluate_exp_def]
-    \\ TOP_CASE_TAC \\ gvs []
-    \\ drule (cj 1 evaluate_exp_with_clock) \\ strip_tac \\ gvs []
-    \\ last_x_assum $ qspecl_then [‘nss’, ‘arr’] mp_tac \\ simp []
-    \\ disch_then $ drule_all_then assume_tac
-    \\ reverse TOP_CASE_TAC \\ gvs []
-    >- (simp [state_component_equality])
-    \\ TOP_CASE_TAC \\ gvs []
-    \\ first_x_assum $ qspecl_then [‘nss’, ‘idx’] mp_tac \\ simp []
-    \\ disch_then $ drule_all_then assume_tac
-    \\ TOP_CASE_TAC \\ gvs []
-    \\ simp [index_array_with_locals]
-    \\ TOP_CASE_TAC \\ gvs [])
-  >~ [‘FunCall’] >-
-   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
-    \\ simp [Once $ oneline wrap_Old_def]
-    \\ simp [AllCaseEqs()]
-    \\ rpt strip_tac \\ gvs []
-    \\ rename [‘FunCall name args’]
-    \\ qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
-    \\ simp [evaluate_exp_def]
-    \\ TOP_CASE_TAC \\ gvs []
-    \\ TOP_CASE_TAC \\ gvs []
-    \\ TOP_CASE_TAC \\ gvs []
-    \\ drule (cj 2 evaluate_exp_with_clock) \\ strip_tac \\ gvs []
-    \\ last_x_assum $ qspecl_then [‘nss’, ‘args’] mp_tac \\ simp [SF ETA_ss]
-    \\ disch_then $ drule_all_then assume_tac
-    \\ reverse TOP_CASE_TAC \\ gvs []
-    >- (simp [state_component_equality])
-    \\ simp [set_up_call_with_clock_locals]
-    \\ TOP_CASE_TAC \\ gvs []
-    >- (simp [state_component_equality])
-    \\ IF_CASES_TAC \\ gvs []
-    >- (simp [restore_caller_def, state_component_equality])
-    \\ TOP_CASE_TAC \\ gvs []
-    \\ TOP_CASE_TAC \\ gvs []
-    \\ simp [restore_caller_def, state_component_equality])
-  >~ [‘Old e’] >-
-   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
-    \\ simp [Once $ oneline wrap_Old_def]
-    \\ simp [AllCaseEqs()]
-    \\ rpt strip_tac \\ gvs []
-    >-
-     (rename [‘Var n’]
-      \\ drule (cj 1 evaluate_exp_with_clock) \\ strip_tac \\ gvs []
-      \\ gvs [evaluate_exp_def]
-      \\ first_x_assum drule \\ strip_tac \\ gvs []
-      \\ gvs [read_local_def, use_old_def, unuse_old_def,
-              state_component_equality])
-    \\ rename [‘Old e'’]
-    \\ qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
-    \\ simp [evaluate_exp_def]
-    \\ TOP_CASE_TAC \\ gvs []
-    \\ first_x_assum $ qspecl_then [‘nss’, ‘e'’] mp_tac \\ simp []
-    \\ simp [use_old_def]
-    \\ disch_then $ qspec_then ‘st.locals_old’ mp_tac
-    \\ impl_tac \\ gvs []
-    >- (rpt strip_tac
-        \\ last_x_assum drule
-        \\ rpt strip_tac
-        \\ first_assum $ irule_at (Pos hd)
-        \\ gvs [read_local_def, AllCaseEqs()])
-    \\ gvs [unuse_old_def, state_component_equality])
   >~ [‘[]’] >-
    (gvs [evaluate_exp_def])
   >~ [‘e::es’] >-
@@ -2462,7 +2498,7 @@ Proof
     \\ TOP_CASE_TAC \\ gvs []
     \\ first_x_assum $ qspecl_then [‘nss’, ‘es'’] mp_tac \\ simp []
     \\ disch_then $ drule_all_then assume_tac
-    \\ TOP_CASE_TAC \\ gvs []) *)
+    \\ TOP_CASE_TAC \\ gvs [])
 QED
 
 Triviality list_rel_eval_exp_old_var:
@@ -2484,6 +2520,7 @@ QED
 Theorem eval_exp_wrap_Old_IMP:
   eval_exp st env (wrap_Old (set ns) x) v ∧
   LIST_REL (eval_exp st env) (MAP (Old ∘ Var) ns) vs ∧
+  no_Prev F x ∧
   ¬env.is_running ⇒
   eval_exp (st with locals := ZIP (ns,MAP SOME vs) ++ st.locals) env x v
 Proof
