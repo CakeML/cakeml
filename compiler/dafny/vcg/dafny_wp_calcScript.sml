@@ -572,7 +572,7 @@ Definition wrap_Old_def:
   Old (wrap_Old vs e) ∧
   wrap_Old vs (Prev e) = Prev e ∧ (* Impossible *)
   wrap_Old vs (PrevHeap e) = PrevHeap e ∧ (* Impossible *)
-  wrap_Old vs (SetPrev e) = SetPrev e ∧
+  wrap_Old vs (SetPrev e) = SetPrev e ∧ (* Impossible *)
   wrap_Old vs (Let binds body) =
   Let (MAP (λ(n,e). (n, wrap_Old vs e)) binds)
       ((wrap_Old (vs DIFF (set (MAP FST binds)))) body) ∧
@@ -4775,30 +4775,51 @@ Definition dest_met_def[simp]:
   dest_met (Method name spec body) = (name, spec, body)
 End
 
-Definition freevars_list_def:
-  (freevars_list (Let binds body) ⇔
-     (FLAT (MAP freevars_list (MAP SND binds)))
-      ++ (FILTER (λx. ¬MEM x (MAP FST binds)) (freevars_list body))) ∧
-  (freevars_list (Var n) ⇔ [n]) ∧
-  (freevars_list (Lit _) ⇔ []) ∧
-  (freevars_list (If grd thn els) ⇔
-     freevars_list grd ++ freevars_list thn ++ freevars_list els) ∧
-  (freevars_list (UnOp _ e) ⇔ freevars_list e) ∧
-  (freevars_list (BinOp _ e₀ e₁) ⇔
-     (freevars_list e₀) ++ (freevars_list e₁)) ∧
-  (freevars_list (ArrLen arr) ⇔ freevars_list arr) ∧
-  (freevars_list (ArrSel arr idx) ⇔
-     freevars_list arr ++ freevars_list idx) ∧
-  (freevars_list (FunCall _ args) ⇔
-     FLAT (MAP freevars_list args)) ∧
-  (freevars_list (Forall (vn,_) e) ⇔
-     (FILTER (λx. x ≠ vn) (freevars_list e))) ∧
-  (freevars_list (Old e) ⇔ freevars_list e) ∧
-  (freevars_list (Prev e) ⇔ freevars_list e) ∧
-  (freevars_list (PrevHeap e) ⇔ freevars_list e) ∧
-  (freevars_list (SetPrev e) ⇔ freevars_list e) ∧
-  (freevars_list (ForallHeap mods e) ⇔
-     FLAT (MAP freevars_list mods) ++ freevars_list e)
+Definition freevars_aux_list_def:
+  (freevars_aux_list (Var n) = ([n],[])) ∧
+  (freevars_aux_list (Lit _) = ([],[])) ∧
+  (freevars_aux_list (If grd thn els) =
+    let (vg,sg) = freevars_aux_list grd in
+    let (v0,s0) = freevars_aux_list thn in
+    let (v1,s1) = freevars_aux_list els in
+      (vg ++ v0 ++ v1, sg ++ s0 ++ s1)) ∧
+  (freevars_aux_list (UnOp _ e) = freevars_aux_list e) ∧
+  (freevars_aux_list (BinOp _ e0 e1) =
+    let (v0,s0) = freevars_aux_list e0 in
+    let (v1,s1) = freevars_aux_list e1 in
+      (v0 ++ v1, s0 ++ s1)) ∧
+  (freevars_aux_list (ArrLen arr) = freevars_aux_list arr) ∧
+  (freevars_aux_list (ArrSel e0 e1) =
+    let (v0,s0) = freevars_aux_list e0 in
+    let (v1,s1) = freevars_aux_list e1 in
+      (v0 ++ v1, s0 ++ s1)) ∧
+  (freevars_aux_list (FunCall _ es) =
+    let vs = MAP freevars_aux_list es in
+      (FLAT (MAP FST vs), FLAT (MAP SND vs))) ∧
+  (freevars_aux_list (Forall (vn,_) e) =
+    let (v,s) = freevars_aux_list e in
+      (FILTER (λx. x ≠ vn) v, s)) ∧
+  (freevars_aux_list (Old e) = freevars_aux_list e) ∧
+  (freevars_aux_list (Prev e) =
+    let (v,s) = freevars_aux_list e in
+      ([], v ++ s)) ∧
+  (freevars_aux_list (PrevHeap e) = freevars_aux_list e) ∧
+  (freevars_aux_list (SetPrev e) =
+    let (v,s) = freevars_aux_list e in
+      (v ++ s, [])) ∧
+  (freevars_aux_list (ForallHeap mods e) =
+    let vs = MAP freevars_aux_list mods in
+    let v0 = FLAT (MAP FST vs) in
+    let s0 = FLAT (MAP SND vs) in
+    let (v1,s1) = freevars_aux_list e in
+     (v0 ++ v1, s0 ++ s1)) ∧
+  (freevars_aux_list (Let binds body) =
+    let vs = MAP freevars_aux_list (MAP SND binds) in
+    let v0 = FLAT (MAP FST vs) in
+    let s0 = FLAT (MAP SND vs) in
+    let (v1,s1) = freevars_aux_list body in
+     (v0 ++ (FILTER (λx. ¬MEM x (MAP FST binds)) v1),
+     s0 ++ s1))
 Termination
   wf_rel_tac ‘measure $ exp_size’
   \\ rpt strip_tac
@@ -4809,27 +4830,25 @@ Termination
   \\ gvs []
 End
 
-Triviality mem_freevars_list_eq:
-  (∀e. MEM e xs ⇒ set (freevars_list e) = freevars e) ⇒
-  MAP set (MAP (λe. freevars_list e) xs) = MAP (λe. freevars e) xs
+Definition freevars_list_def:
+  freevars_list e = FST (freevars_aux_list e)
+End
+
+Theorem freevars_aux_list_eq:
+  ∀e. (set ## set) (freevars_aux_list e) = freevars_aux e
 Proof
-  cheat (* prev
-  rpt strip_tac
-  \\ simp [MAP_MAP_o, o_DEF]
-  \\ irule MAP_CONG \\ gvs [] *)
+  ho_match_mp_tac freevars_aux_list_ind
+  \\ rw[freevars_aux_def,freevars_aux_list_def]
+  \\ rpt(pairarg_tac \\ gvs[])
+  \\ fs[LIST_TO_SET_FLAT,LIST_TO_SET_FILTER,MAP_MAP_o,o_DEF,EXTENSION,MEM_MAP,PULL_EXISTS]
+  \\ metis_tac[PAIR,FST,SND,PAIR_MAP_THM]
 QED
 
 Theorem freevars_list_eq:
   ∀e. set (freevars_list e) = freevars e
 Proof
-  cheat (* prev
-  ho_match_mp_tac freevars_list_ind
-  \\ rpt strip_tac
-  \\ simp [freevars_list_def, freevars_def]
-  \\ simp [LIST_TO_SET_FLAT]
-  \\ simp [LIST_TO_SET_FILTER]
-  \\ simp [mem_freevars_list_eq]
-  \\ SET_TAC [] *)
+  rw[freevars_list_def,freevars_def]>>
+  metis_tac[freevars_aux_list_eq,PAIR_MAP_THM,PAIR,FST]
 QED
 
 (* TODO Move? *)
@@ -4923,20 +4942,20 @@ Definition stmt_vcg_def:
     vars <- result_mmap dest_VarLhs lhss;
     () <- if ALL_DISTINCT vars then return () else
             (fail «stmt_vcg:MetCall: left-hand side names not distinct»);
-    () <- if EVERY no_Prev args ∧ EVERY no_Prev post
+    () <- if EVERY (no_Prev T) args ∧ EVERY (no_Prev T) post
           then return ()
           else (fail «stmt_vcg:MetCall: Cannot read and assign a variable in one statement»);
     () <- if EVERY (λe. list_subset (freevars_list e) (MAP FST spec.ins) ∧
-                        no_Old e ∧ no_Prev e) spec.reqs
+                        no_Old e ∧ (no_Prev T) e) spec.reqs
           then return ()
           else (fail «stmt_vcg:MetCall: Bad requires spec»);
     () <- if EVERY (λe. list_subset (freevars_list e) (MAP FST spec.ins) ∧
-                        no_Old e ∧ no_Prev e) spec.decreases
+                        no_Old e ∧ (no_Prev T) e) spec.decreases
           then return ()
           else (fail «stmt_vcg:MetCall: Bad decreases spec»);
     () <- if EVERY (λe. list_subset (freevars_list e) (MAP FST spec.ins
                                                    ++ MAP FST spec.outs) ∧
-                        no_Old e ∧ no_Prev e) spec.ens
+                        no_Old e ∧ (no_Prev F) e) spec.ens
           then return ()
           else (fail «stmt_vcg:MetCall: Bad ensures spec»);
     () <- if list_subset vars (MAP FST ls) then return () else
@@ -5015,6 +5034,8 @@ Proof
     \\ irule $ SRULE [rich_listTheory.APPEND] stmt_wp_MetCall
     \\ simp []
     \\ gvs [LIST_TO_SET_SUBSET, LIST_TO_SET_DISJOINT, freevars_list_eq]
+    \\ last_assum $ irule_at (Pos hd)
+    \\ simp[]
     \\ last_assum $ irule_at (Pos hd))
   \\ gvs [stmt_vcg_def]
 QED
@@ -5039,12 +5060,9 @@ Definition wrap_Old_list_def:
     Forall (vn,vt) (wrap_Old_list (FILTER (λx. x ≠ vn) vs) term) ∧
   wrap_Old_list vs (Old e) =
     Old (wrap_Old_list vs e) ∧
-  wrap_Old_list vs (Prev e) =
-    Prev (wrap_Old_list vs e) ∧
-  wrap_Old_list vs (PrevHeap e) =
-    PrevHeap (wrap_Old_list vs e) ∧
-  wrap_Old_list vs (SetPrev e) =
-    SetPrev (wrap_Old_list vs e) ∧
+  wrap_Old_list vs (Prev e) = Prev e ∧ (* impossible *)
+  wrap_Old_list vs (PrevHeap e) = PrevHeap e ∧ (* impossible *)
+  wrap_Old_list vs (SetPrev e) = SetPrev e ∧ (* impossible *)
   wrap_Old_list vs (Let binds body) =
     Let (MAP (λ(n,e). (n, wrap_Old_list vs e)) binds)
         ((wrap_Old_list (FILTER (λx. ¬MEM x (MAP FST binds)) vs)) body) ∧
@@ -5064,24 +5082,11 @@ QED
 Triviality wrap_Old_list_eq_aux:
   ∀vs e. wrap_Old_list vs e = wrap_Old (set vs) e
 Proof
-  ho_match_mp_tac wrap_Old_list_ind
-  \\ rpt strip_tac
-  >~ [‘Forall’] >-
-   (simp [wrap_Old_list_def, wrap_Old_def]
-    \\ simp [LIST_TO_SET_FILTER]
-    \\ AP_THM_TAC \\ AP_TERM_TAC \\ SET_TAC [])
-  >~ [‘Let’] >-
-   (simp [wrap_Old_list_def, wrap_Old_def]
-    \\ simp [LIST_TO_SET_FILTER]
-    \\ conj_tac
-    >- (irule MAP_CONG \\ simp []
-        \\ qx_gen_tac ‘x’
-        \\ PairCases_on ‘x’ \\ simp []
-        \\ strip_tac \\ last_assum drule \\ simp [])
-    \\ AP_THM_TAC \\ AP_TERM_TAC \\ SET_TAC [])
-  \\ simp [wrap_Old_list_def, wrap_Old_def]
-  \\ simp [mem_wrap_Old_list_eq]
-  \\ simp [LIST_TO_SET_FILTER]
+  ho_match_mp_tac wrap_Old_list_ind >>
+  rw[wrap_Old_list_def,wrap_Old_def,MAP_EQ_f,LIST_TO_SET_FILTER]
+  >- (AP_THM_TAC>>AP_TERM_TAC>>SET_TAC[])
+  >- (pairarg_tac>>gvs[]>>metis_tac[])
+  >- (AP_THM_TAC>>AP_TERM_TAC>>SET_TAC[])
 QED
 
 Theorem wrap_Old_list_eq:
