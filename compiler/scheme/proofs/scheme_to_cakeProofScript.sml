@@ -11,22 +11,33 @@ open scheme_semanticsPropsTheory;
 open astTheory;
 open evaluateTheory;
 open evaluatePropsTheory;
+open primSemEnvTheory;
 open semanticPrimitivesTheory;
 open namespaceTheory;
 open primTypesTheory;
 open namespacePropsTheory;
 open integerTheory;
 open numTheory;
+open ffiTheory;
+
+Type state = ``:'ffi semanticPrimitives$state``
 
 val _ = new_theory "scheme_to_cakeProof";
 
-val _ = (max_print_depth := 30);
+val _ = (max_print_depth := 4);
+
+Definition empty_ffi_def[simp]:
+  empty_ffi = <| oracle := K (K (K (K (Oracle_return () []))))
+               ; ffi_state := ()
+               ; io_events := []
+               |>
+End
 
 Definition closure_in_env_def:
   closure_in_env env dec env_cl =
     case dec of
       | Dlet _ (Pvar x) e => nsLookup env.v (Short x) = SOME (case evaluate
-          (<|clock:=0;next_type_stamp:=0;next_exn_stamp:=0|> :num state)
+          (<|clock:=0;next_type_stamp:=0;next_exn_stamp:=0|> :unit state)
           env_cl [e] of
         | (st', Rval [v]) => v)
       | Dletrec _ funs => EVERY
@@ -34,16 +45,16 @@ Definition closure_in_env_def:
         funs
 End
 
-Theorem scheme_cons_env_def[allow_rebind, compute] = EVAL_RULE $ zDefine ‘
-  scheme_cons_env = (case evaluate_decs
-               (<|clock:=0;next_type_stamp:=0;next_exn_stamp:=0|> :num state)
-               <|v:=nsEmpty;c:=nsEmpty|>
-               (prim_types_program ++ [Dtype unknown_loc [(["'a"],"option",
-                     [("None",[]); ("Some",[Atvar "'a"])])]] ++ [scheme_basis_types]) of
-             | (st', Rval env) => env).c
-’;
+Definition scheme_cons_env_def:
+  scheme_cons_env = let
+      (st, penv) = THE (prim_sem_env empty_ffi);
+      (st', env) = THE (add_to_sem_env (st,penv) scheme_basis_types);
+    in env.c
+End
 
-Theorem scheme_env_app_def[allow_rebind, compute] = EVAL_RULE $ zDefine ‘
+Theorem scheme_cons_env_eq[compute] = EVAL ``scheme_cons_env``;
+
+Theorem scheme_env_app_def[allow_rebind, compute] = SRULE [] $ EVAL_RULE $ zDefine ‘
   scheme_env_app env <=>
     env.c = scheme_cons_env ∧
     EVERY (λ dec. ∃ env_cl . env_cl.c = scheme_cons_env ∧ closure_in_env env dec env_cl)
@@ -52,7 +63,7 @@ Theorem scheme_env_app_def[allow_rebind, compute] = EVAL_RULE $ zDefine ‘
       (? env_sadd . env_sadd.c = scheme_cons_env /\ closure_in_env env_sminus (EL 0 scheme_basis) env_sadd))
 ’;
 
-Theorem scheme_env_def[allow_rebind, compute] = RESTR_EVAL_RULE [``scheme_env_app``] $ zDefine ‘
+Theorem scheme_env_def[allow_rebind, compute] = SRULE [] $ RESTR_EVAL_RULE [``scheme_env_app``] $ zDefine ‘
   scheme_env env <=>
     env.c = scheme_cons_env ∧
     (∃ env_app .
@@ -63,13 +74,37 @@ Theorem scheme_env_def[allow_rebind, compute] = RESTR_EVAL_RULE [``scheme_env_ap
       closure_in_env env scheme_basis_list env_list
 ’;
 
-Theorem scheme_env'_def[allow_rebind, compute] = EVAL_RULE $ zDefine ‘
-  scheme_env' = case evaluate_decs (<|clock:=999;next_type_stamp:=0;next_exn_stamp:=0|> :num state)
-                  <|v:=nsEmpty;c:=nsEmpty|>
-                  (prim_types_program ++ [Dtype unknown_loc [(["'a"],"option", [("None",[]); ("Some",[Atvar "'a"])])]]
-                    ++ [scheme_basis_types] ++ scheme_basis ++ [scheme_basis_list; scheme_basis_app]) of
-                | (st', Rval env) => env
-’;
+Definition scheme_env'_app_def:
+  scheme_env'_app = let
+      (st, penv) = THE (prim_sem_env empty_ffi);
+      (st', senv) = THE (add_to_sem_env (st,penv) scheme_basis_types);
+      (st'', env_app) = THE (add_to_sem_env (st', senv) (scheme_basis ++ [scheme_basis_list]));
+    in env_app
+End
+
+Definition scheme_env'_def:
+  scheme_env' = let
+      (st, penv) = THE (prim_sem_env empty_ffi);
+      (st', senv) = THE (add_to_sem_env (st,penv) scheme_basis_types);
+      (st'', env_app) = THE (add_to_sem_env (st', senv) (scheme_basis ++ [scheme_basis_list]));
+      (st''', env) = THE (add_to_sem_env (st'', env_app) [scheme_basis_app]);
+    in env
+End
+
+(*
+Can't get this to work
+Theorem basis_scheme_env_app:
+  ! st env .
+    (st, env) = THE (prim_sem_env empty_ffi)
+    ==>
+    ? scheme_env'_app .
+      (? st' . evaluate_decs st env (scheme_basis_types ++ scheme_basis ++ [scheme_basis_list]) = (st', Rval scheme_env'_app)) /\
+      scheme_env_app scheme_env'_app
+Proof
+  simp[prim_sem_env_eq]
+  >> EVAL_TAC
+  >> simp[]
+QED*)
 
 Theorem basis_scheme_env:
   scheme_env scheme_env'
@@ -77,18 +112,14 @@ Proof
   simp[scheme_env_def]
   >> rpt conj_tac >- EVAL_TAC
   >- (
-    qexists ‘case evaluate_decs (<|clock:=999;next_type_stamp:=0;next_exn_stamp:=0|> :num state)
-                <|v:=nsEmpty;c:=nsEmpty|>
-                (prim_types_program ++ [Dtype unknown_loc [(["'a"],"option", [("None",[]); ("Some",[Atvar "'a"])])]]
-                  ++ [scheme_basis_types] ++ scheme_basis ++ [scheme_basis_list]) of
-              | (st', Rval env) => env’
+    qexists `scheme_env'_app`
     >> EVAL_TAC
     >> rpt strip_tac
     >> irule_at Any EQ_REFL
     >> simp[nsLookup_def]
   )
   >> EVAL_TAC
-  >> irule_at Any EQ_REFL
+  >> irule_at (Pos last) EQ_REFL
   >> simp[nsLookup_def]
 QED
 
@@ -126,9 +157,9 @@ Definition scheme_typestamp_def:
   scheme_typestamp con = SND $ THE $ nsLookup scheme_cons_env (Short con)
 End
 
-Theorem scheme_typestamp_def[allow_rebind, simp, compute] = SRULE [] $
+Theorem scheme_typestamp_eq[simp, compute] = SRULE [] $
   SIMP_CONV pure_ss [SimpRHS, scheme_typestamp_def, EVERY_DEF,
-      scheme_conses_def, SND, THE_DEF, nsLookup_def, scheme_cons_env_def]
+      scheme_conses_def, SND, THE_DEF, nsLookup_def, scheme_cons_env_eq]
     “EVERY (λ x . scheme_typestamp x = scheme_typestamp x) scheme_conses”;
 
 Inductive env_rel:
@@ -315,14 +346,14 @@ Theorem scheme_cons_lookup:
   ! env . scheme_env env ==> EVERY (\c . nsLookup env.c (Short c) = nsLookup scheme_cons_env (Short c)) scheme_conses
 Proof
   rpt strip_tac
-  >> gvs[scheme_env_def, scheme_cons_env_def, scheme_conses_def, nsLookup_def]
+  >> gvs[scheme_env_def, scheme_cons_env_eq, scheme_conses_def, nsLookup_def]
 QED
 
 Theorem scheme_app_cons_lookup:
   ! env . scheme_env_app env ==> EVERY (\c . nsLookup env.c (Short c) = nsLookup scheme_cons_env (Short c)) scheme_conses
 Proof
   rpt strip_tac
-  >> gvs[scheme_env_app_def, scheme_cons_env_def, scheme_conses_def, nsLookup_def]
+  >> gvs[scheme_env_app_def, scheme_cons_env_eq, scheme_conses_def, nsLookup_def]
 QED
 
 val _ = augment_srw_ss $ single $ rewrites $ BODY_CONJUNCTS $ SRULE [IMP_CONJ_THM] $ RESTR_EVAL_RULE [``scheme_env``] scheme_cons_lookup;
@@ -362,7 +393,7 @@ Theorem cons_trivial_eval:
       )) scheme_conses
 Proof
   rpt strip_tac
-  >> gvs[scheme_env_def, scheme_cons_env_def, scheme_conses_def, nsLookup_def]
+  >> gvs[scheme_env_def, scheme_cons_env_eq, scheme_conses_def, nsLookup_def]
   >> simp [evaluate_def, do_con_check_def, build_conv_def, nsLookup_def]
   >> rpt strip_tac
   >> Cases_on `es` using SNOC_CASES
@@ -472,6 +503,7 @@ Proof
   >> simp[Ntimes evaluate_def 2, nsOptBind_def]
   >> irule_at (Pos last) EQ_REFL
   >> scheme_env_tac
+  >> qexists `[]`
   >> simp[Once cont_rel_cases]
   >> metis_tac[]
 QED
@@ -697,7 +729,7 @@ Proof
   Induct_on `vs`
   >> rpt strip_tac
   >> qpat_x_assum `closure_in_env _ _ _` $ assume_tac o EVAL_RULE
-  >> gvs[allocate_list_def, vcons_list_def, scheme_cons_env_def]
+  >> gvs[allocate_list_def, vcons_list_def, scheme_cons_env_eq]
   >> qrefine `ck+1`
   >> simp[evaluate_def, dec_clock_def]
   >> simp[do_opapp_def]
@@ -1276,7 +1308,7 @@ Proof
       >> `closure_in_env proc_env' scheme_basis_list env_list` by (EVAL_TAC >> simp[])
       >> first_x_assum $ drule_at_then (Pat `closure_in_env _ _ _`) assume_tac
       >> pop_assum $ qspec_then `"ts"` assume_tac
-      >> gvs[scheme_cons_env_def, scheme_runtime_funs_def]
+      >> gvs[scheme_cons_env_eq, scheme_runtime_funs_def]
       >> qrefine `ck + ck'`
       >> simp[do_app_def, store_alloc_def]
       >> simp[GSYM eval_eq_def]

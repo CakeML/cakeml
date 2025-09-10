@@ -204,6 +204,24 @@ Definition steps_def:
     else steps (n - 1) $ step t
 End
 
+Datatype:
+  scheme_res = STerminate val | SDiverge | SError mlstring
+End
+
+Definition terminating_state_def:
+  terminating_state (st, ks, e)
+    ⇔ (ks = [] ∧ ∃ v . e = Val v) ∨ (∃ ex . e = Exception ex)
+End
+
+Definition scheme_semantics_prog_def:
+  (scheme_semantics_prog prog (STerminate v) <=>
+    (? n store . steps n ([], [], Exp FEMPTY prog) = (store, [], Val v))) /\
+  (scheme_semantics_prog prog SDiverge <=>
+    (! n . ¬ terminating_state (steps n ([], [], Exp FEMPTY prog)))) /\
+  (scheme_semantics_prog prog (SError s) <=>
+    (? n store . steps n ([], [], Exp FEMPTY prog) = (store, [], Exception s)))
+End
+
 (*
   open scheme_semanticsTheory;
 

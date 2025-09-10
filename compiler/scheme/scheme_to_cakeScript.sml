@@ -161,38 +161,42 @@ Definition cake_print_def:
 End
 
 Definition scheme_basis_types_def:
-  scheme_basis_types = Dtype unknown_loc [
-    ([], "sprim", [
-      ("SAdd", []);
-      ("SMul", []);
-      ("SMinus", []);
-      ("SEqv", []);
-      ("CallCC", []);
-      ("Cons", []);
-      ("Car", []);
-      ("Cdr", []);
-      ("IsNull", []);
-      ("IsPair", [])
-    ]);
-    ([], "sval", [
-      ("SNum", [Atapp [] (Short "int")]);
-      ("SBool", [Atapp [] (Short "bool")]);
-      ("Prim", [Atapp [] (Short "sprim")]);
-      ("Null", []);
-      ("PairP", [Atapp [] (Short "sval")]);
-      ("Wrong", [Atapp [] (Short "string")]);
-      ("Ex", [Atapp [] (Short "string")]);
-      ("Proc", [Atfun
-                 (Atfun
-                   (Atapp [] (Short "sval"))
-                   (Atapp [] (Short "sval")))
-                 (Atfun
-                   (Atapp [Atapp [] (Short "sval")] (Short "list"))
-                   (Atapp [] (Short "sval")))]);
-      ("Throw", [Atfun
-                  (Atapp [] (Short "sval"))
-                  (Atapp [] (Short "sval"))]);
-    ])
+  scheme_basis_types = [
+    Dtype unknown_loc [(["'a"],"option", [("None",[]); ("Some",[Atvar "'a"])])];
+    Dtype unknown_loc [
+      ([], "sprim", [
+        ("SAdd", []);
+        ("SMul", []);
+        ("SMinus", []);
+        ("SEqv", []);
+        ("CallCC", []);
+        ("Cons", []);
+        ("Car", []);
+        ("Cdr", []);
+        ("IsNull", []);
+        ("IsPair", [])
+      ])];
+    Dtype unknown_loc [
+      ([], "sval", [
+        ("SNum", [Atapp [] (Short "int")]);
+        ("SBool", [Atapp [] (Short "bool")]);
+        ("Prim", [Atapp [] (Short "sprim")]);
+        ("Null", []);
+        ("PairP", [Atapp [] (Short "sval")]);
+        ("Wrong", [Atapp [] (Short "string")]);
+        ("Ex", [Atapp [] (Short "string")]);
+        ("Proc", [Atfun
+                   (Atfun
+                     (Atapp [] (Short "sval"))
+                     (Atapp [] (Short "sval")))
+                   (Atfun
+                     (Atapp [Atapp [] (Short "sval")] (Short "list"))
+                     (Atapp [] (Short "sval")))]);
+        ("Throw", [Atfun
+                    (Atapp [] (Short "sval"))
+                    (Atapp [] (Short "sval"))]);
+      ])
+    ]
   ]
 End
 
@@ -476,21 +480,28 @@ Definition scheme_basis_app_def:
   ]
 End
 
+Definition static_scope_check_def:
+  static_scope_check p = if static_scope ∅ p
+    then INR p
+    else INL "Not statically scoped or duplicate parameter in lambda or letrec"
+End
+
 Definition codegen_def:
-  codegen p = INR $ [scheme_basis_types] ++ scheme_basis ++ [scheme_basis_list; scheme_basis_app] ++ [
+  codegen p = INR $ scheme_basis_types ++ scheme_basis ++ [scheme_basis_list; scheme_basis_app] ++ [
     Dlet unknown_loc (Pvar "res") $ compile_scheme_prog p;
     Dlet unknown_loc Pany $ Mat (Var (Short "res")) [
-      (Pcon (SOME $ Short "SNum") [Pvar "n"],
-        App Opapp [Var (Short "print_int"); Var (Short "n")]);
+      (*(Pcon (SOME $ Short "SNum") [Pvar "n"],
+        App Opapp [Var (Short "print_int"); Var (Short "n")]);*)
       (Pcon (SOME $ Short "SBool") [Pcon (SOME $ Short "True") []],
-        App Opapp [Var (Short "print"); Lit $ StrLit "#t"]);
+        App (FFI "scheme_out") [Lit $ StrLit "#t"; App Aw8alloc [Lit $ IntLit 0; Lit $ Word8 0w]]);
       (Pcon (SOME $ Short "SBool") [Pcon (SOME $ Short "False") []],
-        App Opapp [Var (Short "print"); Lit $ StrLit "#f"]);
-      (Pcon (SOME $ Short "Ex") [Pvar "ex"],
+        App (FFI "scheme_out") [Lit $ StrLit "#f"; App Aw8alloc [Lit $ IntLit 0; Lit $ Word8 0w]]);
+      (*(Pcon (SOME $ Short "Ex") [Pvar "ex"],
         App Opapp [Var (Short "print"); Var (Short "ex")]);
       (Pcon (SOME $ Short "Wrong") [Pany],
-        App Opapp [Var (Short "print"); Lit $ StrLit "unspecified"]);
-      (Pany, App Opapp [Var (Short "print"); Lit $ StrLit "proc"])
+        App Opapp [Var (Short "print"); Lit $ StrLit "unspecified"]);*)
+      (Pany,
+        App (FFI "scheme_out") [Lit $ StrLit "other"; App Aw8alloc [Lit $ IntLit 0; Lit $ Word8 0w]]);
     ]
   ]
 End

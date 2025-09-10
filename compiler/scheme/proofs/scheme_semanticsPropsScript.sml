@@ -181,11 +181,6 @@ Inductive valid_state:
   valid_state store ks (Exception s)
 End
 
-Definition terminating_state_def:
-  terminating_state (st, ks, e)
-    ⇔ (ks = [] ∧ ∃ v . e = Val v) ∨ (∃ ex . e = Exception ex)
-End
-
 Theorem SET_MEM:
   ∀ l x . set l x ⇔ MEM x l
 Proof

@@ -12,7 +12,7 @@ else
 	EVALFLAG = -DEVAL
 endif
 
-CAKEOPT = --sexp=true --call=false --skip_type_inference=true
+CAKEOPT = --sexp=true --call=false --skip_type_inference=true --exclude-prelude=true
 
 ifeq ($(OS),Darwin)
 	# These options avoid linker warnings on macOS
@@ -34,7 +34,7 @@ all: $(ALL)
 	cat $< | $(PREF)scheme_compiler$(SUFF) | $(PREF)cake$(SUFF) $(CAKEOPT) > $@
 
 %.cake$(SUFF) : %.cake.S ../../../basis/basis_ffi.c
-	$(CC) $< ../../../basis/basis_ffi.c $(LOADLIBES) $(LDLIBS) -o $@ $(LDFLAGS)
+	$(CC) $< ../../../basis/basis_ffi.c basis_scheme.c $(LOADLIBES) $(LDLIBS) -o $@ $(LDFLAGS)
 
 scheme_compiler.S: ../compilation/scheme_compiler.S
 	cp $< $@
