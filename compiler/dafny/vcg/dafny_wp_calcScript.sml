@@ -439,16 +439,12 @@ Definition dec_assum_def:
 End
 
 Definition dest_Var_def:
-  dest_Var (Var v) = SOME v ∧
-  dest_Var _ = NONE
+  dest_Var (Var var) = return var ∧
+  dest_Var _ = fail «dest_Var: Not Var»
 End
 
 Definition dest_Vars_def:
-  dest_Vars [] = SOME [] ∧
-  dest_Vars (x :: xs) =
-    case (dest_Var x, dest_Vars xs) of
-    | (SOME v, SOME vs) => SOME (v::vs)
-    | _ => NONE
+  dest_Vars ls = result_mmap dest_Var ls
 End
 
 Inductive stmt_wp:
@@ -520,7 +516,7 @@ Inductive stmt_wp:
     EVERY (λd. get_type ls d = INR IntT) ds ∧
     no_Prev b guard ∧ EVERY (no_Prev b) post ∧ EVERY (no_Prev b) invs ∧
     EVERY (no_Prev b) ds ∧ EVERY (no_Prev b) body_wp ∧ EVERY (no_Prev b) (SND decs) ∧
-    dest_Vars ms = SOME ms_vars ∧ set ms_vars ⊆ set mods ∧
+    dest_Vars ms = INR ms_vars ∧ set ms_vars ⊆ set mods ∧
     ls1 = FILTER (λ(v,ty). assigned_in body v) ls ∧
     (* when executing the body, invs are maintained *)
     body_cond = imp (conj (guard :: invs ++ MAP2 dec_assum ds_vars ds)) (conj body_wp) ∧
@@ -552,9 +548,9 @@ Inductive stmt_wp:
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins ++ MAP FST mspec.outs) ∧
                no_Old e ∧ no_Prev F e) mspec.ens ∧
     EVERY (no_Prev b) post ∧
-    dest_Vars mspec.mods = SOME callee_mod_params ∧
+    dest_Vars mspec.mods = INR callee_mod_params ∧
     dest_Vars (MAP SND (FILTER (λ(v,a). MEM v callee_mod_params)
-      (ZIP (MAP FST mspec.ins,args)))) = SOME callee_mod_arg_vars ∧
+      (ZIP (MAP FST mspec.ins,args)))) = INR callee_mod_arg_vars ∧
     set callee_mod_arg_vars ⊆ set mods ∧
     set callee_mod_params ⊆ set (MAP FST mspec.ins) ∧
     set ret_names ⊆ set (MAP FST ls) ∧
@@ -616,7 +612,7 @@ Definition proved_methods_def:
                  MAP (CanEval o Var o FST) mspec.outs)
                 (mspec.rank, mspec.decreases) mod_vars
                 (mspec.ins ++ mspec.outs) ∧
-        dest_Vars mspec.mods = SOME mod_vars ∧
+        dest_Vars mspec.mods = INR mod_vars ∧
         ∃p.
           p = Foralls mspec.ins (imp (conj mspec.reqs) (conj wp_pre)) ∧
           freevars p = {} ∧
@@ -4394,7 +4390,7 @@ val stmt_wp_sound_setup = setup (`
           Method name' mspec' body' ∈ m ∧ st'.locals_old = st'.locals ∧
           st'.heap_old = st'.heap ∧
           state_inv st' ∧
-          dest_Vars mspec'.mods = SOME mods' ∧
+          dest_Vars mspec'.mods = INR mods' ∧
           LIST_REL (mod_loc st'.locals) mods' mod_locs' ∧
           conditions_hold st' env mspec'.reqs ∧
           compatible_env env m ∧
@@ -4716,7 +4712,7 @@ Theorem stmt_wp_sound_While:
 Proof
   rpt strip_tac
   \\ rename [‘While guard invs ds ms body’]
-  \\ rename [‘dest_Vars ms = SOME while_mods’]
+  \\ rename [‘dest_Vars ms = INR while_mods’]
   \\ ‘∃while_mod_locs.
         LIST_REL (mod_loc st.locals) while_mods while_mod_locs’ by
     (irule IMP_LIST_REL_EXISTS>>
@@ -5160,17 +5156,18 @@ QED
 
 Theorem dest_Vars_MAP_FILTER_lemma:
   ∀xs ys zs ts.
-  dest_Vars (MAP SND (FILTER (λ(v,a). MEM v ts) (ZIP (xs,ys)))) = SOME zs ∧
+  dest_Vars (MAP SND (FILTER (λ(v,a). MEM v ts) (ZIP (xs,ys)))) = INR zs ∧
   MEM p ts ∧ MEM p xs ∧ LENGTH xs = LENGTH ys
   ⇒
   ∃i v.
     i < LENGTH xs ∧ EL i ys = Var v ∧ MEM v zs ∧ EL i xs = p
 Proof
   Induct>>rw[quantHeuristicsTheory.LIST_LENGTH_COMPARE_SUC]>>
-  gvs[oneline dest_Var_def,dest_Vars_def,AllCaseEqs()]
+  gvs[dest_Vars_def,result_mmap_def,oneline bind_def,AllCaseEqs(),oneline dest_Var_def]
   >-
     (qexists_tac`0`>>simp[])>>
-  every_case_tac>>gvs[dest_Vars_def,AllCaseEqs()]>>
+  every_case_tac>>
+  gvs[AllCaseEqs(),result_mmap_def,oneline bind_def]>>
   first_x_assum drule>>simp[]>>rw[]>>
   qexists_tac`i+1`>>simp[GSYM ADD1]
 QED
@@ -5209,15 +5206,22 @@ Proof
     \\ ‘∃z. mod_loc st.locals v z’ by
       (imp_res_tac LIST_REL_MEM_IMP
        \\ first_x_assum $ irule_at Any \\ fs [])
-    \\ simp [mod_loc_def,Abbr‘new_l’]
+    \\ simp [oneline mod_loc_def,Abbr‘new_l’]
     \\ DEP_REWRITE_TAC [alookup_distinct_reverse]
-    \\ conj_tac >- cheat
+    \\ conj_tac >- simp[MAP_ZIP]
     \\ simp [ALOOKUP_APPEND,CaseEq"option",SF DNF_ss]
-    \\ disj2_tac
-    \\ ‘ALL_DISTINCT (MAP FST (ZIP (MAP FST mspec.ins,MAP SOME in_vs)))’ by cheat
-    \\ drule alookup_eq_mem \\ simp []
+    \\ ‘ALL_DISTINCT (MAP FST (ZIP (MAP FST mspec.ins,MAP SOME in_vs)))’ by
+      fs[MAP_ZIP,ALL_DISTINCT_APPEND]
+    \\ drule alookup_eq_mem
+    \\ simp [MEM_ZIP,PULL_EXISTS,EXISTS_PROD,SF DNF_ss]
     \\ disch_then kall_tac
-    \\ cheat)
+    \\ disj2_tac
+    \\ first_assum (irule_at Any)
+    \\ fs[LIST_REL_EL_EQN]
+    \\ first_x_assum drule
+    \\ rw[eval_exp_def,evaluate_exp_def,read_local_def,AllCaseEqs()]
+    \\ fs[oneline mod_loc_def,EL_MAP]
+    \\ PairCases_on`z`\\fs[])
   \\ disch_then $ qspecl_then [‘st1’,‘callee_mod_params’,‘callee_mod_locs’] mp_tac
   \\ impl_tac
   >-
@@ -5440,9 +5444,10 @@ Proof
    (simp [] \\ fs [Abbr‘st3’,restore_caller_def]
     \\ qpat_x_assum ‘EVERY (λv. ¬MEM v ret_names) mods’ assume_tac
     \\ qpat_x_assum ‘LIST_REL (mod_loc st.locals) mods mod_locs’ mp_tac
-    \\ match_mp_tac LIST_REL_mono_alt \\ simp [mod_loc_def]
+    \\ match_mp_tac LIST_REL_mono_alt \\ simp [oneline mod_loc_def]
     \\ rpt strip_tac
     \\ simp [ALOOKUP_APPEND,CaseEq"option",SF DNF_ss]
+    \\ PairCases_on`y` \\ fs[]
     \\ disj1_tac
     \\ simp [ALOOKUP_NONE]
     \\ DEP_REWRITE_TAC [cj 1 MAP_ZIP] \\ fs [EVERY_MEM])
@@ -5617,7 +5622,7 @@ Theorem methods_lemma[local]:
       st.locals_old = st.locals ∧
       st.heap_old = st.heap ∧
       state_inv st ∧
-      dest_Vars mspec.mods = SOME mods ∧
+      dest_Vars mspec.mods = INR mods ∧
       LIST_REL (mod_loc st.locals) mods mod_locs ∧
       conditions_hold st env mspec.reqs ∧ compatible_env env m ∧
       strict_locals_ok mspec.ins st.locals ∧
@@ -5917,12 +5922,26 @@ Definition stmt_vcg_def:
           else (fail «stmt_vcg:MetCall: Bad ensures spec»);
     () <- if list_subset vars (MAP FST ls) then return () else
             (fail «stmt_vcg:MetCall: Trying to assign to undeclared variables»);
+    () <- if EVERY (λv. ¬MEM v vars) mods
+          then return ()
+          else (fail «stmt_vcg:MetCall: assigning to mods»);
     arg_tys <- get_types ls args;
     () <- if arg_tys = MAP SND spec.ins then return () else
             (fail «stmt_vcg:MetCall: Argument and parameters types do not match»);
     var_tys <- get_types ls (MAP Var vars);
     () <- if var_tys = MAP SND spec.outs then return () else
             (fail «stmt_vcg:MetCall: lhs variable types do not match»);
+    callee_mod_params <- dest_Vars spec.mods;
+    () <- if list_subset callee_mod_params (MAP FST spec.ins)
+          then return ()
+          else (fail «stmt_vcg:MetCall: callee mod params outside of spec ins»);
+    callee_mod_arg_vars <- dest_Vars
+            (MAP SND
+               (FILTER (λ(v,a). MEM v callee_mod_params)
+                  (ZIP (MAP FST spec.ins,args))));
+    () <- if list_subset callee_mod_arg_vars mods
+          then return ()
+          else (fail «stmt_vcg:MetCall: callee mod args outside of mods»);
     return
       (Let (ZIP (MAP FST spec.ins,args)) (conj spec.reqs)
        :: MAP CanEval args
@@ -6054,12 +6073,10 @@ QED
 
 Definition met_vcg_def:
   met_vcg mets (Method name specs body) =
-  case dest_Vars specs.mods of
-  | NONE => fail «met_vcg: mods are not variables»
-  | SOME mod_vars =>
   do
     (* ensures should always refer to the locals as they were at the beginning
        of a method; in particular, it should ignore any updates/shadowing *)
+    mod_vars <- dest_Vars specs.mods;
     ens <<- (MAP (wrap_Old_list (MAP FST specs.ins)) specs.ens ++
              MAP (CanEval ∘ Var ∘ FST) specs.outs);
     vcs <- stmt_vcg mets body [False] ens (specs.rank, specs.decreases) mod_vars
