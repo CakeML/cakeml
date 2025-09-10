@@ -513,6 +513,7 @@ Inductive stmt_wp:
     freevars body_cond ⊆ set (ds_vars ++ MAP FST ls) ∧
     assigned_in body ⊆ set (MAP FST ls) ∧
     assigned_in body ∩ set mods = {} ∧
+    set ds_vars ∩ set mods = {} ∧
     LENGTH ds_vars = LENGTH ds ∧
     ALL_DISTINCT ds_vars ∧
     get_type ls guard = INR BoolT ∧
@@ -4690,6 +4691,26 @@ Proof
   simp [get_vars_stmt_def]
 QED
 
+Triviality EVERY2_MEM_MONO_weak:
+  (∀x y. MEM x l1 ∧ MEM y l2 ∧ P x y ⇒ Q x y) ∧
+  LIST_REL P l1 l2 ⇒
+  LIST_REL Q l1 l2
+Proof
+  strip_tac>>irule EVERY2_MEM_MONO>>
+  drule LIST_REL_LENGTH>>
+  fs[MEM_ZIP,PULL_EXISTS]>>
+  metis_tac[MEM_EL]
+QED
+
+Triviality mod_loc_prepend_outside:
+  mod_loc l x y ∧ ¬MEM x (MAP FST s) ⇒
+  mod_loc (s ++ l) x y
+Proof
+  rw[oneline mod_loc_def]>>
+  every_case_tac>>
+  simp[ALOOKUP_APPEND,AllCaseEqs(),ALOOKUP_NONE]
+QED
+
 Theorem stmt_wp_sound_While:
   ^(#get_goal stmt_wp_sound_setup `While`)
 Proof
@@ -4733,9 +4754,8 @@ Proof
     \\ Cases_on ‘ret’ \\ gvs []
     \\ gvs [conditions_hold_def]
     \\ ‘LIST_REL (mod_loc st'.locals) mods mod_locs’ by (
-      drule_at_then Any irule EVERY2_MEM_MONO>>
-      fs[LIST_REL_EL_EQN,MEM_ZIP,mod_loc_def,FORALL_PROD]>>
-      rw[]>>
+      drule_at_then Any irule EVERY2_MEM_MONO_weak>>
+      rw[oneline mod_loc_def]>>
       drule assigned_in_thm>>
       disch_then (fn th => DEP_REWRITE_TAC[th])>>
       fs[assigned_in_def,EXTENSION]>>
@@ -4912,7 +4932,12 @@ Proof
       \\ DEP_REWRITE_TAC [MAP_ZIP |> UNDISCH |> cj 2 |> DISCH_ALL]
       \\ imp_res_tac LIST_REL_LENGTH \\ fs []
       \\ gvs [EVERY_MEM,MEM_MAP,PULL_EXISTS])
-    \\ conj_tac >- cheat
+    \\ conj_tac >- (
+      drule_at_then Any irule EVERY2_MEM_MONO_weak>>
+      rw[]>>
+      irule mod_loc_prepend_outside>>simp[]>>
+      fs[DISJOINT_DEF,EXTENSION,get_vars_stmt_def,SUBSET_DEF]>>
+      metis_tac[])
     \\ reverse conj_asm2_tac >-
      (irule locals_ok_split
       \\ ‘MAP FST (MAP (λv. (v,IntT)) ds_vars) = ds_vars’ by simp [MAP_MAP_o,o_DEF]
