@@ -4037,14 +4037,11 @@ Proof
   \\ drule evaluate_stmt_assigned_inv \\ simp []
 QED
 
-Triviality eval_true_CanEval_Var:
+Triviality eval_true_CanEval_Var_IS_SOME_SOME:
   eval_true st env (CanEval (Var p_1)) ⇒
   IS_SOME_SOME (ALOOKUP st.locals p_1)
 Proof
-  fs [eval_true_def, eval_exp_def,evaluate_exp_def,CanEval_def,read_local_def]
-  \\ fs [AllCaseEqs()]
-  \\ rw [] \\ gvs [do_sc_def]
-  \\ fs [IS_SOME_SOME_def]
+  simp [eval_true_CanEval_Var, is_initialized_def, IS_SOME_SOME_def]
 QED
 
 Theorem locals_inv_intv:
@@ -4070,7 +4067,11 @@ Theorem locals_ok_IMP_strict_locals_ok:
   EVERY (eval_true st env) (MAP (CanEval ∘ Var ∘ FST) xs) ⇒
   strict_locals_ok xs st.locals
 Proof
-  cheat (* reserved *)
+  simp [locals_ok_def, strict_locals_ok_def, EVERY_MEM, MEM_MAP, PULL_EXISTS]
+  \\ rpt strip_tac
+  \\ last_x_assum drule \\ strip_tac
+  \\ last_x_assum drule \\ strip_tac
+  \\ gvs [eval_true_CanEval_Var, is_initialized_def]
 QED
 
 Triviality locals_ok_split:
@@ -4452,7 +4453,7 @@ Proof
        \\ qpat_x_assum ‘conditions_hold st env (MAP (CanEval ∘ Var ∘ FST) vs)’ assume_tac
        \\ fs [conditions_hold_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]
        \\ pop_assum dxrule \\ simp []
-       \\ strip_tac \\ imp_res_tac eval_true_CanEval_Var \\ simp [])
+       \\ strip_tac \\ imp_res_tac eval_true_CanEval_Var_IS_SOME_SOME \\ simp [])
     \\ disch_then $ qspec_then ‘MAP (λ(v,val). (v,THE val)) vals’ mp_tac
     \\ impl_keep_tac
     >- (gvs [Abbr‘vals’,MAP_MAP_o]
