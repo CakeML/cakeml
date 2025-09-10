@@ -39,8 +39,6 @@ End
 
 val _ = add_record_field ("sig", “sigof'”)
 
-(* Standard signature includes the minimal type operators and constants *)
-
 (* term_ok' has to check if types are valid through both the
 types and eliminable types *)
 Definition term_ok'_def:
@@ -87,6 +85,10 @@ Termination
   WF_REL_TAC ‘measure (type_size o SND)’ >> rw[] >> simp[]
   >> rename [‘MEM ty tys’] >> Induct_on ‘tys’ >> simp[] >> rw[]
   >> gvs[type_size_def]
+End
+
+Definition esubst_sig_def:
+  esubst_sig σ (tys, tms) = (tys, ty_esubst σ o_f tms)
 End
 
 Definition try_def:
@@ -263,24 +265,23 @@ Definition esubsts_ok_def:
     (∀tm. tm ∈ FRANGE θ ⇒ term_ok sig tm)
 End
 
-Definition inst_ethy_def:
-  inst_ethy (σ:(mlstring |-> type) # (mlstring |-> term)) thy =
-  thy with <| etms := FEMPTY;
-              tms := thy.tms ⊌
-                     FMAP_MAP2 (λ(n, ty). ty_esubst σ ty) thy.etms
-           |>
-End
+(* Standard signature includes the minimal type operators and constants *)
+Theorem esubst_sig_is_std_sig:
+  esubsts_ok sig σ ∧ is_std_sig sig ⇒ is_std_sig (esubst_sig σ sig)
+Proof
+  Cases_on ‘σ’ >> rename [‘(σ, θ)’]
+  >> Cases_on ‘sig’ >> rename [‘(tys, tms)’]
+  >> rw[esubsts_ok_def, esubst_sig_def, is_std_sig_def]
+  >> rw[FLOOKUP_o_f, ty_esubst_def] >> CASE_TAC
+  >> metis_tac[FDOM_FLOOKUP]
+QED
 
-Definition inst_thy_def:
-  inst_thy thy = thy with <| etys := FEMPTY; etms := FEMPTY |>
-End
-        
 Definition esubsts_total_def:
   esubsts_total (thy:ethy) (σ, θ) ⇔
     (∀tyn. tyn ∈ FDOM σ ⇔ tyn ∈ FDOM thy.etys) ∧
-    (∀tmn. tmn ∈ FDOM θ ⇔ tmn ∈ FDOM thy.etms) 
+    (∀tmn. tmn ∈ FDOM θ ⇔ tmn ∈ FDOM thy.etms)
 End
-        
+
 Inductive proves':
 [~ABS:]
   (¬(EXISTS (VFREE_IN (Var x ty)) h) ∧ type_ok thy.ctys ty ∧
@@ -343,9 +344,9 @@ Inductive proves':
    theory_ok' thy ∧
    esubsts_ok (thy.ctys, thy.ctms) σ ∧
    esubsts_total thy σ
-   ⇒ (thy, IMAGE (esubst σ []) es, MAP (esubst σ []) h) |-'
+   ⇒ (thy, IMAGE (esubst σ []) es, term_image (esubst σ []) h) |-'
      esubst σ (FLAT (MAP tm_names h)) c)
-  
+
 [~elim_axioms:]
   (theory_ok' thy ∧ c ∈ thy.eaxs
    ⇒ (thy, {c}, []) |-' c)
