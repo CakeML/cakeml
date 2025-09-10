@@ -512,6 +512,7 @@ Inductive stmt_wp:
                    get_vars_stmt (While guard invs ds ms body))) ∧
     freevars body_cond ⊆ set (ds_vars ++ MAP FST ls) ∧
     assigned_in body ⊆ set (MAP FST ls) ∧
+    assigned_in body ∩ set mods = {} ∧
     LENGTH ds_vars = LENGTH ds ∧
     ALL_DISTINCT ds_vars ∧
     get_type ls guard = INR BoolT ∧
@@ -4365,8 +4366,8 @@ Proof
 QED
 
 Definition mod_loc_def:
-  mod_loc locals var_name loc ⇔
-    ∃len ty. ALOOKUP locals var_name = SOME (SOME (ArrV len loc ty))
+  mod_loc locals var_name (len,loc,ty) ⇔
+    ALOOKUP locals var_name = SOME (SOME (ArrV len loc ty))
 End
 
 fun setup (q : term quotation, t : tactic) = let
@@ -4542,7 +4543,7 @@ Triviality mod_loc_drop_1:
   LIST_REL (mod_loc (DROP 1 ys)) mods mod_locs =
   LIST_REL (mod_loc ys) mods mod_locs
 Proof
-  rw [FUN_EQ_THM,mod_loc_def,LIST_REL_EL_EQN]
+  rw [FUN_EQ_THM,oneline mod_loc_def,LIST_REL_EL_EQN]
   \\ Cases_on ‘LENGTH mods = LENGTH mod_locs’ \\ simp []
   \\ qsuff_tac
      ‘∀n. n < LENGTH mods ⇒
@@ -4575,7 +4576,7 @@ Proof
     \\ irule_at Any state_inv_with_locals_cons_none \\ simp []
     \\ fs [LIST_REL_EL_EQN] \\ rw [] \\ rfs []
     \\ first_x_assum drule
-    \\ fs [mod_loc_def] \\ rw [] \\ fs []
+    \\ fs [oneline mod_loc_def] \\ rw [] \\ fs []
     \\ metis_tac [IMP_MEM_EL])
   \\ rpt strip_tac
   \\ first_assum $ irule_at $ Pos hd
@@ -4654,7 +4655,8 @@ Proof
   >- (* mod_loc *)
    (qpat_x_assum ‘LIST_REL (mod_loc st.locals) mods mod_locs’ mp_tac
     \\ match_mp_tac LIST_REL_mono_alt
-    \\ simp [mod_loc_def] \\ rw []
+    \\ simp [oneline mod_loc_def] \\ rw []
+    \\ PairCases_on`y` \\ gvs[]
     \\ simp [ALOOKUP_APPEND,AllCaseEqs(),SF DNF_ss]
     \\ disj1_tac
     \\ fs [ALOOKUP_NONE,MAP_REVERSE]
@@ -4721,8 +4723,8 @@ Proof
          | Rcont => conditions_hold st' env (not guard::invs)
          | Rstop Sret => conditions_hold st' env ens
          | Rstop (Serr v3) => F’
-  >-
-   (disch_then $ qspec_then ‘st’ mp_tac
+  >- (
+    disch_then $ qspec_then ‘st’ mp_tac
     \\ impl_tac
     >- (gvs [conditions_hold_def]
         \\ drule_all locals_ok_IMP_strict_locals_ok \\ fs [])
@@ -4730,7 +4732,14 @@ Proof
     \\ first_assum $ irule_at $ Pos hd \\ asm_rewrite_tac []
     \\ Cases_on ‘ret’ \\ gvs []
     \\ gvs [conditions_hold_def]
-    \\ ‘LIST_REL (mod_loc st'.locals) mods mod_locs’ by cheat
+    \\ ‘LIST_REL (mod_loc st'.locals) mods mod_locs’ by (
+      drule_at_then Any irule EVERY2_MEM_MONO>>
+      fs[LIST_REL_EL_EQN,MEM_ZIP,mod_loc_def,FORALL_PROD]>>
+      rw[]>>
+      drule assigned_in_thm>>
+      disch_then (fn th => DEP_REWRITE_TAC[th])>>
+      fs[assigned_in_def,EXTENSION]>>
+      metis_tac[EL_MEM,IN_DEF])
     \\ gvs [GSYM conditions_hold_def]
     \\ drule_all eval_true_ForallHeap_NIL
     \\ strip_tac
@@ -4887,7 +4896,6 @@ Proof
      \\ irule eval_decreases_old_eq_no_Prev \\ fs []
      \\ metis_tac[])
   \\ impl_tac
-
   >-
    (conj_tac
     >-
