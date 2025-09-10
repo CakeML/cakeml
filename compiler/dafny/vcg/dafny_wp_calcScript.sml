@@ -507,6 +507,38 @@ Definition wrap_Old_def:
   ForallHeap (MAP (wrap_Old vs) mods) (wrap_Old vs term)
 End
 
+(* TODO Could we have expressed {strict_,}locals_ok using EVERY, and adapted
+   IMP_assi_values and friends instead (similar to locals_inv) ? *)
+Definition locals_ok_def:
+  locals_ok (locals: (mlstring # type) list)
+            (s_locals: (mlstring # value option) list) ⇔
+    (∀n ty.
+       MEM (n,ty) locals ⇒
+       ∃oval. ALOOKUP s_locals n = SOME oval ∧
+              ∀val. oval = SOME val ⇒ val ∈ all_values ty) ∧
+    ALL_DISTINCT (MAP FST locals)
+End
+
+Definition strict_locals_ok_def:
+  strict_locals_ok (locals: (mlstring # type) list)
+                   (s_locals: (mlstring # value option) list) ⇔
+    (∀n ty.
+       MEM (n,ty) locals ⇒
+       ∃val. ALOOKUP s_locals n = SOME (SOME val) ∧ val ∈ all_values ty) ∧
+    ALL_DISTINCT (MAP FST locals)
+End
+
+Definition forall_def:
+  forall vars prop ⇔
+    (* freevars prop ⊆ set (MAP FST vars) ∧ *)
+    ∀st env.
+      strict_locals_ok vars st.locals ∧
+      st.heap = st.heap_old ∧
+      st.locals = st.locals_old ∧
+      state_inv st ⇒
+      eval_true st env prop
+End
+
 Definition proved_methods_def:
   proved_methods m ⇔
     ∀name mspec body.
@@ -517,10 +549,7 @@ Definition proved_methods_def:
                  MAP (CanEval o Var o FST) mspec.outs)
                 (mspec.rank, mspec.decreases)
                 (mspec.ins ++ mspec.outs) ∧
-        ∃p.
-          p = Foralls mspec.ins (imp (conj mspec.reqs) (conj wp_pre)) ∧
-          freevars p = {} ∧
-          ⊢ p
+        forall mspec.ins (imp (conj mspec.reqs) (conj wp_pre))
 End
 
 Definition conditions_hold_def:
@@ -537,6 +566,7 @@ Definition compatible_env_def:
                     mspec.reads mspec.decreases mspec.outs mspec.mods body))
 End
 
+(*
 Theorem imp_conditions_hold:
   ⊢ (imp (conj reqs) (conj wp_pre)) ∧
   conditions_hold st env reqs ⇒
@@ -549,6 +579,7 @@ Proof
   \\ drule eval_true_mp
   \\ gvs [eval_true_conj_every]
 QED
+*)
 
 Definition methods_sound_def:
   methods_sound m ⇔
@@ -1543,27 +1574,6 @@ Proof
   simp [FUN_EQ_THM, ALOOKUP_APPEND]
 QED
 
-(* TODO Could we have expressed {strict_,}locals_ok using EVERY, and adapted
-   IMP_assi_values and friends instead (similar to locals_inv) ? *)
-Definition locals_ok_def:
-  locals_ok (locals: (mlstring # type) list)
-            (s_locals: (mlstring # value option) list) ⇔
-    (∀n ty.
-       MEM (n,ty) locals ⇒
-       ∃oval. ALOOKUP s_locals n = SOME oval ∧
-              ∀val. oval = SOME val ⇒ val ∈ all_values ty) ∧
-    ALL_DISTINCT (MAP FST locals)
-End
-
-Definition strict_locals_ok_def:
-  strict_locals_ok (locals: (mlstring # type) list)
-                   (s_locals: (mlstring # value option) list) ⇔
-    (∀n ty.
-       MEM (n,ty) locals ⇒
-       ∃val. ALOOKUP s_locals n = SOME (SOME val) ∧ val ∈ all_values ty) ∧
-    ALL_DISTINCT (MAP FST locals)
-End
-
 Triviality strict_locals_ok_IMP_LIST_REL:
   ∀vs st_locals.
     strict_locals_ok vs st_locals ⇒
@@ -1627,37 +1637,24 @@ Proof
 QED
 
 Theorem forall_imp_conditions_hold:
-  ⊢ (Foralls vs (imp (conj reqs) (conj wp_pre))) ∧
+  forall vs (imp (conj reqs) (conj wp_pre)) ∧
   ALL_DISTINCT (MAP FST vs) ∧
   conditions_hold st env reqs ∧
-  strict_locals_ok vs st.locals ⇒
+  strict_locals_ok vs st.locals ∧
+  st.locals_old = st.locals ∧
+  st.heap_old = st.heap ∧
+  state_inv st
+  ⇒
   conditions_hold st env wp_pre
 Proof
-  rw [valid_def]
-  \\ last_x_assum $ qspecl_then [‘st’,‘env’] assume_tac
-  \\ dxrule eval_true_Foralls_distinct
-  \\ disch_then $ dxrule_then assume_tac
-  \\ drule strict_locals_ok_IMP_LIST_REL
-  \\ disch_then $ qx_choose_then ‘xs’ mp_tac
+  rw [forall_def]
+  \\ first_x_assum drule
+  \\ disch_then $ qspecl_then [‘env’] mp_tac
+  \\ impl_tac >- fs []
   \\ strip_tac
-  \\ first_x_assum $ qspec_then ‘xs’ mp_tac
-  \\ impl_tac >-
-   (pop_assum mp_tac
-    \\ match_mp_tac LIST_REL_mono
-    \\ PairCases \\ PairCases \\ gvs [])
-  \\ simp []
-  \\ ‘ALOOKUP (xs ++ st.locals) = ALOOKUP st.locals’ by
-    (simp [FUN_EQ_THM]
-     \\ strip_tac
-     \\ simp [ALOOKUP_APPEND]
-     \\ CASE_TAC \\ gvs []
-     \\ drule ALOOKUP_MEM_FST \\ strip_tac
-     \\ drule_all LIST_REL_ALOOKUP \\ simp [])
-  \\ drule eval_true_swap_locals_alt \\ simp [] \\ disch_then kall_tac
-  \\ strip_tac
+  \\ drule eval_true_imp
+  \\ rewrite_tac [eval_true_conj_every]
   \\ gvs [conditions_hold_def]
-  \\ drule eval_true_mp
-  \\ gvs [eval_true_conj_every]
 QED
 
 Theorem locals_ok_append_left:
@@ -5673,11 +5670,7 @@ Definition met_vcg_def:
              MAP (CanEval ∘ Var ∘ FST) specs.outs);
     vcs <- stmt_vcg mets body [False] ens (specs.rank, specs.decreases)
                     (specs.ins ++ specs.outs);
-    p <<- (Foralls specs.ins $ imp (conj specs.reqs) (conj vcs));
-    if freevars_list p = [] then
-      return p
-    else
-      fail «met_vcg: condition has freevars»
+    return (specs.ins, imp (conj specs.reqs) (conj vcs))
   od
 End
 
@@ -5699,7 +5692,7 @@ QED
 
 Theorem mets_vcg_correct:
   ∀mets vcs.
-    mets_vcg mets = INR vcs ∧ (EVERY valid vcs) ⇒
+    mets_vcg mets = INR vcs ∧ (EVERY (λ(vs,p). forall vs p) vcs) ⇒
     proved_methods (set mets)
 Proof
   rpt strip_tac
@@ -5713,6 +5706,7 @@ Proof
   \\ disch_then $ irule_at (Pos hd)
   \\ gvs [EVERY_MEM]
   \\ simp [GSYM freevars_list_eq]
+  \\ res_tac \\ fs []
 QED
 
 (* TODO Perhaps we should use this in the semantics? *)
