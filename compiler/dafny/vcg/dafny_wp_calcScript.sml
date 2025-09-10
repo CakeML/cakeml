@@ -2613,7 +2613,8 @@ QED
 Triviality IMP_LIST_REL_EXISTS:
   EVERY (λx. ∃y. R x y) xs ⇒ ∃ys. LIST_REL R xs ys
 Proof
-  cheat
+  Induct_on`xs`>>rw[]>>
+  metis_tac[]
 QED
 
 Triviality value_same_type_bool:
@@ -3913,48 +3914,22 @@ Proof
   \\ gvs [SUBSET_DEF]
 QED
 
+Triviality freevars_aux_subset_vars:
+  ∀e.
+    FST (freevars_aux e) ⊆ set (get_vars_exp e) ∧
+    SND (freevars_aux e) ⊆ set (get_vars_exp e)
+Proof
+  ho_match_mp_tac freevars_aux_ind>>
+  rw[freevars_aux_def,get_vars_exp_def]>>
+  rpt (pairarg_tac>>gvs[])>>
+  gvs[SUBSET_DEF,MEM_FLAT,MEM_MAP]>>
+  metis_tac[]
+QED
+
 Triviality freevars_subset_vars:
   ∀e. freevars e ⊆ set (get_vars_exp e)
 Proof
-  cheat (* needs updating for Prev
-  ho_match_mp_tac freevars_ind
-  \\ rpt strip_tac
-  >~ [‘Let’] >-
-   (gvs [freevars_def, get_vars_exp_def]
-    \\ simp [LIST_TO_SET_FLAT]
-    \\ drule bigunion_freevars_subset_vars
-    \\ gvs [SUBSET_DEF])
-  >~ [‘Var’] >-
-   (gvs [freevars_def, get_vars_exp_def])
-  >~ [‘Lit’] >-
-   (gvs [freevars_def, get_vars_exp_def])
-  >~ [‘If’] >-
-   (gvs [freevars_def, get_vars_exp_def]
-    \\ gvs [SUBSET_DEF])
-  >~ [‘UnOp’] >-
-   (gvs [freevars_def, get_vars_exp_def])
-  >~ [‘BinOp’] >-
-   (gvs [freevars_def, get_vars_exp_def]
-    \\ gvs [SUBSET_DEF])
-  >~ [‘ArrLen’] >-
-   (gvs [freevars_def, get_vars_exp_def])
-  >~ [‘ArrSel’] >-
-   (gvs [freevars_def, get_vars_exp_def]
-    \\ gvs [SUBSET_DEF])
-  >~ [‘FunCall’] >-
-   (gvs [freevars_def, get_vars_exp_def]
-    \\ simp [LIST_TO_SET_FLAT]
-    \\ drule bigunion_freevars_subset_vars \\ simp [])
-  >~ [‘Forall’] >-
-   (gvs [freevars_def, get_vars_exp_def]
-    \\ gvs [SUBSET_DEF])
-  >~ [‘Old’] >-
-   (gvs [freevars_def, get_vars_exp_def])
-  >~ [‘ForallHeap’] >-
-   (gvs [freevars_def, get_vars_exp_def]
-    \\ simp [LIST_TO_SET_FLAT]
-    \\ drule_then assume_tac bigunion_freevars_subset_vars
-    \\ gvs [SUBSET_DEF]) *)
+  rw[freevars_def,freevars_aux_subset_vars]
 QED
 
 Triviality disjoint_alookup_append:
@@ -4720,7 +4695,11 @@ Proof
   \\ rename [‘While guard invs ds ms body’]
   \\ rename [‘dest_Vars ms = SOME while_mods’]
   \\ ‘∃while_mod_locs.
-        LIST_REL (mod_loc st.locals) while_mods while_mod_locs’ by cheat
+        LIST_REL (mod_loc st.locals) while_mods while_mod_locs’ by
+    (irule IMP_LIST_REL_EXISTS>>
+    fs[EVERY_MEM,SUBSET_DEF]>>rw[]>>
+    first_x_assum drule>>
+    metis_tac[LIST_REL_MEM_IMP])
   \\ qsuff_tac
     ‘∀stx.
        conditions_hold stx env (invs ++ [CanEval guard] ++ MAP CanEval ds) ∧
