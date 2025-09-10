@@ -4074,12 +4074,41 @@ Proof
   \\ gvs [eval_true_CanEval_Var, is_initialized_def]
 QED
 
+Triviality DISJOINT_set_IMP:
+  DISJOINT (set xs) (set ys) ⇒ (∀x. MEM x xs ⇒ ¬MEM x ys)
+Proof
+  simp [DISJOINT_DEF, INTER_DEF]
+  \\ rpt strip_tac \\ gvs [EXTENSION]
+  \\ metis_tac []
+QED
+
 Triviality locals_ok_split:
   locals_ok vs1 xs1 ∧ locals_ok vs2 xs2 ∧
-  DISJOINT (set (MAP FST vs1)) (set (MAP FST vs2)) ⇒
+  DISJOINT (set (MAP FST vs1)) (set (MAP FST vs2)) ∧
+  DISJOINT (set (MAP FST xs1)) (set (MAP FST vs2))
+  ⇒
   locals_ok (vs1 ++ vs2) (xs1 ++ xs2)
 Proof
-  cheat (* reserved *)
+  rpt strip_tac
+  \\ dxrule_then assume_tac DISJOINT_set_IMP
+  \\ dxrule_then assume_tac DISJOINT_set_IMP
+  \\ ‘ALL_DISTINCT (MAP FST vs1 ++ MAP FST vs2)’ by
+    (gvs [locals_ok_def, ALL_DISTINCT_APPEND])
+  \\ simp [locals_ok_def]
+  \\ rpt strip_tac
+  >- (* vs1 *)
+   (simp [ALOOKUP_APPEND]
+    \\ gvs [locals_ok_def]
+    \\ last_x_assum drule \\ strip_tac
+    \\ simp [])
+  (* vs2 *)
+  \\ simp [ALOOKUP_APPEND]
+  \\ gvs [locals_ok_def]
+  \\ last_x_assum drule \\ strip_tac
+  \\ CASE_TAC \\ simp []
+  \\ dxrule_then assume_tac ALOOKUP_MEM
+  \\ every_drule_then assume_tac MEM_MAP_FST \\ simp []
+  \\ first_x_assum drule \\ simp []
 QED
 
 Triviality strict_locals_ok_split:
@@ -4605,8 +4634,10 @@ Proof
     \\ reverse conj_asm2_tac >-
      (irule locals_ok_split
       \\ ‘MAP FST (MAP (λv. (v,IntT)) ds_vars) = ds_vars’ by simp [MAP_MAP_o,o_DEF]
-      \\ simp [] \\ rpt strip_tac
-      >~ [‘DISJOINT’] >- (fs [IN_DISJOINT] \\ metis_tac [])
+      \\ simp []
+      \\ ‘DISJOINT (set ds_vars) (set (MAP FST locals))’ by
+        (fs [IN_DISJOINT] \\ metis_tac [])
+      \\ simp []
       \\ simp [Abbr‘ds1’]
       \\ imp_res_tac LIST_REL_LENGTH
       \\ irule locals_ok_IntT_MAP_ZIP
