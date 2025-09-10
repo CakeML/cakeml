@@ -3738,9 +3738,9 @@ Proof
   >~ [‘Assert’] >-
    (gvs [evaluate_stmt_def,get_vars_stmt_def]
     \\ gvs [AllCaseEqs()]
-    \\ rpt $ irule_at Any EQ_REFL
     \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
-    \\ imp_res_tac evaluate_exp_ignore_unused \\ gvs [])
+    \\ imp_res_tac evaluate_exp_ignore_unused \\ gvs []
+    \\ rpt $ irule_at Any EQ_REFL)
   >~ [‘Then’] >-
    (reverse $ gvs [evaluate_stmt_def,get_vars_stmt_def,AllCaseEqs()]
     >-
@@ -3797,9 +3797,9 @@ Proof
   >~ [‘Print’] >-
    (gvs [evaluate_stmt_def,get_vars_stmt_def]
     \\ gvs [AllCaseEqs()]
-    \\ rpt $ irule_at Any EQ_REFL
     \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
-    \\ imp_res_tac evaluate_exp_ignore_unused \\ gvs [])
+    \\ imp_res_tac evaluate_exp_ignore_unused \\ gvs []
+    \\ rpt $ irule_at Any EQ_REFL)
   >~ [‘MetCall’] >-
    (cheat (* reserved *))
   >~ [‘Return’] >-
