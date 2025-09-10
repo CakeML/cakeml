@@ -874,6 +874,7 @@ Definition proved_methods_def:
                  MAP (CanEval o Var o FST) mspec.outs)
                 (mspec.rank, mspec.decreases) mod_vars
                 (mspec.ins ++ mspec.outs) ∧
+        dest_Vars mspec.mods = INR mod_vars ∧
         forall mspec.ins (imp (conj mspec.reqs) (conj wp_pre))
 End
 
@@ -6223,7 +6224,6 @@ Theorem methods_lemma[local]:
         conditions_hold st' env (MAP (wrap_Old (set (MAP FST mspec.ins))) mspec.ens) ∧
         LIST_REL (eval_exp st' env) (MAP (Var o FST) mspec.outs) out_vs
 Proof
-  cheat (* merge problems *)  (*
   gen_tac
   \\ disch_tac
   \\ ho_match_mp_tac WF_ind
@@ -6233,6 +6233,8 @@ Proof
   \\ strip_tac
   \\ drule stmt_wp_sound
   \\ disch_then $ qspecl_then [‘st’,‘env’,‘mod_locs’] mp_tac
+  \\ ‘mod_vars = mods’ by gvs []
+  \\ rveq
   \\ impl_tac >-
    (asm_rewrite_tac []
     \\ ‘ALL_DISTINCT (MAP FST mspec.ins)’ by (gvs [ALL_DISTINCT_APPEND])
@@ -6255,7 +6257,7 @@ Proof
   \\ rpt $ first_assum $ irule_at Any
   \\ fs [conditions_hold_def]
   \\ fs [GSYM MAP_MAP_o]
-  \\ drule EVERY_eval_true_CanEval \\ simp [] *)
+  \\ drule EVERY_eval_true_CanEval \\ simp []
 QED
 
 Theorem methods_correct = SRULE [] methods_lemma;
