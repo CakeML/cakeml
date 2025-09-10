@@ -3021,24 +3021,6 @@ Proof
   \\ first_assum $ irule_at (Pos hd)
 QED
 
-Theorem eval_stmt_drop_locals:
-  eval_stmt (st1 with locals := ds1 ++ st1.locals) env body st2 ret ∧
-  strict_locals_ok (MAP (λv. (v,IntT)) ds_vars ++ locals) st2.locals ∧
-  DISJOINT (set (get_vars_stmt body)) (set (MAP FST ds1)) ∧
-  state_inv st2 ⇒
-  ∃rest.
-    strict_locals_ok locals rest ∧
-    eval_stmt st1 env body (st2 with locals := rest) ret ∧
-    state_inv (st2 with locals := rest) ∧
-    (∀e v.
-       eval_exp st2 env e v ∧
-       DISJOINT (set (get_vars_exp e)) (set (MAP FST ds1)) ⇒
-       eval_exp (st2 with locals := rest) env e v)
-Proof
-  cheat (* reserved *)
-QED
-
-
 (* todo move to evaluateProps *)
 Definition locals_rel_def:
   (locals_rel seen [] [] ⇔ T) ∧
@@ -3607,6 +3589,139 @@ Proof
     \\ simp [LIST_TO_SET_FLAT]
     \\ drule_then assume_tac bigunion_freevars_subset_vars
     \\ gvs [SUBSET_DEF])
+QED
+
+Theorem evaluate_stmt_ignore_unused:
+  ∀st env c st1 res xs ys zs.
+    evaluate_stmt st env c = (st1,res) ∧
+    DISJOINT (set (get_vars_stmt c)) (set (MAP FST ys)) ∧
+    st.locals = xs ++ ys ++ zs ⇒
+    ∃xs1 zs1.
+      st1.locals = xs1 ++ ys ++ zs1 ∧
+      MAP FST xs1 = MAP FST xs ∧
+      MAP FST zs1 = MAP FST zs ∧
+      evaluate_stmt (st with locals := xs ++ zs) env c =
+                    (st1 with locals := xs1 ++ zs1,res)
+Proof
+  ho_match_mp_tac evaluate_stmt_ind
+  \\ rpt strip_tac
+  >~ [‘Skip’] >-
+   (gvs [evaluate_stmt_def]
+    \\ rpt $ irule_at Any EQ_REFL)
+  >~ [‘Assert’] >-
+   (gvs [evaluate_stmt_def,get_vars_stmt_def]
+    \\ gvs [AllCaseEqs()]
+    \\ rpt $ irule_at Any EQ_REFL
+    \\ cheat)
+  >~ [‘Then’] >-
+   (reverse $ gvs [evaluate_stmt_def,get_vars_stmt_def,AllCaseEqs()]
+    >-
+     (last_x_assum $ qspecl_then [‘xs’,‘ys’,‘zs’] mp_tac
+      \\ impl_tac >- simp []
+      \\ strip_tac \\ simp []
+      \\ rpt $ irule_at Any EQ_REFL \\ simp [])
+    \\ first_x_assum $ qspecl_then [‘xs’,‘ys’,‘zs’] mp_tac
+    \\ impl_tac >- simp []
+    \\ strip_tac \\ simp []
+    \\ last_x_assum drule_all
+    \\ strip_tac \\ simp []
+    \\ rpt $ irule_at Any EQ_REFL \\ simp [])
+  >~ [‘If’] >-
+   (cheat)
+  >~ [‘Dec’] >-
+   (gvs [evaluate_stmt_def]
+    \\ rpt (pairarg_tac \\ gvs [declare_local_def])
+    \\ last_x_assum $ qspecl_then [‘(FST local,NONE)::xs’,‘ys’,‘zs’] mp_tac
+    \\ impl_tac >- fs [get_vars_stmt_def]
+    \\ strip_tac \\ simp []
+    \\ gvs [] \\ Cases_on ‘xs1’ \\ gvs []
+    \\ gvs [pop_locals_def,safe_drop_def]
+    \\ rpt $ irule_at Any EQ_REFL \\ simp [])
+  >~ [‘Assign’] >-
+   (cheat)
+  >~ [‘While’] >-
+   (cheat)
+  >~ [‘Print’] >-
+   (cheat)
+  >~ [‘MetCall’] >-
+   (cheat)
+  >~ [‘Return’] >-
+   (gvs [evaluate_stmt_def]
+    \\ rpt $ irule_at Any EQ_REFL)
+QED
+
+Theorem eval_stmt_ignore_unused:
+  ∀st env c st1 res xs ys zs.
+    eval_stmt st env c st1 res ∧
+    DISJOINT (set (get_vars_stmt c)) (set (MAP FST ys)) ∧
+    st.locals = xs ++ ys ++ zs ⇒
+    ∃xs1 zs1.
+      st1.locals = xs1 ++ ys ++ zs1 ∧
+      MAP FST xs1 = MAP FST xs ∧
+      MAP FST zs1 = MAP FST zs ∧
+      eval_stmt (st with locals := xs ++ zs) env c
+                (st1 with locals := xs1 ++ zs1) res
+Proof
+  simp [eval_stmt_def] \\ rw []
+  \\ drule evaluate_stmt_ignore_unused
+  \\ simp []
+  \\ disch_then drule
+  \\ disch_then $ qspecl_then [‘xs’,‘zs’] mp_tac
+  \\ impl_tac >- simp []
+  \\ strip_tac
+  \\ first_assum $ irule_at $ Pos hd \\ simp []
+  \\ first_assum $ irule_at $ Pos hd \\ simp []
+QED
+
+Triviality eval_stmt_ignore_unused_prefix =
+  eval_stmt_ignore_unused
+  |> Q.SPECL [‘st with locals := ys ++ zs’,‘env’,‘c’,‘st1’,‘res’,‘[]’,‘ys’,‘zs’]
+  |> SRULE [];
+
+Theorem eval_stmt_drop_locals:
+  eval_stmt (st1 with locals := ds1 ++ st1.locals) env body st2 ret ∧
+  strict_locals_ok (MAP (λv. (v,IntT)) (MAP FST ds1) ++ locals) st2.locals ∧
+  DISJOINT (set (MAP FST locals)) (set (MAP FST ds1)) ∧
+  DISJOINT (set (get_vars_stmt body)) (set (MAP FST ds1)) ∧
+  state_inv st2 ⇒
+  ∃rest.
+    (∀v. ~MEM v (MAP FST ds1) ⇒ ALOOKUP rest v = ALOOKUP st2.locals v) ∧
+    strict_locals_ok locals rest ∧
+    eval_stmt st1 env body (st2 with locals := rest) ret ∧
+    state_inv (st2 with locals := rest) ∧
+    (∀e v.
+       eval_exp st2 env e v ∧
+       DISJOINT (set (get_vars_exp e)) (set (MAP FST ds1)) ⇒
+       eval_exp (st2 with locals := rest) env e v)
+Proof
+  strip_tac
+  \\ drule_all eval_stmt_ignore_unused_prefix
+  \\ strip_tac \\ gvs []
+  \\ first_assum $ irule_at Any
+  \\ gvs [state_inv_def]
+  \\ conj_tac
+  >- simp [ALOOKUP_APPEND,CaseEq"option",ALOOKUP_NONE]
+  \\ conj_tac >-
+   (qpat_x_assum ‘strict_locals_ok _ _’ mp_tac
+    \\ fs [strict_locals_ok_def,SF DNF_ss,ALL_DISTINCT_APPEND]
+    \\ rw [] \\ first_x_assum drule
+    \\ gvs [ALOOKUP_APPEND,CaseEq"option"]
+    \\ qsuff_tac ‘ALOOKUP ds1 n = NONE’ >- fs []
+    \\ simp [ALOOKUP_NONE]
+    \\ fs [IN_DISJOINT,MEM_MAP,PULL_EXISTS,EXISTS_PROD]
+    \\ metis_tac [])
+  \\ conj_tac >- fs [locals_inv_def]
+  \\ rpt strip_tac
+  \\ irule eval_exp_freevars_lemma
+  \\ qexists_tac ‘st2.locals’
+  \\ ‘(st2 with locals := st2.locals) = st2’ by gvs [state_component_equality]
+  \\ asm_rewrite_tac []
+  \\ fs [ALOOKUP_APPEND,CaseEq"option",SF DNF_ss]
+  \\ rw [] \\ disj1_tac
+  \\ simp [ALOOKUP_NONE]
+  \\ qspec_then ‘e’ assume_tac freevars_subset_vars
+  \\ gvs [IN_DISJOINT,SUBSET_DEF]
+  \\ metis_tac []
 QED
 
 Triviality disjoint_alookup_append:
@@ -4788,7 +4903,8 @@ Proof
      \\ simp [MAP_MAP_o,LAMBDA_PROD,o_DEF]
      \\ once_rewrite_tac [DISJOINT_SYM]
      \\ simp [])
-  \\ drule_then drule eval_stmt_drop_locals
+  \\ ‘strict_locals_ok (MAP (λv. (v,IntT)) (MAP FST ds1) ++ locals) st''.locals’ by fs []
+  \\ drule_then dxrule eval_stmt_drop_locals
   \\ impl_tac
   >- (fs [get_vars_stmt_def])
   \\ strip_tac
