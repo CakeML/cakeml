@@ -2334,14 +2334,24 @@ Proof
   \\ DEP_REWRITE_TAC [eval_exp_old_eq] \\ simp []
 QED
 
-Triviality locals_ok_cons:
+Triviality locals_ok_cons_none:
   locals_ok xs ys ∧ ¬MEM n (MAP FST xs) ⇒
   locals_ok ((n,ty)::xs) ((n,NONE)::ys)
 Proof
   simp [locals_ok_def]
   \\ rpt strip_tac \\ gvs []
   \\ IF_CASES_TAC \\ gvs []
-  \\ last_x_assum drule \\ gvs []
+QED
+
+Triviality locals_ok_cons_some:
+  locals_ok xs ys ∧ ¬MEM n (MAP FST xs) ∧
+  v ∈ all_values ty ⇒
+  locals_ok ((n,ty)::xs) ((n,SOME v)::ys)
+Proof
+  simp [locals_ok_def]
+  \\ rpt strip_tac \\ gvs []
+  \\ IF_CASES_TAC \\ gvs []
+  \\ drule MEM_MAP_FST \\ simp []
 QED
 
 Triviality map_fst_alookup_some:
@@ -4141,13 +4151,20 @@ Proof
 QED
 
 Triviality locals_ok_IntT_MAP_ZIP:
-  EVERY (λv. ∃i. v = IntV i) ds_vals ∧
-  LENGTH ds_vars = LENGTH ds_vals ∧
-  ALL_DISTINCT ds_vars ⇒
-  locals_ok (MAP (λv. (v,IntT)) ds_vars)
-            (ZIP (ds_vars,MAP SOME ds_vals))
+  ∀ds_vars ds_vals.
+    EVERY (λv. ∃i. v = IntV i) ds_vals ∧
+    LENGTH ds_vars = LENGTH ds_vals ∧
+    ALL_DISTINCT ds_vars ⇒
+    locals_ok (MAP (λv. (v,IntT)) ds_vars)
+              (ZIP (ds_vars,MAP SOME ds_vals))
 Proof
-  cheat (* reserved *)
+  Induct >- (simp [locals_ok_def])
+  \\ qx_gen_tac ‘ds_var’
+  \\ namedCases ["", "ds_val ds_vals"] \\ simp []
+  \\ strip_tac
+  \\ irule locals_ok_cons_some
+  \\ simp [all_values_def]
+  \\ simp [MEM_MAP] \\ rpt strip_tac \\ gvs []
 QED
 
 Theorem locals_ok_filter:
@@ -4365,7 +4382,7 @@ Proof
       \\ first_x_assum drule_all
       \\ rpt strip_tac \\ gvs []
       \\ rpt $ pop_assum $ irule_at Any)
-    \\ drule locals_ok_cons \\ simp [] \\ disch_then kall_tac
+    \\ drule locals_ok_cons_none \\ simp [] \\ disch_then kall_tac
     \\ irule_at (Pos last) conditions_hold_cons_not_free \\ simp []
     \\ irule state_inv_with_locals_cons_none \\ simp [])
   \\ rpt strip_tac
