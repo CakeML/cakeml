@@ -4191,7 +4191,14 @@ Theorem eval_stmt_strict_locals_ok:
   locals_ok ls st2.locals ⇒
   strict_locals_ok ls st2.locals
 Proof
-  cheat (* reserved *)
+  rpt strip_tac
+  \\ drule_then assume_tac eval_stmt_assigned_inv
+  \\ gvs [locals_ok_def, strict_locals_ok_def]
+  \\ rpt strip_tac
+  \\ last_x_assum $ drule_then assume_tac
+  \\ last_x_assum $ drule_then assume_tac
+  \\ gvs [IS_SOME_SOME_def, PULL_EXISTS]
+  \\ last_x_assum $ drule_then assume_tac \\ gvs []
 QED
 
 Triviality strict_locals_ok_IMP_LIST_REL:
