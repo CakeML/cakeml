@@ -294,7 +294,7 @@ Theorem dec_enc_valtype[simp]:
   ∀t rest. dec_valtype (enc_valtype t ++ rest) = (INR t, rest)
 Proof
      rpt gen_tac
-  \\ `∃ val. enc_valtype t = val` by simp []
+  \\ ‘∃ val. enc_valtype t = val’ by simp []
   \\ asm_rewrite_tac[]
   \\ pop_assum mp_tac
   \\ simp[enc_valtype_def, AllCaseEqs(), bvtype_nchotomy]
@@ -308,12 +308,12 @@ Theorem dec_enc_functype:
     dec_functype (encsg ++ rest) = (INR sg, rest)
 Proof
      rw[AllCaseEqs(), enc_functype_def]
-  \\ PairCases_on `sg`
+  \\ PairCases_on ‘sg’
   \\ gvs[dec_functype_def, AllCaseEqs()]
   \\ dxrule dec_enc_vector
-  \\ disch_then $ qspec_then `dec_valtype` assume_tac
+  \\ disch_then $ qspec_then ‘dec_valtype’ assume_tac
   \\ dxrule dec_enc_vector
-  \\ disch_then $ qspec_then `dec_valtype` assume_tac
+  \\ disch_then $ qspec_then ‘dec_valtype’ assume_tac
   \\ gvs[dec_enc_valtype]
   \\ simp ssa
 QED
@@ -322,7 +322,7 @@ Theorem dec_enc_limits[simp]:
   ∀ lim rest. dec_limits (enc_limits lim ++ rest) = (INR lim, rest)
 Proof
      rpt gen_tac
-  \\ `∃ val. enc_limits lim = val` by simp []
+  \\ ‘∃ val. enc_limits lim = val’ by simp []
   \\ asm_rewrite_tac[]
   \\ pop_assum mp_tac
   \\ rewrite_tac[enc_limits_def]
@@ -335,7 +335,7 @@ Theorem dec_enc_globaltype[simp]:
   ∀ x rest. dec_globaltype (enc_globaltype x ++ rest) = (INR x, rest)
 Proof
      rpt gen_tac
-  \\ `∃ val. enc_globaltype x = val` by simp []
+  \\ ‘∃ val. enc_globaltype x = val’ by simp []
   \\ asm_rewrite_tac[]
   \\ pop_assum mp_tac
   \\ rewrite_tac[enc_globaltype_def]
@@ -417,13 +417,13 @@ Theorem dec_enc_blocktype[simp]:
   ∀b rest. dec_blocktype (enc_blocktype b ++ rest) = (INR b, rest)
 Proof
   rpt strip_tac
-  \\ `∃ val. enc_blocktype b = val` by simp []
+  \\ ‘∃ val. enc_blocktype b = val’ by simp []
   \\ asm_rewrite_tac[]
   \\ pop_assum mp_tac
   \\ gvs[enc_blocktype_def, AllCaseEqs()]
   \\ rpt strip_tac
   >> gvs[dec_blocktype_def]
-  \\ Cases_on `vt` \\ Cases_on `w`
+  \\ Cases_on ‘vt’ \\ Cases_on ‘w’
   >> simp[enc_valtype_def, AllCaseEqs()]
 QED
 
@@ -446,19 +446,21 @@ QED
 
 
 
+
+
 Overload exprB[local] = “λe. if e then endB else elseB”
 
-Theorem dec_enc_instructions:
-  (∀e is encis rs. enc_instr_list e is = SOME encis ⇒ dec_instr_list (¬e) (encis ++ rs) = (INR (exprB e,is), rs)) ∧
-  (∀  i  enci  rs. enc_instr        i  = SOME enci  ⇒ dec_instr           (enci  ++ rs) = (INR          i  , rs))
-Proof
 
+Theorem dec_enc_instructions:
+  (∀e is dc encis rs. enc_instr_list e is = SOME encis ⇒ dec_instr_list (¬e ∨ dc) (encis ++ rs) = (INR (exprB e,is), rs)) ∧
+  (∀  i     enci  rs. enc_instr        i  = SOME enci  ⇒ dec_instr                (enci  ++ rs) = (INR          i  , rs))
+Proof
   (* askyk - how to golf? or rather, make more ergonomic as well as robust *)
   (* Note - all the work is really done in the instr (as opposed to instr_list) case *)
   ho_match_mp_tac enc_instr_ind
   \\ simp[Once enc_instr_def]
   \\ rpt strip_tac
-  >-( Cases_on `e` >> simp[dec_instr_def] )
+  >-( Cases_on ‘e’ >> simp[dec_instr_def] )
   >-(
        pop_assum mp_tac
     >> simp[Once enc_instr_def]
@@ -470,35 +472,40 @@ Proof
     )
   \\
     pop_assum mp_tac
-    \\ Cases_on `i`
+    \\ Cases_on ‘i’
     >> rw $ ssaa [Once enc_instr_def]
     >> simp $ ssaa [dec_instr_def]
     >>~- ([‘dec_indxs’   ], imp_res_tac dec_enc_indxs    \\ simp[] )
     >>~- ([‘dec_functype’], imp_res_tac dec_enc_functype \\ simp[] )
+    >>~- ([‘INR (If _ _ _)’],
+                              Cases_on ‘l0’
+                              >> gvs[Once dec_instr_def]
+                              >> simp ssa
+    )
     >>~- ([‘enc_varI’    ],
-                            qspec_then `v` strip_assume_tac enc_varI_nEmp_nTermB
+                            qspec_then ‘v’ strip_assume_tac enc_varI_nEmp_nTermB
                             \\ imp_res_tac var_cf_instr_disjoint
                             \\ gvs[Once dec_instr_def]
-                            \\ `b::(bs ++ rs) =  (b::bs) ++ rs` by simp[]
+                            \\ ‘b::(bs ++ rs) =  (b::bs) ++ rs’ by simp[]
                             \\ asm_rewrite_tac[]
                             \\ last_x_assum $ (fn x => rewrite_tac[GSYM x])
                             \\ simp[]
     )
     >>~- ([‘enc_paraI’   ],
-                            qspec_then `p` strip_assume_tac enc_paraI_nEmp_nTermB
+                            qspec_then ‘p’ strip_assume_tac enc_paraI_nEmp_nTermB
                             \\ imp_res_tac para_cf_instr_disjoint
                             \\ gvs[Once dec_instr_def]
-                            \\ `b::(bs ++ rs) =  (b::bs) ++ rs` by simp[]
+                            \\ ‘b::(bs ++ rs) =  (b::bs) ++ rs’ by simp[]
                             \\ pop_assum $ (fn x => rewrite_tac[x])
                             \\ last_assum $ (fn x => rewrite_tac[GSYM x])
                             \\ qspecl_then [‘p’, ‘rs’] strip_assume_tac var_para_disjoint
                             \\ simp[]
     )
     >>~- ([‘enc_numI’    ],
-                            qspec_then `n` strip_assume_tac enc_numI_nEmp_nTermB
+                            qspec_then ‘n’ strip_assume_tac enc_numI_nEmp_nTermB
                             \\ imp_res_tac num_cf_instr_disjoint
                             \\ gvs[Once dec_instr_def]
-                            \\ `b::(bs ++ rs) =  (b::bs) ++ rs` by simp[]
+                            \\ ‘b::(bs ++ rs) =  (b::bs) ++ rs’ by simp[]
                             \\ pop_assum $ (fn x => rewrite_tac[x])
                             \\ last_x_assum $ (fn x => rewrite_tac[GSYM x])
                             \\ qspecl_then [‘n’, ‘rs’] strip_assume_tac var_num_disjoint
@@ -506,10 +513,10 @@ Proof
                             \\ simp[]
     )
     >>~- ([‘enc_loadI’   ],
-                            qspec_then `l` strip_assume_tac enc_loadI_nEmp_nTermB
+                            qspec_then ‘l’ strip_assume_tac enc_loadI_nEmp_nTermB
                             \\ imp_res_tac load_cf_instr_disjoint
                             \\ simp[Once dec_instr_def]
-                            \\ `b::(bs ++ rs) =  (b::bs) ++ rs` by simp[]
+                            \\ ‘b::(bs ++ rs) =  (b::bs) ++ rs’ by simp[]
                             \\ pop_assum $ (fn x => rewrite_tac[x])
                             \\ last_x_assum $ (fn x => rewrite_tac[GSYM x])
                             \\ qspecl_then [‘l’, ‘rs’] strip_assume_tac var_load_disjoint
@@ -518,10 +525,10 @@ Proof
                             \\ simp[]
     )
     >>~- ([‘enc_storeI’  ],
-                            qspec_then `s` strip_assume_tac enc_storeI_nEmp_nTermB
+                            qspec_then ‘s’ strip_assume_tac enc_storeI_nEmp_nTermB
                             \\ imp_res_tac store_cf_instr_disjoint
                             \\ simp[Once dec_instr_def]
-                            \\ `b::(bs ++ rs) =  (b::bs) ++ rs` by simp[]
+                            \\ ‘b::(bs ++ rs) =  (b::bs) ++ rs’ by simp[]
                             \\ pop_assum $ (fn x => rewrite_tac[x])
                             \\ last_x_assum $ (fn x => rewrite_tac[GSYM x])
                             \\ qspecl_then [‘s’, ‘rs’] strip_assume_tac var_store_disjoint
@@ -530,22 +537,11 @@ Proof
                             \\ qspecl_then [‘s’, ‘rs’] strip_assume_tac load_store_disjoint
                             \\ simp[]
     )
-    \\
-
-       Cases_on ‘l0’
-    >> gvs[Once dec_instr_def]
-    >> simp ssa
-    \\ Cases_on `dec_tArm (enct ++ rs)` \\ Cases_on `q` >> simp ssa
-    >- cheat
-    \\ Cases_on `y` >> simp ssa
-    \\ `q = 11w` by cheat
-    \\ simp[]
-    \\ cheat
 QED
 
 Triviality dec_enc_instr_list:
-  ∀e is encis rs. enc_instr_list e is = SOME encis ⇒
-  dec_instr_list (¬e) (encis ++ rs) = (INR (exprB e,is), rs)
+  ∀e is dc encis rs. enc_instr_list e is = SOME encis ⇒
+  dec_instr_list (¬e ∨ dc) (encis ++ rs) = (INR (exprB e,is), rs)
 Proof
   strip_assume_tac dec_enc_instructions
 QED
@@ -554,18 +550,14 @@ Triviality dec_enc_instr:
   ∀i enci rs. enc_instr i = SOME enci ⇒
   dec_instr $ enci  ++ rs = (INR i , rs)
 Proof
-     strip_assume_tac dec_enc_instructions
+  strip_assume_tac dec_enc_instructions
 QED
 
 Triviality dec_enc_expr:
-  ∀es ences rest. enc_expr es = SOME ences ⇒
-  dec_expr (ences ++ rest) = (INR es, rest)
+  ∀is dc encis rs. enc_expr is = SOME encis ⇒
+  dec_instr_list dc (encis ++ rs) = (INR (endB,is), rs)
 Proof
-     rpt strip_tac
-  \\ strip_assume_tac dec_enc_instructions
-  \\ pop_assum kall_tac
-  \\ pop_assum dxrule
-  \\ simp[]
+  rw[] \\ dxrule dec_enc_instr_list \\ rw[]
 QED
 
 Triviality dec_enc_tArm:
@@ -596,10 +588,10 @@ Proof
      rpt gen_tac
   \\ simp $ ssaa [enc_global_def, dec_global_def, AllCaseEqs()]
   \\ rpt strip_tac
-  >- ( Cases_on `g.gtype` >> gvs[enc_globaltype_def] )
+  >- ( Cases_on ‘g.gtype’ >> gvs[enc_globaltype_def] )
   \\ gvs $ ssaa []
   \\ imp_res_tac dec_enc_instr_list
-  \\ pop_assum $ qspec_then `rs` assume_tac
+  \\ pop_assum $ qspec_then ‘rs’ assume_tac
   \\ fs[]
   \\ simp[global_component_equality]
 QED
@@ -660,15 +652,71 @@ Proof
 QED
 
 
+Theorem dec_enc_section:
+  ∀xs enc dec lb encxs rest. enc_section lb enc xs = SOME encxs ∧
+  (∀x rs. dec (enc x ++ rs) = (INR x, rs)) ⇒
+  dec_section lb dec $ encxs ++ rest = (INR xs, rest)
+Proof
+     rw[enc_section_def]
+  \\ simp $ ssaa [dec_section_def]
+  \\ dxrule_at Any dec_enc_vector
+  \\ disch_then dxrule
+  \\ simp[]
+QED
+
+
+Theorem dec_enc_section_opt:
+  ∀xs enc dec lb encxs rest. enc_section_opt lb enc xs = SOME encxs ∧
+  (∀x encx rs. enc x = SOME encx ⇒ dec (encx ++ rs) = (INR x, rs)) ⇒
+  dec_section lb dec $ encxs ++ rest = (INR xs, rest)
+Proof
+     rw[enc_section_opt_def]
+  \\ simp $ ssaa [dec_section_def]
+  \\ dxrule_at Any dec_enc_vector_opt
+  \\ disch_then dxrule
+  \\ simp[]
+QED
+
+
+
+
+
+
 
 Theorem dec_enc_module:
   ∀mod encM rs.
     enc_module mod = SOME encM ⇒
     dec_module $ encM ++ rs = (INR mod, rs)
 Proof
-  Cases >> rpt gen_tac >> simp[enc_module_def]
- \\
-  cheat
+(*
+  Cases >> simp[enc_module_def]
+  >> ‘∃a b. split_funcs l0 = (a,b)’ by simp[]
+ Cases_on `split_funcs l0`
+  >> rpt strip_tac >> gvs[]
+*)
+  Cases >> Induct_on ‘l0’
+  >> simp[enc_module_def, split_funcs_def]
+  >> rpt strip_tac >> gvs[]
+  >-(
+       ‘enc_section_opt 10w enc_code [] = SOME code'’   by fs[]
+    >> ‘enc_section      3w enc_u32  [] = SOME fTIdxs'’ by fs[]
+    >> rpt $ dxrule_at Any dec_enc_section
+    >> rpt $ dxrule_at Any dec_enc_section_opt
+    >> rpt $ pop_assum kall_tac
+
+    \\ assume_tac dec_enc_functype
+    \\ assume_tac dec_enc_global
+    \\ assume_tac dec_enc_data
+    \\ assume_tac dec_enc_code
+    \\ assume_tac dec_enc_lift_u32
+    \\ assume_tac dec_enc_limits
+    \\ rpt (disch_then dxrule \\ strip_tac)
+
+    \\ simp $ ssaa [dec_module_def, AllCaseEqs(), mod_leader_def]
+    \\ simp [module_component_equality, zip_funcs_def]
+    \\ cheat
+    )
+  \\ cheat
 QED
 
 
@@ -724,3 +772,4 @@ Theorem dec_instr_ind[allow_rebind] = REWRITE_RULE [check_len_thm] dec_instr_ind
 
 
 *)
+

@@ -14,12 +14,12 @@ Libs        preamble wordsLib
 (*   Misc notations/helps/etc   *)
 (********************************)
 
-Type byte[local]    = “:word8”
-Type byteSeq[local] = “:word8 list”
+Type byte    = “:word8”
+Type byteSeq = “:word8 list”
 
-Type dcdr[local] = “:(mlstring + α) # byteSeq”
-Overload error[local] = “λ obj str. (INL $ strlit str,obj)”
-Overload emErr[local] = “λ str. (INL $ strlit $ "[" ++ str ++ "] : Byte sequence unexpectedly empty.\n",[])”
+Type dcdr = “:(mlstring + α) # byteSeq”
+Overload error = “λ obj str. (INL $ strlit str,obj)”
+Overload emErr = “λ str. (INL $ strlit $ "[" ++ str ++ "] : Byte sequence unexpectedly empty.\n",[])”
 
 Overload gt2_32[local] = “λ (n:num). 2 ** 32 ≤ n”
 Overload lst_st = “λxs ys. LENGTH xs < LENGTH ys”
@@ -713,8 +713,8 @@ Definition enc_instr_def:
   | MemWrite   i => SOME $ enc_storeI i
 End
 
-Overload enc_expr = “enc_instr_list T”
-Overload enc_tArm = “enc_instr_list F”
+Overload enc_expr = “enc_instr_list T”  (* byte stream terminated with an endB  *)
+Overload enc_tArm = “enc_instr_list F”  (* byte stream terminated with an elseB *)
 
 Definition shorten_def:
   (shorten bs (INR x,rs) = if lst_st rs bs then (INR x,rs) else (INR x,[])) ∧
@@ -808,7 +808,9 @@ Termination
   >> fs []
 End
 
+(* dec_expr throws away the terminal byte; which we know must be endB, due to the F supplied to dec_instr_list *)
 Overload dec_expr = “λ bs. case dec_instr_list F bs of (INR (_,is), bs) => (INR is, bs) | (INL e,cs) => (INL e,cs)”
+(* dec_tArm _allows_ the terminal byte to be either endB or elseB *)
 Overload dec_tArm = “dec_instr_list T”
 
 Theorem dec_instructions_shorten:
@@ -909,6 +911,10 @@ QED
 (*                 *)
 (*     Modules     *)
 (*                 *)
+(*******************)
+
+(*******************)
+(*   Ancillaries   *)
 (*******************)
 
 Definition enc_global_def:
@@ -1015,12 +1021,6 @@ Proof
   \\ simp[dec_byte_shortens]
 QED
 
-(* for study
-MATCH_MP
-dec_vector_shortens_lt
-(dec_byte_shortens  |> INST_TYPE [alpha |-> ``:byte``])
-  \\ (qspec_then `dec_byte` assume_tac (dec_vector_shortens_lt |> INST_TYPE [alpha |-> ``:byte``]))
-*)
 
 Definition split_funcs_def:
   split_funcs ([]:func list) =  ( [] :  index                list
@@ -1064,10 +1064,51 @@ Definition zip_funcs_def:
 End
 
 
-
-Definition enc_length_on_def:
+(* Definition enc_length_on_def:
   enc_length_on (contents:byteSeq) : byteSeq =  enc_u32 (n2w $ LENGTH contents) ++ contents
+End *)
+
+Definition enc_section_def:
+  enc_section (leadByte:byte) (enc:α -> byteSeq)  (xs:α list) : byteSeq option =
+    do encxs <- enc_vector enc xs;
+    SOME $ leadByte :: enc_u32 (n2w $ LENGTH encxs) ++ encxs od
 End
+
+Definition enc_section_opt_def:
+  enc_section_opt (leadByte:byte) (enc:α -> byteSeq option) (xs:α list) : byteSeq option =
+    do encxs <- enc_vector_opt enc xs;
+    SOME $ leadByte :: enc_u32 (n2w $ LENGTH encxs) ++ encxs od
+End
+
+Definition dec_section_def:
+  dec_section ( _:byte)
+              ( _:byteSeq -> α dcdr)
+              ([]:byteSeq) : (α list) dcdr = emErr "dec_section"
+  ∧
+  dec_section leadByte dec (b::bs) =
+    let failure = error bs "dec_section"
+    in
+    if b ≠ leadByte then (INR [], b::bs)
+    else
+    case dec_u32 bs of NONE => failure | SOME (w,bs) =>
+    case dec_vector dec bs of
+    | (INR res,bs) => (INR res, bs)
+    | _            => failure
+End
+
+
+Theorem dec_section_shortens:
+  ∀dec.
+  (∀bs x rs. dec bs = (INR x, rs) ⇒ lst_st rs bs) ⇒
+  ∀bs lb dc rs. dec_section lb dec bs = (INR dc, rs) ⇒ lst_se rs bs
+Proof
+  strip_tac \\ strip_tac
+  \\ Cases >> rw[dec_section_def, AllCaseEqs()]
+    >> simp[]
+    \\ dxrule dec_u32_shortens
+    \\ dxrule_all dec_vector_shortens_lt
+    \\ simp[]
+QED
 
 Definition mod_leader_def:
   (* this magic num/list leads all WBF encoded modules *)
@@ -1080,49 +1121,18 @@ End
 Definition enc_module_def:
   enc_module (m:module) : byteSeq option =
     let (fTIdxs, locBods, fns, lns) = split_funcs m.funcs in do
-    types'   <- enc_vector_opt  enc_functype  m.types  ;
-    fTIdxs'  <- enc_vector      enc_u32       fTIdxs   ;
-    mems'    <- enc_vector      enc_limits    m.mems   ;
-    globals' <- enc_vector_opt  enc_global    m.globals;
-    code'    <- enc_vector_opt  enc_code      locBods  ;
-    datas'   <- enc_vector_opt  enc_data      m.datas  ;
+    types'   <- enc_section_opt   1w enc_functype  m.types  ;
+    fTIdxs'  <- enc_section       3w enc_u32       fTIdxs   ;
+    mems'    <- enc_section       5w enc_limits    m.mems   ;
+    globals' <- enc_section_opt   6w enc_global    m.globals;
+    code'    <- enc_section_opt  10w enc_code      locBods  ;
+    datas'   <- enc_section_opt  11w enc_data      m.datas  ;
       SOME $ mod_leader ++
-      (* Type     *)  1w :: enc_length_on   types'    ++
-      (* Function *)  3w :: enc_length_on   fTIdxs'   ++
-      (* Memory   *)  5w :: enc_length_on   mems'     ++
-      (* Global   *)  6w :: enc_length_on   globals'  ++
-      (* Code     *) 10w :: enc_length_on   code'     ++
-      (* Data     *) 11w :: enc_length_on   datas'    ++
-      (* Names    *)  0w :: enc_length_on   []        od
-End
-
-Definition emp_module_def:
-  emp_module : module =
-  <| types   := []
-   ; funcs   := []
-   ; mems    := []
-   ; globals := []
-   ; datas   := []
-   |>
+      types'   ++ fTIdxs' ++ mems'  ++
+      globals' ++ code'   ++ datas' ++ [] od
 End
 
 
-
-Definition dec_section_def:
-  dec_section ( _:byte)
-              ( _:byteSeq -> α dcdr)
-              ([]:byteSeq) = emErr "dec_section"
-  ∧
-  dec_section leadByte dec (b::bs) : (α list) dcdr =
-    let failure = error bs "dec_section"
-    in
-    if b ≠ leadByte then (INR [], b::bs)
-    else
-    case dec_u32 bs of NONE => failure | SOME (w,bs) =>
-    case dec_vector dec bs of
-    | (INR res,bs) => (INR res, bs)
-    | _            => failure
-End
 
 Definition dec_module_def:
   dec_module (bs:byteSeq) : module dcdr = case bs of
@@ -1140,26 +1150,12 @@ Definition dec_module_def:
     let funcs' = zip_funcs fTIdxs code [] [] in
     let m = <| types   := types' ; funcs   := funcs'
              ; mems    := mems'  ; globals := globals'
-             ; datas   := datas' |> : module
+             ; datas   := datas' ; mname   := strlit ("")   |> : module
     in
     (INR m, rs) )
   | [] => emErr "dec_module"
   | _  => error bs "[dec_module]: missing leader (less than 8 bytes)"
 End
-
-
-Theorem dec_section_shortens:
-  ∀dec.
-  (∀bs x rs. dec bs = (INR x, rs) ⇒ lst_st rs bs) ⇒
-  ∀bs lb dc rs. dec_section lb dec bs = (INR dc, rs) ⇒ lst_se rs bs
-Proof
-  strip_tac \\ strip_tac
-  \\ Cases >> rw[dec_section_def, AllCaseEqs()]
-    >> simp[]
-    \\ dxrule dec_u32_shortens
-    \\ dxrule_all dec_vector_shortens_lt
-    \\ simp[]
-QED
 
 Theorem dec_module_shortens:
   ∀bs x rs. dec_module bs = (INR x, rs) ⇒ lst_se rs bs
@@ -1170,3 +1166,21 @@ Proof
   \\ simp[dec_functype_shortens, dec_code_shortens,dec_data_shortens]
 QED
 
+
+
+(* for study
+MATCH_MP
+dec_vector_shortens_lt
+(dec_byte_shortens  |> INST_TYPE [alpha |-> ``:byte``])
+  \\ (qspec_then `dec_byte` assume_tac (dec_vector_shortens_lt |> INST_TYPE [alpha |-> ``:byte``]))
+*)
+
+Definition emp_module_def:
+  emp_module : module =
+  <| types   := []
+   ; funcs   := []
+   ; mems    := []
+   ; globals := []
+   ; datas   := []
+   |>
+End
