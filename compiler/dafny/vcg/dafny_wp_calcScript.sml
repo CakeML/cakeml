@@ -3864,6 +3864,8 @@ Proof
   \\ drule mem_varlhs_get_vars \\ simp []
 QED
 
+(* todo seems to be used as IS_SOME_SOME (ALOOKUP ..), which i similar to
+   is_initialized *)
 Definition IS_SOME_SOME_def:
   IS_SOME_SOME x = ∃y. x = SOME (SOME (y:'a))
 End
