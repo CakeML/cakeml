@@ -6,6 +6,7 @@ Ancestors
   integer result_monad topological_sort
   dafny_ast dafny_semanticPrimitives dafnyProps
   dafny_evaluate dafny_evaluateProps dafny_eval_rel
+  mlint (* num_to_str *)
 Libs
   preamble
 
@@ -444,10 +445,10 @@ Inductive stmt_wp:
       ens decs (MAP (λv. (v,IntT)) ds_vars ++ ls)
     ⇒
     stmt_wp m (invs ++ [CanEval guard] ++ MAP CanEval ds ++
-               MAP (CanEval o Var o FST) ls ++ [loop_cond] ++
-               (* on exit of loop, invs and not guard imply post *)
-               [Foralls ls1
-                  (imp (conj (not guard :: invs)) (conj post))])
+               MAP (CanEval o Var o FST) ls ++
+               [loop_cond;
+                (* on exit of loop, invs and not guard imply post *)
+                Foralls ls1 (imp (conj (not guard :: invs)) (conj post))])
             (While guard invs ds mods body) post ens decs ls
 [~MetCall:]
   ∀m mname mspec mbody args ret_names rets post ens.
@@ -5432,6 +5433,68 @@ Proof
   \\ SET_TAC []
 QED
 
+Definition gen_ds_vars_def:
+  gen_ds_vars ds = GENLIST (λn. «ds» ^ (num_to_str n)) (LENGTH ds)
+End
+
+Triviality ALL_DISTINCT_gen_ds_vars:
+  ∀ds. ALL_DISTINCT (gen_ds_vars ds)
+Proof
+  simp [ALL_DISTINCT_GENLIST, gen_ds_vars_def, num_to_str_11]
+QED
+
+Triviality LENGTH_gen_ds_vars:
+  ∀ds. LENGTH (gen_ds_vars ds) = LENGTH ds
+Proof
+  simp [gen_ds_vars_def]
+QED
+
+Definition get_VarLhss_def:
+  get_VarLhss [] = [] ∧
+  get_VarLhss (lhs::lhss) =
+  case lhs of
+  | VarLhs v => v::(get_VarLhss lhss)
+  | _ => get_VarLhss lhss
+End
+
+Definition find_assigned_in_def:
+  (find_assigned_in (Then stmt₁ stmt₂) =
+     find_assigned_in stmt₁ ++ find_assigned_in stmt₂) ∧
+  (find_assigned_in (If _ stmt₁ stmt₂) =
+     find_assigned_in stmt₁ ++ find_assigned_in stmt₂) ∧
+  (find_assigned_in (Dec n_ty stmt) =
+     FILTER (λx. x ≠ FST n_ty) (find_assigned_in stmt)) ∧
+  (find_assigned_in (Assign ass) = get_VarLhss (MAP FST ass)) ∧
+  (find_assigned_in (While _ _ _ _ body) = find_assigned_in body) ∧
+  (find_assigned_in (MetCall lhss _ _) = get_VarLhss lhss) ∧
+  (find_assigned_in Skip = []) ∧
+  (find_assigned_in (Assert _) = []) ∧
+  (find_assigned_in (Print _ _) = []) ∧
+  (find_assigned_in Return = [])
+End
+
+Triviality LIST_TO_SET_MEM:
+  set xs x ⇔ MEM x xs
+Proof
+  Induct_on ‘xs’ \\ gvs []
+QED
+
+Triviality MEM_get_VarLhss:
+  MEM v (get_VarLhss lhss) ⇔ MEM (VarLhs v) lhss
+Proof
+  Induct_on ‘lhss’ \\ gvs [get_VarLhss_def]
+  \\ Cases \\ gvs []
+QED
+
+Triviality set_find_assigned_in:
+  set (find_assigned_in stmt) = assigned_in stmt
+Proof
+  Induct_on ‘stmt’
+  \\ gvs [FUN_EQ_THM] \\ rpt strip_tac
+  \\ gvs [find_assigned_in_def, assigned_in_def, LIST_TO_SET_MEM, MEM_FILTER,
+          MEM_get_VarLhss]
+QED
+
 Definition stmt_vcg_def:
   stmt_vcg _ Skip post _ _ _ = return post ∧
   stmt_vcg _ (Assert e) post _ _ _ = return (e::post) ∧
@@ -5480,6 +5543,38 @@ Definition stmt_vcg_def:
     () <- if es_tys = vars_tys then return () else
             (fail «stmt_vcg:Assign: lhs and rhs types do not match»);
     return [Let (ZIP (vars, es)) (conj post)]
+  od ∧
+  stmt_vcg m (While guard invs ds mods body) post ens decs ls =
+  do
+    (* Inventing variables; after freshen, this should always succeed *)
+    ds_vars <<- gen_ds_vars ds;
+    () <- if list_disjoint ds_vars
+               (MAP FST ls ++ FLAT (MAP get_vars_exp ens) ++
+                get_vars_stmt (While guard invs ds mods body))
+          then return ()
+          else (fail «stmt_vcg:While: Invented variable not unique»);
+    body_wp <- stmt_vcg m body
+                 (invs ++ [CanEval guard] ++ MAP CanEval ds ++
+                  decreases_check (0,ds) (0,MAP Var ds_vars))
+                 ens decs (MAP (λv. (v,IntT)) ds_vars ++ ls);
+    body_cond <<-
+      imp (conj (guard::invs ++ MAP2 dec_assum ds_vars ds)) (conj body_wp);
+    () <- if list_subset (freevars_list body_cond) (ds_vars ++ MAP FST ls)
+          then return ()
+          else (fail «stmt_vcg:While: Body condition has illegal free variables»);
+    () <- if list_subset (find_assigned_in body) (MAP FST ls) then return ()
+          else (fail «stmt_vcg:While: Body is assigning to undeclared variables»);
+    guard_ty <- get_type ls guard;
+    () <- if guard_ty = BoolT then return ()
+          else (fail «stmt_vcg:While: Guard is not a boolean»);
+    () <- if EVERY (λd. get_type ls d = INR IntT) ds then return ()
+          else (fail «stmt_vcg:While: Not all decreases are integers»);
+    ls1 <<- FILTER (λ(v,ty). assigned_in body v) ls;
+    loop_cond <<- Foralls (MAP (λv. (v,IntT)) ds_vars ++ ls) body_cond;
+    return
+      (invs ++ [CanEval guard] ++ MAP CanEval ds ++
+       MAP (CanEval ∘ Var ∘ FST) ls ++
+       [loop_cond; Foralls ls1 (imp (conj (not guard::invs)) (conj post))])
   od ∧
   stmt_vcg m (MetCall lhss name args) post ens decs ls =
   do
@@ -5583,6 +5678,14 @@ Proof
     \\ drule_then assume_tac result_mmap_dest_VarLhs \\ simp []
     \\ drule_then assume_tac result_mmap_dest_ExpRhs \\ simp []
     \\ gvs [LIST_TO_SET_SUBSET])
+  >~ [‘While’] >-
+   (gvs [stmt_vcg_def]
+    \\ gvs [oneline bind_def, CaseEq "sum"]
+    \\ irule stmt_wp_While
+    \\ gvs [LIST_TO_SET_SUBSET, set_find_assigned_in]
+    \\ qexistsl [‘body_wp’, ‘gen_ds_vars ds’]
+    \\ simp [ALL_DISTINCT_gen_ds_vars, LENGTH_gen_ds_vars]
+    \\ gvs [LIST_TO_SET_DISJOINT, freevars_list_eq])
   >~ [‘MetCall’] >-
    (gvs [stmt_vcg_def]
     \\ gvs [oneline bind_def, CaseEq "sum"]
