@@ -7,70 +7,224 @@ Ancestors   leb128 ancillaryOps wasmLang wasm_binary_format
 Libs        preamble wordsLib
 
 val ssaa = fn xs => [GSYM APPEND_ASSOC, Excl "APPEND_ASSOC"] @ xs
-val ssa  = [GSYM APPEND_ASSOC, Excl "APPEND_ASSOC"]
+val ssa  =          [GSYM APPEND_ASSOC, Excl "APPEND_ASSOC"]
 
-(******************************)
-(*                            *)
-(*     non-empty Theorems     *)
-(*                            *)
-(******************************)
+(***************************)
+(*                         *)
+(*     byte-y Theorems     *)
+(*                         *)
+(***************************)
 
-Theorem enc_numI_nEmp:
-  ∀i. ∃b bs. enc_numI i = b::bs
+Theorem enc_numI_nEmp_nTermB:
+  ∀i. ∃b bs. enc_numI i = b::bs ∧ b ≠ endB ∧ b ≠ elseB
 Proof
   gen_tac
-  \\ `∃val. enc_numI i = val` by simp[]
+  \\ ‘∃val. enc_numI i = val’ by simp[]
   \\ asm_rewrite_tac[]
   \\ pop_assum mp_tac
   \\ rw[Once enc_numI_def, AllCaseEqs()]
 QED
 
-Theorem enc_paraI_nEmp:
-  ∀i. ∃b bs. enc_paraI i = b::bs
+Theorem enc_paraI_nEmp_nTermB:
+  ∀i. ∃b bs. enc_paraI i = b::bs ∧ b ≠ endB ∧ b ≠ elseB
 Proof
   Cases \\ simp[Once enc_paraI_def, AllCaseEqs()]
 QED
 
-Theorem enc_varI_nEmp:
-  ∀i. ∃b bs. enc_varI i = b::bs
+Theorem enc_varI_nEmp_nTermB:
+  ∀i. ∃b bs. enc_varI i = b::bs ∧ b ≠ endB ∧ b ≠ elseB
 Proof
   Cases \\ simp[Once enc_varI_def, AllCaseEqs()]
 QED
 
-Theorem enc_loadI_nEmp:
-  ∀i. ∃b bs. enc_loadI i = b::bs
+Theorem enc_loadI_nEmp_nTermB:
+  ∀i. ∃b bs. enc_loadI i = b::bs ∧ b ≠ endB ∧ b ≠ elseB
 Proof
   gen_tac
-  \\ `∃val. enc_loadI i = val` by simp[]
+  \\ ‘∃val. enc_loadI i = val’ by simp[]
   \\ asm_rewrite_tac[]
   \\ pop_assum mp_tac
   \\ rw[Once enc_loadI_def, AllCaseEqs()]
 QED
 
-Theorem enc_storeI_nEmp:
-  ∀i. ∃b bs. enc_storeI i = b::bs
+Theorem enc_storeI_nEmp_nTermB:
+  ∀i. ∃b bs. enc_storeI i = b::bs ∧ b ≠ endB ∧ b ≠ elseB
 Proof
   gen_tac
-  \\ `∃val. enc_storeI i = val` by simp[]
+  \\ ‘∃val. enc_storeI i = val’ by simp[]
   \\ asm_rewrite_tac[]
   \\ pop_assum mp_tac
   \\ rw[Once enc_storeI_def, AllCaseEqs()]
 QED
 
-Theorem enc_instr_nEmp:
+Theorem enc_instr_nEmp_nTermB:
   ∀i enci. enc_instr i = SOME enci ⇒
-  ∃b bs. enci = b::bs
+  ∃b bs. enci = b::bs ∧ b ≠ endB ∧ b ≠ elseB
 Proof
   Cases
   >> rw[Once enc_instr_def, AllCaseEqs()]
-  >> mp_tac enc_numI_nEmp
-  >> mp_tac enc_paraI_nEmp
-  >> mp_tac enc_varI_nEmp
-  >> mp_tac enc_loadI_nEmp
-  >> mp_tac enc_storeI_nEmp
+  >> mp_tac enc_numI_nEmp_nTermB
+  >> mp_tac enc_paraI_nEmp_nTermB
+  >> mp_tac enc_varI_nEmp_nTermB
+  >> mp_tac enc_loadI_nEmp_nTermB
+  >> mp_tac enc_storeI_nEmp_nTermB
   >> simp[]
 QED
 
+Theorem num_cf_instr_disjoint:
+  ∀i b bs. enc_numI i = b::bs ⇒
+  b ≠ unrOC ∧ b ≠ nopOC ∧ b ≠ blkOC ∧
+  b ≠ lopOC ∧ b ≠ if_OC ∧ b ≠ br_OC ∧
+  b ≠ briOC ∧ b ≠ brtOC ∧ b ≠ retOC ∧
+  b ≠ calOC ∧ b ≠ rclOC ∧ b ≠ cinOC ∧
+  b ≠ rciOC
+Proof
+     rw[enc_numI_def, AllCaseEqs()]
+  \\ simp[]
+QED
+
+Theorem para_cf_instr_disjoint:
+  ∀i b bs. enc_paraI i = b::bs ⇒
+  b ≠ unrOC ∧ b ≠ nopOC ∧ b ≠ blkOC ∧
+  b ≠ lopOC ∧ b ≠ if_OC ∧ b ≠ br_OC ∧
+  b ≠ briOC ∧ b ≠ brtOC ∧ b ≠ retOC ∧
+  b ≠ calOC ∧ b ≠ rclOC ∧ b ≠ cinOC ∧
+  b ≠ rciOC
+Proof
+     rw[enc_paraI_def, AllCaseEqs()]
+  \\ simp[]
+QED
+
+Theorem var_cf_instr_disjoint:
+  ∀i b bs. enc_varI i = b::bs ⇒
+  b ≠ unrOC ∧ b ≠ nopOC ∧ b ≠ blkOC ∧
+  b ≠ lopOC ∧ b ≠ if_OC ∧ b ≠ br_OC ∧
+  b ≠ briOC ∧ b ≠ brtOC ∧ b ≠ retOC ∧
+  b ≠ calOC ∧ b ≠ rclOC ∧ b ≠ cinOC ∧
+  b ≠ rciOC
+Proof
+     rw[enc_varI_def, AllCaseEqs()]
+  \\ simp[]
+QED
+
+Theorem load_cf_instr_disjoint:
+  ∀i b bs. enc_loadI i = b::bs ⇒
+  b ≠ unrOC ∧ b ≠ nopOC ∧ b ≠ blkOC ∧
+  b ≠ lopOC ∧ b ≠ if_OC ∧ b ≠ br_OC ∧
+  b ≠ briOC ∧ b ≠ brtOC ∧ b ≠ retOC ∧
+  b ≠ calOC ∧ b ≠ rclOC ∧ b ≠ cinOC ∧
+  b ≠ rciOC
+Proof
+     rw[enc_loadI_def, AllCaseEqs()]
+  \\ simp[]
+QED
+
+Theorem store_cf_instr_disjoint:
+  ∀i b bs. enc_storeI i = b::bs ⇒
+  b ≠ unrOC ∧ b ≠ nopOC ∧ b ≠ blkOC ∧
+  b ≠ lopOC ∧ b ≠ if_OC ∧ b ≠ br_OC ∧
+  b ≠ briOC ∧ b ≠ brtOC ∧ b ≠ retOC ∧
+  b ≠ calOC ∧ b ≠ rclOC ∧ b ≠ cinOC ∧
+  b ≠ rciOC
+Proof
+     rw[enc_storeI_def, AllCaseEqs()]
+  \\ simp[]
+QED
+
+Theorem var_para_disjoint:
+  ∀p rest. ∃ e. dec_varI (enc_paraI p ++ rest) = (INL e, enc_paraI p ++ rest)
+Proof
+  Cases >> simp[enc_paraI_def, dec_varI_def]
+QED
+
+Theorem var_num_disjoint:
+  ∀n rest. ∃ e. dec_varI (enc_numI n ++ rest) = (INL e, enc_numI n ++ rest)
+Proof
+  Cases >> gen_tac
+  >> simp[enc_numI_def]
+  >> every_case_tac
+  >> simp[dec_varI_def]
+QED
+
+Theorem para_num_disjoint:
+  ∀n rest. ∃ e. dec_paraI (enc_numI n ++ rest) = (INL e, enc_numI n ++ rest)
+Proof
+  Cases >> gen_tac
+  >> simp[enc_numI_def]
+  >> every_case_tac
+  >> simp[dec_paraI_def]
+QED
+
+Theorem var_load_disjoint:
+  ∀l rest. ∃ e. dec_varI (enc_loadI l ++ rest) = (INL e, enc_loadI l ++ rest)
+Proof
+  Cases >> gen_tac
+  >> simp[enc_loadI_def]
+  >> every_case_tac
+  >> simp[dec_varI_def]
+QED
+
+Theorem para_load_disjoint:
+  ∀l rest. ∃ e. dec_paraI (enc_loadI l ++ rest) = (INL e, enc_loadI l ++ rest)
+Proof
+  Cases >> gen_tac
+  >> simp[enc_loadI_def]
+  >> every_case_tac
+  >> simp[dec_paraI_def]
+QED
+
+Theorem num_load_disjoint:
+  ∀l rest. ∃ e. dec_numI (enc_loadI l ++ rest) = (INL e, enc_loadI l ++ rest)
+Proof
+  Cases >> gen_tac
+  >> simp[enc_loadI_def]
+  >> every_case_tac
+  >> simp[dec_numI_def]
+QED
+
+Theorem var_store_disjoint:
+  ∀l rest. ∃ e. dec_varI (enc_storeI l ++ rest) = (INL e, enc_storeI l ++ rest)
+Proof
+  Cases >> gen_tac
+  >> simp[enc_storeI_def]
+  >> every_case_tac
+  >> simp[dec_varI_def]
+QED
+
+Theorem para_store_disjoint:
+  ∀l rest. ∃ e. dec_paraI (enc_storeI l ++ rest) = (INL e, enc_storeI l ++ rest)
+Proof
+  Cases >> gen_tac
+  >> simp[enc_storeI_def]
+  >> every_case_tac
+  >> simp[dec_paraI_def]
+QED
+
+Theorem num_store_disjoint:
+  ∀l rest. ∃ e. dec_numI (enc_storeI l ++ rest) = (INL e, enc_storeI l ++ rest)
+Proof
+  Cases >> gen_tac
+  >> simp[enc_storeI_def]
+  >> every_case_tac
+  >> simp[dec_numI_def]
+QED
+
+Theorem load_store_disjoint:
+  ∀l rest. ∃ e. dec_loadI (enc_storeI l ++ rest) = (INL e, enc_storeI l ++ rest)
+Proof
+  Cases >> gen_tac
+  >> simp[enc_storeI_def]
+  >> every_case_tac
+  >> simp[dec_loadI_def]
+QED
+
+Theorem dec_il_end_or_else_B:
+  ∀bs e tmB x rs. dec_instr_list e bs = (INR (tmB,x),rs) ⇒ (tmB = endB ∨ tmB = elseB)
+Proof
+  Induct
+  >> simp[Once dec_instr_def, AllCaseEqs()]
+  >> cheat
+QED
 
 
 
@@ -89,11 +243,11 @@ fun print_dot_tac h = (print "."; all_tac h);
 (*****************************************)
 
 Theorem dec_enc_vector[simp]:
-  ∀is dec enc encis rest.
+  ∀is enc dec encis.
     enc_vector enc is = SOME encis ∧
     (∀x rs. dec (enc x ++ rs) = (INR x,rs))
     ⇒
-    dec_vector dec (encis ++ rest) = (INR is, rest)
+    ∀rest. dec_vector dec (encis ++ rest) = (INR is, rest)
 Proof
   rpt strip_tac
   \\ last_x_assum mp_tac
@@ -106,11 +260,11 @@ Proof
 QED
 
 Theorem dec_enc_vector_opt[simp]:
-  ∀dec enc is encis rest.
+  ∀dec enc is encis.
     enc_vector_opt enc is = SOME encis ∧
     (∀x encx rs. enc x = SOME encx ⇒ dec (encx ++ rs) = (INR x,rs))
     ⇒
-    dec_vector dec (encis ++ rest) = (INR is, rest)
+    ∀rest. dec_vector dec (encis ++ rest) = (INR is, rest)
 Proof
   rpt strip_tac
   \\ last_x_assum mp_tac
@@ -148,8 +302,7 @@ Proof
     >> gvs[dec_valtype_def]
 QED
 
-(* askyk about this kind of conditional rewrite *)
-Theorem dec_enc_functype[simp]:
+Theorem dec_enc_functype:
   ∀sg encsg rest.
     enc_functype sg = SOME encsg ⇒
     dec_functype (encsg ++ rest) = (INR sg, rest)
@@ -274,64 +427,160 @@ Proof
   >> simp[enc_valtype_def, AllCaseEqs()]
 QED
 
-(*
+
+Theorem dec_enc_lift_u32[simp]:
+  ∀b rest. lift_dec_u32 (enc_u32 b ++ rest) = (INR b, rest)
+Proof
+  rpt gen_tac
+  \\ simp[lift_dec_u32_def]
+QED
+
+Theorem dec_enc_indxs:
+  ∀bs encbs rest. enc_indxs bs = SOME encbs ⇒
+  dec_indxs (encbs ++ rest) = (INR bs, rest)
+Proof
+  rpt strip_tac
+  \\ dxrule_at Any dec_enc_vector
+  \\ simp[dec_enc_lift_u32]
+QED
+
+
+
+Overload exprB[local] = “λe. if e then endB else elseB”
+
 Theorem dec_enc_instructions:
-  ∀e is encis rest. enc_instr_list e is = SOME encis ⇒ dec_expr  (encis ++ rest) = (INR is, rest) ∧
-  ∀  i  enci  rest. enc_instr        i  = SOME enci  ⇒ dec_instr (enci  ++ rest) = (INR i , rest)
+  (∀e is encis rs. enc_instr_list e is = SOME encis ⇒ dec_instr_list (¬e) (encis ++ rs) = (INR (exprB e,is), rs)) ∧
+  (∀  i  enci  rs. enc_instr        i  = SOME enci  ⇒ dec_instr           (enci  ++ rs) = (INR          i  , rs))
 Proof
+
+  (* askyk - how to golf? or rather, make more ergonomic as well as robust *)
+  (* Note - all the work is really done in the instr (as opposed to instr_list) case *)
   ho_match_mp_tac enc_instr_ind
-  cheat
-QED *)
+  \\ simp[Once enc_instr_def]
+  \\ rpt strip_tac
+  >-( Cases_on `e` >> simp[dec_instr_def] )
+  >-(
+       pop_assum mp_tac
+    >> simp[Once enc_instr_def]
+    >> rpt strip_tac
+    >> imp_res_tac enc_instr_nEmp_nTermB
+    >> gvs[]
+    >> simp[Once dec_instr_def]
+    >> simp ssa
+    )
+  \\
+    pop_assum mp_tac
+    \\ Cases_on `i`
+    >> rw $ ssaa [Once enc_instr_def]
+    >> simp $ ssaa [dec_instr_def]
+    >>~- ([‘dec_indxs’   ], imp_res_tac dec_enc_indxs    \\ simp[] )
+    >>~- ([‘dec_functype’], imp_res_tac dec_enc_functype \\ simp[] )
+    >>~- ([‘enc_varI’    ],
+                            qspec_then `v` strip_assume_tac enc_varI_nEmp_nTermB
+                            \\ imp_res_tac var_cf_instr_disjoint
+                            \\ gvs[Once dec_instr_def]
+                            \\ `b::(bs ++ rs) =  (b::bs) ++ rs` by simp[]
+                            \\ asm_rewrite_tac[]
+                            \\ last_x_assum $ (fn x => rewrite_tac[GSYM x])
+                            \\ simp[]
+    )
+    >>~- ([‘enc_paraI’   ],
+                            qspec_then `p` strip_assume_tac enc_paraI_nEmp_nTermB
+                            \\ imp_res_tac para_cf_instr_disjoint
+                            \\ gvs[Once dec_instr_def]
+                            \\ `b::(bs ++ rs) =  (b::bs) ++ rs` by simp[]
+                            \\ pop_assum $ (fn x => rewrite_tac[x])
+                            \\ last_assum $ (fn x => rewrite_tac[GSYM x])
+                            \\ qspecl_then [‘p’, ‘rs’] strip_assume_tac var_para_disjoint
+                            \\ simp[]
+    )
+    >>~- ([‘enc_numI’    ],
+                            qspec_then `n` strip_assume_tac enc_numI_nEmp_nTermB
+                            \\ imp_res_tac num_cf_instr_disjoint
+                            \\ gvs[Once dec_instr_def]
+                            \\ `b::(bs ++ rs) =  (b::bs) ++ rs` by simp[]
+                            \\ pop_assum $ (fn x => rewrite_tac[x])
+                            \\ last_x_assum $ (fn x => rewrite_tac[GSYM x])
+                            \\ qspecl_then [‘n’, ‘rs’] strip_assume_tac var_num_disjoint
+                            \\ qspecl_then [‘n’, ‘rs’] strip_assume_tac para_num_disjoint
+                            \\ simp[]
+    )
+    >>~- ([‘enc_loadI’   ],
+                            qspec_then `l` strip_assume_tac enc_loadI_nEmp_nTermB
+                            \\ imp_res_tac load_cf_instr_disjoint
+                            \\ simp[Once dec_instr_def]
+                            \\ `b::(bs ++ rs) =  (b::bs) ++ rs` by simp[]
+                            \\ pop_assum $ (fn x => rewrite_tac[x])
+                            \\ last_x_assum $ (fn x => rewrite_tac[GSYM x])
+                            \\ qspecl_then [‘l’, ‘rs’] strip_assume_tac var_load_disjoint
+                            \\ qspecl_then [‘l’, ‘rs’] strip_assume_tac para_load_disjoint
+                            \\ qspecl_then [‘l’, ‘rs’] strip_assume_tac num_load_disjoint
+                            \\ simp[]
+    )
+    >>~- ([‘enc_storeI’  ],
+                            qspec_then `s` strip_assume_tac enc_storeI_nEmp_nTermB
+                            \\ imp_res_tac store_cf_instr_disjoint
+                            \\ simp[Once dec_instr_def]
+                            \\ `b::(bs ++ rs) =  (b::bs) ++ rs` by simp[]
+                            \\ pop_assum $ (fn x => rewrite_tac[x])
+                            \\ last_x_assum $ (fn x => rewrite_tac[GSYM x])
+                            \\ qspecl_then [‘s’, ‘rs’] strip_assume_tac var_store_disjoint
+                            \\ qspecl_then [‘s’, ‘rs’] strip_assume_tac para_store_disjoint
+                            \\ qspecl_then [‘s’, ‘rs’] strip_assume_tac num_store_disjoint
+                            \\ qspecl_then [‘s’, ‘rs’] strip_assume_tac load_store_disjoint
+                            \\ simp[]
+    )
+    \\
 
+       Cases_on ‘l0’
+    >> gvs[Once dec_instr_def]
+    >> simp ssa
+    \\ Cases_on `dec_tArm (enct ++ rs)` \\ Cases_on `q` >> simp ssa
+    >- cheat
+    \\ Cases_on `y` >> simp ssa
+    \\ `q = 11w` by cheat
+    \\ simp[]
+    \\ cheat
+QED
 
-(*
-Theorem dec_enc_instr:
-  ∀i enci rest. enc_instr i = SOME enci ⇒
-  dec_instr (enci ++ rest) = (INR i, rest)
+Triviality dec_enc_instr_list:
+  ∀e is encis rs. enc_instr_list e is = SOME encis ⇒
+  dec_instr_list (¬e) (encis ++ rs) = (INR (exprB e,is), rs)
 Proof
+  strip_assume_tac dec_enc_instructions
+QED
 
-  Cases >> rpt gen_tac
-  >> rw[Once enc_instr_def]
-  >- simp $ ssaa [Once dec_instr_def]
-  >- simp $ ssaa [Once dec_instr_def]
-  >-
-  gvs $ ssaa [Once dec_instr_def]
-gvs
+Triviality dec_enc_instr:
+  ∀i enci rs. enc_instr i = SOME enci ⇒
+  dec_instr $ enci  ++ rs = (INR i , rs)
+Proof
+     strip_assume_tac dec_enc_instructions
+QED
 
+Triviality dec_enc_expr:
+  ∀es ences rest. enc_expr es = SOME ences ⇒
+  dec_expr (ences ++ rest) = (INR es, rest)
+Proof
+     rpt strip_tac
+  \\ strip_assume_tac dec_enc_instructions
+  \\ pop_assum kall_tac
+  \\ pop_assum dxrule
+  \\ simp[]
+QED
 
-  strip_tac
- simp[]
+Triviality dec_enc_tArm:
+  ∀es ences rest. enc_tArm es = SOME ences ⇒
+  ∃tmB. dec_tArm (ences ++ rest) = (INR (tmB,es), rest)
+Proof
+     rpt strip_tac
+  \\ strip_assume_tac dec_enc_instructions
+  \\ pop_assum kall_tac
+  \\ pop_assum dxrule
+  \\ simp[]
 QED
 
 
 
-(* askyk *)
-Theorem dec_enc_expr:
-  ∀is encis rest. enc_expr is = SOME encis ⇒
-  dec_expr (encis ++ rest) = (INR is, rest)
-Proof
-
-  Induct >> rpt gen_tac
-  >> gvs[Once enc_instr_def, dec_instr_def]
-  \\ rpt strip_tac
-  \\ gvs ssa
-  \\ rewrite_tac[dec_instr_def]
-
-  \\ last_assum drule
-  \\ rpt strip_tac
-  (* \\ gvs[AllCaseEqs()] *)
-
-  \\ imp_res_tac enc_instr_nEmp
-  (* what now? How to make this more managable *)
-\\ cheat
-(*
-  \\ simp[dec_instr_def, AllCaseEqs()]
-  \\ rpt strip_tac
-  \\ cheat
-  (* what now? How to make this more managable *)
-*)
-QED
- *)
 
 
 (*******************)
@@ -339,124 +588,88 @@ QED
 (*     Modules     *)
 (*                 *)
 (*******************)
-(*
+
 Theorem dec_enc_global[simp]:
-  ∀g encg rs.
-    enc_global g = SOME encg ⇒
-    dec_global $ encg ++ rs = (INR g, rs)
+  ∀g encg rs. enc_global g = SOME encg ⇒
+  dec_global $ encg ++ rs = (INR g, rs)
 Proof
-
      rpt gen_tac
-  \\ simp[enc_global_def, dec_global_def, AllCaseEqs()]
+  \\ simp $ ssaa [enc_global_def, dec_global_def, AllCaseEqs()]
   \\ rpt strip_tac
-  >> Cases_on `g.gtype` >> gvs[enc_globaltype_def]
-    >> simp $ ssaa [dec_globaltype_def]
-
-
-drule dec
-rpt strip_tac
-    simp[]
-    >> rw $ ssaa [dec_globaltype_def]
-
-
-    rw[]
-  \\ simp[]
-], enc_globaltype_def]
-  \\ Cases_on ‘g.gtype’ >> Cases_on  `g.ginit`
-    >> gvs[]
-\\
-  cheat
-QED *)
+  >- ( Cases_on `g.gtype` >> gvs[enc_globaltype_def] )
+  \\ gvs $ ssaa []
+  \\ imp_res_tac dec_enc_instr_list
+  \\ pop_assum $ qspec_then `rs` assume_tac
+  \\ fs[]
+  \\ simp[global_component_equality]
+QED
 
 Theorem enc_u32_nEmp:
   ∀w. ¬ (NULL $ enc_u32 w)
 Proof
-  gen_tac
-  \\ rw[enc_unsigned_word_def, Once enc_num_def]
+  rw[enc_unsigned_word_def, Once enc_num_def]
 QED
 
 Theorem enc_u32_nEmp':
-  ∀w. (NULL $ enc_u32 w) ⇒ F
+  ∀w xs. ¬(NULL $ enc_u32 w ++ xs)
 Proof
-  gen_tac
-  \\ rw[enc_unsigned_word_def, Once enc_num_def]
+  rw[enc_unsigned_word_def, Once enc_num_def]
 QED
 
 
-(* ASKYK *)
-(* Theorem dec_enc_code:
+Theorem dec_enc_code:
   ∀cd encC rs.
     enc_code cd = SOME encC ⇒
     dec_code $ encC ++ rs = (INR cd, rs)
 Proof
-
   PairCases
   \\ rw[enc_code_def, AllCaseEqs(), dec_code_def]
   >-( mp_tac enc_u32_nEmp \\ simp[] )
   \\ rewrite_tac[GSYM APPEND_ASSOC, dec_enc_u32]
   \\ gvs[]
-  \\ dxrule dec_enc_vector
+  \\ assume_tac dec_enc_valtype
+  \\ dxrule_all dec_enc_vector \\ strip_tac
+  \\ asm_rewrite_tac[GSYM APPEND_ASSOC]
+  \\ gvs[]
+  \\ dxrule dec_enc_instr_list
+  \\ simp[]
+QED
 
+Theorem dec_enc_byte:
+  ∀b rs. dec_byte $ (λb. [b]) b ++ rs = (INR b, rs)
+Proof
+  gen_tac \\ Cases >> rw[dec_byte_def]
+QED
 
-  \\ disch_then $ qspec_tac `dec_valtype` assume_tac
-
-
-
-  \\ qspec_tac `dec_valtype` assume_tac dec_enc_valtype_Seq
-assume_tac dec_enc_valtype_Seq
-
-  \\ pop_assum mp_tac
-  \\ Cases_on `cd0` >> gvs[enc_vector_def]
-rpt strip_tac
-gvs[]
-
-
-  \\ rw[]
-
-
-  \\ rpt strip_tac
-gvs[]
-  \\ simp ssa
-
-
-  \\ rpt strip_tac
-  \\ pop_assum kall_tac
-  \\ sass
-  \\ disch_then (fn thm => DEP_REWRITE_TAC [thm])
-  \\ rw[dec_enc_valtype_Seq]
-  \\ cheat
-QED *)
-
-(* ASKYK *)
 Theorem dec_enc_data:
   ∀dt encD rs.
     enc_data dt = SOME encD ⇒
     dec_data $ encD ++ rs = (INR dt, rs)
 Proof
-  Cases_on `dt` >> Cases_on `l` >> Cases_on `l0` >> gvs[]
-  \\ rpt gen_tac
-  \\ gvs[enc_data_def, enc_vector_def, Once enc_instr_def]
-  (* \\ simp[GSYM APPEND_ASSOC, Excl "APPEND_ASSOC", dec_data_def] *)
-  \\
-  cheat
+     simp[enc_data_def, dec_data_def, AllCaseEqs()]
+  \\ rpt strip_tac
+  >> gvs[enc_u32_nEmp]
+  \\ rewrite_tac $ ssaa [dec_enc_u32]
+  \\ gvs[]
+  \\ dxrule_at Any dec_enc_instr_list \\ rw ssa
+  \\ pop_assum kall_tac
+  \\ dxrule_at Any dec_enc_vector
+  \\ assume_tac dec_enc_byte
+  \\ disch_then dxrule
+  \\ simp[data_component_equality]
 QED
 
-(*
-Theorem dec_enc_section:
-  dec_section ??? enc_section lb contents ++ rs =
-T
-Proof
-  cheat
-QED
+
 
 Theorem dec_enc_module:
   ∀mod encM rs.
-    enc_data mod = SOME encM ⇒
-    dec_data $ encM ++ rs = (INR mod, rs)
-T
+    enc_module mod = SOME encM ⇒
+    dec_module $ encM ++ rs = (INR mod, rs)
 Proof
+  Cases >> rpt gen_tac >> simp[enc_module_def]
+ \\
   cheat
-QED *)
+QED
 
 
 (***************)
@@ -488,35 +701,7 @@ QED *)
 
 
 (*
-(* ASKYK *)
-Theorem dec_instr_shortens:
-  (∀bs x bs1. dec_instr      bs = (INR x,bs1) ⇒ LENGTH bs1 < LENGTH bs) ∧
-  (∀bs x bs1. dec_instr_list bs = (INR x,bs1) ⇒ LENGTH bs1 < LENGTH bs)
-Proof
-  ho_match_mp_tac dec_instr_ind \\ rw []
-  >~ [‘dec_instr      []’] >- simp [dec_instr_def]
-  >~ [‘dec_instr_list []’] >- simp [dec_instr_def]
-    >> pop_assum mp_tac
-    >> simp [Once dec_instr_def]
-    >> strip_tac
-      >> gvs [AllCaseEqs()]
-      >> imp_res_tac dec_u32_shortens \\ fs[]
-      >> imp_res_tac dec_blocktype_shortens \\ fs []
-      >> imp_res_tac dec_indxs_shortens \\ fs[]
-      >> cheat
-  (*
-      >> imp_res_tac check_len_INL \\ fs []
-      >> imp_res_tac check_len_INR \\ fs []
-      >> gvs [check_len_def]
-      >> imp_res_tac dec_u32_shortens
-      >>~ [‘dec_u32’]
-        >> TRY (drule dec_u32_shortens     )
-        >> TRY (drule dec_indxs_shortens   )
-        >> TRY (drule dec_functype_shortens)
-        >> simp[]
-        >>
-        cheat *)
-QED
+
 
 Theorem dec_instr_INL_length:
   (∀bs x bs1. dec_instr      bs = (INL x,bs1) ⇒ LENGTH bs1 ≤ LENGTH bs) ∧
@@ -534,62 +719,8 @@ Proof
   \\ cheat (* not implemented cases *)
 QED
 
-Theorem check_len_thm:
-  check_len bs (dec_instr bs) = dec_instr bs ∧
-  check_len bs (dec_instr_list bs) = dec_instr_list bs
-Proof
-  conj_tac
-  >-
-   (Cases_on ‘dec_instr bs’ \\ fs []
-    \\ Cases_on ‘q’ \\ fs [check_len_def]
-    \\ imp_res_tac dec_instr_INL_length \\ fs []
-    \\ imp_res_tac dec_instr_shortens \\ fs [])
-  \\ Cases_on ‘dec_instr_list bs’ \\ fs []
-  \\ Cases_on ‘q’ \\ fs [check_len_def]
-  \\ imp_res_tac dec_instr_INL_length \\ fs []
-  \\ imp_res_tac dec_instr_shortens \\ fs []
-QED
-
 Theorem dec_instr_def[allow_rebind] = REWRITE_RULE [check_len_thm] dec_instr_def;
 Theorem dec_instr_ind[allow_rebind] = REWRITE_RULE [check_len_thm] dec_instr_ind;
 
-Theorem enc_instr_not_end:
-  ∀i b. ∃h t. enc_instr i = SOME $ h::t ∧ h ≠ 0x0Bw
-Proof
-  Cases \\ simp [Once enc_instr_def]
-  >~ [‘enc_varI’  ] >- (simp [enc_varI_def  ] \\ every_case_tac \\ fs [])
-  >~ [‘enc_paraI’ ] >- (simp [enc_paraI_def ] \\ every_case_tac \\ fs [])
-  >~ [‘enc_numI’  ] >- (simp [enc_numI_def  ] \\ every_case_tac \\ fs [])
-  >~ [‘enc_loadI’ ] >- (simp [enc_loadI_def ] \\ every_case_tac \\ fs [])
-  >~ [‘enc_storeI’] >- (simp [enc_storeI_def] \\ every_case_tac \\ fs [])
-  \\ cheat
-QED
 
-(* Theorem dec_enc_instr:
-  (∀i rest. dec_instr (enc_instr i ++ rest) = (INR i,rest)) ∧
-  (∀is rest. dec_instr_list (enc_instr_list is ++ rest) = (INR is,rest))
-Proof
-  ho_match_mp_tac enc_instr_ind \\ reverse $ rw []
-  \\ once_rewrite_tac [enc_instr_def]
-  >- (rename [‘enc_instr i’]
-      \\ qspec_then ‘i’ strip_assume_tac enc_instr_not_end \\ fs []
-      \\ simp [Once dec_instr_def]
-      \\ asm_rewrite_tac [GSYM APPEND_ASSOC] \\ simp [])
-  >- simp [dec_instr_def]
-  \\ Cases_on ‘i’ \\ fs []
-  >~ [‘Unreachable’] >- (simp [dec_instr_def])
-  >~ [‘Nop’] >- (simp [dec_instr_def])
-  >~ [‘Block’] >-
-   (simp [dec_instr_def]
-    \\ asm_rewrite_tac [dec_enc_blocktype, GSYM APPEND_ASSOC] \\ simp [])
-  >~ [‘Loop’] >-
-   (simp [dec_instr_def]
-    \\ asm_rewrite_tac [dec_enc_blocktype, GSYM APPEND_ASSOC] \\ simp [])
-  >~ [‘If g b1 b2’] >-
-   (simp [dec_instr_def]
-    \\ asm_rewrite_tac [dec_enc_blocktype, GSYM APPEND_ASSOC] \\ simp []
-    \\ Cases_on ‘b2’ \\ simp []
-    \\ asm_rewrite_tac [GSYM APPEND_ASSOC] \\ simp [])
-  \\ cheat (* not yet implemented cases *)
-QED *)
 *)
