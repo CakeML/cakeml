@@ -5159,13 +5159,20 @@ Proof
 QED
 
 Theorem dest_Vars_MAP_FILTER_lemma:
+  ∀xs ys zs ts.
   dest_Vars (MAP SND (FILTER (λ(v,a). MEM v ts) (ZIP (xs,ys)))) = SOME zs ∧
   MEM p ts ∧ MEM p xs ∧ LENGTH xs = LENGTH ys
   ⇒
   ∃i v.
     i < LENGTH xs ∧ EL i ys = Var v ∧ MEM v zs ∧ EL i xs = p
 Proof
-  cheat
+  Induct>>rw[quantHeuristicsTheory.LIST_LENGTH_COMPARE_SUC]>>
+  gvs[oneline dest_Var_def,dest_Vars_def,AllCaseEqs()]
+  >-
+    (qexists_tac`0`>>simp[])>>
+  every_case_tac>>gvs[dest_Vars_def,AllCaseEqs()]>>
+  first_x_assum drule>>simp[]>>rw[]>>
+  qexists_tac`i+1`>>simp[GSYM ADD1]
 QED
 
 Theorem stmt_wp_sound_MetCall:
