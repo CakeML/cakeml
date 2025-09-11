@@ -810,6 +810,7 @@ Inductive stmt_wp:
     set callee_mod_arg_vars ⊆ set mods ∧
     set callee_mod_params ⊆ set (MAP FST mspec.ins) ∧
     set ret_names ⊆ set (MAP FST ls) ∧
+    ALL_DISTINCT callee_mod_params ∧
     get_types ls args = INR (MAP SND mspec.ins) ∧
     get_types ls (MAP Var ret_names) = INR (MAP SND mspec.outs)
     ⇒
@@ -6126,6 +6127,45 @@ Proof
   \\ drule evaluate_stmt_value_inv_pres \\ simp []
 QED
 
+Theorem dest_Vars_length:
+  ∀xs ys. dest_Vars xs = INR ys ⇒ LENGTH xs = LENGTH ys
+Proof
+  Induct \\ fs [dest_Vars_def,result_mmap_def]
+  \\ Cases \\ fs [dest_Var_def,result_mmap_def,bind_def]
+  \\ rw [] \\ gvs [oneline bind_def,AllCaseEqs()]
+QED
+
+Triviality LENGTH_FILTER_ZIP:
+  ∀xs ys zs n.
+    LENGTH (FILTER (λ(v,a). MEM v zs) (ZIP (xs,ys))) = n ∧
+    ALL_DISTINCT xs ∧ ALL_DISTINCT zs ∧
+    LENGTH xs = LENGTH ys ∧ set zs ⊆ set xs ⇒
+    n = LENGTH zs
+Proof
+  Induct \\ Cases_on ‘ys’ \\ fs [] \\ rw []
+  \\ qpat_x_assum ‘MEM _ zs’ mp_tac
+  \\ simp [Once MEM_SPLIT]
+  \\ strip_tac \\ gvs [GSYM ADD1,ADD_CLAUSES]
+  \\ last_x_assum $ qspecl_then [‘t’,‘l1 ++ l2’] mp_tac
+  \\ impl_tac >- cheat
+  \\ fs [] \\ cheat
+QED
+
+Triviality dest_Vars_IMP_MEM:
+  ∀xs ys y. dest_Vars xs = INR ys ∧ MEM y ys ⇒ ∃x. MEM (Var x) xs
+Proof
+  Induct \\ fs [dest_Vars_def,result_mmap_def]
+  \\ Cases \\ fs [dest_Var_def,result_mmap_def,bind_def]
+  \\ Cases_on ‘result_mmap dest_Var xs’ \\ fs [bind_def]
+  \\ metis_tac []
+QED
+
+Triviality FILTER_ID:
+  ∀xs P. EVERY P xs ⇒ FILTER P xs = xs
+Proof
+  Induct \\ fs []
+QED
+
 Theorem stmt_wp_sound_MetCall:
   ^(#get_goal stmt_wp_sound_setup `MetCall`)
 Proof
@@ -6342,7 +6382,33 @@ Proof
   \\ ‘valid_mod st.heap (MAP get_loc callee_mod_locs) st2.heap’ by fs [Abbr‘st1’]
   \\ dxrule eval_true_SetPrev \\ strip_tac
   \\ drule eval_true_ForallHeap \\ simp []
-  \\ ‘LIST_REL (mod_loc st.locals) callee_mod_arg_vars callee_mod_locs’ by cheat
+  \\ ‘LIST_REL (mod_loc st.locals) callee_mod_arg_vars callee_mod_locs ∧
+      valid_mod st.heap (MAP get_loc callee_mod_locs) st2.heap’ by
+    (qpat_x_assum ‘valid_mod st1.heap _ st2.heap’ assume_tac
+     \\ fs [Abbr‘st1’]
+     \\ qpat_x_assum ‘_ = INR callee_mod_arg_vars’ assume_tac
+     \\ qpat_x_assum ‘LIST_REL (mod_loc new_l) _ callee_mod_locs’ mp_tac
+     \\ simp [LIST_REL_EL_EQN] \\ disch_then strip_assume_tac
+     \\ conj_asm1_tac
+     >-
+      (drule dest_Vars_length \\ fs [] \\ strip_tac
+       \\ drule LENGTH_FILTER_ZIP \\ simp []
+       \\ fs [ALL_DISTINCT_APPEND]
+       \\ DEP_REWRITE_TAC [FILTER_ID]
+       \\ gvs [EVERY_MEM])
+     \\ rfs [] \\ rpt strip_tac
+     \\ first_x_assum drule
+     \\ ‘MEM (EL n callee_mod_arg_vars) callee_mod_arg_vars’ by
+       (irule EL_MEM \\ simp [])
+     \\ drule_all dest_Vars_IMP_MEM
+     \\ simp [MEM_MAP,EXISTS_PROD,MEM_FILTER]
+     \\ strip_tac \\ pop_assum mp_tac
+     \\ DEP_REWRITE_TAC [MEM_ZIP] \\ fs []
+     \\ strip_tac \\ gvs []
+     \\ simp [oneline mod_loc_def]
+     \\ Cases_on ‘EL n callee_mod_locs’ \\ PairCases_on ‘r’ \\ fs []
+     \\ qpat_x_assum ‘_ = st2.locals_old’ (assume_tac o GSYM)
+     \\ cheat)
   \\ disch_then drule
   \\ disch_then drule
   \\ strip_tac
@@ -6992,6 +7058,8 @@ Definition stmt_vcg_def:
     assert (var_tys = MAP SND spec.outs)
       «stmt_vcg:MetCall: lhs variable types do not match»;
     callee_mod_params <- dest_Vars spec.mods;
+    assert (ALL_DISTINCT callee_mod_params)
+      «stmt_vcg:MetCall: callee mod params not distinct»;
     assert (list_subset callee_mod_params (MAP FST spec.ins))
       «stmt_vcg:MetCall: callee mod params outside of spec ins»;
     callee_mod_arg_vars <- dest_Vars
