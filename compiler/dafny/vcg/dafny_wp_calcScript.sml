@@ -3601,6 +3601,32 @@ Proof
   \\ IF_CASES_TAC \\ gvs []
 QED
 
+Triviality disjoint_get_vars_exp_alookup:
+  DISJOINT (set (get_vars_exp e)) (set (MAP FST ys)) ⇒
+  ∀n. n ∈ freevars e ⇒ ALOOKUP (xs ++ ys ++ zs) n = ALOOKUP (xs ++ zs) n
+Proof
+  once_rewrite_tac [DISJOINT_SYM]
+  \\ rpt strip_tac
+  \\ dxrule DISJOINT_SUBSET
+  \\ disch_then $ qspec_then ‘freevars e’ mp_tac
+  \\ impl_tac >- (simp [freevars_subset_vars])
+  \\ rpt strip_tac
+  \\ qsuff_tac ‘ALOOKUP (ys ++ zs) n = ALOOKUP zs n’
+  >- (strip_tac \\ rewrite_tac [GSYM APPEND_ASSOC] \\ simp [ALOOKUP_APPEND])
+  \\ drule_all disjoint_alookup_append \\ simp []
+QED
+
+Triviality disjoint_get_vars_exp_every_alookup:
+  ∀es.
+    DISJOINT (set (FLAT (MAP get_vars_exp es))) (set (MAP FST ys)) ⇒
+    EVERY (λe. ∀n. n ∈ freevars e ⇒
+                   ALOOKUP (xs ++ ys ++ zs) n = ALOOKUP (xs ++ zs) n) es
+Proof
+  Induct >- (simp [])
+  \\ rpt strip_tac \\ gvs [get_vars_exp_def]
+  \\ drule disjoint_get_vars_exp_alookup \\ simp []
+QED
+
 Triviality evaluate_exp_ignore_unused:
   evaluate_exp st env e = (st', r) ∧
   DISJOINT (set (get_vars_exp e)) (set (MAP FST ys)) ∧
@@ -3608,23 +3634,15 @@ Triviality evaluate_exp_ignore_unused:
   evaluate_exp (st with locals := xs ++ zs) env e =
     (st' with locals := xs ++ zs, r)
 Proof
-  once_rewrite_tac [DISJOINT_SYM]
-  \\ rpt strip_tac
+  rpt strip_tac
   \\ ‘∀n. n ∈ freevars e ⇒ ALOOKUP st.locals n = ALOOKUP (xs ++ zs) n’ by
-    (strip_tac \\ gvs []
-     \\ dxrule DISJOINT_SUBSET
-     \\ disch_then $ qspec_then ‘freevars e’ mp_tac
-     \\ impl_tac >- (simp [freevars_subset_vars])
-     \\ rpt strip_tac
-     \\ qsuff_tac ‘ALOOKUP (ys ++ zs) n = ALOOKUP zs n’
-     >- (strip_tac \\ rewrite_tac [GSYM APPEND_ASSOC] \\ simp [ALOOKUP_APPEND])
-     \\ drule_all disjoint_alookup_append \\ simp [])
+    (drule disjoint_get_vars_exp_alookup \\ simp [])
   \\ drule_all (cj 1 evaluate_exp_freevars) \\ simp []
 QED
 
 Triviality evaluate_exps_ignore_unused:
   evaluate_exps st env es = (st', r) ∧
-  DISJOINT (set (FLAT (MAP get_vars_exps es))) (set (MAP FST ys)) ∧
+  DISJOINT (set (FLAT (MAP get_vars_exp es))) (set (MAP FST ys)) ∧
   st.locals = xs ++ ys ++ zs ⇒
   evaluate_exps (st with locals := xs ++ zs) env es =
     (st' with locals := xs ++ zs, r)
@@ -3632,7 +3650,7 @@ Proof
   rpt strip_tac
   \\ ‘EVERY (λe. ∀n. n ∈ freevars e ⇒
                      ALOOKUP st.locals n = ALOOKUP (xs ++ zs) n) es’ by
-    (cheat (* reserved *))
+    (drule disjoint_get_vars_exp_every_alookup \\ simp [])
   \\ drule_all (cj 2 evaluate_exp_freevars) \\ simp []
 QED
 
@@ -3718,6 +3736,21 @@ Proof
   \\ rpt $ irule_at Any EQ_REFL \\ simp []
 QED
 
+(* TODO move to dafnyProps, and replace set_up_call_none_with_clock *)
+Triviality set_up_call_none:
+  set_up_call s in_ns in_vs outs = NONE ⇒
+  set_up_call s' in_ns in_vs outs = NONE
+Proof
+  simp [set_up_call_def, AllCaseEqs()]
+QED
+
+Triviality set_up_call_some_with_locals:
+  set_up_call st in_ns in_vs outs = SOME st₁ ⇒
+  set_up_call (st with locals := ls) in_ns in_vs outs = SOME st₁
+Proof
+  gvs [set_up_call_def, safe_zip_def, AllCaseEqs()]
+QED
+
 Theorem evaluate_stmt_ignore_unused:
   ∀st env c st1 res xs ys zs.
     evaluate_stmt st env c = (st1,res) ∧
@@ -3801,7 +3834,39 @@ Proof
     \\ imp_res_tac evaluate_exp_ignore_unused \\ gvs []
     \\ rpt $ irule_at Any EQ_REFL)
   >~ [‘MetCall’] >-
-   (cheat (* reserved *))
+   (gvs [get_vars_stmt_def]
+    \\ qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ TOP_CASE_TAC
+    >- (strip_tac \\ gvs [] \\ irule_at Any EQ_REFL \\ simp [])
+    \\ reverse TOP_CASE_TAC
+    >- (strip_tac \\ gvs [] \\ irule_at Any EQ_REFL \\ simp [])
+    \\ TOP_CASE_TAC
+    \\ drule_then assume_tac (cj 2 evaluate_exp_with_clock) \\ gvs []
+    \\ drule_all_then assume_tac evaluate_exps_ignore_unused \\ gvs []
+    \\ reverse TOP_CASE_TAC
+    >- (strip_tac \\ gvs [] \\ irule_at Any EQ_REFL \\ simp [])
+    \\ TOP_CASE_TAC
+    >-
+     (strip_tac \\ gvs [] \\ irule_at Any EQ_REFL \\ simp []
+      \\ drule set_up_call_none \\ simp [])
+    \\ drule_then assume_tac set_up_call_some_with_locals \\ gvs []
+    \\ gvs [restore_caller_def, dec_clock_def]
+    \\ IF_CASES_TAC
+    >- (strip_tac \\ gvs [] \\ irule_at Any EQ_REFL \\ simp [])
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ TOP_CASE_TAC
+    >- (strip_tac \\ gvs [] \\ irule_at Any EQ_REFL \\ simp [])
+    \\ reverse TOP_CASE_TAC
+    >- (strip_tac \\ gvs [] \\ irule_at Any EQ_REFL \\ simp [])
+    \\ TOP_CASE_TAC \\ gvs []
+    >- (strip_tac \\ gvs [] \\ irule_at Any EQ_REFL \\ simp [])
+    \\ IF_CASES_TAC
+    >- (strip_tac \\ gvs [] \\ irule_at Any EQ_REFL \\ simp [])
+    \\ strip_tac
+    \\ drule assign_values_ignore_unused
+    \\ disch_then $ qspecl_then [‘xs’, ‘ys’, ‘zs’] assume_tac \\ gvs []
+    \\ irule_at (Pos hd) EQ_REFL \\ simp [])
   >~ [‘Return’] >-
    (gvs [evaluate_stmt_def]
     \\ rpt $ irule_at Any EQ_REFL)
