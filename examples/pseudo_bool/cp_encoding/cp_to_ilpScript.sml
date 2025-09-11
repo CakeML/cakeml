@@ -465,7 +465,7 @@ Definition reify_eilp_def:
   | Ne X Y => varc wi X > varc wi Y
   | Gem X Y => varc wi X ≥ varc wi Y
   | Eqc X Y => varc wi X = varc wi Y
-  | Tb Xs Tss => ARB
+  | Tb Xs Ts => ARB
   | Nv Xs v => ARB
 End
 
@@ -1302,12 +1302,12 @@ Theorem reify_tuple_eq_sem:
   valid_assignment bnd wi ∧
   LENGTH Xs = LENGTH Ys ⇒ (
   EVERY (λx. iconstraint_sem x (wi,wb)) (reify_tuple_eq bnd Xs Ys) ⇔
-    (∀(X,Y). MEM (X,Y) (ZIP (Xs,Ys)) ⇒
+    LIST_REL (λX. λY.
       (wb (Ge X Y) ⇔ wi X ≥ Y) ∧
       (wb (Ge X (Y + 1)) ⇔ wi X ≥ Y + 1) ∧
-      (wb (Eq X Y) ⇔ wi X = Y)) ∧
+      (wb (Eq X Y) ⇔ wi X = Y)) Xs Ys ∧
     (wb (Tb Xs Ys) ⇔
-      ∀(X,Y). MEM (X,Y) (ZIP (Xs,Ys)) ⇒ wb (Eq X Y)))
+      LIST_REL (λX. λY. wi X = Y) Xs Ys))
 Proof
   cheat
 QED
@@ -1323,41 +1323,51 @@ Definition encode_table_def:
       [([], [], 1i)]
 End
 
-Theorem FORALL_IMP_AND = METIS_PROVE[] “(∀x. P x ⇒ Q x ∧ R x) ⇔ (∀x. P x ⇒ Q x) ∧ (∀x. P x ⇒ R x)”;
+Theorem MAP_LIST_REL:
+  MAP f Xs = Ys ⇔ LIST_REL (λx y. f x = y) Xs Ys
+Proof
+  ‘MAP f Xs = MAP I Ys ⇔ LIST_REL (λx y. f x = I y) Xs Ys’ suffices_by simp[MAP_ID]>>
+  DEP_REWRITE_TAC[MAP_EQ_EVERY2]>>
+  ho_match_mp_tac $ METIS_PROVE[] “(P ⇒ Q) ⇒ (Q ∧ P ⇔ P)”>>
+  metis_tac[EVERY2_LENGTH]
+QED
 
 (* assume that Xs are all variables *)
 Theorem encode_table_sem:
   valid_assignment bnd wi ⇒
   EVERY (λx. iconstraint_sem x (wi,wb)) (encode_table bnd Xs Yss) = (
+    table_sem Xs Yss wi ∧
     (∀Ys. MEM Ys Yss ⇒
-      ∀(X,Y). MEM (X,Y) (ZIP (Xs,Ys)) ⇒
+      LIST_REL (λX. λY.
         (wb (Ge X Y) ⇔ wi X ≥ Y) ∧
         (wb (Ge X (Y + 1)) ⇔ wi X ≥ Y + 1) ∧
-        (wb (Eq X Y) ⇔ wi X = Y)) ∧
-    (∀Ys. MEM Ys Yss ⇒
+        (wb (Eq X Y) ⇔ wi X = Y)) Xs Ys ∧
       (wb (Tb Xs Ys) ⇔
-        ∀(X,Y). MEM (X,Y) $ ZIP (Xs,Ys) ⇒ wb (Eq X Y))) ∧
-    (∃Ys. MEM Ys Yss ∧ wb (Tb Xs Ys)) ∧
-    table_sem Xs Yss wi)
+        LIST_REL (λX. λY. wi X = Y) Xs Ys)) ∧
+    (∃Ys. MEM Ys Yss ∧ wb (Tb Xs Ys)))
 Proof
   rw[encode_table_def,table_sem_def,iconstraint_sem_def,
-    eval_ilin_term_def,eval_lin_term_def,iSUM_def]
+     eval_ilin_term_def,eval_lin_term_def,iSUM_def]>>
+  last_x_assum $ mp_tac>>
+  simp[Once EVERY_MEM]>>
+  strip_tac>>
+  simp[EVERY_FLAT,EVERY_MAP,Once EVERY_MEM,
+    MAP_MAP_o,combinTheory.o_ABS_R]>>
+  simp[Once $ GSYM combinTheory.o_ABS_R,iSUM_FILTER]>>
+  simp[Once integerTheory.INT_GE,intLib.ARITH_PROVE “1i ≤ m ⇔ 0i < m”,
+    GSYM integerTheory.INT_LT_LE1,rich_listTheory.LENGTH_NOT_NULL,
+    listTheory.NULL_FILTER]>>
+  match_mp_tac (METIS_PROVE[]
+    “(P ⇔ Q2) ∧ (Q2 ∧ R ⇒ Q1) ⇒ (P ∧ R ⇔ (Q1 ∧ Q2 ∧ R))”)>>
+  CONJ_TAC
   >-(
-    simp[EVERY_FLAT,EVERY_MAP,Once EVERY_MEM,
-      MAP_MAP_o,combinTheory.o_ABS_R]>>
-    simp[Once $ GSYM combinTheory.o_ABS_R,iSUM_FILTER]>>
-    simp[Once integerTheory.INT_GE,intLib.ARITH_PROVE “1i ≤ m ⇔ 0i < m”,
-      GSYM integerTheory.INT_LT_LE1,rich_listTheory.LENGTH_NOT_NULL,
-      listTheory.NULL_FILTER]>>
-    match_mp_tac (METIS_PROVE[]
-      “(P ⇔ Q1 ∧ Q2) ∧ (Q1 ∧ Q2 ∧ R ⇒ Q3) ⇒ (P ∧ R ⇔ Q1 ∧ Q2 ∧ R ∧ Q3)”)>>
-    simp[CONJ_ASSOC, GSYM FORALL_IMP_AND]>>
-    CONJ_TAC
-    >-(
-      ho_match_mp_tac FORALL_IMP_EQ>>
-      last_x_assum $ mp_tac>>
-      simp[Once EVERY_MEM,reify_tuple_eq_sem,GSYM CONJ_ASSOC])>>
-    cheat)
+    ho_match_mp_tac FORALL_IMP_EQ>>
+    rw[]>>
+    res_tac>>
+    drule_then (fn thm => simp[thm]) reify_tuple_eq_sem)>>
+  rw[]>>
+  res_tac>>
+  gvs[GSYM MAP_LIST_REL]
 QED
 
 (* The top-level encodings *)
