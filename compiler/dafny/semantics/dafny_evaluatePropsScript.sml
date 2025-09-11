@@ -94,7 +94,8 @@ Proof
   \\ res_tac \\ gvs []
 QED
 
-Triviality update_local_aux_locals:
+(* todo move to dafnyProp *)
+Theorem update_local_aux_locals:
   ∀locals var val locals'.
     update_local_aux locals var val = SOME locals' ⇒
     MAP FST locals = MAP FST locals'
@@ -104,6 +105,7 @@ Proof
   \\ gvs [update_local_aux_def, AllCaseEqs()] \\ res_tac
 QED
 
+(* todo move to dafnyProp *)
 Triviality update_local_locals:
   ∀s var val s'.
     update_local s var val = SOME s' ⇒
@@ -114,6 +116,7 @@ Proof
   \\ imp_res_tac update_local_aux_locals \\ gvs []
 QED
 
+(* todo move to dafnyProp *)
 Theorem assign_value_locals:
   ∀s env lhs rhs s' r.
     assign_value s env lhs rhs = (s', r) ⇒
@@ -126,6 +129,7 @@ Proof
   \\ gvs []
 QED
 
+(* todo move to dafnyProp *)
 Theorem assign_values_locals:
   ∀s env lhss vals s' r.
     assign_values s env lhss vals = (s', r) ⇒
@@ -615,4 +619,3 @@ Proof
     (gvs [use_old_def, state_component_equality])
   \\ gvs []
 QED
-
