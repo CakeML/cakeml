@@ -6465,13 +6465,18 @@ Proof
           MEM_get_VarLhss]
 QED
 
+Definition assert_def:
+  assert cond (err:mlstring) =
+  if cond then return () else fail err
+End
+
 Definition stmt_vcg_def:
   stmt_vcg _ Skip post ens decs mods ls = return post ∧
   stmt_vcg _ (Assert e) post ens decs mods ls = return (e::post) ∧
   stmt_vcg _ (Print e t) post ens decs mods ls =
   do
     e_t <- get_type ls e;
-    () <- if e_t = t then return () else (fail «stmt_vcg:Print: Type mismatch»);
+    assert (e_t = t) «stmt_vcg:Print: Type mismatch»;
     return (CanEval e::post)
   od ∧
   stmt_vcg _ (Return) _ ens decs mods ls = return ens ∧
@@ -6489,16 +6494,11 @@ Definition stmt_vcg_def:
   stmt_vcg m (Dec (n,ty) stmt) post ens decs mods ls =
   do
     wp <- stmt_vcg m stmt post ens decs mods ((n,ty)::ls);
-    () <- if EVERY (λe. ¬MEM n (freevars_list e)) wp then return () else
-            (fail «stmt_vcg:Dec: Name occurs freely in wp»);
-    () <- if EVERY (λe. ¬MEM n (freevars_list e)) post then return () else
-            (fail «stmt_vcg:Dec: Name occurs freely in post»);
-    () <- if EVERY (λe. ¬MEM n (freevars_list e)) ens then return () else
-            (fail «stmt_vcg:Dec: Name occurs freely in ens»);
-    () <- if ¬MEM n (MAP FST ls) then return () else
-            (fail «stmt_vcg:Dec: Shadowing variables disallowed»);
-    () <- if ¬MEM n mods then return () else
-            (fail «stmt_vcg:Dec: Shadowing mod variables disallowed»);
+    assert (EVERY (λe. ¬MEM n (freevars_list e)) wp) «stmt_vcg:Dec: Name occurs freely in wp»;
+    assert (EVERY (λe. ¬MEM n (freevars_list e)) post) «stmt_vcg:Dec: Name occurs freely in post»;
+    assert (EVERY (λe. ¬MEM n (freevars_list e)) ens) «stmt_vcg:Dec: Name occurs freely in ens»;
+    assert (¬MEM n (MAP FST ls)) «stmt_vcg:Dec: Shadowing variables disallowed»;
+    assert (¬MEM n mods) «stmt_vcg:Dec: Shadowing mod variables disallowed»;
     return wp
   od ∧
   stmt_vcg _ (Assign ass) post _ _ mods ls =
@@ -6506,30 +6506,24 @@ Definition stmt_vcg_def:
     (lhss, rhss) <<- UNZIP ass;
     vars <- result_mmap dest_VarLhs lhss;
     es <- result_mmap dest_ExpRhs rhss;
-    () <- if ALL_DISTINCT vars then return () else
-            (fail «stmt_vcg:Assign: variables not distinct»);
-    () <- if EVERY (λv. ~MEM v mods) vars then return () else
-            (fail «stmt_vcg:Assign: assigning to mods»);
-    () <- if list_subset vars (MAP FST ls) then return () else
-            (fail «stmt_vcg:Assign: Trying to assign to undeclared variables»);
+    assert (ALL_DISTINCT vars) «stmt_vcg:Assign: variables not distinct»;
+    assert (list_disjoint vars mods) «stmt_vcg:Assign: assigning to mods»;
+    assert (list_subset vars (MAP FST ls)) «stmt_vcg:Assign: Trying to assign to undeclared variables»;
     es_tys <- get_types ls es;
     vars_tys <- get_types ls (MAP Var vars);
-    () <- if es_tys = vars_tys then return () else
-            (fail «stmt_vcg:Assign: lhs and rhs types do not match»);
+    assert (es_tys = vars_tys) «stmt_vcg:Assign: lhs and rhs types do not match»;
     return [Let (ZIP (vars, es)) (conj post)]
   od ∧
   stmt_vcg m (While guard invs ds ms body) post ens decs (mods:mlstring list) ls =
   do
     (* Inventing variables; after freshen, this should always succeed *)
     ds_vars <<- gen_ds_vars ds;
-    () <- if list_disjoint ds_vars
-               (MAP FST ls ++ FLAT (MAP get_vars_exp ens) ++
-                get_vars_stmt (While guard invs ds ms body))
-          then return ()
-          else (fail «stmt_vcg:While: Invented variable not unique»);
-    () <- if list_disjoint ds_vars mods
-          then return ()
-          else (fail «stmt_vcg:While: Invented variable overlaps mods»);
+    assert
+      (list_disjoint ds_vars
+        (MAP FST ls ++ FLAT (MAP get_vars_exp ens) ++
+          get_vars_stmt (While guard invs ds ms body)))
+       «stmt_vcg:While: Invented variable not unique»;
+    assert (list_disjoint ds_vars mods) «stmt_vcg:While: Invented variable overlaps mods»;
     assigned_in_body <<- find_assigned_in body;
     ms_vars <- dest_Vars ms;
     body_wp <- stmt_vcg m body
@@ -6538,27 +6532,22 @@ Definition stmt_vcg_def:
                  ens decs (ms_vars: mlstring list) (MAP (λv. (v,IntT)) ds_vars ++ ls);
     body_cond <<-
       imp (conj (guard::invs ++ MAP2 dec_assum ds_vars ds)) (conj body_wp);
-    () <- if list_subset (freevars_list body_cond) (ds_vars ++ MAP FST ls)
-          then return ()
-          else (fail «stmt_vcg:While: Body condition has illegal free variables»);
-    () <- if list_subset (assigned_in_body) (MAP FST ls) then return ()
-          else (fail «stmt_vcg:While: Body is assigning to undeclared variables»);
-    () <- if  EVERY (λv. ¬MEM v assigned_in_body) mods
-          then return ()
-          else (fail «stmt_vcg:While: Body is assigning to mods»);
+    assert (list_subset (freevars_list body_cond) (ds_vars ++ MAP FST ls))
+      «stmt_vcg:While: Body condition has illegal free variables»;
+    assert (list_subset (assigned_in_body) (MAP FST ls))
+      «stmt_vcg:While: Body is assigning to undeclared variables»;
+    assert (list_disjoint assigned_in_body mods)
+      «stmt_vcg:While: Body is assigning to mods»;
     guard_ty <- get_type ls guard;
-    () <- if guard_ty = BoolT then return ()
-          else (fail «stmt_vcg:While: Guard is not a boolean»);
-    () <- if EVERY (λd. get_type ls d = INR IntT) ds then return ()
-          else (fail «stmt_vcg:While: Not all decreases are integers»);
-    () <- if list_subset ms_vars mods
-          then return () else
-          (fail «stmt_vcg:While: annotated mods not subset of mods»);
-    () <- if EVERY (no_Prev T) body_wp ∧ EVERY (no_Prev T) ds ∧
-             EVERY (no_Prev T) invs ∧ EVERY (no_Prev T) post ∧
-             EVERY (no_Prev T) (SND decs) ∧ no_Prev T guard
-          then return ()
-          else (fail «stmt_vcg:While: Bad use of Prev»);
+    assert (guard_ty = BoolT) «stmt_vcg:While: Guard is not a boolean»;
+    assert (EVERY (λd. get_type ls d = INR IntT) ds)
+      «stmt_vcg:While: Not all decreases are integers»;
+    assert (list_subset ms_vars mods)
+      «stmt_vcg:While: annotated mods not subset of mods»;
+    assert (EVERY (no_Prev T) body_wp ∧ EVERY (no_Prev T) ds ∧
+            EVERY (no_Prev T) invs ∧ EVERY (no_Prev T) post ∧
+            EVERY (no_Prev T) (SND decs) ∧ no_Prev T guard)
+      «stmt_vcg:While: Bad use of Prev»;
     ls1 <<- FILTER (λ(v,ty). assigned_in body v) ls;
     loop_cond <<- ForallHeap [] (Foralls (MAP (λv. (v,IntT)) ds_vars ++ ls) body_cond);
     return
@@ -6570,54 +6559,46 @@ Definition stmt_vcg_def:
   do
     method <- find_met name m;
     (name, spec, body) <<- dest_met method;
-    () <- if LENGTH spec.ins = LENGTH args then return () else
-            (fail «stmt_vcg:MetCall: Bad number of arguments»);
-    () <- if LENGTH spec.outs = LENGTH lhss then return () else
-            (fail «stmt_vcg:MetCall: Bad number of left-hand sides»);
-    () <- if ALL_DISTINCT (MAP FST spec.ins ++ MAP FST spec.outs)
-          then return ()
-          else (fail «stmt_vcg:MetCall: Method ins and outs not distinct»);
+    assert (LENGTH spec.ins = LENGTH args)
+      «stmt_vcg:MetCall: Bad number of arguments»;
+    assert (LENGTH spec.outs = LENGTH lhss)
+      «stmt_vcg:MetCall: Bad number of left-hand sides»;
+    assert (ALL_DISTINCT (MAP FST spec.ins ++ MAP FST spec.outs))
+      «stmt_vcg:MetCall: Method ins and outs not distinct»;
     vars <- result_mmap dest_VarLhs lhss;
-    () <- if ALL_DISTINCT vars then return () else
-            (fail «stmt_vcg:MetCall: left-hand side names not distinct»);
-    () <- if EVERY (no_Prev T) args ∧ EVERY (no_Prev T) post
-          then return ()
-          else (fail «stmt_vcg:MetCall: Cannot read and assign a variable in one statement»);
-    () <- if EVERY (λe. list_subset (freevars_list e) (MAP FST spec.ins) ∧
-                        no_Old e ∧ (no_Prev T) e) spec.reqs
-          then return ()
-          else (fail «stmt_vcg:MetCall: Bad requires spec»);
-    () <- if EVERY (λe. list_subset (freevars_list e) (MAP FST spec.ins) ∧
-                        no_Old e ∧ (no_Prev T) e) spec.decreases
-          then return ()
-          else (fail «stmt_vcg:MetCall: Bad decreases spec»);
-    () <- if EVERY (λe. list_subset (freevars_list e) (MAP FST spec.ins
+    assert (ALL_DISTINCT vars)
+      «stmt_vcg:MetCall: left-hand side names not distinct»;
+    assert (EVERY (no_Prev T) args ∧ EVERY (no_Prev T) post)
+      «stmt_vcg:MetCall: Cannot read and assign a variable in one statement»;
+    assert (EVERY (λe. list_subset (freevars_list e) (MAP FST spec.ins) ∧
+                        no_Old e ∧ (no_Prev T) e) spec.reqs)
+      «stmt_vcg:MetCall: Bad requires spec»;
+    assert (EVERY (λe. list_subset (freevars_list e) (MAP FST spec.ins) ∧
+                        no_Old e ∧ (no_Prev T) e) spec.decreases)
+      «stmt_vcg:MetCall: Bad decreases spec»;
+    assert (EVERY (λe. list_subset (freevars_list e) (MAP FST spec.ins
                                                    ++ MAP FST spec.outs) ∧
-                        no_Old e ∧ (no_Prev F) e) spec.ens
-          then return ()
-          else (fail «stmt_vcg:MetCall: Bad ensures spec»);
-    () <- if list_subset vars (MAP FST ls) then return () else
-            (fail «stmt_vcg:MetCall: Trying to assign to undeclared variables»);
-    () <- if EVERY (λv. ¬MEM v vars) mods
-          then return ()
-          else (fail «stmt_vcg:MetCall: assigning to mods»);
+                        no_Old e ∧ (no_Prev F) e) spec.ens)
+      «stmt_vcg:MetCall: Bad ensures spec»;
+    assert (list_subset vars (MAP FST ls))
+      «stmt_vcg:MetCall: Trying to assign to undeclared variables»;
+    assert (list_disjoint vars mods)
+      «stmt_vcg:MetCall: assigning to mods»;
     arg_tys <- get_types ls args;
-    () <- if arg_tys = MAP SND spec.ins then return () else
-            (fail «stmt_vcg:MetCall: Argument and parameters types do not match»);
+    assert (arg_tys = MAP SND spec.ins)
+      «stmt_vcg:MetCall: Argument and parameters types do not match»;
     var_tys <- get_types ls (MAP Var vars);
-    () <- if var_tys = MAP SND spec.outs then return () else
-            (fail «stmt_vcg:MetCall: lhs variable types do not match»);
+    assert (var_tys = MAP SND spec.outs)
+      «stmt_vcg:MetCall: lhs variable types do not match»;
     callee_mod_params <- dest_Vars spec.mods;
-    () <- if list_subset callee_mod_params (MAP FST spec.ins)
-          then return ()
-          else (fail «stmt_vcg:MetCall: callee mod params outside of spec ins»);
+    assert (list_subset callee_mod_params (MAP FST spec.ins))
+      «stmt_vcg:MetCall: callee mod params outside of spec ins»;
     callee_mod_arg_vars <- dest_Vars
             (MAP SND
                (FILTER (λ(v,a). MEM v callee_mod_params)
                   (ZIP (MAP FST spec.ins,args))));
-    () <- if list_subset callee_mod_arg_vars mods
-          then return ()
-          else (fail «stmt_vcg:MetCall: callee mod args outside of mods»);
+    assert (list_subset callee_mod_arg_vars mods)
+      «stmt_vcg:MetCall: callee mod args outside of mods»;
     return
       (Let (ZIP (MAP FST spec.ins,args)) (conj spec.reqs)
        :: MAP CanEval args
@@ -6648,7 +6629,7 @@ Proof
   >~ [‘Assert’] >-
    (gvs [stmt_vcg_def, stmt_wp_Assert])
   >~ [‘Print’] >-
-   (gvs [stmt_vcg_def]
+   (gvs [stmt_vcg_def,assert_def]
     \\ gvs [oneline bind_def, CaseEq "sum"]
     \\ simp [stmt_wp_Print])
   >~ [‘Return’] >-
@@ -6664,34 +6645,33 @@ Proof
     \\ gvs [oneline bind_def, CaseEq "sum"]
     \\ irule stmt_wp_If \\ simp [])
   >~ [‘Dec’] >-
-   (gvs [stmt_vcg_def]
+   (gvs [stmt_vcg_def, assert_def]
     \\ gvs [oneline bind_def, CaseEq "sum"]
     \\ irule stmt_wp_Dec
     \\ gvs [IN_DEF, freevars_list_eq])
   >~ [‘Assign’] >-
-   (gvs [stmt_vcg_def]
+   (gvs [stmt_vcg_def,assert_def]
     \\ gvs [UNZIP_MAP]
     \\ gvs [oneline bind_def, CaseEq "sum"]
     \\ irule stmt_wp_Assign
     \\ imp_res_tac result_mmap_len \\ simp []
     \\ drule_then assume_tac result_mmap_dest_VarLhs \\ simp []
     \\ drule_then assume_tac result_mmap_dest_ExpRhs \\ simp []
-    \\ gvs [LIST_TO_SET_SUBSET])
+    \\ gvs [LIST_TO_SET_SUBSET,LIST_TO_SET_DISJOINT]
+    \\ fs[DISJOINT_DEF,EVERY_MEM,EXTENSION]
+    \\ metis_tac[])
   >~ [‘While’] >-
-   (gvs [stmt_vcg_def]
+   (gvs [stmt_vcg_def,assert_def]
     \\ gvs [oneline bind_def, CaseEq "sum"]
     \\ irule stmt_wp_While
-    \\ gvs [LIST_TO_SET_SUBSET, set_find_assigned_in]
-    \\ CONJ_TAC >- (
-      fs[SUBSET_DEF,EXTENSION,EVERY_MEM]>>
-      metis_tac[])
+    \\ gvs [LIST_TO_SET_SUBSET, set_find_assigned_in, LIST_TO_SET_DISJOINT]
+    \\ CONJ_TAC >- fs[DISJOINT_DEF]
     \\ qexistsl [‘T’, ‘body_wp’, ‘gen_ds_vars ds’]
     \\ simp [ALL_DISTINCT_gen_ds_vars, LENGTH_gen_ds_vars]
     \\ gvs [LIST_TO_SET_DISJOINT, freevars_list_eq]
-    \\ fs[DISJOINT_DEF]
-    )
+    \\ fs[DISJOINT_DEF])
   >~ [‘MetCall’] >-
-   (gvs [stmt_vcg_def]
+   (gvs [stmt_vcg_def,assert_def]
     \\ gvs [oneline bind_def, CaseEq "sum"]
     \\ drule find_met_inr \\ rpt strip_tac \\ gvs []
     \\ gvs [oneline bind_def, CaseEq "sum"]
@@ -6701,7 +6681,9 @@ Proof
     \\ gvs [LIST_TO_SET_SUBSET, LIST_TO_SET_DISJOINT, freevars_list_eq]
     \\ last_assum $ irule_at (Pos hd)
     \\ simp[]
-    \\ last_assum $ irule_at (Pos hd))
+    \\ last_assum $ irule_at Any
+    \\ fs[DISJOINT_DEF,EVERY_MEM,EXTENSION]
+    \\ metis_tac[])
   \\ gvs [stmt_vcg_def]
 QED
 
