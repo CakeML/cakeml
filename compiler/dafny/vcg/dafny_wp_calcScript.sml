@@ -555,7 +555,19 @@ Theorem evaluate_exp_freevars:
     evaluate_exp (st with <| locals := l2 |>) env e =
                  (st' with <| locals := l2 |>, r)
 Proof
-  cheat
+  rw[]
+  \\ drule_at Any (cj 1 evaluate_exp_freevars_aux)
+  \\ strip_tac
+  \\ first_assum $ qspecl_then [`st.locals`,`st.locals_prev`] mp_tac
+  \\ first_x_assum $ qspecl_then [`l2`,`st.locals_prev`] mp_tac
+  \\ fs[freevars_def]
+  \\ `st with <|locals := l2; locals_prev := st.locals_prev|> =
+     st with <|locals := l2|> ∧
+     st with <|locals := st.locals; locals_prev := st.locals_prev|> =
+     st` by
+      simp[state_component_equality]
+  \\ rw[]
+  \\ fs[state_component_equality]
 QED
 
 Theorem evaluate_exps_freevars:
@@ -565,7 +577,19 @@ Theorem evaluate_exps_freevars:
     evaluate_exps (st with <| locals := l2 |>) env es =
                   (st' with <| locals := l2 |>, r)
 Proof
-  cheat
+  rw[]
+  \\ drule_at Any (cj 2 evaluate_exp_freevars_aux)
+  \\ strip_tac
+  \\ first_assum $ qspecl_then [`st.locals`,`st.locals_prev`] mp_tac
+  \\ first_x_assum $ qspecl_then [`l2`,`st.locals_prev`] mp_tac
+  \\ fs[freevars_def]
+  \\ `st with <|locals := l2; locals_prev := st.locals_prev|> =
+     st with <|locals := l2|> ∧
+     st with <|locals := st.locals; locals_prev := st.locals_prev|> =
+     st` by
+      simp[state_component_equality]
+  \\ rw[]
+  \\ fs[state_component_equality]
 QED
 
 Triviality eval_exp_freevars_lemma:
