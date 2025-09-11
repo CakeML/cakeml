@@ -6762,11 +6762,15 @@ Definition stmt_vcg_def:
             EVERY (no_Prev T) (SND decs) ∧ no_Prev T guard)
       «stmt_vcg:While: Bad use of Prev»;
     ls1 <<- FILTER (λ(v,ty). assigned_in body v) ls;
-    loop_cond <<- ForallHeap [] (Foralls (MAP (λv. (v,IntT)) ds_vars ++ ls) body_cond);
+    loop_cond <<-
+      ForallHeap (MAP Var ms_vars)
+        (Foralls (MAP (λv. (v,IntT)) ds_vars ++ ls) body_cond);
     return
       (invs ++ [CanEval guard] ++ MAP CanEval ds ++
        MAP (CanEval ∘ Var ∘ FST) ls ++
-       [loop_cond; ForallHeap [] (Foralls ls1 (imp (conj (not guard::invs)) (conj post)))])
+       [loop_cond;
+        ForallHeap (MAP Var ms_vars)
+          (Foralls ls1 (imp (conj (not guard::invs)) (conj post)))])
   od ∧
   stmt_vcg m (MetCall lhss name args) post ens decs mods ls =
   do
@@ -6897,7 +6901,6 @@ Proof
     \\ last_assum $ irule_at Any
     \\ fs[DISJOINT_DEF,EVERY_MEM,EXTENSION]
     \\ metis_tac[])
-  \\ gvs [stmt_vcg_def]
 QED
 
 Definition wrap_Old_list_def:
