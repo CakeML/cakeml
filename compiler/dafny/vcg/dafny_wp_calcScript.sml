@@ -5934,13 +5934,124 @@ Proof
   qexists_tac`i+1`>>simp[GSYM ADD1]
 QED
 
+Theorem evaluate_rhs_exp_value_inv_pres:
+  evaluate_rhs_exp st1 env rhs = (st2, r) ∧
+  value_inv st1.heap val ⇒
+  value_inv st2.heap val
+Proof
+  cheat
+QED
+
+Theorem assign_values_value_inv_pres:
+  ∀st1 env lhss vals.
+    assign_values st1 env lhss vals = (st2, r) ∧
+    value_inv st1.heap val ⇒
+    value_inv st2.heap val
+Proof
+  cheat
+QED
+
+Theorem evaluate_rhs_exps_value_inv_pres:
+  ∀rhss st1 env st2 r val.
+    evaluate_rhs_exps st1 env rhss = (st2, r) ∧
+    value_inv st1.heap val ⇒
+    value_inv st2.heap val
+Proof
+  Induct >- (simp [evaluate_rhs_exps_def])
+  \\ rpt strip_tac
+  \\ gvs [evaluate_rhs_exps_def, AllCaseEqs()]
+  \\ drule_all_then assume_tac evaluate_rhs_exp_value_inv_pres \\ gvs []
+  \\ last_x_assum drule_all \\ simp []
+QED
+
+Triviality set_up_call_heap_eq:
+  set_up_call st in_ns in_vs outs = SOME st₁ ⇒ st₁.heap = st.heap
+Proof
+  rpt strip_tac \\ gvs [set_up_call_def, AllCaseEqs()]
+QED
+
+Theorem evaluate_stmt_value_inv_pres:
+  ∀st1 env body st2 r val.
+    evaluate_stmt st1 env body = (st2, r) ∧
+    value_inv st1.heap val ⇒
+    value_inv st2.heap val
+Proof
+  ho_match_mp_tac evaluate_stmt_ind
+  \\ rpt strip_tac
+  >~ [‘Skip’] >-
+   (gvs [evaluate_stmt_def])
+  >~ [‘Assert e’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ imp_res_tac (cj 1 evaluate_exp_with_clock) \\ gvs [])
+  >~ [‘Then’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()])
+  >~ [‘If’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ imp_res_tac (cj 1 evaluate_exp_with_clock) \\ gvs [])
+  >~ [‘Dec’] >-
+   (gvs [evaluate_stmt_def]
+    \\ rpt (pairarg_tac \\ gvs [declare_local_def])
+    \\ drule evaluate_stmt_locals
+    \\ strip_tac \\ gvs []
+    \\ gvs [pop_locals_def,safe_drop_def]
+    \\ rename [‘evaluate_stmt _ _ _ = (st₁,_)’]
+    \\ Cases_on ‘st₁.locals’ \\ gvs [])
+  >~ [‘Assign’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ drule_all_then assume_tac evaluate_rhs_exps_value_inv_pres \\ simp []
+    \\ drule_all assign_values_value_inv_pres \\ simp [])
+  >~ [‘While’] >-
+   (qpat_x_assum ‘∀_ _ _ _ _. _’ $ ASSUME_NAMED_TAC "IHWhile"
+    \\ qpat_x_assum ‘∀_ _ _. _’ $ ASSUME_NAMED_TAC "IHBody"
+    \\ qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ IF_CASES_TAC >- (strip_tac \\ gvs [])
+    \\ TOP_CASE_TAC
+    \\ drule_then assume_tac (cj 1 evaluate_exp_with_clock) \\ gvs []
+    \\ reverse TOP_CASE_TAC >- (strip_tac \\ gvs [dec_clock_def])
+    \\ IF_CASES_TAC >- (strip_tac \\ gvs [dec_clock_def])
+    \\ reverse IF_CASES_TAC >- (strip_tac \\ gvs [dec_clock_def])
+    \\ TOP_CASE_TAC
+    \\ LABEL_X_ASSUM "IHBody" assume_tac \\ rfs [dec_clock_def]
+    \\ reverse TOP_CASE_TAC >- (strip_tac \\ gvs [])
+    \\ strip_tac
+    \\ LABEL_X_ASSUM "IHWhile" assume_tac \\ rfs [dec_clock_def])
+  >~ [‘Print’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ imp_res_tac (cj 1 evaluate_exp_with_clock) \\ gvs [])
+  >~ [‘MetCall’] >-
+   (last_x_assum $ ASSUME_NAMED_TAC "IH"
+    \\ qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ TOP_CASE_TAC >- (strip_tac \\ gvs [])
+    \\ reverse TOP_CASE_TAC >- (strip_tac \\ gvs [])
+    \\ TOP_CASE_TAC
+    \\ drule_then assume_tac (cj 2 evaluate_exp_with_clock) \\ gvs []
+    \\ reverse TOP_CASE_TAC >- (strip_tac \\ gvs [])
+    \\ TOP_CASE_TAC >- (strip_tac \\ gvs [])
+    \\ drule_then assume_tac set_up_call_heap_eq \\ gvs []
+    \\ IF_CASES_TAC >- (strip_tac \\ gvs [restore_caller_def])
+    \\ TOP_CASE_TAC
+    \\ LABEL_X_ASSUM "IH" assume_tac \\ rfs [dec_clock_def]
+    \\ TOP_CASE_TAC >- (strip_tac \\ gvs [restore_caller_def])
+    \\ reverse TOP_CASE_TAC >- (strip_tac \\ gvs [restore_caller_def])
+    \\ TOP_CASE_TAC >- (strip_tac \\ gvs [restore_caller_def])
+    \\ IF_CASES_TAC >- (strip_tac \\ gvs [restore_caller_def])
+    \\ simp [restore_caller_def]
+    \\ strip_tac
+    \\ drule assign_values_value_inv_pres \\ simp [])
+  >~ [‘Return’] >-
+   (gvs [evaluate_stmt_def])
+QED
+
 Theorem eval_stmt_value_inv_pres:
   eval_stmt st1 env body st2 r ∧
   value_inv st1.heap val ⇒
   value_inv st2.heap val
 Proof
-  cheat (* since there is no deallocation and
-           one cannot change array lengths *)
+  simp [eval_stmt_def]
+  \\ rpt strip_tac
+  \\ drule evaluate_stmt_value_inv_pres \\ simp []
 QED
 
 Theorem stmt_wp_sound_MetCall:
