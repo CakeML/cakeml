@@ -886,6 +886,7 @@ Definition forall_def:
       strict_locals_ok vars st.locals ∧
       st.heap = st.heap_old ∧
       st.locals = st.locals_old ∧
+      ¬env.is_running ∧
       state_inv st ⇒
       eval_true st env prop
 End
@@ -1994,6 +1995,7 @@ Theorem forall_imp_conditions_hold:
   forall vs (imp (conj reqs) (conj wp_pre)) ∧
   ALL_DISTINCT (MAP FST vs) ∧
   conditions_hold st env reqs ∧
+  ¬env.is_running ∧
   strict_locals_ok vs st.locals ∧
   st.locals_old = st.locals ∧
   st.heap_old = st.heap ∧
@@ -6341,6 +6343,7 @@ Proof
   \\ drule eval_true_ForallHeap \\ simp []
   \\ disch_then $ drule_at (Pos $ el 2)
   \\ impl_tac >-
+
     (gvs [Abbr‘st1’] \\ cheat)
   \\ strip_tac
   \\ drule eval_true_Foralls_distinct
@@ -6580,6 +6583,7 @@ Theorem methods_lemma[local]:
       st.locals_old = st.locals ∧
       st.heap_old = st.heap ∧
       state_inv st ∧
+      ¬env.is_running ∧
       dest_Vars mspec.mods = INR mods ∧
       LIST_REL (mod_loc st.locals) mods mod_locs ∧
       conditions_hold st env mspec.reqs ∧ compatible_env env m ∧
