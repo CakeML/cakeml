@@ -5934,12 +5934,41 @@ Proof
   qexists_tac`i+1`>>simp[GSYM ADD1]
 QED
 
+Triviality value_inv_pres_snoc:
+  value_inv heap val ⇒
+  value_inv (SNOC hv heap) val
+Proof
+  simp [value_inv_def]
+  \\ rpt strip_tac \\ gvs []
+  \\ rename [‘HArr arr _’]
+  \\ qexists ‘arr’
+  \\ gvs [oEL_EQ_EL, EL_SNOC]
+QED
+
+Triviality alloc_array_value_inv_pres:
+  alloc_array st1 len init t = SOME (st2, arr) ∧
+  value_inv st1.heap val ⇒
+  value_inv st2.heap val
+Proof
+  strip_tac
+  \\ gvs [alloc_array_def, AllCaseEqs()]
+  \\ drule value_inv_pres_snoc \\ simp []
+QED
+
 Theorem evaluate_rhs_exp_value_inv_pres:
   evaluate_rhs_exp st1 env rhs = (st2, r) ∧
   value_inv st1.heap val ⇒
   value_inv st2.heap val
 Proof
-  cheat
+  Cases_on ‘rhs’
+  \\ rpt strip_tac
+  >~ [‘ExpRhs’] >-
+   (gvs [evaluate_rhs_exp_def]
+    \\ drule_then assume_tac (cj 1 evaluate_exp_with_clock) \\ gvs [])
+  >~ [‘ArrAlloc’] >-
+   (gvs [evaluate_rhs_exp_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+    \\ drule alloc_array_value_inv_pres \\ simp [])
 QED
 
 Theorem assign_values_value_inv_pres:
