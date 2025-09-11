@@ -86,14 +86,24 @@ val mccarthy_vcg = eval_vcg mccarthy;
 
 val mccarthy_valid_prop = valid_vcg_prop mccarthy_vcg;
 
-(* Make goals actually readable *)
+(* Make the goal actually readable *)
 val _ = max_print_depth := 20;
 
+Triviality eval_forall_True:
+  (∀v. v ∈ dom ⇒ SND (eval v) = Rval (BoolV T)) ⇒
+  eval_forall dom eval = Rval (BoolV T)
+Proof
+  rpt strip_tac
+  \\ gvs [eval_forall_def, AllCaseEqs()]
+  \\ rpt strip_tac \\ gvs []
+QED
 
 Theorem mccarthy_correct:
   ^mccarthy_valid_prop
 Proof
-
+  (* TODO Combine simps; the main thing that probably needs some care is that
+     the parts around "qmatch_goalsub_abbrev_tac ‘eval_forall dom evalf’" keep
+     working. *)
   simp [forall_def, strict_locals_ok_def, state_inv_def, eval_true_def,
         eval_exp_def, all_values_def]
   \\ rpt strip_tac
@@ -137,7 +147,6 @@ Proof
            pop_locals_def, safe_drop_def, read_local_def]
   \\ simp [Ntimes evaluate_exp_def 4, do_sc_def, do_bop_def, read_local_def,
            do_cond_def, use_old_def, unuse_old_def]
-
   \\ IF_CASES_TAC \\ simp []
   >- (spose_not_then kall_tac \\ intLib.COOPER_TAC)
   \\ simp [Ntimes evaluate_exp_def 3, do_sc_def, do_bop_def]
@@ -148,18 +157,227 @@ Proof
            do_cond_def, use_old_def, unuse_old_def]
   \\ IF_CASES_TAC \\ simp [] >- (intLib.COOPER_TAC)
   \\ simp [Ntimes evaluate_exp_def 2, set_prev_def, get_locs_def]
-
-  \\ qexists ‘111’ \\ simp []  (* todo *)
-  \\ qmatch_goalsub_abbrev_tac ‘eval_forall _ evalf’
-  \\ simp [eval_forall_def]
-
-  \\ ‘∀v. v ∈ valid_mod st.heap_old [] ⇒ SND (evalf v) = Rval (BoolV T)’ by
-    (cheat)
-  \\ IF_CASES_TAC >- (gvs [])
-  \\ IF_CASES_TAC >- (gvs [])
+  \\ qexists ‘111’ \\ simp []
+  \\ qmatch_goalsub_abbrev_tac ‘eval_forall dom evalf’
+  \\ ‘eval_forall dom evalf = Rval (BoolV T)’ by
+    (irule eval_forall_True
+     \\ rpt strip_tac
+     \\ unabbrev_all_tac
+     \\ simp [Ntimes evaluate_exp_def 1]
+     \\ irule eval_forall_True
+     \\ simp [all_values_def]
+     \\ rpt strip_tac \\ simp []
+     \\ simp [push_local_def]
+     \\ simp [Ntimes evaluate_exp_def 4, use_prev_def]
+     \\ simp [Ntimes evaluate_exp_def 3, do_sc_def, do_bop_def, read_local_def,
+              unuse_prev_def]
+     \\ simp [Ntimes evaluate_exp_def 3, read_local_def]
+     \\ simp [push_locals_def]
+     \\ simp [Ntimes evaluate_exp_def 3, do_sc_def, do_bop_def, read_local_def]
+     \\ simp [Ntimes evaluate_exp_def 3, do_sc_def, do_bop_def, read_local_def]
+     \\ simp [do_cond_def]
+     \\ reverse IF_CASES_TAC \\ simp []
+     >- (* ¬(i + 11 ≤ 100) *)
+      (simp [Ntimes evaluate_exp_def 3, do_sc_def, do_bop_def, read_local_def,
+             pop_locals_def, safe_drop_def]
+       \\ IF_CASES_TAC \\ simp []
+       \\ simp [Ntimes evaluate_exp_def 5, read_local_def, do_sc_def, do_bop_def]
+       \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                push_locals_def, pop_locals_def, safe_drop_def]
+       \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def]
+       \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def]
+       \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def]
+       \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                push_locals_def, pop_locals_def, safe_drop_def, use_old_def, unuse_old_def]
+       \\ IF_CASES_TAC \\ simp [] >- (intLib.COOPER_TAC)
+       \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                push_locals_def, pop_locals_def, safe_drop_def, use_old_def, unuse_old_def]
+       \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                push_locals_def, pop_locals_def, safe_drop_def, use_old_def, unuse_old_def]
+       \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                push_locals_def, pop_locals_def, safe_drop_def, use_old_def, unuse_old_def]
+       \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                unuse_old_def, do_cond_def]
+       \\ IF_CASES_TAC \\ simp [] >- (spose_not_then kall_tac \\ intLib.COOPER_TAC)
+       \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                unuse_old_def, do_cond_def]
+       \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                unuse_old_def, do_cond_def]
+       \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                unuse_old_def, do_cond_def]
+       \\ IF_CASES_TAC \\ simp [] >- (intLib.COOPER_TAC)
+       \\ reverse IF_CASES_TAC \\ simp [] >- (intLib.COOPER_TAC)
+       \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                unuse_old_def, do_cond_def, get_locs_def, set_prev_def]
+       \\ qmatch_goalsub_abbrev_tac ‘eval_forall dom evalf’
+       \\ ‘eval_forall dom evalf = Rval (BoolV T)’ by
+         (irule eval_forall_True
+          \\ rpt strip_tac
+          \\ unabbrev_all_tac
+          \\ simp [Ntimes evaluate_exp_def 1]
+          \\ irule eval_forall_True
+          \\ simp [all_values_def]
+          \\ rpt strip_tac
+          \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                   push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                   unuse_old_def, do_cond_def, get_locs_def, set_prev_def, use_prev_def,
+                   push_local_def, unuse_prev_def]
+          \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                   push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                   unuse_old_def, do_cond_def, get_locs_def, set_prev_def, use_prev_def,
+                   push_local_def, unuse_prev_def]
+          \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                   push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                   unuse_old_def, do_cond_def, get_locs_def, set_prev_def, use_prev_def,
+                   push_local_def, unuse_prev_def]
+          \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                   push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                   unuse_old_def, do_cond_def, get_locs_def, set_prev_def, use_prev_def,
+                   push_local_def, unuse_prev_def]
+          \\ IF_CASES_TAC \\ simp []
+          >- (* ≤ 100 *)
+           (simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                  push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                  unuse_old_def, do_cond_def, get_locs_def, set_prev_def, use_prev_def,
+                  push_local_def, unuse_prev_def]
+            \\ IF_CASES_TAC \\ simp []
+            \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                     push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                     unuse_old_def, do_cond_def, get_locs_def, set_prev_def, use_prev_def,
+                     push_local_def, unuse_prev_def]
+            \\ reverse IF_CASES_TAC \\ simp [] >- (intLib.COOPER_TAC)
+            \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                     push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                     unuse_old_def, do_cond_def, get_locs_def, set_prev_def, use_prev_def,
+                     push_local_def, unuse_prev_def])
+           (* ¬ ≤ 100*)
+          \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                   push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                   unuse_old_def, do_cond_def, get_locs_def, set_prev_def, use_prev_def,
+                   push_local_def, unuse_prev_def]
+          \\ IF_CASES_TAC \\ simp []
+          \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                   push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                   unuse_old_def, do_cond_def, get_locs_def, set_prev_def, use_prev_def,
+                   push_local_def, unuse_prev_def]
+          \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                   push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                   unuse_old_def, do_cond_def, get_locs_def, set_prev_def, use_prev_def,
+                   push_local_def, unuse_prev_def]
+          \\ IF_CASES_TAC \\ simp [] >- (intLib.COOPER_TAC)
+          \\ strip_tac \\ intLib.COOPER_TAC)
+       \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                unuse_old_def, do_cond_def, get_locs_def, set_prev_def]
+       \\ strip_tac >- (intLib.COOPER_TAC))
+     (* i + 11 ≤ 100 *)
+     \\ simp [Ntimes evaluate_exp_def 1]
+     \\ gvs [value_same_type_def, all_values_def]
+     \\ simp [pop_locals_def, safe_drop_def]
+     \\ IF_CASES_TAC >- (simp [])
+     \\ simp []
+     \\ simp [Ntimes evaluate_exp_def 6, read_local_def, push_locals_def,
+              pop_locals_def, safe_drop_def, do_sc_def]
+     \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def]
+     \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def]
+     \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def]
+     \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+              push_locals_def, pop_locals_def, safe_drop_def]
+     \\ IF_CASES_TAC \\ simp [] >- (intLib.COOPER_TAC)
+     \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def]
+     \\ simp [Ntimes evaluate_exp_def 1, use_old_def]
+     \\ simp [Ntimes evaluate_exp_def 1, read_local_def]
+     \\ simp [unuse_old_def]
+     \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def]
+     \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def]
+     \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+              push_locals_def, pop_locals_def, safe_drop_def]
+     \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+              use_old_def]
+     \\ simp [do_cond_def, unuse_old_def]
+     \\ IF_CASES_TAC \\ simp [] >- (spose_not_then kall_tac \\ intLib.COOPER_TAC)
+     \\ simp [Ntimes evaluate_exp_def 5, read_local_def, do_sc_def, do_bop_def]
+     \\ simp [Ntimes evaluate_exp_def 5, push_locals_def, pop_locals_def,
+              safe_drop_def, read_local_def, do_sc_def, do_bop_def]
+     \\ simp [use_old_def]
+     \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def]
+     \\ IF_CASES_TAC \\ simp [] >- (intLib.COOPER_TAC)
+     \\ reverse IF_CASES_TAC \\ simp [] >- (intLib.COOPER_TAC)
+     \\ simp [get_locs_def, set_prev_def, unuse_old_def]
+     \\ qmatch_goalsub_abbrev_tac ‘eval_forall dom evalf’
+     \\ ‘eval_forall dom evalf = Rval (BoolV T)’ by
+       (irule eval_forall_True
+          \\ rpt strip_tac
+          \\ unabbrev_all_tac
+          \\ simp [Ntimes evaluate_exp_def 1]
+          \\ irule eval_forall_True
+          \\ simp [all_values_def]
+          \\ rpt strip_tac
+          \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                   push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                   unuse_old_def, do_cond_def, get_locs_def, set_prev_def, use_prev_def,
+                   push_local_def, unuse_prev_def]
+          \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                   push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                   unuse_old_def, do_cond_def, get_locs_def, set_prev_def, use_prev_def,
+                   push_local_def, unuse_prev_def]
+          \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                   push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                   unuse_old_def, do_cond_def, get_locs_def, set_prev_def, use_prev_def,
+                   push_local_def, unuse_prev_def]
+          \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                   push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                   unuse_old_def, do_cond_def, get_locs_def, set_prev_def, use_prev_def,
+                   push_local_def, unuse_prev_def]
+          \\ IF_CASES_TAC \\ simp []
+          >- (* ≤ 100 *)
+           (simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                  push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                  unuse_old_def, do_cond_def, get_locs_def, set_prev_def, use_prev_def,
+                  push_local_def, unuse_prev_def]
+            \\ IF_CASES_TAC \\ simp []
+            \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                     push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                     unuse_old_def, do_cond_def, get_locs_def, set_prev_def, use_prev_def,
+                     push_local_def, unuse_prev_def]
+            \\ reverse IF_CASES_TAC \\ simp [] >- (intLib.COOPER_TAC)
+            \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                     push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                     unuse_old_def, do_cond_def, get_locs_def, set_prev_def, use_prev_def,
+                     push_local_def, unuse_prev_def])
+           (* ¬ ≤ 100*)
+          \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                   push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                   unuse_old_def, do_cond_def, get_locs_def, set_prev_def, use_prev_def,
+                   push_local_def, unuse_prev_def]
+          \\ IF_CASES_TAC \\ simp []
+          \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                   push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                   unuse_old_def, do_cond_def, get_locs_def, set_prev_def, use_prev_def,
+                   push_local_def, unuse_prev_def]
+          \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+                   push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+                   unuse_old_def, do_cond_def, get_locs_def, set_prev_def, use_prev_def,
+                   push_local_def, unuse_prev_def]
+          \\ IF_CASES_TAC \\ simp [] >- (intLib.COOPER_TAC)
+          \\ strip_tac \\ intLib.COOPER_TAC)
+     \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+              push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+              unuse_old_def, do_cond_def, get_locs_def, set_prev_def]
+     \\ strip_tac >- (intLib.COOPER_TAC))
   \\ simp []
   \\ reverse IF_CASES_TAC \\ simp [] >- (intLib.COOPER_TAC)
-  \\ simp [Ntimes evaluate_exp_def 5, unset_prev_def, do_sc_def, read_local_def,
-           do_bop_def, do_uop_def]
+  \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+           push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+           unuse_old_def, do_cond_def, get_locs_def, set_prev_def, unset_prev_def]
+  \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def, do_bop_def,
+           push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+           unuse_old_def, do_cond_def, get_locs_def, set_prev_def, unset_prev_def,
+           do_uop_def]
   \\ simp [state_component_equality]
 QED
