@@ -5971,13 +5971,53 @@ Proof
     \\ drule alloc_array_value_inv_pres \\ simp [])
 QED
 
+Triviality update_local_heap_eq:
+  update_local st1 m rhs = SOME st2 ⇒ st2.heap = st1.heap
+Proof
+  rpt strip_tac
+  \\ gvs [update_local_def, AllCaseEqs()]
+QED
+
+Triviality update_array_value_inv_pres:
+  update_array st1 arr idx rhs = SOME st2 ∧
+  value_inv st1.heap val ⇒
+  value_inv st2.heap val
+Proof
+  rpt strip_tac
+  \\ gvs [update_array_def, value_inv_def, AllCaseEqs()]
+  \\ rpt strip_tac \\ gvs []
+  \\ simp [LLOOKUP_LUPDATE]
+  \\ IF_CASES_TAC >- (simp [])
+  \\ reverse IF_CASES_TAC >- (gvs [LLOOKUP_THM])
+  \\ gvs []
+QED
+
+Theorem assign_value_value_inv_pres:
+  assign_value st1 env lhs rhs = (st2, r) ∧
+  value_inv st1.heap val ⇒
+  value_inv st2.heap val
+Proof
+  Cases_on ‘lhs’
+  \\ rpt strip_tac
+  >~ [‘VarLhs’] >-
+   (gvs [assign_value_def, AllCaseEqs()]
+    \\ drule update_local_heap_eq \\ simp [])
+  >~ [‘ArrSelLhs’] >-
+   (gvs [assign_value_def, AllCaseEqs()]
+    \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
+    \\ drule update_array_value_inv_pres \\ simp [])
+QED
+
 Theorem assign_values_value_inv_pres:
-  ∀st1 env lhss vals.
-    assign_values st1 env lhss vals = (st2, r) ∧
+  ∀st1 env lhss rhss.
+    assign_values st1 env lhss rhss = (st2, r) ∧
     value_inv st1.heap val ⇒
     value_inv st2.heap val
 Proof
-  cheat
+  ho_match_mp_tac assign_values_ind
+  \\ rpt strip_tac
+  \\ gvs [assign_values_def, AllCaseEqs()]
+  \\ drule assign_value_value_inv_pres \\ simp []
 QED
 
 Theorem evaluate_rhs_exps_value_inv_pres:
