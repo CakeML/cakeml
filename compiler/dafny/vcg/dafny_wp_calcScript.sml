@@ -5626,7 +5626,12 @@ Proof
   \\ first_x_assum $ irule_at $ Pos hd
   \\ reverse $ Cases_on ‘ret’ \\ fs []
   >-
-   (conj_tac >- cheat
+   (conj_tac >-
+     (qpat_x_assum ‘LIST_REL _ while_mods while_mod_locs’ mp_tac
+      \\ match_mp_tac (SRULE [GSYM AND_IMP_INTRO] EVERY2_MEM_MONO_weak)
+      \\ rpt gen_tac \\ rename [‘MEM v _ ⇒ MEM _ _ ⇒ _’] \\ strip_tac
+      \\ qsuff_tac ‘¬MEM v (MAP FST ds1)’ >- simp [oneline mod_loc_def]
+      \\ fs [SUBSET_DEF,EXTENSION] \\ metis_tac [])
     \\ rename [‘Rstop stop_tm’] \\ Cases_on ‘stop_tm’ \\ gvs []
     \\ imp_res_tac strict_locals_ok_IMP_locals_ok
     \\ asm_rewrite_tac []
@@ -5648,7 +5653,12 @@ Proof
   \\ simp []
   \\ reverse conj_tac
   >-
-   (reverse conj_tac >- cheat
+   (reverse conj_tac >-
+     (qpat_x_assum ‘LIST_REL _ while_mods while_mod_locs’ mp_tac
+      \\ match_mp_tac (SRULE [GSYM AND_IMP_INTRO] EVERY2_MEM_MONO_weak)
+      \\ rpt gen_tac \\ rename [‘MEM v _ ⇒ MEM _ _ ⇒ _’] \\ strip_tac
+      \\ qsuff_tac ‘¬MEM v (MAP FST ds1)’ >- simp [oneline mod_loc_def]
+      \\ fs [SUBSET_DEF,EXTENSION] \\ metis_tac [])
     \\ fs [conditions_hold_def,EVERY_MEM,MEM_MAP,PULL_EXISTS,eval_true_def]
     \\ reverse $ rpt strip_tac
     \\ first_x_assum irule \\ fs []
