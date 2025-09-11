@@ -1594,58 +1594,6 @@ Proof
   \\ drule_all eval_exp_Let_rl \\ simp []
 QED
 
-(* TODO Keep triv; Move to dafny_eval_rel *)
-Triviality eval_exp_no_old_lemma:
-  no_Old e ∧ eval_exp st env e v ⇒
-  eval_exp (st with <| heap_old := h; locals_old := l |>) env e v
-Proof
-  simp [eval_exp_def]
-  \\ rpt strip_tac
-  \\ drule_all (cj 1 evaluate_exp_no_old) \\ gvs []
-  \\ disch_then $ irule_at (Pos hd)
-QED
-
-(* TODO Move to dafny_eval_rel *)
-Theorem eval_exp_no_old:
-  no_Old e ⇒
-  eval_exp st env e v =
-  eval_exp (st with <| heap_old := h; locals_old := l |>) env e v
-Proof
-  strip_tac
-  \\ iff_tac >- (simp [eval_exp_no_old_lemma])
-  \\ strip_tac
-  \\ drule_all eval_exp_no_old_lemma
-  \\ disch_then $ qspecl_then [‘st.locals_old’, ‘st.heap_old’] mp_tac
-  \\ simp []
-  \\ match_mp_tac EQ_IMPLIES
-  \\ rpt (AP_THM_TAC ORELSE AP_TERM_TAC)
-  \\ simp [state_component_equality]
-QED
-
-Theorem eval_exp_no_old_IMP:
-  ∀h l.
-    no_Old e ∧
-    eval_exp (st with <| heap_old := h; locals_old := l |>) env e v ⇒
-    eval_exp st env e v
-Proof
-  metis_tac [eval_exp_no_old]
-QED
-
-(* TODO keep triv; Move to dafny_eval_rel *)
-Triviality pair_I:
-  (λ(x,y). (x,y)) = I
-Proof
-  rewrite_tac [FUN_EQ_THM] \\ Cases \\ simp []
-QED
-
-Theorem eval_exp_freevars:
-  (∀n. n ∈ freevars e ⇒ ALOOKUP l1 n = ALOOKUP l2 n) ⇒
-  eval_exp (st with locals := l1) env e v =
-  eval_exp (st with locals := l2) env e v
-Proof
-  strip_tac \\ iff_tac \\ metis_tac [eval_exp_freevars_lemma]
-QED
-
 Triviality eval_exp_swap_locals_alt_aux:
   ALOOKUP l' = ALOOKUP l ∧
   eval_exp (st with locals := l') env e v ⇒
