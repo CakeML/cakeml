@@ -3688,6 +3688,95 @@ Proof
   \\ imp_res_tac evaluate_rhs_exp_same_locals \\ gvs []
 QED
 
+(* TODO Move to dafnyProps *)
+Triviality update_local_aux_none_eq:
+  update_local_aux xs m val = NONE ⇔ ¬MEM m (MAP FST xs)
+Proof
+  Induct_on ‘xs’ >- (simp [update_local_aux_def])
+  \\ namedCases ["n ov"]
+  \\ gvs [update_local_aux_def, AllCaseEqs()]
+  \\ metis_tac []
+QED
+
+(* TODO Move to dafnyProps *)
+Triviality update_local_aux_mem:
+  ∀xs m.
+    MEM m (MAP FST xs) ⇒
+    ∃xs₁. ∀ys.
+      update_local_aux (xs ++ ys) m val = SOME (xs₁ ++ ys) ∧
+      MAP FST xs₁ = MAP FST xs
+Proof
+  Induct >- (simp [])
+  \\ namedCases ["n ov"]
+  \\ rpt strip_tac
+  \\ gvs [update_local_aux_def]
+  \\ Cases_on ‘n = m’ \\ gvs []
+  \\ last_x_assum drule
+  \\ rpt strip_tac \\ gvs []
+QED
+
+(* TODO Move to dafnyProps *)
+Triviality update_local_aux_not_mem_lr:
+  ∀xs m locals.
+    ¬MEM m (MAP FST xs) ∧ update_local_aux (xs ++ ys) m val = SOME locals ⇒
+    ∃rest.
+      update_local_aux ys m val = SOME rest ∧
+      MAP FST rest = MAP FST ys ∧ locals = xs ++ rest
+Proof
+  Induct
+  >-
+   (simp [] \\ rpt strip_tac
+    \\ drule update_local_aux_locals \\ simp [])
+  \\ namedCases ["n ov"]
+  \\ rpt strip_tac \\ gvs []
+  \\ gvs [update_local_aux_def, AllCaseEqs()]
+QED
+
+(* TODO Move to dafnyProps *)
+Triviality update_local_aux_not_mem_rl:
+  ∀xs m rest.
+    ¬MEM m (MAP FST xs) ∧ update_local_aux ys m val = SOME rest ⇒
+    update_local_aux (xs ++ ys) m val = SOME (xs ++ rest)
+Proof
+  Induct >- (simp [])
+  \\ namedCases ["n ov"]
+  \\ rpt strip_tac \\ gvs []
+  \\ gvs [update_local_aux_def, AllCaseEqs()]
+QED
+
+
+(* TODO Move to dafnyProps *)
+Triviality update_local_aux_not_mem:
+  ¬MEM m (MAP FST xs) ⇒
+  (update_local_aux (xs ++ ys) m val = SOME locals ⇔
+     ∃rest.
+       update_local_aux ys m val = SOME rest ∧
+       MAP FST rest = MAP FST ys ∧ locals = xs ++ rest)
+Proof
+  metis_tac [update_local_aux_not_mem_lr, update_local_aux_not_mem_rl]
+QED
+
+Triviality update_local_aux_ignore_unused:
+  update_local_aux (xs ++ ys ++ zs) m val = SOME new_locals ∧
+  ¬MEM m (MAP FST ys) ⇒
+  ∃xs₁ zs₁.
+    new_locals = xs₁ ++ ys ++ zs₁ ∧
+    update_local_aux (xs ++ zs) m val = SOME (xs₁ ++ zs₁) ∧
+    MAP FST xs₁ = MAP FST xs ∧ MAP FST zs₁ = MAP FST zs
+Proof
+  rewrite_tac [GSYM APPEND_ASSOC]
+  \\ rpt strip_tac
+  \\ Cases_on ‘MEM m (MAP FST xs)’
+  >-
+   (drule update_local_aux_mem
+    \\ disch_then $ qspec_then ‘val’ mp_tac
+    \\ strip_tac \\ gvs []
+    \\ irule_at (Pos hd) EQ_REFL \\ simp [])
+  \\ dxrule_then assume_tac update_local_aux_not_mem \\ gvs []
+  \\ dxrule_then assume_tac update_local_aux_not_mem \\ gvs []
+  \\ irule_at (Pos hd) EQ_REFL \\ simp []
+QED
+
 Triviality assign_value_ignore_unused:
   assign_value st env lhs val = (st', r) ∧
   DISJOINT (set (get_vars_lhs_exp lhs)) (set (MAP FST ys)) ∧
@@ -3701,7 +3790,12 @@ Proof
   Induct_on ‘lhs’
   \\ rpt strip_tac
   >~ [‘VarLhs’] >-
-   (cheat (* reserved *))
+   (gvs [assign_value_def, get_vars_lhs_exp_def, update_local_def, AllCaseEqs()]
+    >-
+     (irule_at (Pos hd) EQ_REFL \\ simp []
+      \\ gvs [update_local_aux_none_eq])
+    \\ drule_then assume_tac update_local_aux_ignore_unused \\ gvs []
+    \\ irule_at (Pos hd) EQ_REFL \\ simp [])
   >~ [‘ArrSelLhs’] >-
    (gvs [assign_value_def, get_vars_lhs_exp_def, AllCaseEqs()]
     \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
