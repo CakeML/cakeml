@@ -2654,10 +2654,11 @@ Proof
   \\ IF_CASES_TAC \\ gvs []
 QED
 
-Triviality IMP_LIST_REL_EXISTS:
-  EVERY (λx. ∃y. R x y) xs ⇒ ∃ys. LIST_REL R xs ys
+Triviality IMP_LIST_REL_EXISTS_EVERY:
+  EVERY (λx. ∃y. R x y ∧ P y) xs ⇒
+  ∃ys. (LIST_REL R xs ys ∧ EVERY P ys)
 Proof
-  Induct_on`xs`>>rw[]>>
+  Induct_on`xs`>>rw[PULL_EXISTS]>>
   metis_tac[]
 QED
 
@@ -5460,8 +5461,8 @@ Proof
   \\ ‘∃while_mod_locs.
         LIST_REL (mod_loc st.locals) while_mods while_mod_locs ∧
         set while_mod_locs ⊆ set mod_locs ’ by
-    (cheat (* set while_mod_locs ⊆ set mods *) >>
-    irule IMP_LIST_REL_EXISTS>>
+    (simp[SUBSET_DEF,GSYM EVERY_MEM]>>
+    irule_at Any IMP_LIST_REL_EXISTS_EVERY>>
     fs[EVERY_MEM,SUBSET_DEF]>>rw[]>>
     first_x_assum drule>>
     metis_tac[LIST_REL_MEM_IMP])
@@ -6148,9 +6149,9 @@ Proof
   \\ first_x_assum $ drule_at $ Pos $ el 2
   \\ ‘∃callee_mod_locs.
         LIST_REL (mod_loc st1.locals) callee_mod_params callee_mod_locs ∧
-        set callee_mod_locs ⊆ set mod_locs’ by
-   (cheat (* set callee_mod_locs ⊆ set mod_locs *) (*
-    \\ irule IMP_LIST_REL_EXISTS
+        set callee_mod_locs ⊆ set mod_locs’ by (
+    simp[SUBSET_DEF,GSYM EVERY_MEM]
+    \\ irule IMP_LIST_REL_EXISTS_EVERY
     \\ simp [EVERY_MEM,Abbr‘st1’]
     \\ rpt gen_tac \\ rename [‘MEM p _ ⇒ _’]
     \\ strip_tac
@@ -6158,7 +6159,7 @@ Proof
     \\ drule dest_Vars_MAP_FILTER_lemma \\ simp []
     \\ disch_then drule_all \\ strip_tac
     \\ ‘MEM v mods’ by fs [SUBSET_DEF]
-    \\ ‘∃z. mod_loc st.locals v z’ by
+    \\ ‘∃z. mod_loc st.locals v z ∧ MEM z mod_locs’ by
       (imp_res_tac LIST_REL_MEM_IMP
        \\ first_x_assum $ irule_at Any \\ fs [])
     \\ simp [oneline mod_loc_def,Abbr‘new_l’]
@@ -6176,7 +6177,7 @@ Proof
     \\ first_x_assum drule
     \\ rw[eval_exp_def,evaluate_exp_def,read_local_def,AllCaseEqs()]
     \\ fs[oneline mod_loc_def,EL_MAP]
-    \\ PairCases_on`z`\\fs[] *))
+    \\ PairCases_on`z`\\fs[] )
   \\ disch_then $ qspecl_then [‘st1’,‘callee_mod_params’,‘callee_mod_locs’] mp_tac
   \\ impl_tac
   >-
@@ -6343,7 +6344,7 @@ Proof
   \\ drule eval_true_ForallHeap \\ simp []
   \\ disch_then $ drule_at (Pos $ el 2)
   \\ impl_tac >-
-
+    (* not true *)
     (gvs [Abbr‘st1’] \\ cheat)
   \\ strip_tac
   \\ drule eval_true_Foralls_distinct
