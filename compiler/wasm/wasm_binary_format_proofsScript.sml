@@ -218,14 +218,6 @@ Proof
   >> simp[dec_loadI_def]
 QED
 
-Theorem dec_il_end_or_else_B:
-  ∀bs e tmB x rs. dec_instr_list e bs = (INR (tmB,x),rs) ⇒ (tmB = endB ∨ tmB = elseB)
-Proof
-  Induct
-  >> simp[Once dec_instr_def, AllCaseEqs()]
-  >> cheat
-QED
-
 
 
 
@@ -450,20 +442,21 @@ QED
 
 Overload exprB[local] = “λe. if e then endB else elseB”
 
-
+(* [Note] on "dc": Here the statements says that if we encode an expr (e=T), then we _must_ see an endB (¬e ∨ dc=F)
+   But if we're encoding a then-arm (e=F), then we (dc:=)don't care whether the decoder gets a T or F flag *)
 Theorem dec_enc_instructions:
   (∀e is dc encis rs. enc_instr_list e is = SOME encis ⇒ dec_instr_list (¬e ∨ dc) (encis ++ rs) = (INR (exprB e,is), rs)) ∧
   (∀  i     enci  rs. enc_instr        i  = SOME enci  ⇒ dec_instr                (enci  ++ rs) = (INR          i  , rs))
 Proof
-  (* askyk - how to golf? or rather, make more ergonomic as well as robust *)
+  (* askyk - how to: golf? make more ergonomic and/or robust? *)
   (* Note - all the work is really done in the instr (as opposed to instr_list) case *)
   ho_match_mp_tac enc_instr_ind
-  \\ simp[Once enc_instr_def]
+  \\ simp[]
   \\ rpt strip_tac
-  >-( Cases_on ‘e’ >> simp[dec_instr_def] )
+  >> pop_assum mp_tac
+  >-( Cases_on ‘e’ >> simp[enc_instr_def, Once dec_instr_def] )
   >-(
-       pop_assum mp_tac
-    >> simp[Once enc_instr_def]
+    simp[Once enc_instr_def]
     >> rpt strip_tac
     >> imp_res_tac enc_instr_nEmp_nTermB
     >> gvs[]
@@ -471,17 +464,12 @@ Proof
     >> simp ssa
     )
   \\
-    pop_assum mp_tac
-    \\ Cases_on ‘i’
-    >> rw $ ssaa [Once enc_instr_def]
-    >> simp $ ssaa [dec_instr_def]
+    Cases_on ‘i’
+    >> rw[Once enc_instr_def]
+    >> rewrite_tac[APPEND, dec_instr_def]
+    >> simp ssa
     >>~- ([‘dec_indxs’   ], imp_res_tac dec_enc_indxs    \\ simp[] )
     >>~- ([‘dec_functype’], imp_res_tac dec_enc_functype \\ simp[] )
-    >>~- ([‘INR (If _ _ _)’],
-                              Cases_on ‘l0’
-                              >> gvs[Once dec_instr_def]
-                              >> simp ssa
-    )
     >>~- ([‘enc_varI’    ],
                             qspec_then ‘v’ strip_assume_tac enc_varI_nEmp_nTermB
                             \\ imp_res_tac var_cf_instr_disjoint
@@ -554,15 +542,15 @@ Proof
 QED
 
 Triviality dec_enc_expr:
-  ∀is dc encis rs. enc_expr is = SOME encis ⇒
+  ∀is encis rs dc. enc_expr is = SOME encis ⇒
   dec_instr_list dc (encis ++ rs) = (INR (endB,is), rs)
 Proof
   rw[] \\ dxrule dec_enc_instr_list \\ rw[]
 QED
 
 Triviality dec_enc_tArm:
-  ∀es ences rest. enc_tArm es = SOME ences ⇒
-  ∃tmB. dec_tArm (ences ++ rest) = (INR (tmB,es), rest)
+  ∀es ences rs. enc_tArm es = SOME ences ⇒
+  ∃tmB. dec_tArm (ences ++ rs) = (INR (tmB,es), rs)
 Proof
      rpt strip_tac
   \\ strip_assume_tac dec_enc_instructions
@@ -602,13 +590,6 @@ Proof
   rw[enc_unsigned_word_def, Once enc_num_def]
 QED
 
-Theorem enc_u32_nEmp':
-  ∀w xs. ¬(NULL $ enc_u32 w ++ xs)
-Proof
-  rw[enc_unsigned_word_def, Once enc_num_def]
-QED
-
-
 Theorem dec_enc_code:
   ∀cd encC rs.
     enc_code cd = SOME encC ⇒
@@ -617,12 +598,11 @@ Proof
   PairCases
   \\ rw[enc_code_def, AllCaseEqs(), dec_code_def]
   >-( mp_tac enc_u32_nEmp \\ simp[] )
-  \\ rewrite_tac[GSYM APPEND_ASSOC, dec_enc_u32]
+  \\ rewrite_tac $ ssaa [dec_enc_u32]
   \\ gvs[]
   \\ assume_tac dec_enc_valtype
   \\ dxrule_all dec_enc_vector \\ strip_tac
-  \\ asm_rewrite_tac[GSYM APPEND_ASSOC]
-  \\ gvs[]
+  \\ gvs ssa
   \\ dxrule dec_enc_instr_list
   \\ simp[]
 QED
@@ -726,50 +706,148 @@ QED
 (*             *)
 (***************)
 
-(* Theorem check_len_IMP_INL:
-  check_len bs xs = (INL x,bs1) ⇒ LENGTH bs1 ≤ LENGTH bs
-Proof
-  PairCases_on ‘xs’
-  \\ rw [check_len_def]
-  \\ Cases_on ‘xs0’
-    >> gvs [check_len_def,AllCaseEqs()]
-QED
 
-Triviality check_len_INR:
-  check_len bs0 y = (INR x,bs1) ⇒ ∃y1 y2. y = (INR y1,y2)
-Proof
-  gvs [oneline check_len_def, AllCaseEqs()] \\ rw [] \\ fs []
-QED
-
-Triviality check_len_INL:
-  check_len bs0 y = (INL x,bs1) ⇒ ∃y1 y2. y = (INL y1,y2)
-Proof
-  gvs [oneline check_len_def, AllCaseEqs()] \\ rw [] \\ fs []
-QED *)
 
 
 (*
 
 
-Theorem dec_instr_INL_length:
-  (∀bs x bs1. dec_instr      bs = (INL x,bs1) ⇒ LENGTH bs1 ≤ LENGTH bs) ∧
-  (∀bs x bs1. dec_instr_list bs = (INL x,bs1) ⇒ LENGTH bs1 ≤ LENGTH bs)
+
+
+Theorem shorten_failure_shortens:
+  ∀bs xs _x rs. shorten bs xs = (INL _x,rs) ⇒ lst_se rs bs
 Proof
-  ho_match_mp_tac dec_instr_ind \\ rw []
-  \\ pop_assum mp_tac
-  \\ simp [Once dec_instr_def]
-  \\ strip_tac
-  \\ gvs [AllCaseEqs()]
-  \\ imp_res_tac dec_blocktype_shortens \\ gvs []
-  \\ imp_res_tac check_len_IMP_INL \\ gvs []
-  \\ imp_res_tac check_len_INR \\ fs []
-  \\ imp_res_tac check_len_IMP \\ fs []
-  \\ cheat (* not implemented cases *)
+  Cases_on `xs` \\ Cases_on `q`
+  >> rw[shorten_def]
+  >> simp[]
 QED
 
-Theorem dec_instr_def[allow_rebind] = REWRITE_RULE [check_len_thm] dec_instr_def;
-Theorem dec_instr_ind[allow_rebind] = REWRITE_RULE [check_len_thm] dec_instr_ind;
+
+Triviality shorten_success_inversion:
+  ∀bs fbs _x rs. shorten bs fbs = (INR _x,rs) ⇒ ∃ _x frs. fbs = (INR _x,frs)
+Proof
+  gvs [oneline shorten_def, AllCaseEqs()] \\ rw [] \\ fs []
+QED
+
+
+Triviality shorten_failure_inversion:
+  ∀bs fbs _x rs. shorten bs fbs = (INL _x,rs) ⇒ ∃ _x frs. fbs = (INL _x,frs)
+Proof
+  gvs [oneline shorten_def, AllCaseEqs()] \\ rw [] \\ fs []
+QED
+
+
+
+
+Theorem dec_instructions_failure_shortens_maybe:
+  (∀e bs x rs. dec_instr_list e bs = (INL x,rs) ⇒ lst_se rs bs) ∧
+  (∀  bs x rs. dec_instr        bs = (INL x,rs) ⇒ lst_se rs bs)
+Proof
+  rpt strip_tac >> imp_res_tac dec_instructions_error >> simp[]
+QED
+
 
 
 *)
+
+
+
+(*
+
+
+
+
+
+Triviality dec_instr_shortens:
+  (∀xs x rs. dec_instr xs = (INR x,rs) ⇒ lst_st rs xs)
+Proof
+  rewrite_tac[dec_instructions_shorten]
+QED
+
+
+
+Theorem dec_expr_shortens:
+  (∀xs x rs. dec_expr xs = (INR x,rs) ⇒ lst_st rs xs)
+Proof
+  mp_tac dec_instructions_shorten
+  \\ strip_tac
+  \\ pop_assum kall_tac
+  \\ rpt strip_tac
+  \\ Cases_on ‘dec_instr_list F xs’
+  \\ Cases_on ‘q’ >> gvs[]
+  \\ Cases_on ‘y’ >> gvs[]
+  \\ first_x_assum dxrule
+  \\ gvs[]
+QED
+
+Theorem dec_tArm_shortens:
+  (∀xs x rs. dec_tArm xs = (INR x,rs) ⇒ lst_st rs xs)
+Proof
+  rewrite_tac[dec_instructions_shorten]
+QED
+
+Theorem dec_instr_short_enough:
+  ∀bs. force_shtr dec_instr bs = dec_instr bs
+Proof
+  rw[dec_instructions_short_enough]
+QED
+
+Theorem dec_instructions_short_enough:
+  ∀e bs. force_shtr (dec_instr_list e) bs = dec_instr_list e bs
+Proof
+  rw[dec_instructions_short_enough]
+QED
+
+
+
+
+
+
+
+
+
+(* for study
+MATCH_MP
+dec_vector_shortens_lt
+(dec_byte_shortens  |> INST_TYPE [alpha |-> ``:byte``])
+  \\ (qspec_then `dec_byte` assume_tac (dec_vector_shortens_lt |> INST_TYPE [alpha |-> ``:byte``]))
+*)
+
+Definition emp_module_def:
+  emp_module : module =
+  <| types   := []
+   ; funcs   := []
+   ; mems    := []
+   ; globals := []
+   ; datas   := []
+   |>
+End
+
+
+
+
+
+Theorem dec_il_end_or_else_B:
+  ∀bs e tmB x rs. dec_instr_list e bs = (INR (tmB,x),rs) ⇒ (tmB = endB ∨ tmB = elseB)
+Proof
+  Induct
+  >> simp[Once dec_instr_def, AllCaseEqs()]
+QED
+
+
+
+
+ *)
+
+
+
+
+
+
+
+
+
+
+
+
 
