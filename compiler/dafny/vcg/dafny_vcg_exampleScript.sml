@@ -89,14 +89,15 @@ val mccarthy_valid_prop = valid_vcg_prop mccarthy_vcg;
 (* Make goals actually readable *)
 val _ = max_print_depth := 20;
 
+
 Theorem mccarthy_correct:
   ^mccarthy_valid_prop
 Proof
+
   simp [forall_def, strict_locals_ok_def, state_inv_def, eval_true_def,
         eval_exp_def, all_values_def]
   \\ rpt strip_tac
   \\ ‘ALOOKUP st.locals_old «v0» = SOME (SOME val)’ by (gvs [])
-
   \\ simp [Ntimes evaluate_exp_def 2, do_sc_def]
   \\ simp [Ntimes evaluate_exp_def 5, read_local_def, do_sc_def]
   \\ simp [Ntimes evaluate_exp_def 1, do_bop_def]
@@ -106,14 +107,12 @@ Proof
   \\ simp [Ntimes evaluate_exp_def 1]
   \\ simp [Ntimes evaluate_exp_def 4, read_local_def, do_sc_def]
   \\ simp [Ntimes evaluate_exp_def 1, do_bop_def]
-
   \\ IF_CASES_TAC \\ simp []
   >- (* i > 100 *)
    (simp [evaluate_exp_def, read_local_def, do_sc_def, do_bop_def,
           do_uop_def, push_locals_def, use_old_def, do_cond_def,
           unuse_old_def, pop_locals_def, safe_drop_def]
     \\ simp [state_component_equality])
-
   \\ simp [Ntimes evaluate_exp_def 5, read_local_def, do_sc_def]
   \\ simp [Ntimes evaluate_exp_def 1, do_bop_def]
   \\ simp [Ntimes evaluate_exp_def 2, push_locals_def, pop_locals_def,
@@ -125,8 +124,42 @@ Proof
   \\ simp [Ntimes evaluate_exp_def 1, do_bop_def]
   \\ simp [Ntimes evaluate_exp_def 4, read_local_def, push_locals_def,
            pop_locals_def, safe_drop_def, do_bop_def, do_sc_def]
-
   \\ IF_CASES_TAC \\ gvs [] >- (intLib.COOPER_TAC)
-  \\ cheat
+  \\ simp [Ntimes evaluate_exp_def 3, do_sc_def]
+  \\ simp [Ntimes evaluate_exp_def 1, use_old_def]
+  \\ simp [Ntimes evaluate_exp_def 3, do_sc_def, do_bop_def, read_local_def,
+           unuse_old_def]
+  \\ IF_CASES_TAC \\ gvs [] >- (intLib.COOPER_TAC)
+  \\ simp [Ntimes evaluate_exp_def 1, use_old_def]
+  \\ simp [Ntimes evaluate_exp_def 3, do_sc_def, do_bop_def]
+  \\ simp [Ntimes evaluate_exp_def 5, do_sc_def, do_bop_def, read_local_def]
+  \\ simp [Ntimes evaluate_exp_def 3, do_sc_def, do_bop_def, push_locals_def,
+           pop_locals_def, safe_drop_def, read_local_def]
+  \\ simp [Ntimes evaluate_exp_def 4, do_sc_def, do_bop_def, read_local_def,
+           do_cond_def, use_old_def, unuse_old_def]
 
+  \\ IF_CASES_TAC \\ simp []
+  >- (spose_not_then kall_tac \\ intLib.COOPER_TAC)
+  \\ simp [Ntimes evaluate_exp_def 3, do_sc_def, do_bop_def]
+  \\ simp [Ntimes evaluate_exp_def 4, do_sc_def, do_bop_def, read_local_def]
+  \\ simp [Ntimes evaluate_exp_def 3, do_sc_def, do_bop_def, push_locals_def,
+           pop_locals_def, safe_drop_def, read_local_def]
+  \\ simp [Ntimes evaluate_exp_def 4, do_sc_def, do_bop_def, read_local_def,
+           do_cond_def, use_old_def, unuse_old_def]
+  \\ IF_CASES_TAC \\ simp [] >- (intLib.COOPER_TAC)
+  \\ simp [Ntimes evaluate_exp_def 2, set_prev_def, get_locs_def]
+
+  \\ qexists ‘111’ \\ simp []  (* todo *)
+  \\ qmatch_goalsub_abbrev_tac ‘eval_forall _ evalf’
+  \\ simp [eval_forall_def]
+
+  \\ ‘∀v. v ∈ valid_mod st.heap_old [] ⇒ SND (evalf v) = Rval (BoolV T)’ by
+    (cheat)
+  \\ IF_CASES_TAC >- (gvs [])
+  \\ IF_CASES_TAC >- (gvs [])
+  \\ simp []
+  \\ reverse IF_CASES_TAC \\ simp [] >- (intLib.COOPER_TAC)
+  \\ simp [Ntimes evaluate_exp_def 5, unset_prev_def, do_sc_def, read_local_def,
+           do_bop_def, do_uop_def]
+  \\ simp [state_component_equality]
 QED
