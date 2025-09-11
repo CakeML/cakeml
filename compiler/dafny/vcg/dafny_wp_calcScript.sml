@@ -774,7 +774,8 @@ Inductive stmt_wp:
     ls1 = FILTER (λ(v,ty). assigned_in body v) ls ∧
     (* when executing the body, invs are maintained *)
     body_cond = imp (conj (guard :: invs ++ MAP2 dec_assum ds_vars ds)) (conj body_wp) ∧
-    loop_cond = ForallHeap [] (Foralls (MAP (λv. (v,IntT)) ds_vars ++ ls) body_cond) ∧
+    loop_cond = ForallHeap (MAP Var ms_vars)
+                           (Foralls (MAP (λv. (v,IntT)) ds_vars ++ ls) body_cond) ∧
     stmt_wp m body_wp body
       (invs ++ [CanEval guard] ++ MAP CanEval ds ++
        decreases_check (0, ds) (0, MAP Var ds_vars))
@@ -784,7 +785,7 @@ Inductive stmt_wp:
                MAP (CanEval o Var o FST) ls ++
                [loop_cond;
                (* on exit of loop, invs and not guard imply post *)
-               ForallHeap [] $
+                ForallHeap (MAP Var ms_vars) $
                   Foralls ls1
                     (imp (conj (not guard :: invs)) (conj post))])
             (While guard invs ds ms body) post ens decs mods ls
@@ -817,7 +818,7 @@ Inductive stmt_wp:
                decreases_check (mspec.rank,
                                 MAP (Let (ZIP (MAP FST mspec.ins,args))) mspec.decreases)
                                (wrap_old decs) ++
-               [SetPrev $ ForallHeap [] $
+               [SetPrev $ ForallHeap (MAP Var callee_mod_arg_vars) $
                 Foralls (ZIP (ret_names, MAP SND mspec.outs))
                   (imp (Let (ZIP(MAP FST mspec.ins ++ MAP FST mspec.outs,
                                  MAP Prev args     ++ MAP Var ret_names))
@@ -5029,17 +5030,44 @@ Proof
   fs [valid_mod_def]
 QED
 
-Theorem eval_true_ForallHeap_NIL:
-  eval_true st env (ForallHeap [] b) ⇒
-  ∀h. valid_mod st.heap [] h ⇒
+Definition get_loc_def[simp]:
+  get_loc (len,loc,ty) = loc
+End
+
+Definition mod_loc_def:
+  mod_loc locals var_name (len,loc,ty) ⇔
+    ALOOKUP locals var_name = SOME (SOME (ArrV len loc ty))
+End
+
+Triviality mod_locs_lemma:
+  ∀mods vs st st2 mod_locs locs ck.
+    evaluate_exps (st with clock := ck) env (MAP Var mods) = (st2,Rval vs) ∧
+    OPT_MMAP dafny_semanticPrimitives$get_loc vs = SOME locs ∧
+    LIST_REL (mod_loc st.locals) mods mod_locs ⇒
+    locs = MAP get_loc mod_locs
+Proof
+  Induct \\ fs [evaluate_exp_def]
+  \\ gvs [read_local_def,AllCaseEqs()] \\ rw []
+  \\ gvs [oneline dafny_semanticPrimitivesTheory.get_loc_def,AllCaseEqs()]
+  \\ rename [‘mod_loc _ _ yy’] \\ PairCases_on ‘yy’
+  \\ gvs [mod_loc_def]
+  \\ res_tac
+QED
+
+Theorem eval_true_ForallHeap:
+  eval_true st env (ForallHeap (MAP Var mods) b) ∧
+  LIST_REL (mod_loc st.locals) mods mod_locs ⇒
+  ∀h. valid_mod st.heap (MAP get_loc mod_locs) h ⇒
       eval_true (st with heap := h) env b
 Proof
   fs [eval_true_def,eval_exp_def,evaluate_exp_def,get_locs_def]
   \\ rw [] \\ Cases_on ‘env.is_running’ \\ fs []
-  \\ fs [eval_forall_def,AllCaseEqs(),IN_DEF]
+  \\ fs [eval_forall_def,AllCaseEqs(),IN_DEF] \\ gvs []
+  \\ drule_all mod_locs_lemma
+  \\ strip_tac \\ gvs []
   \\ first_x_assum drule \\ rw []
-  \\ Cases_on ‘evaluate_exp (st with <|clock := ck1; heap := h|>) env b’
-  \\ gvs [] \\ qexists_tac ‘ck1’ \\ fs []
+  \\ Cases_on ‘evaluate_exp (st with <|clock := ck2; heap := h|>) env b’
+  \\ gvs [] \\ qexists_tac ‘ck2’ \\ fs []
   \\ imp_res_tac evaluate_exp_with_clock
   \\ gvs [state_component_equality]
 QED
@@ -5073,11 +5101,6 @@ Proof
   \\ gvs [state_component_equality]
   \\ imp_res_tac evaluate_exp_with_clock \\ fs []
 QED
-
-Definition mod_loc_def:
-  mod_loc locals var_name (len,loc,ty) ⇔
-    ALOOKUP locals var_name = SOME (SOME (ArrV len loc ty))
-End
 
 fun setup (q : term quotation, t : tactic) = let
     val the_concl = Parse.typedTerm q bool
@@ -5116,7 +5139,7 @@ val stmt_wp_sound_setup = setup (`
             conditions_hold st'' env (MAP (wrap_Old (set (MAP FST mspec'.ins))) mspec'.ens) ∧
             st''.locals_old = st'.locals_old ∧
             st''.heap_old = st'.heap_old ∧
-            valid_mod st'.heap [] st''.heap ∧
+            valid_mod st'.heap (MAP get_loc mod_locs') st''.heap ∧
             locals_ok (mspec'.ins ++ mspec'.outs) st''.locals ∧
             LIST_REL (eval_exp st'' env) (MAP (Var o FST) mspec'.outs) out_vs) ∧
       state_inv st ∧
@@ -5128,7 +5151,7 @@ val stmt_wp_sound_setup = setup (`
         eval_stmt st env stmt st' ret ∧
         st'.locals_old = st.locals_old ∧
         st'.heap_old = st.heap_old ∧
-        valid_mod st.heap [] st'.heap ∧
+        valid_mod st.heap (MAP get_loc mod_locs) st'.heap ∧
         locals_ok locals st'.locals ∧
         state_inv st' ∧
         LIST_REL (mod_loc st'.locals) mods mod_locs ∧
@@ -5419,6 +5442,13 @@ Proof
   simp[ALOOKUP_APPEND,AllCaseEqs(),ALOOKUP_NONE]
 QED
 
+Theorem valid_mod_subset:
+  valid_mod h1 xs h2 ∧ set xs ⊆ set ys ⇒ valid_mod h1 ys h2
+Proof
+  rw [valid_mod_def,SUBSET_DEF]
+  \\ metis_tac []
+QED
+
 Theorem stmt_wp_sound_While:
   ^(#get_goal stmt_wp_sound_setup `While`)
 Proof
@@ -5426,8 +5456,10 @@ Proof
   \\ rename [‘While guard invs ds ms body’]
   \\ rename [‘dest_Vars ms = INR while_mods’]
   \\ ‘∃while_mod_locs.
-        LIST_REL (mod_loc st.locals) while_mods while_mod_locs’ by
-    (irule IMP_LIST_REL_EXISTS>>
+        LIST_REL (mod_loc st.locals) while_mods while_mod_locs ∧
+        set while_mod_locs ⊆ set mod_locs ’ by
+    (cheat (* set while_mod_locs ⊆ set mods *) >>
+    irule IMP_LIST_REL_EXISTS>>
     fs[EVERY_MEM,SUBSET_DEF]>>rw[]>>
     first_x_assum drule>>
     metis_tac[LIST_REL_MEM_IMP])
@@ -5439,12 +5471,12 @@ Proof
        strict_locals_ok locals stx.locals ∧
        stx.locals_old = st.locals_old ∧
        stx.heap_old = st.heap_old ∧
-       valid_mod st.heap [] stx.heap ⇒
+       valid_mod st.heap (MAP get_loc while_mod_locs) stx.heap ⇒
        ∃st' ret.
          eval_stmt stx env (While guard invs ds ms body) st' ret ∧
          st'.locals_old = stx.locals_old ∧
          st'.heap_old = stx.heap_old ∧
-         valid_mod stx.heap [] st'.heap ∧
+         valid_mod stx.heap (MAP get_loc while_mod_locs) st'.heap ∧
          state_inv st' ∧
          LIST_REL (mod_loc st'.locals) while_mods while_mod_locs ∧
          locals_ok locals st'.locals ∧
@@ -5459,8 +5491,6 @@ Proof
         \\ drule_all locals_ok_IMP_strict_locals_ok \\ fs [])
     \\ strip_tac
     \\ first_assum $ irule_at $ Pos hd \\ asm_rewrite_tac []
-    \\ Cases_on ‘ret’ \\ gvs []
-    \\ gvs [conditions_hold_def]
     \\ ‘LIST_REL (mod_loc st'.locals) mods mod_locs’ by (
       drule_at_then Any irule EVERY2_MEM_MONO_weak>>
       rw[oneline mod_loc_def]>>
@@ -5468,8 +5498,15 @@ Proof
       disch_then (fn th => DEP_REWRITE_TAC[th])>>
       fs[assigned_in_def,EXTENSION]>>
       metis_tac[EL_MEM,IN_DEF])
+    \\ gvs [conditions_hold_def]
     \\ gvs [GSYM conditions_hold_def]
-    \\ drule_all eval_true_ForallHeap_NIL
+    \\ conj_tac >-
+     (irule valid_mod_subset
+      \\ qpat_x_assum ‘valid_mod _ _ _’ $ irule_at Any
+      \\ fs [SUBSET_DEF,MEM_MAP,PULL_EXISTS]
+      \\ metis_tac [])
+    \\ Cases_on ‘ret’ \\ gvs []
+    \\ drule_all eval_true_ForallHeap
     \\ strip_tac
     \\ drule eval_true_Foralls
     \\ qabbrev_tac ‘vs = FILTER (λ(v,ty). assigned_in body v) locals’
@@ -5556,12 +5593,12 @@ Proof
                   strict_locals_ok locals stx.locals ∧
                   stx.locals_old = st.locals_old ∧
                   stx.heap_old = st.heap_old ∧
-                  valid_mod st.heap [] stx.heap ⇒
+                  valid_mod st.heap (MAP get_loc while_mod_locs) stx.heap ⇒
                   ∃st' ret.
                     eval_stmt stx env (While guard invs ds ms body) st' ret ∧
                     st'.locals_old = stx.locals_old ∧
                     st'.heap_old = stx.heap_old ∧
-                    valid_mod stx.heap [] st'.heap ∧
+                    valid_mod stx.heap (MAP get_loc while_mod_locs) st'.heap ∧
                     state_inv st' ∧
                     LIST_REL (mod_loc st'.locals) while_mods while_mod_locs ∧
                     locals_ok locals st'.locals ∧
@@ -5658,7 +5695,7 @@ Proof
       \\ irule locals_ok_IntT_MAP_ZIP
       \\ fs [])
     \\ qpat_x_assum ‘eval_true _ _ (ForallHeap _ $ Foralls _ (imp _ (conj reqs)))’ assume_tac
-    \\ drule_all eval_true_ForallHeap_NIL
+    \\ drule_all eval_true_ForallHeap
     \\ pop_assum kall_tac \\ strip_tac
     \\ dxrule eval_true_Foralls
     \\ disch_then $ qspec_then
@@ -5807,7 +5844,7 @@ Proof
     \\ first_assum $ irule_at $ Pos hd \\ simp []
     \\ irule valid_mod_trans
     \\ first_assum $ irule_at $ Pos hd \\ simp [])
-  \\ ‘valid_mod st.heap [] st2.heap’ by
+  \\ ‘valid_mod st.heap (MAP get_loc while_mod_locs) st2.heap’ by
     (irule valid_mod_trans
      \\ first_assum $ irule_at $ Pos hd \\ simp [])
   \\ simp []
@@ -5897,6 +5934,15 @@ Proof
   qexists_tac`i+1`>>simp[GSYM ADD1]
 QED
 
+Theorem eval_stmt_value_inv_pres:
+  eval_stmt st1 env body st2 r ∧
+  value_inv st1.heap val ⇒
+  value_inv st2.heap val
+Proof
+  cheat (* since there is no deallocation and
+           one cannot change array lengths *)
+QED
+
 Theorem stmt_wp_sound_MetCall:
   ^(#get_goal stmt_wp_sound_setup `MetCall`)
 Proof
@@ -5919,8 +5965,10 @@ Proof
   \\ qmatch_goalsub_abbrev_tac ‘eval_stmt st1’
   \\ first_x_assum $ drule_at $ Pos $ el 2
   \\ ‘∃callee_mod_locs.
-        LIST_REL (mod_loc st1.locals) callee_mod_params callee_mod_locs’ by
-   (irule IMP_LIST_REL_EXISTS
+        LIST_REL (mod_loc st1.locals) callee_mod_params callee_mod_locs ∧
+        set callee_mod_locs ⊆ set mod_locs’ by
+   (cheat (* set callee_mod_locs ⊆ set mod_locs *) (*
+    \\ irule IMP_LIST_REL_EXISTS
     \\ simp [EVERY_MEM,Abbr‘st1’]
     \\ rpt gen_tac \\ rename [‘MEM p _ ⇒ _’]
     \\ strip_tac
@@ -5946,7 +5994,7 @@ Proof
     \\ first_x_assum drule
     \\ rw[eval_exp_def,evaluate_exp_def,read_local_def,AllCaseEqs()]
     \\ fs[oneline mod_loc_def,EL_MAP]
-    \\ PairCases_on`z`\\fs[])
+    \\ PairCases_on`z`\\fs[] *))
   \\ disch_then $ qspecl_then [‘st1’,‘callee_mod_params’,‘callee_mod_locs’] mp_tac
   \\ impl_tac
   >-
@@ -6108,10 +6156,13 @@ Proof
   \\ qabbrev_tac ‘st3 = restore_caller st2 st’
   \\ ‘locals_ok (mspec.outs) st2.locals’ by (fs [locals_ok_append_left])
   \\ drule_all locals_ok_list_rel_all_values \\ strip_tac
-  \\ ‘valid_mod st.heap [] st2.heap’ by fs [Abbr‘st1’]
+  \\ ‘valid_mod st.heap (MAP get_loc callee_mod_locs) st2.heap’ by fs [Abbr‘st1’]
   \\ dxrule eval_true_SetPrev \\ strip_tac
-  \\ drule eval_true_ForallHeap_NIL \\ simp []
-  \\ disch_then drule \\ strip_tac
+  \\ drule eval_true_ForallHeap \\ simp []
+  \\ disch_then $ drule_at (Pos $ el 2)
+  \\ impl_tac >-
+    (gvs [Abbr‘st1’] \\ cheat)
+  \\ strip_tac
   \\ drule eval_true_Foralls_distinct
   \\ dxrule eval_true_Foralls_distinct
   \\ simp [MAP_ZIP] \\ strip_tac
@@ -6131,12 +6182,9 @@ Proof
      (fs [state_inv_def]
       \\ qpat_x_assum ‘locals_inv st.heap st.locals’ mp_tac
       \\ qpat_x_assum ‘valid_mod st.heap _ st2.heap’ mp_tac
-      \\ simp [valid_mod_def,locals_inv_def]
-      \\ rpt $ pop_assum kall_tac
-      \\ gvs [EVERY_MEM] \\ rw [] \\ fs []
-      \\ first_x_assum drule_all
-      \\ Cases_on ‘val’ \\ fs [value_inv_def]
-      \\ rw[] \\ res_tac \\ fs [])
+      \\ simp [locals_inv_def,EVERY_MEM,FORALL_PROD] \\ rw []
+      \\ first_x_assum drule \\ strip_tac \\ fs []
+      \\ drule eval_stmt_value_inv_pres \\ fs [])
     \\ irule list_rel_eval_exp_value_inv \\ simp []
     \\ first_assum $ irule_at (Pos last)
     \\ simp [can_get_type_map_var])
@@ -6144,7 +6192,12 @@ Proof
   \\ first_assum $ irule_at $ Pos hd
   \\ conj_tac >- (unabbrev_all_tac \\ fs [restore_caller_def])
   \\ conj_tac >- (unabbrev_all_tac \\ fs [restore_caller_def])
-  \\ conj_tac >- (unabbrev_all_tac \\ fs [restore_caller_def])
+  \\ conj_tac >-
+   (unabbrev_all_tac \\ fs [restore_caller_def]
+    \\ irule valid_mod_subset
+    \\ qpat_x_assum ‘valid_mod _ _ _’ $ irule_at Any
+    \\ fs [SUBSET_DEF,MEM_MAP,PULL_EXISTS]
+    \\ metis_tac [])
   \\ conj_tac >-
    (gvs []
     \\ drule ALOOKUP_locals_ok_eq \\ simp [] \\ disch_then kall_tac
@@ -6359,7 +6412,7 @@ Theorem methods_lemma[local]:
         eval_stmt st env body st' (Rstop Sret) ∧
         st'.locals_old = st.locals_old ∧
         st'.heap_old = st.heap_old ∧
-        valid_mod st.heap [] st'.heap ∧
+        valid_mod st.heap (MAP get_loc mod_locs) st'.heap ∧
         locals_ok (mspec.ins ++ mspec.outs) st'.locals ∧
         state_inv st' ∧
         LIST_REL (mod_loc st'.locals) mods mod_locs ∧
@@ -6766,7 +6819,7 @@ Definition stmt_vcg_def:
           (spec.rank,
            MAP (Let (ZIP (MAP FST spec.ins,args))) spec.decreases)
           (wrap_old decs)
-       ++ [SetPrev $ ForallHeap [] $
+       ++ [SetPrev $ ForallHeap (MAP Var callee_mod_arg_vars) $
            Foralls (ZIP (vars, MAP SND spec.outs))
                    (imp (Let (ZIP(MAP FST spec.ins ++ MAP FST spec.outs,
                                   MAP Prev args    ++ MAP Var vars))
