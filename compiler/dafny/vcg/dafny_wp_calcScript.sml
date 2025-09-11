@@ -6342,10 +6342,9 @@ Proof
   \\ ‘valid_mod st.heap (MAP get_loc callee_mod_locs) st2.heap’ by fs [Abbr‘st1’]
   \\ dxrule eval_true_SetPrev \\ strip_tac
   \\ drule eval_true_ForallHeap \\ simp []
-  \\ disch_then $ drule_at (Pos $ el 2)
-  \\ impl_tac >-
-    (* not true *)
-    (gvs [Abbr‘st1’] \\ cheat)
+  \\ ‘LIST_REL (mod_loc st.locals) callee_mod_arg_vars callee_mod_locs’ by cheat
+  \\ disch_then drule
+  \\ disch_then drule
   \\ strip_tac
   \\ drule eval_true_Foralls_distinct
   \\ dxrule eval_true_Foralls_distinct
