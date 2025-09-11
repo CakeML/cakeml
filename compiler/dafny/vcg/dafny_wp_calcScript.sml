@@ -781,9 +781,10 @@ Inductive stmt_wp:
       ens decs ms_vars (MAP (λv. (v,IntT)) ds_vars ++ ls)
     ⇒
     stmt_wp m (invs ++ [CanEval guard] ++ MAP CanEval ds ++
-               MAP (CanEval o Var o FST) ls ++ [loop_cond] ++
+               MAP (CanEval o Var o FST) ls ++
+               [loop_cond;
                (* on exit of loop, invs and not guard imply post *)
-               [ForallHeap [] $
+               ForallHeap [] $
                   Foralls ls1
                     (imp (conj (not guard :: invs)) (conj post))])
             (While guard invs ds ms body) post ens decs mods ls
@@ -6517,40 +6518,54 @@ Definition stmt_vcg_def:
             (fail «stmt_vcg:Assign: lhs and rhs types do not match»);
     return [Let (ZIP (vars, es)) (conj post)]
   od ∧
-(*
-  stmt_vcg m (While guard invs ds mods body) post ens decs ls =
+  stmt_vcg m (While guard invs ds ms body) post ens decs (mods:mlstring list) ls =
   do
     (* Inventing variables; after freshen, this should always succeed *)
     ds_vars <<- gen_ds_vars ds;
     () <- if list_disjoint ds_vars
                (MAP FST ls ++ FLAT (MAP get_vars_exp ens) ++
-                get_vars_stmt (While guard invs ds mods body))
+                get_vars_stmt (While guard invs ds ms body))
           then return ()
           else (fail «stmt_vcg:While: Invented variable not unique»);
+    () <- if list_disjoint ds_vars mods
+          then return ()
+          else (fail «stmt_vcg:While: Invented variable overlaps mods»);
+    assigned_in_body <<- find_assigned_in body;
+    ms_vars <- dest_Vars ms;
     body_wp <- stmt_vcg m body
                  (invs ++ [CanEval guard] ++ MAP CanEval ds ++
                   decreases_check (0,ds) (0,MAP Var ds_vars))
-                 ens decs (MAP (λv. (v,IntT)) ds_vars ++ ls);
+                 ens decs (ms_vars: mlstring list) (MAP (λv. (v,IntT)) ds_vars ++ ls);
     body_cond <<-
       imp (conj (guard::invs ++ MAP2 dec_assum ds_vars ds)) (conj body_wp);
     () <- if list_subset (freevars_list body_cond) (ds_vars ++ MAP FST ls)
           then return ()
           else (fail «stmt_vcg:While: Body condition has illegal free variables»);
-    () <- if list_subset (find_assigned_in body) (MAP FST ls) then return ()
+    () <- if list_subset (assigned_in_body) (MAP FST ls) then return ()
           else (fail «stmt_vcg:While: Body is assigning to undeclared variables»);
+    () <- if  EVERY (λv. ¬MEM v assigned_in_body) mods
+          then return ()
+          else (fail «stmt_vcg:While: Body is assigning to mods»);
     guard_ty <- get_type ls guard;
     () <- if guard_ty = BoolT then return ()
           else (fail «stmt_vcg:While: Guard is not a boolean»);
     () <- if EVERY (λd. get_type ls d = INR IntT) ds then return ()
           else (fail «stmt_vcg:While: Not all decreases are integers»);
+    () <- if list_subset ms_vars mods
+          then return () else
+          (fail «stmt_vcg:While: annotated mods not subset of mods»);
+    () <- if EVERY (no_Prev T) body_wp ∧ EVERY (no_Prev T) ds ∧
+             EVERY (no_Prev T) invs ∧ EVERY (no_Prev T) post ∧
+             EVERY (no_Prev T) (SND decs) ∧ no_Prev T guard
+          then return ()
+          else (fail «stmt_vcg:While: Bad use of Prev»);
     ls1 <<- FILTER (λ(v,ty). assigned_in body v) ls;
-    loop_cond <<- Foralls (MAP (λv. (v,IntT)) ds_vars ++ ls) body_cond;
+    loop_cond <<- ForallHeap [] (Foralls (MAP (λv. (v,IntT)) ds_vars ++ ls) body_cond);
     return
       (invs ++ [CanEval guard] ++ MAP CanEval ds ++
        MAP (CanEval ∘ Var ∘ FST) ls ++
-       [loop_cond; Foralls ls1 (imp (conj (not guard::invs)) (conj post))])
+       [loop_cond; ForallHeap [] (Foralls ls1 (imp (conj (not guard::invs)) (conj post)))])
   od ∧
-*)
   stmt_vcg m (MetCall lhss name args) post ens decs mods ls =
   do
     method <- find_met name m;
@@ -6667,9 +6682,14 @@ Proof
     \\ gvs [oneline bind_def, CaseEq "sum"]
     \\ irule stmt_wp_While
     \\ gvs [LIST_TO_SET_SUBSET, set_find_assigned_in]
-    \\ qexistsl [‘body_wp’, ‘gen_ds_vars ds’]
+    \\ CONJ_TAC >- (
+      fs[SUBSET_DEF,EXTENSION,EVERY_MEM]>>
+      metis_tac[])
+    \\ qexistsl [‘T’, ‘body_wp’, ‘gen_ds_vars ds’]
     \\ simp [ALL_DISTINCT_gen_ds_vars, LENGTH_gen_ds_vars]
-    \\ gvs [LIST_TO_SET_DISJOINT, freevars_list_eq])
+    \\ gvs [LIST_TO_SET_DISJOINT, freevars_list_eq]
+    \\ fs[DISJOINT_DEF]
+    )
   >~ [‘MetCall’] >-
    (gvs [stmt_vcg_def]
     \\ gvs [oneline bind_def, CaseEq "sum"]
