@@ -67,6 +67,8 @@ Definition freshen_exp_def:
        (cnt, Forall (lookup m old, vt) e)) ∧
   freshen_exp m m_old m_prev cnt (Old e) =
     (let (cnt, e) = freshen_exp m_old m_old m_prev cnt e in (cnt, Old e)) ∧
+  freshen_exp m m_old m_prev cnt (OldHeap e) =
+    (let (cnt, e) = freshen_exp m m_old m_prev cnt e in (cnt, OldHeap e)) ∧
   freshen_exp m m_old m_prev cnt (ForallHeap mods term) =
   (let (cnt, mods) = freshen_exps m m_old m_prev cnt mods in
    let (cnt, term) = freshen_exp m m_old m_prev cnt term in

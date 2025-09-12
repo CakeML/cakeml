@@ -987,6 +987,17 @@ Proof
     \\ irule map_inv_mono
     \\ last_assum $ irule_at (Pos last)
     \\ imp_res_tac freshen_exp_mono)
+  >~ [‘OldHeap e’] >-
+   (gvs [evaluate_exp_def, freshen_exp_def, AllCaseEqs()]
+    \\ pairarg_tac \\ gvs []
+    \\ last_x_assum $ drule_at (Pos last)
+    \\ disch_then $ drule_at (Pos last)
+    \\ disch_then $ qspec_then ‘use_old_heap t’ mp_tac
+    \\ impl_tac >-
+     (gvs [state_rel_def, use_old_heap_def])
+    \\ rpt strip_tac \\ simp [evaluate_exp_def]
+    \\ ‘env'.is_running = env.is_running’ by (gvs [env_rel_def]) \\ gvs []
+    \\ gvs [state_rel_def, unuse_old_heap_def])
   >~ [‘Prev e’] >-
    (gvs [evaluate_exp_def, freshen_exp_def, AllCaseEqs()]
     \\ pairarg_tac \\ gvs []
@@ -1708,6 +1719,7 @@ Definition is_fresh_exp_def[simp]:
   (is_fresh_exp (Forall (name, _) term) ⇔
      is_fresh name ∧ is_fresh_exp term) ∧
   (is_fresh_exp (Old e) ⇔ is_fresh_exp e) ∧
+  (is_fresh_exp (OldHeap e) ⇔ is_fresh_exp e) ∧
   (is_fresh_exp (Let vars body) ⇔
      EVERY (λn. is_fresh n) (MAP FST vars) ∧
      EVERY (λe. is_fresh_exp e) (MAP SND vars) ∧
@@ -2085,4 +2097,3 @@ Proof
   \\ conj_tac >- (gvs [ALL_DISTINCT_APPEND])
   \\ gvs [UNION_COMM]
 QED
-
