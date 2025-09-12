@@ -6465,8 +6465,16 @@ Proof
   >~ [‘SetPrev’] >- gvs[no_Prev_def]
   >~ [‘Let’] >-
    (gvs [replace_OldHeap_def,no_Prev_def,no_Old_def, SF ETA_ss,evaluate_exp_def]
-    \\ rpt (pairarg_tac \\ gvs [])
-    \\ cheat)
+    \\ gvs [UNZIP_MAP,MAP_MAP_o,o_DEF,LAMBDA_PROD,FST_pair]
+    \\ gvs [CaseEq"bool",CaseEq"prod"]
+    \\ rename [‘evaluate_exps st env _ = (sttt,vv)’]
+    \\ reverse $ Cases_on ‘vv’ \\ fs [] \\ gvs []
+    \\ gvs [push_locals_def]
+    \\ rpt (pairarg_tac \\ gvs []) \\ gvs []
+    \\ ‘sttt.heap_old = st.heap_old’ by
+       (imp_res_tac evaluate_exp_with_clock
+        \\ gvs [state_component_equality])
+    \\ gvs [pop_locals_def,AllCaseEqs()])
   >~ [‘ForallHeap’] >-
    (gvs [replace_OldHeap_def,no_Prev_def,no_Old_def, SF ETA_ss,evaluate_exp_def]
     \\ gvs [CaseEq"bool",CaseEq"prod"]
