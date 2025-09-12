@@ -5578,8 +5578,8 @@ Proof
     (drule ALOOKUP_MEM \\ strip_tac
      \\ fs [state_inv_def,locals_inv_def,EVERY_MEM]
      \\ res_tac \\ fs [])
-  \\ ‘LLOOKUP st.heap loc = SOME (HArr arr el_ty) ∧ LENGTH arr = len’ by
-    cheat (* fs [value_inv_def] *)
+  \\ ‘∃arr. LLOOKUP st.heap loc = SOME (HArr arr el_ty) ∧ LENGTH arr = len’ by
+    fs [value_inv_def]
   \\ gvs []
   \\ ‘mod_loc st.locals arr_v (LENGTH arr,loc,el_ty)’ by gvs [mod_loc_def]
   \\ ‘∃i. eval_exp st env index_e (IntV (& i)) ∧ i < LENGTH arr’ by
@@ -5632,6 +5632,7 @@ Proof
       >-
        (rw [oEL_LUPDATE] \\ PairCases_on ‘l’ \\ gvs []
         \\ IF_CASES_TAC >- (res_tac \\ gvs [])
+        \\ fs [oEL_THM]
         \\ cheat (* value_inv *))
       \\ gvs [heap_inv_def]
       \\ cheat (* heap_inv *))
@@ -6430,12 +6431,42 @@ Proof
     imp_res_tac evaluate_exp_with_clock \\ gvs [])
 QED
 
+Theorem no_Old_IMP_no_Old_replace_OldHeap:
+  ∀e. no_Old T e ⇒ no_Old F (replace_OldHeap e)
+Proof
+  ho_match_mp_tac replace_OldHeap_ind>>
+  rw[replace_OldHeap_def,no_Old_def,EVERY_MEM,MEM_MAP]
+  >- metis_tac[]
+  >- (
+    gvs[PULL_EXISTS,FORALL_PROD]>>
+    pairarg_tac>>gvs[]>>
+    metis_tac[])
+  >- metis_tac[]
+QED
+
 Theorem IMP_eval_exp_replace_OldHeap:
   eval_exp (st with <| heap_old := st.heap_prev |>) env e res ∧
   no_Prev F e ∧ no_Old T e ⇒
   eval_exp st env (replace_OldHeap e) res
 Proof
-  cheat
+  rw [] \\ gvs [eval_exp_def]
+  \\ drule_all (evaluate_exp_replace_OldHeap |> SRULE [] |> cj 1) \\ fs []
+  \\ strip_tac
+  \\ qexistsl [‘ck1’,‘ck2’]
+  \\ drule (evaluate_exp_no_old |> cj 1)
+  \\ disch_then $ qspecl_then [‘st.heap_old’,‘st.locals_old’] mp_tac
+  \\ impl_tac
+  >- simp [no_Old_IMP_no_Old_replace_OldHeap]
+  \\ fs []
+  \\ ‘st with
+      <|clock := ck1; locals_old := st.locals_old;
+        heap_old := st.heap_old; heap_prev := st.heap_prev|> =
+      st with clock := ck1’ by simp [state_component_equality]
+  \\ ‘st with
+      <|clock := ck2; locals_old := st.locals_old;
+        heap_old := st.heap_old; heap_prev := st.heap_prev|> =
+      st with clock := ck2’ by simp [state_component_equality]
+  \\ fs []
 QED
 
 Theorem IMP_eval_exp_replace_OldHeap_lemma:
