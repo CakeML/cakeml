@@ -22,6 +22,20 @@ Definition v_to_string_def:
   v_to_string _ = IO_event (ExtCall "scheme_out") (MAP (n2w o ORD) "other") []
 End
 
+Theorem imp_semantics_prog:
+  evaluate_decs (st with clock := ck) env p = (st1, Rval r) ∧
+  st1.ffi.io_events = out ⇒
+  semantics_prog st env p (Terminate Success out)
+Proof
+  fs [semantics_prog_def,evaluate_prog_with_clock_def] \\ rw []
+  \\ qexists_tac ‘ck’ \\ simp []
+QED
+
+Definition start_up_def:
+  start_up = scheme_basis_types ++ scheme_basis ++
+             [scheme_basis_list; scheme_basis_app]
+End
+
 fun abbrev_conv name tm =
   let
     val v = mk_var(name,type_of tm)
@@ -30,13 +44,92 @@ fun abbrev_conv name tm =
     SYM def
   end
 
-Theorem evaluate_decs_scheme_startup =
+Theorem evaluate_decs_start_up =
   “evaluate_decs
      (FST (THE (prim_sem_env ffi)) with clock := ck)
      (SND (THE (prim_sem_env ffi)))
-     (scheme_basis_types ++ scheme_basis ++ [scheme_basis_list; scheme_basis_app])”
+     start_up”
   |> (SCONV [prim_sem_env_eq] THENC EVAL)
-  |> CONV_RULE (PATH_CONV "rrr" (abbrev_conv "brack_env"))
+  |> CONV_RULE (PATH_CONV "rrrlrr" (abbrev_conv "brack_env_v"))
+  |> CONV_RULE (PATH_CONV "rrrrlrr" (abbrev_conv "brack_env_c"))
+
+val brack_env_c_def = definition "brack_env_c_def";
+
+Definition brack_env_def:
+  brack_env = <|v := brack_env_v; c := brack_env_c|>
+End
+
+Theorem every_one_con_check:
+  every_exp
+    (one_con_check
+     (<| v := brack_env_v; c := brack_env_c|> +++
+              SND (THE (prim_sem_env st'.ffi))).c)
+     (cps_transform prog "k")
+Proof
+  simp [semanticPrimitivesTheory.extend_dec_env_def]
+  \\ rewrite_tac [prim_sem_env_eq, brack_env_def,
+                  LIST_CONJ (TypeBase.accessors_of “:'a sem_env”)]
+  \\ simp [namespaceTheory.nsAppend_def,brack_env_c_def]
+  \\ cheat (* proving the compiler doesn't produce bas conses *)
+QED
+
+Theorem steps_eq_FUNPOW_step:
+  ∀n s. steps n s = FUNPOW step n s
+Proof
+  Induct \\ simp [Once steps_def,FUNPOW]
+QED
+
+Theorem scheme_imp_cake:
+  codegen prog = INR cake_code ∧
+  static_scope ∅ prog ∧
+  scheme_semantics_prog prog (STerminate res)
+  ⇒
+  semantics_prog
+    (FST (THE (prim_sem_env ffi)))
+    (SND (THE (prim_sem_env (ffi:'ffi ffi_state))))
+    cake_code (Terminate Success [v_to_string res])
+Proof
+  rewrite_tac [scheme_semantics_prog_def,codegen_def,APPEND_ASSOC]
+  \\ rewrite_tac [GSYM start_up_def] \\ rw []
+  \\ irule imp_semantics_prog
+  \\ rewrite_tac [evaluate_decs_append]
+  \\ simp [evaluate_decs_start_up]
+  \\ simp [CaseEq"prod",CaseEq"result",PULL_EXISTS,combine_dec_result_def]
+  \\ simp [Once evaluate_decs_def]
+  \\ simp [Once evaluate_decs_def]
+  \\ simp [astTheory.pat_bindings_def,every_one_con_check]
+  \\ fs [steps_eq_FUNPOW_step]
+  \\ qabbrev_tac ‘st0 = λ ck.
+                  <|clock := ck; refs := [];
+                    ffi := (ffi:'ffi ffi_state);
+                    next_type_stamp := 5;
+                    next_exn_stamp := 4;
+                    fp_state :=
+                    <|rws := []; opts := (λx. []); choices := 0;
+                      canOpt := Strict; real_sem := F|>;
+                    eval_state := NONE|>’
+  \\ simp []
+  \\ simp [evaluate_def,compile_scheme_prog_def,namespaceTheory.nsOptBind_def]
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate _ env [e]’ \\ simp []
+  \\ drule value_terminating
+  \\ simp [scheme_semanticsPropsTheory.valid_state_cases,
+           scheme_semanticsPropsTheory.can_lookup_cases]
+  \\ simp [Once scheme_semanticsPropsTheory.valid_cont_cases]
+  \\ simp [FEVERY_DEF,pmatch_def]
+  \\ simp [Once cont_rel_cases,PULL_EXISTS]
+  \\ disch_then $ qspecl_then [‘e’,‘st0 0’,‘env’] mp_tac
+  \\ simp [Abbr‘st0’]
+  \\ simp [Once cps_rel_cases]
+  \\ simp [Abbr‘env’,combine_dec_result_def]
+  \\ impl_tac
+  >- cheat (* proving envs *)
+  \\ strip_tac
+  \\ qexists_tac ‘ck’ \\ fs []
+  \\ qpat_x_assum ‘_ = (_,Rval [_])’ kall_tac
+  \\ gvs [Abbr‘e’,every_one_con_check]
+  \\ cheat (* not too bad *)
+QED
+
 
 (*
 
