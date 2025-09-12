@@ -6159,7 +6159,11 @@ QED
 Theorem no_Old_replace_Old:
   ∀y. no_Old (replace_Old y)
 Proof
-  cheat
+  ho_match_mp_tac replace_Old_ind>>
+  rw[replace_Old_def,no_Old_def,EVERY_MEM,MEM_MAP]
+  >- metis_tac[]
+  >- (pairarg_tac>>fs[]>>metis_tac[])
+  >- metis_tac[]
 QED
 
 Theorem conj_replace_Old:
