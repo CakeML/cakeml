@@ -6819,48 +6819,47 @@ Proof
   \\ qmatch_goalsub_abbrev_tac ‘eval_exp (_ with locals := l1) _ _ _ ⇒ _’
   \\ qmatch_goalsub_abbrev_tac ‘_ ⇒ eval_exp (_ with locals := l2) _ _ _’
   \\ strip_tac
-
-  \\ cheat (* TODO irule with the correct thing *)
-
-  (* \\ irule eval_exp_no_old_IMP *)
-  (* \\ conj_tac *)
-  (* >- (simp [no_Old_conj,EVERY_MEM,MEM_MAP,PULL_EXISTS,no_Old_replace_OldHeap]) *)
-  (* \\ qexists_tac ‘st2.heap_old’ *)
-  (* \\ qexists_tac ‘st2.locals_old’ *)
-  (* \\ rewrite_tac [conj_replace_OldHeap] *)
-  (* \\ irule IMP_eval_exp_replace_OldHeap_lemma *)
-  (* \\ conj_tac *)
-  (* >- (gvs [EVERY_MEM,no_Prev_conj]) *)
-  (* \\ qexistsl [‘st2.heap_prev’,‘st2.locals_prev’] *)
-  (* \\ simp [] *)
-  (* \\ irule eval_exp_swap_state *)
-  (* \\ qexists_tac ‘st2 with locals := l2’ *)
-  (* \\ conj_tac *)
-  (* >- gvs [state_component_equality,Abbr‘st1’] *)
-  (* \\ pop_assum mp_tac *)
-  (* \\ match_mp_tac EQ_IMPLIES *)
-  (* \\ irule_at (Pos hd) eval_exp_freevars *)
-  (* \\ simp [freevars_conj] *)
-  (* \\ rpt strip_tac *)
-  (* \\ qpat_x_assum ‘EVERY _ mspec.ens’ mp_tac *)
-  (* \\ simp [EVERY_MEM] *)
-  (* \\ disch_then drule *)
-  (* \\ simp [SUBSET_DEF] *)
-  (* \\ strip_tac *)
-  (* \\ fs [Abbr‘l1’,Abbr‘l2’] *)
-  (* \\ simp [ALOOKUP_APPEND] *)
-  (* \\ DEP_REWRITE_TAC [alookup_distinct_reverse] *)
-  (* \\ DEP_REWRITE_TAC [GSYM rich_listTheory.ZIP_APPEND] \\ fs [] *)
-  (* \\ simp [ALOOKUP_APPEND] *)
-  (* \\ simp [MAP_ZIP |> UNDISCH |> CONJUNCTS |> hd |> DISCH_ALL] *)
-  (* \\ CASE_TAC \\ fs [] *)
-  (* \\ pop_assum mp_tac *)
-  (* \\ simp [ALOOKUP_NONE,MAP_ZIP] \\ strip_tac *)
-  (* \\ first_x_assum drule \\ simp [] *)
-  (* \\ strip_tac *)
-  (* \\ fs [ALL_DISTINCT_APPEND] *)
-  (* \\ drule_all read_out_lemma *)
-  (* \\ strip_tac \\ fs [] *)
+  \\ irule eval_exp_no_old_IMP
+  \\ conj_tac
+  >- cheat (* (simp [no_Old_conj,EVERY_MEM,MEM_MAP,PULL_EXISTS,no_Old_replace_OldHeap]) *)
+  \\ qexists_tac ‘st2.heap_old’
+  \\ qexists_tac ‘st2.locals_old’
+  \\ rewrite_tac [conj_replace_OldHeap]
+  \\ irule IMP_eval_exp_replace_OldHeap_lemma
+  \\ conj_tac
+  >- cheat (* (gvs [EVERY_MEM,no_Prev_conj]) *)
+  \\ conj_tac
+  >- cheat (* (gvs [EVERY_MEM,no_Prev_conj]) *)
+  \\ qexistsl [‘st2.heap_prev’,‘st2.locals_prev’]
+  \\ simp []
+  \\ irule eval_exp_swap_state
+  \\ qexists_tac ‘st2 with locals := l2’
+  \\ conj_tac
+  >- gvs [state_component_equality,Abbr‘st1’]
+  \\ pop_assum mp_tac
+  \\ match_mp_tac EQ_IMPLIES
+  \\ irule_at (Pos hd) eval_exp_freevars
+  \\ simp [freevars_conj]
+  \\ rpt strip_tac
+  \\ qpat_x_assum ‘EVERY _ mspec.ens’ mp_tac
+  \\ simp [EVERY_MEM]
+  \\ disch_then drule
+  \\ simp [SUBSET_DEF]
+  \\ strip_tac
+  \\ fs [Abbr‘l1’,Abbr‘l2’]
+  \\ simp [ALOOKUP_APPEND]
+  \\ DEP_REWRITE_TAC [alookup_distinct_reverse]
+  \\ DEP_REWRITE_TAC [GSYM rich_listTheory.ZIP_APPEND] \\ fs []
+  \\ simp [ALOOKUP_APPEND]
+  \\ simp [MAP_ZIP |> UNDISCH |> CONJUNCTS |> hd |> DISCH_ALL]
+  \\ CASE_TAC \\ fs []
+  \\ pop_assum mp_tac
+  \\ simp [ALOOKUP_NONE,MAP_ZIP] \\ strip_tac
+  \\ first_x_assum drule \\ simp []
+  \\ strip_tac
+  \\ fs [ALL_DISTINCT_APPEND]
+  \\ drule_all read_out_lemma
+  \\ strip_tac \\ fs []
 QED
 
 Theorem stmt_wp_sound:
