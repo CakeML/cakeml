@@ -148,6 +148,9 @@ val fromString_side = Q.prove(
 
 val _ = next_ml_names := ["fromNatString"];
 val result = translate fromNatString_def;
+(* ABS *)
+val _ = next_ml_names := ["abs"];
+val res = translate integerTheory.INT_ABS
 
 (* GCD *)
 
