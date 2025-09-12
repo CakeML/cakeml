@@ -682,6 +682,36 @@ Termination
   \\ gvs []
 End
 
+Definition replace_Old_def:
+  (replace_Old (Old e) = PrevHeap (replace_Old e)) ∧
+  (replace_Old (Lit l) = Lit l) ∧
+  (replace_Old (Var v) = Var v) ∧
+  (replace_Old (Prev e) = replace_Old e) ∧
+  (replace_Old (PrevHeap e) = replace_Old e) ∧
+  (replace_Old (SetPrev e) = replace_Old e) ∧
+  (replace_Old (If tst thn els) =
+     If (replace_Old tst) (replace_Old thn) (replace_Old els)) ∧
+  (replace_Old (UnOp u e) = UnOp u (replace_Old e)) ∧
+  (replace_Old (BinOp b e₀ e₁) =
+     BinOp b (replace_Old e₀) (replace_Old e₁)) ∧
+  (replace_Old (ArrLen arr) = ArrLen (replace_Old arr)) ∧
+  (replace_Old (ArrSel arr idx) = ArrSel (replace_Old arr) (replace_Old idx)) ∧
+  (replace_Old (FunCall f args) = FunCall f (MAP replace_Old args)) ∧
+  (replace_Old (Forall v term) = Forall v (replace_Old term)) ∧
+  (replace_Old (Let binds body) =
+     Let (MAP (λ(v,e). (v, replace_Old e)) binds) (replace_Old body)) ∧
+  (replace_Old (ForallHeap mods e) =
+     ForallHeap (MAP replace_Old mods) (replace_Old e))
+Termination
+  wf_rel_tac ‘measure $ exp_size’
+  \\ rpt strip_tac
+  \\ gvs [list_size_pair_size_MAP_FST_SND]
+  \\ rewrite_tac [list_exp_size_snd]
+  \\ drule MEM_list_size
+  \\ disch_then $ qspec_then ‘exp_size’ assume_tac
+  \\ gvs []
+End
+
 (*
 Definition require_def:
   require p ⇔ freevars p = ∅ ∧ ⊢ p
@@ -802,7 +832,7 @@ Inductive stmt_wp:
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e ∧ no_Prev b e) mspec.reqs ∧
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e ∧ no_Prev b e) mspec.decreases ∧
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins ++ MAP FST mspec.outs) ∧
-               no_Old e ∧ no_Prev F e) mspec.ens ∧
+               no_Prev F e) mspec.ens ∧
     EVERY (no_Prev b) post ∧
     dest_Vars mspec.mods = INR callee_mod_params ∧
     dest_Vars (MAP SND (FILTER (λ(v,a). MEM v callee_mod_params)
@@ -822,7 +852,7 @@ Inductive stmt_wp:
                 Foralls (ZIP (ret_names, MAP SND mspec.outs))
                   (imp (Let (ZIP(MAP FST mspec.ins ++ MAP FST mspec.outs,
                                  MAP Prev args     ++ MAP Var ret_names))
-                          (conj mspec.ens))
+                          (conj (MAP replace_Old mspec.ens)))
                        (conj post))])
               (MetCall rets mname args) post ens decs mods ls
 End
@@ -6126,6 +6156,44 @@ Proof
   \\ drule evaluate_stmt_value_inv_pres \\ simp []
 QED
 
+Theorem no_Old_replace_Old:
+  ∀y. no_Old (replace_Old y)
+Proof
+  cheat
+QED
+
+Theorem conj_replace_Old:
+  conj (MAP replace_Old xs) = replace_Old (conj xs)
+Proof
+  Induct_on ‘xs’ \\ fs [replace_Old_def,conj_def]
+  \\ Cases_on ‘xs’ \\ fs [replace_Old_def,conj_def]
+QED
+
+Theorem IMP_eval_exp_replace_Old:
+  eval_exp (st with <| heap_old := st.heap_prev |>) env e res ∧ no_Prev F e ⇒
+  eval_exp st env (replace_Old e) res
+Proof
+  cheat
+QED
+
+Theorem IMP_eval_exp_replace_Old_lemma:
+  eval_exp (st with <| heap_old := st.heap_prev;
+                       locals_prev := lp;
+                       heap_prev := hp |>) env e res ∧
+  no_Prev F e ⇒
+  eval_exp st env (replace_Old e) res
+Proof
+  rw []
+  \\ drule_all eval_exp_no_Prev
+  \\ disch_then $ qspecl_then [‘st.locals_prev’,‘st.heap_prev’] mp_tac
+  \\ strip_tac
+  \\ irule IMP_eval_exp_replace_Old \\ simp []
+  \\ pop_assum mp_tac
+  \\ match_mp_tac EQ_IMPLIES
+  \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+  \\ simp [state_component_equality]
+QED
+
 Theorem stmt_wp_sound_MetCall:
   ^(#get_goal stmt_wp_sound_setup `MetCall`)
 Proof
@@ -6491,14 +6559,15 @@ Proof
   \\ strip_tac
   \\ irule eval_exp_no_old_IMP
   \\ conj_tac
-  >- (fs [no_Old_conj,EVERY_MEM] \\ rw [] \\ res_tac \\ fs [])
+  >- (simp [no_Old_conj,EVERY_MEM,MEM_MAP,PULL_EXISTS,no_Old_replace_Old])
   \\ qexists_tac ‘st2.heap_old’
   \\ qexists_tac ‘st2.locals_old’
-  \\ irule eval_exp_no_Prev_alt
-  \\ conj_tac >- (
-    gvs [EVERY_MEM,no_Prev_conj]>>
-    metis_tac[])
+  \\ rewrite_tac [conj_replace_Old]
+  \\ irule IMP_eval_exp_replace_Old_lemma
+  \\ conj_tac
+  >- (gvs [EVERY_MEM,no_Prev_conj])
   \\ qexistsl [‘st2.heap_prev’,‘st2.locals_prev’]
+  \\ simp []
   \\ irule eval_exp_swap_state
   \\ qexists_tac ‘st2 with locals := l2’
   \\ conj_tac
@@ -6981,14 +7050,14 @@ Definition stmt_vcg_def:
     assert (EVERY (no_Prev T) args ∧ EVERY (no_Prev T) post)
       «stmt_vcg:MetCall: Cannot read and assign a variable in one statement»;
     assert (EVERY (λe. list_subset (freevars_list e) (MAP FST spec.ins) ∧
-                        no_Old e ∧ (no_Prev T) e) spec.reqs)
+                       no_Old e ∧ (no_Prev T) e) spec.reqs)
       «stmt_vcg:MetCall: Bad requires spec»;
     assert (EVERY (λe. list_subset (freevars_list e) (MAP FST spec.ins) ∧
-                        no_Old e ∧ (no_Prev T) e) spec.decreases)
+                       no_Old e ∧ (no_Prev T) e) spec.decreases)
       «stmt_vcg:MetCall: Bad decreases spec»;
     assert (EVERY (λe. list_subset (freevars_list e) (MAP FST spec.ins
                                                    ++ MAP FST spec.outs) ∧
-                        no_Old e ∧ (no_Prev F) e) spec.ens)
+                       (no_Prev F) e) spec.ens)
       «stmt_vcg:MetCall: Bad ensures spec»;
     assert (list_subset vars (MAP FST ls))
       «stmt_vcg:MetCall: Trying to assign to undeclared variables»;
@@ -7020,7 +7089,7 @@ Definition stmt_vcg_def:
            Foralls (ZIP (vars, MAP SND spec.outs))
                    (imp (Let (ZIP(MAP FST spec.ins ++ MAP FST spec.outs,
                                   MAP Prev args    ++ MAP Var vars))
-                             (conj spec.ens))
+                             (conj (MAP replace_Old spec.ens)))
                         (conj post))])
   od ∧
   stmt_vcg _ _ _ _ _ _ _ = fail «stmt_vcg: Unsupported statement»
