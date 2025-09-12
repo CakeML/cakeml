@@ -6389,7 +6389,7 @@ Proof
     \\ irule valid_mod_subset
     \\ qpat_x_assum ‘valid_mod _ _ _’ $ irule_at Any
     \\ fs [SUBSET_DEF,MEM_MAP,PULL_EXISTS]
-    \\ metis_tac [PERM_MEM_EQ])
+    \\ metis_tac [])
   \\ conj_tac >-
    (gvs []
     \\ drule ALOOKUP_locals_ok_eq \\ simp [] \\ disch_then kall_tac
