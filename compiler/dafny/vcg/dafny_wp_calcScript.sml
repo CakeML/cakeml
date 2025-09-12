@@ -795,6 +795,21 @@ Inductive stmt_wp:
     lhs_tys = rhs_tys
     ⇒
     stmt_wp m [Let (ZIP (ret_names,exps)) (conj post)] (Assign l) post ens decs mods ls
+[~AssignArray:]
+  ∀m arr_v index_e rhs_e el_ty post ens decs mods ls.
+    MEM arr_v mods ∧
+    get_type ls index_e = INR IntT ∧
+    get_type ls (Var arr_v) = INR (ArrT el_ty) ∧
+    get_type ls rhs_e = INR el_ty ∧
+    no_Prev b index_e ∧ no_Prev b rhs_e ∧ no_Prev b (conj post)
+    ⇒
+    stmt_wp m [BinOp Le (Lit (IntL 0)) index_e;
+               BinOp Lt index_e (ArrLen (Var arr_v));
+               CanEval rhs_e; CanEval (Var arr_v);
+               SetPrev $ ForallHeap [Var arr_v]
+                 (imp (dfy_eq (ArrSel (Var arr_v) (Prev index_e)) (Prev rhs_e))
+                      (conj post))]
+      (Assign [(ArrSelLhs (Var arr_v) index_e, ExpRhs rhs_e)]) post ens decs mods ls
 [~While:]
   ∀m guard invs ds ms body post ens decs ls ds_vars ls1 loop_cond body_cond mods ms_vars.
     DISJOINT (set ds_vars)
@@ -5507,6 +5522,162 @@ Proof
   \\ metis_tac []
 QED
 
+Theorem eval_true_dfy_eq:
+  eval_exp st env x v ∧
+  eval_exp st env y v ⇒
+  eval_true st env (dfy_eq x y)
+Proof
+  gvs [eval_true_def,eval_exp_def,evaluate_exp_def,AllCaseEqs(),PULL_EXISTS]
+  \\ rw [] \\ fs [do_sc_def,PULL_EXISTS,do_bop_def]
+  \\ dxrule $ cj 1 evaluate_exp_add_to_clock
+  \\ disch_then $ qspec_then ‘ck2’ mp_tac
+  \\ dxrule $ cj 1 evaluate_exp_add_to_clock
+  \\ disch_then $ qspec_then ‘ck1'’ mp_tac
+  \\ fs [] \\ metis_tac []
+QED
+
+Theorem eval_exp_ArrSel:
+  mod_loc st.locals arr_v (len,loc,ty) ∧
+  eval_exp st env e (IntV (&i)) ∧
+  LLOOKUP st.heap loc = SOME (HArr vals ty) ∧
+  oEL i vals = SOME v ⇒
+  eval_exp st env (ArrSel (Var arr_v) e) v
+Proof
+  rw [eval_exp_def]
+  \\ fs [evaluate_exp_def,read_local_def,mod_loc_def,AllCaseEqs(),PULL_EXISTS]
+  \\ first_x_assum $ irule_at Any
+  \\ fs [index_array_def,val_to_num_def]
+QED
+
+Theorem stmt_wp_sound_AssignArray:
+  ^(#get_goal stmt_wp_sound_setup `ArrSelLhs`)
+Proof
+  rpt strip_tac
+  \\ qpat_x_assum ‘∀_ _ _ _. _’ kall_tac
+  \\ gvs [conditions_hold_def]
+  \\ irule_at Any eval_stmt_Assign \\ simp []
+  \\ irule_at Any
+    (IMP_eval_rhs_exps_MAP_ExpRhs |> Q.GEN ‘exps’ |> Q.SPEC ‘[e]’ |> SRULE [])
+  \\ simp []
+  \\ drule eval_true_CanEval
+  \\ strip_tac
+  \\ rename [‘eval_exp st env (Var arr_v) arr_val’]
+  \\ qpat_x_assum ‘eval_true st env (CanEval rhs_e)’ assume_tac
+  \\ drule eval_true_CanEval \\ strip_tac
+  \\ drule_all eval_exp_get_type \\ strip_tac
+  \\ first_assum $ irule_at Any
+  \\ qpat_x_assum ‘get_type locals (Var arr_v) = INR (ArrT el_ty)’ assume_tac
+  \\ qpat_x_assum ‘eval_exp st env (Var arr_v) arr_val’ assume_tac
+  \\ drule_all eval_exp_get_type
+  \\ pop_assum mp_tac
+  \\ simp [Once eval_exp_def,evaluate_exp_def]
+  \\ simp [read_local_def,AllCaseEqs(),state_component_equality]
+  \\ simp [all_values_def]
+  \\ rpt strip_tac \\ gvs []
+  \\ ‘value_inv st.heap (ArrV len loc el_ty)’ by
+    (drule ALOOKUP_MEM \\ strip_tac
+     \\ fs [state_inv_def,locals_inv_def,EVERY_MEM]
+     \\ res_tac \\ fs [])
+  \\ ‘LLOOKUP st.heap loc = SOME (HArr arr el_ty) ∧ LENGTH arr = len’ by
+    cheat (* fs [value_inv_def] *)
+  \\ gvs []
+  \\ ‘mod_loc st.locals arr_v (LENGTH arr,loc,el_ty)’ by gvs [mod_loc_def]
+  \\ ‘∃i. eval_exp st env index_e (IntV (& i)) ∧ i < LENGTH arr’ by
+    (qpat_x_assum ‘eval_true st env (int_lt index_e (ArrLen (Var arr_v)))’ mp_tac
+     \\ simp [Once eval_true_def]
+     \\ simp [Once eval_exp_def]
+     \\ simp [evaluate_exp_def,AllCaseEqs(),PULL_EXISTS,do_sc_def,read_local_def]
+     \\ gvs [oneline get_array_len_def, AllCaseEqs(), PULL_EXISTS, do_bop_def]
+     \\ gvs [mod_loc_def] \\ rw []
+     \\ qpat_x_assum ‘eval_true st env (int_le _ _)’ mp_tac
+     \\ simp [Once eval_true_def]
+     \\ simp [Once eval_exp_def]
+     \\ simp [evaluate_exp_def,AllCaseEqs(),PULL_EXISTS,do_sc_def,read_local_def]
+     \\ gvs [oneline get_array_len_def, AllCaseEqs(), PULL_EXISTS, do_bop_def]
+     \\ rw []
+     \\ dxrule $ cj 1 evaluate_exp_add_to_clock
+     \\ disch_then $ qspec_then ‘ck1’ mp_tac
+     \\ dxrule $ cj 1 evaluate_exp_add_to_clock
+     \\ disch_then $ qspec_then ‘ck1'’ mp_tac
+     \\ rw [] \\ fs []
+     \\ gvs [intLib.COOPER_PROVE “0 ≤ i ⇔ ∃n. (i:int) = & n”]
+     \\ fs [eval_exp_def,PULL_EXISTS]
+     \\ first_x_assum $ irule_at $ Pos hd
+     \\ fs [])
+  \\ qabbrev_tac ‘new_vals = LUPDATE v i arr’
+  \\ qabbrev_tac ‘new_heap = LUPDATE (HArr new_vals el_ty) loc st.heap’
+  \\ ‘valid_mod st.heap [loc] new_heap’ by
+    (gvs [valid_mod_def,Abbr‘new_heap’,oEL_LUPDATE])
+  \\ qexists_tac ‘st with heap := new_heap’
+  \\ simp []
+  \\ conj_tac
+  >-
+   (gvs [assi_values_def,assign_values_def,assign_value_def,AllCaseEqs(),PULL_EXISTS]
+    \\ gvs [evaluate_exp_def,read_local_def,AllCaseEqs(),PULL_EXISTS,mod_loc_def]
+    \\ gvs [update_array_def,AllCaseEqs(),PULL_EXISTS]
+    \\ qpat_x_assum ‘eval_exp st env index_e _’ assume_tac
+    \\ fs [eval_exp_def]
+    \\ pop_assum $ irule_at Any \\ fs [val_to_num_def]
+    \\ fs [state_component_equality,Abbr‘new_heap’])
+  \\ conj_tac
+  >-
+   (irule valid_mod_subset \\ qexists ‘[loc]’ \\ gvs []
+    \\ drule_all LIST_REL_MEM_IMP
+    \\ gvs [mod_loc_def,EXISTS_PROD]
+    \\ gvs [MEM_MAP,PULL_EXISTS]
+    \\ rw [] \\ first_x_assum $ irule_at Any \\ fs [])
+  \\ conj_tac
+  >- (fs [state_inv_def,Abbr‘new_heap’,Abbr‘new_vals’]
+      \\ rw [] \\ fs [locals_inv_def,EVERY_MEM,value_inv_def]
+      >-
+       (rw [oEL_LUPDATE] \\ PairCases_on ‘l’ \\ gvs []
+        \\ IF_CASES_TAC >- (res_tac \\ gvs [])
+        \\ cheat (* value_inv *))
+      \\ gvs [heap_inv_def]
+      \\ cheat (* heap_inv *))
+  \\ rewrite_tac [GSYM eval_true_conj_every]
+  \\ drule eval_true_SetPrev \\ strip_tac
+  \\ drule (eval_true_ForallHeap |> Q.GEN ‘mods’ |> Q.SPEC ‘[mod]’ |> SRULE [])
+  \\ simp [PULL_EXISTS]
+  \\ disch_then drule \\ simp []
+  \\ disch_then drule \\ simp []
+  \\ strip_tac
+  \\ rewrite_tac [eval_true_def]
+  \\ irule eval_exp_no_Prev_alt
+  \\ conj_tac >- metis_tac []
+  \\ qexistsl [‘st.heap’,‘st.locals’]
+  \\ simp [GSYM eval_true_def]
+  \\ irule eval_true_imp
+  \\ pop_assum $ irule_at $ Pos last
+  \\ irule eval_true_dfy_eq
+  \\ ‘~env.is_running’ by fs [compatible_env_def]
+  \\ simp [eval_exp_Prev]
+  \\ qexists_tac ‘v’
+  \\ reverse conj_tac
+  >-
+   (irule eval_exp_no_Prev_alt
+    \\ conj_tac >- metis_tac []
+    \\ qexistsl [‘st.heap_prev’,‘st.locals_prev’]
+    \\ qpat_x_assum ‘eval_exp _ _ _ v’ mp_tac
+    \\ match_mp_tac EQ_IMPLIES
+    \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+    \\ fs [state_component_equality])
+  \\ irule eval_exp_ArrSel \\ fs []
+  \\ qpat_x_assum ‘mod_loc st.locals arr_v _’ $ irule_at Any
+  \\ simp [Abbr‘new_heap’,oEL_LUPDATE]
+  \\ qexists_tac ‘i’ \\ fs []
+  \\ simp [Abbr‘new_vals’,oEL_LUPDATE]
+  \\ ‘loc < LENGTH st.heap’ by fs [oEL_THM]
+  \\ simp [eval_exp_Prev]
+  \\ irule eval_exp_no_Prev_alt
+  \\ conj_tac >- metis_tac []
+  \\ qexistsl [‘st.heap_prev’,‘st.locals_prev’]
+  \\ qpat_x_assum ‘eval_exp _ _ _ (IntV _)’ mp_tac
+  \\ match_mp_tac EQ_IMPLIES
+  \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+  \\ fs [state_component_equality]
+QED
+
 Theorem stmt_wp_sound_While:
   ^(#get_goal stmt_wp_sound_setup `While`)
 Proof
@@ -6704,6 +6875,7 @@ Proof
     stmt_wp_sound_If,
     stmt_wp_sound_Dec,
     stmt_wp_sound_Assign,
+    stmt_wp_sound_AssignArray,
     stmt_wp_sound_While,
     stmt_wp_sound_MetCall]
 QED
