@@ -1327,9 +1327,7 @@ Theorem MAP_LIST_REL:
   MAP f Xs = Ys ⇔ LIST_REL (λx y. f x = y) Xs Ys
 Proof
   ‘MAP f Xs = MAP I Ys ⇔ LIST_REL (λx y. f x = I y) Xs Ys’ suffices_by simp[MAP_ID]>>
-  DEP_REWRITE_TAC[MAP_EQ_EVERY2]>>
-  ho_match_mp_tac $ METIS_PROVE[] “(P ⇒ Q) ⇒ (Q ∧ P ⇔ P)”>>
-  metis_tac[EVERY2_LENGTH]
+  metis_tac[MAP_EQ_EVERY2,EVERY2_LENGTH]
 QED
 
 (* assume that Xs are all variables *)
