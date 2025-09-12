@@ -158,6 +158,7 @@ End
    those as well. *)
 Definition can_get_type_def:
   (can_get_type (Old _) ⇔ F) ∧
+  (can_get_type (OldHeap _) ⇔ F) ∧
   (can_get_type (Prev _) ⇔ F) ∧
   (can_get_type (PrevHeap _) ⇔ F) ∧
   (can_get_type (SetPrev _) ⇔ F) ∧
@@ -211,6 +212,7 @@ Definition get_vars_exp_def:
   get_vars_exp (FunCall _ args) = FLAT (MAP get_vars_exp args) ∧
   get_vars_exp (Forall _ e) = get_vars_exp e ∧
   get_vars_exp (Old e) = get_vars_exp e ∧
+  get_vars_exp (OldHeap e) = get_vars_exp e ∧
   get_vars_exp (Prev e) = get_vars_exp e ∧
   get_vars_exp (PrevHeap e) = get_vars_exp e ∧
   get_vars_exp (SetPrev e) = get_vars_exp e ∧
@@ -323,6 +325,7 @@ Definition freevars_aux_def:
      let (v,s) = freevars_aux e in
        (v ∪ s, {})) ∧
   (freevars_aux (Old e) = freevars_aux e) ∧
+  (freevars_aux (OldHeap e) = freevars_aux e) ∧
   (freevars_aux (If grd e₀ e₁) =
      let (vg,sg) = freevars_aux grd in
      let (v₀,s₀) = freevars_aux e₀ in
@@ -466,6 +469,8 @@ Proof
     \\ gvs [])
   >~ [‘Old’] >-
     gvs[evaluate_exp_def, AllCaseEqs(),freevars_aux_def,unuse_old_def, use_old_def]
+  >~ [‘OldHeap’] >-
+    gvs[evaluate_exp_def, AllCaseEqs(),freevars_aux_def,unuse_old_heap_def, use_old_heap_def]
   >~ [‘Prev’] >- (
     gvs[evaluate_exp_def,AllCaseEqs(),freevars_aux_def,use_prev_def,unuse_prev_def]>>
     first_x_assum (irule_at Any)>>
@@ -620,28 +625,31 @@ Proof
   strip_tac \\ iff_tac \\ metis_tac [eval_exp_freevars_lemma]
 QED
 
+(* if b = T, this checks that no Olds appear
+  if b = F, then neither of the Old/OldHeap ops at all *)
 Definition no_Old_def:
-  (no_Old (Old _) ⇔ F) ∧
-  (no_Old (Lit _) ⇔ T) ∧
-  (no_Old (Var _) ⇔ T) ∧
-  (no_Old (Prev e) ⇔ no_Old e) ∧
-  (no_Old (PrevHeap e) ⇔ no_Old e) ∧
-  (no_Old (SetPrev e) ⇔ no_Old e) ∧
-  (no_Old (If tst thn els) ⇔
-     no_Old tst ∧ no_Old thn ∧ no_Old els) ∧
-  (no_Old (UnOp _ e) ⇔ no_Old e) ∧
-  (no_Old (BinOp _ e₀ e₁) ⇔
-     no_Old e₀ ∧ no_Old e₁) ∧
-  (no_Old (ArrLen arr) ⇔ no_Old arr) ∧
-  (no_Old (ArrSel arr idx) ⇔ no_Old arr ∧ no_Old idx) ∧
-  (no_Old (FunCall _ args) ⇔ EVERY (λe. no_Old e) args) ∧
-  (no_Old (Forall _ term) ⇔ no_Old term) ∧
-  (no_Old (Let binds body) ⇔
-     EVERY (λe. no_Old e) (MAP SND binds) ∧ no_Old body) ∧
-  (no_Old (ForallHeap mods e) ⇔
-     EVERY (λe. no_Old e) mods ∧ no_Old e)
+  (no_Old b (Old _) ⇔ F) ∧
+  (no_Old b (OldHeap e) ⇔ (if b then no_Old b e else F)) ∧
+  (no_Old b (Lit _) ⇔ T) ∧
+  (no_Old b (Var _) ⇔ T) ∧
+  (no_Old b (Prev e) ⇔ no_Old b e) ∧
+  (no_Old b (PrevHeap e) ⇔ no_Old b e) ∧
+  (no_Old b (SetPrev e) ⇔ no_Old b e) ∧
+  (no_Old b (If tst thn els) ⇔
+     no_Old b tst ∧ no_Old b thn ∧ no_Old b els) ∧
+  (no_Old b (UnOp _ e) ⇔ no_Old b e) ∧
+  (no_Old b (BinOp _ e₀ e₁) ⇔
+     no_Old b e₀ ∧ no_Old b e₁) ∧
+  (no_Old b (ArrLen arr) ⇔ no_Old b arr) ∧
+  (no_Old b (ArrSel arr idx) ⇔ no_Old b arr ∧ no_Old b idx) ∧
+  (no_Old b (FunCall _ args) ⇔ EVERY (λe. no_Old b e) args) ∧
+  (no_Old b (Forall _ term) ⇔ no_Old b term) ∧
+  (no_Old b (Let binds body) ⇔
+     EVERY (λe. no_Old b e) (MAP SND binds) ∧ no_Old b body) ∧
+  (no_Old b (ForallHeap mods e) ⇔
+     EVERY (λe. no_Old b e) mods ∧ no_Old b e)
 Termination
-  wf_rel_tac ‘measure $ exp_size’
+  wf_rel_tac ‘measure $ exp_size o SND’
   \\ rpt strip_tac
   \\ gvs [list_size_pair_size_MAP_FST_SND]
   \\ rewrite_tac [list_exp_size_snd]
@@ -659,6 +667,7 @@ Definition no_Prev_def:
   (no_Prev b (PrevHeap e) ⇔ F) ∧
   (no_Prev b (SetPrev e) ⇔ b) ∧
   (no_Prev b (Old e) ⇔ no_Prev b e) ∧
+  (no_Prev b (OldHeap e) ⇔ no_Prev b e) ∧
   (no_Prev b (If tst thn els) ⇔
      no_Prev b tst ∧ no_Prev b thn ∧ no_Prev b els) ∧
   (no_Prev b (UnOp _ e) ⇔ no_Prev b e) ∧
@@ -682,26 +691,27 @@ Termination
   \\ gvs []
 End
 
-Definition replace_Old_def:
-  (replace_Old (Old e) = PrevHeap (replace_Old e)) ∧
-  (replace_Old (Lit l) = Lit l) ∧
-  (replace_Old (Var v) = Var v) ∧
-  (replace_Old (Prev e) = replace_Old e) ∧
-  (replace_Old (PrevHeap e) = replace_Old e) ∧
-  (replace_Old (SetPrev e) = replace_Old e) ∧
-  (replace_Old (If tst thn els) =
-     If (replace_Old tst) (replace_Old thn) (replace_Old els)) ∧
-  (replace_Old (UnOp u e) = UnOp u (replace_Old e)) ∧
-  (replace_Old (BinOp b e₀ e₁) =
-     BinOp b (replace_Old e₀) (replace_Old e₁)) ∧
-  (replace_Old (ArrLen arr) = ArrLen (replace_Old arr)) ∧
-  (replace_Old (ArrSel arr idx) = ArrSel (replace_Old arr) (replace_Old idx)) ∧
-  (replace_Old (FunCall f args) = FunCall f (MAP replace_Old args)) ∧
-  (replace_Old (Forall v term) = Forall v (replace_Old term)) ∧
-  (replace_Old (Let binds body) =
-     Let (MAP (λ(v,e). (v, replace_Old e)) binds) (replace_Old body)) ∧
-  (replace_Old (ForallHeap mods e) =
-     ForallHeap (MAP replace_Old mods) (replace_Old e))
+Definition replace_OldHeap_def:
+  (replace_OldHeap (OldHeap e) = PrevHeap (replace_OldHeap e)) ∧
+  (replace_OldHeap (Old e) = Old (replace_OldHeap e)) ∧
+  (replace_OldHeap (Lit l) = Lit l) ∧
+  (replace_OldHeap (Var v) = Var v) ∧
+  (replace_OldHeap (Prev e) = replace_OldHeap e) ∧
+  (replace_OldHeap (PrevHeap e) = replace_OldHeap e) ∧
+  (replace_OldHeap (SetPrev e) = replace_OldHeap e) ∧
+  (replace_OldHeap (If tst thn els) =
+     If (replace_OldHeap tst) (replace_OldHeap thn) (replace_OldHeap els)) ∧
+  (replace_OldHeap (UnOp u e) = UnOp u (replace_OldHeap e)) ∧
+  (replace_OldHeap (BinOp b e₀ e₁) =
+     BinOp b (replace_OldHeap e₀) (replace_OldHeap e₁)) ∧
+  (replace_OldHeap (ArrLen arr) = ArrLen (replace_OldHeap arr)) ∧
+  (replace_OldHeap (ArrSel arr idx) = ArrSel (replace_OldHeap arr) (replace_OldHeap idx)) ∧
+  (replace_OldHeap (FunCall f args) = FunCall f (MAP replace_OldHeap args)) ∧
+  (replace_OldHeap (Forall v term) = Forall v (replace_OldHeap term)) ∧
+  (replace_OldHeap (Let binds body) =
+     Let (MAP (λ(v,e). (v, replace_OldHeap e)) binds) (replace_OldHeap body)) ∧
+  (replace_OldHeap (ForallHeap mods e) =
+     ForallHeap (MAP replace_OldHeap mods) (replace_OldHeap e))
 Termination
   wf_rel_tac ‘measure $ exp_size’
   \\ rpt strip_tac
@@ -829,8 +839,8 @@ Inductive stmt_wp:
     EVERY (λv. ~MEM v ret_names) mods ∧
     rets = (MAP VarLhs ret_names) ∧
     EVERY (no_Prev b) args ∧
-    EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e ∧ no_Prev b e) mspec.reqs ∧
-    EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old e ∧ no_Prev b e) mspec.decreases ∧
+    EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old b e ∧ no_Prev b e) mspec.reqs ∧
+    EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old b e ∧ no_Prev b e) mspec.decreases ∧
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins ++ MAP FST mspec.outs) ∧
                no_Prev F e) mspec.ens ∧
     EVERY (no_Prev b) post ∧
@@ -852,7 +862,7 @@ Inductive stmt_wp:
                 Foralls (ZIP (ret_names, MAP SND mspec.outs))
                   (imp (Let (ZIP(MAP FST mspec.ins ++ MAP FST mspec.outs,
                                  MAP Prev args     ++ MAP Var ret_names))
-                          (conj (MAP replace_Old mspec.ens)))
+                          (conj (MAP replace_OldHeap mspec.ens)))
                        (conj post))])
               (MetCall rets mname args) post ens decs mods ls
 End
@@ -878,6 +888,8 @@ Definition wrap_Old_def:
   Forall (vn,vt) (wrap_Old (vs DELETE vn) term) ∧
   wrap_Old vs (Old e) =
   Old (wrap_Old vs e) ∧
+  wrap_Old vs (OldHeap e) =
+  OldHeap (wrap_Old vs e) ∧
   wrap_Old vs (Prev e) = Prev e ∧ (* Impossible *)
   wrap_Old vs (PrevHeap e) = PrevHeap e ∧ (* Impossible *)
   wrap_Old vs (SetPrev e) = SetPrev e ∧ (* Impossible *)
@@ -1123,6 +1135,8 @@ Proof
     \\ fs[eval_forall_def,push_local_with_prev])
   >~ [‘Old’] >-
     gvs[evaluate_exp_def,AllCaseEqs(),no_Prev_def,use_old_def,unuse_old_def]
+  >~ [‘OldHeap’] >-
+    gvs[evaluate_exp_def,AllCaseEqs(),no_Prev_def,use_old_heap_def,unuse_old_heap_def]
   >~ [‘Prev’] >-
     gvs[evaluate_exp_def,AllCaseEqs(),no_Prev_def]
   >~ [‘PrevHeap’] >-
@@ -1399,11 +1413,11 @@ QED
 (* TODO move to evaluate props *)
 Theorem evaluate_exp_no_old:
   (∀s env e s' r h l.
-     evaluate_exp s env e = (s', r) ∧ no_Old e ⇒
+     evaluate_exp s env e = (s', r) ∧ no_Old F e ⇒
      evaluate_exp (s with <| heap_old := h; locals_old := l |>) env e =
      (s' with <| heap_old := h; locals_old := l |>, r)) ∧
   (∀s env es s' r h l.
-     evaluate_exps s env es = (s', r) ∧ EVERY (λe. no_Old e) es ⇒
+     evaluate_exps s env es = (s', r) ∧ EVERY (λe. no_Old F e) es ⇒
      evaluate_exps (s with <| heap_old := h; locals_old := l |>) env es =
      (s' with <| heap_old := h; locals_old := l |>, r))
 Proof
@@ -1484,7 +1498,7 @@ QED
 
 (* TODO Keep triv; Move to dafny_eval_rel *)
 Triviality eval_exp_no_old_lemma:
-  no_Old e ∧ eval_exp st env e v ⇒
+  no_Old F e ∧ eval_exp st env e v ⇒
   eval_exp (st with <| heap_old := h; locals_old := l |>) env e v
 Proof
   simp [eval_exp_def]
@@ -1495,7 +1509,7 @@ QED
 
 (* TODO Move to dafny_eval_rel *)
 Theorem eval_exp_no_old:
-  no_Old e ⇒
+  no_Old F e ⇒
   eval_exp st env e v =
   eval_exp (st with <| heap_old := h; locals_old := l |>) env e v
 Proof
@@ -1512,7 +1526,7 @@ QED
 
 Theorem eval_exp_no_old_IMP:
   ∀h l.
-    no_Old e ∧
+    no_Old F e ∧
     eval_exp (st with <| heap_old := h; locals_old := l |>) env e v ⇒
     eval_exp st env e v
 Proof
@@ -2139,7 +2153,7 @@ Proof
 QED
 
 Theorem no_Old_conj:
-  ∀xs. no_Old (conj xs) = EVERY no_Old xs
+  ∀xs. no_Old b (conj xs) = EVERY (no_Old b) xs
 Proof
   ho_match_mp_tac conj_ind \\ rw [conj_def] \\ fs [no_Old_def]
 QED
@@ -2480,6 +2494,17 @@ Proof
         \\ first_assum $ irule_at (Pos hd)
         \\ gvs [read_local_def, AllCaseEqs()])
     \\ gvs [unuse_old_def, state_component_equality])
+  >~ [‘OldHeap’] >-
+   (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
+    \\ simp [Once $ oneline wrap_Old_def]
+    \\ simp [AllCaseEqs()]
+    \\ rw[] \\ gvs[no_Prev_def]
+    \\ gvs [evaluate_exp_def]
+    \\ gvs[AllCaseEqs()]
+    \\ first_x_assum (drule_at Any)
+    \\ simp[use_old_heap_def]
+    \\ disch_then (drule_at Any)
+    \\ simp[unuse_old_heap_def])
   >~ [‘Prev’] >-
    (qpat_x_assum ‘_ = wrap_Old _ _’ mp_tac
     \\ simp [Once $ oneline wrap_Old_def]
@@ -6156,42 +6181,104 @@ Proof
   \\ drule evaluate_stmt_value_inv_pres \\ simp []
 QED
 
-Theorem no_Old_replace_Old:
-  ∀y. no_Old (replace_Old y)
+Theorem no_Old_replace_OldHeap:
+  ∀y.
+    no_Old F (replace_OldHeap y) ⇒
+    no_Old T (replace_OldHeap y)
 Proof
-  ho_match_mp_tac replace_Old_ind>>
-  rw[replace_Old_def,no_Old_def,EVERY_MEM,MEM_MAP]
+  ho_match_mp_tac replace_OldHeap_ind>>
+  rw[replace_OldHeap_def,no_Old_def,EVERY_MEM,MEM_MAP]
   >- metis_tac[]
-  >- (pairarg_tac>>fs[]>>metis_tac[])
+  >- (
+    gvs[PULL_EXISTS,FORALL_PROD]>>
+    pairarg_tac>>gvs[]>>
+    metis_tac[])
   >- metis_tac[]
 QED
 
-Theorem conj_replace_Old:
-  conj (MAP replace_Old xs) = replace_Old (conj xs)
+Theorem conj_replace_OldHeap:
+  conj (MAP replace_OldHeap xs) = replace_OldHeap (conj xs)
 Proof
-  Induct_on ‘xs’ \\ fs [replace_Old_def,conj_def]
-  \\ Cases_on ‘xs’ \\ fs [replace_Old_def,conj_def]
+  Induct_on ‘xs’ \\ fs [replace_OldHeap_def,conj_def]
+  \\ Cases_on ‘xs’ \\ fs [replace_OldHeap_def,conj_def]
 QED
 
-Theorem IMP_eval_exp_replace_Old:
-  eval_exp (st with <| heap_old := st.heap_prev |>) env e res ∧ no_Prev F e ⇒
-  eval_exp st env (replace_Old e) res
+Theorem evaluate_exp_replace_OldHeap:
+  (∀st env e st' r h hp.
+     no_Prev F e ∧ no_Old T e ∧
+     st.heap = h ∧ st.heap_old = hp ∧
+     evaluate_exp st env e = (st', r) ⇒
+     evaluate_exp (st with <|heap_prev:=hp|>) env (replace_OldHeap e) =
+      (st' with <|heap_prev:=hp|>, r)) ∧
+  (∀st env es st' r h hp.
+     EVERY (no_Prev F) es ∧ EVERY (no_Old T) es ∧
+     st.heap = h ∧ st.heap_old = hp ∧
+     evaluate_exps st env es = (st', r) ⇒
+     evaluate_exps (st with <|heap_prev:=hp|>) env (MAP replace_OldHeap es) =
+      (st' with <|heap_prev:=hp|>, r))
+Proof
+  ho_match_mp_tac evaluate_exp_ind
+  \\ rpt strip_tac
+  >~ [‘Lit’] >-
+    gvs[evaluate_exp_def,replace_OldHeap_def,state_component_equality]
+  >~ [‘Var’] >-
+    gvs[evaluate_exp_def,replace_OldHeap_def,state_component_equality,AllCaseEqs()]
+  >~ [‘If’] >- (
+    gvs[evaluate_exp_def,replace_OldHeap_def,AllCaseEqs(),no_Prev_def,no_Old_def,oneline do_cond_def]>>
+    imp_res_tac evaluate_exp_with_clock \\ gvs [])
+  >~ [‘UnOp’] >-
+    gvs[evaluate_exp_def,replace_OldHeap_def,AllCaseEqs(),no_Prev_def,no_Old_def]
+  >~ [‘BinOp’] >- (
+    gvs[evaluate_exp_def,replace_OldHeap_def,AllCaseEqs(),no_Prev_def,no_Old_def]>>
+    imp_res_tac evaluate_exp_with_clock \\ gvs [])
+  >~ [‘ArrLen’] >-
+    gvs[evaluate_exp_def,replace_OldHeap_def,AllCaseEqs(),no_Prev_def,no_Old_def]
+  >~ [‘ArrSel’] >- (
+    gvs[evaluate_exp_def,replace_OldHeap_def,AllCaseEqs(),no_Prev_def,no_Old_def]>>
+    imp_res_tac evaluate_exp_with_clock \\ gvs [index_array_def])
+  >~ [‘FunCall’] >-
+    cheat
+  >~ [‘Forall’] >-
+    cheat
+  >~ [‘Old’] >- gvs[no_Old_def]
+  >~ [‘OldHeap’] >- (
+    gvs[replace_OldHeap_def,evaluate_exp_def,AllCaseEqs()]>>
+    gvs[no_Prev_def,no_Old_def,use_old_heap_def,use_prev_heap_def]>>
+    simp[unuse_prev_heap_def,unuse_old_heap_def])
+  >~ [‘Prev’] >- gvs[no_Prev_def]
+  >~ [‘PrevHeap’] >- gvs[no_Prev_def]
+  >~ [‘SetPrev’] >- gvs[no_Prev_def]
+  >~ [‘Let’] >-
+    cheat
+  >~ [‘ForallHeap’] >-
+    cheat
+  >~ [‘[]’] >-
+    gvs[replace_OldHeap_def,evaluate_exp_def,AllCaseEqs()]
+  >~ [‘e::es’] >- (
+    gvs[replace_OldHeap_def,evaluate_exp_def,AllCaseEqs()]>>
+    imp_res_tac evaluate_exp_with_clock \\ gvs [])
+QED
+
+Theorem IMP_eval_exp_replace_OldHeap:
+  eval_exp (st with <| heap_old := st.heap_prev |>) env e res ∧
+  no_Prev F e ∧ no_Old T e ⇒
+  eval_exp st env (replace_OldHeap e) res
 Proof
   cheat
 QED
 
-Theorem IMP_eval_exp_replace_Old_lemma:
+Theorem IMP_eval_exp_replace_OldHeap_lemma:
   eval_exp (st with <| heap_old := st.heap_prev;
                        locals_prev := lp;
                        heap_prev := hp |>) env e res ∧
-  no_Prev F e ⇒
-  eval_exp st env (replace_Old e) res
+  no_Prev F e ∧ no_Old T e ⇒
+  eval_exp st env (replace_OldHeap e) res
 Proof
   rw []
   \\ drule_all eval_exp_no_Prev
   \\ disch_then $ qspecl_then [‘st.locals_prev’,‘st.heap_prev’] mp_tac
   \\ strip_tac
-  \\ irule IMP_eval_exp_replace_Old \\ simp []
+  \\ irule IMP_eval_exp_replace_OldHeap \\ simp []
   \\ pop_assum mp_tac
   \\ match_mp_tac EQ_IMPLIES
   \\ rpt AP_THM_TAC \\ AP_TERM_TAC
@@ -6563,11 +6650,11 @@ Proof
   \\ strip_tac
   \\ irule eval_exp_no_old_IMP
   \\ conj_tac
-  >- (simp [no_Old_conj,EVERY_MEM,MEM_MAP,PULL_EXISTS,no_Old_replace_Old])
+  >- (simp [no_Old_conj,EVERY_MEM,MEM_MAP,PULL_EXISTS,no_Old_replace_OldHeap])
   \\ qexists_tac ‘st2.heap_old’
   \\ qexists_tac ‘st2.locals_old’
-  \\ rewrite_tac [conj_replace_Old]
-  \\ irule IMP_eval_exp_replace_Old_lemma
+  \\ rewrite_tac [conj_replace_OldHeap]
+  \\ irule IMP_eval_exp_replace_OldHeap_lemma
   \\ conj_tac
   >- (gvs [EVERY_MEM,no_Prev_conj])
   \\ qexistsl [‘st2.heap_prev’,‘st2.locals_prev’]
@@ -7054,10 +7141,10 @@ Definition stmt_vcg_def:
     assert (EVERY (no_Prev T) args ∧ EVERY (no_Prev T) post)
       «stmt_vcg:MetCall: Cannot read and assign a variable in one statement»;
     assert (EVERY (λe. list_subset (freevars_list e) (MAP FST spec.ins) ∧
-                       no_Old e ∧ (no_Prev T) e) spec.reqs)
+                       no_Old b e ∧ (no_Prev T) e) spec.reqs)
       «stmt_vcg:MetCall: Bad requires spec»;
     assert (EVERY (λe. list_subset (freevars_list e) (MAP FST spec.ins) ∧
-                       no_Old e ∧ (no_Prev T) e) spec.decreases)
+                       no_Old b e ∧ (no_Prev T) e) spec.decreases)
       «stmt_vcg:MetCall: Bad decreases spec»;
     assert (EVERY (λe. list_subset (freevars_list e) (MAP FST spec.ins
                                                    ++ MAP FST spec.outs) ∧
@@ -7093,7 +7180,7 @@ Definition stmt_vcg_def:
            Foralls (ZIP (vars, MAP SND spec.outs))
                    (imp (Let (ZIP(MAP FST spec.ins ++ MAP FST spec.outs,
                                   MAP Prev args    ++ MAP Var vars))
-                             (conj (MAP replace_Old spec.ens)))
+                             (conj (MAP replace_OldHeap spec.ens)))
                         (conj post))])
   od ∧
   stmt_vcg _ _ _ _ _ _ _ = fail «stmt_vcg: Unsupported statement»

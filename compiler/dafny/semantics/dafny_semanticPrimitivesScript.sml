@@ -153,6 +153,14 @@ Definition unuse_old_def:
   unuse_old cur prev = cur with <| locals := prev.locals; heap := prev.heap |>
 End
 
+Definition use_old_heap_def:
+  use_old_heap st = st with <| heap := st.heap_old |>
+End
+
+Definition unuse_old_heap_def:
+  unuse_old_heap cur prev = cur with <| heap := prev.heap |>
+End
+
 Definition use_prev_def:
   use_prev st = st with <| locals := st.locals_prev; heap := st.heap_prev |>
 End

@@ -48,6 +48,7 @@ Datatype:
   (* Forall var term *)
   | Forall (mlstring # type) exp
   | Old exp
+  | OldHeap exp
   (* Let [(name, rhs)] body *)
   | Let ((mlstring # exp) list) exp
   (* ForallHeap mods term *)
