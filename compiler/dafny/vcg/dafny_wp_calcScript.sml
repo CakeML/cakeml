@@ -43,7 +43,7 @@ Definition value_inv_def:
   value_inv heap v ⇔
     ∀len loc ty.
       v = ArrV len loc ty ⇒
-      ∃arr. LLOOKUP heap loc = SOME (HArr arr ty) ∧ LENGTH arr = loc
+      ∃arr. LLOOKUP heap loc = SOME (HArr arr ty) ∧ LENGTH arr = len
 End
 
 Definition heap_inv_def:
