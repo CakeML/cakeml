@@ -5536,6 +5536,20 @@ Proof
   \\ fs [] \\ metis_tac []
 QED
 
+Triviality update_array_value_inv_pres:
+  update_array st1 arr idx rhs = SOME st2 ∧
+  value_inv st1.heap val ⇒
+  value_inv st2.heap val
+Proof
+  rpt strip_tac
+  \\ gvs [update_array_def, value_inv_def, AllCaseEqs()]
+  \\ rpt strip_tac \\ gvs []
+  \\ simp [LLOOKUP_LUPDATE]
+  \\ IF_CASES_TAC >- (simp [])
+  \\ reverse IF_CASES_TAC >- (gvs [LLOOKUP_THM])
+  \\ gvs []
+QED
+
 Theorem eval_exp_ArrSel:
   mod_loc st.locals arr_v (len,loc,ty) ∧
   eval_exp st env e (IntV (&i)) ∧
@@ -5627,8 +5641,11 @@ Proof
     \\ gvs [MEM_MAP,PULL_EXISTS]
     \\ rw [] \\ first_x_assum $ irule_at Any \\ fs [])
   \\ conj_tac
-
-  >- (fs [state_inv_def,Abbr‘new_heap’,Abbr‘new_vals’]
+  >- (‘update_array st (ArrV (LENGTH arr) loc el_ty) (IntV (&i)) v =
+         SOME (st with heap := new_heap)’ by
+        gvs [update_array_def,val_to_num_def,Abbr‘new_heap’,Abbr‘new_vals’]
+      \\ drule update_array_value_inv_pres
+      \\ fs [state_inv_def,Abbr‘new_heap’,Abbr‘new_vals’]
       \\ rw [] \\ fs [locals_inv_def,EVERY_MEM,value_inv_def]
       >-
        (rw [oEL_LUPDATE] \\ PairCases_on ‘l’ \\ gvs []
@@ -5636,8 +5653,21 @@ Proof
         \\ fs [oEL_THM]
         \\ res_tac
         \\ fs [] \\ rveq \\ fs [])
+      \\ ‘value_inv st.heap v’ by
+        (irule eval_exp_value_inv
+         \\ fs [state_inv_def,locals_inv_def,EVERY_MEM,FORALL_PROD]
+         \\ fs [value_inv_def]
+         \\ conj_tac >- metis_tac []
+         \\ qpat_x_assum ‘eval_exp st env rhs_e v’ $ irule_at Any
+         \\ imp_res_tac get_type_inr_can_get_type \\ fs [])
+      \\ gvs [GSYM value_inv_def]
       \\ gvs [heap_inv_def]
-      \\ cheat (* heap_inv *))
+      \\ fs [oEL_LUPDATE,AllCaseEqs()]
+      \\ rw [] \\ res_tac
+      \\ gvs [oEL_LUPDATE,AllCaseEqs()]
+      \\ res_tac
+      >- (first_assum irule \\ fs [])
+      \\ fs [value_has_type_eq_all_values])
   \\ rewrite_tac [GSYM eval_true_conj_every]
   \\ drule eval_true_SetPrev \\ strip_tac
   \\ drule (eval_true_ForallHeap |> Q.GEN ‘mods’ |> Q.SPEC ‘[mod]’ |> SRULE [])
@@ -6210,20 +6240,6 @@ Proof
   \\ gvs [update_local_def, AllCaseEqs()]
 QED
 
-Triviality update_array_value_inv_pres:
-  update_array st1 arr idx rhs = SOME st2 ∧
-  value_inv st1.heap val ⇒
-  value_inv st2.heap val
-Proof
-  rpt strip_tac
-  \\ gvs [update_array_def, value_inv_def, AllCaseEqs()]
-  \\ rpt strip_tac \\ gvs []
-  \\ simp [LLOOKUP_LUPDATE]
-  \\ IF_CASES_TAC >- (simp [])
-  \\ reverse IF_CASES_TAC >- (gvs [LLOOKUP_THM])
-  \\ gvs []
-QED
-
 Theorem assign_value_value_inv_pres:
   assign_value st1 env lhs rhs = (st2, r) ∧
   value_inv st1.heap val ⇒
@@ -6377,6 +6393,12 @@ Proof
   \\ Cases_on ‘xs’ \\ fs [replace_OldHeap_def,conj_def]
 QED
 
+Theorem IMP_eval_forall_eq:
+  (∀x. SND (f x) = SND (g x)) ⇒ eval_forall s f = eval_forall s g
+Proof
+  fs [eval_forall_def,FUN_EQ_THM]
+QED
+
 Theorem evaluate_exp_replace_OldHeap:
   (∀st env e st' r h hp.
      no_Prev F e ∧ no_Old T e ∧
@@ -6411,9 +6433,28 @@ Proof
     gvs[evaluate_exp_def,replace_OldHeap_def,AllCaseEqs(),no_Prev_def,no_Old_def]>>
     imp_res_tac evaluate_exp_with_clock \\ gvs [index_array_def])
   >~ [‘FunCall’] >-
-    cheat
+   (gvs [replace_OldHeap_def,no_Prev_def,no_Old_def, SF ETA_ss,evaluate_exp_def]
+    \\ gvs [CaseEq"option"]
+    \\ gvs [CaseEq"member_decl",CaseEq"prod"]
+    \\ rename [‘evaluate_exps st env es = (sttt,vv)’]
+    \\ reverse $ Cases_on ‘vv’ \\ fs []
+    \\ fs [CaseEq"option"] >- gvs [set_up_call_def]
+    \\ disj2_tac
+    \\ rename [‘set_up_call sttt (MAP FST ins) a [] = SOME st5’]
+    \\ qexists_tac ‘st5’
+    \\ conj_tac
+    >- gvs [set_up_call_def,AllCaseEqs(),state_component_equality]
+    \\ gvs [restore_caller_def]
+    \\ rw [] \\ fs [state_component_equality]
+    \\ gvs [AllCaseEqs()])
   >~ [‘Forall’] >-
-    cheat
+   (gvs [replace_OldHeap_def,no_Prev_def,no_Old_def, SF ETA_ss,evaluate_exp_def]
+    \\ gvs [CaseEq"bool",CaseEq"prod",push_local_def]
+    \\ irule IMP_eval_forall_eq \\ fs [] \\ rw []
+    \\ Cases_on ‘evaluate_exp (st with locals := (vn,SOME x)::st.locals) env e’
+    \\ fs []
+    \\ last_x_assum drule \\ strip_tac
+    \\ gvs [])
   >~ [‘Old’] >- gvs[no_Old_def]
   >~ [‘OldHeap’] >- (
     gvs[replace_OldHeap_def,evaluate_exp_def,AllCaseEqs()]>>
@@ -6423,9 +6464,22 @@ Proof
   >~ [‘PrevHeap’] >- gvs[no_Prev_def]
   >~ [‘SetPrev’] >- gvs[no_Prev_def]
   >~ [‘Let’] >-
-    cheat
+   (gvs [replace_OldHeap_def,no_Prev_def,no_Old_def, SF ETA_ss,evaluate_exp_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ cheat)
   >~ [‘ForallHeap’] >-
-    cheat
+   (gvs [replace_OldHeap_def,no_Prev_def,no_Old_def, SF ETA_ss,evaluate_exp_def]
+    \\ gvs [CaseEq"bool",CaseEq"prod"]
+    \\ rename [‘evaluate_exps st env es = (sttt,vv)’]
+    \\ reverse $ Cases_on ‘vv’ \\ fs [] \\ gvs []
+    \\ fs [CaseEq"option"] \\ gvs []
+    \\ irule IMP_eval_forall_eq \\ fs [] \\ rw []
+    \\ Cases_on ‘evaluate_exp (st' with heap := x) env e’ \\ fs []
+    \\ last_x_assum drule \\ strip_tac
+    \\ ‘st'.heap_old = st.heap_old’ by
+       (imp_res_tac evaluate_exp_with_clock
+        \\ gvs [state_component_equality])
+    \\ gvs [])
   >~ [‘[]’] >-
     gvs[replace_OldHeap_def,evaluate_exp_def,AllCaseEqs()]
   >~ [‘e::es’] >- (
@@ -7358,7 +7412,7 @@ Definition stmt_vcg_def:
       «stmt_vcg:MetCall: Bad decreases spec»;
     assert (EVERY (λe. list_subset (freevars_list e) (MAP FST spec.ins
                                                    ++ MAP FST spec.outs) ∧
-                       (no_Prev F) e) spec.ens)
+                       no_Old T e ∧ no_Prev F e) spec.ens)
       «stmt_vcg:MetCall: Bad ensures spec»;
     assert (list_subset vars (MAP FST ls))
       «stmt_vcg:MetCall: Trying to assign to undeclared variables»;
