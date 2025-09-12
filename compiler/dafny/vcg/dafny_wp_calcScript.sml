@@ -857,7 +857,7 @@ Inductive stmt_wp:
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old F e ∧ no_Prev b e) mspec.reqs ∧
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins) ∧ no_Old F e ∧ no_Prev b e) mspec.decreases ∧
     EVERY (λe. freevars e ⊆ set (MAP FST mspec.ins ++ MAP FST mspec.outs) ∧
-               no_Prev F e) mspec.ens ∧
+               no_Old T e ∧ no_Prev F e) mspec.ens ∧
     EVERY (no_Prev b) post ∧
     dest_Vars mspec.mods = INR callee_mod_params ∧
     dest_Vars (MAP SND (FILTER (λ(v,a). MEM v callee_mod_params)
@@ -6852,15 +6852,17 @@ Proof
   \\ strip_tac
   \\ irule eval_exp_no_old_IMP
   \\ conj_tac
-  >- cheat (* (simp [no_Old_conj,EVERY_MEM,MEM_MAP,PULL_EXISTS,no_Old_replace_OldHeap]) *)
+  >-
+   (fs [no_Old_conj,EVERY_MEM,MEM_MAP,PULL_EXISTS,no_Old_replace_OldHeap]
+    \\ rw [] \\ irule no_Old_IMP_no_Old_replace_OldHeap \\ res_tac)
   \\ qexists_tac ‘st2.heap_old’
   \\ qexists_tac ‘st2.locals_old’
   \\ rewrite_tac [conj_replace_OldHeap]
   \\ irule IMP_eval_exp_replace_OldHeap_lemma
   \\ conj_tac
-  >- cheat (* (gvs [EVERY_MEM,no_Prev_conj]) *)
+  >- (fs [no_Old_conj,EVERY_MEM,MEM_MAP,PULL_EXISTS])
   \\ conj_tac
-  >- cheat (* (gvs [EVERY_MEM,no_Prev_conj]) *)
+  >- (gvs [EVERY_MEM,no_Prev_conj])
   \\ qexistsl [‘st2.heap_prev’,‘st2.locals_prev’]
   \\ simp []
   \\ irule eval_exp_swap_state
