@@ -5627,13 +5627,15 @@ Proof
     \\ gvs [MEM_MAP,PULL_EXISTS]
     \\ rw [] \\ first_x_assum $ irule_at Any \\ fs [])
   \\ conj_tac
+
   >- (fs [state_inv_def,Abbr‘new_heap’,Abbr‘new_vals’]
       \\ rw [] \\ fs [locals_inv_def,EVERY_MEM,value_inv_def]
       >-
        (rw [oEL_LUPDATE] \\ PairCases_on ‘l’ \\ gvs []
         \\ IF_CASES_TAC >- (res_tac \\ gvs [])
         \\ fs [oEL_THM]
-        \\ cheat (* value_inv *))
+        \\ res_tac
+        \\ fs [] \\ rveq \\ fs [])
       \\ gvs [heap_inv_def]
       \\ cheat (* heap_inv *))
   \\ rewrite_tac [GSYM eval_true_conj_every]
