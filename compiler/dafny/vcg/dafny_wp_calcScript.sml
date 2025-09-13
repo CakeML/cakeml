@@ -797,7 +797,7 @@ Inductive stmt_wp:
     stmt_wp m [Let (ZIP (ret_names,exps)) (conj post)] (Assign l) post ens decs mods ls
 [~AssignArray:]
   ∀m arr_v index_e rhs_e el_ty post ens decs mods ls.
-    MEM arr_v mods ∧
+    MEM arr_v mods ∧ j ≠ arr_v ∧
     get_type ls index_e = INR IntT ∧
     get_type ls (Var arr_v) = INR (ArrT el_ty) ∧
     get_type ls rhs_e = INR el_ty ∧
@@ -807,9 +807,30 @@ Inductive stmt_wp:
                BinOp Lt index_e (ArrLen (Var arr_v));
                CanEval rhs_e; CanEval (Var arr_v);
                SetPrev $ ForallHeap [Var arr_v]
-                 (imp (dfy_eq (ArrSel (Var arr_v) (Prev index_e)) (Prev rhs_e))
+                 (imp (conj [dfy_eq (ArrSel (Var arr_v) (Prev index_e)) (Prev rhs_e);
+                             Forall (j,IntT)
+                               (imp (conj [not (dfy_eq (Var j) (Prev index_e));
+                                           BinOp Le (Lit (IntL 0)) (Var j);
+                                           BinOp Lt (Var j) (ArrLen (Var arr_v))])
+                                    (dfy_eq (ArrSel (Var arr_v) (Var j))
+                                            (PrevHeap (ArrSel (Var arr_v) (Var j)))))])
                       (conj post))]
       (Assign [(ArrSelLhs (Var arr_v) index_e, ExpRhs rhs_e)]) post ens decs mods ls
+[~ArrayAlloc:]
+  ∀m arr_v len_e el_e el_ty post ens decs mods ls.
+    ~MEM arr_v mods ∧
+    get_type ls len_e = INR IntT ∧
+    get_type ls el_e = INR el_ty ∧
+    no_Prev b len_e ∧ no_Prev b el_e ∧ no_Prev b (conj pre2) ∧
+    stmt_wp m pre2 s2 post ens decs (arrv_v :: mods) ls
+    ⇒
+    stmt_wp m [BinOp Le (Lit (IntL 0)) len_e;
+               CanEval len_e; CanEval el_e;
+               SetPrev $ ForallHeap []
+                 (imp (dfy_eq (ArrLen (Var arr_v)) (Prev len_e))
+                      (conj pre2))]
+      (Then (Assign [(VarLhs arr_v, ArrAlloc len_e el_e el_ty)]) s2)
+      post ens decs mods ls
 [~While:]
   ∀m guard invs ds ms body post ens decs ls ds_vars ls1 loop_cond body_cond mods ms_vars.
     DISJOINT (set ds_vars)
@@ -5175,6 +5196,18 @@ Proof
   \\ imp_res_tac evaluate_exp_with_clock \\ fs []
 QED
 
+Theorem eval_exp_PrevHeap:
+  ¬env.is_running ⇒
+  (eval_exp st env (PrevHeap e) v ⇔
+   eval_exp (st with <| heap := st.heap_prev |>) env e v)
+Proof
+  fs [eval_true_def,eval_exp_def,evaluate_exp_def,use_prev_heap_def,unuse_prev_heap_def]
+  \\ rw [] \\ gvs [CaseEq"bool",CaseEq"prod"] \\ eq_tac \\ rw []
+  \\ qexists_tac ‘ck1’ \\ simp []
+  \\ gvs [state_component_equality]
+  \\ imp_res_tac evaluate_exp_with_clock \\ fs []
+QED
+
 fun setup (q : term quotation, t : tactic) = let
     val the_concl = Parse.typedTerm q bool
     val t2 = (t \\ rpt (pop_assum mp_tac))
@@ -5563,6 +5596,27 @@ Proof
   \\ fs [index_array_def,val_to_num_def]
 QED
 
+Theorem eval_true_Forall:
+  (∀(i:int). eval_true (st with locals := (v,SOME (IntV i))::st.locals) env b) ⇒
+  eval_true st env (Forall (v,ty) b)
+Proof
+  cheat
+QED
+
+Theorem IMP_eval_true_imp:
+  eval_exp st env b (BoolV bv) ∧ (bv ⇒ eval_true st env a) ⇒
+  eval_true st env (imp b a)
+Proof
+  cheat
+QED
+
+Theorem eval_exp_conj_unroll:
+  eval_exp st env b (BoolV bv) ∧ eval_exp st env (conj bs) (BoolV bvs) ∧ bs ≠ [] ⇒
+  eval_exp st env (conj (b::bs)) (BoolV (bv ∧ bvs))
+Proof
+  cheat
+QED
+
 Theorem stmt_wp_sound_AssignArray:
   ^(#get_goal stmt_wp_sound_setup `ArrSelLhs`)
 Proof
@@ -5682,33 +5736,85 @@ Proof
   \\ simp [GSYM eval_true_def]
   \\ irule eval_true_imp
   \\ pop_assum $ irule_at $ Pos last
-  \\ irule eval_true_dfy_eq
-  \\ ‘~env.is_running’ by fs [compatible_env_def]
-  \\ simp [eval_exp_Prev]
-  \\ qexists_tac ‘v’
-  \\ reverse conj_tac
+  \\ simp [eval_true_conj_every]
+  \\ conj_tac
   >-
-   (irule eval_exp_no_Prev_alt
+   (irule eval_true_dfy_eq
+    \\ ‘~env.is_running’ by fs [compatible_env_def]
+    \\ simp [eval_exp_Prev]
+    \\ qexists_tac ‘v’
+    \\ reverse conj_tac
+    >-
+     (irule eval_exp_no_Prev_alt
+      \\ conj_tac >- metis_tac []
+      \\ qexistsl [‘st.heap_prev’,‘st.locals_prev’]
+      \\ qpat_x_assum ‘eval_exp _ _ _ v’ mp_tac
+      \\ match_mp_tac EQ_IMPLIES
+      \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+      \\ fs [state_component_equality])
+    \\ irule eval_exp_ArrSel \\ fs []
+    \\ qpat_x_assum ‘mod_loc st.locals arr_v _’ $ irule_at Any
+    \\ simp [Abbr‘new_heap’,oEL_LUPDATE]
+    \\ qexists_tac ‘i’ \\ fs []
+    \\ simp [Abbr‘new_vals’,oEL_LUPDATE]
+    \\ ‘loc < LENGTH st.heap’ by fs [oEL_THM]
+    \\ simp [eval_exp_Prev]
+    \\ irule eval_exp_no_Prev_alt
     \\ conj_tac >- metis_tac []
     \\ qexistsl [‘st.heap_prev’,‘st.locals_prev’]
-    \\ qpat_x_assum ‘eval_exp _ _ _ v’ mp_tac
+    \\ qpat_x_assum ‘eval_exp _ _ _ (IntV _)’ mp_tac
     \\ match_mp_tac EQ_IMPLIES
     \\ rpt AP_THM_TAC \\ AP_TERM_TAC
     \\ fs [state_component_equality])
-  \\ irule eval_exp_ArrSel \\ fs []
-  \\ qpat_x_assum ‘mod_loc st.locals arr_v _’ $ irule_at Any
-  \\ simp [Abbr‘new_heap’,oEL_LUPDATE]
-  \\ qexists_tac ‘i’ \\ fs []
-  \\ simp [Abbr‘new_vals’,oEL_LUPDATE]
-  \\ ‘loc < LENGTH st.heap’ by fs [oEL_THM]
-  \\ simp [eval_exp_Prev]
-  \\ irule eval_exp_no_Prev_alt
-  \\ conj_tac >- metis_tac []
-  \\ qexistsl [‘st.heap_prev’,‘st.locals_prev’]
-  \\ qpat_x_assum ‘eval_exp _ _ _ (IntV _)’ mp_tac
-  \\ match_mp_tac EQ_IMPLIES
-  \\ rpt AP_THM_TAC \\ AP_TERM_TAC
-  \\ fs [state_component_equality]
+  \\ irule eval_true_Forall \\ fs [] \\ rw []
+  \\ rename [‘IntV jv’]
+  \\ irule IMP_eval_true_imp
+  \\ ‘~env.is_running’ by fs [compatible_env_def]
+  \\ qexists_tac ‘(jv ≠ & i) ∧ (0 ≤ jv) ∧ (jv < & (LENGTH arr))’
+  \\ conj_tac
+  >-
+   (rw []
+    \\ irule eval_true_dfy_eq
+    \\ gvs [intLib.COOPER_PROVE “0 ≤ i ⇔ ∃n. (i:int) = & n”]
+    \\ qexists_tac ‘EL n arr’
+    \\ drule eval_exp_PrevHeap
+    \\ disch_then $ rewrite_tac o single \\ fs []
+    \\ strip_tac
+    \\ irule eval_exp_ArrSel
+    \\ fs [mod_loc_def,Abbr‘new_heap’,oEL_LUPDATE,Abbr‘new_vals’]
+    \\ gvs [eval_exp_def,evaluate_exp_def,read_local_def]
+    \\ simp [state_component_equality]
+    \\ gvs [oEL_def,oEL_THM])
+  \\ irule eval_exp_conj_unroll \\ fs []
+  \\ irule_at Any eval_exp_conj_unroll \\ fs []
+  \\ simp [conj_def]
+  \\ conj_tac
+  >-
+   (fs [eval_exp_def,evaluate_exp_def,do_sc_def,read_local_def,do_bop_def]
+    \\ simp [state_component_equality])
+  \\ conj_tac
+  >-
+   (fs [eval_exp_def,evaluate_exp_def,do_sc_def,read_local_def,do_bop_def]
+    \\ gvs [get_array_len_def,state_component_equality])
+  \\ cheat
+(*
+  \\ fs [eval_exp_def,evaluate_exp_def,do_sc_def,read_local_def,do_bop_def]
+  \\ gvs [get_array_len_def,state_component_equality,use_prev_def]
+  \\ gvs [AllCaseEqs(),PULL_EXISTS,do_uop_def,unuse_prev_def]
+  \\ gvs [get_array_len_def,state_component_equality,use_prev_def]
+  \\ first_x_assum $ irule_at $ Pos hd
+  \\ ‘∀ck.
+        (st with
+            <|clock := ck; locals := st.locals; heap := st.heap;
+              locals_prev := st.locals; heap_prev := st.heap|>) =
+        (st with clock := ck)’  by simp [state_component_equality]
+*)
+QED
+
+Theorem stmt_wp_sound_ArrayAlloc:
+  ^(#get_goal stmt_wp_sound_setup `ArrAlloc`)
+Proof
+  cheat (* ignore *)
 QED
 
 Theorem stmt_wp_sound_While:
@@ -6972,6 +7078,7 @@ Proof
     stmt_wp_sound_Dec,
     stmt_wp_sound_Assign,
     stmt_wp_sound_AssignArray,
+    stmt_wp_sound_ArrayAlloc,
     stmt_wp_sound_While,
     stmt_wp_sound_MetCall]
 QED
