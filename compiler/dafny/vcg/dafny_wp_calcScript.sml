@@ -5582,9 +5582,12 @@ Proof
 QED
 
 Theorem eval_true_Forall:
-  (∀(i:int). eval_true (st with locals := (v,SOME (IntV i))::st.locals) env b) ⇒
-  eval_true st env (Forall (v,ty) b)
+  (∀(i:int). eval_true (st with locals := (v,SOME (IntV i))::st.locals) env b) ∧
+  ¬ env.is_running ⇒
+  eval_true st env (Forall (v,IntT) b)
 Proof
+  rw[eval_true_def,eval_exp_def,evaluate_exp_def,eval_forall_def,oneline all_values_def]>>
+  simp[PULL_EXISTS]>>
   cheat
 QED
 
@@ -5592,14 +5595,45 @@ Theorem IMP_eval_true_imp:
   eval_exp st env b (BoolV bv) ∧ (bv ⇒ eval_true st env a) ⇒
   eval_true st env (imp b a)
 Proof
-  cheat
+  rw[eval_true_def,eval_exp_def,evaluate_exp_def]>>
+  Cases_on`bv`>>fs[]
+  >- (
+    Cases_on`ck2 ≤ ck1'`
+    >- (
+      last_x_assum assume_tac>> drule $ cj 1 evaluate_exp_add_to_clock>>
+      simp[]>>
+      disch_then (qspec_then `ck1'-ck2` assume_tac)>>rfs[]>>
+      qexists_tac`ck1+ck1'-ck2` >> simp[do_sc_def,do_bop_def]>>
+      metis_tac[])>>
+    drule $ cj 1 evaluate_exp_add_to_clock>>
+    simp[]>>
+    disch_then (qspec_then `ck2-ck1'` assume_tac)>>rfs[]>>
+    qexists_tac`ck1` >> simp[do_sc_def,do_bop_def]>>
+    metis_tac[])>>
+  qexists_tac`ck1`>>simp[do_sc_def,do_bop_def]>>
+  metis_tac[]
 QED
 
 Theorem eval_exp_conj_unroll:
   eval_exp st env b (BoolV bv) ∧ eval_exp st env (conj bs) (BoolV bvs) ∧ bs ≠ [] ⇒
   eval_exp st env (conj (b::bs)) (BoolV (bv ∧ bvs))
 Proof
-  cheat
+  Cases_on`bs`>>
+  rw[conj_def,eval_exp_def,evaluate_exp_def]>>
+  Cases_on`ck2 ≤ ck1'`
+  >- (
+    last_x_assum assume_tac>> drule $ cj 1 evaluate_exp_add_to_clock>>
+    simp[]>>
+    disch_then (qspec_then `ck1'-ck2` assume_tac)>>rfs[]>>
+    qexists_tac`ck1+ck1'-ck2` >> simp[do_sc_def,do_bop_def]>>
+    rw[]>>
+    metis_tac[])>>
+  drule $ cj 1 evaluate_exp_add_to_clock>>
+  simp[]>>
+  disch_then (qspec_then `ck2-ck1'` assume_tac)>>rfs[]>>
+  qexists_tac`ck1` >> simp[do_sc_def,do_bop_def]>>
+  rw[]>>
+  metis_tac[]
 QED
 
 Theorem stmt_wp_sound_AssignArray:
