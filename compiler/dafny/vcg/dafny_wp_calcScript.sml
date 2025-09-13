@@ -5586,8 +5586,10 @@ Theorem eval_true_Forall:
   ¬ env.is_running ⇒
   eval_true st env (Forall (v,IntT) b)
 Proof
-  rw[eval_true_def,eval_exp_def,evaluate_exp_def,eval_forall_def,oneline all_values_def]>>
-  simp[PULL_EXISTS]>>
+  rw[eval_true_def,eval_exp_def,evaluate_exp_def,eval_forall_def,
+     oneline all_values_def]>>
+  simp[PULL_EXISTS,AllCaseEqs()]>>
+  gvs [SKOLEM_THM] >>
   cheat
 QED
 
@@ -5785,10 +5787,10 @@ Proof
     \\ match_mp_tac EQ_IMPLIES
     \\ rpt AP_THM_TAC \\ AP_TERM_TAC
     \\ fs [state_component_equality])
+  \\ ‘~env.is_running’ by fs [compatible_env_def]
   \\ irule eval_true_Forall \\ fs [] \\ rw []
   \\ rename [‘IntV jv’]
   \\ irule IMP_eval_true_imp
-  \\ ‘~env.is_running’ by fs [compatible_env_def]
   \\ qexists_tac ‘(jv ≠ & i) ∧ (0 ≤ jv) ∧ (jv < & (LENGTH arr))’
   \\ conj_tac
   >-
