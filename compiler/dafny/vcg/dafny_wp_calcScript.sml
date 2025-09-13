@@ -741,6 +741,20 @@ Definition dest_Vars_def:
   dest_Vars ls = result_mmap dest_Var ls
 End
 
+Definition no_ticks_def:
+  (no_ticks (Lit _) ⇔ T) ∧
+  (no_ticks (Var _) ⇔ T) ∧
+  (no_ticks (UnOp _ e) ⇔ no_ticks e) ∧
+  (no_ticks (BinOp _ e₀ e₁) ⇔
+     no_ticks e₀ ∧ no_ticks e₁) ∧
+  (no_ticks (ArrLen arr) ⇔ no_ticks arr) ∧
+  (no_ticks (ArrSel arr idx) ⇔ no_ticks arr ∧ no_ticks idx) ∧
+  (no_ticks (Forall v body) ⇔ no_ticks body) ∧
+  (no_ticks (Prev e) ⇔ no_ticks e) ∧
+  (no_ticks (PrevHeap e) ⇔ no_ticks e) ∧
+  (no_ticks _ ⇔ F)
+End
+
 Inductive stmt_wp:
 [~Skip:]
   ∀m ens post (mods:mlstring list).
@@ -801,7 +815,8 @@ Inductive stmt_wp:
     get_type ls index_e = INR IntT ∧
     get_type ls (Var arr_v) = INR (ArrT el_ty) ∧
     get_type ls rhs_e = INR el_ty ∧
-    no_Prev b index_e ∧ no_Prev b rhs_e ∧ no_Prev b (conj post)
+    no_Prev b index_e ∧ no_Prev b rhs_e ∧ no_Prev b (conj post) ∧
+    no_ticks index_e
     ⇒
     stmt_wp m [BinOp Le (Lit (IntL 0)) index_e;
                BinOp Lt index_e (ArrLen (Var arr_v));
@@ -5581,35 +5596,29 @@ Proof
   \\ fs [index_array_def,val_to_num_def]
 QED
 
-Definition no_ticks_def:
-  (no_ticks (Lit _) ⇔ T) ∧
-  (no_ticks (Var _) ⇔ T) ∧
-  (no_ticks (UnOp _ e) ⇔ no_ticks e) ∧
-  (no_ticks (BinOp _ e₀ e₁) ⇔
-     no_ticks e₀ ∧ no_ticks e₁) ∧
-  (no_ticks (ArrLen arr) ⇔ no_ticks arr) ∧
-  (no_ticks (ArrSel arr idx) ⇔ no_ticks arr ∧ no_ticks idx) ∧
-  (no_ticks (Forall v body) ⇔ no_ticks body) ∧
-  (no_ticks _ ⇔ F)
-End
-
 Theorem no_ticks_lemma:
-  ∀st env e st1 r.
+  (∀st env e st1 r.
     no_ticks e ∧
-    evaluate_exp (st with clock := 0) env e = (st1,r) ⇒
-    st1 = st with clock := 0 ∧ r ≠ Rerr Rtimeout_error
+    evaluate_exp st env e = (st1,r) ⇒
+    st = st1 ∧ r ≠ Rerr Rtimeout_error) ∧
+  (∀st env es st1 r.
+    EVERY no_ticks es ∧
+    evaluate_exps st env es = (st1,r) ⇒
+    st = st1 ∧ r ≠ Rerr Rtimeout_error)
 Proof
-  cheat
+  ho_match_mp_tac evaluate_exp_ind>>rw[no_ticks_def]>>
+  gvs[evaluate_exp_def,AllCaseEqs()]>>
+  gvs[oneline all_values_def,eval_forall_def,AllCaseEqs(),push_local_def,use_prev_def,unuse_prev_def,state_component_equality,unuse_prev_heap_def,use_prev_heap_def]>>
+  every_case_tac>>gvs[]>>
+  metis_tac[PAIR]
 QED
 
 Theorem no_ticks:
-  ∀st env e st1 r.
     no_ticks e ∧
     evaluate_exp st env e = (st1,r) ⇒
-    st1 = st ∧ r ≠ Rerr Rtimeout_error ∧
-    evaluate_exp (st with clock := 0) env e = (st with clock := 0,r)
+    st1 = st ∧ r ≠ Rerr Rtimeout_error
 Proof
-  cheat
+  metis_tac[(cj 1 no_ticks_lemma)]
 QED
 
 Theorem eval_exp_simple_def:
@@ -5622,13 +5631,15 @@ Proof
   \\ rw []
   \\ drule_all no_ticks
   \\ strip_tac \\ gvs []
-  >-
-   (drule (evaluate_exp_add_to_clock |> cj 1)
-    \\ fs [] \\ disch_then $ qspec_then ‘st.clock’ mp_tac
-    \\ ‘(st with clock := st.clock) = st’ by fs [state_component_equality]
-    \\ simp [])
-  \\ qexists_tac ‘0’
-  \\ qexists_tac ‘0’
+  >- (
+    Cases_on`evaluate_exp (st with clock := 0) env e`>>
+    drule_all no_ticks>>rw[]>>
+    drule (evaluate_exp_add_to_clock |> cj 1)>>simp[]>>
+    strip_tac>>
+    gvs[]>>
+    pop_assum(qspec_then`st.clock` mp_tac)>>simp[])
+  \\ qexists_tac ‘st.clock’
+  \\ qexists_tac ‘st.clock’
   \\ fs []
 QED
 
@@ -5846,7 +5857,11 @@ Proof
     \\ rpt AP_THM_TAC \\ AP_TERM_TAC
     \\ fs [state_component_equality])
   \\ ‘~env.is_running’ by fs [compatible_env_def]
-  \\ irule eval_true_Forall \\ fs [] \\ rw []
+  \\ irule eval_true_Forall \\ fs []
+  \\ reverse conj_tac
+  >-
+    simp[no_ticks_def,conj_def]
+  \\ rw []
   \\ rename [‘IntV jv’]
   \\ irule IMP_eval_true_imp
   \\ qexists_tac ‘(jv ≠ & i) ∧ (0 ≤ jv) ∧ (jv < & (LENGTH arr))’
@@ -7546,6 +7561,7 @@ Definition stmt_vcg_def:
       assert (j ≠ arr_v) «stmt_vcg:Assign:Array: Bad array var name»;
       assert (arr_ty = ArrT el_ty) «stmt_vcg:Assign:Array: Mismatch between lhs and rhs»;
       assert (no_Prev T index_e) «stmt_vcg_Assign:Array: no_Prev T violated in index»;
+      assert (no_ticks index_e) «stmt_vcg_Assign:Array: no_ticks violated in index»;
       assert (no_Prev T rhs_e) «stmt_vcg_Assign:Array: no_Prev T violated in rhs»;
       assert (no_Prev T (conj post)) «stmt_vcg_Assign:Array: no_Prev T violated in postcondition»;
       return
