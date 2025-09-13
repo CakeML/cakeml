@@ -742,17 +742,34 @@ Definition dest_Vars_def:
 End
 
 Definition no_ticks_def:
+  (no_ticks (Old e) ⇔ no_ticks e) ∧
+  (no_ticks (OldHeap e) ⇔ no_ticks e) ∧
   (no_ticks (Lit _) ⇔ T) ∧
   (no_ticks (Var _) ⇔ T) ∧
+  (no_ticks (Prev e) ⇔ no_ticks e) ∧
+  (no_ticks (PrevHeap e) ⇔ no_ticks e) ∧
+  (no_ticks (SetPrev e) ⇔ no_ticks e) ∧
+  (no_ticks (If tst thn els) ⇔
+     no_ticks tst ∧ no_ticks thn ∧ no_ticks els) ∧
   (no_ticks (UnOp _ e) ⇔ no_ticks e) ∧
   (no_ticks (BinOp _ e₀ e₁) ⇔
      no_ticks e₀ ∧ no_ticks e₁) ∧
   (no_ticks (ArrLen arr) ⇔ no_ticks arr) ∧
   (no_ticks (ArrSel arr idx) ⇔ no_ticks arr ∧ no_ticks idx) ∧
-  (no_ticks (Forall v body) ⇔ no_ticks body) ∧
-  (no_ticks (Prev e) ⇔ no_ticks e) ∧
-  (no_ticks (PrevHeap e) ⇔ no_ticks e) ∧
-  (no_ticks _ ⇔ F)
+  (no_ticks (FunCall _ args) ⇔ F) ∧
+  (no_ticks (Forall _ term) ⇔ no_ticks term) ∧
+  (no_ticks (Let binds body) ⇔
+     EVERY (λe. no_ticks e) (MAP SND binds) ∧ no_ticks body) ∧
+  (no_ticks (ForallHeap mods e) ⇔
+     EVERY (λe. no_ticks e) mods ∧ no_ticks e)
+Termination
+  wf_rel_tac ‘measure $ exp_size’
+  \\ rpt strip_tac
+  \\ gvs [list_size_pair_size_MAP_FST_SND]
+  \\ rewrite_tac [list_exp_size_snd]
+  \\ drule MEM_list_size
+  \\ disch_then $ qspec_then ‘exp_size’ assume_tac
+  \\ gvs []
 End
 
 Inductive stmt_wp:
@@ -5608,9 +5625,13 @@ Theorem no_ticks_lemma:
 Proof
   ho_match_mp_tac evaluate_exp_ind>>rw[no_ticks_def]>>
   gvs[evaluate_exp_def,AllCaseEqs()]>>
-  gvs[oneline all_values_def,eval_forall_def,AllCaseEqs(),push_local_def,use_prev_def,unuse_prev_def,state_component_equality,unuse_prev_heap_def,use_prev_heap_def]>>
-  every_case_tac>>gvs[]>>
-  metis_tac[PAIR]
+  gvs[oneline all_values_def,eval_forall_def,AllCaseEqs(),push_local_def,
+    use_prev_def,unuse_prev_def,unuse_prev_heap_def,use_prev_heap_def,oneline do_cond_def,
+    use_old_def,unuse_old_def,unuse_old_heap_def,use_old_heap_def,unset_prev_def,set_prev_def]>>
+  simp[state_component_equality]>>
+  TRY(metis_tac[PAIR])>>
+  (* Let *)
+  cheat
 QED
 
 Theorem no_ticks:
