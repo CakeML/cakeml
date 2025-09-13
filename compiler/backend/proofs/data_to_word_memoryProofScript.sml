@@ -46,45 +46,30 @@ Proof
   Induct \\ fs [REPLICATE]
 QED
 
-Theorem list_max_leq_suff:
-   EVERY (\x. x <= b) ls ==> list_max ls <= b
+Theorem MAX_LIST_sum_bound:
+   SUM ls <= MAX_LIST ls * LENGTH ls
 Proof
-  Induct_on`ls` \\ rw[list_max_def]
-QED
-
-Theorem list_max_mem:
-   ls <> [] ==> MEM (list_max ls) ls
-Proof
-  Induct_on`ls` \\ rw[list_max_def]
-  \\ Cases_on`ls` \\ fs[list_max_def]
-QED
-
-Theorem list_max_sum_bound:
-   SUM ls <= list_max ls * LENGTH ls
-Proof
-  Induct_on`ls` \\ rw[list_max_def,ADD1,LEFT_ADD_DISTRIB]
+  Induct_on`ls` \\ rw[MAX_DEF,ADD1,LEFT_ADD_DISTRIB]
   \\ match_mp_tac LESS_EQ_TRANS
   \\ asm_exists_tac \\ simp[]
 QED
 
-Theorem list_max_bounded_elements:
-   !l1 l2. LIST_REL $<= l1 l2 ==> list_max l1 <= list_max l2
+Theorem MAX_LIST_bounded_elements:
+   !l1 l2. LIST_REL $<= l1 l2 ==> MAX_LIST l1 <= MAX_LIST l2
 Proof
-  Induct \\ rw[list_max_def] \\ res_tac \\ rw[list_max_def]
+  Induct \\ rw[MAX_DEF] \\ res_tac \\ rw[MAX_DEF]
 QED
 
-Theorem list_max_map:
-   ∀f l. (∀x y. x < y ==> f x < f y) ==> list_max (MAP f l) = if NULL l then 0 else f (list_max l)
+Theorem MAX_LIST_MAP:
+   ∀f l. (∀x y. x < y ==> f x < f y) ==> MAX_LIST (MAP f l) = if NULL l then 0 else f (MAX_LIST l)
 Proof
-  rpt strip_tac
-  \\ Induct_on`l` \\ rw[list_max_def,NULL_EQ]
-  \\ res_tac \\ fs[list_max_def] \\ rveq
-  \\ fs[NOT_LESS]
-  \\ Cases_on`l = []` \\ fs[list_max_def]
-  \\ Cases_on`h < list_max l` \\ fs[]
-  >- ( res_tac \\ fs[] )
-  \\ `h = list_max l` by fs[]
-  \\ fs[]
+  Induct_on`l` \\ rw[NULL_EQ] \\
+  `!a b. f (MAX a b) = MAX (f a) (f b)`
+    by (rpt gen_tac \\
+        Cases_on `a < b` >- (first_x_assum drule \\ simp[MAX_DEF]) \\
+        Cases_on `a = b` >- fs[] \\
+        `b < a` by fs[] >- (first_x_assum drule \\ simp[MAX_DEF])) \\
+  fs[]
 QED
 
 Theorem w2i_i2w_IMP:
@@ -9027,7 +9012,7 @@ Proof
 QED
 
 Definition v_depth_def:
-  (v_depth (Block _ _ ls) = (if NULL ls then 0 else 1) + list_max (MAP v_depth ls)) ∧
+  (v_depth (Block _ _ ls) = (if NULL ls then 0 else 1) + MAX_LIST (MAP v_depth ls)) ∧
   (v_depth _ = 0n)
 Termination
   WF_REL_TAC`measure v_size` \\
@@ -9083,10 +9068,10 @@ Theorem memory_rel_depth_limit:
        elements_list (MAP FST ls ++ (v::(MAP FST vars)))
 Proof
   ho_match_mp_tac v_ind
-  \\ rw[v_depth_def,LENGTH_NIL_SYM,NULL_EQ,list_max_def]
+  \\ rw[v_depth_def,LENGTH_NIL_SYM,NULL_EQ]
   \\ fsrw_tac[ETA_ss][]
-  \\ `MEM (list_max (MAP v_depth l)) (MAP v_depth l)`
-    by ( match_mp_tac list_max_mem \\ rw[] )
+  \\ `MEM (MAX_LIST (MAP v_depth l)) (MAP v_depth l)`
+    by (match_mp_tac MAX_LIST_MEM \\ rw[] )
   \\ fs[MEM_MAP,EVERY_MEM]
   \\ qmatch_assum_rename_tac`MEM e l`
   \\ first_x_assum(qspec_then`e`mp_tac) \\ simp[]
@@ -9182,7 +9167,7 @@ Theorem memory_rel_depth_size_limit:
    ⇒
    vb_size v ≤ dimword(:'a) ** (v_depth v + 1)
 Proof
-  ho_match_mp_tac v_ind \\ rw[vb_size_def,EXP,NULL_EQ,list_max_def]
+  ho_match_mp_tac v_ind \\ rw[vb_size_def,EXP,NULL_EQ]
   \\ TRY ( fs[dimword_def] \\ NO_TAC )
   >- (
     rpt_drule memory_rel_Block_IMP
@@ -9194,8 +9179,8 @@ Proof
     qspecl_then[`dimindex(:'a)`,`4`,`2`]mp_tac EXP_SUB
     \\ impl_tac >- fs[good_dimindex_def]
     \\ strip_tac \\ fs[X_LT_DIV] )
-  \\ `SUM (MAP vb_size l) <= list_max (MAP vb_size l) * LENGTH l`
-    by metis_tac[list_max_sum_bound,LENGTH_MAP]
+  \\ `SUM (MAP vb_size l) <= MAX_LIST (MAP vb_size l) * LENGTH l`
+    by metis_tac[MAX_LIST_sum_bound,LENGTH_MAP]
   \\ `n < dimword(:'a) DIV 16`
   by (
     fs[memory_rel_def,word_ml_inv_def,bc_stack_ref_inv_def,abs_ml_inv_def]
@@ -9205,14 +9190,14 @@ Proof
   \\ qexists_tac`SUM (MAP vb_size l) + dimword(:'a) DIV 8`
   \\ conj_tac >- simp[]
   \\ qabbrev_tac`f = λx.  dimword(:'a) * dimword(:'a) ** x`
-  \\ `list_max (MAP vb_size l) <= list_max (MAP (f o v_depth) l)`
+  \\ `MAX_LIST (MAP vb_size l) <= MAX_LIST (MAP (f o v_depth) l)`
   by (
-    match_mp_tac list_max_bounded_elements
+    match_mp_tac MAX_LIST_bounded_elements
     \\ fs[LIST_REL_EL_EQN,EVERY_MEM,MEM_EL,EL_MAP,Abbr`f`,PULL_EXISTS]
     \\ rw[] \\ first_x_assum (match_mp_tac o MP_CANON) \\ rw[]
     \\ rpt_drule memory_rel_Block_MEM \\ rw[]
     \\ metis_tac[CONS_APPEND] )
-  \\ Q.ISPECL_THEN[`f`,`MAP v_depth l`]mp_tac list_max_map
+  \\ Q.ISPECL_THEN[`f`,`MAP v_depth l`]mp_tac MAX_LIST_MAP
   \\ simp[NULL_EQ,Abbr`f`]
   \\ rewrite_tac[TWO,EXP,ONE]
   \\ rewrite_tac[GSYM ONE,MULT_RIGHT_1]
