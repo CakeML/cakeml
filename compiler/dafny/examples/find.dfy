@@ -17,7 +17,12 @@ method Find(a: array<int>, key: int) returns (index: int)
 
 method Main() {
   var a := new int[5];
-  a[0], a[1], a[2], a[3], a[4] := 3, 1, 4, 1, 5;
+  a[0] := 3;
+  a[1] := 1;
+  a[2] := 4;
+  a[3] := 1;
+  a[4] := 5;
+
 
   TestFind(a, 3);   // key at start
   TestFind(a, 4);   // key in middle

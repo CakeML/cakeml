@@ -7308,6 +7308,19 @@ Definition assert_def:
   if cond then return () else fail err
 End
 
+(* TODO Pattern matching should probably not be this deep *)
+Definition is_AssignArray_def:
+  is_AssignArray [(ArrSelLhs _ _, _)] = T ∧
+  is_AssignArray _ = F
+End
+
+(* TODO Pattern matching should probably not be this deep *)
+Definition dest_AssignArray_def:
+  dest_AssignArray [(ArrSelLhs (Var arr_v) idx_e, ExpRhs rhs_e)] =
+    return (arr_v, idx_e, rhs_e) ∧
+  dest_AssignArray _ = fail «dest_AssignArray: Does not fit rule»
+End
+
 Definition stmt_vcg_def:
   stmt_vcg _ Skip post ens decs mods ls = return post ∧
   stmt_vcg _ (Assert e) post ens decs mods ls = return (e::post) ∧
@@ -7340,18 +7353,39 @@ Definition stmt_vcg_def:
     return wp
   od ∧
   stmt_vcg _ (Assign ass) post _ _ mods ls =
-  do
-    (lhss, rhss) <<- UNZIP ass;
-    vars <- result_mmap dest_VarLhs lhss;
-    es <- result_mmap dest_ExpRhs rhss;
-    assert (ALL_DISTINCT vars) «stmt_vcg:Assign: variables not distinct»;
-    assert (list_disjoint vars mods) «stmt_vcg:Assign: assigning to mods»;
-    assert (list_subset vars (MAP FST ls)) «stmt_vcg:Assign: Trying to assign to undeclared variables»;
-    es_tys <- get_types ls es;
-    vars_tys <- get_types ls (MAP Var vars);
-    assert (es_tys = vars_tys) «stmt_vcg:Assign: lhs and rhs types do not match»;
-    return [Let (ZIP (vars, es)) (conj post)]
-  od ∧
+  (if is_AssignArray ass then
+    do
+      (arr_v, index_e, rhs_e) <- dest_AssignArray ass;
+      assert (MEM arr_v mods) «stmt_vcg:Assign:Array: Trying to modify array not in mods»;
+      index_ty <- get_type ls index_e;
+      assert (index_ty = IntT) «stmt_vcg:Assign:Array: Index not an int»;
+      el_ty <- get_type ls rhs_e;
+      arr_ty <- get_type ls (Var arr_v);
+      assert (arr_ty = ArrT el_ty) «stmt_vcg:Assign:Array: Mismatch between lhs and rhs»;
+      assert (no_Prev T index_e) «stmt_vcg_Assign:Array: no_Prev T violated in index»;
+      assert (no_Prev T rhs_e) «stmt_vcg_Assign:Array: no_Prev T violated in rhs»;
+      assert (no_Prev T (conj post)) «stmt_vcg_Assign:Array: no_Prev T violated in postcondition»;
+      return
+        [int_le (int_lit 0) index_e; int_lt index_e (ArrLen (Var arr_v));
+         CanEval rhs_e; CanEval (Var arr_v);
+         SetPrev
+         (ForallHeap [Var arr_v]
+            (imp (dfy_eq (ArrSel (Var arr_v) (Prev index_e)) (Prev rhs_e))
+                 (conj post)))]
+    od
+  else
+    do
+      (lhss, rhss) <<- UNZIP ass;
+      vars <- result_mmap dest_VarLhs lhss;
+      es <- result_mmap dest_ExpRhs rhss;
+      assert (ALL_DISTINCT vars) «stmt_vcg:Assign: variables not distinct»;
+      assert (list_disjoint vars mods) «stmt_vcg:Assign: assigning to mods»;
+      assert (list_subset vars (MAP FST ls)) «stmt_vcg:Assign: Trying to assign to undeclared variables»;
+      es_tys <- get_types ls es;
+      vars_tys <- get_types ls (MAP Var vars);
+      assert (es_tys = vars_tys) «stmt_vcg:Assign: lhs and rhs types do not match»;
+      return [Let (ZIP (vars, es)) (conj post)]
+    od) ∧
   stmt_vcg m (While guard invs ds ms body) post ens decs (mods:mlstring list) ls =
   do
     (* Inventing variables; after freshen, this should always succeed *)
@@ -7491,8 +7525,14 @@ Proof
     \\ gvs [oneline bind_def, CaseEq "sum"]
     \\ irule stmt_wp_Dec
     \\ gvs [IN_DEF, freevars_list_eq])
-  >~ [‘Assign’] >-
+  >~ [‘Assign ass’] >-
    (gvs [stmt_vcg_def,assert_def]
+    \\ Cases_on ‘is_AssignArray ass’
+    >-
+     (gvs [oneline is_AssignArray_def, oneline dest_AssignArray_def,
+           oneline bind_def, AllCaseEqs()]
+      \\ irule stmt_wp_AssignArray \\ gvs []
+      \\ first_assum $ irule_at (Pos last) \\ simp [])
     \\ gvs [UNZIP_MAP]
     \\ gvs [oneline bind_def, CaseEq "sum"]
     \\ irule stmt_wp_Assign

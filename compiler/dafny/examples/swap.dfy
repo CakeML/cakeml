@@ -11,8 +11,16 @@ method Swap(a: array<int>, i: int, j: int)
 }
 
 method Main() {
-  var a1 := new int[3]; a1[0], a1[1], a1[2] := 1, 2, 3;
-  var a2 := new int[3]; a2[0], a2[1], a2[2] := 4, 5, 6;
+  var a1 := new int[3];
+  a1[0] := 1;
+  a1[1] := 2;
+  a1[2] := 3;
+
+  var a2 := new int[3];
+  a2[0] := 4;
+  a2[1] := 5;
+  a2[2] := 6;
+
 
   TestSwap(a1, 0, 1);  // swap first two
   TestSwap(a1, 1, 2);  // swap last two
