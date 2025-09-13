@@ -7484,6 +7484,8 @@ Definition stmt_vcg_def:
       assert (index_ty = IntT) «stmt_vcg:Assign:Array: Index not an int»;
       el_ty <- get_type ls rhs_e;
       arr_ty <- get_type ls (Var arr_v);
+      j <<- strlit " index";
+      assert (j ≠ arr_v) «stmt_vcg:Assign:Array: Bad array var name»;
       assert (arr_ty = ArrT el_ty) «stmt_vcg:Assign:Array: Mismatch between lhs and rhs»;
       assert (no_Prev T index_e) «stmt_vcg_Assign:Array: no_Prev T violated in index»;
       assert (no_Prev T rhs_e) «stmt_vcg_Assign:Array: no_Prev T violated in rhs»;
@@ -7493,7 +7495,13 @@ Definition stmt_vcg_def:
          CanEval rhs_e; CanEval (Var arr_v);
          SetPrev
          (ForallHeap [Var arr_v]
-            (imp (dfy_eq (ArrSel (Var arr_v) (Prev index_e)) (Prev rhs_e))
+            (imp (conj [dfy_eq (ArrSel (Var arr_v) (Prev index_e)) (Prev rhs_e);
+                        Forall (j,IntT)
+                               (imp (conj [not (dfy_eq (Var j) (Prev index_e));
+                                           BinOp Le (Lit (IntL 0)) (Var j);
+                                           BinOp Lt (Var j) (ArrLen (Var arr_v))])
+                                    (dfy_eq (ArrSel (Var arr_v) (Var j))
+                                            (PrevHeap (ArrSel (Var arr_v) (Var j)))))])
                  (conj post)))]
     od
   else
