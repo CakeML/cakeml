@@ -5581,16 +5581,74 @@ Proof
   \\ fs [index_array_def,val_to_num_def]
 QED
 
+Definition no_ticks_def:
+  (no_ticks (Lit _) ⇔ T) ∧
+  (no_ticks (Var _) ⇔ T) ∧
+  (no_ticks (UnOp _ e) ⇔ no_ticks e) ∧
+  (no_ticks (BinOp _ e₀ e₁) ⇔
+     no_ticks e₀ ∧ no_ticks e₁) ∧
+  (no_ticks (ArrLen arr) ⇔ no_ticks arr) ∧
+  (no_ticks (ArrSel arr idx) ⇔ no_ticks arr ∧ no_ticks idx) ∧
+  (no_ticks (Forall v body) ⇔ no_ticks body) ∧
+  (no_ticks _ ⇔ F)
+End
+
+Theorem no_ticks_lemma:
+  ∀st env e st1 r.
+    no_ticks e ∧
+    evaluate_exp (st with clock := 0) env e = (st1,r) ⇒
+    st1 = st with clock := 0 ∧ r ≠ Rerr Rtimeout_error
+Proof
+  cheat
+QED
+
+Theorem no_ticks:
+  ∀st env e st1 r.
+    no_ticks e ∧
+    evaluate_exp st env e = (st1,r) ⇒
+    st1 = st ∧ r ≠ Rerr Rtimeout_error ∧
+    evaluate_exp (st with clock := 0) env e = (st with clock := 0,r)
+Proof
+  cheat
+QED
+
+Theorem eval_exp_simple_def:
+  no_ticks e ⇒
+  (eval_exp st env e v ⇔
+   evaluate_exp st env e = (st,Rval v))
+Proof
+  rw [] \\ gvs [eval_exp_def]
+  \\ eq_tac
+  \\ rw []
+  \\ drule_all no_ticks
+  \\ strip_tac \\ gvs []
+  >-
+   (drule (evaluate_exp_add_to_clock |> cj 1)
+    \\ fs [] \\ disch_then $ qspec_then ‘st.clock’ mp_tac
+    \\ ‘(st with clock := st.clock) = st’ by fs [state_component_equality]
+    \\ simp [])
+  \\ qexists_tac ‘0’
+  \\ qexists_tac ‘0’
+  \\ fs []
+QED
+
 Theorem eval_true_Forall:
   (∀(i:int). eval_true (st with locals := (v,SOME (IntV i))::st.locals) env b) ∧
-  ¬ env.is_running ⇒
+  ¬ env.is_running ∧ no_ticks b ⇒
   eval_true st env (Forall (v,IntT) b)
 Proof
-  rw[eval_true_def,eval_exp_def,evaluate_exp_def,eval_forall_def,
+  Cases_on ‘no_ticks b’ \\ simp []
+  \\ ‘no_ticks (Forall (v,IntT) b)’ by gvs [no_ticks_def]
+  \\ imp_res_tac eval_exp_simple_def
+  \\ rw[eval_true_def,evaluate_exp_def,eval_forall_def,
      oneline all_values_def]>>
-  simp[PULL_EXISTS,AllCaseEqs()]>>
-  gvs [SKOLEM_THM] >>
-  cheat
+  fs [PULL_EXISTS,AllCaseEqs(),push_local_def]
+  \\ Cases_on ‘evaluate_exp (st with locals := (v,SOME (IntV i))::st.locals) env b’
+  >- (disj1_tac \\ qexists_tac ‘i’ \\ fs [])
+  >- (disj1_tac \\ qexists_tac ‘i’ \\ fs [])
+  \\ gvs []
+  \\ disj1_tac
+  \\ CCONTR_TAC \\ gvs []
 QED
 
 Theorem IMP_eval_true_imp:
