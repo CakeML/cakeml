@@ -5,10 +5,53 @@ Theory source_weakenletProof
 Ancestors
   source_weakenlet evaluate evaluateProps semanticPrimitives
   semanticPrimitivesProps misc[qualified] semantics ast
-  source_evalProof
 Libs
   preamble
 
+Definition env_rel_def:
+  env_rel rel (envx: 'a sem_env) envy = ((!n. OPTREL rel (nsLookup envx.v n) (nsLookup envy.v n))
+                          /\ envx.c = envy.c)
+End
+
+Theorem env_rel_mono[mono]:
+  (!x y. R1 x y ==> R2 x y) ==> env_rel R1 x y ==> env_rel R2 x y
+Proof
+  fs[env_rel_def] >> srw_tac[][] >>
+  irule OPTREL_MONO >>
+  first_x_assum (irule_at (Pos $ el 2)) >>
+  simp[]
+QED
+
+Inductive v_rel:
+   (v_rel (Litv v) (Litv v))
+   /\
+   (LIST_REL v_rel xs ys ==>
+   (v_rel (Conv stamp xs) (Conv stamp ys)))
+   /\
+   (env_rel v_rel envx envy ==>
+   (v_rel (Closure envx var exp) (Closure envy var exp)))
+   /\
+   (env_rel v_rel envx envy ==>
+   (v_rel (Recclosure envx funs fun_name) (Recclosure envy funs fun_name)))
+   /\
+   (env_rel v_rel envx envy /\
+   find_recfun fun_name funs = SOME (var,exp) /\
+   ~ EXISTS (\fun_name. exists_call fun_name exp) (MAP FST funs) ==>
+   (v_rel (Closure envx var exp) (Recclosure envy funs fun_name)))
+   /\
+   (env_rel v_rel envx envy /\
+   find_recfun fun_name funs = SOME (var,exp) /\
+   ~ EXISTS (\fun_name. exists_call fun_name exp) (MAP FST funs) ==>
+   (v_rel (Recclosure envx funs fun_name) (Closure envy var exp)))
+   /\
+   (v_rel (Loc b addr) (Loc b addr))
+   /\
+   (LIST_REL v_rel xs ys ==>
+   (v_rel (Vectorv xs) (Vectorv ys)))
+   /\
+   (env_rel v_rel envx envy ==>
+   (v_rel (Env envx nid) (Env envy nid)))
+End
 
 Triviality compile_decs_cons:
  !d ds.compile_decs (d ::ds) = HD (compile_decs [d]) :: compile_decs ds
