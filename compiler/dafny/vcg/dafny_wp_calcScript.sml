@@ -816,21 +816,6 @@ Inductive stmt_wp:
                                             (PrevHeap (ArrSel (Var arr_v) (Var j)))))])
                       (conj post))]
       (Assign [(ArrSelLhs (Var arr_v) index_e, ExpRhs rhs_e)]) post ens decs mods ls
-[~ArrayAlloc:]
-  ∀m arr_v len_e el_e el_ty post ens decs mods ls.
-    ~MEM arr_v mods ∧
-    get_type ls len_e = INR IntT ∧
-    get_type ls el_e = INR el_ty ∧
-    no_Prev b len_e ∧ no_Prev b el_e ∧ no_Prev b (conj pre2) ∧
-    stmt_wp m pre2 s2 post ens decs (arrv_v :: mods) ls
-    ⇒
-    stmt_wp m [BinOp Le (Lit (IntL 0)) len_e;
-               CanEval len_e; CanEval el_e;
-               SetPrev $ ForallHeap []
-                 (imp (dfy_eq (ArrLen (Var arr_v)) (Prev len_e))
-                      (conj pre2))]
-      (Then (Assign [(VarLhs arr_v, ArrAlloc len_e el_e el_ty)]) s2)
-      post ens decs mods ls
 [~While:]
   ∀m guard invs ds ms body post ens decs ls ds_vars ls1 loop_cond body_cond mods ms_vars.
     DISJOINT (set ds_vars)
@@ -5796,25 +5781,21 @@ Proof
   >-
    (fs [eval_exp_def,evaluate_exp_def,do_sc_def,read_local_def,do_bop_def]
     \\ gvs [get_array_len_def,state_component_equality])
-  \\ cheat
-(*
-  \\ fs [eval_exp_def,evaluate_exp_def,do_sc_def,read_local_def,do_bop_def]
-  \\ gvs [get_array_len_def,state_component_equality,use_prev_def]
+  \\ qpat_x_assum ‘eval_exp st env index_e (IntV (&i))’ assume_tac
+  \\ qpat_x_assum ‘no_Prev b index_e’ assume_tac
+  \\ drule_all eval_exp_no_Prev
+  \\ disch_then $ qspecl_then [‘st.locals’,‘st.heap’] mp_tac
+  \\ simp [eval_exp_def,evaluate_exp_def,do_sc_def,read_local_def,do_bop_def]
+  \\ strip_tac
   \\ gvs [AllCaseEqs(),PULL_EXISTS,do_uop_def,unuse_prev_def]
   \\ gvs [get_array_len_def,state_component_equality,use_prev_def]
-  \\ first_x_assum $ irule_at $ Pos hd
-  \\ ‘∀ck.
-        (st with
-            <|clock := ck; locals := st.locals; heap := st.heap;
-              locals_prev := st.locals; heap_prev := st.heap|>) =
-        (st with clock := ck)’  by simp [state_component_equality]
-*)
-QED
-
-Theorem stmt_wp_sound_ArrayAlloc:
-  ^(#get_goal stmt_wp_sound_setup `ArrAlloc`)
-Proof
-  cheat (* ignore *)
+  \\ qexistsl [‘ck1’,‘st with
+                      <|clock := ck2; locals_prev := st.locals; heap_prev := st.heap|>’,
+               ‘(IntV (&i))’]
+  \\ simp []
+  \\ pop_assum $ rewrite_tac o single o GSYM
+  \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+  \\ simp [state_component_equality]
 QED
 
 Theorem stmt_wp_sound_While:
@@ -7078,7 +7059,6 @@ Proof
     stmt_wp_sound_Dec,
     stmt_wp_sound_Assign,
     stmt_wp_sound_AssignArray,
-    stmt_wp_sound_ArrayAlloc,
     stmt_wp_sound_While,
     stmt_wp_sound_MetCall]
 QED
