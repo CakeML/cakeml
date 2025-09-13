@@ -1671,8 +1671,10 @@ Definition ltree_def:
      | Tau u => Ret (INL (u,st))
      | Vis (s,c,ws) g =>
          (case (FST fs) s st c ws of
-            Oracle_return fs' ws' => Ret (INL (g (INL (INR ws')), fs'))
-(*          | Oracle_final outcome => Ret (INL (g (INL (INR ws)), st))))*)
+            Oracle_return fs' ws' =>
+              if LENGTH ws = LENGTH ws'
+              then Ret (INL (g (INL (INR ws')), fs'))
+              else Ret (INL (g (INL (INL FFI_failed)),st))
           | Oracle_final outcome => Ret (INL (g (INL (INL outcome)), st))))
   (t,SND fs)
 End
@@ -1683,13 +1685,16 @@ Theorem ltree_simps[simp]:
   (ltree fs (Vis (s,c,ws) g) =
          (case (FST fs) s (SND fs) c ws of
             Oracle_return fs' ws' =>
-              Tau (ltree (FST fs,fs') (g (INL (INR ws'))))
+              if LENGTH ws = LENGTH ws' then
+                Tau (ltree (FST fs,fs') (g (INL (INR ws'))))
+              else Tau (ltree fs (g (INL (INL FFI_failed))))
           | Oracle_final outcome =>
               Tau (ltree fs (g (INL (INL outcome))))))
 Proof
   rw[]>>simp[ltree_def,Once itree_iter_thm]>>
   CASE_TAC>>simp[itree_bind_thm]>>
-  simp[Once ltree_def]
+  simp[Once ltree_def]>>
+  CASE_TAC>>simp[]
 QED
 
 Theorem ltree_FUNPOW_Tau[simp]:
@@ -1707,9 +1712,11 @@ Proof
   Induct>>rw[]
   >- (Cases_on ‘t’>>fs[]>>
       PairCases_on ‘a’>>simp[]>>
+      CASE_TAC>>simp[]>>
       CASE_TAC>>simp[])>>
   Cases_on ‘t’>>fs[FUNPOW_SUC]>>
   PairCases_on ‘a’>>simp[]>>
+  CASE_TAC>>simp[]>>
   CASE_TAC>>simp[]
 QED
 
@@ -1725,7 +1732,10 @@ Definition comp_ffi_def:
         | Tau t => (t,st)
         | Vis (s,c,ws) g =>
             case (FST fs) s st c ws of
-              Oracle_return fs' ws' => (g (INL (INR ws')), fs')
+              Oracle_return fs' ws' =>
+                if LENGTH ws = LENGTH ws' then
+                  (g (INL (INR ws')), fs')
+                else (g (INL (INL FFI_failed)),st)
             | Oracle_final outcome => (g (INL (INL outcome)), st)
     )
     (t,SND fs)
@@ -1736,7 +1746,10 @@ Theorem comp_ffi_simps[simp]:
   comp_ffi fs (Tau t) = comp_ffi fs t ∧
   comp_ffi fs (Vis (s,c,ws) g) =
   case (FST fs) s (SND fs) c ws of
-    Oracle_return fs' ws' => comp_ffi (FST fs,fs') (g (INL (INR ws')))
+    Oracle_return fs' ws' =>
+      if LENGTH ws = LENGTH ws'
+      then comp_ffi (FST fs,fs') (g (INL (INR ws')))
+      else comp_ffi fs (g (INL (INL FFI_failed)))
   | Oracle_final outcome => comp_ffi fs (g (INL (INL outcome)))
 Proof
   rw[comp_ffi_def]>>simp[Once whileTheory.WHILE] >>
@@ -1762,16 +1775,18 @@ Proof
   rename [‘ltree _ (itree_bind t _)’]
   >- (Cases_on ‘t’>>fs[itree_bind_thm]>>
       PairCases_on ‘a’>>simp[]>>
+      CASE_TAC>>fs[]>>
       CASE_TAC>>fs[])
   >- (Cases_on ‘t’ >>fs[itree_bind_thm]
       >- metis_tac[]
       >- metis_tac[]>>
       PairCases_on ‘a’>>fs[]>>
-      CASE_TAC>>fs[]>>
+      rpt (CASE_TAC>>fs[])>>
       metis_tac[])>>
   Cases_on ‘t’ >>fs[itree_bind_thm]
   >- metis_tac[]>>
   PairCases_on ‘a'’>>fs[]>>
+  CASE_TAC>>fs[]>>
   CASE_TAC>>fs[]
 QED
 
@@ -2023,24 +2038,6 @@ Proof
    qhdtm_x_assum ‘FUNPOW’ mp_tac>>
    rewrite_tac[Once (Q.SPEC ‘SUC (n - SUC n')’ spin_FUNPOW_Tau)]>>
    rw[]>>fs[FUNPOW_Ret_simp])
-QED
-
-Theorem test:
-  ltree fs t = FUNPOW Tau n (Ret r) ⇒
-  comp_ffi fs t = (X,
-
-Theorem comp_ffi_bind_div[simp]:
-  div fs t ⇒
-  comp_ffi fs (itree_bind t k) = comp_ffi fs t
-Proof
-  simp[div_def]>>
-  simp[Once (GSYM CONTRAPOS_THM)]>>rw[]>>
-  CCONTR_TAC>>fs[]>>
-  map_every qid_spec_tac [‘t’,‘fs’,‘n’]>>
-  Induct>>rw[FUNPOW_SUC]>>
-  Cases_on ‘t’>>fs[]>>
-  PairCases_on ‘a’>>fs[]>>
-  CASE_TAC>>fs[]
 QED
 
 Theorem comp_ffi_bind[simp]:
