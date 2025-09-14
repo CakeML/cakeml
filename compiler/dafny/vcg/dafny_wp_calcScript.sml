@@ -6002,10 +6002,21 @@ Theorem eval_true_Forall_IMP =
     |> Q.SPEC ‘[(x,ty)]’
     |> SRULE [Foralls_def,PULL_EXISTS,FORALL_PROD];
 
+Triviality oEL_SNOC:
+  oEL n (SNOC x xs) = SOME y ⇔
+  oEL n xs = SOME y ∨
+  n = LENGTH xs ∧ x = y
+Proof
+  gvs [oEL_THM]
+  \\ Cases_on ‘n = LENGTH xs’ \\ gvs []
+  >- simp [EL_APPEND2,SNOC_APPEND]
+  \\ Cases_on ‘n < LENGTH xs’
+  \\ fs [EL_APPEND1,SNOC_APPEND]
+QED
+
 Theorem stmt_wp_sound_ArrayAlloc:
   ^(#get_goal stmt_wp_sound_setup `ArrAlloc`)
 Proof
-
   rpt strip_tac
   \\ rename [‘Then (Assign [(VarLhs arr_v,ArrAlloc len_e el_e el_ty)]) stmt’]
   \\ gvs [conditions_hold_def]
@@ -6046,9 +6057,35 @@ Proof
     \\ simp [locals_ok_def] \\ strip_tac
     \\ first_x_assum drule
     \\ strip_tac \\ fs [])
-  \\ ‘locals_inv new_heap st.locals’ by cheat
-  \\ ‘value_inv new_heap arr_loc’ by cheat
-  \\ ‘heap_inv new_heap’ by cheat
+  \\ ‘(∀v. value_inv st.heap v ⇒ value_inv new_heap v)’ by
+    (simp [value_inv_def,oEL_THM]
+     \\ rw [Abbr‘new_heap’]
+     \\ simp [EL_APPEND1])
+  \\ ‘locals_inv new_heap st.locals’ by
+    (fs [state_inv_def]
+     \\ qpat_x_assum ‘locals_inv st.heap st.locals’ mp_tac
+     \\ simp [locals_inv_def]
+     \\ rw [EVERY_MEM]
+     \\ first_x_assum dxrule_all
+     \\ simp [])
+  \\ ‘value_has_type el_ty v ∧
+      value_inv st.heap v’ by
+    (‘can_get_type el_e’ by imp_res_tac get_type_inr_can_get_type
+     \\ drule_all eval_exp_value_inv \\ simp []
+     \\ gvs [value_has_type_eq_all_values])
+  \\ ‘heap_inv new_heap’ by
+    (fs [state_inv_def]
+     \\ qpat_x_assum ‘heap_inv st.heap’ mp_tac
+     \\ simp [heap_inv_def,Abbr‘new_heap’]
+     \\ rewrite_tac [GSYM SNOC_APPEND,oEL_SNOC]
+     \\ rewrite_tac [SNOC_APPEND]
+     \\ strip_tac \\ rpt gen_tac \\ strip_tac
+     >- (first_x_assum drule \\ metis_tac [])
+     \\ gvs [] \\ simp [oEL_THM,EL_REPLICATE])
+  \\ ‘value_inv new_heap arr_loc’ by
+    (unabbrev_all_tac
+     \\ simp [value_inv_def,oEL_THM,EL_APPEND2])
+  \\ qpat_x_assum ‘∀v. _ ⇒ value_inv new_heap v’ kall_tac
   \\ drule_all is_some_alookup_update_local_aux
   \\ disch_then $ qx_choosel_then [‘new_l’] strip_assume_tac
   \\ simp []
@@ -6100,7 +6137,9 @@ Proof
      \\ irule eval_exp_freevars
      \\ fs [])
   \\ ‘eval_measure s4 env (wrap_old decs) =
-      eval_measure st env (wrap_old decs)’ by cheat
+      eval_measure st env (wrap_old decs)’ by
+    (Cases_on ‘decs’ \\ gvs [eval_measure_def,wrap_old_def]
+     \\ irule eval_decreases_old_eq \\ simp [Abbr‘s4’])
   \\ fs []
   \\ first_x_assum $ qspecl_then [‘s4’,‘env’,‘
                                    (len,LENGTH st.heap,el_ty)::mod_locs’] mp_tac
