@@ -421,7 +421,8 @@ fun step n =
         unuse_old_def, do_cond_def, get_locs_def, set_prev_def, unset_prev_def,
         do_uop_def, get_array_len_def, index_array_def, val_to_num_def,
         dafny_semanticPrimitivesTheory.get_loc_def, use_prev_def,
-        unuse_prev_def, push_local_def, use_prev_heap_def];
+        unuse_prev_def, push_local_def, use_prev_heap_def, use_old_heap_def,
+        unuse_old_heap_def];
 
 Triviality IMP_SND_evaluate_exp_imp:
   evaluate_exp st env b = (st, Rval (BoolV bv)) ∧
@@ -488,7 +489,6 @@ Proof
   \\ step 5
   \\ simp [get_loc_def]
   \\ qmatch_goalsub_abbrev_tac ‘eval_forall dom evalf’
-
   \\ ‘eval_forall dom evalf = Rval (BoolV T)’ by
     (irule eval_forall_True
      \\ rpt strip_tac
@@ -506,15 +506,51 @@ Proof
         \\ first_x_assum drule_all
         \\ Cases_on ‘v’ \\ gvs [value_has_type_def])
      \\ gvs []
-     \\ IF_CASES_TAC \\ gvs []
+     \\ Cases_on ‘ix = val_j’ \\ simp []
+     \\ pop_assum SUBST_ALL_TAC
      \\ step 5
-     \\ rename [‘LLOOKUP arr' _ = _’]
+     \\ rename [‘LLOOKUP arr₁ _ = _’]
      \\ qexists
-          ‘∀i. i ≠ idx_i ∧ 0 ≤ i ∧ idx_i < &LENGTH arr ⇒
-               LLOOKUP arr' (Num i) = LLOOKUP arr (Num i)’
+          ‘∀i. i ≠ idx_i ∧ 0 ≤ i ∧ idx_i < &LENGTH arr₁ ⇒
+               LLOOKUP arr₁ (Num i) = LLOOKUP arr (Num i)’
      \\ conj_tac
-
-     >- (cheat)
+     >-
+      (qmatch_goalsub_abbrev_tac ‘eval_forall _ evalf’
+       \\ gvs [eval_forall_def, all_values_def]
+       \\ ‘∀i. SND (evalf (IntV i)) = Rval (BoolV (
+             i ≠ idx_i ∧ 0 ≤ i ⇒ LLOOKUP arr₁ (Num i) = LLOOKUP arr (Num i)))’
+         by
+         (strip_tac
+          \\ unabbrev_all_tac \\ gvs []
+          \\ step 6
+          \\ IF_CASES_TAC \\ gvs []
+          \\ step 4
+          \\ IF_CASES_TAC \\ gvs []
+          \\ step 4
+          \\ IF_CASES_TAC \\ gvs []
+          >-
+           (gvs [oEL_THM]
+            \\ IF_CASES_TAC \\ gvs []
+            \\ spose_not_then kall_tac \\ intLib.COOPER_TAC)
+          \\ step 4
+          \\ IF_CASES_TAC \\ gvs []
+          >- (intLib.COOPER_TAC)
+          \\ CASE_TAC \\ gvs []
+          >- (gvs [oEL_THM] \\ intLib.COOPER_TAC)
+          \\ step 4
+          \\ CASE_TAC \\ gvs []
+          >- (gvs [oEL_THM] \\ intLib.COOPER_TAC)
+          \\ gvs [heap_inv_def]
+          \\ first_x_assum $ drule_all_then assume_tac
+          \\ last_x_assum $ drule_all_then assume_tac
+          \\ rename [‘value_has_type _ x’]
+          \\ Cases_on ‘x’ \\ gvs [value_has_type_def]
+          \\ rename [‘value_has_type _ x’]
+          \\ Cases_on ‘x’ \\ gvs [value_has_type_def])
+       \\ IF_CASES_TAC \\ gvs []
+       \\ IF_CASES_TAC \\ gvs []
+       \\ IF_CASES_TAC \\ gvs []
+       \\ first_assum $ irule_at (Pos last) \\ gvs [])
      \\ strip_tac
      \\ step 22
      \\ qmatch_goalsub_abbrev_tac ‘eval_forall dom evalf’
@@ -524,8 +560,72 @@ Proof
         \\ unabbrev_all_tac \\ gvs []
         \\ irule IMP_SND_evaluate_exp_imp
         \\ gvs [IN_DEF, valid_mod_def]
+        \\ step 6
+        \\ first_x_assum $ drule_then assume_tac \\ gvs []
+        \\ CASE_TAC \\ gvs []
+        >- (gvs [oEL_THM])
+        \\ rename [‘LLOOKUP arr₂ _ = _’]
+        \\ step 3
+        \\ rename [‘LLOOKUP _ (Num _) = SOME v’]
+        \\ ‘∃iy. v = IntV iy’ by
+          (gvs [heap_inv_def]
+           \\ first_x_assum drule_all
+           \\ Cases_on ‘v’ \\ gvs [value_has_type_def])
+        \\ gvs []
+        \\ Cases_on ‘iy = val_i’ \\ simp []
+        \\ pop_assum SUBST_ALL_TAC
+        \\ step 5
+        \\ qexists
+           ‘∀i. i ≠ idx_j ∧ 0 ≤ i ∧ idx_j < &LENGTH arr ⇒
+                LLOOKUP arr₂ (Num i) = LLOOKUP arr₁ (Num i)’
+        \\ conj_tac
+        >-
+         (qmatch_goalsub_abbrev_tac ‘eval_forall _ evalf’
+          \\ gvs [eval_forall_def, all_values_def]
 
-        \\ cheat)
+          \\ ‘∀i. SND (evalf (IntV i)) = Rval (BoolV (
+                i ≠ idx_j ∧ 0 ≤ i ⇒ LLOOKUP arr₂ (Num i) = LLOOKUP arr₁ (Num i)))’
+            by
+            (strip_tac
+             \\ unabbrev_all_tac \\ gvs []
+             \\ step 6
+             \\ IF_CASES_TAC \\ gvs []
+             \\ step 4
+             \\ IF_CASES_TAC \\ gvs []
+             \\ step 4
+             \\ IF_CASES_TAC \\ gvs []
+             >-
+              (gvs [oEL_THM]
+               \\ IF_CASES_TAC \\ gvs []
+               \\ spose_not_then kall_tac \\ intLib.COOPER_TAC)
+             \\ step 4
+             \\ IF_CASES_TAC \\ gvs []
+             >- (intLib.COOPER_TAC)
+             \\ CASE_TAC \\ gvs []
+             >- (gvs [oEL_THM] \\ intLib.COOPER_TAC)
+             \\ step 4
+             \\ CASE_TAC \\ gvs []
+             >- (gvs [oEL_THM] \\ intLib.COOPER_TAC)
+             \\ gvs [heap_inv_def]
+             \\ first_x_assum $ drule_all_then assume_tac
+             \\ first_x_assum $ drule_all_then assume_tac
+             \\ gvs []
+             \\ rename [‘value_has_type _ x’]
+             \\ Cases_on ‘x’ \\ gvs [value_has_type_def]
+             \\ rename [‘value_has_type _ x’]
+             \\ Cases_on ‘x’ \\ gvs [value_has_type_def])
+          \\ IF_CASES_TAC \\ gvs []
+          \\ IF_CASES_TAC \\ gvs []
+          \\ IF_CASES_TAC \\ gvs []
+          \\ first_assum $ irule_at (Pos last) \\ gvs [])
+        \\ strip_tac
+        \\ step 7
+        \\ CASE_TAC \\ gvs []
+        >- (gvs [oEL_THM])
+        \\ step 7
+        \\ Cases_on ‘idx_i = idx_j’ \\ gvs []
+        \\ step 11
+        \\ step 11)
      \\ gvs [])
   \\ simp [state_component_equality]
 QED
