@@ -257,6 +257,9 @@ Definition esubsts_ok_def:
   esubsts_ok (sig:SIG) (σ, θ) ⇔
     strlit "=" ∉ FDOM θ ∧
     strlit "bool" ∉ FDOM σ ∧
+    (∀tyn typ. FLOOKUP (tysof sig) tyn = SOME 0 ∧
+               FLOOKUP σ tyn = SOME typ ⇒
+               is_monomorphic ty) ∧
     (∀tmnm. tmnm ∈ FDOM θ ⇒
             ∃ty. FLOOKUP (tmsof sig) tmnm = SOME ty ∧
                  is_monomorphic ty ∧
