@@ -828,20 +828,19 @@ Inductive stmt_wp:
     stmt_wp m [Let (ZIP (ret_names,exps)) (conj post)] (Assign l) post ens decs mods ls
 [~AssignArray:]
   ∀m arr_v index_e rhs_e el_ty post ens decs mods ls.
-    MEM arr_v mods ∧ j ≠ arr_v ∧
+    MEM arr_v mods ∧ j ≠ arr_v ∧ j' ≠ j ∧ j' ≠ arr_v ∧
     get_type ls index_e = INR IntT ∧
     get_type ls (Var arr_v) = INR (ArrT el_ty) ∧
     get_type ls rhs_e = INR el_ty ∧
-    no_Prev b index_e ∧ no_Prev b rhs_e ∧ no_Prev b (conj post) ∧
-    no_ticks index_e
+    no_Prev b index_e ∧ no_Prev b rhs_e ∧ no_Prev b (conj post)
     ⇒
     stmt_wp m [BinOp Le (Lit (IntL 0)) index_e;
                BinOp Lt index_e (ArrLen (Var arr_v));
                CanEval rhs_e; CanEval (Var arr_v);
                SetPrev $ ForallHeap [Var arr_v]
                  (imp (conj [dfy_eq (ArrSel (Var arr_v) (Prev index_e)) (Prev rhs_e);
-                             Forall (j,IntT)
-                               (imp (conj [not (dfy_eq (Var j) (Prev index_e));
+                             Let [(j',Prev index_e)] $ Forall (j,IntT)
+                               (imp (conj [not (dfy_eq (Var j) (Var j'));
                                            BinOp Le (Lit (IntL 0)) (Var j);
                                            BinOp Lt (Var j) (ArrLen (Var arr_v))])
                                     (dfy_eq (ArrSel (Var arr_v) (Var j))
@@ -5728,6 +5727,19 @@ Proof
   metis_tac[]
 QED
 
+Theorem eval_exp_Let1 =
+  eval_exp_Let
+  |> Q.INST [‘ns’|->‘[n]’,‘args’|->‘[a]’,‘vs’|->‘[x]’]
+  |> SRULE [];
+
+Theorem IMP_eval_exp_Let1:
+  eval_exp st env a x ∧
+  eval_exp (st with locals := (n,SOME x)::st.locals) env e v ⇒
+  eval_exp st env (Let [(n,a)] e) v
+Proof
+  metis_tac [eval_exp_Let1]
+QED
+
 Theorem stmt_wp_sound_AssignArray:
   ^(#get_goal stmt_wp_sound_setup `ArrSelLhs`)
 Proof
@@ -5878,10 +5890,24 @@ Proof
     \\ rpt AP_THM_TAC \\ AP_TERM_TAC
     \\ fs [state_component_equality])
   \\ ‘~env.is_running’ by fs [compatible_env_def]
+  \\ simp [eval_true_def]
+  \\ irule IMP_eval_exp_Let1
+  \\ simp [GSYM eval_true_def]
+  \\ qexists_tac ‘IntV (&i)’
+  \\ conj_tac
+  >-
+   (qpat_x_assum ‘eval_exp st env index_e (IntV (&i))’ assume_tac
+    \\ drule_all eval_exp_no_Prev
+    \\ disch_then $ qspecl_then [‘st.locals’,‘st.heap’] mp_tac
+    \\ strip_tac
+    \\ simp [eval_exp_Prev]
+    \\ pop_assum mp_tac
+    \\ match_mp_tac EQ_IMPLIES
+    \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+    \\ simp [state_component_equality])
   \\ irule eval_true_Forall \\ fs []
   \\ reverse conj_tac
-  >-
-    simp[no_ticks_def,conj_def]
+  >- simp[no_ticks_def,conj_def]
   \\ rw []
   \\ rename [‘IntV jv’]
   \\ irule IMP_eval_true_imp
@@ -5911,21 +5937,8 @@ Proof
   >-
    (fs [eval_exp_def,evaluate_exp_def,do_sc_def,read_local_def,do_bop_def]
     \\ gvs [get_array_len_def,state_component_equality])
-  \\ qpat_x_assum ‘eval_exp st env index_e (IntV (&i))’ assume_tac
-  \\ qpat_x_assum ‘no_Prev b index_e’ assume_tac
-  \\ drule_all eval_exp_no_Prev
-  \\ disch_then $ qspecl_then [‘st.locals’,‘st.heap’] mp_tac
-  \\ simp [eval_exp_def,evaluate_exp_def,do_sc_def,read_local_def,do_bop_def]
-  \\ strip_tac
-  \\ gvs [AllCaseEqs(),PULL_EXISTS,do_uop_def,unuse_prev_def]
-  \\ gvs [get_array_len_def,state_component_equality,use_prev_def]
-  \\ qexistsl [‘ck1’,‘st with
-                      <|clock := ck2; locals_prev := st.locals; heap_prev := st.heap|>’,
-               ‘(IntV (&i))’]
-  \\ simp []
-  \\ pop_assum $ rewrite_tac o single o GSYM
-  \\ rpt AP_THM_TAC \\ AP_TERM_TAC
-  \\ simp [state_component_equality]
+  \\ fs [eval_exp_def,evaluate_exp_def,do_sc_def,read_local_def,do_bop_def,do_uop_def]
+  \\ gvs [get_array_len_def,state_component_equality]
 QED
 
 Theorem stmt_wp_sound_While:
@@ -7578,8 +7591,9 @@ Definition stmt_vcg_def:
       assert (index_ty = IntT) «stmt_vcg:Assign:Array: Index not an int»;
       el_ty <- get_type ls rhs_e;
       arr_ty <- get_type ls (Var arr_v);
-      j <<- strlit " index";
-      assert (j ≠ arr_v) «stmt_vcg:Assign:Array: Bad array var name»;
+      j <<- strlit " j";
+      j' <<- strlit " j'";
+      assert (j' ≠ arr_v ∧ j ≠ arr_v) «stmt_vcg:Assign:Array: Bad array var name»;
       assert (arr_ty = ArrT el_ty) «stmt_vcg:Assign:Array: Mismatch between lhs and rhs»;
       assert (no_Prev T index_e) «stmt_vcg_Assign:Array: no_Prev T violated in index»;
       assert (no_ticks index_e) «stmt_vcg_Assign:Array: no_ticks violated in index»;
@@ -7591,12 +7605,13 @@ Definition stmt_vcg_def:
          SetPrev
          (ForallHeap [Var arr_v]
             (imp (conj [dfy_eq (ArrSel (Var arr_v) (Prev index_e)) (Prev rhs_e);
-                        Forall (j,IntT)
-                               (imp (conj [not (dfy_eq (Var j) (Prev index_e));
+                        Let [(j',Prev index_e)]
+                            (Forall (j,IntT)
+                               (imp (conj [not (dfy_eq (Var j) (Var j'));
                                            BinOp Le (Lit (IntL 0)) (Var j);
                                            BinOp Lt (Var j) (ArrLen (Var arr_v))])
                                     (dfy_eq (ArrSel (Var arr_v) (Var j))
-                                            (PrevHeap (ArrSel (Var arr_v) (Var j)))))])
+                                            (PrevHeap (ArrSel (Var arr_v) (Var j))))))])
                  (conj post)))]
     od
   else
