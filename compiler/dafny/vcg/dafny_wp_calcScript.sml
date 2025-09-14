@@ -6005,6 +6005,7 @@ Theorem eval_true_Forall_IMP =
 Theorem stmt_wp_sound_ArrayAlloc:
   ^(#get_goal stmt_wp_sound_setup `ArrAlloc`)
 Proof
+
   rpt strip_tac
   \\ rename [‘Then (Assign [(VarLhs arr_v,ArrAlloc len_e el_e el_ty)]) stmt’]
   \\ gvs [conditions_hold_def]
@@ -6037,7 +6038,14 @@ Proof
   \\ first_assum $ irule_at $ Pos hd
   \\ qabbrev_tac ‘new_heap = st.heap ++ [HArr (REPLICATE len v) el_ty]’
   \\ qabbrev_tac ‘arr_loc = ArrV len (LENGTH st.heap) el_ty’
-  \\ ‘IS_SOME (ALOOKUP st.locals arr_v)’ by cheat
+  \\ ‘IS_SOME (ALOOKUP st.locals arr_v)’ by
+   (qpat_x_assum ‘get_type locals (Var arr_v) = _’ mp_tac
+    \\ simp [get_type_def,AllCaseEqs()]
+    \\ strip_tac \\ imp_res_tac ALOOKUP_MEM
+    \\ qpat_x_assum ‘locals_ok locals st.locals’ mp_tac
+    \\ simp [locals_ok_def] \\ strip_tac
+    \\ first_x_assum drule
+    \\ strip_tac \\ fs [])
   \\ ‘locals_inv new_heap st.locals’ by cheat
   \\ ‘value_inv new_heap arr_loc’ by cheat
   \\ ‘heap_inv new_heap’ by cheat
