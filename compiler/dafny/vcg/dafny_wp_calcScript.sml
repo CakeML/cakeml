@@ -835,6 +835,22 @@ Inductive stmt_wp:
                                             (PrevHeap (ArrSel (Var arr_v) (Var j)))))])
                       (conj post))]
       (Assign [(ArrSelLhs (Var arr_v) index_e, ExpRhs rhs_e)]) post ens decs mods ls
+[~ArrayAlloc:]
+  ∀m arr_v len_e el_e el_ty post ens decs mods ls.
+    ~MEM arr_v mods ∧
+    get_type ls (Var arr_v) = INR (ArrT el_ty) ∧
+    get_type ls len_e = INR IntT ∧
+    get_type ls el_e = INR el_ty ∧
+    no_Prev b len_e ∧ no_Prev b el_e ∧ no_Prev b (conj pre2) ∧
+    stmt_wp m pre2 s2 post ens decs (arrv_v :: mods) ls
+    ⇒
+    stmt_wp m [BinOp Le (Lit (IntL 0)) len_e;
+               CanEval len_e; CanEval el_e;
+               SetPrev $ ForallHeap [] $ Forall (arr_v, ArrT el_ty)
+                 (imp (dfy_eq (ArrLen (Var arr_v)) (Prev len_e))
+                      (conj pre2))]
+      (Then (Assign [(VarLhs arr_v, ArrAlloc len_e el_e el_ty)]) s2)
+      post ens decs mods ls
 [~While:]
   ∀m guard invs ds ms body post ens decs ls ds_vars ls1 loop_cond body_cond mods ms_vars.
     DISJOINT (set ds_vars)
@@ -5938,6 +5954,164 @@ Proof
   \\ gvs [get_array_len_def,state_component_equality]
 QED
 
+Theorem eval_true_ForallHeap_NIL =
+  eval_true_ForallHeap |> Q.INST [‘mods’|->‘[]’] |> GEN_ALL |> SRULE [] |> SPEC_ALL;
+
+Theorem eval_stmt_Then_both:
+  eval_stmt st env stmt₁ st₁ Rcont ∧
+  eval_stmt st₁ env stmt₂ st₂ res ⇒
+  eval_stmt st env (Then stmt₁ stmt₂) st₂ res
+Proof
+  rw [eval_stmt_def,evaluate_stmt_def,AllCaseEqs()] \\ fs [SF DNF_ss]
+  \\ disj1_tac
+  \\ dxrule (evaluate_stmt_add_to_clock |> cj 1)
+  \\ disch_then $ qspec_then ‘ck2’ mp_tac
+  \\ dxrule (evaluate_stmt_add_to_clock |> cj 1)
+  \\ disch_then $ qspec_then ‘ck1'’ mp_tac
+  \\ simp [] \\ rpt strip_tac
+  \\ pop_assum $ irule_at Any
+  \\ pop_assum $ irule_at Any
+QED
+
+Theorem eval_stmt_ArrAlloc:
+  eval_exp st env len_e (IntV (& len)) ∧
+  eval_exp st env el_e el_v ∧
+  update_local_aux st.locals arr_v (ArrV len (LENGTH st.heap) el_ty) = SOME new_l ⇒
+  eval_stmt st env
+    (Assign [(VarLhs arr_v, ArrAlloc len_e el_e el_ty)])
+    (st with <| heap := st.heap ++ [HArr (REPLICATE len el_v) el_ty] ;
+                locals := new_l |>) Rcont
+Proof
+  rw [eval_exp_def,eval_stmt_def,evaluate_stmt_def,AllCaseEqs(),PULL_EXISTS]
+  \\ fs [evaluate_rhs_exps_def,AllCaseEqs(),PULL_EXISTS]
+  \\ gvs [assign_values_def,assign_value_def,AllCaseEqs(),PULL_EXISTS,
+          evaluate_rhs_exp_def,alloc_array_def,oneline val_to_num_def,
+          update_local_def]
+  \\ dxrule (evaluate_exp_add_to_clock |> cj 1)
+  \\ disch_then $ qspec_then ‘ck2’ mp_tac
+  \\ dxrule (evaluate_exp_add_to_clock |> cj 1)
+  \\ disch_then $ qspec_then ‘ck1'’ mp_tac
+  \\ simp [] \\ rpt strip_tac
+  \\ last_x_assum $ irule_at $ Pos hd \\ fs [SNOC_APPEND]
+  \\ simp [SF CONJ_ss]
+  \\ simp [state_component_equality]
+QED
+
+Theorem eval_true_Forall_IMP =
+  eval_true_Foralls
+    |> Q.SPEC ‘[(x,ty)]’
+    |> SRULE [Foralls_def,PULL_EXISTS,FORALL_PROD];
+
+Theorem stmt_wp_sound_ArrayAlloc:
+  ^(#get_goal stmt_wp_sound_setup `ArrAlloc`)
+Proof
+  rpt strip_tac
+  \\ rename [‘Then (Assign [(VarLhs arr_v,ArrAlloc len_e el_e el_ty)]) stmt’]
+  \\ gvs [conditions_hold_def]
+  \\ dxrule eval_true_SetPrev \\ strip_tac
+  \\ dxrule eval_true_ForallHeap_NIL \\ simp []
+  \\ strip_tac
+  \\ irule_at Any eval_stmt_Then_both
+  \\ irule_at Any eval_stmt_ArrAlloc
+  \\ dxrule eval_true_CanEval \\ strip_tac
+  \\ drule_all eval_exp_get_type \\ strip_tac
+  \\ qpat_x_assum ‘get_type locals len_e = INR IntT’ assume_tac
+  \\ dxrule eval_true_CanEval \\ strip_tac
+  \\ drule_all eval_exp_get_type
+  \\ simp [Once all_values_def]
+  \\ strip_tac \\ gvs []
+  \\ ‘∃len. i = & len’ by
+   (qpat_x_assum ‘eval_true st env (int_le (int_lit 0) len_e)’ mp_tac
+    \\ pop_assum mp_tac
+    \\ simp [eval_true_def,eval_exp_def,evaluate_exp_def,do_sc_def,do_bop_def,
+             AllCaseEqs()]
+    \\ strip_tac \\ fs [PULL_EXISTS]
+    \\ rpt strip_tac
+    \\ dxrule (evaluate_exp_add_to_clock |> cj 1)
+    \\ disch_then $ qspec_then ‘ck1’ mp_tac
+    \\ dxrule (evaluate_exp_add_to_clock |> cj 1)
+    \\ disch_then $ qspec_then ‘ck1'’ mp_tac
+    \\ fs [intLib.COOPER_PROVE “0 ≤ i ⇔ ∃n. (i:int) = & n”])
+  \\ gvs []
+  \\ first_assum $ irule_at $ Pos hd
+  \\ first_assum $ irule_at $ Pos hd
+  \\ qabbrev_tac ‘new_heap = st.heap ++ [HArr (REPLICATE len v) el_ty]’
+  \\ qabbrev_tac ‘arr_loc = ArrV len (LENGTH st.heap) el_ty’
+  \\ ‘IS_SOME (ALOOKUP st.locals arr_v)’ by cheat
+  \\ ‘locals_inv new_heap st.locals’ by cheat
+  \\ ‘value_inv new_heap arr_loc’ by cheat
+  \\ ‘heap_inv new_heap’ by cheat
+  \\ drule_all is_some_alookup_update_local_aux
+  \\ disch_then $ qx_choosel_then [‘new_l’] strip_assume_tac
+  \\ simp []
+  \\ ‘valid_mod st.heap [] new_heap’ by
+    (simp [Abbr‘new_heap’,valid_mod_def,oEL_THM,EL_APPEND1])
+  \\ first_x_assum drule \\ strip_tac
+  \\ dxrule eval_true_Forall_IMP
+  \\ simp [all_values_def,PULL_EXISTS]
+  \\ disch_then $ qspecl_then [‘len’,‘LENGTH st.heap’] mp_tac
+  \\ qmatch_goalsub_abbrev_tac ‘eval_true s3’
+  \\ strip_tac
+  \\ ‘eval_true s3 env (conj reqs)’ by
+   (dxrule_then irule eval_true_imp
+    \\ irule eval_true_dfy_eq
+    \\ qexists_tac ‘(IntV (&len))’
+    \\ conj_tac
+    >-
+     (simp [eval_exp_def,evaluate_exp_def,read_local_def,Abbr‘s3’,
+            get_array_len_def,Abbr‘arr_loc’]
+      \\ simp [state_component_equality])
+    \\ ‘¬env.is_running’ by fs [compatible_env_def]
+    \\ simp [eval_exp_Prev,Abbr‘s3’]
+    \\ irule eval_exp_no_Prev_alt
+    \\ conj_tac >- (first_x_assum $ irule_at Any)
+    \\ qexistsl [‘st.heap_prev’,‘st.locals_prev’]
+    \\ qpat_x_assum ‘eval_exp st env len_e (IntV (&len))’ mp_tac
+    \\ match_mp_tac EQ_IMPLIES
+    \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+    \\ simp [state_component_equality])
+  \\ qpat_x_assum ‘eval_true _ _ (imp _ _)’ kall_tac
+  \\ qmatch_goalsub_abbrev_tac ‘eval_stmt s4’
+  \\ ‘eval_true s4 env (conj reqs)’ by
+    (qabbrev_tac ‘s5 = st with heap := new_heap’
+     \\ qabbrev_tac ‘new_l2 = (arr_v,SOME arr_loc)::st.locals’
+     \\ fs [eval_true_def]
+     \\ drule eval_exp_no_Prev
+     \\ disch_then drule
+     \\ disch_then $ qspecl_then [‘st.locals_prev’,‘st.heap_prev’] mp_tac
+     \\ fs [GSYM eval_true_def]
+     \\ ‘s4 = s5 with locals := new_l’ by
+           gvs [Abbr‘s4’,Abbr‘s5’,state_component_equality]
+     \\ pop_assum $ rewrite_tac o single
+     \\ qmatch_goalsub_abbrev_tac ‘eval_true s9’
+     \\ ‘s9 = (s5 with locals := new_l2)’ by
+           gvs [Abbr‘s3’,Abbr‘s5’,Abbr‘s9’,state_component_equality]
+     \\ pop_assum $ rewrite_tac o single
+     \\ match_mp_tac EQ_IMPLIES
+     \\ rewrite_tac [eval_true_def]
+     \\ irule eval_exp_freevars
+     \\ fs [])
+  \\ ‘eval_measure s4 env (wrap_old decs) =
+      eval_measure st env (wrap_old decs)’ by cheat
+  \\ fs []
+  \\ first_x_assum $ qspecl_then [‘s4’,‘env’,‘
+                                   (len,LENGTH st.heap,el_ty)::mod_locs’] mp_tac
+  \\ impl_tac
+  >-
+   (fs []
+    \\ conj_tac >- metis_tac []
+    \\ conj_tac >- fs [Abbr‘s4’,state_inv_def]
+    \\ fs [Abbr‘s4’]
+    \\ cheat)
+  \\ strip_tac
+  \\ first_assum $ irule_at $ Pos hd
+  \\ fs [Abbr‘s4’] \\ gvs []
+  \\ qpat_x_assum ‘valid_mod new_heap _ _’ mp_tac
+  \\ simp [valid_mod_def] \\ rw []
+  \\ first_x_assum irule \\ simp []
+  \\ fs [oEL_THM,Abbr‘new_heap’] \\ fs [EL_APPEND1]
+QED
+
 Theorem stmt_wp_sound_While:
   ^(#get_goal stmt_wp_sound_setup `While`)
 Proof
@@ -7201,6 +7375,7 @@ Proof
     stmt_wp_sound_Dec,
     stmt_wp_sound_Assign,
     stmt_wp_sound_AssignArray,
+    stmt_wp_sound_ArrayAlloc,
     stmt_wp_sound_While,
     stmt_wp_sound_MetCall]
 QED
