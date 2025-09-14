@@ -420,18 +420,33 @@ fun step n =
         push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
         unuse_old_def, do_cond_def, get_locs_def, set_prev_def, unset_prev_def,
         do_uop_def, get_array_len_def, index_array_def, val_to_num_def,
-        dafny_semanticPrimitivesTheory.get_loc_def, use_prev_def, unuse_prev_def];
+        dafny_semanticPrimitivesTheory.get_loc_def, use_prev_def,
+        unuse_prev_def, push_local_def, use_prev_heap_def];
+
+Triviality IMP_SND_evaluate_exp_imp:
+  evaluate_exp st env b = (st, Rval (BoolV bv)) ∧
+  (bv ⇒ evaluate_exp st env a = (st, Rval (BoolV T)))
+  ⇒
+  SND (evaluate_exp st env (imp b a)) = Rval (BoolV T)
+Proof
+  rpt strip_tac
+  \\ gvs [evaluate_exp_def, do_sc_def, do_bop_def]
+  \\ Cases_on ‘bv’ \\ gvs []
+QED
 
 Theorem swap_correct:
   ^swap_valid_prop
 Proof
-
   simp [forall_def, strict_locals_ok_def, state_inv_def]
   \\ rpt strip_tac
   \\ last_assum $ qspecl_then [‘«v0»’, ‘ArrT IntT’] assume_tac
   \\ last_assum $ qspecl_then [‘«v1»’, ‘IntT’] assume_tac
   \\ last_x_assum $ qspecl_then [‘«v2»’, ‘IntT’] assume_tac
   \\ gvs [all_values_def]
+  \\ pop_assum mp_tac
+  \\ rename [‘ALOOKUP _ _ = SOME (SOME (IntV idx_i))’]
+  \\ strip_tac
+  \\ rename [‘ALOOKUP _ _ = SOME (SOME (IntV idx_j))’]
   \\ simp [eval_true_def, eval_exp_def]
   (* Clock shouldn't matter since there are no loops or calls *)
   \\ qexistsl [‘st.clock’, ‘st.clock’] \\ gvs []
@@ -454,10 +469,20 @@ Proof
   \\ gvs [value_inv_def]
   \\ CASE_TAC \\ gvs []
   >- (gvs [oEL_THM] \\ intLib.COOPER_TAC)
+  \\ rename [‘LLOOKUP _ (Num _) = SOME v’]
+  \\ ‘∃val_i. v = IntV val_i’ by
+    (gvs [heap_inv_def]
+     \\ last_x_assum drule_all
+     \\ Cases_on ‘v’ \\ gvs [value_has_type_def])
   \\ step 14
   \\ IF_CASES_TAC \\ gvs [] >- (intLib.COOPER_TAC)
   \\ CASE_TAC \\ gvs []
   >- (gvs [oEL_THM] \\ intLib.COOPER_TAC)
+  \\ rename [‘LLOOKUP _ (Num _) = SOME v’]
+  \\ ‘∃val_j. v = IntV val_j’ by
+    (gvs [heap_inv_def]
+     \\ last_x_assum drule_all
+     \\ Cases_on ‘v’ \\ gvs [value_has_type_def])
   \\ step 7
   (* Now evaluating SetPrev $ ForallHeap ... *)
   \\ step 5
@@ -467,8 +492,40 @@ Proof
   \\ ‘eval_forall dom evalf = Rval (BoolV T)’ by
     (irule eval_forall_True
      \\ rpt strip_tac
-     \\ unabbrev_all_tac
-     \\ step 7
-     \\ cheat)
+     \\ unabbrev_all_tac \\ gvs []
+     \\ irule IMP_SND_evaluate_exp_imp
+     \\ gvs [IN_DEF, valid_mod_def]
+     \\ first_x_assum $ drule_then assume_tac \\ gvs []
+     \\ step 10
+     \\ CASE_TAC \\ gvs []
+     >- (gvs [oEL_THM])
+     \\ step 1
+     \\ rename [‘LLOOKUP _ (Num _) = SOME v’]
+     \\ ‘∃ix. v = IntV ix’ by
+       (gvs [heap_inv_def]
+        \\ first_x_assum drule_all
+        \\ Cases_on ‘v’ \\ gvs [value_has_type_def])
+     \\ gvs []
+     \\ IF_CASES_TAC \\ gvs []
+     \\ step 5
+     \\ rename [‘LLOOKUP arr' _ = _’]
+     \\ qexists
+          ‘∀i. i ≠ idx_i ∧ 0 ≤ i ∧ idx_i < &LENGTH arr ⇒
+               LLOOKUP arr' (Num i) = LLOOKUP arr (Num i)’
+     \\ conj_tac
+
+     >- (cheat)
+     \\ strip_tac
+     \\ step 22
+     \\ qmatch_goalsub_abbrev_tac ‘eval_forall dom evalf’
+     \\ ‘eval_forall dom evalf = Rval (BoolV T)’ by
+       (irule eval_forall_True
+        \\ rpt strip_tac
+        \\ unabbrev_all_tac \\ gvs []
+        \\ irule IMP_SND_evaluate_exp_imp
+        \\ gvs [IN_DEF, valid_mod_def]
+
+        \\ cheat)
+     \\ gvs [])
   \\ simp [state_component_equality]
 QED
