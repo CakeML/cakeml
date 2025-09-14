@@ -842,7 +842,7 @@ Inductive stmt_wp:
     get_type ls len_e = INR IntT ∧
     get_type ls el_e = INR el_ty ∧
     no_Prev b len_e ∧ no_Prev b el_e ∧ no_Prev b (conj pre2) ∧
-    stmt_wp m pre2 s2 post ens decs (arrv_v :: mods) ls
+    stmt_wp m pre2 s2 post ens decs (arr_v :: mods) ls
     ⇒
     stmt_wp m [BinOp Le (Lit (IntL 0)) len_e;
                CanEval len_e; CanEval el_e;
@@ -6148,8 +6148,20 @@ Proof
    (fs []
     \\ conj_tac >- metis_tac []
     \\ conj_tac >- fs [Abbr‘s4’,state_inv_def]
-    \\ fs [Abbr‘s4’]
-    \\ cheat)
+    \\ fs [Abbr‘s4’,eval_true_conj_every]
+    \\ rewrite_tac [GSYM CONJ_ASSOC]
+    \\ conj_tac >- (fs [mod_loc_def])
+    \\ conj_tac >-
+     (irule EVERY2_MEM_MONO_weak
+      \\ first_assum $ irule_at Any
+      \\ fs [mod_loc_def,FORALL_PROD]
+      \\ rw [] \\ fs [])
+    \\ fs [locals_ok_def]
+    \\ rw []
+    \\ gvs [get_type_def,AllCaseEqs()]
+    \\ simp [Abbr‘arr_loc’,all_values_def]
+    \\ imp_res_tac MEM_ALOOKUP
+    \\ gvs [all_values_def])
   \\ strip_tac
   \\ first_assum $ irule_at $ Pos hd
   \\ fs [Abbr‘s4’] \\ gvs []
