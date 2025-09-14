@@ -39,20 +39,8 @@ Definition dest_ArrT_def:
   dest_ArrT _ = fail «dest_ArrT: Not ArrT»
 End
 
-Definition value_inv_def:
-  value_inv heap v ⇔
-    ∀len loc ty.
-      v = ArrV len loc ty ⇒
-      ∃arr. LLOOKUP heap loc = SOME (HArr arr ty) ∧ LENGTH arr = len
-End
-
-Definition heap_inv_def:
-  heap_inv heap ⇔
-    ∀loc arr ty.
-      LLOOKUP heap loc = SOME (HArr arr ty) ⇒
-      ∀i v.
-        LLOOKUP arr i = SOME v ⇒ value_inv heap v ∧ value_has_type ty v
-End
+(* TODO value_inv and heap_inv moved to dafny_semanticPrimitives;
+   move corresponding to theorems to dafnyProps *)
 
 Definition locals_inv_def:
   locals_inv heap locals ⇔
@@ -5128,16 +5116,16 @@ Proof
   Induct \\ fs []
 QED
 
-Theorem valid_mod_refl[simp]:
-  ∀h m. valid_mod h m h
+Theorem valid_mod_refl:
+  ∀h m. heap_inv h ⇒ valid_mod h m h
 Proof
   simp [valid_mod_def]
 QED
 
 Theorem valid_mod_trans:
-  valid_mod h1 m h2 ∧ valid_mod h2 m h3 ⇒ valid_mod h1 m h3
+  heap_inv h1 ∧ valid_mod h1 m h2 ∧ valid_mod h2 m h3 ⇒ valid_mod h1 m h3
 Proof
-  fs [valid_mod_def]
+  fs [valid_mod_def] \\ metis_tac []
 QED
 
 Definition get_loc_def[simp]:
@@ -5289,6 +5277,7 @@ Theorem stmt_wp_sound_Skip:
 Proof
   rpt strip_tac
   \\ irule_at (Pos hd) eval_stmt_Skip \\ simp []
+  \\ irule valid_mod_refl \\ fs [state_inv_def]
 QED
 
 Theorem stmt_wp_sound_Return:
@@ -5296,6 +5285,7 @@ Theorem stmt_wp_sound_Return:
 Proof
   rpt strip_tac
   \\ irule_at (Pos hd) eval_stmt_Return \\ simp []
+  \\ irule valid_mod_refl \\ fs [state_inv_def]
 QED
 
 Theorem stmt_wp_sound_Assert:
@@ -5305,6 +5295,7 @@ Proof
   \\ rename [‘Assert e’]
   \\ irule_at (Pos hd) eval_stmt_Assert \\ simp []
   \\ gvs [conditions_hold_cons]
+  \\ irule valid_mod_refl \\ fs [state_inv_def]
 QED
 
 Theorem stmt_wp_sound_Print:
@@ -5317,6 +5308,8 @@ Proof
   \\ first_assum $ irule_at (Pos hd)
   \\ drule_all eval_exp_get_type
   \\ simp [value_has_type_eq_all_values]
+  \\ strip_tac
+  \\ irule valid_mod_refl \\ fs [state_inv_def]
 QED
 
 Theorem stmt_wp_sound_Then:
@@ -5348,12 +5341,14 @@ Proof
     \\ irule_at (Pos hd) eval_stmt_Then_cont_ret
     \\ first_assum $ irule_at (Pos hd) \\ simp []
     \\ first_assum $ irule_at (Pos hd) \\ simp []
-    \\ imp_res_tac valid_mod_trans \\ simp [])
+    \\ imp_res_tac valid_mod_trans \\ simp []
+    \\ fs [state_inv_def])
   (* Both statements continued *)
   \\ irule_at (Pos hd) eval_stmt_Then_cont
   \\ first_assum $ irule_at (Pos hd) \\ simp []
   \\ first_assum $ irule_at (Pos hd) \\ simp []
   \\ imp_res_tac valid_mod_trans \\ simp []
+  \\ fs [state_inv_def]
 QED
 
 Theorem stmt_wp_sound_If:
@@ -5488,6 +5483,7 @@ Proof
   \\ first_x_assum $ irule_at $ Pos hd
   \\ simp [eval_true_def,GSYM eval_true_conj_every]
   \\ rpt conj_tac
+  >- (irule valid_mod_refl \\ fs [state_inv_def])
   >- (* locals_ok *)
    (qpat_x_assum ‘ALOOKUP _ = ALOOKUP _’ mp_tac
     \\ DEP_REWRITE_TAC [alookup_distinct_reverse_append] \\ simp [MAP_ZIP]
@@ -5798,7 +5794,8 @@ Proof
   \\ qabbrev_tac ‘new_vals = LUPDATE v i arr’
   \\ qabbrev_tac ‘new_heap = LUPDATE (HArr new_vals el_ty) loc st.heap’
   \\ ‘valid_mod st.heap [loc] new_heap’ by
-    (gvs [valid_mod_def,Abbr‘new_heap’,oEL_LUPDATE])
+    (gvs [valid_mod_def,Abbr‘new_heap’,oEL_LUPDATE]
+     \\ cheat)
   \\ qexists_tac ‘st with heap := new_heap’
   \\ simp []
   \\ conj_tac
@@ -5980,7 +5977,8 @@ Proof
     disch_then $ qspec_then ‘st’ mp_tac
     \\ impl_tac
     >- (gvs [conditions_hold_def]
-        \\ drule_all locals_ok_IMP_strict_locals_ok \\ fs [])
+        \\ drule_all locals_ok_IMP_strict_locals_ok \\ fs []
+        \\ strip_tac \\ irule valid_mod_refl \\ fs [state_inv_def])
     \\ strip_tac
     \\ first_assum $ irule_at $ Pos hd \\ asm_rewrite_tac []
     \\ ‘LIST_REL (mod_loc st'.locals) mods mod_locs’ by (
@@ -6110,7 +6108,8 @@ Proof
   >-
    (irule_at Any eval_stmt_While_stop
     \\ drule eval_exp_bool_not
-    \\ simp [GSYM eval_true_def])
+    \\ simp [GSYM eval_true_def]
+    \\ strip_tac \\ irule valid_mod_refl \\ fs [state_inv_def])
   \\ irule_at Any eval_stmt_While_unroll
   \\ first_assum $ irule_at $ Pos hd
   \\ fs [GSYM PULL_FORALL]
@@ -6334,10 +6333,10 @@ Proof
   >-
    (strip_tac \\ fs []
     \\ first_assum $ irule_at $ Pos hd \\ simp []
-    \\ irule valid_mod_trans
+    \\ irule valid_mod_trans \\ fs[state_inv_def]
     \\ first_assum $ irule_at $ Pos hd \\ simp [])
   \\ ‘valid_mod st.heap (MAP get_loc while_mod_locs) st2.heap’ by
-    (irule valid_mod_trans
+    (irule valid_mod_trans \\ fs [state_inv_def]
      \\ first_assum $ irule_at $ Pos hd \\ simp [])
   \\ simp []
   \\ reverse conj_tac

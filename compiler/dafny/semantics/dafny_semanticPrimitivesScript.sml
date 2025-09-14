@@ -408,9 +408,33 @@ Definition eval_forall_def:
     else Rval (BoolV F)
 End
 
-Definition valid_mod_def: (* all locations outside of locs must stay the same *)
-  valid_mod h locs h' =
-  ∀loc hv. ¬(MEM loc locs) ∧ oEL loc h = SOME hv ⇒ oEL loc h' = SOME hv
+Definition value_inv_def:
+  value_inv heap v ⇔
+    ∀len loc ty.
+      v = ArrV len loc ty ⇒
+      ∃arr. LLOOKUP heap loc = SOME (HArr arr ty) ∧ LENGTH arr = len
+End
+
+Definition heap_inv_def:
+  heap_inv heap ⇔
+    ∀loc arr ty.
+      LLOOKUP heap loc = SOME (HArr arr ty) ⇒
+      ∀i v.
+        LLOOKUP arr i = SOME v ⇒ value_inv heap v ∧ value_has_type ty v
+End
+
+Definition valid_mod_def:
+  valid_mod h locs h' ⇔
+  (* all locations outside of locs must stay the same *)
+  (∀loc hv.
+     ¬MEM loc locs ∧ LLOOKUP h loc = SOME hv ⇒
+     LLOOKUP h' loc = SOME hv) ∧
+  (* Arrays within locs are (potentially) changed to something that
+     "makes sense" *)
+  (∀loc arr ty.
+     LLOOKUP h loc = SOME (HArr arr ty) ⇒
+     ∃arr1. LLOOKUP h' loc = SOME (HArr arr1 ty) ∧ LENGTH arr1 = LENGTH arr) ∧
+   heap_inv h'
 End
 
 Definition get_loc_def:

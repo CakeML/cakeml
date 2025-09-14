@@ -381,3 +381,94 @@ Proof
            do_uop_def]
   \\ simp [state_component_equality]
 QED
+
+(** Example 3: Swapping elements in an array **********************************)
+
+val swap = eval_freshen
+  “Program
+      [Method «Swap» [(«a»,ArrT IntT); («i»,IntT); («j»,IntT)]
+         [BinOp And (int_le (int_lit 0) (Var «i»))
+            (int_lt (Var «i») (ArrLen (Var «a»)));
+          BinOp And (int_le (int_lit 0) (Var «j»))
+            (int_lt (Var «j») (ArrLen (Var «a»)))]
+         [dfy_eq (ArrSel (Var «a») (Var «i»))
+            (OldHeap (ArrSel (Var «a») (Var «j»)));
+          dfy_eq (ArrSel (Var «a») (Var «j»))
+            (OldHeap (ArrSel (Var «a») (Var «i»)))] []
+         [Var «a»; Var «i»; Var «j»] [] [Var «a»]
+         (Dec («temp»,IntT)
+            (Then
+               (Assign [(VarLhs «temp»,ExpRhs (ArrSel (Var «a») (Var «i»)))])
+               (Then
+                  (Assign
+                     [(ArrSelLhs (Var «a») (Var «i»),
+                       ExpRhs (ArrSel (Var «a») (Var «j»)))])
+                  (Then
+                     (Assign
+                        [(ArrSelLhs (Var «a») (Var «j»),ExpRhs (Var «temp»))])
+                     Return))))]”;
+
+val swap_vcg = eval_vcg swap;
+
+val swap_valid_prop = valid_vcg_prop swap_vcg;
+
+val _ = max_print_depth := 20;
+
+(* Unrolls a few definitions to make a bit of progress. *)
+fun step n =
+  simp [Ntimes evaluate_exp_def n, read_local_def, do_sc_def, do_bop_def,
+        push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
+        unuse_old_def, do_cond_def, get_locs_def, set_prev_def, unset_prev_def,
+        do_uop_def, get_array_len_def, index_array_def, val_to_num_def,
+        dafny_semanticPrimitivesTheory.get_loc_def, use_prev_def, unuse_prev_def];
+
+Theorem swap_correct:
+  ^swap_valid_prop
+Proof
+
+  simp [forall_def, strict_locals_ok_def, state_inv_def]
+  \\ rpt strip_tac
+  \\ last_assum $ qspecl_then [‘«v0»’, ‘ArrT IntT’] assume_tac
+  \\ last_assum $ qspecl_then [‘«v1»’, ‘IntT’] assume_tac
+  \\ last_x_assum $ qspecl_then [‘«v2»’, ‘IntT’] assume_tac
+  \\ gvs [all_values_def]
+  \\ simp [eval_true_def, eval_exp_def]
+  (* Clock shouldn't matter since there are no loops or calls *)
+  \\ qexistsl [‘st.clock’, ‘st.clock’] \\ gvs []
+  \\ step 6
+  \\ IF_CASES_TAC \\ gvs []
+  \\ step 4
+  \\ IF_CASES_TAC \\ gvs []
+  \\ step 4
+  \\ IF_CASES_TAC \\ gvs []
+  \\ step 4
+  \\ IF_CASES_TAC \\ gvs []
+  \\ step 6
+  \\ IF_CASES_TAC \\ gvs [] >- (intLib.COOPER_TAC)
+  \\ rename [‘ALOOKUP _ _ = SOME (SOME (ArrV len loc _))’]
+  \\ ‘value_inv st.heap_old (ArrV len loc IntT)’ by
+    (gvs [locals_inv_def]
+     \\ rev_drule_then assume_tac ALOOKUP_MEM
+     \\ gvs [EVERY_MEM]
+     \\ last_assum drule \\ simp [])
+  \\ gvs [value_inv_def]
+  \\ CASE_TAC \\ gvs []
+  >- (gvs [oEL_THM] \\ intLib.COOPER_TAC)
+  \\ step 14
+  \\ IF_CASES_TAC \\ gvs [] >- (intLib.COOPER_TAC)
+  \\ CASE_TAC \\ gvs []
+  >- (gvs [oEL_THM] \\ intLib.COOPER_TAC)
+  \\ step 7
+  (* Now evaluating SetPrev $ ForallHeap ... *)
+  \\ step 5
+  \\ simp [get_loc_def]
+  \\ qmatch_goalsub_abbrev_tac ‘eval_forall dom evalf’
+
+  \\ ‘eval_forall dom evalf = Rval (BoolV T)’ by
+    (irule eval_forall_True
+     \\ rpt strip_tac
+     \\ unabbrev_all_tac
+     \\ step 7
+     \\ cheat)
+  \\ simp [state_component_equality]
+QED
