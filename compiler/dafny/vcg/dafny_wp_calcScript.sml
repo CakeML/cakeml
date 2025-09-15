@@ -837,17 +837,25 @@ Inductive stmt_wp:
       (Assign [(ArrSelLhs (Var arr_v) index_e, ExpRhs rhs_e)]) post ens decs mods ls
 [~ArrayAlloc:]
   ∀m arr_v len_e el_e el_ty post ens decs mods ls.
-    ~MEM arr_v mods ∧
+    ~MEM arr_v mods ∧ e ≠ arr_v ∧ j ≠ e ∧ j ≠ arr_v ∧
     get_type ls (Var arr_v) = INR (ArrT el_ty) ∧
     get_type ls len_e = INR IntT ∧
     get_type ls el_e = INR el_ty ∧
     no_Prev b len_e ∧ no_Prev b el_e ∧ no_Prev b (conj pre2) ∧
+    same_type = MAP FST (FILTER (λ(l,ty). l ≠ arr_v ∧ ty = ArrT el_ty) ls) ∧
     stmt_wp m pre2 s2 post ens decs (arr_v :: mods) ls
     ⇒
     stmt_wp m [BinOp Le (Lit (IntL 0)) len_e;
                CanEval len_e; CanEval el_e;
                SetPrev $ ForallHeap [] $ Forall (arr_v, ArrT el_ty)
-                 (imp (dfy_eq (ArrLen (Var arr_v)) (Prev len_e))
+                 (imp (conj (MAP (λv. not (dfy_eq (Var arr_v) (Var v))) same_type ++
+                             [dfy_eq (ArrLen (Var arr_v)) (Prev len_e);
+                              Let [(e,Prev el_e)] $
+                                Forall (j,IntT) $
+                                  (imp (conj [BinOp Le (Lit (IntL 0)) (Var j);
+                                              BinOp Lt (Var j) (ArrLen (Var arr_v))])
+                                       (dfy_eq (ArrSel (Var arr_v) (Var j))
+                                               (Var e)))]))
                       (conj pre2))]
       (Then (Assign [(VarLhs arr_v, ArrAlloc len_e el_e el_ty)]) s2)
       post ens decs mods ls
@@ -6099,22 +6107,70 @@ Proof
   \\ strip_tac
   \\ ‘eval_true s3 env (conj reqs)’ by
    (dxrule_then irule eval_true_imp
-    \\ irule eval_true_dfy_eq
-    \\ qexists_tac ‘(IntV (&len))’
+    \\ rewrite_tac [eval_true_conj_every,EVERY_APPEND,EVERY_DEF]
+    \\ conj_tac >- cheat
+    \\ conj_tac >-
+     (irule eval_true_dfy_eq
+      \\ qexists_tac ‘(IntV (&len))’
+      \\ conj_tac
+      >-
+       (simp [eval_exp_def,evaluate_exp_def,read_local_def,Abbr‘s3’,
+              get_array_len_def,Abbr‘arr_loc’]
+        \\ simp [state_component_equality])
+      \\ ‘¬env.is_running’ by fs [compatible_env_def]
+      \\ simp [eval_exp_Prev,Abbr‘s3’]
+      \\ irule eval_exp_no_Prev_alt
+      \\ conj_tac >- (first_x_assum $ irule_at Any)
+      \\ qexistsl [‘st.heap_prev’,‘st.locals_prev’]
+      \\ qpat_x_assum ‘eval_exp st env len_e (IntV (&len))’ mp_tac
+      \\ match_mp_tac EQ_IMPLIES
+      \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+      \\ simp [state_component_equality])
+    \\ rewrite_tac [eval_true_def]
+    \\ irule IMP_eval_exp_Let1
+    \\ rewrite_tac [GSYM eval_true_def]
+    \\ qexists_tac ‘v’
+    \\ ‘¬env.is_running’ by fs [compatible_env_def]
     \\ conj_tac
     >-
-     (simp [eval_exp_def,evaluate_exp_def,read_local_def,Abbr‘s3’,
-            get_array_len_def,Abbr‘arr_loc’]
+     (simp [eval_exp_Prev]
+      \\ irule eval_exp_no_Prev_alt
+      \\ conj_tac >- (first_x_assum $ irule_at Any)
+      \\ qexistsl [‘st.heap_prev’,‘st.locals_prev’]
+      \\ qpat_x_assum ‘eval_exp st env el_e v’ mp_tac
+      \\ match_mp_tac EQ_IMPLIES
+      \\ rpt AP_THM_TAC \\ AP_TERM_TAC
+      \\ simp [state_component_equality,Abbr‘s3’])
+    \\ irule eval_true_Forall
+    \\ reverse conj_tac
+    >- (asm_rewrite_tac [] \\ EVAL_TAC)
+    \\ gen_tac
+    \\ irule IMP_eval_true_imp
+    \\ qexists_tac ‘0 ≤ i ∧ i < & len’
+    \\ conj_tac
+    >-
+     (strip_tac
+      \\ irule eval_true_dfy_eq
+      \\ gvs [intLib.COOPER_PROVE “0 ≤ i ⇔ ∃n. (i:int) = & n”]
+      \\ qexists_tac ‘v’
+      \\ reverse $ conj_tac
+      >-
+       (fs [eval_exp_def,evaluate_exp_def,do_sc_def,read_local_def,do_bop_def]
+        \\ simp [state_component_equality])
+      \\ irule eval_exp_ArrSel
+      \\ fs [mod_loc_def,Abbr‘new_heap’,oEL_LUPDATE,Abbr‘s3’,Abbr‘arr_loc’]
+      \\ fs [eval_exp_def,evaluate_exp_def,do_sc_def,read_local_def,do_bop_def]
+      \\ simp [state_component_equality]
+      \\ simp [oEL_SNOC,GSYM SNOC_APPEND]
+      \\ simp [oEL_THM,EL_REPLICATE])
+    \\ irule eval_exp_conj_unroll \\ simp [conj_def]
+    \\ conj_tac
+    >-
+     (fs [eval_exp_def,evaluate_exp_def,do_sc_def,read_local_def,do_bop_def]
       \\ simp [state_component_equality])
-    \\ ‘¬env.is_running’ by fs [compatible_env_def]
-    \\ simp [eval_exp_Prev,Abbr‘s3’]
-    \\ irule eval_exp_no_Prev_alt
-    \\ conj_tac >- (first_x_assum $ irule_at Any)
-    \\ qexistsl [‘st.heap_prev’,‘st.locals_prev’]
-    \\ qpat_x_assum ‘eval_exp st env len_e (IntV (&len))’ mp_tac
-    \\ match_mp_tac EQ_IMPLIES
-    \\ rpt AP_THM_TAC \\ AP_TERM_TAC
-    \\ simp [state_component_equality])
+    \\ fs [eval_exp_def,evaluate_exp_def,do_sc_def,read_local_def,do_bop_def,
+           Abbr‘s3’,Abbr‘arr_loc’,get_array_len_def]
+    \\ gvs [state_component_equality])
   \\ qpat_x_assum ‘eval_true _ _ (imp _ _)’ kall_tac
   \\ qmatch_goalsub_abbrev_tac ‘eval_stmt s4’
   \\ ‘eval_true s4 env (conj reqs)’ by
