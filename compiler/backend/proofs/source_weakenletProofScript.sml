@@ -142,6 +142,7 @@ Theorem env_rel_extend_dec_env:
   env_rel v_rel envx envy ==>
   env_rel v_rel (enva +++ envx) (envb +++ envy)
 Proof
+  cheat
   (* TODO currently unprovable env_rel needs to be changed
   rpt strip_tac >> fs[env_rel_def,extend_dec_env_def] >>
   qx_gen_tac `n` >>
@@ -229,6 +230,13 @@ Proof
    metis_tac[])
 QED
 
+Triviality v_rel_build_conv:
+  LIST_REL v_rel xs ys ==>
+  OPTREL v_rel (build_conv envC cn xs) (build_conv envC cn ys)
+Proof
+  fs[build_conv_def] >> rpt TOP_CASE_TAC >> fs[]
+QED
+
 val s = mk_var ("s", ``: 'ffi semanticPrimitives$state``);
 val st = mk_var ("st", ``: 'ffi semanticPrimitives$state``);
 
@@ -293,11 +301,24 @@ Proof
     fs[] >>
     `envx.c = envy.c` by fs[env_rel_def] >>
     drule_then (fs o single) v_rel_can_pmatch_all)
+  (* Con *)
   >- (
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
     simp[evaluate_def] >> gvs[v_rel_refl] >>
-    cheat)
+    `envx.c = envy.c` by fs[env_rel_def] >>
+    fs[] >>
+    first_x_assum $ drule_then strip_assume_tac >>
+    gvs[]
+    >- (
+      qspecl_then [`REVERSE v'`,`REVERSE vs`,`envy.c`,`cn`] mp_tac $ GEN_ALL  v_rel_build_conv >>
+      impl_tac >- fs[]>>
+      fs[])
+    >- (
+      qspecl_then [`REVERSE v'`,`REVERSE vs`,`envy.c`,`cn`] mp_tac $ GEN_ALL  v_rel_build_conv >>
+      impl_tac >- fs[]>>
+      fs[OPTREL_SOME] >> strip_tac >>
+      fs[]))
   >- (
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
@@ -433,13 +454,25 @@ Proof
     qpat_x_assum `evaluate_decs _ _ _ = _`
        (strip_assume_tac o SRULE[evaluate_decs_def,AllCaseEqs()]) >>
     fs[evaluate_decs_def] >> gvs[] >>
+    `envx.c = envy.c` by fs[env_rel_def] >>
+    fs[] >>
+    drule_all $ CONJUNCT1  v_rel_evaluate >>
+    strip_tac >> fs[] >>
+    every_drule_then strip_assume_tac evaluate_sing >> gvs[] >>
+    drule_at (Pos $ el 3) $ CONJUNCT1 v_rel_pmatch >>
+    fs[] >> disch_then drule >> strip_tac >> fs[] >>
     cheat)
   (* Dletrec *)
   >- (
     qpat_x_assum `evaluate_decs _ _ _ = _`
        (strip_assume_tac o SRULE[evaluate_decs_def,AllCaseEqs()]) >>
     fs[evaluate_decs_def] >> gvs[] >>
-    cheat)
+    `envx.c = envy.c` by fs[env_rel_def] >>
+    fs[]
+    >- cheat
+    >- (drule_then (SUBST_ALL_TAC o EQF_INTRO) (iffRL NOT_EVERY) >>
+       fs[])
+     )
   (* Dtype *)
   >- (
     qpat_x_assum `evaluate_decs _ _ _ = _`
