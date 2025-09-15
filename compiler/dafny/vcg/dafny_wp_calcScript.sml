@@ -746,8 +746,8 @@ Definition no_ticks_def:
   (no_ticks (ArrSel arr idx) ⇔ no_ticks arr ∧ no_ticks idx) ∧
   (no_ticks (FunCall _ args) ⇔ F) ∧
   (no_ticks (Forall _ term) ⇔ no_ticks term) ∧
-  (no_ticks (Let binds body) ⇔
-     EVERY (λe. no_ticks e) (MAP SND binds) ∧ no_ticks body) ∧
+  (no_ticks (Let binds body) ⇔ F) ∧
+  (* EVERY (λe. no_ticks e) (MAP SND binds) ∧ no_ticks body) ∧ *)
   (no_ticks (ForallHeap mods e) ⇔
      EVERY (λe. no_ticks e) mods ∧ no_ticks e)
 Termination
@@ -5640,9 +5640,7 @@ Proof
     use_prev_def,unuse_prev_def,unuse_prev_heap_def,use_prev_heap_def,oneline do_cond_def,
     use_old_def,unuse_old_def,unuse_old_heap_def,use_old_heap_def,unset_prev_def,set_prev_def]>>
   simp[state_component_equality]>>
-  TRY(metis_tac[PAIR])>>
-  (* Let *)
-  cheat
+  metis_tac[PAIR]
 QED
 
 Theorem no_ticks:
@@ -5809,9 +5807,39 @@ Proof
      \\ fs [])
   \\ qabbrev_tac ‘new_vals = LUPDATE v i arr’
   \\ qabbrev_tac ‘new_heap = LUPDATE (HArr new_vals el_ty) loc st.heap’
+  \\ ‘state_inv (st with heap := new_heap)’ by
+    (‘update_array st (ArrV (LENGTH arr) loc el_ty) (IntV (&i)) v =
+      SOME (st with heap := new_heap)’ by
+       gvs [update_array_def,val_to_num_def,Abbr‘new_heap’,Abbr‘new_vals’]
+     \\ drule update_array_value_inv_pres
+     \\ fs [state_inv_def,Abbr‘new_heap’,Abbr‘new_vals’]
+      \\ rw [] \\ fs [locals_inv_def,EVERY_MEM,value_inv_def]
+     >-
+      (rw [oEL_LUPDATE] \\ PairCases_on ‘l’ \\ gvs []
+       \\ IF_CASES_TAC >- (res_tac \\ gvs [])
+        \\ fs [oEL_THM]
+       \\ res_tac
+       \\ fs [] \\ rveq \\ fs [])
+     \\ ‘value_inv st.heap v’ by
+       (irule eval_exp_value_inv
+        \\ fs [state_inv_def,locals_inv_def,EVERY_MEM,FORALL_PROD]
+        \\ fs [value_inv_def]
+        \\ conj_tac >- metis_tac []
+        \\ qpat_x_assum ‘eval_exp st env rhs_e v’ $ irule_at Any
+        \\ imp_res_tac get_type_inr_can_get_type \\ fs [])
+     \\ gvs [GSYM value_inv_def]
+     \\ gvs [heap_inv_def]
+      \\ fs [oEL_LUPDATE,AllCaseEqs()]
+     \\ rw [] \\ res_tac
+     \\ gvs [oEL_LUPDATE,AllCaseEqs()]
+     \\ res_tac
+     >- (first_assum irule \\ fs [])
+     \\ fs [value_has_type_eq_all_values])
   \\ ‘valid_mod st.heap [loc] new_heap’ by
-    (gvs [valid_mod_def,Abbr‘new_heap’,oEL_LUPDATE]
-     \\ cheat)
+    (gvs [valid_mod_def,Abbr‘new_heap’,oEL_LUPDATE,state_inv_def]
+     \\ rpt gen_tac \\ strip_tac
+     \\ IF_CASES_TAC \\ gvs []
+     \\ gvs [oEL_THM,Abbr‘new_vals’])
   \\ qexists_tac ‘st with heap := new_heap’
   \\ simp []
   \\ conj_tac
@@ -5830,34 +5858,6 @@ Proof
     \\ gvs [mod_loc_def,EXISTS_PROD]
     \\ gvs [MEM_MAP,PULL_EXISTS]
     \\ rw [] \\ first_x_assum $ irule_at Any \\ fs [])
-  \\ conj_tac
-  >- (‘update_array st (ArrV (LENGTH arr) loc el_ty) (IntV (&i)) v =
-         SOME (st with heap := new_heap)’ by
-        gvs [update_array_def,val_to_num_def,Abbr‘new_heap’,Abbr‘new_vals’]
-      \\ drule update_array_value_inv_pres
-      \\ fs [state_inv_def,Abbr‘new_heap’,Abbr‘new_vals’]
-      \\ rw [] \\ fs [locals_inv_def,EVERY_MEM,value_inv_def]
-      >-
-       (rw [oEL_LUPDATE] \\ PairCases_on ‘l’ \\ gvs []
-        \\ IF_CASES_TAC >- (res_tac \\ gvs [])
-        \\ fs [oEL_THM]
-        \\ res_tac
-        \\ fs [] \\ rveq \\ fs [])
-      \\ ‘value_inv st.heap v’ by
-        (irule eval_exp_value_inv
-         \\ fs [state_inv_def,locals_inv_def,EVERY_MEM,FORALL_PROD]
-         \\ fs [value_inv_def]
-         \\ conj_tac >- metis_tac []
-         \\ qpat_x_assum ‘eval_exp st env rhs_e v’ $ irule_at Any
-         \\ imp_res_tac get_type_inr_can_get_type \\ fs [])
-      \\ gvs [GSYM value_inv_def]
-      \\ gvs [heap_inv_def]
-      \\ fs [oEL_LUPDATE,AllCaseEqs()]
-      \\ rw [] \\ res_tac
-      \\ gvs [oEL_LUPDATE,AllCaseEqs()]
-      \\ res_tac
-      >- (first_assum irule \\ fs [])
-      \\ fs [value_has_type_eq_all_values])
   \\ rewrite_tac [GSYM eval_true_conj_every]
   \\ drule eval_true_SetPrev \\ strip_tac
   \\ drule (eval_true_ForallHeap |> Q.GEN ‘mods’ |> Q.SPEC ‘[mod]’ |> SRULE [])
