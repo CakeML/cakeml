@@ -7859,6 +7859,13 @@ Definition dest_AssignArray_def:
   dest_AssignArray _ = fail «dest_AssignArray: Does not fit rule»
 End
 
+(* TODO Pattern matching should probably not be this deep *)
+Definition dest_ArrayAlloc_def:
+  dest_ArrayAlloc (Assign [(VarLhs arr_v, ArrAlloc len_e el_e el_ty)])
+    = SOME (arr_v, len_e, el_e, el_ty) ∧
+  dest_ArrayAlloc _ = NONE
+End
+
 Definition stmt_vcg_def:
   stmt_vcg _ Skip post ens decs mods ls = return post ∧
   stmt_vcg _ (Assert e) post ens decs mods ls = return (e::post) ∧
@@ -7870,10 +7877,44 @@ Definition stmt_vcg_def:
   od ∧
   stmt_vcg _ (Return) _ ens decs mods ls = return ens ∧
   stmt_vcg m (Then s₁ s₂) post ens decs mods ls =
-    do
-      pre' <- stmt_vcg m s₂ post ens decs mods ls;
-      stmt_vcg m s₁ pre' ens decs mods ls;
-    od ∧
+    (case dest_ArrayAlloc s₁ of
+     | NONE =>
+         do
+           pre' <- stmt_vcg m s₂ post ens decs mods ls;
+           stmt_vcg m s₁ pre' ens decs mods ls;
+         od
+     | SOME (arr_v, len_e, el_e, el_ty) =>
+         do
+           e <<- strlit " e";
+           j <<- strlit " j";
+           assert (~MEM arr_v mods)
+             «stmt_vcg:ArrayAllocThen: name occurs in mods»;
+           assert (e ≠ arr_v ∧ j ≠ arr_v)
+             «stmt_vcg:ArrayAllocThen: cannot assign to mods var»;
+           pre2 <- stmt_vcg m s₂ post ens decs (arr_v::mods) ls;
+           assert (no_Prev F len_e ∧ no_Prev F el_e ∧ no_Prev F (conj pre2))
+             «stmt_vcg:ArrayAllocThen: fails no_Prev checks»;
+           assert (get_type ls (Var arr_v) = INR (ArrT el_ty))
+             «stmt_vcg:ArrayAllocThen: array var not of correct type»;
+           assert (get_type ls len_e = INR IntT)
+             «stmt_vcg:ArrayAllocThen: length expression must be in typet»;
+           assert (get_type ls el_e = INR el_ty)
+             «stmt_vcg:ArrayAllocThen: initial array element not of correct type»;
+           same_type <<- MAP FST (FILTER (λ(l,ty). MEM l mods ∧ ty = ArrT el_ty) ls);
+           return
+              [BinOp Le (Lit (IntL 0)) len_e;
+               CanEval len_e; CanEval el_e;
+               SetPrev $ ForallHeap [] $ Forall (arr_v, ArrT el_ty)
+                 (imp (conj (MAP (λv. not (dfy_eq (Var arr_v) (Var v))) same_type ++
+                             [dfy_eq (ArrLen (Var arr_v)) (Prev len_e);
+                              Let [(e,Prev el_e)] $
+                                Forall (j,IntT) $
+                                  (imp (conj [BinOp Le (Lit (IntL 0)) (Var j);
+                                              BinOp Lt (Var j) (ArrLen (Var arr_v))])
+                                       (dfy_eq (ArrSel (Var arr_v) (Var j))
+                                               (Var e)))]))
+                      (conj pre2))]
+         od) ∧
   stmt_vcg m (If grd thn els) post ens decs mods ls =
   do
     pre_thn <- stmt_vcg m thn post ens decs mods ls;
@@ -8061,10 +8102,17 @@ Proof
    (gvs [stmt_vcg_def, stmt_wp_Return])
   >~ [‘Then’] >-
    (gvs [stmt_vcg_def]
-    \\ gvs [oneline bind_def, CaseEq "sum"]
-    \\ irule stmt_wp_Then
-    \\ last_x_assum $ irule_at (Pos last)
-    \\ last_x_assum irule \\ simp [])
+    \\ gvs [CaseEq"option",CaseEq"prod"]
+    >-
+     (gvs [oneline bind_def, CaseEq "sum"]
+      \\ irule stmt_wp_Then
+      \\ last_x_assum $ irule_at (Pos last)
+      \\ last_x_assum irule \\ simp [])
+    \\ gvs [oneline bind_def, AllCaseEqs()]
+    \\ gvs [oneline dest_ArrayAlloc_def,AllCaseEqs()]
+    \\ irule stmt_wp_ArrayAlloc
+    \\ fs [assert_def]
+    \\ first_x_assum $ irule_at Any \\ simp [])
   >~ [‘If’] >-
    (gvs [stmt_vcg_def]
     \\ gvs [oneline bind_def, CaseEq "sum"]
