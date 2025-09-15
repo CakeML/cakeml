@@ -36,11 +36,13 @@ Inductive v_rel:
    (v_rel (Recclosure envx funs fun_name) (Recclosure envy funs fun_name)))
    /\
    (env_rel v_rel envx envy /\
+   ALL_DISTINCT (MAP (λ(f,x,e). f) funs) /\
    find_recfun fun_name funs = SOME (var,exp) /\
    ~ EXISTS (\fun_name. exists_call fun_name exp) (MAP FST funs) ==>
    (v_rel (Closure envx var exp) (Recclosure envy funs fun_name)))
    /\
    (env_rel v_rel envx envy /\
+   ALL_DISTINCT (MAP (λ(f,x,e). f) funs) /\
    find_recfun fun_name funs = SOME (var,exp) /\
    ~ EXISTS (\fun_name. exists_call fun_name exp) (MAP FST funs) ==>
    (v_rel (Recclosure envx funs fun_name) (Closure envy var exp)))
@@ -68,6 +70,14 @@ Theorem v_rel_simp[simp] =
        ``v_rel y (Env env nid)``]
     |> LIST_CONJ
 
+Theorem v_rel_Closure =
+  map (SIMP_CONV (srw_ss()) [Once v_rel_cases])
+      [``v_rel (Closure env var exp) y``,
+       ``v_rel (Recclosure env funs fun_name) y``,
+       ``v_rel y (Closure env var exp)``,
+       ``v_rel y (Recclosure env funs fun_name)``]
+    |> LIST_CONJ
+
 Theorem v_rel_Boolv[simp]:
   (v_rel v (Boolv b) <=> v = Boolv b) /\
   (v_rel (Boolv b) v <=> v = Boolv b)
@@ -82,6 +92,12 @@ Proof
   fs[bind_exn_v_def]
 QED
 
+Theorem v_rel_div_exn_v[simp]:
+  ((v_rel v div_exn_v) <=> v = div_exn_v) /\
+  ((v_rel div_exn_v v) <=> v = div_exn_v)
+Proof
+  fs[div_exn_v_def]
+QED
 (*TODO maybe don't shadow existing OPTREL_refl binding*)
 Triviality OPTREL_refl:
    (!x. opt = SOME x ==> R x x)  ==> OPTREL R opt opt
@@ -237,6 +253,181 @@ Proof
   fs[build_conv_def] >> rpt TOP_CASE_TAC >> fs[]
 QED
 
+Theorem PAIR_REL_eq_PAIR:
+  (R1 ### R2) (a,b) c <=> (?x y. c = (x,y) /\ R1 a x /\ R2 b y)
+Proof
+  Cases_on `c` >> fs[]
+QED
+
+(*
+Triviality v_rel_do_eval_res:
+  LIST_REL v_rel xs ys ==>
+  ((=) ### result_rel ((env_rel v_rel) ### (=)) v_rel)
+   (do_eval_res xs s) (do_eval_res ys s)
+Proof
+ cheat
+QED
+*)
+
+Triviality v_rel_do_opapp:
+   LIST_REL v_rel xs ys ==>
+   OPTREL (env_rel v_rel ### (=)) (do_opapp xs) (do_opapp ys)
+Proof
+   strip_tac >>
+   fs[do_opapp_def] >>
+   rpt (PURE_TOP_CASE_TAC >> fs[]) >>
+   gvs[v_rel_Closure]
+   >- cheat
+   >- cheat
+   >- cheat
+   >- cheat
+QED
+
+Triviality v_rel_v_to_list:
+  !v v'.
+  v_rel v v' ==>
+  OPTREL (LIST_REL v_rel) (v_to_list v) (v_to_list v')
+Proof
+  ho_match_mp_tac v_to_list_ind >> rpt strip_tac >>
+  fs[v_to_list_def,v_rel_Closure] >>
+  TOP_CASE_TAC >> fs[] >>
+  first_x_assum every_drule >>
+  TOP_CASE_TAC >> fs[OPTREL_SOME] >>
+  TOP_CASE_TAC >> fs[OPTREL_SOME]
+QED
+
+Triviality v_rel_list_to_v:
+  !xs ys.
+  v_rel (list_to_v xs) (list_to_v ys) = LIST_REL v_rel xs ys
+Proof
+  Induct >> fs[list_to_v_def]
+  >- (Cases >> fs[list_to_v_def])
+  >- (GEN_TAC >> Cases >> fs[list_to_v_def])
+QED
+
+Triviality v_rel_vs_to_string:
+   !xs ys.
+   LIST_REL v_rel xs ys ==>
+   (vs_to_string xs) = (vs_to_string ys)
+Proof
+  ho_match_mp_tac vs_to_string_ind >> rpt strip_tac >>
+  fs[vs_to_string_def,v_rel_Closure] >>
+  TOP_CASE_TAC >> fs[] >>
+  first_x_assum every_drule >>
+  disch_then (assume_tac o GSYM) >>
+  fs[]
+QED
+
+Triviality v_rel_v_to_char_list:
+   !v v'.
+   v_rel v v'==>
+   (v_to_char_list v) = (v_to_char_list v')
+Proof
+  ho_match_mp_tac v_to_char_list_ind >> rpt strip_tac >>
+  fs[v_to_char_list_def,v_rel_Closure] >>
+  ntac 2 TOP_CASE_TAC >> fs[] >>
+  first_x_assum every_drule >>
+  disch_then (assume_tac o GSYM) >>
+  fs[]
+QED
+
+Triviality v_rel_do_eq:
+   (!a x b y.v_rel a b /\
+   v_rel x y ==>
+   (do_eq a x) =  (do_eq b y)) /\
+   (!as xs bs ys.
+   LIST_REL v_rel as bs /\
+   LIST_REL v_rel xs ys ==>
+   (do_eq_list as xs) = (do_eq_list bs ys))
+Proof
+  ho_match_mp_tac do_eq_ind >> rpt strip_tac >>
+  fs[do_eq_def,v_rel_Closure] >>
+  rpt TOP_CASE_TAC >> fs[] >>
+  every_drule LIST_REL_LENGTH >> fs[]
+  >- (first_x_assum drule_all >> fs[])
+  >- (first_x_assum drule_all >> fs[])
+  >- (first_x_assum drule_all >> fs[] >>
+     first_x_assum drule_all >> fs[])
+  >- (first_x_assum drule_all >> fs[] >>
+     first_x_assum drule_all >> fs[])
+  >- (first_x_assum drule_all >> fs[])
+  >- (first_x_assum drule_all >> fs[])
+QED
+
+Definition store_v_rel_def[simp]:
+  store_v_rel R (Refv v) (Refv v') = R v v' /\
+  store_v_rel R (W8array a) (W8array a') = (a = a') /\
+  store_v_rel R (Varray va) (Varray va') = LIST_REL R va va' /\
+  store_v_rel R _ _ = F
+End
+
+Theorem store_v_rel_simps[simp]:
+  (store_v_rel R (Refv v) store_v <=> (?v'. store_v = Refv v' /\ R v v') )/\
+  (store_v_rel R store_v (Refv v) <=> (?v'. store_v = Refv v' /\ R v' v)) /\
+  (store_v_rel R (W8array a) store_v <=> (store_v = W8array a)) /\
+  (store_v_rel R (W8array a) store_v <=> (store_v = W8array a)) /\
+  (store_v_rel R (Varray va) store_v <=> (?va'. store_v = Varray va' /\
+                                         LIST_REL R va va')) /\
+  (store_v_rel R store_v (Varray va) <=> (?va'. store_v = Varray va' /\
+                                         LIST_REL R va' va))
+Proof
+  Cases_on `store_v` >> simp[] >> metis_tac[]
+QED
+
+Theorem store_v_rel_refl:
+ (!x. store_v = Refv x ==> R x x) /\
+ (!x. store_v = Varray x ==> LIST_REL R x x) ==>
+ (store_v_rel R store_v store_v)
+Proof
+ Cases_on `store_v` >> fs[]
+QED
+
+Triviality v_rel_do_app:
+   LIST_REL v_rel xs ys ==>
+   OPTREL ((LIST_REL (store_v_rel v_rel) ### (=)) ### result_rel v_rel v_rel)
+     (do_app (s,t) op xs) (do_app (s,t) op ys)
+Proof
+   strip_tac >>
+   Cases_on `do_app (s,t) op xs` >>
+   qpat_x_assum  `do_app _ _ _ = _`
+     (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+   rveq >> fs[v_rel_Closure] >> rveq >>
+   simp_tac(srw_ss()) [do_app_def] >>
+   fs[]
+   >>~-([`do_eq`],
+    imp_res_tac $ CONJUNCT1 v_rel_do_eq >>
+    rfs[] >> fs[] >>
+    qpat_x_assum `Eq_val _ = _` (mp_tac o GSYM) >>
+    fs[] >>
+    fs[EVERY2_refl,store_v_rel_refl,v_rel_refl])
+   >>~-([`store_assign`],
+      fs[store_assign_def,store_v_same_type_def,AllCasePreds()] >>
+      gvs[] >>
+      rpt(irule EVERY2_LUPDATE_same >> fs[EVERY2_refl,store_v_rel_refl,v_rel_refl]))
+   >>~-([`store_alloc`],
+      fs[store_alloc_def] >> gvs[] >>
+      fs[store_v_rel_refl,EVERY2_refl,v_rel_refl] >>
+      simp[LIST_REL_REPLICATE_same])
+   >>~- ([`vs_to_string`],
+     drule_then strip_assume_tac v_rel_v_to_list >>
+     rfs[OPTREL_SOME] >>
+     drule_then strip_assume_tac v_rel_vs_to_string >>
+     fs[] >> fs[store_v_rel_refl,EVERY2_refl,v_rel_refl])
+   >>~-([`v_to_char_list`],
+     drule_then mp_tac v_rel_v_to_char_list >>
+     fs[] >> disch_then (assume_tac o GSYM) >>
+     fs[] >> fs[store_v_rel_refl,EVERY2_refl,v_rel_refl])
+   >>~-([`v_to_list`],
+     every_drule_then assume_tac  v_rel_v_to_list >>
+     rfs[OPTREL_SOME] >> fs[store_v_rel_refl,EVERY2_refl,v_rel_refl] >>
+     fs[v_rel_list_to_v] >>
+     fs[LIST_REL_APPEND_suff])
+   >> TRY (fs[ store_v_rel_refl,EVERY2_refl,v_rel_refl] >> NO_TAC)
+   >> TRY (TOP_CASE_TAC >> rfs[]) >> fs[store_v_rel_refl,EVERY2_refl,v_rel_refl] >>
+      every_drule_then assume_tac LIST_REL_LENGTH >> fs[] >>
+     fs[LIST_REL_EL_EQN]
+QED
+
 val s = mk_var ("s", ``: 'ffi semanticPrimitives$state``);
 val st = mk_var ("st", ``: 'ffi semanticPrimitives$state``);
 
@@ -333,7 +524,31 @@ Proof
     simp[evaluate_def] >> gvs[v_rel_refl] >>
     simp[Once v_rel_cases])
   (* App *)
-  >- ( cheat)
+  >- (
+    qpat_x_assum `evaluate_ _ _ = (s',res)`
+       (mp_tac o SRULE[Once evaluate_def,Excl "getOpClass_def"]) >>
+    Cases_on `getOpClass op` >> fs[] >>
+    simp[evaluate_def]
+    >- (cheat)
+    >- (
+      disch_then (strip_assume_tac o SRULE[AllCaseEqs()]) >>
+      gvs[] >>
+      first_x_assum $ drule_then strip_assume_tac >>
+      gvs[] >>
+      qspecl_then [`REVERSE v'`,`REVERSE vs`] mp_tac $ GEN_ALL v_rel_do_opapp >>
+      impl_tac >- fs[] >>
+      fs[OPTREL_SOME,PAIR_REL_eq_PAIR,PULL_EXISTS])
+    >- (
+      disch_then (strip_assume_tac o SRULE[AllCaseEqs()]) >>
+      gvs[] >>
+      first_x_assum $ drule_then strip_assume_tac >>
+      gvs[] >>
+      rename1`do_app (s'.refs,s'.ffi) op (REVERSE v')` >>
+      (qspecl_then [`REVERSE v'`,`REVERSE vs`,`s'.ffi`,`s'.refs`,`op`] mp_tac
+         $ GEN_ALL v_rel_do_app >>
+      impl_tac >- fs[]) >>
+      fs[] >> strip_tac >> fs[OPTREL_SOME,PAIR_REL_eq_PAIR]
+      >> cheat))
   (* Log *)
   >- (
     qpat_x_assum `evaluate_ _ _ = (s',res)`
