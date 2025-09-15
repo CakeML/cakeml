@@ -113,7 +113,9 @@ compiler/dafny
 compiler/dafny/translation
 compiler/dafny/compilation
 compiler/dafny/semantics
+compiler/dafny/proofs
 compiler/dafny/vcg
+compiler/dafny/examples
 
 # Scheme compiler
 compiler/scheme
