@@ -1,4 +1,4 @@
-Translate Dafny into CakeML.
+A verified VCG and verified compiler for Dafny
 
 [compilation](compilation):
 Compilation scripts for the Dafny to CakeML backend.
@@ -19,7 +19,7 @@ Definitions to lex and parse S-expressions.
 Defines the translation of Dafny's to CakeML's AST.
 
 [examples](examples):
-Contains programs to test the verified Dafny compiler.
+Example Dafny programs
 
 [proofs](proofs):
 Correctness proofs for the Dafny compiler.
