@@ -182,6 +182,15 @@ Definition esubst_def:
   esubst σ avds tm = esubst_tm σ (esubst_ty σ avds tm)
 End
 
+Definition esubst_thy_def:
+  esubst_thy σ thy =
+  thy with <| tms  := thy.tms ⊌ (ty_esubst σ o_f thy.etms);
+              axs  := IMAGE (esubst σ []) (thy.axs ∪ thy.eaxs);
+              etys := FEMPTY;
+              etms := FEMPTY;
+              eaxs := {} |>
+End
+
 Definition vsubst_tys_ok_def:
   vsubst_tys_ok ilist =
   (∀s s'. MEM (s',s) ilist ⇒
@@ -253,19 +262,20 @@ Overload is_monomorphic = “λty. tyvars ty = []”
 
 Type SIG = “:((mlstring |-> num) # (mlstring |-> type))”
 
+(* todo everything in frange sigma has to be monomorphic *)
 Definition esubsts_ok_def:
   esubsts_ok (sig:SIG) (σ, θ) ⇔
     strlit "=" ∉ FDOM θ ∧
     strlit "bool" ∉ FDOM σ ∧
     (∀tyn typ. FLOOKUP (tysof sig) tyn = SOME 0 ∧
                FLOOKUP σ tyn = SOME typ ⇒
-               is_monomorphic ty) ∧
+               is_monomorphic typ) ∧
     (∀tmnm. tmnm ∈ FDOM θ ⇒
             ∃ty. FLOOKUP (tmsof sig) tmnm = SOME ty ∧
                  is_monomorphic ty ∧
                  typeof (θ ' tmnm) = ty_esubst (σ, θ) ty) ∧
     (∀ty. ty ∈ FRANGE σ ⇒ type_ok (tysof sig) ty) ∧
-    (∀tm. tm ∈ FRANGE θ ⇒ term_ok sig tm)
+    (∀tm. tm ∈ FRANGE θ ⇒ term_ok (esubst_sig (σ,θ) sig) tm)
 End
 
 (* Standard signature includes the minimal type operators and constants *)
