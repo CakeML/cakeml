@@ -98,6 +98,13 @@ Theorem v_rel_div_exn_v[simp]:
 Proof
   fs[div_exn_v_def]
 QED
+
+Theorem v_rel_sub_exn_v[simp]:
+  ((v_rel v sub_exn_v) <=> v = sub_exn_v) /\
+  ((v_rel sub_exn_v v) <=> v = sub_exn_v)
+Proof
+  fs[sub_exn_v_def]
+QED
 (*TODO maybe don't shadow existing OPTREL_refl binding*)
 Triviality OPTREL_refl:
    (!x. opt = SOME x ==> R x x)  ==> OPTREL R opt opt
@@ -190,20 +197,50 @@ Proof
   Cases_on `mres` >> fs[]
 QED
 
+Definition store_v_rel_def[simp]:
+  store_v_rel R (Refv v) (Refv v') = R v v' /\
+  store_v_rel R (W8array a) (W8array a') = (a = a') /\
+  store_v_rel R (Varray va) (Varray va') = LIST_REL R va va' /\
+  store_v_rel R _ _ = F
+End
+
+Theorem store_v_rel_simps[simp]:
+  (store_v_rel R (Refv v) store_v <=> (?v'. store_v = Refv v' /\ R v v') )/\
+  (store_v_rel R store_v (Refv v) <=> (?v'. store_v = Refv v' /\ R v' v)) /\
+  (store_v_rel R (W8array a) store_v <=> (store_v = W8array a)) /\
+  (store_v_rel R (W8array a) store_v <=> (store_v = W8array a)) /\
+  (store_v_rel R (Varray va) store_v <=> (?va'. store_v = Varray va' /\
+                                         LIST_REL R va va')) /\
+  (store_v_rel R store_v (Varray va) <=> (?va'. store_v = Varray va' /\
+                                         LIST_REL R va' va))
+Proof
+  Cases_on `store_v` >> simp[] >> metis_tac[]
+QED
+
+Theorem store_v_rel_refl:
+ (!x. store_v = Refv x ==> R x x) /\
+ (!x. store_v = Varray x ==> LIST_REL R x x) ==>
+ (store_v_rel R store_v store_v)
+Proof
+ Cases_on `store_v` >> fs[]
+QED
+
 Triviality v_rel_pmatch:
- (!envC refs p v env res v' env'.
+ (!envC refs p v env res v' refs' env'.
    v_rel v v' /\
+   LIST_REL (store_v_rel v_rel) refs refs' /\
    LIST_REL ((=) ### v_rel) env env' /\
    pmatch envC refs p v env = res ==>
    ?res'.
-   pmatch envC refs p v' env' = res' /\
+   pmatch envC refs' p v' env' = res' /\
    match_result_rel (LIST_REL ((=) ### v_rel)) res res') /\
-  (!envC s ps vs envs res vs' envs'.
+  (!envC refs ps vs envs res vs' refs' envs'.
    LIST_REL v_rel vs vs' /\
+   LIST_REL (store_v_rel v_rel) refs refs' /\
    LIST_REL ((=) ### v_rel) envs envs' /\
-   pmatch_list envC s (ps) (vs) envs = res ==>
+   pmatch_list envC refs (ps) (vs) envs = res ==>
    ?res'.
-   pmatch_list envC s (ps) (vs') envs' = res' /\
+   pmatch_list envC refs' (ps) (vs') envs' = res' /\
    match_result_rel (LIST_REL ((=) ### v_rel)) res res')
 Proof
   ho_match_mp_tac pmatch_ind >> rpt strip_tac
@@ -214,19 +251,23 @@ Proof
       TRY (every_drule LIST_REL_LENGTH >> fs[]))
   >- (every_drule_then assume_tac LIST_REL_LENGTH >>
       rpt TOP_CASE_TAC >> gvs[])
-  >- (rpt TOP_CASE_TAC >> gvs[] >>
-     first_x_assum irule >> fs[v_rel_refl])
+  >- (`OPTREL (store_v_rel v_rel)
+        (store_lookup lnum refs)
+         (store_lookup lnum refs')`
+         by (srw_tac[][store_lookup_def] >>fs[LIST_REL_EL_EQN]) >>
+      rpt TOP_CASE_TAC >> fs[OPTREL_SOME])
   >>~- ([`Closure`],fs[Once v_rel_cases,pmatch_def])
   >>~- ([`Recclosure`],fs[Once v_rel_cases,pmatch_def])
   >- (
-     Cases_on `pmatch envC s p v envs` >> fs[] >>
-     Cases_on `pmatch_list envC s ps vs envs` >> fs[] >>
+     Cases_on `pmatch envC refs p v envs` >> fs[] >>
+     Cases_on `pmatch_list envC refs ps vs envs` >> fs[] >>
      res_tac >> fs[])
 QED
 
 Triviality v_rel_can_pmatch_all:
-  v_rel v v' ==>
-  (can_pmatch_all envC refs ps v' =
+  v_rel v v' /\
+  LIST_REL (store_v_rel v_rel) refs refs' ==>
+  (can_pmatch_all envC refs' ps v' =
   can_pmatch_all envC refs ps v)
 Proof
  rw[] >>
@@ -236,13 +277,13 @@ Proof
    fs[can_pmatch_all_EVERY] >> fs[EVERY_MEM] >>
    rw[] >> first_x_assum $ drule_then assume_tac >>
    Cases_on `pmatch envC refs p v []` >> fs[] >>
-   drule_at(Pos $ el 3) $ CONJUNCT1 v_rel_pmatch >>
-   fs[] >> disch_then drule >> rw[] >> fs[])
+   drule_at(Pos $ el 4) $ CONJUNCT1 v_rel_pmatch >>
+   fs[] >> disch_then drule_all >> rw[] >> fs[])
  >-(
    fs[can_pmatch_all_EVERY] >> fs[EXISTS_MEM] >>
    rw[] >>
-   drule_at(Pos $ el 3) $ CONJUNCT1 v_rel_pmatch >>
-   fs[] >> disch_then drule >> rw[] >> fs[] >>
+   drule_at(Pos $ el 4) $ CONJUNCT1 v_rel_pmatch >>
+   fs[] >> disch_then drule_all >> rw[] >> fs[] >>
    metis_tac[])
 QED
 
@@ -354,96 +395,516 @@ Proof
   >- (first_x_assum drule_all >> fs[])
 QED
 
-Definition store_v_rel_def[simp]:
-  store_v_rel R (Refv v) (Refv v') = R v v' /\
-  store_v_rel R (W8array a) (W8array a') = (a = a') /\
-  store_v_rel R (Varray va) (Varray va') = LIST_REL R va va' /\
-  store_v_rel R _ _ = F
-End
+val state_component_equality = semanticPrimitivesTheory.state_component_equality
 
-Theorem store_v_rel_simps[simp]:
-  (store_v_rel R (Refv v) store_v <=> (?v'. store_v = Refv v' /\ R v v') )/\
-  (store_v_rel R store_v (Refv v) <=> (?v'. store_v = Refv v' /\ R v' v)) /\
-  (store_v_rel R (W8array a) store_v <=> (store_v = W8array a)) /\
-  (store_v_rel R (W8array a) store_v <=> (store_v = W8array a)) /\
-  (store_v_rel R (Varray va) store_v <=> (?va'. store_v = Varray va' /\
-                                         LIST_REL R va va')) /\
-  (store_v_rel R store_v (Varray va) <=> (?va'. store_v = Varray va' /\
-                                         LIST_REL R va' va))
+Triviality s_with_refs[simp]:
+   (s with refs := refs) = (s with refs := refs') <=>
+   refs = refs'
 Proof
-  Cases_on `store_v` >> simp[] >> metis_tac[]
+  simp[state_component_equality]
 QED
 
-Theorem store_v_rel_refl:
- (!x. store_v = Refv x ==> R x x) /\
- (!x. store_v = Varray x ==> LIST_REL R x x) ==>
- (store_v_rel R store_v store_v)
+(*TODO move*)
+Triviality dec_clock_const[simp]:
+ (dec_clock s).refs = s.refs
 Proof
- Cases_on `store_v` >> fs[]
+ EVAL_TAC
+QED
+
+Triviality dec_clock_with_const[simp]:
+ (dec_clock (s with refs := refs)) = (dec_clock s with refs := refs)
+Proof
+ EVAL_TAC
+QED
+
+Triviality v_rel_store_lookup:
+  LIST_REL (store_v_rel v_rel) refs refs' ==>
+  OPTREL (store_v_rel v_rel) (store_lookup n refs) (store_lookup n refs')
+Proof
+  rw[] >> drule_then assume_tac LIST_REL_LENGTH >>
+  fs[store_lookup_def] >> TOP_CASE_TAC >> fs[] >>
+  fs[LIST_REL_EL_EQN]
+QED
+
+Triviality v_rel_store_assign:
+  LIST_REL (store_v_rel v_rel) refs refs' /\
+  store_v_rel v_rel v v' ==>
+  OPTREL (LIST_REL (store_v_rel v_rel))
+     (store_assign n v refs) (store_assign n v' refs')
+Proof
+  rw[] >> drule_then assume_tac LIST_REL_LENGTH >>
+  fs[store_assign_def,store_v_same_type_def] >>
+  TOP_CASE_TAC >> fs[AllCasePreds()] >>
+  IMP_RES_TAC LIST_REL_EL_EQN >>
+  gvs[] >>
+  TRY (first_x_assum every_drule) >>
+  rw[] >>fs[] >>
+  res_tac >> fs[] >>
+  rpt (irule EVERY2_LUPDATE_same >> fs[EVERY2_refl,store_v_rel_refl,v_rel_refl]) >>
+  Cases_on `n < LENGTH refs'` >> fs[] >>
+  res_tac >> fs[] >>
+ Cases_on `EL n refs` >> fs[] >>
+  Cases_on `v` >> fs[]
+QED
+
+Triviality v_rel_store_alloc:
+  LIST_REL (store_v_rel v_rel) refs refs' ==>
+  store_v_rel v_rel v v' ==>
+  (LIST_REL (store_v_rel v_rel) ### (=))
+     (store_alloc v refs) (store_alloc v' refs')
+Proof
+  rw[] >> drule_then assume_tac LIST_REL_LENGTH >>
+  fs[store_alloc_def]
 QED
 
 Triviality v_rel_do_app:
-   LIST_REL v_rel xs ys ==>
+   LIST_REL v_rel xs ys /\
+   LIST_REL (store_v_rel v_rel) refs refs' ==>
    OPTREL ((LIST_REL (store_v_rel v_rel) ### (=)) ### result_rel v_rel v_rel)
-     (do_app (s,t) op xs) (do_app (s,t) op ys)
+     (do_app (refs,t) op xs) (do_app (refs',t) op ys)
 Proof
    strip_tac >>
-   Cases_on `do_app (s,t) op xs` >>
-   qpat_x_assum  `do_app _ _ _ = _`
-     (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
-   rveq >> fs[v_rel_Closure] >> rveq >>
-   simp_tac(srw_ss()) [do_app_def] >>
-   fs[]
-   >>~-([`do_eq`],
-    imp_res_tac $ CONJUNCT1 v_rel_do_eq >>
-    rfs[] >> fs[] >>
-    qpat_x_assum `Eq_val _ = _` (mp_tac o GSYM) >>
-    fs[] >>
-    fs[EVERY2_refl,store_v_rel_refl,v_rel_refl])
-   >>~-([`store_assign`],
-      fs[store_assign_def,store_v_same_type_def,AllCasePreds()] >>
-      gvs[] >>
-      rpt(irule EVERY2_LUPDATE_same >> fs[EVERY2_refl,store_v_rel_refl,v_rel_refl]))
-   >>~-([`store_alloc`],
-      fs[store_alloc_def] >> gvs[] >>
-      fs[store_v_rel_refl,EVERY2_refl,v_rel_refl] >>
-      simp[LIST_REL_REPLICATE_same])
-   >>~- ([`vs_to_string`],
+   Cases_on `op`
+   >~ [`Equality`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     imp_res_tac $ CONJUNCT1 v_rel_do_eq >>
+     rfs[] >> fs[] >>
+     qpat_x_assum `Eq_val _ = _` (mp_tac o GSYM) >>
+     fs[])
+   >~ [`Opassign`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     qmatch_asmsub_abbrev_tac `store_assign lnum V  _` >>
+     qmatch_goalsub_abbrev_tac `store_assign lnum V'  _` >>
+     (drule_then THEN_TCL qspecl_then [`V'`,`V`,`lnum`]) assume_tac v_rel_store_assign >>
+     rfs[Abbr`V`,Abbr`V'`,OPTREL_SOME])
+   >~ [`Opref`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     qmatch_asmsub_abbrev_tac `store_alloc V  _` >>
+     qmatch_goalsub_abbrev_tac `store_alloc V'  _` >>
+     (drule_then THEN_TCL qspecl_then[`V'`,`V`]) assume_tac v_rel_store_alloc >>
+     rfs[Abbr`V`,Abbr`V'`,OPTREL_SOME,PAIR_REL_eq_PAIR])
+   >~ [`Opderef`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     qmatch_goalsub_abbrev_tac `store_lookup n _`  >>
+     (drule_then THEN_TCL qspec_then `n`) assume_tac v_rel_store_lookup >>
+     rfs[OPTREL_SOME])
+   >~ [`Aw8alloc`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     fs[] >>
+     qmatch_asmsub_abbrev_tac `store_alloc V  _` >>
+     (drule_then THEN_TCL qspecl_then[`V`,`V`]) assume_tac v_rel_store_alloc >>
+     rfs[Abbr`V`,OPTREL_SOME,PAIR_REL_eq_PAIR])
+   >~ [`Aw8sub`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     fs[] >>
+     qmatch_goalsub_abbrev_tac `store_lookup n _`  >>
+     (drule_then THEN_TCL qspec_then `n`) assume_tac v_rel_store_lookup >>
+     rfs[OPTREL_SOME])
+   >~ [`Aw8length`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     qmatch_goalsub_abbrev_tac `store_lookup n _`  >>
+     (drule_then THEN_TCL qspec_then `n`) assume_tac v_rel_store_lookup >>
+     rfs[OPTREL_SOME])
+   >~ [`Aw8update`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     qmatch_goalsub_abbrev_tac `store_lookup n _`  >>
+     (drule_then THEN_TCL qspec_then `n`) assume_tac v_rel_store_lookup >>
+     rfs[OPTREL_SOME] >>
+     qmatch_asmsub_abbrev_tac `store_assign lnum V  _` >>
+     qmatch_goalsub_abbrev_tac `store_assign lnum V  _` >>
+     (drule_then THEN_TCL qspecl_then [`V`,`V`,`lnum`]) assume_tac v_rel_store_assign >>
+     rfs[Abbr`V`,OPTREL_SOME])
+   >~ [`CopyStrAw8`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     qmatch_goalsub_abbrev_tac `store_lookup n _`  >>
+     (drule_then THEN_TCL qspec_then `n`) assume_tac v_rel_store_lookup >>
+     rfs[OPTREL_SOME] >>
+     qmatch_asmsub_abbrev_tac `store_assign lnum V  _` >>
+     qmatch_goalsub_abbrev_tac `store_assign lnum V  _` >>
+     (drule_then THEN_TCL qspecl_then [`V`,`V`,`lnum`]) assume_tac v_rel_store_assign >>
+     rfs[Abbr`V`,OPTREL_SOME])
+   >~ [`CopyAw8Str`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     qmatch_goalsub_abbrev_tac `store_lookup n _`  >>
+     (drule_then THEN_TCL qspec_then `n`) assume_tac v_rel_store_lookup >>
+     rfs[OPTREL_SOME] >>
+     TOP_CASE_TAC >> fs[])
+   >~ [`CopyAw8Aw8`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     qmatch_goalsub_abbrev_tac `store_lookup n _`  >>
+     (drule_then THEN_TCL qspec_then `n`) assume_tac v_rel_store_lookup >>
+     rfs[OPTREL_SOME] >>
+     qmatch_goalsub_abbrev_tac `store_lookup n' _`  >>
+     (drule_then THEN_TCL qspec_then `n'`) assume_tac v_rel_store_lookup >>
+     rfs[OPTREL_SOME] >>
+     qmatch_asmsub_abbrev_tac `store_assign lnum V  _` >>
+     qmatch_goalsub_abbrev_tac `store_assign lnum V  _` >>
+     (drule_then THEN_TCL qspecl_then [`V`,`V`,`lnum`]) assume_tac v_rel_store_assign >>
+     rfs[Abbr`V`,OPTREL_SOME])
+   >~ [`XorAw8Str_unsafe`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     qmatch_goalsub_abbrev_tac `store_lookup n _`  >>
+     (drule_then THEN_TCL qspec_then `n`) assume_tac v_rel_store_lookup >>
+     rfs[OPTREL_SOME] >>
+     qmatch_asmsub_abbrev_tac `store_assign lnum V  _` >>
+     qmatch_goalsub_abbrev_tac `store_assign lnum V  _` >>
+     (drule_then THEN_TCL qspecl_then [`V`,`V`,`lnum`]) assume_tac v_rel_store_assign >>
+     rfs[Abbr`V`,OPTREL_SOME])
+   >~ [`Implode`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     drule_then mp_tac v_rel_v_to_char_list >>
+     fs[] >> disch_then (assume_tac o GSYM) >>
+     fs[])
+   >~ [`Strcat`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
      drule_then strip_assume_tac v_rel_v_to_list >>
      rfs[OPTREL_SOME] >>
      drule_then strip_assume_tac v_rel_vs_to_string >>
      fs[] >> fs[store_v_rel_refl,EVERY2_refl,v_rel_refl])
-   >>~-([`v_to_char_list`],
-     drule_then mp_tac v_rel_v_to_char_list >>
-     fs[] >> disch_then (assume_tac o GSYM) >>
-     fs[] >> fs[store_v_rel_refl,EVERY2_refl,v_rel_refl])
-   >>~-([`v_to_list`],
+   >~ [`VfromList`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     drule_then strip_assume_tac v_rel_v_to_list >>
+     rfs[OPTREL_SOME])
+   >~ [`Vsub`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     fs[] >>
+     every_drule_then assume_tac LIST_REL_LENGTH >>
+     fs[] >>
+     fs[LIST_REL_EL_EQN])
+   >~ [`Vlength`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     every_drule_then assume_tac LIST_REL_LENGTH >>
+     fs[])
+   >~ [`Aalloc`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     fs[] >>
+     qmatch_asmsub_abbrev_tac `store_alloc V'  _` >>
+     qmatch_goalsub_abbrev_tac `store_alloc V  _` >>
+     (drule_then THEN_TCL qspecl_then[`V`,`V'`]) assume_tac v_rel_store_alloc >>
+     rfs[Abbr`V`,Abbr`V'`,OPTREL_SOME,PAIR_REL_eq_PAIR,LIST_REL_REPLICATE_same])
+   >~ [`AallocEmpty`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     fs[] >>
+     qmatch_asmsub_abbrev_tac `store_alloc V  _` >>
+     qmatch_goalsub_abbrev_tac `store_alloc V  _` >>
+     (drule_then THEN_TCL qspecl_then[`V`,`V`]) assume_tac v_rel_store_alloc >>
+     rfs[Abbr`V`,OPTREL_SOME,PAIR_REL_eq_PAIR,LIST_REL_REPLICATE_same])
+   >~ [`AallocFixed`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     fs[] >>
+     qmatch_asmsub_abbrev_tac `store_alloc V  _` >>
+     qmatch_goalsub_abbrev_tac `store_alloc V'  _` >>
+     (drule_then THEN_TCL qspecl_then[`V'`,`V`]) assume_tac v_rel_store_alloc >>
+     rfs[Abbr`V`,Abbr`V'`,OPTREL_SOME,PAIR_REL_eq_PAIR,LIST_REL_REPLICATE_same])
+   >~ [`Asub`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     fs[] >>
+     qmatch_goalsub_abbrev_tac `store_lookup n _`  >>
+     (drule_then THEN_TCL qspec_then `n`) assume_tac v_rel_store_lookup >>
+     rfs[OPTREL_SOME] >>
+     every_drule_then assume_tac LIST_REL_LENGTH >>
+     fs[] >> fs[LIST_REL_EL_EQN])
+   >~ [`Alength`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     fs[] >>
+     qmatch_goalsub_abbrev_tac `store_lookup n _`  >>
+     (drule_then THEN_TCL qspec_then `n`) assume_tac v_rel_store_lookup >>
+     rfs[OPTREL_SOME] >>
+     every_drule_then assume_tac LIST_REL_LENGTH >> fs[])
+   >~ [`Aupdate`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     qmatch_goalsub_abbrev_tac `store_lookup n _`  >>
+     (drule_then THEN_TCL qspec_then `n`) assume_tac v_rel_store_lookup >>
+     rfs[OPTREL_SOME] >>
+     every_drule_then assume_tac LIST_REL_LENGTH >> fs[] >>
+     qmatch_asmsub_abbrev_tac `store_assign lnum V  _` >>
+     qmatch_goalsub_abbrev_tac `store_assign lnum V'  _` >>
+     (drule_then THEN_TCL qspecl_then [`V'`,`V`,`lnum`]) assume_tac v_rel_store_assign >>
+     rfs[Abbr`V`,Abbr`V'`,OPTREL_SOME] >>
+     gvs[EVERY2_LUPDATE_same])
+   >~ [`Asub_unsafe`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     qmatch_goalsub_abbrev_tac `store_lookup n _`  >>
+     (drule_then THEN_TCL qspec_then `n`) assume_tac v_rel_store_lookup >>
+     rfs[OPTREL_SOME] >>
+     every_drule_then assume_tac LIST_REL_LENGTH >> fs[] >>
+     fs[LIST_REL_EL_EQN])
+   >~ [`Aupdate_unsafe`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     qmatch_goalsub_abbrev_tac `store_lookup n _`  >>
+     (drule_then THEN_TCL qspec_then `n`) assume_tac v_rel_store_lookup >>
+     rfs[OPTREL_SOME] >>
+     every_drule_then assume_tac LIST_REL_LENGTH >> fs[] >>
+     qmatch_asmsub_abbrev_tac `store_assign lnum V  _` >>
+     qmatch_goalsub_abbrev_tac `store_assign lnum V'  _` >>
+     (drule_then THEN_TCL qspecl_then [`V'`,`V`,`lnum`]) assume_tac v_rel_store_assign >>
+     rfs[Abbr`V`,Abbr`V'`,OPTREL_SOME] >>
+     gvs[EVERY2_LUPDATE_same])
+   >~ [`Aw8sub_unsafe`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     qmatch_goalsub_abbrev_tac `store_lookup n _`  >>
+     (drule_then THEN_TCL qspec_then `n`) assume_tac v_rel_store_lookup >>
+     rfs[OPTREL_SOME])
+   >~ [`Aw8update_unsafe`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     qmatch_goalsub_abbrev_tac `store_lookup n _`  >>
+     (drule_then THEN_TCL qspec_then `n`) assume_tac v_rel_store_lookup >>
+     rfs[OPTREL_SOME] >>
+     qmatch_asmsub_abbrev_tac `store_assign lnum V  _` >>
+     qmatch_goalsub_abbrev_tac `store_assign lnum V  _` >>
+     (drule_then THEN_TCL qspecl_then [`V`,`V`,`lnum`]) assume_tac v_rel_store_assign >>
+     rfs[Abbr`V`,OPTREL_SOME])
+   >~ [`ListAppend`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
      every_drule_then assume_tac  v_rel_v_to_list >>
      rfs[OPTREL_SOME] >> fs[store_v_rel_refl,EVERY2_refl,v_rel_refl] >>
      fs[v_rel_list_to_v] >>
      fs[LIST_REL_APPEND_suff])
-   >> TRY (fs[ store_v_rel_refl,EVERY2_refl,v_rel_refl] >> NO_TAC)
-   >> TRY (TOP_CASE_TAC >> rfs[]) >> fs[store_v_rel_refl,EVERY2_refl,v_rel_refl] >>
-      every_drule_then assume_tac LIST_REL_LENGTH >> fs[] >>
-     fs[LIST_REL_EL_EQN]
+   >~ [`FFI`]
+   >- (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     qmatch_goalsub_abbrev_tac `store_lookup n _`  >>
+     (drule_then THEN_TCL qspec_then `n`) assume_tac v_rel_store_lookup >>
+     rfs[OPTREL_SOME] >>
+     qmatch_asmsub_abbrev_tac `store_assign lnum V  _` >>
+     qmatch_goalsub_abbrev_tac `store_assign lnum V  _` >>
+     (drule_then THEN_TCL qspecl_then [`V`,`V`,`lnum`]) assume_tac v_rel_store_assign >>
+     rfs[Abbr`V`,OPTREL_SOME])
+   >> TRY (
+     qmatch_goalsub_abbrev_tac `do_app _ op _` >>
+     Cases_on `do_app (refs,t) op xs` >>
+     qunabbrev_tac `op` >>
+     qpat_x_assum  `do_app _ _ _ = _`
+       (strip_assume_tac o SRULE[SF LET_ss,do_app_def,AllCaseEqs(),UNCURRY_EQ]) >>
+     rveq >> fs[v_rel_Closure] >> rveq >>
+     simp_tac(srw_ss()) [do_app_def] >>
+     fs[EVERY2_refl,store_v_rel_refl,v_rel_refl] >>
+     rpt TOP_CASE_TAC >> gs[] >> NO_TAC)
 QED
 
 val s = mk_var ("s", ``: 'ffi semanticPrimitives$state``);
-val st = mk_var ("st", ``: 'ffi semanticPrimitives$state``);
 
 Theorem v_rel_evaluate:
-  (!s envx es s' res envy.
+  (!s envx es s' res envy refs.
   env_rel v_rel envx envy /\
+  LIST_REL (store_v_rel v_rel) s.refs refs /\
   evaluate ^s envx es = (s',res) ==>
-  ?res'.
-  evaluate s envy es = (s',res') /\
+  ?res' t refs'.
+  evaluate (s with refs := refs) envy es = (t,res') /\
+  t = (s' with refs := refs') /\
+  LIST_REL (store_v_rel v_rel) s'.refs refs' /\
   result_rel (LIST_REL v_rel) v_rel res res') /\
-  (!st envx v pes err_v s' res envy v' err_v'.
+  (!s envx v pes err_v s' res envy v' err_v' refs.
    env_rel v_rel envx envy /\
+   LIST_REL (store_v_rel v_rel) s.refs refs /\
    v_rel v v' /\ v_rel err_v err_v'  ==>
-   evaluate_match ^st envx v pes err_v = (s',res) ==>
-   ?res'.
-   evaluate_match st envy v' pes err_v' = (s',res') /\
+   evaluate_match ^s envx v pes err_v = (s',res) ==>
+   ?res' t refs'.
+   evaluate_match (s with refs := refs) envy v' pes err_v' = (t,res') /\
+   t = (s' with refs := refs') /\
+   LIST_REL (store_v_rel v_rel) s'.refs refs' /\
    result_rel (LIST_REL v_rel) v_rel res res')
 Proof
   ho_match_mp_tac evaluate_ind >>
@@ -453,54 +914,49 @@ Proof
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
     gvs[] >> simp[evaluate_def] >> gvs[]
-    >-
-      (first_x_assum $ drule_then assume_tac >>
-      first_x_assum $ drule_then strip_assume_tac >>
-      gvs[] >>
-      every_drule_then strip_assume_tac evaluate_sing >> fs[]
+    >-(
+      first_x_assum $ drule_all_then strip_assume_tac >> fs[] >>
+      first_x_assum $ drule_all_then strip_assume_tac >> fs[] >>
+      every_drule_then strip_assume_tac evaluate_sing >> fs[])
+    >-(
+      first_x_assum $ drule_all_then strip_assume_tac >> fs[] >>
+      first_x_assum $ drule_all_then strip_assume_tac >> fs[]
       )
-    >- (first_x_assum $ drule_then assume_tac >>
-      first_x_assum $ drule_then strip_assume_tac >>
-      gvs[] >>
-      every_drule_then strip_assume_tac evaluate_sing >> fs[]
+    >-(
+      first_x_assum $ drule_all_then strip_assume_tac >> fs[])
       )
-    >-(first_x_assum $ drule_then strip_assume_tac >>
-      fs[]))
+  (* Lit *)
   >- (
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
     simp[evaluate_def] >> gvs[])
+  (* Raise *)
   >- (
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
-    simp[evaluate_def] >> gvs[v_rel_refl]
-    >-(first_x_assum $ drule_then strip_assume_tac >>
-      gvs[] >>
-      every_drule_then strip_assume_tac evaluate_sing >> fs[]
-      )
-    >-(first_x_assum $ drule_then strip_assume_tac >>
-      gvs[] >>
-      every_drule_then strip_assume_tac evaluate_sing >> fs[]
-      )
-     )
+    simp[evaluate_def] >> gvs[] >>
+    first_x_assum $ drule_all_then strip_assume_tac >> fs[] >>
+    every_drule_then strip_assume_tac evaluate_sing >> fs[])
   (* Handle *)
   >- (
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
-    simp[evaluate_def] >> gvs[v_rel_refl] >>
-    first_x_assum $ drule_then strip_assume_tac >>
-    fs[] >>
+    simp[evaluate_def] >> gvs[] >>
+    first_x_assum $ drule_all_then strip_assume_tac >> fs[]
+    >- (
     `envx.c = envy.c` by fs[env_rel_def] >>
-    drule_then (fs o single) v_rel_can_pmatch_all)
+    drule_all_then (fs o single) v_rel_can_pmatch_all)
+    >- (
+    `envx.c = envy.c` by fs[env_rel_def] >>
+    drule_all_then (fs o single) v_rel_can_pmatch_all))
   (* Con *)
   >- (
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
-    simp[evaluate_def] >> gvs[v_rel_refl] >>
+    simp[evaluate_def] >> gvs[] >>
     `envx.c = envy.c` by fs[env_rel_def] >>
     fs[] >>
-    first_x_assum $ drule_then strip_assume_tac >>
-    gvs[]
+    first_x_assum $ drule_all_then strip_assume_tac >> fs[]
     >- (
       qspecl_then [`REVERSE v'`,`REVERSE vs`,`envy.c`,`cn`] mp_tac $ GEN_ALL  v_rel_build_conv >>
       impl_tac >- fs[]>>
@@ -510,10 +966,11 @@ Proof
       impl_tac >- fs[]>>
       fs[OPTREL_SOME] >> strip_tac >>
       fs[]))
+  (* Var *)
   >- (
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
-    simp[evaluate_def] >> gvs[v_rel_refl] >>
+    simp[evaluate_def] >> gvs[] >>
     fs[env_rel_def] >>
     first_x_assum (qspec_then `n` mp_tac) >>
     fs[OPTREL_SOME] >> rw[] >> fs[])
@@ -533,28 +990,27 @@ Proof
     >- (
       disch_then (strip_assume_tac o SRULE[AllCaseEqs()]) >>
       gvs[] >>
-      first_x_assum $ drule_then strip_assume_tac >>
+      first_x_assum $ drule_all_then strip_assume_tac >>
       gvs[] >>
-      qspecl_then [`REVERSE v'`,`REVERSE vs`] mp_tac $ GEN_ALL v_rel_do_opapp >>
-      impl_tac >- fs[] >>
+      (qspecl_then [`REVERSE v'`,`REVERSE vs`] mp_tac $ GEN_ALL v_rel_do_opapp >>
+      impl_tac >- fs[]) >>
       fs[OPTREL_SOME,PAIR_REL_eq_PAIR,PULL_EXISTS])
     >- (
       disch_then (strip_assume_tac o SRULE[AllCaseEqs()]) >>
       gvs[] >>
-      first_x_assum $ drule_then strip_assume_tac >>
+      first_x_assum $ drule_all_then strip_assume_tac >>
       gvs[] >>
-      rename1`do_app (s'.refs,s'.ffi) op (REVERSE v')` >>
-      (qspecl_then [`REVERSE v'`,`REVERSE vs`,`s'.ffi`,`s'.refs`,`op`] mp_tac
+      rename1`do_app (refs'',s'.ffi) op (REVERSE v')` >>
+      (qspecl_then [`REVERSE v'`,`REVERSE vs`,`s'.ffi`,`refs''`,`s'.refs`,`op`] mp_tac
          $ GEN_ALL v_rel_do_app >>
       impl_tac >- fs[]) >>
-      fs[] >> strip_tac >> fs[OPTREL_SOME,PAIR_REL_eq_PAIR]
-      >> cheat))
+      fs[] >> strip_tac >> fs[OPTREL_SOME,PAIR_REL_eq_PAIR]))
   (* Log *)
   >- (
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
-    simp[evaluate_def] >> gvs[v_rel_refl] >>
-    first_x_assum $ drule_then strip_assume_tac >>
+    simp[evaluate_def] >> gvs[] >>
+    first_x_assum $ drule_all_then strip_assume_tac >>
     gvs[] >>
     qpat_x_assum `do_log _ _ _ = _`
        (strip_assume_tac o SRULE[do_log_def,AllCaseEqs()]) >>
@@ -567,8 +1023,8 @@ Proof
   >- (
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
-    simp[evaluate_def] >> gvs[v_rel_refl] >>
-    first_x_assum $ drule_then strip_assume_tac >>
+    simp[evaluate_def] >> gvs[] >>
+    first_x_assum $ drule_all_then strip_assume_tac >>
     gvs[] >>
     qpat_x_assum `do_if _ _ _ = _`
        (strip_assume_tac o SRULE[do_if_def,AllCaseEqs()]) >>
@@ -581,22 +1037,23 @@ Proof
   >- (
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
-    simp[evaluate_def] >> gvs[v_rel_refl] >>
-    first_x_assum $ drule_then strip_assume_tac >>
+    simp[evaluate_def] >> gvs[] >>
+    first_x_assum $ drule_all_then strip_assume_tac >>
     gvs[] >>
     every_drule_then strip_assume_tac evaluate_sing >> gvs[] >>
     `envx.c = envy.c` by fs[env_rel_def] >>
-    drule_then (fs o single) v_rel_can_pmatch_all)
+    drule_all_then (fs o single) v_rel_can_pmatch_all)
   (* Let *)
   >- (
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
     simp[evaluate_def] >> gvs[v_rel_refl] >>
-    first_x_assum $ drule_then strip_assume_tac >>
+    first_x_assum $ drule_all_then strip_assume_tac >>
     gvs[] >>
     every_drule_then strip_assume_tac evaluate_sing >> gvs[] >>
     qmatch_goalsub_abbrev_tac `evaluate _ envy' _` >>
     first_x_assum (qspec_then `envy'` mp_tac) >>
+    disch_then (drule_at (Pos $ el 2)) >>
     qunabbrev_tac `envy'` >>
     impl_tac >- cheat >>
     strip_tac >> fs[])
@@ -607,6 +1064,7 @@ Proof
     simp[evaluate_def] >> gvs[v_rel_refl] >>
     qmatch_goalsub_abbrev_tac `evaluate _ envy' _` >>
     first_x_assum (qspec_then `envy'` mp_tac) >>
+    disch_then (drule_at (Pos $ el 2)) >>
     qunabbrev_tac `envy'` >>
     impl_tac >- cheat >>
     strip_tac >> fs[])
@@ -614,12 +1072,16 @@ Proof
   >- (
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
-    simp[evaluate_def])
+    simp[evaluate_def] >>
+    first_x_assum $ drule_all_then strip_assume_tac >>
+    fs[])
   (* Lannot *)
   >- (
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
-    simp[evaluate_def])
+    simp[evaluate_def] >>
+    first_x_assum $ drule_all_then strip_assume_tac >>
+    fs[])
   (* evaluate_match single*)
   >- (gvs[evaluate_match_def])
   (* evaluate_match Cons *)
@@ -628,22 +1090,26 @@ Proof
        (strip_assume_tac o SRULE[Once evaluate_match_def ,AllCaseEqs()]) >>
     simp[evaluate_match_def] >> gvs[] >>
     `envx.c = envy.c` by fs[env_rel_def] >>
-    drule_at (Pos $ el 3) $ CONJUNCT1 v_rel_pmatch >>
-    fs[] >> disch_then $ drule_then strip_assume_tac >>
+    drule_at (Pos $ el 4) $ CONJUNCT1 v_rel_pmatch >>
+    fs[] >> disch_then $ drule_all_then strip_assume_tac >>
     fs[] >>
     qmatch_goalsub_abbrev_tac `evaluate _ envy' _` >>
     first_x_assum (qspec_then `envy'` mp_tac) >>
+    disch_then (drule_at (Pos $ el 2)) >>
     qunabbrev_tac `envy'` >>
     impl_tac >- cheat >>
     strip_tac >> fs[])
 QED
 
 Theorem v_rel_evaluate_decs:
-  !s envx ds s' res envy.
+  !s envx ds s' res envy refs.
    evaluate_decs s envx ds = (s', res) ∧
-   env_rel v_rel envx envy ==>
-   ? res'.
-   evaluate_decs s envy ds = (s',res') /\
+   env_rel v_rel envx envy /\
+   LIST_REL (store_v_rel v_rel) s.refs refs ==>
+   ? res' t refs'.
+   evaluate_decs (s with refs := refs) envy ds = (t,res') /\
+   t = s' with refs := refs' /\
+   LIST_REL (store_v_rel v_rel) s'.refs refs' /\
    result_rel (env_rel v_rel) v_rel res res'
 Proof
   ho_match_mp_tac evaluate_decs_ind >> rpt strip_tac
@@ -655,9 +1121,10 @@ Proof
     qpat_x_assum `evaluate_decs _ _ _ = _`
        (strip_assume_tac o SRULE[evaluate_decs_def,AllCaseEqs()]) >>
     fs[evaluate_decs_def] >> gvs[] >>
-    first_x_assum $ drule_then strip_assume_tac >> gvs[] >>
+    first_x_assum $ drule_all_then strip_assume_tac >> gvs[] >>
     qmatch_goalsub_abbrev_tac `evaluate_decs _ envy' _` >>
     first_x_assum (qspec_then `envy'` mp_tac) >>
+    disch_then $ drule_at (Pos $ el 2) >>
     qunabbrev_tac `envy'` >>
     impl_tac >- cheat >>
     strip_tac  >> fs[] >>
@@ -674,8 +1141,8 @@ Proof
     drule_all $ CONJUNCT1  v_rel_evaluate >>
     strip_tac >> fs[] >>
     every_drule_then strip_assume_tac evaluate_sing >> gvs[] >>
-    drule_at (Pos $ el 3) $ CONJUNCT1 v_rel_pmatch >>
-    fs[] >> disch_then drule >> strip_tac >> fs[] >>
+    drule_at (Pos $ el 4) $ CONJUNCT1 v_rel_pmatch >>
+    fs[] >> disch_then drule_all >> strip_tac >> fs[] >>
     cheat)
   (* Dletrec *)
   >- (
@@ -727,9 +1194,10 @@ Proof
     qpat_x_assum `evaluate_decs _ _ _ = _`
        (strip_assume_tac o SRULE[evaluate_decs_def,AllCaseEqs()]) >>
     fs[evaluate_decs_def] >> gvs[] >>
-    first_x_assum $ drule_then strip_assume_tac >> gvs[] >>
+    first_x_assum $ drule_all_then strip_assume_tac >> gvs[] >>
     qmatch_goalsub_abbrev_tac `evaluate_decs _ envy' _` >>
     first_x_assum (qspec_then `envy'` mp_tac) >>
+    disch_then $ drule_at (Pos $ el 2) >>
     qunabbrev_tac `envy'` >>
     impl_tac >- cheat >>
     strip_tac >> fs[])
@@ -776,7 +1244,7 @@ Proof
     reverse TOP_CASE_TAC  >- fs[] >>
     `? fun_name first_arg exp.h = (fun_name,first_arg,exp)`
        by (PairCases_on `h` >> simp_tac(srw_ss())[]) >>
-     POP_ASSUM SUBST_ALL_TAC >> simp[]
+     POP_ASSUM SUBST_ALL_TAC >> simp[] >>
      TOP_CASE_TAC >> cheat)
   >> fs[compile_decs_def]
 QED
