@@ -19,7 +19,7 @@ Definitions to lex and parse S-expressions.
 Defines the translation of Dafny's to CakeML's AST.
 
 [examples](examples):
-Example Dafny programs
+Contains programs to test the verified Dafny compiler.
 
 [proofs](proofs):
 Correctness proofs for the Dafny compiler.
