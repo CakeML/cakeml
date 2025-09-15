@@ -842,7 +842,7 @@ Inductive stmt_wp:
     get_type ls len_e = INR IntT ∧
     get_type ls el_e = INR el_ty ∧
     no_Prev b len_e ∧ no_Prev b el_e ∧ no_Prev b (conj pre2) ∧
-    same_type = MAP FST (FILTER (λ(l,ty). l ≠ arr_v ∧ ty = ArrT el_ty) ls) ∧
+    same_type = MAP FST (FILTER (λ(l,ty). MEM l mods ∧ ty = ArrT el_ty) ls) ∧
     stmt_wp m pre2 s2 post ens decs (arr_v :: mods) ls
     ⇒
     stmt_wp m [BinOp Le (Lit (IntL 0)) len_e;
@@ -6108,7 +6108,26 @@ Proof
   \\ ‘eval_true s3 env (conj reqs)’ by
    (dxrule_then irule eval_true_imp
     \\ rewrite_tac [eval_true_conj_every,EVERY_APPEND,EVERY_DEF]
-    \\ conj_tac >- cheat
+    \\ conj_tac >-
+     (simp [EVERY_MEM,MEM_MAP,PULL_EXISTS,MEM_FILTER,FORALL_PROD]
+      \\ rpt strip_tac
+      \\ simp [eval_true_def,eval_exp_def,evaluate_exp_def,read_local_def,
+               do_sc_def,Abbr‘s3’,AllCaseEqs(),PULL_EXISTS]
+      \\ simp [state_component_equality,do_uop_def,AllCaseEqs(),do_bop_def]
+      \\ simp [SF DNF_ss]
+      \\ rename [‘MEM (pv,ArrT el_ty) locals’]
+      \\ Cases_on ‘arr_v = pv’ >- gvs [] \\ simp []
+      \\ drule_at_then (Pos last) drule LIST_REL_MEM_IMP
+      \\ simp [mod_loc_def,EXISTS_PROD]
+      \\ strip_tac
+      \\ qpat_x_assum ‘locals_ok locals st.locals’ mp_tac
+      \\ simp [locals_ok_def]
+      \\ strip_tac
+      \\ first_x_assum drule \\ simp [all_values_def]
+      \\ strip_tac \\ simp [Abbr‘arr_loc’,value_same_type_def]
+      \\ rpt strip_tac \\ gvs []
+      \\ drule_all (read_local_value_inv |> SRULE [read_local_def,AllCaseEqs()])
+      \\ simp [value_inv_def,oEL_THM])
     \\ conj_tac >-
      (irule eval_true_dfy_eq
       \\ qexists_tac ‘(IntV (&len))’
