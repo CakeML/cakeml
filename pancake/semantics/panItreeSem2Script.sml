@@ -1616,12 +1616,12 @@ QED
 
 Theorem mrec_ExtCall:
   mrec h_prog (h_prog (ExtCall ffiname cptr clen aptr alen, s)) =
-  case (eval s alen, eval s aptr, eval s clen, eval s cptr) of
-    (SOME (ValWord c), SOME (ValWord c'), SOME (ValWord c2), SOME (ValWord c3)) =>
-      (case read_bytearray c' (w2n c) (mem_load_byte s.memory s.memaddrs s.be) of
-         SOME x =>
-           (case read_bytearray c3 (w2n c2) (mem_load_byte s.memory s.memaddrs s.be) of
-              SOME x' =>
+  case (eval s cptr, eval s clen, eval s aptr, eval s alen) of
+    (SOME (ValWord c3), SOME (ValWord c2), SOME (ValWord c'), SOME (ValWord c)) =>
+      (case read_bytearray c3 (w2n c2) (mem_load_byte s.memory s.memaddrs s.be) of
+         SOME x' =>
+           (case read_bytearray c' (w2n c) (mem_load_byte s.memory s.memaddrs s.be) of
+              SOME x =>
                 if explode ffiname ≠ ""
                 then
                    Vis (ExtCall (explode ffiname),x',x)
