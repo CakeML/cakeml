@@ -1272,7 +1272,7 @@ Proof
   drule_then
     (fn thm =>
       gs[thm,INST_TYPE[“:'a” |-> “:'a eilp”] iSUM_FILTER,nvalue_sem_def,
-        rich_listTheory.FILTER_MAP,combinTheory.o_ABS_R,list_set_eq,
+        FILTER_MAP,combinTheory.o_ABS_R,list_set_eq,
         ALL_DISTINCT_union_dom,FILTER_ALL_DISTINCT,ALL_DISTINCT_CARD_LIST_TO_SET])
     (INST_TYPE[“:'b” |-> “:'a eilp”] encode_bitsum_sem)>>
   qabbrev_tac ‘m = FILTER (λv. wb (Nv Xs v)) (union_dom bnd Xs)’>>
@@ -1284,32 +1284,75 @@ QED
 Definition encode_tuple_eq_def:
   encode_tuple_eq bnd Xs Ys = [
     bits_imply bnd [Pos (Tb Xs Ys)]
-      ([], MAP (λ(X,Y). (1i, Pos (Eq X Y))) (ZIP (Xs,Ys)), &LENGTH Xs);
+      ([], MAP (λZ. (1i, Pos (Eq (FST Z) (SND Z)))) (ZIP (Xs,Ys)),
+        &LENGTH Xs);
     bits_imply bnd [Neg (Tb Xs Ys)]
-      ([], MAP (λ(X,Y). (-1i, Pos (Eq X Y))) (ZIP (Xs,Ys)), -&LENGTH Xs + 1)]
+      ([], MAP (λZ. (-1i, Pos (Eq (FST Z) (SND Z)))) (ZIP (Xs,Ys)),
+        -&LENGTH Xs + 1)]
 End
 
 Definition reify_tuple_eq_def:
   reify_tuple_eq bnd Xs Ys =
   let
-    ges = FLAT $ MAP (λ(X,Y). encode_ge bnd X Y ++ encode_ge bnd X (Y + 1)) (ZIP (Xs,Ys));
-    eqs = FLAT $ MAP (λ(X,Y). encode_eq bnd X Y) (ZIP (Xs,Ys))
+    ges = FLAT $
+      MAP (λZ. encode_ge bnd (FST Z) (SND Z) ++ encode_ge bnd (FST Z) ((SND Z) + 1))
+        (ZIP (Xs,Ys));
+    eqs = FLAT $ MAP (λZ. encode_eq bnd (FST Z) (SND Z)) (ZIP (Xs,Ys))
   in
     ges ++ eqs ++ encode_tuple_eq bnd Xs Ys
 End
+
+Theorem LENGTH_FILTER_EQ:
+  LENGTH (FILTER P ls) = LENGTH ls ⇔ EVERY P ls
+Proof
+  Induct_on ‘ls’>>
+  rw[FILTER,ADD1]>>
+  irule $ intLib.ARITH_PROVE “(a:num) < b ⇒ a ≠ b”>>
+  rw[GSYM LE_LT1,LENGTH_FILTER_LEQ]
+QED
 
 Theorem reify_tuple_eq_sem:
   valid_assignment bnd wi ∧
   LENGTH Xs = LENGTH Ys ⇒ (
   EVERY (λx. iconstraint_sem x (wi,wb)) (reify_tuple_eq bnd Xs Ys) ⇔
-    LIST_REL (λX. λY.
+    LIST_REL (λX Y.
       (wb (Ge X Y) ⇔ wi X ≥ Y) ∧
       (wb (Ge X (Y + 1)) ⇔ wi X ≥ Y + 1) ∧
       (wb (Eq X Y) ⇔ wi X = Y)) Xs Ys ∧
     (wb (Tb Xs Ys) ⇔
-      LIST_REL (λX. λY. wi X = Y) Xs Ys))
+      LIST_REL (λX Y. wi X = Y) Xs Ys))
 Proof
-  cheat
+  rw[reify_tuple_eq_def,encode_tuple_eq_def,EVERY_FLAT,EVERY_MAP,
+    encode_ge_sem,bits_imply_sem,EVERY2_EVERY,iterateTheory.LAMBDA_PAIR,
+    iconstraint_sem_def,eval_ilin_term_def,eval_lin_term_def,iSUM_def,
+    MAP_MAP_o,combinTheory.o_ABS_R,iSUM_MAP_lin_const,
+    intLib.ARITH_PROVE “-1 * (a:int) ≥ -b + 1 ⇔ ¬(a ≥ b)”,
+    METIS_PROVE[] “(P ⇒ Q) ∧ (¬P ⇒ ¬Q) ⇔ (P ⇔ Q)”]>>
+  simp[GSYM EVERY_CONJ,Once EVERY_MEM]>>
+  simp[Once EQ_SYM_EQ,Once EVERY_MEM,GSYM CONJ_ASSOC]>>
+  ‘(∀Z. MEM Z (ZIP (Xs,Ys)) ⇒
+    (wb (Ge (FST Z) (SND Z)) ⇔ wi (FST Z) ≥ SND Z) ∧
+    (wb (Ge (FST Z) (SND Z + 1)) ⇔ wi (FST Z) ≥ SND Z + 1) ∧
+    EVERY (λx. iconstraint_sem x (wi,wb)) (encode_eq bnd (FST Z) (SND Z))) ⇔
+  (∀Z. MEM Z (ZIP (Xs,Ys)) ⇒
+    (wb (Ge (FST Z) (SND Z)) ⇔ wi (FST Z) ≥ SND Z) ∧
+    (wb (Ge (FST Z) (SND Z + 1)) ⇔ wi (FST Z) ≥ SND Z + 1) ∧
+    (wb (Eq (FST Z) (SND Z)) ⇔ wi (FST Z) = SND Z))’ by METIS_TAC[encode_eq_sem]>>
+  pop_assum (fn thm => simp[thm])>>
+  match_mp_tac $ METIS_PROVE[]
+    “(P1 ⇔ P2) ∧ (P2 ⇒ (Q1 ⇔ Q2)) ⇒ (P1 ∧ (R ⇔ Q1) ⇔ P2 ∧ (R ⇔ Q2))”>>
+  CONJ_TAC
+  >-metis_tac[]>>
+  rw[Once $ GSYM combinTheory.o_ABS_R,iSUM_FILTER,EVERY_MEM]>>
+  drule_then
+    (fn thm => pure_rewrite_tac[thm,
+      GSYM $ intLib.ARITH_PROVE “(a:num) ≥ b ⇔ int_of_num a ≥ int_of_num b”,
+      METIS_PROVE[GREATER_EQ,LE_ANTISYM,LENGTH_FILTER_LEQ]
+        “LENGTH (FILTER P ls) ≥ LENGTH ls ⇔ LENGTH (FILTER P ls) = LENGTH ls”,
+      LENGTH_FILTER_EQ])
+    (METIS_PROVE[GSYM LENGTH_ZIP]
+      “LENGTH Xs = LENGTH Ys ⇒ LENGTH Ys = LENGTH (ZIP (Xs,Ys))”)>>
+  simp[EVERY_MEM]
 QED
 
 Definition encode_table_def:
@@ -1336,36 +1379,28 @@ Theorem encode_table_sem:
   EVERY (λx. iconstraint_sem x (wi,wb)) (encode_table bnd Xs Yss) = (
     table_sem Xs Yss wi ∧
     (∀Ys. MEM Ys Yss ⇒
-      LIST_REL (λX. λY.
+      LIST_REL (λX Y.
         (wb (Ge X Y) ⇔ wi X ≥ Y) ∧
         (wb (Ge X (Y + 1)) ⇔ wi X ≥ Y + 1) ∧
         (wb (Eq X Y) ⇔ wi X = Y)) Xs Ys ∧
       (wb (Tb Xs Ys) ⇔
-        LIST_REL (λX. λY. wi X = Y) Xs Ys)) ∧
+        LIST_REL (λX Y. wi X = Y) Xs Ys)) ∧
     (∃Ys. MEM Ys Yss ∧ wb (Tb Xs Ys)))
 Proof
   rw[encode_table_def,table_sem_def,iconstraint_sem_def,
-     eval_ilin_term_def,eval_lin_term_def,iSUM_def]>>
+    eval_ilin_term_def,eval_lin_term_def,iSUM_def]>>
   last_x_assum $ mp_tac>>
-  simp[Once EVERY_MEM]>>
-  strip_tac>>
-  simp[EVERY_FLAT,EVERY_MAP,Once EVERY_MEM,
-    MAP_MAP_o,combinTheory.o_ABS_R]>>
-  simp[Once $ GSYM combinTheory.o_ABS_R,iSUM_FILTER]>>
-  simp[Once integerTheory.INT_GE,intLib.ARITH_PROVE “1i ≤ m ⇔ 0i < m”,
-    GSYM integerTheory.INT_LT_LE1,rich_listTheory.LENGTH_NOT_NULL,
-    listTheory.NULL_FILTER]>>
-  match_mp_tac (METIS_PROVE[]
-    “(P ⇔ Q2) ∧ (Q2 ∧ R ⇒ Q1) ⇒ (P ∧ R ⇔ (Q1 ∧ Q2 ∧ R))”)>>
-  CONJ_TAC
-  >-(
-    ho_match_mp_tac FORALL_IMP_EQ>>
-    rw[]>>
-    res_tac>>
-    drule_then (fn thm => simp[thm]) reify_tuple_eq_sem)>>
+  simp[Once EVERY_MEM,EVERY_FLAT,EVERY_MAP,Once EVERY_MEM,MAP_MAP_o,
+    combinTheory.o_ABS_R]>>
+  rw[Once $ GSYM combinTheory.o_ABS_R,iSUM_FILTER,Once integerTheory.INT_GE,
+    intLib.ARITH_PROVE “1i ≤ m ⇔ 0i < m”,LENGTH_NOT_NULL,NULL_FILTER]>>
+  ho_match_mp_tac (METIS_PROVE[]
+    “(∀x. P x ⇒ (P1 x ⇔ Q2 x)) ∧
+    ((∀x. P x ⇒ Q2 x) ∧ R ⇒ Q1) ⇒
+    ((∀x. P x ⇒ P1 x) ∧ R ⇔ (Q1 ∧ (∀x. P x ⇒ Q2 x) ∧ R))”)>>
+  CONJ_TAC>>
   rw[]>>
-  res_tac>>
-  gvs[GSYM MAP_LIST_REL]
+  gvs[reify_tuple_eq_sem,GSYM MAP_LIST_REL]
 QED
 
 (* The top-level encodings *)
