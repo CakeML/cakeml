@@ -114,42 +114,19 @@ QED
 
 (* delete END *)
 
-(* list_max stuff the whole compiler should be done in terms of MAX_LIST and
-some should be deleted, some can be generalized and the rest can be moved up.*)
-
-Theorem list_max_APPEND:
-  ∀a b.
-  list_max (a++b) = MAX (list_max a) (list_max b)
+Theorem MAX_LIST_GENLIST_evens:
+    ∀n. MAX_LIST (GENLIST (λx. 2*x) n) = 2*(n-1)
 Proof
-  Induct>>fs[list_max_def,LET_THM,MAX_DEF]>>rw[]>>
-  DECIDE_TAC
+  Induct>> fs[GENLIST]>>
+  fs[MAX_DEF]
 QED
 
-Theorem list_max_SNOC:
-    list_max (SNOC x ls) = MAX x (list_max ls)
+Theorem MAX_LIST_GENLIST_evens2:
+    ∀n. MAX_LIST (GENLIST (λx. 2*(x+1)) n) = 2*n
 Proof
-  fs[SNOC_APPEND,list_max_APPEND,list_max_def,LET_THM,MAX_DEF]>>
-  DECIDE_TAC
+  Induct>> fs[GENLIST]>>
+  fs[MAX_DEF]
 QED
-
-Theorem list_max_GENLIST_evens:
-    ∀n. list_max (GENLIST (λx. 2*x) n) = 2*(n-1)
-Proof
-  Induct>>
-  fs[list_max_def]>>rw[]>>
-  fs[GENLIST,list_max_SNOC,MAX_DEF]>>
-  DECIDE_TAC
-QED
-
-Theorem list_max_GENLIST_evens2:
-    ∀n. list_max (GENLIST (λx. 2*(x+1)) n) = 2*n
-Proof
-  Induct>>
-  fs[list_max_def]>>rw[]>>
-  fs[GENLIST,list_max_SNOC,MAX_DEF]>>
-  DECIDE_TAC
-QED
-(*list_max end*)
 
 (*misc word stuff*)
 
@@ -5761,19 +5738,19 @@ Proof
   fs[wLive_def]>>rveq>>fs[stackSemTheory.evaluate_def,LET_THM]>>
   fs[cut_env_def]>>
   `domain (FST names) = {}` by (
-    CCONTR_TAC>>fs[]>>
+    CCONTR_TAC>>fs[convs_def,wordLangTheory.max_var_def]>>
     `∃x. x ∈ domain (FST names)` by fs[MEMBER_NOT_EMPTY]>>
-    fs[convs_def,GSYM toAList_domain]>>
-    assume_tac list_max_max>>
-    fs[EVERY_MEM]>>res_tac>>
-    fs[wordLangTheory.max_var_def])>>
-  `domain (SND names) = {}` by
-    (CCONTR_TAC>>fs[]>>
+    fs[GSYM toAList_domain]>>
+    drule MAX_LIST_PROPERTY >>
+    fs[EVERY_MEM] >> res_tac >>
+    DECIDE_TAC) >>
+  `domain (SND names) = {}` by (
+    CCONTR_TAC>>fs[convs_def,wordLangTheory.max_var_def]>>
     `∃x. x ∈ domain (SND names)` by fs[MEMBER_NOT_EMPTY]>>
-    fs[convs_def,GSYM toAList_domain]>>
-    assume_tac list_max_max>>
-    fs[EVERY_MEM]>>res_tac>>
-    fs[wordLangTheory.max_var_def])>>
+    fs[GSYM toAList_domain]>>
+    drule MAX_LIST_PROPERTY >>
+    fs[EVERY_MEM] >> res_tac >>
+    DECIDE_TAC) >>
   drule_all alloc_IMP_alloc2>>
   fs[PULL_EXISTS]>>
   Cases_on`res=NONE`>>fs[]
@@ -6125,17 +6102,24 @@ Proof
       \\ imp_res_tac (SIMP_RULE std_ss [MEM_MAP,PULL_EXISTS] MEM_MAP_FST_parmove)
       \\ rfs[]
       \\ fs[Abbr`mvs`,MEM_MAP,EXISTS_PROD]
+      \\ gvs[]
       \\ fs[wordLangTheory.max_var_def]
-      \\ qmatch_assum_abbrev_tac`list_max ls < _`
-      \\ qspec_then`ls`strip_assume_tac list_max_max
-      \\ fs[EVERY_MEM,Abbr`ls`,MEM_MAP,PULL_EXISTS]
-      \\ res_tac \\ fs[]
-      \\ qmatch_abbrev_tac`DIV2 aa < bb`
-      \\ qmatch_assum_abbrev_tac`aa ≤ cc`
-      \\ `cc < 2 * bb` by simp[Abbr`bb`]
-      \\ `aa < 2 * bb` by metis_tac[LESS_EQ_LESS_TRANS]
-      \\ simp[DIV2_def]
-      \\ simp[DIV_LT_X])
+      >- (
+         rename1 `DIV2 p1 < _`
+         \\ `MEM p1 (MAP FST moves)` by
+              (simp[MEM_MAP] >> first_x_assum (irule_at (Pos (el 2))) >>
+              simp[])
+         \\ drule MAX_LIST_PROPERTY
+         \\ fs[DIV2_def]
+         \\ intLib.ARITH_TAC)
+      >- (
+         rename1 `DIV2 p2 < _`
+         \\ `MEM p2 (MAP SND moves)` by
+              (simp[MEM_MAP] >> first_x_assum (irule_at (Pos (el 2))) >>
+              simp[])
+         \\ drule MAX_LIST_PROPERTY
+         \\ fs[DIV2_def]
+         \\ intLib.ARITH_TAC))
     \\ match_mp_tac ALL_DISTINCT_parmove
     \\ fs[parmoveTheory.windmill_def])
   \\ strip_tac \\ simp[]
@@ -6461,13 +6445,12 @@ Proof
           imp_res_tac get_vars_length_lemma >>
           simp[])
         >- (
-          (* should be provable with appropriate bounds and cancellation *)
           PURE_REWRITE_TAC[skip_free_def,num_stack_ret_def]>>
           imp_res_tac get_vars_length_lemma >>
-          fs[list_max_def, wordLangTheory.max_var_def,GSYM MAX_DEF] >>
+          fs[wordLangTheory.max_var_def,GSYM MAX_DEF] >>
           fs[convs_def] >>
           qpat_x_assum `ms = _` SUBST_ALL_TAC >>
-          fs[list_max_GENLIST_evens2] >>
+          fs[MAX_LIST_GENLIST_evens2] >>
           fs[GSYM LEFT_ADD_DISTRIB] >>
           gvs[IS_SOME_EXISTS,the_eqn] >>
           Cases_on `f' = 0` >> fs[])) >>
@@ -6476,10 +6459,10 @@ Proof
         imp_res_tac get_vars_length_lemma >>
         simp[] >>
         `f = (f - (LENGTH ms + 1 - k) + (LENGTH ms + 1 - k))` suffices_by fs[DROP_DROP_EQ] >>
-        fs[list_max_def, wordLangTheory.max_var_def,GSYM MAX_DEF] >>
+        fs[wordLangTheory.max_var_def,GSYM MAX_DEF] >>
         fs[convs_def] >>
         qpat_x_assum `ms = _` SUBST_ALL_TAC >>
-        fs[list_max_GENLIST_evens2] >>
+        fs[MAX_LIST_GENLIST_evens2] >>
         fs[GSYM LEFT_ADD_DISTRIB] >>
         gvs[IS_SOME_EXISTS,the_eqn] >>
         Cases_on `f' = 0` >> fs[]) >>
@@ -6517,9 +6500,9 @@ Proof
   `f' + k > LENGTH ms`
      by(
         fs[convs_def,wordLangTheory.max_var_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS] \\
-        rveq \\ fs[list_max_def] \\
+        rveq \\ fs[] \\
         qpat_x_assum `ms = GENLIST _ _` SUBST_ALL_TAC \\
-        fs[list_max_GENLIST_evens2]) \\
+        fs[MAX_LIST_GENLIST_evens2]) \\
       fs[]
 QED
 
@@ -7498,8 +7481,7 @@ Proof
   gvs[wordLangTheory.every_var_exp_def,
       reg_allocTheory.is_phy_var_def,
       wordLangTheory.max_var_def,
-      wordLangTheory.max_var_exp_def,
-      GSYM FOLDR_MAX_0_list_max] >>
+      wordLangTheory.max_var_exp_def] >>
   gvs[GSYM EVEN_MOD2,EVEN_EXISTS,GSYM LEFT_ADD_DISTRIB] >>
   drule_all evaluate_ShareInst_correct_lemma >>
   rpt strip_tac >>
@@ -7687,7 +7669,7 @@ fun uncurry_case_rand x = x
 fun note_tac s g = (print ("comp_Call_correct: " ^ s ^ "\n"); ALL_TAC g);
 
 Theorem comp_Call_correct:
-  ^(get_goal "wordLang$Call")
+ ^(get_goal "wordLang$Call")
 Proof
   REPEAT GEN_TAC \\
   DISCH_THEN $ ASSUME_NAMED_TAC "IND" \\
@@ -7760,7 +7742,7 @@ Proof
          qpat_x_assum `max_var _ < _` mp_tac \\
          qpat_x_assum `args = _` SUBST_ALL_TAC \\
          simp[wordLangTheory.max_var_def] \\
-         simp[list_max_GENLIST_evens] \\
+         simp[MAX_LIST_GENLIST_evens] \\
          simp[GSYM LEFT_ADD_DISTRIB])
     \\ `LENGTH xs >= (LENGTH args1)`
            by (qpat_x_assum`A=SOME(q,q',r')` mp_tac>>
@@ -7951,19 +7933,15 @@ Proof
     rveq >> fs[] >>
     (* Two subgoals *)
     (CONJ_TAC
-    >- (qpat_abbrev_tac`ls = MAP FST A`>>
-      Q.ISPEC_THEN `ls` assume_tac list_max_max>>
-      fsrw_tac[][EVERY_MEM]>>
-      rw[] >>
-      res_tac >>
-      DECIDE_TAC) >>
+    >- (
+      GEN_TAC >> disch_tac >>
+      first_x_assum drule >>
+      simp[]) >>
     CONJ_TAC
-    >- (qpat_abbrev_tac`ls = MAP FST A`>>
-      Q.ISPEC_THEN `ls` assume_tac list_max_max>>
-      fsrw_tac[][EVERY_MEM]>>
-      rw[] >>
-      res_tac >>
-      DECIDE_TAC)>>
+    >- (
+      GEN_TAC >> disch_tac >>
+      first_x_assum drule >>
+      simp[]) >>
     CONJ_TAC
     >- (
     `∃nn. MEM nn (MAP FST (toAList q'))` by
@@ -7972,12 +7950,10 @@ Proof
       `domain q' = {}` by
         fsrw_tac[][EXTENSION])>>
     first_x_assum drule>>
-    qabbrev_tac`ls = MAP FST (toAList q')`>>
-    Q.ISPEC_THEN `ls` assume_tac list_max_max>>
-    fsrw_tac[][EVERY_MEM]>>
+    drule MAX_LIST_PROPERTY >>
+    rpt strip_tac >>
     `nn < 2*f'+2*k` by
-      (res_tac>>DECIDE_TAC)>>
-    strip_tac>>
+      (DECIDE_TAC)>>
     `f' ≠ 0` by DECIDE_TAC>>
     fsrw_tac[][state_rel_def]) >>
     CONJ_TAC
@@ -8082,7 +8058,7 @@ Proof
       fsrw_tac[][LET_DEF] >> strip_tac >>
       fsrw_tac[][convs_def]>>
       qpat_x_assum`args = A` SUBST_ALL_TAC>>
-      fsrw_tac[][list_max_GENLIST_evens2]>>
+      fsrw_tac[][MAX_LIST_GENLIST_evens2]>>
       rveq >>
       Cases_on `f' = 0` >> fsrw_tac[][] >>
       Cases_on `dest'` >>
@@ -8539,7 +8515,7 @@ Proof
             full_simp_tac(srw_ss())[wordLangTheory.max_var_def] >>
             `!a b c. max3 a b c = MAX a (MAX b c)`
               by simp[max3_def,MAX_DEF] >>
-            fsrw_tac[][list_max_GENLIST_evens2,GSYM LEFT_ADD_DISTRIB] >>
+            fsrw_tac[][MAX_LIST_GENLIST_evens2,GSYM LEFT_ADD_DISTRIB] >>
             simp_tac(srw_ss())[LET_THM] >>
             strip_tac >> DECIDE_TAC) >>
           `f + k >= n''' + 2`
@@ -8568,7 +8544,7 @@ Proof
           `!a b c. max3 a b c = MAX a (MAX b c)`
            by simp[max3_def,MAX_DEF] >>
           pop_assum (full_simp_tac(srw_ss()) o single)>>
-          fsrw_tac[][list_max_GENLIST_evens2,GSYM LEFT_ADD_DISTRIB] >>
+          fsrw_tac[][MAX_LIST_GENLIST_evens2,GSYM LEFT_ADD_DISTRIB] >>
           simp[] >>
           strip_tac >>
           simp[EVEN_EXISTS] >> strip_tac  >>
@@ -8913,7 +8889,7 @@ Proof
     fsrw_tac[][LET_DEF] >> strip_tac >>
     fsrw_tac[][convs_def]>>
     qpat_x_assum`args = A` SUBST_ALL_TAC>>
-    fsrw_tac[][list_max_GENLIST_evens2]>>
+    fsrw_tac[][MAX_LIST_GENLIST_evens2]>>
     rveq >>
     Cases_on `f' = 0` >> fsrw_tac[][] >>
     Cases_on `dest'` >>
@@ -9340,7 +9316,7 @@ Proof
           full_simp_tac(srw_ss())[wordLangTheory.max_var_def] >>
           `!a b c. max3 a b c = MAX a (MAX b c)`
             by simp[max3_def,MAX_DEF] >>
-          fsrw_tac[][list_max_GENLIST_evens2,GSYM LEFT_ADD_DISTRIB] >>
+          fsrw_tac[][MAX_LIST_GENLIST_evens2,GSYM LEFT_ADD_DISTRIB] >>
           simp[] >>
           Cases_on `f = 0` >> fsrw_tac[][] >>
           simp[]) >>
@@ -9386,7 +9362,7 @@ Proof
           full_simp_tac(srw_ss())[wordLangTheory.max_var_def] >>
           `!a b c. max3 a b c = MAX a (MAX b c)`
             by simp[max3_def,MAX_DEF] >>
-          fsrw_tac[][list_max_GENLIST_evens2,GSYM LEFT_ADD_DISTRIB] >>
+          fsrw_tac[][MAX_LIST_GENLIST_evens2,GSYM LEFT_ADD_DISTRIB] >>
           simp_tac(srw_ss())[LET_THM] >>
           strip_tac >> DECIDE_TAC) >>
         `f + k >= n''' + 2`
@@ -9415,7 +9391,7 @@ Proof
         `!a b c. max3 a b c = MAX a (MAX b c)`
          by simp[max3_def,MAX_DEF] >>
         pop_assum (full_simp_tac(srw_ss()) o single)>>
-        fsrw_tac[][list_max_GENLIST_evens2,GSYM LEFT_ADD_DISTRIB] >>
+        fsrw_tac[][MAX_LIST_GENLIST_evens2,GSYM LEFT_ADD_DISTRIB] >>
         simp[] >>
         strip_tac >>
         simp[EVEN_EXISTS] >> strip_tac  >>
@@ -9855,7 +9831,7 @@ val comp_Call_lemma = comp_correct
   |> SIMP_RULE std_ss [comp_def,stack_free_def,call_dest_def,LET_THM]
   |> Q.SPECL [`s`,`k`,`0`,`0`]
   |> SIMP_RULE std_ss [stack_arg_count_def,SeqStackFree_def,
-       list_max_def,evaluate_Seq_Skip,
+       evaluate_Seq_Skip,
        EVAL  ``post_alloc_conventions k (Call NONE (SOME start) [0] NONE)``,
        EVAL  ``flat_exp_conventions (Call NONE (SOME start) [0] NONE)``,
        wordLangTheory.max_var_def,LET_DEF,MAX_DEF] |> GEN_ALL
