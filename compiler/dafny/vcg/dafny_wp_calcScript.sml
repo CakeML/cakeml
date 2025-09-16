@@ -539,6 +539,7 @@ Definition forall_def:
       strict_locals_ok vars st.locals ∧
       st.heap = st.heap_old ∧
       st.locals = st.locals_old ∧
+      ¬env.is_running ∧
       state_inv st ⇒
       eval_true st env prop
 End
@@ -1646,6 +1647,7 @@ Theorem forall_imp_conditions_hold:
   conditions_hold st env reqs ∧
   strict_locals_ok vs st.locals ∧
   st.locals_old = st.locals ∧
+  ¬env.is_running ∧
   st.heap_old = st.heap ∧
   state_inv st
   ⇒
@@ -5674,6 +5676,7 @@ Theorem methods_lemma[local]:
       st.heap_old = st.heap ∧
       state_inv st ∧
       conditions_hold st env mspec.reqs ∧ compatible_env env m ∧
+      ¬env.is_running ∧
       strict_locals_ok mspec.ins st.locals ∧
       locals_ok mspec.outs st.locals ∧
       (* TODO ∀e. MEM e (MAP FST mspec.ins) ⇒ ¬MEM e (MAP FST mspec.outs)
