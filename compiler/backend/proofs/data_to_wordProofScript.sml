@@ -50,6 +50,52 @@ Proof
   \\ gvs[do_space_def,AllCaseEqs(),consume_space_def]
 QED
 
+Triviality word_test_lemma1:
+  good_dimindex (:α) ⇒
+  (0b111100w && x = n2w ((8 + 6) * 4):'a word ⇔
+   ~ word_bit 2 x ∧ word_bit 3 x ∧ word_bit 4 x ∧ word_bit 5 x)
+Proof
+  simp [word_eq,word_bit_and,word_bit_n2w,good_dimindex_def]
+  \\ rw [] \\ gvs [] \\ rw []
+  \\ simp [METIS_PROVE [] “(∀n. (P n = Q n)) ⇔ (∀n. P n ⇒ Q n) ∧ (∀n. Q n ⇒ P n)”]
+  \\ gvs [SF DNF_ss,SF CONJ_ss]
+QED
+
+Triviality word_test_lemma2:
+  good_dimindex (:α) ⇒
+  (0b111100w && x = n2w ((0 + 6) * 4):'a word ⇔
+   ~ word_bit 2 x ∧ word_bit 3 x ∧ word_bit 4 x ∧ ~ word_bit 5 x)
+Proof
+  simp [word_eq,word_bit_and,word_bit_n2w,good_dimindex_def]
+  \\ rw [] \\ gvs [] \\ rw []
+  \\ simp [METIS_PROVE [] “(∀n. (P n = Q n)) ⇔ (∀n. P n ⇒ Q n) ∧ (∀n. Q n ⇒ P n)”]
+  \\ gvs [SF DNF_ss,SF CONJ_ss]
+  \\ eq_tac \\ rw [] \\ gvs []
+  \\ first_assum $ qspec_then ‘2’ assume_tac
+  \\ first_assum $ qspec_then ‘3’ assume_tac
+  \\ first_assum $ qspec_then ‘4’ assume_tac
+  \\ first_assum $ qspec_then ‘5’ assume_tac
+  \\ fs []
+QED
+
+Theorem memory_rel_Thunk_bits:
+  memory_rel c be ts refs sp st m dm ((RefPtr bl p,Word (w:'a word))::vars) ∧
+  lookup p refs = SOME (Thunk ev z) ∧ good_dimindex (:α) ∧
+  get_real_addr c st w = SOME a ∧
+  m a = Word x
+  ⇒
+  (case ev of
+   | Evaluated => 0b111100w && x = n2w ((8 + 6) * 4)
+   | NotEvaluated => 0b111100w && x = n2w ((0 + 6) * 4))
+Proof
+  strip_tac
+  \\ drule_all memory_rel_Thunk_IMP \\ fs []
+  \\ strip_tac
+  \\ drule word_test_lemma1 \\ fs []
+  \\ drule word_test_lemma2 \\ fs []
+  \\ Cases_on ‘ev’ \\ gs []
+QED
+
 Theorem memory_rel_Force:
    memory_rel c be ts refs sp st m dm ((RefPtr bl nn,ptr)::vars) /\
     lookup nn refs = SOME (Thunk ev v) /\
@@ -59,9 +105,6 @@ Theorem memory_rel_Force:
       get_real_addr c st ptr_w = SOME x /\
       x IN dm /\ m x = Word w /\
       (x + bytes_in_word) IN dm /\
-      (case ev of
-       | Evaluated => 0b111100w && w = n2w ((8 + 6) * 4)
-       | NotEvaluated => 0b111100w && w = n2w ((0 + 6) * 4)) (* cheated *) /\
       memory_rel c be ts refs sp st m dm
         ((v,m (x + bytes_in_word))::(RefPtr bl nn,ptr)::vars)
 Proof
@@ -85,10 +128,11 @@ Proof
   \\ imp_res_tac heap_lookup_SPLIT
   \\ PairCases_on `b` \\ fs []
   \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
+  \\ pairarg_tac \\ gvs []
+  \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR] \\ gvs []
   \\ Cases_on `b0` \\ fs [word_payload_def]
-  \\ fs [word_list_def,word_list_APPEND,SEP_CLAUSES] \\ fs [SEP_F_def]
+  \\ gvs [word_list_def,word_list_APPEND,SEP_CLAUSES] \\ fs [SEP_F_def]
   \\ SEP_R_TAC \\ fs []
-  \\ cheat
 QED
 
 Theorem state_rel_call_env_get_var:
@@ -203,8 +247,8 @@ Proof
     \\ Cases_on `names_opt` \\ fs [cut_state_opt_def] \\ srw_tac[][] \\ fs []
     \\ fs [cut_state_def,cut_env_def] \\ every_case_tac
     \\ fs [] \\ rw [] \\ fs [set_var_def])
-  >~ [‘evaluate (Force _ _ _,s)’] >- (
-    gvs [evaluate_def]
+  >~ [‘evaluate (Force _ _ _,s)’] >-
+   (gvs [evaluate_def]
     \\ Cases_on `get_var src s.locals` \\ gvs []
     \\ Cases_on `dest_thunk x s.refs` \\ gvs []
     \\ simp [comp_def, force_thunk_def]
@@ -230,6 +274,7 @@ Proof
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ drule_all memory_rel_get_var_IMP \\ rw [] \\ gvs []
     \\ drule_all memory_rel_Force \\ rw [] \\ gvs []
+    \\ drule_all memory_rel_Thunk_bits \\ strip_tac
     \\ `word_exp t (real_addr c (adjust_var src)) = SOME (Word x)`
       by metis_tac [get_real_addr_lemma] \\ gvs []
     \\ simp [wordSemTheory.set_var_def, wordSemTheory.word_exp_def,
@@ -2347,4 +2392,3 @@ Proof
   simp[EVERY_MAP,LAMBDA_PROD,compile_part_def,data_to_word_comp_good_handlers]>>
   fs[EVERY_MEM,FORALL_PROD]
 QED
-
