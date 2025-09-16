@@ -10,6 +10,11 @@ Ancestors
 Libs
   preamble
 
+Definition assert_def:
+  assert cond (err:mlstring) =
+  if cond then return () else fail err
+End
+
 (* TODO Can VCG be simplified by more consistently assuming no shadowing? *)
 
 Datatype:
@@ -85,12 +90,10 @@ Definition get_type_def:
   get_type ls (If grd thn els) =
   do
     grd_ty <- get_type ls grd;
-    () <- if grd_ty = BoolT then return () else
-            (fail «get_type:If: Guard is not of type bool»);
+    assert (grd_ty = BoolT) «get_type:If: Guard is not of type bool»;
     thn_ty <- get_type ls thn;
     els_ty <- get_type ls els;
-    () <- if thn_ty = els_ty then return () else
-            (fail «get_type:If: Arms have different types»);
+    assert (thn_ty = els_ty) «get_type:If: Arms have different types»;
     return thn_ty
   od ∧
   get_type ls (UnOp uop e) =
@@ -413,17 +416,17 @@ Inductive stmt_wp:
     ⇒
     stmt_wp m wp (Dec (n,ty) stmt) post ens decs ls
 [~Assign:]
-  ∀m ret_names exps l post ens rhs_tys.
-    (MAP FST l) = (MAP VarLhs ret_names) ∧
-    (MAP SND l) = (MAP ExpRhs exps) ∧
-    ALL_DISTINCT ret_names ∧
-    LENGTH exps = LENGTH ret_names ∧
-    set ret_names ⊆ set (MAP FST ls) ∧
-    get_types ls exps = INR rhs_tys ∧
-    get_types ls (MAP Var ret_names) = INR lhs_tys ∧
+  ∀m ns es l post ens rhs_tys.
+    (MAP FST l) = (MAP VarLhs ns) ∧
+    (MAP SND l) = (MAP ExpRhs es) ∧
+    ALL_DISTINCT ns ∧
+    LENGTH es = LENGTH ns ∧
+    set ns ⊆ set (MAP FST ls) ∧
+    get_types ls es = INR rhs_tys ∧
+    get_types ls (MAP Var ns) = INR lhs_tys ∧
     lhs_tys = rhs_tys
     ⇒
-    stmt_wp m [Let (ZIP (ret_names,exps)) (conj post)] (Assign l) post ens decs ls
+    stmt_wp m [Let (ZIP (ns,es)) (conj post)] (Assign l) post ens decs ls
 [~While:]
   ∀m guard invs ds mods body post ens decs ls ds_vars ls1 loop_cond body_cond.
     DISJOINT (set ds_vars)
@@ -2627,7 +2630,7 @@ Proof
     \\ rpt strip_tac \\ gvs [])
   >~ [‘If’] >-
    (gvs [get_type_def, oneline bind_def, eval_exp_def, evaluate_exp_def,
-         PULL_EXISTS, AllCaseEqs()]
+         assert_def, PULL_EXISTS, AllCaseEqs()]
     \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
     \\ imp_res_tac do_cond_some_cases \\ gvs [do_cond_def]
     \\ last_x_assum drule \\ simp []
@@ -4876,7 +4879,7 @@ Proof
     \\ disch_then $ qspecl_then [‘ty’, ‘lhs_ty’, ‘n’] mp_tac \\ simp [])
   >- (fs [state_inv_def])
   \\ irule $ iffLR eval_exp_freevars
-  \\ qexists_tac ‘ZIP (ret_names,MAP SOME vs) ++ st.locals’
+  \\ qexists_tac ‘ZIP (ns,MAP SOME vs) ++ st.locals’
   \\ conj_tac
   >- (rpt strip_tac \\ gvs []
       \\ irule $ SRULE [FUN_EQ_THM] ALOOKUP_APPEND_same
@@ -5848,7 +5851,7 @@ Definition list_subset_def:
 End
 
 (* TODO Move? *)
-Triviality LIST_TO_SET_SUBSET:
+Theorem LIST_TO_SET_SUBSET:
   list_subset xs ys ⇔ (set xs) ⊆ (set ys)
 Proof
   simp [list_subset_def, EVERY_MEM]
@@ -5918,7 +5921,7 @@ Proof
 QED
 
 Definition stmt_vcg_def:
-  stmt_vcg _ Skip post _ _ _ = return post ∧
+  stmt_vcg m Skip post ens decs ls = return post ∧
   stmt_vcg _ (Assert e) post _ _ _ = return (e::post) ∧
   stmt_vcg _ (Print e t) post ens decs ls =
   do
@@ -5929,8 +5932,8 @@ Definition stmt_vcg_def:
   stmt_vcg _ (Return) _ ens _ _ = return ens ∧
   stmt_vcg m (Then s₁ s₂) post ens decs ls =
     do
-      pre' <- stmt_vcg m s₂ post ens decs ls;
-      stmt_vcg m s₁ pre' ens decs ls;
+      pre₂ <- stmt_vcg m s₂ post ens decs ls;
+      stmt_vcg m s₁ pre₂ ens decs ls;
     od ∧
   stmt_vcg m (If grd thn els) post ens decs ls =
   do
@@ -5951,20 +5954,17 @@ Definition stmt_vcg_def:
             (fail «stmt_vcg:Dec: Shadowing variables disallowed»);
     return wp
   od ∧
-  stmt_vcg _ (Assign ass) post _ _ ls =
+  stmt_vcg m (Assign ass) post ens decs ls =
   do
     (lhss, rhss) <<- UNZIP ass;
-    vars <- result_mmap dest_VarLhs lhss;
+    ns <- result_mmap dest_VarLhs lhss;
     es <- result_mmap dest_ExpRhs rhss;
-    () <- if ALL_DISTINCT vars then return () else
-            (fail «stmt_vcg:Assign: variables not distinct»);
-    () <- if list_subset vars (MAP FST ls) then return () else
-            (fail «stmt_vcg:Assign: Trying to assign to undeclared variables»);
-    es_tys <- get_types ls es;
-    vars_tys <- get_types ls (MAP Var vars);
-    () <- if es_tys = vars_tys then return () else
-            (fail «stmt_vcg:Assign: lhs and rhs types do not match»);
-    return [Let (ZIP (vars, es)) (conj post)]
+    assert (ALL_DISTINCT ns) «stmt_vcg:Assign: Variables not distinct»;
+    assert (list_subset ns (MAP FST ls)) «stmt_vcg:Assign: Trying to assign to undeclared variables»;
+    rhs_tys <- get_types ls es;
+    lhs_tys <- get_types ls (MAP Var ns);
+    assert (rhs_tys = lhs_tys) «stmt_vcg:Assign: lhs and rhs types do not match»;
+    return [Let (ZIP (ns, es)) (conj post)]
   od ∧
   stmt_vcg m (While guard invs ds mods body) post ens decs ls =
   do
@@ -6094,7 +6094,7 @@ Proof
   >~ [‘Assign’] >-
    (gvs [stmt_vcg_def]
     \\ gvs [UNZIP_MAP]
-    \\ gvs [oneline bind_def, CaseEq "sum"]
+    \\ gvs [oneline bind_def, assert_def, CaseEq "sum"]
     \\ irule stmt_wp_Assign
     \\ imp_res_tac result_mmap_len \\ simp []
     \\ drule_then assume_tac result_mmap_dest_VarLhs \\ simp []
