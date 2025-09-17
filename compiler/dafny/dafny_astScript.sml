@@ -21,7 +21,7 @@ Datatype:
 End
 
 Datatype:
-  bin_op = Lt | Le | Ge | Eq | Neq | Sub | Add | Mul | And | Or | Imp | Div
+  bin_op = Lt | Le | Ge | Eq | Neq | Sub | Add | Mul | And | Or | Imp | Div | Mod
 End
 
 Datatype:
@@ -47,6 +47,16 @@ Datatype:
   | FunCall mlstring (exp list)
   (* Forall var term *)
   | Forall (mlstring # type) exp
+  | Old exp
+  | OldHeap exp
+  (* Let [(name, rhs)] body *)
+  | Let ((mlstring # exp) list) exp
+  (* ForallHeap mods term *)
+  | ForallHeap (exp list) exp
+  (* Prev, PrevHeap, SetPrev used in VCG output *)
+  | Prev exp
+  | PrevHeap exp
+  | SetPrev exp
 End
 
 Overload If = “Exp_If”
@@ -65,8 +75,8 @@ End
 Datatype:
   rhs_exp =
   | ExpRhs exp
-  (* ArrAlloc length init_value *)
-  | ArrAlloc exp exp
+  (* ArrAlloc length init_value type *)
+  | ArrAlloc exp exp type
 End
 
 Datatype:
@@ -116,4 +126,3 @@ Datatype:
      default class *)
   program = Program (member_decl list)
 End
-
