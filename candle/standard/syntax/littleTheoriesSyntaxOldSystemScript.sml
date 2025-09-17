@@ -5,7 +5,7 @@ open preamble totoTheory comparisonTheory ternaryComparisonsTheory mlstringTheor
               holSyntaxLibTheory holSyntaxTheory errorMonadTheory
               littleTheoriesSyntaxTheory holSyntaxExtraTheory
 
-val _ = new_theory"littleTheoriesSyntaxExtra"
+val _ = new_theory"littleTheoriesSyntaxOldSystem"
 
 val _ = monadsyntax.enable_monadsyntax();
 val _ = monadsyntax.enable_monad("error");
@@ -189,7 +189,6 @@ Proof
       >> first_x_assum $ irule_at Any >> simp[MEM_FILTER])
 QED
 
-
 Theorem VFREE_IN_tm_names:
   ∀tm n ty. VFREE_IN (Var n ty) tm ⇒ MEM n (tm_names tm)
 Proof
@@ -242,7 +241,6 @@ Proof
   Induct_on ‘tm’ >> rw[VFREE_IN_def, FVs_def, term_ok_def]
   >> gvs[term_ok_def, FVs_def] >> strip_tac >> gvs[]
 QED
-
 
 Theorem sublist_map:
   ∀xs. (∀x. MEM x xs ⇒ MEM x ys) ⇒ (∀x. MEM x (MAP f xs) ⇒ MEM x (MAP f ys))
@@ -390,7 +388,6 @@ Proof
   simp[free_names] >> SET_TAC[]
 QED
 
-
 Theorem alist_to_fm_FILTER:
   ∀ilist k.
     alist_to_fm (FILTER (λ(s',s). s ≠ k) ilist) = alist_to_fm ilist \\ k
@@ -398,7 +395,6 @@ Proof
   Induct_on ‘ilist’ >> simp[FORALL_PROD]
   >> rw[] >> simp[DOMSUB_FUPDATE_NEQ]
 QED
-
 
 Theorem FLOOKUP_alist_to_fm_NONE:
   ∀ilist k. FLOOKUP (alist_to_fm ilist) k = NONE ⇒ REV_ASSOCD k ilist d = d
@@ -821,7 +817,6 @@ Proof
   >> first_x_assum drule >> rw[] >> gvs[term_ok_def]
 QED
 
-
 Theorem has_type_comb:
   Comb t1 t2 has_type ty ⇔
     ∃dty. t1 has_type Fun dty ty ∧
@@ -1020,6 +1015,50 @@ Proof
   >> gvs[REV_ASSOCD_def, neq_error]
 QED
 
+Theorem esubst_ty0_preserves_fvs:
+  ∀env σ avds tm subst_tm.
+    esubsts_ok sig σ ∧ 
+    term_ok sig tm ∧
+    (∀k v. MEM (v, k) env ⇒ ∃n ty. k = Var n (ty_esubst σ ty) ∧ v = Var n ty) ∧
+    esubst_ty0 env σ avds tm = return subst_tm ⇒ 
+    (∀n ty. (n, ty) ∈ FVs tm ∧
+            ¬(∃v. MEM (v, Var n (ty_esubst σ ty)) env) ⇒
+            (n, ty_esubst σ ty) ∈ FVs subst_tm)
+Proof
+  recInduct esubst_ty0_ind >> rpt strip_tac
+  >- gvs[esubst_ty0_def, AllCaseEqs()]
+  >- gvs[esubst_ty0_def, AllCaseEqs()]
+  >- gvs[esubst_ty0_def, AllCaseEqs(), bind_EQ_return, term_ok_def]
+  >> gvs[term_ok_def]
+  >> gvs[esubst_ty0_def, AllCaseEqs(), bind_EQ_return, try_eq_return, bind_EQ_error]
+  >- (last_x_assum kall_tac >> conj_tac
+      >- (first_x_assum irule >> simp[DISJ_IMP_THM, FORALL_AND_THM]
+          >> rpt strip_tac >> gvs[]
+          >> qspec_then ‘(Var n ty',Var n (ty_esubst σ ty'))::env’
+                        mp_tac esubst_ty0_impossible1
+          >> disch_then $ drule_then mp_tac o cj 2
+          >> disch_then $ qspecl_then [‘avds’, ‘body’, ‘n’, ‘ty’, ‘ty'’] mp_tac
+          >> impl_tac
+          >- gvs[DISJ_IMP_THM, FORALL_AND_THM, REV_ASSOCD_def]
+          >> metis_tac[neq_error])
+      >> rpt strip_tac >> gvs[]
+      >> qspec_then ‘(Var n ty',Var n (ty_esubst σ ty'))::env’
+                    mp_tac esubst_ty0_impossible1
+      >> disch_then $ drule_then mp_tac o cj 2
+      >> disch_then $ qspecl_then [‘avds’, ‘body’, ‘n’, ‘ty’, ‘ty'’] mp_tac
+      >> impl_tac
+      >- gvs[DISJ_IMP_THM, FORALL_AND_THM, REV_ASSOCD_def]
+      >> metis_tac[neq_error])
+  >> last_x_assum mp_tac >> disch_then $ qspecl_then [‘body1’, ‘body''’] mp_tac
+  >> impl_tac >- simp[DISJ_IMP_THM, FORALL_AND_THM, term_ok_vsubst_variant]
+  >> disch_then $ qspecl_then [‘n’, ‘ty’] mp_tac >> impl_tac
+  >- (simp[] >> conj_tac
+      >- metis_tac[FVs_VSUBST_CASES]
+      >> strip_tac >> first_x_assum drule
+      >> metis_tac[NVARIANT_NAMES_THM, FVs_in_tm_names])
+  >> strip_tac >> first_x_assum drule
+  >> metis_tac[NVARIANT_NAMES_THM, FVs_in_tm_names]
+QED
 
 Theorem esubst_comb[simp]:
   ∀t1 t2.
@@ -1468,12 +1507,6 @@ Proof
   >> simp[SF SFY_ss]
 QED
 
-Theorem term_ok'_imp_term_ok:
-  ∀tm. term_ok' thy tm ⇒ term_ok (thy.ctys,thy.ctms) tm
-Proof
-  Induct_on ‘tm’ >> rw[term_ok'_def, term_ok_def]
-QED
-        
 Theorem is_std_sig_funion:
   is_std_sig (tys, tms) ⇒ is_std_sig (tys ⊌ tys1, tms ⊌ tms1)
 Proof
@@ -1493,24 +1526,6 @@ Proof
   >> qexists ‘ty0’ >> rw[FLOOKUP_FUNION, type_ok_weakening] >> metis_tac[]
 QED
 
-Theorem esubst_has_type_bool_alt:
-  ∀tm.
-    esubsts_ok (thy.ctys, thy.ctms) σ ∧
-    term_ok' thy tm ∧
-    theory_ok' thy ∧
-    tm has_type Bool ⇒
-    esubst σ avds tm has_type Bool
-Proof
-  rpt strip_tac >> irule esubst_has_type_bool
-  >> rw[] >> first_x_assum $ irule_at Any
-  >> simp[term_ok'_imp_term_ok]
-  >> qexists ‘thy.axs’
-  >> gvs[theory_ok_def, theory_ok'_def, ctys_def, ctms_def]
-  >> rw[FRANGE_FUNION]
-  >> metis_tac[is_std_sig_funion, sigof'_def,
-               term_ok_weakening, type_ok_weakening]
-QED
-
 Theorem welltyped_comb:
   welltyped l1 ∧
   welltyped l2 ∧
@@ -1518,23 +1533,6 @@ Theorem welltyped_comb:
   welltyped (Comb l1 l2)
 Proof
   rw[welltyped_def]
-QED
-
-Theorem proves_imp_proves':
-  ∀h. (thy, h) |- c ⇒ (lift_thy thy, {}, h) |-' c
-Proof
-  Induct_on ‘$|-’ >> rw[]
-  >- (irule proves'_ABS >> rw[])
-  >- (irule proves'_ASSUME >> rw[])
-  >- (irule proves'_BETA >> rw[])
-  >- (dxrule_all_then (ACCEPT_TAC o SRULE[]) proves'_DEDUCT_ANTISYM)
-  >- (dxrule_all proves'_EQ_MP >> rw[])
-  >- (irule proves'_INST >> rw[])
-  >- (irule proves'_INST_TYPE >> rw[])
-  >- (drule_all welltyped_comb >> strip_tac
-      >> dxrule_all proves'_MK_COMB >> simp[])
-  >- (irule proves'_REFL >> rw[])
-  >- (irule proves'_axioms >> rw[])
 QED
 
 Theorem proves_theory_ok:
@@ -1600,31 +1598,6 @@ Proof
       >- (irule proves_axioms >> rw[] >> metis_tac[proves_theory_ok_ext]))
 QED
 
-Theorem theory_ok_drop_thy:
-  ∀es. theory_ok' thy ∧ (∀a. a ∈ es ⇒ term_ok thy.sig a ∧ a has_type Bool) ⇒
-       theory_ok (drop_thy es thy)
-Proof
-  rw[theory_ok'_def, theory_ok_def, drop_thy]
-  >> gvs[ctys_def, ctms_def, sigof'_def, FRANGE_FUNION,
-         type_ok_weakening, term_ok_weakening, is_std_sig_funion]
-QED
-
-Theorem term_ok_imp_term_ok':
-  term_ok (thy.ctys, thy.ctms) c ⇒ term_ok' thy c
-Proof
-  Induct_on ‘c’ >> rw[term_ok'_def, term_ok_def]
-QED
-
-Theorem theory_ok_drop_thy_alt:
-  ∀es. theory_ok' thy ∧ (∀a. a ∈ es ⇒ term_ok' thy a ∧ a has_type Bool) ⇒
-       theory_ok (drop_thy es thy)
-Proof
-  rw[theory_ok'_def, theory_ok_def, drop_thy]
-  >> gvs[ctys_def, ctms_def, sigof'_def, FRANGE_FUNION,
-         type_ok_weakening, term_ok_weakening, is_std_sig_funion]
-  >> metis_tac[term_ok'_imp_term_ok, ctys_def, ctms_def]
-QED
-
 Theorem FAPPLY_IN_FRANGE:
   ∀m. x ∈ FDOM m ⇒ m ' x ∈ FRANGE m
 Proof
@@ -1635,27 +1608,6 @@ Proof
   >> ‘k ≠ x’ by metis_tac[]
   >> qspecl_then [‘m |+ (k, v)’, ‘k’, ‘x’] assume_tac DOMSUB_FAPPLY_NEQ
   >> rw[] >> gvs[DOMSUB_NOT_IN_DOM]
-QED
-
-Theorem ty_esubst_type_ok:
-  ∀ty.
-    type_ok thy.ctys ty ∧
-    esubsts_ok (thy.ctys, thy.ctms) σ ⇒
-    type_ok thy.ctys (ty_esubst σ ty)
-Proof
-  Induct_on ‘ty’ using type_ind >> rw[ctys_def]
-  >> Cases_on ‘σ’
-  >> rw[type_ok_def, ty_esubst_def]
-  >> gvs[EVERY_MEM]
-  >> Cases_on ‘l’ >> rw[type_ok_def, ty_esubst_def]
-  >- (rC ‘FLOOKUP q m’
-      >> gvs[type_ok_def, esubsts_total_def, esubsts_ok_def]
-      >> first_x_assum $ qspec_then ‘x’ mp_tac
-      >> impl_tac
-      >- simp[IN_FRANGE_FLOOKUP, SF SFY_ss]
-      >> rw[sigof'_def, type_ok_weakening])
-  >> gvs[type_ok_def, EVERY_MEM, MEM_MAP, SF SFY_ss, ctys_def]
-  >> metis_tac[]
 QED
 
 Theorem ty_esubst_type_ok_alt:
@@ -1679,12 +1631,6 @@ Proof
   >> metis_tac[]
 QED
 
-Theorem proves_imp_theory_ok':
-  ∀thy h es c. (thy, es, h) |-' c ⇒ theory_ok' thy
-Proof
-  Induct_on ‘$|-'’ >> rw[] >> rw[]
-QED
-
 Theorem thy_axs_diff:
   c ∉ a ⇒
   a ∪ (b DIFF {c} ∪ d) = ((a ∪ b) DIFF {c}) ∪ (a ∪ d)
@@ -1698,58 +1644,6 @@ Theorem thy_axs_diff_alt:
 Proof
   rw[UNION_DEF, EXTENSION, EQ_IMP_THM] >> metis_tac[]
 QED
-
-Theorem proves'_imp_theory_ok:
-  ∀thy es h c. (thy, es, h) |-' c ⇒ theory_ok' thy
-Proof
-  Induct_on ‘$|-'’ >> rw[] >> rw[]
-QED
-
-Theorem term_ok_term_ok'_weakening:
-  term_ok thy.sig p ⇒ term_ok' thy p
-Proof
-  rw[] >> irule term_ok_imp_term_ok'
-  >> gvs[sigof'_def, ctms_def, ctys_def, term_ok_weakening]
-QED
-(*
-Theorem esubst_thy_ctys[simp]:
-  (esubst_thy σ thy).ctys = thy.tys
-Proof
-  Cases_on ‘σ’ >> simp[esubst_thy_def, ctys_def]
-QED*)
-
-(*Theorem term_ok'_esubst:
-  ∀tm.
-    esubsts_ok (thy.ctys, thy.ctms) σ ∧
-    esubsts_total thy σ ∧
-    term_ok' thy tm ⇒
-    term_ok' (esubst_thy σ thy) (esubst σ avds tm)
-Proof
-  Cases_on ‘σ’ >> rename [‘esubst (σ, θ) _ _’]
-  >> Induct_on ‘tm’ >> rw[] >> gvs[term_ok'_def, esubst_def]
-  >- (rw[esubst_tm_def, term_ok'_def]
-      >> irule ty_esubst_type_ok >> simp[esubsts_ok_def]
-      >> rw[] >> metis_tac[])
-  >- (rw[esubst_tm_def, term_ok'_def] >> rC ‘FLOOKUP θ tmnm’
-      >> gvs[ctms_def, FLOOKUP_FUNION]
-      >> rC ‘FLOOKUP thy.tms tmnm’ >> simp[term_ok'_def]
-      >> gvs[ctms_def, FLOOKUP_FUNION]
-      >> last_assum $ qspec_then ‘tmnm’ mp_tac
-      >> rw[]
-      >- (irule ty_esubst_type_ok >> simp[esubsts_ok_def]
-          >> cheat)
-      >- spec_impl ‘ty0’ >> simp[ctys_def, FLOOKUP_FUNION])
-QED*)
-(*
-Theorem used_eaxs_ok:
-  ∀thy used_eaxs h c.
-    (thy, used_eaxs, h) |-' c
-    ⇒ ∀e. e ∈ used_eaxs ⇒ term_ok' thy e ∧ e has_type Bool
-Proof
-  Induct_on ‘$|-'’ >> rw[] >> rw[]
-  >> gvs[theory_ok'_def, term_ok_term_ok'_weakening, term_ok'_esubst]
-  >> first_x_assum drule >> gvs[esubst_has_type_bool_alt, SF SFY_ss]
-QED*)
 
 val _ = temp_set_fixity "|n-" (Infix(NONASSOC, 450));
 
@@ -1834,14 +1728,19 @@ QED
 
 Theorem esubst_equation_has_type:
   ∀l r.
-    is_std_sig sig ∧
+    theory_ok (sig, axs) ∧
     esubsts_ok sig σ ∧
     term_ok sig (l === r) ⇒
     esubst σ avds (l === r) has_type Bool
 Proof
-  cheat >> rpt strip_tac >> irule esubst_has_type_bool
-  >> simp[EQUATION_HAS_TYPE_BOOL] >> strip_tac
-  >> metis_tac[term_ok_equation, term_ok_welltyped]
+  rpt strip_tac >> irule esubst_has_type_bool
+  >> simp[EQUATION_HAS_TYPE_BOOL] >> rw[]
+  >> drule_then assume_tac theory_ok_sig
+  >> drule $ iffLR term_ok_equation >> rw[]
+  >> first_x_assum drule
+  >- gvs[equation_def, term_ok_def]
+  >- gvs[equation_def, term_ok_def]
+  >> metis_tac[]
 QED
 
 Theorem tysig_frange_type_ok:
@@ -1880,6 +1779,60 @@ Theorem nproves_theory_ok:
   ∀thy h n c. (thy, h, n) |n- c ⇒ theory_ok thy
 Proof
   Induct_on ‘$|n-’ >> rw[] >> rw[]
+QED
+        
+Theorem esubst_ty0_var_ty_unique:
+  ∀env σ avds tm subst_tm n.
+    esubst_ty0 env σ avds tm = return subst_tm ∧
+    term_ok sig tm ∧
+    esubsts_ok sig σ ∧
+    REV_ASSOCD (Var n (ty_esubst σ ty)) env (Var n ty1) = Var n ty ∧
+    dbVFREE_IN (dbVar n ty1) tm ∧
+    ty_esubst σ ty1 = ty_esubst σ ty ⇒
+    ty1 = ty
+Proof
+  completeInduct_on ‘sizeof tm’ >> Cases_on ‘tm’ >> rw[]
+  >- (pop_assum mp_tac >> gvs[esubst_ty0_def, AllCaseEqs()]
+      >> disch_then SUBST_ALL_TAC >> pop_assum SUBST_ALL_TAC
+      >> metis_tac[TypeBase.one_one_of “:term”])
+  >> gvs[esubst_ty0_def, AllCaseEqs(), bind_EQ_return, try_eq_return, bind_EQ_error]
+  >- (first_x_assum $ qspec_then ‘sizeof t1'’ mp_tac >> impl_tac
+      >- (qsuff_tac ‘sizeof t = sizeof t1'’
+          >> simp[] >> metis_tac[sizeof_esubst_ty0])
+      >> disch_then irule >> qexistsl [‘avds’, ‘env’, ‘n’, ‘t1'’, ‘t’, ‘σ’]
+      >> simp[] >> metis_tac[sizeof_esubst_ty0])
+  >- (first_x_assum $ qspec_then ‘sizeof t2'’ mp_tac >> impl_tac
+      >- (qsuff_tac ‘sizeof t0 = sizeof t2'’
+          >> simp[] >> metis_tac[sizeof_esubst_ty0])
+      >> disch_then irule >> qexistsl [‘avds’, ‘env’, ‘n’, ‘t2'’, ‘t0’, ‘σ’]
+      >> simp[] >> metis_tac[sizeof_esubst_ty0])
+  >- (Cases_on ‘x = n’
+      >- (CCONTR_TAC
+          >> drule_then assume_tac $ iffLR FVs_VFREE_in
+          >> first_x_assum $ drule_then strip_assume_tac
+          >> drule $ cj 2 esubst_ty0_impossible1
+          >> Cases_on ‘ty_esubst σ ty' = ty_esubst σ ty1’
+          >> disch_then $ qspecl_then [‘(Var x ty', Var x (ty_esubst σ ty'))::env’,
+                                       ‘avds’, ‘t0’, ‘x’, ‘ty1’, ‘ty'’] mp_tac
+          >> impl_tac
+          >- gvs[DISJ_IMP_THM, FORALL_AND_THM, REV_ASSOCD, AllCaseEqs()]
+          >- metis_tac[neq_error]
+          >- (gvs[DISJ_IMP_THM, FORALL_AND_THM, REV_ASSOCD, AllCaseEqs()]
+              >> last_x_assum $ qspec_then ‘sizeof t0’ mp_tac >> simp[]
+              >> qexists ‘t0’ >> simp[] >> first_x_assum $ irule_at (Pos hd)
+              >> rw[REV_ASSOCD, DISJ_IMP_THM, FORALL_AND_THM] >> metis_tac[])
+          >- metis_tac[neq_error])
+      >> CCONTR_TAC
+      >> drule_then assume_tac $ iffLR FVs_VFREE_in
+      >> first_x_assum $ drule_then strip_assume_tac
+      >> drule $ cj 2 esubst_ty0_impossible1 >> gvs[]
+      >> qexistsl [‘(Var x ty',Var x (ty_esubst σ ty'))::env’,
+                   ‘avds’, ‘t0’, ‘n’, ‘ty1’, ‘ty’]
+      >> rw[REV_ASSOCD, DISJ_IMP_THM, FORALL_AND_THM] >> metis_tac[])
+  >> qsuff_tac ‘VFREE_IN (Var (NVARIANT x avds body1) ty')
+                (VSUBST [(Var (NVARIANT x avds body1) ty',Var x ty')] t0)’
+  >- (strip_tac >> )
+  >> first_x_assum irule >> first_x_assum $ irule_at (Pos last)
 QED
 
 Theorem nproves_ACONV_concl:
@@ -1954,7 +1907,36 @@ Proof
   >> disch_then drule >> disch_then $ irule_at Any
   >> simp[]
 QED
-        
+
+Theorem EL_APPEND_LE:
+  ∀n pfx lst. n < LENGTH pfx ⇒ EL n (pfx ++ lst) = EL n pfx
+Proof
+  Induct_on ‘n’ >> rw[]
+  >> Cases_on ‘pfx’ >> gvs[LENGTH]
+QED
+
+Triviality PRE_plus_one[simp]:
+  ∀k. PRE (k + 1) = k
+Proof
+  simp[]
+QED
+
+Triviality nproves_term_ok1:
+  ∀thyh c.
+    thyh |n- c ⇒
+    hypset_ok (FST (SND thyh)) ∧
+    EVERY (λp. term_ok (sigof (FST thyh)) p ∧ p has_type Bool)
+          (c::(FST (SND thyh)))
+Proof
+  ntac 3 strip_tac >> PairCases_on ‘thyh’
+  >> rename [‘(thy,hyps,n)’]
+  >> Cases_on ‘∃n. (thy,hyps,n) |n- c’
+  >- (qspecl_then [‘thy’, ‘hyps’, ‘c’] mp_tac $ iffRL nproves_proves
+      >> strip_tac >> first_x_assum drule >> strip_tac >> drule proves_term_ok
+      >> rw[])
+  >> metis_tac[nproves_proves]
+QED
+
 Theorem nproves_ACONV_lemma:
   ∀thy c hyps' pfx hyps n.
     (thy, pfx ++ hyps, n) |n- c ∧
@@ -1964,10 +1946,53 @@ Theorem nproves_ACONV_lemma:
     ∃m. m ≤ n + LENGTH hyps' * 3 ∧ (thy, pfx ++ hyps', m) |n- c
 Proof
   ntac 2 gen_tac >> Induct >> rw[] >> rw[]
-  >> imp_res_tac nproves_term_ok >> fs[hypset_ok_cons]
+  >> imp_res_tac nproves_term_ok1 >> fs[hypset_ok_cons]
   >- (first_x_assum $ irule_at Any >> simp[])
   >> Cases_on ‘EXISTS (ACONV h) hyps’
-  >- cheat
+  >- (‘∃h0 hr. hyps = h0::hr ∧ ACONV h h0’ by (
+       Cases_on ‘hyps’ >> simp[] >> fs[ACONV_SYM, EXISTS_MEM]
+       >> ‘alpha_lt h' e'’ by fs[hypset_ok_append,hypset_ok_cons,EVERY_MEM]
+       >> ‘alpha_lt h e’ by fs[hypset_ok_append,hypset_ok_cons,EVERY_MEM]
+       >> ‘alpha_lt e e'’ by metis_tac[alpha_lt_trans_ACONV,ACONV_SYM]
+       >> ‘alpha_lt h e'’ by metis_tac[transitive_alpha_lt,transitive_def]
+       >> fs[alpha_lt_def,ACONV_eq_orda] >> metis_tac[])
+      >> rw[]
+      >> qspecl_then [‘thy’, ‘pfx++h0::hr’, ‘c’, ‘h’] mp_tac nproves_addAssum
+      >> imp_res_tac WELLTYPED_LEMMA >> simp[]
+      >> qspecl_then [‘pfx’, ‘h’, ‘h0’, ‘hr’] mp_tac term_union_replace
+      >> impl_tac
+      >- (simp[EVERY_MEM, MEM_EL, PULL_EXISTS]
+          >> rpt $ qpat_x_assum ‘EVERY P (X::Y)’ kall_tac >> rw[]
+          >> fs[hypset_ok_el_less]
+          >- (first_x_assum $ qspecl_then[‘n'’, ‘LENGTH pfx’] mp_tac
+              >> simp[EL_LENGTH_APPEND_rwt, EL_CONS, EL_APPEND1, EL_APPEND2]
+              >> metis_tac[ACONV_SYM, alpha_lt_trans_ACONV])
+          >> first_x_assum $ qspecl_then
+                           [‘LENGTH pfx’, ‘LENGTH pfx + SUC n'’] mp_tac
+          >> simp[EL_LENGTH_APPEND_rwt, EL_CONS, EL_APPEND1, EL_APPEND2]
+          >> metis_tac[ACONV_SYM, alpha_lt_trans_ACONV])
+      >> disch_then SUBST1_TAC >> strip_tac
+      >> first_x_assum $ qspecl_then [‘pfx ++ [h]’, ‘hr’] mp_tac
+      >> first_x_assum drule
+      >> ‘h::hr=[h]++hr’ by simp[] >> first_x_assum SUBST_ALL_TAC
+      >> simp[APPEND_ASSOC] >> ntac 2 strip_tac
+      >> first_x_assum drule
+      >> impl_tac
+      >- (conj_tac >- metis_tac[CONS_APPEND,APPEND_ASSOC]
+          >> qpat_x_assum ‘EVERY P1 X’ kall_tac
+          >> qmatch_assum_abbrev_tac ‘EVERY P (h0::hr)’
+          >> qpat_x_assum ‘EXISTS X (h0::hr)’ kall_tac
+          >> fs[EVERY_MEM] >> rw[]
+          >> ‘P x’ by res_tac >> pop_assum mp_tac
+          >> qpat_x_assum ‘P h0’ kall_tac
+          >> simp_tac std_ss [Abbr‘P’]
+          >> strip_tac
+          >> fs[hypset_ok_el_less,MEM_EL,PULL_EXISTS]
+          >> first_x_assum $ qspecl_then[‘LENGTH pfx’, ‘LENGTH pfx + SUC n'’] mp_tac
+          >> simp[EL_APPEND2] >> strip_tac
+          >> ‘ACONV h0 x’ by metis_tac[ACONV_TRANS,ACONV_SYM]
+          >> rfs[ACONV_eq_orda,alpha_lt_def])
+      >> rw[] >> qexists ‘m'’ >> simp[] >> metis_tac[CONS_APPEND, APPEND_ASSOC])
   >> qspecl_then [‘thy’, ‘pfx ++ hyps’, ‘c’, ‘h’] mp_tac nproves_addAssum
   >> imp_res_tac WELLTYPED_LEMMA >> simp[]
   >> qspecl_then [‘pfx’, ‘h’, ‘hyps’] mp_tac term_union_insert
@@ -1982,25 +2007,28 @@ Proof
       >> strip_tac >- metis_tac[ACONV_SYM]
       >> fs[hypset_ok_append,hypset_ok_cons,EVERY_MEM] >> rw[] >> fs[]
       >> metis_tac[ACONV_SYM,alpha_lt_trans_ACONV])
-  >> 
-  >> rw[] 
-  >> qexists ‘m’
-  >> first_x_assum $ qspecl_then [‘pfx’, ‘hyps’, ‘h::hyps'’, ‘n’] mp_tac
-  >> rw[]
-  >- first_x_assum drule >> rw[] 
-
-  disch_then SUBST1_TAC >> strip_tac >>
-  first_x_assum(qspecl_then[`h1++[h]`,`h''`]mp_tac) >>
-  impl_tac >- (
-    conj_tac >- metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC] >>
-    conj_tac >- (
-      imp_res_tac proves_term_ok >> fs[] >>
-      metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC] ) >>
-    qpat_x_assum`EVERY P1 X`kall_tac >>
-    qpat_x_assum`EVERY P1 X`kall_tac >>
-    fs[EVERY_MEM,EXISTS_MEM] >>
-    metis_tac[ACONV_SYM] ) >>
-  metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC]
+  >> qspecl_then [‘thy’,‘pfx ++ hyps’,‘c’,‘h’,‘n’] mp_tac nproves_addAssum
+  >> rw[] >> first_x_assum $ qspec_then ‘n’ assume_tac >> gvs[]
+  >> qspecl_then [‘pfx’, ‘h’, ‘hyps’] mp_tac term_union_insert
+  >> impl_tac
+  >- (fs[EVERY_MEM,EXISTS_MEM]
+      >> conj_tac
+      >- (rw[] >> qpat_x_assum ‘hypset_ok (pfx ++ h::hyps')’ mp_tac
+          >> simp[hypset_ok_el_less,MEM_EL,PULL_EXISTS]
+          >> fs[MEM_EL,PULL_EXISTS]
+          >> disch_then $ qspecl_then[‘n'’, ‘LENGTH pfx’] mp_tac
+          >> simp[EL_APPEND2, EL_APPEND1])
+      >> rw[] >> last_x_assum $ qspec_then ‘z’ mp_tac >> simp[]
+      >> strip_tac >- metis_tac[ACONV_SYM]
+      >> fs[hypset_ok_append,hypset_ok_cons,EVERY_MEM] >> rw[] >> fs[]
+      >> metis_tac[ACONV_SYM,alpha_lt_trans_ACONV])
+  >> disch_then SUBST1_TAC
+  >> first_x_assum (qspec_then ‘pfx ++ [h]’ mp_tac)
+  >> disch_then (qspec_then ‘hyps’ mp_tac)
+  >> disch_then (qspec_then ‘m'’ mp_tac)
+  >> impl_tac >> simp[APPEND_ASSOC_CONS]
+  >- metis_tac[ACONV_SYM]
+  >> strip_tac >> first_x_assum $ irule_at Any >> simp[]
 QED
 
 Theorem nproves_ACONV:
@@ -2008,26 +2036,13 @@ Theorem nproves_ACONV:
     (thy,h,n) |n- c ∧ welltyped c' ∧ ACONV c c' ∧ hypset_ok h' ∧
     EVERY (λx. EXISTS (ACONV x) h') h ∧
     EVERY (λx. term_ok (sigof thy) x ∧ x has_type Bool) h' ⇒
-    (thy,h',n+1) |n- c'
+    ∃m. m ≤ n + (LENGTH h' * 3) + 1 ∧ (thy, h', m) |n- c'
 Proof
   rw[]
-  >> drule_at (Pos $ el 2) nproves_EQ_MP
-  >> rw[] >> dxrule_then assume_tac ACONV_SYM
-  >> first_x_assum $ drule_at Any
-  >> rw[]
-  >> qspecl_then [‘c'’, ‘thy’] mp_tac nproves_REFL
-  >> rw[]
-  >> drule nproves_theory_ok >> rw[] >> gvs[]
-  >> ‘term_ok (sigof thy) c’ by metis_tac[FST, nproves_term_ok, PAIR]
-  >> ‘term_ok (sigof thy) c'’ by metis_tac[term_ok_aconv, ACONV_SYM]
-  >> gvs[]
-  >> first_x_assum drule
-
-        
-  >- (irule  >> rw[]
-      >- metis_tac[proves_theory_ok]
-      >> drule proves_term_ok >> rw[EVERY_MEM])
-  >> cheat
+  >> qspecl_then [‘thy’, ‘c’, ‘h'’, ‘[]’, ‘h’, ‘n’] mp_tac nproves_ACONV_lemma
+  >> simp[]
+  >> rw[] >> qexists ‘m + 1’ >> simp[]
+  >> metis_tac[nproves_ACONV_concl]
 QED
 
 Theorem esubst_ty_abs_avoids:
@@ -2171,6 +2186,74 @@ Proof
   >> gvs[db_esubst_ty_def]
 QED
 
+Triviality esubst_ty0_no_clash:
+  ∀env σ avds tm tm' n ty ty2.
+    (∀k v. MEM (v,k) env ⇒ ∃m u. k = Var m (ty_esubst σ u) ∧ v = Var m u) ∧
+    esubst_ty0 env σ avds tm = return tm' ∧
+    VFREE_IN (Var n ty2) tm ∧
+    ty_esubst σ ty2 = ty_esubst σ ty ⇒
+    ty2 = ty
+Proof
+  recInduct esubst_ty0_ind >> rpt strip_tac
+  >- gvs[esubst_ty0_def, AllCaseEqs(), REV_ASSOCD]
+  >- gvs[esubst_ty0_def]
+  >- (with_flag (Cond_rewr.stack_limit, 0) gvs[Once esubst_ty0_def]
+      >> with_flag (Cond_rewr.stack_limit, 0) gvs[bind_EQ_return]
+      >> metis_tac[])
+  >- (with_flag (Cond_rewr.stack_limit, 0) gvs[Once esubst_ty0_def]
+      >> with_flag (Cond_rewr.stack_limit, 0) gvs[bind_EQ_return]
+      >> rpt $ first_x_assum drule >> strip_tac >> first_x_assum drule_all
+      >> simp[])
+QED
+
+
+val contrapos_tac = CONV_TAC (REWR_CONV (DECIDE “p ⇒ q ⇔ ¬q ⇒ ¬p”)) THEN strip_tac
+
+Theorem esubst_ty0_error_vars:
+  ∀env σ avds tm x ty.
+    esubst_ty0 env σ avds tm = error (Var x ty) ∧
+    term_ok sig tm ∧ esubsts_ok sig σ ∧
+    (∀s s'.
+       MEM (s,s') env ⇒
+       ∃x ty. s = Var x ty ∧ s' = Var x (ty_esubst σ ty)) ⇒
+    (∀n ty1.
+       VFREE_IN (Var n ty1) tm ∧ n ≠ x ⇒
+       REV_ASSOCD (Var n (ty_esubst σ ty1)) env (Var n ty1) = Var n ty1)
+Proof
+  recInduct esubst_ty0_ind >> rw[]
+  >> gvs[esubst_ty0_def, bind_EQ_return, bind_EQ_error,
+         try_eq_return, AllCaseEqs(), try_eq_error]
+  >> cheat (*this lemma false!*)
+QED
+
+Theorem esubst_ty0_has_type_thm:
+  ∀env σ avds tm subst_tm.
+    term_ok sig tm ∧ esubsts_ok sig σ ∧
+    (∀s s'.
+       MEM (s,s') env ⇒
+       ∃x ty. s = Var x ty ∧ s' = Var x (ty_esubst σ ty)) ∧
+    esubst_ty0 env σ avds tm = return subst_tm ⇒
+    (∀x ty.
+       VFREE_IN (Var x ty) tm ⇒
+       REV_ASSOCD (Var x (ty_esubst σ ty)) env (Var x ty) = Var x ty)
+Proof
+  recInduct esubst_ty0_ind >> rw[]
+  >> gvs[esubst_ty0_def, bind_EQ_return, bind_EQ_error,
+         try_eq_return, AllCaseEqs()]
+  >- (last_x_assum kall_tac >> qpat_x_assum ‘(∀s s'. _) ⇒ _’ mp_tac >> impl_tac
+      >- metis_tac[] >> disch_then drule >> rw[REV_ASSOCD])
+  >> last_x_assum $ drule_at (Pat ‘esubst_ty0 _ _ _ _ = return _’)
+  >> disch_then $ qspecl_then [‘x'’, ‘ty'’] mp_tac >> impl_tac
+  >- (simp[term_ok_vsubst_variant] >> conj_tac >- metis_tac[]
+      >> irule FVs_VFREER_in >> ‘Var x ty ≠ Var x' ty'’ by simp[]
+      >> qpat_x_assum ‘VFREE_IN _ _’ mp_tac >> drule FVs_VFREE_in
+      >> metis_tac[FVs_VSUBST_CASES])
+  >> rw[] >> gvs[AllCaseEqs(), REV_ASSOCD]
+  >> qabbrev_tac ‘Nv = NVARIANT x avds body1’
+  >> drule esubst_ty0_error_vars >> disch_then $ qspecl_then [‘sig’, ‘Nv’, ‘ty’] mp_tac
+  >> impl_tac >- (simp[DISJ_IMP_THM] >> metis_tac[]) >> rw[REV_ASSOCD]
+QED
+        
 Theorem db_esubst_ty_thm:
   ∀tm env subst_tm avds.
     esubsts_ok sig σ ∧
@@ -2188,59 +2271,24 @@ Proof
       >> first_x_assum $ qspec_then ‘sizeof t2’ mp_tac
       >> rw[] >> gvs[]
       >> metis_tac[])
-  >> gvs[try_eq_return, bind_EQ_return, bind_EQ_error]
-  >> rename [‘sizeof tm’, ‘db body’]
-  >- (first_x_assum $ qspec_then ‘sizeof tm’ mp_tac >> impl_tac
-      >> rw[]
-      >> first_x_assum $ qspec_then ‘tm’ mp_tac >> impl_tac
+  >> gvs[try_eq_return, bind_EQ_return, bind_EQ_error, AllCaseEqs()]
+  >> rename [‘sizeof tm’, ‘db subst_tm’]
+  >- (qspecl_then [‘db tm’, ‘(n, ty)’, ‘0’, ‘σ’] mp_tac db_esubst_ty_bind
+      >> impl_tac
+      >- (qx_gen_tac ‘ty2’ >> qspecl_then [‘tm’, ‘Var n ty2’] mp_tac dbVFREE_IN_VFREE_IN
+          >> rw[]
+          >> drule_at (Pat ‘esubst_ty0 _ _ _ _ = _’) esubst_ty0_has_type_thm
+          >> disch_then $ drule_at (Pat ‘VFREE_IN _ _’)
+          >> disch_then drule >> impl_tac
+          >- (simp[DISJ_IMP_THM, FORALL_AND_THM] >> metis_tac[])
+          >> rw[REV_ASSOCD])
+      >> rw[] >> sym_tac
+      >> qsuff_tac ‘db subst_tm = db_esubst_ty σ (db tm)’
       >- simp[]
-      >> rw[]
-      >> first_x_assum $ qspecl_then [‘(Var n ty,Var n (ty_esubst σ ty))::env’,
-                                      ‘body’, ‘avds’] mp_tac
-      >> impl_tac
-      >- gvs[DISJ_IMP_THM, FORALL_AND_THM]
-      >> rw[]
-      >> qspecl_then [‘db tm’, ‘(n, ty)’, ‘0’, ‘σ’] mp_tac db_esubst_ty_bind
-      >> impl_tac
-      >- (qspecl_then [‘(Var n ty,Var n (ty_esubst σ ty))::env’, ‘σ’, ‘avds’, ‘tm’]
-                     mp_tac esubst_ty0_impossible1
-          >> rw[] >> gvs[DISJ_IMP_THM, FORALL_AND_THM]
-          >> first_x_assum $ qspecl_then [‘n’, ‘ty_esubst σ ty'’] mp_tac
-          >> ‘dbVar n ty' = db (Var n ty')’ by simp[db_def]
-          >> qpat_x_assum ‘dbVar _ _ = db _’ SUBST_ALL_TAC
-          >> drule_all $ iffLR dbVFREE_IN_VFREE_IN >> rw[]
-          >> first_x_assum drule >> rw[] >> gvs[REV_ASSOCD_def]
-          >> metis_tac[FVs_VFREE_in])
-      >> rw[])
-  >> gvs[AllCaseEqs(), bind_EQ_return]
-  >> first_x_assum $ qspec_then ‘sizeof $ VSUBST [(Var (NVARIANT n avds body1) ty,
-                                          Var n ty)] tm’
-                   mp_tac >> impl_tac
-  >> rw[SIZEOF_VSUBST]
-  >> first_x_assum $ qspec_then ‘VSUBST [(Var (NVARIANT n avds body1) ty,
-                                          Var n ty)] tm’
-                   mp_tac >> impl_tac
-  >> rw[SIZEOF_VSUBST]
-  >> first_x_assum $ qspecl_then
-                   [‘((Var (NVARIANT n avds body1) ty,
-                       Var (NVARIANT n avds body1) (ty_esubst σ ty))::env)’,
-                    ‘body''’, ‘avds’] mp_tac
-  >> impl_tac
-  >> gvs[DISJ_IMP_THM, FORALL_AND_THM, VSUBST_WELLTYPED, term_ok_VSUBST]
-  >> rw[]
-  >> qspecl_then [‘tm’, ‘[(Var (NVARIANT n avds body1) ty,Var n ty)]’] mp_tac VSUBST_dbVSUBST
-  >> impl_tac >> simp[] >> rw[]
-  >> sym_tac
-  >> qspecl_then [‘db tm’, ‘(NVARIANT n avds body1, ty)’, ‘(n, ty)’, ‘0’, ‘[]’]
-                 mp_tac bind_dbVSUBST_cons
-  >> impl_tac >> rw[]
-  >- (strip_tac >> drule $ iffLR dbVFREE_IN_bind
-      >> rw[] >> rC ‘NVARIANT n avds body1 = n’
-      >> cheat)
+      >> first_x_assum irule >> simp[]
+      >> qexistsl [‘avds’, ‘(Var n ty,Var n (ty_esubst σ ty))::env’]
+      >> gvs[DISJ_IMP_THM, FORALL_AND_THM])
   >> cheat
-
-(* [bind_dbVSUBST_cons, dbVFREE_IN_bind, dbVFREE_IN_VFREE_IN, esubst_ty0_impossible1,
-   SIZEOF_VSUBST, VSUBST_WELLTYPED, db_esubst_ty_bind] *)
 QED
 
 Theorem db_esubst_thm:
@@ -2322,15 +2370,6 @@ Theorem esubst_avds_identity[simp]:
   esubst σ (tm_names c) c = esubst σ [] c
 Proof
   cheat (* NVARIANT uses tm_names c ++ avds and only ever checks membership *)
-QED
-
-Theorem term_ok_esubst:
-  theory_ok (sig, axs) ∧
-  term_ok sig c ∧
-  esubsts_ok sig σ ⇒
-  term_ok sig (esubst σ avds tm)
-Proof
-  cheat
 QED
 
 Theorem theory_ok_esubst_axs:
@@ -2697,133 +2736,5 @@ Proof
   rw[] >> qspecl_then [‘h’, ‘c’] mp_tac nproves_substitutable
   >> rw[] >> metis_tac[nproves_proves]
 QED
-
-Theorem drop_thy_weakening:
-  (drop_thy B thy', h) |- c ∧ B ⊆ A
-  ∧ (∀ax. ax ∈ A ⇒ term_ok (thy'.ctys, thy'.ctms) ax ∧ ax has_type Bool)
-  ⇒ (drop_thy A thy', h) |- c
-Proof
-  rw[drop_thy] >> irule axiom_weakening >> rw[]
-  >> drule proves_imp_theory_ok >> rw[theory_ok_def, ctms_def, ctys_def]
-  >> gvs[ctys_def, ctms_def] >> first_assum $ irule_at Any >> ASM_SET_TAC[]
-QED
-
-Theorem esubsts_ok_weakening:
-  esubsts_total thy σ ∧
-  esubsts_ok (thy.tys, thy.tms) σ ⇒
-  esubsts_ok (thy.ctys, thy.ctms) σ
-Proof
-  Cases_on ‘σ’ >> rw[esubsts_total_def, esubsts_ok_def, ctms_def, ctys_def]
-  >- (first_x_assum $ drule o iffRL >> rw[] >> first_x_assum drule
-      >> rw[] >> rw[FLOOKUP_FUNION])
-  >> rw[type_ok_weakening, term_ok_weakening]
-QED
-
-Theorem esubst_ty_identity:
-  term_ok thy.sig tm ∧
-  theory_ok' thy ∧
-  esubsts_ok (thy.ctys, thy.ctms) σ ∧
-  esubsts_total thy σ ⇒
-  esubst_ty σ [] tm = tm
-Proof
-  cheat
-QED
-
-Theorem esubst_tm_identity:
-  term_ok thy.sig tm ∧
-  theory_ok' thy ∧
-  esubsts_ok (thy.ctys, thy.ctms) σ ∧
-  esubsts_total thy σ ⇒
-  esubst_tm σ tm = tm
-Proof
-  Induct_on ‘tm’ >> rw[esubst_tm_def] >> gvs[]
-  >> CASE_TAC >> Cases_on ‘σ’ >> gvs[esubsts_ok_def, sigof'_def, theory_ok'_def]
-  >> first_x_assum $ qspec_then ‘m’ assume_tac >> rw[] >> gvs[TO_FLOOKUP]
-  >> gvs[monomorphic_type_subst] >> rC ‘x = Const m ty0’
-  >> Cases_on ‘ty_esubst (q,r) ty0 = ty0’ >> rw[] >> gvs[]
-  >> cheat
-QED
-
-Theorem esubst_identity:
-  term_ok thy.sig tm ∧
-  theory_ok' thy ∧
-  esubsts_ok (thy.ctys, thy.ctms) σ ∧
-  esubsts_total thy σ ⇒
-  esubst σ [] tm = tm
-Proof
-  rw[esubst_def] >> metis_tac[esubst_ty_identity, esubst_tm_identity]
-QED
-
-Theorem esubst_axs_fixed:
-  theory_ok' thy ∧
-  esubsts_ok (thy.ctys, thy.ctms) σ ∧
-  esubsts_total thy σ ⇒
-  IMAGE (esubst σ []) thy.axs = thy.axs
-Proof
-  Cases_on ‘σ’ >> rename [‘esubsts_total thy (σ, θ)’]
-  >> rw[EXTENSION, EQ_IMP_THM, esubsts_ok_def, esubsts_total_def, theory_ok'_def]
-  >> first_assum drule
-  >> rpt strip_tac
-  >> drule esubst_identity
-  >> strip_tac >> first_x_assum $ qspec_then ‘(σ, θ)’ mp_tac
-  >> impl_tac
-  >> rw[theory_ok'_def, esubsts_ok_def, esubsts_total_def]
-  >> metis_tac[]
-QED
-(*
-Theorem proves'_imp_proves:
-  ∀thy' c h used_eaxs.
-    (thy', used_eaxs, h) |-' c ⇒ (drop_thy used_eaxs thy', h) |- c
-Proof
-  Induct_on ‘$|-'’ >> rw[]
-  >- (irule proves_ABS >> rw[])
-  >- (irule proves_ASSUME >> rw[theory_ok_drop_thy, term_ok'_imp_term_ok])
-  >- (irule proves_BETA >> rw[theory_ok_drop_thy, term_ok'_imp_term_ok])
-  >- (irule proves_DEDUCT_ANTISYM
-      >> ‘es1 ⊆ es1 ∪ es2 ∧ es2 ⊆ es1 ∪ es2’ by SET_TAC[]
-      >> rpt $ dxrule used_eaxs_ok >> rw[]
-      >> rpt $ dxrule_then dxrule drop_thy_weakening
-      >> impl_tac >> rpt $ dxrule proves_imp_theory_ok' >> rw[]
-      >> metis_tac[term_ok'_imp_term_ok])
-  >- (irule proves_EQ_MP
-      >> ‘es1 ⊆ es1 ∪ es2 ∧ es2 ⊆ es1 ∪ es2’ by SET_TAC[]
-      >> rpt $ dxrule used_eaxs_ok >> rw[]
-      >> rpt $ dxrule_then dxrule drop_thy_weakening
-      >> impl_tac >> rpt $ dxrule proves_imp_theory_ok' >> rw[]
-      >> metis_tac[term_ok'_imp_term_ok])
-  >- (irule proves_INST >> rw[] >> first_x_assum drule
-      >> metis_tac[term_ok'_imp_term_ok])
-  >- (irule proves_INST_TYPE >> rw[] >> first_x_assum drule
-      >> metis_tac[term_ok'_imp_term_ok])
-  >- (irule proves_MK_COMB >> rw[]
-      >> ‘es1 ⊆ es1 ∪ es2 ∧ es2 ⊆ es1 ∪ es2’ by SET_TAC[]
-      >> rpt $ dxrule used_eaxs_ok >> rw[]
-      >> rpt $ dxrule_then dxrule drop_thy_weakening
-      >> impl_tac >> rpt $ dxrule proves_imp_theory_ok' >> rw[]
-      >> metis_tac[term_ok'_imp_term_ok])
-  >- (irule proves_REFL >> rw[theory_ok_drop_thy, term_ok'_imp_term_ok])
-  >- (irule proves_axioms >> rw[theory_ok_drop_thy, term_ok'_imp_term_ok]
-      >> metis_tac[axsof_drop_thy, SUBSET_DEF])
-  >- (Cases_on ‘c ∈ thy.axs’ >> gvs[drop_thy]
-      >- (rw[thy_axs_diff_alt, UNION_COMM] >> irule axiom_weakening
-          >> drule proves'_imp_theory_ok >> rw[]
-          >> gvs[theory_ok'_def, used_eaxs_ok, term_ok'_imp_term_ok, term_ok_term_ok'_weakening]
-          >> rpt $ dxrule used_eaxs_ok >> rw[term_ok'_imp_term_ok]
-          >> qexists ‘thy.axs ∪ es2’ >> rw[] >> SET_TAC[])
-      >- (rw[thy_axs_diff]
-          >> qspecl_then [‘((thy.ctys, thy.ctms), thy.axs ∪ es1)’,
-                          ‘((thy.ctys, thy.ctms), thy.axs ∪ es2)’,
-                          ‘h2’, ‘c’, ‘c'’]
-                         assume_tac axioms_eliminable
-          >> gvs[]))
-  >- (gvs[drop_thy] >> drule esubsts_ok_weakening >> rw[] >> gvs[sigof'_def]
-      >> drule proves_theory_ok >> rw[]
-      >> drule_all proves_substitutable >> rw[] >> gvs[EVERY_MEM]
-      >> drule_all esubst_axs_fixed >> rw[] >> gvs[])
-  >- (irule proves_axioms >> rw[]
-      >- (irule theory_ok_drop_thy_alt >> gvs[theory_ok'_def])
-      >> rw[drop_thy])
-QED
-*)
 
 val _ = export_theory()
