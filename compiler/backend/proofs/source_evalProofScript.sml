@@ -95,15 +95,13 @@ Definition env_rel_def:
         v_rel x y)
 End
 
-Theorem env_rel_mono_rel:
+Theorem env_rel_mono_rel[mono]:
   (!y z. R y z ==> R' y z) ==>
   env_rel R env env' ==>
   env_rel R' env env'
 Proof
   simp [env_rel_def] \\ metis_tac []
 QED
-
-val _ = IndDefLib.add_mono_thm env_rel_mono_rel;
 
 Theorem env_rel_add_nsBind:
   env_rel R (env with v := ev) (env' with v := ev') /\ R x y ==>

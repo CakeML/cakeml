@@ -1,15 +1,20 @@
 (*source_weakenletTheory
-  Correctness for the source_letweaken pass.
+  Correctness proof for the source_letweaken pass.
  *)
 Theory source_weakenletProof
 Ancestors
-  source_weakenlet evaluate evaluateProps semanticPrimitives
-  semanticPrimitivesProps misc[qualified] semantics ast
+  source_weakenlet evaluate evaluateProps namespaceProps
+  semanticPrimitives semanticPrimitivesProps misc[qualified] semantics ast
 Libs
   preamble
 
+(*TODO this is may appear stronger than
+env_rel defined in source_eval but their equivalent *)
 Definition env_rel_def:
-  env_rel rel (envx: 'a sem_env) envy = ((!n. OPTREL rel (nsLookup envx.v n) (nsLookup envy.v n))
+  env_rel rel (envx: 'a sem_env) envy =
+  (nsDom envx.v = nsDom envy.v /\
+  nsDomMod envx.v = nsDomMod envy.v /\
+  (!n. OPTREL rel (nsLookup envx.v n) (nsLookup envy.v n))
                           /\ envx.c = envy.c)
 End
 
@@ -20,6 +25,156 @@ Proof
   irule OPTREL_MONO >>
   first_x_assum (irule_at (Pos $ el 2)) >>
   simp[]
+QED
+
+Theorem env_rel_add_nsBind:
+  env_rel R (env with v := ev) (env' with v := ev') /\ R x y ==>
+  env_rel R (env with v := nsBind n x ev) (env' with v := nsBind n y ev')
+Proof
+  rw [env_rel_def]
+  \\ Cases_on `n' = Short n`
+  \\ fs [nsLookup_nsBind]
+  \\ res_tac
+QED
+
+Theorem env_rel_add_nsBindList:
+  !xs ys. env_rel R (env with v := ev) (env' with v := ev') /\
+  LIST_REL ((=) ### R) xs ys ==>
+  env_rel R (env with v := nsBindList xs ev) (env' with v := nsBindList ys ev')
+Proof
+  Induct
+  \\ simp [FORALL_PROD, EXISTS_PROD]
+  \\ rw []
+  \\ fs [namespaceTheory.nsBindList_def]
+  \\ irule env_rel_add_nsBind
+  \\ simp []
+QED
+
+Theorem env_rel_nsLift:
+  env_rel R (env with <| v := v; c := c |>)
+    (env' with <| v := v'; c := c' |>) ==>
+  env_rel R (env with <| v := nsLift mn v; c := nsLift mn c |>)
+    (env' with <| v := nsLift mn v'; c := nsLift mn c' |>)
+Proof
+  rw [] \\ fs [env_rel_def, nsDom_nsLift, nsDomMod_nsLift]
+  \\ rw [namespacePropsTheory.nsLookup_nsLift]
+  \\ every_case_tac
+  \\ fs []
+  \\ res_tac
+QED
+
+Theorem env_rel_nsEmpty = LIST_CONJ
+  [Q.SPECL [`R`, `x with <| v := nsEmpty |>`] env_rel_def,
+    Q.SPECL [`R`, `x`, `y with <| v := nsEmpty |>`] env_rel_def]
+  |> SIMP_RULE (std_ss ++ simpLib.type_ssfrag ``: 'a sem_env``)
+        [nsLookup_nsEmpty]
+
+val _ = bossLib.augment_srw_ss [rewrites (CONJUNCTS env_rel_nsEmpty)];
+
+Theorem env_rel_nsAppend:
+  env_rel R (env with v := a) (env' with v := c) /\
+  env_rel R (env with v := b) (env' with v := d) ==>
+  env_rel R (env with <| v := nsAppend a b |>)
+    (env' with <| v := nsAppend c d |>)
+Proof
+  rw [env_rel_def, namespacePropsTheory.nsDom_nsAppend_equal]
+  \\ rpt (first_x_assum (qspec_then `n` assume_tac))
+  \\ fs [Q.ISPEC `nsDom n'` EXTENSION, nsLookup_nsDom]
+  \\ Cases_on `nsLookup (nsAppend a b) n` \\ fs[OPTREL_SOME]
+  \\ fs[ nsLookup_nsAppend_some,nsLookup_nsAppend_none]
+  \\ gvs[]
+  \\ fs[oneline OPTREL_THM,AllCasePreds()]
+  \\ fs[namespaceTheory.nsDomMod_def,EXTENSION]
+  \\ fs[GSPECIFICATION,UNCURRY_EQ]
+  \\ res_tac
+  \\ gvs[]
+  >- metis_tac[]
+  \\ rw[]
+  \\ first_x_assum drule
+  \\ fs[]
+  \\ metis_tac[option_CLAUSES]
+QED
+
+Theorem env_rel_extend_dec_env:
+  env_rel R env1 env2 /\ env_rel R env3 env4 ==>
+  env_rel R (extend_dec_env env1 env3) (extend_dec_env env2 env4)
+Proof
+  rw [extend_dec_env_def]
+  \\ irule env_rel_nsAppend
+  \\ fs [env_rel_def]
+  \\ rw [] \\ res_tac
+QED
+
+Theorem env_rel_nsLookup_v:
+  env_rel R env env' /\ nsLookup env.v id = SOME v ==>
+  ?v'. nsLookup env'.v id = SOME v' /\ R v v'
+Proof
+  rw [env_rel_def]
+  \\ fs [Q.ISPEC `nsDom n'` EXTENSION, nsLookup_nsDom]
+  \\ res_tac
+  \\ fs []
+  \\ first_x_assum (qspec_then `id` mp_tac)
+  \\ fs[]
+QED
+
+Triviality env_rel_nsLookup_c:
+  env_rel R env env' /\ nsLookup env.c id = r ==>
+  env'.c = env.c
+Proof
+  rw [env_rel_def]
+QED
+
+Theorem nsLookup_alist_to_ns:
+  nsLookup (alist_to_ns l) id =
+  (case id of
+    Short x => ALOOKUP l x
+  | Long _ _ => NONE)
+Proof
+  TOP_CASE_TAC >>
+  fs[namespaceTheory.alist_to_ns_def] >>
+  fs[namespaceTheory.nsLookup_def]
+QED
+
+Theorem LIST_REL_PAIR_REL:
+   LIST_REL (R1 ### R2) xs ys <=>
+   (LIST_REL R1 (MAP FST xs) (MAP FST ys) /\
+   LIST_REL R2 (MAP SND xs) (MAP SND ys))
+Proof
+  qid_spec_tac `ys` >>
+  Induct_on `xs` >> fs[MAP_EQ_CONS,SF CONJ_ss,PULL_EXISTS]
+  >> fs[PAIR_REL ,ELIM_UNCURRY]
+  >> metis_tac[]
+QED
+
+Triviality env_rel_alist_to_ns:
+   LIST_REL ((=) ### R) xs ys ==>
+  env_rel R <|v := alist_to_ns xs; c := envC |>
+          <|v := alist_to_ns ys; c := envC|>
+Proof
+  strip_tac >>
+  fs[env_rel_def,nsLookup_alist_to_ns]
+  \\ simp[TypeBase.case_rand_of ``:('a, 'b) id``,
+   Cong $ TypeBase.case_cong_of ``:('a, 'b) id``]
+  \\ CONJ_TAC >-
+   (drule_then strip_assume_tac $ iffLR LIST_REL_PAIR_REL
+    \\ fs[GSYM MAP_MAP_o])
+  \\ rw[] >> TOP_CASE_TAC
+  \\ rpt $ pop_assum mp_tac
+  \\ qid_spec_tac `ys`
+  \\ Induct_on `xs` \\ fs[PULL_EXISTS]
+  \\ Ho_Rewrite.PURE_REWRITE_TAC [FORALL_PROD]
+  \\ fs[COND_RAND]
+QED
+
+Theorem env_rel_nsOptBind:
+  env_rel R envx envy /\
+  R v''' v'' ==>
+  env_rel R (envx with v := nsOptBind xo v'³' envx.v)
+            (envy with v := nsOptBind xo v'' envy.v)
+Proof
+  fs[namespaceTheory.nsOptBind_def] >>
+  TOP_CASE_TAC >>
+  fs[env_rel_add_nsBind]
 QED
 
 (*TODO use modern Inductive syntax*)
@@ -159,28 +314,6 @@ Proof
      first_x_assum irule >> fs[] >>
      drule nsLookup_size >> fs[])
 QED
-
-Theorem env_rel_extend_dec_env:
-  env_rel v_rel enva envb ==>
-  env_rel v_rel envx envy ==>
-  env_rel v_rel (enva +++ envx) (envb +++ envy)
-Proof
-  cheat
-  (* TODO currently unprovable env_rel needs to be changed
-  rpt strip_tac >> fs[env_rel_def,extend_dec_env_def] >>
-  qx_gen_tac `n` >>
-  first_x_assum (fn x => qspec_then `n` assume_tac x >> mp_tac x) >>
-  first_x_assum (fn x => qspec_then `n` assume_tac x >> mp_tac x) >>
-  rpt (disch_then last_assume_tac) >>
-  Cases_on `nsLookup (nsAppend enva.v envx.v) n` >>
-  >- (
-    fs[namespacePropsTheory.nsLookup_nsAppend_none] >>
-    Cases_on `nsLookup envy.v n` >> fs[OPTREL_SOME] >>
-    every_drule_then strip_assume_tac
-      namespacePropsTheory.nsLookup_to_nsLookupMod >>
-  *)
-QED
-
 
 Definition match_result_rel_def[simp]:
   match_result_rel R (Match m) (Match m') = R m m' /\
@@ -884,7 +1017,40 @@ Proof
      rpt TOP_CASE_TAC >> gs[] >> NO_TAC)
 QED
 
+
+Theorem env_rel_build_rec_env:
+  env_rel v_rel envx envy /\
+  env_rel v_rel enva envb ==>
+  env_rel v_rel <|v := build_rec_env funs envx enva.v; c := envxC|>
+          <|v := build_rec_env funs envy envb.v; c := envxC|>
+Proof
+  strip_tac >> fs[build_rec_env_merge] >>
+  irule env_rel_nsAppend >> fs[] >>
+  REVERSE CONJ_TAC >- fs[env_rel_def] >>
+  irule  env_rel_alist_to_ns >>
+  fs[EVERY2_MAP ] >>
+  fs[ELIM_UNCURRY,v_rel_Closure] >>
+  fs[ EVERY2_refl]
+QED
+
+Theorem env_rel_build_rec_env2:
+  env_rel v_rel envx envy ==>
+  env_rel v_rel <|v := build_rec_env funs envx nsEmpty; c := envxC|>
+          <|v := build_rec_env funs envy nsEmpty; c := envxC|>
+Proof
+  strip_tac >> fs[build_rec_env_merge] >>
+  irule  env_rel_alist_to_ns >>
+  fs[EVERY2_MAP ] >>
+  fs[ELIM_UNCURRY,v_rel_Closure] >>
+  fs[ EVERY2_refl]
+QED
+
 val s = mk_var ("s", ``: 'ffi semanticPrimitives$state``);
+Triviality sem_env_elim:
+   !env envV. (env: v sem_env) with v := envV = <|v := envV; c := env.c|>
+Proof
+fs[ semanticPrimitivesTheory.sem_env_component_equality]
+QED
 
 Theorem v_rel_evaluate:
   (!s envx es s' res envy refs.
@@ -945,7 +1111,7 @@ Proof
     first_x_assum $ drule_all_then strip_assume_tac >> fs[]
     >- (
     `envx.c = envy.c` by fs[env_rel_def] >>
-    drule_all_then (fs o single) v_rel_can_pmatch_all)
+   drule_all_then (fs o single) v_rel_can_pmatch_all)
     >- (
     `envx.c = envy.c` by fs[env_rel_def] >>
     drule_all_then (fs o single) v_rel_can_pmatch_all))
@@ -1055,7 +1221,7 @@ Proof
     first_x_assum (qspec_then `envy'` mp_tac) >>
     disch_then (drule_at (Pos $ el 2)) >>
     qunabbrev_tac `envy'` >>
-    impl_tac >- cheat >>
+    impl_tac >- fs[ env_rel_nsOptBind] >>
     strip_tac >> fs[])
   (* Letrec *)
   >- (
@@ -1066,7 +1232,12 @@ Proof
     first_x_assum (qspec_then `envy'` mp_tac) >>
     disch_then (drule_at (Pos $ el 2)) >>
     qunabbrev_tac `envy'` >>
-    impl_tac >- cheat >>
+    impl_tac >-
+      (`envx.c = envy.c` by fs[env_rel_def] >>
+      PURE_ONCE_REWRITE_TAC[sem_env_elim] >>
+      fs[] >>
+      irule env_rel_build_rec_env >>
+      fs[])>>
     strip_tac >> fs[])
   (* Tannot *)
   >- (
@@ -1097,7 +1268,14 @@ Proof
     first_x_assum (qspec_then `envy'` mp_tac) >>
     disch_then (drule_at (Pos $ el 2)) >>
     qunabbrev_tac `envy'` >>
-    impl_tac >- cheat >>
+    impl_tac >-
+      (irule env_rel_nsAppend >>
+       CONJ_TAC >-
+        (PURE_ONCE_REWRITE_TAC[sem_env_elim] >>
+        fs[] >>
+        irule env_rel_alist_to_ns >>
+        fs[])
+        >- (fs[env_rel_def])) >>
     strip_tac >> fs[])
 QED
 
@@ -1126,11 +1304,12 @@ Proof
     first_x_assum (qspec_then `envy'` mp_tac) >>
     disch_then $ drule_at (Pos $ el 2) >>
     qunabbrev_tac `envy'` >>
-    impl_tac >- cheat >>
+    impl_tac >- simp[env_rel_extend_dec_env]>>
     strip_tac  >> fs[] >>
     fs[combine_dec_result_def] >>
     TOP_CASE_TAC >> fs[] >>
-    cheat)
+    simp[SRULE []$ GSYM extend_dec_env_def] >>
+    simp[env_rel_extend_dec_env])
   (* Dlet *)
   >- (
     qpat_x_assum `evaluate_decs _ _ _ = _`
@@ -1143,7 +1322,7 @@ Proof
     every_drule_then strip_assume_tac evaluate_sing >> gvs[] >>
     drule_at (Pos $ el 4) $ CONJUNCT1 v_rel_pmatch >>
     fs[] >> disch_then drule_all >> strip_tac >> fs[] >>
-    cheat)
+    fs[env_rel_alist_to_ns])
   (* Dletrec *)
   >- (
     qpat_x_assum `evaluate_decs _ _ _ = _`
@@ -1151,7 +1330,7 @@ Proof
     fs[evaluate_decs_def] >> gvs[] >>
     `envx.c = envy.c` by fs[env_rel_def] >>
     fs[]
-    >- cheat
+    >- fs[env_rel_build_rec_env2]
     >- (drule_then (SUBST_ALL_TAC o EQF_INTRO) (iffRL NOT_EVERY) >>
        fs[])
      )
@@ -1160,8 +1339,7 @@ Proof
     qpat_x_assum `evaluate_decs _ _ _ = _`
        (strip_assume_tac o SRULE[evaluate_decs_def,AllCaseEqs()]) >>
     fs[evaluate_decs_def] >> gvs[]
-    >- simp[env_rel_def]
-    >- (drule_then (SUBST_ALL_TAC o EQF_INTRO) (iffRL NOT_EVERY) >>
+    >> (drule_then (SUBST_ALL_TAC o EQF_INTRO) (iffRL NOT_EVERY) >>
         fs[])
     )
   (* Dtabbrev *)
@@ -1169,7 +1347,7 @@ Proof
     qpat_x_assum `evaluate_decs _ _ _ = _`
        (strip_assume_tac o SRULE[evaluate_decs_def,AllCaseEqs()]) >>
     fs[evaluate_decs_def] >> gvs[]
-    >- simp[env_rel_def])
+    )
   (* Denv *)
   >- (
     qpat_x_assum `evaluate_decs _ _ _ = _`
@@ -1187,8 +1365,9 @@ Proof
     qpat_x_assum `evaluate_decs _ _ _ = _`
        (strip_assume_tac o SRULE[evaluate_decs_def,AllCaseEqs()]) >>
     fs[evaluate_decs_def] >> gvs[] >>
-    first_x_assum $ drule_then strip_assume_tac >>
-    gvs[] >> cheat)
+    first_x_assum $ drule_all_then strip_assume_tac >>
+    gvs[] >>
+    fs[env_rel_nsLift])
   (* Dlocal *)
   >- (
     qpat_x_assum `evaluate_decs _ _ _ = _`
@@ -1199,7 +1378,7 @@ Proof
     first_x_assum (qspec_then `envy'` mp_tac) >>
     disch_then $ drule_at (Pos $ el 2) >>
     qunabbrev_tac `envy'` >>
-    impl_tac >- cheat >>
+    impl_tac >- fs[env_rel_extend_dec_env]>>
     strip_tac >> fs[])
 QED
 
