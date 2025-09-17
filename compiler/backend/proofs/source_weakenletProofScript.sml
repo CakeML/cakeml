@@ -8,77 +8,106 @@ Ancestors
 Libs
   preamble
 
-(*TODO this is may appear stronger than
-env_rel defined in source_eval but their equivalent *)
-Definition env_rel_def:
-  env_rel rel (envx: 'a sem_env) envy =
-  (nsDom envx.v = nsDom envy.v /\
-  nsDomMod envx.v = nsDomMod envy.v /\
-  (!n. OPTREL rel (nsLookup envx.v n) (nsLookup envy.v n))
+(*Note can be weakened further by restricting nsDomMod*)
+Definition env_rel_on_def:
+  env_rel_on A rel (envx: 'a sem_env) envy =
+  (nsDomMod envx.v = nsDomMod envy.v /\
+  (!n. n IN A ==> OPTREL rel (nsLookup envx.v n) (nsLookup envy.v n))
                           /\ envx.c = envy.c)
 End
 
-Theorem env_rel_mono[mono]:
-  (!x y. R1 x y ==> R2 x y) ==> env_rel R1 x y ==> env_rel R2 x y
+Theorem env_rel_on_mono[mono]:
+  ((!x. x IN B ==> x IN A) /\ (!x y.  R1 x y ==> R2 x y))
+  ==> env_rel_on A R1 x y ==> env_rel_on B R2 x y
 Proof
-  fs[env_rel_def] >> srw_tac[][] >>
+  fs[env_rel_on_def] >> srw_tac[][] >>
   irule OPTREL_MONO >>
   first_x_assum (irule_at (Pos $ el 2)) >>
-  simp[]
+  simp[] >> ASM_SET_TAC[]
 QED
 
-Theorem env_rel_add_nsBind:
-  env_rel R (env with v := ev) (env' with v := ev') /\ R x y ==>
-  env_rel R (env with v := nsBind n x ev) (env' with v := nsBind n y ev')
+Theorem env_rel_on_add_nsBind:
+  env_rel_on (A DIFF {Short n}) R (env with v := ev) (env' with v := ev') /\ R x y ==>
+  env_rel_on A R (env with v := nsBind n x ev) (env' with v := nsBind n y ev')
 Proof
-  rw [env_rel_def]
+  rw [env_rel_on_def]
   \\ Cases_on `n' = Short n`
   \\ fs [nsLookup_nsBind]
   \\ res_tac
 QED
 
-Theorem env_rel_add_nsBindList:
-  !xs ys. env_rel R (env with v := ev) (env' with v := ev') /\
+Theorem env_rel_on_add_nsBindList:
+  !xs ys A. env_rel_on (A DIFF (set (MAP (Short o FST) ys))) R (env with v := ev) (env' with v := ev') /\
   LIST_REL ((=) ### R) xs ys ==>
-  env_rel R (env with v := nsBindList xs ev) (env' with v := nsBindList ys ev')
+  env_rel_on A R (env with v := nsBindList xs ev) (env' with v := nsBindList ys ev')
 Proof
   Induct
   \\ simp [FORALL_PROD, EXISTS_PROD]
   \\ rw []
   \\ fs [namespaceTheory.nsBindList_def]
-  \\ irule env_rel_add_nsBind
+  \\ irule env_rel_on_add_nsBind
   \\ simp []
+  \\ first_x_assum irule
+  \\ fs[]
+  \\ METIS_TAC[DIFF_UNION,INSERT_SING_UNION]
 QED
 
-Theorem env_rel_nsLift:
-  env_rel R (env with <| v := v; c := c |>)
+Theorem env_rel_on_nsLift:
+  env_rel_on A R (env with <| v := v; c := c |>)
     (env' with <| v := v'; c := c' |>) ==>
-  env_rel R (env with <| v := nsLift mn v; c := nsLift mn c |>)
+  env_rel_on (IMAGE (\i.Long mn i) A) R (env with <| v := nsLift mn v; c := nsLift mn c |>)
     (env' with <| v := nsLift mn v'; c := nsLift mn c' |>)
 Proof
-  rw [] \\ fs [env_rel_def, nsDom_nsLift, nsDomMod_nsLift]
+  rw [] \\ fs [env_rel_on_def, nsDomMod_nsLift]
   \\ rw [namespacePropsTheory.nsLookup_nsLift]
   \\ every_case_tac
   \\ fs []
-  \\ res_tac
 QED
 
-Theorem env_rel_nsEmpty = LIST_CONJ
-  [Q.SPECL [`R`, `x with <| v := nsEmpty |>`] env_rel_def,
-    Q.SPECL [`R`, `x`, `y with <| v := nsEmpty |>`] env_rel_def]
+Theorem env_rel_on_nsEmpty = LIST_CONJ
+  [Q.SPECL [`A`,`R`, `x with <| v := nsEmpty |>`] env_rel_on_def,
+    Q.SPECL [`A`,`R`, `x`, `y with <| v := nsEmpty |>`] env_rel_on_def]
   |> SIMP_RULE (std_ss ++ simpLib.type_ssfrag ``: 'a sem_env``)
         [nsLookup_nsEmpty]
 
-val _ = bossLib.augment_srw_ss [rewrites (CONJUNCTS env_rel_nsEmpty)];
+val _ = bossLib.augment_srw_ss [rewrites (CONJUNCTS env_rel_on_nsEmpty)];
 
-Theorem env_rel_nsAppend:
-  env_rel R (env with v := a) (env' with v := c) /\
-  env_rel R (env with v := b) (env' with v := d) ==>
-  env_rel R (env with <| v := nsAppend a b |>)
+Theorem EXISTS_X_EQ_OR_SIMP:
+  (?v. x = v \/ P v)
+Proof
+  metis_tac[]
+QED
+
+
+Theorem env_rel_on_nsAppend:
+  env_rel_on A R (env with v := a) (env' with v := c) /\
+  env_rel_on B R (env with v := b) (env' with v := d) /\
+  C = A INTER B  ==>
+  env_rel_on C R (env with <| v := nsAppend a b |>)
     (env' with <| v := nsAppend c d |>)
 Proof
-  rw [env_rel_def, namespacePropsTheory.nsDom_nsAppend_equal]
-  \\ rpt (first_x_assum (qspec_then `n` assume_tac))
+  rw [env_rel_on_def, namespacePropsTheory.nsDom_nsAppend_equal]
+  >-
+     (simp[namespaceTheory.nsDomMod_def] >>
+     rw[EXTENSION,GSPECIFICATION,UNCURRY_EQ,nsLookupMod_nsAppend_some ] >>
+     Cases_on `x = []` >> fs[] >>
+     fs[namespaceTheory.nsDomMod_def,EXTENSION,GSPECIFICATION,UNCURRY_EQ]
+     \\ rpt (first_x_assum (fn x => qspec_then `x` assume_tac x >> mp_tac x))
+     \\ Cases_on `nsLookupMod a x ` >> fs[]
+     \\ Cases_on `nsLookupMod b x ` >> fs[]
+     \\ fs[EXISTS_X_EQ_OR_SIMP]
+     \\ fs[GSYM IS_SOME_EXISTS]
+     \\ rw[EQ_IMP_THM]
+     >- (
+      first_x_assum drule >> fs[] >>
+      strip_tac >>
+      rpt (first_x_assum (qspec_then `p1` mp_tac)) >>
+      fs[])
+     >- (
+      first_x_assum drule >> fs[] >>
+      strip_tac >>
+      rpt (first_x_assum (qspec_then `p1` mp_tac)) >>
+      fs[]))
   \\ fs [Q.ISPEC `nsDom n'` EXTENSION, nsLookup_nsDom]
   \\ Cases_on `nsLookup (nsAppend a b) n` \\ fs[OPTREL_SOME]
   \\ fs[ nsLookup_nsAppend_some,nsLookup_nsAppend_none]
@@ -95,16 +124,17 @@ Proof
   \\ metis_tac[option_CLAUSES]
 QED
 
-Theorem env_rel_extend_dec_env:
-  env_rel R env1 env2 /\ env_rel R env3 env4 ==>
-  env_rel R (extend_dec_env env1 env3) (extend_dec_env env2 env4)
+Theorem env_rel_on_extend_dec_env:
+  env_rel_on A R env1 env2 /\ env_rel_on B R env3 env4 /\
+  C = A INTER B ==>
+  env_rel_on C R (extend_dec_env env1 env3) (extend_dec_env env2 env4)
 Proof
   rw [extend_dec_env_def]
-  \\ irule env_rel_nsAppend
-  \\ fs [env_rel_def]
-  \\ rw [] \\ res_tac
+  \\ irule env_rel_on_nsAppend
+  \\ fs [env_rel_on_def]
+  \\ ASM_SET_TAC[]
 QED
-
+(*
 Theorem env_rel_nsLookup_v:
   env_rel R env env' /\ nsLookup env.v id = SOME v ==>
   ?v'. nsLookup env'.v id = SOME v' /\ R v v'
@@ -123,7 +153,7 @@ Triviality env_rel_nsLookup_c:
 Proof
   rw [env_rel_def]
 QED
-
+*)
 Theorem nsLookup_alist_to_ns:
   nsLookup (alist_to_ns l) id =
   (case id of
@@ -146,37 +176,52 @@ Proof
   >> metis_tac[]
 QED
 
-Triviality env_rel_alist_to_ns:
+Triviality env_rel_on_alist_to_ns:
+   env_rel_on (A DIFF (set (MAP (Short o FST) xs))) R envx envy /\
    LIST_REL ((=) ### R) xs ys ==>
-  env_rel R <|v := alist_to_ns xs; c := envC |>
-          <|v := alist_to_ns ys; c := envC|>
+  env_rel_on (A) R (envx with v := alist_to_ns xs)
+                 (envy with v := alist_to_ns ys)
 Proof
   strip_tac >>
-  fs[env_rel_def,nsLookup_alist_to_ns]
+  fs[env_rel_on_def,nsLookup_alist_to_ns]
   \\ simp[TypeBase.case_rand_of ``:('a, 'b) id``,
    Cong $ TypeBase.case_cong_of ``:('a, 'b) id``]
-  \\ CONJ_TAC >-
-   (drule_then strip_assume_tac $ iffLR LIST_REL_PAIR_REL
-    \\ fs[GSYM MAP_MAP_o])
   \\ rw[] >> TOP_CASE_TAC
+  \\ disch_tac
+  \\ first_x_assum drule
+  \\ fs[MEM_MAP,PULL_EXISTS,PULL_FORALL]
+  \\ rw[]
+  \\ fs[FORALL_PROD]
   \\ rpt $ pop_assum mp_tac
   \\ qid_spec_tac `ys`
   \\ Induct_on `xs` \\ fs[PULL_EXISTS]
   \\ Ho_Rewrite.PURE_REWRITE_TAC [FORALL_PROD]
   \\ fs[COND_RAND]
+  \\ rw[] \\ fs[]
 QED
 
-Theorem env_rel_nsOptBind:
-  env_rel R envx envy /\
+Theorem env_rel_on_nsOptBind:
+  env_rel_on (case xo of
+              NONE => A
+             |SOME xo => A DIFF {Short xo} ) R envx envy /\
   R v''' v'' ==>
-  env_rel R (envx with v := nsOptBind xo v'³' envx.v)
+  env_rel_on A R (envx with v := nsOptBind xo v'³' envx.v)
             (envy with v := nsOptBind xo v'' envy.v)
 Proof
   fs[namespaceTheory.nsOptBind_def] >>
   TOP_CASE_TAC >>
-  fs[env_rel_add_nsBind]
+  fs[env_rel_on_add_nsBind]
 QED
 
+Theorem env_rel_on_UNION:
+  env_rel_on (A UNION B) R envx envy <=>
+   (env_rel_on A R envx envy /\
+   env_rel_on B R envx envy)
+Proof
+ fs[env_rel_on_def] >> metis_tac[]
+QED
+
+Overload env_rel = ``env_rel_on UNIV``
 (*TODO use modern Inductive syntax*)
 Inductive v_rel:
    (v_rel (Litv v) (Litv v))
@@ -184,7 +229,7 @@ Inductive v_rel:
    (LIST_REL v_rel xs ys ==>
    (v_rel (Conv stamp xs) (Conv stamp ys)))
    /\
-   (env_rel v_rel envx envy ==>
+   (env_rel_on (FV exp DIFF {Short var}) v_rel envx envy ==>
    (v_rel (Closure envx var exp) (Closure envy var exp)))
    /\
    (env_rel v_rel envx envy ==>
@@ -291,6 +336,8 @@ Theorem v_rel_refl:
  !x.
    v_rel x x
 Proof
+  cheat
+  (*
   completeInduct_on `v_size x` >>
   Cases_on `x` >> fs[] >> rpt strip_tac
   >- (irule EVERY2_refl >> rpt strip_tac >>
@@ -313,6 +360,7 @@ Proof
      irule OPTREL_refl >> rpt strip_tac >>
      first_x_assum irule >> fs[] >>
      drule nsLookup_size >> fs[])
+  *)
 QED
 
 Definition match_result_rel_def[simp]:
@@ -443,18 +491,117 @@ Proof
 QED
 *)
 
+Theorem env_rel_build_rec_env:
+  env_rel v_rel envx envy /\
+  env_rel v_rel enva envb ==>
+  env_rel v_rel <|v := build_rec_env funs envx enva.v; c := envxC|>
+          <|v := build_rec_env funs envy envb.v; c := envxC|>
+Proof
+  cheat
+  (*
+  strip_tac >> fs[build_rec_env_merge] >>
+  irule env_rel_nsAppend >> fs[] >>
+  REVERSE CONJ_TAC >- fs[env_rel_def] >>
+  irule  env_rel_alist_to_ns >>
+  fs[EVERY2_MAP ] >>
+  fs[ELIM_UNCURRY,v_rel_Closure] >>
+  fs[ EVERY2_refl]
+  *)
+QED
+
+Theorem env_rel_build_rec_env2:
+  env_rel v_rel envx envy ==>
+  env_rel v_rel <|v := build_rec_env funs envx nsEmpty; c := envxC|>
+          <|v := build_rec_env funs envy nsEmpty; c := envxC|>
+Proof
+  cheat
+  (*
+  strip_tac >> fs[build_rec_env_merge] >>
+  irule  env_rel_alist_to_ns >>
+  fs[EVERY2_MAP ] >>
+  fs[ELIM_UNCURRY,v_rel_Closure] >>
+  fs[ EVERY2_refl]
+  *)
+QED
+
+Triviality A_EQ_B_UNION_A:
+  A = B UNION A <=> (B SUBSET A)
+Proof
+ ASM_SET_TAC[]
+QED
+
+Triviality list_to_set_SUBSET:
+  (set xs ⊆ A) <=>
+  EVERY (\x. x ∈ A) xs
+Proof
+  fs[SUBSET_DEF,EVERY_MEM,IN_DEF]
+QED
+
 Triviality v_rel_do_opapp:
    LIST_REL v_rel xs ys ==>
-   OPTREL (env_rel v_rel ### (=)) (do_opapp xs) (do_opapp ys)
+   OPTREL (\(env,e) (env',e').
+        env_rel_on (FV e) v_rel env env' /\
+        e = e'
+     ) (do_opapp xs) (do_opapp ys)
 Proof
    strip_tac >>
    fs[do_opapp_def] >>
    rpt (PURE_TOP_CASE_TAC >> fs[]) >>
    gvs[v_rel_Closure]
-   >- cheat
-   >- cheat
-   >- cheat
-   >- cheat
+   >- (
+      irule env_rel_on_add_nsBind >>
+      fs[])
+   >- (
+      irule env_rel_on_add_nsBind >>
+      fs[] >>
+      fs[build_rec_env_merge] >>
+      fs[env_rel_on_def] >>
+      simp[nsDomMod_nsAppend_flat ] >>
+      rw[] >>
+      qmatch_goalsub_abbrev_tac `nsAppend A _` >>
+      `nsLookup (nsAppend A s'.v) n = nsLookup s'.v n`
+        by(
+         `nsLookup A n = NONE` by cheat >>
+         Cases_on ` nsLookup (nsAppend A s'.v) n` >>
+         fs[nsLookup_nsAppend_none,nsLookup_nsAppend_some]
+         >- (
+            qunabbrev_tac `A` >> fs[] >>
+            Cases_on `p1` >> fs[nsLookupMod_alist_to_ns])
+         >- fs[]) >>
+       fs[])
+   >- (
+      irule env_rel_on_add_nsBind >>
+      fs[] >>
+      fs[build_rec_env_merge] >>
+      fs[env_rel_on_def] >>
+      simp[nsDomMod_nsAppend_flat ] >>
+      rw[] >>
+      qmatch_goalsub_abbrev_tac `nsAppend A _` >>
+      `nsLookup (nsAppend A s.v) n = nsLookup s.v n`
+        by(
+         `nsLookup A n = NONE` by cheat >>
+         Cases_on ` nsLookup (nsAppend A s.v) n` >>
+         fs[nsLookup_nsAppend_none,nsLookup_nsAppend_some]
+         >- (
+            qunabbrev_tac `A` >> fs[] >>
+            Cases_on `p1` >> fs[nsLookupMod_alist_to_ns])
+         >- fs[]) >>
+      fs[])
+   >- (
+      irule env_rel_on_add_nsBind >>
+      fs[] >>
+      fs[build_rec_env_merge] >>
+      irule env_rel_on_nsAppend >>
+      irule_at (Any) env_rel_on_alist_to_ns >>
+      fs[EVERY2_MAP] >>
+      simp[ELIM_UNCURRY,v_rel_Closure] >>
+      simp[EVERY2_refl] >>
+      simp[MAP_MAP_o,o_ABS_R] >>
+      fs[env_rel_on_def] >>
+      Q.EXISTS_TAC `FV r DIFF {Short q}` >>
+      Q.EXISTS_TAC `FV r DIFF {Short q}` >>
+      fs[]
+      )
 QED
 
 Triviality v_rel_v_to_list:
@@ -1018,33 +1165,6 @@ Proof
 QED
 
 
-Theorem env_rel_build_rec_env:
-  env_rel v_rel envx envy /\
-  env_rel v_rel enva envb ==>
-  env_rel v_rel <|v := build_rec_env funs envx enva.v; c := envxC|>
-          <|v := build_rec_env funs envy envb.v; c := envxC|>
-Proof
-  strip_tac >> fs[build_rec_env_merge] >>
-  irule env_rel_nsAppend >> fs[] >>
-  REVERSE CONJ_TAC >- fs[env_rel_def] >>
-  irule  env_rel_alist_to_ns >>
-  fs[EVERY2_MAP ] >>
-  fs[ELIM_UNCURRY,v_rel_Closure] >>
-  fs[ EVERY2_refl]
-QED
-
-Theorem env_rel_build_rec_env2:
-  env_rel v_rel envx envy ==>
-  env_rel v_rel <|v := build_rec_env funs envx nsEmpty; c := envxC|>
-          <|v := build_rec_env funs envy nsEmpty; c := envxC|>
-Proof
-  strip_tac >> fs[build_rec_env_merge] >>
-  irule  env_rel_alist_to_ns >>
-  fs[EVERY2_MAP ] >>
-  fs[ELIM_UNCURRY,v_rel_Closure] >>
-  fs[ EVERY2_refl]
-QED
-
 val s = mk_var ("s", ``: 'ffi semanticPrimitives$state``);
 Triviality sem_env_elim:
    !env envV. (env: v sem_env) with v := envV = <|v := envV; c := env.c|>
@@ -1054,7 +1174,7 @@ QED
 
 Theorem v_rel_evaluate:
   (!s envx es s' res envy refs.
-  env_rel v_rel envx envy /\
+  env_rel_on (FV_list es) v_rel envx envy /\
   LIST_REL (store_v_rel v_rel) s.refs refs /\
   evaluate ^s envx es = (s',res) ==>
   ?res' t refs'.
@@ -1063,7 +1183,7 @@ Theorem v_rel_evaluate:
   LIST_REL (store_v_rel v_rel) s'.refs refs' /\
   result_rel (LIST_REL v_rel) v_rel res res') /\
   (!s envx v pes err_v s' res envy v' err_v' refs.
-   env_rel v_rel envx envy /\
+   env_rel_on (FV_pes pes) v_rel envx envy /\
    LIST_REL (store_v_rel v_rel) s.refs refs /\
    v_rel v v' /\ v_rel err_v err_v'  ==>
    evaluate_match ^s envx v pes err_v = (s',res) ==>
@@ -1079,7 +1199,10 @@ Proof
   >- (
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
-    gvs[] >> simp[evaluate_def] >> gvs[]
+    gvs[] >> simp[evaluate_def] >> gvs[] >>
+    `env_rel_on (FV e1) v_rel envx envy /\
+     env_rel_on (FV e2 ∪ FV_list es) v_rel envx envy`
+     by cheat
     >-(
       first_x_assum $ drule_all_then strip_assume_tac >> fs[] >>
       first_x_assum $ drule_all_then strip_assume_tac >> fs[] >>
@@ -1108,19 +1231,23 @@ Proof
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
     simp[evaluate_def] >> gvs[] >>
+    `env_rel_on (FV e) v_rel envx envy` by cheat >>
     first_x_assum $ drule_all_then strip_assume_tac >> fs[]
     >- (
-    `envx.c = envy.c` by fs[env_rel_def] >>
-   drule_all_then (fs o single) v_rel_can_pmatch_all)
+    `envx.c = envy.c` by fs[env_rel_on_def] >>
+    drule_all_then (fs o single) v_rel_can_pmatch_all >>
+    `env_rel_on (FV_pes pes) v_rel envx envy` by cheat >>
+    first_x_assum drule_all >> fs[])
     >- (
-    `envx.c = envy.c` by fs[env_rel_def] >>
+    `envx.c = envy.c` by fs[env_rel_on_def] >>
     drule_all_then (fs o single) v_rel_can_pmatch_all))
   (* Con *)
   >- (
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
     simp[evaluate_def] >> gvs[] >>
-    `envx.c = envy.c` by fs[env_rel_def] >>
+    `envx.c = envy.c` by fs[env_rel_on_def] >>
+    `env_rel_on (FV_list (REVERSE es)) v_rel envx envy` by cheat >>
     fs[] >>
     first_x_assum $ drule_all_then strip_assume_tac >> fs[]
     >- (
@@ -1137,15 +1264,13 @@ Proof
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
     simp[evaluate_def] >> gvs[] >>
-    fs[env_rel_def] >>
-    first_x_assum (qspec_then `n` mp_tac) >>
-    fs[OPTREL_SOME] >> rw[] >> fs[])
+    fs[env_rel_on_def,OPTREL_SOME])
   (* Fun *)
   >- (
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
     simp[evaluate_def] >> gvs[v_rel_refl] >>
-    simp[Once v_rel_cases])
+    simp[v_rel_Closure])
   (* App *)
   >- (
     qpat_x_assum `evaluate_ _ _ = (s',res)`
@@ -1156,14 +1281,18 @@ Proof
     >- (
       disch_then (strip_assume_tac o SRULE[AllCaseEqs()]) >>
       gvs[] >>
+      `env_rel_on (FV_list (REVERSE es)) v_rel envx envy` by cheat >>
       first_x_assum $ drule_all_then strip_assume_tac >>
       gvs[] >>
       (qspecl_then [`REVERSE v'`,`REVERSE vs`] mp_tac $ GEN_ALL v_rel_do_opapp >>
       impl_tac >- fs[]) >>
-      fs[OPTREL_SOME,PAIR_REL_eq_PAIR,PULL_EXISTS])
+      fs[OPTREL_SOME,PAIR_REL_eq_PAIR,PULL_EXISTS] >>
+      rw[] >>
+      pairarg_tac >> gs[])
     >- (
       disch_then (strip_assume_tac o SRULE[AllCaseEqs()]) >>
       gvs[] >>
+      `env_rel_on (FV_list (REVERSE es)) v_rel envx envy` by cheat >>
       first_x_assum $ drule_all_then strip_assume_tac >>
       gvs[] >>
       rename1`do_app (refs'',s'.ffi) op (REVERSE v')` >>
@@ -1176,6 +1305,8 @@ Proof
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
     simp[evaluate_def] >> gvs[] >>
+    `env_rel_on (FV e1) v_rel envx envy` by cheat >>
+    `env_rel_on (FV e) v_rel envx envy` by cheat >>
     first_x_assum $ drule_all_then strip_assume_tac >>
     gvs[] >>
     qpat_x_assum `do_log _ _ _ = _`
@@ -1190,6 +1321,9 @@ Proof
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
     simp[evaluate_def] >> gvs[] >>
+    `env_rel_on (FV e1) v_rel envx envy` by cheat >>
+    `env_rel_on (FV e2) v_rel envx envy` by cheat >>
+    `env_rel_on (FV e3) v_rel envx envy` by cheat >>
     first_x_assum $ drule_all_then strip_assume_tac >>
     gvs[] >>
     qpat_x_assum `do_if _ _ _ = _`
@@ -1204,16 +1338,21 @@ Proof
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
     simp[evaluate_def] >> gvs[] >>
+    `env_rel_on (FV e) v_rel envx envy`  by cheat >>
     first_x_assum $ drule_all_then strip_assume_tac >>
     gvs[] >>
     every_drule_then strip_assume_tac evaluate_sing >> gvs[] >>
-    `envx.c = envy.c` by fs[env_rel_def] >>
-    drule_all_then (fs o single) v_rel_can_pmatch_all)
+    `envx.c = envy.c` by fs[env_rel_on_def] >>
+    drule_all_then (fs o single) v_rel_can_pmatch_all >>
+    `env_rel_on (FV_pes pes) v_rel envx envy`  by cheat >>
+    fs[]
+    )
   (* Let *)
   >- (
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
     simp[evaluate_def] >> gvs[v_rel_refl] >>
+    `env_rel_on (FV e1) v_rel envx envy` by cheat >>
     first_x_assum $ drule_all_then strip_assume_tac >>
     gvs[] >>
     every_drule_then strip_assume_tac evaluate_sing >> gvs[] >>
@@ -1221,7 +1360,9 @@ Proof
     first_x_assum (qspec_then `envy'` mp_tac) >>
     disch_then (drule_at (Pos $ el 2)) >>
     qunabbrev_tac `envy'` >>
-    impl_tac >- fs[ env_rel_nsOptBind] >>
+    impl_tac >-
+       (irule env_rel_on_nsOptBind >>
+        fs[] >> cheat) >>
     strip_tac >> fs[])
   (* Letrec *)
   >- (
@@ -1233,24 +1374,20 @@ Proof
     disch_then (drule_at (Pos $ el 2)) >>
     qunabbrev_tac `envy'` >>
     impl_tac >-
-      (`envx.c = envy.c` by fs[env_rel_def] >>
-      PURE_ONCE_REWRITE_TAC[sem_env_elim] >>
-      fs[] >>
-      irule env_rel_build_rec_env >>
-      fs[])>>
+      (cheat)>>
     strip_tac >> fs[])
   (* Tannot *)
   >- (
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
-    simp[evaluate_def] >>
+    simp[evaluate_def] >> fs[] >>
     first_x_assum $ drule_all_then strip_assume_tac >>
     fs[])
   (* Lannot *)
   >- (
     qpat_x_assum `evaluate_ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_def,AllCaseEqs()]) >>
-    simp[evaluate_def] >>
+    simp[evaluate_def] >> fs[] >>
     first_x_assum $ drule_all_then strip_assume_tac >>
     fs[])
   (* evaluate_match single*)
@@ -1260,22 +1397,18 @@ Proof
     qpat_x_assum `evaluate_match  _ _ _ _ _ = (s',res)`
        (strip_assume_tac o SRULE[Once evaluate_match_def ,AllCaseEqs()]) >>
     simp[evaluate_match_def] >> gvs[] >>
-    `envx.c = envy.c` by fs[env_rel_def] >>
+    `envx.c = envy.c` by fs[env_rel_on_def] >>
     drule_at (Pos $ el 4) $ CONJUNCT1 v_rel_pmatch >>
     fs[] >> disch_then $ drule_all_then strip_assume_tac >>
+    `env_rel_on (FV_pes pes) v_rel envx envy` by cheat >>
     fs[] >>
     qmatch_goalsub_abbrev_tac `evaluate _ envy' _` >>
     first_x_assum (qspec_then `envy'` mp_tac) >>
     disch_then (drule_at (Pos $ el 2)) >>
     qunabbrev_tac `envy'` >>
     impl_tac >-
-      (irule env_rel_nsAppend >>
-       CONJ_TAC >-
-        (PURE_ONCE_REWRITE_TAC[sem_env_elim] >>
-        fs[] >>
-        irule env_rel_alist_to_ns >>
-        fs[])
-        >- (fs[env_rel_def])) >>
+      (irule env_rel_on_nsAppend >>
+       cheat) >>
     strip_tac >> fs[])
 QED
 
@@ -1294,7 +1427,7 @@ Proof
   >- (
     qpat_x_assum `evaluate_decs _ _ _ = _`
        (strip_assume_tac o SRULE[evaluate_decs_def,AllCaseEqs()]) >>
-    fs[evaluate_decs_def] >> fs[env_rel_def,v_rel_refl])
+    fs[evaluate_decs_def] >> fs[env_rel_on_def,v_rel_refl])
   >- (
     qpat_x_assum `evaluate_decs _ _ _ = _`
        (strip_assume_tac o SRULE[evaluate_decs_def,AllCaseEqs()]) >>
@@ -1304,31 +1437,35 @@ Proof
     first_x_assum (qspec_then `envy'` mp_tac) >>
     disch_then $ drule_at (Pos $ el 2) >>
     qunabbrev_tac `envy'` >>
-    impl_tac >- simp[env_rel_extend_dec_env]>>
+    impl_tac >- cheat
+       (*simp[env_rel_extend_dec_env]*) >>
     strip_tac  >> fs[] >>
     fs[combine_dec_result_def] >>
     TOP_CASE_TAC >> fs[] >>
+    cheat (*
     simp[SRULE []$ GSYM extend_dec_env_def] >>
-    simp[env_rel_extend_dec_env])
+    simp[env_rel_extend_dec_env] *))
   (* Dlet *)
   >- (
     qpat_x_assum `evaluate_decs _ _ _ = _`
        (strip_assume_tac o SRULE[evaluate_decs_def,AllCaseEqs()]) >>
     fs[evaluate_decs_def] >> gvs[] >>
-    `envx.c = envy.c` by fs[env_rel_def] >>
+    `envx.c = envy.c` by fs[env_rel_on_def] >>
     fs[] >>
+    `env_rel_on (FV_list [e]) v_rel envx envy` by cheat >>
     drule_all $ CONJUNCT1  v_rel_evaluate >>
     strip_tac >> fs[] >>
     every_drule_then strip_assume_tac evaluate_sing >> gvs[] >>
     drule_at (Pos $ el 4) $ CONJUNCT1 v_rel_pmatch >>
     fs[] >> disch_then drule_all >> strip_tac >> fs[] >>
-    fs[env_rel_alist_to_ns])
+    (*fs[env_rel_alist_to_ns]*)
+    cheat)
   (* Dletrec *)
   >- (
     qpat_x_assum `evaluate_decs _ _ _ = _`
        (strip_assume_tac o SRULE[evaluate_decs_def,AllCaseEqs()]) >>
     fs[evaluate_decs_def] >> gvs[] >>
-    `envx.c = envy.c` by fs[env_rel_def] >>
+    `envx.c = envy.c` by fs[env_rel_on_def] >>
     fs[]
     >- fs[env_rel_build_rec_env2]
     >- (drule_then (SUBST_ALL_TAC o EQF_INTRO) (iffRL NOT_EVERY) >>
@@ -1359,7 +1496,7 @@ Proof
     qpat_x_assum `evaluate_decs _ _ _ = _`
        (strip_assume_tac o SRULE[evaluate_decs_def,AllCaseEqs()]) >>
     fs[evaluate_decs_def] >> gvs[]
-    >> simp[env_rel_def])
+    >> simp[env_rel_on_def])
   (* Dmod *)
   >- (
     qpat_x_assum `evaluate_decs _ _ _ = _`
@@ -1367,7 +1504,8 @@ Proof
     fs[evaluate_decs_def] >> gvs[] >>
     first_x_assum $ drule_all_then strip_assume_tac >>
     gvs[] >>
-    fs[env_rel_nsLift])
+    cheat
+    (* fs[env_rel_nsLift] *))
   (* Dlocal *)
   >- (
     qpat_x_assum `evaluate_decs _ _ _ = _`
@@ -1378,7 +1516,8 @@ Proof
     first_x_assum (qspec_then `envy'` mp_tac) >>
     disch_then $ drule_at (Pos $ el 2) >>
     qunabbrev_tac `envy'` >>
-    impl_tac >- fs[env_rel_extend_dec_env]>>
+    impl_tac >- cheat
+      (* fs[env_rel_extend_dec_env] *)>>
     strip_tac >> fs[])
 QED
 
@@ -1396,15 +1535,23 @@ Proof
   rpt (TOP_CASE_TAC >> simp[])
 QED
 
-(*TODO this is false the results needs to be weakened to an
-  equivalence relation*)
+Triviality s_with_same:
+  (st1 with refs := st1.refs) = st1
+Proof
+  simp[state_component_equality]
+QED
+
+(*TODO this is false the refs are not the same after compile_decs*)
 Theorem compile_decs_correct:
-  ∀s env ds s' res.
+  ∀s env ds res s'.
     evaluate_decs s env ds = (s', res) ∧
     res ≠ Rerr (Rabort Rtype_error) ⇒
-      evaluate_decs s env (compile_decs ds) = (s', res)
+    ?t' res'.
+      evaluate_decs s env (compile_decs ds) = (s', res') /\
+      result_rel (env_rel v_rel) v_rel res res'
 Proof
   ho_match_mp_tac evaluate_decs_ind \\ rw [Once compile_decs_def]
+  >- simp[evaluate_decs_def,compile_decs_def]
   >~ [‘d1::d2::ds’] >- (
     qpat_x_assum ‘evaluate_decs _ _ _ = _’ mp_tac
     \\ simp [Once evaluate_decs_def]
@@ -1412,18 +1559,52 @@ Proof
     \\ gvs[]
     \\ simp[Once compile_decs_cons,compile_decs_sing_HD]
     \\ simp[Once evaluate_decs_cons,compile_decs_sing_HD]
-    \\ fs[ combine_dec_result_eq_Rerr])
+    \\ fs[combine_dec_result_eq_Rerr]
+    \\ `env_rel v_rel (env1 +++ env) (v' +++ env)` by cheat
+    \\ drule_at (Pos $ el 2) v_rel_evaluate_decs
+    \\ disch_then $ (every_drule_then THEN_TCL qspec_then `st1.refs`) mp_tac
+    \\ simp[EVERY2_refl,store_v_rel_refl,v_rel_refl]
+    \\ rpt  strip_tac >> fs[s_with_same]
+    \\ cheat)
   >~ [‘[Dmod _ _]’] >- (
-    gvs [compile_decs_def,evaluate_decs_def,AllCaseEqs()])
+    gvs [compile_decs_def,evaluate_decs_def,AllCaseEqs()] >>
+    cheat)
   >~ [‘[Dlocal _ _]’] >- (
-    gvs [compile_decs_def,evaluate_decs_def,AllCaseEqs()])
+    gvs [compile_decs_def,evaluate_decs_def,AllCaseEqs()] >>
+    cheat)
   >~ [‘[Dletrec _ _]’] >- (
     gvs [compile_decs_def] >>
-    TOP_CASE_TAC  >- fs[] >>
-    reverse TOP_CASE_TAC  >- fs[] >>
+    TOP_CASE_TAC  >- fs[result_rel_refl,
+  env_rel_on_def,
+   v_rel_refl] >>
+    reverse TOP_CASE_TAC  >- fs[result_rel_refl,
+  env_rel_on_def,
+   v_rel_refl] >>
     `? fun_name first_arg exp.h = (fun_name,first_arg,exp)`
        by (PairCases_on `h` >> simp_tac(srw_ss())[]) >>
      POP_ASSUM SUBST_ALL_TAC >> simp[] >>
-     TOP_CASE_TAC >> cheat)
+     TOP_CASE_TAC  >- fs[result_rel_refl,
+  env_rel_on_def,
+   v_rel_refl] >>
+    cheat)
   >> fs[compile_decs_def]
+  >>fs[result_rel_refl,
+  env_rel_on_def,
+   v_rel_refl]
+QED
+
+Theorem compile_semantics:
+  ¬semantics_prog s env prog Fail ∧
+  semantics_prog s env prog outcome ⇒
+    semantics_prog s env (compile_decs prog) outcome
+Proof
+  Cases_on `outcome` >> gs[SF CONJ_ss,semantics_prog_def]
+  >- (rw[evaluate_prog_with_clock_def,UNCURRY_EQ] >>
+     first_x_assum (qspec_then `k` strip_assume_tac) >>
+     drule compile_decs_correct >>
+     fs[PULL_EXISTS] >> cheat)
+  >- (rw[evaluate_prog_with_clock_def,AllCasePreds(),UNCURRY_EQ] >>
+     drule compile_decs_correct >>
+     fs[PULL_EXISTS] >> rw[] >>
+     qexists_tac `k` >> fs[])
 QED
