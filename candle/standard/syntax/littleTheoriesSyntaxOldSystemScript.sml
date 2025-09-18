@@ -2498,7 +2498,7 @@ Proof
   >> gvs[esubst_ty_def]
 QED
 
-Theorem RACONV_SYM_simple[simp]:
+Theorem RACONV_REFL_simple[simp]:
   RACONV [] (x, x)
 Proof
   metis_tac[RACONV_REFL, EVERY_MEM, MEM]
