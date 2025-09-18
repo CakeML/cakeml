@@ -4253,22 +4253,6 @@ Proof
       `∃v'. EL n (TL s'_i1.refs) = Thunk NotEvaluated v' ∧
              v_rel genv' v v'` by (
         first_x_assum drule >> gvs[] >> rw[Once sv_rel_cases]) >>
-      simp[REWRITE_RULE [ADD1] EL, Once result_rel_cases] >>
-      goal_assum drule >> rw[])
-    >- (
-      gvs[astOp_to_flatOp_def, evaluate_def, compile_exps_reverse,
-          AllCaseEqs()] >>
-      qpat_x_assum `result_rel _ _ _ r_i1` mp_tac >>
-      rw[Once result_rel_cases] >>
-      gvs[oneline semanticPrimitivesTheory.dest_thunk_def, AllCaseEqs()] >>
-      rgs[Once v_rel_cases] >> gvs[] >>
-      simp[dest_thunk_def, AllCaseEqs(), PULL_EXISTS] >>
-      gvs[store_lookup_def, s_rel_cases, LIST_REL_EL_EQN] >>
-      `n + 1 < LENGTH s'_i1.refs` by (Cases_on `s'_i1.refs` >> gvs[]) >>
-      gvs[] >>
-      `∃v'. EL n (TL s'_i1.refs) = Thunk NotEvaluated v' ∧
-             v_rel genv' v v'` by (
-        first_x_assum drule >> gvs[] >> rw[Once sv_rel_cases]) >>
       simp[REWRITE_RULE [ADD1] EL, Once result_rel_cases, PULL_EXISTS] >>
       simp[AppUnit_def, dec_clock_def] >>
       ntac 5 $ simp[Once evaluate_def] >>
@@ -4295,7 +4279,6 @@ Proof
       ntac 5 $ simp[Once evaluate_def] >>
       drule do_opapp >> simp[PULL_EXISTS] >>
       disch_then drule >> simp[Once v_rel_cases] >> strip_tac >> gvs[] >>
-      dxrule invariant_dec_clock >> strip_tac >>
       dxrule invariant_dec_clock >> strip_tac >>
       gvs[evaluateTheory.dec_clock_def, flatSemTheory.dec_clock_def] >>
       last_x_assum drule_all >> disch_then $ qspec_then ‘t1’ assume_tac >> gvs[] >>
@@ -4358,7 +4341,6 @@ Proof
       ntac 5 $ simp[Once evaluate_def] >>
       drule do_opapp >> simp[PULL_EXISTS] >>
       disch_then drule >> simp[Once v_rel_cases] >> strip_tac >> gvs[] >>
-      dxrule invariant_dec_clock >> strip_tac >>
       dxrule invariant_dec_clock >> strip_tac >>
       gvs[evaluateTheory.dec_clock_def, flatSemTheory.dec_clock_def] >>
       last_x_assum drule_all >> disch_then $ qspec_then ‘t1’ assume_tac >> gvs[] >>

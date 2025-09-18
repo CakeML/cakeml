@@ -976,7 +976,7 @@ Proof
     >- (
       Cases_on `op = ThunkOp ForceThunk` >> gvs []
       >- (
-        gvs [AllCaseEqs(), dec_clock_def, dest_GlobalVarLookup_def]
+        gvs [AllCaseEqs(), dec_clock_def, dest_GlobalVarLookup_def, PULL_EXISTS]
         >- (
           gvs [oneline dest_thunk_def, AllCaseEqs(),
                semanticPrimitivesTheory.store_lookup_def, flat_state_rel_def,
@@ -984,16 +984,12 @@ Proof
           first_x_assum drule >> gvs [] >> rw [] >>
           gvs [find_sem_prim_res_globals_def, find_v_globals_def] >>
           drule_all find_refs_globals_EL >> rw [])
-        >- gvs [oneline dest_thunk_def, AllCaseEqs(),
-                semanticPrimitivesTheory.store_lookup_def, flat_state_rel_def,
-                find_sem_prim_res_globals_def, find_result_globals_def]
         >- (
           gvs [oneline dest_thunk_def, AllCaseEqs(),
                semanticPrimitivesTheory.store_lookup_def, flat_state_rel_def] >>
           simp [PULL_EXISTS] >>
           last_x_assum $ qspecl_then
-            [`reachable`, `new_removed_state with clock :=
-                           new_removed_state.clock - 1`] mp_tac >>
+            [`reachable`, `new_removed_state`] mp_tac >>
           impl_tac
           >- (
             gvs [AppUnit_def, find_lookups_def, dest_GlobalVarLookup_def,
@@ -1013,8 +1009,7 @@ Proof
           gvs [oneline dest_thunk_def, AllCaseEqs(),
                semanticPrimitivesTheory.store_lookup_def, flat_state_rel_def] >>
           last_x_assum $ qspecl_then
-            [`reachable`, `new_removed_state with clock :=
-                           new_removed_state.clock - 1`] mp_tac >>
+            [`reachable`, `new_removed_state`] mp_tac >>
           impl_tac
           >- (
             gvs [AppUnit_def, find_lookups_def, dest_GlobalVarLookup_def,
@@ -1022,7 +1017,8 @@ Proof
                  EVERY_EL] >>
             first_x_assum drule >> rw [] >>
             drule_all find_refs_globals_EL >> rw []) >>
-          rw [])) >>
+          rw [] >>
+          goal_assum drule >> simp [])) >>
       Cases_on `do_app q op (REVERSE a)` >> fs[] >>
       PairCases_on `x` >> fs[] >> rveq >>
       drule (GEN_ALL do_app_SOME_flat_state_rel) >>

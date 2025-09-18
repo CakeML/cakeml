@@ -480,6 +480,7 @@ Proof
   \\ rw [] \\ fs [] \\ rw [] \\ fs []
   \\ rfs []
   \\ fsrw_tac [SATISFY_ss] [IS_PREFIX_TRANS]
+  \\ gvs [AppUnit_def]
   \\ metis_tac [IS_PREFIX_TRANS, FST, PAIR,
                 evaluate_io_events_mono,
                 with_clock_ffi,

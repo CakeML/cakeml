@@ -1773,13 +1773,6 @@ Proof
         gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS,
              store_lookup_def]
         \\ rgs [Once v_rel_cases]
-        \\ gvs [state_rel_def, LIST_REL_EL_EQN]
-        \\ qpat_x_assum `∀n. n < LENGTH t2.refs ⇒ _` drule \\ rw []
-        \\ Cases_on `EL n t2.refs` \\ gvs [])
-      >- (
-        gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS,
-             store_lookup_def]
-        \\ rgs [Once v_rel_cases]
         \\ `∃a. EL n t2.refs = Thunk NotEvaluated a ∧
                 v_rel v a` by (
           gvs [state_rel_def, LIST_REL_EL_EQN]
@@ -1787,8 +1780,7 @@ Proof
           \\ Cases_on `EL n t2.refs` \\ gvs []) \\ gvs []
         \\ simp [PULL_EXISTS]
         \\ gvs [AppUnit_def, compile_exp_def, PULL_EXISTS, dec_name_to_num_def]
-        \\ last_x_assum $ qspecl_then [`1`, `<|v := [("f",a)]|>`,
-                                       `t2 with clock := t2.clock - 1`] mp_tac
+        \\ last_x_assum $ qspecl_then [`1`, `<|v := [("f",a)]|>`, `t2`] mp_tac
         \\ impl_tac
         >- gvs [env_rel_def, ALOOKUP_rel_def, OPTREL_def, state_rel_def]
         \\ rw [] \\ gvs []
@@ -1817,8 +1809,7 @@ Proof
           \\ qpat_x_assum `∀n. n < LENGTH t2.refs ⇒ _` drule \\ rw []
           \\ Cases_on `EL n t2.refs` \\ gvs []) \\ gvs []
         \\ gvs [AppUnit_def, compile_exp_def, PULL_EXISTS, dec_name_to_num_def]
-        \\ last_x_assum $ qspecl_then [`1`, `<|v := [("f",a)]|>`,
-                                       `t2 with clock := t2.clock - 1`] mp_tac
+        \\ last_x_assum $ qspecl_then [`1`, `<|v := [("f",a)]|>`, `t2`] mp_tac
         \\ impl_tac
         >- gvs [env_rel_def, ALOOKUP_rel_def, OPTREL_def, state_rel_def]
         \\ rw [] \\ gvs []
