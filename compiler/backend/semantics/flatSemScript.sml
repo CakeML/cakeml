@@ -656,15 +656,6 @@ Proof
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
 QED
 
-Theorem pmatch_rows_Match_exp_size:
-  !pes s v env e.
-    pmatch_rows pes s v = Match (env',p,e) ==>
-    exp_size e < exp3_size pes
-Proof
-  Induct \\ fs [pmatch_rows_def,FORALL_PROD,CaseEq"match_result",CaseEq"bool"]
-  \\ rw [] \\ res_tac \\ fs [exp_size_def]
-QED
-
 Definition is_fresh_type_def:
   is_fresh_type type_id ctors ⇔
     !ctor. ctor ∈ ctors ⇒ !arity id. ctor ≠ ((id, SOME type_id), arity)
@@ -721,6 +712,63 @@ End
 
 Definition AppUnit_def:
   AppUnit x = flatLang$App None Opapp [x; Con None NONE []]
+End
+
+Definition exp_alt_size_def[simp]:
+  exp_alt_size (Raise a0 a1) = 1 + (tra_size a0 + exp_alt_size a1) ∧
+  exp_alt_size (Handle a0 a1 a2) =
+  1 + (tra_size a0 + (exp_alt_size a1 + exp3_alt_size a2)) ∧
+  exp_alt_size (Lit a0 a1) = 1 + (tra_size a0 + lit_size a1) ∧
+  exp_alt_size (Con a0 a1 a2) =
+  1 +
+  (tra_size a0 +
+   (option_size (pair_size (λx. x) (option_size (λx. x))) a1 +
+    exp6_alt_size a2)) ∧
+  exp_alt_size (Var_local a0 a1) = 1 + (tra_size a0 + list_size char_size a1) ∧
+  exp_alt_size (Fun a0 a1 a2) =
+  1 + (list_size char_size a0 + (list_size char_size a1 + exp_alt_size a2)) ∧
+  exp_alt_size (App a0 a1 a2) =
+  1 + (tra_size a0 + (op_size a1 + exp6_alt_size a2))
+    + (if a1 = ThunkOp ForceThunk then 100 else 0) ∧
+  exp_alt_size (If a0 a1 a2 a3) =
+  1 + (tra_size a0 + (exp_alt_size a1 + (exp_alt_size a2 + exp_alt_size a3))) ∧
+  exp_alt_size (Mat a0 a1 a2) =
+  1 + (tra_size a0 + (exp_alt_size a1 + exp3_alt_size a2)) ∧
+  exp_alt_size (Let a0 a1 a2 a3) =
+  1 +
+  (tra_size a0 +
+   (option_size (list_size char_size) a1 + (exp_alt_size a2 + exp_alt_size a3))) ∧
+  exp_alt_size (Letrec a0 a1 a2) =
+  1 + (list_size char_size a0 + (exp1_alt_size a1 + exp_alt_size a2)) ∧
+  exp1_alt_size [] = 0 ∧
+  exp1_alt_size (a0::a1) = 1 + (exp2_alt_size a0 + exp1_alt_size a1) ∧
+  exp2_alt_size (a0,a1) = 1 + (list_size char_size a0 + exp4_alt_size a1) ∧
+  exp3_alt_size [] = 0 ∧
+  exp3_alt_size (a0::a1) = 1 + (exp5_alt_size a0 + exp3_alt_size a1) ∧
+  exp4_alt_size (a0,a1) = 1 + (list_size char_size a0 + exp_alt_size a1) ∧
+  exp5_alt_size (a0,a1) = 1 + (pat_size a0 + exp_alt_size a1) ∧ exp6_alt_size [] = 0 ∧
+  exp6_alt_size (a0::a1) = 1 + (exp_alt_size a0 + exp6_alt_size a1)
+End
+
+Theorem exp6_alt_size:
+  exp6_alt_size xs = LENGTH xs + SUM (MAP exp_alt_size xs)
+Proof
+  Induct_on `xs` \\ simp []
+QED
+
+Theorem pmatch_rows_Match_exp_alt_size:
+  !pes s v env e.
+    pmatch_rows pes s v = Match (env',p,e) ==>
+    exp_alt_size e < exp3_alt_size pes
+Proof
+  Induct \\ fs [pmatch_rows_def,FORALL_PROD,CaseEq"match_result",CaseEq"bool"]
+  \\ rw [] \\ res_tac \\ fs []
+QED
+
+Definition dec_alt_size_def[simp]:
+  dec_alt_size (Dlet a) = 1 + exp_alt_size a ∧
+  dec_alt_size (Dtype a0 a1) = 1 + (a0 + spt_size (λx. x) a1) ∧
+  dec_alt_size (Dexn a0 a1) = 1 + (a0 + a1)
 End
 
 Definition evaluate_def:
@@ -793,16 +841,13 @@ Definition evaluate_def:
           | NotThunk => (s, Rerr (Rabort Rtype_error))
           | IsThunk Evaluated v => (s, Rval [v])
           | IsThunk NotEvaluated f =>
-             if s.clock = 0 then
-               (s, Rerr (Rabort Rtimeout_error))
-             else
-               case evaluate <| v := [("f",f)] |> (dec_clock s)
-                      [AppUnit (Var_local None "f")] of
-               | (s, Rval vs2) =>
-                   (case update_thunk vs s.refs vs2 of
-                    | NONE => (s, Rerr (Rabort Rtype_error))
-                    | SOME refs => (s with refs := refs, Rval vs2))
-               | (s, Rerr e) => (s, Rerr e))
+             (case evaluate <| v := [("f",f)] |> s
+                    [AppUnit (Var_local None "f")] of
+              | (s, Rval vs2) =>
+                  (case update_thunk vs s.refs vs2 of
+                   | NONE => (s, Rerr (Rabort Rtype_error))
+                   | SOME refs => (s with refs := refs, Rval vs2))
+              | (s, Rerr e) => (s, Rerr e)))
        else
         (case (do_app s op (REVERSE vs)) of
          | NONE => (s, Rerr (Rabort Rtype_error))
@@ -862,16 +907,16 @@ Definition evaluate_def:
 Termination
   wf_rel_tac `inv_image ($< LEX $<)
     (\x. case x of
-        | INL (env,s,exps) => (s.clock, SUM (MAP exp_size exps) + LENGTH exps)
-        | (INR(INL(s,d))) => (s.clock,dec_size d + 1)
-        | (INR(INR(s,ds))) => (s.clock,SUM (MAP dec_size ds) + LENGTH ds + 1))`
-  \\ simp [exp_size_def, dec_clock_def]
+        | INL (env,s,exps) => (s.clock, SUM (MAP exp_alt_size exps) + LENGTH exps)
+        | (INR(INL(s,d))) => (s.clock,dec_alt_size d + 1)
+        | (INR(INR(s,ds))) => (s.clock,SUM (MAP dec_alt_size ds) + LENGTH ds + 1))`
+  \\ simp [dec_clock_def]
   \\ rw []
   \\ imp_res_tac fix_clock_IMP
   \\ imp_res_tac do_if_either_or
-  \\ imp_res_tac pmatch_rows_Match_exp_size
+  \\ imp_res_tac pmatch_rows_Match_exp_alt_size
   \\ fs []
-  \\ simp [MAP_REVERSE, SUM_REVERSE, exp6_size]
+  \\ simp [MAP_REVERSE, SUM_REVERSE, exp6_alt_size, AppUnit_def, char_size_def]
 End
 
 val op_thms = { nchotomy = op_nchotomy, case_def = op_case_def};

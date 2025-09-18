@@ -241,16 +241,13 @@ Definition evaluate_def:
          | NotThunk => (Rerr (Rabort Rtype_error),s)
          | IsThunk Evaluated v => (Rval [v],s)
          | IsThunk NotEvaluated f =>
-             if s.clock = 0 then
-               (Rerr (Rabort Rtimeout_error),s)
-             else
-               (case find_code (SOME force_loc) [thunk_v; f] s.code of
-                | NONE => (Rerr(Rabort Rtype_error),s)
-                | SOME (args,exp) =>
-                    if s.clock = 0 then
-                      (Rerr(Rabort Rtimeout_error),s with clock := 0)
-                    else
-                      evaluate ([exp],args,dec_clock 1 s))) /\
+             (case find_code (SOME force_loc) [thunk_v; f] s.code of
+              | NONE => (Rerr(Rabort Rtype_error),s)
+              | SOME (args,exp) =>
+                  if s.clock = 0 then
+                    (Rerr(Rabort Rtimeout_error),s with clock := 0)
+                  else
+                    evaluate ([exp],args,dec_clock 1 s))) /\
   (evaluate ([Call ticks dest xs handler],env,s1) =
      if IS_NONE dest /\ IS_SOME handler then (Rerr(Rabort Rtype_error),s1) else
      case fix_clock s1 (evaluate (xs,env,s1)) of

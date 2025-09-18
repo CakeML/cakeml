@@ -317,13 +317,28 @@ Proof
             mp_tac th THEN match_mp_tac memory_rel_rearrange)
       \\ rw [] \\ gvs []
       \\ cheat)
-    \\ `¬word_cmp Equal 24w 56w` by cheat \\ gvs []
+    \\ `¬word_cmp Equal 24w 56w` by (
+      simp [asmTheory.word_cmp_def, dimword_def] \\ fs [good_dimindex_def])
+    \\ gvs []
     \\ simp [asmTheory.word_cmp_def]
     \\ simp [wordSemTheory.get_vars_def, wordSemTheory.get_var_def,
              lookup_insert]
     \\ simp [GSYM wordSemTheory.get_var_def]
     \\ simp [wordSemTheory.bad_dest_args_def]
-    \\ Cases_on `s.clock = 0` \\ gvs [] >- cheat
+    \\ Cases_on `s.clock = 0` \\ gvs [] >- (
+      TOP_CASE_TAC \\ simp [wordSemTheory.evaluate_def]
+      >- (
+        simp [wordSemTheory.get_vars_def, wordSemTheory.get_var_def,
+              lookup_insert]
+        \\ simp [GSYM wordSemTheory.get_var_def]
+        \\ simp [wordSemTheory.bad_dest_args_def]
+        \\ cheat)
+      \\ TOP_CASE_TAC \\ simp [wordSemTheory.evaluate_def]
+      \\ simp [wordSemTheory.get_vars_def, wordSemTheory.get_var_def,
+               lookup_insert]
+      \\ simp [GSYM wordSemTheory.get_var_def]
+      \\ simp [wordSemTheory.bad_dest_args_def]
+      \\ cheat)
     \\ Cases_on `find_code (SOME loc) [RefPtr v0 ptr; a] s.code
                            s.stack_frame_sizes` \\ gvs []
     \\ Cases_on `x''` \\ gvs []

@@ -631,6 +631,45 @@ Definition AppUnit_def:
   AppUnit x = closLang$App None NONE x [Op None (BlockOp (Cons 0)) []]
 End
 
+Definition exp_alt_size_def[simp]:
+  exp_alt_size (Var a0 a1) = 1 + (tra_size a0 + a1) ∧
+  exp_alt_size (If a0 a1 a2 a3) =
+  1 + (tra_size a0 + (exp_alt_size a1 + (exp_alt_size a2 + exp_alt_size a3))) ∧
+  exp_alt_size (Let a0 a1 a2) =
+  1 + (tra_size a0 + (exp3_alt_size a1 + exp_alt_size a2)) ∧
+  exp_alt_size (Raise a0 a1) = 1 + (tra_size a0 + exp_alt_size a1) ∧
+  exp_alt_size (Handle a0 a1 a2) =
+  1 + (tra_size a0 + (exp_alt_size a1 + exp_alt_size a2)) ∧
+  exp_alt_size (Tick a0 a1) = 1 + (tra_size a0 + exp_alt_size a1) ∧
+  exp_alt_size (Call a0 a1 a2 a3) =
+  1 + (tra_size a0 + (a1 + (a2 + exp3_alt_size a3))) ∧
+  exp_alt_size (App a0 a1 a2 a3) =
+  1 +
+  (tra_size a0 + (option_size (λx. x) a1 + (exp_alt_size a2 + exp3_alt_size a3))) ∧
+  exp_alt_size (Fn a0 a1 a2 a3 a4) =
+  1 +
+  (mlstring_size a0 +
+   (option_size (λx. x) a1 +
+    (option_size (list_size (λx. x)) a2 + (a3 + exp_alt_size a4)))) ∧
+  exp_alt_size (Letrec a0 a1 a2 a3 a4) =
+  1 +
+  (list_size mlstring_size a0 +
+   (option_size (λx. x) a1 +
+    (option_size (list_size (λx. x)) a2 + (exp1_alt_size a3 + exp_alt_size a4)))) ∧
+  exp_alt_size (Op a0 a1 a2) = 1 + (tra_size a0 + (op_size a1 + exp3_alt_size a2))
+    + (if a1 = ThunkOp ForceThunk then 100 else 0) ∧
+  exp1_alt_size [] = 0 ∧
+  exp1_alt_size (a0::a1) = 1 + (exp2_alt_size a0 + exp1_alt_size a1) ∧
+  exp2_alt_size (a0,a1) = 1 + (a0 + exp_alt_size a1) ∧ exp3_alt_size [] = 0 ∧
+  exp3_alt_size (a0::a1) = 1 + (exp_alt_size a0 + exp3_alt_size a1)
+End
+
+Triviality exp3_alt_size[simp]:
+  exp3_alt_size xs = list_size exp_alt_size xs
+Proof
+  Induct_on `xs` \\ simp []
+QED
+
 Definition evaluate_def[nocompute]:
   (evaluate ([],env:closSem$v list,^s) = (Rval [],s)) /\
   (evaluate (x::y::xs,env,s) =
@@ -677,15 +716,12 @@ Definition evaluate_def[nocompute]:
           | NotThunk => (Rerr (Rabort Rtype_error),s)
           | IsThunk Evaluated v => (Rval [v],s)
           | IsThunk NotEvaluated f =>
-             if s.clock = 0 then
-               (Rerr (Rabort Rtimeout_error),s)
-             else
-               case evaluate ([AppUnit (Var None 0)],[f],(dec_clock 1 s)) of
-               | (Rval vs2,s) =>
-                   (case update_thunk vs s.refs vs2 of
-                    | NONE => (Rerr (Rabort Rtype_error),s)
-                    | SOME refs => (Rval vs2,s with refs := refs))
-               | (Rerr e,s) => (Rerr e,s))
+             (case evaluate ([AppUnit (Var None 0)],[f],s) of
+              | (Rval vs2,s) =>
+                 (case update_thunk vs s.refs vs2 of
+                  | NONE => (Rerr (Rabort Rtype_error),s)
+                  | SOME refs => (Rval vs2,s with refs := refs))
+              | (Rerr e,s) => (Rerr e,s)))
        else
        (case do_app op (REVERSE vs) s of
         | Rerr err => (Rerr err,s)
@@ -756,7 +792,7 @@ Definition evaluate_def[nocompute]:
            | res => res)
 Termination
   WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure I)
-                (\x. case x of INL (xs,env,s) => (s.clock,list_size exp_size xs,0)
+                (\x. case x of INL (xs,env,s) => (s.clock,list_size exp_alt_size xs,0)
                              | INR (l,f,args,s) => (s.clock,0,LENGTH args)))`
   \\ rpt strip_tac
   \\ simp[dec_clock_def]
@@ -767,7 +803,8 @@ Termination
   \\ imp_res_tac dest_closure_length
   \\ imp_res_tac LESS_EQ_dec_clock
   \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ decide_tac
+  \\ simp [AppUnit_def]
+  \\ IF_CASES_TAC \\ gvs []
 End
 
 Theorem evaluate_app_NIL[simp] =
