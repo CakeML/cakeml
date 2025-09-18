@@ -1201,6 +1201,24 @@ Proof
   imp_res_tac dest_closure_full_length >> lfs[]
 QED
 
+Theorem evaluate_app_clock0_timeout:
+   s0.clock = 0 ∧ args ≠ [] ∧
+   evaluate_app lopt r args s0 = (Rerr e, s) ∧
+   e ≠ Rabort Rtype_error ⇒
+     e = Rabort Rtimeout_error
+Proof
+  strip_tac >> `∃a1 args0. args = a1::args0` by (Cases_on `args` >> full_simp_tac(srw_ss())[]) >>
+  qpat_x_assum `evaluate_app _ _ _ _ = _` mp_tac >>
+  simp[evaluate_def] >>
+  Cases_on `dest_closure s0.max_app lopt r (a1::args0)` >> simp[] >>
+  rename1 `dest_closure s0.max_app lopt r (a1::args0) = SOME c` >>
+  Cases_on `c` >> simp[] >>
+  rename1 `dest_closure max_app lopt r (a1::args0) = SOME (Full_app b env rest)` >>
+  srw_tac[][] >>
+  `SUC (LENGTH args0) ≤ LENGTH rest` by simp[] >>
+  imp_res_tac dest_closure_full_length >> lfs[]
+QED
+
 Theorem evaluate_app_clock_drop:
    ∀args f lopt s0 s vs.
      evaluate_app lopt f args s0 = (Rval vs, s) ⇒

@@ -357,7 +357,8 @@ Proof
     \\ qexists_tac `n` \\ fs [dec_clock_def])
   THEN1
    (rw [] \\ gvs [AllCaseEqs(), NOT_LESS]
-    >~ [‘dest_thunk _ _ = IsThunk NotEvaluated _’, ‘find_code _ _ _ = SOME _’]
+    >~ [‘dest_thunk _ _ = IsThunk NotEvaluated _’, ‘find_code _ _ _ = SOME _’,
+        ‘s.clock ≠ 0’]
     >- (qexists ‘n'’ \\ gvs [shift_seq_def, dec_clock_def])
     \\ qexists ‘0’ \\ gvs [shift_seq_def, FUN_EQ_THM])
   \\ fs [case_eq_thms] \\ rw [] \\ fs []

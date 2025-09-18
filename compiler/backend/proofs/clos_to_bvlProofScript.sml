@@ -4014,18 +4014,12 @@ Proof
       \\ Cases_on ‘thunk_mode’ \\ fs []
       >- (gvs [] \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
       \\ simp [bvlSemTheory.find_code_def]
-      \\ Cases_on ‘t2.clock = 0’ \\ fs []
-      >-
-       (qexists_tac ‘0’ \\ gvs []
-        \\ first_x_assum $ irule_at $ Pos hd \\ fs [])
       \\ drule bvlPropsTheory.evaluate_mono
       \\ simp [subspt_lookup]
       \\ disch_then drule \\ strip_tac \\ simp [dec_clock_def]
       \\ gvs [closSemTheory.dec_clock_def]
       \\ first_x_assum $ drule_at (Pat ‘state_rel _ _ _’)
-      \\ Cases_on
-          ‘evaluate ([AppUnit (Var None 0)],[v],r with clock := t2.clock − 1)’
-      \\ gvs []
+      \\ Cases_on ‘evaluate ([AppUnit (Var None 0)],[v],r)’ \\ gvs []
       \\ Cases_on ‘q = Rerr (Rabort Rtype_error)’ \\ gvs []
       \\ gvs [AppUnit_def] \\ simp [compile_exps_def]
       \\ disch_then $ qspecl_then [‘aux1’, ‘[r2]’] mp_tac \\ gvs []
@@ -4041,7 +4035,7 @@ Proof
           \\ gvs [domain_lookup])
         >- gvs [env_rel_def])
       \\ rw [] \\ gvs []
-      \\ qexists ‘ck'’ \\ gvs [PULL_EXISTS]
+      \\ qexists ‘ck' + 1’ \\ gvs [PULL_EXISTS]
       \\ reverse $ Cases_on ‘q’ \\ gvs [PULL_EXISTS]
       >- (
         goal_assum $ drule_at (Pat ‘state_rel _ _ _’) \\ gvs []
@@ -4054,7 +4048,8 @@ Proof
                    find_code_def]
           \\ rpt (PURE_CASE_TAC \\ gvs [])
           \\ simp [force_thunk_code_def, evaluate_def, do_app_def,
-                   find_code_def])
+                   find_code_def]
+          \\ rw [] \\ gvs [])
         \\ metis_tac [SUBMAP_TRANS])
       \\ Cases_on ‘update_thunk [h] r'.refs a’ \\ gvs [PULL_EXISTS]
       \\ pop_assum mp_tac
