@@ -1041,23 +1041,10 @@ Proof
         gvs [s_rel_def, LIST_REL_EL_EQN]
         \\ first_x_assum drule \\ rw []
         \\ Cases_on `EL n refs''` \\ gvs [sv_rel_def]) \\ gvs [] >>
-        gvs[do_opapp_cases, PULL_EXISTS] >>
-        imp_res_tac s_rel_def >> gvs[] >>
-        drule s_rel_clock >> simp[dec_clock_def] >> strip_tac
-      )
-    >- (
-      gvs [oneline dest_thunk_def, AllCaseEqs(), oneline store_lookup_def]
-      \\ `n < LENGTH t''.refs ∧
-          ∃a. EL n t''.refs = Thunk NotEvaluated a ∧
-          v_rel (orac_s t''.eval_state) v a` by (
-        gvs [s_rel_def, LIST_REL_EL_EQN]
-        \\ first_x_assum drule \\ rw []
-        \\ Cases_on `EL n refs''` \\ gvs [sv_rel_def]) \\ gvs [] >>
         gvs[do_opapp_cases, PULL_EXISTS]
         >- (
           imp_res_tac s_rel_def >> gvs[] >>
           drule s_rel_clock >> simp[dec_clock_def] >> strip_tac >>
-          dxrule s_rel_clock >> simp[dec_clock_def] >> strip_tac >>
           last_x_assum dxrule >> simp[] >>
           qmatch_goalsub_abbrev_tac ‘evaluate _ new_env’ >>
           disch_then $ qspec_then ‘new_env’ mp_tac >> impl_tac
@@ -1084,7 +1071,6 @@ Proof
         >- (
           imp_res_tac s_rel_def >> gvs[] >>
           drule s_rel_clock >> simp[dec_clock_def] >> strip_tac >>
-          dxrule s_rel_clock >> simp[dec_clock_def] >> strip_tac >>
           last_x_assum dxrule >> simp[] >>
           qmatch_goalsub_abbrev_tac ‘evaluate _ new_env’ >>
           disch_then $ qspec_then ‘new_env’ mp_tac >> impl_tac
@@ -1128,7 +1114,6 @@ Proof
           imp_res_tac s_rel_def >> gvs[] >>
           irule_at Any OR_INTRO_THM2 >>
           drule s_rel_clock >> simp[dec_clock_def] >> strip_tac >>
-          dxrule s_rel_clock >> simp[dec_clock_def] >> strip_tac >>
           last_x_assum dxrule >> simp[] >>
           qmatch_goalsub_abbrev_tac ‘evaluate _ new_env’ >>
           disch_then $ qspec_then ‘new_env’ mp_tac >> impl_tac
@@ -1139,7 +1124,6 @@ Proof
           imp_res_tac s_rel_def >> gvs[] >>
           irule_at Any OR_INTRO_THM2 >>
           drule s_rel_clock >> simp[dec_clock_def] >> strip_tac >>
-          dxrule s_rel_clock >> simp[dec_clock_def] >> strip_tac >>
           last_x_assum dxrule >> simp[] >>
           qmatch_goalsub_abbrev_tac ‘evaluate _ new_env’ >>
           disch_then $ qspec_then ‘new_env’ mp_tac >> impl_tac
@@ -1789,13 +1773,6 @@ Proof
   DECIDE_TAC
 QED
 
-Triviality less_sub_2_cases:
-  k <= clock /\ ¬(clock ≤ 1) ==>
-  (k = clock \/ k = clock - 1 \/ k <= clock - 2n)
-Proof
-  DECIDE_TAC
-QED
-
 Theorem evaluate_record_suffix:
   (! ^s env exps s' res.
   evaluate s env exps = (s', res) /\
@@ -1865,12 +1842,9 @@ Proof
   \\ simp [combine_dec_result_def]
   >>~ [`getOpClass op = Force`]
   >- (
-    gvs [AllCaseEqs(), dec_clock_def] >>
-    imp_res_simp_tac evaluate_is_record_forward >> gvs []
-    >- simp[record_forward_refl]
-    >- simp[DISJ_EQ_IMP, record_forward_refl] >>
-    drule_then (drule_then assume_tac) less_sub_2_cases >> gvs []
-    )
+    gvs [AllCaseEqs(), dec_clock_def]
+    \\ drule_then (drule_then assume_tac) less_sub_1_cases \\ gvs []
+    \\ imp_res_simp_tac evaluate_is_record_forward \\ gvs [])
   >- (
     gvs [AllCaseEqs(), dec_clock_def]
     \\ imp_res_simp_tac evaluate_is_record_forward \\ gvs []

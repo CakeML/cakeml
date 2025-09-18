@@ -123,7 +123,7 @@ Definition evaluate_def[nocompute]:
                          | NONE => (st2, Rerr (Rabort Rtype_error))
                          | SOME refs => (st2 with refs := refs, Rval vs2))
                     | (st2, Rerr e) => (st2, Rerr e))
-             | NONE => (dec_clock st', Rerr (Rabort Rtype_error))))
+             | NONE => (st', Rerr (Rabort Rtype_error))))
      | EvalOp =>
         (case fix_clock st' (do_eval_res (REVERSE vs) st') of
           (st1, Rval (env1, decs)) =>

@@ -1404,27 +1404,3 @@ Proof
   \\ irule_at (Pos hd) EQ_REFL
   \\ gvs [dec_clock_def,ADD1]
 QED
-
-Theorem evaluate_Force_alt:
-  evaluate st env [App (ThunkOp ForceThunk) es] =
-    case evaluate st env (REVERSE es) of
-    | (st', Rval vs) => (
-        case dest_thunk (REVERSE vs) st'.refs of
-        | BadRef => (st', Rerr (Rabort Rtype_error))
-        | NotThunk => (st', Rerr (Rabort Rtype_error))
-        | IsThunk Evaluated v => (st', Rval [v])
-        | IsThunk NotEvaluated f => (
-            if st'.clock = 0 then (st', Rerr (Rabort Rtimeout_error)) else
-            case evaluate (dec_clock st') (sing_env "f" f) [App Opapp [Var (Short "f"); Con NONE []]] of
-            | (st2, Rval vs2) => (
-                case update_thunk (REVERSE vs) st2.refs vs2 of
-                | NONE => (st2, Rerr (Rabort Rtype_error))
-                | SOME refs => (st2 with refs := refs, Rval vs2))
-            | res => res))
-    | res => res
-Proof
-  simp[Once evaluate_def] >>
-  ntac 4 (TOP_CASE_TAC >> simp[]) >>
-  simp[evaluate_def, sing_env_def, do_con_check_def, build_conv_def] >>
-  rpt (TOP_CASE_TAC >> simp[])
-QED
