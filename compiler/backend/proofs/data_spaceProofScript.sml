@@ -471,6 +471,9 @@ Proof
       \\ gvs [state_component_equality])
     >- (
       gvs [call_env_def, push_env_def, dec_clock_def, state_component_equality]
+      \\ metis_tac [locals_ok_refl])
+    >- (
+      gvs [call_env_def, push_env_def, dec_clock_def, state_component_equality]
       \\ metis_tac [locals_ok_refl]))
   THEN1 (* Call *)
    (Cases_on `get_vars args s.locals` \\ fs[]

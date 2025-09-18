@@ -334,13 +334,13 @@ Proof
       >- gvs [state_rel_def, flush_state_def]
       \\ ‘t1.code = s.code ∧ t1.stack_frame_sizes = s.stack_frame_sizes’
         by gvs [state_rel_def] \\ gvs []
-      \\ ‘t1.clock = s.clock’ by gvs [state_rel_def] \\ gvs []
-      \\ Cases_on ‘s.clock = 0’ \\ gvs []
-      >- gvs [state_rel_def, flush_state_def]
       \\ Cases_on ‘find_code (SOME loc) [x; v] s.code s.stack_frame_sizes’
       \\ gvs []
       \\ Cases_on ‘x'’ \\ gvs []
       \\ Cases_on ‘r’ \\ gvs []
+      \\ ‘t1.clock = s.clock’ by gvs [state_rel_def] \\ gvs []
+      \\ Cases_on ‘s.clock = 0’ \\ gvs []
+      >- gvs [state_rel_def, flush_state_def]
       \\ Cases_on ‘evaluate (q',call_env q r' (dec_clock s))’ \\ gvs []
       \\ Cases_on ‘q''’ \\ gvs []
       \\ fs []
@@ -416,8 +416,6 @@ Proof
     \\ ‘t1.code = s.code ∧ t1.stack_frame_sizes = s.stack_frame_sizes ∧
         t1.clock = s.clock’
       by gvs [state_rel_def] \\ gvs []
-    \\ Cases_on ‘s.clock = 0’ \\ gvs []
-    >- gvs [state_rel_def, flush_state_def]
     \\ Cases_on ‘find_code (SOME loc) [x; v'] s.code s.stack_frame_sizes’
     \\ gvs []
     \\ Cases_on ‘x'’ \\ gvs []
@@ -430,6 +428,9 @@ Proof
              domain_delete,state_rel_def]
       \\ rpt strip_tac \\ imp_res_tac get_vars_IMP_domain
       \\ fs [domain_lookup] \\ metis_tac [])
+    \\ Cases_on ‘s.clock = 0’ \\ gvs []
+    >- gvs [state_rel_def, call_env_def, push_env_def, dec_clock_def,
+            flush_state_def]
     \\ qabbrev_tac `t5 = call_env q r' (push_env
              ((inter t1.locals (inter names (delete v l2)))) F (dec_clock t1))`
     \\ `?sfsp smax lss. (call_env q r' (push_env ((inter s.locals names)) F

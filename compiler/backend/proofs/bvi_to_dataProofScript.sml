@@ -1437,19 +1437,36 @@ Proof
       >- gvs [jump_exc_def])
     >- (
       gvs [any_el_ALT, var_corr_def, LIST_REL_EL_EQN]
-      \\ last_x_assum $ drule_then assume_tac \\ gvs []
-      \\ gvs [get_var_def, lookup_map]
+      \\ last_assum $ drule_then assume_tac \\ fs []
+      \\ fs [get_var_def, lookup_map] \\ gvs []
       \\ drule_all_then assume_tac state_rel_dest_thunk \\ gvs []
       \\ `t1.clock = s.clock` by gvs [state_rel_def] \\ gvs []
-      \\ gvs [state_rel_def, flush_state_def])
+      \\ gvs [find_code_def, dataSemTheory.find_code_def, AllCaseEqs()]
+      \\ `lookup force_loc t1.code = SOME (2,compile_exp 2 exp)`
+        by gvs [state_rel_def, code_rel_def] \\ gvs []
+      \\ Cases_on `tail` \\ gvs []
+      >- gvs [state_rel_def]
+      \\ gvs [cut_env_def]
+      \\ `domain (list_to_num_set (live ++ corr)) ⊆ domain t1.locals` by (
+        gvs [SUBSET_DEF, domain_lookup, lookup_list_to_num_set]
+        \\ rw []
+        >- (
+          gvs [EVERY_EL, MEM_EL]
+          \\ first_x_assum drule \\ rw []
+          \\ Cases_on `lookup (EL n'' live) t1.locals` \\ gvs [])
+        >- (
+          gvs [MEM_EL, state_rel_def]
+          \\ first_x_assum drule \\ rw []
+          \\ simp [SF SFY_ss]))
+      \\ gvs [state_rel_def, call_env_def, push_env_def, dec_clock_def])
     \\ gvs [any_el_ALT, var_corr_def, LIST_REL_EL_EQN]
     \\ first_assum $ drule_then assume_tac \\ fs []
     \\ fs [get_var_def, lookup_map] \\ gvs []
     \\ drule_all_then assume_tac state_rel_dest_thunk \\ gvs []
-    \\ `t1.clock = s.clock` by gvs [state_rel_def] \\ gvs []
     \\ `find_code (SOME force_loc) (MAP data_to_bvi_v [z;v']) s.code =
           SOME (args,exp)` by gvs []
     \\ drule_all find_code_lemma \\ rw [] \\ gvs []
+    \\ `t1.clock = s.clock` by gvs [state_rel_def] \\ gvs []
     \\ Cases_on `tail` \\ gvs [PULL_EXISTS]
     >- (
       gvs [compile_exp_def]
