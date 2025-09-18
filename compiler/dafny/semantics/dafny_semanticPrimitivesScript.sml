@@ -369,7 +369,7 @@ End
 
 Definition valid_mod_def:
   valid_mod h locs h' =
-  ∀loc hv. MEM loc locs ∧ oEL loc h = SOME hv ⇒ oEL loc h' = SOME hv
+  ∀loc hv. ¬MEM loc locs ∧ oEL loc h = SOME hv ⇒ oEL loc h' = SOME hv
 End
 
 Definition get_loc_def:

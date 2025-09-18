@@ -50,16 +50,14 @@ fun step n =
   simp [Ntimes evaluate_exp_def n, read_local_def, do_sc_def, do_bop_def,
         push_locals_def, pop_locals_def, safe_drop_def, use_old_def,
         unuse_old_def, do_cond_def, get_locs_def, do_uop_def, get_array_len_def,
-        index_array_def, val_to_num_def,
-        dafny_semanticPrimitivesTheory.get_loc_def, push_local_def];
+        index_array_def, val_to_num_def, push_local_def];
 
 Theorem plus_one_correct:
   ^plus_one_valid_prop
 Proof
   simp [forall_def, strict_locals_ok_def, state_inv_def, eval_true_def,
         eval_exp_def, all_values_def]
-  \\ rpt strip_tac
-  \\ ‘ALOOKUP st.locals_old «v0» = SOME (SOME val)’ by (gvs [])
+  \\ rpt strip_tac \\ gvs []
   \\ step 20
   \\ simp [state_component_equality]
 QED
