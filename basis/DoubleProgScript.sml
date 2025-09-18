@@ -6,9 +6,10 @@
 *)
 Theory DoubleProg
 Ancestors
-  words CommandLineProg
+  words CommandLineProg machine_ieee binary_ieee binary_ieeeProps real
 Libs
-  preamble ml_translatorLib ml_progLib basisFunctionsLib
+  preamble ml_translatorLib ml_progLib basisFunctionsLib realSimps[qualified]
+  RealArith
 
 val _ = translation_extends "CommandLineProg";
 
@@ -461,6 +462,9 @@ End
 val _ = translate fnext_hi_def
 val _ = translate fnext_lo_def
 
+Overload f2r[local] = “float_to_real”
+Overload nl[local] = “next_lo”
+
 Theorem float_is_finite_characterisation:
   float_is_finite f ⇔ exponent f ≠ 0x7FFw
 Proof
@@ -495,6 +499,276 @@ Proof
 QED
 
 val _ = translate flt_max_characterisation
+
+Overload precision[local] = “dimindex”
+
+Definition maxulp_def:
+  maxulp : (52,11) float = <|
+    Sign := 0w; Significand := 0w;
+    Exponent := 1994w
+  |>
+End
+
+Theorem maxulp_thm:
+  maxulp = construct  0w 1994w 0w
+Proof
+  simp[maxulp_def, construct_correct, w2w_n2w]
+QED
+
+val _ = translate maxulp_thm
+
+Definition twicemaxulp_def:
+  twicemaxulp = float64_add maxulp maxulp
+End
+
+val _ = translate twicemaxulp_def
+
+Definition ffloat_ulp_def:
+  ffloat_ulp (f0:(52,11)float) =
+  let f = float64_abs f0
+  in
+    if float_is_finite f then
+      if f = flt_max then maxulp
+      else float64_sub (fnext_hi f) f
+    else
+      twicemaxulp
+End
+val _ = translate ffloat_ulp_def
+
+Theorem word_lsb_characterisation:
+  word_lsb (w:word64) = (w && 1w = 1w)
+Proof
+  Cases_on ‘w’ >> simp[word_lsb_n2w] >>
+  ONCE_REWRITE_TAC[WORD_AND_COMM] >>
+  simp[addressTheory.n2w_and_1, arithmeticTheory.MOD_MOD_LESS_EQ,
+       bitTheory.ODD_MOD2_LEM]
+QED
+
+val _ = translate word_lsb_characterisation
+
+Definition posinf64_def:
+  posinf64 = construct 0w 0x7ffw 0w
+End
+val _ = translate posinf64_def
+
+Definition neginf64_def:
+  neginf64 = construct 1w 0x7ffw 0w
+End
+val _ = translate neginf64_def
+
+Definition posmin64_def:
+  posmin64 = fp64_to_float 1w
+End
+val _ = translate posmin64_def
+
+Definition poszero64_def:
+  poszero64 = fp64_to_float 0w
+End
+val _ = translate poszero64_def
+
+Theorem word_addR_concat:
+  FINITE 𝕌(:α) ∧ FINITE 𝕌(:β) ∧
+  w2n w2 + y < 2 ** precision(:β) ⇒
+  (w1:α word) @@ (w2:β word) + n2w y = (w1 @@ (w2 + n2w y)) : γ word
+Proof
+  simp[word_concat_def, word_join_def, w2w_def] >>
+  Cases_on ‘w2’ >> simp[] >> strip_tac >>
+  simp[word_add_n2w, word_mul_n2w, dimword_def,
+       word_T_def, dimword_def, UINT_MAX_def, WORD_MUL_LSL] >>
+  ‘n2w (w2n w1 * 2 ** precision(:β)) && n2w (n + y) : (α + β) word = 0w’
+    by (simp[word_and_n2w, dimword_def, bitTheory.BITWISE_LT_2EXP] >>
+        dep_rewrite.DEP_ONCE_REWRITE_TAC[bitTheory.BITWISE_COMM] >>
+        simp[CONJ_COMM] >>
+        irule bitTheory.BITWISE_AND_SHIFT_EQ_0 >> simp[]) >>
+  drule_then (assume_tac o SYM) WORD_ADD_OR >>
+  simp[word_add_n2w, dimword_def] >>
+  cong_tac (SOME 1) >>
+  ‘n2w (w2n w1 * 2 ** precision(:β)) && n2w n : (α + β) word = 0w’
+    by (simp[word_and_n2w, dimword_def, bitTheory.BITWISE_LT_2EXP] >>
+        dep_rewrite.DEP_ONCE_REWRITE_TAC[bitTheory.BITWISE_COMM] >>
+        simp[CONJ_COMM] >>
+        irule bitTheory.BITWISE_AND_SHIFT_EQ_0 >> simp[]) >>
+  drule_then (assume_tac o SYM) WORD_ADD_OR >>
+  simp[word_add_n2w, dimword_def, Once WORD_OR_COMM] >>
+  Cases_on ‘w1’ >> simp[] >>
+  rename [‘n1 < dimword(:α)’, ‘n2 + y  < 2 ** precision(:β)’] >>
+  ‘n2 + n1 * 2 ** precision(:β) < 2 ** precision(:α + β)’
+    by (simp[fcpTheory.index_sum] >> rw[] >>
+        simp[EXP_ADD] >> gvs[dimword_def] >>
+        irule LESS_EQ_LESS_TRANS >>
+        qexists
+        ‘(2 ** precision(:β) - 1) +
+         (2 ** precision(:α) - 1) * (2 ** precision(:β))’ >>
+        irule_at Any (DECIDE “a ≤ m ∧ b ≤ n ⇒ a + b ≤ m + n:num”) >>
+        simp[RIGHT_SUB_DISTRIB] >>
+        ‘2 ** precision(:β) ≤ 2 ** precision(:α) * 2 ** precision(:β)’
+          by simp[] >>
+        ‘1 ≤ 2 ** precision(:β)’ by simp[] >>
+        simp[DECIDE “1 ≤ x ∧ x ≤ y ⇒ x - 1n + (y - x) = y - 1”]) >>
+  simp[] >>
+  simp[fcpTheory.index_sum] >> rw[] >>
+  simp[EXP_ADD] >> gvs[dimword_def] >>
+  irule LESS_EQ_LESS_TRANS >>
+  qexists
+  ‘(2 ** precision(:β) - 1) +
+   (2 ** precision(:α) - 1) * (2 ** precision(:β))’ >>
+  irule_at Any (DECIDE “a + b ≤ m ∧ c ≤ n ⇒ a + (b + c) ≤ m + n:num”) >>
+  simp[RIGHT_SUB_DISTRIB] >>
+  ‘2 ** precision(:β) ≤ 2 ** precision(:α) * 2 ** precision(:β)’
+    by simp[] >>
+  ‘1 ≤ 2 ** precision(:β)’ by simp[] >>
+  simp[DECIDE “1 ≤ x ∧ x ≤ y ⇒ x - 1n + (y - x) = y - 1”]
+QED
+
+Theorem fp64_word_concat_assoc:
+  (w1 : unit word) @@ ((w2 : 11 word) @@ (w3 : 52 word)):63 word =
+  ((w1 @@ w2) : 12 word @@ w3) : word64
+Proof
+  ‘precision(:unit) + precision(:11) = precision(:12)’
+    by (simp[fcpTheory.finite_bit0, fcpTheory.index_bit0,
+             fcpTheory.index_bit1, fcpTheory.index_one,
+             fcpTheory.finite_bit1, fcpTheory.finite_one]) >>
+  dxrule_at_then Any irule (GSYM word_concat_assoc) >>
+  simp[fcpTheory.finite_bit0, fcpTheory.index_bit0,
+       fcpTheory.index_bit1, fcpTheory.index_one,
+       fcpTheory.finite_bit1, fcpTheory.finite_one]
+QED
+
+val _ = diminish_srw_ss [
+    "word arith", "word ground", "word logic", "word shift",
+    "word subtract", "words"
+  ]
+
+val _ = augment_srw_ss [
+    rewrites [w2n_n2w, WORD_AND_CLAUSES, n2w_11, WORD_ADD_0]
+  ]
+
+Theorem next_hi_fnext_hi:
+  float_is_finite f ⇒ next_hi f = fnext_hi f
+Proof
+  rw[next_hi_def, fnext_hi_def]
+  >- (irule (iffLR float_to_fp64_11) >>
+      simp[float_to_fp64_fp64_to_float, float_to_fp64_def,
+           fp64_word_concat_assoc] >>
+      irule (GSYM word_addR_concat) >>
+      gvs[word_T_def, UINT_MAX_def, dimword_def, fcpTheory.finite_bit0,
+          fcpTheory.finite_bit1, fcpTheory.finite_one] >>
+      Cases_on ‘f.Significand’ >>
+      gvs[dimword_def, WORD_LO_word_T, word_lo_n2w]) >>
+  irule (iffLR float_to_fp64_11) >>
+  simp[float_to_fp64_fp64_to_float, float_to_fp64_def,
+       GSYM fp64_word_concat_assoc] >>
+  Cases_on ‘f.Significand’ >> gvs[word_T_def, word_lo_n2w] >>
+  rename [‘f.Significand = n2w fS’] >> ‘fS = 4503599627370495’ by simp[] >>
+  gvs[WORD_LO_word_T, GSYM fp64_word_concat_assoc] >>
+  mp_tac $
+    Q.INST [
+      ‘w1’ |-> ‘(f:(52,11)float).Sign’, ‘y’ |-> ‘1’,
+      ‘w2’ |-> ‘((f:(52,11)float).Exponent : 11 word) @@
+                (0xFFFFFFFFFFFFFw : 52 word)’]
+       (INST_TYPE [alpha |-> “:one”, beta |-> “:63”, gamma |-> “:64”]
+                  word_addR_concat) >>
+  impl_tac
+  >- (simp[fcpTheory.finite_bit1, fcpTheory.finite_bit0] >>
+      simp[word_concat_def, w2w_def, word_join_def] >>
+      Cases_on ‘f.Exponent’ >>
+      gvs[dimword_def, float_is_finite_Exponent,
+          NOT_LESS_EQUAL] >>
+      dep_rewrite.DEP_REWRITE_TAC[GSYM WORD_ADD_OR] >>
+      ONCE_REWRITE_TAC [WORD_AND_COMM] >>
+      irule_at Any (GSYM word_and_lsl_eq_0) >> simp[] >>
+      simp[WORD_MUL_LSL, word_mul_n2w, word_add_n2w] >>
+      gvs[word_T_def, n2w_11, dimword_def]) >>
+  strip_tac >> simp[] >>
+  cong_tac (SOME 1) >>
+  simp[word_concat_def, w2w_def, word_join_def] >>
+  Cases_on ‘f.Exponent’ >>
+  gvs[dimword_def, float_is_finite_Exponent,
+      NOT_LESS_EQUAL, word_add_n2w, word_T_def] >>
+  cong_tac (SOME 1) >>
+  dep_rewrite.DEP_REWRITE_TAC[GSYM WORD_ADD_OR] >>
+  ONCE_REWRITE_TAC [WORD_AND_COMM] >> simp[] >>
+  irule_at Any word_and_lsl_eq_0 >> simp[] >>
+  simp[WORD_MUL_LSL, word_mul_n2w, word_add_n2w]
+QED
+
+Theorem next_lo_fnext_lo:
+  float_is_finite f ∧ ¬float_is_zero f ⇒ next_lo f = fnext_lo f
+Proof
+  rw[fnext_lo_def] >>
+  ‘next_hi (nl f) = f’ by simp[] >>
+  ‘float_is_finite (nl f)’ by simp[float_is_finite_next_lo] >>
+  dxrule_then assume_tac next_hi_fnext_hi >>
+  gvs[WORD_ADD_EQ_SUB, fnext_lo_def, fnext_hi_def] >>
+  qpat_x_assum ‘fp64_to_float _ = f’ (mp_tac o Q.AP_TERM ‘float_to_fp64’)>>
+  REWRITE_TAC[float_to_fp64_fp64_to_float] >>
+  disch_then (mp_tac o Q.AP_TERM ‘λw. w - 1w’) >> simp[WORD_ADD_SUB] >>
+  disch_then (mp_tac o Q.AP_TERM ‘fp64_to_float’) >>
+  REWRITE_TAC[fp64_to_float_float_to_fp64]
+QED
+
+Theorem maxulp_correct:
+  f2r maxulp = ulpᶠ (float_top (:52 # 11))
+Proof
+  simp[float_to_real_def, float_ulp_def, float_top_def, maxulp_def,
+       word_T_def, ULP_def, WORD_EQ_SUB_ZERO, realTheory.REAL_DIV_LZERO,
+       GSYM n2w_sub, SF realSimps.RMULRELNORM_ss, SF realSimps.RMULCANON_ss]
+QED
+
+Overload abs[local] = “realax$abs”
+
+Theorem ABS_REFL' = iffRL ABS_REFL
+
+val _ = augment_srw_ss [realSimps.REAL_ARITH_ss]
+
+Theorem abs_sub_lemma =
+        REAL_ARITH “(0 ≤ x ⇔ 0 ≤ y) ∧ abs y < abs x ⇒
+                    abs (x - y) = abs x - abs y”
+
+Theorem ffloat_ulp_correct:
+  float_is_finite f ⇒
+  float_to_real (ffloat_ulp f) = ulpᶠ f
+Proof
+  rw[ffloat_ulp_def, maxulp_correct, flt_max_def,
+     ml_translatorTheory.float64_abs_thm]
+  >- metis_tac[float_ulp_abs] >>
+  simp[GSYM next_hi_fnext_hi, ml_translatorTheory.float64_sub_thm] >>
+  drule_then assume_tac float_is_finite_float_value >>
+  ‘float_is_finite (next_hi (float_abs f))’
+    by (irule float_is_finite_next_hi >> simp[float_to_real_float_abs] >>
+        ‘abs (f2r f) ≤ largest(:52 # 11)’
+          by simp[abs_float_bounds, GSYM float_to_real_float_abs,
+                  Excl "float_to_real_float_abs"] >>
+        ‘abs (f2r f) ≠ largest(:52 # 11)’ suffices_by simp[] >>
+        strip_tac >> gvs[] >>
+        qpat_x_assum ‘x ≠ y’ mp_tac >> simp[] >>
+        gvs[largest_is_top, GSYM float_to_real_float_abs, float_to_real_eq,
+            Excl "float_to_real_float_abs"]) >>
+  ‘float_value (next_hi (float_abs f)) = Float (f2r (next_hi (float_abs f)))’
+    by simp[float_is_finite_float_value] >>
+  ‘float_value (float_abs f) = Float (f2r (float_abs f))’
+    by simp[float_is_finite_float_value] >>
+  simp[float_sub_def] >> simp[float_round_with_flags_def] >>
+  simp[float_round_def] >>
+  ‘f2r (next_hi (float_abs f)) - abs (f2r f) = ulpᶠ f’
+    by (simp[REAL_EQ_SUB_RADD] >>
+        ONCE_REWRITE_TAC[REAL_ADD_COMM] >>
+        simp[GSYM next_hi_difference, next_hi_float_abs] >>
+        Cases_on ‘f2r f = 0’ >- simp[] >>
+        ‘abs (f2r f) < abs (f2r (next_hi f))’ by simp[next_hi_larger] >>
+        ‘0 ≤ f2r (next_hi f) ⇔ 0 ≤ f2r f’
+          by (simp[] >> ‘f ≠ NEG0’ by (strip_tac >> gvs[])>> simp[]) >>
+        simp[abs_sub_lemma]) >>
+  simp[] >>
+  rev_drule ulp_multiples_representable >> simp[] >>
+  disch_then (qspecl_then [‘ulpᶠ f’, ‘1’] mp_tac) >> simp[] >>
+  disch_then (qx_choose_then ‘uf’ assume_tac)>>
+  drule float_value_float_to_real >> disch_then (assume_tac o SYM) >> gvs[] >>
+  ‘f2r uf ≠ 0’ by metis_tac[float_ulp_EQ0] >>
+  ‘float_is_finite uf’ by simp[float_is_finite_thm] >>
+  simp[round_representable_nonzero, float_is_zero_to_real]
+QED
+
 
 (* --------------------------------------------------------------------------
  * Pretty-printer
