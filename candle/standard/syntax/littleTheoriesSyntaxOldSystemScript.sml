@@ -2358,6 +2358,22 @@ Proof
   >> rw[]
 QED
 
+Theorem esubst_ty0_all_free:
+  ∀env σ avds tm subst_tm.
+    term_ok sig tm ∧ esubsts_ok sig σ ∧
+    (∀s s'.
+       MEM (s,s') env ⇒
+       ∃x ty. s = Var x ty ∧ s' = Var x (ty_esubst σ ty)) ∧
+    esubst_ty0 env σ avds tm = return subst_tm ⇒
+    (∀u uty.
+       VFREE_IN (Var u uty) subst_tm ⇔
+         ∃oty. VFREE_IN (Var u oty) tm ∧ uty = ty_esubst σ oty)
+Proof
+  rw[] >> qspecl_then [‘sizeof tm’, ‘tm’, ‘env’] mp_tac esubst_ty0_var_type_thm
+  >> impl_tac >- metis_tac[term_ok_welltyped]
+  >> rw[]
+QED
+
 Theorem db_esubst_ty_thm:
   ∀tm env subst_tm avds.
     esubsts_ok sig σ ∧
@@ -2405,15 +2421,39 @@ Proof
       >> disch_then $ drule_then drule >> simp[REV_ASSOCD]
       >> qspecl_then [‘ty_esubst σ ty’, ‘body1’, ‘n’, ‘avds’]
                      mp_tac NVARIANT_THM >> gvs[Abbr‘Nv’]
-      >> CONV_TAC CONTRAPOS_CONV >> simp[] >> cheat)
+      >> CONV_TAC CONTRAPOS_CONV >> simp[]
+      >> drule_at (Pat ‘esubst_ty0 _ _ _ _ = return _’) esubst_ty0_all_free
+      >> disch_then drule >> simp[] >> metis_tac[])
   >> simp[] >> disch_then $ strip_assume_tac o SYM >> simp[]
   >> qspecl_then[‘db tv’, ‘(Nv, ty)’, ‘0’, ‘σ’] mp_tac db_esubst_ty_bind
-  >> impl_tac >- cheat
+  >> impl_tac
+  >- (qspecl_then [‘db tv’, ‘(Nv, ty)’, ‘0’, ‘σ’] mp_tac db_esubst_ty_bind
+      >> impl_tac
+      >- (qx_gen_tac ‘ty2’ >> qspecl_then [‘tv’, ‘Var Nv ty2’] mp_tac dbVFREE_IN_VFREE_IN
+          >> rw[]
+          >> drule_at (Pat ‘esubst_ty0 _ _ _ _ = _’) esubst_ty0_has_type_thm
+          >> disch_then $ qspecl_then [‘sig’, ‘Nv’, ‘ty2’] mp_tac
+          >> impl_tac
+          >- (simp[DISJ_IMP_THM, FORALL_AND_THM, Abbr‘tv’]
+              >> conj_tac >- metis_tac[term_ok_vsubst_variant]
+              >> irule $ iffLR dbVFREE_IN_VFREE_IN >> simp[VSUBST_WELLTYPED])
+          >> rw[REV_ASSOCD])
+      >> rw[] >> sym_tac
+      >> qsuff_tac ‘db subst_tm = db_esubst_ty σ (db tv)’
+      >- (rw[] >> drule_at (Pat ‘esubst_ty0 _ _ _ _ = _’) esubst_ty0_has_type_thm
+          >> disch_then $ qspecl_then [‘sig’, ‘Nv’, ‘ty'’] mp_tac >> impl_tac
+          >- (simp[Abbr‘tv’, term_ok_vsubst_variant, FORALL_AND_THM, DISJ_IMP_THM]
+              >> conj_tac >- metis_tac[]
+              >> irule $ iffLR dbVFREE_IN_VFREE_IN >> simp[VSUBST_WELLTYPED])
+          >> simp[REV_ASSOCD])
+      >> first_x_assum irule
+      >> simp[Abbr‘tv’, VSUBST_WELLTYPED, SIZEOF_VSUBST, term_ok_vsubst_variant]
+      >> first_x_assum $ irule_at Any >> gvs[DISJ_IMP_THM, FORALL_AND_THM])
   >> qspecl_then [‘tm’, ‘[Var Nv ty,Var n ty]’] mp_tac VSUBST_dbVSUBST
-  >> impl_tac >- cheat
+  >> impl_tac >- simp[]
   >> rw[]
   >> last_x_assum $ qspec_then ‘sizeof tv’ mp_tac >> impl_tac
-  >- cheat
+  >- simp[SIZEOF_VSUBST, Abbr‘tv’]
   >> disch_then $ qspec_then ‘tv’ mp_tac >> simp[]
   >> disch_then $ qspecl_then [‘(Var Nv ty, Var Nv (ty_esubst σ ty))::env’,
                                ‘subst_tm’, ‘avds’] mp_tac
