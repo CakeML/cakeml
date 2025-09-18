@@ -1017,10 +1017,10 @@ QED
 
 Theorem esubst_ty0_preserves_fvs:
   ∀env σ avds tm subst_tm.
-    esubsts_ok sig σ ∧ 
+    esubsts_ok sig σ ∧
     term_ok sig tm ∧
     (∀k v. MEM (v, k) env ⇒ ∃n ty. k = Var n (ty_esubst σ ty) ∧ v = Var n ty) ∧
-    esubst_ty0 env σ avds tm = return subst_tm ⇒ 
+    esubst_ty0 env σ avds tm = return subst_tm ⇒
     (∀n ty. (n, ty) ∈ FVs tm ∧
             ¬(∃v. MEM (v, Var n (ty_esubst σ ty)) env) ⇒
             (n, ty_esubst σ ty) ∈ FVs subst_tm)
@@ -1062,10 +1062,10 @@ QED
 
 Theorem esubst_ty0_preserves_vfree_in:
   ∀env σ avds tm subst_tm.
-    esubsts_ok sig σ ∧ 
+    esubsts_ok sig σ ∧
     term_ok sig tm ∧
     (∀k v. MEM (v, k) env ⇒ ∃n ty. k = Var n (ty_esubst σ ty) ∧ v = Var n ty) ∧
-    esubst_ty0 env σ avds tm = return subst_tm ⇒ 
+    esubst_ty0 env σ avds tm = return subst_tm ⇒
     (∀n ty. VFREE_IN (Var n ty) tm ∧
             ¬(∃v. MEM (v, Var n (ty_esubst σ ty)) env) ⇒
             VFREE_IN (Var n (ty_esubst σ ty)) subst_tm)
@@ -2304,7 +2304,7 @@ Proof
           >> rw[]
           >- (qsuff_tac ‘VFREE_IN (Var x' ty'') tm'’
               >- (gvs[Abbr‘env''’, REV_ASSOCD, AllCaseEqs()]
-                  >> qpat_x_assum ‘∀x ty. _ ⇒ _’ mp_tac 
+                  >> qpat_x_assum ‘∀x ty. _ ⇒ _’ mp_tac
                   >> metis_tac[NVARIANT_THM,term_11,VSUBST_HAS_TYPE,WELLTYPED])
               >> simp[Abbr‘tm'’] >> ‘Var x' ty'' ≠ Var n' ty’ by simp[]
               >> irule $ iffRL VFREE_IN_VSUBST >> simp[REV_ASSOCD, AllCaseEqs()]
@@ -2341,7 +2341,7 @@ Proof
         >- metis_tac[NVARIANT_THM,term_11,VSUBST_HAS_TYPE,WELLTYPED]
 )
 QED
-    
+
 Theorem esubst_ty0_has_type_thm:
   ∀env σ avds tm subst_tm.
     term_ok sig tm ∧ esubsts_ok sig σ ∧
@@ -2353,45 +2353,11 @@ Theorem esubst_ty0_has_type_thm:
        VFREE_IN (Var x ty) tm ⇒
        REV_ASSOCD (Var x (ty_esubst σ ty)) env (Var x ty) = Var x ty)
 Proof
-  rw[] >> qspecl_then [‘sizeof tm’, ‘tm’, ‘env’] mp_tac esubst_ty0_var_type_thm 
+  rw[] >> qspecl_then [‘sizeof tm’, ‘tm’, ‘env’] mp_tac esubst_ty0_var_type_thm
   >> impl_tac >- metis_tac[term_ok_welltyped]
   >> rw[]
 QED
-        
-(*
-Theorem esubst_ty0_preserves_fvs:
-  ∀env σ avds tm subst_tm.
-    VFREE_IN (Var x ty) tm ∧
-    (∀s s'.
-       MEM (s,s') env ⇒
-       ∃x ty. s = Var x ty ∧ s' = Var x (ty_esubst σ ty)) ∧
-    term_ok sig tm ∧
-    esubsts_ok sig σ ∧
-    esubst_ty0 env σ avds tm = return subst_tm ⇒
-    VFREE_IN (Var x (ty_esubst σ ty)) subst_tm
-Proof
-  recInduct esubst_ty0_ind >> rw[]
-  >> gvs[esubst_ty0_def, REV_ASSOCD, AllCaseEqs(), bind_EQ_return, try_eq_return,
-         bind_EQ_error, Excl "tm_names_def"]
-  >- (dxrule_at (Pat ‘esubst_ty0 _ _ _ t2 = _’) esubst_ty0_has_type_thm >> metis_tac[])
-  >- (ntac 2 $ last_x_assum kall_tac >> last_x_assum mp_tac
-      >> simp[DISJ_IMP_THM, FORALL_AND_THM] >> rw[]
-      >> rev_dxrule_at (Pat ‘esubst_ty0 _ _ _ _ = return _’) esubst_ty0_has_type_thm
-      >> disch_then $ qspecl_then [‘sig’, ‘x’, ‘ty’] mp_tac >> impl_tac
-      >- (simp[] >> metis_tac[]) >> rw[REV_ASSOCD])
-  >> last_x_assum $ drule_at (Pat ‘esubst_ty0 _ _ _ _ = return _’)
-  >> impl_tac
-  >- (simp[DISJ_IMP_THM, FORALL_AND_THM, term_ok_vsubst_variant]
-      >> irule FVs_VFREER_in >> ‘x ≠ x' ∨ ty ≠ ty'’ by simp[]
-      >> irule $ iffRL FVs_VSUBST_CASES >> rw[SF SFY_ss]
-      >> metis_tac[FVs_VFREE_in])
-  >> rw[]
-  >> drule_at (Pat ‘esubst_ty0 _ _ _ _ = return _’) esubst_ty0_has_type_thm
-  >> disch_then $ qspecl_then [‘sig’, ‘x’, ‘ty’] mp_tac >> impl_tac
-  >- cheat
-  >> rw[REV_ASSOCD]
-QED*)
-        
+
 Theorem db_esubst_ty_thm:
   ∀tm env subst_tm avds.
     esubsts_ok sig σ ∧
@@ -2427,7 +2393,7 @@ Proof
       >> qexistsl [‘avds’, ‘(Var n ty,Var n (ty_esubst σ ty))::env’]
       >> gvs[DISJ_IMP_THM, FORALL_AND_THM])
   >> qabbrev_tac ‘Nv = NVARIANT n avds body1’
-  >> qabbrev_tac ‘tv = VSUBST [(Var Nv ty,Var n ty)] tm’     
+  >> qabbrev_tac ‘tv = VSUBST [(Var Nv ty,Var n ty)] tm’
   >> qspecl_then [‘db tm’, ‘(Nv, ty)’, ‘(n, ty)’, ‘0’, ‘[]’] mp_tac bind_dbVSUBST_cons
   >> impl_tac
   >- (simp[dbVFREE_IN_bind] >> first_x_assum $ qspec_then ‘sizeof tm’ mp_tac
