@@ -885,8 +885,7 @@ Proof
       \\ qpat_x_assum `opt_rel (ref_rel v_rel) _ _` mp_tac
       \\ simp [oneline opt_rel_def] \\ CASE_TAC \\ gvs [PULL_EXISTS]
       \\ imp_res_tac state_rel_clocks_eqs \\ gvs [PULL_EXISTS]
-      \\ last_x_assum
-          $ qspecl_then [`[b]`, `dec_clock 1 t2`, `0`, `1`, `i`] mp_tac
+      \\ last_x_assum $ qspecl_then [`[b]`, `t2`, `0`, `1`, `i`] mp_tac
       \\ (
         gvs [] \\ impl_tac
         >- (

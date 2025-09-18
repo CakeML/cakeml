@@ -3741,21 +3741,11 @@ Proof
           \\ first_x_assum drule \\ rw []) \\ gvs [])
       >- (
         `∃w. FLOOKUP t.refs ptr = SOME (Thunk NotEvaluated w) ∧
-                 v_rel c (next_g s) v w` by (
-          gvs [state_rel_def, fmap_rel_def, FLOOKUP_DEF]
-          \\ first_x_assum drule \\ rw []) \\ gvs []
-        \\ `t.clock = 0` by gvs [state_rel_def] \\ gvs [])
-      >- (
-        `∃w. FLOOKUP t.refs ptr = SOME (Thunk NotEvaluated w) ∧
                  v_rel c (next_g s1) v w` by (
           gvs [state_rel_def, fmap_rel_def, FLOOKUP_DEF]
           \\ first_x_assum drule \\ rw []) \\ gvs [PULL_EXISTS]
         \\ simp [GSYM PULL_EXISTS] \\ rw []
-        >- gvs [state_rel_def]
         \\ gvs [PULL_EXISTS]
-        \\ `state_rel c (next_g (dec_clock 1 s1)) (dec_clock 1 s1)
-                                                  (dec_clock 1 t)`
-          by gvs [state_rel_def, dec_clock_def, next_g_def]
         \\ last_x_assum $ drule_at (Pat `state_rel _ _ _`)
         \\ `known c [AppUnit (Var None 0)] [Other] g0 =
               ([(AppUnit (Var None 0),Other)],g0)`
@@ -3778,11 +3768,6 @@ Proof
             \\ gvs [co_every_Fn_vs_NONE_shift_seq])
           >- gvs [AppUnit_def, dec_clock_def, mglobals_disjoint_def,
                   op_gbag_def]
-          >- (
-            qpat_x_assum `evaluate (_,_,s0) = _` assume_tac
-            \\ drule evaluate_IMP_shift_seq \\ rw []
-            \\ gvs [oracle_gapprox_disjoint_shift_seq, dec_clock_def, next_g_def])
-          >- gvs [dec_clock_def, state_oracle_mglobals_disjoint_def]
           >- gvs [AppUnit_def]
           >- (
             qpat_x_assum `evaluate (_,_,s0) = _` assume_tac
@@ -3796,7 +3781,6 @@ Proof
             qpat_x_assum `evaluate (_,_,s0) = _` assume_tac
             \\ drule evaluate_IMP_shift_seq \\ rw []
             \\ gvs [oracle_state_sgc_free_shift_seq])
-          >- gvs [next_g_def]
           >- (
             gvs [next_g_def, dec_clock_def]
             \\ qpat_x_assum `evaluate (_,_,s0) = _` assume_tac
@@ -3815,7 +3799,6 @@ Proof
             \\ qmatch_asmsub_abbrev_tac `fv1 v' exp`
             \\ `fv v' [exp] ⇔ v' = 0` by (unabbrev_all_tac \\ gvs [fv_def])
             \\ gvs [])
-          >- gvs [next_g_def]
           >- (
             qpat_x_assum `evaluate (_,_,s0) = _` assume_tac
             \\ drule evaluate_IMP_shift_seq \\ rw []
@@ -3834,10 +3817,6 @@ Proof
           gvs [state_rel_def, fmap_rel_def, FLOOKUP_DEF]
           \\ first_x_assum drule \\ rw []) \\ gvs [PULL_EXISTS]
         \\ simp [GSYM PULL_EXISTS] \\ rw []
-        \\ `t.clock ≠ 0` by gvs [state_rel_def] \\ gvs [PULL_EXISTS]
-        \\ `state_rel c (next_g (dec_clock 1 s1)) (dec_clock 1 s1)
-                                                  (dec_clock 1 t)`
-          by gvs [state_rel_def, dec_clock_def, next_g_def]
         \\ last_x_assum $ drule_at (Pat `state_rel _ _ _`)
         \\ `known c [AppUnit (Var None 0)] [Other] g0 =
               ([(AppUnit (Var None 0),Other)],g0)`
@@ -3860,11 +3839,6 @@ Proof
             \\ gvs [co_every_Fn_vs_NONE_shift_seq])
           >- gvs [AppUnit_def, dec_clock_def, mglobals_disjoint_def,
                   op_gbag_def]
-          >- (
-            qpat_x_assum `evaluate (_,_,s0) = _` assume_tac
-            \\ drule evaluate_IMP_shift_seq \\ rw []
-            \\ gvs [oracle_gapprox_disjoint_shift_seq, dec_clock_def, next_g_def])
-          >- gvs [dec_clock_def, state_oracle_mglobals_disjoint_def]
           >- gvs [AppUnit_def]
           >- (
             qpat_x_assum `evaluate (_,_,s0) = _` assume_tac
@@ -3878,7 +3852,6 @@ Proof
             qpat_x_assum `evaluate (_,_,s0) = _` assume_tac
             \\ drule evaluate_IMP_shift_seq \\ rw []
             \\ gvs [oracle_state_sgc_free_shift_seq])
-          >- gvs [next_g_def]
           >- (
             gvs [next_g_def, dec_clock_def]
             \\ qpat_x_assum `evaluate (_,_,s0) = _` assume_tac
@@ -3897,7 +3870,6 @@ Proof
             \\ qmatch_asmsub_abbrev_tac `fv1 v' exp`
             \\ `fv v' [exp] ⇔ v' = 0` by (unabbrev_all_tac \\ gvs [fv_def])
             \\ gvs [])
-          >- gvs [next_g_def]
           >- (
             qpat_x_assum `evaluate (_,_,s0) = _` assume_tac
             \\ drule evaluate_IMP_shift_seq \\ rw []

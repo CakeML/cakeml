@@ -68,11 +68,11 @@ QED
 
 Theorem evaluate_better_ind:
   (∀xs s1.
-    (∀ys s2. s2.clock ≤ s1.clock ∧ (s2.clock = s1.clock ⇒  exp3_size ys < exp3_size xs) ⇒ P1 ys s2) ⇒
-    (∀args s2. s2.clock ≤ s1.clock ∧ (s2.clock = s1.clock ⇒  LENGTH args < exp3_size xs) ⇒ P2 args s2) ⇒
+    (∀ys s2. s2.clock ≤ s1.clock ∧ (s2.clock = s1.clock ⇒  exp3_alt_size ys < exp3_alt_size xs) ⇒ P1 ys s2) ⇒
+    (∀args s2. s2.clock ≤ s1.clock ∧ (s2.clock = s1.clock ⇒  LENGTH args < exp3_alt_size xs) ⇒ P2 args s2) ⇒
     P1 xs s1) ∧
   (∀args s1.
-    (∀ys s2. s2.clock ≤ s1.clock ∧ (s2.clock = s1.clock ⇒  exp3_size ys < LENGTH args) ⇒ P1 ys s2) ⇒
+    (∀ys s2. s2.clock ≤ s1.clock ∧ (s2.clock = s1.clock ⇒  exp3_alt_size ys < LENGTH args) ⇒ P1 ys s2) ⇒
     (∀args' s2. s2.clock ≤ s1.clock ∧ (s2.clock = s1.clock ⇒  LENGTH args' < LENGTH args) ⇒ P2 args' s2) ⇒
     P2 args s1) ⇒
   (∀(xs:closLang$exp list) (s1:('c,'ffi) closSem$state). P1 xs s1) ∧
@@ -88,7 +88,7 @@ Proof
   \\ strip_tac
   \\ pop_assum mp_tac
   \\ qid_spec_tac ‘s1’
-  \\ completeInduct_on ‘case x of INL xs => exp3_size xs | INR args => LENGTH args’
+  \\ completeInduct_on ‘case x of INL xs => exp3_alt_size xs | INR args => LENGTH args’
   \\ rw []
   \\ gvs [forall_sum,SF DNF_ss, AND_IMP_INTRO, GSYM CONJ_ASSOC]
   \\ Cases_on ‘x’ \\ simp []

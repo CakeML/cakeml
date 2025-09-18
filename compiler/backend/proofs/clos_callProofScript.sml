@@ -3161,34 +3161,21 @@ Proof
         \\ drule_all state_rel_flookup_refs \\ rw [] \\ gvs [])
       >- (
         gvs [v_rel_def]
-        \\ rpt (goal_assum drule \\ gvs [])
-        \\ drule_all state_rel_flookup_refs \\ rw [] \\ gvs []
-        \\ imp_res_tac state_rel_clock \\ gvs [])
-      >- (
-        gvs [v_rel_def]
         \\ gvs [AppUnit_def, calls_def, code_locs_def]
         \\ drule_all_then assume_tac state_rel_flookup_refs \\ gvs []
-        \\ `state_rel g2 l2 (dec_clock 1 r) (dec_clock 1 t)` by (
-          gvs [state_rel_def, dec_clock_def])
-        \\ first_x_assum $ drule_at (Pat `state_rel _ _ (dec_clock _ _) _`)
-        \\ gvs []
+        \\ first_x_assum $ drule_at (Pat `state_rel _ _ _ _`) \\ gvs []
         \\ disch_then $ qspecl_then [`g`, `[b]`] mp_tac
         \\ impl_tac
         >- (
           rw []
-          >- gvs [code_inv_def, dec_clock_def]
           >- (
             gvs [dec_clock_def, wfv_state_def, FEVERY_ALL_FLOOKUP]
             \\ first_x_assum drule \\ rw [])
-          >- gvs [wfv_state_def, dec_clock_def]
           >- (irule calls_wfg \\ metis_tac[])
           >- imp_res_tac subg_trans
           >- gvs [env_rel_def, dec_clock_def]
           >- (
-            `(dec_clock 1 t).code = t.code`
-              by gvs [state_rel_def, dec_clock_def]
-            \\ gvs []
-            \\ irule code_includes_SUBMAP
+            irule code_includes_SUBMAP
             \\ goal_assum $ drule_at Any \\ rw []
             \\ imp_res_tac evaluate_mono \\ gvs []))
         \\ rw [] \\ gvs []
@@ -3225,27 +3212,19 @@ Proof
         gvs [v_rel_def]
         \\ gvs [AppUnit_def, calls_def, code_locs_def]
         \\ drule_all_then assume_tac state_rel_flookup_refs \\ gvs []
-        \\ `state_rel g2 l2 (dec_clock 1 r) (dec_clock 1 t)` by (
-          gvs [state_rel_def, dec_clock_def])
-        \\ first_x_assum $ drule_at (Pat `state_rel _ _ (dec_clock _ _) _`)
-        \\ gvs []
+        \\ first_x_assum $ drule_at (Pat `state_rel _ _ _ _`) \\ gvs []
         \\ disch_then $ qspecl_then [`g`, `[b]`] mp_tac
         \\ impl_tac
         >- (
           rw []
-          >- gvs [code_inv_def, dec_clock_def]
           >- (
             gvs [dec_clock_def, wfv_state_def, FEVERY_ALL_FLOOKUP]
             \\ first_x_assum drule \\ rw [])
-          >- gvs [wfv_state_def, dec_clock_def]
           >- (irule calls_wfg \\ metis_tac[])
           >- imp_res_tac subg_trans
           >- gvs [env_rel_def, dec_clock_def]
           >- (
-            `(dec_clock 1 t).code = t.code`
-              by gvs [state_rel_def, dec_clock_def]
-            \\ gvs []
-            \\ irule code_includes_SUBMAP
+            irule code_includes_SUBMAP
             \\ goal_assum $ drule_at Any \\ rw []
             \\ imp_res_tac evaluate_mono \\ gvs []))
         \\ rw [] \\ gvs []

@@ -828,7 +828,7 @@ Proof
     \\ gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
     \\ first_assum $ drule_at $ Pos $ el 3
     \\ disch_then $ drule_at $ Pos last
-    \\ impl_tac >- (fs [exp_size_def] \\ strip_tac \\ gvs [])
+    \\ impl_tac >- (fs [] \\ strip_tac \\ gvs [])
     \\ strip_tac \\ fs []
     \\ reverse (gvs [CaseEq"result"])
     >- (qexists_tac ‘ck’ \\ fs [])
@@ -837,7 +837,7 @@ Proof
     \\ first_assum $ drule_at $ Pos $ el 3
     \\ disch_then $ drule_at $ Pos last
     \\ imp_res_tac evaluate_clock \\ fs []
-    \\ impl_tac >- (fs [exp_size_def] \\ strip_tac \\ gvs [])
+    \\ impl_tac >- (fs [] \\ strip_tac \\ gvs [])
     \\ strip_tac \\ fs []
     \\ qpat_x_assum ‘evaluate (xs,_) = _’ assume_tac
     \\ drule evaluate_add_clock \\ fs []
@@ -848,9 +848,9 @@ Proof
     \\ first_assum $ drule_at $ Pos $ el 3
     \\ disch_then $ drule_at $ Pos last
     \\ impl_tac >-
-     (fs [exp_size_def]
+     (fs []
       \\ rw [] \\ imp_res_tac evaluate_IMP_LENGTH \\ fs []
-      \\ qsuff_tac ‘LENGTH xs ≤ exp3_size xs’ >- fs []
+      \\ qsuff_tac ‘LENGTH xs ≤ exp3_alt_size xs’ >- fs []
       \\ qid_spec_tac ‘xs’ \\ Induct \\ fs [])
     \\ strip_tac
     \\ qpat_x_assum ‘evaluate (xs,_) = _’ assume_tac
@@ -964,7 +964,9 @@ Proof
   \\ gvs [evaluate_def,CaseEq"prod",PULL_EXISTS]
   \\ first_assum $ drule_at $ Pos $ el 3
   \\ disch_then $ drule_at $ Pos last
-  \\ impl_tac >- (fs [exp_size_def,dec_clock_def] \\ strip_tac \\ gvs [])
+  \\ impl_tac >- (
+    conj_tac >- (IF_CASES_TAC \\ gvs [])
+    \\ strip_tac \\ gvs [])
   \\ strip_tac
   \\ reverse $ gvs [CaseEq"result"]
   >- (qexists_tac ‘ck’ \\ fs [])
@@ -1053,17 +1055,13 @@ Proof
       rw [] \\ drule evaluate_add_clock \\ gvs []) \\ gvs []
     \\ imp_res_tac state_rel_refs_clocks_eqs \\ gvs [PULL_EXISTS]
     >- (qexists `0` \\ gvs [state_rel_def])
-    >- (qexists `0` \\ gvs [state_rel_def])
     \\ (
-      last_x_assum $ qspecl_then [`[AppUnit (Var None 0)]`,
-                                  `s' with clock := t2.clock - 1`] mp_tac
+      last_x_assum $ qspecl_then [`[AppUnit (Var None 0)]`, `s'`] mp_tac
       \\ gvs [GSYM PULL_FORALL]
       \\ impl_tac
-      >- (imp_res_tac evaluate_clock \\ gvs [])
+      >- (imp_res_tac evaluate_clock \\ gvs [AppUnit_def])
       \\ disch_then $ qspec_then `[v]` mp_tac \\ gvs [dec_clock_def]
-      \\ disch_then $ qspec_then `dec_clock 1 t2` mp_tac \\ gvs [dec_clock_def]
-      \\ impl_tac
-      >- gvs [state_rel_def]
+      \\ disch_then $ qspec_then `t2` mp_tac \\ gvs [dec_clock_def]
       \\ rw []
       \\ goal_assum drule \\ gvs []
       \\ imp_res_tac state_rel_update_thunk \\ rw []))
