@@ -425,7 +425,8 @@ Proof
     \\ qexists_tac`n` \\ fs[])
   >- (
     gvs [AllCaseEqs(), FUN_EQ_THM]
-    >~ [‘dest_thunk _ _ = IsThunk NotEvaluated _’, ‘find_code _ _ _ = SOME _’]
+    >~ [‘dest_thunk _ _ = IsThunk NotEvaluated _’, ‘find_code _ _ _ = SOME _’,
+        ‘s.clock ≠ 0’]
     >- (qexists ‘n'’ \\ gvs [])
     \\ qexists `0` \\ gvs [])
 QED

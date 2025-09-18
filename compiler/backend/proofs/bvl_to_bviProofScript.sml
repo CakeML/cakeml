@@ -617,6 +617,7 @@ Proof
   >>~ [‘Force’]
   >- (
     gvs [bvlSemTheory.evaluate_def, AllCaseEqs()]
+    >- gvs [state_ok_def]
     \\ last_x_assum mp_tac \\ impl_tac \\ rw []
     >- gvs [state_ok_def, bvlSemTheory.dec_clock_def]
     \\ gvs [find_code_def, AllCaseEqs(), EVERY_EL, state_ok_def,
@@ -3873,7 +3874,10 @@ Proof
            adjust_bv_def]
       \\ drule_all state_rel_FLOOKUP_Thunk \\ rw [] \\ gvs []
       \\ goal_assum drule \\ gvs [inc_clock_def]
-      \\ qexistsl [‘t1’, ‘0’] \\ gvs [state_rel_def, state_component_equality])
+      \\ qexistsl [‘t1’, ‘0’] \\ gvs [state_rel_def, state_component_equality]
+      \\ gvs [find_code_def, AllCaseEqs()]
+      \\ first_x_assum drule \\ rw [] \\ gvs []
+      \\ pairarg_tac \\ gvs [])
     >- (
       gvs [oneline bvlSemTheory.dest_thunk_def, oneline dest_thunk_def,
            AllCaseEqs()]

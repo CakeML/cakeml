@@ -1997,7 +1997,15 @@ Proof
     >- (
       gvs [oneline dest_thunk_def, env_rel_def, AllCaseEqs(), PULL_EXISTS]
       \\ drule_then drule is_prefix_el \\ simp []
-      \\ disch_then $ assume_tac o GSYM \\ gvs [])
+      \\ disch_then $ assume_tac o GSYM \\ gvs []
+      \\ gvs [find_code_def, AllCaseEqs()]
+      \\ simp [GSYM PULL_EXISTS] \\ reverse $ rw []
+      >- gvs [state_rel_def, state_component_equality]
+      \\ drule state_rel_code_rel \\ rw [code_rel_def]
+      \\ first_x_assum drule \\ rw []
+      \\ gvs [compile_exp_def]
+      \\ Cases_on `check_exp force_loc 2 exp` \\ gvs []
+      \\ pairarg_tac \\ gvs [])
     \\ last_assum $ qspecl_then [‘[exp]’, ‘dec_clock 1 s’] mp_tac
     \\ gvs [dec_clock_def]
     \\ disch_then drule

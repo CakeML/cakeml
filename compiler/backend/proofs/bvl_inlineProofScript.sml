@@ -1007,7 +1007,9 @@ Proof
   THEN1
    (gvs [AllCaseEqs(), evaluate_def, PULL_EXISTS, oneline dest_thunk_def]
     >- gvs [in_state_rel_def]
-    >- gvs [in_state_rel_def]
+    >- (
+      gvs [in_state_rel_def, find_code_def, AllCaseEqs()]
+      \\ first_x_assum drule \\ rw [] \\ gvs [])
     \\ ‘in_state_rel limit (dec_clock 1 s) (dec_clock 1 t1)’
       by gvs [in_state_rel_def, dec_clock_def]
     \\ last_x_assum drule \\ rw []
@@ -1592,7 +1594,8 @@ Proof
   THEN1
    (gvs [AllCaseEqs(), PULL_EXISTS]
     >- gvs [let_state_rel_def]
-    >- gvs [let_state_rel_def]
+    >- gvs [let_state_rel_def, find_code_def, AllCaseEqs(), lookup_map,
+            let_opt_def]
     \\ rename1 ‘let_state_rel q l s t’
     \\ ‘let_state_rel q l (dec_clock 1 s) (dec_clock 1 t)’
       by gvs [let_state_rel_def, dec_clock_def]
