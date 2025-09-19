@@ -262,20 +262,18 @@ Overload is_monomorphic = “λty. tyvars ty = []”
 
 Type SIG = “:((mlstring |-> num) # (mlstring |-> type))”
 
-(* todo everything in frange sigma has to be monomorphic *)
 Definition esubsts_ok_def:
   esubsts_ok (sig:SIG) (σ, θ) ⇔
     strlit "=" ∉ FDOM θ ∧
     strlit "bool" ∉ FDOM σ ∧
-    (∀tyn typ. FLOOKUP (tysof sig) tyn = SOME 0 ∧
-               FLOOKUP σ tyn = SOME typ ⇒
-               is_monomorphic typ) ∧
     (∀tmnm. tmnm ∈ FDOM θ ⇒
             ∃ty. FLOOKUP (tmsof sig) tmnm = SOME ty ∧
                  is_monomorphic ty ∧
                  typeof (θ ' tmnm) = ty_esubst (σ, θ) ty) ∧
-    (∀ty. ty ∈ FRANGE σ ⇒ type_ok (tysof sig) ty) ∧
-    (∀tm. tm ∈ FRANGE θ ⇒ term_ok (esubst_sig (σ,θ) sig) tm)
+    (∀ty. ty ∈ FRANGE σ ⇒ type_ok (tysof sig) ty ∧
+                          is_monomorphic ty) ∧
+    (∀tm. tm ∈ FRANGE θ ⇒ term_ok (esubst_sig (σ,θ) sig) tm ∧
+                          ∃n ty. tm = Const n ty)
 End
 
 (* Standard signature includes the minimal type operators and constants *)
