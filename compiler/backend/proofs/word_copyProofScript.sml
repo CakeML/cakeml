@@ -674,6 +674,7 @@ Proof
   >>rw[copy_prop_inst_def]>>metis_tac[remove_eq_inv,remove_eqs_inv]
 QED
 
+(* TODO *)
 Theorem copy_prop_prog_inv:
   CPstate_inv cs ⇒
   copy_prop_prog prog cs = (prog', cs') ⇒
@@ -689,6 +690,12 @@ Proof
   >-metis_tac[copy_prop_inst_inv]
   >-metis_tac[merge_eqs_inv]
   >-(Cases_on‘exp’>>fs[])
+  >-(
+    rw[set_store_eq_def]
+    >> Cases_on `lookup (lookup_eq cs n) cs.to_eq`
+    >- (simp[])
+    >- ()
+  )
 QED
 
 Theorem get_vars_LENGTH:
@@ -1017,6 +1024,7 @@ Proof
   rw[CPstate_models_def,sh_mem_store_byte_def,flush_state_def]>>gvs[ACE]
 QED
 
+(* TODO *)
 Theorem copy_prop_correct:
   ∀prog cs st prog' cs' err st'.
   CPstate_inv cs ⇒
@@ -1097,12 +1105,14 @@ Proof
   >-(
     (*Get*)
     rw[copy_prop_prog_def,evaluate_def]>>every_case_tac>>fs[]
+    (* TODO *)
     >>metis_tac[remove_eq_inv,remove_eq_model_set_var]
   )
   >-(
     (*Set*)
     rw[copy_prop_prog_def,evaluate_def]>>
     gvs[ACE,evaluate_def]>>
+    (* TODO *)
     metis_tac[CPstate_modelsD_Var,set_store_model]
   )
   >-(
