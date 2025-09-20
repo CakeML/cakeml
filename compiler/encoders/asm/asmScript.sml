@@ -271,13 +271,12 @@ Definition offset_ok_def:
   let (min, max) = offset in min <= w /\ w <= max /\ aligned a w
 End
 
-val () = List.app overload_on
-  [("addr_offset_ok",  ``\c. offset_ok 0 c.addr_offset``),
-   ("hw_offset_ok",  ``\c. offset_ok 0 c.hw_offset``),
-   ("byte_offset_ok",  ``\c. offset_ok 0 c.byte_offset``),
-   ("jump_offset_ok",  ``\c. offset_ok c.code_alignment c.jump_offset``),
-   ("cjump_offset_ok", ``\c. offset_ok c.code_alignment c.cjump_offset``),
-   ("loc_offset_ok",   ``\c. offset_ok c.code_alignment c.loc_offset``)]
+Overload addr_offset_ok = “λc. offset_ok 0 c.addr_offset”
+Overload hw_offset_ok = “λc. offset_ok 0 c.hw_offset”
+Overload byte_offset_ok = “λc. offset_ok 0 c.byte_offset”
+Overload jump_offset_ok = “λc. offset_ok c.code_alignment c.jump_offset”
+Overload cjump_offset_ok = “λc. offset_ok c.code_alignment c.cjump_offset”
+Overload loc_offset_ok = “λc. offset_ok c.code_alignment c.loc_offset”
 
 Definition inst_ok_def:
   (inst_ok Skip c = T) /\
@@ -324,4 +323,3 @@ Definition is_load_def[simp]:
   (is_load Load32 = T) ∧
   (is_load _ = F)
 End
-
