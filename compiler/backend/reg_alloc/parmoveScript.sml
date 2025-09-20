@@ -127,7 +127,7 @@ Definition wf_def:
     EVERY IS_SOME (MAP FST σ) ∧
     path σ
 End
-val _ = overload_on(UnicodeChars.turnstile,``wf``);
+Overload "⊢" = “wf”
 
 Theorem wf_init:
    windmill μ ∧
