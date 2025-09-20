@@ -17,6 +17,19 @@ Definition pan_itree_unfold_err_def:
       FinalFFI, (λe. FinalFFI e FFI_failed))
 End
 *)
+(* move *)
+Theorem evaluate_min_clock:
+  evaluate (prog,s) = (q,r) ∧ q ≠ SOME TimeOut ⇒
+  ∃k. evaluate (prog,s with clock := k) = (q,r with clock := 0)
+Proof
+  qabbrev_tac ‘x = r with clock := 0’>>
+  ‘r = x with clock := x.clock + r.clock’
+    by simp[state_component_equality,Abbr‘x’]>>
+  pop_assum (fn h => rewrite_tac[Once h])>>strip_tac>>
+  drule_all panPropsTheory.evaluate_clock_sub>>
+  strip_tac>>fs[]>>metis_tac[]
+QED
+
 Datatype:
   bstate =
     <| locals      : varname |-> 'a v
@@ -1906,6 +1919,21 @@ Proof
   fs[FUNPOW_Tau_bind]>>fs[FUNPOW_Ret_simp]
 QED
 
+Theorem nondiv_ltree_bind_lemma':
+  itree_bind (ltree fs t) (ltree fs' ∘ k) =
+  FUNPOW Tau n (Ret r) : 'a ptree
+  ∧ fs' = (FST fs,SND (comp_ffi fs t)) ⇒
+  ∃n' r'.
+    ltree fs t = FUNPOW Tau n' (Ret r') : 'a ptree ∧
+    ∃n'' r''.
+      ltree (FST fs,SND (comp_ffi fs t)) (k r') = FUNPOW Tau n'' (Ret r'') : 'a ptree
+      ∧ n' + n'' = n
+Proof
+  rw[]>>
+  imp_res_tac nondiv_ltree_bind_lemma>>
+  gvs[]
+QED
+
 (**************************)
 
 Theorem nondiv_INR:
@@ -2104,8 +2132,9 @@ Proof
          panPropsTheory.eval_upd_clock_eq,
          panPropsTheory.opt_mmap_eval_upd_clock_eq1]>>
       TRY (rename1 ‘ExtCall’>>
-           fs[mrec_ExtCall]>>
-           rpt (PURE_CASE_TAC>>fs[]))>>
+           fs[mrec_ExtCall,call_FFI_def,AllCaseEqs()]>>
+           rpt (FULL_CASE_TAC>>fs[])>>gvs[bst_def]
+          )>>
       fs[mrec_prog_simps,mrec_Seq,mrec_If,Once mrec_While,mrec_Call,
          mrec_DecCall,
          mrec_ExtCall,call_FFI_def,mrec_ShMemLoad,mrec_ShMemStore,
@@ -2417,8 +2446,476 @@ Proof
   gvs[set_var_defs,bst_def]
 QED
 
+Theorem nondiv_evaluate':
+  ltree fs (mrec h_prog (h_prog (p,bst s))) =
+  FUNPOW Tau n (Ret (INR r)) : 'a ptree
+  ∧ evaluate (p,s with clock := k) = (res, t) ∧ res ≠ SOME TimeOut ∧
+  FST fs = s.ffi.oracle ∧ SND fs = s.ffi.ffi_state ⇒
+  res = FST r ∧ bst t = SND r ∧
+  t.ffi.ffi_state = SND (comp_ffi (s.ffi.oracle,s.ffi.ffi_state) (mrec h_prog (h_prog (p,bst s))))
+Proof
+  strip_tac>>
+  Cases_on ‘fs’>>gs[]>>
+  imp_res_tac nondiv_evaluate>>gvs[]
+QED
 
 (**************************)
+
+Theorem evaluate_imp_nondiv:
+  evaluate (p,s) = (res,t) ∧ res ≠ SOME TimeOut ⇒
+  ∃n. ltree (s.ffi.oracle,s.ffi.ffi_state) (mrec h_prog (h_prog (p,bst s))) = FUNPOW Tau n (Ret (INR (res,bst t))):'a ptree
+Proof
+  map_every qid_spec_tac [‘res’,‘t’,‘s’,‘p’]>>
+  recInduct evaluate_ind>>rw[]>>
+  qpat_x_assum ‘evaluate _ = (_,_)’ mp_tac>>
+  simp[Once evaluate_def,mrec_prog_simps]>>strip_tac>>
+  TRY (rpt (TOP_CASE_TAC>>fs[empty_locals_defs])>> 
+       qexists ‘0’>>simp[FUNPOW]>>NO_TAC)
+  >- (rpt (TOP_CASE_TAC>>fs[])>- metis_tac[FUNPOW]>>
+      qrefine ‘SUC n’>>simp[FUNPOW_SUC]>>
+      pairarg_tac>>gvs[FUNPOW_Tau_bind])
+  >- (* shmemload *)
+   (simp[mrec_ShMemLoad]>>
+    fs[sh_mem_load_def,call_FFI_def,set_var_defs,AllCaseEqs()]>>
+    gvs[bst_def,empty_locals_defs]>>
+    metis_tac[FUNPOW])
+  >- (* shmemstire *)
+   (simp[mrec_ShMemStore]>>
+    fs[sh_mem_store_def,call_FFI_def,set_var_defs,AllCaseEqs()]>>
+    gvs[bst_def,empty_locals_defs]>>
+    metis_tac[FUNPOW])
+  >~ [‘ExtCall’]>-
+   (simp[mrec_ExtCall]>>
+    fs[sh_mem_store_def,call_FFI_def,set_var_defs,AllCaseEqs()]>>
+    rpt (TOP_CASE_TAC>>fs[])>>
+    gvs[empty_locals_defs,bst_def]>>
+    metis_tac[FUNPOW])
+  >- (* Seq *)
+   (rpt (pairarg_tac>>fs[])>>
+    rpt (FULL_CASE_TAC>>fs[])>>
+    simp[mrec_Seq,FUNPOW_Tau_bind]>>
+    drule nondiv_evaluate>>gvs[]>>
+    qmatch_asmsub_abbrev_tac ‘evaluate (c1,_) = (rr,tt)’>>
+    disch_then $ qspecl_then [‘tt’,‘rr’,‘s.clock’] mp_tac>>
+    ‘s with clock := s.clock = s’ by simp[state_component_equality]>>
+    simp[]>>
+    fs[]>>strip_tac>>TRY (fs[Abbr‘rr’])>>
+    pop_assum $ assume_tac o GSYM>>fs[]>>
+    ‘s.ffi.oracle = tt.ffi.oracle’ by
+      (irule EQ_SYM>>irule evaluate_invariant_oracle>>metis_tac[])>>
+    gvs[FUNPOW_Tau_bind]>>
+    simp[GSYM FUNPOW_SUC,GSYM FUNPOW_ADD]>>
+    rpt (FULL_CASE_TAC>>fs[]))
+   >- (* If *)
+    (simp[mrec_If]>>
+     rpt (TOP_CASE_TAC>>fs[])>>gvs[FUNPOW_Tau_bind]>>
+     metis_tac[FUNPOW,FUNPOW_SUC])
+  >- (* While *)
+   (simp[Once mrec_While,dec_clock_def]>>
+    TOP_CASE_TAC>>fs[]>-metis_tac[FUNPOW]>>
+    reverse TOP_CASE_TAC>>fs[]>-metis_tac[FUNPOW]>>
+    reverse TOP_CASE_TAC>>fs[]>-metis_tac[FUNPOW]>>
+    TOP_CASE_TAC>>fs[]>-metis_tac[FUNPOW]>>
+    rpt (pairarg_tac>>fs[])>>
+    rpt (FULL_CASE_TAC>>fs[])>>
+    gvs[dec_clock_def,FUNPOW_Tau_bind]>>
+    TRY (simp[GSYM FUNPOW_SUC]>>qrefine ‘SUC n'’>>simp[]>>NO_TAC)>>
+    qpat_x_assum ‘ltree (s.ffi.oracle,_) _ = _’ assume_tac>>
+    drule nondiv_evaluate'>>gvs[]>>
+    disch_then $ drule_at Any>>
+    simp[]>>strip_tac>>
+    pop_assum $ assume_tac o GSYM>>fs[]>>
+    ‘(s with clock := s.clock -1).ffi.oracle = s1.ffi.oracle’ by
+      (irule EQ_SYM>>irule evaluate_invariant_oracle>>metis_tac[])>>
+    gvs[FUNPOW_Tau_bind]>>
+    simp[GSYM FUNPOW_SUC]>>rewrite_tac[GSYM FUNPOW_ADD]>>
+    metis_tac[FUNPOW_SUC])
+  >- (rpt (FULL_CASE_TAC>>fs[])>>
+      gvs[dec_clock_def,empty_locals_defs]>>
+      metis_tac[FUNPOW])>>
+  (* Call / DecCall *)
+ simp[mrec_Call,mrec_DecCall]>>
+fs[AllCaseEqs(),set_var_defs,
+empty_locals_defs,dec_clock_def,FUNPOW_Tau_bind]>>
+  rpt (pairarg_tac>>fs[])>>
+ simp[mrec_h_handle_call_ret_lemma]>>
+gvs[FUNPOW_Tau_bind]>>
+TRY (qexists ‘0’>>simp[FUNPOW]>>NO_TAC)>>
+  drule nondiv_evaluate'>>gvs[]>>
+  disch_then $ drule_at Any>>
+  strip_tac>>fs[]>>
+  pop_assum $ assume_tac o GSYM>>fs[]>>
+  ‘(s with <|locals :=newlocals;clock :=s.clock -1|>).ffi.oracle = st.ffi.oracle’ by
+    (irule EQ_SYM>>irule evaluate_invariant_oracle>>metis_tac[])>>
+  simp[mrec_h_handle_call_ret_lemma,empty_locals_defs,set_var_defs,
+      mrec_h_handle_deccall_ret_lemma]>>
+  gvs[FUNPOW_Tau_bind]>>
+  TRY (TOP_CASE_TAC>>fs[])>>
+  simp[GSYM FUNPOW_SUC]>>rewrite_tac[GSYM FUNPOW_ADD]>>
+  metis_tac[FUNPOW_SUC]
+QED
+
+Theorem nondiv_not_timeout:
+  ltree fs (mrec h_prog (h_prog (p,s))) = FUNPOW Tau n (Ret (INR (res,t))):'a ptree ⇒
+  res ≠ SOME TimeOut
+Proof
+  map_every qid_spec_tac [‘res’,‘fs’,‘t’,‘s’,‘p’,‘n’]>>
+  completeInduct_on ‘n’>>rpt gen_tac>>strip_tac>>
+  Cases_on ‘n’>>fs[]
+  >- (Cases_on ‘p’>>
+      fs[mrec_prog_simps,mrec_Seq,mrec_If,Once mrec_While,mrec_Call,
+         mrec_DecCall,
+         mrec_ExtCall,call_FFI_def,mrec_ShMemLoad,mrec_ShMemStore,
+         empty_locals_defs,dec_clock_def,
+         panPropsTheory.eval_upd_clock_eq,
+         panPropsTheory.opt_mmap_eval_upd_clock_eq1]>>
+      gvs[AllCaseEqs()]>>
+      rpt (PURE_FULL_CASE_TAC>>fs[]))>>
+  (* FUNPOW *)
+  Cases_on ‘p’>>
+  fs[mrec_prog_simps,mrec_Seq,mrec_If,Once mrec_While,mrec_Call,
+     mrec_DecCall,
+     mrec_ExtCall,call_FFI_def,mrec_ShMemLoad,mrec_ShMemStore,
+     panPropsTheory.eval_upd_clock_eq,
+     panPropsTheory.opt_mmap_eval_upd_clock_eq1]>>
+  gvs[FUNPOW_SUC,AllCaseEqs()]
+  >- (rpt (FULL_CASE_TAC>>fs[])>>fs[FUNPOW_SUC]>>
+      drule nondiv_ltree_bind_lemma'>>
+      simp[]>>strip_tac>>fs[FUNPOW_Tau_bind]>>
+      imp_res_tac nondiv_INR>>fs[]>>
+      FULL_CASE_TAC>>fs[]>>
+      Cases_on ‘n'''’>>fs[FUNPOW_SUC]>>gvs[]>>
+      last_x_assum $ qspec_then ‘n'’ assume_tac>>gvs[]>>
+      first_x_assum $ qspecl_then [‘p'’,‘s with locals := s.locals |+ (m,x)’,‘r’,‘fs’] assume_tac>>fs[]>>
+      gvs[])
+  >- rpt (FULL_CASE_TAC>>fs[])>>fs[FUNPOW_SUC]
+  >- (drule nondiv_ltree_bind_lemma'>>
+      simp[]>>strip_tac>>fs[FUNPOW_Tau_bind]>>
+      fs[GSYM FUNPOW_ADD]>>
+      imp_res_tac nondiv_INR>>fs[]>>
+      rpt (FULL_CASE_TAC>>fs[])>>
+      Cases_on ‘n'''’>>fs[FUNPOW_SUC]>>gvs[]
+      (* NONE *)
+      >- (drule nondiv_ltree_bind_lemma'>>
+          simp[]>>strip_tac>>fs[FUNPOW_Tau_bind]>>
+          fs[GSYM FUNPOW_ADD]>>gs[]>>
+          imp_res_tac nondiv_INR>>fs[]>>
+          FULL_CASE_TAC>>fs[]>>
+          Cases_on ‘n'''’>>fs[FUNPOW_SUC]>>gvs[]>>
+          last_x_assum $ qspec_then ‘n’ assume_tac>>gvs[]>>
+          qmatch_asmsub_abbrev_tac ‘ltree fs' _ = _’>>
+          first_x_assum $ qspecl_then [‘p0’,‘r’,‘r'''’,‘fs'’] assume_tac>>
+          gvs[])>>
+      last_x_assum $ qspec_then ‘n'’ assume_tac>>gvs[]>>
+      metis_tac[])
+  >- (rpt (FULL_CASE_TAC>>fs[])>>fs[FUNPOW_SUC]>>
+      drule nondiv_ltree_bind_lemma'>>
+      simp[]>>strip_tac>>fs[FUNPOW_Tau_bind]>>
+      fs[GSYM FUNPOW_ADD]>>gs[]>>
+      imp_res_tac nondiv_INR>>fs[]>>
+      FULL_CASE_TAC>>fs[]>>
+      Cases_on ‘n'''’>>fs[FUNPOW_SUC]>>gvs[]>>
+      last_x_assum $ qspec_then ‘n'’ assume_tac>>gvs[]>>
+      qmatch_asmsub_abbrev_tac ‘ltree _ (mrec _ (_ (pp,_))) = _’>>
+      first_x_assum $ qspecl_then [‘pp’,‘s’,‘r’,‘fs’] assume_tac>>
+      gvs[])
+  >- (rpt (FULL_CASE_TAC>>fs[])>>fs[FUNPOW_SUC]>>
+      drule nondiv_ltree_bind_lemma'>>
+      simp[]>>strip_tac>>fs[FUNPOW_Tau_bind]>>
+      fs[GSYM FUNPOW_ADD]>>gs[]>>
+      imp_res_tac nondiv_INR>>fs[]>>
+      rpt (FULL_CASE_TAC>>fs[])>>
+      Cases_on ‘n'''’>>fs[FUNPOW_SUC]>>gvs[]>>
+      last_x_assum $ qspec_then ‘n’ assume_tac>>gvs[]>>
+      qmatch_asmsub_abbrev_tac ‘ltree fs' (mrec _ (_ (pp,r))) = _’>>
+      first_x_assum $ qspecl_then [‘pp’,‘r’,‘t’,‘fs'’] assume_tac>>
+      gvs[])
+  >- (rpt (FULL_CASE_TAC>>fs[])>>fs[FUNPOW_SUC]>>
+      drule nondiv_ltree_bind_lemma'>>
+      simp[]>>strip_tac>>fs[FUNPOW_Tau_bind]>>
+      fs[GSYM FUNPOW_ADD]>>gs[]>>
+      imp_res_tac nondiv_INR>>fs[]>>
+      fs[mrec_h_handle_call_ret_lemma]>>
+      rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
+      Cases_on ‘n'''’>>fs[FUNPOW_SUC]>>gvs[]>>
+      drule nondiv_ltree_bind_lemma'>>
+      simp[]>>strip_tac>>fs[FUNPOW_Tau_bind]>>
+      fs[GSYM FUNPOW_ADD]>>gs[]>>
+      imp_res_tac nondiv_INR>>fs[]>>
+      fs[set_var_defs]>>
+      rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
+      Cases_on ‘n'''’>>fs[FUNPOW_SUC]>>gvs[]>>
+      last_x_assum $ qspec_then ‘n'’ assume_tac>>gvs[]>>
+      qmatch_asmsub_abbrev_tac ‘ltree fs' (mrec _ (_ (pp,rr))) = FUNPOW Tau n' (Ret (_ (_,tt)))’>>
+      first_x_assum $ qspecl_then [‘pp’,‘rr’,‘tt’,‘fs'’] assume_tac>>
+      gvs[])
+  >- (rpt (FULL_CASE_TAC>>fs[])>>fs[FUNPOW_SUC]>>
+      drule nondiv_ltree_bind_lemma'>>
+      simp[]>>strip_tac>>fs[FUNPOW_Tau_bind]>>
+      fs[GSYM FUNPOW_ADD]>>gs[]>>
+      imp_res_tac nondiv_INR>>fs[]>>
+      fs[mrec_h_handle_deccall_ret_lemma]>>
+      rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
+      Cases_on ‘n'''’>>fs[FUNPOW_SUC]>>gvs[]>>
+      drule nondiv_ltree_bind_lemma'>>
+      simp[]>>strip_tac>>fs[FUNPOW_Tau_bind]>>
+      fs[GSYM FUNPOW_ADD]>>gs[]>>
+      imp_res_tac nondiv_INR>>fs[]>>
+      fs[set_var_defs]>>
+      rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
+      Cases_on ‘n'''’>>fs[FUNPOW_SUC]>>gvs[]>>
+      last_x_assum $ qspec_then ‘n'’ assume_tac>>gvs[]>>
+      qmatch_asmsub_abbrev_tac ‘ltree fs' (mrec _ (_ (pp,rr))) = FUNPOW Tau n' (Ret (_ (_,tt)))’>>
+      first_x_assum $ qspecl_then [‘pp’,‘rr’,‘tt’,‘fs'’] assume_tac>>
+      gvs[])>>
+  rpt (PURE_FULL_CASE_TAC>>fs[])>>fs[FUNPOW_SUC]>>
+  Cases_on ‘n'’>>fs[FUNPOW_SUC]>>gvs[]>>
+  Cases_on ‘n’>>fs[FUNPOW_SUC]>>gvs[]
+QED
+
+Theorem nondiv_imp_evaluate:
+  ltree (s.ffi.oracle,s.ffi.ffi_state) (mrec h_prog (h_prog (p,bst s))) = FUNPOW Tau n (Ret (INR (res,t))):'a ptree ⇒
+    ∃k t'. evaluate (p,s with clock := k) = (res,t')
+           ∧ bst t' = t
+         ∧ res ≠ SOME TimeOut
+Proof
+  strip_tac>>
+  imp_res_tac nondiv_not_timeout>>
+  pop_assum mp_tac>>
+  pop_assum mp_tac>>
+  map_every qid_spec_tac [‘res’,‘t’,‘s’,‘p’,‘n’]>>
+  completeInduct_on ‘n’>>rpt gen_tac>>ntac 2 strip_tac>>
+  Cases_on ‘n’>>fs[]
+  >- (Cases_on ‘p’>>
+      fs[mrec_prog_simps,mrec_Seq,mrec_If,Once mrec_While,mrec_Call,
+         mrec_DecCall,Once evaluate_def,
+         mrec_ExtCall,call_FFI_def,mrec_ShMemLoad,mrec_ShMemStore,
+         empty_locals_defs,dec_clock_def,
+         sh_mem_load_def,sh_mem_store_def,
+         panPropsTheory.eval_upd_clock_eq,
+         panPropsTheory.opt_mmap_eval_upd_clock_eq1]>>
+      gvs[AllCaseEqs()]>>
+      rpt (pairarg_tac>>fs[])>>
+      rpt (PURE_FULL_CASE_TAC>>fs[])>>gvs[bst_def])>>
+  (* FUNPOW *)
+  Cases_on ‘p’>>
+  fs[mrec_prog_simps,mrec_Seq,mrec_If,Once mrec_While,mrec_Call,
+     mrec_DecCall,Once evaluate_def,
+     mrec_ExtCall,call_FFI_def,mrec_ShMemLoad,mrec_ShMemStore,
+     panPropsTheory.eval_upd_clock_eq,
+     sh_mem_load_def,sh_mem_store_def,
+     panPropsTheory.opt_mmap_eval_upd_clock_eq1]>>
+  gvs[FUNPOW_SUC]
+
+  >- (rpt (PURE_FULL_CASE_TAC>>fs[])>>gvs[]>>
+      drule nondiv_ltree_bind_lemma'>>
+      simp[]>>strip_tac>>fs[FUNPOW_Tau_bind]>>
+      fs[GSYM FUNPOW_ADD]>>gs[]>>
+      imp_res_tac nondiv_INR>>fs[]>>
+      rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
+      Cases_on ‘n'''’>>fs[FUNPOW_SUC]>>gvs[]>>
+      last_x_assum $ qspec_then ‘n''’ assume_tac>>gvs[]>>
+      qmatch_asmsub_abbrev_tac ‘ltree _ (mrec _ (_ (pp,rr))) = FUNPOW Tau n'' (Ret (_ (_,tt)))’>>
+      first_x_assum $ qspecl_then [‘pp’,‘s with locals := s.locals |+ (m,x)’,‘tt’,‘q’] assume_tac>>
+      gvs[]>>
+      qexists ‘k’>>fs[])
+  >- (rpt (PURE_FULL_CASE_TAC>>fs[])>>gvs[])
+  >- (rpt (PURE_FULL_CASE_TAC>>fs[])>>gvs[]>>
+      drule nondiv_ltree_bind_lemma'>>
+      simp[]>>strip_tac>>fs[FUNPOW_Tau_bind]>>
+      fs[GSYM FUNPOW_ADD]>>gs[]>>
+      imp_res_tac nondiv_INR>>fs[]>>
+      rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
+      Cases_on ‘n'''’>>fs[FUNPOW_SUC]>>gvs[]
+      >- (
+       drule nondiv_ltree_bind_lemma'>>
+       simp[]>>strip_tac>>fs[FUNPOW_Tau_bind]>>
+       fs[GSYM FUNPOW_ADD]>>gs[]>>
+       imp_res_tac nondiv_INR>>fs[]>>
+       rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
+       Cases_on ‘n'''’>>fs[FUNPOW_SUC]>>gvs[]>>
+       last_assum $ qspec_then ‘n''’ mp_tac>>
+       (impl_tac >- simp[])>>
+       disch_then drule>>strip_tac>>fs[]>>
+       dxrule evaluate_min_clock>>
+       strip_tac>>fs[]>>
+       drule_then drule nondiv_evaluate'>>simp[]>>strip_tac>>
+       pop_assum $ assume_tac o GSYM>>fs[]>>
+       imp_res_tac evaluate_invariant_oracle>>
+       pop_assum $ assume_tac o GSYM>>fs[]>>
+       qhdtm_x_assum ‘bst’ $ assume_tac o GSYM>>fs[]>>
+       last_x_assum $ qspec_then ‘n'’ mp_tac>>
+       (impl_tac >- simp[])>>
+       disch_then rev_drule>>simp[]>>
+       strip_tac>>fs[]>>
+       dxrule evaluate_min_clock>>simp[]>>
+       strip_tac>>fs[]>>
+       qexists ‘k' + k''’>>
+       rev_drule panPropsTheory.evaluate_add_clock_eq>>
+       disch_then $ qspec_then ‘k''’ assume_tac>>fs[])>>
+      last_x_assum $ qspec_then ‘n''’ mp_tac>>
+      (impl_tac >- simp[])>>
+      disch_then drule>>strip_tac>>gvs[]>>
+      qexists ‘k’>>simp[])
+  >- (rpt (PURE_FULL_CASE_TAC>>fs[])>>gvs[]>>
+      drule nondiv_ltree_bind_lemma'>>
+      simp[]>>strip_tac>>fs[FUNPOW_Tau_bind]>>
+      fs[GSYM FUNPOW_ADD]>>gs[]>>
+      imp_res_tac nondiv_INR>>fs[]>>
+      rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
+      Cases_on ‘n'''’>>fs[FUNPOW_SUC]>>gvs[])
+  >- (rpt (PURE_FULL_CASE_TAC>>fs[])>>gvs[dec_clock_def]>>
+      drule nondiv_ltree_bind_lemma'>>
+      simp[]>>strip_tac>>fs[FUNPOW_Tau_bind]>>
+      fs[GSYM FUNPOW_ADD]>>gs[]>>
+      imp_res_tac nondiv_INR>>fs[]>>
+      rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
+      Cases_on ‘n'''’>>fs[FUNPOW_SUC]>>gvs[]>>
+
+      last_assum $ qspec_then ‘n''’ mp_tac>>
+      (impl_tac >- simp[])>>
+      disch_then drule>>strip_tac>>fs[]>>
+      TRY (qexists ‘SUC k’>>fs[]>>NO_TAC)>>
+      dxrule evaluate_min_clock>>
+      strip_tac>>fs[]>>
+      drule_then drule nondiv_evaluate'>>simp[]>>strip_tac>>
+      pop_assum $ assume_tac o GSYM>>fs[]>>
+      imp_res_tac evaluate_invariant_oracle>>
+      pop_assum $ assume_tac o GSYM>>fs[]>>
+      qhdtm_x_assum ‘bst’ $ assume_tac o GSYM>>fs[]>>
+      last_x_assum $ qspec_then ‘n’ mp_tac>>
+      (impl_tac >- simp[])>>
+      disch_then drule>>simp[]>>
+      strip_tac>>fs[]>>
+      dxrule evaluate_min_clock>>simp[]>>
+      strip_tac>>fs[]>>
+      qexists ‘SUC (k' + k'')’>>
+      rev_drule panPropsTheory.evaluate_add_clock_eq>>
+      disch_then $ qspec_then ‘k''’ assume_tac>>fs[])
+  (* call *)
+  >- (rpt (PURE_CASE_TAC>>fs[])>>gvs[dec_clock_def]>>
+      drule nondiv_ltree_bind_lemma'>>
+      simp[]>>strip_tac>>fs[FUNPOW_Tau_bind]>>
+      fs[GSYM FUNPOW_ADD]>>gs[]>>
+      imp_res_tac nondiv_INR>>fs[]>>
+      rename [‘r' = INR x'’]>>Cases_on ‘x'’>>gvs[]>> 
+      fs[mrec_h_handle_call_ret_lemma]>>
+      rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
+      Cases_on ‘n'''’>>gvs[FUNPOW_SUC,empty_locals_defs]>>
+      TRY (last_x_assum $ qspec_then ‘n''’ mp_tac>>
+           (impl_tac >- simp[])>>
+           ‘s.ffi = (s with locals := r).ffi’ by simp[]>>
+           rename [‘h_prog (q, bst _)’]>>
+           disch_then $ qspecl_then [‘q’,‘s with locals := r’] mp_tac>>
+           fs[]>>strip_tac>>
+           qexists ‘SUC k’>>gvs[bst_def]>>NO_TAC)>>
+      TRY (drule nondiv_ltree_bind_lemma'>>
+           simp[]>>strip_tac>>fs[FUNPOW_Tau_bind]>>
+           fs[GSYM FUNPOW_ADD]>>gs[]>>
+           imp_res_tac nondiv_INR>>fs[]>>
+           rename [‘r' = INR x'’]>>Cases_on ‘x'’>>gvs[]>>
+           Cases_on ‘n'''’>>fs[FUNPOW_SUC]>>gvs[])>>
+      last_assum $ qspec_then ‘n''’ mp_tac>>
+      (impl_tac >- simp[])>>
+      rename [‘h_prog (q, bst _)’]>>
+      qmatch_asmsub_abbrev_tac ‘FUNPOW Tau n'' (_ (_ (rr, tt)))’>>
+      disch_then $ qspecl_then [‘q’,‘s with locals := r’,‘tt’,‘rr’] mp_tac>>
+      (impl_tac>- simp[])>>strip_tac>>fs[Abbr‘rr’]>>
+      dxrule evaluate_min_clock>>strip_tac>>gvs[]>>
+      TRY (qexists ‘SUC k'’>>simp[]>>
+           rpt (FULL_CASE_TAC>>fs[])>>gvs[set_var_defs]>>NO_TAC)>>
+      rev_drule nondiv_evaluate'>>fs[]>>
+      disch_then $ drule_at Any>>
+      fs[]>>strip_tac>>
+      pop_assum $ assume_tac o GSYM>>fs[]>>
+      imp_res_tac evaluate_invariant_oracle>>
+      pop_assum $ assume_tac o GSYM>>fs[]>>
+      last_x_assum $ qspec_then ‘n'’ mp_tac>>
+      (impl_tac >- simp[])>>
+      fs[set_var_defs]>>
+      TRY (qhdtm_x_assum ‘bst’ $ assume_tac o GSYM)>>fs[]>>
+      qmatch_asmsub_abbrev_tac ‘h_prog (r'', bst X)’>>
+      ‘t''.ffi = X.ffi’ by simp[Abbr‘X’]>>fs[]>>
+      disch_then drule>>strip_tac>>fs[]>>gvs[]>>
+      dxrule evaluate_min_clock>>pop_assum kall_tac>>
+      strip_tac>>gvs[Abbr‘X’]>>
+      qexists ‘SUC (k' + k'')’>>
+      rev_drule panPropsTheory.evaluate_add_clock_eq>>fs[]>>
+      disch_then $ qspec_then ‘k''’ assume_tac>>fs[])
+  (* deccall *)
+  >- (rpt (PURE_CASE_TAC>>fs[])>>gvs[dec_clock_def]>>
+      drule nondiv_ltree_bind_lemma'>>
+      simp[]>>strip_tac>>fs[FUNPOW_Tau_bind]>>
+      fs[GSYM FUNPOW_ADD]>>gs[]>>
+      imp_res_tac nondiv_INR>>fs[]>>
+      rename [‘r' = INR x'’]>>Cases_on ‘x'’>>gvs[]>> 
+      fs[mrec_h_handle_deccall_ret_lemma]>>
+      rpt (FULL_CASE_TAC>>fs[])>>gvs[]>>
+      Cases_on ‘n'''’>>gvs[FUNPOW_SUC,empty_locals_defs]>>
+      TRY (last_x_assum $ qspec_then ‘n''’ mp_tac>>
+           (impl_tac >- simp[])>>
+           ‘s.ffi = (s with locals := r).ffi’ by simp[]>>
+           rename [‘h_prog (q, bst _)’]>>
+           disch_then $ qspecl_then [‘q’,‘s with locals := r’] mp_tac>>
+           fs[]>>strip_tac>>
+           qexists ‘SUC k’>>gvs[bst_def]>>NO_TAC)>>
+      
+drule nondiv_ltree_bind_lemma'>>
+           simp[]>>strip_tac>>fs[FUNPOW_Tau_bind]>>
+           fs[GSYM FUNPOW_ADD]>>gs[]>>
+           imp_res_tac nondiv_INR>>fs[]>>
+           rename [‘r' = INR x'’]>>Cases_on ‘x'’>>gvs[]>>
+           Cases_on ‘n'''’>>fs[FUNPOW_SUC]>>gvs[]>>
+      last_assum $ qspec_then ‘n''’ mp_tac>>
+      (impl_tac >- simp[])>>
+      rename [‘h_prog (q, bst _)’]>>
+      qmatch_asmsub_abbrev_tac ‘FUNPOW Tau n'' (_ (_ (rr, tt)))’>>
+      disch_then $ qspecl_then [‘q’,‘s with locals := r’,‘tt’,‘rr’] mp_tac>>
+      (impl_tac>- simp[])>>strip_tac>>fs[Abbr‘rr’]>>
+      dxrule evaluate_min_clock>>strip_tac>>gvs[]>>
+
+      rev_drule nondiv_evaluate'>>fs[]>>
+      disch_then $ drule_at Any>>
+      fs[]>>strip_tac>>
+      pop_assum $ assume_tac o GSYM>>fs[]>>
+      imp_res_tac evaluate_invariant_oracle>>
+      pop_assum $ assume_tac o GSYM>>fs[]>>
+      last_x_assum $ qspec_then ‘n'’ mp_tac>>
+      (impl_tac >- simp[])>>
+      fs[set_var_defs]>>
+      qmatch_asmsub_abbrev_tac ‘h_prog (p', bst X)’>>
+      ‘t''.ffi = X.ffi’ by simp[Abbr‘X’]>>fs[]>>
+      disch_then drule>>strip_tac>>fs[]>>gvs[]>>
+      dxrule evaluate_min_clock>>pop_assum kall_tac>>
+      strip_tac>>gvs[Abbr‘X’]>>
+      qexists ‘SUC (k' + k'')’>>
+      rev_drule panPropsTheory.evaluate_add_clock_eq>>fs[]>>
+      disch_then $ qspec_then ‘k''’ assume_tac>>fs[])>>
+  rpt (PURE_CASE_TAC>>fs[])>>
+  Cases_on ‘n'’>>fs[FUNPOW_SUC]>>
+  rename [‘FUNPOW Tau n _’]>>
+  Cases_on ‘n’>>gvs[FUNPOW_SUC]>>
+  simp[bst_def,empty_locals_defs,set_var_defs]
+QED
+
+Theorem div_imp_timeout:
+div fs (mrec h_prog (h_prog (p, bst s))) ⇒
+∃t. evaluate (p,s with clock := k) = (SOME TimeOut, t)
+Proof
+  rpt strip_tac >>
+  spose_not_then strip_assume_tac >>
+  Cases_on ‘evaluate (p, s with clock := k)’ >>
+  rename [‘_ = (res,st)’] >>fs[]>>
+  last_x_assum mp_tac>>fs[]>>
+  
+
+  Cases_on ‘res = SOME Error’ >> gvs[]
+  >-  (imp_res_tac ltree_lift_corres_evaluate_error >>
+       gvs[]) >>
+  imp_res_tac ltree_lift_corres_evaluate >>
+  gvs[]
+QED
+
 (**************************)
 (**************************)
 (*** evaluate -> itree (no ffi) ***)
@@ -2936,19 +3433,6 @@ Proof
   simp[mrec_prog_nonrec,mrec_ShMemLoad,mrec_ShMemStore]>>
   rpt (CASE_TAC>>fs[])>>
   simp[FUNPOW_SUC]
-QED
-
-(* move *)
-Theorem evaluate_min_clock:
-  evaluate (prog,s) = (q,r) ∧ q ≠ SOME TimeOut ⇒
-  ∃k. evaluate (prog,s with clock := k) = (q,r with clock := 0)
-Proof
-  qabbrev_tac ‘x = r with clock := 0’>>
-  ‘r = x with clock := x.clock + r.clock’
-    by simp[state_component_equality,Abbr‘x’]>>
-  pop_assum (fn h => rewrite_tac[Once h])>>strip_tac>>
-  drule_all panPropsTheory.evaluate_clock_sub>>
-  strip_tac>>fs[]>>metis_tac[]
 QED
 
 (* fix this so that the end state has clock = 0 *)
