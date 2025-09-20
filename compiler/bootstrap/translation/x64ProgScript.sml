@@ -1,7 +1,7 @@
 (*
   Translate the x64 instruction encoder and x64-specific config.
 *)
-Theory x64Prog
+Theory x64Prog[no_sig_docs]
 Ancestors
   evaluate ml_translator from_pancake64Prog x64_target x64
 Libs
@@ -540,7 +540,6 @@ val res = translate def;
 
 Theorem x64_config_v_thm[allow_rebind] = translate (x64_config_def |> gconv);
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

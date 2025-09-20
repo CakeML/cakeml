@@ -1,7 +1,7 @@
 (*
   Finish translation of the 64-bit version of the compiler.
 *)
-Theory compiler64Prog
+Theory compiler64Prog[no_sig_docs]
 Ancestors
   mipsProg compiler export ml_translator basis_ffi[qualified]
 Libs
@@ -785,5 +785,4 @@ Theorem Decls_FRONT_compiler64_prog = th1
 
 Theorem LAST_compiler64_prog = EVAL “LAST compiler64_prog”;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.reset_translation(); (* because this translation won't be continued *)

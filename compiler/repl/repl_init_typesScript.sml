@@ -3,7 +3,7 @@
   Candle kernel and REPL module, i.e. everything in the user-visible
   initial environment of the read-eval-print loop.
 *)
-Theory repl_init_types
+Theory repl_init_types[no_sig_docs]
 Ancestors
   infer_cv repl_moduleProg repl_check_and_tweak
 Libs
@@ -98,4 +98,3 @@ Proof
   rewrite_tac [Repl_charsFrom_lemma]
 QED
 
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;

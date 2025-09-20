@@ -1,7 +1,7 @@
 (*
   Translate the MIPS instruction encoder and MIPS-specific config.
 *)
-Theory mipsProg
+Theory mipsProg[no_sig_docs]
 Ancestors
   evaluate ml_translator riscvProg mips_target mips
 Libs
@@ -391,7 +391,6 @@ val res = translate def;
 Theorem mips_config_v_thm[allow_rebind] = translate
   (mips_config_def |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]|> econv);
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

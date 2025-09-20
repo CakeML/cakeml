@@ -1,7 +1,7 @@
 (*
   Translate the pretty printing functions for the REPL
 *)
-Theory printingProg
+Theory printingProg[no_sig_docs]
 Ancestors
   infer[qualified] misc[qualified] ml_translator basis_defProg
   std_prelude printTweaks
@@ -133,7 +133,6 @@ val lemma5 = prove(“printtweaks_add_print_then_read_side x y = T”,
   |> update_precondition;
 
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

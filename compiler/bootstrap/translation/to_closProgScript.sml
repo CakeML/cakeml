@@ -1,7 +1,7 @@
 (*
   Translate the backend phase from flatLang to closLang.
 *)
-Theory to_closProg
+Theory to_closProg[no_sig_docs]
 Ancestors
   ml_translator to_flatProg flat_to_clos[qualified]
   clos_mti[qualified] clos_number[qualified]
@@ -418,6 +418,5 @@ val r = translate clos_ticksTheory.compile_inc_def;
 
 (* ------------------------------------------------------------------------- *)
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 val _ = ml_translatorLib.clean_on_exit := true;

@@ -1,7 +1,7 @@
 (*
   Translation of basis types and functions for use with cv_compute.
 *)
-Theory basis_cv
+Theory basis_cv[no_sig_docs]
 Ancestors
   cv_std
 Libs
@@ -51,4 +51,3 @@ QED
 val _ = cv_trans (mlintTheory.toString_def |> SRULE [Num_ABS]);
 val _ = cv_trans mlintTheory.num_to_str_def;
 
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;

@@ -3,7 +3,7 @@
   type inferencer. This file also acts as a test of cv_compute
   evaluation of the type inferencer.
 *)
-Theory basisTypeCheck
+Theory basisTypeCheck[no_sig_docs]
 Ancestors
   basisProg infer_cv
 Libs
@@ -33,4 +33,3 @@ val print_types = let
   val _ = print "\n"
   in () end
 
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;

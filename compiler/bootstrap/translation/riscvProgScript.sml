@@ -1,7 +1,7 @@
 (*
   Translate the RISC-V instruction encoder and RISC-V-specific config.
 *)
-Theory riscvProg
+Theory riscvProg[no_sig_docs]
 Ancestors
   evaluate ml_translator arm8Prog riscv_target riscv
 Libs
@@ -380,7 +380,6 @@ val res = translate def;
 Theorem riscv_config_v_thm[allow_rebind] = translate
   (riscv_config_def |> SIMP_RULE bool_ss [IN_INSERT, NOT_IN_EMPTY]|> econv);
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

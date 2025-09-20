@@ -1,7 +1,7 @@
 (*
   Translate the backend phase from closLang to BVL.
 *)
-Theory to_bvlProg
+Theory to_bvlProg[no_sig_docs]
 Ancestors
   ml_translator to_closProg backend[qualified]
 Libs
@@ -349,6 +349,5 @@ val res = translate clos_to_bvlTheory.clos_to_bvl_compile_inc_def
 
 (* ------------------------------------------------------------------------- *)
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 val _ = ml_translatorLib.clean_on_exit := true;

@@ -1,7 +1,7 @@
 (*
   Translation of the functions in caml_parserScript.sml
  *)
-Theory caml_parserProg
+Theory caml_parserProg[no_sig_docs]
 Ancestors
   misc[qualified] camlPEG camlPtreeConversion caml_parser
   ml_translator caml_lexProg
@@ -300,6 +300,5 @@ QED
 
 val _ = update_precondition run_side;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val () = ml_translatorLib.clean_on_exit := true;
 

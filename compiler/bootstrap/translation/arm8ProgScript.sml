@@ -1,7 +1,7 @@
 (*
   Translate the ARMv8 instruction encoder and ARMv8-specific config.
 *)
-Theory arm8Prog
+Theory arm8Prog[no_sig_docs]
 Ancestors
   arm8_target arm8 evaluate ml_translator x64Prog
 Libs
@@ -515,7 +515,6 @@ val _ = translate (valid_immediate_def |> SIMP_RULE bool_ss
 Theorem arm8_config_v_thm[allow_rebind] =
   translate (arm8_config_def |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]|> econv)
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

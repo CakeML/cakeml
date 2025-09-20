@@ -1,7 +1,7 @@
 (*
   Translate the ag32 instruction encoder and ag32-specific config.
 *)
-Theory ag32Prog
+Theory ag32Prog[no_sig_docs]
 Ancestors
   evaluate ml_translator ag32_target ag32 arm7Prog[qualified]
 Libs
@@ -143,6 +143,5 @@ val res = translate def;
 
 val r = translate (format_def ag32_config_def);
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = (ml_translatorLib.clean_on_exit := true);

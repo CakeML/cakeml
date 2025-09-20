@@ -1,7 +1,7 @@
 (*
   Translate x64-specialised functions to cv equations.
 *)
-Theory backend_x64_cv
+Theory backend_x64_cv[no_sig_docs]
 Ancestors
   cv_std backend_cv backend_64_cv backend_x64 x64 x64_target
   to_data_cv export_x64 x64_config
@@ -304,4 +304,3 @@ Proof
   irule backendTheory.set_asm_conf_id \\ EVAL_TAC
 QED
 
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
