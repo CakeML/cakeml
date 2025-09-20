@@ -1,7 +1,7 @@
 (*
   Translate the data_to_word part of the 64-bit compiler.
 *)
-Theory to_word64Prog
+Theory to_word64Prog[no_sig_docs]
 Ancestors
   ml_translator printingProg std_prelude data_to_word word_simp
   word_alloc word_inst backend[qualified]
@@ -704,7 +704,6 @@ val r = presLangTheory.word_prog_to_display_def
 
 val r = presLangTheory.word_fun_to_display_def |> conv64 |> translate
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

@@ -1,7 +1,7 @@
 (*
   Translate the compiler's register allocator.
 *)
-Theory reg_allocProg
+Theory reg_allocProg[no_sig_docs]
 Libs
   preamble ml_monad_translatorLib
 Ancestors
@@ -413,7 +413,6 @@ val res = translate apply_bij_on_clash_tree_def;
 val res = translate size_of_clash_tree_def;
 val res = translate linear_scan_reg_alloc_def;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 (*
 TODO: update the following code (comes from the non-monadic register allocator
