@@ -2917,6 +2917,48 @@ Proof
 QED
 
 (**************************)
+
+Definition evaluate_semantics_def:
+  evaluate_semantics (prog,s) =
+    if ∃k. case FST (evaluate (prog,s with clock := k)) of
+            | SOME TimeOut => F
+            | SOME (FinalFFI _) => F
+            | SOME (Return _) => F
+            | _ => T
+    then Fail
+    else
+     case some res.
+      ∃k t r outcome.
+        evaluate (prog, s with clock := k) = (r,t) ∧
+        (case r of
+         | (SOME (FinalFFI e)) => outcome = FFI_outcome e
+         | (SOME (Return _))   => outcome = Success
+         | _ => F) ∧
+        res = Terminate outcome t.ffi.io_events
+      of
+    | SOME res => res
+    | NONE =>
+      Diverge
+         (build_lprefix_lub
+           (IMAGE (λk. fromList
+              (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))
+End
+
+Definition itree_behaviour_def:
+  itree_behaviour fs (prog, s) =
+  let trace = trace_prefix' fs (mrec h_prog (h_prog (prog,s))) in
+    case some (r, s').
+           ∃n. ltree fs (mrec h_prog (h_prog (prog,s)))
+               = FUNPOW Tau n (Ret (INR (r, s')))
+    of
+      SOME (r,s') =>
+        (case r of
+           SOME (FinalFFI e) => Terminate (FFI_outcome e) trace
+         | SOME (Return _) => Terminate Success trace
+         | _ => Fail)
+    | NONE => Diverge trace
+End
+
 (**************************)
 (*** evaluate -> itree (no ffi) ***)
 
