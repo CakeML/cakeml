@@ -535,17 +535,6 @@ Definition ffloat_ulp_def:
 End
 val _ = translate ffloat_ulp_def
 
-Theorem word_lsb_characterisation:
-  word_lsb (w:word64) = (w && 1w = 1w)
-Proof
-  Cases_on ‘w’ >> simp[word_lsb_n2w] >>
-  ONCE_REWRITE_TAC[WORD_AND_COMM] >>
-  simp[addressTheory.n2w_and_1, arithmeticTheory.MOD_MOD_LESS_EQ,
-       bitTheory.ODD_MOD2_LEM]
-QED
-
-val _ = translate word_lsb_characterisation
-
 Definition posinf64_def:
   posinf64 = construct 0w 0x7ffw 0w
 End
