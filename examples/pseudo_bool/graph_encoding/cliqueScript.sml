@@ -198,7 +198,7 @@ Proof
 QED
 
 Definition annot_string_def:
-  annot_string ((x,y):annot) = SOME (concat[strlit"nonadj"; toString (x+1) ; strlit"_" ; toString (y+1)])
+  annot_string ((x,y):annot) = SOME (concat[strlit"noedge"; toString (x+1) ; strlit"_" ; toString (y+1)])
 End
 
 Definition full_encode_def:

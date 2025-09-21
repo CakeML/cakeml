@@ -116,7 +116,9 @@ String.collate: (char -> char -> ordering) -> string -> string -> ordering
 String.char_escape_seq: char -> string option
 String.escape_str: string -> string
 String.escape_char: char -> string
+Bool.not: bool -> bool
 Bool.toString: bool -> string
+Bool.fromString: string -> bool option
 Bool.compare: bool -> bool -> ordering
 Pair.map: ('a -> 'b) -> ('c -> 'd) -> 'a * 'c -> 'b * 'd
 Pair.toString: ('a -> string) -> ('b -> string) -> 'a * 'b -> string

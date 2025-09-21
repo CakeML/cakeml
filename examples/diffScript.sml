@@ -469,8 +469,7 @@ Triviality tokens_toString_comma:
 Proof
   rw [] \\ match_mp_tac tokens_eq_sing
   \\ fs [num_to_str_thm,implode_def]
-  \\ fs [num_to_str_def]
-  \\ match_mp_tac (MP_CANON EVERY_MONOTONIC)
+  \\ irule EVERY_MONOTONIC
   \\ qexists_tac `isDigit`
   \\ fs [EVERY_isDigit_num_to_dec_string] \\ EVAL_TAC
 QED
@@ -483,11 +482,11 @@ Proof
     by(fs[line_numbers_def] >> rw[]
        \\ fs[toString_thm,num_to_str_def]
        \\ fs[explode_implode,strcat_thm]
-       \\ match_mp_tac (MP_CANON EVERY_MONOTONIC)
+       \\ irule EVERY_MONOTONIC
        \\ qexists_tac `isDigit` \\ fs [toString_isDigit])
   \\ match_mp_tac tokens_eq_sing
   \\ conj_tac THEN1
-   (match_mp_tac (MP_CANON EVERY_MONOTONIC)
+   (irule EVERY_MONOTONIC
     \\ goal_assum (first_x_assum o mp_then Any mp_tac)
     \\ fs [] \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs [isDigit_def])
   \\ rw [line_numbers_def,num_to_str_thm,implode_def]
@@ -1355,4 +1354,3 @@ Proof
   >> pop_assum $ PURE_ONCE_REWRITE_TAC o single
   >> fs[]
 QED
-
