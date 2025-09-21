@@ -3002,19 +3002,63 @@ Definition evaluate_behaviour_def:
 End
 
 Definition itree_behaviour_def:
-  itree_behaviour fs (prog, s) =
+  itree_behaviour pre fs (prog, s) =
   let trace = trace_prefix' fs (mrec h_prog (h_prog (prog,s))) in
-    case some (r, s').
-           ∃n. ltree fs (mrec h_prog (h_prog (prog,s)))
-               = FUNPOW Tau n (Ret (INR (r, s')))
+    case some r.
+           ∃n s'. ltree fs (mrec h_prog (h_prog (prog,s)))
+               = FUNPOW Tau n (Ret (INR (r, s'))): 'a ptree
     of
-      SOME (r,s') =>
+      SOME r =>
         (case r of
-           SOME (FinalFFI e) => Terminate (FFI_outcome e) trace
-         | SOME (Return _) => Terminate Success trace
+           SOME (FinalFFI e) =>
+             (case llist$toList trace of
+                NONE => Fail
+              | SOME io => Terminate (FFI_outcome e) (pre++io))
+         | SOME (Return _) =>
+             (case llist$toList trace of
+                NONE => Fail
+              | SOME io => Terminate Success (pre++io))
          | _ => Fail)
-    | NONE => Diverge trace
+    | NONE => Diverge (LAPPEND (fromList pre) trace)
 End
+
+Theorem evaluate_imp_itree:
+  evaluate_behaviour (prog,s) =
+  itree_behaviour s.ffi.io_events (s.ffi.oracle,s.ffi.ffi_state) (prog,bst s)
+Proof
+  simp[evaluate_behaviour_def,itree_behaviour_def]>>
+  rw[]>>
+  DEEP_INTRO_TAC some_intro>>
+  rw[]
+(* Fail *)
+  >- (imp_res_tac nondiv_imp_evaluate>>
+      dxrule evaluate_min_clock>>strip_tac>>gs[]>>
+      Cases_on ‘evaluate (prog, s with clock := k)’>>fs[]>>
+      ‘q ≠ SOME TimeOut ⇒ k'' ≤ k’ by
+        (strip_tac>>
+         CCONTR_TAC>>fs[NOT_LESS_EQUAL]>>
+         imp_res_tac (GSYM LESS_ADD)>>fs[]>>
+         drule panPropsTheory.evaluate_add_clock_eq>>fs[]>>
+         qexists ‘p’>>strip_tac>>gvs[state_component_equality])>>
+      rpt (FULL_CASE_TAC>>fs[])>>
+      imp_res_tac LESS_EQUAL_ADD>>fs[]>>
+      rev_drule panPropsTheory.evaluate_add_clock_eq>>
+      disch_then $ qspec_then ‘p’ assume_tac>>fs[])
+  >- (Cases_on ‘evaluate (prog, s with clock := k)’>>fs[]>>
+      rpt (FULL_CASE_TAC>>fs[])>>
+      imp_res_tac evaluate_imp_nondiv>>gvs[])
+  >- (fs[]>>
+      first_x_assum $ qspec_then ‘k’ assume_tac>>
+      gvs[]>>
+      Cases_on ‘r’>>fs[]>>
+      rename [‘(SOME x,_)’]>>
+      Cases_on ‘x’>>fs[]>>
+      imp_res_tac evaluate_imp_nondiv>>gvs[]>>cheat)>>
+  fs[]
+  
+     
+     
+QED
 
 (**************************)
 (*** evaluate -> itree (no ffi) ***)
@@ -3934,61 +3978,6 @@ QED
 
 
 (*** traces ***)
-
-Definition trace_prefix'_def:
-  trace_prefix' (x,x') (th:'a ptree) =
-  LFLATTEN $ LUNFOLD
-  (λ(fs,t). case t of
-               Ret r => NONE
-             | Tau u => SOME ((fs,u),LNIL)
-             | Vis (s,conf,ws) k =>
-                 (case x s fs conf ws of
-                  | Oracle_return fs' ws' =>
-                      if LENGTH ws ≠ LENGTH ws'
-                      then SOME ((fs', k (INL (INR ws'))),LNIL)
-                      else
-                        SOME ((fs',k (INL (INR ws'))),[|IO_event s conf (ZIP (ws,ws'))|])
-                  | Oracle_final outcome =>
-                      SOME ((fs, k (INL (INR ws))),LNIL)))
-  (x',th)
-End
-
-Theorem trace_prefix_simps[simp]:
-  trace_prefix' (x,x') (Ret r) = [||] ∧
-  trace_prefix' (x,x') (Tau u) = trace_prefix' (x,x') u ∧
-  trace_prefix' (x,x') (Vis (s,c,ws) k) =
-    case x s x' c ws of
-    | Oracle_return fs' ws' =>
-        if LENGTH ws ≠ LENGTH ws'
-        then trace_prefix' (x,fs') (k (INL (INR ws')))
-        else
-          IO_event s c (ZIP (ws,ws')):::trace_prefix' (x,fs') (k (INL (INR ws')))
-    | Oracle_final outcome => trace_prefix' (x,x') (k (INL (INR ws)))
-Proof
-  rw[trace_prefix'_def]>>
-  simp[Once LUNFOLD]>>
-  CASE_TAC>>fs[]>>
-  CASE_TAC>>fs[]
-QED
-
-(****)
-
-Theorem trace_prefix_bind_append:
-  (∃n. ltree (x,x') t = FUNPOW Tau n (Ret r)) ⇒
-  trace_prefix' (x,x') (itree_bind t k) =
-    LAPPEND (trace_prefix' (x,x') t) (trace_prefix' (x,SND (comp_ffi (x,x') t)) (k r))
-Proof
-  simp[PULL_EXISTS]>>
-  map_every qid_spec_tac [‘x'’,‘r’,‘k’,‘t’] >>
-  Induct_on ‘n’ >>
-  rw[FUNPOW_SUC]
-  >- (Cases_on ‘t’ >> fs[]>>
-      PairCases_on ‘a’>>fs[]>>
-      CASE_TAC>>fs[])>>
-  Cases_on ‘t’ >> fs[] >>
-  PairCases_on ‘a’>>fs[]>>
-  rpt (CASE_TAC>>fs[])
-QED
 
 (***************************)
 
