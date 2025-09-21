@@ -49,6 +49,14 @@ Termination
   cheat
 End
 
+Definition cont_closure_def:
+  cont_closure [] cenv innerk = (case innerk of
+  | NONE => VCl "t" cenv (EVar "t")
+  | SOME k => strict_lookup cenv k) /\
+  cont_closure (RCFn e::ks) cenv innerk = VCl ("m" ++ toString (count_rcarg ks)) cenv (cps_exp e (RCArg (EVar ("m" ++ toString (count_rcarg ks)))::ks) innerk) /\
+  cont_closure (RCArg e::ks) cenv innerk = VCl "n" cenv (EApp (EApp (EVar "n") e) (cont_lambda ks innerk))
+End
+
 Definition rich_cbv_continue_def:
   rich_cbv_continue [] env scopes comp tag v = (case scopes of
   | [] => ([], env, [], RCVal comp tag v)
@@ -110,5 +118,91 @@ Proof
       >>> HEADGOAL $ PairCases_on `scope`
     )
   )
-  >> gvs[forget_def, rich_cbv_step_def, rich_cbv_continue_def, cbv_step_def, cbv_continue_def, cat_ks_def, ctxt_with_env_def]
+  >> gvs[forget_def, rich_cbv_step_def, rich_cbv_continue_def,
+    cbv_step_def, cbv_continue_def, cat_ks_def, ctxt_with_env_def]
 QED
+
+Inductive vv_env_rel:
+[~vv:]
+  env_rel env cenv
+  ==>
+  vv_rel (VCl x env e) (VCl ("var" ++ x) cenv (EAbs "k" (cps_exp e [] (SOME "k"))))
+[~env:]
+  (! x . vv_rel (strict_lookup env x) (strict_lookup cenv ("var" ++ x)))
+  ==>
+  env_rel env cenv
+End
+
+Theorem vv_rel_cases = cj 1 vv_env_rel_cases;
+Theorem env_rel_cases = cj 2 vv_env_rel_cases;
+
+Inductive ve_rel:
+[~TVar:]
+  vv_rel v (strict_lookup cenv ("var" ++ x))
+  ==>
+  ve_rel (TVar x) v cenv (EVar ("var" ++ x))
+[~TAbs:]
+  env_rel env cenv
+  ==>
+  ve_rel TAbs (VCl x env e) cenv (EAbs ("var" ++ x) (EAbs "k" (cps_exp e [] (SOME "k"))))
+End
+
+Inductive m_val_rel:
+[~Trivial:]
+  ve_rel tag v cenv ce
+  ==>
+  m_val_rel (Trivial tag) v eks cenv ce
+[~Computation:]
+  vv_rel v (strict_lookup cenv ("m" ++ toString (count_rcarg eks)))
+  ==>
+  m_val_rel Computation v eks cenv (EVar ("m" ++ toString (count_rcarg eks)))
+End
+
+Inductive ks_rel:
+[~Id:]
+  ks_rel [] cenv []
+[~RCFn:]
+  ks_rel ks cenv eks
+  ==>
+  ks_rel (RCFn e::ks) cenv (RCFn e::eks)
+[~RCArg:]
+  ks_rel ks cenv eks /\
+  m_val_rel vtype v eks cenv ce
+  ==>
+  ks_rel (RCArg (vtype, v)::ks) cenv (RCArg ce::eks)
+End
+
+Inductive scopes_rel:
+[~NONE:]
+  scopes_rel [] kenv NONE
+[~SOME:]
+  scopes_rel scopes kenv innerk /\
+  ks_rel ks kenv eks /\
+  strict_lookup cenv "k" = cont_closure eks kenv innerk
+  ==>
+  scopes_rel ((env, ks)::scopes) cenv (SOME "k")
+End
+
+Inductive opt_cps_rel:
+[~RCExp:]
+  ks_rel ks cenv eks /\
+  env_rel env cenv /\
+  scopes_rel scopes cenv innerk
+  ==>
+  opt_cps_rel ks env scopes (RCExp e) cenv (cps_exp e eks innerk)
+[~RCVal_Trivial:]
+  ks_rel ks cenv eks /\
+  env_rel env cenv /\
+  scopes_rel scopes cenv innerk /\
+  ve_rel tag v cenv ce
+  ==>
+  opt_cps_rel ks env scopes (RCVal F tag v) cenv (app_cont eks ce innerk)
+[~RCVal_Computation:]
+  ks_rel ks kenv eks /\
+  env_rel env kenv /\
+  scopes_rel scopes kenv innerk /\
+  ve_rel tag v cenv ce /\
+  strict_lookup cenv "k" = cont_closure eks kenv innerk
+  ==>
+  opt_cps_rel ks env scopes (RCVal T tag v) cenv (EApp (EVar "k") ce)
+End
