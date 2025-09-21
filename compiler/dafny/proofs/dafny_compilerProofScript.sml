@@ -77,7 +77,7 @@ Proof
   gvs [cml_init_env_def, prim_sem_env_def, prim_types_program_def,
        add_to_sem_env_def, evaluate_decs_def, check_dup_ctors_def,
        combine_dec_result_def, has_basic_cons_def, build_tdefs_def,
-       build_constrs_def, extend_dec_env_def]
+       build_constrs_def, extend_dec_env_def, list_type_num_def]
 QED
 
 Triviality cml_init_state_next_exn_stamp:
@@ -106,11 +106,14 @@ Proof
   gvs [cml_init_state_def]
 QED
 
+(* TODO I suspect valid_members is not strictly necessary *)
 Theorem correct_compile:
   ∀dfy_ck prog s' r_dfy cml_decs (ffi: 'ffi ffi_state).
     evaluate_program dfy_ck T prog = (s', r_dfy) ∧
-    compile prog = INR cml_decs ∧ has_main prog ∧ valid_members prog ∧
-    0 < dfy_ck ∧ r_dfy ≠ Rstop (Serr Rtype_error) ⇒
+    r_dfy ≠ Rstop (Serr Rtype_error) ∧
+    compile prog = INR cml_decs ∧
+    has_main prog ∧ valid_members prog
+    ⇒
     ∃ck t' m' r_cml.
       evaluate_decs
         (cml_init_state ffi (dfy_ck + ck))

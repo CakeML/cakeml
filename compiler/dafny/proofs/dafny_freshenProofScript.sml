@@ -6,8 +6,7 @@ Libs
   preamble
 Ancestors
   mlstring mlint dafny_ast dafny_semanticPrimitives
-  dafny_evaluate dafny_evaluateProps dafny_freshen
-
+  dafnyProps dafny_evaluate dafny_evaluateProps dafny_freshen
 
 (* Relations and invariants *)
 
@@ -25,9 +24,13 @@ Definition map_inv_def:
 End
 
 Definition state_rel_def:
-  state_rel s t m cnt ⇔
-  s.clock = t.clock ∧ s.heap = t.heap ∧ s.output = t.output ∧
-  locals_rel s.locals m t.locals ∧ map_inv m cnt
+  state_rel s t m m_old m_prev cnt ⇔
+    s.clock = t.clock ∧
+    s.heap = t.heap ∧ s.heap_old = t.heap_old ∧
+    s.heap_prev = t.heap_prev ∧
+    locals_rel s.locals m t.locals ∧ map_inv m cnt ∧
+    locals_rel s.locals_old m_old t.locals_old ∧ map_inv m_old cnt ∧
+    locals_rel s.locals_prev m_prev t.locals_prev ∧ map_inv m_prev cnt
 End
 
 Definition env_rel_def:
@@ -59,6 +62,12 @@ Proof
 QED
 
 (* Various trivialities *)
+
+Triviality REVERSE_LENGTH:
+  ∀xs ys. ys = REVERSE xs ⇒ LENGTH ys = LENGTH xs
+Proof
+  Induct using SNOC_INDUCT \\ gvs []
+QED
 
 Triviality ALL_DISTINCT_APPEND_COMM:
   ALL_DISTINCT (x ++ y) ⇔ ALL_DISTINCT (y ++ x)
@@ -125,6 +134,16 @@ Proof
   \\ gvs [lookup_def, ALOOKUP_APPEND]
   \\ Cases_on ‘ALOOKUP m₁ n’
   \\ gvs [ALOOKUP_NONE]
+QED
+
+Triviality not_mem_lookup_append_eq:
+  ¬MEM n (MAP FST m₁) ⇒
+  lookup (m₁ ++ [(n,cnt)] ++ m₀) n = «v» ^ toString cnt
+Proof
+  rpt strip_tac
+  \\ gvs [lookup_def, ALOOKUP_APPEND]
+  \\ ‘ALOOKUP m₁ n = NONE’ by (gvs [ALOOKUP_NONE])
+  \\ asm_simp_tac std_ss []
 QED
 
 Triviality gen_map_lookup_append_eq:
@@ -255,6 +274,27 @@ QED
 
 (* locals_rel *)
 
+Triviality locals_rel_length:
+  ∀xs ys zs.
+    locals_rel xs ys zs ⇒ LENGTH xs = LENGTH ys ∧ LENGTH ys = LENGTH zs
+Proof
+  ho_match_mp_tac locals_rel_ind \\ gvs [locals_rel_def]
+QED
+
+Triviality locals_rel_drop:
+  ∀n xs ys zs.
+    locals_rel xs ys zs ⇒ locals_rel (DROP n xs) (DROP n ys) (DROP n zs)
+Proof
+  Induct \\ gvs []
+  \\ rpt strip_tac
+  \\ namedCases_on ‘xs’ ["", "x xs'"]
+  \\ namedCases_on ‘ys’ ["", "y ys'"]
+  \\ namedCases_on ‘zs’ ["", "z zs'"]
+  \\ gvs [locals_rel_def]
+  \\ PairCases_on ‘x’ \\ PairCases_on ‘y’ \\ PairCases_on ‘z’
+  \\ gvs [locals_rel_def]
+QED
+
 Triviality locals_rel_append:
   ∀xs' ys' zs' xs ys zs.
     locals_rel xs' ys' zs' ∧
@@ -314,12 +354,12 @@ Proof
 QED
 
 Triviality opt_mmap_read_local:
-  ∀s t m cnt ns vals.
-    state_rel s t m cnt ∧
+  ∀s t m m_old m_prev cnt ns vals.
+    state_rel s t m m_old m_prev cnt ∧
     OPT_MMAP (read_local s.locals) ns = SOME vals ⇒
     OPT_MMAP (read_local t.locals) (MAP (lookup m) ns) = SOME vals
 Proof
-  ntac 4 gen_tac \\ Induct_on ‘ns’
+  ntac 7 gen_tac \\ Induct_on ‘ns’
   \\ gvs [OPT_MMAP_MAP_o, state_rel_def]
   \\ rpt strip_tac
   \\ drule_all locals_rel_read_local \\ rpt strip_tac \\ gvs []
@@ -348,6 +388,16 @@ Proof
   \\ rpt (pairarg_tac \\ gvs [])
   \\ drule add_fresh_map_inv \\ strip_tac \\ gvs []
   \\ last_x_assum drule \\ gvs []
+QED
+
+Triviality map_add_fresh_mono:
+  ∀ns m m' cnt cnt'. map_add_fresh m cnt ns = (cnt', m') ⇒ cnt ≤ cnt'
+Proof
+  Induct
+  \\ gvs [map_add_fresh_def]
+  \\ rpt strip_tac
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ res_tac \\ gvs [add_fresh_def]
 QED
 
 Triviality map_add_fresh_distinct:
@@ -399,6 +449,20 @@ Proof
   \\ drule map_add_fresh_exists \\ rpt strip_tac \\ gvs []
   \\ drule map_inv_distinct \\ strip_tac
   \\ gvs [ALL_DISTINCT_APPEND_COMM]
+QED
+
+Triviality map_add_fresh_all_distinct:
+  ∀names m m' cnt cnt'.
+    map_add_fresh m cnt names = (cnt', m') ∧
+    map_inv m cnt ∧
+    ALL_DISTINCT names ⇒
+    ALL_DISTINCT (MAP (lookup m') names)
+Proof
+  rpt strip_tac
+  \\ drule_all map_add_fresh_imp
+  \\ rpt strip_tac \\ gvs [map_inv_def]
+  \\ gvs [map_lookup_map_tostring]
+  \\ gvs [ALL_DISTINCT_APPEND, MAP_REVERSE, distinct_nums_names]
 QED
 
 Triviality map_add_fresh_ins_locals_rel:
@@ -453,19 +517,39 @@ Proof
   \\ disch_then $ qspec_then ‘m’ assume_tac \\ gvs []
 QED
 
+Triviality map_add_fresh_drop:
+  ∀xs m m' cnt cnt'.
+    map_add_fresh m cnt xs = (cnt', m') ⇒ m = DROP (LENGTH xs) m'
+Proof
+  Induct \\ gvs [map_add_fresh_def, add_fresh_def]
+  \\ qx_gen_tac ‘h’ \\ rpt strip_tac
+  \\ drule map_add_fresh_exists
+  \\ rpt strip_tac \\ gvs []
+  \\ qabbrev_tac ‘ys = m₁ ++ [(h,cnt)]’
+  \\ ‘SUC (LENGTH xs) = LENGTH ys’ by
+    (unabbrev_all_tac \\ imp_res_tac REVERSE_LENGTH \\ gvs [ADD1])
+  \\ simp []
+  \\ DEP_REWRITE_TAC [DROP_LENGTH_APPEND]
+QED
+
 (* Monotonicity for freshen definitions *)
 
 Triviality freshen_exp_mono:
-  (∀m cnt e cnt' e'. freshen_exp m cnt e = (cnt', e') ⇒ cnt ≤ cnt') ∧
-  (∀m cnt es cnt' es'. freshen_exps m cnt es = (cnt', es') ⇒ cnt ≤ cnt')
+  (∀m m_old m_prev cnt e cnt' e'.
+     freshen_exp m m_old m_prev cnt e = (cnt', e') ⇒ cnt ≤ cnt') ∧
+  (∀m m_old m_prev cnt es cnt' es'.
+     freshen_exps m m_old m_prev cnt es = (cnt', es') ⇒ cnt ≤ cnt')
 Proof
   ho_match_mp_tac freshen_exp_ind \\ rpt strip_tac
-  \\ gvs [freshen_exp_def] \\ rpt (pairarg_tac \\ gvs []) \\ gvs [add_fresh_def]
+  \\ gvs [freshen_exp_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [add_fresh_def]
+  \\ imp_res_tac map_add_fresh_mono \\ simp []
 QED
 
 Triviality freshen_lhs_exp_mono:
- ∀m cnt lhs cnt' lhs'.
-    freshen_lhs_exp m cnt lhs = (cnt', lhs') ⇒ cnt ≤ cnt'
+ ∀m m_old m_prev cnt lhs cnt' lhs'.
+    freshen_lhs_exp m m_old m_prev cnt lhs = (cnt', lhs') ⇒ cnt ≤ cnt'
 Proof
   Cases_on ‘lhs’ \\ rpt strip_tac
   \\ gvs [freshen_lhs_exp_def] \\ rpt (pairarg_tac \\ gvs [])
@@ -473,8 +557,8 @@ Proof
 QED
 
 Triviality freshen_lhs_exps_mono:
-  ∀m cnt lhss cnt' lhss'.
-    freshen_lhs_exps m cnt lhss = (cnt', lhss') ⇒ cnt ≤ cnt'
+  ∀m m_old m_prev cnt lhss cnt' lhss'.
+    freshen_lhs_exps m m_old m_prev cnt lhss = (cnt', lhss') ⇒ cnt ≤ cnt'
 Proof
   Induct_on ‘lhss’ \\ rpt strip_tac
   \\ gvs [freshen_lhs_exps_def] \\ rpt (pairarg_tac \\ gvs[])
@@ -482,8 +566,8 @@ Proof
 QED
 
 Triviality freshen_rhs_exp_mono:
- ∀m cnt rhs cnt' rhs'.
-    freshen_rhs_exp m cnt rhs = (cnt', rhs') ⇒ cnt ≤ cnt'
+ ∀m m_old m_prev cnt rhs cnt' rhs'.
+    freshen_rhs_exp m m_old m_prev cnt rhs = (cnt', rhs') ⇒ cnt ≤ cnt'
 Proof
   Cases_on ‘rhs’ \\ rpt strip_tac
   \\ gvs [freshen_rhs_exp_def] \\ rpt (pairarg_tac \\ gvs [])
@@ -491,8 +575,8 @@ Proof
 QED
 
 Triviality freshen_rhs_exps_mono:
-  ∀m cnt rhss cnt' rhss'.
-    freshen_rhs_exps m cnt rhss = (cnt', rhss') ⇒ cnt ≤ cnt'
+  ∀m m_old m_prev cnt rhss cnt' rhss'.
+    freshen_rhs_exps m m_old m_prev cnt rhss = (cnt', rhss') ⇒ cnt ≤ cnt'
 Proof
   Induct_on ‘rhss’ \\ rpt strip_tac
   \\ gvs [freshen_rhs_exps_def] \\ rpt (pairarg_tac \\ gvs[])
@@ -500,8 +584,8 @@ Proof
 QED
 
 Triviality freshen_stmt_mono:
-  ∀m cnt stmt cnt' stmt'.
-    freshen_stmt m cnt stmt = (cnt', stmt') ⇒ cnt ≤ cnt'
+  ∀m m_old m_prev cnt stmt cnt' stmt'.
+    freshen_stmt m m_old m_prev cnt stmt = (cnt', stmt') ⇒ cnt ≤ cnt'
 Proof
   Induct_on ‘stmt’ \\ rpt strip_tac
   \\ gvs [freshen_stmt_def] \\ rpt (pairarg_tac \\ gvs [])
@@ -513,25 +597,83 @@ QED
 (* state_rel *)
 
 Triviality state_rel_mono:
-  ∀s t m cnt cnt'.
-    state_rel s t m cnt ∧ cnt ≤ cnt' ⇒ state_rel s t m cnt'
+  state_rel s t m m_old m_prev cnt ∧ cnt ≤ cnt' ⇒
+  state_rel s t m m_old m_prev cnt'
 Proof
   gvs [state_rel_def] \\ rpt strip_tac \\ imp_res_tac map_inv_mono
 QED
 
 Triviality state_rel_dec_clock:
-  ∀s t m cnt.
-    state_rel s t m cnt ⇒ state_rel (dec_clock s) (dec_clock t) m cnt
+  state_rel s t m m_old m_prev cnt ⇒
+  state_rel (dec_clock s) (dec_clock t) m m_old m_prev cnt
 Proof
   rpt strip_tac \\ gvs [state_rel_def, dec_clock_def]
 QED
 
 Triviality state_rel_same_map_imp:
-  ∀s t m cnt s' t' cnt'.
-    state_rel s t m cnt ∧ state_rel s' t' m cnt' ⇒
-    state_rel s' t' m cnt
+  state_rel s t m m_old m_prev cnt ∧ state_rel s' t' m m_old m_prev cnt' ⇒
+  state_rel s' t' m m_old m_prev cnt
 Proof
   rpt strip_tac \\ gvs [state_rel_def]
+QED
+
+Triviality state_rel_push_locals:
+  ∀names s t m m' m_old m_prev cnt cnt₂ cnt₃ vs.
+    state_rel s t m m_old m_prev cnt ∧
+    map_add_fresh m cnt₂ names = (cnt₃, m') ∧
+    ALL_DISTINCT names ∧
+    LENGTH vs = LENGTH names ∧
+    cnt ≤ cnt₂ ⇒
+    state_rel (push_locals s (ZIP (names,vs)))
+      (push_locals t (ZIP (MAP (lookup m') names,vs))) m' m_old m_prev cnt₃
+Proof
+  Induct >-
+   (rpt strip_tac
+    \\ gvs [push_locals_def, map_add_fresh_def]
+    \\ irule state_rel_mono
+    \\ rpt (last_assum $ irule_at $ Pos last))
+  \\ qx_gen_tac ‘name’ \\ rpt strip_tac
+  \\ gvs [map_add_fresh_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ drule add_fresh_map_inv
+  \\ impl_tac >-
+   (irule map_inv_mono
+    \\ full_simp_tac std_ss [state_rel_def]
+    \\ first_assum $ irule_at (Pos last)
+    \\ simp [])
+  \\ gvs [add_fresh_def]
+  \\ namedCases_on ‘vs’ ["", "v vs'"] \\ gvs []
+  \\ disch_tac
+  \\ gvs [push_locals_cons]
+  \\ last_x_assum irule \\ simp []
+  \\ qexistsl [‘cnt₂ + 1’, ‘cnt₂ + 1’] \\ simp []
+  \\ last_assum $ irule_at (Pos hd)
+  \\ drule map_add_fresh_exists
+  \\ disch_then $ qx_choose_then ‘m₁’ mp_tac
+  \\ rpt strip_tac \\ gvs []
+  \\ DEP_REWRITE_TAC [not_mem_lookup_append_eq]
+  \\ gvs [locals_rel_def, state_rel_def, push_local_def, lookup_def]
+  \\ CONJ_TAC
+  \\ irule map_inv_mono
+  \\ first_assum $ irule_at (Pos last) \\ simp []
+QED
+
+Triviality state_rel_drop:
+  state_rel s₁ t₁ m m_old m_prev cnt ∧
+  state_rel s₂ t₂ m' m_old m_prev cnt₁ ∧
+  map_add_fresh m cnt₂ names = (cnt₃,m') ∧
+  n = LENGTH names ∧
+  cnt ≤ cnt₁ ⇒
+  state_rel (s₂ with locals := DROP n s₂.locals)
+          (t₂ with locals := DROP n t₂.locals) m m_old m_prev cnt₁
+Proof
+  rpt strip_tac
+  \\ gvs [state_rel_def]
+  \\ conj_tac >- (* locals_rel *)
+   (imp_res_tac map_add_fresh_drop \\ simp []
+    \\ irule locals_rel_drop \\ simp [])
+  \\ irule map_inv_mono
+  \\ first_assum $ irule_at (Pos last) \\ simp []
 QED
 
 (* get_member *)
@@ -565,16 +707,16 @@ QED
 (* len_eq lemmas *)
 
 Triviality freshen_exps_len_eq:
-  ∀m cnt es cnt' es'.
-    freshen_exps m cnt es = (cnt', es') ⇒ LENGTH es = LENGTH es'
+  ∀m m_old m_prev cnt es cnt' es'.
+  freshen_exps m m_old m_prev cnt es = (cnt', es') ⇒ LENGTH es = LENGTH es'
 Proof
   Induct_on ‘es’ \\ rpt strip_tac
   \\ gvs [freshen_exp_def] \\ rpt (pairarg_tac \\ gvs[]) \\ res_tac
 QED
 
 Triviality freshen_rhs_exp_len_eq:
-  ∀m cnt rhss cnt' rhss'.
-    freshen_rhs_exps m cnt rhss = (cnt', rhss') ⇒
+  ∀m m_old m_prev cnt rhss cnt' rhss'.
+    freshen_rhs_exps m m_old m_prev cnt rhss = (cnt', rhss') ⇒
     LENGTH rhss' = LENGTH rhss
 Proof
   Induct_on ‘rhss’ \\ rpt strip_tac
@@ -584,8 +726,8 @@ Proof
 QED
 
 Triviality freshen_lhs_exp_len_eq:
-  ∀m cnt lhss cnt' lhss'.
-    freshen_lhs_exps m cnt lhss = (cnt', lhss') ⇒
+  ∀m m_old m_prev cnt lhss cnt' lhss'.
+    freshen_lhs_exps m m_old m_prev cnt lhss = (cnt', lhss') ⇒
     LENGTH lhss' = LENGTH lhss
 Proof
   Induct_on ‘lhss’ \\ rpt strip_tac
@@ -610,105 +752,18 @@ Proof
 QED
 
 Theorem correct_freshen_exp:
-  (∀s env e s' res t m cnt cnt' e' env'.
-     evaluate_exp s env e = (s', res) ∧ state_rel s t m cnt ∧
-     freshen_exp m cnt e = (cnt', e') ∧
+  (∀s env e s' res t m m_old m_prev cnt cnt' e' env'.
+     evaluate_exp s env e = (s', res) ∧ state_rel s t m m_old m_prev cnt ∧
+     freshen_exp m m_old m_prev cnt e = (cnt', e') ∧
      env_rel env env' ∧ res ≠ Rerr Rtype_error ⇒
-     ∃t'. evaluate_exp t env' e' = (t', res) ∧ state_rel s' t' m cnt') ∧
-  (∀s env es s' res t m cnt cnt' es' env'.
-     evaluate_exps s env es = (s', res) ∧ state_rel s t m cnt ∧
-     freshen_exps m cnt es = (cnt', es') ∧
+     ∃t'. evaluate_exp t env' e' = (t', res) ∧ state_rel s' t' m m_old m_prev cnt') ∧
+  (∀s env es s' res t m m_old m_prev cnt cnt' es' env'.
+     evaluate_exps s env es = (s', res) ∧ state_rel s t m m_old m_prev cnt ∧
+     freshen_exps m m_old m_prev cnt es = (cnt', es') ∧
      env_rel env env' ∧ res ≠ Rerr Rtype_error ⇒
-     ∃t'. evaluate_exps t env' es' = (t', res) ∧ state_rel s' t' m cnt')
+     ∃t'. evaluate_exps t env' es' = (t', res) ∧ state_rel s' t' m m_old m_prev cnt')
 Proof
   ho_match_mp_tac evaluate_exp_ind \\ rpt strip_tac
-  >~ [‘FunCall name args’] >-
-   (gvs [freshen_exp_def]
-    \\ rpt (pairarg_tac \\ gvs [])
-    \\ rename [‘freshen_exps _ _ _ = (cnt₁, args')’]
-    \\ gvs [evaluate_exp_def]
-    \\ namedCases_on ‘get_member name env.prog’ ["", "member"] \\ gvs []
-    \\ drule_all get_member_some \\ rpt strip_tac \\ gvs []
-    \\ Cases_on ‘member’ \\ gvs [freshen_member_def]
-    \\ rpt (pairarg_tac \\ gvs [])
-    \\ rename [‘freshen_exp _ _ body = (_, body')’,
-               ‘map_add_fresh _ _ _ = (cnt₁, m')’]
-    \\ namedCases_on ‘evaluate_exps s env args’ ["s₁ r"] \\ gvs []
-    \\ namedCases_on ‘r’ ["in_vs", "err"] \\ gvs []
-    \\ first_x_assum $ drule_all \\ rpt strip_tac \\ gvs []
-    \\ rename [‘state_rel s₁ t₁ m cnt₁’]
-    \\ gvs [set_up_call_def]
-    \\ rename [‘UNZIP ins = _’]
-    \\ gvs [UNZIP_MAP, MAP_ZIP]
-    \\ Cases_on ‘ALL_DISTINCT (MAP FST ins)’ \\ gvs []
-    \\ drule distinct_ins_lookup \\ strip_tac \\ gvs []
-    \\ gvs [safe_zip_def]
-    \\ Cases_on ‘LENGTH ins ≠ LENGTH in_vs’ \\ gvs []
-    \\ qabbrev_tac
-         ‘in_locals = ZIP (MAP FST ins, MAP SOME in_vs)’
-    \\ qabbrev_tac
-         ‘in_locals' =
-            ZIP (MAP (lookup m') (MAP FST ins), MAP SOME in_vs)’
-    \\ ‘s₁.clock = t₁.clock’ by gvs [state_rel_def]
-    \\ Cases_on ‘s₁.clock = 0’ \\ gvs [] >- gvs [restore_locals_def]
-    \\ gvs [CaseEq "prod"]
-    \\ rename [‘evaluate_exp _ _ _ = (_, r)’]
-    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
-    \\ last_x_assum $ drule_at $ Pos last
-    \\ disch_then $ drule_at $ Pos last
-    \\ disch_then $
-         qspec_then ‘dec_clock (t₁ with locals := REVERSE in_locals')’ mp_tac
-    \\ impl_tac
-    >- (gvs [state_rel_def, dec_clock_def]
-        \\ drule map_add_fresh_map_inv
-        \\ impl_tac >- gvs [map_inv_def] \\ strip_tac
-        \\ drule_all map_add_fresh_ins_locals_rel \\ strip_tac \\ gvs []
-        \\ imp_res_tac freshen_exp_mono
-        \\ imp_res_tac map_inv_mono)
-    \\ rpt strip_tac \\ gvs []
-    \\ rename [‘state_rel s₃ t₃ m' _’]
-    \\ qexists ‘restore_locals t₃ t₁.locals’
-    \\ ‘s' = restore_locals s₃ s₁.locals’ by gvs [AllCaseEqs()]
-    \\ gvs []
-    \\ conj_tac >- gvs [AllCaseEqs()]
-    \\ gvs [state_rel_def, restore_locals_def])
-  >~ [‘Forall (v,ty) e’] >-
-   (full_simp_tac bool_ss [evaluate_exp_def, freshen_exp_def]
-    \\ qabbrev_tac ‘f = λval. evaluate_exp (push_local s v val) env e’
-    \\ gvs [] \\ rpt (pairarg_tac \\ gvs [])
-    \\ rename [‘freshen_exp m₁ cnt₁ e = (cnt₂,e₂)’]
-    \\ full_simp_tac bool_ss [evaluate_exp_def, freshen_exp_def]
-    \\ ‘state_rel s t m cnt₂’ by
-      (imp_res_tac freshen_exp_mono \\ imp_res_tac state_rel_mono
-       \\ gvs [add_fresh_def])
-    \\ IF_CASES_TAC >- gvs [env_rel_def]
-    \\ ‘t.clock = s.clock’ by gvs [state_rel_def]
-    \\ IF_CASES_TAC >- gvs [env_rel_def]
-    \\ qabbrev_tac ‘g = λval. evaluate_exp (push_local t (lookup m₁ v) val) env' e₂’
-    \\ ‘s' = s’ by gvs [AllCaseEqs()]
-    \\ gvs []
-    \\ qexists_tac ‘t’ \\ gvs []
-    \\ qpat_x_assum ‘_ = (s,res)’ mp_tac
-    \\ IF_CASES_TAC >- gvs [env_rel_def] \\ rpt strip_tac
-    \\ ‘∀v. v ∈ all_values ty ⇒ SND (f v) ≠ Rerr Rtype_error’ by
-      (rpt strip_tac \\ qpat_x_assum ‘_ = (s,res)’ mp_tac
-       \\ IF_CASES_TAC \\ gvs [])
-    \\ qpat_x_assum ‘_ = (s,res)’ mp_tac
-    \\ qsuff_tac ‘∀v. v ∈ all_values ty ⇒ SND (f v) = SND (g v)’ >-
-     (rpt strip_tac \\ gvs [AllCaseEqs()] \\ metis_tac [])
-    \\ unabbrev_all_tac \\ gvs []
-    \\ qx_gen_tac ‘val’
-    \\ strip_tac \\ last_x_assum drule \\ strip_tac
-    \\ Cases_on ‘evaluate_exp (push_local s v val) env e’ \\ gvs []
-    \\ last_x_assum $ qspec_then ‘val’ mp_tac \\ gvs []
-    \\ disch_then $ drule_at $ Pos $ el 2
-    \\ disch_then $ drule_at $ Pos $ el 2
-    \\ disch_then $ qspec_then ‘(push_local t (lookup m₁ v) val)’ mp_tac
-    \\ reverse impl_tac >- (strip_tac \\ gvs [])
-    \\ gvs [state_rel_def]
-    \\ drule add_fresh_map_inv
-    \\ gvs [state_rel_def, add_fresh_def,
-            push_local_def, locals_rel_def, lookup_def])
   >~ [‘Lit l’] >-
    (gvs [evaluate_exp_def, freshen_exp_def])
   >~ [‘Var v’] >-
@@ -741,8 +796,8 @@ Proof
   >~ [‘BinOp bop e₀ e₁’] >-
    (gvs [evaluate_exp_def, freshen_exp_def]
     \\ rpt (pairarg_tac \\ gvs [])
-    \\ rename [‘freshen_exp m cnt e₀ = (cnt₁,e₀')’,
-               ‘freshen_exp m cnt₁ e₁ = (cnt₂,e₁')’]
+    \\ rename [‘freshen_exp m _ _ cnt e₀ = (cnt₁,e₀')’,
+               ‘freshen_exp m _ _ cnt₁ e₁ = (cnt₂,e₁')’]
     \\ gvs [evaluate_exp_def]
     \\ namedCases_on ‘evaluate_exp s env e₀’ ["s₁ r"] \\ gvs []
     \\ reverse $ namedCases_on ‘r’ ["v₀", "err"] \\ gvs []
@@ -779,8 +834,393 @@ Proof
     \\ namedCases_on ‘index_array s₂ arr_v idx_v’ ["", "v"] \\ gvs []
     \\ namedCases_on ‘index_array t₂ arr_v idx_v’ ["", "v'"] \\ gvs []
     \\ gvs [index_array_def, state_rel_def, AllCaseEqs ()])
-  >~ [‘freshen_exps m cnt []’] >- gvs [evaluate_exp_def, freshen_exp_def]
-  >~ [‘freshen_exps m cnt (e::es)’] >-
+  >~ [‘FunCall name args’] >-
+   (gvs [freshen_exp_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ rename [‘freshen_exps _ _ _ _ _ = (cnt₁, args')’]
+    \\ gvs [evaluate_exp_def]
+    \\ namedCases_on ‘get_member name env.prog’ ["", "member"] \\ gvs []
+    \\ drule_all get_member_some \\ rpt strip_tac \\ gvs []
+    \\ Cases_on ‘member’ \\ gvs [freshen_member_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ rename [‘freshen_exp _ _ _ _ body = (_, body')’,
+               ‘map_add_fresh _ _ _ = (cnt₁, m')’]
+    \\ namedCases_on ‘evaluate_exps s env args’ ["s₁ r"] \\ gvs []
+    \\ namedCases_on ‘r’ ["in_vs", "err"] \\ gvs []
+    \\ first_x_assum $ drule_all \\ rpt strip_tac \\ gvs []
+    \\ rename [‘state_rel s₁ t₁ _ _ _ cnt₁’]
+    \\ gvs [set_up_call_def]
+    \\ rename [‘UNZIP ins = _’]
+    \\ gvs [UNZIP_MAP, MAP_ZIP]
+    \\ Cases_on ‘ALL_DISTINCT (MAP FST ins)’ \\ gvs []
+    \\ drule distinct_ins_lookup \\ strip_tac \\ gvs []
+    \\ gvs [safe_zip_def]
+    \\ Cases_on ‘LENGTH ins ≠ LENGTH in_vs’ \\ gvs []
+    \\ qabbrev_tac
+         ‘in_locals = ZIP (MAP FST ins, MAP SOME in_vs)’
+    \\ qabbrev_tac
+         ‘in_locals' =
+            ZIP (MAP (lookup m') (MAP FST ins), MAP SOME in_vs)’
+    \\ ‘s₁.clock = t₁.clock’ by gvs [state_rel_def]
+    \\ Cases_on ‘s₁.clock = 0’ \\ gvs [] >-
+     (gvs [restore_caller_def, state_rel_def])
+    \\ gvs [CaseEq "prod"]
+    \\ rename [‘evaluate_exp _ _ _ = (_, r)’]
+    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+    \\ last_x_assum $ drule_at $ Pos last
+    \\ disch_then $ drule_at $ Pos last
+    \\ qmatch_goalsub_abbrev_tac ‘evaluate_exp call_t’
+    \\ disch_then $ qspec_then ‘call_t’ mp_tac
+    \\ simp [Abbr ‘call_t’]
+    \\ impl_tac
+    >- (gvs [state_rel_def, dec_clock_def]
+        \\ drule map_add_fresh_map_inv
+        \\ impl_tac >- gvs [map_inv_def] \\ strip_tac
+        \\ drule_all map_add_fresh_ins_locals_rel \\ strip_tac \\ gvs []
+        \\ imp_res_tac freshen_exp_mono
+        \\ imp_res_tac map_inv_mono)
+    \\ rpt strip_tac \\ gvs []
+    \\ rename [‘state_rel s₃ t₃ m' m_old' _’]
+    \\ Cases_on ‘r’ \\ gvs []
+    \\ gvs [state_rel_def, restore_caller_def])
+  >~ [‘Forall (v,ty) e’] >-
+   (qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
+    \\ gvs [freshen_exp_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ rename [‘freshen_exp m₁ _ _ cnt₁ e = (cnt₂,e')’]
+    \\ ‘state_rel s t m m_old m_prev cnt₂’ by
+      (irule state_rel_mono
+       \\ last_assum $ irule_at $ Pos last
+       \\ imp_res_tac freshen_exp_mono
+       \\ gvs [add_fresh_def])
+    \\ ‘∀val.
+          state_rel (push_local s v val) (push_local t (lookup m₁ v) val)
+                    m₁ m_old m_prev cnt₁’ by
+      (strip_tac
+       \\ imp_res_tac add_fresh_map_inv \\ simp []
+       \\ gvs [push_local_def, state_rel_def, add_fresh_def, Excl "lookup_head"]
+       \\ irule_at (Pos hd) locals_rel_push \\ simp []
+       \\ CONJ_TAC
+       \\ irule map_inv_mono
+       \\ last_assum $ irule_at (Pos last) \\ simp [])
+    \\ simp [evaluate_exp_def]
+    \\ ‘env'.is_running = env.is_running’ by (gvs [env_rel_def])
+    \\ IF_CASES_TAC \\ gvs []
+    \\ rewrite_tac [GSYM AND_IMP_INTRO] \\ strip_tac \\ gvs []
+    \\ gvs [eval_forall_def]
+    \\ IF_CASES_TAC \\ gvs []
+    \\ IF_CASES_TAC \\ gvs []
+    >- (* Timeout *)
+     (strip_tac \\ gvs []
+      \\ gvs [snd_tuple, AllCaseEqs()]
+      \\ conj_tac
+      >-
+       (qx_gen_tac ‘v''’ \\ strip_tac
+        \\ namedCases_on ‘evaluate_exp (push_local s v v'') env e’ ["s₁ r₁"]
+        \\ namedCases_on ‘r₁’ ["v", "err"] \\ gvs []
+        \\ rpt (Cases_on ‘err’) \\ gvs []
+        \\ last_x_assum drule \\ simp []
+        \\ last_x_assum $ qspec_then ‘v''’ assume_tac
+        \\ disch_then drule_all \\ gvs [])
+      \\ metis_tac [])
+    \\ IF_CASES_TAC \\ gvs []
+    >-
+     (strip_tac \\ gvs []
+      \\ gvs [snd_tuple, AllCaseEqs()]
+      \\ reverse $ rpt conj_tac
+      >- (metis_tac [])
+      \\ qx_gen_tac ‘v''’ \\ strip_tac
+      \\ namedCases_on ‘evaluate_exp (push_local s v v'') env e’ ["s₁ r₁"]
+      \\ namedCases_on ‘r₁’ ["v", "err"] \\ gvs []
+      \\ rpt (Cases_on ‘err’) \\ gvs []
+      \\ last_x_assum drule \\ simp []
+      \\ last_x_assum $ qspec_then ‘v''’ assume_tac
+      \\ disch_then drule_all \\ gvs [])
+    \\ strip_tac \\ gvs []
+    \\ IF_CASES_TAC \\ gvs []
+    >-
+     (namedCases_on ‘evaluate_exp (push_local s v v'') env e’ ["s₁ r₁"]
+      \\ namedCases_on ‘r₁’ ["v", "err"] \\ gvs []
+      \\ rpt (Cases_on ‘err’) \\ gvs []
+      \\ gvs [snd_tuple]
+      \\ last_x_assum drule
+      \\ last_x_assum $ qspec_then ‘v''’ assume_tac
+      \\ rewrite_tac [exp_result_distinct]
+      \\ disch_then drule_all
+      \\ rpt strip_tac \\ gvs [])
+    \\ IF_CASES_TAC \\ gvs []
+    >-
+     (namedCases_on ‘evaluate_exp (push_local s v v'') env e’ ["s₁ r₁"]
+      \\ namedCases_on ‘r₁’ ["v", "err"] \\ gvs []
+      \\ rpt (Cases_on ‘err’) \\ gvs []
+      \\ gvs [snd_tuple]
+      \\ last_x_assum drule
+      \\ last_x_assum $ qspec_then ‘v''’ assume_tac
+      \\ rewrite_tac [exp_result_distinct]
+      \\ disch_then drule_all
+      \\ rpt strip_tac \\ gvs [])
+    \\ IF_CASES_TAC \\ gvs []
+    \\ namedCases_on ‘evaluate_exp (push_local s v v') env e’ ["s₁ r₁"]
+    \\ namedCases_on ‘r₁’ ["a", "err"] \\ gvs []
+    \\ rpt (Cases_on ‘err’) \\ gvs []
+    \\ last_x_assum drule
+    \\ last_x_assum $ qspec_then ‘v'’ assume_tac
+    \\ rewrite_tac [exp_result_distinct]
+    \\ disch_then drule_all
+    \\ rpt strip_tac \\ gvs [snd_tuple]
+    \\ last_x_assum drule \\ rpt strip_tac \\ gvs [])
+  >~ [‘Old e’] >-
+   (gvs [evaluate_exp_def, freshen_exp_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ rename [‘freshen_exp _ _ _ _ _ = (cnt₁, _)’]
+    \\ gvs [evaluate_exp_def]
+    \\ ‘env'.is_running = env.is_running’ by (gvs [env_rel_def]) \\ gvs []
+    \\ IF_CASES_TAC \\ gvs []
+    \\ namedCases_on ‘evaluate_exp (use_old s) env e’ ["s₁ r"] \\ gvs []
+    \\ last_x_assum $ drule_at (Pos last)
+    \\ disch_then $ drule_at (Pos last)
+    \\ disch_then $ qspec_then ‘use_old t’ mp_tac
+    \\ impl_tac >-
+     (gvs [state_rel_def, use_old_def])
+    \\ rpt strip_tac \\ simp []
+    \\ gvs [state_rel_def, unuse_old_def]
+    \\ irule map_inv_mono
+    \\ last_assum $ irule_at (Pos last)
+    \\ imp_res_tac freshen_exp_mono)
+  >~ [‘OldHeap e’] >-
+   (gvs [evaluate_exp_def, freshen_exp_def, AllCaseEqs()]
+    \\ pairarg_tac \\ gvs []
+    \\ last_x_assum $ drule_at (Pos last)
+    \\ disch_then $ drule_at (Pos last)
+    \\ disch_then $ qspec_then ‘use_old_heap t’ mp_tac
+    \\ impl_tac >-
+     (gvs [state_rel_def, use_old_heap_def])
+    \\ rpt strip_tac \\ simp [evaluate_exp_def]
+    \\ ‘env'.is_running = env.is_running’ by (gvs [env_rel_def]) \\ gvs []
+    \\ gvs [state_rel_def, unuse_old_heap_def])
+  >~ [‘Prev e’] >-
+   (gvs [evaluate_exp_def, freshen_exp_def, AllCaseEqs()]
+    \\ pairarg_tac \\ gvs []
+    \\ rename [‘freshen_exp _ _ _ _ _ = (cnt₁, _)’]
+    \\ last_x_assum $ drule_at (Pos last)
+    \\ disch_then $ drule_at (Pos last)
+    \\ disch_then $ qspec_then ‘use_prev t’ mp_tac
+    \\ impl_tac >-
+      (gvs [state_rel_def, use_prev_def])
+    \\ rpt strip_tac \\ simp [evaluate_exp_def]
+    \\ ‘env'.is_running = env.is_running’ by (gvs [env_rel_def]) \\ gvs []
+    \\ gvs [state_rel_def, unuse_prev_def]
+    \\ irule map_inv_mono
+    \\ last_assum $ irule_at (Pos last)
+    \\ imp_res_tac freshen_exp_mono)
+  >~ [‘PrevHeap e’] >-
+   (gvs [evaluate_exp_def, freshen_exp_def, AllCaseEqs()]
+    \\ pairarg_tac \\ gvs []
+    \\ last_x_assum $ drule_at (Pos last)
+    \\ disch_then $ drule_at (Pos last)
+    \\ disch_then $ qspec_then ‘use_prev_heap t’ mp_tac
+    \\ impl_tac >-
+      (gvs [state_rel_def, use_prev_heap_def])
+    \\ rpt strip_tac \\ simp [evaluate_exp_def]
+    \\ ‘env'.is_running = env.is_running’ by (gvs [env_rel_def]) \\ gvs []
+    \\ gvs [state_rel_def, unuse_prev_heap_def])
+  >~ [‘SetPrev e’] >-
+   (gvs [evaluate_exp_def, freshen_exp_def, AllCaseEqs()]
+    \\ pairarg_tac \\ gvs []
+    \\ last_x_assum $ drule_at (Pos last)
+    \\ disch_then $ drule_at (Pos last)
+    \\ disch_then $ qspec_then ‘set_prev t’ mp_tac
+    \\ impl_tac >-
+      (gvs [state_rel_def, set_prev_def])
+    \\ rpt strip_tac \\ simp [evaluate_exp_def]
+    \\ ‘env'.is_running = env.is_running’ by (gvs [env_rel_def]) \\ gvs []
+    \\ gvs [state_rel_def, unset_prev_def]
+    \\ irule map_inv_mono
+    \\ last_assum $ irule_at (Pos last)
+    \\ imp_res_tac freshen_exp_mono)
+  >~ [‘Let vars body’] >-
+   (gvs [evaluate_exp_def, freshen_exp_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ rename [‘¬ALL_DISTINCT lhss’]
+    \\ Cases_on ‘¬ALL_DISTINCT lhss’ \\ gvs []
+    \\ drule map_add_fresh_all_distinct
+    \\ impl_tac >-
+     (gvs [UNZIP_MAP]
+      \\ irule map_inv_mono
+      \\ gvs [state_rel_def]
+      \\ first_assum $ irule_at (Pos last)
+      \\ imp_res_tac freshen_exp_mono)
+    \\ disch_tac
+    \\ rename [‘evaluate_exps _ _ rhss’]
+    \\ namedCases_on ‘evaluate_exps s env rhss’ ["s₁ r"] \\ gvs []
+    \\ ‘r ≠ Rerr Rtype_error’ by (spose_not_then assume_tac \\ gvs [])
+    \\ gvs []
+    \\ qmatch_goalsub_abbrev_tac ‘ZIP (fresh_lhss, fresh_rhss)’
+    \\ ‘LENGTH lhss = LENGTH rhss’ by (imp_res_tac UNZIP_LENGTH)
+    \\ ‘LENGTH fresh_lhss = LENGTH fresh_rhss’ by
+      (unabbrev_all_tac \\ imp_res_tac freshen_exps_len_eq \\ gvs [])
+    \\ first_x_assum drule_all
+    \\ disch_then $ qx_choose_then ‘t₁’ mp_tac
+    \\ rpt strip_tac \\ gvs []
+    \\ reverse $ namedCases_on ‘r’ ["vs", "err"] \\ gvs []
+    >- (simp [evaluate_exp_def]
+        \\ irule state_rel_mono
+        \\ first_assum $ irule_at (Pos last)
+        \\ imp_res_tac map_add_fresh_mono
+        \\ imp_res_tac freshen_exp_mono \\ simp [])
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ rename [‘evaluate_exp _ _ _ = (s₂,_)’]
+    \\ imp_res_tac evaluate_exps_len_eq \\ gvs []
+    \\ ‘LENGTH fresh_rhss ≤ LENGTH s₂.locals’ by
+      (unabbrev_all_tac
+       \\ imp_res_tac evaluate_exp_with_clock
+       \\ gvs [push_locals_len])
+    \\ gvs [pop_locals_def, safe_drop_def]
+    \\ last_x_assum $ drule_at (Pos last)
+    \\ disch_then $ drule_at (Pos last)
+    \\ disch_then $
+         qspec_then ‘(push_locals t₁ (ZIP (fresh_lhss,vs)))’ mp_tac
+    \\ impl_tac >-
+     (unabbrev_all_tac
+      \\ irule state_rel_push_locals \\ gvs []
+      \\ first_assum $ irule_at $ Pos (el 2)
+      \\ first_assum $ irule_at (Pos last) \\ simp [])
+    \\ disch_then $ qx_choose_then ‘t₂’ mp_tac
+    \\ rpt strip_tac
+    \\ gvs [evaluate_exp_def]
+    \\ ‘LENGTH t₂.locals = LENGTH s₂.locals’ by
+      (gvs [state_rel_def] \\ imp_res_tac locals_rel_length \\ simp [])
+    \\ gvs [pop_locals_def, safe_drop_def]
+    \\ irule state_rel_drop \\ gvs [PULL_EXISTS]
+    \\ first_assum $ irule_at (Pos last)
+    \\ first_assum $ irule_at (Pos last) \\ simp []
+    \\ first_assum $ irule_at (Pos last)
+    \\ imp_res_tac freshen_exp_mono
+    \\ imp_res_tac map_add_fresh_mono
+    \\ simp [])
+  >~ [‘ForallHeap mods term’] >-
+   (gvs [freshen_exp_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ rename [‘freshen_exps _ _ _ _ _ = (cnt₁, mods')’,
+               ‘freshen_exp _ _ _ _ _ = (cnt₂, term')’]
+    \\ gvs [evaluate_exp_def]
+    \\ ‘env'.is_running = env.is_running’ by (gvs [env_rel_def])
+    \\ IF_CASES_TAC \\ gvs []
+    \\ namedCases_on ‘evaluate_exps s env mods’ ["s₁ r₁"] \\ gvs []
+    \\ ‘r₁ ≠ Rerr Rtype_error’ by (Cases_on ‘r₁’ \\ gvs []) \\ gvs []
+    \\ first_x_assum drule_all
+    \\ disch_then $ qx_choose_then ‘t₁’ mp_tac \\ strip_tac \\ gvs []
+    \\ reverse $ namedCases_on ‘r₁’ ["vs", "err"] \\ gvs []
+    >- (imp_res_tac freshen_exp_mono \\ imp_res_tac state_rel_mono)
+    \\ namedCases_on ‘get_locs vs’ ["", "locs"] \\ gvs []
+    \\ rename [‘state_rel s₁’]
+    \\ reverse conj_tac
+    >- (imp_res_tac freshen_exp_mono \\ imp_res_tac state_rel_mono)
+    \\ qpat_x_assum ‘eval_forall _ _ ≠ _’ mp_tac
+    \\ simp [eval_forall_def]
+    \\ IF_CASES_TAC \\ gvs []
+    \\ IF_CASES_TAC \\ gvs []
+    >-
+     (gvs [AllCaseEqs()] \\ conj_tac
+      >-
+       (qx_gen_tac ‘hs'’ \\ strip_tac \\ gvs [snd_tuple]
+        \\ ‘state_rel (s₁ with heap := hs') (t₁ with heap := hs') m m_old m_prev cnt₁’
+          by (gvs [state_rel_def])
+        \\ namedCases_on ‘evaluate_exp (s₁ with heap := hs') env term’ ["s₂ r₂"]
+        \\ reverse $ namedCases_on ‘r₂’ ["a", "err"] \\ gvs []
+        >- (Cases_on ‘err’
+            >- (gvs [PULL_EXISTS] \\ first_x_assum drule \\ gvs [state_rel_def])
+            \\ last_x_assum drule \\ simp []
+            \\ disch_then $ drule_all \\ gvs [])
+        \\ last_x_assum drule \\ simp []
+        \\ disch_then $ drule_all \\ gvs [])
+      \\ ‘t.heap = s.heap’ by gvs [state_rel_def] \\ gvs []
+      \\ first_assum $ irule_at (Pos hd)
+      \\ ‘state_rel (s₁ with heap := hs) (t₁ with heap := hs) m m_old m_prev cnt₁’
+        by (gvs [state_rel_def])
+      \\ gvs [snd_tuple]
+      \\ last_x_assum drule \\ simp []
+      \\ disch_then drule_all
+      \\ rpt strip_tac \\ gvs [])
+    \\ IF_CASES_TAC \\ gvs []
+    >-
+     (gvs [AllCaseEqs()]
+      \\ rpt conj_tac
+      >-
+       (qx_gen_tac ‘hs'’ \\ strip_tac \\ gvs [snd_tuple]
+        \\ ‘state_rel (s₁ with heap := hs') (t₁ with heap := hs') m m_old m_prev cnt₁’
+          by (gvs [state_rel_def])
+        \\ namedCases_on ‘evaluate_exp (s₁ with heap := hs') env term’ ["s₂ r₂"]
+        \\ reverse $ namedCases_on ‘r₂’ ["a", "err"] \\ gvs []
+        >- (Cases_on ‘err’
+            >- (gvs [PULL_EXISTS] \\ first_x_assum drule \\ gvs [state_rel_def])
+            \\ last_x_assum drule \\ simp []
+            \\ disch_then $ drule_all \\ gvs [])
+        \\ last_x_assum drule \\ simp []
+        \\ disch_then $ drule_all \\ gvs [])
+      >-
+       (qx_gen_tac ‘hs'’ \\ strip_tac \\ gvs [snd_tuple]
+        \\ ‘state_rel (s₁ with heap := hs') (t₁ with heap := hs') m m_old m_prev cnt₁’
+          by (gvs [state_rel_def])
+        \\ namedCases_on ‘evaluate_exp (s₁ with heap := hs') env term’ ["s₂ r₂"]
+        \\ reverse $ namedCases_on ‘r₂’ ["a", "err"] \\ gvs []
+        >- (Cases_on ‘err’
+            \\ gvs [PULL_EXISTS]
+            \\ first_x_assum drule \\ gvs [state_rel_def])
+        \\ last_x_assum drule \\ simp []
+        \\ disch_then $ drule_all \\ gvs [])
+      \\ qx_gen_tac ‘hs'’
+      \\ ‘t.heap = s.heap’ by (gvs [state_rel_def]) \\ gvs []
+      \\ strip_tac
+      \\ first_x_assum $ drule_then assume_tac
+      \\ ‘state_rel (s₁ with heap := hs') (t₁ with heap := hs') m m_old m_prev cnt₁’
+        by (gvs [state_rel_def])
+      \\ gvs [snd_tuple]
+      \\ last_x_assum drule \\ simp []
+      \\ disch_then $ drule_all
+      \\ rpt strip_tac \\ gvs [])
+    \\ IF_CASES_TAC \\ gvs []
+    >-
+     (namedCases_on ‘evaluate_exp (s₁ with heap := hs') env term’ ["s₂ r₂"]
+      \\ reverse $ namedCases_on ‘r₂’ ["a", "err"] \\ gvs []
+      >- (Cases_on ‘err’ \\ gvs [snd_tuple, PULL_EXISTS]
+          \\ first_x_assum drule
+          \\ rpt strip_tac \\ gvs [state_rel_def])
+      \\ ‘state_rel (s₁ with heap := hs') (t₁ with heap := hs') m m_old m_prev cnt₁’
+        by (gvs [state_rel_def])
+      \\ last_x_assum drule
+      \\ rewrite_tac [exp_result_distinct]
+      \\ disch_then drule_all
+      \\ rpt strip_tac \\ gvs [])
+    \\ IF_CASES_TAC \\ gvs []
+    >- (namedCases_on ‘evaluate_exp (s₁ with heap := hs') env term’ ["s₂ r₂"]
+      \\ reverse $ namedCases_on ‘r₂’ ["a", "err"] \\ gvs []
+      >- (Cases_on ‘err’ \\ gvs [snd_tuple, PULL_EXISTS]
+          \\ first_x_assum drule
+          \\ rpt strip_tac \\ gvs [state_rel_def])
+      \\ ‘state_rel (s₁ with heap := hs') (t₁ with heap := hs') m m_old m_prev cnt₁’
+        by (gvs [state_rel_def])
+      \\ last_x_assum drule
+      \\ rewrite_tac [exp_result_distinct]
+      \\ disch_then drule_all
+      \\ rpt strip_tac \\ gvs [])
+    \\ IF_CASES_TAC \\ gvs []
+    \\ namedCases_on ‘evaluate_exp (s₁ with heap := hs) env term’ ["s₂ r₂"]
+    \\ reverse $ namedCases_on ‘r₂’ ["a", "err"] \\ gvs []
+    >- (Cases_on ‘err’ \\ gvs [snd_tuple, PULL_EXISTS]
+        \\ first_x_assum drule
+        \\ rpt strip_tac \\ gvs [state_rel_def])
+    \\ ‘state_rel (s₁ with heap := hs) (t₁ with heap := hs) m m_old m_prev cnt₁’
+      by (gvs [state_rel_def])
+    \\ last_x_assum drule
+    \\ rewrite_tac [exp_result_distinct]
+    \\ disch_then drule_all
+    \\ rpt strip_tac
+    \\ ‘t.heap = s.heap’ by (gvs [state_rel_def]) \\ gvs []
+    \\ last_x_assum drule
+    \\ rpt strip_tac \\ gvs [])
+  >~ [‘freshen_exps m m_old m_prev cnt []’] >- gvs [evaluate_exp_def, freshen_exp_def]
+  >~ [‘freshen_exps m m_old m_prev cnt (e::es)’] >-
    (gvs [evaluate_exp_def, freshen_exp_def]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ gvs [evaluate_exp_def]
@@ -824,11 +1264,11 @@ Proof
 QED
 
 Triviality update_local_state_rel:
-  ∀s var rhs s' t m cnt.
-    update_local s var rhs = SOME s' ∧ state_rel s t m cnt ⇒
+  ∀s var rhs s' t m m_old m_prev cnt.
+    update_local s var rhs = SOME s' ∧ state_rel s t m m_old m_prev cnt ⇒
     ∃t'.
       update_local t (lookup m var) rhs = SOME t' ∧
-      state_rel s' t' m cnt
+      state_rel s' t' m m_old m_prev cnt
 Proof
   rpt strip_tac \\ gvs [update_local_def]
   \\ namedCases_on ‘update_local_aux s.locals var rhs’ ["", "slocals'"]
@@ -837,12 +1277,12 @@ Proof
 QED
 
 Triviality assign_value_state_rel:
-  ∀s env lhs rhs s' res t m cnt cnt' lhs' env'.
-    assign_value s env lhs rhs = (s', res) ∧ state_rel s t m cnt ∧
-    freshen_lhs_exp m cnt lhs = (cnt', lhs') ∧ env_rel env env' ∧
+  ∀s env lhs rhs s' res t m m_old m_prev cnt cnt' lhs' env'.
+    assign_value s env lhs rhs = (s', res) ∧ state_rel s t m m_old m_prev cnt ∧
+    freshen_lhs_exp m m_old m_prev cnt lhs = (cnt', lhs') ∧ env_rel env env' ∧
     res ≠ Rstop (Serr Rtype_error) ⇒
     ∃t'.
-      assign_value t env' lhs' rhs = (t', res) ∧ state_rel s' t' m cnt'
+      assign_value t env' lhs' rhs = (t', res) ∧ state_rel s' t' m m_old m_prev cnt'
 Proof
   Cases_on ‘lhs’ \\ rpt strip_tac
   >~ [‘VarLhs var’] >-
@@ -865,12 +1305,12 @@ Proof
 QED
 
 Triviality assign_values_state_rel:
-  ∀s env lhss rhss s' res t m cnt lhss' cnt' env'.
-    assign_values s env lhss rhss = (s', res) ∧ state_rel s t m cnt ∧
-    freshen_lhs_exps m cnt lhss = (cnt', lhss') ∧ env_rel env env' ∧
+  ∀s env lhss rhss s' res t m m_old m_prev cnt lhss' cnt' env'.
+    assign_values s env lhss rhss = (s', res) ∧ state_rel s t m m_old m_prev cnt ∧
+    freshen_lhs_exps m m_old m_prev cnt lhss = (cnt', lhss') ∧ env_rel env env' ∧
     res ≠ Rstop (Serr Rtype_error) ⇒
     ∃t'.
-      assign_values t env' lhss' rhss = (t', res) ∧ state_rel s' t' m cnt'
+      assign_values t env' lhss' rhss = (t', res) ∧ state_rel s' t' m m_old m_prev cnt'
 Proof
   Induct_on ‘lhss’ \\ Cases_on ‘rhss’ \\ rpt strip_tac
   \\ gvs [assign_values_def, freshen_lhs_exps_def]
@@ -886,11 +1326,12 @@ Proof
 QED
 
 Theorem correct_freshen_rhs_exp:
-  ∀s env rhs_e s' res t m cnt cnt' rhs_e' env'.
-    evaluate_rhs_exp s env rhs_e = (s', res) ∧ state_rel s t m cnt ∧
-    freshen_rhs_exp m cnt rhs_e = (cnt', rhs_e') ∧ env_rel env env' ∧
+  ∀s env rhs_e s' res t m m_old m_prev cnt cnt' rhs_e' env'.
+    evaluate_rhs_exp s env rhs_e = (s', res) ∧ state_rel s t m m_old m_prev cnt ∧
+    freshen_rhs_exp m m_old m_prev cnt rhs_e = (cnt', rhs_e') ∧ env_rel env env' ∧
     res ≠ Rerr Rtype_error ⇒
-    ∃t'. evaluate_rhs_exp t env' rhs_e' = (t', res) ∧ state_rel s' t' m cnt'
+    ∃t'.
+      evaluate_rhs_exp t env' rhs_e' = (t', res) ∧ state_rel s' t' m m_old m_prev cnt'
 Proof
   Induct_on ‘rhs_e’ \\ rpt strip_tac
   >~ [‘ExpRhs e’] >-
@@ -916,11 +1357,13 @@ Proof
 QED
 
 Theorem correct_freshen_rhs_exps:
-  ∀s env rhs_es s' res t m cnt cnt' rhs_es' env'.
-    evaluate_rhs_exps s env rhs_es = (s', res) ∧ state_rel s t m cnt ∧
-    freshen_rhs_exps m cnt rhs_es = (cnt', rhs_es') ∧ env_rel env env' ∧
+  ∀s env rhs_es s' res t m m_old m_prev cnt cnt' rhs_es' env'.
+    evaluate_rhs_exps s env rhs_es = (s', res) ∧ state_rel s t m m_old m_prev cnt ∧
+    freshen_rhs_exps m m_old m_prev cnt rhs_es = (cnt', rhs_es') ∧ env_rel env env' ∧
     res ≠ Rerr Rtype_error ⇒
-    ∃t'. evaluate_rhs_exps t env' rhs_es' = (t', res) ∧ state_rel s' t' m cnt'
+    ∃t'.
+      evaluate_rhs_exps t env' rhs_es' = (t', res) ∧
+      state_rel s' t' m m_old m_prev cnt'
 Proof
   Induct_on ‘rhs_es’ \\ rpt strip_tac
   \\ gvs [evaluate_rhs_exps_def, freshen_rhs_exps_def]
@@ -937,14 +1380,6 @@ Proof
   \\ reverse $ namedCases_on ‘r’ ["rhs_vs", "err"] \\ gvs []
   \\ last_x_assum drule \\ gvs [] \\ disch_then drule_all
   \\ rpt strip_tac \\ gvs []
-QED
-
-Triviality print_string_state_rel:
-  print_string s v = SOME s' ∧ state_rel s t m cnt ⇒
-  ∃t'. print_string t v = SOME t' ∧ state_rel s' t' m cnt
-Proof
-  rpt strip_tac
-  \\ gvs [print_string_def, CaseEq "option", state_rel_def]
 QED
 
 (* Used in the proof for method calls. *)
@@ -976,32 +1411,26 @@ Proof
   gvs []
 QED
 
-Triviality pop_local_some:
-  s.locals ≠ [] ⇒ ∃s'. pop_local s = SOME s'
-Proof
-  rpt strip_tac \\ Cases_on ‘s.locals’ \\ gvs [pop_local_def]
-QED
-
 Theorem correct_freshen_stmt:
-  ∀s env stmt s' res t m cnt cnt' stmt' env'.
-    evaluate_stmt s env stmt = (s', res) ∧ state_rel s t m cnt ∧
-    freshen_stmt m cnt stmt = (cnt', stmt') ∧ env_rel env env' ∧
+  ∀s env stmt s' res t m m_old m_prev cnt cnt' stmt' env'.
+    evaluate_stmt s env stmt = (s', res) ∧ state_rel s t m m_old m_prev cnt ∧
+    freshen_stmt m m_old m_prev cnt stmt = (cnt', stmt') ∧ env_rel env env' ∧
     res ≠ Rstop (Serr Rtype_error) ⇒
-    ∃t'. evaluate_stmt t env' stmt' = (t', res) ∧ state_rel s' t' m cnt'
+    ∃t'. evaluate_stmt t env' stmt' = (t', res) ∧ state_rel s' t' m m_old m_prev cnt'
 Proof
   ho_match_mp_tac evaluate_stmt_ind \\ rpt strip_tac
   >~ [‘MetCall lhss name args’] >-
    (gvs [evaluate_stmt_def, freshen_stmt_def]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ gvs [evaluate_stmt_def]
-    \\ rename [‘freshen_exps m cnt args = (cnt₁, args')’,
-               ‘freshen_lhs_exps m cnt₁ lhss = (cnt₂, lhss')’]
+    \\ rename [‘freshen_exps m _ _ cnt args = (cnt₁, args')’,
+               ‘freshen_lhs_exps m _ _ cnt₁ lhss = (cnt₂, lhss')’]
     \\ namedCases_on ‘get_member name env.prog’ ["", "member"] \\ gvs []
     \\ drule_all get_member_some \\ rpt strip_tac \\ gvs []
     \\ Cases_on ‘member’ \\ gvs [freshen_member_def]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ rename [‘map_add_fresh m₁' cnt₁' _ = (cnt₂', m₂')’,
-               ‘freshen_stmt _ _ body = (_, body')’]
+               ‘freshen_stmt _ _ _ _ body = (_, body')’]
     \\ namedCases_on ‘evaluate_exps s env args’ ["s₁ r"] \\ gvs []
     \\ namedCases_on ‘r’ ["in_vs", "err"] \\ gvs []
     \\ drule (cj 2 correct_freshen_exp) \\ gvs []
@@ -1017,7 +1446,8 @@ Proof
     \\ gvs [safe_zip_def]
     \\ Cases_on ‘LENGTH ins ≠ LENGTH in_vs’ \\ gvs []
     \\ ‘t₁.clock = s₁.clock’ by gvs [state_rel_def] \\ gvs []
-    \\ Cases_on ‘s₁.clock = 0’ \\ gvs [] >- (gvs [restore_locals_def])
+    \\ Cases_on ‘s₁.clock = 0’ \\ gvs [] >-
+     (gvs [state_rel_def, restore_caller_def])
     \\ qabbrev_tac ‘in_locals = ZIP (MAP FST ins, MAP SOME in_vs)’
     \\ qabbrev_tac
          ‘out_locals =
@@ -1032,10 +1462,9 @@ Proof
     \\ Cases_on ‘r = Rstop (Serr Rtype_error)’ \\ gvs []
     \\ last_x_assum $ drule_at $ Pos last
     \\ disch_then $ drule_at $ Pos last
-    \\ disch_then $
-         qspec_then
-           ‘dec_clock (t₁ with locals := REVERSE (in_locals' ++ out_locals'))’
-           mp_tac
+    \\ qmatch_goalsub_abbrev_tac ‘evaluate_stmt call_t’
+    \\ disch_then $ qspec_then ‘call_t’ mp_tac
+    \\ simp [Abbr ‘call_t’]
     \\ impl_tac
     >- (gvs [state_rel_def, dec_clock_def]
         \\ drule_all map_add_fresh_ins_outs_locals_rel \\ strip_tac \\ gvs []
@@ -1047,21 +1476,24 @@ Proof
     \\ rpt strip_tac \\ gvs []
     \\ namedCases_on ‘r’ ["", "stp"] \\ gvs []
     \\ reverse $ Cases_on ‘stp’ \\ gvs []
-    >- gvs [restore_locals_def, state_rel_def]
-    \\ rename [‘state_rel s₂ t₂ _ _’]
+    >- gvs [restore_caller_def, state_rel_def]
+    \\ rename [‘state_rel s₂ t₂ _ _ _’]
     \\ Cases_on ‘OPT_MMAP (read_local s₂.locals) (MAP FST outs)’ \\ gvs []
     \\ drule_all opt_mmap_read_local \\ strip_tac \\ gvs []
     \\ rename [‘OPT_MMAP _ _ = SOME out_vs’]
-    \\ gvs [restore_locals_def]
+    \\ gvs [restore_caller_def]
     \\ ‘LENGTH lhss' = LENGTH lhss’ by (imp_res_tac freshen_lhs_exp_len_eq)
     \\ IF_CASES_TAC \\ gvs []
-    \\ namedCases_on
-         ‘assign_values (s₂ with locals := s₁.locals) env lhss out_vs’ ["st₃ r"]
+    \\ qmatch_asmsub_abbrev_tac ‘assign_values s₂_with’
+    \\ namedCases_on ‘assign_values s₂_with env lhss out_vs’ ["st₃ r"]
+    \\ simp [Abbr ‘s₂_with’]
     \\ Cases_on ‘r = Rstop (Serr Rtype_error)’ \\ gvs []
+    \\ qmatch_goalsub_abbrev_tac ‘assign_values t₂_with’
     \\ drule assign_values_state_rel \\ gvs []
     \\ disch_then $ drule_at $ Pos last
     \\ disch_then $ drule_at $ Pos last
-    \\ disch_then $ qspec_then ‘(t₂ with locals := t₁.locals)’ mp_tac
+    \\ disch_then $ qspec_then ‘t₂_with’ mp_tac
+    \\ simp [Abbr ‘t₂_with’]
     \\ impl_tac >- (gvs [state_rel_def])
     \\ rpt strip_tac \\ gvs []
     \\ gvs [AllCaseEqs(), state_rel_def])
@@ -1069,7 +1501,7 @@ Proof
    (gvs [evaluate_stmt_def, freshen_stmt_def] \\ rpt (pairarg_tac \\ gvs [])
     \\ rename [‘add_fresh m cnt old = (cnt₁, m')’]
     \\ qabbrev_tac ‘s₁ = declare_local s old’
-    \\ rename [‘freshen_stmt m' cnt₁ scope = (cnt₂, scope')’,
+    \\ rename [‘freshen_stmt m' _ _ cnt₁ scope = (cnt₂, scope')’,
                ‘evaluate_stmt s₁ env scope = (s₂, r)’]
     \\ gvs [evaluate_stmt_def] \\ rpt (pairarg_tac \\ gvs [])
     \\ qabbrev_tac ‘t₁ = declare_local t (lookup m' old)’
@@ -1082,20 +1514,26 @@ Proof
       (spose_not_then assume_tac \\ gvs [declare_local_def]
        \\ unabbrev_all_tac \\ imp_res_tac IMP_LENGTH_EQ \\ gvs [])
     \\ imp_res_tac pop_local_some
-    \\ rename [‘pop_local s₂ = SOME s₃’] \\ pop_assum $ mp_tac
-    \\ rename [‘pop_local t₂ = SOME t₃’] \\ strip_tac
+    \\ rename [‘pop_locals _ _ = SOME s₃’] \\ pop_assum $ mp_tac
+    \\ rename [‘pop_locals _ _ = SOME t₃’] \\ strip_tac
     \\ ‘r ≠ Rstop (Serr Rtype_error)’ by (spose_not_then assume_tac \\ gvs [])
-    \\ qsuff_tac ‘state_rel s₁ t₁ m' cnt₁’
+    \\ qsuff_tac ‘state_rel s₁ t₁ m' m_old m_prev cnt₁’
     >- (strip_tac \\ last_x_assum $ drule_all \\ strip_tac \\ gvs []
         \\ rename [‘evaluate_stmt _ _ _' = (t₂, _)’]
-        \\ gvs [state_rel_def, pop_local_def, add_fresh_def, AllCaseEqs()]
+        \\ gvs [state_rel_def, pop_locals_def, safe_drop_def, add_fresh_def,
+                AllCaseEqs()]
+        \\ Cases_on ‘s₂.locals’ \\ gvs []
+        \\ Cases_on ‘t₂.locals’ \\ gvs []
         \\ imp_res_tac locals_rel_pop
         \\ drule map_inv_pop \\ gvs [])
     \\ unabbrev_all_tac
     \\ gvs [state_rel_def]
-    \\ drule add_fresh_map_inv
+    \\ drule_then assume_tac add_fresh_map_inv
     \\ gvs [declare_local_def, add_fresh_def]
-    \\ imp_res_tac locals_rel_push \\ gvs [])
+    \\ imp_res_tac locals_rel_push \\ gvs []
+    \\ CONJ_TAC
+    \\ irule map_inv_mono
+    \\ first_assum $ irule_at (Pos last) \\ simp [])
   >~ [‘Then stmt₀ stmt₁’] >-
    (gvs [evaluate_stmt_def, freshen_stmt_def]
     \\ rpt (pairarg_tac \\ gvs [])
@@ -1110,11 +1548,11 @@ Proof
    (gvs [evaluate_stmt_def, freshen_stmt_def]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ gvs [evaluate_stmt_def]
-    \\ rename [‘freshen_exp m cnt tst = (cnt₁, tst')’]
-    \\ pop_assum $ mp_tac \\ rename [‘freshen_stmt _ _ _ = (cnt₂, thn')’]
-    \\ disch_then assume_tac \\ rename [‘freshen_stmt _ _ _ = (cnt₃, els')’]
+    \\ rename [‘freshen_exp m _ _ cnt tst = (cnt₁, tst')’]
+    \\ pop_assum $ mp_tac \\ rename [‘freshen_stmt _ _ _ _ _ = (cnt₂, thn')’]
+    \\ disch_then assume_tac \\ rename [‘freshen_stmt _ _ _ _ _ = (cnt₃, els')’]
     \\ imp_res_tac freshen_exp_mono \\ imp_res_tac freshen_stmt_mono
-    \\ ‘state_rel s t m cnt₁’ by (imp_res_tac state_rel_mono)
+    \\ ‘state_rel s t m m_old m_prev cnt₁’ by (imp_res_tac state_rel_mono)
     \\ namedCases_on ‘evaluate_exp s env tst’ ["s₁ r"]
     \\ reverse $ namedCases_on ‘r’ ["tst_v", "err"] \\ gvs []
     \\ rename [‘evaluate_exp _ _ _ = (s₁, _)’]
@@ -1125,7 +1563,7 @@ Proof
     \\ gvs [oneline do_cond_def, AllCaseEqs ()]
     >- (last_x_assum drule_all \\ rpt strip_tac \\ gvs []
         \\ imp_res_tac state_rel_mono)
-    \\ ‘state_rel s₁ t₁ m cnt₂’ by imp_res_tac state_rel_mono
+    \\ ‘state_rel s₁ t₁ m m_old m_prev cnt₂’ by imp_res_tac state_rel_mono
     \\ last_x_assum drule_all \\ rpt strip_tac \\ gvs [])
   >~ [‘Assign ass’] >-
    (gvs [evaluate_stmt_def]
@@ -1171,8 +1609,8 @@ Proof
         \\ imp_res_tac state_rel_mono \\ gvs [])
     \\ IF_CASES_TAC \\ gvs []
     \\ namedCases_on ‘evaluate_stmt s₁ env body’ ["s₂ r"] \\ gvs []
-    \\ rename [‘freshen_stmt m cnt₅ body = (cnt', body')’]
-    \\ ‘state_rel s₁ t₁ m cnt₅’ by
+    \\ rename [‘freshen_stmt m _ _ cnt₅ body = (cnt', body')’]
+    \\ ‘state_rel s₁ t₁ m m_old m_prev cnt₅’ by
          (imp_res_tac freshen_exp_mono \\ imp_res_tac state_rel_mono)
     \\ first_x_assum $ drule_at $ Pos $ el 2
     \\ reverse $ namedCases_on ‘r’ ["", "stp"] \\ gvs []
@@ -1195,8 +1633,7 @@ Proof
     \\ drule_all (cj 1 correct_freshen_exp) \\ gvs []
     \\ disch_then $ qx_choose_then ‘t₁’ assume_tac \\ gvs []
     \\ reverse $ namedCases_on ‘r’ ["v", "err"] \\ gvs []
-    \\ namedCases_on ‘print_string s₁ v’ ["", "s₂"] \\ gvs []
-    \\ drule_all print_string_state_rel \\ rpt strip_tac \\ gvs [])
+    \\ IF_CASES_TAC \\ gvs [])
   >~ [‘Assert e’] >-
    (gvs [evaluate_stmt_def, freshen_stmt_def]
     \\ rpt (pairarg_tac \\ gvs [])
@@ -1222,6 +1659,15 @@ Proof
   \\ rpt (pairarg_tac \\ gvs [])
 QED
 
+Triviality locals_rel_nil_eq:
+  locals_rel xs [] ys ⇒ xs = [] ∧ ys = []
+Proof
+  rpt strip_tac
+  \\ namedCases_on ‘xs’ ["", "x xs"]
+  \\ namedCases_on ‘ys’ ["", "y ys"]
+  \\ gvs [locals_rel_def]
+QED
+
 (* Correctness of the freshen pass. *)
 Theorem correct_freshen_program:
   ∀ck is_running prog s r.
@@ -1234,9 +1680,9 @@ Proof
   \\ gvs [evaluate_program_def, freshen_program_def,
           MAP_member_name_MAP_freshen_member_eq]
   \\ IF_CASES_TAC \\ gvs []
-  \\ ‘state_rel (init_state ck) (init_state ck) [] 0’ by
+  \\ ‘state_rel (init_state ck) (init_state ck) [] [] [] 0’ by
        gvs [state_rel_def, init_state_def, locals_rel_def, map_inv_def]
-  \\ ‘freshen_stmt [] 0 (MetCall [] «Main» []) = (0, MetCall [] «Main» [])’ by
+  \\ ‘freshen_stmt [] [] [] 0 (MetCall [] «Main» []) = (0, MetCall [] «Main» [])’ by
        gvs [freshen_stmt_def, freshen_lhs_exps_def, freshen_exp_def]
   \\ ‘env_rel
         (mk_env is_running (Program members))
@@ -1246,6 +1692,7 @@ Proof
   \\ rpt strip_tac \\ gvs []
   \\ imp_res_tac evaluate_stmt_locals
   \\ gvs [state_rel_def, init_state_def, state_component_equality]
+  \\ imp_res_tac locals_rel_nil_eq \\ simp []
 QED
 
 (** is_fresh: After the freshening pass, all variable names start with v. **)
@@ -1270,9 +1717,27 @@ Definition is_fresh_exp_def[simp]:
   (is_fresh_exp (FunCall name es) ⇔
      EVERY (λe. is_fresh_exp e) es) ∧
   (is_fresh_exp (Forall (name, _) term) ⇔
-     is_fresh name ∧ is_fresh_exp term)
+     is_fresh name ∧ is_fresh_exp term) ∧
+  (is_fresh_exp (Old e) ⇔ is_fresh_exp e) ∧
+  (is_fresh_exp (OldHeap e) ⇔ is_fresh_exp e) ∧
+  (is_fresh_exp (Let vars body) ⇔
+     EVERY (λn. is_fresh n) (MAP FST vars) ∧
+     EVERY (λe. is_fresh_exp e) (MAP SND vars) ∧
+     is_fresh_exp body) ∧
+  (is_fresh_exp (ForallHeap mods term) ⇔
+     EVERY (λe. is_fresh_exp e) mods ∧
+     is_fresh_exp term) ∧
+  (is_fresh_exp (Prev e) ⇔ is_fresh_exp e) ∧
+  (is_fresh_exp (PrevHeap e) ⇔ is_fresh_exp e) ∧
+  (is_fresh_exp (SetPrev e) ⇔ is_fresh_exp e)
 Termination
   wf_rel_tac ‘measure $ exp_size’
+  \\ rpt strip_tac
+  \\ gvs [list_size_pair_size_MAP_FST_SND]
+  \\ rewrite_tac [list_exp_size_snd]
+  \\ drule MEM_list_size
+  \\ disch_then $ qspec_then ‘exp_size’ assume_tac
+  \\ gvs []
 End
 
 Definition is_fresh_lhs_exp[simp]:
@@ -1283,7 +1748,7 @@ End
 
 Definition is_fresh_rhs_exp[simp]:
   (is_fresh_rhs_exp (ExpRhs e) ⇔ is_fresh_exp e) ∧
-  (is_fresh_rhs_exp (ArrAlloc len init_e) ⇔
+  (is_fresh_rhs_exp (ArrAlloc len init_e _) ⇔
      is_fresh_exp len ∧ is_fresh_exp init_e)
 End
 
@@ -1333,15 +1798,45 @@ Proof
   disch_tac \\ gvs [add_fresh_def, lookup_def, is_fresh_def, isprefix_strcat]
 QED
 
+Triviality map_add_fresh_every_is_fresh:
+  ∀ns m cnt cnt' m'.
+    map_add_fresh m cnt ns = (cnt', m') ⇒
+    EVERY (λn. is_fresh n) (MAP (lookup m') ns)
+Proof
+  Induct \\ simp []
+  \\ qx_gen_tac ‘n’ \\ rpt strip_tac
+  >-
+   (drule map_add_fresh_exists
+    \\ rpt strip_tac \\ gvs []
+    \\ ‘MEM n (MAP FST m₁)’ by gvs []
+    \\ drule lookup_append_eq \\ simp []
+    \\ disch_then kall_tac
+    \\ simp [lookup_def]
+    \\ CASE_TAC
+    >- (gvs [ALOOKUP_NONE])
+    \\ simp [is_fresh_def, isprefix_strcat])
+  \\ gvs [map_add_fresh_def, add_fresh_def]
+  \\ last_assum irule
+  \\ last_assum $ irule_at Any
+QED
+
 Triviality freshen_exp_is_fresh:
-  (∀m cnt e cnt' e'.
-     freshen_exp m cnt e = (cnt', e') ⇒ is_fresh_exp e') ∧
-  (∀m cnt es cnt' es'.
-     freshen_exps m cnt es = (cnt', es') ⇒
+  (∀m m_old m_prev cnt e cnt' e'.
+     freshen_exp m m_old m_prev cnt e = (cnt', e') ⇒ is_fresh_exp e') ∧
+  (∀m m_old m_prev cnt es cnt' es'.
+     freshen_exps m m_old m_prev cnt es = (cnt', es') ⇒
      EVERY (λe. is_fresh_exp e) es')
 Proof
   ho_match_mp_tac freshen_exp_ind
   \\ rpt strip_tac
+  >~ [‘Let vars body’] >-
+   (gvs [freshen_exp_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ gvs [is_fresh_exp_def]
+    \\ imp_res_tac freshen_exps_len_eq
+    \\ gvs [GSYM MAP_MAP_o, MAP_ZIP, UNZIP_MAP]
+    \\ irule map_add_fresh_every_is_fresh
+    \\ first_assum $ irule_at (Pos hd))
   >~ [‘Var v’] >-
    (gvs [freshen_exp_def]
     \\ rpt (pairarg_tac \\ gvs [])
@@ -1357,7 +1852,7 @@ Proof
 QED
 
 Triviality freshen_lhs_exp_is_fresh:
-  freshen_lhs_exp m cnt lhs = (cnt', lhs') ⇒ is_fresh_lhs_exp lhs'
+  freshen_lhs_exp m m_old m_prev cnt lhs = (cnt', lhs') ⇒ is_fresh_lhs_exp lhs'
 Proof
   Cases_on ‘lhs’
   >~ [‘VarLhs var’] >-
@@ -1373,8 +1868,8 @@ Proof
 QED
 
 Triviality freshen_lhs_exps_is_fresh:
-  ∀lhss m cnt cnt' lhss'.
-    freshen_lhs_exps m cnt lhss = (cnt', lhss') ⇒
+  ∀lhss m m_old m_prev cnt cnt' lhss'.
+    freshen_lhs_exps m m_old m_prev cnt lhss = (cnt', lhss') ⇒
     EVERY (λe. is_fresh_lhs_exp e) lhss'
 Proof
   Induct \\ simp [freshen_lhs_exps_def]
@@ -1385,7 +1880,7 @@ Proof
 QED
 
 Triviality freshen_rhs_exp_is_fresh:
-  freshen_rhs_exp m cnt rhs = (cnt', rhs') ⇒ is_fresh_rhs_exp rhs'
+  freshen_rhs_exp m m_old m_prev cnt rhs = (cnt', rhs') ⇒ is_fresh_rhs_exp rhs'
 Proof
   Cases_on ‘rhs’
   >~ [‘ExpRhs e’] >-
@@ -1401,8 +1896,8 @@ Proof
 QED
 
 Triviality freshen_rhs_exps_is_fresh:
-  ∀rhss m cnt cnt' rhss'.
-    freshen_rhs_exps m cnt rhss = (cnt', rhss') ⇒
+  ∀rhss m m_old m_prev cnt cnt' rhss'.
+    freshen_rhs_exps m m_old m_prev cnt rhss = (cnt', rhss') ⇒
     EVERY (λe. is_fresh_rhs_exp e) rhss'
 Proof
   Induct \\ simp [freshen_rhs_exps_def]
@@ -1413,8 +1908,8 @@ Proof
 QED
 
 Triviality freshen_stmt_is_fresh:
-  ∀stmt m cnt cnt' stmt'.
-    freshen_stmt m cnt stmt = (cnt', stmt') ⇒ is_fresh_stmt stmt'
+  ∀stmt m m_old m_prev cnt cnt' stmt'.
+    freshen_stmt m m_old m_prev cnt stmt = (cnt', stmt') ⇒ is_fresh_stmt stmt'
 Proof
   Induct \\ rpt gen_tac
   >~ [‘MetCall lhss name args’] >-
@@ -1468,29 +1963,6 @@ Proof
   \\ simp [freshen_stmt_def]
 QED
 
-Triviality map_add_fresh_every_is_fresh:
-  ∀ns m cnt cnt' m'.
-    map_add_fresh m cnt ns = (cnt', m') ∧
-    ALL_DISTINCT ns ⇒
-    EVERY (λn. is_fresh n) (MAP (lookup m') ns)
-Proof
-  Induct \\ simp []
-  \\ qx_gen_tac ‘n’ \\ rpt strip_tac
-  >-
-   (drule map_add_fresh_exists
-    \\ rpt strip_tac \\ gvs []
-    \\ ‘MEM n (MAP FST m₁)’ by gvs []
-    \\ drule lookup_append_eq \\ simp []
-    \\ disch_then kall_tac
-    \\ simp [lookup_def]
-    \\ CASE_TAC
-    >- (gvs [ALOOKUP_NONE])
-    \\ simp [is_fresh_def, isprefix_strcat])
-  \\ gvs [map_add_fresh_def, add_fresh_def]
-  \\ last_assum irule
-  \\ last_assum $ irule_at Any
-QED
-
 Theorem freshen_member_is_fresh:
   ALL_DISTINCT (get_param_names member) ⇒
   is_fresh_member (freshen_member member)
@@ -1529,7 +2001,7 @@ End
 
 Triviality freshen_stmt_no_shadow:
   ∀stmt m cnt cnt' stmt'.
-    freshen_stmt m cnt stmt = (cnt', stmt') ∧
+    freshen_stmt m m_old m_prev cnt stmt = (cnt', stmt') ∧
     map_inv m cnt ⇒
     no_shadow (set (MAP (λi. «v» ^ toString i) (MAP SND m))) stmt'
 Proof

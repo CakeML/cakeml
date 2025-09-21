@@ -1145,6 +1145,55 @@ Proof
   \\ simp [evaluate_def]
 QED
 
+Triviality push_out_if_aux_T:
+  !c2 c2' res s s'.
+  push_out_if_aux c2 = (c2',T) ==>
+  evaluate (c2,s) = (res,s') ==>
+  res <> NONE
+Proof
+  ho_match_mp_tac push_out_if_aux_ind
+  \\ rpt GEN_TAC \\ disch_then strip_assume_tac
+  \\ simp_tac(srw_ss())[Once push_out_if_aux_def]
+  \\ rpt GEN_TAC \\ disch_then (strip_assume_tac o SRULE[AllCaseEqs()])
+  \\ gvs[]
+  \\ DISCH_THEN (strip_assume_tac o
+     SRULE[SF LET_ss,evaluate_def,AllCaseEqs(),UNCURRY_EQ])
+  \\ rveq \\ metis_tac[]
+QED
+
+fun uncurry_case_rand x = x
+                         |> TypeBase.case_rand_of
+                         |> ISPEC ``(UNCURRY (A:'uniquea -> 'uniqueb -> 'uniquec))``
+                         |> GEN ``(A:'uniquea -> 'uniqueb -> 'uniquec)``;
+
+Theorem evaluate_simp_push_out_if:
+  !p s.
+  evaluate (push_out_if p, s) = evaluate (p, s)
+Proof
+  rw[push_out_if_def,oneline FST,pair_CASE_UNCURRY]
+  \\ pairarg_tac \\ simp[] \\ pop_assum mp_tac
+  \\ MAP_EVERY qid_spec_tac $ List.rev [`p`,`s`,`x`,`y`]
+  \\ ho_match_mp_tac push_out_if_aux_ind
+  \\ rpt GEN_TAC \\ disch_then strip_assume_tac
+  \\ simp_tac(srw_ss())[Once push_out_if_aux_def]
+  \\ rpt GEN_TAC \\ disch_then (strip_assume_tac o SRULE[AllCaseEqs()])
+  \\ rveq \\ simp[] \\ fs[]
+  >~[`MustTerminate`]
+  >- (simp[evaluate_def])
+  >~[`Seq`]
+  >- (simp[evaluate_def])
+  >~[`Seq`]
+  >- (simp[evaluate_def])
+  (*4 if cases*)
+  >- (simp[evaluate_def])
+  >> (
+    simp $ ([evaluate_def] @
+    map uncurry_case_rand [``:'a option``,``:'a word_loc``,``:bool``]) >>
+    rpt (TOP_CASE_TAC >> simp[]) >>
+    pairarg_tac >> every_drule_then (drule) push_out_if_aux_T >>
+    fs[])
+QED
+
 (* putting it all together *)
 
 Theorem compile_exp_thm:
@@ -1153,5 +1202,6 @@ Theorem compile_exp_thm:
    evaluate (word_simp$compile_exp prog,s) = (res,s2)
 Proof
     fs [word_simpTheory.compile_exp_def,evaluate_Seq_assoc,
-        evaluate_const_fp, evaluate_simp_duplicate_if]
+        evaluate_const_fp, evaluate_simp_duplicate_if,
+        evaluate_simp_push_out_if]
 QED
