@@ -26,6 +26,7 @@ fun rpt_drule th = drule (th |> GEN_ALL) \\ rpt (disch_then drule \\ fs [])
 val _ = augment_srw_ss[rewrites[LENGTH_REPLICATE]]
 
 val _ = Parse.hide"el";
+val _ = Parse.hide"sign";
 Overload good_dimindex[local] = ``misc$good_dimindex``
 
 val LESS_4 = DECIDE ``i < 4 <=> (i = 0) \/ (i = 1) \/ (i = 2) \/ (i = 3n)``
@@ -5723,9 +5724,9 @@ Theorem memory_rel_WordOp64_alt =
 Triviality IMP_memory_rel_bignum_alt:
   memory_rel c be ts refs sp st m dm (vs ++ vars) ∧
    good_dimindex (:α) ∧ ¬small_int (:α) i ∧
-   (Bignum i :α ml_el) = DataElement [] (LENGTH ws) (NumTag sign,MAP Word ws) ∧
+   (Bignum i :α ml_el) = DataElement [] (LENGTH ws) (NumTag is_neg,MAP Word ws) ∧
    LENGTH ws < sp ∧
-   encode_header c (w2n ((b2w sign <<2 || 3w):α word)) (LENGTH ws) =
+   encode_header c (w2n ((b2w is_neg <<2 || 3w):α word)) (LENGTH ws) =
      SOME (hd:α word) ⇒
    ∃next curr m1.
      FLOOKUP st NextFree = SOME (Word next) ∧
@@ -14033,4 +14034,3 @@ Proof
     \\ gvs [SEP_CLAUSES]
     \\ gvs [AC STAR_COMM STAR_ASSOC])
 QED
-
