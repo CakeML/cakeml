@@ -2918,8 +2918,65 @@ QED
 
 (**************************)
 
-Definition evaluate_semantics_def:
-  evaluate_semantics (prog,s) =
+Definition trace_prefix'_def:
+  trace_prefix' (x,x') (th:'a ptree) =
+  LFLATTEN $ LUNFOLD
+  (λ(fs,t). case t of
+               Ret r => NONE
+             | Tau u => SOME ((fs,u),LNIL)
+             | Vis (s,conf,ws) k =>
+                 (case x s fs conf ws of
+                  | Oracle_return fs' ws' =>
+                      if LENGTH ws ≠ LENGTH ws'
+                      then SOME ((fs', k (INL (INR ws'))),LNIL)
+                      else
+                        SOME ((fs',k (INL (INR ws'))),[|IO_event s conf (ZIP (ws,ws'))|])
+                  | Oracle_final outcome =>
+                      SOME ((fs, k (INL (INR ws))),LNIL)))
+  (x',th)
+End
+
+Theorem trace_prefix_simps[simp]:
+  trace_prefix' (x,x') (Ret r) = [||] ∧
+  trace_prefix' (x,x') (Tau u) = trace_prefix' (x,x') u ∧
+  trace_prefix' (x,x') (Vis (s,c,ws) k) =
+    case x s x' c ws of
+    | Oracle_return fs' ws' =>
+        if LENGTH ws ≠ LENGTH ws'
+        then trace_prefix' (x,fs') (k (INL (INR ws')))
+        else
+          IO_event s c (ZIP (ws,ws')):::trace_prefix' (x,fs') (k (INL (INR ws')))
+    | Oracle_final outcome => trace_prefix' (x,x') (k (INL (INR ws)))
+Proof
+  rw[trace_prefix'_def]>>
+  simp[Once LUNFOLD]>>
+  CASE_TAC>>fs[]>>
+  CASE_TAC>>fs[]
+QED
+
+(****)
+
+Theorem trace_prefix_bind_append:
+  (∃n. ltree (x,x') t = FUNPOW Tau n (Ret r)) ⇒
+  trace_prefix' (x,x') (itree_bind t k) =
+    LAPPEND (trace_prefix' (x,x') t) (trace_prefix' (x,SND (comp_ffi (x,x') t)) (k r))
+Proof
+  simp[PULL_EXISTS]>>
+  map_every qid_spec_tac [‘x'’,‘r’,‘k’,‘t’] >>
+  Induct_on ‘n’ >>
+  rw[FUNPOW_SUC]
+  >- (Cases_on ‘t’ >> fs[]>>
+      PairCases_on ‘a’>>fs[]>>
+      CASE_TAC>>fs[])>>
+  Cases_on ‘t’ >> fs[] >>
+  PairCases_on ‘a’>>fs[]>>
+  rpt (CASE_TAC>>fs[])
+QED
+
+(**************************)
+
+Definition evaluate_behaviour_def:
+  evaluate_behaviour (prog,s) =
     if ∃k. case FST (evaluate (prog,s with clock := k)) of
             | SOME TimeOut => F
             | SOME (FinalFFI _) => F
