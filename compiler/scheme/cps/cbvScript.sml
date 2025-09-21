@@ -42,3 +42,23 @@ Definition cbv_step_def:
   cbv_step (ks, CExp env (EAbs x e)) = (ks, CVal (VCl x env e)) /\
   cbv_step (ks, CExp env (EApp e1 e2)) = (CFn env e2::ks, CExp env e1)
 End
+
+Definition cbv_steps_def:
+  cbv_steps n = FUNPOW cbv_step n
+End
+
+Theorem cbv_steps:
+  (! t . cbv_steps 0 t = t) /\
+  (! n t . 0 < n ==> cbv_steps n t = cbv_steps (n - 1) (cbv_step t))
+Proof
+  simp[cbv_steps_def]
+  >> Cases
+  >> simp[FUNPOW]
+QED
+
+Theorem cbv_steps_ADD:
+  ! n m t . cbv_steps (n + m) t = cbv_steps n (cbv_steps m t)
+Proof
+  simp_tac bool_ss [cbv_steps_def, FUNPOW_ADD]
+  (*regular simp wants to flip + for some reason*)
+QED
