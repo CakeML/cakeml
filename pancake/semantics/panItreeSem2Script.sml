@@ -2975,6 +2975,121 @@ QED
 
 (**************************)
 
+Theorem evaluate_trace_prefix:
+  evaluate (p,s) = (r,t) ∧
+  ltree (s.ffi.oracle,s.ffi.ffi_state) (mrec h_prog (h_prog (p,bst s)))
+  = FUNPOW Tau n (Ret (INR (r, bst t))):'a ptree ⇒
+  ∃io.
+    toList (trace_prefix' (s.ffi.oracle,s.ffi.ffi_state) (mrec h_prog (h_prog (p,bst s)))) = SOME io ∧
+    t.ffi.io_events = s.ffi.io_events ++ io
+Proof
+  cheat
+QED
+
+
+(**** divergence ****)
+
+Theorem evaluate_io_events_lprefix_chain:
+  lprefix_chain
+  (IMAGE
+   (λk. fromList (SND (evaluate (p,s with clock := k))).ffi.io_events)
+   𝕌(:num))
+Proof
+  ‘∀x. x ∈ UNIV ⇒ (λk. llist$fromList (SND (evaluate (p,s with clock := k))).ffi.io_events) x =
+                  (fromList o (λk. (SND (evaluate (p,s with clock := k))).ffi.io_events)) x’
+    by simp[o_DEF]>>
+  ‘(UNIV:num->bool)=UNIV’ by simp[]>>
+  drule_then drule IMAGE_CONG>>strip_tac>>
+  pop_assum (fn h => pure_rewrite_tac[h])>>
+  simp[IMAGE_COMPOSE]>>
+  irule prefix_chain_lprefix_chain>>
+  simp[prefix_chain_def]>>
+  rpt (pop_assum kall_tac)>>
+  rw[]>>
+  Cases_on ‘k < k'’>>fs[NOT_LESS]
+  >- (imp_res_tac (GSYM LESS_ADD)>>
+      simp[]>>
+      irule OR_INTRO_THM1>>
+      irule IS_PREFIX_TRANS>>
+      irule_at Any panPropsTheory.evaluate_add_clock_io_events_mono>>
+      qexists ‘p'’>>simp[])>>
+  imp_res_tac LESS_EQUAL_ADD>>
+  simp[]>>
+  irule OR_INTRO_THM2>>
+  irule IS_PREFIX_TRANS>>
+  irule_at Any panPropsTheory.evaluate_add_clock_io_events_mono>>
+  qexists ‘p'’>>simp[]
+QED
+
+Theorem timeout_div_LPREFIX:
+  evaluate (p,s with clock := k) = (SOME TimeOut, t) ∧
+  div (s.ffi.oracle,s.ffi.ffi_state) (mrec h_prog (h_prog (p,bst s))) ⇒
+  LPREFIX
+  (fromList t.ffi.io_events)
+  (LAPPEND (fromList s.ffi.io_events)
+           (trace_prefix' (s.ffi.oracle,s.ffi.ffi_state) ((mrec h_prog (h_prog (p,bst s))):'a ptree)))
+Proof
+  cheat
+QED
+
+Theorem not_less_opt_lemma:
+  (∀k. ¬less_opt
+       n (SOME
+          (LENGTH
+           (SND (evaluate (prog:'a panLang$prog,s with clock := k))).ffi.io_events))) ⇒
+  ∃k'. (∀k. k' ≤ k ⇒
+            LENGTH
+            (SND (evaluate (prog,s with clock := k))).ffi.io_events =
+            LENGTH
+            (SND (evaluate (prog,s with clock := k'))).ffi.io_events)
+Proof
+  strip_tac>>
+  fs[less_opt_def,NOT_LESS]>>
+  qabbrev_tac ‘f = (λx. LENGTH (SND (evaluate (prog:'a panLang$prog,s with clock := x))).ffi.io_events)’>>
+  fs[]>>
+  ‘∀k k'. k ≤ k' ⇒ f k ≤ f k'’
+    by (fs[Abbr‘f’]>>
+        rpt strip_tac>>
+        drule LESS_EQUAL_ADD>>strip_tac>>fs[]>>
+        assume_tac (Q.SPECL [‘prog’,‘s with clock := k’,‘p’]
+                     panPropsTheory.evaluate_add_clock_io_events_mono)>>
+        fs[IS_PREFIX_APPEND])>>
+  ‘∃k. ∀k'. k ≤ k' ⇒ f k' ≤  f k’ by
+    (CCONTR_TAC>>fs[NOT_LESS_EQUAL]>>
+     last_x_assum mp_tac>>fs[NOT_LESS_EQUAL]>>
+     Cases_on ‘n < f k’>>fs[NOT_LESS]>- metis_tac[]>>
+     drule LESS_EQUAL_ADD>>strip_tac>>
+     gvs[]>>
+     pop_assum mp_tac>>
+     qid_spec_tac ‘p’>>
+     Induct>>rw[]
+     >- (first_x_assum $ qspec_then ‘k’ assume_tac>>fs[]>>
+         qexists ‘k'’>>rw[])>>
+     fs[PULL_FORALL]>>
+     first_x_assum $ qspec_then ‘k'’ assume_tac>>fs[]>>
+     simp[GSYM ADD_SUC,GSYM LESS_EQ_IFF_LESS_SUC]>>
+     irule_at Any LESS_LESS_EQ_TRANS>>
+     irule_at Any (iffRL LESS_MONO_EQ)>>
+     first_assum $ irule_at Any>>
+     simp[LESS_EQ_IFF_LESS_SUC]>>
+     metis_tac[])>>
+  qexists ‘k’>>rw[]>>
+  metis_tac[LESS_EQUAL_ANTISYM]
+QED
+
+Theorem bounded_trace_eq:
+  (∀k'. s.clock < k' ⇒
+        (SND(evaluate(prog:'a panLang$prog,s))).ffi.io_events
+        = (SND(evaluate(prog,s with clock:=k'))).ffi.io_events) ∧
+  div (s.ffi.oracle,s.ffi.ffi_state) (mrec h_prog (h_prog (prog,bst s))) ⇒
+  LAPPEND (fromList (s.ffi.io_events)) (trace_prefix' (s.ffi.oracle,s.ffi.ffi_state) (mrec h_prog (h_prog (prog,bst s)))) =
+  fromList (SND (evaluate (prog, s))).ffi.io_events
+Proof
+cheat
+QED
+
+(**************************)
+
 Definition evaluate_behaviour_def:
   evaluate_behaviour (prog,s) =
     if ∃k. case FST (evaluate (prog,s with clock := k)) of
@@ -3030,7 +3145,7 @@ Proof
   rw[]>>
   DEEP_INTRO_TAC some_intro>>
   rw[]
-(* Fail *)
+  (* Fail *)
   >- (imp_res_tac nondiv_imp_evaluate>>
       dxrule evaluate_min_clock>>strip_tac>>gs[]>>
       Cases_on ‘evaluate (prog, s with clock := k)’>>fs[]>>
@@ -3053,14 +3168,65 @@ Proof
       Cases_on ‘r’>>fs[]>>
       rename [‘(SOME x,_)’]>>
       Cases_on ‘x’>>fs[]>>
-      imp_res_tac evaluate_imp_nondiv>>gvs[]>>cheat)>>
-  fs[]
-  
-     
-     
+      imp_res_tac evaluate_imp_nondiv>>gvs[]>>
+      drule evaluate_trace_prefix>>fs[]>>
+      strip_tac>>simp[])>>
+  DEEP_INTRO_TAC some_intro>>
+  rw[]
+  >- (rpt (CASE_TAC>>fs[])>>
+      imp_res_tac nondiv_imp_evaluate>>gvs[]>>
+      last_x_assum $ qspec_then ‘k’ assume_tac>>gs[]>>
+      last_x_assum $ qspec_then ‘k’ assume_tac>>gs[])>>
+
+  irule EQ_SYM>>
+  irule (iffLR lprefix_lubTheory.build_prefix_lub_intro)>>
+  irule_at Any evaluate_io_events_lprefix_chain>>
+
+  simp[lprefix_lubTheory.lprefix_lub_def]>>fs[]>>
+  conj_asm1_tac>>rpt strip_tac>>gvs[]
+  >- (qpat_abbrev_tac ‘X = evaluate _’>>
+      Cases_on ‘X’>>fs[]>>
+      irule timeout_div_LPREFIX>>gvs[]>>
+      last_x_assum $ qspec_then ‘k’ assume_tac>>gs[]>>
+      last_x_assum $ qspec_then ‘k’ assume_tac>>gs[]>>
+      rpt (FULL_CASE_TAC>>fs[])>>
+      simp[PULL_EXISTS]>>
+      first_assum $ irule_at Any>>
+      simp[div_def]>>rpt strip_tac>>
+      imp_res_tac nondiv_INR>>fs[]>>
+      rename [‘r = INR x’]>>Cases_on ‘x’>>fs[])>>
+
+  (* least upper bound *)
+  Cases_on ‘∀n. (∃k. less_opt n (SOME (LENGTH (SND (evaluate(prog,s with clock := k))).ffi.io_events)))’>>fs[]
+  >- fs[LPREFIX_NTH]>>
+  (* evaluate traces are bounded *)
+  dxrule not_less_opt_lemma>>
+  strip_tac>>gvs[]>>
+  qabbrev_tac ‘x= s with clock := k'’>>
+  ‘∀k. x.clock < k ⇒
+       (SND (evaluate (prog,x))).ffi.io_events =
+       (SND (evaluate (prog,x with clock := k))).ffi.io_events’
+    by (rpt strip_tac>>
+        first_x_assum $ qspec_then ‘k’ assume_tac>>
+        qspecl_then [‘prog’,‘x’,‘k-x.clock’] assume_tac (panPropsTheory.evaluate_add_clock_io_events_mono)>>
+        rfs[Abbr‘x’]>>
+        gvs[GSYM IS_PREFIX_LENGTH_ANTI])>>
+  drule bounded_trace_eq>>gvs[Abbr‘x’]>>
+  impl_tac >-
+   (simp[div_def]>>rpt strip_tac>>
+    imp_res_tac nondiv_INR>>fs[]>>
+    Cases_on ‘x’>>fs[])>>
+  strip_tac>>simp[]>>
+  first_assum irule>>metis_tac[]
 QED
 
 (**************************)
+(**************************)
+(**************************)
+(**************************)
+(**************************)
+
+
 (*** evaluate -> itree (no ffi) ***)
 
 Theorem evaluate_mrec_Ret_weak_io_events:
@@ -4318,40 +4484,6 @@ Proof
 QED
                       
 (*********************************************)
-
-(**** divergence ****)
-
-Theorem evaluate_io_events_lprefix_chain:
-  lprefix_chain
-  (IMAGE
-   (λk. fromList (SND (evaluate (p,s with clock := k))).ffi.io_events)
-   𝕌(:num))
-Proof
-  ‘∀x. x ∈ UNIV ⇒ (λk. llist$fromList (SND (evaluate (p,s with clock := k))).ffi.io_events) x =
-                  (fromList o (λk. (SND (evaluate (p,s with clock := k))).ffi.io_events)) x’
-    by simp[o_DEF]>>
-  ‘(UNIV:num->bool)=UNIV’ by simp[]>>
-  drule_then drule IMAGE_CONG>>strip_tac>>
-  pop_assum (fn h => pure_rewrite_tac[h])>>
-  simp[IMAGE_COMPOSE]>>
-  irule prefix_chain_lprefix_chain>>
-  simp[prefix_chain_def]>>
-  rpt (pop_assum kall_tac)>>
-  rw[]>>
-  Cases_on ‘k < k'’>>fs[NOT_LESS]
-  >- (imp_res_tac (GSYM LESS_ADD)>>
-      simp[]>>
-      irule OR_INTRO_THM1>>
-      irule IS_PREFIX_TRANS>>
-      irule_at Any panPropsTheory.evaluate_add_clock_io_events_mono>>
-      qexists ‘p'’>>simp[])>>
-  imp_res_tac LESS_EQUAL_ADD>>
-  simp[]>>
-  irule OR_INTRO_THM2>>
-  irule IS_PREFIX_TRANS>>
-  irule_at Any panPropsTheory.evaluate_add_clock_io_events_mono>>
-  qexists ‘p'’>>simp[]
-QED
 
 Theorem trace_prefix0_lprefix_chain:
   lprefix_chain
