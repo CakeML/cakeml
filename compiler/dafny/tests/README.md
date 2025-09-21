@@ -1,1 +1,0 @@
-Contains programs to test the Dafny compiler.
