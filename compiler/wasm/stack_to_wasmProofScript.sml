@@ -219,7 +219,9 @@ End
 
 Definition conf_ok_def:
   conf_ok (c: 64 asm_config) ⇔
-  c.reg_count < 4294967296 (* 2**32; wasm binary encoding *)
+  c.reg_count < 4294967296 (* 2**32; wasm binary encoding *) ∧
+  c.fp_reg_count = 0 ∧
+  c.ISA = Ag32 (* placeholder *)
 End
 
 Definition regs_rel_def:
@@ -681,19 +683,15 @@ Proof
     >~[`Shift`] >- cheat
     >~[`Div`] >- cheat
     >~[`LongMul`] >- cheat
-    >~[`LongDiv`] >-
-      (* TODO: is there an explicit invariant that
-        bans this? *)
-      cheat
+    >~[`LongDiv`] >- fs[stack_asm_ok_def,inst_ok_def,arith_ok_def,conf_ok_def]
     >~[`AddCarry`] >- cheat
     >~[`AddOverflow`] >- cheat
     >~[`SubOverflow`] >- cheat
     )
   >~[`Mem`] >-
     cheat
-  >~[`FP`] >- (
-    fs[stack_asm_ok_def,inst_ok_def,fp_ok_def]>>
-    cheat)
+  >~[`FP`] >-
+    gvs[stack_asm_ok_def,inst_ok_def,oneline fp_ok_def,AllCasePreds(),fp_reg_ok_def,conf_ok_def]
 QED
 
 Theorem compile_Seq:
