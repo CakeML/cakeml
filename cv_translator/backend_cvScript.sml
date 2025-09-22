@@ -463,7 +463,7 @@ Proof
 QED
 
 Definition max_var_exp_list_def:
-  max_var_exp_list ls = list_max (MAP (λx. max_var_exp x) ls)
+  max_var_exp_list ls = MAX_LIST (MAP (λx. max_var_exp x) ls)
 End
 
 Triviality max_var_exp_list_thm:
