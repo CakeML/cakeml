@@ -10,7 +10,6 @@ Libs
 
 (* compiler definition (TODO: move to another file when ready) *)
 
-
 (* shorthands for wasm instructions *)
 Definition I64_EQ_def:
   I64_EQ = Numeric (N_compare (Eq Int W64))
@@ -21,8 +20,47 @@ End
 Definition I64_CONST_def:
   I64_CONST w = Numeric (N_const64 Int w)
 End
+Definition I32_CONST_def:
+  I32_CONST w = Numeric (N_const32 Int w)
+End
+Definition I64_ADD_def:
+  I64_ADD = Numeric (N_binary (Add Int W64))
+End
+Definition I64_SUB_def:
+  I64_SUB = Numeric (N_binary (Sub Int W64))
+End
+Definition I64_AND_def:
+  I64_AND = Numeric (N_binary (And W64))
+End
+Definition I64_OR_def:
+  I64_OR = Numeric (N_binary (Or W64))
+End
+Definition I64_XOR_def:
+  I64_XOR = Numeric (N_binary (Xor W64))
+End
+Definition I64_SHL_def:
+  I64_SHL = Numeric (N_binary (Shl W64))
+End
+Definition I64_SHR_S_def:
+  I64_SHR_S = Numeric (N_binary (Shr_ Signed W64))
+End
+Definition I64_SHR_U_def:
+  I64_SHR_U = Numeric (N_binary (Shr_ Unsigned W64))
+End
+Definition I64_ROTR_def:
+  I64_ROTR = Numeric (N_binary (Rotr W64))
+End
+Definition I64_DIV_S_def:
+  I64_DIV_S = Numeric (N_binary (Div_ Signed W64))
+End
+Definition I64_DIV_U_def:
+  I64_DIV_U = Numeric (N_binary (Div_ Unsigned W64))
+End
 Definition GLOBAL_GET_def:
   GLOBAL_GET i = Variable (GlobalGet (n2w i))
+End
+Definition GLOBAL_SET_def:
+  GLOBAL_SET i = Variable (GlobalSet (n2w i))
 End
 
 (* reg_imm = Reg reg | Imm ('a imm) *)
@@ -37,6 +75,67 @@ Definition comp_cmp_def:
     List [GLOBAL_GET a_r; comp_ri b_ri; I64_EQ]
 End
 
+(*
+  arith = Binop binop reg reg ('a reg_imm)
+        | Shift shift reg reg num
+        | Div reg reg reg
+        | LongMul reg reg reg reg (* use multiword thy *)
+        | LongDiv reg reg reg reg reg
+        | AddCarry reg reg reg reg
+        | AddOverflow reg reg reg reg
+        | SubOverflow reg reg reg reg
+
+  binop = Add | Sub | And | Or | Xor
+
+  shift = Lsl | Lsr | Asr | Ror
+*)
+Definition compile_arith_def:
+(
+  compile_arith (asm$Binop op t s1 s2) =
+    let wasm_op =
+      case op of
+        Add => I64_ADD
+      | Sub => I64_SUB
+      | And => I64_AND
+      | Or  => I64_OR
+      | Xor => I64_XOR
+    in
+    List [GLOBAL_GET s1; comp_ri s2; wasm_op; GLOBAL_SET t]
+) ∧
+(
+  compile_arith (asm$Shift op t s n) =
+(*
+  | (* inn *) Shl        width
+  | (* inn *) Shr_ sign  width
+  | (* inn *) Rotl       width
+  | (* inn *) Rotr       width
+*)
+    let wasm_op =
+      case op of
+        Lsl => I64_SHL
+      | Lsr => I64_SHR_U
+      | Asr => I64_SHR_S
+      | Ror => I64_ROTR
+    in
+    List [GLOBAL_GET s; I64_CONST (n2w n); wasm_op; GLOBAL_SET t]
+) ∧
+(
+  compile_arith (asm$Div t s1 s2) = (* signed div *)
+    List [GLOBAL_GET s1; GLOBAL_GET s2; I64_DIV_S; GLOBAL_SET t]
+)
+End
+
+
+
+Definition compile_inst_def:
+  compile_inst (asm$Skip) = List [] ∧
+  compile_inst (asm$Const (r:reg) (v:64 word)) =
+    List [I64_CONST v; GLOBAL_SET r] ∧
+  compile_inst (asm$Arith a) = compile_arith a
+End
+
+
+
 Definition compile_def:
   compile stackLang$Skip = List ([]:wasmLang$instr list) ∧
   compile (Seq p1 p2) = Append (compile p1) (compile p2) ∧
@@ -46,8 +145,7 @@ Definition compile_def:
     Append (comp_cmp cmp a_r b_ri)
            (List [wasmLang$If BlkNil (append (compile p1)) (append (compile p2))])
   ∧
-  (* TODO: compile Inst *)
-  compile _ = ARB
+  compile (stackLang$Inst inst) = compile_inst inst
 End
 
 (* definitions used in the correctness statement *)
@@ -69,15 +167,20 @@ End
 
 Definition regs_rel_def:
   regs_rel regs globals <=>
-    LENGTH globals >= 32 ∧
+    32 <= LENGTH globals (* no. of avail. regs. of wasm backend *) ∧
+    LENGTH globals < 4294967296 (* 2**32; wasm binary encoding *) ∧
     ∀n wl. FLOOKUP regs n = SOME wl ==> EL n globals = to_value wl
 End
+
+
+(* code_rel: we can find long mul at const index i *)
+
 
 Definition state_rel_def:
   state_rel ^s ^t ⇔
     ¬ s.use_stack ∧ ¬ s.use_store ∧ ¬ s.use_alloc ∧ ¬ s.be ∧
     empty_buffer s.code_buffer ∧ empty_buffer s.data_buffer ∧
-    regs_rel s.regs t.globals
+    regs_rel s.regs t.globals (* ∧ code_rel s.code t.code *)
 End
 
 Definition res_rel_def:
@@ -125,6 +228,17 @@ Proof
   >>first_x_assum $ qspecl_then[‘[]’,‘s'’]assume_tac
   >>gvs[]
   >>Cases_on‘res'=RNormal’>>fs[]
+QED
+
+Theorem exec_list_cons:
+  exec_list (i::rest) s =
+    let (res1,s1) = exec i s in
+    if res1=RNormal then exec_list rest s1
+    else (res1,s1)
+Proof
+rw[exec_def]
+>>rpt(pairarg_tac>>fs[])
+>>(PURE_TOP_CASE_TAC>>fs[])
 QED
 
 Theorem pop_with_clock[simp]:
@@ -401,7 +515,7 @@ Theorem exec_list_add_clock:
   ∀ck. exec_list c (s with clock := ck + s.clock) =
        (res, s1 with clock := ck + s1.clock)
 Proof
-  cheat
+  metis_tac[exec_list_add_clock_aux]
 QED
 
 Theorem comp_cmp_thm:
@@ -438,10 +552,98 @@ Proof
   \\ qexists_tac ‘0’ \\ fs [state_rel_def]
 QED
 
+fun component_equality_of ty = let
+val accfn_terms = map (fn (_, rcd) => #accessor rcd) (TypeBase.fields_of ty)
+val cases_thm =  TypeBase.nchotomy_of ty
+val oneone_thm = TypeBase.one_one_of ty
+val accessor_thms = TypeBase.accessors_of ty
+    val var1 = mk_var("a", ty)
+    val var2 = mk_var("b", ty)
+    val lhs = mk_eq(var1, var2)
+    val rhs_tms =
+      map (fn tm => mk_eq(mk_comb(tm, var1), mk_comb(tm, var2)))
+      accfn_terms
+    val rhs = list_mk_conj rhs_tms
+    val goal = mk_eq(lhs, rhs)
+    val tactic =
+      REPEAT GEN_TAC THEN
+      MAP_EVERY (STRUCT_CASES_TAC o C SPEC cases_thm) [var1, var2] THEN
+      REWRITE_TAC (oneone_thm::accessor_thms)
+    in prove(goal, tactic) end
+
+fun trivial_simps ty =
+let
+val t = mk_var ("t", ty)
+fun f accessor fupd fty =
+(* fupd (K (accessor t)) *)
+let val lhs =
+mk_comb (mk_comb (fupd, mk_comb (mk_const("K",fty-->fty-->fty), mk_comb (accessor, t))), t)
+in
+prove (mk_eq (lhs, t), simp[component_equality_of ty])
+end
+in
+map (fn (_, {accessor=accessor, fupd=fupd, ty=ty}) => f accessor fupd ty) (TypeBase.fields_of ty)
+end
+
+(* BANNED *)
+(*
+val _ = save_thm("state_trivial_simps[simp]", LIST_CONJ (trivial_simps ``:wasmSem$state``));
+*)
+
+Theorem state_trivial_simps[simp] = LIST_CONJ (trivial_simps ``:wasmSem$state``);
+
 Theorem compile_Inst:
   ^(get_goal "Inst")
 Proof
-  cheat
+rw[compile_def]
+>>qexists_tac`0`
+>>(Cases_on`i`>>fs[compile_inst_def])
+>-(
+  fs[evaluate_def,inst_def]
+  >>fs[exec_def,res_rel_def]
+  >>gvs[]
+)
+(* Const *)
+>-(
+  fs[evaluate_def,inst_def]
+  >>fs[assign_def]
+  >>gvs[CaseEq"option"]
+  >>fs[exec_list_cons]
+  >>rpt(pairarg_tac>>fs[])
+  >>rename1`exec (I64_CONST c) t = (res1,t1)`
+  >>rename1`exec (GLOBAL_SET n) t1 = (res2,t2)`
+  >>subgoal`res1=RNormal∧res2=RNormal`
+  >-(
+    fs[I64_CONST_def,GLOBAL_SET_def,exec_def]
+    >>gvs[num_stk_op_def]
+    >>fs[pop_def]
+    >>fs[set_global_def]
+    >>`n MOD 4294967296 < LENGTH t.globals` by cheat (* use names_ok? stack_asm_name? *)
+    >>fs[]
+  )
+  >>fs[exec_def,res_rel_def]
+  (*
+      0.  word_exp s (Const c) = SOME w
+      1.  state_rel s t
+      2.  exec (I64_CONST c) t = (RNormal,t1)
+      3.  exec (GLOBAL_SET n) t1 = (RNormal,t2)
+      4.  res1 = RNormal
+      5.  res2 = RNormal
+     ------------------------------------
+          state_rel (set_var n (Word w) s) t2 ∧ t2.stack = t.stack
+  *)
+  >>fs[I64_CONST_def,GLOBAL_SET_def,exec_def]
+  >>gvs[AllCaseEqs()]
+  >>gvs[num_stk_op_def]
+  >>gvs[pop_def]
+  >>gvs[set_global_def]
+  `n < LENGTH t.globals` by cheat(*syntactic*)
+`LENGTH t.globals < 4294967296` by cheat(*global*)
+
+
+  >>cheat
+)
+
 QED
 
 Theorem compile_Seq:
