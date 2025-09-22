@@ -330,8 +330,6 @@ ho_match_mp_tac exec_ind>>rpt strip_tac
   qpat_x_assum `exec _ _ = _` mp_tac
   >>simp[exec_def]
   >>(pairarg_tac>>fs[])
-  >>(IF_CASES_TAC>>simp[])
-  >>rpt(pairarg_tac>>fs[])
   >>(Cases_on`res'=RTimeout`>>gvs[AllCaseEqs()])
   >>rw[]
 )
@@ -341,7 +339,6 @@ ho_match_mp_tac exec_ind>>rpt strip_tac
   >>once_rewrite_tac[exec_def]
   >>simp[]
   >>rpt(pairarg_tac>>fs[])
-  >>(IF_CASES_TAC>>simp[])
   >>(Cases_on`res'=RTimeout`>>gvs[AllCaseEqs()])
   >>rw[]
 )
@@ -690,20 +687,19 @@ Theorem compile_If:
   ^(get_goal "If")
 Proof
   rpt strip_tac
-  >>fs[evaluate_def]
-  >>gvs[CaseEq"option"]
-  >>simp[compile_def]
-  >>simp[exec_list_append]
-  >>drule_all comp_cmp_thm
-  >>strip_tac
-  >>simp[]
-  >>pop_assum kall_tac
-  >>simp[exec_def,pop_push]
-  >>simp[nonzero_b2w]
-  >>simp[functype_of_blocktype_def]
-  >>‘state_rel s (t with stack:=[])’ by simp[state_rel_with_stack]
-  >>IF_CASES_TAC>>gvs[]>>first_x_assum drule>>strip_tac
-  >>(
+  >> fs[evaluate_def]
+  >> gvs[CaseEq"option"]
+  >> simp[compile_def]
+  >> simp[exec_list_append]
+  >> drule_all comp_cmp_thm
+  >> strip_tac
+  >> simp[]
+  >> pop_assum kall_tac
+  >> simp[exec_def,pop_push]
+  >> simp[nonzero_b2w]
+  >> ‘state_rel s (t with stack:=[])’ by simp[state_rel_with_stack]
+  >> IF_CASES_TAC>>gvs[]>>first_x_assum drule>>strip_tac
+  >> (
     qexists_tac‘ck’
     >>fs[]
     >>Cases_on‘res’>>fs[res_rel_def]

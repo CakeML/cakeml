@@ -25,10 +25,10 @@ End
 (*                                    *)
 (**************************************)
 
-(* Returns the function type for tb *)
-Definition functype_of_blocktype_def:
-   functype_of_blocktype BlkNil : functype = ([], [] ) ∧
-   functype_of_blocktype (BlkVal ty)       = ([],[ty])
+(* Returns the result type of a block-y isntr *)
+Definition resulttype_of_blocktype_def:
+   resulttype_of_blocktype  BlkNil : resulttype = NONE ∧
+   resulttype_of_blocktype (BlkVal ty)          = SOME ty
 End
 
 Definition init_val_of_def:
@@ -469,49 +469,48 @@ Theorem do_st_cases = REWRITE_RULE [GSYM do_st_thm] store_op_rel_cases;
 (*******************************)
 
 Overload inv[local] = “λ s. (RInvalid,s)”
+
 Definition exec_def:
   (exec (Unreachable:instr) (s:state) = (RTrap,s) : result # state
   ) ∧
   (exec Nop s = (RNormal,s)
   ) ∧
-  (exec (Block tb bs) s =
-    (* case functype_of_blocktype s.types tb of NONE => inv s | SOME (mts,nts) => *)
-    let (mts,nts) = functype_of_blocktype tb in
-    let m = LENGTH mts in
-    let n = LENGTH nts in
-    if LENGTH s.stack < m then inv s else
-    let stack0 = s.stack in
-    let s1 = s with stack:=TAKE m stack0 in
-    let (res, s) = exec_list bs s1 in
+  (exec (Block tb body) s =
+    let orig_stk = s.stack in
+    let (res, s) = exec_list body (s with stack := [])
+    in
     case res of
-    | RBreak 0 =>
-        if LENGTH s.stack < n then inv s else
-          (RNormal, (s with stack := (TAKE n s.stack) ++ (DROP m stack0)))
     | RBreak (SUC l) => (RBreak l, s)
-    | RNormal =>
-      if LENGTH s.stack ≠ n then inv s else
-      (RNormal, (s with stack := s.stack ++ (DROP m stack0)))
-    | _ => (res, s)
+    | RBreak 0 => ( case (tb,s.stack) of
+                    | (BlkNil  , [] ) => (RNormal, s with stack :=     orig_stk)
+                    | (BlkVal _, [v]) => (RNormal, s with stack := v:: orig_stk)
+                    | (_,_)           => inv s)
+    | RNormal  => ( case (tb,s.stack) of
+                    | (BlkNil  , [] ) => (RNormal, s with stack :=     orig_stk)
+                    | (BlkVal _, [v]) => (RNormal, s with stack := v:: orig_stk)
+                    | (_,_)           => inv s)
+    | _ => (res,s)
   ) ∧
-  (exec (Loop tb b) s =
-    (* case functype_of_blocktype s.types tb of NONE => inv s | SOME (mts,nts) => *)
-    let (mts,nts) = functype_of_blocktype tb in
-    let m = LENGTH mts in
-    let n = LENGTH nts in
-    if LENGTH s.stack < m then inv s else
-    let stack0 = s.stack in
-    let s1 = s with stack:=TAKE m stack0 in
-    let (res, s) = fix_clock s1 (exec_list b s1) in
+  (exec (Loop tb body) s =
+    let orig_stk = s.stack                          in
+    let s1       = s with stack := []               in
+    let (res, s) = fix_clock s1 (exec_list body s1) in
+    let s_tick   = s with clock := s.clock - 1
+    in
     case res of
-    | RBreak 0 =>
-      if LENGTH s.stack < n then inv s else
-      if s.clock = 0 then (RTimeout,s) else
-        exec (Loop tb b) (s with <| stack := (TAKE n s.stack) ++ (DROP m stack0);
-                                    clock := s.clock - 1|>)
     | RBreak (SUC l) => (RBreak l, s)
-    | RNormal =>
-      if LENGTH s.stack ≠ n then inv s else
-      (RNormal, (s with stack := s.stack ++ (DROP m stack0)))
+    | RBreak 0 => if s.clock = 0 then (RTimeout,s) else
+                  ( case (tb,s.stack) of
+                    | (BlkNil  , [ ]) => exec (Loop tb body)  s_tick
+                    | (BlkVal _, [v]) => exec (Loop tb body) (s_tick with stack := v:: orig_stk)
+                    | (_,_)           => inv s
+                  )
+    | RNormal =>  if s.clock = 0 then (RTimeout,s) else
+                  ( case (tb,s.stack) of
+                    | (BlkNil  , [ ]) => exec (Loop tb body)  s_tick
+                    | (BlkVal _, [v]) => exec (Loop tb body) (s_tick with stack := v:: orig_stk)
+                    | (_,_)           => inv s
+                  )
     | _ => (res, s)
   ) ∧
   (exec (If tb bl br) s =
