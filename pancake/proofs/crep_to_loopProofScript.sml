@@ -4,11 +4,10 @@
 Theory crep_to_loopProof
 Ancestors
   listRange rich_list crepProps loopProps pan_commonProps
-  loop_liveProof crep_to_loop crepSem loopLang loopSem pan_common
-  crep_arithProof
+  loop_liveProof crepSem loopLang loopSem pan_common
+  crep_arithProof crep_to_loop
 Libs
   preamble
-
 
 val _ = temp_delsimps ["fromAList_def", "domain_union",
                        "domain_inter", "domain_difference",
@@ -344,7 +343,7 @@ QED
 
 Theorem assigned_vars_MAPi_Assign:
   ∀les offset.
-    assigned_vars (nested_seq (MAPi (λn. Assign (n + offset)) les)) =
+    assigned_vars (nested_seq (MAPi (λn. loopLang$Assign (n + offset)) les)) =
     GENLIST ($+ offset) (LENGTH les)
 Proof
   Induct_on ‘les’ \\
@@ -734,9 +733,8 @@ QED
 Theorem compile_exp_le_tmp_domain = compile_exp_le_tmp_domain_cases |> CONJUNCT1
 Theorem compile_exps_le_tmp_domain = compile_exp_le_tmp_domain_cases |> CONJUNCT2
 
-
 Theorem comp_exp_preserves_eval:
-  ∀s e v (t :('a, 'b) state) ctxt tmp l p le ntmp nl.
+  ∀s e v (t :('a, 'b) loopSem$state) ctxt tmp l p le ntmp nl.
   eval s e = SOME v /\
   state_rel s t /\ mem_rel s.memory t.memory s.memaddrs /\
   globals_rel s.globals t.globals /\
@@ -959,7 +957,7 @@ Proof
     fs [crepSemTheory.mem_load_def, loopSemTheory.mem_load_def] >> rveq >>
     imp_res_tac state_rel_intro >>
     gvs[mem_rel_def])
-   >>~ [‘eval s (LoadByte e)’,‘eval s (Load32 e)’]
+  >>~ [‘eval s (LoadByte e)’,‘eval s (Load32 e)’]
   >- (fs [crepSemTheory.eval_def] >>
       TOP_CASE_TAC >> fs [] >>
       TOP_CASE_TAC >> fs [] >>
@@ -972,7 +970,7 @@ Proof
       strip_tac >> fs [] >>
       qexists_tac ‘ck’ >> fs [] >>
       drule evaluate_none_nested_seq_append >>
-      qpat_abbrev_tac ‘X = [Assign tmp' _; _]’ >>
+      qpat_abbrev_tac ‘X = [loopLang$Assign tmp' _; _]’ >>
       disch_then (qspec_then ‘X’ mp_tac) >>
       strip_tac >> fs [Abbr‘X’] >>
       pop_assum kall_tac >>
@@ -1011,7 +1009,7 @@ Proof
       strip_tac >> fs [] >>
       qexists_tac ‘ck’ >> fs [] >>
       drule evaluate_none_nested_seq_append >>
-      qpat_abbrev_tac ‘X = [Assign tmp' _; _]’ >>
+      qpat_abbrev_tac ‘X = [loopLang$Assign tmp' _; _]’ >>
       disch_then (qspec_then ‘X’ mp_tac) >>
       strip_tac >> fs [Abbr‘X’] >>
       pop_assum kall_tac >>
@@ -1172,7 +1170,7 @@ Proof
 QED
 
 Theorem comp_exps_preserves_eval:
-  ∀es s vs (t :('a, 'b) state) ctxt tmp l p les ntmp nl.
+  ∀es s vs (t :('a, 'b) loopSem$state) ctxt tmp l p les ntmp nl.
   OPT_MMAP (eval s) es = SOME vs /\
   state_rel s t /\ mem_rel s.memory t.memory s.memaddrs /\
   globals_rel s.globals t.globals /\
@@ -2897,7 +2895,7 @@ Proof
 QED
 
 Triviality evaluate_none_nested_seq_append_eq:
-  evaluate (nested_seq p, s) = (NONE, s1) /\
+  evaluate (loopLang$nested_seq p, s) = (NONE, s1) /\
   evaluate (nested_seq q, s1) = res_s
   ==> evaluate (nested_seq (p ++ q), s) = res_s
 Proof
@@ -3652,8 +3650,7 @@ Proof
   \\ cases_on `evaluate (prog,s with clock := ck)`
   \\ CCONTR_TAC \\ fs []
   \\ drule_then (qspec_then `s.clock - ck` mp_tac) evaluate_add_clock_eq
-  \\ simp [Q.prove (`(s with clock := s.clock) = s`,
-        simp [loopSemTheory.state_component_equality])]
+  \\ `(s with clock := s.clock) = s` by fs[loopSemTheory.state_component_equality]
   \\ rw []
   \\ CCONTR_TAC \\ fs []
   \\ fs [loopSemTheory.state_component_equality]
@@ -3677,8 +3674,8 @@ Proof
     drule evaluate_less_clock_cases
     \\ simp []
     \\ disch_then drule
-    \\ simp [Q.prove (`(s with clock := s.clock) = s`,
-          simp [loopSemTheory.state_component_equality])]
+    \\ `(s with clock := s.clock) = s` by fs[loopSemTheory.state_component_equality]
+    \\ rw[]
     \\ metis_tac []
   )
   >- (

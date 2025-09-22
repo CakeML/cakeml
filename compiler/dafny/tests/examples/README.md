@@ -1,1 +1,0 @@
-Examples to test the Dafny compiler.
