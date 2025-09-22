@@ -40,7 +40,7 @@ val wasm_data_conf = “<| tag_bits := 4
                        ; len_bits := 4
                        ; pad_bits := 2
                        ; len_size := 32
-                       ; has_div := F
+                       ; has_div := T
                        ; has_longdiv := F
                        ; has_fp_ops := F
                        ; has_fp_tern := F
