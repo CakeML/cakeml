@@ -1909,8 +1909,8 @@ Theorem nondiv_ltree_bind_lemma:
   FUNPOW Tau n (Ret r) : 'a ptree ⇒
   ∃n' r'.
     ltree fs t = FUNPOW Tau n' (Ret r') : 'a ptree ∧
-    ∃n'' r''.
-      ltree (FST fs,SND (comp_ffi fs t)) (k r') = FUNPOW Tau n'' (Ret r'') : 'a ptree
+    ∃n''.
+      ltree (FST fs,SND (comp_ffi fs t)) (k r') = FUNPOW Tau n'' (Ret r) : 'a ptree
       ∧ n' + n'' = n
 Proof
   strip_tac>>
@@ -1925,8 +1925,8 @@ Theorem nondiv_ltree_bind_lemma':
   ∧ fs' = (FST fs,SND (comp_ffi fs t)) ⇒
   ∃n' r'.
     ltree fs t = FUNPOW Tau n' (Ret r') : 'a ptree ∧
-    ∃n'' r''.
-      ltree (FST fs,SND (comp_ffi fs t)) (k r') = FUNPOW Tau n'' (Ret r'') : 'a ptree
+    ∃n''.
+      ltree (FST fs,SND (comp_ffi fs t)) (k r') = FUNPOW Tau n'' (Ret r) : 'a ptree
       ∧ n' + n'' = n
 Proof
   rw[]>>
