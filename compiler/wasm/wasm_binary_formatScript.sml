@@ -14,13 +14,12 @@ Libs        preamble wordsLib
 (*   Misc notations/helpers/etc   *)
 (**********************************)
 
-Type byte    = “:word8”
-Type byteSeq = “:word8 list”
+Type byte[pp]    = “:word8”
+Type byteSeq[pp] = “:word8 list”
+Type byteSeqOpt[pp] = “:word8 list option”
 
-(* Decoders (take a stream of bytes) and
-   produce an element of the CWasm AST
-   (or an error) & additionally return
-   the remaining bytes (stream) *)
+(* Decoders (take a stream of bytes) and produce an element of the CWasm
+   AST (or an error) & additionally return the remaining bytes (stream) *)
 Type dcdr = “:(mlstring + α) # byteSeq”
 Overload error = “λ obj str. (INL $ strlit str,obj)”
 Overload emErr = “λ str. (INL $ strlit $ "[" ++ str ++ "] : Byte sequence unexpectedly empty.\n",[])”
@@ -50,7 +49,7 @@ Definition enc_list_def:
 End
 
 Definition enc_list_opt_def:
-  enc_list_opt (encdr:α -> byteSeq option) ([]:α list) : byteSeq option = SOME []
+  enc_list_opt (encdr:α -> byteSeqOpt) ([]:α list) : byteSeqOpt = SOME []
   ∧
   enc_list_opt encdr (x::xs) = do
     encx  <-              encdr x ;
@@ -98,7 +97,7 @@ QED
 
 
 Definition enc_vector_def:
-  enc_vector (encdr:α -> byteSeq) (xs:α list) : byteSeq option =
+  enc_vector (encdr:α -> byteSeq) (xs:α list) : byteSeqOpt =
     let n = LENGTH xs in
     if gt2_32 n then NONE
     else
@@ -107,7 +106,7 @@ Definition enc_vector_def:
 End
 
 Definition enc_vector_opt_def:
-  enc_vector_opt (encdr:α -> byteSeq option) (xs:α list) : byteSeq option =
+  enc_vector_opt (encdr:α -> byteSeqOpt) (xs:α list) : byteSeqOpt =
     let n = LENGTH xs in
     if gt2_32 n then NONE else
     do
@@ -190,7 +189,7 @@ QED
 
 
 Definition enc_functype_def:
-  enc_functype (sg:functype) : byteSeq option = do
+  enc_functype (sg:functype) : byteSeqOpt = do
     argTs <- enc_vector enc_valtype (FST sg);
     resTs <- enc_vector enc_valtype (SND sg);
     return $ 0x60w :: argTs ++ resTs od
@@ -719,14 +718,14 @@ Overload endB  = “0x0Bw:byte”
     TODO: check that endB & elseB are the only terminating
     bytes for encoding lists of instructions *)
 Definition enc_instr_def:
-  (enc_instr_list (e:bool) ([]:instr list) : byteSeq option = SOME [if e then endB else elseB]
+  (enc_instr_list (e:bool) ([]:instr list) : byteSeqOpt = SOME [if e then endB else elseB]
   ) ∧
   (enc_instr_list _encode_expr (i::is) = do
     enci  <- enc_instr                   i ;
     encis <- enc_instr_list _encode_expr is;
     SOME $ enci ++ encis od
   ) ∧
-  enc_instr (inst:instr) : byteSeq option = case inst of
+  enc_instr (inst:instr) : byteSeqOpt = case inst of
   (* control instructions *)
   | Unreachable => SOME [unrOC]
   | Nop         => SOME [nopOC]
@@ -952,7 +951,7 @@ QED
 (*******************)
 
 Definition enc_global_def:
-  enc_global (g:global) : byteSeq option = do
+  enc_global (g:global) : byteSeqOpt = do
     expr <- enc_expr g.ginit;
     SOME $ enc_globaltype g.gtype ++ expr od
 End
@@ -983,7 +982,7 @@ QED
 
 
 Definition enc_code_def:
-  enc_code (c:valtype list # expr) : byteSeq option = do
+  enc_code (c:valtype list # expr) : byteSeqOpt = do
     encC <- enc_expr               (SND c);
     encL <- enc_vector enc_valtype (FST c);
     let code = encL ++ encC in
@@ -1015,7 +1014,7 @@ QED
 
 
 Definition enc_data_def:
-  enc_data (d:data) : byteSeq option = do
+  enc_data (d:data) : byteSeqOpt = do
     ini <- enc_vector (λ b. [b]) d.dinit;
     ofs <- enc_expr d.offset            ;
     SOME $ enc_u32 d.data ++ ofs ++ ini od
@@ -1065,57 +1064,42 @@ QED
 Definition split_funcs_def:
   split_funcs ([]:func list) =
     ( [] :  index                list
-    , [] : (valtype list # expr) list
-    , [] :  mlstring             list
-    , [] :  mlstring list        list )
+    , [] : (valtype list # expr) list )
   ∧
   split_funcs (f::fs) = let
     ( typs
-    , lBods
-    , func_names
-    , local_names ) = split_funcs fs
+    , lBods ) = split_funcs fs
     in
     ( f.ftype            :: typs
     ,(f.locals, f.body)  :: lBods
-    , f.fname            :: func_names
-    , f.lnames           :: local_names
     )
 End
 
 Definition zip_funcs_def:
   zip_funcs ([] :  index                list)
-            (_  : (valtype list # expr) list)
-            (_  :  mlstring             list)
-            (_  :  mlstring list        list) = [] : func list
+            (_  : (valtype list # expr) list) = [] : func list
   ∧
-  zip_funcs _ [] _ _ = [] ∧
-  zip_funcs _ _ [] _ = [] ∧
-  zip_funcs _ _ _ [] = [] ∧
+  zip_funcs _ [] = [] ∧
   zip_funcs ( fi            :: is   )
-            ( (vs,e)        :: vles )
-            ( func_name     :: fns  )
-            ( local_names   :: lns  ) =
+            ( (vs,e)        :: vles ) =
   (<| ftype  := fi
     ; locals := vs
     ; body   := e
-    ; fname  := func_name
-    ; lnames := local_names
-    |> : func)
-  :: zip_funcs is vles fns lns
+    |>            ) :: zip_funcs is vles
 End
 
-
+Overload prepend_sz[local] = “(λbs. enc_u32 (n2w $ LENGTH bs) ++ bs) : byteSeq -> byteSeq”
 
 Definition enc_section_def:
-  enc_section (leadByte:byte) (enc:α -> byteSeq)  (xs:α list) : byteSeq option =
+  enc_section (leadByte:byte) (enc:α -> byteSeq)  (xs:α list) : byteSeqOpt =
     do encxs <- enc_vector enc xs;
-    SOME $ leadByte :: enc_u32 (n2w $ LENGTH encxs) ++ encxs od
+    SOME $ leadByte :: prepend_sz encxs od
 End
 
 Definition enc_section_opt_def:
-  enc_section_opt (leadByte:byte) (enc:α -> byteSeq option) (xs:α list) : byteSeq option =
+  enc_section_opt (leadByte:byte) (enc:α -> byteSeqOpt) (xs:α list) : byteSeqOpt =
     do encxs <- enc_vector_opt enc xs;
-    SOME $ leadByte :: enc_u32 (n2w $ LENGTH encxs) ++ encxs od
+    SOME $ leadByte :: prepend_sz encxs od
 End
 
 Definition dec_section_def:
@@ -1149,8 +1133,86 @@ QED
 
 
 
+Definition id_OK_def:
+  id_OK ([]:num list) : bool = T
+  ∧
+  (id_OK (first::str) =
+    let azAZ_   x = (
+      (96 < x ∧ x < 123) ∨ (* lower case *)
+      (64 < x ∧ x < 91 ) ∨ (* lower case *)
+      ( x = 95         ) ) (* underscore *)  in
+    let azAZ_09 x = (
+      (47 < x ∧ x < 58)  ∨ (* digits     *)
+      (azAZ_ x        )  )
+    in
+    azAZ_ first ∧ foldl (λ e sd. azAZ_09 e ∧ sd) T str)
+End
+
+(* Overload bytes_of_mlstring = “(MAP (n2w o ORD) o explode): mlstring -> byteSeq” *)
+
+Definition enc_mls_def:
+  enc_mls (str:mlstring) : byteSeqOpt =
+    let ascii = MAP ORD $ explode str in
+    if id_OK ascii then SOME $ MAP n2w ascii else NONE
+End
+
+
+Definition enc_idx_1st_def:
+  enc_idx_1st (enc: α -> byteSeqOpt) (i:index,a:α) : byteSeqOpt =
+    do enca <- enc a; SOME $ enc_u32 i ++ enca od
+End
+
+Definition enc_nm_ass_def:
+  enc_nm_ass : (index # mlstring) -> byteSeqOpt = enc_idx_1st enc_mls
+End
+
+Definition enc_nm_map_def:
+  enc_nm_map : (index # mlstring) list -> byteSeqOpt = enc_vector_opt enc_nm_ass
+End
+
+Definition enc_indir_nm_ass_def:
+  enc_indir_nm_ass : (index # (index # mlstring) list) -> byteSeqOpt = enc_idx_1st enc_nm_map
+End
+
+
+
+Definition enc_names_section_def:
+  enc_names_section (n:names) : byteSeqOpt =
+    let ss0Opt : byteSeqOpt =
+      case n.mname of
+      | NONE => SOME []
+      | SOME s => do
+          encs <- enc_mls s;
+          SOME $ 0w:: prepend_sz encs
+          od in
+    let ss1Opt : byteSeqOpt =
+      case n.fnames of
+      | [] => SOME []
+      | fns => do
+          encfns <- enc_nm_map fns;
+          SOME $ 1w:: prepend_sz encfns
+          od in
+    let ss2Opt : byteSeqOpt =
+      case n.lnames of
+      | [] => SOME []
+      | lns => do
+          enclns <- enc_vector_opt enc_indir_nm_ass lns;
+          SOME $ 2w:: prepend_sz enclns
+          od in
+    let contents : byteSeqOpt = do
+      ss0 <- ss0Opt;
+      ss1 <- ss1Opt;
+      SOME $ MAP (n2w o ORD) "name" ++ ss0 ++ ss1 ++
+      (* (case n.lnames of []=>[]| lns => 1w:: prepend_sz $ enc_vector_opt enc_name_assoc lns) *)
+      [] od
+    in do
+    c <- contents; SOME $ 0w :: prepend_sz c od
+End
+
+
+
 Definition mod_leader_def:
-  (* this magic num/list must lead all WBF encoded modules *)
+  (* this is a magic num/list that must lead all WBF encoded modules *)
   mod_leader : byteSeq = [
     0x00w; 0x61w; 0x73w; 0x6Dw;   (* "\0asm"                      *)
     0x01w; 0x00w; 0x00w; 0x00w]   (* version number of Bin format *)
@@ -1160,17 +1222,18 @@ End
 
 (* From CWasm (not Wasm!) modules to WBF *)
 Definition enc_module_def:
-  enc_module (m:module) : byteSeq option =
-    let (fTIdxs, locBods, fns, lns) = split_funcs m.funcs in do
+  enc_module (m:module) (n:names) : byteSeqOpt =
+    let (fTIdxs, locBods) = split_funcs m.funcs in do
     types'   <- enc_section_opt   1w enc_functype  m.types  ;
     fTIdxs'  <- enc_section       3w enc_u32       fTIdxs   ;
     mems'    <- enc_section       5w enc_limits    m.mems   ;
     globals' <- enc_section_opt   6w enc_global    m.globals;
     code'    <- enc_section_opt  10w enc_code      locBods  ;
     datas'   <- enc_section_opt  11w enc_data      m.datas  ;
+    names    <- enc_names_section n                         ;
       SOME $ mod_leader ++
       types'   ++ fTIdxs' ++ mems'  ++
-      globals' ++ code'   ++ datas' ++ [] od
+      globals' ++ code'   ++ datas' ++ names od
 End
 
 
@@ -1188,10 +1251,10 @@ Definition dec_module_def:
     case dec_section  6w dec_global   xs of (INL _,_)=>failure|(INR globals', xs) =>
     case dec_section 10w dec_code     xs of (INL _,_)=>failure|(INR code    , xs) =>
     case dec_section 11w dec_data     xs of (INL _,_)=>failure|(INR datas'  , rs) =>
-    let funcs' = zip_funcs fTIdxs code [] [] in
+    let funcs' = zip_funcs fTIdxs code in
     let m = <| types   := types' ; funcs   := funcs'
              ; mems    := mems'  ; globals := globals'
-             ; datas   := datas' ; mname   := strlit ("")   |> : module
+             ; datas   := datas'                        |> : module
     in
     (INR m, rs) )
   | [] => emErr "dec_module"

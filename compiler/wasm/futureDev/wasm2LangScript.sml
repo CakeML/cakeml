@@ -584,6 +584,71 @@ Datatype: moduleWasm =
    |>
 End
 
+Overload len_wf[local] = “(λxs. LENGTH xs < 2 ** 32 ) : α list -> bool”
+
+Definition wf_i_def:
+  wf_i (i:instr) : bool = case i of
+  | Block _ l     => len_wf l
+  | Loop  _ l     => len_wf l
+  | If    _ l1 l2 => len_wf l1 ∧ len_wf l2
+  | BrTable l _   => len_wf l
+  | ReturnCallIndirect _ (l1,l2) => len_wf l1 ∧ len_wf l2
+  | CallIndirect       _ (l1,l2) => len_wf l1 ∧ len_wf l2
+  | _ => T
+End
+
+
+(*
+2.3 Types
+    2.3.1 Number Types
+    2.3.2 Vector Types
+    2.3.3 Reference Types
+    2.3.4 Value Types
+    2.3.5 Result Types
+    2.3.6 Function Types
+    2.3.7 Limits
+    2.3.8 Memory Types
+    2.3.9 Table Types
+    2.3.10 Global Types
+    2.3.11 External Types
+
+2.4 Instructions
+    2.4.1 Numeric Instructions
+    2.4.2 Vector Instructions
+    2.4.3 Reference Instructions
+    2.4.4 Parametric Instructions
+    2.4.5 Variable Instructions
+    2.4.6 Table Instructions
+    2.4.7 Memory Instructions
+    2.4.8 Control Instructions
+    2.4.9 Expressions
+
+2.5 Modules
+*)
+
+
+
+(*
+Overload too_long[local] = “(λxs. 2 ** 32 ≤ LENGTH xs) : α list -> bool”
+
+Definition lst_len_chk_def:
+  lst_len_chk (m:module) otherWise =
+    if too_long m.types   then NONE else
+    if too_long m.funcs   then NONE else
+    if too_long m.mems    then NONE else
+    if too_long m.globals then NONE else
+    if too_long m.datas   then NONE else
+    if EXISTS too_long $ MAP (λd. d.dinit) m.datas   then NONE else
+    if EXISTS too_long $ MAP (λg. g.ginit) m.globals then NONE else
+    if EXISTS too_long $ MAP (λf. f.locals) m.funcs  then NONE else
+    if EXISTS too_long $ MAP (λf. f.body  ) m.funcs  then NONE else
+    if EXISTS too_long $ MAP (λf. f.lnames) m.funcs  then NONE else
+    let (tfst,tsnd) = UNZIP m.types in
+    if EXISTS too_long $ tfst then NONE else
+    if EXISTS too_long $ tsnd then NONE else
+    SOME otherWise
+End
+*)
 
 
 (********************************)

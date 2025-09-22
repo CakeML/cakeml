@@ -664,8 +664,8 @@ QED
 
 
 Theorem dec_enc_module:
-  ∀mod encM rs.
-    enc_module mod = SOME encM ⇒
+  ∀mod nms encM rs.
+    enc_module mod nms = SOME encM ⇒
     dec_module $ encM ++ rs = (INR mod, rs)
 Proof
 (*
