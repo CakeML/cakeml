@@ -768,6 +768,17 @@ val _ = word_simpTheory.dest_If_Eq_Imm_def |> cv_trans;
 val _ = word_simpTheory.dest_Seq_def |> cv_trans;
 val _ = word_simpTheory.dest_Seq_Assign_Const_def |> cv_trans;
 val _ = word_simpTheory.const_fp_move_cs_def |> cv_trans;
+
+val pre = cv_trans_pre "" word_simpTheory.push_out_if_aux_def;
+
+Theorem word_simp_push_out_if_aux_pre[cv_pre]:
+  ∀p. word_simp_push_out_if_aux_pre p
+Proof
+  ho_match_mp_tac word_simpTheory.push_out_if_aux_ind>>
+  rw[]>>simp[Once pre]
+QED
+val _ = word_simpTheory.push_out_if_def |> cv_trans;
+
 val _ = cv_trans word_to_wordTheory.next_n_oracle_def;
 
 Definition adjust_vars_def:
