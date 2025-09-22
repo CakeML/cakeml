@@ -5,11 +5,12 @@
   addresses to machine words. This phase introduces the garbage
   collector and bignum library, among other things.
 *)
-open preamble wordLangTheory dataLangTheory word_to_wordTheory multiwordTheory
-     word_bignumTheory;
-local open backend_commonTheory word_depthTheory in end
-
-val _ = new_theory "data_to_word";
+Theory data_to_word
+Ancestors
+  wordLang dataLang word_to_word multiword word_bignum
+  backend_common[qualified] word_depth[qualified]
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -1103,10 +1104,10 @@ Definition fp_top_inst_def:
 End
 
 Definition fp_bop_inst_def:
-  fp_bop_inst FP_Add = FPAdd 0 0 1 /\
-  fp_bop_inst FP_Sub = FPSub 0 0 1 /\
-  fp_bop_inst FP_Mul = FPMul 0 0 1 /\
-  fp_bop_inst FP_Div = FPDiv 0 0 1
+  fp_bop_inst ast$FP_Add = FPAdd 0 0 1 /\
+  fp_bop_inst ast$FP_Sub = FPSub 0 0 1 /\
+  fp_bop_inst ast$FP_Mul = FPMul 0 0 1 /\
+  fp_bop_inst ast$FP_Div = FPDiv 0 0 1
 End
 
 Definition fp_uop_inst_def:
@@ -2718,4 +2719,3 @@ Proof
     \\ rewrite_tac [th_FF,AnyArith_call_tree_def,structure_le_def])
 QED
 
-val _ = export_theory();

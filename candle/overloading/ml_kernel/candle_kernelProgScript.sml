@@ -1,11 +1,12 @@
 (*
   Adds Candle specific functions to the kernel module from ml_hol_kernel_funsProg
 *)
-open preamble;
-open ml_translatorLib ml_monad_translatorLib ml_progLib ml_hol_kernel_funsProgTheory;
-open basisFunctionsLib;
-
-val _ = new_theory "candle_kernelProg";
+Theory candle_kernelProg
+Ancestors
+  ml_hol_kernel_funsProg
+Libs
+  preamble ml_translatorLib ml_monad_translatorLib ml_progLib
+  basisFunctionsLib
 
 val _ = m_translation_extends "ml_hol_kernel_funsProg"
 
@@ -64,4 +65,3 @@ Theorem EqualityType_UPDATE_TYPE = EqualityType_rule [] “:update”;
 
 val _ = (print_asts := true);
 
-val _ = export_theory();

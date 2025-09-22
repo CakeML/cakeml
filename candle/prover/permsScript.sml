@@ -1,14 +1,13 @@
 (*
   Permissions for CakeML values.
  *)
+Theory perms
+Ancestors
+  semanticPrimitives semanticPrimitivesProps namespaceProps
+  evaluateProps evaluate sptree ml_prog ast_extras
+Libs
+  preamble
 
-open preamble;
-open semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     namespacePropsTheory evaluatePropsTheory evaluateTheory
-     sptreeTheory ml_progTheory;
-open ast_extrasTheory;
-
-val _ = new_theory "perms";
 
 Type loc = “:num”;
 
@@ -108,15 +107,6 @@ Inductive perms_ok:
 [~Litv:]
   (∀ps lit.
      perms_ok ps (Litv lit))
-[~FP_WordTree:]
-  (∀ fp.
-     perms_ok ps (FP_WordTree fp))
-[~FP_BoolTree:]
-  (∀ fp.
-     perms_ok ps (FP_BoolTree fp))
-[~Real:]
-  (∀ r.
-     perms_ok ps (Real r))
 [~Loc:]
   (∀ps b loc.
      RefMention loc ∈ ps ⇒
@@ -141,10 +131,7 @@ Theorem perms_ok_def =
    “perms_ok ps (Recclosure env f n)”,
    “perms_ok ps (Loc b loc)”,
    “perms_ok ps (Vectorv vs)”,
-   “perms_ok ps (Env env ns)”,
-   “perms_ok ps (FP_WordTree fp)”,
-   “perms_ok ps (FP_BoolTree fp)”,
-   “perms_ok ps (Real r)”]
+   “perms_ok ps (Env env ns)”]
   |> map (SIMP_CONV (srw_ss()) [Once perms_ok_cases])
   |> LIST_CONJ;
 
@@ -522,19 +509,6 @@ Proof
     rw [do_app_cases] \\ gs []
     \\ simp [Boolv_def]
     \\ rw [perms_ok_def])
-  \\ Cases_on ‘∃bop. op = Real_bop bop’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [perms_ok_def])
-  \\ Cases_on ‘∃uop. op = Real_uop uop’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ rw [perms_ok_def])
-  \\ Cases_on ‘∃cmp. op = Real_cmp cmp’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [Boolv_def]
-    \\ rw [perms_ok_def])
   \\ Cases_on ‘∃opn. op = Opn opn’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
@@ -582,10 +556,6 @@ Proof
   >- (
     rw [do_app_cases] \\ gs[]
     \\ rw [perms_ok_def])
-  \\ Cases_on ‘op = RealFromFP’ \\ gs[]
-  >- (
-    rw [do_app_cases] \\ gs[]
-    \\ rw [perms_ok_def])
   \\ Cases_on ‘op’ \\ gs []
 QED
 
@@ -624,15 +594,6 @@ Proof
     \\ first_assum (irule_at (Pos last))
     \\ first_assum (irule_at Any) \\ gs []
     \\ strip_tac \\ gvs [])
-QED
-
-Theorem EVERY_perms_ok_optimise[local]:
-  ∀ fpopt vs ps.
-    EVERY (perms_ok ps) vs ⇒
-    EVERY (perms_ok ps) (do_fpoptimise fpopt vs)
-Proof
-  ho_match_mp_tac do_fpoptimise_ind \\ rpt conj_tac
-  \\ gs[do_fpoptimise_def, perms_ok_def]
 QED
 
 Theorem evaluate_perms_ok:
@@ -802,43 +763,6 @@ Proof
       \\ strip_tac \\ gs []
       \\ gs [perms_ok_state_def]
       \\ rw [] \\ gs []
-      \\ first_x_assum (drule_then assume_tac) \\ gs [])
-    >~ [‘Icing’] >- (
-      gvs [CaseEqs ["result", "prod", "bool", "option"]]
-      \\ drule_then (qspec_then ‘ps’ mp_tac) do_app_perms
-      \\ impl_tac
-      >- (
-        gs [perms_ok_state_def, SUBSET_DEF])
-      \\ strip_tac \\ gs [shift_fp_opts_def]
-      \\ gs [perms_ok_state_def]
-      \\ rw [] \\ gs [Boolv_def]
-      >- (first_x_assum (drule_then assume_tac) \\ gs [])
-      >- (
-        rename1 ‘st2.fp_state.canOpt = FPScope Opt’
-        \\ Cases_on ‘do_fprw r (st2.fp_state.opts 0) st2.fp_state.rws’ \\ gs[]
-        \\ Cases_on ‘r’ \\ gs[do_fprw_def]
-        \\ Cases_on ‘a’ \\ gvs[CaseEqs["list","option"], perms_ok_def]
-        \\ TOP_CASE_TAC \\ gs[perms_ok_def])
-      >- (
-        Cases_on ‘r’ \\ gs[]
-        \\ Cases_on ‘a’ \\ gvs[CaseEqs["list","option"], perms_ok_def]
-        \\ TOP_CASE_TAC \\ gs[perms_ok_def])
-      >- (
-        rename1 ‘st2.fp_state.canOpt = FPScope Opt’
-        \\ Cases_on ‘do_fprw r (st2.fp_state.opts 0) st2.fp_state.rws’ \\ gs[]
-        \\ Cases_on ‘r’ \\ gs[do_fprw_def]
-        \\ Cases_on ‘a’ \\ gvs[CaseEqs["list","option"], perms_ok_def]
-        \\ TOP_CASE_TAC \\ gs[perms_ok_def])
-    )
-    >~ [‘Reals’] >- (
-      gvs [CaseEqs ["result", "prod", "bool", "option"], shift_fp_opts_def, perms_ok_state_def]
-      \\ drule_then (qspec_then ‘ps’ mp_tac) do_app_perms
-      \\ impl_tac
-      >- (
-        gs [perms_ok_state_def, SUBSET_DEF])
-      \\ strip_tac \\ gs []
-      \\ gs [perms_ok_state_def]
-      \\ rw [] \\ gs []
       \\ first_x_assum (drule_then assume_tac) \\ gs []))
   >~ [‘Log lop x y’] >- (
     gvs [evaluate_def, perms_ok_env_UNION, do_log_def,
@@ -893,12 +817,6 @@ Proof
     gvs [evaluate_def, CaseEqs ["result", "prod"]])
   >~ [‘Lannot x l’] >- (
     gvs [evaluate_def, CaseEqs ["result", "prod"]])
-  >~ [‘FpOptimise fpopt e’] >- (
-    gvs [evaluate_def, CaseEqs ["result", "prod"]]
-    \\ last_x_assum mp_tac \\ reverse impl_tac
-    \\ TRY (
-      rw [] \\ gs[perms_ok_state_def, EVERY_perms_ok_optimise])
-    \\ gvs [perms_ok_exp_def])
   >~ [‘[]’] >- (
     gvs [evaluate_def])
   >~ [‘_::_’] >- (
@@ -1004,4 +922,3 @@ Theorem evaluate_perms_ok_dec =
   |> GEN_ALL
   |> SIMP_RULE (srw_ss()) [];
 
-val _ = export_theory ();

@@ -2,13 +2,14 @@
   This is an example of applying the translator to the Splay
   Heap algorithm from Chris Okasaki's book.
 *)
-open preamble
-open bagTheory relationTheory bagLib okasaki_miscTheory ml_translatorLib ListProgTheory;
+Theory SplayHeap
+Ancestors
+  bag relation okasaki_misc ListProg
+Libs
+  preamble bagLib ml_translatorLib
 
 val rw = srw_tac []
 val fs = full_simp_tac (srw_ss())
-
-val _ = new_theory "SplayHeap"
 
 val _ = translation_extends "ListProg";
 
@@ -357,4 +358,3 @@ Proof
 THEN ONCE_REWRITE_TAC [find_min_side_def] THEN SRW_TAC [] []
 QED
 
-val _ = export_theory()

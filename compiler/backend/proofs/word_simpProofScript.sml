@@ -1,13 +1,13 @@
 (*
   Correctness proof for word_simp
 *)
-open alistTheory preamble wordLangTheory wordSemTheory wordPropsTheory word_simpTheory;
-
-val _ = new_theory "word_simpProof";
+Theory word_simpProof
+Libs
+  preamble
+Ancestors
+  mllist wordLang wordSem wordProps word_simp alist
 
 val s = ``s:('a,'c,'ffi) wordSem$state``
-
-val _ = set_grammar_ancestry ["wordLang", "wordSem", "wordProps", "word_simp"];
 
 (** verification of Seq_assoc **)
 
@@ -635,16 +635,16 @@ Proof
       \\ Cases_on ‘lookup v names0’ \\ fs []
       \\ irule ALOOKUP_LIST_REL_sf_gc_consts_NONE
       \\ first_x_assum $ irule_at Any
-      \\ fs [ALOOKUP_NONE,MEM_MAP,mem_list_rearrange,sortingTheory.QSORT_MEM]
+      \\ fs [ALOOKUP_NONE,MEM_MAP,mem_list_rearrange,sort_MEM]
       \\ fs [MEM_toAList,FORALL_PROD,lookup_inter] \\ NO_TAC)
   \\ disj2_tac \\ drule ALOOKUP_LIST_REL_sf_gc_consts
   \\ disch_then irule \\ fs []
   \\ (irule ALOOKUP_ALL_DISTINCT_FST_PERM_SOME \\ rpt conj_tac
-      >- (irule ALL_DISTINCT_PERM_FST \\ fs [QSORT_PERM,ALL_DISTINCT_MAP_FST_toAList])
-      >- (irule ALOOKUP_ALL_DISTINCT_FST_PERM_SOME \\ fs [ALOOKUP_toAList, QSORT_PERM, ALOOKUP_toAList]
+      >- (irule ALL_DISTINCT_PERM_FST \\ fs [sort_PERM,ALL_DISTINCT_MAP_FST_toAList])
+      >- (irule ALOOKUP_ALL_DISTINCT_FST_PERM_SOME \\ fs [ALOOKUP_toAList, sort_PERM, ALOOKUP_toAList]
           \\ fs [cut_env_def, get_var_def] \\ rw [lookup_inter_EQ,ALL_DISTINCT_MAP_FST_toAList])
       >- (irule PERM_list_rearrange \\
-       metis_tac [ALL_DISTINCT_MAP, QSORT_PERM, ALL_DISTINCT_PERM,ALL_DISTINCT_MAP_FST_toAList]))
+       metis_tac [ALL_DISTINCT_MAP, sort_PERM, ALL_DISTINCT_PERM,ALL_DISTINCT_MAP_FST_toAList]))
 QED
 
 Theorem evaluate_sf_gc_consts:
@@ -748,6 +748,7 @@ Proof
   >- (gvs[evaluate_def,oneline share_inst_def,
       sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def,
       sh_mem_load_def,sh_mem_load_byte_def,sh_mem_load32_def,
+      sh_mem_load16_def,sh_mem_store16_def,
       oneline sh_mem_set_var_def] >>
     rw[] >>
     gvs[AllCaseEqs(),set_var_def,flush_state_def] >>
@@ -856,6 +857,8 @@ Proof
       >- (* Load8 *)
       (every_case_tac \\ fs [mem_store_def] \\ rw [] \\
       metis_tac [cs_delete_if_set, cs_delete_if_set])
+      >- (* Load16 *)
+      (every_case_tac \\ fs [mem_store_def,get_var_def] \\ rw [])
       >- (* Load32 *)
       (every_case_tac \\ fs [mem_store_def] \\ rw [] \\
       metis_tac [cs_delete_if_set, cs_delete_if_set])
@@ -1017,6 +1020,7 @@ Proof
     fs[const_fp_loop_def] \\
     gvs[evaluate_def,oneline share_inst_def,
       sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def,
+      sh_mem_load16_def,sh_mem_store16_def,
       sh_mem_load_def,sh_mem_load_byte_def,sh_mem_load32_def,
       oneline sh_mem_set_var_def] \\
     rw[] \\
@@ -1141,6 +1145,55 @@ Proof
   \\ simp [evaluate_def]
 QED
 
+Triviality push_out_if_aux_T:
+  !c2 c2' res s s'.
+  push_out_if_aux c2 = (c2',T) ==>
+  evaluate (c2,s) = (res,s') ==>
+  res <> NONE
+Proof
+  ho_match_mp_tac push_out_if_aux_ind
+  \\ rpt GEN_TAC \\ disch_then strip_assume_tac
+  \\ simp_tac(srw_ss())[Once push_out_if_aux_def]
+  \\ rpt GEN_TAC \\ disch_then (strip_assume_tac o SRULE[AllCaseEqs()])
+  \\ gvs[]
+  \\ DISCH_THEN (strip_assume_tac o
+     SRULE[SF LET_ss,evaluate_def,AllCaseEqs(),UNCURRY_EQ])
+  \\ rveq \\ metis_tac[]
+QED
+
+fun uncurry_case_rand x = x
+                         |> TypeBase.case_rand_of
+                         |> ISPEC ``(UNCURRY (A:'uniquea -> 'uniqueb -> 'uniquec))``
+                         |> GEN ``(A:'uniquea -> 'uniqueb -> 'uniquec)``;
+
+Theorem evaluate_simp_push_out_if:
+  !p s.
+  evaluate (push_out_if p, s) = evaluate (p, s)
+Proof
+  rw[push_out_if_def,oneline FST,pair_CASE_UNCURRY]
+  \\ pairarg_tac \\ simp[] \\ pop_assum mp_tac
+  \\ MAP_EVERY qid_spec_tac $ List.rev [`p`,`s`,`x`,`y`]
+  \\ ho_match_mp_tac push_out_if_aux_ind
+  \\ rpt GEN_TAC \\ disch_then strip_assume_tac
+  \\ simp_tac(srw_ss())[Once push_out_if_aux_def]
+  \\ rpt GEN_TAC \\ disch_then (strip_assume_tac o SRULE[AllCaseEqs()])
+  \\ rveq \\ simp[] \\ fs[]
+  >~[`MustTerminate`]
+  >- (simp[evaluate_def])
+  >~[`Seq`]
+  >- (simp[evaluate_def])
+  >~[`Seq`]
+  >- (simp[evaluate_def])
+  (*4 if cases*)
+  >- (simp[evaluate_def])
+  >> (
+    simp $ ([evaluate_def] @
+    map uncurry_case_rand [``:'a option``,``:'a word_loc``,``:bool``]) >>
+    rpt (TOP_CASE_TAC >> simp[]) >>
+    pairarg_tac >> every_drule_then (drule) push_out_if_aux_T >>
+    fs[])
+QED
+
 (* putting it all together *)
 
 Theorem compile_exp_thm:
@@ -1149,7 +1202,6 @@ Theorem compile_exp_thm:
    evaluate (word_simp$compile_exp prog,s) = (res,s2)
 Proof
     fs [word_simpTheory.compile_exp_def,evaluate_Seq_assoc,
-        evaluate_const_fp, evaluate_simp_duplicate_if]
+        evaluate_const_fp, evaluate_simp_duplicate_if,
+        evaluate_simp_push_out_if]
 QED
-
-val _ = export_theory();

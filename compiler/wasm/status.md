@@ -1,29 +1,40 @@
-### AST - wasmLangScript.sml
-- Milestone/Goal: Wasm 1.0 + tailcalls
-    + ✓ num/value types SANS FLOATS
-    + ✓ numeric (intruction)s
-    + ✓ parametrics
-    + ✓ variables
-    + ✓ memories
-    + ✓ controls
-    + ✓ modules
-    + ❌ names section
-- Missing
-    + names section
+# CHRC
+**1Sep'25 Current status:**
+- Finishing binary format
+  + list dec-enc is a little more intricate that I expected (or possibly not, let me study it a while)
+  +
+- Starting small step
+---
+Resposible for the following files:
+- wasmLang
+- wasm_binary_format/_proofs
+- wasm_smallstep
+- wasmSem (partially)
+---
+### File status:
+#### Binary Format encoder/decoder - wasm_binary_formatScript.sml
+✓ Encode for Wasm 1.0 + ε (conversions) + tailcalls modules
+- ❌ names section encoder
+- ❌ some decoders
+- ❌ some dec enc thms
+- ❌ shortening thms
 
-### Binary Format encoder/decoder - wasm_binary_formatScript.sml
-- Milestone: Wasm 3.0 (for tailcalls) compliant encoder & decoder
-    + ❌ names section
-- Missing
-    + dec_enc thms - stating that if we encode then decode a part of the AST, we get back the same thing
 
-- Completed
-    + enc/dec pairs factored by instruction (AST) type
+#### Semantics, Big step, functional - wasmSemScript.sml
+✓ instruction semantics
++ ❌ whole program (modules) semantics
++ ❌ initialization
++ ? start and end states?
 
-### Semantics, Big step, functional - wasmSemScript.sml
-- Milestone: the Cwasm AST
-    + ✓ instruction semantics
-    + ❌ whole program (modules) semantics
-- Missing
-    + ? module semantics
-    + ? start and end states?
+
+#### AST - wasmLangScript.sml
+Wasm 1.0 + ε (conversions) + tailcalls
+- Done
+- ✓ Instructions
+  + num/value types SANS FLOATS
+  + numeric (intruction)s
+  + parametrics
+  + variables
+  + memories
+  + controls
+- ✓ Modules

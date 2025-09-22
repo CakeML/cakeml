@@ -1,15 +1,16 @@
 (*
   A theory for converting OCaml parse trees to abstract syntax.
  *)
+Theory camlPtreeConversion
+Libs
+  preamble
+Ancestors
+  misc[qualified] mllist pegexec[qualified] caml_lex camlPEG ast
+  precparser sum[qualified] cmlParse[qualified]
+  lexer_impl[qualified]
 
-open preamble caml_lexTheory camlPEGTheory astTheory;
-open precparserTheory;
-local open cmlParseTheory lexer_implTheory in end
-
-val _ = new_theory "camlPtreeConversion";
-
-val _ = set_grammar_ancestry [
-  "misc", "pegexec", "caml_lex", "camlPEG", "ast", "precparser", "sum"];
+val _ =
+  temp_bring_to_front_overload "destResult" {Name="destResult", Thy="pegexec"};
 
 (* -------------------------------------------------------------------------
  * Sum monad syntax
@@ -1332,7 +1333,7 @@ End
 
 Definition build_record_cons_def:
   build_record_cons path upds =
-    let (names,exprs) = UNZIP (QSORT (λ(f,_) (g,_). string_lt f g) upds) in
+    let (names,exprs) = UNZIP (sort (λ(f,_) (g,_). string_lt f g) upds) in
       do
         id <- build_record_cons_id names path;
         return $ build_funapp (Var id) exprs
@@ -2788,7 +2789,7 @@ Definition sort_records_def:
      MAP (λtdef.
        case tdef of
        | INL (cn,tys) => INL (cn,tys)
-       | INR (cn,fds) => INR (cn,QSORT (λ(l,_) (r,_). string_lt l r) fds)) tds)
+       | INR (cn,fds) => INR (cn,sort (λ(l,_) (r,_). string_lt l r) fds)) tds)
 End
 
 Definition MAP_OUTR_def:
@@ -3428,5 +3429,3 @@ Proof
   CONV_TAC (DEPTH_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   \\ gen_tac \\ simp [ptree_Pattern_def]
 QED
-
-val _ = export_theory ();

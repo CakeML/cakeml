@@ -1,14 +1,15 @@
 (*
   Prove `encoder_correct` for ARMv8
 *)
-open HolKernel Parse boolLib bossLib
-open asmLib arm8_stepLib arm8_targetTheory arm8_targetProofLib;
+Theory arm8_targetProof
+Ancestors
+  arm8_target
+Libs
+  asmLib arm8_stepLib arm8_targetProofLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val () = new_theory "arm8_targetProof"
 
 val () = wordsLib.guess_lengths ()
 
@@ -298,7 +299,7 @@ Proof
   \\ asmLib.asm_cases_tac `i`
   \\ simp [arm8_enc_def, length_arm8_enc, length_arm8_encode,
            arm8_encode_fail_def, arm8_ast, arm8_load_store_ast_def,
-           arm8_load_store_ast32_def]
+           arm8_load_store_ast16_def,arm8_load_store_ast32_def]
   \\ REPEAT CASE_TAC
   \\ rw [length_arm8_encode, arm8_encode_not_nil]
 QED
@@ -543,6 +544,19 @@ Proof
                ,
                Cases_on `c = sw2sw ((8 >< 0) c)`
                >| [next_tac `0`
+                   \\ Cases_on
+                      `¬word_msb c ∧ (c = w2w ((11 >< 0) (c ⋙ 1)) ≪ 1)`,
+                   Cases_on `word_msb c`
+                   >| [next_tac `1`,
+                       Cases_on ‘c = w2w ((11 >< 0) (c ⋙ 1)) ≪ 1’
+                       >| [next_tac `0`,
+                           next_tac `1`
+                       ]
+                   ]
+               ]
+               ,
+               Cases_on `c = sw2sw ((8 >< 0) c)`
+               >| [next_tac `0`
                    \\ Cases_on `¬word_msb c ∧ c = w2w ((11 >< 0) (c ⋙ 2)) ≪ 2`,
                    Cases_on `word_msb c`
                    >| [next_tac `1`,
@@ -571,6 +585,19 @@ Proof
                ,
                Cases_on `c = sw2sw ((8 >< 0) c)`
                >| [next_tac `0`
+                   \\ Cases_on
+                      `¬word_msb c ∧ (c = w2w ((11 >< 0) (c ⋙ 1)) ≪ 1)`,
+                   Cases_on `word_msb c`
+                   >| [next_tac `1`,
+                       Cases_on ‘c = w2w ((11 >< 0) (c ⋙ 1)) ≪ 1’
+                       >| [next_tac `0`,
+                           next_tac `1`
+                       ]
+                   ]
+               ]
+               ,
+               Cases_on `c = sw2sw ((8 >< 0) c)`
+               >| [next_tac `0`
                    \\ Cases_on `¬word_msb c ∧ c = w2w ((11 >< 0) (c ⋙ 2)) ≪ 2`,
                    Cases_on `word_msb c`
                    >| [next_tac `1`,
@@ -588,12 +615,15 @@ Proof
                     by (imp_res_tac lem14 \\ NO_TAC))
             \\ TRY (`aligned 2 (c + ms.REG (n2w n'))`
                     by (imp_res_tac lem14b \\ NO_TAC))
+            \\ TRY (`aligned 1 (c + ms.REG (n2w n'))`
+                    by (imp_res_tac lem14c \\ NO_TAC))
             \\ split_bytes_in_memory_tac 4
             \\ next_state_tac01
             \\ TRY (asmLib.split_bytes_in_memory_tac 4
                     \\ next_state_tacN (`4w`, 1) filter_reg_31)
             \\ state_tac
                   [arm8_stepTheory.mem_dword_def, arm8_stepTheory.mem_word_def,
+                   arm8_stepTheory.mem_half_def,
                    arm8Theory.ExtendWord_def, set_sepTheory.fun2set_eq]
             \\ simp_tac (srw_ss()++wordsLib.WORD_EXTRACT_ss) []
             \\ NTAC 2 (lrw [FUN_EQ_THM, combinTheory.APPLY_UPDATE_THM])
@@ -718,4 +748,3 @@ Proof
       \\ blastLib.FULL_BBLAST_TAC)
 QED
 
-val () = export_theory ()

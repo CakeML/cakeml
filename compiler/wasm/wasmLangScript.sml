@@ -4,11 +4,9 @@
     HOL lists encode Wasm vectors; latter has max length of 2^32
 *)
 
-Theory wasmLang
-Ancestors
-  words arithmetic list mlstring
-Libs
-  wordsLib dep_rewrite
+Theory    wasmLang
+Ancestors words arithmetic list mlstring
+Libs      wordsLib dep_rewrite
 
 (* Note :
   Most datatypes closely follow the wasm abstractions. ie,
@@ -162,16 +160,6 @@ Datatype: ishap2
   | I16x8
 End
 
-Datatype: ishap3
-  = Is2 ishap2
-  | I32x4
-End
-
-Datatype: ishape
-  = Is3 ishap3
-  | I64x2
-End
-
 
 (*******************)
 (*   Parametrics   *)
@@ -201,7 +189,7 @@ End
 (**************)
 
 (* NB:
-  We abuse abstraction by (re)using the ishape (ishap2/ishap3) datatype from vectors
+  We abuse abstraction by (re)using the ishap2 datatype from vectors
   to specify narrowness for loads.
 
   eg,
@@ -284,17 +272,9 @@ End
 Type expr          = “:instr list”
 Type constant_expr = “:instr list”
 
-Datatype: func =
-  <| name   : mlstring
-   ; ftype  : index
-   ; locals : valtype list
-   ; body   : expr
-   |>
-End
-
 Datatype: global =
-  <| gtype: globaltype
-   ; ginit: expr
+  <| gtype : globaltype
+   ; ginit : expr
    |>
 End
 
@@ -302,6 +282,13 @@ Datatype: data =
   <| data   : index
    ; offset : constant_expr
    ; dinit  : word8 list
+   |>
+End
+
+Datatype: func =
+  <| ftype  : index
+   ; locals : valtype list
+   ; body   : expr
    |>
 End
 
@@ -314,7 +301,12 @@ Datatype: module =
    |>
 End
 
-
+Datatype: names =
+  <| mname  : mlstring option
+   ; fnames : (index # mlstring) list
+   ; lnames : (index # (index # mlstring) list) list
+   |>
+End
 
 (*******************)
 (*                 *)
@@ -331,34 +323,3 @@ Datatype: moduleWasm =
    ; start   : index
    |>
 End
-
-
-
-(*
-2.3 Types
-    2.3.1 Number Types
-    2.3.2 Vector Types
-    2.3.3 Reference Types
-    2.3.4 Value Types
-    2.3.5 Result Types
-    2.3.6 Function Types
-    2.3.7 Limits
-    2.3.8 Memory Types
-    2.3.9 Table Types
-    2.3.10 Global Types
-    2.3.11 External Types
-
-2.4 Instructions
-    2.4.1 Numeric Instructions
-    2.4.2 Vector Instructions
-    2.4.3 Reference Instructions
-    2.4.4 Parametric Instructions
-    2.4.5 Variable Instructions
-    2.4.6 Table Instructions
-    2.4.7 Memory Instructions
-    2.4.8 Control Instructions
-    2.4.9 Expressions
-
-2.5 Modules
-*)
-

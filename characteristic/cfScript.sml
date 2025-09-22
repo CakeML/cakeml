@@ -2,20 +2,14 @@
   Defines the characteristic formula (CF) function cf_def and proves
   that it is sound w.r.t. the evaluate semantics of CakeML.
 *)
-open preamble
-open set_sepTheory helperLib ml_translatorTheory ConseqConv
-open ml_translatorTheory semanticPrimitivesTheory fpSemTheory
-open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory
-open cfNormaliseTheory cfAppTheory
-open cfTacticsBaseLib evaluateTheory
+Theory cf
+Ancestors
+  cfHeapsBase cfHeaps cfStore cfNormalise cfApp ml_translator
+  ffi[qualified] set_sep semanticPrimitives fpSem evaluate
+Libs
+  preamble helperLib ConseqConv cfHeapsBaseLib cfTacticsBaseLib
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "cf"
-
-val _ = set_grammar_ancestry
-  ["cfHeapsBase","cfHeaps","cfStore","cfNormalise","cfApp",
-   "ml_translator", "ffi"];
 
 val _ = monadsyntax.temp_disable_monadsyntax()
 
@@ -1773,19 +1767,19 @@ End
 
 Definition app_fptoword_def:
    app_fptoword fp H Q =
-   (H ==>> Q (Val (Litv (Word64 (fpSem$compress_word fp)))) ∧ Q =~v> POST_F)
+   (H ==>> Q (Val (Litv (Word64 fp))) ∧ Q =~v> POST_F)
 End
 
 Definition cf_fptoword_def:
  cf_fptoword xd = λ env. local ( λ H Q.
    ∃ fp.
-   exp2v env xd = SOME (FP_WordTree fp) ∧
+   exp2v env xd = SOME (Litv (Float64 fp)) ∧
    app_fptoword fp H Q)
 End
 
 Definition app_fpfromword_def:
  app_fpfromword w H Q =
- (H ==>> Q (Val (FP_WordTree (fpValTree$Fp_const w))) ∧ Q =~v> POST_F)
+ (H ==>> Q (Val (Litv (Float64 w))) ∧ Q =~v> POST_F)
 End
 
 Definition cf_fpfromword_def:
@@ -2312,14 +2306,12 @@ Theorem cf_cases_evaluate_match[local]:
        | Val v' => ?ck st'.
          evaluate_match (st with clock := ck) env v rows nomatch_exn =
          (st', Rval [v']) /\
-         st.fp_state = st'.fp_state /\
          st'.next_type_stamp = st.next_type_stamp /\
          st'.next_exn_stamp = st.next_exn_stamp /\
          st2heap p st' = heap
        | Exn e => ?ck st'.
          evaluate_match (st with clock := ck) env v rows nomatch_exn =
          (st', Rerr (Rraise e)) /\
-         st.fp_state = st'.fp_state /\
          st'.next_type_stamp = st.next_type_stamp /\
          st'.next_exn_stamp = st.next_exn_stamp /\
          st2heap p st' = heap
@@ -2393,9 +2385,8 @@ Proof
   fs [GC_def, SEP_EXISTS] \\
   fs [MAP_MAP_o,o_DEF] \\
   rename1 `SPLIT (h_f UNION h2) (h_f', h_g')` \\
-  qexists_tac `h_g UNION h_g'` \\ qexists_tac ‘heap’ \\
+  qexists_tac `h_g UNION h_g'` \\
   reverse $ rpt conj_tac
-  >- (Cases_on ‘r’ \\ fs[] \\ instantiate)
   >- SPLIT_TAC
   \\ fs [EVERY_MEM,MEM_MAP,FORALL_PROD,PULL_EXISTS] \\ rw [] \\ res_tac \\
   imp_res_tac (CONJUNCT1 pmatch_NIL_IMP) \\ fs []
@@ -3601,13 +3592,11 @@ Theorem cf_sound':
             evaluate (st with clock := ck) env [e] = (st', Rval [v]) /\
             st'.next_type_stamp = st.next_type_stamp ∧
             st'.next_exn_stamp = st.next_exn_stamp ∧
-            (st.fp_state = st'.fp_state)  /\
             st2heap p st' = heap
           | Exn v => ?ck st'.
             evaluate (st with clock := ck) env [e] = (st', Rerr (Rraise v)) /\
             st'.next_type_stamp = st.next_type_stamp ∧
             st'.next_exn_stamp = st.next_exn_stamp ∧
-            (st.fp_state = st'.fp_state)  /\
             st2heap p st' = heap
           | FFIDiv name conf bytes => ∃ck st'.
             evaluate (st with clock := ck) env [e] =
@@ -3640,16 +3629,11 @@ Theorem cf_sound_local:
             evaluate (st with clock := ck) env [e] = (st', Rval [v]) /\
             st'.next_type_stamp = st.next_type_stamp ∧
             st'.next_exn_stamp = st.next_exn_stamp ∧
-            st.fp_state = st'.fp_state ∧
             st2heap p st' = heap
           | Exn v => ?ck st'.
             evaluate (st with clock := ck) env [e] = (st', Rerr (Rraise v)) /\
             st'.next_type_stamp = st.next_type_stamp ∧
             st'.next_exn_stamp = st.next_exn_stamp ∧
-            st.fp_state = st'.fp_state ∧
-            st2heap p st' = heap
-          | Exn v => ?ck st'.
-            evaluate (st with clock := ck) env [e] = (st', Rerr (Rraise v)) /\
             st2heap p st' = heap
           | FFIDiv name conf bytes => ∃ck st'.
             evaluate (st with clock := ck) env [e] =
@@ -3711,4 +3695,3 @@ Proof
   progress (REWRITE_RULE [sound_def] cf_sound)
 QED
 
-val _ = export_theory();

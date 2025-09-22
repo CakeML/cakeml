@@ -2,10 +2,11 @@
   For ag32, prove that the compiler configuration is well formed, and
   instantiate the compiler correctness theorem.
 *)
-open preamble backendProofTheory ag32_configTheory
-     ag32_targetProofTheory open blastLib;
-
-val _ = new_theory"ag32_configProof";
+Theory ag32_configProof
+Ancestors
+  lab_to_targetProof backendProof ag32_config ag32_targetProof
+Libs
+  preamble blastLib
 
 Definition is_ag32_machine_config_def:
   is_ag32_machine_config mc ⇔
@@ -32,6 +33,13 @@ Proof
         alignmentTheory.aligned_0,tlookup_bij_iff]
   THEN1 blastLib.FULL_BBLAST_TAC
   THEN1 names_tac
+  >- (
+    fs [stack_removeTheory.store_offset_def,
+        stack_removeTheory.store_pos_def]
+    \\ every_case_tac \\ fs [] THEN1 EVAL_TAC
+    \\ fs [stack_removeTheory.store_list_def]
+    \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
+    \\ rveq \\ fs [] \\ EVAL_TAC)
   >- (
     fs [stack_removeTheory.store_offset_def,
         stack_removeTheory.store_pos_def]
@@ -137,5 +145,3 @@ Proof
   \\ irule MAP_ExtCall_ffinames
   \\ gvs [find_ffi_names_ExtCall]
 QED
-
-val _ = export_theory();

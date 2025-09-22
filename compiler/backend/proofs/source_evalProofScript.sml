@@ -2,16 +2,13 @@
   Proofs that the eval mode of the source semantics can
   be switched to one that includes an oracle.
 *)
-
-open preamble semanticsTheory namespacePropsTheory
-     semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     evaluatePropsTheory evaluateTheory experimentalLib
-     fpOptTheory
-
-val _ = new_theory "source_evalProof";
-
-val _ = set_grammar_ancestry ["ast", "string",
-    "semantics", "semanticPrimitivesProps"];
+Theory source_evalProof
+Ancestors
+  ast[qualified] string[qualified] semantics
+  semanticPrimitivesProps namespaceProps semanticPrimitives
+  evaluateProps evaluate
+Libs
+  preamble experimentalLib
 
 val _ = temp_delsimps ["getOpClass_def"]
 
@@ -226,19 +223,15 @@ Inductive v_rel:
   (env_rel (v_rel es) env env' ==>
     v_rel es (Recclosure env funs nm) (Recclosure env' funs nm)) /\
   (v_rel es (Litv l) (Litv l)) /\
-  (v_rel es (Loc br n) (Loc br n)) ∧
-  (v_rel es (FP_BoolTree b) (FP_BoolTree b)) ∧
-  (v_rel es (FP_WordTree w) (FP_WordTree w)) ∧
-  (v_rel es (Real r) (Real r))
+  (v_rel es (Loc br n) (Loc br n))
 End
 
 Theorem v_rel_l_simps =
-  [``v_rel es (Litv l) v``, ``v_rel es (Conv cn vs) v``,
-    ``v_rel es (Loc b l) v``, ``v_rel es (Vectorv vs) v``,
-    ``v_rel es (Env e id) v``, ``v_rel es (Recclosure env funs nm) v``,
-    ``v_rel es (Closure env nm x) v``,
-    “v_rel es (FP_BoolTree b) v”, “v_rel es (FP_WordTree w) v”,
-   “v_rel es (Real r) v”]
+  [“v_rel es (Litv l) v”, “v_rel es (Conv cn vs) v”,
+    “v_rel es (Loc b l) v”, “v_rel es (Vectorv vs) v”,
+    “v_rel es (Env e id) v”, “v_rel es (Recclosure env funs nm) v”,
+    “v_rel es (Closure env nm x) v”
+    ]
   |> map (SIMP_CONV (srw_ss ()) [Once v_rel_cases])
   |> map GEN_ALL
   |> LIST_CONJ
@@ -617,10 +610,10 @@ Theorem do_app_sim:
   r <> Rerr (Rabort Rtype_error)
   ==>
   ? ref1 refs' r' es.
-  es = orac_s t.eval_state /\
-  do_app (t.refs, t.ffi) op (REVERSE ys) = SOME ((refs', ffi), r') /\
-  LIST_REL (sv_rel (v_rel es)) refs refs' /\
-  result_rel (v_rel es) (v_rel es) r r'
+    es = orac_s t.eval_state /\
+    do_app (t.refs, t.ffi) op (REVERSE ys) = SOME ((refs', ffi), r') /\
+    LIST_REL (sv_rel (v_rel es)) refs refs' /\
+    result_rel (v_rel es) (v_rel es) r r'
 Proof
   rw [s_rel_def]
   \\ fs []
@@ -652,7 +645,6 @@ Proof
   \\ fs [LIST_REL_REPLICATE_same, EVERY2_LUPDATE_same, LIST_REL_APPEND_EQ]
   \\ TRY (Cases_on ‘ys’ using SNOC_CASES \\ gs[SNOC_APPEND, REVERSE_APPEND])
   \\ TRY (fs [LIST_REL_EL_EQN, EVERY2_REVERSE1] \\ NO_TAC)
-  \\ imp_res_tac fpSemPropsTheory.fp_translate_cases \\ rveq \\ gs[]
 QED
 
 Theorem pairarg_to_pair_map:
@@ -1011,52 +1003,6 @@ Proof
     \\ simp [LIST_REL_MAP1, SIMP_RULE (bool_ss ++ ETA_ss) [] LIST_REL_MAP2]
     \\ simp [ELIM_UNCURRY, EVERY2_refl]
   )
-  >~ [‘getOpClass op = Icing’]
-  >- (
-    rveq \\ gs[CaseEq"option", CaseEq"prod"]
-    \\ drule_then (drule_then assume_tac) do_app_sim
-    \\ insts_tac
-    \\ ‘r ≠ Rerr (Rabort Rtype_error)’ by (every_case_tac \\ gs[do_fprw_def, CaseEq"result"])
-    \\ gs[s_rel_def] \\ rveq \\ gs[]
-    \\ COND_CASES_TAC \\ gs[]
-    \\ Cases_on ‘isFpBool op’ \\ gs[do_fprw_def, CaseEq"option"] \\ Cases_on ‘r’ \\ gs[]
-    >- (
-      Cases_on ‘a’ \\ gs[shift_fp_opts_def]
-      \\ rveq \\ gs[]
-      \\ simp[state_component_equality]
-      \\ Cases_on ‘st'.fp_state.opts 0’ \\ gs[rwAllWordTree_def, rwAllBoolTree_def]
-      \\ TRY (rename1 ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’
-              \\ Cases_on ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’ \\ gs[])
-      \\ TRY (rename1 ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’
-              \\ Cases_on ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’ \\ gs[])
-      \\ Cases_on ‘v''’ \\ gs[Boolv_def]
-      \\ TRY (rename1 ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’
-              \\ Cases_on ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’ \\ gs[v_to_env_id_def])
-      \\ TRY (rename1 ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’
-              \\ Cases_on ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’ \\ gs[])
-      \\ COND_CASES_TAC \\ gs[v_to_env_id_def])
-    >- gs[shift_fp_opts_def, state_component_equality]
-    >- (
-      Cases_on ‘a’ \\ gs[shift_fp_opts_def]
-      \\ rveq \\ gs[]
-      \\ simp[state_component_equality]
-      \\ Cases_on ‘st'.fp_state.opts 0’ \\ gs[rwAllWordTree_def, rwAllBoolTree_def]
-      \\ TRY (rename1 ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’
-              \\ Cases_on ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’ \\ gs[])
-      \\ TRY (rename1 ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’
-              \\ Cases_on ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’ \\ gs[])
-      \\ Cases_on ‘v''’ \\ gs[Boolv_def]
-      \\ TRY (rename1 ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’
-              \\ Cases_on ‘fpOpt$rwAllWordTree (rw::rws) st2.fp_state.rws f’ \\ gs[v_to_env_id_def])
-      \\ TRY (rename1 ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’
-              \\ Cases_on ‘fpOpt$rwAllBoolTree (rw::rws) st2.fp_state.rws f’ \\ gs[v_to_env_id_def]))
-    >- gs[shift_fp_opts_def, state_component_equality]
-    >- (
-      gs[shift_fp_opts_def, state_component_equality]
-      \\ Cases_on ‘a’ \\ gs[]
-      \\ TOP_CASE_TAC \\ gs[Boolv_def]
-      \\ COND_CASES_TAC \\ gs[v_to_env_id_def])
-    \\ gs[shift_fp_opts_def, state_component_equality])
   \\ eval_cases_tac
   \\ drule_then (drule_then assume_tac) do_app_sim
   \\ insts_tac
@@ -1250,70 +1196,6 @@ Proof
   \\ insts_tac
 QED
 
-Theorem do_fpoptimise_length:
-  LENGTH (do_fpoptimise annot l) = LENGTH l
-Proof
-  Induct_on ‘l’ >>
-  simp[Once fpSemPropsTheory.do_fpoptimise_cons, do_fpoptimise_def] >>
-  rpt strip_tac >> Cases_on ‘h’ >> fs[do_fpoptimise_def]
-QED
-
-Theorem do_fpoptimise_env_id:
-  v_to_env_id v = SOME id ⇒
-  ∃ v2. do_fpoptimise annot [v] = [v2] ∧ v_to_env_id v2 = SOME id
-Proof
-  gs[v_to_env_id_def, v_to_nat_def, CaseEq"v", CaseEq"list", CaseEq"option", CaseEq"lit"]
-  \\ rpt strip_tac \\ gs[do_fpoptimise_def]
-QED
-
-Theorem v_rel_do_fpoptimise:
-  ∀ vs vsF.
-    LIST_REL (v_rel R) vs vsF ⇒
-    LIST_REL (v_rel R) (do_fpoptimise annot vs) (do_fpoptimise annot vsF)
-Proof
-  measureInduct_on ‘list_size semanticPrimitives$v_size vs’ >> Cases_on ‘vs’
-  >> fs[LIST_REL_def] >> rpt strip_tac
-  >- (
-   fs[do_fpoptimise_def])
-  >> first_assum (qspec_then ‘t’ assume_tac)
-  >> fs[]
-  >> simp[Once fpSemPropsTheory.do_fpoptimise_cons]
-  >> Cases_on ‘h’ >> simp[do_fpoptimise_def]
-  >> fs[v_rel_l_simps]
-  >> first_x_assum (qspec_then ‘ys’ assume_tac)
-  >> simp[Once fpSemPropsTheory.do_fpoptimise_cons]
-  >> gs[do_fpoptimise_def]
-  >> imp_res_tac do_fpoptimise_env_id
-  >> first_x_assum $ qspec_then ‘annot’ strip_assume_tac >> gs[]
-QED
-
-Theorem list_rel_fpoptimise:
-  ∀ annot R v1 v2.
-    v_rel R v1 v2 ⇒
-    LIST_REL (v_rel R) (do_fpoptimise annot [v1]) (do_fpoptimise annot [v2])
-Proof
-  rpt strip_tac >> irule v_rel_do_fpoptimise
-  >> gs[LIST_REL_def]
-QED
-
-Triviality eval_simulation_Scope:
-  ^(#get_goal eval_simulation_setup `Case ([FpOptimise _ _])`)
-Proof
-  rpt disch_tac
-  \\ eval_cases_tac
-  \\ insts_tac
-  \\ first_x_assum $
-       qspec_then
-       ‘t with fp_state := if t.fp_state.canOpt = Strict then t.fp_state else t.fp_state with canOpt := FPScope annot’ mp_tac
-  \\ impl_tac
-  >- (
-    gs[s_rel_def] \\ qexists_tac ‘orac_s'’ \\ qexists_tac ‘refs'’ \\ gs[]
-  )
-  \\ strip_tac \\ gs[]
-  \\ fs [s_rel_def, state_component_equality]
-  \\ irule list_rel_fpoptimise \\ gs[orac_s_def]
-QED
-
 Theorem eval_simulation:
   ^(#concl eval_simulation_setup ())
 Proof
@@ -1321,8 +1203,7 @@ Proof
     eval_simulation_Denv, eval_simulation_Con, eval_simulation_Let,
     eval_simulation_Letrec, eval_simulation_match,
     eval_simulation_cons_decs, eval_simulation_Dletrec,
-    eval_simulation_Dtype, eval_simulation_Dexn, eval_simulation_Dlocal,
-    eval_simulation_Scope]
+    eval_simulation_Dtype, eval_simulation_Dexn, eval_simulation_Dlocal]
   \\ rpt disch_tac
   \\ insts_tac
   \\ TRY ( (
@@ -1563,8 +1444,8 @@ Proof
     \\ TRY (drule_then (drule_then assume_tac) insert_declare_env)
     \\ fs [GSYM PULL_FORALL, reset_env_generation_orac_eqs]
     \\ rpt (drule_then irule record_forward_trans_sym)
-    \\ simp [record_forward_refl, shift_fp_opts_def]
-    \\ COND_CASES_TAC \\ gs[shift_fp_opts_def]
+    \\ simp [record_forward_refl]
+    \\ COND_CASES_TAC \\ gs[]
   )
   \\ fs [pair_case_eq, option_case_eq, result_case_eq] \\ rveq \\ fs []
   \\ rpt (drule_then irule record_forward_trans_sym)
@@ -1682,7 +1563,7 @@ Proof
     \\ simp []
   )
   \\ eval_cases_tac
-  \\ Cases_on ‘st'.fp_state.canOpt = FPScope fpValTree$Opt’ \\ gs[shift_fp_opts_def]
+  \\ gs[]
 QED
 
 Triviality insert_oracle_correct_Denv:
@@ -1810,9 +1691,8 @@ Proof
             \\ TRY DISJ2_TAC
             \\ drule_then irule record_forward_trans)
         \\ NO_TAC)
-  \\ simp [combine_dec_result_def, shift_fp_opts_def]
-  \\ rename1 ‘st2.fp_state.canOpt = FpScope fpValTree$Opt’
-  \\ Cases_on ‘st2.fp_state.canOpt = FpScope fpValTree$Opt’ \\ gs[shift_fp_opts_def]
+  \\ simp [combine_dec_result_def]
+  \\ gs[]
 QED
 
 (* Constructs the oracle from an evaluation by using the recorded
@@ -2340,8 +2220,6 @@ Proof
       \\ fs [option_case_eq, pair_case_eq, bool_case_eq, result_case_eq]
       \\ insts_tac
       \\ fs [dec_clock_def]
-      (* sigh @ fp cases *)
-      \\ rw [] \\ fs [shift_fp_opts_def]
     )
     (* Eval *)
     \\ fs [do_eval_res_def]
@@ -2423,4 +2301,3 @@ Proof
   )
 QED
 
-val _ = export_theory ();

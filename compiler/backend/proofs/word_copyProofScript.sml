@@ -1,13 +1,13 @@
 (*
   Correctness proof for word_copy
 *)
-open preamble word_copyTheory wordPropsTheory wordConvsTheory wordSemTheory;
-
-val _ = new_theory "word_copyProof";
+Theory word_copyProof
+Libs
+  preamble
+Ancestors
+  wordLang[qualified] wordSem wordProps word_copy wordConvs
 
 val s = ``s:('a,'c,'ffi) wordSem$state``
-
-val _ = set_grammar_ancestry ["wordLang", "wordSem", "wordProps", "word_copy"];
 
 Definition CPstate_inv_def:
   CPstate_inv cs = (
@@ -1001,6 +1001,14 @@ Proof
   rw[CPstate_models_def,sh_mem_store32_def,flush_state_def]>>gvs[ACE]
 QED
 
+Theorem sh_mem_store16_model:
+  CPstate_models cs st ⇒
+  sh_mem_store16 a v st = (err, st') ⇒
+  CPstate_models cs st'
+Proof
+  rw[CPstate_models_def,sh_mem_store16_def,flush_state_def]>>gvs[ACE]
+QED
+
 Theorem sh_mem_store_byte_model:
   CPstate_models cs st ⇒
   sh_mem_store_byte a v st = (err, st') ⇒
@@ -1214,7 +1222,7 @@ Proof
     >> fs[CPstate_modelsD_copy_prop_share]
     >> gvs[ACE,remove_eq_inv]
     >> Cases_on‘m’>>gvs[ACE,share_inst_def]
-    >> metis_tac[remove_eq_model_sh_mem_set_var,remove_eq_model,sh_mem_store_model,sh_mem_store_byte_model,sh_mem_store32_model]
+    >> metis_tac[remove_eq_model_sh_mem_set_var,remove_eq_model,sh_mem_store_model,sh_mem_store_byte_model,sh_mem_store32_model,sh_mem_store16_model]
   )
 QED
 
@@ -1225,5 +1233,3 @@ Proof
   rw[copy_prop_def]
   >>metis_tac[copy_prop_correct,empty_eq_inv,empty_eq_model,PAIR]
 QED
-
-val _ = export_theory();

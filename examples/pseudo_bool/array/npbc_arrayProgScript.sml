@@ -1,9 +1,11 @@
 (*
   Refine npbc_list to npbc_array
 *)
-open preamble basis UnsafeProgTheory UnsafeProofTheory npbcTheory npbc_listTheory;
-
-val _ = new_theory "npbc_arrayProg"
+Theory npbc_arrayProg
+Libs
+  preamble basis
+Ancestors
+  UnsafeProg UnsafeProof npbc npbc_list
 
 val _ = translation_extends"UnsafeProg";
 
@@ -99,87 +101,6 @@ QED
 val _ = weaken_aux_ind |> update_precondition;
 
 val r = translate weaken_def;
-
-val r = translate mergesortTheory.sort2_def;
-val r = translate mergesortTheory.sort3_def;
-val r = translate mergesortTheory.merge_def;
-val r = translate DROP_def;
-val r = translate (mergesortTheory.mergesortN_def |> SIMP_RULE std_ss [DIV2_def]);
-
-Triviality mergesortn_ind:
-  mergesortn_ind (:'a)
-Proof
-  once_rewrite_tac [fetch "-" "mergesortn_ind_def"]
-  \\ rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac (latest_ind ())
-  \\ rpt strip_tac
-  \\ last_x_assum match_mp_tac
-  \\ rpt strip_tac
-  \\ gvs [FORALL_PROD, DIV2_def]
-QED
-
-val _ = mergesortn_ind |> update_precondition;
-
-Triviality mergesortn_side:
-  ∀x y z.
-  mergesortn_side x y z
-Proof
-  completeInduct_on`y`>>
-  rw[Once (fetch "-" "mergesortn_side_def")]>>
-  simp[arithmeticTheory.DIV2_def]
-  >- (
-    first_x_assum match_mp_tac>>
-    simp[]>>
-    match_mp_tac dividesTheory.DIV_POS>>
-    simp[])
-  >>
-    match_mp_tac DIV_LESS_EQ>>
-    simp[]
-QED
-val _ = mergesortn_side |> update_precondition;
-
-val r = translate mergesortTheory.mergesort_def;
-
-val r = translate mergesortTheory.sort2_tail_def;
-val r = translate mergesortTheory.sort3_tail_def;
-val r = translate mergesortTheory.merge_tail_def;
-val r = translate (mergesortTheory.mergesortN_tail_def |> SIMP_RULE std_ss [DIV2_def]);
-
-Triviality mergesortn_tail_ind:
-  mergesortn_tail_ind (:'a)
-Proof
-  once_rewrite_tac [fetch "-" "mergesortn_tail_ind_def"]
-  \\ rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac (latest_ind ())
-  \\ rpt strip_tac
-  \\ last_x_assum match_mp_tac
-  \\ rpt strip_tac
-  \\ gvs [FORALL_PROD, DIV2_def]
-QED
-
-val _ = mergesortn_tail_ind |> update_precondition;
-
-Triviality mergesortn_tail_side:
-  ∀w x y z.
-  mergesortn_tail_side w x y z
-Proof
-  completeInduct_on`y`>>
-  rw[Once (fetch "-" "mergesortn_tail_side_def")]>>
-  simp[arithmeticTheory.DIV2_def]
-  >- (
-    first_x_assum match_mp_tac>>
-    simp[]>>
-    match_mp_tac dividesTheory.DIV_POS>>
-    simp[])
-  >>
-    match_mp_tac DIV_LESS_EQ>>
-    simp[]
-QED
-val _ = mergesortn_tail_side |> update_precondition;
-
-val r = translate mergesortTheory.mergesort_tail_def;
 
 val res = translate npbc_checkTheory.mk_strict_aux_def;
 val res = translate npbc_checkTheory.mk_strict_def;
@@ -6360,5 +6281,3 @@ Proof
     fs[OPTION_TYPE_def,map_snd_def]>>
     metis_tac[])
 QED
-
-val _ = export_theory();

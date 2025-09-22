@@ -1,9 +1,13 @@
 (*
   Properties about wordLang and its semantics
 *)
-open preamble BasicProvers
-     wordLangTheory wordSemTheory wordConvsTheory
-     asmTheory reg_allocTheory backendPropsTheory helperLib;
+Theory wordProps
+Libs
+  preamble BasicProvers helperLib
+Ancestors
+  mllist backendProps wordConvs wordLang wordSem asm reg_alloc
+
+val _ = temp_bring_to_front_overload "Set" {Name="Set", Thy="wordLang"};
 
 (*
 Main lemmas:
@@ -16,10 +20,6 @@ Main lemmas:
 
 (*TODO remove *)
 val _ = temp_delsimps ["NORMEQ_CONV"];
-
-val _ = new_theory "wordProps";
-
-val _ = set_grammar_ancestry ["backendProps","wordConvs", "wordLang","wordSem"]
 
 (*TODO move*)
 Theorem domain_fromAList_toAList:
@@ -1095,6 +1095,35 @@ Proof
   gvs[flush_state_def]
 QED
 
+Theorem sh_mem_store16_const:
+  sh_mem_store16 ad v s = (res, s') ==>
+  s'.clock = s.clock ∧
+  s'.compile_oracle = s.compile_oracle ∧
+  s'.compile = s.compile ∧
+  s'.be = s.be ∧
+  s'.gc_fun = s.gc_fun ∧
+  s'.mdomain = s.mdomain ∧
+  s'.sh_mdomain = s.sh_mdomain ∧
+  s'.code = s.code ∧
+  s'.code_buffer = s.code_buffer ∧
+  s'.data_buffer = s.data_buffer ∧
+  s'.permute = s.permute ∧
+  s'.handler = s.handler ∧
+  s'.stack_limit = s.stack_limit ∧
+  s'.stack_max = s.stack_max ∧
+  (res = SOME Error ==> s'.locals_size = s.locals_size) ∧
+  (res = NONE ==> s'.locals_size = s.locals_size) ∧
+  (res = NONE ==> s'.stack_max = s.stack_max) ∧
+  (res = SOME Error ==> s'.stack_max = s.stack_max) ∧
+  (res = NONE ==> s'.stack_size = s.stack_size) ∧
+  (res = SOME Error ==> s'.stack_size = s.stack_size)
+Proof
+  gvs[sh_mem_store16_def] >>
+  rpt (TOP_CASE_TAC>> fs[]) >>
+  rpt strip_tac >>
+  gvs[flush_state_def]
+QED
+
 Theorem sh_mem_store32_const:
   sh_mem_store32 ad v s = (res, s') ==>
   s'.clock = s.clock ∧
@@ -1145,7 +1174,7 @@ Proof
   gvs[share_inst_def]
   >> rpt (CASE_ONE >> gvs[])
   >> strip_tac >> gvs[]
-  >> drulel [sh_mem_set_var_const,sh_mem_store_const,sh_mem_store_byte_const,sh_mem_store32_const]
+  >> drulel [sh_mem_set_var_const,sh_mem_store_const,sh_mem_store_byte_const,sh_mem_store16_const,sh_mem_store32_const]
   >> gvs[]
 QED
 
@@ -1181,6 +1210,15 @@ Proof
   EVAL_TAC
 QED
 
+Theorem sh_mem_load16_with_const[simp]:
+  sh_mem_load16 a (s with locals := l) = sh_mem_load16 a s /\
+  sh_mem_load16 a (s with permute := p) = sh_mem_load16 a s /\
+  sh_mem_load16 a (s with clock := k) = sh_mem_load16 a s /\
+  sh_mem_load16 a (s with stack := xs) = sh_mem_load16 a s
+Proof
+  gvs[sh_mem_load16_def]
+QED
+
 Theorem sh_mem_load32_with_const[simp]:
   sh_mem_load32 a (s with locals := l) = sh_mem_load32 a s /\
   sh_mem_load32 a (s with permute := p) = sh_mem_load32 a s /\
@@ -1206,6 +1244,15 @@ Theorem sh_mem_store_byte_with_const[simp]:
   (I ## (λs. s with clock := k)) (sh_mem_store_byte a w s)
 Proof
   fs[sh_mem_store_byte_def] >> (rpt (CASE_ONE >> fs[]))
+QED
+
+Theorem sh_mem_store16_with_const[simp]:
+  sh_mem_store16 a w (s with permute := p) =
+  (I ## (λs. s with permute := p)) (sh_mem_store16 a w s) /\
+  sh_mem_store16 a w (s with clock := k) =
+  (I ## (λs. s with clock := k)) (sh_mem_store16 a w s)
+Proof
+  fs[sh_mem_store16_def] >> (rpt (CASE_ONE >> fs[]))
 QED
 
 Theorem sh_mem_store32_with_const[simp]:
@@ -1777,6 +1824,7 @@ Proof
        (strip_assume_tac o SRULE[oneline share_inst_def,
           sh_mem_store_def,sh_mem_store_byte_def,
           sh_mem_load_def,sh_mem_load_byte_def,
+          sh_mem_load16_def,sh_mem_store16_def,
           sh_mem_load32_def,sh_mem_store32_def,
           oneline sh_mem_set_var_def,
           AllCaseEqs()]) >>
@@ -2261,7 +2309,7 @@ Proof
   rw[] >>
   simp[domain_union,domain_fromAList] >>
   qpat_x_assum `A = MAP FST l` (SUBST1_TAC o SYM)>>
-  fs[EXTENSION,mem_list_rearrange,MEM_MAP,QSORT_MEM,MEM_toAList
+  fs[EXTENSION,mem_list_rearrange,MEM_MAP,sort_MEM,MEM_toAList
     ,EXISTS_PROD,domain_lookup] >> METIS_TAC[]
 QED
 
@@ -2693,6 +2741,9 @@ Proof
     >-(fs[sh_mem_store_byte_def] >> every_case_tac >>
     fs[flush_state_def] >>
     fs[s_key_eq_refl])
+    >-(fs[sh_mem_store16_def] >> every_case_tac >>
+    fs[flush_state_def] >>
+    fs[s_key_eq_refl])
     >-(fs[sh_mem_store32_def] >> every_case_tac >>
     fs[flush_state_def] >>
     fs[s_key_eq_refl])
@@ -2927,7 +2978,7 @@ Proof
        `q'' = s.handler` by (
          `LENGTH s.stack +1 =
           LENGTH (StackFrame s.locals_size (toAList (FST x')) (list_rearrange (s.permute 0)
-             (QSORT key_val_compare (toAList (SND x'))))
+             (sort key_val_compare (toAList (SND x'))))
              (SOME (s.handler,x''2,x''3))::s.stack)` by fs [arithmeticTheory.ADD1]>>
            pop_assum SUBST_ALL_TAC>>         fs [LASTN_LENGTH_ID])>>
        TRY (
@@ -2936,7 +2987,7 @@ Proof
          >-
          (`LENGTH s.stack +1 =
            LENGTH (StackFrame s.locals_size  (toAList (FST x')) (list_rearrange (s.permute 0)
-           (QSORT key_val_compare (toAList (SND x'))))
+           (sort key_val_compare (toAList (SND x'))))
            (SOME (s.handler,x''2,x''3))::s.stack)` by full_simp_tac(srw_ss())[arithmeticTheory.ADD1]>>
          pop_assum SUBST_ALL_TAC>>
          full_simp_tac(srw_ss())[LASTN_LENGTH_ID]>>
@@ -2967,7 +3018,7 @@ Proof
          CONJ_TAC >- (
           `LENGTH s.stack +1 =
            LENGTH (StackFrame s.locals_size (toAList (FST x')) (list_rearrange (s.permute 0)
-           (QSORT key_val_compare (toAList (SND x'))))
+           (sort key_val_compare (toAList (SND x'))))
            (SOME (s.handler,x''2,x''3))::s.stack)` by full_simp_tac(srw_ss())[arithmeticTheory.ADD1]>>
            pop_assum SUBST_ALL_TAC>>
            full_simp_tac(srw_ss())[LASTN_LENGTH_ID]>>
@@ -2978,7 +3029,7 @@ Proof
          `LASTN (s.handler + 1) ls = LASTN (s.handler + 1) s.stack` by (
            `LENGTH s.stack +1 =
            LENGTH (StackFrame s.locals_size (toAList(FST x')) (list_rearrange (s.permute 0)
-           (QSORT key_val_compare (toAList (SND x'))))
+           (sort key_val_compare (toAList (SND x'))))
            (SOME (s.handler,x''2,x''3))::s.stack)` by full_simp_tac(srw_ss())[arithmeticTheory.ADD1]>>
            pop_assum SUBST_ALL_TAC>>
            full_simp_tac(bool_ss)[LASTN_LENGTH_ID]>>
@@ -3520,7 +3571,8 @@ Proof
       gvs[AllCaseEqs()] >> fs[set_var_def]
       >-(irule locals_rel_set_var >> fs[]) >>
      simp[state_component_equality]) >>
-    fs[sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def] >>
+    fs[sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def,
+       sh_mem_store16_def] >>
     gvs[AllCaseEqs()] >> simp[state_component_equality])
   >>
     gvs[evaluate_def] >>
@@ -3901,6 +3953,7 @@ Proof
   >- ( (* ShareInst *)
     gvs[evaluate_def,(oneline share_inst_def),AllCaseEqs()] >>
     gvs[sh_mem_store_def,sh_mem_load_def,sh_mem_store_byte_def,
+        sh_mem_load16_def,sh_mem_store16_def,
         sh_mem_load_byte_def,sh_mem_load32_def,sh_mem_store32_def]
     >>~- ([`sh_mem_set_var`],
       every_case_tac
@@ -4264,8 +4317,8 @@ Proof
   fs[wordSemTheory.env_to_list_def,LET_DEF] \\ srw_tac[][]
   \\ `ALL_DISTINCT (MAP FST (toAList y))` by fs[ALL_DISTINCT_MAP_FST_toAList]
   \\ imp_res_tac (MATCH_MP PERM_ALL_DISTINCT_MAP
-        (QSORT_PERM |> Q.ISPEC `key_val_compare` |> SPEC_ALL))
-  \\ `ALL_DISTINCT (QSORT key_val_compare (toAList y))`
+        (sort_PERM |> Q.ISPEC `key_val_compare` |> SPEC_ALL))
+  \\ `ALL_DISTINCT (sort key_val_compare (toAList y))`
         by imp_res_tac ALL_DISTINCT_MAP
   \\ pop_assum (assume_tac o Q.SPEC `f (0:num)` o MATCH_MP PERM_list_rearrange)
   \\ imp_res_tac PERM_ALL_DISTINCT_MAP
@@ -4274,7 +4327,7 @@ Proof
   \\ rpt (pop_assum (mp_tac o Q.GEN `x` o SPEC_ALL))
   \\ rpt (pop_assum (mp_tac o SPEC ``f:num->num->num``))
   \\ Q.ABBREV_TAC `xs =
-       (list_rearrange (f 0) (QSORT key_val_compare (toAList y)))`
+       (list_rearrange (f 0) (sort key_val_compare (toAList y)))`
   \\ rpt strip_tac \\ rfs[MEM_toAList]
   \\ Cases_on `?i. MEM (n,i) xs` \\ fs[] THEN1
      (imp_res_tac ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME \\ fs[]
@@ -4290,7 +4343,7 @@ Theorem env_to_list_ALL_DISTINCT:
 Proof
   fs [wordSemTheory.env_to_list_def] \\ rw []
   \\ qmatch_goalsub_abbrev_tac `list_rearrange _ l`
-  \\ `PERM (toAList y) l` by fs [Abbr`l`,sortingTheory.QSORT_PERM]
+  \\ `PERM (toAList y) l` by fs [Abbr`l`,sort_PERM]
   \\ qsuff_tac `PERM l (list_rearrange (perm 0) l)`
   THEN1
    (strip_tac
@@ -4448,14 +4501,13 @@ Proof
   qspec_then ‘env’ assume_tac ALL_DISTINCT_MAP_FST_toAList \\
   drule_then assume_tac ALL_DISTINCT_MAP \\
   irule_at (Pos last) PERM_list_rearrange \\
-  ‘PERM (toAList env) (QSORT key_val_compare (toAList env))’
-    by(MATCH_ACCEPT_TAC QSORT_PERM) \\
+  ‘PERM (toAList env) (sort key_val_compare (toAList env))’
+    by(MATCH_ACCEPT_TAC sort_PERM) \\
   conj_asm1_tac THEN1 metis_tac[ALL_DISTINCT_PERM] \\
   simp[Once PERM_SYM] \\
   match_mp_tac PERM_list_rearrange \\
   simp[]
 QED
-
 
 Theorem permute_swap_lemma2:
   ∀prog st perm stack.
@@ -4521,6 +4573,7 @@ Proof
    >- (
      gvs[evaluate_def, oneline share_inst_def ,AllCaseEqs()] >>
      gvs[oneline sh_mem_set_var_def,oneline sh_mem_store_def,
+         oneline sh_mem_load16_def,oneline sh_mem_store16_def,
          oneline sh_mem_store_byte_def,oneline sh_mem_store32_def,
          AllCaseEqs()] >>
      simp[state_component_equality,flush_state_def])
@@ -4783,5 +4836,3 @@ Proof
   gvs[] >>
   simp[state_component_equality]
 QED
-
-val _ = export_theory();

@@ -1,13 +1,12 @@
 (*
   Various basic properties of the semantic primitives.
 *)
+Theory semanticPrimitivesProps
+Ancestors
+  ast namespace ffi semanticPrimitives namespaceProps
+Libs
+  preamble boolSimps
 
-open preamble;
-open astTheory namespaceTheory ffiTheory semanticPrimitivesTheory;
-open namespacePropsTheory;
-open boolSimps;
-
-val _ = new_theory "semanticPrimitivesProps";
 
 Theorem with_same_v[simp]:
    (env:'v sem_env) with v := env.v = env
@@ -303,7 +302,9 @@ Theorem do_app_ffi_unchanged:
   ⇒ ffi = ffi'
 Proof
   rpt gen_tac >> simp[do_app_def] >>
-  every_case_tac >> gvs[store_alloc_def]
+  Cases_on ‘op’ >> simp[] >> Cases_on ‘vs’ >> simp[] >>
+  dsimp[AllCaseEqs(), PULL_EXISTS] >>
+  simp[store_alloc_def]
 QED
 
 Theorem do_app_ffi_changed:
@@ -329,9 +330,12 @@ Theorem do_app_ffi_changed:
         [IO_event (ExtCall s) (MAP (λc. n2w $ ORD c) (EXPLODE conf))
                   (ZIP (ws,ws'))]
 Proof
-  simp[do_app_def] >> every_case_tac >> gvs[store_alloc_def, store_assign_def] >>
-  strip_tac >> gvs[call_FFI_def] >>
-  every_case_tac >> gvs[combinTheory.o_DEF, IMPLODE_EXPLODE_I]
+  simp[do_app_def] >>
+  Cases_on ‘op’ >> simp[] >> Cases_on ‘vs’ >> simp[] >>
+  dsimp[AllCaseEqs(), PULL_EXISTS, UNCURRY_EQ] >>
+  simp[call_FFI_def, AllCaseEqs(), SF CONJ_ss] >>
+  rw[] >>
+  gvs[combinTheory.o_DEF, IMPLODE_EXPLODE_I, store_assign_def]
 QED
 
 Theorem do_app_not_timeout:
@@ -349,9 +353,9 @@ Theorem do_app_type_error:
   do_app s op es = SOME (x,Rerr (Rabort a)) ⇒ x = s
 Proof
   PairCases_on `s` >>
-  srw_tac[][do_app_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[LET_THM,UNCURRY] >>
-  every_case_tac >> full_simp_tac(srw_ss())[]
+  simp[do_app_def] >>
+  Cases_on ‘op’ >> simp[] >> Cases_on ‘es’ >> simp[] >>
+  dsimp[AllCaseEqs(), PULL_EXISTS, UNCURRY_EQ]
 QED
 
 Triviality build_rec_env_help_lem:
@@ -685,7 +689,7 @@ val _ = export_rewrites["ctors_of_dec_def"]
 
 (* free vars *)
 
-Definition FV_def:
+Definition FV_def[simp]:
   (FV (Raise e) = FV e) ∧
   (FV (Handle e pes) = FV e ∪ FV_pes pes) ∧
   (FV (Lit _) = {}) ∧
@@ -700,7 +704,6 @@ Definition FV_def:
   (FV (Letrec defs b) = FV_defs defs ∪ FV b DIFF set (MAP (Short o FST) defs)) ∧
   (FV (Tannot e t) = FV e) ∧
   (FV (Lannot e l) = FV e) ∧
-  (FV (FpOptimise fpopt e) = FV e) ∧
   (FV_list [] = {}) ∧
   (FV_list (e::es) = FV e ∪ FV_list es) ∧
   (FV_pes [] = {}) ∧
@@ -710,7 +713,6 @@ Definition FV_def:
   (FV_defs ((_,x,e)::defs) =
      (FV e DIFF {Short x}) ∪ FV_defs defs)
 End
-val _ = export_rewrites["FV_def"]
 
 Overload SFV = ``λe. {x | Short x ∈ FV e}``
 
@@ -760,4 +762,3 @@ Proof
   simp [concrete_v_def]
 QED
 
-val _ = export_theory ();

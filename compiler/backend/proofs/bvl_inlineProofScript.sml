@@ -1,19 +1,14 @@
 (*
   Correctness proof for bvi_inline
 *)
-
-open preamble backendPropsTheory
-     bvlSemTheory bvlPropsTheory
-     bvl_inlineTheory
-local open bvl_handleProofTheory in end
+Theory bvl_inlineProof
+Ancestors
+  bvlSem bvlProps backendProps
+  bvl_handleProof[qualified] bvl_inline
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "fromAList_def"]
-
-val _ = new_theory"bvl_inlineProof";
-
-val _ = set_grammar_ancestry [ "bvlSem", "bvlProps", "bvl_inline" ];
-
-val drule = old_drule
 
 (* removal of ticks *)
 
@@ -218,7 +213,9 @@ Proof
     \\ disch_then drule \\ strip_tac
     \\ qexists_tac `ck` \\ fs []
     \\ reverse (Cases_on `q`) \\ fs [] \\ rveq \\ fs []
-    \\ drule do_app_lemma \\ every_case_tac \\ fs []
+    \\ drule do_app_lemma
+    \\ disch_then(qspecl_then [`op`,`a`] assume_tac)
+    \\ every_case_tac \\ fs []
     \\ rveq \\ fs [])
   THEN1 (* Tick *)
    (fs [remove_ticks_def]
@@ -970,7 +967,8 @@ Proof
     \\ disch_then drule \\ strip_tac
     \\ fs [evaluate_def]
     \\ drule (Q.GEN `a` in_do_app_lemma)
-    \\ disch_then (qspec_then `REVERSE vs` mp_tac) \\ fs []
+    \\ disch_then (qspecl_then [`op`,`REVERSE vs`] mp_tac)
+    \\ fs []
     \\ strip_tac \\ fs [])
   THEN1
    (`s.clock = t1.clock` by fs [in_state_rel_def]
@@ -1546,7 +1544,8 @@ Proof
    (fs [case_eq_thms] \\ rveq \\ fs []
     \\ res_tac \\ fs [] \\ res_tac \\ fs []
     \\ rveq \\ fs []
-    \\ drule (do_app_lemma |> Q.GEN `a` |> Q.SPEC `REVERSE vs`)
+    \\ drule do_app_lemma
+    \\ disch_then (qspecl_then [`op`,`REVERSE vs`] mp_tac)
     \\ fs [] \\ rw [] \\ fs [])
   THEN1
    (fs [case_eq_thms] \\ rveq \\ fs []
@@ -2157,4 +2156,3 @@ Proof
   \\ fs [o_DEF, toList_def, toListA_def]
 QED
 
-val _ = export_theory();

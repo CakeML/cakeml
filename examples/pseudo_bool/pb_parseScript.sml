@@ -1,9 +1,11 @@
 (*
   Parse and print for pbc, npbc_check
 *)
-open preamble pbcTheory pbc_normaliseTheory npbc_checkTheory;
-
-val _ = new_theory "pb_parse";
+Theory pb_parse
+Ancestors
+  pbc pbc_normalise npbc_check
+Libs
+  preamble
 
 val _ = numLib.temp_prefer_num();
 
@@ -1951,4 +1953,3 @@ Definition parse_pbp_def:
 End
 *)
 
-val _ = export_theory();

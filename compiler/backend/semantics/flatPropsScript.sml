@@ -1,16 +1,15 @@
 (*
   Properties about flatLang and its semantics
 *)
-open preamble flatSemTheory flatLangTheory
-local
-  open astTheory semanticPrimitivesPropsTheory
-       evaluatePropsTheory
-in end
+Theory flatProps
+Ancestors
+  flatLang flatSem lprefix_lub[qualified] ast[qualified]
+  semanticPrimitivesProps[qualified] evaluateProps[qualified]
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory"flatProps"
-val _ = set_grammar_ancestry ["flatLang", "flatSem"];
 val _ = temp_tight_equality ();
 
 Theorem ctor_same_type_OPTREL:
@@ -770,8 +769,9 @@ Proof
     \\ imp_res_tac evaluate_decs_add_to_clock_initial_state_io_events_mono
     \\ fs [] \\ rveq
     \\ every_case_tac \\ fs [] \\ rw [] \\ fs [])
-  \\ qmatch_abbrev_tac `build_lprefix_lub l1 = build_lprefix_lub l2`
-  \\ `(lprefix_chain l1 /\ lprefix_chain l2) /\ equiv_lprefix_chain l1 l2`
+  \\ qmatch_abbrev_tac
+       ‘build_lprefix_lub l1 = build_lprefix_lub l2’
+  \\ ‘(lprefix_chain l1 /\ lprefix_chain l2) /\ equiv_lprefix_chain l1 l2’
      suffices_by metis_tac [build_lprefix_lub_thm,
                             lprefix_lub_new_chain,
                             unique_lprefix_lub]
@@ -1427,4 +1427,3 @@ Definition mk_flat_install_conf_def:
     <| compile := cc ; compile_oracle := co |> : 'c flatSem$install_config
 End
 
-val _ = export_theory()

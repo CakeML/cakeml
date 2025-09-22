@@ -1,9 +1,11 @@
 (*
   Pure functions for the Int module.
 *)
-open preamble mlstringTheory gcdTheory
-
-val _ = new_theory"mlint";
+Theory mlint
+Ancestors
+  mlstring gcd
+Libs
+  preamble
 
 Definition toChar_def:
   toChar digit = if digit < 10 then CHR (ORD #"0" + digit)
@@ -269,7 +271,7 @@ Theorem fromChars_range_unsafe_split:
 Proof
   Induct_on `m`
   >- rw []
-  >- (`∀m k w. 10**SUC m*k + 10*w = 10*(10**m*k + w)` by simp [EXP]
+  >- (`∀m (k: num) (w: num). 10**SUC m*k + 10*w = 10*(10**m*k + w)` by simp [EXP]
       \\ Cases_on `n`
       \\ rw [fromChars_range_unsafe_def]
       \\ Cases_on `m`
@@ -635,5 +637,3 @@ Proof
   \\ Induct \\ fs [] \\ rw []
   \\ Cases_on ‘s2’ \\ gvs []
 QED
-
-val _ = export_theory();

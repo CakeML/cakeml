@@ -1,16 +1,16 @@
 (*
   The formal semantics of wordLang
 *)
-open preamble wordLangTheory;
-local open alignmentTheory asmTheory ffiTheory in end;
+Theory wordSem
+Libs
+  preamble
+Ancestors
+  mllist wordLang alignment[qualified] finite_map[qualified]
+  misc[qualified] asm[qualified] fpSem[qualified]
+  ffi[qualified] (* for call_FFI *)
+  lprefix_lub[qualified] (* for build_lprefix_lub *)
+  machine_ieee[qualified] (* for FP *)
 
-val _ = new_theory"wordSem";
-val _ = set_grammar_ancestry [
-  "wordLang", "alignment", "finite_map", "misc", "asm",
-  "ffi", (* for call_FFI *)
-  "lprefix_lub", (* for build_lprefix_lub *)
-  "machine_ieee" (* for FP *)
-]
 Datatype:
   buffer =
     <| position   : 'a word
@@ -341,6 +341,16 @@ Definition sh_mem_store_byte_def:
     else (SOME Error, s)
 End
 
+Definition sh_mem_store16_def:
+  sh_mem_store16 (a:'a word) (w:'a word) ^s =
+    if byte_align a IN s.sh_mdomain then
+      case call_FFI s.ffi (SharedMem MappedWrite) [2w:word8]
+                    (TAKE 2 (word_to_bytes w F) ++ word_to_bytes a F) of
+        FFI_final outcome => (SOME (FinalFFI outcome), flush_state T s)
+      | FFI_return new_ffi new_bytes => (NONE, (s with ffi := new_ffi))
+    else (SOME Error, s)
+End
+
 Definition sh_mem_store32_def:
   sh_mem_store32 (a:'a word) (w:'a word) ^s =
     if byte_align a IN s.sh_mdomain then
@@ -355,6 +365,14 @@ Definition sh_mem_load_byte_def:
   sh_mem_load_byte (a:'a word) ^s =
     if byte_align a IN s.sh_mdomain then
       SOME $ call_FFI s.ffi (SharedMem MappedRead) [1w:word8]
+                    (word_to_bytes a F)
+    else NONE
+End
+
+Definition sh_mem_load16_def:
+  sh_mem_load16 (a:'a word) ^s =
+    if byte_align a IN s.sh_mdomain then
+      SOME $ call_FFI s.ffi (SharedMem MappedRead) [2w:word8]
                     (word_to_bytes a F)
     else NONE
 End
@@ -377,12 +395,16 @@ End
 Definition share_inst_def:
   (share_inst Load v ad s = sh_mem_set_var (sh_mem_load ad s) v s) /\
   (share_inst Load8 v ad s = sh_mem_set_var (sh_mem_load_byte ad s) v s) /\
+  (share_inst Load16 v ad s = sh_mem_set_var (sh_mem_load16 ad s) v s) /\
   (share_inst Load32 v ad s = sh_mem_set_var (sh_mem_load32 ad s) v s) /\
   (share_inst Store v ad s = case get_var v s of
     | SOME (Word v) => sh_mem_store ad v s
     | _ => (SOME Error,s)) /\
   (share_inst Store8 v ad s = case get_var v s of
     | SOME (Word v) => sh_mem_store_byte ad v s
+    | _ => (SOME Error,s)) /\
+  (share_inst Store16 v ad s = case get_var v s of
+    | SOME (Word v) => sh_mem_store16 ad v s
     | _ => (SOME Error,s)) /\
   (share_inst Store32 v ad s = case get_var v s of
     | SOME (Word v) => sh_mem_store32 ad v s
@@ -429,7 +451,7 @@ Definition env_to_list_def:
     let mover = bij_seq 0 in
     let permute = (\n. bij_seq (n + 1)) in
     let l = toAList env in
-    let l = QSORT key_val_compare l in
+    let l = mllist$sort key_val_compare l in
     let l = list_rearrange mover l in
       (l,permute)
 End
@@ -707,6 +729,7 @@ Definition inst_def:
             | NONE => NONE
             | SOME w => SOME (set_var r (Word (w2w w)) s))
         | _ => NONE)
+    | Mem Load16 _ _ => NONE
     | Mem Load32 r (Addr a w) =>
        (case word_exp s (Op Add [Var a; Const w]) of
         | SOME (Word w) =>
@@ -728,6 +751,7 @@ Definition inst_def:
              | SOME new_m => SOME (s with memory := new_m)
              | NONE => NONE)
         | _ => NONE)
+    | Mem Store16 _ _ => NONE
     | Mem Store32 r (Addr a w) =>
        (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME (Word a), SOME (Word w)) =>
@@ -1178,7 +1202,7 @@ Proof
   simp[share_inst_def] >>
   rpt strip_tac >>
   gvs[AllCaseEqs(),sh_mem_store_def,sh_mem_store_byte_def,flush_state_def,
-      sh_mem_store32_def
+      sh_mem_store32_def,sh_mem_store16_def
      ] >>
   drule sh_mem_set_var_clock >>
   simp[]
@@ -1282,5 +1306,3 @@ End
 (* clean up *)
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
-
-val _ = export_theory();

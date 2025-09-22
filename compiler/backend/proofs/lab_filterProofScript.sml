@@ -1,13 +1,15 @@
 (*
   Correctness proof for lab_filter
 *)
-open preamble labSemTheory labPropsTheory lab_filterTheory;
+Theory lab_filterProof
+Ancestors
+  labSem labProps lab_filter
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "lab_filterProof";
 
 Definition adjust_pc_def:
   adjust_pc p xs =
@@ -634,6 +636,8 @@ Proof
   >- share_mem_load_filter_correct_tac
   >- share_mem_load_filter_correct_tac
   >- share_mem_load_filter_correct_tac
+  >- share_mem_load_filter_correct_tac
+  >- share_mem_store_filter_correct_tac
   >- share_mem_store_filter_correct_tac
   >- share_mem_store_filter_correct_tac
   >- share_mem_store_filter_correct_tac
@@ -1171,4 +1175,3 @@ Proof
   \\ fs[LAST_CONS_cond]
 QED
 
-val _ = export_theory();

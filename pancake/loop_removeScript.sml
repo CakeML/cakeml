@@ -1,10 +1,12 @@
 (*
   Correctness proof for loop_remove
 *)
+Theory loop_remove
+Ancestors
+  loopLang
+Libs
+  preamble
 
-open preamble loopLangTheory
-
-val _ = new_theory "loop_remove";
 
 Definition comp_no_loop_def:
   (comp_no_loop p (Seq p1 p2) =
@@ -75,4 +77,3 @@ Definition comp_prog_def:
 End
 
 
-val _ = export_theory();

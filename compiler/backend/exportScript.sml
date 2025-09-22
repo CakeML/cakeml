@@ -2,9 +2,11 @@
   Some common helper functions for writing the final byte list ->
   string exporter.
 *)
-open preamble mlstringTheory mlvectorTheory mlintTheory;
-
-val _ = new_theory "export";
+Theory export
+Ancestors
+  mlstring mlvector mlint
+Libs
+  preamble
 
 Definition split16_def:
   (split16 f [] = Nil) /\
@@ -197,4 +199,3 @@ Definition emit_symbols_def:
     FOLDL emit_symbol misc$Nil lsyms
 End
 
-val _ = export_theory ();

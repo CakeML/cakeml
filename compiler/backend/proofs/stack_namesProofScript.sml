@@ -1,15 +1,14 @@
 (*
   Correctness proof for stack_names
 *)
-open preamble
-     stack_namesTheory
-     stackSemTheory stackPropsTheory
-local open dep_rewrite in end
+Theory stack_namesProof
+Libs
+  preamble dep_rewrite[qualified]
+Ancestors
+  stack_names stackSem stackProps
 
 val _ = bring_to_front_overload"prog_comp"{Name="prog_comp",Thy="stack_names"};
 val _ = bring_to_front_overload"comp"{Name="comp",Thy="stack_names"};
-
-val _ = new_theory"stack_namesProof";
 
 val _ = temp_delsimps ["fromAList_def"]
 
@@ -139,6 +138,26 @@ Theorem sh_mem_store_byte_rename_state[simp]:
   (FST (sh_mem_store_byte x y s), (rename_state c f) (SND (sh_mem_store_byte x y s)))
 Proof
   simp[sh_mem_store_byte_def,ffiTheory.call_FFI_def]>>every_case_tac>>
+  gs[rename_state_def]
+QED
+
+Theorem sh_mem_load16_rename_state[simp]:
+  BIJ (find_name f) UNIV UNIV ⇒
+  sh_mem_load16 (find_name f x) y (rename_state c f s) =
+  (FST (sh_mem_load16 x y s), (rename_state c f) (SND (sh_mem_load16 x y s)))
+Proof
+  rw[sh_mem_load16_def,ffiTheory.call_FFI_def]>>every_case_tac>>
+  gs[rename_state_def,BIJ_DEF]>>
+  dep_rewrite.DEP_REWRITE_TAC[MAP_KEYS_FUPDATE]>>
+  metis_tac[BIJ_IMP_11,INJ_DEF,IN_UNIV]
+QED
+
+Theorem sh_mem_store16_rename_state[simp]:
+  BIJ (find_name f) UNIV UNIV ⇒
+  sh_mem_store16 (find_name f x) y (rename_state c f s) =
+  (FST (sh_mem_store16 x y s), (rename_state c f) (SND (sh_mem_store16 x y s)))
+Proof
+  simp[sh_mem_store16_def,ffiTheory.call_FFI_def]>>every_case_tac>>
   gs[rename_state_def]
 QED
 
@@ -673,5 +692,3 @@ Proof
   fs[]>>fs[call_args_def]>>
   BasicProvers.EVERY_CASE_TAC>>fs[call_args_def]
 QED
-
-val _ = export_theory();

@@ -61,10 +61,9 @@
    of the semantics is relational but it only allows deterministic behaviour.
 
    ------------------------------------------------------------------------- *)
-open HolKernel Parse boolLib bossLib
-open wordsTheory alignmentTheory astTheory
-
-val () = new_theory "asm"
+Theory asm
+Ancestors
+  words alignment ast
 
 (* -- syntax of ASM instruction -- *)
 
@@ -124,8 +123,8 @@ Datatype:
 End
 
 Datatype:
-  memop = Load  | Load8  | Load32
-        | Store | Store8 | Store32
+  memop = Load  | Load8  | Load16  | Load32
+        | Store | Store8 | Store16 | Store32
 End
 
 Datatype:
@@ -164,6 +163,7 @@ Datatype:
      ; two_reg_arith  : bool
      ; valid_imm      : (binop + cmp) -> 'a word -> bool
      ; addr_offset    : 'a word # 'a word
+     ; hw_offset      : 'a word # 'a word
      ; byte_offset    : 'a word # 'a word
      ; jump_offset    : 'a word # 'a word
      ; cjump_offset   : 'a word # 'a word
@@ -273,6 +273,7 @@ End
 
 val () = List.app overload_on
   [("addr_offset_ok",  ``\c. offset_ok 0 c.addr_offset``),
+   ("hw_offset_ok",  ``\c. offset_ok 0 c.hw_offset``),
    ("byte_offset_ok",  ``\c. offset_ok 0 c.byte_offset``),
    ("jump_offset_ok",  ``\c. offset_ok c.code_alignment c.jump_offset``),
    ("cjump_offset_ok", ``\c. offset_ok c.code_alignment c.cjump_offset``),
@@ -287,6 +288,8 @@ Definition inst_ok_def:
      reg_ok r1 c /\ reg_ok r2 c /\
      (if m IN {Load; Store; Load32; Store32} then
         addr_offset_ok c w
+      else if m IN {Load16; Store16} then
+        hw_offset_ok c w ∧ c.ISA ≠ Ag32
       else
         byte_offset_ok c w))
 End
@@ -317,8 +320,8 @@ End
 Definition is_load_def[simp]:
   (is_load Load = T) ∧
   (is_load Load8 = T) ∧
+  (is_load Load16 = T) ∧
   (is_load Load32 = T) ∧
   (is_load _ = F)
 End
 
-val () = export_theory ()

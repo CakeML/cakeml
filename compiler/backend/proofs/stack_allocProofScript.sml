@@ -1,16 +1,18 @@
 (*
   Correctness proof for stack_alloc
 *)
+Theory stack_allocProof
+Libs
+  preamble blastLib[qualified]
+Ancestors
+  stack_alloc stackLang stackSem stackProps
+  word_gcFunctions (* for memcpy *)
+  wordSem[qualified]
 
-open preamble stack_allocTheory
-     stackLangTheory stackSemTheory stackPropsTheory
-     word_gcFunctionsTheory
-local open blastLib wordSemTheory in end
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "fromAList_def"]
 
-val _ = new_theory"stack_allocProof";
 val _ = (max_print_depth := 18);
 
 val word_shift_def = backend_commonTheory.word_shift_def
@@ -18,9 +20,6 @@ val theWord_def = wordSemTheory.theWord_def;
 val isWord_def = wordSemTheory.isWord_def;
 val is_fwd_ptr_def = wordSemTheory.is_fwd_ptr_def;
 
-val _ = set_grammar_ancestry["stack_alloc", "stackLang", "stackSem", "stackProps",
-  "word_gcFunctions" (* for memcpy *)
-];
 Overload good_dimindex[local] = ``misc$good_dimindex``
 val _ = temp_bring_to_front_overload"compile"{Thy="stack_alloc",Name="compile"};
 val drule = old_drule
@@ -5832,6 +5831,7 @@ Proof
     Cases_on ‘op’>>
     fs[word_exp_def,sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,IS_SOME_EXISTS,
        sh_mem_load32_def,sh_mem_store32_def,
+       sh_mem_load16_def,sh_mem_store16_def,
        wordLangTheory.word_op_def,sh_mem_load_byte_def,sh_mem_store_byte_def,
        get_var_def,dec_clock_def,empty_env_def]>>
     fs[case_eq_thms] \\ rw[] \\
@@ -6346,5 +6346,3 @@ Proof
          word_gen_gc_partial_move_data_code_def,
          word_gen_gc_partial_move_ref_list_code_def]
 QED
-
-val _ = export_theory();

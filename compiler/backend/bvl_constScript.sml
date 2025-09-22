@@ -11,9 +11,11 @@
 
    bvi_let is a simpler version of this optimisation.
 *)
-open preamble bvlTheory
-
-val _ = new_theory "bvl_const";
+Theory bvl_const
+Ancestors
+  bvl
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -382,4 +384,3 @@ End
 
 Theorem compile_exp_eq = compile_exp_def |> SRULE [compile_eq];
 
-val _ = export_theory();

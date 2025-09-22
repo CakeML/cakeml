@@ -1,17 +1,21 @@
 (*
   Translate the ARMv7 instruction encoder and ARMv7-specific config.
 *)
+Theory arm7Prog
+Ancestors
+  evaluate ml_translator from_pancake32Prog arm7_target arm
+  to_target32Prog[qualified]
+Libs
+  preamble ml_translatorLib inliningLib
+
 open preamble;
 open evaluateTheory
 open ml_translatorLib ml_translatorTheory;
 open from_pancake32ProgTheory
 open arm7_targetTheory armTheory;
 open inliningLib;
-local open to_target32ProgTheory in end;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "arm7Prog"
 
 val _ = translation_extends "from_pancake32Prog";
 val _ = ml_translatorLib.use_string_type true;
@@ -202,21 +206,31 @@ val arm7_enc17 = replace_at 17 (fn th => th |> SIMP_RULE (srw_ss())
   MachineCode_case_def,COND_RATOR,LET_THM] |> SIMP_RULE std_ss[Once
   COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
+val arm7_enc18 = replace_at 18 (fn th => th |> SIMP_RULE (srw_ss())
+  [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
+  MachineCode_case_def,COND_RATOR,LET_THM] |> SIMP_RULE std_ss[Once
+  COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
+
+val arm7_enc19 = replace_at 19 (fn th => th |> SIMP_RULE (srw_ss())
+  [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
+  MachineCode_case_def,COND_RATOR,LET_THM] |> SIMP_RULE std_ss[Once
+  COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
+
 
 (* FP *)
 val fp_defaults = [arm7_vfp_cmp_def,e_vfp_def,EncodeVFPReg_def]@defaults
 
-val arm7_enc16_to_30 = map (fn i => replace_at i (fn th => th |>
+val arm7_enc20_to_35 = map (fn i => replace_at i (fn th => th |>
   (SIMP_RULE (srw_ss()) fp_defaults) |> finish |> SIMP_RULE
   (srw_ss())[word_2comp_def]))
-  [18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33]
+  [20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35]
 
-val arm7_enc31 = replace_at 34 (fn th => th |> SIMP_RULE (srw_ss())
+val arm7_enc31 = replace_at 36 (fn th => th |> SIMP_RULE (srw_ss())
   [WORD_LS,word_mul_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
   MachineCode_case_def,COND_RATOR,LET_THM] |> finish |> SIMP_RULE
   (srw_ss())[word_2comp_def])
 
-val arm7_enc32 = replace_at 35 (fn th => th |> Q.GEN`cmp` |> SIMP_RULE
+val arm7_enc32 = replace_at 37 (fn th => th |> Q.GEN`cmp` |> SIMP_RULE
   (srw_ss() ++ LET_ss ++ DatatypeSimps.expand_type_quants_ss[``:cmp``])
   [arm7_cmp_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
   MachineCode_case_def,COND_RATOR,LET_THM] |> finish |> CONJUNCTS |>
@@ -224,7 +238,7 @@ val arm7_enc32 = replace_at 35 (fn th => th |> Q.GEN`cmp` |> SIMP_RULE
   ``arm7_enc (JumpCmp cmp r1 (Reg r2) a)`` (rand o funpow 3 rator o
   rand) )
 
-val arm7_enc33 = replace_at 36 (fn th => th |> Q.GEN`cmp` |> SIMP_RULE
+val arm7_enc33 = replace_at 38 (fn th => th |> Q.GEN`cmp` |> SIMP_RULE
   (srw_ss() ++ LET_ss ++
   DatatypeSimps.expand_type_quants_ss[``:cmp``])
   [arm7_cmp_def,Q.ISPEC`MachineCode_CASE`COND_RAND,
@@ -233,26 +247,26 @@ val arm7_enc33 = replace_at 36 (fn th => th |> Q.GEN`cmp` |> SIMP_RULE
   ``arm7_enc (JumpCmp cmp r (Imm i) a)`` (rand o funpow 3 rator o
   rand) )
 
-val arm7_enc34 = replace_at 37 (fn th => th |> SIMP_RULE (srw_ss())
+val arm7_enc34 = replace_at 39 (fn th => th |> SIMP_RULE (srw_ss())
   [WORD_LS, word_mul_def, Q.ISPEC`MachineCode_CASE`COND_RAND,
   MachineCode_case_def, COND_RATOR] |> finish |> SIMP_RULE
   (srw_ss())[word_2comp_def])
 
-val arm7_enc35 = replace_at 38 (fn th => th |> SIMP_RULE (srw_ss())
+val arm7_enc35 = replace_at 40 (fn th => th |> SIMP_RULE (srw_ss())
   [WORD_LS, word_mul_def, Q.ISPEC`MachineCode_CASE`COND_RAND,
   MachineCode_case_def, COND_RATOR] |> finish |> SIMP_RULE
   (srw_ss())[word_2comp_def])
 
-val arm7_enc36 = replace_at 39 (fn th => th |> SIMP_RULE (srw_ss())
+val arm7_enc36 = replace_at 41 (fn th => th |> SIMP_RULE (srw_ss())
   [WORD_LO, word_mul_def, Q.ISPEC`MachineCode_CASE`COND_RAND,
   MachineCode_case_def, COND_RATOR] |> SIMP_RULE std_ss[Once
   COND_RAND] |> finish |> SIMP_RULE (srw_ss())[word_2comp_def])
 
 val arm7_enc_thm =
-  List.tabulate (39, fn i => Array.sub(arm7_enc_thms,i)) |> LIST_CONJ
+  List.tabulate (41, fn i => Array.sub(arm7_enc_thms,i)) |> LIST_CONJ
 
 val _ = translate (EncodeARMImmediate_def |> SIMP_RULE (srw_ss())
-  [Ntimes EncodeARMImmediate_aux_def 18] |> finish |> SIMP_RULE
+  [Ntimes EncodeARMImmediate_aux_def 20] |> finish |> SIMP_RULE
   (srw_ss()) [word_2comp_def])
 
 val cases_defs = LIST_CONJ
@@ -335,6 +349,9 @@ val d1 = CONJ d1 $ Define ‘arm7_enc_Mem_Store a b c =
 val d1 = CONJ d1 $ Define ‘arm7_enc_Mem_Store8 a b c =
                     arm7_enc (Inst (Mem Store8 a (Addr b c)))’
   |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm7_enc_Mem_Store16 a b c =
+                    arm7_enc (Inst (Mem Store16 a (Addr b c)))’
+  |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘arm7_enc_Mem_Store32 a b c =
                     arm7_enc (Inst (Mem Store32 a (Addr b c)))’
   |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
@@ -343,6 +360,9 @@ val d1 = CONJ d1 $ Define ‘arm7_enc_Mem_Load a b c =
   |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘arm7_enc_Mem_Load8 a b c =
                     arm7_enc (Inst (Mem Load8 a (Addr b c)))’
+  |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm7_enc_Mem_Load16 a b c =
+                    arm7_enc (Inst (Mem Load16 a (Addr b c)))’
   |> SIMP_RULE std_ss [arm7_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘arm7_enc_Mem_Load32 a b c =
                     arm7_enc (Inst (Mem Load32 a (Addr b c)))’
@@ -470,5 +490,3 @@ val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

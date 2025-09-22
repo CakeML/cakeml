@@ -2,10 +2,12 @@
   Defines a common sub-expression elimination pass on a wordLang program.
   This pass is to run immeidately atfer the SSA-like renaming.
 *)
+Theory word_cse
+Ancestors
+  wordLang words bool balanced_map sptree
+Libs
+  preamble
 
-open preamble wordLangTheory wordsTheory boolTheory balanced_mapTheory sptreeTheory
-
-val _ = new_theory "word_cse";
 
 Type regsE = ``:num list list``
 Type regsM = ``:num num_map``
@@ -238,10 +240,12 @@ End
 Definition memOpToNum_def:
   memOpToNum Load = (21:num) ∧
   memOpToNum Load8 = 22 ∧
+  memOpToNum Load16 = 46 ∧
   memOpToNum Load32 = 44 ∧
   memOpToNum Store = 23 ∧
-  memOpToNum Store8 = 24 ∧
-  memOpToNum Store34 = 45
+  memOpToNum Store8 = 47 ∧
+  memOpToNum Store16 = 24 ∧
+  memOpToNum Store32 = 45
 End
 
 Definition fpToNumList_def:
@@ -342,9 +346,11 @@ End
 Definition is_store_def:
   is_store Load = F ∧
   is_store Load8 = F ∧
+  is_store Load16 = F ∧
   is_store Load32 = F ∧
   is_store Store = T ∧
   is_store Store8 = T ∧
+  is_store Store16 = T ∧
   is_store Store32 = T
 End
 
@@ -475,4 +481,3 @@ Definition word_common_subexp_elim_def:
       new_prog
 End
 
-val _ = export_theory ();

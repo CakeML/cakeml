@@ -1,12 +1,13 @@
 (*
   Properties about BVI and its semantics
 *)
-open preamble bviSemTheory;
-local open bvlPropsTheory in end;
+Theory bviProps
+Ancestors
+  bviSem bvlProps[qualified]
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"bviProps";
 
 Theorem initial_state_simp[simp]:
    (initial_state f c co cc k).code = c ∧
@@ -745,4 +746,3 @@ Definition good_code_labels_def:
     BIGUNION (set (MAP (get_code_labels o SND o SND) p)) ⊆ set (MAP FST p) ∪ elabs
 End
 
-val _ = export_theory();

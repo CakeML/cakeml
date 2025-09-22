@@ -3,9 +3,11 @@
   that overate over machine words, a list-like stack and a flat memory.
   This is the language where register allocation is performed.
 *)
-open preamble asmTheory stackLangTheory;
-
-val _ = new_theory "wordLang";
+Theory wordLang
+Ancestors
+  stackLang
+Libs
+  preamble
 
 Type shift = ``:ast$shift``
 
@@ -315,4 +317,3 @@ Datatype:
   word_loc = Word ('a word) | Loc num num
 End
 
-val _ = export_theory();

@@ -1,15 +1,14 @@
 (*
   Correctness proof for lab_to_target
 *)
-open preamble ffiTheory BasicProvers
-     wordSemTheory labSemTheory labPropsTheory
-     lab_to_targetTheory
-     lab_filterProofTheory
-     asmTheory asmSemTheory asmPropsTheory
-     targetSemTheory targetPropsTheory
-local open stack_removeProofTheory in end
+Theory lab_to_targetProof
+Ancestors
+  ffi wordSem labSem labProps lab_to_target lab_filterProof asm
+  asmSem asmProps targetSem targetProps
+  stack_removeProof[qualified]
+Libs
+  preamble BasicProvers
 
-val _ = new_theory "lab_to_targetProof";
 val drule = old_drule
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
@@ -7580,6 +7579,11 @@ Proof
           rw[good_dimindex_def] >>
           rw[word_to_bytes_def,
              CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV word_to_bytes_aux_def]) >>
+    ‘∀x:'a word. TAKE 2 (word_to_bytes x F) = word_to_bytes_aux 2 x F’
+      by (qhdtm_x_assum ‘good_dimindex’ mp_tac >>
+          rw[good_dimindex_def] >>
+          rw[word_to_bytes_def,
+             CONV_RULE numLib.SUC_TO_NUMERAL_DEFN_CONV word_to_bytes_aux_def]) >>
     ‘∀x:'a word. TAKE 4 (word_to_bytes x F) = word_to_bytes_aux 4 x F’
       by (qhdtm_x_assum ‘good_dimindex’ mp_tac >>
           rw[good_dimindex_def] >>
@@ -10506,4 +10510,3 @@ Proof
   fs[good_code_def]
 QED
 
-val _ = export_theory();

@@ -66,10 +66,6 @@ particular:
 - a list of how CakeML differs from SML and OCaml, and,
 - a number of small CakeML code examples.
 
-[icing](icing):
-Main implementation directory for the RealCake development, presented in
-"Verified Compilation and Optimization of Floating-Point Programs"
-
 [misc](misc):
 Auxiliary files providing glue between a standard HOL installation
 and what we want to use for CakeML development.

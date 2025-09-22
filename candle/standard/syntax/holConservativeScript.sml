@@ -1,9 +1,11 @@
 (*
   Functions and proofs about expanding constant definitions.
 *)
-open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
-
-val _ = new_theory "holConservative";
+Theory holConservative
+Ancestors
+  holSyntaxLib holSyntax holSyntaxExtra
+Libs
+  preamble
 
 (*
 
@@ -620,4 +622,3 @@ QED
 
 *)
 
-val _ = export_theory ();

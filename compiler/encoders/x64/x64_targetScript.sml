@@ -1,10 +1,11 @@
 (*
   Define the target compiler configuration for x64.
 *)
-open HolKernel Parse boolLib bossLib
-open asmLib x64_stepTheory;
-
-val () = new_theory "x64_target"
+Theory x64_target
+Ancestors
+  asmProps x64_step
+Libs
+  asmLib
 
 val () = wordsLib.guess_lengths()
 
@@ -109,12 +110,16 @@ Definition x64_ast_def:
       [Zmov (Z_ALWAYS, Z64, ld r1 r2 a)]) /\
    (x64_ast (Inst (Mem Load32 r1 (Addr r2 a))) =
       [Zmov (Z_ALWAYS, Z32, ld r1 r2 a)]) /\
+   (x64_ast (Inst (Mem Load16 r1 (Addr r2 a))) =
+      [Zmovzx (Z16, ld r1 r2 a, Z64)]) /\
    (x64_ast (Inst (Mem Load8 r1 (Addr r2 a))) =
       [Zmovzx (Z8 T, ld r1 r2 a, Z64)]) /\
    (x64_ast (Inst (Mem Store r1 (Addr r2 a))) =
       [Zmov (Z_ALWAYS, Z64, st r1 r2 a)]) /\
    (x64_ast (Inst (Mem Store32 r1 (Addr r2 a))) =
       [Zmov (Z_ALWAYS, Z32, st r1 r2 a)]) /\
+   (x64_ast (Inst (Mem Store16 r1 (Addr r2 a))) =
+      [Zmov (Z_ALWAYS, Z16, st r1 r2 a)]) /\
    (x64_ast (Inst (Mem Store8 r1 (Addr r2 a))) =
       [Zmov (Z_ALWAYS, Z8 (3 < r1), st r1 r2 a)]) /\
 (**)
@@ -227,6 +232,7 @@ Definition x64_config_def:
     ; big_endian := F
     ; valid_imm := \b i. ^min32 <= i /\ i <= ^max32
     ; addr_offset := (^min32, ^max32)
+    ; hw_offset := (^min32, ^max32)
     ; byte_offset := (^min32, ^max32)
     ; jump_offset := (^min32 + 13w, ^max32 + 5w)
     ; cjump_offset := (^min32 + 13w, ^max32 + 5w)
@@ -261,5 +267,3 @@ Theorem x64_config =
   x64_config
 Theorem x64_asm_ok =
   x64_asm_ok
-
-val () = export_theory ()

@@ -1,17 +1,15 @@
 (*
   Prove perms theorems for kernel functions
  *)
+Theory candle_kernel_perms
+Libs
+  preamble helperLib ml_progLib
+Ancestors
+  candle_kernel_vals perms misc[qualified] semanticPrimitives
+  semanticPrimitivesProps sptree evaluate namespaceProps
+  evaluateProps candle_kernelProg candle_prover_inv
+  ml_hol_kernel_funsProg ast_extras
 
-open preamble helperLib;
-open semanticPrimitivesTheory semanticPrimitivesPropsTheory sptreeTheory
-     evaluateTheory namespacePropsTheory evaluatePropsTheory
-     candle_kernel_valsTheory candle_kernelProgTheory;
-open candle_prover_invTheory;
-open permsTheory ml_hol_kernel_funsProgTheory ml_progLib ast_extrasTheory;
-
-val _ = new_theory "candle_kernel_perms";
-
-val _ = set_grammar_ancestry ["candle_kernel_vals", "perms", "misc"];
 
 val eval_nsLookup_tac =
   rewrite_tac [ml_progTheory.nsLookup_merge_env]
@@ -81,25 +79,64 @@ Proof
   rw[perms_ok_def, ListProgTheory.every_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
 QED
 
-Theorem perms_ok_qsort_part_v[simp]:
-  perms_ok ps ListProg$qsort_part_v
+Theorem perms_ok_sort2_tail_v[simp]:
+  perms_ok ps ListProg$sort2_tail_v
 Proof
-  rw[perms_ok_def, ListProgTheory.qsort_part_v_def, astTheory.pat_bindings_def,
-     perms_ok_env_def]
+  rw[perms_ok_def, ListProgTheory.sort2_tail_v_def, astTheory.pat_bindings_def,perms_ok_env_def]
 QED
 
-Theorem perms_ok_qsort_acc_v[simp]:
-  perms_ok ps ListProg$qsort_acc_v
+Theorem perms_ok_sort3_tail_v[simp]:
+  perms_ok ps ListProg$sort3_tail_v
 Proof
-  rw[perms_ok_def, ListProgTheory.qsort_acc_v_def, astTheory.pat_bindings_def,perms_ok_env_def]
+  rw[perms_ok_def, ListProgTheory.sort3_tail_v_def, astTheory.pat_bindings_def,perms_ok_env_def]
+QED
+
+Theorem perms_ok_div2_v[simp]:
+  perms_ok ps ListProg$div2_v
+Proof
+  rw[perms_ok_def, ListProgTheory.div2_v_def, astTheory.pat_bindings_def,perms_ok_env_def]
+QED
+
+Theorem perms_ok_rev_1_v[simp]:
+  perms_ok ps ListProg$rev_1_v
+Proof
+  rw[perms_ok_def, ListProgTheory.rev_1_v_def, astTheory.pat_bindings_def,perms_ok_env_def]
+QED
+
+Theorem perms_ok_drop_1_v[simp]:
+  perms_ok ps ListProg$drop_1_v
+Proof
+  rw[perms_ok_def, ListProgTheory.drop_1_v_def, astTheory.pat_bindings_def,perms_ok_env_def]
+QED
+
+Theorem perms_ok_merge_tail[simp]:
+  perms_ok ps ListProg$merge_tail_v
+Proof
+  rw[perms_ok_def, ListProgTheory.merge_tail_v_def, astTheory.pat_bindings_def,perms_ok_env_def]
   \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
 
-Theorem perms_ok_qsort_v[simp]:
-  perms_ok ps ListProg$qsort_v
+Theorem perms_ok_mergesortn_tail_v[simp]:
+  perms_ok ps ListProg$mergesortn_tail_v
 Proof
-  rw[perms_ok_def, ListProgTheory.qsort_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
+  rw[perms_ok_def, ListProgTheory.mergesortn_tail_v_def, astTheory.pat_bindings_def,perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[]
+QED
+
+Theorem perms_ok_mergesort_tail_v[simp]:
+  perms_ok ps ListProg$mergesort_tail_v
+Proof
+  rw[perms_ok_def, ListProgTheory.mergesort_tail_v_def, astTheory.pat_bindings_def,perms_ok_env_def]
+  \\ pop_assum mp_tac \\ eval_nsLookup_tac
+  \\ rw[]
+QED
+
+Theorem perms_ok_sort_v[simp]:
+  perms_ok ps ListProg$sort_v
+Proof
+  rw[perms_ok_def, ListProgTheory.sort_v_def, astTheory.pat_bindings_def, perms_ok_env_def]
   \\ pop_assum mp_tac \\ eval_nsLookup_tac
   \\ rw[]
 QED
@@ -1611,6 +1648,3 @@ Theorem evaluate_empty_perms =
   evaluate_kernel_perms_lemma
   |> Q.SPEC ‘{}’
   |> SIMP_RULE (srw_ss()) [];
-
-val _ = export_theory ();
-

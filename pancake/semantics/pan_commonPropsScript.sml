@@ -1,10 +1,11 @@
 (*
   Common Properties for Pancake ILS
 *)
-
-open preamble pan_commonTheory;
-
-val _ = new_theory "pan_commonProps";
+Theory pan_commonProps
+Ancestors
+  misc[qualified] pan_common
+Libs
+  preamble
 
 
 Definition ctxt_max_def:
@@ -800,6 +801,3 @@ Proof
     fs [ALL_DISTINCT_fmap_to_alist_keys]) >>
   gs []
 QED
-
-
-val _ = export_theory();

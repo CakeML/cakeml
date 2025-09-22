@@ -5,9 +5,11 @@
   some bookkeeping during tail-calls to known locations, i.e
   `Call NONE (INL dest) ..`.
 *)
-open preamble stackLangTheory data_to_wordTheory;
-
-val _ = new_theory "stack_rawcall";
+Theory stack_rawcall
+Ancestors
+  stackLang data_to_word
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -109,4 +111,3 @@ Definition compile_def:
       MAP (\(n,b:'a stackLang$prog). (n,comp_top i b)) prog
 End
 
-val _ = export_theory();

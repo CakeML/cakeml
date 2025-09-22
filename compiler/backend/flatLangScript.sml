@@ -15,12 +15,12 @@
   of the constructors rather than the types. Type annotations are
   also gone.
 *)
+Theory flatLang
+Ancestors
+  ast backend_common
+Libs
+  preamble
 
-open preamble astTheory backend_commonTheory
-
-val _ = new_theory "flatLang";
-
-val _ = set_grammar_ancestry ["ast", "backend_common"];
 
 (* Copied from the semantics, but with AallocEmpty missing. GlobalVar ops have
  * been added, also TagLenEq and El for pattern match compilation. *)
@@ -38,6 +38,8 @@ Datatype:
   | FP_uop fp_uop
   | FP_bop fp_bop
   | FP_top fp_top
+  | FpFromWord
+  | FpToWord
   (* Function application *)
   | Opapp
   (* Reference operations *)
@@ -261,4 +263,3 @@ Proof
   \\ rw [SmartIf_def]
 QED
 
-val _ = export_theory ();

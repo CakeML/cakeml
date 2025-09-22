@@ -3,9 +3,11 @@
   table and tries to change calls to known closures into fast C-style
   function calls.
 *)
-open preamble closLangTheory db_varsTheory;
-
-val _ = new_theory "clos_call";
+Theory clos_call
+Ancestors
+  closLang db_vars
+Libs
+  preamble
 
 Definition free_def:
   (free [] = ([],Empty)) /\
@@ -471,4 +473,3 @@ val selftest = let
   val _ = (n = 5) orelse failwith "clos_call implementation broken"
   in tm end
 
-val _ = export_theory();

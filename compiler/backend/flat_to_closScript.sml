@@ -4,11 +4,11 @@
   closLang. It also makes all division-by-zero and out-of-bounds
   exceptions raised explicitly.
 *)
-open preamble flatLangTheory closLangTheory clos_interpTheory;
-
-val _ = new_theory "flat_to_clos"
-
-val _ = set_grammar_ancestry ["flatLang", "closLang", "clos_interp", "backend_common"];
+Theory flat_to_clos
+Ancestors
+  flatLang closLang clos_interp backend_common[qualified]
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -42,7 +42,8 @@ Definition compile_lit_def:
       | Char c => IntOp (Const (& (ORD c)))
       | StrLit s => BlockOp (Constant (ConstStr (mlstring$implode s)))
       | Word8 b => IntOp (Const (& (w2n b)))
-      | Word64 w => BlockOp (Constant (ConstWord64 w))) []
+      | Word64 w => BlockOp (Constant (ConstWord64 w))
+      | Float64 w => BlockOp (Constant (ConstWord64 w))) []
 End
 
 Definition arg1_def:
@@ -190,6 +191,8 @@ Definition compile_op_def:
     | Shift x1 x2 x3 => Op t (WordOp (WordShift x1 x2 x3)) xs
     | Opw x1 x2 => Op t (WordOp (WordOpw x1 x2)) xs
     | Eval => Op t Install xs (* if need to flip:  Let t xs (Op t Install [Var t 1; Var t 0]) *)
+    | FpFromWord => Let None xs (Var None 0)
+    | FpToWord => Let None xs (Var None 0)
     | _ => Let None xs (Var None 0)
 End
 
@@ -328,4 +331,3 @@ Proof
   \\ Cases_on `compile m [x]` \\ fs []
 QED
 
-val _ = export_theory()

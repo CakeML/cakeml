@@ -1,11 +1,14 @@
 (*
    Basic specification of an xlrup checker (minimal optimization)
 *)
-open preamble miscTheory mlstringTheory cnf_extTheory blastLib sptreeTheory mergesortTheory mlvectorTheory;
+Theory xlrup
+Libs
+  preamble blastLib
+Ancestors
+  mlvector mllist sptree misc cnf_ext bitstring[qualified]
+  mlstring mergesort
 
-val _ = new_theory "xlrup";
-
-val _ = set_grammar_ancestry ["mlvector","sptree","misc","cnf_ext","bitstring"]
+val _ = temp_bring_to_front_overload "range" {Name="range", Thy="misc"};
 
 (* Internal representations *)
 Type cclause = ``:int list``;
@@ -1127,7 +1130,7 @@ End
 
 Definition mk_strict_def:
   mk_strict ls =
-  case mergesort_tail (\x y. x ≥ y) ls of
+  case sort (\x y. x ≥ y) ls of
     [] => []
   | (x::xs) => mk_strict_aux x xs []
 End
@@ -1261,27 +1264,24 @@ Proof
   \\ Cases_on ‘h’ \\ gvs [var_lit_def,lit_le_def]
 QED
 
-Triviality SORTED_mergesort_tail_lit_le:
-  SORTED lit_le (mergesort_tail lit_le cs)
+Triviality SORTED_sort_lit_le:
+  SORTED lit_le (sort lit_le cs)
 Proof
-  DEP_REWRITE_TAC[mergesort_tail_correct]>>
-  CONJ_ASM1_TAC
-  >- simp[lit_le_def,total_def,transitive_def]>>
-  irule mergesort_sorted >>
-  simp[]
+  DEP_REWRITE_TAC[sort_SORTED]>>
+  simp[lit_le_def,total_def,transitive_def]
 QED
 
 Definition conv_bnn_def:
   conv_bnn ((cs,k,y):cmsbnn) =
     let init_n = (case cs of [] => 0 | (c::cs) => var_lit c) in
       case to_vector (& k) 0 0 init_n cs [] of
-      | NONE => conv_bnn ((mergesort_tail lit_le cs,k,y):cmsbnn)
+      | NONE => conv_bnn ((sort lit_le cs,k,y):cmsbnn)
       | SOME (k,lb,ub,vec) => (((init_n,vec),k,lb,ub), OPTION_MAP conv_lit y):ibnn
 Termination
   WF_REL_TAC ‘measure (λ(cs,k,y). if SORTED lit_le cs then 0 else 1:num)’
-  \\ gvs [SORTED_mergesort_tail_lit_le] \\ rw []
+  \\ gvs [SORTED_sort_lit_le] \\ rw []
   \\ irule SORTED_to_vector
-  \\ Cases_on ‘cs’ \\ gvs [lit_le_def,SORTED_mergesort_tail_lit_le]
+  \\ Cases_on ‘cs’ \\ gvs [lit_le_def,SORTED_sort_lit_le]
 End
 
 (* TODO: *)
@@ -2646,13 +2646,9 @@ Proof
   irule mk_strict_aux_SORTED>>
   gvs[]>>
   pop_assum sym_sub_tac>>
-  DEP_REWRITE_TAC[mergesort_tail_correct]>>
-  CONJ_ASM1_TAC
-  >- (
-    simp[total_def,transitive_def]>>
-    intLib.ARITH_TAC)>>
-  irule mergesort_sorted >>
-  simp[]
+  DEP_REWRITE_TAC[sort_SORTED]>>
+  simp[total_def,transitive_def]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem mk_strict_aux_MEM:
@@ -2670,14 +2666,8 @@ Proof
   rw[mk_strict_def]>>
   every_case_tac>>gvs[]>>
   pop_assum mp_tac>>
-  DEP_REWRITE_TAC[mergesort_tail_correct]>>
-  (CONJ_TAC
-  >- (
-    simp[total_def,transitive_def]>>
-    intLib.ARITH_TAC))
-  >- metis_tac[mergesort_mem,MEM]>>
   simp[mk_strict_aux_MEM]>>
-  metis_tac[mergesort_mem,MEM]
+  metis_tac[sort_MEM,MEM]
 QED
 
 Theorem not_sat_lit_inj:
@@ -2912,10 +2902,7 @@ Proof
   >-
    (pop_assum $ qspec_then ‘w’ mp_tac
     \\ impl_tac
-    >-
-     (DEP_REWRITE_TAC [mergesortTheory.mergesort_tail_correct]
-      \\ gvs [mergesortTheory.mergesort_mem,EVERY_MEM]
-      \\ gvs [total_def,transitive_def,lit_le_def])
+    >- gvs[EVERY_MEM,sort_MEM]
     \\ strip_tac \\ gvs []
     \\ simp [Once conv_bnn_def]
     \\ gvs [sat_cmsbnn_def]
@@ -2923,9 +2910,7 @@ Proof
     \\ simp [Once EQ_SYM_EQ]
     \\ irule sortingTheory.PERM_SUM
     \\ irule PERM_MAP
-    \\ DEP_REWRITE_TAC [mergesortTheory.mergesort_tail_correct]
-    \\ gvs [mergesortTheory.mergesort_perm]
-    \\ gvs [total_def,transitive_def,lit_le_def])
+    \\ simp[sort_PERM])
   \\ PairCases_on ‘x’ \\ gvs [wf_ibnn_def,wf_cardc_def]
   \\ conj_tac
   >- (gvs [as_list_def,o_DEF]
@@ -3387,5 +3372,3 @@ Proof
   first_x_assum drule>>
   simp[strxor_aux_c_strxor_aux,MAP_MAP_o,o_DEF]
 QED
-
-val _ = export_theory ();

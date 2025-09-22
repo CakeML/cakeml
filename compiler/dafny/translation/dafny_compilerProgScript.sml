@@ -1,20 +1,14 @@
 (*
   Translates the Dafny to CakeML compiler.
 *)
-
-open preamble
-open ml_translatorLib
-open dafny_freshenProgTheory
-open dafny_compilerTheory
-open cfTacticsLib  (* process_topdecs *)
-open fromSexpTheory  (* listsexp *)
-open stringTheory
-open numposrepTheory
-open simpleSexpTheory
-open ml_translatorTheory
-open simpleSexpParseTheory
-
-val _ = new_theory "dafny_compilerProg";
+Theory dafny_compilerProg
+Ancestors
+  dafny_freshenProg dafny_compiler
+  fromSexp (* listsexp *)
+  string numposrep simpleSexp ml_translator simpleSexpParse
+Libs
+  preamble ml_translatorLib
+  cfTacticsLib (* process_topdecs *)
 
 val _ = translation_extends "dafny_freshenProg";
 
@@ -236,7 +230,6 @@ val r = translate fromSexpTheory.patsexp_def;
 (* TODO 101 automatically added string IMPLODEs *)
 val r = translate fromSexpTheory.opsexp_def;
 val r = translate fromSexpTheory.lopsexp_def;
-val r = translate fromSexpTheory.scsexp_def;
 (* TODO 24 automatically added string IMPLODEs *)
 val r = translate fromSexpTheory.expsexp_def;
 val r = translate fromSexpTheory.type_defsexp_def;
@@ -280,5 +273,3 @@ val prog =
 Definition dafny_compiler_prog_def:
   dafny_compiler_prog = ^prog
 End
-
-val _ = export_theory ();

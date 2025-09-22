@@ -2,13 +2,15 @@
   Define semantics for the Boolean operations and show the definitions are
   correct.
 *)
-open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holBoolSyntaxTheory
-     holSemanticsTheory holSemanticsExtraTheory setSpecTheory
+Theory holBool
+Ancestors
+  holSyntaxLib holSyntax holSyntaxExtra holBoolSyntax
+  holSemantics holSemanticsExtra setSpec
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"holBool"
 
 val _ = Parse.hide "mem";
 
@@ -1309,4 +1311,3 @@ Proof
   simp[apply_abstract,boolean_in_boolset]
 QED
 
-val _ = export_theory()

@@ -1,17 +1,14 @@
 (*
   Correctness proof for flat_to_clos
 *)
-open preamble
-     semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     flatLangTheory flatSemTheory flatPropsTheory backendPropsTheory
-     closLangTheory closSemTheory closPropsTheory flat_to_closTheory
-     clos_interpProofTheory;
-local open helperLib induct_tweakLib in end;
-
-val _ = new_theory"flat_to_closProof"
-
-val _ = set_grammar_ancestry ["misc","ffi","flatProps","closProps",
-                              "flat_to_clos","backendProps","backend_common"];
+Theory flat_to_closProof
+Ancestors
+  misc[qualified] ffi[qualified] flatProps closProps flat_to_clos
+  backendProps backend_common[qualified] semanticPrimitives
+  semanticPrimitivesProps flatLang flatSem closLang closSem
+  clos_interpProof
+Libs
+  preamble helperLib[qualified] induct_tweakLib[qualified]
 
 Theorem LIST_REL_EL: (* TODO: move *)
   !xs ys r.
@@ -32,6 +29,7 @@ Inductive v_rel:
   (!s. v_rel (Litv (StrLit s)) (ByteVector (MAP (n2w o ORD) s))) /\
   (!b. v_rel (Litv (Word8 b)) (Number (& (w2n b)))) /\
   (!w. v_rel (Litv (Word64 w)) (Word64 w)) /\
+  (!f. v_rel (Litv (Float64 f)) (Word64 f)) /\
   (!vs ws. LIST_REL v_rel vs ws ==> v_rel (Conv NONE vs) (Block 0 ws)) /\
   (!vs ws t r. LIST_REL v_rel vs ws ==> v_rel (Conv (SOME (t,r)) vs) (Block t ws)) /\
   (!vs ws. LIST_REL v_rel vs ws ==> v_rel (Vectorv vs) (Block 0 ws)) /\
@@ -61,6 +59,7 @@ Theorem v_rel_def =
    ``v_rel (Litv (Char c)) x1``,
    ``v_rel (Litv (Word8 b)) x1``,
    ``v_rel (Litv (Word64 w)) x1``,
+   ``v_rel (Litv (Float64 w)) x1``,
    ``v_rel (Vectorv y) x1``,
    ``v_rel (Conv x y) x1``,
    ``v_rel (Closure x y z) x1``,
@@ -760,10 +759,21 @@ Theorem op_floats:
   (?f. op = FP_cmp f) \/
   (?f. op = FP_uop f) \/
   (?f. op = FP_bop f) \/
-  (?f. op = FP_top f) ==>
+  (?f. op = FP_top f) \/
+  op = FpToWord \/
+  op = FpFromWord ==>
   ^op_goal
 Proof
-  rw [] \\ Cases_on `f` \\ rveq \\ fs []
+  rw [] >~
+  [‘FpFromWord’]
+  >- (gvs[flatSemTheory.do_app_def, AllCaseEqs(), LENGTH_EQ_NUM_compute,
+          v_rel_def] >>
+      simp[compile_op_def, evaluate_def]) >~
+  [‘FpToWord’]
+  >- (gvs[flatSemTheory.do_app_def, AllCaseEqs(), LENGTH_EQ_NUM_compute,
+          v_rel_def] >>
+      simp[compile_op_def, evaluate_def]) >> (* 4 *)
+  Cases_on `f` \\ rveq \\ fs []
   \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
          CaseEq "ast$lit",store_assign_def,option_case_eq,CaseEq "store_v"]
   \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
@@ -1009,15 +1019,15 @@ Proof
   THEN1
    (fs [integerTheory.int_le] \\ rename [`~(i4 < 0)`]
     \\ Cases_on `i4 < 0` \\ fs [] \\ rveq \\ fs [subscript_exn_v_def,v_rel_def]
-    \\ rename [`i4 < &LENGTH str`] \\ fs [GREATER_EQ,GSYM NOT_LESS]
-    \\ `Num (ABS i4) < STRLEN str <=> i4 < &STRLEN str` by intLib.COOPER_TAC \\ fs []
+    \\ rename [`i4 < &LENGTH s₁`] \\ fs [GREATER_EQ,GSYM NOT_LESS]
+    \\ `Num (ABS i4) < STRLEN s₁ <=> i4 < &STRLEN s₁` by intLib.COOPER_TAC \\ fs []
     \\ IF_CASES_TAC \\ fs [] \\ rveq \\ fs [v_rel_def]
     \\ Cases_on `i4` \\ fs []
-    \\ fs [EL_MAP,ORD_BOUND] \\ Cases_on `str` \\ fs [EL_MAP,ORD_BOUND])
-  \\ qsuff_tac `!x vs str y.
-        v_to_list x = SOME vs /\ vs_to_string vs = SOME str /\ v_rel x y ==>
+    \\ fs [EL_MAP,ORD_BOUND] \\ Cases_on `s₁` \\ fs [EL_MAP,ORD_BOUND])
+  \\ qsuff_tac `!x vs s₁ y.
+        v_to_list x = SOME vs /\ vs_to_string vs = SOME s₁ /\ v_rel x y ==>
         ?wss. v_to_list y = SOME (MAP ByteVector wss) /\
-              MAP (CHR o w2n) (FLAT wss) = str`
+              MAP (CHR o w2n) (FLAT wss) = s₁`
   THEN1
    (rpt (disch_then drule \\ fs []) \\ strip_tac \\ fs []
     \\ `!xs ys. MAP ByteVector xs = MAP ByteVector ys <=> xs = ys` by
@@ -2204,5 +2214,3 @@ Proof
   simp [inc_compile_decs_def]
   \\ simp [compile_decs_esgc_free,insert_interp_esgc_free]
 QED
-
-val _ = export_theory()

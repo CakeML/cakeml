@@ -1,10 +1,11 @@
 (*
   Syntactic properties used by wordLang across passes.
 *)
-open preamble BasicProvers
-     wordLangTheory asmTheory reg_allocTheory ;
-
-val _ = new_theory "wordConvs";
+Theory wordConvs
+Ancestors
+  wordLang asm reg_alloc
+Libs
+  preamble BasicProvers
 
 (*** Mono and conj lemmas for every_var/every_stack_var ***)
 Theorem every_var_inst_mono:
@@ -222,7 +223,11 @@ Definition inst_ok_less_def:
   (inst_ok_less c (Arith (SubOverflow r1 r2 r3 r4)) ⇔
     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3)) ∧
   (inst_ok_less c (Mem m r (Addr r' w)) ⇔
-    if m IN {Load; Store; Load32; Store32} then addr_offset_ok c w else byte_offset_ok c w) ∧
+     if m IN {Load; Store; Load16; Store16; Load32; Store32}
+     then addr_offset_ok c w
+     else if m IN {Load16; Store16}
+     then hw_offset_ok c w
+     else byte_offset_ok c w) ∧
   (inst_ok_less c (FP (FPLess r d1 d2)) ⇔  fp_reg_ok d1 c ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less c (FP (FPLessEqual r d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less c (FP (FPEqual r d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c)  ∧
@@ -323,8 +328,10 @@ Definition full_inst_ok_less_def:
     case exp_to_addr ad of
     | SOME (Addr _ w) =>
       if op IN {Load; Store; Load32; Store32}
-        then addr_offset_ok c w
-        else byte_offset_ok c w
+      then addr_offset_ok c w
+      else if op IN {Load16; Store16}
+      then hw_offset_ok c w
+      else byte_offset_ok c w
     | NONE => F) ∧
   (full_inst_ok_less c prog ⇔ T)
 End
@@ -588,4 +595,3 @@ Overload word_get_code_labels = ``wordConvs$get_code_labels``
 Overload word_good_handlers = ``wordConvs$good_handlers``
 Overload word_good_code_labels = ``wordConvs$good_code_labels``
 
-val _ = export_theory();

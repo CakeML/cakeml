@@ -1,13 +1,11 @@
 (*
   Simplification of arithmetic in crepLang.
 *)
-open preamble crepLangTheory
-
-val _ = new_theory "crep_arith"
-
-val _ = set_grammar_ancestry
-        ["crepLang"];
-
+Theory crep_arith
+Ancestors
+  crepLang
+Libs
+  preamble
 
 Definition dest_const_def:
   dest_const (Const w) = SOME w /\
@@ -99,12 +97,9 @@ Definition simp_prog_def:
           | NONE => NONE
           | SOME (ix, ep) => SOME (ix, simp_prog ep)
       ) in
-    Call call_type2 (simp_exp e) (MAP simp_exp exps)
+    Call call_type2 e (MAP simp_exp exps)
   ) /\
   simp_prog (Return exp) = Return (simp_exp exp) /\
   simp_prog (ShMem op vn exp) = ShMem op vn (simp_exp exp) /\
   simp_prog p = p
 End
-
-val _ = export_theory();
-

@@ -1,11 +1,12 @@
 (*
   Encoding of sudoku to unordered sets
 *)
+Theory sudoku
+Ancestors
+  misc ASCIInumbers set_sep quantifierExp unorderedSets
+Libs
+  preamble
 
-open preamble miscTheory ASCIInumbersTheory set_sepTheory;
-open quantifierExpTheory unorderedSetsTheory;
-
-val _ = new_theory "sudoku";
 
 (* ------------------------ Types --------------------------- *)
 
@@ -508,4 +509,3 @@ Proof
 QED
 
 
-val _ = export_theory();

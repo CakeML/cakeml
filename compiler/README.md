@@ -21,7 +21,7 @@ pair of output strings for standard error and standard output (the latter
 containing the generated machine code if successful).
 
 [dafny](dafny):
-Translate Dafny into CakeML.
+A verified VCG and verified compiler for Dafny
 
 [encoders](encoders):
 Encoders for CakeML's ASM abstract assembly language into each of the concrete

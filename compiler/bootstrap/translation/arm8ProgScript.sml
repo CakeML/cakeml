@@ -1,6 +1,12 @@
 (*
   Translate the ARMv8 instruction encoder and ARMv8-specific config.
 *)
+Theory arm8Prog
+Ancestors
+  arm8_target arm8 evaluate ml_translator x64Prog
+Libs
+  preamble ml_translatorLib inliningLib
+
 open preamble;
 open evaluateTheory
 open ml_translatorLib ml_translatorTheory;
@@ -9,10 +15,6 @@ open arm8_targetTheory arm8Theory;
 open inliningLib;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = set_grammar_ancestry ["arm8_target", "arm8"];
-
-val _ = new_theory "arm8Prog"
 
 val () = computeLib.set_skip computeLib.the_compset “COND” (SOME 1);
 
@@ -113,7 +115,8 @@ val defaults = [arm8_ast_def, arm8_encode_def, Encode_def,
   EncodeLogicalOp_def, bop_enc_def, e_sf_def, v2w_rw,
   arm8_encode_fail_def, e_load_store_def, arm8_load_store_ast_def,
   e_LoadStoreImmediate_def, e_branch_def, asmSemTheory.is_test_def,
-  cmp_cond_def, dfn'Hint_def, arm8_load_store_ast32_def];
+  cmp_cond_def, dfn'Hint_def,
+  arm8_load_store_ast16_def, arm8_load_store_ast32_def];
 
 val arm8_enc_thms =
   arm8_enc_def
@@ -421,6 +424,9 @@ val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Store a b c =
 val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Store8 a b c =
                     arm8_enc (Inst (Mem Store8 a (Addr b c)))’
   |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Store16 a b c =
+                    arm8_enc (Inst (Mem Store16 a (Addr b c)))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Store32 a b c =
                     arm8_enc (Inst (Mem Store32 a (Addr b c)))’
   |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
@@ -429,6 +435,9 @@ val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Load a b c =
   |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Load8 a b c =
                     arm8_enc (Inst (Mem Load8 a (Addr b c)))’
+  |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
+val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Load16 a b c =
+                    arm8_enc (Inst (Mem Load16 a (Addr b c)))’
   |> SIMP_RULE std_ss [arm8_enc_thm,cases_defs,APPEND]
 val d1 = CONJ d1 $ Define ‘arm8_enc_Mem_Load32 a b c =
                     arm8_enc (Inst (Mem Load32 a (Addr b c)))’
@@ -511,5 +520,3 @@ val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

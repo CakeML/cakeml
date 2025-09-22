@@ -1,15 +1,17 @@
 (*
   Correctness proof for word_bignum
 *)
-open preamble astTheory wordLangTheory wordSemTheory wordPropsTheory tailrecTheory;
-open mc_multiwordTheory set_sepTheory helperLib word_bignumTheory;
+Theory word_bignumProof
+Libs
+  preamble helperLib
+Ancestors
+  mllist ast wordLang wordSem wordProps tailrec mc_multiword
+  set_sep word_bignum
 
 val good_dimindex_def = miscTheory.good_dimindex_def;
 val env_to_list_lookup_equiv = wordPropsTheory.env_to_list_lookup_equiv;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "word_bignumProof";
 
 val shift_def = backend_commonTheory.word_shift_def
 
@@ -349,7 +351,10 @@ QED
 val env_to_list_insert_0_LN = prove(
   ``env_to_list (insert 0 ret_val LN) p = ([0,ret_val],(\n. p (n+1)))``,
   fs [env_to_list_def,toAList_def,Once insert_def,foldi_def]
-  \\ fs [QSORT_DEF,PARTITION_DEF,PART_DEF]
+  \\ fs [sort_def,
+         mergesortTheory.mergesort_tail_def,
+         Once $ mergesortTheory.mergesortN_tail_def
+        ]
   \\ fs [list_rearrange_def] \\ rw []
   \\ fs [BIJ_DEF,EVAL ``count 1``,INJ_DEF,SURJ_DEF]);
 
@@ -404,9 +409,10 @@ val state_rel_IN_FDOM = prove(
   fs [state_rel_def] \\ rw [] \\ fs [FLOOKUP_DEF]);
 
 
-val compile_exp_thm = prove(
-  ``state_rel s1 t1 cs2 t0 frame /\ eval_exp_pre s1 x /\ good_dimindex (:α) ==>
-    word_exp t1 (compile_exp x) = SOME (Word (eval_exp s1 (x:'a wordLang$exp)))``,
+Theorem compile_exp_thm[local]:
+  state_rel s1 t1 cs2 t0 frame /\ eval_exp_pre s1 x /\ good_dimindex (:α) ==>
+  word_exp t1 (compile_exp x) = SOME (Word (eval_exp s1 (x:'a wordLang$exp)))
+Proof
   completeInduct_on `wordLang$exp_size (K 0) x`
   \\ rw [] \\ fs [PULL_FORALL]
   \\ Cases_on `x`
@@ -431,7 +437,8 @@ val compile_exp_thm = prove(
   \\ res_tac \\ fs []
   \\ Cases_on `s`
   \\ fs [word_sh_def,eval_exp_def]
-  \\ fs [good_dimindex_def]);
+  \\ fs [good_dimindex_def]
+QED
 
 val evaluate_SeqTemp = prove(
   ``evaluate (SeqTemp i r p,t) =
@@ -930,6 +937,7 @@ Proof
     \\ Cases_on `a = n1` \\ fs []
     \\ Cases_on `a = n2` \\ fs []
     \\ strip_tac \\ res_tac \\ fs [])
+
   THEN1 (* Loop *)
    (fs [compile_def]
     \\ fs [syntax_ok_def,syntax_ok_aux_def]
@@ -975,7 +983,6 @@ Proof
       \\ CONJ_TAC >- (irule wf_insert \\ fs[])
       \\ fs[domain_fromAList]
       \\ fs[toAList_def,foldi_def]
-      \\ fs[QSORT_DEF]
       \\ fs[list_rearrange_def]
       \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t8)`
       \\ qexists_tac `t8` \\ fs []
@@ -1024,7 +1031,6 @@ Proof
     \\ CONJ_TAC >- (irule wf_insert \\ fs[])
     \\ fs[domain_fromAList]
     \\ fs[toAList_def,foldi_def]
-    \\ fs[QSORT_DEF]
     \\ fs[list_rearrange_def]
     \\ Q.MATCH_GOALSUB_ABBREV_TAC `(p9,t8)`
     \\ qexists_tac `t8` \\ fs []
@@ -2214,5 +2220,3 @@ Theorem evaluate_mc_iop =
   |> SIMP_RULE std_ss [code_subset_refl]
   |> Q.GENL [`i1`,`i2`,`l'`,`frame`,`zs`,`t`,`ret_val`,
              `n`,`l`,`iop`,`p1`,`l1`,`i'`,`cs`]
-
-val _ = export_theory();
