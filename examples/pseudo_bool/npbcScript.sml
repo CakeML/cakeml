@@ -630,7 +630,6 @@ Proof
   simp[b2n_def]
 QED
 
-(*** HERE ***)
 Theorem weaken_aux_theorem:
   ∀vs l n l' n' a.
   n ≤ &SUM (MAP (eval_term w) l) + a ∧
@@ -667,61 +666,6 @@ Proof
     ‘b2n (w l) ≤ 1’ by simp[b2n_le]>>
     simp[arithmeticTheory.GREATER_EQ])>>
   gvs[intLib.ARITH_PROVE “(a:int) + b + c = a + (b + c)”]
-QED
-
-(* alternative proof *)
-Proof
-  ho_match_mp_tac weaken_aux_ind>>
-  rw[weaken_aux_def]>>
-  rpt (pairarg_tac \\ fs[])>>
-  every_case_tac \\ fs[] \\ rw[]>>
-  qmatch_goalsub_abbrev_tac‘SUM A’>>
-  qmatch_asmsub_abbrev_tac‘SUM B + C’>>
-  gvs[intLib.ARITH_PROVE “&((B:num) + C) = &B + &C”]>>
-  last_x_assum kall_tac
-  >>~[‘_ ≤ &SUM A + a’]>>
-  TRY (
-  last_x_assum irule>>
-  fs[intLib.ARITH_PROVE “(a:int) + b + c = a + c + b”]>>
-  qmatch_goalsub_abbrev_tac‘_ ≤ rhs’>>
-  simp[Abbr ‘C’]>>
-  qmatch_asmsub_abbrev_tac‘Num _ * D’>>
-  ‘&(Num (ABS c) * D) ≤ ABS c’ suffices_by intLib.ARITH_TAC>>
-  simp[GSYM integerTheory.INT_GE,GSYM integerTheory.Num_EQ_ABS]>>
-  simp[intLib.ARITH_PROVE “int_of_num a ≥ int_of_num b ⇔ a ≥ b”]>>
-  ‘b2n (w l) ≤ 1’ by simp[b2n_le]>>
-  simp[Abbr ‘D’,arithmeticTheory.GREATER_EQ])>>
-  gvs[intLib.ARITH_PROVE “(a:int) + b + c = a + (b + c)”]
-QED
-
-(*
-*** ORIGINAL PROOF ***
-Proof
-ho_match_mp_tac weaken_aux_ind \\ rw[weaken_aux_def]
-  \\ rpt (pairarg_tac \\ fs[])
-  \\ every_case_tac \\ fs[] \\ rw[]
-  \\ qmatch_goalsub_abbrev_tac`SUM A`
-  \\ TRY(qmatch_goalsub_abbrev_tac`B + SUM A`)
-  \\ TRY(qmatch_goalsub_abbrev_tac`SUM A + B`)
-  >- (
-    qmatch_goalsub_abbrev_tac` _ ≤ rhs`
-    \\ `rhs = (a + B) + SUM A` by
-      (unabbrev_all_tac>>
-      simp[])
-    \\ pop_assum SUBST1_TAC
-    \\ first_x_assum match_mp_tac
-    \\ fs[])
-  >- (
-    first_x_assum irule
-    \\ Cases_on`w l`
-    \\ gvs[])
-  \\ qmatch_goalsub_abbrev_tac` _ ≤ rhs`
-  \\ `rhs = (a + B) + SUM A` by
-    (unabbrev_all_tac>>
-    simp[])
-  \\ pop_assum SUBST1_TAC
-  \\ fs[]
-*)
 QED
 
 (* set a = 0 *)
@@ -1025,12 +969,11 @@ Theorem check_contradiction_unsat:
 Proof
   Cases_on`c`>>
   rename1`(l,n)`>>
-  rw[check_contradiction_def,satisfies_npbc_def,GREATER_EQ,GSYM NOT_LESS]>>
-  cheat
-  (*
-  irule LESS_EQ_LESS_TRANS >>
-  pop_assum $ irule_at Any >>
-  fs [lslack_thm] *)
+  rw[check_contradiction_def,satisfies_npbc_def,GREATER_EQ,GSYM NOT_LESS,
+    integerTheory.INT_NOT_LE]>>
+  irule integerTheory.INT_LET_TRANS>>
+  goal_assum $ drule_at Any>>
+  simp[lslack_thm]
 QED
 
 (* constraint c1 implies constraint c2 *)
