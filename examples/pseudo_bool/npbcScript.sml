@@ -557,14 +557,14 @@ QED
 Theorem saturate_thm:
   satisfies_npbc w c ⇒ satisfies_npbc w (saturate c)
 Proof
-  cheat
-  (*
   Cases_on ‘c’ \\ rename1`(l,n)` \\ fs [saturate_def]
-  \\ rw [satisfies_npbc_def,GREATER_EQ]
+  \\ rw [satisfies_npbc_def]
+  \\ Cases_on ‘n’ \\ fs[]
+  \\ rename1 ‘m ≤ _’
   \\ `∀a.
-      n ≤ SUM (MAP (eval_term w) l) + a ⇒
-      n ≤ SUM (MAP (eval_term w) (MAP (λ(c,v). (abs_min c n,v)) l)) + a` by (
-    pop_assum kall_tac
+      m ≤ SUM (MAP (eval_term w) l) + a ⇒
+      m ≤ SUM (MAP (eval_term w) (MAP (λ(c,v). (abs_min c m,v)) l)) + a` by (
+    pop_assum kall_tac \\ pop_assum kall_tac
     \\ Induct_on`l` \\ simp[] \\ Cases
     \\ simp[]
     \\ rw[]
@@ -575,23 +575,21 @@ Proof
     \\ rw[] >> fs[]
     \\ Cases_on`w r` \\ fs[b2n_def]
     \\ rfs[] )
-  \\ pop_assum (qspec_then`0` assume_tac) \\ fs[] *)
+  \\ pop_assum (qspec_then`0` assume_tac) \\ fs[]
 QED
 
 Theorem compact_saturate:
   compact c ⇒ compact (saturate c)
 Proof
-  cheat
-  (*
   Cases_on ‘c’ \\  rename1`(l,n)` \\
   reverse (rw [saturate_def,compact_def])
   THEN1 (
     gvs [EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] \\
-    rw[abs_min_def] )
+    rw[abs_min_def] \\ fs[] )
   \\ Induct_on ‘l’ \\ fs [FORALL_PROD]
   \\ Cases_on ‘l’ \\ fs []
   \\ Cases_on ‘t’ \\ fs []
-  \\ PairCases_on ‘h’ \\ fs [] *)
+  \\ PairCases_on ‘h’ \\ fs []
 QED
 
 (*
@@ -625,15 +623,81 @@ Definition weaken_def:
   weaken ((l,n):npbc) vs = weaken_aux vs l n
 End
 
+Triviality b2n_le:
+  0 ≤ b2n b ∧ b2n b ≤ 1
+Proof
+  Cases_on ‘b’>>
+  simp[b2n_def]
+QED
+
+(*** HERE ***)
 Theorem weaken_aux_theorem:
   ∀vs l n l' n' a.
   n ≤ &SUM (MAP (eval_term w) l) + a ∧
   weaken_aux vs l n = (l',n') ⇒
   n' ≤ &SUM (MAP (eval_term w) l') + a
 Proof
-  cheat
-  (*
-  ho_match_mp_tac weaken_aux_ind \\ rw[weaken_aux_def]
+  ho_match_mp_tac weaken_aux_ind>>
+  rw[weaken_aux_def]>>
+  rpt (pairarg_tac \\ fs[])>>
+  every_case_tac \\ fs[] \\ rw[]>>
+  qmatch_goalsub_abbrev_tac‘SUM A’>>
+  qmatch_asmsub_abbrev_tac‘SUM B + C’>>
+  gvs[intLib.ARITH_PROVE “&((B:num) + C) = &B + &C”]>>
+  last_x_assum kall_tac
+  >>~[‘_ ≤ &SUM A + a’]
+  >-(
+    last_x_assum irule>>
+    fs[intLib.ARITH_PROVE “(a:int) + b + c = a + c + b”]>>
+    qmatch_goalsub_abbrev_tac‘_ ≤ rhs’>>
+    simp[Abbr ‘C’]>>
+    qmatch_asmsub_abbrev_tac‘Num _ * D’>>
+    ‘&(Num (ABS c) * D) ≤ ABS c’ suffices_by intLib.ARITH_TAC>>
+    simp[Abbr ‘D’]>>
+    ‘0n ≤ b2n (w l) ∧ b2n (w l) ≤ 1n’ suffices_by intLib.COOPER_TAC>>
+    simp[b2n_le])
+  >-(
+    last_x_assum irule>>
+    fs[intLib.ARITH_PROVE “(a:int) + b + c = a + c + b”]>>
+    qmatch_goalsub_abbrev_tac‘_ ≤ rhs’>>
+    simp[Abbr ‘C’]>>
+    ‘&(Num (ABS c) * b2n (w l)) ≤ ABS c’ suffices_by intLib.ARITH_TAC>>
+    simp[GSYM integerTheory.INT_GE,GSYM integerTheory.Num_EQ_ABS]>>
+    simp[intLib.ARITH_PROVE “int_of_num a ≥ int_of_num b ⇔ a ≥ b”]>>
+    ‘b2n (w l) ≤ 1’ by simp[b2n_le]>>
+    simp[arithmeticTheory.GREATER_EQ])>>
+  gvs[intLib.ARITH_PROVE “(a:int) + b + c = a + (b + c)”]
+QED
+
+(* alternative proof *)
+Proof
+  ho_match_mp_tac weaken_aux_ind>>
+  rw[weaken_aux_def]>>
+  rpt (pairarg_tac \\ fs[])>>
+  every_case_tac \\ fs[] \\ rw[]>>
+  qmatch_goalsub_abbrev_tac‘SUM A’>>
+  qmatch_asmsub_abbrev_tac‘SUM B + C’>>
+  gvs[intLib.ARITH_PROVE “&((B:num) + C) = &B + &C”]>>
+  last_x_assum kall_tac
+  >>~[‘_ ≤ &SUM A + a’]>>
+  TRY (
+  last_x_assum irule>>
+  fs[intLib.ARITH_PROVE “(a:int) + b + c = a + c + b”]>>
+  qmatch_goalsub_abbrev_tac‘_ ≤ rhs’>>
+  simp[Abbr ‘C’]>>
+  qmatch_asmsub_abbrev_tac‘Num _ * D’>>
+  ‘&(Num (ABS c) * D) ≤ ABS c’ suffices_by intLib.ARITH_TAC>>
+  simp[GSYM integerTheory.INT_GE,GSYM integerTheory.Num_EQ_ABS]>>
+  simp[intLib.ARITH_PROVE “int_of_num a ≥ int_of_num b ⇔ a ≥ b”]>>
+  ‘b2n (w l) ≤ 1’ by simp[b2n_le]>>
+  simp[Abbr ‘D’,arithmeticTheory.GREATER_EQ])>>
+  gvs[intLib.ARITH_PROVE “(a:int) + b + c = a + (b + c)”]
+QED
+
+(*
+*** ORIGINAL PROOF ***
+Proof
+ho_match_mp_tac weaken_aux_ind \\ rw[weaken_aux_def]
   \\ rpt (pairarg_tac \\ fs[])
   \\ every_case_tac \\ fs[] \\ rw[]
   \\ qmatch_goalsub_abbrev_tac`SUM A`
@@ -656,7 +720,8 @@ Proof
     (unabbrev_all_tac>>
     simp[])
   \\ pop_assum SUBST1_TAC
-  \\ fs[]*)
+  \\ fs[]
+*)
 QED
 
 (* set a = 0 *)
