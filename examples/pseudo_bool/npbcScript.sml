@@ -3,7 +3,7 @@
 *)
 Theory npbc
 Ancestors
-  pbc
+  pbc integer
 Libs
   preamble
 
@@ -134,13 +134,13 @@ Proof
   rw[add_terms_def,AllCaseEqs(),offset_def]>>
   Cases_on`x`>>Cases_on`y`>>gvs[]>>
   TRY (
-    fs[integerTheory.INT_ADD_CALCULATE]>>
+    fs[INT_ADD_CALCULATE]>>
     Cases_on`w v`>>gs[]>> NO_TAC)
   >- (
    Cases_on`w v`>>gs[]>>
    intLib.ARITH_TAC)>>
   `n < n'` by intLib.ARITH_TAC>>
-  simp[integerTheory.INT_ADD_CALCULATE]>>
+  simp[INT_ADD_CALCULATE]>>
   Cases_on`w v`>>gs[]
 QED
 
@@ -292,7 +292,7 @@ Theorem IQ_quot:
   j ≠ 0 ⇒
   IQ i j = i quot j
 Proof
-  simp[integerTheory.int_quot,IQ_def]
+  simp[int_quot,IQ_def]
 QED
 
 Theorem div_ceiling_compute:
@@ -437,14 +437,14 @@ Definition not_def:
 End
 
 Theorem ADD_SUB':
-  B ≥ C ⇒
+  C ≤ B ⇒
   A + (B - C) = A + B - C
 Proof
   rw[]
 QED
 
-Theorem ABS_coeff_ge:
-  SUM (MAP (λi. Num (ABS (FST i))) l) ≥ SUM (MAP (eval_term w) l)
+Theorem ABS_coeff_le:
+  SUM (MAP (eval_term w) l) ≤ SUM (MAP (λi. Num (ABS (FST i))) l)
 Proof
   Induct_on`l`>>fs[FORALL_PROD]>>rw[]
   \\ Cases_on ‘w p_2’ \\ fs []
@@ -461,7 +461,7 @@ Proof
   \\ TRY (last_x_assum (fn th => rewrite_tac [GSYM th]) \\ gvs [] \\ NO_TAC)
   \\ Cases_on ‘p_1’ \\ gvs []
   \\ DEP_REWRITE_TAC[ADD_SUB']
-  \\ metis_tac[ABS_coeff_ge]
+  \\ metis_tac[ABS_coeff_le]
 QED
 
 Theorem not_thm:
@@ -470,7 +470,7 @@ Proof
   Cases_on ‘c’ \\ fs [not_def,satisfies_npbc_def,GREATER_EQ]
   \\ simp[not_lhs]
   \\ rename1`~ (_ ≤ &SUM (MAP _ l))`
-  \\ assume_tac ABS_coeff_ge
+  \\ assume_tac ABS_coeff_le
   \\ intLib.ARITH_TAC
 QED
 
@@ -623,13 +623,6 @@ Definition weaken_def:
   weaken ((l,n):npbc) vs = weaken_aux vs l n
 End
 
-Triviality b2n_le:
-  0 ≤ b2n b ∧ b2n b ≤ 1
-Proof
-  Cases_on ‘b’>>
-  simp[b2n_def]
-QED
-
 Theorem weaken_aux_theorem:
   ∀vs l n l' n' a.
   n ≤ &SUM (MAP (eval_term w) l) + a ∧
@@ -641,31 +634,16 @@ Proof
   rpt (pairarg_tac \\ fs[])>>
   every_case_tac \\ fs[] \\ rw[]>>
   qmatch_goalsub_abbrev_tac‘SUM A’>>
+  qmatch_asmsub_abbrev_tac‘SUM B + (Num (ABS c) * _)’>>
   qmatch_asmsub_abbrev_tac‘SUM B + C’>>
-  gvs[intLib.ARITH_PROVE “&((B:num) + C) = &B + &C”]>>
-  last_x_assum kall_tac
-  >>~[‘_ ≤ &SUM A + a’]
-  >-(
-    last_x_assum irule>>
-    fs[intLib.ARITH_PROVE “(a:int) + b + c = a + c + b”]>>
-    qmatch_goalsub_abbrev_tac‘_ ≤ rhs’>>
-    simp[Abbr ‘C’]>>
-    qmatch_asmsub_abbrev_tac‘Num _ * D’>>
-    ‘&(Num (ABS c) * D) ≤ ABS c’ suffices_by intLib.ARITH_TAC>>
-    simp[Abbr ‘D’]>>
-    ‘0n ≤ b2n (w l) ∧ b2n (w l) ≤ 1n’ suffices_by intLib.COOPER_TAC>>
-    simp[b2n_le])
-  >-(
-    last_x_assum irule>>
-    fs[intLib.ARITH_PROVE “(a:int) + b + c = a + c + b”]>>
-    qmatch_goalsub_abbrev_tac‘_ ≤ rhs’>>
-    simp[Abbr ‘C’]>>
-    ‘&(Num (ABS c) * b2n (w l)) ≤ ABS c’ suffices_by intLib.ARITH_TAC>>
-    simp[GSYM integerTheory.INT_GE,GSYM integerTheory.Num_EQ_ABS]>>
-    simp[intLib.ARITH_PROVE “int_of_num a ≥ int_of_num b ⇔ a ≥ b”]>>
-    ‘b2n (w l) ≤ 1’ by simp[b2n_le]>>
-    simp[arithmeticTheory.GREATER_EQ])>>
-  gvs[intLib.ARITH_PROVE “(a:int) + b + c = a + (b + c)”]
+  `&C ≤ ABS c` by (
+    fs[Abbr`C`,oneline b2n_def]>>
+    rw[]>>
+    Cases_on`c`>>fs[])>>
+  gvs[GSYM INT_OF_NUM_ADD]>>
+  PURE_ONCE_REWRITE_TAC[GSYM INT_ADD_ASSOC] >>
+  last_x_assum irule>>
+  intLib.ARITH_TAC
 QED
 
 (* set a = 0 *)
@@ -1311,7 +1289,7 @@ Definition obj_constraint_def:
   obj_constraint f (l,b:int) =
     let (result, k) = subst_lhs f (MAP (λ(c,l). (-c,l)) l) in
     let (add,n) = add_lists l result in
-    (add, SUM (MAP (λi. Num (ABS (FST i))) l) - (k + n))
+    (add, &SUM (MAP (λi. Num (ABS (FST i))) l) - &n - k)
 End
 
 (* Preserving satisfiability and optimality *)
@@ -1379,20 +1357,6 @@ Proof
   rw[eval_obj_def]
 QED
 
-Theorem add_ge:
-  x ≥ y - z ⇔
-  x + z ≥ y
-Proof
-  rw[]
-QED
-
-Theorem add_ge_2:
-  y ≥ z ⇒
-  (x + (y-z) ≥ y ⇔ x ≥ z)
-Proof
-  rw[]
-QED
-
 Theorem satisfies_npbc_obj_constraint:
   satisfies_npbc s (obj_constraint w obj) ⇔
   eval_obj (SOME obj) (assign w s) ≤ eval_obj (SOME obj) s
@@ -1401,18 +1365,16 @@ Proof
   rename1`(obj,c)`>>
   rw[obj_constraint_def,eval_obj_def]>>
   rpt(pairarg_tac>>fs[])>>
-  simp[satisfies_npbc_def,add_ge]>>
-  `n + SUM (MAP (eval_term s) add') = SUM (MAP (eval_term s) add') + n` by fs[]>>
-  pop_assum SUBST_ALL_TAC>>
+  simp[satisfies_npbc_def]>>
   drule add_lists_thm >>
-  disch_then(qspec_then `s` sym_sub_tac)>>
-  `k + (SUM (MAP (eval_term s) obj) + SUM (MAP (eval_term s) result)) = SUM (MAP (eval_term s) obj) + (SUM (MAP (eval_term s) result) + k)` by fs[]>>
-  pop_assum SUBST_ALL_TAC>>
+  disch_then(qspec_then `s` assume_tac)>>
   drule subst_lhs_thm>>
-  disch_then(qspec_then `s` sym_sub_tac)>>
-  simp[not_lhs]>>
-  DEP_REWRITE_TAC [add_ge_2]>>
-  simp[ABS_coeff_ge]
+  disch_then(qspec_then `s` mp_tac)>>
+  simp[not_lhs,int_arithTheory.INT_NUM_SUB]>>
+  rw[]
+  >-
+    metis_tac[ABS_coeff_le,NOT_LESS]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem substitution_redundancy_obj:
