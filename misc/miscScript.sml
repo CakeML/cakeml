@@ -2293,8 +2293,8 @@ QED
 Theorem OLEAST_SOME_IMP:
    $OLEAST P = SOME i ⇒ P i ∧ (∀n. n < i ⇒ ¬P n)
 Proof
-  simp[whileTheory.OLEAST_def]
-  \\ metis_tac[whileTheory.LEAST_EXISTS_IMP]
+  simp[WhileTheory.OLEAST_def]
+  \\ metis_tac[WhileTheory.LEAST_EXISTS_IMP]
 QED
 
 Theorem EXP2_EVEN:

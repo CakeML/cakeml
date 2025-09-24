@@ -1941,7 +1941,7 @@ Proof
   \\ rw []
   \\ first_x_assum (qspec_then `j` mp_tac)
   \\ simp [extract_oracle_def]
-  \\ DEEP_INTRO_TAC whileTheory.OLEAST_INTRO
+  \\ DEEP_INTRO_TAC WhileTheory.OLEAST_INTRO
   \\ rpt strip_tac
   >- (
     first_x_assum (qspec_then `k` mp_tac)
@@ -2009,8 +2009,8 @@ Triviality extract_oracle_SOME_SUC:
   IS_SOME (extract_oracle s env decs i)
 Proof
   simp [extract_oracle_def]
-  \\ DEEP_INTRO_TAC whileTheory.OLEAST_INTRO
-  \\ DEEP_INTRO_TAC whileTheory.OLEAST_INTRO
+  \\ DEEP_INTRO_TAC WhileTheory.OLEAST_INTRO
+  \\ DEEP_INTRO_TAC WhileTheory.OLEAST_INTRO
   \\ rw []
   \\ simp [UNCURRY]
   \\ res_tac
@@ -2025,7 +2025,7 @@ Triviality extract_oracle_0_st:
   FST (SND r) = ci.config_v ci.init_state
 Proof
   simp [extract_oracle_def]
-  \\ DEEP_INTRO_TAC whileTheory.OLEAST_INTRO
+  \\ DEEP_INTRO_TAC WhileTheory.OLEAST_INTRO
   \\ simp [UNCURRY]
   \\ rw []
   \\ Cases_on `evaluate_decs (s with clock := n) env decs`
@@ -2068,7 +2068,7 @@ Proof
         SUC i < FST (FST ((orac_s t'.eval_state).oracle 0))`)
   >- (
     rpt (POP_ASSUM (mp_tac o REWRITE_RULE [extract_oracle_def]))
-    \\ DEEP_INTRO_TAC whileTheory.OLEAST_INTRO
+    \\ DEEP_INTRO_TAC WhileTheory.OLEAST_INTRO
     \\ rw []
     \\ metis_tac []
   )

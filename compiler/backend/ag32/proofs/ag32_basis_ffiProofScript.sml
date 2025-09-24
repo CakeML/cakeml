@@ -2147,7 +2147,7 @@ Proof
   >- (
     rw[bytes_in_memory_APPEND]
     \\ rw[get_next_mem_arg_LEAST]
-    \\ simp[whileTheory.OLEAST_def]
+    \\ simp[WhileTheory.OLEAST_def]
     \\ reverse IF_CASES_TAC
     >- ( fs[SNOC_APPEND, bytes_in_memory_APPEND, bytes_in_memory_def] )
     \\ simp[]
@@ -2169,7 +2169,7 @@ Proof
   \\ first_x_assum drule
   \\ disch_then drule
   \\ rw[]
-  \\ simp[get_next_mem_arg_LEAST, whileTheory.OLEAST_def]
+  \\ simp[get_next_mem_arg_LEAST, WhileTheory.OLEAST_def]
   \\ reverse IF_CASES_TAC
   >- ( fs[SNOC_APPEND, bytes_in_memory_APPEND, bytes_in_memory_def] )
   \\ simp[]
@@ -2403,7 +2403,7 @@ Proof
     \\ qpat_x_assum`a' = a`SUBST_ALL_TAC
     \\ qpat_x_assum`a = _`(assume_tac o SYM)
     \\ simp[Abbr`s1`, APPLY_UPDATE_THM]
-    \\ simp[whileTheory.OLEAST_def]
+    \\ simp[WhileTheory.OLEAST_def]
     \\ simp[GSYM CONJ_ASSOC]
     \\ conj_asm1_tac
     >- (
