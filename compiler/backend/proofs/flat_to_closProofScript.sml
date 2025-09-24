@@ -550,7 +550,7 @@ Theorem state_rel_LEAST:
 Proof
   fs [state_rel_def,store_rel_def] \\ rw []
   \\ ho_match_mp_tac
-    (whileTheory.LEAST_ELIM
+    (WhileTheory.LEAST_ELIM
      |> ISPEC ``\x. x = LENGTH s1.refs``
      |> CONV_RULE (DEPTH_CONV BETA_CONV))
   \\ fs [] \\ rpt strip_tac \\ fs [FLOOKUP_DEF]

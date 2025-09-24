@@ -741,7 +741,7 @@ Proof
   \\ ‘p ≠ new_p ∧ new_p ∉ FDOM s.refs’ by
     (`∃x. (λptr. ptr NOTIN FDOM (s.refs |+ (p,ARB))) x` by
           (SIMP_TAC std_ss [] \\ METIS_TAC [NUM_NOT_IN_FDOM])
-     \\ drule whileTheory.LEAST_INTRO \\ fs [])
+     \\ drule WhileTheory.LEAST_INTRO \\ fs [])
   \\ fs []
   \\ simp [Abbr‘s1’,FLOOKUP_UPDATE,Abbr‘new_refs’,inc_clock_def]
   \\ disch_then $ qspecl_then [‘T’,‘T’,‘LENGTH ls’] mp_tac
@@ -1548,6 +1548,7 @@ Theorem eval_ind_alt:
         P (xs,env,s) ⇒
         P ([Let xs x2],env,s)) ∧
      (∀x1 env s. P ([x1],env,s) ⇒ P ([Raise x1],env,s)) ∧
+     (∀op xs env s. P (xs,env,s) ⇒ P ([Op op xs],env,s)) ∧
      (∀x1 x2 env s1.
         (∀v3 s v8 v.
            evaluate ([x1],env,s1) = (v3,s) ∧ v3 = Rerr v8 ∧
@@ -1555,7 +1556,6 @@ Theorem eval_ind_alt:
            P ([x2],v::env,s)) ∧
         (∀xs env. list_size exp_size xs <= exp_size x1 ⇒ P (xs,env,s1)) ⇒
         P ([Handle x1 x2],env,s1)) ∧
-     (∀op xs env s. P (xs,env,s) ⇒ P ([Op op xs],env,s)) ∧
      (∀x env s.
         (s.clock ≠ 0 ⇒ P ([x],env,dec_clock 1 s)) ⇒
         P ([Tick x],env,s)) ∧
@@ -2241,12 +2241,12 @@ Proof
       \\ `~(x IN FDOM s5.refs)` by
        (`?p. (\ptr. ptr NOTIN FDOM s5.refs) p` by
           (SIMP_TAC std_ss [] \\ METIS_TAC [NUM_NOT_IN_FDOM])
-        \\ IMP_RES_TAC whileTheory.LEAST_INTRO \\ full_simp_tac(srw_ss())[]
+        \\ IMP_RES_TAC WhileTheory.LEAST_INTRO \\ full_simp_tac(srw_ss())[]
         \\ REV_FULL_SIMP_TAC std_ss [])
       \\ `~(y IN FDOM t2.refs)` by
        (`?p. (\ptr. ptr NOTIN FDOM t2.refs) p` by
           (SIMP_TAC std_ss [] \\ METIS_TAC [NUM_NOT_IN_FDOM])
-        \\ IMP_RES_TAC whileTheory.LEAST_INTRO
+        \\ IMP_RES_TAC WhileTheory.LEAST_INTRO
         \\ full_simp_tac(srw_ss())[bvi_to_bvl_def]
         \\ REV_FULL_SIMP_TAC (srw_ss()) [bvi_to_bvl_def])
       \\ full_simp_tac(srw_ss())[]
@@ -2345,12 +2345,12 @@ Proof
       \\ `~(x IN FDOM s5.refs)` by
        (`?p. (\ptr. ptr NOTIN FDOM s5.refs) p` by
           (SIMP_TAC std_ss [] \\ METIS_TAC [NUM_NOT_IN_FDOM])
-        \\ IMP_RES_TAC whileTheory.LEAST_INTRO \\ full_simp_tac(srw_ss())[]
+        \\ IMP_RES_TAC WhileTheory.LEAST_INTRO \\ full_simp_tac(srw_ss())[]
         \\ REV_FULL_SIMP_TAC std_ss [])
       \\ `~(y IN FDOM t2.refs)` by
        (`?p. (\ptr. ptr NOTIN FDOM t2.refs) p` by
           (SIMP_TAC std_ss [] \\ METIS_TAC [NUM_NOT_IN_FDOM])
-        \\ IMP_RES_TAC whileTheory.LEAST_INTRO
+        \\ IMP_RES_TAC WhileTheory.LEAST_INTRO
         \\ full_simp_tac(srw_ss())[bvi_to_bvl_def]
         \\ REV_FULL_SIMP_TAC (srw_ss()) [bvi_to_bvl_def])
       \\ full_simp_tac(srw_ss())[]
@@ -2439,12 +2439,12 @@ Proof
       \\ `~(x IN FDOM s5.refs)` by
        (`?p. (\ptr. ptr NOTIN FDOM s5.refs) p` by
           (SIMP_TAC std_ss [] \\ METIS_TAC [NUM_NOT_IN_FDOM])
-        \\ IMP_RES_TAC whileTheory.LEAST_INTRO \\ full_simp_tac(srw_ss())[]
+        \\ IMP_RES_TAC WhileTheory.LEAST_INTRO \\ full_simp_tac(srw_ss())[]
         \\ REV_FULL_SIMP_TAC std_ss [])
       \\ `~(y IN FDOM t2.refs)` by
        (`?p. (\ptr. ptr NOTIN FDOM t2.refs) p` by
           (SIMP_TAC std_ss [] \\ METIS_TAC [NUM_NOT_IN_FDOM])
-        \\ IMP_RES_TAC whileTheory.LEAST_INTRO
+        \\ IMP_RES_TAC WhileTheory.LEAST_INTRO
         \\ full_simp_tac(srw_ss())[bvi_to_bvl_def]
         \\ REV_FULL_SIMP_TAC (srw_ss()) [bvi_to_bvl_def])
       \\ full_simp_tac(srw_ss())[]

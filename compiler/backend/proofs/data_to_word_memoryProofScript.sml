@@ -4,7 +4,7 @@
 Theory data_to_word_memoryProof
 Ancestors
   dataSem dataProps wordSem data_to_word gc_shared gc_combined
-  word_gcFunctions copying_gc int_bitwise set_sep labSem while
+  word_gcFunctions copying_gc int_bitwise set_sep labSem While
   alignment multiword
 Libs
   preamble helperLib blastLib[qualified]
