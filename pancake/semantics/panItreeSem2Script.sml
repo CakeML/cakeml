@@ -2260,7 +2260,8 @@ Proof
       fs[]>>strip_tac>>
             imp_res_tac comp_ffi_bind>>gvs[])
   (* Call *)
-  >- (rpt (TOP_CASE_TAC>>fs[])>>
+  >- (
+     rpt (TOP_CASE_TAC>>fs[])>>
       TRY (rename [‘Ret _ = FUNPOW Tau n _’]>>
            Cases_on ‘n’>>fs[FUNPOW_SUC]>>gvs[]>>NO_TAC)>>
       Cases_on ‘k=0’>>fs[]>>
@@ -2901,12 +2902,12 @@ Proof
   Cases_on ‘n’>>gvs[FUNPOW_SUC]>>
   simp[bst_def,empty_locals_defs,set_var_defs]
 QED
-
+(*
 Theorem div_imp_timeout:
 div fs (mrec h_prog (h_prog (p, bst s))) ⇒
 ∃t. evaluate (p,s with clock := k) = (SOME TimeOut, t)
 Proof
-  rpt strip_tac >>
+
   spose_not_then strip_assume_tac >>
   Cases_on ‘evaluate (p, s with clock := k)’ >>
   rename [‘_ = (res,st)’] >>fs[]>>
@@ -2919,73 +2920,81 @@ Proof
   imp_res_tac ltree_lift_corres_evaluate >>
   gvs[]
 QED
-
+*)
 (**************************)
 
 Definition trace_prefix'_def:
-  trace_prefix' (x,x') (th:'a ptree) =
+  trace_prefix' fs (th:'a ptree) =
   LFLATTEN $ LUNFOLD
-  (λ(fs,t). case t of
+  (λ(fst,t). case t of
                Ret r => NONE
-             | Tau u => SOME ((fs,u),LNIL)
+             | Tau u => SOME ((fst,u),LNIL)
              | Vis (s,conf,ws) k =>
-                 (case x s fs conf ws of
+                 (case (FST fs) s fst conf ws of
                   | Oracle_return fs' ws' =>
                       if LENGTH ws ≠ LENGTH ws'
-                      then SOME ((fs', k (INL (INR ws'))),LNIL)
+                      then SOME ((fst, k (INL (INL FFI_failed))),LNIL)
                       else
                         SOME ((fs',k (INL (INR ws'))),[|IO_event s conf (ZIP (ws,ws'))|])
                   | Oracle_final outcome =>
-                      SOME ((fs, k (INL (INR ws))),LNIL)))
-  (x',th)
+                      SOME ((fst, k (INL (INL outcome))),LNIL)))
+  (SND fs,th)
 End
 
 Theorem trace_prefix_simps[simp]:
-  trace_prefix' (x,x') (Ret r) = [||] ∧
-  trace_prefix' (x,x') (Tau u) = trace_prefix' (x,x') u ∧
-  trace_prefix' (x,x') (Vis (s,c,ws) k) =
-    case x s x' c ws of
+  trace_prefix' fs (Ret r) = [||] ∧
+  trace_prefix' fs (Tau u) = trace_prefix' fs u ∧
+  trace_prefix' fs (Vis (s,c,ws) k) =
+    case (FST fs) s (SND fs) c ws of
     | Oracle_return fs' ws' =>
         if LENGTH ws ≠ LENGTH ws'
-        then trace_prefix' (x,fs') (k (INL (INR ws')))
+        then trace_prefix' fs (k (INL (INL FFI_failed)))
         else
-          IO_event s c (ZIP (ws,ws')):::trace_prefix' (x,fs') (k (INL (INR ws')))
-    | Oracle_final outcome => trace_prefix' (x,x') (k (INL (INR ws)))
+          IO_event s c (ZIP (ws,ws')):::trace_prefix' (FST fs,fs') (k (INL (INR ws')))
+    | Oracle_final outcome => trace_prefix' fs (k (INL (INL outcome)))
 Proof
   rw[trace_prefix'_def]>>
   simp[Once LUNFOLD]>>
-  CASE_TAC>>fs[]>>
-  CASE_TAC>>fs[]
+  rpt (CASE_TAC>>fs[])
 QED
 
 (****)
 
 Theorem trace_prefix_bind_append:
-  (∃n. ltree (x,x') t = FUNPOW Tau n (Ret r)) ⇒
-  trace_prefix' (x,x') (itree_bind t k) =
-    LAPPEND (trace_prefix' (x,x') t) (trace_prefix' (x,SND (comp_ffi (x,x') t)) (k r))
+  (∃n. ltree fs t = FUNPOW Tau n (Ret r)) ⇒
+  trace_prefix' fs (itree_bind t k) =
+    LAPPEND (trace_prefix' fs t) (trace_prefix' (FST fs,SND (comp_ffi fs t)) (k r))
 Proof
   simp[PULL_EXISTS]>>
-  map_every qid_spec_tac [‘x'’,‘r’,‘k’,‘t’] >>
+  map_every qid_spec_tac [‘fs’,‘r’,‘k’,‘t’] >>
   Induct_on ‘n’ >>
   rw[FUNPOW_SUC]
   >- (Cases_on ‘t’ >> fs[]>>
       PairCases_on ‘a’>>fs[]>>
-      CASE_TAC>>fs[])>>
+      rpt (CASE_TAC>>fs[]))>>
   Cases_on ‘t’ >> fs[] >>
   PairCases_on ‘a’>>fs[]>>
-  rpt (CASE_TAC>>fs[])
+  rpt (CASE_TAC>>fs[])>>
+  last_x_assum $ qspecl_then [‘g (INL (INR l))’,‘k’,‘r’,‘(FST fs,f)’] assume_tac>>gvs[]
+QED
+
+Theorem trace_prefix'_FUNPOW_Tau[simp]:
+  trace_prefix' fs (FUNPOW Tau n t) = trace_prefix' fs t
+Proof
+  map_every qid_spec_tac [‘fs’,‘t’,‘n’]>>
+  Induct>>rw[FUNPOW_SUC]>>simp[]
 QED
 
 (**************************)
 
-Theorem evaluate_trace_prefix:
-  evaluate (p,s) = (r,t) ∧
-  ltree (s.ffi.oracle,s.ffi.ffi_state) (mrec h_prog (h_prog (p,bst s)))
-  = FUNPOW Tau n (Ret (INR (r, bst t))):'a ptree ⇒
-  ∃io.
-    toList (trace_prefix' (s.ffi.oracle,s.ffi.ffi_state) (mrec h_prog (h_prog (p,bst s)))) = SOME io ∧
-    t.ffi.io_events = s.ffi.io_events ++ io
+Theorem evaluate_nondiv_trace_eq:
+  evaluate (p,s) = (r,t) ∧ r ≠ SOME TimeOut
+(*  ltree (s.ffi.oracle,s.ffi.ffi_state) (mrec h_prog (h_prog (p,bst s)))
+  = FUNPOW Tau n (Ret (INR (r, bst t))):'a ptree *) ⇒
+(*  LFINITE (trace_prefix' (s.ffi.oracle,s.ffi.ffi_state) (mrec h_prog (h_prog (p,bst s)))) ∧*)
+  fromList t.ffi.io_events =
+  LAPPEND (fromList s.ffi.io_events)
+          (trace_prefix' (s.ffi.oracle,s.ffi.ffi_state) (mrec h_prog (h_prog (p,bst s))))
 Proof
   cheat
 QED
