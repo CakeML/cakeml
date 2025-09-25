@@ -1281,8 +1281,6 @@ Proof
   metis_tac[]
 QED
 
-(* TODO: Broken below here *)
-
 (* the solution improving constraint is given by
   l + -l|w ≥ 0 *)
 Definition obj_constraint_def:

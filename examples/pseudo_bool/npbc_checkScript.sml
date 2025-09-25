@@ -5,7 +5,7 @@ Theory npbc_check
 Libs
   preamble
 Ancestors
-  npbc mlstring mlint mlvector mllist spt_to_vec mergesort
+  npbc mlstring mlint mlvector mllist spt_to_vec mergesort integer
 
 val _ = numLib.temp_prefer_num();
 
@@ -28,25 +28,8 @@ val _ = numLib.temp_prefer_num();
          Includes objective updates, core transfer, checked deletion, dominance
 *)
 
-(* TODO: move *)
-Theorem lookup_spt_size:
-  ∀n x a. lookup n x = SOME a ⇒ ∀f. f a < spt_size f x
-Proof
-  recInduct lookup_ind \\ rw []
-  \\ gvs [lookup_def,spt_size_def,AllCaseEqs()]
-  \\ first_x_assum (qspec_then ‘f’ assume_tac) \\ fs []
-QED
-
-Theorem MEM_list_size:
-  ∀xs x. MEM x xs ⇒ ∀f. f x < list_size f xs
-Proof
-  Induct \\ fs [list_size_def] \\ rw [] \\ fs [] \\ res_tac
-  \\ first_x_assum (qspec_then ‘f’ assume_tac) \\ fs []
-QED
-
 (* pbp = pseudo-boolean proof format
-  Below, nums represent ConstraintIds, which are 1-indexed (although 0s internally work fine)
-*)
+  Below, nums represent ConstraintIds, which are 1-indexed (although 0s internally work fine) *)
 
 (* A constraint to be added by a cutting planes proof *)
 Datatype:
@@ -118,11 +101,17 @@ Definition to_triv_def:
   (to_triv (Add l r) =
     let ll = to_triv l in
     let rr = to_triv r in
-    case (ll,rr) of
-      (Triv lt, Triv rt) => Triv (SmartAppend lt rt)
-    | (Triv lt, Add re (Triv rt)) => Add re (Triv (SmartAppend lt rt))
-    | (Add le (Triv lt), Triv rt) => Add le (Triv (SmartAppend lt rt))
-    | (Add le (Triv lt), Add re (Triv rt)) => Add (Add le re) (Triv (SmartAppend lt rt))
+    case ll of
+      Triv lt =>
+        (case rr of
+          Triv rt => Triv (SmartAppend lt rt)
+        | Add re (Triv rt) => Add re (Triv (SmartAppend lt rt))
+        | _ => Add rr ll)
+    | Add le (Triv lt) =>
+        (case rr of
+          Triv rt => Add le (Triv (SmartAppend lt rt))
+        | Add re (Triv rt) => Add (Add le re) (Triv (SmartAppend lt rt))
+        | _ => Add (Add le rr) (Triv lt))
     | _ => Add ll rr) ∧
   (to_triv (Mul c k) =
     let cc = to_triv c in
@@ -142,6 +131,7 @@ Definition sing_lit_def:
   | Neg v => (-&k:int,v)
 End
 
+(* TODO: might be possible to speedup *)
 Definition clean_triv_def:
   clean_triv ls =
     FOLDR (λpc1 c2.
@@ -190,8 +180,10 @@ Definition check_cutting_def:
     else NONE) ∧
   (check_cutting b fml (Sat c) =
     OPTION_MAP saturate (check_cutting b fml c)) ∧
-  (check_cutting b fml (Lit (Pos v)) = SOME ([(1,v)],0)) ∧
-  (check_cutting b fml (Lit (Neg v)) = SOME ([(-1,v)],0)) ∧
+  (check_cutting b fml (Lit l) =
+    case l of
+      Pos v => SOME ([(1,v)],0)
+    | Neg v => SOME ([(-1,v)],0)) ∧
   (check_cutting b fml (Triv ls) = SOME (clean_triv ls)) ∧
   (check_cutting b fml (Weak c var) =
     OPTION_MAP (λc. weaken_sorted c var) (check_cutting b fml c))
@@ -235,7 +227,11 @@ End
   return NONE if it gives a contradiction
   otherwise return the updated assignment using units in (ls,n) *)
 Definition update_assg_def:
-  update_assg assg (ls,n) do_check =
+  update_assg assg (ls,n:int) do_check =
+    if n ≤ 0
+    then SOME assg
+    else
+    let n = Num(ABS n) in
     let (max,ls1) = rup_pass1 assg ls 0 [] in
       if max < n ∧ do_check then NONE else
         rup_pass2 assg max ls1 n
@@ -346,40 +342,48 @@ Theorem check_cutting_correct:
   satisfies w (core_only_fml b fml) ⇒
   satisfies_npbc w c
 Proof
-  Induct_on`n`>>rw[check_cutting_def]
+  Induct_on`n`
+  >~[`Id`]
   >- (
-    (*Id case*)
+    rw[check_cutting_def]>>
     fs[lookup_core_only_def,core_only_fml_def]>>
     every_case_tac>>
     fs[satisfies_def,satisfies_npbc_def,range_def,PULL_EXISTS]>>
     metis_tac[])
+  >~[`Add`]
   >- (
-    (* add case *)
+    rw[check_cutting_def]>>
     match_mp_tac add_thm>>
     metis_tac[])
- >- (
-    (* multiply case *)
+  >~[`Mul`]
+  >- (
+    rw[check_cutting_def]>>
     match_mp_tac multiply_thm>>
     metis_tac[])
+  >~[`Div`]
   >- (
-    (* divide case *)
+    rw[check_cutting_def]>>
     match_mp_tac divide_thm>>
     metis_tac[])
+  >~[`Sat`]
   >- (
-    (* saturate case *)
+    rw[check_cutting_def]>>
     match_mp_tac saturate_thm>>
     metis_tac[])
+  >~[`Lit`]
   >- (
-    (* literal case *)
-    Cases_on`l`>>fs[check_cutting_def]>>rveq>>
-    EVAL_TAC)
+    rw[check_cutting_def,AllCaseEqs()]>>
+    EVAL_TAC>>simp[])
+  >~[`Weak`]
   >- (
-    (* weaken case *)
+    rw[check_cutting_def]>>
     simp[weaken_sorted_def]>>
     match_mp_tac weaken_thm>>
     metis_tac[])
-  >-
-    metis_tac[clean_triv_thm]
+  >~[`Triv`]
+  >- (
+    rw[check_cutting_def]>>
+    metis_tac[clean_triv_thm])
 QED
 
 Theorem FOLDR_add_compact:
@@ -436,7 +440,7 @@ Proof
 QED
 
 Definition id_ok_def:
-  id_ok fml id = ∀n. id ≤ n ⇒ n ∉ domain fml
+  id_ok fml id = ∀n:num. id ≤ n ⇒ n ∉ domain fml
 End
 
 Theorem sat_implies_refl[simp]:
@@ -474,7 +478,7 @@ QED
 
 Theorem id_ok_insert_1:
   id_ok fml id ⇒
-  id_ok (insert id c fml) (id+1)
+  id_ok (insert id c fml) (id+1n)
 Proof
   rw[id_ok_def]
 QED
@@ -606,7 +610,9 @@ Proof
   \\ pairarg_tac \\ gvs []
   \\ drule_all rup_pass1_thm \\ strip_tac
   \\ gvs [AllCaseEqs()]
-  >- gvs [satisfies_npbc_def,GREATER_EQ,GSYM NOT_LESS]
+  >- (
+    gvs [satisfies_npbc_def,INT_NOT_LE]>>
+    intLib.ARITH_TAC)
   \\ CCONTR_TAC \\ gvs [lslack_def]
   (* two subgoals *)
   \\ (qsuff_tac
@@ -628,10 +634,11 @@ Proof
   \\ pairarg_tac \\ gvs []
   \\ drule_all rup_pass1_thm \\ strip_tac
   \\ gvs [AllCaseEqs()]
-  \\ gvs [satisfies_npbc_def,GREATER_EQ,EVAL “lslack []”]
+  \\ gvs [satisfies_npbc_def,EVAL “lslack []”]
   \\ irule rup_pass2_thm
   \\ last_x_assum $ irule_at Any
   \\ gvs [SF SFY_ss]
+  \\ intLib.ARITH_TAC
 QED
 
 Theorem check_rup_unsat:
@@ -1057,7 +1064,7 @@ End
   only one we will need) *)
 Definition extract_scope_val_def:
   extract_scope_val scopt ⇔
-  scopt = NONE ∨ scopt = SOME 0
+  scopt = NONE ∨ scopt = SOME 0n
 End
 
 (* For a fixed scope value, extract the pids up to that scope *)
@@ -1082,14 +1089,14 @@ Definition list_pair_eq_def:
 End
 
 Definition equal_constraint_def:
-  equal_constraint (x2,x3) ((y2,y3):(int # num) list # num) ⇔
+  equal_constraint (x2,x3) ((y2,y3):(int # num) list # int) ⇔
     if x3 = y3 then
       list_pair_eq x2 y2
     else F
 End
 
 Definition mem_constraint_def:
-  mem_constraint (c:(int # num) list # num) [] = F ∧
+  mem_constraint (c:(int # num) list # int) [] = F ∧
   mem_constraint c (x::xs) =
     if equal_constraint c x then T else mem_constraint c xs
 End
@@ -1110,7 +1117,7 @@ End
 Definition split_goals_def:
   split_goals (fml:npbc num_map)
     (extra:npbc) (proved:num_set)
-    (goals:(num # (int # num) list # num) list) =
+    (goals:(num # (int # num) list # int) list) =
   let (lp,lf) =
     PARTITION (λ(i,c). sptree$lookup i proved ≠ NONE) goals in
   let proved = MAP SND lp in
@@ -2646,20 +2653,15 @@ Definition check_obj_def:
   else NONE
 End
 
-Definition nn_int_def:
-  nn_int i = if i < 0 then 0:num else Num i
-End
-
 (* For a bound b, the model improving constraint is
-  f ≤ b-1 = f < b = not (f ≥ b)
-*)
+  f ≤ b-1 = f < b = not (f ≥ b) *)
 Definition model_improving_def:
   model_improving fopt (v:int) =
   case fopt of
     SOME (f,c) =>
-       not ((f,nn_int(v-c)):npbc)
+       not ((f,v-c):npbc)
   | _ =>
-       not (([],nn_int v):npbc)
+       not (([],v):npbc)
 End
 
 Theorem satisfies_npbc_model_improving:
@@ -2668,7 +2670,7 @@ Theorem satisfies_npbc_model_improving:
 Proof
   fs[model_improving_def,eval_obj_def]>>
   every_case_tac>>
-  rw[not_thm,satisfies_npbc_def,nn_int_def]>>
+  rw[not_thm,satisfies_npbc_def]>>
   intLib.ARITH_TAC
 QED
 
@@ -3009,16 +3011,8 @@ Definition model_bounding_def:
   model_bounding (f,c:int) (f',c':int) =
   let (add,n) = add_lists f' (MAP (λ(c,l). (-c,l)) f) in
     (add,
-      nn_int(&SUM (MAP (λi. Num (ABS (FST i))) f) - &n + c - c'))
+      &SUM (MAP (λi. Num (ABS (FST i))) f) - &n + c - c')
 End
-
-Theorem ge_nn_int:
-  n ≥ nn_int i ⇔
-  &n ≥ i
-Proof
-  rw[nn_int_def]>>
-  intLib.ARITH_TAC
-QED
 
 Theorem satisfies_npbc_model_bounding:
   satisfies_npbc w (model_bounding fc fc') ⇔
@@ -3029,19 +3023,12 @@ Proof
   Cases_on`fc'`>>rename1`_ ≤ eval_obj (SOME (f',c')) _`>>
   fs[model_bounding_def,eval_obj_def]>>
   rpt(pairarg_tac>>fs[])>>
-  simp[satisfies_npbc_def,add_ge]>>
+  simp[satisfies_npbc_def]>>
   drule add_lists_thm >>
   disch_then(qspec_then`w` assume_tac)>>
-  fs[not_lhs,ge_nn_int]>>
-  `SUM (MAP (eval_term w) f') +
-  SUM (MAP (λi. Num (ABS (FST i))) f) =
-  SUM (MAP (eval_term w) f) + (n + SUM (MAP (eval_term w) add'))` by
-    (pop_assum sym_sub_tac>>
-    DEP_REWRITE_TAC[ADD_SUB]>>
-    simp[]>>
-    CONJ_ASM1_TAC>-
-      metis_tac[ABS_coeff_ge]>>
-    simp[])>>
+  fs[not_lhs]>>
+  `SUM (MAP (eval_term w) f) ≤ SUM (MAP (λi. Num (ABS (FST i))) f)` by
+    metis_tac[ABS_coeff_le]>>
   intLib.ARITH_TAC
 QED
 
