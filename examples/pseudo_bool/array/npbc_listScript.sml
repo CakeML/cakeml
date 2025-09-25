@@ -128,6 +128,11 @@ End
 
 Definition update_assg_list_def:
   update_assg_list assg (ls,n) =
+    if n ≤ 0
+    then
+      ([],assg,T)
+    else
+    let n = Num (ABS n) in
     let (max,ls1,m) = rup_pass1_list assg ls 0 [] 0 in
     let assg1 = resize_to_fit m assg in
       rup_pass2_list assg1 max ls1 n []
@@ -148,8 +153,10 @@ Definition check_rup_loop_list_def:
     | NONE => (F,assg,all_changes,T)
     | SOME c =>
         if NULL ns then
+          if SND c ≤ 0 then (F,assg,all_changes,T)
+          else
           let (max,ls1,m) = rup_pass1_list assg (FST c) 0 [] 0 in
-            (max < SND c,assg,all_changes,T)
+            (max < Num (ABS (SND c)),assg,all_changes,T)
         else
           let (new_changes,assg,pre) = update_assg_list assg c in
           let all_changes = new_changes ++ all_changes in
@@ -546,6 +553,8 @@ Triviality update_assg_list_pre:
 Proof
   rpt gen_tac \\ PairCases_on ‘x’
   \\ gvs [update_assg_list_def]
+  \\ IF_CASES_TAC
+  >- gvs[]
   \\ pairarg_tac \\ gvs [] \\ strip_tac
   \\ drule rup_pass1_list_pre \\ gvs [] \\ strip_tac
   \\ drule rup_pass2_list_pre \\ fs []
@@ -581,7 +590,12 @@ Proof
   \\ rpt gen_tac \\ TOP_CASE_TAC \\ gvs []
   >- (strip_tac \\ gvs [])
   \\ IF_CASES_TAC
-  >- (pairarg_tac \\ gvs [] \\ strip_tac \\ gvs [])
+  >- (
+    IF_CASES_TAC
+    >- (
+      rw[]>>
+      metis_tac[])
+    >- (pairarg_tac \\ gvs [] \\ strip_tac \\ gvs []))
   \\ pairarg_tac \\ gvs []
   \\ strip_tac
   \\ drule update_assg_list_pre \\ strip_tac
@@ -703,11 +717,11 @@ Theorem update_assg_list_invs:
 Proof
   rpt gen_tac \\ strip_tac \\ PairCases_on ‘x’
   \\ gvs [update_assg_list_def]
+  \\ Cases_on`x1 ≤ 0` \\ gvs[]
   \\ rpt (pairarg_tac \\ gvs [])
   \\ imp_res_tac rup_pass1_list_pre \\ gvs []
   \\ dxrule_then dxrule rup_pass1_list_invs
   \\ impl_tac >- simp [] \\ strip_tac \\ gvs []
-  \\ Cases_on ‘max' < x1’ \\ gvs []
   \\ dxrule_then dxrule rup_pass2_list_invs
   \\ reverse impl_tac >- (strip_tac \\ gvs [])
   \\ gvs []
@@ -831,6 +845,7 @@ Proof
   \\ rpt (pairarg_tac \\ gvs [])
   \\ PairCases_on ‘c’
   \\ gvs [update_assg_list_def,update_assg_def]
+  \\ TRY(IF_CASES_TAC \\ gvs[] >- metis_tac[])
   \\ rpt (pairarg_tac \\ gvs [])
   \\ drule_then drule rup_pass1_list_thm
   \\ (impl_tac >- simp [] \\ strip_tac \\ gvs [])
@@ -1193,7 +1208,7 @@ End
 
 Definition hash_constraint_def:
   hash_constraint (c,n) =
-  ((n + h_base * hash_list c) MOD h_mod) MOD splim
+  ((Num (ABS n) + h_base * hash_list c) MOD h_mod) MOD splim
 End
 
 Definition mk_hashset_def:
@@ -1254,7 +1269,7 @@ End
   as much as possible *)
 Definition split_goals_hash_def:
   split_goals_hash fmlls extra (proved:num_set)
-    (goals:(num # (int # num) list # num) list) =
+    (goals:(num # (int # num) list # int) list) =
   let (lp,lf) =
     PARTITION (λ(i,c). lookup i proved ≠ NONE) goals in
   let lf = FILTER (λc. ¬check_triv extra (not c)) (MAP SND lf) in
@@ -1364,7 +1379,7 @@ Theorem subst_aux_no_INR_FILTER:
   subst_aux f l =
   (FILTER (λ(c,x). f x = NONE) l,
     [],
-   SUM (MAP (λ(c,x).
+   &SUM (MAP (λ(c,x).
     if is_Pos c ⇔ OUTL (THE (f x))
     then Num(ABS c) else 0)
     (FILTER (λ(c,x). f x ≠ NONE) l)))
@@ -1374,7 +1389,8 @@ Proof
   simp[npbcTheory.subst_aux_def]>>
   Cases_on`f x`>>fs[]>>
   Cases_on`x'`>>fs[]>>
-  rw[]>>fs[]
+  rw[]>>fs[]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem add_lists_emp_2:
@@ -1388,7 +1404,7 @@ Theorem subst_lhs_no_INR_FILTER:
   EVERY (λ(c,x). case f x of SOME (INR _ ) => F | _ => T) l ⇒
   subst_lhs f l =
   (FILTER (λ(c,x). f x = NONE) l,
-   SUM (MAP (λ(c,x).
+   &SUM (MAP (λ(c,x).
     if is_Pos c ⇔ OUTL (THE (f x))
     then Num(ABS c) else 0)
     (FILTER (λ(c,x). f x ≠ NONE) l)))
@@ -1444,7 +1460,7 @@ Theorem obj_constraint_simp:
   SORTED $< (MAP SND l) ⇒
   obj_constraint f (l,b) =
     (FILTER (λ(c,x). f x ≠ NONE) l,
-      SUM
+      &SUM
       (MAP
          (λ(c,x). if 0 ≤ c ⇔ OUTL (THE (f x)) then Num (ABS c) else 0)
          (FILTER (λ(c,x). f x ≠ NONE) l)))
@@ -1462,12 +1478,10 @@ Proof
   Induct_on`l`>>simp[FORALL_PROD]>>
   rw[]>>
   every_case_tac>>gvs[]
-  >- (
-    `p_1 = 0` by intLib.ARITH_TAC>>
-    simp[])
-  >- (
-    DEP_REWRITE_TAC[LESS_EQ_ADD_SUB]>>
-    simp[SUM_SPLIT_LE])
+  >- intLib.ARITH_TAC
+  >- intLib.ARITH_TAC
+  >- intLib.ARITH_TAC
+  >- intLib.ARITH_TAC
   >- (
     DEP_REWRITE_TAC[LESS_EQ_ADD_SUB]>>
     simp[SUM_SPLIT_LE]>>
@@ -1477,25 +1491,25 @@ QED
 
 (* one pass obj_constraint *)
 Definition obj_single_aux_def:
-  (obj_single_aux f n [] acc k = SOME(REVERSE acc,k:num)) ∧
+  (obj_single_aux f n [] acc k = SOME(REVERSE acc,k:int)) ∧
   (obj_single_aux f n ((c,x:num)::xs) acc k =
     if n < x then
       case f x of
         NONE => obj_single_aux f x xs acc k
       | SOME (INL b) =>
-        let r = if is_Pos c ⇔ b then k + Num (ABS c) else k in
+        let r = if is_Pos c ⇔ b then k + ABS c else k in
           obj_single_aux f x xs ((c,x)::acc) r
       | SOME (INR _) => NONE
     else NONE)
 End
 
 Definition obj_single_def:
-  (obj_single f [] = SOME([],0:num)) ∧
+  (obj_single f [] = SOME([],0:int)) ∧
   (obj_single f ((c,x:num)::xs) =
       case f x of
         NONE => obj_single_aux f x xs [] 0
       | SOME (INL b) =>
-        let r = if is_Pos c ⇔ b then Num (ABS c) else 0 in
+        let r = if is_Pos c ⇔ b then ABS c else 0 in
           obj_single_aux f x xs [(c,x)] r
       | SOME (INR _) => NONE)
 End
@@ -1506,7 +1520,7 @@ Theorem obj_single_aux_eq_SOME:
   EVERY (λ(c,x). case f x of SOME (INR _ ) => F | _ => T) l ∧
   SORTED $< (n::MAP SND l) ∧
   res = (REVERSE acc ++ FILTER (λ(c,x). f x ≠ NONE) l,
-      k + SUM
+      k + &SUM
       (MAP
          (λ(c,x). if 0 ≤ c ⇔ OUTL (THE (f x)) then Num (ABS c) else 0)
          (FILTER (λ(c,x). f x ≠ NONE) l)))
@@ -1514,7 +1528,8 @@ Proof
   Induct>>simp[obj_single_aux_def,FORALL_PROD]>>rw[]>>
   gvs[AllCaseEqs()]>>
   first_x_assum drule>>
-  simp[]>>rw[]
+  simp[]>>rw[]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem obj_single_eq:
@@ -1528,7 +1543,8 @@ Proof
   gvs[AllCaseEqs()]>>
   drule obj_single_aux_eq_SOME>>rw[]>>
   DEP_REWRITE_TAC[obj_constraint_simp]>>
-  simp[]
+  simp[]>>
+  intLib.ARITH_TAC
 QED
 
 Definition full_obj_single_def:
