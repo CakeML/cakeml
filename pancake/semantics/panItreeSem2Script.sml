@@ -3289,19 +3289,28 @@ Proof
       rename [‘(SOME x,_)’]>>
       Cases_on ‘x’>>fs[]>>
       imp_res_tac evaluate_imp_nondiv>>gvs[]>>
-      drule evaluate_trace_prefix>>fs[]>>
-      strip_tac>>simp[])>>
+      drule evaluate_nondiv_trace_eq>>fs[]>>
+      strip_tac>>simp[]>>
+      ‘LFINITE (fromList t.ffi.io_events)’
+        by simp[LFINITE_fromList]>>
+      pop_assum mp_tac>>
+      first_assum (fn h => rewrite_tac[h])>>
+      rewrite_tac[LFINITE_APPEND]>>strip_tac>>
+      imp_res_tac to_fromList>>fs[from_toList]>>gvs[]>>
+      qpat_x_assum ‘fromList _ = LAPPEND _ _’ mp_tac>>
+      first_assum (fn h => once_rewrite_tac[GSYM h])>>
+      rewrite_tac[LAPPEND_fromList]>>
+      rewrite_tac[fromList_11]>>strip_tac>>
+      simp[from_toList])>>
   DEEP_INTRO_TAC some_intro>>
   rw[]
   >- (rpt (CASE_TAC>>fs[])>>
       imp_res_tac nondiv_imp_evaluate>>gvs[]>>
       last_x_assum $ qspec_then ‘k’ assume_tac>>gs[]>>
       last_x_assum $ qspec_then ‘k’ assume_tac>>gs[])>>
-
   irule EQ_SYM>>
   irule (iffLR lprefix_lubTheory.build_prefix_lub_intro)>>
   irule_at Any evaluate_io_events_lprefix_chain>>
-
   simp[lprefix_lubTheory.lprefix_lub_def]>>fs[]>>
   conj_asm1_tac>>rpt strip_tac>>gvs[]
   >- (qpat_abbrev_tac ‘X = evaluate _’>>
@@ -3315,7 +3324,6 @@ Proof
       simp[div_def]>>rpt strip_tac>>
       imp_res_tac nondiv_INR>>fs[]>>
       rename [‘r = INR x’]>>Cases_on ‘x’>>fs[])>>
-
   (* least upper bound *)
   Cases_on ‘∀n. (∃k. less_opt n (SOME (LENGTH (SND (evaluate(prog,s with clock := k))).ffi.io_events)))’>>fs[]
   >- fs[LPREFIX_NTH]>>
