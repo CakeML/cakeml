@@ -147,7 +147,7 @@ End
 (* -- ASM target-specific configuration -- *)
 
 Datatype:
-  architecture = ARMv7 | ARMv8 | MIPS | RISC_V | Ag32 | x86_64
+  architecture = ARMv7 | ARMv8 | MIPS | RISC_V | Ag32 | x86_64 | Wasm
 End
 
 Datatype:
@@ -200,7 +200,7 @@ Definition arith_ok_def:
      ((n = 0) ==> (l = Lsl)) /\ n < dimindex(:'a)) /\
   (arith_ok (Div r1 r2 r3) c <=>
      reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\
-     c.ISA IN {ARMv8; MIPS; RISC_V}) /\
+     c.ISA IN {ARMv8; MIPS; RISC_V; Wasm}) /\
   (arith_ok (LongMul r1 r2 r3 r4) c <=>
      reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\ reg_ok r4 c /\
      ((c.ISA = x86_64) ==> (r1 = 2) /\ (r2 = 0) /\ (r3 = 0)) /\

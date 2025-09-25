@@ -15,7 +15,7 @@ val max32 = eval ``sw2sw (INT_MAXw: word32) : word64``
 
 Definition wasm_config_def:
   wasm_config =
-   <| ISA            := Ag32 (* placeholder *)
+   <| ISA            := Wasm
     ; reg_count      := 32
     ; fp_reg_count   := 0
     ; avoid_regs     := []
