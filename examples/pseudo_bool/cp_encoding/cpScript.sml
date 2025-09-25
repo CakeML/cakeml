@@ -38,19 +38,17 @@ Definition element_sem_def:
     )
 End
 
-(* dummy value of m = 0 introduced when n = 0 *)
 Definition element2d_sem_def:
   element2d_sem (R: 'a varc) (X: 'a varc) (Y: 'a varc) (Tss: ('a varc) list list)
-                (w: 'a assignment) =
+    (w: 'a assignment) =
   let
     n = LENGTH Tss;
-    m = if n = 0 then 0 else LENGTH $ EL 0 Tss;
     vX = Num $ varc w X;
     vY = Num $ varc w Y
   in
-    EVERY (λTs. LENGTH Ts = m) Tss ∧
-    1 ≤ vX ∧ vX ≤ n ∧ 1 ≤ vY ∧ vY ≤ m ∧
-    EL (vY - 1) $ EL (vX - 1) (MAP (MAP (varc w)) Tss) = varc w R
+    1 ≤ vX ∧ vX ≤ n ∧ 1 ≤ vY ∧ vY ≤ LENGTH $ HD Tss ∧
+    EVERY (λTs. LENGTH Ts = LENGTH $ HD Tss) Tss ∧
+    EL (vY - 1) $ EL (vX - 1) $ MAP (MAP (varc w)) Tss = varc w R
 End
 
 Definition abs_sem_def:

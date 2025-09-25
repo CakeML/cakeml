@@ -1284,31 +1284,61 @@ QED
 Definition encode_tuple_eq_def:
   encode_tuple_eq bnd Xs Ys = [
     bits_imply bnd [Pos (Tb Xs Ys)]
-      ([], MAP (λZ. (1i, Pos (Eq (FST Z) (SND Z)))) (ZIP (Xs,Ys)),
-        &LENGTH Xs);
+      ([], MAP2 (λX Y. (1i, Pos (Eq X Y))) Xs Ys, &LENGTH Xs);
     bits_imply bnd [Neg (Tb Xs Ys)]
-      ([], MAP (λZ. (-1i, Pos (Eq (FST Z) (SND Z)))) (ZIP (Xs,Ys)),
-        -&LENGTH Xs + 1)]
+      ([], MAP2 (λX Y. (-1i, Pos (Eq X Y))) Xs Ys, -&LENGTH Xs + 1)]
 End
 
 Definition reify_tuple_eq_def:
   reify_tuple_eq bnd Xs Ys =
   let
-    ges = FLAT $
-      MAP (λZ. encode_ge bnd (FST Z) (SND Z) ++ encode_ge bnd (FST Z) ((SND Z) + 1))
-        (ZIP (Xs,Ys));
-    eqs = FLAT $ MAP (λZ. encode_eq bnd (FST Z) (SND Z)) (ZIP (Xs,Ys))
+    ges = FLAT $ MAP2 (λX Y. encode_ge bnd X Y ++ encode_ge bnd X (Y + 1)) Xs Ys;
+    eqs = FLAT $ MAP2 (λX Y. encode_eq bnd X Y) Xs Ys
   in
     ges ++ eqs ++ encode_tuple_eq bnd Xs Ys
 End
 
+Theorem LENGTH_FILTER_GE:
+  LENGTH ls ≤ LENGTH (FILTER P ls) ⇔ LENGTH ls = LENGTH (FILTER P ls)
+Proof
+  metis_tac[GREATER_EQ,LE_ANTISYM,LENGTH_FILTER_LEQ]
+QED
+
 Theorem LENGTH_FILTER_EQ:
-  LENGTH (FILTER P ls) = LENGTH ls ⇔ EVERY P ls
+  LENGTH ls = LENGTH (FILTER P ls) ⇔ EVERY P ls
 Proof
   Induct_on ‘ls’>>
   rw[FILTER,ADD1]>>
-  irule $ intLib.ARITH_PROVE “(a:num) < b ⇒ a ≠ b”>>
-  rw[GSYM LE_LT1,LENGTH_FILTER_LEQ]
+  irule $ intLib.ARITH_PROVE “(a:num) > b ⇒ a ≠ b”>>
+  simp[GREATER_DEF,GSYM LE_LT1,LENGTH_FILTER_LEQ,LENGTH_FILTER_LEQ]
+QED
+
+Theorem IMP_NEGIMP_EQ:
+  (P ⇒ Q) ∧ (¬P ⇒ ¬Q) ⇔ (P ⇔ Q)
+Proof
+  simp[boolTheory.CONTRAPOS_THM,EQ_IMP_THM]
+QED
+
+Triviality reify_tuple_eq_aux:
+  valid_assignment bnd wi ⇒ (
+  LIST_REL (λX Y.
+    (wb (Ge X Y) ⇔ wi X ≥ Y) ∧
+    (wb (Ge X (Y + 1)) ⇔ wi X ≥ Y + 1) ∧
+    EVERY (λx. iconstraint_sem x (wi,wb)) (encode_eq bnd X Y)) Xs Ys ⇔
+  LIST_REL (λX Y.
+    (wb (Ge X Y) ⇔ wi X ≥ Y) ∧
+    (wb (Ge X (Y + 1)) ⇔ wi X ≥ Y + 1) ∧
+    (wb (Eq X Y) ⇔ wi X = Y)) Xs Ys)
+Proof
+  strip_tac>>
+  simp[LIST_REL_EVERY_ZIP,Once EVERY_MEM,Once EQ_SYM_EQ]>>
+  simp[Once EVERY_MEM]>>
+  ho_match_mp_tac $ METIS_PROVE[]
+    “(∀x. Q x ⇒ (R1 x ⇔ R2 x)) ⇒ ((P ∧ ∀x. Q x ⇒ R1 x) ⇔ (P ∧ ∀x. Q x ⇒ R2 x))”>>
+  rw[]>>
+  pairarg_tac>>
+  simp[boolTheory.BETA_THM]>>
+  METIS_TAC[encode_eq_sem]
 QED
 
 Theorem reify_tuple_eq_sem:
@@ -1322,36 +1352,23 @@ Theorem reify_tuple_eq_sem:
     (wb (Tb Xs Ys) ⇔
       LIST_REL (λX Y. wi X = Y) Xs Ys))
 Proof
-  rw[reify_tuple_eq_def,encode_tuple_eq_def,EVERY_FLAT,EVERY_MAP,
+  rw[reify_tuple_eq_def,MAP2_ZIP,encode_tuple_eq_def,EVERY_FLAT,EVERY_MAP,
     encode_ge_sem,bits_imply_sem,EVERY2_EVERY,iterateTheory.LAMBDA_PAIR,
     iconstraint_sem_def,eval_ilin_term_def,eval_lin_term_def,iSUM_def,
-    MAP_MAP_o,combinTheory.o_ABS_R,iSUM_MAP_lin_const,
+    MAP_MAP_o,combinTheory.o_ABS_R,iSUM_MAP_lin_const,IMP_NEGIMP_EQ,
     intLib.ARITH_PROVE “-1 * (a:int) ≥ -b + 1 ⇔ ¬(a ≥ b)”,
-    METIS_PROVE[] “(P ⇒ Q) ∧ (¬P ⇒ ¬Q) ⇔ (P ⇔ Q)”]>>
-  simp[GSYM EVERY_CONJ,Once EVERY_MEM]>>
-  simp[Once EQ_SYM_EQ,Once EVERY_MEM,GSYM CONJ_ASSOC]>>
-  ‘(∀Z. MEM Z (ZIP (Xs,Ys)) ⇒
-    (wb (Ge (FST Z) (SND Z)) ⇔ wi (FST Z) ≥ SND Z) ∧
-    (wb (Ge (FST Z) (SND Z + 1)) ⇔ wi (FST Z) ≥ SND Z + 1) ∧
-    EVERY (λx. iconstraint_sem x (wi,wb)) (encode_eq bnd (FST Z) (SND Z))) ⇔
-  (∀Z. MEM Z (ZIP (Xs,Ys)) ⇒
-    (wb (Ge (FST Z) (SND Z)) ⇔ wi (FST Z) ≥ SND Z) ∧
-    (wb (Ge (FST Z) (SND Z + 1)) ⇔ wi (FST Z) ≥ SND Z + 1) ∧
-    (wb (Eq (FST Z) (SND Z)) ⇔ wi (FST Z) = SND Z))’ by METIS_TAC[encode_eq_sem]>>
-  pop_assum (fn thm => simp[thm])>>
+    Once $ GSYM EVERY_CONJ,Once $ GSYM CONJ_ASSOC]>>
   match_mp_tac $ METIS_PROVE[]
     “(P1 ⇔ P2) ∧ (P2 ⇒ (Q1 ⇔ Q2)) ⇒ (P1 ∧ (R ⇔ Q1) ⇔ P2 ∧ (R ⇔ Q2))”>>
   CONJ_TAC
-  >-metis_tac[]>>
+  >-(
+    drule_then assume_tac reify_tuple_eq_aux>>
+    fs[LIST_REL_EVERY_ZIP,LAMBDA_PROD]>>
+    metis_tac[])>>
   rw[Once $ GSYM combinTheory.o_ABS_R,iSUM_FILTER,EVERY_MEM]>>
-  drule_then
-    (fn thm => pure_rewrite_tac[thm,
-      GSYM $ intLib.ARITH_PROVE “(a:num) ≥ b ⇔ int_of_num a ≥ int_of_num b”,
-      METIS_PROVE[GREATER_EQ,LE_ANTISYM,LENGTH_FILTER_LEQ]
-        “LENGTH (FILTER P ls) ≥ LENGTH ls ⇔ LENGTH (FILTER P ls) = LENGTH ls”,
-      LENGTH_FILTER_EQ])
-    (METIS_PROVE[GSYM LENGTH_ZIP]
-      “LENGTH Xs = LENGTH Ys ⇒ LENGTH Ys = LENGTH (ZIP (Xs,Ys))”)>>
+  drule_then (fn thm => pure_rewrite_tac[
+    GSYM thm,LENGTH_FILTER_GE,LENGTH_FILTER_EQ,
+    integerTheory.INT_GE,integerTheory.INT_OF_NUM_LE]) LENGTH_ZIP>>
   simp[EVERY_MEM]
 QED
 
@@ -1395,9 +1412,9 @@ Proof
   rw[Once $ GSYM combinTheory.o_ABS_R,iSUM_FILTER,Once integerTheory.INT_GE,
     intLib.ARITH_PROVE “1i ≤ m ⇔ 0i < m”,LENGTH_NOT_NULL,NULL_FILTER]>>
   ho_match_mp_tac (METIS_PROVE[]
-    “(∀x. P x ⇒ (P1 x ⇔ Q2 x)) ∧
-    ((∀x. P x ⇒ Q2 x) ∧ R ⇒ Q1) ⇒
-    ((∀x. P x ⇒ P1 x) ∧ R ⇔ (Q1 ∧ (∀x. P x ⇒ Q2 x) ∧ R))”)>>
+    “(∀x. P1 x ⇒ (Q1 x ⇔ Q2 x)) ∧
+    ((∀x. P1 x ⇒ Q2 x) ∧ R ⇒ P2) ⇒
+    ((∀x. P1 x ⇒ Q1 x) ∧ R ⇔ (P2 ∧ (∀x. P1 x ⇒ Q2 x) ∧ R))”)>>
   CONJ_TAC>>
   rw[]>>
   gvs[reify_tuple_eq_sem,GSYM MAP_LIST_REL]
