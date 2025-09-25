@@ -2996,7 +2996,114 @@ Theorem evaluate_nondiv_trace_eq:
   LAPPEND (fromList s.ffi.io_events)
           (trace_prefix' (s.ffi.oracle,s.ffi.ffi_state) (mrec h_prog (h_prog (p,bst s))))
 Proof
-  cheat
+  map_every qid_spec_tac [‘r’,‘t’,‘s’,‘p’]>>
+  recInduct evaluate_ind>>rw[]>>
+  qpat_x_assum ‘evaluate _ = _’ mp_tac
+  >~ [‘ExtCall’] >-
+   (simp[Once evaluate_def,mrec_ExtCall,call_FFI_def]>>
+    rpt (PURE_CASE_TAC>>fs[])>>
+    strip_tac>>gvs[LAPPEND_NIL_2ND]>>
+    fs[LAPPEND_NIL_2ND,dec_clock_def,
+       empty_locals_defs,GSYM LAPPEND_fromList])>>
+  simp[mrec_prog_simps,
+       mrec_If,
+       Once evaluate_def,
+       mrec_ExtCall,call_FFI_def,mrec_ShMemLoad,mrec_ShMemStore,
+       panPropsTheory.eval_upd_clock_eq,
+       sh_mem_load_def,sh_mem_store_def,
+       panPropsTheory.opt_mmap_eval_upd_clock_eq1]>>
+  gvs[FUNPOW_SUC,LAPPEND_NIL_2ND]
+  >~ [‘Seq’] >-
+   (pairarg_tac>>fs[]>>
+    simp[mrec_Seq]>>
+    rpt (CASE_TAC>>fs[LAPPEND_NIL_2ND])>>
+    strip_tac>>gvs[]>>
+    imp_res_tac evaluate_imp_nondiv>>fs[]>>
+    imp_res_tac trace_prefix_bind_append>>fs[]>>
+    simp[Once LAPPEND_ASSOC]>>
+    simp[LFINITE_fromList,LAPPEND11_FINITE1]
+    >- (AP_TERM_TAC>>
+        rev_drule nondiv_evaluate'>>
+        disch_then $ qspecl_then [‘s1’,‘NONE’,‘s.clock’] assume_tac>>
+        fs[]>>
+        ‘s with clock := s.clock = s’
+          by simp[state_component_equality]>>
+        gs[]>>pop_assum kall_tac>>
+        pop_assum (assume_tac o GSYM)>>fs[]>>
+        rev_drule_then (assume_tac o GSYM) evaluate_invariant_oracle>>
+        fs[]>>
+        simp[LAPPEND_NIL_2ND])>>
+    CASE_TAC>>fs[]>>
+    simp[LAPPEND_NIL_2ND])
+  >~ [‘While’] >-
+   (fs[dec_clock_def,empty_locals_defs]>>
+    simp[Once mrec_While]>>
+    rpt (CASE_TAC>>fs[LAPPEND_NIL_2ND])>>
+    rpt (pairarg_tac>>fs[])>>gvs[]>>
+    imp_res_tac evaluate_imp_nondiv>>fs[]>>
+    rpt (CASE_TAC>>fs[])>>
+    strip_tac>>gvs[LAPPEND_NIL_2ND]>>
+    simp[Once LAPPEND_ASSOC]>>
+    simp[LFINITE_fromList,LAPPEND11_FINITE1]>>
+    imp_res_tac trace_prefix_bind_append>>gs[]>>
+    simp[LAPPEND_NIL_2ND]>>
+    rev_drule nondiv_evaluate'>>
+    qmatch_asmsub_abbrev_tac ‘evaluate _ = (res0,s1)’>>
+    disch_then $ qspecl_then [‘s1’,‘res0’,‘s.clock-1’] assume_tac>>
+    fs[]>>
+    gs[Abbr‘res0’]>>
+    pop_assum (assume_tac o GSYM)>>fs[]>>
+    rev_drule_then (assume_tac o GSYM) evaluate_invariant_oracle>>
+    fs[])
+  >~ [‘Call’]>-
+   (simp[mrec_Call,empty_locals_defs,set_var_defs,dec_clock_def]>>
+    rpt (CASE_TAC>>fs[LAPPEND_NIL_2ND])>>
+    rpt (pairarg_tac>>fs[])>>gvs[dec_clock_def]>>
+    strip_tac>>
+    gvs[LAPPEND_NIL_2ND,dec_clock_def,set_var_defs]>>
+    imp_res_tac evaluate_imp_nondiv>>fs[]>>
+    imp_res_tac trace_prefix_bind_append>>gs[]>>
+    simp[Once LAPPEND_ASSOC]>>
+    simp[LFINITE_fromList,LAPPEND11_FINITE1]>>
+    gvs[mrec_h_handle_call_ret_lemma,
+        LAPPEND_NIL_2ND,set_var_defs]>>
+    rpt (CASE_TAC>>fs[])>>fs[LAPPEND_NIL_2ND]>>
+    qpat_x_assum ‘evaluate (q'',_) = _’ assume_tac>>
+    rev_drule nondiv_evaluate'>>
+    qmatch_asmsub_abbrev_tac ‘evaluate (q'',_) = (res0,s1)’>>
+    disch_then $ qspecl_then [‘s1’,‘res0’,‘s.clock-1’] assume_tac>>
+    gvs[Abbr‘res0’]>>
+    pop_assum (assume_tac o GSYM)>>fs[]>>
+    drule_then (assume_tac o GSYM) evaluate_invariant_oracle>>
+    fs[LAPPEND_NIL_2ND])
+  >~ [‘DecCall’]>-
+   (simp[mrec_DecCall,empty_locals_defs,set_var_defs,dec_clock_def]>>
+    rpt (CASE_TAC>>fs[LAPPEND_NIL_2ND])>>
+    rpt (pairarg_tac>>fs[])>>gvs[dec_clock_def]>>
+    strip_tac>>
+    gvs[LAPPEND_NIL_2ND,dec_clock_def,set_var_defs]>>
+    imp_res_tac evaluate_imp_nondiv>>fs[]>>
+    imp_res_tac trace_prefix_bind_append>>gs[]>>
+    simp[Once LAPPEND_ASSOC]>>
+    simp[LFINITE_fromList,LAPPEND11_FINITE1]>>
+    gvs[mrec_h_handle_deccall_ret_lemma,
+        LAPPEND_NIL_2ND,set_var_defs]>>
+    qpat_x_assum ‘evaluate (q,_) = _’ assume_tac>>
+    rev_drule nondiv_evaluate'>>
+    qmatch_asmsub_abbrev_tac ‘evaluate (q,_) = (res0,s1)’>>
+    disch_then $ qspecl_then [‘s1’,‘res0’,‘s.clock-1’] assume_tac>>
+    gvs[Abbr‘res0’]>>
+    pop_assum (assume_tac o GSYM)>>fs[]>>
+    drule_then (assume_tac o GSYM) evaluate_invariant_oracle>>
+    fs[LAPPEND_NIL_2ND])>>
+  rpt (CASE_TAC>>fs[])>>
+  rpt (pairarg_tac>>fs[])>>gvs[]>>
+  rpt (PURE_FULL_CASE_TAC>>fs[])>>
+  strip_tac>>gvs[LAPPEND_NIL_2ND]>>
+  imp_res_tac evaluate_imp_nondiv>>
+  imp_res_tac trace_prefix_bind_append>>
+  fs[LAPPEND_NIL_2ND,dec_clock_def,
+     empty_locals_defs,GSYM LAPPEND_fromList]
 QED
 
 
