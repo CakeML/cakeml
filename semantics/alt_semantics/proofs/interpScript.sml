@@ -213,22 +213,19 @@ Theorem run_eval_def:
              | NotThunk => raise (Rabort Rtype_error)
              | IsThunk Evaluated v => return v
              | IsThunk NotEvaluated f =>
-                do
-                  () <- dec_clock;
-                  case do_opapp [f; Conv NONE []] of
-                  | SOME (env',e) => do
-                      () <- dec_clock;
-                      v2 <- run_eval env' e;
-                      ^st <- get_store;
-                      (case update_thunk (REVERSE vs) st.refs [v2] of
-                       | NONE => raise (Rabort Rtype_error)
-                       | SOME refs => do
-                          () <- set_store (st with refs := refs);
-                          return v2;
-                       od)
-                    od
-                  | NONE => raise (Rabort Rtype_error)
-                od)
+                case do_opapp [f; Conv NONE []] of
+                | SOME (env',e) => do
+                    () <- dec_clock;
+                    v2 <- run_eval env' e;
+                    ^st <- get_store;
+                    (case update_thunk (REVERSE vs) st.refs [v2] of
+                     | NONE => raise (Rabort Rtype_error)
+                     | SOME refs => do
+                        () <- set_store (st with refs := refs);
+                        return v2;
+                     od)
+                  od
+                | NONE => raise (Rabort Rtype_error))
         | Simple =>
             (case do_app (st.refs,st.ffi) op (REVERSE vs) of
              | NONE => raise (Rabort Rtype_error)
