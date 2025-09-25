@@ -2985,6 +2985,23 @@ Proof
   Induct>>rw[FUNPOW_SUC]>>simp[]
 QED
 
+Theorem trace_prefix_bind_div:
+  div fs t ⇒
+  trace_prefix' fs (itree_bind t k) = trace_prefix' fs t
+Proof
+  rw[trace_prefix'_def]>>
+  Cases_on ‘fs’>>rename [‘(x,x')’]>>
+  AP_TERM_TAC>>
+  simp[Once LUNFOLD_BISIMULATION]>>
+  qexists ‘CURRY {((x', itree_bind t k),(x',t))| div (x,x') t}’>>
+  rw[EXISTS_PROD] >>simp[]>>
+  last_x_assum kall_tac>>
+  rpt (CASE_TAC>>fs[])>>
+  gvs[div_def]>>rw[]>>
+  first_assum $ qspec_then ‘SUC n’ assume_tac>>
+  fs[FUNPOW_SUC]
+QED
+
 (**************************)
 
 Theorem evaluate_nondiv_trace_eq:
