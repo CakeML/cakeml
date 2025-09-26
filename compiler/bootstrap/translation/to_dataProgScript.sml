@@ -1,7 +1,7 @@
 (*
   Translate the backend phase from BVI to dataLang.
 *)
-Theory to_dataProg
+Theory to_dataProg[no_sig_docs]
 Ancestors
   ml_translator to_bviProg backend[qualified]
 Libs
@@ -104,6 +104,5 @@ val r = translate bvi_to_dataTheory.compile_prog_def;
 
 (* ------------------------------------------------------------------------- *)
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 val _ = ml_translatorLib.clean_on_exit := true;

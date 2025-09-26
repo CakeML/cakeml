@@ -1,7 +1,7 @@
 (*
   Translate non-target-specific backend functions to cv equations.
 *)
-Theory backend_cv
+Theory backend_cv[no_sig_docs]
 Libs
   preamble cv_transLib
 Ancestors
@@ -1062,4 +1062,3 @@ QED
 
 val _ = cv_trans word_copyTheory.copy_prop_def;
 
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;

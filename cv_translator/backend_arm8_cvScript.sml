@@ -1,7 +1,7 @@
 (*
   Translate arm8-specialised functions to cv equations.
 *)
-Theory backend_arm8_cv
+Theory backend_arm8_cv[no_sig_docs]
 Ancestors
   cv_std backend_cv backend_64_cv backend_arm8 arm8 arm8_target
   to_data_cv export_arm8 arm8_config
@@ -319,4 +319,3 @@ Proof
   irule backendTheory.set_asm_conf_id \\ EVAL_TAC
 QED
 
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;

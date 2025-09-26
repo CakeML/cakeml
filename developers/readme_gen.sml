@@ -56,7 +56,8 @@ val ILLEGAL_STRINGS =
    ("Hol_corel"^"n`","Use CoInductive ... End instead of old Hol_coreln."),
    (* HACK Stop readme_gen from flagging itself by using \ \ in strings *)
    ("new_\ \theory","Use Theory syntax instead of old new_\ \theory"),
-   ("export_\ \theory","Use Theory sytnax instead of old export_\ \theory")]
+   ("export_\ \theory","Use Theory sytnax instead of old export_\ \theory"),
+   ("TheoryPP.include_\ \docs","Add the no_sig_docs tag to the theory name instead of TheoryPP.include_\ \docs.")]
 
 (* Helper functions *)
 
