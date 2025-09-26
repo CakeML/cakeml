@@ -3,50 +3,10 @@
 *)
 Theory stack_to_wasmProof
 Libs
-  preamble helperLib
+  preamble helperLib shLib
 Ancestors
   wasmLang words arithmetic list rich_list sptree mlstring
   wasmSem stackSem stackLang stackProps pair asm
-
-(* TODO: Move to generic automation, perhaps in preamble? *)
-fun component_equality_of ty = let
-  val accfn_terms = map (fn (_, rcd) => #accessor rcd) (TypeBase.fields_of ty)
-  val cases_thm =  TypeBase.nchotomy_of ty
-  val oneone_thm = TypeBase.one_one_of ty
-  val accessor_thms = TypeBase.accessors_of ty
-  val var1 = mk_var("a", ty)
-  val var2 = mk_var("b", ty)
-  val lhs = mk_eq(var1, var2)
-  val rhs_tms =
-    map (fn tm => mk_eq(mk_comb(tm, var1), mk_comb(tm, var2)))
-    accfn_terms
-  val rhs = list_mk_conj rhs_tms
-  val goal = mk_eq(lhs, rhs)
-  val tactic =
-      REPEAT GEN_TAC THEN
-      MAP_EVERY (STRUCT_CASES_TAC o C SPEC cases_thm) [var1, var2] THEN
-      REWRITE_TAC (oneone_thm::accessor_thms)
-  in prove(goal, tactic) end
-
-fun trivial_simps ty = let
-  val t = mk_var ("t", ty)
-  fun f accessor fupd fty =
-    (* fupd (K (accessor t)) *)
-    let val lhs =
-    mk_comb (mk_comb (fupd, mk_comb (mk_const("K",fty-->fty-->fty), mk_comb (accessor, t))), t)
-    in
-    prove (mk_eq (lhs, t), simp[component_equality_of ty])
-    end
-  in
-    map (fn (_, {accessor=accessor, fupd=fupd, ty=ty}) => f accessor fupd ty) (TypeBase.fields_of ty)
-  end
-
-(* BANNED *)
-(*
-val _ = save_thm("state_trivial_simps[simp]", LIST_CONJ (trivial_simps ``:wasmSem$state``));
-*)
-
-Theorem state_trivial_simps[simp] = LIST_CONJ (trivial_simps ``:wasmSem$state``);
 
 (* compiler definition (TODO: move to another file when ready) *)
 
@@ -119,6 +79,17 @@ Definition GLOBAL_SET_def:
   GLOBAL_SET i = Variable (GlobalSet (n2w i))
 End
 
+Definition RETURN_def:
+  RETURN = wasmLang$Return
+End
+
+Definition CALL_def:
+  CALL i = wasmLang$Call (n2w i)
+End
+
+(* more wasm instructions go here *)
+(* see wasmLangScript.sml *)
+
 (* reg_imm = Reg reg | Imm ('a imm) *)
 Definition comp_ri_def:
   comp_ri (Reg r) = GLOBAL_GET r ∧
@@ -160,12 +131,6 @@ Definition compile_arith_def:
 ) ∧
 (
   compile_arith (asm$Shift op t s n) =
-(*
-  | (* inn *) Shl        width
-  | (* inn *) Shr_ sign  width
-  | (* inn *) Rotl       width
-  | (* inn *) Rotr       width
-*)
     let wasm_op =
       case op of
         Lsl => I64_SHL
@@ -197,7 +162,9 @@ Definition compile_def:
     Append (comp_cmp cmp a_r b_ri)
            (List [wasmLang$If BlkNil (append (compile p1)) (append (compile p2))])
   ∧
-  compile (stackLang$Inst inst) = compile_inst inst
+  compile (stackLang$Inst inst) = compile_inst inst ∧
+  compile (stackLang$Return r) = List [I32_CONST 0w; RETURN] ∧
+  compile (stackLang$Raise  r) = List [I32_CONST 1w; RETURN]
 End
 
 (* definitions used in the correctness statement *)
@@ -241,24 +208,30 @@ Definition state_rel_def:
 End
 
 Definition res_rel_def:
-  (res_rel NONE r     ⇔ r = RNormal) ∧
-  (res_rel (SOME v) r ⇔ r ≠ RNormal ∧ ∀l. r ≠ RBreak l (* TODO: fix *))
+  (res_rel NONE r s    ⇔ r = RNormal) ∧
+  (res_rel (SOME TimeOut) r s <=> r = RTimeout) ∧
+  (res_rel (SOME (Result    _)) r s <=> r = RReturn ∧ oHD s = SOME (I32 0w)) ∧
+  (res_rel (SOME (Exception _)) r s <=> r = RReturn ∧ oHD s = SOME (I32 1w)) ∧
+  (* ignore Error *)
+  (* Halt?? FinalFFI?? *)
+  (res_rel (SOME (Halt     _)) r s <=> r ≠ RNormal ∧ ∀n. r ≠ RBreak n) ∧
+  (res_rel (SOME (FinalFFI _)) r s <=> r ≠ RNormal ∧ ∀n. r ≠ RBreak n)
 End
 
 (* set up for one theorem per case *)
 
 val goal_tm =
-  “λ(p,^s). ∀res s1 t.
-     evaluate (p,s) = (res,s1) ∧
+  “λ(p,^s). ∀s_res s_fin t.
+     evaluate (p,s) = (s_res, s_fin) ∧
      conf_ok c ∧
      state_rel c s t ∧
      stack_asm_ok c p ∧
-     res ≠ SOME Error ⇒
-     ∃ck t1 res1.
-       exec_list (append (compile p)) (t with clock := t.clock + ck) = (res1,t1) ∧
-       res_rel res res1 ∧
-       state_rel c s1 t1 ∧
-       (res1 = RNormal ==> t1.stack = t.stack)
+     s_res ≠ SOME Error ⇒
+     ∃ck t_res t_fin.
+       exec_list (append (compile p)) (t with clock := t.clock + ck) = (t_res, t_fin) ∧
+       res_rel s_res t_res t_fin.stack ∧
+       state_rel c s_fin t_fin ∧
+       (t_res = RNormal ⇒ t_fin.stack = t.stack)
   ”
 
 local
@@ -287,6 +260,14 @@ Proof
   >>first_x_assum $ qspecl_then[‘[]’,‘s'’]assume_tac
   >>gvs[]
   >>Cases_on‘res'=RNormal’>>fs[]
+QED
+ 
+Theorem exec_list_append_RNormal:
+  ∀xs ys s s1.
+    exec_list xs s = (RNormal, s1) ⇒
+    exec_list (xs ++ ys) s = exec_list ys s1
+Proof
+  simp[exec_list_append]
 QED
 
 Theorem exec_list_cons:
@@ -367,6 +348,30 @@ Proof
   Cases_on`e`>>simp[]
 QED
 
+Theorem exec_If:
+  exec (If tb b1 b2) (push (I32 v) s) =
+    exec (Block tb (if v≠0w then b1 else b2)) s
+Proof
+  simp[SimpLHS, Once exec_def, pop_push, nonzero_def]
+QED
+
+Theorem exec_list_single:
+  exec_list [ins] s = exec ins s
+Proof
+  simp[exec_def]
+  >>pairarg_tac
+  >>(Cases_on`res`>>fs[])
+QED
+
+Theorem exec_Block_BlkNil_normal:
+  exec_list Ins (s with stack:=[]) = (res, s') ∧
+  (res = RNormal ∨ res = RBreak 0) ∧
+  s'.stack=[] ⇒
+  exec (Block BlkNil Ins) s = (RNormal, s' with stack:=s.stack)
+Proof
+  rw[exec_def]>>fs[]
+QED
+
 (* wasmProps *)
 Theorem exec_list_add_clock_aux:
 ( ∀c s res s1.
@@ -388,19 +393,15 @@ Proof
   >~[`Block`]
   >-(
     qpat_x_assum `exec _ _ = _` mp_tac
-    >>simp[exec_def]
-    >>(pairarg_tac>>fs[])
+    >>rw[exec_def,UNCURRY_EQ]
     >>(Cases_on`res'=RTimeout`>>gvs[AllCaseEqs()])
-    >>rw[]
   )
   >~[‘Loop’]
   >-(
     qpat_x_assum `exec _ _ = _` mp_tac
     >>once_rewrite_tac[exec_def]
-    >>simp[]
-    >>rpt(pairarg_tac>>fs[])
+    >>rw[UNCURRY_EQ]
     >>(Cases_on`res'=RTimeout`>>gvs[AllCaseEqs()])
-    >>rw[]
   )
   >~[‘If’]
   >-(
@@ -598,15 +599,17 @@ Proof
   Cases_on‘v’>>rw[nonzero_def]
 QED
 
-(* a proof for each case *)
-
-Theorem compile_Skip:
-  ^(get_goal "Skip")
+Theorem wasm_state_useless_fupd[simp]:
+  (^t with clock:=t.clock) = t ∧ (t with stack:=t.stack) = t
 Proof
-  rpt strip_tac
-  \\ gvs [compile_def,exec_def,stackSemTheory.evaluate_def]
-  \\ simp [res_rel_def]
-  \\ qexists_tac ‘0’ \\ fs [state_rel_def]
+  simp[wasmSemTheory.state_component_equality]
+QED
+
+Theorem exec_I32_CONST:
+  exec (I32_CONST c) s =
+    (RNormal,s with stack := I32 c::s.stack)
+Proof
+  rw[exec_def,I32_CONST_def,num_stk_op_def]
 QED
 
 Theorem exec_I64_CONST:
@@ -649,49 +652,15 @@ Proof
   gvs[AllCaseEqs()]
 QED
 
-Theorem state_trivial_2_simps[simp]:
-  s with <| stack := s.stack ; globals := g |> =
-  s with <| globals := g |>
-Proof
-  rw[wasmSemTheory.state_component_equality]
-QED
+(* a proof for each case *)
 
-Theorem compile_Inst:
-  ^(get_goal "Inst")
+Theorem compile_Skip:
+  ^(get_goal "Skip")
 Proof
-  rw[compile_def]
-  >>qexists_tac`0`
-  >>(Cases_on`i`>>fs[compile_inst_def])
-  >~[`Skip`]>-
-    gvs[evaluate_def,exec_def,res_rel_def,inst_def]
-  >~[`Const`]>- (
-    fs[evaluate_def,inst_def,assign_def,CaseEq"option"]
-    >>fs[exec_list_cons,exec_I64_CONST]
-    >>rpt(pairarg_tac>>fs[])
-    >> drule exec_GLOBAL_SET
-    >> simp[]
-    >> impl_keep_tac >-
-      fs[stack_asm_ok_def,inst_ok_def,reg_ok_def,conf_ok_def,state_rel_def,regs_rel_def]>>
-    rw[]
-    >-
-      simp[res_rel_def]>>
-    irule state_rel_set_var>>
-    fs[word_exp_def,to_value_def])
-  >~[`Arith`] >- (
-    rename1`Arith a`>>Cases_on`a`
-    >~[`Binop`] >- cheat
-    >~[`Shift`] >- cheat
-    >~[`Div`] >- cheat
-    >~[`LongMul`] >- cheat
-    >~[`LongDiv`] >- fs[stack_asm_ok_def,inst_ok_def,arith_ok_def,conf_ok_def]
-    >~[`AddCarry`] >- cheat
-    >~[`AddOverflow`] >- cheat
-    >~[`SubOverflow`] >- cheat
-    )
-  >~[`Mem`] >-
-    cheat
-  >~[`FP`] >-
-    gvs[stack_asm_ok_def,inst_ok_def,oneline fp_ok_def,AllCasePreds(),fp_reg_ok_def,conf_ok_def]
+  rpt strip_tac
+  >> gvs [compile_def,exec_def,stackSemTheory.evaluate_def]
+  >> simp [res_rel_def]
+  >> qexists_tac ‘0’ >> fs [state_rel_def]
 QED
 
 Theorem compile_Seq:
@@ -706,12 +675,13 @@ Proof
   >>rename[‘_ = (res_mid, s_mid)’]
   >>reverse $ Cases_on‘res_mid’
   >-(
-    gvs[stack_asm_ok_def]
+    rename1‘_ = (SOME res_mid, s_mid)’
+    >>gvs[stack_asm_ok_def]
     >>last_x_assum drule
     >>strip_tac
     >>qexists_tac‘ck’
     >>simp[]
-    >>fs[res_rel_def]
+    >>(Cases_on`res_mid`>>fs[res_rel_def])
   )
   >>gvs[stack_asm_ok_def]
   >>last_x_assum $ ASSUME_NAMED_TAC "H1"
@@ -727,35 +697,72 @@ Proof
   >>fs[]
 QED
 
-Theorem state_rel_with_stack:
-  state_rel c s (t with stack := st) = state_rel c s t
-Proof
-  fs[state_rel_def]
-QED
-
 Theorem compile_If:
   ^(get_goal "If")
 Proof
   rpt strip_tac
-  >> fs[evaluate_def]
-  >> gvs[CaseEq"option",stack_asm_ok_def]
-  >> simp[compile_def]
-  >> simp[exec_list_append]
-  >> drule_all comp_cmp_thm
-  >> strip_tac
-  >> simp[]
-  >> pop_assum kall_tac
-  >> simp[exec_def,pop_push]
-  >> simp[nonzero_b2w]
-  >> ‘state_rel c s (t with stack:=[])’ by simp[state_rel_with_stack]
-  >> IF_CASES_TAC>>gvs[]>>first_x_assum drule>>strip_tac
-  >> (
-    qexists_tac‘ck’
-    >>fs[]
-    >>Cases_on‘res’>>fs[res_rel_def]
-    >>simp[state_rel_with_stack]
-    >>Cases_on‘res1’>>gvs[]
+  >>fs[evaluate_def]
+  >>gvs[CaseEq"option",stack_asm_ok_def]
+  >>rename1`word_cmp cmp v1 v2 = SOME b`
+  >>(Cases_on`b`>>fs[])
+  >>(
+    first_x_assum $ qspec_then`t with stack:=[]`mp_tac
+    simp[state_rel_with_stack]
+    rpt strip_tac
+    qexists_tac`ck`
+    simp[compile_def]
+    drule_all_then (qspec_then`ck+t.clock`assume_tac) comp_cmp_thm
+    drule_then (simp o single) exec_list_append_RNormal
+    simp[exec_list_single,exec_If]
+    rename1`state_rel c s' t'`
+
+QED
+
+Theorem compile_Inst:
+  ^(get_goal "Inst")
+Proof
+  rw[compile_def]
+  >>qexists_tac`0`
+  >>(Cases_on`i`>>fs[compile_inst_def])
+  >~[`Skip`]
+  >-gvs[evaluate_def,exec_def,res_rel_def,inst_def]
+  >~[`Const`]
+  >-(
+    fs[evaluate_def,inst_def,assign_def,CaseEq"option"]
+    >>fs[exec_list_cons,exec_I64_CONST]
+    >>rpt(pairarg_tac>>fs[])
+    >>drule exec_GLOBAL_SET
+    >>simp[]
+    >>CONV_TAC(DEPTH_CONV record_canon_simp_conv)
+    >>impl_keep_tac
+    >-fs[stack_asm_ok_def,inst_ok_def,reg_ok_def,conf_ok_def,state_rel_def,regs_rel_def]
+    >>rw[]
+    >-simp[res_rel_def]
+    >>irule state_rel_set_var
+    >>fs[word_exp_def,to_value_def]
   )
+  >~[`Arith`]
+  >-(
+    rename1`Arith a`>>Cases_on`a`
+    >~[`Binop`] >- cheat
+    >~[`Shift`] >- cheat
+    >~[`Div`] >- cheat
+    >~[`LongMul`] >- cheat
+    >~[`LongDiv`] >- fs[stack_asm_ok_def,inst_ok_def,arith_ok_def,conf_ok_def]
+    >~[`AddCarry`] >- cheat
+    >~[`AddOverflow`] >- cheat
+    >~[`SubOverflow`] >- cheat
+  )
+  >~[`Mem`] >-
+    cheat
+  >~[`FP`] >-
+    gvs[stack_asm_ok_def,inst_ok_def,oneline fp_ok_def,AllCasePreds(),fp_reg_ok_def,conf_ok_def]
+QED
+
+Theorem state_rel_with_stack:
+  state_rel c s (t with stack := st) = state_rel c s t
+Proof
+  fs[state_rel_def]
 QED
 
 Theorem compile_While:
@@ -785,7 +792,18 @@ QED
 Theorem compile_Return:
   ^(get_goal "Return")
 Proof
-  cheat
+rw[evaluate_def]
+>>gvs[CaseEqs["option","prod","word_loc"]]
+>>qexists_tac`0`
+>>simp[compile_def]
+(* Goal: ∃t1 res1. exec_list [I32_CONST 0w; RETURN] t = (res1,t1) ∧ ... *)
+>>simp[exec_def]
+>>(pairarg_tac>>fs[])
+>>gvs[exec_I32_CONST]
+>>(pairarg_tac>>fs[])
+>>fs[exec_def,RETURN_def]
+>>simp[res_rel_def]
+>>metis_tac[state_rel_with_stack]
 QED
 
 Theorem compile_FFI:
