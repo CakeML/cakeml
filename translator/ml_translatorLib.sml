@@ -2940,6 +2940,8 @@ val builtin_monops =
    Eval_FLOAT_ABS,
    Eval_FLOAT_SQRT,
    Eval_FLOAT_NEG,
+   Eval_FP_fromWord,
+   Eval_FP_toWord,
    Eval_empty_ffi,
    Eval_force_out_of_memory_error,
    Eval_Chr,
