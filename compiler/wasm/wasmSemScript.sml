@@ -482,9 +482,9 @@ Definition exec_def:
     case res of
     | RBreak (SUC l) => (RBreak l, s)
     | RBreak 0 => ( case (tb,s.stack) of
-                    | (BlkNil  , [] ) => (RNormal, s with stack :=     orig_stk)
-                    | (BlkVal _, [v]) => (RNormal, s with stack := v:: orig_stk)
-                    | (_,_)           => inv s)
+                    | (BlkNil  , _   ) => (RNormal, s with stack :=     orig_stk)
+                    | (BlkVal _, v::_) => (RNormal, s with stack := v:: orig_stk)
+                    | (_       ,_    ) => inv s)
     | RNormal  => ( case (tb,s.stack) of
                     | (BlkNil  , [] ) => (RNormal, s with stack :=     orig_stk)
                     | (BlkVal _, [v]) => (RNormal, s with stack := v:: orig_stk)
@@ -501,9 +501,9 @@ Definition exec_def:
     | RBreak (SUC l) => (RBreak l, s)
     | RBreak 0 => if s.clock = 0 then (RTimeout,s) else
                   ( case (tb,s.stack) of
-                    | (BlkNil  , [ ]) => exec (Loop tb body)  s_tick
-                    | (BlkVal _, [v]) => exec (Loop tb body) (s_tick with stack := v:: orig_stk)
-                    | (_,_)           => inv s
+                    | (BlkNil  , _   ) => (RNormal, s with stack :=     orig_stk)
+                    | (BlkVal _, v::_) => (RNormal, s with stack := v:: orig_stk)
+                    | (_       ,_    ) => inv s)
                   )
     | RNormal =>  if s.clock = 0 then (RTimeout,s) else
                   ( case (tb,s.stack) of
