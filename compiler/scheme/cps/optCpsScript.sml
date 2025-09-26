@@ -12,11 +12,7 @@ Datatype:
 End
 
 Datatype:
-  valtag = Trivial | Computation
-End
-
-Datatype:
-  richcbvstate = RCExp cbvexp | RCVal valtag cbvval
+  richcbvstate = RCExp cbvexp | RCVal cbvval
 End
 
 Definition count_rcarg_def:
@@ -65,24 +61,24 @@ Proof
 QED
 
 Definition rich_cbv_continue_def:
-  rich_cbv_continue [] env scopes tag v = (case scopes of
-  | [] => ([], env, [], RCVal tag v)
-  | (env', ks)::scopes' => (ks, env', scopes', RCVal Computation v)) /\
-  rich_cbv_continue (RCFn e::ks) env scopes tag v = ((RCArg (tag, v)::ks), env, scopes, RCExp e) /\
-  rich_cbv_continue (RCArg (vtype, vfn)::ks) env scopes tag v = (case vfn of
+  rich_cbv_continue [] env scopes v = (case scopes of
+  | [] => ([], env, [], RCVal v)
+  | (env', ks)::scopes' => (ks, env', scopes', RCVal v)) /\
+  rich_cbv_continue (RCFn e::ks) env scopes v = ((RCArg v::ks), env, scopes, RCExp e) /\
+  rich_cbv_continue (RCArg vfn::ks) env scopes v = (case vfn of
   | VCl x env' e => ([], nsBind x v env', (env, ks)::scopes, RCExp e))
 End
 
 Definition rich_cbv_step_def:
-  rich_cbv_step (ks, env, scopes, RCVal tag v) = rich_cbv_continue ks env scopes tag v /\
-  rich_cbv_step (ks, env, scopes, RCExp (EVar x)) = (ks, env, scopes, RCVal Trivial (strict_lookup env x)) /\
-  rich_cbv_step (ks, env, scopes, RCExp (EAbs x e)) = (ks, env, scopes, RCVal Trivial (VCl x env e)) /\
+  rich_cbv_step (ks, env, scopes, RCVal v) = rich_cbv_continue ks env scopes v /\
+  rich_cbv_step (ks, env, scopes, RCExp (EVar x)) = (ks, env, scopes, RCVal (strict_lookup env x)) /\
+  rich_cbv_step (ks, env, scopes, RCExp (EAbs x e)) = (ks, env, scopes, RCVal (VCl x env e)) /\
   rich_cbv_step (ks, env, scopes, RCExp (EApp e1 e2)) = (RCFn e2::ks, env, scopes, RCExp e1)
 End
 
 Definition ctxt_with_env_def:
   ctxt_with_env env (RCFn e) = CFn env e /\
-  ctxt_with_env env (RCArg (tag, v)) = CArg v
+  ctxt_with_env env (RCArg v) = CArg v
 End
 
 Definition cat_ks_def:
@@ -90,7 +86,7 @@ Definition cat_ks_def:
 End
 
 Definition forget_def:
-  forget (ks, env, scopes, RCVal tag v) = (cat_ks ks env scopes, CVal v) /\
+  forget (ks, env, scopes, RCVal v) = (cat_ks ks env scopes, CVal v) /\
   forget (ks, env, scopes, RCExp e) = (cat_ks ks env scopes, CExp env e)
 End
 
@@ -103,19 +99,16 @@ Theorem forget_rich:
 Proof
   rpt strip_tac
   >> Cases_on `e`
-  >~ [`RCExp e`] >>> HEADGOAL $ Cases_on `e`
-  >~ [`RCVal tag v`]
+  >~ [`RCExp e`]
+  >>> HEADGOAL $ Cases_on `e`
+  >~ [`RCVal v`]
   >>> HEADGOAL (
     Cases_on `ks`
     >~ [`k::ks'`]
     >>> HEADGOAL (
       Cases_on `k`
-      >~ [`RCFn e`] >>> HEADGOAL $ Cases_on `tag`
-      >~ [`RCArg tagv`]
-      >>> HEADGOAL (
-        PairCases_on `tagv`
-        >> Cases_on `tagv1`
-      )
+      >~ [`RCArg v`]
+      >>> HEADGOAL $ Cases_on `v`
     )
     >>> LASTGOAL (
       Cases_on `scopes`
@@ -210,16 +203,16 @@ Inductive m_val_rel:
 [~Trivial:]
   ve_rel v cenv ce
   ==>
-  m_val_rel Trivial v eks cenv ce
+  m_val_rel v eks cenv ce
 [~Computation:]
   vv_rel v (strict_lookup cenv ("m" ++ toString (count_rcarg eks)))
   ==>
-  m_val_rel Computation v eks cenv (EVar ("m" ++ toString (count_rcarg eks)))
+  m_val_rel v eks cenv (EVar ("m" ++ toString (count_rcarg eks)))
 End
 
 Theorem m_val_rel_eval:
-  ! tag v eks cenv ce .
-    m_val_rel tag v eks cenv ce
+  ! v eks cenv ce .
+    m_val_rel v eks cenv ce
     ==>
     ? m cv .
       (! ks . cbv_steps m (ks, CExp cenv ce) = (ks, CVal cv)) /\
@@ -244,9 +237,9 @@ Inductive ks_rel:
   ks_rel (RCFn e::ks) cenv (RCFn e::eks)
 [~RCArg:]
   ks_rel ks cenv eks /\
-  m_val_rel tag v eks cenv ce
+  m_val_rel v eks cenv ce
   ==>
-  ks_rel (RCArg (tag, v)::ks) cenv (RCArg ce::eks)
+  ks_rel (RCArg v::ks) cenv (RCArg ce::eks)
 End
 
 Theorem ks_rel_indifference:
@@ -310,7 +303,7 @@ Inductive opt_cps_rel:
   scopes_rel scopes cenv innerk /\
   ve_rel v cenv ce
   ==>
-  opt_cps_rel ks env scopes (RCVal Trivial v) cenv (app_cont eks ce innerk)
+  opt_cps_rel ks env scopes (RCVal v) cenv (app_cont eks ce innerk)
 [~RCVal_Computation:]
   ks_rel ks kenv eks /\
   env_rel env kenv /\
@@ -318,7 +311,7 @@ Inductive opt_cps_rel:
   ve_rel v cenv ce /\
   strict_lookup cenv "k" = cont_closure eks kenv innerk
   ==>
-  opt_cps_rel ks env scopes (RCVal Computation v) cenv (EApp (EVar "k") ce)
+  opt_cps_rel ks env scopes (RCVal v) cenv (EApp (EVar "k") ce)
 End
 
 Theorem opt_step_preservation:
@@ -331,71 +324,68 @@ Theorem opt_step_preservation:
       opt_cps_rel ks' env' scopes' e' cenv' ce'
 Proof
   rpt strip_tac
-  >> Cases_on `e`
+  >> gvs[Once opt_cps_rel_cases]
   >~ [`RCExp e`] >- (
     Cases_on `e`
     >> gvs[rich_cbv_step_def]
-    >> gvs[Once opt_cps_rel_cases]
     >> simp[opt_cps_def]
     >> qexists `0`
     >> simp[cbv_steps]
-    >> simp[Once opt_cps_rel_cases]
-    >> irule_at (Pos hd) EQ_REFL
+    >~ [`RCExp e`] >- (
+      irule opt_cps_rel_RCExp
+      >> simp[Once ve_rel_cases]
+      >> simp[Once ks_rel_cases]
+      >> gvs[Once env_rel_cases]
+    )
+    >> irule opt_cps_rel_RCVal_Trivial
     >> simp[Once ve_rel_cases]
     >> simp[Once ks_rel_cases]
     >> gvs[Once env_rel_cases]
   )
-  >~ [`RCVal tag v`]
+  >~ [`RCVal v`]
   >> gvs[rich_cbv_step_def]
-  >> Cases_on `tag` >- (
+  >~ [`app_cont eks ce innerk`] >- (
     (*Trivial term as value*)
     Cases_on `ks` >- (
       Cases_on `scopes`
       >> gvs[rich_cbv_continue_def]
       >- (
-        gvs[Once opt_cps_rel_cases]
-        >> gvs[Once ks_rel_cases]
+        gvs[Once ks_rel_cases]
         >> gvs[Once scopes_rel_cases]
         >> qexists `0`
         >> simp[cbv_steps]
-        >> simp[Once opt_cps_rel_cases]
+        >> irule opt_cps_rel_RCVal_Trivial
         >> simp[Once ks_rel_cases]
         >> simp[Once scopes_rel_cases]
-        >> irule_at (Pos hd) EQ_REFL
-        >> simp[]
       )
       >~ [`scope::scopes'`]
       >> PairCases_on `scope`
-      >> gvs[Once opt_cps_rel_cases]
       >> gvs[Once ks_rel_cases]
       >> gvs[Once scopes_rel_cases]
-      >> gvs[cont_closure_def]
       >> qexists `0`
       >> simp[cbv_steps]
-      >> simp[Once opt_cps_rel_cases]
-      >> irule_at (Pos last) EQ_REFL
       >> simp[opt_cps_def]
+      >> irule opt_cps_rel_RCVal_Computation
+      >> simp[]
+      >> irule_at (Pos hd) EQ_REFL
+      >> simp[]
     )
     >~ [`k::ks'`]
     >> Cases_on `k`
     >~ [`RCFn e`] >- (
       gvs[rich_cbv_continue_def]
-      >> gvs[Once opt_cps_rel_cases]
       >> gvs[Once ks_rel_cases]
       >> qexists `0`
       >> simp[cbv_steps]
-      >> simp[Once opt_cps_rel_cases]
       >> simp[opt_cps_def]
-      >> irule_at (Pos hd) EQ_REFL
+      >> irule opt_cps_rel_RCExp
       >> simp[Once ks_rel_cases]
       >> simp[m_val_rel_cases]
     )
-    >~ [`RCArg tv`]
-    >> PairCases_on `tv`
-    >> Cases_on `tv1`
+    >~ [`RCArg v`]
+    >> Cases_on `v`
     >~ [`VCl x env e`]
     >> gvs[rich_cbv_continue_def]
-    >> gvs[Once opt_cps_rel_cases]
     >> gvs[Once ks_rel_cases]
     >> simp[opt_cps_def]
     >> qrefine `n+2`
@@ -424,8 +414,7 @@ Proof
     >> simp[cbv_steps, cbv_step_def, cbv_continue_def]
     >> qexists `0`
     >> simp[cbv_steps]
-    >> simp[Once opt_cps_rel_cases]
-    >> irule_at (Pos hd) EQ_REFL
+    >> irule opt_cps_rel_RCExp
     >> simp[Once ks_rel_cases]
     >> simp[Once scopes_rel_cases]
     >> simp[strict_lookup_def]
@@ -433,39 +422,38 @@ Proof
     >> irule_at (Pos hd) env_rel_indifference
     >> simp[env_rel_sync]
   )
+  >~ [`EApp (EVar "k") ce`]
   (*Computed term as value*)
   >> Cases_on `ks` >- (
     Cases_on `scopes`
     >> gvs[rich_cbv_continue_def]
     >- (
-      gvs[Once opt_cps_rel_cases]
-      >> gvs[Once ks_rel_cases]
+      gvs[Once ks_rel_cases]
       >> gvs[Once scopes_rel_cases]
       >> qexists `0`
       >> simp[cbv_steps]
-      >> simp[Once opt_cps_rel_cases]
+      >> irule opt_cps_rel_RCVal_Computation
       >> simp[Once ks_rel_cases]
       >> simp[Once scopes_rel_cases]
-      >> irule_at (Pos last) EQ_REFL
+      >> irule_at (Pos hd) EQ_REFL
       >> simp[]
     )
-    >~ [`scope::scopes'`]
+    >~ [`scopes_rel (scope::scopes') _ _`]
     >> PairCases_on `scope`
-    >> gvs[Once opt_cps_rel_cases]
     >> gvs[Once ks_rel_cases]
     >> gvs[Once scopes_rel_cases]
     >> gvs[cont_closure_def]
     >> qexists `0`
     >> simp[cbv_steps]
-    >> simp[Once opt_cps_rel_cases]
-    >> irule_at (Pos last) EQ_REFL
+    >> irule opt_cps_rel_RCVal_Computation
+    >> simp[]
+    >> irule_at (Pos hd) EQ_REFL
     >> simp[]
   )
-  >~ [`k::ks'`]
+  >~ [`ks_rel (k::ks') _ _`]
   >> Cases_on `k`
   >~ [`RCFn e`] >- (
     gvs[rich_cbv_continue_def]
-    >> gvs[Once opt_cps_rel_cases]
     >> gvs[Once ks_rel_cases]
     >> gvs[cont_closure_def]
     >> qrefine `n+3`
@@ -478,20 +466,17 @@ Proof
     >> simp[cbv_steps, cbv_step_def, cbv_continue_def]
     >> qexists `0`
     >> simp[cbv_steps]
-    >> simp[Once opt_cps_rel_cases]
-    >> irule_at (Pos hd) EQ_REFL
+    >> irule opt_cps_rel_RCExp
     >> simp[Once ks_rel_cases]
     >> simp[m_val_rel_cases]
     >> simp[strict_lookup_def]
     >> simp[scopes_rel_indifference]
     >> simp[ks_rel_indifference]
   )
-  >~ [`RCArg tv`]
-  >> PairCases_on `tv`
-  >> Cases_on `tv1`
+  >~ [`RCArg v`]
+  >> Cases_on `v`
   >~ [`VCl x env e`]
   >> gvs[rich_cbv_continue_def]
-  >> gvs[Once opt_cps_rel_cases]
   >> gvs[Once ks_rel_cases]
   >> gvs[cont_closure_def]
   >> qrefine `n+3`
@@ -530,8 +515,7 @@ Proof
   >> simp[cbv_steps, cbv_step_def, cbv_continue_def]
   >> qexists `0`
   >> simp[cbv_steps]
-  >> simp[Once opt_cps_rel_cases]
-  >> irule_at (Pos hd) EQ_REFL
+  >> irule opt_cps_rel_RCExp
   >> simp[Once ks_rel_cases]
   >> simp[Once scopes_rel_cases]
   >> simp[strict_lookup_def]
