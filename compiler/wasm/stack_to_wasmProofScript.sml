@@ -348,6 +348,12 @@ Proof
   Cases_on`e`>>simp[]
 QED
 
+Theorem pop_push:
+  pop (push v t) = SOME (v,t)
+Proof
+  rw[push_def,pop_def,wasmSemTheory.state_component_equality]
+QED
+
 Theorem exec_If:
   exec (If tb b1 b2) (push (I32 v) s) =
     exec (Block tb (if v≠0w then b1 else b2)) s
@@ -363,13 +369,32 @@ Proof
   >>(Cases_on`res`>>fs[])
 QED
 
-Theorem exec_Block_BlkNil_normal:
-  exec_list Ins (s with stack:=[]) = (res, s') ∧
-  (res = RNormal ∨ res = RBreak 0) ∧
-  s'.stack=[] ⇒
-  exec (Block BlkNil Ins) s = (RNormal, s' with stack:=s.stack)
+Theorem wasm_state_useless_fupd[simp]:
+  (^t with clock:=t.clock) = t ∧ (t with stack:=t.stack) = t
+Proof
+  simp[wasmSemTheory.state_component_equality]
+QED
+
+Theorem exec_Block_BlkNil_RNormal:
+  exec_list Ins s = (RNormal, s') ∧
+  s.stack=[] ∧ s'.stack=[] ⇒
+  exec (Block BlkNil Ins) (s with stack:=stack) = (RNormal, s' with stack:=stack)
 Proof
   rw[exec_def]>>fs[]
+  >>subgoal`(s with stack := []) = s`
+  >-metis_tac[wasm_state_useless_fupd]
+  >>simp[]
+QED
+
+Theorem exec_Block_BlkNil_RBreak0:
+  exec_list Ins s = (RBreak 0, s') ∧
+  s.stack=[] ⇒
+  exec (Block BlkNil Ins) (s with stack:=stack) = (RNormal, s' with stack:=stack)
+Proof
+  rw[exec_def]>>fs[]
+  >>subgoal`(s with stack := []) = s`
+  >-metis_tac[wasm_state_useless_fupd]
+  >>simp[]
 QED
 
 (* wasmProps *)
@@ -587,22 +612,10 @@ Proof
   cheat
 QED
 
-Theorem pop_push:
-  pop (push v t) = SOME (v,t)
-Proof
-  rw[push_def,pop_def,wasmSemTheory.state_component_equality]
-QED
-
 Theorem nonzero_b2w:
   nonzero (I32 (b2w v)) = SOME v
 Proof
   Cases_on‘v’>>rw[nonzero_def]
-QED
-
-Theorem wasm_state_useless_fupd[simp]:
-  (^t with clock:=t.clock) = t ∧ (t with stack:=t.stack) = t
-Proof
-  simp[wasmSemTheory.state_component_equality]
 QED
 
 Theorem exec_I32_CONST:
@@ -652,7 +665,13 @@ Proof
   gvs[AllCaseEqs()]
 QED
 
-(* a proof for each case *)
+Theorem state_rel_with_stack:
+  state_rel c s (t with stack := st) = state_rel c s t
+Proof
+  fs[state_rel_def]
+QED
+
+(* a ⌂proof for each case *)
 
 Theorem compile_Skip:
   ^(get_goal "Skip")
@@ -697,6 +716,20 @@ Proof
   >>fs[]
 QED
 
+Theorem res_rel_RNormal:
+  res ≠ SOME Error ∧ res_rel res RNormal stack ⇒ res_rel res RNormal stack'
+Proof
+  Cases_on`res`>-simp[res_rel_def]
+  >>(Cases_on`x`>>simp[res_rel_def])
+QED
+
+Theorem res_rel_RBreak:
+  res ≠ SOME Error ∧ res_rel res (RBreak n) stack ⇒ F
+Proof
+  Cases_on`res`>-simp[res_rel_def]
+  >>(Cases_on`x`>>simp[res_rel_def])
+QED
+
 Theorem compile_If:
   ^(get_goal "If")
 Proof
@@ -707,15 +740,35 @@ Proof
   >>(Cases_on`b`>>fs[])
   >>(
     first_x_assum $ qspec_then`t with stack:=[]`mp_tac
-    simp[state_rel_with_stack]
-    rpt strip_tac
-    qexists_tac`ck`
-    simp[compile_def]
-    drule_all_then (qspec_then`ck+t.clock`assume_tac) comp_cmp_thm
-    drule_then (simp o single) exec_list_append_RNormal
-    simp[exec_list_single,exec_If]
-    rename1`state_rel c s' t'`
-
+    >>simp[state_rel_with_stack]
+    >>rpt strip_tac
+    >>qexists_tac`ck`
+    >>simp[compile_def]
+    >>drule_all_then (qspec_then`ck+t.clock`assume_tac) comp_cmp_thm
+    >>dxrule_then (simp o single) exec_list_append_RNormal
+    >>simp[exec_list_single,exec_If]
+    >>(Cases_on`t_res`>>fs[])
+    >~[`exec_list _ _ = (RNormal, _)`]
+    >-(
+      drule_then (qspec_then`t.stack`assume_tac) exec_Block_BlkNil_RNormal
+      >>fs[]
+      >>simp[state_rel_with_stack]
+      >>metis_tac[res_rel_RNormal]
+    )
+    >~[`exec_list _ _ = (RBreak _, _)`]
+    >-(
+      Cases_on`n`
+      >-(
+        drule_then (qspec_then`t.stack`assume_tac) exec_Block_BlkNil_RBreak0
+        >>fs[]
+        >>simp[state_rel_with_stack]
+        >>metis_tac[res_rel_RBreak]
+      )
+      >>simp[exec_def]
+      >>metis_tac[res_rel_RBreak]
+    )
+    >>simp[exec_def]
+  )
 QED
 
 Theorem compile_Inst:
@@ -757,12 +810,6 @@ Proof
     cheat
   >~[`FP`] >-
     gvs[stack_asm_ok_def,inst_ok_def,oneline fp_ok_def,AllCasePreds(),fp_reg_ok_def,conf_ok_def]
-QED
-
-Theorem state_rel_with_stack:
-  state_rel c s (t with stack := st) = state_rel c s t
-Proof
-  fs[state_rel_def]
 QED
 
 Theorem compile_While:
