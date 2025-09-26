@@ -1,7 +1,7 @@
 (*
   Translation of the to_data compiler function.
 *)
-Theory to_data_cv
+Theory to_data_cv[no_sig_docs]
 Ancestors
   cv_std basis_cv backend backend_asm unify_cv infer_cv
 Libs
@@ -2950,4 +2950,3 @@ val _ = cv_auto_trans presLangTheory.word_prog_to_display_def;
 
 val _ = cv_auto_trans presLangTheory.stack_prog_to_display_def;
 
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;

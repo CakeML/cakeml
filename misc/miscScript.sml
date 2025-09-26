@@ -623,6 +623,29 @@ Definition update_resize_def:
       LUPDATE v n (ls ++ REPLICATE (n * 2 + 1 - LENGTH ls) default)
 End
 
+(*TODO upstream*)
+Theorem MAX_LIST_APPEND[simp]:
+   MAX_LIST (xs++ys) = MAX (MAX_LIST xs) (MAX_LIST ys)
+Proof
+  Induct_on `xs` >> simp[AC MAX_COMM MAX_ASSOC]
+QED
+
+(*Or should it be MAX x (MAX_LIST xs)*)
+Theorem MAX_LIST_SNOC[simp]:
+   MAX_LIST (SNOC x xs) = MAX (MAX_LIST xs) x
+Proof
+  simp[SNOC_APPEND]
+QED
+
+Theorem MAX_LIST_intro:
+  ∀ls.
+  P 0 ∧ EVERY P ls ⇒ P (MAX_LIST ls)
+Proof
+  Induct>>rpt strip_tac >>
+  full_simp_tac(srw_ss())[MAX_DEF,COND_RAND]
+QED
+
+(*TODO replace with MAX_LIST*)
 Definition list_max_def:
   (list_max [] = 0:num) /\
   (list_max (x::xs) =
