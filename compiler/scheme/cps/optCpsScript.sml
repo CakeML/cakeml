@@ -76,6 +76,19 @@ Definition rich_cbv_step_def:
   rich_cbv_step (ks, env, scopes, RCExp (EApp e1 e2)) = (RCFn e2::ks, env, scopes, RCExp e1)
 End
 
+Definition rich_cbv_steps_def:
+  rich_cbv_steps = FUNPOW rich_cbv_step
+End
+
+Theorem rich_cbv_steps:
+  (! t .rich_cbv_steps 0 t = t) /\
+  (! n t . 0 < n ==> rich_cbv_steps n t = rich_cbv_steps (n - 1) (rich_cbv_step t))
+Proof
+  simp[rich_cbv_steps_def]
+  >> Cases
+  >> simp[FUNPOW]
+QED
+
 Definition ctxt_with_env_def:
   ctxt_with_env env (RCFn e) = CFn env e /\
   ctxt_with_env env (RCArg v) = CArg v
@@ -305,11 +318,8 @@ Inductive opt_cps_rel:
   ==>
   opt_cps_rel ks env scopes (RCVal v) cenv (app_cont eks ce innerk)
 [~RCVal_Computation:]
-  ks_rel ks kenv eks /\
-  env_rel env kenv /\
-  scopes_rel scopes kenv innerk /\
-  ve_rel v cenv ce /\
-  strict_lookup cenv "k" = cont_closure eks kenv innerk
+  scopes_rel ((env, ks)::scopes) cenv (SOME "k") /\
+  ve_rel v cenv ce
   ==>
   opt_cps_rel ks env scopes (RCVal v) cenv (EApp (EVar "k") ce)
 End
@@ -366,8 +376,8 @@ Proof
       >> simp[cbv_steps]
       >> simp[opt_cps_def]
       >> irule opt_cps_rel_RCVal_Computation
-      >> simp[]
-      >> irule_at (Pos hd) EQ_REFL
+      >> simp[Once scopes_rel_cases]
+      >> irule_at (Pos last) EQ_REFL
       >> simp[]
     )
     >~ [`k::ks'`]
@@ -423,6 +433,7 @@ Proof
     >> simp[env_rel_sync]
   )
   >~ [`EApp (EVar "k") ce`]
+  >> gvs[Once scopes_rel_cases]
   (*Computed term as value*)
   >> Cases_on `ks` >- (
     Cases_on `scopes`
@@ -433,9 +444,10 @@ Proof
       >> qexists `0`
       >> simp[cbv_steps]
       >> irule opt_cps_rel_RCVal_Computation
+      >> simp[Once scopes_rel_cases]
       >> simp[Once ks_rel_cases]
       >> simp[Once scopes_rel_cases]
-      >> irule_at (Pos hd) EQ_REFL
+      >> irule_at (Pos last) EQ_REFL
       >> simp[]
     )
     >~ [`scopes_rel (scope::scopes') _ _`]
@@ -446,8 +458,8 @@ Proof
     >> qexists `0`
     >> simp[cbv_steps]
     >> irule opt_cps_rel_RCVal_Computation
-    >> simp[]
-    >> irule_at (Pos hd) EQ_REFL
+    >> simp[Once scopes_rel_cases]
+    >> irule_at (Pos last) EQ_REFL
     >> simp[]
   )
   >~ [`ks_rel (k::ks') _ _`]
