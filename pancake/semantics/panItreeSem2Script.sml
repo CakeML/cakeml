@@ -3283,19 +3283,11 @@ Proof
           fs[LAPPEND_ASSOC]>>
           gs[LFINITE_fromList,LAPPEND11_FINITE1]>>
           pop_assum $ assume_tac o GSYM>>fs[]>>metis_tac[])>>
-      gvs[]>>
-      qmatch_goalsub_abbrev_tac ‘trace_prefix' fs _’>>
-      qmatch_goalsub_abbrev_tac ‘itree_bind X _’>>
-      Cases_on ‘div fs X’>>fs[]
+      gvs[div_bind_cases]
       >- (imp_res_tac trace_prefix_bind_div>>fs[])>>
-      fs[Abbr‘X’,Abbr‘fs’]>>
-      drule_then drule nondiv_timeout_add_clock>>rw[]>>
-      imp_res_tac nondiv_INR>>fs[]>>
-      drule_all (iffLR div_bind2)>>strip_tac>>gvs[]>>
-      FULL_CASE_TAC>>fs[]>>
+      drule_then drule nondiv_timeout_add_clock>>rw[]>>fs[]>>
       FULL_CASE_TAC>>fs[]>>
       drule nondiv_evaluate'>>
-      disch_then $ drule_at Any>>
       disch_then $ drule_at Any>>simp[]>>rw[]>>
       pop_assum $ assume_tac o GSYM>>fs[]>>
       drule_then (assume_tac o GSYM) evaluate_invariant_oracle>>
@@ -3319,6 +3311,7 @@ Proof
       (Cases_on ‘X’>>fs[]
        >- (imp_res_tac trace_prefix_bind_div>>fs[]))>>
       imp_res_tac div_bind2>>fs[])
+  (* While *)
   >- (pop_assum mp_tac>>
       once_rewrite_tac[mrec_While]>>
       rpt (TOP_CASE_TAC>>fs[])
@@ -3352,19 +3345,12 @@ Proof
         rev_drule_then (assume_tac o GSYM) evaluate_invariant_oracle>>
         gs[]>>metis_tac[])
       >-
-       (qmatch_goalsub_abbrev_tac ‘trace_prefix' fs _’>>
-        qmatch_goalsub_abbrev_tac ‘itree_bind X _’>>
-        Cases_on ‘div fs X’>>fs[]
+       (gvs[div_bind_cases]
         >- (imp_res_tac trace_prefix_bind_div>>fs[]>>metis_tac[])>>
-        fs[Abbr‘X’,Abbr‘fs’]>>
         drule nondiv_timeout_add_clock>>simp[]>>
-        disch_then $ drule_at Any>>rw[]>>
-        imp_res_tac nondiv_INR>>fs[]>>
-        drule_all (iffLR div_bind2)>>strip_tac>>gvs[]>>
-        FULL_CASE_TAC>>fs[]>>
+        disch_then $ drule_at Any>>rw[]>>fs[]>>
         FULL_CASE_TAC>>fs[]>>
         drule nondiv_evaluate'>>
-        disch_then $ drule_at Any>>
         disch_then $ drule_at Any>>simp[]>>rw[]>>
         pop_assum $ assume_tac o GSYM>>fs[]>>
         drule_then (assume_tac o GSYM) evaluate_invariant_oracle>>
@@ -3379,8 +3365,8 @@ Proof
         qhdtm_x_assum ‘LAPPEND’ $ assume_tac o GSYM>>fs[]>>
         fs[LAPPEND_ASSOC]>>
         metis_tac[])>>
-      rev_drule evaluate_imp_nondiv>>
-      simp[]>>strip_tac>>
+      rev_drule evaluate_imp_nondiv>>simp[]>>
+      strip_tac>>
       imp_res_tac evaluate_nondiv_trace_eq>>fs[]>>
       imp_res_tac trace_prefix_bind_append>>gvs[]>>
       fs[GSYM LAPPEND_fromList,LPREFIX_APPEND]>>
@@ -3404,16 +3390,10 @@ Proof
        fs[LFINITE_fromList,LAPPEND11_FINITE1])>>
    rw[]>>fs[dec_clock_def,empty_locals_defs,set_var_defs]
    >-
-    (qmatch_goalsub_abbrev_tac ‘trace_prefix' fs _’>>
-     qmatch_goalsub_abbrev_tac ‘itree_bind X _’>>
-     (Cases_on ‘div fs X’>>fs[]
+    ((gvs[div_bind_cases]
       >- (imp_res_tac trace_prefix_bind_div>>fs[]))>>
-     fs[Abbr‘X’,Abbr‘fs’]>>
      drule nondiv_timeout_add_clock>>simp[]>>
      disch_then $ drule_at Any>>rw[]>>
-     imp_res_tac nondiv_INR>>fs[]>>
-     rename [‘INR x’]>>Cases_on ‘x’>>fs[]>>
-     drule_all (iffLR div_bind2)>>strip_tac>>gvs[]>>
      drule nondiv_evaluate'>>
      disch_then $ drule_at Any>>
      disch_then $ qspecl_then [‘t'’,‘k + s.clock - 1’] mp_tac>>gs[]>>
@@ -3454,15 +3434,8 @@ Proof
    pop_assum $ assume_tac o GSYM>>fs[]>>
    rev_drule_then (assume_tac o GSYM) evaluate_invariant_oracle>>
    fs[]>>
-   qmatch_goalsub_abbrev_tac ‘trace_prefix' fs _’>>
-   qmatch_goalsub_abbrev_tac ‘itree_bind X _’>>
-   (Cases_on ‘div fs X’>>fs[]
-    >- (imp_res_tac trace_prefix_bind_div>>fs[]>>metis_tac[]))>>
-   fs[Abbr‘X’,Abbr‘fs’]>>
-   drule nondiv_timeout_add_clock>>simp[]>>
-   disch_then $ drule_at Any>>rw[]>>
-   imp_res_tac nondiv_INR>>fs[]>>
-   drule_all (iffLR div_bind2)>>strip_tac>>gvs[])
+   (gvs[div_bind_cases]
+    >- (imp_res_tac trace_prefix_bind_div>>fs[]>>metis_tac[])))
 QED
 
 Theorem not_less_opt_lemma:
