@@ -1867,6 +1867,24 @@ Proof
   fs[FUNPOW_Ret_simp]
 QED
 
+(* this should be the first to try with div + itree_bind case *)
+(* need to update some earlier proofs using this *)
+Theorem div_bind_cases:
+  div fs (itree_bind X k:'a ptree) =
+  (div fs (X:'a ptree) ∨
+   (∃n r. ltree fs X = FUNPOW Tau n (Ret r) :'a ptree ∧
+          div (FST fs, SND (comp_ffi fs X)) (k r)))
+Proof
+  EQ_TAC>>strip_tac
+  >- (Cases_on ‘div fs X’ >- simp[] >>
+      irule OR_INTRO_THM2>>fs[]>>
+      imp_res_tac div_bind2)
+  >- simp[]>>
+  simp[div_def,FUNPOW_Tau_bind]>>rw[]>>strip_tac>>
+  fs[FUNPOW_Ret_simp]>>
+  fs[div_def]
+QED
+
 Theorem div_Tau[simp]:
   div fs (Tau u) = div fs u
 Proof
