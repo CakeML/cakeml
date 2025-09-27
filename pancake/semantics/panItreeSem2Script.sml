@@ -3004,6 +3004,21 @@ QED
 
 (**************************)
 
+Theorem div_imp_timeout:
+  div fs (mrec h_prog (h_prog (p,bst s))) ∧
+  FST fs = s.ffi.oracle ∧ SND fs = s.ffi.ffi_state ⇒
+  ∀k. ∃t. evaluate (p,s with clock := s.clock + k) = (SOME TimeOut,t)
+Proof
+  CCONTR_TAC>>fs[]>>
+  qmatch_asmsub_abbrev_tac ‘evaluate (_,ss)’>>
+  ‘bst s = bst ss ∧ s.ffi = ss.ffi’
+    by simp[bst_def,Abbr‘ss’]>>fs[]>>
+  Cases_on ‘evaluate (p,ss)’>>fs[]>>
+  drule_all evaluate_imp_nondiv>>strip_tac>>
+  last_x_assum mp_tac>>gvs[]>>
+  Cases_on ‘fs’>>gs[]
+QED
+
 Theorem evaluate_nondiv_trace_eq:
   evaluate (p,s) = (r,t) ∧ r ≠ SOME TimeOut
 (*  ltree (s.ffi.oracle,s.ffi.ffi_state) (mrec h_prog (h_prog (p,bst s)))
