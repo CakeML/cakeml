@@ -7859,11 +7859,10 @@ Proof
   full_simp_tac(srw_ss())[EVERY_MEM]>>srw_tac[][]>>res_tac>>
   match_mp_tac every_var_exp_mono>>
   HINT_EXISTS_TAC>>srw_tac[][]>>
-  qpat_abbrev_tac`ls':(num list) = MAP f ls`>>
-  Q.ISPECL_THEN [`ls'`] assume_tac list_max_max>>
-  full_simp_tac(srw_ss())[EVERY_MEM,Abbr`ls'`,MEM_MAP,PULL_EXISTS]>>
-  pop_assum(qspec_then`a` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-  DECIDE_TAC
+  irule LE_TRANS >>
+  irule_at (Pos (el 2)) MAX_LIST_PROPERTY >>
+  simp[MEM_MAP,PULL_EXISTS] >>
+  first_x_assum (fn x => irule_at (Any) x >> first_x_assum irule)
 QED
 
 Triviality max_var_inst_max:
@@ -7877,86 +7876,52 @@ Proof
   DECIDE_TAC
 QED
 
-Triviality MAX_DEF2:
-  MAX m n = (if n > m then n else m)
-Proof
-  fs[MAX_DEF]
-QED
-
 Theorem max_var_max:
     ∀prog.
     every_var (λx. x ≤ max_var prog) prog
-Proof
+Proof[exclude_simps = max3_def]
   ho_match_mp_tac max_var_ind>>
-  rpt strip_tac >>
-  full_simp_tac(std_ss)[every_var_def,max_var_def]
-  >-
-  (Q.ISPECL_THEN [`MAP FST ls ++ MAP SND ls`] assume_tac list_max_max>>
-  rev_full_simp_tac(srw_ss())[] >> NO_TAC)
-  >- metis_tac[max_var_inst_max] >>
-  TRY
-    (match_mp_tac every_var_exp_mono>>
+  rpt strip_tac
+  >~ [`Call`]
+  >- (full_simp_tac(std_ss)[every_var_def,max_var_def,every_name_def] >>
+     `!x y z. max3 x y z = MAX x (MAX y z)` by simp[MAX_DEF,max3_def] >>
+     pop_assum (simp o single) >> rpt TOP_CASE_TAC >> fs[] >>
+     rpt strip_tac
+     >>~-([`EVERY`],
+       fs[EVERY_MEM] >> srw_tac[][] >>
+       every_drule MAX_LIST_PROPERTY >>
+       simp[])
+     >>~-([`max_var`],
+       srw_tac[][] >> match_mp_tac every_var_mono>>
+       first_x_assum (irule_at (Pos $ el 2)) >>
+       fs[]))
+  >~ [`If`]
+  >- (full_simp_tac(std_ss)[every_var_def,max_var_def,every_name_def] >>
+     `!x y z. max3 x y z = MAX x (MAX y z)` by simp[MAX_DEF,max3_def] >>
+     pop_assum (simp o single) >> TOP_CASE_TAC >> simp[every_var_imm_def] >>
+     (srw_tac[][] >> match_mp_tac every_var_mono>>
+     TRY(HINT_EXISTS_TAC)>>TRY(qexists_tac`λx. x ≤ max_var prog`)>>
+     srw_tac[][]>>
+     DECIDE_TAC)) >>
+
+  full_simp_tac(std_ss)[every_var_def,max_var_def,every_name_def] >>
+  `!x y z. max3 x y z = MAX x (MAX y z)` by simp[MAX_DEF,max3_def] >>
+  pop_assum (simp o single)
+  >~ [`max_var_inst`]
+  >- (metis_tac[max_var_inst_max])
+  >>~-([`max_var_exp`],
+    match_mp_tac every_var_exp_mono>>
     qexists_tac`λx. x ≤ max_var_exp exp`>>
     full_simp_tac(srw_ss())[max_var_exp_max]>>
     DECIDE_TAC)
-  >- (
-     EVERY_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-     TRY (full_simp_tac(srw_ss())[list_max_max,LET_THM] >> NO_TAC) >>
-     rpt strip_tac  >> full_simp_tac(srw_ss())[EVERY_MEM,every_name_def] >>
-     rpt strip_tac >> LET_ELIM_TAC >> full_simp_tac(srw_ss())[] >>
-     TRY (  match_mp_tac every_var_mono>>
-     first_x_assum (irule_at (Pos last)) >>
-     rw[]) >>
-     TRY (
-     qmatch_asmsub_abbrev_tac `MEM _ ls` >>
-     Q.ISPECL_THEN [`ls`] assume_tac list_max_max>>
-     full_simp_tac(srw_ss())[EVERY_MEM] >>
-     first_x_assum drule_all >>
-     disch_tac >> rw[]) >>
-     UNABBREV_ALL_TAC >> EVERY_CASE_TAC >>
-     rw[] >> intLib.ARITH_TAC
-     )
+  >>~ [`max_var`]
   >-(srw_tac[][] >> match_mp_tac every_var_mono>>
-    TRY(HINT_EXISTS_TAC)>>TRY(qexists_tac`λx. x ≤ max_var prog`)>>
-    srw_tac[][]>>
-    DECIDE_TAC)
-  >-(
-    Cases_on `ri` >> full_simp_tac(srw_ss())[every_var_imm_def] >>
-    LET_ELIM_TAC >> UNABBREV_ALL_TAC >>
-    TRY (intLib.ARITH_TAC) >>
-    rpt IF_CASES_TAC >> fs[] >>
-    match_mp_tac every_var_mono>>
-    first_x_assum (irule_at (Pos last)) >>
-    full_simp_tac (srw_ss())[] >>
-    intLib.ARITH_TAC)
-  >-((*This is ugly*)
-   fs[every_name_def] >>
-   fs[EVERY_MEM] >> rw[] >>
-   qmatch_asmsub_abbrev_tac `MEM x ls` >>
-   Q.ISPECL_THEN [`ls`] assume_tac list_max_max>>
-   fs[EVERY_MEM])
-  >-(fs[GSYM FOLDR_MAX_0_list_max])
-  >-(
-   fs[GSYM FOLDR_MAX_0_list_max] >>
-   fs[FOLDR_MAX_0_list_max] >>
-   fs[every_name_def] >>
-   fs[EVERY_MEM] >> rw[] >>
-   qmatch_asmsub_abbrev_tac `MEM x ls` >>
-   Q.ISPECL_THEN [`ls`] assume_tac list_max_max>>
-   fs[EVERY_MEM])
-  >-(
-   fs[GSYM FOLDR_MAX_0_list_max] >>
-   fs[FOLDR_MAX_0_list_max] >>
-   fs[every_name_def] >>
-   fs[EVERY_MEM] >> rw[] >>
-   qmatch_asmsub_abbrev_tac `MEM x ls` >>
-   Q.ISPECL_THEN [`ls`] assume_tac list_max_max>>
-   fs[EVERY_MEM])
-  >-(
-    fs[list_max_def] >>
-    IF_CASES_TAC >> fs[list_max_max] >>
-    Q.ISPECL_THEN [`ns`] assume_tac list_max_max>>
-    fs[EVERY_MEM] >> rw[] >> res_tac >> intLib.ARITH_TAC)
+    first_x_assum (irule_at (Pos $ el 2)) >>
+    fs[])
+  >>~-([`EVERY`],
+    fs[EVERY_MEM] >> srw_tac[][] >>
+    every_drule MAX_LIST_PROPERTY >>
+    simp[])
 QED
 
 Triviality limit_var_props:
