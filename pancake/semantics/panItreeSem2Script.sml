@@ -3191,16 +3191,19 @@ Proof
   qexists ‘p'’>>simp[]
 QED
 
-Theorem nondiv_timeout_add_clock'[local]:
+Theorem nondiv_timeout_add_clock:
   evaluate (p,s) = (SOME TimeOut, t) ∧
-  ¬div (s.ffi.oracle,s.ffi.ffi_state) (mrec h_prog (h_prog (p,bst s))) ⇒
-  ∃k q t'. evaluate (p,s with clock := s.clock + k) = (q,t') ∧
-           q ≠ SOME TimeOut ∧
+  ltree fs ((mrec h_prog (h_prog (p,bst s))):'a ptree) =
+  FUNPOW Tau n (Ret r): 'a ptree ∧
+  FST fs = s.ffi.oracle ∧ SND fs = s.ffi.ffi_state ⇒
+  ∃k q t'. evaluate (p,s with clock := s.clock + k) = (q, t') ∧
+           r = INR (q, bst t') ∧ q ≠ SOME TimeOut ∧
            ∃l. t'.ffi.io_events = t.ffi.io_events ++ l
 Proof
   rw[]>>
   imp_res_tac nondiv_INR>>fs[]>>
   rename [‘INR x’]>>Cases_on ‘x’>>
+  Cases_on ‘fs’>>fs[]>>
   drule nondiv_imp_evaluate>>rw[]>>
   Cases_on ‘s.clock < k’>>fs[NOT_LESS]
   >- (imp_res_tac (GSYM LESS_ADD)>>
@@ -3214,22 +3217,6 @@ Proof
   ‘s with clock := s.clock = s’
   by simp[state_component_equality]>>gvs[]
 QED
-
-Theorem nondiv_timeout_add_clock[local]:
-  evaluate (p,s) = (SOME TimeOut, t) ∧
-  ¬div fs (mrec h_prog (h_prog (p,bst s))) ∧
-  FST fs = s.ffi.oracle ∧ SND fs = s.ffi.ffi_state ⇒
-  ∃k q t'. evaluate (p,s with clock := s.clock + k) = (q,t') ∧
-           q ≠ SOME TimeOut ∧
-           ∃l. t'.ffi.io_events = t.ffi.io_events ++ l
-Proof
-  rw[]>>
-  Cases_on ‘fs’>>fs[]>>
-  drule nondiv_timeout_add_clock'>>fs[]
-QED
-
-Theorem nondiv_timeout_add_clock[allow_rebind] =
-        nondiv_timeout_add_clock |> SRULE [PULL_EXISTS]
 
 Theorem timeout_div_LPREFIX:
   evaluate (p,s) = (SOME TimeOut, t) ∧
