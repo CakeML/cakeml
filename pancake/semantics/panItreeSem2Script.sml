@@ -3025,7 +3025,7 @@ QED
 Theorem div_imp_timeout:
   div fs (mrec h_prog (h_prog (p,bst s))) ∧
   FST fs = s.ffi.oracle ∧ SND fs = s.ffi.ffi_state ⇒
-  ∀k. ∃t. evaluate (p,s with clock := s.clock + k) = (SOME TimeOut,t)
+  ∀k. ∃t. evaluate (p,s with clock := k) = (SOME TimeOut,t)
 Proof
   CCONTR_TAC>>fs[]>>
   qmatch_asmsub_abbrev_tac ‘evaluate (_,ss)’>>
