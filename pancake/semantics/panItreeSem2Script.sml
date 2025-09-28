@@ -3483,14 +3483,381 @@ Proof
   metis_tac[LESS_EQUAL_ANTISYM]
 QED
 
-Theorem bounded_trace_eq:
-  (∀k'. s.clock < k' ⇒
-        (SND(evaluate(prog:'a panLang$prog,s))).ffi.io_events
-        = (SND(evaluate(prog,s with clock:=k'))).ffi.io_events) ∧
-  div (s.ffi.oracle,s.ffi.ffi_state) (mrec h_prog (h_prog (prog,bst s))) ⇒
-  LAPPEND (fromList (s.ffi.io_events)) (trace_prefix' (s.ffi.oracle,s.ffi.ffi_state) (mrec h_prog (h_prog (prog,bst s)))) =
-  fromList (SND (evaluate (prog, s))).ffi.io_events
+(* move *)
+Definition lnil_def:
+ lnil = LUNFOLD (λu. SOME ((),[||])) ()
+End
+
+(* move *)
+Theorem lnil:
+  [||]:::lnil = lnil
 Proof
+  simp[lnil_def]>>
+  simp[SimpR“$=”,Once LUNFOLD]
+QED
+
+Theorem div_finite_LNIL:
+  div fs (mrec h_prog (h_prog (p,bst s)):'a ptree) ∧
+  (∀k. s.ffi.io_events =
+       (SND (evaluate(p,s with clock := k + s.clock))).ffi.io_events) ∧
+  FST fs = s.ffi.oracle ∧ SND fs = s.ffi.ffi_state ⇒
+  trace_prefix' fs (mrec h_prog (h_prog (p,bst s))) = [||]
+Proof
+cheat
+QED
+  map_every qid_spec_tac [‘fs’,‘s’,‘p’]>>
+  Induct>>rw[]>>
+  pop_assum mp_tac>>
+  pop_assum mp_tac>>
+  simp[mrec_prog_simps,mrec_Dec,mrec_If,
+       mrec_ShMemLoad,mrec_ShMemStore]>>
+  fs[panPropsTheory.eval_upd_clock_eq,call_FFI_def,
+     panPropsTheory.opt_mmap_eval_upd_clock_eq1]>>
+(*  TRY (
+    rpt (TOP_CASE_TAC>>fs[])>>
+    rpt (pairarg_tac>>fs[])>>
+    strip_tac>>fs[]>>NO_TAC)>>*)
+  TRY (rpt (TOP_CASE_TAC>>fs[])>>
+       rpt (pairarg_tac>>fs[])>>
+       rw[]>>gvs[iterateTheory.LAMBDA_PAIR]>>
+       imp_res_tac trace_prefix_bind_div>>
+       fs[LFINITE_fromList,GSYM LAPPEND_fromList,
+          LAPPEND_NIL_2ND,empty_locals_defs]>>NO_TAC)
+(* Dec *)
+  >- (rpt (TOP_CASE_TAC>>fs[])>>
+      rpt (pairarg_tac>>fs[])>>
+      rw[]>>gvs[div_bind_cases]>>
+      imp_res_tac trace_prefix_bind_div>>fs[])
+  (* Seq *)
+  >~ [‘Seq’]
+  >- (simp[mrec_Seq]>>
+      rpt (TOP_CASE_TAC>>fs[])>>
+      rpt (pairarg_tac>>fs[])>>
+      rw[]>>gvs[div_bind_cases]
+      >- (imp_res_tac trace_prefix_bind_div>>fs[])>>
+      imp_res_tac nondiv_INR>>fs[]>>
+      rpt (FULL_CASE_TAC>>fs[])>>
+      imp_res_tac trace_prefix_bind_append>>fs[]>>
+      FULL_CASE_TAC>>fs[]>>
+      
+
+QED
+
+Theorem bounded_trace_eq:
+  (∀k'. (SND(evaluate(p,s))).ffi.io_events
+        = (SND(evaluate(p,s with clock:=k' + s.clock))).ffi.io_events) ∧
+  div (s.ffi.oracle,s.ffi.ffi_state) (mrec h_prog (h_prog (p,bst s))) ⇒
+  LAPPEND (fromList (s.ffi.io_events)) (trace_prefix' (s.ffi.oracle,s.ffi.ffi_state) (mrec h_prog (h_prog (p,bst s)))) =
+  fromList (SND (evaluate (p, s:('a,'b) state))).ffi.io_events
+Proof
+  map_every qid_spec_tac [‘s’,‘p’]>>
+  recInduct evaluate_ind>>rw[]>>
+  pop_assum mp_tac>>
+  pop_assum mp_tac>>
+  once_rewrite_tac[evaluate_def]>>
+  simp[sh_mem_load_def,sh_mem_store_def]>>
+  simp[mrec_prog_simps,mrec_Dec,mrec_If,
+       mrec_ShMemLoad,mrec_ShMemStore]>>
+  fs[panPropsTheory.eval_upd_clock_eq,call_FFI_def,
+     panPropsTheory.opt_mmap_eval_upd_clock_eq1]>>
+(*  TRY (
+    rpt (TOP_CASE_TAC>>fs[])>>
+    rpt (pairarg_tac>>fs[])>>
+    strip_tac>>fs[]>>NO_TAC)>>*)
+  TRY (rpt (TOP_CASE_TAC>>fs[])>>
+       rpt (pairarg_tac>>fs[])>>
+       rw[]>>gvs[iterateTheory.LAMBDA_PAIR]>>
+       imp_res_tac trace_prefix_bind_div>>
+       fs[LFINITE_fromList,GSYM LAPPEND_fromList,
+          LAPPEND_NIL_2ND,empty_locals_defs]>>NO_TAC)
+(* Dec *)
+  >- (rpt (TOP_CASE_TAC>>fs[])>>
+      rpt (pairarg_tac>>fs[])>>
+      rw[]>>gvs[iterateTheory.LAMBDA_PAIR]>>
+      (fs[div_bind_cases]
+       >- (imp_res_tac trace_prefix_bind_div>>fs[]))>>
+      imp_res_tac div_bind2>>fs[])
+  (* Seq *)
+  >~ [‘Seq’]
+  >- (simp[mrec_Seq]>>
+      rpt (TOP_CASE_TAC>>fs[])>>
+      rpt (pairarg_tac>>fs[])>>
+      rw[]>>gvs[iterateTheory.LAMBDA_PAIR]
+      >- (imp_res_tac evaluate_imp_nondiv>>gs[]>>
+          fs[div_bind_cases]>- gvs[div_def]>>
+          imp_res_tac evaluate_nondiv_trace_eq>>fs[]>>
+          imp_res_tac trace_prefix_bind_append>>fs[]>>
+          imp_res_tac panPropsTheory.evaluate_io_events_mono>>
+          fs[IS_PREFIX_APPEND]>>
+          fs[GSYM LAPPEND_fromList,LPREFIX_APPEND]>>
+          fs[Once LAPPEND_ASSOC]>>
+          fs[LFINITE_fromList,LAPPEND11_FINITE1]>>gvs[]>>
+          qhdtm_x_assum ‘fromList’ $ assume_tac o GSYM>>
+          fs[LAPPEND_ASSOC]>>
+          fs[LFINITE_fromList,LAPPEND11_FINITE1]>>
+          drule nondiv_evaluate'>>
+          disch_then $ qspecl_then [‘s1’,‘NONE’,‘s.clock’] mp_tac>>gs[]>>
+          ‘s with clock := s.clock = s’
+            by simp[state_component_equality]>>gvs[]>>
+          disch_then $ assume_tac o GSYM>>fs[]>>
+          drule_then (assume_tac o GSYM) evaluate_invariant_oracle>>
+          fs[]>>
+          imp_res_tac trace_prefix_bind_div>>fs[]>>
+          first_assum irule>>
+          rw[]>>
+          imp_res_tac panPropsTheory.evaluate_add_clock_eq>>fs[]>>
+          first_x_assum $ qspec_then ‘k' - s1.clock’ assume_tac>>
+          first_x_assum $ qspec_then ‘k'- s1.clock + s.clock’ assume_tac>>
+          gvs[])>>
+      fs[div_bind_cases]
+      >- (imp_res_tac trace_prefix_bind_div>>fs[]>>
+          first_x_assum irule>>rw[]>>
+          first_x_assum $ qspec_then ‘k'’ assume_tac>>
+          imp_res_tac div_imp_timeout>>fs[]>>
+          first_x_assum $ qspec_then ‘k' + s.clock’ assume_tac>>
+          gvs[])>>
+      Cases_on ‘res ≠ SOME TimeOut’>>fs[]
+      >- (imp_res_tac nondiv_INR>>gvs[]>>
+          Cases_on ‘x’>>fs[]>>
+          Cases_on ‘q’>>fs[]>>
+          imp_res_tac nondiv_imp_evaluate>>fs[]>>
+          Cases_on ‘s.clock < k’>>fs[NOT_LESS]
+          >- (dxrule (GSYM LESS_ADD)>>strip_tac>>
+              rev_drule panPropsTheory.evaluate_add_clock_eq>>simp[]>>
+              disch_then $ qspec_then ‘p’ assume_tac>>fs[])>>
+          dxrule LESS_EQUAL_ADD>>strip_tac>>
+          drule panPropsTheory.evaluate_add_clock_eq>>simp[]>>
+          disch_then $ qspec_then ‘p’ assume_tac>>
+          ‘s with clock := s.clock = s’
+            by simp[state_component_equality]>>gvs[])>>
+      gvs[div_bind_cases]>>
+      drule_then drule nondiv_timeout_add_clock>>rw[]>>fs[]>>
+      Cases_on ‘q’>>fs[]>>
+(*      dxrule evaluate_min_clock>>rw[]>>*)
+      Cases_on ‘evaluate (c2,t')’>>fs[]>>
+      ‘s1.ffi.io_events = r.ffi.io_events’ by
+        (first_x_assum $ qspec_then ‘k’ mp_tac>>fs[])>>
+(*      impl_tac >-
+       (CCONTR_TAC>>fs[NOT_LESS]>>imp_res_tac LESS_EQUAL_ADD>>
+        imp_res_tac panPropsTheory.evaluate_add_clock_eq>>fs[]>>
+        first_x_assum $ qspec_then ‘p’ mp_tac>>gvs[]>>
+          ‘s with clock := k' + p = s’
+          by simp[state_component_equality]>>gvs[])>>*)
+      imp_res_tac evaluate_nondiv_trace_eq>>fs[]>>
+      imp_res_tac trace_prefix_bind_append>>fs[]>>
+      imp_res_tac panPropsTheory.evaluate_io_events_mono>>
+      fs[IS_PREFIX_APPEND]>>
+      fs[GSYM LAPPEND_fromList,LPREFIX_APPEND]>>
+      fs[Once LAPPEND_ASSOC]>>
+      fs[LFINITE_fromList,LAPPEND11_FINITE1]>>gvs[]>>
+      fs[GSYM LAPPEND_fromList,LPREFIX_APPEND]>>
+      qhdtm_x_assum ‘fromList’ $ assume_tac o GSYM>>
+      fs[LAPPEND_ASSOC]>>
+      fs[LFINITE_fromList,LAPPEND11_FINITE1]>>
+      drule nondiv_evaluate'>>
+      disch_then $ drule_at Any>>rw[]>>
+      pop_assum $ assume_tac o GSYM>>fs[]>>
+      drule_then (assume_tac o GSYM) evaluate_invariant_oracle>>
+      fs[]>>
+      fs[div_bind_cases]>>
+      drule trace_prefix_bind_div>>rw[]>>fs[]>>
+(*
+      Cases_on ‘evaluate(c2,t' with clock := 0)’>>fs[]>>
+      imp_res_tac panPropsTheory.evaluate_io_events_mono>>
+      fs[IS_PREFIX_APPEND]>>
+      fs[GSYM LAPPEND_fromList,LPREFIX_APPEND]>>
+      fs[Once LAPPEND_ASSOC]>>
+      fs[LFINITE_fromList,LAPPEND11_FINITE1]>>gvs[]>>**)
+      qpat_x_assum ‘evaluate _ = (_,t')’ assume_tac>>
+      drule_then (assume_tac o GSYM) evaluate_invariant_oracle>>fs[]>>
+      imp_res_tac div_imp_timeout>>gvs[]>>
+      irule div_finite_LNIL>>simp[]>>
+      strip_tac>>
+      first_x_assum $ qspec_then ‘k' + t'.clock’ assume_tac>>fs[]>>
+      imp_res_tac panPropsTheory.evaluate_add_clock_eq>>gvs[]>>
+      pop_assum kall_tac>>
+      first_x_assum $ qspec_then ‘k'’ assume_tac>>fs[]>>
+      last_x_assum $ qspec_then ‘k+k'’ assume_tac>>gvs[])
+     (* If (the same as Dec) *)
+  >- (rpt (TOP_CASE_TAC>>fs[])>>
+      rpt (pairarg_tac>>fs[])>>
+      rw[]>>gvs[iterateTheory.LAMBDA_PAIR]>>
+      (fs[div_bind_cases]
+       >- (imp_res_tac trace_prefix_bind_div>>fs[]))>>
+      imp_res_tac div_bind2>>fs[])
+  >- (once_rewrite_tac[mrec_While]>>
+      rpt (TOP_CASE_TAC>>fs[])>>
+      rpt (pairarg_tac>>fs[])>>
+      rw[]>>gvs[iterateTheory.LAMBDA_PAIR]>>
+      fs[dec_clock_def,empty_locals_defs]>>
+      fs[div_bind_cases]
+      >- (imp_res_tac trace_prefix_bind_div>>fs[]>>
+          drule div_imp_timeout>>fs[]>>rw[]>>
+          first_assum $ qspec_then ‘0’ assume_tac>>fs[]>>
+          last_assum $ qspec_then ‘SUC 0’ mp_tac>>
+          strip_tac>>gvs[]>>
+          drule div_finite_LNIL>>fs[]>>
+          impl_tac >-
+           (strip_tac>>
+            first_assum $ qspec_then ‘k’ assume_tac>>fs[]>>
+            last_assum $ qspec_then ‘SUC k’ mp_tac>>
+            strip_tac>>fs[])>>
+          strip_tac>>gvs[LAPPEND_NIL_2ND])
+      >- (imp_res_tac nondiv_INR>>fs[]>>
+          Cases_on ‘x’>>fs[]>>
+          imp_res_tac nondiv_imp_evaluate>>gvs[]>>
+          Cases_on ‘q’>>fs[]>>
+          TRY (rename [‘evaluate _ = (SOME x,_)’]>>Cases_on ‘x’)>>gvs[]>>
+          imp_res_tac panPropsTheory.evaluate_io_events_mono>>
+          fs[IS_PREFIX_APPEND]>>gvs[]>>
+          imp_res_tac evaluate_nondiv_trace_eq>>fs[]>>
+          imp_res_tac trace_prefix_bind_append>>gvs[]>>
+          fs[GSYM LAPPEND_fromList,LPREFIX_APPEND]>>
+          fs[LAPPEND_ASSOC]>>
+          fs[LFINITE_fromList,LAPPEND11_FINITE1]>>
+          qhdtm_x_assum ‘fromList’ $ assume_tac o GSYM>>
+          simp[LAPPEND_ASSOC]>>
+          last_assum $ qspec_then ‘SUC k’ mp_tac>>
+          strip_tac>>fs[]>>gvs[]>>
+          drule nondiv_evaluate'>>fs[]>>
+          disch_then $ drule_at Any>>
+          simp[]>>strip_tac>>
+          pop_assum $ assume_tac o GSYM>>fs[]>>
+          drule_then (assume_tac o GSYM) evaluate_invariant_oracle>>
+          fs[]>>
+          drule div_imp_timeout>>fs[]>>rw[]>>
+          first_assum $ qspec_then ‘t'.clock’ assume_tac>>fs[]>>
+          ‘t' with clock := t'.clock = t'’
+            by simp[state_component_equality]>>gvs[]>>
+          drule_then mp_tac panPropsTheory.evaluate_io_events_mono>>
+          simp[IS_PREFIX_APPEND]>>rw[]>>gvs[]>>
+          drule div_finite_LNIL>>fs[]>>
+          (impl_tac >-
+            (strip_tac>>
+             last_x_assum $ qspec_then ‘SUC (k' + k)’ (mp_tac o GSYM)>>
+             simp[]>>
+             rev_drule panPropsTheory.evaluate_add_clock_eq>>
+             strip_tac>>fs[]>>
+             first_x_assum $ qspec_then ‘k'’ assume_tac>>fs[]))>>
+          rw[]>>gvs[LAPPEND_NIL_2ND])
+      >- (imp_res_tac trace_prefix_bind_div>>fs[]>>
+          drule div_imp_timeout>>fs[]>>rw[]>>
+          first_x_assum $ qspec_then ‘s.clock - 1’ assume_tac>>gvs[]>>
+          last_assum $ irule>>
+          strip_tac>>
+          drule div_imp_timeout>>fs[]>>rw[]>>
+          first_x_assum $ qspec_then ‘k' + s.clock - 1’ assume_tac>>fs[]>>
+          imp_res_tac panPropsTheory.evaluate_io_events_mono>>
+          fs[IS_PREFIX_APPEND]>>
+          first_x_assum $ qspec_then ‘k'’ assume_tac>>gvs[])>>
+      imp_res_tac nondiv_INR>>fs[]>>
+      Cases_on ‘x’>>fs[]>>
+      imp_res_tac nondiv_imp_evaluate>>gvs[]>>
+      Cases_on ‘q’>>fs[]>>
+      TRY (rename [‘evaluate _ = (SOME x,_)’]>>Cases_on ‘x’)>>gvs[]>>
+      qmatch_asmsub_abbrev_tac ‘evaluate (_,s with clock := k) = (X,t')’>>
+      (Cases_on ‘res ≠ SOME TimeOut’>>fs[]
+      >- (‘res = X ∧ t' = s1 with clock := t'.clock’ by
+            ((Cases_on ‘s.clock - 1 < k’
+             >- (dxrule (GSYM LESS_ADD)>>strip_tac>>
+                 rev_drule panPropsTheory.evaluate_add_clock_eq>>
+                 disch_then $ qspec_then ‘p’ assume_tac>>fs[]>>
+                 gvs[]))>>
+             fs[NOT_LESS]>>dxrule LESS_EQUAL_ADD>>strip_tac>>
+             drule panPropsTheory.evaluate_add_clock_eq>>
+             disch_then $ qspec_then ‘p’ assume_tac>>fs[]>>
+             gvs[state_component_equality,Abbr‘X’])>>
+          gvs[]>>
+          ‘bst t' = bst s1’ by
+            (pop_assum (fn h => rewrite_tac[Once h])>>simp[bst_def])>>
+          fs[]>>
+          qpat_x_assum ‘_ = (X,t')’ kall_tac>>
+          qpat_x_assum ‘t' = _’ kall_tac>>
+          pop_assum kall_tac>>fs[Abbr‘X’]>>
+          imp_res_tac evaluate_nondiv_trace_eq>>fs[]>>
+          imp_res_tac trace_prefix_bind_append>>fs[]>>
+          imp_res_tac panPropsTheory.evaluate_io_events_mono>>
+          fs[IS_PREFIX_APPEND]>>
+          fs[GSYM LAPPEND_fromList,LPREFIX_APPEND]>>
+          fs[Once LAPPEND_ASSOC]>>
+          fs[LFINITE_fromList,LAPPEND11_FINITE1]>>gvs[]>>
+          fs[GSYM LAPPEND_fromList,LPREFIX_APPEND]>>
+          qhdtm_x_assum ‘fromList’ $ assume_tac o GSYM>>
+          fs[LAPPEND_ASSOC]>>
+          fs[LFINITE_fromList,LAPPEND11_FINITE1]>>
+          drule nondiv_evaluate'>>
+          disch_then $ drule_at Any>>rw[]>>
+          pop_assum $ assume_tac o GSYM>>fs[]>>
+          drule_then (assume_tac o GSYM) evaluate_invariant_oracle>>
+          fs[]>>
+          imp_res_tac div_imp_timeout>>gvs[]>>
+          first_x_assum $ qspec_then ‘s1.clock’ assume_tac>>fs[]>>
+          ‘s1 with clock := s1.clock = s1’
+            by simp[state_component_equality]>>gvs[]>>
+          imp_res_tac panPropsTheory.evaluate_io_events_mono>>
+          fs[IS_PREFIX_APPEND]>>gvs[]>>
+          fs[GSYM LAPPEND_fromList,LPREFIX_APPEND]>>
+          fs[Once LAPPEND_ASSOC]>>
+          fs[LFINITE_fromList,LAPPEND11_FINITE1]>>gvs[]>>
+          last_x_assum irule>>
+          strip_tac>>
+          drule div_imp_timeout>>rw[]>>
+          first_x_assum $ qspec_then ‘k' + s1.clock’ assume_tac>>fs[]>>
+          last_x_assum $ qspec_then ‘k'’ mp_tac>>
+          rev_drule panPropsTheory.evaluate_add_clock_eq>>
+          strip_tac>>fs[]>>
+          first_x_assum $ qspec_then ‘k'’ assume_tac>>gvs[]))>>
+      gvs[]>>
+      imp_res_tac evaluate_nondiv_trace_eq>>fs[]>>
+      imp_res_tac trace_prefix_bind_append>>fs[]>>
+      imp_res_tac panPropsTheory.evaluate_io_events_mono>>
+      fs[IS_PREFIX_APPEND]>>
+      fs[GSYM LAPPEND_fromList,LPREFIX_APPEND]>>
+      fs[Once LAPPEND_ASSOC]>>
+      fs[LFINITE_fromList,LAPPEND11_FINITE1]>>gvs[Abbr‘X’]>>
+      fs[GSYM LAPPEND_fromList,LPREFIX_APPEND]>>
+      qhdtm_x_assum ‘fromList’ $ assume_tac o GSYM>>
+      fs[LAPPEND_ASSOC]>>
+      fs[LFINITE_fromList,LAPPEND11_FINITE1]>>
+      drule nondiv_evaluate'>>
+      disch_then $ drule_at Any>>rw[]>>
+      pop_assum $ assume_tac o GSYM>>fs[]>>
+      drule_then (assume_tac o GSYM) evaluate_invariant_oracle>>
+      gvs[]>>
+      ‘s.clock - 1 < k’ by
+        (CCONTR_TAC>>fs[NOT_LESS]>>imp_res_tac LESS_EQUAL_ADD>>fs[]>>
+         drule panPropsTheory.evaluate_add_clock_eq>>
+         disch_then $ qspec_then ‘p’ assume_tac>>fs[])>>
+      dxrule (GSYM LESS_ADD)>>strip_tac>>
+      ‘1 ≤ s.clock’ by simp[]>>fs[]>>
+      imp_res_tac div_imp_timeout>>fs[]>>
+      first_x_assum $ qspec_then ‘t'.clock’ assume_tac>>fs[]>>
+      ‘t' with clock := t'.clock = t'’
+        by simp[state_component_equality]>>rw[]>>gvs[]>>
+      ‘t.ffi.io_events = s.ffi.io_events ++ l'’ by
+        (last_x_assum $ qspec_then ‘p’ mp_tac>>simp[])>>
+      imp_res_tac panPropsTheory.evaluate_io_events_mono>>
+      fs[IS_PREFIX_APPEND]>>
+      fs[GSYM LAPPEND_fromList,LPREFIX_APPEND]>>
+      fs[Once LAPPEND_ASSOC]>>
+      fs[LFINITE_fromList,LAPPEND11_FINITE1]>>gvs[]>>
+      fs[GSYM LAPPEND_fromList,LPREFIX_APPEND]>>
+      fs[Once LAPPEND_ASSOC]>>
+      fs[LFINITE_fromList,LAPPEND11_FINITE1]>>gvs[]>>
+      assume_tac (Q.SPECL [‘c’,‘s with clock := s.clock -1’,‘p’]
+                           panPropsTheory.evaluate_add_clock_io_events_mono)>>
+      gvs[]>>
+      fs[IS_PREFIX_APPEND]>>
+      irule div_finite_LNIL>>simp[]>>
+      rw[]>>
+      qpat_x_assum ‘evaluate _ = (_,t')’ assume_tac>>
+      drule panPropsTheory.evaluate_add_clock_eq>>
+      disch_then $ qspec_then ‘k’ assume_tac>>gvs[]>>
+      last_x_assum $ qspec_then ‘p + k’ mp_tac>>gvs[])
+(* Call *)
+  >- 
+      
+
 cheat
 QED
 
