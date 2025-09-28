@@ -11,6 +11,9 @@ val _ = new_theory"littleTheoriesSyntaxNewSystem"
 val _ = monadsyntax.enable_monadsyntax();
 val _ = monadsyntax.enable_monad("error");
 
+    
+fun rC q = rename [q] >> Cases_on q >> simp[]
+
 val cpn_distinct = TypeBase.distinct_of ``:ordering``
 val cpn_nchotomy = TypeBase.nchotomy_of ``:ordering``
 
@@ -190,6 +193,8 @@ Proof
   >- (first_x_assum $ drule o iffRL >> rw[] >> first_x_assum drule
       >> rw[] >> rw[FLOOKUP_FUNION])
   >> rw[type_ok_weakening, term_ok_weakening]
+  >> first_x_assum drule >> rw[esubst_sig_def, o_f_FUNION]
+  >> irule term_ok_weakening >> simp[]
 QED
 
 Theorem esubst_ty_identity:
@@ -243,6 +248,7 @@ Proof
   >> rw[theory_ok'_def, esubsts_ok_def, esubsts_total_def]
   >> metis_tac[]
 QED
+
 (*
 Theorem proves'_imp_proves:
   ∀thy' c h used_eaxs.
@@ -298,3 +304,5 @@ Proof
       >> rw[drop_thy])
 QED
 *)
+
+val _ = export_theory();

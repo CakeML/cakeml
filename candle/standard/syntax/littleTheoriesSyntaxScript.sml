@@ -262,6 +262,18 @@ Overload is_monomorphic = “λty. tyvars ty = []”
 
 Type SIG = “:((mlstring |-> num) # (mlstring |-> type))”
 
+Definition nullary_ops_of_def:
+  nullary_ops_of (Tyvar v) = {} ∧
+  nullary_ops_of (Tyapp v []) = {v} ∧
+  nullary_ops_of (Tyapp v lst) =
+  BIGUNION (set (MAP nullary_ops_of lst))
+Termination
+  WF_REL_TAC ‘measure type_size’
+  >> GEN_TAC >> Induct >> rw[]
+  >> simp[type_size_def] >> gvs[DISJ_IMP_THM, FORALL_AND_THM]
+  >> first_x_assum $ drule_then (qspec_then ‘v4’ mp_tac) >> simp[]
+End
+     
 Definition esubsts_ok_def:
   esubsts_ok (sig:SIG) (σ, θ) ⇔
     strlit "=" ∉ FDOM θ ∧
@@ -273,7 +285,8 @@ Definition esubsts_ok_def:
     (∀ty. ty ∈ FRANGE σ ⇒ type_ok (tysof sig) ty ∧
                           is_monomorphic ty) ∧
     (∀tm. tm ∈ FRANGE θ ⇒ term_ok (esubst_sig (σ,θ) sig) tm ∧
-                          ∃n ty. tm = Const n ty)
+                          ∃n ty. tm = Const n ty) ∧
+    DISJOINT (FDOM σ) (BIGUNION (IMAGE nullary_ops_of (FRANGE σ)))
 End
 
 (* Standard signature includes the minimal type operators and constants *)
@@ -509,7 +522,7 @@ Inductive nproves:
   (theory_ok thy ∧ c ∈ (axsof thy)
    ⇒ (thy, [], 0:num) |n- c)
 End
-
+        
 
 (* A context is a sequence of updates *)
 
@@ -523,8 +536,8 @@ Datatype:
   | TypeDefn mlstring term mlstring mlstring
   (* NewType name arity *)
   | NewType mlstring num
-  (* NewEliminableType name arity *)
-  | NewEliminableType mlstring num
+  (* NewEliminableType name *)
+  | NewEliminableType mlstring
   (* NewConst name type *)
   | NewConst mlstring type
   (* NewEliminableConst name type *)
@@ -542,7 +555,7 @@ Definition types_of_upd'_def:
   (types_of_upd' (ConstSpec _ _) = []) ∧
   (types_of_upd' (TypeDefn name pred _ _) = [(name,LENGTH (tvars pred))]) ∧
   (types_of_upd' (NewType name arity) = [(name,arity)]) ∧
-  (types_of_upd' (NewEliminableType name arity) = []) (* not here *) ∧
+  (types_of_upd' (NewEliminableType name) = []) (* not here *) ∧
   (types_of_upd' _ = [])
 End
 
