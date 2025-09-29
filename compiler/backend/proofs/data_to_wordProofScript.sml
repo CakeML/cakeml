@@ -150,45 +150,6 @@ Proof
   \\ imp_res_tac IN_adjust_set_IN
 QED
 
-(*
-Theorem state_rel_call_env_get_var:
-  get_var src s.locals = SOME (RefPtr v0 ptr) /\
-  get_var (adjust_var src) (t:('a,'c,'ffi) wordSem$state) = SOME w /\
-  state_rel c l1 l2 s t [] locs ==>
-  state_rel c l1 l2 (call_env [RefPtr v0 ptr; a] ss (dec_clock s))
-    (call_env [Loc l1 l2; w; t.memory w'] ss (dec_clock t)) [] locs
-Proof
-  full_simp_tac(srw_ss())[state_rel_def,call_env_def,wordSemTheory.call_env_def,LET_THM,
-      dataSemTheory.dec_clock_def,wordSemTheory.dec_clock_def,lookup_adjust_var_fromList2]
-  \\ srw_tac[][lookup_fromList2,lookup_fromList] \\ srw_tac[][]
-  \\ imp_res_tac get_vars_IMP_LENGTH
-  \\ imp_res_tac wordPropsTheory.get_vars_length_lemma \\ full_simp_tac(srw_ss())[]
-  \\ imp_res_tac stack_rel_IMP_size_of_stack \\ fs []
-  THEN1
-   (Cases_on `s.stack_max` \\ fs [OPTION_MAP2_DEF]
-    \\ Cases_on `ss` \\ fs [OPTION_MAP2_DEF]
-    \\ Cases_on `size_of_stack s.stack` \\ fs [OPTION_MAP2_DEF]
-    \\ Cases_on `t.stack_max` \\ fs [OPTION_MAP2_DEF])
-  THEN1
-   (Cases_on `s.stack_max` \\ fs [OPTION_MAP2_DEF]
-    \\ Cases_on `ss` \\ fs [OPTION_MAP2_DEF]
-    \\ Cases_on `size_of_stack s.stack` \\ fs [OPTION_MAP2_DEF]
-    \\ Cases_on `t.stack_max` \\ fs [OPTION_MAP2_DEF])
-  \\ asm_exists_tac
-  \\ full_simp_tac bool_ss [GSYM APPEND_ASSOC]
-  \\ imp_res_tac word_ml_inv_get_var_IMP
-  \\ first_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
-  \\ full_simp_tac(srw_ss())[MEM] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `x` \\ full_simp_tac(srw_ss())[join_env_def,MEM_MAP,MEM_FILTER]
-  \\ Cases_on `y` \\ full_simp_tac(srw_ss())[MEM_toAList,lookup_inter_alt] \\ srw_tac[][MEM_ZIP]
-  \\ full_simp_tac(srw_ss())[lookup_fromList2,lookup_fromList]
-  \\ rpt disj1_tac
-  \\ Q.MATCH_ASSUM_RENAME_TAC `EVEN k`
-  \\ full_simp_tac(srw_ss())[DIV_LT_X]
-  \\ cheat
-QED
-*)
-
 Theorem data_compile_correct:
    !prog s c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
       (dataSem$evaluate (prog,s) = (res,s1)) /\
@@ -371,29 +332,47 @@ Proof
       \\ simp [wordSemTheory.add_ret_loc_def]
       \\ IF_CASES_TAC \\ gvs []
       >- simp [wordSemTheory.flush_state_def]
-      \\ Cases_on
-        `evaluate (q', call_env [RefPtr b n'; a]
-                                (lookup loc s.stack_frame_sizes)
-                                (dec_clock s))` \\ gvs []
-      \\ Cases_on `q` \\ gvs []
-      \\ cheat (*
+      \\ gvs [CaseEq"prod",CaseEq"option",PULL_EXISTS]
+      \\ qmatch_goalsub_abbrev_tac ‘(FST _, t8)’
+      \\ last_x_assum $ qspecl_then [‘c’,‘loc’,‘2’,‘l1’,‘l2’,‘t8’,‘locs’] mp_tac
+      \\ impl_tac >-
+       (fs [state_rel_thm,dataSemTheory.call_env_def,
+            dataSemTheory.dec_clock_def,wordSemTheory.dec_clock_def,
+            wordSemTheory.call_env_def,dec_clock_def,Abbr‘t8’]
+        \\ conj_tac >- EVAL_TAC
+        \\ conj_tac >-
+         (simp [fromList_def,fromList2_def]
+          \\ simp [lookup_insert]
+          \\ rw [] \\ gvs [])
+        \\ conj_tac >-
+         (Cases_on ‘t.stack_max’ \\ gvs []
+          \\ Cases_on ‘stack_size t.stack’ \\ gvs []
+          \\ Cases_on ‘lookup loc s.stack_frame_sizes’ \\ gvs [] )
+        \\ conj_tac >-
+         (imp_res_tac stack_rel_IMP_size_of_stack
+          \\ Cases_on ‘size_of_stack s.stack’ \\ gvs []
+          \\ Cases_on ‘lookup loc s.stack_frame_sizes’ \\ gvs []
+          \\ Cases_on ‘s.stack_max’ \\ gvs []
+          \\ Cases_on ‘t.stack_max’ \\ gvs [])
+        \\ qpat_x_assum ‘_ t.mdomain _’ mp_tac
+        \\ match_mp_tac memory_rel_rearrange
+        \\ simp [SF DNF_ss]
+        \\ EVAL_TAC
+        \\ simp [SF DNF_ss])
+      \\ strip_tac \\ fs []
+      \\ Cases_on ‘res1’ \\ gvs []
+      \\ strip_tac \\ gvs []
+      \\ CASE_TAC \\ gvs []
+      \\ CASE_TAC \\ gvs []
+      \\ ‘(jump_exc t8 = NONE ⇔ jump_exc t = NONE) ∧
+          mk_loc (jump_exc t8) = mk_loc (jump_exc t) : 'a word_loc’ by
+       (gvs [wordSemTheory.jump_exc_def,Abbr‘t8’,wordSemTheory.call_env_def,
+             wordSemTheory.dec_clock_def,mk_loc_def]
+        \\ IF_CASES_TAC \\ simp []
+        \\ rpt (CASE_TAC \\ gvs [mk_loc_def]))
+      \\ gvs []
+      \\ Cases_on ‘jump_exc t’ \\ gvs [wordSemTheory.set_var_def])
 
-      \\ drule_all state_rel_call_env_get_var
-      \\ disch_then
-          $ qspecl_then [`x' + bytes_in_word`, `lookup loc s.stack_frame_sizes`,
-                         `a`] assume_tac \\ gvs []
-      \\ last_x_assum drule \\ simp []
-      \\ disch_then $ qspecl_then [`loc`, `2`] assume_tac \\ gvs []
-      \\ gvs [wordSemTheory.dec_clock_def]
-      \\ Cases_on `res1` \\ gvs []
-      \\ Cases_on `x'''` \\ gvs []
-      \\ Cases_on `x''` \\ gvs []
-      \\ Cases_on `e` \\ gvs []
-      \\ gvs [wordSemTheory.call_env_def, wordSemTheory.jump_exc_def]
-      \\ IF_CASES_TAC \\ gvs []
-      \\ ntac 5 (TOP_CASE_TAC \\ gvs [])
-      \\ simp [mk_loc_def]
-      \\ simp [GSYM wordSemTheory.set_var_def] *))
     \\ Cases_on `x''` \\ gvs []
     \\ simp [wordSemTheory.evaluate_def, wordSemTheory.get_vars_def,
              wordSemTheory.get_var_def, lookup_insert]
