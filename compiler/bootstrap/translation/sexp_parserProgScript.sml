@@ -278,15 +278,8 @@ val sexplit_side = Q.prove(
 
 val r = translate sexppat_alt_def;
 
-val sexppat_alt_side = Q.prove(
-  `(∀x. sexppat_alt_side x = T) ∧
-   (∀x. sexppat_list_side x = T)`,
-  ho_match_mp_tac sexppat_alt_ind \\ rw[] \\
-  rw[Once(theorem"sexppat_alt_side_def")])
-  |> update_precondition;
-
-val r = translate decode_bool_def;
-val r = translate encode_bool_def;
+val r = translate encode_thunk_mode_def;
+val r = translate decode_thunk_mode_def;
 
 val r = translate (fromSexpTheory.sexpop_def
                    |> REWRITE_RULE [decode_control_eq]);
