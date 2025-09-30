@@ -574,7 +574,7 @@ Proof
     \\ gvs [perms_ok_def, store_assign_def]
     \\ rw [EL_LUPDATE, perms_ok_ref_def])
   \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gs[]
-  >- (rw [do_app_cases] \\ gvs [thunk_op_def])
+  >- (rw [do_app_cases] \\ gvs [thunk_op_def, AllCaseEqs()])
   \\ Cases_on ‘op’ \\ gs []
   \\ Cases_on ‘t’ \\ gs []
 QED
@@ -721,11 +721,8 @@ Proof
              perms_ok_state_def]
         \\ last_x_assum drule \\ rw [] \\ gvs [perms_ok_def, perms_ok_ref_def])
       \\ (
-        gvs [AppUnit_def, sing_env_def, perms_ok_env_def, dec_clock_def,
-             namespaceTheory.nsEmpty_def, namespaceTheory.nsBind_def]
+        gvs [dec_clock_def]
         \\ gvs [oneline dest_thunk_def, AllCaseEqs(), store_lookup_def]
-        \\ gvs [evaluate_def, do_con_check_def, build_conv_def,
-                namespaceTheory.nsLookup_def, AllCaseEqs()]
         \\ gvs [do_opapp_cases]
         >- ((* Closure *)
           last_x_assum mp_tac
@@ -736,14 +733,13 @@ Proof
                  perms_ok_state_def, EL_LUPDATE] \\ rw []
             \\ gvs [perms_ok_ref_def]
             \\ first_x_assum (drule_then assume_tac) \\ gs [])
-          \\ gs [SF DNF_ss, perms_ok_env_def, perms_ok_def, find_recfun_ALOOKUP,
-                 EVERY_MEM, MEM_MAP, PULL_EXISTS, perms_ok_state_def]
-          \\ rw [] \\ gs []
-          \\ (
-            first_x_assum (drule_then assume_tac)
-            \\ gvs [perms_ok_ref_def, perms_ok_def, perms_ok_env_def]
-            \\ first_x_assum irule \\ gvs []
-            \\ metis_tac []))
+          \\ gvs [perms_ok_state_def]
+          \\ first_x_assum (drule_then assume_tac) \\ gvs []
+          \\ gvs [perms_ok_ref_def, perms_ok_def, perms_ok_env_def]
+          \\ Cases \\ simp [nsLookup_nsBind_compute]
+          \\ rw [] \\ gvs [perms_ok_def]
+          \\ first_x_assum irule
+          \\ first_x_assum (irule_at Any) \\ gvs [])
         >- ((* Recclosure *)
           last_x_assum mp_tac
           \\ reverse impl_tac
@@ -753,20 +749,39 @@ Proof
                  perms_ok_state_def, EL_LUPDATE] \\ rw []
             \\ gvs [perms_ok_ref_def]
             \\ first_x_assum (drule_then assume_tac) \\ gs [])
-          \\ gs [SF DNF_ss, perms_ok_env_def, perms_ok_def, find_recfun_ALOOKUP,
-                 EVERY_MEM, MEM_MAP, PULL_EXISTS, perms_ok_state_def]
+          \\ gvs [perms_ok_state_def]
+          \\ first_x_assum (drule_then assume_tac) \\ gvs []
+          \\ gvs [perms_ok_ref_def, perms_ok_def, perms_ok_env_def]
+          \\ gvs [SF DNF_ss, find_recfun_ALOOKUP, EVERY_MEM, MEM_MAP,
+                  PULL_EXISTS]
           \\ drule_then assume_tac ALOOKUP_MEM
           \\ qmatch_asmsub_abbrev_tac ‘MEM yyy funs’
-          \\ first_x_assum drule \\ simp_tac std_ss [Abbr ‘yyy’]
+          \\ first_assum drule \\ simp_tac std_ss [Abbr ‘yyy’]
+          \\ strip_tac
+          \\ simp [build_rec_env_merge]
+          \\ Cases \\ simp [nsLookup_nsBind_compute]
           \\ rw [] \\ gs [nsLookup_nsAppend_some, nsLookup_alist_to_ns_some,
                           nsLookup_alist_to_ns_none]
-          >- (
-            gvs [perms_ok_ref_def, perms_ok_def, perms_ok_env_def]
-            \\ first_x_assum irule \\ gvs []
-            \\ gvs [PULL_EXISTS, MEM_MAP, EVERY_MAP]
-            \\ metis_tac [])
-          >- gvs [perms_ok_ref_def, perms_ok_def, EVERY_MAP, EVERY_EL,
-                  MEM_EL])))
+          >- gvs [perms_ok_def]
+          >~ [‘ALOOKUP _ _ = NONE’] >- (
+            first_x_assum irule
+            \\ first_assum (irule_at Any)
+            \\ gs [ALOOKUP_NONE, MAP_MAP_o, o_DEF, LAMBDA_PROD, MEM_MAP,
+                   EXISTS_PROD]
+            \\ first_assum (irule_at Any)
+            \\ first_assum (irule_at Any) \\ gs []
+            \\ strip_tac \\ gvs [])
+          >~ [‘ALOOKUP _ _ = SOME _’] >- (
+            drule_then assume_tac ALOOKUP_MEM
+            \\ gs [MEM_MAP, EXISTS_PROD, perms_ok_def, EVERY_MAP, EVERY_MEM]
+            \\ gs [perms_ok_env_def, MEM_MAP, EXISTS_PROD]
+            \\ rw [] \\ gs [FORALL_PROD, SF SFY_ss])
+          \\ first_x_assum irule
+          \\ first_assum (irule_at Any)
+          \\ gs [ALOOKUP_NONE, MAP_MAP_o, o_DEF, LAMBDA_PROD, MEM_MAP,
+                 EXISTS_PROD]
+          \\ first_assum (irule_at Any)
+          \\ first_assum (irule_at Any) \\ gs [])))
     \\ gvs [AllCaseEqs()]
     \\ gvs [evaluate_def]
     \\ Cases_on ‘op = Opapp’ \\ gs []
