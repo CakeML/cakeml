@@ -1,12 +1,11 @@
 (* --------------------------------------------------------------------------
    Pre-evaluate encoder (to help speed up EVAL)
    -------------------------------------------------------------------------- *)
-Theory arm7_eval_encode
+Theory arm7_eval_encode[no_sig_docs]
 Ancestors
   arm arm7_target alignment
 
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0
 
 local
   val n = ["skip", "const", "binop reg", "binop imm", "shift", "div",

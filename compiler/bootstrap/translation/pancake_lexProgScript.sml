@@ -1,7 +1,7 @@
 (*
   Translate pancake's lexer
 *)
-Theory pancake_lexProg
+Theory pancake_lexProg[no_sig_docs]
 Ancestors
   panLexer location caml_parserProg ml_translator
 Libs
@@ -135,7 +135,6 @@ QED
 
 val _ = update_precondition pancake_lex_side;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 val _ = ml_translatorLib.clean_on_exit := true;

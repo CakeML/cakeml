@@ -4,7 +4,7 @@
 
 (* The following line is (and shall remain) the only difference between
    the 32-bit and 64-bit versions of this file. *)
-Theory backend_64_cv
+Theory backend_64_cv[no_sig_docs]
 Ancestors
   cv_std backend_cv to_data_cv backend
 Libs
@@ -574,4 +574,3 @@ QED
 
 val _ = word_allocTheory.get_heuristics_def |> arch_spec |> cv_auto_trans;
 
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
