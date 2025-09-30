@@ -3674,17 +3674,16 @@ Proof
             by simp[state_component_equality]>>gvs[])>>
       gvs[div_bind_cases]>>
       drule_then drule nondiv_timeout_add_clock>>rw[]>>fs[]>>
+      dxrule evaluate_min_clock>>rw[]>>
       Cases_on ‘q’>>fs[]>>
-(*      dxrule evaluate_min_clock>>rw[]>>*)
-      Cases_on ‘evaluate (c2,t')’>>fs[]>>
+      gvs[div_bind_cases]>>
+      Cases_on ‘evaluate (c2,t' with clock := 0)’>>fs[]>>
+      drule evaluate_add_clock_or_timeout>>simp[]>>
+      disch_then $ qspecl_then [‘s1’,‘SOME TimeOut’,‘s.clock’] mp_tac>>
+      ‘s with clock := s.clock = s’ by simp[state_component_equality]>>
+      fs[]>>rw[]>>
       ‘s1.ffi.io_events = r.ffi.io_events’ by
-        (first_x_assum $ qspec_then ‘k’ mp_tac>>fs[])>>
-(*      impl_tac >-
-       (CCONTR_TAC>>fs[NOT_LESS]>>imp_res_tac LESS_EQUAL_ADD>>
-        imp_res_tac panPropsTheory.evaluate_add_clock_eq>>fs[]>>
-        first_x_assum $ qspec_then ‘p’ mp_tac>>gvs[]>>
-          ‘s with clock := k' + p = s’
-          by simp[state_component_equality]>>gvs[])>>*)
+        (first_x_assum $ qspec_then ‘k' - s.clock’ mp_tac>>gvs[])>>
       imp_res_tac evaluate_nondiv_trace_eq>>fs[]>>
       imp_res_tac trace_prefix_bind_append>>fs[]>>
       imp_res_tac panPropsTheory.evaluate_io_events_mono>>
@@ -3699,27 +3698,18 @@ Proof
       drule nondiv_evaluate'>>
       disch_then $ drule_at Any>>rw[]>>
       pop_assum $ assume_tac o GSYM>>fs[]>>
-      drule_then (assume_tac o GSYM) evaluate_invariant_oracle>>
       fs[]>>
-      fs[div_bind_cases]>>
       drule trace_prefix_bind_div>>rw[]>>fs[]>>
-(*
-      Cases_on ‘evaluate(c2,t' with clock := 0)’>>fs[]>>
-      imp_res_tac panPropsTheory.evaluate_io_events_mono>>
-      fs[IS_PREFIX_APPEND]>>
-      fs[GSYM LAPPEND_fromList,LPREFIX_APPEND]>>
-      fs[Once LAPPEND_ASSOC]>>
-      fs[LFINITE_fromList,LAPPEND11_FINITE1]>>gvs[]>>**)
-      qpat_x_assum ‘evaluate _ = (_,t')’ assume_tac>>
+      qpat_x_assum ‘evaluate _ = (_,t' with clock := 0)’ assume_tac>>
       drule_then (assume_tac o GSYM) evaluate_invariant_oracle>>fs[]>>
-      imp_res_tac div_imp_timeout>>gvs[]>>
-      irule div_no_trace_LNIL>>simp[]>>
-      strip_tac>>
-      first_x_assum $ qspec_then ‘k' + t'.clock’ assume_tac>>fs[]>>
-      imp_res_tac panPropsTheory.evaluate_add_clock_eq>>gvs[]>>
-      pop_assum kall_tac>>
-      first_x_assum $ qspec_then ‘k'’ assume_tac>>fs[]>>
-      last_x_assum $ qspec_then ‘k+k'’ assume_tac>>gvs[])
+      ‘(t' with clock := 0).clock = 0’ by simp[]>>
+      drule_at Any div_no_trace_LNIL>>simp[]>>
+      disch_then $ drule_at Any>>simp[]>>
+      impl_tac >-
+       (strip_tac>>
+      first_x_assum $ qspec_then ‘k + k' - s.clock’ assume_tac>>fs[]>>
+        drule panPropsTheory.evaluate_add_clock_eq>>
+        disch_then $ qspec_then ‘k’ assume_tac>>gvs[])>>rw[])
      (* If (the same as Dec) *)
   >- (rpt (TOP_CASE_TAC>>fs[])>>
       rpt (pairarg_tac>>fs[])>>
@@ -3748,6 +3738,7 @@ Proof
       >- (imp_res_tac nondiv_INR>>fs[]>>
           Cases_on ‘x’>>fs[]>>
           imp_res_tac nondiv_imp_evaluate>>gvs[]>>
+          dxrule evaluate_min_clock>>rw[]>>
           Cases_on ‘q’>>fs[]>>
           TRY (rename [‘evaluate _ = (SOME x,_)’]>>Cases_on ‘x’)>>gvs[]>>
           imp_res_tac panPropsTheory.evaluate_io_events_mono>>
@@ -3759,7 +3750,7 @@ Proof
           fs[LFINITE_fromList,LAPPEND11_FINITE1]>>
           qhdtm_x_assum ‘fromList’ $ assume_tac o GSYM>>
           simp[LAPPEND_ASSOC]>>
-          last_assum $ qspec_then ‘SUC k’ mp_tac>>
+          last_assum $ qspec_then ‘SUC k'’ mp_tac>>
           strip_tac>>fs[]>>gvs[]>>
           drule nondiv_evaluate'>>fs[]>>
           disch_then $ drule_at Any>>
@@ -3768,20 +3759,19 @@ Proof
           drule_then (assume_tac o GSYM) evaluate_invariant_oracle>>
           fs[]>>
           drule div_imp_timeout>>fs[]>>rw[]>>
-          first_assum $ qspec_then ‘t'.clock’ assume_tac>>fs[]>>
-          ‘t' with clock := t'.clock = t'’
-            by simp[state_component_equality]>>gvs[]>>
+          first_assum $ qspec_then ‘0’ assume_tac>>fs[]>>
           drule_then mp_tac panPropsTheory.evaluate_io_events_mono>>
           simp[IS_PREFIX_APPEND]>>rw[]>>gvs[]>>
-          drule div_no_trace_LNIL>>fs[]>>
+          simp[LFINITE_LAPPEND_EQ_NIL]>>
+          ‘(t' with clock := 0).clock = 0’ by simp[]>>
+          drule_at Any div_no_trace_LNIL>>simp[]>>
+          disch_then $ drule_at Any>>simp[]>>
           (impl_tac >-
             (strip_tac>>
              last_x_assum $ qspec_then ‘SUC (k' + k)’ (mp_tac o GSYM)>>
              simp[]>>
              rev_drule panPropsTheory.evaluate_add_clock_eq>>
-             strip_tac>>fs[]>>
-             first_x_assum $ qspec_then ‘k'’ assume_tac>>fs[]))>>
-          rw[]>>gvs[LAPPEND_NIL_2ND])
+             disch_then $ qspec_then ‘k’ assume_tac>>fs[]))>>rw[])
       >- (imp_res_tac trace_prefix_bind_div>>fs[]>>
           drule div_imp_timeout>>fs[]>>rw[]>>
           first_x_assum $ qspec_then ‘s.clock - 1’ assume_tac>>gvs[]>>
@@ -3850,6 +3840,11 @@ Proof
           strip_tac>>fs[]>>
           first_x_assum $ qspec_then ‘k'’ assume_tac>>gvs[]))>>
       gvs[]>>
+      dxrule evaluate_min_clock>>
+      ‘X ≠ SOME TimeOut’ by simp[Abbr‘X’]>>rw[]>>
+      drule evaluate_add_clock_or_timeout>>
+      disch_then $ qspecl_then [‘s1’,‘SOME TimeOut’,‘s.clock - 1’] mp_tac>>
+      simp[]>>rw[]>>
       imp_res_tac evaluate_nondiv_trace_eq>>fs[]>>
       imp_res_tac trace_prefix_bind_append>>fs[]>>
       imp_res_tac panPropsTheory.evaluate_io_events_mono>>
@@ -3866,36 +3861,43 @@ Proof
       pop_assum $ assume_tac o GSYM>>fs[]>>
       drule_then (assume_tac o GSYM) evaluate_invariant_oracle>>
       gvs[]>>
-      ‘s.clock - 1 < k’ by
-        (CCONTR_TAC>>fs[NOT_LESS]>>imp_res_tac LESS_EQUAL_ADD>>fs[]>>
-         drule panPropsTheory.evaluate_add_clock_eq>>
-         disch_then $ qspec_then ‘p’ assume_tac>>fs[])>>
+(*
       dxrule (GSYM LESS_ADD)>>strip_tac>>
-      ‘1 ≤ s.clock’ by simp[]>>fs[]>>
+      ‘1 ≤ s.clock’ by simp[]>>fs[]>>*)
       imp_res_tac div_imp_timeout>>fs[]>>
-      first_x_assum $ qspec_then ‘t'.clock’ assume_tac>>fs[]>>
-      ‘t' with clock := t'.clock = t'’
-        by simp[state_component_equality]>>rw[]>>gvs[]>>
+      first_x_assum $ qspec_then ‘0’ assume_tac>>fs[]>>
+(*      ‘t' with clock := t'.clock = t'’
+        by simp[state_component_equality]>>rw[]>>gvs[]>>*)
       ‘t.ffi.io_events = s.ffi.io_events ++ l'’ by
-        (last_x_assum $ qspec_then ‘p’ mp_tac>>simp[])>>
+        (last_x_assum $ qspec_then ‘k' - (s.clock - 1)’ mp_tac>>simp[])>>
       imp_res_tac panPropsTheory.evaluate_io_events_mono>>
       fs[IS_PREFIX_APPEND]>>
       fs[GSYM LAPPEND_fromList,LPREFIX_APPEND]>>
       fs[Once LAPPEND_ASSOC]>>
       fs[LFINITE_fromList,LAPPEND11_FINITE1]>>gvs[]>>
-      fs[GSYM LAPPEND_fromList,LPREFIX_APPEND]>>
-      fs[Once LAPPEND_ASSOC]>>
-      fs[LFINITE_fromList,LAPPEND11_FINITE1]>>gvs[]>>
-      assume_tac (Q.SPECL [‘c’,‘s with clock := s.clock -1’,‘p’]
+      assume_tac (Q.SPECL [‘c’,‘s with clock := s.clock -1’,‘k' - (s.clock - 1)’]
                            panPropsTheory.evaluate_add_clock_io_events_mono)>>
       gvs[]>>
       fs[IS_PREFIX_APPEND]>>
+      simp[LFINITE_LAPPEND_EQ_NIL]>>
+      ‘(t' with clock := 0).clock = 0’ by simp[]>>
+      drule_at Any div_no_trace_LNIL>>simp[]>>
+      disch_then $ drule_at Any>>simp[]>>
+      (impl_tac >-
+       (strip_tac>>
+        first_x_assum $ qspec_then ‘k + k' - (s.clock - 1)’ mp_tac>>fs[]>>
+        qpat_x_assum ‘evaluate _ = (_,t' with clock := 0)’ assume_tac>>
+        drule panPropsTheory.evaluate_add_clock_eq>>
+        disch_then $ qspec_then ‘k’ assume_tac>>gvs[])>>rw[]))
+(*
       irule div_no_trace_LNIL>>simp[]>>
       rw[]>>
       qpat_x_assum ‘evaluate _ = (_,t')’ assume_tac>>
       drule panPropsTheory.evaluate_add_clock_eq>>
       disch_then $ qspec_then ‘k’ assume_tac>>gvs[]>>
       last_x_assum $ qspec_then ‘p + k’ mp_tac>>gvs[])
+???*)
+
 (* Call *)
   >- (simp[mrec_Call,empty_locals_defs]>>
       ntac 7 (TOP_CASE_TAC>>fs[])
@@ -3947,14 +3949,21 @@ Proof
               drule panPropsTheory.evaluate_io_events_mono>>
               simp[IS_PREFIX_APPEND]>>gvs[]>>rw[]>>gvs[]>>
               simp[LFINITE_LAPPEND_EQ_NIL]>>
-              irule div_no_trace_LNIL>>rw[]>>
-              qmatch_goalsub_abbrev_tac ‘kk + t'.clock’>>
-              drule div_imp_timeout>>
-              disch_then $ qspec_then ‘kk + t'.clock’ assume_tac>>fs[]>>
-              first_x_assum $ qspec_then ‘SUC (k + kk + t'.clock)’ mp_tac>>
+              ‘(t' with <|locals:=s.locals|+(q''',v);clock := 0|>).clock = 0’ by simp[]>>
+              drule_at Any div_no_trace_LNIL>>simp[]>>
+              disch_then $ drule_at Any>>simp[]>>
+              impl_tac >-
+               (strip_tac>>
+                drule div_imp_timeout>>
+                disch_then $ qspec_then ‘k'’ assume_tac>>fs[]>>
+              first_x_assum $ qspec_then ‘SUC (k + k')’ mp_tac>>
               fs[]>>
-              rev_drule panPropsTheory.evaluate_add_clock_eq>>
-              disch_then $ qspec_then ‘kk + t'.clock’ assume_tac>>rw[]>>gvs[])>>
+                qpat_x_assum ‘evaluate _ = (_,t' with clock := 0)’ assume_tac>>
+                drule panPropsTheory.evaluate_add_clock_eq>>
+              disch_then $ qspec_then ‘k'’ assume_tac>>rw[]>>gvs[])>>
+              rw[])
+(****************************)
+
           qpat_abbrev_tac ‘X = evaluate _’>>
           Cases_on ‘X’>>fs[]>>rw[]>>
           drule panPropsTheory.evaluate_io_events_mono>>
