@@ -5357,6 +5357,19 @@ QED
 
 val _ = temp_delsimps ["fromAList_def"]
 
+Theorem state_rel_call_env_push:
+  state_rel c l1 l2 s t (ZIP(xs,ws)) locs ∧
+  LENGTH xs = LENGTH ws ∧
+  cut_env r s.locals = SOME x ∧
+  cut_envs (adjust_sets r) t.locals = SOME y ⇒
+  state_rel c q l
+    (call_env xs ss (push_env x F (dec_clock s)))
+    (call_env (Loc q l::ws) ss (push_env y NONE (dec_clock t))) []
+    ((l1,l2)::locs)
+Proof
+  cheat (* state_rel_call_env_push_env *)
+QED
+
 Theorem state_rel_call_env_push_env: (* TODO: tidy up proof *)
    !opt:(num # 'a wordLang$prog # num # num) option.
       state_rel c l1 l2 s (t:('a,'c,'ffi)wordSem$state) [] locs /\

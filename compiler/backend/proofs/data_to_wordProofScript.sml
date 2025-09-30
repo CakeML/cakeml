@@ -150,6 +150,17 @@ Proof
   \\ imp_res_tac IN_adjust_set_IN
 QED
 
+Theorem jump_exc_locals:
+  wordSem$jump_exc (t with locals := l) = jump_exc t
+Proof
+  fs [wordSemTheory.jump_exc_def]
+QED
+
+Theorem state_rel_cut_env_IMP_cut_env =
+  state_rel_cut_state_opt_SOME |> Q.GEN ‘args’ |> Q.SPEC ‘[]’ |> GEN_ALL
+  |> SRULE [get_vars_def,cut_state_opt_def,cut_state_def,
+            CaseEq"option",PULL_EXISTS,wordSemTheory.get_vars_def];
+
 Theorem data_compile_correct:
    !prog s c n l l1 l2 res s1 (t:('a,'c,'ffi)wordSem$state) locs.
       (dataSem$evaluate (prog,s) = (res,s1)) /\
@@ -179,7 +190,6 @@ Theorem data_compile_correct:
          | SOME (Rerr (Rabort(Rffi_error f))) => (res1 = SOME(FinalFFI f) /\ t1.ffi = s1.ffi)
          | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)
 Proof
-
   recInduct dataSemTheory.evaluate_ind \\ rpt strip_tac \\ fs []
   >~ [‘evaluate (Skip,s)’] >-
    (fs [comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
@@ -227,10 +237,7 @@ Proof
     \\ fs [cut_state_def,cut_env_def] \\ every_case_tac
     \\ fs [] \\ rw [] \\ fs [set_var_def])
   >~ [‘evaluate (Force _ _ _,s)’] >-
-
-   (
-
-    simp [comp_def, force_thunk_def]
+   (simp [comp_def, force_thunk_def]
     \\ TOP_CASE_TAC \\ gvs []
     >- gvs [encode_header_def, encode_header_def, state_rel_def,
             good_dimindex_def, limits_inv_def, dimword_def, memory_rel_def,
@@ -372,7 +379,6 @@ Proof
         \\ rpt (CASE_TAC \\ gvs [mk_loc_def]))
       \\ gvs []
       \\ Cases_on ‘jump_exc t’ \\ gvs [wordSemTheory.set_var_def])
-
     \\ Cases_on `x''` \\ gvs []
     \\ simp [wordSemTheory.evaluate_def, wordSemTheory.get_vars_def,
              wordSemTheory.get_var_def, lookup_insert]
@@ -403,19 +409,82 @@ Proof
     \\ IF_CASES_TAC \\ gvs []
     >-
      (fs [dataSemTheory.call_env_def,wordSemTheory.call_env_def]
+      \\ imp_res_tac stack_rel_IMP_size_of_stack
       \\ fs [dataSemTheory.push_env_def,wordSemTheory.push_env_def,
-             wordSemTheory.env_to_list_def,
-             wordSemTheory.stack_size_def,wordSemTheory.stack_size_frame_def,
-             dataSemTheory.dec_clock_def,dataSemTheory.size_of_stack_def,
+             wordSemTheory.env_to_list_def,dataSemTheory.dec_clock_def,
+             wordSemTheory.stack_size_def,
+             wordSemTheory.stack_size_frame_def,
+             dataSemTheory.size_of_stack_def,
              dataSemTheory.size_of_stack_frame_def]
-      \\ cheat)
-    \\ Cases_on
-      `evaluate (q', call_env [RefPtr b n'; a]
-                              (lookup loc s.stack_frame_sizes)
-                              (push_env (inter s.locals r) F (dec_clock s)))`
+      \\ fs [GSYM wordSemTheory.stack_size_def,
+             GSYM wordSemTheory.stack_size_frame_def,
+             GSYM dataSemTheory.size_of_stack_def,
+             GSYM dataSemTheory.size_of_stack_frame_def]
+      \\ Cases_on ‘s.stack_max’ \\ fs []
+      \\ Cases_on ‘t.stack_max’ \\ fs []
+      \\ Cases_on ‘s.locals_size’ \\ fs []
+      \\ Cases_on ‘lookup loc s.stack_frame_sizes’ \\ fs []
+      \\ Cases_on ‘size_of_stack s.stack’ \\ fs [])
+    \\ gvs [CaseEq"prod",CaseEq"option",PULL_EXISTS]
+    \\ qmatch_goalsub_abbrev_tac ‘(FST _, t8)’
+    \\ last_x_assum $ qspecl_then [‘c’,‘loc’,‘2’,‘n’,‘l’,‘t8’,‘(l1,l2)::locs’] mp_tac
+    \\ impl_tac >-
+     (conj_tac >- (CCONTR_TAC \\ gvs [])
+      \\ reverse conj_tac >- gvs [Abbr‘t8’]
+      \\ simp [Abbr‘t8’]
+      \\ irule state_rel_call_env_push \\ simp []
+      \\ conj_tac >-
+      (fs [cut_envs_adjust_sets_ODD]
+       \\ qexists_tac ‘r’
+       \\ ‘cut_env r s.locals = SOME (inter s.locals r)’ by
+         simp [dataSemTheory.cut_env_def,SUBSET_DEF,domain_lookup]
+       \\ drule_all state_rel_cut_env_IMP_cut_env
+       \\ strip_tac \\ simp []
+       \\ drule cut_env_IMP_cut_envs \\ strip_tac
+       \\ gvs [wordSemTheory.cut_envs_def,CaseEq"option"]
+       \\ gvs [wordSemTheory.cut_names_def,CaseEq"option"]
+       \\ simp [adjust_sets_def,adjust_set_def])
+      \\ fs [state_rel_thm,lookup_insert]
+      \\ fs[inter_insert_ODD_adjust_set_alt]
+      \\ qpat_x_assum ‘_ t.mdomain _’ mp_tac
+      \\ match_mp_tac memory_rel_rearrange
+      \\ simp [SF DNF_ss])
+    \\ strip_tac \\ fs []
+    \\ Cases_on ‘res1’
+    >- (gvs [] \\ gvs [AllCaseEqs()])
     \\ gvs []
-    \\ Cases_on `q` \\ gvs []
-    \\ cheat)
+    \\ rename [‘word_res = NotEnoughSpace ⇒ _’]
+    \\ Cases_on ‘word_res = NotEnoughSpace’ \\ gvs []
+    >- (gvs [AllCaseEqs(),dataSemTheory.set_var_def,dataSemTheory.pop_env_def])
+    \\ rename [‘dataSem$evaluate _ = (SOME data_res,s2)’]
+    \\ reverse $ Cases_on ‘data_res’
+    >- (
+      reverse (Cases_on `e`) \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+      \\ full_simp_tac(srw_ss())[jump_exc_call_env,jump_exc_dec_clock,
+                                 jump_exc_push_env_NONE,Abbr‘t8’,jump_exc_locals]
+      THEN1 (every_case_tac \\ fs[])
+      \\ Cases_on `jump_exc t = NONE` \\ full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[jump_exc_push_env_NONE_simp,jump_exc_locals]
+      \\ `LENGTH locs = LENGTH s.stack` by
+         (fs[state_rel_def] \\ imp_res_tac LIST_REL_LENGTH \\ fs[]) \\ full_simp_tac(srw_ss())[]
+      \\ `LENGTH s1.stack < LENGTH locs` by(imp_res_tac eval_exc_stack_shorter \\ fs[])
+      \\ imp_res_tac LASTN_TL \\ full_simp_tac(srw_ss())[]
+      \\ fs [jump_exc_push_env_NONE]
+      \\ fs [wordSemTheory.set_var_def])
+    \\ gvs []
+    \\ Cases_on ‘pop_env s2’ \\ gvs []
+    \\ qrefinel [‘_’,‘NONE’] \\ simp [AllCaseEqs(),PULL_EXISTS]
+    \\ rename [‘set_var ret_var _ _’]
+    \\ drule_all state_rel_pop_env_set_var_IMP
+    \\ disch_then $ qspec_then ‘ret_var’ strip_assume_tac
+    \\ gvs [wordSemTheory.set_vars_def,alist_insert_def,wordSemTheory.set_var_def,
+            dataSemTheory.set_var_def]
+    \\ reverse $ rpt strip_tac
+    >- (imp_res_tac dataPropsTheory.pop_env_const
+        \\ imp_res_tac wordPropsTheory.pop_env_const
+        \\ gvs [])
+    \\ simp [Abbr‘t8’]
+    \\ drule evaluate_IMP_domain_EQ \\ fs [])
   >~ [‘evaluate (Tick,s)’] >-
    (fs [comp_def,dataSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ `t.clock = s.clock` by fs [state_rel_def] \\ fs [] \\ srw_tac[][]

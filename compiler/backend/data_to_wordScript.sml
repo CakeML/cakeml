@@ -2449,7 +2449,7 @@ Definition force_thunk_def:
                 [Assign 5 (Load (Op Add [Var 1; Const bytes_in_word]));
                  (dtcase ret of
                   | NONE => Call NONE (SOME loc) [0; adjust_var v1; 5] NONE
-                  | SOME (r,ns) => Call (SOME ([r],adjust_sets ns,Skip,secn,l))
+                  | SOME (r,ns) => Call (SOME ([adjust_var r],adjust_sets ns,Skip,secn,l))
                                      (SOME loc) [adjust_var v1; 5] NONE)])]),l+1)
       : 'a wordLang$prog # num
 End
