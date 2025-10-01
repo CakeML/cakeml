@@ -436,8 +436,8 @@ Proof
 QED
 
 Theorem exec_If:
-  exec (If tb b1 b2) (push (I32 v) s) =
-    exec (Block tb (if v≠0w then b1 else b2)) s
+  exec (If bt b1 b2) (push (I32 v) s) =
+    exec (Block bt (if v≠0w then b1 else b2)) s
 Proof
   simp[SimpLHS, Once exec_def, pop_push, nonzero_def]
 QED

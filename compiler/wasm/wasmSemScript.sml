@@ -475,23 +475,23 @@ Definition exec_def:
   ) ∧
   (exec Nop s = (RNormal,s)
   ) ∧
-  (exec (Block tb body) s =
+  (exec (Block bt body) s =
     let orig_stk = s.stack in
     let (res, s) = exec_list body (s with stack := [])
     in
     case res of
     | RBreak (SUC l) => (RBreak l, s)
-    | RBreak 0 => ( case (tb,s.stack) of
+    | RBreak 0 => ( case (bt,s.stack) of
                     | (BlkNil  , _   ) => (RNormal, s with stack :=     orig_stk)
                     | (BlkVal _, v::_) => (RNormal, s with stack := v:: orig_stk)
                     | (_,_)            => inv s)
-    | RNormal  => ( case (tb,s.stack) of
+    | RNormal  => ( case (bt,s.stack) of
                     | (BlkNil  , [] ) => (RNormal, s with stack :=     orig_stk)
                     | (BlkVal _, [v]) => (RNormal, s with stack := v:: orig_stk)
                     | (_,_)           => inv s)
     | _ => (res,s)
   ) ∧
-  (exec (Loop tb body) s =
+  (exec (Loop bt body) s =
     let orig_stk = s.stack                          in
     let s1       = s with stack := []               in
     let (res, s) = fix_clock s1 (exec_list body s1) in
@@ -500,23 +500,23 @@ Definition exec_def:
     case res of
     | RBreak (SUC l) => (RBreak l, s)
     | RBreak 0 => if s.clock = 0 then (RTimeout,s) else
-                  ( case (tb,s.stack) of
-                    | (BlkNil  , _ )   => exec (Loop tb body)  s_tick
-                    | (BlkVal _, v::_) => exec (Loop tb body) (s_tick with stack := v:: orig_stk)
+                  ( case (bt,s.stack) of
+                    | (BlkNil  , _ )   => exec (Loop bt body)  s_tick
+                    | (BlkVal _, v::_) => exec (Loop bt body) (s_tick with stack := v:: orig_stk)
                     | (_,_)            => inv s
                   )
     | RNormal =>  if s.clock = 0 then (RTimeout,s) else
-                  ( case (tb,s.stack) of
-                    | (BlkNil  , [ ]) => exec (Loop tb body)  s_tick
-                    | (BlkVal _, [v]) => exec (Loop tb body) (s_tick with stack := v:: orig_stk)
+                  ( case (bt,s.stack) of
+                    | (BlkNil  , [ ]) => exec (Loop bt body)  s_tick
+                    | (BlkVal _, [v]) => exec (Loop bt body) (s_tick with stack := v:: orig_stk)
                     | (_,_)           => inv s
                   )
     | _ => (res, s)
   ) ∧
-  (exec (If tb bl br) s =
+  (exec (If bt bl br) s =
     case pop s     of NONE => inv s | SOME (c,s) =>
     case nonzero c of NONE => inv s | SOME t     =>
-      exec (Block tb (if t then bl else br)) s
+      exec (Block bt (if t then bl else br)) s
   ) ∧
   (exec (Br w) s =   (RBreak (w2n w), s)
   ) ∧
@@ -553,7 +553,7 @@ Definition exec_def:
       | RBreak _ => (RInvalid, s1)
       | _ => (res, s1)
   ) ∧
-  (exec (ReturnCallIndirect n tf) s =
+  (exec (ReturnCallIndirect n ft) s =
     case pop s                                        of NONE=>inv s| SOME (x,s) =>
     case dest_i32 x                                   of NONE=>inv s| SOME w     =>
     case lookup_func_tables [s.func_tables] (w2n n) w of NONE=>inv s| SOME fi    =>
@@ -581,7 +581,7 @@ Definition exec_def:
       | RBreak _ => (RInvalid, s1)
       | _ => (res, s1)
   ) ∧
-  (exec (CallIndirect n tf) s =
+  (exec (CallIndirect n ft) s =
     case pop s      of NONE => inv s | SOME (x,s) =>
     case dest_i32 x of NONE => inv s | SOME w     =>
     (* TODO we removed one layer of indirection *)
@@ -724,4 +724,3 @@ QED
 
 Theorem exec_def[allow_rebind] = exec_def |> REWRITE_RULE [fix_clock_exec];
 Theorem exec_ind[allow_rebind] = exec_ind |> REWRITE_RULE [fix_clock_exec];
-
