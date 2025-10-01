@@ -41,9 +41,6 @@ val _ = use_string_type false;
 val r = translate simpleSexpParseTheory.escape_string_def;
 val _ = use_string_type true;
 
-val r = translate fromSexpTheory.encode_bool_def;
-val r = translate fromSexpTheory.decode_bool_def;
-
 Theorem num_to_dec_string_v_thm:
   (NUM --> HOL_STRING_TYPE) toString ^(IntProgTheory.tostring_v_thm |> concl |> rand)
 Proof
@@ -230,6 +227,7 @@ val r = translate fromSexpTheory.optsexp_def;
 val r = translate fromSexpTheory.idsexp_def;
 val r = translate fromSexpTheory.typesexp_def;
 val r = translate fromSexpTheory.patsexp_def;
+val r = translate fromSexpTheory.encode_thunk_mode_def;
 (* TODO 101 automatically added string IMPLODEs *)
 val r = translate fromSexpTheory.opsexp_def;
 val r = translate fromSexpTheory.lopsexp_def;
