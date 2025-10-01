@@ -771,6 +771,8 @@ Proof
   )
 QED
 
+(*⌂⌂*)
+
 Theorem compile_Inst:
   ^(get_goal "Inst")
 Proof
@@ -836,6 +838,13 @@ Proof
   cheat
 QED
 
+(*lemma*)
+Theorem exec_RETURN:
+  exec RETURN s = (RReturn,s)
+Proof
+  fs[RETURN_def,exec_def]
+QED
+
 Theorem compile_Return:
   ^(get_goal "Return")
 Proof
@@ -843,12 +852,11 @@ rw[evaluate_def]
 >>gvs[CaseEqs["option","prod","word_loc"]]
 >>qexists_tac`0`
 >>simp[compile_def]
-(* Goal: ∃t1 res1. exec_list [I32_CONST 0w; RETURN] t = (res1,t1) ∧ ... *)
->>simp[exec_def]
->>(pairarg_tac>>fs[])
->>gvs[exec_I32_CONST]
->>(pairarg_tac>>fs[])
->>fs[exec_def,RETURN_def]
+(* Goal: ∃t_res t_fin. exec_list [I32_CONST 0w; RETURN] t = (res1,t1) ∧ ... *)
+>>simp[exec_list_cons]
+>>rpt(pairarg_tac>>fs[])
+>>rename1 `exec RETURN t1 = (res2, t2)`
+>>gvs[exec_I32_CONST,exec_RETURN]
 >>simp[res_rel_def]
 >>metis_tac[state_rel_with_stack]
 QED
