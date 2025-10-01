@@ -93,6 +93,10 @@ Definition CALL_def:
   CALL i = wasmLang$Call (n2w i)
 End
 
+Definition CALL_INDIRECT_def:
+  CALL_INDIRECT ft = CallIndirect 0w ft
+End
+
 Definition RETURN_CALL_def:
   RETURN_CALL i = ReturnCall (n2w i)
 End
@@ -179,8 +183,11 @@ Definition tail_call_def:
   tail_call l = RETURN_CALL (LENGTH wasm_support_function_list + l)
 End
 
-(* This abomination makes me question my life choices *)
 (*
+  This abomination makes me question my life choices. Wading through the
+  actual implementation of CakeML completely destroys the joy of software
+  engineering.
+
        | Call ((stackLang$prog # num # num # num) option)
               (* return-handler code, link reg, labels l1,l2*)
               (num + num) (* target of call (Direct or Reg) *)
@@ -192,12 +199,39 @@ Definition compile_call_def:
   (* no return handler -- tail call *)
   compile_call NONE (INL l) _ _ = List [tail_call l] ∧
   compile_call NONE (INR r) _ _ =
+  (
     List [
-      GLOBAL_GET r;
-      I32_WRAP_I64; I32_CONST 1w; I32_SHR_U;
+      GLOBAL_GET r; I32_WRAP_I64; I32_CONST 1w; I32_SHR_U;
       RETURN_CALL_INDIRECT ftype
     ]
-
+  ) ∧
+  compile_call (SOME (ret_hdlr, lr, ret_loc)) (INL l) _ exn =
+  (
+    let exn_hdlr =
+      case exn of
+        NONE => List[]
+      | SOME (exn_hdlr, _) => exn_hdlr
+    in
+    List [
+      I64_CONST 0w; GLOBAL_SET lr;
+      CALL l;
+      wasmLang$If BlkNil (append exn_hdlr) (append ret_hdlr)
+    ]
+  ) ∧
+  compile_call (SOME (ret_hdlr, lr, ret_loc)) (INR r) _ exn =
+  (
+    let exn_hdlr =
+      case exn of
+        NONE => List[]
+      | SOME (exn_hdlr, _) => exn_hdlr
+    in
+    List [
+      I64_CONST 0w; GLOBAL_SET lr;
+      GLOBAL_GET r; I32_WRAP_I64; I32_CONST 1w; I32_SHR_U;
+      CALL_INDIRECT ftype;
+      wasmLang$If BlkNil (append exn_hdlr) (append ret_hdlr)
+    ]
+  )
 End
 
 Definition compile_def:
@@ -308,7 +342,7 @@ Proof
   >>gvs[]
   >>Cases_on‘res'=RNormal’>>fs[]
 QED
- 
+
 Theorem exec_list_append_RNormal:
   ∀xs ys s s1.
     exec_list xs s = (RNormal, s1) ⇒
