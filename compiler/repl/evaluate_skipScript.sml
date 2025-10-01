@@ -1723,8 +1723,9 @@ Proof
     \\ qexists ‘fr |+ (LENGTH s.refs,LENGTH t.refs)’ \\ gvs []
     \\ rpt (irule_at Any SUBMAP_REFL \\ gvs [])
     \\ gvs [store_alloc_def]
+    \\ rename1 ‘v_rel _ _ _ v y’
     \\ qexistsl [‘t with refs := t.refs ++ [Thunk m y]’,
-                 ‘s with refs := s.refs ++ [Thunk m x1]’]
+                 ‘s with refs := s.refs ++ [Thunk m v]’]
     \\ gvs [state_rel_def]
     \\ rw []
     >- (
@@ -1860,71 +1861,84 @@ Proof
   >- (Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t'’ \\ gs[])
   >- (Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t'’ \\ gs[])
   >- (
-    gvs [AllCaseEqs(), PULL_EXISTS]
-    >>~ [‘dest_thunk vs s1.refs = IsThunk NotEvaluated _’]
+    Cases_on ‘op’ \\ gvs [] \\ Cases_on ‘t'’ \\ gvs []
+    \\ qpat_x_assum ‘_ = (s1,res)’ mp_tac
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ reverse TOP_CASE_TAC \\ gvs []
     >- (
-      first_x_assum drule_all \\ rw []
-      \\ Cases_on ‘res1’ \\ gvs []
-      \\ rpt (goal_assum drule \\ gvs [])
-      \\ drule_all state_rel_dest_thunk \\ rw []
-      \\ Cases_on ‘dest_thunk a t1.refs’ \\ gvs [thunk_rel_def, state_rel_def])
+      strip_tac
+      \\ first_x_assum drule_all \\ rw [] \\ gvs []
+      \\ qpat_x_assum ‘res_rel _ _ (Rerr _) res1’ mp_tac
+      \\ Cases_on ‘res1’ \\ rw [res_rel_def]
+      \\ metis_tac [])
+    \\ first_x_assum drule_all \\ strip_tac \\ gvs []
+    \\ Cases_on ‘res1’ \\ gvs [res_rel_def]
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ imp_res_tac EVERY2_REVERSE
+    \\ drule_all state_rel_dest_thunk \\ simp [oneline thunk_rel_def]
+    \\ TOP_CASE_TAC \\ gvs []
+    >~ [‘BadRef’] >- metis_tac []
+    >~ [‘NotThunk’] >- metis_tac []
+    \\ strip_tac \\ gvs []
+    \\ TOP_CASE_TAC \\ gvs []
+    >- (rw [] \\ gvs [] \\ metis_tac [])
+    \\ TOP_CASE_TAC \\ gvs []
     >- (
-      first_x_assum drule_all \\ rw []
-      \\ Cases_on ‘res1’ \\ gvs []
-      \\ ‘state_rel l fr1 ft1 fe1 (dec_clock s1) (dec_clock t1)’
-        by gvs [state_rel_def, dec_clock_def]
-      \\ drule_all state_rel_dest_thunk \\ rw []
-      \\ Cases_on ‘dest_thunk a t1.refs’ \\ gvs [thunk_rel_def]
-      \\ last_x_assum $ drule_then $ qspec_then ‘sing_env "f" v'’ mp_tac
-      \\ impl_tac
-      >- gvs [env_rel_def, ctor_rel_def, sing_env_def, nsAll2_nsBind]
-      \\ rw []
-      \\ goal_assum $ drule_at (Pat ‘state_rel _ _ _ _ _ _’) \\ gvs []
-      \\ imp_res_tac SUBMAP_TRANS \\ gvs [] \\ rw []
-      >- gvs [state_rel_def]
-      \\ Cases_on ‘res1’ \\ gvs []
-      \\ ‘fr1 ⊑ fr1'’ by gvs []
-      \\ drule_all state_rel_update_thunk_NONE \\ gvs [])
+      strip_tac \\ gvs []
+      \\ qpat_x_assum ‘v_rel _ _ _ v v'’ mp_tac
+      \\ gvs [do_opapp_def, AllCaseEqs(), PULL_EXISTS]
+      \\ rw [Once v_rel_cases]
+      \\ metis_tac [])
+    \\ Cases_on ‘do_opapp [v'; Conv NONE []]’ \\ gvs []
     >- (
-      first_x_assum drule_all \\ rw []
-      \\ Cases_on ‘res1’ \\ gvs []
-      \\ ‘state_rel l fr1 ft1 fe1 (dec_clock s1) (dec_clock t1)’
-        by gvs [state_rel_def, dec_clock_def]
-      \\ drule_all state_rel_dest_thunk \\ rw []
-      \\ Cases_on ‘dest_thunk a t1.refs’ \\ gvs [thunk_rel_def]
-      \\ last_x_assum $ drule_then $ qspec_then ‘sing_env "f" v'’ mp_tac
-      \\ impl_tac
-      >- gvs [env_rel_def, ctor_rel_def, sing_env_def, nsAll2_nsBind]
-      \\ rw []
-      \\ Cases_on ‘res1’ \\ gvs []
-      \\ drule_at (Pat ‘update_thunk _ _ _ = _’) state_rel_update_thunk_SOME
-      \\ disch_then drule_all \\ rw [] \\ gvs []
-      \\ ‘fr ⊑ fr1' ∧ ft ⊑ ft1' ∧ fe ⊑ fe1'’ by (
-        imp_res_tac SUBMAP_TRANS \\ gvs [])
-      \\ rpt (goal_assum drule \\ gvs [])
-      \\ qexists ‘Rval a'’ \\ gvs [state_rel_def])
+      CCONTR_TAC \\ gvs []
+      \\ qpat_x_assum ‘v_rel _ _ _ v v'’ assume_tac
+      \\ gvs [do_opapp_def, AllCaseEqs(), PULL_EXISTS]
+      \\ rgs [Once v_rel_cases])
+    \\ Cases_on ‘x’ \\ Cases_on ‘x'’ \\ gvs []
+    \\ ‘q.clock = t1.clock’ by gvs [state_rel_def] \\ gvs []
+    \\ TOP_CASE_TAC \\ gvs []
+    >- (rw [] \\ gvs [] \\ metis_tac [])
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ ‘state_rel l fr1 ft1 fe1 (dec_clock q) (dec_clock t1)’
+      by gvs [dec_clock_def, state_rel_def]
+    \\ first_x_assum drule
+    \\ disch_then $ qspec_then ‘q''’ mp_tac
+    \\ impl_tac \\ gvs []
     >- (
-      first_x_assum drule_all \\ rw []
-      \\ Cases_on ‘res1’ \\ gvs []
-      \\ ‘state_rel l fr1 ft1 fe1 (dec_clock s1) (dec_clock t1)’
-        by gvs [state_rel_def, dec_clock_def]
-      \\ drule_all state_rel_dest_thunk \\ rw []
-      \\ Cases_on ‘dest_thunk a t1.refs’ \\ gvs [thunk_rel_def]
-      \\ last_x_assum $ drule_then $ qspec_then ‘sing_env "f" v'’ mp_tac
-      \\ impl_tac
-      >- gvs [env_rel_def, ctor_rel_def, sing_env_def, nsAll2_nsBind]
-      \\ rw []
-      \\ Cases_on ‘res1’ \\ gvs []
-      \\ ‘fr ⊑ fr1' ∧ ft ⊑ ft1' ∧ fe ⊑ fe1'’ by (
-        imp_res_tac SUBMAP_TRANS \\ gvs [])
-      \\ rpt (goal_assum drule \\ gvs [])
-      \\ goal_assum $ drule_at Any \\ gvs [state_rel_def])
+      qpat_x_assum ‘v_rel _ _ _ v v'’ assume_tac
+      \\ gvs [do_opapp_def, AllCaseEqs()]
+      \\ rgs [Once v_rel_cases] \\ gvs []
+      \\ gvs [env_rel_def]
+      \\ irule nsAll2_nsBind \\ gvs [v_rel_def]
+      \\ gvs [semanticPrimitivesPropsTheory.build_rec_env_merge]
+      \\ irule nsAll2_nsAppend \\ gs []
+      \\ irule nsAll2_alist_to_ns
+      \\ gs [EVERY2_MAP, LAMBDA_PROD, v_rel_def]
+      \\ rw [LIST_REL_EL_EQN, ELIM_UNCURRY, env_rel_def])
+    \\ strip_tac \\ gvs []
+    \\ qpat_x_assum ‘v_rel _ _ _ v v'’ assume_tac
+    \\ gvs [do_opapp_def]
+    \\ gvs [CaseEq"v", CaseEq"option", CaseEq"prod"]
+    \\ rgs [Once v_rel_cases] \\ gvs []
     \\ (
-      first_x_assum drule_all \\ rw []
-      \\ Cases_on ‘res1’ \\ gvs []
-      \\ rpt (goal_assum drule \\ gvs [])
-      \\ drule_all state_rel_dest_thunk \\ rw []
-      \\ Cases_on ‘dest_thunk a t1.refs’ \\ gvs [thunk_rel_def]))
+      reverse TOP_CASE_TAC \\ gvs []
+      >- (
+        rw [] \\ gvs []
+        \\ TOP_CASE_TAC \\ gvs []
+        \\ metis_tac [SUBMAP_TRANS])
+      \\ TOP_CASE_TAC \\ gvs []
+      >- (
+        rw [] \\ gvs []
+        \\ TOP_CASE_TAC \\ gvs []
+        \\ imp_res_tac EVERY2_REVERSE
+        \\ drule_all state_rel_update_thunk_NONE \\ rw [] \\ gvs []
+        \\ metis_tac [SUBMAP_TRANS])
+      \\ strip_tac \\ gvs []
+      \\ TOP_CASE_TAC \\ gvs []
+      \\ imp_res_tac EVERY2_REVERSE
+      \\ drule_all state_rel_update_thunk_SOME \\ rw [] \\ gvs []
+      \\ metis_tac [SUBMAP_TRANS]))
   >- (
     gvs [CaseEqs ["prod", "result", "option"], PULL_EXISTS]
     \\ first_x_assum (drule_all_then strip_assume_tac)

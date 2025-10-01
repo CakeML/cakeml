@@ -690,16 +690,31 @@ Theorem do_app_ok[allow_rebind] = SIMP_RULE (srw_ss()) [LET_THM] do_app_ok;
 
 Theorem dest_thunk_ok:
   state_ok s ∧
-  dest_thunk vs s.refs = IsThunk m v ⇒
-    state_ok (dec_clock s) ∧ env_ok (dec_clock s) (sing_env n v)
+  dest_thunk vs s.refs = IsThunk m v ∧
+  do_opapp [v; Conv NONE []] = SOME (env,e) ⇒
+    state_ok (dec_clock s) ∧ env_ok (dec_clock s) env
 Proof
   rw []
   >- gvs [dec_clock_def, state_ok_def, state_rel_def]
-  \\ gvs [dec_clock_def, sing_env_def, env_ok_def, env_rel_def, ctor_rel_def]
-  \\ irule nsAll2_nsBind \\ rw [] \\ gvs []
+  \\ gvs [do_opapp_def, AllCaseEqs()]
+  >- (
+    gvs [dec_clock_def, env_ok_def, env_rel_def]
+    \\ irule_at Any nsAll2_nsBind \\ gvs []
+    \\ conj_tac >- simp [v_rel_def]
+    \\ gvs [state_ok_def, state_rel_def, FLOOKUP_FUN_FMAP]
+    \\ gvs [oneline dest_thunk_def, AllCaseEqs(), store_lookup_def]
+    \\ first_x_assum drule \\ rw [ref_rel_def, v_rel_def, env_rel_def])
+  \\ simp [env_ok_def, env_rel_def, dec_clock_def]
+  \\ irule_at Any nsAll2_nsBind \\ gvs []
+  \\ conj_tac >- simp [v_rel_def]
+  \\ simp [semanticPrimitivesPropsTheory.build_rec_env_merge]
+  \\ irule_at Any nsAll2_nsAppend \\ gvs []
+  \\ irule_at Any nsAll2_alist_to_ns \\ gvs []
+  \\ gs [EVERY2_MAP, LAMBDA_PROD, v_rel_def, env_rel_def]
+  \\ rw [ELIM_UNCURRY, LIST_REL_EL_EQN]
   \\ gvs [state_ok_def, state_rel_def, FLOOKUP_FUN_FMAP]
   \\ gvs [oneline dest_thunk_def, AllCaseEqs(), store_lookup_def]
-  \\ first_x_assum drule \\ rw [ref_rel_def]
+  \\ first_x_assum drule \\ rw [ref_rel_def, v_rel_def, env_rel_def]
 QED
 
 Theorem evaluate_ok_Op:
@@ -718,7 +733,7 @@ Proof
     Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []
     \\ Cases_on ‘t'’ \\ full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
     >- (
-      drule_all_then (qspec_then ‘"f"’ assume_tac) dest_thunk_ok \\ gvs []
+      drule_all dest_thunk_ok \\ rw [] \\ gvs []
       \\ qpat_x_assum ‘state_ok st2’ mp_tac
       \\ rw [state_ok_def, state_rel_def] \\ gvs [FLOOKUP_FUN_FMAP]
       >- simp [INJ_DEF, FUN_FMAP_DEF]
@@ -726,13 +741,12 @@ Proof
       \\ gvs [oneline update_thunk_def, AllCaseEqs(), store_assign_def,
               EL_LUPDATE]
       \\ IF_CASES_TAC \\ gvs [ref_rel_def, v_ok_def])
-    >- (
-      drule_all_then (qspec_then ‘"f"’ assume_tac) dest_thunk_ok \\ gvs []))
+    >- (drule_all dest_thunk_ok \\ gvs []))
   >- (
     Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []
     \\ Cases_on ‘t'’ \\ full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
     \\ (
-      drule_all_then (qspec_then ‘"f"’ assume_tac) dest_thunk_ok \\ gvs []
+      drule_all dest_thunk_ok \\ rw [] \\ gvs []
       \\ imp_res_tac (CONJUNCT1 evaluate_next_type_stamp_mono)
       \\ imp_res_tac (CONJUNCT1 evaluate_next_exn_stamp_mono)
       \\ imp_res_tac (CONJUNCT1 evaluate_refs_length_mono)
@@ -749,13 +763,13 @@ Proof
       \\ qpat_x_assum ‘state_ok st'’ mp_tac
       \\ rw [state_ok_def, state_rel_def] \\ gvs [FLOOKUP_FUN_FMAP]
       \\ first_x_assum drule \\ rw [ref_rel_def, v_ok_def])
-    \\ drule_all_then (qspec_then ‘"f"’ assume_tac) dest_thunk_ok \\ gvs []
+    \\ drule_all dest_thunk_ok \\ rw [] \\ gvs []
     \\ gvs [EVERY_EL, v_ok_def, oneline update_thunk_def, AllCaseEqs(),
             store_assign_def])
   >- (
     Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []
     \\ Cases_on ‘t'’ \\ full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
-    \\ drule_all_then (qspec_then ‘"f"’ assume_tac) dest_thunk_ok \\ gvs [])
+    \\ drule_all dest_thunk_ok \\ gvs [])
   \\ gvs [CaseEqs ["prod", "result", "option"]]
   \\ dxrule_then assume_tac (iffRL EVERY_REVERSE)
   \\ drule_all_then assume_tac do_app_ok \\ gs []
