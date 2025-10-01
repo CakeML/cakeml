@@ -351,6 +351,12 @@ Proof
   simp[exec_list_append]
 QED
 
+Theorem exec_list_nil[simp]:
+  exec_list [] s = (RNormal,s)
+Proof
+  rw[exec_def]
+QED
+
 Theorem exec_list_cons:
   exec_list (i::rest) s =
     let (res1,s1) = exec i s in
@@ -416,11 +422,10 @@ Proof
   >>simp[state_component_equality]
 QED
 
-Theorem OPTION_CASE_OPTION_MAP:
+Theorem OPTION_CASE_OPTION_MAP[simp]:
   (option_CASE (OPTION_MAP f a) e g) = option_CASE a e (λx. g (f x))
 Proof
-  Cases_on `a`
-  >> fs[]
+  Cases_on`a`>>fs[]
 QED
 
 Theorem PAIR_CASE_PAIR_MAP:
@@ -478,6 +483,12 @@ Proof
   >>simp[]
 QED
 
+Theorem PAIR_CASE_UNCURRY:
+  ∀f x. UNCURRY f x = pair$pair_CASE x f
+Proof
+Cases_on`x`>>simp[]
+QED
+
 (* wasmProps *)
 Theorem exec_list_add_clock_aux:
 ( ∀c s res s1.
@@ -499,7 +510,8 @@ Proof
   >~[`Block`]
   >-(
     qpat_x_assum `exec _ _ = _` mp_tac
-    >>rw[exec_def,UNCURRY_EQ]
+    >>once_rewrite_tac[exec_def]
+    >>rw[UNCURRY_EQ]
     >>(Cases_on`res'=RTimeout`>>gvs[AllCaseEqs()])
   )
   >~[‘Loop’]
@@ -513,100 +525,136 @@ Proof
   >-(
     qpat_x_assum `exec _ _ = _` mp_tac
     >>once_rewrite_tac[exec_def]
-    >>simp[CaseEqs["prod","option"]]
-    >>rw[]>-metis_tac[pop_clock]
-    >>fs[]
-    >>metis_tac[pop_clock]
+    >>rw[]
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >>gvs[]
+    >>drule pop_clock
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >>metis_tac[]
   )
   >~[‘Br’]
   >-fs[exec_def]
   >~[‘BrIf’]
   >-(
     fs[exec_def]
-    >>(Cases_on`s.stack`>>fs[pop_def])
-    >>(PURE_TOP_CASE_TAC>>gvs[state_accfupds])
-    >>(IF_CASES_TAC>>gvs[state_accfupds])
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >>gvs[]
+    >>drule pop_clock
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >>(PURE_TOP_CASE_TAC>>fs[])
   )
   >~[‘BrTable’]
   >-(
     fs[exec_def]
-    >>(Cases_on`s.stack`>>fs[pop_def])
-    >>(PURE_TOP_CASE_TAC>>gvs[state_accfupds])
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >>gvs[]
+    >>drule pop_clock
+    >>(PURE_TOP_CASE_TAC>>fs[])
   )
   >~[‘Return’]
   >-fs[exec_def]
   >~[‘ReturnCall’]
   >-(
-    fs[exec_def]
+    qpat_x_assum `exec _ _ = _` mp_tac
+    >>once_rewrite_tac[exec_def]
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >-(strip_tac>>fs[])
     >>(PURE_TOP_CASE_TAC>>fs[])
     >>(PURE_TOP_CASE_TAC>>fs[])
     >>(PURE_TOP_CASE_TAC>>fs[])
-    >>(Cases_on`pop_n (LENGTH q) s`>>fs[])
-    >>(split_pair_case_tac>>gvs[])
+    >>(PURE_TOP_CASE_TAC>>fs[])
     >>imp_res_tac pop_n_clock
-    >>(Cases_on`s.clock=0`>>fs[])
-    >>rpt(pairarg_tac>>fs[])
-    >>gvs[AllCaseEqs()]
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >>PURE_REWRITE_TAC[PAIR_CASE_UNCURRY]
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >>(
+      PURE_TOP_CASE_TAC>>fs[]
+      >>simp[wasmSemTheory.state_component_equality]
+    )
   )
   >~[‘ReturnCallIndirect’]
   >-(
-    fs[exec_def]
-    >>(PURE_TOP_CASE_TAC>>gvs[])
-    >>(PURE_TOP_CASE_TAC>>gvs[])
-    >>drule pop_clock
-    >>strip_tac
-    >>rpt(PURE_TOP_CASE_TAC>>gvs[])
+    qpat_x_assum `exec _ _ = _` mp_tac
+    >>once_rewrite_tac[exec_def]
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >>imp_res_tac pop_clock
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >-metis_tac[]
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >-metis_tac[]
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >-metis_tac[]
   )
   >~[‘Call’]
   >-(
     qpat_x_assum`exec _ _ = _`mp_tac
-    >>simp[exec_def]
+    >>once_rewrite_tac[exec_def]
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >-(strip_tac>>fs[])
     >>(PURE_TOP_CASE_TAC>>fs[])
     >>(PURE_TOP_CASE_TAC>>fs[])
-    >>(split_pair_case_tac>>gvs[])
     >>(PURE_TOP_CASE_TAC>>fs[])
-    >>(split_pair_case_tac>>gvs[])
+    >>(PURE_TOP_CASE_TAC>>fs[])
     >>imp_res_tac pop_n_clock
-    >>gvs[]
-    >>(IF_CASES_TAC>>fs[])
-    >>rpt(pairarg_tac>>fs[])
-    >>(Cases_on`res'=RTimeout`>>fs[])
-    >>first_x_assum $ qspec_then`ck`SUBST_ALL_TAC
-    >>gvs[AllCaseEqs()]
-    >>rw[]
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >>PURE_REWRITE_TAC[PAIR_CASE_UNCURRY]
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >>(
+      PURE_TOP_CASE_TAC>>fs[]
+      >>simp[wasmSemTheory.state_component_equality]
+    )
   )
   >~[‘CallIndirect’]
   >-(
     qpat_x_assum`exec _ _ = _`mp_tac
-    >>fs[exec_def]
+    >>once_rewrite_tac[exec_def]
     >>(PURE_TOP_CASE_TAC>>fs[])
     >>(split_pair_case_tac>>gvs[])
     >>imp_res_tac pop_clock
-    >>(PURE_TOP_CASE_TAC>>fs[])>-metis_tac[]
     >>(PURE_TOP_CASE_TAC>>fs[])
-    >>metis_tac[]
+    >-metis_tac[]
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >-metis_tac[]
   )
   >~[`Numeric`]
   >-(
     fs[exec_def]
     >>(PURE_TOP_CASE_TAC>>fs[])
-    >>rpt VAR_EQ_TAC
-    >>simp[]
+    >>gvs[]
   )
   >~[`Parametric Drop`]
   >-(
     fs[exec_def]
-    >>Cases_on`pop s`>>fs[]
+    >>(PURE_TOP_CASE_TAC>>fs[])
     >>(split_pair_case_tac>>gvs[])
-    >>metis_tac[pop_clock]
+    >>imp_res_tac pop_clock
+    >>metis_tac[]
   )
   >~[`Parametric Select`]
   >-(
-    fs[exec_def]
-    >>simp[OPTION_CASE_OPTION_MAP,PAIR_CASE_PAIR_MAP]
-    >>fs[push_def]
-    >>rpt(PURE_TOP_CASE_TAC>>fs[])
-    >>(imp_res_tac pop_clock>>gvs[])
+    qpat_x_assum`exec _ _ = _`mp_tac
+    >>once_rewrite_tac[exec_def]
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >>(split_pair_case_tac>>gvs[])
+    >>imp_res_tac pop_clock
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >-metis_tac[]
+    >>(split_pair_case_tac>>gvs[])
+    >>imp_res_tac pop_clock
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >-metis_tac[]
+    >>(split_pair_case_tac>>gvs[])
+    >>imp_res_tac pop_clock
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >-metis_tac[]
+    >>simp[push_def]
+    >>simp[wasmSemTheory.state_component_equality]
   )
   >~[`LocalGet`]
   >-(
@@ -616,61 +664,69 @@ Proof
   )
   >~[`LocalSet`]
   >-(
-    fs[exec_def]
-    >>simp[OPTION_CASE_OPTION_MAP,PAIR_CASE_PAIR_MAP]
+    qpat_x_assum`exec _ _ = _`mp_tac
+    >>once_rewrite_tac[exec_def]
     >>(PURE_TOP_CASE_TAC>>fs[])
     >>(split_pair_case_tac>>gvs[])
     >>imp_res_tac pop_clock
-    >>(PURE_TOP_CASE_TAC>>gvs[])
-    >>metis_tac[set_local_clock]
+    >>(PURE_TOP_CASE_TAC>>fs[]>>imp_res_tac set_local_clock)
+    >>metis_tac[]
   )
   >~[`LocalTee`]
   >-(
-    fs[exec_def]
-    >>simp[OPTION_CASE_OPTION_MAP,PAIR_CASE_PAIR_MAP]
-    >>(PURE_TOP_CASE_TAC>>fs[])
-    >>(split_pair_case_tac>>gvs[])
-    >>imp_res_tac pop_clock
-    >>(PURE_TOP_CASE_TAC>>gvs[])
-    >>metis_tac[set_local_clock]
+    qpat_x_assum`exec _ _ = _`mp_tac
+    >>once_rewrite_tac[exec_def]
+    >>(PURE_TOP_CASE_TAC>>fs[]>>split_pair_case_tac>>gvs[]>>imp_res_tac pop_clock)
+    >>(PURE_TOP_CASE_TAC>>fs[]>>imp_res_tac set_local_clock)
+    >>metis_tac[]
   )
   >~[`GlobalGet`]
   >-(
-    fs[exec_def]
+    qpat_x_assum`exec _ _ = _`mp_tac
+    >>once_rewrite_tac[exec_def]
     >>(PURE_TOP_CASE_TAC>>fs[])
+    >-(strip_tac>>fs[])
     >>fs[push_def]
-    >>gvs[state_component_equality]
+    >>simp[wasmSemTheory.state_component_equality]
   )
   >~[`GlobalSet`]
   >-(
-    fs[exec_def]
-    >>simp[OPTION_CASE_OPTION_MAP,PAIR_CASE_PAIR_MAP]
+    qpat_x_assum`exec _ _ = _`mp_tac
+    >>once_rewrite_tac[exec_def]
     >>(PURE_TOP_CASE_TAC>>fs[]>>split_pair_case_tac>>gvs[]>>imp_res_tac pop_clock)
-    >>(PURE_TOP_CASE_TAC>>fs[]>-gvs[state_component_equality])
-    >>metis_tac[set_global_clock]
+    >>(PURE_TOP_CASE_TAC>>fs[]>>imp_res_tac set_global_clock)
+    >>metis_tac[]
   )
   >~[`MemRead`]
   >-(
-    fs[exec_def]
-    >>simp[OPTION_CASE_OPTION_MAP,PAIR_CASE_PAIR_MAP]
+    qpat_x_assum`exec _ _ = _`mp_tac
+    >>once_rewrite_tac[exec_def]
     >>(PURE_TOP_CASE_TAC>>fs[]>>split_pair_case_tac>>gvs[]>>imp_res_tac pop_i32_clock)
-    >>(PURE_TOP_CASE_TAC>>gvs[])
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >-metis_tac[]
+    >>simp[wasmSemTheory.state_component_equality]
   )
   >~[`MemWrite`]
   >-(
-    fs[exec_def]
-    >>simp[OPTION_CASE_OPTION_MAP,PAIR_CASE_PAIR_MAP]
+    qpat_x_assum`exec _ _ = _`mp_tac
+    >>once_rewrite_tac[exec_def]
     >>(PURE_TOP_CASE_TAC>>fs[]>>split_pair_case_tac>>gvs[]>>imp_res_tac pop_clock)
-    >>(PURE_TOP_CASE_TAC>>gvs[]>>split_pair_case_tac>>gvs[]>>imp_res_tac pop_i32_clock)
-    >>(PURE_TOP_CASE_TAC>>gvs[])
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >-metis_tac[]
+    >>(split_pair_case_tac>>gvs[]>>imp_res_tac pop_i32_clock)
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >-metis_tac[]
+    >>simp[wasmSemTheory.state_component_equality]
   )
   >-fs[exec_def]
   >-(
-    fs[exec_def]
-    >>rpt(pairarg_tac>>fs[])
-    >>(Cases_on`res''=RTimeout`>>fs[])
-    >>first_x_assum $ qspec_then`ck`SUBST_ALL_TAC
-    >>gvs[AllCaseEqs()]
+    qpat_x_assum`exec_list _ _ = _`mp_tac
+    >>once_rewrite_tac[exec_def]
+    >>fs[PAIR_CASE_UNCURRY]
+    >>(split_pair_case_tac>>gvs[])
+    >>(PURE_TOP_CASE_TAC>>fs[])
+    >>strip_tac
+    >>(PURE_TOP_CASE_TAC>>fs[])
   )
 QED
 
@@ -725,12 +781,6 @@ Theorem exec_GLOBAL_SET:
 Proof
   rw[exec_def,GLOBAL_SET_def,pop_def,set_global_def]>>
   gvs[AllCaseEqs()]
-QED
-
-Theorem exec_list_Nil[simp]:
-  exec_list [] s = (RNormal,s)
-Proof
-  rw[exec_def]
 QED
 
 Theorem state_rel_set_var:
