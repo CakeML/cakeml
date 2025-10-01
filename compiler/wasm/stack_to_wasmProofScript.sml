@@ -8,8 +8,6 @@ Ancestors
   wasmLang words arithmetic list rich_list sptree mlstring
   wasmSem stackSem stackLang stackProps pair asm
 
-(* compiler definition (TODO: move to another file when ready) *)
-
 (* shorthands for wasm instructions *)
 Definition I64_EQ_def:
   I64_EQ = Numeric (N_compare (Eq Int W64))
@@ -59,6 +57,10 @@ Definition I64_SHR_U_def:
   I64_SHR_U = Numeric (N_binary (Shr_ Unsigned W64))
 End
 
+Definition I32_SHR_U_def:
+  I32_SHR_U = Numeric (N_binary (Shr_ Unsigned W32))
+End
+
 Definition I64_ROTR_def:
   I64_ROTR = Numeric (N_binary (Rotr W64))
 End
@@ -69,6 +71,10 @@ End
 
 Definition I64_DIV_U_def:
   I64_DIV_U = Numeric (N_binary (Div_ Unsigned W64))
+End
+
+Definition I32_WRAP_I64_def:
+  I32_WRAP_I64 = Numeric (N_convert WrapI64)
 End
 
 Definition GLOBAL_GET_def:
@@ -87,8 +93,18 @@ Definition CALL_def:
   CALL i = wasmLang$Call (n2w i)
 End
 
+Definition RETURN_CALL_def:
+  RETURN_CALL i = ReturnCall (n2w i)
+End
+
+Definition RETURN_CALL_INDIRECT_def:
+  RETURN_CALL_INDIRECT ft = ReturnCallIndirect 0w ft
+End
+
 (* more wasm instructions go here *)
 (* see wasmLangScript.sml *)
+
+(* ⌂compiler definition (TODO: move to another file when ready) *)
 
 (* reg_imm = Reg reg | Imm ('a imm) *)
 Definition comp_ri_def:
@@ -117,8 +133,8 @@ End
   shift = Lsl | Lsr | Asr | Ror
 *)
 Definition compile_arith_def:
-(
   compile_arith (asm$Binop op t s1 s2) =
+  (
     let wasm_op =
       case op of
         Add => I64_ADD
@@ -128,9 +144,9 @@ Definition compile_arith_def:
       | Xor => I64_XOR
     in
     List [GLOBAL_GET s1; comp_ri s2; wasm_op; GLOBAL_SET t]
-) ∧
-(
+  ) ∧
   compile_arith (asm$Shift op t s n) =
+  (
     let wasm_op =
       case op of
         Lsl => I64_SHL
@@ -139,11 +155,9 @@ Definition compile_arith_def:
       | Ror => I64_ROTR
     in
     List [GLOBAL_GET s; I64_CONST (n2w n); wasm_op; GLOBAL_SET t]
-) ∧
-(
+  ) ∧
   compile_arith (asm$Div t s1 s2) = (* signed div *)
     List [GLOBAL_GET s1; GLOBAL_GET s2; I64_DIV_S; GLOBAL_SET t]
-)
 End
 
 Definition compile_inst_def:
@@ -151,6 +165,39 @@ Definition compile_inst_def:
   compile_inst (asm$Const (r:reg) (v:64 word)) =
     List [I64_CONST v; GLOBAL_SET r] ∧
   compile_inst (asm$Arith a) = compile_arith a
+End
+
+Definition ftype_def:
+  ftype = ([], [Tnum Int W32])
+End
+
+Definition wasm_support_function_list_def:
+  wasm_support_function_list = []: instr list list (*DUMMY*)
+End
+
+Definition tail_call_def:
+  tail_call l = RETURN_CALL (LENGTH wasm_support_function_list + l)
+End
+
+(* This abomination makes me question my life choices *)
+(*
+       | Call ((stackLang$prog # num # num # num) option)
+              (* return-handler code, link reg, labels l1,l2*)
+              (num + num) (* target of call (Direct or Reg) *)
+              ((stackLang$prog # num # num) option)
+              (* handler: exception-handler code, labels l1,l2*)
+*)
+(* ⌂Call *)
+Definition compile_call_def:
+  (* no return handler -- tail call *)
+  compile_call NONE (INL l) _ _ = List [tail_call l] ∧
+  compile_call NONE (INR r) _ _ =
+    List [
+      GLOBAL_GET r;
+      I32_WRAP_I64; I32_CONST 1w; I32_SHR_U;
+      RETURN_CALL_INDIRECT ftype
+    ]
+
 End
 
 Definition compile_def:
