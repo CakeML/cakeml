@@ -5357,29 +5357,17 @@ QED
 
 val _ = temp_delsimps ["fromAList_def"]
 
-Theorem state_rel_call_env_push:
-  state_rel c l1 l2 s t (ZIP(xs,ws)) locs ∧
-  LENGTH xs = LENGTH ws ∧
-  cut_env r s.locals = SOME x ∧
-  cut_envs (adjust_sets r) t.locals = SOME y ⇒
-  state_rel c q l
-    (call_env xs ss (push_env x F (dec_clock s)))
-    (call_env (Loc q l::ws) ss (push_env y NONE (dec_clock t))) []
-    ((l1,l2)::locs)
-Proof
-  cheat (* state_rel_call_env_push_env *)
-QED
-
-Theorem state_rel_call_env_push_env: (* TODO: tidy up proof *)
-   !opt:(num # 'a wordLang$prog # num # num) option.
-      state_rel c l1 l2 s (t:('a,'c,'ffi)wordSem$state) [] locs /\
-      get_vars args s.locals = SOME xs /\
-      get_vars (MAP adjust_var args) t = SOME ws /\
-      dataSem$cut_env r s.locals = SOME x /\
-      wordSem$cut_envs (adjust_sets r) t.locals = SOME y ==>
-      state_rel c q l (call_env xs ss (push_env x (IS_SOME opt) (dec_clock s)))
-       (call_env (Loc q l::ws) ss (push_env y opt (dec_clock t))) []
-       ((l1,l2)::locs)
+Theorem state_rel_call_env_push_opt:
+  ∀(opt:(num # 'a wordLang$prog # num # num) option).
+    state_rel c l1 l2 s t (ZIP(xs,ws)) locs ∧
+    lookup 0 t.locals = SOME (Loc l1 l2) ∧
+    LENGTH xs = LENGTH ws ∧
+    cut_env r s.locals = SOME x ∧
+    cut_envs (adjust_sets r) t.locals = SOME y ⇒
+    state_rel c q l
+      (call_env xs ss (push_env x (IS_SOME opt) (dec_clock s)))
+      (call_env (Loc q l::ws) ss (push_env y opt (dec_clock t))) []
+      ((l1,l2)::locs)
 Proof
   Cases \\ TRY (PairCases_on `x'`) \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[state_rel_def,call_env_def,push_env_def,
@@ -5432,16 +5420,16 @@ Proof
     \\ full_simp_tac(srw_ss())[DIV_LT_X]
     \\ `k < 2 + LENGTH xs * 2 /\ 0 < LENGTH xs * 2` by
      (rev_full_simp_tac(srw_ss())[] \\ Cases_on `xs` \\ full_simp_tac(srw_ss())[]
-      THEN1 (Cases_on `k` \\ full_simp_tac(srw_ss())[]
-      \\ Cases_on `n` \\ full_simp_tac(srw_ss())[] \\ decide_tac)
-      \\ full_simp_tac(srw_ss())[MULT_CLAUSES] \\ decide_tac)
+      THEN1 (gvs [] \\ Cases_on `k` \\ gvs [DECIDE “SUC n < 2 ⇔ n = 0”])
+      \\ Cases_on ‘ws’ \\ gvs [])
     \\ full_simp_tac(srw_ss())[] \\ qexists_tac `(k - 2) DIV 2` \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[DIV_LT_X]
+    \\ gvs []
     \\ Cases_on `k` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `n` \\ full_simp_tac(srw_ss())[DECIDE ``SUC (SUC n) = n + 2``]
     \\ full_simp_tac(srw_ss())[MATCH_MP ADD_DIV_RWT (DECIDE ``0<2:num``)]
     \\ full_simp_tac(srw_ss())[GSYM ADD1,EL] \\ NO_TAC)
-  \\ full_simp_tac(srw_ss())[] \\ disj1_tac \\ disj2_tac
+  \\ full_simp_tac(srw_ss())[] \\ disj2_tac \\ disj1_tac
   \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[join_env_def,MEM_MAP,MEM_FILTER,EXISTS_PROD]
   \\ full_simp_tac(srw_ss())[MEM_toAList] \\ srw_tac[][MEM_ZIP]
   \\ full_simp_tac(srw_ss())[lookup_fromList2,lookup_fromList,lookup_inter_alt]
@@ -5463,6 +5451,45 @@ Proof
   \\ res_tac \\ full_simp_tac(srw_ss())[MEM_toAList]
   \\ rpt var_eq_tac
   \\ imp_res_tac lookup_adjust_var_after_cut \\ gvs []
+QED
+
+Theorem state_rel_call_env_push:
+  state_rel c l1 l2 s t (ZIP(xs,ws)) locs ∧
+  LENGTH xs = LENGTH ws ∧
+  lookup 0 t.locals = SOME (Loc l1 l2) ∧
+  cut_env r s.locals = SOME x ∧
+  cut_envs (adjust_sets r) t.locals = SOME y ⇒
+  state_rel c q l
+    (call_env xs ss (push_env x F (dec_clock s)))
+    (call_env (Loc q l::ws) ss (push_env y NONE (dec_clock t))) []
+    ((l1,l2)::locs)
+Proof
+  strip_tac
+  \\ drule_all (state_rel_call_env_push_opt |> Q.SPEC ‘NONE’ |> SRULE [])
+  \\ fs []
+QED
+
+Theorem state_rel_call_env_push_env: (* TODO: tidy up proof *)
+  !opt:(num # 'a wordLang$prog # num # num) option.
+    state_rel c l1 l2 s (t:('a,'c,'ffi)wordSem$state) [] locs /\
+    get_vars args s.locals = SOME xs /\
+    get_vars (MAP adjust_var args) t = SOME ws /\
+    dataSem$cut_env r s.locals = SOME x /\
+    wordSem$cut_envs (adjust_sets r) t.locals = SOME y ==>
+    state_rel c q l (call_env xs ss (push_env x (IS_SOME opt) (dec_clock s)))
+       (call_env (Loc q l::ws) ss (push_env y opt (dec_clock t))) []
+       ((l1,l2)::locs)
+Proof
+  rpt strip_tac
+  \\ irule state_rel_call_env_push_opt
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ full_simp_tac(srw_ss())[]
+  \\ imp_res_tac wordPropsTheory.get_vars_length_lemma \\ full_simp_tac(srw_ss())[IS_SOME_IF]
+  \\ rpt $ first_x_assum $ irule_at $ Pos hd
+  \\ fs [state_rel_def]
+  \\ rpt $ first_x_assum $ irule_at Any
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ drule_all word_ml_inv_get_vars_IMP
+  \\ fs []
 QED
 
 Theorem find_code_thm_ret:
