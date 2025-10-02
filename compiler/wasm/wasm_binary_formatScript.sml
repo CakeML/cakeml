@@ -1,35 +1,25 @@
 (*
   En- & De- coding between CWasm 1.0 AST & Wasm's binary format
 *)
-
 Theory      wasm_binary_format
-Ancestors   wasmLang leb128 ancillaryOps
+Ancestors   wasmLang leb128 wasm_bf_prelim
 Libs        preamble wordsLib
 
-(*  Note:
-    enc goes from AST to Wasm Binary format (WBF)
-    dec goes from WBF to AST *)
+(* TODOs:
+    - change all encoders to Opt, to remove special casing
+    - proper and meaningful error msgs
+    - [MAYBE] state+error monad syntax *)
 
-(**********************************)
-(*   Misc notations/helpers/etc   *)
-(**********************************)
+(************)
+(*   Note   *)
+(************)
 
-Type byte[pp]    = “:word8”
-Type byteSeq[pp] = “:word8 list”
-Type byteSeqOpt[pp] = “:word8 list option”
+(* Consult wasm_bf_prelimScript.sml for concepts/types/overloads used here *)
 
-(* Decoders (take a stream of bytes) and produce an element of the CWasm
-   AST (or an error) & additionally return the remaining bytes (stream) *)
-Type dcdr = “:(mlstring + α) # byteSeq”
-Overload error = “λ obj str. (INL $ strlit str,obj)”
-Overload emErr = “λ str. (INL $ strlit $ "[" ++ str ++ "] : Byte sequence unexpectedly empty.\n",[])”
-
-Overload gt2_32[local] = “λ (n:num). 2 ** 32 ≤ n”
-Overload lst_st = “λxs ys. LENGTH xs < LENGTH ys”
-Overload lst_se = “λxs ys. LENGTH xs ≤ LENGTH ys”
-
-val _ = monadsyntax.enable_monadsyntax
+val _ = monadsyntax.enable_monadsyntax()
 val _ = monadsyntax.enable_monad "option"
+
+Overload Soli[local] = “(SOME o List): byteSeq -> byteCode”
 
 (***************************************************************************)
 (*                                                                         *)
@@ -37,44 +27,38 @@ val _ = monadsyntax.enable_monad "option"
 (*                                                                         *)
 (***************************************************************************)
 
-
-(*****************************************)
-(*   Vectors (not vector instructions)   *)
-(*****************************************)
-
-Definition enc_list_def:
-  enc_list (encdr:α -> byteSeq) ([]:α list) : byteSeq = []
-  ∧
-  enc_list encdr (x::xs) = encdr x ++ enc_list encdr xs
-End
+(**********************************************)
+(*   Wasm Vectors (not vector instructions)   *)
+(**********************************************)
 
 Definition enc_list_opt_def:
-  enc_list_opt (encdr:α -> byteSeqOpt) ([]:α list) : byteSeqOpt = SOME []
+  enc_list_opt (enc:α -> byteCode) ([]:α list) = Soli []
   ∧
-  enc_list_opt encdr (x::xs) = do
-    encx  <-              encdr x ;
-    encxs <- enc_list_opt encdr xs;
-    return $ encx ++ encxs od
+  enc_list_opt enc (x::xs) = do
+    encx  <-              enc x ;
+    encxs <- enc_list_opt enc xs;
+    SOME $ encx +++ encxs od
 End
 
 Definition dec_list_def:
-  dec_list (n:num) (dec:byteSeq -> α dcdr) (bs:byteSeq) : α list dcdr =
-    let failure = emErr "dec_list" in
+  dec_list (n:num) (dec:byteSeq -> α dcdr) bs : α list dcdr =
+    let failure = emErr "dec_list"
+    in
     if n = 0 then (INR [],bs)
     else
     case dec                bs of (INL e,rs)=>failure| (INR x , bs) =>
     case dec_list (n-1) dec bs of (INL e,rs)=>failure| (INR xs, bs) =>
-    (INR $ x::xs, bs)
+    ret bs $ x::xs
 End
 
 Theorem dec_list_shortens_maybe_le:
   ∀dec.
-  (∀bs x rs. dec bs = (INR x, rs) ⇒ lst_se rs bs) ⇒
-  ∀n bs xs rs. dec_list n dec bs = (INR xs,rs) ⇒
-  lst_se rs bs
+  (∀bs rs x. dec bs = (INR x, rs) ⇒ rs [≤] bs) ⇒
+  ∀n bs rs xs. dec_list n dec bs = (INR xs,rs) ⇒
+  rs [≤] bs
 Proof
      strip_tac \\ strip_tac
-  \\ Induct \\ rw[Once dec_list_def, AllCaseEqs()]
+  \\ Induct >> rw[Once dec_list_def, AllCaseEqs()]
   \\ last_x_assum dxrule
   \\ last_x_assum dxrule
   \\ simp[]
@@ -82,9 +66,9 @@ QED
 
 Theorem dec_list_shortens_maybe_lt:
   ∀dec.
-  (∀bs x rs. dec bs = (INR x, rs) ⇒ lst_st rs bs) ⇒
-  ∀n bs xs rs. dec_list n dec bs = (INR xs,rs) ⇒
-  lst_se rs bs
+  (∀bs rs x. dec bs = (INR x, rs) ⇒ rs [<] bs) ⇒
+  ∀n bs rs xs. dec_list n dec bs = (INR xs,rs) ⇒
+  rs [≤] bs
 Proof
   rpt strip_tac
   \\ dxrule_at Any dec_list_shortens_maybe_le
@@ -94,38 +78,28 @@ Proof
   \\ rw[]
 QED
 
-
-
 Definition enc_vector_def:
-  enc_vector (encdr:α -> byteSeq) (xs:α list) : byteSeqOpt =
+  enc_vector (enc:α -> byteCode) (xs:α list) =
     let n = LENGTH xs in
-    if gt2_32 n then NONE
-    else
-    let encxs = enc_list encdr xs in
-    SOME $ enc_u32 (n2w n) ++ encxs
-End
-
-Definition enc_vector_opt_def:
-  enc_vector_opt (encdr:α -> byteSeqOpt) (xs:α list) : byteSeqOpt =
-    let n = LENGTH xs in
-    if gt2_32 n then NONE else
-    do
-    encxs <- enc_list_opt encdr xs;
-    SOME $ enc_u32 (n2w n) ++ encxs od
+    if 2 ** 32 ≤ n then NONE
+    else do
+    encxs <- enc_list_opt enc xs;
+    encln <- enc_u32 $ n2w n;
+    SOME $ encln +++ encxs od
 End
 
 Definition dec_vector_def:
-  dec_vector (dec:byteSeq -> α dcdr) (bs:byteSeq) : α list dcdr =
+  dec_vector (dec:byteSeq -> α dcdr) bs : α list dcdr =
     case dec_u32 bs of
-    | NONE => error bs "dec_vec"
-    | SOME (w,bs) => dec_list (w2n w) dec bs
+    | (INL _,_ ) => err
+    | (INR w,bs) => dec_list (w2n w) dec bs
 End
 
 Theorem dec_vector_shortens_le:
   ∀dec.
-  (∀bs x rs. dec bs = (INR x, rs) ⇒ lst_se rs bs) ⇒
-  ∀bs xs rs. dec_vector dec bs = (INR xs,rs) ⇒
-  lst_st rs bs
+  (∀bs rs x. dec bs = (INR x, rs) ⇒ rs [≤] bs) ⇒
+  ∀bs rs xs. dec_vector dec bs = (INR xs,rs) ⇒
+  rs [<] bs
 Proof
   rw[dec_vector_def, AllCaseEqs()]
   \\ dxrule dec_u32_shortens
@@ -135,9 +109,9 @@ QED
 
 Theorem dec_vector_shortens_lt:
   ∀dec.
-  (∀bs x rs. dec bs = (INR x, rs) ⇒ lst_st rs bs) ⇒
-  ∀bs xs rs. dec_vector dec bs = (INR xs,rs) ⇒
-  lst_st rs bs
+  (∀bs rs x. dec bs = (INR x, rs) ⇒ rs [<] bs) ⇒
+  ∀bs rs xs. dec_vector dec bs = (INR xs,rs) ⇒
+  rs [<] bs
 Proof
   rpt strip_tac
   \\ dxrule_at Any dec_vector_shortens_le
@@ -156,23 +130,22 @@ QED
 (*************)
 
 Definition enc_valtype_def:
-  enc_valtype (t:valtype) : byteSeq = case t of
+  enc_valtype (t:valtype) : byteCode = SOME $ List $ case t of
   | Tnum   Int W32 => [0x7Fw]
   | Tnum   Int W64 => [0x7Ew]
 End
 
 Definition dec_valtype_def:
-  dec_valtype ([]:byteSeq) : valtype dcdr = emErr "dec_valtype"
+  dec_valtype [] : valtype dcdr = emErr "dec_valtype"
   ∧
-  dec_valtype (b::bs) = let failure = error (b::bs) "[dec_valtype]"
-  in
-  if b = 0x7Fw then (INR $ Tnum   Int W32 ,bs) else
-  if b = 0x7Ew then (INR $ Tnum   Int W64 ,bs) else
-  failure
+  dec_valtype (b::bs) =
+    if b = 0x7Fw then (INR $ Tnum   Int W32 ,bs) else
+    if b = 0x7Ew then (INR $ Tnum   Int W64 ,bs) else
+    err
 End
 
 Theorem dec_valtype_iso:
-  ∀b bs t rs. dec_valtype (b::bs) = (INR t,rs) ⇒ rs = bs
+  ∀bs rs b t. dec_valtype (b::bs) = (INR t,rs) ⇒ rs = bs
 Proof
   simp[oneline dec_valtype_def, AllCaseEqs()]
   \\ rpt strip_tac
@@ -180,7 +153,7 @@ Proof
 QED
 
 Theorem dec_valtype_shortens:
-  ∀bs t rs. dec_valtype bs = (INR t,rs) ⇒ lst_st rs bs
+  ∀bs rs t. dec_valtype bs = (INR t,rs) ⇒ rs [<] bs
 Proof
   Cases_on ‘bs’
   >> rw[oneline dec_valtype_def]
@@ -189,24 +162,25 @@ QED
 
 
 Definition enc_functype_def:
-  enc_functype (sg:functype) : byteSeqOpt = do
+  enc_functype (sg:functype) : byteCode = do
     argTs <- enc_vector enc_valtype (FST sg);
     resTs <- enc_vector enc_valtype (SND sg);
-    return $ 0x60w :: argTs ++ resTs od
+    SOME $ 0x60w ::: argTs +++ resTs od
 End
 
+
 Definition dec_functype_def:
-  dec_functype ([]:byteSeq) : functype dcdr = emErr "dec_functype"
+  dec_functype [] : functype dcdr = emErr "dec_functype"
   ∧
   dec_functype (b::bs) = let failure = error (b::bs) "[dec_functype]" in
     if b ≠ 0x60w then failure else
-    case dec_vector dec_valtype bs of (INL err, es)=>failure| (INR argTs,cs) =>
-    case dec_vector dec_valtype cs of (INL err, es)=>failure| (INR resTs,rs) =>
-    (INR (argTs, resTs), rs)
+    case dec_vector dec_valtype bs of (INL _,_)=>failure| (INR argTs,bs) =>
+    case dec_vector dec_valtype bs of (INL _,_)=>failure| (INR resTs,rs) =>
+    ret rs (argTs, resTs)
 End
 
 Theorem dec_functype_shortens:
-  ∀bs xs rs. dec_functype bs = (INR xs, rs) ⇒ lst_st rs bs
+  ∀bs rs xs. dec_functype bs = (INR xs, rs) ⇒ rs [<] bs
 Proof
   Cases_on ‘bs’ >> rw[dec_functype_def, AllCaseEqs()]
   \\ assume_tac dec_valtype_shortens
@@ -217,9 +191,9 @@ QED
 
 
 Definition enc_limits_def:
-  enc_limits (lim:limits) : byteSeq = case lim of
-  | Lunb mn    => 0x00w :: enc_u32  mn
-  | Lwmx mn mx => 0x01w :: enc_2u32 mn mx
+  enc_limits (lims:limits) = case lims of
+  | Lunb mn    => do encm <- enc_u32  mn   ; SOME $ 0x00w ::: encm od
+  | Lwmx mn mx => do encm <- enc_2u32 mn mx; SOME $ 0x01w ::: encm od
 End
 
 Definition dec_limits_def:
@@ -227,13 +201,13 @@ Definition dec_limits_def:
   ∧
   dec_limits (b::bs) = let failure = error (b::bs) "[dec_limits]"
   in
-  if b = 0x00w then case dec_u32  bs of NONE=>failure| SOME (mn   ,rs) => (INR $ Lunb mn   , rs) else
-  if b = 0x01w then case dec_2u32 bs of NONE=>failure| SOME (mn,mx,rs) => (INR $ Lwmx mn mx, rs) else
+  if b = 0x00w then case dec_u32  bs of (INL _,_)=>failure| (INR  mn    ,rs) => ret rs $ Lunb mn    else
+  if b = 0x01w then case dec_2u32 bs of (INL _,_)=>failure| (INR (mn,mx),rs) => ret rs $ Lwmx mn mx else
   failure
 End
 
 Theorem dec_limits_shortens:
-  ∀bs xs rs. dec_limits bs = (INR xs, rs) ⇒ lst_st rs bs
+  ∀bs rs xs. dec_limits bs = (INR xs, rs) ⇒ rs [<] bs
 Proof
   Cases_on ‘bs’
   >> rw[dec_limits_def, AllCaseEqs()]
@@ -244,26 +218,26 @@ QED
 
 
 Definition enc_globaltype_def:
-  enc_globaltype (t:globaltype) : byteSeq = case t of
-  | Gconst vt => enc_valtype vt ++ [0x00w]
-  | Gmut   vt => enc_valtype vt ++ [0x01w]
+  enc_globaltype (t:globaltype) = case t of
+  | Gconst vt => do encvt <- enc_valtype vt; SOME $ encvt +++ List [0x00w] od
+  | Gmut   vt => do encvt <- enc_valtype vt; SOME $ encvt +++ List [0x01w] od
 End
 
 Definition dec_globaltype_def:
-  dec_globaltype (bs:byteSeq) : globaltype dcdr =
+  dec_globaltype bs : globaltype dcdr =
     if NULL bs then emErr "dec_globaltype"
     else
     let failure = error bs "[dec_globaltype]"
     in
     case dec_valtype bs of
-    | (INR vt,b::bs) => if b = 0x00w then (INR $ Gconst vt, bs) else
-                        if b = 0x01w then (INR $ Gmut   vt, bs) else
+    | (INR vt,b::bs) => if b = 0x00w then ret bs $ Gconst vt else
+                        if b = 0x01w then ret bs $ Gmut   vt else
                         failure
     | _              => failure
 End
 
 Theorem dec_globaltype_shortens:
-  ∀bs xs rs. dec_globaltype bs = (INR xs, rs) ⇒ lst_st rs bs
+  ∀bs rs xs. dec_globaltype bs = (INR xs, rs) ⇒ rs [<] bs
 Proof
   Cases_on ‘bs’
   >> rw[dec_globaltype_def, AllCaseEqs()]
@@ -279,75 +253,75 @@ QED
 (*******************************************)
 
 Definition enc_numI_def:
-  enc_numI (i:num_instr) : byteSeq = case i of
-  | N_eqz     $   W32                        => [0x45w]
-  | N_compare $   Eq  Int      W32           => [0x46w]
-  | N_compare $   Ne  Int      W32           => [0x47w]
-  | N_compare $   Lt_   Signed W32           => [0x48w]
-  | N_compare $   Lt_ Unsigned W32           => [0x49w]
-  | N_compare $   Gt_   Signed W32           => [0x4Aw]
-  | N_compare $   Gt_ Unsigned W32           => [0x4Bw]
-  | N_compare $   Le_   Signed W32           => [0x4Cw]
-  | N_compare $   Le_ Unsigned W32           => [0x4Dw]
-  | N_compare $   Ge_   Signed W32           => [0x4Ew]
-  | N_compare $   Ge_ Unsigned W32           => [0x4Fw]
-  | N_eqz     $   W64                        => [0x50w]
-  | N_compare $   Eq Int       W64           => [0x51w]
-  | N_compare $   Ne Int       W64           => [0x52w]
-  | N_compare $   Lt_   Signed W64           => [0x53w]
-  | N_compare $   Lt_ Unsigned W64           => [0x54w]
-  | N_compare $   Gt_   Signed W64           => [0x55w]
-  | N_compare $   Gt_ Unsigned W64           => [0x56w]
-  | N_compare $   Le_   Signed W64           => [0x57w]
-  | N_compare $   Le_ Unsigned W64           => [0x58w]
-  | N_compare $   Ge_   Signed W64           => [0x59w]
-  | N_compare $   Ge_ Unsigned W64           => [0x5Aw]
-  | N_unary   $   Clz    W32                 => [0x67w]
-  | N_unary   $   Ctz    W32                 => [0x68w]
-  | N_unary   $   Popcnt W32                 => [0x69w]
-  | N_binary  $   Add  Int      W32          => [0x6Aw]
-  | N_binary  $   Sub  Int      W32          => [0x6Bw]
-  | N_binary  $   Mul  Int      W32          => [0x6Cw]
-  | N_binary  $   Div_   Signed W32          => [0x6Dw]
-  | N_binary  $   Div_ Unsigned W32          => [0x6Ew]
-  | N_binary  $   Rem_   Signed W32          => [0x6Fw]
-  | N_binary  $   Rem_ Unsigned W32          => [0x70w]
-  | N_binary  $   And           W32          => [0x71w]
-  | N_binary  $   Or            W32          => [0x72w]
-  | N_binary  $   Xor           W32          => [0x73w]
-  | N_binary  $   Shl           W32          => [0x74w]
-  | N_binary  $   Shr_   Signed W32          => [0x75w]
-  | N_binary  $   Shr_ Unsigned W32          => [0x76w]
-  | N_binary  $   Rotl          W32          => [0x77w]
-  | N_binary  $   Rotr          W32          => [0x78w]
-  | N_unary   $   Clz    W64                 => [0x79w]
-  | N_unary   $   Ctz    W64                 => [0x7Aw]
-  | N_unary   $   Popcnt W64                 => [0x7Bw]
-  | N_binary  $   Add Int       W64          => [0x7Cw]
-  | N_binary  $   Sub Int       W64          => [0x7Dw]
-  | N_binary  $   Mul Int       W64          => [0x7Ew]
-  | N_binary  $   Div_   Signed W64          => [0x7Fw]
-  | N_binary  $   Div_ Unsigned W64          => [0x80w]
-  | N_binary  $   Rem_   Signed W64          => [0x81w]
-  | N_binary  $   Rem_ Unsigned W64          => [0x82w]
-  | N_binary  $   And           W64          => [0x83w]
-  | N_binary  $   Or            W64          => [0x84w]
-  | N_binary  $   Xor           W64          => [0x85w]
-  | N_binary  $   Shl           W64          => [0x86w]
-  | N_binary  $   Shr_   Signed W64          => [0x87w]
-  | N_binary  $   Shr_ Unsigned W64          => [0x88w]
-  | N_binary  $   Rotl          W64          => [0x89w]
-  | N_binary  $   Rotr          W64          => [0x8Aw]
-  | N_convert $   WrapI64                    => [0xA7w]
-  | N_unary   $   ExtendI32_   Signed        => [0xACw]
-  | N_unary   $   ExtendI32_ Unsigned        => [0xADw]
-  | N_unary   $   Extend8s  W32              => [0xC0w]
-  | N_unary   $   Extend16s W32              => [0xC1w]
-  | N_unary   $   Extend8s  W64              => [0xC2w]
-  | N_unary   $   Extend16s W64              => [0xC3w]
-  | N_unary   $   Extend32s                  => [0xC4w]
-  | N_const32 Int   (c32: word32)            =>  0x41w :: enc_s32 c32
-  | N_const64 Int   (c64: word64)            =>  0x42w :: enc_s64 c64
+  enc_numI (i:num_instr) = case i of
+  | N_eqz     $   W32                        => SOME $ List [0x45w]
+  | N_compare $   Eq  Int      W32           => SOME $ List [0x46w]
+  | N_compare $   Ne  Int      W32           => SOME $ List [0x47w]
+  | N_compare $   Lt_   Signed W32           => SOME $ List [0x48w]
+  | N_compare $   Lt_ Unsigned W32           => SOME $ List [0x49w]
+  | N_compare $   Gt_   Signed W32           => SOME $ List [0x4Aw]
+  | N_compare $   Gt_ Unsigned W32           => SOME $ List [0x4Bw]
+  | N_compare $   Le_   Signed W32           => SOME $ List [0x4Cw]
+  | N_compare $   Le_ Unsigned W32           => SOME $ List [0x4Dw]
+  | N_compare $   Ge_   Signed W32           => SOME $ List [0x4Ew]
+  | N_compare $   Ge_ Unsigned W32           => SOME $ List [0x4Fw]
+  | N_eqz     $   W64                        => SOME $ List [0x50w]
+  | N_compare $   Eq Int       W64           => SOME $ List [0x51w]
+  | N_compare $   Ne Int       W64           => SOME $ List [0x52w]
+  | N_compare $   Lt_   Signed W64           => SOME $ List [0x53w]
+  | N_compare $   Lt_ Unsigned W64           => SOME $ List [0x54w]
+  | N_compare $   Gt_   Signed W64           => SOME $ List [0x55w]
+  | N_compare $   Gt_ Unsigned W64           => SOME $ List [0x56w]
+  | N_compare $   Le_   Signed W64           => SOME $ List [0x57w]
+  | N_compare $   Le_ Unsigned W64           => SOME $ List [0x58w]
+  | N_compare $   Ge_   Signed W64           => SOME $ List [0x59w]
+  | N_compare $   Ge_ Unsigned W64           => SOME $ List [0x5Aw]
+  | N_unary   $   Clz    W32                 => SOME $ List [0x67w]
+  | N_unary   $   Ctz    W32                 => SOME $ List [0x68w]
+  | N_unary   $   Popcnt W32                 => SOME $ List [0x69w]
+  | N_binary  $   Add  Int      W32          => SOME $ List [0x6Aw]
+  | N_binary  $   Sub  Int      W32          => SOME $ List [0x6Bw]
+  | N_binary  $   Mul  Int      W32          => SOME $ List [0x6Cw]
+  | N_binary  $   Div_   Signed W32          => SOME $ List [0x6Dw]
+  | N_binary  $   Div_ Unsigned W32          => SOME $ List [0x6Ew]
+  | N_binary  $   Rem_   Signed W32          => SOME $ List [0x6Fw]
+  | N_binary  $   Rem_ Unsigned W32          => SOME $ List [0x70w]
+  | N_binary  $   And           W32          => SOME $ List [0x71w]
+  | N_binary  $   Or            W32          => SOME $ List [0x72w]
+  | N_binary  $   Xor           W32          => SOME $ List [0x73w]
+  | N_binary  $   Shl           W32          => SOME $ List [0x74w]
+  | N_binary  $   Shr_   Signed W32          => SOME $ List [0x75w]
+  | N_binary  $   Shr_ Unsigned W32          => SOME $ List [0x76w]
+  | N_binary  $   Rotl          W32          => SOME $ List [0x77w]
+  | N_binary  $   Rotr          W32          => SOME $ List [0x78w]
+  | N_unary   $   Clz    W64                 => SOME $ List [0x79w]
+  | N_unary   $   Ctz    W64                 => SOME $ List [0x7Aw]
+  | N_unary   $   Popcnt W64                 => SOME $ List [0x7Bw]
+  | N_binary  $   Add Int       W64          => SOME $ List [0x7Cw]
+  | N_binary  $   Sub Int       W64          => SOME $ List [0x7Dw]
+  | N_binary  $   Mul Int       W64          => SOME $ List [0x7Ew]
+  | N_binary  $   Div_   Signed W64          => SOME $ List [0x7Fw]
+  | N_binary  $   Div_ Unsigned W64          => SOME $ List [0x80w]
+  | N_binary  $   Rem_   Signed W64          => SOME $ List [0x81w]
+  | N_binary  $   Rem_ Unsigned W64          => SOME $ List [0x82w]
+  | N_binary  $   And           W64          => SOME $ List [0x83w]
+  | N_binary  $   Or            W64          => SOME $ List [0x84w]
+  | N_binary  $   Xor           W64          => SOME $ List [0x85w]
+  | N_binary  $   Shl           W64          => SOME $ List [0x86w]
+  | N_binary  $   Shr_   Signed W64          => SOME $ List [0x87w]
+  | N_binary  $   Shr_ Unsigned W64          => SOME $ List [0x88w]
+  | N_binary  $   Rotl          W64          => SOME $ List [0x89w]
+  | N_binary  $   Rotr          W64          => SOME $ List [0x8Aw]
+  | N_convert $   WrapI64                    => SOME $ List [0xA7w]
+  | N_unary   $   ExtendI32_   Signed        => SOME $ List [0xACw]
+  | N_unary   $   ExtendI32_ Unsigned        => SOME $ List [0xADw]
+  | N_unary   $   Extend8s  W32              => SOME $ List [0xC0w]
+  | N_unary   $   Extend16s W32              => SOME $ List [0xC1w]
+  | N_unary   $   Extend8s  W64              => SOME $ List [0xC2w]
+  | N_unary   $   Extend16s W64              => SOME $ List [0xC3w]
+  | N_unary   $   Extend32s                  => SOME $ List [0xC4w]
+  | N_const32 Int   (c: word32)              => do encc <- enc_s32 c; SOME $ 0x41w ::: encc od
+  | N_const64 Int   (c: word64)              => do encc <- enc_s64 c; SOME $ 0x42w ::: encc od
 End
 
 Definition dec_numI_def:
@@ -421,13 +395,13 @@ Definition dec_numI_def:
   if b = 0xC2w then (INR $ N_unary   $   Extend8s  W64              ,bs) else
   if b = 0xC3w then (INR $ N_unary   $   Extend16s W64              ,bs) else
   if b = 0xC4w then (INR $ N_unary   $   Extend32s                  ,bs) else
-  if b = 0x41w then case dec_s32 bs of SOME (s32,cs) => (INR $ N_const32  Int  s32, cs) | NONE => failure else
-  if b = 0x42w then case dec_s64 bs of SOME (s64,cs) => (INR $ N_const64  Int  s64, cs) | NONE => failure else
+  if b = 0x41w then case dec_s32 bs of (INL _,_) =>failure| (INR s32,bs) => (INR $ N_const32  Int  s32, bs) else
+  if b = 0x42w then case dec_s64 bs of (INL _,_) =>failure| (INR s64,bs) => (INR $ N_const64  Int  s64, bs) else
   error (b::bs) "[dec_numI]: Not a numeric instruction"
 End
 
 Theorem dec_numI_shortens:
-  ∀bs _i rs. dec_numI bs = (INR _i, rs) ⇒ lst_st rs bs
+  ∀bs rs _i. dec_numI bs = (INR _i, rs) ⇒ rs [<] bs
 Proof
   Cases_on ‘bs’
   >> rw[dec_numI_def, AllCaseEqs()]
@@ -437,7 +411,7 @@ Proof
 QED
 
 Theorem dec_numI_error:
-  ∀bs e rs. dec_numI bs = (INL e, rs) ⇒ bs = rs
+  ∀bs rs e. dec_numI bs = (INL e, rs) ⇒ bs = rs
 Proof
   Cases_on ‘bs’
   >> rw[dec_numI_def, AllCaseEqs()]
@@ -446,13 +420,13 @@ QED
 
 
 Definition enc_paraI_def:
-  enc_paraI (i:para_instr) : byteSeq = case i of
+  enc_paraI (i:para_instr) : byteCode = SOME $ List $ case i of
   | Drop   => [0x1Aw]
   | Select => [0x1Bw]
 End
 
 Definition dec_paraI_def:
-  dec_paraI ([]:byteSeq) : para_instr dcdr = emErr "dec_paraI"
+  dec_paraI [] : para_instr dcdr = emErr "dec_paraI"
   ∧
   dec_paraI (b::bs) = let failure = error (b::bs) "[dec_paraI]"
   in
@@ -462,7 +436,7 @@ Definition dec_paraI_def:
 End
 
 Theorem dec_paraI_shortens:
-  ∀bs _i rs. dec_paraI bs = (INR _i, rs) ⇒ lst_st rs bs
+  ∀bs rs _i. dec_paraI bs = (INR _i, rs) ⇒ rs [<] bs
 Proof
   Cases_on ‘bs’
   >> rw[dec_paraI_def, AllCaseEqs()]
@@ -470,7 +444,7 @@ Proof
 QED
 
 Theorem dec_paraI_error:
-  ∀bs e rs. dec_paraI bs = (INL e, rs) ⇒ bs = rs
+  ∀bs rs e. dec_paraI bs = (INL e, rs) ⇒ bs = rs
 Proof
   Cases_on ‘bs’
   >> rw[dec_paraI_def, AllCaseEqs()]
@@ -479,12 +453,12 @@ QED
 
 
 Definition enc_varI_def:
-  enc_varI (i:var_instr) : byteSeq = case i of
-  | LocalGet  x => 0x20w :: enc_unsigned_word x
-  | LocalSet  x => 0x21w :: enc_unsigned_word x
-  | LocalTee  x => 0x22w :: enc_unsigned_word x
-  | GlobalGet x => 0x23w :: enc_unsigned_word x
-  | GlobalSet x => 0x24w :: enc_unsigned_word x
+  enc_varI (i:var_instr) : byteCode = case i of
+  | LocalGet  x => do encx <- enc_u32 x; SOME $ 0x20w ::: encx od
+  | LocalSet  x => do encx <- enc_u32 x; SOME $ 0x21w ::: encx od
+  | LocalTee  x => do encx <- enc_u32 x; SOME $ 0x22w ::: encx od
+  | GlobalGet x => do encx <- enc_u32 x; SOME $ 0x23w ::: encx od
+  | GlobalSet x => do encx <- enc_u32 x; SOME $ 0x24w ::: encx od
 End
 
 Definition dec_varI_def:
@@ -492,16 +466,16 @@ Definition dec_varI_def:
   ∧
   dec_varI (b::bs) = let failure = error (b::bs) "[dec_varI]"
   in
-  if b = 0x20w then case dec_unsigned_word bs of NONE=>failure| SOME(x,rs) => (INR $ LocalGet  x,rs) else
-  if b = 0x21w then case dec_unsigned_word bs of NONE=>failure| SOME(x,rs) => (INR $ LocalSet  x,rs) else
-  if b = 0x22w then case dec_unsigned_word bs of NONE=>failure| SOME(x,rs) => (INR $ LocalTee  x,rs) else
-  if b = 0x23w then case dec_unsigned_word bs of NONE=>failure| SOME(x,rs) => (INR $ GlobalGet x,rs) else
-  if b = 0x24w then case dec_unsigned_word bs of NONE=>failure| SOME(x,rs) => (INR $ GlobalSet x,rs) else
+  if b = 0x20w then case dec_u32 bs of (INL _,_)=>failure| (INR x,rs) => (INR $ LocalGet  x,rs) else
+  if b = 0x21w then case dec_u32 bs of (INL _,_)=>failure| (INR x,rs) => (INR $ LocalSet  x,rs) else
+  if b = 0x22w then case dec_u32 bs of (INL _,_)=>failure| (INR x,rs) => (INR $ LocalTee  x,rs) else
+  if b = 0x23w then case dec_u32 bs of (INL _,_)=>failure| (INR x,rs) => (INR $ GlobalGet x,rs) else
+  if b = 0x24w then case dec_u32 bs of (INL _,_)=>failure| (INR x,rs) => (INR $ GlobalSet x,rs) else
   error (b::bs) "[dec_varI] : Not a variable instruction.\n"
 End
 
 Theorem dec_varI_shortens:
-  ∀bs _i rs. dec_varI bs = (INR _i, rs) ⇒ lst_st rs bs
+  ∀bs rs _i. dec_varI bs = (INR _i, rs) ⇒ rs [<] bs
 Proof
   Cases_on ‘bs’
   >> rw[dec_varI_def, AllCaseEqs()]
@@ -510,7 +484,7 @@ Proof
 QED
 
 Theorem dec_varI_error:
-  ∀bs e rs. dec_varI bs = (INL e, rs) ⇒ bs = rs
+  ∀bs rs e. dec_varI bs = (INL e, rs) ⇒ bs = rs
 Proof
   Cases_on ‘bs’
   >> rw[dec_varI_def, AllCaseEqs()]
@@ -519,19 +493,19 @@ QED
 
 
 Definition enc_loadI_def:
-  enc_loadI (i:load_instr) : byteSeq = case i of
-  | Load    Int                  W32 ofs al  => 0x28w :: enc_2u32 al ofs
-  | Load    Int                  W64 ofs al  => 0x29w :: enc_2u32 al ofs
-  | LoadNarrow I8x16    Signed   W32 ofs al  => 0x2Cw :: enc_2u32 al ofs
-  | LoadNarrow I8x16  Unsigned   W32 ofs al  => 0x2Dw :: enc_2u32 al ofs
-  | LoadNarrow I16x8    Signed   W32 ofs al  => 0x2Ew :: enc_2u32 al ofs
-  | LoadNarrow I16x8  Unsigned   W32 ofs al  => 0x2Fw :: enc_2u32 al ofs
-  | LoadNarrow I8x16    Signed   W64 ofs al  => 0x30w :: enc_2u32 al ofs
-  | LoadNarrow I8x16  Unsigned   W64 ofs al  => 0x31w :: enc_2u32 al ofs
-  | LoadNarrow I16x8    Signed   W64 ofs al  => 0x32w :: enc_2u32 al ofs
-  | LoadNarrow I16x8  Unsigned   W64 ofs al  => 0x33w :: enc_2u32 al ofs
-  | LoadNarrow32        Signed       ofs al  => 0x34w :: enc_2u32 al ofs
-  | LoadNarrow32      Unsigned       ofs al  => 0x35w :: enc_2u32 al ofs
+  enc_loadI (i:load_instr) : byteCode = case i of
+  | Load    Int                  W32 ofs al  => do encao <- enc_2u32 al ofs; SOME $ 0x28w ::: encao od
+  | Load    Int                  W64 ofs al  => do encao <- enc_2u32 al ofs; SOME $ 0x29w ::: encao od
+  | LoadNarrow I8x16    Signed   W32 ofs al  => do encao <- enc_2u32 al ofs; SOME $ 0x2Cw ::: encao od
+  | LoadNarrow I8x16  Unsigned   W32 ofs al  => do encao <- enc_2u32 al ofs; SOME $ 0x2Dw ::: encao od
+  | LoadNarrow I16x8    Signed   W32 ofs al  => do encao <- enc_2u32 al ofs; SOME $ 0x2Ew ::: encao od
+  | LoadNarrow I16x8  Unsigned   W32 ofs al  => do encao <- enc_2u32 al ofs; SOME $ 0x2Fw ::: encao od
+  | LoadNarrow I8x16    Signed   W64 ofs al  => do encao <- enc_2u32 al ofs; SOME $ 0x30w ::: encao od
+  | LoadNarrow I8x16  Unsigned   W64 ofs al  => do encao <- enc_2u32 al ofs; SOME $ 0x31w ::: encao od
+  | LoadNarrow I16x8    Signed   W64 ofs al  => do encao <- enc_2u32 al ofs; SOME $ 0x32w ::: encao od
+  | LoadNarrow I16x8  Unsigned   W64 ofs al  => do encao <- enc_2u32 al ofs; SOME $ 0x33w ::: encao od
+  | LoadNarrow32        Signed       ofs al  => do encao <- enc_2u32 al ofs; SOME $ 0x34w ::: encao od
+  | LoadNarrow32      Unsigned       ofs al  => do encao <- enc_2u32 al ofs; SOME $ 0x35w ::: encao od
 End
 
 Definition dec_loadI_def:
@@ -539,23 +513,23 @@ Definition dec_loadI_def:
   ∧
   dec_loadI (b::bs) = let failure = error (b::bs) "[dec_loadI]"
   in
-  if b = 0x28w then case dec_2u32 bs of NONE=>failure|SOME (a,ofs,rs) => (INR $  Load    Int                 W32 ofs a,rs) else
-  if b = 0x29w then case dec_2u32 bs of NONE=>failure|SOME (a,ofs,rs) => (INR $  Load    Int                 W64 ofs a,rs) else
-  if b = 0x2Cw then case dec_2u32 bs of NONE=>failure|SOME (a,ofs,rs) => (INR $  LoadNarrow I8x16    Signed  W32 ofs a,rs) else
-  if b = 0x2Dw then case dec_2u32 bs of NONE=>failure|SOME (a,ofs,rs) => (INR $  LoadNarrow I8x16  Unsigned  W32 ofs a,rs) else
-  if b = 0x2Ew then case dec_2u32 bs of NONE=>failure|SOME (a,ofs,rs) => (INR $  LoadNarrow I16x8    Signed  W32 ofs a,rs) else
-  if b = 0x2Fw then case dec_2u32 bs of NONE=>failure|SOME (a,ofs,rs) => (INR $  LoadNarrow I16x8  Unsigned  W32 ofs a,rs) else
-  if b = 0x30w then case dec_2u32 bs of NONE=>failure|SOME (a,ofs,rs) => (INR $  LoadNarrow I8x16    Signed  W64 ofs a,rs) else
-  if b = 0x31w then case dec_2u32 bs of NONE=>failure|SOME (a,ofs,rs) => (INR $  LoadNarrow I8x16  Unsigned  W64 ofs a,rs) else
-  if b = 0x32w then case dec_2u32 bs of NONE=>failure|SOME (a,ofs,rs) => (INR $  LoadNarrow I16x8    Signed  W64 ofs a,rs) else
-  if b = 0x33w then case dec_2u32 bs of NONE=>failure|SOME (a,ofs,rs) => (INR $  LoadNarrow I16x8  Unsigned  W64 ofs a,rs) else
-  if b = 0x34w then case dec_2u32 bs of NONE=>failure|SOME (a,ofs,rs) => (INR $  LoadNarrow32        Signed      ofs a,rs) else
-  if b = 0x35w then case dec_2u32 bs of NONE=>failure|SOME (a,ofs,rs) => (INR $  LoadNarrow32      Unsigned      ofs a,rs) else
+  if b = 0x28w then case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) => (INR $  Load    Int                 W32 ofs a,rs) else
+  if b = 0x29w then case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) => (INR $  Load    Int                 W64 ofs a,rs) else
+  if b = 0x2Cw then case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) => (INR $  LoadNarrow I8x16    Signed  W32 ofs a,rs) else
+  if b = 0x2Dw then case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) => (INR $  LoadNarrow I8x16  Unsigned  W32 ofs a,rs) else
+  if b = 0x2Ew then case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) => (INR $  LoadNarrow I16x8    Signed  W32 ofs a,rs) else
+  if b = 0x2Fw then case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) => (INR $  LoadNarrow I16x8  Unsigned  W32 ofs a,rs) else
+  if b = 0x30w then case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) => (INR $  LoadNarrow I8x16    Signed  W64 ofs a,rs) else
+  if b = 0x31w then case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) => (INR $  LoadNarrow I8x16  Unsigned  W64 ofs a,rs) else
+  if b = 0x32w then case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) => (INR $  LoadNarrow I16x8    Signed  W64 ofs a,rs) else
+  if b = 0x33w then case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) => (INR $  LoadNarrow I16x8  Unsigned  W64 ofs a,rs) else
+  if b = 0x34w then case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) => (INR $  LoadNarrow32        Signed      ofs a,rs) else
+  if b = 0x35w then case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) => (INR $  LoadNarrow32      Unsigned      ofs a,rs) else
   error (b::bs) "[dec_loadI] : Not a load instruction.\n"
 End
 
 Theorem dec_loadI_shortens:
-  ∀bs _i rs. dec_loadI bs = (INR _i, rs) ⇒ lst_st rs bs
+  ∀bs rs _i. dec_loadI bs = (INR _i, rs) ⇒ rs [<] bs
 Proof
   Cases_on ‘bs’
   >> rw[dec_loadI_def, AllCaseEqs()]
@@ -564,7 +538,7 @@ Proof
 QED
 
 Theorem dec_loadI_error:
-  ∀bs e rs. dec_loadI bs = (INL e, rs) ⇒ bs = rs
+  ∀bs rs e. dec_loadI bs = (INL e, rs) ⇒ bs = rs
 Proof
   Cases_on ‘bs’
   >> rw[dec_loadI_def, AllCaseEqs()]
@@ -573,14 +547,14 @@ QED
 
 
 Definition enc_storeI_def:
-  enc_storeI (i:store_instr) : byteSeq = case i of
-  | Store   Int                  W32 ofs al => 0x36w :: enc_2u32 al ofs
-  | Store   Int                  W64 ofs al => 0x37w :: enc_2u32 al ofs
-  | StoreNarrow I8x16            W32 ofs al => 0x3Aw :: enc_2u32 al ofs
-  | StoreNarrow I16x8            W32 ofs al => 0x3Bw :: enc_2u32 al ofs
-  | StoreNarrow I8x16            W64 ofs al => 0x3Cw :: enc_2u32 al ofs
-  | StoreNarrow I16x8            W64 ofs al => 0x3Dw :: enc_2u32 al ofs
-  | StoreNarrow32                    ofs al => 0x3Ew :: enc_2u32 al ofs
+  enc_storeI (i:store_instr) = case i of
+  | Store   Int                  W32 ofs al => do encao <- enc_2u32 al ofs; SOME $ 0x36w ::: encao od
+  | Store   Int                  W64 ofs al => do encao <- enc_2u32 al ofs; SOME $ 0x37w ::: encao od
+  | StoreNarrow I8x16            W32 ofs al => do encao <- enc_2u32 al ofs; SOME $ 0x3Aw ::: encao od
+  | StoreNarrow I16x8            W32 ofs al => do encao <- enc_2u32 al ofs; SOME $ 0x3Bw ::: encao od
+  | StoreNarrow I8x16            W64 ofs al => do encao <- enc_2u32 al ofs; SOME $ 0x3Cw ::: encao od
+  | StoreNarrow I16x8            W64 ofs al => do encao <- enc_2u32 al ofs; SOME $ 0x3Dw ::: encao od
+  | StoreNarrow32                    ofs al => do encao <- enc_2u32 al ofs; SOME $ 0x3Ew ::: encao od
 End
 
 Definition dec_storeI_def:
@@ -588,18 +562,18 @@ Definition dec_storeI_def:
   ∧
   dec_storeI (b::bs) = let failure = error (b::bs) "[dec_storeI]"
   in
-  if b = 0x36w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ Store          Int  W32 ofs al,rs) else
-  if b = 0x37w then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ Store          Int  W64 ofs al,rs) else
-  if b = 0x3Aw then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ StoreNarrow  I8x16  W32 ofs al,rs) else
-  if b = 0x3Bw then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ StoreNarrow  I16x8  W32 ofs al,rs) else
-  if b = 0x3Cw then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ StoreNarrow  I8x16  W64 ofs al,rs) else
-  if b = 0x3Dw then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ StoreNarrow  I16x8  W64 ofs al,rs) else
-  if b = 0x3Ew then case dec_2u32 bs of NONE=>failure| SOME (al,ofs,rs) => (INR $ StoreNarrow32           ofs al,rs) else
+  if b = 0x36w then case dec_2u32 bs of (INL _,_)=>failure| (INR (al,ofs),rs) => ret rs $ Store          Int  W32 ofs al else
+  if b = 0x37w then case dec_2u32 bs of (INL _,_)=>failure| (INR (al,ofs),rs) => ret rs $ Store          Int  W64 ofs al else
+  if b = 0x3Aw then case dec_2u32 bs of (INL _,_)=>failure| (INR (al,ofs),rs) => ret rs $ StoreNarrow  I8x16  W32 ofs al else
+  if b = 0x3Bw then case dec_2u32 bs of (INL _,_)=>failure| (INR (al,ofs),rs) => ret rs $ StoreNarrow  I16x8  W32 ofs al else
+  if b = 0x3Cw then case dec_2u32 bs of (INL _,_)=>failure| (INR (al,ofs),rs) => ret rs $ StoreNarrow  I8x16  W64 ofs al else
+  if b = 0x3Dw then case dec_2u32 bs of (INL _,_)=>failure| (INR (al,ofs),rs) => ret rs $ StoreNarrow  I16x8  W64 ofs al else
+  if b = 0x3Ew then case dec_2u32 bs of (INL _,_)=>failure| (INR (al,ofs),rs) => ret rs $ StoreNarrow32           ofs al else
   error (b::bs) "[dec_storeI] : Not a store instruction.\n"
 End
 
 Theorem dec_storeI_shortens:
-  ∀bs _i rs. dec_storeI bs = (INR _i, rs) ⇒ lst_st rs bs
+  ∀bs rs _i. dec_storeI bs = (INR _i, rs) ⇒ rs [<] bs
 Proof
   Cases_on ‘bs’
   >> rw[dec_storeI_def, AllCaseEqs()]
@@ -623,8 +597,8 @@ QED
 
 (* Used in enc-dec of Block-y instructions *)
 Definition enc_blocktype_def:
-  enc_blocktype (bt:blocktype) : byteSeq = case bt of
-  | BlkNil    => [0x40w]
+  enc_blocktype (bt:blocktype) = case bt of
+  | BlkNil    => SOME $ List [0x40w]
   | BlkVal vt => enc_valtype vt
 End
 
@@ -633,13 +607,13 @@ Definition dec_blocktype_def:
     in
     case bs of [] => emErr "dec_blocktype" | b::rs
     =>
-    if   b = 0x40w       then             (INR   BlkNil  , rs) else
-    case dec_valtype bs of (INR t ,rs) => (INR $ BlkVal t, rs) | _ => failure
+    if   b = 0x40w    then                ret rs $ BlkNil   else
+    case dec_valtype bs of (INR t ,rs) => ret rs $ BlkVal t | _ => failure
     (* error bs "[dec_blocktype] : Not a blocktype.\n" *)
 End
 
 Theorem dec_blocktype_shortens:
-  ∀bs _t rs. dec_blocktype bs = (INR _t,rs) ⇒ lst_st rs bs
+  ∀bs rs _t. dec_blocktype bs = (INR _t,rs) ⇒ rs [<] bs
 Proof
   Cases_on ‘bs’
   >> rw[dec_blocktype_def, AllCaseEqs()]
@@ -650,30 +624,34 @@ QED
 
 
 (* Used in BrTable *)
+(*
 Definition lift_dec_u32_def:
   lift_dec_u32 bs = case dec_u32 bs of
   | NONE        => error bs "[dec_indxs] : not a u32/index."
   | SOME (i,rs) => (INR i,rs) : word32 dcdr
 End
+*)
 
+(*
 Theorem lift_dec_u32_shortens:
-  ∀bs xs rs. lift_dec_u32 bs = (INR xs, rs) ⇒ lst_st rs bs
+  ∀bs rs xs. lift_dec_u32 bs = (INR xs, rs) ⇒ rs [<] bs
 Proof
   simp[lift_dec_u32_def, AllCaseEqs()]
 QED
+*)
 
 
 
 (* we specialize/instantiate this particular
    version of enc_/dec_vector just for abstraction *)
 Overload enc_indxs = “enc_vector enc_u32”
-Overload dec_indxs = “dec_vector lift_dec_u32”
+Overload dec_indxs = “dec_vector dec_u32”
 
 Theorem dec_indxs_shortens:
-  ∀ bs xs rs. dec_indxs bs = (INR xs, rs) ⇒ lst_st rs bs
+  ∀ bs rs xs. dec_indxs bs = (INR xs, rs) ⇒ rs [<] bs
 Proof
      rpt strip_tac
-  \\ assume_tac lift_dec_u32_shortens
+  \\ assume_tac dec_u32_shortens
   \\ imp_res_tac dec_vector_shortens_lt
 QED
 
@@ -718,39 +696,39 @@ Overload endB  = “0x0Bw:byte”
     TODO: check that endB & elseB are the only terminating
     bytes for encoding lists of instructions *)
 Definition enc_instr_def:
-  (enc_instr_list (e:bool) ([]:instr list) : byteSeqOpt = SOME [if e then endB else elseB]
+  (enc_instr_list (e:bool) ([]:instr list) : byteCode = Soli [if e then endB else elseB]
   ) ∧
   (enc_instr_list _encode_expr (i::is) = do
     enci  <- enc_instr                   i ;
     encis <- enc_instr_list _encode_expr is;
-    SOME $ enci ++ encis od
+    SOME $ enci +++ encis od
   ) ∧
-  enc_instr (inst:instr) : byteSeqOpt = case inst of
+  enc_instr (inst:instr) : byteCode = case inst of
   (* control instructions *)
-  | Unreachable => SOME [unrOC]
-  | Nop         => SOME [nopOC]
+  | Unreachable => Soli [unrOC]
+  | Nop         => Soli [nopOC]
   (* block-y *)
-  | Block bT body => do encb <- enc_instr_list T body; SOME $ blkOC :: enc_blocktype bT ++ encb         od
-  | Loop  bT body => do encb <- enc_instr_list T body; SOME $ lopOC :: enc_blocktype bT ++ encb         od
-  | If bT bdT bdE => do enct <- enc_instr_list F bdT ;
-                        ence <- enc_instr_list T bdE ; SOME $ if_OC :: enc_blocktype bT ++ enct ++ ence od
-  | If bT bdT []  => do enct <- enc_instr_list T bdT ; SOME $ if_OC :: enc_blocktype bT ++ enct         od
+  | Block bT body => do enct <- enc_blocktype bT; encb <- enc_instr_list T body; SOME $ blkOC ::: enct +++ encb od
+  | Loop  bT body => do enct <- enc_blocktype bT; encb <- enc_instr_list T body; SOME $ lopOC ::: enct +++ encb od
+  | If bT bdT bdE => do enct <- enc_blocktype bT; enTh <- enc_instr_list F bdT ;
+                                                  ence <- enc_instr_list T bdE ; SOME $ if_OC ::: enct +++ enTh +++ ence od
+  | If bT bdT []  => do enct <- enc_blocktype bT; encb <- enc_instr_list T body; SOME $ if_OC ::: enct +++ encb od
   (* branches *)
-  | Br           lbl =>                               SOME $ br_OC ::            enc_u32 lbl
-  | BrIf         lbl =>                               SOME $ briOC ::            enc_u32 lbl
-  | BrTable lbls lbl => do enclbls <- enc_indxs lbls; SOME $ brtOC :: enclbls ++ enc_u32 lbl od
+  | Br           lbl => do                            enci <- enc_u32 lbl; SOME $ br_OC :::             enci od
+  | BrIf         lbl => do                            enci <- enc_u32 lbl; SOME $ briOC :::             enci od
+  | BrTable lbls lbl => do enclbls <- enc_indxs lbls; enci <- enc_u32 lbl; SOME $ brtOC ::: enclbls +++ enci od
   (* calls/returns *)
-  | Return                    =>                              SOME  [retOC]
-  | Call               fdx    =>                              SOME $ calOC ::          enc_u32 fdx
-  | ReturnCall         fdx    =>                              SOME $ rclOC ::          enc_u32 fdx
-  | CallIndirect       fdx sg => do encsg <- enc_functype sg; SOME $ cinOC :: encsg ++ enc_u32 fdx od
-  | ReturnCallIndirect fdx sg => do encsg <- enc_functype sg; SOME $ rciOC :: encsg ++ enc_u32 fdx od
+  | Return                    =>                                                   Soli  [retOC]
+  | Call               fdx    => do                           enci <- enc_u32 fdx; SOME $ calOC :::           enci od
+  | ReturnCall         fdx    => do                           enci <- enc_u32 fdx; SOME $ rclOC :::           enci od
+  | CallIndirect       fdx sg => do encsg <- enc_functype sg; enci <- enc_u32 fdx; SOME $ cinOC ::: encsg +++ enci od
+  | ReturnCallIndirect fdx sg => do encsg <- enc_functype sg; enci <- enc_u32 fdx; SOME $ rciOC ::: encsg +++ enci od
   (* other classes of instructions *)
-  | Variable   i => SOME $ enc_varI   i
-  | Parametric i => SOME $ enc_paraI  i
-  | Numeric    i => SOME $ enc_numI   i
-  | MemRead    i => SOME $ enc_loadI  i
-  | MemWrite   i => SOME $ enc_storeI i
+  | Variable   i => enc_varI   i
+  | Parametric i => enc_paraI  i
+  | Numeric    i => enc_numI   i
+  | MemRead    i => enc_loadI  i
+  | MemWrite   i => enc_storeI i
 End
 
 Overload enc_expr = “enc_instr_list T”  (* byte stream terminated with an endB  *)
@@ -762,25 +740,26 @@ Overload enc_tArm = “enc_instr_list F”  (* byte stream terminated with an el
 (*   Top-level/Control flow instruction DE coder   *)
 (***************************************************)
 
-(* Used in termination proof. 2nd argument seems slightly
-   mysterious but [shorten] will be called in a specific pattern:
+(* Used in termination proof. While 2nd argument seems
+   slightly mysterious, [shorten] meant to be called
+   in a specific pattern:
    (**)
    λdec xs. shorten xs (dec xs)
    (**)
-   and it helps with termination by saying that if the decoder
-   does not produce a shorter byte stream, we explicitly
+   [shorten] helps with termination by saying that if the decoder
+   doesn't produce a shorter byte stream, we explicitly
    replace the byte stream with one that is shorter/equal length *)
 Definition shorten_def:
-  (shorten bs (INR x,rs) = if lst_st rs bs then (INR x,rs) else (INR x,[])) ∧
-  (shorten bs (INL x,rs) = if lst_se rs bs then (INL x,rs) else (INL x,bs))
+  (shorten bs (INR x,rs) = if rs [<] bs then (INR x,rs) else (INR x,[])) ∧
+  (shorten bs (INL x,rs) = if rs [≤] bs then (INL x,rs) else (INL x,bs))
 End
 
 Overload force_shtr = “λdec xs. shorten xs (dec xs)”
 
 Theorem shorten_IMP:
-  ∀xs bs x s. shorten bs xs = (INR x,rs)
+  ∀xs bs rs x s. shorten bs xs = (INR x,rs)
   ⇒
-  (lst_se rs bs) ∧ (bs ≠ [] ⇒ lst_st rs bs)
+  (rs [≤] bs) ∧ (bs ≠ [] ⇒ rs [<] bs)
 Proof
   rpt gen_tac
   \\ PairCases_on ‘xs’
@@ -795,66 +774,66 @@ QED
    the decoder to see if the then-arm of an if-instruction is (or is not) followed by
    (the encoding of) an else-arm *)
 Definition dec_instr_def:
-  (dec_instr_list (_elseB_allowed:bool) ([]:byteSeq) : (byte # instr list) dcdr = emErr "dec_instr_list"
+  (dec_instr_list (_elseB_allowed:bool) [] : (byte # instr list) dcdr = emErr "dec_instr_list"
   ) ∧
   (dec_instr_list e (b::bs) =
     let failure = error (b::bs) "[dec_instr_list]"
     in
-    if b = endB ∨ (e ∧ b = elseB) then (INR (b,[]),bs)
+    if b = endB ∨ (e ∧ b = elseB) then ret bs (b,[])
     else
-    case force_shtr dec_instr (b::bs) of (INL err,bs)=>failure| (INR i         ,bs) =>
-    case dec_instr_list e bs          of (INL err,bs)=>failure| (INR (termB,is),bs) =>
-    (INR $ (termB, i::is), bs)
+    case force_shtr dec_instr (b::bs) of (INL _,_)=>failure| (INR i         ,bs) =>
+    case dec_instr_list e bs          of (INL _,_)=>failure| (INR (termB,is),bs) =>
+    ret bs (termB, i::is)
   ) ∧
-  (dec_instr ([]:byteSeq) : instr dcdr = emErr "dec_instr"
+  (dec_instr [] : instr dcdr = emErr "dec_instr"
   ) ∧
   (dec_instr (b::bs) = let failure = error (b::bs) "[dec_instr]" in
     (* Single-byte encoded instrs *)
-    if b = unrOC then (INR Unreachable, bs) else
-    if b = nopOC then (INR Nop        , bs) else
-    if b = retOC then (INR Return     , bs) else
+    if b = unrOC then ret bs Unreachable else
+    if b = nopOC then ret bs Nop         else
+    if b = retOC then ret bs Return      else
     (* Br, BrIf *)
-    if b = br_OC then case dec_u32 bs of NONE=>failure|SOME (lbl,rs) => (INR $ Br   lbl,rs) else
-    if b = briOC then case dec_u32 bs of NONE=>failure|SOME (lbl,rs) => (INR $ BrIf lbl,rs) else
+    if b = br_OC then case dec_u32 bs of (INL _,_)=>failure| (INR lbl,rs) => ret bs $ Br   lbl else
+    if b = briOC then case dec_u32 bs of (INL _,_)=>failure| (INR lbl,rs) => ret bs $ BrIf lbl else
     (* BrTable *)
     if b = brtOC then (
-      case dec_indxs bs of (INL _,_) => failure | (INR  lbls,cs) =>
-      case dec_u32   cs of      NONE => failure | SOME (lbl ,rs) =>
-      (INR $ BrTable lbls lbl, rs)                           ) else
+      case dec_indxs bs of (INL _,_) => failure | (INR lbls,bs) =>
+      case dec_u32   bs of (INL _,_) => failure | (INR lbl ,bs) =>
+      ret bs $ BrTable lbls lbl                             ) else
     (* Calls *)
-    if b = calOC then case dec_u32 bs of NONE => failure | SOME (f,rs) => (INR $ Call       f, rs) else
-    if b = rclOC then case dec_u32 bs of NONE => failure | SOME (f,rs) => (INR $ ReturnCall f, rs) else
-    if b = cinOC then case dec_functype bs of (INL _,_)=>failure|(INR sg,cs) =>
-                      case dec_u32      cs of NONE     =>failure|SOME (f,rs) => (INR $ CallIndirect       f sg,rs) else
-    if b = rciOC then case dec_functype bs of (INL _,_)=>failure|(INR sg,cs) =>
-                      case dec_u32      cs of NONE     =>failure|SOME (f,rs) => (INR $ ReturnCallIndirect f sg,rs) else
+    if b = calOC then case dec_u32 bs of (INL _,_)=>failure| (INR f,bs) => ret bs $ Call       f else
+    if b = rclOC then case dec_u32 bs of (INL _,_)=>failure| (INR f,bs) => ret bs $ ReturnCall f else
+    if b = cinOC then case dec_functype bs of (INL _,_)=>failure|(INR sg,bs) =>
+                      case dec_u32      bs of (INL _,_)=>failure|(INR f ,bs) => ret bs $ CallIndirect       f sg else
+    if b = rciOC then case dec_functype bs of (INL _,_)=>failure|(INR sg,bs) =>
+                      case dec_u32      bs of (INL _,_)=>failure|(INR f ,bs) => ret bs $ ReturnCallIndirect f sg else
     (* Block-y instructrions ie, instructions with embedded blocks *)
     (* Block *)
     if b = blkOC then (
-      case dec_blocktype    bs of (INL err,bs) =>failure| (INR bTyp    ,bs) =>
-      case dec_instr_list F bs of (INL err,bs) =>failure| (INR (_,body),bs) =>
-      (INR (Block bTyp body),bs)                                        ) else
+      case dec_blocktype    bs of (INL _,_) =>failure| (INR bTyp    ,bs) =>
+      case dec_instr_list F bs of (INL _,_) =>failure| (INR (_,body),bs) =>
+      ret bs $ Block bTyp body                                       ) else
     (* Loop *)
     if b = lopOC then (
-      case dec_blocktype    bs of (INL err,bs) =>failure| (INR bTyp    ,bs) =>
-      case dec_instr_list F bs of (INL err,bs) =>failure| (INR (_,body),bs) =>
-      (INR (Loop bTyp body),bs)                                         ) else
+      case dec_blocktype    bs of (INL _,_) =>failure| (INR bTyp    ,bs) =>
+      case dec_instr_list F bs of (INL _,_) =>failure| (INR (_,body),bs) =>
+      ret bs $ Loop bTyp body                                           ) else
     (* If then only *)
     if b = if_OC then (
-      case dec_blocktype bs                 of (INL err,bs) =>failure| (INR bTyp        ,bs) =>
-      case force_shtr (dec_instr_list T) bs of (INL err,bs) =>failure| (INR (termB,bdyT),bs) =>
+      case dec_blocktype bs                 of (INL _,_) =>failure| (INR bTyp        ,bs) =>
+      case force_shtr (dec_instr_list T) bs of (INL _,_) =>failure| (INR (termB,bdyT),bs) =>
       if termB = endB then
       (INR (If bTyp bdyT []),bs)
     else (* termB = elseB *)
     (* If both *)
-      case dec_instr_list F bs of (INL err,bs) =>failure| (INR (_,bdyE),bs) =>
+      case dec_instr_list F bs of (INL _,_) =>failure| (INR (_,bdyE),bs) =>
       (INR (If bTyp bdyT bdyE),bs)                                      ) else
     (* other classes of instructions *)
-    case dec_varI   (b::bs) of (INR i, rs) => (INR $ Variable   i, rs) | _ =>
-    case dec_paraI  (b::bs) of (INR i, rs) => (INR $ Parametric i, rs) | _ =>
-    case dec_numI   (b::bs) of (INR i, rs) => (INR $ Numeric    i, rs) | _ =>
-    case dec_loadI  (b::bs) of (INR i, rs) => (INR $ MemRead    i, rs) | _ =>
-    case dec_storeI (b::bs) of (INR i, rs) => (INR $ MemWrite   i, rs) | _ =>
+    case dec_varI   (b::bs) of (INR i, bs) => ret bs $ Variable   i | _ =>
+    case dec_paraI  (b::bs) of (INR i, bs) => ret bs $ Parametric i | _ =>
+    case dec_numI   (b::bs) of (INR i, bs) => ret bs $ Numeric    i | _ =>
+    case dec_loadI  (b::bs) of (INR i, bs) => ret bs $ MemRead    i | _ =>
+    case dec_storeI (b::bs) of (INR i, bs) => ret bs $ MemWrite   i | _ =>
   failure)
 Termination
   WF_REL_TAC ‘measure $ λx. case x of
@@ -872,8 +851,8 @@ Overload dec_expr = “λ bs. case dec_instr_list F bs of (INR (_,is), bs) => (I
 Overload dec_tArm = “dec_instr_list T”
 
 Theorem dec_instructions_shorten:
-  (∀e xs x rs. dec_instr_list e xs = (INR x,rs) ⇒ lst_st rs xs) ∧
-  (∀xs x rs  . dec_instr        xs = (INR x,rs) ⇒ lst_st rs xs)
+  (∀e xs x rs. dec_instr_list e xs = (INR x,rs) ⇒ rs [<] xs) ∧
+  (∀xs x rs  . dec_instr        xs = (INR x,rs) ⇒ rs [<] xs)
 Proof
   ho_match_mp_tac dec_instr_ind \\ rw []
   >~ [‘dec_instr        []’] >- simp [dec_instr_def]
@@ -933,7 +912,7 @@ Theorem dec_instr_ind[allow_rebind] = REWRITE_RULE [dec_instructions_short_enoug
 
 
 Triviality dec_instr_list_shortens:
-  (∀e xs x rs. dec_instr_list e xs = (INR x,rs) ⇒ lst_st rs xs)
+  (∀xs rs e x. dec_instr_list e xs = (INR x,rs) ⇒ rs [<] xs)
 Proof
   rewrite_tac[dec_instructions_shorten]
 QED
@@ -951,9 +930,10 @@ QED
 (*******************)
 
 Definition enc_global_def:
-  enc_global (g:global) : byteSeqOpt = do
+  enc_global (g:global) = do
     expr <- enc_expr g.ginit;
-    SOME $ enc_globaltype g.gtype ++ expr od
+    enct <- enc_globaltype g.gtype;
+    SOME $ enct +++ expr od
 End
 
 Definition dec_global_def:
@@ -971,7 +951,7 @@ Definition dec_global_def:
 End
 
 Theorem dec_global_shortens:
-  ∀bs xs rs. dec_global bs = (INR xs, rs) ⇒ lst_st rs bs
+  ∀bs rs xs. dec_global bs = (INR xs, rs) ⇒ rs [<] bs
 Proof
   rw[dec_global_def, AllCaseEqs()]
   \\ dxrule dec_globaltype_shortens
@@ -981,26 +961,32 @@ QED
 
 
 
+Definition prepend_sz_def:
+  prepend_sz (appl: byte app_list) : byteCode = do
+    encl <- enc_u32 $ n2w $ LENGTH $ append appl;
+    SOME $ encl +++ appl od
+End
+
 Definition enc_code_def:
-  enc_code (c:valtype list # expr) : byteSeqOpt = do
+  enc_code (c:valtype list # expr) = do
     encC <- enc_expr               (SND c);
     encL <- enc_vector enc_valtype (FST c);
-    let code = encL ++ encC in
-    SOME $ enc_u32 (n2w $ LENGTH code) ++ code od
+    let code = encL +++ encC in
+    prepend_sz code od
 End
 
 Definition dec_code_def:
-  dec_code (bs:byteSeq) : (valtype list # expr) dcdr =
+  dec_code bs : (valtype list # expr) dcdr =
   if NULL bs then emErr "dec_code" else
   let failure = error bs "[dec_code]" in
-    case dec_u32                bs of  NONE    =>failure|SOME (len,cs) =>
+    case dec_u32                bs of (INL _,_)=>failure|(INR  len,cs) =>
     case dec_vector dec_valtype cs of (INL _,_)=>failure|(INR vts ,ds) =>
     case dec_expr               ds of (INL _,_)=>failure|(INR code,rs) =>
-    (INR (vts, code), rs)
+    ret rs (vts, code)
 End
 
 Theorem dec_code_shortens:
-  ∀ bs xs rs. dec_code bs = (INR xs, rs) ⇒ lst_st rs bs
+  ∀ bs rs xs. dec_code bs = (INR xs, rs) ⇒ rs [<] bs
 Proof
   Cases_on ‘bs’
   >> rw[dec_code_def, AllCaseEqs()]
@@ -1013,11 +999,8 @@ QED
 
 
 
-Definition enc_data_def:
-  enc_data (d:data) : byteSeqOpt = do
-    ini <- enc_vector (λ b. [b]) d.dinit;
-    ofs <- enc_expr d.offset            ;
-    SOME $ enc_u32 d.data ++ ofs ++ ini od
+Definition enc_byte_def:
+  enc_byte (b:byte) = Soli [b]
 End
 
 (* Used in dec_data *)
@@ -1027,18 +1010,27 @@ Definition dec_byte_def:
 End
 
 Theorem dec_byte_shortens:
-  ∀bs b rs. dec_byte bs = (INR b, rs) ⇒ lst_st rs bs
+  ∀bs rs b. dec_byte bs = (INR b, rs) ⇒ rs [<] bs
 Proof
   Cases >> rw[dec_byte_def]
 QED
 
+
+
+Definition enc_data_def:
+  enc_data (d:data) : byteCode = do
+    ini <- enc_vector enc_byte d.dinit;
+    ofs <- enc_expr d.offset            ;
+    sz  <- enc_u32 d.data               ;
+    SOME $ sz +++ ofs +++ ini od
+End
 
 Definition dec_data_def:
   dec_data (bs:byteSeq) : data dcdr =
     if NULL bs then emErr "dec_data" else
     let failure = error bs "[dec_data]"
     in
-    case dec_u32             bs of  NONE     =>failure| SOME (idx,bs) =>
+    case dec_u32             bs of (INL _,_) =>failure| (INR idx ,bs) =>
     case dec_expr            bs of (INL _,_) =>failure| (INR ofse,bs) =>
     case dec_vector dec_byte bs of (INL _,_) =>failure| (INR ini ,rs) =>
       (INR <| data   := idx
@@ -1049,7 +1041,7 @@ Definition dec_data_def:
 End
 
 Theorem dec_data_shortens:
-  ∀bs xs rs. dec_data bs = (INR xs, rs) ⇒ lst_st rs bs
+  ∀bs rs xs. dec_data bs = (INR xs, rs) ⇒ rs [<] bs
 Proof
      rw[dec_data_def, AllCaseEqs()]
   \\ dxrule dec_u32_shortens
@@ -1088,18 +1080,13 @@ Definition zip_funcs_def:
     |>            ) :: zip_funcs is vles
 End
 
-Overload prepend_sz[local] = “(λbs. enc_u32 (n2w $ LENGTH bs) ++ bs) : byteSeq -> byteSeq”
+
 
 Definition enc_section_def:
-  enc_section (leadByte:byte) (enc:α -> byteSeq)  (xs:α list) : byteSeqOpt =
-    do encxs <- enc_vector enc xs;
-    SOME $ leadByte :: prepend_sz encxs od
-End
-
-Definition enc_section_opt_def:
-  enc_section_opt (leadByte:byte) (enc:α -> byteSeqOpt) (xs:α list) : byteSeqOpt =
-    do encxs <- enc_vector_opt enc xs;
-    SOME $ leadByte :: prepend_sz encxs od
+  enc_section (leadByte:byte) (enc:α -> byteCode) (xs:α list) = do
+    encxs <- enc_vector enc xs;
+    enced <- prepend_sz encxs ;
+    SOME $ leadByte ::: enced od
 End
 
 Definition dec_section_def:
@@ -1108,20 +1095,17 @@ Definition dec_section_def:
               ([]:byteSeq) : (α list) dcdr = emErr "dec_section"
   ∧
   dec_section leadByte dec (b::bs) =
-    let failure = error bs "dec_section"
-    in
-    if b ≠ leadByte then (INR [], b::bs)
+    if b ≠ leadByte then ret (b::bs) []
     else
-    case dec_u32 bs of NONE => failure | SOME (w,bs) =>
-    case dec_vector dec bs of
-    | (INR res,bs) => (INR res, bs)
-    | _            => failure
+    case dec_u32 bs of
+    | (INL _,_) => error bs "dec_section"
+    | (INR _w,bs) => dec_vector dec bs
 End
 
-Theorem dec_section_shortens:
+Theorem dec_section_shortens_lt:
   ∀dec.
-  (∀bs x rs. dec bs = (INR x, rs) ⇒ lst_st rs bs) ⇒
-  ∀bs lb dc rs. dec_section lb dec bs = (INR dc, rs) ⇒ lst_se rs bs
+  (∀bs rs x. dec bs = (INR x, rs) ⇒ rs [<] bs) ⇒
+  ∀bs rs lb dc. dec_section lb dec bs = (INR dc, rs) ⇒ rs [≤] bs
 Proof
   strip_tac \\ strip_tac
   \\ Cases >> rw[dec_section_def, AllCaseEqs()]
@@ -1131,8 +1115,14 @@ Proof
     \\ simp[]
 QED
 
+(*******************************)
+(*                             *)
+(*      The names section      *)
+(*                             *)
+(*******************************)
 
-
+(* Format of acceptable identifiers
+   - from ascii code points *)
 Definition id_OK_def:
   id_OK ([]:num list) : bool = T
   ∧
@@ -1148,67 +1138,197 @@ Definition id_OK_def:
     azAZ_ first ∧ foldl (λ e sd. azAZ_09 e ∧ sd) T str)
 End
 
-(* Overload bytes_of_mlstring = “(MAP (n2w o ORD) o explode): mlstring -> byteSeq” *)
-
 Definition enc_mls_def:
-  enc_mls (str:mlstring) : byteSeqOpt =
-    let ascii = MAP ORD $ explode str in
-    if id_OK ascii then SOME $ MAP n2w ascii else NONE
+  enc_mls (str:mlstring) : byteCode =
+    let ascii = MAP ORD $ explode str
+    in
+    if id_OK ascii
+    then enc_vector enc_byte $ MAP n2w ascii
+    else NONE
 End
 
-
-Definition enc_idx_1st_def:
-  enc_idx_1st (enc: α -> byteSeqOpt) (i:index,a:α) : byteSeqOpt =
-    do enca <- enc a; SOME $ enc_u32 i ++ enca od
+Definition dec_mls_def:
+  dec_mls bs : mlstring dcdr =
+    case dec_vector dec_byte bs of
+    | (INL _,_) => err
+    | (INR bytes, bs) => ret bs $ strlit $ MAP (CHR ∘  w2n) bytes
 End
 
-Definition enc_nm_ass_def:
-  enc_nm_ass : (index # mlstring) -> byteSeqOpt = enc_idx_1st enc_mls
+Theorem dec_mls_shortens:
+  ∀bs rs _x. dec_mls bs = (INR _x, rs) ⇒ rs [<] bs
+Proof
+     rw[dec_mls_def, AllCaseEqs()]
+  \\ assume_tac  dec_byte_shortens
+  \\ imp_res_tac dec_vector_shortens_lt
+QED
+
+
+
+(* Encoding a pair of index & an α *)
+Definition enc_idx_alpha_def:
+  enc_idx_alpha (enc:α -> byteCode) (i:index, a:α) = do
+    enci <- enc_u32 i;
+    enca <- enc a    ;
+    SOME $ enci +++ enca od
 End
 
-Definition enc_nm_map_def:
-  enc_nm_map : (index # mlstring) list -> byteSeqOpt = enc_vector_opt enc_nm_ass
+Definition dec_idx_alpha_def:
+  dec_idx_alpha (dec: byteSeq -> α dcdr) bs : (index # α) dcdr =
+    case dec_u32 bs of (INL _,_)=>err| (INR idx, bs) =>
+    case dec     bs of (INL _,_)=>err| (INR a  , bs) =>
+    ret bs (idx,a)
 End
 
-Definition enc_indir_nm_ass_def:
-  enc_indir_nm_ass : (index # (index # mlstring) list) -> byteSeqOpt = enc_idx_1st enc_nm_map
+Theorem dec_idx_alpha_shortens_le:
+  ∀dec.
+  (∀bs rs x. dec bs = (INR x, rs) ⇒ rs [≤] bs) ⇒
+  ∀bs rs _x. dec_idx_alpha dec bs = (INR _x, rs) ⇒ rs [<] bs
+Proof
+     rw[dec_idx_alpha_def, AllCaseEqs()]
+  \\ last_x_assum dxrule
+  \\ dxrule dec_u32_shortens
+  \\ rw[]
+QED
+
+Theorem dec_idx_alpha_shortens_lt:
+  ∀dec.
+  (∀bs rs x. dec bs = (INR x, rs) ⇒ rs [<] bs) ⇒
+  ∀bs rs _x. dec_idx_alpha dec bs = (INR _x, rs) ⇒ rs [<] bs
+Proof
+     rw[dec_idx_alpha_def, AllCaseEqs()]
+  \\ last_x_assum dxrule
+  \\ dxrule dec_u32_shortens
+  \\ rw[]
+QED
+
+
+(* In the context of the names section, "Associations"
+   are pairings of indices & mlstrings (names) *)
+Definition enc_ass_def:
+  enc_ass : (index # mlstring) -> byteCode = enc_idx_alpha enc_mls
 End
+
+Definition dec_ass_def:
+  dec_ass : byteSeq -> (index # mlstring) dcdr = dec_idx_alpha dec_mls
+End
+
+Theorem dec_ass_shortens:
+  ∀bs rs _x. dec_ass  bs = (INR _x, rs) ⇒ rs [<] bs
+Proof
+     rw[dec_ass_def, AllCaseEqs()]
+  \\ assume_tac dec_mls_shortens
+  \\ imp_res_tac dec_idx_alpha_shortens_lt
+QED
+
+
+
+(* maps are lists of associations. Cf enc_ass *)
+Definition enc_map_def:
+  enc_map : (index # mlstring) list -> byteCode = enc_vector enc_ass
+End
+
+Definition dec_map_def:
+  dec_map : byteSeq -> (index # mlstring) list dcdr = dec_vector dec_ass
+End
+
+Theorem dec_map_shortens:
+  ∀bs rs _x. dec_map  bs = (INR _x, rs) ⇒ rs [<] bs
+Proof
+     rw[dec_map_def, AllCaseEqs()]
+  \\ assume_tac dec_ass_shortens
+  \\ imp_res_tac dec_vector_shortens_lt
+QED
 
 
 
 Definition enc_names_section_def:
-  enc_names_section (n:names) : byteSeqOpt =
-    let ss0Opt : byteSeqOpt =
+  enc_names_section (no:names option) =
+    let emp = Soli []
+    in
+    case no of NONE => emp | SOME n
+    =>
+    let ss0Opt : byteCode =
       case n.mname of
-      | NONE => SOME []
+      | NONE => emp
       | SOME s => do
           encs <- enc_mls s;
-          SOME $ 0w:: prepend_sz encs
+          enced <- prepend_sz encs;
+          SOME $ 0w ::: enced
           od in
-    let ss1Opt : byteSeqOpt =
+    let ss1Opt : byteCode =
       case n.fnames of
-      | [] => SOME []
-      | fns => do
-          encfns <- enc_nm_map fns;
-          SOME $ 1w:: prepend_sz encfns
-          od in
-    let ss2Opt : byteSeqOpt =
+      | []  => emp
+      | fns => enc_section 1w enc_ass fns in
+    let ss2Opt : byteCode =
       case n.lnames of
-      | [] => SOME []
-      | lns => do
-          enclns <- enc_vector_opt enc_indir_nm_ass lns;
-          SOME $ 2w:: prepend_sz enclns
-          od in
-    let contents : byteSeqOpt = do
-      ss0 <- ss0Opt;
-      ss1 <- ss1Opt;
-      SOME $ MAP (n2w o ORD) "name" ++ ss0 ++ ss1 ++
-      (* (case n.lnames of []=>[]| lns => 1w:: prepend_sz $ enc_vector_opt enc_name_assoc lns) *)
-      [] od
-    in do
-    c <- contents; SOME $ 0w :: prepend_sz c od
+      | [] => emp
+      | lns => enc_section 2w (enc_idx_alpha enc_map) lns in
+    do
+    ss0 <- ss0Opt;
+    ss1 <- ss1Opt;
+    ss2 <- ss2Opt;
+    contents <- prepend_sz $ (List $ MAP (n2w o ORD) "name") +++ ss0 +++ ss1 +++ ss2;
+    SOME $ 0w ::: contents od
 End
 
+
+Definition dec_names_section_def:
+  dec_names_section [] : names option dcdr = ret [] NONE
+  ∧
+  dec_names_section (b::bs) =
+    let failure = error (b::bs) ""
+    in
+    if b ≠ 0w then ret [] NONE (* NS (names section) leadByte *)
+    else
+    case dec_u32 bs of (INL _,_) => failure | (INR _,bs) (* length of the NS *)
+    =>
+    if MAP (CHR o w2n) $ TAKE 4 bs ≠ "name" then failure
+    else
+    case (
+      case DROP 4 bs of [] => err | b::cs =>
+        if b ≠ 0w
+        then ret (b::cs) NONE
+        else case dec_mls cs of
+          | (INL _,_ ) => err
+          | (INR s,cs) => ret cs $ SOME s
+    )                                              of (INL _,_)=>failure| (INR so , bs) =>
+    case dec_section 1w dec_ass                 bs of (INL _,_)=>failure| (INR fns, bs) =>
+    case dec_section 2w (dec_idx_alpha dec_map) bs of (INL _,_)=>failure| (INR lns, bs) =>
+    ret bs $ SOME (
+    <|  mname := so
+     ;  fnames := fns
+     ;  lnames := lns
+     |> : names)
+End
+(*
+Theorem dec_names_section_shortens:
+  ∀bs rs _x. dec_names_section bs = (INR _x, rs) ⇒ rs [≤] bs
+Proof
+
+  Cases >> rw[dec_names_section_def, AllCaseEqs()]
+    >- simp[]
+    >-(
+       dxrule dec_u32_shortens
+       assume_tac dec_ass_shortens
+       dxrule_all dec_section_shortens_lt
+       assume_tac dec_map_shortens
+       dxrule dec_idx_alpha_shortens_lt
+       strip_tac
+       dxrule_all dec_section_shortens_lt
+`cs [<] bs` by cheat
+gvs[ LENGTH_DROP]
+       rw[]
+    )
+    >-(
+cheat
+    )
+
+QED
+
+LENGTH_BUTFIRSTN
+m ``DROP``
+
+  rpt strip_tac
 
 
 Definition mod_leader_def:
@@ -1222,52 +1342,71 @@ End
 
 (* From CWasm (not Wasm!) modules to WBF *)
 Definition enc_module_def:
-  enc_module (m:module) (n:names) : byteSeqOpt =
+  enc_module (m:module) (no:names option) =
     let (fTIdxs, locBods) = split_funcs m.funcs in do
-    types'   <- enc_section_opt   1w enc_functype  m.types  ;
-    fTIdxs'  <- enc_section       3w enc_u32       fTIdxs   ;
-    mems'    <- enc_section       5w enc_limits    m.mems   ;
-    globals' <- enc_section_opt   6w enc_global    m.globals;
-    code'    <- enc_section_opt  10w enc_code      locBods  ;
-    datas'   <- enc_section_opt  11w enc_data      m.datas  ;
-    names    <- enc_names_section n                         ;
-      SOME $ mod_leader ++
-      types'   ++ fTIdxs' ++ mems'  ++
-      globals' ++ code'   ++ datas' ++ names od
+    types'   <- enc_section   1w enc_functype  m.types  ;
+    fTIdxs'  <- enc_section   3w enc_u32       fTIdxs   ;
+    mems'    <- enc_section   5w enc_limits    m.mems   ;
+    globals' <- enc_section   6w enc_global    m.globals;
+    code'    <- enc_section  10w enc_code      locBods  ;
+    datas'   <- enc_section  11w enc_data      m.datas  ;
+    names    <- enc_names_section no                    ;
+      SOME $ List mod_leader +++
+      types'   +++ fTIdxs' +++ mems'  +++
+      globals' +++ code'   +++ datas' +++ names od
 End
 
 
 
 Definition dec_module_def:
-  dec_module (bs:byteSeq) : module dcdr = case bs of
+  dec_module bs : (module # names option) dcdr = case bs of
   | l1::l2::l3::l4::l5::l6::l7::l8::xs => (
     let failure = error bs "[dec_module] : malformed leader"
     in
     if [l1;l2;l3;l4;l5;l6;l7;l8] ≠ mod_leader then failure
     else
-    case dec_section  1w dec_functype xs of (INL _,_)=>failure|(INR types'  , xs) =>
-    case dec_section  3w lift_dec_u32 xs of (INL _,_)=>failure|(INR fTIdxs  , xs) =>
-    case dec_section  5w dec_limits   xs of (INL _,_)=>failure|(INR mems'   , xs) =>
-    case dec_section  6w dec_global   xs of (INL _,_)=>failure|(INR globals', xs) =>
-    case dec_section 10w dec_code     xs of (INL _,_)=>failure|(INR code    , xs) =>
-    case dec_section 11w dec_data     xs of (INL _,_)=>failure|(INR datas'  , rs) =>
+    case dec_section  1w dec_functype bs of (INL _,_)=>failure|(INR types'  , bs) =>
+    case dec_section  3w dec_u32      bs of (INL _,_)=>failure|(INR fTIdxs  , bs) =>
+    case dec_section  5w dec_limits   bs of (INL _,_)=>failure|(INR mems'   , bs) =>
+    case dec_section  6w dec_global   bs of (INL _,_)=>failure|(INR globals', bs) =>
+    case dec_section 10w dec_code     bs of (INL _,_)=>failure|(INR code    , bs) =>
+    case dec_section 11w dec_data     bs of (INL _,_)=>failure|(INR datas'  , cs) =>
+    case dec_names_section            cs of (INL _,_)=>failure|(INR nms     , rs) =>
     let funcs' = zip_funcs fTIdxs code in
     let m = <| types   := types' ; funcs   := funcs'
              ; mems    := mems'  ; globals := globals'
              ; datas   := datas'                        |> : module
     in
-    (INR m, rs) )
+    ret rs (m,nms) )
   | [] => emErr "dec_module"
   | _  => error bs "[dec_module]: missing leader (less than 8 bytes)"
 End
 
 Theorem dec_module_shortens:
-  ∀bs x rs. dec_module bs = (INR x, rs) ⇒ lst_se rs bs
+  ∀bs rs x. dec_module bs = (INR x, rs) ⇒ rs [≤] bs
 Proof
      simp[dec_module_def, AllCaseEqs(), mod_leader_def]
   \\ rpt strip_tac \\ gvs[]
   \\ rpt (dxrule_at Any dec_section_shortens)
-  \\ simp[dec_functype_shortens, dec_limits_shortens, dec_code_shortens
-         ,lift_dec_u32_shortens, dec_global_shortens, dec_data_shortens]
+  \\ simp[ dec_limits_shortens, dec_code_shortens, dec_functype_shortens
+         , dec_global_shortens, dec_data_shortens, dec_u32_shortens    ]
 QED
 
+
+*)
+
+(* Definition enc_list_def:
+  enc_list (enc:α -> byteSeq) ([]:α list) : byteSeq = []
+  ∧
+  enc_list enc (x::xs) = enc x ++ enc_list enc xs
+End *)
+
+(*
+Definition enc_vector_def:
+  enc_vector (enc:α -> byteSeq) (xs:α list) : byteCode =
+    let n = LENGTH xs in
+    if 2 ** 32 ≤ n then NONE
+    else
+    SOME $ enc_u32 (n2w n) ++ enc_list enc xs
+End
+*)

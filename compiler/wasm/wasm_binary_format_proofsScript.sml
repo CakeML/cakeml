@@ -5,7 +5,7 @@
 Theory      wasm_binary_format_proofs
 Ancestors   leb128 ancillaryOps wasmLang wasm_binary_format
 Libs        preamble wordsLib
-
+(*
 val ssaa = fn xs => [GSYM APPEND_ASSOC, Excl "APPEND_ASSOC"] @ xs
 val ssa  =          [GSYM APPEND_ASSOC, Excl "APPEND_ASSOC"]
 
@@ -657,8 +657,13 @@ Proof
   \\ simp[]
 QED
 
+Theorem dec_enc_names:
+  ∀no eno rest.
+  enc_names_section no = SOME eno ⇒
+  dec_names_section eno = (INR no, rest)
+Proof
 
-
+QED
 
 
 
@@ -699,155 +704,4 @@ Proof
   \\ cheat
 QED
 
-
-(***************)
-(*             *)
-(*     WIP     *)
-(*             *)
-(***************)
-
-
-
-
-(*
-
-
-
-
-Theorem shorten_failure_shortens:
-  ∀bs xs _x rs. shorten bs xs = (INL _x,rs) ⇒ lst_se rs bs
-Proof
-  Cases_on `xs` \\ Cases_on `q`
-  >> rw[shorten_def]
-  >> simp[]
-QED
-
-
-Triviality shorten_success_inversion:
-  ∀bs fbs _x rs. shorten bs fbs = (INR _x,rs) ⇒ ∃ _x frs. fbs = (INR _x,frs)
-Proof
-  gvs [oneline shorten_def, AllCaseEqs()] \\ rw [] \\ fs []
-QED
-
-
-Triviality shorten_failure_inversion:
-  ∀bs fbs _x rs. shorten bs fbs = (INL _x,rs) ⇒ ∃ _x frs. fbs = (INL _x,frs)
-Proof
-  gvs [oneline shorten_def, AllCaseEqs()] \\ rw [] \\ fs []
-QED
-
-
-
-
-Theorem dec_instructions_failure_shortens_maybe:
-  (∀e bs x rs. dec_instr_list e bs = (INL x,rs) ⇒ lst_se rs bs) ∧
-  (∀  bs x rs. dec_instr        bs = (INL x,rs) ⇒ lst_se rs bs)
-Proof
-  rpt strip_tac >> imp_res_tac dec_instructions_error >> simp[]
-QED
-
-
-
 *)
-
-
-
-(*
-
-
-
-
-
-Triviality dec_instr_shortens:
-  (∀xs x rs. dec_instr xs = (INR x,rs) ⇒ lst_st rs xs)
-Proof
-  rewrite_tac[dec_instructions_shorten]
-QED
-
-
-
-Theorem dec_expr_shortens:
-  (∀xs x rs. dec_expr xs = (INR x,rs) ⇒ lst_st rs xs)
-Proof
-  mp_tac dec_instructions_shorten
-  \\ strip_tac
-  \\ pop_assum kall_tac
-  \\ rpt strip_tac
-  \\ Cases_on ‘dec_instr_list F xs’
-  \\ Cases_on ‘q’ >> gvs[]
-  \\ Cases_on ‘y’ >> gvs[]
-  \\ first_x_assum dxrule
-  \\ gvs[]
-QED
-
-Theorem dec_tArm_shortens:
-  (∀xs x rs. dec_tArm xs = (INR x,rs) ⇒ lst_st rs xs)
-Proof
-  rewrite_tac[dec_instructions_shorten]
-QED
-
-Theorem dec_instr_short_enough:
-  ∀bs. force_shtr dec_instr bs = dec_instr bs
-Proof
-  rw[dec_instructions_short_enough]
-QED
-
-Theorem dec_instructions_short_enough:
-  ∀e bs. force_shtr (dec_instr_list e) bs = dec_instr_list e bs
-Proof
-  rw[dec_instructions_short_enough]
-QED
-
-
-
-
-
-
-
-
-
-(* for study
-MATCH_MP
-dec_vector_shortens_lt
-(dec_byte_shortens  |> INST_TYPE [alpha |-> ``:byte``])
-  \\ (qspec_then `dec_byte` assume_tac (dec_vector_shortens_lt |> INST_TYPE [alpha |-> ``:byte``]))
-*)
-
-Definition emp_module_def:
-  emp_module : module =
-  <| types   := []
-   ; funcs   := []
-   ; mems    := []
-   ; globals := []
-   ; datas   := []
-   |>
-End
-
-
-
-
-
-Theorem dec_il_end_or_else_B:
-  ∀bs e tmB x rs. dec_instr_list e bs = (INR (tmB,x),rs) ⇒ (tmB = endB ∨ tmB = elseB)
-Proof
-  Induct
-  >> simp[Once dec_instr_def, AllCaseEqs()]
-QED
-
-
-
-
- *)
-
-
-
-
-
-
-
-
-
-
-
-
-
