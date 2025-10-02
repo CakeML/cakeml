@@ -1,8 +1,8 @@
 (*
   En- & De- coding between CWasm 1.0 AST & Wasm's binary format
 *)
-Theory      wasm_binary_format
-Ancestors   wasmLang leb128 wasm_bf_prelim
+Theory      wbf
+Ancestors   wasmLang leb128 wbf_ancil
 Libs        preamble wordsLib
 
 (* TODOs:
@@ -1300,35 +1300,36 @@ Definition dec_names_section_def:
      ;  lnames := lns
      |> : names)
 End
-(*
+
 Theorem dec_names_section_shortens:
   ∀bs rs _x. dec_names_section bs = (INR _x, rs) ⇒ rs [≤] bs
 Proof
-
   Cases >> rw[dec_names_section_def, AllCaseEqs()]
     >- simp[]
-    >-(
-       dxrule dec_u32_shortens
-       assume_tac dec_ass_shortens
-       dxrule_all dec_section_shortens_lt
-       assume_tac dec_map_shortens
-       dxrule dec_idx_alpha_shortens_lt
-       strip_tac
-       dxrule_all dec_section_shortens_lt
-`cs [<] bs` by cheat
-gvs[ LENGTH_DROP]
-       rw[]
-    )
-    >-(
-cheat
-    )
-
+    >> dxrule dec_u32_shortens
+       (**)
+    >> imp_res_tac dec_mls_shortens
+       (**)
+    >> `cs [<] bs` by cheat
+    >> pop_assum mp_tac
+       (*
+       qspecl_then [`4`,`bs`] assume_tac LENGTH_DROP
+       gvs[]
+       REWRITE_CONV []
+       pop_assum $ (qspec_then `bs` assume_tac)
+       *)
+       (**)
+    >> assume_tac dec_ass_shortens
+    >> dxrule_all dec_section_shortens_lt
+       (**)
+    >> assume_tac dec_map_shortens
+    >> dxrule dec_idx_alpha_shortens_lt
+    >> strip_tac
+    >> dxrule_all dec_section_shortens_lt
+       (**)
+    >> rw[]
 QED
 
-LENGTH_BUTFIRSTN
-m ``DROP``
-
-  rpt strip_tac
 
 
 Definition mod_leader_def:
