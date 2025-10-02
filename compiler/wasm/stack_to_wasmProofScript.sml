@@ -17,6 +17,42 @@ Definition I64_NE_def:
   I64_NE = Numeric (N_compare (Ne Int W64))
 End
 
+Definition I64_LT_U_def:
+  I64_LT_U = Numeric (N_compare (Lt_ Unsigned W64))
+End
+
+Definition I64_GT_U_def:
+  I64_GT_U = Numeric (N_compare (Gt_ Unsigned W64))
+End
+
+Definition I64_LE_U_def:
+  I64_LE_U = Numeric (N_compare (Le_ Unsigned W64))
+End
+
+Definition I64_GE_U_def:
+  I64_GE_U = Numeric (N_compare (Ge_ Unsigned W64))
+End
+
+Definition I64_LT_S_def:
+  I64_LT_S = Numeric (N_compare (Lt_ Signed W64))
+End
+
+Definition I64_GT_S_def:
+  I64_GT_S = Numeric (N_compare (Gt_ Signed W64))
+End
+
+Definition I64_LE_S_def:
+  I64_LE_S = Numeric (N_compare (Le_ Signed W64))
+End
+
+Definition I64_GE_S_def:
+  I64_GE_S = Numeric (N_compare (Ge_ Signed W64))
+End
+
+Definition I64_EQZ_def:
+  I64_EQZ = Numeric (N_eqz W64)
+End
+
 Definition I64_CONST_def:
   I64_CONST w = Numeric (N_const64 Int w)
 End
@@ -118,8 +154,19 @@ End
 
 (* cmp = Equal | Lower | Less | Test | NotEqual | NotLower | NotLess | NotTest *)
 Definition comp_cmp_def:
-  comp_cmp (Equal: cmp) a_r b_ri =
-    List [GLOBAL_GET a_r; comp_ri b_ri; I64_EQ]
+  comp_cmp (cmp: cmp) a b =
+    let op =
+      case cmp of
+        Equal    => [I64_EQ]
+      | NotEqual => [I64_NE]
+      | Lower    => [I64_LT_U]
+      | NotLower => [I64_GE_U]
+      | Less     => [I64_LT_S]
+      | NotLess  => [I64_GE_S]
+      | Test     => [I64_AND; I64_EQZ] (* Test a b <=> bitwise_and a b = 0 *)
+      | NotTest  => [I64_AND; I64_CONST 0w; I64_NE]
+    in
+    List (GLOBAL_GET a :: comp_ri b :: op)
 End
 
 (*
@@ -261,8 +308,7 @@ Definition empty_buffer_def:
 End
 
 Definition to_value_def:
-  to_value (Word w) = I64 w ∧
-  to_value (Loc l _) = I64 (n2w l << 1)
+  to_value w = I64 (case w of Word w => w | Loc l _ => n2w l << 1)
 End
 
 Definition conf_ok_def:
@@ -275,8 +321,10 @@ End
 Definition regs_rel_def:
   regs_rel c regs globals ⇔
   LENGTH globals = c.reg_count ∧
-  ∀n wl. FLOOKUP regs n = SOME wl ⇒
-    EL n globals = to_value wl
+  ( ∀n w. FLOOKUP regs n = SOME w ⇒
+    n < c.reg_count ∧
+    LLOOKUP globals n = SOME (to_value w)
+  )
 End
 
 (* TODO: code_rel: we can find long mul at const index i *)
@@ -373,19 +421,19 @@ rw[exec_def]
 QED
 
 Theorem pop_with_clock[simp]:
-  pop (s with clock:=c) = OPTION_MAP (I ## \t. t with clock:=c) (pop s)
+  pop (s with clock updated_by f) = OPTION_MAP (I ## \t. t with clock updated_by f) (pop s)
 Proof
   rw[pop_def]>>PURE_TOP_CASE_TAC>>fs[]
 QED
 
 Theorem pop_n_with_clock[simp]:
-  pop_n n (s with clock:=c) = OPTION_MAP (I ## \t. t with clock:=c) (pop_n n s)
+  pop_n n (s with clock updated_by f) = OPTION_MAP (I ## \t. t with clock updated_by f) (pop_n n s)
 Proof
   rw[pop_n_def]
 QED
 
 Theorem pop_i32_with_clock[simp]:
-  pop_i32 (s with clock:=c) = OPTION_MAP (I ## \t. t with clock:=c) (pop_i32 s)
+  pop_i32 (s with clock updated_by f) = OPTION_MAP (I ## \t. t with clock updated_by f) (pop_i32 s)
 Proof
   rw[pop_i32_def]>>rpt(PURE_TOP_CASE_TAC>>fs[])
 QED
@@ -400,8 +448,8 @@ Proof
 QED
 
 Theorem set_local_with_clock[simp]:
-  set_local n x (s with clock:=c) =
-  OPTION_MAP (\t. t with clock:=c) (set_local n x s)
+  set_local n x (s with clock updated_by f) =
+  OPTION_MAP (\t. t with clock updated_by f) (set_local n x s)
 Proof
   rw[set_local_def]
 QED
@@ -415,8 +463,8 @@ Proof
 QED
 
 Theorem set_global_with_clock[simp]:
-  set_global n x (s with clock:=c) =
-  OPTION_MAP (\t. t with clock:=c) (set_global n x s)
+  set_global n x (s with clock updated_by f) =
+  OPTION_MAP (\t. t with clock updated_by f) (set_global n x s)
 Proof
   rw[set_global_def]
 QED
@@ -442,7 +490,7 @@ Proof
   simp[SimpLHS, Once exec_def, pop_push, nonzero_def]
 QED
 
-Theorem exec_list_single:
+Theorem exec_list_single[simp]:
   exec_list [ins] s = exec ins s
 Proof
   simp[exec_def]
@@ -557,15 +605,106 @@ QED
 
 Theorem exec_list_add_clock = CONJUNCT1 exec_list_add_clock_aux;
 
+Theorem exec_GLOBAL_GET:
+  get_var r s = SOME w ⇒
+  conf_ok c ∧
+  state_rel c s t ⇒
+  exec (GLOBAL_GET r) t = (RNormal, push (to_value w) t)
+Proof
+  rw[get_var_def,exec_def,GLOBAL_GET_def]
+  >>`regs_rel c s.regs t.globals` by fs[state_rel_def]
+  >>subgoal`r MOD 4294967296 = r`
+  >-(
+    `r < c.reg_count` by fs[regs_rel_def]
+    >>`c.reg_count < 4294967296` by fs[conf_ok_def]
+    >>irule LESS_MOD
+    >>decide_tac
+  )
+  >>pop_assum (simp o single)
+  >>`∀n wl. FLOOKUP s.regs n = SOME wl ⇒ LLOOKUP t.globals n = SOME (to_value wl)` by fs[regs_rel_def]
+  >>pop_assum imp_res_tac
+  >>simp[]
+QED
+
+(* not sure about [simp] *)
+Theorem state_rel_with_clock[simp]:
+  state_rel c s (t with clock updated_by _) = state_rel c s t
+Proof
+  fs[state_rel_def]
+QED
+
+Theorem state_rel_with_stack[simp]:
+  state_rel c s (t with stack updated_by _) = state_rel c s t
+Proof
+  fs[state_rel_def]
+QED
+
+Theorem exec_I32_CONST:
+  exec (I32_CONST c) s = (RNormal,s with stack := I32 c::s.stack)
+Proof
+  rw[exec_def,I32_CONST_def,num_stk_op_def]
+QED
+
+Theorem exec_I64_CONST:
+  exec (I64_CONST c) s = (RNormal,s with stack := I64 c::s.stack)
+Proof
+  rw[exec_def,I64_CONST_def,num_stk_op_def]
+QED
+
+Theorem exec_comp_ri:
+  get_var_imm ri s = SOME w ∧
+  conf_ok c ∧ state_rel c s t ⇒
+  exec (comp_ri ri) t = (RNormal, push (to_value w) t)
+Proof
+rpt strip_tac
+>>(Cases_on`ri`>>fs[get_var_imm_def,comp_ri_def])
+>-metis_tac[exec_GLOBAL_GET]
+>>simp[exec_I64_CONST]
+>>gvs[push_def,to_value_def]
+QED
+
+Theorem exec_I64_EQ:
+  labSem$word_cmp Equal wa wb = SOME ☯ ⇒
+  exec I64_EQ (push (to_value wb) (push (to_value wa) t)) =
+  (RNormal, push (I32 (b2w ☯)) t)
+Proof
+strip_tac
+>>simp[I64_EQ_def,exec_def]
+>>(PURE_TOP_CASE_TAC>>fs[])
+>>fs[push_def,num_stk_op_def,to_value_def,do_cmp_eq]
+>>(Cases_on`wa`>>Cases_on`wb`>>fs[labSemTheory.word_cmp_def])
+(* Overload b2v = “(λ b. if b then I32 1w else I32 0w) : bool -> value” *)
+>>simp[wasmSemTheory.state_component_equality]
+>>(Cases_on`☯`>>gvs[])
+QED
+
 Theorem comp_cmp_thm:
-  get_var a s = SOME va ∧
-  get_var_imm b s = SOME vb ∧
-  labSem$word_cmp cmp va vb = SOME v ∧
+  get_var a s = SOME wa ∧
+  get_var_imm b s = SOME wb ∧
+  labSem$word_cmp cmp wa wb = SOME ☯ ∧
+  conf_ok c ∧
   state_rel c ^s ^t ==>
   exec_list (append (comp_cmp cmp a b)) (t with clock := ck) =
-    (RNormal, push (I32 (b2w v)) (t with clock := ck))
+    (RNormal, push (I32 (b2w ☯)) (t with clock := ck))
 Proof
-  cheat
+rpt strip_tac
+>>simp[comp_cmp_def,exec_list_cons]
+>>(pairarg_tac>>fs[])
+>>`state_rel c s (t with clock:=ck)` by metis_tac[state_rel_with_clock]
+>>drule_all_then assume_tac exec_GLOBAL_GET
+>>gvs[]
+>>(pairarg_tac>>fs[])
+>>subgoal`state_rel c s (push (to_value wa) (t with clock := ck))`
+>-(
+  simp[push_def]
+  >>metis_tac[state_rel_with_clock,state_rel_with_stack]
+)
+>>drule_all_then assume_tac exec_comp_ri
+>>gvs[]
+(* *)
+>>(PURE_TOP_CASE_TAC>>fs[])
+>-(irule exec_I64_EQ>>first_assum ACCEPT_TAC)
+>>cheat
 QED
 
 Theorem nonzero_b2w:
@@ -573,21 +712,6 @@ Theorem nonzero_b2w:
 Proof
   Cases_on‘v’>>rw[nonzero_def]
 QED
-
-Theorem exec_I32_CONST:
-  exec (I32_CONST c) s =
-    (RNormal,s with stack := I32 c::s.stack)
-Proof
-  rw[exec_def,I32_CONST_def,num_stk_op_def]
-QED
-
-Theorem exec_I64_CONST:
-  exec (I64_CONST c) s =
-    (RNormal,s with stack := I64 c::s.stack)
-Proof
-  rw[exec_def,I64_CONST_def,num_stk_op_def]
-QED
-
 Theorem exec_GLOBAL_SET:
   exec (GLOBAL_SET n) s = (res,s') ∧
   n < LENGTH s.globals ∧
@@ -615,12 +739,6 @@ Proof
   gvs[AllCaseEqs()]
 QED
 
-Theorem state_rel_with_stack[simp]:
-  state_rel c s (t with stack := st) = state_rel c s t
-Proof
-  fs[state_rel_def]
-QED
-
 (* a ⌂proof for each case *)
 
 Theorem compile_Skip:
@@ -628,9 +746,10 @@ Theorem compile_Skip:
 Proof
   rpt strip_tac
   >> gvs [compile_def,exec_def,stackSemTheory.evaluate_def]
-  >> simp [res_rel_def]
-  >> qexists_tac ‘0’ >> fs [state_rel_def]
+  >> simp [conf_rel_def,res_rel_def]
 QED
+
+(* ⌂⌂ *)
 
 Theorem compile_Seq:
   ^(get_goal "Seq")
@@ -697,7 +816,7 @@ Proof
     >>simp[compile_def]
     >>drule_all_then (qspec_then`ck+t.clock`assume_tac) comp_cmp_thm
     >>dxrule_then (simp o single) exec_list_append_RNormal
-    >>simp[exec_list_single,exec_If]
+    >>simp[exec_If]
     >>(Cases_on`t_res`>>fs[])
     >~[`exec_list _ _ = (RNormal, _)`]
     >-(
@@ -721,8 +840,6 @@ Proof
     >>simp[exec_def]
   )
 QED
-
-(*⌂⌂*)
 
 Theorem compile_Inst:
   ^(get_goal "Inst")
