@@ -3,6 +3,10 @@ A compiler from Scheme to CakeML
 [compilation](compilation):
 Compilation scripts for the Scheme-to-CakeML compiler.
 
+[cps](cps):
+Demostrative proof of optimised CPS transform for call-by-value lambda
+calculus, including one with control operators.
+
 [examples](examples):
 Example Scheme programs compiled using the Scheme compiler
 
