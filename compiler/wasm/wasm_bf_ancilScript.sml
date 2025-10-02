@@ -1,5 +1,6 @@
 (*
-  Preliminaries for En- & De- coding between CWasm 1.ε AST & Wasm's binary format such as:
+  Ancillaries for En- & De- coding between CWasm 1.ε AST & Wasm's binary format
+  such as:
   - Types
   - General (leb128) en-/de- coders
   - Helpful Corollaries
