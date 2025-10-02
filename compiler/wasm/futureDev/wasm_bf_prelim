@@ -1,0 +1,199 @@
+(*
+  Preliminaries for En- & De- coding between CWasm 1.ε AST & Wasm's binary format such as:
+  - Types
+  - General (leb128) en-/de- coders
+  - Helpful Corollaries
+*)
+Theory      wasm_bf_prelim
+Ancestors   wasmLang leb128 errorStateMonad
+Libs        preamble wordsLib
+
+type_of ``BIND``
+type_of ``UNIT``
+
+(******************************)
+(*                            *)
+(*      General concepts      *)
+(*                            *)
+(******************************)
+
+(*  Note:
+    Encoders (enc_<X>) go from AST (elements) to optional lists of bytes
+    : α -> byteSeqOpt
+    Though many encoders do not have a failure mode (always returning
+    "SOME"), for consistency, we have all encoders return options.
+
+    Decoders (dec_<X>) take a stream of bytes and produce elements of the CWasm
+    AST (or an error) & additionally return the remaining bytes (stream)
+    We declare a state-error monad for them : Cf. dcdr
+    *)
+
+Type byte[pp]       = “:word8”
+Type byteSeq[pp]    = “:word8 list”
+Type byteSeqOpt[pp] = “:word8 list option”
+(* Type dcdr[pp]       = “:(mlstring + α) # byteSeq” *)
+
+(***************************)
+(*                         *)
+(*     A decoder monad     *)
+(*                         *)
+(***************************)
+
+Type state[pp] = “:num list # byteSeq”
+Type dcdr[pp]  = “:state -> α option # state”
+
+Definition init_st_def:
+  st_init (bs:byteSeq) : state = ([], bs)
+End
+
+Definition log_def:
+  log n (e,_) bs : state = (n::e,bs)
+End
+type_of ``log``
+
+Definition fail_def:
+  fail n (e,bs) : st = (n::e,bs)
+End
+
+
+(* Overload bind_dcdr = “λ run aM f.  ” α dcdr -> (α -> β dcdr) -> β dcdr
+Overload bind_dcdr = “λ run f st.
+case run st of
+| SOME (a,st) =>
+
+Definition log_def:
+  log n (e,bs) : st = (n::e,bs)
+End
+| NONE =>
+  ”
+Overload unit_dcdr = “λ a st. SOME (a, st)” *)
+
+Overload ret = “λ a st. (SOME a, st)”
+
+
+
+Overload error = “λ bs str. (INL $ strlit str, bs)”
+Overload emErr = “λ    str. (INL $ strlit $ "[" ++ str ++ "] : Byte sequence ended unexpectedly.\n",[])”
+Overload lift = “ λabsOpt failure.
+    case absOpt of
+    | NONE => failure
+    | SOME (a,bs) => (INR a, bs)”
+
+(* list-shorter-than *)
+val _ = set_fixity "[<]" (Infixl 480);
+Overload "[<]" =  “λxs ys. LENGTH xs < LENGTH ys”
+
+val _ = set_fixity "[≤]" (Infixl 480);
+Overload "[≤]" =  “λxs ys. LENGTH xs ≤ LENGTH ys”
+
+val _ = monadsyntax.enable_monadsyntax
+val _ = monadsyntax.enable_monad "option"
+
+type monadinfo =
+  { bind       : term
+  , choice     : term option
+  , fail       : term option
+  , guard      : term option
+  , ignorebind : term option
+  , unit       : term }
+
+
+
+(******************************************)
+(*                                        *)
+(*     LEB128 Overloads and typecasts     *)
+(*                                        *)
+(******************************************)
+
+(**************************************************)
+(*   Functions, or rather, typecastings thereof   *)
+(**************************************************)
+
+(* Overload dec_u8  = “dec_unsigned_word : byteSeq -> (byte   # byteSeq) option”
+Overload dec_u32 = “dec_unsigned_word : byteSeq -> (word32 # byteSeq) option”
+Overload dec_u64 = “dec_unsigned_word : byteSeq -> (word64 # byteSeq) option”
+
+Overload dec_s8  = “dec_signed_word   : byteSeq -> (byte   # byteSeq) option”
+Overload dec_s32 = “dec_signed_word   : byteSeq -> (word32 # byteSeq) option”
+Overload dec_s64 = “dec_signed_word   : byteSeq -> (word64 # byteSeq) option”
+
+Overload enc_u64 = “enc_unsigned_word : word64 -> byteSeq”
+
+Overload enc_s8  = “enc_signed_word8  : byte   -> byteSeq”
+Overload enc_s32 = “enc_signed_word32 : word32 -> byteSeq”
+Overload enc_s64 = “enc_signed_word64 : word64 -> byteSeq” *)
+
+Definition enc_u8_def:
+  enc_u8 (w:byte) : byteSeqOpt = SOME $ enc_unsigned_word w
+End
+
+Definition enc_u32_def:
+  enc_u32 (w:word32) : byteSeqOpt = SOME $ enc_unsigned_word w
+End
+
+Definition dec_u8_def:
+  dec_u8 : byte dcdr = λ ((dl,bs):state).
+    case dec_unsigned_word bs of
+    | NONE        => (NONE, (0::dl,bs))
+    | SOME (x,bs) => (SOME x, (0::dl,bs))
+End
+
+Definition dec_u32_def:
+  dec_u32 : word32 dcdr = λ ((dl,bs):state).
+    case dec_unsigned_word bs of
+    | NONE        => (NONE, (0::dl,bs))
+    | SOME (x,bs) => (SOME x, (0::dl,bs))
+End
+
+Definition enc_2u32_def:
+  enc_2u32 w v = SOME $ enc_u32 w ++ enc_u32 v
+End
+
+Definition dec_2u32_def:
+  dec_2u32 : (word32 # word32) dcdr = λ st. let failure s = (NONE,s) in
+    case dec_u32 st of (NONE, s)=>failure s| (SOME x, st) =>
+    case dec_u32 st of (NONE, s)=>failure s| (SOME y, st) =>
+    ret (x,y) st
+End
+
+Definition enc_2u32_u8_def:
+  enc_2u32_u8 ofs al lid = SOME $ enc_2u32 ofs al ++ enc_u8 lid
+End
+
+Definition dec_2u32_u8_def:
+  dec_2u32_u8 (bs:byteSeq) : (word32 # word32 # byte) dcdr = do
+    (i,j,bs) <- dec_2u32 bs;
+    (k,  bs) <- dec_u8   bs;
+      SOME (i,j,k,bs) od
+End
+
+(* Due to a perculiarity of Wasm (cf Block types - Index case from Wasm 2.0) *)
+Definition enc_s33_def:
+  enc_s33 (w:33 word) =
+    if sw2sw ((w2w w):7 word) = w then
+      enc_w7s [w2w w]
+    else if sw2sw ((w2w w):14 word) = w then
+      let w = (sw2sw w) :14 word in
+        enc_w7s [w2w w;
+                 w2w (w >>> 7)]
+    else if sw2sw ((w2w w):21 word) = w then
+      let w = (sw2sw w) :21 word in
+        enc_w7s [w2w w;
+                 w2w (w >>> 7);
+                 w2w (w >>> 14)]
+    else if sw2sw ((w2w w):28 word) = w then
+      let w = (sw2sw w) :28 word in
+        enc_w7s [w2w w;
+                 w2w (w >>> 7);
+                 w2w (w >>> 14);
+                 w2w (w >>> 21)]
+    else
+      let w = (sw2sw w) :35 word in
+        enc_w7s [w2w w;
+                 w2w (w >>> 7);
+                 w2w (w >>> 14);
+                 w2w (w >>> 21);
+                 w2w (w >>> 28)]
+End
+
+Overload dec_s33 = “dec_signed_word : byteSeq -> (33 word # byteSeq) option”
