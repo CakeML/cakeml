@@ -1,11 +1,10 @@
 (*
   CWasm 1.ε AST ⇔ Wasm binary format En- & De- coder theorems
 *)
-
-Theory      wasm_binary_format_proofs
-Ancestors   leb128 ancillaryOps wasmLang wasm_binary_format
+Theory      wbf_proofs
+Ancestors   leb128 wasmLang wbf_ancil wbf
 Libs        preamble wordsLib
-(*
+
 val ssaa = fn xs => [GSYM APPEND_ASSOC, Excl "APPEND_ASSOC"] @ xs
 val ssa  =          [GSYM APPEND_ASSOC, Excl "APPEND_ASSOC"]
 
@@ -16,50 +15,44 @@ val ssa  =          [GSYM APPEND_ASSOC, Excl "APPEND_ASSOC"]
 (***************************)
 
 Theorem enc_numI_nEmp_nTermB:
-  ∀i. ∃b bs. enc_numI i = b::bs ∧ b ≠ endB ∧ b ≠ elseB
+  ∀i encbs. enc_numI i = SOME encbs ⇒
+  ∃b bs. append encbs =  b::bs ∧ b ≠ endB ∧ b ≠ elseB
 Proof
-  gen_tac
-  \\ ‘∃val. enc_numI i = val’ by simp[]
-  \\ asm_rewrite_tac[]
-  \\ pop_assum mp_tac
-  \\ rw[Once enc_numI_def, AllCaseEqs()]
+  rw[Once enc_numI_def, AllCaseEqs()] >> simp[]
 QED
 
 Theorem enc_paraI_nEmp_nTermB:
-  ∀i. ∃b bs. enc_paraI i = b::bs ∧ b ≠ endB ∧ b ≠ elseB
+  ∀i. ∃b bs. enc_paraI i = SOME encbs ⇒
+  ∃b bs. append encbs =  b::bs ∧ b ≠ endB ∧ b ≠ elseB
 Proof
   Cases \\ simp[Once enc_paraI_def, AllCaseEqs()]
 QED
 
 Theorem enc_varI_nEmp_nTermB:
-  ∀i. ∃b bs. enc_varI i = b::bs ∧ b ≠ endB ∧ b ≠ elseB
+  ∀i. enc_varI i = SOME encbs ⇒
+  ∃b bs. append encbs = b::bs ∧ b ≠ endB ∧ b ≠ elseB
 Proof
-  Cases \\ simp[Once enc_varI_def, AllCaseEqs()]
+  rw[Once enc_varI_def, AllCaseEqs()] >> simp[]
 QED
 
 Theorem enc_loadI_nEmp_nTermB:
-  ∀i. ∃b bs. enc_loadI i = b::bs ∧ b ≠ endB ∧ b ≠ elseB
+  ∀i. enc_loadI i = SOME encbs ⇒
+  ∃b bs. append encbs = b::bs ∧ b ≠ endB ∧ b ≠ elseB
 Proof
-  gen_tac
-  \\ ‘∃val. enc_loadI i = val’ by simp[]
-  \\ asm_rewrite_tac[]
-  \\ pop_assum mp_tac
-  \\ rw[Once enc_loadI_def, AllCaseEqs()]
+  rw[Once enc_loadI_def, AllCaseEqs()] >> simp[]
 QED
 
 Theorem enc_storeI_nEmp_nTermB:
-  ∀i. ∃b bs. enc_storeI i = b::bs ∧ b ≠ endB ∧ b ≠ elseB
+  ∀i. enc_storeI i = SOME encbs ⇒
+  ∃b bs. append encbs = b::bs ∧ b ≠ endB ∧ b ≠ elseB
 Proof
-  gen_tac
-  \\ ‘∃val. enc_storeI i = val’ by simp[]
-  \\ asm_rewrite_tac[]
-  \\ pop_assum mp_tac
-  \\ rw[Once enc_storeI_def, AllCaseEqs()]
+  rw[Once enc_storeI_def, AllCaseEqs()] >> simp[]
 QED
 
+(*
 Theorem enc_instr_nEmp_nTermB:
   ∀i enci. enc_instr i = SOME enci ⇒
-  ∃b bs. enci = b::bs ∧ b ≠ endB ∧ b ≠ elseB
+  ∃b bs. append enci = b::bs ∧ b ≠ endB ∧ b ≠ elseB
 Proof
   Cases
   >> rw[Once enc_instr_def, AllCaseEqs()]
@@ -72,7 +65,8 @@ Proof
 QED
 
 Theorem num_cf_instr_disjoint:
-  ∀i b bs. enc_numI i = b::bs ⇒
+  ∀i b bs. enc_numI i = SOME encbs ⇒
+  ∃b bs. encbs = b::bs ⇒
   b ≠ unrOC ∧ b ≠ nopOC ∧ b ≠ blkOC ∧
   b ≠ lopOC ∧ b ≠ if_OC ∧ b ≠ br_OC ∧
   b ≠ briOC ∧ b ≠ brtOC ∧ b ≠ retOC ∧
