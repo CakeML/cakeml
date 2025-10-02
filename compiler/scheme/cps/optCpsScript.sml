@@ -21,6 +21,12 @@ Definition count_rcarg_def:
   count_rcarg (RCArg _::ks) = SUC (count_rcarg ks)
 End
 
+Definition ks_size_def:
+  ks_size [] = 0 /\
+  ks_size (RCArg v::ks) = 1 + ks_size ks /\
+  ks_size (RCFn e::ks) = 1 + cbvexp_size e + ks_size ks
+End
+
 Definition opt_cps_def:
   cps_exp (EVar x) ks innerk = app_cont ks (EVar ("var" ++ x)) innerk /\
   cps_exp (EAbs x e) ks innerk = app_cont ks (EAbs ("var" ++ x) (EAbs "k" (cps_exp e [] (SOME "k")))) innerk /\
@@ -38,8 +44,146 @@ Definition opt_cps_def:
   cont_lambda (RCFn e::ks) innerk = EAbs ("m" ++ toString (count_rcarg ks)) (cps_exp e (RCArg (EVar ("m" ++ toString (count_rcarg ks)))::ks) innerk) /\
   cont_lambda (RCArg e::ks) innerk = EAbs "n" (EApp (EApp e (EVar "n")) (cont_lambda ks innerk))
 Termination
-  cheat
+  WF_REL_TAC `inv_image ($< LEX $< LEX $<) (\x. case x of
+    | INL (e,ks,_) => (cbvexp_size e + ks_size ks, 0n, cbvexp_size e)
+    | INR (INL (ks,ce,_)) => (ks_size ks, 1, 0)
+    | INR (INR (ks,_)) => (ks_size ks, 1, 0))`
+  >> simp[ks_size_def]
 End
+
+Definition danvy_def:
+  danvy (EVar x) innerk = (case innerk of
+  | NONE => EVar ("var" ++ x)
+  | SOME k => EApp (EVar k) (EVar ("var" ++ x))) /\
+  danvy (EAbs x e) innerk = (case innerk of
+  | NONE => EAbs ("var" ++ x) (EAbs "k" (danvy e (SOME "k")))
+  | SOME k => EApp (EVar k) (EAbs ("var" ++ x) (EAbs "k" (danvy e (SOME "k"))))) /\
+  danvy (EApp e1 e2) innerk = (case innerk of
+  | NONE => danvy_serious e1 e2 (EAbs "t" (EVar "t"))
+  | SOME k => danvy_serious e1 e2 (EVar k)) /\
+
+  danvy_serious (EVar x) (EVar y) k = EApp (EApp (EVar ("var" ++ x)) (EVar ("var" ++ y))) k /\
+  danvy_serious (EAbs x e) (EVar y) k = EApp (EApp (EAbs ("var" ++ x) (EAbs "k" (danvy e (SOME "k")))) (EVar ("var" ++ y))) k /\
+  danvy_serious (EVar x) (EAbs y e) k = EApp (EApp (EVar ("var" ++ x)) (EAbs ("var" ++ y) (EAbs "k" (danvy e (SOME "k"))))) k /\
+  danvy_serious (EAbs x e1) (EAbs y e2) k = EApp (EApp (EAbs ("var" ++ x) (EAbs "k" (danvy e1 (SOME "k")))) (EAbs ("var" ++ y) (EAbs "k" (danvy e2 (SOME "k"))))) k /\
+
+  danvy_serious (EVar x) (EApp e1 e2) k = danvy_serious e1 e2 (EAbs "n" (EApp (EApp (EVar ("var" ++ x)) (EVar "n")) k)) /\
+  danvy_serious (EAbs x e) (EApp e1 e2) k = danvy_serious e1 e2 (EAbs "n" (EApp (EApp (EAbs ("var" ++ x) (EAbs "k" (danvy e (SOME "k")))) (EVar "n")) k)) /\
+
+  danvy_serious (EApp e1 e2) (EVar x) k = danvy_serious e1 e2 (EAbs "m" (EApp (EApp (EVar "m") (EVar ("var" ++ x))) k)) /\
+  danvy_serious (EApp e1 e2) (EAbs x e) k = danvy_serious e1 e2 (EAbs "m" (EApp (EApp (EVar "m") (EAbs ("var" ++ x) (EAbs "k" (danvy e (SOME "k"))))) k)) /\
+
+  danvy_serious (EApp e1 e2) (EApp e3 e4) k = danvy_serious e1 e2 (EAbs "m" (danvy_serious e3 e4 (EAbs "n" (EApp (EApp (EVar "m") (EVar "n")) k))))
+Termination
+  WF_REL_TAC `inv_image ($< LEX $<) (\x. case x of
+    | INL (e,_) => (cbvexp_size e, 1n)
+    | INR (e1,e2,_) => (cbvexp_size (EApp e1 e2), 0))`
+End
+
+Inductive ignore_fresh:
+[~all:]
+  ignore_fresh x x
+[~m:]
+  ignore_fresh ("m" ++ toString i) "m"
+End
+
+Inductive ours_to_danvy:
+[~EVar:]
+  ignore_fresh x y ==> ours_to_danvy (EVar x) (EVar y)
+[~EAbs:]
+  ignore_fresh x y /\
+  ours_to_danvy e e'
+  ==>
+  ours_to_danvy (EAbs x e) (EAbs y e')
+[~EApp:]
+  ours_to_danvy e1 e1' /\
+  ours_to_danvy e2 e2'
+  ==>
+  ours_to_danvy (EApp e1 e2) (EApp e1' e2')
+End
+
+Theorem ours_to_danvy_eq:
+  ! e . ours_to_danvy e e
+Proof
+  Induct
+  >> assume_tac ignore_fresh_all
+  >> simp[ours_to_danvy_rules]
+QED
+
+Theorem equiv_to_danvy_parts:
+    (! e innerk . ours_to_danvy (cps_exp e [] innerk) (danvy e innerk)) /\
+    ! e1 e2 k . ! ks innerk . ours_to_danvy (cont_lambda ks innerk) k ==> ours_to_danvy (cps_exp (EApp e1 e2) ks innerk) (danvy_serious e1 e2 k)
+Proof
+  ho_match_mp_tac danvy_ind
+  >> rpt strip_tac
+  >- (
+    Cases_on `innerk`
+    >> simp[opt_cps_def, danvy_def, ours_to_danvy_eq]
+  )
+  >- (
+    Cases_on `innerk`
+    >> gvs[]
+    >> simp[opt_cps_def, danvy_def]
+    >> simp[ours_to_danvy_eq, ours_to_danvy_rules, ignore_fresh_all]
+  )
+  >- (
+    Cases_on `innerk`
+    >> gvs[]
+    >> simp[danvy_def]
+    >> pop_assum irule
+    >> simp[opt_cps_def]
+    >> simp[ours_to_danvy_eq]
+  )
+  >- (
+    simp[opt_cps_def, danvy_def]
+    >> simp[ours_to_danvy_eq, ours_to_danvy_rules, ignore_fresh_all]
+  )
+  >- (
+    simp[opt_cps_def, danvy_def]
+    >> simp[ours_to_danvy_eq, ours_to_danvy_rules, ignore_fresh_all]
+  )
+  >- (
+    simp[opt_cps_def, danvy_def]
+    >> simp[ours_to_danvy_eq, ours_to_danvy_rules, ignore_fresh_all]
+  )
+  >- (
+    simp[opt_cps_def, danvy_def]
+    >> simp[ours_to_danvy_eq, ours_to_danvy_rules, ignore_fresh_all]
+  )
+  >- (
+    simp[Ntimes opt_cps_def 3, danvy_def]
+    >> last_x_assum $ irule o SRULE []
+    >> simp[opt_cps_def]
+    >> simp[ours_to_danvy_eq, ours_to_danvy_rules, ignore_fresh_all]
+  )
+  >- (
+    simp[Ntimes opt_cps_def 3, danvy_def]
+    >> last_x_assum $ irule o SRULE []
+    >> simp[opt_cps_def]
+    >> rpt $ simp[Once ours_to_danvy_cases, ignore_fresh_all]
+  )
+  >- (
+    simp[Ntimes opt_cps_def 1, danvy_def]
+    >> last_x_assum $ irule o SRULE []
+    >> simp[opt_cps_def]
+    >> rpt $ simp[Once ours_to_danvy_cases, SRULE [] ignore_fresh_rules]
+  )
+  >- (
+    simp[Ntimes opt_cps_def 1, danvy_def]
+    >> last_x_assum $ irule o SRULE []
+    >> simp[opt_cps_def]
+    >> rpt $ simp[Once ours_to_danvy_cases, SRULE [] ignore_fresh_rules]
+  )
+  >- (
+    simp[Ntimes opt_cps_def 1, danvy_def]
+    >> last_x_assum $ irule o SRULE []
+    >> simp[Once opt_cps_def]
+    >> simp[Once ours_to_danvy_cases, SRULE [] ignore_fresh_rules]
+    >> last_x_assum $ irule o SRULE []
+    >> simp[Once opt_cps_def]
+    >> rpt $ simp[Once ours_to_danvy_cases, SRULE [] ignore_fresh_rules]
+  )
+QED
 
 Definition cont_closure_def:
   cont_closure [] cenv innerk = (case innerk of
