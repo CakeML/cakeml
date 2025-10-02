@@ -488,7 +488,7 @@ Definition exec_def:
     | RNormal  => ( case (bt,s.stack) of
                     | (BlkNil  , [] ) => (RNormal, s with stack :=     orig_stk)
                     | (BlkVal _, [v]) => (RNormal, s with stack := v:: orig_stk)
-                    | (_,_)           => inv s)
+                    | ( _      , _  ) => inv s)
     | _ => (res,s)
   ) ∧
   (exec (Loop bt body) s =

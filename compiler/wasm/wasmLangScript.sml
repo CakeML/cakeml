@@ -10,7 +10,7 @@ Libs      wordsLib dep_rewrite
 
 (* Note :
   Most datatypes closely follow the wasm abstractions. ie,
-  The HOL Datatype: <ABC> is named to wasm's <ABC> type.
+  The HOL Datatype: <ABC> is named for wasm's <ABC> type.
   We attempt to note where our encoding differs from wasm specs.
 *)
 
@@ -20,6 +20,9 @@ Libs      wordsLib dep_rewrite
 (*                                  *)
 (************************************)
 
+Type index = “:word32”
+
+(* CWasm's bvtype + width ~= Wasm numerical types *)
 Datatype: bvtype (* bit vector type (Does anyone have a better name? *)
   = Int
 End
@@ -28,8 +31,6 @@ Datatype: width
   = W32
   | W64
 End
-
-Type index = “:word32”
 
 Datatype: valtype
   = Tnum bvtype width
@@ -52,31 +53,23 @@ Datatype: globaltype
 End
 (* Type globaltype = “:bool # valtype” *)
 
-(* Note on style :
-  instructions data constructors have their return types
-  -- when present in the encoding; they are elided when unnecessary (due to being unique/variant-less) --
-  as the last argument/s.
-
-  The other arguments distinguish variants of the same function.
-
-  Example:
-    Clz W32  represents (the wasm instruction)  i32.clz  -- "W32" specified the return type i32.
-  & Clz W64  represents                         i64.clz
-  We don't encode the "int" part of i32/i64 because there is no float version of clz.
-
-  More examples
-  i32.add :=: Add Int   W32
-  f64.add :=: Add Float W64
-
-  i64_trunc_f32_s :=: Trunc_f  W32    Signed  W64
-  i32_trunc_f64_u :=: Trunc_f  W64  Unsigned  W32
-*)
-
 (************************)
 (*                      *)
 (*     Instructions     *)
 (*                      *)
 (************************)
+
+(* Note on style :
+  To start with an example: the CWasm instruction   "Clz W32"   represents the wasm instruction   "i32.clz".
+  The "W32" specifies the return type i32. A bvtype (Int or Float) is unnesscessary as clz is an Int-only instruction.
+
+  In general, a CWasm instruction's (data constructor's) last argument indicates it's return type.
+  However, where there is enough information
+   have their return types
+  -- when present in the encoding; they are elided when unnecessary (due to being unique/variant-less) --
+  as the last argument/s.
+
+*)
 
 (****************)
 (*   Numerics   *)
@@ -88,24 +81,21 @@ Datatype: sign  (* ancillary type *)
 End
 
 Datatype: unary_op
-
   (* int ops *)
   = (* inn *) Clz        width
   | (* inn *) Ctz        width
   | (* inn *) Popcnt     width
-  | (* inn *) Extend8s   width  (* not in Wasm 1, but in 1+ε *)
-  | (* inn *) Extend16s  width  (* not in Wasm 1, but in 1+ε *)
-  | (* i64 *) Extend32s         (* not in Wasm 1, but in 1+ε *)
+  | (* inn *) Extend8s   width  (* from Wasm 1+ε *)
+  | (* inn *) Extend16s  width  (* from Wasm 1+ε *)
+  | (* i64 *) Extend32s         (* from Wasm 1+ε *)
   | (* i64 *) ExtendI32_ sign
 End
 
 Datatype: binary_op
-
   (* ops for both int and float *)
   = (* all *) Add bvtype width
   | (* all *) Sub bvtype width
   | (* all *) Mul bvtype width
-
   (* int *)
   | (* inn *) Div_ sign  width
   | (* inn *) Rem_ sign  width
@@ -119,11 +109,9 @@ Datatype: binary_op
 End
 
 Datatype: compare_op
-
   (* both *)
   = (* all *) Eq bvtype width
   | (* all *) Ne bvtype width
-
   (* int *)
   | (* inn *) Lt_ sign width
   | (* inn *) Gt_ sign width
@@ -194,7 +182,7 @@ End
 
   eg,
   Wasm instructions allow loading 8/16 bits from memory into a 32 bit value : i32.load8_s / i32.load16_s
-  The CWasm AST uses it's encoding for vec shapes (i8x16) to represent "8" etc
+  The CWasm AST uses it's encoding for vec shapes (I8x16) to represent "8" etc
 *)
 
 Datatype: load_instr
@@ -304,7 +292,7 @@ End
 Datatype: names =
   <| mname  : mlstring option
    ; fnames : (index # mlstring) list
-   ; lnames : (index # (index # mlstring) list) list
+   ; lnames : (index # ((index # mlstring) list)) list
    |>
 End
 
