@@ -422,18 +422,6 @@ Proof
   >>simp[state_component_equality]
 QED
 
-Theorem OPTION_CASE_OPTION_MAP[simp]:
-  (option_CASE (OPTION_MAP f a) e g) = option_CASE a e (λx. g (f x))
-Proof
-  Cases_on`a`>>fs[]
-QED
-
-Theorem PAIR_CASE_PAIR_MAP:
-  pair_CASE ((f ## g) e) h = case e of (x,y) => h(f x)(g y)
-Proof
-  Cases_on`e`>>simp[]
-QED
-
 Theorem pop_push:
   pop (push v t) = SOME (v,t)
 Proof
@@ -710,13 +698,7 @@ Proof
   )
 QED
 
-Theorem exec_list_add_clock:
-  exec_list c s = (res,s1) ∧ res ≠ RTimeout ==>
-  ∀ck. exec_list c (s with clock := ck + s.clock) =
-       (res, s1 with clock := ck + s1.clock)
-Proof
-  metis_tac[exec_list_add_clock_aux]
-QED
+Theorem exec_list_add_clock = CONJUNCT1 exec_list_add_clock_aux;
 
 Theorem comp_cmp_thm:
   get_var a s = SOME va ∧
@@ -759,8 +741,8 @@ Theorem exec_GLOBAL_SET:
      <|stack := t;
        globals := LUPDATE v n s.globals|>
 Proof
-  rw[exec_def,GLOBAL_SET_def,pop_def,set_global_def]>>
-  gvs[AllCaseEqs()]
+  rw[exec_def,GLOBAL_SET_def,pop_def,set_global_def]
+  >>gvs[AllCaseEqs()]
 QED
 
 Theorem state_rel_set_var:
