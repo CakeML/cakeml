@@ -6,8 +6,7 @@ Ancestors   wasmLang leb128 wbf_ancil
 Libs        preamble wordsLib
 
 (* TODOs:
-    - change all encoders to Opt, to remove special casing
-    - proper and meaningful error msgs
+    - proper & meaningful error msgs
     - [MAYBE] state+error monad syntax *)
 
 (************)
@@ -1388,26 +1387,9 @@ Theorem dec_module_shortens:
 Proof
      simp[dec_module_def, AllCaseEqs(), mod_leader_def]
   \\ rpt strip_tac \\ gvs[]
-  \\ rpt (dxrule_at Any dec_section_shortens)
+  \\ rpt (dxrule_at Any dec_section_shortens_lt)
+  \\ dxrule dec_names_section_shortens
   \\ simp[ dec_limits_shortens, dec_code_shortens, dec_functype_shortens
          , dec_global_shortens, dec_data_shortens, dec_u32_shortens    ]
 QED
 
-
-*)
-
-(* Definition enc_list_def:
-  enc_list (enc:α -> byteSeq) ([]:α list) : byteSeq = []
-  ∧
-  enc_list enc (x::xs) = enc x ++ enc_list enc xs
-End *)
-
-(*
-Definition enc_vector_def:
-  enc_vector (enc:α -> byteSeq) (xs:α list) : byteCode =
-    let n = LENGTH xs in
-    if 2 ** 32 ≤ n then NONE
-    else
-    SOME $ enc_u32 (n2w n) ++ enc_list enc xs
-End
-*)

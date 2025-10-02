@@ -12,6 +12,9 @@ Future CWasm IR Dev
 [leb128Script.sml](leb128Script.sml):
 A foramlisation of LEB128
 
+[shLib.sml](shLib.sml):
+Shuhan's lib for misc utilities
+
 [stack_to_wasmProofScript.sml](stack_to_wasmProofScript.sml):
 Correctness proof for compilation from stackLang to wasmLang
 
@@ -26,12 +29,6 @@ Imprecisions:
 [wasmSemScript.sml](wasmSemScript.sml):
 CWasm Functional Bigstep semantics
 
-[wasm_binary_formatScript.sml](wasm_binary_formatScript.sml):
-En- & De- coding between CWasm 1.0 AST & Wasm's binary format
-
-[wasm_binary_format_proofsScript.sml](wasm_binary_format_proofsScript.sml):
-CWasm 1.ε AST ⇔ Wasm binary format En- & De- coder theorems
-
 [wasm_notationsScript.sml](wasm_notationsScript.sml):
 Notations for cake's Wasm 1.0 AST
 Separated from wasmLangScript for ergonomics/build efficency
@@ -42,3 +39,16 @@ CWasm semantic components common to both the Big- & small- step semantics
 
 [wasm_smallstepScript.sml](wasm_smallstepScript.sml):
 Wasm smallstep semantics
+
+[wbfScript.sml](wbfScript.sml):
+En- & De- coding between CWasm 1.0 AST & Wasm's binary format
+
+[wbf_ancilScript.sml](wbf_ancilScript.sml):
+Ancillaries for En- & De- coding between CWasm 1.ε AST & Wasm's binary format
+such as:
+- Types
+- General (leb128) en-/de- coders
+- Helpful Corollaries
+
+[wbf_proofsScript.sml](wbf_proofsScript.sml):
+CWasm 1.ε AST ⇔ Wasm binary format En- & De- coder theorems
