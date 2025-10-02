@@ -293,7 +293,7 @@ Definition res_rel_def:
   (res_rel (SOME TimeOut) r s <=> r = RTimeout) ∧
   (res_rel (SOME (Result    _)) r s <=> r = RReturn ∧ oHD s = SOME (I32 0w)) ∧
   (res_rel (SOME (Exception _)) r s <=> r = RReturn ∧ oHD s = SOME (I32 1w)) ∧
-  (* ignore Error *)
+  (* ignore Error since we always assume ‘res ≠ SOME Error’ when asked to prove res_rel *)
   (* Halt?? FinalFFI?? *)
   (res_rel (SOME (Halt     _)) r s <=> r ≠ RNormal ∧ ∀n. r ≠ RBreak n) ∧
   (res_rel (SOME (FinalFFI _)) r s <=> r ≠ RNormal ∧ ∀n. r ≠ RBreak n)
@@ -301,20 +301,24 @@ End
 
 (* set up for one theorem per case *)
 
-val goal_tm =
-  “λ(p,^s). ∀s_res s_fin t.
-     evaluate (p,s) = (s_res, s_fin) ∧
-     conf_ok c ∧
-     state_rel c s t ∧
-     stack_asm_ok c p ∧
-     s_res ≠ SOME Error ⇒
-     ∃ck t_res t_fin.
-       exec_list (append (compile p)) (t with clock := t.clock + ck) = (t_res, t_fin) ∧
-       res_rel s_res t_res t_fin.stack ∧
-       state_rel c s_fin t_fin ∧
-       (t_res = RNormal ⇒ t_fin.stack = t.stack)
-  ”
+Definition conf_rel_def:
+  conf_rel c (s_res, s_fin) t (t_res, t_fin) <=>
+    res_rel s_res t_res t_fin.stack ∧
+    state_rel c s_fin t_fin ∧
+    (t_res = RNormal ⇒ t_fin.stack = t.stack)
+End
 
+val goal_tm = “
+  λ(p,^s). ∀s_res s_fin t.
+    evaluate (p,s) = (s_res, s_fin) ∧
+    conf_ok c ∧
+    stack_asm_ok c p ∧ (* from stackProps *)
+    s_res ≠ SOME Error ∧
+    state_rel c s t ⇒
+    ∃ck t_res t_fin.
+      exec_list (append (compile p)) (t with clock := t.clock + ck) = (t_res, t_fin) ∧
+      conf_rel c (s_res, s_fin) t (t_res, t_fin)
+  ”
 local
   val ind_thm = stackSemTheory.evaluate_ind |> ISPEC goal_tm
     |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV)
@@ -386,6 +390,7 @@ Proof
   rw[pop_i32_def]>>rpt(PURE_TOP_CASE_TAC>>fs[])
 QED
 
+(* drule *)
 Theorem pop_i32_clock:
   pop_i32 s = SOME (x,s') ==> s'.clock = s.clock
 Proof
@@ -401,6 +406,7 @@ Proof
   rw[set_local_def]
 QED
 
+(* drule *)
 Theorem set_local_clock:
   set_local n x s = SOME t ==> t.clock = s.clock
 Proof
@@ -415,6 +421,7 @@ Proof
   rw[set_global_def]
 QED
 
+(* drule *)
 Theorem set_global_clock:
   set_global n x s = SOME t ==> t.clock = s.clock
 Proof
@@ -422,7 +429,7 @@ Proof
   >>simp[state_component_equality]
 QED
 
-Theorem pop_push:
+Theorem pop_push[simp]:
   pop (push v t) = SOME (v,t)
 Proof
   rw[push_def,pop_def,wasmSemTheory.state_component_equality]
@@ -522,6 +529,10 @@ fun peel thms = let
     PURE_REWRITE_TAC[UNCURRY_pair_CASE] >> my_case_tac
   end
 
+(*
+set_trace "Goalstack.howmany_printed_subgoals" 99;
+*)
+
 (* wasmProps *)
 Theorem exec_list_add_clock_aux:
 ( ∀c s res s1.
@@ -535,167 +546,13 @@ Theorem exec_list_add_clock_aux:
        (res, s1 with clock := ck + s1.clock)
 )
 Proof
-  ho_match_mp_tac exec_ind>>rpt strip_tac
-  >~[`Unreachable`]
-  >-fs[exec_def]
-  >~[`Nop`]
-  >-fs[exec_def]
-  >~[`Block`]
-  >-(
-    qpat_x_assum `exec _ _ = _` mp_tac
-    >>once_rewrite_tac[exec_def]
-    >>rpt(peel[])
-    >>simp[wasmSemTheory.state_component_equality]
-  )
-  >~[‘Loop’]
-  >-(
-    qpat_x_assum `exec _ _ = _` mp_tac
-    >>once_rewrite_tac[exec_def]
-    >>rpt(peel[])
-    >>simp[wasmSemTheory.state_component_equality]
-  )
-  >~[‘If’]
-  >-(
-    qpat_x_assum `exec _ _ = _` mp_tac
-    >>once_rewrite_tac[exec_def]
-    >>rpt(peel[pop_clock])
-    >>metis_tac[]
-  )
-  >~[‘Br’]
-  >-fs[exec_def]
-  >~[‘BrIf’]
-  >-(
-    qpat_x_assum `exec _ _ = _` mp_tac
-    >>once_rewrite_tac[exec_def]
-    >>rpt(peel[pop_clock])
-    >>metis_tac[]
-  )
-  >~[‘BrTable’]
-  >-(
-    qpat_x_assum `exec _ _ = _` mp_tac
-    >>once_rewrite_tac[exec_def]
-    >>rpt(peel[pop_clock])
-    >>metis_tac[]
-  )
-  >~[‘Return’]
-  >-fs[exec_def]
-  >~[‘ReturnCall’]
-  >-(
-    qpat_x_assum `exec _ _ = _` mp_tac
-    >>once_rewrite_tac[exec_def]
-    >>rpt(peel[pop_n_clock])
-    >-(strip_tac>>fs[])
-    >>simp[wasmSemTheory.state_component_equality]
-  )
-  >~[‘ReturnCallIndirect’]
-  >-(
-    qpat_x_assum `exec _ _ = _` mp_tac
-    >>once_rewrite_tac[exec_def]
-    >>rpt(peel[pop_clock])
-    >>metis_tac[]
-  )
-  >~[‘Call’]
-  >-(
-    qpat_x_assum`exec _ _ = _`mp_tac
-    >>once_rewrite_tac[exec_def]
-    >>rpt(peel[pop_n_clock])
-    >-(strip_tac>>fs[])
-    >>simp[wasmSemTheory.state_component_equality]
-  )
-  >~[‘CallIndirect’]
-  >-(
-    qpat_x_assum`exec _ _ = _`mp_tac
-    >>once_rewrite_tac[exec_def]
-    >>rpt(peel[pop_clock])
-    >>metis_tac[]
-  )
-  >~[`Numeric`]
-  >-(
-    qpat_x_assum`exec _ _ = _`mp_tac
-    >>once_rewrite_tac[exec_def]
-    >>peel[]
-    >-(strip_tac>>fs[])
-    >>simp[wasmSemTheory.state_component_equality]
-  )
-  >~[`Parametric Drop`]
-  >-(
-    qpat_x_assum`exec _ _ = _`mp_tac
-    >>once_rewrite_tac[exec_def]
-    >>rpt(peel[pop_clock])
-    >>metis_tac[]
-  )
-  >~[`Parametric Select`]
-  >-(
-    qpat_x_assum`exec _ _ = _`mp_tac
-    >>once_rewrite_tac[exec_def]
-    >>rpt(peel[pop_clock])
-    >-metis_tac[]
-    >-metis_tac[]
-    >-metis_tac[]
-    >>simp[push_def,wasmSemTheory.state_component_equality]
-  )
-  >~[`LocalGet`]
-  >-(
-    qpat_x_assum`exec _ _ = _`mp_tac
-    >>once_rewrite_tac[exec_def]
-    >>peel[]
-    >-(strip_tac>>fs[])
-    >>simp[push_def,wasmSemTheory.state_component_equality]
-  )
-  >~[`LocalSet`]
-  >-(
-    qpat_x_assum`exec _ _ = _`mp_tac
-    >>once_rewrite_tac[exec_def]
-    >>rpt(peel[pop_clock,set_local_clock])
-    >>metis_tac[]
-  )
-  >~[`LocalTee`]
-  >-(
-    qpat_x_assum`exec _ _ = _`mp_tac
-    >>once_rewrite_tac[exec_def]
-    >>rpt(peel[pop_clock,set_local_clock])
-    >>metis_tac[]
-  )
-  >~[`GlobalGet`]
-  >-(
-    qpat_x_assum`exec _ _ = _`mp_tac
-    >>once_rewrite_tac[exec_def]
-    >>peel[]
-    >-(strip_tac>>fs[])
-    >>simp[push_def,wasmSemTheory.state_component_equality]
-  )
-  >~[`GlobalSet`]
-  >-(
-    qpat_x_assum`exec _ _ = _`mp_tac
-    >>once_rewrite_tac[exec_def]
-    >>rpt(peel[pop_clock,set_global_clock])
-    >>metis_tac[]
-  )
-  >~[`MemRead`]
-  >-(
-    qpat_x_assum`exec _ _ = _`mp_tac
-    >>once_rewrite_tac[exec_def]
-    >>rpt(peel[pop_i32_clock])
-    >-metis_tac[]
-    >>simp[wasmSemTheory.state_component_equality]
-  )
-  >~[`MemWrite`]
-  >-(
-    qpat_x_assum`exec _ _ = _`mp_tac
-    >>once_rewrite_tac[exec_def]
-    >>rpt(peel[pop_clock,pop_i32_clock])
-    >-metis_tac[]
-    >-metis_tac[]
-    >>simp[wasmSemTheory.state_component_equality]
-  )
-  >-fs[exec_def]
-  >-(
-    qpat_x_assum`exec_list _ _ = _`mp_tac
-    >>once_rewrite_tac[exec_def]
-    >>rpt(peel[])
-    >>strip_tac
-    >>(PURE_TOP_CASE_TAC>>fs[])
-  )
+  ho_match_mp_tac exec_ind
+  >>rpt strip_tac
+  >>(qpat_x_assum `exec _ _ = _` mp_tac ORELSE qpat_x_assum `exec_list _ _ = _` mp_tac)
+  >>once_rewrite_tac[exec_def]
+  >>rpt(peel[pop_clock, pop_n_clock, pop_i32_clock, set_local_clock, set_global_clock])
+  >>TRY(strip_tac>>gvs[])
+  >>simp[push_def]
 QED
 
 Theorem exec_list_add_clock = CONJUNCT1 exec_list_add_clock_aux;
@@ -745,12 +602,12 @@ Proof
   >>gvs[AllCaseEqs()]
 QED
 
+(* irule?? *)
 Theorem state_rel_set_var:
+  state_rel c s t ∧
   to_value v = w ∧
-  n < LENGTH t.globals ∧
-  state_rel c s t ⇒
-  state_rel c (set_var n v s)
-    (t with globals := LUPDATE w n t.globals)
+  n < LENGTH t.globals ⇒
+  state_rel c (set_var n v) (t with globals := LUPDATE w n t.globals)
 Proof
   rw[state_rel_def,regs_rel_def,EL_LUPDATE,set_var_def]>>
   fs[FLOOKUP_UPDATE]>>
@@ -758,7 +615,7 @@ Proof
   gvs[AllCaseEqs()]
 QED
 
-Theorem state_rel_with_stack:
+Theorem state_rel_with_stack[simp]:
   state_rel c s (t with stack := st) = state_rel c s t
 Proof
   fs[state_rel_def]
@@ -827,15 +684,16 @@ Theorem compile_If:
   ^(get_goal "If")
 Proof
   rpt strip_tac
-  >>fs[evaluate_def]
-  >>gvs[CaseEq"option",stack_asm_ok_def]
-  >>rename1`word_cmp cmp v1 v2 = SOME b`
-  >>(Cases_on`b`>>fs[])
+  >>qpat_x_assum `evaluate _ = _` mp_tac
+  >>fs[evaluate_def,stack_asm_ok_def]
+  >>rpt(peel[])
   >>(
-    first_x_assum $ qspec_then`t with stack:=[]`mp_tac
-    >>simp[state_rel_with_stack]
-    >>rpt strip_tac
+    strip_tac
+    >>fs[]
+    >>first_x_assum $ qspec_then`t with stack:=[]`mp_tac
+    >>rw[]
     >>qexists_tac`ck`
+    (* *)
     >>simp[compile_def]
     >>drule_all_then (qspec_then`ck+t.clock`assume_tac) comp_cmp_thm
     >>dxrule_then (simp o single) exec_list_append_RNormal
