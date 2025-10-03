@@ -43,12 +43,12 @@ Wasm smallstep semantics
 [wbfScript.sml](wbfScript.sml):
 En- & De- coding between CWasm 1.0 AST & Wasm's binary format
 
-[wbf_ancilScript.sml](wbf_ancilScript.sml):
+[wbf_prelimScript.sml](wbf_prelimScript.sml):
 Ancillaries for En- & De- coding between CWasm 1.ε AST & Wasm's binary format
 such as:
 - Types
 - General (leb128) en-/de- coders
 - Helpful Corollaries
 
-[wbf_proofsScript.sml](wbf_proofsScript.sml):
+[wbf_thmsScript.sml](wbf_thmsScript.sml):
 CWasm 1.ε AST ⇔ Wasm binary format En- & De- coder theorems

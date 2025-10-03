@@ -2,7 +2,7 @@
   En- & De- coding between CWasm 1.0 AST & Wasm's binary format
 *)
 Theory      wbf
-Ancestors   wasmLang leb128 wbf_ancil
+Ancestors   wasmLang leb128 wbf_prelim
 Libs        preamble wordsLib
 
 (* TODOs:
