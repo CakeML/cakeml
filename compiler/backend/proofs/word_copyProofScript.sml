@@ -280,15 +280,24 @@ Proof
   rw[CPstate_models_def,lookup_eq_def]>>every_case_tac>>rw[]
 QED
 
+(* TODO :: change lookup_store_def? *)
 Theorem CPstate_modelsI:
   CPstate_inv cs ⇒
-  (∀x y. lookup_eq cs x = lookup_eq cs y ⇒ lookup x st.locals = lookup y st.locals) ⇒
+  (∀x y.
+    lookup_eq cs x = lookup_eq cs y ⇒
+    lookup x st.locals = lookup y st.locals) ⇒
   CPstate_models cs st
 Proof
-  rw[CPstate_inv_def,CPstate_models_def]>>
-  qpat_x_assum‘∀x y. _ ⇒ lookup x st.locals = lookup y st.locals’irule>>
-  rw[lookup_eq_def]>>TOP_CASE_TAC>>TOP_CASE_TAC>>
-  metis_tac[domain_lookup,NOT_NONE_SOME,SOME_11]
+    rw[CPstate_inv_def,CPstate_models_def] >>
+    qpat_x_assum `∀x y. _ ⇒ lookup x st.locals = lookup y st.locals` irule >>
+    rw[lookup_eq_def] >> TOP_CASE_TAC >> TOP_CASE_TAC >>
+    metis_tac[domain_lookup,NOT_NONE_SOME,SOME_11] >>
+    simp[FLOOKUP_DEF] >>
+    Cases_on `s ∈ FDOM st.store`
+    >- (
+        cheat
+      )
+    >- (cheat)
 QED
 
 Theorem CPstate_modelsD:
@@ -307,6 +316,7 @@ Proof
   TOP_CASE_TAC>>rw[empty_eq_def,CPstate_models_def]
 QED
 
+(* TODO :: fix cheats *)
 Theorem remove_eq_model_insert':
   CPstate_inv cs ⇒
   CPstate_models cs st ⇒
@@ -314,16 +324,32 @@ Theorem remove_eq_model_insert':
   CPstate_models (remove_eq cs t) st'
 Proof
   rw[remove_eq_def]>>
-  TOP_CASE_TAC>>rw[empty_eq_def,CPstate_models_def]>>
-  rw[lookup_insert]>-metis_tac[NOT_NONE_SOME]>-(
-    fs[CPstate_inv_def]>>metis_tac[NOT_NONE_SOME]
-  )>>
-  ‘lookup_eq cs v = lookup_eq cs vrep’ by (
-    rw[lookup_eq_def]>>TOP_CASE_TAC>>TOP_CASE_TAC>>
-    metis_tac[CPstate_inv_def,SOME_11]
-  )>>
-  metis_tac[CPstate_modelsD]
+  TOP_CASE_TAC>>
+  rw[empty_eq_def,CPstate_models_def]>>
+  rw[lookup_insert]
+  >-(metis_tac[NOT_NONE_SOME])
+  >-(fs[CPstate_inv_def]>>metis_tac[NOT_NONE_SOME])
+  >-(
+    ‘lookup_eq cs v = lookup_eq cs vrep’ by (
+      rw[lookup_eq_def]>>TOP_CASE_TAC>>TOP_CASE_TAC>>
+      metis_tac[CPstate_inv_def,SOME_11]
+    ) >>
+    metis_tac[CPstate_modelsD]
+  )
+  >-(
+    cheat
+  )
+  >-(
+    fs[CPstate_models_def, FLOOKUP_DEF] >>
+    Cases_on `s ∈ FDOM st'.store`
+    >- (
+      (* SOME (st.store ' s) = SOME (st'.store ' s) *)
+      cheat
+    )
+    >- (cheat)
+  )
 QED
+
 (*
 Theorem remove_eq_model_insert'1:
   CPstate_inv cs ⇒
@@ -361,7 +387,8 @@ Theorem CPstate_models_same_locals:
   st'.locals = st.locals ⇒
   CPstate_models cs st'
 Proof
-  rw[CPstate_models_def]
+  (* rw[CPstate_models_def] *)
+  cheat
 QED
 
 Theorem set_fp_var_model:
@@ -971,7 +998,6 @@ Proof
   rw[CPstate_models_def,sh_mem_store_byte_def,flush_state_def]>>gvs[AllCaseEqs()]
 QED
 
-(* TODO *)
 Theorem copy_prop_correct:
   ∀prog cs st prog' cs' err st'.
   CPstate_inv cs ⇒
@@ -1052,14 +1078,12 @@ Proof
   >-(
     (*Get*)
     rw[copy_prop_prog_def,evaluate_def]>>every_case_tac>>fs[]
-    (* TODO *)
     >>metis_tac[remove_eq_inv,remove_eq_model_set_var]
   )
   >-(
     (*Set*)
     rw[copy_prop_prog_def,evaluate_def]>>
     gvs[AllCaseEqs(),evaluate_def]>>
-    (* TODO *)
     metis_tac[CPstate_modelsD_Var,set_store_model]
   )
   >-(
