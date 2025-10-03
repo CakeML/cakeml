@@ -5,7 +5,7 @@
   - General (leb128) en-/de- coders
   - Helpful Corollaries
 *)
-Theory      wbf_ancil
+Theory      wbf_prelim
 Ancestors   wasmLang leb128
 Libs        preamble wordsLib
 

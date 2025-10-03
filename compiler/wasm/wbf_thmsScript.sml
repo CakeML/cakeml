@@ -2,7 +2,7 @@
   CWasm 1.ε AST ⇔ Wasm binary format En- & De- coder theorems
 *)
 Theory      wbf_proofs
-Ancestors   leb128 wasmLang wbf_ancil wbf
+Ancestors   leb128 wasmLang wbf_prelim wbf
 Libs        preamble wordsLib
 
 val ssaa = fn xs => [GSYM APPEND_ASSOC, Excl "APPEND_ASSOC"] @ xs
@@ -22,7 +22,7 @@ Proof
 QED
 
 Theorem enc_paraI_nEmp_nTermB:
-  ∀i. ∃b bs. enc_paraI i = SOME encbs ⇒
+  ∀i. enc_paraI i = SOME encbs ⇒
   ∃b bs. append encbs =  b::bs ∧ b ≠ endB ∧ b ≠ elseB
 Proof
   Cases \\ simp[Once enc_paraI_def, AllCaseEqs()]
@@ -49,24 +49,23 @@ Proof
   rw[Once enc_storeI_def, AllCaseEqs()] >> simp[]
 QED
 
-(*
 Theorem enc_instr_nEmp_nTermB:
   ∀i enci. enc_instr i = SOME enci ⇒
   ∃b bs. append enci = b::bs ∧ b ≠ endB ∧ b ≠ elseB
 Proof
   Cases
   >> rw[Once enc_instr_def, AllCaseEqs()]
-  >> mp_tac enc_numI_nEmp_nTermB
-  >> mp_tac enc_paraI_nEmp_nTermB
-  >> mp_tac enc_varI_nEmp_nTermB
-  >> mp_tac enc_loadI_nEmp_nTermB
-  >> mp_tac enc_storeI_nEmp_nTermB
+  >> imp_res_tac enc_numI_nEmp_nTermB
+  >> imp_res_tac enc_paraI_nEmp_nTermB
+  >> imp_res_tac enc_varI_nEmp_nTermB
+  >> imp_res_tac enc_loadI_nEmp_nTermB
+  >> imp_res_tac enc_storeI_nEmp_nTermB
   >> simp[]
 QED
 
 Theorem num_cf_instr_disjoint:
-  ∀i b bs. enc_numI i = SOME encbs ⇒
-  ∃b bs. encbs = b::bs ⇒
+  ∀i enci. enc_numI i = SOME enci ⇒
+  ∃b bs. append enci = b::bs ⇒
   b ≠ unrOC ∧ b ≠ nopOC ∧ b ≠ blkOC ∧
   b ≠ lopOC ∧ b ≠ if_OC ∧ b ≠ br_OC ∧
   b ≠ briOC ∧ b ≠ brtOC ∧ b ≠ retOC ∧
@@ -78,19 +77,20 @@ Proof
 QED
 
 Theorem para_cf_instr_disjoint:
-  ∀i b bs. enc_paraI i = b::bs ⇒
+  ∀i enci. enc_paraI i = SOME enci ⇒
+  ∃b bs. append enci = b::bs ⇒
   b ≠ unrOC ∧ b ≠ nopOC ∧ b ≠ blkOC ∧
   b ≠ lopOC ∧ b ≠ if_OC ∧ b ≠ br_OC ∧
   b ≠ briOC ∧ b ≠ brtOC ∧ b ≠ retOC ∧
   b ≠ calOC ∧ b ≠ rclOC ∧ b ≠ cinOC ∧
   b ≠ rciOC
 Proof
-     rw[enc_paraI_def, AllCaseEqs()]
-  \\ simp[]
+  Cases >> rw[enc_paraI_def, AllCaseEqs()]
 QED
 
 Theorem var_cf_instr_disjoint:
-  ∀i b bs. enc_varI i = b::bs ⇒
+  ∀i enci. enc_varI i = SOME enci ⇒
+  ∃b bs. append enci =  b::bs ⇒
   b ≠ unrOC ∧ b ≠ nopOC ∧ b ≠ blkOC ∧
   b ≠ lopOC ∧ b ≠ if_OC ∧ b ≠ br_OC ∧
   b ≠ briOC ∧ b ≠ brtOC ∧ b ≠ retOC ∧
@@ -102,7 +102,8 @@ Proof
 QED
 
 Theorem load_cf_instr_disjoint:
-  ∀i b bs. enc_loadI i = b::bs ⇒
+  ∀i enci. enc_loadI i = SOME enci ⇒
+  ∃b bs. append enci =  b::bs ⇒
   b ≠ unrOC ∧ b ≠ nopOC ∧ b ≠ blkOC ∧
   b ≠ lopOC ∧ b ≠ if_OC ∧ b ≠ br_OC ∧
   b ≠ briOC ∧ b ≠ brtOC ∧ b ≠ retOC ∧
@@ -114,7 +115,8 @@ Proof
 QED
 
 Theorem store_cf_instr_disjoint:
-  ∀i b bs. enc_storeI i = b::bs ⇒
+  ∀i enci. enc_storeI i = SOME enci ⇒
+  ∃b bs. append enci = b::bs ⇒
   b ≠ unrOC ∧ b ≠ nopOC ∧ b ≠ blkOC ∧
   b ≠ lopOC ∧ b ≠ if_OC ∧ b ≠ br_OC ∧
   b ≠ briOC ∧ b ≠ brtOC ∧ b ≠ retOC ∧
@@ -126,29 +128,31 @@ Proof
 QED
 
 Theorem var_para_disjoint:
-  ∀p rest. ∃ e. dec_varI (enc_paraI p ++ rest) = (INL e, enc_paraI p ++ rest)
+  ∀p encp. enc_paraI p = SOME encp ⇒
+  ∀rest. ∃ e. dec_varI (append encp ++ rest) = (INL e, append encp ++ rest)
 Proof
   Cases >> simp[enc_paraI_def, dec_varI_def]
 QED
 
 Theorem var_num_disjoint:
-  ∀n rest. ∃ e. dec_varI (enc_numI n ++ rest) = (INL e, enc_numI n ++ rest)
+  ∀n encn. enc_numI n = SOME encn ⇒
+  ∀rest. ∃ e. dec_varI (append encn ++ rest) = (INL e, append encn ++ rest)
 Proof
   Cases >> gen_tac
-  >> simp[enc_numI_def]
-  >> every_case_tac
+  >> rw[enc_numI_def, AllCaseEqs()]
   >> simp[dec_varI_def]
 QED
 
 Theorem para_num_disjoint:
-  ∀n rest. ∃ e. dec_paraI (enc_numI n ++ rest) = (INL e, enc_numI n ++ rest)
+  ∀n encn. enc_numI n = SOME encn ⇒
+  ∀rest. ∃ e. dec_paraI (append encn ++ rest) = (INL e, append encn ++ rest)
 Proof
   Cases >> gen_tac
-  >> simp[enc_numI_def]
-  >> every_case_tac
+  >> rw[enc_numI_def, AllCaseEqs()]
   >> simp[dec_paraI_def]
 QED
 
+(*
 Theorem var_load_disjoint:
   ∀l rest. ∃ e. dec_varI (enc_loadI l ++ rest) = (INL e, enc_loadI l ++ rest)
 Proof
