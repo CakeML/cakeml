@@ -370,8 +370,8 @@ Definition num_stk_op_def:
   num_stk_op (N_eqz W32) (I32 w :: stk) = SOME (b2v (w = 0w) :: stk) ∧
   num_stk_op (N_eqz W64) (I64 w :: stk) = SOME (b2v (w = 0w) :: stk) ∧
  (num_stk_op (N_unary   op) (v   ::stk) = case do_una op v   of NONE=>NONE| SOME x => SOME $ x::stk)∧
- (num_stk_op (N_binary  op) (l::r::stk) = case do_bin op l r of NONE=>NONE| SOME x => SOME $ x::stk)∧
- (num_stk_op (N_compare op) (l::r::stk) = case do_cmp op l r of NONE=>NONE| SOME x => SOME $ x::stk)∧
+ (num_stk_op (N_binary  op) (r::l::stk) = case do_bin op l r of NONE=>NONE| SOME x => SOME $ x::stk)∧
+ (num_stk_op (N_compare op) (r::l::stk) = case do_cmp op l r of NONE=>NONE| SOME x => SOME $ x::stk)∧
  (num_stk_op (N_convert op) (v   ::stk) = case do_cvt op v   of NONE=>NONE| SOME x => SOME $ x::stk)∧
   num_stk_op _ _ = NONE
 End
