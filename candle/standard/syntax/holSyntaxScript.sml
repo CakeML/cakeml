@@ -79,8 +79,8 @@ Definition welltyped_def:
   welltyped tm = ∃ty. tm has_type ty
 End
 
-Definition typeof_def[simp]:
-  (typeof (Var n   ty) = ty) ∧
+Definition typeof_def:
+  (typeof (Var n ty) = ty) ∧
   (typeof (Const n ty) = ty) ∧
   (typeof (Comb s t)   = codomain (typeof s)) ∧
   (typeof (Abs v t) = Fun (typeof v) (typeof t))

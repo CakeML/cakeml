@@ -90,7 +90,6 @@ Proof
   >> metis_tac[term_ok'_imp_term_ok, ctys_def, ctms_def]
 QED
 
-
 Theorem ty_esubst_type_ok:
   ∀ty.
     type_ok thy.ctys ty ∧
@@ -112,7 +111,6 @@ Proof
   >> metis_tac[]
 QED
 
-
 Theorem proves_imp_theory_ok':
   ∀thy h es c. (thy, es, h) |-' c ⇒ theory_ok' thy
 Proof
@@ -132,36 +130,23 @@ Proof
   rw[] >> irule term_ok_imp_term_ok'
   >> gvs[sigof'_def, ctms_def, ctys_def, term_ok_weakening]
 QED
-(*
+
 Theorem esubst_thy_ctys[simp]:
   (esubst_thy σ thy).ctys = thy.tys
 Proof
   Cases_on ‘σ’ >> simp[esubst_thy_def, ctys_def]
-QED*)
+QED
 
-(*Theorem term_ok'_esubst:
+Theorem term_ok'_esubst:
   ∀tm.
     esubsts_ok (thy.ctys, thy.ctms) σ ∧
-    esubsts_total thy σ ∧
     term_ok' thy tm ⇒
     term_ok' (esubst_thy σ thy) (esubst σ avds tm)
 Proof
-  Cases_on ‘σ’ >> rename [‘esubst (σ, θ) _ _’]
-  >> Induct_on ‘tm’ >> rw[] >> gvs[term_ok'_def, esubst_def]
-  >- (rw[esubst_tm_def, term_ok'_def]
-      >> irule ty_esubst_type_ok >> simp[esubsts_ok_def]
-      >> rw[] >> metis_tac[])
-  >- (rw[esubst_tm_def, term_ok'_def] >> rC ‘FLOOKUP θ tmnm’
-      >> gvs[ctms_def, FLOOKUP_FUNION]
-      >> rC ‘FLOOKUP thy.tms tmnm’ >> simp[term_ok'_def]
-      >> gvs[ctms_def, FLOOKUP_FUNION]
-      >> last_assum $ qspec_then ‘tmnm’ mp_tac
-      >> rw[]
-      >- (irule ty_esubst_type_ok >> simp[esubsts_ok_def]
-          >> cheat)
-      >- spec_impl ‘ty0’ >> simp[ctys_def, FLOOKUP_FUNION])
-QED*)
-(*
+  cheat
+QED
+
+
 Theorem used_eaxs_ok:
   ∀thy used_eaxs h c.
     (thy, used_eaxs, h) |-' c
@@ -170,7 +155,7 @@ Proof
   Induct_on ‘$|-'’ >> rw[] >> rw[]
   >> gvs[theory_ok'_def, term_ok_term_ok'_weakening, term_ok'_esubst]
   >> first_x_assum drule >> gvs[esubst_has_type_bool_alt, SF SFY_ss]
-QED*)
+QED
 
 
 
@@ -182,44 +167,6 @@ Proof
   rw[drop_thy] >> irule axiom_weakening >> rw[]
   >> drule proves_imp_theory_ok >> rw[theory_ok_def, ctms_def, ctys_def]
   >> gvs[ctys_def, ctms_def] >> first_assum $ irule_at Any >> ASM_SET_TAC[]
-QED
-
-Theorem esubsts_ok_weakening:
-  esubsts_total thy σ ∧
-  esubsts_ok (thy.tys, thy.tms) σ ⇒
-  esubsts_ok (thy.ctys, thy.ctms) σ
-Proof
-  Cases_on ‘σ’ >> rw[esubsts_total_def, esubsts_ok_def, ctms_def, ctys_def]
-  >- (first_x_assum $ drule o iffRL >> rw[] >> first_x_assum drule
-      >> rw[] >> rw[FLOOKUP_FUNION])
-  >> rw[type_ok_weakening, term_ok_weakening]
-  >> first_x_assum drule >> rw[esubst_sig_def, o_f_FUNION]
-  >> irule term_ok_weakening >> simp[]
-QED
-
-Theorem esubst_ty_identity:
-  term_ok thy.sig tm ∧
-  theory_ok' thy ∧
-  esubsts_ok (thy.ctys, thy.ctms) σ ∧
-  esubsts_total thy σ ⇒
-  esubst_ty σ [] tm = tm
-Proof
-  cheat
-QED
-
-Theorem esubst_tm_identity:
-  term_ok thy.sig tm ∧
-  theory_ok' thy ∧
-  esubsts_ok (thy.ctys, thy.ctms) σ ∧
-  esubsts_total thy σ ⇒
-  esubst_tm σ tm = tm
-Proof
-  Induct_on ‘tm’ >> rw[esubst_tm_def] >> gvs[]
-  >> CASE_TAC >> Cases_on ‘σ’ >> gvs[esubsts_ok_def, sigof'_def, theory_ok'_def]
-  >> first_x_assum $ qspec_then ‘m’ assume_tac >> rw[] >> gvs[TO_FLOOKUP]
-  >> gvs[monomorphic_type_subst] >> rC ‘x = Const m ty0’
-  >> Cases_on ‘ty_esubst (q,r) ty0 = ty0’ >> rw[] >> gvs[]
-  >> cheat
 QED
 
 Theorem esubst_identity:
@@ -249,7 +196,7 @@ Proof
   >> metis_tac[]
 QED
 
-(*
+
 Theorem proves'_imp_proves:
   ∀thy' c h used_eaxs.
     (thy', used_eaxs, h) |-' c ⇒ (drop_thy used_eaxs thy', h) |- c
@@ -303,6 +250,6 @@ Proof
       >- (irule theory_ok_drop_thy_alt >> gvs[theory_ok'_def])
       >> rw[drop_thy])
 QED
-*)
+
 
 val _ = export_theory();
