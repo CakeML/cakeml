@@ -150,9 +150,9 @@ Definition word_gen_gc_move_code_def:
                       (* get len+1w *)
                       right_shift_inst 1 (dimindex (:'a) - conf.len_size);
                       add_1_inst 1;
-                      const_inst 2 28w;
+                      const_inst 2 0b1100w;
                       and_inst 6 2;
-                      If Equal 6 (Imm 8w)
+                      If Equal 6 (Imm 8w) (* is_ref_header *)
                         (list_Seq [
                           Set (Temp 0w) 3;
                           Set (Temp 1w) 4;

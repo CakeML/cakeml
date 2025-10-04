@@ -1601,7 +1601,11 @@ Proof
      >> rw []
      >> metis_tac [store_type_extension_trans])
    >> `getOpClass op ≠ FunApp`
-     by (Cases_on `op` >> fs[getOpClass_def])
+     by (Cases_on `op` >> fs[getOpClass_def,AllCaseEqs()])
+   >> Cases_on ‘getOpClass op = Force’
+   >- (
+     Cases_on ‘op’ >> gvs[getOpClass_def,AllCaseEqs()]
+     >> Cases_on ‘ts’ >> fs[type_op_def])
    >> Cases_on ‘getOpClass op = EvalOp’
    >- (
      Cases_on ‘op’ >> gs[getOpClass_def]
@@ -1611,7 +1615,7 @@ Proof
    >> drule op_type_sound
    >> rpt (disch_then drule)
    >> disch_then (qspec_then `s1.ffi` mp_tac)
-   >> `getOpClass op = Simple` by (Cases_on `op` >> fs[getOpClass_def])
+   >> `getOpClass op = Simple` by (Cases_on `op` >> fs[getOpClass_def,AllCaseEqs()])
    >> rw []
    >> rename1 `do_app _ _ _ = SOME ((store1, ffi1), r1)`
    >> Cases_on `r1`

@@ -73,7 +73,8 @@ val _ = export_rewrites["is_Recclosure_def"];
 
 Definition every_refv_def:
   (every_refv P (ValueArray vs) ⇔ EVERY P vs) ∧
-   (every_refv P _ ⇔ T)
+  (every_refv P (Thunk m v) ⇔ P v) ∧
+  (every_refv P _ ⇔ T)
 End
 val _ = export_rewrites["every_refv_def"];
 
@@ -1885,6 +1886,9 @@ Proof
     \\ Cases_on `op` \\ Cases_on `REVERSE a`
     \\ simp[do_app_def, case_eq_thms, bool_case_eq, pair_case_eq, CaseEq"ffi$ffi_result"]
     \\ strip_tac \\ rveq \\ fs []
+    \\ TRY (
+      rename [`case v of Evaluated => _ | NotEvaluated => _`]
+      \\ Cases_on `v` \\ gvs [])
     \\ Cases_on`a` \\ fs[] \\ rveq \\ fs[]
     \\ strip_tac \\ fs[v_rel_def, PULL_EXISTS] \\ rveq
     \\ imp_res_tac state_rel_flookup_refs \\ fs[]
@@ -1917,6 +1921,11 @@ Proof
      (res_tac \\ fs []
       \\ qpat_x_assum `!x. _` kall_tac
       \\ rfs [] \\ Cases_on `s.refs ' ptr` \\ fs [ref_rel_def])
+    THEN1
+     (res_tac \\ fs []
+      \\ qpat_x_assum `!x. _` kall_tac
+      \\ rfs [] \\ Cases_on `s.refs ' ptr` \\ fs [ref_rel_def])
+    THEN1 (strip_tac \\ Cases_on `x = p` \\ fs [FAPPLY_FUPDATE_THM])
     THEN1 (strip_tac \\ Cases_on `x = p` \\ fs [FAPPLY_FUPDATE_THM])
     THEN1 (strip_tac \\ Cases_on `x = p` \\ fs [FAPPLY_FUPDATE_THM]))
   \\ assume_tac (GEN_ALL simple_val_rel_do_app
@@ -1958,6 +1967,8 @@ Proof
        \\ qspec_tac (`xs`,`xs`) \\ qspec_tac (`ys`,`ys`)
        \\ Induct \\ fs [] \\ Cases_on `xs` \\ simp_tac std_ss [PULL_EXISTS]
        \\ fs [])
+    THEN1
+      (match_mp_tac (FEVERY_STRENGTHEN_THM |> CONJUNCT2) \\ fs [])
     THEN1
       (qpat_x_assum `_ xs ys` mp_tac
        \\ qspec_tac (`ys`,`ys`) \\ qspec_tac (`xs`,`xs`)
@@ -2225,7 +2236,7 @@ Proof
     first_x_assum (fn t => mp_tac t \\ match_mp_tac fmap_rel_mono)
     \\ rw []
     \\ Cases_on `x` \\ Cases_on `y` \\ fs [ref_rel_def]
-    \\ first_x_assum (fn t => mp_tac t \\ match_mp_tac LIST_REL_mono)
+    \\ TRY (first_x_assum (fn t => mp_tac t \\ match_mp_tac LIST_REL_mono))
     \\ rw []
     \\ drule_then irule (GEN_ALL v_rel_SUBMAP_subg)
     \\ fs [SUBMAP_FUNION_ID, DISJOINT_SYM]
@@ -2392,6 +2403,17 @@ Theorem pure_correct_eq:
 Proof
   Q_TAC (fn s => mp_tac (ISPEC s (Q.GEN `s` pure_correct))) `s`
   \\ EVERY_CASE_TAC \\ rw [] \\ fs []
+QED
+
+Triviality state_rel_opt_rel_refs:
+  (state_rel g l s1 s2 ∧ FLOOKUP s1.refs n = r1 ⇒
+     ∃r2. FLOOKUP s2.refs n = r2 ∧
+          OPTREL (ref_rel (v_rel g l s2.code)) r1 r2) ∧
+  (state_rel g l s1 s2 ∧ FLOOKUP s2.refs n = r2 ⇒
+     ∃r1. FLOOKUP s1.refs n = r1 ∧
+          OPTREL (ref_rel (v_rel g l s2.code)) r1 r2)
+Proof
+  rw [] \\ gvs [state_rel_def, FLOOKUP_DEF, fmap_rel_def] \\ rw []
 QED
 
 (* compiler correctness *)
@@ -2987,7 +3009,7 @@ Proof
     \\ strip_tac
     \\ reverse (Cases_on `q`) \\ fs []
     THEN1 (rw [] \\ qexists_tac `ck` \\ asm_exists_tac \\ fs [])
-    \\ reverse (Cases_on `op = Install`) THEN1
+    \\ reverse (Cases_on `op = Install ∨ op = ThunkOp ForceThunk`) THEN1
      (fs [] \\ reverse (Cases_on `do_app op (REVERSE a) r`) \\ fs []
       THEN1
        (rveq \\ fs []
@@ -3008,121 +3030,214 @@ Proof
       \\ strip_tac \\ pop_assum mp_tac \\ fs []
       \\ imp_res_tac do_app_const \\ fs []
       \\ strip_tac \\ asm_exists_tac \\ fs [])
-    \\ rveq \\ fs []
-    \\ fs [pair_case_eq]
-    \\ rveq \\ fs []
-    \\ qpat_x_assum `do_install _ r = _` mp_tac
-    \\ Cases_on `v = Rerr (Rabort Rtype_error)` \\ fs []
-    \\ simp [Once do_install_def]
-    \\ simp [option_case_eq,list_case_eq,PULL_EXISTS,pair_case_eq,bool_case_eq]
-    \\ pairarg_tac
-    \\ fs [SWAP_REVERSE_SYM,
-       Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
-       option_case_eq,pair_case_eq,PULL_EXISTS]
-    \\ rpt gen_tac \\ strip_tac \\ rveq \\ fs []
-    \\ `aux = []` by (drule (Q.SPEC `0` code_inv_k) \\ fs [syntax_ok_def])
-    \\ Cases_on `r.clock = 0`
-    THEN1
-     (rpt strip_tac \\ fs [] \\ rveq \\ fs []
+    \\ rw []
+    >~ [`Install`] >- (
+      rveq \\ fs []
+      \\ fs [pair_case_eq]
+      \\ rveq \\ fs []
+      \\ qpat_x_assum `do_install _ r = _` mp_tac
+      \\ Cases_on `v = Rerr (Rabort Rtype_error)` \\ fs []
+      \\ simp [Once do_install_def]
+      \\ simp [option_case_eq,list_case_eq,PULL_EXISTS,pair_case_eq,bool_case_eq]
+      \\ pairarg_tac
+      \\ fs [SWAP_REVERSE_SYM,
+         Q.INST [`b`|->`DISJOINT (S1 : 'c set) S2 /\ P`] bool_case_eq,
+         option_case_eq,pair_case_eq,PULL_EXISTS]
+      \\ rpt gen_tac \\ strip_tac \\ rveq \\ fs []
+      \\ `aux = []` by (drule (Q.SPEC `0` code_inv_k) \\ fs [syntax_ok_def])
+      \\ Cases_on `r.clock = 0`
+      THEN1
+       (rpt strip_tac \\ fs [] \\ rveq \\ fs []
+        \\ imp_res_tac v_to_bytes_thm
+        \\ imp_res_tac v_to_words_thm
+        \\ fs [bool_case_eq] \\ fs []
+        \\ fs [] \\ rveq \\ fs []
+        \\ `?cfg' progs. t.compile_oracle 0 = (cfg',progs)` by metis_tac [PAIR]
+        \\ drule (GEN_ALL code_rel_state_rel_install)
+        \\ rpt (disch_then drule)
+        \\ simp []
+        \\ strip_tac
+        \\ fs [shift_seq_def]
+        \\ `exp1 <> []` by
+          (CCONTR_TAC \\ imp_res_tac calls_length \\ fs [] \\ rveq \\ fs [])
+        \\ qabbrev_tac `t1 = t with
+            <|clock := 0; compile_oracle := shift_seq 1 t.compile_oracle;
+              code := t.code |++ SND progs|>`
+        \\ qexists_tac `ck`
+        \\ qexists_tac `t1`
+        \\ qunabbrev_tac `t1` \\ fs [FUPDATE_LIST, shift_seq_def]
+        \\ asm_exists_tac
+        \\ fs []
+        \\ conj_tac THEN1
+         (`wfv_state g2 l2 t.code
+             (r with
+              <| clock := 0; compile_oracle := shift_seq 1 r.compile_oracle;
+                 code := r.code |>)` by fs [wfv_state_def,shift_seq_def]
+          \\ fs [shift_seq_def,FUPDATE_LIST]
+          \\ match_mp_tac (GEN_ALL wfv_state_subg)
+          \\ asm_exists_tac
+          \\ fs [GSYM FUPDATE_LIST])
+        \\ fs [do_install_def]
+        \\ fs [shift_seq_def]
+        \\ `t.clock = 0` by fs [state_rel_def] \\ fs []
+        \\ rfs [state_rel_def,FUPDATE_LIST]
+        \\ fs [code_inv_def]
+        \\ simp [state_co_def]
+        \\ metis_tac [subg_trans, SUBSET_TRANS])
+      \\ fs [bool_case_eq] \\ fs []
+      \\ rveq \\ fs [FUPDATE_LIST,shift_seq_def]
       \\ imp_res_tac v_to_bytes_thm
       \\ imp_res_tac v_to_words_thm
-      \\ fs [bool_case_eq] \\ fs []
       \\ fs [] \\ rveq \\ fs []
-      \\ `?cfg' progs. t.compile_oracle 0 = (cfg',progs)` by metis_tac [PAIR]
+      \\ ntac 2 (qpat_x_assum `!x._` kall_tac)
+      \\ `?x23 x34. t.compile_oracle 0 = (x23,x34)` by metis_tac [PAIR]
       \\ drule (GEN_ALL code_rel_state_rel_install)
-      \\ rpt (disch_then drule)
-      \\ simp []
-      \\ strip_tac
       \\ fs [shift_seq_def]
+      \\ rpt (disch_then drule) \\ strip_tac
+      \\ `t.clock <> 0` by fs [state_rel_def] \\ fs []
+      \\ fs [state_rel_def,FUPDATE_LIST]
+      \\ Cases_on `evaluate
+                (exps,[],
+                 r with
+                 <|clock := t.clock − 1;
+                   compile_oracle := (λi. r.compile_oracle (i + 1));
+                   code := FEMPTY|>)` \\ fs [] \\ rveq \\ fs []
+      \\ `q ≠ Rerr (Rabort Rtype_error)` by (every_case_tac \\ fs [] \\ rveq \\ fs [])
+      \\ fs []
+      \\ first_x_assum drule
+      \\ disch_then (qspecl_then [`[]`,`t with
+            <|clock := t.clock − 1;
+              compile_oracle := (λi. t.compile_oracle (i + 1));
+              code := FOLDL $|+ t.code aux1|>`, `l2'`, `g2'`] mp_tac)
+      \\ simp [] \\ rfs []
       \\ `exp1 <> []` by
         (CCONTR_TAC \\ imp_res_tac calls_length \\ fs [] \\ rveq \\ fs [])
-      \\ qabbrev_tac `t1 = t with
-          <|clock := 0; compile_oracle := shift_seq 1 t.compile_oracle;
-            code := t.code |++ SND progs|>`
-      \\ qexists_tac `ck`
-      \\ qexists_tac `t1`
-      \\ qunabbrev_tac `t1` \\ fs [FUPDATE_LIST, shift_seq_def]
-      \\ asm_exists_tac
+      \\ reverse impl_tac THEN1
+       (strip_tac \\ fs [] \\ rveq \\ fs []
+        \\ qpat_x_assum `_ = (Rval _,t)` assume_tac
+        \\ drule evaluate_add_clock
+        \\ disch_then (qspec_then `ck'` mp_tac) \\ fs [] \\ strip_tac
+        \\ qexists_tac `ck+ck'` \\ fs [] \\ rfs []
+        \\ fs [do_install_def,shift_seq_def,FUPDATE_LIST]
+        \\ asm_exists_pat_tac `result_rel (LIST_REL _)`
+        \\ TOP_CASE_TAC \\ fs []
+        \\ FULL_CASE_TAC \\ fs [] \\ rveq \\ fs []
+        \\ imp_res_tac evaluate_IMP_LENGTH
+        \\ fs [LENGTH_EQ_NUM_compute]
+        \\ rveq \\ fs []
+        \\ rename [`EVERY _ aa`]
+        \\ `aa = [] ∨ ∃x l. aa = SNOC x l` by metis_tac [SNOC_CASES]
+        THEN1 fs [] \\ full_simp_tac std_ss [LAST_SNOC] \\ fs [EVERY_SNOC]
+        \\ `a = [] ∨ ∃x l. a = SNOC x l` by metis_tac [SNOC_CASES]
+        THEN1 fs [] \\ full_simp_tac std_ss [LAST_SNOC] \\ fs [EVERY_SNOC]
+        \\ fs [LIST_REL_SNOC]
+        \\ metis_tac [subg_trans, SUBSET_TRANS])
+      \\ simp [env_rel_def] \\ rveq \\ fs []
+      \\ IMP_RES_THEN MP_TAC (Q.SPEC `0` code_inv_k)
+      \\ simp [syntax_ok_def]
+      \\ rpt disch_tac
       \\ fs []
       \\ conj_tac THEN1
-       (`wfv_state g2 l2 t.code
-           (r with
-            <| clock := 0; compile_oracle := shift_seq 1 r.compile_oracle;
-               code := r.code |>)` by fs [wfv_state_def,shift_seq_def]
-        \\ fs [shift_seq_def,FUPDATE_LIST]
-        \\ match_mp_tac (GEN_ALL wfv_state_subg)
-        \\ asm_exists_tac
-        \\ fs [GSYM FUPDATE_LIST])
-      \\ fs [do_install_def]
-      \\ fs [shift_seq_def]
-      \\ `t.clock = 0` by fs [state_rel_def] \\ fs []
-      \\ rfs [state_rel_def,FUPDATE_LIST]
-      \\ fs [code_inv_def]
-      \\ simp [state_co_def]
-      \\ metis_tac [subg_trans, SUBSET_TRANS])
-    \\ fs [bool_case_eq] \\ fs []
-    \\ rveq \\ fs [FUPDATE_LIST,shift_seq_def]
-    \\ imp_res_tac v_to_bytes_thm
-    \\ imp_res_tac v_to_words_thm
-    \\ fs [] \\ rveq \\ fs []
-    \\ ntac 2 (qpat_x_assum `!x._` kall_tac)
-    \\ `?x23 x34. t.compile_oracle 0 = (x23,x34)` by metis_tac [PAIR]
-    \\ drule (GEN_ALL code_rel_state_rel_install)
-    \\ fs [shift_seq_def]
-    \\ rpt (disch_then drule) \\ strip_tac
-    \\ `t.clock <> 0` by fs [state_rel_def] \\ fs []
-    \\ fs [state_rel_def,FUPDATE_LIST]
-    \\ Cases_on `evaluate
-              (exps,[],
-               r with
-               <|clock := t.clock − 1;
-                 compile_oracle := (λi. r.compile_oracle (i + 1));
-                 code := FEMPTY|>)` \\ fs [] \\ rveq \\ fs []
-    \\ `q ≠ Rerr (Rabort Rtype_error)` by (every_case_tac \\ fs [] \\ rveq \\ fs [])
-    \\ fs []
-    \\ first_x_assum drule
-    \\ disch_then (qspecl_then [`[]`,`t with
+       (`wfv_state g2 l2 t.code (r with
           <|clock := t.clock − 1;
-            compile_oracle := (λi. t.compile_oracle (i + 1));
-            code := FOLDL $|+ t.code aux1|>`, `l2'`, `g2'`] mp_tac)
-    \\ simp [] \\ rfs []
-    \\ `exp1 <> []` by
-      (CCONTR_TAC \\ imp_res_tac calls_length \\ fs [] \\ rveq \\ fs [])
-    \\ reverse impl_tac THEN1
-     (strip_tac \\ fs [] \\ rveq \\ fs []
-      \\ qpat_x_assum `_ = (Rval _,t)` assume_tac
-      \\ drule evaluate_add_clock
-      \\ disch_then (qspec_then `ck'` mp_tac) \\ fs [] \\ strip_tac
-      \\ qexists_tac `ck+ck'` \\ fs [] \\ rfs []
-      \\ fs [do_install_def,shift_seq_def,FUPDATE_LIST]
-      \\ asm_exists_pat_tac `result_rel (LIST_REL _)`
-      \\ TOP_CASE_TAC \\ fs []
-      \\ FULL_CASE_TAC \\ fs [] \\ rveq \\ fs []
-      \\ imp_res_tac evaluate_IMP_LENGTH
-      \\ fs [LENGTH_EQ_NUM_compute]
-      \\ rveq \\ fs []
-      \\ rename [`EVERY _ aa`]
-      \\ `aa = [] ∨ ∃x l. aa = SNOC x l` by metis_tac [SNOC_CASES]
-      THEN1 fs [] \\ full_simp_tac std_ss [LAST_SNOC] \\ fs [EVERY_SNOC]
-      \\ `a = [] ∨ ∃x l. a = SNOC x l` by metis_tac [SNOC_CASES]
-      THEN1 fs [] \\ full_simp_tac std_ss [LAST_SNOC] \\ fs [EVERY_SNOC]
-      \\ fs [LIST_REL_SNOC]
-      \\ metis_tac [subg_trans, SUBSET_TRANS])
-    \\ simp [env_rel_def] \\ rveq \\ fs []
-    \\ IMP_RES_THEN MP_TAC (Q.SPEC `0` code_inv_k)
-    \\ simp [syntax_ok_def]
-    \\ rpt disch_tac
-    \\ fs []
-    \\ conj_tac THEN1
-     (`wfv_state g2 l2 t.code (r with
-        <|clock := t.clock − 1;
-          compile_oracle := (λi. r.compile_oracle (i + 1)); code := FEMPTY|>)`
-            by (fs [code_inv_def,wfv_state_def] \\ fs [] \\ rfs [])
-      \\ match_mp_tac (GEN_ALL wfv_state_subg)
-      \\ asm_exists_tac \\ fs [GSYM FUPDATE_LIST])
-    \\ fs [code_inv_def, wfg_subg_refl]
-    \\ rfs []
-    \\ fs [code_includes_def])
+            compile_oracle := (λi. r.compile_oracle (i + 1)); code := FEMPTY|>)`
+              by (fs [code_inv_def,wfv_state_def] \\ fs [] \\ rfs [])
+        \\ match_mp_tac (GEN_ALL wfv_state_subg)
+        \\ asm_exists_tac \\ fs [GSYM FUPDATE_LIST])
+      \\ fs [code_inv_def, wfg_subg_refl]
+      \\ rfs []
+      \\ fs [code_includes_def])
+    >~ [`ThunkOp ForceThunk`] >- (
+      gvs [AllCaseEqs(), PULL_EXISTS]
+      \\ gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
+      >- (
+        gvs [v_rel_def]
+        \\ rpt (goal_assum drule \\ gvs [])
+        \\ rw [GSYM PULL_EXISTS]
+        >- (
+          gvs [wfv_state_def, FEVERY_ALL_FLOOKUP]
+          \\ first_x_assum drule \\ rw [])
+        \\ goal_assum drule \\ gvs []
+        \\ drule_all state_rel_flookup_refs \\ rw [] \\ gvs [])
+      >- (
+        gvs [v_rel_def]
+        \\ gvs [AppUnit_def, calls_def, code_locs_def]
+        \\ drule_all_then assume_tac state_rel_flookup_refs \\ gvs []
+        \\ first_x_assum $ drule_at (Pat `state_rel _ _ _ _`) \\ gvs []
+        \\ disch_then $ qspecl_then [`g`, `[b]`] mp_tac
+        \\ impl_tac
+        >- (
+          rw []
+          >- (
+            gvs [dec_clock_def, wfv_state_def, FEVERY_ALL_FLOOKUP]
+            \\ first_x_assum drule \\ rw [])
+          >- (irule calls_wfg \\ metis_tac[])
+          >- imp_res_tac subg_trans
+          >- gvs [env_rel_def, dec_clock_def]
+          >- (
+            irule code_includes_SUBMAP
+            \\ goal_assum $ drule_at Any \\ rw []
+            \\ imp_res_tac evaluate_mono \\ gvs []))
+        \\ rw [] \\ gvs []
+        \\ qrefinel [`_`, `t' with refs := refs1`] \\ gvs[]
+        \\ goal_assum drule \\ gvs []
+        \\ `subg g1 g2'` by (imp_res_tac subg_trans \\ gvs []) \\ gvs []
+        \\ `l1 ⊆ l2'` by (imp_res_tac SUBSET_TRANS \\ gvs []) \\ gvs []
+        \\ `wfv_state g2' l2' t'.code (s'' with refs := refs)` by (
+          gvs [wfv_state_def, FEVERY_ALL_FLOOKUP, FLOOKUP_UPDATE] \\ rw []
+          \\ gvs [oneline update_thunk_def, AllCaseEqs()]
+          \\ gvs [store_thunk_def, AllCaseEqs()]
+          \\ gvs [FLOOKUP_UPDATE]
+          \\ Cases_on `ptr = k` \\ gvs []
+          \\ first_x_assum drule \\ gvs []) \\ gvs []
+        \\ qrefinel [`_`, `ck'' + ck`]
+        \\ `∀ck''. evaluate (e1,env2,t0 with clock := ck + ck'' + t0.clock) =
+              (Rval [RefPtr v0 ptr],t with clock := ck'' + t.clock)` by (
+          imp_res_tac evaluate_add_clock \\ gvs [])
+        \\ gvs [PULL_EXISTS]
+        \\ imp_res_tac state_rel_clock \\ gvs [PULL_EXISTS, dec_clock_def]
+        \\ goal_assum drule \\ gvs []
+        \\ gvs [oneline update_thunk_def, AllCaseEqs()] \\ rw []
+        \\ gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
+        \\ (
+          gvs [v_rel_def, oneline store_thunk_def, AllCaseEqs(), PULL_EXISTS]
+          \\ rpt (
+              drule (GEN_ALL $ cj 1 state_rel_opt_rel_refs)
+              \\ disch_then dxrule \\ rw [OPTREL_def] \\ gvs [])
+          \\ qmatch_goalsub_abbrev_tac `t' with refs := trefs`
+          \\ qexists `trefs` \\ unabbrev_all_tac \\ gvs []
+          \\ gvs [state_rel_def, fmap_rel_def, FAPPLY_FUPDATE_THM] \\ rw []
+          \\ simp [v_rel_def]))
+      >- (
+        gvs [v_rel_def]
+        \\ gvs [AppUnit_def, calls_def, code_locs_def]
+        \\ drule_all_then assume_tac state_rel_flookup_refs \\ gvs []
+        \\ first_x_assum $ drule_at (Pat `state_rel _ _ _ _`) \\ gvs []
+        \\ disch_then $ qspecl_then [`g`, `[b]`] mp_tac
+        \\ impl_tac
+        >- (
+          rw []
+          >- (
+            gvs [dec_clock_def, wfv_state_def, FEVERY_ALL_FLOOKUP]
+            \\ first_x_assum drule \\ rw [])
+          >- (irule calls_wfg \\ metis_tac[])
+          >- imp_res_tac subg_trans
+          >- gvs [env_rel_def, dec_clock_def]
+          >- (
+            irule code_includes_SUBMAP
+            \\ goal_assum $ drule_at Any \\ rw []
+            \\ imp_res_tac evaluate_mono \\ gvs []))
+        \\ rw [] \\ gvs []
+        \\ goal_assum drule \\ gvs []
+        \\ `subg g1 g2'` by (imp_res_tac subg_trans \\ gvs []) \\ gvs []
+        \\ `l1 ⊆ l2'` by (imp_res_tac SUBSET_TRANS \\ gvs []) \\ gvs []
+        \\ qrefine `ck'' + ck`
+        \\ `∀ck''. evaluate (e1,env2,t0 with clock := ck + ck'' + t0.clock) =
+              (Rval [RefPtr v0 ptr],t with clock := ck'' + t.clock)` by (
+          imp_res_tac evaluate_add_clock \\ gvs [])
+        \\ gvs [PULL_EXISTS]
+        \\ imp_res_tac state_rel_clock \\ gvs [PULL_EXISTS, dec_clock_def]
+        \\ goal_assum drule \\ gvs [])))
   (* Fn *)
   \\ conj_tac >- (
     say "Fn"

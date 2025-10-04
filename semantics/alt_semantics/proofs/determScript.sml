@@ -38,7 +38,6 @@ Proof
   res_tac >>
   fs [] >>
   rw [] >>
-  ‘s with fp_state := s.fp_state = s’ by gs[state_component_equality] >>
   gs[] >> res_tac >> gs[] >>
   metis_tac []
 QED
