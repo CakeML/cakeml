@@ -34,6 +34,8 @@ Datatype:
       | Handle exp exp
       | Tick exp
       | Call num (num option) (exp list)
+      | Force num (* loc to call for evaluation of unevaluated thunk *)
+              num (* var holding thunk *)
       | Op closLang$op (exp list)
 End
 
@@ -44,3 +46,7 @@ End
 Definition mk_tick_def:
   mk_tick n e = FUNPOW Tick n e : bvl$exp
 End
+
+Overload mk_unit = “bvl$Op (BlockOp (Cons 0)) []”
+
+Overload mk_elem_at = “λb i. bvl$Op (BlockOp (ElemAt i)) [b]”;

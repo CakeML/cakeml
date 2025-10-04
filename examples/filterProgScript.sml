@@ -998,7 +998,7 @@ Proof
      impl_tac >- rw[every_LNTH,LNTH_LGENLIST,next_filter_events,LFINITE_fromList] >>
      simp[SimpL ``$==>``,exists_LNTH,LNTH_LGENLIST] >>
      Ho_Rewrite.PURE_ONCE_REWRITE_TAC [cut_at_null_simplify] >>
-     disch_then(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[whileTheory.LEAST_EXISTS]) >>
+     disch_then(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[WhileTheory.LEAST_EXISTS]) >>
      rename1 `LNTH n0` >>
      qmatch_goalsub_abbrev_tac `LGENLIST f` >>
      Q.ISPECL_THEN [`n0`,`f`] assume_tac (GEN_ALL LGENLIST_CHUNK_GENLIST) >>
@@ -1047,7 +1047,7 @@ Proof
      impl_tac >- rw[every_LNTH,LNTH_LGENLIST,next_filter_events,LFINITE_fromList] >>
      simp[SimpL ``$==>``,exists_LNTH,LNTH_LGENLIST] >>
      Ho_Rewrite.PURE_ONCE_REWRITE_TAC [cut_at_null_simplify] >>
-     disch_then(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[whileTheory.LEAST_EXISTS]) >>
+     disch_then(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[WhileTheory.LEAST_EXISTS]) >>
      rename1 `LNTH n0` >>
      qmatch_goalsub_abbrev_tac `LGENLIST f` >>
      Q.ISPECL_THEN [`n0`,`f`] assume_tac (GEN_ALL LGENLIST_CHUNK_GENLIST) >>

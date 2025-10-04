@@ -271,7 +271,7 @@ QED
 Triviality LEAST_EXISTS:
   (∃n:num. P n) ⇒ ∃k. P k ∧ ∀m. m < k ⇒ ¬(P m)
 Proof
-  metis_tac[whileTheory.LEAST_EXISTS]
+  metis_tac[WhileTheory.LEAST_EXISTS]
 QED
 
 val VARIANT_PRIMES_def = new_specification

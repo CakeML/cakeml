@@ -45,6 +45,8 @@ val ILLEGAL_STRINGS =
   [("store_thm(\"", "The Theorem syntax is to be used instead of store_thm."),
    ("type_abbrev(\"", "The Type syntax is to be used instead of type_abbrev."),
    ("overload_on(\"", "Use Overload ... = ``...`` instead of overload_on."),
+   (* Bans constructs such as `map overload_on ...` where ... is a list literal *)
+   ("overload_on"^"[", "Use Overload ... = ``...`` instead of overload_on."),
    ("Hol_datatype"^"`", "Use Datatype: ... End syntax instead of Hol_datatype."),
    ("Datatype"^"`", "Use Datatype: ... End syntax instead of Datatype with `"),
    (* \226\128\152 corresponds to ‘ *)
@@ -54,7 +56,8 @@ val ILLEGAL_STRINGS =
    ("Hol_corel"^"n`","Use CoInductive ... End instead of old Hol_coreln."),
    (* HACK Stop readme_gen from flagging itself by using \ \ in strings *)
    ("new_\ \theory","Use Theory syntax instead of old new_\ \theory"),
-   ("export_\ \theory","Use Theory sytnax instead of old export_\ \theory")]
+   ("export_\ \theory","Use Theory sytnax instead of old export_\ \theory"),
+   ("TheoryPP.include_\ \docs","Add the no_sig_docs tag to the theory name instead of TheoryPP.include_\ \docs.")]
 
 (* Helper functions *)
 

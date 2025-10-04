@@ -649,7 +649,10 @@ Definition op_to_string_def:
   (op_to_string Eval = (implode "Eval", 6)) ∧
   (op_to_string Env_id = (implode "Env_id", 1)) ∧
   (op_to_string ListAppend = (implode "ListAppend", 2)) ∧
-  (op_to_string (FFI _) = (implode "FFI", 2))
+  (op_to_string (FFI _) = (implode "FFI", 2)) ∧
+  (op_to_string (ThunkOp ForceThunk) = (implode "ForceThunk", 1)) ∧
+  (op_to_string (ThunkOp (AllocThunk _)) = (implode "AllocThunk", 1)) ∧
+  (op_to_string (ThunkOp (UpdateThunk _)) = (implode "UpdateThunk", 2))
 End
 
 Overload Tem[local,inferior] = ``Infer_Tapp []``
@@ -789,6 +792,7 @@ constrain_op l op ts s =
    | (AallocFixed, _) => failwith l (implode "Unsafe ops do not have a type")  s(* not actually unsafe *)
    | (Eval, _) => failwith l (implode "Unsafe ops do not have a type") s
    | (Env_id, _) => failwith l (implode "Unsafe ops do not have a type") s
+   | (ThunkOp _, _) => failwith l (implode "Thunk ops do not have a type") s
    | _ => failwith l (op_n_args_msg op (LENGTH ts)) s
 End
 
@@ -812,11 +816,12 @@ Theorem constrain_op_error_msg_sanity:
   LENGTH args = SND (op_to_string op) ∧
   constrain_op l op args s = (Failure (l',msg), s')
   ⇒
-  IS_PREFIX (explode msg) "Type mismatch" \/
-  IS_PREFIX (explode msg) "Unsafe"
+  IS_PREFIX (explode msg) "Type mismatch" ∨
+  IS_PREFIX (explode msg) "Unsafe" ∨
+  IS_PREFIX (explode msg) "Thunk"
 Proof
  rpt strip_tac >>
- qmatch_abbrev_tac `IS_PREFIX _ m1 \/ IS_PREFIX _ m2` >>
+ qmatch_abbrev_tac `IS_PREFIX _ m1 \/ IS_PREFIX _ m2 \/ IS_PREFIX _ m3` >>
  cases_on `op` >>
  fs [op_to_string_def, constrain_op_dtcase_def, op_simple_constraints_def] >>
  gvs [LENGTH_EQ_NUM_compute] >>

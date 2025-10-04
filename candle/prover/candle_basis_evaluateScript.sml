@@ -220,6 +220,7 @@ Proof
   >- (Cases_on ‘op’ \\ gs[])
   >- (Cases_on ‘op’ \\ gs[])
   >- (Cases_on ‘op’ \\ gs[])
+  >- (Cases_on ‘op’ \\ gvs [])
   >- (
     gvs [do_app_cases, Boolv_def]
     \\ rw [v_ok_def]

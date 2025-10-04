@@ -150,7 +150,7 @@ Proof
   fs [validFD_def,nextFD_def]
   \\ qabbrev_tac `xs = MAP FST fs.infds`
   \\ match_mp_tac (SIMP_RULE std_ss []
-          (Q.ISPEC `\n:num. ~MEM n xs` whileTheory.LEAST_INTRO))
+          (Q.ISPEC `\n:num. ~MEM n xs` WhileTheory.LEAST_INTRO))
   \\ qexists_tac `SUM xs + 1`
   \\ strip_tac
   \\ qsuff_tac `!xs m:num. MEM m xs ==> m <= SUM xs`

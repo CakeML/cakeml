@@ -193,6 +193,7 @@ Definition compile_op_def:
     | Eval => Op t Install xs (* if need to flip:  Let t xs (Op t Install [Var t 1; Var t 0]) *)
     | FpFromWord => Let None xs (Var None 0)
     | FpToWord => Let None xs (Var None 0)
+    | ThunkOp op => Op t (ThunkOp op) xs
     | _ => Let None xs (Var None 0)
 End
 

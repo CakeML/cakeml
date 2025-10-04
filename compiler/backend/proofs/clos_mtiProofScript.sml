@@ -119,8 +119,17 @@ Inductive ref_rel:
   (!bs. ref_rel max_app (ByteArray bs) (ByteArray bs)) /\
   (!xs ys.
     LIST_REL (v_rel max_app) xs ys ==>
-    ref_rel max_app (ValueArray xs) (ValueArray ys))
+    ref_rel max_app (ValueArray xs) (ValueArray ys)) /\
+  (!m v w.
+    v_rel max_app v w ==>
+    ref_rel max_app (Thunk m v) (Thunk m w))
 End
+
+Theorem ref_rel_simps[simp] =
+  LIST_CONJ [
+  SIMP_CONV (srw_ss()) [ref_rel_cases] ``ref_rel max_app (ValueArray vs) x``,
+  SIMP_CONV (srw_ss()) [ref_rel_cases] ``ref_rel max_app (ByteArray bs) x``,
+  SIMP_CONV (srw_ss()) [ref_rel_cases] ``ref_rel max_app (Thunk m v) x``]
 
 Definition FMAP_REL_def:
   FMAP_REL r f1 f2 <=>
@@ -150,6 +159,18 @@ Definition state_rel_def:
     s.compile = pure_cc (clos_mti$compile_inc s.max_app) t.compile /\
     t.compile_oracle = pure_co (clos_mti$compile_inc s.max_app) o s.compile_oracle
 End
+
+Triviality state_rel_max_app:
+  state_rel s t ⇒ s.max_app = t.max_app ∧ 1 ≤ t.max_app
+Proof
+  gvs [state_rel_def]
+QED
+
+Triviality state_rel_clocks:
+  state_rel s t ⇒ s.clock = t.clock
+Proof
+  gvs [state_rel_def]
+QED
 
 (* evaluation theorem *)
 
@@ -498,10 +519,49 @@ Proof
    (Cases_on `s'.refs ' ptr` \\ fs []
     \\ Cases_on `t.refs ' ptr` \\ fs [ref_rel_cases]
     \\ fs [] \\ rveq \\ fs [])
+  THEN1
+   (Cases_on `s'.refs ' ptr` \\ fs []
+    \\ Cases_on `t.refs ' ptr` \\ fs [ref_rel_cases]
+    \\ fs [] \\ rveq \\ fs [])
   THEN
    (rpt gen_tac \\ Cases_on `k = p` \\ fs []
-    THEN1 (fs [ref_rel_cases])
     \\ fs [FAPPLY_FUPDATE_THM])
+QED
+
+Triviality state_rel_opt_rel_refs:
+  (state_rel s1 s2 ∧ FLOOKUP s1.refs n = r1 ⇒
+     ∃r2. FLOOKUP s2.refs n = r2 ∧ OPTREL (ref_rel s1.max_app) r1 r2) ∧
+  (state_rel s1 s2 ∧ FLOOKUP s2.refs n = r2 ⇒
+     ∃r1. FLOOKUP s1.refs n = r1 ∧ OPTREL (ref_rel s1.max_app) r1 r2)
+Proof
+  rw [] \\ gvs [state_rel_def, FMAP_REL_def, FLOOKUP_DEF] \\ rw []
+QED
+
+Triviality rel_update_thunk:
+  state_rel s1 s2 ∧
+  LIST_REL (v_rel s1.max_app) vs ys ⇒
+    (update_thunk [RefPtr v ptr] s2.refs ys = NONE ⇒
+       update_thunk [RefPtr v ptr] s1.refs vs = NONE) ∧
+    (update_thunk [RefPtr v ptr] s2.refs ys = SOME refs2 ⇒
+       ∃refs1. update_thunk [RefPtr v ptr] s1.refs vs = SOME refs1 ∧
+               state_rel (s1 with refs := refs1) (s2 with refs := refs2))
+Proof
+  rw []
+  \\ gvs [oneline update_thunk_def, AllCaseEqs()] \\ rw []
+  \\ gvs [oneline dest_thunk_def, AllCaseEqs()]
+  \\ (
+    gvs [Once v_rel_cases, oneline store_thunk_def, AllCaseEqs()]
+    \\ TRY (
+      drule_all (cj 2 state_rel_opt_rel_refs) \\ rw [OPTREL_def]
+      \\ rgs [Once ref_rel_cases])
+    \\ TRY (
+      drule (cj 1 state_rel_opt_rel_refs) \\ strip_tac
+      \\ first_x_assum dxrule \\ rw [OPTREL_def] \\ gvs []
+      \\ imp_res_tac (cj 2 state_rel_opt_rel_refs) \\ gvs [OPTREL_def]
+      \\ rgs [Once ref_rel_cases])
+    \\ gvs [state_rel_def, FMAP_REL_def, FLOOKUP_UPDATE] \\ rw []
+    \\ simp [ref_rel_def]
+    \\ metis_tac [])
 QED
 
 val do_app_inst =
@@ -723,6 +783,30 @@ Proof
       \\ fs []
       \\ CCONTR_TAC
       \\ fs [])
+    \\ Cases_on `opp = ThunkOp ForceThunk` \\ gvs [] \\ rveq
+    >- (
+      Cases_on `res1` \\ gvs []
+      \\ gvs [AllCaseEqs()]
+      \\ gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
+      \\ drule_all (cj 2 state_rel_opt_rel_refs) \\ rw [OPTREL_def]
+      \\ rgs [Once ref_rel_cases]
+      \\ imp_res_tac evaluate_const \\ gvs []
+      \\ imp_res_tac state_rel_clocks \\ gvs [PULL_EXISTS]
+      \\ (
+        `state_rel (dec_clock 1 s2) (dec_clock 1 s')` by (
+          gvs [state_rel_def, dec_clock_def]) \\ gvs []
+        \\ last_x_assum $ drule_at (Pat `state_rel _ _`) \\ gvs []
+        \\ disch_then $ qspecl_then [`[AppUnit (Var None 0)]`, `v'`] mp_tac
+        \\ gvs [] \\ impl_tac
+        >- gvs [state_rel_def, dec_clock_def, AppUnit_def, no_mti_def,
+                intro_multi_def, collect_apps_def]
+        \\ rw [] \\ gvs []
+        \\ gvs [dec_clock_def]
+        \\ Cases_on `res1` \\ gvs []
+        \\ imp_res_tac state_rel_max_app \\ gvs []
+        \\ drule rel_update_thunk \\ gvs []
+        \\ disch_then drule \\ rw [] \\ gvs []
+        \\ qrefine `Rval _` \\ gvs [PULL_EXISTS]))
     (* do_app *)
     \\ Cases_on `res1` \\ fs []
     \\ imp_res_tac evaluate_const \\ fs []
@@ -1251,6 +1335,9 @@ Proof
     ONCE_REWRITE_TAC[contains_App_SOME_EXISTS] >>
     srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
     metis_tac[contains_App_SOME_collect_args,SND,PAIR])
+  >- (
+    Cases_on `op` >> simp [contains_App_SOME_def] >>
+    Cases_on `t'` >> simp [contains_App_SOME_def])
 QED
 
 Theorem contains_App_SOME_compile[simp]:
@@ -1336,7 +1423,8 @@ Theorem collect_apps_preserves_set_globals:
 Proof
   ho_match_mp_tac clos_mtiTheory.collect_apps_ind >>
   simp[clos_mtiTheory.collect_apps_def, bool_case_eq] >> rpt strip_tac
-  >- (fs[elist_globals_append] >>
+  >- (pop_assum (assume_tac o SYM) >> gvs[elist_globals_append] >>
+      last_x_assum $ qspecl_then [`es''`,`e'`] assume_tac >> gvs [] >>
       metis_tac[bagTheory.COMM_BAG_UNION, bagTheory.ASSOC_BAG_UNION])
   >- (rveq >> simp[])
 QED
