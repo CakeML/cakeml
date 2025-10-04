@@ -1,5 +1,5 @@
 (*
-  Correctness proof for compilation from stackLang to wasmLang
+  Correctness proof for compilation from stackLang to CWasm
 *)
 Theory stack_to_wasmProof
 Libs
@@ -235,51 +235,12 @@ End
   actual implementation of CakeML completely destroys the joy of software
   engineering.
 
-       | Call ((stackLang$prog # num # num # num) option)
-              (* return-handler code, link reg, labels l1,l2*)
-              (num + num) (* target of call (Direct or Reg) *)
-              ((stackLang$prog # num # num) option)
-              (* handler: exception-handler code, labels l1,l2*)
+       | Call ((stackLang$prog # num # num # num) option)   (* return-handler code, link reg, label *)
+              (num + num)                                   (* target of call (Direct or Reg) *)
+              (stackLang$prog # num # num) option           (* exception-handler code, label *)
 *)
-(* ⌂Call *)
-Definition compile_call_def:
-  (* no return handler -- tail call *)
-  compile_call NONE (INL l) _ _ = List [tail_call l] ∧
-  compile_call NONE (INR r) _ _ =
-  (
-    List [
-      GLOBAL_GET r; I32_WRAP_I64; I32_CONST 1w; I32_SHR_U;
-      RETURN_CALL_INDIRECT ftype
-    ]
-  ) ∧
-  compile_call (SOME (ret_hdlr, lr, ret_loc)) (INL l) _ exn =
-  (
-    let exn_hdlr =
-      case exn of
-        NONE => List[]
-      | SOME (exn_hdlr, _) => exn_hdlr
-    in
-    List [
-      I64_CONST 0w; GLOBAL_SET lr;
-      CALL l;
-      wasmLang$If BlkNil (append exn_hdlr) (append ret_hdlr)
-    ]
-  ) ∧
-  compile_call (SOME (ret_hdlr, lr, ret_loc)) (INR r) _ exn =
-  (
-    let exn_hdlr =
-      case exn of
-        NONE => List[]
-      | SOME (exn_hdlr, _) => exn_hdlr
-    in
-    List [
-      I64_CONST 0w; GLOBAL_SET lr;
-      GLOBAL_GET r; I32_WRAP_I64; I32_CONST 1w; I32_SHR_U;
-      CALL_INDIRECT ftype;
-      wasmLang$If BlkNil (append exn_hdlr) (append ret_hdlr)
-    ]
-  )
-End
+
+Overload flatten = “append”;
 
 Definition compile_def:
   compile stackLang$Skip = List ([]:wasmLang$instr list) ∧
@@ -288,11 +249,45 @@ Definition compile_def:
   (* no values are left on the wasm operand stack, hence BlkNil *)
   compile (stackLang$If cmp a_r b_ri p1 p2) =
     Append (comp_cmp cmp a_r b_ri)
-           (List [wasmLang$If BlkNil (append (compile p1)) (append (compile p2))])
+           (List [wasmLang$If BlkNil (flatten (compile p1)) (flatten (compile p2))])
   ∧
   compile (stackLang$Inst inst) = compile_inst inst ∧
   compile (stackLang$Return r) = List [I32_CONST 0w; RETURN] ∧
-  compile (stackLang$Raise  r) = List [I32_CONST 1w; RETURN]
+  compile (stackLang$Raise  r) = List [I32_CONST 1w; RETURN] ∧
+
+  (* Call *)
+
+  (* no return handler -- tail call *)
+  compile (stackLang$Call NONE dest _) =
+  (
+    case dest of
+      INL l => List [tail_call l]
+    | INR r =>
+      List [
+        GLOBAL_GET r; I32_WRAP_I64; I32_CONST 1w; I32_SHR_U;
+        RETURN_CALL_INDIRECT ftype
+      ]
+  ) ∧
+  compile (stackLang$Call (SOME (ret_hdlr, lr, ret_loc)) dest exn) =
+  (
+    let exn_hdlr =
+      case exn of
+        NONE => Nil
+      | SOME (exn_hdlr, _) => compile exn_hdlr
+    in
+    let rest =
+      wasmLang$If BlkNil (flatten exn_hdlr) (flatten (compile ret_hdlr))
+    in
+    let call_sequence =
+      case dest of
+        INL l => [CALL l; rest]
+      | INR r => [GLOBAL_GET r; I32_WRAP_I64; I32_CONST 1w; I32_SHR_U; CALL_INDIRECT ftype; rest]
+    in
+    List (
+      I64_CONST 0w :: GLOBAL_SET lr :: call_sequence
+    )
+  )
+
 End
 
 (* definitions used in the correctness statement *)
@@ -325,7 +320,7 @@ Definition conf_ok_def:
   conf_ok (c: 64 asm_config) ⇔
   c.reg_count < 4294967296 (* 2**32; wasm binary encoding *) ∧
   c.fp_reg_count = 0 ∧
-  c.ISA = Ag32 (* placeholder *)
+  c.ISA = Wasm
 End
 
 Definition regs_rel_def:
@@ -347,7 +342,7 @@ Definition state_rel_def:
     (* *)
     regs_rel c s.regs t.globals ∧
     s.clock = t.clock
-    (* ∧ code_rel s.code t.code *)
+    (* ∧ code_rel s.code t.funcs *)
 End
 
 Definition res_rel_def:
@@ -378,7 +373,7 @@ val goal_tm = “
     s_res ≠ SOME Error ∧
     state_rel c s t ⇒
     ∃ck t_res t_fin.
-      exec_list (append (compile p)) (t with clock := ck + t.clock) = (t_res, t_fin) ∧
+      exec_list (flatten (compile p)) (t with clock := ck + t.clock) = (t_res, t_fin) ∧
       conf_rel c (s_res, s_fin) t (t_res, t_fin)
   ”
 local
@@ -426,9 +421,7 @@ Theorem exec_list_cons:
     if res1=RNormal then exec_list rest s1
     else (res1,s1)
 Proof
-rw[exec_def]
->>rpt(pairarg_tac>>fs[])
->>(PURE_TOP_CASE_TAC>>fs[])
+  simp[exec_def,UNCURRY_pair_CASE]>>every_case_tac[]
 QED
 
 Theorem exec_list_cons_RNormal:
@@ -547,7 +540,7 @@ QED
 Theorem UNCURRY_pair_CASE:
   ∀f x. UNCURRY f x = pair$pair_CASE x f
 Proof
-Cases_on`x`>>simp[]
+  Cases_on`x`>>simp[]
 QED
 
 (*
@@ -876,7 +869,7 @@ Theorem comp_cmp_thm:
   labSem$word_cmp cmp wa wb = SOME ☯ ∧
   conf_ok c ∧
   state_rel c ^s ^t ==>
-  exec_list (append (comp_cmp cmp a b)) t = (RNormal, push (I32 (b2w ☯)) t)
+  exec_list (flatten (comp_cmp cmp a b)) t = (RNormal, push (I32 (b2w ☯)) t)
 Proof
 rpt strip_tac
 >>simp[comp_cmp_def,exec_list_cons]
@@ -986,15 +979,15 @@ rpt strip_tac
   >>strip_tac
   >>fs[]
   >>rename1 `evaluate (c1,s) = (_,s1)`
-  >>rename1 `exec_list (append (compile c1)) (t with clock := ck1 + t.clock) = (t_res1, t1)`
+  >>rename1 `exec_list (flatten (compile c1)) (t with clock := ck1 + t.clock) = (t_res1, t1)`
   >>subgoal `t_res1 = RNormal` (* because s_res1 is NONE *)
   >-fs[conf_rel_def,res_rel_def]
   >>imp_res_tac conf_rel_state_rel
   >>first_x_assum drule
   >>strip_tac
-  >>rename1 `exec_list (append (compile c2)) (t1 with clock := ck2 + t1.clock) = _`
+  >>rename1 `exec_list (flatten (compile c2)) (t1 with clock := ck2 + t1.clock) = _`
   >>qexists_tac`ck2+ck1`
-  >>subgoal `exec_list (append (compile c1)) (t with clock := ck2 + ck1 + t.clock) = (t_res1, t1 with clock := ck2 + t1.clock)`
+  >>subgoal `exec_list (flatten (compile c1)) (t with clock := ck2 + ck1 + t.clock) = (t_res1, t1 with clock := ck2 + t1.clock)`
   >-(
     `t_res1 ≠ RTimeout` by simp[]
     >>drule_all exec_list_add_clock
@@ -1097,6 +1090,77 @@ Proof
   )
 QED
 
+(* ⌂⌂ *)
+
+Theorem compile_Call:
+  ^(get_goal "Call")
+Proof
+rpt strip_tac
+>>(Cases_on`ret`>>gvs[])
+>-(
+  Cases_on`handler`>>fs[evaluate_def,option_case_eq]
+  >>(Cases_on`s.clock=0`>>fs[])
+  >-(
+    (* timeout case *)
+    simp[compile_def]
+    >>qexists_tac`0`
+    >>simp[]
+    (* timeout on RETURN_CALL (INL) or RETURN_CALL_INDIRECT (INR) *)
+    >>(Cases_on`dest`>>simp[])
+    >-(
+      simp[tail_call_def]
+      >>simp[RETURN_CALL_def,exec_def]
+
+(*
+    0.  T
+    1.  find_code (INL x) s.regs s.code = SOME prog
+    2.  s_res = SOME TimeOut
+    3.  empty_env s = s_fin
+    4.  conf_ok c
+    5.  stack_asm_ok c (Call NONE (INL x) NONE)
+    6.  s_res ≠ SOME Error
+    7.  state_rel c s t
+    8.  s.clock = 0
+   ------------------------------------
+        ∃t_res t_fin.
+          (case
+             LLOOKUP t.funcs
+               ((x + LENGTH wasm_support_function_list) MOD 4294967296)
+           of
+             NONE => (RInvalid,t)
+           | SOME f =>
+             case LLOOKUP t.types (w2n f.ftype) of
+               NONE => (RInvalid,t)
+             | SOME (ins,outs) =>
+               case pop_n (LENGTH ins) t of
+                 NONE => (RInvalid,t)
+               | SOME (v2,v3) =>
+                 if v3.clock = 0 then (RTimeout,v3)
+                 else
+                   (λ(res,s1).
+                        case res of
+                          RInvalid => (res,s1)
+                        | RBreak v1 => (RInvalid,s1)
+                        | RReturn =>
+                          if LENGTH s1.stack < LENGTH outs then (RInvalid,s1)
+                          else
+                            (RReturn,
+                             v3 with stack := TAKE (LENGTH outs) s1.stack)
+                        | RTrap => (res,s1)
+                        | RNormal =>
+                          if LENGTH s1.stack ≠ LENGTH outs then (RInvalid,s1)
+                          else (RReturn,v3 with stack := s1.stack)
+                        | RTimeout => (res,s1))
+                     (exec_list f.body
+                        (v3 with
+                         <|clock := v3.clock − 1; stack := [];
+                           locals := v2 ++ MAP init_val_of ins|>))) =
+          (t_res,t_fin) ∧ conf_rel c (SOME TimeOut,s_fin) t (t_res,t_fin)
+*)
+
+  cheat
+QED
+
 Theorem compile_Inst:
   ^(get_goal "Inst")
 Proof
@@ -1140,12 +1204,6 @@ QED
 
 Theorem compile_While:
   ^(get_goal "While")
-Proof
-  cheat
-QED
-
-Theorem compile_Call:
-  ^(get_goal "Call")
 Proof
   cheat
 QED
