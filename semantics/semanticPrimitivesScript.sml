@@ -171,14 +171,17 @@ Datatype:
   | W8array (word8 list)
   (* An array of values *)
   | Varray ('a list)
+  (* Thunk *)
+  | Thunk thunk_mode 'a
 End
 
 Definition store_v_same_type_def:
   store_v_same_type v1 v2 =
     case (v1:'a store_v, v2:'a store_v) of
-    | (Refv _, Refv _) => T
-    | (W8array _,W8array _) => T
-    | (Varray _,Varray _) => T
+    | (Refv _,    Refv _   ) => T
+    | (W8array _, W8array _) => T
+    | (Varray _,  Varray _ ) => T
+    | (Thunk NotEvaluated _, Thunk _ _) => T
     | _ => F
 End
 
@@ -360,8 +363,7 @@ Definition pmatch_def:
   (case store_lookup lnum s of
      NONE => Match_type_error
    | SOME (Refv v) => pmatch envC s p v env
-   | SOME (W8array v6) => Match_type_error
-   | SOME (Varray v7) => Match_type_error) ∧
+   | SOME _ => Match_type_error) ∧
   pmatch envC s (Pas p i) v env = pmatch envC s p v ((i,v)::env) ∧
   pmatch envC s (Ptannot p t) v env = pmatch envC s p v env ∧
   pmatch envC s _ _ env = Match_type_error ∧
@@ -766,6 +768,19 @@ Definition xor_bytes_def:
     | SOME rest => SOME (word_xor b1 b2 :: rest)
 End
 
+Definition thunk_op_def:
+  thunk_op (s: v store_v list, t: 'ffi ffi_state) th_op vs =
+    case (th_op,vs) of
+    | (AllocThunk m, [v]) =>
+        (let (s',n) = store_alloc (Thunk m v) s in
+           SOME ((s',t), Rval (Loc F n)))
+    | (UpdateThunk m, [Loc _ lnum; v]) =>
+        (case store_assign lnum (Thunk m v) s of
+         | SOME s' => SOME ((s',t), Rval (Conv NONE []))
+         | NONE => NONE)
+    | _ => NONE
+End
+
 Definition do_app_def:
   do_app (s: v store_v list, t: 'ffi ffi_state) op vs =
     case (op, vs) of
@@ -1113,6 +1128,7 @@ Definition do_app_def:
             Rval (Conv NONE [nat_to_v gen; nat_to_v id]))
     | (Env_id, [Conv NONE [gen; id]]) => SOME ((s, t),
             Rval (Conv NONE [gen; id]))
+    | (ThunkOp th_op, vs) => thunk_op (s,t) th_op vs
     | _ => NONE
 End
 
@@ -1169,3 +1185,35 @@ End
 val _ = set_fixity "+++" (Infixl 480);
 Overload "+++" = “extend_dec_env”;
 
+(* With `dest_thunk` we check 3 things:
+     - The values contain exactly one reference
+     - The reference is valid
+     - The reference points to a thunk
+   We distinguish between `BadRef` and `NotThunk` instead of returning an option
+   with `NONE` for both, because we want `update_thunk` to succeed when
+   `dest_thunk` fails but only when the reference actually exists and points to
+   something other than a thunk. *)
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk [Loc _ n] st =
+    (case store_lookup n st of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk vs st = NotThunk
+End
+
+Definition update_thunk_def:
+  update_thunk [Loc _ n] st [v] =
+    (case dest_thunk [v] st of
+     | NotThunk => store_assign n (Thunk Evaluated v) st
+     | _ => NONE) ∧
+  update_thunk _ st _ = NONE
+End

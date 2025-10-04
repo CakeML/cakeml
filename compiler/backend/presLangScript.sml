@@ -190,6 +190,20 @@ Definition shift_to_display_def:
   (shift_to_display Ror = empty_item (strlit "Ror"))
 End
 
+Definition thunk_mode_to_display_def:
+  (thunk_mode_to_display Evaluated = empty_item (strlit "Evaluated"))
+  /\
+  (thunk_mode_to_display NotEvaluated = empty_item (strlit "NotEvaluated"))
+End
+
+Definition thunk_op_to_display_def:
+  (thunk_op_to_display (AllocThunk m) =
+    Item NONE (strlit "AllocThunk") [thunk_mode_to_display m]) ∧
+  (thunk_op_to_display (UpdateThunk m) =
+    Item NONE (strlit "UpdateThunk") [thunk_mode_to_display m]) ∧
+  (thunk_op_to_display ForceThunk = empty_item (strlit "ForceThunk"))
+End
+
 Definition op_to_display_def:
   op_to_display (p:ast$op) =
   case p of
@@ -251,6 +265,7 @@ Definition op_to_display_def:
   | FFI v35 => empty_item (strlit "FFI v35")
   | Eval => empty_item (strlit "Eval")
   | Env_id => empty_item (strlit "Eval")
+  | ThunkOp t => thunk_op_to_display t
 End
 
 Definition lop_to_display_def:
@@ -473,6 +488,7 @@ Definition flat_op_to_display_def:
     | ConfigGC => empty_item (strlit "ConfigGC")
     | FFI s => Item NONE (strlit "FFI") [string_imp s]
     | Eval => empty_item (strlit "Eval")
+    | ThunkOp t => thunk_op_to_display t
     | GlobalVarAlloc n => item_with_num (strlit "GlobalVarAlloc") n
     | GlobalVarInit n => item_with_num (strlit "GlobalVarInit") n
     | GlobalVarLookup n => item_with_num (strlit "GlobalVarLookup") n
@@ -690,6 +706,7 @@ Definition clos_op_to_display_def:
     | WordOp (FP_bop op) => fp_bop_to_display op
     | WordOp (FP_top op) => fp_top_to_display op
     | Install => String (strlit "Install")
+    | ThunkOp t => thunk_op_to_display t
 End
 
 Triviality MEM_clos_exps_size:
@@ -815,6 +832,9 @@ Definition bvl_to_display_def:
     Item NONE (strlit "call")
          (String (attach_name ns dest) ::
           (bvl_to_display_list ns h xs))) /\
+  (bvl_to_display ns h (Force loc n) =
+    Item NONE (strlit "force")
+         [display_num_as_varn (h-n-1); String (attach_name ns (SOME loc))]) /\
   (bvl_to_display ns h (Op op xs) =
     Item NONE (strlit "op") (clos_op_to_display ns op ::
                              (bvl_to_display_list ns h xs)))  ∧
@@ -873,6 +893,9 @@ Definition bvi_to_display_def:
            | SOME e => [Item NONE (strlit "handler") [display_num_as_varn h;
                                                       empty_item (strlit "->");
                                                       bvi_to_display ns (h+1) e]]))) /\
+  (bvi_to_display ns h (Force loc n) =
+    Item NONE (strlit "force")
+         [display_num_as_varn (h-n-1); String (attach_name ns (SOME loc))]) ∧
   (bvi_to_display ns h (Op op xs) =
     Item NONE (strlit "op") (clos_op_to_display ns op ::
                              (bvi_to_display_list ns h xs)))  ∧
@@ -950,6 +973,11 @@ Definition data_prog_to_display_def:
             list_to_display num_to_display args;
             Item NONE (strlit "some") [Tuple [num_to_display v;
                 data_prog_to_display k ns handler]]]
+    | Force ret loc src => Item NONE (strlit "force")
+        [option_to_display (\(x, y). Tuple
+                [num_to_display x; num_set_to_display y]) ret;
+         num_to_display loc;
+         num_to_display src]
     | Assign n op args n_set => Tuple
         [num_to_display n;
          String (strlit ":=");

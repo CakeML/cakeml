@@ -2193,7 +2193,7 @@ val _ = cv_auto_trans backend_asmTheory.to_bvl_def;
 (* Bring everything from bvl to the front -- everything because this file is
    too big for me to try everything separately. *)
 val bvl_names =
-  ["Var", "If", "Let", "Raise", "Handle", "Tick", "Call", "Op", "Bool",
+  ["Var", "If", "Let", "Raise", "Handle", "Tick", "Force", "Call", "Op", "Bool",
    "mk_tick"];
 val _ = app (fn name =>
   temp_bring_to_front_overload name {Name=name, Thy="bvl"}) bvl_names;

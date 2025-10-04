@@ -310,6 +310,9 @@ val data_to_word_assign_side = Q.prove(`
   metis_tac[word_op_type_nchotomy,option_nchotomy,NOT_NONE_SOME,list_distinct]) |> update_precondition
 *)
 
+val _ = translate (data_to_wordTheory.force_thunk_def
+                    |> SRULE [bytes_in_word_def] |> conv32 |> wcomp_simp);
+
 Theorem comp_ind =
   data_to_wordTheory.comp_ind|> conv32|> wcomp_simp
 (* Inlines the let k = 8 manually *)

@@ -10349,7 +10349,7 @@ val semantics_compile_lemma = Q.prove(
   rw[]>>
   gvs[find_index_LEAST_EL] >>
   qpat_x_assum `(LEAST n'. _) = n` mp_tac >>
-  DEEP_INTRO_TAC whileTheory.LEAST_ELIM >>
+  DEEP_INTRO_TAC WhileTheory.LEAST_ELIM >>
   conj_tac
   >- (fs[MEM_EL] >> metis_tac[]) >>
   simp[] >>
