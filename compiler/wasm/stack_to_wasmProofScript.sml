@@ -1032,8 +1032,6 @@ Proof
   >>(Cases_on`x`>>simp[res_rel_def])
 QED
 
-(* ⌂⌂ *)
-
 Theorem exec_list_add_clock_RNormal:
   exec_list p t = (RNormal, t') ⇒
   exec_list p (t with clock := ck + t.clock) = (RNormal, t' with clock := ck + t'.clock)
@@ -1045,6 +1043,31 @@ Theorem push_with_clock:
   push v t with clock updated_by f = push v (t with clock updated_by f)
 Proof
   simp[push_def]
+QED
+
+Theorem Block_rel:
+  exec_list Ins
+    (t with <|clock := ck + t.clock; stack := []|>) = (t_res1,t1) ∧
+  s_res ≠ SOME Error ∧
+  conf_rel c (s_res,s_fin) (t with stack := []) (t_res1,t1) ⇒
+  ∃t_res t_fin.
+    exec (Block BlkNil Ins)
+      (t with clock := ck + t.clock) = (t_res,t_fin) ∧
+    conf_rel c (s_res,s_fin) t (t_res,t_fin)
+Proof
+strip_tac
+>>(Cases_on`t_res1`>>fs[])
+>~[`exec_list _ _ = (RNormal, _)`]
+>-(
+  drule_then (qspec_then`t.stack`assume_tac) exec_Block_BlkNil_RNormal
+  >>fs[conf_rel_def]
+  >>simp[push_def,state_rel_with_stack]
+  >>metis_tac[res_rel_RNormal]
+)
+>>fs[conf_rel_def]
+>~[`exec_list _ _ = (RBreak _, _)`]
+>-metis_tac[res_rel_RBreak]
+>>simp[push_def,exec_def]
 QED
 
 Theorem compile_If:
@@ -1070,18 +1093,7 @@ Proof
     >>simp[push_with_clock,exec_If]
     >>simp[push_def]
     (* exec Block *)
-    >>(Cases_on`t_res`>>fs[])
-    >~[`exec_list _ _ = (RNormal, _)`]
-    >-(
-      drule_then (qspec_then`t.stack`assume_tac) exec_Block_BlkNil_RNormal
-      >>fs[conf_rel_def]
-      >>simp[push_def,state_rel_with_stack]
-      >>metis_tac[res_rel_RNormal]
-    )
-    >>fs[conf_rel_def]
-    >~[`exec_list _ _ = (RBreak _, _)`]
-    >-metis_tac[res_rel_RBreak]
-    >>simp[push_def,exec_def]
+    >>metis_tac[Block_rel]
   )
 QED
 
