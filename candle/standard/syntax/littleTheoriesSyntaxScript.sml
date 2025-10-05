@@ -285,24 +285,8 @@ Definition esubsts_ok_def:
     (∀ty. ty ∈ FRANGE σ ⇒ type_ok (tysof sig) ty ∧
                           is_monomorphic ty) ∧
     (∀tm. tm ∈ FRANGE θ ⇒ term_ok (esubst_sig (σ,θ) sig) tm ∧
-                          ∃n ty. tm = Const n ty) ∧
+                          ∃n ty. tm = Const n ty ∧ is_monomorphic ty) ∧
     DISJOINT (FDOM σ) (BIGUNION (IMAGE nullary_ops_of (FRANGE σ)))
-End
-
-Definition nullary_ops_of_tm_def:
-  nullary_ops_of_tm (Var n ty) = nullary_ops_of ty ∧
-  nullary_ops_of_tm (Const n ty) = nullary_ops_of ty ∧
-  nullary_ops_of_tm (Comb e1 e2) = nullary_ops_of_tm e1 ∪ nullary_ops_of_tm e2 ∧
-  nullary_ops_of_tm (Abs v body) = nullary_ops_of_tm v ∪ nullary_ops_of_tm body
-End
-
-Definition safe_sequent_esubst_def:
-  safe_sequent_esubst σ c hs ⇔
-    ∀ty1 ty2.
-      ty1 ∈ { SND t | t ∈ FVs c ∪ BIGUNION (set (MAP FVs hs))} ∧
-      ty2 ∈ { SND t | t ∈ FVs c ∪ BIGUNION (set (MAP FVs hs))} ∧
-      ty1 ≠ ty2 ⇒
-      ty_esubst σ ty1 ≠ ty_esubst σ ty2
 End
 
 (* Standard signature includes the minimal type operators and constants *)
@@ -382,8 +366,7 @@ Inductive proves':
 [~elim_inst:]
   ((thy, es, h) |-' c ∧
    theory_ok' thy ∧
-   esubsts_ok (thy.ctys, thy.ctms) σ ∧
-   safe_sequent_esubst σ c h
+   esubsts_ok (thy.ctys, thy.ctms) σ
    ⇒ (thy, IMAGE (esubst σ []) es, term_image (esubst σ []) h) |-'
      esubst σ (FLAT (MAP tm_names h)) c)
 
