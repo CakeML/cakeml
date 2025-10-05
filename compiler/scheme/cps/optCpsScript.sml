@@ -683,3 +683,39 @@ Proof
   >> simp[scopes_rel_indifference]
   >> simp[ks_rel_indifference]
 QED
+
+Theorem opt_cps_eval:
+  ! n prog env v .
+    rich_cbv_steps n ([], nsEmpty, [], RCExp prog) = ([], env, [], RCVal v)
+    ==>
+    ? m cv .
+      cbv_steps m ([], CExp nsEmpty (cps_exp prog [] NONE)) = ([], CVal cv) /\
+      vv_rel v cv
+Proof
+  cheat
+QED
+
+Inductive non_terminating_cbv:
+[~Cont:]
+  non_terminating_cbv ((k::ks), c)
+[~Exp:]
+  non_terminating_cbv (ks, (CExp env e))
+End
+
+Inductive non_terminating_rich_cbv:
+[~Cont:]
+  non_terminating_rich_cbv ((k::ks), env, scopes, c)
+[~Scope:]
+  non_terminating_rich_cbv (ks, env, ((env',ks)::scopes), c)
+[~Exp:]
+  non_terminating_rich_cbv (ks, env, scopes, (RCExp e))
+End
+
+Theorem opt_cps_divergence:
+  ! prog .
+    (! n . non_terminating_rich_cbv (rich_cbv_steps n ([], nsEmpty, [], RCExp prog)))
+    ==>
+    (! m . non_terminating_cbv (cbv_steps m ([], CExp nsEmpty (cps_exp prog [] NONE))))
+Proof
+  cheat
+QED
