@@ -2126,9 +2126,10 @@ Termination
   rw[parse_cstep_def]>>
   gvs[AllCaseEqs()]>>
   imp_res_tac parse_sstep_LENGTH>>
-  fs[parse_scope_def]>>
+  fs[parse_scope_def,parse_subproof_def]>>
   imp_res_tac parse_scope_aux_LENGTH>>
   imp_res_tac parse_pre_order_LENGTH>>
+  imp_res_tac parse_subproof_aux_LENGTH>>
   fs[]
 End
 
