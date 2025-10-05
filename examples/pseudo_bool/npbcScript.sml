@@ -341,7 +341,7 @@ QED
 
 Definition divide_def:
   divide ((l,n):npbc) k =
-    (MAP (λ(c,v). (div_ceiling c k, v)) l, div_ceiling n k)
+    (MAP (λ(c,v). (div_ceiling c k, v)) l, IQ n (&k))
 End
 
 Theorem div_ceiling_le_x:
@@ -366,34 +366,44 @@ Proof
 QED
 
 Theorem Num_div_ceiling:
-  0 < k ⇒ Num q ≤ k * Num (div_ceiling q k)
+  0 < k ⇒ Num (ABS q) ≤ k * Num (ABS (div_ceiling q k))
 Proof
   Cases_on ‘q’>>
   rw[div_ceiling_compute,LE_MULT_CEILING_DIV]
 QED
 
+Theorem LT_LE_ADD:
+  x < a ∧
+  y ≤ (b:num) ⇒
+  x + y < a + b
+Proof
+  intLib.ARITH_TAC
+QED
+
 Theorem divide_thm:
-  satisfies_npbc w c ∧ k ≠ 0 ⇒ satisfies_npbc w (divide c k)
+  satisfies_npbc w c ∧ k ≠ 0 ⇒
+  satisfies_npbc w (divide c k)
 Proof
   Cases_on ‘c’>>
   rename1 ‘satisfies_npbc w (q,r)’>>
   rw[divide_def,satisfies_npbc_def,MAP_MAP_o]>>
-  Cases_on ‘r < 0’
-  >-(
-    ‘div_ceiling r k < 0’ suffices_by intLib.ARITH_TAC>>
-    fs[div_ceiling_sign])>>
-  ‘0 ≤ r’ by intLib.ARITH_TAC>>
-  simp[div_ceiling_le_x]>>
-  irule integerTheory.INT_LE_TRANS>>
-  goal_assum $ drule_at Any>>
+  DEP_REWRITE_TAC[IQ_quot]>>
   simp[]>>
-  last_x_assum $ kall_tac>>
-  Induct_on ‘q’>>
-  simp[]>>
-  Cases>>
-  simp[LEFT_ADD_DISTRIB,div_ceiling_sign,GSYM integerTheory.Num_EQ_ABS]>>
-  irule LESS_EQ_LESS_EQ_MONO>>
-  simp[Num_div_ceiling]
+  Cases_on ‘r’ >> fs[]
+  >- (
+    DEP_REWRITE_TAC[DIV_LE_X]>>simp[]>>
+    irule LET_TRANS >>
+    goal_assum $ drule_at Any>>
+    last_x_assum $ kall_tac>>
+    Induct_on ‘q’>>
+    simp[]>> Cases>>
+    qmatch_goalsub_abbrev_tac` _ + A < k * (_ + (B + 1))`>>
+    qsuff_tac`A <= k * B`
+    >- intLib.ARITH_TAC>>
+    unabbrev_all_tac>>
+    rw[div_ceiling_sign,oneline b2n_def]>>
+    simp[Num_div_ceiling])>>
+  intLib.ARITH_TAC
 QED
 
 Theorem div_ceiling_eq_0:

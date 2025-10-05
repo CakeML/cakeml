@@ -1578,10 +1578,6 @@ Definition parse_assg_def:
   (parse_assg f_ns _ acc = NONE)
 End
 
-(* TODO: syntax?
-  currently: soli l1 ... ln [: value]
-  where value is optional but is meant to sanity test the logged value
-*)
 Definition parse_sol_def:
   (parse_sol f_ns r rs =
   case parse_assg f_ns rs [] of NONE => NONE
@@ -1589,6 +1585,12 @@ Definition parse_sol_def:
     let b = (r = INL( strlit "soli")) in
       SOME (Done (Obj assg b ov),f_ns'))
 End
+
+(*
+EVAL ``parse_sol (plainVar_nf,()) (INL (strlit "soli")) (toks_fast (strlit "x1 ~x2 ~x3 : -2"))``
+EVAL ``parse_sol (plainVar_nf,()) (INL (strlit "sol")) (toks_fast (strlit "x1 ~x2 ~x3 : -2"))``
+EVAL ``parse_sol (plainVar_nf,()) (INL (strlit "soli")) (toks_fast (strlit "x1 ~x2 ~x3"))``
+*)
 
 Definition parse_obj_term_npbc_def:
   parse_obj_term_npbc f_ns rest =
@@ -1607,7 +1609,6 @@ Definition parse_eobj_def:
   | SOME (f',f_ns') => SOME (Done (CheckObj f'), f_ns')
 End
 
-(* TODO: syntax for checked deletion *)
 Definition parse_delc_header_def:
   parse_delc_header f_ns line =
   case line of
@@ -1623,21 +1624,28 @@ Definition parse_delc_header_def:
   | _ => NONE
 End
 
+(*
+EVAL``parse_delc_header (plainVar_nf,()) (toks_fast (strlit "2 : x1 -> ~x2 : subproof"))``
+*)
+
+(* Take off : subproof at the end *)
 Definition strip_obju_end_def:
-  (strip_obju_end [] acc = NONE) ∧
-  (strip_obju_end [x] acc =
-    if x = INL(strlit "subproof")
-    then
-      SOME (REVERSE acc)
-    else NONE) ∧
-  (strip_obju_end (x::xs) acc =
-    strip_obju_end xs (x::acc))
+  strip_obju_end ls =
+  let lls = LENGTH ls in
+  if lls < 2
+  then
+    NONE
+  else
+    let tls = TAKE (lls-2) ls in
+    let dls = DROP (lls-2) ls in
+    if start_subproof dls
+    then SOME tls
+    else NONE
 End
 
-(* TODO: objective update *)
 Definition parse_b_obj_term_npbc_def:
   (parse_b_obj_term_npbc f_ns rest =
-   case strip_obju_end rest [] of NONE => NONE
+   case strip_obju_end rest of NONE => NONE
   | SOME [] => NONE
   | SOME (r::rs) =>
   case parse_obj_term_npbc f_ns rs of NONE => NONE
@@ -1646,6 +1654,10 @@ Definition parse_b_obj_term_npbc_def:
     else if r = INL (strlit"diff") then SOME (F,res)
     else NONE)
 End
+
+(*
+EVAL``parse_b_obj_term_npbc (plainVar_nf,()) (toks_fast (strlit "new 1 x1 2 : subproof"))``
+*)
 
 (* TODO: preserve *)
 Definition parse_preserve_def:
@@ -1736,6 +1748,15 @@ EVAL
 EVAL
 ``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"eobj 1 x1 -100 ;"))``;
 
+EVAL
+``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"obju new 1 x1 2 : subproof"))``;
+
+EVAL
+``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"soli x1 ~x2 ~x3 : -2;"))``
+
+EVAL
+``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"delc 2 : : subproof"))``;
+
 *)
 
 Definition parse_cstep_def:
@@ -1756,25 +1777,25 @@ Definition parse_cstep_def:
             NONE => NONE
           | SOME idopt =>
             SOME (INR (Dom c s pf idopt),f_ns''',rest))
-      | SOME (CheckedDeletepar n s, f_ns'') => NONE
-        (* TODO
-        (case parse_scope f_ns'' rest [] of
+      | SOME (CheckedDeletepar n s, f_ns'') =>
+        (case parse_scope f_ns'' rest of
           NONE => NONE
-        | SOME (res,pf,f_ns'',rest) =>
-          SOME (INR (CheckedDelete n s pf res), f_ns'', rest)) *)
+        | SOME (pf,f_ns''',h,rest) =>
+          case check_mark_qed_id_opt (INL (strlit"delc")) h of
+            NONE => NONE
+          | SOME idopt =>
+            SOME (INR (CheckedDelete n s pf idopt), f_ns''', rest))
       | SOME (StoreOrderpar name, f_ns'') =>
         (case parse_pre_order f_ns'' rest of NONE => NONE
         | SOME (vars,gspec,f,pfr,pft,f_ns''',rest) =>
           SOME (INR (StoreOrder name vars gspec f pfr pft), f_ns''',rest))
-      | SOME (ChangeObjpar b f, f_ns'') => NONE
-        (* TODO
-        (case parse_red_aux f_ns'' rest [] of
+      | SOME (ChangeObjpar b f, f_ns'') =>
+        (case parse_subproof f_ns'' rest of
           NONE => NONE
-        | SOME (res,pf,f_ns'',rest) =>
-          case res of NONE =>
-            SOME (INR (ChangeObj b f pf), f_ns'', rest)
-          | _ => NONE
-        ) *)
+        | SOME (pf,f_ns''',s,rest) =>
+        (case check_mark_qed_id_opt (INL (strlit"obju")) s of
+            SOME NONE => SOME (INR (ChangeObj b f pf), f_ns''', rest)
+        | _ => NONE))
       | SOME (ChangePrespar b x c, f_ns'') => NONE
         (* TODO
         (case parse_red_aux f_ns'' rest [] of
