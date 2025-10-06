@@ -339,13 +339,22 @@ Proof
   \\ ‘n = 1’ by fs [] \\ fs []
 QED
 
+Definition div_ceiling_up_def:
+  div_ceiling_up (m:int) (n:num) =
+    IQ
+      (if m < 0
+      then m
+      else m+ (&n - 1)) &n
+End
+
 Definition divide_def:
   divide ((l,n):npbc) k =
-    (MAP (λ(c,v). (div_ceiling c k, v)) l, IQ n (&k))
+    (MAP (λ(c,v). (div_ceiling c k, v)) l,
+      div_ceiling_up n k)
 End
 
 Theorem div_ceiling_le_x:
-  k ≠ 0 ⇒ 0 ≤ n ⇒ (div_ceiling n k ≤ m ⇔ n ≤ m * &k)
+  k ≠ 0 ∧ 0 ≤ n ⇒ (div_ceiling n k ≤ m ⇔ n ≤ m * &k)
 Proof
   rw[]>>
   Cases_on ‘0 ≤ m’
@@ -380,6 +389,16 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Theorem div_ceiling_up_eq:
+  (k < 0 ⇒
+  div_ceiling_up k n = IQ k (&n)) ∧
+  (¬ (k < 0) ⇒
+  div_ceiling_up k n = div_ceiling k n)
+Proof
+  rw[div_ceiling_up_def,div_ceiling_def]>>
+  intLib.ARITH_TAC
+QED
+
 Theorem divide_thm:
   satisfies_npbc w c ∧ k ≠ 0 ⇒
   satisfies_npbc w (divide c k)
@@ -387,23 +406,26 @@ Proof
   Cases_on ‘c’>>
   rename1 ‘satisfies_npbc w (q,r)’>>
   rw[divide_def,satisfies_npbc_def,MAP_MAP_o]>>
-  DEP_REWRITE_TAC[IQ_quot]>>
-  simp[]>>
-  Cases_on ‘r’ >> fs[]
+  Cases_on`r < 0` >> fs[div_ceiling_up_eq]
   >- (
-    DEP_REWRITE_TAC[DIV_LE_X]>>simp[]>>
-    irule LET_TRANS >>
-    goal_assum $ drule_at Any>>
-    last_x_assum $ kall_tac>>
-    Induct_on ‘q’>>
-    simp[]>> Cases>>
-    qmatch_goalsub_abbrev_tac` _ + A < k * (_ + (B + 1))`>>
-    qsuff_tac`A <= k * B`
-    >- intLib.ARITH_TAC>>
-    unabbrev_all_tac>>
-    rw[div_ceiling_sign,oneline b2n_def]>>
-    simp[Num_div_ceiling])>>
-  intLib.ARITH_TAC
+    Cases_on`r`>>
+    DEP_REWRITE_TAC[IQ_quot]>>
+    fs[]>>
+    intLib.ARITH_TAC)>>
+  DEP_REWRITE_TAC[div_ceiling_le_x]>>
+  CONJ_TAC >- intLib.ARITH_TAC>>
+  irule INT_LE_TRANS>>
+  goal_assum $ drule_at Any>>
+  last_x_assum $ kall_tac>>
+  Induct_on ‘q’>>
+  simp[]>> Cases>>
+  qmatch_goalsub_abbrev_tac` _ + A ≤ k * (_ + B)`>>
+  fs[]>>
+  qsuff_tac`A <= k * B`
+  >- intLib.ARITH_TAC>>
+  unabbrev_all_tac>>
+  rw[div_ceiling_sign,oneline b2n_def]>>
+  simp[Num_div_ceiling]
 QED
 
 Theorem div_ceiling_eq_0:
