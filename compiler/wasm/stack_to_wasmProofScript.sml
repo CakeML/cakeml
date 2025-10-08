@@ -153,8 +153,8 @@ Definition comp_ri_def:
 End
 
 (* cmp = Equal | Lower | Less | Test | NotEqual | NotLower | NotLess | NotTest *)
-Definition comp_cmp_def:
-  comp_cmp (cmp: cmp) a b =
+Definition compile_comp_def:
+  compile_comp (cmp: cmp) a b =
     let op =
       case cmp of
         Equal    => [I64_EQ]
@@ -233,7 +233,7 @@ End
 (*
   This abomination makes me question my life choices. Wading through the
   actual implementation of CakeML completely destroys the joy of software
-  engineering.
+  engineering.  -- SH, Oct 2025
 
        | Call ((stackLang$prog # num # num # num) option)   (* return-handler code, link reg, label *)
               (num + num)                                   (* target of call (Direct or Reg) *)
@@ -248,7 +248,7 @@ Definition compile_def:
   (* If cmp num ('a reg_imm) stackLang$prog stackLang$prog *)
   (* no values are left on the wasm operand stack, hence BlkNil *)
   compile (stackLang$If cmp a_r b_ri p1 p2) =
-    Append (comp_cmp cmp a_r b_ri)
+    Append (compile_comp cmp a_r b_ri)
            (List [wasmLang$If BlkNil (flatten (compile p1)) (flatten (compile p2))])
   ∧
   compile (stackLang$Inst inst) = compile_inst inst ∧
@@ -421,7 +421,7 @@ Theorem exec_list_cons:
     if res1=RNormal then exec_list rest s1
     else (res1,s1)
 Proof
-  simp[exec_def,UNCURRY_pair_CASE]>>every_case_tac[]
+  simp[exec_def,UNCURRY_pair_CASE]>>every_case_tac
 QED
 
 Theorem exec_list_cons_RNormal:
@@ -863,16 +863,16 @@ Proof
   >>simp[]
 QED
 
-Theorem comp_cmp_thm:
+Theorem compile_comp_thm:
   get_var a s = SOME wa ∧
   get_var_imm b s = SOME wb ∧
   labSem$word_cmp cmp wa wb = SOME ☯ ∧
   conf_ok c ∧
   state_rel c ^s ^t ==>
-  exec_list (flatten (comp_cmp cmp a b)) t = (RNormal, push (I32 (b2w ☯)) t)
+  exec_list (flatten (compile_comp cmp a b)) t = (RNormal, push (I32 (b2w ☯)) t)
 Proof
 rpt strip_tac
->>simp[comp_cmp_def,exec_list_cons]
+>>simp[compile_comp_def,exec_list_cons]
 >>(pairarg_tac>>fs[])
 >>drule_all_then assume_tac exec_GLOBAL_GET
 >>gvs[]
@@ -1078,7 +1078,7 @@ Proof
     >>strip_tac
     >>qexists_tac`ck`
     >>simp[compile_def]
-    >>drule_all_then assume_tac comp_cmp_thm
+    >>drule_all_then assume_tac compile_comp_thm
     >>dxrule_then (qspec_then`ck`mp_tac) exec_list_add_clock_RNormal
     >>simp[]
     >>strip_tac
