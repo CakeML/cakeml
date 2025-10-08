@@ -1,7 +1,7 @@
 (*
   Translate the final part of the compiler backend for 32-bit targets.
 *)
-Theory to_target32Prog
+Theory to_target32Prog[no_sig_docs]
 Ancestors
   evaluate ml_translator to_word32Prog std_prelude word_to_stack
   stack_alloc stack_remove stack_names stack_to_lab lab_filter
@@ -399,7 +399,6 @@ val res = presLangTheory.stack_prog_to_display_def |> spec32
           |> REWRITE_RULE [presLangTheory.string_imp_def] |> translate;
 val res = presLangTheory.stack_fun_to_display_def |> spec32 |> translate;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

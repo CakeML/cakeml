@@ -714,7 +714,7 @@ Theorem ltree_lift_state_simps:
      ltree_lift_state f st' ((g ∘ (SND ek)) a)
 Proof
   rpt conj_tac >>
-  rw[ltree_lift_state_def, Once whileTheory.WHILE] >>
+  rw[ltree_lift_state_def, Once WhileTheory.WHILE] >>
   rw[ELIM_UNCURRY] >>
   PURE_TOP_CASE_TAC >> rw[]
 QED

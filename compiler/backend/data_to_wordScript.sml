@@ -1219,6 +1219,25 @@ val def = assign_Define `
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
+  assign_UpdateThunk ev (c:data_to_word$config) (l:num) (dest:num) v1 v2 =
+      (dtcase ev of
+       | NotEvaluated =>
+           (Seq (Store (Op Add [real_addr c (adjust_var v1);
+                                Const bytes_in_word])
+                       (adjust_var v2))
+                (Assign (adjust_var dest) Unit),l)
+       | Evaluated =>
+           (dtcase encode_header c (8 + 6) 1 of
+            | NONE => (GiveUp,l)
+            | SOME (header:'a word) => (list_Seq
+                [Assign 1 (real_addr c (adjust_var v1));
+                 Assign 3 (Const header);
+                 Store (Var 1) 3;
+                 Store (Op Add [Var 1; Const bytes_in_word]) (adjust_var v2);
+                 Assign (adjust_var dest) Unit],l)))
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
   assign_UpdateByte (c:data_to_word$config) (l:num) (dest:num) v1 v2 v3 =
       (list_Seq [
           Assign 1 (Op Add [real_addr c (adjust_var v1);
@@ -1483,6 +1502,28 @@ val def = assign_Define `
                   Set EndOfHeap (Var 1);
                   Assign 3 (Const header);
                   StoreEach 1 (3::MAP adjust_var args) 0w;
+                  Assign (adjust_var dest)
+                    (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
+                              (shift_length c − shift (:'a));
+                            Const 1w])],l))
+      : 'a wordLang$prog # num`;
+
+val def = assign_Define `
+  assign_AllocThunk (ev : thunk_mode) (c:data_to_word$config) (secn:num)
+             (l:num) (dest:num) (names:num_set option) arg =
+          (let tag = (dtcase ev of
+                         | Evaluated => 8 + 6
+                         | NotEvaluated => 0 + 6) in
+           dtcase encode_header c tag 1 of
+              | NONE => (GiveUp,l)
+              | SOME (header:'a word) => (list_Seq
+                 [Set TriggerGC (Op Sub [Lookup TriggerGC;
+                     Const (bytes_in_word * 2w)]);
+                  Assign 1 (Op Sub [Lookup EndOfHeap;
+                     Const (bytes_in_word * 2w)]);
+                  Set EndOfHeap (Var 1);
+                  Assign 3 (Const header);
+                  StoreEach 1 [3; adjust_var arg] 0w;
                   Assign (adjust_var dest)
                     (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                               (shift_length c − shift (:'a));
@@ -2332,6 +2373,8 @@ Definition assign_def:
     | BlockOp (Build parts) => assign_Build c secn l dest names parts
     | BlockOp (ConsExtend tag) => assign_ConsExtend c secn l dest names tag args
     | MemOp Ref => assign_Ref c secn l dest names args
+    | ThunkOp (AllocThunk ev) => arg1 args (assign_AllocThunk ev c secn l dest names) (Skip,l)
+    | ThunkOp (UpdateThunk ev) => arg2 args (assign_UpdateThunk ev c l dest) (Skip,l)
     | MemOp (RefByte imm) => arg2 args (assign_RefByte c secn l dest names imm) (Skip,l)
     | MemOp XorByte => arg2 args (assign_XorByte c secn l dest names) (Skip,l)
     | Label n => (LocValue (adjust_var dest) n,l)
@@ -2377,6 +2420,40 @@ Definition assign_def:
     | _ => (Skip,l)
 End
 
+Definition force_thunk_def:
+  force_thunk (c:data_to_word$config) secn (l:num) ret loc v1 =
+    (dtcase encode_header c (8 + 6) 1 of
+     | NONE => (GiveUp,l)
+     | SOME (header:'a word) =>
+     If Test (adjust_var v1) (Imm 1w)
+       (dtcase ret of
+        | NONE => Return 0 [adjust_var v1]
+        | SOME (dest,_) => Assign (adjust_var dest) (Var (adjust_var v1)))
+       (list_Seq
+          [Assign 1 (real_addr c (adjust_var v1));
+           Assign 3 (Op And [Load (Var 1); Const 0b111100w]);
+           If Equal 3 (Imm (n2w ((8 + 6) * 4)))
+             (dtcase ret of
+              | NONE =>
+                 list_Seq
+                   [Assign 1 (Load (Op Add [Var 1; Const bytes_in_word]));
+                    Return 0 [1]]
+              | SOME (dest,_) =>
+                  Assign (adjust_var dest)
+                         (Load (Op Add [Var 1; Const bytes_in_word]))) $
+           If NotEqual 3 (Imm (n2w ((0 + 6) * 4)))
+             (dtcase ret of
+              | NONE => Return 0 [adjust_var v1]
+              | SOME (dest,_) => Assign (adjust_var dest) (Var (adjust_var v1)))
+             (list_Seq
+                [Assign 5 (Load (Op Add [Var 1; Const bytes_in_word]));
+                 (dtcase ret of
+                  | NONE => Call NONE (SOME loc) [0; adjust_var v1; 5] NONE
+                  | SOME (r,ns) => Call (SOME ([adjust_var r],adjust_sets ns,Skip,secn,l))
+                                     (SOME loc) [adjust_var v1; 5] NONE)])]),l+1)
+      : 'a wordLang$prog # num
+End
+
 Definition comp_def:
   comp c (secn:num) (l:num) (p:dataLang$prog) =
     dtcase p of
@@ -2405,6 +2482,7 @@ Definition comp_def:
                             SilentFFI c 3 (adjust_sets names)])
                 Skip),l)
     | Assign dest op args names => assign c secn l dest op args names
+    | Force ret loc v => force_thunk c secn l ret loc v
     | Call ret target args handler =>
         dtcase ret of
         | NONE => (Call NONE target (0::MAP adjust_var args) NONE,l)
@@ -2718,4 +2796,3 @@ Proof
     \\ pop_assum (fn th => once_rewrite_tac [th])
     \\ rewrite_tac [th_FF,AnyArith_call_tree_def,structure_le_def])
 QED
-

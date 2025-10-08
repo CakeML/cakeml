@@ -1,7 +1,7 @@
 (*
   Translate the backend phase from BVL to BVI.
 *)
-Theory to_bviProg
+Theory to_bviProg[no_sig_docs]
 Ancestors
   ml_translator to_bvlProg
 Libs
@@ -153,6 +153,5 @@ val r = translate bvl_to_bviTheory.bvl_to_bvi_compile_inc_all_def;
 
 (* ------------------------------------------------------------------------- *)
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 val _ = ml_translatorLib.clean_on_exit := true;

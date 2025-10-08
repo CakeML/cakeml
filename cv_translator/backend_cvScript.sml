@@ -1,7 +1,7 @@
 (*
   Translate non-target-specific backend functions to cv equations.
 *)
-Theory backend_cv
+Theory backend_cv[no_sig_docs]
 Libs
   preamble cv_transLib
 Ancestors
@@ -463,7 +463,7 @@ Proof
 QED
 
 Definition max_var_exp_list_def:
-  max_var_exp_list ls = list_max (MAP (λx. max_var_exp x) ls)
+  max_var_exp_list ls = MAX_LIST (MAP (λx. max_var_exp x) ls)
 End
 
 Triviality max_var_exp_list_thm:
@@ -1062,4 +1062,3 @@ QED
 
 val _ = cv_trans word_copyTheory.copy_prop_def;
 
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;

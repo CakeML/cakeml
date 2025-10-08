@@ -3045,7 +3045,7 @@ Proof
   Q.REFINE_EXISTS_TAC ‘k + k2’ >> simp0[FUNPOW_ADD] >> simp0[Once LET_THM] >>
   rev_full_simp_tac (srw_ss()) [] >>
   ‘(OLEAST n. s2.MEM (s2.R 5w + n2w n) = 0w) = SOME zoff’
-    by (glAbbrs 2 >> DEEP_INTRO_TAC whileTheory.OLEAST_INTRO >> simp[] >>
+    by (glAbbrs 2 >> DEEP_INTRO_TAC WhileTheory.OLEAST_INTRO >> simp[] >>
         conj_tac >- (goal_assum drule) >> rw[] >>
         ‘¬(zoff < n) ∧ ¬(n < zoff)’ suffices_by simp[] >> metis_tac[]) >>
   qpat_x_assum ‘Abbrev (s3 = _)’ mp_tac >>
@@ -3436,7 +3436,7 @@ Proof
         ,ag32Theory.dfn'Normal_def, ag32Theory.norm_def
         ,ag32Theory.ALU_def, ag32Theory.ri2word_def, ag32Theory.incPC_def]
     \\ simp[ag32_ffi_get_arg_find1_thm]
-    \\ simp[whileTheory.OLEAST_def]
+    \\ simp[WhileTheory.OLEAST_def]
     \\ IF_CASES_TAC \\ fs[]
     \\ simp[APPLY_UPDATE_THM]
     \\ simp[word_add_n2w]
@@ -3539,7 +3539,7 @@ Proof
     (SIMP_RULE bool_ss [PULL_EXISTS] ag32_ffi_get_arg_find_decomp1_thm)>>
   simp[] >>
   ‘(OLEAST n. s1.MEM (s1.R 5w + n2w n) = 0w) = SOME off’
-    by (DEEP_INTRO_TAC whileTheory.OLEAST_INTRO >> simp[Abbr`s1`] >>
+    by (DEEP_INTRO_TAC WhileTheory.OLEAST_INTRO >> simp[Abbr`s1`] >>
         conj_tac >- goal_assum drule >> qx_gen_tac `n` >> strip_tac >>
         ‘¬(n < off) ∧ ¬(off < n)’ suffices_by simp[] >> metis_tac[]) >>
    simp[ag32_ffi_get_arg_find1_thm, combinTheory.UPDATE_def] >>
@@ -3568,7 +3568,7 @@ Proof
       ,ag32Theory.dfn'Normal_def, ag32Theory.norm_def
       ,ag32Theory.ALU_def, ag32Theory.ri2word_def, ag32Theory.incPC_def]
   \\ simp[ag32_ffi_get_arg_find1_thm]
-  \\ simp[whileTheory.OLEAST_def]
+  \\ simp[WhileTheory.OLEAST_def]
   \\ IF_CASES_TAC \\ fs[]
   \\ simp[APPLY_UPDATE_THM]
   \\ simp[word_add_n2w]
