@@ -46,5 +46,11 @@ Datatype:
       | Raise exp
       | Tick exp
       | Call num (num option) (exp list) (exp option)
+      | Force num (* loc to call for evaluation of unevaluated thunk *)
+              num (* var holding thunk *)
       | Op op (exp list)
 End
+
+Overload mk_unit = “bvi$Op (BlockOp (Cons 0)) []”
+
+Overload mk_elem_at = “λb i. bvi$Op (BlockOp (ElemAt i)) [b]”

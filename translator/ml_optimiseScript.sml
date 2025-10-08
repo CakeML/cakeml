@@ -160,12 +160,9 @@ Proof
     \\ asm_exists_tac
     \\ simp []
     \\ dxrule_then (qspec_then `ck2` mp_tac) evaluate_decs_add_to_clock
-    \\ rw [evaluateTheory.dec_clock_def]
-   )
+    \\ rw [evaluateTheory.dec_clock_def])
   THEN1
-   (
-   fs [error_result_case_eq]
-   )
+   (fs [error_result_case_eq])
   THEN1 (* App Opapp *)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
@@ -182,6 +179,19 @@ Proof
     \\ disch_then (qspec_then `st1.clock+1` assume_tac)
     \\ asm_exists_tac \\ fs []
     \\ fs [evaluateTheory.dec_clock_def,state_component_equality])
+  THEN1 (* App Force *)
+   (rename1 `_ = (st1,Rval vs)`
+    \\ `evaluate (s with clock := ck1) env (REVERSE xs) =
+          ((st1 with clock := s1.clock) with clock := st1.clock,Rval vs)`
+             by fs [state_component_equality]
+    \\ first_x_assum drule \\ simp [] \\ strip_tac
+    \\ drule evaluate_add_to_clock \\ fs []
+    \\ disch_then (qspec_then `st1.clock` assume_tac)
+    \\ asm_exists_tac \\ fs []
+    \\ gvs [AllCaseEqs(), dec_clock_def, PULL_EXISTS] >- metis_tac []
+    \\ qpat_x_assum `evaluate _ env' _ = _` assume_tac
+    \\ drule evaluate_add_to_clock \\ rw []
+    \\ metis_tac [])
   THEN1 (* App Simple *)
    (rename1 `_ = (st1,Rval vs)`
     \\ `evaluate (s with clock := ck1) env (REVERSE xs) =

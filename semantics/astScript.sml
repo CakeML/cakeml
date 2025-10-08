@@ -70,6 +70,17 @@ Datatype:
 End
 
 Datatype:
+  thunk_mode = Evaluated | NotEvaluated
+End
+
+Datatype:
+  thunk_op =
+    AllocThunk thunk_mode
+  | UpdateThunk thunk_mode
+  | ForceThunk
+End
+
+Datatype:
   op =
   (* Operations on integers *)
     Opn opn
@@ -132,6 +143,8 @@ Datatype:
   | Aupdate_unsafe
   | Aw8sub_unsafe
   | Aw8update_unsafe
+  (* thunk operations *)
+  | ThunkOp thunk_op
   (* List operations *)
   | ListAppend
   (* Configure the GC *)
@@ -149,6 +162,7 @@ Datatype:
  op_class =
     EvalOp (* Eval primitive *)
   | FunApp (* function application *)
+  | Force (* forcing a thunk *)
   | Simple (* arithmetic operation, no finite-precision/reals *)
 End
 Definition getOpClass_def[simp]:
@@ -156,6 +170,7 @@ Definition getOpClass_def[simp]:
  case op of
   | Opapp => FunApp
   | Eval => EvalOp
+  | ThunkOp t => (if t = ForceThunk then Force else Simple)
   | _ => Simple
 End
 

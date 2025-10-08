@@ -2854,6 +2854,7 @@ Definition no_change_refs_def:
         | Aupdate => F
         | Aupdate_unsafe => F
         | FFI _ => F
+        | ThunkOp _ => F
         | _ => T) ∧ EVERY no_change_refs es) /\
   no_change_refs _ = F
 Termination
@@ -2875,8 +2876,8 @@ Proof
   \\ fs [no_change_refs_def] \\ rw []
   \\ gvs [evaluate_def,AllCaseEqs(),semanticPrimitivesTheory.do_if_def]
   \\ fs [SF ETA_ss]
-  \\ gvs []
-  \\ fs [do_app_cases] \\ rveq \\ fs []
+  \\ gvs [do_app_def]
+  \\ gvs [AllCaseEqs(),thunk_op_def,store_alloc_def]
 QED
 
 Theorem eval_rel_no_change_refs:
