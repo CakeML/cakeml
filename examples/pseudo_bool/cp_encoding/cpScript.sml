@@ -42,13 +42,12 @@ Definition element2d_sem_def:
   element2d_sem (R: 'a varc) (X: 'a varc) (Y: 'a varc) (Tss: ('a varc) list list)
     (w: 'a assignment) =
   let
-    n = LENGTH Tss;
-    vX = Num $ varc w X;
-    vY = Num $ varc w Y
+    vX = varc w X;
+    vY = varc w Y
   in
-    1 ≤ vX ∧ vX ≤ n ∧ 1 ≤ vY ∧ vY ≤ LENGTH $ HD Tss ∧
+    1 ≤ vX ∧ Num vX ≤ LENGTH Tss ∧ 1 ≤ vY ∧ Num vY ≤ LENGTH $ HD Tss ∧
     EVERY (λTs. LENGTH Ts = LENGTH $ HD Tss) Tss ∧
-    EL (vY - 1) $ EL (vX - 1) $ MAP (MAP (varc w)) Tss = varc w R
+    varc w R = varc w (EL (Num vY - 1) $ EL (Num vX - 1) Tss)
 End
 
 Definition abs_sem_def:

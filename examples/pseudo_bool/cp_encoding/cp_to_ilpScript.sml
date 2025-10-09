@@ -1420,6 +1420,147 @@ Proof
   gvs[reify_tuple_eq_sem,GSYM MAP_LIST_REL]
 QED
 
+Theorem le_int_of_num_Num:
+  1 ≤ X ∧ X ≤ &Y ⇒ 1 ≤ Num X ∧ Num X ≤ Y
+Proof
+  intLib.ARITH_TAC
+QED
+
+(* encode_element2d for constant X and variable Y *)
+Definition encode_element2d_cv_def:
+  encode_element2d_cv bnd R X Y Tss =
+  if 1 ≤ X ∧ X ≤ &LENGTH Tss ∧ EVERY (λTs. LENGTH Ts = LENGTH $ HD Tss) Tss
+  then encode_element_var bnd R Y $ EL (Num X - 1) Tss
+  else [([],[],1)]
+End
+
+Theorem encode_element2d_cv_sem:
+  valid_assignment bnd wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_element2d_cv bnd R X Y Tss) = (
+  (∀i. 1 ≤ i ∧ i ≤ LENGTH (EL (Num X - 1) Tss) + 1 ⇒
+    (wb (Ge Y (&i)) ⇔ wi Y ≥ &i)) ∧
+  (∀i. 1 ≤ i ∧ i ≤ LENGTH (EL (Num X - 1) Tss) ⇒
+    (wb (Eq Y (&i)) ⇔ wi Y = &i)) ∧
+  element2d_sem R (INR X) (INL Y) Tss wi)
+Proof
+  strip_tac>>
+  simp[encode_element2d_cv_def,element2d_sem_def]>>
+  IF_CASES_TAC
+  >-(
+    fs[encode_element_var_sem,element_sem_def,varc_def,EVERY_EL]>>
+    ‘1 ≤ Num X ∧ Num X ≤ LENGTH Tss’ suffices_by simp[]>>
+    metis_tac[le_int_of_num_Num])>>
+  simp[iconstraint_sem_def,eval_lin_term_def,eval_ilin_term_def,iSUM_def,varc_def]>>
+  metis_tac[GSYM NOT_EVERY,intLib.ARITH_PROVE “Num X ≤ Y ⇒ X ≤ &Y”]
+QED
+
+(* encode_element2d for variable X and constant Y *)
+Definition encode_element2d_vc_def:
+  encode_element2d_vc bnd R X Y Tss =
+  if 0 < LENGTH Tss ∧ EVERY (λTs. LENGTH Ts = LENGTH $ HD Tss) Tss ∧
+    1 ≤ Y ∧ Y ≤ &(LENGTH $ HD Tss)
+  then encode_element_var bnd R X $ MAP (EL (Num Y - 1)) Tss
+  else [([],[],1)]
+End
+
+Theorem encode_element2d_vc_sem:
+  valid_assignment bnd wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_element2d_vc bnd R X Y Tss) = (
+  0 < LENGTH Tss ∧
+  (∀i. 1 ≤ i ∧ i ≤ LENGTH (MAP (EL (Num Y - 1)) Tss) + 1 ⇒
+    (wb (Ge X (&i)) ⇔ wi X ≥ &i)) ∧
+  (∀i. 1 ≤ i ∧ i ≤ LENGTH (MAP (EL (Num Y - 1)) Tss) ⇒
+    (wb (Eq X (&i)) ⇔ wi X = &i)) ∧
+  element2d_sem R (INL X) (INR Y) Tss wi)
+Proof
+  strip_tac>>
+  simp[encode_element2d_vc_def,element2d_sem_def]>>
+  IF_CASES_TAC
+  >-(
+    fs[encode_element_var_sem,element_sem_def,varc_def,EVERY_EL]>>
+    ‘EL (Num (wi X) − 1) (MAP (EL (Num Y − 1)) Tss) =
+      EL (Num Y − 1) (EL (Num (wi X) − 1) Tss)’ by cheat>>
+    pop_assum (fn thm => simp[thm])>>
+    ‘Num Y ≤ LENGTH (HD Tss)’ suffices_by simp[]>>
+    simp[le_int_of_num_Num])>>
+  simp[iconstraint_sem_def,eval_lin_term_def,eval_ilin_term_def,iSUM_def,varc_def]>>
+  fs[Once LENGTH_NON_NIL,Once $ GSYM NOT_EVERY]>>
+  ‘¬(Num Y ≤ LENGTH (HD Tss))’ suffices_by simp[]>>
+  intLib.ARITH_TAC
+QED
+
+Definition encode_element2d_cc_def:
+  encode_element2d_cc bnd R X Y Tss =
+  if 0 < LENGTH Tss ∧ EVERY (λTs. LENGTH Ts = LENGTH $ HD Tss) Tss ∧
+    1 ≤ X ∧ X ≤ &LENGTH Tss ∧ 1 ≤ Y ∧ Y ≤ &(LENGTH $ HD Tss)
+  then [
+    mk_constraint_ge 1 (EL (Num Y - 1) $ EL (Num X - 1) Tss) (-1) R 0;
+    mk_constraint_ge 1 R (-1) (EL (Num Y - 1) $ EL (Num X - 1) Tss) 0]
+  else [([],[],1)]
+End
+
+Theorem encode_element2d_cc_sem:
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_element2d_cc bnd R X Y Tss) =
+  element2d_sem R (INR X) (INR Y) Tss wi
+Proof
+  cheat
+QED
+
+Definition encode_element2d_eq_def:
+  encode_element2d_eq bnd R X Y (i:num,j:num,Aij) = [
+    bits_imply bnd [Pos (Eq X (&(i + 1)));Pos (Eq Y (&(j + 1)))]
+      (mk_constraint_ge 1 Aij (-1) R 0);
+    bits_imply bnd [Pos (Eq X (&(i + 1)));Pos (Eq Y (&(j + 1)))]
+      (mk_constraint_ge 1 R (-1) Aij 0)]
+End
+
+Definition encode_ges_def:
+  encode_ges bnd X n = FLAT (GENLIST (λi. encode_ge bnd X (&(i + 1))) n)
+End
+
+Definition encode_eqs_def:
+  encode_eqs bnd X n = FLAT (GENLIST (λi. encode_eq bnd X (&(i + 1))) n)
+End
+
+Definition encode_element2d_vv_def:
+  encode_element2d_vv bnd R X Y Tss =
+  let
+    n = LENGTH Tss
+  in
+    if 0 < n ∧ EVERY (λTs. LENGTH Ts = LENGTH $ HD Tss) Tss
+    then
+      let
+        m = LENGTH $ HD Tss;
+        (lbX,ubX) = bnd X;
+        (lbY,ubY) = bnd Y;
+        gesX = encode_ges bnd X (n + 1);
+        gesY = encode_ges bnd Y (m + 1);
+        eqsX = encode_eqs bnd X n;
+        eqsY = encode_eqs bnd Y m;
+        xlb = if lbX < 1 then [([(1i,X)],[],1i)] else [];
+        xub = if &n < ubX then [([(-1i,X)],[],-&n)] else [];
+        ylb = if lbY < 1 then [([(1i,Y)],[],1i)] else [];
+        yub = if &m < ubY then [([(-1i,Y)],[],-&n)] else [];
+        mat = enumerate 0 $ MAP (λTs. enumerate 0 Ts) Tss
+      in
+        gesX ++ gesY ++ eqsX ++ eqsY ++
+        xlb ++ xub ++ ylb ++ yub ++
+        (FLAT $ MAP (λ(i,vec).
+           FLAT $ MAP (λp. encode_element2d_eq bnd R X Y (i,p)) vec) mat)
+    else [([],[],1)]
+End
+
+Definition encode_element2d_def:
+  encode_element2d bnd R X Y Tss =
+  case (X,Y) of
+    (INL vX,INL vY) => encode_element2d_vv bnd R vX vY Tss
+  | (INL vX,INR cY) => encode_element2d_vc bnd R vX cY Tss
+  | (INR cX,INL vY) => encode_element2d_cv bnd R cX vY Tss
+  | (INR cX,INR cY) => encode_element2d_cc bnd R cX cY Tss
+End
+
 (* The top-level encodings *)
 Definition encode_cp_one_def:
   encode_cp_one bnd c =
@@ -1427,8 +1568,14 @@ Definition encode_cp_one_def:
     NotEquals X Y => encode_not_equals bnd X Y
   | AllDifferent As => encode_all_different bnd As
   | Element R X As => encode_element bnd R X As
+  | Element2D R X Y Tss => encode_element2d bnd R X Y Tss
   | Abs X Y => encode_abs bnd X Y
   | Ilc Xs op rhs => encode_ilc Xs op rhs
+  | ArrMax M As => encode_arr_max bnd M As
+  | ArrMin M As => encode_arr_min bnd M As
+  | Count Y C As => encode_count bnd Y C As
+  | Nvalue Y Xs => encode_nvalue bnd Y Xs
+  | Table Xs Yss => encode_table bnd Xs Yss
 End
 
 Theorem encode_cp_one_sem_1:
