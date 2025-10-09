@@ -18,7 +18,7 @@ Libs        preamble wordsLib
 val _ = monadsyntax.enable_monadsyntax()
 val _ = monadsyntax.enable_monad "option"
 
-Overload Soli[local] = “(SOME o List): byteSeq -> byteCode”
+Overload Soli[local] = “(SOME ∘ List): byteSeq -> byteCode”
 
 (***************************************************************************)
 (*                                                                         *)
@@ -30,12 +30,12 @@ Overload Soli[local] = “(SOME o List): byteSeq -> byteCode”
 (*   Wasm Vectors (not vector instructions)   *)
 (**********************************************)
 
-Definition enc_list_opt_def:
-  enc_list_opt (enc:α -> byteCode) ([]:α list) = Soli []
+Definition enc_list_def:
+  enc_list (enc:α -> byteCode) ([]:α list) = Soli []
   ∧
-  enc_list_opt enc (x::xs) = do
+  enc_list enc (x::xs) = do
     encx  <-              enc x ;
-    encxs <- enc_list_opt enc xs;
+    encxs <- enc_list enc xs;
     SOME $ encx +++ encxs od
 End
 
@@ -82,7 +82,7 @@ Definition enc_vector_def:
     let n = LENGTH xs in
     if 2 ** 32 ≤ n then NONE
     else do
-    encxs <- enc_list_opt enc xs;
+    encxs <- enc_list enc xs;
     encln <- enc_u32 $ n2w n;
     SOME $ encln +++ encxs od
 End
@@ -129,9 +129,9 @@ QED
 (*************)
 
 Definition enc_valtype_def:
-  enc_valtype (t:valtype) : byteCode = SOME $ List $ case t of
-  | Tnum   Int W32 => [0x7Fw]
-  | Tnum   Int W64 => [0x7Ew]
+  enc_valtype (t:valtype) = Soli [case t of
+  | Tnum   Int W32 => 0x7Fw
+  | Tnum   Int W64 => 0x7Ew]
 End
 
 Definition dec_valtype_def:
@@ -161,7 +161,7 @@ QED
 
 
 Definition enc_functype_def:
-  enc_functype (sg:functype) : byteCode = do
+  enc_functype (sg:functype) = do
     argTs <- enc_vector enc_valtype (FST sg);
     resTs <- enc_vector enc_valtype (SND sg);
     SOME $ 0x60w ::: argTs +++ resTs od
@@ -253,78 +253,78 @@ QED
 
 Definition enc_numI_def:
   enc_numI (i:num_instr) = case i of
-  | N_eqz     $   W32                        => SOME $ List [0x45w]
-  | N_compare $   Eq  Int      W32           => SOME $ List [0x46w]
-  | N_compare $   Ne  Int      W32           => SOME $ List [0x47w]
-  | N_compare $   Lt_   Signed W32           => SOME $ List [0x48w]
-  | N_compare $   Lt_ Unsigned W32           => SOME $ List [0x49w]
-  | N_compare $   Gt_   Signed W32           => SOME $ List [0x4Aw]
-  | N_compare $   Gt_ Unsigned W32           => SOME $ List [0x4Bw]
-  | N_compare $   Le_   Signed W32           => SOME $ List [0x4Cw]
-  | N_compare $   Le_ Unsigned W32           => SOME $ List [0x4Dw]
-  | N_compare $   Ge_   Signed W32           => SOME $ List [0x4Ew]
-  | N_compare $   Ge_ Unsigned W32           => SOME $ List [0x4Fw]
-  | N_eqz     $   W64                        => SOME $ List [0x50w]
-  | N_compare $   Eq Int       W64           => SOME $ List [0x51w]
-  | N_compare $   Ne Int       W64           => SOME $ List [0x52w]
-  | N_compare $   Lt_   Signed W64           => SOME $ List [0x53w]
-  | N_compare $   Lt_ Unsigned W64           => SOME $ List [0x54w]
-  | N_compare $   Gt_   Signed W64           => SOME $ List [0x55w]
-  | N_compare $   Gt_ Unsigned W64           => SOME $ List [0x56w]
-  | N_compare $   Le_   Signed W64           => SOME $ List [0x57w]
-  | N_compare $   Le_ Unsigned W64           => SOME $ List [0x58w]
-  | N_compare $   Ge_   Signed W64           => SOME $ List [0x59w]
-  | N_compare $   Ge_ Unsigned W64           => SOME $ List [0x5Aw]
-  | N_unary   $   Clz    W32                 => SOME $ List [0x67w]
-  | N_unary   $   Ctz    W32                 => SOME $ List [0x68w]
-  | N_unary   $   Popcnt W32                 => SOME $ List [0x69w]
-  | N_binary  $   Add  Int      W32          => SOME $ List [0x6Aw]
-  | N_binary  $   Sub  Int      W32          => SOME $ List [0x6Bw]
-  | N_binary  $   Mul  Int      W32          => SOME $ List [0x6Cw]
-  | N_binary  $   Div_   Signed W32          => SOME $ List [0x6Dw]
-  | N_binary  $   Div_ Unsigned W32          => SOME $ List [0x6Ew]
-  | N_binary  $   Rem_   Signed W32          => SOME $ List [0x6Fw]
-  | N_binary  $   Rem_ Unsigned W32          => SOME $ List [0x70w]
-  | N_binary  $   And           W32          => SOME $ List [0x71w]
-  | N_binary  $   Or            W32          => SOME $ List [0x72w]
-  | N_binary  $   Xor           W32          => SOME $ List [0x73w]
-  | N_binary  $   Shl           W32          => SOME $ List [0x74w]
-  | N_binary  $   Shr_   Signed W32          => SOME $ List [0x75w]
-  | N_binary  $   Shr_ Unsigned W32          => SOME $ List [0x76w]
-  | N_binary  $   Rotl          W32          => SOME $ List [0x77w]
-  | N_binary  $   Rotr          W32          => SOME $ List [0x78w]
-  | N_unary   $   Clz    W64                 => SOME $ List [0x79w]
-  | N_unary   $   Ctz    W64                 => SOME $ List [0x7Aw]
-  | N_unary   $   Popcnt W64                 => SOME $ List [0x7Bw]
-  | N_binary  $   Add Int       W64          => SOME $ List [0x7Cw]
-  | N_binary  $   Sub Int       W64          => SOME $ List [0x7Dw]
-  | N_binary  $   Mul Int       W64          => SOME $ List [0x7Ew]
-  | N_binary  $   Div_   Signed W64          => SOME $ List [0x7Fw]
-  | N_binary  $   Div_ Unsigned W64          => SOME $ List [0x80w]
-  | N_binary  $   Rem_   Signed W64          => SOME $ List [0x81w]
-  | N_binary  $   Rem_ Unsigned W64          => SOME $ List [0x82w]
-  | N_binary  $   And           W64          => SOME $ List [0x83w]
-  | N_binary  $   Or            W64          => SOME $ List [0x84w]
-  | N_binary  $   Xor           W64          => SOME $ List [0x85w]
-  | N_binary  $   Shl           W64          => SOME $ List [0x86w]
-  | N_binary  $   Shr_   Signed W64          => SOME $ List [0x87w]
-  | N_binary  $   Shr_ Unsigned W64          => SOME $ List [0x88w]
-  | N_binary  $   Rotl          W64          => SOME $ List [0x89w]
-  | N_binary  $   Rotr          W64          => SOME $ List [0x8Aw]
-  | N_convert $   WrapI64                    => SOME $ List [0xA7w]
-  | N_unary   $   ExtendI32_   Signed        => SOME $ List [0xACw]
-  | N_unary   $   ExtendI32_ Unsigned        => SOME $ List [0xADw]
-  | N_unary   $   Extend8s  W32              => SOME $ List [0xC0w]
-  | N_unary   $   Extend16s W32              => SOME $ List [0xC1w]
-  | N_unary   $   Extend8s  W64              => SOME $ List [0xC2w]
-  | N_unary   $   Extend16s W64              => SOME $ List [0xC3w]
-  | N_unary   $   Extend32s                  => SOME $ List [0xC4w]
+  | N_eqz     $   W32                        => Soli [0x45w]
+  | N_compare $   Eq  Int      W32           => Soli [0x46w]
+  | N_compare $   Ne  Int      W32           => Soli [0x47w]
+  | N_compare $   Lt_   Signed W32           => Soli [0x48w]
+  | N_compare $   Lt_ Unsigned W32           => Soli [0x49w]
+  | N_compare $   Gt_   Signed W32           => Soli [0x4Aw]
+  | N_compare $   Gt_ Unsigned W32           => Soli [0x4Bw]
+  | N_compare $   Le_   Signed W32           => Soli [0x4Cw]
+  | N_compare $   Le_ Unsigned W32           => Soli [0x4Dw]
+  | N_compare $   Ge_   Signed W32           => Soli [0x4Ew]
+  | N_compare $   Ge_ Unsigned W32           => Soli [0x4Fw]
+  | N_eqz     $   W64                        => Soli [0x50w]
+  | N_compare $   Eq Int       W64           => Soli [0x51w]
+  | N_compare $   Ne Int       W64           => Soli [0x52w]
+  | N_compare $   Lt_   Signed W64           => Soli [0x53w]
+  | N_compare $   Lt_ Unsigned W64           => Soli [0x54w]
+  | N_compare $   Gt_   Signed W64           => Soli [0x55w]
+  | N_compare $   Gt_ Unsigned W64           => Soli [0x56w]
+  | N_compare $   Le_   Signed W64           => Soli [0x57w]
+  | N_compare $   Le_ Unsigned W64           => Soli [0x58w]
+  | N_compare $   Ge_   Signed W64           => Soli [0x59w]
+  | N_compare $   Ge_ Unsigned W64           => Soli [0x5Aw]
+  | N_unary   $   Clz    W32                 => Soli [0x67w]
+  | N_unary   $   Ctz    W32                 => Soli [0x68w]
+  | N_unary   $   Popcnt W32                 => Soli [0x69w]
+  | N_binary  $   Add  Int      W32          => Soli [0x6Aw]
+  | N_binary  $   Sub  Int      W32          => Soli [0x6Bw]
+  | N_binary  $   Mul  Int      W32          => Soli [0x6Cw]
+  | N_binary  $   Div_   Signed W32          => Soli [0x6Dw]
+  | N_binary  $   Div_ Unsigned W32          => Soli [0x6Ew]
+  | N_binary  $   Rem_   Signed W32          => Soli [0x6Fw]
+  | N_binary  $   Rem_ Unsigned W32          => Soli [0x70w]
+  | N_binary  $   And           W32          => Soli [0x71w]
+  | N_binary  $   Or            W32          => Soli [0x72w]
+  | N_binary  $   Xor           W32          => Soli [0x73w]
+  | N_binary  $   Shl           W32          => Soli [0x74w]
+  | N_binary  $   Shr_   Signed W32          => Soli [0x75w]
+  | N_binary  $   Shr_ Unsigned W32          => Soli [0x76w]
+  | N_binary  $   Rotl          W32          => Soli [0x77w]
+  | N_binary  $   Rotr          W32          => Soli [0x78w]
+  | N_unary   $   Clz    W64                 => Soli [0x79w]
+  | N_unary   $   Ctz    W64                 => Soli [0x7Aw]
+  | N_unary   $   Popcnt W64                 => Soli [0x7Bw]
+  | N_binary  $   Add Int       W64          => Soli [0x7Cw]
+  | N_binary  $   Sub Int       W64          => Soli [0x7Dw]
+  | N_binary  $   Mul Int       W64          => Soli [0x7Ew]
+  | N_binary  $   Div_   Signed W64          => Soli [0x7Fw]
+  | N_binary  $   Div_ Unsigned W64          => Soli [0x80w]
+  | N_binary  $   Rem_   Signed W64          => Soli [0x81w]
+  | N_binary  $   Rem_ Unsigned W64          => Soli [0x82w]
+  | N_binary  $   And           W64          => Soli [0x83w]
+  | N_binary  $   Or            W64          => Soli [0x84w]
+  | N_binary  $   Xor           W64          => Soli [0x85w]
+  | N_binary  $   Shl           W64          => Soli [0x86w]
+  | N_binary  $   Shr_   Signed W64          => Soli [0x87w]
+  | N_binary  $   Shr_ Unsigned W64          => Soli [0x88w]
+  | N_binary  $   Rotl          W64          => Soli [0x89w]
+  | N_binary  $   Rotr          W64          => Soli [0x8Aw]
+  | N_convert $   WrapI64                    => Soli [0xA7w]
+  | N_unary   $   ExtendI32_   Signed        => Soli [0xACw]
+  | N_unary   $   ExtendI32_ Unsigned        => Soli [0xADw]
+  | N_unary   $   Extend8s  W32              => Soli [0xC0w]
+  | N_unary   $   Extend16s W32              => Soli [0xC1w]
+  | N_unary   $   Extend8s  W64              => Soli [0xC2w]
+  | N_unary   $   Extend16s W64              => Soli [0xC3w]
+  | N_unary   $   Extend32s                  => Soli [0xC4w]
   | N_const32 Int   (c: word32)              => do encc <- enc_s32 c; SOME $ 0x41w ::: encc od
   | N_const64 Int   (c: word64)              => do encc <- enc_s64 c; SOME $ 0x42w ::: encc od
 End
 
 Definition dec_numI_def:
-  dec_numI ([]:byteSeq) : num_instr dcdr = emErr "dec_numI"
+  dec_numI [] : num_instr dcdr = emErr "dec_numI"
   ∧
   dec_numI (b::bs) = let failure = error (b::bs) "[dec_numI]"
   in
@@ -419,9 +419,9 @@ QED
 
 
 Definition enc_paraI_def:
-  enc_paraI (i:para_instr) : byteCode = SOME $ List $ case i of
-  | Drop   => [0x1Aw]
-  | Select => [0x1Bw]
+  enc_paraI (i:para_instr) = Soli [case i of
+  | Drop   => 0x1Aw
+  | Select => 0x1Bw]
 End
 
 Definition dec_paraI_def:
@@ -452,7 +452,7 @@ QED
 
 
 Definition enc_varI_def:
-  enc_varI (i:var_instr) : byteCode = case i of
+  enc_varI (i:var_instr) = case i of
   | LocalGet  x => do encx <- enc_u32 x; SOME $ 0x20w ::: encx od
   | LocalSet  x => do encx <- enc_u32 x; SOME $ 0x21w ::: encx od
   | LocalTee  x => do encx <- enc_u32 x; SOME $ 0x22w ::: encx od
@@ -461,7 +461,7 @@ Definition enc_varI_def:
 End
 
 Definition dec_varI_def:
-  dec_varI ([]:byteSeq) : var_instr dcdr = emErr "dec_varI"
+  dec_varI [] : var_instr dcdr = emErr "dec_varI"
   ∧
   dec_varI (b::bs) = let failure = error (b::bs) "[dec_varI]"
   in
@@ -492,7 +492,7 @@ QED
 
 
 Definition enc_loadI_def:
-  enc_loadI (i:load_instr) : byteCode = case i of
+  enc_loadI (i:load_instr) = case i of
   | Load    Int                  W32 ofs al  => do encao <- enc_2u32 al ofs; SOME $ 0x28w ::: encao od
   | Load    Int                  W64 ofs al  => do encao <- enc_2u32 al ofs; SOME $ 0x29w ::: encao od
   | LoadNarrow I8x16    Signed   W32 ofs al  => do encao <- enc_2u32 al ofs; SOME $ 0x2Cw ::: encao od
@@ -508,22 +508,24 @@ Definition enc_loadI_def:
 End
 
 Definition dec_loadI_def:
-  dec_loadI ([]:byteSeq) : load_instr dcdr = emErr "dec_loadI"
+  dec_loadI [] : load_instr dcdr = emErr "dec_loadI"
   ∧
   dec_loadI (b::bs) = let failure = error (b::bs) "[dec_loadI]"
   in
-  if b = 0x28w then case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) => (INR $  Load    Int                 W32 ofs a,rs) else
-  if b = 0x29w then case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) => (INR $  Load    Int                 W64 ofs a,rs) else
-  if b = 0x2Cw then case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) => (INR $  LoadNarrow I8x16    Signed  W32 ofs a,rs) else
-  if b = 0x2Dw then case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) => (INR $  LoadNarrow I8x16  Unsigned  W32 ofs a,rs) else
-  if b = 0x2Ew then case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) => (INR $  LoadNarrow I16x8    Signed  W32 ofs a,rs) else
-  if b = 0x2Fw then case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) => (INR $  LoadNarrow I16x8  Unsigned  W32 ofs a,rs) else
-  if b = 0x30w then case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) => (INR $  LoadNarrow I8x16    Signed  W64 ofs a,rs) else
-  if b = 0x31w then case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) => (INR $  LoadNarrow I8x16  Unsigned  W64 ofs a,rs) else
-  if b = 0x32w then case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) => (INR $  LoadNarrow I16x8    Signed  W64 ofs a,rs) else
-  if b = 0x33w then case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) => (INR $  LoadNarrow I16x8  Unsigned  W64 ofs a,rs) else
-  if b = 0x34w then case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) => (INR $  LoadNarrow32        Signed      ofs a,rs) else
-  if b = 0x35w then case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) => (INR $  LoadNarrow32      Unsigned      ofs a,rs) else
+
+  case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) =>
+  if b = 0x28w then ret rs $ Load    Int                 W32 ofs a else
+  if b = 0x29w then ret rs $ Load    Int                 W64 ofs a else
+  if b = 0x2Cw then ret rs $ LoadNarrow I8x16    Signed  W32 ofs a else
+  if b = 0x2Dw then ret rs $ LoadNarrow I8x16  Unsigned  W32 ofs a else
+  if b = 0x2Ew then ret rs $ LoadNarrow I16x8    Signed  W32 ofs a else
+  if b = 0x2Fw then ret rs $ LoadNarrow I16x8  Unsigned  W32 ofs a else
+  if b = 0x30w then ret rs $ LoadNarrow I8x16    Signed  W64 ofs a else
+  if b = 0x31w then ret rs $ LoadNarrow I8x16  Unsigned  W64 ofs a else
+  if b = 0x32w then ret rs $ LoadNarrow I16x8    Signed  W64 ofs a else
+  if b = 0x33w then ret rs $ LoadNarrow I16x8  Unsigned  W64 ofs a else
+  if b = 0x34w then ret rs $ LoadNarrow32        Signed      ofs a else
+  if b = 0x35w then ret rs $ LoadNarrow32      Unsigned      ofs a else
   error (b::bs) "[dec_loadI] : Not a load instruction.\n"
 End
 
