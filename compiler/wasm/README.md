@@ -16,7 +16,7 @@ A foramlisation of LEB128
 Shuhan's lib for misc utilities
 
 [stack_to_wasmProofScript.sml](stack_to_wasmProofScript.sml):
-Correctness proof for compilation from stackLang to wasmLang
+Correctness proof for compilation from stackLang to CWasm
 
 [stack_to_wasmScript.sml](stack_to_wasmScript.sml):
 Compilation from stackLang to wasmLang
