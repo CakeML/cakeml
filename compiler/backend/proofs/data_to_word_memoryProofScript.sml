@@ -191,6 +191,11 @@ Definition v_inv_def[schematic]:
      (x = Data (Loc n 0))) /\
   (v_inv (RefPtr _ n) (x,f,tf,heap) <=>
      (x = Pointer (f ' n) (Word 0w)) /\ n IN FDOM f) /\
+  (*(v_inv (RefPtr _ n,st) (x,f,tf,heap) <=>
+     ((x = Pointer (f ' n) (Word 0w)) /\ n IN FDOM f) ∨
+      (∃v. FLOOKUP st n = SOME ThunkEvaluated v ∧
+           dest_thunk v st = NotThunk ∧
+           v_inv (v,st) (x,f,tf,heap))) /\*)
   (v_inv (Block ts n vs) (x,f,tf,heap) <=>
      if vs = []
      then (x = Data (Word (BlockNil n))) /\
