@@ -300,6 +300,19 @@ Proof
   >> metis_tac[FDOM_FLOOKUP]
 QED
 
+Definition nullary_ops_of_tm_def:
+  (nullary_ops_of_tm (Var x ty) = {nullary_ops_of ty}) ∧
+  (nullary_ops_of_tm (Const x ty) = {nullary_ops_of ty}) ∧
+  (nullary_ops_of_tm (Comb e1 e2) = nullary_ops_of_tm e1 ∪ nullary_ops_of_tm e2) ∧
+  (nullary_ops_of_tm (Abs v body) = nullary_ops_of_tm v ∪ nullary_ops_of_tm body)
+End
+        
+Definition safe_sequent_esubst:
+  safe_sequent_esubst σ c hs ⇔
+    (DISJOINT (FDOM σ) (nullary_ops_of_tm c)) ∧
+    (∀h. MEM h hs ⇒ DISJOINT (FDOM σ) (nullary_ops_of_tm h))
+End
+
 Definition esubsts_total_def:
   esubsts_total (thy:ethy) (σ, θ) ⇔
     (∀tyn. tyn ∈ FDOM σ ⇔ tyn ∈ FDOM thy.etys) ∧

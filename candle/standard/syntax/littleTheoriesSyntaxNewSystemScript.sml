@@ -145,7 +145,7 @@ Theorem term_ok'_esubst:
 Proof
   cheat
 QED
-
+(*
 
 Theorem used_eaxs_ok:
   ∀thy used_eaxs h c.
@@ -155,6 +155,7 @@ Proof
   Induct_on ‘$|-'’ >> rw[] >> rw[]
   >> gvs[theory_ok'_def, term_ok_term_ok'_weakening, term_ok'_esubst]
   >> first_x_assum drule >> gvs[esubst_has_type_bool_alt, SF SFY_ss]
+  >> cheat
 QED
 
 
@@ -167,8 +168,8 @@ Proof
   rw[drop_thy] >> irule axiom_weakening >> rw[]
   >> drule proves_imp_theory_ok >> rw[theory_ok_def, ctms_def, ctys_def]
   >> gvs[ctys_def, ctms_def] >> first_assum $ irule_at Any >> ASM_SET_TAC[]
-QED
-
+QED*)
+(*
 Theorem esubst_identity:
   term_ok thy.sig tm ∧
   theory_ok' thy ∧
@@ -250,6 +251,6 @@ Proof
       >- (irule theory_ok_drop_thy_alt >> gvs[theory_ok'_def])
       >> rw[drop_thy])
 QED
-
+*)
 
 val _ = export_theory();
