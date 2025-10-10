@@ -3969,6 +3969,14 @@ Proof
   >> conj_tac >> irule esubst_ty_term_ok >> simp[]
 QED
 
+Theorem esubst_avds_type:
+  ∀tm. theory_ok (sig,axs) ∧ term_ok sig tm ∧ esubsts_ok sig σ ⇒
+       typeof (esubst σ avds1 tm) = typeof (esubst σ avds2 tm)
+Proof
+  rpt strip_tac >> irule ACONV_TYPE >> simp[esubst_welltyped, term_ok_welltyped, SF SFY_ss]
+  >> irule ACONV_esubst_avds >> simp[term_ok_welltyped, SF SFY_ss]
+QED
+
 fun setup (q : term quotation, t : tactic) = let
 val the_concl = Parse.typedTerm q bool
 val t2 = (t \\ rpt (pop_assum mp_tac))
@@ -4058,14 +4066,6 @@ Proof
       >> irule proves_BETA >> rw[Abbr‘thyσ’, theory_ok_esubst_axs, ty_esubst_type_ok_alt]
       >> irule esubst_term_ok >> metis_tac[])
   >> cheat
-QED
-
-Theorem esubst_avds_type:
-  ∀tm. theory_ok (sig,axs) ∧ term_ok sig tm ∧ esubsts_ok sig σ ⇒
-       typeof (esubst σ avds1 tm) = typeof (esubst σ avds2 tm)
-Proof
-  rpt strip_tac >> irule ACONV_TYPE >> simp[esubst_welltyped, term_ok_welltyped, SF SFY_ss]
-  >> irule ACONV_esubst_avds >> simp[term_ok_welltyped, SF SFY_ss]
 QED
 
 Theorem proves_substitutable_Deduct_Antisym:
@@ -4247,11 +4247,26 @@ Proof
     by cheat
   >> rw[]
   >> gvs[esubst_equation, SF SFY_ss, term_ok_def]
-  >> dxrule_then drule proves_MK_COMB
+  >> dxrule_at_then (Pos $ hd o tl) drule proves_MK_COMB
   >> ‘term_ok sig (Comb l1 l2) ∧ term_ok sig (Comb r1 r2)’ by cheat
   >> gvs[term_ok_welltyped, term_ok_def, SF SFY_ss, esubst_equation]
   >> rw[welltyped_comb, SF SFY_ss, esubst_welltyped]
   >> irule proves_ACONV >> first_x_assum $ irule_at (Pos last)
+  >> simp[hypset_ok_term_image, hypset_ok_term_union, SF SFY_ss]
+  >> qexists ‘ty_esubst σ rty’ >> rw[]
+  >- cheat
+  >- (ntac 2 $ rev_dxrule proves_term_ok
+      >> rw[EVERY_MEM, hypset_ok_term_image, hypset_ok_term_union])
+  >- cheat
+  >- (simp[EVERY_MEM, EXISTS_MEM] >> ntac 2 strip_tac >> dxrule MEM_term_image_imp
+      >> strip_tac >> gvs[] >> dxrule MEM_term_union_imp >> strip_tac
+      >> ‘term_ok sig x' ∧ x' has_type Bool’ by (rpt $ dxrule proves_term_ok >> rw[EVERY_MEM])
+      >> simp[SF SFY_ss, esubst_term_ok, esubst_has_type_bool])
+  >- (irule ACONV_equation >> rw[SF SFY_ss, term_ok_def, term_ok_welltyped, esubst_welltyped]
+      >- cheat >- cheat >- cheat >- cheat
+      >> simp[ACONV_COMB]
+      >> metis_tac[ACONV_esubst_avds, term_ok_welltyped])
+  >> simp[EVERY_MEM, EXISTS_MEM] >> ntac 2 strip_tac >> dxrule MEM_term_union_imp >> rw[]
   >> cheat
 QED
         
@@ -4286,3 +4301,4 @@ Proof
 QED
 
 val _ = export_theory()
+                     
