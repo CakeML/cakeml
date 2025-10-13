@@ -635,15 +635,175 @@ Proof
     rw[do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
+  \\ Cases_on ‘∃m. op = ThunkOp (AllocThunk m)’ \\ gs[]
+  >- (
+    rw [do_app_cases] \\ gs [thunk_op_def, AllCaseEqs()]
+    \\ pairarg_tac \\ gvs []
+    \\ gvs [v_ok_def, store_alloc_def, EVERY_EL, LLOOKUP_EQ_EL]
+    \\ first_assum (irule_at Any) \\ gs []
+    \\ rw [EL_APPEND_EQN] \\ gs [NOT_LESS, LESS_OR_EQ, ref_ok_def]
+    >- (
+      gs [kernel_loc_ok_def, LLOOKUP_EQ_EL, EL_APPEND_EQN]
+      \\ first_x_assum (drule_then strip_assume_tac)
+      \\ rw [] \\ gs [SF SFY_ss])
+    \\ strip_tac
+    \\ first_x_assum (drule_then assume_tac)
+    \\ drule kernel_loc_ok_LENGTH \\ gs [])
+  \\ Cases_on ‘∃m. op = ThunkOp (UpdateThunk m)’ \\ gs[]
+  >- (
+    rw [do_app_cases] \\ gs [thunk_op_def, AllCaseEqs()]
+    \\ first_assum (irule_at Any)
+    \\ gvs [v_ok_def, store_assign_def, EVERY_EL, EL_LUPDATE, LLOOKUP_EQ_EL]
+    \\ rw [ref_ok_def]
+    \\ irule kernel_loc_ok_LUPDATE1
+    \\ rpt strip_tac \\ gs [])
+  \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gs[]
+  >- (rw [do_app_cases] \\ gs [thunk_op_def, AllCaseEqs()])
   \\ Cases_on ‘op’ \\ gs []
+  \\ Cases_on ‘t’ \\ gs []
+QED
+
+Theorem state_ok_dest_thunk:
+  state_ok ctxt s ∧
+  EVERY (v_ok ctxt) vs ∧
+  dest_thunk (REVERSE vs) s.refs = IsThunk m v ⇒ v_ok ctxt v
+Proof
+  rw []
+  >- (
+    gvs [state_ok_def, oneline dest_thunk_def, AllCaseEqs(), v_ok_def,
+         store_lookup_def, LLOOKUP_THM]
+    \\ first_x_assum drule \\ rw [] \\ gvs [ref_ok_def])
+  \\ rw [env_ok_def, sing_env_def]
+  \\ Cases_on ‘n'’ \\ gvs []
+  \\ gvs [namespaceTheory.nsEmpty_def, namespaceTheory.nsBind_def,
+          namespaceTheory.nsLookup_def]
+  \\ gvs [oneline dest_thunk_def, AllCaseEqs(), store_lookup_def, state_ok_def,
+          LLOOKUP_THM, v_ok_def]
+  \\ first_x_assum drule_all \\ rw [] \\ gvs [ref_ok_def]
+QED
+
+Theorem state_ok_update_thunk:
+  state_ok ctxt s ∧
+  EVERY (v_ok ctxt) vs ∧
+  EVERY (v_ok ctxt) vs2 ∧
+  update_thunk (REVERSE vs) s.refs vs2 = SOME refs ⇒
+    state_ok ctxt (s with refs := refs)
+Proof
+  rw []
+  \\ gvs [oneline update_thunk_def, AllCaseEqs(), store_assign_def,
+          state_ok_def, LLOOKUP_LUPDATE, v_ok_def]
+  \\ goal_assum drule \\ gvs [] \\ rw []
+  >- (
+    irule kernel_loc_ok_LUPDATE1 \\ gvs []
+    \\ metis_tac [EXTENSION])
+  >- (first_x_assum drule \\ rw [])
+  >- gvs [ref_ok_def]
 QED
 
 Theorem evaluate_v_ok_Op:
   op ≠ Opapp ∧ op ≠ Eval ⇒ ^(get_goal "ast$App")
 Proof
   rw [evaluate_def] \\ Cases_on ‘getOpClass op’ \\ gs[]
-  >~ [‘EvalOp’] >- (Cases_on ‘op’ \\ gs[])
-  >~ [‘FunApp’] >- (Cases_on ‘op’ \\ gs[])
+  >~ [‘EvalOp’] >- (Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
+  >~ [‘FunApp’] >- (Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
+  >~ [‘Force’] >- (
+    Cases_on ‘op’ \\ gvs [] \\ Cases_on ‘t’ \\ gvs []
+    \\ qpat_x_assum ‘_ = (s',res)’ mp_tac
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ last_x_assum drule_all \\ strip_tac
+    \\ reverse TOP_CASE_TAC \\ gvs []
+    >- (
+      rw [] \\ gvs []
+      \\ goal_assum drule \\ gvs [])
+    \\ TOP_CASE_TAC \\ gvs []
+    >~ [‘BadRef’] >- (
+      rw [] \\ gvs []
+      \\ goal_assum drule \\ gvs [state_ok_def])
+    >~ [‘NotThunk’] >- (
+      rw [] \\ gvs []
+      \\ goal_assum drule \\ gvs [state_ok_def])
+    \\ TOP_CASE_TAC \\ gvs []
+    >- (
+      rw [] \\ gvs []
+      \\ goal_assum drule \\ gvs []
+      \\ drule_all_then assume_tac state_ok_dest_thunk \\ gvs [])
+    \\ TOP_CASE_TAC \\ gvs []
+    >- (
+      rw [] \\ gvs []
+      \\ goal_assum drule \\ gvs [state_ok_def])
+    \\ ntac 2 (TOP_CASE_TAC \\ gvs [])
+    >- (
+      rw [] \\ gvs []
+      \\ goal_assum drule \\ gvs [state_ok_def])
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ ‘state_ok ctxt' (dec_clock q)’
+      by (gvs [dec_clock_def, state_ok_def] \\ metis_tac [])
+    \\ Cases_on ‘kernel_vals ctxt' v’
+    >- (
+      drule (INST_TYPE [“:'a”|->“:'ffi”] kernel_vals_ok)
+      \\ ‘v_ok ctxt' (Conv NONE [])’ by gvs [v_ok_def]
+      \\ disch_then (drule_all_then (strip_assume_tac)) \\ gs []
+      >- (
+        rw [] \\ gvs []
+        \\ goal_assum drule \\ gvs [state_ok_def])
+      \\ rpt (TOP_CASE_TAC \\ gvs [])
+      >- (
+        rw [] \\ gvs []
+        \\ goal_assum drule \\ gvs [state_ok_def])
+      >- (
+        rw [] \\ gvs []
+        \\ qexists ‘ctxt''’ \\ gvs []
+        \\ drule_at (Pat ‘update_thunk _ _ _ = _’) state_ok_update_thunk
+        \\ disch_then $ qspec_then ‘ctxt''’ mp_tac
+        \\ impl_tac \\ gvs []
+        \\ gvs [EVERY_EL])
+      >- (
+        rw [] \\ gvs []
+        \\ qexists ‘ctxt''’ \\ gvs [])
+      \\ rw [] \\ gvs []
+      \\ qexists ‘ctxt''’ \\ gvs [state_ok_def])
+    \\ first_x_assum drule
+    \\ impl_tac >- (
+      gvs [do_opapp_cases]
+      >~ [‘Closure env1 n e’] >- (
+        drule_all state_ok_dest_thunk \\ strip_tac
+        \\ gvs [v_ok_def]
+        \\ irule env_ok_with_nsBind \\ gvs [v_ok_def]
+        \\ ‘env1 with c := env1.c = env1’ by simp [sem_env_component_equality]
+        \\ gvs [])
+      \\ drule_all state_ok_dest_thunk \\ strip_tac
+      \\ gvs [v_ok_def]
+      \\ gs [env_ok_def, evaluateTheory.dec_clock_def, find_recfun_ALOOKUP,
+             SF SFY_ss]
+      \\ drule_then assume_tac ALOOKUP_MEM
+      \\ gs [EVERY_MEM, EVERY_MAP, FORALL_PROD, SF SFY_ss]
+      \\ Cases \\ simp [build_rec_env_merge, ml_progTheory.nsLookup_nsBind_compute]
+      \\ rw [] \\ gs []
+      \\ gs [nsLookup_nsAppend_some, nsLookup_alist_to_ns_some,
+             nsLookup_alist_to_ns_none]
+      >- simp [v_ok_def]
+      >~ [‘ALOOKUP _ _ = SOME _’] >- (
+        drule_then assume_tac ALOOKUP_MEM
+        \\ gvs [MEM_MAP, EXISTS_PROD, v_ok_def, EVERY_MEM]
+        \\ rw [DISJ_EQ_IMP, env_ok_def] \\ gs [SF SFY_ss])
+      \\ first_x_assum irule
+      \\ gs [SF SFY_ss])
+    \\ strip_tac \\ gvs []
+    \\ reverse TOP_CASE_TAC \\ gvs []
+    >- (
+      rw [] \\ gvs []
+      \\ goal_assum $ drule_at (Pos $ el 2)
+      \\ rw [] \\ gvs [])
+    \\ TOP_CASE_TAC \\ gvs []
+    >- (
+      rw [] \\ gvs []
+      \\ goal_assum drule \\ gvs [state_ok_def])
+    \\ strip_tac \\ gvs []
+    \\ goal_assum $ drule_at (Pos $ el 3) \\ gvs []
+    \\ drule_at (Pat ‘update_thunk _ _ _ = _’) state_ok_update_thunk \\ gvs []
+    \\ disch_then drule \\ gvs []
+    \\ impl_tac \\ gvs []
+    \\ gvs [EVERY_EL])
   >~ [‘Simple’] >- (
     gvs [AllCaseEqs()]
     \\ first_x_assum (drule_all_then strip_assume_tac) \\ gs [state_ok_def]

@@ -201,6 +201,8 @@ val _ = reg_enc_dec closLang_const_enc'_thm;
 
 val res = define_enc_dec “:opw”;
 val res = define_enc_dec “:ast$shift”;
+val res = define_enc_dec “:ast$thunk_mode”
+val res = define_enc_dec “:ast$thunk_op”;
 val res = define_enc_dec “:fp_cmp”;
 val res = define_enc_dec “:fp_uop”;
 val res = define_enc_dec “:fp_bop”;

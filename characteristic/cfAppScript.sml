@@ -613,7 +613,8 @@ Theorem do_app_io_events_ExtCall:
         ?s bs bs'. io_ev = IO_event (ExtCall s) bs bs'
 Proof
   strip_tac >>
-  gvs[DefnBase.one_line_ify NONE do_app_def,
+  gvs[oneline do_app_def,
+    oneline thunk_op_def, store_alloc_def,
     AllCaseEqs(),ffiTheory.call_FFI_def] >>
   pairarg_tac >> fs[]
 QED

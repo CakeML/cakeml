@@ -1757,6 +1757,64 @@ Proof
       \\ fs [option_case_eq] \\ rveq \\ fs []
       \\ rfs [env_rel_def, PULL_EXISTS, OPTREL_def]
     )
+    \\ Cases_on `op = ThunkOp ForceThunk`
+    >- (
+      gvs [AllCaseEqs(), dec_clock_def, PULL_EXISTS]
+      >- (
+        gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS,
+             store_lookup_def]
+        \\ rgs [Once v_rel_cases]
+        \\ gvs [state_rel_def, LIST_REL_EL_EQN]
+        \\ `sv_rel v_rel (Thunk Evaluated v) (EL n t2.refs)` by (
+          qpat_x_assum `∀n. n < LENGTH t2.refs ⇒ _` drule \\ rw [])
+        \\ gvs []
+        \\ Cases_on `EL n t2.refs` \\ gvs [])
+      >- (
+        gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS,
+             store_lookup_def]
+        \\ rgs [Once v_rel_cases]
+        \\ `∃a. EL n t2.refs = Thunk NotEvaluated a ∧
+                v_rel v a` by (
+          gvs [state_rel_def, LIST_REL_EL_EQN]
+          \\ qpat_x_assum `∀n. n < LENGTH t2.refs ⇒ _` drule \\ rw []
+          \\ Cases_on `EL n t2.refs` \\ gvs []) \\ gvs []
+        \\ simp [PULL_EXISTS]
+        \\ gvs [AppUnit_def, compile_exp_def, PULL_EXISTS, dec_name_to_num_def]
+        \\ last_x_assum $ qspecl_then [`1`, `<|v := [("f",a)]|>`, `t2`] mp_tac
+        \\ impl_tac
+        >- gvs [env_rel_def, ALOOKUP_rel_def, OPTREL_def, state_rel_def]
+        \\ rw [] \\ gvs []
+        \\ gvs [oneline update_thunk_def, AllCaseEqs()]
+        \\ gvs [store_assign_def, store_v_same_type_def]
+        \\ gvs [state_rel_def, LIST_REL_EL_EQN, EL_LUPDATE]
+        \\ rw []
+        >- (
+          qpat_x_assum `v_rel v'' y` mp_tac
+          \\ gvs [oneline dest_thunk_def, AllCaseEqs()]
+          \\ rw [Once v_rel_cases]
+          \\ gvs [store_lookup_def]
+          \\ qpat_x_assum `∀n. n < LENGTH t2'.refs ⇒ _`
+               $ qspec_then `n'` assume_tac \\ gvs []
+          \\ Cases_on `EL n' t2'.refs` \\ gvs [])
+        >- (
+          first_x_assum drule \\ rw []
+          \\ Cases_on `EL n s''.refs` \\ Cases_on `EL n t2'.refs` \\ gvs []))
+      >- (
+        gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS,
+             store_lookup_def]
+        \\ rgs [Once v_rel_cases]
+        \\ `∃a. EL n t2.refs = Thunk NotEvaluated a ∧
+                v_rel v a` by (
+          gvs [state_rel_def, LIST_REL_EL_EQN]
+          \\ qpat_x_assum `∀n. n < LENGTH t2.refs ⇒ _` drule \\ rw []
+          \\ Cases_on `EL n t2.refs` \\ gvs []) \\ gvs []
+        \\ gvs [AppUnit_def, compile_exp_def, PULL_EXISTS, dec_name_to_num_def]
+        \\ last_x_assum $ qspecl_then [`1`, `<|v := [("f",a)]|>`, `t2`] mp_tac
+        \\ impl_tac
+        >- gvs [env_rel_def, ALOOKUP_rel_def, OPTREL_def, state_rel_def]
+        \\ rw [] \\ gvs []
+        \\ gvs [evaluate_def, do_opapp_def, AllCaseEqs()]
+        \\ gvs [state_rel_def, LIST_REL_EL_EQN]))
     \\ fs [option_case_eq, pair_case_eq]
     \\ rveq \\ fs []
     \\ drule_then (drule_then drule) do_app_thm_REVERSE

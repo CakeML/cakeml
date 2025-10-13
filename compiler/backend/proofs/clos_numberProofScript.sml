@@ -457,8 +457,11 @@ Proof
    (`ref_rel (v_rel s.max_app) (s.refs ' ptr) (t.refs ' ptr)` by fs[]
     \\ rpt (qpat_x_assum `!x._` kall_tac)
     \\ rfs [] \\ Cases_on `s.refs ' ptr` \\ fs [ref_rel_def])
+  THEN1
+   (`ref_rel (v_rel s.max_app) (s.refs ' ptr) (t.refs ' ptr)` by fs[]
+    \\ rpt (qpat_x_assum `!x._` kall_tac)
+    \\ rfs [] \\ Cases_on `s.refs ' ptr` \\ fs [ref_rel_def])
   \\ rpt gen_tac \\ fs [] \\ Cases_on `x = p` \\ fs [FAPPLY_FUPDATE_THM]
-  \\ metis_tac []
 QED
 
 val do_app_inst =
@@ -614,6 +617,26 @@ Proof
   simp[LIST_REL_EL_EQN]
 QED
 
+Triviality rel_update_thunk:
+  state_rel s1 s2 ∧
+  LIST_REL (v_rel s1.max_app) vs ys ∧
+  update_thunk [RefPtr v ptr] s1.refs vs = SOME refs1 ⇒
+    ∃refs2. update_thunk [RefPtr v ptr] s2.refs ys = SOME refs2 ∧
+            state_rel (s1 with refs := refs1) (s2 with refs := refs2)
+Proof
+  rw []
+  \\ gvs [oneline update_thunk_def, AllCaseEqs()] \\ rw []
+  \\ gvs [oneline dest_thunk_def, AllCaseEqs()]
+  \\ (
+    gvs [Once v_rel_cases, oneline store_thunk_def, AllCaseEqs(), PULL_EXISTS]
+    \\ rpt (
+      imp_res_tac state_rel_refs \\ gvs [fmap_rel_def, FLOOKUP_DEF]
+      \\ first_x_assum dxrule \\ rw [] \\ gvs [])
+    \\ gvs [state_rel_def, fmap_rel_def, FAPPLY_FUPDATE_THM] \\ rw []
+    \\ simp [Once v_rel_cases]
+    \\ metis_tac [])
+QED
+
 (*
 val do_install_Rabort = prove(
   ``closSem$do_install xs s2 = (Rerr (Rabort a),s3) ==>
@@ -743,7 +766,7 @@ Proof
     `r1 <> Rerr (Rabort Rtype_error)` by (strip_tac \\ fs []) \\ fs[] >>
     tac >> full_simp_tac(srw_ss())[] >>
     Cases_on`op = Install` >- (
-      fs[]
+      gvs [contains_App_SOME_def]
       \\ first_x_assum drule
       \\ disch_then drule
       \\ disch_then(qspec_then`n`strip_assume_tac) \\ rfs[]
@@ -796,6 +819,34 @@ Proof
       \\ fs [do_install_def,case_eq_thms,bool_case_eq,pair_case_eq]
     ) >>
     srw_tac[][] >>
+    Cases_on`op = ThunkOp ForceThunk` >- (
+      gvs [contains_App_SOME_def]
+      \\ first_x_assum drule_all \\ rw []
+      \\ pop_assum $ qspec_then `n` assume_tac \\ gvs []
+      \\ Cases_on `res'` \\ Cases_on `r1` \\ gvs []
+      \\ imp_res_tac state_rel_max_app \\ gvs []
+      \\ imp_res_tac evaluate_const \\ gvs []
+      \\ imp_res_tac state_rel_clock \\ gvs []
+      \\ gvs [AllCaseEqs()]
+      \\ gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
+      \\ rgs [Once v_rel_cases]
+      \\ imp_res_tac state_rel_refs \\ gvs [fmap_rel_def, FLOOKUP_DEF]
+      \\ first_x_assum drule \\ rw [] \\ gvs [PULL_EXISTS]
+      \\ gvs [AppUnit_def, contains_App_SOME_def]
+      \\ `(dec_clock 1 s2').max_app = s2'.max_app` by (
+        gvs [state_rel_def, dec_clock_def]) \\ gvs []
+      \\ `state_rel (dec_clock 1 s2') (dec_clock 1 t2)` by (
+        drule state_rel_with_clock \\ rw [dec_clock_def])
+      \\ last_x_assum $ drule_all_then $ qspec_then `n` mp_tac
+      \\ rw [renumber_code_locs_def]
+      \\ goal_assum drule \\ rw []
+      \\ imp_res_tac evaluate_const \\ gvs []
+      \\ drule_at (Pos $ el 3) rel_update_thunk \\ gvs []) >>
+    srw_tac[][] >>
+    `¬contains_App_SOME s.max_app xs` by (
+      Cases_on `op` \\ gvs [contains_App_SOME_def]
+      \\ Cases_on `t` \\ gvs [contains_App_SOME_def]) >>
+    gvs[] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(fn th => first_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >> rev_full_simp_tac(srw_ss())[] >>
     Cases_on `r1` \\ full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>

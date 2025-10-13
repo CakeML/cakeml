@@ -68,11 +68,11 @@ QED
 
 Theorem evaluate_better_ind:
   (∀xs s1.
-    (∀ys s2. s2.clock ≤ s1.clock ∧ (s2.clock = s1.clock ⇒  exp3_size ys < exp3_size xs) ⇒ P1 ys s2) ⇒
-    (∀args s2. s2.clock ≤ s1.clock ∧ (s2.clock = s1.clock ⇒  LENGTH args < exp3_size xs) ⇒ P2 args s2) ⇒
+    (∀ys s2. s2.clock ≤ s1.clock ∧ (s2.clock = s1.clock ⇒  exp3_alt_size ys < exp3_alt_size xs) ⇒ P1 ys s2) ⇒
+    (∀args s2. s2.clock ≤ s1.clock ∧ (s2.clock = s1.clock ⇒  LENGTH args < exp3_alt_size xs) ⇒ P2 args s2) ⇒
     P1 xs s1) ∧
   (∀args s1.
-    (∀ys s2. s2.clock ≤ s1.clock ∧ (s2.clock = s1.clock ⇒  exp3_size ys < LENGTH args) ⇒ P1 ys s2) ⇒
+    (∀ys s2. s2.clock ≤ s1.clock ∧ (s2.clock = s1.clock ⇒  exp3_alt_size ys < LENGTH args) ⇒ P1 ys s2) ⇒
     (∀args' s2. s2.clock ≤ s1.clock ∧ (s2.clock = s1.clock ⇒  LENGTH args' < LENGTH args) ⇒ P2 args' s2) ⇒
     P2 args s1) ⇒
   (∀(xs:closLang$exp list) (s1:('c,'ffi) closSem$state). P1 xs s1) ∧
@@ -88,7 +88,7 @@ Proof
   \\ strip_tac
   \\ pop_assum mp_tac
   \\ qid_spec_tac ‘s1’
-  \\ completeInduct_on ‘case x of INL xs => exp3_size xs | INR args => LENGTH args’
+  \\ completeInduct_on ‘case x of INL xs => exp3_alt_size xs | INR args => LENGTH args’
   \\ rw []
   \\ gvs [forall_sum,SF DNF_ss, AND_IMP_INTRO, GSYM CONJ_ASSOC]
   \\ Cases_on ‘x’ \\ simp []
@@ -102,12 +102,14 @@ QED
 Definition ref_rel_def[simp]:
   (ref_rel R (ValueArray vs) (ValueArray ws) ⇔ LIST_REL R vs ws) ∧
   (ref_rel R (ByteArray as) (ByteArray bs) ⇔ as = bs) ∧
+  (ref_rel R (Thunk ma a) (Thunk mb b) ⇔ ma = mb ∧ R a b) ∧
   (ref_rel _ _ _ = F)
 End
 
 Theorem ref_rel_simp[simp]:
    (ref_rel R (ValueArray vs) y ⇔ ∃ws. y = ValueArray ws ∧ LIST_REL R vs ws) ∧
-   (ref_rel R (ByteArray bs) y ⇔ y = ByteArray bs)
+   (ref_rel R (ByteArray bs) y ⇔ y = ByteArray bs) ∧
+   (ref_rel R (Thunk m a) y ⇔ ∃b. y = Thunk m b ∧ R a b)
 Proof
   Cases_on`y`>>simp[ref_rel_def] >> srw_tac[][EQ_IMP_THM]
 QED
@@ -205,6 +207,9 @@ Definition contains_App_SOME_def:
      contains_App_SOME max_app [x1]) /\
   (contains_App_SOME max_app [Tick _ x1] ⇔
      contains_App_SOME max_app [x1]) /\
+  (contains_App_SOME max_app [Op _ (ThunkOp ForceThunk) xs] ⇔
+     max_app < 1 ∨
+     contains_App_SOME max_app xs) /\
   (contains_App_SOME max_app [Op _ op xs] ⇔
      contains_App_SOME max_app xs) /\
   (contains_App_SOME max_app [App _ loc_opt x1 x2] ⇔
@@ -949,6 +954,7 @@ Theorem EVERY_pure_correct = Q.prove(`
   >- (full_simp_tac (srw_ss() ++ ETA_ss) [] >> every_case_tac >> full_simp_tac(srw_ss())[])
   >- (full_simp_tac(srw_ss())[] >> every_case_tac >> full_simp_tac(srw_ss())[])
   >- (Cases_on`op=Install` >- fs[pure_op_def] >>
+      Cases_on `op = ThunkOp ForceThunk` >- fs[pure_op_def] >>
       fsrw_tac[ETA_ss][]
       \\ PURE_CASE_TAC \\ fs[]
       \\ PURE_CASE_TAC \\ fs[]
@@ -1185,6 +1191,24 @@ Theorem evaluate_app_clock0:
    evaluate_app lopt r args s0 ≠ (Rval vs, s)
 Proof
   strip_tac >> `∃a1 args0. args = a1::args0` by (Cases_on `args` >> full_simp_tac(srw_ss())[]) >>
+  simp[evaluate_def] >>
+  Cases_on `dest_closure s0.max_app lopt r (a1::args0)` >> simp[] >>
+  rename1 `dest_closure s0.max_app lopt r (a1::args0) = SOME c` >>
+  Cases_on `c` >> simp[] >>
+  rename1 `dest_closure max_app lopt r (a1::args0) = SOME (Full_app b env rest)` >>
+  srw_tac[][] >>
+  `SUC (LENGTH args0) ≤ LENGTH rest` by simp[] >>
+  imp_res_tac dest_closure_full_length >> lfs[]
+QED
+
+Theorem evaluate_app_clock0_timeout:
+   s0.clock = 0 ∧ args ≠ [] ∧
+   evaluate_app lopt r args s0 = (Rerr e, s) ∧
+   e ≠ Rabort Rtype_error ⇒
+     e = Rabort Rtimeout_error
+Proof
+  strip_tac >> `∃a1 args0. args = a1::args0` by (Cases_on `args` >> full_simp_tac(srw_ss())[]) >>
+  qpat_x_assum `evaluate_app _ _ _ _ = _` mp_tac >>
   simp[evaluate_def] >>
   Cases_on `dest_closure s0.max_app lopt r (a1::args0)` >> simp[] >>
   rename1 `dest_closure s0.max_app lopt r (a1::args0) = SOME c` >>
@@ -1557,9 +1581,10 @@ Proof
   full_simp_tac(srw_ss())[LET_THM,
      semanticPrimitivesTheory.store_alloc_def,
      semanticPrimitivesTheory.store_lookup_def,
-     semanticPrimitivesTheory.store_assign_def,ffiTheory.call_FFI_def] >>
-  srw_tac[][] >>
-  fs [case_eq_thms] \\ rveq \\ fs []
+     semanticPrimitivesTheory.store_assign_def,ffiTheory.call_FFI_def]
+  >>~- ([`ThunkOp _`], gvs [AllCaseEqs()])
+  \\ srw_tac[][]
+  \\ fs [case_eq_thms] \\ rveq \\ fs []
   \\ rpt (pop_assum (mp_tac o GSYM))
   \\ fs [case_eq_thms] \\ rveq \\ fs []
   \\ rw [] \\ rpt (pop_assum (mp_tac o GSYM)) \\ rw []
@@ -1729,6 +1754,7 @@ val tac =
   rveq >>
   fsrw_tac[ARITH_ss][AC ADD_ASSOC ADD_COMM] >>
   rveq >> fs[] >>
+  gvs[AppUnit_def] >>
   metis_tac[evaluate_io_events_mono,with_clock_ffi,FST,SND,IS_PREFIX_TRANS,lemma,Boolv_11,lemma2,lemma3]
 
 Theorem evaluate_add_to_clock_io_events_mono:
@@ -1773,9 +1799,12 @@ Theorem evaluate_timeout_clocks0:
 Proof
   ho_match_mp_tac evaluate_ind >> rpt conj_tac >>
   dsimp[evaluate_def, case_eq_thms, pair_case_eq, bool_case_eq] >>
-  rw[] >> pop_assum mp_tac >>
-  simp_tac (srw_ss()) [do_install_def,case_eq_thms,bool_case_eq,pair_case_eq,UNCURRY,LET_THM] >>
-  rw[] >> fs []
+  rw[] >> pop_assum mp_tac
+  >~ [`do_install`] >- (
+    simp_tac (srw_ss()) [do_install_def,case_eq_thms,bool_case_eq,pair_case_eq,UNCURRY,LET_THM] >>
+    rw[] >> fs [])
+  >~ [`dest_thunk`] >- (
+    gvs [oneline dest_thunk_def, AllCaseEqs()] \\ rw [] \\ gvs [])
 QED
 
 val _ = export_rewrites ["closLang.exp_size_def"]
@@ -1893,6 +1922,9 @@ Definition esgc_free_def:
   (esgc_free (Letrec _ _ _ binds bod) ⇔
     elist_globals (MAP SND binds) = {||} ∧ esgc_free bod) ∧
   (esgc_free (Op _ _ args) ⇔ EVERY esgc_free args)
+Termination
+  WF_REL_TAC `measure exp_size` >> simp[] >> rpt strip_tac >>
+   imp_res_tac exp_size_MEM >> simp[]
 End
 
 Theorem esgc_free_def[simp,compute,allow_rebind] =
@@ -1903,6 +1935,7 @@ Definition ssgc_free_def:
   ssgc_free ^s ⇔
     (∀n m e. FLOOKUP s.code n = SOME (m,e) ⇒ set_globals e = {||}) ∧
     (∀n vl. FLOOKUP s.refs n = SOME (ValueArray vl) ⇒ EVERY vsgc_free vl) ∧
+    (∀n m v. FLOOKUP s.refs n = SOME (Thunk m v) ⇒ vsgc_free v) ∧
     (∀v. MEM (SOME v) s.globals ⇒ vsgc_free v) ∧
     (∀n exp aux. SND (s.compile_oracle n) = (exp, aux) ⇒ EVERY esgc_free exp ∧
          elist_globals (MAP (SND o SND) aux) = {||})
@@ -2019,6 +2052,11 @@ Definition simple_state_rel_def:
       ∃w1.
         FLOOKUP s.refs ptr = SOME (ValueArray w1) ∧
         LIST_REL vr w1 w) /\
+    (∀m v t s ptr.
+      FLOOKUP t.refs ptr = SOME (Thunk m v) ∧ sr s t ⇒
+      ∃w.
+        FLOOKUP s.refs ptr = SOME (Thunk m w) ∧
+        vr w v) /\
     (!s t. sr s t ==> s.ffi = t.ffi /\ FDOM s.refs = FDOM t.refs /\
                       LIST_REL (OPTREL vr) s.globals t.globals) /\
     (!f s t.
@@ -2031,6 +2069,10 @@ Definition simple_state_rel_def:
       sr s t /\ LIST_REL vr xs ys ==>
       sr (s with refs := s.refs |+ (p,ValueArray xs))
          (t with refs := t.refs |+ (p,ValueArray ys))) /\
+    (!s t p m v w.
+      sr s t /\ vr v w ==>
+      sr (s with refs := s.refs |+ (p,Thunk m v))
+         (t with refs := t.refs |+ (p,Thunk m w))) /\
     (!s t xs ys.
       sr s t /\ LIST_REL (OPTREL vr) xs ys ==>
       sr (s with globals := xs) (t with globals := ys))
@@ -2059,10 +2101,16 @@ val simple_state_rel_update_bytes = prove(
        (t with refs := t.refs |+ (p,ByteArray bs))``,
   fs [simple_state_rel_def]);
 
-val simple_state_rel_update = prove(
+val simple_state_rel_update_values = prove(
   ``simple_state_rel vr sr /\ sr s t /\ LIST_REL vr xs ys ==>
     sr (s with refs := s.refs |+ (p,ValueArray xs))
        (t with refs := t.refs |+ (p,ValueArray ys))``,
+  fs [simple_state_rel_def]);
+
+val simple_state_rel_update_thunks = prove(
+  ``simple_state_rel vr sr /\ sr s t /\ vr v w ==>
+    sr (s with refs := s.refs |+ (p,Thunk m v))
+       (t with refs := t.refs |+ (p,Thunk m w))``,
   fs [simple_state_rel_def]);
 
 val simple_state_rel_update_globals = prove(
@@ -2195,6 +2243,8 @@ Theorem simple_state_rel_FLOOKUP_refs_IMP:
     | SOME (ByteArray bs) => FLOOKUP s.refs p = SOME (ByteArray bs)
     | SOME (ValueArray vs) =>
         ?xs. FLOOKUP s.refs p = SOME (ValueArray xs) /\ LIST_REL vr xs vs
+    | SOME (Thunk m w) =>
+        ?v. FLOOKUP s.refs p = SOME (Thunk m v) /\ vr v w
 Proof
   fs [simple_state_rel_def] \\ Cases_on `x` \\ rw []
   \\ res_tac \\ fs [] \\ rename1 `_ = SOME yy` \\ Cases_on `yy` \\ fs []
@@ -2363,6 +2413,19 @@ Proof
     \\ rw [Once $oneline  do_int_app_def, AllCaseEqs(), PULL_EXISTS]
     \\ fs[] \\ rveq \\ simp[oneline do_int_app_def]
     \\ res_tac >> fs[isClos_cases])
+  \\ Cases_on `?i. opp = ThunkOp i`
+  THEN1
+   (Cases_on `do_app opp ys t` \\ fs[] \\ rveq \\ pop_assum mp_tac
+    \\ rw [do_app_def, case_eq_thms, pair_case_eq, bool_case_eq, PULL_EXISTS]
+    \\ gvs [AllCaseEqs(), PULL_EXISTS]
+    \\ gvs [simple_val_rel_def, Unit_def, AllCaseEqs(), PULL_EXISTS]
+    \\ rveq \\ fs []
+    \\ `FDOM s.refs = FDOM t.refs` by fs [simple_state_rel_def] \\ fs []
+    \\ drule (GEN_ALL simple_state_rel_FLOOKUP_refs_IMP)
+    \\ disch_then drule \\ disch_then imp_res_tac \\ fs []
+    \\ TRY (res_tac \\ fs [isClos_cases] \\ NO_TAC)
+    \\ match_mp_tac (GEN_ALL simple_state_rel_update_thunks)
+    \\ asm_exists_tac \\ fs [])
   \\ Cases_on `?w. opp = WordOp w`
   THEN1
    (Cases_on `do_app opp ys t` \\ fs[] \\ rveq \\ pop_assum mp_tac
@@ -2494,7 +2557,7 @@ Proof
     >~[`w2n`]
     >- (IF_CASES_TAC >> gvs[])
     \\ `FDOM s.refs = FDOM t.refs` by fs [simple_state_rel_def] \\ fs []
-    \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update))
+    \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update_values))
     \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update_bytes))
     \\ asm_exists_tac \\ fs [LIST_REL_REPLICATE_same])
   \\ Cases_on `?m. opp = MemOp m ∧ (m = UpdateByte \/ m = Update) \/ ?n. opp = FFI n` THEN1
@@ -2513,7 +2576,7 @@ Proof
     \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update_ffi))
     \\ TRY (asm_exists_tac \\ fs [])
     \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update_bytes))
-    \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update))
+    \\ TRY (match_mp_tac (GEN_ALL simple_state_rel_update_values))
     \\ asm_exists_tac \\ fs []
     \\ match_mp_tac EVERY2_LUPDATE_same \\ fs [])
   \\ Cases_on `?b. opp = MemOp (CopyByte b)` THEN1
@@ -3123,7 +3186,9 @@ Proof
     \\ imp_res_tac do_app_adj_orac_Rval
     \\ imp_res_tac do_app_adj_orac_Rerr
     \\ fs [adj_orac_rel_def] \\ fsrw_tac [SATISFY_ss] []
-  )
+    \\ gvs [AllCaseEqs(), AppUnit_def, dec_clock_def]
+    \\ rveq \\ fs[]
+    \\ fs [adj_orac_rel_def] \\ fsrw_tac [SATISFY_ss] [])
   \\ TRY (
        fs[closSemTheory.evaluate_def,
           bool_case_eq,
@@ -3303,6 +3368,18 @@ Proof
   \\ pop_assum (assume_tac o SPEC_ALL) \\ rfs []
 QED
 
+Triviality SUBMAP_refs_clocks_eqs:
+  SUBMAP_rel s1 s2 ⇒ s1.refs = s2.refs ∧ s1.clock = s2.clock
+Proof
+  rw [SUBMAP_rel_def, state_component_equality]
+QED
+
+Triviality SUBMAP_dec_clock:
+  SUBMAP_rel s1 s2 ⇒ SUBMAP_rel (dec_clock 1 s1) (dec_clock 1 s2)
+Proof
+  rw [SUBMAP_rel_def, dec_clock_def, state_component_equality]
+QED
+
 Theorem evaluate_code_SUBMAP:
    (∀p x y (z1:('c, 'ffi)closSem$state) r s1 s2 (z2:('c,'ffi)closSem$state).
     p = (x,y,z1) ∧
@@ -3392,6 +3469,16 @@ Proof
     \\ fs[PULL_EXISTS]
     \\ res_tac \\ fs[]
     \\ NO_TAC )
+  \\ Cases_on`op = ThunkOp ForceThunk`
+  \\ fs[CaseEq"prod",CaseEq"semanticPrimitives$result",PULL_EXISTS]
+  \\ rveq \\ fs[]
+  >- (
+    gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
+    \\ imp_res_tac SUBMAP_refs_clocks_eqs \\ gvs [PULL_EXISTS]
+    \\ imp_res_tac SUBMAP_dec_clock \\ gvs []
+    \\ last_x_assum drule \\ rw []
+    \\ goal_assum drule \\ rw []
+    \\ gvs [SUBMAP_rel_def, state_component_equality])
   \\ imp_res_tac do_app_SUBMAP_Rval
   \\ fs[]
   \\ imp_res_tac do_app_SUBMAP_Rerr

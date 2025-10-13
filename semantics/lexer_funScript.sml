@@ -134,14 +134,15 @@ Proof
   \\ REPEAT STRIP_TAC \\ POP_ASSUM MP_TAC
   \\ ONCE_REWRITE_TAC [read_string_def]
   \\ Cases_on `s` \\ SIMP_TAC (srw_ss()) []
-  \\ SRW_TAC [] [LENGTH] \\ RES_TAC \\ TRY DECIDE_TAC
-  \\ SRW_TAC [] [LENGTH] \\ Cases_on `t'`
-  \\ FULL_SIMP_TAC (srw_ss()) [] \\ CCONTR_TAC
-  \\ Q.PAT_X_ASSUM `(x1, l', x2) = xxx` MP_TAC
-  \\ SIMP_TAC std_ss [] \\ SRW_TAC [] []
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
-  \\ RES_TAC \\ TRY DECIDE_TAC \\ CCONTR_TAC
-  \\ gvs[AllCaseEqs()] \\ drule read_char_as_3digits_reduces >> simp[]
+  \\ IF_CASES_TAC \\ gvs [SF SFY_ss,ADD1]
+  \\ IF_CASES_TAC \\ gvs [SF SFY_ss,ADD1]
+  \\ IF_CASES_TAC \\ gvs [SF SFY_ss,ADD1]
+  \\ CASE_TAC \\ gvs []
+  \\ rpt (IF_CASES_TAC \\ gvs [SF SFY_ss,ADD1]
+          >- (rpt strip_tac \\ res_tac \\ gvs []))
+  \\ IF_CASES_TAC \\ gvs []
+  \\ gvs [AllCaseEqs()] \\ rw [] \\ gvs []
+  \\ drule read_char_as_3digits_reduces \\ simp[]
 QED
 
 Definition skip_comment_def:

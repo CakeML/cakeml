@@ -46,6 +46,7 @@ Definition is_pure_def:
   (is_pure (MemOp XorByte) = F) /\
   (is_pure (MemOp ConfigGC) = F) /\
   (is_pure Install = F) /\
+  (is_pure (ThunkOp _) = F) /\
   (is_pure _ = T)
 End
 
@@ -87,6 +88,7 @@ Theorem is_pure_pmatch:
     | IntOp LessEq => F
     | Install => F
     | MemOp ConfigGC => F
+    | ThunkOp _ => F
     | _ => T
 Proof
   rpt strip_tac
@@ -118,6 +120,12 @@ Definition compile_def:
      let (d3,l3) = compile c3 live in
      let (d2,l2) = compile c2 live in
        (If n d2 d3, insert n () (union l2 l3))) /\
+  (compile (Force NONE loc src) live =
+     (Force NONE loc src,insert src () LN)) /\
+  (compile (Force (SOME (n,names)) loc src) live =
+     let l1 = inter names (delete n live) in
+     let l2 = insert src () l1 in
+       (Force (SOME (n,l1)) loc src,l2)) /\
   (compile (Call NONE dest vs handler) live =
      (Call NONE dest vs handler,list_to_num_set vs)) /\
   (compile (Call (SOME (n,names)) dest vs NONE) live =

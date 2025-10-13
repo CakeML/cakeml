@@ -31,6 +31,14 @@ Proof
   srw_tac[][]
 QED
 
+Theorem opClass_11[simp]:
+  (opClass op Simple ⇒ ¬opClass op Force ∧ ¬opClass op FunApp) ∧
+  (opClass op Force ⇒ ¬opClass op Simple ∧ ¬opClass op FunApp) ∧
+  (opClass op FunApp ⇒ ¬opClass op Simple ∧ ¬opClass op Force)
+Proof
+  Cases_on ‘op’ >> gvs[opClass_cases]
+QED
+
 Theorem evaluate_ignores_types_exns_eval:
   (∀ck env ^st e r.
      evaluate ck env st e r ⇒
