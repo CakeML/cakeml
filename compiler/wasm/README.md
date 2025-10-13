@@ -44,7 +44,7 @@ Wasm smallstep semantics
 En- & De- coding between CWasm 1.0 AST & Wasm's binary format
 
 [wbf_prelimScript.sml](wbf_prelimScript.sml):
-Ancillaries for En- & De- coding between CWasm 1.ε AST & Wasm's binary format
+Preliminaries for En- & De- coding between CWasm 1.ε AST & Wasm binary format
 such as:
 - Types
 - General (leb128) en-/de- coders

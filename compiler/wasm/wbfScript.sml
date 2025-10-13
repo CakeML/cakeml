@@ -604,7 +604,7 @@ Definition enc_blocktype_def:
 End
 
 Definition dec_blocktype_def:
-  dec_blocktype (bs:byteSeq) : blocktype dcdr = let failure = error bs "[dec_blocktype]"
+  dec_blocktype bs : blocktype dcdr = let failure = error bs "[dec_blocktype]"
     in
     case bs of [] => emErr "dec_blocktype" | b::rs
     =>
@@ -794,8 +794,8 @@ Definition dec_instr_def:
     if b = nopOC then ret bs Nop         else
     if b = retOC then ret bs Return      else
     (* Br, BrIf *)
-    if b = br_OC then case dec_u32 bs of (INL _,_)=>failure| (INR lbl,rs) => ret bs $ Br   lbl else
-    if b = briOC then case dec_u32 bs of (INL _,_)=>failure| (INR lbl,rs) => ret bs $ BrIf lbl else
+    if b = br_OC then case dec_u32 bs of (INL _,_)=>failure| (INR lbl,bs) => ret bs $ Br   lbl else
+    if b = briOC then case dec_u32 bs of (INL _,_)=>failure| (INR lbl,bs) => ret bs $ BrIf lbl else
     (* BrTable *)
     if b = brtOC then (
       case dec_indxs bs of (INL _,_) => failure | (INR lbls,bs) =>
