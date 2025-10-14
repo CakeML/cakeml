@@ -1,0 +1,40 @@
+<<HOL message: using fast prover - proofs unchecked>>
+<<HOL message: Created theory "pattern_common">>
+Saved theorem _______ "datatype_position"
+Saved theorem _______ "position_11"
+Saved theorem _______ "position_distinct"
+Saved theorem _______ "position_nchotomy"
+Saved theorem _______ "position_Axiom"
+Saved theorem _______ "position_induction"
+Saved theorem _______ "position_case_cong"
+Saved FAST-CHEAT ____ "position_case_eq"
+<<HOL message: Defined type: "position">>
+Saved FAST-CHEAT ____ "num2pmatchResult_pmatchResult2num"
+Saved FAST-CHEAT ____ "pmatchResult2num_num2pmatchResult"
+Saved FAST-CHEAT ____ "num2pmatchResult_11"
+Saved FAST-CHEAT ____ "pmatchResult2num_11"
+Saved FAST-CHEAT ____ "num2pmatchResult_ONTO"
+Saved FAST-CHEAT ____ "pmatchResult2num_ONTO"
+Saved theorem _______ "num2pmatchResult_thm"
+Saved FAST-CHEAT ____ "pmatchResult2num_thm"
+Saved FAST-CHEAT ____ "pmatchResult_EQ_pmatchResult"
+Saved FAST-CHEAT ____ "pmatchResult_case_def"
+Saved theorem _______ "datatype_pmatchResult"
+Saved FAST-CHEAT ____ "pmatchResult_distinct"
+Saved FAST-CHEAT ____ "pmatchResult_nchotomy"
+Saved FAST-CHEAT ____ "pmatchResult_Axiom"
+Saved FAST-CHEAT ____ "pmatchResult_induction"
+Saved FAST-CHEAT ____ "pmatchResult_case_cong"
+Saved FAST-CHEAT ____ "pmatchResult_case_eq"
+<<HOL message: Defined type: "pmatchResult">>
+Saved theorem _______ "datatype_matchResult"
+Saved theorem _______ "matchResult_11"
+Saved theorem _______ "matchResult_distinct"
+Saved theorem _______ "matchResult_nchotomy"
+Saved theorem _______ "matchResult_Axiom"
+Saved theorem _______ "matchResult_induction"
+Saved theorem _______ "matchResult_case_cong"
+Saved FAST-CHEAT ____ "matchResult_case_eq"
+<<HOL message: Defined type: "matchResult">>
+Exporting theory "pattern_common" ... done.
+Theory "pattern_common" took 0.39869s to build

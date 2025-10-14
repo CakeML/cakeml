@@ -1,0 +1,13 @@
+<<HOL message: Created theory "bvi">>
+Saved theorem _______ "exp_size_eq"
+Saved theorem _______ "datatype_exp"
+Saved theorem _______ "exp_11"
+Saved theorem _______ "exp_distinct"
+Saved theorem _______ "exp_nchotomy"
+Saved theorem _______ "exp_Axiom"
+Saved theorem _______ "exp_induction"
+Saved theorem _______ "exp_case_cong"
+Saved theorem _______ "exp_case_eq"
+<<HOL message: Defined type: "exp">>
+Exporting theory "bvi" ... done.
+Theory "bvi" took 0.66063s to build

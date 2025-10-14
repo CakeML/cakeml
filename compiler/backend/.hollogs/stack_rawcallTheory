@@ -1,0 +1,28 @@
+<<HOL message: Created theory "stack_rawcall">>
+<<HOL message: mk_functional: 
+  pattern completion has added 61 clauses to the original specification.>>
+Saved definition ____ "seq_stack_alloc_def"
+Saved theorem _______ "seq_stack_alloc_pmatch"
+Saved definition ____ "collect_info_def"
+Saved induction _____ "collect_info_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 33 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 30 clauses to the original specification.>>
+Saved definition ____ "dest_case_def"
+Saved theorem _______ "dest_case_pmatch"
+Saved definition ____ "comp_seq_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 28 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 28 clauses to the original specification.>>
+Saved definition ____ "comp_def"
+Saved induction _____ "comp_ind"
+Saved theorem _______ "comp_pmatch"
+<<HOL message: mk_functional: 
+  pattern completion has added 30 clauses to the original specification.>>
+Saved definition ____ "comp_top_def"
+Saved theorem _______ "comp_top_pmatch"
+Saved definition ____ "compile_def"
+Exporting theory "stack_rawcall" ... done.
+Theory "stack_rawcall" took 34.6s to build

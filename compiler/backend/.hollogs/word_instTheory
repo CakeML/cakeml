@@ -1,0 +1,33 @@
+<<HOL message: Created theory "word_inst">>
+<<HOL message: mk_functional: 
+  pattern completion has added 4 clauses to the original specification.>>
+Saved definition ____ "pull_ops_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 4 clauses to the original specification.>>
+Saved definition ____ "is_const_def"
+Saved induction _____ "is_const_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 4 clauses to the original specification.>>
+Saved definition ____ "rm_const_def"
+Saved induction _____ "rm_const_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 11 clauses to the original specification.>>
+Saved definition ____ "convert_sub_def"
+Saved induction _____ "convert_sub_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 11 clauses to the original specification.>>
+Saved theorem _______ "convert_sub_pmatch"
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+Saved definition ____ "op_consts_def"
+Saved induction _____ "op_consts_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+Saved theorem _______ "op_consts_pmatch"
+Saved definition ____ "reduce_const_def"
+Saved definition ____ "optimize_consts_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 11 clauses to the original specification.>>
+error in quse /Users/z5654475/Desktop/2025/2025_term1/TS/repos/from_source/cakeml/compiler/backend/word_instScript.sml : HOL_ERR {message = "at goalStack.extract_thm:\nno theorem proved", origin_function = "tprove", origin_structure = "Defn", source_location = Loc_Unknown}
+error in load /Users/z5654475/Desktop/2025/2025_term1/TS/repos/from_source/cakeml/compiler/backend/word_instScript : HOL_ERR {message = "at goalStack.extract_thm:\nno theorem proved", origin_function = "tprove", origin_structure = "Defn", source_location = Loc_Unknown}
+Uncaught exception at /Users/z5654475/Desktop/2025/2025_term1/TS/repos/from_source/HOL/src/num/termination/TotalDefn.sml:37: HOL_ERR {message = "at goalStack.extract_thm:\nno theorem proved", origin_function = "tprove", origin_structure = "Defn", source_location = Loc_Unknown}

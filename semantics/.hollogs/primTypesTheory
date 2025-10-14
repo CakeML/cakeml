@@ -1,0 +1,8 @@
+<<HOL message: Created theory "primTypes">>
+Saved definition ____ "prim_types_program_def"
+Saved definition ____ "add_to_sem_env_def"
+Saved definition ____ "prim_sem_env_def"
+Saved definition ____ "prim_tenv_def"
+Saved definition ____ "prim_type_ids_def"
+Exporting theory "primTypes" ... done.
+Theory "primTypes" took 0.43528s to build

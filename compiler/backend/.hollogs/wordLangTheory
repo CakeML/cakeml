@@ -1,0 +1,74 @@
+<<HOL message: Created theory "wordLang">>
+Saved theorem _______ "datatype_exp"
+Saved theorem _______ "exp_11"
+Saved theorem _______ "exp_distinct"
+Saved theorem _______ "exp_nchotomy"
+Saved theorem _______ "exp_Axiom"
+Saved theorem _______ "exp_induction"
+Saved theorem _______ "exp_case_cong"
+Saved theorem _______ "exp_case_eq"
+<<HOL message: Defined type: "exp">>
+Saved theorem _______ "MEM_IMP_exp_size"
+Saved theorem _______ "datatype_prog"
+Saved theorem _______ "prog_11"
+Saved theorem _______ "prog_distinct"
+Saved theorem _______ "prog_nchotomy"
+Saved theorem _______ "prog_Axiom"
+Saved theorem _______ "prog_induction"
+Saved theorem _______ "prog_case_cong"
+Saved theorem _______ "prog_case_eq"
+<<HOL message: Defined type: "prog">>
+Saved definition ____ "raise_stub_location_def"
+Saved definition ____ "store_consts_stub_location_def"
+Saved theorem _______ "raise_stub_location_eq"
+Saved theorem _______ "store_consts_stub_location_eq"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "every_var_exp_def"
+Saved induction _____ "every_var_exp_ind"
+Saved definition ____ "every_var_imm_def"
+Saved induction _____ "every_var_imm_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 13 clauses to the original specification.>>
+Saved definition ____ "every_var_inst_def"
+Saved induction _____ "every_var_inst_ind"
+Saved definition ____ "every_name_def"
+<<HOL message: mk_functional: The following input rows (counting from zero) are inaccessible: 23.
+They have been ignored.>>
+Saved definition ____ "every_var_def"
+Saved induction _____ "every_var_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 15 clauses to the original specification.>>
+Saved definition ____ "every_stack_var_def"
+Saved induction _____ "every_stack_var_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "max_var_exp_def"
+Saved induction _____ "max_var_exp_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 12 clauses to the original specification.>>
+Saved definition ____ "max_var_inst_def"
+Saved induction _____ "max_var_inst_ind"
+<<HOL message: mk_functional: The following input rows (counting from zero) are inaccessible: 23.
+They have been ignored.>>
+Saved definition ____ "max_var_def"
+Saved induction _____ "max_var_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "word_op_def"
+Saved definition ____ "word_sh_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 20 clauses to the original specification.>>
+Saved definition ____ "exp_to_addr_def"
+Saved induction _____ "exp_to_addr_ind"
+Saved theorem _______ "datatype_word_loc"
+Saved theorem _______ "word_loc_11"
+Saved theorem _______ "word_loc_distinct"
+Saved theorem _______ "word_loc_nchotomy"
+Saved theorem _______ "word_loc_Axiom"
+Saved theorem _______ "word_loc_induction"
+Saved theorem _______ "word_loc_case_cong"
+Saved theorem _______ "word_loc_case_eq"
+<<HOL message: Defined type: "word_loc">>
+Exporting theory "wordLang" ... done.
+Theory "wordLang" took 6.0s to build

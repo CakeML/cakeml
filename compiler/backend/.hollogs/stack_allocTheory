@@ -1,0 +1,47 @@
+<<HOL message: Created theory "stack_alloc">>
+Saved definition ____ "memcpy_code_def"
+Saved definition ____ "clear_top_inst_def"
+Saved definition ____ "word_gc_move_code_def"
+Saved definition ____ "word_gc_move_list_code_def"
+Saved definition ____ "word_gc_move_loop_code_def"
+Saved definition ____ "word_gc_move_bitmap_code_def"
+Saved definition ____ "word_gc_move_bitmaps_code_def"
+Saved definition ____ "word_gc_move_roots_bitmaps_code_def"
+Saved definition ____ "word_gen_gc_move_code_def"
+Saved definition ____ "word_gen_gc_partial_move_code_def"
+Saved definition ____ "word_gen_gc_move_bitmap_code_def"
+Saved definition ____ "word_gen_gc_partial_move_bitmap_code_def"
+Saved definition ____ "word_gen_gc_move_bitmaps_code_def"
+Saved definition ____ "word_gen_gc_partial_move_bitmaps_code_def"
+Saved definition ____ "word_gen_gc_move_roots_bitmaps_code_def"
+Saved definition ____ "word_gen_gc_partial_move_roots_bitmaps_code_def"
+Saved definition ____ "word_gen_gc_move_list_code_def"
+Saved definition ____ "word_gen_gc_partial_move_list_code_def"
+Saved definition ____ "word_gen_gc_move_data_code_def"
+Saved definition ____ "word_gen_gc_partial_move_ref_list_code_def"
+Saved definition ____ "word_gen_gc_partial_move_data_code_def"
+Saved definition ____ "word_gen_gc_move_refs_code_def"
+Saved definition ____ "word_gen_gc_move_loop_code_def"
+Saved definition ____ "word_gc_partial_or_full_def"
+Saved definition ____ "SetNewTrigger_def"
+Saved definition ____ "word_gc_code_def"
+Saved definition ____ "stubs_def"
+Saved definition ____ "stub_names_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 27 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 27 clauses to the original specification.>>
+Saved definition ____ "next_lab_def"
+Saved induction _____ "next_lab_ind"
+Saved theorem _______ "next_lab_pmatch"
+<<HOL message: mk_functional: 
+  pattern completion has added 26 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 26 clauses to the original specification.>>
+Saved definition ____ "comp_def"
+Saved induction _____ "comp_ind"
+Saved theorem _______ "comp_pmatch"
+Saved definition ____ "prog_comp_def"
+Saved definition ____ "compile_def"
+Exporting theory "stack_alloc" ... done.
+Theory "stack_alloc" took 18.0s to build

@@ -1,0 +1,22 @@
+<<HOL message: Created theory "crep_arith">>
+<<HOL message: mk_functional: 
+  pattern completion has added 9 clauses to the original specification.>>
+Saved definition ____ "dest_const_def"
+Saved induction _____ "dest_const_ind"
+Saved definition ____ "dest_2exp_def"
+Saved induction _____ "dest_2exp_ind"
+Proved triviality ___ "dest_2exp_lemma"
+Saved theorem _______ "dest_2exp_thm"
+Saved definition ____ "mul_const_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 4 clauses to the original specification.>>
+Saved definition ____ "simp_exp_def"
+Saved induction _____ "simp_exp_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 5 clauses to the original specification.>>
+Saved definition ____ "simp_prog_def"
+Saved induction _____ "simp_prog_ind"
+Exporting theory "crep_arith" ... done.
+Theory "crep_arith" took 1.3s to build

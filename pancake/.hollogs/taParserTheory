@@ -1,0 +1,6 @@
+<<HOL message: Created theory "taParser">>
+Saved definition ____ "flashing_led_def"
+Saved definition ____ "flashing_led_with_button_def"
+Saved definition ____ "flashing_led_with_invariant_def"
+Exporting theory "taParser" ... done.
+Theory "taParser" took 1.4s to build

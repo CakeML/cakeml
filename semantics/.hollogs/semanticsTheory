@@ -1,0 +1,29 @@
+<<HOL message: Created theory "semantics">>
+Saved definition ____ "parse_def"
+Saved theorem _______ "datatype_state"
+Saved theorem _______ "state_11"
+Saved theorem _______ "state_nchotomy"
+Saved theorem _______ "state_Axiom"
+Saved theorem _______ "state_induction"
+Saved theorem _______ "state_case_cong"
+Saved theorem _______ "state_case_eq"
+<<HOL message: Defined type: "state">>
+Saved definition ____ "can_type_prog_def"
+Saved definition ____ "evaluate_prog_with_clock_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+Saved definition ____ "semantics_prog_def"
+Saved theorem _______ "datatype_semantics"
+Saved theorem _______ "semantics_11"
+Saved theorem _______ "semantics_distinct"
+Saved theorem _______ "semantics_nchotomy"
+Saved theorem _______ "semantics_Axiom"
+Saved theorem _______ "semantics_induction"
+Saved theorem _______ "semantics_case_cong"
+Saved theorem _______ "semantics_case_eq"
+<<HOL message: Defined type: "semantics">>
+Saved definition ____ "semantics_def"
+Saved definition ____ "semantics_nondet_def"
+Saved definition ____ "semantics_init_def"
+Exporting theory "semantics" ... done.
+Theory "semantics" took 1.1s to build

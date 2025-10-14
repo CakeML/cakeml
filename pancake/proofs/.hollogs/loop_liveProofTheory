@@ -1,0 +1,43 @@
+<<HOL message: Created theory "loop_liveProof">>
+<<HOL message: mk_functional: 
+  pattern completion has added 4 clauses to the original specification.>>
+Saved theorem _______ "compile_Skip"
+Saved theorem _______ "compile_Continue"
+Saved theorem _______ "compile_Mark"
+Saved theorem _______ "compile_Return"
+Saved theorem _______ "compile_Seq"
+Proved triviality ___ "subspt_IMP_domain"
+Saved theorem _______ "compile_Loop"
+
+Type inference failure: the term
+
+(l :sptree$num_set)
+
+at line 194, character 40
+
+can not be constrained to be of type
+
+:α exp
+
+unification failure message: ???
+Saved theorem _______ "vars_of_exp_acc"
+Saved theorem _______ "vars_of_exp_mono"
+Saved theorem _______ "eval_lemma'"
+Saved theorem _______ "eval_lemma"
+Saved theorem _______ "compile_Assign"
+Saved theorem _______ "compile_If"
+Saved theorem _______ "compile_Call"
+Saved theorem _______ "compile_Store"
+Saved theorem _______ "compile_FFI"
+Saved theorem _______ "compile_Arith"
+Saved theorem _______ "dom_vars_of_exp_in"
+Saved theorem _______ "compile_ShMem"
+Saved theorem _______ "compile_correct"
+Saved theorem _______ "mark_correct"
+Saved theorem _______ "comp_correct"
+Saved theorem _______ "optimise_correct"
+Saved theorem _______ "mark_all_true_no_loop"
+Saved theorem _______ "mark_all_false_loop"
+Saved theorem _______ "mark_all_syntax_ok"
+Exporting theory "loop_liveProof" ... done.
+Theory "loop_liveProof" took 16.8s to build

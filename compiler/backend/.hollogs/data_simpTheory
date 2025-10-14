@@ -1,0 +1,8 @@
+<<HOL message: Created theory "data_simp">>
+Saved definition ____ "pSeq_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 4 clauses to the original specification.>>
+Saved definition ____ "simp_def"
+Saved induction _____ "simp_ind"
+Exporting theory "data_simp" ... done.
+Theory "data_simp" took 1.1s to build

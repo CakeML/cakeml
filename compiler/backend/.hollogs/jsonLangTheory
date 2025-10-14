@@ -1,0 +1,20 @@
+<<HOL message: Created theory "jsonLang">>
+Saved theorem _______ "datatype_obj"
+Saved theorem _______ "obj_11"
+Saved theorem _______ "obj_distinct"
+Saved theorem _______ "obj_nchotomy"
+Saved theorem _______ "obj_Axiom"
+Saved theorem _______ "obj_induction"
+Saved theorem _______ "obj_case_cong"
+Saved theorem _______ "obj_case_eq"
+<<HOL message: Defined type: "obj">>
+Saved definition ____ "concat_with_def"
+Saved induction _____ "concat_with_ind"
+Saved definition ____ "printable_def"
+Saved definition ____ "num_to_hex_digit_def"
+Saved theorem _______ "n_rev_hex_digs_compute"
+Saved definition ____ "n_rev_hex_digs"
+Saved definition ____ "encode_str_def"
+error in quse /Users/z5654475/Desktop/2025/2025_term1/TS/repos/from_source/cakeml/compiler/backend/jsonLangScript.sml : HOL_ERR {message = "at goalStack.extract_thm:\nno theorem proved", origin_function = "tprove", origin_structure = "Defn", source_location = Loc_Unknown}
+error in load /Users/z5654475/Desktop/2025/2025_term1/TS/repos/from_source/cakeml/compiler/backend/jsonLangScript : HOL_ERR {message = "at goalStack.extract_thm:\nno theorem proved", origin_function = "tprove", origin_structure = "Defn", source_location = Loc_Unknown}
+Uncaught exception at /Users/z5654475/Desktop/2025/2025_term1/TS/repos/from_source/HOL/src/num/termination/TotalDefn.sml:37: HOL_ERR {message = "at goalStack.extract_thm:\nno theorem proved", origin_function = "tprove", origin_structure = "Defn", source_location = Loc_Unknown}

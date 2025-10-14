@@ -1,0 +1,19 @@
+<<HOL message: Created theory "dataLang">>
+<<HOL message: mk_functional: 
+  pattern completion has added 41 clauses to the original specification.>>
+Saved definition ____ "op_space_reset_def"
+Saved induction _____ "op_space_reset_ind"
+Saved definition ____ "op_requires_names_def"
+Saved theorem _______ "prog_size_eq"
+Saved theorem _______ "datatype_prog"
+Saved theorem _______ "prog_11"
+Saved theorem _______ "prog_distinct"
+Saved theorem _______ "prog_nchotomy"
+Saved theorem _______ "prog_Axiom"
+Saved theorem _______ "prog_induction"
+Saved theorem _______ "prog_case_cong"
+Saved theorem _______ "prog_case_eq"
+<<HOL message: Defined type: "prog">>
+Saved definition ____ "mk_ticks_def"
+Exporting theory "dataLang" ... done.
+Theory "dataLang" took 1.7s to build

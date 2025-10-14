@@ -1,0 +1,284 @@
+<<HOL message: Created theory "semanticPrimitives">>
+Saved theorem _______ "datatype_stamp"
+Saved theorem _______ "stamp_11"
+Saved theorem _______ "stamp_distinct"
+Saved theorem _______ "stamp_nchotomy"
+Saved theorem _______ "stamp_Axiom"
+Saved theorem _______ "stamp_induction"
+Saved theorem _______ "stamp_case_cong"
+Saved theorem _______ "stamp_case_eq"
+<<HOL message: Defined type: "stamp">>
+Saved theorem _______ "datatype_sem_env"
+Saved theorem _______ "sem_env_11"
+Saved theorem _______ "sem_env_nchotomy"
+Saved theorem _______ "sem_env_Axiom"
+Saved theorem _______ "sem_env_induction"
+Saved theorem _______ "sem_env_case_cong"
+Saved theorem _______ "sem_env_case_eq"
+<<HOL message: Defined type: "sem_env">>
+Saved theorem _______ "datatype_v"
+Saved theorem _______ "v_11"
+Saved theorem _______ "v_distinct"
+Saved theorem _______ "v_nchotomy"
+Saved theorem _______ "v_Axiom"
+Saved theorem _______ "v_induction"
+Saved theorem _______ "v_case_cong"
+Saved theorem _______ "v_case_eq"
+<<HOL message: Defined type: "v">>
+<<HOL message: mk_functional: 
+  pattern completion has added 10 clauses to the original specification.>>
+Saved definition ____ "fp_translate_def"
+Saved induction _____ "fp_translate_ind"
+Saved definition ____ "bind_stamp_def"
+Saved definition ____ "chr_stamp_def"
+Saved definition ____ "div_stamp_def"
+Saved definition ____ "subscript_stamp_def"
+Saved definition ____ "bind_exn_v_def"
+Saved definition ____ "chr_exn_v_def"
+Saved definition ____ "div_exn_v_def"
+Saved definition ____ "sub_exn_v_def"
+Saved definition ____ "bool_type_num_def"
+Saved definition ____ "list_type_num_def"
+Saved definition ____ "option_type_num_def"
+Saved definition ____ "lit_type_num_def"
+Saved definition ____ "id_type_num_def"
+Saved definition ____ "ast_t_type_num_def"
+Saved definition ____ "pat_type_num_def"
+Saved definition ____ "lop_type_num_def"
+Saved definition ____ "opn_type_num_def"
+Saved definition ____ "opb_type_num_def"
+Saved definition ____ "opw_type_num_def"
+Saved definition ____ "shift_type_num_def"
+Saved definition ____ "word_size_type_num_def"
+Saved definition ____ "fp_uop_type_num_def"
+Saved definition ____ "fp_bop_type_num_def"
+Saved definition ____ "fp_top_type_num_def"
+Saved definition ____ "fp_cmp_type_num_def"
+Saved definition ____ "real_uop_type_num_def"
+Saved definition ____ "real_bop_type_num_def"
+Saved definition ____ "real_cmp_type_num_def"
+Saved definition ____ "op_type_num_def"
+Saved definition ____ "locn_type_num_def"
+Saved definition ____ "locs_type_num_def"
+Saved definition ____ "fp_opt_num_def"
+Saved definition ____ "exp_type_num_def"
+Saved definition ____ "dec_type_num_def"
+Saved theorem _______ "datatype_abort"
+Saved theorem _______ "abort_11"
+Saved theorem _______ "abort_distinct"
+Saved theorem _______ "abort_nchotomy"
+Saved theorem _______ "abort_Axiom"
+Saved theorem _______ "abort_induction"
+Saved theorem _______ "abort_case_cong"
+Saved theorem _______ "abort_case_eq"
+<<HOL message: Defined type: "abort">>
+Saved theorem _______ "datatype_error_result"
+Saved theorem _______ "error_result_11"
+Saved theorem _______ "error_result_distinct"
+Saved theorem _______ "error_result_nchotomy"
+Saved theorem _______ "error_result_Axiom"
+Saved theorem _______ "error_result_induction"
+Saved theorem _______ "error_result_case_cong"
+Saved theorem _______ "error_result_case_eq"
+<<HOL message: Defined type: "error_result">>
+Saved theorem _______ "datatype_result"
+Saved theorem _______ "result_11"
+Saved theorem _______ "result_distinct"
+Saved theorem _______ "result_nchotomy"
+Saved theorem _______ "result_Axiom"
+Saved theorem _______ "result_induction"
+Saved theorem _______ "result_case_cong"
+Saved theorem _______ "result_case_eq"
+<<HOL message: Defined type: "result">>
+Saved theorem _______ "datatype_store_v"
+Saved theorem _______ "store_v_11"
+Saved theorem _______ "store_v_distinct"
+Saved theorem _______ "store_v_nchotomy"
+Saved theorem _______ "store_v_Axiom"
+Saved theorem _______ "store_v_induction"
+Saved theorem _______ "store_v_case_cong"
+Saved theorem _______ "store_v_case_eq"
+<<HOL message: Defined type: "store_v">>
+<<HOL message: mk_functional: 
+  pattern completion has added 5 clauses to the original specification.>>
+Saved definition ____ "store_v_same_type_def"
+Saved definition ____ "empty_store_def"
+Saved definition ____ "store_lookup_def"
+Saved definition ____ "store_alloc_def"
+Saved definition ____ "store_assign_def"
+Saved theorem _______ "datatype_optChoice"
+Saved theorem _______ "optChoice_11"
+Saved theorem _______ "optChoice_distinct"
+Saved theorem _______ "optChoice_nchotomy"
+Saved theorem _______ "optChoice_Axiom"
+Saved theorem _______ "optChoice_induction"
+Saved theorem _______ "optChoice_case_cong"
+Saved theorem _______ "optChoice_case_eq"
+<<HOL message: Defined type: "optChoice">>
+Saved theorem _______ "datatype_fpState"
+Saved theorem _______ "fpState_11"
+Saved theorem _______ "fpState_nchotomy"
+Saved theorem _______ "fpState_Axiom"
+Saved theorem _______ "fpState_induction"
+Saved theorem _______ "fpState_case_cong"
+Saved theorem _______ "fpState_case_eq"
+<<HOL message: Defined type: "fpState">>
+Saved theorem _______ "datatype_eval_decs_state"
+Saved theorem _______ "eval_decs_state_11"
+Saved theorem _______ "eval_decs_state_nchotomy"
+Saved theorem _______ "eval_decs_state_Axiom"
+Saved theorem _______ "eval_decs_state_induction"
+Saved theorem _______ "eval_decs_state_case_cong"
+Saved theorem _______ "eval_decs_state_case_eq"
+<<HOL message: Defined type: "eval_decs_state">>
+Saved theorem _______ "datatype_eval_oracle_state"
+Saved theorem _______ "eval_oracle_state_11"
+Saved theorem _______ "eval_oracle_state_nchotomy"
+Saved theorem _______ "eval_oracle_state_Axiom"
+Saved theorem _______ "eval_oracle_state_induction"
+Saved theorem _______ "eval_oracle_state_case_cong"
+Saved theorem _______ "eval_oracle_state_case_eq"
+<<HOL message: Defined type: "eval_oracle_state">>
+Saved theorem _______ "datatype_eval_state"
+Saved theorem _______ "eval_state_11"
+Saved theorem _______ "eval_state_distinct"
+Saved theorem _______ "eval_state_nchotomy"
+Saved theorem _______ "eval_state_Axiom"
+Saved theorem _______ "eval_state_induction"
+Saved theorem _______ "eval_state_case_cong"
+Saved theorem _______ "eval_state_case_eq"
+<<HOL message: Defined type: "eval_state">>
+Saved theorem _______ "datatype_state"
+Saved theorem _______ "state_11"
+Saved theorem _______ "state_nchotomy"
+Saved theorem _______ "state_Axiom"
+Saved theorem _______ "state_induction"
+Saved theorem _______ "state_case_cong"
+Saved theorem _______ "state_case_eq"
+<<HOL message: Defined type: "state">>
+Saved definition ____ "do_con_check_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 13 clauses to the original specification.>>
+Saved definition ____ "one_con_check_def"
+Saved induction _____ "one_con_check_ind"
+Saved definition ____ "build_conv_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 19 clauses to the original specification.>>
+Saved definition ____ "lit_same_type_def"
+Saved theorem _______ "datatype_match_result"
+Saved theorem _______ "match_result_11"
+Saved theorem _______ "match_result_distinct"
+Saved theorem _______ "match_result_nchotomy"
+Saved theorem _______ "match_result_Axiom"
+Saved theorem _______ "match_result_induction"
+Saved theorem _______ "match_result_case_cong"
+Saved theorem _______ "match_result_case_eq"
+<<HOL message: Defined type: "match_result">>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "same_type_def"
+Saved induction _____ "same_type_ind"
+Saved definition ____ "same_ctor_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "ctor_same_type_def"
+Saved definition ____ "Boolv_def"
+Saved definition ____ "compress_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 29 clauses to the original specification.>>
+Saved definition ____ "pmatch_def"
+Saved induction _____ "pmatch_ind"
+Saved definition ____ "can_pmatch_all_def"
+Saved definition ____ "build_rec_env_def"
+Saved definition ____ "find_recfun_def"
+Saved induction _____ "find_recfun_ind"
+Saved theorem _______ "datatype_eq_result"
+Saved theorem _______ "eq_result_11"
+Saved theorem _______ "eq_result_distinct"
+Saved theorem _______ "eq_result_nchotomy"
+Saved theorem _______ "eq_result_Axiom"
+Saved theorem _______ "eq_result_induction"
+Saved theorem _______ "eq_result_case_cong"
+Saved theorem _______ "eq_result_case_eq"
+<<HOL message: Defined type: "eq_result">>
+<<HOL message: mk_functional: 
+  pattern completion has added 8 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 8 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 92 clauses to the original specification.>>
+Saved definition ____ "do_eq_def"
+Saved induction _____ "do_eq_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 10 clauses to the original specification.>>
+Saved definition ____ "do_opapp_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 11 clauses to the original specification.>>
+Saved definition ____ "v_to_list_def"
+Saved induction _____ "v_to_list_ind"
+Saved definition ____ "list_to_v_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 24 clauses to the original specification.>>
+Saved definition ____ "v_to_char_list_def"
+Saved induction _____ "v_to_char_list_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 12 clauses to the original specification.>>
+Saved definition ____ "vs_to_string_def"
+Saved induction _____ "vs_to_string_ind"
+Saved definition ____ "maybe_to_v_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 24 clauses to the original specification.>>
+Saved definition ____ "v_to_id_def"
+Saved induction _____ "v_to_id_ind"
+Saved definition ____ "nat_to_v_def"
+Saved definition ____ "maybe_all_list_def"
+Saved induction _____ "maybe_all_list_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 12 clauses to the original specification.>>
+Saved definition ____ "v_to_word8_def"
+Saved definition ____ "v_to_word8_list_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 12 clauses to the original specification.>>
+Saved definition ____ "v_to_word64_def"
+Saved definition ____ "v_to_word64_list_def"
+Saved definition ____ "lookup_env_def"
+Saved definition ____ "add_decs_generation_def"
+Saved definition ____ "add_env_generation_def"
+Saved definition ____ "declare_env_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "concrete_v_def"
+Saved induction _____ "concrete_v_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "compiler_agrees_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 16 clauses to the original specification.>>
+Saved definition ____ "do_eval_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+Saved definition ____ "reset_env_generation_def"
+Saved definition ____ "copy_array_def"
+Saved definition ____ "ws_to_chars_def"
+Saved definition ____ "chars_to_ws_def"
+Saved definition ____ "opn_lookup_def"
+Saved definition ____ "opb_lookup_def"
+Saved definition ____ "opw8_lookup_def"
+Saved definition ____ "opw64_lookup_def"
+Saved definition ____ "shift8_lookup_def"
+Saved definition ____ "shift64_lookup_def"
+Saved theorem _______ "datatype_exp_or_val"
+Saved theorem _______ "exp_or_val_11"
+Saved theorem _______ "exp_or_val_distinct"
+Saved theorem _______ "exp_or_val_nchotomy"
+Saved theorem _______ "exp_or_val_Axiom"
+Saved theorem _______ "exp_or_val_induction"
+Saved theorem _______ "exp_or_val_case_cong"
+Saved theorem _______ "exp_or_val_case_eq"
+<<HOL message: Defined type: "exp_or_val">>
+<<HOL message: mk_functional: 
+  pattern completion has added 15 clauses to the original specification.>>
+Saved definition ____ "do_fprw_def"
+error in quse /Users/z5654475/Desktop/2025/2025_term1/TS/repos/from_source/cakeml/semantics/semanticPrimitivesScript.sml : HOL_ERR {message = "at goalStack.extract_thm:\nno theorem proved", origin_function = "tprove", origin_structure = "Defn", source_location = Loc_Unknown}
+error in load /Users/z5654475/Desktop/2025/2025_term1/TS/repos/from_source/cakeml/semantics/semanticPrimitivesScript : HOL_ERR {message = "at goalStack.extract_thm:\nno theorem proved", origin_function = "tprove", origin_structure = "Defn", source_location = Loc_Unknown}
+Uncaught exception at /Users/z5654475/Desktop/2025/2025_term1/TS/repos/from_source/HOL/src/num/termination/TotalDefn.sml:37: HOL_ERR {message = "at goalStack.extract_thm:\nno theorem proved", origin_function = "tprove", origin_structure = "Defn", source_location = Loc_Unknown}

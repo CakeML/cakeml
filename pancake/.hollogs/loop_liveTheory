@@ -1,0 +1,4 @@
+<<HOL message: Created theory "loop_live">>
+error in quse /Users/z5654475/Desktop/2025/2025_term1/TS/repos/from_source/cakeml/pancake/loop_liveScript.sml : HOL_ERR {message = "at goalStack.extract_thm:\nno theorem proved", origin_function = "tprove", origin_structure = "Defn", source_location = Loc_Unknown}
+error in load /Users/z5654475/Desktop/2025/2025_term1/TS/repos/from_source/cakeml/pancake/loop_liveScript : HOL_ERR {message = "at goalStack.extract_thm:\nno theorem proved", origin_function = "tprove", origin_structure = "Defn", source_location = Loc_Unknown}
+Uncaught exception at /Users/z5654475/Desktop/2025/2025_term1/TS/repos/from_source/HOL/src/num/termination/TotalDefn.sml:37: HOL_ERR {message = "at goalStack.extract_thm:\nno theorem proved", origin_function = "tprove", origin_structure = "Defn", source_location = Loc_Unknown}

@@ -240,7 +240,7 @@ Proof
   TRY (IF_CASES_TAC) >> fs[CaseEq "ffi_result", set_var_def] >>
   TRY (TOP_CASE_TAC) >> fs[CaseEq "ffi_result"] >>
   disch_tac >> gvs[flookup_thm, state_component_equality, CaseEq "result"] >>
-  qpat_x_assum `_ = s'.locals` $ rw o single o GSYM >> fs[ABSORPTION_RWT] 
+  qpat_x_assum `_ = s'.locals` $ rw o single o GSYM >> fs[ABSORPTION_RWT]
   ) >>
   Cases_on `s.clock` >> gvs[dec_clock_def]
 QED
@@ -805,7 +805,7 @@ Proof
   )
   >~ [`Call _ _ _`]
   >- (
-    gvs[CaseEq "option", CaseEq "word_lab", CaseEq "prod", lookup_code_def] >> 
+    gvs[CaseEq "option", CaseEq "word_lab", CaseEq "prod", lookup_code_def] >>
     Cases_on `caltyp` >> fs[]
     >- (
       fs[evaluate_def] >>
@@ -820,7 +820,7 @@ Proof
      fs[evaluate_def, lookup_code_def] >>
      Cases_on `s.clock = 0` >> fs[]
      >- fs[state_rel_def] >>
-     gvs[CaseEq "option", CaseEq "result", CaseEq "prod", return_in_loop_def, state_rel_def, empty_locals_def] 
+     gvs[CaseEq "option", CaseEq "result", CaseEq "prod", return_in_loop_def, state_rel_def, empty_locals_def]
     ) >>
     Cases_on `x` >> fs[] >>
     fs[evaluate_def, lookup_code_def, return_in_loop_def] >>
@@ -2084,158 +2084,6 @@ Proof
   simp[flookup_thm]
 QED
 
-Theorem general_simulate_arg_load_preserve_locals_strong:
-  ∀s es (vals:('a word_lab) list) vs t p r s' tmp_vars.
-    OPT_MMAP (eval s) es = SOME vals ∧
-    LENGTH vs = LENGTH vals ∧
-    ALL_DISTINCT vs ∧
-    t SUBMAP s.locals ∧
-    evaluate (p, s with locals := t |++ ZIP (vs, vals)) = (r, s') ∧
-    (∀v. MEM v vs ∨ MEM v tmp_vars ⇒  v ∉ FDOM t) ∧
-    (case r of
-      | NONE => T
-      | SOME Break => T
-      | SOME Continue => T
-      | _ => F) = T ∧
-    tmp_vars = GENLIST (\x. MAX_LIST vs + MAX_LIST (FLAT (MAP var_cexp es)) + SUC x) (LENGTH vs) ⇒
-    ∃t'.
-      evaluate
-        (nested_decs tmp_vars es (nested_decs vs (MAP Var tmp_vars) p), s) = (r, t') ∧
-     state_rel s' t' ∧
-     FOLDL res_var s'.locals (ZIP (vs, MAP (FLOOKUP s.locals) vs)) = t'.locals
-Proof
-  rpt strip_tac >>
-  `ALL_DISTINCT tmp_vars` by metis_tac[all_distinct_tmp_vars] >>
-  drule tmp_vars_not_mem_vs >>
-  disch_tac >>
-  drule tmp_vars_not_var_cexp >>
-  disch_tac >>
-  drule evaluate_state_locals_rel_strong >>
-  disch_then $ qspec_then `s with locals := t |++ ZIP (tmp_vars, vals) |++ ZIP (vs, vals)` mp_tac >> impl_tac
-  >- (
-    rpt conj_tac
-    >- (
-      gs[CaseEq "option", CaseEq "result"]
-    )
-    >- (
-      simp[locals_rel_def, SUBMAP_FLOOKUP_EQN] >>
-      gs[] >>
-      qabbrev_tac `arg_swap = GENLIST (λx. MAX_LIST vs + (MAX_LIST (FLAT (MAP var_cexp es)) + SUC x)) (LENGTH vals)` >>
-      rpt strip_tac >>
-      Cases_on `MEM x vs`
-      >- (
-        pop_assum $ assume_tac o SRULE [MEM_EL] >>
-        fs[] >>
-        drule_all update_eq_zip_flookup >>
-        disch_tac >>
-        first_assum $ qspec_then `t` assume_tac >>
-        first_assum $ qspec_then `t |++ ZIP (arg_swap, vals)` assume_tac >> gvs[]
-      ) >>
-      drule_all flookup_fupdate_zip_not_mem >>
-      disch_tac >>
-      first_assum $ qspec_then `t` assume_tac >>
-      first_assum $ qspec_then `t |++ ZIP (arg_swap, vals)` assume_tac >>
-      gs[] >>
-      qpat_assum `FLOOKUP _ _ = SOME _` $ assume_tac o SRULE [flookup_thm] >> fs[] >>
-      qpat_x_assum `!_. MEM _ _ ∨ MEM _ _ ⇒ _ ∉ FDOM _` $ assume_tac o SRULE [Once MONO_NOT_EQ] >>
-      pop_assum imp_res_tac >>
-      qpat_x_assum `FLOOKUP _ _ = SOME _` $ rewrite_tac o single o GSYM >>
-      irule flookup_fupdate_zip_not_mem >> simp[] >>
-      imp_res_tac opt_mmap_length_eq >>
-      simp[Abbr `arg_swap`, LENGTH_GENLIST]
-    ) >>
-    gs[state_rel_def]
-  ) >>
-  disch_tac >> gs[] >>
-  qabbrev_tac `arg_swap = GENLIST (λx. MAX_LIST vs + (MAX_LIST (FLAT (MAP var_cexp es)) + SUC x)) (LENGTH vals)` >>
-  rev_drule_at (Pos $ el 3) evaluate_nested_decs_locals_nested_res_var >>
-  disch_then $ qspecl_then [`p`, `s with locals := t |++ ZIP (arg_swap, vals)`, `r`, `t'`, `MAP Var arg_swap`, `vals`] mp_tac >> impl_tac
-  >- (
-    rpt conj_tac
-    >- (
-      simp[GSYM lookup_locals_eq_map_vars] >>
-      irule opt_mmap_some_eq_zip_flookup >> simp[] >>
-      imp_res_tac opt_mmap_length_eq >>
-      simp[Abbr `arg_swap`, LENGTH_GENLIST]
-    )
-    >- (
-      simp[LENGTH_MAP] >>
-      imp_res_tac opt_mmap_length_eq >>
-      simp[Abbr `arg_swap`, LENGTH_GENLIST]
-    )
-    >- (
-      rpt strip_tac >>
-      qpat_x_assum `!_. MEM _ _ ⇒ ¬MEM _ _` imp_res_tac >>
-      gvs[MEM_MAP, var_cexp_def]
-    ) >>
-    simp[state_component_equality]
-  ) >>
-  disch_tac >> fs[] >>
-  drule evaluate_state_locals_rel_strong >>
-  disch_then $ qspec_then `s with locals := s.locals |++ ZIP (arg_swap, vals)` mp_tac >> impl_tac
-  >- (
-    rpt conj_tac
-    >- (
-      Cases_on `r` >> TRY (Cases_on `x`) >> fs[]
-    )
-    >- (
-      simp[locals_rel_def, SUBMAP_FLOOKUP_EQN] >>
-      rpt strip_tac >>
-      Cases_on `MEM x arg_swap`
-      >- (
-        pop_assum $ assume_tac o SRULE [MEM_EL] >> fs[] >>
-        `LENGTH arg_swap = LENGTH vals` by simp[Abbr `arg_swap`, LENGTH_GENLIST] >>
-        drule_all update_eq_zip_flookup >>
-        disch_tac >>
-        first_assum $ qspec_then `t` assume_tac >>
-        first_assum $ qspec_then `s.locals` assume_tac >> gvs[]
-      ) >>
-      `LENGTH arg_swap = LENGTH vals` by simp[Abbr `arg_swap`, LENGTH_GENLIST] >>
-      drule_all flookup_fupdate_zip_not_mem >>
-      disch_tac >>
-      first_assum $ qspec_then `t` assume_tac >>
-      first_assum $ qspec_then `s.locals` assume_tac >>
-      fs[SUBMAP_FLOOKUP_EQN]
-    ) >>
-    gs[state_rel_def]
-  ) >>
-  disch_tac >> fs[] >>
-  drule_at (Pos $ el 3) evaluate_nested_decs_locals_nested_res_var >>
-  disch_then $ qspecl_then [`nested_decs vs (MAP Var arg_swap) p`, `s`, `r`, `t'''`, `es`, `vals`] mp_tac >> gs[] >> impl_tac
-  >- (
-    conj_tac
-    >- (
-      imp_res_tac opt_mmap_length_eq >>
-      simp[Abbr `arg_swap`, LENGTH_GENLIST]
-    ) >>
-    rpt strip_tac >>
-    qpat_x_assum `!_ _. MEM _ _ ∧ MEM _ _ ⇒ ¬MEM _ _` imp_res_tac
-  ) >>
-  disch_tac >> fs[] >>
-  drule $ INST_TYPE [alpha |-> ``:num``, beta |-> ``:'a word_lab``] fdiff_update_list_disjoint >>
-  disch_then $ qspec_then `t` mp_tac >> fs[] >>
-  disch_then $ qspecl_then [`vals`, `vals`] mp_tac >> impl_tac
-  >- (
-    conj_tac
-    >- fs[] >>
-    fs[Abbr `arg_swap`, LENGTH_GENLIST]
-  )  >>
-  disch_tac >> fs[locals_ext_rel_def] >>
-  conj_tac
-  >- gvs[state_rel_def] >>
-  drule general_simulate_arg_load_preserve_locals >>
-  disch_then drule >> simp[] >>
-  disch_then drule >>
-  disch_then rev_drule >>
-  impl_tac
-  >- (gs[] >> gs[]) >>
-  disch_tac >> fs[] >>
-  simp[fmap_eq_flookup] >>
-  strip_tac >>
-  Cases_on `r` >> TRY (Cases_on `x'`) >> fs[] >>
-  cheat
-QED
-
 (* Need this *)
 Theorem general_simulate_arg_load_strong:
   ∀s es (vals:('a word_lab) list) vs t p r s' tmp_vars.
@@ -2723,7 +2571,7 @@ Theorem inline_assign_correct:
     = (r, s') ∧
     r ≠ SOME Error ∧
     s.clock  ≠ 0 ∧
-    (!rv. k = SOME (Return rv) ⇒ ∃v. FLOOKUP s.locals rt = SOME v) ∧ 
+    (!rv. k = SOME (Return rv) ⇒ ∃v. FLOOKUP s.locals rt = SOME v) ∧
     ALL_DISTINCT ns ∧ LENGTH ns = LENGTH args ∧
     OPT_MMAP (eval s) argexps = SOME args ∧
     ¬return_in_loop p ∧
@@ -2870,7 +2718,7 @@ Proof
   qpat_x_assum `FDOM (res_var _ _) = FDOM _.locals` $ simp o single o GSYM >>
   qpat_x_assum `DRESTRICT _ (COMP {_}) = DRESTRICT _ (COMPL {_})` $ assume_tac o SRULE [EQ_FDOM_SUBMAP, FDOM_DRESTRICT] >> fs[] >>
   Cases_on `FLOOKUP s.locals ret_max` >> gvs[res_var_def, DELETE_INSERT]
-  >>~- ([`_ INSERT FDOM _ DELETE _`], 
+  >>~- ([`_ INSERT FDOM _ DELETE _`],
     pop_assum $ assume_tac o SRULE [flookup_thm] >>
     drule DELETE_NON_ELEMENT_RWT >>
     qpat_x_assum `ret_max INSERT FDOM _ = FDOM _` $ simp o single o GSYM >>
@@ -2947,7 +2795,7 @@ Proof
   qpat_x_assum `!_. _` imp_res_tac >>
   imp_res_tac eval_state_locals_same_code_fdom_same >> simp[]
 QED
- 
+
 Definition code_inl_rel_def:
   code_inl_rel inl_fs s t ⇔
     ∀fname args prog.
@@ -2972,7 +2820,7 @@ Proof
   Cases_on `p` >>
   first_x_assum drule >>
   disch_tac >> fs[]
-QED 
+QED
 
 Theorem opt_mmap_eval_code_inl:
   ∀s es vals s1 inl_fs.
@@ -3012,7 +2860,7 @@ Proof
   imp_res_tac MAX_LIST_PROPERTY >> fs[]
 QED
 
-Theorem inline_correct_all:
+Theorem inline_prog_correct:
   ∀p s r s' inl_fs s1 inl_bag.
     evaluate (p, s) = (r, s') ∧
     r ≠ SOME Error ∧
@@ -3122,7 +2970,7 @@ Proof
         conj_tac
         >- (Cases_on `q'` >> TRY (Cases_on `x`) >> fs[]) >>
         gvs[state_rel_code_def, code_inl_rel_def, locals_strong_rel_def, dec_clock_def] >>
-        irule SUBMAP_TRANS >> qrefine `inl_bag` >> fs[SUBMAP_DOMSUB] 
+        irule SUBMAP_TRANS >> qrefine `inl_bag` >> fs[SUBMAP_DOMSUB]
       ) >>
       disch_tac >> fs[] >>
       qabbrev_tac `tvar = GENLIST (λx. MAX_LIST q + (MAX_LIST (FLAT (MAP var_cexp argexps)) + SUC x)) (LENGTH q)` >>
@@ -3141,11 +2989,11 @@ Proof
       qpat_x_assum `inl_bag SUBMAP _` $ imp_res_tac o SRULE [SUBMAP_FLOOKUP_EQN] >>
       qpat_x_assum `inl_fs SUBMAP _.code` $ imp_res_tac o SRULE [SUBMAP_FLOOKUP_EQN] >> gvs[eval_def] >>
       imp_res_tac evaluate_code_invariant >> gvs[] >>
-      Cases_on `q'` >> TRY (Cases_on `x`) >> Cases_on `r1` >> gvs[state_rel_code_def, code_inl_rel_def, locals_strong_rel_def, empty_locals_def, dec_clock_def, state_rel_def] 
+      Cases_on `q'` >> TRY (Cases_on `x`) >> Cases_on `r1` >> gvs[state_rel_code_def, code_inl_rel_def, locals_strong_rel_def, empty_locals_def, dec_clock_def, state_rel_def]
     ) >>
       (* Non tail *)
     qpat_assum `inl_bag SUBMAP inl_fs` $ imp_res_tac o SRULE [SUBMAP_FLOOKUP_EQN] >>
-    qpat_assum `inl_fs SUBMAP _.code` $ imp_res_tac o SRULE [SUBMAP_FLOOKUP_EQN] >> gvs[] >> 
+    qpat_assum `inl_fs SUBMAP _.code` $ imp_res_tac o SRULE [SUBMAP_FLOOKUP_EQN] >> gvs[] >>
     qpat_x_assum `!_ _. eval _ _ = _ ⇒ _` imp_res_tac >>
     qpat_x_assum `!_ _. OPT_MMAP _ _ = _ ⇒ _` imp_res_tac >>
     qpat_assum `code_inl_rel _ _ _` $ imp_res_tac o SRULE [code_inl_rel_def] >>
@@ -3202,7 +3050,7 @@ Proof
     >- (
       (* Without handler *)
       Cases_on `evaluate (prog,dec_clock s with locals := FEMPTY |++ ZIP (ns,args))` >> gs[] >>
-      qabbrev_tac `tvar = GENLIST (λx. MAX_LIST ns + (MAX_LIST (FLAT (MAP var_cexp argexps)) + SUC x)) (LENGTH args)` >> 
+      qabbrev_tac `tvar = GENLIST (λx. MAX_LIST ns + (MAX_LIST (FLAT (MAP var_cexp argexps)) + SUC x)) (LENGTH args)` >>
       Cases_on `q` >> fs[]
       >- (
         Cases_on `s.clock = 0` >> fs[]
@@ -3222,7 +3070,7 @@ Proof
                                      | NONE => SOME Error
                                      | SOME Break => SOME Error
                                      | SOME Continue => SOME Error
-                                     | SOME (Return retv) => 
+                                     | SOME (Return retv) =>
                                         FST (evaluate (inline_prog inl_bag q', s1'' with locals := s1.locals))
                                      | res => res)`,
                                   `(case r1 of
@@ -3244,7 +3092,7 @@ Proof
           Cases_on `q''` >> TRY (Cases_on `x`) >> gvs[] >>
           last_x_assum $ qspecl_then [`inl_fs`, `s1'' with locals := s1.locals`, `inl_bag`] mp_tac >> impl_tac
           >- (imp_res_tac evaluate_code_invariant >> gvs[state_rel_code_def, locals_strong_rel_def, code_inl_rel_def, dec_clock_def]) >>
-          disch_tac >> gvs[AllCaseEqs()] >> Cases_on `r` >> TRY (Cases_on `x`) >> fs[] 
+          disch_tac >> gvs[AllCaseEqs()] >> Cases_on `r` >> TRY (Cases_on `x`) >> fs[]
         ) >>
         disch_tac >> gs[] >>
         Cases_on `q''` >> TRY (Cases_on `x`) >> fs[]
@@ -3310,7 +3158,7 @@ Proof
             imp_res_tac opt_mmap_length_eq >> rfs[]
           ) >>
           irule MORE_THEN_NOT_MAX_LIST >>
-          irule LESS_TRANS >> 
+          irule LESS_TRANS >>
           qrefine `MAX_LIST tvar` >> conj_tac
           >- (
             subgoal `tvar ≠ []`
@@ -3330,7 +3178,7 @@ Proof
         conj_tac
         >- (
           Cases_on `q''` >> TRY (Cases_on `x'`) >> gvs[] >>
-          Cases_on `FLOOKUP s1.locals x` >> fs[] 
+          Cases_on `FLOOKUP s1.locals x` >> fs[]
         ) >>
         conj_tac
         >- (
@@ -3339,7 +3187,7 @@ Proof
           last_x_assum $ qspecl_then [`inl_fs`, `s1'' with locals := s1.locals |+ (x, w)`, `inl_bag`] mp_tac >> impl_tac
           >- (imp_res_tac evaluate_code_invariant >> gvs[dec_clock_def, state_rel_code_def, locals_strong_rel_def, state_rel_def, code_inl_rel_def]) >>
           disch_tac >> fs[] >>
-          Cases_on `r` >> TRY (Cases_on `x''`) >> fs[] 
+          Cases_on `r` >> TRY (Cases_on `x''`) >> fs[]
         ) >>
         Cases_on `q''` >> TRY (Cases_on `x'`) >> gvs[] >>
         Cases_on `FLOOKUP s1.locals x` >> fs[]
@@ -3395,7 +3243,7 @@ Proof
   )
   >~ [`evaluate (While _ _, _) = _`]
   >- (
-    fs[Once evaluate_def, CaseEq "option", CaseEq "word_lab"] >>
+    qpat_assum `evaluate _ = _` $ assume_tac o SRULE [Once evaluate_def, CaseEq "option", CaseEq "word_lab"] >> gvs[] >>
     imp_res_tac eval_code_inl >> fs[] >>
     pairarg_tac >> fs[] >>
     simp[inline_prog_def] >>
@@ -3409,8 +3257,60 @@ Proof
     disch_tac >> fs[] >>
     Cases_on `res` >> gs[]
     >- (
+      imp_res_tac evaluate_code_invariant >> fs[] >>
       first_x_assum $ qspecl_then [`inl_fs`, `s1''`, `inl_bag`] mp_tac >> impl_tac
-    )
+      >- fs[dec_clock_def, state_rel_code_def, code_inl_rel_def, locals_strong_rel_def] >>
+      disch_tac >> fs[inline_prog_def]
+    ) >>
+    Cases_on `x` >> gs[]
+    >- (
+      imp_res_tac evaluate_code_invariant >> fs[] >>
+      first_x_assum $ qspecl_then [`inl_fs`, `s1''`, `inl_bag`] mp_tac >> impl_tac
+      >- fs[dec_clock_def, state_rel_code_def, code_inl_rel_def, locals_strong_rel_def] >>
+      disch_tac >> fs[inline_prog_def]
+    ) >>
+    gvs[]
   )
+  >~ [`evaluate (Dec _ _ _, _)`]
+  >- (
+    imp_res_tac eval_code_inl >>
+    fs[inline_prog_def, evaluate_def, CaseEq "option", CaseEq "word_lab"] >>
+    pop_assum imp_res_tac >> fs[] >>
+    rpt (pairarg_tac >> gvs[]) >>
+    qpat_assum `locals_strong_rel _ _` $ fs o single o SRULE [locals_strong_rel_def, fmap_eq_flookup] >>
+    first_x_assum $ qspecl_then [`inl_fs`, `s1 with locals := s1.locals |+ (v, value)`, `inl_bag`] mp_tac >> impl_tac
+    >- fs[state_rel_code_def, locals_strong_rel_def, code_inl_rel_def] >>
+    disch_tac >> fs[] >>
+    imp_res_tac evaluate_code_invariant >>
+    Cases_on `FLOOKUP s1.locals v` >> gvs[AllCaseEqs(), res_var_def, state_rel_code_def, code_inl_rel_def, locals_strong_rel_def] >>
+    every_case_tac >> gvs[]
+  )
+  >~ [`evaluate (If _ _ _, _)`]
+  >- (
+    imp_res_tac eval_code_inl >>
+    fs[inline_prog_def, evaluate_def, CaseEq "option", CaseEq "word_lab"] >>
+    pop_assum imp_res_tac >> fs[] >>
+    last_x_assum $ qspecl_then [`inl_fs`, `s1`, `inl_bag`] mp_tac >> fs[] >>
+    disch_tac >> gvs[AllCaseEqs(), state_rel_code_def, code_inl_rel_def, locals_strong_rel_def] >>
+    every_case_tac >> gvs[]
+  )
+  >~ [`evaluate (Seq _ _, _)`]
+  >- (
+    fs[inline_prog_def, evaluate_def] >>
+    rpt (pairarg_tac >> fs[]) >>
+    Cases_on `res' = NONE` >> fs[]
+    >- (
+      first_x_assum $ qspecl_then [`inl_fs`, `s1`, `inl_bag`] assume_tac >> gs[] >>
+      imp_res_tac evaluate_code_invariant >>
+      first_x_assum $ qspecl_then [`inl_fs`, `s1'`, `inl_bag`] assume_tac >> gs[]
+    ) >>
+    first_x_assum $ qspecl_then [`inl_fs`, `s1`, `inl_bag`] assume_tac >> gvs[] >>
+    `res ≠ NONE` by (every_case_tac >> gvs[]) >> fs[]
+  ) >>
+  imp_res_tac eval_code_inl >>
+  gvs[AllCaseEqs(), inline_prog_def, evaluate_def, state_rel_code_def,
+      code_inl_rel_def, locals_strong_rel_def, empty_locals_def,
+      set_globals_def, dec_clock_def] >> first_x_assum imp_res_tac >> gvs[] >>
+  (* ShMem *)
+  Cases_on `op` >> gvs[sh_mem_op_def, sh_mem_load_def, sh_mem_store_def, AllCaseEqs(), set_var_def, empty_locals_def]
 QED
-

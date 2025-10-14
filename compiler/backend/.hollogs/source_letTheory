@@ -1,0 +1,25 @@
+<<HOL message: Created theory "source_let">>
+<<HOL message: mk_functional: 
+  pattern completion has added 13 clauses to the original specification.>>
+Saved definition ____ "dest_Let_def"
+Saved induction _____ "dest_Let_ind"
+Saved theorem _______ "dest_Let_SOME"
+Saved theorem _______ "dest_Let_NONE"
+<<HOL message: mk_functional: 
+  pattern completion has added 13 clauses to the original specification.>>
+Saved definition ____ "dest_Letrec_def"
+Saved induction _____ "dest_Letrec_ind"
+Saved theorem _______ "dest_Letrec_SOME"
+Saved theorem _______ "dest_Letrec_NONE"
+<<HOL message: mk_functional: 
+  pattern completion has added 6 clauses to the original specification.>>
+Saved definition ____ "lift_let_def"
+Saved induction _____ "lift_let_ind"
+Saved definition ____ "lift_lets_def"
+Saved induction _____ "lift_lets_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 5 clauses to the original specification.>>
+Saved definition ____ "compile_decs_def"
+Saved induction _____ "compile_decs_ind"
+Exporting theory "source_let" ... done.
+Theory "source_let" took 1.2s to build

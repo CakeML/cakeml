@@ -1,0 +1,57 @@
+<<HOL message: Created theory "bviSem">>
+Saved theorem _______ "datatype_state"
+Saved theorem _______ "state_11"
+Saved theorem _______ "state_nchotomy"
+Saved theorem _______ "state_Axiom"
+Saved theorem _______ "state_induction"
+Saved theorem _______ "state_case_cong"
+Saved theorem _______ "state_case_eq"
+<<HOL message: Defined type: "state">>
+Saved definition ____ "dec_clock_def"
+Proved triviality ___ "LESS_EQ_dec_clock"
+Saved definition ____ "bvi_to_bvl_def"
+Saved definition ____ "bvl_to_bvi_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 6 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 10 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 47 clauses to the original specification.>>
+Saved definition ____ "do_app_aux_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 4 clauses to the original specification.>>
+Saved definition ____ "do_install_def"
+Saved definition ____ "do_app_def"
+Saved definition ____ "fix_clock_def"
+Proved triviality ___ "fix_clock_IMP"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "evaluate_def"
+Saved induction _____ "evaluate_ind"
+Saved theorem _______ "do_app_const"
+Saved theorem _______ "evaluate_clock"
+Saved theorem _______ "fix_clock_evaluate"
+<<HOL warning: ThmSetData.revise_data: 
+  Theorems in set "compute":
+    ADD<bviSem$evaluate_def>
+  invalidated by NewBinding(evaluate_def)>>
+Saved theorem _______ "evaluate_def"
+Saved theorem _______ "evaluate_ind"
+Saved definition ____ "initial_state_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "semantics_def"
+Exporting theory "bviSem" ... done.
+Theory "bviSem" took 9.9s to build

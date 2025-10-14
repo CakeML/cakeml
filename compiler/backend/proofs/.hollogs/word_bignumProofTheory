@@ -1,0 +1,195 @@
+<<HOL message: Created theory "word_bignumProof">>
+Saved theorem _______ "datatype_state"
+Saved theorem _______ "state_11"
+Saved theorem _______ "state_nchotomy"
+Saved theorem _______ "state_Axiom"
+Saved theorem _______ "state_induction"
+Saved theorem _______ "state_case_cong"
+Saved theorem _______ "state_case_eq"
+<<HOL message: Defined type: "state">>
+<<HOL message: mk_functional: 
+  pattern completion has added 5 clauses to the original specification.>>
+Saved definition ____ "eval_exp_def"
+Saved induction _____ "eval_exp_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 4 clauses to the original specification.>>
+Saved definition ____ "eval_exp_pre_def"
+Saved induction _____ "eval_exp_pre_ind"
+Saved definition ____ "eval_ri_pre_def"
+Saved definition ____ "eval_ri_def"
+Saved definition ____ "dec_clock_def"
+Saved definition ____ "reg_write_def"
+Saved definition ____ "delete_vars_def"
+Saved definition ____ "array_write_def"
+Saved definition ____ "clock_write_def"
+Saved definition ____ "copy_vars_def"
+<<HOL message: Generalising variables "n1", "n2", "n3", "n4", "n5" in clause #9 (114:3-119:62)>>
+Saved theorem _______ "eval_rules"
+Saved theorem _______ "eval_ind"
+Saved theorem _______ "eval_strongind"
+Saved theorem _______ "eval_cases"
+Saved theorem _______ "Eval_NONE_IMP"
+Saved definition ____ "array_rel_def"
+Saved definition ____ "code_subset_def"
+Saved definition ____ "code_rel_def"
+Saved definition ____ "div_code_assum_def"
+Saved induction _____ "div_code_assum_ind"
+Saved definition ____ "state_rel_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 4 clauses to the original specification.>>
+Saved definition ____ "exp_ok_def"
+Saved induction _____ "exp_ok_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+Saved definition ____ "syntax_ok_aux_def"
+Saved induction _____ "syntax_ok_aux_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 14 clauses to the original specification.>>
+Saved definition ____ "syntax_ok_def"
+Saved induction _____ "syntax_ok_ind"
+Saved theorem _______ "evaluate_Seq_Seq"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved theorem _______ "word_list_APPEND"
+Saved definition ____ "list_update_def"
+Saved induction _____ "list_update_ind"
+Saved definition ____ "list_store_def"
+Saved theorem _______ "compile_thm"
+Saved definition ____ "good_code_def"
+Saved theorem _______ "compile_NIL_IMP"
+Saved definition ____ "Corr_def"
+Saved definition ____ "loop_app_def"
+Saved definition ____ "tick_before_def"
+Saved theorem _______ "array_write_cancel"
+Saved theorem _______ "reg_write_cancel"
+Saved theorem _______ "clock_write_simp"
+Saved theorem _______ "dec_clock_write_simp"
+Saved theorem _______ "reg_write_simp"
+Saved theorem _______ "reg_write_simp_alt"
+Saved theorem _______ "array_write_simp"
+Saved theorem _______ "delete_vars_simp"
+Saved theorem _______ "FLOOKUP_DOMSUB"
+derive_corr_thm mc_cmp 	Saved theorem _______ "mc_cmp_corr_thm"
+runtime: 0.84350s,    gctime: 0.08638s,     systime: 0.00622s.
+derive_corr_thm mc_compare 	Saved theorem _______ "mc_compare_corr_thm"
+runtime: 0.42766s,    gctime: 0.08013s,     systime: 0.00409s.
+derive_corr_thm mc_mul_zero 	Saved theorem _______ "mc_mul_zero_corr_thm"
+runtime: 0.61263s,    gctime: 0.37321s,     systime: 0.06207s.
+derive_corr_thm mc_copy_over 	Saved theorem _______ "mc_copy_over_corr_thm"
+runtime: 0.33183s,    gctime: 0.06678s,     systime: 0.00720s.
+derive_corr_thm mc_div0 	Saved theorem _______ "mc_div0_corr_thm"
+runtime: 0.89316s,    gctime: 0.32127s,     systime: 0.06022s.
+derive_corr_thm mc_single_div 	Saved theorem _______ "mc_single_div_corr_thm"
+runtime: 0.32490s,    gctime: 0.04056s,     systime: 0.04357s.
+derive_corr_thm mc_simple_div 	Saved theorem _______ "mc_simple_div_corr_thm"
+runtime: 0.46081s,    gctime: 0.03916s,     systime: 0.00396s.
+derive_corr_thm mc_div1 	Saved theorem _______ "mc_div1_corr_thm"
+runtime: 1.7s,    gctime: 0.42872s,     systime: 0.14881s.
+derive_corr_thm mc_calc_d 	Saved theorem _______ "mc_calc_d_corr_thm"
+runtime: 0.27294s,    gctime: 0.04205s,     systime: 0.00499s.
+derive_corr_thm mc_single_mul_add 	Saved theorem _______ "mc_single_mul_add_corr_thm"
+runtime: 0.93926s,    gctime: 0.09556s,     systime: 0.00959s.
+derive_corr_thm mc_mul_by_single 	Saved theorem _______ "mc_mul_by_single_corr_thm"
+runtime: 1.4s,    gctime: 0.41510s,     systime: 0.11433s.
+derive_corr_thm mc_single_mul 	Saved theorem _______ "mc_single_mul_corr_thm"
+runtime: 0.68871s,    gctime: 0.09218s,     systime: 0.06179s.
+derive_corr_thm mc_top_two 	Saved theorem _______ "mc_top_two_corr_thm"
+runtime: 0.69181s,    gctime: 0.04881s,     systime: 0.01105s.
+derive_corr_thm mc_div_r1 	Saved theorem _______ "mc_div_r1_corr_thm"
+runtime: 0.32110s,    gctime: 0.00000s,     systime: 0.00132s.
+derive_corr_thm mc_mul_by_single2 	Saved theorem _______ "mc_mul_by_single2_corr_thm"
+runtime: 0.68733s,    gctime: 0.08415s,     systime: 0.01312s.
+derive_corr_thm mc_cmp3 	Saved theorem _______ "mc_cmp3_corr_thm"
+runtime: 0.27310s,    gctime: 0.00000s,     systime: 0.00162s.
+derive_corr_thm mc_cmp_mul2 	Saved theorem _______ "mc_cmp_mul2_corr_thm"
+runtime: 0.75103s,    gctime: 0.08537s,     systime: 0.01225s.
+derive_corr_thm mc_sub1 	Saved theorem _______ "mc_sub1_corr_thm"
+runtime: 0.09273s,    gctime: 0.00000s,     systime: 0.00010s.
+derive_corr_thm mc_cmp2 	Saved theorem _______ "mc_cmp2_corr_thm"
+runtime: 0.17807s,    gctime: 0.00000s,     systime: 0.00046s.
+derive_corr_thm mc_div_test 	Saved theorem _______ "mc_div_test_corr_thm"
+runtime: 4.2s,    gctime: 0.12015s,     systime: 0.06889s.
+derive_corr_thm mc_div_guess 	Saved theorem _______ "mc_div_guess_corr_thm"
+runtime: 0.76517s,    gctime: 0.04567s,     systime: 0.01248s.
+derive_corr_thm mc_adj_cmp 	Saved theorem _______ "mc_adj_cmp_corr_thm"
+runtime: 0.11581s,    gctime: 0.00000s,     systime: 0.00019s.
+derive_corr_thm mc_adjust_aux 	Saved theorem _______ "mc_adjust_aux_corr_thm"
+runtime: 2.0s,    gctime: 0.06073s,     systime: 0.03072s.
+derive_corr_thm mc_div_adjust 	Saved theorem _______ "mc_div_adjust_corr_thm"
+runtime: 1.1s,    gctime: 0.08572s,     systime: 0.01420s.
+derive_corr_thm mc_div_sub 	Saved theorem _______ "mc_div_sub_corr_thm"
+runtime: 0.39694s,    gctime: 0.09810s,     systime: 0.01238s.
+derive_corr_thm mc_div_sub_loop 	Saved theorem _______ "mc_div_sub_loop_corr_thm"
+runtime: 3.0s,    gctime: 0.63840s,     systime: 0.36375s.
+derive_corr_thm mc_div_loop 	Saved theorem _______ "mc_div_loop_corr_thm"
+runtime: 28.4s,    gctime: 0.85669s,     systime: 0.14549s.
+derive_corr_thm mc_simple_div1 	Saved theorem _______ "mc_simple_div1_corr_thm"
+runtime: 0.46803s,    gctime: 0.04435s,     systime: 0.00266s.
+derive_corr_thm mc_fix 	Saved theorem _______ "mc_fix_corr_thm"
+runtime: 0.38353s,    gctime: 0.00000s,     systime: 0.00099s.
+derive_corr_thm mc_copy_down 	Saved theorem _______ "mc_copy_down_corr_thm"
+runtime: 0.43359s,    gctime: 0.04347s,     systime: 0.00218s.
+derive_corr_thm mc_div2 	Saved theorem _______ "mc_div2_corr_thm"
+runtime: 1.4s,    gctime: 0.04285s,     systime: 0.00377s.
+derive_corr_thm mc_div3 	Saved theorem _______ "mc_div3_corr_thm"
+runtime: 3.7s,    gctime: 0.11301s,     systime: 0.01288s.
+derive_corr_thm mc_div 	Saved theorem _______ "mc_div_corr_thm"
+runtime: 2.4s,    gctime: 0.60684s,     systime: 0.14638s.
+derive_corr_thm mc_add1 	Saved theorem _______ "mc_add1_corr_thm"
+runtime: 0.66191s,    gctime: 0.05502s,     systime: 0.05686s.
+derive_corr_thm mc_add1_call 	Saved theorem _______ "mc_add1_call_corr_thm"
+runtime: 0.49635s,    gctime: 0.04361s,     systime: 0.00286s.
+derive_corr_thm mc_div_sub_aux1 	Saved theorem _______ "mc_div_sub_aux1_corr_thm"
+runtime: 0.51435s,    gctime: 0.04465s,     systime: 0.00247s.
+derive_corr_thm mc_div_sub_aux 	Saved theorem _______ "mc_div_sub_aux_corr_thm"
+runtime: 0.90517s,    gctime: 0.43030s,     systime: 0.11664s.
+derive_corr_thm mc_div_sub1 	Saved theorem _______ "mc_div_sub1_corr_thm"
+runtime: 0.45820s,    gctime: 0.07061s,     systime: 0.04722s.
+derive_corr_thm mc_div_sub_call 	Saved theorem _______ "mc_div_sub_call_corr_thm"
+runtime: 0.70291s,    gctime: 0.00000s,     systime: 0.12330s.
+derive_corr_thm mc_idiv_mod_header 	Saved theorem _______ "mc_idiv_mod_header_corr_thm"
+runtime: 0.17156s,    gctime: 0.05026s,     systime: 0.01110s.
+derive_corr_thm mc_idiv0 	Saved theorem _______ "mc_idiv0_corr_thm"
+runtime: 1.2s,    gctime: 0.07515s,     systime: 0.01439s.
+derive_corr_thm mc_idiv 	Saved theorem _______ "mc_idiv_corr_thm"
+runtime: 1.2s,    gctime: 0.10478s,     systime: 0.01250s.
+derive_corr_thm mc_iadd1 	Saved theorem _______ "mc_iadd1_corr_thm"
+runtime: 0.13753s,    gctime: 0.00000s,     systime: 0.00050s.
+derive_corr_thm mc_add_loop1 	Saved theorem _______ "mc_add_loop1_corr_thm"
+runtime: 0.54976s,    gctime: 0.04456s,     systime: 0.00449s.
+derive_corr_thm mc_add_loop2 	Saved theorem _______ "mc_add_loop2_corr_thm"
+runtime: 0.53756s,    gctime: 0.08116s,     systime: 0.00439s.
+derive_corr_thm mc_add_loop 	Saved theorem _______ "mc_add_loop_corr_thm"
+runtime: 1.4s,    gctime: 0.05018s,     systime: 0.00525s.
+derive_corr_thm mc_add 	Saved theorem _______ "mc_add_corr_thm"
+runtime: 0.61490s,    gctime: 0.00157s,     systime: 0.00125s.
+derive_corr_thm mc_iadd3 	Saved theorem _______ "mc_iadd3_corr_thm"
+runtime: 0.10107s,    gctime: 0.00000s,     systime: 0.00033s.
+derive_corr_thm mc_iadd2 	Saved theorem _______ "mc_iadd2_corr_thm"
+runtime: 0.17945s,    gctime: 0.00000s,     systime: 0.00013s.
+derive_corr_thm mc_sub_loop1 	Saved theorem _______ "mc_sub_loop1_corr_thm"
+runtime: 0.58460s,    gctime: 0.04432s,     systime: 0.00401s.
+derive_corr_thm mc_sub_loop2 	Saved theorem _______ "mc_sub_loop2_corr_thm"
+runtime: 0.51763s,    gctime: 0.04597s,     systime: 0.00331s.
+derive_corr_thm mc_sub_loop 	Saved theorem _______ "mc_sub_loop_corr_thm"
+runtime: 1.7s,    gctime: 0.05223s,     systime: 0.00557s.
+derive_corr_thm mc_sub 	Saved theorem _______ "mc_sub_corr_thm"
+runtime: 1.2s,    gctime: 0.06479s,     systime: 0.00550s.
+derive_corr_thm mc_iadd 	Saved theorem _______ "mc_iadd_corr_thm"
+runtime: 8.2s,    gctime: 0.18734s,     systime: 0.02682s.
+derive_corr_thm mc_imul1 	Saved theorem _______ "mc_imul1_corr_thm"
+runtime: 0.10607s,    gctime: 0.00000s,     systime: 0.00020s.
+derive_corr_thm mc_mul_pass 	Saved theorem _______ "mc_mul_pass_corr_thm"
+runtime: 1.0s,    gctime: 0.04630s,     systime: 0.00525s.
+derive_corr_thm mc_mul 	Saved theorem _______ "mc_mul_corr_thm"
+runtime: 1.5s,    gctime: 0.05228s,     systime: 0.00556s.
+derive_corr_thm mc_imul 	Saved theorem _______ "mc_imul_corr_thm"
+runtime: 1.7s,    gctime: 0.04778s,     systime: 0.00721s.
+derive_corr_thm mc_isub_flip 	Saved theorem _______ "mc_isub_flip_corr_thm"
+runtime: 0.12666s,    gctime: 0.02647s,     systime: 0.00123s.
+derive_corr_thm mc_iop 	Saved theorem _______ "mc_iop_corr_thm"
+runtime: 2.3s,    gctime: 0.66939s,     systime: 0.12255s.
+runtime: 1m29s,    gctime: 7.3s,     systime: 2.0s.
+Saved theorem _______ "evaluate_mc_iop"
+Exporting theory "word_bignumProof" ... done.
+Theory "word_bignumProof" took 2m05s to build

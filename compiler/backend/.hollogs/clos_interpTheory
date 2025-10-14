@@ -1,0 +1,41 @@
+<<HOL message: Created theory "clos_interp">>
+<<HOL message: mk_functional: 
+  pattern completion has added 55 clauses to the original specification.>>
+Saved definition ____ "can_interpret_op_def"
+Saved induction _____ "can_interpret_op_ind"
+Saved definition ____ "can_interpret_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 56 clauses to the original specification.>>
+Saved definition ____ "check_size_op_def"
+Saved induction _____ "check_size_op_ind"
+Saved definition ____ "check_size_def"
+Saved definition ____ "nontrivial_size_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 55 clauses to the original specification.>>
+Saved definition ____ "to_constant_op_def"
+Saved induction _____ "to_constant_op_ind"
+Saved definition ____ "to_constant_def"
+Saved induction _____ "to_constant_ind"
+Saved definition ____ "clos_interp_el_def"
+Saved definition ____ "clos_interp_rev_def"
+Saved definition ____ "clos_interpreter_body_def"
+Saved definition ____ "clos_interpreter_def"
+Saved definition ____ "opt_interp_def"
+Saved definition ____ "opt_interp1_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 9 clauses to the original specification.>>
+Saved definition ____ "insert_interp1_def"
+Saved definition ____ "compile_init_def"
+Saved definition ____ "attach_interpreter_def"
+Saved definition ____ "insert_interp_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 55 clauses to the original specification.>>
+Saved theorem _______ "can_interpret_op_pmatch"
+<<HOL message: mk_functional: 
+  pattern completion has added 56 clauses to the original specification.>>
+Saved theorem _______ "check_size_op_pmatch"
+<<HOL message: mk_functional: 
+  pattern completion has added 55 clauses to the original specification.>>
+Saved theorem _______ "to_constant_op_pmatch"
+Exporting theory "clos_interp" ... done.
+Theory "clos_interp" took 19.0s to build

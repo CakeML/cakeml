@@ -1,0 +1,13 @@
+<<HOL message: Created theory "loop_call">>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "is_load_def"
+Saved induction _____ "is_load_ind"
+<<HOL message: mk_functional: The following input rows (counting from zero) are inaccessible: 3.
+They have been ignored.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 10 clauses to the original specification.>>
+Saved definition ____ "comp_def"
+Saved induction _____ "comp_ind"
+Exporting theory "loop_call" ... done.
+Theory "loop_call" took 1.1s to build

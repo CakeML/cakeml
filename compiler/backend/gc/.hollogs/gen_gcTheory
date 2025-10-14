@@ -1,0 +1,60 @@
+<<HOL message: Created theory "gen_gc">>
+Saved theorem _______ "datatype_gen_gc_conf"
+Saved theorem _______ "gen_gc_conf_11"
+Saved theorem _______ "gen_gc_conf_nchotomy"
+Saved theorem _______ "gen_gc_conf_Axiom"
+Saved theorem _______ "gen_gc_conf_induction"
+Saved theorem _______ "gen_gc_conf_case_cong"
+Saved theorem _______ "gen_gc_conf_case_eq"
+<<HOL message: Defined type: "gen_gc_conf">>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "gc_move_def"
+Saved definition ____ "gc_move_list_def"
+Saved theorem _______ "gc_move_list_IMP"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "gc_move_data_def"
+Saved induction _____ "gc_move_data_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "gc_move_refs_def"
+Saved induction _____ "gc_move_refs_ind"
+<<HOL message: set_reln: unable>>
+Saved definition ____ "gc_move_loop_def"
+Saved induction _____ "gc_move_loop_ind"
+Saved definition ____ "gen_gc_def"
+Saved definition ____ "is_final_def"
+Saved definition ____ "gc_inv_def"
+Saved theorem _______ "heap_lookup_LENGTH"
+Saved theorem _______ "heap_lookup_APPEND"
+Saved theorem _______ "gc_move_thm"
+Saved theorem _______ "gc_move_ALT"
+Saved theorem _______ "gc_move_list_ALT"
+Saved theorem _______ "heap_lookup_IMP_MEM"
+Saved theorem _______ "heaps_similar_lemma"
+Saved theorem _______ "BIJ_IMP_FLOOKUP_SOME"
+Saved theorem _______ "IMP_reachable_addresses"
+Saved theorem _______ "gc_move_data_thm"
+Saved theorem _______ "gc_move_refs_lemma"
+Saved theorem _______ "gc_move_refs_thm"
+Saved theorem _______ "gc_move_loop_thm"
+Saved theorem _______ "gc_inv_init"
+Saved theorem _______ "gen_gc_thm"
+Saved theorem _______ "LESS_IMP_heap_lookup"
+Saved theorem _______ "heap_lookup_IMP_heap_addresses"
+Saved theorem _______ "gen_gc_ok"
+Saved theorem _______ "heap_lookup_EXTEND"
+Saved theorem _______ "gen_gc_related"
+Saved theorem _______ "gc_forward_ptr_ok"
+Saved theorem _______ "gc_move_ok"
+Saved theorem _______ "gc_move_list_ok"
+Saved theorem _______ "gc_move_data_ok"
+Saved theorem _______ "gc_move_data_h2"
+Saved theorem _______ "gc_move_refs_ok"
+Saved theorem _______ "gc_move_loop_ok"
+Saved theorem _______ "gc_move_list_length"
+Saved theorem _______ "gen_gc_LENGTH"
+Saved theorem _______ "gen_gc_a"
+Exporting theory "gen_gc" ... done.
+Theory "gen_gc" took 12.8s to build

@@ -1,0 +1,11 @@
+<<HOL message: Created theory "fpSem">>
+Saved definition ____ "fp_cmp_comp_def"
+Saved definition ____ "fp_uop_comp_def"
+Saved definition ____ "fp_bop_comp_def"
+Saved definition ____ "fpfma_def"
+Saved definition ____ "fp_top_comp_def"
+Saved definition ____ "fp_opt_comp_def"
+Saved definition ____ "compress_word_def"
+Saved definition ____ "compress_bool_def"
+Exporting theory "fpSem" ... done.
+Theory "fpSem" took 0.68745s to build

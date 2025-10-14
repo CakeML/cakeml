@@ -1,0 +1,18 @@
+<<HOL message: Created theory "word_to_word">>
+Saved theorem _______ "datatype_config"
+Saved theorem _______ "config_11"
+Saved theorem _______ "config_nchotomy"
+Saved theorem _______ "config_Axiom"
+Saved theorem _______ "config_induction"
+Saved theorem _______ "config_case_cong"
+Saved theorem _______ "config_case_eq"
+<<HOL message: Defined type: "config">>
+Saved definition ____ "compile_single_def"
+Saved definition ____ "full_compile_single_def"
+Saved definition ____ "next_n_oracle_def"
+Saved definition ____ "compile_def"
+Saved definition ____ "full_compile_single_for_eval_def"
+Saved theorem _______ "full_compile_single_for_eval_eq"
+Saved theorem _______ "compile_alt"
+Exporting theory "word_to_word" ... done.
+Theory "word_to_word" took 1.5s to build
