@@ -641,42 +641,36 @@ Proof
   \\ simp[data_component_equality]
 QED
 
-(*
+
 
 Theorem dec_enc_section:
   ∀xs enc dec lb encxs rest. enc_section lb enc xs = SOME encxs ∧
-  (∀x rs. dec (enc x ++ rs) = (INR x, rs)) ⇒
-  dec_section lb dec $ encxs ++ rest = (INR xs, rest)
+  (∀x encx rs. enc x = SOME encx ⇒ dec (encx a++ rs) = (INR x, rs)) ⇒
+  dec_section lb dec $ encxs a++ rest = (INR xs, rest)
 Proof
-     rw[enc_section_def]
-  \\ simp $ ssaa [dec_section_def]
-  \\ dxrule_at Any dec_enc_vector
-  \\ disch_then dxrule
+     rw[enc_section_def, prepend_sz_def]
+  \\ simp[dec_section_def]
+  \\ imp_res_tac dec_enc_u32
+  \\ simp ssa
+  \\ imp_res_tac dec_enc_vector
   \\ simp[]
 QED
 
 
-Theorem dec_enc_section_opt:
-  ∀xs enc dec lb encxs rest. enc_section_opt lb enc xs = SOME encxs ∧
-  (∀x encx rs. enc x = SOME encx ⇒ dec (encx ++ rs) = (INR x, rs)) ⇒
-  dec_section lb dec $ encxs ++ rest = (INR xs, rest)
-Proof
-     rw[enc_section_opt_def]
-  \\ simp $ ssaa [dec_section_def]
-  \\ dxrule_at Any dec_enc_vector_opt
-  \\ disch_then dxrule
-  \\ simp[]
-QED
-
+(*
 Theorem dec_enc_names:
   ∀no eno rest.
   enc_names_section no = SOME eno ⇒
-  dec_names_section eno = (INR no, rest)
+  dec_names_section $ append eno = (INR no, [])
 Proof
+  Cases
+  rw[Once enc_names_section_def, Once dec_names_section_def]
 
 QED
 
 
+type_of ``enc_names_section``
+type_of ``dec_names_section``
 
 
 Theorem dec_enc_module:
