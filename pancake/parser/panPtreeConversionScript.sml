@@ -686,6 +686,14 @@ Termination
   Cases_on ‘tree’ >> gvs[argsNT_def]
 End
 
+Definition conv_inline_def:
+  conv_inline tree =
+    case destTOK ' (destLf tree) of
+      SOME (KeywordT InlineK) => SOME T
+    | SOME (NoinlineT) => SOME F
+    | _ => NONE
+End
+
 Definition conv_export_def:
   conv_export tree =
     case destTOK ' (destLf tree) of
@@ -697,15 +705,16 @@ End
 Definition conv_TopDec_def:
   conv_TopDec tree =
   case argsNT tree FunNT of
-  | SOME [e;sh;n;ps;c] =>
+  | SOME [i;e;sh;n;ps;c] =>
       (case (argsNT ps ParamListNT) of
          SOME args =>
            (do ps'  <- conv_params args;
                body <- conv_Prog c;
                n'   <- conv_ident n;
+               i'   <- conv_inline i;
                e'   <- conv_export e;
                sh'  <- conv_Shape sh;
-               SOME $ Function <| name := n'; export := e'; params := ps'; body := body; return := sh' |>
+               SOME $ Function <| name := n'; inline := i; export := e'; params := ps'; body := body; return := sh' |>
             od)
        | _ => NONE)
   | _ =>

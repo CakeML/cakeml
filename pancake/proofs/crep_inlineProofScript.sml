@@ -1,14 +1,6 @@
 (*
   Correctness proof for function inlining pass
 *)
-(*
-open HolKernel Parse bossLib boolLib numLib stringLib preamble;i
-open preamble;
-open crepLangTheory crepSemTheory crepPropsTheory;
-open pan_commonPropsTheory pan_commonTheory;
-open crep_inlineTheory;
-open prim_recTheory iterateTheory;
-*)
 Theory crep_inlineProof
 Ancestors
   crepLang crepSem crepProps crep_inline
@@ -83,7 +75,6 @@ Proof
   last_x_assum imp_res_tac >> fs[] >>
   every_case_tac >> gs[mem_load_def]
 QED
-
 
 Theorem eval_original_extend_locals_rel:
   ∀s e wl t.
@@ -527,75 +518,6 @@ Proof
   Cases_on `r` >> TRY (Cases_on `x`) >> fs[]
 QED
 
-
-Theorem evaluate_state_locals_rel_conj:
-  ∀p s r s' t l.
-    evaluate (p, s) = (r, s') /\
-    r ≠ SOME Error /\
-    locals_rel s t ∧ state_rel s t ⇒
-    ∃r' t'.
-      evaluate (p, t) = (r, t') ∧ state_rel s' t' ∧
-      case r of
-        | NONE => r' = NONE ∧ locals_rel s' t'
-        | SOME Break => r' = SOME Break ∧ locals_rel s' t'
-        | SOME Continue => r' = SOME Continue ∧ locals_rel s' t'
-        | SOME (Return retv) => r' = SOME (Return retv)
-        | SOME (FinalFFI f) => r' = SOME (FinalFFI f)
-        | SOME TimeOut => r' = SOME TimeOut
-        | SOME (Exception e) => r' = SOME (Exception e)
-        | _ => F
-Proof
-  rpt strip_tac >>
-  irule evaluate_state_locals_rel >> conj_tac >> fs[] >>
-  qexists `s` >> simp[]
-QED
-
-
-Theorem MAX_LIST_MORE_NOT_MEM:
-  ∀e l. MAX_LIST l < e ⇒ ¬MEM e l
-Proof
-  rpt strip_tac >>
-  imp_res_tac MAX_LIST_PROPERTY >> fs[]
-QED
-
-Theorem domsub_locals_not_vars_eval_eq:
-  ∀s e r v.
-    ¬ MEM v (var_cexp e) ∧
-    eval s e = r  ⇒
-    eval (s with locals := s.locals \\ v) e = r
-Proof
-  ho_match_mp_tac eval_ind >>
-  rpt conj_tac >>
-  rpt strip_tac >>
-  gs[eval_def, var_cexp_def, DOMSUB_FLOOKUP_THM, CaseEq "option", CaseEq "word_lab", mem_load_def, MEM_MAP, MEM_FLAT] >>
-  TRY (
-    qpat_assum `OPT_MMAP _ _ = NONE` kall_tac >>
-    disj1_tac
-  ) >>
-  TRY (
-    qpat_assum `OPT_MMAP _ _ = SOME _` kall_tac >>
-    disj2_tac >>
-    qrefine `ws` >> fs[]
-  ) >>
-  qpat_x_assum `OPT_MMAP _ _ = _` $ fs o single o GSYM >>
-  irule OPT_MMAP_CONG >>
-  rpt strip_tac >> fs[] >>
-  last_x_assum imp_res_tac >>
-  last_x_assum $ qspec_then `var_cexp x` assume_tac >> gs[]
-QED
-
-Theorem res_var_not_vars_eval_eq:
-  ∀v e s r u.
-    ¬MEM v (var_cexp e) ∧
-    eval s e = r ==>
-    eval (s with locals := res_var s.locals (v, u)) e = r
-Proof
-  rpt strip_tac >>
-  Cases_on `u` >>
-  gs[res_var_def, update_locals_not_vars_eval_eq', domsub_locals_not_vars_eval_eq]
-QED
-
-
 Theorem single_dec_evaluate:
   ∀p s r s' v e val .
     eval s e = SOME val ∧
@@ -670,29 +592,6 @@ Proof
   rpt gen_tac >>
   irule OPT_MMAP_CONG >> fs[] >>
   rpt strip_tac >> gs[eval_dec_clock_eq]
-QED
-
-Theorem MAX_LIST_APPEND:
-  ∀l1 l2. MAX_LIST l1 ≤ MAX_LIST (l1 ++ l2) ∧ MAX_LIST l2 ≤ MAX_LIST (l1 ++ l2)
-Proof
-  rpt gen_tac >>
-  Induct_on `l1` >> gs[APPEND]
-QED
-
-Theorem ret_in_loop_imp_has_return:
-  ∀p. return_in_loop p ⇒ has_return p
-Proof
-  recInduct has_return_ind >> gs[has_return_def, return_in_loop_def] >>
-  rw[] >>
-  gvs[] >>
-  every_case_tac >> gs[]
-QED
-
-Theorem not_has_return_imp_not_ret_in_loop:
-  ∀p. (¬has_return p) ⇒ (¬return_in_loop p)
-Proof
-  spose_not_then assume_tac >>
-  gvs[ret_in_loop_imp_has_return]
 QED
 
 Theorem not_has_return_not_evaluate_return:
@@ -885,22 +784,6 @@ Proof
   res_tac >> gvs[]
 QED
 
-
-Theorem res_var_foldl_commutes:
-  ∀h vs lc1 lc2.
-    ¬MEM h vs ∧
-    ALL_DISTINCT vs ⇒
-    res_var (FOLDL res_var lc1 (ZIP (vs, MAP (FLOOKUP lc2) vs))) (h, FLOOKUP lc2 h) =
-    FOLDL res_var (res_var lc1 (h, FLOOKUP lc2 h)) (ZIP (vs, MAP (FLOOKUP lc2) vs))
-Proof
-  Induct_on `vs` >> fs[] >>
-  rpt strip_tac >>
-  imp_res_tac res_var_commutes >> fs[] >>
-  pop_assum $ qspecl_then [`lc2`, `lc1`] assume_tac >>
-  irule FOLDL_CONG >> fs[] >>
-  rename1 `res_var p q = res_var r s` >> fs[]
-QED
-
 Theorem res_var_commutes_strong:
   res_var (res_var lc (h,FLOOKUP lc' h)) (n,FLOOKUP lc' n) =
   res_var (res_var lc (n,FLOOKUP lc' n)) (h,FLOOKUP lc' h)
@@ -963,7 +846,6 @@ Proof
   gvs[res_var_foldl_commutes_strong]
 QED
 
-
 Theorem not_some_is_none:
   ∀a. (∀v. a ≠ SOME v) ⇔ a = NONE
 Proof
@@ -988,7 +870,6 @@ Proof
   metis_tac[]
 QED
 
-
 Theorem flookup_res_var_is_mem_zip_eq:
   ∀xs x lc1 lc2.
     MEM x xs ⇒
@@ -1000,10 +881,6 @@ Proof
   gs[GSYM res_var_foldl_commutes_strong] >>
   Cases_on `FLOOKUP lc2 h` >> gs[res_var_def, FLOOKUP_UPDATE]
 QED
-
-Definition locals_rel_domsub_def:
-  locals_rel_domsub s1 s2 x ⇔ s1.locals \\ x SUBMAP s2.locals \\ x
-End
 
 Theorem not_var_prog_flookup_eqn:
   ∀p s r s' x.
@@ -1069,7 +946,6 @@ Proof
   gvs[evaluate_def, CaseEq "option", CaseEq "word_lab", CaseEq "ffi_result", set_globals_def, FLOOKUP_UPDATE] >>
   Cases_on `s.clock = 0` >> gvs[dec_clock_def]
 QED
-
 
 Theorem transform_assign_correct_strong:
   ∀f p s r s' x.
@@ -1248,31 +1124,6 @@ Proof
   Cases_on `r` >> TRY (Cases_on `x'`) >> fs[]
 QED
 
-Theorem transform_assign_correct_new':
-  ∀p s r s' x.
-    evaluate (p, s) = (r, s') ∧
-    ¬MEM x (var_prog p) ∧
-    ¬return_in_loop p ∧
-    (∃z. FLOOKUP s.locals x = SOME z) ∧
-    r ≠ SOME Error ⇒
-    ∃r1 s1'.
-      evaluate (transform_rec (assign_ret x) p, s) = (r1, s1') ∧ state_rel s' s1' ∧
-      case r of
-        | NONE => r1 = NONE ∧ locals_strong_rel s' s1'
-        | SOME Break => r1 = SOME Break ∧ locals_strong_rel s' s1'
-        | SOME Continue => r1 = SOME Continue ∧ locals_strong_rel s' s1'
-        | SOME (Return v) => r1 = SOME Break ∧ FLOOKUP s1'.locals x = SOME v
-        | SOME (Exception e) => r1 = SOME (Exception e)
-        | SOME TimeOut => r1 = SOME TimeOut
-        | SOME (FinalFFI f) => r1 = SOME (FinalFFI f)
-        | _ => F
-Proof
-  rpt strip_tac >>
-  drule transform_assign_correct_strong >>
-  disch_then $ qspecl_then [`assign_ret x`, `x`] assume_tac >> gs[] >>
-  Cases_on `r` >> TRY (Cases_on `x'`) >> fs[]
-QED
-
 Theorem not_var_prog_not_affect_evaluate:
   ∀p s r s' v val.
     evaluate (p, s) = (r, s') ∧
@@ -1424,8 +1275,6 @@ Proof
   Cases_on `s.clock = 0` >> gvs[dec_clock_def]
 QED
 
-
-
 Theorem SUBMAP_DIFF_LIST:
   ∀l vs vals.
     LENGTH vs = LENGTH vals ∧
@@ -1449,37 +1298,6 @@ Proof
   drule_all flookup_fupdate_zip_not_mem >>
   disch_then $ qspec_then `l` assume_tac >> fs[] >>
   fs[flookup_thm]
-QED
-
-Theorem nested_decs_evaluate_sublocals:
-  !vs es p s r s' vals t.
-    OPT_MMAP (eval s) es = SOME vals ∧
-    LENGTH vs = LENGTH es ∧
-    ALL_DISTINCT vs /\
-    (!v. MEM v vs ⇒ !e. MEM e es ⇒ ¬MEM v (var_cexp e)) ∧
-    evaluate (p, s with locals := t |++ ZIP (vs, vals)) = (r, s') ∧
-    t SUBMAP s.locals ∧
-    r ≠ SOME Error ==>
-    ∃t'.
-      evaluate (nested_decs vs es p, s) = (r, t') ∧ state_rel s' t'
-Proof
-  rpt strip_tac >>
-  drule evaluate_state_locals_rel >> fs[] >>
-  disch_then $ qspec_then `s with locals := s.locals |++ ZIP (vs, vals)` mp_tac >> impl_tac
-  >- (
-    conj_tac
-    >- (
-      fs[locals_rel_def] >>
-      irule SUBMAP_mono_FUPDATE_LIST >>
-      irule $ iffRL SUBMAP_FLOOKUP_EQN >> fs[FLOOKUP_SIMP] >>
-      rpt strip_tac >>
-      drule $ iffLR SUBMAP_FLOOKUP_EQN >> fs[]
-    ) >>
-    gvs[state_rel_def]
-  ) >>
-  disch_tac >> fs[] >>
-  drule_at (Pos last) evaluate_nested_decs_locals_nested_res_var >>
-  disch_then imp_res_tac >> gs[state_rel_def]
 QED
 
 Theorem nested_decs_evaluate_sublocals_strong:
@@ -1559,80 +1377,12 @@ Proof
   gs[state_rel_def]
 QED
 
-
-
-Theorem nested_decs_evaluate_sublocals_strong_eq:
-  !vs es p s r s' vals t.
-    OPT_MMAP (eval s) es = SOME vals ∧
-    LENGTH vs = LENGTH es ∧
-    ALL_DISTINCT vs /\
-    (!v. MEM v vs ⇒ !e. MEM e es ⇒ ¬MEM v (var_cexp e)) ∧
-    (!v. MEM v vs ⇒ v ∉ FDOM t) ∧
-    evaluate (p, s with locals := t |++ ZIP (vs, vals)) = (r, s') ∧
-    t SUBMAP s.locals ∧
-    (case r of
-      | NONE => T
-      | SOME Break => T
-      | SOME Continue => T
-      | _ => F) = T ==>
-    ∃t'.
-      evaluate (nested_decs vs es p, s) = (r, t') ∧ state_rel s' t' ∧
-      (FDIFF s.locals (FDOM t)) = (FDIFF t'.locals (FDOM t))
-Proof
-  rpt strip_tac >>
-  drule_all nested_decs_evaluate_sublocals_strong >>
-  disch_tac >> fs[] >>
-  drule evaluate_locals_same_fdom >> impl_tac
-  >- fs[] >>
-  disch_tac >>
-  irule $ iffRL EQ_FDOM_SUBMAP >>
-  fs[FDIFF_def, FDOM_DRESTRICT, SUBMAP_FLOOKUP_EQN, FLOOKUP_SIMP]
-QED
-
-Theorem nested_decs_evaluate_sublocals_full:
-  !vs es p s r s' vals t.
-    OPT_MMAP (eval s) es = SOME vals ∧
-    LENGTH vs = LENGTH es ∧
-    ALL_DISTINCT vs /\
-    (!v. MEM v vs ⇒ !e. MEM e es ⇒ ¬MEM v (var_cexp e)) ∧
-    (!v. MEM v vs ==> v ∉ FDOM t) ∧
-    evaluate (p, s with locals := t |++ ZIP (vs, vals)) = (r, s') ∧
-    t SUBMAP s.locals ∧
-    r ≠ SOME Error ==>
-    ∃t'.
-      evaluate (nested_decs vs es p, s) = (r, t') ∧ state_rel s' t' ∧
-      case r of
-        | NONE => (FDIFF s.locals (FDOM t)) = (FDIFF t'.locals (FDOM t))
-        | SOME Break => (FDIFF s.locals (FDOM t)) = (FDIFF t'.locals (FDOM t))
-        | SOME Continue => (FDIFF s.locals (FDOM t)) = (FDIFF t'.locals (FDOM t))
-        | SOME Error => F
-        | _ => T
-Proof
-  rpt strip_tac >>
-  drule_all nested_decs_evaluate_sublocals >>
-  disch_tac >> fs[] >>
-  drule nested_decs_evaluate_sublocals_strong_eq >> fs[] >>
-  rpt (disch_then drule) >> fs[] >>
-  disch_tac >>
-  Cases_on `r` >> TRY (Cases_on `x`) >> fs[]
-QED
-
-
-
 Theorem all_distinct_tmp_vars:
   ∀vs es.
     ALL_DISTINCT (GENLIST (λx. MAX_LIST vs + MAX_LIST (FLAT (MAP var_cexp es)) + SUC x) (LENGTH vs))
 Proof
   simp[genlist_all_distinct]
 QED
-
-Theorem all_distinct_tmp_vars':
-  ∀vs es.
-    ALL_DISTINCT (GENLIST (λx. MAX_LIST vs + (MAX_LIST (FLAT (MAP var_cexp es)) + SUC x)) (LENGTH vs))
-Proof
-  assume_tac all_distinct_tmp_vars >> rpt gen_tac >> rewrite_tac[ADD_ASSOC] >> simp[]
-QED
-
 
 Theorem tmp_vars_distinct:
   ∀vs es tmp_vars.
@@ -2043,48 +1793,6 @@ Proof
   )
 QED
 
-Theorem fdiff_update_list_disjoint:
-  ∀t a b ls ks.
-  (!v. MEM v b ⇒ ¬MEM v a) ∧
-  (!v. MEM v b ∨ MEM v a ⇒ v ∉ FDOM t) ∧
-  (LENGTH a = LENGTH ls) ∧ ALL_DISTINCT a ∧
-  (LENGTH b = LENGTH ks) ∧ ALL_DISTINCT b
-  ==>
-  FDIFF (t |++ ZIP (a, ls) |++ ZIP (b, ks)) (FDOM (t |++ ZIP (b, ks))) = FEMPTY |++ ZIP (a, ls)
-Proof
-  rpt strip_tac >>
-  simp[fmap_eq_flookup] >>
-  strip_tac >>
-  Cases_on `MEM x b`
-  >- (
-    res_tac >>
-    drule not_mem_fst_zip_flookup_empty >> fs[] >>
-    disch_then $ qspec_then `ls` assume_tac >> fs[FLOOKUP_FDIFF, FDOM_FUPDATE_LIST, MAP_ZIP]
-  ) >>
-  Cases_on `MEM x a`
-  >- (
-    first_assum $ assume_tac o SRULE [MEM_EL] >> fs[update_eq_zip_flookup] >>
-    simp[FLOOKUP_FDIFF, FDOM_FUPDATE_LIST] >>
-    first_x_assum $ qspec_then `x` assume_tac >> gvs[MAP_ZIP] >>
-    drule flookup_fupdate_zip_not_mem >>
-    disch_then drule >>
-    disch_then $ qspec_then `t |++ ZIP (a, ls)` assume_tac >> fs[update_eq_zip_flookup]
-  ) >>
-  simp[FLOOKUP_FDIFF, FDOM_FUPDATE_LIST, MAP_ZIP] >>
-  rev_drule flookup_fupdate_zip_not_mem >>
-  disch_then drule >>
-  disch_then $ qspec_then `FEMPTY` assume_tac >> fs[] >>
-  Cases_on `x ∈ FDOM t` >> fs[] >>
-  drule flookup_fupdate_zip_not_mem >>
-  disch_then drule >>
-  disch_then $ qspec_then `t |++ ZIP (a, ls)` assume_tac >> fs[] >>
-  rev_drule flookup_fupdate_zip_not_mem >>
-  disch_then drule >>
-  disch_then $ qspec_then `t` assume_tac >> fs[] >>
-  simp[flookup_thm]
-QED
-
-(* Need this *)
 Theorem general_simulate_arg_load_strong:
   ∀s es (vals:('a word_lab) list) vs t p r s' tmp_vars.
     OPT_MMAP (eval s) es = SOME vals ∧
@@ -2193,8 +1901,6 @@ Proof
   disch_tac >> fs[]
 QED
 
-
-(* Need this *)
 Theorem general_simulate_arg_load_strong_1:
   ∀s es (vals:('a word_lab) list) vs t p r s' tmp_vars.
     OPT_MMAP (eval s) es = SOME vals ∧
@@ -2224,7 +1930,6 @@ Proof
   gs[]
 QED
 
-(* Need this *)
 Theorem general_simulate_arg_load_strong_all:
   ∀s es (vals:('a word_lab) list) vs t p r s' tmp_vars.
     OPT_MMAP (eval s) es = SOME vals ∧
@@ -2326,100 +2031,6 @@ Definition state_rel_code_def:
     s.base_addr = t.base_addr ∧
     s.top_addr = t.top_addr
 End
-
-Definition code_rel_def:
-  code_rel inl_fs s t ⇔
-   FDOM s.code = FDOM t.code ∧
-   ∀n vs p.
-     FLOOKUP s.code n = SOME (vs, p) ⇒
-     FLOOKUP t.code n = SOME (vs, inline_prog (inl_fs \\ n) p)
-End
-
-Theorem eval_code_state_correct:
-  ∀s e val s1 inl_fs.
-    eval s e = SOME val ∧
-    state_rel_code s s1 ∧
-    locals_strong_rel s s1 ∧
-    code_rel inl_fs s s1 ⇒
-    eval s1 e = SOME val
-Proof
-  recInduct eval_ind >> rpt strip_tac >>
-  gvs[eval_def, CaseEq "option", CaseEq "word_lab"]
-  >>~- ([`OPT_MMAP _ _ = _`],
-    qrefine `ws` >> fs[] >>
-    drule opt_mmap_mem_func >>
-    qpat_x_assum `OPT_MMAP _ _ = SOME _` $ rw o single o GSYM >>
-    irule OPT_MMAP_CONG >>
-    rpt strip_tac >> simp[] >>
-    last_x_assum drule >>
-    qpat_x_assum `!_. _` imp_res_tac >>
-    disch_then imp_res_tac >> simp[])
-  >- (
-    fs[locals_strong_rel_def]
-  )
-  >~ [`_.base_addr = _`]
-  >- fs[state_rel_code_def]
-  >~ [`_.top_addr = _`]
-  >- fs[state_rel_code_def]
-  >~ [`_.globals`]
-  >- (
-    gvs[state_rel_code_def]
-  ) >>
-  last_x_assum imp_res_tac >> fs[mem_load_def]
-  >>~- ([`_.memory`],
-    gvs[state_rel_code_def]) >>
-  last_x_assum imp_res_tac >> simp[]
-QED
-
-Theorem opt_mmap_eval_code_state_correct:
-  ∀s es vals s1 inl_fs.
-    OPT_MMAP (eval s) es = SOME vals ∧
-    state_rel_code s s1 ∧
-    locals_strong_rel s s1 ∧
-    code_rel inl_fs s s1 ⇒
-    OPT_MMAP (eval s1) es = SOME vals
-Proof
-  rpt strip_tac >>
-  drule opt_mmap_mem_func >>
-  qpat_x_assum `OPT_MMAP _ _ = SOME _` $ rw o single o GSYM >>
-  irule OPT_MMAP_CONG >>
-  rpt strip_tac >> simp[] >>
-  qpat_x_assum `!_. _` imp_res_tac >>
-  imp_res_tac eval_code_state_correct >> simp[]
-QED
-
-Theorem nested_decs_not_return_in_loop:
-  ∀p vs es.
-    ¬return_in_loop p ⇒ ¬return_in_loop (nested_decs vs es p)
-Proof
-  Induct_on `vs`
-  >- (
-    Cases_on `es` >> fs[nested_decs_def, return_in_loop_def]
-  ) >>
-  Cases_on `es` >> fs[nested_decs_def]
-  >- fs[return_in_loop_def] >>
-  simp[return_in_loop_def]
-QED
-
-Theorem not_return_arg_load_not_return:
-  ∀p tmp_vars es vs.
-    ¬return_in_loop p ⇒ ¬return_in_loop (arg_load tmp_vars es vs p)
-Proof
-  rw[arg_load_def] >>
-  rpt (irule nested_decs_not_return_in_loop) >> simp[]
-QED
-
-Theorem unique_var_is_larger:
-  ∀v x p tmp_vars ns.
-    v = SUC (MAX x (MAX (vmax_prog p) (MAX (MAX_LIST tmp_vars) (MAX_LIST ns)))) ⇒
-      x < v ∧
-      MAX_LIST (var_prog p) < v ∧
-      MAX_LIST tmp_vars < v ∧
-      MAX_LIST ns < v
-Proof
-  rpt gen_tac >> strip_tac >>
-  simp[LT_SUC_LE, MAX_LT, vmax_prog_def]
-QED
 
 Theorem unique_var_is_unique:
   ∀v x p tmp_vars ns.
@@ -2776,24 +2387,6 @@ Proof
   >>~- ([`_.memory`],
     gvs[state_rel_code_def]) >>
   last_x_assum imp_res_tac >> simp[]
-QED
-
-
-Theorem opt_mmap_eval_state_locals_same_code_fdom_same:
-  ∀s es vals s1 inl_fs.
-    OPT_MMAP (eval s) es = SOME vals ∧
-    state_rel_code s s1 ∧
-    locals_strong_rel s s1 ∧
-    FDOM s.code ⊆ FDOM s1.code ⇒
-    OPT_MMAP (eval s1) es = SOME vals
-Proof
-  rpt strip_tac >>
-  drule opt_mmap_mem_func >>
-  qpat_x_assum `OPT_MMAP _ _ = SOME _` $ rw o single o GSYM >>
-  irule OPT_MMAP_CONG >>
-  rpt strip_tac >> simp[] >>
-  qpat_x_assum `!_. _` imp_res_tac >>
-  imp_res_tac eval_state_locals_same_code_fdom_same >> simp[]
 QED
 
 Definition code_inl_rel_def:

@@ -91,6 +91,7 @@ End
 Datatype:
   fun_decl =
   <| name        : mlstring
+   ; inline      : bool
    ; export      : bool
    ; params      : (varname # shape) list
    ; body        : 'a prog
