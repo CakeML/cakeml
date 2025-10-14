@@ -196,7 +196,7 @@ Definition enc_limits_def:
 End
 
 Definition dec_limits_def:
-  dec_limits ([]:byteSeq) : limits dcdr = emErr "dec_limits"
+  dec_limits [] : limits dcdr = emErr "dec_limits"
   ∧
   dec_limits (b::bs) = let failure = error (b::bs) "[dec_limits]"
   in
@@ -465,11 +465,12 @@ Definition dec_varI_def:
   ∧
   dec_varI (b::bs) = let failure = error (b::bs) "[dec_varI]"
   in
-  if b = 0x20w then case dec_u32 bs of (INL _,_)=>failure| (INR x,rs) => (INR $ LocalGet  x,rs) else
-  if b = 0x21w then case dec_u32 bs of (INL _,_)=>failure| (INR x,rs) => (INR $ LocalSet  x,rs) else
-  if b = 0x22w then case dec_u32 bs of (INL _,_)=>failure| (INR x,rs) => (INR $ LocalTee  x,rs) else
-  if b = 0x23w then case dec_u32 bs of (INL _,_)=>failure| (INR x,rs) => (INR $ GlobalGet x,rs) else
-  if b = 0x24w then case dec_u32 bs of (INL _,_)=>failure| (INR x,rs) => (INR $ GlobalSet x,rs) else
+  case dec_u32 bs of (INL _,_)=>failure| (INR x,rs) =>
+  if b = 0x20w then ret rs $ LocalGet  x else
+  if b = 0x21w then ret rs $ LocalSet  x else
+  if b = 0x22w then ret rs $ LocalTee  x else
+  if b = 0x23w then ret rs $ GlobalGet x else
+  if b = 0x24w then ret rs $ GlobalSet x else
   error (b::bs) "[dec_varI] : Not a variable instruction.\n"
 End
 
@@ -512,7 +513,6 @@ Definition dec_loadI_def:
   ∧
   dec_loadI (b::bs) = let failure = error (b::bs) "[dec_loadI]"
   in
-
   case dec_2u32 bs of (INL _,_)=>failure|(INR (a,ofs),rs) =>
   if b = 0x28w then ret rs $ Load    Int                 W32 ofs a else
   if b = 0x29w then ret rs $ Load    Int                 W64 ofs a else
@@ -563,13 +563,14 @@ Definition dec_storeI_def:
   ∧
   dec_storeI (b::bs) = let failure = error (b::bs) "[dec_storeI]"
   in
-  if b = 0x36w then case dec_2u32 bs of (INL _,_)=>failure| (INR (al,ofs),rs) => ret rs $ Store          Int  W32 ofs al else
-  if b = 0x37w then case dec_2u32 bs of (INL _,_)=>failure| (INR (al,ofs),rs) => ret rs $ Store          Int  W64 ofs al else
-  if b = 0x3Aw then case dec_2u32 bs of (INL _,_)=>failure| (INR (al,ofs),rs) => ret rs $ StoreNarrow  I8x16  W32 ofs al else
-  if b = 0x3Bw then case dec_2u32 bs of (INL _,_)=>failure| (INR (al,ofs),rs) => ret rs $ StoreNarrow  I16x8  W32 ofs al else
-  if b = 0x3Cw then case dec_2u32 bs of (INL _,_)=>failure| (INR (al,ofs),rs) => ret rs $ StoreNarrow  I8x16  W64 ofs al else
-  if b = 0x3Dw then case dec_2u32 bs of (INL _,_)=>failure| (INR (al,ofs),rs) => ret rs $ StoreNarrow  I16x8  W64 ofs al else
-  if b = 0x3Ew then case dec_2u32 bs of (INL _,_)=>failure| (INR (al,ofs),rs) => ret rs $ StoreNarrow32           ofs al else
+  case dec_2u32 bs of (INL _,_)=>failure| (INR (al,ofs),rs) =>
+  if b = 0x36w then ret rs $ Store          Int  W32 ofs al else
+  if b = 0x37w then ret rs $ Store          Int  W64 ofs al else
+  if b = 0x3Aw then ret rs $ StoreNarrow  I8x16  W32 ofs al else
+  if b = 0x3Bw then ret rs $ StoreNarrow  I16x8  W32 ofs al else
+  if b = 0x3Cw then ret rs $ StoreNarrow  I8x16  W64 ofs al else
+  if b = 0x3Dw then ret rs $ StoreNarrow  I16x8  W64 ofs al else
+  if b = 0x3Ew then ret rs $ StoreNarrow32           ofs al else
   error (b::bs) "[dec_storeI] : Not a store instruction.\n"
 End
 
@@ -608,7 +609,8 @@ Definition dec_blocktype_def:
     in
     case bs of [] => emErr "dec_blocktype" | b::rs
     =>
-    if   b = 0x40w    then                ret rs $ BlkNil   else
+    if b = 0x40w then ret rs $ BlkNil
+    else
     case dec_valtype bs of (INR t ,rs) => ret rs $ BlkVal t | _ => failure
     (* error bs "[dec_blocktype] : Not a blocktype.\n" *)
 End
@@ -624,27 +626,8 @@ QED
 
 
 
-(* Used in BrTable *)
-(*
-Definition lift_dec_u32_def:
-  lift_dec_u32 bs = case dec_u32 bs of
-  | NONE        => error bs "[dec_indxs] : not a u32/index."
-  | SOME (i,rs) => (INR i,rs) : word32 dcdr
-End
-*)
-
-(*
-Theorem lift_dec_u32_shortens:
-  ∀bs rs xs. lift_dec_u32 bs = (INR xs, rs) ⇒ rs [<] bs
-Proof
-  simp[lift_dec_u32_def, AllCaseEqs()]
-QED
-*)
-
-
-
-(* we specialize/instantiate this particular
-   version of enc_/dec_vector just for abstraction *)
+(*  we specialize/instantiate this particular version
+    of enc_/dec_vector just for abstraction *)
 Overload enc_indxs = “enc_vector enc_u32”
 Overload dec_indxs = “dec_vector dec_u32”
 
@@ -697,14 +680,14 @@ Overload endB  = “0x0Bw:byte”
     TODO: check that endB & elseB are the only terminating
     bytes for encoding lists of instructions *)
 Definition enc_instr_def:
-  (enc_instr_list (e:bool) ([]:instr list) : byteCode = Soli [if e then endB else elseB]
+  (enc_instr_list (e:bool) ([]:instr list) = Soli [if e then endB else elseB]
   ) ∧
   (enc_instr_list _encode_expr (i::is) = do
     enci  <- enc_instr                   i ;
     encis <- enc_instr_list _encode_expr is;
     SOME $ enci +++ encis od
   ) ∧
-  enc_instr (inst:instr) : byteCode = case inst of
+  enc_instr (inst:instr) = case inst of
   (* control instructions *)
   | Unreachable => Soli [unrOC]
   | Nop         => Soli [nopOC]
@@ -742,7 +725,7 @@ Overload enc_tArm = “enc_instr_list F”  (* byte stream terminated with an el
 (***************************************************)
 
 (* Used in termination proof. While 2nd argument seems
-   slightly mysterious, [shorten] meant to be called
+   slightly mysterious, [shorten] is meant to be called
    in a specific pattern:
    (**)
    λdec xs. shorten xs (dec xs)
@@ -773,7 +756,10 @@ QED
 
 (* Decoding lists of instructions additionally returns the terminating byte, allowing
    the decoder to see if the then-arm of an if-instruction is (or is not) followed by
-   (the encoding of) an else-arm *)
+   (the encoding of) an else-arm. (Since the then-block of a dual-armed-if is the only
+   place we see an else-byte terminator.)
+   (**)
+   TODO: Check that this fact about the else byte is actually true *)
 Definition dec_instr_def:
   (dec_instr_list (_elseB_allowed:bool) [] : (byte # instr list) dcdr = emErr "dec_instr_list"
   ) ∧
@@ -802,8 +788,8 @@ Definition dec_instr_def:
       case dec_u32   bs of (INL _,_) => failure | (INR lbl ,bs) =>
       ret bs $ BrTable lbls lbl                             ) else
     (* Calls *)
-    if b = calOC then case dec_u32 bs of (INL _,_)=>failure| (INR f,bs) => ret bs $ Call       f else
-    if b = rclOC then case dec_u32 bs of (INL _,_)=>failure| (INR f,bs) => ret bs $ ReturnCall f else
+    if b = calOC then case dec_u32      bs of (INL _,_)=>failure|(INR f ,bs) => ret bs $ Call               f    else
+    if b = rclOC then case dec_u32      bs of (INL _,_)=>failure|(INR f ,bs) => ret bs $ ReturnCall         f    else
     if b = cinOC then case dec_functype bs of (INL _,_)=>failure|(INR sg,bs) =>
                       case dec_u32      bs of (INL _,_)=>failure|(INR f ,bs) => ret bs $ CallIndirect       f sg else
     if b = rciOC then case dec_functype bs of (INL _,_)=>failure|(INR sg,bs) =>
@@ -824,11 +810,11 @@ Definition dec_instr_def:
       case dec_blocktype bs                 of (INL _,_) =>failure| (INR bTyp        ,bs) =>
       case force_shtr (dec_instr_list T) bs of (INL _,_) =>failure| (INR (termB,bdyT),bs) =>
       if termB = endB then
-      (INR (If bTyp bdyT []),bs)
+      ret bs $ If bTyp bdyT []
     else (* termB = elseB *)
     (* If both *)
       case dec_instr_list F bs of (INL _,_) =>failure| (INR (_,bdyE),bs) =>
-      (INR (If bTyp bdyT bdyE),bs)                                      ) else
+      ret bs $ If bTyp bdyT bdyE                                     ) else
     (* other classes of instructions *)
     case dec_varI   (b::bs) of (INR i, bs) => ret bs $ Variable   i | _ =>
     case dec_paraI  (b::bs) of (INR i, bs) => ret bs $ Parametric i | _ =>
@@ -838,8 +824,8 @@ Definition dec_instr_def:
   failure)
 Termination
   WF_REL_TAC ‘measure $ λx. case x of
-                            | INL (_, bs) => 2 * LENGTH bs + 1  (* measure for the first (dec_instr_list) fn *)
-                            | INR bs      => 2 * LENGTH bs’     (* measure for the second (dec_instr)     fn *)
+                            | INL (_, bs) => 2 * LENGTH bs + 1  (* measure for the first  fn ---dec_instr_list) *)
+                            | INR bs      => 2 * LENGTH bs’     (* measure for the second fn ---dec_instr)     *)
   \\ rw []
   >> imp_res_tac dec_blocktype_shortens
   >> imp_res_tac shorten_IMP
@@ -1006,7 +992,8 @@ End
 
 (* Used in dec_data *)
 Definition dec_byte_def:
-  dec_byte ([]:byteSeq) : byte dcdr = error [] "bogus" ∧
+  dec_byte [] : byte dcdr = error [] "bogus"
+  ∧
   dec_byte (b::bs) = (INR b, bs)
 End
 
