@@ -51,4 +51,4 @@ such as:
 - Helpful Corollaries
 
 [wbf_thmsScript.sml](wbf_thmsScript.sml):
-CWasm 1.ε AST ⇔ Wasm binary format En- & De- coder theorems
+Properties of CWasm 1.ε AST ⇔ WBF En-/De-coders

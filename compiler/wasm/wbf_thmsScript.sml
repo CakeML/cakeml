@@ -1,8 +1,8 @@
 (*
-  CWasm 1.ε AST ⇔ Wasm binary format En- & De- coder theorems
+  Properties of CWasm 1.ε AST ⇔ WBF En-/De-coders
 *)
 Theory      wbf_thms
-Ancestors   leb128 wasmLang wbf_prelim wbf
+Ancestors   mlstring leb128 wasmLang wbf_prelim wbf
 Libs        preamble wordsLib
 
 val ssaa = fn xs => [GSYM APPEND_ASSOC, Excl "APPEND_ASSOC"] @ xs
@@ -642,6 +642,41 @@ Proof
 QED
 
 
+(*
+Theorem dec_enc_mls:
+  ∀x encx rest. enc_mls x = SOME encx ⇒
+  dec_mls $ encx a++ rest = (INR x, rest)
+Proof
+
+  rw[dec_mls_def, enc_mls_def]
+  \\ assume_tac dec_enc_byte
+  \\ imp_res_tac dec_enc_vector
+  \\ simp[MAP_MAP_o, CHR_w2n_n2w_ORD]
+
+  \\ rewrite_tac implode_def
+  \\ assume_tac implode_def
+gvs[]
+  \\ simp[implode_def]
+  \\ mp_tac implode_explode
+  \\ simp[explode_thm]
+  \\ assume_tac explode_thm
+type_of ``implode``
+(*
+m ``implode``
+mlstringTheory.explode_thm
+mlstringTheory.implode_explode
+miscTheory.CHR_w2n_n2w_ORD
+miscTheory.CHR_w2n_n2w_ORD_simp
+miscTheory.n2w_ORD_CHR_w2n
+miscTheory.n2w_ORD_CHR_w2n_simp
+stringTheory.CHR_ORD
+stringTheory.ORD_CHR
+rich_listTheory.MAP_o
+rich_listTheory.MAP_MAP_o
+*)
+QED
+
+
 
 Theorem dec_enc_section:
   ∀xs enc dec lb encxs rest. enc_section lb enc xs = SOME encxs ∧
@@ -657,14 +692,20 @@ Proof
 QED
 
 
-(*
 Theorem dec_enc_names:
   ∀no eno rest.
   enc_names_section no = SOME eno ⇒
   dec_names_section $ append eno = (INR no, [])
 Proof
   Cases
-  rw[Once enc_names_section_def, Once dec_names_section_def]
+  >> rw[Once enc_names_section_def, Once dec_names_section_def, AllCaseEqs()]
+    >> gvs[prepend_sz_def, dec_names_section_def]
+
+pop_assum (fn x => mp_tac $ GSYM x)
+strip_tac
+imp_res_tac dec_enc_u32
+simppop_assum (fn x => mp_tac $ GSYM x)
+strip_tac[]
 
 QED
 
