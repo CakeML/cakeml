@@ -714,7 +714,7 @@ Definition conv_TopDec_def:
                i'   <- conv_inline i;
                e'   <- conv_export e;
                sh'  <- conv_Shape sh;
-               SOME $ Function <| name := n'; inline := i; export := e'; params := ps'; body := body; return := sh' |>
+               SOME $ Function <| name := n'; inline := i'; export := e'; params := ps'; body := body; return := sh' |>
             od)
        | _ => NONE)
   | _ =>

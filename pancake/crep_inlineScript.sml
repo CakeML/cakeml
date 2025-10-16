@@ -115,18 +115,18 @@ Definition arg_load_def:
     nested_decs tmp_vars args (nested_decs args_vname (MAP Var tmp_vars) p)
 End
 
-Definition inline_tail:
+Definition inline_tail_def:
   inline_tail p = Seq Tick p
 End
 
-Definition inline_standalone:
+Definition inline_standalone_def:
   inline_standalone p q =
     Seq
        (While (Const 1w) p)
        q
 End
 
-Definition inline_assign:
+Definition inline_assign_def:
   inline_assign p q ret_max rt =
     Seq
        (Dec ret_max (Const 0w)
@@ -199,14 +199,6 @@ Termination
   gs[DRESTRICT_DEF, FLOOKUP_DEF] >>
   spose_not_then assume_tac >>
   gs[NOT_ZERO, FDOM_FINITE, CARD_EQ_0, IN_DEF]
-End
-
-Definition make_funcs_def:
-  make_funcs prog =
-  let fnames = MAP FST prog;
-      params = MAP (FST o SND) prog;
-      fs = MAP2 (λx y. (x,y)) fnames params in
-    alist_to_fmap fs
 End
 
 Definition compile_inl_prog_def:

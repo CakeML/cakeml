@@ -2095,7 +2095,7 @@ Proof
     Cases_on `k` >> TRY (Cases_on `x`) >> fs[]
   ) >>
   disch_tac >> fs[] >>
-  simp[inline_tail, evaluate_def] >>
+  simp[inline_tail_def, evaluate_def] >>
   Cases_on `k` >> TRY (Cases_on `x`) >> gvs[state_rel_def, empty_locals_def]
 QED
 
@@ -2145,7 +2145,7 @@ Proof
     Cases_on `k` >> TRY (Cases_on `x`) >> fs[]
   ) >>
   disch_tac >> fs[] >>
-  simp[inline_standalone, Ntimes evaluate_def 2, eval_def] >>
+  simp[inline_standalone_def, Ntimes evaluate_def 2, eval_def] >>
   pairarg_tac >> fs[] >>
   Cases_on `k` >> TRY (Cases_on `x`) >> gvs[]
   >~ [`evaluate _ = (SOME (Return _), _)`]
@@ -2279,7 +2279,7 @@ Proof
     Cases_on `k` >> TRY (Cases_on `x`) >> fs[]
   ) >>
   disch_tac >> fs[] >>
-  simp[inline_assign, Ntimes evaluate_def 4, eval_def] >>
+  simp[inline_assign_def, Ntimes evaluate_def 4, eval_def] >>
   rpt (pairarg_tac >> gvs[]) >>
   `dec_clock (s with locals := s.locals |+ (ret_max, Word 0w)) = dec_clock s with locals := s.locals |+ (ret_max, Word 0w)` by fs[dec_clock_def] >> gs[] >>
   Cases_on `k` >> TRY (Cases_on `x`) >> gvs[]
@@ -2555,7 +2555,7 @@ Proof
       Cases_on `evaluate (prog, dec_clock s with locals := FEMPTY |++ ZIP (ns, args))` >> gs[] >>
       Cases_on `s.clock = 0` >> fs[]
       >- (
-        simp[inline_tail, evaluate_def] >>
+        simp[inline_tail_def, evaluate_def] >>
         pairarg_tac >> gvs[state_rel_code_def, empty_locals_def, code_inl_rel_def]
       ) >>
       last_x_assum $ qspecl_then [`inl_fs`, `dec_clock s1 with locals := FEMPTY |++ ZIP (ns, args)`, `inl_bag \\ fname`] mp_tac >> fs[] >> impl_tac
@@ -2648,7 +2648,7 @@ Proof
       >- (
         Cases_on `s.clock = 0` >> fs[]
         >- (
-          gvs[inline_standalone, Ntimes evaluate_def 2, eval_def, state_rel_code_def, empty_locals_def, code_inl_rel_def]
+          gvs[inline_standalone_def, Ntimes evaluate_def 2, eval_def, state_rel_code_def, empty_locals_def, code_inl_rel_def]
         ) >>
         first_x_assum $ qspecl_then [`inl_fs`, `dec_clock s1 with locals := FEMPTY |++ ZIP (ns, args)`, `inl_bag \\ fname`] mp_tac >> impl_tac
         >- (
@@ -2704,7 +2704,7 @@ Proof
       qabbrev_tac `ret_var = SUC (MAX x (MAX (vmax_prog (inline_prog (inl_bag \\ fname) prog)) (MAX (MAX_LIST tvar) (MAX_LIST ns))))` >>
       Cases_on `s.clock = 0` >> fs[]
       >- (
-        gs[inline_assign, Ntimes evaluate_def 4, eval_def] >>
+        gs[inline_assign_def, Ntimes evaluate_def 4, eval_def] >>
         Cases_on `FLOOKUP s1.locals ret_var` >> gvs[state_rel_code_def, code_inl_rel_def, empty_locals_def, res_var_def]
       ) >>
       gs[] >>
@@ -3218,7 +3218,7 @@ Proof
     ) >>
     Cases_on `ctyp` >> fs[]
     >- (
-      Cases_on `x` >> fs[inline_tail, exps_of_def] >>
+      Cases_on `x` >> fs[inline_tail_def, exps_of_def] >>
       imp_res_tac exps_of_arg_load >> fs[] >>
       subgoal `inlineable_fs \\ e SUBMAP alist_to_fmap crep_code`
       >- (
@@ -3242,7 +3242,7 @@ Proof
         first_x_assum drule_all >> disch_tac >> fs[] >>
         rpt disj2_tac >> qrefine `name` >> qrefine `params` >> qrefine `body` >> fs[]
       ) >>
-      Cases_on `q'` >> fs[exps_of_def, inline_standalone, inline_assign]
+      Cases_on `q'` >> fs[exps_of_def, inline_standalone_def, inline_assign_def]
       >- (
         imp_res_tac exps_of_arg_load >> fs[] >>
         imp_res_tac exps_of_transform_standalone_simp >> fs[] >>

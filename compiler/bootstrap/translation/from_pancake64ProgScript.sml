@@ -234,6 +234,36 @@ val _ = translate $ spec64 compile_prog_def;
 
 val _ = translate $ spec64 compile_def;
 
+open crep_inlineTheory;
+
+val _ = translate $ spec64 inlinable_def;
+
+val _ = translate $ spec64 var_prog_def;
+
+val _ = translate $ spec64 vmax_prog_def;
+
+val _ = translate $ spec64 has_return_def;
+
+val _ = translate $ spec64 return_in_loop_def;
+
+val _ = translate $ spec64 transform_rec_def;
+
+val _ = translate $ spec64 standalone_ret_def;
+
+val _ = translate $ spec64 assign_ret_def;
+
+val _ = translate $ spec64 arg_load_def;
+
+val _ = translate $ spec64 inline_tail_def;
+
+val _ = translate $ spec64 inline_standalone_def;
+
+val _ = translate $ spec64 inline_assign_def;
+
+val _ = translate $ spec64 inline_prog_def;
+
+val _ = translate $ INST_TYPE [alpha |-> ``:64``, beta |-> ``:num list``] compile_inl_prog_def;
+
 open pan_to_crepTheory;
 
 val _ = translate $ spec64 ret_hdl_def;
@@ -276,6 +306,8 @@ val _ = translate $ INST_TYPE[alpha|->“:64”,
                               beta|->“:mlstring”,
                               gamma|->“:(mlstring # shape) list”,
                               delta|->“:64”] get_eids_def;
+
+val _ = translate $ spec64 compile_to_crep_def;
 
 val _ = translate $ spec64 compile_prog_def;
 
@@ -779,6 +811,8 @@ Proof
 QED
 
 val _ = conv_Prog_ind  |> update_precondition;
+
+val res = translate $ conv_inline_def;
 
 val res  = translate $ conv_export_def;
 
