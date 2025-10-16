@@ -317,6 +317,22 @@ Double.=: Double.double -> Double.double -> bool
 Double.abs: Double.double -> Double.double
 Double.sqrt: Double.double -> Double.double
 Double.~: Double.double -> Double.double
+Double.significand: Double.double -> Word64.word
+Double.exponent: Double.double -> Word64.word
+Double.sign: Double.double -> Word64.word
+Double.construct: Word64.word -> Word64.word -> Word64.word -> Double.double
+Double.fnext_hi: Double.double -> Double.double
+Double.fnext_lo: Double.double -> Double.double
+Double.float_is_finite: Double.double -> bool
+Double.float_is_zero: Double.double -> bool
+Double.flt_max: Double.double
+Double.maxulp: Double.double
+Double.twicemaxulp: Double.double
+Double.ffloat_ulp: Double.double -> Double.double
+Double.posinf64: Double.double
+Double.neginf64: Double.double
+Double.posmin64: Double.double
+Double.poszero64: Double.double
 Double.pp_double: Double.double -> PrettyPrinter.pp_data
 Marshalling.n2w2: int -> byte_array -> int -> unit
 Marshalling.w22n: byte_array -> int -> int
