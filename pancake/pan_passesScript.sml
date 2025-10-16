@@ -26,6 +26,7 @@ Definition pan_to_target_all_def:
               | ([],ys) => ys
               | (xs,[]) => Function
                             <| name := «main»
+                              ; inline := F
                               ; export := F
                               ; params := []
                               ; body := Return (Const 0w)
@@ -40,9 +41,14 @@ Definition pan_to_target_all_def:
         ps = ps ++ [(«after pan_simp»,Pan prog_a0)];
         prog_a = pan_globals$compile_top prog_a0 «main»;
         ps = ps ++ [(«after pan_globals»,Pan prog_a)];
-        prog_b0 = pan_to_crep$compile_prog prog_a;
+        prog_b0 = pan_to_crep$compile_to_crep prog_a;
         ps = ps ++ [(«after pan_to_crep»,Crep prog_b0)];
-        prog_b = MAP (λ(n,ps,e). (n,ps,crep_arith$simp_prog e)) prog_b0;
+        inl_fs_names = MAP FST (functions (FILTER inlinable prog_a));
+        inl_fs_crep = FILTER (λ(x, y). MEM x inl_fs_names) prog_b0;
+        inl_fs_map = alist_to_fmap inl_fs_crep;
+        prog_bi = compile_inl_prog inl_fs_map prog_b0;
+        ps = ps ++ [(«after crep_inline»,Crep prog_bi)];
+        prog_b = MAP (λ(n,ps,e). (n,ps,crep_arith$simp_prog e)) prog_bi;
         ps = ps ++ [(«after crep_arith»,Crep prog_b)];
         fnums = GENLIST (λn. n + first_name) (LENGTH prog_b);
         funcs = make_funcs prog_b;
@@ -98,6 +104,7 @@ Proof
   gvs [compile_prog_eq,pan_to_target_all_def,UNCURRY]
   \\ gvs [backend_passesTheory.from_word_0_thm,pan_to_wordTheory.compile_prog_def,
           loop_to_wordTheory.compile_def,crep_to_loopTheory.compile_prog_def,
+          pan_to_crepTheory.compile_prog_def, pan_to_crepTheory.compile_to_crep_def,
           MAP_MAP2,MAP2_MAP,make_funcs_MAP]
   \\ gvs [LAMBDA_PROD,loop_to_wordTheory.compile_def]
 QED

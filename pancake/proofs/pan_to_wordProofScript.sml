@@ -3,6 +3,7 @@
 *)
 Theory pan_to_wordProof
 Ancestors
+  crep_inline[qualified]
   pan_to_word pan_simpProof pan_to_crepProof crep_to_loopProof
   loop_to_wordProof pan_globalsProof
 Libs
@@ -257,6 +258,8 @@ Theorem FLOOKUP_make_funcs_main:
   SOME (first_name,0)
 Proof
   rw[pan_globalsTheory.compile_top_def,ELIM_UNCURRY,
+     crep_inlineTheory.compile_inl_prog_def,
+     pan_to_crepTheory.compile_to_crep_def,
      pan_to_crepTheory.compile_prog_def,crep_to_loopTheory.make_funcs_def,
      panLangTheory.functions_def,GENLIST_CONS,FLOOKUP_UPDATE,
      pan_to_crepTheory.crep_vars_def,
@@ -376,6 +379,7 @@ Proof
       irule_at Any ALOOKUP_ALL_DISTINCT_MEM >>
       irule_at Any crep_to_loopProofTheory.first_compile_prog_all_distinct >>
       simp [pan_to_crepTheory.compile_prog_def, pan_globalsTheory.compile_top_def,
+            pan_to_crepTheory.compile_to_crep_def, crep_inlineTheory.compile_inl_prog_def,
             ELIM_UNCURRY,panLangTheory.functions_def,
             pan_to_crepTheory.crep_vars_def, panLangTheory.size_of_shape_def,
             crep_to_loopTheory.compile_prog_def,
@@ -908,12 +912,12 @@ Definition good_panops_def:
   every_exp (λx. ∀op es. x = Panop op es ⇒ LENGTH es = 2) exp
 End
 
-Theorem every_inst_ok_less_pan_to_crep_compile_prog:
+Theorem every_inst_ok_less_pan_to_crep_compile_to_crep:
   EVERY good_panops pan_code ⇒
-  EVERY (λ(name,params,body). EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2)) (exps_of body)) (pan_to_crep$compile_prog pan_code)
+  EVERY (λ(name,params,body). EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2)) (exps_of body)) (pan_to_crep$compile_to_crep pan_code)
 Proof
   rw[EVERY_MEM] \\ pairarg_tac \\
-  gvs[pan_to_crepTheory.compile_prog_def,MEM_MAP] \\
+  gvs[pan_to_crepTheory.compile_to_crep_def, crep_inlineTheory.compile_inl_prog_def, pan_to_crepTheory.compile_prog_def,MEM_MAP] \\
   pairarg_tac \\ gvs[] \\
   pairarg_tac \\ gvs[] \\
   gvs[panPropsTheory.functions_eq_FILTER,MEM_MAP,MEM_FILTER,
@@ -925,6 +929,32 @@ Proof
   first_assum $ irule_at $ Pos last \\
   gvs[good_panops_def,EVERY_MEM]
 QED
+
+Theorem every_inst_w_inline:
+  EVERY (λ(name,params,body). EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2)) (exps_of body)) (pan_to_crep$compile_to_crep pan_code) ⇒
+  EVERY (λ(name,params,body). EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2)) (exps_of body)) (pan_to_crep$compile_prog pan_code)
+Proof
+  rw[EVERY_MEM] >> pairarg_tac >>
+  gvs[pan_to_crepTheory.compile_prog_def, MEM_MAP] >>
+  qabbrev_tac `crep_code = compile_to_crep pan_code` >>
+  qabbrev_tac `inl_fs = alist_to_fmap (FILTER (λ(x, y). ∃y. x = FST y ∧ MEM y (functions (FILTER inlinable pan_code))) crep_code)` >>
+  drule crep_inlineProofTheory.every_inst_crep_inline >>
+  disch_then $ qspecl_then [`inl_fs`, `(name, params, body)`] mp_tac >> impl_tac
+  >- (
+    conj_tac
+    >- fs[Abbr `inl_fs`, SUBMAP_FLOOKUP_EQN, ALOOKUP_FILTER] >>
+    fs[]
+  ) >>
+  disch_tac >> fs[]
+QED
+
+Theorem every_inst_ok_less_pan_to_crep_compile_prog:
+  EVERY good_panops pan_code ⇒
+  EVERY (λ(name,params,body). EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2)) (exps_of body)) (pan_to_crep$compile_prog pan_code)
+Proof
+  fs[every_inst_ok_less_pan_to_crep_compile_to_crep, every_inst_w_inline]
+QED
+
 
 Theorem every_inst_ok_less_ret_to_tail:
   ∀p.

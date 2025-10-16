@@ -201,12 +201,15 @@ Termination
   gs[NOT_ZERO, FDOM_FINITE, CARD_EQ_0, IN_DEF]
 End
 
-(* Convert a list of functions into a finite map *)
-Definition inlineable_funcs_def:
-  inlineable_funcs prog =
-    let prog_f = FILTER (λ(n, i, p, b). i) prog in
-    let fnames = MAP FST prog_f;
-        param_body = MAP (SND o SND) prog_f;
-        fs = MAP2 (λx y. (x, y)) fnames param_body in
+Definition make_funcs_def:
+  make_funcs prog =
+  let fnames = MAP FST prog;
+      params = MAP (FST o SND) prog;
+      fs = MAP2 (λx y. (x,y)) fnames params in
     alist_to_fmap fs
+End
+
+Definition compile_inl_prog_def:
+  compile_inl_prog inl_fs prog =
+      MAP (λ(name, params, body). (name, params, inline_prog (inl_fs \\ name) body)) prog
 End

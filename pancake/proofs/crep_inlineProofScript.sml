@@ -2907,3 +2907,433 @@ Proof
   (* ShMem *)
   Cases_on `op` >> gvs[sh_mem_op_def, sh_mem_load_def, sh_mem_store_def, AllCaseEqs(), set_var_def, empty_locals_def]
 QED
+
+
+Theorem fst_map_3_f:
+  ∀inl_fs x. FST x = (FST o (λ(name, params, body). (name, params, inline_prog (inl_fs \\ name) body))) x
+Proof
+  rpt strip_tac >> PairCases_on `x` >> fs[]
+QED
+
+
+Theorem compile_inline_distinct:
+  ∀crep_code inl_fs.
+    ALL_DISTINCT (MAP FST crep_code) ⇒ ALL_DISTINCT (MAP FST (compile_inl_prog inl_fs crep_code))
+Proof
+  rpt strip_tac >> fs[compile_inl_prog_def, MAP_MAP_o] >>
+  qspec_then `inl_fs` assume_tac $ INST_TYPE [alpha |-> beta, beta |-> alpha] fst_map_3_f >>
+  subgoal `MAP FST crep_code = MAP (FST o (λ(name, params, body). (name, params, inline_prog (inl_fs \\ name) body))) crep_code`
+  >- (
+    irule MAP_CONG >>
+    rpt strip_tac >> first_x_assum $ qspec_then `x` assume_tac >> fs[]
+  ) >>
+  fs[]
+QED
+
+Theorem evaluate_call_same_result_state:
+  ∀e args s r s' t inl_fs.
+    evaluate (Call NONE e args, s) = (r, s') ∧
+    state_rel_code s t ∧
+    inl_fs SUBMAP s.code ∧
+    locals_strong_rel s t ∧
+    code_inl_rel inl_fs s t ∧
+    r ≠ SOME Error ⇒
+    FST (evaluate (Call NONE e args, t)) = FST (evaluate (Call NONE e args, s)) ∧
+    state_rel_code (SND (evaluate (Call NONE e args, s))) (SND (evaluate (Call NONE e args, t)))
+Proof
+  rpt gen_tac >> rpt disch_tac >> gvs[evaluate_def, CaseEq "option", CaseEq "word_lab", CaseEq "prod", lookup_code_def] >>
+  imp_res_tac opt_mmap_eval_code_inl >> fs[] >>
+  qpat_assum `code_inl_rel _ _ _` $ imp_res_tac o SRULE [code_inl_rel_def] >> fs[] >>
+  `t.clock = s.clock` by fs[state_rel_code_def] >> Cases_on `s.clock = 0` >> fs[]
+  >- gvs[state_rel_code_def, empty_locals_def] >>
+  Cases_on `evaluate (prog, dec_clock s with locals := FEMPTY |++ ZIP (ns, args'))` >> gs[] >>
+  drule inline_prog_correct >> fs[] >>
+  disch_then $ qspecl_then [`inl_fs`, `dec_clock t with locals := FEMPTY |++ ZIP (ns, args')`, `inl_bag`] mp_tac >> impl_tac
+  >- (
+    gvs[dec_clock_def, state_rel_code_def, locals_strong_rel_def, code_inl_rel_def, AllCaseEqs()]
+  ) >>
+  disch_tac >> gvs[AllCaseEqs(), state_rel_code_def, empty_locals_def]
+QED
+
+Theorem state_rel_imp_semantics:
+  ∀s t crep_code start inl_fs ns prog.
+    state_rel_code s t ∧
+    locals_strong_rel s t ∧
+    ALL_DISTINCT (MAP FST crep_code) ∧
+    s.code = alist_to_fmap crep_code ∧
+    inl_fs SUBMAP s.code ∧
+    t.code = alist_to_fmap (compile_inl_prog inl_fs crep_code) ∧
+    FLOOKUP s.code start = SOME (ns, prog) ∧
+    semantics s start ≠ Fail ⇒
+      semantics t start = semantics s start
+Proof
+  rw[] >>
+  subgoal `code_inl_rel inl_fs s t`
+  >- (
+    rw[code_inl_rel_def, compile_inl_prog_def] >>
+    qrefine `inl_fs \\ fname` >> fs[] >>
+    imp_res_tac MEM_ALOOKUP >>
+    imp_res_tac $ INST_TYPE [alpha |-> ``:mlstring # num list # 'a prog``, beta |-> ``:mlstring # num list # 'a prog``] MEM_MAP_f >>
+    pop_assum $ qspec_then `λ(name, params, body). (name, params, inline_prog (inl_fs \\ name) body)` assume_tac >> fs[] >>
+    drule compile_inline_distinct >>
+    disch_then $ qspec_then `inl_fs` assume_tac >> fs[compile_inl_prog_def] >>
+    drule MEM_ALOOKUP >>
+    disch_then $ qspecl_then [`fname`, `(args, inline_prog (inl_fs \\ fname) prog')`] assume_tac >> gvs[]
+  ) >>
+  Cases_on `semantics s start` >> fs[]
+  >- (
+    gs[semantics_def, CaseEq "bool"] >>
+    conj_tac
+    >- (
+      rpt strip_tac >>
+      first_x_assum $ qspec_then `k` assume_tac >> fs[] >>
+      Cases_on `evaluate (Call NONE start [], s with clock := k)` >> fs[] >>
+      subgoal `q ≠ SOME Error`
+      >- (
+        Cases_on `q = SOME Error` >> fs[]
+      ) >>
+      drule evaluate_call_same_result_state >>
+      disch_then $ qspecl_then [`t with clock := k`, `inl_fs`] mp_tac >> impl_tac
+      >- (
+        gvs[state_rel_code_def, locals_strong_rel_def, code_inl_rel_def]
+      ) >>
+      disch_tac >> gvs[]
+    ) >>
+    pop_assum mp_tac >>
+    DEEP_INTRO_TAC some_intro >>
+    rpt strip_tac >> fs[] >>
+    DEEP_INTRO_TAC some_intro >>
+    rpt strip_tac >> fs[]
+    >- (
+      last_assum $ qspec_then `k` assume_tac >>
+      Cases_on `evaluate (Call NONE start [],s with clock := k)` >> gs[] >>
+      first_x_assum $ qspecl_then [`k`, `r'`, `q`, `outcome`] assume_tac >> gs[] >>
+      drule evaluate_call_same_result_state >>
+      disch_then $ qspecl_then [`t with clock := k`, `inl_fs`] mp_tac >> impl_tac
+      >- (
+        gvs[AllCaseEqs(), state_rel_code_def, locals_strong_rel_def, code_inl_rel_def] >>
+        Cases_on `q` >> TRY (Cases_on `x`) >> fs[]
+      ) >>
+      disch_tac >> gvs[]
+    ) >>
+    qsuff_tac `!k. (SND (evaluate (Call NONE start [],s with clock := k))).ffi = (SND (evaluate (Call NONE start [],t with clock := k))).ffi`
+    >- (
+      disch_tac >> gvs[]
+    ) >>
+    strip_tac >>
+    last_assum $ qspec_then `k` assume_tac >> fs[] >>
+    Cases_on `evaluate (Call NONE start [],s with clock := k)` >> gs[] >>
+    Cases_on `evaluate (Call NONE start [],t with clock := k)` >> gs[] >>
+    subgoal `q ≠ SOME Error`
+    >- (Cases_on `q` >> TRY (Cases_on `x`) >> gs[]) >>
+    rev_drule evaluate_call_same_result_state >>
+    disch_then $ qspecl_then [`t with clock := k`, `inl_fs`] mp_tac >> impl_tac
+    >- gvs[state_rel_code_def, locals_strong_rel_def, code_inl_rel_def] >>
+    disch_tac >> gvs[state_rel_code_def]
+  ) >>
+  gs[semantics_def, CaseEq "bool"] >>
+  conj_tac
+  >- (
+    rpt strip_tac >>
+    first_x_assum $ qspec_then `k` assume_tac >> fs[] >>
+    Cases_on `evaluate (Call NONE start [], s with clock := k)` >> fs[] >>
+    subgoal `q ≠ SOME Error`
+    >- (
+      Cases_on `q = SOME Error` >> fs[]
+    ) >>
+    drule evaluate_call_same_result_state >>
+    disch_then $ qspecl_then [`t with clock := k`, `inl_fs`] mp_tac >> impl_tac
+    >- (
+      gvs[state_rel_code_def, locals_strong_rel_def, code_inl_rel_def]
+    ) >>
+    disch_tac >> gvs[]
+  ) >>
+  pop_assum mp_tac >>
+  DEEP_INTRO_TAC some_intro >>
+  rpt strip_tac >> fs[] >>
+  DEEP_INTRO_TAC some_intro >>
+  rpt strip_tac >> gvs[]
+  >- (
+    subgoal `r ≠ SOME Error`
+    >- (Cases_on `r` >> TRY (Cases_on `x`) >> gs[]) >>
+    rev_drule evaluate_call_same_result_state >>
+    disch_then $ qspecl_then [`t with clock := k`, `inl_fs`] mp_tac >> impl_tac
+    >- gvs[state_rel_code_def, locals_strong_rel_def, code_inl_rel_def] >>
+    disch_tac >> gvs[] >>
+    Cases_on `k < k'`
+    >- (
+      Cases_on `evaluate (Call NONE start [], t with clock := k)` >> gs[] >>
+      Cases_on `q = SOME TimeOut` >> gs[] >>
+      drule evaluate_add_clock_eq >>
+      disch_then $ qspec_then `k' - k` assume_tac >> gvs[state_rel_code_def] >>
+      Cases_on `q` >> TRY (Cases_on `x`) >> fs[]
+    ) >>
+    Cases_on `evaluate (Call NONE start [], t with clock := k)` >> gs[] >>
+    `k' ≤ k` by fs[] >>
+    Cases_on `r' = SOME TimeOut` >> gs[] >>
+    qpat_x_assum `evaluate (Call _ _ _, t with clock := k') = _` assume_tac >>
+    drule evaluate_add_clock_eq >>
+    disch_then $ qspec_then `k - k'` assume_tac >> gvs[state_rel_code_def] >>
+    Cases_on `q` >> TRY (Cases_on `x`) >> fs[]
+  ) >>
+  Cases_on `r = SOME Error` >> fs[] >>
+  drule evaluate_call_same_result_state >>
+  disch_then $ qspecl_then [`t with clock := k`, `inl_fs`] mp_tac >> impl_tac
+  >- gvs[state_rel_code_def, locals_strong_rel_def, code_inl_rel_def] >>
+  disch_tac >> fs[] >>
+  last_x_assum $ qspec_then `k` assume_tac >> gs[] >>
+  Cases_on `evaluate (Call NONE start [], t with clock := k)` >> gvs[] >>
+  first_x_assum $ qspecl_then [`k`, `r'`, `q`] assume_tac >> fs[]
+QED
+
+Theorem exps_of_nested_decs:
+  ∀e vs es p.
+   MEM e (exps_of (nested_decs vs es p)) ⇒
+   MEM e es ∨ MEM e (exps_of p)
+Proof
+  Induct_on `es` >> Cases_on `vs` >> rw[nested_decs_def, exps_of_def] >>
+  res_tac >> fs[]
+QED
+
+Theorem exps_of_arg_load:
+  ∀e tmp_vars args args_vname p.
+  MEM e (exps_of (arg_load tmp_vars args args_vname p)) ⇒
+  MEM e args ∨ (∃c. MEM c tmp_vars ∧ e = Var c) ∨ MEM e (exps_of p)
+Proof
+  rw[arg_load_def] >>
+  imp_res_tac exps_of_nested_decs >> fs[] >>
+  imp_res_tac exps_of_nested_decs >> fs[MEM_MAP]
+QED
+
+Theorem submap_flookup_alist_to_fmap:
+  ∀s t x v.
+   s SUBMAP (alist_to_fmap t) ∧
+   FLOOKUP s x = SOME v ⇒
+   MEM (x, v) t
+Proof
+  rpt strip_tac >>
+  fs[SUBMAP_FLOOKUP_EQN] >>
+  res_tac >>
+  imp_res_tac ALOOKUP_MEM >> fs[]
+QED
+
+Theorem exps_of_transform_rec_standalone:
+  ∀f p e.
+    f = standalone_ret ∧
+    MEM e (exps_of (transform_rec f p)) ⇒
+    MEM e (exps_of p)
+Proof
+  recInduct transform_rec_ind >> rw[] >>
+  gvs[exps_of_def, transform_rec_def, standalone_ret_def] >>
+  Cases_on `ctyp` >> fs[exps_of_def] >>
+  PairCases_on `x` >> fs[] >>
+  Cases_on `x2` >> fs[exps_of_def] >>
+  Cases_on `x` >> fs[exps_of_def]
+QED
+
+Theorem exps_of_transform_standalone_simp:
+  ∀p e.
+    MEM e (exps_of (transform_rec standalone_ret p)) ⇒
+    MEM e (exps_of p)
+Proof
+  metis_tac[exps_of_transform_rec_standalone]
+QED
+
+Theorem exps_of_transform_rec_assign:
+  ∀f p e rt.
+    f = assign_ret rt ∧
+    MEM e (exps_of (transform_rec f p)) ⇒
+    MEM e (exps_of p)
+Proof
+  recInduct transform_rec_ind >> rw[] >>
+  gvs[exps_of_def, transform_rec_def, assign_ret_def]
+  >- (
+    first_x_assum $ qspecl_then [`e'`, `rt`] assume_tac >> gvs[]
+  )
+  >- (
+    last_x_assum $ qspecl_then [`e`, `rt`] assume_tac >> gvs[]
+  )
+  >- (
+    first_x_assum $ qspecl_then [`e`, `rt`] assume_tac >> gvs[]
+  )
+  >- (
+    last_x_assum $ qspecl_then [`e'`, `rt`] assume_tac >> gvs[]
+  )
+  >- (
+    first_x_assum $ qspecl_then [`e'`, `rt`] assume_tac >> gvs[]
+  ) >>
+  Cases_on `ctyp` >> fs[exps_of_def] >>
+  PairCases_on `x` >> fs[] >>
+  Cases_on `x2` >> fs[exps_of_def]
+  >- (
+    first_x_assum $ qspecl_then [`e'`, `rt`] assume_tac >> gvs[]
+  ) >>
+  Cases_on `x` >> fs[exps_of_def]
+  >- (
+    first_x_assum $ qspecl_then [`e'`, `rt`] assume_tac >> gvs[]
+  ) >>
+  last_x_assum $ qspecl_then [`e'`, `rt`] assume_tac >> gvs[]
+QED
+
+Theorem exps_of_transform_assign_simp:
+  ∀p e rt.
+    MEM e (exps_of (transform_rec (assign_ret rt) p)) ⇒
+    MEM e (exps_of p)
+Proof
+  metis_tac[exps_of_transform_rec_assign]
+QED
+
+Theorem exps_of_inst_inline:
+  !inl_fs prog crep_code e.
+    inl_fs SUBMAP (alist_to_fmap crep_code) ∧
+    MEM e (exps_of (inline_prog inl_fs prog)) ⇒
+    (MEM e (exps_of prog)) ∨
+    (∃c. e = Const c) ∨
+    (∃v. e = Var v) ∨
+    (∃name params body.
+      MEM (name, params, body) crep_code ∧
+      MEM e (exps_of body))
+Proof
+  recInduct inline_prog_ind >> rpt strip_tac >>
+  gvs[inline_prog_def, exps_of_def]
+  >- (
+    Cases_on `FLOOKUP inlineable_fs e` >> fs[]
+    >- (
+      Cases_on `ctyp` >> gs[] >>
+      Cases_on `x` >> gs[] >>
+      Cases_on `r` >> gs[] >>
+      Cases_on `r'` >> gs[exps_of_def]
+      >- (
+        last_x_assum drule_all >> disch_tac >> fs[] >>
+        ntac 3 disj2_tac >>
+        qrefine `name` >> qrefine `params` >> qrefine `body` >> fs[]
+      ) >>
+      Cases_on `x` >> gvs[exps_of_def]
+      >- (
+        first_x_assum drule_all >> disch_tac >> fs[] >>
+        rpt disj2_tac >> qrefine `name` >> qrefine `params` >> qrefine `body` >> fs[]
+      ) >>
+      last_x_assum drule_all >> disch_tac >> fs[] >>
+      rpt disj2_tac >> qrefine `name` >> qrefine `params` >> qrefine `body` >> fs[]
+    ) >>
+    Cases_on `ctyp` >> fs[]
+    >- (
+      Cases_on `x` >> fs[inline_tail, exps_of_def] >>
+      imp_res_tac exps_of_arg_load >> fs[] >>
+      subgoal `inlineable_fs \\ e SUBMAP alist_to_fmap crep_code`
+      >- (
+        irule SUBMAP_TRANS >> qrefine `inlineable_fs` >> fs[]
+      ) >>
+      last_x_assum drule_all >> disch_tac >> fs[]
+      >- (
+        drule_all submap_flookup_alist_to_fmap >> disch_tac >>
+        rpt disj2_tac >> qrefine `e` >> qrefine `q` >> qrefine `r` >> fs[]
+      ) >>
+      rpt disj2_tac >> qrefine `name` >> qrefine `params` >> qrefine `body` >> fs[]
+    ) >>
+    Cases_on `x` >> fs[] >>
+    Cases_on `x'` >> fs[] >>
+    Cases_on `r'` >> fs[] >>
+    Cases_on `r''` >> fs[]
+    >- (
+      Cases_on `return_in_loop (inline_prog (inlineable_fs \\ e) r)` >> fs[]
+      >- (
+        fs[exps_of_def] >>
+        first_x_assum drule_all >> disch_tac >> fs[] >>
+        rpt disj2_tac >> qrefine `name` >> qrefine `params` >> qrefine `body` >> fs[]
+      ) >>
+      Cases_on `q'` >> fs[exps_of_def, inline_standalone, inline_assign]
+      >- (
+        imp_res_tac exps_of_arg_load >> fs[] >>
+        imp_res_tac exps_of_transform_standalone_simp >> fs[] >>
+        subgoal `inlineable_fs \\ e SUBMAP alist_to_fmap crep_code`
+        >- (
+          irule SUBMAP_TRANS >> qrefine `inlineable_fs` >> fs[]
+        ) >>
+        last_x_assum drule_all >> disch_tac >> fs[]
+        >- (
+          drule_all submap_flookup_alist_to_fmap >> disch_tac >>
+          rpt disj2_tac >> qrefine `e` >> qrefine `q` >> qrefine `r` >> fs[]
+        ) >>
+        rpt disj2_tac >> qrefine `name` >> qrefine `params` >> qrefine `body` >> fs[]
+      )
+      >- (
+        first_x_assum drule_all >> disch_tac >> fs[] >>
+        rpt disj2_tac >> qrefine `name` >> qrefine `params` >> qrefine `body` >> fs[]
+      )
+      >- (
+        imp_res_tac exps_of_arg_load >> fs[] >>
+        imp_res_tac exps_of_transform_assign_simp >> fs[] >>
+        subgoal `inlineable_fs \\ e SUBMAP alist_to_fmap crep_code`
+        >- (
+          irule SUBMAP_TRANS >> qrefine `inlineable_fs` >> fs[]
+        ) >>
+        last_x_assum drule_all >> disch_tac >> fs[]
+        >- (
+          drule_all submap_flookup_alist_to_fmap >> disch_tac >>
+          rpt disj2_tac >> qrefine `e` >> qrefine `q` >> qrefine `r` >> fs[]
+        ) >>
+        rpt disj2_tac >> qrefine `name` >> qrefine `params` >> qrefine `body` >> fs[]
+      ) >>
+      first_x_assum drule_all >> disch_tac >> fs[] >>
+      rpt disj2_tac >> qrefine `name` >> qrefine `params` >> qrefine `body` >> fs[]
+    ) >>
+    Cases_on `x` >> fs[exps_of_def]
+    >- (
+      first_x_assum drule_all >> disch_tac >> fs[] >>
+      rpt disj2_tac >> qrefine `name` >> qrefine `params` >> qrefine `body` >> fs[]
+    ) >>
+    first_x_assum drule_all >> disch_tac >> fs[] >>
+    rpt disj2_tac >> qrefine `name` >> qrefine `params` >> qrefine `body` >> fs[]
+  )
+  >- (
+    first_x_assum drule_all >> disch_tac >> fs[] >>
+    rpt disj2_tac >> qrefine `name` >> qrefine `params` >> qrefine `body` >> fs[]
+  )
+  >- (
+    first_x_assum drule_all >> disch_tac >> fs[] >>
+    rpt disj2_tac >> qrefine `name` >> qrefine `params` >> qrefine `body` >> fs[]
+  )
+  >- (
+    last_x_assum drule_all >> disch_tac >> fs[] >>
+    rpt disj2_tac >> qrefine `name` >> qrefine `params` >> qrefine `body` >> fs[]
+  )
+  >- (
+    first_x_assum drule_all >> disch_tac >> fs[] >>
+    rpt disj2_tac >> qrefine `name` >> qrefine `params` >> qrefine `body` >> fs[]
+  )
+  >- (
+    last_x_assum drule_all >> disch_tac >> fs[] >>
+    rpt disj2_tac >> qrefine `name` >> qrefine `params` >> qrefine `body` >> fs[]
+  ) >>
+  last_x_assum drule_all >> disch_tac >> fs[] >>
+  rpt disj2_tac >> qrefine `name` >> qrefine `params` >> qrefine `body` >> fs[]
+QED
+
+Theorem every_inst_crep_inline:
+  ∀crep_code inl_fs.
+   (∀e. MEM e crep_code ==>
+          (λ(name,params,body).
+             ∀e. MEM e (exps_of body) ⇒
+                   every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2)
+                       e) e) ∧
+   inl_fs SUBMAP (alist_to_fmap crep_code)
+   ⇒
+   (∀e. MEM e (compile_inl_prog inl_fs crep_code) ==>
+          (λ(name,params,body).
+             ∀e. MEM e (exps_of body) ⇒
+                   every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2)
+                       e) e)
+Proof
+  rw[compile_inl_prog_def, MEM_MAP] >>
+  pairarg_tac >> gvs[] >>
+  pairarg_tac >> gvs[] >>
+  rpt strip_tac >>
+  last_assum drule >>
+  disch_tac >> fs[] >>
+  drule_at (Pos last) exps_of_inst_inline >>
+  disch_then $ qspec_then `crep_code` mp_tac >> impl_tac
+  >- (irule SUBMAP_TRANS >> qrefine `inl_fs` >> fs[]) >>
+  disch_tac >> fs[every_exp_def] >>
+  last_x_assum imp_res_tac >> fs[]
+QED

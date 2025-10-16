@@ -3,7 +3,7 @@
 *)
 Theory pan_to_crep
 Ancestors
-  pan_common panLang crepLang backend_common[qualified]
+  pan_common panLang crepLang crep_inline backend_common[qualified]
 Libs
   preamble
 
@@ -365,9 +365,8 @@ Definition crep_vars_def:
       GENLIST I len
 End
 
-
-Definition compile_prog_def:
-  compile_prog prog =
+Definition compile_to_crep_def:
+  compile_to_crep prog =
   let prog = functions prog;
       comp = comp_func (make_funcs prog) (get_eids prog) in
     MAP (λ(name, params, body).
@@ -376,3 +375,11 @@ Definition compile_prog_def:
            comp params body)) prog
 End
 
+Definition compile_prog_def:
+  compile_prog prog =
+  let inl_fs_names = MAP FST (functions (FILTER inlinable prog));
+      to_crep = compile_to_crep prog;
+      inl_fs_crep = FILTER (λ(x, y). MEM x inl_fs_names) to_crep;
+      inl_fs_map = alist_to_fmap inl_fs_crep in
+    compile_inl_prog inl_fs_map to_crep
+End
