@@ -3368,6 +3368,26 @@ val tm = sortingTheory.PARTITION_DEF |> SPEC_ALL |> concl |> rhs
 val tm = def |> SPEC_ALL |> concl |> rand
 *)
 
+val float64_ty = mk_thy_type{
+      Args = [
+          fcpSyntax.mk_numeric_type (Arbnum.fromInt 52),
+          fcpSyntax.mk_numeric_type (Arbnum.fromInt 11)
+      ],
+      Thy = "binary_ieee",
+      Tyop = "float"
+    }
+
+(* slightly more generous than binary_ieeeSyntax.dest_floating_point which
+   insists on the record fields in the exp-sign-signif order *)
+fun is_float_literal tm =
+    let val (ty, alist) = TypeBase.dest_record tm
+        val _ = ty = float64_ty orelse raise ERR "" ""
+        val _ = Listsort.sort String.compare (map #1 alist) =
+                ["Exponent", "Sign", "Significand"] orelse raise ERR "" ""
+    in
+      List.all (wordsSyntax.is_word_literal o #2) alist
+    end handle HOL_ERR _ => false
+
 fun hol2deep tm =
   (* variables *)
   if is_var tm then let
@@ -3390,6 +3410,7 @@ fun hol2deep tm =
                  |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "word_literal" tm result end else
   if stringSyntax.is_char_literal tm then SPEC tm Eval_Val_CHAR else
+  if is_float_literal tm then SPEC tm Eval_Val_FLOAT64 else
   if mlstringSyntax.is_mlstring_literal tm then
     SPEC (rand tm) Eval_Val_STRING else
   if use_hol_string_type () andalso can stringSyntax.fromHOLstring tm then

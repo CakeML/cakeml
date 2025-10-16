@@ -384,6 +384,13 @@ Proof
   simp [WORD_def,Eval_rw,state_component_equality]
 QED
 
+Theorem Eval_Val_FLOAT64:
+  ∀f : (52,11) float.
+    Eval env (Lit (Float64 (float_to_fp64 f))) (FLOAT64 f)
+Proof
+  simp[FLOAT64_def, Eval_rw, state_component_equality]
+QED
+
 (* Equality *)
 
 Definition no_closures_def:

@@ -489,16 +489,17 @@ QED
 val _ = translate float_is_zero_characterisation
 
 Definition flt_max_def:
-  flt_max = float_top(:52#11)
+  flt_max : (52,11) float =
+  <| Sign := 0w; Exponent := 0x7FEw; Significand := 0xFFFFFFFFFFFFFw |>
 End
 
-Theorem flt_max_characterisation:
-  flt_max = construct 0w 0x7FEw 0xFFFFFFFFFFFFFw
-Proof
-  simp[binary_ieeeTheory.float_top_def, construct_correct', flt_max_def]
-QED
+val _ = translate flt_max_def
 
-val _ = translate flt_max_characterisation
+Theorem flt_max_correct:
+  flt_max = float_top (:52 # 11)
+Proof
+  simp[float_top_def, flt_max_def, word_T_def, GSYM n2w_sub]
+QED
 
 Overload precision[local] = “dimindex”
 
@@ -509,16 +510,12 @@ Definition maxulp_def:
   |>
 End
 
-Theorem maxulp_thm:
-  maxulp = construct  0w 1994w 0w
-Proof
-  simp[maxulp_def, construct_correct, w2w_n2w]
-QED
-
-val _ = translate maxulp_thm
+val _ = translate maxulp_def
 
 Definition twicemaxulp_def:
-  twicemaxulp = float64_add maxulp maxulp
+  twicemaxulp : (52,11) float = <|
+    Sign := 0w; Significand := 0w; Exponent := 1995w
+  |>
 End
 
 val _ = translate twicemaxulp_def
@@ -536,22 +533,26 @@ End
 val _ = translate ffloat_ulp_def
 
 Definition posinf64_def:
-  posinf64 = construct 0w 0x7ffw 0w
+  posinf64 : (52,11)float = <|
+    Sign := 0w; Exponent := 0x7ffw; Significand := 0w
+  |>
 End
 val _ = translate posinf64_def
 
 Definition neginf64_def:
-  neginf64 = construct 1w 0x7ffw 0w
+  neginf64 : (52,11) float = <|
+    Sign := 1w; Exponent := 0x7ffw; Significand :=  0w
+  |>
 End
 val _ = translate neginf64_def
 
 Definition posmin64_def:
-  posmin64 = fp64_to_float 1w
+  posmin64 = ^(rhs $ concl $ EVAL “fp64_to_float 1w”)
 End
 val _ = translate posmin64_def
 
 Definition poszero64_def:
-  poszero64 = fp64_to_float 0w
+  poszero64 = ^(rhs $ concl $ EVAL “fp64_to_float 0w”)
 End
 val _ = translate poszero64_def
 
@@ -718,7 +719,7 @@ Theorem ffloat_ulp_correct:
   float_is_finite f ⇒
   float_to_real (ffloat_ulp f) = ulpᶠ f
 Proof
-  rw[ffloat_ulp_def, maxulp_correct, flt_max_def,
+  rw[ffloat_ulp_def, maxulp_correct, flt_max_correct,
      ml_translatorTheory.float64_abs_thm]
   >- metis_tac[float_ulp_abs] >>
   simp[GSYM next_hi_fnext_hi, ml_translatorTheory.float64_sub_thm] >>
@@ -757,7 +758,6 @@ Proof
   ‘float_is_finite uf’ by simp[float_is_finite_thm] >>
   simp[round_representable_nonzero, float_is_zero_to_real]
 QED
-
 
 (* --------------------------------------------------------------------------
  * Pretty-printer
