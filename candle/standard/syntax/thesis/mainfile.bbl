@@ -1,0 +1,120 @@
+\begin{thebibliography}{16}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\providecommand{\urlprefix}{}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi:\discretionary{}{}{}#1}\else
+  \providecommand{\doi}{doi:\discretionary{}{}{}\begingroup
+  \urlstyle{rm}\Url}\fi
+
+\bibitem[{Abrahamsson et~al.(2022)Abrahamsson, Myreen, Kumar, and
+  Sewell}]{abrahamsson2022candle}
+\textsc{Abrahamsson, O.; Myreen, M.~O.; Kumar, R.; and Sewell, T.}, 2022.
+\newblock Candle: A verified implementation of hol light.
+\newblock \emph{13th International Conference on Interactive Theorem Proving
+  (ITP 2022)},  (2022).
+
+\bibitem[{Abrahamsson et~al.(2025)Abrahamsson, Myreen, Norrish, Kanabar, and
+  Pohjola}]{abrahamsson2025fast}
+\textsc{Abrahamsson, O.; Myreen, M.~O.; Norrish, M.; Kanabar, H.; and Pohjola,
+  J.~{\AA}.}, 2025.
+\newblock Fast, verified computation for hol itps.
+\newblock \emph{Journal of Automated Reasoning}, 69, 1  (2025), 7.
+
+\bibitem[{Ballarin(2006)}]{ballarinlocales}
+\textsc{Ballarin, C.}, 2006.
+\newblock Interpretation of locales in isabelle: Theories and proof contexts.
+\newblock In \emph{Mathematical Knowledge Management}, 31--43. Springer Berlin
+  Heidelberg, Berlin, Heidelberg.
+
+\bibitem[{Chrzaszcz(2004)}]{Jacek04}
+\textsc{Chrzaszcz, J.}, 2004.
+\newblock Modules in coq are and will be correct.
+\newblock In \emph{Types for Proofs and Programs}, 130--146. Springer Berlin
+  Heidelberg, Berlin, Heidelberg.
+
+\bibitem[{Enderton(1972)}]{enderton}
+\textsc{Enderton, H.~B.}, 1972.
+\newblock \emph{A Mathematical Introduction to Logic}.
+\newblock Academic Press, New York,.
+
+\bibitem[{Farmer et~al.(1992)Farmer, Guttman, and
+  Javier~Thayer}]{LittleTheories}
+\textsc{Farmer, W.~M.; Guttman, J.~D.; and Javier~Thayer, F.}, 1992.
+\newblock Little theories.
+\newblock In \emph{International Conference on Automated Deduction}, 567--581.
+  Springer.
+
+\bibitem[{Farmer et~al.(1993)Farmer, Guttman, and Thayer}]{IMPS}
+\textsc{Farmer, W.~M.; Guttman, J.~D.; and Thayer, F.~J.}, 1993.
+\newblock Imps: An interactive mathematical proof system.
+\newblock \emph{Journal of Automated Reasoning}, 11, 2  (1993), 213--248.
+\newblock \doi{10.1007/BF00881906}.
+\newblock \urlprefix\url{https://doi.org/10.1007/BF00881906}.
+
+\bibitem[{Farmer and Zvigelsky(2025)}]{farmer2025monoidtheoryalonzolittle}
+\textsc{Farmer, W.~M. and Zvigelsky, D.~Y.}, 2025.
+\newblock Monoid theory in alonzo: A little theories formalization in simple
+  type theory.
+\newblock \urlprefix\url{https://arxiv.org/abs/2312.05658}.
+
+\bibitem[{Gordon et~al.(1978)Gordon, Milner, Morris, Newey, and
+  Wadsworth}]{lcf}
+\textsc{Gordon, M.; Milner, R.; Morris, L.; Newey, M.; and Wadsworth, C.},
+  1978.
+\newblock A metalanguage for interactive proof in lcf.
+\newblock In \emph{Proceedings of the 5th ACM SIGACT-SIGPLAN Symposium on
+  Principles of Programming Languages}, POPL '78 (Tucson, Arizona, 1978),
+  119–130. Association for Computing Machinery, New York, NY, USA.
+\newblock \doi{10.1145/512760.512773}.
+\newblock \urlprefix\url{https://doi.org/10.1145/512760.512773}.
+
+\bibitem[{Kamm{\"u}ller et~al.(1999)Kamm{\"u}ller, Wenzel, and
+  Paulson}]{florianlocales}
+\textsc{Kamm{\"u}ller, F.; Wenzel, M.; and Paulson, L.~C.}, 1999.
+\newblock Locales a sectioning concept for isabelle.
+\newblock In \emph{Theorem Proving in Higher Order Logics}, 149--165. Springer
+  Berlin Heidelberg, Berlin, Heidelberg.
+
+\bibitem[{Myreen and Owens(2012)}]{code-extraction}
+\textsc{Myreen, M.~O. and Owens, S.}, 2012.
+\newblock Proof-producing synthesis of ml from higher-order logic.
+\newblock \emph{SIGPLAN Not.}, 47, 9  (Sep. 2012), 115–126.
+\newblock \doi{10.1145/2398856.2364545}.
+\newblock \urlprefix\url{https://doi.org/10.1145/2398856.2364545}.
+
+\bibitem[{Pierce(2002)}]{PierceTypes}
+\textsc{Pierce, B.~C.}, 2002.
+\newblock \emph{Types and Programming Languages}.
+\newblock The MIT Press, 1st edn.
+\newblock ISBN 0262162091.
+
+\bibitem[{Slind and Norrish(2008)}]{HOL4}
+\textsc{Slind, K. and Norrish, M.}, 2008.
+\newblock A brief overview of hol4.
+\newblock In \emph{Theorem Proving in Higher Order Logics}, 28--32. Springer
+  Berlin Heidelberg, Berlin, Heidelberg.
+
+\bibitem[{Sozeau(2021)}]{touring-metacoq}
+\textsc{Sozeau, M.}, 2021.
+\newblock Touring the metacoq project (invited paper).
+\newblock \emph{Electronic Proceedings in Theoretical Computer Science}, 337
+  (Jul. 2021), 13–29.
+\newblock \doi{10.4204/eptcs.337.2}.
+\newblock \urlprefix\url{http://dx.doi.org/10.4204/EPTCS.337.2}.
+
+\bibitem[{Sozeau et~al.(2020)Sozeau, Anand, Boulier, Cohen, Forster, Kunze,
+  Malecha, Tabareau, and Winterhalter}]{metacoq}
+\textsc{Sozeau, M.; Anand, A.; Boulier, S.; Cohen, C.; Forster, Y.; Kunze, F.;
+  Malecha, G.; Tabareau, N.; and Winterhalter, T.}, 2020.
+\newblock The metacoq project.
+\newblock \emph{Journal of Automated Reasoning}, 64, 5  (2020), 947--999.
+\newblock \doi{10.1007/s10817-019-09540-0}.
+\newblock \urlprefix\url{https://doi.org/10.1007/s10817-019-09540-0}.
+
+\bibitem[{Troelstra(1996)}]{Troelstra1996-TROBPT-3}
+\textsc{Troelstra, A.~S.}, 1996.
+\newblock \emph{Basic Proof Theory}.
+\newblock Cambridge University Press, New York.
+
+\end{thebibliography}

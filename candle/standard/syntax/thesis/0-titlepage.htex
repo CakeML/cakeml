@@ -1,0 +1,114 @@
+
+%
+% This document contains two different definitions of the title page
+% which one is chosen is defined in the file configuration.tex
+%
+
+
+% only the title page is centered; all other pages are aligned according to books
+\newgeometry{left=2.5cm,right=2.5cm,top=2.5cm}
+\thispagestyle{empty}
+
+\newdateformat{monthyeardate}{%
+  \monthname[\THEMONTH] \THEYEAR}
+
+
+\ifStandardTitle % the first style is defined now
+
+\noindent
+\begin{minipage}[t]{6cm}%
+{\footnotesize%
+\raisebox{-\height}{{\bfseries The Australian National University}} \\
+~2600 ACT~\textbar~Canberra~\textbar~Australia}
+\end{minipage}%
+\hfill%
+\begin{minipage}[b]{10cm}%
+\hfill\raisebox{-\height}{\includegraphics[height=2 cm]{figures/ANU-logos/ANU_Primary_Horizontal_Black.jpg}}
+\end{minipage}
+
+
+\ \\[2em]
+\phantom{x} \hfill
+\begin{minipage}{58.75 mm}
+\raggedright
+\bfseries \School\\[.5em]
+\mdseries%
+\noindent\College
+\end{minipage}\\[6 em]
+\hfill
+
+\noindent
+\parbox{140mm}{\sffamily \bfseries \Huge %
+\ProjectTitle%
+}\\[.75 em]
+{--- \ifHonoursThesis Honours \else \ProjectPoints{} pt research \fi project (\Semester{} \Year)}\\[3 em]
+
+
+\ifHonoursThesis%
+A thesis submitted for the degree\\
+\emph{\Degree}\\[3 em]
+\else%
+A report submitted for the course\\
+\emph{\CourseCode, \CourseName}\\[3 em]
+\fi
+
+
+
+
+\noindent
+{\footnotesize \textbf{By:}}\\
+\AuthorName\\[2em]
+
+
+
+\noindent
+{\footnotesize \bfseries Supervisor\ifTwoOrMoreSupervisors{}s\fi:}\\
+{\footnotesize \FirstSupervisor%
+\ifTwoOrMoreSupervisors\\\SecondSupervisor\fi}\\[2 em]
+\vfill
+{\footnotesize \monthyeardate\today}
+
+
+
+\else % the alternative design of the title page
+
+
+
+\begin{center}
+\ \\[1em]
+{\bfseries \Huge \ProjectTitle}\\[4em]
+%
+\ifHonoursThesis%
+\Large{A thesis submitted for the degree}\\
+\Large{\emph{\Degree}}\\[.5em]
+{24 pt Honours project, \Semester{} \Year}
+\else%
+\Large{A report submitted for the course}\\
+\Large{\emph{\CourseCode, \CourseName}}\\[.5em]
+{\ProjectPoints{} pt research project, \Semester{} \Year}
+\fi
+%
+\ \\[4em]
+{\footnotesize \textbf By:}\\
+\textbf{\AuthorName}\\[3em]
+%
+{\bfseries Supervisor\ifTwoOrMoreSupervisors{}s\fi:}\\
+{\FirstSupervisor%
+\ifTwoOrMoreSupervisors\\\SecondSupervisor\fi}\\[6em]
+%
+\includegraphics[height=2.5cm]{figures/ANU-logos/ANU_Primary_Horizontal_Black.jpg}\ \\[3em]
+%
+{\bfseries \School}\\
+{\mdseries \College}\\
+The Australian National University
+%
+\vfill
+\normalsize{\monthyeardate\today}
+\end{center}
+
+
+
+\fi
+
+
+\restoregeometry

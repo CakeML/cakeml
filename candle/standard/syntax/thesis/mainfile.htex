@@ -1,0 +1,141 @@
+%
+% This template has been created by:
+%   Pascal Bercher, 
+%   - pascal.bercher@anu.edu.au, 
+%   - https://bercher.net
+%
+% The newest version can be found on:
+% https://gitlab.anu.edu.au/u1092535/latex-templates/
+%
+% Version number: 
+%   Probably 1.08, but there's a chance it's actually
+%   slightly newer and I just forgot to update this line. :)
+%
+% Version history:
+%   Detailed change logs are provided in the file readme.txt.
+%
+% I was too lazy to put it under a specific license (will do
+% so eventually; but might take me a few more years...), but
+% you are still free to use and alter it. However, since I 
+% put a *lot* of effort (and experience) in it, I insist on
+% keeping my credentials in here (at the top), which give
+% credit to me as an author. I explicitly forbid re-publishing
+% my code (or content) until I put it under a specific license
+% which would then clarify the rights. However, as said, *using*
+% it is *of course* allowed, this is after all why I created it!
+%
+% Good luck with your thesis, and enjoy the journey  --  Pascal
+
+\documentclass[a4paper,twoside,cleardoublepage=plain,bibliography=totoc]{scrbook}
+
+\usepackage[a4paper]{geometry}                    % used for defining the title page
+\usepackage{xurl}                                 % allows long URLs to break at any position
+\usepackage[backref=page]{hyperref}   
+% defines style of references / links
+\usepackage{pythonhighlight}
+\usepackage[edges]{forest}
+\usepackage{pgfplots}
+\pgfplotsset{width=9cm,compat=1.17}
+
+
+\hypersetup{
+linktocpage,                                      % in the table of contents, the numbers serve as links, not the entries
+colorlinks  = true,                               % the items are colored instead of colored boxes around them
+urlcolor    = cyan,
+linkcolor   = red,
+citecolor   = blue
+}
+% the following makes back references more appealing.
+% Taken from: https://tex.stackexchange.com/questions/183702/formatting-back-references-in-bibliography-bibtex
+\renewcommand*{\backref}[1]{}
+\renewcommand*{\backrefalt}[4]{[%
+\ifcase #1 Not cited.%
+  \or Cited on page~#2.%
+  \else Cited on pages #2.%
+\fi]}
+
+
+
+
+\usepackage{datetime}                                % to be able to print month & year on title page
+  \newdateformat{monthonly}{\monthname[\THEMONTH]}
+\usepackage{amssymb,amsthm,amsmath}     
+\usepackage{mathpartir}% standard math packages; 
+\usepackage{mathtools}
+
+\usepackage{graphicx}                                % allows including graphics
+\usepackage{natbib}                                  % a specific citation style
+\usepackage{floatrow}                                % allows to place a caption next to a figure
+  \floatsetup[table]{capposition=top}                 % forces table captions to appear on top.
+\usepackage[linesnumbered,ruled,vlined]{algorithm2e} % used for depicting algorithms
+\usepackage{booktabs}                                % for tables that actually look nice!
+\usepackage{paralist}                                % provides compactitem, a more compact itemize
+\usepackage{titlesec}                                % used to add those horizontal lines around chapter package; see defs below.
+\usepackage[standardsections]{scrhack}      
+\usepackage{subcaption}% fixes an error causes by loading titlesec for class scrbook
+\usepackage{parskip}                                 % when this is included, no indentations are used for new paragraphs,
+                                                     % and instead paragraphs are separated by a small distance between them
+
+\usepackage{csquotes}                                                     
+
+
+% [requires titlesec]
+% Surrounds all chapter titles by lines,
+\titleformat{\chapter}[display]
+{\bfseries\huge}
+{\filleft\Large\chaptertitlename~\thechapter}
+{3ex}
+{\titlerule\vspace{1.5ex}\filright}
+[\vspace{1ex}\titlerule]
+
+% fixes a compilation errror that otherwise occurs in combination with scrbook
+% see https://tex.stackexchange.com/questions/625083/adding-horizontal-line-before-and-after-chapter-heading-in-scrbook
+% \titleformat{\section}
+%  {\normalfont\Large\bfseries}{\thesection}{1em}{}
+% \titleformat{\subsection}
+%  {\normalfont\large\bfseries}{\thesubsection}{1em}{}
+% \titleformat{\subsubsection}
+%  {\normalfont\normalsize\bfseries}{\thesubsubsection}{1em}{}
+ 
+
+ 
+
+% Set your individual data for the title page in the configuration file
+% AND DON'T SCREW UP THIS DATA! You should know, for example, whether it's
+% an Honours thesis or not, or in which semester it is running.
+
+\input{configuration}                             % to specify data used in the title page
+\input{macros}                                    % define all your macros here
+
+
+\begin{document}
+
+\pagenumbering{roman}
+\input{0-titlepage}                               % define your title page
+\input{0-declaration}                             % includes the declaration of authorship
+\input{0-acknowledgements}                        % optional acknowledgements
+\input{0-abstract}                                % your abstract
+
+% table of contents (nothing to do for you)
+\renewcommand{\contentsname}{Table of Contents}   % would otherwise just be "Contents",
+\cleardoublepage\tableofcontents\cleardoublepage  % which might sound less nice
+\pagenumbering{arabic}
+
+% actual report content
+\input{1-introduction}                  % introduction
+\input{2-background}                    % background/framework
+\input{4-thesisContent}                 % about thesis structure and compilation
+\input{5-related-work}
+\input{8-future-work}   
+\input{9-conclusion}                    % conclusion
+
+% \appendix
+% \input{z-appendix-1}                    % appendix 1
+
+
+% literature
+\bibliographystyle{anuthesis} % or plainnat or whatever
+\cleardoublepage\phantomsection
+% see https://tex.stackexchange.com/questions/60556/link-to-bibliography-in-the-toc-fails
+\bibliography{bib}
+\end{document}

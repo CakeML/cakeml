@@ -545,6 +545,31 @@ Proof
   metis_tac[SIMP_RULE(srw_ss())[]termsem_simple_inst,termsem_aconv,term_ok_aconv]
 QED
 
+Theorem termsem_esubst_ty:
+  ∀Γ tm σ tmenv.
+    term_ok Γ tm ∧ tmenv = tmsof Γ ⇒
+    ∀i v.
+      termsem tmenv i v (esubst_ty σ tm) =
+      termsem tmenv (ty_esubst_interp σ i) (ty_esubst_valuation σ v) tm
+Proof
+  rw[] >> imp_res_tac term_ok_welltyped >>
+  Q.ISPECL_THEN[`{x | ∃ty. VFREE_IN (Var x ty) tm}`,`tm`]mp_tac fresh_term_def >>
+  simp[] >>
+  Q.PAT_ABBREV_TAC`fm = fresh_term X tm` >> strip_tac >>
+  `ACONV (INST tyin tm) (INST tyin fm)` by (
+    match_mp_tac ACONV_INST >> metis_tac[] ) >>
+  `welltyped (INST tyin tm)` by metis_tac[INST_WELLTYPED] >>
+  `welltyped (INST tyin fm)` by metis_tac[INST_WELLTYPED] >>
+  `termsem tmenv i v (INST tyin tm) = termsem tmenv i v (INST tyin fm)` by
+    metis_tac[termsem_aconv] >>
+  `{x | ∃ty. VFREE_IN (Var x ty) tm} = {x | ∃ty. VFREE_IN (Var x ty) fm}` by (
+    simp[EXTENSION] >> metis_tac[VFREE_IN_ACONV] ) >>
+  `INST tyin fm = simple_inst tyin fm` by
+    metis_tac[INST_simple_inst] >>
+  rw[] >>
+  metis_tac[SIMP_RULE(srw_ss())[]termsem_simple_inst,termsem_aconv,term_ok_aconv]
+QED
+
 (* extending the context doesn't change the semantics *)
 
 Theorem termsem_extend:

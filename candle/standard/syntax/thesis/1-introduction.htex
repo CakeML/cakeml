@@ -1,0 +1,90 @@
+\chapter{Introduction}\label{chap:introduction}
+ 
+\section{Motivation}
+
+Interactive theorem provers enforce rigour. When we define a new data structure, there are always many trivial lemmas we might have hand-waved the details of in a paper proof. In an ITP, we must show the same detailed and correct reasoning as always; this can quickly feel tedious and repetitive. It is easy to imagine that implementing some abstractions to make this process less tedious are desirable, but it is easier said than done. ITPs generally have a small, trusted, and very carefully written kernel, and these kinds of extensions have to be done with precision. After all, these systems have a reputation to uphold, and if the community believes they could have an unsound logic they would not be used.
+
+Many mainstream ITPs have their own answers to the problem of tediousness in the form of a module system: prove a set of standard theorems once about abstract structures, then every data structure that is a class of these abstract structures can inherit their respective theorems for little extra effort. 
+
+This thesis deals with the HOL-family of ITPs that do not have this functionality; the most popular being HOL4. We describe an extension to these systems to introduce a module system feature. This specification is implemented for the verified theorem prover \textit{Candle} (also based on HOL). To show that we are not compromising the correctness of its kernel, we begin to prove that the implementation is sound. The proof is incomplete, however, most of the work has been mechanised including a large library of related lemmas. 
+
+\section{Preliminaries}
+
+Before we get started, it is important to be clear on what we concretely mean by \textit{module system}. We will go through a brief example to ensure the thesis' goal remains clear throughout. 
+
+We will show how a module system can be used on an example of monoids to obtain theorems for natural numbers. We follow a well-known example taken from \citet{enderton}:
+\begin{definition}[Monoid]\label{def:monoid}
+A monoid is an algebraic structure $(M, \cdot, e)$ where:
+\begin{itemize}
+    \item $M$ is a set
+    \item $\cdot : M \times M \to M$ is a binary operation
+    \item $e \in M$ is the identity element
+\end{itemize}
+satisfying the following laws:
+\end{definition}
+\textbf{Law 1: Associativity}
+\begin{equation}
+\forall a, b, c \in M: (a \cdot b) \cdot c = a \cdot (b \cdot c)
+\end{equation}
+
+\textbf{Law 2: Left Identity}
+\begin{equation}
+\forall a \in M: e \cdot a = a
+\end{equation}
+
+\textbf{Law 3: Right Identity}
+\begin{equation}
+\forall a \in M: a \cdot e = a
+\end{equation}
+
+This is enough information to prove some basic results about monoids:
+\begin{thm}\label{thm:id-unique}[Identity Uniqueness]
+In any monoid $(M, \cdot, e)$, the identity element is unique.
+\end{thm}
+
+\begin{proof}
+Suppose there exist two identity elements $e_1$ and $e_2$ in $M$. 
+Then by the definition of identity:
+\begin{align}
+e_1 \cdot e_2 &= e_2 \quad \text{(since $e_1$ is an identity)} \\
+e_1 \cdot e_2 &= e_1 \quad \text{(since $e_2$ is an identity)}
+\end{align}
+Therefore, $e_1 = e_2$, proving uniqueness of the identity element.
+\end{proof}
+
+While not a particularly interesting result, the key fact is that this could now act as a proof for anything that satisfies our definition of a monoid. If we wanted to show the same theorem but for the natural numbers, we could simply show these satisfy the laws we described in Definition \ref{def:monoid}, choosing addition as the binary operator. Then, any proof about monoids can be carried over to the natural numbers. 
+
+\begin{thm}\label{thm:id-unique-nat}[Identity Uniqueness of Zero for $\mathbb{N}$]
+Zero is a unique identity for the natural numbers.
+\end{thm}
+
+\begin{proof}
+Firstly, we show that the natural numbers under addition form a monoid: this is direct, as the three monoid laws follow from the natural numbers' axioms.
+
+By Theorem \ref{thm:id-unique}, and that ($\mathbb{N},+,0$) forms a monoid, the result is immediate.
+\end{proof}
+
+We notice that convenient reasoning allows us to invoke the inference ``we proved this for a certain class of data structure already, so showing that our concrete type fits into that class is sufficient''---in HOL, there is no such inference rule. We would have to completely reconstruct the former proof in terms of the new type, despite knowing that all properties relied on to write it would hold for the concrete type. This is crux of this thesis: we extend the HOL kernel to allow users to employ this kind of reasoning, resulting in minimised boilerplate work.
+
+\section{Contributions}
+
+Module systems in theorem provers are not a novel idea; however, the feature is new to the HOL family of theorem provers that we are looking at. We implement modules as first-class citizens in the logic. This differentiates our contribution from other HOL-based theorem provers that implement their modules as simple abstraction layers such as Isabelle without affecting the logic. 
+
+Furthermore, to the best of the author's knowledge, this project is the first of this kind of module system to be attempted to be mechanically verified. Attempts to verify module systems exist for other ITPs, but they remain theoretical. The emerging field of theorem prover verification means it has not been attempted in such a comprehensive way yet. This is elaborated on in Chapter \ref{chap:related-work}. Although the proof is incomplete, a library of completed lemmas about the result cause us to both believe the final result is true, and also minimises the amount of future work required to finish it. Time constraints are the main reason for its incompleteness; however, we discuss how the work could be continued in Chapter \ref{sect:limitations}.
+
+This work builds upon the formalisation and verification of Candle by \citet{abrahamsson2022candle}, and utilises their definitions and lemmas at various points. Despite this, all results presented (for example: theorems, lemmas, or definitions) are original contributions, and stated and proven as part of this project unless explicitly attributed otherwise. 
+
+
+\section{Thesis structure}
+
+The thesis opens with a Chapter \ref{chap:background} on important background: here we will explain the notation used in this paper, and the necessary preliminaries to discuss theorem proving and what a verified module system entails. 
+
+Chapter \ref{chap:extending-kernel} explains the design of the module system, and shows its implementation details. Here, definitions for the key functions will be given such that the full specification of the feature is stated and justified. The chapter closes by revisiting the motivating example of monoids and natural numbers, but presents it as a worked example of a derivation in the extended logic.
+
+Chapter \ref{chap:proving-soundness} shows the work done to verify the specification from Chapter \ref{chap:extending-kernel}. The chapter is split into three main sections: (a) we begin by discussing key proof strategies that we must use; (b) we then show how the correctness theorem is stated and proven for the specification in Chapter \ref{chap:extending-kernel}; then (c) we close by discussing limitations of the system. 
+
+Chapter \ref{chap:related-work} contextualises our work. Here, we survey related papers on module systems, both in other mainstream theorem provers, and also more theoretical papers on logical frameworks.
+
+Chapter \ref{chap:future-work} discusses potential future work. We discuss the key choices made in the project, and the other options available for further research. We also revisit the limitations presented in Chapter \ref{chap:proving-soundness} and discuss how these could be remediated to improve the system.
+
+Finally, Chapter \ref{chap:conclusion} concludes our thesis by discussing results and how the project can be continued in future work.

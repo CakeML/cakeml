@@ -1,0 +1,36 @@
+# --------------------------------------------------------------------
+#  HOLMAKEFILE  —  builds thesis with HOL-to-LaTeX munging
+# --------------------------------------------------------------------
+
+# Pretty-printing library that loads your theories
+ppLib = ../ppLib
+
+# Main document name (without extension)
+main = mainfile
+
+# --------------------------------------------------------------------
+#  Rules
+# --------------------------------------------------------------------
+
+# Convert any .htex to .tex using the munger
+%.tex: %.htex munge overrides
+	./munge overrides < $< > $@
+
+# Build the munger executable from your ppLib
+munge: $(ppLib).uo
+	$(HOLDIR)/bin/mkmunge.exe -o $@ $<
+
+# Copy the HOL LaTeX style file locally (for \usepackage{holtexbasic})
+holtexbasic.sty:
+	cp $(HOLDIR)/src/TeX/holtexbasic.sty .
+
+# Build the final PDF (runs BibTeX automatically)
+$(main).pdf: holtexbasic.sty $(main).tex bib.bib
+	latexmk -pdf -bibtex $(main)
+
+# --------------------------------------------------------------------
+#  Cleaning
+# --------------------------------------------------------------------
+EXTRA_CLEANS = munge holtexbasic.sty \
+               *.aux *.bbl *.blg *.brf *.fdb_latexmk *.fls *.log *.out *.toc \
+               $(main).pdf

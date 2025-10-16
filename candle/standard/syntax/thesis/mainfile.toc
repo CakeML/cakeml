@@ -1,0 +1,66 @@
+\contentsline {chapter}{\numberline {1}Introduction}{1}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Motivation}{1}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Preliminaries}{2}{section.1.2}%
+\contentsline {section}{\numberline {1.3}Contributions}{3}{section.1.3}%
+\contentsline {section}{\numberline {1.4}Thesis structure}{3}{section.1.4}%
+\contentsline {chapter}{\numberline {2}Background}{5}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Notation}{5}{section.2.1}%
+\contentsline {section}{\numberline {2.2}Theorem provers and their kernels}{6}{section.2.2}%
+\contentsline {subsection}{\numberline {2.2.1}Substitutions and free variables}{6}{subsection.2.2.1}%
+\contentsline {subsection}{\numberline {2.2.2}Proving and the \textsf {thm} type}{7}{subsection.2.2.2}%
+\contentsline {section}{\numberline {2.3}Syntax and semantics in logic}{7}{section.2.3}%
+\contentsline {section}{\numberline {2.4}Code extraction from HOL4}{8}{section.2.4}%
+\contentsline {section}{\numberline {2.5}Candle}{8}{section.2.5}%
+\contentsline {subsection}{\numberline {2.5.1}An approach to ITP development}{8}{subsection.2.5.1}%
+\contentsline {chapter}{\numberline {3}Extending the Candle Kernel}{9}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Design goals for the usability of the system}{9}{section.3.1}%
+\contentsline {section}{\numberline {3.2}The Candle backend}{10}{section.3.2}%
+\contentsline {subsection}{\numberline {3.2.1}Project structure}{10}{subsection.3.2.1}%
+\contentsline {subsection}{\numberline {3.2.2}Types and terms}{10}{subsection.3.2.2}%
+\contentsline {subsection}{\numberline {3.2.3}Representing a theory}{11}{subsection.3.2.3}%
+\contentsline {subsection}{\numberline {3.2.4}Inference rules}{11}{subsection.3.2.4}%
+\contentsline {section}{\numberline {3.3}Type substitutions}{11}{section.3.3}%
+\contentsline {section}{\numberline {3.4}Term substitutions}{13}{section.3.4}%
+\contentsline {section}{\numberline {3.5}A new representation for theories}{13}{section.3.5}%
+\contentsline {section}{\numberline {3.6}The necessary conditions for a substitution}{14}{section.3.6}%
+\contentsline {section}{\numberline {3.7}The new inference rules}{16}{section.3.7}%
+\contentsline {subsection}{\numberline {3.7.1}Eliminable axiom usage}{16}{subsection.3.7.1}%
+\contentsline {subsection}{\numberline {3.7.2}Eliminable axiom discharge}{16}{subsection.3.7.2}%
+\contentsline {subsection}{\numberline {3.7.3}Eliminable axiom instantiation}{17}{subsection.3.7.3}%
+\contentsline {section}{\numberline {3.8}Worked example: monoids}{17}{section.3.8}%
+\contentsline {chapter}{\numberline {4}Proving the Soundness of the Extension}{21}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Proof strategies and details}{21}{section.4.1}%
+\contentsline {subsection}{\numberline {4.1.1}Proving theorems about substitution}{21}{subsection.4.1.1}%
+\contentsline {subsection}{\numberline {4.1.2}Proving equivalence of two systems}{23}{subsection.4.1.2}%
+\contentsline {subsection}{\numberline {4.1.3}Proving theorems about derivability}{24}{subsection.4.1.3}%
+\contentsline {paragraph}{Notation.}{24}{subsection.4.1.3}%
+\contentsline {paragraph}{A complete induction approach.}{24}{subsection.4.1.3}%
+\contentsline {subsection}{\numberline {4.1.4}An alternative approach to substitution}{25}{subsection.4.1.4}%
+\contentsline {section}{\numberline {4.2}Proving the new kernel is a conservative}{27}{section.4.2}%
+\contentsline {subsection}{\numberline {4.2.1}Safety of type substitutions}{30}{subsection.4.2.1}%
+\contentsline {subsection}{\numberline {4.2.2}Eliminables instantiation and type instantiation}{30}{subsection.4.2.2}%
+\contentsline {subsection}{\numberline {4.2.3}Eliminables instantiation and variable instantiation}{31}{subsection.4.2.3}%
+\contentsline {subsection}{\numberline {4.2.4}Instantiations over abstractions}{31}{subsection.4.2.4}%
+\contentsline {subsection}{\numberline {4.2.5}Miscellaneous supporting theorems}{33}{subsection.4.2.5}%
+\contentsline {paragraph}{Substituted theory signatures remain valid.}{33}{subsection.4.2.5}%
+\contentsline {paragraph}{Substituted terms remain valid.}{33}{thm.18}%
+\contentsline {paragraph}{Avoiding capture.}{34}{thm.20}%
+\contentsline {section}{\numberline {4.3}Limitations}{34}{section.4.3}%
+\contentsline {subsection}{\numberline {4.3.1}The usefulness of the system}{35}{subsection.4.3.1}%
+\contentsline {subsection}{\numberline {4.3.2}Implementing the specification}{35}{subsection.4.3.2}%
+\contentsline {subsection}{\numberline {4.3.3}Limitations of the substitution functions}{35}{subsection.4.3.3}%
+\contentsline {chapter}{\numberline {5}Related Work}{37}{chapter.5}%
+\contentsline {paragraph}{Little Theories.}{37}{chapter.5}%
+\contentsline {paragraph}{Isabelle Locales.}{37}{chapter.5}%
+\contentsline {paragraph}{Rocq Modules.}{38}{chapter.5}%
+\contentsline {paragraph}{Relation to our Contribution.}{38}{chapter.5}%
+\contentsline {chapter}{\numberline {6}Discussion and Future Work}{39}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Continuing the proof}{39}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Porting the system to HOL4}{39}{section.6.2}%
+\contentsline {section}{\numberline {6.3}Permitting polymorphic substitutions}{39}{section.6.3}%
+\contentsline {section}{\numberline {6.4}A direct proof of soundness}{40}{section.6.4}%
+\contentsline {paragraph}{Beyond Conservativity.}{40}{section.6.4}%
+\contentsline {paragraph}{Relation to Existing Work.}{41}{section.6.4}%
+\contentsline {chapter}{\numberline {7}Conclusions}{43}{chapter.7}%
+\contentsline {chapter}{Bibliography}{45}{section*.7}%
+\providecommand \tocbasic@end@toc@file {}\tocbasic@end@toc@file 

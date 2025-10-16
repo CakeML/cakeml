@@ -1,0 +1,84 @@
+% Set your name:
+%  (Well, your name.)
+\newcommand{\AuthorName} {Matthew Richards}
+
+
+% Set the title of your work:
+%  (Choose an informative and interesting title.)
+\newcommand{\ProjectTitle} {A Verified Module System for HOL4}
+
+
+% Set which titlepage layout you prefer. Both provide the exact same
+% information, they only differ in design to give you a bit of individuality
+%  (change second line accordingly)
+\newif\ifStandardTitle % do not delete this part!
+\StandardTitletrue     % comment out (or use \StandardTitlefalse)
+                       % to switch to an alternative title page layout
+
+
+% Set the name of your school:
+%  (School of Computing, School of Engineering,
+%   or School of Cybernetics)
+\newcommand{\School} {School of Computing}
+
+
+% Set the name of your college:
+%  (However your College is called.)
+\newcommand{\College} {College of Systems and Societies (CSS)}
+
+
+% Set your project points:
+%  (6 or 12)
+%  can be ignored for Honours theses, since those are always 24 pt anyway
+%  and hence set automatically
+\newcommand{\ProjectPoints} {6}
+
+
+% Set whether it's an Honours thesis:
+%  (change second line accordingly)
+\newif\ifHonoursThesis % do not delete this part!
+\HonoursThesistrue     % or \HonoursThesisfalse or comment out
+
+
+% Set your semester:
+%  (S1 or S2 or S1/S2 or S2/S1 or Summer)
+\newcommand{\Semester} {S1/S2}
+
+
+% Set your year:
+%  (YYYY or YYYY--YYYY in case of S2/S1)
+\newcommand{\Year} {2025}
+
+
+% Set your degree:
+%  (Whatever your degree is called.)
+%  (Only required if Honours = true)
+\newcommand{\Degree} {Bachelor of Computing (Honours)}
+
+
+% Set your course code and name:
+%  (Whatever your course code and name is.)
+%  (Only required if Honours = false)
+\newcommand{\CourseCode} {COMP3740}
+\newcommand{\CourseName} {Individual Project}
+
+
+% Set name of first supervisor:
+%   (Whatever her or his name is.)
+\newcommand{\FirstSupervisor} {Dr.\ Michael Norrish}
+
+
+% Set whether there's a second supervisor:
+%  (change second line accordingly)
+\newif\ifTwoOrMoreSupervisors % do not delete this part!
+\TwoOrMoreSupervisorsfalse     % or \TwoOrMoreSupervisorsfalse or comment out
+
+
+% Set name of second supervisor:
+%  (Whatever her or his name is.)
+%  (Only required if TwoSupervisors = true)
+\newcommand{\SecondSupervisor} {%
+Dr.\ Second Supervisor
+%\\Prof.\ Dr.\ Third Supervisor (if there is any)
+%\\Prof.\ Dr.\ Dr.\ Fourth Supervisor (if we need four, five, etc.)
+}

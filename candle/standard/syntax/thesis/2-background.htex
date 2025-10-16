@@ -1,0 +1,104 @@
+\chapter{Background}\label{chap:background}
+
+\section{Notation}\label{sect:notation}
+
+The thesis follows the implementation and verification of a module system in the HOL4 theorem prover, hence all work is written in the prover's syntax. This section will give an overview of what this looks like, and how to interpret this when definitions and theorems are stated in later sections. 
+
+HOL4's syntax is fairly familiar. It is written similarly to higher-order logic as it can be found anywhere, using the expected Unicode symbols to represent quantifiers and the regular set of logical operators.
+\begin{align*}
+& \forall x.\;\bigl(P(x) \Rightarrow Q(x)\bigr) \;\land\; \exists y.\; R(x,y)
+   \;\Longrightarrow\; \exists y.\; Q(y) \land R(x,y).\\
+& \neg\bigl(\exists x.\; P(x)\bigr) \;\Leftrightarrow\; \forall x.\; \neg P(x).
+\end{align*}
+When used as a programming language, it reads like functional programming as it would be seen in the ML family. Definitions tend to exhibit ad-hoc polymorphism.
+\begin{align*}
+& \mathsf{tm\_names}\;(\mathsf{Var}\; n\; \_) \;=\; [\,n\,] \\
+& \mathsf{tm\_names}\;(\mathsf{Const}\; \_\; \_) \;=\; [\,] \\
+& \mathsf{tm\_names}\;(\mathsf{Comb}\; t_{1}\; t_{2})
+   \;=\; \mathsf{tm\_names}\;t_{1}\;\mathbin{\mathsf{++}}\;\mathsf{tm\_names}\;t_{2} \\
+& \mathsf{tm\_names}\;(\mathsf{Abs}\; v\; body)
+   \;=\; \mathsf{tm\_names}\;v\;\mathbin{\mathsf{++}}\;\mathsf{tm\_names}\;body.
+\end{align*}
+Record syntax is also prevalent in this paper. 
+\begin{align*}
+& \text{record literal:}\qquad
+  r \;=\; \langle|\; \mathsf{x} := a;\; \mathsf{y} := b;\; \mathsf{z} := c \;|\rangle \\[0.25ex]
+& \text{record projection:}\qquad
+  \mathsf{x}\;r \;=\; a,\quad \mathsf{y}\;r \;=\; b,\quad \mathsf{z}\;r \;=\; c \\[0.25ex]
+& \text{single-field update:}\qquad
+  r' \;=\; r\ \mathsf{with}\; \mathsf{x} := a'\ \\[0.25ex]
+& \text{multi-field update:}\qquad
+  r'' \;=\; r\ \mathsf{with}\ \langle|\; \mathsf{x} := a';\; \mathsf{y} := b'\;|\rangle
+\end{align*}
+
+
+Finally, operators for finite maps are also commonly referenced---generally in the context of the substitution map $\sigma$. For a finite map $\mathsf{fm}$, consider a key $\mathsf{k}$ mapping to a value $\mathsf{v}$, these are related by the total function $\mathsf{FLOOKUP}$ and its partial equivalent: the infix single-apostrophe. The domain and range of the maps are represented by the sets $\mathsf{FDOM\;fm}$ and $\mathsf{FRANGE\;fm}$ respectively. We also employ an infix $\cupdot$ to refer to the union of two finite maps (\textsf{FUNION}). Finally, the empty map is represented by the constant \textsf{FEMPTY}.
+\begin{align*}
+& \mathsf{FLOOKUP}\;\mathsf{fm}\; \mathsf{k} \;=\; \mathsf{SOME}\;\mathsf{v}
+   \;\Rightarrow\; \mathsf{fm}\;'\;\mathsf{k} \;=\; \mathsf{v} \\[0.25ex]
+& \mathsf{FDOM}\;\mathsf{fm}
+   \;=\; \{\, \mathsf{k} \mid \exists \mathsf{v}.\; \mathsf{FLOOKUP}\;\mathsf{fm}\;\mathsf{k}=\mathsf{SOME}\;\mathsf{v} \,\} \\[0.25ex]
+& \mathsf{FRANGE}\;\mathsf{fm}
+   \;=\; \{\, \mathsf{v} \mid \exists \mathsf{k}.\; \mathsf{FLOOKUP}\;\mathsf{fm}\;\mathsf{k}=\mathsf{SOME}\;\mathsf{v} \,\} \\
+& \mathsf{FUNION}\;\mathsf{fm1}\;\mathsf{fm2}
+\;=\; fm1 \cupdot fm2
+\end{align*}
+
+
+\section{Theorem provers and their kernels}
+
+In the following section, approaches to implementing a theorem prover will be described. The aim of this is to give context when discussing parts of the Candle source code, but also to motivate theorems discussed in Section \ref{chap:proving-soundness}---it often ends up being easier to transport a term to a different representation where it is easier to prove certain properties.
+
+\subsection{Substitutions and free variables}
+
+This entire thesis is arguably an exercise in substitution: to instantiate a module we simply substitute the abstract types and terms to the target concrete ones. According to \citet{PierceTypes}, substitution ``turns out to be quite tricky, when examined in detail''; intuitively, however, they are simple. Generally, we want substitution to model function application. That is, when we substitute a term $y$ into a function written in terms of a variable $x$, we simply return the function body with all occurrences of $x$ replaced with $x$. Under naive implementations of this, issues arise quickly:
+\begin{align*}
+(x\,y)[x:=t] \; &=\; t\,y \\[0.25ex]
+(\lambda y.\; x\,y)[x:=t] \; &=\; \lambda y.\; t\,y\\
+(\lambda y.\; x)[x:=y]
+\; &=\; \lambda y.\; y
+\end{align*}
+The first two seem promising, but the final example does not make much sense. Our intuition seems to break down a bit when choosing the same name as the function uses results in a semantically distinct effect (in our example we have created the identity function). Clearly, we need to be able to distinguish between which variables were bound by an abstraction, and which appear free. We refer to the set of free variables by the function $\mathsf{FVs} : \mathsf{term\rightarrow term\;set}$; we could now claim that a substitution $E[x:=y]$ is only allowed when the $y$ we want to substitute into the term does not already appear in $\mathsf{FVs}\;E$. However, this is quite limiting. We could go one step further and allow all substitutions, and simply rename the bound variable in the function body when necessary to avoid the issues we saw in our previous third example. Substitution mechanisms that avoid issues in this way are called \textit{capture-avoiding}. 
+
+\subsection{Proving and the \textsf{thm} type}
+
+The HOL family of theorem provers we discuss are based on the LCF architecture. This architecture is described by \citet{lcf}, where they present an abstract data type $\mathsf{thm}$ to represent a proven theorem. A kernel is then written containing functions that produce instances of $\mathsf{thm}$ that represent each inference rule in the system. For example, modus ponens is a function in the kernel $\mathsf{mp} : \mathsf{thm\rightarrow thm\rightarrow thm}$, that takes two theorems $\mathsf{P}$ and $\mathsf{P\rightarrow Q}$, and produces the theorem $\mathsf{Q}$. The opaqueness of this type combined with no public constructor means there is no way to obtain an instance of this type without obtaining it from the kernel---that is, theorems can \textit{only} come from the core inference rules. Hence the correctness of an LCF-based theorem prover comes down to the trust in its kernel. 
+
+In the mid-1980s, the project was forked and the logic of LCF replaced with a version of classical higher-order logic \citep{HOL4}. This version is the common ancestor of the ``HOL family'' which we keep referring to, and the reason they all have similar enough architectures such that we propose one specification in this thesis and believe it could be realistically implemented in the majority of them.
+
+\section{Syntax and semantics in logic}
+
+We have only discussed how inference rules relate to theorems so far; however, this is not enough. While it might seem sensible to accept that there are many different logics, and inference rules decide what is true, this does not work. This can be shown by example: suppose we mixed up conjunctions and disjunctions and introduced a faulty introduction rule.
+\begin{align*}
+    \Gamma\vdash P \implies\Gamma\vdash P \land Q
+\end{align*}
+It is clear to see that this is worse than just having created a silly logic with inference rules nobody would want to use: by setting $P$ to true, and $Q$ to false, we have now derived false in our system---our inference rules are inconsistent with our notion of truth, that is, they are \textit{unsound}. Reasoning based on inference rules is known as syntax, consequences based on truth values is known as semantics \citep{enderton}. Our conclusion here syntactically follows, but semantically does not. It is a goal for a logic to show the equivalence of these two things. 
+
+Noting that unlike the syntactic consequence shown above, $\Gamma\vDash P$ is the notation for semantic consequence, we can now formally define soundness (shown in Definition \ref{def:soundness}) and completeness (Definition \ref{def:completeness}).
+\begin{definition}[Soundness]\label{def:soundness}
+Everything derivable from a logic's inference rules is true.
+\begin{align*}
+    \Gamma\vdash P \implies\Gamma\vDash P
+\end{align*}
+\end{definition}
+\begin{definition}[Completeness]\label{def:completeness}
+Everything true is derivable from the logic's inference rules.
+\begin{align*}
+    \Gamma\vDash P \implies\Gamma\vdash P
+\end{align*}
+\end{definition}
+
+\section{Code extraction from HOL4}
+The HOL4 theorem prover is a system for writing and checking proofs in higher-order logic \citep{HOL4}. It allows users to express functional programs and write proofs about these.
+
+Code written in HOL4 is a candidate for code extraction to the verified functional programming language \textit{CakeML} \citep{code-extraction}. Thus, verified software can be written in HOL4, then a binary produced that is verified to match its HOL specification. This leads to verified software projects such as the verified theorem prover \textit{Candle}, which consequently serves as both a verified specification for a theorem prover, and also an executable and practical environment for theorem proving.
+
+\section{Candle}
+
+Candle is a verified interactive theorem prover based on HOL \citep{abrahamsson2022candle}. The project specifies the entire system in HOL4 and proves a soundness theorem of its kernel. This provides us with a rich library of proofs about theorem prover correctness, ranging from reasoning about its inference rules, to the type safety of its accepted programs.
+
+While interesting on its own, this provides an environment in which ideas for new theorem prover features can be developed, and their properties verified using Candle's wide library of theorems in all areas of the system. It is here, then, that the project described in this thesis will be developed, with its correctness proven over Candle's kernel.
+
+\subsection{An approach to ITP development}
+
+In this project, Candle is used as a development platform to specify and verify an extension for HOL ITPs. It is proposed that in future work, this specification could be lifted out onto other similar provers. This methodology has been used before in a project to add novel tactics for HOL4 \citep{abrahamsson2025fast}: after verifying that the implementation is correct for Candle, the code is manually ported over to HOL4's ML source code based on inspection of the HOL4 definitions. The success of this project motivates ours.
