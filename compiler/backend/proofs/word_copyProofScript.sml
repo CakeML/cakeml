@@ -1032,8 +1032,7 @@ Theorem copy_prop_correct:
 Proof
   Induct (* 23 subgoals *)
   >~ [`Skip`]
-  >-
-    fs[evaluate_def,copy_prop_prog_def]
+  >- fs[evaluate_def,copy_prop_prog_def]
   >~ [`Move`]
   >-
     metis_tac[copy_prop_move_correct]
@@ -1048,13 +1047,49 @@ Proof
     fs[evaluate_def]>>
     metis_tac[empty_eq_inv,empty_eq_model])
   >~ [`Get`]
-  >- cheat (* new case *)
+  >- (
+      rw[copy_prop_prog_def]
+      >- (
+          Cases_on `lookup_store_eq cs s` >>
+          fs[]
+          >- (qpat_assum `Get n s = _` (fn x => rw[GSYM x]))
+          >- (
+              Cases_on `x = n` >>
+              fs[UNCURRY_EQ]
+              >- (qpat_assum `Get n s = _` (fn x => rw[GSYM x]))
+              >- (cheat)
+            )
+        )
+      >- (
+          Cases_on `lookup_store_eq cs s` >>
+          fs[]
+          >- (metis_tac[remove_eq_inv])
+          >- (
+              Cases_on `x=n` >>
+              fs[UNCURRY_EQ]
+              >- (fs[] >> metis_tac[remove_eq_inv])
+              >- (metis_tac[copy_prop_move_inv])
+            )
+        )
+      >- (
+          Cases_on `lookup_store_eq cs s` >>
+          fs[]
+          >- (cheat)
+          >- (cheat)
+        )
+    )
     (*
     (* old *)
     rw[copy_prop_prog_def,evaluate_def]>>every_case_tac>>fs[]
     >>metis_tac[remove_eq_inv,remove_eq_model_set_var] *)
   >~[`Set`]
-  >- cheat (* new case *)
+  >- (
+      rw[copy_prop_prog_def,evaluate_def]
+      >> gvs[AllCaseEqs(),evaluate_def]
+      >> simp[set_store_eq_inv]
+      >> fs[word_exp_def, CPstate_modelsD_get_var]
+      >> cheat
+    )
     (*
     (* old *)
     rw[copy_prop_prog_def,evaluate_def]>>
