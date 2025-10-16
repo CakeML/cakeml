@@ -1112,26 +1112,30 @@ QED
 (* Format of acceptable identifiers
    - from ascii code points *)
 Definition id_OK_def:
-  id_OK ([]:num list) : bool = T
+  id_OK ("":string) : bool = T
   ∧
   (id_OK (first::str) =
-    let azAZ_   x = (
-      (96 < x ∧ x < 123) ∨ (* lower case *)
-      (64 < x ∧ x < 91 ) ∨ (* lower case *)
-      ( x = 95         ) ) (* underscore *)  in
-    let azAZ_09 x = (
-      (47 < x ∧ x < 58)  ∨ (* digits     *)
-      (azAZ_ x        )  )
+    let alpha_us     x = (isLower  x  ∨  isUpper x  ∨  (ORD x = 95)) in
+    let alpha_num_us x = (alpha_us x  ∨  isDigit x)
     in
-    azAZ_ first ∧ foldl (λ e sd. azAZ_09 e ∧ sd) T str)
+    alpha_us first ∧
+    foldl (λ e sd. alpha_num_us e ∧ sd) T str)
+End
+
+Definition string2bytes_def:
+  string2bytes : string -> byteSeq = MAP (n2w ∘ ORD)
+End
+
+Definition bytes2string_def:
+  bytes2string : byteSeq -> string = MAP (CHR ∘ w2n)
 End
 
 Definition enc_mls_def:
-  enc_mls (str:mlstring) : byteCode =
-    let ascii = MAP ORD $ explode str
+  enc_mls (str:mlstring) =
+    let ascii = explode str
     in
     if id_OK ascii
-    then enc_vector enc_byte $ MAP n2w ascii
+    then enc_vector enc_byte $ string2bytes ascii
     else NONE
 End
 
@@ -1139,7 +1143,7 @@ Definition dec_mls_def:
   dec_mls bs : mlstring dcdr =
     case dec_vector dec_byte bs of
     | (INL _,_) => err
-    | (INR bytes, bs) => ret bs $ strlit $ MAP (CHR ∘  w2n) bytes
+    | (INR bs, rs) => ret rs $ implode $ bytes2string bs
 End
 
 Theorem dec_mls_shortens:
@@ -1228,6 +1232,9 @@ Proof
 QED
 
 
+Definition magic_str_def:
+  magic_str : string = "name"
+End
 
 Definition enc_names_section_def:
   enc_names_section (no:names option) =
@@ -1255,10 +1262,17 @@ Definition enc_names_section_def:
     ss0 <- ss0Opt;
     ss1 <- ss1Opt;
     ss2 <- ss2Opt;
-    contents <- prepend_sz $ (List $ MAP (n2w o ORD) "name") +++ ss0 +++ ss1 +++ ss2;
+    contents <- prepend_sz $ (List $ string2bytes magic_str) +++ ss0 +++ ss1 +++ ss2;
     SOME $ 0w ::: contents od
 End
 
+Definition blank_def:
+  blank : names =
+  <| mname  := NONE
+   ; fnames := []
+   ; lnames := []
+   |>
+End
 
 Definition dec_names_section_def:
   dec_names_section [] : names option dcdr = ret [] NONE
@@ -1270,16 +1284,17 @@ Definition dec_names_section_def:
     else
     case dec_u32 bs of (INL _,_) => failure | (INR _,bs) (* length of the NS *)
     =>
-    if MAP (CHR o w2n) $ TAKE 4 bs ≠ "name" then failure
-    else
-    case (
-      case DROP 4 bs of [] => err | b::cs =>
-        if b ≠ 0w
-        then ret (b::cs) NONE
-        else case dec_mls cs of
-          | (INL _,_ ) => err
-          | (INR s,cs) => ret cs $ SOME s
-    )                                              of (INL _,_)=>failure| (INR so , bs) =>
+    case bs of
+    | []      => failure
+    | [_]     => failure
+    | [_;_]   => failure
+    | [_;_;_] => failure
+    | [n;a;m;e]         => if bytes2string $ [n;a;m;e] ≠ magic_str then failure else ret [] $ SOME blank
+    | n::a::m::e::b::bs => if bytes2string $ [n;a;m;e] ≠ magic_str then failure else
+    case (  if b ≠ 0w (* the expr in these parens are for mname, not the whole names record *)
+            then ret (b::bs) NONE
+            else (case dec_mls bs of (INR s,cs) => ret cs $ SOME s | _ => err)
+                                                )  of (INL _,_)=>failure| (INR so , bs) =>
     case dec_section 1w dec_ass                 bs of (INL _,_)=>failure| (INR fns, bs) =>
     case dec_section 2w (dec_idx_alpha dec_map) bs of (INL _,_)=>failure| (INR lns, bs) =>
     ret bs $ SOME (
@@ -1292,20 +1307,10 @@ End
 Theorem dec_names_section_shortens:
   ∀bs rs _x. dec_names_section bs = (INR _x, rs) ⇒ rs [≤] bs
 Proof
-  Cases >> rw[dec_names_section_def, AllCaseEqs()]
+  Cases
+  >> rw[dec_names_section_def, AllCaseEqs()]
     >- simp[]
-    >> dxrule dec_u32_shortens
-       (**)
-    >> imp_res_tac dec_mls_shortens
-       (**)
-    >> `cs [<] bs` by cheat
-    >> pop_assum mp_tac
-       (*
-       qspecl_then [`4`,`bs`] assume_tac LENGTH_DROP
-       gvs[]
-       REWRITE_CONV []
-       pop_assum $ (qspec_then `bs` assume_tac)
-       *)
+    >- simp[]
        (**)
     >> assume_tac dec_ass_shortens
     >> dxrule_all dec_section_shortens_lt
@@ -1315,7 +1320,12 @@ Proof
     >> strip_tac
     >> dxrule_all dec_section_shortens_lt
        (**)
+    >> imp_res_tac dec_mls_shortens
+       (**)
+    >> imp_res_tac dec_u32_shortens
+       (**)
     >> rw[]
+    >> gvs[]
 QED
 
 

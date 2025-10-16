@@ -583,7 +583,7 @@ Theorem dec_enc_global[simp]:
   dec_global $ encg a++ rs = (INR g, rs)
 Proof
      rw $ ssaa [enc_global_def, dec_global_def, AllCaseEqs()]
-  >- ( Cases_on ‘g.gtype’ >> gvs[enc_globaltype_def] )
+  >-( Cases_on ‘g.gtype’ >> gvs[enc_globaltype_def] )
   \\ imp_res_tac dec_enc_globaltype
   \\ imp_res_tac dec_enc_instr_list
   \\ pop_assum $ qspecl_then [‘rs’, ‘F’] assume_tac
@@ -642,25 +642,53 @@ Proof
 QED
 
 
-(*
 Theorem dec_enc_mls:
   ∀x encx rest. enc_mls x = SOME encx ⇒
   dec_mls $ encx a++ rest = (INR x, rest)
 Proof
-
   rw[dec_mls_def, enc_mls_def]
   \\ assume_tac dec_enc_byte
   \\ imp_res_tac dec_enc_vector
-  \\ simp[MAP_MAP_o, CHR_w2n_n2w_ORD]
+  \\ simp[string2bytes_def, bytes2string_def, MAP_MAP_o, CHR_w2n_n2w_ORD]
+QED
 
-  \\ rewrite_tac implode_def
-  \\ assume_tac implode_def
-gvs[]
-  \\ simp[implode_def]
-  \\ mp_tac implode_explode
-  \\ simp[explode_thm]
-  \\ assume_tac explode_thm
-type_of ``implode``
+Theorem dec_enc_idx_alpha:
+  ∀enc dec x encx rest.
+  enc_idx_alpha enc x = SOME encx ∧
+  (∀y ency rs. enc y = SOME ency ⇒ dec (append ency ++ rs) = (INR y,rs))
+  ⇒
+  dec_idx_alpha dec $ encx a++ rest = (INR x, rest)
+Proof
+  rpt strip_tac
+  \\ last_x_assum mp_tac
+  \\ PairCases_on `x`
+  \\ simp[dec_idx_alpha_def, enc_idx_alpha_def, AllCaseEqs()]
+  \\ rpt strip_tac
+  \\ gvs ssa
+  \\ imp_res_tac dec_enc_u32
+  \\ simp[]
+QED
+
+Theorem dec_enc_ass:
+  ∀x encx rest. enc_ass x = SOME encx ⇒
+  dec_ass $ encx a++ rest = (INR x, rest)
+Proof
+  rw[dec_ass_def, enc_ass_def]
+  \\ assume_tac dec_enc_mls
+  \\ imp_res_tac dec_enc_idx_alpha
+  \\ simp[]
+QED
+
+Theorem dec_enc_map:
+  ∀x encx rest. enc_map x = SOME encx ⇒
+  dec_map $ encx a++ rest = (INR x, rest)
+Proof
+  rw[dec_map_def, enc_map_def]
+  \\ assume_tac dec_enc_ass
+  \\ imp_res_tac dec_enc_vector
+  \\ simp[]
+QED
+
 (*
 m ``implode``
 mlstringTheory.explode_thm
@@ -673,8 +701,36 @@ stringTheory.CHR_ORD
 stringTheory.ORD_CHR
 rich_listTheory.MAP_o
 rich_listTheory.MAP_MAP_o
+
+  ∀enc dec is encis.
+    enc_vector enc is = SOME encis ∧
+    (∀x encx rs. enc x = SOME encx ⇒ dec (append encx ++ rs) = (INR x,rs))
+    ⇒
+    ∀rest. dec_vector dec (encis a++ rest) = (INR is, rest)
+
+  rpt strip_tac
+  \\ last_x_assum mp_tac
+  \\ simp[dec_vector_def, enc_vector_def, AllCaseEqs(), GSYM NOT_LESS]
+  \\ rpt strip_tac
+  \\ gvs ssa
+  \\ imp_res_tac dec_enc_u32
+  \\ simp[]
+  \\ (* tidy up from dec enc vec pf *)
+     ntac 2 $ pop_assum kall_tac
+  (* dec_enc_list *)
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘rest’
+  \\ qid_spec_tac ‘encxs’
+  \\ qid_spec_tac ‘is’
+  \\ Induct
+  >> simp[enc_list_def, Once dec_list_def, CaseEq "sum", CaseEq "prod"]
+  \\ rpt strip_tac
+  \\ gvs[]
+  \\ last_x_assum dxrule
+  \\ simp ssa
+
 *)
-QED
+
 
 
 
@@ -692,20 +748,66 @@ Proof
 QED
 
 
+(*
 Theorem dec_enc_names:
   ∀no eno rest.
   enc_names_section no = SOME eno ⇒
   dec_names_section $ append eno = (INR no, [])
 Proof
+
   Cases
   >> rw[Once enc_names_section_def, Once dec_names_section_def, AllCaseEqs()]
-    >> gvs[prepend_sz_def, dec_names_section_def]
+    >> gvs[prepend_sz_def, dec_names_section_def, magic_str_def]
+    >> gvs[string2bytes_def, bytes2string_def]
 
-pop_assum (fn x => mp_tac $ GSYM x)
-strip_tac
-imp_res_tac dec_enc_u32
-simppop_assum (fn x => mp_tac $ GSYM x)
-strip_tac[]
+    >> pop_assum (fn x => mp_tac $ GSYM x)
+    >> strip_tac
+    >> imp_res_tac dec_enc_u32
+    >> simp ssa
+    >> simp[names_component_equality, blank_def]
+
+    >> imp_res_tac dec_enc_u32
+    >> simp ssa
+    >> ntac 2 $ pop_assum kall_tac
+    >> assume_tac dec_enc_map
+    >> imp_res_tac dec_enc_idx_alpha
+    >> pop_assum mp_tac
+    >> pop_assum kall_tac
+    >> strip_tac
+    >> imp_res_tac dec_enc_section
+
+    >> rw[]
+    >> rw[magic_str_def, string2bytes_def, AllCaseEqs()]
+    (**)
+ntac 2 $ pop_assum kall_tac
+    (**)
+    >> assume_tac dec_enc_map
+    >> imp_res_tac dec_enc_idx_alpha
+    >> pop_assum mp_tac
+    >> pop_assum kall_tac
+    >> strip_tac
+    >> imp_res_tac dec_enc_section
+    >> qspec_then `dec_idx_alpha dec_map` imp_res_tac
+    >>
+
+    >> dxrule dec_enc_idx_alpha
+    >> dxrule_all dec_enc_idx_alpha
+    >> simp[]
+    >> gvs[]
+
+    >> assume_tac dec_enc_idx_alpha
+    >> assume_tac dec_enc_map
+    >> imp_res_tac dec_enc_section
+    >> rw[]
+
+    >> assume_tac
+
+    >> rw[AllCaseEqs()]
+    >> rw[magic_str_def, string2bytes_def, AllCaseEqs()]
+    >> rw[magic_str_def, string2bytes_def, AllCaseEqs()]
+
+
+cheat
 
 QED
 
