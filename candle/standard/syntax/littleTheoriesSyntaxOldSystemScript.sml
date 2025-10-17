@@ -3469,7 +3469,7 @@ Theorem esubst_VSUBST_has_type:
   theory_ok (sig, axs) ∧
   esubsts_ok sig σ ∧
   (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty ∧ term_ok sig s') ⇒
-  esubst σ [] (VSUBST ilist c) has_type Bool
+  esubst σ avds (VSUBST ilist c) has_type Bool
 Proof
   rpt strip_tac >> irule esubst_has_type_bool >> conj_tac
   >- (irule VSUBST_HAS_TYPE >> metis_tac[])
@@ -3478,14 +3478,22 @@ QED
 
 Theorem esubst_VSUBST_term_ok:
   term_ok sig c ∧
-  c has_type Bool ∧
   theory_ok (sig, axs) ∧
   esubsts_ok sig σ ∧
   (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty ∧ term_ok sig s') ⇒
-  term_ok (esubst_sig σ sig) (esubst σ [] (VSUBST ilist c))
+  term_ok (esubst_sig σ sig) (esubst σ avds (VSUBST ilist c))
 Proof
   rpt strip_tac >> irule esubst_term_ok >> rw[SF SFY_ss]
   >> irule term_ok_VSUBST >> metis_tac[]
+QED
+
+Theorem esubst_VSUBST_welltyped:
+  term_ok sig c ∧ theory_ok (sig, axs) ∧ esubsts_ok sig σ ∧
+  (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s = Var x ty ∧ s' has_type ty ∧ term_ok sig s') ⇒
+  welltyped (esubst σ avds (VSUBST ilist c))
+Proof
+  rpt strip_tac >> irule term_ok_welltyped >> drule_all esubst_VSUBST_term_ok
+  >> simp[SF SFY_ss]
 QED
 
 Theorem typeof_esubst:
@@ -3596,21 +3604,22 @@ QED
 Theorem proves_substitutable_Deduct_Antisym:
   ^(#get_goal proves_substitutable_setup `term_union (term_remove c2 h1) _`)
 Proof
- (* rpt strip_tac >> qabbrev_tac ‘thyσ = (esubst_sig σ sig,IMAGE (esubst σ []) axs)’
+  rpt strip_tac >> qabbrev_tac ‘thyσ = (esubst_sig σ sig,IMAGE (esubst σ [] ∘ VSUBST ilist) axs)’
   >> ‘term_ok sig c ∧ term_ok sig c' ∧ hypset_ok h1 ∧ hypset_ok h2’
     by (rpt $ rev_dxrule proves_term_ok >> rw[EVERY_MEM])
   >> simp[SF SFY_ss, esubst_equation] >> irule proves_ACONV
   >> rw[hypset_ok_term_image, hypset_ok_term_union]
-  >- (irule $ iffRL welltyped_equation >> irule $ iffRL EQUATION_HAS_TYPE_BOOL
-      >> simp[SF SFY_ss, term_ok_welltyped, esubst_welltyped]
-      >> ntac 2 $ dxrule proves_term_ok >> rw[EVERY_MEM]
-      >> metis_tac[esubst_avds_type, has_type_typeof])
+  >- (irule esubst_VSUBST_welltyped >> rpt $ first_assum $ irule_at (Pos $ hd o tl)
+      >> conj_tac >> ntac 2 $ rev_dxrule proves_term_ok >> rw[EVERY_MEM]
+      >> irule $ iffRL term_ok_equation
+      >> metis_tac[SF SFY_ss, theory_ok_sig, FST, typeof_has_type, term_ok_welltyped])
   >- (simp[EVERY_MEM, EXISTS_MEM] >> ntac 2 strip_tac >> dxrule MEM_term_image_imp
       >> strip_tac >> gvs[] >> dxrule MEM_term_union_imp >> strip_tac
       >> dxrule MEM_term_remove_imp >> strip_tac >> gvs[Abbr‘thyσ’]
       >> ‘term_ok sig x' ∧ x' has_type Bool’ by (rpt $ dxrule proves_term_ok >> rw[EVERY_MEM])
-      >> simp[SF SFY_ss, esubst_term_ok, esubst_has_type_bool])
-  >> dxrule_at_then (Pos (el 2)) drule_all proves_DEDUCT_ANTISYM
+      >> metis_tac[esubst_VSUBST_term_ok, esubst_VSUBST_has_type])
+  >> drule_at (Pos $ el 2) proves_INST >> simp[] >> disch_then drule >> strip_tac
+  >> dxrule_at_then (Pos (el 2)) drule_all proves_DEDUCT_ANTISYM 
   >> disch_then $ irule_at Any >> rw[]
   >- (irule ACONV_equation >> simp[esubst_welltyped, SF SFY_ss, term_ok_welltyped]
       >> metis_tac[ACONV_esubst_avds, term_ok_welltyped])
@@ -3719,13 +3728,17 @@ Theorem VSUBST_comp:
     ACONV (VSUBST ilist1 (VSUBST ilist tm))
           (VSUBST ((MAP(λ(s', s). (VSUBST ilist s', s)) ilist1) ++ ilist) tm)
 Proof
-  Induct_on ‘tm’ >> rw[]
+  Induct_on ‘ilist’ >> rw[VSUBST_NIL, REV_ASSOCD, VSUBST_def]
+  >- (‘MAP (λ(s',s). (s',s)) ilist1 = MAP (λk. k) ilist1’
+        suffices_by metis_tac[MAP_ID, ACONV_REFL]
+      >> CONG_TAC $ SOME 1 >> simp[])
+  >> cheat
 QED
 
 Theorem proves_substitutable_INST:
   ^(#get_goal proves_substitutable_setup `VSUBST _ (VSUBST _ _)`)
 Proof
-  rw[] >> rpt $ first_assum $ drule_then strip_assume_tac  >> gvs[]
+  rw[] >> first_assum $ drule_then strip_assume_tac >> cheat
 QED
 
 Theorem proves_substitutable_INST_TYPE:
