@@ -1,0 +1,1 @@
+holConservativeScript.uo: holSyntaxExtraTheory.uo /Users/matthewrichards/projects/cakeml/candle/syntax-lib/holSyntaxLibTheory.uo holSyntaxTheory.uo /Users/matthewrichards/projects/cakeml/misc/preamble.uo 

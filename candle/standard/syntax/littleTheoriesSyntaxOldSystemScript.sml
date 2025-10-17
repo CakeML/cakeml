@@ -2959,9 +2959,22 @@ Proof
   Induct_on ‘tm’ >> rw[db_esubst_ty_def, dbVFREE_IN_def, EQ_IMP_THM]
   >> metis_tac[dbVFREE_IN_def]
 QED
-(*
+
+Definition no_var_collapse:
+  no_var_collapse σ tm ⇔
+    (∀x ty. VFREE_IN (Var x ty) tm ⇒
+            ∀typ. ty_esubst σ ty = ty_esubst σ typ ⇒ ty = typ)
+End
+
+Definition no_dbvar_collapse:
+  no_dbvar_collapse σ tm ⇔
+    (∀x ty. dbVFREE_IN (dbVar x ty) tm ⇒
+            ∀typ. ty_esubst σ ty = ty_esubst σ typ ⇒ ty = typ)
+End
+
 Theorem db_esubst_dbVSUBST_comm:
   ∀dbtm ilist.
+    no_dbvar_collapse σ ∧
     (∀s s'. MEM (s',s) ilist ⇒ ∃x ty. s = dbVar x ty ∧ vtys_ok sig s') ∧
     esubsts_ok sig σ ∧ vtys_ok sig dbtm ⇒
     db_esubst σ (dbVSUBST ilist dbtm) =
@@ -2974,7 +2987,7 @@ Proof
   >> rw[]
   >- (first_x_assum drule >> rw[db_esubst_ilist_def, dbFVL_def]) >- cheat
   >> cheat
-QED*)
+QED
         
 Theorem esubst_VSUBST_comm:
   ∀ilist avds tm.

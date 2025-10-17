@@ -1,0 +1,1 @@
+semanticPrimitivesSyntax.uo: /Users/matthewrichards/projects/HOL/sigobj/HolKernel.uo /Users/matthewrichards/projects/HOL/sigobj/boolLib.uo /Users/matthewrichards/projects/HOL/sigobj/bossLib.uo namespaceTheory.uo semanticPrimitivesTheory.uo 
