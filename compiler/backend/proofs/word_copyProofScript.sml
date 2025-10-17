@@ -286,7 +286,8 @@ QED
 
 Theorem CPstate_model:
   CPstate_models cs st ⇒
-  lookup v st.locals = lookup (lookup_eq cs v) st.locals
+  lookup (lookup_eq cs v) st.locals =
+  lookup v st.locals
 Proof
   rw[CPstate_models_def,lookup_eq_def]>>every_case_tac>>rw[]
 QED
@@ -331,45 +332,26 @@ Proof
   TOP_CASE_TAC>>rw[empty_eq_def,CPstate_models_def]
 QED
 
-(* TODO :: fix cheats
 Theorem remove_eq_model_insert':
-  CPstate_inv cs ⇒
-  CPstate_models cs st ⇒
-  (st':('a,'b,'c)wordSem$state).locals = insert t val (st:('a,'b,'c)wordSem$state).locals ⇒
+  CPstate_inv cs ∧
+  CPstate_models cs st ∧
+  (st':('a,'b,'c)wordSem$state).locals =
+    insert t val (st:('a,'b,'c)wordSem$state).locals ∧
+  st'.store = st.store ⇒
   CPstate_models (remove_eq cs t) st'
 Proof
   rw[remove_eq_def]>>
-  TOP_CASE_TAC>>
-  rw[empty_eq_def,CPstate_models_def]>>
-  rw[lookup_insert]
-  >-(metis_tac[NOT_NONE_SOME])
-  >-(fs[CPstate_inv_def]>>metis_tac[NOT_NONE_SOME])
-  >-(
-    ‘lookup_eq cs v = lookup_eq cs vrep’ by (
-      rw[lookup_eq_def]>>TOP_CASE_TAC>>TOP_CASE_TAC>>
-      metis_tac[CPstate_inv_def,SOME_11]
-    ) >>
-    metis_tac[CPstate_modelsD]
-  )
-  >-(
-    cheat
-  )
-  >-(
-    fs[CPstate_models_def, FLOOKUP_DEF] >>
-    Cases_on `s ∈ FDOM st'.store`
-    >- (
-      (* SOME (st.store ' s) = SOME (st'.store ' s) *)
-      cheat
-    )
-    >- (cheat)
-  )
+  reverse TOP_CASE_TAC
+  >- simp[empty_eq_def,CPstate_models_def]>>
+  gvs[CPstate_models_def]>>
+  rw[lookup_insert]>>
+  fs[CPstate_inv_def]>>
+  metis_tac[NOT_SOME_NONE]
 QED
-*)
 
-(*
 Theorem remove_eq_model_insert'1:
-  CPstate_inv cs ⇒
-  CPstate_models cs st ⇒
+  CPstate_inv cs ∧
+  CPstate_models cs st ∧
   st' = st with locals := insert t val st.locals ⇒
   CPstate_models (remove_eq cs t) st'
 Proof
@@ -377,19 +359,20 @@ Proof
   >>irule remove_eq_model_insert'
   >>rw[]>>metis_tac[]
 QED
-*)
 
-(*
 Theorem remove_eq_model_insert:
   CPstate_inv cs ⇒
   CPstate_models cs st ⇒
-  CPstate_models (remove_eq cs t) (st with locals := insert t val st.locals)
+  CPstate_models (remove_eq cs t)
+  (st with locals := insert t val st.locals)
 Proof
-  rw[]>>irule remove_eq_model_insert'>>rw[]>>metis_tac[]
+  rw[]>>
+  irule remove_eq_model_insert'>>
+  rw[]>>metis_tac[]
 QED
 
 Theorem remove_eq_model_set_var:
-  CPstate_inv cs ⇒
+  CPstate_inv cs ∧
   CPstate_models cs st ⇒
   CPstate_models (remove_eq cs t) (set_var t val st)
 Proof
@@ -399,6 +382,7 @@ Proof
   >>metis_tac[]
 QED
 
+(*
 Theorem CPstate_models_same_locals:
   CPstate_models cs st ⇒
   st'.locals = st.locals ⇒
@@ -1020,6 +1004,22 @@ Proof
 QED
 *)
 
+Theorem lookup_store_eq_SOME:
+  CPstate_models cs st ∧
+  lookup_store_eq cs s = SOME v ⇒
+  FLOOKUP st.store s = lookup v st.locals
+Proof
+  rw[]>>
+  gvs[CPstate_models_def,lookup_store_eq_def,AllCaseEqs()]
+QED
+
+Theorem lookup_remove_eq[simp]:
+  lookup n (remove_eq cs n).to_eq = NONE
+Proof
+  rw[remove_eq_def]>>
+  every_case_tac>>fs[empty_eq_def]
+QED
+
 Theorem copy_prop_correct:
   ∀prog cs st prog' cs' err st'.
   CPstate_inv cs ∧
@@ -1048,54 +1048,29 @@ Proof
     metis_tac[empty_eq_inv,empty_eq_model])
   >~ [`Get`]
   >- (
-      rw[copy_prop_prog_def]
-      >- (
-          Cases_on `lookup_store_eq cs s` >>
-          fs[]
-          >- (qpat_assum `Get n s = _` (fn x => rw[GSYM x]))
-          >- (
-              Cases_on `x = n` >>
-              fs[UNCURRY_EQ]
-              >- (qpat_assum `Get n s = _` (fn x => rw[GSYM x]))
-              >- (
-                  rw[evaluate_def]
-                  >- (
-                      Cases_on `get_vars (MAP SND xs') st` >>
-                      fs[evaluate_def]
-                      >- (
-                          Cases_on `get_store s st` >>
-                          fs[]
-                          cheat
-                        )
-                      >- (cheat)
-                    )
-                  >- ()
-                  >- ()
-                )
-            )
-        )
-      >- (
-          Cases_on `lookup_store_eq cs s` >>
-          fs[]
-          >- (metis_tac[remove_eq_inv])
-          >- (
-              Cases_on `x=n` >>
-              fs[UNCURRY_EQ]
-              >- (fs[] >> metis_tac[remove_eq_inv])
-              >- (metis_tac[copy_prop_move_inv])
-            )
-        )
-      >- (
-          Cases_on `lookup_store_eq cs s` >>
-          fs[]
-          >- (cheat)
-          >- (cheat)
-        )
-    )
-    (*
-    (* old *)
-    rw[copy_prop_prog_def,evaluate_def]>>every_case_tac>>fs[]
-    >>metis_tac[remove_eq_inv,remove_eq_model_set_var] *)
+    rpt gen_tac>> strip_tac>>
+    gvs[copy_prop_prog_def,CaseEq "option"]
+    >- (
+      gvs[evaluate_def,AllCaseEqs()]>>
+      metis_tac[remove_eq_inv, remove_eq_model_set_var])>>
+    reverse (gvs[AllCaseEqs(),UNCURRY_EQ])
+    >- (
+      gvs[evaluate_def,AllCaseEqs()]>>
+      metis_tac[remove_eq_inv, remove_eq_model_set_var])>>
+    (* the interesting case *)
+    drule_all lookup_store_eq_SOME>>
+    gvs[get_store_def,AllCaseEqs(),copy_prop_move_def,evaluate_def]
+    >- (
+      simp[get_vars_def,get_var_def,CPstate_model]>>
+      strip_tac>>
+      irule set_eq_inv>>
+      simp[remove_eq_inv])>>
+    disch_then (assume_tac o SYM)>>
+    simp[get_vars_def,get_var_def,CPstate_model,set_vars_def,alist_insert_def,set_var_def]>>
+    CONJ_TAC >- (
+      irule set_eq_inv>>
+      simp[remove_eq_inv])>>
+    cheat)
   >~[`Set`]
   >- (
       rw[copy_prop_prog_def,evaluate_def]
