@@ -1057,7 +1057,21 @@ Proof
               Cases_on `x = n` >>
               fs[UNCURRY_EQ]
               >- (qpat_assum `Get n s = _` (fn x => rw[GSYM x]))
-              >- (cheat)
+              >- (
+                  rw[evaluate_def]
+                  >- (
+                      Cases_on `get_vars (MAP SND xs') st` >>
+                      fs[evaluate_def]
+                      >- (
+                          Cases_on `get_store s st` >>
+                          fs[]
+                          cheat
+                        )
+                      >- (cheat)
+                    )
+                  >- ()
+                  >- ()
+                )
             )
         )
       >- (
