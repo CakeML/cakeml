@@ -33,6 +33,7 @@ QED
 Datatype:
   bstate =
     <| locals      : varname |-> 'a v
+     ; globals     : varname |-> 'a v
      ; code        : funname |-> ((varname # shape) list # ('a panLang$prog))
                      (* arguments (with shape), body *)
      ; eshapes     : eid |-> shape
@@ -40,7 +41,9 @@ Datatype:
      ; memaddrs    : ('a word) set
      ; sh_memaddrs    : ('a word) set
      ; be          : bool
-     ; base_addr   : 'a word |>
+     ; base_addr   : 'a word
+     ; top_addr    : 'a word
+ |>
 End
 
 val s = ``(s:'a panItreeSem2$bstate)``
@@ -59,17 +62,39 @@ End
 
 Theorem set_var_defs = CONJ panSemTheory.set_var_def set_var_def;
 
+Definition set_global_def:
+  set_global v value ^s =
+    (s with globals := s.globals |+ (v,value))
+End
+
+Theorem set_global_defs = CONJ panSemTheory.set_global_def set_global_def;
+
+Definition set_kvar_def:
+  set_kvar vk v value ^s =
+  case vk of Local => set_var v value s | Global => set_global v value s
+End
+
+Theorem set_kvar_defs = CONJ panSemTheory.set_kvar_def set_kvar_def;
+
+Definition lookup_kvar_def:
+  lookup_var vk v ^s =
+  case vk of Local => FLOOKUP s.locals v | Global => FLOOKUP s.globals v
+End
+
+Theorem lookup_kvar_defs = CONJ panSemTheory.lookup_kvar_def lookup_kvar_def;
+
+Definition is_valid_value_def:
+  is_valid_value s vk v value =
+  let tbl = (case vk of Local => s.locals | Global => s.globals) in
+    case FLOOKUP tbl v of
+     | SOME w => shape_of value = shape_of w
+     | NONE => F
+End
+
 Definition eval_def:
   (eval ^s (Const w) = SOME (ValWord w)) /\
-  (eval s  (Var v) = FLOOKUP s.locals v) /\
-  (eval s (Label fname) =
-    case FLOOKUP s.code fname of
-     | SOME _ => SOME (ValLabel fname)
-     | _ => NONE) /\
-(*
-  (eval s (GetAddr dname) =
-    OPTION_MAP ValWord (FLOOKUP s.gaddrs dname)) /\ *)
-
+  (eval s  (Var Local v) = FLOOKUP s.locals v) /\
+  (eval s  (Var Global v) = FLOOKUP s.globals v) /\
   (eval s (Struct es) =
     case (OPT_MMAP (eval s) es) of
      | SOME vs => SOME (Struct vs)
@@ -123,6 +148,8 @@ Definition eval_def:
      | _ => NONE) /\
   (eval s BaseAddr =
         SOME (ValWord s.base_addr)) /\
+  (eval s TopAddr =
+        SOME (ValWord s.top_addr)) /\
   (eval s BytesInWord =
         SOME (ValWord bytes_in_word))
 Termination
@@ -132,185 +159,11 @@ Termination
   \\ decide_tac
 End
 
-(*********)
-(*
-Datatype:
-  step_result =
-  | Pstep ('a prog # 'a bstate)
-  | Pdone
-  | Perror
-  | Praise ('a exp)
-  | Pffi ('a bstate)
-      (ffiname # word8 list # word8 list)
-End
-
-Definition step_def:
-  (step (Skip:'a panLang$prog,^s) c = (Pdone, s)) /\
-  (step (Dec v e prog, s) c =
-    case (eval s e) of
-     | SOME value =>
-         Dstep (prog,s with locals := s.locals |+ (v,value))
-(*        (res, st with locals := res_var st.locals (v, FLOOKUP s.locals v))*)
-        | NONE => Perror) /\
-  (step (Assign v src,s) =
-    case (eval s src) of
-     | SOME value =>
-        if is_valid_value s.locals v value
-        then (NONE, s with locals := s.locals |+ (v,value))
-        else (SOME Error, s)
-        | NONE => (SOME Error, s)) /\
-  (step (Store dst src,s) =
-    case (eval s dst, eval s src) of
-     | (SOME (ValWord addr), SOME value) =>
-       (case mem_stores addr (flatten value) s.memaddrs s.memory of
-         | SOME m => (NONE, s with memory := m)
-         | NONE => (SOME Error, s))
-     | _ => (SOME Error, s)) /\
-  (step (Store32 dst src,s) =
-    case (eval s dst, eval s src) of
-     | (SOME (ValWord adr), SOME (ValWord w)) =>
-        (case mem_store_32 s.memory s.memaddrs s.be adr (w2w w) of
-          | SOME m => (NONE, s with memory := m)
-          | NONE => (SOME Error, s))
-     | _ => (SOME Error, s)) /\
-  (step (StoreByte dst src,s) =
-    case (eval s dst, eval s src) of
-     | (SOME (ValWord adr), SOME (ValWord w)) =>
-        (case mem_store_byte s.memory s.memaddrs s.be adr (w2w w) of
-          | SOME m => (NONE, s with memory := m)
-          | NONE => (SOME Error, s))
-     | _ => (SOME Error, s)) /\
-  (step (ShMemLoad op v ad,s) =
-    case eval s ad of
-    | SOME (ValWord addr) =>
-        (case FLOOKUP s.locals v of
-           SOME (Val _) => sh_mem_load v addr (nb_op op) s
-         | _ => (SOME Error, s))
-     | _ => (SOME Error, s)) /\
-  (step (ShMemStore op ad e,s) =
-     case (eval s ad,eval s e) of
-     | (SOME (ValWord addr), SOME (ValWord bytes)) => sh_mem_store bytes addr (nb_op op) s
-     | _ => (SOME Error, s)) /\
-  (step (Seq c1 c2,s) =
-     let (res,s1) = fix_clock s (step (c1,s)) in
-     if res = NONE then step (c2,s1) else (res,s1)) /\
-  (step (If e c1 c2,s) =
-    case (eval s e) of
-     | SOME (ValWord w) =>
-        step (if w <> 0w then c1 else c2, s)  (* False is 0, True is everything else *)
-     | _ => (SOME Error,s)) /\
-  (step (Break,s) = (SOME Break,s)) /\
-  (step (Continue,s) = (SOME Continue,s)) /\
-  (step (While e c,s) =
-    case (eval s e) of
-     | SOME (ValWord w) =>
-       if (w <> 0w) then
-       (if s.clock = 0 then (SOME TimeOut,empty_locals s) else
-         let (res,s1) = fix_clock (dec_clock s) (step (c,dec_clock s)) in
-         case res of
-          | SOME Continue => step (While e c,s1)
-          | NONE => step (While e c,s1)
-          | SOME Break => (NONE,s1)
-          | _ => (res,s1))
-        else (NONE,s)
-     | _ => (SOME Error,s)) /\
-  (step (Return e,s) =
-    case (eval s e) of
-      | SOME value =>
-         if size_of_shape (shape_of value) <= 32
-         then (SOME (Return value),empty_locals s)
-         else (SOME Error,s)
-      | _ => (SOME Error,s)) /\
-  (step (Raise eid e,s) =
-    case (FLOOKUP s.eshapes eid, eval s e) of
-      | (SOME sh, SOME value) =>
-         if shape_of value = sh ∧
-            size_of_shape (shape_of value) <= 32
-         then (SOME (Exception eid value),empty_locals s)
-         else (SOME Error,s)
-     | _ => (SOME Error,s)) /\
-  (step (Tick,s) =
-    if s.clock = 0 then (SOME TimeOut,empty_locals s)
-    else (NONE,dec_clock s)) /\
-  (step (Annot _ _,s) = (NONE, s)) /\
-  (step (Call caltyp trgt argexps,s) =
-    case (eval s trgt, OPT_MMAP (eval s) argexps) of
-     | (SOME (ValLabel fname), SOME args) =>
-        (case lookup_code s.code fname args of
-          | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s)
-           else
-           let eval_prog = fix_clock ((dec_clock s) with locals := newlocals)
-                                     (step (prog, (dec_clock s) with locals:= newlocals)) in
-           (case eval_prog of
-              | (NONE,st) => (SOME Error,st)
-              | (SOME Break,st) => (SOME Error,st)
-              | (SOME Continue,st) => (SOME Error,st)
-              | (SOME (Return retv),st) =>
-                  (case caltyp of
-                    | NONE      => (SOME (Return retv),empty_locals st)
-                    | SOME (NONE, _) => (NONE, st with locals := s.locals)
-                    | SOME (SOME rt,  _) =>
-                       if is_valid_value s.locals rt retv
-                       then (NONE, set_var rt retv (st with locals := s.locals))
-                       else (SOME Error,st))
-              | (SOME (Exception eid exn),st) =>
-                  (case caltyp of
-                    | NONE        => (SOME (Exception eid exn),empty_locals st)
-                    | SOME (_, NONE) => (SOME (Exception eid exn),empty_locals st)
-                    | SOME (_, (SOME (eid', evar, p))) =>
-                      if eid = eid' then
-                       case FLOOKUP s.eshapes eid of
-                        | SOME sh =>
-                            if shape_of exn = sh ∧ is_valid_value s.locals evar exn then
-                              step (p, set_var evar exn (st with locals := s.locals))
-                            else (SOME Error,st)
-                        | NONE => (SOME Error,st)
-                      else (SOME (Exception eid exn), empty_locals st))
-              | (res,st) => (res,empty_locals st))
-         | _ => (SOME Error,s))
-     | (_, _) => (SOME Error,s))/\
-  (step (DecCall rt shape trgt argexps prog1,s) =
-    case (eval s trgt, OPT_MMAP (eval s) argexps) of
-     | (SOME (ValLabel fname), SOME args) =>
-        (case lookup_code s.code fname args of
-          | SOME (prog, newlocals) => if s.clock = 0 then (SOME TimeOut,empty_locals s)
-           else
-           let eval_prog = fix_clock ((dec_clock s) with locals := newlocals)
-                                     (step (prog, (dec_clock s) with locals:= newlocals)) in
-           (case eval_prog of
-              | (NONE,st) => (SOME Error,st)
-              | (SOME Break,st) => (SOME Error,st)
-              | (SOME Continue,st) => (SOME Error,st)
-              | (SOME (Return retv),st) =>
-                  if shape_of retv = shape then
-                    let (res',st') = step (prog1, set_var rt retv (st with locals := s.locals)) in
-                      (res',st' with locals := res_var st'.locals (rt, FLOOKUP s.locals rt))
-                  else
-                    (SOME Error, st)
-              | (res,st) => (res,empty_locals st))
-           | _ => (SOME Error,s))
-     | (_, _) => (SOME Error,s)) /\
-  (step (ExtCall ffi_index ptr1 len1 ptr2 len2,s) =
-   case (eval s ptr1, eval s len1, eval s ptr2, eval s len2) of
-      | SOME (ValWord sz1),SOME (ValWord ad1),SOME (ValWord sz2),SOME (ValWord ad2) =>
-        (case (read_bytearray sz1 (w2n ad1) (mem_load_byte s.memory s.memaddrs s.be),
-               read_bytearray sz2 (w2n ad2) (mem_load_byte s.memory s.memaddrs s.be)) of
-         | SOME bytes,SOME bytes2 =>
-           (case call_FFI s.ffi (ExtCall (explode ffi_index)) bytes bytes2 of
-            | FFI_final outcome => (SOME (FinalFFI outcome), empty_locals s)
-            | FFI_return new_ffi new_bytes =>
-                let nmem = write_bytearray sz2 new_bytes s.memory s.memaddrs s.be in
-                 (NONE, s with <| memory := nmem; ffi := new_ffi |>))
-         | _ => (SOME Error,s))
-      | res => (SOME Error,s))
-End
-
-*)
-
 (***************)
 
 Type ev[pp] = “:ffiname # word8 list # word8 list”;
 
+(*
 val rh = “rh:'a -> ('b, 'g + ev, 'b) itree”;
 (*
 val rh = “rh:'a panLang$prog # 'a bstate -> (ffi_outcome + word8 list, 'a panLang$prog # 'a bstate + ev, result) itree”;
@@ -319,7 +172,7 @@ val rh = “rh:'a panLang$prog # 'a bstate -> (ffi_outcome + word8 list, 'a panL
 val rh = “rh:'a panLang$prog # 'a bstate -> ('a panSem$result option # 'a bstate, 'a panLang$prog # 'a bstate + ev, 'a panSem$result option # 'a bstate) itree”;
 
 val rh = “rh:'a panLang$prog # 'a bstate -> ('a panSem$result option # 'a bstate, 'a panLang$prog # 'a bstate + ev, 'a panSem$result option # 'a bstate) itree”;
-
+*)
 (*** mrec ***)
 
 Definition mrec_def:
@@ -371,8 +224,6 @@ Proof
   metis_tac[]
 QED
 
-
-
 (*** handler ***)
 
 Definition h_prog_dec_def:
@@ -402,13 +253,20 @@ Definition h_prog_seq_def:
 End
 
 Definition h_prog_assign_def:
-  h_prog_assign vname e ^s =
-  Ret (INR (case eval s e of
-            | SOME value =>
-                if is_valid_value s.locals vname value
-                then (NONE,s with locals := s.locals |+ (vname,value))
-                else (SOME Error,s)
-            | NONE => (SOME Error,s)))
+  (h_prog_assign vk vname e ^s =
+   Ret (INR (case eval s e of
+             | SOME value =>
+                 if is_valid_value s vk vname value
+                 then (NONE,s with locals := s.locals |+ (vname,value))
+                 else (SOME Error,s)
+             | NONE => (SOME Error,s)))) ∧
+  (h_prog_assign Global vname e ^s =
+   Ret (INR (case eval s e of
+             | SOME value =>
+                 if is_valid_value s.globals vname value
+                 then (NONE,s with globals := s.globals |+ (vname,value))
+                 else (SOME Error,s)
+             | NONE => (SOME Error,s))))
 End
 
 Definition h_prog_store_def:
@@ -486,9 +344,9 @@ Definition h_handle_call_ret_def:
    case calltyp of
      NONE => Ret (INR (SOME (Return retv),empty_locals s'))
    | SOME (NONE, _) => Ret (INR (NONE, s' with locals := s.locals))
-   | SOME (SOME rt,_) =>
-       if is_valid_value s.locals rt retv
-       then Ret (INR (NONE,set_var rt retv (s' with locals := s.locals)))
+   | SOME (SOME (rk, rt),_) =>
+       if is_valid_value (if rk = Local then s.locals else s.globals) rt retv
+       then Ret (INR (NONE,set_kvar rk rt retv (s' with locals := s.locals)))
        else Ret (INR (SOME Error,s'))) ∧
   (h_handle_call_ret calltyp s (INR (SOME (Exception eid exn),s')) =
    case calltyp of
@@ -511,14 +369,14 @@ Definition h_handle_call_ret_def:
 End
 
 Definition h_prog_call_def:
-  h_prog_call calltyp tgtexp argexps ^s =
-  case (eval s tgtexp,OPT_MMAP (eval s) argexps) of
-   | (SOME (ValLabel fname),SOME args) =>
+  h_prog_call calltyp fname argexps ^s =
+  case OPT_MMAP (eval s) argexps of
+   | SOME args =>
       (case lookup_code s.code fname args of
         | SOME (callee_prog,newlocals) =>
            Vis (INL (callee_prog,s with locals := newlocals)) (h_handle_call_ret calltyp s)
         | _ => Ret (INR (SOME Error,s)))
-   | (_,_) => Ret (INR (SOME Error,s))
+   | _ => Ret (INR (SOME Error,s))
 End
 
 Definition h_handle_deccall_ret_def:
@@ -538,14 +396,14 @@ Definition h_handle_deccall_ret_def:
 End
 
 Definition h_prog_deccall_def:
-  h_prog_deccall rt shape tgtexp argexps prog1 ^s =
-  case (eval s tgtexp,OPT_MMAP (eval s) argexps) of
-   | (SOME (ValLabel fname),SOME args) =>
+  h_prog_deccall rt shape fname argexps prog1 ^s =
+  case OPT_MMAP (eval s) argexps of
+   | SOME args =>
       (case lookup_code s.code fname args of
         | SOME (callee_prog,newlocals) =>
            Vis (INL (callee_prog,s with locals := newlocals)) (h_handle_deccall_ret rt shape prog1 s)
         | _ => Ret (INR (SOME Error,s)))
-   | (_,_) => Ret (INR (SOME Error,s))
+   | _ => Ret (INR (SOME Error,s))
 End
 
 Definition h_prog_ext_call_def:
