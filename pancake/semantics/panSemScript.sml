@@ -339,8 +339,7 @@ End
 
 Definition is_valid_value_def:
   is_valid_value s vk v value =
-  let tbl = (case vk of Local => s.locals | Global => s.globals) in
-    case FLOOKUP tbl v of
+  case lookup_kvar vk v s of
      | SOME w => shape_of value = shape_of w
      | NONE => F
 End
@@ -355,16 +354,20 @@ Theorem is_valid_value_simps:
      | SOME w => shape_of value = shape_of w
      | NONE => F)
 Proof
-  simp[is_valid_value_def]
+  simp[is_valid_value_def,lookup_kvar_def]
 QED
 
 Theorem is_valid_value_simps2[simp]:
   (is_valid_value (s with clock := k) vk v vl = is_valid_value s vk v vl) ∧
   (is_valid_value (s with ffi := ffi) vk v vl = is_valid_value s vk v vl) ∧
   (is_valid_value (s with code := cd) vk v vl = is_valid_value s vk v vl) ∧
-  (is_valid_value (s with memory := m) vk v vl = is_valid_value s vk v vl)
+  (is_valid_value (s with memory := m) vk v vl = is_valid_value s vk v vl) ∧
+  (lookup_kvar vk v (s with clock := k) = lookup_kvar vk v s) ∧
+  (lookup_kvar vk v (s with ffi := ffi) = lookup_kvar vk v s) ∧
+  (lookup_kvar vk v (s with code := cd) = lookup_kvar vk v s) ∧
+  (lookup_kvar vk v (s with memory := m) = lookup_kvar vk v s)
 Proof
-  simp[is_valid_value_def]
+  simp[is_valid_value_def,lookup_kvar_def]
 QED
 
 Definition res_var_def:

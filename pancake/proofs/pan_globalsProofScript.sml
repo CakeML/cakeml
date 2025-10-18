@@ -969,18 +969,18 @@ Proof
       gvs[AllCaseEqs(),OPT_MMAP_eval_fresh_var,MEM_FLAT,MEM_MAP,empty_locals_def,
           good_res_def,dec_clock_def,MEM_FILTER,set_var_def,FUPDATE_COMMUTES,
           set_kvar_def, set_global_def] >>
-      gvs[is_valid_value_def,FLOOKUP_UPDATE] >>
+      gvs[is_valid_value_def,FLOOKUP_UPDATE,lookup_kvar_def] >>
       rw[state_component_equality]>>
-      FULL_CASE_TAC>>gvs[]) >>
+      rpt (FULL_CASE_TAC>>gvs[])) >>
   rw[evaluate_def,free_var_ids_def,good_res_def,AllCaseEqs(),MEM_FILTER,UNCURRY_EQ,
      sh_mem_load_def,sh_mem_store_def,set_kvar_def,set_var_def,set_global_def,
      empty_locals_def,free_var_ids_def,OPT_MMAP_eval_fresh_var,MEM_FLAT,MEM_MAP,
      eval_fresh_var,PULL_EXISTS,lookup_kvar_def] >> rw[PULL_EXISTS] >>
-  fs[is_valid_value_def,FLOOKUP_UPDATE,FUPDATE_COMMUTES,dec_clock_def] >>
+  fs[is_valid_value_def,FLOOKUP_UPDATE,FUPDATE_COMMUTES,dec_clock_def,lookup_kvar_def] >>
   rw[] >> gvs[FUPDATE_COMMUTES,good_res_def] >>
   rw[state_component_equality] >>
   rw[fmap_eq_flookup,FLOOKUP_UPDATE,FLOOKUP_pan_res_var_thm] >> rw[]>>
-  FULL_CASE_TAC>>gvs[]
+  rpt (FULL_CASE_TAC>>gvs[])
 QED
 
 Triviality evaluate_two_fresh_locals:

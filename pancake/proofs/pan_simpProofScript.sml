@@ -736,7 +736,7 @@ Proof
    strip_tac >>
    fs [] >> rveq >>
    cases_on ‘caltyp’ >> rfs [] >>
-   fs [empty_locals_def,is_valid_value_def] >> rveq >>
+   fs [empty_locals_def,is_valid_value_def,lookup_kvar_def] >> rveq >>
    fs [state_rel_def, state_component_equality,set_var_def,set_kvar_def,set_global_def] >>
    every_case_tac >> fs [] >> rveq >> rfs [])
   >- (
@@ -750,7 +750,7 @@ Proof
    strip_tac >>
    fs [] >> rveq >>
    cases_on ‘caltyp’ >> rfs [] >>
-   fs [empty_locals_def,is_valid_value_def] >> rveq >>
+   fs [empty_locals_def,is_valid_value_def,lookup_kvar_def] >> rveq >>
    fs [state_rel_def, state_component_equality,set_var_def,set_kvar_def,set_global_def] >>
    every_case_tac >> fs [] >> rveq >> rfs []) >>
   last_x_assum (qspec_then ‘dec_clock t with
