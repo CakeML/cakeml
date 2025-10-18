@@ -1147,7 +1147,7 @@ Definition dec_mls_def:
 End
 
 Theorem dec_mls_shortens:
-  ∀bs rs _x. dec_mls bs = (INR _x, rs) ⇒ rs [<] bs
+  ∀bs rs x. dec_mls bs = (INR x, rs) ⇒ rs [<] bs
 Proof
      rw[dec_mls_def, AllCaseEqs()]
   \\ assume_tac  dec_byte_shortens
@@ -1174,7 +1174,7 @@ End
 Theorem dec_idx_alpha_shortens_le:
   ∀dec.
   (∀bs rs x. dec bs = (INR x, rs) ⇒ rs [≤] bs) ⇒
-  ∀bs rs _x. dec_idx_alpha dec bs = (INR _x, rs) ⇒ rs [<] bs
+  ∀bs rs x. dec_idx_alpha dec bs = (INR x, rs) ⇒ rs [<] bs
 Proof
      rw[dec_idx_alpha_def, AllCaseEqs()]
   \\ last_x_assum dxrule
@@ -1185,7 +1185,7 @@ QED
 Theorem dec_idx_alpha_shortens_lt:
   ∀dec.
   (∀bs rs x. dec bs = (INR x, rs) ⇒ rs [<] bs) ⇒
-  ∀bs rs _x. dec_idx_alpha dec bs = (INR _x, rs) ⇒ rs [<] bs
+  ∀bs rs x. dec_idx_alpha dec bs = (INR x, rs) ⇒ rs [<] bs
 Proof
      rw[dec_idx_alpha_def, AllCaseEqs()]
   \\ last_x_assum dxrule
@@ -1205,7 +1205,7 @@ Definition dec_ass_def:
 End
 
 Theorem dec_ass_shortens:
-  ∀bs rs _x. dec_ass  bs = (INR _x, rs) ⇒ rs [<] bs
+  ∀bs rs x. dec_ass  bs = (INR x, rs) ⇒ rs [<] bs
 Proof
      rw[dec_ass_def, AllCaseEqs()]
   \\ assume_tac dec_mls_shortens
@@ -1224,7 +1224,7 @@ Definition dec_map_def:
 End
 
 Theorem dec_map_shortens:
-  ∀bs rs _x. dec_map  bs = (INR _x, rs) ⇒ rs [<] bs
+  ∀bs rs x. dec_map  bs = (INR x, rs) ⇒ rs [<] bs
 Proof
      rw[dec_map_def, AllCaseEqs()]
   \\ assume_tac dec_ass_shortens
@@ -1306,7 +1306,7 @@ Definition dec_names_section_def:
 End
 
 Theorem dec_names_section_shortens:
-  ∀bs rs _x. dec_names_section bs = (INR _x, rs) ⇒ rs [≤] bs
+  ∀bs rs x. dec_names_section bs = (INR x, rs) ⇒ rs [≤] bs
 Proof
   Cases
   >> rw[dec_names_section_def, AllCaseEqs()]
