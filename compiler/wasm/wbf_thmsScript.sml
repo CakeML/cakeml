@@ -747,6 +747,49 @@ Proof
   \\ simp[]
 QED
 
+Theorem dec_enc_names:
+  ∀no eno rest.
+  enc_names_section no = SOME eno ⇒
+  dec_names_section $ append eno = (INR no, [])
+Proof
+
+  Cases
+  >> rw[Once enc_names_section_def, Once dec_names_section_def, AllCaseEqs()]
+    >> gvs[prepend_sz_def, dec_names_section_def, magic_str_def]
+    >> gvs[string2bytes_def, bytes2string_def, blank_def]
+    (**)
+    >> imp_res_tac dec_enc_u32
+    >> simp ssa
+
+    (* 1 *)
+    >> pop_assum (fn x => mp_tac $ GSYM x)
+    >> strip_tac
+    >> imp_res_tac dec_enc_u32
+    >> simp ssa
+    >> simp[names_component_equality]
+
+    (* 2 *)
+    >- cheat
+
+    (* 3 *)
+    >- cheat
+
+    (* 4 *)
+    >- cheat
+
+    (* 5 *)
+    >> ntac 2 $ pop_assum kall_tac
+    >> imp_res_tac dec_enc_mls
+    >> simp ssa
+
+    (* 6 *)
+
+    (* 7 *)
+
+    (* 8 *)
+
+    >> cheat
+QED
 
 (*
 Theorem dec_enc_names:

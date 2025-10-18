@@ -1291,9 +1291,10 @@ Definition dec_names_section_def:
     | [_;_;_] => failure
     | [n;a;m;e]         => if bytes2string $ [n;a;m;e] ≠ magic_str then failure else ret [] $ SOME blank
     | n::a::m::e::b::bs => if bytes2string $ [n;a;m;e] ≠ magic_str then failure else
-    case (  if b ≠ 0w (* the expr in these parens are for mname, not the whole names record *)
-            then ret (b::bs) NONE
-            else (case dec_mls bs of (INR s,cs) => ret cs $ SOME s | _ => err)
+    case ( (* the expr in these parens are for mname, not the whole names record *)
+        if b ≠ 0w then ret (b::bs) NONE
+        else case dec_u32 bs of (INL _,_) => err| (INR _,bs) =>
+             case dec_mls bs of (INL _,_) => err| (INR s,cs) => ret cs $ SOME s
                                                 )  of (INL _,_)=>failure| (INR so , bs) =>
     case dec_section 1w dec_ass                 bs of (INL _,_)=>failure| (INR fns, bs) =>
     case dec_section 2w (dec_idx_alpha dec_map) bs of (INL _,_)=>failure| (INR lns, bs) =>
