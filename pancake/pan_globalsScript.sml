@@ -72,13 +72,13 @@ End
 Definition compile_def:
   (compile ctxt (Dec v s e p) =
    Dec v s (compile_exp ctxt e) (compile ctxt p)) ∧
-  (compile ctxt (Assign Local v e) =
-   Assign Local v (compile_exp ctxt e)) ∧
-  (compile ctxt (Assign Global v e) =
-   case FLOOKUP ctxt.globals v of
-     NONE => Skip (* shouldn't happen *)
-   | SOME (sh, addr) => Store (Op Sub [TopAddr; Const addr]) (compile_exp ctxt e)
-   ) ∧
+  (compile ctxt (Assign vk v e) =
+   (case vk of
+      Global =>
+        (case FLOOKUP ctxt.globals v of
+          NONE => Skip (* shouldn't happen *)
+         | SOME (sh, addr) => Store (Op Sub [TopAddr; Const addr]) (compile_exp ctxt e))
+    | _ => Assign Local v (compile_exp ctxt e))) ∧
   (compile ctxt (Store ad v) =
    Store (compile_exp ctxt ad) (compile_exp ctxt v)) ∧
   (compile ctxt (Store32 ad v) =
