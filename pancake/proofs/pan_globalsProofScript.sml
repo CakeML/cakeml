@@ -174,16 +174,6 @@ Proof
       state_rel_def,empty_locals_def]
 QED
 
-Theorem compile_Assign_Local:
-  ^(get_goal "compile _ (Assign Local _ _)")
-Proof
-  rpt strip_tac >>
-  gvs[evaluate_def,compile_def,AllCaseEqs()] >>
-  drule_all_then strip_assume_tac compile_exp_correct >>
-  simp[] >>
-  gvs[state_rel_def]
-QED
-
 (* TODO: move? *)
 Theorem mem_stores_append:
   ∀addr vs addrs memory vs'.
@@ -459,21 +449,23 @@ Proof
   gvs[byte_aligned_def]
 QED
 
-Theorem compile_Assign_Global:
-  ^(get_goal "compile _ (Assign Global _ _)")
+Theorem compile_Assign:
+  ^(get_goal "compile _ (Assign _ _ _)")
 Proof
-  rw[evaluate_def,compile_def,AllCaseEqs(),
-     is_valid_value_def,good_res_def
-    ] >>
+  rpt strip_tac>>
+  gvs[evaluate_def,compile_def,AllCaseEqs(),
+     is_valid_value_def,
+     set_kvar_def,set_var_def,set_global_def] >>
   drule_all_then strip_assume_tac compile_exp_correct >>
-  gvs[state_rel_def] >>
+  simp[] >>
+  gvs[state_rel_def,good_res_def] >>
   res_tac >>
   fs[evaluate_def,eval_def,wordLangTheory.word_op_def] >>
   drule $ cj 1 mem_load_mem_store >>
   disch_then drule >>
   strip_tac >>
   simp[] >>
-  conj_tac
+  (conj_tac
   >- (rw[FLOOKUP_UPDATE]
       >- (res_tac >> fs[] >>
           qpat_x_assum ‘shape_of _ = shape_of _’ $ assume_tac o GSYM >>
@@ -504,7 +496,7 @@ Proof
       first_x_assum $ irule_at $ Pos last >>
       first_x_assum irule >>
       gvs[disjoint_globals_def,IS_SOME_EXISTS,PULL_EXISTS] >>
-      res_tac >> fs[]) >>
+      res_tac >> fs[])) >>
   conj_tac
   >- (rw[] >>
       gvs[DISJOINT_ALT] >>
@@ -978,7 +970,8 @@ Proof
           good_res_def,dec_clock_def,MEM_FILTER,set_var_def,FUPDATE_COMMUTES,
           set_kvar_def, set_global_def] >>
       gvs[is_valid_value_def,FLOOKUP_UPDATE] >>
-      rw[state_component_equality]) >>
+      rw[state_component_equality]>>
+      FULL_CASE_TAC>>gvs[]) >>
   rw[evaluate_def,free_var_ids_def,good_res_def,AllCaseEqs(),MEM_FILTER,UNCURRY_EQ,
      sh_mem_load_def,sh_mem_store_def,set_kvar_def,set_var_def,set_global_def,
      empty_locals_def,free_var_ids_def,OPT_MMAP_eval_fresh_var,MEM_FLAT,MEM_MAP,
@@ -986,7 +979,8 @@ Proof
   fs[is_valid_value_def,FLOOKUP_UPDATE,FUPDATE_COMMUTES,dec_clock_def] >>
   rw[] >> gvs[FUPDATE_COMMUTES,good_res_def] >>
   rw[state_component_equality] >>
-  rw[fmap_eq_flookup,FLOOKUP_UPDATE,FLOOKUP_pan_res_var_thm] >> rw[]
+  rw[fmap_eq_flookup,FLOOKUP_UPDATE,FLOOKUP_pan_res_var_thm] >> rw[]>>
+  FULL_CASE_TAC>>gvs[]
 QED
 
 Triviality evaluate_two_fresh_locals:
@@ -1124,6 +1118,7 @@ Proof
       fs[] >>
       simp[empty_locals_def] >>
       gvs[dec_clock_def,state_rel_def])
+  >- gvs[is_valid_value_def]
   >- (PURE_TOP_CASE_TAC
       >- (spose_not_then kall_tac >>
           gvs[is_valid_value_def] >>
@@ -1292,6 +1287,8 @@ Proof
   >- (first_x_assum $ qspecl_then [‘ctxt’,‘set_var evar exn (t' with locals := t.locals)’] mp_tac >>
       impl_keep_tac
       >- gvs[state_rel_change_locals,state_rel_set_var] >>
+      ‘is_valid_value t Local evar exn = is_valid_value s Local evar exn’
+        by (fs[is_valid_value_simps]>>gvs[])>>
       strip_tac >>
       simp[] >>
       rpt(PURE_FULL_CASE_TAC >> gvs[]) >>
@@ -1514,8 +1511,7 @@ Proof
   EVERY (map strip_assume_tac
          [compile_Skip_Break_Continue_Annot_Tick,
           compile_Dec, compile_ShMemLoad, compile_ShMemStore,
-          compile_Assign_Local, compile_Store, compile_StoreByte, compile_Seq,
-          compile_Assign_Global, compile_Store32,
+          compile_Assign, compile_Store, compile_StoreByte, compile_Seq, compile_Store32,
           compile_If, compile_While, compile_Call, compile_ExtCall,
           compile_Raise, compile_Return, compile_DecCall]) >>
   asm_rewrite_tac [] >> rw [] >> rpt (pop_assum kall_tac)
@@ -1673,7 +1669,7 @@ Proof
       PURE_CASE_TAC >> gvs[] >>
       PURE_CASE_TAC >> gvs[] >>
       rw[] >>
-      gvs[set_kvar_def,set_var_def,set_global_def] >>
+      gvs[is_valid_value_def,set_kvar_def,set_var_def,set_global_def] >>
       PURE_CASE_TAC >> gvs[] >>
       PURE_TOP_CASE_TAC >> gvs[] >>
       PURE_TOP_CASE_TAC >> gvs[] >>
@@ -1703,8 +1699,9 @@ Proof
      eval_upd_code_eq] >>
   res_tac >>
   rw[] >>
-  gvs[lookup_kvar_def,AllCaseEqs(),sh_mem_load_def,set_kvar_def,
-      set_var_def,empty_locals_def,set_global_def,sh_mem_store_def,dec_clock_def]
+  gvs[lookup_kvar_def,AllCaseEqs(),sh_mem_load_def,set_kvar_def,is_valid_value_def,
+      set_var_def,empty_locals_def,set_global_def,sh_mem_store_def,dec_clock_def]>>
+  CASE_TAC>>gvs[]
 QED
 
 Theorem evaluate_fperm':

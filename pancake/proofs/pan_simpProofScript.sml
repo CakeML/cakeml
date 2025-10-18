@@ -281,8 +281,7 @@ QED
 
 Theorem ret_to_tail_Others:
   ^(get_goal "panLang$Skip") /\
-  ^(get_goal "panLang$Assign Local") /\
-  ^(get_goal "panLang$Assign Global") /\
+  ^(get_goal "panLang$Assign") /\
   ^(get_goal "panLang$Store") /\
   ^(get_goal "panLang$Store32") /\
   ^(get_goal "panLang$StoreByte") /\
@@ -737,7 +736,7 @@ Proof
    strip_tac >>
    fs [] >> rveq >>
    cases_on ‘caltyp’ >> rfs [] >>
-   fs [empty_locals_def] >> rveq >>
+   fs [empty_locals_def,is_valid_value_def] >> rveq >>
    fs [state_rel_def, state_component_equality,set_var_def,set_kvar_def,set_global_def] >>
    every_case_tac >> fs [] >> rveq >> rfs [])
   >- (
@@ -751,7 +750,7 @@ Proof
    strip_tac >>
    fs [] >> rveq >>
    cases_on ‘caltyp’ >> rfs [] >>
-   fs [empty_locals_def] >> rveq >>
+   fs [empty_locals_def,is_valid_value_def] >> rveq >>
    fs [state_rel_def, state_component_equality,set_var_def,set_kvar_def,set_global_def] >>
    every_case_tac >> fs [] >> rveq >> rfs []) >>
   last_x_assum (qspec_then ‘dec_clock t with
@@ -898,8 +897,7 @@ QED
 
 Theorem compile_Others:
   ^(get_goal "panLang$Skip") /\
-  ^(get_goal "panLang$Assign Local") /\
-  ^(get_goal "panLang$Assign Global") /\
+  ^(get_goal "panLang$Assign") /\
   ^(get_goal "panLang$Store") /\
   ^(get_goal "panLang$Store32") /\
   ^(get_goal "panLang$StoreByte") /\
@@ -912,11 +910,11 @@ Theorem compile_Others:
 Proof
   rw [] >>
   fs [evaluate_seq_assoc, evaluate_skip_seq] >>
-  fs [evaluate_def] >> rveq >> fs [] >>
+  fs [evaluate_def] >> rveq >> fs [is_valid_value_def,set_kvar_def] >>
   (
   every_case_tac >> gvs [] >>
   imp_res_tac compile_eval_correct >>
-  gvs [state_rel_def, state_component_equality,
+  gvs [state_rel_def, state_component_equality,set_var_def,set_global_def,
        empty_locals_def, dec_clock_def])
 QED
 
