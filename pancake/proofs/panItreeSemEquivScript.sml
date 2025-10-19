@@ -2876,9 +2876,7 @@ Proof
                     gvs []) >>
               qexistsl_tac [‘0’,‘k'’] >>
               rw [set_var_defs])
-          >- ((*gvs [h_prog_def,h_prog_call_def,mrec_sem_simps,
-                   ltree_lift_cases] >>*)
-              PURE_TOP_CASE_TAC >>fs[]>>
+          >- (PURE_TOP_CASE_TAC >>fs[]>>
               rename1 ‘is_valid_value (reclock s) rk rt v’>>
               Cases_on ‘is_valid_value (reclock s) rk rt v’ >> fs[]>>
               gvs[h_prog_def,h_prog_call_def,mrec_sem_simps,
