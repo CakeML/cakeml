@@ -169,6 +169,13 @@ val xlocal =
     first_assum MATCH_ACCEPT_TAC,
     (HO_MATCH_MP_TAC app_local \\ fs [] \\ NO_TAC),
     (HO_MATCH_ACCEPT_TAC cf_cases_local \\ NO_TAC),
+    (asm_rewrite_tac (cf_defs) \\
+     CONV_TAC (ONCE_DEPTH_CONV BETA_CONV) \\
+     rewrite_tac [local_is_local] \\
+     NO_TAC),
+    (* The previous tactic hopefully takes care of the goal;
+     * however, for backwards compatibility we might as well
+     * keep this around. *)
     (fs (local_is_local :: cf_defs) \\ NO_TAC)
   ] (* todo: is_local_pred *)
 
@@ -206,7 +213,7 @@ fun xlet_core cont0 cont1 cont2 =
   xpull_check_not_needed \\
   head_unfold cf_let_def \\
   irule local_elim \\ hnf \\
-  simp [namespaceTheory.nsOptBind_def] \\
+  rewrite_tac [namespaceTheory.nsOptBind_def] \\
   cont0 \\
   rpt CONJ_TAC THENL [
     all_tac,
@@ -263,7 +270,7 @@ fun xlet Q (g as (asl, w)) = let
 in
   xlet_core
     (qexists_tac Q)
-    (qx_gen_tac qname \\ simp [])
+    (qx_gen_tac qname \\ simp_tac (srw_ss()) [])
     (TRY xpull)
     g
 end
@@ -576,7 +583,9 @@ val xif_base =
   head_unfold cf_if_def \\
   irule local_elim \\ hnf \\
   reduce_tac \\
-  TRY (asm_exists_tac \\ simp [] \\ conj_tac \\ DISCH_TAC)
+  TRY (asm_exists_tac
+       \\ full_simp_tac std_ss []
+       \\ conj_tac \\ DISCH_TAC)
 
 val xif = xif_base
 

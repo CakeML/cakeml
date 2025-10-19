@@ -882,7 +882,7 @@ Proof
       \\qexists_tac `idx`
       \\qexists_tac `vlv`
       \\fs[REF_ARRAY_def]
-      \\xsimpl)
+      \\xsimpl \\ gvs [])
   \\ xlet `POSTv b. &(BOOL (mlmap$null (EL idx buckets)) b) * REF_ARRAY aRef arr2 newBuckets * REF_NUM uRef uv`
     >-(xapp
       \\qexists_tac `REF_ARRAY aRef arr2 newBuckets * REF_NUM uRef uv`
@@ -890,7 +890,7 @@ Proof
       \\xsimpl
       \\qexists_tac `a`
       \\qexists_tac `b`
-      \\fs[])
+      \\gvs[])
   THEN1 (xif
   THEN1 (xlet `POSTv usedv. &(NUM uv usedv) * REF_ARRAY aRef arr2 newBuckets * REF_NUM uRef uv`
     >-(xapp
@@ -917,10 +917,9 @@ Proof
     \\qexists_tac `heuristic_size + 1`
     \\xsimpl
     \\qexists_tac `LUPDATE (mlmap$insert (EL (hf k MOD LENGTH buckets) buckets) k v) (hf k MOD LENGTH buckets) buckets`
-    \\`buckets <> []` by simp[NOT_NIL_EQ_LENGTH_NOT_0]
+    \\`buckets <> []` by gvs[NOT_NIL_EQ_LENGTH_NOT_0]
     \\ imp_res_tac list_union_lupdate_insert
-    \\ simp[]
-    \\fs[every_cmp_of_insert, buckets_ok_insert, list_rel_insert, every_map_ok_insert]))
+    \\gvs[every_cmp_of_insert, buckets_ok_insert, list_rel_insert, every_map_ok_insert]))
     \\xcon
     \\xsimpl
     \\qexists_tac `uRef`
@@ -932,10 +931,9 @@ Proof
     \\qexists_tac `heuristic_size`
     \\xsimpl
     \\qexists_tac `LUPDATE (mlmap$insert (EL (hf k MOD LENGTH buckets) buckets) k v) (hf k MOD LENGTH buckets) buckets`
-    \\`buckets <> []` by simp[NOT_NIL_EQ_LENGTH_NOT_0]
+    \\`buckets <> []` by gvs[NOT_NIL_EQ_LENGTH_NOT_0]
     \\ imp_res_tac list_union_lupdate_insert
-    \\ simp[]
-    \\fs[every_cmp_of_insert, buckets_ok_insert, list_rel_insert, every_map_ok_insert])
+    \\gvs[every_cmp_of_insert, buckets_ok_insert, list_rel_insert, every_map_ok_insert])
 QED
 
 Theorem list_app_pairs_spec:
@@ -1349,7 +1347,9 @@ Proof
   \\ `MAP_TYPE a b (EL (hf k MOD LENGTH vlv) buckets)
                    (EL (hf k MOD LENGTH vlv) vlv)`
     by fs[LIST_REL_EL_EQN]
+  \\ simp []
   \\ xlet_auto >- xsimpl
+  \\ simp []
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl

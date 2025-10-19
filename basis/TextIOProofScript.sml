@@ -937,7 +937,7 @@ Proof
   REVERSE (Cases_on`consistentFS fs`) >-(xpull >> fs[wfFS_def]) >>
   xpull >> rename [`W8ARRAY _ fnm0`] >>
   qmatch_goalsub_abbrev_tac`catfs fs * _` >>
-  rpt(xlet_auto >- xsimpl) >>
+  rpt (xlet_auto >- xsimpl) >>
   qmatch_goalsub_abbrev_tac`W8ARRAY _ fd0` >>
   qmatch_goalsub_rename_tac`W8ARRAY loc fd0` >>
   qmatch_goalsub_abbrev_tac`catfs fs' * _` >>
@@ -1072,10 +1072,9 @@ Proof
      qpat_abbrev_tac `new_events = events ++ _` >>
      qexists_tac `new_events` >> xsimpl) >>
   NTAC 3 (xlet_auto >- xsimpl) >>
-  CASE_TAC >> xif >> instantiate
-  >-(xcon >> fs[IOFS_def,liveFS_def] >> xsimpl) >>
+  xif >-(xcon >> fs [CaseEq"bool"] >> xsimpl) >>
   xlet_auto >-(xcon >> xsimpl) >>
-  xraise >> fs[InvalidFD_exn_def,IOFS_def] >> xsimpl
+  xraise >> fs[InvalidFD_exn_def,IOFS_def,CaseEq"bool"] >> xsimpl
 QED
 
 Theorem closeOut_spec:
@@ -1121,10 +1120,9 @@ Proof
      qpat_abbrev_tac `new_events = events ++ _` >>
      qexists_tac `new_events` >> xsimpl) >>
   NTAC 3 (xlet_auto >- xsimpl) >>
-  CASE_TAC >> xif >> instantiate
-  >-(xcon >> fs[IOFS_def,liveFS_def] >> xsimpl) >>
+  xif >-(xcon >> fs [CaseEq"bool"] >> xsimpl) >>
   xlet_auto >-(xcon >> xsimpl) >>
-  xraise >> fs[InvalidFD_exn_def,IOFS_def] >> xsimpl
+  xraise >> fs[InvalidFD_exn_def,IOFS_def,CaseEq"bool"] >> xsimpl
 QED
 
 Theorem closeIn_STDIO_spec:
@@ -1248,7 +1246,7 @@ Proof
      fs[GSYM n2w2_def] >>
      `(if n < k then n else k) < (2**(2*8))` by fs[] >>
      progress w22n_n2w2 >>
-     xif >> fs[FALSE_def] >> instantiate >> xvar >> xsimpl >>
+     xif >> fs[FALSE_def] >> xvar >> xsimpl >>
      fs[IOFS_def,wfFS_fsupdate,liveFS_fsupdate] >>
      instantiate >> fs[Abbr`fs'`,MIN_DEF,insert_atI_def] >> xsimpl) >>
  (* next element is 0 *)
@@ -1261,7 +1259,7 @@ Proof
                            DROP pos content))`
   >-(qmatch_goalsub_abbrev_tac` _ * _ * IOx _ fs'` >>
      qpat_abbrev_tac `Q = $POSTv _` >>
-     simp [fs_ffi_part_def, IOx_def, IO_def] >>
+     fs [fs_ffi_part_def, IOx_def, IO_def] >>
      xpull >> qunabbrev_tac `Q` >>
      xffi >> xsimpl >>
      fs[IOFS_def,IOx_def,fs_ffi_part_def,
@@ -1771,7 +1769,7 @@ Proof
       qexists_tac `new_events` >> xsimpl) >>
   rpt(xlet_auto >- xsimpl) >>
   xif >> instantiate >> xapp >> xsimpl >> rw[] >> instantiate >>
-  simp[GSYM n2w2_def,w22n_n2w2] >> xsimpl
+  simp[GSYM n2w2_def,w22n_n2w2] >> xsimpl >> gvs []
 QED
 
 Theorem read_into_spec:
@@ -1885,7 +1883,7 @@ Proof
       qexists_tac `new_events` >> xsimpl) >>
    rpt(xlet_auto >- xsimpl) >>
    xif >> instantiate >> xapp >> xsimpl >> rw[] >> instantiate >>
-   simp[GSYM n2w2_def,w22n_n2w2] >> xsimpl
+   simp[GSYM n2w2_def,w22n_n2w2] >> xsimpl >> gvs []
 QED
 
 Theorem read_byte_spec:
@@ -2608,7 +2606,7 @@ Proof
     \\ rw[]
     >-(xsimpl \\ fs[std_preludeTheory.OPTION_TYPE_def]))
   >-(simp[INSTREAM_BUFFERED_BL_FD_RW_def, REF_NUM_def] \\ xpull
-    \\ xlet_auto >- xsimpl
+    \\ simp [] \\ xlet_auto >- xsimpl
     \\ rveq
     \\ xlet_auto >- (xsimpl \\ fs[instream_buffered_inv_def])
     \\ xlet_auto >- xsimpl \\ fs [CharProgTheory.fromByte_def]
@@ -5205,7 +5203,22 @@ Proof
                     TAKE_APPEND1, TAKE_APPEND2, DROP_APPEND, DROP_APPEND1, DROP_APPEND2,
                     DROP_DROP_T]))
   \\ xlet_auto >- xsimpl
-  \\ reverse xif
+  \\ reverse xif \\ fs []
+  >-(xapp \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
+    \\ map_every qexists_tac [`bactive`,`fd`, `req`, `off`, `buf`] \\ simp[]
+    \\ fs[INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def] \\ xsimpl
+    \\ fs[PULL_EXISTS] \\  CONV_TAC(RESORT_EXISTS_CONV List.rev)
+    \\ map_every qexists_tac [`w`, `r`] \\ xsimpl
+    \\ rpt strip_tac
+    \\ `MIN req (STRLEN content − pos + (w − r)) = req` by simp[MIN_DEF, NOT_LESS]
+    \\ simp[] \\ map_every qexists_tac [`x'`,`x'3'`] \\ simp[]
+    \\ simp[TAKE_TAKE_T] \\ `r + req - w = 0` by fs[NOT_LESS]
+    \\ simp[TAKE_0]
+    \\ `pos + (r + (req + x'³')) − (w + x') = pos` by fs[]
+    \\ rw[] \\ simp[MIN_DEF, MAX_DEF]
+    \\ simp[fsupdate_unchanged] \\ xsimpl \\ fs []
+    \\ `r - w = 0` by fs []
+     \\ asm_rewrite_tac [TAKE_0])
   >-(xapp \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
     \\ map_every qexists_tac [`bactive`,`fd`, `req`, `off`, `buf`] \\ simp[]
     \\ fs[INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def] \\ xsimpl
@@ -5235,6 +5248,7 @@ Proof
       \\ rpt strip_tac \\ xsimpl)
   \\ fs[Once INSTREAM_BUFFERED_BL_FD_def, REF_NUM_def, instream_buffered_inv_def]
   \\ xpull
+  \\ simp []
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ xlet_auto_spec (SOME input_spec) >- xsimpl
@@ -5335,7 +5349,7 @@ Proof
       \\ `MAX pos (STRLEN content) = STRLEN content` by simp[MAX_DEF]
       \\ simp[] \\ Cases_on `0 < STRLEN content`
       >-xsimpl
-      >-xsimpl))
+       >-xsimpl))
   \\ fs[INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def]
   \\ fs[NUM_def] \\ xpull \\ xapp \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
   \\ fs[NUM_def] \\ asm_exists_tac \\ qexists_tac `&w − &r`
@@ -5725,11 +5739,7 @@ Theorem inputLines_spec:
 Proof
   Induct_on`splitlines (DROP pos content)` \\ rw[]
   >- (
-    `LENGTH content - pos = 0` by simp[]
-    \\ pop_assum SUBST1_TAC
-    \\ `DROP pos content = []` by fs[DROP_NIL]
-    \\ rpt strip_tac
-    \\ xcf_with_def TextIO_inputLines_v_def
+    xcf_with_def TextIO_inputLines_v_def
     \\ `IS_SOME (get_file_content fs fd)` by fs[IS_SOME_EXISTS]
     \\ xlet_auto >- xsimpl
     \\ rfs[std_preludeTheory.OPTION_TYPE_def,lineFD_def]
@@ -5737,7 +5747,8 @@ Proof
     \\ xcon
     \\ simp[lineForwardFD_def,fastForwardFD_0]
     \\ xsimpl
-    \\ fs[LIST_TYPE_def])
+    \\ `DROP pos content = []` by fs[DROP_NIL]
+    \\ simp [LIST_TYPE_def])
   \\ qpat_x_assum`_::_ = _`(assume_tac o SYM) \\ fs[]
   \\ rpt strip_tac
   \\ xcf_with_def TextIO_inputLines_v_def
@@ -5925,9 +5936,7 @@ Proof
       first_x_assum match_mp_tac \\
       xlet_auto >- xsimpl \\
       xlet_auto >- xsimpl \\
-      xif \\
-      instantiate \\
-      strip_tac \\
+      xif \\ gvs [] \\
       xlet_auto >- xsimpl \\
       xlet_auto_spec(SOME input_spec)
       >- xsimpl \\
@@ -6955,7 +6964,7 @@ Proof
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ gvs [W8ARRAY_def] \\ xpull
-  \\ xlet_auto \\ gvs []
+  \\ simp [] \\ xlet_auto \\ gvs []
   >- (xsimpl \\ gvs [instream_buffered_inv_def])
   \\ ‘find_surplus_fun c bcontent r w = NONE’ by
    (gvs [instream_buffered_inv_def]
@@ -7003,7 +7012,7 @@ Proof
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ gvs [W8ARRAY_def] \\ xpull
-  \\ xlet_auto \\ gvs []
+  \\ simp [] \\ xlet_auto \\ gvs []
   >- (xsimpl \\ gvs [instream_buffered_inv_def])
   \\ ‘find_surplus_fun c bcontent r w = SOME (r + LENGTH bs1)’ by
    (gvs [instream_buffered_inv_def]
