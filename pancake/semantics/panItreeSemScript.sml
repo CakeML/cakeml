@@ -178,6 +178,9 @@ End
 
 Theorem lookup_kvar_defs = CONJ panSemTheory.lookup_kvar_def lookup_kvar_def;
 
+Theorem kvar_defs = LIST_CONJ [set_kvar_defs,set_global_defs,lookup_kvar_defs,set_var_defs,
+                               is_valid_value_def];
+
 val s = “s:('a,'b) bstate”;
 val s1 = “s1:('a,'b) bstate”;
 val p1 = “p1:'a panLang$prog”;

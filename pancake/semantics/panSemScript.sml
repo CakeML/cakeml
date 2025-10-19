@@ -370,6 +370,9 @@ Proof
   simp[is_valid_value_def,lookup_kvar_def]
 QED
 
+Theorem kvar_defs = LIST_CONJ [set_var_def,set_global_def,set_kvar_def,is_valid_value_def,
+                                lookup_kvar_def];
+
 Definition res_var_def:
   (res_var lc (n, NONE) = lc \\ n) /\
   (res_var lc (n, SOME v) = lc |+ (n,v))

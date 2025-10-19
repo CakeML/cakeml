@@ -547,16 +547,12 @@ Proof
   gvs[evaluate_def,AllCaseEqs(),eval_upd_clock_eq] >>
   rpt(pairarg_tac >> gvs[]) >>
   gvs[oneline nb_op_def,AllCaseEqs(),
-      oneline is_valid_value_def,
       oneline sh_mem_load_def,
       oneline sh_mem_store_def,
-      set_var_def,
-      set_global_def,
-      empty_locals_def,
+            empty_locals_def,
       dec_clock_def,
       opt_mmap_eval_upd_clock_eq,
-      lookup_kvar_def,
-      set_kvar_def
+      kvar_defs
      ] >>
   PURE_TOP_CASE_TAC >> gvs[]
 QED
@@ -617,8 +613,7 @@ Proof
       gvs[state_component_equality])
   >~ [‘Call’]
   >- (gvs[evaluate_def,AllCaseEqs(),eval_upd_clock_eq,opt_mmap_eval_upd_clock_eq1,dec_clock_def,
-          empty_locals_def,set_var_def,set_kvar_def,set_global_def,lookup_kvar_def,
-          is_valid_value_def] >>
+          empty_locals_def,kvar_defs] >>
       imp_res_tac evaluate_clock >>
       gvs[empty_locals_def] >>
       TRY $ first_x_assum $ irule_at $ Pat ‘evaluate _ = _’ >>
@@ -653,10 +648,8 @@ Proof
       metis_tac[]) >>
   gvs[evaluate_def,state_component_equality,AllCaseEqs(),eval_upd_clock_eq,
       oneline nb_op_def,oneline sh_mem_load_def,
-      oneline is_valid_value_def,
-      oneline sh_mem_store_def, set_var_def, empty_locals_def,
-      dec_clock_def,opt_mmap_eval_upd_clock_eq1,
-      set_global_def, lookup_kvar_def, set_kvar_def
+      oneline sh_mem_store_def, empty_locals_def,
+      dec_clock_def,opt_mmap_eval_upd_clock_eq1,kvar_defs
      ] >>
   rpt(pairarg_tac >> gvs[]) >>
   gvs[state_component_equality]
@@ -691,9 +684,7 @@ Proof
       imp_res_tac IS_PREFIX_TRANS) >>
   gvs[evaluate_def,AllCaseEqs(),
       oneline nb_op_def,oneline sh_mem_load_def,
-      oneline is_valid_value_def,
-      oneline sh_mem_store_def, set_var_def, empty_locals_def,
-      set_global_def,lookup_kvar_def,set_kvar_def,
+      oneline sh_mem_store_def,empty_locals_def,kvar_defs,
       dec_clock_def,opt_mmap_eval_upd_clock_eq1,
       ffiTheory.call_FFI_def] >>
   rpt(pairarg_tac >> gvs[]) >>
@@ -751,9 +742,7 @@ Proof
   >~ [‘Call’]
   >- (gvs[evaluate_def,AllCaseEqs(),
           oneline nb_op_def,oneline sh_mem_load_def,
-          oneline sh_mem_store_def, set_var_def, empty_locals_def,
-          oneline is_valid_value_def,
-          set_kvar_def, set_global_def,
+          oneline sh_mem_store_def, kvar_defs, empty_locals_def,
           dec_clock_def,opt_mmap_eval_upd_clock_eq1,
           eval_upd_clock_eq,ffiTheory.call_FFI_def] >>
       rpt(pairarg_tac >> gvs[]) >>
@@ -787,9 +776,7 @@ Proof
      ) >>
   gvs[evaluate_def,AllCaseEqs(),
       oneline nb_op_def,oneline sh_mem_load_def,
-      oneline is_valid_value_def,
-      oneline sh_mem_store_def, set_var_def, empty_locals_def,
-      set_global_def,lookup_kvar_def,set_kvar_def,
+      oneline sh_mem_store_def, empty_locals_def,kvar_defs,
       dec_clock_def,opt_mmap_eval_upd_clock_eq1,
       eval_upd_clock_eq,ffiTheory.call_FFI_def] >>
   rpt(pairarg_tac >> gvs[]) >>
@@ -963,8 +950,7 @@ Proof
      >~[‘ShMemLoad’]
      >- (Cases_on ‘op’>>
          gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,
-             dec_clock_def,set_kvar_def,nb_op_def,sh_mem_store_def,
-             set_var_def, set_global_def,sh_mem_load_def,lookup_kvar_def] >>
+             dec_clock_def,kvar_defs,nb_op_def,sh_mem_store_def,sh_mem_load_def] >>
          metis_tac[PAIR,FST,SND])
      >~[‘ShMemStore’]
      >- (Cases_on ‘op’>>
@@ -972,7 +958,7 @@ Proof
              dec_clock_def,set_var_def,nb_op_def,sh_mem_store_def,
              sh_mem_load_def] >>
          metis_tac[PAIR,FST,SND])>>
-     gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,dec_clock_def,set_var_def,set_kvar_def,set_global_def] >>
+     gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,dec_clock_def,kvar_defs] >>
      metis_tac[PAIR,FST,SND])
 QED
 
@@ -990,19 +976,16 @@ Proof
       gvs[dec_clock_def] >>
       metis_tac[])
   >~ [‘ShMemLoad’]
-  >- (rw[Once evaluate_def,AllCaseEqs(),UNCURRY_EQ,oneline is_valid_value_def,
-         sh_mem_load_def,oneline set_kvar_def,empty_locals_def,set_var_def,
-         set_global_def,sh_mem_store_def,dec_clock_def] >>
+  >- (rw[Once evaluate_def,AllCaseEqs(),UNCURRY_EQ,kvar_defs,
+         sh_mem_load_def,empty_locals_def,sh_mem_store_def,dec_clock_def] >>
       rw[] >>
-      PURE_TOP_CASE_TAC >>
       rw[FLOOKUP_UPDATE] >> gvs[] >>
       gvs[lookup_kvar_def] >>
       simp[oneline shape_of_def] >>
       PURE_TOP_CASE_TAC >> simp[]) >>
-  rw[Once evaluate_def,AllCaseEqs(),UNCURRY_EQ,oneline is_valid_value_def,
-     oneline set_kvar_def,empty_locals_def,set_var_def,
-     sh_mem_store_def,dec_clock_def,set_global_def
-    ] >> rw[FLOOKUP_UPDATE] >> gvs[] >>
+  rw[Once evaluate_def,AllCaseEqs(),UNCURRY_EQ,empty_locals_def,
+     sh_mem_store_def,dec_clock_def,kvar_defs] >>
+  rw[FLOOKUP_UPDATE] >> gvs[] >> res_tac >>
   metis_tac[]
 QED
 

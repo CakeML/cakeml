@@ -147,7 +147,7 @@ Proof
   fs [evaluate_def] >>
   pairarg_tac >> fs [] >>
   every_case_tac >> fs [] >> rveq >>
-  fs [empty_locals_def, set_var_def, set_kvar_def, set_global_def] >>
+  fs [empty_locals_def, kvar_defs] >>
   fs [eval_def, FLOOKUP_UPDATE] >>
   metis_tac[]
 QED
@@ -737,7 +737,7 @@ Proof
    fs [] >> rveq >>
    cases_on ‘caltyp’ >> rfs [] >>
    fs [empty_locals_def,is_valid_value_def,lookup_kvar_def] >> rveq >>
-   fs [state_rel_def, state_component_equality,set_var_def,set_kvar_def,set_global_def] >>
+   fs [state_rel_def, state_component_equality,kvar_defs] >>
    every_case_tac >> fs [] >> rveq >> rfs [])
   >- (
    last_x_assum (qspec_then ‘dec_clock t with
@@ -751,7 +751,7 @@ Proof
    fs [] >> rveq >>
    cases_on ‘caltyp’ >> rfs [] >>
    fs [empty_locals_def,is_valid_value_def,lookup_kvar_def] >> rveq >>
-   fs [state_rel_def, state_component_equality,set_var_def,set_kvar_def,set_global_def] >>
+   fs [state_rel_def, state_component_equality,kvar_defs] >>
    every_case_tac >> fs [] >> rveq >> rfs []) >>
   last_x_assum (qspec_then ‘dec_clock t with
                             locals := FEMPTY |++ ZIP (MAP FST vshapes,x)’ mp_tac) >>
@@ -868,9 +868,8 @@ Proof
   rw [] >>
   gvs [evaluate_seq_assoc, evaluate_skip_seq,
        oneline nb_op_def,sh_mem_load_def,sh_mem_store_def,
-      set_var_def,empty_locals_def, evaluate_def,
-      AllCaseEqs(), lookup_kvar_def, PULL_EXISTS,
-      set_kvar_def, set_global_def
+       kvar_defs,empty_locals_def, evaluate_def,
+       AllCaseEqs(), lookup_kvar_def, PULL_EXISTS
       ] >>
   MAP_EVERY imp_res_tac [compile_eval_correct,compile_eval_correct_none] >> gvs[] >>
   gvs [state_rel_def, state_component_equality,
@@ -910,11 +909,11 @@ Theorem compile_Others:
 Proof
   rw [] >>
   fs [evaluate_seq_assoc, evaluate_skip_seq] >>
-  fs [evaluate_def] >> rveq >> fs [is_valid_value_def,set_kvar_def] >>
+  fs [evaluate_def] >> rveq >> fs [kvar_defs] >>
   (
   every_case_tac >> gvs [] >>
   imp_res_tac compile_eval_correct >>
-  gvs [state_rel_def, state_component_equality,set_var_def,set_global_def,
+  gvs [state_rel_def, state_component_equality,
        empty_locals_def, dec_clock_def])
 QED
 
