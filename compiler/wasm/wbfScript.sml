@@ -1078,9 +1078,9 @@ Definition enc_section_def:
 End
 
 Definition dec_section_def:
-  dec_section ( _:byte)
-              ( _:byteSeq -> α dcdr)
-              ([]:byteSeq) : (α list) dcdr = emErr "dec_section"
+  dec_section (_:byte)
+              (_:byteSeq -> α dcdr)
+              [] : (α list) dcdr = ret [] []
   ∧
   dec_section leadByte dec (b::bs) =
     if b ≠ leadByte then ret (b::bs) []

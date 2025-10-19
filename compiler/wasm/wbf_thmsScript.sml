@@ -785,21 +785,68 @@ Proof
     >> TRY (qpat_x_assum `SOME _ = enc_u32 _` $ mp_tac o GSYM \\ strip_tac)
     (**)
     >> imp_res_tac dec_enc_u32
-    >> simp ssa
+    >> simp $ ssaa [names_component_equality]
     (* mname *)
-    >> TRY (imp_res_tac dec_enc_mls \\ pop_assum $ qspec_then `[]` assume_tac)
+    >> TRY (
+        qpat_assum `enc_mls _ = SOME _` (fn _ =>
+          imp_res_tac dec_enc_mls
+          \\ pop_assum $ qspec_then `[]` mp_tac
+          \\ rw[]
+          \\ imp_res_tac dec_enc_mls
+          \\ rw[]
+        )
+    )
+    >> simp[dec_section_def, names_component_equality]
+    >> cheat
+QED
+(*
+    (* f&l names *)
+cheat
+    >> imp_res_tac enc_section_nEmp
+    >> imp_res_tac dec_enc_u32
+    >> simp[dec_section_def]
+
+    >> simp[dec_section_def, names_component_equality]
+
+imp_res_tac dec_enc_mls \\ pop_assum $ qspec_then `[]` assume_tac)
     >> fs[dec_section_def]
     >> pop_assum kall_tac
->>
-cheat
-(*
-    (* fnames *)
-    >> assume_tac dec_enc_ass
+    (* f- & l- names *)
+    >> simp[]
+    >> TRY (
+        qpat_x_assum `enc_section 1w _ _ = SOME _` (fn _ =>
+          assume_tac dec_enc_ass
+        )
+    )
+    >> TRY (
+        qpat_x_assum `enc_section 2w _ _ = SOME _` (fn _ =>
+          assume_tac dec_enc_map
+          \\ imp_res_tac dec_enc_idx_alpha
+        )
+    )
     >> imp_res_tac dec_enc_section
+
+    >> simp[dec_section_def, AllCaseEqs()]
+    >> Cases_on `dec_u32 bs`
+    >> Cases_on `q` >> simp[]
+
+    >> imp_res_tac dec_enc_section
+    >> pop_assum $ qspec_then `[]` assume_tac
+    (* lnames *)
+
+
+>- cheat
+>- cheat
+(*
     >> TRY (qpat_x_assum `enc_section 1w _ _ = SOME _` mp_tac)
-    >> rw[enc_section_def]
+    >> rw[enc_section_def, prepend_sz_def]
+gvs[]
+simp ssa
     >> simp[dec_section_def]
+    >> gvs[dec_section_def]
+
     >> imp_res_tac dec_enc_vector
+    >> pop_assum $ qspec_then `[]` assume_tac
 
     >> imp_res_tac dec_enc_u32
     >> assume_tac dec_enc_idx_alpha
@@ -818,7 +865,6 @@ cheat
     >> dxrule_at Any dec_enc_idx_alpha
     >> strip_tac
 
-    >> simp[names_component_equality]
 cheat
 
     >> `append encxs = encxs a++ []` by simp[]
@@ -833,117 +879,11 @@ cheat
     >> assume_tac dec_enc_idx_alpha
     >> imp_res_tac dec_enc_vector
 
-    >> assume_tac dec_enc_map
-    >> dxrule_at Any dec_enc_idx_alpha
-    >> strip_tac
-    >> imp_res_tac dec_enc_vector
-
-    >> simp[]
-    >>
-
-    >> gvs[dec_section_def, AllCaseEqs()]
-
-    >> imp_res_tac enc_section_nEmp
-    >> simp[dec_section_def, AllCaseEqs()]
-
-    >> asm_rewrite_tac[]
-    (* lnames *)
-    (**)
-    >> simp[names_component_equality]
-
-    asm_rewrite_tac[]
-
-    (* 1 *)
-    >> simp[names_component_equality]
-
-    (* 2 *)
-    >- cheat
-
-    (* 3 *)
-    >- cheat
-
-    (* 4 *)
-    >- cheat
-
-    (* 5 *)
     >> ntac 2 $ pop_assum kall_tac
-    >> imp_res_tac dec_enc_mls
-    >> simp ssa
-
-    (* 6 *)
-
-    (* 7 *)
-
-    (* 8 *)
-
     >> cheat
 *)
 QED
 (*
-
-Theorem dec_enc_names:
-  ∀no eno rest.
-  enc_names_section no = SOME eno ⇒
-  dec_names_section $ append eno = (INR no, [])
-Proof
-
-  Cases
-  >> rw[Once enc_names_section_def, Once dec_names_section_def, AllCaseEqs()]
-    >> gvs[prepend_sz_def, dec_names_section_def, magic_str_def]
-    >> gvs[string2bytes_def, bytes2string_def, blank_def]
-    (**)
-    >> imp_res_tac dec_enc_u32
-    >> simp ssa
-
-    >> pop_assum (fn x => mp_tac $ GSYM x)
-    >> strip_tac
-    >> simp[names_component_equality]
-
-    >> imp_res_tac dec_enc_u32
-    >> simp ssa
-    >> ntac 2 $ pop_assum kall_tac
-    >> assume_tac dec_enc_map
-    >> imp_res_tac dec_enc_idx_alpha
-    >> pop_assum mp_tac
-    >> pop_assum kall_tac
-    >> strip_tac
-    >> imp_res_tac dec_enc_section
-
-    >> rw[]
-    >> rw[magic_str_def, string2bytes_def, AllCaseEqs()]
-    (**)
-ntac 2 $ pop_assum kall_tac
-    (**)
-    >> assume_tac dec_enc_map
-    >> imp_res_tac dec_enc_idx_alpha
-    >> pop_assum mp_tac
-    >> pop_assum kall_tac
-    >> strip_tac
-    >> imp_res_tac dec_enc_section
-    >> qspec_then ‘dec_idx_alpha dec_map’ imp_res_tac
-    >>
-
-    >> dxrule dec_enc_idx_alpha
-    >> dxrule_all dec_enc_idx_alpha
-    >> simp[]
-    >> gvs[]
-
-    >> assume_tac dec_enc_idx_alpha
-    >> assume_tac dec_enc_map
-    >> imp_res_tac dec_enc_section
-    >> rw[]
-
-    >> assume_tac
-
-    >> rw[AllCaseEqs()]
-    >> rw[magic_str_def, string2bytes_def, AllCaseEqs()]
-    >> rw[magic_str_def, string2bytes_def, AllCaseEqs()]
-
-
-cheat
-
-QED
-
 
 
 
@@ -1005,4 +945,5 @@ Proof
   >> simp $ ssaa [enc_list_def, Once dec_list_def, CaseEq "sum", CaseEq "prod"]
 QED
 
+*)
 *)
