@@ -209,7 +209,7 @@ val xsimpl =
 
 (* [xlet] *)
 
-fun xlet_core cont0 cont1 cont2 =
+fun xlet_core cont0 qname =
   xpull_check_not_needed \\
   head_unfold cf_let_def \\
   irule local_elim \\ hnf \\
@@ -218,7 +218,8 @@ fun xlet_core cont0 cont1 cont2 =
   rpt CONJ_TAC THENL [
     all_tac,
     TRY (MATCH_ACCEPT_TAC cfHeapsBaseTheory.SEP_IMPPOSTv_inv_POSTv_left),
-    cont1 \\ cont2
+    (qx_gen_tac qname \\ simp_tac (srw_ss()) [])
+    \\ TRY xpull
   ]
 
 val res_CASE_tm =
@@ -270,8 +271,7 @@ fun xlet Q (g as (asl, w)) = let
 in
   xlet_core
     (qexists_tac Q)
-    (qx_gen_tac qname \\ simp_tac (srw_ss()) [])
-    (TRY xpull)
+    qname
     g
 end
 
