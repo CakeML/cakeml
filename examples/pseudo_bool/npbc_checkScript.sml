@@ -2602,6 +2602,7 @@ Datatype:
   | ChangeObj bool ((int # var) list # int) subproof
     (* the bool indicates T (new) or F (diff) mode *)
   | CheckObj ((int # var) list # int)
+  | AssertObj int
 
   (* Preserved set step b=T is add, b=F is remove *)
   | ChangePres bool var npbc subproof
@@ -3148,14 +3149,17 @@ Definition check_eq_obj_def:
 End
 
 Definition update_bound_def:
-  update_bound chk bound dbound new =
-  let dbound =
-    if opt_lt (SOME new) dbound then
-      SOME new else dbound in
-  let bound =
-    if chk ∧ opt_lt (SOME new) bound then
-      SOME new else bound in
-  (bound,dbound)
+  update_bound chk bound new =
+  if chk ∧ opt_lt (SOME new) bound
+  then SOME new
+  else bound
+End
+
+Definition update_dbound_def:
+  update_dbound dbound new =
+    if opt_lt (SOME new) dbound
+    then SOME new
+    else dbound
 End
 
 Definition do_transfer_def:
@@ -3401,8 +3405,8 @@ Definition check_cstep_def:
       (MAP SND (toAList (mk_core_fml T fml))) bopt of
       NONE => NONE
     | SOME new =>
-      let (bound',dbound') =
-        update_bound pc.chk pc.bound pc.dbound new in
+      let bound' = update_bound pc.chk pc.bound new in
+      let dbound' = update_dbound pc.dbound new in
       if mi then
         let c = model_improving pc.obj new in
         SOME (
@@ -3425,6 +3429,15 @@ Definition check_cstep_def:
     if check_eq_obj pc.obj fc'
     then SOME (fml,pc)
     else NONE
+  | AssertObj i => (
+      let c = model_improving pc.obj i in
+      let dbound' = update_dbound pc.dbound i in
+        SOME (
+          insert pc.id (c,T) fml,
+          pc with
+          <| id := pc.id+1;
+             dbound := dbound' |>)
+    )
   | ChangePres b v c pfs =>
     (case check_change_pres b fml pc.id pc.pres v c pfs of
       NONE => NONE
@@ -3919,9 +3932,9 @@ Theorem check_cstep_correct:
       OPTION_ALL good_aspo_subst pc'.ord ∧
       EVERY (good_aord_t o SND) pc'.orders
 Proof
-  Cases_on`cstep`>>
-  fs[check_cstep_def]
-  >- ( (* Dominance *)
+  Cases_on`cstep`
+  >~[`Dom`]>- (
+    fs[check_cstep_def]>>
     Cases_on`pc.ord`>>fs[]>>
     pairarg_tac>>gvs[]>>
     TOP_CASE_TAC>>
@@ -4195,7 +4208,8 @@ Proof
     Cases_on`pc.tcb`>> simp[]>>
     DEP_REWRITE_TAC[core_only_fml_T_insert_T,core_only_fml_T_insert_F]>>
     fs[id_ok_def,SUBSET_DEF] )
-  >- ( (* Sstep *)
+  >~[`Sstep`]>- (
+    fs[check_cstep_def]>>
     rw[]>>
     drule check_sstep_correct>>
     fs[valid_conf_def]>>
@@ -4207,7 +4221,8 @@ Proof
     strip_tac>>
     rw[]>>gvs[pres_set_spt_def]>>
     metis_tac[sat_obj_po_trans,sat_obj_po_bimp_pres_obj,OPTION_ALL_good_aspo_subst_good_aspo])
-  >- ( (* CheckedDelete *)
+  >~[`CheckedDelete`]>- (
+    fs[check_cstep_def]>>
     rw[]>>
     every_case_tac>>fs[]>>
     `id_ok (delete n fml) pc.id` by
@@ -4275,7 +4290,8 @@ Proof
     rw[]>>
     gvs[pres_set_spt_def]>>
     metis_tac[sat_obj_po_bimp_pres_obj])
-  >- ( (* UncheckedDelete *)
+  >~[`UncheckedDelete`]>- (
+    fs[check_cstep_def]>>
     strip_tac>>
     IF_CASES_TAC >> simp[]>>
     CONJ_TAC >- metis_tac[id_ok_FOLDL_delete] >>
@@ -4290,7 +4306,8 @@ Proof
     rw[core_only_fml_def,SUBSET_DEF]>>
     fs[lookup_FOLDL_delete]>>
     metis_tac[])
-  >- ( (* Transfer *)
+  >~[`Transfer`]>- (
+    fs[check_cstep_def]>>
     strip_tac>>
     every_case_tac>>simp[]>>
     rpt (pop_assum mp_tac)>>
@@ -4334,7 +4351,8 @@ Proof
       simp[]>>
       match_mp_tac proj_pres_SUBSET>>
       simp[SUBSET_DEF]))
-  >- ( (* Strengthen-to-core *)
+  >~[`StrengthenToCore`] >- (
+    fs[check_cstep_def]>>
     strip_tac>>
     reverse IF_CASES_TAC>>
     fs[valid_conf_def,id_ok_map]>>
@@ -4346,7 +4364,8 @@ Proof
     simp[sat_obj_po_refl,OPTION_ALL_good_aspo_subst_good_aspo]>>
     rw[]>>match_mp_tac bimp_pres_obj_SUBSET>>
     metis_tac[core_only_fml_T_SUBSET_F])
-  >- ( (* LoadOrder *)
+  >~[`LoadOrder`] >- (
+    fs[check_cstep_def]>>
     every_case_tac>>
     simp[]>>
     drule ALOOKUP_MEM>>
@@ -4366,14 +4385,16 @@ Proof
     rw[]>>
     match_mp_tac bimp_pres_obj_SUBSET>>
     metis_tac[core_only_fml_T_SUBSET_F])
-  >- ( (* UnloadOrder *)
+  >~[`UnloadOrder`] >- (
+    fs[check_cstep_def]>>
     rw[]>>
     every_case_tac>>
     fs[]>>
     fs[valid_conf_def,opt_le_def,valid_req_def]>>
     gvs[sat_obj_po_def]>>rw[]>>
     metis_tac[])
-  >- ( (* StoreOrder *)
+  >~[`StoreOrder`] >- (
+    fs[check_cstep_def]>>
     rw[]>>fs[opt_le_def,bimp_obj_refl]>>
     every_case_tac>>fs[]>>
     rename1`mk_aord vars f gspec`>>
@@ -4499,12 +4520,13 @@ Proof
         gvs[EXTENSION,MEM_MAP,vec_lookup_num_man_to_vec,lookup_fromAList,ALOOKUP_NONE,FORALL_PROD]>>
         metis_tac[])
     )
-  >- ( (* Obj *)
+  >~[`Obj`] >- (
+    fs[check_cstep_def]>>
     strip_tac>>
     every_case_tac>>simp[]
     >- (
       (* Adding model improving *)
-      gvs[update_bound_def]>>
+      gvs[update_bound_def,update_dbound_def]>>
       `pc.id ∉ domain fml` by fs[id_ok_def]>>
       CONJ_TAC >- fs[id_ok_def]>>
       CONJ_TAC >- (
@@ -4553,14 +4575,14 @@ Proof
       match_mp_tac bimp_pres_obj_SUBSET>>
       DEP_REWRITE_TAC[core_only_fml_T_insert_T]>>
       fs[SUBSET_DEF])>>
-    gvs[update_bound_def]>>
+    gvs[update_bound_def,update_dbound_def]>>
     IF_CASES_TAC>>simp[opt_le_def,sat_obj_le_def]>>
     drule check_obj_imp>>rw[]>>
     fs[GSYM range_mk_core_fml,range_toAList]>>
     asm_exists_tac>>
     simp[])
-  >- (
-    (* ChangeObj *)
+  >~[`ChangeObj`] >- (
+    fs[check_cstep_def]>>
     strip_tac>>
     simp[check_change_obj_def,insert_fml_def]>>
     every_case_tac>>fs[]>>
@@ -4649,9 +4671,56 @@ Proof
     rw[bimp_pres_obj_def]>>
     qexists_tac`I`>>rw[INJ_DEF,pbcTheory.proj_pres_def]>>
     first_assum (irule_at Any)>> simp[])
-  >-
-    (every_case_tac>>rw[])
-  >- (
+  >~[`CheckObj`] >- (
+    fs[check_cstep_def]>>
+    every_case_tac>>rw[])
+  >~[`AssertObj`] >- (
+    fs[check_cstep_def]>>
+    strip_tac>>
+    gvs[update_dbound_def]>>
+    `pc.id ∉ domain fml` by fs[id_ok_def]>>
+    CONJ_TAC >- fs[id_ok_def]>>
+    CONJ_TAC >- (
+      fs[valid_conf_def]>>
+      DEP_REWRITE_TAC[core_only_fml_T_insert_T,core_only_fml_F_insert_b]>>
+      simp[]>>
+      CONJ_TAC >-
+        metis_tac[sat_implies_INSERT]>>
+      rw[]>>
+      DEP_REWRITE_TAC[core_only_fml_T_insert_T,core_only_fml_F_insert_b]>>
+      fs[sat_obj_po_def]>>rw[]>>
+      first_x_assum drule>>
+      rw[]>>
+      qexists_tac`w'`>>simp[range_insert]>>
+      fs[satisfies_npbc_model_improving]>>
+      intLib.ARITH_TAC)>>
+    CONJ_TAC >- rw[opt_le_def]>>
+    CONJ_TAC>- (
+      reverse IF_CASES_TAC>>simp[]
+      >- (
+        simp[core_only_fml_F_insert_b,bimp_pres_obj_def]>>
+        rw[]>>
+        qexists_tac`I`>>
+        simp[INJ_DEF,satisfies_npbc_model_improving]>>
+        Cases_on`pc.dbound`>>fs[opt_lt_def]>>
+        rw[pbcTheory.proj_pres_def]>>
+        first_assum (irule_at Any)>>simp[]>>
+        intLib.ARITH_TAC)>>
+      simp[core_only_fml_F_insert_b]>>
+      fs[bimp_pres_obj_def]>>
+      rw[]>>
+      qexists_tac`I`>>
+      simp[INJ_DEF,satisfies_npbc_model_improving]>>
+      Cases_on`pc.dbound`>>fs[opt_lt_def]>>
+      rw[pbcTheory.proj_pres_def]>>
+      first_assum (irule_at Any)>>simp[]>>
+      intLib.ARITH_TAC)>>
+    strip_tac>>
+    match_mp_tac bimp_pres_obj_SUBSET>>
+    DEP_REWRITE_TAC[core_only_fml_T_insert_T]>>
+    fs[SUBSET_DEF])
+  >~[`ChangePres`] >- (
+    fs[check_cstep_def]>>
     (* ChangePres *)
     rw[]>>
     simp[check_change_pres_def,AllCasePreds()]>>

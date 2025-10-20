@@ -1602,6 +1602,12 @@ Definition parse_obj_term_npbc_def:
       | SOME fc' => SOME (fc', f_ns'))
 End
 
+Definition parse_obji_def:
+  parse_obji f_ns rs =
+  (case rs of [INR i] => SOME (Done (AssertObj i), f_ns)
+   | _ => NONE)
+End
+
 Definition parse_eobj_def:
   parse_eobj f_ns rs =
   case parse_obj_term_npbc f_ns rs of
@@ -1718,6 +1724,8 @@ Definition parse_cstep_head_def:
       parse_load_order f_ns rs
     else if r = INL (strlit "soli") ∨ r = INL (strlit "sol") then
       parse_sol f_ns r rs
+    else if r = INL (strlit "obji") then
+      parse_obji f_ns rs
     else if r = INL (strlit "eobj") then
       parse_eobj f_ns rs
     else NONE
@@ -1744,6 +1752,9 @@ EVAL
 
 EVAL
 ``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"soli ~x1 ~x2 ~x3 ~x4 ~x5 ~x6 x7 ~x8 x9 ~x10 ~x11 x12 : 50;"))``;
+
+EVAL
+``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"obji -100 ;"))``;
 
 EVAL
 ``parse_cstep_head (plainVar_nf,()) (toks_fast (strlit"eobj 1 x1 -100 ;"))``;

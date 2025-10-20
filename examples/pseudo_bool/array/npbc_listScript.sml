@@ -4008,8 +4008,8 @@ Definition check_cstep_list_def:
     case check_obj pc.obj w (MAP SND corels) bopt of
       NONE => NONE
     | SOME new =>
-      let (bound',dbound') =
-        update_bound pc.chk pc.bound pc.dbound new in
+      let bound' = update_bound pc.chk pc.bound new in
+      let dbound' = update_dbound pc.dbound new in
       if mi then
         let c = model_improving pc.obj new in
         SOME (
@@ -4040,6 +4040,19 @@ Definition check_cstep_list_def:
     if check_eq_obj pc.obj fc'
     then SOME (fml, zeros, inds, vimap, vomap, pc)
     else NONE
+  | AssertObj i => (
+      let c = model_improving pc.obj i in
+      let dbound' = update_dbound pc.dbound i in
+        SOME (
+          update_resize fml NONE (SOME (c,T)) pc.id,
+          zeros,
+          sorted_insert pc.id inds,
+          update_vimap vimap pc.id (FST c),
+          vomap,
+          pc with
+          <| id := pc.id+1;
+             dbound := dbound' |>)
+    )
   | ChangePres b v c pfs =>
     (case check_change_pres_list b fml pc.id pc.pres
         v c pfs zeros of
@@ -4397,7 +4410,6 @@ Proof
       simp[lookup_mk_core_fml]>>
       metis_tac[ind_rel_lookup_core_only_list,fml_rel_lookup_core_only])>>
     drule check_obj_cong>>rw[]>>fs[]>>
-    pairarg_tac>>gvs[]>>
     rw[]>>gvs[]
     >- metis_tac[fml_rel_update_resize]
     >- metis_tac[ind_rel_update_resize_sorted_insert]
@@ -4436,8 +4448,14 @@ Proof
     simp[any_el_rollback]>>
     metis_tac[check_subproofs_list_zeros])
   >~ [‘CheckObj’] >- (
-    fs[check_cstep_def,check_cstep_list_def]
-  )
+    fs[check_cstep_def,check_cstep_list_def])
+  >~ [‘AssertObj’] >- (
+    gvs[check_cstep_def,check_cstep_list_def]>>
+    rw[]
+    >- metis_tac[fml_rel_update_resize]
+    >- metis_tac[ind_rel_update_resize_sorted_insert]
+    >- metis_tac[vimap_rel_update_resize_update_vimap]>>
+    simp[any_el_update_resize])
   >~ [‘ChangePres’] >- (
     fs[check_cstep_def,check_cstep_list_def]>>
     gvs[AllCaseEqs(),check_change_pres_list_def,check_change_pres_def]>>

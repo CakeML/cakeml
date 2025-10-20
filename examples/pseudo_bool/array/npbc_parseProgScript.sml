@@ -1708,6 +1708,7 @@ val res = translate parse_assg_def;
 val res = translate parse_sol_def;
 
 val res = translate parse_eobj_def;
+val res = translate parse_obji_def;
 
 val res = translate parse_cstep_head_def;
 

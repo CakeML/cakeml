@@ -69,7 +69,7 @@ val r = translate multiply_def;
 
 val r = translate IQ_def;
 val r = translate div_ceiling_def;
-val r = translate arithmeticTheory.CEILING_DIV_def ;
+val r = translate div_ceiling_up_def;
 val r = translate divide_def;
 
 val divide_side = Q.prove(
@@ -4524,6 +4524,7 @@ Proof
 QED
 
 val res = translate npbc_checkTheory.update_bound_def;
+val res = translate npbc_checkTheory.update_dbound_def;
 
 val core_from_inds_arr = process_topdecs`
   fun core_from_inds_arr lno fml is =
@@ -5064,6 +5065,13 @@ End
 
 val res = translate change_obj_update_def;
 
+Definition assert_obj_update_def:
+  assert_obj_update pc id' dbound' =
+  pc with <| id := id'; dbound := dbound' |>
+End
+
+val res = translate assert_obj_update_def;
+
 Definition change_pres_update_def:
   change_pres_update pc id' pres' =
   pc with <| id := id'; pres := SOME pres' |>
@@ -5297,8 +5305,10 @@ val check_cstep_arr = process_topdecs`
        raise Fail (format_failure lno
         ("supplied assignment did not satisfy constraints or did not improve objective"))
       | Some new =>
-      case update_bound (get_chk pc)
-        (get_bound pc) (get_dbound pc) new of (bound',dbound') =>
+      let
+        val bound' = update_bound (get_chk pc) (get_bound pc) new
+        val dbound' = update_dbound (get_dbound pc) new
+      in
       if mi
       then
         let
@@ -5313,6 +5323,7 @@ val check_cstep_arr = process_topdecs`
         end
       else
         (fml, (zeros, (inds, (vimap, (vomap, obj_update pc (get_id pc) bound' dbound')))))
+      end
     end
     )
   | Changeobj b fc' pfs =>
@@ -5326,6 +5337,19 @@ val check_cstep_arr = process_topdecs`
     else
       raise Fail (format_failure lno
         (err_obj_check_string (get_obj pc) fc'))
+  | Assertobj i =>
+    let
+      val id = get_id pc
+      val obj = get_obj pc
+      val c = model_improving obj i
+      val dbound' = update_dbound (get_dbound pc) i in
+      (Array.updateResize fml None id (Some (c,True)),
+       (zeros,
+       (sorted_insert id inds,
+       (update_vimap_arr vimap id (fst c),
+       (vomap,
+        assert_obj_update pc (id+1) dbound')))))
+    end
   | Changepres b v c pfs =>
     (case check_change_pres_arr lno b fml
       (get_id pc) (get_pres pc) v c pfs zeros of
@@ -5722,16 +5746,14 @@ Proof
       xsimpl>>
       metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])>>
     rpt xlet_autop>>
-    pairarg_tac>>
     fs[get_chk_def,get_bound_def,get_dbound_def,PAIR_TYPE_def]>>
-    xmatch>>
     reverse xif
     >- (
       rpt xlet_autop>>
       xcon>>xsimpl>>
       fs[PAIR_TYPE_def,get_id_def,obj_update_def]>>
-      `pc with <|id := pc.id; bound := bound'; dbound := dbound'|>
-        = pc with <|bound := bound'; dbound := dbound'|>` by
+      `∀b db. pc with <|id := pc.id; bound := b; dbound := db|>
+        = pc with <|bound := b; dbound := db|>` by
        fs[npbc_checkTheory.proof_conf_component_equality]>>
       metis_tac[ARRAY_W8ARRAY_refl])
     >- ( (* model improving *)
@@ -5778,6 +5800,18 @@ Proof
     rpt xlet_autop>>
     xraise>>xsimpl>>
     metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])
+  >- ( (* AssertObj *)
+    xmatch>>
+    rpt xlet_autop>>
+    xcon>> xsimpl>>
+    simp[PAIR_TYPE_def]>>
+    qmatch_goalsub_abbrev_tac`ARRAY _ A`>>
+    qexists_tac`A`>>xsimpl>>
+    fs[get_id_def,assert_obj_update_def,get_dbound_def,get_obj_def]>>
+    unabbrev_all_tac>>
+    match_mp_tac LIST_REL_update_resize>>
+    fs[OPTION_TYPE_def,PAIR_TYPE_def]>>
+    EVAL_TAC)
   >- ( (* ChangePres *)
     xmatch>>
     rpt xlet_autop>>
