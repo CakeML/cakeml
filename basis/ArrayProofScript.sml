@@ -112,7 +112,7 @@ Proof
         ) \\
       once_rewrite_tac[CONS_APPEND] \\
       rewrite_tac[APPEND_ASSOC] \\
-      xapp \\ xsimpl ) \\
+      xapp \\ xsimpl \\ gvs []) \\
   Cases_on `l` >>
   fs [LIST_TYPE_def] >>
   rfs [] >>
@@ -294,7 +294,9 @@ Proof
      instantiate >> xcon >> xsimpl >> metis_tac[TAKE_0,LENGTH_NIL]) >>
   xlet_auto >- xsimpl >>
   xif >> instantiate >>
-  NTAC 4 (xlet_auto >- xsimpl) >>
+  xlet_auto >- xsimpl >>
+  simp [] >>
+  NTAC 3 (xlet_auto >- xsimpl) >>
   xapp >> xsimpl >>
   cases_on`mid` >> fs[] >>
   qexists_tac`1 + n` >> qexists_tac`t` >>
@@ -1070,4 +1072,3 @@ Proof
   first_x_assum (irule_at Any)>>
   simp[]
 QED
-
