@@ -5,7 +5,7 @@
   operations It then proves functional correctness of these operations.
 
   It is a simplified version of the balanced binary tree example found in
-  $HOLDIR/examples/balanced_bst
+  $HOLDIR/examples/data-structures/balanced_bst
 *)
 
 (*
