@@ -940,7 +940,7 @@ Definition static_check_prog_def:
         then error (ShapeErr $ get_shape_mismatch_msg (strlit "call result to return") ctxt.loc ctxt.scope)
       else return ();
       (* check arg num and shapes *)
-      check_func_args ctxt trgt finf.params esret.sh_bds;
+      check_func_args ctxt trgt finf'.params esret.sh_bds;
       (* return prog info *)
       return <| exits_fun  := T
               ; exits_loop := F
