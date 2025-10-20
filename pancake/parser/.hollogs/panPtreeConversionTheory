@@ -1,0 +1,152 @@
+<<HOL message: Created theory "panPtreeConversion">>
+Saved definition ____ "destLf_def"
+Saved induction _____ "destLf_ind"
+Saved definition ____ "destTOK_def"
+Saved induction _____ "destTOK_ind"
+Saved definition ____ "tokcheck_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 43 clauses to the original specification.>>
+Saved definition ____ "dest_annot_tok_def"
+Saved definition ____ "kw_def"
+Saved definition ____ "isNT_def"
+Saved definition ____ "argsNT_def"
+Saved induction _____ "argsNT_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 43 clauses to the original specification.>>
+Saved definition ____ "conv_int_def"
+Saved definition ____ "conv_nat_def"
+Saved definition ____ "conv_const_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 43 clauses to the original specification.>>
+Saved definition ____ "conv_ident_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 43 clauses to the original specification.>>
+Saved definition ____ "conv_ffi_ident_def"
+Saved definition ____ "conv_var_def"
+Saved definition ____ "binaryExps_def"
+Saved definition ____ "panExps_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 18 clauses to the original specification.>>
+Saved definition ____ "isSubOp_def"
+Saved induction _____ "isSubOp_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "conv_binop_def"
+Saved induction _____ "conv_binop_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "conv_panop_def"
+Saved induction _____ "conv_panop_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "conv_shift_def"
+Saved induction _____ "conv_shift_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "conv_cmp_def"
+Saved induction _____ "conv_cmp_ind"
+Saved theorem _______ "mem_ptree_thm"
+Saved definition ____ "conv_Shape_def"
+Saved induction _____ "conv_Shape_ind"
+Saved definition ____ "conv_params_def"
+Saved induction _____ "conv_params_ind"
+Saved definition ____ "conv_Shift_def"
+Saved induction _____ "conv_Shift_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 11 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 11 clauses to the original specification.>>
+Saved definition ____ "conv_Exp_def"
+Saved induction _____ "conv_Exp_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 5 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "conv_NonRecStmt_def"
+Saved induction _____ "conv_NonRecStmt_ind"
+Saved definition ____ "butlast_def"
+Saved theorem _______ "butlast_length"
+Saved theorem _______ "butlast_tl"
+Saved theorem _______ "butlast_append"
+Saved theorem _______ "list_size_butlast"
+Saved theorem _______ "list_size_MEM"
+Saved definition ____ "parsetree_locs_def"
+Saved definition ____ "posn_string_def"
+Saved definition ____ "locs_comment_def"
+Saved definition ____ "add_locs_annot_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "conv_Dec_def"
+Saved induction _____ "conv_Dec_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "conv_DecCall_def"
+Saved induction _____ "conv_DecCall_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 4 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL warning: Pmatch.mk_functional: SHOULD NOT HAPPEN! RENAMING CASE_TM FAILED!>>
+Saved definition ____ "conv_Prog_def"
+Saved induction _____ "conv_Prog_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 69 clauses to the original specification.>>
+Saved definition ____ "conv_expos_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 69 clauses to the original specification.>>
+Saved definition ____ "conv_inline_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 5 clauses to the original specification.>>
+Saved definition ____ "conv_Fun_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "conv_FunList_def"
+Saved induction _____ "conv_FunList_ind"
+Saved definition ____ "parse_to_ast_def"
+Saved definition ____ "parse_funs_to_ast_def"
+Exporting theory "panPtreeConversion" ... done.
+Theory "panPtreeConversion" took 4.8s to build

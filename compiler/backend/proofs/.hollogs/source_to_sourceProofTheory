@@ -1,0 +1,5 @@
+<<HOL message: Created theory "source_to_sourceProof">>
+Saved theorem _______ "compile_semantics"
+Saved theorem _______ "compile_semantics_oracle"
+Exporting theory "source_to_sourceProof" ... done.
+Theory "source_to_sourceProof" took 0.10253s to build

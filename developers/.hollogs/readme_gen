@@ -1,0 +1,2 @@
+ld: warning: -ld_classic is deprecated and will be removed in a future release
+ld: warning: directory not found for option '-L-Wl,-rpath,'

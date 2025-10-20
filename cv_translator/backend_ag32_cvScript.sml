@@ -1,11 +1,12 @@
 (*
   Translate ag32-specialised functions to cv equations.
 *)
-open preamble cv_transLib cv_stdTheory backend_cvTheory backend_32_cvTheory;
-open backend_ag32Theory ag32Theory ag32_targetTheory to_data_cvTheory;
-open export_ag32Theory ag32_configTheory;
-
-val _ = new_theory "backend_ag32_cv";
+Theory backend_ag32_cv[no_sig_docs]
+Ancestors
+  cv_std backend_cv backend_32_cv backend_ag32 ag32 ag32_target
+  to_data_cv export_ag32 ag32_config
+Libs
+  preamble cv_transLib
 
 (*---------------------------------------------------------------------------*
   Translation of instruction encoder
@@ -36,7 +37,7 @@ val _ = cv_trans ag32_targetTheory.ag32_enc_def;
   Remaining ag32-specific functions
  *---------------------------------------------------------------------------*)
 
-val pre = cv_auto_trans_pre comp_ag32_def;
+val pre = cv_auto_trans_pre "" comp_ag32_def;
 
 Theorem comp_ag32_pre[cv_pre,local]:
   ∀v bs kf. comp_ag32_pre v bs kf
@@ -51,7 +52,7 @@ QED
 
 val _ = cv_auto_trans compile_prog_ag32_def;
 
-val pre = cv_auto_trans_pre compile_word_to_stack_ag32_def;
+val pre = cv_auto_trans_pre "" compile_word_to_stack_ag32_def;
 
 Theorem compile_word_to_stack_ag32_pre[cv_pre]:
   ∀k v bitmaps. compile_word_to_stack_ag32_pre k v bitmaps
@@ -75,7 +76,7 @@ val _ = cv_auto_trans (asm_ok_ag32_def
 val _ = cv_auto_trans line_ok_light_ag32_def;
 val _ = cv_auto_trans sec_ok_light_ag32_def;
 
-val pre = cv_trans_pre enc_lines_again_ag32_def;
+val pre = cv_trans_pre "" enc_lines_again_ag32_def;
 
 Theorem enc_lines_again_ag32_pre[cv_pre,local]:
   ∀labs ffis pos v0 v. enc_lines_again_ag32_pre labs ffis pos v0 v
@@ -83,7 +84,7 @@ Proof
   Induct_on ‘v0’ \\ simp [Once pre]
 QED
 
-val pre = cv_trans_pre enc_secs_again_ag32_def;
+val pre = cv_trans_pre "" enc_secs_again_ag32_def;
 
 Theorem enc_secs_again_ag32_pre[cv_pre,local]:
   ∀pos labs ffis v. enc_secs_again_ag32_pre pos labs ffis v
@@ -91,7 +92,7 @@ Proof
   Induct_on ‘v’ \\ simp [Once pre]
 QED
 
-val pre = cv_auto_trans_pre remove_labels_loop_ag32_def;
+val pre = cv_auto_trans_pre "" remove_labels_loop_ag32_def;
 
 Theorem remove_labels_loop_ag32_pre[cv_pre]:
   ∀clock pos init_labs ffis sec_list.
@@ -113,7 +114,7 @@ val _ = cv_trans (from_stack_ag32_def
 
 val _ = cv_auto_trans from_word_ag32_def;
 
-val pre = cv_trans_pre get_forced_ag32_def;
+val pre = cv_trans_pre "" get_forced_ag32_def;
 Theorem get_forced_ag32_pre[cv_pre,local]:
   ∀v acc. get_forced_ag32_pre v acc
 Proof
@@ -126,7 +127,7 @@ QED
 
 val _ = cv_trans word_alloc_inlogic_ag32_def;
 
-val pre = cv_trans_pre inst_select_exp_ag32_def;
+val pre = cv_trans_pre "" inst_select_exp_ag32_def;
 Theorem inst_select_exp_ag32_pre[cv_pre]:
   ∀v tar temp. inst_select_exp_ag32_pre tar temp v
 Proof
@@ -138,7 +139,7 @@ Proof
   \\ gvs [wordLangTheory.exp_size_def]
 QED
 
-val pre = cv_trans_pre inst_select_ag32_def;
+val pre = cv_trans_pre "" inst_select_ag32_def;
 Theorem inst_select_ag32_pre[cv_pre,local]:
   ∀v temp. inst_select_ag32_pre temp v
 Proof
@@ -148,7 +149,7 @@ Proof
   \\ first_x_assum irule \\ gvs [wordLangTheory.prog_size_def]
 QED
 
-val pre = each_inlogic_ag32_def |> cv_trans_pre;
+val pre = each_inlogic_ag32_def |> cv_trans_pre "";
 Theorem each_inlogic_ag32_pre[cv_pre,local]:
   ∀v. each_inlogic_ag32_pre v
 Proof
@@ -188,5 +189,3 @@ Proof
   irule backendTheory.set_asm_conf_id \\ EVAL_TAC
 QED
 
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
-val _ = export_theory();

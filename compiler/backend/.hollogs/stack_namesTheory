@@ -1,0 +1,21 @@
+<<HOL message: Created theory "stack_names">>
+Saved definition ____ "ri_find_name_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 10 clauses to the original specification.>>
+Saved definition ____ "inst_find_name_def"
+Saved definition ____ "dest_find_name_def"
+Saved induction _____ "dest_find_name_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 17 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 17 clauses to the original specification.>>
+Saved definition ____ "comp_def"
+Saved induction _____ "comp_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 17 clauses to the original specification.>>
+Saved theorem _______ "comp_pmatch"
+Saved definition ____ "prog_comp_def"
+Saved definition ____ "compile_def"
+Saved definition ____ "names_ok_def"
+Exporting theory "stack_names" ... done.
+Theory "stack_names" took 5.8s to build

@@ -2,13 +2,11 @@
   This file contains parts of the Splay Heap and Implicit Queue
   examples.  This file has been used to generate benchmark programs.
 *)
-open HolKernel Parse boolLib bossLib;
-open bagTheory relationTheory bagLib miscTheory ml_translatorLib;
-open preamble
-
-val _ = new_theory "benchmark";
-
-open listTheory arithmeticTheory ml_translatorLib ListProgTheory;
+Theory benchmark
+Ancestors
+  bag relation misc list arithmetic ListProg
+Libs
+  bagLib ml_translatorLib preamble ml_translatorLib
 
 val _ = translation_extends "ListProg";
 
@@ -169,6 +167,7 @@ Definition merge_def:
 (merge get_key leq (Tree a x b) h2 =
   let (ta, tb) = partition get_key leq x h2 in
     Tree (merge get_key leq ta a) x (merge get_key leq tb b))
+
 Termination
   WF_REL_TAC `measure (\(_,x,y,z).  heap_size (\_.1) y + heap_size (\_.1) z)` >>
  rw [] >>
@@ -211,4 +210,3 @@ run_heap ⇔ find_min (use_heap 1000 empty')
 End
 val r = translate run_heap;
 
-val _ = export_theory ();

@@ -2,13 +2,14 @@
   This is an example of applying the translator to the Binomial Heap
   algorithm from Chris Okasaki's book.
 *)
-open preamble
-open bagTheory bagLib okasaki_miscTheory ml_translatorLib ListProgTheory;
+Theory BinomialHeap
+Ancestors
+  bag okasaki_misc ListProg
+Libs
+  preamble bagLib ml_translatorLib
 
 val fs = full_simp_tac (srw_ss ())
 val rw = srw_tac []
-
-val _ = new_theory "BinomialHeap"
 
 val _ = translation_extends "ListProg";
 
@@ -20,8 +21,6 @@ End
 
 Type heap = ``:'a tree list``
 
-val tree_size_def = fetch "-" "tree_size_def";
-
 Definition heap_to_bag_def:
 (heap_to_bag [] = {||}) ∧
 (heap_to_bag (h::hs) =
@@ -29,10 +28,6 @@ Definition heap_to_bag_def:
 
 (tree_to_bag (Node _ x hs) =
   BAG_INSERT x (heap_to_bag hs))
-Termination
-  wf_rel_tac `measure (\x. case x of INL x => tree1_size (\x.0) x
-                                  | INR x => tree_size (\x.0) x)` >>
- rw [tree_size_def]
 End
 
 Definition is_heap_ordered_def:
@@ -43,10 +38,6 @@ Definition is_heap_ordered_def:
 (is_heap_ordered_tree get_key leq (Node _ x hs) <=>
   is_heap_ordered get_key leq hs ∧
   BAG_EVERY (\y. leq (get_key x) (get_key y)) (heap_to_bag hs))
-Termination
-  wf_rel_tac `measure (\x. case x of INL (_,_,x) => tree1_size (\x.0) x
-                                  | INR (_,_,x) => tree_size (\x.0) x)` >>
- rw [tree_size_def]
 End
 
 Definition empty_def:
@@ -369,10 +360,6 @@ Definition heap_size_def:
 (heap_size [] = 0) ∧
 (heap_size (t::ts) = heap_tree_size t + heap_size ts) ∧
 (heap_tree_size (Node _ _ trees) = (1:num) + heap_size trees)
-Termination
-  wf_rel_tac `measure (\x. case x of INR y => tree_size (\x.0) y
-                                  | INL z => tree1_size (\x.0) z)` >>
- rw []
 End
 
 Definition is_binomial_tree_def:
@@ -586,4 +573,3 @@ THEN SIMP_TAC std_ss [Once remove_min_tree_side_def]
 THEN Cases_on `h` THEN FULL_SIMP_TAC (srw_ss()) []
 QED
 
-val _ = export_theory ();

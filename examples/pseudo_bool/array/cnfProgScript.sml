@@ -1,10 +1,11 @@
 (*
   CNF encoder and checker
 *)
-open preamble basis lpr_parsingTheory cnf_to_pbTheory npbc_parseProgTheory;
-open cfLib basisFunctionsLib;
-
-val _ = new_theory "cnfProg";
+Theory cnfProg
+Ancestors
+  basis_ffi lpr_parsing cnf_to_pb npbc_parseProg
+Libs
+  preamble basis cfLib basisFunctionsLib
 
 val _ = translation_extends "npbc_parseProg";
 
@@ -544,6 +545,10 @@ Definition SAT_string_def:
   SAT_string = strlit "s VERIFIED SAT\n"
 End
 
+Definition NO_CONCLUSION_string_def:
+  NO_CONCLUSION_string = strlit "s VERIFIED NO CONCLUSION\n"
+End
+
 (* And empty formula *)
 Definition default_nobjf_def:
   default_nobjf = (NONE,[]):((int # num) list # int) option # npbc list
@@ -560,10 +565,11 @@ Definition ores_to_string_def:
     case h of
       DUnsat => INR UNSAT_string
     | DSat => INR SAT_string
+    | DNoConcl => INR NO_CONCLUSION_string
     | _ => INL (strlit "c Unexpected conclusion for decision problem.\n"))
 End
 
-val res = translate (ores_to_string_def |> SIMP_RULE std_ss [UNSAT_string_def,SAT_string_def]);
+val res = translate (ores_to_string_def |> SIMP_RULE std_ss [UNSAT_string_def,SAT_string_def,NO_CONCLUSION_string_def]);
 
 val check_unsat_2 = (append_prog o process_topdecs) `
   fun check_unsat_2 f1 f2 =
@@ -585,7 +591,8 @@ Definition check_unsat_2_sem_def:
     get_fml fs f1 = SOME fml ∧
     (
     out = UNSAT_string ∧ unsatisfiable (interp fml) ∨
-    out = SAT_string ∧ satisfiable (interp fml)))
+    out = SAT_string ∧ satisfiable (interp fml) ∨
+    out = NO_CONCLUSION_string))
 End
 
 Theorem check_unsat_2_spec:
@@ -900,5 +907,3 @@ Theorem main_semantics =
   |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
 
 end
-
-val _ = export_theory();

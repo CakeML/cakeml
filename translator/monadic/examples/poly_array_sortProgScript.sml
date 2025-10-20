@@ -2,10 +2,14 @@
  An example showing how to use the monadic translator to translate polymorphic
  monadic array quicksort, including exceptions.
 *)
+Theory poly_array_sortProg
+Libs
+  preamble ml_monad_translator_interfaceLib
+Ancestors
+  ml_monad_translator
 
-open preamble ml_monad_translator_interfaceLib
+val _ = set_up_monadic_translator ();
 
-val _ = new_theory "poly_array_sortProg"
 
 fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f
 
@@ -433,7 +437,7 @@ val partition_helper_def = allowing_rebind (mtDefine "partition_helper" `
   imp_res_tac scan_lower_index >>
   reverse (imp_res_tac scan_upper_index) >>
   fs[prim_recTheory.NOT_LESS_0]
-)
+);
 
 (* TODO fix s5 / s6 problem - can get away with it for now,
    but probably not in general... *)
@@ -509,7 +513,6 @@ Proof
     rveq >> fs[]
     ) >>
   ntac 4 (reverse(FULL_CASE_TAC >> rveq >> fs[])) >>
-  first_x_assum (qspec_then `<| arr := a'3' |>` mp_tac) >>
   strip_tac >> fs[] >> rfs[] >>
   strip_tac >> fs[] >>
   fs[Msub_Success, Mupdate_Success] >>
@@ -545,8 +548,6 @@ Proof
     rpt (disch_then drule) >>
     fs[] >> strip_tac >>
     rveq >> fs[] >>
-    first_x_assum (qspec_then `<| arr := a'6' |>` mp_tac) >>
-    fs[] >> strip_tac >>
     rename1 `scan_upper _ _ _ _ = (M_success new_ub, _)` >>
     rename1 `scan_lower _ _ _ _ = (M_success new_lb, _)` >>
     rename1 `Msub _ new_ub _ = M_success nub_elem` >>
@@ -1195,7 +1196,6 @@ Proof
   first_x_assum drule >>
   rpt (disch_then drule) >>
   rw[] >>
-  first_x_assum drule >>
   fs[] >> rw[] >>
   imp_res_tac Mupdate_Success >>
   fs[LUPDATE_LENGTH]
@@ -1341,5 +1341,3 @@ QED
 
 
 (******************************************************************************)
-
-val _ = export_theory ();

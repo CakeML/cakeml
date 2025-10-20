@@ -3,23 +3,15 @@
   a single compile function which is connected (in ../compilerScript.sml)
   to the front-end, i.e. parsing and type inference.
 *)
+Theory backend
+Ancestors
+  source_to_source source_to_flat flat_to_clos clos_to_bvl
+  bvl_to_bvi bvi_to_data data_to_word word_to_stack stack_to_lab
+  lab_to_target word_to_word jsonLang presLang
+  primTypes[qualified]
+Libs
+  preamble
 
-open preamble
-     source_to_sourceTheory
-     source_to_flatTheory
-     flat_to_closTheory
-     clos_to_bvlTheory
-     bvl_to_bviTheory
-     bvi_to_dataTheory
-     data_to_wordTheory
-     word_to_stackTheory
-     stack_to_labTheory
-     lab_to_targetTheory
-local open primTypesTheory in end
-open word_to_wordTheory
-open jsonLangTheory presLangTheory
-
-val _ = new_theory"backend";
 
 Datatype:
   config =
@@ -81,7 +73,7 @@ Definition compile_def:
       (c.lab_conf.asm_conf.addr_offset) p in
     let _ = empty_ffi (strlit "finished: stack_to_lab") in
     let res = attach_bitmaps names c bm
-      (lab_to_target$compile c.lab_conf (p:'a prog)) in
+      (lab_to_target$compile c.lab_conf (p:'a labLang$prog)) in
     let _ = empty_ffi (strlit "finished: lab_to_target") in
       res
 End
@@ -169,7 +161,7 @@ Definition to_lab_def:
     c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
     (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3))
     (c.lab_conf.asm_conf.addr_offset) p in
-  (bm,c,p:'a prog,names)
+  (bm,c,p:'a labLang$prog,names)
 End
 
 Definition to_target_def:
@@ -223,7 +215,7 @@ Definition from_stack_def:
     c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
     (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3))
     (c.lab_conf.asm_conf.addr_offset) p in
-  from_lab c names (p:'a prog) bm
+  from_lab c names (p:'a labLang$prog) bm
 End
 
 Definition from_word_def:
@@ -627,7 +619,7 @@ Definition compile_inc_progs_def:
         c.stack_conf.reg_names c.stack_conf.jump asm_c.addr_offset
         reg_count2 p in
     let ps = ps with <| lab_prog := keep_progs k p |> in
-    let target = lab_to_target$compile c.lab_conf (p:'a prog) in
+    let target = lab_to_target$compile c.lab_conf (p:'a labLang$prog) in
     let ps = ps with <| target_prog := OPTION_MAP
         (\(bytes, _). (bytes, cur_bm)) target |> in
     let c = c with lab_conf updated_by (case target of NONE => I
@@ -814,7 +806,7 @@ Theorem compile_inc_progs_for_eval_eq:
         c.stack_conf.reg_names c.stack_conf.jump asm_c'.addr_offset
         reg_count2 p in
     let _ = empty_ffi (strlit "finished: stack_to_lab") in
-    let target = lab_to_target$compile c.lab_conf (p:'a prog) in
+    let target = lab_to_target$compile c.lab_conf (p:'a labLang$prog) in
     let _ = empty_ffi (strlit "finished: lab_to_target") in
     let c = c with lab_conf updated_by (case target of NONE => I
                                         | SOME (_, c') => K c') in
@@ -882,4 +874,3 @@ Proof
        lab_to_targetTheory.config_component_equality]
 QED
 
-val _ = export_theory();

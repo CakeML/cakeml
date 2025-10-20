@@ -1,0 +1,12 @@
+<<HOL message: Created theory "data_spaceProof">>
+Proved triviality ___ "IMP_sptree_eq"
+Proved triviality ___ "mk_wf_inter"
+Saved theorem _______ "get_vars_IMP_LENGTH"
+Saved theorem _______ "do_stack_with_space"
+Saved theorem _______ "do_stack_with_locals"
+Proved triviality ___ "evaluate_compile"
+Saved theorem _______ "compile_correct"
+Saved theorem _______ "get_code_labels_space"
+Saved theorem _______ "get_code_labels_compile"
+Exporting theory "data_spaceProof" ... done.
+Theory "data_spaceProof" took 14.9s to build

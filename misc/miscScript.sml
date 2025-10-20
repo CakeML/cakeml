@@ -3,18 +3,18 @@
    development.
 *)
 
-open HolKernel bossLib boolLib boolSimps Parse mp_then
-open alignmentTheory alistTheory arithmeticTheory bitstringTheory bagTheory
-     byteTheory combinTheory dep_rewrite containerTheory listTheory
-     pred_setTheory finite_mapTheory rich_listTheory llistTheory optionTheory
-     pairTheory sortingTheory relationTheory totoTheory comparisonTheory
-     bitTheory sptreeTheory wordsTheory wordsLib set_sepTheory BasicProvers
-     indexedListsTheory stringTheory ASCIInumbersLib machine_ieeeTheory
-     integer_wordTheory
-local open bagLib addressTheory blastLib in end
-
 (* Misc. lemmas (without any compiler constants) *)
-val _ = new_theory "misc"
+Theory misc
+Ancestors
+  alignment alist arithmetic blast[qualified] bitstring bag byte
+  combin container list pred_set finite_map rich_list llist option
+  pair sorting relation toto comparison bit sptree words set_sep
+  indexedLists string machine_ieee integer_word address[qualified]
+  path[qualified] res_quan[qualified] lprefix_lub[qualified]
+Libs
+  boolSimps mp_then dep_rewrite wordsLib BasicProvers
+  ASCIInumbersLib bagLib[qualified] blastLib[qualified]
+
 val _ = ParseExtras.tight_equality()
 
 (* Total version of THE *)
@@ -623,6 +623,29 @@ Definition update_resize_def:
       LUPDATE v n (ls ++ REPLICATE (n * 2 + 1 - LENGTH ls) default)
 End
 
+(*TODO upstream*)
+Theorem MAX_LIST_APPEND[simp]:
+   MAX_LIST (xs++ys) = MAX (MAX_LIST xs) (MAX_LIST ys)
+Proof
+  Induct_on `xs` >> simp[AC MAX_COMM MAX_ASSOC]
+QED
+
+(*Or should it be MAX x (MAX_LIST xs)*)
+Theorem MAX_LIST_SNOC[simp]:
+   MAX_LIST (SNOC x xs) = MAX (MAX_LIST xs) x
+Proof
+  simp[SNOC_APPEND]
+QED
+
+Theorem MAX_LIST_intro:
+  ∀ls.
+  P 0 ∧ EVERY P ls ⇒ P (MAX_LIST ls)
+Proof
+  Induct>>rpt strip_tac >>
+  full_simp_tac(srw_ss())[MAX_DEF,COND_RAND]
+QED
+
+(*TODO replace with MAX_LIST*)
 Definition list_max_def:
   (list_max [] = 0:num) /\
   (list_max (x::xs) =
@@ -801,12 +824,6 @@ Proof
   Q.ISPECL_THEN [`ls`,`k`,`[]`] assume_tac (GEN_ALL ALOOKUP_anub)>>
   full_simp_tac(srw_ss())[]>>
   metis_tac[ALOOKUP_ALL_DISTINCT_MEM]
-QED
-
-Theorem IS_SOME_EXISTS:
-   ∀opt. IS_SOME opt ⇔ ∃x. opt = SOME x
-Proof
-  Cases >> simp[]
 QED
 
 Type num_set = ``:unit spt``
@@ -1107,14 +1124,14 @@ QED
 Theorem find_index_NOT_MEM:
    ∀ls x n. ¬MEM x ls = (find_index x ls n = NONE)
 Proof
-  Induct >> srw_tac[][find_index_def]
+  Induct >> srw_tac[][find_index_def]>>
+  metis_tac[]
 QED
 
 Theorem find_index_MEM:
    !ls x n. MEM x ls ==> ?i. (find_index x ls n = SOME (n+i)) /\ i < LENGTH ls /\ (EL i ls = x)
 Proof
-  Induct >> srw_tac[][find_index_def] >- (
-    qexists_tac`0`>>srw_tac[][] ) >>
+  Induct >> srw_tac[][find_index_def] >>
   first_x_assum(qspecl_then[`x`,`n+1`]mp_tac) >>
   srw_tac[][]>>qexists_tac`SUC i`>>srw_tac[ARITH_ss][ADD1]
 QED
@@ -1122,14 +1139,14 @@ QED
 Theorem find_index_LEAST_EL:
    ∀ls x n. find_index x ls n = if MEM x ls then SOME (n + (LEAST n. x = EL n ls)) else NONE
 Proof
-  Induct >- srw_tac[][find_index_def] >>
+  Induct >>
   simp[find_index_def] >>
   rpt gen_tac >>
   Cases_on`h=x`>>full_simp_tac(srw_ss())[] >- (
     numLib.LEAST_ELIM_TAC >>
     conj_tac >- (qexists_tac`0` >> srw_tac[][]) >>
     Cases >> srw_tac[][] >>
-    first_x_assum (qspec_then`0`mp_tac) >> srw_tac[][] ) >>
+    qexists_tac`0` >>simp[])>>
   srw_tac[][] >>
   numLib.LEAST_ELIM_TAC >>
   conj_tac >- metis_tac[MEM_EL,MEM] >>
@@ -1157,18 +1174,20 @@ QED
 Theorem ALOOKUP_find_index_NONE:
    (ALOOKUP env k = NONE) ⇒ (find_index k (MAP FST env) m = NONE)
 Proof
-  srw_tac[][ALOOKUP_FAILS] >> srw_tac[][GSYM find_index_NOT_MEM,MEM_MAP,EXISTS_PROD]
+  srw_tac[][ALOOKUP_FAILS] >>
+  srw_tac[][GSYM find_index_NOT_MEM,MEM_MAP,EXISTS_PROD]
 QED
 
 val ALOOKUP_find_index_SOME = Q.prove(
   `∀env. (ALOOKUP env k = SOME v) ⇒
       ∀m. ∃i. (find_index k (MAP FST env) m = SOME (m+i)) ∧
           (v = EL i (MAP SND env))`,
-  Induct >> simp[] >> Cases >> srw_tac[][find_index_def] >-
-    (qexists_tac`0`>>simp[]) >> full_simp_tac(srw_ss())[] >>
+  Induct >> simp[] >> Cases >>
+  srw_tac[][find_index_def] >> full_simp_tac(srw_ss())[] >>
   first_x_assum(qspec_then`m+1`mp_tac)>>srw_tac[][]>>srw_tac[][]>>
   qexists_tac`SUC i`>>simp[])
 |> SPEC_ALL |> UNDISCH_ALL |> Q.SPEC`0` |> DISCH_ALL |> SIMP_RULE (srw_ss())[]
+
 Theorem ALOOKUP_find_index_SOME:
    (ALOOKUP env k = SOME v) ⇒
     ∃i. (find_index k (MAP FST env) 0 = SOME i) ∧
@@ -2256,12 +2275,6 @@ Proof
   metis_tac[sortingTheory.PERM_MAP]
 QED
 
-Theorem bool_case_eq:
-   COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f
-Proof
-  srw_tac[][] >> metis_tac[]
-QED
-
 Theorem lookup_fromList2:
    !l n. lookup n (fromList2 l) =
           if EVEN n then lookup (n DIV 2) (fromList l) else NONE
@@ -2303,8 +2316,8 @@ QED
 Theorem OLEAST_SOME_IMP:
    $OLEAST P = SOME i ⇒ P i ∧ (∀n. n < i ⇒ ¬P n)
 Proof
-  simp[whileTheory.OLEAST_def]
-  \\ metis_tac[whileTheory.LEAST_EXISTS_IMP]
+  simp[WhileTheory.OLEAST_def]
+  \\ metis_tac[WhileTheory.LEAST_EXISTS_IMP]
 QED
 
 Theorem EXP2_EVEN:
@@ -3322,9 +3335,7 @@ Theorem TOKENS_FLAT_MAP_SNOC:
    TOKENS ((=) x) (FLAT (MAP (SNOC x) ls)) = ls
 Proof
   Induct_on`ls` \\ rw[TOKENS_NIL]
-  \\ Q.ISPEC_THEN`x`(mp_tac o GSYM) CONS_APPEND
-  \\ rewrite_tac[GSYM APPEND_ASSOC]
-  \\ disch_then(rewrite_tac o mlibUseful.sing)
+  \\ rewrite_tac[GSYM APPEND_ASSOC,SNOC_APPEND,APPEND]
   \\ DEP_REWRITE_TAC[TOKENS_APPEND] \\ rw[]
   \\ DEP_REWRITE_TAC[TOKENS_unchanged]
   \\ fs[EVERY_MEM]
@@ -3696,8 +3707,6 @@ Proof
   \\ drule DIVISION \\ disch_then (qspec_then `m` (strip_assume_tac o GSYM))
   \\ rfs [] \\ metis_tac [LT_MULT_LCANCEL]
 QED
-
-open pathTheory
 
 Theorem toPath_fromList:
    (toPath (x, fromList []) = stopped_at x) ∧
@@ -4446,4 +4455,20 @@ Proof
   \\ fs [] \\ decide_tac
 QED
 
-val _ = export_theory()
+(* helpful theorems for _size *)
+Theorem list_size_pair_size_MAP_FST_SND:
+  list_size (pair_size f g) ls =
+  list_size f (MAP FST ls) +
+  list_size g (MAP SND ls)
+Proof
+  Induct_on`ls`>>simp[]>>
+  Cases>>rw[]
+QED
+
+Theorem MEM_list_size:
+  MEM x ls ⇒
+  f x ≤ list_size f ls
+Proof
+  Induct_on`ls`>>simp[]>>
+  rw[]>>gvs[]
+QED

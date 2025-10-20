@@ -2,10 +2,11 @@
   For ASL-derived ARMv8, prove that the compiler configuration is well formed,
   and instantiate the compiler correctness theorem.
 *)
-open preamble backendProofTheory arm8_configProofTheory arm8_configTheory
-open arm8_asl_targetProofTheory;
-
-val _ = new_theory "arm8_asl_configProof";
+Theory arm8_asl_configProof
+Ancestors
+  backendProof arm8_configProof arm8_config arm8_asl_targetProof
+Libs
+  preamble
 
 Definition is_arm8_asl_machine_config_def:
   is_arm8_asl_machine_config mc ⇔
@@ -59,6 +60,3 @@ Proof
   simp[arm8_backend_config_def, heap_regs_def, arm8_names_def,
        tlookup_def, lookup_def]
 QED
-
-val _ = export_theory();
-

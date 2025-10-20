@@ -2,11 +2,13 @@
   The tokens CakeML concrete syntax.
   Some tokens are from Standard ML and not used in CakeML.
 *)
-open HolKernel Parse boolLib bossLib;
+Theory tokens
+Ancestors[qualified]
+  integer string
 
-local open integerTheory stringTheory in end;
-val _ = new_theory "tokens"
-val _ = set_grammar_ancestry ["integer", "string"];
+Datatype:
+  path = Mod string path | End
+End
 
 Datatype:
   token =
@@ -27,9 +29,8 @@ Datatype:
   | TyvarT string
   | AlphaT string
   | SymbolT string
-  | LongidT string string
+  | LongidT path string
   | FFIT string
   | REPLIDT string
 End
 
-val _ = export_theory()

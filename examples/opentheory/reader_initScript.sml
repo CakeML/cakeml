@@ -1,9 +1,11 @@
 (*
   Kernel initialisation
 *)
-open preamble readerTheory holSyntaxTheory
-
-val _ = new_theory "reader_init";
+Theory reader_init
+Ancestors
+  reader holSyntax
+Libs
+  preamble
 
 Overload monad_bind[local] = “st_ex_bind”
 Overload monad_unitbind[local] = “λx y. st_ex_bind x (λz. y)”
@@ -286,4 +288,3 @@ Definition init_reader_def:
     od
 End
 
-val _ = export_theory ();

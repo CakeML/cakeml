@@ -1,9 +1,11 @@
 (*
   Some lemmas about the semantics.
 *)
-open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory setSpecTheory
-
-val _ = new_theory"holSemanticsExtra"
+Theory holSemanticsExtra
+Ancestors
+  holSyntaxLib holSyntax holSyntaxExtra holSemantics setSpec
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
@@ -678,10 +680,11 @@ Proof
   qunabbrev_tac`ls` >>
   simp[ALOOKUP_FILTER,Abbr`P`,Abbr`sw`,combinTheory.o_DEF,LAMBDA_PROD] >- (
     rw[combinTheory.APPLY_UPDATE_THM,APPLY_UPDATE_LIST_ALOOKUP] >>
-    qmatch_assum_abbrev_tac`P ⇒ ALOOKUP ls vv = NONE` >>
+    gvs[]>>
+    qmatch_assum_abbrev_tac`ALOOKUP ls vv = NONE` >>
     Q.ISPECL_THEN[`ls`,`termsem δ γ v sigma`,`z`,`tyr`]mp_tac ALOOKUP_MAP_dest_var >>
-    impl_tac >- (simp[EVERY_MAP,EVERY_MEM,FORALL_PROD,Abbr`ls`] >> metis_tac[]) >>
-    rw[] >> fs[Abbr`P`] ) >>
+    (impl_tac >- (simp[EVERY_MAP,EVERY_MEM,FORALL_PROD,Abbr`ls`] >> metis_tac[]) >>
+    fs[]))>>
   simp[combinTheory.APPLY_UPDATE_THM,APPLY_UPDATE_LIST_ALOOKUP] >>
   rw[Abbr`f`] >>
   qmatch_assum_abbrev_tac`ALOOKUP ls vv = SOME zz` >>
@@ -902,4 +905,3 @@ Definition equal_on_def:
   fleq (total_fragment sig,i) (total_fragment sig, i')
 End
 
-val _ = export_theory()

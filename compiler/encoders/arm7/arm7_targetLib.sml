@@ -11,7 +11,7 @@ open optionLib
 structure Parse = struct
   open Parse
   val (Type, Term) =
-    parse_from_grammars arm7_eval_encodeTheory.arm7_eval_encode_grammars
+    parse_from_grammars $ valOf $ grammarDB {thyname = "arm7_eval_encode"}
 end
 open Parse
 

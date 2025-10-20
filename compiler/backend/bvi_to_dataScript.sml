@@ -2,10 +2,11 @@
   A compiler phase that turns programs of the functional language BVI
   into the first imperative language of the CakeML compiler: dataLang.
 *)
-open preamble bviTheory dataLangTheory
-     data_simpTheory data_liveTheory data_spaceTheory;
-
-val _ = new_theory "bvi_to_data";
+Theory bvi_to_data
+Ancestors
+  bvi dataLang data_simp data_live data_space
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -15,29 +16,29 @@ Theorem op_space_reset_pmatch:
   ! op.
   op_space_reset op =
     case op of
-      Add => T
-    | Sub => T
-    | Mult => T
-    | Div => T
-    | Mod => T
-    | Less => T
-    | LessEq => T
-    | Greater => T
-    | GreaterEq => T
-    | Equal => T
-    | ListAppend => T
-    | FromList _ => T
-    | RefArray => T
-    | RefByte _ => T
-    | ConsExtend _ => T
-    | CopyByte new_flag => new_flag
-    | ConfigGC => T
+      IntOp Add => T
+    | IntOp Sub => T
+    | IntOp Mult => T
+    | IntOp Div => T
+    | IntOp Mod => T
+    | IntOp Less => T
+    | IntOp LessEq => T
+    | IntOp Greater => T
+    | IntOp GreaterEq => T
+    | BlockOp Equal => T
+    | BlockOp ListAppend => T
+    | BlockOp (FromList _) => T
+    | BlockOp (ConsExtend _) => T
+    | MemOp RefArray => T
+    | MemOp (RefByte _) => T
+    | MemOp (CopyByte new_flag) => new_flag
+    | MemOp ConfigGC => T
     | FFI _ => T
     | _ => F
 Proof
   rpt strip_tac
   >> CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
-  >> Cases_on `op` >> fs[op_space_reset_def]
+  >> rpt CASE_TAC >> fs[op_space_reset_def]
 QED
 
 Theorem op_requires_names_eqn:
@@ -45,10 +46,11 @@ Theorem op_requires_names_eqn:
     (op_space_reset op ∨ (dtcase op of
                           | FFI n => T
                           | Install => T
-                          | CopyByte new_flag => T
+                          | MemOp (CopyByte new_flag) => T
+                          | MemOp XorByte => T
                           | _ => F))
 Proof
-  Cases>>fs[op_requires_names_def]
+  strip_tac >> rpt CASE_TAC >> fs[op_requires_names_def]
 QED
 
 Theorem op_requires_names_pmatch:
@@ -56,7 +58,8 @@ Theorem op_requires_names_pmatch:
   (op_space_reset op ∨ (case op of
                         | FFI n => T
                         | Install => T
-                        | CopyByte new_flag => T
+                        | MemOp (CopyByte new_flag) => T
+                        | MemOp XorByte => T
                         | _ => F))
 Proof
   rpt strip_tac >>
@@ -68,10 +71,10 @@ Definition iAssign_def:
   iAssign n1 op vs live env =
     if op_requires_names op then
       let xs = SOME (list_to_num_set (vs++live++env)) in
-        if op = Greater then
-          Assign n1 Less (REVERSE vs) xs
-        else if op = GreaterEq then
-          Assign n1 LessEq (REVERSE vs) xs
+        if op = IntOp Greater then
+          Assign n1 (IntOp Less) (REVERSE vs) xs
+        else if op = IntOp GreaterEq then
+          Assign n1 (IntOp LessEq) (REVERSE vs) xs
         else
           Assign n1 op vs xs
     else
@@ -118,6 +121,11 @@ Definition compile_def:
   (compile n env tail live [Tick x1] =
      let (c1,v1,n1) = compile n env tail live [x1] in
        (Seq Tick c1, v1, n1)) /\
+  (compile n env tail live [Force loc v] =
+     let var = any_el v env 0n in
+     let ret = (if tail then NONE
+                else SOME (n, list_to_num_set (live ++ env))) in
+       (Force ret loc var, [n], MAX (n+1) (var+1))) ∧
   (compile n env tail live [Call ticks dest xs NONE] =
      let (c1,vs,n1) = compile n env F live xs in
      let ret = (if tail then NONE
@@ -129,8 +137,6 @@ Definition compile_def:
      let ret = SOME (n2, list_to_num_set (live ++ env)) in
      let c3 = (if tail then Return n2 else Skip) in
        (Seq c1 (mk_ticks ticks (Seq (Call ret dest vs (SOME (n1,Seq c2 (Move n2 (HD v))))) c3)), [n2], n2+1))
-Termination
-  WF_REL_TAC `measure (exp2_size o SND o SND o SND o SND)`
 End
 
 Definition compile_sing_def:
@@ -162,6 +168,11 @@ Definition compile_sing_def:
   (compile_sing n env tail live (Tick x1) =
      let (c1,v1,n1) = compile_sing n env tail live x1 in
        (Seq Tick c1, v1, n1)) /\
+  (compile_sing n env tail live (Force loc v) =
+     let var = any_el v env 0n in
+     let ret = (if tail then NONE
+                else SOME (n, list_to_num_set (live ++ env))) in
+       (Force ret loc var, n, MAX (n+1) (var+1))) ∧
   (compile_sing n env tail live (Call ticks dest xs NONE) =
      let (c1,vs,n1) = compile_list n env live xs in
      let ret = (if tail then NONE
@@ -185,8 +196,8 @@ Definition compile_sing_def:
 Termination
   WF_REL_TAC ‘measure $ λx. case x of
                             | INL (n,env,t,l,x) => exp_size x
-                            | INR (n,env,l,xs) => exp2_size xs’
-  \\ rw [] \\ gvs [exp_size_def]
+                            | INR (n,env,l,xs) => list_size exp_size xs’
+  \\ simp[]
 End
 
 Theorem compile_sing_eq:
@@ -283,4 +294,3 @@ Proof
   \\ gvs [compile_exp_def]
 QED
 
-val _ = export_theory();

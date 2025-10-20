@@ -1,0 +1,272 @@
+<<HOL message: Created theory "word_allocProof">>
+Saved theorem _______ "SUBSET_OF_INSERT"
+Proved triviality ___ "INJ_UNION"
+Proved triviality ___ "INJ_less"
+Saved definition ____ "hide_def"
+Proved triviality ___ "INJ_IMP_IMAGE_DIFF"
+Proved triviality ___ "INJ_IMP_IMAGE_DIFF_single"
+Proved triviality ___ "INJ_ALL_DISTINCT_MAP"
+<<HOL message: mk_functional: 
+  pattern completion has added 19 clauses to the original specification.>>
+Saved definition ____ "colouring_ok_def"
+Saved induction _____ "colouring_ok_ind"
+Saved definition ____ "word_state_eq_rel_def"
+Saved definition ____ "strong_locals_rel_def"
+Saved theorem _______ "domain_numset_list_insert"
+Proved triviality ___ "strong_locals_rel_get_var"
+Proved triviality ___ "strong_locals_rel_get_var_imm"
+Proved triviality ___ "strong_locals_rel_get_vars"
+Proved triviality ___ "domain_big_union_subset"
+Proved triviality ___ "apply_nummap_key_domain"
+Saved theorem _______ "cut_env_lemma"
+Proved triviality ___ "LENGTH_list_rerrange"
+Proved triviality ___ "list_rearrange_perm"
+Proved triviality ___ "GENLIST_MAP"
+Saved theorem _______ "list_rearrange_MAP"
+Proved triviality ___ "env_to_list_perm"
+Saved theorem _______ "push_env_s_val_eq"
+Saved theorem _______ "gc_frame"
+Saved theorem _______ "s_key_eq_val_eq_pop_env"
+Saved theorem _______ "ALOOKUP_key_remap_2"
+Proved triviality ___ "strong_locals_rel_subset"
+Proved triviality ___ "env_to_list_keys"
+Saved theorem _______ "list_rearrange_keys"
+Saved theorem _______ "pop_env_frame"
+Saved theorem _______ "key_map_implies"
+Proved triviality ___ "apply_colour_exp_lemma"
+Saved theorem _______ "strong_locals_rel_insert"
+Proved triviality ___ "LASTN_LENGTH2"
+Proved triviality ___ "toAList_not_empty"
+Slow evaluate_apply_colour Call proof 0.  ∀prog' st' cst' f' live'.
+       prog_size (K 0) prog' < prog_size (K 0) (Call o' o1 l o0) ⇒
+       colouring_ok f' prog' live' ∧ word_state_eq_rel st' cst' ∧
+       strong_locals_rel f' (domain (get_live prog' live')) st'.locals
+         cst'.locals ⇒
+       ∃perm'.
+         (let
+            (res,rst) = evaluate (prog',st' with permute := perm')
+          in
+            res = SOME Error ∨
+            (let
+               (res',rcst) = evaluate (apply_colour f' prog',cst')
+             in
+               res = res' ∧ word_state_eq_rel rst rcst ∧
+               case res of
+                 NONE =>
+                   strong_locals_rel f' (domain live') rst.locals rcst.locals
+               | SOME v => rst.locals = rcst.locals))
+ 1.  v = prog_size (K 0) (Call o' o1 l o0)
+ 2.  colouring_ok f (Call o' o1 l o0) live
+ 3.  word_state_eq_rel st cst
+ 4.  strong_locals_rel f (domain (get_live (Call o' o1 l o0) live)) st.locals
+       cst.locals
+------------------------------------
+     ∃perm'.
+       (let
+          (res,rst) = evaluate (Call o' o1 l o0,st with permute := perm')
+        in
+          res = SOME Error ∨
+          (let
+             (res',rcst) = evaluate (apply_colour f (Call o' o1 l o0),cst)
+           in
+             res = res' ∧ word_state_eq_rel rst rcst ∧
+             case res of
+               NONE =>
+                 strong_locals_rel f (domain live) rst.locals rcst.locals
+             | SOME v => rst.locals = rcst.locals))
+Saved theorem _______ "evaluate_apply_colour"
+Proved triviality ___ "every_var_exp_get_live_exp"
+Saved theorem _______ "check_col_INJ"
+Proved triviality ___ "wf_insert_swap"
+Proved triviality ___ "numset_list_insert_swap"
+Saved theorem _______ "check_partial_col_INJ"
+Proved triviality ___ "domain_insert_eq_union"
+Proved triviality ___ "domain_numset_list_insert_eq_union"
+Proved triviality ___ "get_reads_exp_get_live_exp"
+Proved triviality ___ "lookup_numset_list_insert"
+Proved triviality ___ "numset_list_insert_eq_UNION"
+Proved triviality ___ "wf_delete_swap"
+Proved triviality ___ "numset_list_delete_swap"
+Proved triviality ___ "wf_numset_list_delete_eq"
+Proved triviality ___ "wf_get_live_exp"
+Saved theorem _______ "IMAGE_DIFF"
+Saved theorem _______ "clash_tree_colouring_ok"
+Saved definition ____ "even_starting_locals_def"
+Proved triviality ___ "get_forced_tail_split"
+Proved triviality ___ "EVERY_get_forced"
+Proved triviality ___ "get_forced_pairwise_distinct"
+Proved triviality ___ "get_forced_in_get_clash_tree"
+Saved theorem _______ "select_reg_alloc_correct"
+Saved theorem _______ "word_alloc_correct"
+Proved triviality ___ "apply_colour_exp_I"
+Proved triviality ___ "strong_locals_rel_I_word_exp"
+Proved triviality ___ "strong_locals_rel_insert_notin"
+Proved triviality ___ "strong_locals_rel_I_get_var"
+Proved triviality ___ "strong_locals_rel_I_get_vars"
+Proved triviality ___ "strong_locals_rel_I_cut_env"
+Proved triviality ___ "get_vars_eq"
+Proved triviality ___ "get_vars_exists"
+Proved triviality ___ "strong_locals_rel_I_insert_insert"
+
+Type inference failure: the term
+
+(sss :sptree$num_set)
+
+on line 3172, characters 33-35
+
+can not be constrained to be of type
+
+:num -> bool
+
+unification failure message: ???
+Saved theorem _______ "evaluate_remove_dead"
+Saved theorem _______ "evaluate_remove_dead_prog"
+Saved definition ____ "ssa_locals_rel_def"
+Saved definition ____ "ssa_map_ok_def"
+Proved triviality ___ "list_next_var_rename_lemma_1"
+Proved triviality ___ "list_next_var_rename_lemma_2"
+Proved triviality ___ "ssa_locals_rel_get_var"
+Proved triviality ___ "ssa_locals_rel_get_vars"
+Proved triviality ___ "ssa_map_ok_extend"
+Proved triviality ___ "merge_moves_frame"
+Proved triviality ___ "merge_moves_fst"
+Proved triviality ___ "merge_moves_frame2"
+Proved triviality ___ "merge_moves_frame3"
+Proved triviality ___ "mov_eval_head"
+Proved triviality ___ "merge_moves_correctL"
+Proved triviality ___ "merge_moves_correctR"
+Proved triviality ___ "fake_moves_frame"
+Proved triviality ___ "fake_moves_frame2"
+Proved triviality ___ "fake_moves_frame3"
+Proved triviality ___ "fake_moves_correctL"
+Proved triviality ___ "fake_moves_correctR"
+Proved triviality ___ "ssa_eq_rel_swap"
+Proved triviality ___ "ssa_locals_rel_more"
+Proved triviality ___ "ssa_map_ok_more"
+Proved triviality ___ "get_var_ignore"
+Proved triviality ___ "fix_inconsistencies_correctL"
+Proved triviality ___ "fix_inconsistencies_correctR"
+/Users/z5654475/Desktop/2025/2025_term1/TS/repos/from_source/cakeml/compiler/backend/proofs/word_allocProofScript.sml:4075: warning: Pattern is not exhaustive. Found near val (_, [al, ...]) = strip_comb tm
+Proved triviality ___ "list_next_var_rename_move_preserve"
+Proved triviality ___ "get_vars_list_insert_eq_gen"
+Proved triviality ___ "get_vars_set_vars_eq"
+Proved triviality ___ "ssa_locals_rel_ignore_set_var"
+Proved triviality ___ "ssa_locals_rel_ignore_insert"
+Proved triviality ___ "ssa_locals_rel_ignore_list_insert"
+Proved triviality ___ "ssa_locals_rel_set_var"
+Proved triviality ___ "ssa_locals_rel_insert"
+Proved triviality ___ "is_alloc_var_add"
+Proved triviality ___ "is_stack_var_add"
+Proved triviality ___ "is_alloc_var_flip"
+Proved triviality ___ "is_stack_var_flip"
+Proved triviality ___ "list_next_var_rename_props"
+Proved triviality ___ "list_next_var_rename_move_props"
+Proved triviality ___ "ssa_cc_trans_inst_props"
+Proved triviality ___ "fix_inconsistencies_props"
+Proved triviality ___ "flip_rw"
+Proved triviality ___ "ssa_map_ok_lem"
+Proved triviality ___ "list_next_var_rename_move_props_2"
+Proved triviality ___ "ssa_map_ok_inter"
+Saved theorem _______ "ssa_map_ok_insert"
+Saved theorem _______ "ssa_map_ok_force_rename"
+Proved triviality ___ "ssa_cc_trans_props"
+Proved triviality ___ "PAIR_ZIP_MEM"
+Proved triviality ___ "ALOOKUP_ZIP_MEM"
+Proved triviality ___ "ALOOKUP_ALL_DISTINCT_REMAP"
+Proved triviality ___ "set_toAList_keys"
+Proved triviality ___ "ssa_cc_trans_exp_correct"
+Proved triviality ___ "get_var_set_vars_notin"
+Saved theorem _______ "ssa_locals_rel_delete_left"
+Saved theorem _______ "ssa_locals_rel_delete_right"
+Saved theorem _______ "lookup_force_rename_aux"
+Saved theorem _______ "lookup_force_rename"
+Saved theorem _______ "domain_force_rename"
+Saved theorem _______ "ssa_locals_rel_force_rename"
+Saved theorem _______ "list_next_var_rename_move_distinct"
+Slow ssa_cc_trans_correct Call proof 0.  ∀prog' st' cst' ssa' na'.
+       prog_size (K 0) prog' < prog_size (K 0) (Call o' o1 l o0) ⇒
+       word_state_eq_rel st' cst' ∧
+       ssa_locals_rel na' ssa' st'.locals cst'.locals ∧ is_alloc_var na' ∧
+       every_var (λx. x < na') prog' ∧ ssa_map_ok na' ssa' ⇒
+       ∃perm'.
+         (let
+            (res,rst) = evaluate (prog',st' with permute := perm')
+          in
+            res = SOME Error ∨
+            (let
+               (prog',ssa',na') = ssa_cc_trans prog' ssa' na';
+               (res',rcst) = evaluate (prog',cst')
+             in
+               res = res' ∧ word_state_eq_rel rst rcst ∧
+               case res of
+                 NONE => ssa_locals_rel na' ssa' rst.locals rcst.locals
+               | SOME v => rst.locals = rcst.locals))
+ 1.  v = prog_size (K 0) (Call o' o1 l o0)
+ 2.  word_state_eq_rel st cst
+ 3.  ssa_locals_rel na ssa st.locals cst.locals
+ 4.  is_alloc_var na
+ 5.  every_var (λx. x < na) (Call o' o1 l o0)
+ 6.  ssa_map_ok na ssa
+------------------------------------
+     ∃perm'.
+       (let
+          (res,rst) = evaluate (Call o' o1 l o0,st with permute := perm')
+        in
+          res = SOME Error ∨
+          (let
+             (prog',ssa',na') = ssa_cc_trans (Call o' o1 l o0) ssa na;
+             (res',rcst) = evaluate (prog',cst)
+           in
+             res = res' ∧ word_state_eq_rel rst rcst ∧
+             case res of
+               NONE => ssa_locals_rel na' ssa' rst.locals rcst.locals
+             | SOME v => rst.locals = rcst.locals))
+Saved theorem _______ "ssa_cc_trans_correct"
+Proved triviality ___ "setup_ssa_props"
+Proved triviality ___ "max_var_exp_max"
+Proved triviality ___ "max_var_inst_max"
+Saved theorem _______ "max_var_max"
+Proved triviality ___ "limit_var_props"
+Saved theorem _______ "full_ssa_cc_trans_correct"
+Proved triviality ___ "fake_moves_conventions"
+Proved triviality ___ "fix_inconsistencies_conventions"
+
+Type inference failure: unable to infer a type for the application of
+
+(toAList :α sptree$num_map -> (num # α) list) :α sptree$num_map -> (num # α) list
+
+on line 7416, characters 55-61
+
+to
+
+(s :string)
+
+at line 7416, character 63
+
+unification failure message: Attempt to unify different type operators: sptree$spt and list$list
+Saved theorem _______ "ssa_cc_trans_pre_alloc_conventions"
+Proved triviality ___ "setup_ssa_props_2"
+Saved theorem _______ "full_ssa_cc_trans_pre_alloc_conventions"
+Proved triviality ___ "fake_moves_distinct_tar_reg"
+Saved theorem _______ "ssa_cc_trans_distinct_tar_reg"
+Saved theorem _______ "full_ssa_cc_trans_distinct_tar_reg"
+Proved triviality ___ "exp_to_addr_ShareInst"
+Proved triviality ___ "fake_moves_conventions2"
+Proved triviality ___ "ssa_cc_trans_full_inst_ok_less"
+Saved theorem _______ "full_ssa_cc_trans_full_inst_ok_less"
+Proved triviality ___ "call_arg_convention_preservation"
+Saved theorem _______ "every_var_inst_apply_colour_inst"
+Saved theorem _______ "every_var_exp_apply_colour_exp"
+Saved theorem _______ "every_var_apply_colour"
+Saved theorem _______ "every_stack_var_apply_colour"
+Proved triviality ___ "every_var_exp_get_reads_exp"
+Proved triviality ___ "every_var_in_get_clash_tree"
+Proved triviality ___ "every_var_T"
+Proved triviality ___ "every_var_is_phy_var_total_colour"
+Proved triviality ___ "oracle_colour_ok_conventions"
+Saved theorem _______ "pre_post_conventions_word_alloc"
+Proved triviality ___ "word_alloc_full_inst_ok_less_lem"
+Proved triviality ___ "forced_distinct_col"
+Saved theorem _______ "word_alloc_full_inst_ok_less"
+Exporting theory "word_allocProof" ... done.
+Theory "word_allocProof" took 7m31s to build

@@ -1,15 +1,12 @@
 (*
   Weakening lemmas used in type soundness
 *)
-open preamble;
-open optionTheory rich_listTheory alistTheory;
-open astTheory typeSystemTheory typeSysPropsTheory;
-open namespacePropsTheory;
-open semanticPrimitivesTheory;
-open astPropsTheory;
-open typeSoundInvariantsTheory;
-
-val _ = new_theory "weakening";
+Theory weakening
+Ancestors
+  option rich_list alist ast typeSystem typeSysProps
+  namespaceProps semanticPrimitives astProps typeSoundInvariants
+Libs
+  preamble
 
 Definition weak_tenvE_def:
 weak_tenvE tenv tenv' =
@@ -915,4 +912,3 @@ Proof
 QED
  *)
 
-val _ = export_theory ();

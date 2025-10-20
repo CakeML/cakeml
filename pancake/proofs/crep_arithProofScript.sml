@@ -1,11 +1,12 @@
 (*
   Correctness proof for crep_arith pass
 *)
+Theory crep_arithProof
+Ancestors
+  crepSem crepProps crep_arith
+Libs
+  preamble
 
-open preamble
-     crepSemTheory crepPropsTheory crep_arithTheory
-
-val _ = new_theory "crep_arithProof";
 
 Theorem dest_const_thm:
   dest_const exp = SOME v ==> exp = Const v
@@ -70,7 +71,7 @@ Proof
     \\ gvs [DISJ_IMP_THM, FORALL_AND_THM, OPT_MMAP_MAP_o, combinTheory.o_DEF]
     \\ every_case_tac \\ fs []
     \\ imp_res_tac dest_const_thm
-    \\ irule EQ_TRANS \\ irule_at Any eval_mul_const
+    \\ TRY (irule EQ_TRANS \\ irule_at Any eval_mul_const)
     \\ Cases_on `op` \\ fs [crep_op_def, eval_def]
   )
 QED
@@ -147,4 +148,3 @@ Proof
   \\ fs [sh_mem_op_code]
 QED
 
-val _ = export_theory();

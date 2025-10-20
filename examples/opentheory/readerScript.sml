@@ -2,9 +2,11 @@
   Shallowly embedded (monadic) functions that implement the OpenTheory
   article checker.
 *)
-open preamble ml_hol_kernelProgTheory mlintTheory StringProgTheory prettyTheory;
-
-val _ = new_theory "reader";
+Theory reader
+Ancestors
+  ml_hol_kernelProg mlint StringProg pretty
+Libs
+  preamble
 
 val st_ex_monadinfo : monadinfo = {
   bind = “st_ex_bind”,
@@ -977,4 +979,3 @@ Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ rw [Once unescape_def]
 QED
 
-val _ = export_theory()

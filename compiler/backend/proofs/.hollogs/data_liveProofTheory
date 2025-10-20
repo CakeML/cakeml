@@ -1,0 +1,17 @@
+<<HOL message: Created theory "data_liveProof">>
+Proved triviality ___ "SPLIT_PAIR"
+Saved definition ____ "state_rel_def"
+Proved triviality ___ "state_rel_ID"
+Proved triviality ___ "jump_exc_IMP_state_rel"
+Proved triviality ___ "state_rel_IMP_do_app_aux"
+Proved triviality ___ "state_rel_IMP_do_app"
+Proved triviality ___ "state_rel_IMP_do_app_aux_err"
+Proved triviality ___ "state_rel_IMP_do_app_err"
+Proved triviality ___ "state_rel_IMP_get_vars"
+Proved triviality ___ "is_pure_do_app_Rerr_IMP"
+Proved triviality ___ "is_pure_do_app_Rval_IMP"
+Proved triviality ___ "evaluate_compile"
+Saved theorem _______ "compile_correct"
+Saved theorem _______ "get_code_labels_compile"
+Exporting theory "data_liveProof" ... done.
+Theory "data_liveProof" took 1m02s to build

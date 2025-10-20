@@ -1,6 +1,12 @@
 (*
   Finish translation of the 64-bit version of the compiler.
 *)
+Theory compiler64Prog[no_sig_docs]
+Ancestors
+  mipsProg compiler export ml_translator basis_ffi[qualified]
+Libs
+  preamble ml_translatorLib cfLib basis
+
 open preamble
      mipsProgTheory compilerTheory
      exportTheory
@@ -8,8 +14,6 @@ open preamble
 open cfLib basis
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"compiler64Prog";
 
 val _ = translation_extends "mipsProg";
 
@@ -31,10 +35,15 @@ val res = translate $ errorLogMonadTheory.bind_def;
 val res = translate $ errorLogMonadTheory.log_def;
 val res = translate $ errorLogMonadTheory.error_def;
 
+val res = translate $ panStaticTheory.sh_bd_from_sh_def;
+val res = translate $ panStaticTheory.sh_bd_from_bd_def;
+val res = translate $ panStaticTheory.sh_bd_has_shape_def;
+val res = translate $ panStaticTheory.sh_bd_eq_shapes_def;
+val res = translate $ panStaticTheory.index_sh_bd_def;
 val res = translate $ panStaticTheory.based_merge_def;
-val res = translate $ panStaticTheory.based_cmp_def;
-val res = translate $ panStaticTheory.branch_vbases_def;
-val res = translate $ panStaticTheory.seq_vbases_def;
+val res = translate $ panStaticTheory.sh_bd_branch_def;
+val res = translate $ panStaticTheory.branch_loc_inf_def;
+val res = translate $ panStaticTheory.seq_loc_inf_def;
 
 val res = translate $ panStaticTheory.last_to_str_def;
 val res = translate $ panStaticTheory.next_is_reachable_def;
@@ -43,15 +52,37 @@ val res = translate $ spec64 $ panStaticTheory.reached_warnable_def;
 val res = translate $ panStaticTheory.branch_last_stmt_def;
 val res = translate $ panStaticTheory.seq_last_stmt_def;
 
+val res = translate $ panStaticTheory.get_scope_desc_def;
+val res = translate $ panStaticTheory.get_scope_msg_def;
+val res = translate $ panStaticTheory.get_redec_msg_def;
+val res = translate $ panStaticTheory.get_memop_msg_def;
+val res = translate $ panStaticTheory.get_oparg_msg_def;
+val res = translate $ panStaticTheory.get_unreach_msg_def;
+val res = translate $ panStaticTheory.get_rogue_msg_def;
+val res = translate $ panStaticTheory.get_non_word_msg_def;
+val res = translate $ panStaticTheory.get_shape_mismatch_msg_def;
+
 val res = translate $ panStaticTheory.first_repeat_def;
 val res = translate $ panStaticTheory.binop_to_str_def;
 val res = translate $ panStaticTheory.panop_to_str_def;
 
+val res = translate $ panStaticTheory.scope_check_fun_name_def;
+val res = translate $ panStaticTheory.scope_check_global_var_def;
+val res = translate $ panStaticTheory.scope_check_local_var_def;
+val res = translate $ panStaticTheory.check_redec_var_def;
+val res = translate $ panStaticTheory.check_export_params_def;
+val res = translate $ panStaticTheory.check_operands_def;
+val res = translate $ panStaticTheory.check_func_args_def;
+
 val res = translate $ spec64 $ panStaticTheory.static_check_exp_def;
 val res = translate $ spec64 $ panStaticTheory.static_check_prog_def;
-val res = translate $
-  INST_TYPE[beta|->``:64``] panStaticTheory.static_check_funs_def;
-val res = translate $ INST_TYPE[beta|->``:64``] panStaticTheory.static_check_def;
+val res = translate $ spec64 $ panStaticTheory.static_check_progs_def;
+val res = translate $ spec64 $ panStaticTheory.static_check_decls_def;
+val res = translate $ spec64 $ panStaticTheory.static_check_def;
+
+val _ = res |> hyp |> null orelse
+        failwith ("Unproved side condition in the translation of " ^
+                  "panStaticTheory.static_check_def.");
 
 Definition max_heap_limit_64_def:
                                   max_heap_limit_64 c =
@@ -143,6 +174,7 @@ val r = pan_passesTheory.pan_to_target_all_def |> spec64
 val r = pan_passesTheory.opsize_to_display_def |> translate;
 val r = pan_passesTheory.shape_to_str_def |> translate;
 val r = pan_passesTheory.insert_es_def |> translate;
+val r = pan_passesTheory.varkind_to_str_def |> translate;
 Triviality lem:
   dimindex(:64) = 64
 Proof
@@ -387,7 +419,7 @@ Proof
 QED
 
 val compiler_for_eval_alt =
-“compiler_for_eval (id,c,decs)”
+“compiler_for_eval (id,c,ds)”
   |> SIMP_CONV std_ss [backendTheory.compile_inc_progs_for_eval_eq,
                        compiler_for_eval_def, EVAL “x64_config.reg_count”,
                        backendTheory.ensure_fp_conf_ok_def,
@@ -753,6 +785,4 @@ Theorem Decls_FRONT_compiler64_prog = th1
 
 Theorem LAST_compiler64_prog = EVAL “LAST compiler64_prog”;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.reset_translation(); (* because this translation won't be continued *)
-val _ = export_theory();

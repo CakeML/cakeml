@@ -1,0 +1,107 @@
+<<HOL message: Created theory "labSem">>
+Saved theorem _______ "datatype_word8_loc"
+Saved theorem _______ "word8_loc_11"
+Saved theorem _______ "word8_loc_distinct"
+Saved theorem _______ "word8_loc_nchotomy"
+Saved theorem _______ "word8_loc_Axiom"
+Saved theorem _______ "word8_loc_induction"
+Saved theorem _______ "word8_loc_case_cong"
+Saved theorem _______ "word8_loc_case_eq"
+<<HOL message: Defined type: "word8_loc">>
+Saved theorem _______ "datatype_state"
+Saved theorem _______ "state_11"
+Saved theorem _______ "state_nchotomy"
+Saved theorem _______ "state_Axiom"
+Saved theorem _______ "state_induction"
+Saved theorem _______ "state_case_cong"
+Saved theorem _______ "state_case_eq"
+<<HOL message: Defined type: "state">>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "is_Label_def"
+Saved induction _____ "is_Label_ind"
+Saved definition ____ "asm_fetch_aux_def"
+Saved induction _____ "asm_fetch_aux_ind"
+Saved definition ____ "asm_fetch_def"
+Saved definition ____ "upd_pc_def"
+Saved definition ____ "upd_reg_def"
+Saved definition ____ "upd_mem_def"
+Saved definition ____ "assert_def"
+Saved definition ____ "reg_imm_def"
+Saved definition ____ "binop_upd_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 7 clauses to the original specification.>>
+Saved definition ____ "word_cmp_def"
+Saved induction _____ "word_cmp_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "arith_upd_def"
+Saved definition ____ "upd_fp_reg_def"
+Saved definition ____ "read_fp_reg_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "fp_upd_def"
+Saved definition ____ "addr_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 8 clauses to the original specification.>>
+Saved definition ____ "is_Loc_def"
+Saved induction _____ "is_Loc_ind"
+Saved definition ____ "mem_store_def"
+Saved definition ____ "mem_load_def"
+Saved definition ____ "mem_load_byte_def"
+Saved definition ____ "mem_store_byte_def"
+Saved definition ____ "mem_op_def"
+Saved definition ____ "asm_inst_def"
+Saved definition ____ "dec_clock_def"
+Saved definition ____ "inc_pc_def"
+Saved definition ____ "asm_code_length_def"
+Saved induction _____ "asm_code_length_ind"
+Proved triviality ___ "asm_fetch_IMP"
+Saved definition ____ "lab_to_loc_def"
+Saved definition ____ "loc_to_pc_def"
+Saved induction _____ "loc_to_pc_ind"
+Saved theorem _______ "asm_inst_consts"
+Saved definition ____ "get_pc_value_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "next_label_def"
+Saved induction _____ "next_label_ind"
+Saved definition ____ "get_lab_after_def"
+Saved induction _____ "get_lab_after_ind"
+Saved definition ____ "get_ret_Loc_def"
+Saved definition ____ "share_mem_load_def"
+Saved definition ____ "share_mem_store_def"
+Saved definition ____ "share_mem_op_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 4 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "evaluate_def"
+Saved induction _____ "evaluate_ind"
+Saved definition ____ "semantics_def"
+Exporting theory "labSem" ... done.
+Theory "labSem" took 9.5s to build

@@ -1,0 +1,300 @@
+<<HOL message: Created theory "clos_knownProof">>
+Saved theorem _______ "known_op_changed_globals"
+Saved theorem _______ "known_changed_globals"
+Saved theorem _______ "known_unchanged_globals"
+Saved theorem _______ "known_op_changed_globals_alt"
+Saved theorem _______ "known_op_changed_globals_alt_set"
+Saved theorem _______ "known_changed_globals_alt"
+Saved theorem _______ "known_changed_globals_alt_set"
+Saved definition ____ "first_n_exps_def"
+Saved theorem _______ "first_n_exps_shift_seq"
+Saved theorem _______ "MEM_first_n_exps"
+Saved definition ____ "unique_set_globals_def"
+Saved theorem _______ "unique_set_globals_shift_seq"
+Saved theorem _______ "unique_set_globals_evaluate"
+Saved theorem _______ "unique_set_globals_subexps"
+Saved theorem _______ "unique_set_globals_IMP_es_distinct_elist_globals"
+Saved theorem _______ "set_globals_empty_unique_set_globals"
+Saved theorem _______ "nil_unique_set_globals"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "val_approx_sgc_free_def"
+Saved induction _____ "val_approx_sgc_free_ind"
+<<HOL warning: ThmSetData.revise_data: 
+  Theorems in set "compute":
+    ADD<clos_knownProof$val_approx_sgc_free_def>
+  invalidated by NewBinding(val_approx_sgc_free_def)>>
+Saved theorem _______ "val_approx_sgc_free_def"
+Saved theorem _______ "val_approx_sgc_free_merge"
+Saved definition ____ "globals_approx_sgc_free_def"
+Saved theorem _______ "val_approx_val_rules"
+Saved theorem _______ "val_approx_val_ind"
+Saved theorem _______ "val_approx_val_strongind"
+Saved theorem _______ "val_approx_val_cases"
+Saved theorem _______ "val_approx_val_simps"
+Saved theorem _______ "val_approx_val_merge_I_lemma"
+Saved theorem _______ "val_approx_val_merge_I"
+Saved theorem _______ "evaluate_IMP_shift_seq"
+Saved theorem _______ "shift_seq_zero"
+Saved theorem _______ "shift_seq_add"
+Saved theorem _______ "do_install_IMP_shift_seq"
+Saved theorem _______ "evaluate_app_IMP_shift_seq"
+Saved definition ____ "state_globals_approx_def"
+Saved theorem _______ "state_globals_approx_clock_fupd"
+Saved theorem _______ "state_globals_approx_dec_clock"
+Saved theorem _______ "state_globals_approx_refsfupd"
+Saved theorem _______ "state_globals_approx_ffifupd"
+Saved theorem _______ "state_globals_approx_codeupd"
+Saved theorem _______ "state_globals_approx_coupd"
+Saved definition ____ "mapped_globals_def"
+Saved definition ____ "mglobals_extend_def"
+Saved theorem _______ "mglobals_extend_refl"
+Saved theorem _______ "mglobals_extend_trans"
+Saved theorem _______ "mglobals_extend_SUBSET"
+Saved theorem _______ "subspt_better_definedg"
+Saved theorem _______ "subspt_known_elist_globals"
+Saved theorem _______ "subspt_known_op_elist_globals"
+Saved definition ____ "fv_max_def"
+Saved theorem _______ "fv_max_SmartOp"
+Saved theorem _______ "fv_alt"
+Saved theorem _______ "fv1_alt"
+Saved theorem _______ "fv_max_rw"
+Saved theorem _______ "fv_max_mk_Ticks"
+Saved theorem _______ "fv_max_cons"
+Saved theorem _______ "fv_max_append"
+Saved theorem _______ "fv_max_less"
+Saved theorem _______ "known_op_correct_approx"
+Saved theorem _______ "ssgc_free_co_shift_seq"
+Saved theorem _______ "ssgc_free_do_install"
+Saved theorem _______ "do_install_ssgc"
+Proved triviality ___ "not_less_zoer_imp"
+Proved triviality ___ "not_less_zero_imp"
+Saved theorem _______ "do_app_ssgc"
+Saved theorem _______ "dest_closure_Full_sgc_free"
+evaluate_changed_globals_0: NIL
+evaluate_changed_globals_0: CONS
+evaluate_changed_globals_0: Var
+evaluate_changed_globals_0: If
+evaluate_changed_globals_0: Let
+evaluate_changed_globals_0: Raise
+evaluate_changed_globals_0: Handle
+evaluate_changed_globals_0: Op
+evaluate_changed_globals_0: Fn
+evaluate_changed_globals_0: Letrec
+evaluate_changed_globals_0: App
+evaluate_changed_globals_0: Tick
+evaluate_changed_globals_0: Call
+evaluate_changed_globals_0: evaluate_app NIL
+evaluate_changed_globals_0: evaluate_app CONS
+Proved triviality ___ "evaluate_changed_globals_0"
+Saved theorem _______ "evaluate_changed_globals"
+Saved theorem _______ "evaluate_app_changed_globals"
+Saved theorem _______ "mk_Ticks_set_globals"
+Saved definition ____ "gapprox_disjoint_def"
+Saved theorem _______ "gapprox_disjoint_rw"
+Saved definition ____ "oracle_gapprox_disjoint_def"
+Saved theorem _______ "oracle_gapprox_disjoint_shift_seq"
+Saved theorem _______ "oracle_gapprox_disjoint_evaluate"
+Saved theorem _______ "oracle_gapprox_disjoint_first_n_exps"
+Saved theorem _______ "mk_Ticks_esgc_free"
+Saved theorem _______ "known_op_preserves_esgc_free"
+Saved theorem _______ "elist_globals_empty"
+Saved theorem _______ "clos_gen_noinline_val_approx_sgc_free"
+<<HOL message: mk_functional: 
+  pattern completion has added 7 clauses to the original specification.>>
+Saved definition ____ "loptrel_def"
+Saved theorem _______ "decide_inline_LetInline_IMP_Clos"
+Saved theorem _______ "decide_inline_LetInline_IMP_Clos_lopt"
+Saved theorem _______ "known_preserves_esgc_free_0"
+Saved theorem _______ "known_preserves_esgc_free"
+Saved theorem _______ "known_elglobals_dont_grow"
+Saved theorem _______ "known_preserves_pure"
+Saved theorem _______ "evaluate_mk_Ticks_rw"
+Saved theorem _______ "evaluate_mk_Ticks_IMP"
+Saved theorem _______ "clos_gen_noinline_eq"
+Proved triviality ___ "letrec_case_eq"
+Saved definition ____ "every_var_def"
+Saved theorem _______ "every_var_mk_Union"
+Saved theorem _______ "decide_inline_LetInline_IMP_Clos_fv_max"
+Saved theorem _______ "known_preserves_fv_max"
+Saved definition ____ "oracle_gapprox_subspt_def"
+Saved theorem _______ "oracle_gapprox_subspt_add"
+Saved theorem _______ "oracle_gapprox_subspt_alt"
+Saved theorem _______ "oracle_gapprox_subspt_shift_seq"
+Saved theorem _______ "oracle_gapprox_subspt_evaluate"
+Saved definition ____ "oracle_state_sgc_free_def"
+Saved theorem _______ "oracle_state_sgc_free_shift_seq"
+Saved definition ____ "next_g_def"
+Saved definition ____ "mglobals_disjoint_def"
+Saved theorem _______ "mglobals_disjoint_rw"
+Saved theorem _______ "known_changed_globals_cases"
+Saved theorem _______ "known_op_changed_globals_cases"
+Saved theorem _______ "state_globals_approx_known_mglobals_disjoint"
+Saved theorem _______ "mglobals_disjoint_evaluate"
+Saved definition ____ "gapprox_extend_def"
+Saved theorem _______ "state_globals_approx_disjoint_extends"
+Saved theorem _______ "state_globals_approx_evaluate"
+Saved theorem _______ "state_globals_approx_known_op_evaluate"
+Saved theorem _______ "elist_globals_first_n_exps_lemma"
+Saved theorem _______ "elist_globals_first_n_exps_shift_seq_lemma"
+Saved theorem _______ "elist_globals_first_n_exps_exists"
+Saved theorem _______ "oracle_gapprox_disjoint_Install"
+Saved theorem _______ "oracle_gapprox_disjoint_shift_seq_unique_set_globals"
+Saved theorem _______ "oracle_gapprox_disjoint_lemma"
+known_correct_approx: NIL
+known_correct_approx: CONS
+known_correct_approx: Var
+known_correct_approx: If
+known_correct_approx: Let
+known_correct_approx: Raise
+known_correct_approx: Tick
+known_correct_approx: Handle
+known_correct_approx: Call
+known_correct_approx: Op
+known_correct_approx: App
+known_correct_approx: Fn
+known_correct_approx: Letrec
+Saved theorem _______ "known_correct_approx"
+Saved theorem _______ "monotonic_gapprox_disjoint"
+Saved theorem _______ "elist_globals_FLAT_APPEND_FOLDR"
+Saved theorem _______ "elist_globals_FLAT_FOLDR"
+Saved theorem _______ "monotonic_unique_set_globals"
+Saved theorem _______ "pure_co_oracle_props"
+Saved theorem _______ "state_oracle_domain"
+Saved definition ____ "exp_rel_def"
+Saved theorem _______ "exp_rel_dec_inline_factor"
+Saved definition ____ "f_rel_def"
+Saved theorem _______ "v1_size_append"
+Saved definition ____ "v_rel_def"
+Saved induction _____ "v_rel_ind"
+<<HOL warning: ThmSetData.revise_data: 
+  Theorems in set "compute":
+    ADD<clos_knownProof$v_rel_def>
+  invalidated by NewBinding(v_rel_def)>>
+Saved theorem _______ "v_rel_def"
+Saved definition ____ "v_rel_app_def"
+Saved theorem _______ "v_rel_app_NONE"
+Saved theorem _______ "exp_rel_upd_inline_factor"
+Saved theorem _______ "f_rel_upd_inline_factor"
+Saved theorem _______ "v_rel_upd_inline_factor"
+Saved theorem _______ "v_rel_Block"
+Saved theorem _______ "v_rel_Boolv"
+Saved theorem _______ "v_rel_Unit"
+<<HOL message: Treating "c", "g" as schematic variables>>
+Saved theorem _______ "ref_rel_rules"
+Saved theorem _______ "ref_rel_ind"
+Saved theorem _______ "ref_rel_strongind"
+Saved theorem _______ "ref_rel_cases"
+Saved theorem _______ "ref_rel_simps"
+Saved theorem _______ "ref_rel_upd_inline_factor"
+Saved definition ____ "state_rel_def"
+Proved triviality ___ "compile_inc_upd_inline_factor"
+Saved theorem _______ "state_rel_upd_inline_factor"
+Saved theorem _______ "v_rel_subspt"
+Saved theorem _______ "v_rel_LIST_REL_subspt"
+Saved theorem _______ "ref_rel_subspt"
+Saved theorem _______ "state_rel_subspt"
+Saved definition ____ "co_every_Fn_vs_NONE_def"
+Saved theorem _______ "co_every_Fn_vs_NONE_shift_seq"
+Saved theorem _______ "state_rel_co_elist_globals"
+Saved theorem _______ "state_rel_first_n_exps"
+Saved theorem _______ "state_rel_unique_set_globals"
+Saved theorem _______ "state_rel_get_global_IMP"
+Proved triviality ___ "do_app_lemma"
+Saved theorem _______ "evaluate_app_exact_rw"
+Saved theorem _______ "loptrel_arg1_SOME"
+Saved theorem _______ "loptrel_arg1_NONE"
+Saved theorem _______ "dest_closure_SOME_IMP"
+Saved theorem _______ "state_globals_approx_subspt"
+Saved theorem _______ "oracle_gapprox_disjoint_subspt"
+Saved theorem _______ "decide_inline_inlD_LetInline_sgc_free"
+Saved theorem _______ "known_op_subspt"
+Saved theorem _______ "known_subspt"
+Saved definition ____ "state_oracle_mglobals_disjoint_def"
+Saved theorem _______ "state_oracle_mglobals_disjoint_evaluate_suff"
+known_correct0: NIL
+known_correct0: CONS
+known_correct0: Var
+known_correct0: If
+known_correct0: Let
+known_correct0: Raise
+known_correct0: Handle
+known_correct0: Op
+known_correct0: Fn
+known_correct0: Letrec
+known_correct0: App
+known_correct0: Tick
+known_correct0: Call
+known_correct0: evaluate_app NIL
+known_correct0: evaluate_app CONS
+Proved triviality ___ "known_correct0"
+Saved theorem _______ "semantics_known"
+Saved theorem _______ "code_locs_mk_Ticks"
+Saved theorem _______ "contains_closures_code_locs"
+Saved theorem _______ "code_locs_decide_inline"
+Saved theorem _______ "known_code_locs_bag"
+Saved theorem _______ "compile_code_locs_bag"
+Saved theorem _______ "compile_LENGTH"
+Saved definition ____ "syntax_ok_def"
+Saved definition ____ "syntax_oracle_ok_def"
+Saved definition ____ "known_cc_def"
+Saved definition ____ "known_co_def"
+Saved theorem _______ "known_co_eq_pure_state"
+Saved definition ____ "known_mk_co_def"
+Saved definition ____ "known_co_progs_def"
+Saved theorem _______ "known_co_known_mk_co"
+Saved theorem _______ "fvs_compile_uncurry"
+Saved theorem _______ "syntax_oracle_ok_state_sgc_free"
+Saved theorem _______ "syntax_oracle_ok_gapprox_subspt"
+Saved theorem _______ "semantics_compile"
+Saved theorem _______ "every_Fn_SOME_mk_Ticks"
+Saved theorem _______ "every_Fn_vs_NONE_mk_Ticks"
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+Saved definition ____ "val_approx_every_Fn_SOME_def"
+Saved induction _____ "val_approx_every_Fn_SOME_ind"
+Saved theorem _______ "val_approx_every_Fn_SOME_merge"
+Saved theorem _______ "decide_inline_every_Fn_SOME"
+Saved definition ____ "globals_approx_every_Fn_SOME_def"
+Saved theorem _______ "known_op_every_Fn_SOME"
+Saved theorem _______ "clos_gen_no_inline_every_Fn_SOME"
+Saved theorem _______ "known_every_Fn_SOME"
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+Saved definition ____ "val_approx_every_Fn_vs_NONE_def"
+Saved induction _____ "val_approx_every_Fn_vs_NONE_ind"
+Saved theorem _______ "val_approx_every_Fn_vs_NONE_merge"
+Saved theorem _______ "decide_inline_every_Fn_vs_NONE"
+Saved definition ____ "globals_approx_every_Fn_vs_NONE_def"
+Saved theorem _______ "known_op_every_Fn_vs_NONE"
+Saved theorem _______ "clos_gen_no_inline_every_Fn_vs_NONE"
+Saved theorem _______ "known_every_Fn_vs_NONE"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "val_approx_no_Labels_def"
+Saved induction _____ "val_approx_no_Labels_ind"
+Saved theorem _______ "decide_inline_no_Labels"
+Saved definition ____ "globals_approx_no_Labels_def"
+Saved theorem _______ "val_approx_no_Labels_merge"
+Saved theorem _______ "known_op_no_Labels"
+Saved theorem _______ "no_Labels_mk_Ticks"
+Saved theorem _______ "clos_gen_no_inline_no_Labels"
+Saved theorem _______ "known_no_Labels"
+Saved theorem _______ "compile_no_Labels"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "val_approx_obeys_max_app_def"
+Saved induction _____ "val_approx_obeys_max_app_ind"
+Saved theorem _______ "decide_inline_obeys_max_app"
+Saved definition ____ "globals_approx_obeys_max_app_def"
+Saved theorem _______ "val_approx_obeys_max_app_merge"
+Saved theorem _______ "known_op_obeys_max_app"
+Saved theorem _______ "obeys_max_app_mk_Ticks"
+Saved theorem _______ "clos_gen_no_inline_obeys_max_app"
+Saved theorem _______ "known_IMP_LENGTH"
+Saved theorem _______ "known_obeys_max_app"
+Saved theorem _______ "compile_obeys_max_app"
+Saved theorem _______ "known_compile_IS_SOME"
+Saved theorem _______ "get_code_labels_mk_Ticks"
+Exporting theory "clos_knownProof" ... done.
+Theory "clos_knownProof" took 1m33s to build

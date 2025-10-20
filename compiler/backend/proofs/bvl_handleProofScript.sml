@@ -1,11 +1,11 @@
 (*
   Correctness proof for bvl_handle
 *)
-open preamble bvl_handleTheory bvlSemTheory bvlPropsTheory;
-
-val _ = new_theory"bvl_handleProof";
-
-val _ = set_grammar_ancestry["bvlSem","bvl_handle","bvlProps"];
+Theory bvl_handleProof
+Ancestors
+  bvlSem bvl_handle bvlProps bvl_constProof[qualified]
+Libs
+  preamble
 
 Theorem can_raise_thm:
   (∀e env s (s:('a,'b) state).
@@ -55,6 +55,8 @@ Proof
    (rpt (CASE_TAC \\ fs [])
     \\ first_x_assum (qspec_then ‘a'::xs’ mp_tac)
     \\ imp_res_tac evaluate_IMP_LENGTH \\ fs [ADD1])
+  >-
+   (rw [] \\ gvs [EL_APPEND])
   \\ once_rewrite_tac [evaluate_CONS] \\ fs []
 QED
 
@@ -179,6 +181,7 @@ Definition handle_ok_def:
          EVERY isVar xs /\ bVarBound (LENGTH xs) [b] /\
          handle_ok [b] /\ handle_ok [x2]
      | _ => F) /\
+  (handle_ok [Force loc n] <=> T) ∧
   (handle_ok [Call ticks dest xs] <=> handle_ok xs)
 Termination
   WF_REL_TAC `measure (exp1_size)`
@@ -297,7 +300,7 @@ Proof
     \\ TRY (match_mp_tac ALOOKUP_MAPi_APPEND2)
     \\ fs [MEM_FILTER,MEM_GENLIST,ALOOKUP_NONE,o_DEF,MAPi_ID] \\ NO_TAC)
   \\ fs [] \\ reverse (Cases_on `has_var (LENGTH env) l1`) \\ fs []
-  \\ fs [evaluate_def,do_app_def,MAPi_def,MAPi_APPEND]
+  \\ fs [evaluate_def,do_app_def,do_int_app_def,MAPi_def,MAPi_APPEND]
   \\ fs [EL_APPEND2] \\ match_mp_tac IMP_EL_SING \\ fs []
 QED
 
@@ -435,6 +438,11 @@ Theorem compile_correct = Q.prove(`
       \\ Cases \\ fs [ADD1]) \\ res_tac \\ fs [])
   THEN1 (* Op *)
    (fs [env_rel_mk_Union] \\ rpt gen_tac \\ strip_tac
+    \\ Cases_on `op = ThunkOp ForceThunk` \\ gvs []
+    >- (
+      gvs [AllCaseEqs()]
+      \\ rpt strip_tac
+      \\ simp [evaluate_def] \\ gvs [])
     \\ drule (GEN_ALL OptionalLetLet_IMP) \\ strip_tac
     \\ pop_assum match_mp_tac
     \\ drule (GEN_ALL OptionalLetLet_limit)
@@ -446,6 +454,12 @@ Theorem compile_correct = Q.prove(`
     \\ imp_res_tac do_app_err \\ fs [] \\ res_tac \\ fs [])
   THEN1 (* Tick *)
    (Cases_on `s.clock = 0` \\ fs [] \\ rw [evaluate_def] \\ res_tac \\ fs [])
+  THEN1 (* Force *)
+   (rw [] \\ gvs []
+    \\ gvs [AllCaseEqs(), evaluate_def, PULL_EXISTS]
+    \\ imp_res_tac env_rel_length \\ gvs [EL_APPEND]
+    \\ gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS, env_rel_def,
+            LIST_RELi_EL_EQN])
   THEN1 (* Call *)
    (fs [env_rel_mk_Union] \\ rpt gen_tac \\ strip_tac
     \\ drule (GEN_ALL OptionalLetLet_IMP) \\ strip_tac
@@ -656,7 +670,7 @@ Proof
 QED
 
 Theorem handle_ok_Var_Const_list:
-   EVERY (\x. ?v i. x = Var v \/ x = Op (Const i) []) xs ==> handle_ok xs
+   EVERY (\x. ?v i. x = Var v \/ x = Op (IntOp (Const i)) []) xs ==> handle_ok xs
 Proof
   Induct_on `xs` \\ fs [handle_ok_def,PULL_EXISTS] \\ rw []
   \\ Cases_on `xs` \\ fs [handle_ok_def]
@@ -790,7 +804,7 @@ Proof
   \\ rveq \\ fs[NULL_EQ] \\ rw[bvl_handleTheory.OptionalLetLet_def]
   \\ fs[]
   \\ fsrw_tac[DNF_ss][SUBSET_DEF]
-  \\ EVAL_TAC
+  \\ EVAL_TAC \\ rw []
 QED
 
 Triviality get_code_labels_dest_handle_Raise:
@@ -866,4 +880,3 @@ Proof
   \\ metis_tac [compile_exp_code_labels, SUBSET_UNION, SUBSET_TRANS, UNION_SUBSET]
 QED
 
-val _ = export_theory();

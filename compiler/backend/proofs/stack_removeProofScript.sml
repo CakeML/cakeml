@@ -1,17 +1,12 @@
 (*
   Correctness proof for stack_remove
 *)
-open preamble
-     stack_removeTheory
-     stackLangTheory
-     stackSemTheory
-     stackPropsTheory
-     set_sepTheory
-     semanticsPropsTheory
-     helperLib
-local open dep_rewrite blastLib (*labPropsTheory*) in end
-
-val _ = new_theory"stack_removeProof";
+Theory stack_removeProof
+Libs
+  preamble helperLib dep_rewrite[qualified] blastLib[qualified]
+Ancestors
+  stack_remove stackLang stackSem stackProps set_sep
+  semanticsProps
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -288,6 +283,19 @@ Triviality state_rel_read:
 Proof
   full_simp_tac(srw_ss())[state_rel_def] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ strip_tac
   \\ full_simp_tac(srw_ss())[GSYM STAR_ASSOC] \\ metis_tac [memory_fun2set_IMP_read]
+QED
+
+Triviality mem_load_32_IMP:
+  state_rel jump off k s t /\
+    mem_load_32 s.memory s.mdomain s.be a = SOME x ==>
+    mem_load_32 t.memory t.mdomain t.be a = SOME x
+Proof
+   full_simp_tac(srw_ss())[wordSemTheory.mem_load_32_def] \\ srw_tac[][]
+  \\ `s.be = t.be` by full_simp_tac(srw_ss())[state_rel_def]
+  \\ ntac 5 (FULL_CASE_TAC >> fs[]) >> gvs[]
+  \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+  \\ imp_res_tac state_rel_read
+  \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
 QED
 
 Triviality mem_load_byte_aux_IMP:
@@ -691,6 +699,32 @@ Proof
   \\ full_simp_tac(srw_ss())[]
 QED
 
+Theorem state_rel_mem_store_32:
+   state_rel jump off k s t ∧ mem_store_32 s.memory s.mdomain s.be a b = SOME z ⇒
+   ∃y. mem_store_32 t.memory t.mdomain t.be a b = SOME y ∧
+       state_rel jump off k (s with memory := z) (t with memory := y)
+Proof
+  fs[state_rel_def,wordSemTheory.mem_store_32_def] >>
+  rpt strip_tac
+  \\ ntac 3 (pop_assum mp_tac)
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ strip_tac
+  \\ strip_tac
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ strip_tac
+  \\ fs[GSYM STAR_ASSOC]
+  \\ drule (GEN_ALL memory_fun2set_IMP_read)
+  \\ disch_then drule
+  \\ strip_tac \\ simp[]
+  \\ rveq
+  \\ simp[CONJ_ASSOC]
+  \\ (conj_tac >- metis_tac[])
+  \\ match_mp_tac memory_write
+  \\ simp[]
+QED
+
 Theorem state_rel_mem_store_byte_aux:
    state_rel jump off k s t ∧ mem_store_byte_aux s.memory s.mdomain s.be a b = SOME z ⇒
    ∃y. mem_store_byte_aux t.memory t.mdomain t.be a b = SOME y ∧
@@ -797,6 +831,7 @@ Proof
   \\ disch_then drule
   \\ simp[]
   \\ imp_res_tac mem_load_byte_aux_IMP \\ fs[]
+  \\ imp_res_tac mem_load_32_IMP \\ fs[]
   >> TRY (
     imp_res_tac state_rel_mem_load_imp
     \\ simp[] \\ srw_tac[][] \\ srw_tac[][] \\ NO_TAC)
@@ -816,7 +851,10 @@ Proof
       \\ metis_tac[])
     \\ simp[]
     \\ imp_res_tac state_rel_mem_store)
-  \\ drule (GEN_ALL state_rel_mem_store_byte_aux)
+  >- (drule (GEN_ALL state_rel_mem_store_byte_aux)
+     \\ disch_then drule
+     \\ strip_tac \\ simp[])
+  \\ drule (GEN_ALL state_rel_mem_store_32)
   \\ disch_then drule
   \\ strip_tac \\ simp[])
   >>
@@ -1969,6 +2007,7 @@ Proof
     \\ Cases_on ‘op’
     \\ fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,
           sh_mem_load32_def,sh_mem_store32_def,
+          sh_mem_load16_def,sh_mem_store16_def,
           sh_mem_load_byte_def,sh_mem_store_byte_def,get_var_def]
     \\ imp_res_tac state_rel_get_var >> fs[get_var_def]
     \\ ntac 2 (TOP_CASE_TAC>>fs[]) >>TRY (ntac 2 (CASE_TAC>>fs[]))>>
@@ -4272,5 +4311,3 @@ Proof
   simp[stack_removeTheory.stack_store_def,stack_removeTheory.stack_load_def,call_args_def,upshift_downshift_call_args]
   >- EVAL_TAC
 QED
-
-val _ = export_theory();

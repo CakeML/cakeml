@@ -1,12 +1,13 @@
 (*
   Examples of non-termination.
 *)
-open preamble basis
-open integerTheory cfDivTheory cfDivLib
+Theory div
+Ancestors
+  integer cfDiv mlbasicsProg Word8Prog
+Libs
+  preamble basis cfDivLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "div";
 
 val _ = translation_extends "basisProg";
 
@@ -292,6 +293,12 @@ Proof
   \\ xcon \\ xsimpl
 QED
 
+Triviality eq_v_WORD8_thm:
+  (WORD8 --> WORD8 --> BOOL) $= eq_v
+Proof
+  metis_tac[DISCH_ALL mlbasicsProgTheory.eq_v_thm,EqualityType_NUM_BOOL]
+QED
+
 Theorem get_char_spec:
   !uv c input events.
   limited_parts names p /\ UNIT_TYPE () uv ==>
@@ -324,6 +331,7 @@ Proof
              names_def, SNOC_APPEND, EVAL ``REPLICATE 2 0w``, State_def]
       \\ xsimpl)
     \\ rpt (xlet_auto THEN1 xsimpl)
+    \\ assume_tac eq_v_WORD8_thm
     \\ xlet_auto THEN1 (xsimpl \\ fs [WORD_def])
     \\ xif \\ instantiate
     \\ rpt (xlet_auto THEN1 xsimpl)
@@ -1148,7 +1156,7 @@ Cases_on `1 < LENGTH l` >-
       pop_assum(fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
       simp[ONE_MOD] >>
       Q.ISPEC_THEN `l` assume_tac SNOC_CASES >>
-      fs[] >> rveq >> fs[EL_APPEND2]) >>
+      fs[] >> rveq >> fs[EL_APPEND2,SNOC_APPEND]) >>
    drule(GSYM MOD_PLUS) >>
    disch_then(qspecl_then[`i`,`1`] mp_tac) >>
    disch_then(fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
@@ -1163,7 +1171,7 @@ Cases_on `1 < LENGTH l` >-
    simp[DECIDE ``!n. PRE(n+1) = n``] >>
    match_mp_tac EL_FRONT >>
    Q.ISPEC_THEN `l` assume_tac SNOC_CASES >>
-   fs[] >> rveq >> fs[FRONT_APPEND]) >>
+   fs[] >> rveq >> fs[FRONT_APPEND,SNOC_APPEND]) >>
   Cases_on `l` >> fs[] >> Cases_on `t` >> fs[]
 QED
 
@@ -1427,5 +1435,3 @@ Proof
   xlet_auto >- (xcon >> xsimpl) >>
   xvar >> xsimpl
 QED
-
-val _ = export_theory();

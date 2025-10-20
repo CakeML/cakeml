@@ -1,15 +1,14 @@
 (*
   Instantiate the CakeML FFI oracle for the oracle of the basis library.
 *)
-open preamble ml_translatorTheory ml_translatorLib ml_progLib
-     cfLib basisFunctionsLib set_sepTheory
-     fsFFITheory fsFFIPropsTheory
-     CommandLineProofTheory TextIOProofTheory
-     runtimeFFITheory RuntimeProofTheory
+Theory basis_ffi
+Ancestors
+  ml_translator set_sep fsFFI fsFFIProps CommandLineProof
+  TextIOProof runtimeFFI RuntimeProof
+Libs
+  preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"basis_ffi";
 
 (*---------------------------------------------------------------------------*)
 (* GENERALISED FFI *)
@@ -720,9 +719,10 @@ Proof
   \\ `st.ffi.oracle = basis_ffi_oracle`
   by( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC)
   \\ rw[cfStoreTheory.parts_ok_def]
-  \\ TRY ( simp[Abbr`st`] \\ EVAL_TAC \\ NO_TAC )
-  \\ TRY ( imp_res_tac oracle_parts \\ rfs[] \\ NO_TAC)
-  \\ TRY ( imp_res_tac oracle_parts_div \\ rfs[] \\ NO_TAC)
+  >- EVAL_TAC
+  >- (simp[Abbr`st`] \\ EVAL_TAC)
+  >~ [‘_ |++ _’] >- (imp_res_tac oracle_parts \\ gvs [])
+  >~ [‘SOME FFIdiverge’] >- (imp_res_tac oracle_parts_div \\ rfs[])
   \\ qpat_x_assum`MEM _ basis_proj2`mp_tac
   \\ simp[basis_proj2_def,basis_ffi_part_defs,cfHeapsBaseTheory.mk_proj2_def]
   \\ TRY (qpat_x_assum`_ = SOME _`mp_tac)
@@ -750,4 +750,3 @@ Proof
   fs [semanticPrimitivesTheory.state_component_equality]
 QED
 
-val _ = export_theory();

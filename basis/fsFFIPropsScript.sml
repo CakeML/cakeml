@@ -1,16 +1,15 @@
 (*
   Lemmas about the file system model used by the proof about TextIO.
 *)
-open preamble mlstringTheory cfHeapsBaseTheory fsFFITheory MarshallingTheory
+Theory fsFFIProps
+Ancestors
+  mlstring cfHeapsBase fsFFI Marshalling
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
-val _ = new_theory"fsFFIProps"
-
 val _ = option_monadsyntax.temp_add_option_monadsyntax();
-
-val option_case_eq =
-    prove_case_eq_thm  { nchotomy = option_nchotomy, case_def = option_case_def}
 
 Theorem numchars_self:
    !fs. fs = fs with numchars := fs.numchars
@@ -151,7 +150,7 @@ Proof
   fs [validFD_def,nextFD_def]
   \\ qabbrev_tac `xs = MAP FST fs.infds`
   \\ match_mp_tac (SIMP_RULE std_ss []
-          (Q.ISPEC `\n:num. ~MEM n xs` whileTheory.LEAST_INTRO))
+          (Q.ISPEC `\n:num. ~MEM n xs` WhileTheory.LEAST_INTRO))
   \\ qexists_tac `SUM xs + 1`
   \\ strip_tac
   \\ qsuff_tac `!xs m:num. MEM m xs ==> m <= SUM xs`
@@ -761,7 +760,6 @@ Theorem get_file_content_bumpFD[simp]:
 Proof
  rw[get_file_content_def,bumpFD_def,AFUPDKEY_ALOOKUP]
  \\ CASE_TAC \\ fs[]
- \\ pairarg_tac \\ fs[]
  \\ pairarg_tac \\ fs[] \\ rw[]
  \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[]
 QED
@@ -957,7 +955,6 @@ Theorem get_file_content_forwardFD[simp]:
 Proof
   rw[get_file_content_def,forwardFD_def,AFUPDKEY_ALOOKUP]
   \\ CASE_TAC \\ fs[]
-  \\ pairarg_tac \\ fs[]
   \\ pairarg_tac \\ fs[] \\ rw[]
   \\ Cases_on`ALOOKUP fs.inode_tbl ino` \\ fs[]
 QED
@@ -1042,11 +1039,12 @@ Theorem concat_lines_of:
 Proof
   rw[lines_of_def] \\
   `s = implode (explode s)` by fs [explode_implode] \\
-  qabbrev_tac `ls = explode s` \\ pop_assum kall_tac \\ rveq \\
-  Induct_on`splitlines ls` \\ rw[] \\
-  pop_assum(assume_tac o SYM) \\
-  fs[splitlines_eq_nil,concat_cons]
+  qabbrev_tac `ls = explode s`
+  \\ pop_assum kall_tac \\ rveq \\
+  Induct_on`splitlines ls` \\ rw[]
   >- EVAL_TAC \\
+  pop_assum(assume_tac o SYM) \\
+  fs[splitlines_eq_nil,concat_cons] \\
   imp_res_tac splitlines_next \\ rw[] \\
   first_x_assum(qspec_then`DROP (SUC (LENGTH h)) ls`mp_tac) \\
   rw[] \\ rw[]
@@ -1464,4 +1462,3 @@ Proof
   \\ rw [] \\ fs [validFileFD_def]
 QED
 
-val _ = export_theory();

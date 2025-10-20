@@ -1,0 +1,16 @@
+<<HOL message: Created theory "loop_to_word">>
+Saved definition ____ "find_var_def"
+Saved definition ____ "find_reg_imm_def"
+Saved definition ____ "comp_exp_def"
+Saved induction _____ "comp_exp_ind"
+Saved definition ____ "toNumSet_def"
+Saved definition ____ "fromNumSet_def"
+Saved definition ____ "mk_new_cutset_def"
+Saved definition ____ "comp_def"
+Saved induction _____ "comp_ind"
+Saved definition ____ "make_ctxt_def"
+Saved definition ____ "comp_func_def"
+Saved definition ____ "compile_prog_def"
+Saved definition ____ "compile_def"
+Exporting theory "loop_to_word" ... done.
+Theory "loop_to_word" took 3.3s to build

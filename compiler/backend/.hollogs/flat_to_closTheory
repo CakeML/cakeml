@@ -1,0 +1,56 @@
+<<HOL message: Created theory "flat_to_clos">>
+<<HOL message: mk_functional: 
+  pattern completion has added 6 clauses to the original specification.>>
+Saved definition ____ "dest_pat_def"
+Saved induction _____ "dest_pat_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 6 clauses to the original specification.>>
+Saved theorem _______ "dest_pat_pmatch"
+Saved theorem _______ "dest_pat_thm"
+Saved definition ____ "compile_lit_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "arg1_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved theorem _______ "arg1_pmatch"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "arg2_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved theorem _______ "arg2_pmatch"
+Saved definition ____ "CopyByteStr_def"
+Saved definition ____ "CopyByteAw8_def"
+Saved definition ____ "compile_op_def"
+Saved definition ____ "join_strings_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 65 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 66 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 51 clauses to the original specification.>>
+Saved definition ____ "dest_nop_def"
+Saved theorem _______ "dest_nop_thm"
+<<HOL message: mk_functional: 
+  pattern completion has added 67 clauses to the original specification.>>
+Saved definition ____ "dest_Constant_def"
+Saved induction _____ "dest_Constant_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 67 clauses to the original specification.>>
+Saved theorem _______ "dest_Constant_pmatch"
+Saved definition ____ "dest_Constants_def"
+Saved definition ____ "SmartCons_def"
+Saved definition ____ "compile_def"
+Saved induction _____ "compile_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "compile_decs_def"
+Saved induction _____ "compile_decs_ind"
+Saved definition ____ "compile_prog_def"
+Saved definition ____ "inc_compile_decs_def"
+Saved theorem _______ "LENGTH_compile"
+Saved theorem _______ "compile_NOT_NIL"
+Saved theorem _______ "HD_compile"
+Exporting theory "flat_to_clos" ... done.
+Theory "flat_to_clos" took 13.2s to build

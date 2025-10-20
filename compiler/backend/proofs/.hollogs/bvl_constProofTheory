@@ -1,0 +1,35 @@
+<<HOL message: Created theory "bvl_constProof">>
+<<HOL message: mk_functional: 
+  pattern completion has added 5 clauses to the original specification.>>
+Saved definition ____ "v_rel_def"
+Saved induction _____ "v_rel_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL warning: TypeBasePure.typeValue: Badly typed terms at type constructor "bool$itself". Continuing anyway.>>
+<<HOL warning: TypeBasePure.typeValue: Badly typed terms at type constructor "bool$itself". Continuing anyway.>>
+<<HOL warning: TypeBasePure.typeValue: Badly typed terms at type constructor "bool$itself". Continuing anyway.>>
+<<HOL warning: TypeBasePure.typeValue: Badly typed terms at type constructor "bool$itself". Continuing anyway.>>
+Saved definition ____ "env_rel_def"
+Saved induction _____ "env_rel_ind"
+Saved theorem _______ "env_rel_length"
+Proved triviality ___ "env_rel_LLOOKUP_NONE"
+Proved triviality ___ "env_rel_LOOKUP_SOME"
+Saved theorem _______ "evaluate_delete_var_Rerr_SING"
+Proved triviality ___ "evaluate_delete_var_Rerr"
+Proved triviality ___ "evaluate_delete_var_Rval"
+Saved theorem _______ "evaluate_EQ_NIL"
+Saved theorem _______ "SmartOp1_thm"
+Saved theorem _______ "SmartOp_thm"
+Saved theorem _______ "evaluate_env_rel"
+Saved theorem _______ "compile_thm"
+Saved theorem _______ "evaluate_compile_exp"
+Saved theorem _______ "delete_var_code_labels"
+Saved theorem _______ "dest_simple_SOME_code_labels"
+Saved theorem _______ "SmartOp2_code_labels"
+Saved theorem _______ "SmartOp1_code_labels"
+Saved theorem _______ "SmartOp_code_labels"
+Saved theorem _______ "MEM_extract_list_code_labels"
+Saved theorem _______ "compile_code_labels"
+Saved theorem _______ "compile_exp_code_labels"
+Exporting theory "bvl_constProof" ... done.
+Theory "bvl_constProof" took 1m15s to build

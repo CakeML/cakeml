@@ -1,0 +1,17 @@
+<<HOL message: Created theory "word_unreach">>
+<<HOL message: mk_functional: 
+  pattern completion has added 42 clauses to the original specification.>>
+Saved definition ____ "dest_Seq_Move_def"
+Saved induction _____ "dest_Seq_Move_ind"
+Saved definition ____ "merge_moves_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 18 clauses to the original specification.>>
+Saved definition ____ "SimpSeq_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 17 clauses to the original specification.>>
+Saved definition ____ "Seq_assoc_right_def"
+Saved induction _____ "Seq_assoc_right_ind"
+Saved definition ____ "remove_unreach_def"
+Proved triviality ___ "remove_unreach_test"
+Exporting theory "word_unreach" ... done.
+Theory "word_unreach" took 3.6s to build

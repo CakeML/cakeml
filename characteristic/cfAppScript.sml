@@ -3,12 +3,12 @@
   value to one or multiple value arguments. It is in particular used
   in cf to abstract from the concrete representation of closures.
 *)
-open preamble
-open set_sepTheory helperLib semanticPrimitivesTheory
-open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory cfNormaliseTheory
-open cfTacticsBaseLib cfHeapsLib
-
-val _ = new_theory "cfApp"
+Theory cfApp
+Ancestors
+  set_sep semanticPrimitives cfHeapsBase cfHeaps cfStore
+  cfNormalise evaluate evaluateProps
+Libs
+  preamble helperLib cfHeapsBaseLib cfTacticsBaseLib cfHeapsLib
 
 Type state = ``:'ffi semanticPrimitives$state``
 
@@ -28,12 +28,10 @@ Definition evaluate_to_heap_def:
     | Val v => (∃ck st'. evaluate_ck ck st env [exp] = (st', Rval [v]) /\
                          st'.next_type_stamp = st.next_type_stamp /\
                          st'.next_exn_stamp = st.next_exn_stamp /\
-                         st.fp_state = st'.fp_state /\
                          st2heap p st' = heap)
     | Exn e => (∃ck st'. evaluate_ck ck st env [exp] = (st', Rerr (Rraise e)) /\
                          st'.next_type_stamp = st.next_type_stamp /\
                          st'.next_exn_stamp = st.next_exn_stamp /\
-                         st.fp_state = st'.fp_state /\
                          st2heap p st' = heap)
     | FFIDiv name conf bytes => (∃ck st'.
       evaluate_ck ck st env [exp]
@@ -362,7 +360,6 @@ Proof
   \\ Cases_on`r` \\ fs[cond_def,EQ_IMP_THM]
 QED
 
-open evaluateTheory evaluatePropsTheory
 val dec_clock_def = evaluateTheory.dec_clock_def
 val evaluate_empty_state_IMP = ml_translatorTheory.evaluate_empty_state_IMP
 
@@ -616,7 +613,8 @@ Theorem do_app_io_events_ExtCall:
         ?s bs bs'. io_ev = IO_event (ExtCall s) bs bs'
 Proof
   strip_tac >>
-  gvs[DefnBase.one_line_ify NONE do_app_def,
+  gvs[oneline do_app_def,
+    oneline thunk_op_def, store_alloc_def,
     AllCaseEqs(),ffiTheory.call_FFI_def] >>
   pairarg_tac >> fs[]
 QED
@@ -649,8 +647,7 @@ Proof
   imp_res_tac $ cj 3 evaluate_history_irrelevance >>
   imp_res_tac do_app_io_events_ExtCall >>
   rpt strip_tac >>
-  gvs[do_eval_res_def,AllCaseEqs(),dec_clock_def,
-    shift_fp_opts_def]
+  gvs[do_eval_res_def,AllCaseEqs(),dec_clock_def]
 QED
 
 Theorem app_basic_IMP_Arrow:
@@ -662,7 +659,7 @@ Proof
   \\ first_x_assum drule
   \\ fs[evaluate_ck_def]
   \\ fs[POSTv_cond,SPLIT3_emp1,PULL_EXISTS]
-  \\ disch_then( qspec_then`empty_state with <| refs := refs; ffi := ffi_st_x; fp_state := empty_state.fp_state|>` mp_tac)
+  \\ disch_then( qspec_then`empty_state with <| refs := refs; ffi := ffi_st_x; |>` mp_tac)
   \\ rw [] \\ instantiate
   \\ rename1 `SPLIT (st2heap p st1) _`
   \\ drule_then (qspec_then `empty_state with <| clock := ck ;refs := refs |>` mp_tac)
@@ -701,4 +698,3 @@ Proof
   metis_tac[GEN_ALL Arrow_IMP_app_basic, GEN_ALL app_basic_IMP_Arrow]
 QED
 
-val _ = export_theory ()

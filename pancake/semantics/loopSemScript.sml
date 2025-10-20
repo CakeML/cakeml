@@ -1,18 +1,13 @@
 (*
   The formal semantics of loopLang
 *)
-open preamble loopLangTheory;
-local open
-   alignmentTheory
-   wordSemTheory
-   ffiTheory in end;
-
-val _ = new_theory"loopSem";
-val _ = set_grammar_ancestry [
-  "loopLang", "alignment",
-  "finite_map", "misc", "wordSem",
-  "ffi", "machine_ieee" (* for FP *)
-]
+Theory loopSem
+Ancestors
+  loopLang alignment[qualified] finite_map[qualified]
+  misc[qualified] wordSem[qualified] ffi[qualified]
+  machine_ieee[qualified] (* for FP *)
+Libs
+  preamble
 
 Datatype:
   state =
@@ -25,7 +20,8 @@ Datatype:
      ; code    : (num list # ('a loopLang$prog)) num_map
      ; be      : bool
      ; ffi     : 'ffi ffi_state
-     ; base_addr   : 'a word |>
+     ; base_addr   : 'a word
+     ; top_addr   : 'a word |>
 End
 
 val state_component_equality = theorem "state_component_equality";
@@ -88,7 +84,9 @@ Definition eval_def:
      | SOME (Word w) => OPTION_MAP Word (word_sh sh w n)
      | _ => NONE) /\
   (eval s BaseAddr =
-        SOME (Word s.base_addr))
+        SOME (Word s.base_addr)) /\
+  (eval s TopAddr =
+        SOME (Word s.top_addr))
 Termination
   WF_REL_TAC `measure (exp_size ARB o SND)`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
@@ -245,6 +243,8 @@ Definition sh_mem_op_def:
   (sh_mem_op Store r ad s = sh_mem_store r ad 0 s) ∧
   (sh_mem_op Load8 r ad s = sh_mem_load r ad 1 s) ∧
   (sh_mem_op Store8 r ad s = sh_mem_store r ad 1 s) ∧
+  (sh_mem_op Load16 r ad s = sh_mem_load r ad 2 s) ∧
+  (sh_mem_op Store16 r ad s = sh_mem_store r ad 2 s) ∧
   (sh_mem_op Load32 r ad s = sh_mem_load r ad 4 s) ∧
   (sh_mem_op Store32 r ad s = sh_mem_store r ad 4 s)
 End
@@ -271,11 +271,25 @@ Definition evaluate_def:
      case eval s exp of
      | SOME w => (NONE, set_globals dst w s)
      | _ => (SOME Error, s)) /\
+  (evaluate (Load32 a v,s) =
+     case lookup a s.locals of
+     | SOME (Word w) =>
+        (case mem_load_32 s.memory s.mdomain s.be w of
+         | SOME b => (NONE, set_var v (Word (w2w b)) s)
+         | _ => (SOME Error, s))
+     | _ => (SOME Error, s)) /\
   (evaluate (LoadByte a v,s) =
      case lookup a s.locals of
      | SOME (Word w) =>
         (case mem_load_byte_aux s.memory s.mdomain s.be w of
          | SOME b => (NONE, set_var v (Word (w2w b)) s)
+         | _ => (SOME Error, s))
+     | _ => (SOME Error, s)) /\
+  (evaluate (Store32 a w,s) =
+     case lookup a s.locals, lookup w s.locals of
+     | (SOME (Word w), SOME (Word b)) =>
+        (case mem_store_32 s.memory s.mdomain s.be w (w2w b) of
+         | SOME m => (NONE, s with memory := m)
          | _ => (SOME Error, s))
      | _ => (SOME Error, s)) /\
   (evaluate (StoreByte a w,s) =
@@ -477,5 +491,3 @@ Definition semantics_def:
            (IMAGE (λk. fromList
               (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))
 End
-
-val _ = export_theory();

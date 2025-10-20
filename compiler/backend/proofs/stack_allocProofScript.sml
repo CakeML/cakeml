@@ -1,16 +1,18 @@
 (*
   Correctness proof for stack_alloc
 *)
+Theory stack_allocProof
+Libs
+  preamble blastLib[qualified]
+Ancestors
+  stack_alloc stackLang stackSem stackProps
+  word_gcFunctions (* for memcpy *)
+  wordSem[qualified]
 
-open preamble stack_allocTheory
-     stackLangTheory stackSemTheory stackPropsTheory
-     word_gcFunctionsTheory
-local open blastLib wordSemTheory in end
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "fromAList_def"]
 
-val _ = new_theory"stack_allocProof";
 val _ = (max_print_depth := 18);
 
 val word_shift_def = backend_commonTheory.word_shift_def
@@ -18,9 +20,6 @@ val theWord_def = wordSemTheory.theWord_def;
 val isWord_def = wordSemTheory.isWord_def;
 val is_fwd_ptr_def = wordSemTheory.is_fwd_ptr_def;
 
-val _ = set_grammar_ancestry["stack_alloc", "stackLang", "stackSem", "stackProps",
-  "word_gcFunctions" (* for memcpy *)
-];
 Overload good_dimindex[local] = ``misc$good_dimindex``
 val _ = temp_bring_to_front_overload"compile"{Thy="stack_alloc",Name="compile"};
 val drule = old_drule
@@ -5109,7 +5108,7 @@ Triviality alloc_correct:
               regs := l2; gc_fun := anything|>) /\ t.regs SUBMAP l2
 Proof
   `find_code (INL gc_stub_location) (l \\ 0) (fromAList (compile c (toAList s.code))) =
-      SOME (Seq (word_gc_code c) (Return 0 0))` by
+      SOME (Seq (word_gc_code c) (Return 0))` by
      simp[find_code_def,lookup_fromAList,compile_def,ALOOKUP_APPEND,stubs_def]
   \\ tac \\ fs [] \\ strip_tac
   \\ mp_tac (Q.GENL [`conf`,`l`,`ret`] alloc_correct_lemma) \\ fs []
@@ -5361,7 +5360,7 @@ Proof
     \\ drule lookup_fromAList_prog_comp \\ fs []
     \\ disch_then kall_tac
     \\ qexists_tac ‘1’ \\ fs [dec_clock_def,set_var_def]
-    \\ fs [EVAL “(comp x n (Seq (StoreConsts t1 t2 NONE) (Return 0 0)))”]
+    \\ fs [EVAL “(comp x n (Seq (StoreConsts t1 t2 NONE) (Return 0)))”]
     \\ fs [evaluate_def,store_const_sem_def,get_var_def,AllCaseEqs(),
            check_store_consts_opt_def,FLOOKUP_UPDATE]
     \\ gvs []
@@ -5832,6 +5831,7 @@ Proof
     Cases_on ‘op’>>
     fs[word_exp_def,sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,IS_SOME_EXISTS,
        sh_mem_load32_def,sh_mem_store32_def,
+       sh_mem_load16_def,sh_mem_store16_def,
        wordLangTheory.word_op_def,sh_mem_load_byte_def,sh_mem_store_byte_def,
        get_var_def,dec_clock_def,empty_env_def]>>
     fs[case_eq_thms] \\ rw[] \\
@@ -6346,5 +6346,3 @@ Proof
          word_gen_gc_partial_move_data_code_def,
          word_gen_gc_partial_move_ref_list_code_def]
 QED
-
-val _ = export_theory();

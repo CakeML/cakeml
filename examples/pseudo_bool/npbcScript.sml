@@ -1,9 +1,11 @@
 (*
   Formalisation of normalised pseudo-boolean constraints
 *)
-open preamble pbcTheory;
-
-val _ = new_theory "npbc";
+Theory npbc
+Ancestors
+  pbc
+Libs
+  preamble
 
 val _ = numLib.temp_prefer_num();
 
@@ -553,26 +555,29 @@ Definition weaken_aux_def:
 End
 *)
 
-(* Faster weaken_aux, if the constraint is compact *)
+(* List weakening
+  assumes the constraint is compact
+  weakens the vs in order *)
 Definition weaken_aux_def:
-  (weaken_aux v [] n = ([],n)) ∧
-  (weaken_aux v ((c:int,l)::xs) n =
+  (weaken_aux vs [] n = ([],n)) ∧
+  (weaken_aux [] xs n = (xs,n)) ∧
+  (weaken_aux (v::vs) ((c:int,l)::xs) n =
     if l = v then
-      (xs,n-Num(ABS c))
+      weaken_aux vs xs (n-Num(ABS c))
     else
-    let (xs',n') = weaken_aux v xs n in
+    let (xs',n') = weaken_aux (v::vs) xs n in
       ((c,l)::xs',n'))
 End
 
 (* weakening *)
 Definition weaken_def:
-  weaken (l,n) v = weaken_aux v l n
+  weaken (l,n) vs = weaken_aux vs l n
 End
 
 Theorem weaken_aux_theorem:
-  ∀v l n l' n' a.
+  ∀vs l n l' n' a.
   n ≤ SUM (MAP (eval_term w) l) + a ∧
-  weaken_aux v l n = (l',n') ⇒
+  weaken_aux vs l n = (l',n') ⇒
   n' ≤ SUM (MAP (eval_term w) l') + a
 Proof
   ho_match_mp_tac weaken_aux_ind \\ rw[weaken_aux_def]
@@ -581,17 +586,24 @@ Proof
   \\ qmatch_goalsub_abbrev_tac`SUM A`
   \\ TRY(qmatch_goalsub_abbrev_tac`B + SUM A`)
   \\ TRY(qmatch_goalsub_abbrev_tac`SUM A + B`)
+  >- (
+    qmatch_goalsub_abbrev_tac` _ ≤ rhs`
+    \\ `rhs = (a + B) + SUM A` by
+      (unabbrev_all_tac>>
+      simp[])
+    \\ pop_assum SUBST1_TAC
+    \\ first_x_assum match_mp_tac
+    \\ fs[])
+  >- (
+    first_x_assum irule
+    \\ Cases_on`w l`
+    \\ gvs[])
   \\ qmatch_goalsub_abbrev_tac` _ ≤ rhs`
   \\ `rhs = (a + B) + SUM A` by
     (unabbrev_all_tac>>
     simp[])
   \\ pop_assum SUBST1_TAC
-  >- (
-    first_x_assum match_mp_tac
-    \\ fs[])
   \\ fs[]
-  \\ Cases_on`w l`
-  \\ fs[Abbr`rhs`]
 QED
 
 (* set a = 0 *)
@@ -611,20 +623,21 @@ Proof
 QED
 
 Theorem weaken_aux_contains:
-  ∀v ls n ls' n' x.
-  weaken_aux v ls n = (ls',n') ∧
+  ∀vs ls n ls' n' x.
+  weaken_aux vs ls n = (ls',n') ∧
   MEM x ls' ⇒ MEM x ls
 Proof
   ho_match_mp_tac weaken_aux_ind \\ rw[weaken_aux_def]
+  \\ gvs[]
   \\ pairarg_tac \\ fs[]
   \\ every_case_tac \\ fs[] \\ rw[]
   \\ fs[]
 QED
 
 Theorem SORTED_weaken_aux:
-  ∀v ls n ls' n'.
+  ∀vs ls n ls' n'.
   SORTED $< (MAP SND ls) ∧
-  weaken_aux v ls n = (ls',n') ⇒
+  weaken_aux vs ls n = (ls',n') ⇒
   SORTED $< (MAP SND ls')
 Proof
   ho_match_mp_tac weaken_aux_ind \\ rw[weaken_aux_def]
@@ -983,11 +996,17 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
   \\ rw[]
   >- (
+    fs[subst_thm]
+    \\ fs[satisfies_npbc_def]
+    \\ drule subst_opt_aux_thm_2
+    \\ disch_then(qspec_then`w` assume_tac)
+    \\ intLib.ARITH_TAC)
+  >- (
     simp[subst_def,subst_lhs_def]>>
     rpt (pairarg_tac \\ fs [])>>
     drule subst_opt_aux_thm_1>>
     rw[]>>fs[]>>rw[]>>
-    simp[satisfies_npbc_def]>>
+    gvs[satisfies_npbc_def]>>
     gvs[])
   >- (
     simp[subst_def,subst_lhs_def]>>
@@ -997,11 +1016,6 @@ Proof
     drule imp_thm>>
     disch_then drule>>
     fs[])
-  \\ fs[subst_thm]
-  \\ fs[satisfies_npbc_def]
-  \\ drule subst_opt_aux_thm_2
-  \\ disch_then(qspec_then`w` assume_tac)
-  \\ intLib.ARITH_TAC
 QED
 
 (* subst is compact *)
@@ -1348,6 +1362,68 @@ Proof
   \\ fs [satisfies_def,PULL_EXISTS,subst_thm,satisfies_npbc_obj_constraint]
 QED
 
+(* set of syntactic variables *)
+Definition npbc_vars_def:
+  npbc_vars ((xs,n):npbc) = set (MAP SND xs)
+End
+
+Definition npbf_vars_def:
+  npbf_vars npbf =
+  BIGUNION (IMAGE npbc_vars npbf)
+End
+
+Theorem eq_var_subset_eval_term:
+  ∀ls.
+  set (MAP SND ls) ⊆ X ∧
+  (∀n. n ∈ X ⇒ (w n ⇔ w' n)) ⇒
+  MAP (eval_term w) ls = MAP (eval_term w') ls
+Proof
+  Induct>>rw[]>>
+  Cases_on`h`>>fs[]
+QED
+
+Theorem npbc_vars_satisfies_npbc:
+  npbc_vars c ⊆ X ∧
+  (∀n. n ∈ X ⇒ w n = w' n) ⇒
+  (satisfies_npbc w c ⇒
+  satisfies_npbc w' c)
+Proof
+  Cases_on`c`>>
+  rw[satisfies_npbc_def,npbc_vars_def]>>
+  metis_tac[eq_var_subset_eval_term]
+QED
+
+Theorem npbf_vars_satisfies:
+  npbf_vars f ⊆ X ∧
+  (∀n. n ∈ X ⇒ w n = w' n) ⇒
+  (satisfies w f ⇒
+  satisfies w' f)
+Proof
+  rw[satisfies_def,npbf_vars_def]>>
+  first_x_assum drule>>
+  match_mp_tac npbc_vars_satisfies_npbc>>
+  fs[IMAGE_DEF,SUBSET_DEF]>>
+  metis_tac[]
+QED
+
+Theorem npbc_vars_satisfies_npbc_iff:
+  npbc_vars c ⊆ X ∧
+  (∀n. n ∈ X ⇒ w n = w' n) ⇒
+  (satisfies_npbc w c ⇔
+  satisfies_npbc w' c)
+Proof
+  metis_tac[npbc_vars_satisfies_npbc]
+QED
+
+Theorem npbf_vars_satisfies_iff:
+  npbf_vars f ⊆ X ∧
+  (∀n. n ∈ X ⇒ w n = w' n) ⇒
+  (satisfies w f <=> satisfies w' f)
+Proof
+  metis_tac[npbf_vars_satisfies]
+QED
+
+(* Dominance *)
 Definition conf_valid'_def:
   conf_valid' C D pres po obj ⇔
     ∀p.
@@ -1425,104 +1501,254 @@ Proof
   metis_tac[integerTheory.INT_LE_TRANS]
 QED
 
-(* set of syntactic variables *)
-Definition npbc_vars_def:
-  npbc_vars ((xs,n):npbc) = set (MAP SND xs)
-End
-
-Definition npbf_vars_def:
-  npbf_vars npbf =
-  BIGUNION (IMAGE npbc_vars npbf)
-End
-
-Theorem eq_var_subset_eval_term:
-  ∀ls.
-  set (MAP SND ls) ⊆ X ∧
-  (∀n. n ∈ X ⇒ (w n ⇔ w' n)) ⇒
-  MAP (eval_term w) ls = MAP (eval_term w') ls
-Proof
-  Induct>>rw[]>>
-  Cases_on`h`>>fs[]
-QED
-
-Theorem npbc_vars_satisfies_npbc:
-  npbc_vars c ⊆ X ∧
-  (∀n. n ∈ X ⇒ w n = w' n) ⇒
-  (satisfies_npbc w c ⇒
-  satisfies_npbc w' c)
-Proof
-  Cases_on`c`>>
-  rw[satisfies_npbc_def,npbc_vars_def]>>
-  metis_tac[eq_var_subset_eval_term]
-QED
-
-Theorem npbf_vars_satisfies:
-  npbf_vars f ⊆ X ∧
-  (∀n. n ∈ X ⇒ w n = w' n) ⇒
-  (satisfies w f ⇒
-  satisfies w' f)
-Proof
-  rw[satisfies_def,npbf_vars_def]>>
-  first_x_assum drule>>
-  match_mp_tac npbc_vars_satisfies_npbc>>
-  fs[IMAGE_DEF,SUBSET_DEF]>>
-  metis_tac[]
-QED
-
-(* Syntactic representation of a po used in dominance proofs:
-  ((f, us, vs), xs)
-  such that:
-  - |us| = |vs| and both lists distinct
-  - vars(f) = us ∪ vs
-  - |xs| = |us|
-*)
-Type spo = ``: (npbc list # var list # var list) # var list``
-
-(* w ≤ w' iff
-  the assignment mapping
-  us -> w (xs)
-  vs -> w' (xs)
-  _  -> F
-  satisfies f
-*)
-Definition po_of_spo_def:
-  po_of_spo (((f,us,vs),xs):spo) =
-  λw w'.
-  let ss = ALOOKUP
-    (ZIP (us,MAP (INL o w) xs) ++
-     ZIP (vs,MAP (INL o w') xs)) in
-  satisfies (assign ss (λn. F)) (set f)
-End
-
-Theorem MAP_MEM_BOOL:
-  MAP (λv. f (MEM v xs) v) xs = MAP (λv. f T v) xs
-Proof
-  rw[MAP_EQ_f]
-QED
-
-Theorem finite_support_po_of_spo:
-  finite_support (po_of_spo (fuv,xs)) (set xs)
-Proof
-  PairCases_on`fuv`>>
-  rw[finite_support_def,po_of_spo_def]>>
-  Cases_on`(∀x. MEM x xs ⇒ (w x ⇔ w' x))`>>simp[]>>
-  qmatch_goalsub_abbrev_tac`satisfies (assign ww _) _ ⇔ satisfies (assign ww' _) _`>>
-  qsuff_tac`ww = ww'`>>simp[]>>
-  unabbrev_all_tac>>
-  simp[o_DEF,MAP_MEM_BOOL]
-QED
-
 Theorem satisfies_subst_thm:
   satisfies w (fml ⇂ f) ⇔ satisfies (assign f w) fml
 Proof
   rw[satisfies_def,PULL_EXISTS,subst_thm]
 QED
 
-Definition good_ord_def:
-  good_ord (f,us,vs) ⇔
-  npbf_vars (set f) ⊆ set us ∪ set vs ∧
+Theorem npbf_vars_UNION[simp]:
+  npbf_vars (f ∪ g) =
+  npbf_vars f ∪ npbf_vars g
+Proof
+  simp[npbf_vars_def]
+QED
+
+Theorem vars_add_lists:
+  ∀xs1 xs2 res k.
+  add_lists xs1 xs2 = (res,k) ∧
+  MEM v (MAP SND res) ⇒
+  MEM v (MAP SND xs1) ∨ MEM v (MAP SND xs2)
+Proof
+  ho_match_mp_tac add_lists_ind >>
+  rw[add_lists_def]>>
+  gvs[]>>
+  pairarg_tac>>
+  gvs[add_terms_def,AllCaseEqs()]
+QED
+
+Theorem vars_subst_aux_1:
+  ∀ls res1 res2 k.
+  subst_aux w ls = (res1,res2,k) ∧
+  MEM v (MAP SND res1) ⇒
+  MEM v (MAP SND ls)
+Proof
+  Induct>>rw[subst_aux_def]>>
+  Cases_on`h`>>gvs[subst_aux_def]>>
+  pairarg_tac>>
+  gvs[AllCaseEqs()]
+QED
+
+Theorem vars_subst_aux_2:
+  ∀ls res1 res2 k.
+  subst_aux w ls = (res1,res2,k) ∧
+  MEM v (MAP SND res2) ⇒
+  MEM v (MAP SND ls) ∨
+  ∃n.
+    w n = SOME (INR (Pos v)) ∨
+    w n = SOME (INR (Neg v))
+Proof
+  Induct>>rw[subst_aux_def,MEM_MAP]>>gvs[]>>
+  Cases_on`h`>>gvs[subst_aux_def]>>
+  pairarg_tac>>
+  gvs[AllCaseEqs(),EXISTS_PROD,MEM_MAP]>>
+  metis_tac[SND,PAIR,FST]
+QED
+
+Theorem vars_partition:
+  ∀ls xs ys.
+  partition ls xs ys = (res1,res2) ∧
+  (MEM v (MAP SND res1) ∨
+    MEM v (MAP SND res2))
+  ⇒
+  MEM v (MAP SND ls) ∨ MEM v (MAP SND xs) ∨ MEM v (MAP SND ys)
+Proof
+  Induct>>rw[partition_def]>>
+  first_x_assum drule>>
+  rw[]>>
+  metis_tac[]
+QED
+
+Theorem vars_clean_up:
+  ∀ls res k.
+  clean_up ls = (res,k) ∧
+  MEM v (MAP SND res) ⇒
+  MEM v (MAP SND ls)
+Proof
+  ho_match_mp_tac clean_up_ind \\ rw []>>
+  gvs[clean_up_def]>>
+  rpt(pairarg_tac>>gvs[])>>
+  drule_all vars_add_lists>>rw[]>>gvs[]>>
+  drule vars_partition>>
+  gvs[MEM_MAP]>>
+  metis_tac[]
+QED
+
+Theorem MEM_subst_lhs:
+  subst_lhs w ls = (res,k) ∧
+  MEM v (MAP SND res) ⇒
+  MEM v (MAP SND ls) ∨
+  ∃n.
+    w n = SOME (INR (Pos v)) ∨
+    w n = SOME (INR (Neg v))
+Proof
+  rw[subst_lhs_def]>>
+  rpt(pairarg_tac>>gvs[])>>
+  drule_all vars_add_lists>>
+  rw[]
+  >- (
+    drule_all vars_subst_aux_1>>
+    simp[])>>
+  drule_all vars_clean_up>>
+  rw[]>>
+  drule_all vars_subst_aux_2>>
+  simp[]
+QED
+
+Theorem npbc_vars_subst:
+  ∀v.
+  v ∈ npbc_vars (subst w c) ⇒
+  v ∈ npbc_vars c ∨
+  (∃n.
+    w n = SOME (INR (Pos v)) ∨
+    w n = SOME (INR (Neg v)))
+Proof
+  Cases_on`c`>>rw[subst_def,npbc_vars_def]>>
+  pairarg_tac>>gvs[npbc_vars_def]>>
+  drule_all MEM_subst_lhs>>
+  simp[]
+QED
+
+Theorem npbf_vars_subst:
+  v ∈ npbf_vars (f ⇂ w) ⇒
+  v ∈ npbf_vars f ∨
+  (∃n.
+    w n = SOME (INR (Pos v)) ∨
+    w n = SOME (INR (Neg v)))
+Proof
+  rw[npbf_vars_def]>>
+  metis_tac[npbc_vars_subst]
+QED
+
+Theorem npbc_vars_not[simp]:
+  npbc_vars (not c) = npbc_vars c
+Proof
+  Cases_on`c`>>
+  simp[not_def,npbc_vars_def]>>
+  rw[EXTENSION,MEM_MAP,EXISTS_PROD]
+QED
+
+Theorem npbc_vars_obj_constraint:
+  v ∈ npbc_vars (obj_constraint w obj) ⇒
+  MEM v (MAP SND (FST obj)) ∨
+  (∃n.
+    w n = SOME (INR (Pos v)) ∨
+    w n = SOME (INR (Neg v)))
+Proof
+  Cases_on`obj`>>rw[obj_constraint_def]>>
+  rpt (pairarg_tac>>gvs[])>>
+  gvs[npbc_vars_def]>>
+  drule_all vars_add_lists>>
+  rw[]>>simp[]>>
+  drule_all MEM_subst_lhs>>
+  simp[MAP_MAP_o,o_DEF,MEM_MAP,EXISTS_PROD]
+QED
+
+(* is_spec defines fml to be a specification over the variables in as *)
+
+(* as |-> vs *)
+Definition the_spec_def:
+  the_spec fml as vs w ⇔
+  LENGTH as = LENGTH vs ∧
+  satisfies
+  (assign
+    (ALOOKUP
+      (ZIP (as,MAP INL vs))) w) fml
+End
+
+Definition is_spec_def:
+  is_spec fml as ⇔
+  ∀w. ∃vs. the_spec fml as vs w
+End
+
+(* Syntactic representation of a loaded partial order
+  to be used in dominance-with-auxiliaries:
+  ((f, g, us, vs, as), xs)
+  such that:
+  - |us| = |vs|
+  - all lists of variables us, vs, as (mutually) distinct
+  - vars(f) = us ∪ vs ∪ as
+  - vars(g) = us ∪ vs ∪ as
+  - |xs| = |us|
+  - xs represents literals as var # bool pairs *)
+Type aspo = ``:(
+  npbc list # npbc list #
+  var list # var list # var list) # (var # bool) list``
+
+(* The partial order induced by an aspo is such that:
+    w ≤ w' iff
+  when we consider the assignment mapping
+    us -> w (xs)
+    vs -> w' (xs)
+    _  -> F (this can be arbitrary)
+  since g is a specification, there is an extension
+  of this mapping to all auxiliaries as satisfying g.
+  Then this extension satisfies f. *)
+Definition get_bits_def:
+  get_bits w xs =
+  MAP (λ(x,b). INL (b ⇔ w x)) xs
+End
+
+Theorem LENGTH_get_bits[simp]:
+  LENGTH (get_bits w xs) = LENGTH xs
+Proof
+  rw[get_bits_def]
+QED
+
+Definition po_of_aspo_def:
+  po_of_aspo (((f,g,us,vs,as),xs):aspo) =
+  λw w'.
+  let ss = ALOOKUP
+    (ZIP (us,get_bits w xs) ++
+     ZIP (vs,get_bits w' xs)) in
+  ∃ww vs.
+    the_spec (set g) as vs (assign ss ww) ∧
+    the_spec (set f) as vs (assign ss ww)
+End
+
+Theorem get_bits_MEM_MAP:
+  get_bits (λv. MEM v (MAP FST xs) ∧ w v) xs =
+  get_bits w xs
+Proof
+  rw[get_bits_def,MAP_EQ_f]>>
+  pairarg_tac>>simp[MEM_MAP]>>
+  metis_tac[FST,SND]
+QED
+
+Theorem finite_support_po_of_aspo:
+  finite_support (po_of_aspo (fuv,xs)) (set (MAP FST xs))
+Proof
+  PairCases_on`fuv`>>
+  rw[finite_support_def,po_of_aspo_def]>>
+  Cases_on`(∀x. MEM x (MAP FST xs) ⇒ (w x ⇔ w' x))`>>simp[]>>
+  ho_match_mp_tac ConseqConvTheory.exists_eq_thm>>
+  rw[]>>
+  ho_match_mp_tac ConseqConvTheory.exists_eq_thm>>
+  rw[]>>
+  qmatch_goalsub_abbrev_tac`the_spec _ _ _ (assign www _) ∧ _ ⇔ the_spec _ _ _ (assign www' _) ∧ _`>>
+  qsuff_tac`www = www'`>>simp[]>>
+  unabbrev_all_tac>>
+  simp[get_bits_MEM_MAP]
+QED
+
+(* Syntactic requirements of a good order *)
+Definition good_aord_def:
+  good_aord (f,g,us,vs,as) ⇔
+  npbf_vars (set f) ⊆ set us ∪ set vs ∪ set as ∧
+  npbf_vars (set g) ⊆ set us ∪ set vs ∪ set as ∧
   LENGTH us = LENGTH vs ∧
-  ALL_DISTINCT (us ++ vs)
+  ALL_DISTINCT (us ++ vs ++ as) ∧
+  is_spec (set g) as
 End
 
 Theorem IMP_ALOOKUP_NONE:
@@ -1545,120 +1771,201 @@ Proof
   simp[Once EL_ZIP,MAP_ZIP]
 QED
 
-Theorem reflexive_po_of_spo:
-  good_ord (f,us,vs) ∧
+Theorem ALOOKUP_get_bits[simp]:
+  LENGTH us = LENGTH xs ⇒
+  ALOOKUP (ZIP (us,get_bits w xs)) =
+  (OPTION_MAP (λbx. INL (SND bx ⇔ w (FST bx))) o
+    ALOOKUP (ZIP (us,xs)))
+Proof
+  rw[]>>
+  simp[get_bits_def]>>
+  DEP_REWRITE_TAC[ALOOKUP_ZIP_MAP_SND]>>
+  simp[FUN_EQ_THM]>>
+  rw[LAMBDA_PROD]
+QED
+
+Theorem reflexive_po_of_aspo:
+  good_aord (f,g,us,vs,as) ∧
   LENGTH xs = LENGTH us ⇒
-  {}
+  (set g) ⇂
+    ALOOKUP
+    (ZIP (vs,MAP (INR o Pos) us))
   ⊨
   (set f) ⇂
     ALOOKUP
     (ZIP (vs,MAP (INR o Pos) us)) ⇒
-  reflexive (po_of_spo ((f,us,vs),xs))
+  reflexive (po_of_aspo ((f,g,us,vs,as),xs))
 Proof
-  rw[reflexive_def,po_of_spo_def,sat_implies_def]>>
-  fs[satisfies_subst_thm,good_ord_def]>>
-  qabbrev_tac`
-    ww =
-    assign
-      (ALOOKUP
-         (ZIP (us,MAP (INL ∘ x) xs) ++
-          ZIP (vs,MAP (INL ∘ x) xs)))
-      (λn. F)`>>
-  first_x_assum(qspec_then`ww` mp_tac)>>
+  rw[reflexive_def,po_of_aspo_def,sat_implies_def]>>
+  fs[satisfies_subst_thm,good_aord_def]>>
+  gvs[is_spec_def]>>
+  qexists_tac`λx. F`>>
+  qmatch_goalsub_abbrev_tac`the_spec _ _ _ w`>>
+  last_x_assum(qspec_then `w` assume_tac)>>
+  gvs[]>>
+  first_assum (irule_at Any)>>
+  gvs[the_spec_def]>>
+  qmatch_goalsub_abbrev_tac`satisfies w' (set f)`>>
+  `∀n. n ∈ set us ∪ set vs ∪ set as ⇒
+    (w' n ⇔ assign (ALOOKUP (ZIP (vs,MAP (INR ∘ Pos) us))) w' n)` by (
+    rw[]>>
+    simp[assign_def,ALOOKUP_ZIP_MAP_SND]
+    >- (
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+      fs[ALL_DISTINCT_APPEND])
+    >- (
+      Cases_on`ALOOKUP (ZIP (vs,us)) n`
+      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+      gvs[Abbr`w'`,assign_def]>>
+      rename1`ALOOKUP _ _ = SOME yy`>>
+      `MEM yy us` by (
+        drule ALOOKUP_MEM>>
+        rw[MEM_ZIP,MEM_EL]>>
+        metis_tac[])>>
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+      gvs[ALL_DISTINCT_APPEND,Abbr`w`]>>
+      simp[assign_def,ALOOKUP_ZIP_MAP_SND,ALOOKUP_APPEND]>>
+      Cases_on`ALOOKUP (ZIP (us,xs)) yy`
+      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+      simp[]>>
+      Cases_on`ALOOKUP (ZIP (vs,xs)) n`
+      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+      simp[]>>
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+      CONJ_TAC>- metis_tac[]>>
+      simp[]>>
+      gvs[MEM_EL]>>
+      rpt (qpat_x_assum`ALOOKUP _ _ = SOME _` mp_tac)>>
+      DEP_REWRITE_TAC [ALOOKUP_ALL_DISTINCT_EL_IMP]>>
+      simp[]>>rw[]>>
+      metis_tac[ALL_DISTINCT_EL_IMP])
+    >- (
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+      fs[ALL_DISTINCT_APPEND]>>
+      metis_tac[]))>>
+  first_x_assum(qspec_then`w'` mp_tac)>>
+  impl_tac >- (
+    qpat_x_assum`satisfies w' _` mp_tac>>
+    match_mp_tac (GEN_ALL npbf_vars_satisfies)>>
+    asm_exists_tac>>
+    metis_tac[])>>
   match_mp_tac (GEN_ALL npbf_vars_satisfies)>>
-  asm_exists_tac>>rw[]>>
-  simp[assign_def,ALOOKUP_ZIP_MAP_SND]
-  >- (
-    DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
-    fs[ALL_DISTINCT_APPEND])
-  >- (
-    Cases_on`ALOOKUP (ZIP (vs,us)) n`
-    >- gs[MAP_ZIP,ALOOKUP_NONE]>>
-    simp[Abbr`ww`,assign_def,ALOOKUP_ZIP_MAP_SND,ALOOKUP_APPEND]>>
-    rename1`ALOOKUP _ yy`>>
-    `MEM yy us` by (
-      drule ALOOKUP_MEM>>
-      rw[MEM_ZIP,MEM_EL]>>
-      metis_tac[])>>
-    Cases_on`ALOOKUP (ZIP (us,xs)) yy`
-    >- gs[MAP_ZIP,ALOOKUP_NONE]>>
-    simp[]>>
-    Cases_on`ALOOKUP (ZIP (vs,xs)) n`
-    >- gs[MAP_ZIP,ALOOKUP_NONE]>>
-    simp[]>>
-    DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
-    fs[ALL_DISTINCT_APPEND]>>
-    CONJ_TAC>- metis_tac[]>>
-    simp[]>>
-    gvs[MEM_EL]>>
-    rpt (qpat_x_assum`ALOOKUP _ _ = SOME _` mp_tac)>>
-    DEP_REWRITE_TAC [ALOOKUP_ALL_DISTINCT_EL_IMP]>>
-    simp[]>>rw[]>>
-    metis_tac[ALL_DISTINCT_EL_IMP])
+  asm_exists_tac>>
+  metis_tac[]
 QED
 
-Theorem transitive_po_of_spo:
-  good_ord (f,us,vs) ∧
+Theorem transitive_po_of_aspo:
+  good_aord (f,g,us,vs,as) ∧
   LENGTH xs = LENGTH us ∧
   LENGTH ws = LENGTH us ∧
-  ALL_DISTINCT ws ∧
-  (∀y. MEM y ws ⇒ ¬ MEM y us ∧ ¬ MEM y vs)
+  LENGTH bs = LENGTH as ∧
+  LENGTH cs = LENGTH as ∧
+  ALL_DISTINCT (ws ++ bs ++ cs) ∧
+  (∀y. MEM y ws ⇒ ¬ MEM y us ∧ ¬ MEM y vs ∧ ¬ MEM y as) ∧
+  (∀y. MEM y bs ⇒ ¬ MEM y us ∧ ¬ MEM y vs ∧ ¬ MEM y as) ∧
+  (∀y. MEM y cs ⇒ ¬ MEM y us ∧ ¬ MEM y vs ∧ ¬ MEM y as)
   ⇒
+  set g ∪
+  (set g) ⇂
+    ALOOKUP
+    (ZIP (us,MAP (INR o Pos) vs) ++
+     ZIP (vs,MAP (INR o Pos) ws) ++
+     ZIP (as,MAP (INR o Pos) bs)) ∪
+  (set g) ⇂
+    ALOOKUP
+     (ZIP (vs,MAP (INR o Pos) ws) ++
+      ZIP (as,MAP (INR o Pos) cs)) ∪
   (set f) ∪
   (set f) ⇂
     ALOOKUP
     (ZIP (us,MAP (INR o Pos) vs) ++
-     ZIP (vs,MAP (INR o Pos) ws))
+     ZIP (vs,MAP (INR o Pos) ws) ++
+     ZIP (as,MAP (INR o Pos) bs))
   ⊨
   (set f) ⇂
     ALOOKUP
-     (ZIP (vs,MAP (INR o Pos) ws)) ⇒
-  transitive (po_of_spo ((f,us,vs),xs))
+     (ZIP (vs,MAP (INR o Pos) ws) ++
+      ZIP (as,MAP (INR o Pos) cs)) ⇒
+  transitive (po_of_aspo ((f,g,us,vs,as),xs))
 Proof
-  rw[transitive_def,po_of_spo_def,sat_implies_def]>>
+  rw[transitive_def,po_of_aspo_def,sat_implies_def]>>
   fs[satisfies_subst_thm]>>
-  fs[good_ord_def,ALL_DISTINCT_APPEND]>>
+  fs[good_aord_def,ALL_DISTINCT_APPEND,is_spec_def]>>
+  qexists_tac`λx. F`>>
+  (* pick extension for the goal *)
+  qmatch_goalsub_abbrev_tac`the_spec _ _ _ w`>>
+  last_x_assum(qspec_then `w` mp_tac)>>
+  strip_tac>>
+  fs[Abbr`w`]>>
+  first_assum (irule_at Any)>>
+  rename1`the_spec _ _ g3 _`>>
+  pop_assum mp_tac>>
+  rename1`the_spec _ _ g2 _`>>
+  ntac 3 (pop_assum mp_tac)>>
+  rename1`the_spec _ _ g1 _`>>
+  ntac 4 strip_tac>>
+  (* Construct the massive assignment to all variables *)
   qabbrev_tac`
-    ww =
+    www =
     assign
       (ALOOKUP
-         (ZIP (us,MAP (INL ∘ x) xs) ++
-          ZIP (vs,MAP (INL ∘ y) xs) ++
-          ZIP (ws,MAP (INL ∘ z) xs)))
+         (ZIP (us,get_bits x xs) ++
+          ZIP (vs,get_bits y xs) ++
+          ZIP (ws,get_bits z xs) ++
+          ZIP (as,MAP INL g1) ++
+          ZIP (bs,MAP INL g2) ++
+          ZIP (cs,MAP INL g3)
+      ))
       (λn. F)`>>
-  first_x_assum(qspec_then`ww` mp_tac)>>
-  impl_tac >- (
-    CONJ_TAC >- (
-      qpat_x_assum`satisfies _ _` kall_tac>>
-      qpat_x_assum`satisfies _ _` mp_tac>>
-      match_mp_tac (GEN_ALL npbf_vars_satisfies)>>
-      asm_exists_tac>>rw[]>>
-      simp[Abbr`ww`,assign_def,ALOOKUP_ZIP_MAP_SND,ALOOKUP_APPEND]
-      >- (
-        Cases_on`ALOOKUP (ZIP (us,xs)) n`
-        >- gs[MAP_ZIP,ALOOKUP_NONE]>>
-        DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
-        CONJ_TAC>- metis_tac[]>>
-        simp[])>>
+  gvs[the_spec_def]>>
+  `∀n. n ∈ set us ∪ set vs ∪ set as ⇒ (
+    (assign (ALOOKUP (ZIP (as,MAP INL g1)))
+       (assign
+          (ALOOKUP
+             (ZIP (us,get_bits x xs) ++ ZIP (vs,get_bits y xs)))
+          ww)) n ⇔ www n)` by (
+    rw[]>>
+    simp[Abbr`www`,assign_def,ALOOKUP_ZIP_MAP_SND,ALOOKUP_APPEND]
+    >- (
+      Cases_on`ALOOKUP (ZIP (us,xs)) n`
+      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+      simp[]>>
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+      gvs[])
+    >- (
       Cases_on`ALOOKUP (ZIP (vs,xs)) n`
       >- gs[MAP_ZIP,ALOOKUP_NONE]>>
       DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
-      CONJ_TAC>- metis_tac[]>>
-      simp[])>>
-    qpat_x_assum`satisfies _ _` mp_tac>>
-    qpat_x_assum`satisfies _ _` kall_tac>>
-    match_mp_tac (GEN_ALL npbf_vars_satisfies)>>
-    asm_exists_tac>>rw[]>>
-    simp[Abbr`ww`,assign_def,ALOOKUP_ZIP_MAP_SND,ALOOKUP_APPEND]
+      rw[]>>
+      metis_tac[])
+    >- (
+      Cases_on`ALOOKUP (ZIP (as,g1)) n`
+      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+      simp[]>>
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+      simp[]>>
+      metis_tac[]))>>
+  `∀n. n ∈ set us ∪ set vs ∪ set as ⇒ (
+    (assign (ALOOKUP (ZIP (as,MAP INL g2)))
+     (assign
+        (ALOOKUP
+           (ZIP (us,get_bits y xs) ++ ZIP (vs,get_bits z xs)))
+        ww')) n ⇔
+    assign
+    (ALOOKUP
+      (ZIP (us,MAP (INR ∘ Pos) vs) ++
+       ZIP (vs,MAP (INR ∘ Pos) ws) ++
+       ZIP (as,MAP (INR ∘ Pos) bs))) www n)` by (
+    rw[]>>
+    simp[Abbr`www`,assign_def,ALOOKUP_ZIP_MAP_SND,ALOOKUP_APPEND]
     >- (
       Cases_on`ALOOKUP (ZIP (us,xs)) n`
       >- gs[MAP_ZIP,ALOOKUP_NONE]>>
       Cases_on`ALOOKUP (ZIP (us,vs)) n`
       >- gs[MAP_ZIP,ALOOKUP_NONE]>>
-      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
-      CONJ_TAC>- metis_tac[]>>
       simp[]>>
-      rename1`ALOOKUP _ yy`>>
+      rename1`ALOOKUP _ _ = SOME yy`>>
       `MEM yy vs` by (
         drule ALOOKUP_MEM>>
         rw[MEM_ZIP,MEM_EL]>>
@@ -1667,261 +1974,741 @@ Proof
       >- gs[MAP_ZIP,ALOOKUP_NONE]>>
       DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
       CONJ_TAC>- metis_tac[]>>
-      gvs[MEM_EL]>>
+      simp[]>>
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+      CONJ_TAC>- metis_tac[]>>
+      simp[]>>
+      qpat_x_assum`MEM n us` mp_tac>>
+      qpat_x_assum`MEM yy vs` mp_tac>>
+      rw[MEM_EL]>>gvs[]>>
       rpt (qpat_x_assum`ALOOKUP _ _ = SOME _` mp_tac)>>
       DEP_REWRITE_TAC [ALOOKUP_ALL_DISTINCT_EL_IMP]>>
       simp[]>>rw[]>>
-      metis_tac[ALL_DISTINCT_EL_IMP])>>
-    Cases_on`ALOOKUP (ZIP (vs,xs)) n`
-    >- gs[MAP_ZIP,ALOOKUP_NONE]>>
-    Cases_on`ALOOKUP (ZIP (vs,ws)) n`
-    >- gs[MAP_ZIP,ALOOKUP_NONE]>>
-    DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
-    CONJ_TAC>- metis_tac[]>>
-    simp[]>>
-    rename1`ALOOKUP _ yy`>>
-    `MEM yy ws` by (
-      drule ALOOKUP_MEM>>
-      rw[MEM_ZIP,MEM_EL]>>
-      metis_tac[])>>
-    Cases_on`ALOOKUP (ZIP (ws,xs)) yy`
-    >- gs[MAP_ZIP,ALOOKUP_NONE]>>
-    DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
-    CONJ_TAC>- metis_tac[]>>
-    gvs[MEM_EL]>>
-    rpt (qpat_x_assum`ALOOKUP _ _ = SOME _` mp_tac)>>
-    DEP_REWRITE_TAC [ALOOKUP_ALL_DISTINCT_EL_IMP]>>
-    simp[]>>rw[]>>
-    metis_tac[ALL_DISTINCT_EL_IMP])>>
-  match_mp_tac (GEN_ALL npbf_vars_satisfies)>>
-  asm_exists_tac>>rw[]>>
-  simp[assign_def,ALOOKUP_ZIP_MAP_SND,ALOOKUP_APPEND]
-  >- (
-    Cases_on`ALOOKUP (ZIP (us,xs)) n`
-    >- gs[MAP_ZIP,ALOOKUP_NONE]>>
-    DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
-    CONJ_TAC>- metis_tac[]>>
-    simp[Abbr`ww`,assign_def,ALOOKUP_ZIP_MAP_SND,ALOOKUP_APPEND])
-  >- (
-    Cases_on`ALOOKUP (ZIP (vs,xs)) n`
-    >- gs[MAP_ZIP,ALOOKUP_NONE]>>
-    Cases_on`ALOOKUP (ZIP (vs,ws)) n`
-    >- gs[MAP_ZIP,ALOOKUP_NONE]>>
-    DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
-    CONJ_TAC>- metis_tac[]>>
-    simp[Abbr`ww`,assign_def,ALOOKUP_ZIP_MAP_SND,ALOOKUP_APPEND]>>
-    rename1`ALOOKUP _ yy`>>
-    `MEM yy ws` by (
-      drule ALOOKUP_MEM>>
-      rw[MEM_ZIP,MEM_EL]>>
-      metis_tac[])>>
-    Cases_on`ALOOKUP (ZIP (ws,xs)) yy`
-    >- gs[MAP_ZIP,ALOOKUP_NONE]>>
-    DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
-    CONJ_TAC>- metis_tac[]>>
-    simp[]>>
-    gvs[MEM_EL]>>
-    rpt (qpat_x_assum`ALOOKUP _ _ = SOME _` mp_tac)>>
-    DEP_REWRITE_TAC [ALOOKUP_ALL_DISTINCT_EL_IMP]>>
-    simp[]>>rw[]>>
-    metis_tac[ALL_DISTINCT_EL_IMP])
+      metis_tac[ALL_DISTINCT_EL_IMP])
+    >- (
+      Cases_on`ALOOKUP (ZIP (vs,xs)) n`
+      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+      Cases_on`ALOOKUP (ZIP (vs,ws)) n`
+      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+      simp[]>>
+      rename1`ALOOKUP _ _ = SOME yy`>>
+      `MEM yy ws` by (
+        drule ALOOKUP_MEM>>
+        rw[MEM_ZIP,MEM_EL]>>
+        metis_tac[])>>
+      Cases_on`ALOOKUP (ZIP (ws,xs)) yy`
+      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+      simp[]>>
+      ntac 5 (
+        DEP_ONCE_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+        CONJ_TAC>- metis_tac[]>>
+        simp[])>>
+      qpat_x_assum`MEM n vs` mp_tac>>
+      qpat_x_assum`MEM yy ws` mp_tac>>
+      rw[MEM_EL]>>gvs[]>>
+      rpt (qpat_x_assum`ALOOKUP _ _ = SOME _` mp_tac)>>
+      DEP_REWRITE_TAC [ALOOKUP_ALL_DISTINCT_EL_IMP]>>
+      simp[]>>rw[]>>
+      metis_tac[ALL_DISTINCT_EL_IMP])
+    >- (
+      Cases_on`ALOOKUP (ZIP (as,g2)) n`
+      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+      Cases_on`ALOOKUP (ZIP (as,bs)) n`
+      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+      rename1`ALOOKUP _ _ = SOME yy`>>
+      simp[]>>
+      `MEM yy bs` by (
+        drule ALOOKUP_MEM>>
+        rw[MEM_ZIP,MEM_EL]>>
+        metis_tac[])>>
+      ntac 6 (
+        DEP_ONCE_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+        CONJ_TAC>- metis_tac[]>>
+        simp[])>>
+      Cases_on`ALOOKUP (ZIP (bs,g2)) yy`
+      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+      simp[]>>
+      qpat_x_assum`MEM n as` mp_tac>>
+      qpat_x_assum`MEM yy bs` mp_tac>>
+      rw[MEM_EL]>>gvs[]>>
+      rpt (qpat_x_assum`ALOOKUP _ _ = SOME _` mp_tac)>>
+      DEP_REWRITE_TAC [ALOOKUP_ALL_DISTINCT_EL_IMP]>>
+      simp[]>>rw[]>>
+      metis_tac[ALL_DISTINCT_EL_IMP]))>>
+  `∀n. n ∈ set us ∪ set vs ∪ set as ⇒ (
+    (assign (ALOOKUP (ZIP (as,MAP INL g3)))
+             (assign
+                (ALOOKUP
+                   (ZIP (us,get_bits x xs) ++ ZIP (vs,get_bits z xs)))
+                (λx. F))) n ⇔
+    assign
+    (ALOOKUP
+      (ZIP (vs,MAP (INR ∘ Pos) ws) ++
+       ZIP (as,MAP (INR ∘ Pos) cs))) www n)` by (
+    rw[]>>
+    simp[Abbr`www`,assign_def,ALOOKUP_ZIP_MAP_SND,ALOOKUP_APPEND]
+    >- (
+      Cases_on`ALOOKUP (ZIP (us,xs)) n`
+      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+      simp[]>>
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+      CONJ_TAC>- metis_tac[]>>
+      simp[]>>
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+      CONJ_TAC>- metis_tac[]>>
+      simp[])
+    >- (
+      Cases_on`ALOOKUP (ZIP (vs,xs)) n`
+      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+      Cases_on`ALOOKUP (ZIP (vs,ws)) n`
+      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+      simp[]>>
+      rename1`ALOOKUP _ _ = SOME yy`>>
+      `MEM yy ws` by (
+        drule ALOOKUP_MEM>>
+        rw[MEM_ZIP,MEM_EL]>>
+        metis_tac[])>>
+      Cases_on`ALOOKUP (ZIP (ws,xs)) yy`
+      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+      simp[]>>
+      ntac 4 (
+        DEP_ONCE_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+        CONJ_TAC>- metis_tac[]>>
+        simp[])>>
+      qpat_x_assum`MEM n vs` mp_tac>>
+      qpat_x_assum`MEM yy ws` mp_tac>>
+      rw[MEM_EL]>>gvs[]>>
+      rpt (qpat_x_assum`ALOOKUP _ _ = SOME _` mp_tac)>>
+      DEP_REWRITE_TAC [ALOOKUP_ALL_DISTINCT_EL_IMP]>>
+      simp[]>>rw[]>>
+      metis_tac[ALL_DISTINCT_EL_IMP])
+    >- (
+      Cases_on`ALOOKUP (ZIP (as,g3)) n`
+      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+      Cases_on`ALOOKUP (ZIP (as,cs)) n`
+      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+      simp[]>>
+      rename1`ALOOKUP _ _ = SOME yy`>>
+      `MEM yy cs` by (
+        drule ALOOKUP_MEM>>
+        rw[MEM_ZIP,MEM_EL]>>
+        metis_tac[])>>
+      ntac 6 (
+        DEP_ONCE_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+        CONJ_TAC>- metis_tac[]>>
+        simp[])>>
+      Cases_on`ALOOKUP (ZIP (cs,g3)) yy`
+      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+      simp[]>>
+      qpat_x_assum`MEM n as` mp_tac>>
+      qpat_x_assum`MEM yy cs` mp_tac>>
+      rw[MEM_EL]>>gvs[]>>
+      rpt (qpat_x_assum`ALOOKUP _ _ = SOME _` mp_tac)>>
+      DEP_REWRITE_TAC [ALOOKUP_ALL_DISTINCT_EL_IMP]>>
+      simp[]>>rw[]>>
+      metis_tac[ALL_DISTINCT_EL_IMP]))>>
+  first_x_assum(qspec_then`www` mp_tac)>>
+  impl_tac >- (
+    rw[]>>
+    metis_tac[GEN_ALL npbf_vars_satisfies])>>
+  metis_tac[GEN_ALL npbf_vars_satisfies]
 QED
 
-Theorem imp_sat_ord_po_of_spo:
-  good_ord (f,us,vs) ∧
+(* Any installed aspo must satisfy these conditions *)
+Definition good_aspo_def:
+  good_aspo ((f,g,us,vs,as),xs) ⇔
+  good_aord (f,g,us,vs,as) ∧
+  reflexive (po_of_aspo ((f,g,us,vs,as),xs)) ∧
+  transitive (po_of_aspo ((f,g,us,vs,as),xs)) ∧
   LENGTH xs = LENGTH us ∧
-  fml ∪ {not c} ⊨
-  (set f) ⇂
-  (λn.
-    case ALOOKUP (ZIP (us,xs)) n of
-      SOME v =>
-        (case w v of NONE => SOME (INR (Pos v)) | r => r)
-    | NONE => ALOOKUP (ZIP (vs, MAP (INR o Pos) xs)) n) ⇒
-  sat_ord (fml ∪ {not c}) (po_of_spo ((f,us,vs),xs)) w
+  set as ∩ set (MAP FST xs) = {}
+End
+
+Theorem the_spec_assign:
+  (∀a. a ∈ set as ⇒
+    w a = NONE ∧
+    (∀n. w n ≠ SOME (INR (Pos a))) ∧
+    (∀n. w n ≠ SOME (INR (Neg a)))) ∧
+  npbf_vars (set g) ⊆ set us ∪ set vs ∪ set as ∧
+  (∀e. MEM e us ∨ MEM e vs ⇒ ¬MEM e as) ⇒
+  (the_spec (set g) as vv (assign w s) ⇔
+  the_spec ((set g) ⇂ w) as vv s)
 Proof
-  rw[sat_ord_def,po_of_spo_def]>>
-  gvs[sat_implies_def]>>
-  first_x_assum drule>>
-  fs[good_ord_def,ALL_DISTINCT_APPEND]>>
-  simp[satisfies_subst_thm]>>
-  match_mp_tac (GEN_ALL npbf_vars_satisfies)>>
-  asm_exists_tac>>rw[]>>
-  simp[assign_def,ALOOKUP_ZIP_MAP_SND,ALOOKUP_APPEND]
+  rw[the_spec_def]>>
+  gvs[satisfies_subst_thm, assign_def]>>
+  qmatch_goalsub_abbrev_tac`P ∧ wg1 ⇔ P ∧ wg2`>>
+  `P ⇒ wg1 = wg2` suffices_by metis_tac[]>>
+  rw[]>>unabbrev_all_tac>>
+  match_mp_tac (GEN_ALL npbf_vars_satisfies_iff)>>
+  gvs[good_aord_def,ALL_DISTINCT_APPEND]>>
+  first_x_assum (irule_at Any)>>
+  simp[assign_def]>>rw[]
   >- (
-    Cases_on`ALOOKUP (ZIP (us,xs)) n`
-    >- gs[MAP_ZIP,ALOOKUP_NONE]>>
     DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
-    CONJ_TAC>- metis_tac[]>>
-    simp[assign_def]>>
-    Cases_on`w x`>>simp[])
+    gvs[]>>
+    TOP_CASE_TAC>>gvs[]>>
+    TOP_CASE_TAC>>gvs[]>>
+    TOP_CASE_TAC>>gvs[]>>
+    DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>gvs[]>>
+    metis_tac[])
   >- (
-    Cases_on`ALOOKUP (ZIP (vs,xs)) n`
-    >- gs[MAP_ZIP,ALOOKUP_NONE]>>
     DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
-    CONJ_TAC>- metis_tac[]>>
-    simp[assign_def])
+    gvs[]>>
+    TOP_CASE_TAC>>gvs[]>>
+    TOP_CASE_TAC>>gvs[]>>
+    TOP_CASE_TAC>>gvs[]>>
+    DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>gvs[]>>
+    metis_tac[])
+  >- (
+    Cases_on`ALOOKUP (ZIP (as,MAP (INL :bool -> bool + num lit) vv)) n`
+    >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+    gvs[]>>
+    drule ALOOKUP_MEM>>simp[MEM_ZIP]>>rw[]>>
+    simp[EL_MAP])
 QED
 
-Theorem imp_sat_strict_ord_po_of_spo:
-  good_ord (f,us,vs) ∧
+Theorem satisfies_npbc_assign_skip:
+  (∀n. n ∈ npbc_vars c ⇒ f n = NONE) ⇒
+  (satisfies_npbc (assign f s) c ⇔
+    satisfies_npbc s c)
+Proof
+  rw[]>>
+  irule npbc_vars_satisfies_npbc_iff>>
+  qexists_tac`npbc_vars c`>>rw[assign_def]
+QED
+
+Theorem satisfies_assign_skip:
+  (∀n. n ∈ npbf_vars fml ⇒ f n = NONE) ⇒
+  (satisfies (assign f s) fml ⇔
+    satisfies s fml)
+Proof
+  rw[]>>
+  irule npbf_vars_satisfies_iff>>
+  qexists_tac`npbf_vars fml`>>rw[assign_def]
+QED
+
+Definition get_lits_subst_def:
+  get_lits_subst xs =
+  MAP (λ(x,b).
+    if b then INR (Pos x) else INR (Neg x)) xs
+End
+
+Definition mk_lit_def:
+  mk_lit bv =
+  case bv of (v,b) =>
+  if b then Pos v
+  else Neg v
+End
+
+Definition mk_bit_lit_def:
+  mk_bit_lit b l =
+  case l of
+    INL b' => INL (b ⇔ b')
+  | INR (Pos v) => INR (mk_lit (v,b))
+  | INR (Neg v) => INR (mk_lit (v,~b))
+End
+
+Theorem imp_sat_ord_po_of_aspo:
+  (∀a. a ∈ set as ⇒
+    a ∉ npbf_vars fml ∧
+    a ∉ npbc_vars c ∧
+    (∀n. w n ≠ SOME (INR (Pos a))) ∧
+    (∀n. w n ≠ SOME (INR (Neg a)))) ∧
+  good_aord (f,g,us,vs,as) ∧
   LENGTH xs = LENGTH us ∧
-  fml ∪ {not c} ⊨
-  (set f) ⇂
-  (λn.
-    case ALOOKUP (ZIP (us,xs)) n of
-      SOME v =>
-        (case w v of NONE => SOME (INR (Pos v)) | r => r)
-    | NONE => ALOOKUP (ZIP (vs, MAP (INR o Pos) xs)) n) ∧
-  unsatisfiable (
-    fml ∪ {not c} ∪
-    (set f) ⇂
+  set as ∩ set (MAP FST xs) = {} ∧
+  sub_leq =
+    (λn.
+      case ALOOKUP (ZIP (us,xs)) n of
+        SOME (v,b) =>
+          SOME (
+            mk_bit_lit b
+              (case w v of
+                NONE => INR (Pos v)
+              | SOME res => res))
+      | NONE => OPTION_MAP (INR o mk_lit) (ALOOKUP (ZIP (vs, xs)) n)) ∧
+  fml ∪ {not c} ∪ (set g) ⇂ sub_leq ⊨ (set f) ⇂ sub_leq ⇒
+  sat_ord (fml ∪ {not c}) (po_of_aspo ((f,g,us,vs,as),xs)) w
+Proof
+  rw[sat_ord_def,po_of_aspo_def]>>
+  rename1`satisfies s fml`>>
+  gvs[sat_implies_def]>>
+  fs[good_aord_def,ALL_DISTINCT_APPEND,is_spec_def,EXTENSION]>>
+  qmatch_asmsub_abbrev_tac`set f ⇂ sub_leq`>>
+  last_x_assum (qspec_then `assign sub_leq s` assume_tac)>>
+  gvs[]>>
+  pop_assum mp_tac >> DEP_REWRITE_TAC[the_spec_assign]>>
+  CONJ_TAC >- (
+    simp[]>>
+    reverse CONJ_TAC >- metis_tac[]>>
+    rw[Abbr`sub_leq`]
+    >- (
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>simp[]>>
+      metis_tac[])
+    >- (
+      CCONTR_TAC>>gvs[AllCaseEqs()]>>
+      drule ALOOKUP_MEM>> strip_tac>>
+      drule_at Any MEM_ZIP_MEM_MAP>>
+      gvs[mk_lit_def,AllCaseEqs(),MEM_MAP,mk_bit_lit_def]>>
+      metis_tac[FST,SND])
+    >- (
+      CCONTR_TAC>>gvs[AllCaseEqs()]>>
+      drule ALOOKUP_MEM>> strip_tac>>
+      drule_at Any MEM_ZIP_MEM_MAP>>
+      gvs[mk_lit_def,AllCaseEqs(),MEM_MAP,mk_bit_lit_def]>>
+      metis_tac[FST,SND]))>>
+  strip_tac>>
+  gvs[the_spec_def]>>
+  first_x_assum (drule_at (Pos last))>>
+  impl_tac >- (
+    DEP_REWRITE_TAC[satisfies_assign_skip,satisfies_npbc_assign_skip]>>
+    rw[]>>
+    DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>gvs[]>>metis_tac[])>>
+  gvs[satisfies_subst_thm]>> strip_tac>>
+  qexists_tac`s`>>
+  rename1`LENGTH vvv`>>
+  qexists_tac`vvv`>>
+  simp[]>>
+  `∀n.  n ∈ set us ∪ set vs ∪ set as ⇒
+    ((assign sub_leq (assign (ALOOKUP (ZIP (as,MAP INL vvv))) s)) n ⇔
+      assign (ALOOKUP (ZIP (as,MAP INL vvv)))
+      (assign
+        (ALOOKUP
+          (ZIP (us,get_bits (assign w s) xs) ++
+           ZIP (vs,get_bits s xs))) s) n)` by (
+    rw[]>>
+    simp[Abbr`sub_leq`,assign_def,ALOOKUP_ZIP_MAP_SND,ALOOKUP_APPEND]
+    >- (
+      Cases_on`ALOOKUP (ZIP (us,xs)) n`
+      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+      simp[]>>
+      rename1`ALOOKUP _ _ = SOME yy`>>
+      `MEM yy xs` by (
+        drule ALOOKUP_MEM>>
+        rw[MEM_ZIP,MEM_EL]>>
+        metis_tac[])>>
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+      CONJ_TAC>- metis_tac[]>>
+      simp[]>>
+      Cases_on`yy`>>simp[]>>
+      simp[Once EQ_SYM_EQ]>>
+      TOP_CASE_TAC>>simp[mk_bit_lit_def,mk_lit_def]
+      >- (
+        rw[]>>
+        DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+        gvs[MEM_MAP]>>
+        metis_tac[FST,SND])>>
+      TOP_CASE_TAC>>simp[]>>
+      TOP_CASE_TAC>>simp[]>>
+      rw[]>>
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+      gvs[MEM_MAP]>>
+      metis_tac[FST,SND])
+    >- (
+      Cases_on`ALOOKUP (ZIP (vs,xs)) n`
+      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>simp[]>>
+      CONJ_TAC >- metis_tac[]>>
+      rename1`ALOOKUP _ _ = SOME yy`>>
+      `MEM yy xs` by (
+        drule ALOOKUP_MEM>>
+        rw[MEM_ZIP,MEM_EL]>>
+        metis_tac[])>>
+      simp[mk_lit_def]>>
+      TOP_CASE_TAC>>simp[]>>
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+      gvs[MEM_MAP,AllCaseEqs()]>>
+      metis_tac[FST,SND])
+    >- (
+      Cases_on`ALOOKUP (ZIP (as,vvv)) n`
+      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>simp[]>>
+      metis_tac[]))>>
+  metis_tac[GEN_ALL npbf_vars_satisfies]
+QED
+
+Theorem imp_sat_strict_ord_po_of_aspo:
+  (∀a. a ∈ set as ⇒
+    a ∉ npbf_vars fml ∧
+    a ∉ npbc_vars c ∧
+    (∀n. w n ≠ SOME (INR (Pos a))) ∧
+    (∀n. w n ≠ SOME (INR (Neg a)))) ∧
+  good_aord (f,g,us,vs,as) ∧
+  LENGTH xs = LENGTH us ∧
+  set as ∩ set (MAP FST xs) = {} ∧
+  sub_leq =
+    (λn.
+      case ALOOKUP (ZIP (us,xs)) n of
+        SOME (v,b) =>
+          SOME (
+            mk_bit_lit b
+              (case w v of
+                NONE => INR (Pos v)
+              | SOME res => res))
+      | NONE => OPTION_MAP (INR o mk_lit) (ALOOKUP (ZIP (vs, xs)) n)) ∧
+  sub_geq =
     (λn.
       case ALOOKUP (ZIP (vs,xs)) n of
-        SOME v =>
-          (case w v of NONE => SOME (INR (Pos v)) | r => r)
-      | NONE => ALOOKUP (ZIP (us, MAP (INR o Pos) xs)) n)) ⇒
-  sat_strict_ord (fml ∪ {not c}) (po_of_spo ((f,us,vs),xs)) w
+        SOME (v,b) =>
+          SOME (
+            mk_bit_lit b
+              (case w v of
+                NONE => INR (Pos v)
+              | SOME res => res))
+      | NONE => OPTION_MAP (INR o mk_lit) (ALOOKUP (ZIP (us, xs)) n)) ∧
+  fml ∪ {not c} ∪ (set g) ⇂ sub_leq ⊨ (set f) ⇂ sub_leq ∧
+  unsatisfiable (
+    fml ∪ {not c} ∪
+    (set f) ⇂ sub_geq ∪
+    (set g) ⇂ sub_geq
+  )  ⇒
+  sat_strict_ord (fml ∪ {not c}) (po_of_aspo ((f,g,us,vs,as),xs)) w
 Proof
   rw[sat_strict_ord_def]
-  >-
-    metis_tac[imp_sat_ord_po_of_spo]>>
+  >- (
+    irule imp_sat_ord_po_of_aspo>>
+    rw[])>>
+  qpat_x_assum`_ ⊨ _` kall_tac>>
+  qmatch_asmsub_abbrev_tac`set f ⇂ sub_geq`>>
   CCONTR_TAC>>
+  rename1`satisfies s fml`>>
+  gvs[po_of_aspo_def]>>
+  ntac 2 (pop_assum mp_tac) >>
+  DEP_REWRITE_TAC[the_spec_assign]>>
+  CONJ_TAC >- (
+    gvs[good_aord_def]>>
+    rw[]>>gvs[ALOOKUP_APPEND,ALL_DISTINCT_APPEND]
+    >- (
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>simp[]>>
+      metis_tac[])
+    >- (
+      CCONTR_TAC>>gvs[AllCaseEqs()]>>
+      drule ALOOKUP_MEM>> strip_tac>>
+      drule_at Any MEM_ZIP_MEM_MAP>>simp[MEM_MAP]>>
+      drule_at Any MEM_ZIP_MEM_MAP>>simp[MEM_MAP])
+    >- (
+      CCONTR_TAC>>gvs[AllCaseEqs()]>>
+      drule ALOOKUP_MEM>> strip_tac>>
+      drule_at Any MEM_ZIP_MEM_MAP>>simp[MEM_MAP]>>
+      drule_at Any MEM_ZIP_MEM_MAP>>simp[MEM_MAP]))>>
+  ntac 2 strip_tac>>
+  gvs[the_spec_def]>>
   qpat_x_assum`unsatisfiable _` mp_tac>>
   simp[unsatisfiable_def,satisfiable_def]>>
-  asm_exists_tac>>
-  fs[po_of_spo_def]>>
-  qpat_x_assum`_ ⊨ _` kall_tac>>
-  fs[good_ord_def,ALL_DISTINCT_APPEND]>>
-  pop_assum mp_tac>>
-  simp[satisfies_subst_thm]>>
-  match_mp_tac (GEN_ALL npbf_vars_satisfies)>>
-  asm_exists_tac>>rw[]>>
-  simp[assign_def,ALOOKUP_ZIP_MAP_SND,ALOOKUP_APPEND]
-  >- (
-    Cases_on`ALOOKUP (ZIP (us,xs)) n`
-    >- gs[MAP_ZIP,ALOOKUP_NONE]>>
-    DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
-    CONJ_TAC>- metis_tac[]>>
-    simp[])
-  >- (
-    Cases_on`ALOOKUP (ZIP (vs,xs)) n`
-    >- gs[MAP_ZIP,ALOOKUP_NONE]>>
-    DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
-    CONJ_TAC>- metis_tac[]>>
-    simp[assign_def]>>
-    Cases_on`w x`>>simp[])
+  gvs[satisfies_subst_thm]>>
+  rename1`_ = LENGTH vvv`>>
+  qexists_tac`
+    assign (ALOOKUP (ZIP (as,MAP INL vvv))) s`>>
+  simp[Once (GSYM CONJ_ASSOC)]>>
+  CONJ_TAC >- (
+    DEP_REWRITE_TAC[satisfies_assign_skip,satisfies_npbc_assign_skip]>>
+    rw[]>>
+    DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>gvs[]>>metis_tac[])>>
+  gvs[good_aord_def,ALL_DISTINCT_APPEND,EXTENSION]>>
+  `∀n.
+    n ∈ set us ∪ set vs ∪ set as ⇒
+    (assign
+      (ALOOKUP
+        (ZIP (us,get_bits s xs) ++
+         ZIP (vs,get_bits (assign w s) xs)))
+         (assign (ALOOKUP (ZIP (as,MAP INL vvv))) ww) n ⇔
+    assign sub_geq (assign (ALOOKUP (ZIP (as,MAP INL vvv))) s) n)` by (
+    rw[]>>
+    simp[Abbr`sub_geq`,assign_def,ALOOKUP_ZIP_MAP_SND,ALOOKUP_APPEND]
+    >- (
+      Cases_on`ALOOKUP (ZIP (us,xs)) n`
+      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+      rename1`ALOOKUP _ _ = SOME yy`>>
+      `MEM yy xs` by (
+        drule ALOOKUP_MEM>>
+        rw[MEM_ZIP,MEM_EL]>>
+        metis_tac[])>>
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+      CONJ_TAC>- metis_tac[]>>
+      simp[mk_lit_def]>>
+      TOP_CASE_TAC>>simp[]>>
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+      gvs[AllCaseEqs(),MEM_MAP]>>
+      metis_tac[FST,SND])
+    >- (
+      Cases_on`ALOOKUP (ZIP (vs,xs)) n`
+      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>simp[]>>
+      CONJ_TAC >- metis_tac[]>>
+      rename1`ALOOKUP _ _ = SOME yy`>>
+      `MEM yy xs` by (
+        drule ALOOKUP_MEM>>
+        rw[MEM_ZIP,MEM_EL]>>
+        metis_tac[])>>
+      Cases_on`yy`>>simp[]>>
+      TOP_CASE_TAC>>simp[mk_bit_lit_def,mk_lit_def]
+      >- (
+        rw[]>>
+        DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+        gvs[MEM_MAP]>>
+        metis_tac[FST,SND])>>
+      TOP_CASE_TAC>>simp[]>>
+      TOP_CASE_TAC>>simp[]>>
+      rw[]>>
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+      gvs[MEM_MAP]>>
+      metis_tac[FST,SND])
+    >- (
+      Cases_on`ALOOKUP (ZIP (as,vvv)) n`
+      >- gs[MAP_ZIP,ALOOKUP_NONE]>>
+      DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>simp[]>>
+      metis_tac[]))>>
+  metis_tac[npbf_vars_satisfies]
 QED
 
-Definition sat_obj_po_def:
-  sat_obj_po pres spoopt fopt s t ⇔
-  ∀w.
-    satisfies w s ⇒
+Theorem sat_implies_more_left:
+  (∀w.
     ∃w'.
-      (∀x. x ∈ pres ⇒ w x = w' x) ∧
-      satisfies w' t ∧
-      OPTION_ALL (λspo. (po_of_spo spo) w' w) spoopt ∧
-      eval_obj fopt w' ≤ eval_obj fopt w
-End
-
-Definition redundant_wrt_obj_po_def:
-  redundant_wrt_obj_po f pres ord obj c ⇔
-    sat_obj_po pres ord obj f (f ∪ {c})
-End
-
-Definition list_list_insert_def:
-  list_list_insert [] ys = LN ∧
-  list_list_insert xs [] = LN ∧
-  list_list_insert (x::xs) (y::ys) = insert x y (list_list_insert xs ys)
-End
-
-Theorem lookup_list_list_insert:
-  ∀xs ys. lookup n (list_list_insert xs ys) = ALOOKUP (ZIP(xs,ys)) n
+      satisfies w' extra ∧
+     (∀x. x ∉ chg ⇒ w x = w' x)) ∧
+  npbf_vars fml ∩ chg = {} ∧
+  npbf_vars rhs ∩ chg = {} ∧
+  fml ∪ extra ⊨ rhs ⇒
+  fml ⊨ rhs
 Proof
-  Induct_on ‘xs’ \\ Cases_on ‘ys’ \\ fs [list_list_insert_def,ZIP_def]
-  \\ rw [lookup_insert]
+  rw[sat_implies_def,EXTENSION]>>
+  metis_tac[SUBSET_REFL,npbf_vars_satisfies]
 QED
 
-(* The substituted order formula used in dominance order *)
-Definition dom_subst_def:
-  (dom_subst w NONE = []) ∧
-  (dom_subst w (SOME ((f,us,vs),xs)) =
-  let us_xs = list_list_insert us xs in
-  let vs_xs = list_list_insert vs xs in
-  let ww = (λn.
-    case lookup n us_xs of
-      SOME v =>
-        (case w v of NONE => SOME (INR (Pos v)) | r => r)
-    | NONE =>
-        (case lookup n vs_xs of
-         | SOME v => SOME (INR (Pos v))
-         | NONE => NONE)) in
-  MAP (subst ww) f)
-End
-
-(* Any installed spo must satisfy these conditions *)
-Definition good_spo_def:
-  good_spo spo ⇔
-  good_ord (FST spo) ∧
-  reflexive (po_of_spo spo) ∧
-  transitive (po_of_spo spo) ∧
-  LENGTH (SND spo) = LENGTH (FST (SND (FST spo)))
-End
-
-Theorem ALOOKUP_ZIP_MAP:
-  ∀xs ys f n.
-    ALOOKUP (ZIP (xs,MAP f ys)) n =
-    case ALOOKUP (ZIP (xs,ys)) n of
-    | NONE => NONE
-    | SOME v => SOME (f v)
+Theorem sat_implies_more_left_spec:
+  (∀a. a ∈ set as ⇒
+    a ∉ npbf_vars fml ∧
+    (∀n. w n ≠ SOME (INR (Pos a))) ∧
+    (∀n. w n ≠ SOME (INR (Neg a))) ∧
+    a ∉ npbf_vars rhs) ∧
+  good_aord (f,g,us,vs,as) ∧
+  LENGTH xs = LENGTH us ∧
+  set as ∩ set (MAP FST xs) = {} ∧
+  sub_leq =
+    (λn.
+      case ALOOKUP (ZIP (us,xs)) n of
+        SOME (v,b) =>
+          SOME (
+            mk_bit_lit b
+              (case w v of
+                NONE => INR (Pos v)
+              | SOME res => res))
+      | NONE => OPTION_MAP (INR o mk_lit) (ALOOKUP (ZIP (vs, xs)) n)) ∧
+  fml ∪ (set g) ⇂ sub_leq ⊨ rhs ⇒
+  fml ⊨ rhs
 Proof
-  Induct \\ Cases_on ‘ys’ \\ gvs [ZIP_def] \\ rw []
+  rw[]>>
+  qmatch_asmsub_abbrev_tac`set g ⇂ sub_leq`>>
+  irule sat_implies_more_left>>
+  first_x_assum (irule_at Any)>>
+  gvs[good_aspo_def]>>
+  qexists_tac`set as`>>
+  rw[]
+  >- (
+    rename1`ww _ ⇔ _`>>
+    gvs[good_aord_def,is_spec_def,ALL_DISTINCT_APPEND,EXTENSION]>>
+    first_x_assum (qspec_then `assign sub_leq ww` mp_tac)>>
+    rw[]>>
+    pop_assum mp_tac>>
+    DEP_REWRITE_TAC[the_spec_assign]>>
+    CONJ_TAC>- (
+      simp[]>>
+      reverse CONJ_TAC >- metis_tac[]>>
+      rw[Abbr`sub_leq`]
+      >- (
+        DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+        simp[]>>
+        metis_tac[])
+      >- (
+        CCONTR_TAC>>gvs[AllCaseEqs()]>>
+        drule ALOOKUP_MEM>> strip_tac>>
+        drule_at Any MEM_ZIP_MEM_MAP>>
+        gvs[mk_lit_def,AllCaseEqs(),MEM_MAP,mk_bit_lit_def]>>
+        metis_tac[FST,SND])
+      >- (
+        CCONTR_TAC>>gvs[AllCaseEqs()]>>
+        drule ALOOKUP_MEM>> strip_tac>>
+        drule_at Any MEM_ZIP_MEM_MAP>>
+        gvs[mk_lit_def,AllCaseEqs(),MEM_MAP,mk_bit_lit_def]>>
+        metis_tac[FST,SND]))>>
+    rw[the_spec_def]>>
+    first_x_assum (irule_at Any)>>
+    rw[assign_def]>>
+    DEP_REWRITE_TAC[IMP_ALOOKUP_NONE]>>
+    simp[])>>
+  gvs[EXTENSION]>>metis_tac[]
 QED
+
+(*
+  The freshness requirements on the auxiliaries 'as' can be enforced at any time.
+  An easy way is to enforce it upon rule application using the variable
+  mappings for the database and for the objective. *)
+Definition fresh_aux_def:
+  fresh_aux as fml c obj w ⇔
+  ∀a. a ∈ set as ⇒
+    a ∉ npbf_vars fml ∧
+    a ∉ npbc_vars c ∧
+    (case obj of
+      NONE => T
+    | SOME obj => a ∉ set (MAP SND (FST obj))) ∧
+    (∀n. w n ≠ SOME (INR (Pos a)) ∧ w n ≠ SOME (INR (Neg a)))
+End
 
 Theorem substitution_redundancy_obj_po:
-  OPTION_ALL good_spo ord ∧
+  fresh_aux as fml c obj w ∧
+  good_aspo (((f,g,us,vs,as),xs)) ∧
   (∀x. x ∈ pres ⇒ w x = NONE) ∧
-  f ∪ {not c} ⊨ ((f ∪ {c}) ⇂ w ∪
+  sub_leq =
+    (λn.
+      case ALOOKUP (ZIP (us,xs)) n of
+        SOME (v,b) =>
+          SOME (
+            mk_bit_lit b
+              (case w v of
+                NONE => INR (Pos v)
+              | SOME res => res))
+      | NONE => OPTION_MAP (INR o mk_lit) (ALOOKUP (ZIP (vs, xs)) n)) ∧
+  fml ∪ {not c} ∪ (set g) ⇂ sub_leq ⊨ ((fml ∪ {c}) ⇂ w ∪
     (case obj of NONE => {}
       | SOME obj => {obj_constraint w obj})) ∧
-  f ∪ {not c} ⊨ set (dom_subst w ord)
+  (~EVERY (λ(v,b). w v = NONE) xs ⇒
+    fml ∪ {not c} ∪ (set g) ⇂ sub_leq ⊨ (set f) ⇂ sub_leq)
   ⇒
-  redundant_wrt_obj_po f pres ord obj c
+  (∀w.
+    satisfies w fml ⇒
+    ∃w'.
+      (∀x. x ∈ pres ⇒ w x = w' x) ∧
+      satisfies_npbc w' c ∧
+      satisfies w' fml ∧
+      po_of_aspo (((f,g,us,vs,as),xs)) w' w ∧
+      eval_obj obj w' ≤ eval_obj obj w)
 Proof
-  simp[Once sat_implies_def]
-  \\ rw[redundant_wrt_obj_po_def, sat_obj_po_def,not_thm]
-  \\ rename1`satisfies s f`
+  rw[]
+  \\ rename1`satisfies s fml`
   \\ Cases_on ‘satisfies_npbc s c’
   >- (
     qexists_tac`s`>>simp[]>>
-    Cases_on`ord`>>
-    fs[good_spo_def]>>
-    metis_tac[reflexive_def,reflexive_po_of_spo,PAIR])
-  \\ first_x_assum drule_all
-  \\ rw [subst_thm]
-  \\ first_x_assum $ irule_at Any
-  \\ rw[]
+    gvs[good_aspo_def]>>
+    metis_tac[reflexive_def])>>
+  ‘sat_ord (fml ∪ {not c}) (po_of_aspo ((f,g,us,vs,as),xs)) w’ by
+    (reverse $ Cases_on ‘EVERY (λ(v,b). w v = NONE) xs’ \\ gvs []
+     >-
+      (gvs[good_aspo_def,fresh_aux_def]>>
+       drule_at (Pos last) imp_sat_ord_po_of_aspo>>
+       disch_then (drule_at Any)>>
+       disch_then (drule_at Any)>>
+       disch_then (drule_at Any)>>
+       disch_then(qspec_then`w` mp_tac)>>
+       impl_tac >- rw[] \\ rewrite_tac [])
+     \\ qpat_x_assum ‘_ ⇒ _’ kall_tac
+     \\ gvs [sat_ord_def,reflexive_def]
+     \\ gvs[not_thm,fresh_aux_def,good_aspo_def]
+     \\ rw []
+     \\ ‘po_of_aspo ((f,g,us,vs,as),xs) z z’ by (gvs [reflexive_def])
+     \\ pop_assum mp_tac
+     \\ simp [po_of_aspo_def,FUN_EQ_THM]
+     \\ qsuff_tac ‘get_bits (assign w z) xs = get_bits z xs : (bool + num lit) list’
+     >- fs []
+     \\ simp [FUN_EQ_THM,get_bits_def,MAP_EQ_f,FORALL_PROD]
+     \\ gvs [assign_def,EVERY_MEM] \\ rw []
+     \\ res_tac \\ fs [])
+  \\ qpat_x_assum ‘_ ⇒ _’ kall_tac
+  \\ pop_assum mp_tac >>
+  rw[sat_ord_def]>>
+  gvs[not_thm,fresh_aux_def,good_aspo_def]>>
+  pop_assum drule_all>>
+  disch_then (irule_at Any)>>
+  simp[assign_def]>>
+  drule_at (Pos last) sat_implies_more_left_spec>>
+  rpt (disch_then (drule_at Any))>>
+  disch_then (qspec_then `w` mp_tac)>>simp[]>>
+  impl_tac >- (
+    rw[]
+    >- (
+      gvs[EXTENSION,npbf_vars_def]>>
+      metis_tac[])
+    >- metis_tac[npbf_vars_subst]
+    >- (simp[npbf_vars_def] >> metis_tac[npbc_vars_subst])
+    >- (
+      TOP_CASE_TAC>>gvs[npbf_vars_def]>>
+      metis_tac[npbc_vars_obj_constraint]
+    )
+  )>>
+  simp[sat_implies_def,not_thm]>>
+  disch_then drule_all>>
+  rw[]
   >-
-    gvs[assign_def]
+    fs[subst_thm]
   >-
-    fs[eval_obj_def,satisfies_def,PULL_EXISTS,subst_thm]
-  >- (
-    Cases_on`ord`>>fs[good_spo_def]>>
-    PairCases_on`x`>>fs[]>>
-    drule imp_sat_ord_po_of_spo>>
-    disch_then drule>>
-    fs[dom_subst_def,LIST_TO_SET_MAP,lookup_list_list_insert,ALOOKUP_ZIP_MAP]>>
-    disch_then drule>>
-    simp[sat_ord_def]>>
-    disch_then match_mp_tac>>
-    fs[not_thm])
+    gvs[satisfies_subst_thm]
   >- (
     every_case_tac
     >- fs [eval_obj_def] >>
     fs [satisfies_def,PULL_EXISTS,subst_thm,satisfies_npbc_obj_constraint])
 QED
 
-Theorem good_spo_dominance:
-  good_spo ((f,us,vs),xs) ∧
+(* In the special case where the substitution does not touch the loaded
+  variables and we do not use any scopes. *)
+Theorem substitution_redundancy_obj_po_2:
+  good_aspo (((f,g,us,vs,as),xs)) ∧
+  EVERY (λ(v,b). w v = NONE) xs ∧
+  (∀x. x ∈ pres ⇒ w x = NONE) ∧
+  fml ∪ {not c} ⊨ ((fml ∪ {c}) ⇂ w ∪
+    (case obj of NONE => {}
+      | SOME obj => {obj_constraint w obj}))
+  ⇒
+  (∀w.
+    satisfies w fml ⇒
+    ∃w'.
+      (∀x. x ∈ pres ⇒ w x = w' x) ∧
+      satisfies_npbc w' c ∧
+      satisfies w' fml ∧
+      po_of_aspo (((f,g,us,vs,as),xs)) w' w ∧
+      eval_obj obj w' ≤ eval_obj obj w)
+Proof
+  rw[]
+  \\ rename1`satisfies s fml`
+  \\ Cases_on ‘satisfies_npbc s c’
+  >- (
+    qexists_tac`s`>>simp[]>>
+    gvs[good_aspo_def]>>
+    metis_tac[reflexive_def])>>
+  ‘sat_ord (fml ∪ {not c}) (po_of_aspo ((f,g,us,vs,as),xs)) w’ by
+    (
+     gvs [sat_ord_def,reflexive_def]
+     \\ gvs[not_thm,fresh_aux_def,good_aspo_def]
+     \\ rw []
+     \\ ‘po_of_aspo ((f,g,us,vs,as),xs) z z’ by (gvs [reflexive_def])
+     \\ pop_assum mp_tac
+     \\ simp [po_of_aspo_def,FUN_EQ_THM]
+     \\ qsuff_tac ‘get_bits (assign w z) xs = get_bits z xs : (bool + num lit) list’
+     >- fs []
+     \\ simp [FUN_EQ_THM,get_bits_def,MAP_EQ_f,FORALL_PROD]
+     \\ gvs [assign_def,EVERY_MEM] \\ rw []
+     \\ res_tac \\ fs [])
+  \\ pop_assum mp_tac >>
+  rw[sat_ord_def]>>
+  gvs[not_thm,fresh_aux_def,good_aspo_def]>>
+  pop_assum drule_all>>
+  disch_then (irule_at Any)>>
+  simp[assign_def]>>
+  qpat_x_assum`sat_implies _ _` mp_tac>>
+  simp[sat_implies_def,not_thm]>>
+  disch_then drule_all>>
+  rw[]
+  >-
+    fs[subst_thm]
+  >-
+    gvs[satisfies_subst_thm]
+  >- (
+    every_case_tac
+    >- fs [eval_obj_def] >>
+    fs [satisfies_def,PULL_EXISTS,subst_thm,satisfies_npbc_obj_constraint])
+QED
+
+Theorem good_aspo_dominance:
+  fresh_aux as fml c obj w ∧
+  good_aspo (((f,g,us,vs,as),xs)) ∧
   (∀x. x ∈ pres ⇒ w x = NONE) ∧
   C ⊆ fml ∧
   (∀w.
@@ -1929,58 +2716,89 @@ Theorem good_spo_dominance:
     ∃w'.
       (∀x. x ∈ pres ⇒ w x = w' x) ∧
       satisfies w' fml ∧
-      po_of_spo ((f,us,vs),xs) w' w ∧
+      po_of_aspo ((f,g,us,vs,as),xs) w' w ∧
       eval_obj obj w' ≤ eval_obj obj w) ∧
-  fml ∪ {not c} ⊨ C ⇂ w ∧
-  fml ∪ {not c} ⊨
-  (set f) ⇂
+  sub_leq =
     (λn.
       case ALOOKUP (ZIP (us,xs)) n of
-        SOME v =>
-          (case w v of NONE => SOME (INR (Pos v)) | r => r)
-      | NONE => ALOOKUP (ZIP (vs, MAP (INR o Pos) xs)) n) ∧
-  unsatisfiable (
-    fml ∪ {not c} ∪
-    (set f) ⇂
+        SOME (v,b) =>
+          SOME (
+            mk_bit_lit b
+              (case w v of
+                NONE => INR (Pos v)
+              | SOME res => res))
+      | NONE => OPTION_MAP (INR o mk_lit) (ALOOKUP (ZIP (vs, xs)) n)) ∧
+  sub_geq =
     (λn.
       case ALOOKUP (ZIP (vs,xs)) n of
-        SOME v =>
-          (case w v of NONE => SOME (INR (Pos v)) | r => r)
-      | NONE => ALOOKUP (ZIP (us, MAP (INR o Pos) xs)) n)) ∧
+        SOME (v,b) =>
+          SOME (
+            mk_bit_lit b
+              (case w v of
+                NONE => INR (Pos v)
+              | SOME res => res))
+      | NONE => OPTION_MAP (INR o mk_lit) (ALOOKUP (ZIP (us, xs)) n)) ∧
+  fml ∪ {not c} ∪ (set g) ⇂ sub_leq ⊨ C ⇂ w ∧
+  fml ∪ {not c} ∪ (set g) ⇂ sub_leq ⊨ (set f) ⇂ sub_leq ∧
+  unsatisfiable (
+    fml ∪ {not c} ∪
+    (set f) ⇂ sub_geq ∪
+    (set g) ⇂ sub_geq
+  ) ∧
   (case obj of
     NONE => T
   | SOME obj =>
-    fml ∪ {not c} ⊨ {obj_constraint w obj}) ⇒
+    fml ∪ {not c} ∪ (set g) ⇂ sub_leq ⊨ {obj_constraint w obj}) ⇒
   (∀w.
     satisfies w C ⇒
     ∃w'.
       (∀x. x ∈ pres ⇒ w x = w' x) ∧
       satisfies_npbc w' c ∧
       satisfies w' fml ∧
-      po_of_spo ((f,us,vs),xs) w' w ∧
+      po_of_aspo (((f,g,us,vs,as),xs)) w' w ∧
       eval_obj obj w' ≤ eval_obj obj w)
 Proof
   rw[]>>
-  `conf_valid' C (fml DIFF C) pres (po_of_spo ((f,us,vs),xs)) obj` by (
+  `conf_valid' C (fml DIFF C) pres (po_of_aspo ((f,g,us,vs,as),xs)) obj` by (
     fs[conf_valid'_def]>>rw[]>>
     last_x_assum drule>>
     rw[]>>
     pop_assum (irule_at Any)>>
     fs[satisfies_def,SUBSET_DEF])>>
-  imp_res_tac dominance_conf_valid>>
-  pop_assum mp_tac>>
+  drule_at (Pos last) dominance_conf_valid>>
   `C ∪ (fml DIFF C) = fml` by (
     fs[EXTENSION,SUBSET_DEF]>>
     metis_tac[])>>
-  simp[]>>
-  disch_then drule>>
-  disch_then (qspec_then`set xs` mp_tac)>>
-  simp[finite_support_po_of_spo]>>
+  disch_then (drule_at Any)>>
+  disch_then (qspec_then`set (MAP FST xs)` mp_tac)>>
+  simp[finite_support_po_of_aspo]>>
+  disch_then (qspec_then`c` mp_tac)>>
   impl_tac>- (
-    fs[good_spo_def]>>
-    match_mp_tac imp_sat_strict_ord_po_of_spo>>
-    simp[])>>
-  simp[conf_valid'_def,redundant_wrt_obj_po_def,sat_obj_po_def]>>
+    fs[good_aspo_def,fresh_aux_def]>>
+    CONJ_TAC >- (
+      irule_at Any sat_implies_more_left_spec>>
+      rpt(first_x_assum (irule_at Any))>>
+      qexists_tac`w`>>simp[]>>
+      rw[]
+      >- (
+        gvs[EXTENSION,npbf_vars_def]>>
+        metis_tac[])
+      >- (
+        CCONTR_TAC>>
+        gvs[]>> drule npbf_vars_subst>>
+        gvs[SUBSET_DEF,npbf_vars_def]>>
+        metis_tac[]))>>
+    CONJ_TAC >- (
+      irule imp_sat_strict_ord_po_of_aspo>>
+      gvs[])>>
+    gvs[AllCasePreds()]>>
+    irule_at Any sat_implies_more_left_spec>>
+    rpt(first_x_assum (irule_at Any))>>
+    qexists_tac`w`>>simp[]>>
+    rw[]>>
+    gvs[EXTENSION,npbf_vars_def]>>
+    metis_tac[npbc_vars_obj_constraint])>>
+  simp[conf_valid'_def]>>
   rw[]>>
   pop_assum drule>>
   rw[]>>
@@ -1988,6 +2806,8 @@ Proof
   fs[satisfies_def]>>
   metis_tac[]
 QED
+
+(* Conclusion and outputs *)
 
 Definition sem_concl_def:
   (sem_concl fml obj NoConcl = T) ∧
@@ -2089,4 +2909,3 @@ Definition weaken_spt_def:
     (delete v l, n-Num(ABS c))
 End
 
-val _ = export_theory();

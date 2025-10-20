@@ -1,14 +1,19 @@
 (*
   Translate the compiler's type inferencer.
 *)
+Theory inferProg[no_sig_docs]
+Ancestors
+  parserProg reg_allocProg infer ml_translator semanticPrimitives
+  inferProps
+Libs
+  preamble ml_translatorLib
+
 open preamble parserProgTheory
      reg_allocProgTheory inferTheory
      ml_translatorLib ml_translatorTheory
-     semanticPrimitivesTheory inferPropsTheory
+     semanticPrimitivesTheory inferPropsTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "inferProg"
 
 val _ = translation_extends "reg_allocProg";
 val _ = ml_translatorLib.use_string_type true;
@@ -636,7 +641,7 @@ Definition gen_d_ind_def:
   (gen_ds_ind (x::xs) = (gen_d_ind x /\ gen_ds_ind xs))
 Termination
   WF_REL_TAC `measure (\x. case x of INL d => dec_size d
-                                    | INR ds => dec1_size ds)`
+                                   | INR ds => list_size dec_size ds)`
 End
 
 val infer_p_wfs_dest = infer_p_wfs |> BODY_CONJUNCTS
@@ -731,10 +736,7 @@ Theorem infertype_prog_side_thm = Q.prove(`
   \\ match_mp_tac (CONJUNCT2 infer_d_side_thm) \\ fs [])
   |> update_precondition;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

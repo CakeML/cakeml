@@ -1,0 +1,198 @@
+<<HOL message: Created theory "bvi_tailrec">>
+Saved definition ____ "dummy_def"
+Saved theorem _______ "MEM_exp_size_imp"
+Saved definition ____ "small_int_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 6 clauses to the original specification.>>
+Saved definition ____ "is_rec_def"
+Saved induction _____ "is_rec_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 6 clauses to the original specification.>>
+Saved theorem _______ "is_rec_PMATCH"
+<<HOL message: mk_functional: 
+  pattern completion has added 58 clauses to the original specification.>>
+Saved definition ____ "is_const_def"
+Saved induction _____ "is_const_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 58 clauses to the original specification.>>
+Saved theorem _______ "is_const_PMATCH"
+Saved theorem _______ "num2assoc_op_assoc_op2num"
+Saved theorem _______ "assoc_op2num_num2assoc_op"
+Saved theorem _______ "num2assoc_op_11"
+Saved theorem _______ "assoc_op2num_11"
+Saved theorem _______ "num2assoc_op_ONTO"
+Saved theorem _______ "assoc_op2num_ONTO"
+Saved theorem _______ "num2assoc_op_thm"
+Saved theorem _______ "assoc_op2num_thm"
+Saved theorem _______ "assoc_op_EQ_assoc_op"
+Saved theorem _______ "assoc_op_case_def"
+Saved theorem _______ "datatype_assoc_op"
+Saved theorem _______ "assoc_op_distinct"
+Saved theorem _______ "assoc_op_nchotomy"
+Saved theorem _______ "assoc_op_Axiom"
+Saved theorem _______ "assoc_op_induction"
+Saved theorem _______ "assoc_op_case_cong"
+Saved theorem _______ "assoc_op_case_eq"
+<<HOL message: Defined type: "assoc_op">>
+Saved theorem _______ "num2v_ty_v_ty2num"
+Saved theorem _______ "v_ty2num_num2v_ty"
+Saved theorem _______ "num2v_ty_11"
+Saved theorem _______ "v_ty2num_11"
+Saved theorem _______ "num2v_ty_ONTO"
+Saved theorem _______ "v_ty2num_ONTO"
+Saved theorem _______ "num2v_ty_thm"
+Saved theorem _______ "v_ty2num_thm"
+Saved theorem _______ "v_ty_EQ_v_ty"
+Saved theorem _______ "v_ty_case_def"
+Saved theorem _______ "datatype_v_ty"
+Saved theorem _______ "v_ty_distinct"
+Saved theorem _______ "v_ty_nchotomy"
+Saved theorem _______ "v_ty_Axiom"
+Saved theorem _______ "v_ty_induction"
+Saved theorem _______ "v_ty_case_cong"
+Saved theorem _______ "v_ty_case_eq"
+<<HOL message: Defined type: "v_ty">>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "op_type_def"
+Saved induction _____ "op_type_ind"
+Saved definition ____ "to_op_def"
+Saved definition ____ "from_op_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 56 clauses to the original specification.>>
+Saved theorem _______ "from_op_PMATCH"
+Saved theorem _______ "from_op_thm"
+<<HOL message: mk_functional: 
+  pattern completion has added 6 clauses to the original specification.>>
+Saved definition ____ "op_eq_def"
+Saved induction _____ "op_eq_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 5 clauses to the original specification.>>
+Saved theorem _______ "op_eq_PMATCH"
+Saved theorem _______ "op_eq_to_op"
+Saved definition ____ "apply_op_def"
+Saved definition ____ "id_from_op_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 5 clauses to the original specification.>>
+Saved definition ____ "index_of_def"
+Saved induction _____ "index_of_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 5 clauses to the original specification.>>
+Saved theorem _______ "index_of_PMATCH"
+<<HOL message: mk_functional: 
+  pattern completion has added 6 clauses to the original specification.>>
+Saved definition ____ "args_from_def"
+Saved induction _____ "args_from_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 6 clauses to the original specification.>>
+Saved theorem _______ "args_from_PMATCH"
+<<HOL message: mk_functional: 
+  pattern completion has added 8 clauses to the original specification.>>
+Saved definition ____ "get_bin_args_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 8 clauses to the original specification.>>
+Saved theorem _______ "get_bin_args_PMATCH"
+Saved theorem _______ "exp_size_get_bin_args"
+Saved definition ____ "opbinargs_def"
+Saved definition ____ "try_update_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 56 clauses to the original specification.>>
+Saved definition ____ "is_arith_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 56 clauses to the original specification.>>
+Saved theorem _______ "is_arith_PMATCH"
+<<HOL message: mk_functional: 
+  pattern completion has added 55 clauses to the original specification.>>
+Saved definition ____ "is_rel_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 55 clauses to the original specification.>>
+Saved theorem _______ "is_rel_PMATCH"
+<<HOL message: mk_functional: 
+  pattern completion has added 4 clauses to the original specification.>>
+Saved definition ____ "term_ok_int_def"
+Saved induction _____ "term_ok_int_ind"
+Saved theorem _______ "term_ok_int_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 4 clauses to the original specification.>>
+Saved definition ____ "term_ok_any_def"
+Saved induction _____ "term_ok_any_ind"
+Saved theorem _______ "is_op_thms"
+Saved theorem _______ "term_ok_any_ind"
+Saved definition ____ "term_ok_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "try_swap_def"
+Saved induction _____ "try_swap_ind"
+Saved definition ____ "check_op_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 4 clauses to the original specification.>>
+Saved definition ____ "decide_ty_def"
+Saved induction _____ "decide_ty_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 4 clauses to the original specification.>>
+Saved theorem _______ "decide_ty_PMATCH"
+Saved definition ____ "LAST1_def"
+Saved induction _____ "LAST1_ind"
+Saved definition ____ "update_context_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 48 clauses to the original specification.>>
+Saved definition ____ "arg_ty_def"
+Saved induction _____ "arg_ty_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 48 clauses to the original specification.>>
+Saved theorem _______ "arg_ty_PMATCH"
+<<HOL message: mk_functional: 
+  pattern completion has added 51 clauses to the original specification.>>
+Saved definition ____ "op_ty_def"
+Saved induction _____ "op_ty_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 51 clauses to the original specification.>>
+Saved theorem _______ "op_ty_PMATCH"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "scan_expr_def"
+Saved induction _____ "scan_expr_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "scan_expr_sing_def"
+Saved theorem _______ "scan_expr_eq"
+Saved definition ____ "push_call_def"
+Saved induction _____ "push_call_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "rewrite_def"
+Saved induction _____ "rewrite_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved theorem _______ "rewrite_PMATCH"
+Saved theorem _______ "rewrite_eq"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "has_rec_def"
+Saved induction _____ "has_rec_ind"
+Saved definition ____ "has_rec1_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "has_rec_sing_def"
+Saved induction _____ "has_rec_sing_ind"
+Saved theorem _______ "has_rec_eq"
+Saved theorem _______ "has_rec_test1"
+Saved theorem _______ "has_rec_test2"
+Saved definition ____ "check_exp_def"
+Saved theorem _______ "check_exp_eq"
+Saved definition ____ "let_wrap_def"
+Saved definition ____ "mk_aux_call_def"
+Saved definition ____ "compile_exp_def"
+Saved definition ____ "compile_prog_def"
+Saved induction _____ "compile_prog_ind"
+Saved theorem _______ "scan_expr_not_nil"
+Saved theorem _______ "LENGTH_scan_expr"
+Saved theorem _______ "scan_expr_SING"
+Saved theorem _______ "scan_expr_HD_SING"
+Saved theorem _______ "check_exp_SOME_simp"
+Saved theorem _______ "fac_check_exp"
+Saved theorem _______ "fac_compile_exp"
+Saved theorem _______ "rev_check_exp"
+Saved theorem _______ "rev_compile_exp"
+Exporting theory "bvi_tailrec" ... done.
+Theory "bvi_tailrec" took 32.2s to build

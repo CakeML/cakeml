@@ -7,13 +7,12 @@
    pretty-printers for user types and by the basis translation
    to set up default pretty-printers for some basis types.
 *)
+Theory typeDecToPP
+Ancestors
+  ast string[qualified] mlint
+Libs
+  stringSyntax[qualified]
 
-open HolKernel Parse boolLib bossLib;
-open astTheory mlintTheory;
-local open stringTheory stringSyntax in end;
-
-val _ = new_theory "typeDecToPP";
-val _ = set_grammar_ancestry ["ast", "string"];
 
 Definition pppre_def:
   pppre nm = "pp_" ++ nm
@@ -66,8 +65,6 @@ Definition pp_of_ast_t_def:
   pp_of_ast_t fixes (Attup ts) = (Fun "x" (App Opapp
     [Var (mod_pp (Short "tuple")); Mat (Var (Short "x"))
         [(con_x_i_pat NONE (LENGTH ts), x_i_list_f_apps (MAP (pp_of_ast_t fixes) ts))]]))
-Termination
-  WF_REL_TAC `measure (ast_t_size o SND)`
 End
 
 Definition mk_pps_for_type_def:
@@ -96,4 +93,3 @@ Definition pps_for_dec_def:
   pps_for_dec _ dec = []
 End
 
-val _ = export_theory ();

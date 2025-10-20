@@ -1,0 +1,28 @@
+<<HOL message: Created theory "data_space">>
+Saved definition ____ "num_size_def"
+Saved induction _____ "num_size_ind"
+Saved definition ____ "part_space_req_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 51 clauses to the original specification.>>
+Saved definition ____ "op_space_req_def"
+Saved induction _____ "op_space_req_ind"
+Saved definition ____ "pMakeSpace_def"
+Saved induction _____ "pMakeSpace_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 7 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 6 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 6 clauses to the original specification.>>
+Saved definition ____ "space_def"
+Saved induction _____ "space_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 6 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 6 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 7 clauses to the original specification.>>
+Saved theorem _______ "space_pmatch"
+Saved definition ____ "compile_def"
+Exporting theory "data_space" ... done.
+Theory "data_space" took 4.4s to build

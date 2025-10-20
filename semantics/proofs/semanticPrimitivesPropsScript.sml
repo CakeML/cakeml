@@ -1,13 +1,12 @@
 (*
   Various basic properties of the semantic primitives.
 *)
+Theory semanticPrimitivesProps
+Ancestors
+  ast namespace ffi semanticPrimitives namespaceProps
+Libs
+  preamble boolSimps
 
-open preamble;
-open astTheory namespaceTheory ffiTheory semanticPrimitivesTheory;
-open namespacePropsTheory;
-open boolSimps;
-
-val _ = new_theory "semanticPrimitivesProps";
 
 Theorem with_same_v[simp]:
    (env:'v sem_env) with v := env.v = env
@@ -275,7 +274,7 @@ Theorem do_app_NONE_ffi:
    do_app (refs,ffi) op args = NONE ⇒
    do_app (refs,ffi') op args = NONE
 Proof
-  Cases_on `op` \\ fs [do_app_def]
+  Cases_on `op` \\ fs [do_app_def,thunk_op_def]
   \\ gvs [AllCaseEqs()] \\ rpt strip_tac \\ gvs []
   \\ rpt (pairarg_tac \\ gvs[])
   \\ every_case_tac \\ fs[]
@@ -288,7 +287,7 @@ Theorem do_app_SOME_ffi_same:
    do_app (refs,ffi') op args = SOME ((refs',ffi'),r)
 Proof
   rw[]
-  \\ gvs [do_app_def,AllCaseEqs()]
+  \\ gvs [do_app_def,AllCaseEqs(),thunk_op_def]
   \\ rpt (pairarg_tac \\ gvs [])
   \\ fs[ffiTheory.call_FFI_def]
   \\ gvs [do_app_def,AllCaseEqs()]
@@ -302,8 +301,10 @@ Theorem do_app_ffi_unchanged:
     do_app (st, ffi) op vs = SOME ((st', ffi'), res)
   ⇒ ffi = ffi'
 Proof
-  rpt gen_tac >> simp[do_app_def] >>
-  every_case_tac >> gvs[store_alloc_def]
+  rpt gen_tac >> simp[do_app_def,thunk_op_def] >>
+  Cases_on ‘op’ >> simp[] >> Cases_on ‘vs’ >> simp[] >>
+  dsimp[AllCaseEqs(), PULL_EXISTS] >>
+  simp[store_alloc_def]
 QED
 
 Theorem do_app_ffi_changed:
@@ -329,9 +330,12 @@ Theorem do_app_ffi_changed:
         [IO_event (ExtCall s) (MAP (λc. n2w $ ORD c) (EXPLODE conf))
                   (ZIP (ws,ws'))]
 Proof
-  simp[do_app_def] >> every_case_tac >> gvs[store_alloc_def, store_assign_def] >>
-  strip_tac >> gvs[call_FFI_def] >>
-  every_case_tac >> gvs[combinTheory.o_DEF, IMPLODE_EXPLODE_I]
+  simp[do_app_def,thunk_op_def] >>
+  Cases_on ‘op’ >> simp[] >> Cases_on ‘vs’ >> simp[] >>
+  dsimp[AllCaseEqs(), PULL_EXISTS, UNCURRY_EQ] >>
+  simp[call_FFI_def, AllCaseEqs(), SF CONJ_ss] >>
+  rw[] >>
+  gvs[combinTheory.o_DEF, IMPLODE_EXPLODE_I, store_assign_def]
 QED
 
 Theorem do_app_not_timeout:
@@ -340,18 +344,17 @@ Theorem do_app_not_timeout:
   a ≠ Rtimeout_error
 Proof
   Cases_on `s` >>
-  srw_tac[][do_app_cases] >>
-  every_case_tac >>
-  srw_tac[][]
+  srw_tac[][do_app_cases,thunk_op_def,AllCaseEqs(),store_alloc_def] >>
+  gvs []
 QED
 
 Theorem do_app_type_error:
   do_app s op es = SOME (x,Rerr (Rabort a)) ⇒ x = s
 Proof
   PairCases_on `s` >>
-  srw_tac[][do_app_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[LET_THM,UNCURRY] >>
-  every_case_tac >> full_simp_tac(srw_ss())[]
+  simp[do_app_def,thunk_op_def] >>
+  Cases_on ‘op’ >> simp[] >> Cases_on ‘es’ >> simp[] >>
+  dsimp[AllCaseEqs(), PULL_EXISTS, UNCURRY_EQ]
 QED
 
 Triviality build_rec_env_help_lem:
@@ -517,7 +520,8 @@ val _ = export_rewrites["every_result_def"]
 Definition map_sv_def:
   map_sv f (Refv v) = Refv (f v) ∧
   map_sv _ (W8array w) = (W8array w) ∧
-  map_sv f (Varray vs) = (Varray (MAP f vs))
+  map_sv f (Varray vs) = (Varray (MAP f vs)) ∧
+  map_sv f (Thunk m v) = (Thunk m (f v))
 End
 val _ = export_rewrites["map_sv_def"]
 
@@ -533,6 +537,7 @@ val _ = export_rewrites["dest_Refv_def","is_Refv_def"]
 Definition sv_every_def:
   sv_every P (Refv v) = P v ∧
   sv_every P (Varray vs) = EVERY P vs ∧
+  sv_every P (Thunk m v) = P v ∧
   sv_every P _ = T
 End
 val _ = export_rewrites["sv_every_def"]
@@ -541,6 +546,7 @@ Definition sv_rel_def:
   sv_rel R (Refv v1) (Refv v2) = R v1 v2 ∧
   sv_rel R (W8array w1) (W8array w2) = (w1 = w2) ∧
   sv_rel R (Varray vs1) (Varray vs2) = LIST_REL R vs1 vs2 ∧
+  sv_rel R (Thunk m1 v1) (Thunk m2 v2) = (m1 = m2 ∧ R v1 v2) ∧
   sv_rel R _ _ = F
 End
 val _ = export_rewrites["sv_rel_def"]
@@ -565,9 +571,10 @@ Theorem sv_rel_cases:
     sv_rel R x y ⇔
     (∃v1 v2. x = Refv v1 ∧ y = Refv v2 ∧ R v1 v2) ∨
     (∃w. x = W8array w ∧ y = W8array w) ∨
+    (∃m v1 v2. x = Thunk m v1 ∧ y = Thunk m v2 ∧ R v1 v2) ∨
     (?vs1 vs2. x = Varray vs1 ∧ y = Varray vs2 ∧ LIST_REL R vs1 vs2)
 Proof
-  Cases >> Cases >> simp[sv_rel_def,EQ_IMP_THM]
+  Cases >> Cases >> simp[sv_rel_def,EQ_IMP_THM] >> metis_tac []
 QED
 
 Theorem sv_rel_O:
@@ -586,7 +593,8 @@ QED
 Definition store_v_vs_def:
   store_v_vs (Refv v) = [v] ∧
   store_v_vs (Varray vs) = vs ∧
-  store_v_vs (W8array _) = []
+  store_v_vs (W8array _) = [] ∧
+  store_v_vs (Thunk _ v) = [v]
 End
 val _ = export_rewrites["store_v_vs_def"]
 
@@ -685,7 +693,7 @@ val _ = export_rewrites["ctors_of_dec_def"]
 
 (* free vars *)
 
-Definition FV_def:
+Definition FV_def[simp]:
   (FV (Raise e) = FV e) ∧
   (FV (Handle e pes) = FV e ∪ FV_pes pes) ∧
   (FV (Lit _) = {}) ∧
@@ -700,7 +708,6 @@ Definition FV_def:
   (FV (Letrec defs b) = FV_defs defs ∪ FV b DIFF set (MAP (Short o FST) defs)) ∧
   (FV (Tannot e t) = FV e) ∧
   (FV (Lannot e l) = FV e) ∧
-  (FV (FpOptimise sc e) = FV e) ∧
   (FV_list [] = {}) ∧
   (FV_list (e::es) = FV e ∪ FV_list es) ∧
   (FV_pes [] = {}) ∧
@@ -709,14 +716,7 @@ Definition FV_def:
   (FV_defs [] = {}) ∧
   (FV_defs ((_,x,e)::defs) =
      (FV e DIFF {Short x}) ∪ FV_defs defs)
-Termination
-  WF_REL_TAC `inv_image $< (λx. case x of
-     | INL e => exp_size e
-     | INR (INL es) => exp6_size es
-     | INR (INR (INL pes)) => exp3_size pes
-     | INR (INR (INR (defs))) => exp1_size defs)`
 End
-val _ = export_rewrites["FV_def"]
 
 Overload SFV = ``λe. {x | Short x ∈ FV e}``
 
@@ -766,4 +766,3 @@ Proof
   simp [concrete_v_def]
 QED
 
-val _ = export_theory ();

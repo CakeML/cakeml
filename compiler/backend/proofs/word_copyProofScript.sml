@@ -1,13 +1,13 @@
 (*
   Correctness proof for word_copy
 *)
-open preamble word_copyTheory wordPropsTheory wordConvsTheory wordSemTheory;
-
-val _ = new_theory "word_copyProof";
+Theory word_copyProof
+Libs
+  preamble
+Ancestors
+  wordLang[qualified] wordSem wordProps word_copy wordConvs
 
 val s = ``s:('a,'c,'ffi) wordSem$state``
-
-val _ = set_grammar_ancestry ["wordLang", "wordSem", "wordProps", "word_copy"];
 
 Definition CPstate_inv_def:
   CPstate_inv cs = (
@@ -509,16 +509,28 @@ Proof
 QED
 
 Theorem CPstate_modelsD_get_var:
-  CPstate_inv cs ⇒
+  CPstate_inv cs /\
   CPstate_models cs st ⇒
   get_var (lookup_eq cs x) st = get_var x st
 Proof
   rw[get_var_def]>>
-  metis_tac[CPstate_modelsD,lookup_eq_idempotent]
+  imp_res_tac CPstate_modelsD >>
+  imp_res_tac lookup_eq_idempotent >>
+  metis_tac[]
+QED
+
+Theorem CPstate_modelsD_get_vars:
+  CPstate_inv cs /\
+  CPstate_models cs st ⇒
+  get_vars (MAP (lookup_eq cs) xs) st = get_vars xs st
+Proof
+  Induct_on `xs` >> rw[get_vars_def] >>
+  DEP_REWRITE_TAC[CPstate_modelsD_get_var] >>
+  fs[]
 QED
 
 Theorem CPstate_modelsD_get_var_imm:
-  CPstate_inv cs ⇒
+  CPstate_inv cs /\
   CPstate_models cs st ⇒
   get_var_imm (lookup_eq_imm cs x) st = get_var_imm x st
 Proof
@@ -527,12 +539,12 @@ Proof
 QED
 
 Theorem CPstate_modelsD_Var:
-  CPstate_inv cs ⇒
+  CPstate_inv cs /\
   CPstate_models cs st ⇒
   word_exp st (Var (lookup_eq cs x)) = word_exp st (Var x)
 Proof
   rw[word_exp_def]>>
-  metis_tac[CPstate_modelsD,lookup_eq_idempotent]
+  metis_tac[CPstate_modelsD_get_var]
 QED
 
 Theorem CPstate_modelsD_lookup_eq_imm:
@@ -543,7 +555,7 @@ Theorem CPstate_modelsD_lookup_eq_imm:
 Proof
   Cases_on‘x’>>
   rw[lookup_eq_imm_def,word_exp_def]>>
-  metis_tac[CPstate_modelsD,lookup_eq_idempotent]
+  metis_tac[CPstate_modelsD_get_var]
 QED
 
 Theorem MAP_get_var_eqD:
@@ -989,6 +1001,14 @@ Proof
   rw[CPstate_models_def,sh_mem_store32_def,flush_state_def]>>gvs[ACE]
 QED
 
+Theorem sh_mem_store16_model:
+  CPstate_models cs st ⇒
+  sh_mem_store16 a v st = (err, st') ⇒
+  CPstate_models cs st'
+Proof
+  rw[CPstate_models_def,sh_mem_store16_def,flush_state_def]>>gvs[ACE]
+QED
+
 Theorem sh_mem_store_byte_model:
   CPstate_models cs st ⇒
   sh_mem_store_byte a v st = (err, st') ⇒
@@ -1009,7 +1029,7 @@ Theorem copy_prop_correct:
 Proof
   Induct (* 23 subgoals *)
   >- (*Skip*)
-    simp[evaluate_def,copy_prop_prog_def]
+    fs[evaluate_def,copy_prop_prog_def]
   >- (*Move*)
     metis_tac[copy_prop_move_correct]
   >-(*Inst*)(
@@ -1145,18 +1165,13 @@ Proof
   >-(
     (*Raise*)
     rw[copy_prop_prog_def,evaluate_def]
-    >-(‘get_var (lookup_eq cs n) st = get_var n st’ by metis_tac[CPstate_modelsD_get_var]>>rw[])
-    >>every_case_tac>>fs[]
-  )
+    >> fs[CPstate_modelsD_get_var]
+    >> gvs[ACE])
   >-(
     (*Return*)
     rw[copy_prop_prog_def,evaluate_def]
-    >-(
-      ‘get_var (lookup_eq cs n) st = get_var n st’ by metis_tac[CPstate_modelsD_get_var]
-      >>‘get_var (lookup_eq cs n0) st = get_var n0 st’ by metis_tac[CPstate_modelsD_get_var]
-      >>rw[]
-    )
-    >>every_case_tac>>fs[]
+    >> fs[CPstate_modelsD_get_var,CPstate_modelsD_get_vars]
+    >> gvs[ACE]
   )
   >-(
     (*Tick*)
@@ -1166,16 +1181,15 @@ Proof
   >-(
     (*OpCurrHeap*)
     rw[copy_prop_prog_def,evaluate_def]
-    >-metis_tac[remove_eq_inv]
-    >-(gvs[ACE]>>metis_tac[remove_eq_model_set_var])
+    >- fs[remove_eq_inv]
+    >-(gvs[ACE,remove_eq_model_set_var])
     >-(
       pop_assum sym_sub_tac>>
       irule option_case_cong>> simp[]>>
       irule word_exp_cong_Op>>
-      rw[]>>metis_tac[word_exp_cong_Var,CPstate_modelsD_get_var]
-    )
-    >-metis_tac[remove_eq_inv]
-    >-(gvs[ACE]>>metis_tac[remove_eq_model_set_var])
+      gvs[CPstate_modelsD_Var])
+    >- metis_tac[remove_eq_inv]
+    >- (gvs[ACE]>>metis_tac[remove_eq_model_set_var])
   )
   >-(
     (*LocValue*)
@@ -1188,20 +1202,16 @@ Proof
   )
   >-(
     (*CodeBufferWrite*)
-    rw[copy_prop_prog_def,evaluate_def]
-    >>‘get_var (lookup_eq cs n) st = get_var n st’ by metis_tac[CPstate_modelsD_get_var]
-    >>‘get_var (lookup_eq cs n0) st = get_var n0 st’ by metis_tac[CPstate_modelsD_get_var]
-    >>gvs[ACE]
-    >>qpat_x_assum‘CPstate_models cs st’mp_tac>>rw[CPstate_models_def]
-  )
+    rpt gen_tac >> rpt disch_tac >>
+    fs[copy_prop_prog_def,evaluate_def] >>
+    fs[CPstate_modelsD_get_var,CPstate_modelsD_get_vars] >>
+    gvs[ACE])
   >-(
     (*DataBufferWrite*)
-    rw[copy_prop_prog_def,evaluate_def]
-    >>‘get_var (lookup_eq cs n) st = get_var n st’ by metis_tac[CPstate_modelsD_get_var]
-    >>‘get_var (lookup_eq cs n0) st = get_var n0 st’ by metis_tac[CPstate_modelsD_get_var]
-    >>gvs[ACE]
-    >>qpat_x_assum‘CPstate_models cs st’mp_tac>>rw[CPstate_models_def]
-  )
+    rpt gen_tac >> rpt disch_tac >>
+    fs[copy_prop_prog_def,evaluate_def] >>
+    fs[CPstate_modelsD_get_var,CPstate_modelsD_get_vars] >>
+    gvs[ACE])
   >-(
     (*FFI*)
     rw[copy_prop_prog_def,evaluate_def,empty_eq_inv,empty_eq_model]
@@ -1209,10 +1219,10 @@ Proof
   >-(
     (*ShareInst*)
     rw[copy_prop_prog_def,evaluate_def]
-    >>‘word_exp st (copy_prop_share e cs) = word_exp st e’ by metis_tac[CPstate_modelsD_copy_prop_share]
-    >>gvs[ACE,remove_eq_inv]
-    >>Cases_on‘m’>>gvs[ACE,share_inst_def]
-    >>metis_tac[remove_eq_model_sh_mem_set_var,remove_eq_model,sh_mem_store_model,sh_mem_store_byte_model,sh_mem_store32_model]
+    >> fs[CPstate_modelsD_copy_prop_share]
+    >> gvs[ACE,remove_eq_inv]
+    >> Cases_on‘m’>>gvs[ACE,share_inst_def]
+    >> metis_tac[remove_eq_model_sh_mem_set_var,remove_eq_model,sh_mem_store_model,sh_mem_store_byte_model,sh_mem_store32_model,sh_mem_store16_model]
   )
 QED
 
@@ -1223,5 +1233,3 @@ Proof
   rw[copy_prop_def]
   >>metis_tac[copy_prop_correct,empty_eq_inv,empty_eq_model,PAIR]
 QED
-
-val _ = export_theory();

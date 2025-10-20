@@ -1,11 +1,10 @@
 (*
   The semantics of the asm instruction description.
 *)
-open HolKernel Parse boolLib bossLib
-open asmTheory machine_ieeeTheory
-open miscTheory (* for bytes_in_memory *)
-
-val () = new_theory "asmSem"
+Theory asmSem
+Ancestors
+  asm machine_ieee
+  misc (* for bytes_in_memory *)
 
 (* -- semantics of ASM program -- *)
 
@@ -216,6 +215,8 @@ Definition mem_op_def:
   (mem_op Store r a = mem_store (dimindex (:'a) DIV 8) r a) /\
   (mem_op Load8 r a = mem_load 1 r a) /\
   (mem_op Store8 r a = mem_store 1 r a) /\
+  (mem_op Load16 r a = mem_load 2 r a) /\
+  (mem_op Store16 r a = mem_store 2 r a) /\
   (mem_op Load32 r (a:'a addr) = mem_load 4 r a) /\
   (mem_op Store32 r (a:'a addr) = mem_store 4 r a)
 End
@@ -254,5 +255,3 @@ Definition asm_step_def:
     (asm i (s1.pc + n2w (LENGTH (c.encode i))) s1 = s2) /\
     ~s2.failed /\ asm_ok i c
 End
-
-val () = export_theory ()

@@ -2,11 +2,12 @@
   Translations of various useful HOL functions and datatypes, to serve as a
   starting point for further translations.
 *)
+Theory std_prelude
+Ancestors
+  ast semanticPrimitives While evaluate ml_translator
+Libs
+  preamble ml_translatorLib ml_progLib
 
-open preamble astTheory semanticPrimitivesTheory whileTheory;
-open evaluateTheory ml_translatorLib ml_translatorTheory ml_progLib;
-
-val _ = new_theory "std_prelude";
 
 (* type registration *)
 
@@ -145,4 +146,3 @@ val _ = ml_prog_update close_local_blocks;
 
 val _ = (print_asts := true);
 
-val _ = export_theory();

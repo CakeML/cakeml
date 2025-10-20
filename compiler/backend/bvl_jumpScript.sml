@@ -1,21 +1,23 @@
 (*
   A function for generating efficient switch-like jumps in BVL.
 *)
-open preamble bvlTheory;
-
-val _ = new_theory "bvl_jump";
+Theory bvl_jump
+Ancestors
+  bvl
+Libs
+  preamble
 
 Definition JumpList_def:
   (JumpList n xs =
      let l = LENGTH xs in
-       if l = 0 then Op (Const 0) [] else
+       if l = 0 then Op (IntOp (Const 0)) [] else
        if l = 1 then HD xs else
          let k = l DIV 2 in
          let ys = TAKE k xs in
          let zs = DROP k xs in
          let lt = (if n + l < 1000000 /\ n + k < 1000000
-                   then Op (LessConstSmall (n+k)) [Var 0]
-                   else Op Less [Op (Const (&(n+k))) []; Var 0]) in
+                   then Op (IntOp (LessConstSmall (n+k))) [Var 0]
+                   else Op (IntOp Less) [Op (IntOp (Const (&(n+k)))) []; Var 0]) in
            If lt (JumpList n ys) (JumpList (n + k) zs))
 Termination
   WF_REL_TAC `measure (LENGTH o SND)` \\ REPEAT STRIP_TAC
@@ -31,4 +33,3 @@ Definition Jump_def:
   Jump x xs = Let [x] (JumpList 0 xs)
 End
 
-val _ = export_theory();

@@ -1,13 +1,15 @@
 (*
   Filter case study from CASE.
 *)
-open preamble basis MapProgTheory ml_translatorLib ml_progLib basisFunctionsLib ml_translatorTheory
-     charsetTheory regexpTheory regexp_parserTheory regexp_compilerTheory cfTacticsBaseLib
-     cfDivTheory cfDivLib;
+Theory filterProg
+Ancestors
+  MapProg ml_translator charset regexp regexp_parser
+  regexp_compiler cfDiv
+Libs
+  preamble basis ml_translatorLib ml_progLib basisFunctionsLib
+  cfTacticsBaseLib cfDivLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "filterProg";
 
 (*---------------------------------------------------------------------------*)
 (* The regexp wrt. which we're filtering                                     *)
@@ -996,7 +998,7 @@ Proof
      impl_tac >- rw[every_LNTH,LNTH_LGENLIST,next_filter_events,LFINITE_fromList] >>
      simp[SimpL ``$==>``,exists_LNTH,LNTH_LGENLIST] >>
      Ho_Rewrite.PURE_ONCE_REWRITE_TAC [cut_at_null_simplify] >>
-     disch_then(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[whileTheory.LEAST_EXISTS]) >>
+     disch_then(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[WhileTheory.LEAST_EXISTS]) >>
      rename1 `LNTH n0` >>
      qmatch_goalsub_abbrev_tac `LGENLIST f` >>
      Q.ISPECL_THEN [`n0`,`f`] assume_tac (GEN_ALL LGENLIST_CHUNK_GENLIST) >>
@@ -1045,7 +1047,7 @@ Proof
      impl_tac >- rw[every_LNTH,LNTH_LGENLIST,next_filter_events,LFINITE_fromList] >>
      simp[SimpL ``$==>``,exists_LNTH,LNTH_LGENLIST] >>
      Ho_Rewrite.PURE_ONCE_REWRITE_TAC [cut_at_null_simplify] >>
-     disch_then(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[whileTheory.LEAST_EXISTS]) >>
+     disch_then(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[WhileTheory.LEAST_EXISTS]) >>
      rename1 `LNTH n0` >>
      qmatch_goalsub_abbrev_tac `LGENLIST f` >>
      Q.ISPECL_THEN [`n0`,`f`] assume_tac (GEN_ALL LGENLIST_CHUNK_GENLIST) >>
@@ -1530,4 +1532,3 @@ QED
 val _ = astToSexprLib.write_ast_to_file "../program.sexp" prog;
 *)
 
-val _ = export_theory ();

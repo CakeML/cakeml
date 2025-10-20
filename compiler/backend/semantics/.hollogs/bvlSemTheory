@@ -1,0 +1,141 @@
+<<HOL message: Created theory "bvlSem">>
+Saved theorem _______ "datatype_ref"
+Saved theorem _______ "ref_11"
+Saved theorem _______ "ref_distinct"
+Saved theorem _______ "ref_nchotomy"
+Saved theorem _______ "ref_Axiom"
+Saved theorem _______ "ref_induction"
+Saved theorem _______ "ref_case_cong"
+Saved theorem _______ "ref_case_eq"
+<<HOL message: Defined type: "ref">>
+Saved theorem _______ "v_size_eq"
+Saved theorem _______ "datatype_v"
+Saved theorem _______ "v_11"
+Saved theorem _______ "v_distinct"
+Saved theorem _______ "v_nchotomy"
+Saved theorem _______ "v_Axiom"
+Saved theorem _______ "v_induction"
+Saved theorem _______ "v_case_cong"
+Saved theorem _______ "v_case_eq"
+<<HOL message: Defined type: "v">>
+Saved definition ____ "Boolv_def"
+Saved definition ____ "Unit_def"
+Saved theorem _______ "datatype_state"
+Saved theorem _______ "state_11"
+Saved theorem _______ "state_nchotomy"
+Saved theorem _______ "state_Axiom"
+Saved theorem _______ "state_induction"
+Saved theorem _______ "state_case_cong"
+Saved theorem _______ "state_case_eq"
+<<HOL message: Defined type: "state">>
+<<HOL message: mk_functional: 
+  pattern completion has added 5 clauses to the original specification.>>
+Saved definition ____ "v_to_list_def"
+Saved induction _____ "v_to_list_ind"
+Saved definition ____ "list_to_v_def"
+Saved definition ____ "isClos_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 12 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 10 clauses to the original specification.>>
+Saved definition ____ "do_eq_def"
+Saved induction _____ "do_eq_ind"
+Saved definition ____ "v_to_bytes_def"
+Saved definition ____ "v_to_words_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "do_install_def"
+Saved definition ____ "do_part_def"
+Saved definition ____ "do_build_def"
+Saved definition ____ "do_build_const_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 5 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 15 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 10 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 5 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 10 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 10 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 10 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 10 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 5 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 375 clauses to the original specification.>>
+Saved definition ____ "do_app_def"
+Saved definition ____ "dec_clock_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+Saved definition ____ "find_code_def"
+Saved definition ____ "fix_clock_def"
+Proved triviality ___ "fix_clock_IMP"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "evaluate_def"
+Saved induction _____ "evaluate_ind"
+Saved theorem _______ "case_eq_thms"
+Saved theorem _______ "do_app_const"
+Saved theorem _______ "bvl_do_app_Ref"
+Saved theorem _______ "bvl_do_app_Cons"
+Saved theorem _______ "evaluate_clock"
+Saved theorem _______ "fix_clock_evaluate"
+<<HOL warning: ThmSetData.revise_data: 
+  Theorems in set "compute":
+    ADD<bvlSem$evaluate_def>
+  invalidated by NewBinding(evaluate_def)>>
+Saved theorem _______ "evaluate_def"
+Saved theorem _______ "evaluate_ind"
+Saved definition ____ "initial_state_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "semantics_def"
+Exporting theory "bvlSem" ... done.
+Theory "bvlSem" took 9.4s to build

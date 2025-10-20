@@ -2,11 +2,12 @@
   Various lemmas that are handy in the soundness and completeness
   proofs of the type inferencer.
 *)
-open preamble;
-open namespacePropsTheory typeSystemTheory astTheory semanticPrimitivesTheory inferTheory unifyTheory infer_tTheory;
-open astPropsTheory typeSysPropsTheory;
-
-val _ = new_theory "inferProps";
+Theory inferProps
+Ancestors
+  namespaceProps typeSystem ast semanticPrimitives infer unify
+  infer_t astProps typeSysProps
+Libs
+  preamble
 
 Theorem ienv_unchanged[simp]:
    (ienv with inf_v := ienv.inf_v) = ienv ∧
@@ -873,18 +874,20 @@ Theorem infer_e_constraints:
     ⇒
     (?ts. pure_add_constraints st.subst ts st'.subst))
 Proof
-ho_match_mp_tac infer_e_ind >>
-rw [infer_e_def, constrain_op_success, success_eqns, remove_pair_lem, GSYM FORALL_PROD] >>
-rw [] >>
-res_tac >>
-fs [] >>
-TRY (cases_on `v'`) >>
-every_case_tac >> TRY (Cases_on `uop:fp_uop`) >>
-fs [success_eqns] >>
-rw [] >>
-fs [infer_st_rewrs] >>
-TRY (prove_tac [pure_add_constraints_append, pure_add_constraints_def,
-           infer_p_constraints, type_name_check_subst_state])
+  ho_match_mp_tac infer_e_ind >>
+  rw [infer_e_def, constrain_op_success, success_eqns, remove_pair_lem,
+      GSYM FORALL_PROD] >>
+  rw [] >>~-
+  ([‘∃y. pure_add_constraints x y x (* g *)’],
+   irule_at Any (iffRL (cj 1 pure_add_constraints_def)) >> simp[]) >>
+  rpt (first_x_assum $ drule_then strip_assume_tac) >> simp[] >>
+  gvs[success_eqns] >~
+  [‘t_unify s2.subst t1 (FST v) = SOME s’]
+  >- (Cases_on ‘v’ >> gvs[] >>
+      prove_tac [pure_add_constraints_append, pure_add_constraints_def,
+                 infer_p_constraints, type_name_check_subst_state]) >>
+  prove_tac [pure_add_constraints_append, pure_add_constraints_def,
+             infer_p_constraints, type_name_check_subst_state]
 QED
 
 Theorem pure_add_constraints_wfs:
@@ -4339,4 +4342,3 @@ Proof
   \\ metis_tac[]
 QED
 
-val _ = export_theory ();

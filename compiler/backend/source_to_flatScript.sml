@@ -11,12 +11,12 @@
   This enables the semantics of let rec to just create Closures rather
   than Recclosures.
 *)
-open preamble astTheory flatLangTheory;
-open flat_elimTheory flat_patternTheory evaluateTheory;
+Theory source_to_flat
+Ancestors
+  ast flatLang evaluate flat_elim flat_pattern
+Libs
+  preamble
 
-
-val _ = new_theory"source_to_flat";
-val _ = set_grammar_ancestry ["ast", "flatLang", "evaluate"];
 val _ = numLib.temp_prefer_num();
 val _ = temp_tight_equality ();
 
@@ -89,8 +89,8 @@ Definition astOp_to_flatOp_def:
   | FP_uop uop => flatLang$FP_uop uop
   | FP_bop bop => flatLang$FP_bop bop
   | FP_top t_op => flatLang$FP_top t_op
-  | FpFromWord => Id
-  | FpToWord => Id
+  | FpFromWord => flatLang$FpFromWord
+  | FpToWord => flatLang$FpToWord
   | Equality => flatLang$Equality
   | Opapp => flatLang$Opapp
   | Opassign => flatLang$Opassign
@@ -106,6 +106,7 @@ Definition astOp_to_flatOp_def:
   | CopyStrAw8 => flatLang$CopyStrAw8
   | CopyAw8Str => flatLang$CopyAw8Str
   | CopyAw8Aw8 => flatLang$CopyAw8Aw8
+  | XorAw8Str_unsafe => flatLang$Aw8xor_unsafe
   | Ord => flatLang$Ord
   | Chr => flatLang$Chr
   | Chopb opb => flatLang$Chopb opb
@@ -130,6 +131,7 @@ Definition astOp_to_flatOp_def:
   | ConfigGC => flatLang$ConfigGC
   | FFI string => flatLang$FFI string
   | Eval => Eval
+  | ThunkOp t => ThunkOp t
   (* default element *)
   | _ => flatLang$ConfigGC
 End
@@ -237,8 +239,6 @@ Definition compile_exp_def:
   (compile_exp t env (Tannot e _) = compile_exp t env e) ∧
   (* When encountering a Lannot, we update the trace we are passing *)
   (compile_exp t env (Lannot e (Locs st en)) = compile_exp t env e) ∧
-  (* remove FPOptimise annotations *)
-  (compile_exp t env (FpOptimise sc e) = compile_exp t env e) /\
   (compile_exps t env [] = []) ∧
   (compile_exps t env (e::es) =
      compile_exp t env e :: compile_exps t env es) ∧
@@ -536,4 +536,3 @@ Definition inc_compile_def:
     (c', p')
 End
 
-val _ = export_theory();

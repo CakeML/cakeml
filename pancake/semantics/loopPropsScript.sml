@@ -1,16 +1,11 @@
 (*
   Properties of loopLang and loopSem
 *)
-open preamble
-     loopLangTheory loopSemTheory
-     pan_commonTheory pan_commonPropsTheory;
-
-local open wordSemTheory in end;
-
-val _ = new_theory"loopProps";
-
-val _ = set_grammar_ancestry ["loopSem", "pan_commonProps"];
-
+Theory loopProps
+Ancestors
+  loopSem pan_commonProps loopLang pan_common wordSem[qualified]
+Libs
+  preamble
 
 Definition every_prog_def:
   (every_prog p (Seq p1 p2) <=>
@@ -69,6 +64,7 @@ Definition cut_sets_def:
   (cut_sets l Skip = l) ∧
   (cut_sets l (LocValue n m) = insert n () l) ∧
   (cut_sets l (Assign n e) = insert n () l) ∧
+  (cut_sets l (Load32 n m) = insert m () l) ∧
   (cut_sets l (LoadByte n m) = insert m () l) ∧
   (cut_sets l (Seq p q) = cut_sets (cut_sets l p) q) ∧
   (cut_sets l (If _ _ _ p q nl) = nl) ∧
@@ -88,6 +84,7 @@ Definition comp_syntax_ok_def:
   (comp_syntax_ok l (Arith arith) = T) ∧
   (comp_syntax_ok l Break = T) ∧
   (comp_syntax_ok l (LocValue n m) = T) ∧
+  (comp_syntax_ok l (Load32 n m) = T) ∧
   (comp_syntax_ok l (LoadByte n m) = T) ∧
   (comp_syntax_ok l (Seq p q) = (comp_syntax_ok l p ∧ comp_syntax_ok (cut_sets l p) q)) ∧
   (comp_syntax_ok l (If c n r p q nl) =
@@ -194,7 +191,7 @@ QED
 Theorem locals_touched_eq_eval_eq:
   !s e t.
    s.globals = t.globals /\ s.memory = t.memory /\ s.mdomain = t.mdomain /\
-   s.base_addr = t.base_addr ∧
+   s.base_addr = t.base_addr ∧ s.top_addr = t.top_addr ∧
    (!n. MEM n (locals_touched e) ==> lookup n s.locals = lookup n t.locals) ==>
       eval t e = eval s e
 Proof
@@ -885,7 +882,7 @@ Proof
   drule_all comp_syn_ok_upd_local_clock >>
   fs [] >> strip_tac >>
   ‘st.globals = r.globals /\ st.memory = r.memory /\
-   st.base_addr = r.base_addr ∧ st.mdomain = r.mdomain’
+   st.base_addr = r.base_addr ∧ st.top_addr = r.top_addr ∧ st.mdomain = r.mdomain’
     by fs [state_component_equality] >>
   drule locals_touched_eq_eval_eq >> fs [] >>
   disch_then (qspec_then ‘e’ mp_tac) >> fs [] >>
@@ -1253,4 +1250,3 @@ Proof
 QED
 
 
-val _ = export_theory();

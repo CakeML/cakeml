@@ -1,9 +1,11 @@
 (*
   Normalizes pbc into npbc
 *)
-open preamble pbcTheory npbcTheory mlmapTheory mergesortTheory;
-
-val _ = new_theory "pbc_normalise";
+Theory pbc_normalise
+Libs
+  preamble
+Ancestors
+  pbc npbc mllist mlmap mergesort
 
 val _ = numLib.temp_prefer_num();
 
@@ -26,10 +28,10 @@ val _ = numLib.temp_prefer_num();
 (*
   Injective mapping from mlstring into num, supports
 
-  a-z, A-Z, 0-9, []{}_^-
+  a-z, A-Z, 0-9, []{}_^-$
 
 *)
-val non_list = (EVAL ``fromAList (MAP SWAP (enumerate 63 (MAP ORD (explode (strlit "[]{}_^-")))))``);
+val non_list = (EVAL ``fromAList (MAP SWAP (enumerate 63 (MAP ORD (explode (strlit "[]{}_^-$")))))``);
 
 Definition non_list_def:
   non_list = ^(rconc non_list)
@@ -39,7 +41,7 @@ Theorem non_list_eq = non_list_def |> SIMP_RULE std_ss [GSYM non_list];
 
 Theorem lookup_non_list:
   sptree$lookup n non_list = SOME v ⇔
-  SOME n = (ALOOKUP (enumerate 63 (MAP ORD (explode (strlit "[]{}_^-")))) v)
+  SOME n = (ALOOKUP (enumerate 63 (MAP ORD (explode (strlit "[]{}_^-$")))) v)
 Proof
   simp[non_list_eq,lookup_fromAList]>>
   EVAL_TAC>>rw[]
@@ -67,7 +69,7 @@ End
 Definition hashChars_alt_def:
   (hashChars_alt [] = 0) ∧
   (hashChars_alt (c::cs) =
-    hashChar c + 70 * hashChars_alt cs)
+    hashChar c + 71 * hashChars_alt cs)
 End
 
 Definition hashString_def:
@@ -115,7 +117,7 @@ Proof
 QED
 
 Triviality hashChar_bound:
-  ∀h. hashChar h < 70
+  ∀h. hashChar h < 71
 Proof
   rw [hashChar_def,hashNon_def,non_list_eq,lookup_fromAList]>>
   EVAL_TAC>>
@@ -143,7 +145,7 @@ Proof
     pop_assum mp_tac>>
     qmatch_goalsub_abbrev_tac`_ ⇒ P`>>
     EVAL_TAC>>
-    ntac 7 (IF_CASES_TAC>- (
+    ntac 8 (IF_CASES_TAC>- (
       simp[]>>
       unabbrev_all_tac>>
       SIMP_TAC std_ss []>>
@@ -157,7 +159,7 @@ Proof
     pop_assum mp_tac>>
     qmatch_goalsub_abbrev_tac`_ ⇒ P`>>
     EVAL_TAC>>
-    ntac 7 (IF_CASES_TAC>- (
+    ntac 8 (IF_CASES_TAC>- (
       simp[]>>
       unabbrev_all_tac>>
       SIMP_TAC std_ss []>>
@@ -204,9 +206,9 @@ Proof
   \\ Cases_on ‘h = h'’ \\ fs []
   \\ qsuff_tac ‘hashChar h = hashChar h'’
   >- fs [hashChar_11,goodChar_def]
-  \\ ‘(hashChar h' + 70 * hashChars_alt s) MOD 70 =
-      (hashChar h + 70 * hashChars_alt t) MOD 70’ by metis_tac []
-  \\ ‘0 < 70:num’ by fs []
+  \\ ‘(hashChar h' + 71 * hashChars_alt s) MOD 71 =
+      (hashChar h + 71 * hashChars_alt t) MOD 71’ by metis_tac []
+  \\ ‘0 < 71:num’ by fs []
   \\ drule arithmeticTheory.MOD_TIMES
   \\ once_rewrite_tac [ADD_COMM]
   \\ once_rewrite_tac [MULT_COMM]
@@ -407,13 +409,13 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Theorem iSUM_mergesort_term_le[simp]:
-  iSUM (MAP (eval_term w) (mergesort $≤ l)) =
+Theorem iSUM_sort_term_le[simp]:
+  iSUM (MAP (eval_term w) (sort $≤ l)) =
   iSUM (MAP (eval_term w) l)
 Proof
   match_mp_tac iSUM_PERM>>
   match_mp_tac PERM_MAP>>
-  metis_tac[mergesort_perm,PERM_SYM]
+  metis_tac[sort_PERM,PERM_SYM]
 QED
 
 Theorem eval_lit_eq_flip:
@@ -510,7 +512,7 @@ QED
 
 Definition pbc_to_npbc_def:
   (pbc_to_npbc (GreaterEqual,lhs,n) =
-    let (lhs',m') = compact_lhs (mergesort term_le lhs) 0 in
+    let (lhs',m') = compact_lhs (sort term_le lhs) 0 in
     let (lhs'',m'') = normalise_lhs lhs' [] 0 in
     let rhs = if n-(m'+m'') ≥ 0 then Num(n-(m'+m'')) else 0 in
     (lhs'',rhs):npbc) ∧
@@ -648,7 +650,7 @@ Proof
   imp_res_tac compact_lhs_no_dup>>
   pop_assum mp_tac>>
   impl_tac>- (
-    match_mp_tac mergesort_sorted>>
+    match_mp_tac sort_SORTED>>
     fs[transitive_term_le]>>
     simp[total_def]>>
     Cases>>Cases>>simp[])>>
@@ -1203,7 +1205,7 @@ QED
 Definition normalise_obj_def:
   (normalise_obj NONE = NONE) ∧
   (normalise_obj (SOME (f,c)) =
-    let (f',c') = compact_lhs (mergesort term_le f) 0 in
+    let (f',c') = compact_lhs (sort term_le f) 0 in
     let (f'', c'') = normalise_lhs f' [] 0 in
     SOME (f'',c + c'+c''))
 End
@@ -1532,5 +1534,3 @@ Proof
   qexists_tac`st3`>>
   gvs[]
 QED
-
-val _ = export_theory();

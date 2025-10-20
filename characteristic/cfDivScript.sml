@@ -2,16 +2,13 @@
   Defines the repeat function and the corresponding lemma used to prove
   non-termination of programs in cf.
 *)
-open preamble
-open set_sepTheory helperLib ml_translatorTheory
-open ml_translatorTheory semanticPrimitivesTheory
-open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory
-open cfNormaliseTheory cfAppTheory evaluateTheory
-open cfTacticsBaseLib cfTacticsLib cfTheory
-open std_preludeTheory;
-
-
-val _ = new_theory "cfDiv";
+Theory cfDiv
+Ancestors
+  set_sep ml_translator ml_translator semanticPrimitives
+  cfHeapsBase cfHeaps cfStore cfNormalise cfApp evaluate cf
+  std_prelude
+Libs
+  preamble helperLib cfHeapsBaseLib cfTacticsBaseLib cfTacticsLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -19,6 +16,10 @@ val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = ml_translatorLib.translation_extends "std_prelude";
 
+(* Make sure we are using the option monad even in the presence of other
+   monads *)
+val _ = monadsyntax.temp_enable_monadsyntax ();
+val _ = monadsyntax.temp_enable_monad "option";
 
 (* -- general set up -- *)
 
@@ -41,9 +42,8 @@ Theorem dest_opapp_exp_size:
 Proof
   ho_match_mp_tac cfNormaliseTheory.dest_opapp_ind
   >> rw[cfNormaliseTheory.dest_opapp_def]
-  >> every_case_tac >> fs[]
-  >> gvs [astTheory.exp_size_eq,listTheory.list_size_def,astTheory.exp_size_def,
-          list_size_append]
+  >> every_case_tac
+  >> gvs [list_size_append]
 QED
 
 Theorem dest_opapp_eq_nil_IMP:
@@ -270,14 +270,6 @@ Definition mk_single_app_def:
          od
       )
    ) /\
-   (mk_single_app fname allow_fname (FpOptimise sc e) =
-    do
-      e <- mk_single_app fname F e;
-      if allow_fname then
-        SOME(mk_inr(FpOptimise sc e))
-      else
-        SOME(FpOptimise sc e)
-    od) /\
    (mk_single_apps fname allow_fname (e::es) =
     do
       e <- mk_single_app fname allow_fname e;
@@ -316,10 +308,9 @@ Termination
    | INR (INR (INR (t,x,funs))) =>
        list_size (pair_size (list_size char_size)
                   (pair_size (list_size char_size) exp_size)) funs)`
-  \\ gvs [astTheory.exp_size_eq] \\ rw []
+  \\ rw[]
   \\ gvs [Once (dest_opapp_def |> DefnBase.one_line_ify NONE)]
   \\ gvs [AllCaseEqs()]
-  \\ fs [list_size_def,astTheory.exp_size_def]
 End
 
 val mk_single_app_ind = fetch "-" "mk_single_app_ind"
@@ -631,10 +622,6 @@ Proof
   (* Lannot *)
   >- (fs[mk_single_app_def] >> rveq >>
       fs[Once evaluate_def])
-  (* FpOptimise *)
-  >- (fs[mk_single_app_def] >> rveq >>
-      imp_res_tac mk_single_app_F_unchanged >> rveq >>
-      irule evaluate_IMP_inr >> fs[])
   (* Pmatch empty row *)
   >- (fs[mk_single_app_def] >> rveq >>
       fs[evaluate_def] >> rveq >>
@@ -644,7 +631,7 @@ Proof
       fs[Once evaluate_def] >> rveq >>
       reverse IF_CASES_TAC >-
         (fs[] >> rveq >> fs[mk_inr_res_def]) >>
-      fs[] >> rveq >> fs[mk_inr_res_def, fp_translate_def] >>
+      fs[] >> rveq >> fs[mk_inr_res_def] >>
       TOP_CASE_TAC >> gs[] >> rveq >> fs[mk_inr_res_def])
 QED
 
@@ -928,17 +915,6 @@ Proof
       fs[PULL_EXISTS] >> first_x_assum drule >>
       rpt(disch_then drule) >>
       simp[partially_evaluates_to_def,evaluate_def])
-  (* FpOptimise *)
-  >- (fs[mk_single_app_def] >> rveq >>
-      imp_res_tac mk_single_app_F_unchanged >> rveq >>
-      rw[] >> fs[PULL_EXISTS] >>
-      fs[partially_evaluates_to_def] >>
-      fs [evaluate_inr] >>
-      Cases_on `evaluate st env [FpOptimise annot e]` >> fs[] >>
-      rename1 `_ = (_, result)` >> Cases_on `result` >> fs[mk_inr_res_def] >>
-      imp_res_tac evaluatePropsTheory.evaluate_length >>
-      fs[quantHeuristicsTheory.LIST_LENGTH_1] >>
-      rveq >> fs[dest_inr_v_def])
   (* Pmatch empty row *)
   >- (fs[mk_single_app_def] >> rveq >>
       simp[partially_evaluates_to_match_def,evaluate_def])
@@ -2444,14 +2420,6 @@ Definition make_single_app_def:
          od
       )
    ) /\
-   (make_single_app fname allow_fname (FpOptimise annot e) =
-    do
-      e <- make_single_app fname F e;
-      if allow_fname then
-        SOME(then_tyerr (FpOptimise annot e))
-      else
-        SOME(FpOptimise annot e)
-    od) /\
    (make_single_apps fname (e::es) =
     do
       e <- make_single_app fname F e;
@@ -2489,10 +2457,9 @@ Termination
                                  | INR (INR (INR (t,funs))) =>
        list_size (pair_size (list_size char_size)
                   (pair_size (list_size char_size) exp_size)) funs)`
-  \\ gvs [astTheory.exp_size_eq] \\ rw []
+  \\ rw []
   \\ gvs [Once (dest_opapp_def |> DefnBase.one_line_ify NONE)]
   \\ gvs [AllCaseEqs()]
-  \\ fs [list_size_def,astTheory.exp_size_def]
 End
 
 val make_single_app_ind = fetch "-" "make_single_app_ind"
@@ -2957,14 +2924,6 @@ Proof
     \\ fs [pair_case_eq] \\ rveq \\ fs []
     \\ rename [`mk_tyerr_res r2`] \\ Cases_on `r2` \\ fs [mk_tyerr_res_def]
     \\ every_case_tac \\ fs [])
-  THEN1
-   (rw[make_single_app_def] \\ fs[]
-    \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq \\ rfs []
-    \\ fs [part_evaluates_to_def]
-    \\ Cases_on `evaluate st env [FpOptimise annot e]`
-    \\ rename1 `_ = (_, result)`
-    \\ Cases_on `result` \\ fs[mk_tyerr_res_def]
-    \\ rpt (TOP_CASE_TAC \\ fs[]))
   THEN1
    (rw[make_single_app_def] \\ fs [] \\ rename [`(p,_)::_`]
     \\ imp_res_tac make_single_app_F_unchanged \\ fs [] \\ rveq \\ rfs []
@@ -4461,7 +4420,7 @@ Proof
   \\ rw[]
   \\ `LFLATTEN(LGENLIST f NONE) <> [||]` by(CCONTR_TAC >> fs[])
   \\ dxrule LFLATTEN_NOT_NIL_IMP
-  \\ disch_then(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[whileTheory.LEAST_EXISTS])
+  \\ disch_then(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[WhileTheory.LEAST_EXISTS])
   \\ qmatch_asmsub_abbrev_tac `LNTH a1`
   \\ Q.ISPECL_THEN [`a1`,`f`] assume_tac (GEN_ALL LGENLIST_CHUNK_GENLIST)
   \\ fs[]
@@ -4761,7 +4720,7 @@ Proof
     (fs[Once LFLATTEN])
   \\ match_mp_tac OR_INTRO_THM2
   \\ pop_assum(assume_tac o Ho_Rewrite.REWRITE_RULE [every_LGENLIST,o_DEF,NOT_FORALL_THM])
-  \\ pop_assum(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[whileTheory.LEAST_EXISTS])
+  \\ pop_assum(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[WhileTheory.LEAST_EXISTS])
   \\ fs[CONV_RULE(LHS_CONV SYM_CONV) fromList_EQ_LNIL]
   \\ qspecl_then [`LEAST x. events (n + x) <> []`,`fromList o events o $+ n`] mp_tac
       (LGENLIST_CHUNK_GENLIST
@@ -4858,5 +4817,3 @@ Proof
   \\ qexists_tac `ns` \\ fs []
   \\ asm_exists_tac \\ fs[] \\ asm_exists_tac \\ fs[]
 QED
-
-val _ = export_theory();

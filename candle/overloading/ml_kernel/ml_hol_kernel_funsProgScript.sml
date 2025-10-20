@@ -5,22 +5,21 @@
   state a formal connection between the generated code and the input
   HOL functions.
 *)
-open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
-open astTheory evaluateTheory semanticPrimitivesTheory
-open ml_progLib ml_progTheory evaluateTheory
-open set_sepTheory cfTheory cfStoreTheory cfTacticsLib Satisfy
-open cfHeapsBaseTheory basisFunctionsLib
-open ml_monadBaseTheory ml_monad_translatorTheory ml_monadStoreLib ml_monad_translatorLib
-open holKernelTheory holKernelProofTheory
-open basisProgTheory
-open holAxiomsSyntaxTheory
-local open holKernelPmatchTheory in end
+Theory ml_hol_kernel_funsProg
+Libs
+  preamble ml_translatorLib ml_progLib cfTacticsLib Satisfy
+  basisFunctionsLib ml_monadStoreLib ml_monad_translatorLib
+Ancestors
+  ml_translator ml_pmatch patternMatches ast evaluate
+  semanticPrimitives ml_prog evaluate set_sep cf cfStore
+  cfHeapsBase ml_monadBase ml_monad_translator holKernel
+  holKernelProof basisProg holAxiomsSyntax
+  holKernelPmatch[qualified]
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory "ml_hol_kernel_funsProg";
 val _ = translation_extends "basisProg"
 
 val _ = (use_full_type_names := false);
@@ -322,10 +321,6 @@ Definition type_compare_def:
          (case type_compare t1 t2 of
           | Equal => type_list_compare ts1 ts2
           | other => other))
-Termination
-  WF_REL_TAC `measure (\x. case x of
-                  INR (x,_) => type1_size x
-                | INL (x,_) => type_size x)`
 End
 
 val type_cmp_thm = Q.prove(
@@ -587,12 +582,12 @@ Triviality allCInsts_eqn =
 
 val def = allCInsts_eqn |> translate
 
-(* MAP Tyvar (MAP implode (QSORT string_le (MAP explode (type_vars_in_term P)))) *)
+(* MAP Tyvar (MAP implode (sort string_le (MAP explode (type_vars_in_term P)))) *)
 
 val def = REPLICATE |> translate
 
 val def = holSyntaxTheory.dependency_compute_def
-          |> PURE_REWRITE_RULE[GSYM QSORT_type_vars_in_term,GSYM allTypes_ty_def]
+          |> PURE_REWRITE_RULE[GSYM sort_type_vars_in_term,GSYM allTypes_ty_def]
           |> translate
 
 val def = list_max_def |> translate
@@ -681,7 +676,7 @@ val def = holSyntaxExtraTheory.unify_def
 
 val def = holSyntaxExtraTheory.orth_ctxt_compute_def
           |> PURE_REWRITE_RULE[holSyntaxLibTheory.mlstring_sort_def,
-                               GSYM QSORT_type_vars_in_term]
+                               GSYM sort_type_vars_in_term]
           |> translate
 
 val def = holSyntaxCyclicityTheory.unify_LR_def |> translate
@@ -769,5 +764,3 @@ val def = m_translate constants_def;
 
 val _ = Globals.max_print_depth := 10;
 val _ = print_asts := false;
-
-val _ = export_theory();

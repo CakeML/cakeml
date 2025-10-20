@@ -1,0 +1,1 @@
+ml_monad_translator_interfaceLib.ui: /Users/z5654475/Desktop/2025/2025_term1/TS/repos/from_source/HOL/sigobj/Abbrev.uo /Users/z5654475/Desktop/2025/2025_term1/TS/repos/from_source/HOL/sigobj/Term.uo /Users/z5654475/Desktop/2025/2025_term1/TS/repos/from_source/HOL/sigobj/Thm.uo /Users/z5654475/Desktop/2025/2025_term1/TS/repos/from_source/HOL/sigobj/Type.uo 

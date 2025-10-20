@@ -5,7 +5,7 @@ CakeML is a verified implementation of a significant subset of
 Standard ML.
 
 The source and proofs for CakeML are developed in the [HOL4 theorem
-prover](http://hol-theorem-prover.org). We use the latest development
+prover](http://hol-theorem-prover.org). We use the latest master
 version of [HOL4](https://github.com/HOL-Theorem-Prover/HOL), which we
 build on [PolyML 5.7.1](http://www.polyml.org).
 Example build instructions can be found in
@@ -23,8 +23,8 @@ version of CakeML. See the [version2](../../tree/version2) or
 Directory structure
 -------------------
 
-[COPYING](COPYING):
-CakeML Copyright Notice, License, and Disclaimer.
+[LICENSE](LICENSE):
+BSD 3-Clause License
 
 [basis](basis):
 Contains the beginnings of a standard basis library for CakeML,
@@ -65,10 +65,6 @@ particular:
 - a description of how to invoke the CakeML compiler,
 - a list of how CakeML differs from SML and OCaml, and,
 - a number of small CakeML code examples.
-
-[icing](icing):
-Main implementation directory for the RealCake development, presented in
-"Verified Compilation and Optimization of Floating-Point Programs"
 
 [misc](misc):
 Auxiliary files providing glue between a standard HOL installation

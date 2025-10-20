@@ -1,11 +1,12 @@
 (*
   Proves repl_types for the initial env and types from which the REPL starts.
 *)
-open preamble
-     ml_progTheory ml_progLib repl_typesTheory basis_ffiTheory
-     repl_init_envProgTheory repl_moduleProgTheory repl_init_typesTheory
-
-val _ = new_theory "repl_init";
+Theory repl_init
+Ancestors
+  ml_prog repl_types basis_ffi repl_init_envProg repl_moduleProg
+  repl_init_types
+Libs
+  preamble ml_progLib
 
 val _ = Parse.hide "types"
 
@@ -235,7 +236,6 @@ Theorem repl_types_repl_prog:
   (repl_prog_st cl fs).next_type_stamp ≤ st.next_type_stamp ∧
   (repl_prog_st cl fs).next_exn_stamp ≤ st.next_exn_stamp ∧
   st.ffi = (repl_prog_st cl fs).ffi ∧ wfcl cl ∧ wfFS fs ∧ STD_streams fs ∧
-  st.fp_state = (init_state (basis_ffi cl fs)).fp_state ∧
   hasFreeFD fs ∧ file_content fs «config_enc_str.txt» = SOME content
   ⇒
   res = Rerr (Rabort Rtimeout_error) ∨
@@ -366,5 +366,3 @@ Proof
   \\ irule repl_types_set_clock
   \\ asm_rewrite_tac []
 QED
-
-val _ = export_theory();

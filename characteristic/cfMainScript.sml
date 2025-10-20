@@ -7,13 +7,13 @@
   state after creating the prog and then calling the main function -
   this is useful for theorizing about the output of the program.
 *)
-open preamble
-     semanticPrimitivesTheory
-     ml_translatorTheory ml_translatorLib ml_progLib ml_progTheory
-     cfHeapsTheory cfTheory cfTacticsBaseLib cfTacticsLib
-     evaluatePropsTheory evaluateTheory evaluate_decTheory
-
-val _ = new_theory "cfMain";
+Theory cfMain
+Ancestors
+  semanticPrimitives ml_translator ml_prog cfHeaps cf
+  evaluateProps evaluate evaluate_dec
+Libs
+  preamble ml_translatorLib ml_progLib cfTacticsBaseLib
+  cfTacticsLib
 
 fun mk_main_call s =
 (* TODO: don't use the parser so much here? *)
@@ -55,7 +55,7 @@ Proof
   \\ asm_exists_tac \\ fs []
   \\ once_rewrite_tac [CONJ_COMM] \\ rewrite_tac [GSYM CONJ_ASSOC]
   \\ once_rewrite_tac [CONJ_COMM] \\ rewrite_tac [GSYM CONJ_ASSOC]
-  \\ once_rewrite_tac [EQ_SYM_EQ] \\ fs [evaluateTheory.dec_clock_def]
+  \\ fs [evaluateTheory.dec_clock_def]
   \\ `evaluate (st2 with clock := (ck + ck2 + 1) - 1) env [exp] =
         ((st' with clock := st2.clock) with clock := ck2 + st'.clock,
          Rval [Conv NONE []])` by fs []
@@ -218,4 +218,3 @@ Proof
   >- (fs[cond_def])
 QED
 
-val _ = export_theory()

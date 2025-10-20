@@ -1,16 +1,19 @@
 (*
   Translate the ag32 instruction encoder and ag32-specific config.
 *)
+Theory ag32Prog[no_sig_docs]
+Ancestors
+  evaluate ml_translator ag32_target ag32 arm7Prog[qualified]
+Libs
+  preamble ml_translatorLib inliningLib
+
 open preamble;
 open evaluateTheory
 open ml_translatorLib ml_translatorTheory;
 open ag32_targetTheory ag32Theory;
 open inliningLib;
-local open arm7ProgTheory in end;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "ag32Prog"
 
 val _ = translation_extends "arm7Prog";
 val _ = ml_translatorLib.use_string_type true;
@@ -140,8 +143,5 @@ val res = translate def;
 
 val r = translate (format_def ag32_config_def);
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

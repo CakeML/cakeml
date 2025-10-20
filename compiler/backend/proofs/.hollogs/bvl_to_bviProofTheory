@@ -1,0 +1,130 @@
+<<HOL message: Created theory "bvl_to_bviProof">>
+Saved definition ____ "adjust_bv_def"
+Saved induction _____ "adjust_bv_ind"
+Saved theorem _______ "adjust_bv_Unit"
+Saved theorem _______ "adjust_bv_Boolv"
+Saved definition ____ "aux_code_installed_def"
+Saved induction _____ "aux_code_installed_ind"
+Proved triviality ___ "aux_code_installed_APPEND"
+Saved theorem _______ "aux_code_installed_subspt"
+Saved definition ____ "names_ok_def"
+Saved definition ____ "state_rel_def"
+Saved theorem _______ "state_rel_FLOOKUP_byteArray"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "bv_ok_def"
+Saved induction _____ "bv_ok_ind"
+Proved triviality ___ "bv_ok_SUBSET_IMP"
+Saved theorem _______ "bv_ok_Unit"
+Saved theorem _______ "bv_ok_Boolv"
+Proved triviality ___ "bv_ok_IMP_adjust_bv_eq"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "state_ok_def"
+Proved triviality ___ "evaluate_ok_lemma"
+Proved triviality ___ "evaluate_IMP_bv_ok"
+Proved triviality ___ "v_to_list_ok"
+Saved theorem _______ "list_to_v_ok"
+Saved theorem _______ "list_to_v_ok_APPEND"
+Saved theorem _______ "do_build_ok"
+Proved triviality ___ "do_app_ok_lemma"
+Saved theorem _______ "do_app_ok"
+Proved do_app_ok_lemma
+Saved theorem _______ "find_code_bv_ok"
+Saved theorem _______ "evaluate_ok"
+Proved triviality ___ "bEval_bVarBound"
+Proved evaluate_CopyGlobals_code
+Proved triviality ___ "evaluate_AllocGlobal_code"
+Saved theorem _______ "evaluate_ListLength_code"
+Saved theorem _______ "evaluate_FromListByte_code"
+Saved theorem _______ "evaluate_ToListByte_code"
+Saved theorem _______ "evaluate_SumListLength_code"
+Saved theorem _______ "evaluate_ConcatByte_code"
+Proved triviality ___ "compile_exps_Var_list"
+Proved triviality ___ "compile_int_thm"
+Saved theorem _______ "HD_APPEND3"
+Proved triviality ___ "iEval_bVarBound"
+Proved triviality ___ "v_to_list_adjust"
+Proved triviality ___ "do_eq_adjust_lemma"
+Proved triviality ___ "do_eq_adjust"
+Saved theorem _______ "list_to_v_adjust"
+Saved theorem _______ "list_to_v_adjust_APPEND"
+Proved triviality ___ "do_app_adjust"
+Saved theorem _______ "eval_ind_alt"
+Saved theorem _______ "EVERY_isVar_evaluate_Rval_MEM"
+Proved triviality ___ "do_app_Ref"
+Saved theorem _______ "state_rel_add_bytearray"
+Saved theorem _______ "IMP_v_to_bytes"
+Saved theorem _______ "IMP_v_to_words"
+Saved theorem _______ "aux_code_installed_sublist"
+Saved theorem _______ "compile_exps_aux_sorted"
+Saved definition ____ "in_ns_def"
+Saved theorem _______ "nss_in_ns"
+Saved theorem _______ "mult_nss_in_ns"
+Saved theorem _______ "mult_nss_in_ns_1"
+Saved theorem _______ "mult_nss_in_ns_2"
+Saved theorem _______ "in_ns_1_add_1"
+Saved theorem _______ "in_ns_add_num_stubs"
+Proved triviality ___ "compile_list_imp"
+Saved theorem _______ "compile_inc_lemma"
+Saved theorem _______ "compile_inc_next"
+Saved theorem _______ "compile_inc_DISTINCT"
+Saved theorem _______ "compile_inc_next_range"
+compile_exps_correct: NIL
+compile_exps_correct: CONS
+compile_exps_correct: Var
+compile_exps_correct: If
+compile_exps_correct: Let
+compile_exps_correct: Raise
+compile_exps_correct: Handle
+compile_exps_correct: Op
+compile_exps_correct: Op: CopyByte
+compile_exps_correct: Op: Const
+compile_exps_correct: Op: Label
+compile_exps_correct: Op: FromList
+compile_exps_correct: Op: ToListByte
+compile_exps_correct: Op: Ref
+compile_exps_correct: Op: RefArray
+compile_exps_correct: RefByte
+compile_exps_correct: Global
+compile_exps_correct: Op: SetGlobal
+compile_exps_correct: Op: AllocGlobal
+compile_exps_correct: Op: EqualConst
+compile_exps_correct: Op: Build
+compile_exps_correct: Op: FromListByte
+compile_exps_correct: Op: ConcatByteVec
+compile_exps_correct: Op: CopyByte F
+compile_exps_correct: Op: CopyByte T
+compile_exps_correct: Tick
+compile_exps_correct: Call
+Saved theorem _______ "compile_exps_correct"
+Saved theorem _______ "compile_single_evaluate"
+Proved triviality ___ "evaluate_REPLICATE_0"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved theorem _______ "bvi_stubs_evaluate"
+Saved theorem _______ "compile_list_distinct_locs"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved theorem _______ "compile_prog_evaluate"
+Saved theorem _______ "compile_prog_semantics"
+Saved theorem _______ "compile_prog_distinct_locs"
+Proved triviality ___ "ODD_lemma"
+Saved definition ____ "full_cc_def"
+Saved definition ____ "full_co_def"
+Saved theorem _______ "compile_prog_avoids_nss_2"
+Saved theorem _______ "compile_semantics"
+Saved theorem _______ "compile_distinct_names"
+Saved theorem _______ "ALL_DISTINCT_MAP_FST_SND_full_co"
+Saved theorem _______ "destLet_code_labels"
+Saved theorem _______ "compile_int_code_labels"
+Saved theorem _______ "compile_op_code_labels"
+Saved theorem _______ "compile_exps_get_code_labels"
+Saved theorem _______ "compile_exps_aux_contains"
+Saved theorem _______ "compile_single_get_code_labels"
+Saved theorem _______ "compile_list_get_code_labels"
+Saved theorem _______ "compile_prog_get_code_labels"
+Saved theorem _______ "compile_list_code_labels_domain"
+Saved theorem _______ "compile_prog_code_labels_domain"
+Exporting theory "bvl_to_bviProof" ... done.
+Theory "bvl_to_bviProof" took 2m31s to build

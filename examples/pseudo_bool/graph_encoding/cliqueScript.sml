@@ -1,9 +1,11 @@
 (*
   Formalization of the max clique problem
 *)
-open preamble pbcTheory graph_basicTheory pbc_normaliseTheory;
-
-val _ = new_theory "clique";
+Theory clique
+Ancestors
+  pbc graph_basic pbc_normalise
+Libs
+  preamble
 
 Definition is_clique_def:
   is_clique vs (v,e) ⇔
@@ -26,11 +28,14 @@ Proof
   simp[]
 QED
 
+Type annot = ``:(num # num)``;
+
+(* annotated *)
 Definition mk_constraint_def:
   mk_constraint e x y =
   if y ≤ x ∨ is_edge e x y then []
   else
-    [(GreaterEqual,[(1,Neg x);(1,Neg y)], 1):num pbc]
+    [((x,y),(GreaterEqual,[(1,Neg x);(1,Neg y)], 1)):(annot # num pbc)]
 End
 
 (* Encoding *)
@@ -38,7 +43,7 @@ Definition encode_def:
   encode (v,e) =
     FLAT (GENLIST (λx.
     FLAT (GENLIST (λy.
-          mk_constraint e x y) v)) v):num pbc list
+          mk_constraint e x y) v)) v):(annot # num pbc) list
 End
 
 (* Objective is to minimize the number of negated variables *)
@@ -126,7 +131,7 @@ Theorem encode_correct:
       is_clique vs (v,e) ∧
       CARD vs = k) ⇔
     (∃w.
-      pbc$satisfies w (set constraints) ∧
+      pbc$satisfies w (set (MAP SND constraints)) ∧
       eval_obj (clique_obj v) w = &v - &k)
   )
 Proof
@@ -135,9 +140,10 @@ Proof
     qexists_tac`vs`>>
     rw[encode_def]
     >- (
-      simp[satisfies_def,MEM_FLAT,MEM_GENLIST,PULL_EXISTS,mk_constraint_def]>>
+      simp[satisfies_def,MEM_FLAT,MEM_GENLIST,PULL_EXISTS,mk_constraint_def,MEM_MAP]>>
       rw[]>>
       gvs[satisfies_pbc_def,eval_lin_term_def,is_clique_def,iSUM_def]>>
+      rename1`is_edge e x y`>>
       `¬(x ∈ vs ∧ y ∈ vs)` by
         (CCONTR_TAC>>fs[]>>
         first_x_assum(qspecl_then[`x`,`y`] mp_tac)>>
@@ -154,7 +160,8 @@ Proof
     qexists_tac`w ∩ count v`>>
     rw[is_clique_def]
     >- (
-      fs[satisfies_def,encode_def,MEM_FLAT,PULL_EXISTS,MEM_GENLIST,mk_constraint_def]>>
+      fs[satisfies_def,encode_def,MEM_FLAT,PULL_EXISTS,MEM_GENLIST,mk_constraint_def,MEM_MAP]>>
+      rename1`is_edge e x y`>>
       wlog_tac `x < y` [`x`,`y`]
       >- (
         first_x_assum(qspecl_then[`y`,`x`] mp_tac)>>
@@ -190,11 +197,15 @@ Proof
   \\ fs [mlintTheory.num_to_str_11]
 QED
 
+Definition annot_string_def:
+  annot_string ((x,y):annot) = SOME (concat[strlit"noedge"; toString (x+1) ; strlit"_" ; toString (y+1)])
+End
+
 Definition full_encode_def:
   full_encode g =
   (map_obj enc_string
     (clique_obj (FST g)),
-  MAP (map_pbc enc_string) (encode g))
+  MAP (annot_string ## map_pbc enc_string) (encode g))
 End
 
 (* Convert minimization to maximization and add default 0 lb *)
@@ -281,7 +292,7 @@ QED
 Theorem full_encode_sem_concl:
   good_graph g ∧
   full_encode g = (obj,pbf) ∧
-  sem_concl (set pbf) obj concl ∧
+  sem_concl (set (MAP SND pbf)) obj concl ∧
   conv_concl (FST g) concl = SOME (lbg, ubg) ⇒
   (∀vs. is_clique vs g ⇒ CARD vs ≤ ubg) ∧
   (∃vs. is_clique vs g ∧ lbg ≤ CARD vs)
@@ -289,7 +300,8 @@ Proof
   strip_tac>>
   gvs[full_encode_def]>>
   qpat_x_assum`sem_concl _ _ _` mp_tac>>
-  simp[LIST_TO_SET_MAP]>>
+  simp[LIST_TO_SET_MAP,IMAGE_IMAGE]>>
+  simp[GSYM IMAGE_IMAGE, GSYM (Once LIST_TO_SET_MAP)]>>
   DEP_REWRITE_TAC[GSYM concl_INJ_iff]>>
   CONJ_TAC >- (
     assume_tac enc_string_INJ>>
@@ -351,7 +363,7 @@ QED
 Theorem full_encode_sem_concl_check:
   good_graph g ∧
   full_encode g = (obj,pbf) ∧
-  sem_concl (set pbf) obj concl ∧
+  sem_concl (set (MAP SND pbf)) obj concl ∧
   conv_concl (FST g) concl = SOME (mc,mc) ⇒
   max_clique_size g = mc
 Proof
@@ -384,4 +396,3 @@ Theorem full_encode_eq =
   |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF]
   |> SIMP_RULE (srw_ss()) [if_APPEND];
 
-val _ = export_theory();

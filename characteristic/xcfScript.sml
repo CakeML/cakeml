@@ -1,10 +1,12 @@
 (*
   Definitions used to trick EVAL in xcf.sml.
  *)
+Theory xcf
+Ancestors
+  cf
+Libs
+  preamble
 
-open preamble cfTheory;
-
-val _ = new_theory "xcf";
 
 Definition STOP_def:
   STOP x y = y
@@ -27,6 +29,4 @@ Theorem cf_STOP_rewrite =
     (CONV_RULE (RAND_CONV (ONCE_REWRITE_CONV [cf_STOP])) o SPEC_ALL)
     (CONJUNCTS cf_def)
   |> LIST_CONJ;
-
-val _ = export_theory ();
 

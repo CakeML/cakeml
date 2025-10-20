@@ -2,14 +2,15 @@
   The CakeML program implementing the word frequency application.
   This is produced by a combination of translation and CF verification.
 *)
+Theory wordfreqProg
+Libs
+  preamble basis
+Ancestors
+  splitwords balanced_map mllist mlmap basis_ffi
 
-open preamble basis
-     splitwordsTheory balanced_mapTheory mlmapTheory
 
 (* note: opening all these theories/libraries can take a while
    and it will print many warning messages which can be ignored *)
-
-val _ = new_theory "wordfreqProg";
 
 val _ = translation_extends"basisProg";
 
@@ -151,15 +152,15 @@ Theorem valid_wordfreq_output_exists:
    ∃output. valid_wordfreq_output file_chars output
 Proof
   rw[valid_wordfreq_output_def] \\
-  qexists_tac`QSORT $<= (nub (splitwords file_chars))` \\
+  qexists_tac`sort $<= (nub (splitwords file_chars))` \\
   qmatch_goalsub_abbrev_tac`set l1 = LIST_TO_SET l2` \\
-  `PERM (nub l2) l1` by metis_tac[QSORT_PERM] \\
+  `PERM (nub l2) l1` by metis_tac[sort_PERM] \\
   imp_res_tac PERM_LIST_TO_SET \\ fs[] \\
   simp[Abbr`l1`] \\
   match_mp_tac (MP_CANON ALL_DISTINCT_SORTED_WEAKEN) \\
   qexists_tac`$<=` \\ fs[mlstring_le_thm] \\
   conj_tac >- metis_tac[ALL_DISTINCT_PERM,all_distinct_nub] \\
-  match_mp_tac QSORT_SORTED \\
+  match_mp_tac sort_SORTED \\
   simp[transitive_def,total_def] \\
   metis_tac[mlstring_lt_trans,mlstring_lt_cases]
 QED
@@ -332,5 +333,3 @@ Theorem wordfreq_semantics =
   sem_thm |> ONCE_REWRITE_RULE[GSYM wordfreq_prog_def]
   |> DISCH_ALL |> Q.GENL[`cl`,`contents`]
   |> SIMP_RULE(srw_ss())[AND_IMP_INTRO,GSYM CONJ_ASSOC]
-
-val _ = export_theory();

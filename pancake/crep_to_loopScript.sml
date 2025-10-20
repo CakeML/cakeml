@@ -1,15 +1,12 @@
 (*
   Compilation from crepLang to panLang.
 *)
-open preamble crepLangTheory
-     loopLangTheory sptreeTheory
-     loop_liveTheory crep_arithTheory
-
-val _ = new_theory "crep_to_loop"
-
-val _ = set_grammar_ancestry
-        ["crepLang", "loopLang",
-         "backend_common", "sptree"];
+Theory crep_to_loop
+Ancestors
+  crepLang loopLang backend_common[qualified] sptree loop_live
+  crep_arith
+Libs
+  preamble
 
 Datatype:
   context =
@@ -52,12 +49,14 @@ End
 
 Definition compile_exp_def:
   (compile_exp ctxt tmp l ((BaseAddr):'a crepLang$exp) = ([], BaseAddr, tmp, l)) /\
+  (compile_exp ctxt tmp l ((TopAddr):'a crepLang$exp) = ([], TopAddr, tmp, l)) /\
   (compile_exp ctxt tmp l ((Const c):'a crepLang$exp) = ([], Const c, tmp, l)) /\
   (compile_exp ctxt tmp l (Var v) = ([], Var (find_var ctxt v), tmp, l)) /\
-  (compile_exp ctxt tmp l (Label f) = ([LocValue tmp (find_lab ctxt f)],
-                                       Var tmp, tmp + 1, insert tmp () l)) /\
   (compile_exp ctxt tmp l (Load ad) =
    let (p, le, tmp, l) = compile_exp ctxt tmp l ad in (p, Load le, tmp, l)) /\
+  (compile_exp ctxt tmp l (Load32 ad) =
+   let (p, le, tmp, l) = compile_exp ctxt tmp l ad in
+    (p ++ [Assign tmp le; Load32 tmp tmp], Var tmp, tmp + 1, insert tmp () l)) /\
   (compile_exp ctxt tmp l (LoadByte ad) =
    let (p, le, tmp, l) = compile_exp ctxt tmp l ad in
     (p ++ [Assign tmp le; LoadByte tmp tmp], Var tmp, tmp + 1, insert tmp () l)) /\
@@ -110,12 +109,6 @@ Definition rt_var_def:
      | SOME m => m
 End
 
-Definition call_label_def:
-  call_label ctxt e = case e of
-    | Label l => (SOME (find_lab ctxt l), [])
-    | _ => (NONE, [e])
-End
-
 Definition compile_def:
   (compile _ _ (Skip:'a crepLang$prog) = (Skip:'a loopLang$prog)) /\
   (compile _ _ Break = Break) /\
@@ -136,6 +129,12 @@ Definition compile_def:
     let (p, le, tmp, l) = compile_exp ctxt (ctxt.vmax + 1) l dst in
       let (p', le', tmp, l) = compile_exp ctxt tmp l src in
         nested_seq (p ++ p' ++ [Assign tmp le'; Store le tmp])) /\
+  (compile ctxt l (Store32 dst src) =
+    let (p, le, tmp, l) = compile_exp ctxt (ctxt.vmax + 1) l dst in
+      let (p', le', tmp, l) = compile_exp ctxt tmp l src in
+        nested_seq (p ++ p' ++
+                     [Assign tmp le; Assign (tmp + 1) le';
+                      Store32 tmp (tmp + 1)])) /\
   (compile ctxt l (StoreByte dst src) =
     let (p, le, tmp, l) = compile_exp ctxt (ctxt.vmax + 1) l dst in
       let (p', le', tmp, l) = compile_exp ctxt tmp l src in
@@ -166,7 +165,6 @@ Definition compile_def:
         lq = compile ctxt l q in
     nested_seq (np ++ [Assign tmp le;
                        If NotEqual tmp (Imm 0w) lp lq l])) /\
-
   (compile ctxt l (While e p) =
     let (np, le, tmp, nl) = compile_exp ctxt (ctxt.vmax + 1) l e;
         lp = compile ctxt l p in
@@ -175,9 +173,9 @@ Definition compile_def:
                 If NotEqual tmp (Imm 0w)
                    (Seq lp Continue) Break l]))
           l) /\
-  (compile ctxt l (Call call_type  e es) =
-   let (dest, indirect_dest) = call_label ctxt e;
-       (p, les, tmp, nl) = compile_exps ctxt (ctxt.vmax + 1) l (es ++ indirect_dest);
+  (compile ctxt l (Call call_type e es) =
+   let dest = find_lab ctxt e;
+       (p, les, tmp, nl) = compile_exps ctxt (ctxt.vmax + 1) l es;
        nargs = gen_temps tmp (LENGTH les);
        (rt1, rt2) = case call_type of
          | NONE => (NONE, NONE)
@@ -192,7 +190,7 @@ Definition compile_def:
                       (If NotEqual en (Imm eid) (Raise en) (Seq Tick cpe) l)
            in (SOME (rn, l), SOME (en, pe, pr, l))
    in
-      nested_seq (p ++ MAP2 Assign nargs les ++ [Call rt1 dest nargs rt2])) /\
+      nested_seq (p ++ MAP2 Assign nargs les ++ [Call rt1 (SOME dest) nargs rt2])) /\
   (compile ctxt l (ExtCall f ptr1 len1 ptr2 len2) =
     case (FLOOKUP ctxt.vars ptr1, FLOOKUP ctxt.vars len1,
           FLOOKUP ctxt.vars ptr2, FLOOKUP ctxt.vars len2) of
@@ -255,4 +253,3 @@ Definition compile_prog_def:
 End
 
 
-val _ = export_theory();

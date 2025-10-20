@@ -1,14 +1,18 @@
 (*
   Translate the compiler's parser.
 *)
+Theory parserProg[no_sig_docs]
+Ancestors
+  cmlParse cmlPEG lexerProg ml_translator semanticPrimitives
+Libs
+  preamble ml_translatorLib
+
 open preamble
      cmlParseTheory cmlPEGTheory lexerProgTheory
      ml_translatorLib ml_translatorTheory
-     semanticPrimitivesTheory
+     semanticPrimitivesTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "parserProg"
 
 val _ = translation_extends "lexerProg";
 
@@ -230,10 +234,7 @@ Theorem parse_prog_side_lemma = Q.prove(`
   THEN CONV_TAC (DEPTH_CONV ETA_CONV) THEN FULL_SIMP_TAC std_ss [])
   |> update_precondition;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

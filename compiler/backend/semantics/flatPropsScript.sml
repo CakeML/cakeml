@@ -1,16 +1,15 @@
 (*
   Properties about flatLang and its semantics
 *)
-open preamble flatSemTheory flatLangTheory
-local
-  open astTheory semanticPrimitivesPropsTheory
-       evaluatePropsTheory
-in end
+Theory flatProps
+Ancestors
+  flatLang flatSem lprefix_lub[qualified] ast[qualified]
+  semanticPrimitivesProps[qualified] evaluateProps[qualified]
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory"flatProps"
-val _ = set_grammar_ancestry ["flatLang", "flatSem"];
 val _ = temp_tight_equality ();
 
 Theorem ctor_same_type_OPTREL:
@@ -366,13 +365,10 @@ Triviality do_app_add_to_clock_NONE:
    ==>
    do_app (s with clock := s.clock + k) op es = NONE
 Proof
-  Cases_on `op`
-  \\ disch_then (mp_tac o SIMP_RULE (srw_ss()) [do_app_def, case_eq_thms])
-  \\ rw []
-  \\ rw [do_app_def]
-  \\ fs [case_eq_thms, pair_case_eq] \\ rw [] \\ fs []
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ fs [bool_case_eq, case_eq_thms]
+  strip_tac
+  \\ Cases_on ‘op’
+  \\ gvs [do_app_def,AllCaseEqs(),semanticPrimitivesTheory.store_alloc_def]
+  \\ rw [] \\ gvs []
   \\ fs [IS_SOME_EXISTS,CaseEq"option",CaseEq"store_v"]
 QED
 
@@ -398,6 +394,11 @@ Proof
   \\ rw [] \\ fs [pmatch_ignore_clock]
   \\ fs [case_eq_thms, pair_case_eq, bool_case_eq, CaseEq"match_result"] \\ rw []
   \\ fs [dec_clock_def]
+  >-
+   (gvs [CaseEq "sum",CaseEq"bool"]
+    \\ gvs [CaseEq"prod"]
+    \\ Cases_on ‘v1 = Rerr (Rabort Rtimeout_error)’ \\ gvs []
+    \\ gvs [AllCaseEqs()])
   \\ map_every imp_res_tac
       [do_app_add_to_clock_NONE,
        do_app_add_to_clock] \\ fs []
@@ -418,13 +419,10 @@ Theorem do_app_io_events_mono:
    do_app ^s op vs = SOME (t, r) ⇒
    s.ffi.io_events ≼ t.ffi.io_events
 Proof
-  rw [do_app_def] \\ fs [case_eq_thms, pair_case_eq, bool_case_eq]
-  \\ rw [] \\ fs []
-  \\ rpt (pairarg_tac \\ fs []) \\ rw []
-  \\ fs [semanticPrimitivesTheory.store_assign_def,
-         semanticPrimitivesTheory.store_lookup_def,
-         ffiTheory.call_FFI_def]
-  \\ rw [] \\ every_case_tac \\ fs [] \\ rw []
+  rw [do_app_def] \\ gvs [AllCaseEqs()]
+  \\ gvs [semanticPrimitivesTheory.store_alloc_def,
+          ffiTheory.call_FFI_def]
+  \\ gvs [AllCaseEqs()]
 QED
 
 Theorem evaluate_io_events_mono:
@@ -482,6 +480,7 @@ Proof
   \\ rw [] \\ fs [] \\ rw [] \\ fs []
   \\ rfs []
   \\ fsrw_tac [SATISFY_ss] [IS_PREFIX_TRANS]
+  \\ gvs [AppUnit_def]
   \\ metis_tac [IS_PREFIX_TRANS, FST, PAIR,
                 evaluate_io_events_mono,
                 with_clock_ffi,
@@ -770,8 +769,9 @@ Proof
     \\ imp_res_tac evaluate_decs_add_to_clock_initial_state_io_events_mono
     \\ fs [] \\ rveq
     \\ every_case_tac \\ fs [] \\ rw [] \\ fs [])
-  \\ qmatch_abbrev_tac `build_lprefix_lub l1 = build_lprefix_lub l2`
-  \\ `(lprefix_chain l1 /\ lprefix_chain l2) /\ equiv_lprefix_chain l1 l2`
+  \\ qmatch_abbrev_tac
+       ‘build_lprefix_lub l1 = build_lprefix_lub l2’
+  \\ ‘(lprefix_chain l1 /\ lprefix_chain l2) /\ equiv_lprefix_chain l1 l2’
      suffices_by metis_tac [build_lprefix_lub_thm,
                             lprefix_lub_new_chain,
                             unique_lprefix_lub]
@@ -831,15 +831,19 @@ Definition set_globals_def:
   (elist_globals [] = {||}) /\
   (elist_globals (e::es) = set_globals e ⊎ elist_globals es)
 Termination
-  WF_REL_TAC
-     `measure (\a. case a of INL e => exp_size e | INR es => exp6_size es)`
-   \\ rw [flatLangTheory.exp_size_def]
-   \\ fs [GSYM o_DEF]
-   >-
-    (`exp6_size (MAP (SND o SND) fs) < exp1_size fs + 1` suffices_by rw []
-     \\ fs [flatLangTheory.exp_size_MAP])
-   \\ `exp6_size (MAP SND pes) < exp3_size pes + 1` suffices_by rw []
-   \\ fs [flatLangTheory.exp_size_MAP]
+  WF_REL_TAC ‘measure (\a. case a of INL e => exp_size e
+                                   | INR es => list_size exp_size es)’
+  \\ rw [flatLangTheory.exp_size_def]
+  \\ fs [GSYM o_DEF]
+  >-
+   (irule LESS_EQ_LESS_TRANS
+    \\ qexists_tac ‘list_size
+           (pair_size (list_size char_size)
+              (pair_size (list_size char_size) exp_size)) fs’
+    \\ gvs [] \\ Induct_on ‘fs’ \\ gvs [FORALL_PROD])
+  \\ irule LESS_EQ_LESS_TRANS
+  \\ qexists_tac ‘list_size (pair_size pat_size exp_size) pes’ \\ gvs []
+  \\ Induct_on ‘pes’ \\ gvs [FORALL_PROD]
 End
 
 val _ = export_rewrites ["set_globals_def"];
@@ -859,10 +863,11 @@ Definition esgc_free_def:
     esgc_free e /\ elist_globals (MAP (SND o SND) fs) = {||}) /\
   (esgc_free _ <=> T)
 Termination
-  WF_REL_TAC `measure exp_size`
-  \\ rw []
-  \\ fs [MEM_MAP] \\ rw []
-  \\ imp_res_tac flatLangTheory.exp_size_MEM \\ fs []
+  WF_REL_TAC `measure exp_size` \\ rw []
+  \\ gvs [list_size_pair_size_MAP_FST_SND]
+  \\ drule MEM_list_size
+  \\ disch_then $ qspec_then ‘exp_size’ mp_tac
+  \\ gvs []
 End
 
 Theorem esgc_free_def[simp,compute,allow_rebind] =
@@ -1158,7 +1163,6 @@ Proof
   \\ rfs [EL_MAP]
 QED
 
-
 val sv_rel_cases = semanticPrimitivesPropsTheory.sv_rel_cases
 
 Theorem simple_do_app_thm:
@@ -1176,6 +1180,18 @@ Proof
   \\ simp [Once do_app_def]
   \\ simp [case_eq_thms, bool_case_eq, pair_case_eq]
   \\ simp_tac bool_ss [PULL_EXISTS, DISJ_IMP_THM, FORALL_AND_THM]
+  \\ Cases_on ‘∃t. op = ThunkOp t’
+  >-
+   (gvs [] \\ gvs [AllCaseEqs()] \\ rw [] \\ gvs [do_app_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    >-
+     (drule_then (drule_then drule) simple_state_rel_store_alloc
+      \\ simp [Once sv_rel_cases,PULL_EXISTS]
+      \\ disch_then drule \\ strip_tac \\ gvs [])
+    >-
+     (drule_then (drule_then drule) simple_state_rel_store_assign
+      \\ simp [Once sv_rel_cases,PULL_EXISTS]
+      \\ disch_then drule \\ strip_tac \\ gvs []))
   \\ Cases_on `?x. op = FFI x`
   >- (
     fs [GSYM AND_IMP_INTRO]
@@ -1374,6 +1390,7 @@ Theorem flat_evaluate_def = flat_evaluate_def
 Definition store_v_vs_def[simp]:
   store_v_vs (Varray vs) = vs /\
   store_v_vs (Refv v) = [v] /\
+  store_v_vs (Thunk m v) = [v] /\
   store_v_vs (W8array xs) = []
 End
 
@@ -1406,8 +1423,9 @@ Definition no_Mat_def[simp]:
   (no_Mat (Letrec t funs e) <=> EVERY no_Mat (MAP (SND o SND) funs) /\ no_Mat e)
 Termination
   WF_REL_TAC `measure (flatLang$exp_size)` \\ rw []
-  \\ fs [MEM_MAP, EXISTS_PROD]
-  \\ fs [MEM_SPLIT, exp1_size, exp3_size, SUM_APPEND, exp_size_def]
+  \\ imp_res_tac MEM_list_size
+  \\ pop_assum $ qspec_then ‘exp_size’ mp_tac
+  \\ gvs [list_size_pair_size_MAP_FST_SND]
 End
 
 Definition no_Mat_decs_def[simp]:
@@ -1421,4 +1439,3 @@ Definition mk_flat_install_conf_def:
     <| compile := cc ; compile_oracle := co |> : 'c flatSem$install_config
 End
 
-val _ = export_theory()

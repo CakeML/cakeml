@@ -1,12 +1,16 @@
 (*
   Translate the backend phase from closLang to BVL.
 *)
-open preamble ml_translatorLib ml_translatorTheory to_closProgTheory
-local open backendTheory in end
+Theory to_bvlProg[no_sig_docs]
+Ancestors
+  ml_translator to_closProg backend[qualified]
+Libs
+  preamble ml_translatorLib
+
+open preamble ml_translatorLib ml_translatorTheory to_closProgTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory "to_bvlProg";
 val _ = translation_extends "to_closProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_bvlProg");
@@ -184,7 +188,7 @@ Theorem bvl_const_smartop2_size:
 Proof
   PairCases_on ‘v’
   \\ fs [fetch "-" "bvl_const_smartop2_side_def"]
-  \\ Cases_on ‘v0 = El’ \\ fs []
+  \\ rpt strip_tac \\ gvs []
   \\ rw [] \\ intLib.COOPER_TAC
 QED
 
@@ -345,7 +349,5 @@ val res = translate clos_to_bvlTheory.clos_to_bvl_compile_inc_def
 
 (* ------------------------------------------------------------------------- *)
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 val _ = ml_translatorLib.clean_on_exit := true;
-val _ = export_theory ();

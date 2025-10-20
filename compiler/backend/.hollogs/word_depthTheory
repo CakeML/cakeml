@@ -1,0 +1,20 @@
+<<HOL message: Created theory "word_depth">>
+Saved theorem _______ "datatype_call_tree"
+Saved theorem _______ "call_tree_11"
+Saved theorem _______ "call_tree_distinct"
+Saved theorem _______ "call_tree_nchotomy"
+Saved theorem _______ "call_tree_Axiom"
+Saved theorem _______ "call_tree_induction"
+Saved theorem _______ "call_tree_case_cong"
+Saved theorem _______ "call_tree_case_eq"
+<<HOL message: Defined type: "call_tree">>
+Saved definition ____ "max_depth_def"
+Saved definition ____ "mk_Branch_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 16 clauses to the original specification.>>
+Saved definition ____ "call_graph_def"
+Saved induction _____ "call_graph_ind"
+Saved definition ____ "full_call_graph_def"
+Saved definition ____ "max_depth_graphs_def"
+Exporting theory "word_depth" ... done.
+Theory "word_depth" took 19.4s to build

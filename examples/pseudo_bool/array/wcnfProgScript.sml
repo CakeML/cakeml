@@ -1,10 +1,11 @@
 (*
   WCNF encoder and checker
 *)
-open preamble basis lpr_parsingTheory wcnf_to_pbTheory npbc_parseProgTheory;
-open cfLib basisFunctionsLib;
-
-val _ = new_theory "wcnfProg";
+Theory wcnfProg
+Ancestors
+  basis_ffi lpr_parsing wcnf_to_pb npbc_parseProg
+Libs
+  preamble basis cfLib basisFunctionsLib
 
 val _ = translation_extends "npbc_parseProg";
 
@@ -434,8 +435,8 @@ val res = translate map_concl_to_string_def;
 
 Definition mk_prob_def:
   mk_prob objf = (NONE,objf):mlstring list option #
-    ((int # mlstring lit) list # int) option #
-    (pbop # (int # mlstring lit) list # int) list
+    ((int # mlstring pbc$lit) list # int) option #
+    (pbop # (int # mlstring pbc$lit) list # int) list
 End
 
 val res = translate mk_prob_def;
@@ -942,5 +943,3 @@ Theorem main_semantics =
   |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
 
 end
-
-val _ = export_theory();

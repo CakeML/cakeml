@@ -3,15 +3,13 @@
 
   The setup is copied from ../tests/cmlTestsScript.sml.
 *)
+Theory camlTests
+Ancestors
+  misc[qualified] pegexec[qualified] caml_lex camlPEG
+  camlPtreeConversion ast[qualified]
+Libs
+  preamble ASCIInumbersLib[qualified] stringSyntax[qualified]
 
-open preamble camlPEGTheory camlPtreeConversionTheory caml_lexTheory;
-local open ASCIInumbersLib stringSyntax in end
-
-val _ = new_theory "camlTests"
-
-val _ = set_grammar_ancestry [
-  "misc", "pegexec", "caml_lex", "camlPEG", "camlPtreeConversion", "ast"
-  ]
 
 val _ = bring_to_front_overload "nType" {Name="nType", Thy="camlPEG"};
 val _ = bring_to_front_overload "nPattern" {Name="nPattern", Thy="camlPEG"};
@@ -1640,6 +1638,4 @@ val _ =
   parsetest0 “nStart” “ptree_Start”
   "let x,y = z"
   NONE;
-
-val _ = export_theory ();
 

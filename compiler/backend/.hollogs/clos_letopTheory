@@ -1,0 +1,18 @@
+<<HOL message: Created theory "clos_letop">>
+<<HOL message: mk_functional: 
+  pattern completion has added 11 clauses to the original specification.>>
+Saved definition ____ "var_list_def"
+Saved induction _____ "var_list_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 9 clauses to the original specification.>>
+Saved definition ____ "dest_op_def"
+Saved induction _____ "dest_op_ind"
+Saved definition ____ "let_op_def"
+Saved induction _____ "let_op_ind"
+Saved theorem _______ "LENGTH_let_op"
+Saved definition ____ "let_op_sing_def"
+Saved induction _____ "let_op_sing_ind"
+Saved theorem _______ "let_op_sing_eq"
+Saved definition ____ "compile_inc_def"
+Exporting theory "clos_letop" ... done.
+Theory "clos_letop" took 2.1s to build

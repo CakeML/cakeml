@@ -1,11 +1,16 @@
 (*
   Translate the compiler's state decoder.
 *)
+Theory decodeProg[no_sig_docs]
+Ancestors
+  num_list_enc_dec num_tree_enc_dec backend_enc_dec explorerProg
+  ml_translator
+Libs
+  preamble basisFunctionsLib ml_translatorLib cfLib
+
 open preamble basisFunctionsLib
      num_list_enc_decTheory num_tree_enc_decTheory backend_enc_decTheory
-     explorerProgTheory ml_translatorLib ml_translatorTheory cfLib
-
-val _ = new_theory "decodeProg"
+     explorerProgTheory ml_translatorLib ml_translatorTheory cfLib;
 
 val _ = translation_extends "explorerProg";
 
@@ -88,6 +93,7 @@ Proof
   \\ rpt $ irule_at Any (fetch_v_fun “:clos_known$val_approx” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:closLang$exp” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:closLang$op” |> snd |> hd) \\ fs []
+  \\ rpt $ irule_at Any (fetch_v_fun “:closLang$block_op” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:'a list” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:unit” |> snd |> hd) \\ fs []
   \\ rpt $ irule_at Any (fetch_v_fun “:num” |> snd |> hd) \\ fs []
@@ -125,10 +131,10 @@ Proof
 QED
 
 val res = translate num_list_enc_decTheory.list_dec'_def;
-val res = translate (const_dec'_def |> DefnBase.one_line_ify NONE
+val res = translate (closLang_const_dec'_def |> DefnBase.one_line_ify NONE
                      |> ONCE_REWRITE_RULE [list_dec'_eq_MAP]);
 
-val res = translate const_dec_def;
+val res = translate closLang_const_dec_def;
 val res = translate unit_dec_def;
 val res = translate num_dec_def;
 val res = translate list_dec_def;
@@ -163,19 +169,19 @@ val res = translate option_dec'_def;
 (* --- *)
 
 val _ = ml_translatorLib.use_string_type false;
-val res = translate (tra_dec'_def |> DefnBase.one_line_ify NONE);
+val res = translate (backend_common_tra_dec'_def |> DefnBase.one_line_ify NONE);
 val res = translate safe_chr_list_def;
 val res = translate list_chr_dec'_def;
 val _ = ml_translatorLib.use_string_type true;
 val res = translate string_dec_def;
-val res = translate next_indices_dec_def;
+val res = translate source_to_flat_next_indices_dec_def;
 val res = translate flat_pattern_config_dec_def;
 val res = translate namespace_dec'_def;
 val res = translate namespace_dec_def;
-val res = translate (var_name_dec'_def |> REWRITE_RULE [string_dec'_intro]);
-val res = translate var_name_dec_def;
-val res = translate environment_dec_def;
-val res = translate environment_store_dec_def;
+val res = translate (source_to_flat_var_name_dec'_def |> REWRITE_RULE [string_dec'_intro]);
+val res = translate source_to_flat_var_name_dec_def;
+val res = translate source_to_flat_environment_dec_def;
+val res = translate source_to_flat_environment_store_dec_def;
 val res = translate source_to_flat_config_dec_def;
 val _ = ml_translatorLib.use_string_type false;
 
@@ -184,8 +190,8 @@ val res = translate word_to_word_config_dec_def;
 val res = translate (word_to_stack_config_dec_def |> INST_TYPE [alpha|->“:64”]);
 val res = translate stack_to_lab_config_dec_def;
 
-val res = translate tap_config_dec'_def;
-val res = translate tap_config_dec_def;
+val res = translate presLang_tap_config_dec'_def;
+val res = translate presLang_tap_config_dec_def;
 
 val res = translate (closLang_op_dec'_def |> DefnBase.one_line_ify NONE);
 
@@ -237,7 +243,7 @@ QED
 
 val _ = closlang_exp_dec'_ind |> update_precondition;
 
-val def = val_approx_dec'_def |> DefnBase.one_line_ify NONE
+val def = clos_known_val_approx_dec'_def |> DefnBase.one_line_ify NONE
           |> ONCE_REWRITE_RULE [list_dec'_eq_MAP]
 val res = translate def;
 
@@ -250,14 +256,11 @@ val def = lab_to_target_inc_config_dec_def
 val res = translate def;
 val _ = ml_translatorLib.use_string_type false;
 
-val res = translate inc_config_dec_def;
+val res = translate backend_inc_config_dec_def;
 
 val res = translate decode_backend_config_def;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

@@ -2,16 +2,14 @@
   Defines EvalM and other judgements that are central to the monadic
   translator.
 *)
-open ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
-open astTheory semanticPrimitivesTheory evaluateTheory evaluatePropsTheory
-open evaluateTheory ml_progLib ml_progTheory
-open set_sepTheory Satisfy
-open cfHeapsBaseTheory AC_Sort
-open ml_monadBaseTheory ml_monad_translatorBaseTheory
-open cfStoreTheory cfTheory cfTacticsLib packLib;
-open preamble;
-
-val _ = new_theory "ml_monad_translator";
+Theory ml_monad_translator
+Ancestors
+  ml_translator ml_pmatch patternMatches ast semanticPrimitives
+  evaluate evaluateProps evaluate ml_prog set_sep cfHeapsBase
+  ml_monadBase ml_monad_translatorBase cfStore cf
+Libs
+  ml_translatorLib ml_progLib Satisfy AC_Sort cfTacticsLib
+  packLib preamble
 
 Overload monad_bind[local] = ``st_ex_bind``;
 Overload monad_unitbind[local] = ``st_ex_ignore_bind``;
@@ -157,8 +155,7 @@ Definition EvalM_def:
       REFS_PRED H st s ==>
       ?s2 res st2 ck.
         evaluate (s with clock := ck) env [exp] = (s2,res) /\
-        P st (st2, res) /\ REFS_PRED_FRAME ro H (st, s) (st2, s2) /\
-        s.fp_state = s2.fp_state
+        P st (st2, res) /\ REFS_PRED_FRAME ro H (st, s) (st2, s2)
 End
 
 (* refinement invariant for ``:('a, 'b, 'c) M`` *)
@@ -340,7 +337,6 @@ Definition ArrowP_def:
          !junk. ?st3 s3 res3 ck.
            evaluate (s1 with <| refs := s1.refs ++ junk ; clock := ck |>)
              env [exp] = (s3,res3) /\
-           s1.fp_state = s3.fp_state /\
            b (f x) st1 (st3,res3) /\
            REFS_PRED_FRAME ro H (st1, s1) (st3, s3)
 End
@@ -3577,4 +3573,3 @@ QED
 
 val _ = (print_asts := true);
 
-val _ = export_theory();

@@ -4,9 +4,11 @@
   wordLang code. By lumping together MakeSpace operations we turn
   several calls to the memory allocator into a single efficient call.
 *)
-open preamble dataLangTheory;
-
-val _ = new_theory "data_space";
+Theory data_space
+Ancestors
+  dataLang
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -25,17 +27,18 @@ Definition part_space_req_def:
 End
 
 Definition op_space_req_def:
-  (op_space_req (Cons _) l = if l = 0n then 0 else l+1) /\
-  (op_space_req (Build parts) l = SUM (MAP part_space_req parts)) /\
-  (op_space_req Ref l = l + 1) /\
-  (op_space_req (WordOp W64 _) _ = 3) /\
-  (op_space_req (WordShift W64 _ _) _ = 3) /\
-  (op_space_req WordFromInt _ = 3) /\
-  (op_space_req WordToInt _ = 3) /\
-  (op_space_req (WordFromWord F) _ = 3) /\
-  (op_space_req (FP_uop _) v9 = 3) /\
-  (op_space_req (FP_bop _) v9 = 3) /\
-  (op_space_req (FP_top _) v9 = 3) /\
+  (op_space_req (MemOp Ref) l = l + 1) /\
+  (op_space_req (BlockOp (Cons _)) l = if l = 0n then 0 else l+1) /\
+  (op_space_req (BlockOp (Build parts)) l = SUM (MAP part_space_req parts)) /\
+  (op_space_req (WordOp (WordOpw W64 _)) _ = 3) /\
+  (op_space_req (WordOp (WordShift W64 _ _)) _ = 3) /\
+  (op_space_req (WordOp WordFromInt) _ = 3) /\
+  (op_space_req (WordOp WordToInt) _ = 3) /\
+  (op_space_req (WordOp (WordFromWord F)) _ = 3) /\
+  (op_space_req (WordOp (FP_uop _)) _ = 3) /\
+  (op_space_req (WordOp (FP_bop _)) _ = 3) /\
+  (op_space_req (WordOp (FP_top _)) _ = 3) /\
+  (op_space_req (ThunkOp (AllocThunk _)) l = l + 1) /\
   (op_space_req _ _ = 0)
 End
 
@@ -46,7 +49,7 @@ Theorem op_space_req_pmatch:
     case op of
       Cons _ => if l = 0n then 0 else l+1
     | Ref => l + 1
-    | WordOp W64 _ => 3
+    | WordOp (WordOpw W64 _) => 3
     | WordShift W64 _ _ => 3
     | WordFromInt => 3
     | WordToInt => 3
@@ -134,4 +137,3 @@ Definition compile_def:
   compile c = pMakeSpace (space c)
 End
 
-val _ = export_theory();

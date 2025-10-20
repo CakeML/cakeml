@@ -37,23 +37,13 @@
   function bodies to get the alignment right.
 
 *)
-open preamble closLangTheory bvlTheory bvl_jumpTheory;
-open backend_commonTheory
-local open
-  clos_mtiTheory
-  clos_callTheory
-  clos_knownTheory
-  clos_numberTheory
-  clos_annotateTheory
-in (* clos-to-clos transformations *) end;
-
-val _ = new_theory "clos_to_bvl";
-val _ = set_grammar_ancestry [
-  "backend_common",
-  "clos_mti", "clos_call", "clos_known", "clos_number",
-  "clos_annotate",
-  "bvl_jump"
-]
+Theory clos_to_bvl
+Ancestors
+  backend_common clos_mti[qualified] clos_call[qualified]
+  clos_known[qualified] clos_number[qualified]
+  clos_annotate[qualified] bvl_jump closLang bvl
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -110,13 +100,13 @@ Definition add_parts_def:
 End
 
 Definition compile_const_def:
-  compile_const (ConstInt i) = Const i ∧
-  compile_const (ConstStr s) = Build [Str s] ∧
-  compile_const (ConstWord64 w) = Build [W64 w] ∧
+  compile_const (ConstInt i) = IntOp (Const i) ∧
+  compile_const (ConstStr s) = BlockOp (Build [Str s]) ∧
+  compile_const (ConstWord64 w) = BlockOp (Build [W64 w]) ∧
   compile_const (ConstCons t cs) =
-    if NULL cs then Cons (clos_tag_shift t) else
+    if NULL cs then BlockOp (Cons (clos_tag_shift t)) else
       let (n, rs, aux, acc) = add_parts_list cs 0 LN [] in
-        Build (REVERSE ((Con (clos_tag_shift t) rs)::acc))
+        BlockOp (Build (REVERSE ((Con (clos_tag_shift t) rs)::acc)))
 End
 
 (* / Constant flattening *)
@@ -130,16 +120,16 @@ Definition partial_app_label_table_loc_def:
 End
 
 Definition compile_op_def:
-  compile_op (Cons tag) = (Cons (clos_tag_shift tag)) ∧
-  compile_op (ConsExtend tag) = (ConsExtend (clos_tag_shift tag)) ∧
-  compile_op (TagEq tag) = (TagEq (clos_tag_shift tag)) ∧
-  compile_op (TagLenEq tag a) = (TagLenEq (clos_tag_shift tag) a) ∧
-  compile_op (FromList tag) = (FromList (clos_tag_shift tag)) ∧
-  compile_op LengthByteVec = LengthByte ∧
-  compile_op DerefByteVec = DerefByte ∧
-  compile_op (SetGlobal n) = SetGlobal (n + num_added_globals) ∧
-  compile_op (Global n) = Global (n + num_added_globals) ∧
-  compile_op (Constant c) = compile_const c ∧
+  compile_op (BlockOp (Cons tag)) = BlockOp (Cons (clos_tag_shift tag)) ∧
+  compile_op (BlockOp (ConsExtend tag)) = BlockOp (ConsExtend (clos_tag_shift tag)) ∧
+  compile_op (BlockOp (TagEq tag)) = BlockOp (TagEq (clos_tag_shift tag)) ∧
+  compile_op (BlockOp (TagLenEq tag a)) = BlockOp (TagLenEq (clos_tag_shift tag) a) ∧
+  compile_op (BlockOp (FromList tag)) = BlockOp (FromList (clos_tag_shift tag)) ∧
+  compile_op (MemOp LengthByteVec) = MemOp LengthByte ∧
+  compile_op (MemOp DerefByteVec) = MemOp DerefByte ∧
+  compile_op (GlobOp (SetGlobal n)) = GlobOp (SetGlobal (n + num_added_globals)) ∧
+  compile_op (GlobOp (Global n)) = GlobOp (Global (n + num_added_globals)) ∧
+  compile_op (BlockOp (Constant c)) = compile_const c ∧
   compile_op x = x
 End
 val _ = export_rewrites["compile_op_def"];
@@ -148,16 +138,16 @@ Theorem compile_op_pmatch:
   ∀op.
   compile_op op =
     case op of
-        Cons tag => Cons (clos_tag_shift tag)
-      | ConsExtend tag => ConsExtend (clos_tag_shift tag)
-      | TagEq tag => TagEq (clos_tag_shift tag)
-      | TagLenEq tag a => TagLenEq (clos_tag_shift tag) a
-      | FromList tag => FromList (clos_tag_shift tag)
-      | LengthByteVec => LengthByte
-      | DerefByteVec => DerefByte
-      | SetGlobal n => SetGlobal (n + num_added_globals)
-      | Global n => Global (n + num_added_globals)
-      | Constant c => compile_const c
+        BlockOp (Cons tag) => BlockOp (Cons (clos_tag_shift tag))
+      | BlockOp (ConsExtend tag) => BlockOp (ConsExtend (clos_tag_shift tag))
+      | BlockOp (TagEq tag) => BlockOp (TagEq (clos_tag_shift tag))
+      | BlockOp (TagLenEq tag a) => BlockOp (TagLenEq (clos_tag_shift tag) a)
+      | BlockOp (FromList tag) => BlockOp (FromList (clos_tag_shift tag))
+      | MemOp LengthByteVec => MemOp LengthByte
+      | MemOp DerefByteVec => MemOp DerefByte
+      | GlobOp (SetGlobal n) => GlobOp (SetGlobal (n + num_added_globals))
+      | GlobOp (Global n) => GlobOp (Global (n + num_added_globals))
+      | BlockOp (Constant c) => compile_const c
       | x => x
 Proof
   rpt strip_tac
@@ -165,29 +155,27 @@ Proof
   >> fs[compile_op_def]
 QED
 
-Definition mk_const_def:
-  mk_const n : bvl$exp = Op (Const (&n)) []
+Definition mk_const_def[simp]:
+  mk_const n : bvl$exp = Op (IntOp (Const (&n))) []
 End
 
-Definition mk_label_def:
+Definition mk_label_def[simp]:
   mk_label n : bvl$exp = Op (Label n) []
 End
 
-Definition mk_el_def:
-  mk_el b i : bvl$exp = Op El [i; b]
+Definition mk_el_def[simp]:
+  mk_el b i : bvl$exp = Op (MemOp El) [i; b]
 End
 
-val _ = export_rewrites ["mk_const_def", "mk_label_def", "mk_el_def"];
-
 Definition free_let_def:
-  free_let cl n = (GENLIST (\n. mk_el cl (mk_const (n+2))) n)
+  free_let cl n = (GENLIST (\n. mk_elem_at cl (n+2)) n)
 End
 
 Definition code_for_recc_case_def:
   code_for_recc_case n num_args (c:bvl$exp) =
     (num_args + 1,
-     Let [mk_el (Var num_args) (mk_const 2)]
-      (Let (GENLIST (\a. Var (a + 1)) num_args ++ GENLIST (\i. Op El [mk_const i; Var 0]) n) c))
+     Let [mk_elem_at (Var num_args) 2]
+      (Let (GENLIST (\a. Var (a + 1)) num_args ++ GENLIST (\i. mk_elem_at (Var 0) i) n) c))
 End
 
 Definition build_aux_def:
@@ -244,9 +232,9 @@ QED
 
 Definition recc_Let_def:
   recc_Let n num_args i =
-    Let [mk_el (Var 0) (mk_const 2)]
-     (Let [Op (Cons closure_tag) [Var 0; mk_const (num_args-1); mk_label n]]
-       (Let [Op Update [Var 0; mk_const i; Var 1]]
+    Let [mk_elem_at (Var 0) 2]
+     (Let [Op (BlockOp (Cons closure_tag)) [Var 0; mk_const (num_args-1); mk_label n]]
+       (Let [Op (MemOp Update) [Var 0; mk_const i; Var 1]]
          (Var 1 : bvl$exp)))
 End
 
@@ -259,13 +247,13 @@ End
 
 Definition recc_Let0_def:
   recc_Let0 n num_args i =
-    Let [Op (Cons closure_tag) [Var 0; mk_const (num_args-1); mk_label n]]
-      (Let [Op Update [Var 0; mk_const i; Var 1]] (Var 1 : bvl$exp))
+    Let [Op (BlockOp (Cons closure_tag)) [Var 0; mk_const (num_args-1); mk_label n]]
+      (Let [Op (MemOp Update) [Var 0; mk_const i; Var 1]] (Var 1 : bvl$exp))
 End
 
 Definition build_recc_lets_def:
   build_recc_lets (nargs:num list) vs n1 fns_l (c3:bvl$exp) =
-    Let [Let [Op Ref (REVERSE (MAP (K (mk_const 0)) nargs ++ MAP Var vs))]
+    Let [Let [Op (MemOp Ref) (REVERSE (MAP (K (mk_const 0)) nargs ++ MAP Var vs))]
            (recc_Let0 (n1 + (2 * (fns_l - 1))) (HD (REVERSE nargs)) (fns_l - 1))]
       (recc_Lets n1 (TL (REVERSE nargs)) (fns_l - 1) c3)
 End
@@ -275,6 +263,7 @@ Definition num_stubs_def:
     (* generic apps *)         max_app
     (* partial apps *)       + max_app * (max_app - 1) DIV 2
     + 1 (* code to install a jump table in global 0 *)
+    + 1 (* location for force_thunk stub *)
 End
 
 Definition generic_app_fn_location_def:
@@ -289,62 +278,62 @@ End
 Definition partial_app_fn_location_code_def:
   partial_app_fn_location_code max_app tot_exp prev_exp : bvl$exp =
     Let [tot_exp]
-     (Op Add [prev_exp;
-        Op Div [mk_const 2;
-          Op Mult [Var 0; Op Sub [mk_const 1; Var 0]]]])
+     (Op (IntOp Add) [prev_exp;
+        Op (IntOp Div) [mk_const 2;
+          Op (IntOp Mult) [Var 0; Op (IntOp Sub) [mk_const 1; Var 0]]]])
 End
 
 Definition mk_cl_call_def:
   mk_cl_call cl args =
-    If (Op Equal [mk_const (LENGTH args - 1); mk_el cl (mk_const 1)])
-       (Call (LENGTH args - 1) NONE (args ++ [cl] ++ [mk_el cl (mk_const 0)]))
+    If (Op (BlockOp (EqualConst (closLang$Int (& (LENGTH args - 1))))) [mk_elem_at cl 1])
+       (Call (LENGTH args - 1) NONE (args ++ [cl] ++ [mk_elem_at cl 0]))
        (Call 0 (SOME (generic_app_fn_location (LENGTH args - 1))) (args ++ [cl]))
 End
 
 (* Generic application of a function to n+1 arguments *)
 Definition generate_generic_app_def:
   generate_generic_app max_app n =
-    Let [Op Sub [mk_const (n+1); mk_el (Var (n+1)) (mk_const 1)]] (* The number of arguments remaining - 1 *)
-        (If (Op Less [mk_const 0; Var 0])
+    Let [Op (IntOp Sub) [mk_const (n+1); mk_elem_at (Var (n+1)) 1]] (* The number of arguments remaining - 1 *)
+        (If (Op (IntOp Less) [mk_const 0; Var 0])
             (* Over application *)
-            (Jump (mk_el (Var (n+2)) (mk_const 1))
+            (Jump (mk_elem_at (Var (n+2)) 1)
               (GENLIST (\num_args.
                  Let [Call num_args
                            NONE
                            (GENLIST (\arg. Var (arg + 2 + n - num_args)) (num_args + 1) ++
                             [Var (n + 3)] ++
-                            [mk_el (Var (n + 3)) (mk_const 0)])]
+                            [mk_elem_at (Var (n + 3)) 0])]
                    (mk_cl_call (Var 0) (GENLIST (\n. Var (n + 3)) (n - num_args))))
                max_app))
             (* Partial application *)
             (mk_tick n
-            (If (Op (TagEq closure_tag) [Var (n+2)])
+            (If (Op (BlockOp (TagEq closure_tag)) [Var (n+2)])
                 (* Partial application of a normal closure *)
-                (Op (Cons partial_app_tag)
+                (Op (BlockOp (Cons partial_app_tag))
                     (REVERSE
-                      (mk_el (Op (Global 0) [])
+                      (mk_el (Op (GlobOp (Global 0)) [])
                         (partial_app_fn_location_code max_app
-                          (mk_el (Var (n+2)) (mk_const 1))
+                          (mk_elem_at (Var (n+2)) 1)
                           (mk_const n)) ::
                        Var 0 ::
                        Var (n + 2) ::
                        GENLIST (\n. Var (n + 1)) (n + 1))))
                 (* Partial application of a partially applied closure *)
-                (Let [Op Sub [mk_const 3; Op LengthBlock [Var (n+2)]]] (* The number of previous args *)
-                  (Op (ConsExtend partial_app_tag)
+                (Let [Op (IntOp Sub) [mk_const 3; Op (BlockOp LengthBlock) [Var (n+2)]]] (* The number of previous args *)
+                  (Op (BlockOp (ConsExtend partial_app_tag))
                     (REVERSE
                       (Var (n + 3) ::
                        mk_const 3 ::
                        Var 0 ::
-                       Op Add [Var 0; mk_const (n+4)] ::
-                       mk_el (Op (Global 0) [])
+                       Op (IntOp Add) [Var 0; mk_const (n+4)] ::
+                       mk_el (Op (GlobOp (Global 0)) [])
                          (partial_app_fn_location_code max_app
-                           (Op Add [Var 0; Op Add [mk_const (n + 1); Var 1]])
+                           (Op (IntOp Add) [Var 0; Op (IntOp Add) [mk_const (n + 1); Var 1]])
                            (* Shift from Var0 to Var1 because of Let in
                             * partial_app_fn_location_code *)
-                           (Op Add [Var 1; mk_const n])) ::
+                           (Op (IntOp Add) [Var 1; mk_const n])) ::
                        Var 1 ::
-                       mk_el (Var (n+3)) (mk_const 2) ::
+                       mk_elem_at (Var (n+3)) 2 ::
                        GENLIST (\this_arg. Var (this_arg + 2)) (n + 1))))))))
 End
 
@@ -355,20 +344,20 @@ End
  * has seen no arguments yet. *)
 Definition generate_partial_app_closure_fn_def:
   generate_partial_app_closure_fn total_args prev_args =
-    Let [mk_el (Var (total_args - prev_args)) (mk_const 2)]
+    Let [mk_elem_at (Var (total_args - prev_args)) 2]
       (Call 0
         NONE
         (GENLIST (\this_arg. Var (this_arg + 1)) (total_args - prev_args) ++
          GENLIST (\prev_arg.
-           mk_el (Var (total_args - prev_args + 1)) (mk_const (prev_arg + 3))) (prev_args + 1) ++
+           mk_elem_at (Var (total_args - prev_args + 1)) (prev_arg + 3)) (prev_args + 1) ++
          [Var 0] ++
-         [mk_el (Var 0) (mk_const 0)]))
+         [mk_elem_at (Var 0) 0]))
 End
 
 Definition check_closure_def:
   check_closure v e =
-    If (Op (TagEq closure_tag) [Var v]) (Bool T)
-      (If (Op (TagEq partial_app_tag) [Var v]) (Bool T) e)
+    If (Op (BlockOp (TagEq closure_tag)) [Var v]) (Bool T)
+      (If (Op (BlockOp (TagEq partial_app_tag)) [Var v]) (Bool T) e)
 End
 
 Definition init_code_def:
@@ -386,10 +375,10 @@ End
 
 Definition init_globals_def:
   init_globals max_app start_loc =
-    Let [Op AllocGlobal [Op (Const 1) []]]
+    Let [Op (GlobOp AllocGlobal) [Op (IntOp (Const 1)) []]]
     (Let
-      [Op (SetGlobal partial_app_label_table_loc)
-        [Op (Cons tuple_tag)
+      [Op (GlobOp (SetGlobal partial_app_label_table_loc))
+        [Op (BlockOp (Cons tuple_tag))
           (REVERSE (FLAT
             (GENLIST
               (\tot.
@@ -399,6 +388,16 @@ Definition init_globals_def:
               max_app)))]]
       (* Expect the real start of the program in code location 3 *)
       (Call 0 (SOME start_loc) []))
+End
+
+Definition force_thunk_code_def:
+  force_thunk_code =
+    If (Op (BlockOp (EqualConst (Int 0))) [mk_elem_at (Var 1) 1])
+      (Let [Call 0 NONE [mk_unit; Var 1; mk_elem_at (Var 1) 0]]
+        (Let [Op (ThunkOp (UpdateThunk Evaluated)) [Var 0; Var 1]] (Var 1)))
+      (Let [Call 0 (SOME 0) [mk_unit; Var 1]]
+        (Let [Op (ThunkOp (UpdateThunk Evaluated)) [Var 0; Var 1]] (Var 1)))
+       : bvl$exp
 End
 
 Definition compile_exps_def:
@@ -427,6 +426,8 @@ Definition compile_exps_def:
      let (c1,aux1) = compile_exps max_app xs aux in
      ([if op = Install then
          Call 0 NONE [Op Install c1]
+       else if op = ThunkOp ForceThunk then
+         Let c1 (Force (num_stubs max_app - 2) 0)
        else
          Op (compile_op op) c1]
      ,aux1)) /\
@@ -447,7 +448,7 @@ Definition compile_exps_def:
        Let (GENLIST Var num_args ++ free_let (Var num_args) (LENGTH vs))
            (HD c1)
      in
-       ([Op (Cons closure_tag)
+       ([Op (BlockOp (Cons closure_tag))
             (REVERSE (mk_label (loc + num_stubs max_app) :: mk_const (num_args - 1) :: MAP Var vs))],
         (loc + (num_stubs max_app),num_args+1,c2) :: aux1)) /\
   (compile_exps max_app [Letrec t loc_opt vsopt fns x1] aux =
@@ -460,7 +461,7 @@ Definition compile_exps_def:
          let c3 = Let (GENLIST Var num_args ++ [Var num_args] ++ free_let (Var num_args) (LENGTH vs)) (HD c1) in
          let (c2,aux2) = compile_exps max_app [x1] ((loc + (num_stubs max_app),num_args+1,c3)::aux1) in
          let c4 =
-           Op (Cons closure_tag)
+           Op (BlockOp (Cons closure_tag))
               (REVERSE (mk_label (loc + (num_stubs max_app)) :: mk_const (num_args - 1) :: MAP Var vs))
          in
            ([Let [c4] (HD c2)], aux2)
@@ -514,6 +515,7 @@ Definition compile_exp_sing_def:
   (compile_exp_sing max_app (Op t op xs) aux =
      let (c1,aux1) = compile_exp_list max_app xs aux in
      (if op = Install then Call 0 NONE [Op Install c1]
+      else if op = ThunkOp ForceThunk then Let c1 (Force (num_stubs max_app - 2) 0)
       else Op (compile_op op) c1
      ,aux1)) /\
   (compile_exp_sing max_app (App t loc_opt x1 xs2) aux =
@@ -532,7 +534,7 @@ Definition compile_exp_sing_def:
      let c2 =
        Let (GENLIST Var num_args ++ free_let (Var num_args) (LENGTH vs)) c1
      in
-       (Op (Cons closure_tag)
+       (Op (BlockOp (Cons closure_tag))
            (REVERSE (mk_label (loc + num_stubs max_app) :: mk_const (num_args - 1) :: MAP Var vs)),
         (loc + (num_stubs max_app),num_args+1,c2) :: aux1)) /\
   (compile_exp_sing max_app (Letrec t loc_opt vsopt fns x1) aux =
@@ -545,7 +547,7 @@ Definition compile_exp_sing_def:
          let c3 = Let (GENLIST Var num_args ++ [Var num_args] ++ free_let (Var num_args) (LENGTH vs)) c1 in
          let (c2,aux2) = compile_exp_sing max_app x1 ((loc + (num_stubs max_app),num_args+1,c3)::aux1) in
          let c4 =
-           Op (Cons closure_tag)
+           Op (BlockOp (Cons closure_tag))
               (REVERSE (mk_label (loc + (num_stubs max_app)) :: mk_const (num_args - 1) :: MAP Var vs))
          in
            (bvl$Let [c4] c2, aux2)
@@ -755,7 +757,7 @@ Termination
 End
 
 Definition chain_exps_def:
-  (chain_exps i [] = [(i, 0n, Op None (Const 0) [])]) ∧
+  (chain_exps i [] = [(i, 0n, Op None (IntOp (Const 0)) [])]) ∧
   (chain_exps i [e] = [(i, 0n, e)]) ∧
   (chain_exps i (e::es) =
     (i, 0,
@@ -862,8 +864,9 @@ Definition make_name_alist_def:
   make_name_alist nums prog nstubs dec_start (dec_length:num) =
     let src_names = get_src_names (MAP (SND o SND) prog) LN in
       fromAList(MAP(λn.(n, if n < nstubs then
-                             if n = nstubs-1 then mlstring$strlit "bvl_init"
-                                             else mlstring$strlit "bvl_stub"
+                             if n = nstubs-1 then mlstring$strlit "bvl_init" else
+                             if n = nstubs-2 then mlstring$strlit "bvl_force" else
+                                                  mlstring$strlit "bvl_stub"
                            else let clos_name = n - nstubs in
                              if dec_start ≤ clos_name ∧ clos_name < dec_start + dec_length
                              then mlstring$strlit "dec" else
@@ -879,20 +882,22 @@ Theorem make_name_alist_eq =
 Definition compile_def:
   compile c0 es =
     let (c, prog) = compile_common c0 es in
+    let n = num_stubs c.max_app in
     let init_stubs = toAList (init_code c.max_app) in
-    let init_globs = [(num_stubs c.max_app - 1, 0n, init_globals c.max_app (num_stubs c.max_app + c.start))] in
+    let init_globs = [(n - 1, 0n, init_globals c.max_app (n + c.start))] in
+    let force_stub = [(n - 2, 2n, force_thunk_code)] in
     let comp_progs = compile_prog c.max_app prog in
-    let prog' = init_stubs ++ init_globs ++ comp_progs in
-    let func_names = make_name_alist (MAP FST prog') prog (num_stubs c.max_app)
+    let prog' = init_stubs ++ force_stub ++ init_globs ++ comp_progs in
+    let func_names = make_name_alist (MAP FST prog') prog n
                        c0.next_loc (LENGTH es) in
-    let c = c with start := num_stubs c.max_app - 1 in
+    let c = c with start := n - 1 in
       (c, code_sort prog', func_names)
 End
 
 Definition extract_name_def:
   extract_name [] = (0,[]) /\
   extract_name (x :: xs) =
-    dtcase (some n. ?t. x = Op t (Const (& n)) []) of
+    dtcase (some n. ?t. x = Op t (IntOp (Const (& n))) []) of
     | NONE => (0,x::xs)
     | SOME n => (n, if xs = [] then [x] else xs)
 End
@@ -903,8 +908,9 @@ Theorem extract_name_pmatch:
     | [] => (0,xs)
     | (x::xs) =>
       case x of
-        (Op t (Const i) []) => (if i < 0 then (0,x::xs) else
-                                 (Num (ABS i), if xs = [] then [x] else xs))
+        (Op t (IntOp (Const i)) []) =>
+          (if i < 0 then (0,x::xs) else
+            (Num (ABS i), if xs = [] then [x] else xs))
       | _ => (0,x::xs)
 Proof
   Cases_on ‘xs’ \\ fs [extract_name_def]
@@ -912,6 +918,7 @@ Proof
   \\ Cases_on ‘l’ \\ fs []
   \\ Cases_on ‘o'’ \\ fs []
   \\ Cases_on ‘i’ \\ fs []
+  \\ Cases_on ‘i'’ \\ fs []
 QED
 
 Definition compile_inc_def:
@@ -937,4 +944,3 @@ Definition clos_to_bvl_compile_inc_def:
       (c, p)
 End
 
-val _ = export_theory()

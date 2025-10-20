@@ -5,9 +5,11 @@
   all instructions according to the instruction encoder stored in the
   compiler configuration.
 *)
-open preamble labLangTheory lab_filterTheory ffiTheory;
-
-val _ = new_theory"lab_to_target";
+Theory lab_to_target
+Ancestors
+  labLang lab_filter ffi
+Libs
+  preamble
 
 (* Number of bytes per FFI *)
 Definition ffi_offset_def:
@@ -392,9 +394,11 @@ End
 Definition get_memop_info_def:
   get_memop_info Load = (MappedRead, 0w) /\
   get_memop_info Load32 = (MappedRead,4w) /\
+  get_memop_info Load16 = (MappedRead,2w) /\
   get_memop_info Load8 = (MappedRead,1w) /\
   get_memop_info Store = (MappedWrite, 0w) /\
   get_memop_info Store32 = (MappedWrite,4w) /\
+  get_memop_info Store16 = (MappedWrite,2w) /\
   get_memop_info Store8 =(MappedWrite,1w)
 End
 
@@ -534,4 +538,3 @@ Definition inc_config_to_config_def:
   |>
 End
 
-val _ = export_theory();

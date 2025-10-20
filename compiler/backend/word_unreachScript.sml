@@ -1,9 +1,11 @@
 (*
   This compilation pass removes trivially unreachable code.
 *)
-open preamble wordLangTheory;
-
-val _ = new_theory "word_unreach";
+Theory word_unreach
+Ancestors
+  wordLang
+Libs
+  preamble
 
 (* function that makes all Seq associate to the right *)
 
@@ -75,4 +77,3 @@ Proof
   EVAL_TAC
 QED
 
-val _ = export_theory();

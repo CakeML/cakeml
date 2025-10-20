@@ -1,9 +1,11 @@
 (*
   Pseudo-boolean constraints proof format and checker
 *)
-open preamble npbcTheory mlstringTheory mlintTheory mlvectorTheory spt_to_vecTheory;
-
-val _ = new_theory "npbc_check";
+Theory npbc_check
+Libs
+  preamble
+Ancestors
+  npbc mlstring mlint mlvector mllist spt_to_vec mergesort
 
 val _ = numLib.temp_prefer_num();
 
@@ -54,8 +56,9 @@ Datatype:
   | Mul constr num      (* Multiply by a constant factor *)
   | Div constr num      (* Divide by a constant factor *)
   | Sat constr          (* Saturation *)
-  | Lit (num lit)       (* Literal axiom lit ≥ 0 *)
-  | Weak constr var     (* Addition of literal axioms until "var" disappears *)
+  | Lit (num lit)       (* Literal axiom lit ≥ 0 (superseded by triv but used in parsing) *)
+  | Weak constr (var list)     (* Addition of literal axioms until "var" disappears *)
+  | Triv ((num # num lit) app_list) (* Literal axiom corresponds to [1,l] ≥ 0 *)
 End
 
 (* Steps that preserve logical implication *)
@@ -96,6 +99,84 @@ Definition lookup_core_only_def:
     else NONE
 End
 
+Definition map_app_list_def:
+  (map_app_list f (List ls) = List (MAP f ls)) ∧
+  (map_app_list f (Append l r) = Append (map_app_list f l) (map_app_list f r)) ∧
+  (map_app_list f Nil = Nil)
+End
+
+Definition mul_triv_def:
+  mul_triv ls k = map_app_list (λ(x:num,y). (x * k,y) ) ls
+End
+
+Definition fuse_weaken_def:
+  (fuse_weaken vs (Weak c rs) = Weak c (vs ++ rs)) ∧
+  (fuse_weaken vs p = Weak p vs)
+End
+
+Definition to_triv_def:
+  (to_triv (Add l r) =
+    let ll = to_triv l in
+    let rr = to_triv r in
+    case (ll,rr) of
+      (Triv lt, Triv rt) => Triv (SmartAppend lt rt)
+    | (Triv lt, Add re (Triv rt)) => Add re (Triv (SmartAppend lt rt))
+    | (Add le (Triv lt), Triv rt) => Add le (Triv (SmartAppend lt rt))
+    | (Add le (Triv lt), Add re (Triv rt)) => Add (Add le re) (Triv (SmartAppend lt rt))
+    | _ => Add ll rr) ∧
+  (to_triv (Mul c k) =
+    let cc = to_triv c in
+    case cc of
+      Triv ls => Triv (mul_triv ls k)
+    | _ => Mul cc k) ∧
+  (to_triv (Div c k) = Div (to_triv c) k) ∧
+  (to_triv (Sat c) = Sat (to_triv c)) ∧
+  (to_triv (Weak c vs) = fuse_weaken vs (to_triv c)) ∧
+  (to_triv (Lit l) = Triv (List [(1,l)])) ∧
+  (to_triv c = c)
+End
+
+Definition sing_lit_def:
+  sing_lit (k:num,l) =
+  case l of Pos v => (&k:int,v)
+  | Neg v => (-&k:int,v)
+End
+
+Definition clean_triv_def:
+  clean_triv ls =
+    FOLDR (λpc1 c2.
+      npbc$add ([pc1],0) c2) ([],0)
+      (FILTER (λh. FST h ≠ 0)
+      (sort (λx y. SND x ≤ SND y)
+        (MAP sing_lit (append ls))))
+End
+
+(* TODO: copied from scpog *)
+Definition mk_strict_aux_def:
+  (mk_strict_aux x [] acc = x::acc) ∧
+  (mk_strict_aux x (y::ys) acc =
+    if x = y then
+      mk_strict_aux x ys acc
+    else mk_strict_aux y ys (x::acc))
+End
+
+Definition mk_strict_def:
+  mk_strict ls =
+  case ls of
+    [] => []
+  | (x::xs) => mk_strict_aux x xs []
+End
+
+Definition mk_strict_sorted_num_def:
+  mk_strict_sorted_num ls =
+  mk_strict (sort (\x y:num. y ≤ x) ls)
+End
+
+Definition weaken_sorted_def:
+  weaken_sorted c vs =
+  weaken c (mk_strict_sorted_num vs)
+End
+
 Definition check_cutting_def:
   (check_cutting b (fml:pbf) (Id n) =
     lookup_core_only b fml n) ∧
@@ -111,8 +192,9 @@ Definition check_cutting_def:
     OPTION_MAP saturate (check_cutting b fml c)) ∧
   (check_cutting b fml (Lit (Pos v)) = SOME ([(1,v)],0)) ∧
   (check_cutting b fml (Lit (Neg v)) = SOME ([(-1,v)],0)) ∧
+  (check_cutting b fml (Triv ls) = SOME (clean_triv ls)) ∧
   (check_cutting b fml (Weak c var) =
-    OPTION_MAP (λc. weaken c var) (check_cutting b fml c))
+    OPTION_MAP (λc. weaken_sorted c var) (check_cutting b fml c))
 End
 
 Definition check_contradiction_fml_def:
@@ -189,7 +271,7 @@ Definition check_lstep_def:
     then SOME (FOLDL (λa b. delete b a) fml ls,id)
     else NONE
   | Cutting constr =>
-    (case check_cutting b fml constr of
+    (case check_cutting b fml (to_triv constr) of
       NONE => NONE
     | SOME c =>
       SOME (insert_fml b fml id c))
@@ -239,6 +321,25 @@ Definition core_only_fml_def:
     {v | ∃n b. lookup n fml = SOME(v,b)}
 End
 
+Theorem FOLDR_add_sound:
+  ∀ls c.
+  satisfies_npbc w c ⇒
+  satisfies_npbc w (FOLDR (λpc1 c2. add ([pc1],0) c2) c ls)
+Proof
+  Induct>>
+  rw[]>>
+  match_mp_tac add_thm>>
+  simp[satisfies_npbc_def]
+QED
+
+Theorem clean_triv_thm:
+  satisfies_npbc w (clean_triv ls)
+Proof
+  rw[clean_triv_def]>>
+  irule FOLDR_add_sound>>
+  simp[satisfies_npbc_def]
+QED
+
 Theorem check_cutting_correct:
   ∀fml n c w.
   check_cutting b fml n = SOME c ∧
@@ -274,8 +375,30 @@ Proof
     EVAL_TAC)
   >- (
     (* weaken case *)
+    simp[weaken_sorted_def]>>
     match_mp_tac weaken_thm>>
     metis_tac[])
+  >-
+    metis_tac[clean_triv_thm]
+QED
+
+Theorem FOLDR_add_compact:
+  ∀ls c.
+  compact c ∧ EVERY (λh. FST h ≠ 0) ls ⇒
+  compact (FOLDR (λpc1 c2. add ([pc1],0) c2) c ls)
+Proof
+  Induct>>
+  rw[]>>
+  match_mp_tac compact_add>>
+  simp[]
+QED
+
+Theorem clean_triv_compact:
+  compact (clean_triv ls)
+Proof
+  rw[clean_triv_def]>>
+  irule FOLDR_add_compact>>
+  simp[EVERY_FILTER]
 QED
 
 Theorem check_cutting_compact:
@@ -306,7 +429,10 @@ Proof
     EVAL_TAC)
   >- (
     (* weaken case *)
+    simp[weaken_sorted_def]>>
     metis_tac[compact_weaken])
+  >-
+    metis_tac[clean_triv_compact]
 QED
 
 Definition id_ok_def:
@@ -480,15 +606,16 @@ Proof
   \\ pairarg_tac \\ gvs []
   \\ drule_all rup_pass1_thm \\ strip_tac
   \\ gvs [AllCaseEqs()]
-  \\ gvs [satisfies_npbc_def,GREATER_EQ,GSYM NOT_LESS]
+  >- gvs [satisfies_npbc_def,GREATER_EQ,GSYM NOT_LESS]
   \\ CCONTR_TAC \\ gvs [lslack_def]
-  \\ qsuff_tac
+  (* two subgoals *)
+  \\ (qsuff_tac
      ‘∀assg m ls1 c1. rup_pass2 assg m ls1 c1 ≠ NONE’
   >- (strip_tac \\ gvs [])
   \\ rpt $ pop_assum kall_tac
   \\ Induct_on ‘ls1’ \\ gvs [rup_pass2_def]
   \\ gvs [FORALL_PROD]
-  \\ gvs [rup_pass2_def] \\ rw []
+  \\ gvs [rup_pass2_def] \\ rw [])
 QED
 
 Theorem update_assg_SOME:
@@ -706,29 +833,86 @@ QED
 
 Type subst_raw = ``:(num , bool + num lit) alist``;
 
+(*
+  The subproof type is complicated and explained as follows:
+
+  1) At the outermost layer, we have an alist indexed by
+    num option:
+      NONE   -> no scope
+      SOME n -> the n-th scope
+
+  2) Within each of the scopes we again have an alist indexed by
+    ((num + num) # num) option:
+      NONE   -> "top-level" step in that scope
+      SOME (INL n, id) -> database proofgoal n, contradiction at id
+      SOME (INR n, id) -> # proofgoal n, contradiction at id
+*)
+Type subproof = ``:((((num + num) # num) option, (lstep list)) alist)``;
+Type scope = ``:(num option, subproof) alist``;
+
 (* Steps that preserve satisfiability modulo
   a preserved set of variables *)
 Datatype:
   sstep =
   | Lstep lstep (* Id representing a contradiction *)
-  | Red npbc subst_raw
-      (( ((num + num) # num) option, (lstep list)) alist)
-      (num option)
-  (* the alist represents a subproof
-    NONE -> top level step
-    SOME (INL n,id) -> database proofgoals, contradiction at id
-    SOME (INR n,id) -> # proofgoals, contradiction at id *)
+  | Red npbc subst_raw scope (num option)
 End
 
-(* The list of subgoals for redundancy
-  numbered #0 ... *)
+Definition list_list_insert_def:
+  list_list_insert [] ys = LN ∧
+  list_list_insert xs [] = LN ∧
+  list_list_insert (x::xs) (y::ys) = insert x y (list_list_insert xs ys)
+End
+
+Theorem lookup_list_list_insert:
+  ∀xs ys. lookup n (list_list_insert xs ys) = ALOOKUP (ZIP(xs,ys)) n
+Proof
+  Induct_on ‘xs’ \\ Cases_on ‘ys’ \\ fs [list_list_insert_def,ZIP_def]
+  \\ rw [lookup_insert]
+QED
+
+Type ord_s = ``:aspo # (num # bool) option vector # (num # bool) option vector
+  # (bool option) vector # unit option vector``;
+
+(* This characterizes the redundancy used in ord_s *)
+Definition good_ord_s_def:
+  good_ord_s (((f,g,us,vs,as),xs),us_xs,vs_xs,xsv,asv) <=>
+  us_xs = spt_to_vec (list_list_insert us xs) ∧
+  vs_xs = spt_to_vec (list_list_insert vs xs) ∧
+  xsv = spt_to_vec (fromAList xs) ∧
+  asv = spt_to_vec (fromAList (MAP (\n. n,()) as))
+End
+
+Definition dom_subst_def:
+  (dom_subst hs w (NONE: ord_s option) = ([],[])) ∧
+  (dom_subst hs w (SOME (((f,g,us,vs,as),xs),us_xs,vs_xs,xsv, asv)) =
+  let ww = (λn.
+    case vec_lookup us_xs n of
+      SOME (v,b) =>
+        SOME (
+            mk_bit_lit b
+              (case w v of
+                NONE => INR (Pos v)
+              | SOME res => res))
+    | NONE =>
+        OPTION_MAP (INR o mk_lit) (vec_lookup vs_xs n)) in
+  (MAP (subst ww) f,
+    if hs then MAP (subst ww) g else []))
+End
+
+(* The list of # subgoals for redundancy
+  internally implicitly numbered by the list order, i.e.,
+  #0, #1, ...,
+  and the list of scopes (just one). *)
 Definition red_subgoals_def:
-  red_subgoals ord s def obj =
+  red_subgoals ord s def obj hs =
+  let (fs,gs) = dom_subst hs s ord in
   let c0 = subst s def in (**)
   let cobj =
     case obj of NONE => []
     | SOME l => [[not (obj_constraint s l)]] in
-  [not c0]::(MAP (λc. [not c]) (dom_subst s ord)) ++ cobj
+  ([not c0]::(MAP (λc. [not c]) fs) ++ cobj,
+    [gs])
 End
 
 (* Apply a substitution where needed *)
@@ -763,6 +947,32 @@ Proof
   rw[]
 QED
 
+Definition mk_scope_def:
+  mk_scope scopes sc =
+  case sc of
+    NONE => (* no scope *)
+      SOME NONE
+  | SOME n =>
+    if n < LENGTH scopes then
+      SOME (SOME (EL n scopes))
+    else NONE
+End
+
+(* add the scoping for each proof *)
+Definition extract_scopes_def:
+  (extract_scopes scopes [] f b fml rsubs = SOME []) ∧
+  (extract_scopes scopes ((sc,pfs)::rest) f b fml rsubs =
+    case mk_scope scopes sc of NONE => NONE
+    | SOME scs =>
+      case extract_clauses f b fml rsubs pfs [] of
+        NONE => NONE
+      | SOME cpfs =>
+        case extract_scopes scopes rest f b fml rsubs of
+          NONE => NONE
+        | SOME crest =>
+          SOME ((scs,cpfs)::crest))
+End
+
 Definition list_insert_fml_def:
   (list_insert_fml b fml id [] =
     (fml,id)) ∧
@@ -777,7 +987,7 @@ Definition check_subproofs_def:
   (check_subproofs [] b fml id = SOME (fml,id)) ∧
   (check_subproofs ((cnopt,pf)::pfs) b fml id =
     case cnopt of
-      NONE => (* no clause given *)
+      NONE => (* no clause given, continue  *)
       (case check_lsteps pf b fml id of
         SOME (fml',id') =>
           check_subproofs pfs b fml' id'
@@ -792,16 +1002,31 @@ Definition check_subproofs_def:
       | res => NONE))
 End
 
+(* Check a list of scoped subproofs *)
+Definition check_scopes_def:
+  (check_scopes [] b fml id = SOME (fml,id)) ∧
+  (check_scopes ((scopt,pf)::scpfs) b fml id =
+    case scopt of
+      NONE =>
+        (case check_subproofs pf b fml id of
+          NONE => NONE
+        | SOME (fml',id') =>
+            check_scopes scpfs b fml' id')
+    | SOME sc =>
+    let (cfml,cid) = list_insert_fml b fml id sc in
+    case check_subproofs pf b cfml cid of
+      NONE => NONE
+    | SOME (fml',id') =>
+        check_scopes scpfs b fml id')
+End
+
 Type subst = ``:(num # (bool + num lit)) + (bool + num lit) option vector``;
 
 Definition subst_fun_def:
   subst_fun (s:subst) n =
   case s of
     INL (m,v) => if n = m then SOME v else NONE
-  | INR s =>
-  if n < length s then
-    sub s n
-  else NONE
+  | INR s => vec_lookup s n
 End
 
 Definition map_opt_def:
@@ -814,7 +1039,8 @@ Definition map_opt_def:
     | SOME a => mk_BS (map_opt f t1) a (map_opt f t2)
 End
 
-(* Extract the INL and INR
+(*
+  Extract the INL and INR
   ids which were proved by a list of proofs *)
 Definition extract_pids_def:
   (extract_pids [] l r = (l,r)) ∧
@@ -825,6 +1051,24 @@ Definition extract_pids_def:
     (case i of
       INL i => extract_pids pfs (insert i () l) r
     | INR i => extract_pids pfs l (insert i () r)))
+End
+
+(* Extract the zero-th scope (this is simply hard-coded for now, as that's the
+  only one we will need) *)
+Definition extract_scope_val_def:
+  extract_scope_val scopt ⇔
+  scopt = NONE ∨ scopt = SOME 0
+End
+
+(* For a fixed scope value, extract the pids up to that scope *)
+Definition extract_scoped_pids_def:
+  (extract_scoped_pids [] l r = (l,r)) ∧
+  (extract_scoped_pids ((scopt,pf)::scpfs) l r =
+  if extract_scope_val scopt
+  then
+      let (l,r) = extract_pids pf l r in
+        extract_scoped_pids scpfs l r
+  else extract_scoped_pids scpfs l r)
 End
 
 Definition list_pair_eq_def:
@@ -903,6 +1147,7 @@ Definition mk_core_fml_def:
 End
 
 Definition mk_subst_def:
+  (mk_subst [] = INR (Vector [])) ∧
   (mk_subst [(n,v)] = INL (n,v)) ∧
   (mk_subst xs = INR (spt_to_vec (fromAList xs)))
 End
@@ -920,36 +1165,199 @@ Definition check_pres_def:
   | SOME pres => EVERY (λx. lookup (FST x) pres = NONE) s
 End
 
-(* The tcb flag indicates we're in to-core mode
-  where it is guaranteed that the core formula implies derived *)
+Definition fresh_aux_aspo_def:
+  fresh_aux_aspo fml c obj w (((f,g,us,vs,as)),xs) ⇔
+    fresh_aux as fml c obj w
+End
+
+(* These are placeholders for refinement later using vimap/vomap *)
+Definition check_fresh_aux_fml_def:
+  check_fresh_aux_fml as fml ⇔
+  EVERY (λx.
+    ∀c.
+    c ∈ misc$range fml ⇒
+    ¬ MEM x (MAP SND (FST (FST c)))
+  ) as
+End
+
+Definition check_fresh_aux_obj_def:
+  check_fresh_aux_obj as obj ⇔
+  case obj of NONE => T
+  | SOME l =>
+  EVERY (λx.
+    ¬ MEM x (MAP SND (FST l))) as
+End
+
+Definition filter_map_inr_def:
+  (filter_map_inr [] acc = acc) ∧
+  (filter_map_inr ((v,m)::ms) acc =
+    case m of
+      INL _ => filter_map_inr ms acc
+    | INR (Pos r) => filter_map_inr ms (r::acc)
+    | INR (Neg r) => filter_map_inr ms (r::acc))
+End
+
+(* directly check the raw subst *)
+Definition check_fresh_aux_subst_def:
+  check_fresh_aux_subst asv s ⇔
+  let mss = filter_map_inr s [] in
+  EVERY (λx. vec_lookup asv x = NONE) mss
+End
+
+(* directly check the raw constraint *)
+Definition check_fresh_aux_constr_def:
+  check_fresh_aux_constr asv c ⇔
+  let mss = MAP SND (FST c) in
+  EVERY (λx. vec_lookup asv x = NONE) mss
+End
+
+Definition check_fresh_aspo_def:
+  check_fresh_aspo fml c obj s (ord:ord_s option) ⇔
+  case ord of NONE => T
+  | SOME (((f,g,us,vs,as),xs),us_xs,vs_xs,xsv,asv) =>
+    check_fresh_aux_fml as fml ∧
+    check_fresh_aux_obj as obj ∧
+    check_fresh_aux_constr asv c ∧
+    check_fresh_aux_subst asv s
+End
+
+Theorem MEM_filter_map_inr:
+  ∀s acc.
+  MEM x (filter_map_inr s acc) ⇔
+  MEM x acc ∨ ∃n. MEM (n,INR (Pos x)) s ∨ MEM (n, INR (Neg x)) s
+Proof
+  ho_match_mp_tac filter_map_inr_ind>>rw[filter_map_inr_def]>>
+  every_case_tac>>gvs[]>>
+  metis_tac[]
+QED
+
+Theorem subst_fun_mk_subst_neq:
+  ∀s.
+  (∀n. ¬MEM (n,v) s) ⇒
+  subst_fun (mk_subst s) n ≠ SOME v
+Proof
+  ho_match_mp_tac mk_subst_ind>>
+  rw[mk_subst_def,subst_fun_def]>>
+  CCONTR_TAC>>gvs[]
+  >-
+    gvs[vec_lookup_def,length_def]>>
+  gvs[vec_lookup_num_man_to_vec,lookup_fromAList]>>
+  drule ALOOKUP_MEM>>
+  rw[]
+QED
+
+Theorem check_fresh_aux_subst_imp:
+  check_fresh_aux_subst asv s ∧
+  asv = spt_to_vec (fromAList (MAP (\n. n,()) as)) ⇒
+  ∀n a.
+    a ∈ set as ⇒
+    subst_fun (mk_subst s) n ≠ SOME (INR (Pos a)) ∧
+    subst_fun (mk_subst s) n ≠ SOME (INR (Neg a))
+Proof
+  strip_tac>>
+  gvs[check_fresh_aux_subst_def,MEM_filter_map_inr,EVERY_MEM]>>
+  gvs[spt_to_vecTheory.vec_lookup_num_man_to_vec,lookup_fromAList,ALOOKUP_NONE,MEM_MAP,PULL_FORALL] >>
+  metis_tac[subst_fun_mk_subst_neq]
+QED
+
+Theorem check_fresh_aspo_fresh:
+  check_fresh_aspo fml c obj s ord ∧
+  OPTION_ALL good_ord_s ord
+  ⇒
+  OPTION_ALL
+    (fresh_aux_aspo (core_only_fml (b ∨ tcb) fml) c obj
+       (subst_fun (mk_subst s)) o FST) ord
+Proof
+  simp[check_fresh_aspo_def]>>
+  every_case_tac>>rw[fresh_aux_aspo_def,fresh_aux_def]
+  >- (
+    gvs[check_fresh_aux_fml_def,core_only_fml_def,range_def,FORALL_PROD,MEM_MAP,EVERY_MEM]>>
+    first_x_assum drule>>
+    rw[npbf_vars_def,npbc_vars_def,FORALL_PROD,EXTENSION,MEM_MAP]>>
+    metis_tac[SND,PAIR])
+  >- (
+    gvs[check_fresh_aux_constr_def,good_ord_s_def]>>
+    gvs[spt_to_vecTheory.vec_lookup_num_man_to_vec,lookup_fromAList,ALOOKUP_NONE,MEM_MAP,PULL_FORALL]>>
+    Cases_on`c`>>gvs[EVERY_MEM,npbc_vars_def]>>
+    metis_tac[])
+  >- (
+    gvs[check_fresh_aux_obj_def]>>
+    TOP_CASE_TAC>>gvs[EVERY_MEM])
+  >>
+  gvs[good_ord_s_def]>>
+  metis_tac[check_fresh_aux_subst_imp]
+QED
+
+Definition has_scope_def:
+  has_scope (pfs : scope) = (EXISTS (\x. FST x ≠ NONE) pfs)
+End
+
+Definition untouched_order_def:
+  untouched_order w xs =
+  EVERY (λ(v,b). w v = NONE) xs
+End
+
+Definition untouched_order_impl_def:
+  untouched_order_impl s xsv =
+  EVERY (λ(n,v). vec_lookup xsv n = NONE) s
+End
+
+(* Subgoals that can be skipped, starting from 1
+  (since the order proofgoals start at #1 in our internal count) *)
+Definition skip_ord_subgoal_def:
+  skip_ord_subgoal s (ord:ord_s option) =
+  case ord of NONE => (T,[])
+  | (SOME (((f,g,us,vs,as),xs),us_xs,vs_xs,xsv,asv)) =>
+  if untouched_order_impl s xsv
+  then
+    (T,GENLIST SUC (LENGTH f))
+  else (F,[])
+End
+
+(*
+  The tcb flag indicates we're in to-core mode
+  where it is guaranteed that the core formula implies
+  the derived set.
+  The "hs" flag skips computation of certain checks related to scopes
+*)
 Definition check_red_def:
-  check_red pres ord obj b tcb fml id c s pfs idopt =
+  check_red pres (ordsub :ord_s option) obj b tcb fml id c (s: subst_raw )
+    (pfs:scope) idopt =
   if check_pres pres s then
     ( let nc = not c in
       let (fml_not_c,id1) = insert_fml b fml id (not c) in
-      let s = mk_subst s in
-      let w = subst_fun s in
-      let rsubs = red_subgoals ord w c obj in
-      case extract_clauses w b fml rsubs pfs [] of
+      let ss = mk_subst s in
+      let w = subst_fun ss in
+      let hs = has_scope pfs in
+      let (rsubs,rscopes) = red_subgoals ordsub w c obj hs in
+      case extract_scopes rscopes pfs w b fml rsubs of
         NONE => NONE
       | SOME cpfs =>
-      (case check_subproofs cpfs b fml_not_c id1 of
+      (case check_scopes cpfs b fml_not_c id1 of
         NONE => NONE
       | SOME (fml',id') =>
         let chk =
-          (case idopt of NONE =>
-            (
-            let gfml = mk_core_fml (b ∨ tcb) fml in
-            let goals = toAList (map_opt (subst_opt w) gfml) in
-            let (l,r) = extract_pids pfs LN LN in
-              split_goals gfml nc l goals ∧
-              EVERY (λ(id,cs).
-                lookup id r ≠ NONE ∨
-                check_hash_triv nc cs
-                )
-                (enumerate 0 rsubs))
-          | SOME cid =>
-            check_contradiction_fml b fml' cid) in
+          (case idopt of
+            NONE =>
+              let gfml = mk_core_fml (b ∨ tcb) fml in
+              let (untouched,skipped) = skip_ord_subgoal s ordsub in
+              let goals = toAList (map_opt (subst_opt w) gfml) in
+              let (l,r) = extract_scoped_pids pfs LN LN in
+                (* Freshness check needed if scope is used or
+                  if the order is touched *)
+                (hs ∨ ¬ untouched ⇒
+                  check_fresh_aspo fml c obj s ordsub) ∧
+                (* Every goal from the formula is checked *)
+                split_goals gfml nc l goals  ∧
+                (* Every # goal is checked *)
+                EVERY (λ(id,cs).
+                  lookup id r ≠ NONE ∨
+                  check_hash_triv nc cs ∨
+                  MEM id skipped
+                  )
+                  (enumerate 0 rsubs)
+            | SOME cid =>
+              check_contradiction_fml b fml' cid) in
         if chk then
           SOME id'
         else NONE) )
@@ -957,12 +1365,12 @@ Definition check_red_def:
 End
 
 Definition check_sstep_def:
-  check_sstep sstep (pres : num_set option) ord obj tcb
+  check_sstep sstep (pres : num_set option) ordsub obj tcb
     (fml:pbf) (id:num) =
   case sstep of
     Lstep lstep => check_lstep lstep F fml id
   | Red c s pfs idopt =>
-    case check_red pres ord obj F tcb fml id c s pfs idopt of
+    case check_red pres ordsub obj F tcb fml id c s pfs idopt of
       SOME id' => SOME (insert_fml tcb fml id' c)
     | NONE => NONE
 End
@@ -1009,7 +1417,7 @@ Theorem check_subproofs_correct:
   id_ok fml id ⇒
   case check_subproofs pfs b fml id of
     SOME (fml',id') =>
-     id ≤ id' ∧
+     id ≤ id' ∧ id_ok fml' id' ∧
      (core_only_fml b fml) ⊨ (core_only_fml b fml') ∧
      EVERY (λ(cnopt,pf).
        case cnopt of
@@ -1021,12 +1429,13 @@ Theorem check_subproofs_correct:
 Proof
   Induct>-
     rw[check_subproofs_def]>>
-  Cases>>rw[check_subproofs_def]>>
-  Cases_on`q`>>fs[]
+  namedCases ["cnopt pf"]>>
+  rw[check_subproofs_def]>>
+  Cases_on`cnopt`>>fs[]
   >- (
     every_case_tac>>fs[]>>
     drule (CONJUNCT2 check_lstep_correct)>>
-    disch_then (qspecl_then[`r`,`b`] assume_tac)>>
+    disch_then (qspecl_then[`pf`,`b`] assume_tac)>>
     gs[]>>
     first_x_assum drule>>simp[]>>
     disch_then(qspec_then`b` mp_tac)>> simp[]>>
@@ -1046,7 +1455,7 @@ Proof
   drule_all list_insert_fml_ok>>
   strip_tac>>
   drule (CONJUNCT2 check_lstep_correct)>>
-  disch_then (qspecl_then[`r`,`b`] assume_tac)>>
+  disch_then (qspecl_then[`pf`,`b`] assume_tac)>>
   gs[SUBSET_DEF]>>
   rename1 `cid ≤ n`>>
   `id_ok fml n` by (
@@ -1058,6 +1467,66 @@ Proof
   drule check_contradiction_fml_unsat>>
   fs[unsatisfiable_def,sat_implies_def,satisfiable_def]>>
   metis_tac[]
+QED
+
+Theorem check_scopes_correct:
+  ∀scpfs b fml id.
+  id_ok fml id ⇒
+  case check_scopes scpfs b fml id of
+    SOME (fml',id') =>
+     id ≤ id' ∧ id_ok fml' id' ∧
+     (core_only_fml b fml) ⊨ (core_only_fml b fml') ∧
+     EVERY (λ(scopt,pfs).
+       let sc = case scopt of NONE => [] | SOME sc => sc in
+       EVERY (λ(cnopt,pf).
+       case cnopt of
+         NONE => T
+       | SOME (cs,n) =>
+        unsatisfiable (core_only_fml b fml ∪ set sc ∪ set cs)
+     ) pfs) scpfs
+  | NONE => T
+Proof
+  Induct>-
+    rw[check_scopes_def]>>
+  namedCases ["scopt pf"]>>
+  rw[check_scopes_def]>>
+  Cases_on`scopt`>>fs[]
+  >- (
+    every_case_tac>>fs[]>>
+    drule check_subproofs_correct>>
+    disch_then (qspecl_then[`pf`,`b`] assume_tac)>>
+    gs[]>>
+    first_x_assum drule>>simp[]>>
+    disch_then(qspec_then`b` mp_tac)>> simp[]>>
+    rw[]
+    >-
+      metis_tac[sat_implies_def]>>
+    pop_assum mp_tac>>
+    match_mp_tac MONO_EVERY>>
+    simp[FORALL_PROD]>>
+    ntac 2 strip_tac>>
+    match_mp_tac MONO_EVERY>>
+    simp[FORALL_PROD]>>
+    rw[]>>
+    every_case_tac>>
+    fs[unsatisfiable_def,sat_implies_def,satisfiable_def]>>
+    metis_tac[])>>
+  every_case_tac>>fs[]>>
+  pairarg_tac>>fs[]>>
+  every_case_tac>>fs[]>>
+  drule_all list_insert_fml_ok>>
+  strip_tac>>
+  drule check_subproofs_correct>>
+  disch_then (qspecl_then[`pf`,`b`] assume_tac)>>
+  gs[SUBSET_DEF]>>
+  rename1 `cid ≤ n`>>
+  `id_ok fml n` by (
+    fs[id_ok_def,SUBSET_DEF])>>
+  first_x_assum drule>>
+  disch_then(qspec_then`b` mp_tac)>> simp[]>>
+  gs[range_insert,id_ok_def,unsat_iff_implies]>>
+  rw[]>>
+  metis_tac[UNION_COMM]
 QED
 
 Theorem implies_explode:
@@ -1122,6 +1591,50 @@ Proof
   metis_tac[]
 QED
 
+Theorem extract_scopes_MEM_INL:
+  ∀scopes pfs s b fml sg res id pf n.
+  extract_scopes scopes pfs s b fml sg = SOME res ∧
+  MEM (sc,spf) pfs ∧
+  MEM (SOME (INL id,n), pf) spf ⇒
+  ∃scs cpfs c.
+    mk_scope scopes sc = SOME scs ∧
+    lookup_core_only b fml id = SOME c ∧
+    MEM (scs,cpfs) res ∧
+    MEM (SOME ([not (subst s c)],n),pf) cpfs
+Proof
+  ho_match_mp_tac extract_scopes_ind>>
+  rw[extract_scopes_def]>>
+  gvs[AllCaseEqs()]
+  >- (
+    drule extract_clauses_MEM_INL>>
+    disch_then drule>>
+    strip_tac>>simp[]>>
+    metis_tac[])>>
+  metis_tac[]
+QED
+
+Theorem extract_scopes_MEM_INR:
+  ∀scopes pfs s b fml sg res id pf n.
+  extract_scopes scopes pfs s b fml sg = SOME res ∧
+  MEM (sc,spf) pfs ∧
+  MEM (SOME (INR id,n), pf) spf ⇒
+  ∃scs cpfs.
+    id < LENGTH sg ∧
+    mk_scope scopes sc = SOME scs ∧
+    MEM (scs,cpfs) res ∧
+    MEM (SOME (EL id sg,n),pf) cpfs
+Proof
+  ho_match_mp_tac extract_scopes_ind>>
+  rw[extract_scopes_def]>>
+  gvs[AllCaseEqs()]
+  >- (
+    drule extract_clauses_MEM_INR>>
+    disch_then drule>>
+    simp[]>>
+    metis_tac[])>>
+  metis_tac[]
+QED
+
 Theorem lookup_mk_BS:
   sptree$lookup i (mk_BS t1 a t2) = lookup i (BS t1 a t2)
 Proof
@@ -1150,19 +1663,6 @@ Definition opt_le_def:
   (opt_le x y ⇔ x = y ∨ opt_lt x y)
 End
 
-Theorem sat_obj_po_fml_SUBSET:
-  sat_obj_po pres ord obj a y ∧
-  x ⊆ y ⇒
-  sat_obj_po pres ord obj a x
-Proof
-  rw[sat_obj_po_def]>>
-  first_x_assum drule>>
-  rw[]>>
-  drule_all satisfies_SUBSET>>
-  rw[]>>
-  metis_tac[]
-QED
-
 Theorem lookup_extract_pids_l:
   ∀ls accl accr l r.
   extract_pids ls accl accr = (l,r) ∧
@@ -1189,6 +1689,42 @@ Proof
   gvs[AllCaseEqs()]>>
   first_x_assum drule>>rw[lookup_insert]>>
   metis_tac[PAIR]
+QED
+
+Theorem lookup_extract_scoped_pids_l:
+  ∀ls accl accr l r.
+  extract_scoped_pids ls accl accr = (l,r) ∧
+  lookup i l ≠ NONE ⇒
+  lookup i accl ≠ NONE ∨
+  ∃scopt spf n pf.
+    extract_scope_val scopt ∧
+    MEM (scopt,spf) ls ∧
+    MEM (SOME (INL i,n),pf) spf
+Proof
+  ho_match_mp_tac extract_scoped_pids_ind>>
+  rw[extract_scoped_pids_def]
+  >- (
+    pairarg_tac>>gvs[]>>
+    metis_tac[lookup_extract_pids_l,PAIR])>>
+  metis_tac[lookup_extract_pids_l,PAIR]
+QED
+
+Theorem lookup_extract_scoped_pids_r:
+  ∀ls accl accr l r.
+  extract_scoped_pids ls accl accr = (l,r) ∧
+  lookup i r ≠ NONE ⇒
+  lookup i accr ≠ NONE ∨
+  ∃scopt spf n pf.
+    extract_scope_val scopt ∧
+    MEM (scopt,spf) ls ∧
+    MEM (SOME (INR i,n),pf) spf
+Proof
+  ho_match_mp_tac extract_scoped_pids_ind>>
+  rw[extract_scoped_pids_def]
+  >- (
+    pairarg_tac>>gvs[]>>
+    metis_tac[lookup_extract_pids_r,PAIR])>>
+  metis_tac[lookup_extract_pids_r,PAIR]
 QED
 
 Theorem sat_implies_EL:
@@ -1235,22 +1771,6 @@ Proof
     first_x_assum drule>>rw[]>>
     pairarg_tac>>gvs[]>>
     metis_tac[])
-QED
-
-Theorem sat_obj_po_insert_contr:
-  unsatisfiable (rf ∪ {not c}) ∧
-  (ord ≠ NONE ⇒ reflexive (po_of_spo (THE ord)))
-  ⇒
-  sat_obj_po pres ord obj rf (c INSERT rf)
-Proof
-  rw[sat_obj_po_def,unsatisfiable_def,satisfiable_def]>>
-  first_assum (irule_at Any)>>
-  rw[]
-  >-
-    metis_tac[not_thm]>>
-  Cases_on`ord`>>
-  fs[]>>
-  metis_tac[reflexive_def,PAIR]
 QED
 
 Theorem range_mk_core_fml:
@@ -1372,29 +1892,212 @@ Proof
   rw[pres_set_spt_def,mk_subst_def,subst_fun_def,check_pres_def,domain_lookup]
   >-
     (pop_assum mp_tac>>EVAL_TAC)>>
-  qmatch_goalsub_abbrev_tac`sub vv yy`>>
-  `vec_lookup vv yy = NONE` by
-    (gvs[Abbr`vv`,Abbr`yy`,vec_lookup_num_man_to_vec,lookup_fromAList,ALOOKUP_NONE,EVERY_MEM,MEM_MAP]>>
-    metis_tac[NOT_SOME_NONE])>>
-  gvs[vec_lookup_def]
+  gvs[vec_lookup_num_man_to_vec,lookup_fromAList,EVERY_MEM,ALOOKUP_NONE,MEM_MAP]>>
+  metis_tac[NOT_SOME_NONE]
 QED
 
-Theorem check_red_correct:
+Definition sat_obj_po_def:
+  sat_obj_po pres aspoopt fopt s t ⇔
+  ∀w.
+    satisfies w s ⇒
+    ∃w'.
+      (∀x. x ∈ pres ⇒ w x = w' x) ∧
+      satisfies w' t ∧
+      OPTION_ALL (λaspo. (po_of_aspo aspo) w' w) aspoopt ∧
+      eval_obj fopt w' ≤ eval_obj fopt w
+End
+
+Theorem sat_obj_po_fml_SUBSET:
+  sat_obj_po pres ord obj a y ∧
+  x ⊆ y ⇒
+  sat_obj_po pres ord obj a x
+Proof
+  rw[sat_obj_po_def]>>
+  first_x_assum drule>>
+  rw[]>>
+  drule_all satisfies_SUBSET>>
+  rw[]>>
+  metis_tac[]
+QED
+
+Theorem sat_obj_po_insert_contr:
+  unsatisfiable (rf ∪ {not c}) ∧
+  (ord ≠ NONE ⇒ reflexive (po_of_aspo (THE ord)))
+  ⇒
+  sat_obj_po pres ord obj rf (c INSERT rf)
+Proof
+  rw[sat_obj_po_def,unsatisfiable_def,satisfiable_def]>>
+  first_assum (irule_at Any)>>
+  rw[]
+  >-
+    metis_tac[not_thm]>>
+  Cases_on`ord`>>
+  fs[]>>
+  metis_tac[reflexive_def,PAIR]
+QED
+
+Definition redundant_wrt_obj_po_def:
+  redundant_wrt_obj_po f pres ord obj c ⇔
+    sat_obj_po pres ord obj f (f ∪ {c})
+End
+
+Theorem dom_subst_eq:
+  dom_subst hs w (SOME (((f,g,us,vs,as),xs),us_xs,vs_xs,xsv,asv)) = (fs,gs) ∧
+  us_xs = spt_to_vec (list_list_insert us xs) ∧
+  vs_xs = spt_to_vec (list_list_insert vs xs) ∧
+  sub_leq =
+    (λn.
+      case ALOOKUP (ZIP (us,xs)) n of
+        SOME (v,b) =>
+          SOME (
+            mk_bit_lit b
+              (case w v of
+                NONE => INR (Pos v)
+              | SOME res => res))
+      | NONE => OPTION_MAP (INR o mk_lit) (ALOOKUP (ZIP (vs, xs)) n)) ⇒
+  set f ⇂ sub_leq = set fs ∧
+  (hs ⇒ set g ⇂ sub_leq = set gs)
+Proof
+  rw[EXTENSION]>>
+  gvs[dom_subst_def,LIST_TO_SET_MAP,lookup_list_list_insert,vec_lookup_num_man_to_vec]
+QED
+
+Theorem good_aspo_imp_po_of_aspo_refl:
+  good_aspo x ⇒
+  po_of_aspo x w w
+Proof
+  PairCases_on`x`>>rw[good_aspo_def]>>
+  gvs[reflexive_def]
+QED
+
+Definition good_aspo_subst_def:
+  good_aspo_subst ordsub ⇔
+    good_aspo (FST ordsub) ∧
+    good_ord_s ordsub
+End
+
+Theorem substitution_redundancy_obj_po_spec:
+  OPTION_ALL (λord1.
+    (b ∨ ~untouched_order w (SND ord1) ⇒ fresh_aux_aspo f c obj w ord1) ∧
+    (~untouched_order w (SND ord1) ⇒ f ∪ {not c} ∪ set gs ⊨ set fs)) (OPTION_MAP FST ordsub) ∧
+  OPTION_ALL good_aspo_subst ordsub ∧
+  (∀x. x ∈ pres ⇒ w x = NONE) ∧
+  dom_subst b w ordsub = (fs,gs) ∧
+  f ∪ {not c} ∪ set gs ⊨ ((f ∪ {c}) ⇂ w ∪
+    (case obj of NONE => {}
+      | SOME obj => {obj_constraint w obj}))
+  ⇒
+  redundant_wrt_obj_po f pres (OPTION_MAP FST ordsub) obj c
+Proof
+  rw[redundant_wrt_obj_po_def, sat_obj_po_def,not_thm]
+  \\ rename1`satisfies s f`
+  \\ Cases_on ‘satisfies_npbc s c’
+  >- (
+    qexists_tac`s`>>simp[]>>
+    Cases_on`ordsub`>>
+    fs[good_aspo_subst_def]>>
+    metis_tac[ good_aspo_imp_po_of_aspo_refl])>>
+  Cases_on`ordsub`>>gvs[dom_subst_def]
+  >- (
+    fs [sat_implies_def,not_thm] >>
+    first_x_assum drule_all>>
+    rw[satisfies_subst_thm]>>
+    first_x_assum (irule_at Any)>>
+    gvs[subst_thm,assign_def]>>
+    every_case_tac
+    >- fs [eval_obj_def] >>
+    fs [satisfies_def,PULL_EXISTS,subst_thm,satisfies_npbc_obj_constraint])>>
+  rename1`good_aspo_subst xx`>>PairCases_on`xx`>>
+  gvs[good_aspo_subst_def,good_ord_s_def]>>
+  gvs [] >>
+  reverse $ Cases_on ‘untouched_order w xx5’ >> gvs [] >-
+   (drule dom_subst_eq>>
+    rw[]>>gvs[fresh_aux_aspo_def]>>
+    drule substitution_redundancy_obj_po>>
+    Cases_on ‘b’
+    >-
+     (fs[]>>
+      rpt (disch_then drule)>>
+      gvs[]>>
+      gvs [AC CONJ_ASSOC CONJ_COMM]) >>
+    gvs [AC CONJ_ASSOC CONJ_COMM] >>
+    disch_then irule >>
+    simp [] >>
+    gvs [dom_subst_def,untouched_order_def] >>
+    rpt strip_tac
+    >-
+     (irule sat_implies_transitive
+      \\ first_x_assum $ irule_at $ Pos last
+      \\ gvs [sat_implies_def]) >>
+    fs [sat_implies_def] >>
+    fs [not_thm]) >>
+  Cases_on ‘b’ >> gvs [] >-
+   (drule dom_subst_eq>>
+    rw[]>>gvs[fresh_aux_aspo_def]>>
+    drule substitution_redundancy_obj_po>>
+    gvs [AC CONJ_ASSOC CONJ_COMM] >>
+    disch_then irule >>
+    fs [untouched_order_def] >>
+    CCONTR_TAC \\ gvs [EXISTS_MEM,EVERY_MEM]) >>
+  gvs [dom_subst_def,untouched_order_def] >>
+  drule substitution_redundancy_obj_po_2 >>
+  rpt $ disch_then drule >>
+  gvs [] >>
+  rpt $ disch_then drule >>
+  strip_tac >>
+  pop_assum $ irule_at Any >>
+  gvs []
+QED
+
+Theorem IMP_subst_funs_NONE:
+  ∀s x. ~MEM x (MAP FST s) ⇒ subst_fun (mk_subst s) x = NONE
+Proof
+  ho_match_mp_tac mk_subst_ind
+  \\ gvs [mk_subst_def,subst_fun_def]
+  \\ gvs [spt_to_vecTheory.vec_lookup_num_man_to_vec,lookup_fromAList]
+  \\ simp [vec_lookup_def,regexp_compilerTheory.length_def]
+  \\ gvs [ALOOKUP_NONE]
+QED
+
+Theorem good_aspo_subst_untouched_order_impl:
+  good_aspo_subst ((a,xs),_,_,xsv,asv) ⇒
+  (untouched_order_impl s xsv =
+  untouched_order (subst_fun (mk_subst s)) xs)
+Proof
+  PairCases_on`a`>>rw[good_aspo_subst_def,good_ord_s_def]>>
+  rw[untouched_order_impl_def,untouched_order_def,vec_lookup_num_man_to_vec,lookup_fromAList]>>
+  simp[oneline mk_subst_def]>>
+  every_case_tac>>rw[EVERY_MEM,subst_fun_def]>>
+  simp[FORALL_PROD]
+  >-
+    (pairarg_tac>>simp[]>>EVAL_TAC)
+  >-
+    simp[ALOOKUP_NONE,MEM_MAP,FORALL_PROD]>>
+  simp[vec_lookup_num_man_to_vec,lookup_insert,lookup_fromAList,ALOOKUP_NONE,MEM_MAP,FORALL_PROD]>>
+  pairarg_tac>>simp[]>>
+  metis_tac[]
+QED
+
+Theorem check_red_correct_extra:
+  ∀extra.
   id_ok fml id ∧
-  OPTION_ALL good_spo ord ∧
+  OPTION_ALL good_aspo_subst ordsub ∧
   (tcb ⇒ core_only_fml T fml ⊨ core_only_fml b fml) ∧
-  check_red (pres: num_set option) ord obj b tcb fml id
-    c s pfs idopt = SOME id' ⇒
+  check_red (pres: num_set option) ordsub obj b tcb fml id
+    c s (pfs:scope) idopt = SOME id' ∧
+  DISJOINT extra (set (MAP FST s)) ⇒
   id ≤ id' ∧
   case idopt of
     SOME u =>
     (core_only_fml (b ∨ tcb) fml) ⊨ {c}
   | NONE =>
-    sat_obj_po (pres_set_spt pres) ord obj
+    sat_obj_po (pres_set_spt pres ∪ extra) (OPTION_MAP FST ordsub) obj
       (core_only_fml (b ∨ tcb) fml)
       (c INSERT (core_only_fml (b ∨ tcb) fml))
 Proof
+  gen_tac>>
   simp[check_red_def]>>
+  pairarg_tac>>fs[]>>
   pairarg_tac>>fs[]>>
   TOP_CASE_TAC>>fs[]>>
   TOP_CASE_TAC>>fs[]>>
@@ -1402,7 +2105,7 @@ Proof
   strip_tac>>
   `id_ok fml_not_c id1 ∧ id ≤ id1` by
     gvs[insert_fml_def,id_ok_def]>>
-  drule check_subproofs_correct>>
+  drule check_scopes_correct>>
   `core_only_fml b fml_not_c =
     not c INSERT (core_only_fml b fml)` by (
     gvs[insert_fml_def]>>
@@ -1421,76 +2124,119 @@ Proof
       metis_tac[])
     >-
       metis_tac[])>>
-  qsuff_tac ‘redundant_wrt_obj_po (core_only_fml (b ∨ tcb) fml) (pres_set_spt pres) ord obj c’
+  qsuff_tac ‘redundant_wrt_obj_po (core_only_fml (b ∨ tcb) fml)
+                (pres_set_spt pres ∪ extra) (OPTION_MAP FST ordsub) obj c’
   >- (
     fs [redundant_wrt_obj_po_def] \\ rw []
     \\ irule sat_obj_po_fml_SUBSET
     \\ pop_assum $ irule_at Any
     \\ rw [SUBSET_DEF] \\ imp_res_tac range_insert_2 \\ fs [])
-  \\ pairarg_tac \\ fs[]
-  \\ match_mp_tac (GEN_ALL substitution_redundancy_obj_po)
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs []
+  \\ match_mp_tac (GEN_ALL substitution_redundancy_obj_po_spec)
   \\ simp[]
+  \\ simp [SF DNF_ss]
   \\ qexists_tac ‘subst_fun (mk_subst s)’ \\ fs []
-  \\ CONJ_TAC >-
-    metis_tac[check_pres_subst_fun]
-  \\ fs[EVERY_MEM,MEM_MAP,EXISTS_PROD]
-  \\ `id ∉ domain fml` by fs[id_ok_def]
-  \\
-    `(core_only_fml (b ∨ tcb) fml ∪ {not c}) ⊨
-    (core_only_fml b fml ∪ {not c})` by
-    metis_tac[sat_implies_tcb,sat_implies_union_right]
-  \\ drule sat_implies_transitive
-  \\ disch_then (fn th => DEP_REWRITE_TAC[th])
-  \\ simp [Once implies_explode]
-  \\ gvs[red_subgoals_def,MEM_enumerate_iff,ADD1,AND_IMP_INTRO,PULL_EXISTS]
-  \\ reverse (rw [])
+  \\ gvs[red_subgoals_def]
+  \\ pairarg_tac \\ gvs[]
+  \\ first_assum $ irule_at Any
+  \\ conj_tac
   >- (
-    (* dominance *)
-    rw[sat_implies_EL]>>
-    last_x_assum(qspec_then`SUC n` mp_tac)>>
-    gvs[]>>
-    PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
-    strip_tac
+    Cases_on ‘ordsub’ >> gvs []
+    \\ rw [] \\ gvs []
     >- (
-      drule_all lookup_extract_pids_r>> rw[]
-      \\ drule extract_clauses_MEM_INR
-      \\ disch_then drule
+      drule check_fresh_aspo_fresh \\ gvs []
+      \\ disch_then irule
+      \\ gvs[good_aspo_subst_def])
+    \\ ‘~untouched’ by (
+      gvs[skip_ord_subgoal_def,AllCaseEqs()]>>
+      metis_tac[good_aspo_subst_untouched_order_impl])
+     >- (
+      gvs[] \\ drule check_fresh_aspo_fresh \\ gvs []
+      \\ disch_then irule
+      \\ gvs[good_aspo_subst_def])
+    \\ gvs []\\ imp_res_tac check_fresh_aspo_fresh \\ gvs []
+    \\ rw[sat_implies_EL]
+    \\ fs[EVERY_MEM,MEM_MAP,EXISTS_PROD,LAMBDA_PROD,FORALL_PROD]
+    \\ gvs[MEM_enumerate_iff,ADD1,AND_IMP_INTRO,PULL_EXISTS]
+    \\ last_x_assum(qspec_then`SUC n` mp_tac)
+    \\ ‘skipped = []’ by gvs [skip_ord_subgoal_def,AllCaseEqs()]
+    \\ gvs[]
+    \\ PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]
+    \\ `id ∉ domain fml` by fs[id_ok_def]
+    \\ `(core_only_fml (b ∨ tcb) fml ∪ {not c} ∪ set gs) ⊨
+        (core_only_fml b fml ∪ {not c} ∪ set gs)` by
+      metis_tac[sat_implies_tcb,sat_implies_union_right]
+    \\ strip_tac
+    >-
+     (drule_all lookup_extract_scoped_pids_r>> rw[]
+      \\ drule_all extract_scopes_MEM_INR
       \\ fs[EL]
       \\ DEP_REWRITE_TAC [EL_APPEND_EQN] \\ simp[]
       \\ rw[]
-      \\ first_x_assum drule \\ strip_tac
-      \\ gs[EL_MAP]
-      \\ drule unsatisfiable_not_sat_implies
-      \\ simp[range_insert]
-      \\ metis_tac[INSERT_SING_UNION,UNION_COMM])
-   >- (
-      fs[check_hash_triv_def]
-      \\ pop_assum mp_tac
-      \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
-      \\ simp[EL_MAP]
+      \\ first_x_assum drule_all
       \\ strip_tac
-      \\ match_mp_tac unsatisfiable_not_sat_implies
-      \\ metis_tac[check_triv_unsatisfiable]) )
+      \\ gs[EL_MAP]
+      \\ pairarg_tac \\ gvs[]
+        \\ drule unsatisfiable_not_sat_implies
+      \\ gvs[mk_scope_def,AllCaseEqs()]
+      \\ simp[range_insert]
+      \\ metis_tac[INSERT_SING_UNION,UNION_COMM,
+                   sat_implies_subset,sat_implies_transitive,SUBSET_UNION])
+    >- (
+     fs[check_hash_triv_def]
+     \\ pop_assum mp_tac
+     \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
+     \\ simp[EL_MAP]
+     \\ pairarg_tac \\ gvs[]
+     \\ strip_tac
+     \\ match_mp_tac unsatisfiable_not_sat_implies
+     \\ irule check_triv_unsatisfiable_2
+     \\ simp[]
+     \\ metis_tac[]))
+  \\ CONJ_TAC >-
+   metis_tac[check_pres_subst_fun]
+  \\ fs[EVERY_MEM,MEM_MAP,EXISTS_PROD,LAMBDA_PROD,FORALL_PROD]
+  \\ `id ∉ domain fml` by fs[id_ok_def]
+  \\ `(core_only_fml (b ∨ tcb) fml ∪ {not c} ∪ set gs) ⊨
+      (core_only_fml b fml ∪ {not c} ∪ set gs)` by
+    metis_tac[sat_implies_tcb,sat_implies_union_right]
+  \\ simp [Once implies_explode]
+  \\ gvs[MEM_enumerate_iff,ADD1,AND_IMP_INTRO,PULL_EXISTS]
+  \\ gvs [skip_ord_subgoal_def]
+  \\ conj_tac
+  >- (
+    rw [] \\ irule IMP_subst_funs_NONE
+    \\ gvs [IN_DISJOINT]
+    \\ metis_tac [])
+    \\ reverse (rw [])
   >- (
     (* objective *)
     Cases_on`obj`>> gvs[]>>
-    last_x_assum(qspec_then`SUC(LENGTH (dom_subst (subst_fun (mk_subst s)) ord))` mp_tac)>>
+    pairarg_tac >> gvs[]>>
+    last_x_assum(qspec_then`SUC(LENGTH fs)` mp_tac)>>
     gvs[]>>
+    ‘~MEM (SUC (LENGTH fs)) skipped’ by
+      (gvs [CaseEq"option"]
+       \\ rename [‘dom_subst _ _ (SOME ord_)’] \\ PairCases_on ‘ord_’
+       \\ gvs [MEM_GENLIST]
+       \\ gvs [dom_subst_def,AllCaseEqs(),MEM_GENLIST]) >>
+    asm_rewrite_tac [] >>
     PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
     strip_tac
     >- (
-      drule_all lookup_extract_pids_r>>rw[]
-      \\ drule extract_clauses_MEM_INR
-      \\ disch_then drule
+      drule_all lookup_extract_scoped_pids_r>> rw[]
+      \\ drule_all extract_scopes_MEM_INR
       \\ fs[EL]
-      \\ DEP_REWRITE_TAC [EL_APPEND2]
-      \\ simp[]
+      \\ DEP_REWRITE_TAC [EL_APPEND_EQN] \\ simp[]
       \\ rw[]
-      \\ first_x_assum drule \\ strip_tac
-      \\ gs[]
+      \\ first_x_assum drule_all
+      \\ strip_tac
+      \\ gs[EL_MAP]
       \\ drule unsatisfiable_not_sat_implies
+      \\ gvs[mk_scope_def,AllCaseEqs()]
       \\ simp[range_insert]
-      \\ metis_tac[INSERT_SING_UNION,UNION_COMM])
+      \\ metis_tac[INSERT_SING_UNION,UNION_COMM,sat_implies_subset,sat_implies_transitive,SUBSET_UNION])
     >- (
       fs[check_hash_triv_def]
       \\ pop_assum mp_tac
@@ -1498,36 +2244,42 @@ Proof
       \\ simp[EL_MAP]
       \\ strip_tac
       \\ match_mp_tac unsatisfiable_not_sat_implies
-      \\ metis_tac[check_triv_unsatisfiable])
-    )
+      \\ irule check_triv_unsatisfiable_2
+      \\ simp[]
+      \\ metis_tac[]))
   >- (
     (* redundancy #0 *)
     last_x_assum(qspec_then`0` mp_tac)>>
     gvs[]>>
+    ‘~MEM 0 skipped’ by gvs [AllCaseEqs(),MEM_GENLIST] >>
+    asm_rewrite_tac [] >>
     PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
     strip_tac
     >- (
-      drule_all lookup_extract_pids_r>>rw[]
-      \\ drule extract_clauses_MEM_INR
-      \\ disch_then drule
-      \\ fs[]
+      drule_all lookup_extract_scoped_pids_r>>rw[]
+      \\ drule_all extract_scopes_MEM_INR
+      \\ simp[]
       \\ rw[]
-      \\ first_x_assum drule \\ strip_tac
+      \\ first_x_assum drule_all \\ strip_tac
       \\ fs[]
       \\ drule unsatisfiable_not_sat_implies
+      \\ gvs[mk_scope_def,AllCaseEqs()]
       \\ simp[range_insert]
-      \\ metis_tac[INSERT_SING_UNION,UNION_COMM])
+      \\ metis_tac[INSERT_SING_UNION,UNION_COMM,sat_implies_subset,sat_implies_transitive,SUBSET_UNION])
     >- (
       fs[check_hash_triv_def]
       \\ pop_assum mp_tac
-      \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
       \\ simp[EL_MAP]
       \\ strip_tac
       \\ match_mp_tac unsatisfiable_not_sat_implies
-      \\ metis_tac[check_triv_unsatisfiable]))
-  (* rest of redundancy *)
+      \\ irule check_triv_unsatisfiable_2
+      \\ simp[]
+      \\ metis_tac[]))
+  \\ drule sat_implies_transitive
+  \\ disch_then (fn th => DEP_REWRITE_TAC[th])
   \\ gvs [GSYM unsat_iff_implies]
-  \\ Cases_on ‘subst_opt (subst_fun (mk_subst s)) x'’ \\ fs []
+  \\ rename1 `cc ∈ _ _ _`
+  \\ Cases_on ‘subst_opt (subst_fun (mk_subst s)) cc’ \\ fs []
   >- (
     imp_res_tac subst_opt_NONE
     \\ CCONTR_TAC \\ gvs [satisfiable_def,not_thm]
@@ -1537,11 +2289,11 @@ Proof
   \\ qpat_x_assum`_ ∈ range _` mp_tac
   \\ simp[Once range_def]
   \\ strip_tac
-  \\ rename1`lookup nn _ = SOME xx`
+  \\ rename1`lookup nn _ = SOME cc`
   \\ rename1`subst_opt _ _ = SOME yy`
   \\ `MEM (nn,yy) (toAList (map_opt (subst_opt (subst_fun (mk_subst s)))
-      (mk_core_fml (b ∨ tcb) fml)))` by
-     simp[MEM_toAList,lookup_map_opt]
+                                    (mk_core_fml (b ∨ tcb) fml)))` by
+    simp[MEM_toAList,lookup_map_opt]
   \\ drule_all split_goals_checked \\ rw[]
   >- (
     fs[satisfiable_def,not_thm,satisfies_def]>>
@@ -1553,15 +2305,25 @@ Proof
     fs[unsatisfiable_def,satisfiable_def,not_thm,satisfies_def]>>
     drule subst_opt_SOME >>
     metis_tac[not_thm,imp_thm,in_core_only_fml_or_left])
-  \\ drule_all lookup_extract_pids_l>>rw[]
-  \\ drule extract_clauses_MEM_INL
-  \\ disch_then drule
+  \\ drule_all lookup_extract_scoped_pids_l>>rw[]
+  \\ drule_all extract_scopes_MEM_INL
   \\ strip_tac
-  \\ first_x_assum drule
-  \\ gvs[unsatisfiable_def, MEM_toAList,lookup_map_opt,AllCaseEqs()]
+  \\ first_x_assum drule_all
+  \\ simp [unsatisfiable_def]
+  \\ qpat_x_assum ‘_ = (_,skipped)’ kall_tac
+  \\ gvs[mk_scope_def, MEM_toAList,lookup_map_opt,AllCaseEqs()]
   \\ fs[GSYM lookup_mk_core_fml]
-  \\ metis_tac[INSERT_SING_UNION,UNION_COMM,subst_opt_SOME,lookup_mk_core_fml_inj]
+  \\ gvs[mk_scope_def,AllCaseEqs()]
+  \\ rw[CONTRAPOS_THM,satisfiable_def]
+  \\ metis_tac[subst_opt_SOME,lookup_mk_core_fml_inj]
 QED
+
+Theorem check_red_correct = check_red_correct_extra
+  |> Q.SPEC ‘{}’ |> SRULE [];
+
+Theorem check_red_correct_max = check_red_correct_extra
+  |> Q.SPEC ‘UNIV DIFF set (MAP FST (s:(num # (bool + num lit)) list))’
+  |> SRULE [IN_DISJOINT];
 
 Theorem core_only_fml_T_cong:
   (∀n x. lookup n fml = SOME (x,T) ⇔ lookup n fml' = SOME (x,T))
@@ -1573,14 +2335,14 @@ Proof
 QED
 
 Theorem sat_obj_po_refl:
-  OPTION_ALL good_spo ord ⇒
+  OPTION_ALL good_aspo ord ⇒
   sat_obj_po pres ord obj f f
 Proof
   rw[sat_obj_po_def]>>
-  qexists_tac`w`>>
+  first_x_assum (irule_at Any)>>
   simp[opt_le_def]>>
-  Cases_on`ord`>>gs[good_spo_def]>>
-  metis_tac[reflexive_def,reflexive_po_of_spo,PAIR]
+  Cases_on`ord`>>gs[]>>
+  metis_tac[good_aspo_imp_po_of_aspo_refl]
 QED
 
 Theorem core_only_fml_T_insert_F:
@@ -1632,7 +2394,7 @@ Proof
 QED
 
 Theorem sat_obj_po_SUBSET:
-  OPTION_ALL good_spo ord ∧
+  OPTION_ALL good_aspo ord ∧
   b ⊆ a ⇒
   sat_obj_po pres ord obj a b
 Proof
@@ -1640,29 +2402,28 @@ Proof
   imp_res_tac satisfies_SUBSET>>
   first_x_assum (irule_at Any)>>
   simp[]>>
-  Cases_on`ord`>>fs[good_spo_def]>>
-  metis_tac[reflexive_def,reflexive_po_of_spo,PAIR]
+  Cases_on`ord`>>fs[]>>
+  metis_tac[ good_aspo_imp_po_of_aspo_refl]
 QED
 
 Theorem check_sstep_correct:
-  ∀step pres ord obj fml id.
   id_ok fml id ∧
-  OPTION_ALL good_spo ord ∧
+  OPTION_ALL good_aspo_subst ordsub ∧
   (tcb ⇒ core_only_fml T fml ⊨ core_only_fml F fml) ⇒
-  case check_sstep step pres ord obj tcb fml id of
+  case check_sstep step pres ordsub obj tcb fml id of
   | SOME (fml',id') =>
       id ≤ id' ∧
       id_ok fml' id' ∧
-      sat_obj_po (pres_set_spt pres) ord obj
+      sat_obj_po (pres_set_spt pres) (OPTION_MAP FST ordsub) obj
         (core_only_fml F fml)
         (core_only_fml F fml') ∧
-      sat_obj_po (pres_set_spt pres) ord obj
+      sat_obj_po (pres_set_spt pres) (OPTION_MAP FST ordsub) obj
         (core_only_fml T fml')
         (core_only_fml T fml) ∧
       (tcb ⇒ core_only_fml T fml' ⊨ core_only_fml F fml')
   | NONE => T
 Proof
-  Cases>>rw[check_sstep_def]
+  Cases_on`step`>>rw[check_sstep_def]
   >- (
     drule (CONJUNCT1 check_lstep_correct)>>
     disch_then(qspecl_then [`l`,`F`] assume_tac)>>
@@ -1676,11 +2437,13 @@ Proof
       first_x_assum drule>>
       rw[]>>
       first_x_assum (irule_at Any)>> simp[]>>
-      Cases_on`ord`>>
-      fs[]>>
-      metis_tac[good_spo_def,reflexive_def,reflexive_po_of_spo,PAIR])>>
-    CONJ_TAC >-
-      metis_tac[sat_obj_po_refl]>>
+      Cases_on`ordsub`>>
+      fs[good_aspo_subst_def]>>
+      metis_tac[ good_aspo_imp_po_of_aspo_refl])>>
+    CONJ_TAC >- (
+      simp[]>> irule sat_obj_po_refl>>
+      Cases_on`ordsub`>>
+      fs[good_aspo_subst_def])>>
     rw[]>>fs[]>>
     gvs[satisfiable_def,sat_implies_def,sat_obj_po_def,core_only_fml_def]>>
     first_x_assum match_mp_tac>>
@@ -1695,25 +2458,27 @@ Proof
     gvs[insert_fml_def]>>
     DEP_REWRITE_TAC[core_only_fml_F_insert_b,core_only_fml_T_insert_b]>>
     fs[id_ok_def]>>
-    CONJ_TAC >- (
+    CONJ_TAC
+    >- (
       every_case_tac>>
-      gvs[satisfiable_def,sat_implies_def,sat_obj_po_def]>>
+      gvs[satisfiable_def,sat_implies_def,sat_obj_po_def,SF DNF_ss]>>
       Cases_on`tcb`>>fs[]
       >-
         metis_tac[satisfies_SUBSET,core_only_fml_T_SUBSET_F]
       >- (
         rw[]>>qexists_tac`w`>>fs[]>>
-        Cases_on`ord`>>
-        fs[]>>
-        metis_tac[satisfies_SUBSET,core_only_fml_T_SUBSET_F,good_spo_def,reflexive_def,reflexive_po_of_spo,PAIR])
+        Cases_on`ordsub`>>
+        fs[good_aspo_subst_def]>>
+        metis_tac[satisfies_SUBSET,core_only_fml_T_SUBSET_F, good_aspo_imp_po_of_aspo_refl])
       >- (
         rw[]>>qexists_tac`w`>>fs[]>>
-        Cases_on`ord`>>
-        fs[]>>
-        metis_tac[satisfies_SUBSET,core_only_fml_T_SUBSET_F,good_spo_def,reflexive_def,reflexive_po_of_spo,PAIR]))>>
+        Cases_on`ordsub`>>
+        fs[good_aspo_subst_def]>>
+        metis_tac[satisfies_SUBSET,core_only_fml_T_SUBSET_F, good_aspo_imp_po_of_aspo_refl]))>>
     CONJ_TAC >- (
       match_mp_tac sat_obj_po_SUBSET>>
-      rw[SUBSET_DEF])>>
+      rw[SUBSET_DEF]>>
+      Cases_on`ordsub`>>gvs[good_aspo_subst_def])>>
     rw[]>>fs[]>>
     metis_tac[sat_implies_INSERT])
 QED
@@ -1766,8 +2531,18 @@ Proof
   metis_tac[opt_lt_trans]
 QED
 
+Theorem good_aspo_imp_po_of_aspo_trans:
+  good_aspo x ∧
+  po_of_aspo x w w' ∧
+  po_of_aspo x w' w'' ⇒
+  po_of_aspo x w w''
+Proof
+  PairCases_on`x`>>rw[good_aspo_def]>>
+  metis_tac[transitive_def]
+QED
+
 Theorem sat_obj_po_trans:
-  OPTION_ALL good_spo ord ⇒
+  OPTION_ALL good_aspo ord ⇒
   sat_obj_po pres ord obj x y ∧
   sat_obj_po pres ord obj y z ⇒
   sat_obj_po pres ord obj x z
@@ -1781,40 +2556,43 @@ Proof
   simp[]>>
   reverse CONJ_TAC >-
     metis_tac[integerTheory.INT_LE_TRANS]>>
-  Cases_on`ord`>>fs[good_spo_def]>>
-  metis_tac[transitive_def]
+  Cases_on`ord`>>fs[]>>
+  metis_tac[good_aspo_imp_po_of_aspo_trans]
 QED
 
-Type subproof =
-  ``:(((num + num) # num) option, lstep list) alist``;
+Type assg_raw = ``:((num # bool) list)``;
+
+Type aord = ``:(npbc list # npbc list # var list # var list # var list)``;
+
+Type specproof = ``:((npbc # subst_raw # scope # (num option)) list)``
 
 Datatype:
   cstep =
   (* Derivation steps *)
-  | Dom npbc subst_raw subproof (num option)
+  | Dom npbc subst_raw scope (num option)
   | Sstep sstep
 
   (* Deletion steps *)
-  | CheckedDelete num subst_raw subproof (num option)
+  | CheckedDelete num subst_raw scope (num option)
   | UncheckedDelete (num list)
   | Transfer (num list) (* Move to core *)
 
   (* Configuration steps *)
   | StrengthenToCore bool
-  | LoadOrder mlstring (num list)
+  | LoadOrder mlstring ((var # bool) list)
   | UnloadOrder
-  | StoreOrder mlstring (npbc list # var list # var list)
-      (var list)
-      (* transitivity proof *)
-      subproof
-      (* reflexivity proof *)
-      subproof
+  | StoreOrder
+    mlstring (* order name *)
+    ((var list) # (var list) # (var list)) (* left, right, aux vars *)
+    specproof  (* specification and proof *)
+    (npbc list) (* the definition of the order *)
+    subproof (* reflexivity proof *)
+    ((var list) # (var list) # (var list) # subproof)
+     (* transitivity proof ws, bs, cs, proof *)
 
   (* Objective steps *)
-  | Obj (bool spt) bool (int option)
-  | ChangeObj bool ((int # var) list # int)
-      (* sub proof*)
-      subproof
+  | Obj assg_raw bool (int option)
+  | ChangeObj bool ((int # var) list # int) subproof
     (* the bool indicates T (new) or F (diff) mode *)
   | CheckObj ((int # var) list # int)
 
@@ -1836,10 +2614,28 @@ Proof
   metis_tac[]
 QED
 
+Definition to_flat_d_def:
+  to_flat_d d n l acc =
+    case l of
+    | [] => REVERSE acc
+    | ((m,x)::xs) => to_flat_d d (m+1) xs (x :: prepend (m-n) d acc)
+End
+
+Definition mk_obj_vec_def:
+  mk_obj_vec (wm:((num # bool) list)) =
+    let wms = sort (λx y. FST x ≤ FST y) wm in
+    Vector (to_flat_d F 0 wms [])
+End
+
+Definition vec_lookup_d_def:
+  vec_lookup_d d vec n =
+    if n < length vec then sub vec n else d
+End
+
 Definition check_obj_def:
   check_obj obj wm cs bopt =
-  let w = (λn.
-    case lookup n wm of NONE => F | SOME b => b) in
+  let wv = mk_obj_vec wm in
+  let w = vec_lookup_d F wv in
   let new = eval_obj obj w in
   if
     EVERY (satisfies_npbc w) cs
@@ -1879,27 +2675,29 @@ QED
 (* The list of subgoals for dominance
   numbered #0 ... *)
 Definition neg_dom_subst_def:
-  (neg_dom_subst w ((f,us,vs),xs) =
-  let us_xs = list_list_insert us xs in
-  let vs_xs = list_list_insert vs xs in
+  neg_dom_subst w ((((f,g,us,vs,as),xs),us_xs,vs_xs,xsv):ord_s) =
   let ww = (λn.
-    case lookup n vs_xs of
-      SOME v =>
-        (case w v of NONE => SOME (INR (Pos v)) | r => r)
+    case vec_lookup vs_xs n of
+      SOME (v,b) =>
+        SOME (
+            mk_bit_lit b
+              (case w v of
+                NONE => INR (Pos v)
+              | SOME res => res))
     | NONE =>
-        (case lookup n us_xs of
-         | SOME v => SOME (INR (Pos v))
-         | NONE => NONE)) in
-  MAP (subst ww) f)
+        OPTION_MAP (INR o mk_lit) (vec_lookup us_xs n))
+  in
+    (MAP (subst ww) f, MAP (subst ww) g)
 End
 
 Definition dom_subgoals_def:
-  dom_subgoals spo s def obj =
+  dom_subgoals (aspo:ord_s) s def obj =
+  let (fs,gs) = dom_subst T s (SOME aspo) in
+  let (fs',gs') = neg_dom_subst s aspo in
   let cobj =
     case obj of NONE => []
     | SOME l => [[not (obj_constraint s l)]] in
-  let negord = neg_dom_subst s spo in
-  (MAP (λc. [not c]) (dom_subst s (SOME spo))) ++ negord :: cobj
+  ((MAP (λc. [not c]) fs) ++ fs' :: cobj, [gs; gs'] , LENGTH fs)
 End
 
 (* non-core *)
@@ -1970,57 +2768,191 @@ QED
 
 (* the substituted RHS for reflexivity *)
 Definition refl_subst_def:
-  (refl_subst (f,us,vs) =
+  (refl_subst (f,g,us,vs,as) =
   let vs_us = list_list_insert vs us in
   let rsubst =
     (λn. case lookup n vs_us of
          | SOME x => SOME (INR (Pos x))
          | NONE => NONE) in
-  let rhs = MAP (subst rsubst) f in
-  rhs)
-End
-
-(* the substituted LHS and RHS for transitivity *)
-Definition trans_subst_def:
-  (trans_subst (f,us,vs) ws =
-  let us_vs = list_list_insert us vs in
-  let vs_ws = list_list_insert vs ws in
-  let lsubst =
-    (λn. case lookup n us_vs of
-         | SOME x => SOME (INR (Pos x))
-         | NONE => case lookup n vs_ws of
-                   | SOME x => SOME (INR (Pos x))
-                   | NONE => NONE) in
-  let lhs = f ++ MAP (subst lsubst) f in
-  let rsubst =
-    (λn. case lookup n vs_ws of
-         | SOME x => SOME (INR (Pos x))
-         | NONE => NONE) in
+  let lhs = MAP (subst rsubst) g in
   let rhs = MAP (subst rsubst) f in
   (lhs,rhs))
 End
 
-Definition check_good_ord_def:
-  check_good_ord (f,us,vs) ⇔
-  LENGTH us = LENGTH vs ∧
-  let uvs = us ++ vs in
-  ALL_DISTINCT uvs ∧
-  EVERY (λx. MEM x uvs) (FLAT (MAP (MAP SND o FST) f))
+(* the substituted LHS and RHS for transitivity *)
+Definition trans_subst_def:
+  (trans_subst (f,g,us,vs,as) ws bs cs =
+  let us_vs = list_list_insert us vs in
+  let vs_ws = list_list_insert vs ws in
+  let as_bs = list_list_insert as bs in
+  let as_cs = list_list_insert as cs in
+  let lsubst =
+    (λn.
+      case lookup n us_vs of
+        SOME x => SOME (INR (Pos x))
+      | NONE =>
+        case lookup n vs_ws of
+          SOME x => SOME (INR (Pos x))
+        | NONE =>
+          case lookup n as_bs of
+            SOME x => SOME (INR (Pos x))
+          | NONE => NONE) in
+  let rsubst =
+    (λn.
+      case lookup n vs_ws of
+        SOME x => SOME (INR (Pos x))
+      | NONE =>
+        case lookup n as_cs of
+          SOME x => SOME (INR (Pos x))
+        | NONE => NONE) in
+  let lhs =
+    g ++ MAP (subst lsubst) g ++
+    MAP (subst rsubst) g ++
+    f ++ MAP (subst lsubst) f in
+  let rhs = MAP (subst rsubst) f in
+  (lhs,rhs))
 End
 
-Theorem check_good_ord_good_ord:
-  check_good_ord ord ⇒
-  good_ord ord
+Definition mk_aord_def:
+  mk_aord (us,vs,as) f (gspec:specproof) =
+  ((f, MAP FST gspec, us,vs,as): aord)
+End
+
+Definition check_support_def:
+  check_support as s ⇔
+  EVERY (λx. vec_lookup as (FST x) = SOME ()) s
+End
+
+Definition check_spec_aux_def:
+  (check_spec_aux as (fml,id) [] = T) ∧
+  (check_spec_aux as (fml,id) (((c,s,pfs,idopt)::gs):specproof) =
+    if check_support as s then
+      case check_red (NONE:num_set option) NONE NONE F F fml id c s pfs idopt of
+        NONE => F
+      | SOME id' =>
+        check_spec_aux as (insert_fml F fml id' c) gs
+    else F)
+End
+
+Definition check_spec_def:
+  check_spec (us,vs,as) gspec =
+  let asv = spt_to_vec (fromAList (MAP (\n. n,()) as)) in
+  if check_spec_aux asv (LN,1) gspec
+  then SOME asv
+  else NONE
+End
+
+Definition check_good_aord_def:
+  check_good_aord (f,g,us,vs,as) ⇔
+  LENGTH us = LENGTH vs ∧
+  let uvs = us ++ vs ++ as in
+  ALL_DISTINCT uvs ∧
+  EVERY (λx. MEM x uvs) (FLAT (MAP (MAP SND o FST) f)) ∧
+  EVERY (λx. MEM x uvs) (FLAT (MAP (MAP SND o FST) g))
+End
+
+Theorem check_spec_aux:
+  ∀gspec fml_i.
+    check_spec_aux asv fml_i gspec ∧ id_ok (FST fml_i) (SND fml_i) ∧
+    asv = spt_to_vec (fromAList (MAP (\n. n,()) as)) ⇒
+    ∀w. satisfies w (core_only_fml F (FST fml_i)) ⇒
+        ∃w'.
+          (∀x. x ∉ set as ⇒ (w x ⇔ w' x)) ∧
+          satisfies w' (set (MAP FST gspec) ∪ core_only_fml F (FST fml_i))
 Proof
-  PairCases_on`ord`>>EVAL_TAC>>
-  simp[EVERY_MEM,MEM_FLAT,SUBSET_DEF,PULL_EXISTS,FORALL_PROD,npbc_vars_def,MEM_MAP]>>rw[]>>
-  metis_tac[]
+  Induct
+  >- (Cases \\ gvs [check_spec_aux_def]
+      \\ rw [] \\ qexists_tac ‘w’ \\ gvs [])
+  \\ PairCases
+  \\ Cases \\ gvs [check_spec_aux_def]
+  \\ CASE_TAC \\ rw []
+  \\ drule_at (Pos $ el 4) check_red_correct_max
+  \\ impl_tac >- simp []
+  \\ strip_tac
+  \\ rename [‘_ opt = SOME j’]
+  \\ reverse $ Cases_on ‘opt’ \\ gvs []
+  >-
+   (last_x_assum drule
+    \\ disch_then $ qspec_then ‘w’ mp_tac
+    \\ fs [insert_fml_def]
+    \\ DEP_REWRITE_TAC [core_only_fml_F_insert_b]
+    \\ conj_tac >- gvs [id_ok_def]
+    \\ impl_tac
+    >-
+     (irule_at Any id_ok_insert_1 \\ gvs [id_ok_def]
+      \\ gvs [sat_implies_def])
+    \\ strip_tac
+    \\ rename [‘satisfies w1 (set (MAP FST gspec))’]
+    \\ qexists_tac ‘w1’
+    \\ gvs [])
+  \\ gvs [sat_obj_po_def,SF DNF_ss]
+  \\ last_x_assum drule
+  \\ pop_assum drule \\ strip_tac
+  \\ rename [‘satisfies_npbc w1 (h0,h1)’]
+  \\ gvs [insert_fml_def]
+  \\ DEP_REWRITE_TAC [core_only_fml_F_insert_b]
+  \\ conj_tac >- gvs [id_ok_def]
+  \\ disch_then $ qspec_then ‘w1’ mp_tac
+  \\ impl_tac
+  >-
+   (irule_at Any id_ok_insert_1 \\ gvs [id_ok_def]
+    \\ gvs [sat_implies_def])
+  \\ strip_tac
+  \\ rename [‘satisfies w2 (set (MAP FST gspec))’]
+  \\ qexists_tac ‘w2’
+  \\ conj_tac
+  >- (
+    rw[]>>
+    gvs [check_support_def,EVERY_MEM,spt_to_vecTheory.vec_lookup_num_man_to_vec,lookup_fromAList] >>
+    first_x_assum drule>>
+    disch_then (SUBST1_TAC o SYM)>>
+    first_x_assum irule>>
+    simp[MEM_MAP,FORALL_PROD]>>CCONTR_TAC>>
+    gvs[]>>
+    first_x_assum drule>>
+    strip_tac>>
+    drule ALOOKUP_MEM>>
+    gvs[MEM_MAP])
+  \\ gvs [satisfies_def]
+QED
+
+Theorem check_spec_is_spec:
+  check_spec (us,vs,as) gspec = SOME asv ⇒
+  is_spec (set (MAP FST gspec)) as
+Proof
+  simp [check_spec_def,is_spec_def,the_spec_def]
+  \\ strip_tac
+  \\ drule check_spec_aux
+  \\ gvs [core_only_fml_def,id_ok_def] \\ rw []
+  \\ pop_assum $ qspecl_then [`as`,‘w’] strip_assume_tac
+  \\ gvs[]
+  \\ qexists_tac ‘MAP w' as’ \\ gvs []
+  \\ qsuff_tac ‘assign (ALOOKUP (ZIP (as,MAP INL (MAP w' as)))) w = w'’ >- gvs []
+  \\ simp [FUN_EQ_THM,assign_def]
+  \\ rw [] \\ CASE_TAC >- (gvs [ALOOKUP_NONE,MAP_ZIP])
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ gvs [MEM_ZIP,EL_MAP]
+QED
+
+Theorem check_good_aord:
+  check_spec vars gspec = SOME asv ∧
+  check_good_aord (mk_aord vars f gspec) ⇒
+  good_aord (mk_aord vars f gspec)
+Proof
+  rw[oneline mk_aord_def]>>
+  every_case_tac>>
+  gvs[check_good_aord_def,good_aord_def]>>
+  gvs[good_aord_def,check_good_aord_def,EVERY_MEM,MEM_FLAT,SUBSET_DEF,PULL_EXISTS,FORALL_PROD,npbf_vars_def,npbc_vars_def,MEM_MAP]>>rw[]
+  >- metis_tac[]
+  >- metis_tac[]
+  >- metis_tac[check_spec_is_spec]
 QED
 
 Definition check_reflexivity_def:
   check_reflexivity ord pfs id =
-  let rhs = refl_subst ord in
-  let fml = LN in
+  let (lhs,rhs) = refl_subst ord in
+  let fml = build_fml F id lhs in
+  let id = LENGTH lhs + id in
   let dsubs = MAP (λc. [not c]) rhs in
   case extract_clauses (λn. NONE) F LN dsubs pfs [] of
     NONE => F
@@ -2036,34 +2968,40 @@ Definition check_reflexivity_def:
   | _ => F)
 End
 
-Definition check_transitivity_def:
-  check_transitivity ord ws pfs =
-  let (lhs,rhs) = trans_subst ord ws in
-  let fml = build_fml F 1 lhs in
-  let id = LENGTH lhs + 1 in
-  let dsubs = MAP (λc. [not c]) rhs in
-  case extract_clauses (λn. NONE) F LN dsubs pfs [] of
-    NONE => NONE
-  | SOME cpfs =>
-  (case check_subproofs cpfs F fml id of
-    SOME (fml',id') =>
-    let (l,r) = extract_pids pfs LN LN in
-    if
-       EVERY (λ(id,cs).
-              lookup id r ≠ NONE ∨
-              EXISTS check_contradiction cs
-              )
-              (enumerate 0 dsubs)
-    then SOME id'
-    else NONE
-  | _ => NONE)
+Definition check_ws_def:
+  check_ws (f,g,us,vs,as) ws bs cs ⇔
+  LENGTH us = LENGTH ws ∧
+  LENGTH bs = LENGTH as ∧
+  LENGTH cs = LENGTH as ∧
+  ALL_DISTINCT (ws ++ bs ++ cs) ∧
+  EVERY (λy. ¬ MEM y us ∧ ¬ MEM y vs ∧ ¬ MEM y as) ws ∧
+  EVERY (λy. ¬ MEM y us ∧ ¬ MEM y vs ∧ ¬ MEM y as) bs ∧
+  EVERY (λy. ¬ MEM y us ∧ ¬ MEM y vs ∧ ¬ MEM y as) cs
 End
 
-Definition check_ws_def:
-  check_ws (f,us,vs) ws ⇔
-  LENGTH us = LENGTH ws ∧
-  ALL_DISTINCT ws ∧
-  EVERY (λy. ¬ MEM y us ∧ ¬ MEM y vs) ws
+Definition check_transitivity_def:
+  check_transitivity aord (ws,bs,cs,pfs) =
+  if check_ws aord ws bs cs then
+    let (lhs,rhs) = trans_subst aord ws bs cs in
+    let fml = build_fml F 1 lhs in
+    let id = LENGTH lhs + 1 in
+    let dsubs = MAP (λc. [not c]) rhs in
+    case extract_clauses (λn. NONE) F LN dsubs pfs [] of
+      NONE => NONE
+    | SOME cpfs =>
+    (case check_subproofs cpfs F fml id of
+      SOME (fml',id') =>
+      let (l,r) = extract_pids pfs LN LN in
+      if
+         EVERY (λ(id,cs).
+                lookup id r ≠ NONE ∨
+                EXISTS check_contradiction cs
+                )
+                (enumerate 0 dsubs)
+      then SOME id'
+      else NONE
+    | _ => NONE)
+  else NONE
 End
 
 (* f + c ≤ f' + c' <--> f' + f ≥ *)
@@ -2323,6 +3261,8 @@ Definition check_change_pres_def:
     else NONE
 End
 
+Type aord_s = ``:aord # unit option vector``;
+
 Datatype:
   proof_conf =
     <|
@@ -2333,13 +3273,35 @@ Datatype:
      ; obj : ((int # num) list # int) option (* the objective *)
      ; bound : int option  (* bound on obj *)
      ; dbound : int option (* bound on obj for unchecked del *)
-     ; ord : spo option
-     ; orders : (mlstring # (npbc list # var list # var list)) list
+     ; ord : ord_s option
+     ; orders : (mlstring # aord_s) list
     |>
 End
 
 Definition check_tcb_idopt_def:
   check_tcb_idopt tcb idopt ⇔ tcb ⇒ idopt ≠ NONE
+End
+
+Definition guard_ord_t_def:
+  guard_ord_t (((f,g,us,vs,as),asv):aord_s) xs ⇔
+  LENGTH xs = LENGTH us ∧
+  EVERY (λxy. vec_lookup asv (FST xy) = NONE) xs
+End
+
+Definition find_scope_1_def:
+  find_scope_1 dindex pfs ⇔
+    EXISTS (λx. (FST x = NONE ∨ FST x = SOME 1) ∧
+                EXISTS (λy. case FST y of
+                            | SOME (INR i,n) => i = dindex
+                            | _ => F) (SND x)) pfs
+End
+
+Definition mk_ordsub_def:
+  mk_ordsub (((f,g,us,vs,as),asv):aord_s) xs =
+  let us_xs = spt_to_vec (list_list_insert us xs) in
+  let vs_xs = spt_to_vec (list_list_insert vs xs) in
+  let xsv = spt_to_vec (fromAList xs) in
+    SOME ((((f,g,us,vs,as), xs), us_xs, vs_xs, xsv, asv):ord_s)
 End
 
 Definition check_cstep_def:
@@ -2350,31 +3312,35 @@ Definition check_cstep_def:
   | Dom c s pfs idopt =>
     (case pc.ord of
       NONE => NONE
-    | SOME spo =>
-    if check_pres pc.pres s then
+    | SOME aspo =>
+    if check_pres pc.pres s ∧ check_fresh_aspo fml c pc.obj s pc.ord then
     ( let nc = not c in
       let (fml_not_c,id1) = insert_fml F fml pc.id (not c) in
       let s = mk_subst s in
       let w = subst_fun s in
-      let dsubs = dom_subgoals spo w c pc.obj in
-      case extract_clauses w F fml dsubs pfs [] of
+      let (dsubs,dscopes,dindex) = dom_subgoals aspo w c pc.obj in
+      case extract_scopes dscopes pfs w F fml dsubs of
         NONE => NONE
       | SOME cpfs =>
-      (case check_subproofs cpfs F fml_not_c id1 of
+      (case check_scopes cpfs F fml_not_c id1 of
         NONE => NONE
       | SOME (fml',id') =>
         let check =
-          (case idopt of NONE =>
-            let cf = mk_core_fml T fml in
-            let goals = toAList (map_opt (subst_opt w) cf) in
-            let (l,r) = extract_pids pfs LN LN in
-            let gfml = mk_core_fml F fml in
-              split_goals gfml nc l goals ∧
-              EVERY (λ(id,cs).
-                lookup id r ≠ NONE ∨
-                check_hash_triv nc cs
-              )
-              (enumerate 0 dsubs)
+          (case idopt of
+            NONE =>
+              let cf = mk_core_fml T fml in
+              let goals = toAList (map_opt (subst_opt w) cf) in
+              let skipped = [dindex] in
+              let (l,r) = extract_scoped_pids pfs LN LN in
+              let gfml = mk_core_fml F fml in
+                split_goals gfml nc l goals ∧
+                find_scope_1 dindex pfs ∧
+                EVERY (λ(id,cs).
+                  lookup id r ≠ NONE ∨
+                  check_hash_triv nc cs ∨
+                  MEM id skipped
+                )
+                (enumerate 0 dsubs)
           | SOME cid =>
             check_contradiction_fml F fml' cid) in
         if check then
@@ -2418,26 +3384,31 @@ Definition check_cstep_def:
       (case ALOOKUP pc.orders name of
         NONE => NONE
       | SOME ord' =>
-        if LENGTH xs = LENGTH (FST (SND ord')) then
+        if guard_ord_t ord' xs
+        then
           SOME (
             map (λ(c,b). (c,T)) fml,
-            pc with ord := SOME (ord',xs))
+            pc with ord := mk_ordsub ord' xs)
         else NONE)
   | UnloadOrder =>
     (case pc.ord of
       NONE => NONE
     | SOME spo =>
       SOME (fml, pc with ord := NONE))
-  | StoreOrder name spo ws pfsr pfst =>
-    if check_good_ord spo ∧ check_ws spo ws
-    then
-      case check_transitivity spo ws pfst of NONE => NONE
-      | SOME id =>
-        if check_reflexivity spo pfsr id then
-          SOME (fml, pc with orders := (name,spo)::pc.orders)
-        else NONE
-    else
-      NONE
+  | StoreOrder name vars gspec f pfsr pfst =>
+    (case check_spec vars gspec of NONE => NONE
+    | SOME asv =>
+      let aord = mk_aord vars f gspec in
+      if check_good_aord aord
+      then
+        case check_transitivity aord pfst of
+          NONE => NONE
+        | SOME id =>
+          if check_reflexivity aord pfsr id then
+            SOME (fml, pc with orders := (name,((aord,asv):aord_s))::pc.orders)
+          else NONE
+      else
+        NONE)
   | Obj w mi bopt =>
     (case check_obj pc.obj w
       (MAP SND (toAList (mk_core_fml T fml))) bopt of
@@ -2562,11 +3533,12 @@ Proof
   metis_tac[]
 QED
 
-Definition good_ord_t_def:
-  good_ord_t ord ⇔
+Definition good_aord_t_def:
+  good_aord_t ((f,g,us,vs,as),asv) ⇔
+  asv = spt_to_vec (fromAList (MAP (\n. n,()) as)) ∧
   ∀xs.
-  LENGTH xs = LENGTH (FST (SND ord)) ⇒
-  good_spo (ord,xs)
+  guard_ord_t ((f,g,us,vs,as),asv) xs ⇒
+  good_aspo ((f,g,us,vs,as),xs)
 End
 
 Theorem opt_lt_irref[simp]:
@@ -2700,9 +3672,9 @@ Proof
 QED
 
 Theorem all_core_valid_conf:
-  OPTION_ALL good_spo ord ∧
+  OPTION_ALL good_aspo aspo ∧
   all_core fml ⇒
-  valid_conf chk pres ord obj tcb fml
+  valid_conf chk pres aspo obj tcb fml
 Proof
   rw[valid_conf_def]>>
   fs[all_core_core_only_fml_eq]>>
@@ -2908,16 +3880,38 @@ Proof
   rw[pbcTheory.proj_pres_def]
 QED
 
+Theorem weaken:
+  x ⊆ y ∧ x ⊨ p ⇒ y ⊨ p
+Proof
+  gvs [sat_implies_def,satisfies_def]
+  \\ metis_tac [SUBSET_DEF]
+QED
+
+Theorem unsatisfiable_SUBSET:
+  unsatisfiable s ∧ s ⊆ t ⇒ unsatisfiable t
+Proof
+  CCONTR_TAC
+  \\ gvs [unsatisfiable_def]
+  \\ drule_all satisfiable_SUBSET \\ gvs []
+QED
+
+Theorem OPTION_ALL_good_aspo_subst_good_aspo:
+  OPTION_ALL good_aspo_subst ords ⇒
+  OPTION_ALL good_aspo (OPTION_MAP FST ords)
+Proof
+  Cases_on`ords`>>rw[good_aspo_subst_def]
+QED
+
 Theorem check_cstep_correct:
   id_ok fml pc.id ∧
-  OPTION_ALL good_spo pc.ord ∧
-  EVERY (good_ord_t o SND) pc.orders ∧
-  valid_conf pc.chk pc.pres pc.ord pc.obj pc.tcb fml ⇒
+  OPTION_ALL good_aspo_subst pc.ord ∧
+  EVERY (good_aord_t o SND) pc.orders ∧
+  valid_conf pc.chk pc.pres (OPTION_MAP FST pc.ord) pc.obj pc.tcb fml ⇒
   case check_cstep cstep fml pc of NONE => T
   | SOME (fml',pc') =>
       pc.id ≤ pc'.id ∧
       id_ok fml' pc'.id ∧
-      valid_conf pc'.chk pc'.pres pc'.ord pc'.obj pc'.tcb fml' ∧
+      valid_conf pc'.chk pc'.pres (OPTION_MAP FST pc'.ord) pc'.obj pc'.tcb fml' ∧
       opt_le pc'.bound pc.bound ∧
       opt_le pc'.dbound pc.dbound ∧
       (opt_lt pc'.bound pc.bound ⇒
@@ -2935,8 +3929,8 @@ Theorem check_cstep_correct:
         (pres_set_spt pc.pres)
           pc.obj (core_only_fml T fml)) ∧
       (pc'.chk ⇒ pc.chk) ∧ (¬pc'.chk ⇒ pc.bound = pc'.bound) ∧
-      OPTION_ALL good_spo pc'.ord ∧
-      EVERY (good_ord_t o SND) pc'.orders
+      OPTION_ALL good_aspo_subst pc'.ord ∧
+      EVERY (good_aord_t o SND) pc'.orders
 Proof
   Cases_on`cstep`>>
   fs[check_cstep_def]
@@ -2946,58 +3940,66 @@ Proof
     TOP_CASE_TAC>>
     pop_assum mp_tac>>
     IF_CASES_TAC>>gvs[]>>
+    pairarg_tac>>gvs[]>>
     TOP_CASE_TAC>>
     TOP_CASE_TAC>>
     TOP_CASE_TAC>>
     TOP_CASE_TAC>>
     rw[]>>
+    pairarg_tac>>gvs[]>>
     gvs[insert_fml_def]>>
     `id_ok (insert pc.id (not p,F) fml) (pc.id + 1)` by
       fs[id_ok_def]>>
-    drule check_subproofs_correct>>
-    rename1`check_subproofs pfs _ _`>>
-    disch_then(qspecl_then [`pfs`,`F`] mp_tac)>>
+    drule check_scopes_correct>>
+    rename1`check_scopes scpfs`>>
+    disch_then(qspecl_then [`scpfs`,`F`] mp_tac)>>
     gs[]>> strip_tac>>
     rename1`insert cc (p,_) fml`>>
     CONJ_TAC>-
       gvs[id_ok_def,SUBSET_DEF]>>
-    fs[valid_conf_def,valid_req_def]>>
+    fs[valid_conf_def,valid_req_def,good_aspo_subst_def]>>
     simp[opt_le_def,GSYM CONJ_ASSOC]>>
     CONJ_TAC >- (
       rw[]>>fs[]>>
       DEP_REWRITE_TAC[core_only_fml_T_insert_T,core_only_fml_F_insert_b]>>
       fs[id_ok_def]>>
       metis_tac[sat_implies_INSERT])>>
-    `sat_obj_po (pres_set_spt pc.pres) (SOME x) pc.obj
+    `sat_obj_po (pres_set_spt pc.pres) (SOME (FST x)) pc.obj
       (core_only_fml T fml)
       (core_only_fml F (insert cc (p,F) fml))` by (
       reverse (every_case_tac)
       >- (
-        `sat_obj_po (pres_set_spt pc.pres) (SOME x) pc.obj
+        `sat_obj_po (pres_set_spt pc.pres) (SOME (FST x)) pc.obj
           (core_only_fml F fml)
           (core_only_fml F (insert cc (p,F) fml))` by (
           DEP_REWRITE_TAC[core_only_fml_F_insert_b]>>
           CONJ_TAC >- fs[id_ok_def]>>
           match_mp_tac sat_obj_po_insert_contr>>
-          fs[id_ok_def,good_spo_def]>>
+          fs[id_ok_def,good_aspo_def]>>
           drule check_contradiction_fml_unsat>>
           qpat_x_assum`sat_implies _ _` mp_tac>>
+          gvs [good_aspo_imp_po_of_aspo_refl,reflexive_def]>>
           DEP_REWRITE_TAC[core_only_fml_F_insert_b]>>
           simp[]>>
           fs[core_only_fml_def]>>
           gs[sat_implies_def,satisfiable_def,unsatisfiable_def]>>
           metis_tac[])>>
         metis_tac[OPTION_ALL_def,sat_obj_po_trans])>>
-      pairarg_tac>>fs[]>>
       simp[sat_obj_po_def]>>
       DEP_REWRITE_TAC[core_only_fml_F_insert_b]>>
       CONJ_TAC >- fs[id_ok_def]>>
       simp[satisfies_simp]>>
       simp[GSYM CONJ_ASSOC]>>
       PairCases_on`x`>>
-      match_mp_tac (GEN_ALL good_spo_dominance)>>
+      fs[]>>
+      match_mp_tac (GEN_ALL good_aspo_dominance)>>
       simp[]>>
       qexists_tac ‘subst_fun (mk_subst l)’>>fs[]>>
+      conj_tac >-
+       (drule check_fresh_aspo_fresh
+        \\ gvs [fresh_aux_aspo_def]
+        \\ disch_then (qspecl_then [‘F’,‘F’] mp_tac)
+        \\ gvs [])>>
       CONJ_TAC >-
         metis_tac[check_pres_subst_fun]>>
       CONJ_TAC >-
@@ -3037,18 +4039,16 @@ Proof
           fs[range_def]>>
           rw[]>>
           metis_tac[not_thm,imp_thm])
-        \\ drule_all lookup_extract_pids_l>>rw[]
-        \\ drule_all extract_clauses_MEM_INL
+        \\ drule_all lookup_extract_scoped_pids_l>>rw[]
+        \\ drule_all extract_scopes_MEM_INL
         \\ strip_tac
-        \\ last_x_assum drule
-        \\ gvs[unsatisfiable_def,satisfiable_def, MEM_toAList,lookup_map_opt,AllCaseEqs(),satisfies_def,core_only_fml_def]
+        \\ last_x_assum drule \\ simp []
+        \\ disch_then drule \\ simp []
+        \\ gvs[unsatisfiable_def,satisfiable_def, MEM_toAList,lookup_map_opt,
+               AllCaseEqs(),satisfies_def,core_only_fml_def,FORALL_PROD]
         \\ fs[not_thm,range_def,PULL_EXISTS]
         \\ rw[]
         \\ first_x_assum(qspec_then`w` mp_tac) \\ simp[]
-        \\ strip_tac
-        >- (
-          fs[lookup_core_only_def,AllCaseEqs(),PULL_EXISTS]>>
-          metis_tac[])
         \\ rename1`lookup i _ = SOME xxx`
         \\ `xxx = c` by (
           gvs[lookup_mk_core_fml]>>
@@ -3057,100 +4057,129 @@ Proof
         \\ `subst (subst_fun (mk_subst l)) c =
             subst (subst_fun (mk_subst l)) x` by
           metis_tac[subst_opt_SOME]
-        \\ metis_tac[])>>
+        \\ strip_tac \\ gvs []
+        >- (
+          fs[lookup_core_only_def,AllCaseEqs(),PULL_EXISTS]>>
+          metis_tac[])
+        \\ Cases_on ‘scopt’ \\ gvs [mk_scope_def,extract_scope_val_def]
+        \\ gvs [dom_subst_def,neg_dom_subst_def]
+        \\ gvs [MEM_MAP,EXISTS_PROD]
+        \\ first_x_assum drule
+        \\ strip_tac
+        \\ gvs [lookup_list_list_insert,good_ord_s_def,vec_lookup_num_man_to_vec])>>
       CONJ_TAC >- (
         (* order constraints *)
         fs[core_only_fml_def]>>
         simp[GSYM LIST_TO_SET_MAP]>>
         rw[sat_implies_EL,EL_MAP]>>
         last_x_assum(qspec_then`n` mp_tac)>>
+        ‘n < LENGTH dsubs’ by gvs [neg_dom_subst_def,dom_subst_def]>>
         gvs[dom_subst_def]>>
         PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
         strip_tac
         >- (
-          drule_all lookup_extract_pids_r>>
+          drule_all lookup_extract_scoped_pids_r>>
           rw[]>>
-          drule extract_clauses_MEM_INR>>
-          disch_then drule>>
+          drule extract_scopes_MEM_INR>>
+          disch_then $ drule_then drule>>
+          strip_tac>>
+          first_x_assum drule >> simp [] >> strip_tac>>
+          first_x_assum drule >> simp [] >>
+          gvs [neg_dom_subst_def]>>
+          simp [EL_APPEND_EQN]>>
           fs[EL_MAP]>>
-          DEP_REWRITE_TAC [EL_APPEND_EQN] >> simp[]>>
-          simp[EL_MAP]>>
-          rw[]>>
-          first_x_assum drule >> strip_tac>>
-          gs[]>>
+          strip_tac>>
           drule unsatisfiable_not_sat_implies>>
-          simp[lookup_list_list_insert,ALOOKUP_ZIP_MAP]>>
-          simp[range_insert]>>
-          metis_tac[INSERT_SING_UNION,UNION_COMM])
+          gvs[lookup_list_list_insert,good_ord_s_def,vec_lookup_num_man_to_vec]>>
+          gvs [mk_scope_def]>>
+          Cases_on ‘scopt’>>gvs []>>
+          gvs [extract_scope_val_def]
+          \\ strip_tac \\ irule weaken
+          \\ pop_assum $ irule_at Any
+          \\ gvs [SUBSET_DEF])
         >- (
           fs[check_hash_triv_def]
           \\ pop_assum mp_tac
+          \\ gvs [neg_dom_subst_def]
           \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
           \\ simp[EL_MAP]
-          \\ simp[lookup_list_list_insert,ALOOKUP_ZIP_MAP]
+          \\ gvs[lookup_list_list_insert,good_ord_s_def,vec_lookup_num_man_to_vec]
           \\ strip_tac
           \\ match_mp_tac unsatisfiable_not_sat_implies
-          \\ metis_tac[check_triv_unsatisfiable])
+          \\ drule check_triv_unsatisfiable
+          \\ qmatch_goalsub_abbrev_tac ‘set pp’
+          \\ disch_then $ qspec_then
+                ‘{v | ∃n b. lookup n fml = SOME (v,b)} ∪ set pp’ mp_tac
+          \\ simp [AC UNION_COMM UNION_ASSOC])
+        >- (
+          gvs [neg_dom_subst_def])
       )>>
       CONJ_TAC >- (
-        (* negated order constraint *)
-        fs[core_only_fml_def]>>
-        last_x_assum(qspec_then`LENGTH (dom_subst (subst_fun (mk_subst l)) (SOME ((x0,x1,x2),x3)))` mp_tac)>>
-        gs[ADD1]>>
-        PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
-        strip_tac
-        >- (
-          drule_all lookup_extract_pids_r>>
-          simp[]>> rw[]
-          \\ drule extract_clauses_MEM_INR
-          \\ disch_then drule
-          \\ fs[]
-          \\ DEP_REWRITE_TAC [EL_APPEND2]
-          \\ simp[]
-          \\ rw[]
-          \\ first_x_assum drule \\ strip_tac
-          \\ gs[neg_dom_subst_def,lookup_list_list_insert,ALOOKUP_ZIP_MAP,range_insert]
-          \\ metis_tac[INSERT_SING_UNION,UNION_COMM,LIST_TO_SET_MAP])
-        >- (
-          fs[check_hash_triv_def]
-          \\ pop_assum mp_tac
-          \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
-          \\ gs[neg_dom_subst_def,lookup_list_list_insert,ALOOKUP_ZIP_MAP,range_insert,EXISTS_MEM,MEM_MAP]
-          \\ strip_tac \\ rw[]
-          \\ drule check_triv_unsatisfiable_2
-          \\ disch_then match_mp_tac
-          \\ simp[])
-        )>>
+        fs[core_only_fml_def]
+        \\ ‘dindex < LENGTH dsubs’ by gvs [dom_subst_def,neg_dom_subst_def]
+        \\ ‘∃n spf pf none_or_1.
+              MEM (none_or_1,spf) l0 ∧
+              MEM (SOME (INR dindex,n),pf) spf ∧
+              (none_or_1 ≠ NONE ⇒ none_or_1 = SOME 1)’ by
+          (gvs [find_scope_1_def,EXISTS_MEM,EXISTS_PROD]
+           \\ first_x_assum $ irule_at $ Pos hd \\ simp []
+           \\ rename [‘MEM (x,y) _’] \\ Cases_on ‘x’ \\ gvs []
+           \\ rename [‘MEM (SOME x,y) _’] \\ Cases_on ‘x’ \\ gvs []
+           \\ rename [‘MEM (SOME (x,_),y) _’] \\ Cases_on ‘x’ \\ gvs []
+           \\ first_x_assum $ irule_at $ Pos hd)
+        \\ drule extract_scopes_MEM_INR
+        \\ disch_then drule_all \\ strip_tac
+        \\ fs []
+        \\ first_x_assum drule \\ simp []
+        \\ first_x_assum drule \\ simp []
+        \\ disch_then drule \\ simp []
+        \\ gvs[mk_scope_def,AllCaseEqs()]
+        \\ gvs[neg_dom_subst_def,lookup_list_list_insert,good_ord_s_def,vec_lookup_num_man_to_vec,range_insert,dom_subst_def]
+        \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND]
+        \\ DEP_REWRITE_TAC [EL_APPEND2] \\ gvs []
+        \\ strip_tac
+        \\ irule unsatisfiable_SUBSET
+        \\ pop_assum $ irule_at Any
+        \\ gvs [SUBSET_DEF] \\ rw [] \\ gvs []
+        \\ gvs [MEM_MAP]
+        \\ metis_tac [])>>
       (* objective constraint *)
       fs[core_only_fml_def]>>
-      Cases_on`pc.obj`>>
-      simp[]>>
-      last_x_assum(qspec_then`SUC(LENGTH (dom_subst (subst_fun (mk_subst l)) (SOME ((x0,x1,x2),x3))))` mp_tac)>>
-      gs[ADD1]>>
+      Cases_on`pc.obj`>>simp[]>>
+      gvs [neg_dom_subst_def,dom_subst_def]
+      \\ Cases_on ‘pc.obj’ \\ gvs []
+      \\ last_x_assum (qspec_then`LENGTH x0 + 1` mp_tac)
+      \\ DEP_REWRITE_TAC [EL_APPEND2] \\ gvs []>>
       PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
+      asm_rewrite_tac []>>
       strip_tac
       >- (
-        drule_all lookup_extract_pids_r>>
+        drule_all lookup_extract_scoped_pids_r>>
         simp[]>>rw[]
-        \\ drule extract_clauses_MEM_INR
-        \\ disch_then drule
-        \\ fs[]
+        \\ drule extract_scopes_MEM_INR
+        \\ disch_then $ drule_then drule
         \\ DEP_REWRITE_TAC [EL_APPEND2]
         \\ simp[]
-        \\ rw[]
-        \\ first_x_assum drule \\ strip_tac
-        \\ gs[range_insert]
+        \\ strip_tac
+        \\ first_x_assum drule \\ simp [] \\ strip_tac
+        \\ first_x_assum drule \\ simp [] \\ strip_tac
         \\ drule unsatisfiable_not_sat_implies
-        \\ metis_tac[INSERT_SING_UNION,UNION_COMM])
+        \\ strip_tac
+        \\ irule weaken
+        \\ pop_assum $ irule_at Any
+        \\ gvs [SUBSET_DEF] \\ rw [] \\ gvs []
+        \\ Cases_on ‘scopt’ \\ gvs [mk_scope_def]
+        \\ gvs [extract_scope_val_def]
+        \\ rpt disj2_tac
+        \\ pop_assum mp_tac
+        \\ gvs [MEM_MAP,lookup_list_list_insert,good_ord_s_def,vec_lookup_num_man_to_vec])
       >- (
-          fs[check_hash_triv_def]
-          \\ pop_assum mp_tac
-          \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
-          \\ simp[EL_MAP]
-          \\ simp[lookup_list_list_insert,ALOOKUP_ZIP_MAP]
-          \\ strip_tac
-          \\ match_mp_tac unsatisfiable_not_sat_implies
-          \\ metis_tac[check_triv_unsatisfiable])
+          match_mp_tac unsatisfiable_not_sat_implies
+          \\ gvs [check_hash_triv_def]
+          \\ drule check_triv_unsatisfiable
+          \\ qpat_abbrev_tac ‘ss = set x1 ⇂ _’
+          \\ disch_then $ qspec_then ‘ss ∪ {v | ∃n b. lookup n fml = SOME (v,b)}’ mp_tac
+          \\ simp [AC UNION_COMM UNION_ASSOC])
       )>>
     CONJ_TAC >- (
       pop_assum mp_tac>>
@@ -3164,7 +4193,7 @@ Proof
       simp[SUBSET_DEF])>>
     CONJ_TAC >- (
       match_mp_tac (GEN_ALL sat_obj_po_bimp_pres_obj)>>
-      qexists_tac`SOME x`>>
+      qexists_tac`SOME (FST x)`>>
       `core_only_fml F (insert cc (p,F) fml) =
         core_only_fml F (insert cc (p,pc.tcb) fml)` by
         (Cases_on`pc.tcb`>> simp[]>>
@@ -3190,7 +4219,7 @@ Proof
     TOP_CASE_TAC>>fs[]>>
     strip_tac>>
     rw[]>>gvs[pres_set_spt_def]>>
-    metis_tac[sat_obj_po_trans,sat_obj_po_bimp_pres_obj])
+    metis_tac[sat_obj_po_trans,sat_obj_po_bimp_pres_obj,OPTION_ALL_good_aspo_subst_good_aspo])
   >- ( (* CheckedDelete *)
     rw[]>>
     every_case_tac>>fs[]>>
@@ -3218,13 +4247,13 @@ Proof
       fs[lookup_core_only_def,AllCaseEqs(),lookup_delete]>>
       Cases_on`n=n'`>>fs[]>>
       metis_tac[])>>
-    `sat_obj_po (pres_set_spt pc.pres) pc.ord pc.obj
+    `sat_obj_po (pres_set_spt pc.pres) (OPTION_MAP FST pc.ord) pc.obj
       (core_only_fml T (delete n fml))
       (core_only_fml T fml)` by (
       every_case_tac>>gvs[]>>
       match_mp_tac (GEN_ALL sat_obj_po_more_2)>>
       qexists_tac`core_only_fml T fml`>>
-      simp[sat_obj_po_refl]>>
+      simp[OPTION_ALL_good_aspo_subst_good_aspo,sat_obj_po_refl]>>
       gvs[sat_implies_def]>>
       qpat_x_assum`_ = core_only_fml _ _` sym_sub_tac>>
       simp[])>>
@@ -3242,6 +4271,7 @@ Proof
         match_mp_tac satisfies_SUBSET>>
         fs[core_only_fml_def,lookup_delete,SUBSET_DEF]>>
         metis_tac[])>>
+      drule OPTION_ALL_good_aspo_subst_good_aspo>> strip_tac>>
       drule sat_obj_po_trans>>
       disch_then drule_all>>
       strip_tac>>
@@ -3266,15 +4296,14 @@ Proof
       fs[]
       >- fs[valid_req_def,valid_conf_def]>>
       match_mp_tac all_core_valid_conf>>
-      fs[all_core_def,EVERY_MEM,MEM_toAList,FORALL_PROD]>>
+      fs[all_core_def,EVERY_MEM,MEM_toAList,FORALL_PROD,OPTION_ALL_good_aspo_subst_good_aspo]>>
       rw[lookup_FOLDL_delete]>>
       metis_tac[])>>
     match_mp_tac bimp_pres_obj_SUBSET>>
     rw[core_only_fml_def,SUBSET_DEF]>>
     fs[lookup_FOLDL_delete]>>
     metis_tac[])
-  >- (
-    (* Transfer *)
+  >- ( (* Transfer *)
     strip_tac>>
     every_case_tac>>simp[]>>
     rpt (pop_assum mp_tac)>>
@@ -3327,7 +4356,7 @@ Proof
       core_only_fml F fml` by (
       simp[core_only_fml_def,lookup_map,EXTENSION,EQ_IMP_THM,EXISTS_PROD]>>rw[]>>
       metis_tac[PAIR])>>
-    simp[sat_obj_po_refl]>>
+    simp[sat_obj_po_refl,OPTION_ALL_good_aspo_subst_good_aspo]>>
     rw[]>>match_mp_tac bimp_pres_obj_SUBSET>>
     metis_tac[core_only_fml_T_SUBSET_F])
   >- ( (* LoadOrder *)
@@ -3338,14 +4367,15 @@ Proof
     strip_tac>>
     strip_tac>>
     first_x_assum drule>>
-    simp[good_ord_t_def]>>strip_tac>>
+    PairCases_on`x`>>
+    simp[good_aord_t_def]>>strip_tac>>
     fs[valid_conf_def,id_ok_map]>>
     `∀b.
       core_only_fml b (map (λ(c,b). (c,T)) fml) =
       core_only_fml F fml` by
       (simp[core_only_fml_def,lookup_map,EXTENSION,EQ_IMP_THM,EXISTS_PROD]>>rw[]>>
       metis_tac[PAIR])>>
-    simp[sat_obj_po_refl]>>
+    simp[sat_obj_po_refl,mk_ordsub_def,good_aspo_subst_def,good_ord_s_def]>>
     rw[]>>
     match_mp_tac bimp_pres_obj_SUBSET>>
     metis_tac[core_only_fml_T_SUBSET_F])
@@ -3359,24 +4389,25 @@ Proof
   >- ( (* StoreOrder *)
     rw[]>>fs[opt_le_def,bimp_obj_refl]>>
     every_case_tac>>fs[]>>
-    rw[good_ord_t_def,good_spo_def]
-    >-
-      metis_tac[check_good_ord_good_ord]
+    rename1`mk_aord vars f gspec`>>
+    `∃us vs as. vars = (us,vs,as)` by metis_tac[PAIR]>>
+    drule_all check_good_aord>>
+    gvs[mk_aord_def,check_spec_def]>>
+    rw[good_aord_t_def]>>
+    gvs[mk_aord_def,guard_ord_t_def,EVERY_MEM,good_aspo_def,check_spec_def]>>
+    rw[]
     >- ( (* reflexivity *)
-      PairCases_on`p`>>
-      match_mp_tac (reflexive_po_of_spo |> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)>>
-      gvs[check_reflexivity_def]>>
-      every_case_tac>>fs[]>>
+      match_mp_tac (reflexive_po_of_aspo |> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)>>
+      gvs[check_reflexivity_def,AllCasePreds()]>>
       pairarg_tac>>fs[]>>
-      rw[]
-      >-
-        metis_tac[check_good_ord_good_ord]>>
-      fs[refl_subst_def,lookup_list_list_insert]>>
+      pairarg_tac>>fs[]>>
+      fs[refl_subst_def,lookup_list_list_insert,good_aord_def]>>
       every_case_tac>>fs[]>>
       qmatch_asmsub_abbrev_tac`check_subproofs xx _ fmll idd`>>
-      `id_ok fmll idd` by
-        (unabbrev_all_tac>>simp[]>>
-        fs[id_ok_def])>>
+      `id_ok fmll idd` by (
+        unabbrev_all_tac>>simp[]>>
+        match_mp_tac id_ok_build_fml>>
+        gvs[])>>
       drule check_subproofs_correct>>
       disch_then (qspecl_then[`xx`,`F`] mp_tac)>>simp[]>>
       every_case_tac>>
@@ -3397,10 +4428,70 @@ Proof
         rw[]>>
         first_x_assum drule>>
         simp[]>>rw[]>>
-        drule unsatisfiable_not_sat_implies>>
-        simp[core_only_fml_def,Abbr`fmll`] >>
+        irule unsatisfiable_not_sat_implies>>
+        fs[core_only_fml_def,Abbr`fmll`,core_only_fml_build_fml] >>
         once_rewrite_tac [subst_eta] >> fs [] >>
-        gvs [ALOOKUP_APPEND,ALOOKUP_ZIP_MAP])
+        gvs [o_DEF,ALOOKUP_ZIP_MAP_SND,OPTION_MAP_CASE])
+      >- (
+        gvs[EL_MAP]>>
+        match_mp_tac unsatisfiable_not_sat_implies>>
+        simp[]>>
+        drule check_contradiction_unsat>>
+        simp[unsatisfiable_def,satisfiable_def]>>
+        rw[]>>DISJ2_TAC>>
+        once_rewrite_tac [subst_eta] >> fs [] >>
+        gvs [o_DEF,ALOOKUP_ZIP_MAP_SND,OPTION_MAP_CASE])
+      )
+    >- ( (* transitivity *)
+      match_mp_tac (transitive_po_of_aspo |> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)>>
+      rename1`check_transitivity _ vpfst`>>
+      `∃ws bs cs pfst. vpfst = (ws,bs,cs,pfst)` by metis_tac[PAIR]>>
+      gvs[check_transitivity_def,check_ws_def]>>
+      pairarg_tac>>gvs[]>>
+      qexists_tac`ws`>>qexists_tac`cs`>>qexists_tac`bs`>>
+      fs[EVERY_MEM]>>
+      fs[trans_subst_def,lookup_list_list_insert]>>
+      every_case_tac>>fs[]>>
+      pairarg_tac>>gvs[]>>
+      qmatch_asmsub_abbrev_tac`check_subproofs xx _ fmll idd`>>
+      `id_ok fmll idd` by
+        (unabbrev_all_tac>>simp[]>>
+        match_mp_tac id_ok_build_fml>>
+        simp[])>>
+      drule check_subproofs_correct>>
+      disch_then (qspecl_then[`xx`,`F`] mp_tac)>>simp[]>>
+      every_case_tac>>
+      rw[]>>
+      simp[GSYM LIST_TO_SET_MAP]>>
+      rw[sat_implies_EL]>>
+      fs[MEM_enumerate_iff]>>
+      gs[PULL_EXISTS]>>
+      first_x_assum drule>>
+      PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
+      strip_tac
+      >- (
+        rw[]>>
+        drule_all lookup_extract_pids_r>>
+        simp[]>>
+        rw[]>>
+        drule extract_clauses_MEM_INR>>
+        disch_then drule>>
+        simp[EL_MAP]>>
+        rw[]>>
+        fs[EVERY_MEM]>>
+        first_x_assum drule>>
+        simp[]>>rw[]>>
+        drule unsatisfiable_not_sat_implies>>
+        simp[core_only_fml_build_fml,Abbr`fmll`] >>
+        once_rewrite_tac [subst_eta] >> fs [] >>
+        qmatch_goalsub_abbrev_tac ‘A ∪ set (MAP (subst f1) _) ∪ set (MAP (subst f2) _) ∪ D ∪ _’ >>
+        strip_tac >>
+        qmatch_goalsub_abbrev_tac ‘A ∪ set (MAP (subst g1) _) ∪ set (MAP (subst g2) _) ∪ D ∪ _’ >>
+        qsuff_tac ‘f1 = g1 ∧ f2 = g2’ >- (rw [] >> gvs []) >>
+        unabbrev_all_tac >>
+        fs [FUN_EQ_THM] >> rw [] >>
+        gvs [ALOOKUP_APPEND,ALOOKUP_ZIP_MAP_SND,good_aord_def,OPTION_MAP_CASE] >>
+        ntac 4 (CASE_TAC >> fs []) )
       >- (
         gvs[EL_MAP]>>
         match_mp_tac unsatisfiable_not_sat_implies>>
@@ -3408,65 +4499,19 @@ Proof
         drule check_contradiction_unsat>>
         simp[unsatisfiable_def,satisfiable_def]>>
         once_rewrite_tac [subst_eta] >> fs [] >>
-        rw[ALOOKUP_ZIP_MAP] )
-      )>>
-    PairCases_on`p`>>
-    match_mp_tac (transitive_po_of_spo |> SIMP_RULE std_ss [AND_IMP_INTRO] |> GEN_ALL)>>
-    gvs[check_transitivity_def,check_ws_def]>>
-    rename1`ALL_DISTINCT ws`>>
-    qexists_tac`ws`>>fs[EVERY_MEM]>>
-    rw[]
-    >-
-      metis_tac[check_good_ord_good_ord]>>
-    fs[trans_subst_def,lookup_list_list_insert]>>
-    every_case_tac>>fs[]>>
-    qmatch_asmsub_abbrev_tac`check_subproofs xx _ fmll idd`>>
-    `id_ok fmll idd` by
-      (unabbrev_all_tac>>simp[]>>
-      match_mp_tac id_ok_build_fml>>
-      simp[])>>
-    drule check_subproofs_correct>>
-    disch_then (qspecl_then[`xx`,`F`] mp_tac)>>simp[]>>
-    every_case_tac>>
-    rw[]>>
-    simp[GSYM LIST_TO_SET_MAP]>>
-    rw[sat_implies_EL]>>
-    fs[MEM_enumerate_iff]>>
-    pairarg_tac>>gs[PULL_EXISTS]>>
-    first_x_assum drule>>
-    PURE_REWRITE_TAC[METIS_PROVE [] ``((P ⇒ Q) ⇒ R) ⇔ (~P ∨ Q) ⇒ R``]>>
-    strip_tac
-    >- (
-      rw[]>>
-      drule_all lookup_extract_pids_r>>
-      simp[]>>
-      rw[]>>
-      drule extract_clauses_MEM_INR>>
-      disch_then drule>>
-      simp[EL_MAP]>>
-      rw[]>>
-      fs[EVERY_MEM]>>
-      first_x_assum drule>>
-      simp[]>>rw[]>>
-      drule unsatisfiable_not_sat_implies>>
-      simp[core_only_fml_build_fml,Abbr`fmll`] >>
-      once_rewrite_tac [subst_eta] >> fs [] >>
-      gvs [ALOOKUP_APPEND,ALOOKUP_ZIP_MAP] >>
-      qmatch_goalsub_abbrev_tac ‘subst f1’ >> strip_tac >>
-      qmatch_goalsub_abbrev_tac ‘subst f2’ >>
-      qsuff_tac ‘f1 = f2’ >-
-        (rw [] >> gvs []) >>
-      unabbrev_all_tac >>
-      fs [FUN_EQ_THM] >> rw [] >>
-      ntac 4 (CASE_TAC >> fs []) )
-    >- (
-      gvs[EL_MAP]>>
-      match_mp_tac unsatisfiable_not_sat_implies>>
-      simp[]>>
-      drule check_contradiction_unsat>>
-      simp[unsatisfiable_def,satisfiable_def]>>
-      once_rewrite_tac [subst_eta] >> fs [] >>
-      rw[ALOOKUP_ZIP_MAP] ) )
+        rw[]>>DISJ2_TAC>>
+        gvs [o_DEF,ALOOKUP_ZIP_MAP_SND,OPTION_MAP_CASE,ALOOKUP_APPEND,good_aord_def]>>
+        qmatch_goalsub_abbrev_tac ‘subst f1’ >>
+        qmatch_asmsub_abbrev_tac ‘subst f2’ >>
+        qsuff_tac ‘f1 = f2’ >-
+          (rw [] >> gvs []) >>
+        unabbrev_all_tac >>
+        fs [FUN_EQ_THM] >> rw [] >>
+        ntac 4 (CASE_TAC >> fs [])))
+      >- (
+        gvs[EXTENSION,MEM_MAP,vec_lookup_num_man_to_vec,lookup_fromAList,ALOOKUP_NONE,FORALL_PROD]>>
+        metis_tac[])
+    )
   >- ( (* Obj *)
     strip_tac>>
     every_case_tac>>simp[]
@@ -3744,14 +4789,14 @@ QED
 Theorem check_csteps_correct:
   ∀csteps fml pc fml' pc'.
   id_ok fml pc.id ∧
-  OPTION_ALL good_spo pc.ord ∧
-  EVERY (good_ord_t ∘ SND) pc.orders ∧
-  valid_conf pc.chk pc.pres pc.ord pc.obj pc.tcb fml ∧
+  OPTION_ALL good_aspo_subst pc.ord ∧
+  EVERY (good_aord_t ∘ SND) pc.orders ∧
+  valid_conf pc.chk pc.pres (OPTION_MAP FST pc.ord) pc.obj pc.tcb fml ∧
   check_csteps csteps fml pc = SOME(fml',pc') ⇒
     hide (
     pc.id ≤ pc'.id ∧
     id_ok fml' pc'.id ∧
-    valid_conf pc'.chk pc'.pres pc'.ord pc'.obj pc'.tcb fml' ∧
+    valid_conf pc'.chk pc'.pres (OPTION_MAP FST pc'.ord) pc'.obj pc'.tcb fml' ∧
     opt_le pc'.bound pc.bound ∧
     opt_le pc'.dbound pc.dbound ∧
     (opt_lt pc'.bound pc.bound ⇒
@@ -3767,8 +4812,8 @@ Theorem check_csteps_correct:
         (pres_set_spt pc.pres)
           pc.obj (core_only_fml T fml)) ∧
     (pc'.chk ⇒ pc.chk) ∧ (¬pc.chk ⇒ pc.bound = pc'.bound) ∧
-    OPTION_ALL good_spo pc'.ord ∧
-    EVERY (good_ord_t o SND) pc'.orders )
+    OPTION_ALL good_aspo_subst pc'.ord ∧
+    EVERY (good_aord_t o SND) pc'.orders )
 Proof
   Induct
   >- (
@@ -3946,9 +4991,15 @@ QED
 Datatype:
   hconcl =
   | HNoConcl
-  | HDSat (bool spt option)
+  | HDSat (assg_raw option)
   | HDUnsat num
-  | HOBounds (int option) (int option) num (bool spt option)
+  | HOBounds (int option) (int option) num (assg_raw option)
+End
+
+(* Either c is already contradictory, or it implies c' *)
+Definition check_triv2_def:
+  check_triv2 ci c =
+  (check_contradiction ci ∨ imp ci c)
 End
 
 Definition check_implies_fml_def:
@@ -3956,7 +5007,7 @@ Definition check_implies_fml_def:
   (case lookup n fml of
       NONE => F
     | SOME (ci,b) =>
-      imp ci c)
+      check_triv2 ci c)
 End
 
 (* if lower bound is infinity, must prove infeasibility *)
@@ -4023,6 +5074,17 @@ Definition init_conf_def:
     |>
 End
 
+Theorem check_triv2_imp:
+  check_triv2 c1 c2 ∧
+  satisfies_npbc w c1 ⇒
+  satisfies_npbc w c2
+Proof
+  rw[check_triv2_def]
+  >-
+    metis_tac[check_contradiction_unsat]>>
+  metis_tac[imp_thm]
+QED
+
 Theorem check_csteps_check_hconcl:
   id_ok fml id ∧
   check_csteps csteps
@@ -4060,7 +5122,8 @@ Proof
   >- ( (* HOBound *)
     CONJ_TAC >- (
       qpat_x_assum`_ o1 _ _` kall_tac>>
-      fs[check_implies_fml_def]>>every_case_tac>>
+      fs[check_implies_fml_def]>>
+      every_case_tac>>
       fs[lower_bound_def]
       >- (
         Cases_on`pc'.dbound`>>fs[opt_le_def,opt_lt_def]>>
@@ -4087,7 +5150,7 @@ Proof
         simp[sat_obj_le_def]>>
         qexists_tac`w`>>gvs[all_core_core_only_fml_eq])>>
       strip_tac>>fs[sat_obj_le_def,satisfies_def,range_def]>>
-      drule imp_thm>>
+      drule check_triv2_imp>>
       disch_then(qspec_then `w'` mp_tac)>>
       impl_tac>- (
         first_x_assum match_mp_tac>>
@@ -4389,5 +5452,3 @@ Definition constraint_of_spt_def:
     (MAP (λ(v,c). (c,v)) ls,n)
 End
 *)
-
-val _ = export_theory ();

@@ -4,9 +4,11 @@ An example of a queue data structure implemented using CakeML arrays, verified
 using CF.
 
 *)
-open preamble basis
-
-val _ = new_theory "queueProg";
+Theory queueProg
+Ancestors
+  cfApp
+Libs
+  preamble basis
 
 val _ = translation_extends"basisProg";
 
@@ -60,7 +62,8 @@ End
 Theorem lqueue_empty:
    i < LENGTH xs ⇒ lqueue xs i i []
 Proof
-  simp[lqueue_def] >> strip_tac >>
+  rw[lqueue_def] >>
+  DISJ1_TAC>>
   map_every qexists_tac [‘TAKE i xs’, ‘DROP i xs’] >> simp[]
 QED
 
@@ -254,5 +257,3 @@ Proof
   Cases_on `vs` >> fs[integerTheory.INT_SUB] >>
   metis_tac[lqueue_dequeue, LIST_REL_REL_lqueue_HD]
 QED
-
-val _ = export_theory ()

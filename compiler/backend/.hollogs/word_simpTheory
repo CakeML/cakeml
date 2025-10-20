@@ -1,0 +1,83 @@
+<<HOL message: Created theory "word_simp">>
+Saved definition ____ "SmartSeq_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 17 clauses to the original specification.>>
+Saved definition ____ "Seq_assoc_def"
+Saved induction _____ "Seq_assoc_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 17 clauses to the original specification.>>
+Saved theorem _______ "Seq_assoc_pmatch"
+<<HOL message: mk_functional: 
+  pattern completion has added 21 clauses to the original specification.>>
+Saved definition ____ "dest_Seq_def"
+Saved induction _____ "dest_Seq_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 21 clauses to the original specification.>>
+Saved theorem _______ "dest_Seq_pmatch"
+<<HOL message: mk_functional: 
+  pattern completion has added 21 clauses to the original specification.>>
+Saved definition ____ "dest_If_def"
+Saved induction _____ "dest_If_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 21 clauses to the original specification.>>
+Saved theorem _______ "dest_If_pmatch"
+<<HOL message: mk_functional: 
+  pattern completion has added 8 clauses to the original specification.>>
+Saved definition ____ "dest_If_Eq_Imm_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 8 clauses to the original specification.>>
+Saved theorem _______ "dest_If_Eq_Imm_pmatch"
+<<HOL message: mk_functional: 
+  pattern completion has added 26 clauses to the original specification.>>
+Saved definition ____ "dest_Seq_Assign_Const_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 26 clauses to the original specification.>>
+Saved theorem _______ "dest_Seq_Assign_Const_pmatch"
+<<HOL message: mk_functional: 
+  pattern completion has added 4 clauses to the original specification.>>
+Saved definition ____ "strip_const_def"
+Saved induction _____ "strip_const_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 4 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "const_fp_exp_def"
+Saved induction _____ "const_fp_exp_ind"
+Saved definition ____ "const_fp_move_cs_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 16 clauses to the original specification.>>
+Saved definition ____ "const_fp_inst_cs_def"
+Saved induction _____ "const_fp_inst_cs_ind"
+Saved definition ____ "get_var_imm_cs_def"
+Saved definition ____ "is_gc_const_def"
+Saved definition ____ "drop_consts_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 4 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 6 clauses to the original specification.>>
+Saved definition ____ "const_fp_loop_def"
+Saved induction _____ "const_fp_loop_ind"
+Saved definition ____ "const_fp_def"
+Saved definition ____ "rewrite_duplicate_if_max_reassoc_def"
+Saved definition ____ "dest_Raise_num_pmatch_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 21 clauses to the original specification.>>
+Saved theorem _______ "dest_Raise_num_def"
+Saved definition ____ "is_simple_pmatch_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 18 clauses to the original specification.>>
+Saved theorem _______ "is_simple_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 20 clauses to the original specification.>>
+Saved definition ____ "try_if_hoist2_def"
+Saved induction _____ "try_if_hoist2_ind"
+Saved definition ____ "try_if_hoist1_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 18 clauses to the original specification.>>
+Saved definition ____ "simp_duplicate_if_def"
+Saved induction _____ "simp_duplicate_if_ind"
+Saved definition ____ "compile_exp_def"
+Exporting theory "word_simp" ... done.
+Theory "word_simp" took 14.0s to build

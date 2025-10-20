@@ -1,11 +1,11 @@
 (*
   Proofs about the namespace datatype.
 *)
-open preamble;
-open astTheory;
-open namespaceTheory;
-
-val _ = new_theory "namespaceProps";
+Theory namespaceProps
+Ancestors
+  ast namespace
+Libs
+  preamble
 
 Theorem mk_id_11[simp]:
    !a b c d. mk_id a b = mk_id c d ⇔ (a = c) ∧ (b = d)
@@ -797,7 +797,7 @@ Termination
  >> fs [ALOOKUP_def]
  >> every_case_tac
  >> fs []
- >> rw [namespace_size_def]
+ >> rw [namespace_size_def,basicSizeTheory.pair_size_def]
 End
 
 Theorem nsLookup_FOLDR_nsLift:
@@ -838,6 +838,7 @@ Proof
  >> rw [nsLookupMod_def, mk_id_def]
 QED
 
+(*
 Theorem nsSub_compute_thm_general:
    !p R e1 e2.
     nsSub R (FOLDR nsLift e1 (REVERSE p)) (FOLDR nsLift e2 (REVERSE p)) ⇔
@@ -985,6 +986,7 @@ Theorem nsSub_compute_thm:
 Proof
  rw [GSYM nsSub_compute_thm_general]
 QED
+*)
 
 (* -------------- nsAll2 ---------------- *)
 
@@ -1274,4 +1276,3 @@ Proof
     metis_tac [option_nchotomy])
 QED
 
-val _ = export_theory ();

@@ -2,13 +2,12 @@
   Functions for converting various intermediate languages
   into displayLang representations.
 *)
-open preamble astTheory mlintTheory mloptionTheory
-open flatLangTheory closLangTheory
-     displayLangTheory source_to_flatTheory
-     dataLangTheory wordLangTheory labLangTheory
-     stackLangTheory bvlTheory bviTheory clos_to_bvlTheory;
-
-val _ = new_theory"presLang";
+Theory presLang
+Ancestors
+  ast mlint mloption flatLang closLang displayLang source_to_flat
+  dataLang wordLang labLang stackLang bvl bvi clos_to_bvl
+Libs
+  preamble
 
 (* basics *)
 
@@ -98,6 +97,9 @@ Definition lit_to_display_def:
   /\
   (lit_to_display (Word64 w) =
     Item NONE (strlit "Word64") [word_to_display w])
+  /\
+  (lit_to_display (Float64 w) =
+    Item NONE (strlit "Float64") [word_to_display w])
 End
 
 Overload list_to_display = ``λf xs. displayLang$Tuple (MAP f xs)``
@@ -126,7 +128,7 @@ End
 
 Definition fp_bop_to_display_def:
   fp_bop_to_display op = case op of
-    | fpValTree$FP_Add => empty_item (strlit "FP_Add")
+    | ast$FP_Add => empty_item (strlit "FP_Add")
     | FP_Sub => empty_item (strlit "FP_Sub")
     | FP_Mul => empty_item (strlit "FP_Mul")
     | FP_Div => empty_item (strlit "FP_Div")
@@ -188,6 +190,20 @@ Definition shift_to_display_def:
   (shift_to_display Ror = empty_item (strlit "Ror"))
 End
 
+Definition thunk_mode_to_display_def:
+  (thunk_mode_to_display Evaluated = empty_item (strlit "Evaluated"))
+  /\
+  (thunk_mode_to_display NotEvaluated = empty_item (strlit "NotEvaluated"))
+End
+
+Definition thunk_op_to_display_def:
+  (thunk_op_to_display (AllocThunk m) =
+    Item NONE (strlit "AllocThunk") [thunk_mode_to_display m]) ∧
+  (thunk_op_to_display (UpdateThunk m) =
+    Item NONE (strlit "UpdateThunk") [thunk_mode_to_display m]) ∧
+  (thunk_op_to_display ForceThunk = empty_item (strlit "ForceThunk"))
+End
+
 Definition op_to_display_def:
   op_to_display (p:ast$op) =
   case p of
@@ -206,10 +222,6 @@ Definition op_to_display_def:
   | FP_top op => fp_top_to_display op
   | FpFromWord => empty_item (strlit "FpFromWord")
   | FpToWord => empty_item (strlit "FpToWord")
-  | Real_cmp cmp => empty_item (strlit "Real_cmp")
-  | Real_uop op => empty_item (strlit "Real_uop")
-  | Real_bop op => empty_item (strlit "Real_bop")
-  | RealFromFP => empty_item (strlit "RealFromFP")
   | Opapp => empty_item (strlit "Opapp")
   | Opassign => empty_item (strlit "Opassign")
   | Opref => empty_item (strlit "Opref")
@@ -247,11 +259,13 @@ Definition op_to_display_def:
   | Aupdate_unsafe => empty_item (strlit "Aupdate_unsafe")
   | Aw8sub_unsafe => empty_item (strlit "Aw8sub_unsafe")
   | Aw8update_unsafe => empty_item (strlit "Aw8update_unsafe")
+  | XorAw8Str_unsafe => empty_item (strlit "XorAw8Str_unsafe")
   | ListAppend => empty_item (strlit "ListAppend")
   | ConfigGC => empty_item (strlit "ConfigGC")
   | FFI v35 => empty_item (strlit "FFI v35")
   | Eval => empty_item (strlit "Eval")
   | Env_id => empty_item (strlit "Eval")
+  | ThunkOp t => thunk_op_to_display t
 End
 
 Definition lop_to_display_def:
@@ -337,8 +351,7 @@ Definition exp_to_display_def:
       [Tuple (fun_to_display_list fns);
        exp_to_display e]
   | Tannot e _ => Item NONE «Tannot» [exp_to_display e]
-  | Lannot e _ => Item NONE «Lannot» [exp_to_display e]
-  | FpOptimise _ e => Item NONE «FpOptimise» [exp_to_display e]) ∧
+  | Lannot e _ => Item NONE «Lannot» [exp_to_display e]) ∧
   (exp_to_display_list [] = []) ∧
   (exp_to_display_list (x::xs) =
     exp_to_display x :: exp_to_display_list xs) ∧
@@ -352,13 +365,6 @@ Definition exp_to_display_def:
            String (implode n);
            exp_to_display e] ::
     fun_to_display_list xs)
-Termination
-  WF_REL_TAC ‘measure $ λx.
-    case x of
-    INL v => exp_size v
-  | INR (INL v) => list_size exp_size v
-  | INR (INR (INL v)) => exp3_size v
-  | INR (INR (INR v)) => exp1_size v’
 End
 
 Definition source_to_display_dec_def:
@@ -440,6 +446,8 @@ Definition flat_op_to_display_def:
     | FP_uop op => fp_uop_to_display op
     | FP_bop op => fp_bop_to_display op
     | FP_top op => fp_top_to_display op
+    | FpFromWord => empty_item (strlit "FpFromWord")
+    | FpToWord => empty_item (strlit "FpToWord")
     | Opapp => empty_item (strlit "Opapp")
     | Opassign => empty_item (strlit "Opassign")
     | Opref => empty_item (strlit "Opref")
@@ -457,6 +465,7 @@ Definition flat_op_to_display_def:
     | CopyStrAw8 => empty_item (strlit "CopyStrAw8")
     | CopyAw8Str => empty_item (strlit "CopyAw8Str")
     | CopyAw8Aw8 => empty_item (strlit "CopyAw8Aw8")
+    | Aw8xor_unsafe => empty_item (strlit "Aw8xor_unsafe")
     | Ord => empty_item (strlit "Ord")
     | Chr => empty_item (strlit "Chr")
     | Chopb op => Item NONE (strlit "Chopb") [opb_to_display op]
@@ -479,6 +488,7 @@ Definition flat_op_to_display_def:
     | ConfigGC => empty_item (strlit "ConfigGC")
     | FFI s => Item NONE (strlit "FFI") [string_imp s]
     | Eval => empty_item (strlit "Eval")
+    | ThunkOp t => thunk_op_to_display t
     | GlobalVarAlloc n => item_with_num (strlit "GlobalVarAlloc") n
     | GlobalVarInit n => item_with_num (strlit "GlobalVarInit") n
     | GlobalVarLookup n => item_with_num (strlit "GlobalVarLookup") n
@@ -564,13 +574,6 @@ Definition flat_to_display_def:
   (fun_flat_to_display_list ((v1,v2,e)::xs) =
      Tuple [string_imp v1; string_imp v2; flat_to_display e] ::
         fun_flat_to_display_list xs)
-Termination
-  WF_REL_TAC ‘measure $ λx.
-    case x of
-    INL v => flatLang$exp_size v
-  | INR (INL v) => list_size flatLang$exp_size v
-  | INR (INR (INL v)) => flatLang$exp3_size v
-  | INR (INR (INR v)) => flatLang$exp1_size v’
 End
 
 Definition flat_to_display_dec_def:
@@ -637,71 +640,73 @@ End
 
 Definition clos_op_to_display_def:
   clos_op_to_display ns op = case op of
-    | Global num => item_with_num (strlit "Global") num
-    | SetGlobal num => item_with_num (strlit "SetGlobal") num
-    | AllocGlobal => String (strlit "AllocGlobal")
-    | GlobalsPtr => String (strlit "GlobalsPtr")
-    | SetGlobalsPtr => String (strlit "SetGlobalsPtr")
-    | Cons num => item_with_num (strlit "Cons") num
-    | Constant c => Item NONE (strlit "Constant") [const_to_display c]
-    | ConsExtend num => item_with_num (strlit "ConsExtend") num
-    | Build bs => Item NONE (strlit "Build") (MAP const_part_to_display bs)
-    | El => String (strlit "El")
-    | LengthBlock => String (strlit "LengthBlock")
-    | Length => String (strlit "Length")
-    | LengthByte => String (strlit "LengthByte")
-    | RefByte b => Item NONE (strlit "RefByte") [bool_to_display b]
-    | RefArray => String (strlit "RefArray")
-    | DerefByte => String (strlit "DerefByte")
-    | UpdateByte => String (strlit "UpdateByte")
-    | ConcatByteVec => String (strlit "ConcatByteVec")
-    | CopyByte b => Item NONE (strlit "CopyByte") [bool_to_display b]
-    | ListAppend => String (strlit "ListAppend")
-    | FromList num => item_with_num (strlit "FromList") num
-    | FromListByte => String (strlit "FromListByte")
-    | ToListByte => String (strlit "ToListByte")
-    | LengthByteVec => String (strlit "LengthByteVec")
-    | DerefByteVec => String (strlit "DerefByteVec")
-    | TagLenEq n1 n2 => item_with_nums (strlit "TagLenEq") [n1; n2]
-    | ElemAt num => item_with_num (strlit "ElemAt") num
-    | LenEq num => item_with_num (strlit "LenEq") num
-    | TagEq num => item_with_num (strlit "TagEq") num
-    | Ref => String (strlit "Ref")
-    | Update => String (strlit "Update")
+    | GlobOp (Global num) => item_with_num (strlit "Global") num
+    | GlobOp (SetGlobal num) => item_with_num (strlit "SetGlobal") num
+    | GlobOp AllocGlobal => String (strlit "AllocGlobal")
+    | GlobOp GlobalsPtr => String (strlit "GlobalsPtr")
+    | GlobOp SetGlobalsPtr => String (strlit "SetGlobalsPtr")
+    | BlockOp (Cons num) => item_with_num (strlit "Cons") num
+    | BlockOp (ElemAt num) => item_with_num (strlit "ElemAt") num
+    | BlockOp (TagLenEq n1 n2) => item_with_nums (strlit "TagLenEq") [n1; n2]
+    | BlockOp (LenEq num) => item_with_num (strlit "LenEq") num
+    | BlockOp (TagEq num) => item_with_num (strlit "TagEq") num
+    | BlockOp LengthBlock => String (strlit "LengthBlock")
+    | BlockOp BoundsCheckBlock => String (strlit "BoundsCheckBlock")
+    | BlockOp (ConsExtend num) => item_with_num (strlit "ConsExtend") num
+    | BlockOp (FromList num) => item_with_num (strlit "FromList") num
+    | BlockOp ListAppend => String (strlit "ListAppend")
+    | BlockOp (Constant c) => Item NONE (strlit "Constant") [const_to_display c]
+    | BlockOp Equal => String (strlit "Equal")
+    | BlockOp (EqualConst c) => Item NONE (strlit "EqualConst") [const_part_to_display c]
+    | BlockOp (Build bs) => Item NONE (strlit "Build") (MAP const_part_to_display bs)
+    | MemOp Ref => String (strlit "Ref")
+    | MemOp Update => String (strlit "Update")
+    | MemOp El => String (strlit "El")
+    | MemOp Length => String (strlit "Length")
+    | MemOp LengthByte => String (strlit "LengthByte")
+    | MemOp (RefByte b) => Item NONE (strlit "RefByte") [bool_to_display b]
+    | MemOp RefArray => String (strlit "RefArray")
+    | MemOp DerefByte => String (strlit "DerefByte")
+    | MemOp UpdateByte => String (strlit "UpdateByte")
+    | MemOp ConcatByteVec => String (strlit "ConcatByteVec")
+    | MemOp (CopyByte b) => Item NONE (strlit "CopyByte") [bool_to_display b]
+    | MemOp FromListByte => String (strlit "FromListByte")
+    | MemOp ToListByte => String (strlit "ToListByte")
+    | MemOp LengthByteVec => String (strlit "LengthByteVec")
+    | MemOp DerefByteVec => String (strlit "DerefByteVec")
+    | MemOp BoundsCheckArray => String (strlit "BoundsCheckArray")
+    | MemOp (BoundsCheckByte b) => Item NONE (strlit "BoundsCheckByte") [bool_to_display b]
+    | MemOp closLang$ConfigGC => String (strlit "ConfigGC")
+    | MemOp XorByte => String (strlit "XorByte")
     | Label num => Item NONE (strlit "Label") [String (attach_name ns (SOME num))]
     | FFI s => Item NONE (strlit "FFI") [string_imp s]
-    | Equal => String (strlit "Equal")
-    | EqualConst c => Item NONE (strlit "EqualConst") [const_part_to_display c]
-    | Const i => Item NONE (strlit "Const") [int_to_display i]
-    | Add => String (strlit "Add")
-    | Sub => String (strlit "Sub")
-    | Mult => String (strlit "Mult")
-    | Div => String (strlit "Div")
-    | Mod => String (strlit "Mod")
-    | Less => String (strlit "Less")
-    | LessEq => String (strlit "LessEq")
-    | Greater => String (strlit "Greater")
-    | GreaterEq => String (strlit "GreaterEq")
-    | WordOp ws op =>
+    | IntOp (Const i) => Item NONE (strlit "Const") [int_to_display i]
+    | IntOp Add => String (strlit "Add")
+    | IntOp Sub => String (strlit "Sub")
+    | IntOp Mult => String (strlit "Mult")
+    | IntOp Div => String (strlit "Div")
+    | IntOp Mod => String (strlit "Mod")
+    | IntOp Less => String (strlit "Less")
+    | IntOp LessEq => String (strlit "LessEq")
+    | IntOp Greater => String (strlit "Greater")
+    | IntOp GreaterEq => String (strlit "GreaterEq")
+    | IntOp (LessConstSmall num) => item_with_num (strlit "LessConstSmall") num
+    | WordOp (WordOpw ws op) =>
         Item NONE (strlit "WordOp") [ word_size_to_display ws; opw_to_display op ]
-    | WordShift ws sh num => Item NONE (strlit "WordShift") [
+    | WordOp (WordShift ws sh num) => Item NONE (strlit "WordShift") [
       word_size_to_display ws;
       shift_to_display sh;
       num_to_display num
     ]
-    | WordFromInt => String (strlit "WordFromInt")
-    | WordToInt => String (strlit "WordToInt")
-    | WordFromWord b => Item NONE (strlit "WordFromWord") [bool_to_display b]
-    | FP_cmp cmp => fp_cmp_to_display cmp
-    | FP_uop op => fp_uop_to_display op
-    | FP_bop op => fp_bop_to_display op
-    | FP_top op => fp_top_to_display op
-    | BoundsCheckBlock => String (strlit "BoundsCheckBlock")
-    | BoundsCheckArray => String (strlit "BoundsCheckArray")
-    | BoundsCheckByte b => Item NONE (strlit "BoundsCheckByte") [bool_to_display b]
-    | LessConstSmall num => item_with_num (strlit "LessConstSmall") num
-    | closLang$ConfigGC => String (strlit "ConfigGC")
+    | WordOp WordFromInt => String (strlit "WordFromInt")
+    | WordOp WordToInt => String (strlit "WordToInt")
+    | WordOp (WordFromWord b) => Item NONE (strlit "WordFromWord") [bool_to_display b]
+    | WordOp (FP_cmp cmp) => fp_cmp_to_display cmp
+    | WordOp (FP_uop op) => fp_uop_to_display op
+    | WordOp (FP_bop op) => fp_bop_to_display op
+    | WordOp (FP_top op) => fp_top_to_display op
     | Install => String (strlit "Install")
+    | ThunkOp t => thunk_op_to_display t
 End
 
 Triviality MEM_clos_exps_size:
@@ -777,8 +782,9 @@ Termination
   WF_REL_TAC `measure (\x. case x of
     | INL (_,_,e) => exp_size e
     | INR (INL (_,_,e)) => list_size exp_size e
-    | INR (INR (INL (_,_,_,es))) => exp3_size es
-    | INR (INR (INR (_,_,_,_,es))) => exp1_size es)`
+    | INR (INR (INL (_,_,_,es))) => list_size exp_size es
+    | INR (INR (INR (_,_,_,_,es))) => list_size (pair_size I exp_size) es)`>>
+  rw[list_size_pair_size_MAP_FST_SND]
 End
 
 Definition clos_fun_to_display_def:
@@ -826,6 +832,9 @@ Definition bvl_to_display_def:
     Item NONE (strlit "call")
          (String (attach_name ns dest) ::
           (bvl_to_display_list ns h xs))) /\
+  (bvl_to_display ns h (Force loc n) =
+    Item NONE (strlit "force")
+         [display_num_as_varn (h-n-1); String (attach_name ns (SOME loc))]) /\
   (bvl_to_display ns h (Op op xs) =
     Item NONE (strlit "op") (clos_op_to_display ns op ::
                              (bvl_to_display_list ns h xs)))  ∧
@@ -841,7 +850,7 @@ Termination
   case x of
     INL (ns,h,x) => exp_size x
   | INR (INL (ns,h,xs)) => list_size exp_size xs
-  | INR (INR (ns,h,i,xs)) => exp1_size xs’
+  | INR (INR (ns,h,i,xs)) => list_size exp_size xs’
 End
 
 Definition bvl_fun_to_display_def:
@@ -884,6 +893,9 @@ Definition bvi_to_display_def:
            | SOME e => [Item NONE (strlit "handler") [display_num_as_varn h;
                                                       empty_item (strlit "->");
                                                       bvi_to_display ns (h+1) e]]))) /\
+  (bvi_to_display ns h (Force loc n) =
+    Item NONE (strlit "force")
+         [display_num_as_varn (h-n-1); String (attach_name ns (SOME loc))]) ∧
   (bvi_to_display ns h (Op op xs) =
     Item NONE (strlit "op") (clos_op_to_display ns op ::
                              (bvi_to_display_list ns h xs)))  ∧
@@ -899,7 +911,7 @@ Termination
   case x of
     INL (ns,h,x) => exp_size x
   | INR (INL (ns,h,xs)) => list_size exp_size xs
-  | INR (INR (ns,h,i,xs)) => exp2_size xs’
+  | INR (INR (ns,h,i,xs)) => list_size exp_size xs’
 End
 
 Definition bvi_fun_to_display_def:
@@ -961,6 +973,11 @@ Definition data_prog_to_display_def:
             list_to_display num_to_display args;
             Item NONE (strlit "some") [Tuple [num_to_display v;
                 data_prog_to_display k ns handler]]]
+    | Force ret loc src => Item NONE (strlit "force")
+        [option_to_display (\(x, y). Tuple
+                [num_to_display x; num_set_to_display y]) ret;
+         num_to_display loc;
+         num_to_display src]
     | Assign n op args n_set => Tuple
         [num_to_display n;
          String (strlit ":=");
@@ -1041,9 +1058,11 @@ Definition asm_memop_to_display_def:
   asm_memop_to_display op = case op of
     | Load => empty_item (strlit "Load")
     | Load8 => empty_item (strlit "Load8")
+    | Load16 => empty_item (strlit "Load16")
     | Load32 => empty_item (strlit "Load32")
     | Store => empty_item (strlit "Store")
     | Store8 => empty_item (strlit "Store8")
+    | Store16 => empty_item (strlit "Store16")
     | Store32 => empty_item (strlit "Store32")
 End
 
@@ -1194,7 +1213,7 @@ Definition stack_prog_to_display_def:
    stack_prog_to_display (SUC k) ns (Alloc n) = item_with_num «alloc» n ∧
    stack_prog_to_display (SUC k) ns (StoreConsts n1 n2 _) = item_with_nums «store_consts» [n1; n2] ∧
    stack_prog_to_display (SUC k) ns (Raise n) = item_with_num «raise» n ∧
-   stack_prog_to_display (SUC k) ns (Return n1 n2) = item_with_nums «return» [n1; n2] ∧
+   stack_prog_to_display (SUC k) ns (Return n) = item_with_num «return» n ∧
    stack_prog_to_display (SUC k) ns (FFI nm cp cl ap al ra) = Item NONE «ffi»
         (string_imp nm :: MAP num_to_display [cp; cl; ap; al; ra]) ∧
    stack_prog_to_display (SUC k) ns (Tick) = empty_item «tick» ∧
@@ -1346,6 +1365,12 @@ Definition ws_to_display_def:
     Tuple [bool_to_display b; word_to_display x] :: ws_to_display xs
 End
 
+Definition num_sets_to_display_def:
+  num_sets_to_display (l,r) =
+    Tuple [num_set_to_display l;
+           num_set_to_display r]
+End
+
 Definition word_prog_to_display_def:
   (word_prog_to_display 0 ns x = empty_item (strlit "...")) /\
   (word_prog_to_display (SUC k) ns Skip = empty_item (strlit "skip")) /\
@@ -1390,7 +1415,7 @@ Definition word_prog_to_display_def:
               asm_reg_imm_to_display reg];
        word_prog_to_display k ns p1; word_prog_to_display k ns p2]) /\
   (word_prog_to_display (SUC k) ns (Alloc n ms) = Item NONE (strlit "alloc")
-    [num_to_display n; num_set_to_display ms]) /\
+    [num_to_display n; num_sets_to_display ms]) /\
   (word_prog_to_display (SUC k) ns (StoreConsts a b c d ws) = Item NONE (strlit "store_consts")
     [num_to_display a;
      num_to_display b;
@@ -1398,30 +1423,33 @@ Definition word_prog_to_display_def:
      num_to_display d;
      Tuple (ws_to_display ws)]) /\
   (word_prog_to_display (SUC k) ns (Raise n) = item_with_num (strlit "raise") n) /\
-  (word_prog_to_display (SUC k) ns (Return n1 n2) = item_with_nums (strlit "return") [n1; n2]) /\
+  (word_prog_to_display (SUC k) ns (Return n vs) =
+     Item NONE (strlit "return")
+       [num_to_display n;
+        Tuple (MAP num_to_display vs)]) ∧
   (word_prog_to_display (SUC k) ns Tick = empty_item (strlit "tick")) /\
   (word_prog_to_display (SUC k) ns (LocValue n1 n2) =
     Item NONE (strlit "loc_value") [String (attach_name ns (SOME n1)); num_to_display n2]) /\
   (word_prog_to_display (SUC k) ns (Install n1 n2 n3 n4 ms) =
     Item NONE (strlit "install") (MAP num_to_display [n1; n2; n3; n4]
-        ++ [num_set_to_display ms])) /\
+        ++ [num_sets_to_display ms])) /\
   (word_prog_to_display (SUC k) ns (CodeBufferWrite n1 n2) =
     item_with_nums (strlit "code_buffer_write") [n1; n2]) /\
   (word_prog_to_display (SUC k) ns (DataBufferWrite n1 n2) =
     item_with_nums (strlit "data_buffer_write") [n1; n2]) /\
   (word_prog_to_display (SUC k) ns (FFI nm n1 n2 n3 n4 ms) =
     Item NONE (strlit "ffi") (string_imp nm :: MAP num_to_display [n1; n2; n3; n4]
-        ++ [num_set_to_display ms]))  ∧
+        ++ [num_sets_to_display ms]))  ∧
   (word_prog_to_display_list k ns [] = []) ∧
   (word_prog_to_display_list k ns (x::xs) =
     case k of 0 => []
     | SUC k =>
     word_prog_to_display k ns x :: word_prog_to_display_list k ns xs) /\
   (word_prog_to_display_ret k ns NONE = empty_item (strlit "tail")) /\
-  (word_prog_to_display_ret k ns (SOME (n1, ms, prog, n2, n3)) =
+  (word_prog_to_display_ret k ns (SOME (vs, ms, prog, n2, n3)) =
     case k of 0 => empty_item (strlit "...")
     | SUC k =>
-    Item NONE (strlit "returning") [Tuple [num_to_display n1; num_set_to_display ms;
+    Item NONE (strlit "returning") [Tuple [Tuple (MAP num_to_display vs); num_sets_to_display ms;
         word_prog_to_display k ns prog;
         String (attach_name ns (SOME n2));
         num_to_display n3]]) /\
@@ -1502,7 +1530,7 @@ val bvl_test =
   “concat $ append $ bvl_to_strs
      (insert 50 (strlit "foo") (insert 60 (strlit "bar") LN))
      [(50,2,Let [Var 0; Var 1]
-              $ Op Add [Var 0; Var 1; Var 2; Var 3]);
+              $ Op (IntOp Add) [Var 0; Var 1; Var 2; Var 3]);
       (60,2,Let [Var 0; Var 1]
               $ Call 0 (SOME 50) [Var 2; Var 0])]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
@@ -1519,7 +1547,7 @@ val bvi_test =
   “concat $ append $ bvi_to_strs
      (insert 50 (strlit "foo") (insert 60 (strlit "bar") LN))
      [(50,2,Let [Var 0]
-              $ Op Add [Var 0; Var 1; Var 2; Var 3]);
+              $ Op (IntOp Add) [Var 0; Var 1; Var 2; Var 3]);
       (60,2,Let [Var 0; Var 1]
               $ Call 0 (SOME 50) [Var 2; Var 0] (SOME (Var 0)))]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
@@ -1536,11 +1564,11 @@ val data_test =
   “concat $ append $ data_to_strs
      (insert 50 (strlit "foo") (insert 60 (strlit "bar") LN))
      [(50,2,Seq (Move 5 1) $
-            Seq (Assign 3 Add [0;1] NONE) $
-            Seq (Assign 6 Sub [5;3] NONE) $ Return 6);
+            Seq (Assign 3 (IntOp Add) [0;1] NONE) $
+            Seq (Assign 6 (IntOp Sub) [5;3] NONE) $ Return 6);
       (60,2,Skip)]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
-  |> (fn t => (print "\n\n"; print t; print "\n"))
+  |> (fn t => (print "\n\n"; print t; print "\n"));
 
 Definition word_to_strs_def:
   word_to_strs names xs =
@@ -1571,7 +1599,7 @@ val lab_test =
                   Label 50 2 0];
       Section 60 [Label 50 5 0]]”
   |> EVAL |> concl |> rand |> rand |> stringSyntax.fromHOLstring
-  |> (fn t => (print "\n\n"; print t; print "\n"))
+  |> (fn t => (print "\n\n"; print t; print "\n"));
 
 (*
 
@@ -1587,4 +1615,3 @@ val _ = data_to_strs data_prog_tm names_tm |> print_strs
 
 *)
 
-val _ = export_theory();

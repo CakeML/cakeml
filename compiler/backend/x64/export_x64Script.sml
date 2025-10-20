@@ -1,9 +1,11 @@
 (*
   Define the format of the compiler-generated .S file for x64
 *)
-open preamble exportTheory
-
-val () = new_theory "export_x64";
+Theory export_x64
+Ancestors
+  export
+Libs
+  preamble
 
 (*
 CakeML expects 4 arguments in order:
@@ -288,4 +290,3 @@ End
   |> map stringSyntax.fromHOLstring |> concat |> print
 *)
 
-val _ = export_theory ();

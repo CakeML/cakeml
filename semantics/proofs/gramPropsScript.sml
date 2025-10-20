@@ -3,13 +3,11 @@
   nullability results for various non-terminals, and results about
   the grammar’s rules finite map.
 *)
-open HolKernel Parse boolLib bossLib
-
-open boolSimps
-open gramTheory
-open NTpropertiesTheory
-open pred_setTheory
-open preamble
+Theory gramProps
+Ancestors
+  gram NTproperties pred_set
+Libs
+  boolSimps preamble
 
 fun dsimp thl = asm_simp_tac (srw_ss() ++ DNF_ss) thl
 fun asimp thl = asm_simp_tac (srw_ss() ++ ARITH_ss) thl
@@ -36,9 +34,6 @@ end
 val APPEND_EQ_SING' = CONV_RULE (LAND_CONV (ONCE_REWRITE_CONV [EQ_SYM_EQ]))
                                 listTheory.APPEND_EQ_SING
 val _ = augment_srw_ss [rewrites [APPEND_EQ_SING']]
-
-val _ = new_theory "gramProps"
-val _ = set_grammar_ancestry ["gram", "NTproperties"]
 
 Definition NT_rank_def:
   NT_rank N =
@@ -355,4 +350,3 @@ Theorem parsing_ind =
     |> SIMP_RULE (srw_ss()) [relationTheory.inv_image_def,
                              pairTheory.LEX_DEF]
 
-val _ = export_theory()

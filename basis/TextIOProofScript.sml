@@ -1,15 +1,16 @@
 (*
   Proofs about the code in the TextIO module.
 *)
-open preamble
-     ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
-     mlstringTheory fsFFITheory fsFFIPropsTheory Word8ProgTheory cfMonadLib
-     Word8ArrayProofTheory TextIOProgTheory MarshallingProgTheory MarshallingTheory
-     integerTheory int_arithTheory;
+Theory TextIOProof
+Ancestors
+  cfMain cfLetAuto ml_monadBase ml_translator ml_monad_translator
+  mlstring fsFFI fsFFIProps Word8Prog Word8ArrayProof TextIOProg
+  MarshallingProg Marshalling integer int_arith
+Libs
+  preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
+  cfMonadLib
 
 val _ = temp_delsimps ["NORMEQ_CONV", "TAKE_LENGTH_ID_rwt2", "TAKE_LENGTH_ID_rwt2"];
-
-val _ = new_theory"TextIOProof";
 
 val _ = translation_extends "TextIOProg";
 val _ = preamble.option_monadsyntax.temp_add_option_monadsyntax();
@@ -5663,7 +5664,7 @@ Proof
         \\ `x = pp - pos` by fs[]
         \\ rw[] )
       \\ unabbrev_all_tac \\ simp[DROP_DROP]
-      \\ simp[TAKE1_DROP,CHAR_EQ_THM] \\ xsimpl )
+      \\ simp[TAKE1_DROP,CHAR_EQ_THM,EL_DROP] \\ xsimpl )
     \\ fs[forwardFD_o,STDIO_numchars]
     \\ xsimpl
     \\ conj_asm1_tac
@@ -5724,8 +5725,7 @@ Theorem inputLines_spec:
 Proof
   Induct_on`splitlines (DROP pos content)` \\ rw[]
   >- (
-    qpat_x_assum`[] = _`(assume_tac o SYM) \\ fs[DROP_NIL]
-    \\ `LENGTH content - pos = 0` by simp[]
+    `LENGTH content - pos = 0` by simp[]
     \\ pop_assum SUBST1_TAC
     \\ `DROP pos content = []` by fs[DROP_NIL]
     \\ rpt strip_tac
@@ -6796,8 +6796,6 @@ Theorem INSTREAM_STR_fastForwardFD:
 Proof
   rw [INSTREAM_STR_def]
   \\ xsimpl \\ rw[] \\ gs[] \\ rveq
-  \\ rename [‘get_file_content _ _ = SOME z’]
-  \\ PairCases_on ‘z’
   \\ qmatch_assum_rename_tac ‘get_file_content _ _ = SOME (c,off)’
   \\ gs[] \\ rveq \\ simp [GSYM PULL_EXISTS]
   \\ conj_tac
@@ -7169,12 +7167,10 @@ Proof
   \\ rpt $ first_assum $ irule_at Any
   \\ xsimpl \\ rw []
   \\ rpt $ first_assum $ irule_at Any
-  \\ gvs []
-  \\ qexists_tac ‘read'’
-  \\ qexists_tac ‘nr’ \\ gvs [] \\ xsimpl
+  \\ xsimpl
   \\ gvs [NULL_EQ]
   \\ gvs [instream_buffered_inv_alt]
-  \\ Cases_on ‘active’ \\ gvs []
+  \\ Cases_on `active = ""` \\ gvs[]
 QED
 
 Theorem takeUnitlIncl_append:
@@ -7290,7 +7286,7 @@ Proof
     \\ gvs [str_def,implode_def] \\ strip_tac
     \\ gvs [INSTREAM_STR_def,INSTREAM_STR'_def]
     \\ xsimpl \\ rpt gen_tac \\ strip_tac
-    \\ gvs [] \\ qexists_tac ‘x’ \\ gvs [] \\ xsimpl)
+    \\ gvs [] \\ xsimpl)
   \\ gvs [std_preludeTheory.SUM_TYPE_def]
   \\ xmatch
   \\ xlet ‘POSTv retv. INSTREAM_STR' fd is bs2 fs F is_empty1 * STDIO fs *
@@ -7383,7 +7379,7 @@ Proof
       \\ gvs [INSTREAM_STR_def,INSTREAM_STR'_def]
       \\ xsimpl \\ qexists_tac ‘nr’
       \\ rpt gen_tac \\ strip_tac
-      \\ gvs [] \\ qexists_tac ‘x'’ \\ gvs [] \\ xsimpl)
+      \\ gvs [] \\ xsimpl)
     \\ xcon \\ xsimpl
     \\ ‘bs1 ≠ []’ by (Cases_on ‘bs1’ \\ gvs [concat_def,str_def,implode_def])
     \\ gvs [std_preludeTheory.OPTION_TYPE_def]
@@ -7395,7 +7391,7 @@ Proof
     \\ gvs [str_def,implode_def,concat_def,strcat_def]
     \\ gvs [INSTREAM_STR_def,INSTREAM_STR'_def]
     \\ xsimpl \\ rpt gen_tac \\ strip_tac
-    \\ gvs [] \\ qexists_tac ‘x’ \\ gvs [] \\ xsimpl)
+    \\ gvs [] \\ xsimpl)
   \\ gvs [std_preludeTheory.SUM_TYPE_def]
   \\ xmatch
   \\ xlet ‘POSTv retv. INSTREAM_STR' fd is bs2 fs F is_empty1 * STDIO fs *
@@ -7944,7 +7940,6 @@ Proof
   \\ conj_tac >- fs [LIST_TYPE_def]
   \\ fs [INSTREAM_LINES_def,INSTREAM_STR_def]
   \\ xsimpl \\ rw[] \\ gs[lines_of_gen_def,implode_def] \\ rveq
-  \\ PairCases_on ‘z’
   \\ qmatch_assum_rename_tac ‘get_file_content _ _ = SOME (c,off)’
   \\ gs[] \\ rveq \\ simp [GSYM PULL_EXISTS]
   \\ conj_tac
@@ -8683,5 +8678,3 @@ Proof
   \\ xcon \\ xsimpl
   \\ gvs [std_preludeTheory.OPTION_TYPE_def,PAIR_TYPE_def]
 QED
-
-val _ = export_theory();

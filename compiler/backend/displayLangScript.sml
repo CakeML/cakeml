@@ -4,10 +4,11 @@
   design of displayLang is intentionally very simple. The language
   supports Tuples, Items (e.g. datatype constructors), and Lists.
 *)
-open preamble jsonLangTheory mlintTheory backend_commonTheory;
-open str_treeTheory;
-
-val _ = new_theory"displayLang";
+Theory displayLang
+Ancestors
+  jsonLang mlint backend_common str_tree
+Libs
+  preamble
 
 Datatype:
   sExp =
@@ -31,8 +32,8 @@ Definition trace_to_json_def:
       (strlit "trace1", trace_to_json tra1);
       (strlit "trace2", trace_to_json tra2)])
   /\
-  (trace_to_json (SourceLoc sr sc er ec) =
-    let arr = MAP Int (MAP (&)  [ sr; sc; er; ec ]) in
+  (trace_to_json (SourceLoc sr scc er ec) =
+    let arr = MAP Int (MAP (&)  [ sr; scc; er; ec ]) in
       Object [(strlit "name", String (strlit "SourcePos"));
         (strlit "pos", Array arr)])
   /\
@@ -63,9 +64,6 @@ Definition display_to_json_def:
       Object [(strlit "isTuple", Bool T); (strlit "elements", Array es')])
   /\
    (display_to_json (List es) = Array (MAP display_to_json es))
-Termination
-  WF_REL_TAC `measure sExp_size` \\ rw []
-  \\ imp_res_tac MEM_sExp_size \\ fs []
 End
 
 Definition display_to_str_tree_def:
@@ -83,4 +81,3 @@ Definition display_to_str_tree_def:
     display_to_str_tree x :: display_to_str_tree_list xs)
 End
 
-val _ = export_theory();

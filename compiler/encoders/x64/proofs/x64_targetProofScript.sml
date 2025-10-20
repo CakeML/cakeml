@@ -1,15 +1,15 @@
 (*
   Prove `encoder_correct` for x64
 *)
-open HolKernel Parse boolLib bossLib;
-open x64_stepLib x64_targetTheory;
-open asmLib;
+Theory x64_targetProof
+Ancestors
+  x64_target
+Libs
+  x64_stepLib asmLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val () = new_theory "x64_targetProof"
 
 val () = wordsLib.guess_lengths()
 
@@ -197,6 +197,18 @@ Proof
        x64_stepTheory.read_mem32_def]
 QED
 
+Triviality mem_lem2b:
+  !a n s state.
+    target_state_rel x64_target s state /\ n < 16 /\ n <> 4 /\ n <> 5 /\
+    s.regs n + a IN s.mem_domain /\
+    s.regs n + a + 1w IN s.mem_domain ==>
+    (read_mem16 state.MEM (state.REG (num2Zreg n) + a) =
+     s.mem (s.regs n + a + 1w) @@ s.mem (s.regs n + a))
+Proof
+  rw [asmPropsTheory.target_state_rel_def, x64_target_def, x64_config_def,
+       x64_stepTheory.read_mem16_def]
+QED
+
 Triviality mem_lem3:
   !a n s state.
     target_state_rel x64_target s state /\ n < 16 /\ n <> 4 /\ n <> 5 /\
@@ -319,6 +331,16 @@ Triviality mem_lem15:
   !w v:word64 m :word64 -> word8.
    (w + 3w =+ b3) ((w + 2w =+ b2) ((w + 1w =+ b1) ((w =+ b0) m))) =
    (w =+ b0) ((w + 1w =+ b1) ((w + 2w =+ b2) ((w + 3w =+ b3) m)))
+Proof
+  srw_tac [wordsLib.WORD_EXTRACT_ss]
+      [combinTheory.APPLY_UPDATE_THM, FUN_EQ_THM]
+   \\ rw []
+   \\ full_simp_tac (srw_ss()++wordsLib.WORD_CANCEL_ss) []
+QED
+
+Triviality mem_lem15b:
+  !w v:word64 m :word64 -> word8.
+  (w + 1w =+ b1) ((w =+ b0) m) = (w =+ b0) ((w + 1w =+ b1) m)
 Proof
   srw_tac [wordsLib.WORD_EXTRACT_ss]
       [combinTheory.APPLY_UPDATE_THM, FUN_EQ_THM]
@@ -814,6 +836,7 @@ local
               x64_config, x64_ok_def, set_sepTheory.fun2set_eq,
               REWRITE_RULE [mem_lem14] x64_stepTheory.write_mem64_def,
               REWRITE_RULE [mem_lem15] x64_stepTheory.write_mem32_def,
+              REWRITE_RULE [mem_lem15b] x64_stepTheory.write_mem16_def,
               const_lem1, const_lem3, const_lem4, loc_lem3, loc_lem4,
               mem_lem8]
       \\ Q.UNABBREV_TAC `r1`
@@ -1109,6 +1132,18 @@ Proof
                )
             >- (
                (*--------------
+                   Load16
+                 --------------*)
+               print_tac "Load16"
+               \\ `read_mem16 ms.MEM (ms.REG (num2Zreg n') + c) =
+                   s1.mem (s1.regs n' + c + 1w) @@
+                   s1.mem (s1.regs n' + c)`
+               by (imp_res_tac (Q.SPECL [`c`, `n'`, `s1`, `ms`] mem_lem2b)
+                   \\ simp [])
+               \\ load_tac
+               )
+            >- (
+               (*--------------
                    Load32
                  --------------*)
                print_tac "Load32"
@@ -1154,6 +1189,21 @@ Proof
                >| [all_tac, all_tac, all_tac,
                    Cases_on `3 < n` >| [all_tac, imp_res_tac mem_lem8]
                ]
+               \\ store_tac
+               )
+            >- (
+               (*--------------
+                   Store16
+                 --------------*)
+               print_tac "Store16"
+               \\ `?wv. read_mem16 ms.MEM (ms.REG (num2Zreg n') + c) = wv`
+               by metis_tac [mem_lem2b]
+               \\ Cases_on `((3 >< 3) r1 = 0w: word1) /\ ((3 >< 3) r2 = 0w: word1)`
+               >- (fsrw_tac [] [] \\ store_tac)
+               \\ `(7w && (0w: word1) @@ (3 >< 3) (r1: word4) @@
+                       (0w: word1) @@ (3 >< 3) (r2: word4)) <> (0w: word4)`
+                 by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
+               \\ qpat_x_assum `~(a /\ b)` (K all_tac)
                \\ store_tac
                )
                (*--------------
@@ -1288,4 +1338,3 @@ Proof
       )
 QED
 
-val () = export_theory ()

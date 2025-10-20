@@ -1,12 +1,12 @@
 (*
   Module for text-based I/O with the underlying file system.
 *)
-open preamble
-     ml_translatorTheory ml_translatorLib ml_progLib basisFunctionsLib
-     CommandLineProgTheory MarshallingProgTheory
-     semanticPrimitivesSyntax
-
-val _ = new_theory"TextIOProg";
+Theory TextIOProg
+Ancestors
+  ml_translator CommandLineProg MarshallingProg
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
+  semanticPrimitivesSyntax
 
 val _ = translation_extends "MarshallingProg";
 
@@ -788,4 +788,3 @@ End
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);
 
-val _ = export_theory();

@@ -5,17 +5,14 @@
   CakeML types into the term structure used there and them bring over
   those definitions and theorems.
 *)
-open preamble;
-open unifPropsTheory unifDefTheory walkTheory walkstarTheory collapseTheory;
-open substTheory;
-open infer_tTheory;
-open rmfmapTheory tcallUnifTheory
-open transferTheory transferLib
-open cpsTheory cpsLib
+Theory unify
+Ancestors
+  unifProps unifDef walk walkstar collapse subst infer_t rmfmap
+  tcallUnif transfer cps
+Libs
+  preamble transferLib cpsLib
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
-
-val _ = new_theory "unify";
 
 val _ = monadsyntax.temp_enable_monadsyntax()
 val _ = monadsyntax.temp_enable_monad "option"
@@ -807,7 +804,7 @@ Theorem cvwalk_tcallish:
   ∀x. (λn. cwfs s) x ⇒
       cvwalk s x = TAILCALL (cvwalk_code s) (cvwalk s) x
 Proof
-  simp[whileTheory.TAILCALL_def, cvwalk_code_def, sum_CASE_option_CASE,
+  simp[WhileTheory.TAILCALL_def, cvwalk_code_def, sum_CASE_option_CASE,
        sum_CASE_infer_CASE, FORALL_PROD] >>
   simp[Once (DISCH_ALL cvwalk_thm), cwfs_def]
 QED
@@ -815,7 +812,7 @@ QED
 Theorem cvwalk_cleaned:
   ∀x. (λn. cwfs s) x ⇒ cvwalk s x = TAILREC (cvwalk_code s) x
 Proof
-  match_mp_tac whileTheory.TAILREC_GUARD_ELIMINATION >>
+  match_mp_tac WhileTheory.TAILREC_GUARD_ELIMINATION >>
   rpt conj_tac
   >- ACCEPT_TAC cvwalk_preserves_precond
   >- (rpt strip_tac >> qexists_tac ‘cvwalkR s’ >> conj_tac
@@ -834,7 +831,7 @@ Proof simp[FUN_EQ_THM]
 QED
 
 Theorem tcvwalk_thm =
-        tcvwalk_def |> SRULE[Once whileTheory.TAILREC, cvwalk_code_def]
+        tcvwalk_def |> SRULE[Once WhileTheory.TAILREC, cvwalk_code_def]
                     |> SRULE[sum_CASE_option_CASE, sum_CASE_infer_CASE]
                     |> SRULE[GSYM tcvwalk_def, cvwalk_eta,
                              GSYM (SRULE [FUN_EQ_THM] cvwalk_code_def)]
@@ -1183,7 +1180,7 @@ Theorem kcocwl_tcallish:
   ∀x. (λv. cwfs s) x ⇒
       kcocwl s n x = TAILCALL (kcocwl_code s n) (kcocwl s n) x
 Proof
-  simp[FORALL_PROD, whileTheory.TAILCALL_def, kcocwl_code_def,
+  simp[FORALL_PROD, WhileTheory.TAILCALL_def, kcocwl_code_def,
        sum_CASE_list_CASE, sum_CASE_infer_CASE, sum_CASE_COND] >>
   rpt strip_tac >> rename [‘kcocwl s n wl ⇔ _’] >>
   Cases_on ‘wl’ >> simp[Once kcocwl_thm, SimpLHS] >>
@@ -1193,7 +1190,7 @@ QED
 Theorem kcocwl_cleaned:
   ∀x. (λv. cwfs s) x ⇒ kcocwl s n x = TAILREC (kcocwl_code s n) x
 Proof
-  match_mp_tac whileTheory.TAILREC_GUARD_ELIMINATION >> rpt conj_tac
+  match_mp_tac WhileTheory.TAILREC_GUARD_ELIMINATION >> rpt conj_tac
   >- ACCEPT_TAC kcocwl_preserves_precond
   >- (qx_gen_tac ‘wl’ >> strip_tac >>
       qexists ‘kcocwlR s n’ >> conj_tac
@@ -1219,7 +1216,7 @@ Theorem disj2cond[local] = DECIDE “p ∨ q ⇔ if p then T else q”
 
 Theorem tcocwl_thm =
         tcocwl_def
-          |> SRULE[Once whileTheory.TAILREC, sum_CASE_list_CASE,
+          |> SRULE[Once WhileTheory.TAILREC, sum_CASE_list_CASE,
                    sum_CASE_infer_CASE, sum_CASE_COND, kcocwl_code_def]
           |> SRULE [GSYM tcocwl_def, GSYM kcocwl_code_def]
           |> PURE_REWRITE_RULE [disj2cond]
@@ -1460,7 +1457,7 @@ Theorem kcwalkstarwl_tcallish:
       (λ(v,its,k). kcwalkstarwl s v its k) x =
       TAILCALL (kcwalkstarwl_code s) (λ(v,its,k). kcwalkstarwl s v its k) x
 Proof
-  simp[whileTheory.TAILCALL_def, kcwalkstarwl_code_def, FORALL_PROD,
+  simp[WhileTheory.TAILCALL_def, kcwalkstarwl_code_def, FORALL_PROD,
        sum_CASE_COND, sum_CASE_list_CASE, sum_CASE_infer_CASE,
        sum_CASE_wstarcont_CASE] >>
   simp[Once $ DISCH_ALL kcwalkstarwl_thm]
@@ -1470,7 +1467,7 @@ Theorem kcwalkstarwl_cleaned:
   ∀x. (λ(v,its,k). cwfs s) x ⇒
       (λ(v,its,k). kcwalkstarwl s v its k) x = TAILREC (kcwalkstarwl_code s) x
 Proof
-  match_mp_tac whileTheory.TAILREC_GUARD_ELIMINATION >> rpt conj_tac
+  match_mp_tac WhileTheory.TAILREC_GUARD_ELIMINATION >> rpt conj_tac
   >- ACCEPT_TAC kcwalkstarwl_preserves_precond
   >- (qx_gen_tac ‘trip’ >> strip_tac >>
       qexists ‘kcwalkstarwlR s’ >> conj_tac
@@ -1494,7 +1491,7 @@ End
 
 Theorem tcwalkstarwl_thm =
         tcwalkstarwl_def
-          |> SRULE[Once whileTheory.TAILREC]
+          |> SRULE[Once WhileTheory.TAILREC]
           |> SRULE[kcwalkstarwl_code_def, sum_CASE_COND,
                    sum_CASE_wstarcont_CASE,
                    sum_CASE_list_CASE, sum_CASE_infer_CASE]
@@ -1603,7 +1600,7 @@ Theorem kcunifywl_tcallish:
       (λ(s,k). kcunifywl s k) x =
       TAILCALL cunify_code (λ(s,k). kcunifywl s k) x
 Proof
-  simp[whileTheory.TAILCALL_def, FORALL_PROD, sum_CASE_list_CASE,
+  simp[WhileTheory.TAILCALL_def, FORALL_PROD, sum_CASE_list_CASE,
        cunify_code_def, sum_CASE_pair_CASE, sum_CASE_infer_CASE,
        sum_CASE_COND] >>
   qx_genl_tac [‘s’, ‘k’] >> strip_tac >>
@@ -1995,7 +1992,7 @@ Theorem kcunifywl_cleaned:
   ∀x. (λ(s,wl). cwfs s) x ⇒
       (λ(s,wl). kcunifywl s wl) x = TAILREC cunify_code x
 Proof
-  match_mp_tac whileTheory.TAILREC_GUARD_ELIMINATION >> rpt conj_tac
+  match_mp_tac WhileTheory.TAILREC_GUARD_ELIMINATION >> rpt conj_tac
   >- ACCEPT_TAC kcunifywl_preserves_precond
   >- (rpt strip_tac >> qexists ‘kcunifywlR’ >> conj_tac
       >- (irule $ iffLR WF_EQ_WFP >> simp[WF_kcunifywlR]) >>
@@ -2008,7 +2005,7 @@ Definition tcunify_def:
 End
 
 Theorem tcunify_thm =
-        tcunify_def |> SRULE[Once whileTheory.TAILREC]
+        tcunify_def |> SRULE[Once WhileTheory.TAILREC]
                     |> SRULE[cunify_code_def,
                              sum_CASE_list_CASE, sum_CASE_pair_CASE,
                              sum_CASE_infer_CASE, sum_CASE_COND]
@@ -2075,7 +2072,7 @@ Theorem t_vwalk_eqn:
     dtcase FLOOKUP s v of
       | NONE => Infer_Tuvar v
       | SOME (Infer_Tuvar u) => t_vwalk s u
-      | SOME (Infer_Tapp ts tc') => Infer_Tapp ts tc'
+      | SOME (Infer_Tapp ts tc) => Infer_Tapp ts tc
       | SOME (Infer_Tvar_db n) => Infer_Tvar_db n)
 Proof
 rw [t_vwalk_def] >>
@@ -2172,7 +2169,7 @@ Theorem t_oc_eqn:
   !t v. t_oc s t v =
     dtcase t_walk s t of
       | Infer_Tuvar u => v = u
-      | Infer_Tapp ts tc' => EXISTS (\t. t_oc s t v) ts
+      | Infer_Tapp ts tc => EXISTS (\t. t_oc s t v) ts
       | Infer_Tvar_db n => F
 Proof
 rw [t_oc_def] >>
@@ -3007,7 +3004,7 @@ rw [] >>
 imp_res_tac t_oc_eqn >>
 pop_assum (fn _ => all_tac) >>
 pop_assum (fn _ => all_tac) >>
-pop_assum (ASSUME_TAC o Q.SPECL [`uv`, `Infer_Tapp [] tc'`]) >>
+pop_assum (ASSUME_TAC o Q.SPECL [`uv`, `Infer_Tapp [] tc`]) >>
 rw [t_walk_eqn]
 QED
 
@@ -3219,4 +3216,3 @@ Proof
   rfs[]
 QED
 
-val _ = export_theory ();

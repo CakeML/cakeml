@@ -1,10 +1,12 @@
 (*
   Determinism for the small-step and relational big-step semantics
 *)
+Theory determ
+Ancestors
+  semanticPrimitives bigStep smallStep
+Libs
+  preamble
 
-open preamble semanticPrimitivesTheory bigStepTheory smallStepTheory;
-
-val _ = new_theory "determ";
 
 val s = ``s:'ffi state``;
 
@@ -36,7 +38,6 @@ Proof
   res_tac >>
   fs [] >>
   rw [] >>
-  ‘s with fp_state := s.fp_state = s’ by gs[state_component_equality] >>
   gs[] >> res_tac >> gs[] >>
   metis_tac []
 QED
@@ -147,17 +148,17 @@ Theorem RTC_decl_step_determ = RTC_functional_deterministic |>
   Lib.C MATCH_MP (Q.SPEC `env` decl_step_reln_functional) |> GEN_ALL
 
 Definition Rerr_to_decl_step_result_def[simp]:
-  Rerr_to_decl_step_result fps (Rraise v) = Draise (fps, v) ∧
-  Rerr_to_decl_step_result fps (Rabort v) = Dabort (fps, v)
+  Rerr_to_decl_step_result (Rraise v) = Draise v ∧
+  Rerr_to_decl_step_result (Rabort v) = Dabort v
 End
 
 Theorem small_eval_dec_def:
   (∀benv dst st e. small_eval_dec benv dst (st, Rval e) =
-    (decl_step_reln benv)꙳ dst (st, Env e, [])) ∧
-  (∀benv dst st err. small_eval_dec benv dst (st, Rerr err) =
-    ∃fp dst'.
-      (decl_step_reln benv)꙳ dst (st with fp_state := fp, dst') ∧
-      decl_step benv (st with fp_state := fp, dst') = Rerr_to_decl_step_result (st.fp_state) err)
+                   (decl_step_reln benv)꙳ dst (st, Env e, [])) ∧
+  ∀benv dst st err. small_eval_dec benv dst (st, Rerr err) =
+    ∃dst'.
+      (decl_step_reln benv)꙳ dst (st, dst') ∧
+      decl_step benv (st, dst') = Rerr_to_decl_step_result err
 Proof
   rw[small_eval_dec_def] >>
   Cases_on `err` >> rw[small_eval_dec_def, EXISTS_PROD] >>
@@ -170,8 +171,8 @@ Theorem small_eval_dec_cases:
       ∃dev'.
         (decl_step_reln env)꙳ dev dev' ∧
         ((∃env'. SND res = Rval env' ∧ dev' = (FST res, Env env', [])) ∨
-         (∃err fp. SND res = Rerr err ∧ FST dev' = FST res with fp_state := fp ∧
-            decl_step env dev' = Rerr_to_decl_step_result (FST res).fp_state err))
+         (∃err. SND res = Rerr err ∧ FST dev' = FST res ∧
+            decl_step env dev' = Rerr_to_decl_step_result err))
 Proof
   rw[] >> reverse eq_tac >> rw[] >> gvs[small_eval_dec_def] >>
   PairCases_on `res` >> gvs[small_eval_dec_def]
@@ -216,4 +217,3 @@ Proof
     )
 QED
 
-val _ = export_theory ();

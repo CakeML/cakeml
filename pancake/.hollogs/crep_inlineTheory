@@ -1,0 +1,43 @@
+<<HOL message: Created theory "crep_inline">>
+<<HOL message: mk_functional: 
+  pattern completion has added 4 clauses to the original specification.>>
+Saved definition ____ "var_prog_def"
+Saved induction _____ "var_prog_ind"
+Saved definition ____ "vmax_prog_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+Saved definition ____ "rn_vars_exp_def"
+Saved induction _____ "rn_vars_exp_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 4 clauses to the original specification.>>
+Saved definition ____ "rn_vars_prog_def"
+Saved induction _____ "rn_vars_prog_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 11 clauses to the original specification.>>
+Saved definition ____ "has_return_def"
+Saved induction _____ "has_return_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 11 clauses to the original specification.>>
+Saved definition ____ "return_in_loop_def"
+Saved induction _____ "return_in_loop_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 12 clauses to the original specification.>>
+Saved definition ____ "transform_rec_def"
+Saved induction _____ "transform_rec_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 15 clauses to the original specification.>>
+Saved definition ____ "standalone_ret_def"
+Saved induction _____ "standalone_ret_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 15 clauses to the original specification.>>
+Saved definition ____ "assign_ret_def"
+Saved induction _____ "assign_ret_ind"
+Saved definition ____ "transform_standalone_def"
+Saved definition ____ "transform_assign_def"
+Don't expect to find a | in this position after a (
+at line 213, character 6 and at line 186, character 2.
+Don't expect to find a | in this position after a (
+at line 213, character 6 and at line 186, character 2.
+error in quse /Users/z5654475/Desktop/2025/2025_term1/TS/repos/from_source/cakeml/pancake/crep_inlineScript.sml : HOL_ERR {message = "Don't expect to find a | in this position after a (\nat line 213, character 6 and at line 186, character 2.\n", origin_function = "Absyn", origin_structure = "Absyn", source_location = Loc (LocA (185, 2), LocA (185, 2))}
+error in load /Users/z5654475/Desktop/2025/2025_term1/TS/repos/from_source/cakeml/pancake/crep_inlineScript : HOL_ERR {message = "Don't expect to find a | in this position after a (\nat line 213, character 6 and at line 186, character 2.\n", origin_function = "Absyn", origin_structure = "Absyn", source_location = Loc (LocA (185, 2), LocA (185, 2))}
+Uncaught exception at /Users/z5654475/Desktop/2025/2025_term1/TS/repos/from_source/HOL/src/num/termination/TotalDefn.sml:37: HOL_ERR {message = "Don't expect to find a | in this position after a (\nat line 213, character 6 and at line 186, character 2.\n", origin_function = "Absyn", origin_structure = "Absyn", source_location = Loc (LocA (185, 2), LocA (185, 2))}

@@ -4,13 +4,14 @@
   Pancake, but we flatten locals from
   struct-layout to word-layout
 *)
+Theory crepLang
+Ancestors
+  mlstring
+  asm (* for binop and cmp *)
+  backend_common (* for overloading the shift operation *)
+Libs
+  preamble
 
-open preamble
-     mlstringTheory
-     asmTheory            (* for binop and cmp *)
-     backend_commonTheory (* for overloading the shift operation *);
-
-val _ = new_theory "crepLang";
 
 Type shift = ``:ast$shift``
 
@@ -25,8 +26,8 @@ End
 Datatype:
   exp = Const ('a word)
       | Var varname
-      | Label funname
       | Load exp
+      | Load32 exp
       | LoadByte exp
       | LoadGlob  (5 word)
       | Op binop (exp list)
@@ -34,6 +35,7 @@ Datatype:
       | Cmp cmp exp exp
       | Shift shift exp num
       | BaseAddr
+      | TopAddr
 End
 
 Datatype:
@@ -41,6 +43,7 @@ Datatype:
        | Dec varname ('a exp) prog
        | Assign    varname  ('a exp)   (* dest, source *)
        | Store     ('a exp) ('a exp)   (* dest, source *)
+       | Store32 ('a exp) ('a exp)   (* dest, source *)
        | StoreByte ('a exp) ('a exp)   (* dest, source *)
        | StoreGlob (5 word) ('a exp)   (* dest, source *)
        | Seq prog prog
@@ -49,7 +52,7 @@ Datatype:
        | Break
        | Continue
        | Call (((varname option) # prog # ((('a word) # prog) option)) option)
-              ('a exp) (('a exp) list)
+              funname (('a exp) list)
        | ExtCall funname varname varname varname varname
        | Raise ('a word)
        | Return ('a exp)
@@ -121,15 +124,16 @@ End
 Definition var_cexp_def:
   (var_cexp (Const w) = ([]:num list)) ∧
   (var_cexp (Var v) = [v]) ∧
-  (var_cexp (Label f) = []) ∧
   (var_cexp (Load e) = var_cexp e) ∧
+  (var_cexp (Load32 e) = var_cexp e) ∧
   (var_cexp (LoadByte e) = var_cexp e) ∧
   (var_cexp (LoadGlob a) = []) ∧
   (var_cexp (Op bop es) = FLAT (MAP var_cexp es)) ∧
   (var_cexp (Crepop cop es) = FLAT (MAP var_cexp es)) ∧
   (var_cexp (Cmp c e1 e2) = var_cexp e1 ++ var_cexp e2) ∧
   (var_cexp (Shift sh e num) = var_cexp e) ∧
-  (var_cexp BaseAddr = [])
+  (var_cexp BaseAddr = []) ∧
+  (var_cexp TopAddrl = [])
 Termination
   wf_rel_tac `measure (\e. exp_size ARB e)` >>
   rpt strip_tac >>
@@ -189,15 +193,16 @@ End
 Definition exps_def:
   (exps (Const w) = [Const w]) ∧
   (exps (Var v) = [Var v]) ∧
-  (exps (Label f) = [Label f]) ∧
   (exps (Load e) = exps e) ∧
+  (exps (Load32 e) = exps e) ∧
   (exps (LoadByte e) = exps e) ∧
   (exps (LoadGlob a) = [LoadGlob a]) ∧
   (exps (Op bop es) = FLAT (MAP exps es)) ∧
   (exps (Crepop pop es) = FLAT (MAP exps es)) ∧
   (exps (Cmp c e1 e2) = exps e1 ++ exps e2) ∧
   (exps (Shift sh e num) = exps e) ∧
-  (exps BaseAddr = [BaseAddr])
+  (exps BaseAddr = [BaseAddr]) ∧
+  (exps TopAddr = [TopAddr])
 Termination
   wf_rel_tac `measure (\e. exp_size ARB e)` >>
   rpt strip_tac >>
@@ -206,36 +211,4 @@ Termination
   decide_tac
 End
 
-
-Definition acc_vars_def:
-  (acc_vars Skip l = l) ∧
-  (acc_vars (Dec n e p) l = acc_vars p (list_insert (n::var_cexp e) l)) ∧
-  (acc_vars (Assign n e) l = list_insert (n::var_cexp e) l) ∧
-  (acc_vars (Store e1 e2) l = list_insert (var_cexp e1 ++ var_cexp e2) l) ∧
-  (acc_vars (StoreByte e1 e2) l = list_insert (var_cexp e1 ++ var_cexp e2) l) ∧
-  (acc_vars (StoreGlob _ e) l = list_insert (var_cexp e) l) ∧
-  (acc_vars (Seq p q) l = acc_vars p (acc_vars q l)) ∧
-  (acc_vars (If e p q) l = acc_vars p (acc_vars q (list_insert (var_cexp e) l))) ∧
-  (acc_vars (While e p) l = acc_vars p (list_insert (var_cexp e) l)) ∧
-  (acc_vars (Return e) l  = list_insert (var_cexp e) l) ∧
-  (acc_vars (ExtCall f v1 v2 v3 v4) l  = list_insert [v1; v2; v3; v4] l) ∧
-  (acc_vars (Call NONE trgt args) l = list_insert (FLAT (MAP var_cexp (trgt::args))) l) ∧
-  (acc_vars (Call (SOME (NONE, rp, NONE)) trgt args) l =
-   let nl = list_insert (FLAT (MAP var_cexp (trgt::args))) l in
-      acc_vars rp nl) ∧
-  (acc_vars (Call (SOME (NONE, rp, (SOME (w, ep)))) trgt args) l =
-   let nl = list_insert (FLAT (MAP var_cexp (trgt::args))) l in
-      acc_vars rp (acc_vars ep nl)) ∧
-  (acc_vars (Call (SOME ((SOME rv), rp, NONE)) trgt args) l =
-   let nl = list_insert (rv :: FLAT (MAP var_cexp (trgt::args))) l in
-      acc_vars rp nl) ∧
-  (acc_vars (Call (SOME ((SOME rv), rp, (SOME (w, ep)))) trgt args) l =
-   let nl = list_insert (rv :: FLAT (MAP var_cexp (trgt::args))) l in
-      acc_vars rp (acc_vars ep nl)) ∧
-  (acc_vars (ShMem op r e) l = list_insert (r::var_cexp e) l) ∧
-  (acc_vars _ l = l)
-End
-
 Overload shift = “backend_common$word_shift”
-
-val _ = export_theory();

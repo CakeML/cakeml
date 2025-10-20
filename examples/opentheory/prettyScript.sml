@@ -2,9 +2,11 @@
   A pretty printer producing mlstring app_lists.
   Based on the pretty printer from "ML from the working programmer".
 *)
-open preamble holSyntaxTheory holKernelTheory mlstringTheory;
-
-val _ = new_theory "pretty";
+Theory pretty
+Ancestors
+  holSyntax holKernel mlstring
+Libs
+  preamble
 
 Datatype:
   t = Block (t list) num num
@@ -52,8 +54,6 @@ Definition print_list_def:
               (s2,r2) = blanks s1 (mr-bs);
               (s3,r3) = print_list bs af s2 mr t
           in (s3, SmartAppend r1 (SmartAppend r2 r3))
-Termination
-  WF_REL_TAC ‘measure (t1_size o SND o SND o SND o SND)’
 End
 
 Definition pr_def:
@@ -128,8 +128,10 @@ Definition pp_type_def:
           mk_blo 0 [pp_with_sep «,» T (MAP (pp_type 0) ts); mk_str nm]
 Termination
   WF_REL_TAC ‘measure (type_size o SND)’
-  \\ rw [type_size_def]
-  \\ imp_res_tac type_size_MEM \\ fs []
+  \\ rw [] \\ simp[]
+  \\ drule MEM_list_size
+  \\ disch_then (qspec_then`type_size` mp_tac)
+  \\ simp[]
 End
 
 (* ------------------------------------------------------------------------- *)
@@ -303,10 +305,9 @@ Proof
   \\ rw []
   \\ pop_assum mp_tac
   \\ simp [Once dest_binder_def]
-  \\ rpt (PURE_TOP_CASE_TAC \\ fs [])
+  \\ strip_tac \\ gvs[AllCaseEqs()]
   \\ pairarg_tac
-  \\ rw [term_size_def]
-  \\ fs []
+  \\ fs[]
 QED
 
 (* ------------------------------------------------------------------------- *)
@@ -559,6 +560,4 @@ Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV)
   \\ simp [Once dest_binder_def]
 QED
-
-val _ = export_theory ();
 

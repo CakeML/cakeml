@@ -6,14 +6,12 @@
   - decodes decision tree to if-tree
   - encodes the variable bindings of each case as let-bindings
 *)
+Theory flat_pattern
+Ancestors
+  misc flatLang sptree pattern_semantics pattern_comp
+Libs
+  preamble
 
-open preamble sptreeTheory flatLangTheory pattern_semanticsTheory
-  pattern_compTheory
-
-val _ = new_theory "flat_pattern";
-
-val _ = set_grammar_ancestry ["misc","flatLang","sptree",
-    "pattern_semantics"];
 
 Datatype:
   config =
@@ -293,13 +291,6 @@ Definition compile_exp_def:
     let j = max_dec_name (pat_bindings p []) in
     let (k, sgp, ps2) = compile_match cfg ps in
     (MAX i (MAX j k), sgx \/ sgp, ((p, y) :: ps2)))
-Termination
-  WF_REL_TAC `measure (\x. case x of INL (_, x) => exp_size x
-    | INR (INL (_, xs)) => exp6_size xs
-    | INR (INR (_, ps)) => exp3_size ps)`
-  \\ rw [flatLangTheory.exp_size_def]
-  \\ imp_res_tac flatLangTheory.exp_size_MEM
-  \\ fs []
 End
 
 Theorem LENGTH_compile_exps_IMP:
@@ -329,5 +320,3 @@ Definition compile_dec_def:
   compile_dec cfg (Dtype tid amap) = Dtype tid amap /\
   compile_dec cfg (Dexn n n') = Dexn n n'
 End
-
-val _ = export_theory()

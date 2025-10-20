@@ -1,11 +1,13 @@
 (*
   Encode natural numbers to Booleans using order encoding
 *)
+Theory numBoolExp
+Ancestors
+  misc quantifierExp arithmetic orderEncodingBool boolExpToCnf
+  cnf
+Libs
+  preamble
 
-open preamble miscTheory quantifierExpTheory arithmeticTheory;
-open orderEncodingBoolTheory boolExpToCnfTheory cnfTheory;
-
-val _ = new_theory "numBoolExp";
 
 (* ----------------------------- Types ------------------------------------ *)
 
@@ -407,7 +409,7 @@ Proof
   Induct
   >- gvs[]
   >> Cases_on‘h’
-  >> rw[]
+  >> rw[] >> metis_tac[]
 QED
 
 Theorem vMap_no_empty_lists_lemma:
@@ -1079,7 +1081,7 @@ Theorem vMap_orderBool_snoc_lemma:
   SNOC (OLit (INL x0)) (vMap_to_orderBool l)
 Proof
   Induct
-  >> gs[vMap_to_orderBool_def]
+  >> gs[vMap_to_orderBool_def,SNOC_APPEND]
   >> Cases_on‘h’
   >> gs[vMap_to_orderBool_def]
 QED
@@ -1319,8 +1321,8 @@ Proof
       >> gvs[]
       >> metis_tac[])
   >> Cases_on ‘xs’
-  >- gvs[GENLIST]
-  >> gvs[GENLIST]
+  >- gvs[GENLIST,SNOC_APPEND]
+  >> gvs[GENLIST,SNOC_APPEND]
   >> metis_tac[x_all_false]
 QED
 
@@ -1605,7 +1607,7 @@ Theorem all_values_correct_2:
           (MAP SND (create_numVarMap_inner next k l))
 Proof
   Induct >> rw[create_numVarMap_inner_def]
-  >> Induct_on ‘k’ >> gs[GENLIST]
+  >> Induct_on ‘k’ >> gs[GENLIST,SNOC_APPEND]
 QED
 
 Theorem all_values_correct:
@@ -2295,4 +2297,3 @@ QED
 
 *) *)
 
-val _ = export_theory();

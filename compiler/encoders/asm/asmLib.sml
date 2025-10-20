@@ -9,7 +9,7 @@ open asmTheory asmSemTheory asmPropsTheory utilsLib
 
 structure Parse = struct
   open Parse
-  val (Type,Term) = parse_from_grammars asmPropsTheory.asmProps_grammars
+  val (Type,Term) = parse_from_grammars $ valOf $ grammarDB {thyname="asmProps"}
 end
 
 open Parse
@@ -35,9 +35,9 @@ val asm_rwts =
    [upd_pc_def, upd_reg_def, upd_fp_reg_def, upd_mem_def, read_reg_def,
     read_fp_reg_def, read_mem_def, assert_def, reg_imm_def, binop_upd_def,
     word_cmp_def, word_shift_def, arith_upd_def, fp_upd_def, addr_def,
-    mem_load_def, write_mem_word_def, mem_store_def,
+    mem_load_def, write_mem_word_def, mem_store_def, read_mem_word ``2n``,
     read_mem_word ``1n``, read_mem_word ``4n``, read_mem_word ``8n``,
-    write_mem_word ``1n``, write_mem_word ``4n``, write_mem_word ``8n``,
+    write_mem_word ``1n``, write_mem_word ``2n``, write_mem_word ``4n``, write_mem_word ``8n``,
     mem_op_def, inst_def, jump_to_offset_def, asm_def,
     prove
       (“!a b x:'a y. a /\ (a ==> ~b) ==> ((if b then x else y) = y)”, rw [])
@@ -71,9 +71,11 @@ local
      `Inst (Arith (SubOverflow r1 r2 r3 r4)) : 'a asm`,
      `Inst (Mem Load r1 (Addr r2 w)) : 'a asm`,
      `Inst (Mem Load8 r1 (Addr r2 w)) : 'a asm`,
+     `Inst (Mem Load16 r1 (Addr r2 w)) : 'a asm`,
      `Inst (Mem Load32 r1 (Addr r2 w)) : 'a asm`,
      `Inst (Mem Store r1 (Addr r2 w)) : 'a asm`,
      `Inst (Mem Store8 r1 (Addr r2 w)) : 'a asm`,
+     `Inst (Mem Store16 r1 (Addr r2 w)) : 'a asm`,
      `Inst (Mem Store32 r1 (Addr r2 w)) : 'a asm`,
      `Inst (FP (FPLess r d1 d2)) : 'a asm`,
      `Inst (FP (FPLessEqual r d1 d2)) : 'a asm`,

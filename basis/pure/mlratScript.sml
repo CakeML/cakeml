@@ -1,10 +1,11 @@
 (*
   Pure functions for the Rat module.
 *)
-open preamble mlstringTheory mlintTheory;
-open ratLib gcdTheory ratTheory;
-
-val _ = new_theory "mlrat";
+Theory mlrat
+Ancestors
+  mlstring mlint gcd rat
+Libs
+  preamble ratLib
 
 (* representation type *)
 
@@ -357,4 +358,3 @@ Proof
   simp[intrealTheory.INT_FLOOR]
 QED
 
-val _ = export_theory ();

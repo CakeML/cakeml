@@ -1,0 +1,990 @@
+<<HOL message: Created theory "word_to_stackProof">>
+Saved theorem _______ "set_var_with_memory"
+Saved theorem _______ "set_var_memory"
+Saved theorem _______ "get_var_with_clock"
+Saved definition ____ "index_list_def"
+Saved theorem _______ "LENGTH_index_list"
+Saved theorem _______ "EL_index_list"
+Saved theorem _______ "EL_index_list2"
+Saved theorem _______ "MAP_SND_index_list"
+Saved theorem _______ "MAP_FST_index_list"
+Saved theorem _______ "index_list_eq_ZIP"
+Saved theorem _______ "IMP_filter_bitmap_EQ_SOME_NIL"
+Saved theorem _______ "filter_bitmap_length"
+Saved theorem _______ "filter_bitmap_length_input"
+Saved theorem _______ "filter_bitmap_MAP_IMP"
+Saved theorem _______ "filter_bitmap_IMP_MAP_SND"
+Saved theorem _______ "filter_bitmap_IMP_MAP_FST"
+Saved theorem _______ "filter_bitmap_TAKE_LENGTH_IMP"
+Saved theorem _______ "filter_bitmap_lemma"
+Saved theorem _______ "filter_bitmap_MEM"
+Saved theorem _______ "get_var_set_var"
+Proved triviality ___ "MEM_TAKE"
+Proved triviality ___ "MEM_LASTN_ALT"
+Saved theorem _______ "clock_add_0"
+Saved theorem _______ "DROP_DROP_EQ"
+Proved triviality ___ "TAKE_TAKE_MIN"
+Proved triviality ___ "TAKE_DROP_EQ"
+Proved triviality ___ "DROP_TAKE_NIL"
+Saved theorem _______ "TAKE_LUPDATE"
+Saved theorem _______ "DROP_LUPDATE"
+Proved triviality ___ "MIN_ADD"
+Saved definition ____ "list_LUPDATE_def"
+Saved theorem _______ "LENGTH_list_LUPDATE"
+Saved theorem _______ "TAKE_list_LUPDATE"
+Proved triviality ___ "LLOOKUP_list_LUPDATE_IGNORE"
+Proved triviality ___ "DROP_list_LUPDATE"
+Proved triviality ___ "DROP_list_LUPDATE_IGNORE"
+Saved theorem _______ "list_LUPDATE_NIL"
+Proved triviality ___ "LUPDATE_TAKE_LEMMA"
+Saved theorem _______ "list_LUPDATE_TAKE_DROP"
+Saved theorem _______ "list_LUPDATE_0_CONS"
+Saved theorem _______ "list_LUPDATE_APPEND"
+Proved triviality ___ "DIV_ADD_1"
+Proved triviality ___ "LENGTH_word_list_lemma"
+Saved theorem _______ "LENGTH_word_list"
+Proved triviality ___ "list_rearrange_I"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "abs_stack_def"
+Saved induction _____ "abs_stack_ind"
+Saved theorem _______ "read_bitmap_append_extra"
+Saved theorem _______ "full_read_bitmap_append"
+Saved theorem _______ "abs_stack_bitmaps_prefix"
+Saved definition ____ "MAP_FST_def"
+Saved definition ____ "adjust_names_def"
+Saved definition ____ "handler_val_def"
+Saved induction _____ "handler_val_ind"
+Saved definition ____ "is_handler_frame_def"
+Saved induction _____ "is_handler_frame_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+Saved definition ____ "stack_rel_aux_def"
+Saved induction _____ "stack_rel_aux_ind"
+Saved definition ____ "sorted_env_def"
+Saved definition ____ "stack_rel_def"
+Saved definition ____ "state_rel_def"
+Proved triviality ___ "evaluate_SeqStackFree"
+Proved triviality ___ "bits_to_word_bit"
+Proved triviality ___ "bits_to_word_miss"
+Proved triviality ___ "bits_to_word_NOT_0"
+Proved triviality ___ "list_LUPDATE_write_bitmap_NOT_NIL"
+Proved triviality ___ "word_or_eq_0"
+Proved triviality ___ "shift_shift_lemma"
+Proved triviality ___ "bit_length_bits_to_word"
+Proved triviality ___ "GENLIST_bits_to_word_alt"
+Proved triviality ___ "GENLIST_bits_to_word"
+Proved triviality ___ "read_bitmap_word_list"
+Proved triviality ___ "APPEND_LEMMA"
+Saved theorem _______ "read_bitmap_write_bitmap"
+Saved theorem _______ "read_bitmap_insert_bitmap"
+Proved triviality ___ "abs_stack_IMP_LENGTH"
+Proved triviality ___ "SORTED_FST_LESS_IMP"
+Proved triviality ___ "SORTED_IMP_EQ_LISTS"
+Saved theorem _______ "transitive_key_val_compare"
+Saved theorem _______ "total_key_val_compare"
+Proved triviality ___ "SORTS_QSORT_key_val_compare"
+Proved triviality ___ "SORTED_weaken2"
+Proved triviality ___ "EVEN_GT"
+Proved triviality ___ "transitive_GT"
+Proved triviality ___ "env_to_list_K_I_IMP"
+Saved theorem _______ "isPREFIX_DROP"
+Proved triviality ___ "evaluate_wLive"
+Proved triviality ___ "state_rel_set_store_0"
+Proved triviality ___ "MAP_SND_MAP_FST"
+Proved triviality ___ "read_bitmap_not_empty"
+Proved triviality ___ "n2w_lsr_1"
+Proved triviality ___ "handler_bitmap_props"
+Proved triviality ___ "enc_stack_lemma"
+Proved triviality ___ "IMP_enc_stack"
+Proved triviality ___ "map_bitmap_success"
+Proved triviality ___ "map_bitmap_more"
+Proved triviality ___ "map_bitmap_more_simp"
+Proved triviality ___ "word_stack_dec_stack_shape"
+Proved triviality ___ "sorted_env_zip"
+Proved triviality ___ "word_stack_dec_stack_sorted"
+Proved triviality ___ "abs_stack_empty"
+Saved definition ____ "abs_frame_eq_def"
+Proved triviality ___ "LIST_REL_abs_frame_eq_handler_val"
+Proved triviality ___ "dec_stack_lemma1"
+Proved triviality ___ "dec_stack_lemma"
+Proved triviality ___ "dec_stack_stack_size"
+Proved triviality ___ "gc_state_rel"
+Proved triviality ___ "alloc_alt"
+Proved triviality ___ "MEM_index_list_LIM"
+Proved triviality ___ "MEM_index_list_EL"
+Saved theorem _______ "s_key_eq_stack_size"
+Saved theorem _______ "s_key_eq_push_env_locals_size"
+Proved triviality ___ "alloc_IMP_alloc"
+Proved triviality ___ "word_gc_empty_frame"
+Proved triviality ___ "alloc_IMP_alloc2"
+Saved definition ____ "compile_result_def"
+Proved triviality ___ "Halt_EQ_compile_result"
+Saved definition ____ "push_locals_def"
+Proved triviality ___ "LASTN_LENGTH_ID2"
+Proved triviality ___ "stack_rel_aux_LENGTH"
+Proved triviality ___ "LASTN_MORE"
+Proved triviality ___ "stack_rel_aux_LASTN"
+Proved triviality ___ "abs_stack_to_stack_LENGTH"
+Proved triviality ___ "LASTN_LENGTH_BOUNDS"
+Proved triviality ___ "LASTN_CONS_ID"
+Proved triviality ___ "LASTN_DROP2"
+Proved triviality ___ "abs_stack_prefix_drop"
+Proved triviality ___ "abs_stack_len"
+Proved triviality ___ "EL_REVERSE_REWRITE"
+Proved triviality ___ "LASTN_LESS"
+Proved triviality ___ "ALOOKUP_IFF_MEM"
+Proved triviality ___ "SORTED_CONS_IMP"
+Proved triviality ___ "SORTED_IMP_ALL_DISTINCT_LEMMA"
+Proved triviality ___ "MEM_toAList_fromAList"
+Proved triviality ___ "SORTED_FST_PERM_IMP_ALIST_EQ"
+Proved triviality ___ "stack_rel_raise"
+Proved triviality ___ "EVERY_IMP_EVERY_LASTN"
+Proved triviality ___ "LASTN_HD"
+Saved theorem _______ "insert_bitmap_isPREFIX"
+Saved theorem _______ "wLive_isPREFIX"
+Saved theorem _______ "comp_IMP_isPREFIX"
+Proved triviality ___ "compile_prog_isPREFIX"
+Saved theorem _______ "compile_word_to_stack_isPREFIX"
+Saved theorem _______ "EVEN_DIV2_INJ"
+Saved theorem _______ "wMoveAux_thm"
+Saved theorem _______ "state_rel_get_var_imp"
+Saved theorem _______ "state_rel_get_var_imp2"
+Saved theorem _______ "state_rel_set_var_k"
+Saved theorem _______ "state_rel_set_var"
+Saved theorem _______ "state_rel_set_var2"
+Saved theorem _______ "wMoveSingle_thm"
+Saved theorem _______ "IS_SOME_get_vars_set_var"
+Saved theorem _______ "IS_SOME_get_vars_EVERY"
+Saved theorem _______ "with_same_locals"
+Saved theorem _______ "evaluate_wMoveAux_seqsem"
+Saved theorem _______ "evaluate_SeqStackFree"
+Proved triviality ___ "get_vars_eq"
+Proved triviality ___ "LAST_add_ret_loc"
+Proved triviality ___ "call_dest_lemma"
+Proved triviality ___ "compile_result_NOT_2"
+Saved theorem _______ "MAP_o_THE_FILTER_IS_SOME"
+Saved theorem _______ "MAP_OPTION_MAP_FILTER_IS_SOME"
+Saved theorem _______ "MAP_FILTER_IS_SOME"
+Proved triviality ___ "TIMES2_DIV2_lemma"
+Saved theorem _______ "PAIR_MAP_SOME_SWAP"
+Saved theorem _______ "IS_SOME_o_OPTION_MAP"
+Proved triviality ___ "parsem_parmove_DIV2_lemma"
+Saved theorem _______ "ALOOKUP_MAP_any"
+Saved theorem _______ "wf_alist_insert"
+Saved theorem _______ "ALOOKUP_MAP_INJ_FST"
+Saved theorem _______ "ALOOKUP_ID_TABULATE"
+Saved theorem _______ "alist_insert_get_vars"
+Proved triviality ___ "wf_fromList2"
+Saved theorem _______ "wStackLoad_append"
+Saved theorem _______ "wRegWrite1_thm1"
+Saved theorem _______ "wRegWrite1_thm1_weak"
+Saved theorem _______ "wRegWrite1_thm2"
+Saved theorem _______ "wRegWrite1_thm3"
+Saved theorem _______ "wRegWrite1_thm4"
+Saved theorem _______ "wRegWrite1_thm5"
+Saved theorem _______ "wRegWrite1_thm6"
+Proved triviality ___ "set_fp_var_stack"
+Saved theorem _______ "wRegWrite2_thm1"
+Saved theorem _______ "state_rel_mem_store"
+Saved theorem _______ "wStackLoad_thm1"
+Saved theorem _______ "wStackLoad_thm1_weak"
+Saved theorem _______ "wStackLoad_thm2"
+Saved theorem _______ "wStackLoad_thm2_weak"
+Saved theorem _______ "wStackLoad_thm3"
+Saved definition ____ "map_var_def"
+Saved induction _____ "map_var_ind"
+Saved theorem _______ "the_words_EVERY_IS_SOME_Word"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved theorem _______ "the_words_SOME_eq"
+Saved theorem _______ "the_words_MAP_exists"
+Saved theorem _______ "word_exp_thm1"
+Saved theorem _______ "word_exp_thm2"
+Saved theorem _______ "word_exp_thm3"
+Saved theorem _______ "word_exp_thm4"
+Saved theorem _______ "word_exp_thm5"
+Saved theorem _______ "word_exp_thm6"
+Saved theorem _______ "state_rel_with_memory"
+Saved theorem _______ "set_var_swap"
+Saved theorem _______ "set_var_cancel"
+Saved theorem _______ "word_exp_Op_SOME_Word"
+Saved theorem _______ "state_rel_get_fp_var"
+Saved theorem _______ "state_rel_set_fp_var"
+Saved theorem _______ "evaluate_wInst"
+Saved theorem _______ "set_store_set_var"
+Saved theorem _______ "state_rel_set_store"
+Proved triviality ___ "get_vars_fromList2_eq"
+Proved triviality ___ "get_vars_fromList2_eq_cons"
+Proved triviality ___ "lookup_fromList2_prefix"
+Saved theorem _______ "list_max_APPEND"
+Saved theorem _______ "list_max_SNOC"
+Saved theorem _______ "list_max_GENLIST_evens"
+Saved theorem _______ "list_max_GENLIST_evens2"
+Saved theorem _______ "evaluate_wStackLoad_seq"
+Proved triviality ___ "evaluate_wStackLoad_wReg1"
+Proved triviality ___ "evaluate_wStackLoad_clock"
+Proved triviality ___ "evaluate_wStackLoad_wReg2"
+Proved triviality ___ "evaluate_call_dest_clock"
+Proved triviality ___ "evaluate_wLive_clock"
+Proved triviality ___ "state_rel_IMP_LENGTH"
+Proved triviality ___ "evaluate_stack_move"
+Proved triviality ___ "evaluate_stack_move_seq"
+Proved triviality ___ "pop_env_ffi"
+Proved triviality ___ "stack_rel_DROP_NONE"
+Proved triviality ___ "stack_rel_DROP_SOME"
+Proved triviality ___ "LAST_GENLIST_evens"
+Proved triviality ___ "stack_rel_cons_LEN_NONE"
+Proved triviality ___ "stack_rel_cons_LEN_SOME"
+Saved theorem _______ "stack_rel_cons_locals_size"
+Saved theorem _______ "IS_SOME_OPTION_MAP2_EQ"
+Proved triviality ___ "DROP_SUB"
+Proved triviality ___ "DROP_SUB2"
+Saved theorem _______ "evaluate_PopHandler"
+Proved triviality ___ "evaluate_PopHandler_clock"
+Proved triviality ___ "evaluate_PopHandler_seq"
+Proved triviality ___ "word_cmp_Word_Word"
+Proved triviality ___ "ALL_DISTINCT_MEM_toAList_fromAList"
+Proved triviality ___ "state_rel_code_domain"
+Saved theorem _______ "get_labels_wStackLoad"
+Saved theorem _______ "loc_check_SUBSET"
+Saved theorem _______ "MAP_FST_compile_word_to_stack"
+Saved theorem _______ "wLive_LENGTH"
+Saved theorem _______ "comp_IMP_LENGTH"
+Saved theorem _______ "compile_prog_LENGTH"
+Saved theorem _______ "compile_word_to_stack_IMP_LENGTH"
+Saved theorem _______ "compile_word_to_stack_bitmaps"
+Proved triviality ___ "compile_word_to_stack_IMP_ALOOKUP"
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+Saved theorem _______ "comp_Skip_correct"
+Saved theorem _______ "comp_Alloc_correct"
+Saved theorem _______ "chunk_to_bits_bound"
+Saved theorem _______ "chunk_to_bits_0"
+Saved theorem _______ "copy_words_for_pattern_thm"
+Saved theorem _______ "word_msb_chunk_to_bits"
+Saved theorem _______ "copy_words"
+Saved theorem _______ "const_writes_append"
+Saved theorem _______ "const_addresses_append"
+Saved theorem _______ "copy_words_correct"
+Saved theorem _______ "comp_StoreConsts_correct"
+Saved theorem _______ "comp_Move_correct"
+Saved theorem _______ "comp_Inst_correct"
+Saved theorem _______ "comp_Assign_correct"
+Saved theorem _______ "comp_Get_correct"
+Saved theorem _______ "comp_Set_correct"
+Saved theorem _______ "comp_OpCurrHeap_correct"
+Saved theorem _______ "comp_Store_correct"
+Saved theorem _______ "comp_Tick_correct"
+Saved theorem _______ "comp_MustTerminate_correct"
+Saved theorem _______ "comp_Seq_correct"
+Saved theorem _______ "comp_Return_correct"
+Saved theorem _______ "stack_rel_aux_stack_size"
+Saved theorem _______ "abs_stack_CONS_NIL"
+Proved triviality ___ "SUB_SUB_EQ"
+Proved triviality ___ "SUB_ADD_EQ"
+Saved theorem _______ "abs_stack_LENGTH"
+Saved theorem _______ "abs_stack_empty'"
+Saved theorem _______ "comp_Raise_correct"
+Proved triviality ___ "evaluate_const_inst_wReg1"
+Proved triviality ___ "evaluate_const_inst_clock"
+Saved theorem _______ "comp_If_correct"
+Saved theorem _______ "comp_LocValue_correct"
+Saved theorem _______ "comp_Install_correct"
+Saved theorem _______ "comp_CodeBufferWrite_correct"
+Saved theorem _______ "comp_DataBufferWrite_correct"
+Saved theorem _______ "comp_FFI_correct"
+Saved theorem _______ "flat_exp_conventions_ShareInst_exp_simp"
+Saved theorem _______ "word_exp_Op_Add_0"
+Saved theorem _______ "evaluate_ShareInst_Var_eq_Op_Add"
+Saved theorem _______ "share_load_lemma1"
+Saved theorem _______ "share_load_lemma2"
+Saved theorem _______ "share_store_lemma1"
+Saved theorem _______ "share_store_lemma2"
+Saved theorem _______ "evaluate_ShareInst_Load"
+Saved theorem _______ "evaluate_ShareInst_Store"
+Saved theorem _______ "evaluate_ShareInst_correct_lemma"
+Saved theorem _______ "comp_ShareInst_correct"
+Saved theorem _______ "compile_prog_stack_size"
+Proved triviality ___ "SUB_SUB_SUB_MAX"
+Proved triviality ___ "MAX_LE"
+Saved theorem _______ "stack_rel_stack_size"
+comp_correct tail call case 0.  ∀xs args1 prog ss.
+       get_vars args s = SOME xs ∧ ¬bad_dest_args dest args ∧
+       find_code dest (add_ret_loc NONE xs) s.code s.stack_size =
+       SOME (args1,prog,ss) ∧ handler = NONE ∧ s.clock ≠ 0 ⇒
+       ∀k' f'' f'³' res' s1' t' bs'' n'' bs'³' n'³' sprog' lens'.
+         evaluate (prog,call_env args1 ss (dec_clock s)) = (res',s1') ∧
+         res' ≠ SOME Error ∧
+         state_rel ac k' f'' f'³' (call_env args1 ss (dec_clock s)) t' lens' ∧
+         post_alloc_conventions k' prog ∧ flat_exp_conventions prog ∧
+         comp ac prog (bs'',n'') (k',f'',f'³') = (sprog',bs'³',n'³') ∧
+         LENGTH (append bs'') ≤ n'' ∧
+         n'' ≤ LENGTH (append bs'') + LENGTH t'.bitmaps ∧
+         append bs'³' ≼ DROP (n'' − LENGTH (append bs'')) t'.bitmaps ∧
+         get_labels sprog' ⊆ loc_check t'.code ∧
+         max_var prog < 2 * f'³' + 2 * k' ⇒
+         ∃ck t1 res1.
+           evaluate (sprog',t' with clock := ck + t'.clock) = (res1,t1) ∧
+           if OPTION_MAP compile_result res' ≠ res1 then
+             res1 = SOME (Halt (Word 2w)) ∧
+             t1.ffi.io_events ≼ s1'.ffi.io_events ∧
+             the (s1'.stack_limit + 1) s1'.stack_max > s1'.stack_limit
+           else
+             case res' of
+               NONE => state_rel ac k' f'' f'³' s1' t1 lens'
+             | SOME (Result v6 y) =>
+               state_rel ac k' 0 0 s1' t1 lens' ∧ FLOOKUP t1.regs 1 = SOME y
+             | SOME (Exception v8 y') =>
+               state_rel ac k' 0 0 (push_locals s1') t1
+                 (LASTN ((call_env args1 ss (dec_clock s)).handler + 1) lens') ∧
+               FLOOKUP t1.regs 1 = SOME y'
+             | SOME TimeOut => s1'.ffi = t1.ffi ∧ s1'.clock = t1.clock
+             | SOME NotEnoughSpace => s1'.ffi = t1.ffi ∧ s1'.clock = t1.clock
+             | SOME (FinalFFI v10) => s1'.ffi = t1.ffi ∧ s1'.clock = t1.clock
+             | SOME Error => s1'.ffi = t1.ffi ∧ s1'.clock = t1.clock
+ 1.  evaluate (Call NONE dest args handler,s) = (res,s1)
+ 2.  res ≠ SOME Error
+ 3.  state_rel ac k f f' s t lens
+ 4.  post_alloc_conventions k (Call NONE dest args handler)
+ 5.  flat_exp_conventions (Call NONE dest args handler)
+ 6.  LENGTH (append bs) ≤ n
+ 7.  n ≤ LENGTH (append bs) + LENGTH t.bitmaps
+ 8.  append bs ≼ DROP (n − LENGTH (append bs)) t.bitmaps
+ 9.  get_labels
+       (Seq q0
+          (SeqStackFree (stack_free dest' (LENGTH args) (k,f,f'))
+             (Call NONE dest' NONE))) ⊆ loc_check t.code
+10.  max_var (Call NONE dest args handler) < 2 * f' + 2 * k
+11.  call_dest dest args (k,f,f') = (q0,dest')
+------------------------------------
+     ∃ck t1 res1.
+       evaluate
+         (Seq q0
+            (SeqStackFree (stack_free dest' (LENGTH args) (k,f,f'))
+               (Call NONE dest' NONE)),t with clock := ck + t.clock) =
+       (res1,t1) ∧
+       if OPTION_MAP compile_result res ≠ res1 then
+         res1 = SOME (Halt (Word 2w)) ∧ t1.ffi.io_events ≼ s1.ffi.io_events ∧
+         the (s1.stack_limit + 1) s1.stack_max > s1.stack_limit
+       else
+         case res of
+           NONE => state_rel ac k f f' s1 t1 lens
+         | SOME (Result v6 y) =>
+           state_rel ac k 0 0 s1 t1 lens ∧ FLOOKUP t1.regs 1 = SOME y
+         | SOME (Exception v8 y') =>
+           state_rel ac k 0 0 (push_locals s1) t1
+             (LASTN (s.handler + 1) lens) ∧ FLOOKUP t1.regs 1 = SOME y'
+         | SOME TimeOut => s1.ffi = t1.ffi ∧ s1.clock = t1.clock
+         | SOME NotEnoughSpace => s1.ffi = t1.ffi ∧ s1.clock = t1.clock
+         | SOME (FinalFFI v10) => s1.ffi = t1.ffi ∧ s1.clock = t1.clock
+         | SOME Error => s1.ffi = t1.ffi ∧ s1.clock = t1.clock
+comp_correct returning call case(s) 0.  ∀xs args1 prog ss n'' names ret_handler l1 l2 env s2 y' n'³' h l1' l2'.
+       get_vars args s = SOME xs ∧ ¬bad_dest_args dest args ∧
+       find_code dest (add_ret_loc (SOME x) xs) s.code s.stack_size =
+       SOME (args1,prog,ss) ∧ x = (n'',names,ret_handler,l1,l2) ∧
+       domain names ≠ ∅ ∧ cut_env names s.locals = SOME env ∧ s.clock ≠ 0 ∧
+       evaluate (prog,call_env args1 ss (push_env env handler (dec_clock s))) =
+       (SOME (Exception (Loc l1' l2') y'),s2) ∧
+       handler = SOME (n'³',h,l1',l2') ∧ domain s2.locals = domain env ⇒
+       ∀k' f'' f'³' res' s1' t' bs'' n'⁴' bs'³' n'⁵' sprog' lens'.
+         evaluate (h,set_var n'³' y' s2) = (res',s1') ∧ res' ≠ SOME Error ∧
+         state_rel ac k' f'' f'³' (set_var n'³' y' s2) t' lens' ∧
+         post_alloc_conventions k' h ∧ flat_exp_conventions h ∧
+         comp ac h (bs'',n'⁴') (k',f'',f'³') = (sprog',bs'³',n'⁵') ∧
+         LENGTH (append bs'') ≤ n'⁴' ∧
+         n'⁴' ≤ LENGTH (append bs'') + LENGTH t'.bitmaps ∧
+         append bs'³' ≼ DROP (n'⁴' − LENGTH (append bs'')) t'.bitmaps ∧
+         get_labels sprog' ⊆ loc_check t'.code ∧
+         max_var h < 2 * f'³' + 2 * k' ⇒
+         ∃ck t1 res1.
+           evaluate (sprog',t' with clock := ck + t'.clock) = (res1,t1) ∧
+           if OPTION_MAP compile_result res' ≠ res1 then
+             res1 = SOME (Halt (Word 2w)) ∧
+             t1.ffi.io_events ≼ s1'.ffi.io_events ∧
+             the (s1'.stack_limit + 1) s1'.stack_max > s1'.stack_limit
+           else
+             case res' of
+               NONE => state_rel ac k' f'' f'³' s1' t1 lens'
+             | SOME (Result v6 y) =>
+               state_rel ac k' 0 0 s1' t1 lens' ∧ FLOOKUP t1.regs 1 = SOME y
+             | SOME (Exception v8 y'') =>
+               state_rel ac k' 0 0 (push_locals s1') t1
+                 (LASTN (s2.handler + 1) lens') ∧
+               FLOOKUP t1.regs 1 = SOME y''
+             | SOME TimeOut => s1'.ffi = t1.ffi ∧ s1'.clock = t1.clock
+             | SOME NotEnoughSpace => s1'.ffi = t1.ffi ∧ s1'.clock = t1.clock
+             | SOME (FinalFFI v10) => s1'.ffi = t1.ffi ∧ s1'.clock = t1.clock
+             | SOME Error => s1'.ffi = t1.ffi ∧ s1'.clock = t1.clock
+ 1.  ∀xs args1 prog ss n'' names ret_handler l1 l2 env s2 y s1'.
+       get_vars args s = SOME xs ∧ ¬bad_dest_args dest args ∧
+       find_code dest (add_ret_loc (SOME x) xs) s.code s.stack_size =
+       SOME (args1,prog,ss) ∧ x = (n'',names,ret_handler,l1,l2) ∧
+       domain names ≠ ∅ ∧ cut_env names s.locals = SOME env ∧ s.clock ≠ 0 ∧
+       evaluate (prog,call_env args1 ss (push_env env handler (dec_clock s))) =
+       (SOME (Result (Loc l1 l2) y),s2) ∧ pop_env s2 = SOME s1' ∧
+       domain s1'.locals = domain env ⇒
+       ∀k' f'' f'³' res' s1'' t' bs'' n'³' bs'³' n'⁴' sprog' lens'.
+         evaluate (ret_handler,set_var n'' y s1') = (res',s1'') ∧
+         res' ≠ SOME Error ∧
+         state_rel ac k' f'' f'³' (set_var n'' y s1') t' lens' ∧
+         post_alloc_conventions k' ret_handler ∧
+         flat_exp_conventions ret_handler ∧
+         comp ac ret_handler (bs'',n'³') (k',f'',f'³') = (sprog',bs'³',n'⁴') ∧
+         LENGTH (append bs'') ≤ n'³' ∧
+         n'³' ≤ LENGTH (append bs'') + LENGTH t'.bitmaps ∧
+         append bs'³' ≼ DROP (n'³' − LENGTH (append bs'')) t'.bitmaps ∧
+         get_labels sprog' ⊆ loc_check t'.code ∧
+         max_var ret_handler < 2 * f'³' + 2 * k' ⇒
+         ∃ck t1 res1.
+           evaluate (sprog',t' with clock := ck + t'.clock) = (res1,t1) ∧
+           if OPTION_MAP compile_result res' ≠ res1 then
+             res1 = SOME (Halt (Word 2w)) ∧
+             t1.ffi.io_events ≼ s1''.ffi.io_events ∧
+             the (s1''.stack_limit + 1) s1''.stack_max > s1''.stack_limit
+           else
+             case res' of
+               NONE => state_rel ac k' f'' f'³' s1'' t1 lens'
+             | SOME (Result v6 y) =>
+               state_rel ac k' 0 0 s1'' t1 lens' ∧ FLOOKUP t1.regs 1 = SOME y
+             | SOME (Exception v8 y') =>
+               state_rel ac k' 0 0 (push_locals s1'') t1
+                 (LASTN (s1'.handler + 1) lens') ∧
+               FLOOKUP t1.regs 1 = SOME y'
+             | SOME TimeOut => s1''.ffi = t1.ffi ∧ s1''.clock = t1.clock
+             | SOME NotEnoughSpace =>
+               s1''.ffi = t1.ffi ∧ s1''.clock = t1.clock
+             | SOME (FinalFFI v10) =>
+               s1''.ffi = t1.ffi ∧ s1''.clock = t1.clock
+             | SOME Error => s1''.ffi = t1.ffi ∧ s1''.clock = t1.clock
+ 2.  ∀xs args1 prog ss n'' names ret_handler l1 l2 env.
+       get_vars args s = SOME xs ∧ ¬bad_dest_args dest args ∧
+       find_code dest (add_ret_loc (SOME x) xs) s.code s.stack_size =
+       SOME (args1,prog,ss) ∧ x = (n'',names,ret_handler,l1,l2) ∧
+       domain names ≠ ∅ ∧ cut_env names s.locals = SOME env ∧ s.clock ≠ 0 ⇒
+       ∀k' f'' f'³' res' s1' t' bs'' n'³' bs'³' n'⁴' sprog' lens'.
+         evaluate
+           (prog,call_env args1 ss (push_env env handler (dec_clock s))) =
+         (res',s1') ∧ res' ≠ SOME Error ∧
+         state_rel ac k' f'' f'³'
+           (call_env args1 ss (push_env env handler (dec_clock s))) t' lens' ∧
+         post_alloc_conventions k' prog ∧ flat_exp_conventions prog ∧
+         comp ac prog (bs'',n'³') (k',f'',f'³') = (sprog',bs'³',n'⁴') ∧
+         LENGTH (append bs'') ≤ n'³' ∧
+         n'³' ≤ LENGTH (append bs'') + LENGTH t'.bitmaps ∧
+         append bs'³' ≼ DROP (n'³' − LENGTH (append bs'')) t'.bitmaps ∧
+         get_labels sprog' ⊆ loc_check t'.code ∧
+         max_var prog < 2 * f'³' + 2 * k' ⇒
+         ∃ck t1 res1.
+           evaluate (sprog',t' with clock := ck + t'.clock) = (res1,t1) ∧
+           if OPTION_MAP compile_result res' ≠ res1 then
+             res1 = SOME (Halt (Word 2w)) ∧
+             t1.ffi.io_events ≼ s1'.ffi.io_events ∧
+             the (s1'.stack_limit + 1) s1'.stack_max > s1'.stack_limit
+           else
+             case res' of
+               NONE => state_rel ac k' f'' f'³' s1' t1 lens'
+             | SOME (Result v6 y) =>
+               state_rel ac k' 0 0 s1' t1 lens' ∧ FLOOKUP t1.regs 1 = SOME y
+             | SOME (Exception v8 y') =>
+               state_rel ac k' 0 0 (push_locals s1') t1
+                 (LASTN
+                    ((call_env args1 ss (push_env env handler (dec_clock s))).
+                     handler + 1) lens') ∧ FLOOKUP t1.regs 1 = SOME y'
+             | SOME TimeOut => s1'.ffi = t1.ffi ∧ s1'.clock = t1.clock
+             | SOME NotEnoughSpace => s1'.ffi = t1.ffi ∧ s1'.clock = t1.clock
+             | SOME (FinalFFI v10) => s1'.ffi = t1.ffi ∧ s1'.clock = t1.clock
+             | SOME Error => s1'.ffi = t1.ffi ∧ s1'.clock = t1.clock
+ 3.  evaluate (Call (SOME x) dest args handler,s) = (res,s1)
+ 4.  res ≠ SOME Error
+ 5.  state_rel ac k f f' s t lens
+ 6.  post_alloc_conventions k (Call (SOME x) dest args handler)
+ 7.  flat_exp_conventions (Call (SOME x) dest args handler)
+ 8.  (case x of
+        (ret_var,live,ret_code,l1,l2) =>
+          (λ(q1,bs').
+               (λ(q2,bs'').
+                    case handler of
+                      NONE =>
+                        (Seq q0
+                           (Seq q1
+                              (Seq
+                                 (StackArgs dest' (LENGTH args + 1) (k,f,f'))
+                                 (Call (SOME (q2,0,l1,l2)) dest' NONE))),bs'')
+                    | SOME (handle_var,handle_code,h1,h2) =>
+                      (λ(q3,bs'³').
+                           (Seq q0
+                              (Seq q1
+                                 (Seq (PushHandler h1 h2 (k,f,f'))
+                                    (Seq
+                                       (StackHandlerArgs dest'
+                                          (LENGTH args + 1) (k,f,f'))
+                                       (Call
+                                          (SOME
+                                             (PopHandler (k,f,f') q2,0,l1,l2))
+                                          dest' (SOME (q3,h1,h2)))))),bs'³'))
+                        (comp ac handle_code bs'' (k,f,f')))
+                 (comp ac ret_code bs' (k,f,f')))
+            (wLive live (bs,n) (k,f,f'))) = (sprog,bs',n')
+ 9.  LENGTH (append bs) ≤ n
+10.  n ≤ LENGTH (append bs) + LENGTH t.bitmaps
+11.  append bs' ≼ DROP (n − LENGTH (append bs)) t.bitmaps
+12.  get_labels sprog ⊆ loc_check t.code
+13.  max_var (Call (SOME x) dest args handler) < 2 * f' + 2 * k
+14.  call_dest dest args (k,f,f') = (q0,dest')
+------------------------------------
+     ∃ck t1 res1.
+       evaluate (sprog,t with clock := ck + t.clock) = (res1,t1) ∧
+       if OPTION_MAP compile_result res ≠ res1 then
+         res1 = SOME (Halt (Word 2w)) ∧ t1.ffi.io_events ≼ s1.ffi.io_events ∧
+         the (s1.stack_limit + 1) s1.stack_max > s1.stack_limit
+       else
+         case res of
+           NONE => state_rel ac k f f' s1 t1 lens
+         | SOME (Result v6 y) =>
+           state_rel ac k 0 0 s1 t1 lens ∧ FLOOKUP t1.regs 1 = SOME y
+         | SOME (Exception v8 y') =>
+           state_rel ac k 0 0 (push_locals s1) t1
+             (LASTN (s.handler + 1) lens) ∧ FLOOKUP t1.regs 1 = SOME y'
+         | SOME TimeOut => s1.ffi = t1.ffi ∧ s1.clock = t1.clock
+         | SOME NotEnoughSpace => s1.ffi = t1.ffi ∧ s1.clock = t1.clock
+         | SOME (FinalFFI v10) => s1.ffi = t1.ffi ∧ s1.clock = t1.clock
+         | SOME Error => s1.ffi = t1.ffi ∧ s1.clock = t1.clock
+No handler case 0.  res ≠ SOME Error
+ 1.  state_rel ac k f f' s t lens
+ 2.  post_alloc_conventions k (Call (SOME (x0,x1,x2,x3,x4)) dest args NONE)
+ 3.  flat_exp_conventions (Call (SOME (x0,x1,x2,x3,x4)) dest args NONE)
+ 4.  Seq q0
+       (Seq q1
+          (Seq (StackArgs dest' (LENGTH args + 1) (k,f,f'))
+             (Call (SOME (q2,0,x3,x4)) dest' NONE))) = sprog
+ 5.  bs'³' = (bs',n')
+ 6.  LENGTH (append bs) ≤ n
+ 7.  n ≤ LENGTH (append bs) + LENGTH t.bitmaps
+ 8.  append bs' ≼ DROP (n − LENGTH (append bs)) t.bitmaps
+ 9.  get_labels sprog ⊆ loc_check t.code
+10.  max_var (Call (SOME (x0,x1,x2,x3,x4)) dest args NONE) < 2 * f' + 2 * k
+11.  call_dest dest args (k,f,f') = (q0,dest')
+12.  wLive x1 (bs,n) (k,f,f') = (q1,q'',r)
+13.  comp ac x2 (q'',r) (k,f,f') = (q2,bs'³')
+14.  get_vars args s = SOME x
+15.  ¬bad_dest_args dest args
+16.  find_code dest (add_ret_loc (SOME (x0,x1,x2,x3,x4)) x) s.code
+       s.stack_size = SOME (q,q',r')
+17.  domain x1 ≠ ∅
+18.  find_code dest' t4.regs t4.code = SOME stack_prog
+19.  the fs r' = fs
+20.  append bs2 ≼ DROP (i − LENGTH (append bs'⁴')) t.bitmaps
+21.  i ≤ LENGTH (append bs'⁴') + LENGTH t.bitmaps
+22.  LENGTH (append bs'⁴') ≤ i
+23.  compile_prog ac q' (LENGTH q) k (bs'⁴',i) = (stack_prog,fs,bs2,i2)
+24.  t4.stack_space = t.stack_space
+25.  LENGTH t4.stack = LENGTH t.stack
+26.  state_rel ac k f f' s t4 lens
+27.  evaluate (q0,t) = (NONE,t4)
+28.  cut_env x1 s.locals = SOME x'
+29.  s.clock ≠ 0 ⇒
+     ∀k' f'' f'³' res' s1' t' bs'' n'³' bs'³' n'⁴' sprog' lens'.
+       evaluate (q',call_env q r' (push_env x' NONE (dec_clock s))) =
+       (res',s1') ∧ res' ≠ SOME Error ∧
+       state_rel ac k' f'' f'³'
+         (call_env q r' (push_env x' NONE (dec_clock s))) t' lens' ∧
+       post_alloc_conventions k' q' ∧ flat_exp_conventions q' ∧
+       comp ac q' (bs'',n'³') (k',f'',f'³') = (sprog',bs'³',n'⁴') ∧
+       LENGTH (append bs'') ≤ n'³' ∧
+       n'³' ≤ LENGTH (append bs'') + LENGTH t'.bitmaps ∧
+       append bs'³' ≼ DROP (n'³' − LENGTH (append bs'')) t'.bitmaps ∧
+       get_labels sprog' ⊆ loc_check t'.code ∧ max_var q' < 2 * f'³' + 2 * k' ⇒
+       ∃ck t1 res1.
+         evaluate (sprog',t' with clock := ck + t'.clock) = (res1,t1) ∧
+         if OPTION_MAP compile_result res' ≠ res1 then
+           res1 = SOME (Halt (Word 2w)) ∧
+           t1.ffi.io_events ≼ s1'.ffi.io_events ∧
+           the (s1'.stack_limit + 1) s1'.stack_max > s1'.stack_limit
+         else
+           case res' of
+             NONE => state_rel ac k' f'' f'³' s1' t1 lens'
+           | SOME (Result v6 y) =>
+             state_rel ac k' 0 0 s1' t1 lens' ∧ FLOOKUP t1.regs 1 = SOME y
+           | SOME (Exception v8 y') =>
+             state_rel ac k' 0 0 (push_locals s1') t1
+               (LASTN
+                  ((call_env q r' (push_env x' NONE (dec_clock s))).handler +
+                   1) lens') ∧ FLOOKUP t1.regs 1 = SOME y'
+           | SOME TimeOut => s1'.ffi = t1.ffi ∧ s1'.clock = t1.clock
+           | SOME NotEnoughSpace => s1'.ffi = t1.ffi ∧ s1'.clock = t1.clock
+           | SOME (FinalFFI v10) => s1'.ffi = t1.ffi ∧ s1'.clock = t1.clock
+           | SOME Error => s1'.ffi = t1.ffi ∧ s1'.clock = t1.clock
+30.  ∀s2 y s1'.
+       s.clock ≠ 0 ∧
+       evaluate (q',call_env q r' (push_env x' NONE (dec_clock s))) =
+       (SOME (Result (Loc x3 x4) y),s2) ∧ pop_env s2 = SOME s1' ∧
+       domain s1'.locals = domain x' ⇒
+       ∀k' f'' f'³' res' s1'' t' bs'' n'³' bs'³' n'⁴' sprog' lens'.
+         evaluate (x2,set_var x0 y s1') = (res',s1'') ∧ res' ≠ SOME Error ∧
+         state_rel ac k' f'' f'³' (set_var x0 y s1') t' lens' ∧
+         post_alloc_conventions k' x2 ∧ flat_exp_conventions x2 ∧
+         comp ac x2 (bs'',n'³') (k',f'',f'³') = (sprog',bs'³',n'⁴') ∧
+         LENGTH (append bs'') ≤ n'³' ∧
+         n'³' ≤ LENGTH (append bs'') + LENGTH t'.bitmaps ∧
+         append bs'³' ≼ DROP (n'³' − LENGTH (append bs'')) t'.bitmaps ∧
+         get_labels sprog' ⊆ loc_check t'.code ∧
+         max_var x2 < 2 * f'³' + 2 * k' ⇒
+         ∃ck t1 res1.
+           evaluate (sprog',t' with clock := ck + t'.clock) = (res1,t1) ∧
+           if OPTION_MAP compile_result res' ≠ res1 then
+             res1 = SOME (Halt (Word 2w)) ∧
+             t1.ffi.io_events ≼ s1''.ffi.io_events ∧
+             the (s1''.stack_limit + 1) s1''.stack_max > s1''.stack_limit
+           else
+             case res' of
+               NONE => state_rel ac k' f'' f'³' s1'' t1 lens'
+             | SOME (Result v6 y) =>
+               state_rel ac k' 0 0 s1'' t1 lens' ∧ FLOOKUP t1.regs 1 = SOME y
+             | SOME (Exception v8 y') =>
+               state_rel ac k' 0 0 (push_locals s1'') t1
+                 (LASTN (s1'.handler + 1) lens') ∧
+               FLOOKUP t1.regs 1 = SOME y'
+             | SOME TimeOut => s1''.ffi = t1.ffi ∧ s1''.clock = t1.clock
+             | SOME NotEnoughSpace =>
+               s1''.ffi = t1.ffi ∧ s1''.clock = t1.clock
+             | SOME (FinalFFI v10) =>
+               s1''.ffi = t1.ffi ∧ s1''.clock = t1.clock
+             | SOME Error => s1''.ffi = t1.ffi ∧ s1''.clock = t1.clock
+31.  T
+32.  ∀clk.
+       evaluate (q0,t with clock := clk) =
+       (FST (evaluate (q0,t)),SND (evaluate (q0,t)) with clock := clk)
+33.  ∀x. x ∈ domain x1 ⇒ EVEN x ∧ k ≤ x DIV 2
+34.  1 ≤ f
+35.  n ≤ LENGTH (append bs) + LENGTH t4.bitmaps
+36.  append q'' ≼ DROP (n − LENGTH (append bs)) t4.bitmaps
+37.  evaluate (q1,t4) = (NONE,t5)
+38.  state_rel ac k 0 0
+       (push_env x' NONE s with <|locals := LN; locals_size := SOME 0|>) t5
+       (f'::lens)
+39.  state_rel ac k f f' s t5 lens
+40.  LENGTH t5.stack = LENGTH t.stack
+41.  t5.stack_space = t.stack_space
+42.  ∀i. i ≠ k ⇒ get_var i t5 = get_var i t4
+43.  ∀clk.
+       evaluate (q1,t4 with clock := clk) =
+       (FST (evaluate (q1,t4)),SND (evaluate (q1,t4)) with clock := clk)
+------------------------------------
+     (if s.clock = 0 then
+        (SOME TimeOut,
+         flush_state T
+           (s with
+            <|stack := [];
+              stack_max := (call_env q r' (push_env x' NONE s)).stack_max|>))
+      else
+        (case evaluate (q',call_env q r' (push_env x' NONE (dec_clock s))) of
+           (NONE,s2) => (SOME Error,s2)
+         | (SOME (Result x y),s2) =>
+           if x ≠ Loc x3 x4 then (SOME Error,s2)
+           else
+             (case pop_env s2 of
+                NONE => (SOME Error,s2)
+              | SOME s1 =>
+                if domain s1.locals = domain x' then
+                  evaluate (x2,set_var x0 y s1)
+                else (SOME Error,s1))
+         | (SOME (Exception x'' y'),s2) => (SOME (Exception x'' y'),s2)
+         | (SOME TimeOut,s2) => (SOME TimeOut,s2)
+         | (SOME NotEnoughSpace,s2) => (SOME NotEnoughSpace,s2)
+         | (SOME (FinalFFI v18),s2) => (SOME (FinalFFI v18),s2)
+         | (SOME Error,s2) => (SOME Error,s2))) = (res,s1) ⇒
+     ∃ck t1 res1.
+       evaluate (sprog,t with clock := ck + t.clock) = (res1,t1) ∧
+       if OPTION_MAP compile_result res ≠ res1 then
+         res1 = SOME (Halt (Word 2w)) ∧ t1.ffi.io_events ≼ s1.ffi.io_events ∧
+         the (s1.stack_limit + 1) s1.stack_max > s1.stack_limit
+       else
+         case res of
+           NONE => state_rel ac k f f' s1 t1 lens
+         | SOME (Result v6 y) =>
+           state_rel ac k 0 0 s1 t1 lens ∧ FLOOKUP t1.regs 1 = SOME y
+         | SOME (Exception v8 y') =>
+           state_rel ac k 0 0 (push_locals s1) t1
+             (LASTN (s.handler + 1) lens) ∧ FLOOKUP t1.regs 1 = SOME y'
+         | SOME TimeOut => s1.ffi = t1.ffi ∧ s1.clock = t1.clock
+         | SOME NotEnoughSpace => s1.ffi = t1.ffi ∧ s1.clock = t1.clock
+         | SOME (FinalFFI v10) => s1.ffi = t1.ffi ∧ s1.clock = t1.clock
+         | SOME Error => s1.ffi = t1.ffi ∧ s1.clock = t1.clock
+Handler case 0.  res ≠ SOME Error
+ 1.  state_rel ac k f f' s t lens
+ 2.  post_alloc_conventions k
+       (Call (SOME (x0,x1,x2,x3,x4)) dest args (SOME x''))
+ 3.  flat_exp_conventions (Call (SOME (x0,x1,x2,x3,x4)) dest args (SOME x''))
+ 4.  (case x'' of
+        (handle_var,handle_code,h1,h2) =>
+          (λ(q3,bs'³').
+               (Seq q0
+                  (Seq q1
+                     (Seq (PushHandler h1 h2 (k,f,f'))
+                        (Seq
+                           (StackHandlerArgs dest' (LENGTH args + 1) (k,f,f'))
+                           (Call (SOME (PopHandler (k,f,f') q2,0,x3,x4))
+                              dest' (SOME (q3,h1,h2)))))),bs'³'))
+            (comp ac handle_code bs'³' (k,f,f'))) = (sprog,bs',n')
+ 5.  LENGTH (append bs) ≤ n
+ 6.  n ≤ LENGTH (append bs) + LENGTH t.bitmaps
+ 7.  append bs' ≼ DROP (n − LENGTH (append bs)) t.bitmaps
+ 8.  get_labels sprog ⊆ loc_check t.code
+ 9.  max_var (Call (SOME (x0,x1,x2,x3,x4)) dest args (SOME x'')) <
+     2 * f' + 2 * k
+10.  call_dest dest args (k,f,f') = (q0,dest')
+11.  wLive x1 (bs,n) (k,f,f') = (q1,q'',r)
+12.  comp ac x2 (q'',r) (k,f,f') = (q2,bs'³')
+13.  get_vars args s = SOME x
+14.  ¬bad_dest_args dest args
+15.  find_code dest (add_ret_loc (SOME (x0,x1,x2,x3,x4)) x) s.code
+       s.stack_size = SOME (q,q',r')
+16.  domain x1 ≠ ∅
+17.  find_code dest' t4.regs t4.code = SOME stack_prog
+18.  the fs r' = fs
+19.  append bs2 ≼ DROP (i − LENGTH (append bs'⁴')) t.bitmaps
+20.  i ≤ LENGTH (append bs'⁴') + LENGTH t.bitmaps
+21.  LENGTH (append bs'⁴') ≤ i
+22.  compile_prog ac q' (LENGTH q) k (bs'⁴',i) = (stack_prog,fs,bs2,i2)
+23.  t4.stack_space = t.stack_space
+24.  LENGTH t4.stack = LENGTH t.stack
+25.  state_rel ac k f f' s t4 lens
+26.  evaluate (q0,t) = (NONE,t4)
+27.  cut_env x1 s.locals = SOME x'
+28.  s.clock ≠ 0 ⇒
+     ∀k' f'' f'³' res' s1' t' bs'' n'³' bs'³' n'⁴' sprog' lens'.
+       evaluate (q',call_env q r' (push_env x' (SOME x'') (dec_clock s))) =
+       (res',s1') ∧ res' ≠ SOME Error ∧
+       state_rel ac k' f'' f'³'
+         (call_env q r' (push_env x' (SOME x'') (dec_clock s))) t' lens' ∧
+       post_alloc_conventions k' q' ∧ flat_exp_conventions q' ∧
+       comp ac q' (bs'',n'³') (k',f'',f'³') = (sprog',bs'³',n'⁴') ∧
+       LENGTH (append bs'') ≤ n'³' ∧
+       n'³' ≤ LENGTH (append bs'') + LENGTH t'.bitmaps ∧
+       append bs'³' ≼ DROP (n'³' − LENGTH (append bs'')) t'.bitmaps ∧
+       get_labels sprog' ⊆ loc_check t'.code ∧ max_var q' < 2 * f'³' + 2 * k' ⇒
+       ∃ck t1 res1.
+         evaluate (sprog',t' with clock := ck + t'.clock) = (res1,t1) ∧
+         if OPTION_MAP compile_result res' ≠ res1 then
+           res1 = SOME (Halt (Word 2w)) ∧
+           t1.ffi.io_events ≼ s1'.ffi.io_events ∧
+           the (s1'.stack_limit + 1) s1'.stack_max > s1'.stack_limit
+         else
+           case res' of
+             NONE => state_rel ac k' f'' f'³' s1' t1 lens'
+           | SOME (Result v6 y) =>
+             state_rel ac k' 0 0 s1' t1 lens' ∧ FLOOKUP t1.regs 1 = SOME y
+           | SOME (Exception v8 y') =>
+             state_rel ac k' 0 0 (push_locals s1') t1
+               (LASTN
+                  ((call_env q r' (push_env x' (SOME x'') (dec_clock s))).
+                   handler + 1) lens') ∧ FLOOKUP t1.regs 1 = SOME y'
+           | SOME TimeOut => s1'.ffi = t1.ffi ∧ s1'.clock = t1.clock
+           | SOME NotEnoughSpace => s1'.ffi = t1.ffi ∧ s1'.clock = t1.clock
+           | SOME (FinalFFI v10) => s1'.ffi = t1.ffi ∧ s1'.clock = t1.clock
+           | SOME Error => s1'.ffi = t1.ffi ∧ s1'.clock = t1.clock
+29.  ∀s2 y s1'.
+       s.clock ≠ 0 ∧
+       evaluate (q',call_env q r' (push_env x' (SOME x'') (dec_clock s))) =
+       (SOME (Result (Loc x3 x4) y),s2) ∧ pop_env s2 = SOME s1' ∧
+       domain s1'.locals = domain x' ⇒
+       ∀k' f'' f'³' res' s1'' t' bs'' n'³' bs'³' n'⁴' sprog' lens'.
+         evaluate (x2,set_var x0 y s1') = (res',s1'') ∧ res' ≠ SOME Error ∧
+         state_rel ac k' f'' f'³' (set_var x0 y s1') t' lens' ∧
+         post_alloc_conventions k' x2 ∧ flat_exp_conventions x2 ∧
+         comp ac x2 (bs'',n'³') (k',f'',f'³') = (sprog',bs'³',n'⁴') ∧
+         LENGTH (append bs'') ≤ n'³' ∧
+         n'³' ≤ LENGTH (append bs'') + LENGTH t'.bitmaps ∧
+         append bs'³' ≼ DROP (n'³' − LENGTH (append bs'')) t'.bitmaps ∧
+         get_labels sprog' ⊆ loc_check t'.code ∧
+         max_var x2 < 2 * f'³' + 2 * k' ⇒
+         ∃ck t1 res1.
+           evaluate (sprog',t' with clock := ck + t'.clock) = (res1,t1) ∧
+           if OPTION_MAP compile_result res' ≠ res1 then
+             res1 = SOME (Halt (Word 2w)) ∧
+             t1.ffi.io_events ≼ s1''.ffi.io_events ∧
+             the (s1''.stack_limit + 1) s1''.stack_max > s1''.stack_limit
+           else
+             case res' of
+               NONE => state_rel ac k' f'' f'³' s1'' t1 lens'
+             | SOME (Result v6 y) =>
+               state_rel ac k' 0 0 s1'' t1 lens' ∧ FLOOKUP t1.regs 1 = SOME y
+             | SOME (Exception v8 y') =>
+               state_rel ac k' 0 0 (push_locals s1'') t1
+                 (LASTN (s1'.handler + 1) lens') ∧
+               FLOOKUP t1.regs 1 = SOME y'
+             | SOME TimeOut => s1''.ffi = t1.ffi ∧ s1''.clock = t1.clock
+             | SOME NotEnoughSpace =>
+               s1''.ffi = t1.ffi ∧ s1''.clock = t1.clock
+             | SOME (FinalFFI v10) =>
+               s1''.ffi = t1.ffi ∧ s1''.clock = t1.clock
+             | SOME Error => s1''.ffi = t1.ffi ∧ s1''.clock = t1.clock
+30.  ∀s2 y' n'³' h l1' l2'.
+       s.clock ≠ 0 ∧
+       evaluate (q',call_env q r' (push_env x' (SOME x'') (dec_clock s))) =
+       (SOME (Exception (Loc l1' l2') y'),s2) ∧ x'' = (n'³',h,l1',l2') ∧
+       domain s2.locals = domain x' ⇒
+       ∀k' f'' f'³' res' s1' t' bs'' n'⁴' bs'³' n'⁵' sprog' lens'.
+         evaluate (h,set_var n'³' y' s2) = (res',s1') ∧ res' ≠ SOME Error ∧
+         state_rel ac k' f'' f'³' (set_var n'³' y' s2) t' lens' ∧
+         post_alloc_conventions k' h ∧ flat_exp_conventions h ∧
+         comp ac h (bs'',n'⁴') (k',f'',f'³') = (sprog',bs'³',n'⁵') ∧
+         LENGTH (append bs'') ≤ n'⁴' ∧
+         n'⁴' ≤ LENGTH (append bs'') + LENGTH t'.bitmaps ∧
+         append bs'³' ≼ DROP (n'⁴' − LENGTH (append bs'')) t'.bitmaps ∧
+         get_labels sprog' ⊆ loc_check t'.code ∧
+         max_var h < 2 * f'³' + 2 * k' ⇒
+         ∃ck t1 res1.
+           evaluate (sprog',t' with clock := ck + t'.clock) = (res1,t1) ∧
+           if OPTION_MAP compile_result res' ≠ res1 then
+             res1 = SOME (Halt (Word 2w)) ∧
+             t1.ffi.io_events ≼ s1'.ffi.io_events ∧
+             the (s1'.stack_limit + 1) s1'.stack_max > s1'.stack_limit
+           else
+             case res' of
+               NONE => state_rel ac k' f'' f'³' s1' t1 lens'
+             | SOME (Result v6 y) =>
+               state_rel ac k' 0 0 s1' t1 lens' ∧ FLOOKUP t1.regs 1 = SOME y
+             | SOME (Exception v8 y'') =>
+               state_rel ac k' 0 0 (push_locals s1') t1
+                 (LASTN (s2.handler + 1) lens') ∧
+               FLOOKUP t1.regs 1 = SOME y''
+             | SOME TimeOut => s1'.ffi = t1.ffi ∧ s1'.clock = t1.clock
+             | SOME NotEnoughSpace => s1'.ffi = t1.ffi ∧ s1'.clock = t1.clock
+             | SOME (FinalFFI v10) => s1'.ffi = t1.ffi ∧ s1'.clock = t1.clock
+             | SOME Error => s1'.ffi = t1.ffi ∧ s1'.clock = t1.clock
+31.  ∀clk.
+       evaluate (q0,t with clock := clk) =
+       (FST (evaluate (q0,t)),SND (evaluate (q0,t)) with clock := clk)
+32.  ∀x. x ∈ domain x1 ⇒ EVEN x ∧ k ≤ x DIV 2
+33.  1 ≤ f
+34.  n ≤ LENGTH (append bs) + LENGTH t4.bitmaps
+35.  append q'' ≼ DROP (n − LENGTH (append bs)) t4.bitmaps
+36.  evaluate (q1,t4) = (NONE,t5)
+37.  state_rel ac k 0 0
+       (push_env x' NONE s with <|locals := LN; locals_size := SOME 0|>) t5
+       (f'::lens)
+38.  state_rel ac k f f' s t5 lens
+39.  LENGTH t5.stack = LENGTH t.stack
+40.  t5.stack_space = t.stack_space
+41.  ∀i. i ≠ k ⇒ get_var i t5 = get_var i t4
+42.  ∀clk.
+       evaluate (q1,t4 with clock := clk) =
+       (FST (evaluate (q1,t4)),SND (evaluate (q1,t4)) with clock := clk)
+------------------------------------
+     (if s.clock = 0 then
+        (SOME TimeOut,
+         flush_state T
+           (s with
+            <|stack := [];
+              stack_max :=
+                (call_env q r' (push_env x' (SOME x'') s)).stack_max|>))
+      else
+        (case
+           evaluate (q',call_env q r' (push_env x' (SOME x'') (dec_clock s)))
+         of
+           (NONE,s2) => (SOME Error,s2)
+         | (SOME (Result x y),s2) =>
+           if x ≠ Loc x3 x4 then (SOME Error,s2)
+           else
+             (case pop_env s2 of
+                NONE => (SOME Error,s2)
+              | SOME s1 =>
+                if domain s1.locals = domain x' then
+                  evaluate (x2,set_var x0 y s1)
+                else (SOME Error,s1))
+         | (SOME (Exception x'³' y'),s2) =>
+           (case x'' of
+              (n',h,l1',l2') =>
+                if x'³' ≠ Loc l1' l2' then (SOME Error,s2)
+                else if domain s2.locals = domain x' then
+                  evaluate (h,set_var n' y' s2)
+                else (SOME Error,s2))
+         | (SOME TimeOut,s2) => (SOME TimeOut,s2)
+         | (SOME NotEnoughSpace,s2) => (SOME NotEnoughSpace,s2)
+         | (SOME (FinalFFI v18),s2) => (SOME (FinalFFI v18),s2)
+         | (SOME Error,s2) => (SOME Error,s2))) = (res,s1) ⇒
+     ∃ck t1 res1.
+       evaluate (sprog,t with clock := ck + t.clock) = (res1,t1) ∧
+       if OPTION_MAP compile_result res ≠ res1 then
+         res1 = SOME (Halt (Word 2w)) ∧ t1.ffi.io_events ≼ s1.ffi.io_events ∧
+         the (s1.stack_limit + 1) s1.stack_max > s1.stack_limit
+       else
+         case res of
+           NONE => state_rel ac k f f' s1 t1 lens
+         | SOME (Result v6 y) =>
+           state_rel ac k 0 0 s1 t1 lens ∧ FLOOKUP t1.regs 1 = SOME y
+         | SOME (Exception v8 y') =>
+           state_rel ac k 0 0 (push_locals s1) t1
+             (LASTN (s.handler + 1) lens) ∧ FLOOKUP t1.regs 1 = SOME y'
+         | SOME TimeOut => s1.ffi = t1.ffi ∧ s1.clock = t1.clock
+         | SOME NotEnoughSpace => s1.ffi = t1.ffi ∧ s1.clock = t1.clock
+         | SOME (FinalFFI v10) => s1.ffi = t1.ffi ∧ s1.clock = t1.clock
+         | SOME Error => s1.ffi = t1.ffi ∧ s1.clock = t1.clock
+Saved theorem _______ "comp_Call_correct"
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+Saved theorem _______ "comp_correct"
+Proved triviality ___ "evaluate_Seq_Skip"
+Proved triviality ___ "comp_Call"
+Saved theorem _______ "state_rel_with_clock"
+Saved theorem _______ "state_rel_IMP_semantics"
+Saved definition ____ "init_state_ok_def"
+Saved definition ____ "make_init_def"
+Proved triviality ___ "init_state_ok_IMP_state_rel"
+Saved theorem _______ "state_rel_IMP_semantics'"
+Saved theorem _______ "compile_semantics"
+Proved triviality ___ "stack_move_no_labs"
+Saved theorem _______ "word_to_stack_lab_pres"
+Saved theorem _______ "word_to_stack_compile_lab_pres"
+Saved theorem _______ "compile_word_to_stack_lab_pres"
+Proved triviality ___ "EVEN_DIV_2_props"
+Proved triviality ___ "call_dest_stack_asm_name"
+Proved triviality ___ "wLive_stack_asm_name"
+Saved theorem _______ "word_to_stack_stack_asm_name_lem"
+Proved triviality ___ "call_dest_stack_asm_remove"
+Proved triviality ___ "wLive_stack_asm_remove"
+Saved theorem _______ "word_to_stack_stack_asm_remove_lem"
+Saved theorem _______ "word_to_stack_stack_asm_convs"
+Saved theorem _______ "stack_move_alloc_arg"
+Saved theorem _______ "word_to_stack_alloc_arg"
+Saved theorem _______ "stack_move_reg_bound"
+Saved theorem _______ "word_to_stack_reg_bound"
+Saved theorem _______ "stack_move_call_args"
+Saved theorem _______ "word_to_stack_call_args"
+Saved theorem _______ "reg_bound_mono"
+Saved theorem _______ "word_to_stack_stack_convs"
+Saved theorem _______ "compile_word_to_stack_convs"
+Proved triviality ___ "get_code_handler_labels_wStackLoad"
+Proved triviality ___ "wLive_code_labels"
+Proved triviality ___ "stack_move_code_labels"
+Saved theorem _______ "word_to_stack_comp_code_labels"
+Saved theorem _______ "compile_word_to_stack_code_labels"
+Saved theorem _______ "word_to_stack_good_code_labels"
+Saved theorem _______ "word_to_stack_good_code_labels_incr"
+Proved triviality ___ "sub_union_lemma"
+Saved theorem _______ "word_to_stack_good_handler_labels"
+Saved theorem _______ "word_to_stack_good_handler_labels_incr"
+Saved theorem _______ "wMoveAux_no_install_lem"
+Saved theorem _______ "wStackLoad_no_install_lem"
+Saved theorem _______ "wRegWrite1_no_install_lem"
+Saved theorem _______ "wRegWrite2_no_install_lem"
+Saved theorem _______ "wLive_no_install_lem"
+Saved theorem _______ "stack_move_no_install_lem"
+Saved theorem _______ "comp_no_install"
+Saved theorem _______ "compile_word_to_stack_no_install"
+Saved theorem _______ "wMoveAux_no_shmemop_lem"
+Saved theorem _______ "wStackLoad_no_shmemop_lem"
+Saved theorem _______ "wRegWrite1_no_shmemop_lem"
+Saved theorem _______ "wRegWrite2_no_shmemop_lem"
+Saved theorem _______ "wLive_no_shmemop_lem"
+Saved theorem _______ "stack_move_no_shmemop_lem"
+Saved theorem _______ "comp_no_shmemop"
+Saved theorem _______ "compile_word_to_stack_no_share_inst"
+Saved theorem _______ "compile_no_shmemop"
+Saved theorem _______ "word_to_stack_compile_no_install"
+Exporting theory "word_to_stackProof" ... done.
+Theory "word_to_stackProof" took 21m22s to build

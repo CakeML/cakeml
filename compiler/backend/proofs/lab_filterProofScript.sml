@@ -1,13 +1,15 @@
 (*
   Correctness proof for lab_filter
 *)
-open preamble labSemTheory labPropsTheory lab_filterTheory;
+Theory lab_filterProof
+Ancestors
+  labSem labProps lab_filter
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "lab_filterProof";
 
 Definition adjust_pc_def:
   adjust_pc p xs =
@@ -310,19 +312,34 @@ Triviality loc_to_pc_eq_NONE:
   loc_to_pc n1 n2 (filter_skip code) = NONE ⇒
   loc_to_pc n1 n2 code = NONE
 Proof
-  ho_match_mp_tac loc_to_pc_ind>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[filter_skip_def]>>
-  full_simp_tac(srw_ss())[Once loc_to_pc_def]>>IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-  FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
-  IF_CASES_TAC>>
-  full_simp_tac(srw_ss())[]>>
-  TRY
-    (qpat_x_assum`_=NONE` mp_tac>>
-    IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-    IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-    simp[Once loc_to_pc_def]>>
-    EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>NO_TAC)>>
-  full_simp_tac(srw_ss())[not_skip_def]
+  ho_match_mp_tac loc_to_pc_ind>>
+  rw[]>>gvs[filter_skip_def]>>
+  simp[Once loc_to_pc_def]>>
+  pop_assum mp_tac>>
+  simp[Once loc_to_pc_def]>>
+  qmatch_goalsub_abbrev_tac`P ∧ _ = _`>>
+  strip_tac>>
+  qpat_x_assum`Abbrev _` mp_tac>>
+  gvs[]>>
+  TOP_CASE_TAC>>gvs[]>>
+  strip_tac>>
+  CONJ_ASM1_TAC
+  >- (
+    gvs[AllCaseEqs()]>>
+    fs[not_skip_def,AllCasePreds()])>>
+  rename1`P ∧ _ ⇒ _`>>
+  gvs[]>>
+  qpat_x_assum`_ = NONE` mp_tac>>
+  IF_CASES_TAC>>simp[]
+  >-
+    (IF_CASES_TAC>>gvs[AllCaseEqs()])>>
+  `¬is_Label h` by (
+    Cases_on`h`>>
+    gvs[not_skip_def,AllCasePreds()])>>
+  gvs[AllCaseEqs()]>>
+  rw[]>>
+  first_x_assum irule>>
+  simp[Once loc_to_pc_def]
 QED
 
 Triviality loc_to_pc_eq_SOME:
@@ -619,6 +636,8 @@ Proof
   >- share_mem_load_filter_correct_tac
   >- share_mem_load_filter_correct_tac
   >- share_mem_load_filter_correct_tac
+  >- share_mem_load_filter_correct_tac
+  >- share_mem_store_filter_correct_tac
   >- share_mem_store_filter_correct_tac
   >- share_mem_store_filter_correct_tac
   >- share_mem_store_filter_correct_tac
@@ -718,7 +737,7 @@ Proof
         metis_tac[ADD_ASSOC]))
       >-
         (Cases_on`a`>>Cases_on`m`>>
-        fs[mem_op_def,mem_load_def,labSemTheory.addr_def,mem_load_byte_def,mem_store_def,upd_mem_def,mem_store_byte_def]>>
+        fs[mem_op_def,mem_load_def,labSemTheory.addr_def,mem_load_byte_def,mem_store_def,upd_mem_def,mem_store_byte_def,mem_load32_def,mem_store32_def]>>
         EVERY_CASE_TAC>>
         fs[upd_reg_def,inc_pc_def,dec_clock_def,assert_def]>>
         rw[]>>fs[]>>
@@ -1156,4 +1175,3 @@ Proof
   \\ fs[LAST_CONS_cond]
 QED
 
-val _ = export_theory();

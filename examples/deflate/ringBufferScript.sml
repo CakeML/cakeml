@@ -1,11 +1,12 @@
 (*
 Implementation written by Alexander Cox
 *)
+Theory ringBuffer
+Ancestors
+  list rich_list arithmetic
+Libs
+  preamble
 
-open preamble;
-open listTheory rich_listTheory  arithmeticTheory;
-
-val _ = new_theory"ringBuffer";
 
 (* a ringBuffer is a list with the current size and index of the start *)
 (* do I need an end index, i.e. to avoid deletions *)
@@ -147,8 +148,9 @@ Proof
        rename [‘LENGTH t ≤ n’] >>
        gs[ADD_CLAUSES] >>
        Cases_on ‘t = []’
-       >- gs[ADD1] >>
-       ‘0 < LENGTH t’ by gs[GSYM LENGTH_NIL, Excl "LENGTH_NIL"] >>
+       >- gs[ADD1,EL_APPEND] >>
+       ‘0 < LENGTH t’ by
+          (Cases_on`t`>>gvs[])>>
        gs[ADD1] >>
        ‘LENGTH prefix + 1 = LENGTH (prefix ++ [h])’ suffices_by simp[DROP_LENGTH_APPEND, Excl "LENGTH_APPEND"] >>
        simp[])
@@ -160,7 +162,8 @@ Proof
        simp[EL_APPEND1,EL_APPEND2] >>
        gs[ADD_CLAUSES] >> gs[ADD1] >>
        Cases_on ‘t = []’ >> gs[] >>
-       ‘0 < LENGTH t’ by gs[GSYM LENGTH_NIL, Excl "LENGTH_NIL"] >>
+       ‘0 < LENGTH t’ by
+         (Cases_on`t`>>gvs[])>>
        simp[] >>
        ‘LENGTH prefix + 1 = LENGTH (prefix ++ [h])’ suffices_by simp[DROP_LENGTH_APPEND, Excl "LENGTH_APPEND"] >>
        simp[]))
@@ -368,4 +371,3 @@ Proof EVAL_TAC >> simp[]
 QED
 
 
-val _ = export_theory();

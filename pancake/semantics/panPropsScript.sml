@@ -1,14 +1,11 @@
 (*
   panLang Properties
 *)
-
-open preamble
-     panLangTheory panSemTheory
-     pan_commonPropsTheory;
-
-val _ = new_theory"panProps";
-
-val _ = set_grammar_ancestry ["panLang","panSem", "pan_commonProps"];
+Theory panProps
+Ancestors
+  panLang panSem pan_commonProps
+Libs
+  preamble
 
 
 Definition v2word_def:
@@ -496,6 +493,20 @@ Proof
    fs [OPT_MMAP_def]
 QED
 
+Theorem eval_upd_code_eq:
+  !t e code. eval (t with code := code) e =  eval t e
+Proof
+  ho_match_mp_tac eval_ind >> rw [] >>
+  fs [eval_def] >>
+  qsuff_tac ‘OPT_MMAP (λa. eval (t with code := code) a) es =
+             OPT_MMAP (λa. eval t a) es’ >>
+  fs [] >>
+  pop_assum mp_tac >>
+  qid_spec_tac ‘es’ >>
+  Induct >> rw [] >>
+  fs [OPT_MMAP_def]
+QED
+
 Theorem opt_mmap_eval_upd_clock_eq:
    !es s ck. OPT_MMAP (eval (s with clock := ck + s.clock)) es =
    OPT_MMAP (eval s) es
@@ -539,10 +550,14 @@ Proof
       oneline sh_mem_load_def,
       oneline sh_mem_store_def,
       set_var_def,
+      set_global_def,
       empty_locals_def,
       dec_clock_def,
-      opt_mmap_eval_upd_clock_eq
-     ]
+      opt_mmap_eval_upd_clock_eq,
+      lookup_kvar_def,
+      set_kvar_def
+     ] >>
+  PURE_TOP_CASE_TAC >> gvs[]
 QED
 
 Theorem evaluate_clock_sub:
@@ -601,17 +616,19 @@ Proof
       gvs[state_component_equality])
   >~ [‘Call’]
   >- (gvs[evaluate_def,AllCaseEqs(),eval_upd_clock_eq,opt_mmap_eval_upd_clock_eq1,dec_clock_def,
-         empty_locals_def,set_var_def] >>
+         empty_locals_def,set_var_def,set_kvar_def,set_global_def] >>
       imp_res_tac evaluate_clock >>
       gvs[empty_locals_def] >>
       TRY $ first_x_assum $ irule_at $ Pat ‘evaluate _ = _’ >>
-      gvs[state_component_equality] >>
+      gvs[state_component_equality,PULL_EXISTS] >>
       TRY $ first_x_assum $ irule_at $ Pat ‘evaluate _ = _’ >>
       rw[] >>
-      qrefine ‘_ with locals := (_:('a,'b) state).locals’ >>
+      qrefine ‘_ with <|globals := (_:('a,'b) state).globals;
+                        locals := (_:('a,'b) state).locals|>’ >>
       rw[] >>
       gvs[] >>
-      metis_tac[])
+      metis_tac[]
+     )
   >~ [‘DecCall’]
   >- (gvs[evaluate_def,AllCaseEqs(),eval_upd_clock_eq,opt_mmap_eval_upd_clock_eq1,dec_clock_def,
          empty_locals_def,set_var_def] >>
@@ -635,10 +652,23 @@ Proof
   gvs[evaluate_def,state_component_equality,AllCaseEqs(),eval_upd_clock_eq,
       oneline nb_op_def,oneline sh_mem_load_def,
       oneline sh_mem_store_def, set_var_def, empty_locals_def,
-      dec_clock_def,opt_mmap_eval_upd_clock_eq1
+      dec_clock_def,opt_mmap_eval_upd_clock_eq1,
+      set_global_def, lookup_kvar_def, set_kvar_def
      ] >>
   rpt(pairarg_tac >> gvs[]) >>
   gvs[state_component_equality]
+QED
+
+Theorem evaluate_min_clock:
+  evaluate (prog,s) = (q,r) ∧ q ≠ SOME TimeOut ⇒
+  ∃k. evaluate (prog,s with clock := k) = (q,r with clock := 0)
+Proof
+  qabbrev_tac ‘x = r with clock := 0’>>
+  ‘r = x with clock := x.clock + r.clock’
+    by simp[state_component_equality,Abbr‘x’]>>
+  pop_assum (fn h => rewrite_tac[Once h])>>strip_tac>>
+  drule_all evaluate_clock_sub>>
+  strip_tac>>fs[]>>metis_tac[]
 QED
 
 Theorem evaluate_io_events_mono:
@@ -659,6 +689,7 @@ Proof
   gvs[evaluate_def,AllCaseEqs(),
       oneline nb_op_def,oneline sh_mem_load_def,
       oneline sh_mem_store_def, set_var_def, empty_locals_def,
+      set_global_def,lookup_kvar_def,set_kvar_def,
       dec_clock_def,opt_mmap_eval_upd_clock_eq1,
       ffiTheory.call_FFI_def] >>
   rpt(pairarg_tac >> gvs[]) >>
@@ -717,6 +748,7 @@ Proof
   >- (gvs[evaluate_def,AllCaseEqs(),
           oneline nb_op_def,oneline sh_mem_load_def,
           oneline sh_mem_store_def, set_var_def, empty_locals_def,
+          set_kvar_def, set_global_def,
           dec_clock_def,opt_mmap_eval_upd_clock_eq1,
           eval_upd_clock_eq,ffiTheory.call_FFI_def] >>
       rpt(pairarg_tac >> gvs[]) >>
@@ -750,6 +782,7 @@ Proof
   gvs[evaluate_def,AllCaseEqs(),
       oneline nb_op_def,oneline sh_mem_load_def,
       oneline sh_mem_store_def, set_var_def, empty_locals_def,
+      set_global_def,lookup_kvar_def,set_kvar_def,
       dec_clock_def,opt_mmap_eval_upd_clock_eq1,
       eval_upd_clock_eq,ffiTheory.call_FFI_def] >>
   rpt(pairarg_tac >> gvs[]) >>
@@ -765,79 +798,94 @@ Theorem update_locals_not_vars_eval_eq:
   eval (s with locals := s.locals |+ (n,w)) e = SOME v
 Proof
   ho_match_mp_tac eval_ind >>
-  rpt conj_tac >> rpt gen_tac >> strip_tac
-  >- fs [eval_def]
-  >- fs [eval_def, var_exp_def, FLOOKUP_UPDATE]
-  >- fs [eval_def]
-  >- (
-    rpt gen_tac >>
-    fs [var_exp_def] >>
-    strip_tac >>
-    rpt (pop_assum mp_tac) >>
-    MAP_EVERY qid_spec_tac [‘s’, ‘n’, ‘v’, ‘es’] >>
-    Induct >> rw []
-    >- gs [eval_def, OPT_MMAP_def] >>
-    gs [eval_def, OPT_MMAP_def] >>
-    every_case_tac >> gvs []
-    >- (
-      first_x_assum (qspec_then ‘h’ mp_tac) >>
-      impl_tac >- gs [] >>
-      strip_tac >> gs [])
-    >- (
-      last_x_assum (qspecl_then [‘Struct t’, ‘n’, ‘s’] mp_tac) >>
-      impl_tac >- metis_tac [] >>
-      strip_tac >> gs []) >>
-    conj_asm1_tac
-    >- (
-      first_x_assum (qspec_then ‘h’ mp_tac) >>
-      impl_tac >- gs [] >>
-      strip_tac >> rgs []) >>
-    gvs [] >>
-    last_x_assum (qspecl_then [‘Struct t'’, ‘n’, ‘s’] mp_tac) >>
-    impl_tac >- metis_tac [] >>
-    simp[])
-  >- (
-    rpt gen_tac >>
-    strip_tac >>
-    fs [var_exp_def, eval_def] >>
-    cases_on ‘eval s e’ >>
-    fs [])
-  >- (
-   rpt gen_tac >>
-   strip_tac >> fs [var_exp_def] >>
-   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
-   rveq >> fs [mem_load_def])
-  >- (
-   rpt gen_tac >>
-   strip_tac >> fs [var_exp_def] >>
-   fs [eval_def, CaseEq "option", CaseEq "word_lab"] >>
-   rveq >> fs [mem_load_def])
-  >- (
-   rpt gen_tac >>
-   strip_tac >> fs [var_exp_def, ETA_AX] >>
-   fs [eval_def, CaseEq "option", ETA_AX] >>
-   qexists_tac ‘ws’ >>
-   fs [opt_mmap_eq_some, ETA_AX,
-       MAP_EQ_EVERY2, LIST_REL_EL_EQN] >>
-   rw [] >>
-   fs [MEM_FLAT, MEM_MAP] >>
-   metis_tac [EL_MEM])
-  >- (
-   rpt gen_tac >>
-   strip_tac >>
-   gvs [var_exp_def, eval_def, AllCaseEqs(),opt_mmap_eq_some,SF DNF_ss,
-        DefnBase.one_line_ify NONE pan_op_def,MAP_EQ_CONS,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
-   metis_tac[]
-  )
-  >- (
-    rw [] >>
-    gs [var_exp_def, eval_def] >>
-    every_case_tac >> gvs []) >>
-  rw [] >>
-  gs [var_exp_def, eval_def] >>
-  every_case_tac >> gvs []
+  rpt conj_tac >> rpt gen_tac
+  >~ [‘Struct’]
+  >- (fs [var_exp_def] >>
+      rpt strip_tac >>
+      gvs[eval_def,AllCaseEqs()] >>
+      imp_res_tac opt_mmap_el >>
+      imp_res_tac opt_mmap_length_eq >>
+      gvs[opt_mmap_eq_some] >>
+      irule LIST_EQ >>
+      rw[EL_MAP] >>
+      first_x_assum irule >>
+      simp[MEM_EL,PULL_EXISTS] >>
+      irule_at (Pos last) EQ_REFL >>
+      simp[] >>
+      rw[] >>
+      gvs[MEM_FLAT,MEM_MAP,MEM_EL,PULL_FORALL, SF DNF_ss] >>
+      metis_tac[]) >>
+  rw[] >>
+  gvs[eval_def,var_exp_def, lookup_kvar_def, FLOOKUP_UPDATE,AllCaseEqs(),
+      PULL_EXISTS] >>
+  ntac 2 $ first_assum $ irule_at $ Pos last >>
+  imp_res_tac opt_mmap_el >>
+  imp_res_tac opt_mmap_length_eq >>
+  gvs[opt_mmap_eq_some] >>
+  irule LIST_EQ >>
+  rw[EL_MAP] >>
+  first_x_assum irule >>
+  simp[MEM_EL,PULL_EXISTS] >>
+  irule_at (Pos last) EQ_REFL >>
+  simp[] >>
+  rw[] >>
+  gvs[MEM_FLAT,MEM_MAP,MEM_EL,PULL_FORALL, SF DNF_ss] >>
+  metis_tac[]
 QED
 
+Theorem update_locals_not_vars_eval_eq_NONE:
+  ∀s e v n w.
+  ~MEM n (var_exp e) /\
+  eval s e = NONE ==>
+  eval (s with locals := s.locals |+ (n,w)) e = NONE
+Proof
+  ho_match_mp_tac eval_ind >>
+  rpt conj_tac >> rpt gen_tac
+  >~ [‘Struct’]
+  >- (fs [var_exp_def] >>
+      rpt strip_tac >>
+      gvs[eval_def,AllCaseEqs()] >>
+      ‘OPT_MMAP (λa. eval s a) es = OPT_MMAP (λa. eval (s with locals := s.locals |+ (n,w)) a) es’
+        by(qpat_x_assum ‘OPT_MMAP _ _ = _’ kall_tac >>
+           irule OPT_MMAP_CONG >>
+           rw[] >>
+           gvs[MEM_FLAT,MEM_MAP,SF DNF_ss] >>
+           Cases_on ‘eval s x’ >> gvs[] >>
+           metis_tac[update_locals_not_vars_eval_eq]) >>
+      gvs[]) >>
+  rw[] >>
+  gvs[eval_def,var_exp_def, lookup_kvar_def, FLOOKUP_UPDATE,AllCaseEqs(),PULL_EXISTS] >>
+  imp_res_tac update_locals_not_vars_eval_eq >>
+  gvs[] >>
+  ‘OPT_MMAP (λa. eval s a) es = OPT_MMAP (λa. eval (s with locals := s.locals |+ (n,w)) a) es’
+    by(qpat_x_assum ‘OPT_MMAP _ _ = _’ kall_tac >>
+       irule OPT_MMAP_CONG >>
+       rw[] >>
+       gvs[MEM_FLAT,MEM_MAP,SF DNF_ss] >>
+       Cases_on ‘eval s x’ >> gvs[] >>
+       metis_tac[update_locals_not_vars_eval_eq]) >>
+  gvs[]
+QED
+
+Theorem eval_fresh_var:
+  ∀s e n w.
+  ~MEM n (var_exp e) ⇒
+  eval (s with locals := s.locals |+ (n,w)) e = eval s e
+Proof
+  rpt strip_tac >>
+  Cases_on ‘eval s e’ >>
+  metis_tac[update_locals_not_vars_eval_eq_NONE,update_locals_not_vars_eval_eq]
+QED
+
+Theorem OPT_MMAP_update_locals_not_vars_eval_eq:
+  ∀s es vs n w.
+  ~MEM n (FLAT(MAP var_exp es)) /\
+  OPT_MMAP (eval s) es = SOME vs ==>
+  OPT_MMAP (eval (s with locals := s.locals |+ (n,w))) es = SOME vs
+Proof
+  strip_tac >> Induct_on ‘es’ >>
+  rw[update_locals_not_vars_eval_eq]
+QED
 
 Theorem write_bytearray_update_byte:
   ∀bytes ad ad' m adrs be.
@@ -858,6 +906,18 @@ Proof
   fs [APPLY_UPDATE_THM] >>
   every_case_tac >> gs [] >>
   fs [APPLY_UPDATE_THM]
+QED
+
+Theorem read_write_bytearray_lemma:
+  ∀n addr bytes.
+   good_dimindex(:α) ∧
+   read_bytearray (addr:α word) n (mem_load_byte m addrs be) = SOME bytes
+   ⇒ write_bytearray addr bytes m addrs be = m
+Proof
+  Induct >>
+  rw[Once $ oneline read_bytearray_def,AllCaseEqs(),mem_load_byte_def] >>
+  gvs[write_bytearray_def,mem_store_byte_def] >>
+  gvs[set_byte_get_byte,good_dimindex_def]
 QED
 
 Theorem evaluate_clock_sub1:
@@ -896,8 +956,8 @@ Proof
      >~[‘ShMemLoad’]
      >- (Cases_on ‘op’>>
          gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,
-             dec_clock_def,set_var_def,nb_op_def,sh_mem_store_def,
-             sh_mem_load_def] >>
+             dec_clock_def,set_kvar_def,nb_op_def,sh_mem_store_def,
+             set_var_def, set_global_def,sh_mem_load_def,lookup_kvar_def] >>
          metis_tac[PAIR,FST,SND])
      >~[‘ShMemStore’]
      >- (Cases_on ‘op’>>
@@ -905,23 +965,54 @@ Proof
              dec_clock_def,set_var_def,nb_op_def,sh_mem_store_def,
              sh_mem_load_def] >>
          metis_tac[PAIR,FST,SND])>>
-     gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,dec_clock_def,set_var_def] >>
+     gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,dec_clock_def,set_var_def,set_kvar_def,set_global_def] >>
      metis_tac[PAIR,FST,SND])
+QED
+
+Theorem evaluate_global_shape_invariant:
+  ∀p s res st n v.
+    evaluate(p,s) = (res,st) ∧ FLOOKUP s.globals n = SOME v ⇒
+    ∃v'. FLOOKUP st.globals n = SOME v' ∧ shape_of v' = shape_of v
+Proof
+  recInduct evaluate_ind >> rpt conj_tac
+  >~ [‘While’]
+  >- (rpt gen_tac >>
+      strip_tac >>
+      simp[Once evaluate_def] >>
+      rw[AllCaseEqs(),empty_locals_def,UNCURRY_EQ] >> rw[] >>
+      gvs[dec_clock_def] >>
+      metis_tac[])
+  >~ [‘ShMemLoad’]
+  >- (rw[Once evaluate_def,AllCaseEqs(),UNCURRY_EQ,is_valid_value_def,
+         sh_mem_load_def,oneline set_kvar_def,empty_locals_def,set_var_def,
+         set_global_def,sh_mem_store_def,dec_clock_def] >>
+      rw[] >>
+      PURE_TOP_CASE_TAC >>
+      rw[FLOOKUP_UPDATE] >> gvs[] >>
+      gvs[lookup_kvar_def] >>
+      simp[oneline shape_of_def] >>
+      PURE_TOP_CASE_TAC >> simp[]) >>
+  rw[Once evaluate_def,AllCaseEqs(),UNCURRY_EQ,is_valid_value_def,
+     oneline set_kvar_def,empty_locals_def,set_var_def,
+     sh_mem_store_def,dec_clock_def,set_global_def
+    ] >> rw[FLOOKUP_UPDATE] >> gvs[] >>
+  metis_tac[]
 QED
 
 Definition every_exp_def:
   (every_exp P (panLang$Const w) = P(Const w)) ∧
-  (every_exp P (Var v) = P(Var v)) ∧
-  (every_exp P (Label f) = P(Label f)) ∧
+  (every_exp P (Var vk v) = P(Var vk v)) ∧
   (every_exp P (Struct es) = (P(Struct es) ∧ EVERY (every_exp P) es)) ∧
   (every_exp P (Field i e) = (P(Field i e) ∧ every_exp P e)) ∧
   (every_exp P (Load sh e) = (P(Load sh e) ∧ every_exp P e)) ∧
+  (every_exp P (Load32 e) = (P(Load32 e) ∧ every_exp P e)) ∧
   (every_exp P (LoadByte e) = (P(LoadByte e) ∧ every_exp P e)) ∧
   (every_exp P (Op bop es) = (P(Op bop es) ∧ EVERY (every_exp P) es)) ∧
   (every_exp P (Panop op es) = (P(Panop op es) ∧ EVERY (every_exp P) es)) ∧
   (every_exp P (Cmp c e1 e2) = (P(Cmp c e1 e2) ∧ every_exp P e1 ∧ every_exp P e2)) ∧
   (every_exp P (Shift sh e num) = (P(Shift sh e num) ∧ every_exp P e)) ∧
   (every_exp P BaseAddr = P BaseAddr) ∧
+  (every_exp P TopAddr = P TopAddr) ∧
   (every_exp P BytesInWord = P BytesInWord)
 Termination
   wf_rel_tac `measure (exp_size ARB o SND)` >>
@@ -933,22 +1024,347 @@ End
 
 Definition exps_of_def:
   (exps_of (Raise _ e) = [e]) ∧
-  (exps_of (Dec _ e p) = e::exps_of p) ∧
+  (exps_of (Dec _ _ e p) = e::exps_of p) ∧
   (exps_of (Seq p q) = exps_of p ++ exps_of q) ∧
   (exps_of (If e p q) = e::exps_of p ++ exps_of q) ∧
   (exps_of (While e p) = e::exps_of p) ∧
-  (exps_of (Call NONE e es) = e::es) ∧
-  (exps_of (Call (SOME (_ , (SOME (_ ,  _ , ep)))) e es) = e::es++exps_of ep) ∧
-  (exps_of (Call (SOME (_ , NONE)) e es) = e::es) ∧
-  (exps_of (DecCall _ _ e es p) = e::es++exps_of p) ∧
+  (exps_of (Call NONE _ es) = es) ∧
+  (exps_of (Call (SOME (_ , (SOME (_ ,  _ , ep)))) _ es) = es++exps_of ep) ∧
+  (exps_of (Call (SOME (_ , NONE)) _ es) = es) ∧
+  (exps_of (DecCall _ _ _ es p) = es++exps_of p) ∧
   (exps_of (Store e1 e2) = [e1;e2]) ∧
+  (exps_of (Store32 e1 e2) = [e1;e2]) ∧
   (exps_of (StoreByte e1 e2) = [e1;e2]) ∧
   (exps_of (Return e) = [e]) ∧
   (exps_of (ExtCall _ e1 e2 e3 e4) = [e1;e2;e3;e4]) ∧
-  (exps_of (Assign _ e) = [e]) ∧
-  (exps_of (ShMemLoad _ _ e) = [e]) ∧
+  (exps_of (Assign _ _ e) = [e]) ∧
+  (exps_of (ShMemLoad _ _ _ e) = [e]) ∧
   (exps_of (ShMemStore _ e1 e2) = [e1;e2]) ∧
   (exps_of _ = [])
 End
 
-val _ = export_theory();
+Definition localised_exp_def:
+  (localised_exp (Const w) = T) ∧
+  (localised_exp (BytesInWord) = T) ∧
+  (localised_exp (BaseAddr) = T) ∧
+  (localised_exp (TopAddr) = T) ∧
+  (localised_exp (BytesInWord) = T) ∧
+  (localised_exp (Var Local v) = T) ∧
+  (localised_exp (Var Global v) = F) ∧
+  (localised_exp (Struct es) = EVERY localised_exp es) ∧
+  (localised_exp (Field i e) = localised_exp e) ∧
+  (localised_exp (Load sh e) = localised_exp e) ∧
+  (localised_exp (Load32 e) = localised_exp e) ∧
+  (localised_exp (LoadByte e) = localised_exp e) ∧
+  (localised_exp (Op bop es) = EVERY localised_exp es) ∧
+  (localised_exp (Panop op es) = EVERY localised_exp es) ∧
+  (localised_exp (Cmp c e1 e2) = (localised_exp e1 ∧ localised_exp e2)) ∧
+  (localised_exp (Shift sh e num) = localised_exp e)
+Termination
+  wf_rel_tac `measure (\e. exp_size ARB e)` >>
+  rpt strip_tac >>
+  imp_res_tac MEM_IMP_exp_size >>
+  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
+  decide_tac
+End
+
+Definition localised_prog_def:
+  (localised_prog (Raise _ e) ⇔ localised_exp e) ∧
+  (localised_prog (Dec _ _ e p) ⇔ localised_exp e ∧ localised_prog p) ∧
+  (localised_prog (Seq p q) ⇔ localised_prog p ∧ localised_prog q) ∧
+  (localised_prog (If e p q) ⇔ localised_exp e ∧ localised_prog p ∧ localised_prog q) ∧
+  (localised_prog (While e p) ⇔ localised_exp e ∧ localised_prog p) ∧
+  (localised_prog (Store e1 e2) ⇔ localised_exp e1 ∧ localised_exp e2) ∧
+  (localised_prog (Store32 e1 e2) ⇔ localised_exp e1 ∧ localised_exp e2) ∧
+  (localised_prog (StoreByte e1 e2) ⇔ localised_exp e1 ∧ localised_exp e2) ∧
+  (localised_prog (ExtCall fn e1 e2 e3 e4) ⇔ localised_exp e1 ∧ localised_exp e2 ∧ localised_exp e3 ∧ localised_exp e4) ∧
+  (localised_prog (Return e) ⇔ localised_exp e) ∧
+  (localised_prog (ShMemStore op e1 e2) ⇔ localised_exp e1 ∧ localised_exp e2) ∧
+  (localised_prog (ShMemLoad op vk v e) ⇔ vk = Local ∧ localised_exp e) ∧
+  (localised_prog (Call hdl f args) ⇔
+   EVERY localised_exp args ∧
+   (case hdl of
+    | SOME(_,SOME(_,_,p)) => localised_prog p
+    | _ => T) ∧
+   (case hdl of
+    | SOME(SOME(Global,_),_) => F
+    | _ => T)) ∧
+  (localised_prog (DecCall vn sh fn args p) ⇔
+   EVERY localised_exp args ∧ localised_prog p) ∧
+  (localised_prog(Assign Local _ e) ⇔ localised_exp e) ∧
+  (localised_prog(Assign Global _ _) ⇔ F) ∧
+  (localised_prog _ ⇔ T)
+End
+
+Theorem evaluate_decl_commute:
+  evaluate_decls s (Function fi::Decl sh v' e::ds) =
+  evaluate_decls s (Decl sh v' e::Function fi::ds)
+Proof
+  rw[evaluate_decls_def] >>
+  irule option_case_cong >> simp[] >>
+  PURE_REWRITE_TAC[Once $ GSYM state_fupdcanon] >>
+  irule eval_upd_code_eq
+QED
+
+Theorem functions_eq_FILTER:
+  functions prog =
+  MAP (λx. case x of Function fi => (fi.name,fi.params,fi.body) | Decl _ _ _ => ARB)
+  $ FILTER is_function prog
+Proof
+  Induct_on ‘prog’ using functions_ind >>
+  rw[functions_def,is_function_def]
+QED
+
+Theorem functions_append:
+  functions(prog1 ++ prog2) = functions prog1 ++ functions prog2
+Proof
+  rw[functions_eq_FILTER,MAP_APPEND,FILTER_APPEND]
+QED
+
+Theorem functions_FILTER:
+  ∀prog.
+    functions(FILTER is_function prog) = functions prog
+Proof
+  Induct_on ‘prog’ using functions_ind >>
+  rw[functions_def,is_function_def]
+QED
+
+Theorem evaluate_decls_functions:
+  ∀s pan_code s'.
+    evaluate_decls s pan_code = SOME s' ⇒
+    s'.code = s.code |++ functions pan_code
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[evaluate_decls_def,functions_def,FUPDATE_LIST_THM] >>
+  gvs[AllCaseEqs()]
+QED
+
+Theorem evaluate_decls_only_functions:
+  ∀s pan_code s'.
+    EVERY is_function pan_code ∧
+    evaluate_decls s pan_code = SOME s' ⇒
+    s' = s with code := s.code |++ functions pan_code
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[evaluate_decls_def,functions_def,FUPDATE_LIST_THM] >>
+  gvs[AllCaseEqs(),is_function_def] >>
+  simp[state_component_equality]
+QED
+
+Theorem evaluate_decls_only_functions':
+  ∀s pan_code.
+    EVERY is_function pan_code ⇒
+    evaluate_decls s pan_code = SOME(s with code := s.code |++ functions pan_code)
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[evaluate_decls_def,functions_def,FUPDATE_LIST_THM] >>
+  gvs[AllCaseEqs(),is_function_def] >>
+  simp[state_component_equality]
+QED
+
+Theorem evaluate_decls_append:
+  ∀s ds1 ds2.
+    evaluate_decls s (ds1 ++ ds2) =
+    case evaluate_decls s ds1 of
+      NONE => NONE
+    | SOME s' => evaluate_decls s' ds2
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[evaluate_decls_def] >>
+  ntac 2 (TOP_CASE_TAC >> gvs[])
+QED
+
+Theorem eval_empty_locals_IMP:
+  ∀s e v.
+    eval (s with locals := FEMPTY) e = SOME v ⇒
+    eval s e = SOME v
+Proof
+  recInduct eval_ind >>
+  rw[eval_def,AllCaseEqs(),PULL_EXISTS] >>
+  res_tac >> gvs[] >>
+  rpt $ first_assum $ irule_at(Pos last) >>
+  irule EQ_TRANS >>
+  first_assum $ irule_at $ Pos last >>
+  irule OPT_MMAP_CONG >>
+  rw[] >>
+  drule_all pan_commonPropsTheory.opt_mmap_mem_func >>
+  strip_tac >> gvs[]
+QED
+
+Theorem semantics_decls_has_main:
+  semantics_decls s start code <> Fail ⇒
+  ∃body.
+    FLOOKUP (s.code |++ functions code) start = SOME ([],body)
+Proof
+  rw[semantics_decls_def] >>
+  PURE_FULL_CASE_TAC >> gvs[] >>
+  imp_res_tac evaluate_decls_functions >>
+  gvs[semantics_def] >>
+  PURE_FULL_CASE_TAC >>
+  gvs[AllCaseEqs()] >>
+  PRED_ASSUM is_forall mp_tac >>
+  simp[Once evaluate_def] >>
+  disch_then $ qspec_then ‘0’ mp_tac >>
+  every_case_tac >> gvs[lookup_code_def,AllCaseEqs()]
+QED
+
+Theorem semantics_decls_has_main':
+  semantics_decls s start code <> Fail ⇒
+  ∃body.
+    FLOOKUP (s.code |++ functions code) start = SOME ([],body)
+Proof
+  rw[semantics_decls_def] >>
+  PURE_FULL_CASE_TAC >> gvs[] >>
+  imp_res_tac evaluate_decls_functions >>
+  gvs[semantics_def] >>
+  PURE_FULL_CASE_TAC >>
+  gvs[AllCaseEqs()] >>
+  PRED_ASSUM is_forall mp_tac >>
+  simp[Once evaluate_def] >>
+  disch_then $ qspec_then ‘0’ mp_tac >>
+  every_case_tac >> gvs[lookup_code_def,AllCaseEqs()]
+QED
+
+Theorem evaluate_decls_swap_locals:
+  ∀s prog s' locals.
+    evaluate_decls s prog = SOME s' ⇒
+    evaluate_decls (s with locals := locals) prog = SOME(s' with locals := locals)
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[evaluate_decls_def,AllCaseEqs()] >>
+  res_tac >>
+  fs[]
+QED
+
+Theorem mem_load_swap_memory:
+  (∀sh (addr:'a word) addrs memory1 v memory2.
+    mem_load sh addr addrs memory1 = SOME v ∧
+    (∀addr. addr ∈ addrs ⇒ memory1 addr = memory2 addr)
+    ⇒
+    mem_load sh addr addrs memory2 = SOME v) ∧
+  (∀shs (addr:'a word) addrs memory1 v memory2.
+    mem_loads shs addr addrs memory1 = SOME v ∧
+    (∀addr. addr ∈ addrs ⇒ memory1 addr = memory2 addr)
+    ⇒
+    mem_loads shs addr addrs memory2 = SOME v)
+Proof
+  Induct >>
+  simp[cj 1 mem_load_def] >>
+  simp[cj 2 mem_load_def, cj 3 mem_load_def] >>
+  rw[AllCaseEqs()] >>
+  res_tac >>
+  fs[]
+QED
+
+Theorem mem_load_swap_memaddrs:
+  (∀sh (addr:'a word) addrs memory v addrs2.
+    mem_load sh addr addrs memory = SOME v ∧
+    addrs ⊆ addrs2
+    ⇒
+    mem_load sh addr addrs2 memory = SOME v) ∧
+  (∀shs (addr:'a word) addrs memory v addrs2.
+    mem_loads shs addr addrs memory = SOME v ∧
+    addrs ⊆ addrs2
+    ⇒
+    mem_loads shs addr addrs2 memory = SOME v)
+Proof
+  Induct >>
+  simp[cj 1 mem_load_def] >>
+  simp[cj 2 mem_load_def, cj 3 mem_load_def] >>
+  rw[AllCaseEqs()] >>
+  res_tac >>
+  fs[SUBSET_DEF]
+QED
+
+Theorem eval_swap_memaddrs:
+  ∀s exp v memaddrs.
+    eval s exp = SOME v ∧
+    s.memaddrs ⊆ memaddrs
+    ⇒
+    eval (s with memaddrs := memaddrs) exp = SOME v
+Proof
+  recInduct eval_ind >>
+  rw[eval_def,AllCaseEqs(),PULL_EXISTS,mem_load_byte_def,mem_load_32_def] >>
+  rpt $ irule_at (Pos last) EQ_REFL >>
+  rpt $ first_assum $ irule_at (Pos last) >>
+  fs[]
+  >~ [‘mem_load’]
+  >- (irule $ cj 1 mem_load_swap_memaddrs >> metis_tac[]) >>
+  fs[SUBSET_DEF] >>
+  irule EQ_TRANS >>
+  first_assum $ irule_at $ Pos last >>
+  irule OPT_MMAP_CONG >>
+  rw[] >>
+  drule_all_then strip_assume_tac pan_commonPropsTheory.opt_mmap_mem_func >>
+  gvs[]
+QED
+
+Theorem evaluate_decls_swap_memaddrs:
+  ∀s prog s' memaddrs.
+    evaluate_decls s prog = SOME s' ∧
+    s.memaddrs ⊆ memaddrs ⇒
+    evaluate_decls (s with memaddrs := memaddrs) prog = SOME(s' with memaddrs := memaddrs)
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[evaluate_decls_def,AllCaseEqs()] >>
+  first_x_assum drule >>
+  simp[] >>
+  disch_then $ irule_at Any >>
+  simp[] >>
+  drule eval_swap_memaddrs >>
+  simp[]
+QED
+
+Theorem eval_swap_memory:
+  ∀s exp v mry.
+    eval s exp = SOME v ∧
+    (∀addr. addr ∈ s.memaddrs ⇒ s.memory addr = mry addr)
+    ⇒
+    eval (s with memory := mry) exp = SOME v
+Proof
+  recInduct eval_ind >>
+  rw[eval_def,AllCaseEqs(),PULL_EXISTS,mem_load_byte_def,mem_load_32_def] >>
+  rpt $ irule_at (Pos last) EQ_REFL >>
+  rpt $ first_assum $ irule_at (Pos last) >>
+  fs[]
+  >~ [‘mem_load’]
+  >- (irule $ cj 1 mem_load_swap_memory >> metis_tac[]) >>
+  irule EQ_TRANS >>
+  first_assum $ irule_at $ Pos last >>
+  irule OPT_MMAP_CONG >>
+  rw[] >>
+  drule_all_then strip_assume_tac pan_commonPropsTheory.opt_mmap_mem_func >>
+  gvs[]
+QED
+
+Theorem evaluate_decls_swap_memory:
+  ∀s prog s' mry.
+    evaluate_decls s prog = SOME s' ∧
+    (∀addr. addr ∈ s.memaddrs ⇒ s.memory addr = mry addr) ⇒
+    evaluate_decls (s with memory := mry) prog = SOME(s' with memory := mry)
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[evaluate_decls_def,AllCaseEqs()] >>
+  first_x_assum drule >>
+  simp[] >>
+  disch_then $ irule_at Any >>
+  simp[] >>
+  drule eval_swap_memory >>
+  simp[]
+QED
+
+Theorem evaluate_decls_memaddrs_mono:
+  ∀s prog s' memaddrs.
+    evaluate_decls s prog = SOME s' ∧
+    s.memaddrs ⊆ memaddrs ⇒
+    evaluate_decls (s with memaddrs := memaddrs) prog = SOME(s' with memaddrs := memaddrs)
+Proof
+  recInduct evaluate_decls_ind >>
+  rw[evaluate_decls_def,AllCaseEqs()] >>
+  first_x_assum drule >>
+  simp[] >>
+  disch_then $ irule_at Any >>
+  simp[] >>
+  drule eval_swap_memaddrs >>
+  simp[]
+QED

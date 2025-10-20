@@ -1,0 +1,232 @@
+<<HOL message: Created theory "dataSem">>
+Saved theorem _______ "v_size_eq"
+Saved theorem _______ "datatype_v"
+Saved theorem _______ "v_11"
+Saved theorem _______ "v_distinct"
+Saved theorem _______ "v_nchotomy"
+Saved theorem _______ "v_Axiom"
+Saved theorem _______ "v_induction"
+Saved theorem _______ "v_case_cong"
+Saved theorem _______ "v_case_eq"
+<<HOL message: Defined type: "v">>
+Saved definition ____ "Boolv_def"
+Saved definition ____ "Unit_def"
+Saved theorem _______ "datatype_stack"
+Saved theorem _______ "stack_11"
+Saved theorem _______ "stack_distinct"
+Saved theorem _______ "stack_nchotomy"
+Saved theorem _______ "stack_Axiom"
+Saved theorem _______ "stack_induction"
+Saved theorem _______ "stack_case_cong"
+Saved theorem _______ "stack_case_eq"
+<<HOL message: Defined type: "stack">>
+Saved theorem _______ "datatype_limits"
+Saved theorem _______ "limits_11"
+Saved theorem _______ "limits_nchotomy"
+Saved theorem _______ "limits_Axiom"
+Saved theorem _______ "limits_induction"
+Saved theorem _______ "limits_case_cong"
+Saved theorem _______ "limits_case_eq"
+<<HOL message: Defined type: "limits">>
+Saved theorem _______ "datatype_state"
+Saved theorem _______ "state_11"
+Saved theorem _______ "state_nchotomy"
+Saved theorem _______ "state_Axiom"
+Saved theorem _______ "state_induction"
+Saved theorem _______ "state_case_cong"
+Saved theorem _______ "state_case_eq"
+<<HOL message: Defined type: "state">>
+Saved definition ____ "arch_size_def"
+Saved definition ____ "check_res_def"
+Saved theorem _______ "check_res_IMP"
+Saved definition ____ "small_num_def"
+Saved definition ____ "bignum_digits_def"
+Saved induction _____ "bignum_digits_ind"
+Saved definition ____ "bignum_size_def"
+Saved definition ____ "size_of_def"
+Saved induction _____ "size_of_ind"
+Proved triviality ___ "check_res_size_of"
+<<HOL warning: ThmSetData.revise_data: 
+  Theorems in set "compute":
+    ADD<dataSem$size_of_def>
+  invalidated by NewBinding(size_of_def)>>
+Saved theorem _______ "size_of_def"
+Saved theorem _______ "size_of_ind"
+Saved definition ____ "extract_stack_def"
+Saved definition ____ "global_to_vs_def"
+Saved definition ____ "stack_to_vs_def"
+Saved definition ____ "size_of_heap_def"
+Saved definition ____ "add_space_def"
+Saved definition ____ "consume_space_def"
+Saved definition ____ "allowed_op_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 5 clauses to the original specification.>>
+Saved definition ____ "v_to_list_def"
+Saved induction _____ "v_to_list_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 139 clauses to the original specification.>>
+Saved definition ____ "space_consumed_def"
+Saved induction _____ "space_consumed_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+Saved definition ____ "vb_size_def"
+Saved induction _____ "vb_size_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+Saved definition ____ "vs_depth_def"
+Saved induction _____ "vs_depth_ind"
+Saved definition ____ "eq_code_stack_max_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 103 clauses to the original specification.>>
+Saved definition ____ "stack_consumed_def"
+Saved induction _____ "stack_consumed_ind"
+Saved definition ____ "do_space_def"
+Saved definition ____ "size_of_stack_frame_def"
+Saved definition ____ "size_of_stack_def"
+Saved definition ____ "do_stack_def"
+Saved definition ____ "v_to_bytes_def"
+Saved definition ____ "v_to_words_def"
+Saved definition ____ "isClos_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 12 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 10 clauses to the original specification.>>
+Saved definition ____ "do_eq_def"
+Saved induction _____ "do_eq_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 4 clauses to the original specification.>>
+Saved definition ____ "do_install_def"
+Saved definition ____ "list_to_v_def"
+Saved definition ____ "with_fresh_ts_def"
+Saved definition ____ "lim_safe_part_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 129 clauses to the original specification.>>
+Saved definition ____ "lim_safe_def"
+Saved induction _____ "lim_safe_ind"
+Saved definition ____ "do_lim_safe"
+Saved definition ____ "check_lim_def"
+Saved definition ____ "do_part_def"
+Saved definition ____ "do_build_def"
+Saved definition ____ "do_build_const_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 6 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 10 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 5 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 15 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 10 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 5 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 10 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 10 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 10 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 10 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 5 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 327 clauses to the original specification.>>
+Saved definition ____ "do_app_aux_def"
+Saved definition ____ "do_app_def"
+Saved definition ____ "get_var_def"
+Saved definition ____ "get_vars_def"
+Saved definition ____ "set_var_def"
+Saved definition ____ "dec_clock_def"
+Saved definition ____ "fix_clock_def"
+Proved triviality ___ "fix_clock_IMP"
+Proved triviality ___ "LESS_EQ_dec_clock"
+Saved definition ____ "flush_state_def"
+Saved definition ____ "call_env_def"
+Saved definition ____ "push_env_def"
+Saved definition ____ "pop_env_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "jump_exc_def"
+Saved definition ____ "cut_env_def"
+Saved definition ____ "cut_state_def"
+Saved definition ____ "cut_state_opt_def"
+Proved triviality ___ "pop_env_clock"
+Proved triviality ___ "push_env_clock"
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+Saved definition ____ "find_code_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 4 clauses to the original specification.>>
+Saved definition ____ "isBool_def"
+Saved induction _____ "isBool_ind"
+Saved definition ____ "install_sfs_def"
+Saved definition ____ "evaluate_def"
+Saved induction _____ "evaluate_ind"
+Saved definition ____ "evaluate_safe_def"
+Saved definition ____ "evaluate_peak_def"
+Saved theorem _______ "case_eq_thms"
+Saved theorem _______ "do_stack_clock"
+Saved theorem _______ "do_app_clock"
+Saved theorem _______ "evaluate_clock"
+Saved theorem _______ "fix_clock_evaluate"
+<<HOL warning: ThmSetData.revise_data: 
+  Theorems in set "compute":
+    ADD<dataSem$evaluate_def>
+  invalidated by NewBinding(evaluate_def)>>
+Saved theorem _______ "evaluate_def"
+Saved theorem _______ "evaluate_ind"
+Saved definition ____ "initial_state_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "semantics_def"
+Saved definition ____ "data_lang_safe_for_space_def"
+Saved definition ____ "compute_limits_def"
+Exporting theory "dataSem" ... done.
+Theory "dataSem" took 1m26s to build

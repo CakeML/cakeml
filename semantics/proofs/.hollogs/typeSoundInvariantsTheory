@@ -1,0 +1,36 @@
+<<HOL message: Created theory "typeSoundInvariants">>
+Saved theorem _______ "datatype_store_t"
+Saved theorem _______ "store_t_11"
+Saved theorem _______ "store_t_distinct"
+Saved theorem _______ "store_t_nchotomy"
+Saved theorem _______ "store_t_Axiom"
+Saved theorem _______ "store_t_induction"
+Saved theorem _______ "store_t_case_cong"
+Saved theorem _______ "store_t_case_eq"
+<<HOL message: Defined type: "store_t">>
+Saved definition ____ "tenv_abbrev_ok_def"
+Saved definition ____ "tenv_ctor_ok_def"
+Saved definition ____ "tenv_val_ok_def"
+Saved definition ____ "tenv_ok_def"
+Saved definition ____ "tenv_val_exp_ok_def"
+Saved definition ____ "ctMap_ok_def"
+Saved definition ____ "type_ctor_def"
+Saved definition ____ "add_tenvE_def"
+Saved theorem _______ "type_v_rules"
+Saved theorem _______ "type_v_ind"
+Saved theorem _______ "type_v_strongind"
+Saved theorem _______ "type_v_cases"
+<<HOL message: mk_functional: 
+  pattern completion has added 5 clauses to the original specification.>>
+Saved definition ____ "type_sv_def"
+Saved induction _____ "type_sv_ind"
+Saved definition ____ "type_s_def"
+Saved definition ____ "ctMap_has_exns_def"
+Saved definition ____ "ctMap_has_lists_def"
+Saved definition ____ "ctMap_has_bools_def"
+Saved definition ____ "good_ctMap_def"
+Saved definition ____ "consistent_ctMap_def"
+Saved definition ____ "type_all_env_def"
+Saved definition ____ "type_sound_invariant_def"
+Exporting theory "typeSoundInvariants" ... done.
+Theory "typeSoundInvariants" took 2.0s to build

@@ -1,14 +1,12 @@
 (*
   Correctness proof for loop_live
 *)
+Theory loop_liveProof
+Ancestors
+  loopSem loopProps loop_live loop_callProof wordSem[qualified]
+Libs
+  preamble
 
-open preamble
-     loopSemTheory loopPropsTheory
-     loop_liveTheory loop_callProofTheory
-
-local open wordSemTheory in end
-
-val _ = new_theory "loop_liveProof";
 
 val _ = temp_delsimps ["fromAList_def", "domain_union",
                        "domain_inter", "domain_difference",
@@ -461,7 +459,9 @@ QED
 
 Theorem compile_Store:
   ^(get_goal "loopLang$Store") ∧
+  ^(get_goal "loopLang$Store32") ∧
   ^(get_goal "loopLang$StoreByte") ∧
+  ^(get_goal "loopLang$Load32") ∧
   ^(get_goal "loopLang$LoadByte")
 Proof
   rw [] \\ fs [shrink_def] \\ rveq
@@ -477,18 +477,12 @@ Proof
     \\ once_rewrite_tac [vars_of_exp_acc] \\ fs [domain_union]
     \\ strip_tac
     \\ ‘lookup v locals = SOME w’ by metis_tac [] \\ fs [])
-  THEN1
-   (fs [evaluate_def,CaseEq"option",CaseEq"word_loc"] \\ rveq \\ fs []
-    \\ fs [PULL_EXISTS]
-    \\ simp [state_component_equality]
-    \\ fs [subspt_lookup,lookup_inter_alt]
-    \\ res_tac \\ fs [])
-  THEN1
-   (fs [evaluate_def,CaseEq"option",CaseEq"word_loc"] \\ rveq \\ fs []
-    \\ fs [PULL_EXISTS]
-    \\ simp [state_component_equality,set_var_def]
-    \\ fs [subspt_lookup,lookup_inter_alt,lookup_insert]
-    \\ res_tac \\ fs [] \\ rw [])
+  >>
+  (fs [evaluate_def,CaseEq"option",CaseEq"word_loc"] \\ rveq \\ fs []
+   \\ fs [PULL_EXISTS]
+   \\ simp [state_component_equality,set_var_def]
+   \\ fs [subspt_lookup,lookup_inter_alt,lookup_insert]
+   \\ res_tac \\ fs [] \\ rw [])
 QED
 
 Theorem compile_FFI:
@@ -834,4 +828,3 @@ Proof
 QED
 
 
-val _ = export_theory();

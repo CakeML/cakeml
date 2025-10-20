@@ -1,0 +1,78 @@
+<<HOL message: Created theory "pattern_comp">>
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+Saved definition ____ "is_const_row_def"
+Saved induction _____ "is_const_row_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "is_Any_def"
+Saved induction _____ "is_Any_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+Saved definition ____ "is_Or_row_def"
+Saved induction _____ "is_Or_row_ind"
+Saved definition ____ "take_until_Any_def"
+Saved induction _____ "take_until_Any_ind"
+Saved definition ____ "move_const_up_def"
+Saved theorem _______ "is_Any_pmatch"
+Saved theorem _______ "match_take_until_Any"
+Saved theorem _______ "match_append"
+Proved triviality ___ "pmatchResult_case_NONE"
+Saved theorem _______ "pmatchResult_case_NONE"
+Saved theorem _______ "is_const_row_lemma"
+Saved theorem _______ "not_is_const_row"
+Saved theorem _______ "EVERY_take_until_Any"
+Saved theorem _______ "matdch_FILTER_NOT_NONE"
+Saved theorem _______ "match_move_const_up"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "exh_pat_def"
+Saved induction _____ "exh_pat_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+Saved definition ____ "cons_exh_pat_def"
+Saved induction _____ "cons_exh_pat_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 4 clauses to the original specification.>>
+Saved definition ____ "sib_exists_def"
+Saved induction _____ "sib_exists_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 6 clauses to the original specification.>>
+Saved definition ____ "exh_rows_def"
+Saved theorem _______ "exh_pat_thm"
+Saved theorem _______ "exh_pat_pmatch_list"
+Saved theorem _______ "pmatch_list_LENGTH"
+Saved theorem _______ "exh_rows_thm"
+Saved definition ____ "insert_Any_def"
+Saved induction _____ "insert_Any_ind"
+Saved theorem _______ "match_insert_Any"
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+Saved definition ____ "is_True_def"
+Saved induction _____ "is_True_ind"
+Saved definition ____ "mk_Disj_def"
+Saved definition ____ "mk_Conj_def"
+Saved definition ____ "mk_If_def"
+Saved definition ____ "get_pos_def"
+Saved definition ____ "pat_to_guard_def"
+Saved induction _____ "pat_to_guard_ind"
+Saved definition ____ "pats_to_code_def"
+Saved induction _____ "pats_to_code_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "walk_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+Saved definition ____ "walk_list_def"
+Saved theorem _______ "app_pos_Pos"
+Saved theorem _______ "walk_thm"
+Saved theorem _______ "walk_append"
+Proved triviality ___ "is_True_thm"
+Proved triviality ___ "dt_eval_guard_mk_Conj"
+Saved theorem _______ "dt_eval_guard_pat_to_guard"
+Proved triviality ___ "mk_If_thm"
+Saved theorem _______ "pat_to_code_thm"
+Saved definition ____ "comp_def"
+Saved theorem _______ "comp_thm"
+Exporting theory "pattern_comp" ... done.
+Theory "pattern_comp" took 3.9s to build

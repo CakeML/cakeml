@@ -1,13 +1,13 @@
 (*
   Shallow embedding of garbage collector implementation
 *)
-open preamble
-
-open wordSemTheory data_to_wordTheory gc_sharedTheory
+Theory word_gcFunctions
+Ancestors
+  word_simpProof wordSem data_to_word gc_shared
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "word_gcFunctions"
 
 val shift_def = backend_commonTheory.word_shift_def;
 
@@ -63,7 +63,7 @@ Definition decode_length_def:
 End
 
 Definition word_gc_move_def:
-  (word_gc_move conf (Loc l1 l2,i,pa,old,m,dm) = (Loc l1 l2,i,pa,m,T)) /\
+  (word_gc_move conf (Loc l1 l2,i,pa,old,m,dm) = (Loc l1 l2,i,pa,m,(l2 = 0))) /\
   (word_gc_move conf (Word w,i,pa,old,m,dm) =
      if (w && 1w) = 0w then (Word w,i,pa,m,T) else
        let c = (ptr_to_addr conf old w IN dm) in
@@ -82,7 +82,7 @@ Definition word_gc_move_def:
 End
 
 Definition word_gen_gc_partial_move_def:
-  (word_gen_gc_partial_move conf (Loc l1 l2,i,pa,old,m,dm,gs,rs) = (Loc l1 l2,i,pa,m,T)) /\
+  (word_gen_gc_partial_move conf (Loc l1 l2,i,pa,old,m,dm,gs,rs) = (Loc l1 l2,i,pa,m,(l2 = 0))) /\
   (word_gen_gc_partial_move conf (Word w,i,pa,old,m,dm,gs,rs) =
    if (w && 1w) = 0w then (Word w,i,pa,m,T) else
      let header_addr = ptr_to_addr conf old w in
@@ -307,12 +307,12 @@ Definition word_gen_gc_partial_full_def:
 End
 
 Definition is_ref_header_def:
-  is_ref_header (v:'a word) <=> ((v && 0b11100w) = 0b01000w)
+  is_ref_header (v:'a word) <=> ((v && 0b1100w) = 0b01000w)
 End
 
 Definition word_gen_gc_move_def:
   (word_gen_gc_move conf (Loc l1 l2,i,pa,ib,pb,old,m,dm) =
-     (Loc l1 l2,i,pa,ib,pb,m,T)) /\
+     (Loc l1 l2,i,pa,ib,pb,m,(l2 = 0))) /\
   (word_gen_gc_move conf (Word w,i,pa,ib,pb,old,m,dm) =
      if (1w && w) = 0w then (Word w,i,pa,ib,pb,m,T) else
        let c = (ptr_to_addr conf old w IN dm) in
@@ -789,5 +789,3 @@ Proof
   fs [word_gc_fun_def,FUN_EQ_THM,FORALL_PROD]
   \\ Cases_on `conf.gc_kind` \\ fs []
 QED
-
-val _ = export_theory();

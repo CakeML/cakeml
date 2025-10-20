@@ -1,10 +1,12 @@
 (*
    Implementation and verification of diff and patch algorithms
 *)
+Theory diff
+Ancestors
+  lcs mlint mlstring
+Libs
+  preamble
 
-open preamble lcsTheory mlintTheory mlstringTheory;
-
-val _ = new_theory "diff";
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
@@ -13,6 +15,8 @@ val _ = set_trace "BasicProvers.var_eq_old" 1
 
 fun drule0 th =
   first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
+
+val _ = augment_srw_ss [rewrites [SNOC_APPEND]];
 
 (* Diff algorithm definition *)
 
@@ -465,8 +469,7 @@ Triviality tokens_toString_comma:
 Proof
   rw [] \\ match_mp_tac tokens_eq_sing
   \\ fs [num_to_str_thm,implode_def]
-  \\ fs [num_to_str_def]
-  \\ match_mp_tac (MP_CANON EVERY_MONOTONIC)
+  \\ irule EVERY_MONOTONIC
   \\ qexists_tac `isDigit`
   \\ fs [EVERY_isDigit_num_to_dec_string] \\ EVAL_TAC
 QED
@@ -479,11 +482,11 @@ Proof
     by(fs[line_numbers_def] >> rw[]
        \\ fs[toString_thm,num_to_str_def]
        \\ fs[explode_implode,strcat_thm]
-       \\ match_mp_tac (MP_CANON EVERY_MONOTONIC)
+       \\ irule EVERY_MONOTONIC
        \\ qexists_tac `isDigit` \\ fs [toString_isDigit])
   \\ match_mp_tac tokens_eq_sing
   \\ conj_tac THEN1
-   (match_mp_tac (MP_CANON EVERY_MONOTONIC)
+   (irule EVERY_MONOTONIC
     \\ goal_assum (first_x_assum o mp_then Any mp_tac)
     \\ fs [] \\ CCONTR_TAC \\ fs [] \\ rveq \\ fs [isDigit_def])
   \\ rw [line_numbers_def,num_to_str_thm,implode_def]
@@ -614,6 +617,7 @@ Proof
         quantHeuristicsTheory.LIST_LENGTH_0,diff_add_prefix_DROP,diff_add_prefix_nil,
         DROP_LENGTH_NIL,DROP_LENGTH_TOO_LONG]
   >> PURE_TOP_CASE_TAC >> fs[]
+  >> every_case_tac >> fs []
 QED
 
 Triviality patch_aux_keep_init_cons:
@@ -703,7 +707,8 @@ Proof
       >> drule patch_aux_keep_init_cons
       >> disch_then(qspecl_then [`n + LENGTH ll`,`h`,`m`] mp_tac)
       >> fs[list_length_1_lemma,ADD1])
-  >- (fs[SPLITP_NIL_FST] >> rveq
+  >- (qpat_x_assum ‘~(_ ∧ _)’ kall_tac
+      >> fs[SPLITP_NIL_FST] >> rveq
       >> Cases_on `lr` >> fs[common_subsequence_empty']
       >> Cases_on `l'r` >> fs[common_subsequence_empty',SPLITP_NIL_SND_EVERY]
       >> rveq
@@ -717,12 +722,14 @@ Proof
       >> rw[]
       >> drule SPLITP_JOIN >> qpat_x_assum `SPLITP _ _ = _` mp_tac
       >> drule SPLITP_JOIN >> ntac 3 strip_tac
-      >> fs[quantHeuristicsTheory.LIST_LENGTH_0,TAKE_LENGTH_TOO_LONG,list_nil_sub_length,
-            depatch_lines_strcat_cancel,DROP_LENGTH_TOO_LONG,DROP_APPEND,list_length_1_lemma,
-            minus_add_too_large,TAKE_APPEND,minus_add_too_large',ONE_MINUS_SUCC]
+      >> fs []
+      >> gvs [DROP_APPEND,DROP_LENGTH_TOO_LONG,TAKE_APPEND,ONE_MINUS_SUCC,TAKE_LENGTH_TOO_LONG]
+      >> gvs [CaseEq"option",PULL_EXISTS,depatch_lines_strcat_cancel]
       >> drule patch_aux_keep_init_cons
       >> disch_then(qspecl_then [`n + LENGTH ll`,`h`,`m + LENGTH l'l`] mp_tac)
-      >> fs[ADD1,list_length_1_lemma])
+      >> fs[ADD1,list_length_1_lemma,depatch_lines_strcat_cancel]
+      >> disch_then $ rewrite_tac o single o SYM
+      >> simp [SUB_PLUS,DECIDE “2 - n - 2:num = 0”])
 QED
 
 Theorem patch_diff_cancel:
@@ -1094,7 +1101,6 @@ Proof
   >> fs[ADD1]
   >> pop_assum kall_tac
   >> FULL_SIMP_TAC std_ss [ADD_ASSOC]
-  >> fs[GSYM SNOC_APPEND]
   >> drule headers_within_snoc
   >> fs[]
 QED
@@ -1348,5 +1354,3 @@ Proof
   >> pop_assum $ PURE_ONCE_REWRITE_TAC o single
   >> fs[]
 QED
-
-val _ = export_theory ();

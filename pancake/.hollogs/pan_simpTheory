@@ -1,0 +1,23 @@
+<<HOL message: Created theory "pan_simp">>
+Saved definition ____ "SmartSeq_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 10 clauses to the original specification.>>
+Saved definition ____ "seq_assoc_def"
+Saved induction _____ "seq_assoc_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 68 clauses to the original specification.>>
+Saved definition ____ "seq_call_ret_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 11 clauses to the original specification.>>
+Saved definition ____ "ret_to_tail_def"
+Saved induction _____ "ret_to_tail_ind"
+Saved definition ____ "compile_def"
+Saved definition ____ "compile_prog_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 10 clauses to the original specification.>>
+Saved theorem _______ "seq_assoc_pmatch"
+<<HOL message: mk_functional: 
+  pattern completion has added 11 clauses to the original specification.>>
+Saved theorem _______ "ret_to_tail_pmatch"
+Exporting theory "pan_simp" ... done.
+Theory "pan_simp" took 4.3s to build

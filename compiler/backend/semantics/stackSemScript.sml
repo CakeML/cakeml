@@ -1,16 +1,14 @@
 (*
   The formal semantics of stackLang
 *)
+Theory stackSem
+Ancestors
+  stackLang
+  wordSem[qualified] (* for word_loc *)
+  labSem[qualified]
+Libs
+  preamble
 
-open preamble stackLangTheory
-local open wordSemTheory labSemTheory in end
-
-val _ = new_theory"stackSem";
-
-val _ = set_grammar_ancestry
-  ["stackLang",
-   "wordSem" (* for word_loc *)
-  ];
 
 Datatype:
   result = Result ('w word_loc)
@@ -232,6 +230,19 @@ Definition sh_mem_store_byte_def:
    | _ => (SOME Error, s))
 End
 
+Definition sh_mem_store16_def:
+  sh_mem_store16 r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
+  (case get_var r s of
+     SOME (Word w) =>
+       if byte_align a IN s.sh_mdomain then
+         (case call_FFI s.ffi (SharedMem MappedWrite) [2w:word8]
+                        (TAKE 2 (word_to_bytes w F) ++ word_to_bytes a F) of
+            FFI_final outcome => (SOME (FinalFFI outcome), s)
+          | FFI_return new_ffi new_bytes => (NONE,s with ffi := new_ffi))
+       else (SOME Error, s)
+   | _ => (SOME Error, s))
+End
+
 Definition sh_mem_store32_def:
   sh_mem_store32 r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
   (case get_var r s of
@@ -249,6 +260,19 @@ Definition sh_mem_load_byte_def:
   sh_mem_load_byte r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
   if byte_align a IN s.sh_mdomain then
     (case call_FFI s.ffi (SharedMem MappedRead) [1w:word8] (word_to_bytes a F) of
+       FFI_final outcome => (SOME (FinalFFI outcome), s)
+     | FFI_return new_ffi new_bytes =>
+         (NONE,
+          s with <|
+              regs := s.regs |+ (r, Word (word_of_bytes F 0w new_bytes)) ;
+              ffi := new_ffi |>))
+  else (SOME Error, s)
+End
+
+Definition sh_mem_load16_def:
+  sh_mem_load16 r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
+  if byte_align a IN s.sh_mdomain then
+    (case call_FFI s.ffi (SharedMem MappedRead) [2w:word8] (word_to_bytes a F) of
        FFI_final outcome => (SOME (FinalFFI outcome), s)
      | FFI_return new_ffi new_bytes =>
          (NONE,
@@ -276,6 +300,8 @@ Definition sh_mem_op_def:
   (sh_mem_op Store r ad s = sh_mem_store r ad s) ∧
   (sh_mem_op Load8 r ad s = sh_mem_load_byte r ad s) ∧
   (sh_mem_op Store8 r ad s = sh_mem_store_byte r ad s) ∧
+  (sh_mem_op Load16 r ad s = sh_mem_load16 r ad s) ∧
+  (sh_mem_op Store16 r ad s = sh_mem_store16 r ad s) ∧
   (sh_mem_op Load32 r ad s = sh_mem_load32 r ad s) ∧
   (sh_mem_op Store32 r ad s = sh_mem_store32 r ad s)
 End
@@ -411,7 +437,6 @@ Definition inst_def:
           let res = w2n l + w2n r + if c = (0w:'a word) then 0 else 1 in
             SOME (set_var r4 (Word (if dimword(:'a) ≤ res then (1w:'a word) else 0w))
                  (set_var r1 (Word (n2w res)) s))
-
         | _ => NONE)
     | Arith (AddOverflow r1 r2 r3 r4) =>
         (let vs = get_vars [r2;r3] s in
@@ -459,7 +484,14 @@ Definition inst_def:
             | NONE => NONE
             | SOME w => SOME (set_var r (Word (w2w w)) s))
         | _ => NONE)
-    | Mem Load32 _ _ => NONE
+    | Mem Load16 _ _ => NONE
+    | Mem Load32 r (Addr a w) =>
+       (case word_exp s (Op Add [Var a; Const w]) of
+        | SOME w =>
+           (case mem_load_32 s.memory s.mdomain s.be w of
+            | NONE => NONE
+            | SOME w => SOME (set_var r (Word (w2w w)) s))
+        | _ => NONE)
     | Mem Store r (Addr a w) =>
        (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME a, SOME w) =>
@@ -474,7 +506,14 @@ Definition inst_def:
              | SOME new_m => SOME (s with memory := new_m)
              | NONE => NONE)
         | _ => NONE)
-    | Mem Store32 _ _ => NONE
+    | Mem Store16 _ _ => NONE
+    | Mem Store32 r (Addr a w) =>
+       (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
+        | (SOME a, SOME (Word w)) =>
+            (case mem_store_32 s.memory s.mdomain s.be a (w2w w) of
+             | SOME new_m => SOME (s with memory := new_m)
+             | NONE => NONE)
+        | _ => NONE)
     | FP (FPLess r d1 d2) =>
       (case (get_fp_var d1 s,get_fp_var d2 s) of
       | (SOME f1 ,SOME f2) =>
@@ -701,7 +740,7 @@ End
 Definition check_store_consts_opt_def:
   check_store_consts_opt t1 t2 NONE _ = T ∧
   check_store_consts_opt t1 t2 (SOME n) c =
-    (lookup n c = SOME (Seq (StoreConsts t1 t2 NONE) (Return 0 0)))
+    (lookup n c = SOME (Seq (StoreConsts t1 t2 NONE) (Return 0)))
 End
 
 Definition dest_Seq_def:
@@ -750,9 +789,9 @@ Definition evaluate_def:
   (evaluate (Seq c1 c2,s) =
      let (res,s1) = fix_clock s (evaluate (c1,s)) in
        if res = NONE then evaluate (c2,s1) else (res,s1)) /\
-  (evaluate (Return n m,s) =
-     case (get_var n s ,get_var m s) of
-     | (SOME (Loc l1 l2),SOME _) => (SOME (Result (Loc l1 l2)),s)
+  (evaluate (Return n,s) =
+     case get_var n s of
+     | SOME (Loc l1 l2) => (SOME (Result (Loc l1 l2)),s)
      | _ => (SOME Error,s)) /\
   (evaluate (Raise n,s) =
      case get_var n s of
@@ -1010,7 +1049,8 @@ Theorem sh_mem_op_clock[local]:
   sh_mem_op op r a s = (res, s') ⇒ s'. clock ≤ s.clock
 Proof
   strip_tac>>Cases_on ‘op’>>
-  fs[sh_mem_op_def,sh_mem_store_def,sh_mem_load_def,sh_mem_store32_def,sh_mem_load32_def,
+  fs[sh_mem_op_def,sh_mem_store_def,sh_mem_load_def,sh_mem_store32_def,
+     sh_mem_load32_def,sh_mem_load16_def,sh_mem_store16_def,
      sh_mem_store_byte_def,sh_mem_load_byte_def,ffiTheory.call_FFI_def]>>
   every_case_tac>>gvs[]
 QED
@@ -1091,5 +1131,3 @@ End
 (* clean up *)
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
-
-val _ = export_theory();

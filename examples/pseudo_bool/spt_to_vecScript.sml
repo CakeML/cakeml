@@ -1,9 +1,11 @@
 (*
   Converting sptree to vector
 *)
-open preamble mlvectorTheory;
-
-val _ = new_theory "spt_to_vec";
+Theory spt_to_vec
+Ancestors
+  mlvector
+Libs
+  preamble
 
 Definition prepend_def:
   prepend n x xs = if n = 0:num then xs else prepend (n-1) x (x::xs)
@@ -29,7 +31,7 @@ End
 Triviality prepend_eq:
   ∀n x xs. prepend n x xs = REPLICATE n x ++ xs
 Proof
-  Induct \\ rewrite_tac [GSYM SNOC_REPLICATE]
+  Induct \\ rewrite_tac [GSYM SNOC_REPLICATE, SNOC_APPEND]
   \\ fs [ADD1] \\ once_rewrite_tac [prepend_def] \\ fs []
 QED
 
@@ -86,4 +88,3 @@ Proof
   \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS] \\ res_tac \\ fs []
 QED
 
-val _ = export_theory ();

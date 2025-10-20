@@ -1,16 +1,15 @@
 (*
   Theorems about the type system.
 *)
+Theory typeSysProps
+Ancestors
+  ast namespace typeSystem typeSoundInvariants astProps
+  namespaceProps semanticPrimitivesProps[qualified]
+Libs
+  preamble
 
-open preamble
-open astTheory namespaceTheory typeSystemTheory typeSoundInvariantsTheory;
-open astPropsTheory;
-open namespacePropsTheory;
-local open semanticPrimitivesPropsTheory in end
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "typeSysProps";
 
 val find_recfun_def = semanticPrimitivesTheory.find_recfun_def;
 (*
@@ -35,8 +34,7 @@ val _ = export_rewrites [
   "typeSystem.Tword64_def",
   "typeSystem.Tword8_def",
   "typeSystem.Tword8array_def",
-  "typeSystem.Tdouble_def",
-  "typeSystem.Treal_def"]
+  "typeSystem.Tdouble_def"]
 
 (* ----------- Basic stuff ----------- *)
 
@@ -690,6 +688,7 @@ Theorem tveLookup_db_merge_none:
 Proof
  Induct_on `e1`
  >> rw [tveLookup_def, db_merge_def]
+ >> metis_tac[]
 QED
 
 Theorem tveLookup_inc_none:
@@ -3395,4 +3394,3 @@ Proof
 QED
   *)
 
-val _ = export_theory ();

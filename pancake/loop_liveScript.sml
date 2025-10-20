@@ -1,17 +1,18 @@
 (*
   Correctness proof for loop to loop_remove
 *)
+Theory loop_live
+Ancestors
+  loopLang loop_call
+Libs
+  preamble
 
-open preamble loopLangTheory
-     loop_callTheory
-
-
-val _ = new_theory "loop_live";
 
 Definition vars_of_exp_def:
   vars_of_exp (loopLang$Var v) l = insert v () l ∧
   vars_of_exp (Const _) l = l ∧
   vars_of_exp (BaseAddr) l = l ∧
+  vars_of_exp (TopAddr) l = l ∧
   vars_of_exp (Lookup _) l = l ∧
   vars_of_exp (Load a) l = vars_of_exp a l ∧
   vars_of_exp (Op x vs) l = vars_of_exp_list vs l ∧
@@ -20,8 +21,8 @@ Definition vars_of_exp_def:
     (case xs of [] => l
      | (x::xs) => vars_of_exp x (vars_of_exp_list xs l))
 Termination
-  WF_REL_TAC ‘measure (λx. case x of INL (x,_) => exp_size (K 0) x
-                                   | INR (x,_) => exp1_size (K 0) x)’
+  WF_REL_TAC ‘measure (λx. case x of INL (x,_) => exp_size ARB x
+                                   | INR (x,_) => list_size (exp_size ARB) x)’
 End
 
 Theorem size_mk_BN:
@@ -122,8 +123,12 @@ Definition shrink_def:
   (shrink b (FFI n r1 r2 r3 r4 l1) l =
    (FFI n r1 r2 r3 r4 (inter l1 l),
       insert r1 () (insert r2 () (insert r3 () (insert r4 () (inter l1 l)))))) ∧
+  (shrink b (Load32 x y) l =
+    (Load32 x y, insert x () (delete y l))) ∧
   (shrink b (LoadByte x y) l =
     (LoadByte x y, insert x () (delete y l))) ∧
+  (shrink b (Store32 x y) l =
+    (Store32 x y, insert x () (insert y () l))) ∧
   (shrink b (StoreByte x y) l =
     (StoreByte x y, insert x () (insert y () l))) ∧
   (shrink b prog l = (prog,l)) /\
@@ -141,7 +146,8 @@ Termination
                     | INL (_,c,_) => (prog_size (K 0) c, 0:num, 0)
                     | INR (live_in,l1,l2,body) =>
                         (prog_size (K 0) body, 1, size live_in - size l1))`
-  \\ rw [] \\ fs [GSYM NOT_LESS]
+  \\ rw []
+  \\ fs [GSYM NOT_LESS]
   \\ qsuff_tac ‘size l1 < size live_in’ \\ fs []
   \\ match_mp_tac LESS_LESS_EQ_TRANS
   \\ asm_exists_tac \\ fs [size_inter]
@@ -212,4 +218,3 @@ Definition optimise_def:
 End
 
 
-val _ = export_theory();

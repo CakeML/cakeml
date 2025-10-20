@@ -1,19 +1,14 @@
 (*
   Correctness proof for flatLang dead code elimination
 *)
-open preamble sptreeTheory flatLangTheory flat_elimTheory
-     flatSemTheory flatPropsTheory spt_closureTheory
+Theory flat_elimProof
+Ancestors
+  flat_elim flatSem flatLang flatProps spt_closure
+  misc[qualified] ffi[qualified] sptree
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "flat_elimProof";
-
-val grammar_ancestry =
-  ["flat_elim", "flatSem", "flatLang", "flatProps",
-   "spt_closure",  "misc", "ffi", "sptree"];
-
-val _ = set_grammar_ancestry grammar_ancestry;
-
 
 (************************** LEMMAS ***************************)
 
@@ -123,8 +118,11 @@ Definition find_v_globals_def:
 Termination
     WF_REL_TAC `measure (λ e . case e of
             | INL x => v_size x
-            | INR y => v4_size y)` >>
-    rw[v_size_def, v_size_aux, SUM_MAP_v3_size, MAP_MAP_o]
+            | INR y => list_size v_size y)`
+    \\ rw [list_size_pair_size_MAP_FST_SND]
+    \\ Cases_on ‘env’
+    \\ gvs [environment_size_def]
+    \\ gvs [list_size_pair_size_MAP_FST_SND]
 End
 
 val find_v_globals_ind = theorem "find_v_globals_ind";
@@ -218,6 +216,8 @@ Definition find_refs_globals_def:
         union (find_v_globals a) (find_refs_globals t)) ∧
     (find_refs_globals (Varray l::t) =
         union (find_v_globalsL l) (find_refs_globals t)) ∧
+    (find_refs_globals (Thunk _ a::t) =
+        union (find_v_globals a) (find_refs_globals t)) ∧
     (find_refs_globals (_::t) = find_refs_globals t) ∧
     (find_refs_globals [] = LN)
 End
@@ -230,10 +230,13 @@ Theorem find_refs_globals_MEM:
       ⇒ (∀ a . MEM (Refv a) refs
             ⇒ domain (find_v_globals a) ⊆ R) ∧
         (∀ vs . MEM (Varray vs) refs
-            ⇒ domain (find_v_globalsL vs) ⊆ R)
+            ⇒ domain (find_v_globalsL vs) ⊆ R) ∧
+        (∀ m a . MEM (Thunk m a) refs
+            ⇒ domain (find_v_globals a) ⊆ R)
 Proof
     Induct >> rw[] >> fs[find_refs_globals_def, domain_union] >>
-    Cases_on `h` >> fs[find_refs_globals_def, domain_union]
+    Cases_on `h` >> fs[find_refs_globals_def, domain_union] >>
+    first_x_assum drule >> gvs []
 QED
 
 Theorem find_refs_globals_EL:
@@ -241,7 +244,9 @@ Theorem find_refs_globals_EL:
     (∀ a . EL n refs = Refv a
             ⇒ domain (find_v_globals a) ⊆ R) ∧
     (∀ vs . EL n refs = Varray vs
-            ⇒ domain (find_v_globalsL vs) ⊆ R)
+            ⇒ domain (find_v_globalsL vs) ⊆ R) ∧
+    (∀ m a . EL n refs = Thunk m a
+            ⇒ domain (find_v_globals a) ⊆ R)
 Proof
   metis_tac [EL_MEM, find_refs_globals_MEM]
 QED
@@ -257,7 +262,10 @@ Theorem find_refs_globals_LUPDATE:
         ⇒ domain (find_refs_globals (LUPDATE (Varray vs) n  refs))
             ⊆ domain reachable) ∧
     (∀ ws. domain (find_refs_globals (LUPDATE (W8array ws) n refs))
-        ⊆ domain reachable)
+        ⊆ domain reachable) ∧
+    (∀ m a. domain (find_v_globals a) ⊆ domain reachable
+        ⇒ domain (find_refs_globals (LUPDATE (Thunk m a) n refs))
+            ⊆ domain reachable)
 Proof
     Induct_on `refs` >> rw[] >> Cases_on `h` >>
     fs[find_refs_globals_def, domain_union] >>
@@ -307,9 +315,12 @@ Definition v_has_Eval_def1:
   (v_has_Eval (Vectorv vl) = EXISTS v_has_Eval vl) ∧
   (v_has_Eval _ = F)
 Termination
-  WF_REL_TAC `measure (λe. v_size e)`
-  \\ rw [v_size_def]
-  \\ fs [v_size_aux, MEM_MAP, EXISTS_PROD, MEM_SPLIT, SUM_APPEND, v_size_def]
+  WF_REL_TAC `measure v_size`
+  \\ gvs [list_size_pair_size_MAP_FST_SND] \\ rw []
+  \\ Cases_on ‘env’ \\ gvs [environment_size_def]
+  \\ imp_res_tac MEM_list_size
+  \\ pop_assum $ qspec_then ‘v_size’ mp_tac
+  \\ gvs [list_size_pair_size_MAP_FST_SND]
 End
 
 Theorem v_has_Eval_def = CONV_RULE (DEPTH_CONV ETA_CONV) v_has_Eval_def1
@@ -963,6 +974,51 @@ Proof
         )
       )
     >- (
+      Cases_on `op = ThunkOp ForceThunk` >> gvs []
+      >- (
+        gvs [AllCaseEqs(), dec_clock_def, dest_GlobalVarLookup_def, PULL_EXISTS]
+        >- (
+          gvs [oneline dest_thunk_def, AllCaseEqs(),
+               semanticPrimitivesTheory.store_lookup_def, flat_state_rel_def,
+               EVERY_EL] >>
+          first_x_assum drule >> gvs [] >> rw [] >>
+          gvs [find_sem_prim_res_globals_def, find_v_globals_def] >>
+          drule_all find_refs_globals_EL >> rw [])
+        >- (
+          gvs [oneline dest_thunk_def, AllCaseEqs(),
+               semanticPrimitivesTheory.store_lookup_def, flat_state_rel_def] >>
+          simp [PULL_EXISTS] >>
+          last_x_assum $ qspecl_then
+            [`reachable`, `new_removed_state`] mp_tac >>
+          impl_tac
+          >- (
+            gvs [AppUnit_def, find_lookups_def, dest_GlobalVarLookup_def,
+                 find_env_globals_def, find_v_globals_def, has_Eval_def,
+                 EVERY_EL] >>
+            first_x_assum drule >> rw [] >>
+            drule_all find_refs_globals_EL >> rw []) >>
+          rw [] >>
+          goal_assum drule >> simp [] >>
+          gvs [oneline update_thunk_def, AllCaseEqs(),
+               semanticPrimitivesTheory.store_assign_def,
+               find_sem_prim_res_globals_def, find_v_globals_def] >>
+          rw []
+          >- (drule_all find_refs_globals_LUPDATE >> gvs []) >>
+          gvs [EVERY_EL, EL_LUPDATE] >> rw [])
+        >- (
+          gvs [oneline dest_thunk_def, AllCaseEqs(),
+               semanticPrimitivesTheory.store_lookup_def, flat_state_rel_def] >>
+          last_x_assum $ qspecl_then
+            [`reachable`, `new_removed_state`] mp_tac >>
+          impl_tac
+          >- (
+            gvs [AppUnit_def, find_lookups_def, dest_GlobalVarLookup_def,
+                 find_env_globals_def, find_v_globals_def, has_Eval_def,
+                 EVERY_EL] >>
+            first_x_assum drule >> rw [] >>
+            drule_all find_refs_globals_EL >> rw []) >>
+          rw [] >>
+          goal_assum drule >> simp [])) >>
       Cases_on `do_app q op (REVERSE a)` >> fs[] >>
       PairCases_on `x` >> fs[] >> rveq >>
       drule (GEN_ALL do_app_SOME_flat_state_rel) >>
@@ -1668,4 +1724,3 @@ Proof
   metis_tac [remove_flat_prog_sub_bag, BAG_ALL_DISTINCT_SUB_BAG]
 QED
 
-val _ = export_theory();

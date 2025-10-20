@@ -1,13 +1,19 @@
 (*
   Translate the alternative s-expression parser.
 *)
+Theory sexp_parserProg
+Ancestors
+  decodeProg ml_translator peg simpleSexp simpleSexpPEG
+  simpleSexpParse fromSexp
+Libs
+  preamble ml_translatorLib
+
 open preamble decodeProgTheory
      ml_translatorLib ml_translatorTheory
      pegTheory simpleSexpTheory simpleSexpPEGTheory simpleSexpParseTheory fromSexpTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
-val _ = new_theory"sexp_parserProg";
 val _ = translation_extends "decodeProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "sexp_parserProg");
@@ -272,12 +278,13 @@ val sexplit_side = Q.prove(
 
 val r = translate sexppat_alt_def;
 
+val r = translate encode_thunk_mode_def;
+val r = translate decode_thunk_mode_def;
+
 val r = translate (fromSexpTheory.sexpop_def
                    |> REWRITE_RULE [decode_control_eq]);
 
 val r = translate fromSexpTheory.sexplop_def;
-
-val r = translate fromSexpTheory.sexpsc_def;
 
 val r = translate sexpexp_alt_def;
 
@@ -471,12 +478,9 @@ val _ = translate typesexp_def;
 val _ = translate patsexp_def;
 val _ = translate opsexp_def;
 val _ = translate lopsexp_def;
-val _ = translate scsexp_def;
 val _ = translate locssexp_def;
 val _ = translate expsexp_def;
 val _ = translate type_defsexp_def;
 val _ = translate decsexp_def;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
-
-val _ = export_theory();

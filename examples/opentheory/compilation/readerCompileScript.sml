@@ -1,11 +1,13 @@
 (*
   Compiles the OpenTheory article checker in the logic.
 *)
-open preamble readerProgTheory eval_cake_compile_x64Lib
-open x64_configTheory
-(* open costLib *)
+Theory readerCompile
+Ancestors
+  readerProg x64_config
+Libs
+  preamble eval_cake_compile_x64Lib
 
-val _ = new_theory "readerCompile"
+(* open costLib *)
 
 Theorem reader_compiled =
   eval_cake_compile_x64 "" reader_prog_def "reader.S";
@@ -21,4 +23,3 @@ val _ = write_to_file (fetch "-" "data_prog_def");
 
 *)
 
-val _ = export_theory ();

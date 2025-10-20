@@ -1,12 +1,13 @@
 (*
   Correctness proof for clos_fvs
 *)
-open preamble closLangTheory clos_fvsTheory closSemTheory closPropsTheory;
-local open backendPropsTheory in end;
+Theory clos_fvsProof
+Ancestors
+  closLang clos_fvs closSem closProps backendProps[qualified]
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "clos_fvsProof";
 
 Theorem LENGTH_remove_fvs:
    !fvs xs. LENGTH (remove_fvs fvs xs) = LENGTH xs
@@ -97,7 +98,16 @@ Inductive ref_rel:
   (!bs. ref_rel (ByteArray bs) (ByteArray bs)) /\
   (!xs ys.
     LIST_REL v_rel xs ys ==>
-    ref_rel (ValueArray xs) (ValueArray ys))
+    ref_rel (ValueArray xs) (ValueArray ys)) /\
+  (!m v w.
+    v_rel v w ==>
+    ref_rel (Thunk m v) (Thunk m w))
+End
+
+Definition opt_rel_def[simp]:
+  opt_rel f NONE NONE = T /\
+  opt_rel f (SOME x) (SOME y) = f x y /\
+  opt_rel f _ _ = F
 End
 
 Definition state_rel_def:
@@ -263,6 +273,50 @@ val do_install_lemma = prove(
             simple_val_rel_def]
   \\ fs [v_rel_cases]);
 
+Triviality state_rel_opt_rel_refs:
+  (state_rel s1 s2 ∧ FLOOKUP s1.refs n = r1 ⇒
+     ∃r2. FLOOKUP s2.refs n = r2 ∧ opt_rel ref_rel r1 r2) ∧
+  (state_rel s1 s2 ∧ FLOOKUP s2.refs n = r2 ⇒
+     ∃r1. FLOOKUP s1.refs n = r1 ∧ opt_rel ref_rel r1 r2)
+Proof
+  rw [] \\ gvs [state_rel_def, fmap_rel_def, FLOOKUP_DEF] \\ rw []
+QED
+
+Triviality state_rel_clocks_eqs:
+  state_rel s1 s2 ⇒ s1.clock = s2.clock
+Proof
+  rw [state_rel_def, state_component_equality]
+QED
+
+Triviality state_rel_dec_clock:
+  state_rel s1 s2 ⇒ state_rel (dec_clock 1 s1) (dec_clock 1 s2)
+Proof
+  rw [state_rel_def, dec_clock_def, state_component_equality]
+QED
+
+Triviality rel_update_thunk:
+  state_rel s1 s2 ∧
+  LIST_REL v_rel vs ys ⇒
+    (update_thunk [RefPtr v ptr] s1.refs vs = NONE ⇒
+       update_thunk [RefPtr v ptr] s2.refs ys = NONE) ∧
+    (update_thunk [RefPtr v ptr] s1.refs vs = SOME refs1 ⇒
+       ∃refs2. update_thunk [RefPtr v ptr] s2.refs ys = SOME refs2 ∧
+               state_rel (s1 with refs := refs1) (s2 with refs := refs2))
+Proof
+  rw []
+  \\ gvs [oneline update_thunk_def, AllCaseEqs()] \\ rw []
+  \\ gvs [oneline dest_thunk_def, AllCaseEqs()]
+  \\ (
+    gvs [Once v_rel_cases, oneline store_thunk_def, AllCaseEqs()]
+    \\ rpt (
+      imp_res_tac state_rel_opt_rel_refs \\ rw []
+      \\ gvs [oneline opt_rel_def]
+      \\ FULL_CASE_TAC \\ gvs []
+      \\ rgs [Once ref_rel_cases])
+    \\ gvs [state_rel_def, fmap_rel_def, FAPPLY_FUPDATE_THM] \\ rw []
+    \\ simp [Once ref_rel_cases])
+QED
+
 (* evaluate level correctness *)
 
 Theorem evaluate_remove_fvs:
@@ -391,7 +445,20 @@ Proof
       \\ fs []
       \\ CCONTR_TAC
       \\ fs [])
-    (* op <> Install *)
+    \\ IF_CASES_TAC \\ rveq \\ fs [] >- ((* Op = ThunkOp ForceThunk *)
+      gvs [AllCaseEqs(), PULL_EXISTS]
+      \\ (
+        gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
+        \\ imp_res_tac (cj 1 state_rel_opt_rel_refs)
+        \\ qpat_x_assum `opt_rel ref_rel _ _` mp_tac
+        \\ simp [oneline opt_rel_def] \\ CASE_TAC \\ gvs []
+        \\ rgs [Once ref_rel_cases]
+        \\ imp_res_tac state_rel_clocks_eqs \\ gvs [PULL_EXISTS]
+        \\ imp_res_tac state_rel_dec_clock \\ gvs []
+        \\ last_x_assum drule_all \\ rw [AppUnit_def, remove_fvs_def]
+        \\ goal_assum drule \\ rw []
+        \\ drule_all rel_update_thunk \\ rw []))
+    (* op <> Install ∧ op <> ThunkOp ForceThunk *)
     \\ drule EVERY2_REVERSE \\ disch_tac
     \\ drule (GEN_ALL do_app_lemma)
     \\ disch_then drule
@@ -483,20 +550,18 @@ Proof
   \\ `s1.max_app = t1.max_app` by fs [state_rel_def]
   \\ fs [case_eq_thms] \\ rveq \\ fs []
   THEN1 (* dest_closure returns NONE *) (
-    rw[evaluate_def]
+    first_assum $ irule_at $ Pos last
+    \\ rw[evaluate_def]
+    \\ qsuff_tac ‘dest_closure t1.max_app loc_opt f2 (y::ys) = NONE’ >- gvs []
     \\ fs [dest_closure_def]
-    \\ fs [case_eq_thms] \\ rveq \\ fs[]
-    >- (
-      rw[] \\ fs[CaseEq"bool"]
-      \\ imp_res_tac LIST_REL_LENGTH \\ fs [] )
+    \\ gvs [AllCaseEqs()]
+    \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+    \\ gvs [LIST_REL_EL_EQN]
+    \\ Cases_on ‘i < LENGTH fns’ \\ gvs []
+    \\ res_tac
     \\ rpt(pairarg_tac \\ fs[]) \\ rveq
-    \\ imp_res_tac LIST_REL_LENGTH
-    \\ qpat_x_assum`_ ⇒ _`mp_tac
-    \\ simp[Once COND_RAND]
-    \\ Cases_on`i < LENGTH fns` \\ fs[]
-    \\ imp_res_tac LIST_REL_EL_EQN
-    \\ rfs[f_rel_def] \\ rveq
-    \\ strip_tac \\ fs[] )
+    \\ fs [f_rel_def]
+    \\ gvs [AllCaseEqs()])
   THEN1 (* dest_closure returns SOME Partial_app *)
    (imp_res_tac dest_closure_SOME_IMP
     \\ rveq \\ fs [] \\ rveq
@@ -734,4 +799,3 @@ Proof
   \\ rw[] \\ fs[]
 QED
 
-val _ = export_theory();

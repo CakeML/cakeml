@@ -2,17 +2,16 @@
   Reformulates compile definition to expose the result of each internal
   compiler pass
 *)
+Theory pan_passes
+Libs
+  preamble
+Ancestors
+  mllist pan_to_target backend_passes backend presLang
 
-open preamble backendTheory backend_passesTheory presLangTheory;
-open pan_to_targetTheory;
-
-val _ = new_theory"pan_passes";
-
-val _ = set_grammar_ancestry ["pan_to_target","backend_passes"];
 
 Datatype:
   any_pan_prog =
-      Pan ((mlstring # (mlstring # shape) list # 'a panLang$prog) list)
+      Pan ('a decl list)
     | Crep ((mlstring # num list # α crepLang$prog) list)
     | Loop ((num # num list # α loopLang$prog) list) (mlstring sptree$num_map)
     | Cake ('a backend_passes$any_prog)
@@ -21,19 +20,35 @@ End
 Definition pan_to_target_all_def:
   pan_to_target_all (c:'a config) prog =
     let
-      prog0 = case SPLITP (λ(n,e,p,b). n = «main») prog of
+      prog1:'a decl list = case SPLITP (λx. case x of
+                            Function fi => fi.name = «main»
+                          | Decl _ _ _ => F) prog of
               | ([],ys) => ys
-              | (xs,[]) => («main»,F,[],Return (Const 0w))::xs
+              | (xs,[]) => Function
+                            <| name := «main»
+                              ; inline := F
+                              ; export := F
+                              ; params := []
+                              ; body := Return (Const 0w)
+                              ; return := One
+                            |>
+                            ::xs
               | (xs,y::ys) => y::xs ++ ys
     in
       let
-        prog1 = MAP (λ(n,e,p,b). (n,p,b)) prog0;
         ps = [(«initial pancake program»,Pan prog1)];
-        prog_a = pan_simp$compile_prog prog1;
-        ps = ps ++ [(«after pan_simp»,Pan prog_a)];
-        prog_b0 = pan_to_crep$compile_prog prog_a;
+        prog_a0 = pan_simp$compile_prog prog1;
+        ps = ps ++ [(«after pan_simp»,Pan prog_a0)];
+        prog_a = pan_globals$compile_top prog_a0 «main»;
+        ps = ps ++ [(«after pan_globals»,Pan prog_a)];
+        prog_b0 = pan_to_crep$compile_to_crep prog_a;
         ps = ps ++ [(«after pan_to_crep»,Crep prog_b0)];
-        prog_b = MAP (λ(n,ps,e). (n,ps,crep_arith$simp_prog e)) prog_b0;
+        inl_fs_names = MAP FST (functions (FILTER inlinable prog_a));
+        inl_fs_crep = FILTER (λ(x, y). MEM x inl_fs_names) prog_b0;
+        inl_fs_map = alist_to_fmap inl_fs_crep;
+        prog_bi = compile_inl_prog inl_fs_map prog_b0;
+        ps = ps ++ [(«after crep_inline»,Crep prog_bi)];
+        prog_b = MAP (λ(n,ps,e). (n,ps,crep_arith$simp_prog e)) prog_bi;
         ps = ps ++ [(«after crep_arith»,Crep prog_b)];
         fnums = GENLIST (λn. n + first_name) (LENGTH prog_b);
         funcs = make_funcs prog_b;
@@ -44,7 +59,7 @@ Definition pan_to_target_all_def:
         prog_c = MAP (λ(name,params,body). (name,params,loop_live$optimise body)) prog_b1;
         prog_c1 = loop_remove$comp_prog prog_c;
         prog2 = loop_to_word$compile_prog prog_c1;
-        names = fromAList (ZIP (QSORT $< (MAP FST prog2),MAP FST prog1));
+        names = fromAList (ZIP (sort $< (MAP FST prog2), «generated_main»::MAP FST (functions prog1)));
         names = union (fromAList (word_to_stack$stub_names () ++
                                   stack_alloc$stub_names () ++
                                   stack_remove$stub_names ())) names;
@@ -52,7 +67,7 @@ Definition pan_to_target_all_def:
         ps = ps ++ [(«after loop_optimise»,Loop prog_c names)];
         ps = ps ++ [(«after loop_remove»,Loop prog_c1 names)];
         ps = ps ++ [(«after loop_to_word»,Cake (Word prog2 names))];
-        c = c with exported := MAP FST (FILTER (FST ∘ SND) prog);
+        c = c with exported := exports prog;
         (ps1,out) = from_word_0_all [] c names prog2
       in
         (ps ++ MAP (λ(n,p). (n,Cake p)) ps1,out)
@@ -89,6 +104,7 @@ Proof
   gvs [compile_prog_eq,pan_to_target_all_def,UNCURRY]
   \\ gvs [backend_passesTheory.from_word_0_thm,pan_to_wordTheory.compile_prog_def,
           loop_to_wordTheory.compile_def,crep_to_loopTheory.compile_prog_def,
+          pan_to_crepTheory.compile_prog_def, pan_to_crepTheory.compile_to_crep_def,
           MAP_MAP2,MAP2_MAP,make_funcs_MAP]
   \\ gvs [LAMBDA_PROD,loop_to_wordTheory.compile_def]
 QED
@@ -102,14 +118,13 @@ Definition shape_to_str_def:
     concat (strlit "<" :: shape_to_str x ::
             MAP (λx. strlit "," ^ x) (MAP shape_to_str xs) ++
             [strlit ">"])
-Termination
-  WF_REL_TAC ‘measure shape_size’
 End
 
 Definition opsize_to_display_def:
   opsize_to_display Op8 = empty_item (strlit "byte") ∧
+  opsize_to_display Op16 = empty_item (strlit "word16") ∧
   opsize_to_display OpW = empty_item (strlit "word") ∧
-  opsize_to_display Op32 = empty_item (strlit "halfword")
+  opsize_to_display Op32 = empty_item (strlit "word32")
 End
 
 Definition insert_es_def:
@@ -117,21 +132,32 @@ Definition insert_es_def:
   insert_es x _ = x
 End
 
+Definition varkind_to_str_def:
+  varkind_to_str vk =
+    case vk of
+      Global => strlit "global"
+    | Local  => strlit "local"
+End
+
 Definition pan_exp_to_display_def:
   (pan_exp_to_display (panLang$Const v)
     = item_with_word (strlit "Const") v) ∧
-  (pan_exp_to_display (Var n)
-    = Item NONE (strlit "Var") [String n]) ∧
-  (pan_exp_to_display (Label n)
-    = Item NONE (strlit "Label") [String n]) ∧
+  (pan_exp_to_display (Var vk n)
+    = Item NONE (strlit "Var")
+          [String (varkind_to_str vk);
+           String n]) ∧
   (pan_exp_to_display BaseAddr
     = Item NONE (strlit "BaseAddr") []) ∧
+  (pan_exp_to_display TopAddr
+    = Item NONE (strlit "TopAddr") []) ∧
   (pan_exp_to_display BytesInWord
     = Item NONE (strlit "BytesInWord") []) ∧
   (pan_exp_to_display (panLang$Load shape exp2)
     = Item NONE (strlit "MemLoad")
            [String (shape_to_str shape);
             pan_exp_to_display exp2]) ∧
+  (pan_exp_to_display (panLang$Load32 exp2)
+    = Item NONE (strlit "MemLoad32") [pan_exp_to_display exp2]) ∧
   (pan_exp_to_display (panLang$LoadByte exp2)
     = Item NONE (strlit "MemLoadByte") [pan_exp_to_display exp2]) ∧
   (pan_exp_to_display (Struct xs)
@@ -148,8 +174,6 @@ Definition pan_exp_to_display_def:
     = Item NONE (strlit "Field") [num_to_display n; pan_exp_to_display e]) ∧
   (pan_exp_to_display (Shift sh e n)
     = insert_es (shift_to_display sh) [pan_exp_to_display e; num_to_display n])
-Termination
-  WF_REL_TAC `measure (panLang$exp_size ARB)`
 End
 
 Definition dest_annot_def:
@@ -179,9 +203,10 @@ QED
 
 Definition pan_prog_to_display_def:
   (pan_prog_to_display panLang$Skip = empty_item (strlit "skip")) ∧
-  (pan_prog_to_display (ShMemLoad s v e) =
+  (pan_prog_to_display (ShMemLoad s vk v e) =
      Item NONE (strlit "shared_mem_load")
           [opsize_to_display s;
+           String (varkind_to_str vk);
            String v;
            pan_exp_to_display e]) ∧
   (pan_prog_to_display (ShMemStore s e1 e2) =
@@ -205,17 +230,25 @@ Definition pan_prog_to_display_def:
      Item NONE (strlit "while")
           [pan_exp_to_display e;
            pan_prog_to_display p]) ∧
-  (pan_prog_to_display (Dec n e p) =
+  (pan_prog_to_display (Dec n shape e p) =
      Item NONE (strlit "dec")
-          [Tuple [String n; String (strlit ":="); pan_exp_to_display e];
+          [Tuple [String (shape_to_str shape);
+                  String (strlit "local");
+                  String n;
+                  String (strlit ":=");
+                  pan_exp_to_display e];
            pan_prog_to_display p]) ∧
-  (pan_prog_to_display (Assign n exp) =
-     Tuple [String n;
+  (pan_prog_to_display (Assign vk n exp) =
+     Tuple [String (varkind_to_str vk);
+            String n;
             String (strlit ":=");
             pan_exp_to_display exp]) ∧
   (pan_prog_to_display (Store e1 e2) = Tuple
     [String (strlit "mem"); pan_exp_to_display e1;
      String (strlit ":="); pan_exp_to_display e2]) ∧
+  (pan_prog_to_display (Store32 e1 e2) = Tuple
+    [String (strlit "mem"); pan_exp_to_display e1;
+     String (strlit ":="); String (strlit "32bit"); pan_exp_to_display e2]) ∧
   (pan_prog_to_display (StoreByte e1 e2) = Tuple
     [String (strlit "mem"); pan_exp_to_display e1;
      String (strlit ":="); String (strlit "byte"); pan_exp_to_display e2]) ∧
@@ -231,32 +264,32 @@ Definition pan_prog_to_display_def:
   (pan_prog_to_display (Seq prog1 prog2) =
      let xs = append (Append (pan_seqs prog1) (pan_seqs prog2)) in
      separate_lines (strlit "seq") (MAP pan_prog_to_display xs)) ∧
-  (pan_prog_to_display (panLang$Call ret_opt dest args) =
+  (pan_prog_to_display (panLang$Call ret_opt f args) =
      case ret_opt of
      | NONE =>
          Item NONE (strlit "tail_call")
-              [pan_exp_to_display dest;
+              [String f;
                Tuple (MAP pan_exp_to_display args)]
      | SOME (NONE,handler) =>
          Item NONE (strlit "call")
-              [pan_exp_to_display dest;
+              [String f;
                Tuple (MAP pan_exp_to_display args);
                pan_prog_to_display_handler handler]
-     | SOME (SOME v,handler) =>
+     | SOME (SOME(vk,v),handler) =>
          Tuple [String v;
                 String (strlit ":=");
                 Item NONE (strlit "call")
-                     [pan_exp_to_display dest;
+                     [String f;
                       Tuple (MAP pan_exp_to_display args);
                       pan_prog_to_display_handler handler]]) ∧
-  (pan_prog_to_display (DecCall v shape dest args p) =
+  (pan_prog_to_display (DecCall v shape f args p) =
      Item NONE (strlit "dec")
-          [Tuple [String v;
+          [Tuple [String (shape_to_str shape);
+                  String v;
                   String (strlit ":=");
                   Item NONE (strlit "call")
-                       [pan_exp_to_display dest;
-                        Tuple (MAP pan_exp_to_display args);
-                        String (shape_to_str shape)]];
+                       [String f;
+                        Tuple (MAP pan_exp_to_display args)]];
            pan_prog_to_display p]) ∧
   (pan_prog_to_display_handler NONE = empty_item (strlit "no_handler")) ∧
   (pan_prog_to_display_handler (SOME (v1,v2,p)) =
@@ -265,18 +298,28 @@ Definition pan_prog_to_display_def:
 Termination
   WF_REL_TAC ‘measure $ \x. case x of
         | INL p => panLang$prog_size ARB p
-        | INR p => panLang$prog3_size ARB p’
-  \\ rw [] \\ imp_res_tac MEM_append_pan_seqs \\ fs []
+        | INR p => option_size (\(_,_,p). prog_size ARB p) p’
+  \\ rw [oneline basicSizeTheory.option_size_def]
+  \\ imp_res_tac MEM_append_pan_seqs \\ fs []
+  \\ every_case_tac \\ simp[]
+  \\ pairarg_tac \\ simp[]
 End
 
 Definition pan_fun_to_display_def:
-  pan_fun_to_display (nm,args,body) =
-    Tuple
-      [String «func»; String nm;
-       Tuple (MAP (λ(s,shape). Tuple [String s;
-                                      String (strlit ":");
-                                      String (shape_to_str shape)]) args);
-       pan_prog_to_display body]
+  pan_fun_to_display decl =
+    case decl of
+      Function fi => Tuple
+        [String (shape_to_str fi.return); String «func»; String fi.name;
+        Tuple (MAP (λ(s,shape). Tuple [String s;
+                                       String (strlit ":");
+                                       String (shape_to_str shape)]) fi.params);
+        pan_prog_to_display fi.body]
+    | Decl sh nm exp => Tuple
+        [String (shape_to_str sh);
+         String (strlit "global");
+         String nm;
+         String (strlit ":=");
+         pan_exp_to_display exp]
 End
 
 Definition pan_to_strs_def:
@@ -294,12 +337,14 @@ Definition crep_exp_to_display_def:
     = item_with_word (strlit "LoadGlob") w) ∧
   (crep_exp_to_display (Var n)
     = Item NONE (strlit "Var") [num_to_display n]) ∧
-  (crep_exp_to_display (Label n)
-    = Item NONE (strlit "Label") [String n]) ∧
   (crep_exp_to_display BaseAddr
     = Item NONE (strlit "BaseAddr") []) ∧
+  (crep_exp_to_display TopAddr
+    = Item NONE (strlit "TopAddr") []) ∧
   (crep_exp_to_display (crepLang$Load exp2)
     = Item NONE (strlit "MemLoad") [crep_exp_to_display exp2]) ∧
+  (crep_exp_to_display (crepLang$Load32 exp2)
+    = Item NONE (strlit "MemLoad32") [crep_exp_to_display exp2]) ∧
   (crep_exp_to_display (crepLang$LoadByte exp2)
     = Item NONE (strlit "MemLoadByte") [crep_exp_to_display exp2]) ∧
   (crep_exp_to_display (Cmp cmp x1 x2)
@@ -312,8 +357,6 @@ Definition crep_exp_to_display_def:
       | Mul => Item NONE (strlit "Mul") (MAP crep_exp_to_display xs)) ∧
   (crep_exp_to_display (Shift sh e n)
     = insert_es (shift_to_display sh) [crep_exp_to_display e; num_to_display n])
-Termination
-  WF_REL_TAC `measure (crepLang$exp_size ARB)`
 End
 
 Definition crep_seqs_def:
@@ -339,10 +382,12 @@ Definition crep_prog_to_display_def:
      let prefix = (case mop of
                    | Load => [String (strlit "load"); String (strlit "word")]
                    | Load8 => [String (strlit "load"); String (strlit "byte")]
-                   | Load32 => [String (strlit "load"); String (strlit "halfword")]
+                   | Load16 => [String (strlit "load"); String (strlit "word16")]
+                   | Load32 => [String (strlit "load"); String (strlit "word32")]
                    | Store => [String (strlit "store"); String (strlit "word")]
                    | Store8 => [String (strlit "store"); String (strlit "byte")]
-                   | Store32 => [String (strlit "store"); String (strlit "halfword")]) in
+                   | Store16 => [String (strlit "store"); String (strlit "word16")]
+                   | Store32 => [String (strlit "store"); String (strlit "word32")]) in
        Item NONE (strlit "shared_mem")
             (prefix ++ [num_to_display v; crep_exp_to_display e])) ∧
   (crep_prog_to_display (ExtCall f e1 e2 e3 e4) =
@@ -376,6 +421,9 @@ Definition crep_prog_to_display_def:
   (crep_prog_to_display (Store e1 e2) = Tuple
     [String (strlit "mem"); crep_exp_to_display e1;
      String (strlit ":="); crep_exp_to_display e2]) ∧
+  (crep_prog_to_display (Store32 e1 e2) = Tuple
+    [String (strlit "mem"); crep_exp_to_display e1;
+     String (strlit ":="); String (strlit "32bit"); crep_exp_to_display e2]) ∧
   (crep_prog_to_display (StoreByte e1 e2) = Tuple
     [String (strlit "mem"); crep_exp_to_display e1;
      String (strlit ":="); String (strlit "byte"); crep_exp_to_display e2]) ∧
@@ -389,15 +437,15 @@ Definition crep_prog_to_display_def:
   (crep_prog_to_display (Seq prog1 prog2) =
     (let xs = append (Append (crep_seqs prog1) (crep_seqs prog2)) in
        separate_lines (strlit "seq") (MAP crep_prog_to_display xs))) ∧
-  (crep_prog_to_display (crepLang$Call ret_opt dest args) =
+  (crep_prog_to_display (crepLang$Call ret_opt f args) =
      case ret_opt of
      | NONE =>
          Item NONE (strlit "tail_call")
-              [crep_exp_to_display dest;
+              [String f;
                Tuple (MAP crep_exp_to_display args)]
      | SOME (NONE,p,handler) =>
          Item NONE (strlit "call")
-              [crep_exp_to_display dest;
+              [String f;
                Tuple (MAP crep_exp_to_display args);
                crep_prog_to_display p;
                crep_prog_to_display_handler handler]
@@ -405,7 +453,7 @@ Definition crep_prog_to_display_def:
          Tuple [num_to_display v;
                 String (strlit ":=");
                 Item NONE (strlit "call")
-                     [crep_exp_to_display dest;
+                     [String f;
                       Tuple (MAP crep_exp_to_display args);
                       crep_prog_to_display p;
                       crep_prog_to_display_handler handler]]) ∧
@@ -416,8 +464,12 @@ Definition crep_prog_to_display_def:
 Termination
   WF_REL_TAC ‘measure $ \x. case x of
         | INL p => crepLang$prog_size ARB p
-        | INR p => crepLang$prog4_size ARB p’
-  \\ rw [] \\ imp_res_tac MEM_append_crep_seqs \\ fs []
+        | INR p => option_size (pair_size w2n (crepLang$prog_size ARB)) p’
+  \\ rw []
+  \\ imp_res_tac MEM_append_crep_seqs \\ fs []
+  \\ rw [oneline basicSizeTheory.option_size_def]
+  \\ every_case_tac
+  \\ simp[ETA_AX]
 End
 
 Definition crep_fun_to_display_def:
@@ -443,6 +495,8 @@ Definition loop_exp_to_display_def:
     = item_with_num (strlit "Var") n) ∧
   (loop_exp_to_display BaseAddr
     = Item NONE (strlit "BaseAddr") []) ∧
+  (loop_exp_to_display TopAddr
+    = Item NONE (strlit "TopAddr") []) ∧
   (loop_exp_to_display (Lookup st)
     = item_with_word (strlit "Lookup") st) ∧
   (loop_exp_to_display (Load exp2)
@@ -456,8 +510,6 @@ Definition loop_exp_to_display_def:
       loop_exp_to_display exp;
       num_to_display num
     ])
-Termination
-  WF_REL_TAC `measure (loopLang$exp_size ARB)`
 End
 
 Definition loop_seqs_def:
@@ -507,8 +559,12 @@ Definition loop_prog_to_display_def:
   (loop_prog_to_display ns Break = empty_item (strlit "break")) ∧
   (loop_prog_to_display ns Continue = empty_item (strlit "continue")) ∧
   (loop_prog_to_display ns Fail = empty_item (strlit "fail")) ∧
+  (loop_prog_to_display ns (Load32 n1 n2) =
+    item_with_nums (strlit "load_32") [n1;n2]) ∧
   (loop_prog_to_display ns (LoadByte n1 n2) =
     item_with_nums (strlit "load_byte") [n1;n2]) ∧
+  (loop_prog_to_display ns (Store32 n1 n2) =
+    item_with_nums (strlit "store_32") [n1;n2]) ∧
   (loop_prog_to_display ns (StoreByte n1 n2) =
     item_with_nums (strlit "store_byte") [n1;n2]) ∧
   (loop_prog_to_display ns (LocValue n1 n2) =
@@ -556,8 +612,14 @@ Definition loop_prog_to_display_def:
 Termination
   WF_REL_TAC ‘measure $ \x. case x of
         | INL (_,p) => loopLang$prog_size ARB p
-        | INR (_,p) => loopLang$prog1_size ARB p’
-  \\ rw [] \\ imp_res_tac MEM_append_loop_seqs \\ fs []
+        | INR (_,p) => option_size (\(a,b,c,d).
+          a + prog_size ARB b + prog_size ARB c + spt_size one_size d
+        ) p’
+  \\ rw []
+  \\ imp_res_tac MEM_append_loop_seqs \\ fs []
+  \\ rw [oneline basicSizeTheory.option_size_def]
+  \\ every_case_tac \\ simp[]
+  \\ pairarg_tac \\ simp[]
 End
 
 Definition loop_fun_to_display_def:
@@ -597,5 +659,3 @@ Proof
   \\ mp_tac compile_prog_eq_pan_to_target_all
   \\ pairarg_tac \\ gvs []
 QED
-
-val _ = export_theory();

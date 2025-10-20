@@ -1,0 +1,79 @@
+<<HOL message: Created theory "bvl_to_bvi">>
+<<HOL message: mk_functional: 
+  pattern completion has added 6 clauses to the original specification.>>
+Saved definition ____ "destLet_def"
+Saved induction _____ "destLet_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 6 clauses to the original specification.>>
+Saved theorem _______ "destLet_pmatch"
+Saved definition ____ "compile_int_def"
+<<HOL message: mk_functional: The following input rows (counting from zero) are inaccessible: 10.
+They have been ignored.>>
+Saved definition ____ "alloc_glob_count_def"
+Saved induction _____ "alloc_glob_count_ind"
+<<HOL message: Termination argument ignored (term. proved automatically)>>
+Saved definition ____ "global_count_sing_def"
+Saved theorem _______ "alloc_glob_count_eq_global_count_list"
+Saved definition ____ "AllocGlobal_location_def"
+Saved definition ____ "CopyGlobals_location_def"
+Saved definition ____ "InitGlobals_location_def"
+Saved definition ____ "ListLength_location_def"
+Saved definition ____ "FromListByte_location_def"
+Saved definition ____ "ToListByte_location_def"
+Saved definition ____ "SumListLength_location_def"
+Saved definition ____ "ConcatByte_location_def"
+Saved theorem _______ "AllocGlobal_location_eq"
+Saved theorem _______ "CopyGlobals_location_eq"
+Saved theorem _______ "InitGlobals_location_eq"
+Saved theorem _______ "ListLength_location_eq"
+Saved theorem _______ "FromListByte_location_eq"
+Saved theorem _______ "ToListByte_location_eq"
+Saved theorem _______ "SumListLength_location_eq"
+Saved theorem _______ "ConcatByte_location_eq"
+Saved definition ____ "AllocGlobal_code_def"
+Saved definition ____ "CopyGlobals_code_def"
+Saved definition ____ "InitGlobals_max_def"
+Saved definition ____ "InitGlobals_code_def"
+Saved definition ____ "ListLength_code_def"
+Saved definition ____ "FromListByte_code_def"
+Saved definition ____ "ToListByte_code_def"
+Saved definition ____ "SumListLength_code_def"
+Saved definition ____ "ConcatByte_code_def"
+Saved definition ____ "stubs_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 47 clauses to the original specification.>>
+<<HOL message: mk_functional: 
+  pattern completion has added 47 clauses to the original specification.>>
+Saved definition ____ "compile_op_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 47 clauses to the original specification.>>
+Saved theorem _______ "compile_op_pmatch"
+Saved definition ____ "compile_aux_def"
+Saved definition ____ "compile_exps_def"
+Saved induction _____ "compile_exps_ind"
+Saved definition ____ "compile_exps_sing_def"
+Saved induction _____ "compile_exps_sing_ind"
+Saved theorem _______ "compile_exps_sing"
+Proved triviality ___ "compile_exps_LENGTH_lemma"
+Saved theorem _______ "compile_exps_LENGTH"
+Saved theorem _______ "compile_exps_SING"
+Saved definition ____ "compile_single_def"
+Saved theorem _______ "compile_single_eq"
+Saved definition ____ "compile_list_def"
+Saved definition ____ "compile_inc_def"
+Saved definition ____ "compile_prog_def"
+Saved theorem _______ "compile_prog_eq"
+Saved theorem _______ "datatype_config"
+Saved theorem _______ "config_11"
+Saved theorem _______ "config_nchotomy"
+Saved theorem _______ "config_Axiom"
+Saved theorem _______ "config_induction"
+Saved theorem _______ "config_case_cong"
+Saved theorem _______ "config_case_eq"
+<<HOL message: Defined type: "config">>
+Saved definition ____ "default_config_def"
+Saved definition ____ "get_names_def"
+Saved definition ____ "compile_def"
+Saved definition ____ "bvl_to_bvi_compile_inc_all_def"
+Exporting theory "bvl_to_bvi" ... done.
+Theory "bvl_to_bvi" took 45.6s to build
