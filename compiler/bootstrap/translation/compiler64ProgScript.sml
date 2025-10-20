@@ -201,6 +201,43 @@ val r = pan_passesTheory.any_pan_prog_pp_def |> spec64 |> translate;
 
 val r = pan_passesTheory.pan_compile_tap_def |> spec64 |> translate;
 
+(*
+Theorem pan_passes_pan_compile_tap_side:
+  pan_passes_pan_compile_tap_side c p
+Proof
+  Cases_on `c.tap_conf.explore_flag` >>
+  gs ((map (fn x => fetch "-" x)
+           ["pan_passes_pan_compile_tap_side_def",
+            "pan_passes_pan_to_target_all_side_def"])
+      @
+      (map (fn x => fetch "from_pancake64Prog" x)
+           ["pan_to_target_compile_prog_side_def",
+            "pan_globals_compile_top_side_def",
+            "pan_to_word_compile_prog_side_def"])
+      @
+           [
+            SPLITP,
+            pan_globalsTheory.compile_decs_def,
+            pan_globalsTheory.fperm_decs_def,
+            pan_globalsTheory.new_main_name_def,
+            pan_globalsTheory.resort_decls_def,
+            panLangTheory.is_function_def,
+            panLangTheory.functions_def,
+            pan_simpTheory.compile_prog_def
+           ]) >>
+  rpt strip_tac >>
+  Cases_on `h` >> gvs[]
+  >- (
+    Cases_on `f.name = «main»` >> gvs[panLangTheory.is_function_def, panLangTheory.functions_def, FILTER_APPEND_DISTRIB]
+    >- (
+      qpat_x_assum `compile_decs _ _ = _` mp_tac >>
+      PURE_ONCE_REWRITE_TAC[pan_globalsTheory.fresh_name_def] >>
+      simp[MEM] >>
+    )
+  )
+QED
+*)
+
 val _ = r |> hyp |> null orelse
         failwith ("Unproved side condition in the translation of " ^
                   "pan_passesTheory.pan_compile_tap_def.");

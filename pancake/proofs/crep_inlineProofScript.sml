@@ -2922,7 +2922,7 @@ Theorem compile_inline_distinct:
 Proof
   rpt strip_tac >> fs[compile_inl_prog_def, MAP_MAP_o] >>
   qspec_then `inl_fs` assume_tac $ INST_TYPE [alpha |-> beta, beta |-> alpha] fst_map_3_f >>
-  subgoal `MAP FST crep_code = MAP (FST o (λ(name, params, body). (name, params, inline_prog (inl_fs \\ name) body))) crep_code`
+  subgoal `MAP FST crep_code = MAP (FST o (λ(name, params, body). (name, params, inline_prog (inl_fs \\ name) body))) crep_code` >> simp[]
   >- (
     irule MAP_CONG >>
     rpt strip_tac >> first_x_assum $ qspec_then `x` assume_tac >> fs[]

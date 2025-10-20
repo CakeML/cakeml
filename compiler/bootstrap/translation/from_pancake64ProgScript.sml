@@ -7,7 +7,7 @@ Ancestors
   pan_simp loopLang loop_remove loop_to_word pan_to_crep
   loop_call loop_live crep_arith crep_to_loop pan_to_word
   word_to_word backend pan_to_target panPtreeConversion
-  pan_globals
+  pan_globals crep_inline
 Libs
   preamble ml_translatorLib
 
@@ -236,7 +236,7 @@ val _ = translate $ spec64 compile_def;
 
 open crep_inlineTheory;
 
-val _ = translate $ spec64 inlinable_def;
+val _ = translate $ spec64 panLangTheory.inlinable_def;
 
 val _ = translate $ spec64 var_prog_def;
 
@@ -262,7 +262,7 @@ val _ = translate $ spec64 inline_assign_def;
 
 val _ = translate $ spec64 inline_prog_def;
 
-val _ = translate $ INST_TYPE [alpha |-> ``:64``, beta |-> ``:num list``] compile_inl_prog_def;
+val _ = translate $ INST_TYPE[alpha|->``:num list``,beta|->``:64``] compile_inl_prog_def;
 
 open pan_to_crepTheory;
 
