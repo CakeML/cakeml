@@ -734,16 +734,35 @@ rich_listTheory.MAP_MAP_o
 
 
 
-Theorem dec_enc_section:
-  ∀xs enc dec lb encxs rest. enc_section lb enc xs = SOME encxs ∧
-  (∀x encx rs. enc x = SOME encx ⇒ dec (encx a++ rs) = (INR x, rs)) ⇒
-  dec_section lb dec $ encxs a++ rest = (INR xs, rest)
+Theorem dec_enc_section_NE: (* non empty *)
+  ∀xs enc dec lb encxs rest. ¬(NULL xs) ∧
+  enc_section lb enc xs = SOME encxs ∧
+  (∀x encx rs. enc x = SOME encx ⇒ dec (encx a++ rs) = (INR x, rs))
+  ⇒
+  dec_section lb dec $ encxs a++ rest= (INR xs, rest)
 Proof
      rw[enc_section_def, prepend_sz_def]
   \\ simp[dec_section_def]
   \\ imp_res_tac dec_enc_u32
   \\ simp ssa
   \\ imp_res_tac dec_enc_vector
+  \\ simp[]
+QED
+
+Theorem dec_enc_section_NR: (* no rest *)
+  ∀xs enc dec lb encxs.
+  enc_section lb enc xs = SOME encxs ∧
+  (∀x encx rs. enc x = SOME encx ⇒ dec (encx a++ rs) = (INR x, rs))
+  ⇒
+  dec_section lb dec $ append encxs = (INR xs, [])
+Proof
+     rw[enc_section_def, prepend_sz_def]
+  >- (Cases_on `xs` >> gvs[NULL, dec_section_def])
+  \\ simp[dec_section_def]
+  \\ imp_res_tac dec_enc_u32
+  \\ simp ssa
+  \\ imp_res_tac dec_enc_vector
+  \\ pop_assum $ qspec_then `[]` mp_tac
   \\ simp[]
 QED
 
@@ -760,6 +779,7 @@ Proof
   \\ gvs[]
 QED
 
+(*
 Theorem enc_section_nEmp:
   ∀lb enc x encx. enc_section lb enc x = SOME encx ⇒
   ∃bs. append encx = lb::bs
@@ -767,16 +787,86 @@ Proof
      rw[enc_section_def, prepend_sz_def]
   \\ simp[]
 QED
-
+*)
 
 Theorem dec_section_passThrough:
   ∀lb b dec bs. lb ≠ b ⇒
-  dec_section lb dec (b::bs) = (INR [], b::bs)
+  dec_section lb dec (b::bs) = ret (b::bs) []
 Proof
   simp[Once dec_section_def]
 QED
 
 (*
+
+type_of ``enc_names_section``
+type_of ``dec_names_section``
+Theorem dec_enc_names_NE: (* non empty *)
+  ∀n encn rest. n ≠ blank ∧
+  enc_names_section n = SOME encn ⇒
+  dec_names_section $ encn a++ rest = (INR [n], rest)
+Proof
+
+       rw[Once enc_names_section_def, Once dec_names_section_def, AllCaseEqs()]
+    >> gvs[prepend_sz_def, dec_names_section_def, magic_str_def]
+    >> gvs[string2bytes_def, bytes2string_def, blank_def]
+    >> imp_res_tac dec_enc_u32
+    >> simp ssa
+
+    (**)
+    >> TRY (qpat_x_assum `SOME _ = enc_u32 _` $ mp_tac o GSYM \\ strip_tac)
+    (**)
+    >> imp_res_tac dec_enc_u32
+    >> simp ssa
+    >> Cases_on `rest`
+    >> simp $ ssaa [names_component_equality]
+
+    (* mname *)
+    >> TRY ( qpat_assum `enc_mls _ = SOME _` (fn _ =>
+           imp_res_tac dec_enc_mls
+        \\ pop_assum $ qspec_then `[]` mp_tac
+        \\ rw[]
+        \\ imp_res_tac dec_enc_mls
+        \\ rw[]
+    ))
+    >> simp[dec_section_def, names_component_equality]
+    (* fnames *)
+    >> TRY ( qpat_assum `enc_section 1w _ _ = SOME _` (fn _ =>
+           assume_tac dec_enc_ass
+        \\ dxrule_at Any dec_enc_section
+        \\ disch_then $ drule_at Any
+    ))
+    (* lnames *)
+    >> TRY ( qpat_assum `enc_section 2w _ _ = SOME _` (fn _ =>
+           assume_tac dec_enc_map
+        \\ dxrule_at Any dec_enc_idx_alpha
+        \\ strip_tac
+        \\ dxrule_at Any dec_enc_section
+        \\ disch_then $ drule_at Any
+    ))
+    >> imp_res_tac enc_section_nEmp
+    >> simp[AllCaseEqs(), dec_section_passThrough]
+    >> gvs[]
+    >> rpt strip_tac
+    >> TRY (
+      rpt $ pop_assum $ qspec_then `[]` mp_tac
+      \\ simp[names_component_equality, dec_section_def]
+      \\ NO_TAC
+    )
+
+
+    >-(
+         fs $ ssaa [GSYM APPEND, Excl "APPEND"]
+      \\ rpt $ pop_assum $ qspec_then `[]` mp_tac
+      \\ simp[names_component_equality]
+    )
+    \\
+       rewrite_tac ssa
+    \\ simp[]
+    \\ fs $ ssaa [GSYM APPEND, Excl "APPEND"]
+    \\ rpt $ pop_assum $ qspec_then `[]` mp_tac
+    \\ simp[names_component_equality]
+QED
+
 
 Theorem dec_enc_names':
   ∀no eno.
@@ -824,6 +914,70 @@ Proof
       \\ simp[names_component_equality, dec_section_def]
       \\ NO_TAC
     )
+    >-(
+         fs $ ssaa [GSYM APPEND, Excl "APPEND"]
+      \\ rpt $ pop_assum $ qspec_then `[]` mp_tac
+      \\ simp[names_component_equality]
+    )
+    \\
+       rewrite_tac ssa
+    \\ simp[]
+    \\ fs $ ssaa [GSYM APPEND, Excl "APPEND"]
+    \\ rpt $ pop_assum $ qspec_then `[]` mp_tac
+    \\ simp[names_component_equality]
+QED
+
+Theorem dec_enc_names_NE: (* non empty *)
+  ∀n encn.
+  enc_names_section n = SOME encn ⇒
+  dec_names_section $ append encn = (INR [n], [])
+Proof
+
+       rw[Once enc_names_section_def, Once dec_names_section_def, AllCaseEqs()]
+    >> gvs[prepend_sz_def, dec_names_section_def, magic_str_def]
+    >> gvs[string2bytes_def, bytes2string_def, blank_def]
+    (**)
+    >> TRY (qpat_x_assum `SOME _ = enc_u32 _` $ mp_tac o GSYM \\ strip_tac)
+    (**)
+    >> imp_res_tac dec_enc_u32
+    >> simp ssa
+    >> Cases_on `rest`
+    >> simp $ ssaa [names_component_equality]
+
+    (* mname *)
+    >> TRY ( qpat_assum `enc_mls _ = SOME _` (fn _ =>
+           imp_res_tac dec_enc_mls
+        \\ pop_assum $ qspec_then `[]` mp_tac
+        \\ rw[]
+        \\ imp_res_tac dec_enc_mls
+        \\ rw[]
+    ))
+    >> simp[dec_section_def, names_component_equality]
+    (* fnames *)
+    >> TRY ( qpat_assum `enc_section 1w _ _ = SOME _` (fn _ =>
+           assume_tac dec_enc_ass
+        \\ dxrule_at Any dec_enc_section
+        \\ disch_then $ drule_at Any
+    ))
+    (* lnames *)
+    >> TRY ( qpat_assum `enc_section 2w _ _ = SOME _` (fn _ =>
+           assume_tac dec_enc_map
+        \\ dxrule_at Any dec_enc_idx_alpha
+        \\ strip_tac
+        \\ dxrule_at Any dec_enc_section
+        \\ disch_then $ drule_at Any
+    ))
+    >> imp_res_tac enc_section_nEmp
+    >> simp[AllCaseEqs(), dec_section_passThrough]
+    >> gvs[]
+    >> rpt strip_tac
+    >> TRY (
+      rpt $ pop_assum $ qspec_then `[]` mp_tac
+      \\ simp[names_component_equality, dec_section_def]
+      \\ NO_TAC
+    )
+
+
     >-(
          fs $ ssaa [GSYM APPEND, Excl "APPEND"]
       \\ rpt $ pop_assum $ qspec_then `[]` mp_tac
@@ -969,7 +1123,6 @@ Proof
     \\ imp_res_tac dec_enc_section
     \\ disch_then $ drule
 
-DFK
    \\ Cases_on `split_funcs l0`
    \\ conj_tac
 
@@ -1012,5 +1165,4 @@ rpt strip_tac
     )
   \\ cheat
 QED
-
 *)

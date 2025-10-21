@@ -1071,7 +1071,9 @@ End
 
 
 Definition enc_section_def:
-  enc_section (leadByte:byte) (enc:α -> byteCode) (xs:α list) = do
+  enc_section (leadByte:byte) (enc:α -> byteCode) (xs:α list) =
+    if NULL xs then Soli [] else
+    do
     encxs <- enc_vector enc xs;
     enced <- prepend_sz encxs ;
     SOME $ leadByte ::: enced od
@@ -1237,31 +1239,21 @@ Definition magic_str_def:
 End
 
 Definition enc_names_section_def:
-  enc_names_section (no:names option) =
-    let emp = Soli []
-    in
-    case no of NONE => emp | SOME n
-    =>
+  enc_names_section (n:names) =
     let ss0Opt : byteCode =
       case n.mname of
-      | NONE => emp
+      | NONE => Soli []
       | SOME s => do
           encs <- enc_mls s;
           enced <- prepend_sz encs;
           SOME $ 0w ::: enced
           od in
-    let ss1Opt : byteCode =
-      case n.fnames of
-      | []  => emp
-      | fns => enc_section 1w enc_ass fns in
-    let ss2Opt : byteCode =
-      case n.lnames of
-      | [] => emp
-      | lns => enc_section 2w (enc_idx_alpha enc_map) lns in
+    let ss1Opt : byteCode = enc_section 1w  enc_ass                n.fnames in
+    let ss2Opt : byteCode = enc_section 2w (enc_idx_alpha enc_map) n.lnames in
     do
-    ss0 <- ss0Opt;
-    ss1 <- ss1Opt;
-    ss2 <- ss2Opt;
+    ss0      <- ss0Opt;
+    ss1      <- ss1Opt;
+    ss2      <- ss2Opt;
     contents <- prepend_sz $ (List $ string2bytes magic_str) +++ ss0 +++ ss1 +++ ss2;
     SOME $ 0w ::: contents od
 End
@@ -1275,12 +1267,12 @@ Definition blank_def:
 End
 
 Definition dec_names_section_def:
-  dec_names_section [] : names option dcdr = ret [] NONE
+  dec_names_section [] : names list dcdr = ret [] []
   ∧
   dec_names_section (b::bs) =
     let failure = error (b::bs) ""
     in
-    if b ≠ 0w then ret (b::bs) NONE (* NS (names section) leadByte *)
+    if b ≠ 0w then ret (b::bs) [] (* NS (names section) leadByte *)
     else
     case dec_u32 bs of (INL _,_) => failure | (INR _,bs) (* length of the NS *)
     =>
@@ -1289,7 +1281,7 @@ Definition dec_names_section_def:
     | [_]     => failure
     | [_;_]   => failure
     | [_;_;_] => failure
-    | [n;a;m;e]         => if bytes2string $ [n;a;m;e] ≠ magic_str then failure else ret [] $ SOME blank
+    | [n;a;m;e]         => if bytes2string $ [n;a;m;e] ≠ magic_str then failure else ret [] $ [blank]
     | n::a::m::e::b::bs => if bytes2string $ [n;a;m;e] ≠ magic_str then failure else
     case ( (* the expr in these parens are for mname, not the whole names record *)
         if b ≠ 0w then ret (b::bs) NONE
@@ -1298,11 +1290,11 @@ Definition dec_names_section_def:
                                                 )  of (INL _,_)=>failure| (INR so , bs) =>
     case dec_section 1w dec_ass                 bs of (INL _,_)=>failure| (INR fns, bs) =>
     case dec_section 2w (dec_idx_alpha dec_map) bs of (INL _,_)=>failure| (INR lns, bs) =>
-    ret bs $ SOME (
+    ret bs $ [
     <|  mname := so
      ;  fnames := fns
      ;  lnames := lns
-     |> : names)
+     |> : names]
 End
 
 Theorem dec_names_section_shortens:
@@ -1339,10 +1331,9 @@ Definition mod_leader_def:
 End
 
 
-
 (* From CWasm (not Wasm!) modules to WBF *)
 Definition enc_module_def:
-  enc_module (m:module) (no:names option) =
+  enc_module (m:module) (n:names) =
     let (funs, code) = split_funcs m.funcs in do
     m_types    <- enc_section   1w enc_functype  m.types  ;
     m_funs     <- enc_section   3w enc_u32       funs     ;
@@ -1350,7 +1341,7 @@ Definition enc_module_def:
     m_globals  <- enc_section   6w enc_global    m.globals;
     m_code     <- enc_section  10w enc_code      code     ;
     m_datas    <- enc_section  11w enc_data      m.datas  ;
-    nms        <- enc_names_section              no       ;
+    nms        <- enc_names_section              n        ;
       SOME $ List mod_leader +++
       m_types    +++ m_funs  +++ m_mems   +++
       m_globals  +++ m_code  +++ m_datas  +++ nms od
@@ -1359,7 +1350,7 @@ End
 
 
 Definition dec_module_def:
-  dec_module bs : (module # names option) dcdr = case bs of
+  dec_module bs : (module # names) dcdr = case bs of
   | l1::l2::l3::l4::l5::l6::l7::l8::bs => (
     let failure = error bs "[dec_module] : malformed leader"
     in
@@ -1371,13 +1362,14 @@ Definition dec_module_def:
     case dec_section  6w dec_global   bs of (INL _,_)=>failure| ret bs m_globals =>
     case dec_section 10w dec_code     bs of (INL _,_)=>failure| ret bs   code    =>
     case dec_section 11w dec_data     bs of (INL _,_)=>failure| ret bs m_datas   =>
-    case dec_names_section            bs of (INL _,_)=>failure| ret bs nms       =>
-    let m_funcs = zip_funcs funs code in
-    let m = <| types := m_types  ; funcs   := m_funcs
-             ; mems  := m_mems   ; globals := m_globals
-             ; datas := m_datas  |> : module
-    in
-    ret bs (m,nms) )
+    case dec_names_section            bs of ret bs [n]       =>
+      let m_funcs = zip_funcs funs code in
+      let m = <| types := m_types  ; funcs   := m_funcs
+               ; mems  := m_mems   ; globals := m_globals
+               ; datas := m_datas  |> : module
+      in
+      ret bs (m,n)
+      | _ => failure )
   | _  => error bs "[dec_module]: missing leader (less than 8 bytes)"
 End
 
