@@ -170,9 +170,7 @@ Proof
     metis_tac[])>>
   rpt xlet_autop>>
   xraise>>xsimpl>>
-  IF_CASES_TAC>-
-    metis_tac[NOT_EVERY]>>
-  simp[unwrap_TYPE_def,Fail_exn_def]>>
+  gvs[unwrap_TYPE_def,Fail_exn_def]>>
   metis_tac[]
 QED
 
@@ -248,6 +246,7 @@ Proof
   fs[LIST_TYPE_def]>>
   xmatch>>
   rpt xlet_autop>>
+  simp [] >> rpt xlet_autop>>
   `OPTION_TYPE (LIST_TYPE INT) (any_el h fmlls NONE) v'` by (
     rw[any_el_ALT]>>
     fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
@@ -276,7 +275,6 @@ Proof
     xcon>>xsimpl>>
     simp[SUM_TYPE_def])>>
   rpt xlet_autop>>
-
   `index z < LENGTH Clist ∧ WORD8 w8o w8o_v` by (
     fs[w8o_v_thm]>>
     fs[bounded_fml_def,EVERY_EL]>>
@@ -290,7 +288,6 @@ Proof
     rpt (first_x_assum drule)>>
     rw[]>>
     qpat_x_assum`-z = _` sym_sub_tac>>fs[])>>
-
   rpt xlet_autop>>
   xapp>>
   xsimpl>>
@@ -736,7 +733,7 @@ Proof
   drule LIST_REL_LENGTH>>
   strip_tac>>
   rpt(xlet_autop)>>
-  xlet_auto>>
+  simp[] >> xlet_auto>>
   xlet`(POSTv v. ARRAY Earrv earliestv * &OPTION_TYPE NUM (min_opt min (any_el (index h) earliest NONE)) v)`
   >- (
     xapp>>xsimpl>>
@@ -815,6 +812,7 @@ Proof
     rpt(asm_exists_tac>>simp[])>>
     qexists_tac`h::ls`>>simp[LIST_TYPE_def])>>
   rpt xlet_autop>>
+  simp[] >> xlet_autop >>
   drule LIST_REL_LENGTH >>
   strip_tac>>
   `OPTION_TYPE (LIST_TYPE INT) (any_el h fmlls NONE) v'` by (
@@ -903,7 +901,7 @@ Proof
   xlet_autop>>
   drule LIST_REL_LENGTH >>
   strip_tac>>
-  xlet_autop>>
+  simp[] >> xlet_autop>>
   `OPTION_TYPE (LIST_TYPE INT) (any_el h fmlls NONE) v'` by (
     rw[any_el_ALT]>>
     fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
@@ -1115,7 +1113,7 @@ Proof
   xif>> asm_exists_tac>> xsimpl
   >- (xapp >> xsimpl)>>
   xlet_auto >- (xcon>>xsimpl)>>
-  xlet_auto >- xsimpl>>
+  simp[] >> xlet_auto >- xsimpl>>
   xapp>>xsimpl>>
   match_mp_tac EVERY2_LUPDATE_same>> simp[OPTION_TYPE_def]
 QED
@@ -1277,7 +1275,7 @@ Proof
   reverse xif>>fs[]
   >- (xapp>>xsimpl)>>
   rpt xlet_autop>>
-  xlet_auto>>
+  simp[] >> xlet_auto>>
   `LENGTH fmlls = LENGTH fmllsv` by metis_tac[LIST_REL_LENGTH]>>
   `OPTION_TYPE (LIST_TYPE INT) (any_el h fmlls NONE) v'` by (
     rw[any_el_ALT]>>
@@ -1345,6 +1343,7 @@ Proof
   xif
   >- (xvar>>xsimpl)>>
   rpt xlet_autop>>
+  simp[] >> xlet_autop >>
   `LENGTH earliest = LENGTH earliestv` by metis_tac[LIST_REL_LENGTH]>>
   `OPTION_TYPE NUM (any_el (index (-safe_hd c)) earliest NONE) v'` by (
     rw[any_el_ALT]>>
@@ -1531,6 +1530,7 @@ Proof
   fs[unwrap_TYPE_def]>>
   TOP_CASE_TAC>>fs[]>>
   rpt xlet_autop>>
+  simp[] >> xlet_autop >>
   xcon>>xsimpl>>
   simp[OPTION_TYPE_def,LIST_TYPE_def]>>rw[]
   >- (
@@ -1631,7 +1631,7 @@ Proof
     xcon>>xsimpl>>
     simp[OPTION_TYPE_def])>>
   xmatch>> rpt(xlet_autop)>>
-  xlet_auto>>
+  simp[]>> xlet_auto>>
   `LENGTH fmlls = LENGTH fmllsv` by
     metis_tac[LIST_REL_LENGTH]>>
   `OPTION_TYPE (LIST_TYPE INT) (any_el h fmlls NONE) v'` by (
@@ -1824,6 +1824,7 @@ Proof
     xsimpl)>>
   xmatch>>
   rpt xlet_autop>>
+  simp[] >> xlet_autop >>
   `LENGTH fmlls = LENGTH fmllsv` by
     metis_tac[LIST_REL_LENGTH]>>
   `OPTION_TYPE (LIST_TYPE INT) (any_el h fmlls NONE) v'` by (
@@ -1979,4 +1980,3 @@ Proof
   drule reindex_characterize>>fs[]>>
   simp[MEM_MAP]
 QED
-
