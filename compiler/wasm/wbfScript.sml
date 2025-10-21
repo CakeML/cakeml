@@ -1280,7 +1280,7 @@ Definition dec_names_section_def:
   dec_names_section (b::bs) =
     let failure = error (b::bs) ""
     in
-    if b ≠ 0w then ret [] NONE (* NS (names section) leadByte *)
+    if b ≠ 0w then ret (b::bs) NONE (* NS (names section) leadByte *)
     else
     case dec_u32 bs of (INL _,_) => failure | (INR _,bs) (* length of the NS *)
     =>
@@ -1343,42 +1343,41 @@ End
 (* From CWasm (not Wasm!) modules to WBF *)
 Definition enc_module_def:
   enc_module (m:module) (no:names option) =
-    let (fTIdxs, locBods) = split_funcs m.funcs in do
-    types'   <- enc_section   1w enc_functype  m.types  ;
-    fTIdxs'  <- enc_section   3w enc_u32       fTIdxs   ;
-    mems'    <- enc_section   5w enc_limits    m.mems   ;
-    globals' <- enc_section   6w enc_global    m.globals;
-    code'    <- enc_section  10w enc_code      locBods  ;
-    datas'   <- enc_section  11w enc_data      m.datas  ;
-    names    <- enc_names_section no                    ;
+    let (funs, code) = split_funcs m.funcs in do
+    m_types    <- enc_section   1w enc_functype  m.types  ;
+    m_funs     <- enc_section   3w enc_u32       funs     ;
+    m_mems     <- enc_section   5w enc_limits    m.mems   ;
+    m_globals  <- enc_section   6w enc_global    m.globals;
+    m_code     <- enc_section  10w enc_code      code     ;
+    m_datas    <- enc_section  11w enc_data      m.datas  ;
+    nms        <- enc_names_section              no       ;
       SOME $ List mod_leader +++
-      types'   +++ fTIdxs' +++ mems'  +++
-      globals' +++ code'   +++ datas' +++ names od
+      m_types    +++ m_funs  +++ m_mems   +++
+      m_globals  +++ m_code  +++ m_datas  +++ nms od
 End
 
 
 
 Definition dec_module_def:
   dec_module bs : (module # names option) dcdr = case bs of
-  | l1::l2::l3::l4::l5::l6::l7::l8::xs => (
+  | l1::l2::l3::l4::l5::l6::l7::l8::bs => (
     let failure = error bs "[dec_module] : malformed leader"
     in
     if [l1;l2;l3;l4;l5;l6;l7;l8] ≠ mod_leader then failure
     else
-    case dec_section  1w dec_functype bs of (INL _,_)=>failure|(INR types'  , bs) =>
-    case dec_section  3w dec_u32      bs of (INL _,_)=>failure|(INR fTIdxs  , bs) =>
-    case dec_section  5w dec_limits   bs of (INL _,_)=>failure|(INR mems'   , bs) =>
-    case dec_section  6w dec_global   bs of (INL _,_)=>failure|(INR globals', bs) =>
-    case dec_section 10w dec_code     bs of (INL _,_)=>failure|(INR code    , bs) =>
-    case dec_section 11w dec_data     bs of (INL _,_)=>failure|(INR datas'  , cs) =>
-    case dec_names_section            cs of (INL _,_)=>failure|(INR nms     , rs) =>
-    let funcs' = zip_funcs fTIdxs code in
-    let m = <| types   := types' ; funcs   := funcs'
-             ; mems    := mems'  ; globals := globals'
-             ; datas   := datas'                        |> : module
+    case dec_section  1w dec_functype bs of (INL _,_)=>failure| ret bs m_types   =>
+    case dec_section  3w dec_u32      bs of (INL _,_)=>failure| ret bs   funs    =>
+    case dec_section  5w dec_limits   bs of (INL _,_)=>failure| ret bs m_mems    =>
+    case dec_section  6w dec_global   bs of (INL _,_)=>failure| ret bs m_globals =>
+    case dec_section 10w dec_code     bs of (INL _,_)=>failure| ret bs   code    =>
+    case dec_section 11w dec_data     bs of (INL _,_)=>failure| ret bs m_datas   =>
+    case dec_names_section            bs of (INL _,_)=>failure| ret bs nms       =>
+    let m_funcs = zip_funcs funs code in
+    let m = <| types := m_types  ; funcs   := m_funcs
+             ; mems  := m_mems   ; globals := m_globals
+             ; datas := m_datas  |> : module
     in
-    ret rs (m,nms) )
-  | [] => emErr "dec_module"
+    ret bs (m,nms) )
   | _  => error bs "[dec_module]: missing leader (less than 8 bytes)"
 End
 
