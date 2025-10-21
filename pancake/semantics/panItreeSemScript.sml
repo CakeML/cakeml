@@ -172,6 +172,15 @@ End
 
 Theorem set_global_defs = CONJ panSemTheory.set_global_def set_global_def;
 
+Definition lookup_kvar_def:
+  lookup_kvar vk v = (panSem$lookup_kvar vk v) o reclock
+End
+
+Theorem lookup_kvar_defs = CONJ panSemTheory.lookup_kvar_def lookup_kvar_def;
+
+Theorem kvar_defs = LIST_CONJ [set_kvar_defs,set_global_defs,lookup_kvar_defs,set_var_defs,
+                               is_valid_value_def];
+
 val s = “s:('a,'b) bstate”;
 val s1 = “s1:('a,'b) bstate”;
 val p1 = “p1:'a panLang$prog”;
@@ -260,20 +269,13 @@ Definition h_prog_seq_def:
 End
 
 Definition h_prog_assign_def:
-  (h_prog_assign Local vname e s =
-   case eval (reclock s) e of
-   | SOME value =>
-       if is_valid_value s.locals vname value
-       then Ret (NONE,s with locals := s.locals |+ (vname,value))
+  h_prog_assign vk vname e s =
+  case eval (reclock s) e of
+  | SOME value =>
+      if is_valid_value (reclock s) vk vname value
+       then Ret (NONE,set_kvar vk vname value s)
        else Ret (SOME Error,s)
-   | NONE => Ret (SOME Error,s)) ∧
-  (h_prog_assign Global vname e s =
-   case eval (reclock s) e of
-   | SOME value =>
-       if is_valid_value s.globals vname value
-       then Ret (NONE,s with globals := s.globals |+ (vname,value))
-       else Ret (SOME Error,s)
-   | NONE => Ret (SOME Error,s))
+   | NONE => Ret (SOME Error,s)
 End
 
 Definition h_prog_store_def:
@@ -345,7 +347,7 @@ Definition h_handle_call_ret_def:
      NONE => Ret (SOME (Return retv),empty_locals s')
    | SOME (NONE, _) => Ret (NONE, s' with locals := s.locals)
    | SOME (SOME (rk,rt),_) =>
-       if is_valid_value (if rk = Local then s.locals else s.globals) rt retv
+       if is_valid_value (reclock s) rk rt retv
        then Ret (NONE,set_kvar rk rt retv (s' with locals := s.locals))
        else Ret (SOME Error,s')) ∧
   (h_handle_call_ret calltyp s (SOME (Exception eid exn),s') =
@@ -357,7 +359,7 @@ Definition h_handle_call_ret_def:
        then
          (case FLOOKUP s.eshapes eid of
             SOME sh =>
-              if shape_of exn = sh ∧ is_valid_value s.locals evar exn
+              if shape_of exn = sh ∧ is_valid_value (reclock s) Local evar exn
               then Vis (INL (p,set_var evar exn (s' with locals := s.locals))) Ret
               else Ret (SOME Error,s')
           | NONE => Ret (SOME Error,s'))
@@ -445,7 +447,7 @@ Definition h_prog_sh_mem_load_def:
   h_prog_sh_mem_load op vk v ad s =
   case eval (reclock s) ad of
     SOME (ValWord addr) =>
-     (case lookup_kvar (reclock s) vk v of
+     (case lookup_kvar vk v (reclock s) of
         SOME (Val _) =>
           (let nb = nb_op op in
              if nb = 0 then
