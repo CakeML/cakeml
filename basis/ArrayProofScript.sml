@@ -294,9 +294,7 @@ Proof
      instantiate >> xcon >> xsimpl >> metis_tac[TAKE_0,LENGTH_NIL]) >>
   xlet_auto >- xsimpl >>
   xif >> instantiate >>
-  xlet_auto >- xsimpl >>
-  simp [] >>
-  NTAC 3 (xlet_auto >- xsimpl) >>
+  NTAC 4 (xlet_auto >- xsimpl) >>
   xapp >> xsimpl >>
   cases_on`mid` >> fs[] >>
   qexists_tac`1 + n` >> qexists_tac`t` >>

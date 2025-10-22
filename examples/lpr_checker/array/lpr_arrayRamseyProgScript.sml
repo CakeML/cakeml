@@ -140,7 +140,6 @@ Proof
   rpt (disch_then drule)>>
   strip_tac>>
   rpt xlet_autop>>
-  simp [] >> rpt xlet_autop >>
   (* help instantiate fill_earliest_spec *)
   qmatch_asmsub_abbrev_tac`NUM (2 * mv) _`>>
   `LIST_REL (OPTION_TYPE NUM) (REPLICATE (2 * mv + 3) NONE)

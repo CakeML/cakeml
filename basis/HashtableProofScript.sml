@@ -1349,7 +1349,6 @@ Proof
     by fs[LIST_REL_EL_EQN]
   \\ simp []
   \\ xlet_auto >- xsimpl
-  \\ simp []
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl

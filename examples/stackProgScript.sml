@@ -215,7 +215,6 @@ Proof
    ) >>
    xlet_auto >-(xsimpl) >>
    xlet_auto >-(xcon >> xsimpl) >>
-   simp [] >>
    xlet_auto >-(xsimpl) >>
    xvar
    >-(

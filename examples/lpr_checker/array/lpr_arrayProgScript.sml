@@ -246,7 +246,6 @@ Proof
   fs[LIST_TYPE_def]>>
   xmatch>>
   rpt xlet_autop>>
-  simp [] >> rpt xlet_autop>>
   `OPTION_TYPE (LIST_TYPE INT) (any_el h fmlls NONE) v'` by (
     rw[any_el_ALT]>>
     fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
@@ -733,7 +732,7 @@ Proof
   drule LIST_REL_LENGTH>>
   strip_tac>>
   rpt(xlet_autop)>>
-  simp[] >> xlet_auto>>
+  xlet_auto>>
   xlet`(POSTv v. ARRAY Earrv earliestv * &OPTION_TYPE NUM (min_opt min (any_el (index h) earliest NONE)) v)`
   >- (
     xapp>>xsimpl>>
@@ -812,7 +811,6 @@ Proof
     rpt(asm_exists_tac>>simp[])>>
     qexists_tac`h::ls`>>simp[LIST_TYPE_def])>>
   rpt xlet_autop>>
-  simp[] >> xlet_autop >>
   drule LIST_REL_LENGTH >>
   strip_tac>>
   `OPTION_TYPE (LIST_TYPE INT) (any_el h fmlls NONE) v'` by (
@@ -901,7 +899,7 @@ Proof
   xlet_autop>>
   drule LIST_REL_LENGTH >>
   strip_tac>>
-  simp[] >> xlet_autop>>
+  xlet_autop>>
   `OPTION_TYPE (LIST_TYPE INT) (any_el h fmlls NONE) v'` by (
     rw[any_el_ALT]>>
     fs[LIST_REL_EL_EQN,OPTION_TYPE_def])>>
@@ -1113,7 +1111,7 @@ Proof
   xif>> asm_exists_tac>> xsimpl
   >- (xapp >> xsimpl)>>
   xlet_auto >- (xcon>>xsimpl)>>
-  simp[] >> xlet_auto >- xsimpl>>
+  xlet_auto >- xsimpl>>
   xapp>>xsimpl>>
   match_mp_tac EVERY2_LUPDATE_same>> simp[OPTION_TYPE_def]
 QED
@@ -1275,7 +1273,7 @@ Proof
   reverse xif>>fs[]
   >- (xapp>>xsimpl)>>
   rpt xlet_autop>>
-  simp[] >> xlet_auto>>
+  xlet_auto>>
   `LENGTH fmlls = LENGTH fmllsv` by metis_tac[LIST_REL_LENGTH]>>
   `OPTION_TYPE (LIST_TYPE INT) (any_el h fmlls NONE) v'` by (
     rw[any_el_ALT]>>
@@ -1343,7 +1341,6 @@ Proof
   xif
   >- (xvar>>xsimpl)>>
   rpt xlet_autop>>
-  simp[] >> xlet_autop >>
   `LENGTH earliest = LENGTH earliestv` by metis_tac[LIST_REL_LENGTH]>>
   `OPTION_TYPE NUM (any_el (index (-safe_hd c)) earliest NONE) v'` by (
     rw[any_el_ALT]>>
@@ -1530,7 +1527,6 @@ Proof
   fs[unwrap_TYPE_def]>>
   TOP_CASE_TAC>>fs[]>>
   rpt xlet_autop>>
-  simp[] >> xlet_autop >>
   xcon>>xsimpl>>
   simp[OPTION_TYPE_def,LIST_TYPE_def]>>rw[]
   >- (
@@ -1631,7 +1627,7 @@ Proof
     xcon>>xsimpl>>
     simp[OPTION_TYPE_def])>>
   xmatch>> rpt(xlet_autop)>>
-  simp[]>> xlet_auto>>
+  xlet_auto>>
   `LENGTH fmlls = LENGTH fmllsv` by
     metis_tac[LIST_REL_LENGTH]>>
   `OPTION_TYPE (LIST_TYPE INT) (any_el h fmlls NONE) v'` by (
@@ -1824,7 +1820,6 @@ Proof
     xsimpl)>>
   xmatch>>
   rpt xlet_autop>>
-  simp[] >> xlet_autop >>
   `LENGTH fmlls = LENGTH fmllsv` by
     metis_tac[LIST_REL_LENGTH]>>
   `OPTION_TYPE (LIST_TYPE INT) (any_el h fmlls NONE) v'` by (

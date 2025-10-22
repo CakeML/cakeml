@@ -555,7 +555,6 @@ Proof
     qexists_tac`h'`>>
     xsimpl)>>
   rpt xlet_autop>>
-  simp[] >> xlet_autop >>
   xapp>> xsimpl>>
   match_mp_tac LIST_REL_update_resize>>fs[OPTION_TYPE_def]
 QED
@@ -1065,13 +1064,11 @@ Proof
   drule fill_earliest_spec>>
   rw[]>>
   rpt xlet_autop>>
-  simp[] >> xlet_autop >>
   (* help instantiate fill_arr_spec *)
   `LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (REPLICATE (2 * x1) NONE)
         (REPLICATE (2 * x1) (Conv (SOME (TypeStamp "None" 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   rpt xlet_autop >>
-  simp[] >> rpt xlet_autop >>
   (* help instantiate fill_earliest_spec *)
   `LIST_REL (OPTION_TYPE NUM) (REPLICATE (2 * x0 + 3) NONE)
           (REPLICATE (2 * x0 + 3) (Conv (SOME (TypeStamp "None" 2)) []))` by
@@ -1221,13 +1218,11 @@ Proof
   drule fill_earliest_spec>>
   rw[]>>
   rpt(xlet_autop)>>
-  simp[] >> rpt xlet_autop >>
   (* help instantiate fill_arr_spec *)
   `LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (REPLICATE (2 * x1) NONE)
         (REPLICATE (2 * x1) (Conv (SOME (TypeStamp "None" 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   rpt (xlet_autop) >>
-  simp[] >> rpt xlet_autop >>
   (* help instantiate fill_earliest_spec *)
   `LIST_REL (OPTION_TYPE NUM) (REPLICATE (2 * x0 + 3) NONE)
           (REPLICATE (2 * x0 + 3) (Conv (SOME (TypeStamp "None" 2)) []))` by
@@ -1567,13 +1562,11 @@ Proof
   drule fill_earliest_spec>>
   strip_tac >> strip_tac>>
   rpt(xlet_autop)>>
-  simp [] >> rpt xlet_autop >>
   (* help instantiate fill_arr_spec *)
   `LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (REPLICATE (2 * x1) NONE)
         (REPLICATE (2 * x1) (Conv (SOME (TypeStamp "None" 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   rpt (xlet_autop) >>
-  simp [] >> rpt xlet_autop >>
   (* help instantiate fill_earliest_spec *)
   `LIST_REL (OPTION_TYPE NUM) (REPLICATE (2 * x0 + 3) NONE)
           (REPLICATE (2 * x0 + 3) (Conv (SOME (TypeStamp "None" 2)) []))` by
