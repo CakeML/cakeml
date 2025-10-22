@@ -290,7 +290,7 @@ Datatype: module =
 End
 
 Datatype: names =
-  <| mname  : mlstring option
+  <| mname  : mlstring
    ; fnames : (index # mlstring) list
    ; lnames : (index # ((index # mlstring) list)) list
    |>

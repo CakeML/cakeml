@@ -912,9 +912,20 @@ QED
 (*                 *)
 (*******************)
 
+
 (*******************)
 (*   Ancillaries   *)
 (*******************)
+
+Definition prepend_sz_def:
+  prepend_sz (appl: byte app_list) : byteCode = do
+    encl <- enc_u32 $ n2w $ LENGTH $ append appl;
+    SOME $ encl +++ appl od
+End
+
+
+
+
 
 Definition enc_global_def:
   enc_global (g:global) = do
@@ -947,12 +958,6 @@ Proof
 QED
 
 
-
-Definition prepend_sz_def:
-  prepend_sz (appl: byte app_list) : byteCode = do
-    encl <- enc_u32 $ n2w $ LENGTH $ append appl;
-    SOME $ encl +++ appl od
-End
 
 Definition enc_code_def:
   enc_code (c:valtype list # expr) = do
@@ -1070,6 +1075,8 @@ End
 
 
 
+(* enc_section is our first encoder that can return empty byteCode.
+   This is pertinent for the shape of it's dec_enc thm *)
 Definition enc_section_def:
   enc_section (leadByte:byte) (enc:α -> byteCode) (xs:α list) =
     if NULL xs then Soli [] else
@@ -1085,14 +1092,16 @@ Definition dec_section_def:
               [] : (α list) dcdr = ret [] []
   ∧
   dec_section leadByte dec (b::bs) =
+    let failure = error bs "dec_section"
+    in
     if b ≠ leadByte then ret (b::bs) []
     else
     case dec_u32 bs of
-    | (INL _,_) => error bs "dec_section"
+    | (INL _,_)   => failure
     | (INR _w,bs) => dec_vector dec bs
 End
 
-Theorem dec_section_shortens_lt:
+Theorem dec_section_shortens_maybe_lt:
   ∀dec.
   (∀bs rs x. dec bs = (INR x, rs) ⇒ rs [<] bs) ⇒
   ∀bs rs lb dc. dec_section lb dec bs = (INR dc, rs) ⇒ rs [≤] bs
@@ -1104,6 +1113,10 @@ Proof
     \\ dxrule_all dec_vector_shortens_lt
     \\ simp[]
 QED
+
+
+
+
 
 (*******************************)
 (*                             *)
@@ -1131,6 +1144,8 @@ End
 Definition bytes2string_def:
   bytes2string : byteSeq -> string = MAP (CHR ∘ w2n)
 End
+
+
 
 Definition enc_mls_def:
   enc_mls (str:mlstring) =
@@ -1196,6 +1211,7 @@ Proof
 QED
 
 
+
 (* In the context of the names section, "Associations"
    are pairings of indices & mlstrings (names) *)
 Definition enc_ass_def:
@@ -1238,32 +1254,32 @@ Definition magic_str_def:
   magic_str : string = "name"
 End
 
+Definition blank_def:
+  blank : names =
+  <| mname  := strlit ""
+   ; fnames := []
+   ; lnames := []
+   |>
+End
+
+
 Definition enc_names_section_def:
   enc_names_section (n:names) =
-    let ss0Opt : byteCode =
-      case n.mname of
-      | NONE => Soli []
-      | SOME s => do
-          encs <- enc_mls s;
-          enced <- prepend_sz encs;
-          SOME $ 0w ::: enced
-          od in
+    let ss0Opt : byteCode = let ascii = explode n.mname
+                            in
+                            if ¬(id_OK ascii) then NONE else
+                            enc_section 0w  enc_byte   $ string2bytes ascii in
     let ss1Opt : byteCode = enc_section 1w  enc_ass                n.fnames in
     let ss2Opt : byteCode = enc_section 2w (enc_idx_alpha enc_map) n.lnames in
     do
     ss0      <- ss0Opt;
     ss1      <- ss1Opt;
     ss2      <- ss2Opt;
-    contents <- prepend_sz $ (List $ string2bytes magic_str) +++ ss0 +++ ss1 +++ ss2;
+    ss012   <<- ss0 +++ ss1 +++ ss2;
+    contents <- prepend_sz $ List (string2bytes magic_str) +++ ss012;
+    if NULL $ append ss012 then NONE
+    else
     SOME $ 0w ::: contents od
-End
-
-Definition blank_def:
-  blank : names =
-  <| mname  := NONE
-   ; fnames := []
-   ; lnames := []
-   |>
 End
 
 Definition dec_names_section_def:
@@ -1283,15 +1299,11 @@ Definition dec_names_section_def:
     | [_;_;_] => failure
     | [n;a;m;e]         => if bytes2string $ [n;a;m;e] ≠ magic_str then failure else ret [] $ [blank]
     | n::a::m::e::b::bs => if bytes2string $ [n;a;m;e] ≠ magic_str then failure else
-    case ( (* the expr in these parens are for mname, not the whole names record *)
-        if b ≠ 0w then ret (b::bs) NONE
-        else case dec_u32 bs of (INL _,_) => err| (INR _,bs) =>
-             case dec_mls bs of (INL _,_) => err| (INR s,cs) => ret cs $ SOME s
-                                                )  of (INL _,_)=>failure| (INR so , bs) =>
-    case dec_section 1w dec_ass                 bs of (INL _,_)=>failure| (INR fns, bs) =>
+    case dec_section 0w  dec_byte               bs of (INL _,_)=>failure| (INR so , bs) =>
+    case dec_section 1w  dec_ass                bs of (INL _,_)=>failure| (INR fns, bs) =>
     case dec_section 2w (dec_idx_alpha dec_map) bs of (INL _,_)=>failure| (INR lns, bs) =>
     ret bs $ [
-    <|  mname := so
+    <|  mname  := implode $ bytes2string so
      ;  fnames := fns
      ;  lnames := lns
      |> : names]
@@ -1304,21 +1316,15 @@ Proof
   >> rw[dec_names_section_def, AllCaseEqs()]
     >- simp[]
     >- simp[]
-       (**)
-    >> assume_tac dec_ass_shortens
-    >> dxrule_all dec_section_shortens_lt
-       (**)
-    >> assume_tac dec_map_shortens
-    >> dxrule dec_idx_alpha_shortens_lt
-    >> strip_tac
-    >> dxrule_all dec_section_shortens_lt
-       (**)
-    >> imp_res_tac dec_mls_shortens
-       (**)
-    >> imp_res_tac dec_u32_shortens
-       (**)
-    >> rw[]
-    >> gvs[]
+    \\
+       imp_res_tac dec_u32_shortens
+    \\ assume_tac dec_byte_shortens
+    \\ assume_tac dec_ass_shortens
+    \\ assume_tac dec_map_shortens
+    \\ dxrule dec_idx_alpha_shortens_lt
+    \\ strip_tac
+    \\ imp_res_tac dec_section_shortens_maybe_lt
+    \\ gvs[]
 QED
 
 
@@ -1369,7 +1375,7 @@ Definition dec_module_def:
                ; datas := m_datas  |> : module
       in
       ret bs (m,n)
-      | _ => failure )
+    | _ => failure )
   | _  => error bs "[dec_module]: missing leader (less than 8 bytes)"
 End
 
@@ -1378,7 +1384,7 @@ Theorem dec_module_shortens:
 Proof
      simp[dec_module_def, AllCaseEqs(), mod_leader_def]
   \\ rpt strip_tac \\ gvs[]
-  \\ rpt (dxrule_at Any dec_section_shortens_lt)
+  \\ rpt (dxrule_at Any dec_section_shortens_maybe_lt)
   \\ dxrule dec_names_section_shortens
   \\ simp[ dec_limits_shortens, dec_code_shortens, dec_functype_shortens
          , dec_global_shortens, dec_data_shortens, dec_u32_shortens    ]
