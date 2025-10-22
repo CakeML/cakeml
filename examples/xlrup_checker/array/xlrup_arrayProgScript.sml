@@ -177,10 +177,8 @@ Proof
     metis_tac[])>>
   rpt xlet_autop>>
   xraise>>xsimpl>>
-  IF_CASES_TAC>-
-    metis_tac[NOT_EVERY]>>
-  simp[unwrap_TYPE_def,Fail_exn_def]>>
-  metis_tac[]
+  gvs[unwrap_TYPE_def,Fail_exn_def]>>
+  metis_tac[NOT_EVERY]
 QED
 
 val is_rup_arr_aux = process_topdecs`
@@ -3233,7 +3231,8 @@ Proof
         xcon >>
         xsimpl>>
         rename [`forwardFD _ _ k`] \\ qexists_tac `k` >>
-        rename [`INSTREAM_LINES _ _ _ rr`] \\ qexists_tac `rr` \\ xsimpl) >>
+        rename [`INSTREAM_LINES _ _ _ rr`] \\ qexists_tac `rr`
+        \\ xsimpl \\ gvs []) >>
       xsimpl>>simp[unwrap_TYPE_def]>>
       PairCases_on`x`>>fs[]>>rw[]>>xsimpl >>
       rename [`forwardFD _ _ kk`] \\
