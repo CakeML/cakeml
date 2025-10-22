@@ -1256,7 +1256,7 @@ End
 
 Definition blank_def:
   blank : names =
-  <| mname  := strlit ""
+  <| mname  := explode ""
    ; fnames := []
    ; lnames := []
    |>
@@ -1277,7 +1277,7 @@ Definition enc_names_section_def:
     ss2      <- ss2Opt;
     ss012   <<- ss0 +++ ss1 +++ ss2;
     contents <- prepend_sz $ List (string2bytes magic_str) +++ ss012;
-    if NULL $ append ss012 then NONE
+    if NULL $ append ss012 then SOME $ List []
     else
     SOME $ 0w ::: contents od
 End

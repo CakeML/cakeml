@@ -14,6 +14,7 @@ val ssa  =          [GSYM APPEND_ASSOC, Excl "APPEND_ASSOC"]
 (*                         *)
 (***************************)
 
+
 Theorem enc_numI_nEmp_nTermB:
   ∀x encx. enc_numI x = SOME encx ⇒
   ∃b bs. append encx =  b::bs ∧ b ≠ endB ∧ b ≠ elseB
@@ -253,6 +254,26 @@ Proof
   >> rw[enc_valtype_def, AllCaseEqs(), bvtype_nchotomy]
 QED
 
+
+
+Theorem enc_u32_nEmp:
+  ∀x encx. enc_u32 x = SOME encx ⇒ ¬NULL (append encx)
+Proof
+     simp[enc_u32_def, enc_unsigned_word_def]
+  \\ rw[Once enc_num_def]
+QED
+
+Theorem enc_vector_nEmp:
+  ∀enc xs encxs. enc_vector enc xs = SOME encxs ⇒ ∃b bs. append encxs = b::bs
+Proof
+     Cases_on ‘xs’
+  >- simp[enc_vector_def, enc_list_def, enc_u32_def, enc_unsigned_word_def, Once enc_num_def]
+  \\ simp[enc_vector_def]
+  \\ rpt strip_tac
+  \\ imp_res_tac enc_u32_nEmp
+  \\ Cases_on ‘append encln’
+  \\ gvs[]
+QED
 
 
 
@@ -591,12 +612,7 @@ Proof
   \\ simp[global_component_equality]
 QED
 
-Theorem enc_u32_nEmp:
-  ∀x encx. enc_u32 x = SOME encx ⇒ ¬NULL (append encx)
-Proof
-     simp[enc_u32_def, enc_unsigned_word_def]
-  \\ rw[Once enc_num_def]
-QED
+
 
 Theorem dec_enc_code:
   ∀cd encC rs.
@@ -616,12 +632,16 @@ Proof
   \\ simp[]
 QED
 
+
+
 Theorem dec_enc_byte:
   ∀x encx rest. enc_byte x = SOME encx ⇒
     dec_byte $ encx a++ rest = (INR x, rest)
 Proof
   simp[enc_byte_def, dec_byte_def]
 QED
+
+
 
 Theorem dec_enc_data:
   ∀dt encD rs.
@@ -690,6 +710,11 @@ Proof
 QED
 
 
+Theorem enc_section_empty[simp]:
+  ∀lb enc. enc_section lb enc [] = SOME $ List []
+Proof
+  rw[enc_section_def]
+QED
 
 Theorem dec_enc_section_NE: (* non empty *)
   ∀xs enc dec lb encxs rest. ¬(NULL xs) ∧
@@ -723,17 +748,14 @@ Proof
   \\ simp[]
 QED
 
-
-Theorem enc_vector_nEmp:
-  ∀enc xs encxs. enc_vector enc xs = SOME encxs ⇒ ∃b bs. append encxs = b::bs
+Theorem dec_enc_section:
+  ∀xs enc dec lb encxs rest.
+  enc_section lb enc xs = SOME encxs ∧
+  (∀x encx rs. enc x = SOME encx ⇒ dec (encx a++ rs) = (INR x, rs))
+  ⇒
+  dec_section lb dec $ encxs a++ rest = (INR xs, rest) ∨ xs = []
 Proof
-     Cases_on ‘xs’
-  >- simp[enc_vector_def, enc_list_def, enc_u32_def, enc_unsigned_word_def, Once enc_num_def]
-  \\ simp[enc_vector_def]
-  \\ rpt strip_tac
-  \\ imp_res_tac enc_u32_nEmp
-  \\ Cases_on ‘append encln’
-  \\ gvs[]
+cheat
 QED
 
 
@@ -749,6 +771,15 @@ type_of ``enc_names_section``
 type_of ``dec_names_section``
 *)
 
+Theorem enc_names_section_empty[simp]:
+  ∀lb enc. enc_names_section blank = SOME $ List []
+Proof
+     rw[enc_names_section_def, blank_def, enc_section_def]
+  >> simp[id_OK_def, prepend_sz_def, enc_u32_def]
+  \\ simp[string2bytes_def, enc_vector_def, enc_list_def, enc_u32_def] 
+  \\ fs[string2bytes_def]
+QED
+
 Theorem dec_enc_names_NE: (* non empty *)
   ∀n encn rest. n ≠ blank ∧
   enc_names_section n = SOME encn ⇒
@@ -761,6 +792,15 @@ Theorem dec_enc_names_NR: (* non empty *)
   ∀n encn rest.
   enc_names_section n = SOME encn ⇒
   dec_names_section $ append encn = (INR [n], [])
+Proof
+cheat
+QED
+
+
+Theorem dec_enc_names:
+  ∀n encn rest.
+  enc_names_section n = SOME encn ⇒
+  dec_names_section $ encn a++ rest = (INR [n], rest) ∨ n = blank
 Proof
 cheat
 QED
