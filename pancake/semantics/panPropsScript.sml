@@ -938,7 +938,7 @@ Theorem evaluate_invariants:
   evaluate (p,t) = (res,st) ⇒
   st.memaddrs = t.memaddrs ∧ st.sh_memaddrs = t.sh_memaddrs ∧
   st.be = t.be ∧ st.eshapes = t.eshapes ∧ st.base_addr = t.base_addr ∧
-  st.code = t.code
+  st.code = t.code ∧ st.ffi.oracle = t.ffi.oracle
 Proof
   Ho_Rewrite.PURE_REWRITE_TAC[FORALL_AND_THM,IMP_CONJ_THM] >> rpt conj_tac >>
   recInduct evaluate_ind >>
@@ -949,16 +949,17 @@ Proof
          metis_tac[PAIR,FST,SND])
      >~[‘ShMemLoad’]
      >- (Cases_on ‘op’>>
-         gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,
+         gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,ffiTheory.call_FFI_def,
              dec_clock_def,kvar_defs,nb_op_def,sh_mem_store_def,sh_mem_load_def] >>
          metis_tac[PAIR,FST,SND])
      >~[‘ShMemStore’]
      >- (Cases_on ‘op’>>
          gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,
-             dec_clock_def,set_var_def,nb_op_def,sh_mem_store_def,
+             dec_clock_def,set_var_def,nb_op_def,sh_mem_store_def,ffiTheory.call_FFI_def,
              sh_mem_load_def] >>
          metis_tac[PAIR,FST,SND])>>
-     gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,dec_clock_def,kvar_defs] >>
+     gvs[Once evaluate_def,AllCaseEqs(),ELIM_UNCURRY,empty_locals_def,
+         ffiTheory.call_FFI_def,dec_clock_def,kvar_defs] >>
      metis_tac[PAIR,FST,SND])
 QED
 
