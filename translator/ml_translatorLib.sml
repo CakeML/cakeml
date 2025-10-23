@@ -3410,7 +3410,17 @@ fun hol2deep tm =
                  |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "word_literal" tm result end else
   if stringSyntax.is_char_literal tm then SPEC tm Eval_Val_CHAR else
-  if is_float_literal tm then SPEC tm Eval_Val_FLOAT64 else
+  if is_float_literal tm then
+    let
+      val th0 = SPEC tm Eval_Val_FLOAT64
+    in
+      CONV_RULE
+        (LAND_CONV
+           (RAND_CONV
+              (RAND_CONV (REWR_CONV machine_ieeeTheory.float_to_fp64_def THENC
+                          EVAL))))
+        th0
+    end else
   if mlstringSyntax.is_mlstring_literal tm then
     SPEC (rand tm) Eval_Val_STRING else
   if use_hol_string_type () andalso can stringSyntax.fromHOLstring tm then
