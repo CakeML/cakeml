@@ -1,5 +1,5 @@
 (*
-   Basic profiling facilities to generate flame graphs (and flame charts) using FlameGraph.
+   Basic profiling facilities for theories and proofs to generate flame graphs (and flame charts) using FlameGraph.
 *)
 structure Profiler =
 struct
