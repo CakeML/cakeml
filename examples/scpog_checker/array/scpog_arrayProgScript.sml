@@ -2343,7 +2343,7 @@ Proof
       rename [`forwardFD _ _ k`] \\ qexists_tac `k` >>
       rename [`INSTREAM_LINES _ _ _ rr`] \\ qexists_tac `rr` \\ xsimpl)>>
   qspecl_then [`all_lines fs f`,`pc`,`fmlls`,`sc`,`Clist`] strip_assume_tac parse_and_run_file_list_eq>>
-  fs[]>>rw[]>>
+  gs[]>>rw[]>>
   xlet `POSTv v. STDIO fs * ARRAY fmlv' fmllsv'`
   THEN1
    (xapp_spec b_closeIn_spec_lines >>
@@ -2367,7 +2367,7 @@ Proof
     drule fsFFIPropsTheory.openFileFS_ADELKEY_nextFD >>
     fs [Abbr`fss`] \\ xsimpl) >>
   Cases_on`parse_scpsteps (all_lines fs f)`>>
-  gs[OPTION_TYPE_def]
+  fs[OPTION_TYPE_def]
   >- (
     xmatch>>
     xcon >> xsimpl >>

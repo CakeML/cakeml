@@ -7,7 +7,6 @@ Libs
 Ancestors
   mllist UnsafeProof xlrup xlrup_list xlrup_parsing mlint
 
-
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
@@ -3240,7 +3239,7 @@ Proof
       rename [`INSTREAM_LINES _ _ _ rr`] \\ qexists_tac `rr` \\ xsimpl)>>
   qspecl_then [`all_lines fs f`,`xorig`,`borig`,`cfmlls`,`xfmlls`,`bfmlls`,`tn`,`def`,`Clist`]
     strip_assume_tac parse_and_run_file_list_eq>>
-  fs[]>>rw[]>>
+  gs[]>>rw[]>>
   pop_assum kall_tac >>
   xlet `POSTv v. STDIO fs *
     ARRAY cfmlv' cfmllsv' * ARRAY xfmlv' xfmllsv'`
@@ -3266,7 +3265,7 @@ Proof
     drule fsFFIPropsTheory.openFileFS_ADELKEY_nextFD >>
     fs [Abbr`fss`] \\ xsimpl) >>
   Cases_on`parse_xlrups (all_lines fs f)`>>
-  gs[OPTION_TYPE_def]
+  fs[OPTION_TYPE_def]
   >- (
     xmatch>>
     xcon >> xsimpl >>
