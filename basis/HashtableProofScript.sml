@@ -6,11 +6,55 @@ Ancestors
   mlmap ml_translator mlbasicsProg ArrayProg ArrayProof ListProg
   MapProg HashtableProg comparison
 Libs
-  preamble ml_translatorLib cfLib
+  preamble ml_translatorLib cfLib Profiler[qualified]
 
 val _ = translation_extends "HashtableProg";
 
 val hashtable_st = get_ml_prog_state();
+
+structure TotalDefn =
+struct
+open TotalDefn
+(* Profile Definition *)
+val old_qDefine = TotalDefn.qDefine
+fun qDefine stem q tacopt =
+  Profiler.profile stem (fn () => old_qDefine stem q tacopt)
+end
+
+structure Q =
+struct
+open Q
+(* Profile Theorem .. Proof .. QED *)
+val old_store_thm_at = Q.store_thm_at
+fun store_thm_at loc (s,q,t) =
+  Profiler.profile s (fn () => old_store_thm_at loc (s,q,t))
+end
+
+(* Tactic combinators *)
+fun op >- (tac1: tactic, tac2: tactic) : tactic =
+  op Tactical.>- (tac1, Profiler.profile_tac ">-" tac2)
+fun op by (q, tac: tactic) =
+  op BasicProvers.by (q, Profiler.profile_tac "by" tac)
+
+(* Simplifiers *)
+fun rw thms : tactic = Profiler.profile_tac "rw" (bossLib.rw thms)
+fun fs thms : tactic = Profiler.profile_tac "fs" (bossLib.fs thms)
+fun rfs thms : tactic = Profiler.profile_tac "rfs" (bossLib.rfs thms)
+fun simp thms : tactic = Profiler.profile_tac "simp" (bossLib.simp thms)
+
+(* CFML *)
+val xpull : tactic = Profiler.profile_tac "xpull" cfTacticsLib.xpull
+val xmatch : tactic = Profiler.profile_tac "xmatch" cfTacticsLib.xmatch
+val xsimpl : tactic = Profiler.profile_tac "xsimpl" cfTacticsLib.xsimpl
+val xapp : tactic = Profiler.profile_tac "xapp" cfTacticsLib.xapp
+val xif : tactic = Profiler.profile_tac "xif" cfTacticsLib.xif
+val xcon : tactic = Profiler.profile_tac "xcon" cfTacticsLib.xcon
+val xlog : tactic = Profiler.profile_tac "xlog" cfTacticsLib.xlog
+val xlet_auto : tactic = Profiler.profile_tac "xlet_auto" cfLetAutoLib.xlet_auto
+fun xlet (q: term quotation) : tactic =
+  Profiler.profile_tac "xlet" (cfTacticsLib.xlet q)
+fun xcf_with_def thm : tactic =
+  Profiler.profile_tac "xcf_with_def" (xcf.xcf_with_def thm)
 
 (*  ----------------------------------- *)
 
@@ -1458,3 +1502,5 @@ Proof
       \\ imp_res_tac replicate_empty_map_thm
       \\ fs[list_union_empty_maps]))
 QED
+
+val _ = Profiler.export_cwd "HashtableProof.txt";
