@@ -3265,7 +3265,8 @@ Proof
     imp_res_tac fsFFIPropsTheory.nextFD_leX \\ fs [] >>
     drule fsFFIPropsTheory.openFileFS_ADELKEY_nextFD >>
     fs [Abbr`fss`] \\ xsimpl) >>
-  Cases_on`parse_xlrups (all_lines fs f)`>> fs[OPTION_TYPE_def]
+  Cases_on`parse_xlrups (all_lines fs f)`>>
+  gs[OPTION_TYPE_def]
   >- (
     xmatch>>
     xcon >> xsimpl >>
