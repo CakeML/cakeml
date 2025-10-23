@@ -191,7 +191,7 @@ Proof
   >- (
     xapp>>xsimpl>>simp[unwrap_TYPE_def]>>
     metis_tac[])>>
-  IF_CASES_TAC>- metis_tac[NOT_EVERY]>>
+  gvs[NOT_EVERY]>>
   raise_tac
 QED
 
@@ -2337,7 +2337,8 @@ Proof
         xcon >>
         xsimpl>>
         rename [`forwardFD _ _ k`] \\ qexists_tac `k` >>
-        rename [`INSTREAM_LINES _ _ _ rr`] \\ qexists_tac `rr` \\ xsimpl) >>
+        rename [`INSTREAM_LINES _ _ _ rr`] \\ qexists_tac `rr`
+        \\ gvs[] \\ xsimpl) >>
       xsimpl>>simp[unwrap_TYPE_def]>>
       Cases_on`x`>>fs[]>>rw[]>>xsimpl >>
       rename [`forwardFD _ _ k`] \\ qexists_tac `k` >>
