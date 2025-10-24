@@ -172,45 +172,107 @@ QED
   NIL-like constructors end in ...10
 *)
 
-Definition v_inv_def[schematic]:
-  (* v_inv v (x,f,tf,heap)
+Inductive v_inv_rel:
+  (* v_inv conf v (x,f,tf,heap)
      v    : the dataSem value
      x    : the abstract gc value
      f    : reference values in dataLang to gc address (sort of like the content of the pointer)
      tf   : time-stamps in dataLang to gc addresses
      heap : is the gc abstract heap
    *)
-  (v_inv (Number i) (x,f,tf,heap:'a ml_heap) <=>
+[~NumberSmall:] (
+  small_int (:'a) i ⇒
+    v_inv conf (Number i) (Data (Word (Smallnum i)),f,tf,heap:'a ml_heap))
+[~NumberBig:] (
+  ¬small_int (:'a) i ∧
+  heap_lookup ptr heap = SOME (Bignum i) ⇒
+    v_inv conf (Number i) (Pointer ptr (Word 0w),f,tf,heap:'a ml_heap))
+[~Word64:] (
+  heap_lookup ptr heap = SOME (Word64Rep (:'a) w) ⇒
+    v_inv conf (Word64 w) (Pointer ptr (Word 0w),f,tf,heap:'a ml_heap))
+[~CodePtr:] (
+  v_inv conf (CodePtr n) (Data (Loc n 0),f,tf,heap:'a ml_heap))
+[~RefPtr:] (
+  n ∈ FDOM f ⇒
+    v_inv conf (RefPtr _ n) (Pointer (f ' n) (Word 0w),f,tf,heap:'a ml_heap))
+[~BlockNil:] (
+  vs = [] ∧
+  n < dimword(:'a) DIV 16 ∧
+  ts = 0 ⇒
+    v_inv conf (Block ts n vs) (Data (Word (BlockNil n)),f,tf,heap:'a ml_heap))
+[~BlockCons:] (
+  vs ≠ [] ∧
+  EVERY2 (\v x. v_inv conf v (x,f,tf,heap)) vs xs ∧
+  FLOOKUP tf ts = SOME ptr ∧
+  heap_lookup ptr heap = SOME (BlockRep n xs) ⇒
+    v_inv conf (Block ts n vs)
+               (Pointer ptr (Word (ptr_bits conf n (LENGTH xs))),
+                f,tf,heap:'a ml_heap))
+End
+
+Theorem v_inv_def:
+  (v_inv conf (Number i) (x,f,tf,heap:'a ml_heap) <=>
      if small_int (:'a) i then (x = Data (Word (Smallnum i))) else
        ?ptr. (x = Pointer ptr (Word 0w)) /\
              (heap_lookup ptr heap = SOME (Bignum i))) /\
-  (v_inv (Word64 w) (x,f,tf,heap) <=>
+  (v_inv conf (Word64 w) (x,f,tf,heap) <=>
     ?ptr. (x = Pointer ptr (Word 0w)) /\
           (heap_lookup ptr heap = SOME (Word64Rep (:'a) w))) /\
-  (v_inv (CodePtr n) (x,f,tf,heap) <=>
+  (v_inv conf (CodePtr n) (x,f,tf,heap) <=>
      (x = Data (Loc n 0))) /\
-  (v_inv (RefPtr _ n) (x,f,tf,heap) <=>
+  (v_inv conf (RefPtr _ n) (x,f,tf,heap) <=>
      (x = Pointer (f ' n) (Word 0w)) /\ n IN FDOM f) /\
   (*(v_inv (RefPtr _ n,st) (x,f,tf,heap) <=>
      ((x = Pointer (f ' n) (Word 0w)) /\ n IN FDOM f) ∨
       (∃v. FLOOKUP st n = SOME ThunkEvaluated v ∧
            dest_thunk v st = NotThunk ∧
            v_inv (v,st) (x,f,tf,heap))) /\*)
-  (v_inv (Block ts n vs) (x,f,tf,heap) <=>
+  (v_inv conf (Block ts n vs) (x,f,tf,heap) <=>
      if vs = []
      then (x = Data (Word (BlockNil n))) /\
           n < dimword(:'a) DIV 16 /\
           ts = 0
      else
        ?ptr xs.
-         EVERY2 (\v x. v_inv v (x,f,tf,heap)) vs xs /\
+         EVERY2 (\v x. v_inv conf v (x,f,tf,heap)) vs xs /\
          FLOOKUP tf ts = SOME ptr ∧
          (x = Pointer ptr (Word (ptr_bits conf n (LENGTH xs)))) /\
          (heap_lookup ptr heap = SOME (BlockRep n xs)))
-Termination
-  WF_REL_TAC `measure (v_size o FST)` \\ rpt strip_tac
-  \\ imp_res_tac v_size_LEMMA \\ DECIDE_TAC
-End
+Proof
+  rw []
+  \\ simp [Once v_inv_rel_cases]
+  \\ iff_tac \\ rw []
+  \\ irule_at Any EQ_REFL \\ gvs []
+QED
+
+Triviality MEM_IMP_v_size:
+  ∀l a. MEM a l ⇒ v_size a < 1 + list_size v_size l
+Proof
+  rw []
+  \\ imp_res_tac MEM_list_size
+  \\ pop_assum $ qspec_then ‘v_size’ mp_tac \\ gvs []
+QED
+
+Theorem v_inv_ind:
+  ∀P. (∀conf i x f tf heap. P conf (Number i) (x,f,tf,heap)) ∧
+      (∀conf w x f tf heap. P conf (Word64 w) (x,f,tf,heap)) ∧
+      (∀conf n x f tf heap. P conf (CodePtr n) (x,f,tf,heap)) ∧
+      (∀conf v0 n x f tf heap. P conf (RefPtr v0 n) (x,f,tf,heap)) ∧
+      (∀conf ts n vs x f tf heap.
+         (∀v x' xs.
+            vs ≠ [] ∧ MEM v vs ∧ MEM x' xs ⇒ P conf v (x',f,tf,heap)) ⇒
+         P conf (Block ts n vs) (x,f,tf,heap)) ⇒
+      ∀v v1 v2 v3 v4 v5. P v v1 (v2,v3,v4,v5)
+Proof
+  rw []
+  \\ qid_spec_tac ‘v2’
+  \\ completeInduct_on ‘v_size v1’ \\ rw []
+  \\ fs [PULL_FORALL]
+  \\ Cases_on ‘v1’ \\ gvs []
+  \\ last_x_assum irule \\ rw []
+  \\ first_x_assum irule \\ gvs []
+  \\ imp_res_tac MEM_IMP_v_size \\ gvs []
+QED
 
 Definition get_refs_def:
   (get_refs (Number _) = []) /\
@@ -494,14 +556,6 @@ Triviality LENGTH_ADDR_MAP:
   !xs f. LENGTH (ADDR_MAP f xs) = LENGTH xs
 Proof
   Induct \\ TRY (Cases_on `h`) \\ srw_tac [] [ADDR_MAP_def]
-QED
-
-Triviality MEM_IMP_v_size:
-  !l a. MEM a l ==> v_size a < 1 + list_size v_size l
-Proof
-  rw []
-  \\ imp_res_tac MEM_list_size
-  \\ pop_assum $ qspec_then ‘v_size’ mp_tac \\ gvs []
 QED
 
 Triviality EL_ADDR_MAP:
@@ -1925,13 +1979,13 @@ Proof
 QED
 
 Theorem v_inv_lemma:
-  !v x f tf hs ha hb sp.
+  !conf v x f tf hs ha hb sp.
    0 < heap_length hs /\
    heap_length hs <= sp /\
    v_inv conf v (x,f,tf,ha++heap_expand sp++hb) ==>
    v_inv conf v (x,f,tf,ha++hs++heap_expand (sp - heap_length hs)++hb)
 Proof
-  recInduct (theorem"v_inv_ind") \\ rw [v_inv_def]
+  recInduct v_inv_ind \\ rw [v_inv_def]
   \\ unlength_tac [heap_lookup_APPEND, heap_length_APPEND, heap_expand_def]
   \\ fs [case_eq_thms]
   \\ namedCases_on `sp` ["", "sp'"] \\ fs []
@@ -2358,11 +2412,11 @@ Proof
 QED
 
 Theorem v_inv_tf_update_thm:
-  ∀v y f tf heap ts' a conf.
+  ∀conf v y f tf heap ts' a conf.
     v_inv conf v (y,f,tf,heap) ∧ ts' ∉ FDOM tf ⇒
     v_inv conf v (y,f, tf |+ (ts', a),heap)
 Proof
-  recInduct (fetch "-" "v_inv_ind") \\ fs [v_inv_def] \\ rw [] \\ rw []
+  recInduct v_inv_ind \\ fs [v_inv_def] \\ rw [] \\ rw []
   \\ fs [FLOOKUP_UPDATE]
   \\ CASE_TAC THEN1 fs [FLOOKUP_DEF]
   \\ qexists_tac `xs` \\ fs []
@@ -2372,21 +2426,22 @@ Proof
 QED
 
 Theorem v_inv_tf_update:
-  ∀y f tf heap heap1 a stack conf ts ts' tag xs refs.
+  ∀conf y f tf heap heap1 a stack conf ts ts' tag xs refs.
      (Block ts tag xs) ∈ (all_vs refs stack) ∧
      ts' ∉ all_ts refs stack ∧
      v_inv conf (Block ts tag xs) (y,f,tf,heap)
      ⇒ v_inv conf ((Block ts tag xs)) (y,f, tf |+ (ts', a),heap)
 Proof
-  `∀x y f tf heap heap1 a stack conf ts ts' tag xs refs.
+  `∀conf x y f tf heap heap1 a stack conf ts ts' tag xs refs.
      x = Block ts tag xs ∧ (Block ts tag xs) ∈ (all_vs refs stack) ∧
       ts' ∉ all_ts refs stack ∧
       v_inv conf (Block ts tag xs) (y,f,tf,heap)
       ⇒ v_inv conf ((Block ts tag xs)) (y,f, tf |+ (ts', a),heap)`
   suffices_by metis_tac []
-  \\ let val ind = theorem "v_inv_ind" |> Q.SPEC `λv (x,f,tf,heap). P v x f tf heap`
-                                       |> SIMP_RULE std_ss []
-                                       |> Q.GEN `P`
+  \\ let val ind = v_inv_ind
+                     |> Q.SPEC `λconf v (x,f,tf,heap). P conf v x f tf heap`
+                     |> SIMP_RULE std_ss []
+                     |> Q.GEN `P`
      in ho_match_mp_tac ind end
   \\ rw [v_inv_def,BlockRep_def]
   \\ every_case_tac \\ rfs []
@@ -2413,12 +2468,12 @@ Proof
 QED
 
 Triviality v_inv_ind_alt =
-  v_inv_ind |> Q.SPEC `λv (x,f,tf,heap). P v x f tf heap`
+  v_inv_ind |> Q.SPEC `λconf v (x,f,tf,heap). P conf v x f tf heap`
             |> SIMP_RULE std_ss []
             |> Q.GEN `P`;
 
 Theorem v_inv_tf_restrict:
-  ∀v y f tf heap conf P.
+  ∀conf v y f tf heap conf P.
      v_inv conf v (y,f,tf,heap) ∧ (∀x. MEM x (v_all_ts v) ⇒ x ∈ P)
      ⇒ v_inv conf v (y,f, DRESTRICT tf P,heap)
 Proof
@@ -14760,7 +14815,7 @@ Proof
 QED
 
 Triviality v_inv_alt_ind =
-  v_inv_ind |> Q.SPEC ‘λx (a,b,c,d). P x a’ |> SRULE [];
+  v_inv_ind |> Q.SPEC ‘λconf x (a,b,c,d). P x a’ |> SRULE [];
 
 Theorem memory_rel_xor_bytes:
    memory_rel c be ts refs sp st m dm
