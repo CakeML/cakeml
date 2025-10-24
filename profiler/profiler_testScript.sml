@@ -2,12 +2,17 @@
   Simple theory to test the profiler.
 *)
 
-(* To use the profiler in your own theories, simply import the Profiler
- * library (ideally qualified to make sure there are no name clashes),
- * and libraries such as profiler_base to shadow definitions with
- * their profiling counterparts. Note that in the latter case we want
- * to shadow definitions, so you probably *do not* want to use qualified
- * for them. *)
+(* To use the profiler in your own theories:
+ * - add $(CAKEMLDIR)/profiler (this directory) to INCLUDES of your Holmakefile
+ * - add Profiler[qualified] to Libs
+ * - add libraries to Libs that shadow existing functions (which includes
+ *   tactics) with a profiling variant. These should not have the qualified tag,
+ *   as they are supposed to shadow their non-profiling variants.
+ *   Examples: profiler_base and profiler_cfml
+ * - add a call to Profiler.export (or Profiler.export_cwd) at the bottom of
+     your file
+ * - use FlameGraph on the exported data (check documentation of Profiler.export
+ *   for more information) *)
 
 Theory profiler_test
 Libs
