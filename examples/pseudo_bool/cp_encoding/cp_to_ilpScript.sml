@@ -465,8 +465,8 @@ Definition reify_eilp_def:
   | Ne X Y => varc wi X > varc wi Y
   | Gem X Y => varc wi X ≥ varc wi Y
   | Eqc X Y => varc wi X = varc wi Y
-  | Tb Xs Ts => ARB
-  | Nv Xs v => ARB
+  | Tb Xs Ts => MAP wi Xs = Ts
+  | Nv Xs v => MEM v $ MAP wi Xs
 End
 
 Theorem encode_element_sem_1:
@@ -1519,12 +1519,14 @@ End
 
 Theorem encode_ges_sem:
   valid_assignment bnd wi ⇒
-  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_ges bnd X n) =
-  EVERY (λv. wb (Ge X v) ⇔ wi X ≥ v) $ GENLIST (λi. &(i + 1)) n
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_ges bnd X n) = (
+  ∀i. 1 ≤ i ∧ i ≤ n ⇒ (wb (Ge X &i) ⇔ wi X ≥ &i))
 Proof
-  rw[encode_ges_def,EVERY_FLAT,EVERY_GENLIST]>>
-  ho_match_mp_tac FORALL_IMP_EQ>>
-  rw[encode_ge_sem]
+  rw[encode_ges_def,encode_ge_sem,EVERY_FLAT,EVERY_GENLIST]>>
+  iff_tac>>
+  rw[LESS_EQ,GSYM ADD1]>>
+  ‘∃j. i = SUC j’ by intLib.ARITH_TAC>>
+  fs[]
 QED
 
 (* encodes X = 1,...,X = n *)
@@ -1532,20 +1534,26 @@ Definition encode_eqs_def:
   encode_eqs bnd X n = FLAT (GENLIST (λi. encode_eq bnd X (&(i + 1))) n)
 End
 
+Triviality FORALL_LT:
+  (∀i. i < n ⇒ P (int_of_num (i + 1))) ⇔ (∀i. 1 ≤ i ∧ i ≤ n ⇒ P $ int_of_num i)
+Proof
+  iff_tac>>
+  rw[]>>
+  ‘∃j. i = j + 1’ by intLib.ARITH_TAC>>
+  fs[]
+QED
+
 Theorem encode_eqs_sem:
   valid_assignment bnd wi ∧
-  EVERY (λv. wb (Ge X v) ⇔ wi X ≥ v) $ GENLIST (λi. &(i + 1)) (n + 1) ⇒
+  (∀i. 1 ≤ i ∧ i ≤ n + 1 ⇒ (wb (Ge X &i) ⇔ wi X ≥ &i)) ⇒
   EVERY (λx. iconstraint_sem x (wi,wb)) (encode_eqs bnd X n) =
-  EVERY (λv. wb (Eq X v) ⇔ wi X = v) $ GENLIST (λi. &(i + 1)) n
+  ∀i. 1 ≤ i ∧ i ≤ n ⇒ (wb (Eq X &i) ⇔ wi X = &i)
 Proof
-  rw[encode_eqs_def,EVERY_FLAT,EVERY_GENLIST]>>
+  rw[encode_eqs_def,EVERY_FLAT,EVERY_GENLIST,FORALL_LT]>>
   ho_match_mp_tac FORALL_IMP_EQ>>
   rw[]>>
   irule encode_eq_sem>>
-  last_x_assum (fn thm => simp[thm,GSYM integerTheory.INT])>>
-  pure_rewrite_tac[ADD1]>>
-  last_assum $ irule>>
-  intLib.ARITH_TAC
+  simp[GSYM integerTheory.INT]
 QED
 
 Definition encode_element2d_eq_def:
@@ -1567,6 +1575,35 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Definition encode_properindex_def:
+  encode_properindex bnd n X =
+  let
+    (lb,ub) = bnd X;
+    xlb = if FST $ bnd X < 1 then [([(1i,X)],[],1i)] else [];
+    xub = if &n < SND $ bnd X then [([(-1i,X)],[],-&n)] else [];
+  in
+    xlb ++ xub
+End
+
+Theorem pair_predicate:
+  (∀p1 p2. p = (p1,p2) ⇒ R p1 p2) ⇔ R (FST p) (SND p)
+Proof
+  cheat
+QED
+
+Theorem encode_properindex_sem:
+  valid_assignment bnd wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_properindex bnd n X) = (
+    1 ≤ wi X ∧ wi X ≤ &n)
+Proof
+  rw[encode_properindex_def,eval_raw,GSYM integerTheory.INT_NEG_MINUS1,
+    intLib.ARITH_PROVE “-(a:int) ≥ -b ⇔ a ≤ b”,integerTheory.INT_GE]>>
+  fs[integerTheory.INT_NOT_LT,valid_assignment_def]>>
+  pop_assum (fn thm => qspec_then ‘X’ assume_tac thm)>>
+  fs[pair_predicate]>>
+  METIS_TAC[integerTheory.INT_LE_TRANS]
+QED
+
 (* encode_element2d for variable X and variable Y *)
 Definition encode_element2d_vv_def:
   encode_element2d_vv bnd R X Y Tss =
@@ -1577,21 +1614,105 @@ Definition encode_element2d_vv_def:
     then
       let
         m = LENGTH $ HD Tss;
-        (lbX,ubX) = bnd X;
-        (lbY,ubY) = bnd Y;
-        xlb = if lbX < 1 then [([(1i,X)],[],1i)] else [];
-        xub = if &n < ubX then [([(-1i,X)],[],-&n)] else [];
-        ylb = if lbY < 1 then [([(1i,Y)],[],1i)] else [];
-        yub = if &m < ubY then [([(-1i,Y)],[],-&n)] else [];
         mat = enumerate 0 $ MAP (λTs. enumerate 0 Ts) Tss
       in
         encode_ges bnd X (n + 1) ++ encode_ges bnd Y (m + 1) ++
         encode_eqs bnd X n ++ encode_eqs bnd Y m ++
-        xlb ++ xub ++ ylb ++ yub ++
+        encode_properindex bnd n X ++ encode_properindex bnd m Y ++
         (FLAT $ MAP (λ(i,vec).
           FLAT $ MAP (λp. encode_element2d_eq bnd R X Y (i,p)) vec) mat)
     else [([],[],1)]
 End
+
+Triviality EVERY_enumerate2d:
+  0 < LENGTH Tss ∧ EVERY (λTs. LENGTH Ts = LENGTH (HD Tss)) Tss ⇒
+  EVERY (λp. EVERY (λq. R (FST p) q) (SND p))
+    (enumerate 0 (MAP (λTs. enumerate 0 Ts) Tss)) = (
+  ∀i j. i < LENGTH Tss ∧ j < LENGTH (HD Tss) ⇒
+    R i (j, EL j $ EL i Tss))
+Proof
+  cheat
+QED
+
+Triviality varc_INL:
+  varc w (INL x) = w x
+Proof
+  simp[varc_def]
+QED
+
+Triviality encode_element2d_vv_lem:
+  valid_assignment bnd wi ∧
+  (∀i. 1 ≤ i ∧ i ≤ LENGTH Tss ⇒ (wb (Eq X (&i)) ⇔ wi X = &i)) ∧
+  (∀j. 1 ≤ j ∧ j ≤ LENGTH (HD Tss) ⇒ (wb (Eq Y (&j)) ⇔ wi Y = &j)) ⇒
+  (∀i j. i < LENGTH Tss ∧ j < LENGTH (HD Tss) ⇒
+    EVERY (λx. iconstraint_sem x (wi,wb))
+      (encode_element2d_eq bnd R X Y (i,j,EL j (EL i Tss)))) = (
+  1 ≤ wi X ∧ Num (wi X) ≤ LENGTH Tss ∧ 1 ≤ wi Y ∧ Num (wi Y) ≤ LENGTH (HD Tss) ⇒
+  varc wi R = varc wi (EL (Num (wi Y) − 1) (EL (Num (wi X) − 1) Tss)))
+Proof
+  cheat
+QED
+
+Theorem encode_element2d_vv_sem:
+  valid_assignment bnd wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_element2d_vv bnd R X Y Tss) = (
+    (∀i. 1 ≤ i ∧ i ≤ LENGTH Tss + 1 ⇒ (wb (Ge X &i) ⇔ wi X ≥ &i)) ∧
+    (∀i. 1 ≤ i ∧ i ≤ LENGTH Tss ⇒ (wb (Eq X &i) ⇔ wi X = &i)) ∧
+    (∀j. 1 ≤ j ∧ j ≤ LENGTH (HD Tss) + 1 ⇒ (wb (Ge Y &j) ⇔ wi Y ≥ &j)) ∧
+    (∀j. 1 ≤ j ∧ j ≤ LENGTH (HD Tss) ⇒ (wb (Eq Y &j) ⇔ wi Y = &j)) ∧
+    element2d_sem R (INL X) (INL Y) Tss wi)
+Proof
+  reverse $ rw[encode_element2d_vv_def,iterateTheory.LAMBDA_PAIR,eval_raw,encode_ges_sem,
+    encode_eqs_sem,GSYM CONJ_ASSOC,encode_properindex_sem]>>
+  simp[element2d_sem_def,varc_INL]>>
+  fs[boolTheory.DE_MORGAN_THM]>>
+  ho_match_mp_tac $ METIS_PROVE[]
+    “(R2 ⇔ R2') ∧ (R1 ⇒ (P1 ⇔ Q1)) ∧ (R2 ⇒ (P2 ⇔ Q2)) ∧ (Q1 ∧ Q2 ⇒ (P3 ⇔ Q3)) ⇒
+      (R1 ∧ R2 ∧ P1 ∧ P2 ∧ P3 ⇔ R1 ∧ Q1 ∧ R2' ∧ Q2 ∧ Q3)”>>
+  rw[encode_eqs_sem,EVERY_FLAT,EVERY_MAP,EVERY_enumerate2d,
+    GSYM integerTheory.INT_NEG_MINUS1,intLib.ARITH_PROVE “-(a:int) ≥ -b ⇔ a ≤ b”,
+    integerTheory.INT_GE]>>
+  fs[integerTheory.INT_NOT_LT]>>
+  simp[encode_element2d_vv_lem]>>
+  METIS_TAC[numint_le]
+QED
+
+Definition encode_element2d_def:
+  encode_element2d bnd R X Y Tss =
+  case (X,Y) of
+    (INL vX,INL vY) => encode_element2d_vv bnd R vX vY Tss
+  | (INL vX,INR cY) => encode_element2d_vc bnd R vX cY Tss
+  | (INR cX,INL vY) => encode_element2d_cv bnd R cX vY Tss
+  | (INR cX,INR cY) => encode_element2d_cc bnd R cX cY Tss
+End
+
+Theorem encode_element2d_sem:
+  valid_assignment bnd wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_element2d bnd R X Y Tss) = (
+    (case X of INR _ => T | INL X' =>
+      (∀i. 1 ≤ i ∧ i ≤ LENGTH Tss + 1 ⇒ (wb (Ge X' (&i)) ⇔ wi X' ≥ &i)) ∧
+      (∀i. 1 ≤ i ∧ i ≤ LENGTH Tss ⇒ (wb (Eq X' (&i)) ⇔ wi X' = &i))) ∧
+    (case Y of INR _ => T | INL Y' =>
+      (∀j. 1 ≤ j ∧ j ≤ LENGTH (HD Tss) + 1 ⇒ (wb (Ge Y' (&j)) ⇔ wi Y' ≥ &j)) ∧
+      (∀j. 1 ≤ j ∧ j ≤ LENGTH (HD Tss) ⇒ (wb (Eq Y' (&j)) ⇔ wi Y' = &j))) ∧
+    element2d_sem R X Y Tss wi)
+Proof
+  rw[encode_element2d_def]>>
+  TOP_CASE_TAC
+  >-(
+    TOP_CASE_TAC
+    >-(
+      simp[encode_element2d_vv_sem]>>
+      metis_tac[])>>
+    simp[encode_element2d_vc_sem]>>
+    metis_tac[])
+  >-(
+    TOP_CASE_TAC
+    >-(
+      simp[encode_element2d_cv_sem]>>
+      metis_tac[])>>
+    simp[encode_element2d_cc_sem])
+QED
 
 (* The top-level encodings *)
 Definition encode_cp_one_def:
@@ -1610,6 +1731,9 @@ Definition encode_cp_one_def:
   | Table Xs Yss => encode_table bnd Xs Yss
 End
 
+(*
+to resolve cheat in the proof for:
+*)
 Theorem encode_cp_one_sem_1:
   valid_assignment bnd wi ∧
   constraint_sem c wi ⇒
@@ -1632,11 +1756,30 @@ Proof
     simp[encode_element_sem,reify_eilp_def]>>
     every_case_tac>>simp[])
   >- (
+    simp[encode_element2d_sem,reify_eilp_def]>>
+    every_case_tac
+  )
+  >- (
     simp[encode_abs_sem,reify_eilp_def]>>
     every_case_tac>>simp[])
   >- (
     simp[encode_ilc_sem,reify_eilp_def]>>
     every_case_tac>>simp[])
+  >- (
+    cheat (*encode_arr_max*)
+  )
+  >- (
+    cheat (*encode_arr_min*)
+  )
+  >- (
+    simp[encode_count_sem,reify_eilp_def]
+  )
+  >- (
+    cheat (*encode_nvalue_sem*)
+  )
+  >- (
+    cheat (*encode_table_sem*)
+  )
 QED
 
 Theorem encode_cp_one_sem_2:
@@ -1646,16 +1789,17 @@ Theorem encode_cp_one_sem_2:
 Proof
   Cases_on`c`>>
   rw[encode_cp_one_def,constraint_sem_def]
-  >-
-    gvs[encode_not_equals_sem]
-  >-
-    gvs[encode_all_different_sem]
-  >-
-    gvs[encode_element_sem]
-  >-
-    gvs[encode_abs_sem]
-  >-
-    gvs[encode_ilc_sem]
+  >-gvs[encode_not_equals_sem]
+  >-gvs[encode_all_different_sem]
+  >-gvs[encode_element_sem]
+  >-gvs[encode_element2d_sem]
+  >-gvs[encode_abs_sem]
+  >-gvs[encode_ilc_sem]
+  >-gvs[encode_arr_max_sem]
+  >-gvs[encode_arr_min_sem]
+  >-gvs[encode_count_sem]
+  >-gvs[encode_nvalue_sem]
+  >-gvs[encode_table_sem]
 QED
 
 (* An actual implementation will avoid duplicates here *)
