@@ -184,7 +184,7 @@ Proof
     \\ xcf "tabulate" st
     \\ xlet `POSTv boolv. &BOOL (n >= m) boolv * heap_inv`
       >-(xopb \\ xsimpl \\ fs[NUM_def, INT_def] \\ intLib.COOPER_TAC)
-    \\ xif \\ asm_exists_tac \\ simp[]
+    \\ xif \\ gvs[]
     \\ xapp
     \\ instantiate \\ xsimpl
     \\ `m - n = 0` by simp[] \\ simp[])
@@ -192,7 +192,7 @@ Proof
   \\ xcf "tabulate" st
   \\ xlet `POSTv boolv. &BOOL (n >= m) boolv * heap_inv`
     >-(xopb \\ xsimpl \\ fs[NUM_def, INT_def] \\ intLib.COOPER_TAC)
-  \\ xif \\ asm_exists_tac \\ simp[]
+  \\ xif \\ gvs []
   \\ Cases_on`m` \\ fs[]
   \\ rename1`SUC v = SUC m - n`
   \\ `v = m - n` by decide_tac
