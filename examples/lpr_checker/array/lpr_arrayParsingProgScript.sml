@@ -3,10 +3,10 @@
 *)
 Theory lpr_arrayParsingProg
 Ancestors
-  UnsafeProof lpr lpr_list lpr_parsing HashtableProof mlint
-  lpr_arrayProg
+UnsafeProof lpr lpr_list lpr_parsing HashtableProof mlint
+lpr_arrayProg
 Libs
-  preamble basis
+preamble basis
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -24,21 +24,21 @@ Definition fromChars_range_unsafe_tail_def:
   if n ≤ b then acc
   else
     let m = n - 1 in
-    fromChars_range_unsafe_tail b m str (mul * 10)
-      (acc + fromChar_unsafe (strsub str m) * mul)
+      fromChars_range_unsafe_tail b m str (mul * 10)
+                                  (acc + fromChar_unsafe (strsub str m) * mul)
 Termination
   WF_REL_TAC`measure (λ(b,n,_). n)`>>
-  rw[]
+            rw[]
 End
 
 Theorem fromChars_range_unsafe_tail_eq:
   ∀n l s mul acc.
-  fromChars_range_unsafe_tail l (n+l) s mul acc =
-  (fromChars_range_unsafe l n s) * mul + acc
+    fromChars_range_unsafe_tail l (n+l) s mul acc =
+    (fromChars_range_unsafe l n s) * mul + acc
 Proof
   Induct
   >-
-    rw[Once fromChars_range_unsafe_tail_def,fromChars_range_unsafe_def]>>
+   rw[Once fromChars_range_unsafe_tail_def,fromChars_range_unsafe_def]>>
   rw[]>>
   simp[Once fromChars_range_unsafe_tail_def,ADD1,fromChars_range_unsafe_def]>>
   fs[ADD1]
@@ -57,11 +57,11 @@ val fromchars_range_unsafe_tail_side_def = theorem"fromchars_range_unsafe_tail_s
 
 Theorem fromchars_range_unsafe_tail_side_def[allow_rebind]:
   ∀a1 a0 a2 a3 a4.
-  fromchars_range_unsafe_tail_side a0 a1 a2 a3 a4 ⇔
-   ¬(a1 ≤ a0) ⇒
-   (T ∧ a1 < 1 + strlen a2 ∧ 0 < strlen a2) ∧
-   fromchars_range_unsafe_tail_side a0 (a1 − 1) a2 (a3 * 10)
-     (a4 + fromChar_unsafe (strsub a2 (a1 − 1)) * a3)
+    fromchars_range_unsafe_tail_side a0 a1 a2 a3 a4 ⇔
+      ¬(a1 ≤ a0) ⇒
+      (T ∧ a1 < 1 + strlen a2 ∧ 0 < strlen a2) ∧
+      fromchars_range_unsafe_tail_side a0 (a1 − 1) a2 (a3 * 10)
+                                       (a4 + fromChar_unsafe (strsub a2 (a1 − 1)) * a3)
 Proof
   Induct>>
   rw[Once fromchars_range_unsafe_tail_side_def]>>
@@ -72,7 +72,7 @@ QED
 val result = translate fromChars_range_unsafe_alt;
 
 val res = translate_no_ind (mlintTheory.fromChars_unsafe_def
-  |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+                              |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
 
 Triviality fromChars_unsafe_ind:
   fromchars_unsafe_ind
@@ -97,7 +97,7 @@ val fromchars_unsafe_side_def = theorem"fromchars_unsafe_side_def";
 val fromchars_range_unsafe_side_def = fetch "-" "fromchars_range_unsafe_side_def";
 
 Theorem fromchars_unsafe_side_thm:
-   ∀n s. n ≤ LENGTH s ⇒ fromchars_unsafe_side n (strlit s)
+  ∀n s. n ≤ LENGTH s ⇒ fromchars_unsafe_side n (strlit s)
 Proof
   completeInduct_on`n` \\ rw[]
   \\ rw[Once fromchars_unsafe_side_def,fromchars_range_unsafe_side_def,fromchars_range_unsafe_tail_side_def]
@@ -105,12 +105,12 @@ QED
 
 val fromString_unsafe_side = Q.prove(
   `∀x. fromstring_unsafe_side x = T`,
-  Cases
-  \\ rw[fromstring_unsafe_side_def]
-  \\ Cases_on`s` \\ fs[mlstringTheory.substring_def]
-  \\ simp_tac bool_ss [ONE,SEG_SUC_CONS,SEG_LENGTH_ID]
-  \\ match_mp_tac fromchars_unsafe_side_thm
-  \\ rw[]) |> update_precondition;
+                                   Cases
+    \\ rw[fromstring_unsafe_side_def]
+    \\ Cases_on`s` \\ fs[mlstringTheory.substring_def]
+    \\ simp_tac bool_ss [ONE,SEG_SUC_CONS,SEG_LENGTH_ID]
+    \\ match_mp_tac fromchars_unsafe_side_thm
+    \\ rw[]) |> update_precondition;
 
 val _ = translate blanks_def;
 val _ = translate tokenize_def;
@@ -124,11 +124,11 @@ val _ = translate parse_until_nn_def;
 val parse_until_nn_side_def = theorem "parse_until_nn_side_def"
 
 val parse_until_nn_side = Q.prove(`
-  !x y. parse_until_nn_side x y ⇔ T`,
-  Induct>>
-  simp[parse_until_nn_def,Once parse_until_nn_side_def]>>
-  rw[]>>fs[]>>
-  intLib.ARITH_TAC) |> update_precondition
+                                  !x y. parse_until_nn_side x y ⇔ T`,
+                                                                   Induct>>
+                                  simp[parse_until_nn_def,Once parse_until_nn_side_def]>>
+                                  rw[]>>fs[]>>
+                                  intLib.ARITH_TAC) |> update_precondition
 
 val _ = translate parse_PR_hint_def;
 (* val _ = translate lit_from_int_def;
@@ -148,18 +148,18 @@ val parse_lprstep_side_def = definition"parse_lprstep_side_def";
 
 val parse_lprstep_side = Q.prove(
   `∀x. parse_lprstep_side x = T`,
-  rw[parse_lprstep_side_def] >>
-  fs[integerTheory.int_ge]) |> update_precondition;
+                               rw[parse_lprstep_side_def] >>
+    fs[integerTheory.int_ge]) |> update_precondition;
 
 (* Uncompressed parsing *)
 val parse_one_u = process_topdecs`
-  fun parse_one_u lno fd =
-  case TextIO.b_inputLineTokens #"\n" fd blanks tokenize_fast of
-    None => None
-  | Some l =>
+fun parse_one_u lno fd =
+case TextIO.b_inputLineTokens #"\n" fd blanks tokenize_fast of
+  None => None
+| Some l =>
     case parse_lprstep l of
       None =>
-      raise Fail (format_failure lno "failed to parse line (uncompressed format)")
+        raise Fail (format_failure lno "failed to parse line (uncompressed format)")
     | Some lpr => Some lpr` |> append_prog;
 
 val blanks_v_thm = theorem "blanks_v_thm";
@@ -167,20 +167,20 @@ val tokenize_v_thm = theorem "tokenize_v_thm";
 val tokenize_fast_v_thm = theorem "tokenize_fast_v_thm";
 
 val b_inputLineTokens_specialize =
-  b_inputLineTokens_spec_lines
+b_inputLineTokens_spec_lines
   |> Q.GEN `f` |> Q.SPEC`blanks`
-  |> Q.GEN `fv` |> Q.SPEC`blanks_v`
-  |> Q.GEN `g` |> Q.ISPEC`tokenize_fast`
-  |> Q.GEN `gv` |> Q.ISPEC`tokenize_fast_v`
-  |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
-  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_fast_v_thm,blanks_def] ;
+               |> Q.GEN `fv` |> Q.SPEC`blanks_v`
+                             |> Q.GEN `g` |> Q.ISPEC`tokenize_fast`
+                                          |> Q.GEN `gv` |> Q.ISPEC`tokenize_fast_v`
+                                                        |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
+                                                                     |> SIMP_RULE std_ss [blanks_v_thm,tokenize_fast_v_thm,blanks_def] ;
 
 Definition parse_one_u_def:
   parse_one_u lines =
   case lines of [] => SOME NONE
-  | (x::xs) =>
-    case parse_lprstep (toks_fast x) of NONE => NONE
-    | SOME l => SOME (SOME (l,xs))
+             | (x::xs) =>
+                 case parse_lprstep (toks_fast x) of NONE => NONE
+                                                  | SOME l => SOME (SOME (l,xs))
 End
 
 Theorem SEP_IMP_REFL_gc:
@@ -195,22 +195,22 @@ Theorem parse_one_u_spec:
   NUM lno lnov
   ⇒
   app (p : 'ffi ffi_proj)
-    ^(fetch_v "parse_one_u" (get_ml_prog_state()))
-    [lnov; fdv]
-    (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
-    (POSTve
-      (λv.
-         SEP_EXISTS k lines' res.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
-           &(parse_one_u lines ≠ NONE ∧
-           OPTION_TYPE LPR_LPRSTEP_TYPE (OPTION_MAP FST (THE (parse_one_u lines))) v ∧
-           (case THE (parse_one_u lines) of NONE => lines' = []
-           | SOME res => lines' = SND res))
-      )
-      (λe.
-         SEP_EXISTS k lines'.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
-           &(Fail_exn e ∧
+      ^(fetch_v "parse_one_u" (get_ml_prog_state()))
+      [lnov; fdv]
+      (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
+      (POSTve
+       (λv.
+          SEP_EXISTS k lines' res.
+                     STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
+          &(parse_one_u lines ≠ NONE ∧
+            OPTION_TYPE LPR_LPRSTEP_TYPE (OPTION_MAP FST (THE (parse_one_u lines))) v ∧
+            (case THE (parse_one_u lines) of NONE => lines' = []
+                                          | SOME res => lines' = SND res))
+       )
+       (λe.
+          SEP_EXISTS k lines'.
+                     STDIO (forwardFD fs fd k) * INSTREAM_LINES #"\n" fd fdv lines' (forwardFD fs fd k) *
+          &(Fail_exn e ∧
             parse_one_u lines = NONE
            )))
 Proof
@@ -218,35 +218,35 @@ Proof
   xcf "parse_one_u" (get_ml_prog_state ())>>
   Cases_on`lines`
   >- (
-    xlet ‘(POSTv v.
-        SEP_EXISTS k.
-            STDIO (forwardFD fs fd k) *
-            INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
-            &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
-    THEN1 (
-      xapp_spec b_inputLineTokens_specialize
-      \\ qexists_tac ‘emp’
-      \\ qexists_tac ‘[]’
-      \\ qexists_tac ‘fs’
-      \\ qexists_tac ‘fd’ \\ xsimpl \\ fs [])
-    \\ fs [std_preludeTheory.OPTION_TYPE_def] \\ rveq \\ fs []
-    \\ xmatch \\ fs []
-    \\ xcon \\ xsimpl
-    \\ simp[parse_one_u_def,OPTION_TYPE_def]
-    \\ sep_triv)
+  xlet ‘(POSTv v.
+               SEP_EXISTS k.
+               STDIO (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
+         &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
+  THEN1 (
+    xapp_spec b_inputLineTokens_specialize
+    \\ qexists_tac ‘emp’
+    \\ qexists_tac ‘[]’
+    \\ qexists_tac ‘fs’
+    \\ qexists_tac ‘fd’ \\ xsimpl \\ fs [])
+  \\ fs [std_preludeTheory.OPTION_TYPE_def] \\ rveq \\ fs []
+  \\ xmatch \\ fs []
+  \\ xcon \\ xsimpl
+  \\ simp[parse_one_u_def,OPTION_TYPE_def]
+  \\ sep_triv)
   \\ xlet ‘(POSTv v.
-            SEP_EXISTS k.
-                STDIO (forwardFD fs fd k) *
-                INSTREAM_LINES #"\n" fd fdv t (forwardFD fs fd k) *
-                & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks_fast h)) v)’
-    THEN1 (
-      xapp_spec b_inputLineTokens_specialize
-      \\ qexists_tac ‘emp’
-      \\ qexists_tac ‘h::t’
-      \\ qexists_tac ‘fs’
-      \\ qexists_tac ‘fd’ \\ xsimpl \\ fs []
-      \\ rw[toks_fast_def]
-      \\ sep_triv)
+                  SEP_EXISTS k.
+                  STDIO (forwardFD fs fd k) *
+            INSTREAM_LINES #"\n" fd fdv t (forwardFD fs fd k) *
+            & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks_fast h)) v)’
+  THEN1 (
+  xapp_spec b_inputLineTokens_specialize
+  \\ qexists_tac ‘emp’
+  \\ qexists_tac ‘h::t’
+  \\ qexists_tac ‘fs’
+  \\ qexists_tac ‘fd’ \\ xsimpl \\ fs []
+  \\ rw[toks_fast_def]
+  \\ sep_triv)
   \\ gvs[OPTION_TYPE_def]
   \\ xmatch
   \\ xlet_autop
@@ -254,41 +254,41 @@ Proof
   \\ Cases_on`parse_lprstep (toks_fast h)`
   \\ gvs[OPTION_TYPE_def] \\ xmatch
   >- (
-    rpt xlet_autop>>
-    xraise>>xsimpl>>
-    gvs[Fail_exn_def]>>
-    first_x_assum (irule_at Any)>>
-    sep_triv)>>
+  rpt xlet_autop>>
+  xraise>>xsimpl>>
+  gvs[Fail_exn_def]>>
+  first_x_assum (irule_at Any)>>
+  sep_triv)>>
   xcon>>
   xsimpl>>
   qexists_tac`k`>>
-  xsimpl
+             xsimpl
 QED
 
 val res = translate parse_vb_string_aux_def;
 val parse_vb_string_aux_side = Q.prove(
   `∀a b c x y z. c <= strlen a ⇒
-  parse_vb_string_aux_side a b c x y z`,
-  ho_match_mp_tac parse_vb_string_aux_ind>>rw[]>>
-  rw[Once (fetch "-" "parse_vb_string_aux_side_def")]>>
-  fs[])
-  |> update_precondition;
+    parse_vb_string_aux_side a b c x y z`,
+                             ho_match_mp_tac parse_vb_string_aux_ind>>rw[]>>
+    rw[Once (fetch "-" "parse_vb_string_aux_side_def")]>>
+    fs[])
+                                 |> update_precondition;
 
 val res = translate (parse_vb_string_def |> REWRITE_RULE [GSYM sub_check_def]);
 val parse_vb_string_side = Q.prove(
   `∀a. parse_vb_string_side a = T`,
-  EVAL_TAC>>
-  rw[]>>
-  match_mp_tac parse_vb_string_aux_side>>
-  simp[]) |> update_precondition;
+                                 EVAL_TAC>>
+    rw[]>>
+    match_mp_tac parse_vb_string_aux_side>>
+    simp[]) |> update_precondition;
 
 val res = translate (parse_vb_string_head_def |> REWRITE_RULE [GSYM sub_check_def]);
 val parse_vb_string_head_side = Q.prove(
   `∀a. parse_vb_string_head_side a = T`,
-  EVAL_TAC>>
-  rw[]>>
-  match_mp_tac parse_vb_string_aux_side>>
-  simp[]) |> update_precondition;
+                                      EVAL_TAC>>
+    rw[]>>
+    match_mp_tac parse_vb_string_aux_side>>
+    simp[]) |> update_precondition;
 
 val res = translate clausify_aux_def;
 val res = translate clausify_def;
@@ -299,11 +299,11 @@ val res = translate parse_vb_until_nn_def;
 
 val parse_vb_until_nn_side = Q.prove(
   `∀a b.
-  parse_vb_until_nn_side a b = T`,
-  Induct>>
-  rw[Once (fetch "-" "parse_vb_until_nn_side_def")]>>
-  intLib.ARITH_TAC)
-  |> update_precondition;
+      parse_vb_until_nn_side a b = T`,
+                                    Induct>>
+    rw[Once (fetch "-" "parse_vb_until_nn_side_def")]>>
+    intLib.ARITH_TAC)
+                               |> update_precondition;
 
 val res = translate parse_vb_PR_hint_def;
 
@@ -311,10 +311,10 @@ val res = translate do_PR_def;
 
 val do_pr_side = Q.prove(
   `∀a b.
-  do_pr_side a b = T`,
-  rw[Once (fetch "-" "do_pr_side_def")]>>
-  intLib.ARITH_TAC)
-  |> update_precondition;
+      do_pr_side a b = T`,
+                        rw[Once (fetch "-" "do_pr_side_def")]>>
+    intLib.ARITH_TAC)
+                   |> update_precondition;
 
 Definition c0_def:
   c0 = CHR 0
@@ -323,133 +323,133 @@ End
 val c0_v_thm = translate c0_def;
 
 val parse_one_c = process_topdecs`
-  fun parse_one_c lno fd =
-  case TextIO.b_inputLine c0 fd of
-    None => None
-  | Some l =>
+fun parse_one_c lno fd =
+case TextIO.b_inputLine c0 fd of
+  None => None
+| Some l =>
     (case parse_vb_string_head l of
-      None => raise Fail (format_failure lno "failed to parse line (compressed format)")
-    | Some (Inl d) => Some d
-    | Some (Inr r) =>
-      (case TextIO.b_inputLine c0 fd of
-        None => raise Fail (format_failure lno "failed to parse line (compressed format)")
-      | Some y =>
-          (case do_pr r y of
+       None => raise Fail (format_failure lno "failed to parse line (compressed format)")
+     | Some (Inl d) => Some d
+     | Some (Inr r) =>
+         (case TextIO.b_inputLine c0 fd of
             None => raise Fail (format_failure lno "failed to parse line (compressed format)")
-          | Some p => Some p)
-      )
+          | Some y =>
+              (case do_pr r y of
+                 None => raise Fail (format_failure lno "failed to parse line (compressed format)")
+               | Some p => Some p)
+         )
     )` |> append_prog;
 
 Definition parse_one_c_def:
   parse_one_c lines =
   case lines of [] => SOME NONE
-  | (l::xs) =>
-    (
-      case parse_vb_string_head l of
-      NONE => NONE
-    | SOME (INL d) => SOME (SOME (d, xs))
-    | SOME (INR r) =>
-      (case xs of [] => NONE
-      | (y::ys) =>
-        case do_PR r y of NONE => NONE
-        | SOME res => SOME (SOME (res, ys)))
-    )
+             | (l::xs) =>
+                 (
+                 case parse_vb_string_head l of
+                   NONE => NONE
+                 | SOME (INL d) => SOME (SOME (d, xs))
+                 | SOME (INR r) =>
+                     (case xs of [] => NONE
+                              | (y::ys) =>
+                                  case do_PR r y of NONE => NONE
+                                                 | SOME res => SOME (SOME (res, ys)))
+                 )
 End
 
 Theorem parse_one_c_spec:
   NUM lno lnov
   ⇒
   app (p : 'ffi ffi_proj)
-    ^(fetch_v "parse_one_c" (get_ml_prog_state()))
-    [lnov; fdv]
-    (STDIO fs * INSTREAM_LINES c0 fd fdv lines fs)
-    (POSTve
-      (λv.
-         SEP_EXISTS k lines' res.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES c0 fd fdv lines' (forwardFD fs fd k) *
-           &(parse_one_c lines ≠ NONE ∧
-           OPTION_TYPE LPR_LPRSTEP_TYPE (OPTION_MAP FST (THE (parse_one_c lines))) v ∧
-           (case THE (parse_one_c lines) of NONE => lines' = []
-           | SOME res => lines' = SND res))
-      )
-      (λe.
-         SEP_EXISTS k lines'.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES c0 fd fdv lines' (forwardFD fs fd k) *
-           &(Fail_exn e ∧
+      ^(fetch_v "parse_one_c" (get_ml_prog_state()))
+      [lnov; fdv]
+      (STDIO fs * INSTREAM_LINES c0 fd fdv lines fs)
+      (POSTve
+       (λv.
+          SEP_EXISTS k lines' res.
+                     STDIO (forwardFD fs fd k) * INSTREAM_LINES c0 fd fdv lines' (forwardFD fs fd k) *
+          &(parse_one_c lines ≠ NONE ∧
+            OPTION_TYPE LPR_LPRSTEP_TYPE (OPTION_MAP FST (THE (parse_one_c lines))) v ∧
+            (case THE (parse_one_c lines) of NONE => lines' = []
+                                          | SOME res => lines' = SND res))
+       )
+       (λe.
+          SEP_EXISTS k lines'.
+                     STDIO (forwardFD fs fd k) * INSTREAM_LINES c0 fd fdv lines' (forwardFD fs fd k) *
+          &(Fail_exn e ∧
             parse_one_c lines = NONE
            )))
 Proof
   rw[]>>
   xcf "parse_one_c" (get_ml_prog_state ())>>
   xlet ‘(POSTv v.
-   SEP_EXISTS k.
-   STDIO (forwardFD fs fd k) *
-   INSTREAM_LINES c0 fd fdv (TL lines) (forwardFD fs fd k) *
-   & OPTION_TYPE STRING_TYPE (oHD lines) v)’
+               SEP_EXISTS k.
+               STDIO (forwardFD fs fd k) *
+         INSTREAM_LINES c0 fd fdv (TL lines) (forwardFD fs fd k) *
+         & OPTION_TYPE STRING_TYPE (oHD lines) v)’
   >- (
-    xapp>>
-    simp[c0_v_thm])>>
+  xapp>>
+  simp[c0_v_thm])>>
   simp[parse_one_c_def]>>
   Cases_on`lines`>>fs[OPTION_TYPE_def]>>xmatch
   >- (
-    xcon>>xsimpl>>
-    sep_triv)>>
+  xcon>>xsimpl>>
+  sep_triv)>>
   xlet_autop>>
   TOP_CASE_TAC>>fs[OPTION_TYPE_def]
   >- (
-    xmatch>>
-    rpt xlet_autop>>
-    xraise>>xsimpl>>
-    gvs[Fail_exn_def]>>
-    first_x_assum (irule_at Any)>>
-    sep_triv)>>
+  xmatch>>
+  rpt xlet_autop>>
+  xraise>>xsimpl>>
+  gvs[Fail_exn_def]>>
+  first_x_assum (irule_at Any)>>
+  sep_triv)>>
   TOP_CASE_TAC>>fs[SUM_TYPE_def]>>xmatch
   >- (
-    xcon>>xsimpl>>
-    simp[OPTION_TYPE_def]>>
-    sep_triv)>>
+  xcon>>xsimpl>>
+  simp[OPTION_TYPE_def]>>
+  sep_triv)>>
   rename1`INSTREAM_LINES c0 fd fdv lines`>>
-  xlet ‘(POSTv v.
-   SEP_EXISTS k.
-   STDIO (forwardFD fs fd k) *
-   INSTREAM_LINES c0 fd fdv (TL lines) (forwardFD fs fd k) *
-   & OPTION_TYPE STRING_TYPE (oHD lines) v)’
+         xlet ‘(POSTv v.
+                      SEP_EXISTS k.
+                      STDIO (forwardFD fs fd k) *
+                INSTREAM_LINES c0 fd fdv (TL lines) (forwardFD fs fd k) *
+                & OPTION_TYPE STRING_TYPE (oHD lines) v)’
   >- (
-    xapp>>
-    irule_at Any c0_v_thm>>xsimpl>>
-    qexists_tac`lines`>>
-    qexists_tac`forwardFD fs fd k`>>
-    qexists_tac`fd`>>
-    xsimpl>>
-    simp[forwardFD_o]>>
-    sep_triv)>>
+  xapp>>
+  irule_at Any c0_v_thm>>xsimpl>>
+  qexists_tac`lines`>>
+             qexists_tac`forwardFD fs fd k`>>
+             qexists_tac`fd`>>
+             xsimpl>>
+  simp[forwardFD_o]>>
+  sep_triv)>>
   TOP_CASE_TAC>>fs[OPTION_TYPE_def]>>
   xmatch
   >- (
-    rpt xlet_autop>>
-    xraise>>xsimpl>>
-    gvs[Fail_exn_def]>>
-    first_x_assum (irule_at Any)>>
-    sep_triv)>>
+  rpt xlet_autop>>
+  xraise>>xsimpl>>
+  gvs[Fail_exn_def]>>
+  first_x_assum (irule_at Any)>>
+  sep_triv)>>
   xlet_autop>>
   rename1`do_PR y r`>>
-  Cases_on`do_PR y r`>>fs[OPTION_TYPE_def]>>xmatch
+         Cases_on`do_PR y r`>>fs[OPTION_TYPE_def]>>xmatch
   >- (
-    rpt xlet_autop>>
-    xraise>>xsimpl>>
-    gvs[Fail_exn_def]>>
-    first_x_assum (irule_at Any)>>
-    sep_triv)>>
+  rpt xlet_autop>>
+  xraise>>xsimpl>>
+  gvs[Fail_exn_def]>>
+  first_x_assum (irule_at Any)>>
+  sep_triv)>>
   xcon>>xsimpl>>
   qexists_tac`k`>>
-  xsimpl
+             xsimpl
 QED
 
 val parse_one = process_topdecs`
-  fun parse_one b lno fd =
-  if b
-  then parse_one_c lno fd
-  else parse_one_u lno fd` |> append_prog;
+fun parse_one b lno fd =
+if b
+then parse_one_c lno fd
+else parse_one_u lno fd` |> append_prog;
 
 Definition parse_one_def:
   parse_one b lines =
@@ -466,22 +466,22 @@ Theorem parse_one_spec:
   NUM lno lnov
   ⇒
   app (p : 'ffi ffi_proj)
-    ^(fetch_v "parse_one" (get_ml_prog_state()))
-    [bv; lnov; fdv]
-    (STDIO fs * INSTREAM_LINES (term_char b) fd fdv lines fs)
-    (POSTve
-      (λv.
-         SEP_EXISTS k lines' res.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES (term_char b) fd fdv lines' (forwardFD fs fd k) *
-           &(parse_one b lines ≠ NONE ∧
-           OPTION_TYPE LPR_LPRSTEP_TYPE (OPTION_MAP FST (THE (parse_one b lines))) v ∧
-           (case THE (parse_one b lines) of NONE => lines' = []
-           | SOME res => lines' = SND res))
-      )
-      (λe.
-         SEP_EXISTS k lines'.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES (term_char b) fd fdv lines' (forwardFD fs fd k) *
-           &(Fail_exn e ∧
+      ^(fetch_v "parse_one" (get_ml_prog_state()))
+      [bv; lnov; fdv]
+      (STDIO fs * INSTREAM_LINES (term_char b) fd fdv lines fs)
+      (POSTve
+       (λv.
+          SEP_EXISTS k lines' res.
+                     STDIO (forwardFD fs fd k) * INSTREAM_LINES (term_char b) fd fdv lines' (forwardFD fs fd k) *
+          &(parse_one b lines ≠ NONE ∧
+            OPTION_TYPE LPR_LPRSTEP_TYPE (OPTION_MAP FST (THE (parse_one b lines))) v ∧
+            (case THE (parse_one b lines) of NONE => lines' = []
+                                          | SOME res => lines' = SND res))
+       )
+       (λe.
+          SEP_EXISTS k lines'.
+                     STDIO (forwardFD fs fd k) * INSTREAM_LINES (term_char b) fd fdv lines' (forwardFD fs fd k) *
+          &(Fail_exn e ∧
             parse_one b lines = NONE
            )))
 Proof
@@ -492,14 +492,14 @@ Proof
 QED
 
 val check_unsat'' = process_topdecs `
-  fun check_unsat'' b fd lno mindel fml ls carr earr =
-    case parse_one b lno fd of
-      None => (fml,ls)
-    | Some lpr =>
+fun check_unsat'' b fd lno mindel fml ls carr earr =
+case parse_one b lno fd of
+  None => (fml,ls)
+| Some lpr =>
     case check_lpr_step_arr lno mindel lpr fml ls carr earr of
       (fml',ls',carr',earr') =>
-    check_unsat'' b fd (lno+1) mindel fml' ls' carr' earr'`
-    |> append_prog;
+        check_unsat'' b fd (lno+1) mindel fml' ls' carr' earr'`
+          |> append_prog;
 
 Theorem parse_one_less:
   parse_one b lines = SOME (SOME (fml, rest)) ⇒
@@ -515,90 +515,90 @@ Definition parse_and_run_def:
     NONE => NONE
   | SOME NONE => SOME (fml, inds)
   | SOME (SOME (lpr,rest)) =>
-    case check_lpr_step_list mindel lpr fml inds Clist earliest of
-      NONE => NONE
-    | SOME (fml', inds', Clist', earliest') => parse_and_run b rest mindel fml' inds' Clist' earliest'
+      case check_lpr_step_list mindel lpr fml inds Clist earliest of
+        NONE => NONE
+      | SOME (fml', inds', Clist', earliest') => parse_and_run b rest mindel fml' inds' Clist' earliest'
 Termination
   WF_REL_TAC`measure (LENGTH o FST o SND)`>>
-  rw[]>>
+            rw[]>>
   metis_tac[parse_one_less]
 End
 
 Theorem check_unsat''_spec:
   !b lines mindel fmlls ls Clist earliest
-    fs fmlv fmllsv lsv Carrv lno lnov mindelv Earrv earliestv.
-  BOOL b bv ∧
-  NUM lno lnov ∧
-  NUM mindel mindelv ∧
-  (LIST_TYPE NUM) ls lsv ∧
-  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
-  LIST_REL (OPTION_TYPE NUM) earliest earliestv ∧
-  bounded_fml (LENGTH Clist) fmlls
-  ⇒
-  app (p : 'ffi ffi_proj)
-    ^(fetch_v "check_unsat''" (get_ml_prog_state()))
-    [bv; fdv; lnov; mindelv; fmlv; lsv; Carrv; Earrv]
-    (STDIO fs * ARRAY fmlv fmllsv * W8ARRAY Carrv Clist *
-      ARRAY Earrv earliestv * INSTREAM_LINES (term_char b) fd fdv lines fs)
-    (POSTve
-      (λv.
-         SEP_EXISTS k v1 v2.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES (term_char b) fd fdv [] (forwardFD fs fd k) *
-           &(v = Conv NONE [v1; v2]) *
-           (SEP_EXISTS fmllsv'.
-            ARRAY v1 fmllsv' *
-            &(unwrap_TYPE
-              (λv fv.
-              LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (FST v) fv)
-                 (parse_and_run b lines mindel fmlls ls Clist earliest) fmllsv')) *
-          &(unwrap_TYPE (λa b. LIST_TYPE NUM (SND a) b)
-            (parse_and_run b lines mindel fmlls ls Clist earliest) v2)
-      )
-      (λe.
-         SEP_EXISTS k fmlv fmllsv Earrv earliestv lines'.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES (term_char b) fd fdv lines' (forwardFD fs fd k) *
-           ARRAY fmlv fmllsv *
-           ARRAY Earrv earliestv *
-           &(Fail_exn e ∧ parse_and_run b lines mindel fmlls ls Clist earliest = NONE)))
+     fs fmlv fmllsv lsv Carrv lno lnov mindelv Earrv earliestv.
+    BOOL b bv ∧
+    NUM lno lnov ∧
+    NUM mindel mindelv ∧
+    (LIST_TYPE NUM) ls lsv ∧
+    LIST_REL (OPTION_TYPE (LIST_TYPE INT)) fmlls fmllsv ∧
+    LIST_REL (OPTION_TYPE NUM) earliest earliestv ∧
+    bounded_fml (LENGTH Clist) fmlls
+    ⇒
+    app (p : 'ffi ffi_proj)
+        ^(fetch_v "check_unsat''" (get_ml_prog_state()))
+        [bv; fdv; lnov; mindelv; fmlv; lsv; Carrv; Earrv]
+        (STDIO fs * ARRAY fmlv fmllsv * W8ARRAY Carrv Clist *
+         ARRAY Earrv earliestv * INSTREAM_LINES (term_char b) fd fdv lines fs)
+        (POSTve
+         (λv.
+            SEP_EXISTS k v1 v2.
+                       STDIO (forwardFD fs fd k) * INSTREAM_LINES (term_char b) fd fdv [] (forwardFD fs fd k) *
+            &(v = Conv NONE [v1; v2]) *
+            (SEP_EXISTS fmllsv'.
+                        ARRAY v1 fmllsv' *
+             &(unwrap_TYPE
+               (λv fv.
+                  LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (FST v) fv)
+               (parse_and_run b lines mindel fmlls ls Clist earliest) fmllsv')) *
+            &(unwrap_TYPE (λa b. LIST_TYPE NUM (SND a) b)
+                          (parse_and_run b lines mindel fmlls ls Clist earliest) v2)
+         )
+         (λe.
+            SEP_EXISTS k fmlv fmllsv Earrv earliestv lines'.
+                       STDIO (forwardFD fs fd k) * INSTREAM_LINES (term_char b) fd fdv lines' (forwardFD fs fd k) *
+            ARRAY fmlv fmllsv *
+            ARRAY Earrv earliestv *
+            &(Fail_exn e ∧ parse_and_run b lines mindel fmlls ls Clist earliest = NONE)))
 Proof
   ho_match_mp_tac parse_and_run_ind>>rw[]>>
   xcf "check_unsat''" (get_ml_prog_state ())>>
   xlet`(POSTve
-      (λv.
-         SEP_EXISTS k lines' res.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES (term_char b) fd fdv lines' (forwardFD fs fd k) *
+        (λv.
+           SEP_EXISTS k lines' res.
+                      STDIO (forwardFD fs fd k) * INSTREAM_LINES (term_char b) fd fdv lines' (forwardFD fs fd k) *
            ARRAY fmlv fmllsv * W8ARRAY Carrv Clist * ARRAY Earrv earliestv *
            &(parse_one b lines ≠ NONE ∧
-           OPTION_TYPE LPR_LPRSTEP_TYPE (OPTION_MAP FST (THE (parse_one b lines))) v ∧
-           (case THE (parse_one b lines) of NONE => lines' = []
-           | SOME res => lines' = SND res))
-      )
-      (λe.
-         SEP_EXISTS k lines'.
-           STDIO (forwardFD fs fd k) * INSTREAM_LINES (term_char b) fd fdv lines' (forwardFD fs fd k) *
+             OPTION_TYPE LPR_LPRSTEP_TYPE (OPTION_MAP FST (THE (parse_one b lines))) v ∧
+             (case THE (parse_one b lines) of NONE => lines' = []
+                                           | SOME res => lines' = SND res))
+        )
+        (λe.
+           SEP_EXISTS k lines'.
+                      STDIO (forwardFD fs fd k) * INSTREAM_LINES (term_char b) fd fdv lines' (forwardFD fs fd k) *
            ARRAY fmlv fmllsv * ARRAY Earrv earliestv *
            &(Fail_exn e ∧
-            parse_one b lines = NONE
-           )))`
+             parse_one b lines = NONE
+            )))`
   >- (
-    xapp>>
-    first_x_assum (irule_at Any)>>
-    first_x_assum (irule_at Any)>>
-    xsimpl>>
-    qexists_tac`lines`>>
-    qexists_tac`fs`>>
-    qexists_tac`fd`>>
-    qexists_tac`ARRAY fmlv fmllsv * W8ARRAY Carrv Clist * ARRAY Earrv earliestv`>>
-    xsimpl>>
-    rw[]
-    >- (first_x_assum (irule_at Any)>> sep_triv)>>
-    qexists_tac`x`>>
-    qexists_tac`x'`>>
-    xsimpl)
+  xapp>>
+  first_x_assum (irule_at Any)>>
+  first_x_assum (irule_at Any)>>
+  xsimpl>>
+  qexists_tac`lines`>>
+             qexists_tac`fs`>>
+             qexists_tac`fd`>>
+             qexists_tac`ARRAY fmlv fmllsv * W8ARRAY Carrv Clist * ARRAY Earrv earliestv`>>
+                                                                         xsimpl>>
+  rw[]
+  >- (first_x_assum (irule_at Any)>> sep_triv)>>
+  qexists_tac`x`>>
+             qexists_tac`x'`>>
+             xsimpl)
   >- (
-    xsimpl>>
-    simp[Once parse_and_run_def]>>
-    sep_triv)>>
+  xsimpl>>
+  simp[Once parse_and_run_def]>>
+  sep_triv)>>
   simp[Once parse_and_run_def]>>
   TOP_CASE_TAC>>gvs[]>>
   TOP_CASE_TAC>>gvs[OPTION_TYPE_def]>>
@@ -926,7 +926,7 @@ Proof
         fs[unwrap_TYPE_def]>>
         xcon >>
         xsimpl>>
-        sep_triv)>>
+        gvs[] >> sep_triv)>>
       xsimpl>>simp[unwrap_TYPE_def]>>
       Cases_on`x`>>fs[]>>rw[]>>xsimpl >>
       sep_triv)>>
@@ -1064,7 +1064,7 @@ Proof
   xmatch
   >- (xvar>>xsimpl)>>
   rpt xlet_autop >>
-  xlet_auto>>
+  simp[] >> xlet_auto>>
   xapp>>fs[]>>
   match_mp_tac LIST_REL_update_resize>>fs[]>>
   simp[OPTION_TYPE_def]

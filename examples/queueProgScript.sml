@@ -181,7 +181,7 @@ Proof
     xlet ‘POSTv bv. QUEUE A mx vs qv * &(BOOL (LENGTH vs = mx) bv)’
     >- (xapp >> xsimpl >> qexists_tac `emp` >> xsimpl >>
         map_every qexists_tac [`vs`, `mx`, `A`] >> xsimpl) >>
-    xs_auto_tac >> qexists_tac `F` >> simp[] >>
+    gvs [] >> xs_auto_tac >> qexists_tac `F` >> simp[] >>
     simp[QUEUE_def] >> xpull >> xs_auto_tac >> reverse (rw[])
     >- EVAL_TAC >>
     xs_auto_tac

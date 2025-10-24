@@ -2606,7 +2606,7 @@ Proof
     \\ rw[]
     >-(xsimpl \\ fs[std_preludeTheory.OPTION_TYPE_def]))
   >-(simp[INSTREAM_BUFFERED_BL_FD_RW_def, REF_NUM_def] \\ xpull
-    \\ simp [] \\ xlet_auto >- xsimpl
+    \\ xlet_auto >- xsimpl
     \\ rveq
     \\ xlet_auto >- (xsimpl \\ fs[instream_buffered_inv_def])
     \\ xlet_auto >- xsimpl \\ fs [CharProgTheory.fromByte_def]
@@ -5248,10 +5248,10 @@ Proof
       \\ rpt strip_tac \\ xsimpl)
   \\ fs[Once INSTREAM_BUFFERED_BL_FD_def, REF_NUM_def, instream_buffered_inv_def]
   \\ xpull
-  \\ simp []
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
-  \\ xlet_auto_spec (SOME input_spec) >- xsimpl
+  \\ simp[]
+  \\ xlet_auto_spec (SOME input_spec) >-  xsimpl
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
@@ -5349,7 +5349,7 @@ Proof
       \\ `MAX pos (STRLEN content) = STRLEN content` by simp[MAX_DEF]
       \\ simp[] \\ Cases_on `0 < STRLEN content`
       >-xsimpl
-       >-xsimpl))
+      >-xsimpl))
   \\ fs[INSTREAM_BUFFERED_FD_def, REF_NUM_def, instream_buffered_inv_def]
   \\ fs[NUM_def] \\ xpull \\ xapp \\ CONV_TAC(RESORT_EXISTS_CONV List.rev)
   \\ fs[NUM_def] \\ asm_exists_tac \\ qexists_tac `&w − &r`
@@ -6964,7 +6964,7 @@ Proof
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ gvs [W8ARRAY_def] \\ xpull
-  \\ simp [] \\ xlet_auto \\ gvs []
+  \\ xlet_auto \\ gvs []
   >- (xsimpl \\ gvs [instream_buffered_inv_def])
   \\ ‘find_surplus_fun c bcontent r w = NONE’ by
    (gvs [instream_buffered_inv_def]
@@ -7012,7 +7012,7 @@ Proof
   \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ gvs [W8ARRAY_def] \\ xpull
-  \\ simp [] \\ xlet_auto \\ gvs []
+  \\ xlet_auto \\ gvs []
   >- (xsimpl \\ gvs [instream_buffered_inv_def])
   \\ ‘find_surplus_fun c bcontent r w = SOME (r + LENGTH bs1)’ by
    (gvs [instream_buffered_inv_def]

@@ -366,7 +366,7 @@ Proof
       xapp >>
       xsimpl >>
       rw [BOOL_def] >>
-      metis_tac []) >>
+      gvs [] >> metis_tac []) >>
     xif
     >- (
       (* Set up the invariant for the recursive call.
@@ -471,7 +471,7 @@ Proof
       xapp >>
       xsimpl >>
       rw [BOOL_def] >>
-      metis_tac []) >>
+      gvs [] >> metis_tac []) >>
     xif
     >- (
       first_x_assum (qspecl_then [`i-1`] mp_tac) >>
@@ -786,9 +786,10 @@ Proof
         `cmp pivot (EL (n + new_upper − LENGTH lower_part) elems2')`
         suffices_by metis_tac [strict_weak_order_def] >>
         fs [EL_APPEND_EQN]) >>
+      conj_tac >- fs [] >>
       conj_tac
       (* We got the lower index value right in the above exists_tac *)
-      >- simp [integerTheory.INT_SUB] >>
+      >- gvs [integerTheory.INT_SUB] >>
       conj_tac
       (* There is a stopping element in the new lower partition, plus new
        * middle. The one we just swapped in will do. *)
@@ -1218,4 +1219,3 @@ Proof
   rw [] >>
   metis_tac [PERM_SYM]
 QED
-
