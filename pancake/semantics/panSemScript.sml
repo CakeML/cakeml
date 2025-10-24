@@ -284,11 +284,20 @@ Definition set_kvar_def:
 End
 
 Definition lookup_kvar_def:
-  lookup_kvar ^s vk v =
+  lookup_kvar vk v ^s =
   case vk of
     Local => FLOOKUP s.locals v
   | Global => FLOOKUP s.globals v
 End
+
+Theorem kvar_simps[simp]:
+  (set_kvar Local v value s = set_var v value s) ∧
+  (set_kvar Global v value s = set_global v value s) ∧
+  (lookup_kvar Local v s = FLOOKUP s.locals  v) ∧
+  (lookup_kvar Global v s = FLOOKUP s.globals v)
+Proof
+  simp[set_kvar_def,lookup_kvar_def]
+QED
 
 Definition upd_locals_def:
    upd_locals varargs ^s =
@@ -329,11 +338,40 @@ Definition lookup_code_def:
 End
 
 Definition is_valid_value_def:
-  is_valid_value locals v value =
-    case FLOOKUP locals v of
+  is_valid_value s vk v value =
+  case lookup_kvar vk v s of
      | SOME w => shape_of value = shape_of w
      | NONE => F
 End
+
+Theorem is_valid_value_simps:
+  (is_valid_value s Local v value =
+    case FLOOKUP s.locals v of
+     | SOME w => shape_of value = shape_of w
+     | NONE => F) ∧
+  (is_valid_value s Global v value =
+    case FLOOKUP s.globals v of
+     | SOME w => shape_of value = shape_of w
+     | NONE => F)
+Proof
+  simp[is_valid_value_def,lookup_kvar_def]
+QED
+
+Theorem is_valid_value_simps2[simp]:
+  (is_valid_value (s with clock := k) vk v vl = is_valid_value s vk v vl) ∧
+  (is_valid_value (s with ffi := ffi) vk v vl = is_valid_value s vk v vl) ∧
+  (is_valid_value (s with code := cd) vk v vl = is_valid_value s vk v vl) ∧
+  (is_valid_value (s with memory := m) vk v vl = is_valid_value s vk v vl) ∧
+  (lookup_kvar vk v (s with clock := k) = lookup_kvar vk v s) ∧
+  (lookup_kvar vk v (s with ffi := ffi) = lookup_kvar vk v s) ∧
+  (lookup_kvar vk v (s with code := cd) = lookup_kvar vk v s) ∧
+  (lookup_kvar vk v (s with memory := m) = lookup_kvar vk v s)
+Proof
+  simp[is_valid_value_def,lookup_kvar_def]
+QED
+
+Theorem kvar_defs = LIST_CONJ [set_var_def,set_global_def,set_kvar_def,is_valid_value_def,
+                                lookup_kvar_def];
 
 Definition res_var_def:
   (res_var lc (n, NONE) = lc \\ n) /\
@@ -394,18 +432,11 @@ Definition evaluate_def:
         let (res,st) = evaluate (prog,s with locals := s.locals |+ (v,value)) in
         (res, st with locals := res_var st.locals (v, FLOOKUP s.locals v))
         | NONE => (SOME Error, s)) /\
-  (evaluate (Assign Local v src,s) =
+  (evaluate (Assign vk v src,s) =
     case (eval s src) of
      | SOME value =>
-        if is_valid_value s.locals v value
-        then (NONE, s with locals := s.locals |+ (v,value))
-        else (SOME Error, s)
-        | NONE => (SOME Error, s)) /\
-  (evaluate (Assign Global v src,s) =
-    case (eval s src) of
-     | SOME value =>
-        if is_valid_value s.globals v value
-        then (NONE, s with globals := s.globals |+ (v,value))
+        if is_valid_value s vk v value
+        then (NONE, set_kvar vk v value s)
         else (SOME Error, s)
         | NONE => (SOME Error, s)) /\
   (evaluate (Store dst src,s) =
@@ -432,7 +463,7 @@ Definition evaluate_def:
   (evaluate (ShMemLoad op vk v ad,s) =
     case eval s ad of
     | SOME (ValWord addr) =>
-        (case lookup_kvar s vk v of
+        (case lookup_kvar vk v s of
            SOME (ValWord _) => sh_mem_load vk v addr (nb_op op) s
          | _ => (SOME Error, s))
      | _ => (SOME Error, s)) /\
@@ -499,7 +530,7 @@ Definition evaluate_def:
                     | NONE      => (SOME (Return retv),empty_locals st)
                     | SOME (NONE, _) => (NONE, st with locals := s.locals)
                     | SOME (SOME (rk, rt),  _) =>
-                       if is_valid_value (if rk = Local then s.locals else s.globals) rt retv
+                       if is_valid_value s rk rt retv
                        then (NONE, set_kvar rk rt retv (st with locals := s.locals))
                        else (SOME Error,st))
               | (SOME (Exception eid exn),st) =>
@@ -510,7 +541,7 @@ Definition evaluate_def:
                       if eid = eid' then
                        case FLOOKUP s.eshapes eid of
                         | SOME sh =>
-                            if shape_of exn = sh ∧ is_valid_value s.locals evar exn then
+                            if shape_of exn = sh ∧ is_valid_value s Local evar exn then
                               evaluate (p, set_var evar exn (st with locals := s.locals))
                             else (SOME Error,st)
                         | NONE => (SOME Error,st)
