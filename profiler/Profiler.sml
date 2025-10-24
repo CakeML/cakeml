@@ -1,5 +1,5 @@
 (*
-   Basic profiling facilities for theories and proofs to generate flame graphs (and flame charts) using FlameGraph.
+   Profiler implementation.
 *)
 structure Profiler =
 struct
@@ -146,12 +146,11 @@ fun collapse (data: stacked_row list) =
 fun export (path: string) : unit = let
   val out = TextIO.openOut path
   (* Brief research indicates that the clock maybe has a resolution of 10ms, which is
-   * why we export miliseconds. *)
+   * why we export milliseconds. *)
   fun time_to_string time = LargeInt.toString (Time.toMilliseconds time)
   fun print_element (stack, time) = String.concat [stack_to_string stack, " ", time_to_string time, "\n"]
   fun write_element e = TextIO.output (out, print_element e)
   val elements = !data |> normalize |> build_stack |> make_intervals |> collapse
-                       (* |> insert_start |> insert_stop |> collapse *)
 in
   app write_element elements;
   TextIO.closeOut out
@@ -160,7 +159,8 @@ end
 (* Writes to the file ‘name’ in the current working directory - wherever that may be.
  *
  * One use of this could be for example at the end of theories:
- * ‘val _ = Profiler.export_cwd "HashtableProof.txt";’ *)
+ * ‘val _ = Profiler.export_cwd "HashtableProof.txt";’
+ * See the documentation of `export` for the relevant FlameGraph command. *)
 fun export_cwd (name: string) =
-    export (OS.Path.concat (OS.FileSys.getDir(), "HashtableProof.txt"))
+    export (OS.Path.concat (OS.FileSys.getDir(), name))
 end
