@@ -4406,8 +4406,7 @@ Proof
   gvs[AllCasePreds(),do_dso_def]>>
   rpt xlet_autop>>
   rename1`_ (not n) vvv`>>
-  qmatch_asmsub_abbrev_tac`Conv (SOME (TypeStamp "Some" 2))
-          [Conv NONE [vvv;bbb]]`>>
+  qmatch_asmsub_abbrev_tac`Conv NONE [vvv;bbb]`>>
   `LIST_REL (OPTION_TYPE bconstraint_TYPE)
     (update_resize fmlls NONE (SOME (not n,F)) id)
     (update_resize fmllsv (Conv (SOME (TypeStamp "None" 2)) [])

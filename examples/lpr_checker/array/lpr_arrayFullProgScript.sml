@@ -1598,7 +1598,6 @@ Proof
       intLib.ARITH_TAC)>>
     rw[]>>rpt(pairarg_tac>>fs[])>>
     metis_tac[])>>
-
   every_case_tac>>gvs[SUM_TYPE_def]
   >- (
     xmatch>>

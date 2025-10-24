@@ -2256,7 +2256,8 @@ Proof
     asm_exists_tac>>simp[]>>
     metis_tac[STDIO_INSTREAM_LINES_refl_gc])>>
   PairCases_on`x`>>
-  Cases_on`x0`>>fs[SUM_TYPE_def,PAIR_TYPE_def]
+  Cases_on`x0`>>
+  gs[SUM_TYPE_def,PAIR_TYPE_def]
   >- (
     (* INL *)
     xmatch>>
