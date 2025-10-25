@@ -3050,6 +3050,21 @@ Proof
   rw[] >> metis_tac[RTC_CASES1]
 QED
 
+Theorem v_inv_ByteArray_insert:
+  ∀conf v1 refs v2 f tf heap ptr fl xs.
+    v_inv conf v1 refs (v2,f,tf,heap) ⇒
+      v_inv conf v1 (insert ptr (ByteArray fl xs) refs) (v2,f,tf,heap)
+Proof
+  recInduct v_inv_ind
+  \\ rw [] \\ gvs [v_inv_def]
+  \\ IF_CASES_TAC \\ gvs []
+  \\ irule_at Any EQ_REFL \\ gvs []
+  \\ gvs [LIST_REL_EL_EQN] \\ rw []
+  \\ first_x_assum $ drule_then assume_tac \\ gvs []
+  \\ first_x_assum irule \\ gvs [MEM_EL]
+  \\ metis_tac []
+QED
+
 Definition isRefBlock_def:
   isRefBlock x = ?p. x = RefBlock p
 End
@@ -3195,6 +3210,31 @@ Proof
       \\ metis_tac []))
   THEN1 (full_simp_tac std_ss [v_inv_def])
   THEN1 (full_simp_tac (srw_ss()) [v_inv_def,SUBMAP_DEF])
+QED
+
+Theorem v_inv_ValueArray_insert:
+  ∀conf v1 refs v2 f tf heap ptr xs heap2.
+    RefBlock_inv heap heap2 ∧
+    v_inv conf v1 refs (v2,f,tf,heap) ⇒
+      v_inv conf v1 (insert ptr (ValueArray xs) refs) (v2,f,tf,heap2)
+Proof
+  recInduct v_inv_ind
+  \\ rw []
+  \\ drule_then assume_tac v_inv_Ref \\ gvs [v_inv_def, RefBlock_inv_def]
+  >- (
+    IF_CASES_TAC \\ gvs []
+    \\ first_x_assum irule \\ gvs [isRefBlock_def, RefBlock_def, Bignum_def]
+    \\ rw [] \\ pairarg_tac \\ gvs [])
+  >- (
+    first_x_assum irule \\ gvs [isRefBlock_def, RefBlock_def, Word64Rep_def]
+    \\ rw [])
+  >- (
+    IF_CASES_TAC \\ gvs []
+    \\ first_x_assum $ drule_at (Pat ‘heap_lookup _ heap = SOME _’)
+    \\ simp [isRefBlock_def, BlockRep_def, RefBlock_def] \\ rw []
+    \\ gvs [LIST_REL_EL_EQN] \\ rw []
+    \\ last_x_assum irule \\ rw [] \\ gvs [MEM_EL]
+    \\ metis_tac [])
 QED
 
 Definition isThunkBlock_def:
@@ -3344,6 +3384,31 @@ Proof
       \\ metis_tac []))
   THEN1 (full_simp_tac std_ss [v_inv_def])
   THEN1 (full_simp_tac (srw_ss()) [v_inv_def,SUBMAP_DEF])
+QED
+
+Theorem v_inv_Thunk_insert:
+  ∀conf v1 refs v2 f tf heap ptr ev h heap2.
+    ThunkBlock_inv heap heap2 ∧
+    v_inv conf v1 refs (v2,f,tf,heap) ⇒
+      v_inv conf v1 (insert ptr (Thunk ev h) refs) (v2,f,tf,heap2)
+Proof
+  recInduct v_inv_ind
+  \\ rw []
+  \\ drule_then assume_tac v_inv_Thunk \\ gvs [v_inv_def, ThunkBlock_inv_def]
+  >- (
+    IF_CASES_TAC \\ gvs []
+    \\ first_x_assum irule \\ gvs [isThunkBlock_def, ThunkBlock_def, Bignum_def]
+    \\ rw [] \\ pairarg_tac \\ gvs [])
+  >- (
+    first_x_assum irule \\ gvs [isThunkBlock_def, ThunkBlock_def, Word64Rep_def]
+    \\ rw [])
+  >- (
+    IF_CASES_TAC \\ gvs []
+    \\ first_x_assum $ drule_at (Pat ‘heap_lookup _ heap = SOME _’)
+    \\ simp [isThunkBlock_def, BlockRep_def, ThunkBlock_def] \\ rw []
+    \\ gvs [LIST_REL_EL_EQN] \\ rw []
+    \\ last_x_assum irule \\ rw [] \\ gvs [MEM_EL]
+    \\ metis_tac [])
 QED
 
 val heap_lookup_heap_split = prove(
@@ -3518,7 +3583,7 @@ Proof
      \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
      \\ simp[FORALL_PROD] \\ rw[]
      \\ ho_match_mp_tac v_inv_tf_restrict
-     \\ rw [] >- cheat
+     \\ rw [] >- (drule_all v_inv_ValueArray_insert \\ gvs [])
      \\ ho_match_mp_tac MEM_in_all_ts
      \\ qexists_tac `p_1` \\ rw []
      \\ ho_match_mp_tac MEM_stack_all_vs
@@ -3534,7 +3599,7 @@ Proof
     \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
     \\ simp[FORALL_PROD] \\ rw[]
     \\ ho_match_mp_tac v_inv_tf_restrict
-    \\ rw [] >- cheat
+    \\ rw [] >- (drule_all v_inv_ValueArray_insert \\ gvs [])
     \\ ho_match_mp_tac MEM_in_all_ts
     \\ qexists_tac `p_2` \\ rw []
     \\ ho_match_mp_tac MEM_stack_all_vs
@@ -3552,7 +3617,7 @@ Proof
         \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
         \\ simp[FORALL_PROD] \\ rw[]
         \\ ho_match_mp_tac v_inv_tf_restrict
-        \\ rw [] >- cheat
+        \\ rw [] >- (drule_all v_inv_ValueArray_insert \\ gvs [])
         \\ ho_match_mp_tac MEM_in_all_ts
         \\ qexists_tac `p_2` \\ rw []
         \\ rw [all_vs_def] \\ ntac 2 disj1_tac
@@ -3569,7 +3634,7 @@ Proof
       \\ CCONTR_TAC
       \\ metis_tac [INJ_DEF])
     \\ ho_match_mp_tac v_inv_tf_restrict
-    \\ rw [] >- cheat
+    \\ rw [] >- (drule_all v_inv_ValueArray_insert \\ gvs [])
     \\ ho_match_mp_tac MEM_in_all_ts
     \\ goal_assum $ drule_at Any \\ gvs []
     \\ rw [all_vs_def] \\ disj1_tac \\ disj2_tac
@@ -3677,7 +3742,7 @@ Proof
      \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
      \\ simp[FORALL_PROD] \\ rw[]
      \\ ho_match_mp_tac v_inv_tf_restrict
-     \\ rw [] >- cheat
+     \\ rw [] >- (drule_all v_inv_ValueArray_insert \\ gvs [])
      \\ ho_match_mp_tac MEM_in_all_ts
      \\ qexists_tac `p_1` \\ rw []
      \\ ho_match_mp_tac MEM_stack_all_vs
@@ -3696,7 +3761,7 @@ Proof
        \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
        \\ simp[FORALL_PROD] \\ rw[]
        \\ ho_match_mp_tac v_inv_tf_restrict
-       \\ rw [] >- cheat
+       \\ rw [] >- (drule_all v_inv_ValueArray_insert \\ gvs [])
        \\ ho_match_mp_tac MEM_in_all_ts
        \\ qexists_tac `p_2` \\ rw []
        \\ rw [all_vs_def] \\ ntac 2 disj1_tac
@@ -3724,7 +3789,7 @@ Proof
         \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
         \\ simp[FORALL_PROD] \\ rw[]
         \\ ho_match_mp_tac v_inv_tf_restrict
-        \\ rw [] >- cheat
+        \\ rw [] >- (drule_all v_inv_ValueArray_insert \\ gvs [])
         \\ ho_match_mp_tac MEM_in_all_ts
         \\ qexists_tac `p_2` \\ rw []
         \\ rw [all_vs_def] \\ ntac 2 disj1_tac
@@ -3741,7 +3806,7 @@ Proof
       \\ CCONTR_TAC
       \\ metis_tac [INJ_DEF])
     \\ ho_match_mp_tac v_inv_tf_restrict
-    \\ rw [] >- cheat
+    \\ rw [] >- (drule_all v_inv_ValueArray_insert \\ gvs [])
     \\ ho_match_mp_tac MEM_in_all_ts
     \\ goal_assum $ drule_at Any \\ gvs []
     \\ rw [all_vs_def] \\ disj1_tac \\ disj2_tac
@@ -3839,7 +3904,9 @@ Proof
   THEN1 (fs [SUBSET_DEF,DRESTRICT_DEF])
   THEN1 (fs [SUBSET_DEF,DRESTRICT_DEF,SUBSET_DEF,IN_INTER])
   >- (ho_match_mp_tac v_inv_tf_restrict
-     \\ rw [] >- cheat
+     \\ rw []
+     >- (qpat_x_assum ‘v_inv _ _ _ (x,_,_,_)’ assume_tac
+        \\ drule_all v_inv_Thunk_insert \\ gvs [])
      \\ ho_match_mp_tac MEM_in_all_ts
      \\ goal_assum $ drule_at Any \\ gvs []
      \\ ho_match_mp_tac MEM_stack_all_vs
@@ -3849,7 +3916,7 @@ Proof
      \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
      \\ simp[FORALL_PROD] \\ rw[]
      \\ ho_match_mp_tac v_inv_tf_restrict
-     \\ rw [] >- cheat
+     \\ rw [] >- (drule_all v_inv_Thunk_insert \\ gvs [])
      \\ ho_match_mp_tac MEM_in_all_ts
      \\ qexists_tac `p_1` \\ rw []
      \\ ho_match_mp_tac MEM_stack_all_vs
@@ -3860,7 +3927,9 @@ Proof
     full_simp_tac (srw_ss()) [bc_ref_inv_def]
     \\ srw_tac [] [] \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF,ThunkBlock_def]
     \\ ho_match_mp_tac v_inv_tf_restrict
-    \\ rw [] >- cheat
+    \\ rw []
+    >- (qpat_x_assum ‘v_inv _ _ _ (x,_,_,_)’ assume_tac
+       \\ drule_all v_inv_Thunk_insert \\ gvs [])
     \\ ho_match_mp_tac MEM_in_all_ts
     \\ goal_assum $ drule_at Any \\ gvs []
     \\ ho_match_mp_tac MEM_stack_all_vs
@@ -3881,7 +3950,7 @@ Proof
         \\ first_assum(part_match_exists_tac(last o strip_conj) o concl)
         \\ simp[FORALL_PROD] \\ rw[]
         \\ ho_match_mp_tac v_inv_tf_restrict
-        \\ rw [] >- cheat
+        \\ rw [] >- (drule_all v_inv_Thunk_insert \\ gvs [])
         \\ ho_match_mp_tac MEM_in_all_ts
         \\ qexists_tac `p_2` \\ rw []
         \\ rw [all_vs_def] \\ ntac 2 disj1_tac
@@ -3898,7 +3967,7 @@ Proof
       \\ CCONTR_TAC
       \\ metis_tac [INJ_DEF])
     \\ ho_match_mp_tac v_inv_tf_restrict
-    \\ rw [] >- cheat
+    \\ rw [] >- (drule_all v_inv_Thunk_insert \\ gvs [])
     \\ ho_match_mp_tac MEM_in_all_ts
     \\ goal_assum $ drule_at Any \\ gvs []
     \\ rw [all_vs_def] \\ disj1_tac \\ disj2_tac
@@ -4075,8 +4144,9 @@ Proof
     \\ simp[FORALL_PROD] \\ rw[]
     \\ ho_match_mp_tac v_inv_tf_restrict
     \\ conj_tac
-    >- cheat
-    (*>- metis_tac [v_inv_IMP]*)
+    >- (irule v_inv_IMP
+        \\ drule_all v_inv_ByteArray_insert \\ rw []
+        \\ metis_tac [])
     \\ rw []
     \\ ho_match_mp_tac MEM_in_all_ts
     \\ qexists_tac `p_1` \\ rw []
@@ -4109,8 +4179,9 @@ Proof
     \\ simp[FORALL_PROD] \\ rw[]
     \\ ho_match_mp_tac v_inv_tf_restrict
     \\ conj_tac
-    >- cheat
-    (*>- metis_tac [v_inv_IMP]*)
+    >- (irule v_inv_IMP
+        \\ drule_all v_inv_ByteArray_insert \\ rw []
+        \\ metis_tac [])
     \\ rw []
     \\ ho_match_mp_tac MEM_in_all_ts
     \\ qexists_tac `p_2` \\ rw []
@@ -4135,8 +4206,9 @@ Proof
     THEN1
      (ho_match_mp_tac v_inv_tf_restrict
       \\ conj_tac
-      >- cheat
-      (*>- metis_tac [v_inv_IMP]*)
+      >- (irule v_inv_IMP
+          \\ drule_all v_inv_ByteArray_insert \\ rw []
+          \\ metis_tac [])
       \\ rw []
       \\ ho_match_mp_tac MEM_in_all_ts
       \\ goal_assum $ drule_at Any \\ gvs []
@@ -4310,8 +4382,9 @@ Proof
     >- (rw []
        \\ ho_match_mp_tac v_inv_tf_restrict
        \\ rw []
-       >- cheat
-       (*>- (ho_match_mp_tac v_inv_SUBMAP \\ rw [])*)
+       >- (ho_match_mp_tac v_inv_SUBMAP \\ rw []
+          \\ irule v_inv_ValueArray_insert \\ gvs []
+          \\ first_x_assum $ irule_at Any \\ gvs [RefBlock_inv_def])
        \\ ho_match_mp_tac MEM_in_all_ts
        \\ qexists_tac `EL n xs` \\ rw []
        \\ rw [all_vs_def] \\ disj2_tac
@@ -4320,8 +4393,9 @@ Proof
    >- (rw []
        \\ ho_match_mp_tac v_inv_tf_restrict
        \\ rw []
-       >- cheat
-       (*>- (ho_match_mp_tac v_inv_SUBMAP \\ rw [])*)
+       >- (ho_match_mp_tac v_inv_SUBMAP \\ rw []
+           \\ irule v_inv_ValueArray_insert \\ gvs []
+           \\ first_x_assum $ irule_at Any \\ gvs [RefBlock_inv_def])
        \\ ho_match_mp_tac MEM_in_all_ts
        \\ qexists_tac `EL n stack` \\ rw []
        \\ rw [all_vs_def] \\ disj2_tac
@@ -4335,8 +4409,9 @@ Proof
     \\ rpt strip_tac
     \\ ho_match_mp_tac v_inv_tf_restrict
     \\ conj_tac
-    >- cheat
-    (*>- (match_mp_tac v_inv_SUBMAP \\ full_simp_tac (srw_ss()) [])*)
+    >- (ho_match_mp_tac v_inv_SUBMAP \\ rw []
+        \\ irule v_inv_ValueArray_insert \\ gvs []
+        \\ first_x_assum $ irule_at Any \\ gvs [RefBlock_inv_def])
     \\ rw []
     \\ ho_match_mp_tac MEM_in_all_ts
     \\ qexists_tac `EL n' xs` \\ rw []
@@ -4375,9 +4450,10 @@ Proof
     \\ res_tac \\ full_simp_tac (srw_ss()) []
     \\ ho_match_mp_tac v_inv_tf_restrict
     \\ conj_tac
-    >- cheat
-    (*>- (match_mp_tac v_inv_SUBMAP
-       \\ full_simp_tac (srw_ss()) [])*)
+    >- (
+      ho_match_mp_tac v_inv_SUBMAP \\ rw []
+      \\ irule v_inv_ValueArray_insert \\ gvs []
+      \\ first_x_assum $ irule_at Any \\ gvs [RefBlock_inv_def])
     \\ rw []
     \\ ho_match_mp_tac MEM_in_all_ts
     \\ qexists_tac `a'` \\ rw []
@@ -4404,9 +4480,10 @@ Proof
   \\ rpt strip_tac
   \\ ho_match_mp_tac v_inv_tf_restrict
   \\ conj_tac
-  >- cheat
-  (*>- (match_mp_tac v_inv_SUBMAP
-     \\ full_simp_tac (srw_ss()) [])*)
+  >- (
+    ho_match_mp_tac v_inv_SUBMAP \\ rw []
+    \\ irule v_inv_ValueArray_insert \\ gvs []
+    \\ first_x_assum $ irule_at Any \\ gvs [RefBlock_inv_def])
   \\ rw []
   \\ ho_match_mp_tac MEM_in_all_ts
   \\ qexists_tac `y` \\ rw []
@@ -4515,8 +4592,9 @@ Proof
     >- (rw []
        \\ ho_match_mp_tac v_inv_tf_restrict
        \\ rw []
-       >- cheat
-       (*>- (ho_match_mp_tac v_inv_SUBMAP \\ rw [])*)
+       >- (ho_match_mp_tac v_inv_SUBMAP \\ rw []
+          \\ irule v_inv_Thunk_insert \\ gvs []
+          \\ first_x_assum $ irule_at Any \\ gvs [ThunkBlock_inv_def])
        \\ ho_match_mp_tac MEM_in_all_ts
        \\ qexists_tac `v` \\ rw []
        \\ rw [all_vs_def] \\ disj2_tac
@@ -4525,8 +4603,9 @@ Proof
    >- (rw []
        \\ ho_match_mp_tac v_inv_tf_restrict
        \\ rw []
-       >- cheat
-       (*>- (ho_match_mp_tac v_inv_SUBMAP \\ rw [])*)
+       >- (ho_match_mp_tac v_inv_SUBMAP \\ rw []
+           \\ irule v_inv_Thunk_insert \\ gvs []
+           \\ first_x_assum $ irule_at Any \\ gvs [ThunkBlock_inv_def])
        \\ ho_match_mp_tac MEM_in_all_ts
        \\ qexists_tac `EL n stack` \\ rw []
        \\ rw [all_vs_def] \\ disj2_tac
@@ -4540,8 +4619,9 @@ Proof
     \\ rpt strip_tac
     \\ ho_match_mp_tac v_inv_tf_restrict
     \\ conj_tac
-    >- cheat
-    (*>- (match_mp_tac v_inv_SUBMAP \\ full_simp_tac (srw_ss()) [])*)
+    >- (ho_match_mp_tac v_inv_SUBMAP \\ rw []
+        \\ irule v_inv_Thunk_insert \\ gvs []
+        \\ first_x_assum $ irule_at Any \\ gvs [ThunkBlock_inv_def])
     \\ rw []
     \\ ho_match_mp_tac MEM_in_all_ts
     \\ qexists_tac `v` \\ rw []
@@ -4581,9 +4661,10 @@ Proof
     \\ res_tac \\ full_simp_tac (srw_ss()) []
     \\ ho_match_mp_tac v_inv_tf_restrict
     \\ conj_tac
-    >- cheat
-    (*>- (match_mp_tac v_inv_SUBMAP
-       \\ full_simp_tac (srw_ss()) [])*)
+    >- (
+      ho_match_mp_tac v_inv_SUBMAP \\ rw []
+      \\ irule v_inv_Thunk_insert \\ gvs []
+      \\ first_x_assum $ irule_at Any \\ gvs [ThunkBlock_inv_def])
     \\ rw []
     \\ ho_match_mp_tac MEM_in_all_ts
     \\ qexists_tac `a'` \\ rw []
@@ -4610,9 +4691,10 @@ Proof
   \\ rpt strip_tac
   \\ ho_match_mp_tac v_inv_tf_restrict
   \\ conj_tac
-  >- cheat
-  (*>- (match_mp_tac v_inv_SUBMAP
-     \\ full_simp_tac (srw_ss()) [])*)
+  >- (
+    ho_match_mp_tac v_inv_SUBMAP \\ rw []
+    \\ irule v_inv_Thunk_insert \\ gvs []
+    \\ first_x_assum $ irule_at Any \\ gvs [ThunkBlock_inv_def])
   \\ rw []
   \\ ho_match_mp_tac MEM_in_all_ts
   \\ qexists_tac `y` \\ rw []
@@ -4902,9 +4984,9 @@ Proof
    (full_simp_tac std_ss [LIST_REL_def]
     \\ strip_tac THEN1 (UNABBREV_ALL_TAC \\ fs [v_inv_def])
     \\ full_simp_tac std_ss [EVERY2_EQ_EL]
-    \\ imp_res_tac EVERY2_IMP_LENGTH
-    \\ cheat
-    (*\\ metis_tac [v_inv_SUBMAP]*))
+    \\ imp_res_tac EVERY2_IMP_LENGTH \\ rw []
+    \\ ho_match_mp_tac v_inv_SUBMAP \\ rw []
+    \\ irule v_inv_ByteArray_insert \\ gvs [])
   \\ rpt strip_tac
   \\ Cases_on `n = ptr` THEN1
    (Q.UNABBREV_TAC `f1` \\ asm_simp_tac (srw_ss()) [bc_ref_inv_def,FDOM_FUPDATE,
@@ -4939,9 +5021,9 @@ Proof
   \\ TRY (match_mp_tac EVERY2_IMP_EVERY2)
   \\ full_simp_tac std_ss [] \\ simp_tac (srw_ss()) []
   \\ rpt strip_tac
-  \\ cheat
-  (*\\ match_mp_tac v_inv_SUBMAP \\ fs []
-  \\ fs [heap_store_rel_def,isSomeDataElement_def,PULL_EXISTS]*)
+  \\ ho_match_mp_tac v_inv_SUBMAP \\ gvs []
+  \\ gvs [heap_store_rel_def, isSomeDataElement_def, PULL_EXISTS]
+  \\ irule v_inv_ByteArray_insert \\ gvs []
 QED
 
 (* equality *)
@@ -13406,8 +13488,8 @@ Proof
   \\ conj_tac
   >- (match_mp_tac FDOM_bind_each_lemma \\ fs [])
   \\ reverse conj_tac
-  >- cheat
-   (*rpt strip_tac
+  >-
+   (rpt strip_tac
     \\ first_x_assum (qspec_then `n` mp_tac)
     \\ impl_tac \\ fs []
     >-
@@ -13440,8 +13522,9 @@ Proof
      (first_x_assum drule \\ rw [])
     \\ unlength_tac []
     \\ TRY
-     (qmatch_goalsub_abbrev_tac `v_inv _ _ (_,ab1,ab2)`
-      \\ `LIST_REL (λz y. v_inv conf y (z,ab1,ab2)) [z] [a]` suffices_by gvs []
+     (qmatch_goalsub_abbrev_tac `v_inv _ _ _ (_,ab1,ab2)`
+      \\ `LIST_REL (λz y. v_inv conf y refs (z,ab1,ab2)) [z] [a]`
+        suffices_by gvs []
       \\ unabbrev_all_tac
       \\ first_x_assum irule \\ gvs []
       \\ pop_assum (mp_then Any ho_match_mp_tac (GEN_ALL v_inv_SUBMAP))
@@ -13449,7 +13532,7 @@ Proof
       \\ ho_match_mp_tac bind_each_SUBMAP
       \\ fs [SUBSET_DEF]
       \\ NO_TAC)
-    \\ unlength_tac []*)
+    \\ unlength_tac [])
   \\ reverse conj_tac
   >-
    (`0 < heap_length Allocd /\ heap_length Allocd <= sp + sp1` by decide_tac
