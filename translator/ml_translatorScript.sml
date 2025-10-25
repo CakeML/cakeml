@@ -384,6 +384,13 @@ Proof
   simp [WORD_def,Eval_rw,state_component_equality]
 QED
 
+Theorem Eval_Val_FLOAT64:
+  ∀f : (52,11) float.
+    Eval env (Lit (Float64 (float_to_fp64 f))) (FLOAT64 f)
+Proof
+  simp[FLOAT64_def, Eval_rw, state_component_equality]
+QED
+
 (* Equality *)
 
 Definition no_closures_def:
@@ -440,9 +447,9 @@ Theorem EqualityType_NUM_BOOL:
   EqualityType BOOL /\ EqualityType WORD /\
   EqualityType CHAR /\ EqualityType STRING_TYPE /\
   EqualityType UNIT_TYPE /\ EqualityType HOL_STRING_TYPE /\
-  EqualityType WORD
+  EqualityType WORD /\ EqualityType FLOAT64
 Proof
-  EVAL_TAC \\ fs [no_closures_def,
+  EVAL_TAC \\ fs [no_closures_def, float_to_fp64_11,
     types_match_def, lit_same_type_def,
     stringTheory.ORD_11,mlstringTheory.explode_11]
   \\ SRW_TAC [] [] \\ EVAL_TAC
