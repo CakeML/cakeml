@@ -6921,7 +6921,7 @@ Theorem soundness_size_of:
     (vars:'a word_loc heap_address list) n2 r2 s2 p1 refs.
     (∀n. reachable_refs root_vars refs n ⇒
          bc_ref_inv c n refs (f,tf,heap,be)) /\
-    LIST_REL (λv x. v_inv c v (x,f,tf,heap)) root_vars vars /\
+    LIST_REL (λv x. v_inv c v refs (x,f,tf,heap)) root_vars vars /\
     PERM roots root_vars /\ good_dimindex (:'a) /\
     IMAGE ($' tf) (domain s1) SUBSET set p1 /\
     IMAGE ($' f) (domain refs DIFF domain r1) SUBSET set p1 /\
@@ -7028,7 +7028,7 @@ Proof
       \\ strip_tac \\ fs [] \\ rveq \\ fs []
       \\ strip_tac \\ fs []
       \\ last_x_assum $ drule_at $ Pos $ el 2
-      \\ disch_then $ qspecl_then [`f ' r :: p1`,`refs`] mp_tac
+      \\ disch_then $ qspec_then `f ' r :: p1` mp_tac
       \\ impl_tac THEN1
        (fs [] \\ fs [lookup_delete,SUBSET_DEF,PULL_EXISTS]
         \\ simp [SF DNF_ss]
