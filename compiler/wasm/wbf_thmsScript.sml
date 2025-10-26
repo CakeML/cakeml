@@ -716,6 +716,16 @@ Proof
   rw[enc_section_def]
 QED
 
+Theorem enc_section_empty_conv:
+  ∀lb enc xs encxs. append encxs = [] ∧
+  enc_section lb enc xs = SOME encxs
+  ⇒
+  xs = []
+Proof
+     rw[enc_section_def, NULL_EQ_NIL, prepend_sz_def]
+  >> gvs[append_def]
+QED
+
 Theorem dec_enc_section_NE: (* non empty *)
   ∀xs enc dec lb encxs rest. ¬(NULL xs) ∧
   enc_section lb enc xs = SOME encxs ∧
@@ -755,7 +765,11 @@ Theorem dec_enc_section:
   ⇒
   dec_section lb dec $ encxs a++ rest = (INR xs, rest) ∨ xs = []
 Proof
-cheat
+     Cases
+  >> rw[enc_section_def, prepend_sz_def]
+  \\ imp_res_tac dec_enc_u32
+  \\ imp_res_tac dec_enc_vector
+  \\ simp $ ssaa [dec_section_def]
 QED
 
 
@@ -766,17 +780,13 @@ Proof
   simp[Once dec_section_def]
 QED
 
-(*
-type_of ``enc_names_section``
-type_of ``dec_names_section``
-*)
 
 Theorem enc_names_section_empty[simp]:
   ∀lb enc. enc_names_section blank = SOME $ List []
 Proof
      rw[enc_names_section_def, blank_def, enc_section_def]
   >> simp[id_OK_def, prepend_sz_def, enc_u32_def]
-  \\ simp[string2bytes_def, enc_vector_def, enc_list_def, enc_u32_def] 
+  \\ simp[string2bytes_def, enc_vector_def, enc_list_def, enc_u32_def]
   \\ fs[string2bytes_def]
 QED
 
@@ -785,7 +795,43 @@ Theorem dec_enc_names_NE: (* non empty *)
   enc_names_section n = SOME encn ⇒
   dec_names_section $ encn a++ rest = (INR [n], rest)
 Proof
-cheat
+     rw[enc_names_section_def, NULL_EQ_NIL, AllCaseEqs(), prepend_sz_def]
+  >> gvs[NULL_EQ_NIL, blank_def]
+  >-(
+       imp_res_tac enc_section_empty_conv
+    \\ gvs[string2bytes_def]
+    \\ qspec_then `n.mname` mp_tac implode_explode
+    \\ pop_assum (fn x => rewrite_tac[x])
+    \\ disch_then $ assume_tac o GSYM
+    \\ Cases_on `n`
+    \\ gvs[names_component_equality]
+  )
+  >-(
+       imp_res_tac dec_enc_u32
+    \\ simp $ ssaa [dec_names_section_def, magic_str_def, string2bytes_def]
+    (**)
+    \\ assume_tac dec_enc_byte
+    (**)
+    \\ assume_tac dec_enc_ass
+    (**)
+    \\ assume_tac dec_enc_map
+    \\ dxrule_at Any dec_enc_idx_alpha
+    \\ strip_tac
+    (**)
+    \\ ntac 3 $ dxrule_at Any dec_enc_section
+    \\ ntac 3 (disch_then $ drule_at Any \\ strip_tac)
+    (**)
+    \\ cheat
+  )
+
+(*
+    \\ `append ss0 ≠ [] ∨ append ss1 ≠ [] ∨ append ss2 ≠ []` by cheat
+    \\ rewrite_tac[NULL_DEF]
+    \\ gvs[]
+    \\ `(NULL (append ss0) ∧ NULL (append ss1) ∧ NULL (append ss2)) = F` by rw[]
+
+    \\ `∃h t. ss0 a++ ss1 a++ ss2 a++ rest = h::t` by cheat
+*)
 QED
 
 Theorem dec_enc_names_NR: (* non empty *)
@@ -793,7 +839,7 @@ Theorem dec_enc_names_NR: (* non empty *)
   enc_names_section n = SOME encn ⇒
   dec_names_section $ append encn = (INR [n], [])
 Proof
-cheat
+  cheat
 QED
 
 

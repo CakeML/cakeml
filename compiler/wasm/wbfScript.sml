@@ -1256,7 +1256,7 @@ End
 
 Definition blank_def:
   blank : names =
-  <| mname  := explode ""
+  <| mname  := implode ""
    ; fnames := []
    ; lnames := []
    |>
@@ -1297,16 +1297,18 @@ Definition dec_names_section_def:
     | [_]     => failure
     | [_;_]   => failure
     | [_;_;_] => failure
-    | [n;a;m;e]         => if bytes2string $ [n;a;m;e] ≠ magic_str then failure else ret [] $ [blank]
-    | n::a::m::e::b::bs => if bytes2string $ [n;a;m;e] ≠ magic_str then failure else
-    case dec_section 0w  dec_byte               bs of (INL _,_)=>failure| (INR so , bs) =>
-    case dec_section 1w  dec_ass                bs of (INL _,_)=>failure| (INR fns, bs) =>
-    case dec_section 2w (dec_idx_alpha dec_map) bs of (INL _,_)=>failure| (INR lns, bs) =>
-    ret bs $ [
-    <|  mname  := implode $ bytes2string so
-     ;  fnames := fns
-     ;  lnames := lns
-     |> : names]
+    | n::a::m::e::bs => if [n;a;m;e] ≠ string2bytes magic_str then failure        else
+                        if NULL bs                            then ret [] [blank] else
+    (* | [n;a;m;e]         => if bytes2string $ [n;a;m;e] ≠ magic_str then failure else ret [] $ [blank]
+    | n::a::m::e::b::bs => if bytes2string $ [n;a;m;e] ≠ magic_str then failure else *)
+        case dec_section 0w  dec_byte               bs of (INL _,_)=>failure| (INR so , bs) =>
+        case dec_section 1w  dec_ass                bs of (INL _,_)=>failure| (INR fns, bs) =>
+        case dec_section 2w (dec_idx_alpha dec_map) bs of (INL _,_)=>failure| (INR lns, bs) =>
+          ret bs $ [
+          <|  mname  := implode $ bytes2string so
+          ;  fnames := fns
+          ;  lnames := lns
+          |> : names]
 End
 
 Theorem dec_names_section_shortens:
