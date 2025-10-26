@@ -111,17 +111,16 @@ Proof
   >> metis_tac[]
 QED
 
-Theorem proves_imp_theory_ok':
-  ∀thy h es c. (thy, es, h) |-' c ⇒ theory_ok' thy
+Theorem theory_ok'_esubst:
+  theory_ok' thy ∧ esubsts_ok' thy σ ⇒ theory_ok' (esubst_thy σ thy)
 Proof
-  Induct_on ‘$|-'’ >> rw[] >> rw[]
+  cheat
 QED
 
-
-Theorem proves'_imp_theory_ok:
-  ∀thy es h c. (thy, es, h) |-' c ⇒ theory_ok' thy
+Theorem proves'_imp_theory_ok':
+  ∀thy h es c. (thy, es, h) |-' c ⇒ theory_ok' thy
 Proof
-  Induct_on ‘$|-'’ >> rw[] >> rw[]
+  Induct_on ‘$|-'’ >> rw[] >> rw[theory_ok'_esubst]
 QED
 
 Theorem term_ok_term_ok'_weakening:
@@ -131,35 +130,6 @@ Proof
   >> gvs[sigof'_def, ctms_def, ctys_def, term_ok_weakening]
 QED
 
-Theorem esubst_thy_ctys[simp]:
-  (esubst_thy σ thy).ctys = thy.tys
-Proof
-  Cases_on ‘σ’ >> simp[esubst_thy_def, ctys_def]
-QED
-
-Theorem term_ok'_esubst:
-  ∀tm.
-    esubsts_ok (thy.ctys, thy.ctms) σ ∧
-    term_ok' thy tm ⇒
-    term_ok' (esubst_thy σ thy) (esubst σ avds tm)
-Proof
-  cheat
-QED
-(*
-
-Theorem used_eaxs_ok:
-  ∀thy used_eaxs h c.
-    (thy, used_eaxs, h) |-' c
-    ⇒ ∀e. e ∈ used_eaxs ⇒ term_ok' thy e ∧ e has_type Bool
-Proof
-  Induct_on ‘$|-'’ >> rw[] >> rw[]
-  >> gvs[theory_ok'_def, term_ok_term_ok'_weakening, term_ok'_esubst]
-  >> first_x_assum drule >> gvs[esubst_has_type_bool_alt, SF SFY_ss]
-  >> cheat
-QED
-
-
-
 Theorem drop_thy_weakening:
   (drop_thy B thy', h) |- c ∧ B ⊆ A
   ∧ (∀ax. ax ∈ A ⇒ term_ok (thy'.ctys, thy'.ctms) ax ∧ ax has_type Bool)
@@ -168,36 +138,35 @@ Proof
   rw[drop_thy] >> irule axiom_weakening >> rw[]
   >> drule proves_imp_theory_ok >> rw[theory_ok_def, ctms_def, ctys_def]
   >> gvs[ctys_def, ctms_def] >> first_assum $ irule_at Any >> ASM_SET_TAC[]
-QED*)
-(*
-Theorem esubst_identity:
-  term_ok thy.sig tm ∧
-  theory_ok' thy ∧
-  esubsts_ok (thy.ctys, thy.ctms) σ ∧
-  esubsts_total thy σ ⇒
-  esubst σ [] tm = tm
-Proof
-  rw[esubst_def] >> metis_tac[esubst_ty_identity, esubst_tm_identity]
 QED
 
-Theorem esubst_axs_fixed:
-  theory_ok' thy ∧
-  esubsts_ok (thy.ctys, thy.ctms) σ ∧
-  esubsts_total thy σ ⇒
-  IMAGE (esubst σ []) thy.axs = thy.axs
+Theorem DISJOINT_FLOOKUP:
+  DISJOINT (FDOM f1) (FDOM f2) ∧ FLOOKUP f1 k = SOME v ⇒ FLOOKUP f2 k = NONE
 Proof
-  Cases_on ‘σ’ >> rename [‘esubsts_total thy (σ, θ)’]
-  >> rw[EXTENSION, EQ_IMP_THM, esubsts_ok_def, esubsts_total_def, theory_ok'_def]
-  >> first_assum drule
-  >> rpt strip_tac
-  >> drule esubst_identity
-  >> strip_tac >> first_x_assum $ qspec_then ‘(σ, θ)’ mp_tac
-  >> impl_tac
-  >> rw[theory_ok'_def, esubsts_ok_def, esubsts_total_def]
-  >> metis_tac[]
+  rw[] >> imp_res_tac $ iffRL FDOM_FLOOKUP >> irule $ iffRL $ cj 1 flookup_thm >> ASM_SET_TAC[]
 QED
 
+Theorem esubsts_ok'_esubsts_ok:
+  esubsts_ok' thy σ ∧ theory_ok' thy ⇒ esubsts_ok (thy.ctys, thy.ctms) σ
+Proof
+  Cases_on ‘σ’ >> rename1‘(σ,θ)’ >> rw[esubsts_ok'_def, esubsts_ok_def, theory_ok'_def]
+  >- (first_x_assum drule >> simp[ctms_def, FLOOKUP_FUNION] >> CASE_TAC >> rw[]
+      >> drule_all DISJOINT_FLOOKUP >> simp[])
+  >> first_x_assum drule >> rw[] >> gvs[term_ok_def, term_ok'_def]
+  >> gvs[ctys_def, type_ok_weakening, ctms_def, esubst_thy_def, FLOOKUP_FUNION]
+  >> qexists ‘ty0’ >> gvs[monomorphic_type_subst] >> rw[FLOOKUP_o_f]
+  >> gvs[ctys_def, type_ok_weakening, ctms_def, esubst_thy_def, FLOOKUP_FUNION, AllCaseEqs()]
+  >> cheat
+QED
 
+val contrapos_tac = CONV_TAC (REWR_CONV (DECIDE “p ⇒ q ⇔ ¬q ⇒ ¬p”)) THEN strip_tac
+        
+Theorem ty_esubst_o_f_thy_tms:
+  ∀thy. theory_ok' thy ∧ esubsts_ok' thy σ ⇒ ty_esubst σ o_f thy.tms = thy.tms
+Proof
+  cheat
+QED
+        
 Theorem proves'_imp_proves:
   ∀thy' c h used_eaxs.
     (thy', used_eaxs, h) |-' c ⇒ (drop_thy used_eaxs thy', h) |- c
@@ -206,51 +175,48 @@ Proof
   >- (irule proves_ABS >> rw[])
   >- (irule proves_ASSUME >> rw[theory_ok_drop_thy, term_ok'_imp_term_ok])
   >- (irule proves_BETA >> rw[theory_ok_drop_thy, term_ok'_imp_term_ok])
-  >- (irule proves_DEDUCT_ANTISYM
-      >> ‘es1 ⊆ es1 ∪ es2 ∧ es2 ⊆ es1 ∪ es2’ by SET_TAC[]
-      >> rpt $ dxrule used_eaxs_ok >> rw[]
-      >> rpt $ dxrule_then dxrule drop_thy_weakening
-      >> impl_tac >> rpt $ dxrule proves_imp_theory_ok' >> rw[]
-      >> metis_tac[term_ok'_imp_term_ok])
+  >- (irule proves_DEDUCT_ANTISYM >> conj_tac >> irule drop_thy_weakening
+      >> imp_res_tac proves_theory_ok >> gvs[theory_ok_def, drop_thy]
+      >> (conj_tac >- metis_tac[term_ok'_imp_term_ok]
+          >> first_x_assum $ irule_at Any >> simp[]))
   >- (irule proves_EQ_MP
-      >> ‘es1 ⊆ es1 ∪ es2 ∧ es2 ⊆ es1 ∪ es2’ by SET_TAC[]
-      >> rpt $ dxrule used_eaxs_ok >> rw[]
-      >> rpt $ dxrule_then dxrule drop_thy_weakening
-      >> impl_tac >> rpt $ dxrule proves_imp_theory_ok' >> rw[]
-      >> metis_tac[term_ok'_imp_term_ok])
+      >> imp_res_tac proves_theory_ok >> gvs[theory_ok_def, drop_thy]
+      >> first_x_assum $ irule_at Any >> simp[]
+      >> conj_tac >> irule axiom_weakening >> simp[DISJ_IMP_THM]
+      >> first_x_assum $ irule_at Any >> simp[SUBSET_DEF])
   >- (irule proves_INST >> rw[] >> first_x_assum drule
       >> metis_tac[term_ok'_imp_term_ok])
   >- (irule proves_INST_TYPE >> rw[] >> first_x_assum drule
       >> metis_tac[term_ok'_imp_term_ok])
   >- (irule proves_MK_COMB >> rw[]
-      >> ‘es1 ⊆ es1 ∪ es2 ∧ es2 ⊆ es1 ∪ es2’ by SET_TAC[]
-      >> rpt $ dxrule used_eaxs_ok >> rw[]
-      >> rpt $ dxrule_then dxrule drop_thy_weakening
-      >> impl_tac >> rpt $ dxrule proves_imp_theory_ok' >> rw[]
-      >> metis_tac[term_ok'_imp_term_ok])
+      >> imp_res_tac proves_theory_ok >> gvs[theory_ok_def, drop_thy]
+      >> irule axiom_weakening >> simp[DISJ_IMP_THM]
+      >> first_x_assum $ irule_at Any >> simp[SUBSET_DEF])
   >- (irule proves_REFL >> rw[theory_ok_drop_thy, term_ok'_imp_term_ok])
   >- (irule proves_axioms >> rw[theory_ok_drop_thy, term_ok'_imp_term_ok]
       >> metis_tac[axsof_drop_thy, SUBSET_DEF])
   >- (Cases_on ‘c ∈ thy.axs’ >> gvs[drop_thy]
       >- (rw[thy_axs_diff_alt, UNION_COMM] >> irule axiom_weakening
-          >> drule proves'_imp_theory_ok >> rw[]
-          >> gvs[theory_ok'_def, used_eaxs_ok, term_ok'_imp_term_ok, term_ok_term_ok'_weakening]
-          >> rpt $ dxrule used_eaxs_ok >> rw[term_ok'_imp_term_ok]
-          >> qexists ‘thy.axs ∪ es2’ >> rw[] >> SET_TAC[])
+          >> drule proves'_imp_theory_ok' >> rw[]
+          >> gvs[theory_ok'_def, term_ok'_imp_term_ok, term_ok_term_ok'_weakening]
+          >> imp_res_tac proves_theory_ok >> gvs[theory_ok_def, drop_thy]
+          >> first_x_assum $ irule_at Any >> simp[SUBSET_DEF])
       >- (rw[thy_axs_diff]
           >> qspecl_then [‘((thy.ctys, thy.ctms), thy.axs ∪ es1)’,
                           ‘((thy.ctys, thy.ctms), thy.axs ∪ es2)’,
                           ‘h2’, ‘c’, ‘c'’]
                          assume_tac axioms_eliminable
           >> gvs[]))
-  >- (gvs[drop_thy] >> drule esubsts_ok_weakening >> rw[] >> gvs[sigof'_def]
-      >> drule proves_theory_ok >> rw[]
-      >> drule_all proves_substitutable >> rw[] >> gvs[EVERY_MEM]
-      >> drule_all esubst_axs_fixed >> rw[] >> gvs[])
+  >- (gvs[drop_thy] >> drule proves_theory_ok >> drule esubsts_ok'_esubsts_ok >> rw[] 
+      >> drule_all proves_substitutable >> rw[esubst_thy_def, esubst_sig_def, ctms_def, ctys_def, o_f_FUNION]
+      >> gvs[ty_esubst_o_f_thy_tms] >> imp_res_tac proves_theory_ok >> irule axiom_weakening
+      >> first_x_assum $ irule_at Any >> gvs[theory_ok'_def] >> rw[SUBSET_DEF, DISJ_IMP_THM]
+      >> cheat)
   >- (irule proves_axioms >> rw[]
       >- (irule theory_ok_drop_thy_alt >> gvs[theory_ok'_def])
       >> rw[drop_thy])
 QED
-*)
+
 
 val _ = export_theory();
+

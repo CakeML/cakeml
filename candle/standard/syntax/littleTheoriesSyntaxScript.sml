@@ -186,7 +186,6 @@ Definition esubst_thy_def:
   esubst_thy σ thy =
   thy with <| tms  := thy.tms ⊌ (ty_esubst σ o_f thy.etms);
               axs  := IMAGE (esubst σ []) (thy.axs ∪ thy.eaxs);
-              etys := FEMPTY;
               etms := FEMPTY;
               eaxs := {} |>
 End
@@ -289,6 +288,22 @@ Definition esubsts_ok_def:
     DISJOINT (FDOM σ) (BIGUNION (IMAGE nullary_ops_of (FRANGE σ)))
 End
 
+Definition esubsts_ok'_def:
+  esubsts_ok' (thy:ethy) (σ, θ) ⇔
+    strlit "=" ∉ FDOM θ ∧
+    strlit "bool" ∉ FDOM σ ∧
+    (∀tmnm. tmnm ∈ FDOM θ ⇒
+            ∃ty. FLOOKUP thy.etms tmnm = SOME ty ∧
+                 is_monomorphic ty ∧
+                 typeof (θ ' tmnm) = ty_esubst (σ, θ) ty) ∧
+    (FDOM σ ⊆ FDOM thy.etys) ∧ 
+    (∀ty. ty ∈ FRANGE σ ⇒ type_ok thy.ctys ty ∧
+                          is_monomorphic ty) ∧
+    (∀tm. tm ∈ FRANGE θ ⇒ term_ok' (esubst_thy (σ,θ) thy) tm ∧
+                          ∃n ty. tm = Const n ty ∧ is_monomorphic ty) ∧
+    DISJOINT (FDOM σ) (BIGUNION (IMAGE nullary_ops_of (FRANGE σ)))
+End
+
 (* Standard signature includes the minimal type operators and constants *)
 Theorem esubst_sig_is_std_sig:
   esubsts_ok sig σ ∧ is_std_sig sig ⇒ is_std_sig (esubst_sig σ sig)
@@ -305,12 +320,6 @@ Definition nullary_ops_of_tm_def:
   (nullary_ops_of_tm (Const x ty) = {nullary_ops_of ty}) ∧
   (nullary_ops_of_tm (Comb e1 e2) = nullary_ops_of_tm e1 ∪ nullary_ops_of_tm e2) ∧
   (nullary_ops_of_tm (Abs v body) = nullary_ops_of_tm v ∪ nullary_ops_of_tm body)
-End
-        
-Definition safe_sequent_esubst:
-  safe_sequent_esubst σ c hs ⇔
-    (DISJOINT (FDOM σ) (nullary_ops_of_tm c)) ∧
-    (∀h. MEM h hs ⇒ DISJOINT (FDOM σ) (nullary_ops_of_tm h))
 End
 
 Definition esubsts_total_def:
@@ -379,8 +388,8 @@ Inductive proves':
 [~elim_inst:]
   ((thy, es, h) |-' c ∧
    theory_ok' thy ∧
-   esubsts_ok (thy.ctys, thy.ctms) σ
-   ⇒ (thy, IMAGE (esubst σ []) es, term_image (esubst σ []) h) |-'
+   esubsts_ok' thy σ
+   ⇒ (esubst_thy σ thy, IMAGE (esubst σ []) es, term_image (esubst σ []) h) |-'
      esubst σ (FLAT (MAP tm_names h)) c)
 
 [~elim_axioms:]
@@ -588,7 +597,7 @@ Overload tysof = ``λctxt. alist_to_fmap (type_list ctxt)``
 Overload const_list = ``λctxt. FLAT (MAP consts_of_upd' ctxt)``
 Overload tmsof = ``λctxt. alist_to_fmap (const_list ctxt)``
 
-  (* Axioms: we divide them into axiomatic extensions and conservative
+(* Axioms: we divide them into axiomatic extensions and conservative
      extensions, we will prove that the latter preserve consistency *)
 Definition axexts_of_upd'_def:
   axexts_of_upd' (NewAxiom prop) = [prop] ∧
