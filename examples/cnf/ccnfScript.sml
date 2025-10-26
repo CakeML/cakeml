@@ -3,7 +3,7 @@
 *)
 Theory ccnf
 Ancestors
-  cnf
+  cnf mlvector
 Libs
   preamble
 
@@ -11,9 +11,14 @@ Libs
   In the standard formats, the special case of 0:num is ignored. *)
 
 (* Each literal is represented as an integer in a list.
-  The formula is still represented as a set. *)
+  The formula is still represented as a set.
+
+  We'll first verify the algorithms on list, then transfer them to
+  vectors (which we'll actually use).
+*)
 Type ilit = ``:int``;
 Type cclause = ``:ilit list``;
+Type vcclause = ``:ilit vector``;
 Type cfml = ``:cclause set``;
 
 Definition satisfies_ilit_def:
@@ -28,8 +33,18 @@ Definition satisfies_cclause_def:
     ∃i. MEM i ls ∧ satisfies_ilit w i
 End
 
+Definition satisfies_vcclause_def:
+  satisfies_vcclause w =
+    satisfies_cclause w o toList
+End
+
 Definition satisfies_cfml_def:
   satisfies_cfml = satisfies_fml_gen satisfies_cclause
+End
+
+Definition satisfies_vcfml_def:
+  satisfies_vcfml w =
+  satisfies_cfml w o IMAGE toList
 End
 
 Theorem satsifies_cclause_SUBSET:
@@ -47,6 +62,13 @@ Theorem satisfies_cclause_CONS:
 Proof
   rw[satisfies_cclause_def]>>
   metis_tac[]
+QED
+
+Theorem satisfies_cclause_REVERSE:
+  satisfies_cclause w (REVERSE cs) ⇔
+  satisfies_cclause w cs
+Proof
+  rw[satisfies_cclause_def]
 QED
 
 Theorem satisfies_ilit_negate:
@@ -91,6 +113,9 @@ Proof
   metis_tac[satisfies_ilit_to_ilit]
 QED
 
+(* As a general pattern, we will traverse
+  clauses from back-to-front to ease the related
+  vector index computations*)
 Definition all_assigned_def:
   (all_assigned dm [] = T) ∧
   (all_assigned dm (c::cs) =
@@ -104,6 +129,42 @@ Definition all_assigned_def:
         SOME T => all_assigned dm cs
       | _ => F)
 End
+
+Definition all_assigned_vec_def:
+  (all_assigned_vec dm v (i:num) =
+  if i = 0 then T
+  else
+    let i1 = i - 1 in
+    let c = sub v i1 in
+    if c < 0
+    then
+      case FLOOKUP dm (Num (-c)) of
+        SOME F => all_assigned_vec dm v i1
+      | _ => F
+    else
+      case FLOOKUP dm (Num c) of
+        SOME T => all_assigned_vec dm v i1
+      | _ => F
+  )
+End
+
+Theorem all_assigned_vec:
+  ∀dm v i ds.
+  v = Vector ds ∧ i ≤ LENGTH ds ⇒
+  all_assigned_vec dm v i =
+  all_assigned dm (REVERSE (TAKE i ds))
+Proof
+  ho_match_mp_tac all_assigned_vec_ind>>rw[]>>
+  simp[Once all_assigned_vec_def]>>
+  Cases_on`i`
+  >- simp[all_assigned_def]>>
+  gvs[ADD1]>>
+  DEP_REWRITE_TAC[TAKE_EL_SNOC]>>
+  fs[REVERSE_SNOC,all_assigned_def,sub_def]>>
+  rw[]>>gvs[]>>
+  every_case_tac>>gvs[]>>
+  metis_tac[]
+QED
 
 (*
   Part of the optimization for RUP,
@@ -133,17 +194,119 @@ Definition delete_literals_sing_def:
     | _ => NONE)
 End
 
+Definition delete_literals_sing_vec_def:
+  (delete_literals_sing_vec dm v i =
+  if i = 0 then SOME NONE
+  else
+    let i1 = i - 1 in
+    let c = sub v i1 in
+    if c < 0
+    then
+      (let nc = Num (-c) in
+      case FLOOKUP dm nc of
+        NONE =>
+          if all_assigned_vec dm v i1
+          then SOME (SOME (dm |+ (nc,T)))
+          else NONE
+      | SOME F => delete_literals_sing_vec dm v i1
+      | _ => NONE)
+    else
+      let nc = Num c in
+      case FLOOKUP dm nc of
+        NONE =>
+          if all_assigned_vec dm v i1
+          then SOME (SOME (dm |+ (nc,F)))
+          else NONE
+      | SOME T => delete_literals_sing_vec dm v i1
+      | _ => NONE)
+End
+
+Theorem delete_literals_sing_vec':
+  ∀dm v i ds.
+  v = Vector ds ∧ i ≤ LENGTH ds ⇒
+  delete_literals_sing_vec dm v i =
+  delete_literals_sing dm (REVERSE (TAKE i ds))
+Proof
+  ho_match_mp_tac delete_literals_sing_vec_ind>>rw[]>>
+  simp[Once delete_literals_sing_vec_def]>>
+  Cases_on`i`
+  >- simp[Once delete_literals_sing_def]>>
+  gvs[ADD1]>>
+  DEP_REWRITE_TAC[TAKE_EL_SNOC]>>
+  fs[REVERSE_SNOC,delete_literals_sing_def,sub_def]>>
+  IF_CASES_TAC>>gvs[]>>
+  DEP_REWRITE_TAC[all_assigned_vec]>>simp[]>>
+  every_case_tac>>gvs[]
+QED
+
+Theorem delete_literals_sing_vec:
+  i ≤ LENGTH ds ⇒
+  delete_literals_sing_vec dm (Vector ds) i =
+  delete_literals_sing dm (REVERSE (TAKE i ds))
+Proof
+  metis_tac[delete_literals_sing_vec']
+QED
+
 Definition is_rup_def:
   (is_rup fml dm [] = SOME (SOME dm)) ∧
   (is_rup fml dm (i::is) =
   case lookup i fml of
     NONE => NONE
   | SOME c =>
-  case delete_literals_sing dm c of
+  case delete_literals_sing dm (REVERSE c) of
     NONE => NONE
   | SOME NONE => SOME NONE
   | SOME (SOME dm') => is_rup fml dm' is)
 End
+
+Definition is_rup_vec_def:
+  (is_rup_vec fml dm [] = SOME (SOME dm)) ∧
+  (is_rup_vec fml dm (i::is) =
+  case lookup i fml of
+    NONE => NONE
+  | SOME c =>
+  case delete_literals_sing_vec dm c (length c) of
+    NONE => NONE
+  | SOME NONE => SOME NONE
+  | SOME (SOME dm') => is_rup_vec fml dm' is)
+End
+
+Theorem is_rup_vec:
+  ∀is dm.
+  is_rup_vec (map Vector fml) dm is =
+  is_rup fml dm is
+Proof
+  Induct>>rw[is_rup_vec_def,is_rup_def]>>
+  simp[lookup_map]>>
+  rename1`lookup h fml`>>
+  Cases_on`lookup h fml`>>
+  simp[]>>
+  DEP_REWRITE_TAC[delete_literals_sing_vec]>>
+  simp[length_def]
+QED
+
+Theorem map_I:
+  ∀t.
+  sptree$map I t = t
+Proof
+  Induct>>rw[map_def]
+QED
+
+Theorem is_rup_vec':
+  is_rup (map toList fml) dm is =
+  is_rup_vec fml dm is
+Proof
+  rw[GSYM is_rup_vec]>>
+  AP_THM_TAC>>
+  AP_THM_TAC>>
+  AP_TERM_TAC>>
+  rw[map_map_o,o_DEF]>>
+  qmatch_goalsub_abbrev_tac`map f _`>>
+  `f = I` by (
+    simp[Abbr`f`,FUN_EQ_THM]>>
+    Cases>>rw[mlvectorTheory.toList_thm])>>
+  simp[map_I]
+QED
 
 Definition lit_map_def:
   lit_map d dm ⇔
@@ -298,7 +461,7 @@ Proof
   drule_all satisfies_fml_gen_lookup>>
   strip_tac
   >-
-    metis_tac[delete_literals_sing_SOME_NONE]>>
+    metis_tac[delete_literals_sing_SOME_NONE,satisfies_cclause_REVERSE]>>
   drule_all delete_literals_sing_SOME_SOME>>
   strip_tac>>
   first_x_assum $ drule_at Any>>
@@ -352,6 +515,16 @@ Definition init_lit_map_def:
     init_lit_map ds (dm |+ (Num (ABS d), d > 0)))
 End
 
+Definition init_lit_map_vec_def:
+  (init_lit_map_vec i v dm =
+  if i = 0
+  then dm
+  else
+    let i1 = i - 1 in
+    let d = sub v i1 in
+    init_lit_map_vec i1 v (dm |+ (Num (ABS d), d > 0)))
+End
+
 Theorem init_lit_map_lit_map:
   ∀cs d dm dm'.
   lit_map d dm ∧
@@ -365,5 +538,50 @@ Proof
   first_x_assum irule>>
   irule lit_map_snoc>>
   simp[]
+QED
+
+Theorem range_map:
+  misc$range (map f fml) =
+  IMAGE f (range fml)
+Proof
+  rw[miscTheory.range_def,EXTENSION,lookup_map]>>
+  metis_tac[]
+QED
+
+Theorem is_rup_vec_SOME_NONE:
+  lit_map (toList d) dm ∧
+  is_rup_vec fml dm is = SOME NONE ∧
+  satisfies_vcfml w (range fml) ⇒
+  satisfies_vcclause w d
+Proof
+  rw[]>>
+  gvs[satisfies_vcfml_def,satisfies_vcclause_def]>>
+  drule is_rup_SOME_NONE>>
+  fs[GSYM range_map]>>
+  disch_then $ drule_at Any>>
+  simp[is_rup_vec']>>
+  disch_then $ drule_at Any>>
+  simp[]
+QED
+
+Theorem is_rup_vec_SOME_SOME:
+  lit_map (toList d) dm ∧
+  is_rup_vec fml dm is = SOME (SOME dm') ∧
+  satisfies_vcfml w (range fml) ∧
+  ¬ satisfies_vcclause w d ⇒
+  ∃d'.
+  lit_map (toList d') dm' ∧
+  ¬ satisfies_vcclause w d'
+Proof
+  rw[]>>
+  gvs[satisfies_vcfml_def,satisfies_vcclause_def]>>
+  drule is_rup_SOME_SOME>>
+  fs[GSYM range_map]>>
+  disch_then $ drule_at Any>>
+  disch_then $ drule_at Any>>
+  simp[is_rup_vec']>>
+  disch_then $ drule_at Any>>
+  rw[]>>
+  metis_tac[toList_thm]
 QED
 
