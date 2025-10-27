@@ -216,15 +216,57 @@ Definition not_branch_ret_def:
   (not_branch_ret _ = T)
 End
 
-(*
+Datatype:
+  early_exit = Ret | Loop_exit
+End
+
 Definition unreach_elim_def:
-  (unreach_elim (Seq p1 p2) = 
-    if (has_return p1) then p2 else (Seq p1 p2) 
+  (unreach_elim (Return e) = (Return e, SOME Ret)) ∧
+  (*(unreach_elim (Raise eid) = (Raise eid, SOME Ret)) ∧*)
+  (unreach_elim Break = (Break, SOME Loop_exit)) ∧
+  (unreach_elim Continue = (Continue, SOME Loop_exit)) ∧
+  (unreach_elim (Seq p1 p2) =
+    let (p1', r1) = unreach_elim p1 in
+    (if (r1 ≠ NONE) then (p1', r1) else
+        let (p2', r2) = unreach_elim p2 in (Seq p1' p2', r2)
+    )
   ) ∧
-  (unreach_elim (Dec v e p) = Dec v e (unreach_elim p)) ∧
-  (unreach_elim (If e p1 p2) = If e (unreach_elim p1) (unreach_elim p2)) ∧
-  (unreach_elim (While e p) = While e (unreach_elim p)) ∧
-*)
+  (unreach_elim (Dec v e p) =
+    let (p', r) = unreach_elim p in (Dec v e p', r)) ∧
+  (unreach_elim (If e p1 p2) =
+    let (p1', r1) = unreach_elim p1;
+        (p2', r2) = unreach_elim p2;
+        r3 = (case (r1, r2) of
+               | (SOME Ret, e) => e
+               | (e, SOME Ret) => e
+               | (SOME Loop_exit, e) => e
+               | (e, SOME Loop_exit) => e
+               | (NONE, NONE) => NONE
+             ) in
+        (If e p1' p2', r3)) ∧
+  (unreach_elim (While e p) =
+    let (p', r) = unreach_elim p in (While e p', NONE)
+  ) ∧
+  (unreach_elim (Call ctyp e args) =
+    (case ctyp of
+      | NONE => (Call NONE e args, SOME Ret)
+      | SOME(rt, p, NONE) =>
+          let (p', r) = unreach_elim p in (Call (SOME(rt, p', NONE)) e args, r)
+      | SOME(rt, p, SOME(w, hdl)) =>
+          let (p', rp) = unreach_elim p;
+              (hdl', rhdl) = unreach_elim hdl;
+              asgn_r = (case (rp, rhdl) of
+                         | (SOME Ret, e) => e
+                         | (e, SOME Ret) => e
+                         | (SOME Loop_exit, e) => e
+                         | (e, SOME Loop_exit) => e
+                         | (NONE, NONE) => NONE
+                       ) in
+            (Call (SOME(rt, p', SOME(w, hdl'))) e args, asgn_r)
+    )
+  ) ∧
+  (unreach_elim p = (p, NONE))
+End
 
 Definition standalone_eoc_def:
   (standalone_eoc (Return e) = Skip) ∧
@@ -247,7 +289,7 @@ Definition transform_assign_eoc_def:
   transform_assign_eoc rt ret_max p q =
     Seq
        (Dec ret_max (Const 0w)
-           (Seq  
+           (Seq
                (Seq Tick p)
                (Assign rt (Var ret_max))
            )
@@ -266,6 +308,7 @@ Definition inline_prog_def:
     (case FLOOKUP inlineable_fs e of
        | NONE => Call ctyp_inl e args
        | SOME (args_vname, p) =>
+          if (LENGTH args ≠ LENGTH args_vname) then (Call ctyp e args) else
           let n_inlineable_fs = inlineable_fs \\ e in
           let inlined_callee = inline_prog n_inlineable_fs p in
 
@@ -279,7 +322,7 @@ Definition inline_prog_def:
                    | NONE =>
                      (if not_branch_ret inlined_callee then
                          (case ret_var of
-                           | NONE => transform_standalone_eoc (arg_load tmp_vars args args_vname 
+                           | NONE => transform_standalone_eoc (arg_load tmp_vars args args_vname
                                                                         (transform_rec standalone_eoc inlined_callee)) q
                            | SOME rt =>
                              let ret_max = MAX_LIST [vmax_prog inlined_callee; MAX_LIST tmp_vars; MAX_LIST args_vname; MAX_LIST (FLAT (MAP var_cexp args))] in

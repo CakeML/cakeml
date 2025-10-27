@@ -3337,3 +3337,374 @@ Proof
   disch_tac >> fs[every_exp_def] >>
   last_x_assum imp_res_tac >> fs[]
 QED
+
+
+Theorem unreach_elim_not_none_evaluate:
+  ∀p s r s' p1 e.
+    unreach_elim p = (p1, SOME e) ∧
+    evaluate (p, s) = (r, s') ⇒
+    ∃e. r = SOME e
+Proof
+  recInduct evaluate_ind >> rpt strip_tac >> fs[unreach_elim_def]
+  >~ [`evaluate (While _ _, _)`]
+  >- (
+    pop_assum mp_tac >>
+    simp[Once evaluate_def] >>
+    disch_tac >> gvs[CaseEq "option", CaseEq "word_lab"] >>
+    rpt (pairarg_tac >> gs[])
+  )
+  >~ [`evaluate (Dec _ _ _, _)`]
+  >- (
+    pairarg_tac >> gvs[evaluate_def, CaseEq "option"] >>
+    pairarg_tac >> fs[]
+ )
+  >~ [`evaluate (If _ _ _, _)`]
+  >- (
+    rpt (pairarg_tac >> gvs[CaseEq "option", CaseEq "early_exit", CaseEq "word_lab", CaseEq "bool", evaluate_def]) >>
+    Cases_on `w ≠ 0w` >> gvs[]
+  )
+  >~ [`evaluate (Seq _ _, _)`]
+  >- (
+    rpt (pairarg_tac >> gvs[evaluate_def]) >>
+    Cases_on `res = NONE` >> gvs[] >>
+    Cases_on `r1 = NONE` >> gvs[] >>
+    Cases_on `r` >> fs[]
+  )
+  >~ [`evaluate (Call _ _ _, _)`]
+  >- (
+    gvs[evaluate_def, CaseEq "option", CaseEq "word_lab", CaseEq "prod", lookup_code_def, CaseEq "bool", CaseEq "result"] >>
+    rpt (pairarg_tac >> gvs[CaseEq "early_exit", CaseEq "option"])
+  ) >>
+  gvs[evaluate_def, CaseEq "option"]
+QED
+
+Theorem unreach_elim_correct:
+  ∀p s r s' p1 s1.
+    evaluate (p, s) = (r, s') ∧
+    r ≠ SOME Error ∧
+    unreach_elim p = (p1, s1) ==>
+    evaluate (p1, s) = (r, s')
+Proof
+  recInduct evaluate_ind >> rpt strip_tac
+  >~ [`evaluate (While _ _, _)`]
+  >- (
+    fs[unreach_elim_def] >>
+    pairarg_tac >> gvs[] >>
+    qpat_x_assum `evaluate _ = _` mp_tac >>
+    PURE_ONCE_REWRITE_TAC[evaluate_def] >>
+    disch_tac >>
+    gvs[CaseEq "option", CaseEq "word_lab", CaseEq "early_exit"] >>
+    Cases_on `w = 0w` >> fs[] >>
+    Cases_on `s.clock = 0` >> fs[] >>
+    rpt (pairarg_tac >> fs[]) >>
+    Cases_on `res'` >> TRY (Cases_on `x`) >> gvs[]
+  )
+  >~ [`evaluate (Seq _ _, _)`]
+  >- (
+    fs[unreach_elim_def, evaluate_def] >>
+    rpt (pairarg_tac >> gvs[]) >>
+    Cases_on `res = NONE` >> gvs[] >>
+    Cases_on `r1` >> gvs[evaluate_def] >>
+    imp_res_tac unreach_elim_not_none_evaluate >> gs[]
+  )
+  >~ [`evaluate (Dec _ _ _, _)`]
+  >- (
+    fs[unreach_elim_def, evaluate_def] >>
+    rpt (pairarg_tac >> gvs[CaseEq "option", CaseEq "word_lab", evaluate_def])
+  )
+  >~ [`evaluate (If _ _ _, _)`]
+  >- (
+    fs[unreach_elim_def, evaluate_def] >>
+    rpt (pairarg_tac >> gvs[CaseEq "option", CaseEq "word_lab"]) >>
+    Cases_on `w = 0w` >> gvs[evaluate_def]
+  )
+  >~ [`evaluate (Call _ _ _, _)`]
+  >- (
+    pop_assum mp_tac >>
+    simp[unreach_elim_def] >>
+    qpat_x_assum `evaluate _ = _` mp_tac >>
+    simp[evaluate_def, CaseEq "option", CaseEq "word_lab", CaseEq "prod", lookup_code_def] >>
+    ntac 2 (disch_tac >> fs[]) >>
+    fs[lookup_code_def] >> gvs[]
+    >- fs[evaluate_def, lookup_code_def]
+    >- (
+      pairarg_tac >> gvs[evaluate_def, lookup_code_def] >>
+      Cases_on `s.clock = 0` >> gvs[CaseEq "prod", CaseEq "option", CaseEq "result"]
+    ) >>
+    rpt (pairarg_tac >> gvs[evaluate_def, lookup_code_def]) >>
+    Cases_on `s.clock = 0` >> gvs[CaseEq "prod", CaseEq "option", CaseEq "result"] >>
+    Cases_on `eid = w` >> fs[]
+  ) >>
+  gvs[unreach_elim_def]
+QED
+
+Theorem unreach_elim_converge:
+  ∀p q r.
+    unreach_elim p = (q, r) ⇒
+    unreach_elim q = (q, r)
+Proof
+  recInduct unreach_elim_ind >> gvs[unreach_elim_def] >> rw[]
+  >- ( (* Seq *)
+    rpt (pairarg_tac >> gvs[]) >>
+    Cases_on `r1 = NONE` >> gvs[unreach_elim_def]
+  )
+  >- (
+    pairarg_tac >> gvs[unreach_elim_def]
+  )
+  >- (
+    rpt (pairarg_tac >> gvs[unreach_elim_def])
+  )
+  >- (
+    pairarg_tac >> gvs[unreach_elim_def]
+  ) >>
+  gvs[CaseEq "option", CaseEq "prod"]
+  >- fs[unreach_elim_def] >>
+  rpt (pairarg_tac >> gvs[unreach_elim_def])
+QED
+
+Theorem unreach_elim_fix_point:
+  ∀q r.
+    (∃p. unreach_elim p = (q, r)) ⇔
+    unreach_elim q = (q, r)
+Proof
+  rpt gen_tac >> eq_tac >>
+  rpt strip_tac >> fs[]
+  >- imp_res_tac unreach_elim_converge >>
+  qrefine `q` >> fs[]
+QED
+
+Theorem unreach_elim_nested_decs:
+  ∀vs es p r.
+    LENGTH vs = LENGTH es ∧
+    unreach_elim p = (p, r) ⇒
+    unreach_elim (nested_decs vs es p) = (nested_decs vs es p, r)
+Proof
+  Induct_on `vs` >> Cases_on `es` >> rw[nested_decs_def, unreach_elim_def] >>
+  pairarg_tac >> gvs[unreach_elim_def] >>
+  last_x_assum $ qspec_then `t` assume_tac >> fs[] >>
+  pop_assum imp_res_tac >> gvs[]
+QED
+
+Theorem unreach_elim_arg_load:
+  ∀p tmp_vars args args_vname r.
+    LENGTH tmp_vars = LENGTH args ∧
+    LENGTH args = LENGTH args_vname ∧
+    unreach_elim p = (p, r) ⇒
+    unreach_elim (arg_load tmp_vars args args_vname p) = (arg_load tmp_vars args args_vname p, r)
+Proof
+  rpt strip_tac >> fs[arg_load_def] >>
+  rpt (irule unreach_elim_nested_decs >> fs[])
+QED
+
+Theorem unreach_elim_arg_load_perm:
+  ∀p tmp_vars args args_vname r.
+    LENGTH tmp_vars = LENGTH args_vname ∧
+    LENGTH args = LENGTH args_vname ∧
+    unreach_elim p = (p, r) ⇒
+    unreach_elim (arg_load tmp_vars args args_vname p) = (arg_load tmp_vars args args_vname p, r)
+Proof
+  metis_tac[unreach_elim_arg_load]
+QED
+
+Theorem unreach_elim_prog_size:
+  ∀p q r f.
+    unreach_elim p = (q, r) ⇒
+    prog_size f q ≤ prog_size f p
+Proof
+  recInduct unreach_elim_ind >> rpt strip_tac >> gvs[unreach_elim_def, prog_size_def] >>
+  rpt (pairarg_tac >> gvs[])
+  >- (
+    Cases_on `r1 = NONE` >> gvs[]
+    >- (
+      rpt (last_x_assum $ qspec_then `f` assume_tac) >>
+      fs[]
+    ) >>
+    last_x_assum $ qspec_then `f` assume_tac >> fs[]
+  )
+  >- (
+    rpt (last_x_assum $ qspec_then `f` assume_tac) >> fs[]
+  ) >>
+  Cases_on `ctyp` >> gvs[prog_size_def] >>
+  PairCases_on `x` >> fs[] >>
+  Cases_on `x2` >> gvs[]
+  >- (
+    pairarg_tac >> gvs[prog_size_def]
+  ) >>
+  PairCases_on `x` >> fs[] >>
+  rpt (pairarg_tac >> gvs[prog_size_def]) >>
+  rpt (last_x_assum $ qspec_then `f` assume_tac) >> fs[]
+QED
+
+Theorem unreach_elim_transform_rec_standalone:
+  ∀f p res.
+    unreach_elim p = (p, res) ∧
+    f = standalone_eoc ==>
+    ∃r. unreach_elim (transform_rec f p) = (transform_rec f p, r) ∧
+        case res of
+          | NONE => r = NONE
+          | SOME Ret => r = NONE
+          | _ => T
+Proof
+  recInduct transform_rec_ind >> rw[transform_rec_def, unreach_elim_def, standalone_eoc_def] >>
+  rpt (pairarg_tac >> gvs[])
+  >- (
+    Cases_on `r1' ≠ NONE` >> gvs[] >>
+    imp_res_tac unreach_elim_prog_size >> fs[prog_size_def]
+  )
+  >- every_case_tac >>
+  Cases_on `ctyp` >> fs[unreach_elim_def] >>
+  PairCases_on `x` >> fs[] >>
+  Cases_on `x2` >> fs[unreach_elim_def]
+  >- rpt (pairarg_tac >> gvs[]) >>
+  PairCases_on `x` >> fs[unreach_elim_def] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  every_case_tac
+QED
+
+Theorem unreach_elim_transform_rec_assign:
+  ∀f p res rt.
+    unreach_elim p = (p, res) ∧
+    f = assign_eoc rt ==>
+    ∃r. unreach_elim (transform_rec f p) = (transform_rec f p, r) ∧
+        case res of
+          | NONE => r = NONE
+          | SOME Ret => r = NONE
+          | _ => T
+Proof
+  recInduct transform_rec_ind >> rw[transform_rec_def, unreach_elim_def, assign_eoc_def] >>
+  rpt (pairarg_tac >> gvs[])
+  >- (last_x_assum $ qspec_then `rt` assume_tac >> gvs[])
+  >- (
+    Cases_on `r1' ≠ NONE` >> gvs[]
+    >- (imp_res_tac unreach_elim_prog_size >> fs[prog_size_def]) >>
+    rpt (last_x_assum $ qspec_then `rt` assume_tac >> gvs[])
+  )
+  >- (
+    rpt (last_x_assum $ qspec_then `rt` assume_tac >> gvs[]) >>
+    every_case_tac
+  ) >>
+  Cases_on `ctyp` >> fs[unreach_elim_def] >>
+  PairCases_on `x` >> fs[] >>
+  Cases_on `x2` >> fs[unreach_elim_def]
+  >- (rpt (pairarg_tac >> gvs[]) >> last_x_assum $ qspec_then `rt` assume_tac >> gvs[]) >>
+  PairCases_on `x` >> fs[unreach_elim_def] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  rpt (last_x_assum $ qspec_then `rt` assume_tac >> gvs[]) >>
+  every_case_tac
+QED
+
+Theorem unreach_elim_transform_rec_standalone_simp:
+  ∀p res.
+    unreach_elim p = (p, res) ⇒
+    ∃r. unreach_elim (transform_rec standalone_eoc p) = (transform_rec standalone_eoc p, r) ∧
+        case res of
+          | NONE => r = NONE
+          | SOME Ret => r = NONE
+          | _ => T
+Proof
+  fs[unreach_elim_transform_rec_standalone] 
+QED
+
+Theorem unreach_elim_transform_rec_assign_simp:
+  ∀p res rt.
+    unreach_elim p = (p, res) ⇒
+    ∃r. unreach_elim (transform_rec (assign_eoc rt) p) = (transform_rec (assign_eoc rt) p, r) ∧
+        case res of
+          | NONE => r = NONE
+          | SOME Ret => r = NONE
+          | _ => T
+Proof
+  metis_tac[unreach_elim_transform_rec_assign]
+QED
+
+Theorem unreach_elim_inline:
+  ∀inl_fs p res inl_bag.
+    unreach_elim p = (p, res) ∧
+    inl_bag SUBMAP inl_fs ∧
+    res ≠ SOME Loop_exit ∧
+    (∀fname ns prog.
+      FLOOKUP inl_fs fname = SOME (ns, prog) ==>
+      (∃r. unreach_elim prog = (prog, r)))
+    ⇒
+      ∃r. unreach_elim (inline_prog inl_bag p) = (inline_prog inl_bag p, r)
+Proof
+  recInduct inline_prog_ind >> rw[inline_prog_def, unreach_elim_def]
+  >- ( (* Call *)
+    Cases_on `FLOOKUP inl_bag e` >> fs[]
+    >- (
+      Cases_on `ctyp` >> fs[unreach_elim_def] >>
+      PairCases_on `x` >> fs[] >>
+      Cases_on `x2` >> fs[]
+      >- (
+        rpt (pairarg_tac >> gvs[]) >>
+        first_x_assum drule >> impl_tac >- fs[] >>
+        disch_tac >> gvs[]
+      ) >>
+      Cases_on `x` >> fs[] >>
+      rpt (pairarg_tac >> gvs[]) >>
+      gvs[CaseEq "option", CaseEq "early_exit"] >>
+      rpt (first_x_assum drule >> impl_tac >- fs[] >> disch_tac >> gvs[])
+    ) >>
+    Cases_on `x` >> fs[] >>
+    qabbrev_tac `tmp_vars = GENLIST (λx. MAX_LIST q  + (MAX_LIST (FLAT (MAP var_cexp args)) + SUC x)) (LENGTH q)` >> 
+    Cases_on `LENGTH args ≠ LENGTH q` >> fs[]
+    >- (
+      gvs[unreach_elim_def]
+    ) >> 
+    `LENGTH tmp_vars = LENGTH args` by gs[Abbr `tmp_vars`, LENGTH_GENLIST] >>
+    Cases_on `ctyp` >> fs[]
+    >- (
+      gvs[inline_tail_def, unreach_elim_def] >>
+      pairarg_tac >> gvs[] >>
+      qpat_assum `inl_bag SUBMAP _` $ drule o SRULE [SUBMAP_FLOOKUP_EQN] >>
+      disch_tac >> fs[] >>
+      qpat_assum `!_ _ _. _` imp_res_tac >> fs[] >>
+      last_x_assum $ qspec_then `inl_bag \\ e` mp_tac >> impl_tac
+      >- (
+        conj_tac 
+        >- (imp_res_tac SUBMAP_IMP_DOMSUB_SUBMAP >> fs[]) >>
+        rpt strip_tac >>
+        subgoal `inlineable_fs \\ e SUBMAP inlineable_fs`
+        >- fs[SUBMAP_DOMSUB] >>
+        pop_assum $ assume_tac o PURE_REWRITE_RULE [SUBMAP_FLOOKUP_EQN] >>
+        pop_assum drule >>
+        disch_tac >> res_tac >> fs[]
+      ) >>
+      disch_tac >> fs[] >>
+      drule_all unreach_elim_arg_load_perm >>
+      disch_tac >> gvs[]
+    ) >>
+    PairCases_on `x` >> fs[] >>
+    Cases_on `x2` >> fs[] >>
+    Cases_on `not_branch_ret (inline_prog (inl_bag \\ e) r')` >> fs[]
+    >- (
+      Cases_on `x0` >> fs[]
+      >- (
+        pairarg_tac >> gvs[transform_standalone_eoc_def, unreach_elim_def] >>
+        rpt (pairarg_tac >> gvs[]) >>
+        first_x_assum drule >> impl_tac >- fs[] >> gvs[] >>
+        disch_tac >> gvs[] >>
+        qpat_assum `_ SUBMAP _` $ drule o SRULE [SUBMAP_FLOOKUP_EQN] >>
+        disch_tac >> qpat_assum `!_ _ _. _` imp_res_tac >> fs[] >>
+        last_x_assum $ qspec_then `inl_bag \\ e` mp_tac >> impl_tac
+        >- (
+          conj_tac
+          >- (imp_res_tac SUBMAP_IMP_DOMSUB_SUBMAP >> fs[]) >>
+          rpt strip_tac >>
+          subgoal `inlineable_fs \\ e SUBMAP inlineable_fs`
+          >- fs[SUBMAP_DOMSUB] >>
+          pop_assum $ assume_tac o PURE_REWRITE_RULE [SUBMAP_FLOOKUP_EQN] >>
+          pop_assum drule >>
+          disch_tac >> res_tac >> fs[]
+        ) >>
+        disch_tac >> fs[] >>
+        drule unreach_elim_transform_rec_standalone_simp >>
+        disch_tac >> fs[] >>
+        drule_all unreach_elim_arg_load_perm >>
+        disch_tac >> gvs[] >>
+        Cases_on `r'''' ≠ NONE` >> gvs[] >>
+        
+      ) 
+    )
+  )
+QED
