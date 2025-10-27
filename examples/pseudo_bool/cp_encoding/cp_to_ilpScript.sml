@@ -1588,7 +1588,8 @@ End
 Theorem pair_predicate:
   (∀p1 p2. p = (p1,p2) ⇒ R p1 p2) ⇔ R (FST p) (SND p)
 Proof
-  cheat
+  PairCases_on ‘p’>>
+  simp[]
 QED
 
 Theorem encode_properindex_sem:
@@ -1624,6 +1625,12 @@ Definition encode_element2d_vv_def:
     else [([],[],1)]
 End
 
+Triviality fun_predicate:
+  (∀y. (∃x. y = f x ∧ P x) ⇒ Q y) = ∀x. P x ⇒ Q $ f x
+Proof
+  metis_tac[]
+QED
+
 Triviality EVERY_enumerate2d:
   0 < LENGTH Tss ∧ EVERY (λTs. LENGTH Ts = LENGTH (HD Tss)) Tss ⇒
   EVERY (λp. EVERY (λq. R (FST p) q) (SND p))
@@ -1631,7 +1638,10 @@ Triviality EVERY_enumerate2d:
   ∀i j. i < LENGTH Tss ∧ j < LENGTH (HD Tss) ⇒
     R i (j, EL j $ EL i Tss))
 Proof
-  cheat
+  strip_tac>>
+  simp[EVERY_MEM,MEM_enumerate_iff,fun_predicate,EL_MAP]>>
+  fs[EVERY_EL]>>
+  metis_tac[]
 QED
 
 Triviality varc_INL:
@@ -1731,9 +1741,6 @@ Definition encode_cp_one_def:
   | Table Xs Yss => encode_table bnd Xs Yss
 End
 
-(*
-to resolve cheat in the proof for:
-*)
 Theorem encode_cp_one_sem_1:
   valid_assignment bnd wi ∧
   constraint_sem c wi ⇒
