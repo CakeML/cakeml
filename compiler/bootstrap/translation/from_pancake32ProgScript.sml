@@ -264,7 +264,7 @@ val _ = translate $ spec32 inline_prog_def;
 
 val _ = translate $ INST_TYPE[alpha|->``:num list``,beta|->``:32``] compile_inl_prog_def;
 
-val _ = translate $ spec32 compile_inl_top_def; 
+val _ = translate $ spec32 compile_inl_top_def;
 
 open pan_to_crepTheory;
 
