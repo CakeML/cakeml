@@ -470,12 +470,11 @@ end
 
 
 
-Theorem compile_Skip_Break_Continue_Annot_Global:
+Theorem compile_Skip_Break_Continue_Annot:
   ^(get_goal "compile _ panLang$Skip") /\
   ^(get_goal "compile _ panLang$Break") /\
   ^(get_goal "compile _ panLang$Continue") /\
-  ^(get_goal "compile _ (panLang$Annot _ _)") ∧
-  ^(get_goal "compile _ (panLang$Assign Global _ _)")
+  ^(get_goal "compile _ (panLang$Annot _ _)")
 Proof
   rpt strip_tac >>
   fs [panSemTheory.evaluate_def, evaluate_def,
@@ -827,13 +826,13 @@ QED
 
 
 Theorem compile_Assign:
-  ^(get_goal "compile _ (panLang$Assign Local _ _)")
+  ^(get_goal "compile _ (panLang$Assign _ _ _)")
 Proof
   rpt gen_tac >>
   rpt strip_tac >>
-  rename [‘Assign _ vr e’] >>
-  fs [panSemTheory.evaluate_def, is_valid_value_def, localised_prog_def] >>
-  fs [CaseEq "option", CaseEq "bool"] >> rveq >> fs [] >>
+  rename [‘Assign vk vr e’] >> Cases_on ‘vk’>>
+  fs [panSemTheory.evaluate_def, oneline is_valid_value_def, localised_prog_def] >>
+  fs [CaseEq "option", CaseEq "bool",panSemTheory.set_var_def] >> rveq >> fs [] >>
   rename [‘eval _ e = SOME ev’] >>
   rename [‘FLOOKUP _ vr = SOME v’] >>
   (* open compiler def *)
@@ -854,7 +853,7 @@ Proof
    disch_then drule >>
    strip_tac >> fs [] >>
    conj_tac
-   >- fs [state_rel_def] >>
+   >- fs [state_rel_def,set_var_def] >>
    fs [locals_rel_def] >>
    rpt gen_tac >> strip_tac >> fs [] >>
    cases_on ‘vr = vname’ >> fs [] >> rveq
@@ -2803,6 +2802,7 @@ val ret_call_excp_handler_tac =
     rename [‘FLOOKUP ctxt.eids eid = SOME ed’] >>
    fs [] >> rveq >> fs [] >>
     fs [is_valid_value_def] >>
+    rename1 ‘FLOOKUP s.locals m''’ >>
     cases_on ‘FLOOKUP s.locals m''’ >> fs [] >>
     drule locals_rel_lookup_ctxt >>
     disch_then drule_all >>
@@ -2817,13 +2817,13 @@ val ret_call_excp_handler_tac =
                               t.locals’, ‘0w’] mp_tac) >>
     impl_tac
     >- (
-     conj_tac
+     (conj_tac
      >- (
       fs [word_0_n2w] >>
       imp_res_tac locals_rel_lookup_ctxt >> rveq >>
       fs [length_flatten_eq_size_of_shape] >> rfs [] >>
-      cases_on ‘size_of_shape (shape_of ex)’ >> fs []) >>
-     conj_tac
+      cases_on ‘size_of_shape (shape_of ex)’ >> fs [])) >>
+     (conj_tac
      >- (
       rw [] >> CCONTR_TAC >>
       drule locals_rel_lookup_ctxt >>
@@ -2842,7 +2842,7 @@ val ret_call_excp_handler_tac =
      fs [GSYM length_flatten_eq_size_of_shape] >>
      qpat_x_assum ‘OPT_MMAP (FLOOKUP t1.globals) _ = _’  assume_tac >>
      drule opt_mmap_mem_func >>
-     disch_then drule >> strip_tac >> fs []) >>
+     disch_then drule >> strip_tac >> fs [])) >>
     strip_tac >> fs [] >>
     rfs [] >> rveq >>
     qmatch_goalsub_abbrev_tac ‘evaluate (compile ctxt p,tt)’ >>
@@ -3034,9 +3034,10 @@ Proof
       PURE_TOP_CASE_TAC >>
       rename1 ‘(xk:varkind,x)’ >>
       Cases_on ‘xk’ >> fs[] >>
-      rename1 ‘is_valid_value s.locals q v’ >>
-      cases_on ‘is_valid_value s.locals q v’ >> fs [] >> rveq >>
+      qmatch_asmsub_abbrev_tac ‘(if X then _ else _) = (res,s1)’ >>
+      cases_on ‘X’ >> fs [] >> rveq >>
       fs [is_valid_value_def] >>
+      rename1 ‘ FLOOKUP s.locals q’>>
       cases_on ‘FLOOKUP s.locals q’ >> fs [] >>
       fs [wrap_rt_def] >>
       TOP_CASE_TAC >> fs []
@@ -3217,14 +3218,15 @@ Proof
       rename [‘geid = eid’] >>
       cases_on ‘FLOOKUP s.eshapes eid’ >> fs [] >> rveq >>
       cases_on ‘shape_of v = x’ >> fs [] >>
-      rename1 ‘is_valid_value s.locals m'' v’ >>
-      cases_on ‘is_valid_value s.locals m'' v’ >> fs [] >>
+      qmatch_asmsub_abbrev_tac ‘(if X then _ else _) = (res,s1)’ >>
+      cases_on ‘X’ >> fs [] >>
       cases_on ‘FLOOKUP ctxt.eids eid’ >> fs []
       >- (fs [excp_rel_def] >>
           imp_res_tac fdoms_eq_flookup_some_none >> fs []) >>
       rename1 ‘FLOOKUP ctxt.eids eid = SOME x'’>>
       cases_on ‘x'’ >> fs [] >> rveq >>
-      TOP_CASE_TAC >> fs []
+      TOP_CASE_TAC >> fs []>>
+      rename1 ‘exp_hdl _ m''’
       >- ret_call_excp_handler_tac >>
       TOP_CASE_TAC >> fs [] >>
       ret_call_excp_handler_tac) >>
@@ -4460,7 +4462,7 @@ Theorem pc_compile_correct:
 Proof
   match_mp_tac (the_ind_thm()) >>
   EVERY (map strip_assume_tac
-         [compile_Skip_Break_Continue_Annot_Global,compile_Store32,
+         [compile_Skip_Break_Continue_Annot,compile_Store32,
           compile_Dec, compile_ShMemLoad, compile_ShMemStore,
           compile_Assign, compile_Store, compile_StoreByte, compile_Seq,
           compile_If, compile_While, compile_Call, compile_ExtCall,
