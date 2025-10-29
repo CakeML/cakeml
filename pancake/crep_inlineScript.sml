@@ -85,31 +85,6 @@ Definition transform_rec_def:
 End
 
 
-(* Every return in a standalone call doesn't actually return anything, just signalling an end-of-control *)
-Definition standalone_ret_def:
-  (standalone_ret (Return e) = Break) ∧
-  (standalone_ret (Call NONE e args) = Seq (Call (SOME(NONE, Skip, NONE)) e args) Break) ∧
-  (standalone_ret p = p)
-End
-
-(* This is for assign call, change all returns/tailcalls into assignments/assigncalls + break *)
-Definition assign_ret_def:
-  (assign_ret rvar (Return e) = Seq (Assign rvar e) Break) ∧
-  (assign_ret rvar (Call NONE e args) = Seq (Call (SOME(SOME rvar, Skip, NONE)) e args) Break) ∧
-  (assign_ret rvar p = p)
-End
-
-
-(* Wrap the code for the callee inside a while loop *)
-Definition transform_standalone_def:
-  transform_standalone prog = transform_rec standalone_ret prog
-End
-
-Definition transform_assign_def:
-  transform_assign rvar prog = transform_rec (assign_ret rvar) prog
-End
-
-
 Definition arg_load_def:
   arg_load tmp_vars args args_vname p =
     nested_decs tmp_vars args (nested_decs args_vname (MAP Var tmp_vars) p)
@@ -118,90 +93,6 @@ End
 Definition inline_tail_def:
   inline_tail p = Seq Tick p
 End
-
-Definition inline_standalone_def:
-  inline_standalone p q =
-    Seq
-       (While (Const 1w) p)
-       q
-End
-
-Definition inline_assign_def:
-  inline_assign p q ret_max rt =
-    Seq
-       (Dec ret_max (Const 0w)
-           (Seq
-               (While (Const 1w) p)
-               (Assign rt (Var ret_max))
-           )
-       )
-       q
-End
-
-(*
-Definition inline_prog_def:
-  (inline_prog inlineable_fs (Call ctyp e args) =
-     let ctyp_inl =
-      (case ctyp of
-         | NONE => NONE
-         | SOME (x, p, NONE) => SOME (x, inline_prog inlineable_fs p, NONE)
-         | SOME (x, p, SOME (w, hdl)) => SOME (x, inline_prog inlineable_fs p, SOME (w, inline_prog inlineable_fs hdl))
-      ) in
-    (case FLOOKUP inlineable_fs e of
-       | NONE => Call ctyp_inl e args
-       | SOME (args_vname, p) =>
-          let n_inlineable_fs = inlineable_fs \\ e in
-          let inlined_callee = inline_prog n_inlineable_fs p in
-
-          let max_args = MAX_LIST (FLAT (MAP var_cexp args)) in
-          let max_args_vname = MAX_LIST args_vname in
-          let tmp_vars = GENLIST (λx. max_args + max_args_vname + SUC x) (LENGTH args_vname) in
-          (case ctyp_inl of
-             | NONE => inline_tail $ arg_load tmp_vars args args_vname inlined_callee
-             | SOME (ret_var, q, hdl) =>
-                (case hdl of
-                   | NONE =>
-                      (case return_in_loop inlined_callee of
-                         | T => (Call ctyp_inl e args)
-                         | F =>
-                             (case ret_var of
-                                | NONE =>
-                                    inline_standalone (arg_load tmp_vars args args_vname
-                                                                (transform_rec standalone_ret inlined_callee)) q
-                                | SOME rt =>
-                                    let vmax_callee_body = vmax_prog inlined_callee in
-                                    let max_tmp_vars = MAX_LIST tmp_vars in
-                                    let max_clash = MAX_LIST [rt; vmax_callee_body; max_tmp_vars; max_args_vname] in
-                                    let ret_max = SUC max_clash in
-                                        inline_assign (arg_load tmp_vars args args_vname
-                                                                (transform_rec (assign_ret ret_max) inlined_callee)) q ret_max rt
-                              )
-                      )
-                   | SOME w_hdl => (Call ctyp_inl e args)
-                 )
-          )
-    )
-  ) ∧
-  (inline_prog inlineable_fs (Dec v e p) = Dec v e (inline_prog inlineable_fs p)) ∧
-  (inline_prog inlineable_fs (Seq p1 p2) =
-    let inline_p1 = inline_prog inlineable_fs p1 in
-    let inline_p2 = inline_prog inlineable_fs p2 in
-      Seq inline_p1 inline_p2) ∧
-  (inline_prog inlineable_fs (If e p1 p2) =
-    let inline_p1 = inline_prog inlineable_fs p1 in
-    let inline_p2 = inline_prog inlineable_fs p2 in
-      If e inline_p1 inline_p2) ∧
-  (inline_prog inlineable_fs (While e p) = While e (inline_prog inlineable_fs p)) ∧
-  (inline_prog inlineable_fs p = p)
-Termination
-  wf_rel_tac `inv_image (measure I LEX measure (prog_size ARB)) (λ(x, y). (CARD (FDOM x), y))` >>
-  rpt strip_tac >>
-  disj1_tac >>
-  gs[DRESTRICT_DEF, FLOOKUP_DEF] >>
-  spose_not_then assume_tac >>
-  gs[NOT_ZERO, FDOM_FINITE, CARD_EQ_0, IN_DEF]
-End
-*)
 
 Definition not_branch_ret_def:
   (not_branch_ret (Dec v e p) = not_branch_ret p) ∧
@@ -212,17 +103,17 @@ Definition not_branch_ret_def:
     (case ctyp of
        | NONE => T
        | SOME (_, p, NONE) => not_branch_ret p
-       | SOME (_, p, SOME (w, hdl)) => (not_branch_ret p ∧ not_branch_ret hdl))) ∧
+       | SOME (_, p, SOME (w, hdl)) => (¬has_return p ∧ ¬has_return hdl))) ∧
   (not_branch_ret _ = T)
 End
 
 Datatype:
-  early_exit = Ret | Loop_exit
+  early_exit = Exn | Ret | Loop_exit
 End
 
 Definition unreach_elim_def:
   (unreach_elim (Return e) = (Return e, SOME Ret)) ∧
-  (*(unreach_elim (Raise eid) = (Raise eid, SOME Ret)) ∧*)
+  (unreach_elim (Raise eid) = (Raise eid, SOME Exn)) ∧
   (unreach_elim Break = (Break, SOME Loop_exit)) ∧
   (unreach_elim Continue = (Continue, SOME Loop_exit)) ∧
   (unreach_elim (Seq p1 p2) =
@@ -239,6 +130,8 @@ Definition unreach_elim_def:
         r3 = (case (r1, r2) of
                | (SOME Ret, e) => e
                | (e, SOME Ret) => e
+               | (SOME Exn, e) => e
+               | (e, SOME Exn) => e
                | (SOME Loop_exit, e) => e
                | (e, SOME Loop_exit) => e
                | (NONE, NONE) => NONE
@@ -258,6 +151,8 @@ Definition unreach_elim_def:
               asgn_r = (case (rp, rhdl) of
                          | (SOME Ret, e) => e
                          | (e, SOME Ret) => e
+                         | (SOME Exn, e) => e
+                         | (e, SOME Exn) => e
                          | (SOME Loop_exit, e) => e
                          | (e, SOME Loop_exit) => e
                          | (NONE, NONE) => NONE
@@ -270,7 +165,7 @@ End
 
 Definition standalone_eoc_def:
   (standalone_eoc (Return e) = Skip) ∧
-  (standalone_eoc (Call NONE e args) = Skip) ∧
+  (standalone_eoc (Call NONE e args) = Call (SOME(NONE, Skip, NONE)) e args) ∧
   (standalone_eoc p = p)
 End
 
@@ -280,13 +175,13 @@ Definition assign_eoc_def:
   (assign_eoc rt p = p)
 End
 
-Definition transform_standalone_eoc_def:
-  transform_standalone_eoc p q =
+Definition inline_standalone_eoc_def:
+  inline_standalone_eoc p q =
     Seq (Seq Tick p) q
 End
 
-Definition transform_assign_eoc_def:
-  transform_assign_eoc rt ret_max p q =
+Definition inline_assign_eoc_def:
+  inline_assign_eoc p q ret_max rt =
     Seq
        (Dec ret_max (Const 0w)
            (Seq
@@ -308,9 +203,9 @@ Definition inline_prog_def:
     (case FLOOKUP inlineable_fs e of
        | NONE => Call ctyp_inl e args
        | SOME (args_vname, p) =>
-          if (LENGTH args ≠ LENGTH args_vname) then (Call ctyp e args) else
           let n_inlineable_fs = inlineable_fs \\ e in
-          let inlined_callee = inline_prog n_inlineable_fs p in
+          let inlined_callee_unnormalised = inline_prog n_inlineable_fs p in
+          let (inlined_callee, exit_type) = unreach_elim inlined_callee_unnormalised in
 
           let max_args = MAX_LIST (FLAT (MAP var_cexp args)) in
           let max_args_vname = MAX_LIST args_vname in
@@ -320,16 +215,17 @@ Definition inline_prog_def:
              | SOME (ret_var, q, hdl) =>
                 (case hdl of
                    | NONE =>
-                     (if not_branch_ret inlined_callee then
+                     (case ¬not_branch_ret inlined_callee of
+                       | T => (Call ctyp_inl e args)
+                       | F =>
                          (case ret_var of
-                           | NONE => transform_standalone_eoc (arg_load tmp_vars args args_vname
+                           | NONE => inline_standalone_eoc (arg_load tmp_vars args args_vname
                                                                         (transform_rec standalone_eoc inlined_callee)) q
                            | SOME rt =>
-                             let ret_max = MAX_LIST [vmax_prog inlined_callee; MAX_LIST tmp_vars; MAX_LIST args_vname; MAX_LIST (FLAT (MAP var_cexp args))] in
-                               transform_assign_eoc rt ret_max (arg_load tmp_vars args args_vname
-                                                                         (transform_rec (assign_eoc ret_max) inlined_callee)) q
+                             let ret_max = SUC (MAX_LIST [rt; vmax_prog inlined_callee; MAX_LIST tmp_vars; MAX_LIST args_vname]) in
+                               inline_assign_eoc (arg_load tmp_vars args args_vname
+                                                           (transform_rec (assign_eoc ret_max) inlined_callee)) q ret_max rt
                          )
-                       else (Call ctyp_inl e args)
                      )
                    | SOME w_hdl => (Call ctyp_inl e args)
                  )
