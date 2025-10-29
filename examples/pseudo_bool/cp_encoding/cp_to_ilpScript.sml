@@ -1420,8 +1420,14 @@ Proof
   gvs[reify_tuple_eq_sem,GSYM MAP_LIST_REL]
 QED
 
-Triviality numint_le:
+Triviality numint_le_1:
   (Num X ≤ Y ⇒ X ≤ &Y) ∧ (1 ≤ X ∧ X ≤ &Y ⇒ 1 ≤ Num X ∧ Num X ≤ Y)
+Proof
+  intLib.ARITH_TAC
+QED
+
+Triviality numint_le_2:
+  1 ≤ X ∧ Num X ≤ Y ⇔ 1 ≤ X ∧ X ≤ &Y
 Proof
   intLib.ARITH_TAC
 QED
@@ -1446,10 +1452,10 @@ Proof
   IF_CASES_TAC
   >-(
     fs[encode_element_var_sem,element_sem_def,varc_def,EVERY_EL]>>
-    imp_res_tac numint_le>>
+    imp_res_tac numint_le_1>>
     simp[])>>
   simp[iconstraint_sem_def,eval_lin_term_def,eval_ilin_term_def,iSUM_def,varc_def]>>
-  metis_tac[GSYM NOT_EVERY,numint_le]
+  metis_tac[GSYM NOT_EVERY,numint_le_1]
 QED
 
 (* encode_element2d for variable X and constant Y *)
@@ -1480,7 +1486,7 @@ Proof
   simp[encode_element2d_vc_def,element2d_sem_def]>>
   IF_CASES_TAC
   >-(
-    fs[encode_element_var_sem,element_sem_def,varc_def,EVERY_EL,numint_le,
+    fs[encode_element_var_sem,element_sem_def,varc_def,EVERY_EL,numint_le_1,
       CONJ_ASSOC]>>
     match_mp_tac $ METIS_PROVE[] “(R ⇒ (P ⇔ Q)) ⇒
       ((R' ∧ R) ∧ P ⇔ (R' ∧ R) ∧ Q)”>>
@@ -1488,7 +1494,7 @@ Proof
     fs[EL_LIST2D])>>
   fs[iconstraint_sem_def,eval_lin_term_def,eval_ilin_term_def,iSUM_def,varc_def,
     Once LENGTH_NON_NIL,Once $ GSYM NOT_EVERY]>>
-  metis_tac[numint_le]
+  metis_tac[numint_le_1]
 QED
 
 (* encode_element2d for constant X and constant Y *)
@@ -1507,9 +1513,9 @@ Theorem encode_element2d_cc_sem:
   element2d_sem R (INR X) (INR Y) Tss wi
 Proof
   rw[encode_element2d_cc_def,mk_constraint_ge_sem,element2d_sem_def,eval_raw,
-    varc_def,numint_le]
+    varc_def,numint_le_1]
   >-intLib.ARITH_TAC>>
-  metis_tac[numint_le,GSYM NOT_EVERY]
+  metis_tac[numint_le_1,GSYM NOT_EVERY]
 QED
 
 (* encodes X ≥ 1,...,X ≥ n *)
@@ -1644,13 +1650,50 @@ Proof
   metis_tac[]
 QED
 
-Triviality varc_INL:
-  varc w (INL x) = w x
+Theorem range_predicate_1:
+  (∀i:num. 1 ≤ i ∧ i ≤ n ⇒ P i) = (∀i. i < n ⇒ P $ i + 1)
 Proof
-  simp[varc_def]
+  iff_tac>>
+  rw[]>>
+  rename1 ‘1 ≤ k’>>
+  ‘∃j. k = j + 1’ by intLib.ARITH_TAC>>
+  simp[]
 QED
 
-Triviality encode_element2d_vv_lem:
+Theorem range_predicate_2:
+  (∀i j:num.
+    i < m ∧ j < n ⇒
+    x = &(i + 1) ∧ y = &(j + 1) ⇒
+    P i j) ⇔
+  (1 ≤ x ∧ x ≤ &m ∧ 1 ≤ y ∧ y ≤ &n ⇒ P (Num x - 1) (Num y - 1))
+Proof
+  simp[boolTheory.AND_IMP_INTRO]>>
+  iff_tac>>
+  rw[GSYM numint_le_2]
+  >-(
+    last_x_assum $ qspecl_then [‘Num x - 1’,‘Num y - 1’] assume_tac>>
+    pop_assum $ irule>>
+    intLib.ARITH_TAC)>>
+  fs[integerTheory.NUM_OF_INT]
+QED
+
+Triviality encode_element2d_vv_aux_1:
+  valid_assignment bnd wi ∧
+  (∀i. i < LENGTH Tss ⇒ (wb (Eq X (&(i + 1))) ⇔ wi X = &(i + 1))) ∧
+  (∀j. j < LENGTH (HD Tss) ⇒ (wb (Eq Y (&(j + 1))) ⇔ wi Y = &(j + 1))) ⇒ ((
+  ∀i j. i < LENGTH Tss ∧ j < LENGTH (HD Tss) ⇒
+    EVERY (λx. iconstraint_sem x (wi,wb))
+      (encode_element2d_eq bnd R X Y (i,j,EL j (EL i Tss)))) ⇔ (
+  ∀i j. i < LENGTH Tss ∧ j < LENGTH (HD Tss) ⇒
+    wi X = &(i + 1) ∧ wi Y = &(j + 1) ⇒ varc wi R = varc wi $ EL j (EL i Tss)))
+Proof
+  strip_tac>>
+  iff_tac>>
+  rw[]>>
+  gvs[encode_element2d_eq_sem]
+QED
+
+Triviality encode_element2d_vv_aux_2:
   valid_assignment bnd wi ∧
   (∀i. 1 ≤ i ∧ i ≤ LENGTH Tss ⇒ (wb (Eq X (&i)) ⇔ wi X = &i)) ∧
   (∀j. 1 ≤ j ∧ j ≤ LENGTH (HD Tss) ⇒ (wb (Eq Y (&j)) ⇔ wi Y = &j)) ⇒
@@ -1660,7 +1703,17 @@ Triviality encode_element2d_vv_lem:
   1 ≤ wi X ∧ Num (wi X) ≤ LENGTH Tss ∧ 1 ≤ wi Y ∧ Num (wi Y) ≤ LENGTH (HD Tss) ⇒
   varc wi R = varc wi (EL (Num (wi Y) − 1) (EL (Num (wi X) − 1) Tss)))
 Proof
-  cheat
+  rw[range_predicate_1,numint_le_2,CONJ_ASSOC]>>
+  simp[GSYM CONJ_ASSOC,numint_le_2]>>
+  simp[Once CONJ_ASSOC,Once $ boolTheory.EQ_SYM_EQ]>>
+  simp[Once satTheory.AND_IMP,encode_element2d_vv_aux_1,
+    range_predicate_2,boolTheory.AND_IMP_INTRO,GSYM CONJ_ASSOC]
+QED
+
+Triviality varc_INL:
+  varc w (INL x) = w x
+Proof
+  simp[varc_def]
 QED
 
 Theorem encode_element2d_vv_sem:
@@ -1683,8 +1736,8 @@ Proof
     GSYM integerTheory.INT_NEG_MINUS1,intLib.ARITH_PROVE “-(a:int) ≥ -b ⇔ a ≤ b”,
     integerTheory.INT_GE]>>
   fs[integerTheory.INT_NOT_LT]>>
-  simp[encode_element2d_vv_lem]>>
-  METIS_TAC[numint_le]
+  simp[encode_element2d_vv_aux_2]>>
+  METIS_TAC[numint_le_1]
 QED
 
 Definition encode_element2d_def:
