@@ -378,8 +378,6 @@ End
 Definition compile_prog_def:
   compile_prog prog =
   let inl_fs_names = MAP FST (functions (FILTER inlinable prog));
-      to_crep = compile_to_crep prog;
-      inl_fs_crep = FILTER (λ(x, y). MEM x inl_fs_names) to_crep;
-      inl_fs_map = alist_to_fmap inl_fs_crep in
-    compile_inl_prog inl_fs_map to_crep
+      to_crep = compile_to_crep prog in
+    compile_inl_top inl_fs_names to_crep
 End

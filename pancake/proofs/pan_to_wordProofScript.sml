@@ -258,6 +258,7 @@ Theorem FLOOKUP_make_funcs_main:
   SOME (first_name,0)
 Proof
   rw[pan_globalsTheory.compile_top_def,ELIM_UNCURRY,
+     crep_inlineTheory.compile_inl_top_def,
      crep_inlineTheory.compile_inl_prog_def,
      pan_to_crepTheory.compile_to_crep_def,
      pan_to_crepTheory.compile_prog_def,crep_to_loopTheory.make_funcs_def,
@@ -380,6 +381,7 @@ Proof
       irule_at Any crep_to_loopProofTheory.first_compile_prog_all_distinct >>
       simp [pan_to_crepTheory.compile_prog_def, pan_globalsTheory.compile_top_def,
             pan_to_crepTheory.compile_to_crep_def, crep_inlineTheory.compile_inl_prog_def,
+            crep_inlineTheory.compile_inl_top_def,
             ELIM_UNCURRY,panLangTheory.functions_def,
             pan_to_crepTheory.crep_vars_def, panLangTheory.size_of_shape_def,
             crep_to_loopTheory.compile_prog_def,
@@ -917,7 +919,8 @@ Theorem every_inst_ok_less_pan_to_crep_compile_to_crep:
   EVERY (λ(name,params,body). EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2)) (exps_of body)) (pan_to_crep$compile_to_crep pan_code)
 Proof
   rw[EVERY_MEM] \\ pairarg_tac \\
-  gvs[pan_to_crepTheory.compile_to_crep_def, crep_inlineTheory.compile_inl_prog_def, pan_to_crepTheory.compile_prog_def,MEM_MAP] \\
+  gvs[pan_to_crepTheory.compile_to_crep_def, crep_inlineTheory.compile_inl_prog_def,
+      crep_inlineTheory.compile_inl_top_def, pan_to_crepTheory.compile_prog_def,MEM_MAP] \\
   pairarg_tac \\ gvs[] \\
   pairarg_tac \\ gvs[] \\
   gvs[panPropsTheory.functions_eq_FILTER,MEM_MAP,MEM_FILTER,
@@ -935,7 +938,7 @@ Theorem every_inst_w_inline:
   EVERY (λ(name,params,body). EVERY (every_exp (λx. ∀op es. x = Crepop op es ⇒ LENGTH es = 2)) (exps_of body)) (pan_to_crep$compile_prog pan_code)
 Proof
   rw[EVERY_MEM] >> pairarg_tac >>
-  gvs[pan_to_crepTheory.compile_prog_def, MEM_MAP] >>
+  gvs[pan_to_crepTheory.compile_prog_def, crep_inlineTheory.compile_inl_top_def, MEM_MAP] >>
   qabbrev_tac `crep_code = compile_to_crep pan_code` >>
   qabbrev_tac `inl_fs = alist_to_fmap (FILTER (λ(x, y). ∃y. x = FST y ∧ MEM y (functions (FILTER inlinable pan_code))) crep_code)` >>
   drule crep_inlineProofTheory.every_inst_crep_inline >>

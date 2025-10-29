@@ -4474,6 +4474,7 @@ Theorem first_compile_prog_all_distinct:
 Proof
   fs [pan_to_crepTheory.compile_prog_def,MAP_MAP_o,ELIM_UNCURRY,o_DEF,ETA_AX,
       pan_to_crepTheory.compile_to_crep_def,
+      crep_inlineTheory.compile_inl_top_def,
       crep_inlineTheory.compile_inl_prog_def]
 QED
 
@@ -4587,6 +4588,7 @@ Proof
   rw[EVERY_MEM] >>
   gvs[compile_prog_def,MEM_MAP,UNCURRY_eq_pair,crep_vars_def,ALL_DISTINCT_GENLIST,
       crep_inlineTheory.compile_inl_prog_def,
+      crep_inlineTheory.compile_inl_top_def,
       pan_to_crepTheory.compile_to_crep_def]
 QED
 
@@ -4903,7 +4905,6 @@ Proof
   rw[pan_to_crepTheory.compile_prog_def] >>
   qabbrev_tac `inl_funcs = MAP FST (functions (FILTER inlinable pan_code))` >>
   qabbrev_tac `crep_code = compile_to_crep pan_code` >>
-  qabbrev_tac `inl_fs = alist_to_fmap (FILTER (λ(x, y). MEM x inl_funcs) crep_code)` >>
   drule_at (Pos $ el 3) state_rel_imp_semantics_to_crep >>
   disch_then $ drule_at (Pos last) >> fs[] >>
   disch_then $ qspec_then `t with code := alist_to_fmap crep_code` mp_tac >> impl_tac
@@ -4915,11 +4916,12 @@ Proof
   Cases_on `FLOOKUP t_uninline.code start` >> fs[]
   >- fs[semantics_def, evaluate_def, lookup_code_def] >>
   PairCases_on `x` >> fs[] >>
-  disch_then $ qspecl_then [`t`, `crep_code`, `inl_fs`] mp_tac >> impl_tac
+  disch_then $ qspecl_then [`t`, `crep_code`, `inl_funcs`] mp_tac >> impl_tac
   >- (
     fs[crep_inlineProofTheory.state_rel_code_def, state_rel_def,
        crep_inlineProofTheory.locals_strong_rel_def, Abbr `t_uninline`] >>
-    imp_res_tac first_compile_to_crep_all_distinct >> fs[Abbr `crep_code`, Abbr `inl_fs`, SUBMAP_FLOOKUP_EQN, ALOOKUP_FILTER]
+    imp_res_tac first_compile_to_crep_all_distinct >>
+    fs[Abbr `crep_code`]
   ) >>
   rpt strip_tac >> fs[]
 QED

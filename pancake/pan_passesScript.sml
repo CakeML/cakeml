@@ -44,9 +44,7 @@ Definition pan_to_target_all_def:
         prog_b0 = pan_to_crep$compile_to_crep prog_a;
         ps = ps ++ [(«after pan_to_crep»,Crep prog_b0)];
         inl_fs_names = MAP FST (functions (FILTER inlinable prog_a));
-        inl_fs_crep = FILTER (λ(x, y). MEM x inl_fs_names) prog_b0;
-        inl_fs_map = alist_to_fmap inl_fs_crep;
-        prog_bi = compile_inl_prog inl_fs_map prog_b0;
+        prog_bi = compile_inl_top inl_fs_names prog_b0;
         ps = ps ++ [(«after crep_inline»,Crep prog_bi)];
         prog_b = MAP (λ(n,ps,e). (n,ps,crep_arith$simp_prog e)) prog_bi;
         ps = ps ++ [(«after crep_arith»,Crep prog_b)];

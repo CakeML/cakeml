@@ -256,3 +256,10 @@ Definition compile_inl_prog_def:
   compile_inl_prog inl_fs prog =
       MAP (λ(name, params, body). (name, params, inline_prog (inl_fs \\ name) body)) prog
 End
+
+Definition compile_inl_top_def:
+  compile_inl_top inl_fname prog =
+    let inl_fs_alist = FILTER (λ(x, y). MEM x inl_fname) prog;
+        inl_fs = alist_to_fmap inl_fs_alist in
+    compile_inl_prog inl_fs prog
+End

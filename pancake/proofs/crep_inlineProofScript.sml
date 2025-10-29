@@ -3658,7 +3658,7 @@ Proof
   disch_tac >> gvs[AllCaseEqs(), state_rel_code_def, empty_locals_def]
 QED
 
-Theorem state_rel_imp_semantics:
+Theorem state_rel_imp_semantics_local:
   ∀s t crep_code start inl_fs ns prog.
     state_rel_code s t ∧
     locals_strong_rel s t ∧
@@ -3787,5 +3787,22 @@ Proof
   last_x_assum $ qspec_then `k` assume_tac >> gs[] >>
   Cases_on `evaluate (Call NONE start [], t with clock := k)` >> gvs[] >>
   first_x_assum $ qspecl_then [`k`, `r'`, `q`] assume_tac >> fs[]
+QED
+
+Theorem state_rel_imp_semantics:
+  ∀s t crep_code start inl_fname ns prog.
+    state_rel_code s t ∧
+    locals_strong_rel s t ∧
+    ALL_DISTINCT (MAP FST crep_code) ∧
+    s.code = alist_to_fmap crep_code ∧
+    t.code = alist_to_fmap (compile_inl_top inl_fname crep_code) ∧
+    FLOOKUP s.code start = SOME (ns, prog) ∧
+    semantics s start ≠ Fail ⇒
+      semantics t start = semantics s start
+Proof
+  rw[compile_inl_top_def] >>
+  drule state_rel_imp_semantics_local >> simp[] >>
+  disch_then $ qspecl_then [`crep_code`, `start`, `alist_to_fmap (FILTER (λ(x, y). MEM x inl_fname) crep_code)`, `ns`, `prog`] mp_tac >> gvs[] >> impl_tac >>
+  fs[SUBMAP_FLOOKUP_EQN, ALOOKUP_EQ_FLOOKUP, ALOOKUP_FILTER]
 QED
 
