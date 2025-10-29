@@ -42,7 +42,7 @@ See the [Pancake how-to](/pancake/how-to.md) for a guide on how to use Pancake.
 | Struct shape | eg. `{1,2,{1}}`| Can be nested. `1` and `{1}` are distinct |
 | Repeated shape | `N` | Equivalent to a struct of N words, ie. `{1,1,...,1}` where 1 appears N times |
 | Default shape | `eg. var x = 1;` | Any omitted shape before an identifier where it is expected will be assumed to use the default of `1`. This is NOT inference |
-| Struct value | eg. `<1,<2,3>,<4>>` | Can be nested |
+| Struct value | eg. `< 1, <2, 3>, <4> >` | Can be nested, but all angle brackets must be separated by (at least) whitespace to parse, eg. after `4` in the example |
 | Struct field access | `STRUCT.INDEX` | 0-indexed. `STRUCT` can be an expression. `INDEX` must be a (non-negative) number (and therefore CANNOT be a variable) |
 
 ## Specials
