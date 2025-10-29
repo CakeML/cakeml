@@ -1817,8 +1817,7 @@ Proof
     every_case_tac>>simp[])
   >- (
     simp[encode_element2d_sem,reify_eilp_def]>>
-    every_case_tac
-  )
+    every_case_tac)
   >- (
     simp[encode_abs_sem,reify_eilp_def]>>
     every_case_tac>>simp[])
@@ -1826,20 +1825,23 @@ Proof
     simp[encode_ilc_sem,reify_eilp_def]>>
     every_case_tac>>simp[])
   >- (
-    cheat (*encode_arr_max*)
-  )
+    fs[encode_arr_max_sem,reify_eilp_def,arr_max_sem_def]>>
+    fs[MEM_MAP]>>
+    goal_assum $ drule_at Any>>
+    simp[integerTheory.int_ge,integerTheory.INT_LE_REFL])
   >- (
-    cheat (*encode_arr_min*)
-  )
+    fs[encode_arr_min_sem,reify_eilp_def,arr_min_sem_def]>>
+    fs[MEM_MAP,integerTheory.int_ge]>>
+    goal_assum $ drule_at Any>>
+    simp[integerTheory.int_ge,integerTheory.INT_LE_REFL])
+  >-simp[encode_count_sem,reify_eilp_def]
   >- (
-    simp[encode_count_sem,reify_eilp_def]
-  )
+    fs[encode_nvalue_sem,reify_eilp_def,nvalue_sem_def]>>
+    cheat)
   >- (
-    cheat (*encode_nvalue_sem*)
-  )
-  >- (
-    cheat (*encode_table_sem*)
-  )
+    fs[encode_table_sem,reify_eilp_def,table_sem_def]>>
+    rw[LIST_REL_EL_EQN,EVERY_MEM]>>
+    fs[MAP_LIST_REL,EVERY_MEM,LIST_REL_EL_EQN])
 QED
 
 Theorem encode_cp_one_sem_2:
