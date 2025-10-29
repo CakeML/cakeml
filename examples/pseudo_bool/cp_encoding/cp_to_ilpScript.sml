@@ -1836,13 +1836,18 @@ Proof
     simp[integerTheory.int_ge,integerTheory.INT_LE_REFL])
   >-simp[encode_count_sem,reify_eilp_def]
   >- (
-    fs[encode_nvalue_sem,reify_eilp_def,nvalue_sem_def]>>
-    cheat)
+    fs[encode_nvalue_sem,reify_eilp_def,nvalue_sem_def,MEM_MAP]>>
+    metis_tac[])
   >- (
     fs[encode_table_sem,reify_eilp_def,table_sem_def]>>
     rw[LIST_REL_EL_EQN,EVERY_MEM]>>
     fs[MAP_LIST_REL,EVERY_MEM,LIST_REL_EL_EQN])
 QED
+
+(*
+    fs[encode_nvalue_sem,reify_eilp_def,nvalue_sem_def]>>
+    simp[MEM_MAP]>>
+    metis_tac[]*)
 
 Theorem encode_cp_one_sem_2:
   valid_assignment bnd wi ∧
