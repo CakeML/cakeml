@@ -244,21 +244,27 @@ val _ = translate $ spec32 return_in_loop_def;
 
 val _ = translate $ spec32 transform_rec_def;
 
-val _ = translate $ spec32 standalone_ret_def;
-
-val _ = translate $ spec32 assign_ret_def;
-
 val _ = translate $ spec32 arg_load_def;
+
+val _ = translate $ spec32 not_branch_ret_def;
+
+val _ = translate $ spec32 unreach_elim_def;
+
+val _ = translate $ spec32 standalone_eoc_def;
+
+val _ = translate $ spec32 assign_eoc_def;
 
 val _ = translate $ spec32 inline_tail_def;
 
-val _ = translate $ spec32 inline_standalone_def;
+val _ = translate $ spec32 inline_standalone_eoc_def;
 
-val _ = translate $ spec32 inline_assign_def;
+val _ = translate $ spec32 inline_assign_eoc_def;
 
 val _ = translate $ spec32 inline_prog_def;
 
 val _ = translate $ INST_TYPE[alpha|->``:num list``,beta|->``:32``] compile_inl_prog_def;
+
+val _ = translate $ spec32 compile_inl_top_def; 
 
 open pan_to_crepTheory;
 
