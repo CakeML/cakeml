@@ -3,7 +3,7 @@
 *)
 Theory npbc
 Ancestors
-  pbc
+  pbc integer
 Libs
   preamble
 
@@ -13,7 +13,7 @@ Type var = “:num”
 
 (* Normalized pseudoboolean constraints (xs,n) represents constraint xs ≥ n
 An additional compactness assumption guarantees uniqueness *)
-Type npbc = ``: ((int # var) list) #num``
+Type npbc = ``: ((int # var) list) # int``
 
 (* semantics *)
 Definition b2n_def[simp]:
@@ -32,8 +32,9 @@ Definition eval_term_def[simp]:
   eval_term w (c,v) = Num (ABS c) * eval_lit w (c < 0) v
 End
 
+(* npbc are trivially satisfied when n is <= 0 *)
 Definition satisfies_npbc_def:
-  satisfies_npbc w (xs,n) ⇔ SUM (MAP (eval_term w) xs) ≥ n
+  satisfies_npbc w ((xs,n):npbc) ⇔ n ≤ &(SUM (MAP (eval_term w) xs))
 End
 
 (* Tentative representation of PBF as a set of constraints *)
@@ -120,7 +121,7 @@ End
 Definition add_def:
   add (xs,m) (ys,n) =
     let (xs,d) = add_lists xs ys in
-      (xs,((m + n) - d))
+      (xs,((m + n) - &d)):npbc
 End
 
 (* addition -- proof *)
@@ -133,13 +134,13 @@ Proof
   rw[add_terms_def,AllCaseEqs(),offset_def]>>
   Cases_on`x`>>Cases_on`y`>>gvs[]>>
   TRY (
-    fs[integerTheory.INT_ADD_CALCULATE]>>
+    fs[INT_ADD_CALCULATE]>>
     Cases_on`w v`>>gs[]>> NO_TAC)
   >- (
    Cases_on`w v`>>gs[]>>
    intLib.ARITH_TAC)>>
   `n < n'` by intLib.ARITH_TAC>>
-  simp[integerTheory.INT_ADD_CALCULATE]>>
+  simp[INT_ADD_CALCULATE]>>
   Cases_on`w v`>>gs[]
 QED
 
@@ -168,6 +169,7 @@ Proof
   \\ drule_all add_lists_thm
   \\ disch_then (qspec_then ‘w’ assume_tac)
   \\ fs []
+  \\ intLib.ARITH_TAC
 QED
 
 (* addition -- compactness *)
@@ -290,7 +292,7 @@ Theorem IQ_quot:
   j ≠ 0 ⇒
   IQ i j = i quot j
 Proof
-  simp[integerTheory.int_quot,IQ_def]
+  simp[int_quot,IQ_def]
 QED
 
 Theorem div_ceiling_compute:
@@ -337,23 +339,93 @@ Proof
   \\ ‘n = 1’ by fs [] \\ fs []
 QED
 
-Definition divide_def:
-  divide ((l,n):npbc) k =
-    (MAP (λ(c,v). (div_ceiling c k, v)) l,n \\ k)
+Definition div_ceiling_up_def:
+  div_ceiling_up (m:int) (n:num) =
+    IQ
+      (if m < 0
+      then m
+      else m+ (&n - 1)) &n
 End
 
-Theorem divide_thm:
-  satisfies_npbc w c ∧ k ≠ 0 ⇒ satisfies_npbc w (divide c k)
+Definition divide_def:
+  divide ((l,n):npbc) k =
+    (MAP (λ(c,v). (div_ceiling c k, v)) l,
+      div_ceiling_up n k)
+End
+
+Theorem div_ceiling_le_x:
+  k ≠ 0 ∧ 0 ≤ n ⇒ (div_ceiling n k ≤ m ⇔ n ≤ m * &k)
 Proof
-  Cases_on ‘c’ \\ fs [divide_def]
-  \\ rw [satisfies_npbc_def,GREATER_EQ,CEILING_DIV_LE_X]
-  \\ irule LESS_EQ_TRANS
-  \\ first_x_assum $ irule_at Any
-  \\ Induct_on ‘q’ \\ fs [FORALL_PROD]
-  \\ fs [LEFT_ADD_DISTRIB] \\ rw []
-  \\ irule (DECIDE “m ≤ m1 ∧ n ≤ n1 ⇒ m+n ≤ m1+n1:num”)
-  \\ fs[] \\ Cases_on ‘p_1’ \\ gvs [div_ceiling_compute,DIV_CEILING_EQ_0]
-  \\ fs [LE_MULT_CEILING_DIV]
+  rw[]>>
+  Cases_on ‘0 ≤ m’
+  >- (
+    Cases_on ‘m’>>
+    fs[]>>
+    Cases_on ‘n’>>
+    fs[div_ceiling_compute,CEILING_DIV_LE_X])>>
+  ‘m < 0’ by intLib.ARITH_TAC>>
+  iff_tac>>
+  strip_tac
+  >-(
+    ‘div_ceiling n k < 0’ by intLib.ARITH_TAC>>
+    rfs[div_ceiling_sign]>>
+    intLib.ARITH_TAC)>>
+  ‘m * int_of_num k < 0’ by simp[integerTheory.INT_MUL_SIGN_CASES]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem Num_div_ceiling:
+  0 < k ⇒ Num (ABS q) ≤ k * Num (ABS (div_ceiling q k))
+Proof
+  Cases_on ‘q’>>
+  rw[div_ceiling_compute,LE_MULT_CEILING_DIV]
+QED
+
+Theorem LT_LE_ADD:
+  x < a ∧
+  y ≤ (b:num) ⇒
+  x + y < a + b
+Proof
+  intLib.ARITH_TAC
+QED
+
+Theorem div_ceiling_up_eq:
+  (k < 0 ⇒
+  div_ceiling_up k n = IQ k (&n)) ∧
+  (¬ (k < 0) ⇒
+  div_ceiling_up k n = div_ceiling k n)
+Proof
+  rw[div_ceiling_up_def,div_ceiling_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem divide_thm:
+  satisfies_npbc w c ∧ k ≠ 0 ⇒
+  satisfies_npbc w (divide c k)
+Proof
+  Cases_on ‘c’>>
+  rename1 ‘satisfies_npbc w (q,r)’>>
+  rw[divide_def,satisfies_npbc_def,MAP_MAP_o]>>
+  Cases_on`r < 0` >> fs[div_ceiling_up_eq]
+  >- (
+    Cases_on`r`>>
+    DEP_REWRITE_TAC[IQ_quot]>>
+    fs[]>>
+    intLib.ARITH_TAC)>>
+  DEP_REWRITE_TAC[div_ceiling_le_x]>>
+  CONJ_TAC >- intLib.ARITH_TAC>>
+  irule INT_LE_TRANS>>
+  goal_assum $ drule_at Any>>
+  last_x_assum $ kall_tac>>
+  Induct_on ‘q’>>
+  simp[]>> Cases>>
+  qmatch_goalsub_abbrev_tac` _ + A ≤ k * (_ + B)`>>
+  fs[]>>
+  qsuff_tac`A <= k * B`
+  >- intLib.ARITH_TAC>>
+  unabbrev_all_tac>>
+  rw[div_ceiling_sign,oneline b2n_def]>>
+  simp[Num_div_ceiling]
 QED
 
 Theorem div_ceiling_eq_0:
@@ -393,18 +465,18 @@ QED
 Definition not_def:
   not ((l,n):npbc) =
     (MAP (λ(c,l). (-c,l)) l,
-      SUM (MAP (λi. Num (ABS (FST i))) l) + 1 - n)
+      &SUM (MAP (λi. Num (ABS (FST i))) l) + 1 - n)
 End
 
-Theorem ADD_SUB:
-  B ≥ C ⇒
+Theorem ADD_SUB':
+  C ≤ B ⇒
   A + (B - C) = A + B - C
 Proof
   rw[]
 QED
 
-Theorem ABS_coeff_ge:
-  SUM (MAP (λi. Num (ABS (FST i))) l) ≥ SUM (MAP (eval_term w) l)
+Theorem ABS_coeff_le:
+  SUM (MAP (eval_term w) l) ≤ SUM (MAP (λi. Num (ABS (FST i))) l)
 Proof
   Induct_on`l`>>fs[FORALL_PROD]>>rw[]
   \\ Cases_on ‘w p_2’ \\ fs []
@@ -420,8 +492,8 @@ Proof
   \\ Cases_on ‘w p_2’ \\ fs []
   \\ TRY (last_x_assum (fn th => rewrite_tac [GSYM th]) \\ gvs [] \\ NO_TAC)
   \\ Cases_on ‘p_1’ \\ gvs []
-  \\ DEP_REWRITE_TAC[ADD_SUB]
-  \\ metis_tac[ABS_coeff_ge]
+  \\ DEP_REWRITE_TAC[ADD_SUB']
+  \\ metis_tac[ABS_coeff_le]
 QED
 
 Theorem not_thm:
@@ -429,8 +501,9 @@ Theorem not_thm:
 Proof
   Cases_on ‘c’ \\ fs [not_def,satisfies_npbc_def,GREATER_EQ]
   \\ simp[not_lhs]
-  \\ DEP_REWRITE_TAC[ADD_SUB]
-  \\ simp[ABS_coeff_ge]
+  \\ rename1`~ (_ ≤ &SUM (MAP _ l))`
+  \\ assume_tac ABS_coeff_le
+  \\ intLib.ARITH_TAC
 QED
 
 Theorem compact_not:
@@ -451,7 +524,7 @@ QED
 Definition multiply_def:
   multiply ((l,n):npbc) k =
     if k = 0 then ([],0) else
-      (MAP (λ(c,v). (c * & k, v)) l,n * k)
+      (MAP (λ(c,v). (c * & k, v)) l,n * &k)
 End
 
 Theorem multiply_thm:
@@ -460,12 +533,16 @@ Proof
   Cases_on ‘c’ \\
   rename1`(l,r)` \\ fs [multiply_def]
   \\ rw [satisfies_npbc_def,GREATER_EQ]
+  \\ reverse (Cases_on`r` \\ fs[])
+  >-
+    simp[GSYM integerTheory.INT_NEG_LMUL]
   \\ drule LESS_MONO_MULT
   \\ disch_then (qspec_then`k` mp_tac)
   \\ REWRITE_TAC [Once MULT_COMM]
   \\ strip_tac
   \\ irule LESS_EQ_TRANS
   \\ first_x_assum $ irule_at Any
+  \\ pop_assum kall_tac
   \\ pop_assum kall_tac
   \\ Induct_on`l` \\ simp[] \\ Cases \\ rw[]
   \\ Cases_on ‘q’ \\ gvs []
@@ -496,8 +573,10 @@ End
 
 Definition saturate_def:
   saturate (l,n) =
-    if n = 0 then ([],n)
-    else (MAP (λ(c,v). (abs_min c n, v)) l, n)
+    if n ≤ 0 then ([],n)
+    else
+    let nn = Num (ABS n) in
+    (MAP (λ(c,v). (abs_min c nn, v)) l, n)
 End
 
 Theorem eval_lit_bool:
@@ -511,11 +590,13 @@ Theorem saturate_thm:
   satisfies_npbc w c ⇒ satisfies_npbc w (saturate c)
 Proof
   Cases_on ‘c’ \\ rename1`(l,n)` \\ fs [saturate_def]
-  \\ rw [satisfies_npbc_def,GREATER_EQ]
+  \\ rw [satisfies_npbc_def]
+  \\ Cases_on ‘n’ \\ fs[]
+  \\ rename1 ‘m ≤ _’
   \\ `∀a.
-      n ≤ SUM (MAP (eval_term w) l) + a ⇒
-      n ≤ SUM (MAP (eval_term w) (MAP (λ(c,v). (abs_min c n,v)) l)) + a` by (
-    pop_assum kall_tac
+      m ≤ SUM (MAP (eval_term w) l) + a ⇒
+      m ≤ SUM (MAP (eval_term w) (MAP (λ(c,v). (abs_min c m,v)) l)) + a` by (
+    pop_assum kall_tac \\ pop_assum kall_tac
     \\ Induct_on`l` \\ simp[] \\ Cases
     \\ simp[]
     \\ rw[]
@@ -536,7 +617,7 @@ Proof
   reverse (rw [saturate_def,compact_def])
   THEN1 (
     gvs [EVERY_MEM, MEM_MAP, PULL_EXISTS, FORALL_PROD] \\
-    rw[abs_min_def] )
+    rw[abs_min_def] \\ fs[] )
   \\ Induct_on ‘l’ \\ fs [FORALL_PROD]
   \\ Cases_on ‘l’ \\ fs []
   \\ Cases_on ‘t’ \\ fs []
@@ -563,7 +644,7 @@ Definition weaken_aux_def:
   (weaken_aux [] xs n = (xs,n)) ∧
   (weaken_aux (v::vs) ((c:int,l)::xs) n =
     if l = v then
-      weaken_aux vs xs (n-Num(ABS c))
+      weaken_aux vs xs (n-ABS c)
     else
     let (xs',n') = weaken_aux (v::vs) xs n in
       ((c,l)::xs',n'))
@@ -571,46 +652,37 @@ End
 
 (* weakening *)
 Definition weaken_def:
-  weaken (l,n) vs = weaken_aux vs l n
+  weaken ((l,n):npbc) vs = weaken_aux vs l n
 End
 
 Theorem weaken_aux_theorem:
   ∀vs l n l' n' a.
-  n ≤ SUM (MAP (eval_term w) l) + a ∧
+  n ≤ &SUM (MAP (eval_term w) l) + a ∧
   weaken_aux vs l n = (l',n') ⇒
-  n' ≤ SUM (MAP (eval_term w) l') + a
+  n' ≤ &SUM (MAP (eval_term w) l') + a
 Proof
-  ho_match_mp_tac weaken_aux_ind \\ rw[weaken_aux_def]
-  \\ rpt (pairarg_tac \\ fs[])
-  \\ every_case_tac \\ fs[] \\ rw[]
-  \\ qmatch_goalsub_abbrev_tac`SUM A`
-  \\ TRY(qmatch_goalsub_abbrev_tac`B + SUM A`)
-  \\ TRY(qmatch_goalsub_abbrev_tac`SUM A + B`)
-  >- (
-    qmatch_goalsub_abbrev_tac` _ ≤ rhs`
-    \\ `rhs = (a + B) + SUM A` by
-      (unabbrev_all_tac>>
-      simp[])
-    \\ pop_assum SUBST1_TAC
-    \\ first_x_assum match_mp_tac
-    \\ fs[])
-  >- (
-    first_x_assum irule
-    \\ Cases_on`w l`
-    \\ gvs[])
-  \\ qmatch_goalsub_abbrev_tac` _ ≤ rhs`
-  \\ `rhs = (a + B) + SUM A` by
-    (unabbrev_all_tac>>
-    simp[])
-  \\ pop_assum SUBST1_TAC
-  \\ fs[]
+  ho_match_mp_tac weaken_aux_ind>>
+  rw[weaken_aux_def]>>
+  rpt (pairarg_tac \\ fs[])>>
+  every_case_tac \\ fs[] \\ rw[]>>
+  qmatch_goalsub_abbrev_tac‘SUM A’>>
+  qmatch_asmsub_abbrev_tac‘SUM B + (Num (ABS c) * _)’>>
+  qmatch_asmsub_abbrev_tac‘SUM B + C’>>
+  `&C ≤ ABS c` by (
+    fs[Abbr`C`,oneline b2n_def]>>
+    rw[]>>
+    Cases_on`c`>>fs[])>>
+  gvs[GSYM INT_OF_NUM_ADD]>>
+  PURE_ONCE_REWRITE_TAC[GSYM INT_ADD_ASSOC] >>
+  last_x_assum irule>>
+  intLib.ARITH_TAC
 QED
 
 (* set a = 0 *)
 val weaken_aux_theorem0 =
   weaken_aux_theorem |>
   CONV_RULE (RESORT_FORALL_CONV (sort_vars ["a"])) |>
-  Q.SPEC`0` |> SIMP_RULE std_ss [];
+  Q.SPEC`0` |> SIMP_RULE std_ss [integerTheory.INT_ADD_RID];
 
 Theorem weaken_thm:
   satisfies_npbc w c ⇒ satisfies_npbc w (weaken c v)
@@ -690,14 +762,14 @@ Proof
 QED
 
 Definition clean_up_def:
-  clean_up [] = ([],0) ∧
-  clean_up [x] = ([x],0) ∧
+  clean_up [] = ([],0:int) ∧
+  clean_up [x] = ([x],0:int) ∧
   clean_up (x::y::xs) =
     let (ys,zs) = partition xs [x] [y] in
     let (ys1,k1) = clean_up ys in
     let (ys2,k2) = clean_up zs in
     let (res,k3) = add_lists ys1 ys2 in
-      (res,k1+k2+k3)
+      (res,k1+k2 + &k3)
 Termination
   WF_REL_TAC ‘measure LENGTH’ \\ rw []
   \\ drule partition_length \\ fs []
@@ -707,7 +779,8 @@ End
 Theorem clean_up_thm:
   ∀xs ys d.
     clean_up xs = (ys,d) ⇒
-    SUM (MAP (eval_term w) xs) = SUM (MAP (eval_term w) ys) + d
+    &SUM (MAP (eval_term w) xs) =
+    &SUM (MAP (eval_term w) ys) + d
 Proof
   ho_match_mp_tac clean_up_ind \\ rw []
   \\ gvs [clean_up_def]
@@ -715,6 +788,7 @@ Proof
   \\ drule_then (qspec_then ‘w’ assume_tac) partition_sum
   \\ drule_then (qspec_then ‘w’ assume_tac) add_lists_thm
   \\ gvs []
+  \\ intLib.ARITH_TAC
 QED
 
 Theorem EVERY_partition:
@@ -763,7 +837,7 @@ Definition subst_aux_def:
     let (old,new,k) = subst_aux f rest in
       case f l of
       | NONE => ((c,l)::old,new,k)
-      | SOME (INL b) => (old,new,if is_Pos c = b then k + Num (ABS c) else k)
+      | SOME (INL b) => (old,new,if is_Pos c = b then k + (ABS c) else k)
       | SOME (INR (Pos n)) => (old,(c,n)::new,k)
       | SOME (INR (Neg n)) => (old,(0-c,n)::new,k)
 End
@@ -773,7 +847,7 @@ Definition subst_lhs_def:
     let (old,new,k) = subst_aux f l in
     let (sorted,k2) = clean_up new in
     let (result,k3) = add_lists old sorted in
-    (result, k + k2 + k3)
+    (result, k + k2 + &k3)
 End
 
 Definition subst_def:
@@ -784,8 +858,8 @@ End
 
 Theorem subst_lhs_thm:
   subst_lhs f l = (result,k) ⇒
-  SUM (MAP (eval_term (assign f w)) l) =
-  SUM (MAP (eval_term w) result) + k
+  &SUM (MAP (eval_term (assign f w)) l) =
+  &SUM (MAP (eval_term w) result) + k
 Proof
   fs [subst_lhs_def]
   \\ rpt (pairarg_tac \\ gvs [])
@@ -793,32 +867,36 @@ Proof
   \\ qsuff_tac
     ‘∀l old new k.
         subst_aux f l = (old,new,k) ⇒
-        SUM (MAP (eval_term (assign f w)) l) =
-        k + SUM (MAP (eval_term w) old ++ MAP (eval_term w) new)’
+        &SUM (MAP (eval_term (assign f w)) l) =
+        k + &SUM (MAP (eval_term w) old ++ MAP (eval_term w) new)’
   >- (
     disch_then $ drule_then assume_tac \\ fs [SUM_APPEND]
     \\ drule_then (qspec_then ‘w’ assume_tac) clean_up_thm
     \\ drule_then (qspec_then ‘w’ assume_tac) add_lists_thm
-    \\ gvs [])
+    \\ gvs []
+    \\ intLib.ARITH_TAC)
   \\ Induct \\ fs [subst_aux_def,FORALL_PROD]
   \\ pairarg_tac \\ fs []
   \\ rw []
   \\ Cases_on ‘p_1’   \\ gvs []
   \\ every_case_tac \\ gvs [assign_def]
   \\ fs[SUM_APPEND]
-  \\ rename1`b2n (w a)`
-  \\ Cases_on ‘w a’ \\ fs [SUM_APPEND]
+  \\ TRY (
+    rename1`b2n (w a)`
+    \\ Cases_on ‘w a’ \\ fs [SUM_APPEND])
+  \\ intLib.ARITH_TAC
 QED
 
 Theorem subst_thm:
-  satisfies_npbc w (subst f c) = satisfies_npbc (assign f w) c
+  satisfies_npbc w (subst f c) =
+  satisfies_npbc (assign f w) c
 Proof
   Cases_on ‘c’ \\
   rename1‘(l,n)’ \\
   fs [satisfies_npbc_def,subst_def] \\
   pairarg_tac \\ fs[] \\
   drule subst_lhs_thm \\ strip_tac \\
-  simp[satisfies_npbc_def]
+  simp[satisfies_npbc_def,integerTheory.INT_LE_SUB_RADD]
 QED
 
 Definition subst_opt_aux_acc_def:
@@ -830,7 +908,7 @@ Definition subst_opt_aux_acc_def:
         subst_opt_aux_acc f rest ((c,l)::a1) a2 k same
     | SOME (INL b) =>
       if is_Pos c = b then
-        subst_opt_aux_acc f rest a1 a2 (k + Num (ABS c)) same
+        subst_opt_aux_acc f rest a1 a2 (k + ABS c) same
       else
         subst_opt_aux_acc f rest a1 a2 k F
     | SOME (INR (Pos n)) =>
@@ -849,7 +927,7 @@ Definition subst_opt_aux_def:
       | NONE => ((c,l)::old,new,k,same)
       | SOME (INL b) =>
         if is_Pos c = b then
-          (old,new, k + Num (ABS c), same)
+          (old,new, k + ABS c, same)
         else
           (old,new, k, F)
       | SOME (INR (Pos n)) => (old,(c,n)::new,k,F)
@@ -868,7 +946,10 @@ Proof
   \\ rw [] \\ CASE_TAC \\ fs []
   >- rpt (pairarg_tac \\ gvs [] \\ IF_CASES_TAC \\ fs [])
   \\ CASE_TAC \\ fs []
-  >- (IF_CASES_TAC \\ fs [] \\ rpt (pairarg_tac \\ gvs []))
+  >- (
+    IF_CASES_TAC \\ fs [] \\ rpt (pairarg_tac \\ gvs [])
+    \\ simp[AC integerTheory.INT_ADD_ASSOC integerTheory.INT_ADD_COMM]
+    )
   \\ CASE_TAC \\ fs []
   \\ rpt (pairarg_tac \\ gvs [])
 QED
@@ -882,7 +963,7 @@ End
 
 Definition check_contradiction_def:
   check_contradiction ((ls,num):npbc) ⇔
-    lslack ls < num
+    &lslack ls < num
 End
 
 Theorem lslack_thm:
@@ -898,10 +979,11 @@ Theorem check_contradiction_unsat:
 Proof
   Cases_on`c`>>
   rename1`(l,n)`>>
-  rw[check_contradiction_def,satisfies_npbc_def,GREATER_EQ,GSYM NOT_LESS]>>
-  irule LESS_EQ_LESS_TRANS >>
-  pop_assum $ irule_at Any >>
-  fs [lslack_thm]
+  rw[check_contradiction_def,satisfies_npbc_def,GREATER_EQ,GSYM NOT_LESS,
+    integerTheory.INT_NOT_LE]>>
+  irule integerTheory.INT_LET_TRANS>>
+  goal_assum $ drule_at Any>>
+  simp[lslack_thm]
 QED
 
 (* constraint c1 implies constraint c2 *)
@@ -930,7 +1012,7 @@ Definition subst_opt_def:
       if same then NONE else
         let (sorted,k2) = clean_up new in
         let (result,k3) = add_lists old sorted in
-        let res = (result,n - (k + k2 + k3)) in
+        let res = (result,n - (k + k2 + &k3)) in
         if SND res = 0 ∨ imp (l,n) res then NONE
         else SOME res
 End
@@ -941,7 +1023,7 @@ Theorem subst_opt_eq:
       if same then NONE else
         let (sorted,k2) = clean_up new in
         let (result,k3) = add_lists old sorted in
-        let res = (result,n - (k + k2 + k3)) in
+        let res = (result,n - (k + k2 + &k3)) in
         if SND res = 0 ∨ imp (l,n) res then NONE
         else SOME res
 Proof
@@ -1237,7 +1319,7 @@ Definition obj_constraint_def:
   obj_constraint f (l,b:int) =
     let (result, k) = subst_lhs f (MAP (λ(c,l). (-c,l)) l) in
     let (add,n) = add_lists l result in
-    (add, SUM (MAP (λi. Num (ABS (FST i))) l) - (k + n))
+    (add, &SUM (MAP (λi. Num (ABS (FST i))) l) - &n - k)
 End
 
 (* Preserving satisfiability and optimality *)
@@ -1305,20 +1387,6 @@ Proof
   rw[eval_obj_def]
 QED
 
-Theorem add_ge:
-  x ≥ y - z ⇔
-  x + z ≥ y
-Proof
-  rw[]
-QED
-
-Theorem add_ge_2:
-  y ≥ z ⇒
-  (x + (y-z) ≥ y ⇔ x ≥ z)
-Proof
-  rw[]
-QED
-
 Theorem satisfies_npbc_obj_constraint:
   satisfies_npbc s (obj_constraint w obj) ⇔
   eval_obj (SOME obj) (assign w s) ≤ eval_obj (SOME obj) s
@@ -1327,18 +1395,16 @@ Proof
   rename1`(obj,c)`>>
   rw[obj_constraint_def,eval_obj_def]>>
   rpt(pairarg_tac>>fs[])>>
-  simp[satisfies_npbc_def,add_ge]>>
-  `n + SUM (MAP (eval_term s) add') = SUM (MAP (eval_term s) add') + n` by fs[]>>
-  pop_assum SUBST_ALL_TAC>>
+  simp[satisfies_npbc_def]>>
   drule add_lists_thm >>
-  disch_then(qspec_then `s` sym_sub_tac)>>
-  `k + (SUM (MAP (eval_term s) obj) + SUM (MAP (eval_term s) result)) = SUM (MAP (eval_term s) obj) + (SUM (MAP (eval_term s) result) + k)` by fs[]>>
-  pop_assum SUBST_ALL_TAC>>
+  disch_then(qspec_then `s` assume_tac)>>
   drule subst_lhs_thm>>
-  disch_then(qspec_then `s` sym_sub_tac)>>
-  simp[not_lhs]>>
-  DEP_REWRITE_TAC [add_ge_2]>>
-  simp[ABS_coeff_ge]
+  disch_then(qspec_then `s` mp_tac)>>
+  simp[not_lhs,int_arithTheory.INT_NUM_SUB]>>
+  rw[]
+  >-
+    metis_tac[ABS_coeff_le,NOT_LESS]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem substitution_redundancy_obj:

@@ -808,9 +808,12 @@ fun xlet_subst_parameters env app_info asl let_pre app_spec  =
       val params_tm_list = List.map (get_value env) params_expr_list
 
       (* NOT SURE if proper way: rewrite the values to prevent conflicts with the
-         parameters found by xapp_spec *)
+         parameters found by xapp_spec
+         TODO: commented out, unclear if it is helpful.
+      *)
+      (*
       val asl_thms = List.map ASSUME asl
-      val params_tm_list = List.map (fn x => CONV_TERM (SIMP_CONV bool_ss asl_thms) x) params_tm_list
+      val params_tm_list = List.map (fn x => CONV_TERM (SIMP_CONV bool_ss asl_thms) x) params_tm_list *)
       (*************************************************)
 
       (* Find the app variable *)

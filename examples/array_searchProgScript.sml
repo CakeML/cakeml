@@ -464,6 +464,7 @@ Proof
       fs[] >>
       `start ≤ ((finish + start) DIV 2)` by fs[X_LE_DIV] >>
       imp_res_tac LIST_REL_EL_EQN >> fs[]) >>
+
   xlet `POSTv bv . ARRAY arr_v elem_vs * &BOOL F bv` (* d *)
   >- (xapp >> xsimpl >>
       qexists_tac `EL ((finish + start) DIV 2) elems` >>
@@ -498,6 +499,7 @@ Proof
       fs[DIV_LT_X]) >>
   qabbrev_tac `mid = (finish + start) DIV 2` >> fs[] >>
   qabbrev_tac `sub_list = DROP start (TAKE finish elems)` >>
+
   xif
   >- ( (* LOWER CASE - value in left half of sub_list *)
   qabbrev_tac `rec_len = mid - start` >>
@@ -618,6 +620,7 @@ Proof
   >- (qsuff_tac `mid < finish` >> fs[] >>
       UNABBREV_TAC "mid" >> fs[] >>
       fs[DIV_LT_X])
+  >- gvs []
   >-  fs[EVERY2_DROP]
   >- (
     qexists_tac `u` >> fs[] >>
@@ -655,4 +658,3 @@ Proof
     )
   )
 QED
-

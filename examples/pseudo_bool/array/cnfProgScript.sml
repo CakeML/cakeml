@@ -714,7 +714,7 @@ Definition num_lhs_string_def:
 End
 
 Definition npbc_string_def:
-  (npbc_string (xs,n:num) =
+  (npbc_string (xs,n:int) =
     concat [
       num_lhs_string xs;
       strlit" >= ";toString n; strlit ";\n"])
