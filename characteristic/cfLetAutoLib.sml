@@ -1902,8 +1902,8 @@ fun xlet_auto_spec (opt_spec : thm option) (g as (asl, w)) =
 (* [xlet_auto] *)
 fun xlet_auto (g as (asl, w)) =
   xlet_auto_spec NONE g
-  handle HOL_ERR {message = msg, ...}
-         => raise (ERR "xlet_auto" msg);
+  handle HOL_ERR e
+         => raise (ERR "xlet_auto" (message_of e));
 
 end
 
