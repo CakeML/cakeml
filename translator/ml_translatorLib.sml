@@ -345,7 +345,10 @@ in
           subst [code |-> mk_Var(mk_Short (stringSyntax.fromMLstring ml_name))] tm
     in
       ASSUME tm |> SPEC_ALL |> UNDISCH_ALL
-    end handle HOL_ERR {origin_function="first",...} => raise NotFoundVThm const
+    end handle e as HOL_ERR holerr =>
+      if top_function_of holerr = "first" then
+         raise NotFoundVThm const
+      else raise e
   fun lookup_eval_thm const = let
     val (name,c,th) = (first (fn c => can (match_term (#2 c)) const) (!eval_thms))
     in th |> SPEC_ALL |> UNDISCH_ALL end
