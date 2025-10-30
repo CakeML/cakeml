@@ -53,7 +53,7 @@ Definition has_return_def:
   (has_return _ = F)
 End
 
-
+(* Whether a program has a return statement inside a loop *)
 Definition return_in_loop_def:
   (return_in_loop (Dec v e p) = return_in_loop p) ∧
   (return_in_loop (Seq p1 p2) = ((return_in_loop p1) ∨ (return_in_loop p2))) ∧
@@ -67,9 +67,7 @@ Definition return_in_loop_def:
   (return_in_loop _ = F)
 End
 
-(* No transformation for
-   While: uninlineable
- *)
+(* Helper function to recursively transform the return statement *)
 Definition transform_rec_def:
   (transform_rec f (Return e) = f (Return e)) ∧
   (transform_rec f (Dec v e p) = Dec v e (transform_rec f p)) ∧
@@ -84,16 +82,18 @@ Definition transform_rec_def:
   (transform_rec f p = f p)
 End
 
-
+(* This simulate argument loading of a function call *)
 Definition arg_load_def:
   arg_load tmp_vars args args_vname p =
     nested_decs tmp_vars args (nested_decs args_vname (MAP Var tmp_vars) p)
 End
 
+(* Merge the callee body of a tail call into the caller's body *)
 Definition inline_tail_def:
   inline_tail p = Seq Tick p
 End
 
+(* Whether a function has return in a branching statement *)
 Definition not_branch_ret_def:
   (not_branch_ret (Dec v e p) = not_branch_ret p) ∧
   (not_branch_ret (Seq p1 p2) = (not_branch_ret p1 ∧ not_branch_ret p2)) ∧
@@ -107,10 +107,15 @@ Definition not_branch_ret_def:
   (not_branch_ret _ = T)
 End
 
+(* Types of early exit *)
 Datatype:
   early_exit = Exn | Ret | Loop_exit
 End
 
+(* Eliminate all unreachable code after Return/Raise/Continue/Break
+   This treat while loop as a non-stopping statement, as reachability
+   of the loop body is not determined
+ *)
 Definition unreach_elim_def:
   (unreach_elim (Return e) = (Return e, SOME Ret)) ∧
   (unreach_elim (Raise eid) = (Raise eid, SOME Exn)) ∧
@@ -163,23 +168,31 @@ Definition unreach_elim_def:
   (unreach_elim p = (p, NONE))
 End
 
+(* Transform the return statements in an inlined standalone call into
+   do-nothing statements
+ *)
 Definition standalone_eoc_def:
   (standalone_eoc (Return e) = Skip) ∧
   (standalone_eoc (Call NONE e args) = Call (SOME(NONE, Skip, NONE)) e args) ∧
   (standalone_eoc p = p)
 End
 
+(* Transform the return statements in an inlined assign call into
+   assign statements
+*)
 Definition assign_eoc_def:
   (assign_eoc rt (Return e) = Assign rt e) ∧
   (assign_eoc rt (Call NONE e args) = Call (SOME(SOME rt, Skip, NONE)) e args) ∧
   (assign_eoc rt p = p)
 End
 
+(* Merge the callee body of a standalone call into the caller's body *)
 Definition inline_standalone_eoc_def:
   inline_standalone_eoc p q =
     Seq (Seq Tick p) q
 End
 
+(* Merge the callee body of an assign call into the caller's body *)
 Definition inline_assign_eoc_def:
   inline_assign_eoc p q ret_max rt =
     Seq
@@ -192,6 +205,10 @@ Definition inline_assign_eoc_def:
        q
 End
 
+(* Perform function inlining over a program's body, with a known inline map.
+   This only inlines functions that has Return at the end of control flow,
+   and ignores all calls with a handler.
+*)
 Definition inline_prog_def:
   (inline_prog inlineable_fs (Call ctyp e args) =
      let ctyp_inl =
@@ -209,6 +226,8 @@ Definition inline_prog_def:
 
           let max_args = MAX_LIST (FLAT (MAP var_cexp args)) in
           let max_args_vname = MAX_LIST args_vname in
+
+          (* Avoid shadowing *)
           let tmp_vars = GENLIST (λx. max_args + max_args_vname + SUC x) (LENGTH args_vname) in
           (case ctyp_inl of
              | NONE => inline_tail $ arg_load tmp_vars args args_vname inlined_callee
