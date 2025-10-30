@@ -1,5 +1,5 @@
 (*
-  Function inlining
+  Function inlining pass in crepLang
 *)
 Theory crep_inline
 Ancestors
