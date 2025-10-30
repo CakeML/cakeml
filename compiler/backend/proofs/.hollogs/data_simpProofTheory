@@ -1,8 +1,0 @@
-<<HOL message: Created theory "data_simpProof">>
-Proved triviality ___ "evaluate_Seq_Skip"
-Proved triviality ___ "evaluate_pSeq"
-Proved triviality ___ "evaluate_simp"
-Saved theorem _______ "simp_correct"
-Saved theorem _______ "get_code_labels_simp"
-Exporting theory "data_simpProof" ... done.
-Theory "data_simpProof" took 9.5s to build

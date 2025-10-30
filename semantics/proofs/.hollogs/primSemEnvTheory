@@ -1,5 +1,0 @@
-<<HOL message: Created theory "primSemEnv">>
-Saved theorem _______ "prim_sem_env_eq"
-Saved theorem _______ "prim_type_sound_invariants"
-Exporting theory "primSemEnv" ... done.
-Theory "primSemEnv" took 5.1s to build

@@ -1,8 +1,0 @@
-<<HOL message: Created theory "clos_number">>
-Saved definition ____ "renumber_code_locs_def"
-Saved induction _____ "renumber_code_locs_ind"
-Saved theorem _______ "renumber_code_locs_length"
-Saved definition ____ "compile_inc_def"
-Saved definition ____ "ignore_table_def"
-Exporting theory "clos_number" ... done.
-Theory "clos_number" took 0.59868s to build

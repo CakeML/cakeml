@@ -1,9 +1,0 @@
-<<HOL message: Created theory "lab_filter">>
-<<HOL message: mk_functional: 
-  pattern completion has added 12 clauses to the original specification.>>
-Saved definition ____ "not_skip_def"
-Saved definition ____ "filter_skip_def"
-Saved induction _____ "filter_skip_ind"
-Saved theorem _______ "filter_skip_MAP"
-Exporting theory "lab_filter" ... done.
-Theory "lab_filter" took 0.69725s to build

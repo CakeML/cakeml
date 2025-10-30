@@ -1,6 +1,0 @@
-<<HOL message: Created theory "bvl_jump">>
-Saved definition ____ "JumpList_def"
-Saved induction _____ "JumpList_ind"
-Saved definition ____ "Jump_def"
-Exporting theory "bvl_jump" ... done.
-Theory "bvl_jump" took 0.41348s to build

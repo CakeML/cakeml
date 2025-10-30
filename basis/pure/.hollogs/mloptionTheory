@@ -1,8 +1,0 @@
-<<HOL message: Created theory "mloption">>
-Saved definition ____ "getOpt_def"
-Saved definition ____ "filter_def"
-Saved definition ____ "mapPartial_def"
-Saved definition ____ "compose_def"
-Saved definition ____ "composePartial_def"
-Saved definition ____ "compare_def"
-Exporting theory "mloption" ... 

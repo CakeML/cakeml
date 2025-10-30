@@ -1,6 +1,0 @@
-<<HOL message: Created theory "bvl_jumpProof">>
-Proved triviality ___ "evaluate_JumpList"
-Saved theorem _______ "evaluate_Jump"
-Saved theorem _______ "bvl_get_code_labels_JumpList"
-Exporting theory "bvl_jumpProof" ... done.
-Theory "bvl_jumpProof" took 0.42275s to build
