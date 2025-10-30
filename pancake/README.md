@@ -15,7 +15,7 @@ struct-layout to word-layout
 Simplification of arithmetic in crepLang.
 
 [crep_inlineScript.sml](crep_inlineScript.sml):
-Function inlining
+Function inlining pass in crepLang
 
 [crep_to_loopScript.sml](crep_to_loopScript.sml):
 Compilation from crepLang to panLang.
