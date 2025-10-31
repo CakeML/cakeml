@@ -1,9 +1,11 @@
 (*
   Helper lemmas for developing PB encodings
 *)
-open preamble mlintTheory pbcTheory;
-
-val _ = new_theory "pbc_encode";
+Theory pbc_encode
+Libs
+  preamble
+Ancestors
+ mlint pbc
 
 (* TODO integerTheory? *)
 Theorem INT_LE_MONO_IMP:
@@ -124,6 +126,12 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Theorem eval_lin_term_NIL[simp]:
+  eval_lin_term w [] = 0
+Proof
+  rw[eval_lin_term_def,iSUM_def]
+QED
+
 Theorem eval_lin_term_append[simp]:
   eval_lin_term w (xs++ys) = eval_lin_term w xs + eval_lin_term w ys
 Proof
@@ -225,4 +233,77 @@ Proof
   simp[eval_lin_term_def,iSUM_def]
 QED
 
-val _ = export_theory();
+Theorem eval_lin_term_ge_1:
+  eval_lin_term wb (MAP (λe. (1, f e)) ls) ≥ 1 ⇔
+  ∃e. MEM e ls ∧ lit wb (f e)
+Proof
+  rw[eval_lin_term_def]>>
+  Induct_on ‘ls’>>
+  rw[iSUM_def,b2i_alt]
+  >-(
+    simp[SF DNF_ss]>>
+    qmatch_goalsub_abbrev_tac`_ + iSUM lss ≥ _`>>
+    `iSUM lss ≥ 0` by (
+      irule iSUM_ge_0>>
+      simp[Abbr`lss`,MEM_MAP,PULL_EXISTS,b2i_alt]>>
+      rw[])>>
+    intLib.ARITH_TAC)
+  >- metis_tac[]
+QED
+
+Theorem iSUM_le_0:
+  (∀x. MEM x ls ⇒ x ≤ 0) ⇒ iSUM ls ≤ 0
+Proof
+  Induct_on`ls`>> rw[iSUM_def]>>
+  fs[SF DNF_ss]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem eval_lin_term_neg_ge_0:
+  eval_lin_term wb (MAP (λe. (-1, f e)) ls) ≥ 0 ⇔
+  ∀e. MEM e ls ⇒ ¬lit wb (f e)
+Proof
+  rw[eval_lin_term_def]>>
+  Induct_on ‘ls’>>
+  rw[iSUM_def,b2i_alt]
+  >-(
+    simp[SF DNF_ss,integerTheory.INT_GE,integerTheory.INT_NOT_LE]>>
+    qmatch_goalsub_abbrev_tac ‘_ + iSUM lss < _’>>
+    ‘iSUM lss ≤ 0’ by (
+      irule iSUM_le_0>>
+      simp[Abbr‘lss’,MEM_MAP,PULL_EXISTS,b2i_alt]>>
+      rw[])>>
+    intLib.ARITH_TAC)
+  >-metis_tac[]
+QED
+
+Theorem iSUM_MAP_lin:
+  ∀ls a f b. iSUM (MAP (λx. a * f x + b) ls) = a * iSUM (MAP (λx. f x) ls) + b * &LENGTH ls
+Proof
+  Induct>>
+  simp[iSUM_def,MAP,LENGTH]>>
+  rw[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem iSUM_MAP_lin_const = iSUM_MAP_lin |> CONV_RULE (RESORT_FORALL_CONV List.rev) |> Q.SPEC `0` |> SRULE [] |> SPEC_ALL;
+
+Theorem b2i_ge_2[simp]:
+  b2i b1 + b2i b2 ≥ 2 ⇔ b1 ∧ b2
+Proof
+  rw[b2i_alt]
+QED
+
+Theorem b2i_ge_1[simp]:
+  b2i b1 + b2i b2 ≥ 1 ⇔ b1 ∨ b2
+Proof
+  rw[b2i_alt]
+QED
+
+Theorem b2i_ge_0:
+  b2i b ≥ 0
+Proof
+  rw[b2i_alt]
+QED
+
+
