@@ -258,35 +258,26 @@ val _ = append_prog
  * Binary operations
  * ------------------------------------------------------------------------- *)
 
-fun binop s b = “[Dlet unknown_loc (Pvar ^s)
-  (Fun "x" (Fun "y" (App (FP_bop ^b) [Var (Short
-  "x"); Var (Short "y")])))]”
+fun c nm = prim_mk_const {Thy = "ml_translator", Name = nm}
+fun transc nm cnm = trans nm (c cnm)
+val _ = transc "+" "float64_add"
+val _ = transc "-" "float64_sub"
+val _ = transc "*" "float64_mul"
+val _ = transc "/" "float64_div"
 
-fun cmp s b = “[Dlet unknown_loc (Pvar ^s)
-  (Fun "x" (Fun "y" (App (FP_cmp ^b) [Var (Short
-  "x"); Var (Short "y")])))]”
-
-val _ = append_prog $ binop “"+"” “FP_Add”;
-val _ = append_prog $ binop “"-"” “FP_Sub”;
-val _ = append_prog $ binop “"*"” “FP_Mul”;
-val _ = append_prog $ binop “"/"” “FP_Div”;
-
-val _ = append_prog $ cmp “"<"” “FP_Less”;
-val _ = append_prog $ cmp “"<="” “FP_LessEqual”;
-val _ = append_prog $ cmp “">"” “FP_Greater”;
-val _ = append_prog $ cmp “">="” “FP_GreaterEqual”;
-val _ = append_prog $ cmp “"="” “FP_Equal”;
+val _ = transc "<"  "float64_less"
+val _ = transc "<=" "float64_less_equal"
+val _ = transc ">"  "float64_greater"
+val _ = transc ">=" "float64_greater_equal"
+val _ = transc "="  "float64_equal"
 
 (* --------------------------------------------------------------------------
  * Unary operations
  * ------------------------------------------------------------------------- *)
 
-fun monop s b = “[Dlet unknown_loc (Pvar ^s)
-  (Fun "x" (App (FP_uop ^b) [Var (Short "x")]))]”
-
-val _ = append_prog $ monop “"abs"” “FP_Abs”;
-val _ = append_prog $ monop “"sqrt"” “FP_Sqrt”;
-val _ = append_prog $ monop “"~"” “FP_Neg”;
+val _ = transc "abs" "float64_abs"
+val _ = transc "sqrt" "float64_sqrt"
+val _ = transc "~" "float64_neg"
 
 (* ----------------------------------------------------------------------
     Taking floats apart
