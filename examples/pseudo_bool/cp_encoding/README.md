@@ -3,6 +3,9 @@ CP semantics and encoders
 [cpScript.sml](cpScript.sml):
 Definition of CP problem syntax and semantics
 
+[cp_to_ilpImplScript.sml](cp_to_ilpImplScript.sml):
+Implementation of a concrete CP-to-ILP phase
+
 [cp_to_ilpScript.sml](cp_to_ilpScript.sml):
 Formalization of the CP to ILP phase
 

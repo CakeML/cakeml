@@ -92,7 +92,6 @@ End
 Definition encode_ge_def:
   encode_ge bnd X i =
   (bimply_bits bnd [Pos (INL (Ge X i))] ([(1,X)],[],i))
-    :'a aiconstraint list
 End
 
 Theorem encode_ge_sem[simp]:
@@ -113,7 +112,6 @@ Definition encode_eq_def:
   encode_eq bnd X i =
   (bimply_bits bnd [Pos (INL (Eq X i))]
     ([],[(1,Pos(INL (Ge X i)));(1, Neg (INL (Ge X (i+1))))],2))
-  :'a aiconstraint list
 End
 
 Theorem encode_eq_sem[simp]:
@@ -345,7 +343,7 @@ Definition encode_element_eq_def:
   [
     bits_imply bnd [Pos (INL (Eq X (&(i+1))))] (mk_constraint_ge 1 Ai (-1) R 0);
     bits_imply bnd [Pos (INL (Eq X (&(i+1))))] (mk_constraint_ge 1 R (-1) Ai 0)
-  ] : 'a aiconstraint list
+  ]
 End
 
 Theorem encode_element_eq_sem:
@@ -722,16 +720,21 @@ QED
 ***)
 
 (* Encoding for Y a variable *)
-Definition encode_abs_var_def:
-  encode_abs_var bnd X Y =
+Definition encode_abs_var_body_def:
+  encode_abs_var_body bnd X Y =
   let vY = INL Y in
-  encode_ge bnd Y 0 ++
   [
     bits_imply bnd [Pos (INL (Ge Y 0))] (mk_constraint_ge 1 X (-1) vY 0);
     bits_imply bnd [Pos (INL (Ge Y 0))] (mk_constraint_ge 1 vY (-1) X 0);
     bits_imply bnd [Neg (INL (Ge Y 0))] (mk_constraint_ge 1 X 1 vY 0);
     bits_imply bnd [Neg (INL (Ge Y 0))] (mk_constraint_ge (-1) X (-1) vY 0);
   ]
+End
+
+Definition encode_abs_var_def:
+  encode_abs_var bnd X Y =
+  encode_ge bnd Y 0 ++
+  encode_abs_var_body bnd X Y
 End
 
 Theorem encode_abs_var_sem:
@@ -744,7 +747,7 @@ Theorem encode_abs_var_sem:
     abs_sem X (INL Y) wi
   )
 Proof
-  rw[encode_abs_var_def]>>
+  rw[encode_abs_var_def,encode_abs_var_body_def]>>
   match_mp_tac LEFT_AND_CONG>>
   CONJ_TAC >- simp[encode_ge_sem]>>
   strip_tac>>
