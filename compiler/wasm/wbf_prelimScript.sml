@@ -34,11 +34,12 @@ Type byteCode[pp] = “:word8 app_list option”
 Type dcdr[pp]     = “:(mlstring + α) # byteSeq”
 
 (* Some helpers for the dcdr monad *)
-Overload ret   = “λ bs a. (INR a, bs)”
-Overload err   = “(INL $ strlit "", [])”
-Overload error = “λ bs str. (INL $ strlit str,bs)”
-Overload emErr = “λ str. (INL $ strlit $ "[" ++ str ++ "] : Byte sequence ended unexpectedly.\n",[])”
-Overload lift = “ (λ absOpt.
+(* errors are a little bit bogus now - they don't report the error very well *)
+Overload err   = “          (INL $ implode ""                                                       ,[])”
+Overload error = “λ bs str. (INL $ implode str                                                      ,bs)”
+Overload emErr = “λ str.    (INL $ implode $ "[" ++ str ++ "] : Byte sequence ended unexpectedly.\n",[])”
+Overload ret   = “λ bs a.   (INR a, bs)”
+Overload lift  = “ (λ absOpt.
   case absOpt of
   | NONE => err
   | SOME (a,bs) => (INR a, bs)  )”
@@ -73,7 +74,7 @@ val _ = monadsyntax.enable_monad "option"
 (******************************)
 
 Definition enc_s32_def:
-  enc_s32 (w:word32) = SOME $ List $ enc_signed_word32 w
+  enc_s32 (w:word32) = Soli $ enc_signed_word32 w
 End
 
 Definition dec_s32_def:
@@ -82,7 +83,7 @@ End
 
 
 Definition enc_s64_def:
-  enc_s64 (w:word64) = SOME $ List $ enc_signed_word64 w
+  enc_s64 (w:word64) = Soli $ enc_signed_word64 w
 End
 
 Definition dec_s64_def:
@@ -92,7 +93,7 @@ End
 
 (* we need s33 due to a perculiarity of Wasm (cf Block types - Index case from Wasm 2.0) *)
 Definition enc_s33_def:
-  enc_s33 (w:33 word) = SOME $ List $
+  enc_s33 (w:33 word) = Soli $
     if sw2sw ((w2w w):7 word) = w then
       enc_w7s [w2w w]
     else if sw2sw ((w2w w):14 word) = w then
@@ -128,7 +129,7 @@ End
 
 
 Definition enc_u8_def:
-  enc_u8 (w:byte) = SOME $ List $ enc_unsigned_word w
+  enc_u8 (w:byte) = Soli $ enc_unsigned_word w
 End
 
 Definition dec_u8_def:
@@ -137,7 +138,7 @@ End
 
 
 Definition enc_u32_def:
-  enc_u32 (w:word32) = SOME $ List $ enc_unsigned_word w
+  enc_u32 (w:word32) = Soli $ enc_unsigned_word w
 End
 
 Definition dec_u32_def:
@@ -326,18 +327,3 @@ Proof
   \\ imp_res_tac dec_enc_u8
   \\ gvs[]
 QED
-
-
-
-
-
-(* Overload dec_u8  = “dec_unsigned_word : byteSeq -> (byte   # byteSeq) option”
-Overload dec_u32 = “dec_unsigned_word : byteSeq -> (word32 # byteSeq) option”
-Overload dec_u64 = “dec_unsigned_word : byteSeq -> (word64 # byteSeq) option”
-
-Overload dec_s8  = “dec_signed_word   : byteSeq -> (byte   # byteSeq) option”
-
-
-Overload enc_u64 = “enc_unsigned_word : word64 -> byteSeq”
-
-Overload enc_s8  = “enc_signed_word8  : byte   -> byteSeq” *)

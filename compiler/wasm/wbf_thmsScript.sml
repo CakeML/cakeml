@@ -275,6 +275,12 @@ Proof
   \\ gvs[]
 QED
 
+Theorem enc_section_nEmp:
+  ∀lb enc x xs exxs. enc_section lb enc (x::xs) = SOME exxs ⇒ ¬(NULL (append exxs))
+Proof
+     rw[enc_section_def]
+  \\ simp[]
+QED
 
 
 (***********************************)
@@ -493,7 +499,7 @@ Proof
     >> imp_res_tac dec_enc_blocktype
     >> simp $ ssaa [dec_instr_def]
     (**)
-    >>~- ([‘enc_numI’    ],
+    >>~- ([‘enc_numI’  ],
                imp_res_tac enc_numI_nEmp_nTermB
             \\ imp_res_tac num_cf_instr_disjoint
             \\ imp_res_tac para_num_disjoint
@@ -506,7 +512,7 @@ Proof
             \\ pop_assum (fn x => rewrite_tac[x])
             \\ simp[dec_enc_numI]
     )
-    >>~- ([‘enc_paraI’   ],
+    >>~- ([‘enc_paraI’ ],
                imp_res_tac enc_paraI_nEmp_nTermB
             \\ imp_res_tac para_cf_instr_disjoint
             \\ imp_res_tac var_para_disjoint
@@ -517,7 +523,7 @@ Proof
             \\ pop_assum (fn x => rewrite_tac[x])
             \\ simp[dec_enc_paraI]
     )
-    >>~- ([‘enc_varI’    ],
+    >>~- ([‘enc_varI’  ],
                imp_res_tac enc_varI_nEmp_nTermB
             \\ imp_res_tac var_cf_instr_disjoint
             \\ gvs[Once dec_instr_def, AllCaseEqs()]
@@ -526,7 +532,7 @@ Proof
             \\ pop_assum (fn x => rewrite_tac[x])
             \\ simp[dec_enc_varI]
     )
-    >>~- ([‘enc_loadI’   ],
+    >>~- ([‘enc_loadI’ ],
                imp_res_tac enc_loadI_nEmp_nTermB
             \\ imp_res_tac load_cf_instr_disjoint
             \\ imp_res_tac var_load_disjoint
@@ -540,7 +546,7 @@ Proof
             \\ pop_assum $ (fn x => rewrite_tac[x])
             \\ simp[dec_enc_loadI]
     )
-    >>~- ([‘enc_storeI’  ],
+    >>~- ([‘enc_storeI’],
                imp_res_tac enc_storeI_nEmp_nTermB
             \\ imp_res_tac store_cf_instr_disjoint
             \\ imp_res_tac var_store_disjoint
@@ -555,6 +561,12 @@ Proof
             \\ pop_assum $ (fn x => rewrite_tac[x])
             \\ simp[dec_enc_storeI]
     )
+    \\ (* if case *)
+       Cases_on ‘l0’
+      >> gvs[dec_instr_def]
+      >> simp $ ssaa [dec_instr_def]
+      >> imp_res_tac dec_enc_blocktype
+      >> simp ssa
 QED
 
 Triviality dec_enc_instr_list:
@@ -598,6 +610,108 @@ QED
 (*     Modules     *)
 (*                 *)
 (*******************)
+
+(*
+  m ``MAP``
+MAP_MAPi
+MAP_MAP_o
+MAP_o
+MAP_COMPOSE
+*)
+
+
+Triviality s2b_o_b2s__I[simp]:
+  string2bytes ∘ bytes2string = I
+Proof
+  rw[string2bytes_def, bytes2string_def, GSYM MAP_o, n2w_ORD_CHR_w2n, MAP_ID_I]
+QED
+
+Triviality s2b_b2s__I[simp]:
+  ∀x. string2bytes $ bytes2string x = x
+Proof
+  rw[string2bytes_def, bytes2string_def, MAP_MAP_o, n2w_ORD_CHR_w2n, MAP_ID_I]
+QED
+
+Triviality b2s_o_s2b__I[simp]:
+  bytes2string ∘ string2bytes = I
+Proof
+  rw[string2bytes_def, bytes2string_def, GSYM MAP_o, CHR_w2n_n2w_ORD, MAP_ID_I]
+QED
+
+Triviality b2s_s2b__I[simp]:
+  ∀x. bytes2string $ string2bytes x = x
+Proof
+  rw[string2bytes_def, bytes2string_def, MAP_MAP_o, CHR_w2n_n2w_ORD, MAP_ID_I]
+QED
+
+Triviality imp_b2s_null[simp]:
+  bytes2string [] = ""
+Proof
+  simp[implode_def, bytes2string_def]
+QED
+
+Triviality implode_emp[simp]:
+  implode "" = «»
+Proof
+  simp[implode_def]
+QED
+
+Triviality blank_values[simp]:
+  blank = names «» [] []
+Proof
+  simp[blank_def, names_component_equality]
+QED
+
+Triviality b2s__STRING[simp]:
+  ∀s' ss. implode (bytes2string (n2w (ORD s')::MAP (n2w ∘ ORD) ss)) = implode $ STRING s' ss
+Proof
+  rw[bytes2string_def, MAP_MAP_o, CHR_w2n_n2w_ORD]
+QED
+
+
+Theorem enc_section_empty[simp]:
+  ∀lb enc. enc_section lb enc [] = SOME $ List []
+Proof
+  rw[enc_section_def]
+QED
+
+Theorem enc_section_empty_conv:
+  ∀lb enc xs encxs. append encxs = [] ∧
+  enc_section lb enc xs = SOME encxs
+  ⇒
+  xs = []
+Proof
+     rw[enc_section_def, NULL_EQ_NIL, prepend_sz_def]
+  >> gvs[append_def]
+QED
+
+
+Triviality enc_names_section_empty[simp]:
+  enc_names_section blank = SOME $ List []
+Proof
+     rw[enc_names_section_def, blank_def, enc_section_def]
+  >> fs[id_OK_def, prepend_sz_def, enc_u32_def, magic_bytes_def, string2bytes_def]
+QED
+
+Triviality dec_names_section_empty[simp]:
+  ∀lb enc. dec_names_section [] = ret [] [blank]
+Proof
+  rw[Once dec_names_section_def]
+QED
+
+Triviality dec_section_empty[simp]:
+  ∀lb dec. dec_section lb dec [] = ret [] []
+Proof
+  rw[Once dec_section_def]
+QED
+
+
+
+
+
+
+
+
 
 Theorem dec_enc_global[simp]:
   ∀g encg rest. enc_global g = SOME encg ⇒
@@ -710,24 +824,8 @@ Proof
 QED
 
 
-Theorem enc_section_empty[simp]:
-  ∀lb enc. enc_section lb enc [] = SOME $ List []
-Proof
-  rw[enc_section_def]
-QED
-
-Theorem enc_section_empty_conv:
-  ∀lb enc xs encxs. append encxs = [] ∧
-  enc_section lb enc xs = SOME encxs
-  ⇒
-  xs = []
-Proof
-     rw[enc_section_def, NULL_EQ_NIL, prepend_sz_def]
-  >> gvs[append_def]
-QED
-
 Theorem dec_enc_section_NE: (* non empty *)
-  ∀xs enc dec lb encxs rest. ¬(NULL xs) ∧
+  ∀lb xs enc dec encxs rest. ¬(NULL xs) ∧
   enc_section lb enc xs = SOME encxs ∧
   (∀x encx rs. enc x = SOME encx ⇒ dec (encx a++ rs) = (INR x, rs))
   ⇒
@@ -742,7 +840,7 @@ Proof
 QED
 
 Theorem dec_enc_section_NR: (* no rest *)
-  ∀xs enc dec lb encxs.
+  ∀lb xs enc dec encxs.
   enc_section lb enc xs = SOME encxs ∧
   (∀x encx rs. enc x = SOME encx ⇒ dec (encx a++ rs) = (INR x, rs))
   ⇒
@@ -759,13 +857,13 @@ Proof
 QED
 
 Theorem dec_enc_section:
-  ∀xs enc dec lb encxs rest.
+  ∀lb xs enc dec encxs rest.
   enc_section lb enc xs = SOME encxs ∧
   (∀x encx rs. enc x = SOME encx ⇒ dec (encx a++ rs) = (INR x, rs))
   ⇒
   dec_section lb dec $ encxs a++ rest = (INR xs, rest) ∨ xs = []
 Proof
-     Cases
+     Cases_on `xs`
   >> rw[enc_section_def, prepend_sz_def]
   \\ imp_res_tac dec_enc_u32
   \\ imp_res_tac dec_enc_vector
@@ -780,21 +878,199 @@ Proof
   simp[Once dec_section_def]
 QED
 
-
-Theorem enc_names_section_empty[simp]:
-  ∀lb enc. enc_names_section blank = SOME $ List []
+Theorem enc_dec_section_passThrough:
+  ∀b2 dec b1 enc x xs exxs. b1 ≠ b2 ∧
+  enc_section b1 enc (x::xs) = SOME exxs ⇒
+  dec_section b2 dec $ append exxs = ret (append exxs) []
 Proof
-     rw[enc_names_section_def, blank_def, enc_section_def]
-  >> simp[id_OK_def, prepend_sz_def, enc_u32_def]
-  \\ simp[string2bytes_def, enc_vector_def, enc_list_def, enc_u32_def]
-  \\ fs[string2bytes_def]
+     rw[enc_section_def]
+  \\ rw[dec_section_passThrough]
 QED
+
+Theorem enc_dec_section_passThrough_rest:
+  ∀b2 dec b1 enc x xs exxs rest. b1 ≠ b2 ∧
+  enc_section b1 enc (x::xs) = SOME exxs ⇒
+  dec_section b2 dec $ exxs a++ rest = ret (exxs a++ rest) []
+Proof
+     rw[enc_section_def]
+  \\ rw[dec_section_passThrough]
+QED
+
+
+(*
+Triviality :
+Proof
+QED
+*)
+
+
+
+
+Theorem dec_enc_names: (* no rest *)
+  ∀n encn rest.
+  enc_names_section n = SOME encn ⇒
+  dec_names_section $ encn a++ rest = (INR [n], rest) ∨ n = blank
+Proof
+  cheat
+QED
+
+Theorem dec_enc_names_NR: (* no rest *)
+  ∀n encn.
+  enc_names_section n = SOME encn ⇒
+  dec_names_section $ append encn = (INR [n], [])
+Proof
+(* ASKYK *)
+(* TODO - clean up/factor out common widgets *)
+(* is there a way to detect if a hyp is _missing_? *)
+
+     namedCases ["m_name f_names l_names"]
+  \\ namedCases_on ‘m_name’ ["s"]
+  \\ rewrite_tac[GSYM implode_def]
+  \\ namedCases_on ‘s’ ["", "s ss"]
+  >> namedCases_on ‘f_names’ ["", "f fs"]
+  >> namedCases_on ‘l_names’ ["", "l ls"]
+  >> simp $ ssaa [enc_names_section_def, prepend_sz_def, string2bytes_def]
+  >> rw[GSYM NOT_LESS, dec_names_section_def]
+  (* get encoders in the right order *)
+  >> TRY $ qpat_x_assum ‘SOME _ = enc_u32 _’ $ assume_tac o GSYM
+  >> TRY $ qpat_x_assum ‘SOME _ = enc_section 0w _ _ ’ $ mp_tac o GSYM
+  (* remove superfluous hyps  *)
+  >> TRY $ qpat_x_assum ‘id_OK ""’ $ kall_tac
+  >> TRY $ qpat_x_assum ‘LENGTH magic_bytes < 4294967296’ $ kall_tac
+  (* magic bytes *)
+  >> imp_res_tac dec_enc_u32
+  >> imp_res_tac enc_section_nEmp
+    >- simp[Once dec_names_section_def]
+    >> gvs[dec_names_section_def]
+    >> simp ssa
+    >> gvs[GSYM LENGTH_APPEND, Excl "LENGTH_APPEND"]
+    >> simp[magic_bytes_def, string2bytes_def]
+
+    >-( (*2*)
+         qspecl_then [‘0w’, ‘dec_byte’] (drule_at Any) enc_dec_section_passThrough
+      >> qspecl_then [‘1w’, ‘dec_ass’ ] (drule_at Any) enc_dec_section_passThrough
+      >> simp[]
+      >> ntac 2 $ disch_then $ kall_tac
+      (**)
+      >> assume_tac dec_enc_map
+      >> dxrule_at Any dec_enc_idx_alpha
+      >> strip_tac
+      >> imp_res_tac dec_enc_section_NR
+      >> fs[names_component_equality]
+    )
+    >-( (*3*)
+         qspecl_then [‘0w’, ‘dec_byte’] (drule_at Any) enc_dec_section_passThrough
+      >> simp[]
+      >> disch_then $ kall_tac
+      (**)
+      >> assume_tac dec_enc_ass
+      >> imp_res_tac dec_enc_section_NR
+      >> fs[names_component_equality]
+    )
+    >-( (*4*)
+         qspecl_then [‘0w’, ‘dec_byte’, ‘1w’] (drule_at Any) enc_dec_section_passThrough_rest
+      >> simp[]
+      >> disch_then $ kall_tac
+      (**)
+      >> assume_tac dec_enc_map
+      >> dxrule_at Any dec_enc_idx_alpha
+      >> strip_tac
+      (**)
+      >> assume_tac dec_enc_ass
+      (**)
+      >> imp_res_tac dec_enc_section
+      >> imp_res_tac dec_enc_section_NR
+      >> fs[names_component_equality]
+    )
+    >-( (*5*)
+         assume_tac dec_enc_byte
+      >> imp_res_tac dec_enc_section_NR
+      >> fs[names_component_equality]
+    )
+
+    >-( (*6*)
+         assume_tac dec_enc_map
+      >> dxrule_at Any dec_enc_idx_alpha
+      >> strip_tac
+      >> assume_tac dec_enc_byte
+      >> imp_res_tac dec_enc_section
+      >> fs[]
+      >> qspecl_then [‘1w’, ‘dec_ass’] (drule_at Any) enc_dec_section_passThrough
+      >> simp[]
+      >> disch_then $ kall_tac
+      >> pop_assum kall_tac
+      >> pop_assum $ qspec_then ‘[]’ mp_tac
+      >> rw[names_component_equality]
+    )
+    >-( (*7*)
+         assume_tac dec_enc_ass
+      >> qspec_then ‘1w’ (dxrule_at Any) dec_enc_section_NR
+      >> disch_then $ drule
+      >> strip_tac
+      >> assume_tac dec_enc_byte
+      >> imp_res_tac dec_enc_section
+      >> fs[names_component_equality]
+    )
+    >-( (*8*)
+         assume_tac dec_enc_byte
+      >> qspec_then ‘0w’ (dxrule_at Any) dec_enc_section
+      (**)
+      >> assume_tac dec_enc_ass
+      >> qspec_then ‘1w’ (dxrule_at Any) dec_enc_section
+      (**)
+      >> ntac 2 (disch_then $ drule \\ strip_tac)
+      >> fs ssa
+      (**)
+      >> assume_tac dec_enc_map
+      >> dxrule_at Any dec_enc_idx_alpha
+      >> strip_tac
+      >> qspec_then ‘2w’ (dxrule_all) dec_enc_section_NR
+      (**)
+      >> rw $ ssaa [names_component_equality]
+    )
+QED
+
+
+
+(*
+
+
+(*
+rich_listTheory.TAKE_LENGTH_APPEND (THEOREM)
+--------------------------------------------
+⊢ ∀l1 l2. TAKE (LENGTH l1) (l1 ++ l2) = l1
+
+rich_listTheory.TAKE_APPEND (THEOREM)
+-------------------------------------
+⊢ ∀n l1 l2. TAKE n (l1 ++ l2) = TAKE n l1 ++ TAKE (n − LENGTH l1) l2
+
+rich_listTheory.LENGTH_APPEND (THEOREM)
+---------------------------------------
+⊢ ∀l1 l2. LENGTH (l1 ++ l2) = LENGTH l1 + LENGTH l2
+
+rich_listTheory.FIRSTN_LENGTH_APPEND (THEOREM)
+----------------------------------------------
+⊢ ∀l1 l2. TAKE (LENGTH l1) (l1 ++ l2) = l1
+
+rich_listTheory.FIRSTN_APPEND2 (THEOREM)
+----------------------------------------
+⊢ ∀l1 n.
+    LENGTH l1 ≤ n ⇒ ∀l2. TAKE n (l1 ++ l2) = l1 ++ TAKE (n − LENGTH l1) l2
+
+rich_listTheory.FIRSTN_APPEND1 (THEOREM)
+----------------------------------------
+⊢ ∀n l1. n ≤ LENGTH l1 ⇒ ∀l2. TAKE n (l1 ++ l2) = TAKE n l1
+*)
+
+
+
 
 Theorem dec_enc_names_NE: (* non empty *)
   ∀n encn rest. n ≠ blank ∧
   enc_names_section n = SOME encn ⇒
   dec_names_section $ encn a++ rest = (INR [n], rest)
 Proof
+
      rw[enc_names_section_def, NULL_EQ_NIL, AllCaseEqs(), prepend_sz_def]
   >> gvs[NULL_EQ_NIL, blank_def]
   >-(
@@ -806,7 +1082,65 @@ Proof
     \\ Cases_on `n`
     \\ gvs[names_component_equality]
   )
+
   >-(
+
+       namedCases_on ‘n’ ["m_name f_names l_names"]
+    \\ namedCases_on ‘m_name’ ["s"]
+    \\ namedCases_on ‘s’ ["", "s ss"]
+    >> namedCases_on ‘f_names’ ["", "f fs"]
+    >> namedCases_on ‘l_names’ ["", "l ls"]
+    >- gvs[names_component_equality, string2bytes_def]
+    >> imp_res_tac dec_enc_u32
+    >> gvs $ ssaa [dec_names_section_def, string2bytes_def, magic_str_def]
+    >> imp_res_tac enc_section_nEmp
+    >> simp[]
+
+-----------------------
+
+    >> qspecl_then [‘2w’, ‘0w’, ‘enc_idx_alpha enc_map’, ‘dec_byte’] imp_res_tac enc_dec_section_passThrough
+    >> pop_assum (fn h => simp[h])
+    >> qspecl_then [‘2w’, ‘1w’, ‘enc_idx_alpha enc_map’, ‘dec_ass’] imp_res_tac enc_dec_section_passThrough
+    >> pop_assum (fn h => simp[h])
+
+    >> assume_tac dec_enc_map
+    >> dxrule_at Any dec_enc_idx_alpha
+    >> strip_tac
+    >> imp_res_tac dec_enc_section_NE
+    >> simp[NULL, names_component_equality]
+
+-----------------------
+
+    >> qspecl_then [‘1w’, ‘0w’, ‘enc_ass’, ‘dec_byte’] imp_res_tac enc_dec_section_passThrough
+    >> pop_assum (fn h => simp[h])
+
+    >> assume_tac dec_enc_ass
+    >> imp_res_tac dec_enc_section_NE
+    >> simp[NULL]
+    >> ntac 4 $ pop_assum kall_tac
+
+    >> qspecl_then [‘1w’, ‘2w’, ‘enc_ass’, ‘dec_idx_alpha dec_map’] imp_res_tac enc_dec_section_passThrough
+    >> pop_assum (fn h => simp[h])
+
+    >>
+    >> ntac 3 $ pop_assum kall_tac
+    >> disch_then $
+
+imp_res_tac dec_enc_section_NE
+assume_tac dec_enc_section_NE
+drule_at Any dec_enc_section_NE
+type_of ``dec_byte``
+type_of ``enc_dec_section_passThrough``
+m ``enc_dec_section_passThrough``
+
+    >> pop_assum $ qspecl_then [‘rest’,‘0w’] assume_tac
+    >> pop_assum $ qspecl_then [‘rest’,‘0w’,‘dec_byte’] assume_tac
+
+
+simp[enc_section_nEmp]
+gvs[]
+
+
        imp_res_tac dec_enc_u32
     \\ simp $ ssaa [dec_names_section_def, magic_str_def, string2bytes_def]
     (**)
@@ -1014,4 +1348,4 @@ rpt strip_tac
   \\ cheat
 *)
 
-
+*)
