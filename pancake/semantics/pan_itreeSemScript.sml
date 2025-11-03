@@ -747,6 +747,8 @@ QED
 
 (***)
 
+Overload mrec_sem = “λp s. mrec h_prog (h_prog (p,s))”
+
 Theorem mrec_Ret_INR:
   mrec h_prog (h_prog (p,s)) = Ret x ⇒ ∃y. x = INR y
 Proof
