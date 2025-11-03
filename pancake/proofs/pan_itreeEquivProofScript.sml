@@ -8,6 +8,8 @@ Libs
 Ancestors
 panProps itreeTau panSem pan_itreeSem pan_itreeProps panLang ffi
 
+val _ = gen_remove_ovl_mapping "mrec_sem";
+
 (**************************)
 
 val evaluate_invariant_oracle = cj 7 panPropsTheory.evaluate_invariants;
