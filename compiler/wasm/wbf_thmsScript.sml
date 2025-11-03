@@ -896,22 +896,103 @@ Proof
   \\ rw[dec_section_passThrough]
 QED
 
+(**********************************************************************)
+(*   Some widgets to make the names proof more modular and abstract   *)
+(**********************************************************************)
 
-(*
-Triviality :
+Triviality widget0_rest:
+  ∀rest x xs ss0.
+  enc_section 0w enc_byte (x::xs) = SOME ss0 ⇒
+  dec_section 0w dec_byte (ss0 a++ rest) = ret rest (x::xs)
 Proof
+     rpt strip_tac
+  >> imp_res_tac enc_section_nEmp
+  >> assume_tac dec_enc_byte
+  >> imp_res_tac dec_enc_section
+  >> pop_assum $ qspec_then ‘rest’ mp_tac
+  >> simp[]
 QED
-*)
 
-
-
-
-Theorem dec_enc_names: (* no rest *)
-  ∀n encn rest.
-  enc_names_section n = SOME encn ⇒
-  dec_names_section $ encn a++ rest = (INR [n], rest) ∨ n = blank
+Triviality widget0:
+  ∀x xs ss0.
+  enc_section 0w enc_byte (x::xs) = SOME ss0 ⇒
+  dec_section 0w dec_byte (append ss0) = ret [] (x::xs)
 Proof
-  cheat
+  qspec_then `[]` mp_tac widget0_rest \\ simp[]
+QED
+
+Triviality widget1_rest:
+  ∀rest x xs ss1.
+  enc_section 1w enc_ass (x::xs) = SOME ss1 ⇒
+  dec_section 1w dec_ass (ss1 a++ rest) = ret rest (x::xs)
+Proof
+     rpt strip_tac
+  >> imp_res_tac enc_section_nEmp
+  >> assume_tac dec_enc_ass
+  >> imp_res_tac dec_enc_section
+  >> pop_assum $ qspec_then ‘rest’ mp_tac
+  >> simp[]
+QED
+
+Triviality widget1:
+  ∀x xs ss1.
+  enc_section 1w enc_ass (x::xs) = SOME ss1 ⇒
+  dec_section 1w dec_ass (append ss1) = ret [] (x::xs)
+Proof
+  qspec_then `[]` mp_tac widget1_rest \\ simp[]
+QED
+
+Triviality widget2:
+  ∀x xs ss2.
+  enc_section 2w (enc_idx_alpha enc_map) (x::xs) = SOME ss2 ⇒
+  dec_section 2w (dec_idx_alpha dec_map) (append ss2) = ret [] (x::xs)
+Proof
+     rpt strip_tac
+  >> imp_res_tac enc_section_nEmp
+  >> assume_tac dec_enc_map
+  >> dxrule_at Any dec_enc_idx_alpha
+  >> strip_tac
+  >> imp_res_tac dec_enc_section_NR
+QED
+
+Triviality pt01_rest:
+  ∀rest x xs ss1.
+  enc_section 1w enc_ass (x::xs) = SOME ss1 ⇒
+  dec_section 0w dec_byte (ss1 a++ rest) = ret (ss1 a++ rest) []
+Proof
+     rpt strip_tac
+  >> qspecl_then [‘0w’, ‘dec_byte’] (drule_at Any) enc_dec_section_passThrough_rest
+  >> simp[]
+QED
+
+Triviality pt01:
+  ∀x xs ss1.
+  enc_section 1w enc_ass (x::xs) = SOME ss1 ⇒
+  dec_section 0w dec_byte (append ss1) = ret (append ss1) []
+Proof
+     rpt strip_tac
+  >> qspecl_then [‘0w’, ‘dec_byte’] (drule_at Any) enc_dec_section_passThrough
+  >> simp[]
+QED
+
+Triviality pt02:
+  ∀x xs ss2.
+  enc_section 2w (enc_idx_alpha enc_map) (x::xs) = SOME ss2 ⇒
+  dec_section 0w dec_byte (append ss2) = ret (append ss2) []
+Proof
+     rpt strip_tac
+  >> qspecl_then [‘0w’, ‘dec_byte’] (drule_at Any) enc_dec_section_passThrough
+  >> simp[]
+QED
+
+Triviality pt12:
+  ∀x xs ss2.
+  enc_section 2w (enc_idx_alpha enc_map) (x::xs) = SOME ss2 ⇒
+  dec_section 1w dec_ass (append ss2) = ret (append ss2) []
+Proof
+     rpt strip_tac
+  >> qspecl_then [‘1w’, ‘dec_ass’] (drule_at Any) enc_dec_section_passThrough
+  >> simp[]
 QED
 
 Theorem dec_enc_names_NR: (* no rest *)
@@ -920,31 +1001,66 @@ Theorem dec_enc_names_NR: (* no rest *)
   dec_names_section $ append encn = (INR [n], [])
 Proof
 (* ASKYK *)
-(* TODO - clean up/factor out common widgets *)
 (* is there a way to detect if a hyp is _missing_? *)
-
      namedCases ["m_name f_names l_names"]
   \\ namedCases_on ‘m_name’ ["s"]
   \\ rewrite_tac[GSYM implode_def]
   \\ namedCases_on ‘s’ ["", "s ss"]
   >> namedCases_on ‘f_names’ ["", "f fs"]
   >> namedCases_on ‘l_names’ ["", "l ls"]
-  >> simp $ ssaa [enc_names_section_def, prepend_sz_def, string2bytes_def]
-  >> rw[GSYM NOT_LESS, dec_names_section_def]
+  >> rw $ ssaa [enc_names_section_def, prepend_sz_def, string2bytes_def]
   (* get encoders in the right order *)
   >> TRY $ qpat_x_assum ‘SOME _ = enc_u32 _’ $ assume_tac o GSYM
   >> TRY $ qpat_x_assum ‘SOME _ = enc_section 0w _ _ ’ $ mp_tac o GSYM
-  (* remove superfluous hyps  *)
+  (* remove superfluous hyps - for interactive proofs
   >> TRY $ qpat_x_assum ‘id_OK ""’ $ kall_tac
   >> TRY $ qpat_x_assum ‘LENGTH magic_bytes < 4294967296’ $ kall_tac
+  *)
   (* magic bytes *)
   >> imp_res_tac dec_enc_u32
   >> imp_res_tac enc_section_nEmp
     >- simp[Once dec_names_section_def]
-    >> gvs[dec_names_section_def]
-    >> simp ssa
-    >> gvs[GSYM LENGTH_APPEND, Excl "LENGTH_APPEND"]
-    >> simp[magic_bytes_def, string2bytes_def]
+    >> gvs $ ssaa [dec_names_section_def, GSYM LENGTH_APPEND, Excl "LENGTH_APPEND", magic_bytes_def, string2bytes_def]
+    >> imp_res_tac pt01
+    >> imp_res_tac pt02
+    >> imp_res_tac pt12
+    >> imp_res_tac pt01_rest
+    >> imp_res_tac widget0
+    >> imp_res_tac widget1
+    >> imp_res_tac widget2
+    >> imp_res_tac widget0_rest
+    >> imp_res_tac widget1_rest
+    >> fs[names_component_equality]
+QED
+
+(*
+
+Theorem dec_enc_names:
+  ∀n encn rest.
+  enc_names_section n = SOME encn ⇒
+  dec_names_section $ encn a++ rest = (INR [n], rest) ∨ n = blank
+Proof
+rw[oneline dec_names_section_def]
+     namedCases ["m_name f_names l_names"]
+  \\ namedCases_on ‘m_name’ ["s"]
+  \\ rewrite_tac[GSYM implode_def]
+  \\ namedCases_on ‘s’ ["", "s ss"]
+  >> namedCases_on ‘f_names’ ["", "f fs"]
+  >> namedCases_on ‘l_names’ ["", "l ls"]
+    >> rw $ ssaa [enc_names_section_def, prepend_sz_def, string2bytes_def]
+    (* get encoders in the right order *)
+    >> TRY $ qpat_x_assum ‘SOME _ = enc_u32 _’ $ assume_tac o GSYM
+    >> TRY $ qpat_x_assum ‘SOME _ = enc_section 0w _ _ ’ $ mp_tac o GSYM
+    (* remove superfluous hyps  *)
+    >> TRY $ qpat_x_assum ‘id_OK ""’ $ kall_tac
+    >> TRY $ qpat_x_assum ‘LENGTH magic_bytes < 4294967296’ $ kall_tac
+    (* magic bytes *)
+    >> imp_res_tac dec_enc_u32
+    >> imp_res_tac enc_section_nEmp
+    >> gvs[dec_names_section_def, magic_bytes_def, string2bytes_def]
+    >> gvs $ ssaa [GSYM LENGTH_APPEND, Excl "LENGTH_APPEND", TAKE_LENGTH_APPEND]
+
+    >> rewrite_tac[TAKE_LENGTH_APPEND]
 
     >-( (*2*)
          qspecl_then [‘0w’, ‘dec_byte’] (drule_at Any) enc_dec_section_passThrough
@@ -952,21 +1068,18 @@ Proof
       >> simp[]
       >> ntac 2 $ disch_then $ kall_tac
       (**)
-      >> assume_tac dec_enc_map
-      >> dxrule_at Any dec_enc_idx_alpha
-      >> strip_tac
-      >> imp_res_tac dec_enc_section_NR
-      >> fs[names_component_equality]
+      >> imp_res_tac widget2_NR
+      >> fs[names_component_equality, DROP_LENGTH_APPEND]
     )
     >-( (*3*)
          qspecl_then [‘0w’, ‘dec_byte’] (drule_at Any) enc_dec_section_passThrough
       >> simp[]
       >> disch_then $ kall_tac
       (**)
-      >> assume_tac dec_enc_ass
-      >> imp_res_tac dec_enc_section_NR
-      >> fs[names_component_equality]
+      >> imp_res_tac widget1_NR
+      >> fs[names_component_equality, DROP_LENGTH_APPEND]
     )
+
     >-( (*4*)
          qspecl_then [‘0w’, ‘dec_byte’, ‘1w’] (drule_at Any) enc_dec_section_passThrough_rest
       >> simp[]
@@ -1028,6 +1141,7 @@ Proof
       (**)
       >> rw $ ssaa [names_component_equality]
     )
+  cheat
 QED
 
 
@@ -1348,4 +1462,5 @@ rpt strip_tac
   \\ cheat
 *)
 
+*)
 *)
