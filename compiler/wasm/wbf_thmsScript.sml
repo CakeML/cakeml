@@ -276,10 +276,18 @@ Proof
 QED
 
 Theorem enc_section_nEmp:
-  ∀lb enc x xs exxs. enc_section lb enc (x::xs) = SOME exxs ⇒ ¬(NULL (append exxs))
+  ∀lb enc x xs exxs. enc_section lb enc (x::xs) = SOME exxs ⇒ ¬NULL (append exxs)
 Proof
      rw[enc_section_def]
   \\ simp[]
+QED
+
+Theorem enc_section_nEmp':
+  ∀lb enc xs exs. ¬NULL xs ∧ enc_section lb enc xs = SOME exs ⇒
+  ¬NULL (append exs)
+Proof
+     rw[enc_section_def]
+  >> simp[]
 QED
 
 
@@ -656,6 +664,19 @@ Proof
   simp[implode_def]
 QED
 
+Triviality s2b_explode[simp]:
+  ∀x. string2bytes (explode x) = [] ⇔ x = «»
+Proof
+  gen_tac
+  \\ simp[string2bytes_def]
+  \\ iff_tac
+  >> rw[]
+  \\ qspec_then `x` mp_tac implode_explode
+  \\ pop_assum (fn x => rewrite_tac[x])
+  \\ disch_then $ assume_tac o GSYM
+  \\ simp[]
+QED
+
 Triviality blank_values[simp]:
   blank = names «» [] []
 Proof
@@ -676,7 +697,7 @@ Proof
 QED
 
 Theorem enc_section_empty_conv:
-  ∀lb enc xs encxs. append encxs = [] ∧
+  ∀lb enc xs encxs. NULL (append encxs) ∧
   enc_section lb enc xs = SOME encxs
   ⇒
   xs = []
@@ -691,6 +712,35 @@ Triviality enc_names_section_empty[simp]:
 Proof
      rw[enc_names_section_def, blank_def, enc_section_def]
   >> fs[id_OK_def, prepend_sz_def, enc_u32_def, magic_bytes_def, string2bytes_def]
+QED
+
+Triviality enc_names_section_empty_conv:
+  ∀x ex. enc_names_section x = SOME ex ∧ NULL (append ex) ⇒
+  x = blank
+Proof
+     rw[enc_names_section_def, enc_section_def, NULL_EQ_NIL]
+  >> Cases_on `x`
+  >> gvs[names_component_equality]
+QED
+
+Triviality names_not_blank:
+  ∀x. x ≠ blank ⇒ x.mname ≠ «» ∨ ¬NULL x.fnames ∨ ¬NULL x.lnames
+Proof
+     namedCases ["m_name f_names l_names"]
+  \\ namedCases_on ‘m_name’ ["s"]
+  \\ rewrite_tac[GSYM implode_def]
+  \\ namedCases_on ‘s’ ["", "s ss"]
+  >> namedCases_on ‘f_names’ ["", "f fs"]
+  >> namedCases_on ‘l_names’ ["", "l ls"]
+  >> simp[]
+QED
+
+Triviality enc_names_section_nEmp:
+  ∀x encx. x ≠ blank ∧ enc_names_section x = SOME encx ⇒
+  ¬NULL (append encx)
+Proof
+     rpt strip_tac
+  \\ imp_res_tac enc_names_section_empty_conv
 QED
 
 Triviality dec_names_section_empty[simp]:
@@ -998,7 +1048,7 @@ QED
 Theorem dec_enc_names_NR: (* no rest *)
   ∀n encn.
   enc_names_section n = SOME encn ⇒
-  dec_names_section $ append encn = (INR [n], [])
+  dec_names_section $ append encn = ret [] [n]
 Proof
 (* ASKYK *)
 (* is there a way to detect if a hyp is _missing_? *)
@@ -1033,14 +1083,40 @@ Proof
     >> fs[names_component_equality]
 QED
 
+
 (*
+Triviality foo:
+  ∀n encn xs len. n ≠ blank ∧
+  enc_names_section n = SOME encn ⇒
+  append encn = 0w :: xs ∧ ∃ys. dec_u32 xs = ret ys len
+Proof
+  rw[enc_names_section_def]
+QED
 
 Theorem dec_enc_names:
   ∀n encn rest.
   enc_names_section n = SOME encn ⇒
-  dec_names_section $ encn a++ rest = (INR [n], rest) ∨ n = blank
+  dec_names_section $ encn a++ rest = ret rest [n] ∨ n = blank
 Proof
+
+  rpt strip_tac
+  \\ `n = blank ∨ n ≠ blank` by simp[]
+  >> simp[]
+  \\ imp_res_tac enc_names_section_nEmp
+  \\ imp_res_tac dec_enc_names_NR
+  \\ pop_assum mp_tac
+  \\ simp[oneline dec_names_section_def]
+  \\ `append encn ≠ []` by cheat
+  \\ simp[]
+  \\ Cases_on `(encn a++ rest)`
+  \\ `h = 0w` by cheat
+
+  \\ gvs[]
+
 rw[oneline dec_names_section_def]
+assume_tac enc_names_section_empty_conv
+assume_tac enc_names_section_empty
+
      namedCases ["m_name f_names l_names"]
   \\ namedCases_on ‘m_name’ ["s"]
   \\ rewrite_tac[GSYM implode_def]

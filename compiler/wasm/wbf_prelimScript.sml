@@ -188,8 +188,7 @@ End
 Theorem dec_s32_shortens:
   ∀bs rs x. dec_s32 bs = (INR x, rs) ⇒ rs [<] bs
 Proof
-     rpt gen_tac
-  \\ rw[dec_s32_def, AllCaseEqs()]
+     rw[dec_s32_def, AllCaseEqs()]
   \\ dxrule dec_signed_word_shortens
   \\ rewrite_tac[]
 QED
@@ -197,8 +196,7 @@ QED
 Theorem dec_s64_shortens:
   ∀bs rs x. dec_s64 bs = (INR x, rs) ⇒ rs [<] bs
 Proof
-     rpt gen_tac
-  \\ rw[dec_s64_def, AllCaseEqs()]
+     rw[dec_s64_def, AllCaseEqs()]
   \\ dxrule dec_signed_word_shortens
   \\ rewrite_tac[]
 QED
@@ -206,8 +204,7 @@ QED
 Theorem dec_s33_shortens:
   ∀bs rs x. dec_s33 bs = (INR x, rs) ⇒ rs [<] bs
 Proof
-     rpt gen_tac
-  \\ rw[dec_s33_def, AllCaseEqs()]
+     rw[dec_s33_def, AllCaseEqs()]
   \\ dxrule dec_signed_word_shortens
   \\ rewrite_tac[]
 QED
@@ -217,8 +214,7 @@ QED
 Theorem dec_u8_shortens:
   ∀bs rs x. dec_u8 bs = (INR x, rs) ⇒ rs [<] bs
 Proof
-     rpt gen_tac
-  \\ rw[dec_u8_def, AllCaseEqs()]
+     rw[dec_u8_def, AllCaseEqs()]
   \\ dxrule dec_unsigned_word_shortens
   \\ rewrite_tac[]
 QED
@@ -226,8 +222,7 @@ QED
 Theorem dec_u32_shortens:
   ∀bs rs x. dec_u32 bs = (INR x, rs) ⇒ rs [<] bs
 Proof
-     rpt gen_tac
-  \\ rw[dec_u32_def, AllCaseEqs()]
+     rw[dec_u32_def, AllCaseEqs()]
   \\ dxrule dec_unsigned_word_shortens
   \\ rewrite_tac[]
 QED
@@ -235,8 +230,7 @@ QED
 Theorem dec_2u32_shortens:
   ∀bs rs x. dec_2u32 bs = (INR x, rs) ⇒ rs [<] bs
 Proof
-     rpt gen_tac
-  \\ rw[dec_2u32_def, AllCaseEqs()]
+     rw[dec_2u32_def, AllCaseEqs()]
   \\ dxrule dec_u32_shortens
   \\ dxrule dec_u32_shortens
   \\ simp[]
@@ -245,8 +239,7 @@ QED
 Theorem dec_2u32_u8_shortens:
   ∀bs rs x. dec_2u32_u8 bs = (INR x, rs) ⇒ rs [<] bs
 Proof
-     rpt gen_tac
-  \\ rw[dec_2u32_u8_def, AllCaseEqs()]
+     rw[dec_2u32_u8_def, AllCaseEqs()]
   \\ dxrule dec_2u32_shortens
   \\ dxrule dec_u8_shortens
   \\ simp[]
