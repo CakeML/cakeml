@@ -12996,7 +12996,7 @@ Proof
   rw[] >>
   last_x_assum(qspec_then `f` mp_tac) >>
   disch_then assume_tac >>
-  pop_assum(mp_tac o Ho_Rewrite.REWRITE_RULE[whileTheory.LEAST_EXISTS]) >>
+  pop_assum(mp_tac o Ho_Rewrite.REWRITE_RULE[WhileTheory.LEAST_EXISTS]) >>
   rename1 `f n` >>
   rpt strip_tac >>
   reverse(Cases_on `R' (f n) (f (SUC n))`) >- goal_assum drule >>

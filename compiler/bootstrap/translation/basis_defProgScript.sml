@@ -1,7 +1,7 @@
 (*
   Translate the basis library term.
 *)
-Theory basis_defProg
+Theory basis_defProg[no_sig_docs]
 Ancestors
   ml_translator sexp_parserProg
 Libs
@@ -21,4 +21,3 @@ val res = translate basisProgTheory.basis_def;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;

@@ -1,7 +1,7 @@
 (*
   Translate the data_to_word part of the 32-bit compiler.
 *)
-Theory to_word32Prog
+Theory to_word32Prog[no_sig_docs]
 Ancestors
   ml_translator basis_defProg std_prelude data_to_word word_simp
   word_alloc word_inst backend[qualified]
@@ -309,6 +309,9 @@ val data_to_word_assign_side = Q.prove(`
   TRY(Cases_on`s`)>>
   metis_tac[word_op_type_nchotomy,option_nchotomy,NOT_NONE_SOME,list_distinct]) |> update_precondition
 *)
+
+val _ = translate (data_to_wordTheory.force_thunk_def
+                    |> SRULE [bytes_in_word_def] |> conv32 |> wcomp_simp);
 
 Theorem comp_ind =
   data_to_wordTheory.comp_ind|> conv32|> wcomp_simp
@@ -710,7 +713,6 @@ val r = presLangTheory.word_prog_to_display_def
 
 val r = presLangTheory.word_fun_to_display_def |> conv32 |> translate
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

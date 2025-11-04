@@ -1,7 +1,7 @@
 (*
   Translate the compiler's type inferencer.
 *)
-Theory inferProg
+Theory inferProg[no_sig_docs]
 Ancestors
   parserProg reg_allocProg infer ml_translator semanticPrimitives
   inferProps
@@ -736,7 +736,6 @@ Theorem infertype_prog_side_thm = Q.prove(`
   \\ match_mp_tac (CONJUNCT2 infer_d_side_thm) \\ fs [])
   |> update_precondition;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

@@ -129,7 +129,8 @@ val evaluate_LENGTH = Q.prove(
   HO_MATCH_MP_TAC evaluate_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [evaluate_def,case_elim_thms]
   \\ rw[] \\ fs[]
-  \\ every_case_tac \\ fs[])
+  \\ every_case_tac \\ fs[]
+  \\ first_x_assum drule \\ rw [])
   |> SIMP_RULE std_ss [];
 
 Theorem evaluate_LENGTH =
@@ -350,6 +351,7 @@ Proof
     \\ MP_TAC (do_app_inv_clock |> Q.INST [`s`|->`s5`])
     \\ Cases_on `do_app op (REVERSE a) s5` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ Cases_on `a'` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [])
+  THEN1 gvs [AllCaseEqs(), NOT_LESS, dec_clock_def, inc_clock_def]
   THEN1
    (Cases_on `dest = NONE /\ IS_SOME handler` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `evaluate (xs,env,s1)` \\ full_simp_tac(srw_ss())[]
@@ -410,16 +412,23 @@ Proof
        qmatch_goalsub_rename_tac`a1 + (a2 + a3)`
     \\ qexists_tac`a3+a2+a1`
     \\ simp[GENLIST_APPEND,FOLDL_APPEND] \\ NO_TAC)
-  \\ Cases_on`op=Install`
   >- (
-    fs[do_app_def,do_install_def,case_eq_thms,bool_case_eq]
-    \\ pairarg_tac \\ fs[] \\ rveq
-    \\ fs[case_eq_thms,pair_case_eq,bool_case_eq] \\ rveq
-    \\ fs[shift_seq_def]
-    \\ qexists_tac`1+n` \\ rfs[GENLIST_APPEND,FOLDL_APPEND] )
-  \\ imp_res_tac do_app_code \\ rfs[]
-  \\ imp_res_tac do_app_oracle \\ rfs[]
-  \\ qexists_tac`n` \\ fs[]
+    Cases_on`op=Install`
+    >- (
+      fs[do_app_def,do_install_def,case_eq_thms,bool_case_eq]
+      \\ pairarg_tac \\ fs[] \\ rveq
+      \\ fs[case_eq_thms,pair_case_eq,bool_case_eq] \\ rveq
+      \\ fs[shift_seq_def]
+      \\ qexists_tac`1+n` \\ rfs[GENLIST_APPEND,FOLDL_APPEND] )
+    \\ imp_res_tac do_app_code \\ rfs[]
+    \\ imp_res_tac do_app_oracle \\ rfs[]
+    \\ qexists_tac`n` \\ fs[])
+  >- (
+    gvs [AllCaseEqs(), FUN_EQ_THM]
+    >~ [‘dest_thunk _ _ = IsThunk NotEvaluated _’, ‘find_code _ _ _ = SOME _’,
+        ‘s.clock ≠ 0’]
+    >- (qexists ‘n'’ \\ gvs [])
+    \\ qexists `0` \\ gvs [])
 QED
 
 Theorem evaluate_code_mono:
@@ -473,6 +482,7 @@ Theorem do_app_with_code:
    do_app op vs (s with code := c) = Rval (r,s' with code := c)
 Proof
   rw [do_app_def,do_app_aux_def,case_eq_thms,pair_case_eq]
+  >~ [`ThunkOp`] >- gvs[bvlSemTheory.do_app_def, AllCaseEqs(), bvl_to_bvi_def]
   \\ fs[bvl_to_bvi_def,bvi_to_bvl_def,bvlSemTheory.do_app_def,case_eq_thms]
   \\ TRY (pairarg_tac \\ fs [])
   \\ rw[] \\ fs[] \\ rw[] \\ fs[case_eq_thms,pair_case_eq] \\ rw[]
@@ -485,6 +495,7 @@ Theorem do_app_with_code_err:
    do_app op vs (s with code := c) = Rerr e
 Proof
   rw [do_app_def,do_app_aux_def,case_eq_thms,pair_case_eq]
+  >>~- ([`ThunkOp`], gvs [bvlSemTheory.do_app_def, AllCaseEqs()])
   \\ fs[bvl_to_bvi_def,bvi_to_bvl_def,bvlSemTheory.do_app_def,case_eq_thms]
   \\ TRY (pairarg_tac \\ fs [])
   \\ rw[] \\ fs[] \\ rw[] \\ fs[case_eq_thms,pair_case_eq] \\ rw[]
@@ -559,6 +570,7 @@ Proof
       srw_tac[][] >>
       `s.clock + ck - 1 = s.clock - 1 + ck` by (srw_tac [ARITH_ss] [ADD1]) >>
       metis_tac [])
+  >- gvs [AllCaseEqs(), dec_clock_def, inc_clock_def]
   >- (Cases_on `evaluate (xs,env,s1)` >>
       full_simp_tac(srw_ss())[] >>
       Cases_on `q` >>
@@ -601,7 +613,7 @@ Theorem evaluate_io_events_mono:
 Proof
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >>
+  gvs [AllCaseEqs()] >>
   srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
   metis_tac[IS_PREFIX_TRANS,do_app_io_events_mono]
 QED
@@ -724,6 +736,7 @@ Definition get_code_labels_def:
   (get_code_labels (Let es e) = BIGUNION (set (MAP get_code_labels es)) ∪ get_code_labels e) ∧
   (get_code_labels (Raise e) = get_code_labels e) ∧
   (get_code_labels (Tick e) = get_code_labels e) ∧
+  (get_code_labels (Force loc v) = {loc}) ∧
   (get_code_labels (Call _ d es h) =
     (case d of NONE => {} | SOME n => {n}) ∪
     (case h of NONE => {} | SOME e => get_code_labels e) ∪

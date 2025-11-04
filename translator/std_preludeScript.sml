@@ -4,7 +4,7 @@
 *)
 Theory std_prelude
 Ancestors
-  ast semanticPrimitives while evaluate ml_translator
+  ast semanticPrimitives While evaluate ml_translator
 Libs
   preamble ml_translatorLib ml_progLib
 

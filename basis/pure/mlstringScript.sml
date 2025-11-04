@@ -749,10 +749,10 @@ Theorem OLEAST_LE_STEP:
     else (OLEAST j. i + 1 <= j /\ P j))
 Proof
   rw []
-  \\ simp [whileTheory.OLEAST_EQ_SOME]
+  \\ simp [WhileTheory.OLEAST_EQ_SOME]
   \\ qmatch_goalsub_abbrev_tac `opt1 = $OLEAST _`
   \\ Cases_on `opt1`
-  \\ fs [whileTheory.OLEAST_EQ_SOME]
+  \\ fs [WhileTheory.OLEAST_EQ_SOME]
   \\ rw []
   \\ fs [LESS_EQ |> REWRITE_RULE [ADD1] |> GSYM, arithmeticTheory.LT_LE]
   \\ CCONTR_TAC

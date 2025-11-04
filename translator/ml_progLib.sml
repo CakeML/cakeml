@@ -561,14 +561,14 @@ fun add_dec dec_tm pick_name s =
            val s = add_dec d pick_name s handle HOL_ERR e =>
                    failwith ("add_top: in module " ^ name_str ^
                              "failed to add " ^ term_to_string d ^ "\n " ^
-                             #message e)
+                             message_of e)
            in each ds s end
     val s = each ds s
     val spec = (* SOME (optionSyntax.dest_some spec)
                   handle HOL_ERR _ => *) NONE
     val s = close_module spec s handle HOL_ERR e =>
             failwith ("add_top: failed to close module " ^ name_str ^ "\n " ^
-                             #message e)
+                             message_of e)
     in s end
   else failwith("add_dec does not support this shape: " ^ term_to_string dec_tm);
 

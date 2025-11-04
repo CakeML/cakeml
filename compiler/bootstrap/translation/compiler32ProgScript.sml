@@ -1,7 +1,7 @@
 (*
   Finish translation of the 32-bit version of the compiler.
 *)
-Theory compiler32Prog
+Theory compiler32Prog[no_sig_docs]
 Ancestors
   compiler export ml_translator ag32Prog[qualified]
   arm7Prog[qualified] basis_ffi[qualified]
@@ -531,5 +531,4 @@ Theorem semantics_compiler32_prog =
   |> DISCH_ALL
   |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.reset_translation(); (* because this translation won't be continued *)

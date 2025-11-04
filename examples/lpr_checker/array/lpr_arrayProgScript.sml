@@ -170,9 +170,7 @@ Proof
     metis_tac[])>>
   rpt xlet_autop>>
   xraise>>xsimpl>>
-  IF_CASES_TAC>-
-    metis_tac[NOT_EVERY]>>
-  simp[unwrap_TYPE_def,Fail_exn_def]>>
+  gvs[unwrap_TYPE_def,Fail_exn_def]>>
   metis_tac[]
 QED
 
@@ -276,7 +274,6 @@ Proof
     xcon>>xsimpl>>
     simp[SUM_TYPE_def])>>
   rpt xlet_autop>>
-
   `index z < LENGTH Clist ∧ WORD8 w8o w8o_v` by (
     fs[w8o_v_thm]>>
     fs[bounded_fml_def,EVERY_EL]>>
@@ -290,7 +287,6 @@ Proof
     rpt (first_x_assum drule)>>
     rw[]>>
     qpat_x_assum`-z = _` sym_sub_tac>>fs[])>>
-
   rpt xlet_autop>>
   xapp>>
   xsimpl>>
@@ -1979,4 +1975,3 @@ Proof
   drule reindex_characterize>>fs[]>>
   simp[MEM_MAP]
 QED
-

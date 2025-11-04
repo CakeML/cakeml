@@ -112,7 +112,7 @@ Proof
         ) \\
       once_rewrite_tac[CONS_APPEND] \\
       rewrite_tac[APPEND_ASSOC] \\
-      xapp \\ xsimpl ) \\
+      xapp \\ xsimpl \\ gvs []) \\
   Cases_on `l` >>
   fs [LIST_TYPE_def] >>
   rfs [] >>
@@ -1070,4 +1070,3 @@ Proof
   first_x_assum (irule_at Any)>>
   simp[]
 QED
-
