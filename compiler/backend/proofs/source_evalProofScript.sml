@@ -621,6 +621,16 @@ Proof
   \\ simp [Once do_app_cases] \\ rw [listTheory.SWAP_REVERSE_SYM]
   \\ fs [CaseEq "ffi_result", option_case_eq] \\ rveq \\ fs []
   \\ simp [do_app_def]
+  >~ [`thunk_op`]
+  >- (
+    gvs [AllCaseEqs(), PULL_EXISTS, thunk_op_def]
+    >- (
+      rpt (pairarg_tac \\ gvs [])
+      \\ gvs [store_alloc_def, LIST_REL_EL_EQN])
+    \\ Cases_on ‘xs’ \\ gvs []
+    \\ drule_then (drule_then (qsubterm_then `store_assign _ _` mp_tac))
+         store_assign \\ rw []
+    \\ gvs [])
   \\ simp [div_exn_v_def, sub_exn_v_def, chr_exn_v_def,
         EVERY2_refl, MEM_MAP, PULL_EXISTS]
   \\ TRY (drule_then imp_res_tac (CONJUNCT1 do_eq))
@@ -957,7 +967,7 @@ val eval_simulation_setup = setup (`
   \\ rveq \\ fs []
   );
 
-Triviality eval_simulation_App:
+Theorem eval_simulation_App:
   ^(#get_goal eval_simulation_setup `Case ([App _ _])`)
 Proof
   rw []
@@ -1003,6 +1013,131 @@ Proof
     \\ simp [LIST_REL_MAP1, SIMP_RULE (bool_ss ++ ETA_ss) [] LIST_REL_MAP2]
     \\ simp [ELIM_UNCURRY, EVERY2_refl]
   )
+  >~ [`getOpClass op = Force`]
+  >- (
+    gvs [AllCaseEqs(), dec_clock_def]
+    >- (
+      gvs [oneline dest_thunk_def, AllCaseEqs(), oneline store_lookup_def]
+      \\ gvs [s_rel_def, LIST_REL_EL_EQN]
+      \\ `∃a. EL n refs'' = Thunk Evaluated a ∧
+              v_rel orac_s'' v a` by (
+        first_x_assum drule \\ rw []
+        \\ Cases_on `EL n refs''` \\ gvs [sv_rel_def]) \\ gvs []
+      \\ simp [state_component_equality])
+    >- (
+      gvs [oneline dest_thunk_def, AllCaseEqs(), oneline store_lookup_def]
+      \\ simp[PULL_EXISTS]
+      \\ gvs [s_rel_def, LIST_REL_EL_EQN]
+      \\ `∃a. EL n refs'' = Thunk NotEvaluated a ∧
+              v_rel orac_s'' v a` by (
+        first_x_assum drule \\ rw []
+        \\ Cases_on `EL n refs''` \\ gvs [sv_rel_def]) \\ gvs []
+      \\ gvs[do_opapp_cases] \\ irule_at Any EQ_REFL >> simp[])
+    >- (
+      gvs [oneline dest_thunk_def, AllCaseEqs(), oneline store_lookup_def]
+      \\ `n < LENGTH t''.refs ∧
+          ∃a. EL n t''.refs = Thunk NotEvaluated a ∧
+          v_rel (orac_s t''.eval_state) v a` by (
+        gvs [s_rel_def, LIST_REL_EL_EQN]
+        \\ first_x_assum drule \\ rw []
+        \\ Cases_on `EL n refs''` \\ gvs [sv_rel_def]) \\ gvs [] >>
+        gvs[do_opapp_cases, PULL_EXISTS]
+        >- (
+          imp_res_tac s_rel_def >> gvs[] >>
+          drule s_rel_clock >> simp[dec_clock_def] >> strip_tac >>
+          last_x_assum dxrule >> simp[] >>
+          qmatch_goalsub_abbrev_tac ‘evaluate _ new_env’ >>
+          disch_then $ qspec_then ‘new_env’ mp_tac >> impl_tac
+          >- (unabbrev_all_tac >> irule env_rel_add_nsBind >> simp[]) >>
+          strip_tac >> gvs[] >>
+          gvs[oneline update_thunk_def, AllCaseEqs()] >>
+          gvs[store_assign_def, s_rel_def, state_component_equality] >>
+          reverse $ rw[] >> insts_tac
+          >- (irule EVERY2_LUPDATE_same >> gvs[])
+          >- (
+            gvs[LIST_REL_EL_EQN, store_v_same_type_def] >>
+            first_x_assum drule >> simp[sv_rel_cases] >>
+            strip_tac >> gvs[]
+            )
+          >- gvs[LIST_REL_EL_EQN] >>
+          qpat_x_assum ‘dest_thunk _ _ = _’ mp_tac >> simp[oneline dest_thunk_def] >>
+          qpat_x_assum ‘v_rel _ _ _’ mp_tac >> simp[Once v_rel_cases] >> strip_tac >> gvs[]
+          >- gvs[oneline v_to_env_id_def, AllCaseEqs()] >>
+          simp[store_lookup_def] >> gvs[LIST_REL_EL_EQN] >>
+          IF_CASES_TAC >> gvs[] >>
+          first_x_assum drule >> simp[sv_rel_cases] >> strip_tac >> gvs[] >>
+          TOP_CASE_TAC >> gvs[]
+          )
+        >- (
+          imp_res_tac s_rel_def >> gvs[] >>
+          drule s_rel_clock >> simp[dec_clock_def] >> strip_tac >>
+          last_x_assum dxrule >> simp[] >>
+          qmatch_goalsub_abbrev_tac ‘evaluate _ new_env’ >>
+          disch_then $ qspec_then ‘new_env’ mp_tac >> impl_tac
+          >- (
+            unabbrev_all_tac >> simp[build_rec_env_merge, nsAppend_to_nsBindList] >>
+            irule env_rel_add_nsBind >> simp[] >>
+            irule env_rel_add_nsBindList >>
+            simp[LIST_REL_MAP1, SRULE [SF ETA_ss] LIST_REL_MAP2, ELIM_UNCURRY] >>
+            simp[LIST_REL_EL_EQN]
+            ) >>
+          strip_tac >> gvs[] >>
+          gvs[oneline update_thunk_def, AllCaseEqs()] >>
+          gvs[store_assign_def, s_rel_def, state_component_equality] >>
+          reverse $ rw[] >> insts_tac
+          >- (irule EVERY2_LUPDATE_same >> gvs[])
+          >- (
+            gvs[LIST_REL_EL_EQN, store_v_same_type_def] >>
+            first_x_assum drule >> simp[sv_rel_cases] >>
+            strip_tac >> gvs[]
+            )
+          >- gvs[LIST_REL_EL_EQN] >>
+          qpat_x_assum ‘dest_thunk _ _ = _’ mp_tac >> simp[oneline dest_thunk_def] >>
+          qpat_x_assum ‘v_rel _ _ _’ mp_tac >> simp[Once v_rel_cases] >> strip_tac >> gvs[]
+          >- gvs[oneline v_to_env_id_def, AllCaseEqs()] >>
+          simp[store_lookup_def] >> gvs[LIST_REL_EL_EQN] >>
+          IF_CASES_TAC >> gvs[] >>
+          first_x_assum drule >> simp[sv_rel_cases] >> strip_tac >> gvs[] >>
+          TOP_CASE_TAC >> gvs[]
+          )
+      )
+    >- (
+      gvs [oneline dest_thunk_def, AllCaseEqs(), oneline store_lookup_def]
+      \\ `n < LENGTH t''.refs ∧
+          ∃a. EL n t''.refs = Thunk NotEvaluated a ∧
+          v_rel (orac_s t''.eval_state) v a` by (
+        gvs [s_rel_def, LIST_REL_EL_EQN]
+        \\ first_x_assum drule \\ rw []
+        \\ Cases_on `EL n refs''` \\ gvs [sv_rel_def]) \\ gvs [] >>
+        gvs[do_opapp_cases, PULL_EXISTS]
+        >- (
+          imp_res_tac s_rel_def >> gvs[] >>
+          irule_at Any OR_INTRO_THM2 >>
+          drule s_rel_clock >> simp[dec_clock_def] >> strip_tac >>
+          last_x_assum dxrule >> simp[] >>
+          qmatch_goalsub_abbrev_tac ‘evaluate _ new_env’ >>
+          disch_then $ qspec_then ‘new_env’ mp_tac >> impl_tac
+          >- (unabbrev_all_tac >> irule env_rel_add_nsBind >> simp[]) >>
+          strip_tac >> gvs[] >> insts_tac
+          )
+        >- (
+          imp_res_tac s_rel_def >> gvs[] >>
+          irule_at Any OR_INTRO_THM2 >>
+          drule s_rel_clock >> simp[dec_clock_def] >> strip_tac >>
+          last_x_assum dxrule >> simp[] >>
+          qmatch_goalsub_abbrev_tac ‘evaluate _ new_env’ >>
+          disch_then $ qspec_then ‘new_env’ mp_tac >> impl_tac
+          >- (
+            unabbrev_all_tac >> simp[build_rec_env_merge, nsAppend_to_nsBindList] >>
+            irule env_rel_add_nsBind >> simp[] >>
+            irule env_rel_add_nsBindList >>
+            simp[LIST_REL_MAP1, SRULE [SF ETA_ss] LIST_REL_MAP2, ELIM_UNCURRY] >>
+            simp[LIST_REL_EL_EQN]
+            ) >>
+          strip_tac >> gvs[] >> insts_tac
+          )
+      )
+    )
   \\ eval_cases_tac
   \\ drule_then (drule_then assume_tac) do_app_sim
   \\ insts_tac
@@ -1434,6 +1569,12 @@ Proof
   \\ simp [record_forward_refl]
   >- (
     Cases_on ‘getOpClass op’ \\ fs[]
+    >~ [`getOpClass op = Force`] >- (
+      full_simp_tac bool_ss [do_eval_res_def, bool_case_eq, pair_case_eq,
+          option_case_eq, result_case_eq, dec_clock_def]
+      \\ rveq \\ full_simp_tac bool_ss [PAIR_EQ]
+      \\ gvs [AllCaseEqs()]
+      \\ imp_res_tac record_forward_trans_sym)
     \\ full_simp_tac bool_ss [do_eval_res_def, bool_case_eq, pair_case_eq,
         option_case_eq, result_case_eq, dec_clock_def]
     \\ rveq \\ full_simp_tac bool_ss [PAIR_EQ]
@@ -1562,6 +1703,13 @@ Proof
     \\ agrees_impl_tac
     \\ simp []
   )
+  >~ [`getOpClass op = Force`] >- (
+    gvs [AllCaseEqs(), dec_clock_def]
+    \\ eval_cases_tac
+    \\ imp_res_simp_tac evaluate_is_record_forward
+    \\ imp_res_simp_tac insert_declare_env
+    \\ agrees_impl_tac
+    \\ simp [])
   \\ eval_cases_tac
   \\ gs[]
 QED
@@ -1692,7 +1840,17 @@ Proof
             \\ drule_then irule record_forward_trans)
         \\ NO_TAC)
   \\ simp [combine_dec_result_def]
-  \\ gs[]
+  >>~ [`getOpClass op = Force`]
+  >- (
+    gvs [AllCaseEqs(), dec_clock_def]
+    \\ drule_then (drule_then assume_tac) less_sub_1_cases \\ gvs []
+    \\ imp_res_simp_tac evaluate_is_record_forward \\ gvs [])
+  >- (
+    gvs [AllCaseEqs(), dec_clock_def]
+    \\ imp_res_simp_tac evaluate_is_record_forward \\ gvs []
+    >- (drule_then irule record_forward_trans \\ gvs [])
+    >- (drule_then irule record_forward_trans \\ gvs [])
+    >- (disj2_tac \\ drule_then irule record_forward_trans \\ gvs []))
 QED
 
 (* Constructs the oracle from an evaluation by using the recorded
@@ -1783,7 +1941,7 @@ Proof
   \\ rw []
   \\ first_x_assum (qspec_then `j` mp_tac)
   \\ simp [extract_oracle_def]
-  \\ DEEP_INTRO_TAC whileTheory.OLEAST_INTRO
+  \\ DEEP_INTRO_TAC WhileTheory.OLEAST_INTRO
   \\ rpt strip_tac
   >- (
     first_x_assum (qspec_then `k` mp_tac)
@@ -1851,8 +2009,8 @@ Triviality extract_oracle_SOME_SUC:
   IS_SOME (extract_oracle s env decs i)
 Proof
   simp [extract_oracle_def]
-  \\ DEEP_INTRO_TAC whileTheory.OLEAST_INTRO
-  \\ DEEP_INTRO_TAC whileTheory.OLEAST_INTRO
+  \\ DEEP_INTRO_TAC WhileTheory.OLEAST_INTRO
+  \\ DEEP_INTRO_TAC WhileTheory.OLEAST_INTRO
   \\ rw []
   \\ simp [UNCURRY]
   \\ res_tac
@@ -1867,7 +2025,7 @@ Triviality extract_oracle_0_st:
   FST (SND r) = ci.config_v ci.init_state
 Proof
   simp [extract_oracle_def]
-  \\ DEEP_INTRO_TAC whileTheory.OLEAST_INTRO
+  \\ DEEP_INTRO_TAC WhileTheory.OLEAST_INTRO
   \\ simp [UNCURRY]
   \\ rw []
   \\ Cases_on `evaluate_decs (s with clock := n) env decs`
@@ -1910,7 +2068,7 @@ Proof
         SUC i < FST (FST ((orac_s t'.eval_state).oracle 0))`)
   >- (
     rpt (POP_ASSUM (mp_tac o REWRITE_RULE [extract_oracle_def]))
-    \\ DEEP_INTRO_TAC whileTheory.OLEAST_INTRO
+    \\ DEEP_INTRO_TAC WhileTheory.OLEAST_INTRO
     \\ rw []
     \\ metis_tac []
   )
@@ -2217,6 +2375,7 @@ Proof
       fs [astTheory.op_class_case_eq]
       \\ fs [bool_case_eq, Q.ISPEC `(a, b)` EQ_SYM_EQ]
       \\ gvs []
+      >~ [`getOpClass op = Force`] >- gvs [AllCaseEqs(), dec_clock_def]
       \\ fs [option_case_eq, pair_case_eq, bool_case_eq, result_case_eq]
       \\ insts_tac
       \\ fs [dec_clock_def]

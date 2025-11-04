@@ -15,6 +15,19 @@ End
 
 Overload flit[local] = “λw. Litv (Float64 w)”
 
+Definition thunk_op_def:
+  thunk_op (s: v store_v list) th_op vs =
+    case (th_op,vs) of
+    | (AllocThunk m, [v]) =>
+        (let (s',n) = store_alloc (Thunk m v) s in
+           SOME (s', Rval (Loc F n)))
+    | (UpdateThunk m, [Loc _ lnum; v]) =>
+        (case store_assign lnum (Thunk m v) s of
+         | SOME s' => SOME (s', Rval (Conv NONE []))
+         | NONE => NONE)
+    | _ => NONE
+End
+
 Definition do_app_def:
   do_app s op vs = case (op, vs) of
       (ListAppend, [x1; x2]) => (
@@ -346,6 +359,7 @@ Definition do_app_def:
             Rval (Conv NONE [nat_to_v gen; nat_to_v id]))
     | (Env_id, [Conv NONE [gen; id]]) => SOME (s,
             Rval (Conv NONE [gen; id]))
+    | (ThunkOp th_op, vs) => thunk_op s th_op vs
     | _ => NONE
 End
 
@@ -356,6 +370,7 @@ Datatype:
   ctxt_frame = Craise
              | Chandle ((pat # exp) list)
              | Capp op (v list) (exp list)
+             | Cforce num
              | Clog lop exp
              | Cif exp exp
              | Cmat_check ((pat # exp) list) v
@@ -393,6 +408,17 @@ Definition application_def:
        (case do_opapp vs of
           SOME (env,e) => (Estep (env, s, Exp e, c):estep_result)
         | NONE => Etype_error)
+   | Force =>
+      (case vs of
+         [Loc b n] => (
+            case dest_thunk [Loc b n] s of
+            | BadRef => Etype_error
+            | NotThunk => Etype_error
+            | IsThunk Evaluated v => return env s v c
+            | IsThunk NotEvaluated f =>
+                return env s f
+                  ((Capp Opapp [Conv NONE []] [], env)::(Cforce n, env)::c))
+        | _ => Etype_error)
    | _ =>
        case op of
        | FFI n => (
@@ -419,6 +445,14 @@ Definition continue_def:
   continue s v ((Chandle pes, env)::c) = return env s v c ∧
   continue s v ((Capp op vs [], env) :: c) = application op env s (v::vs) c ∧
   continue s v ((Capp op vs (e::es), env) :: c) = push env s e (Capp op (v::vs) es) c ∧
+  continue s v ((Cforce n, env) :: c) = (
+    case dest_thunk [v] s of
+    | BadRef => Etype_error
+    | NotThunk => (
+        case store_assign n (Thunk Evaluated v) s of
+        | SOME s' => return env s' v c
+        | NONE => Etype_error)
+    | IsThunk v3 v4 => Etype_error) ∧
   continue s v ((Clog l e, env) :: c) = (
     case do_log l v e of
       SOME (Exp e) => Estep (env, s, Exp e, c)

@@ -1,7 +1,7 @@
 (*
   Translation of the to_data compiler function.
 *)
-Theory to_data_cv
+Theory to_data_cv[no_sig_docs]
 Ancestors
   cv_std basis_cv backend backend_asm unify_cv infer_cv
 Libs
@@ -2193,7 +2193,7 @@ val _ = cv_auto_trans backend_asmTheory.to_bvl_def;
 (* Bring everything from bvl to the front -- everything because this file is
    too big for me to try everything separately. *)
 val bvl_names =
-  ["Var", "If", "Let", "Raise", "Handle", "Tick", "Call", "Op", "Bool",
+  ["Var", "If", "Let", "Raise", "Handle", "Tick", "Force", "Call", "Op", "Bool",
    "mk_tick"];
 val _ = app (fn name =>
   temp_bring_to_front_overload name {Name=name, Thy="bvl"}) bvl_names;
@@ -2950,4 +2950,3 @@ val _ = cv_auto_trans presLangTheory.word_prog_to_display_def;
 
 val _ = cv_auto_trans presLangTheory.stack_prog_to_display_def;
 
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;

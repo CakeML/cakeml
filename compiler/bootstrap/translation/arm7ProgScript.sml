@@ -1,7 +1,7 @@
 (*
   Translate the ARMv7 instruction encoder and ARMv7-specific config.
 *)
-Theory arm7Prog
+Theory arm7Prog[no_sig_docs]
 Ancestors
   evaluate ml_translator from_pancake32Prog arm7_target arm
   to_target32Prog[qualified]
@@ -485,7 +485,6 @@ val res = translate def;
 
 val res = translate (arm7_config_def |> SIMP_RULE std_ss[valid_immediate_def] |> gconv)
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

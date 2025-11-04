@@ -62,7 +62,16 @@ Proof
     ntac 3 TOP_CASE_TAC >> gs[Excl"getOpClass_def"]
     >- prove_tac
     >- prove_tac
-    >- prove_tac) >>
+    >- (
+      qpat_x_assum ‘getOpClass _ = _’ kall_tac >>
+      simp[get_store_def] >>
+      TOP_CASE_TAC >> gvs[] >- prove_tac >- prove_tac >>
+      ntac 2 (TOP_CASE_TAC >> gvs[]) >- prove_tac >>
+      ntac 2 (TOP_CASE_TAC >> gvs[dec_clock_def]) >>
+      prove_tac
+      )
+    >- prove_tac
+    ) >>
   prove_tac
 QED
 

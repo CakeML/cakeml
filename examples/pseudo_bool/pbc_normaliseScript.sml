@@ -514,7 +514,7 @@ Definition pbc_to_npbc_def:
   (pbc_to_npbc (GreaterEqual,lhs,n) =
     let (lhs',m') = compact_lhs (sort term_le lhs) 0 in
     let (lhs'',m'') = normalise_lhs lhs' [] 0 in
-    let rhs = if n-(m'+m'') ≥ 0 then Num(n-(m'+m'')) else 0 in
+    let rhs = n-(m'+m'') in
     (lhs'',rhs):npbc) ∧
   (pbc_to_npbc _ = ([],0))
 End

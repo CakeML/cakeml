@@ -4,7 +4,7 @@
 
 (* The following line is (and shall remain) the only difference between
    the 32-bit and 64-bit versions of this file. *)
-Theory backend_32_cv
+Theory backend_32_cv[no_sig_docs]
 Ancestors
   cv_std backend_cv to_data_cv backend
 Libs
@@ -543,6 +543,8 @@ val _ = cv_trans (data_to_wordTheory.assign_def |> arch_spec |> SRULE
    data_to_wordTheory.arg3_def,
    data_to_wordTheory.arg4_def])
 
+val _ = cv_trans (data_to_wordTheory.force_thunk_def |> arch_spec);
+
 val pre = data_to_wordTheory.comp_def |> arch_spec |> SRULE [to_adjust_vars] |> cv_trans_pre "";
 Theorem data_to_word_comp_pre[cv_pre,local]:
   ∀c secn l p. data_to_word_comp_pre c secn l p
@@ -574,5 +576,3 @@ Proof
 QED
 
 val _ = word_allocTheory.get_heuristics_def |> arch_spec |> cv_auto_trans;
-
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;

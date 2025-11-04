@@ -127,7 +127,7 @@ Definition wf_def:
     EVERY IS_SOME (MAP FST σ) ∧
     path σ
 End
-val _ = overload_on(UnicodeChars.turnstile,``wf``);
+Overload "⊢" = “wf”
 
 Theorem wf_init:
    windmill μ ∧
@@ -557,9 +557,9 @@ val tac =
       rw[dstep_cases] >>
       TRY(map_every qexists_tac[`FST(LAST t')`,`SND(LAST t')`,`FRONT t'`]) >>
       rw[APPEND_FRONT_LAST] >>
-      fs[whileTheory.OLEAST_def,MEM_MAP,MEM_EL] >>
+      fs[WhileTheory.OLEAST_def,MEM_MAP,MEM_EL] >>
       metis_tac[] ) >>
-  fs[whileTheory.OLEAST_def] >>
+  fs[WhileTheory.OLEAST_def] >>
   BasicProvers.CASE_TAC >- (
       fs[DROP_NIL] >> rw[] >>
       pop_assum mp_tac >>
@@ -628,7 +628,7 @@ Termination
        fs[NULL_LENGTH,LENGTH_NIL] >>
        simp[LENGTH_FRONT,PRE_SUB1,LENGTH_NOT_NULL,NULL_LENGTH,LENGTH_NIL] >>
        NO_TAC) >>
-     fs[whileTheory.OLEAST_def] >> rw[] >>
+     fs[WhileTheory.OLEAST_def] >> rw[] >>
      pop_assum mp_tac >>
      numLib.LEAST_ELIM_TAC >>
      conj_tac >- metis_tac[] >>

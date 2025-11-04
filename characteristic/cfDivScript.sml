@@ -4420,7 +4420,7 @@ Proof
   \\ rw[]
   \\ `LFLATTEN(LGENLIST f NONE) <> [||]` by(CCONTR_TAC >> fs[])
   \\ dxrule LFLATTEN_NOT_NIL_IMP
-  \\ disch_then(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[whileTheory.LEAST_EXISTS])
+  \\ disch_then(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[WhileTheory.LEAST_EXISTS])
   \\ qmatch_asmsub_abbrev_tac `LNTH a1`
   \\ Q.ISPECL_THEN [`a1`,`f`] assume_tac (GEN_ALL LGENLIST_CHUNK_GENLIST)
   \\ fs[]
@@ -4720,7 +4720,7 @@ Proof
     (fs[Once LFLATTEN])
   \\ match_mp_tac OR_INTRO_THM2
   \\ pop_assum(assume_tac o Ho_Rewrite.REWRITE_RULE [every_LGENLIST,o_DEF,NOT_FORALL_THM])
-  \\ pop_assum(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[whileTheory.LEAST_EXISTS])
+  \\ pop_assum(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[WhileTheory.LEAST_EXISTS])
   \\ fs[CONV_RULE(LHS_CONV SYM_CONV) fromList_EQ_LNIL]
   \\ qspecl_then [`LEAST x. events (n + x) <> []`,`fromList o events o $+ n`] mp_tac
       (LGENLIST_CHUNK_GENLIST

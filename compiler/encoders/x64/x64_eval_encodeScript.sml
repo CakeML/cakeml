@@ -1,11 +1,10 @@
 (*
   Pre-evaluate encoder (to help speed up EVAL)
 *)
-Theory x64_eval_encode
+Theory x64_eval_encode[no_sig_docs]
 Ancestors
   x64 x64_target
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0
 
 Triviality not_fail:
   (case a ++ b :: c of [] => x64_dec_fail | v2::v3 => v2::v3) =

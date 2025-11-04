@@ -90,10 +90,11 @@ Theorem env_rel_def =
   “env_rel fr ft fe env1 env2” |> SIMP_CONV std_ss [Once v_rel_cases];
 
 Definition ref_rel_def:
-  ref_rel f (Refv v)    (Refv w)    = f v w            ∧
-  ref_rel f (Varray vs) (Varray ws) = LIST_REL f vs ws ∧
-  ref_rel f (W8array a) (W8array b) = (a = b)          ∧
-  ref_rel f _           _           = F
+  ref_rel f (Refv v)      (Refv w)      = f v w                 ∧
+  ref_rel f (Varray vs)   (Varray ws)   = LIST_REL f vs ws      ∧
+  ref_rel f (W8array a)   (W8array b)   = (a = b)               ∧
+  ref_rel f (Thunk m1 v1) (Thunk m2 v2) = ((m1 = m2) ∧ f v1 v2) ∧
+  ref_rel f _           _               = F
 End
 
 Theorem ref_rel_mono:
@@ -630,43 +631,44 @@ Theorem state_rel_store_assign:
   state_rel l fr ft fe s t ∧
   FLOOKUP fr n = SOME m ∧
   ref_rel (v_rel fr ft fe) v w ⇒
-    OPTREL (λr1 r2.
-      state_rel l fr ft fe
-        (s with <| refs := r1 |>) (t with refs := r2))
-           (store_assign n v s.refs)
-           (store_assign m w t.refs)
+    OPTREL
+      (λr1 r2. state_rel l fr ft fe (s with refs := r1) (t with refs := r2))
+      (store_assign n v s.refs)
+      (store_assign m w t.refs)
 Proof
-  rw [OPTREL_def, store_assign_def, state_rel_def]
-  \\ ‘n < LENGTH s.refs ∧ m < LENGTH t.refs’
-    by (qpat_x_assum ‘INJ ($' fr) _ _’ mp_tac
-        \\ qpat_x_assum ‘FLOOKUP fr n = _’ mp_tac
-        \\ rw [INJ_DEF, flookup_thm]
-        \\ first_x_assum drule \\ gs [])
-  \\ gs []
-  \\ first_assum (qspec_then ‘n’ mp_tac)
-  \\ IF_CASES_TAC \\ gs []
-  \\ rw []
-  \\ ‘store_v_same_type (EL n s.refs) (EL m t.refs)’
-    by (rw [store_v_same_type_def]
-        \\ CASE_TAC \\ gs [] \\ CASE_TAC \\ gs [ref_rel_def])
-  \\ ‘store_v_same_type v w’
-    by (rw [store_v_same_type_def]
-        \\ CASE_TAC \\ gs [] \\ CASE_TAC \\ gs [ref_rel_def])
-  \\ ‘store_v_same_type (EL n s.refs) v = store_v_same_type (EL m t.refs) w’
-    by (rw [EQ_IMP_THM] \\ gs [store_v_same_type_def]
-        \\ Cases_on ‘EL n s.refs’ \\ Cases_on ‘EL m t.refs’
-        \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gs [])
-  \\ csimp []
-  \\ simp [DISJ_EQ_IMP]
-  \\ strip_tac \\ gs []
-  \\ qx_gen_tac ‘n1’
-  \\ first_x_assum (qspec_then ‘n1’ assume_tac)
-  \\ rw [] \\ gs [EL_LUPDATE]
-  \\ rw [] \\ gs [ref_rel_def]
-  \\ qpat_x_assum ‘INJ ($' fr) _ _’ mp_tac
-  \\ qpat_x_assum ‘FLOOKUP fr n1 = SOME _’ mp_tac
-  \\ qpat_x_assum ‘FLOOKUP fr n = SOME _’ mp_tac
-  \\ rw [flookup_thm, INJ_DEF] \\ gs []
+  rw [OPTREL_def] \\ gvs []
+  \\ ‘n < LENGTH s.refs ∧ m < LENGTH t.refs’ by (
+    gvs [state_rel_def]
+    \\ qpat_x_assum ‘INJ ($' fr) _ _’ mp_tac
+    \\ qpat_x_assum ‘FLOOKUP fr n = _’ mp_tac
+    \\ rw [INJ_DEF, flookup_thm]
+    \\ first_x_assum drule \\ rw [])
+  \\ Cases_on ‘store_assign n v s.refs’ \\ gvs []
+  >- (
+    gvs [store_assign_def, NOT_LESS]
+    \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [ref_rel_def]
+    \\ Cases_on ‘EL n s.refs’ \\ Cases_on ‘EL m t.refs’
+    \\ gvs [store_v_same_type_def, state_rel_def]
+    \\ first_x_assum $ qspec_then `n` assume_tac \\ gvs [ref_rel_def])
+  \\ gvs [store_assign_def]
+  \\ Cases_on ‘v’ \\ Cases_on ‘w’ \\ gvs [ref_rel_def]
+  \\ (
+    Cases_on ‘EL n s.refs’ \\ gvs [Once store_v_same_type_def]
+    \\ gvs [state_rel_def, EL_LUPDATE] \\ rw []
+    >- (
+      first_x_assum $ qspec_then ‘n’ assume_tac \\ gvs []
+      \\ Cases_on ‘EL m t.refs’ \\ gvs [ref_rel_def, store_v_same_type_def])
+    >- simp [ref_rel_def]
+    >- (
+      first_x_assum $ qspec_then ‘n'’ assume_tac \\ gvs []
+      \\ qpat_x_assum ‘INJ ($' fr) _ _’ mp_tac
+      \\ qpat_x_assum ‘FLOOKUP fr n = SOME m’ mp_tac
+      \\ qpat_x_assum ‘FLOOKUP fr n' = SOME m'’ mp_tac
+      \\ rw [INJ_DEF, FLOOKUP_DEF] \\ gvs [])
+    >- (
+      gvs [NOT_LESS]
+      \\ qpat_x_assum ‘INJ ($' fr) _ _’ mp_tac
+      \\ rw [INJ_DEF, FLOOKUP_DEF] \\ gvs []))
 QED
 
 Theorem v_rel_v_to_list:
@@ -1712,7 +1714,61 @@ Proof
                                     "store_v", "v"]]
     \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
     \\ first_assum (irule_at Any) \\ gs [])
+  \\ Cases_on ‘∃m. op = ThunkOp (AllocThunk m)’ \\ gs[]
+  >- (
+    Cases_on ‘res’ \\ gvs [do_app_def, AllCaseEqs(), thunk_op_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    >- metis_tac [SUBMAP_REFL]
+    >- metis_tac [SUBMAP_REFL]
+    \\ qexists ‘fr |+ (LENGTH s.refs,LENGTH t.refs)’ \\ gvs []
+    \\ rpt (irule_at Any SUBMAP_REFL \\ gvs [])
+    \\ gvs [store_alloc_def]
+    \\ rename1 ‘v_rel _ _ _ v y’
+    \\ qexistsl [‘t with refs := t.refs ++ [Thunk m y]’,
+                 ‘s with refs := s.refs ++ [Thunk m v]’]
+    \\ gvs [state_rel_def]
+    \\ rw []
+    >- (
+      qpat_x_assum ‘INJ ($' fr) _ _’ mp_tac
+      \\ simp [INJ_DEF, FAPPLY_FUPDATE_THM]
+      \\ rw [] \\ gvs []
+      \\ ntac 2 (first_x_assum drule \\ gvs []))
+    >- gvs [count_add1]
+    >- (
+      gvs [FLOOKUP_UPDATE] \\ rw []
+      \\ first_x_assum drule \\ rw [])
+    >- (first_x_assum drule \\ rw [])
+    >- (
+      gvs [FLOOKUP_UPDATE, EL_APPEND_EQN] \\ rw [] \\ gvs []
+      >- (
+        simp [oneline ref_rel_def]
+        \\ irule v_rel_update \\ gvs []
+        \\ first_x_assum $ irule_at Any \\ gvs [])
+      >- (
+        first_x_assum $ qspec_then ‘n’ assume_tac \\ gvs []
+        \\ irule ref_rel_mono \\ gvs []
+        \\ first_x_assum $ irule_at Any \\ rw []
+        \\ irule v_rel_update \\ gvs []
+        \\ first_x_assum $ irule_at Any \\ gvs []))
+    >- (
+      gvs [FLOOKUP_UPDATE]
+      \\ first_x_assum $ qspec_then ‘n’ assume_tac \\ gvs [])
+    >- gvs [v_rel_def, FLOOKUP_UPDATE])
+  \\ Cases_on ‘∃m. op = ThunkOp (UpdateThunk m)’ \\ gs[]
+  >- (
+    Cases_on ‘res’ \\ gvs [do_app_def, AllCaseEqs(), thunk_op_def, OPTREL_def]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs [v_rel_def]
+    \\ rename1 ‘v_rel fr ft fe v w’
+    \\ ‘ref_rel (v_rel fr ft fe) (Thunk m v) (Thunk m w)’
+      by gs [ref_rel_def]
+    \\ drule_all state_rel_store_assign \\ rw [OPTREL_def]
+    \\ first_assum (irule_at Any) \\ gs [])
+  \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gs []
+  >- (
+    Cases_on ‘res’ \\ gvs [do_app_def, AllCaseEqs(), thunk_op_def]
+    \\ rpt (irule_at Any SUBMAP_REFL \\ gvs []))
   \\ Cases_on ‘op’ \\ gs []
+  \\ Cases_on ‘t'’ \\ gs []
 QED
 
 (* TODO Move up *)
@@ -1738,12 +1794,151 @@ Proof
   \\ Cases_on ‘e1’ \\ Cases_on ‘e2’ \\ gs []
 QED
 
+Definition thunk_rel_def:
+  thunk_rel f BadRef BadRef = T ∧
+  thunk_rel f NotThunk NotThunk = T ∧
+  thunk_rel f (IsThunk m1 v1) (IsThunk m2 v2) = (m1 = m2 ∧ f v1 v2) ∧
+  thunk_rel _ _ _ = F
+End
+
+Theorem state_rel_dest_thunk:
+  state_rel l fr ft fe s t ∧
+  LIST_REL (v_rel fr ft fe) vs ws ∧
+  dest_thunk vs s.refs = t1 ⇒
+    ∃t2. dest_thunk ws t.refs = t2 ∧ thunk_rel (v_rel fr ft fe) t1 t2
+Proof
+  rw []
+  \\ Cases_on ‘dest_thunk vs s.refs’
+  \\ Cases_on ‘dest_thunk ws t.refs’
+  \\ gvs [thunk_rel_def, oneline dest_thunk_def, AllCaseEqs(), v_rel_def]
+  \\ drule_all state_rel_store_lookup \\ rw [OPTREL_def, ref_rel_def]
+QED
+
+Theorem state_rel_update_thunk_NONE:
+  fr1 ⊑ fr2 ∧
+  state_rel l fr2 ft2 fe2 s t ∧
+  LIST_REL (v_rel fr1 ft1 fe1) vs1 ws1 ∧
+  LIST_REL (v_rel fr2 ft2 fe2) vs2 ws2 ∧
+  update_thunk vs1 s.refs vs2 = NONE ⇒
+    update_thunk ws1 t.refs ws2 = NONE
+Proof
+  rw []
+  \\ gvs [oneline update_thunk_def, AllCaseEqs(), v_rel_def]
+  \\ ‘LIST_REL (v_rel fr2 ft2 fe2) [v] [y']’ by gvs []
+  \\ drule_all state_rel_dest_thunk \\ rw [] \\ gvs []
+  \\ Cases_on ‘dest_thunk [y'] t.refs’ \\ gvs [thunk_rel_def]
+  \\ ‘FLOOKUP fr2 n = SOME l2’ by (drule_all FLOOKUP_SUBMAP \\ rw [])
+  \\ ‘ref_rel (v_rel fr2 ft2 fe2) (Thunk Evaluated v) (Thunk Evaluated y')’
+    by gvs [ref_rel_def]
+  \\ drule_all state_rel_store_assign \\ rw [OPTREL_def]
+QED
+
+Theorem state_rel_update_thunk_SOME:
+  fr1 ⊑ fr2 ∧
+  state_rel l fr2 ft2 fe2 s t ∧
+  update_thunk vs1 s.refs vs2 = SOME refs1 ∧
+  LIST_REL (v_rel fr1 ft1 fe1) vs1 a1 ∧
+  LIST_REL (v_rel fr2 ft2 fe2) vs2 a2 ⇒
+    ∃refs2.
+      (update_thunk a1 t.refs a2 = SOME refs2 ∧
+       state_rel l fr2 ft2 fe2 (s with refs := refs1) (t with refs := refs2))
+Proof
+  rw []
+  \\ gvs [oneline update_thunk_def, AllCaseEqs(), v_rel_def]
+  \\ ‘LIST_REL (v_rel fr2 ft2 fe2) [v] [y']’ by gvs []
+  \\ drule_all state_rel_dest_thunk \\ rw [] \\ gvs []
+  \\ Cases_on ‘dest_thunk [y'] t.refs’ \\ gvs [thunk_rel_def]
+  \\ ‘FLOOKUP fr2 n = SOME l2’ by (drule_all FLOOKUP_SUBMAP \\ rw [])
+  \\ ‘ref_rel (v_rel fr2 ft2 fe2) (Thunk Evaluated v) (Thunk Evaluated y')’
+    by gvs [ref_rel_def]
+  \\ drule_all state_rel_store_assign \\ rw [OPTREL_def] \\ gvs []
+QED
+
 Theorem evaluate_update_Op:
   op ≠ Opapp ∧ op ≠ Eval ⇒ ^(get_goal "App")
 Proof
   rw [evaluate_def] \\ Cases_on ‘getOpClass op’
-  >- (Cases_on ‘op’ \\ gs[])
-  >- (Cases_on ‘op’ \\ gs[])
+  >- (Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t'’ \\ gs[])
+  >- (Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t'’ \\ gs[])
+  >- (
+    Cases_on ‘op’ \\ gvs [] \\ Cases_on ‘t'’ \\ gvs []
+    \\ qpat_x_assum ‘_ = (s1,res)’ mp_tac
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ reverse TOP_CASE_TAC \\ gvs []
+    >- (
+      strip_tac
+      \\ first_x_assum drule_all \\ rw [] \\ gvs []
+      \\ qpat_x_assum ‘res_rel _ _ (Rerr _) res1’ mp_tac
+      \\ Cases_on ‘res1’ \\ rw [res_rel_def]
+      \\ metis_tac [])
+    \\ first_x_assum drule_all \\ strip_tac \\ gvs []
+    \\ Cases_on ‘res1’ \\ gvs [res_rel_def]
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ imp_res_tac EVERY2_REVERSE
+    \\ drule_all state_rel_dest_thunk \\ simp [oneline thunk_rel_def]
+    \\ TOP_CASE_TAC \\ gvs []
+    >~ [‘BadRef’] >- metis_tac []
+    >~ [‘NotThunk’] >- metis_tac []
+    \\ strip_tac \\ gvs []
+    \\ TOP_CASE_TAC \\ gvs []
+    >- (rw [] \\ gvs [] \\ metis_tac [])
+    \\ TOP_CASE_TAC \\ gvs []
+    >- (
+      strip_tac \\ gvs []
+      \\ qpat_x_assum ‘v_rel _ _ _ v v'’ mp_tac
+      \\ gvs [do_opapp_def, AllCaseEqs(), PULL_EXISTS]
+      \\ rw [Once v_rel_cases]
+      \\ metis_tac [])
+    \\ Cases_on ‘do_opapp [v'; Conv NONE []]’ \\ gvs []
+    >- (
+      CCONTR_TAC \\ gvs []
+      \\ qpat_x_assum ‘v_rel _ _ _ v v'’ assume_tac
+      \\ gvs [do_opapp_def, AllCaseEqs(), PULL_EXISTS]
+      \\ rgs [Once v_rel_cases])
+    \\ Cases_on ‘x’ \\ Cases_on ‘x'’ \\ gvs []
+    \\ ‘q.clock = t1.clock’ by gvs [state_rel_def] \\ gvs []
+    \\ TOP_CASE_TAC \\ gvs []
+    >- (rw [] \\ gvs [] \\ metis_tac [])
+    \\ TOP_CASE_TAC \\ gvs []
+    \\ ‘state_rel l fr1 ft1 fe1 (dec_clock q) (dec_clock t1)’
+      by gvs [dec_clock_def, state_rel_def]
+    \\ first_x_assum drule
+    \\ disch_then $ qspec_then ‘q''’ mp_tac
+    \\ impl_tac \\ gvs []
+    >- (
+      qpat_x_assum ‘v_rel _ _ _ v v'’ assume_tac
+      \\ gvs [do_opapp_def, AllCaseEqs()]
+      \\ rgs [Once v_rel_cases] \\ gvs []
+      \\ gvs [env_rel_def]
+      \\ irule nsAll2_nsBind \\ gvs [v_rel_def]
+      \\ gvs [semanticPrimitivesPropsTheory.build_rec_env_merge]
+      \\ irule nsAll2_nsAppend \\ gs []
+      \\ irule nsAll2_alist_to_ns
+      \\ gs [EVERY2_MAP, LAMBDA_PROD, v_rel_def]
+      \\ rw [LIST_REL_EL_EQN, ELIM_UNCURRY, env_rel_def])
+    \\ strip_tac \\ gvs []
+    \\ qpat_x_assum ‘v_rel _ _ _ v v'’ assume_tac
+    \\ gvs [do_opapp_def]
+    \\ gvs [CaseEq"v", CaseEq"option", CaseEq"prod"]
+    \\ rgs [Once v_rel_cases] \\ gvs []
+    \\ (
+      reverse TOP_CASE_TAC \\ gvs []
+      >- (
+        rw [] \\ gvs []
+        \\ TOP_CASE_TAC \\ gvs []
+        \\ metis_tac [SUBMAP_TRANS])
+      \\ TOP_CASE_TAC \\ gvs []
+      >- (
+        rw [] \\ gvs []
+        \\ TOP_CASE_TAC \\ gvs []
+        \\ imp_res_tac EVERY2_REVERSE
+        \\ drule_all state_rel_update_thunk_NONE \\ rw [] \\ gvs []
+        \\ metis_tac [SUBMAP_TRANS])
+      \\ strip_tac \\ gvs []
+      \\ TOP_CASE_TAC \\ gvs []
+      \\ imp_res_tac EVERY2_REVERSE
+      \\ drule_all state_rel_update_thunk_SOME \\ rw [] \\ gvs []
+      \\ metis_tac [SUBMAP_TRANS]))
   >- (
     gvs [CaseEqs ["prod", "result", "option"], PULL_EXISTS]
     \\ first_x_assum (drule_all_then strip_assume_tac)
