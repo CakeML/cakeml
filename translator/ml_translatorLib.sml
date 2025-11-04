@@ -137,7 +137,7 @@ fun MY_MP name th1 th2 =
       val _ = print "\n\n"
     in raise e end
 
-fun reraise fname message r = raise (ERR fname (message ^ ": " ^ #message r))
+fun reraise fname message r = raise (ERR fname (message ^ ": " ^ message_of r))
 
 fun auto_prove_asms name ((asms,goal),tac) = let
   val (rest,validation) = tac (asms,goal)
@@ -345,7 +345,10 @@ in
           subst [code |-> mk_Var(mk_Short (stringSyntax.fromMLstring ml_name))] tm
     in
       ASSUME tm |> SPEC_ALL |> UNDISCH_ALL
-    end handle HOL_ERR {origin_function="first",...} => raise NotFoundVThm const
+    end handle e as HOL_ERR holerr =>
+      if top_function_of holerr = "first" then
+         raise NotFoundVThm const
+      else raise e
   fun lookup_eval_thm const = let
     val (name,c,th) = (first (fn c => can (match_term (#2 c)) const) (!eval_thms))
     in th |> SPEC_ALL |> UNDISCH_ALL end
@@ -2540,7 +2543,7 @@ fun pmatch_hol2deep tm hol2deep = let
   val th = UNDISCH_ALL (th |> CONJUNCT2)
   in th end handle HOL_ERR e =>
   (pmatch_hol2deep_fail := tm;
-   failwith ("pmatch_hol2deep failed (" ^ #message e ^ ")"));
+   failwith ("pmatch_hol2deep failed (" ^ message_of e ^ ")"));
 
 local
   (* list_conv: applies c to every xi in a term such as [x1;x2;x3;x4] *)
@@ -2940,6 +2943,8 @@ val builtin_monops =
    Eval_FLOAT_ABS,
    Eval_FLOAT_SQRT,
    Eval_FLOAT_NEG,
+   Eval_FP_fromWord,
+   Eval_FP_toWord,
    Eval_empty_ffi,
    Eval_force_out_of_memory_error,
    Eval_Chr,
@@ -3366,6 +3371,26 @@ val tm = sortingTheory.PARTITION_DEF |> SPEC_ALL |> concl |> rhs
 val tm = def |> SPEC_ALL |> concl |> rand
 *)
 
+val float64_ty = mk_thy_type{
+      Args = [
+          fcpSyntax.mk_numeric_type (Arbnum.fromInt 52),
+          fcpSyntax.mk_numeric_type (Arbnum.fromInt 11)
+      ],
+      Thy = "binary_ieee",
+      Tyop = "float"
+    }
+
+(* slightly more generous than binary_ieeeSyntax.dest_floating_point which
+   insists on the record fields in the exp-sign-signif order *)
+fun is_float_literal tm =
+    let val (ty, alist) = TypeBase.dest_record tm
+        val _ = ty = float64_ty orelse raise ERR "" ""
+        val _ = Listsort.sort String.compare (map #1 alist) =
+                ["Exponent", "Sign", "Significand"] orelse raise ERR "" ""
+    in
+      List.all (wordsSyntax.is_word_literal o #2) alist
+    end handle HOL_ERR _ => false
+
 fun hol2deep tm =
   (* variables *)
   if is_var tm then let
@@ -3388,6 +3413,17 @@ fun hol2deep tm =
                  |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "word_literal" tm result end else
   if stringSyntax.is_char_literal tm then SPEC tm Eval_Val_CHAR else
+  if is_float_literal tm then
+    let
+      val th0 = SPEC tm Eval_Val_FLOAT64
+    in
+      CONV_RULE
+        (LAND_CONV
+           (RAND_CONV
+              (RAND_CONV (REWR_CONV machine_ieeeTheory.float_to_fp64_def THENC
+                          EVAL))))
+        th0
+    end else
   if mlstringSyntax.is_mlstring_literal tm then
     SPEC (rand tm) Eval_Val_STRING else
   if use_hol_string_type () andalso can stringSyntax.fromHOLstring tm then
