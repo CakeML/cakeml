@@ -491,7 +491,13 @@ val MK_COMB_lemma = prove(
   every_case_tac)
   |> CONV_RULE (RAND_CONV (SIMP_CONV std_ss [holKernelPmatchTheory.MK_COMB_def]));
 val def = MK_COMB_lemma |> m_translate
+
 val def = holKernelPmatchTheory.ABS_def |> check [‘v’] |> m_translate
+(* workaround contamination of translator's guts by DoubleProg.abs *)
+Overload abs_v = “abs_1_v”
+Theorem abs_v_def = DB.fetch "-" "abs_1_v_def"
+Theorem abs_v_thm = DB.fetch "-" "abs_1_v_thm"
+
 val def = holKernelPmatchTheory.BETA_def |> check [‘tm’] |> m_translate
 
 val _ = next_ml_names := ["DEDUCT_ANTISYM_RULE"];
