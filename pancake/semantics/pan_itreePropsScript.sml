@@ -443,3 +443,84 @@ Proof
   first_assum $ qspec_then ‘SUC n’ assume_tac>>
   fs[FUNPOW_SUC]
 QED
+
+Theorem trace_prefpix0_spin:
+  trace_prefix0 fs spin = [||]
+Proof
+  Cases_on ‘fs’>>
+  simp[trace_prefix0_def]>>
+  simp[LFLATTEN_EQ_NIL]>>
+  irule every_coind>>
+  qexists ‘{lnil}’>>
+  simp[]>>rw[]>>
+  TRY (fs[Once (GSYM lnil)]>>NO_TAC)>>
+  simp[lnil_def]>>
+  simp[Once LUNFOLD_BISIMULATION]>>
+  qexists ‘CURRY {((r,spin),())|fs|T}’>>
+  rw[] >>
+  simp[Once spin]
+QED
+
+Theorem trace_prefix0_FUNPOW_Tau[simp]:
+  trace_prefix0 fs (FUNPOW Tau n t) = trace_prefix0 fs t
+Proof
+  map_every qid_spec_tac [‘fs’,‘t’,‘n’]>>
+  Induct>>rw[FUNPOW_SUC]>>simp[]
+QED
+
+(* move to itreeTauTheory *)
+Theorem itree_unfold_spin:
+  (∀u. f (Tau u) = Tau' u) ⇒
+  itree_unfold f spin = spin
+Proof
+  rw[]>>
+  simp[Once itree_bisimulation]>>
+  qexists‘CURRY {(itree_unfold f spin, spin)}’>>
+  rw[]>>pop_assum mp_tac>>
+  simp[Once spin]>>simp[Once itree_unfold]>>rw[]>>
+  irule (GSYM spin)
+QED
+
+Theorem trace_eq_lemma:
+  trace_prefix0 fs
+          (itree_unfold
+             (λx.
+                  case x of
+                    Ret r => Ret' (case r of INL l => ARB | INR r => r)
+                  | Tau t => Tau' t
+                  | Vis e f => Vis' e (λx. f (INL x))) (t: 'a ptree)) =
+  trace_prefix fs (t: 'a ptree)
+Proof
+  Cases_on ‘fs’>>
+  simp[trace_prefix0_def,trace_prefix_def]>>
+  AP_TERM_TAC>>
+  simp[Once LUNFOLD_BISIMULATION]>>
+  qmatch_goalsub_abbrev_tac ‘itree_unfold f t’>>
+  qexists ‘CURRY {((r, itree_unfold f t),(r,t))|r,t|T}’>>
+  simp[Abbr‘f’]>>rw[EXISTS_PROD]>>simp[]>>
+  CASE_TAC>>fs[]>>
+  CASE_TAC>>fs[]>>
+  TRY (fs[Once itree_unfold]>>NO_TAC)>>
+  ntac 2 (CASE_TAC>>gvs[])>>
+  CASE_TAC>>gvs[]>>
+  TRY (CASE_TAC>>gvs[])>>
+  qhdtm_x_assum ‘itree_unfold’ mp_tac>>
+  fs[Once itree_unfold]>>rw[]>>simp[o_DEF]
+QED
+
+Theorem trace_prefix0_eq_trace_prefix:
+  trace_prefix0 fs (itree_evaluate (p, s)) = trace_prefix fs (mrec h_prog (h_prog (p,s)):'a ptree)
+Proof
+  Cases_on ‘fs’>>fs[]>>
+  qpat_abbrev_tac ‘X = mrec _ _’>>
+  fs[itree_evaluate_def]>>
+  Cases_on ‘∃t. strip_tau X t’>>fs[]
+  >- (imp_res_tac strip_tau_FUNPOW>>fs[]>>
+      Cases_on ‘t’>>fs[itree_unfold_FUNPOW_Tau]
+      >- (fs[Abbr‘X’]>>
+          imp_res_tac mrec_FUNPOW_Ret_INR>>fs[]>>
+          simp[Once itree_unfold])>>
+      irule trace_eq_lemma)>>
+  imp_res_tac strip_tau_spin>>fs[]>>
+  simp[itree_unfold_spin,trace_prefix_spin,trace_prefix0_spin]
+QED

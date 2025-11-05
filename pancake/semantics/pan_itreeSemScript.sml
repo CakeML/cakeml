@@ -1611,3 +1611,38 @@ Proof
   simp[Once LUNFOLD]>>
   rpt (CASE_TAC>>fs[])
 QED
+
+Definition trace_prefix0_def:
+  trace_prefix0 fs th =
+  LFLATTEN $ LUNFOLD
+  (λ(fst,t). case t of
+               Ret r => NONE
+             | Tau u => SOME ((fst,u),LNIL)
+             | Vis (s,conf,ws) k =>
+                 (case (FST fs) s fst conf ws of
+                  | Oracle_return fs' ws' =>
+                      if LENGTH ws ≠ LENGTH ws'
+                      then SOME ((fst, k (INL FFI_failed)),LNIL)
+                      else
+                        SOME ((fs',k (INR ws')),[|IO_event s conf (ZIP (ws,ws'))|])
+                  | Oracle_final outcome =>
+                      SOME ((fst, k (INL outcome)),LNIL)))
+  (SND fs,th)
+End
+
+Theorem trace_prefix0_simps[simp]:
+  trace_prefix0 fs (Ret r) = [||] ∧
+  trace_prefix0 fs (Tau u) = trace_prefix0 fs u ∧
+  trace_prefix0 fs (Vis (s,c,ws) k) =
+    case (FST fs) s (SND fs) c ws of
+    | Oracle_return fs' ws' =>
+        if LENGTH ws ≠ LENGTH ws'
+        then trace_prefix0 fs (k (INL FFI_failed))
+        else
+          IO_event s c (ZIP (ws,ws')):::trace_prefix0 (FST fs,fs') (k (INR ws'))
+    | Oracle_final outcome => trace_prefix0 fs (k (INL outcome))
+Proof
+  rw[trace_prefix0_def]>>
+  simp[Once LUNFOLD]>>
+  rpt (CASE_TAC>>fs[])
+QED
