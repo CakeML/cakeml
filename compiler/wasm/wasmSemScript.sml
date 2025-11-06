@@ -15,7 +15,7 @@ Datatype: state =
     memory  : word8 list;
     types   : functype list;
     funcs   : func list;
-    func_tables : num list ;
+    func_table : num list;
   |>
 End
 
@@ -224,11 +224,11 @@ Inductive b_op_rel:
   (∀ l r. b_op_rel (Or  W32) (I32 l) (I32 r) (I32 $ l || r) )∧
   (∀ l r. b_op_rel (Xor W32) (I32 l) (I32 r) (I32 $ l ⊕ r) )
   ∧
-  (∀ w n. n <+ 32w ⇒ b_op_rel (Rotl          W32) (I32 w) (I32 n) (I32 $ w ⇆  (w2n n)) )∧
-  (∀ w n. n <+ 32w ⇒ b_op_rel (Rotr          W32) (I32 w) (I32 n) (I32 $ w ⇄  (w2n n)) )∧
-  (∀ w n. n <+ 32w ⇒ b_op_rel (Shl           W32) (I32 w) (I32 n) (I32 $ w <<  (w2n n)) )∧
-  (∀ w n. n <+ 32w ⇒ b_op_rel (Shr_   Signed W32) (I32 w) (I32 n) (I32 $ w >>  (w2n n)) )∧
-  (∀ w n. n <+ 32w ⇒ b_op_rel (Shr_ Unsigned W32) (I32 w) (I32 n) (I32 $ w >>> (w2n n)) )
+  (∀ w n. b_op_rel (Rotl          W32) (I32 w) (I32 n) (I32 $ w ⇆   (w2n (n && 31w))) )∧
+  (∀ w n. b_op_rel (Rotr          W32) (I32 w) (I32 n) (I32 $ w ⇄   (w2n (n && 31w))) )∧
+  (∀ w n. b_op_rel (Shl           W32) (I32 w) (I32 n) (I32 $ w <<  (w2n (n && 31w))) )∧
+  (∀ w n. b_op_rel (Shr_   Signed W32) (I32 w) (I32 n) (I32 $ w >>  (w2n (n && 31w))) )∧
+  (∀ w n. b_op_rel (Shr_ Unsigned W32) (I32 w) (I32 n) (I32 $ w >>> (w2n (n && 31w))) )
   ∧
   (∀ l r. b_op_rel (Add Int W64) (I64 l) (I64 r) (I64 $ l + r) )∧
   (∀ l r. b_op_rel (Mul Int W64) (I64 l) (I64 r) (I64 $ l - r) )∧
@@ -241,11 +241,11 @@ Inductive b_op_rel:
   (∀ l r. b_op_rel (Or  W64) (I64 l) (I64 r) (I64 $ l || r) )∧
   (∀ l r. b_op_rel (Xor W64) (I64 l) (I64 r) (I64 $ l ⊕ r) )
   ∧
-  (∀ w n. n <+ 64w ⇒ b_op_rel (Rotl          W64) (I64 w) (I64 n) (I64 $ w ⇆  (w2n n)) )∧
-  (∀ w n. n <+ 64w ⇒ b_op_rel (Rotr          W64) (I64 w) (I64 n) (I64 $ w ⇄  (w2n n)) )∧
-  (∀ w n. n <+ 64w ⇒ b_op_rel (Shl           W64) (I64 w) (I64 n) (I64 $ w <<  (w2n n)) )∧
-  (∀ w n. n <+ 64w ⇒ b_op_rel (Shr_   Signed W64) (I64 w) (I64 n) (I64 $ w >>  (w2n n)) )∧
-  (∀ w n. n <+ 64w ⇒ b_op_rel (Shr_ Unsigned W64) (I64 w) (I64 n) (I64 $ w >>> (w2n n)) )
+  (∀ w n. b_op_rel (Rotl          W64) (I64 w) (I64 n) (I64 $ w ⇆   (w2n (n && 63w))) )∧
+  (∀ w n. b_op_rel (Rotr          W64) (I64 w) (I64 n) (I64 $ w ⇄   (w2n (n && 63w))) )∧
+  (∀ w n. b_op_rel (Shl           W64) (I64 w) (I64 n) (I64 $ w <<  (w2n (n && 63w))) )∧
+  (∀ w n. b_op_rel (Shr_   Signed W64) (I64 w) (I64 n) (I64 $ w >>  (w2n (n && 63w))) )∧
+  (∀ w n. b_op_rel (Shr_ Unsigned W64) (I64 w) (I64 n) (I64 $ w >>> (w2n (n && 63w))) )
   ∧
   (* integer_words$word_rem *)
   (∀ n d. d ≠ 0w ⇒ b_op_rel (Div_   Signed W32) (I32 n) (I32 d) (I32 $ n // d) )∧
@@ -556,7 +556,7 @@ Definition exec_def:
   (exec (ReturnCallIndirect n ft) s =
     case pop s                                        of NONE=>inv s| SOME (x,s) =>
     case dest_i32 x                                   of NONE=>inv s| SOME w     =>
-    case lookup_func_tables [s.func_tables] (w2n n) w of NONE=>inv s| SOME fi    =>
+    case lookup_func_tables [s.func_table] (w2n n) w of NONE=>inv s| SOME fi    =>
     case oEL fi s.funcs                               of NONE=>inv s| SOME f     =>
       exec (ReturnCall (n2w fi)) s
   ) ∧
@@ -586,7 +586,7 @@ Definition exec_def:
     case dest_i32 x of NONE => inv s | SOME w     =>
     (* TODO we removed one layer of indirection *)
     (* we only use one func table *)
-    case lookup_func_tables [s.func_tables] (w2n n) w of NONE => inv s | SOME fi =>
+    case lookup_func_tables [s.func_table] (w2n n) w of NONE => inv s | SOME fi =>
       exec (Call (n2w fi)) s
   ) ∧
   (****************)
