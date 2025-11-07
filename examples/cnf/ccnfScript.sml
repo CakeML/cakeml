@@ -171,7 +171,7 @@ QED
   we take d to be a mapping num |-> bool option.
 *)
 Definition delete_literals_sing_def:
-  (delete_literals_sing dm [] = SOME NONE) ∧
+  (delete_literals_sing dm [] = SOME (T,dm)) ∧
   (delete_literals_sing dm ((c:int)::cs) =
   if c < 0
   then
@@ -179,7 +179,7 @@ Definition delete_literals_sing_def:
     case FLOOKUP dm nc of
       NONE =>
         if all_assigned dm cs
-        then SOME (SOME (dm |+ (nc,T)))
+        then SOME (F, dm |+ (nc,T))
         else NONE
     | SOME F => delete_literals_sing dm cs
     | _ => NONE)
@@ -188,7 +188,7 @@ Definition delete_literals_sing_def:
     case FLOOKUP dm nc of
       NONE =>
         if all_assigned dm cs
-        then SOME (SOME (dm |+ (nc,F)))
+        then SOME (F, dm |+ (nc,F))
         else NONE
     | SOME T => delete_literals_sing dm cs
     | _ => NONE)
@@ -196,7 +196,7 @@ End
 
 Definition delete_literals_sing_vec_def:
   (delete_literals_sing_vec dm v i =
-  if i = 0 then SOME NONE
+  if i = 0 then SOME (T,dm)
   else
     let i1 = i - 1 in
     let c = sub v i1 in
@@ -206,7 +206,7 @@ Definition delete_literals_sing_vec_def:
       case FLOOKUP dm nc of
         NONE =>
           if all_assigned_vec dm v i1
-          then SOME (SOME (dm |+ (nc,T)))
+          then SOME (F, dm |+ (nc,T))
           else NONE
       | SOME F => delete_literals_sing_vec dm v i1
       | _ => NONE)
@@ -215,7 +215,7 @@ Definition delete_literals_sing_vec_def:
       case FLOOKUP dm nc of
         NONE =>
           if all_assigned_vec dm v i1
-          then SOME (SOME (dm |+ (nc,F)))
+          then SOME (F, dm |+ (nc,F))
           else NONE
       | SOME T => delete_literals_sing_vec dm v i1
       | _ => NONE)
@@ -248,27 +248,27 @@ Proof
 QED
 
 Definition is_rup_def:
-  (is_rup fml dm [] = SOME (SOME dm)) ∧
+  (is_rup fml dm [] = SOME (F,dm)) ∧
   (is_rup fml dm (i::is) =
   case lookup i fml of
     NONE => NONE
   | SOME c =>
   case delete_literals_sing dm (REVERSE c) of
     NONE => NONE
-  | SOME NONE => SOME NONE
-  | SOME (SOME dm') => is_rup fml dm' is)
+  | SOME (T,dm) => SOME (T,dm)
+  | SOME (F,dm') => is_rup fml dm' is)
 End
 
 Definition is_rup_vec_def:
-  (is_rup_vec fml dm [] = SOME (SOME dm)) ∧
+  (is_rup_vec fml dm [] = SOME (F,dm)) ∧
   (is_rup_vec fml dm (i::is) =
   case lookup i fml of
     NONE => NONE
   | SOME c =>
   case delete_literals_sing_vec dm c (length c) of
     NONE => NONE
-  | SOME NONE => SOME NONE
-  | SOME (SOME dm') => is_rup_vec fml dm' is)
+  | SOME (T,dm) => SOME (T,dm)
+  | SOME (F,dm') => is_rup_vec fml dm' is)
 End
 
 Theorem is_rup_vec:
@@ -322,11 +322,11 @@ Proof
   Cases_on`x`>>rw[]
 QED
 
-Theorem delete_literals_sing_SOME_NONE:
+Theorem delete_literals_sing_SOME_T:
   ∀ls.
   lit_map d dm ∧
   satisfies_cclause w ls ∧
-  delete_literals_sing dm ls = SOME NONE ⇒
+  delete_literals_sing dm ls = SOME (T,dm') ⇒
   satisfies_cclause w d
 Proof
   Induct
@@ -399,10 +399,10 @@ Proof
   simp[]
 QED
 
-Theorem delete_literals_sing_SOME_SOME:
+Theorem delete_literals_sing_SOME_F:
   ∀ls.
   lit_map d dm ∧
-  delete_literals_sing dm ls = SOME (SOME dm') ⇒
+  delete_literals_sing dm ls = SOME (F,dm') ⇒
   ∃h.
   set ls DIFF set d ⊆ {h} ∧
   dm' = (dm |+ (Num (ABS h), h < 0))
@@ -448,10 +448,10 @@ Proof
     qexists_tac`h'`>>simp[])
 QED
 
-Theorem is_rup_SOME_NONE:
+Theorem is_rup_SOME_T:
   ∀is d dm.
   lit_map d dm ∧
-  is_rup fml dm is = SOME NONE ∧
+  is_rup fml dm is = SOME (T,dm') ∧
   satisfies_cfml w (range fml) ⇒
   satisfies_cclause w d
 Proof
@@ -461,8 +461,8 @@ Proof
   drule_all satisfies_fml_gen_lookup>>
   strip_tac
   >-
-    metis_tac[delete_literals_sing_SOME_NONE,satisfies_cclause_REVERSE]>>
-  drule_all delete_literals_sing_SOME_SOME>>
+    metis_tac[delete_literals_sing_SOME_T,satisfies_cclause_REVERSE]>>
+  drule_all delete_literals_sing_SOME_F>>
   strip_tac>>
   first_x_assum $ drule_at Any>>
   gvs[]>>
@@ -477,10 +477,10 @@ Proof
   rw[]>>metis_tac[]
 QED
 
-Theorem is_rup_SOME_SOME:
+Theorem is_rup_SOME_F:
   ∀is d dm.
   lit_map d dm ∧
-  is_rup fml dm is = SOME (SOME dm') ∧
+  is_rup fml dm is = SOME (F,dm') ∧
   satisfies_cfml w (range fml) ∧
   ¬ satisfies_cclause w d ⇒
   ∃d'.
@@ -493,7 +493,7 @@ Proof
   fs[satisfies_cfml_def]>>
   drule_all satisfies_fml_gen_lookup>>
   strip_tac>>
-  drule_all delete_literals_sing_SOME_SOME>>
+  drule_all delete_literals_sing_SOME_F>>
   strip_tac>>
   first_x_assum $ drule_at (Pos (el 2))>>
   gvs[]>>
@@ -548,15 +548,15 @@ Proof
   metis_tac[]
 QED
 
-Theorem is_rup_vec_SOME_NONE:
+Theorem is_rup_vec_SOME_T:
   lit_map (toList d) dm ∧
-  is_rup_vec fml dm is = SOME NONE ∧
+  is_rup_vec fml dm is = SOME (T,dm') ∧
   satisfies_vcfml w (range fml) ⇒
   satisfies_vcclause w d
 Proof
   rw[]>>
   gvs[satisfies_vcfml_def,satisfies_vcclause_def]>>
-  drule is_rup_SOME_NONE>>
+  drule is_rup_SOME_T>>
   fs[GSYM range_map]>>
   disch_then $ drule_at Any>>
   simp[is_rup_vec']>>
@@ -564,9 +564,9 @@ Proof
   simp[]
 QED
 
-Theorem is_rup_vec_SOME_SOME:
+Theorem is_rup_vec_SOME_F:
   lit_map (toList d) dm ∧
-  is_rup_vec fml dm is = SOME (SOME dm') ∧
+  is_rup_vec fml dm is = SOME (F,dm') ∧
   satisfies_vcfml w (range fml) ∧
   ¬ satisfies_vcclause w d ⇒
   ∃d'.
@@ -575,7 +575,7 @@ Theorem is_rup_vec_SOME_SOME:
 Proof
   rw[]>>
   gvs[satisfies_vcfml_def,satisfies_vcclause_def]>>
-  drule is_rup_SOME_SOME>>
+  drule is_rup_SOME_F>>
   fs[GSYM range_map]>>
   disch_then $ drule_at Any>>
   disch_then $ drule_at Any>>
