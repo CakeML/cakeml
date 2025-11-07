@@ -1190,13 +1190,11 @@ Proof
   simp[union_dom_def,ALL_DISTINCT_numset_to_intlist]
 QED
 
-(* encodes fnvalue_v ⇒ some X = v and ~fnvalue_v ⇒ no X = v *)
+(* encodes fnvalue_v ⇔ some X = v *)
 Definition encode_some_eq_def:
-  encode_some_eq bnd Xs (v: int) = [
-    bits_imply bnd [Pos (INR (Nv Xs v))]
-      ([], MAP (λA. (1i, Pos (INL (Eq A v)))) Xs, 1i);
-    bits_imply bnd [Neg (INR (Nv Xs v))]
-      ([], MAP (λA. (-1i, Pos (INL (Eq A v)))) Xs, 0i)]
+  encode_some_eq bnd Xs (v: int) =
+    bimply_bits bnd [Pos (INR (Nv Xs v))]
+      ([], MAP (λA. (1i, Pos (INL (Eq A v)))) Xs, 1i)
 End
 
 Theorem encode_some_eq_sem:
@@ -1205,8 +1203,7 @@ Theorem encode_some_eq_sem:
   (EVERY (λx. iconstraint_sem x (wi,wb)) (encode_some_eq bnd Xs v) =
   (wb (INR (Nv Xs v)) ⇔ ∃A. MEM A Xs ∧ wb (INL (Eq A v))))
 Proof
-  rw[encode_some_eq_def,bits_imply_sem,iconstraint_sem_def,eval_ilin_term_def,
-    iSUM_def,MAP_MAP_o,eval_lin_term_ge_1,eval_lin_term_neg_ge_0]>>
+  rw[encode_some_eq_def,iconstraint_sem_def,eval_lin_term_ge_1]>>
   metis_tac[]
 QED
 
@@ -1355,11 +1352,9 @@ QED
 (* encodes ftable_i ⇒ some X = v and ~fnvalue_v ⇒ no X = v,
    provided that LENGTH Xs = LENGTH Ys *)
 Definition encode_tuple_eq_def:
-  encode_tuple_eq bnd Xs Ys = [
-    bits_imply bnd [Pos (INR (Tb Xs Ys))]
-      ([], MAP2 (λX Y. (1i, Pos (INL (Eq X Y)))) Xs Ys, &LENGTH Xs);
-    bits_imply bnd [Neg (INR (Tb Xs Ys))]
-      ([], MAP2 (λX Y. (-1i, Pos (INL (Eq X Y)))) Xs Ys, -&LENGTH Xs + 1)]
+  encode_tuple_eq bnd Xs Ys =
+    bimply_bits bnd [Pos (INR (Tb Xs Ys))]
+      ([], MAP2 (λX Y. (1i, Pos (INL (Eq X Y)))) Xs Ys, &LENGTH Xs)
 End
 
 Definition reify_tuple_eq_def:
@@ -1408,10 +1403,25 @@ Proof
   METIS_TAC[encode_eq_sem]
 QED
 
+Theorem encode_tuple_eq_sem:
+  valid_assignment bnd wi ∧
+  LENGTH Xs = LENGTH Ys ∧
+  LIST_REL (λX Y. wb (INL (Eq X Y)) ⇔ wi X = Y) Xs Ys
+  ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_tuple_eq bnd Xs Ys) ⇔
+  (wb (INR (Tb Xs Ys)) ⇔ LIST_REL (λX Y. wi X = Y) Xs Ys))
+Proof
+  rw[encode_tuple_eq_def,iconstraint_sem_def]>>
+  simp[MAP2_ZIP]>>
+  cheat
+QED
+
 Theorem reify_tuple_eq_sem:
   valid_assignment bnd wi ∧
   LENGTH Xs = LENGTH Ys ⇒ (
-  EVERY (λx. iconstraint_sem x (wi,wb)) (reify_tuple_eq bnd Xs Ys) ⇔
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (reify_tuple_eq bnd Xs Ys) ⇔
     LIST_REL (λX Y.
       (wb (INL (Ge X Y)) ⇔ wi X ≥ Y) ∧
       (wb (INL (Ge X (Y + 1))) ⇔ wi X ≥ Y + 1) ∧
@@ -1419,26 +1429,30 @@ Theorem reify_tuple_eq_sem:
     (wb (INR (Tb Xs Ys)) ⇔
       LIST_REL (λX Y. wi X = Y) Xs Ys))
 Proof
-  cheat
-  (*
-  rw[reify_tuple_eq_def,MAP2_ZIP,encode_tuple_eq_def,EVERY_FLAT,EVERY_MAP,
-    encode_ge_sem,bits_imply_sem,EVERY2_EVERY,iterateTheory.LAMBDA_PAIR,
-    iconstraint_sem_def,eval_ilin_term_def,eval_lin_term_def,iSUM_def,
-    MAP_MAP_o,combinTheory.o_ABS_R,iSUM_MAP_lin_const,IMP_NEGIMP_EQ,
-    intLib.ARITH_PROVE “-1 * (a:int) ≥ -b + 1 ⇔ ¬(a ≥ b)”,
-    Once $ GSYM EVERY_CONJ,Once $ GSYM CONJ_ASSOC]>>
-  match_mp_tac $ METIS_PROVE[]
-    “(P1 ⇔ P2) ∧ (P2 ⇒ (Q1 ⇔ Q2)) ⇒ (P1 ∧ (R ⇔ Q1) ⇔ P2 ∧ (R ⇔ Q2))”>>
+  simp[LIST_REL_CONJ]>>
+  rw[reify_tuple_eq_def,EVERY_FLAT]>>
+  simp[GSYM CONJ_ASSOC]>>
+  simp[Once CONJ_ASSOC, SimpRHS]>>
+  ho_match_mp_tac LEFT_AND_CONG >> simp[]>>
   CONJ_TAC
-  >-(
-    drule_then assume_tac reify_tuple_eq_aux>>
-    fs[LIST_REL_EVERY_ZIP,LAMBDA_PROD]>>
+  >- (
+    simp[Once EVERY_MEM]>>
+    simp[LIST_REL_EVERY_ZIP,EVERY_MEM,SimpRHS]>>
+    simp[MAP2_ZIP,MEM_MAP,PULL_EXISTS,MEM_ZIP]>>
     metis_tac[])>>
-  rw[Once $ GSYM combinTheory.o_ABS_R,iSUM_FILTER,EVERY_MEM]>>
-  drule_then (fn thm => pure_rewrite_tac[
-    GSYM thm,LENGTH_FILTER_GE,LENGTH_FILTER_EQ,
-    integerTheory.INT_GE,integerTheory.INT_OF_NUM_LE]) LENGTH_ZIP>>
-  simp[EVERY_MEM] *)
+  strip_tac>>
+  ho_match_mp_tac LEFT_AND_CONG >> simp[]>>
+  CONJ_TAC
+  >- (
+    simp[Once EVERY_MEM]>>
+    simp[LIST_REL_EVERY_ZIP,EVERY_MEM,SimpRHS]>>
+    simp[MAP2_ZIP,MEM_MAP,PULL_EXISTS,MEM_ZIP]>>
+    ho_match_mp_tac FORALL_IMP_EQ>>
+    rw[]>>
+    DEP_REWRITE_TAC[encode_eq_sem]>>simp[]>>
+    gvs[LIST_REL_EL_EQN])>>
+  strip_tac>>
+  metis_tac[encode_tuple_eq_sem]
 QED
 
 Definition encode_table_def:
