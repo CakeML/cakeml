@@ -456,7 +456,8 @@ Proof
         lookup_eq_set_eqD,remove_eq_model,CPstate_modelsD]
     )>>
     wlog_tac‘t=x∧t≠y’[‘x’,‘y’]>-metis_tac[]>>
-    rw[lookup_eq_set_eq_t]>-(
+    rw[lookup_eq_set_eq_t]
+    >-(
       Cases_on‘lookup_eq (remove_eq cs t) s = lookup_eq (remove_eq cs t) y’
       >-(
         rw[lookup_insert]>>
@@ -464,7 +465,7 @@ Proof
       )
       >-(
         rw[lookup_insert]>>
-        gvs[lookup_eq_set_eq_t]>>
+        gvs[lookup_eq_set_eq_t] >>
         metis_tac[lookup_eq_set_eq_is_alloc_var2,lookup_eq_remove_eq_t]
       )
     )
@@ -751,7 +752,7 @@ Proof
         simp[lookup_alist_insert_same]
         >-fs[get_var_def]
       )>>
-    metis_tac[set_eq_remove_eq_model,copy_prop_move_inv,PAIR]
+    metis_tac[set_eq_remove_eq_models,copy_prop_move_inv,PAIR]
   )
 QED
 
@@ -907,14 +908,38 @@ Proof
   )
 QED
 
-(*
+(* Missing premise for w? *)
 Theorem set_store_model:
+  (*CPstate_inv cs ⇒ *)  
   CPstate_models cs st ⇒
   CPstate_models cs (set_store s w st)
 Proof
-  rw[set_store_def,CPstate_models_def]
+  rw[set_store_def, CPstate_models_def, FLOOKUP_DEF] >>
+  reverse(rw[])
+  >- (metis_tac[])
+  >- (
+      res_tac >>
+      qpat_x_assum `_ = lookup _ st.locals` (fn x => rw[GSYM x]) >>
+      (* why is s = s'? *)
+      cheat
+    )
+  >- (
+      res_tac >>
+      cheat
+      (*
+      fs[FLOOKUP_FUPDATE_LIST_ALOOKUP_SOME]
+      lookup_eqI
+      set_eq_inv
+      lookup_store_eq_SOME
+        m``CPstate_models _ _``
+        m``lookup v cs.to_eq = _ ``
+        m`` (ALOOKUP _ _ = SOME _) ⇒ _``
+        m``(FLOOKUP _ _ = _ ⇒ _)``
+      *)
+    )
 QED
 
+(*
 Theorem remove_eq_model_unset_var:
   CPstate_inv cs ⇒
   CPstate_models cs st ⇒
@@ -1057,7 +1082,20 @@ Proof
       >> gvs[AllCaseEqs(),evaluate_def]
       >> simp[set_store_eq_inv]
       >> fs[word_exp_def, CPstate_modelsD_get_var]
-      >> cheat
+      >- (simp[set_store_model])
+      >- (
+          `CPstate_inv (set_store_eq cs s (lookup_eq cs n))` by simp[set_store_eq_inv]
+          rw[set_store_eq_def]
+          
+m``(set_store_eq _ _ _) = _``
+m``_ ==> CPstate_models (set_store_eq _ _ _) _``
+CPstate_models_same
+m`` lookup _ cs.to_eq = _ ``
+
+        )
+      >- (simp[set_store_model])
+      >- (simp[set_store_model])
+      >- (simp[set_store_model])
     )
     (*
     (* old *)
