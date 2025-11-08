@@ -7,7 +7,6 @@ Libs
 Ancestors
   mllist UnsafeProof xlrup xlrup_list xlrup_parsing mlint
 
-
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
@@ -177,10 +176,8 @@ Proof
     metis_tac[])>>
   rpt xlet_autop>>
   xraise>>xsimpl>>
-  IF_CASES_TAC>-
-    metis_tac[NOT_EVERY]>>
-  simp[unwrap_TYPE_def,Fail_exn_def]>>
-  metis_tac[]
+  gvs[unwrap_TYPE_def,Fail_exn_def]>>
+  metis_tac[NOT_EVERY]
 QED
 
 val is_rup_arr_aux = process_topdecs`
@@ -3233,7 +3230,8 @@ Proof
         xcon >>
         xsimpl>>
         rename [`forwardFD _ _ k`] \\ qexists_tac `k` >>
-        rename [`INSTREAM_LINES _ _ _ rr`] \\ qexists_tac `rr` \\ xsimpl) >>
+        rename [`INSTREAM_LINES _ _ _ rr`] \\ qexists_tac `rr`
+        \\ xsimpl \\ gvs []) >>
       xsimpl>>simp[unwrap_TYPE_def]>>
       PairCases_on`x`>>fs[]>>rw[]>>xsimpl >>
       rename [`forwardFD _ _ kk`] \\
@@ -3241,7 +3239,7 @@ Proof
       rename [`INSTREAM_LINES _ _ _ rr`] \\ qexists_tac `rr` \\ xsimpl)>>
   qspecl_then [`all_lines fs f`,`xorig`,`borig`,`cfmlls`,`xfmlls`,`bfmlls`,`tn`,`def`,`Clist`]
     strip_assume_tac parse_and_run_file_list_eq>>
-  fs[]>>rw[]>>
+  gs[]>>rw[]>>
   pop_assum kall_tac >>
   xlet `POSTv v. STDIO fs *
     ARRAY cfmlv' cfmllsv' * ARRAY xfmlv' xfmllsv'`
@@ -3266,7 +3264,8 @@ Proof
     imp_res_tac fsFFIPropsTheory.nextFD_leX \\ fs [] >>
     drule fsFFIPropsTheory.openFileFS_ADELKEY_nextFD >>
     fs [Abbr`fss`] \\ xsimpl) >>
-  Cases_on`parse_xlrups (all_lines fs f)`>> fs[OPTION_TYPE_def]
+  Cases_on`parse_xlrups (all_lines fs f)`>>
+  fs[OPTION_TYPE_def]
   >- (
     xmatch>>
     xcon >> xsimpl >>

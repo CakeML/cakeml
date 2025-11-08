@@ -29,6 +29,9 @@ characteristic
 translator/monadic
 translator/monadic/monad_base
 
+# profiler
+profiler
+
 # basis library
 basis
 
