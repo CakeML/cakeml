@@ -171,12 +171,9 @@ val xlocal =
     (HO_MATCH_ACCEPT_TAC cf_cases_local \\ NO_TAC),
     (asm_rewrite_tac (cf_defs) \\
      CONV_TAC (ONCE_DEPTH_CONV BETA_CONV) \\
-     rewrite_tac [local_is_local] \\
-     NO_TAC),
-    (* The previous tactic hopefully takes care of the goal;
-     * however, for backwards compatibility we might as well
-     * keep this around. *)
-    (fs (local_is_local :: cf_defs) \\ NO_TAC)
+     rewrite_tac [local_is_local])
+    (* Note the lack of NO_TAC in the final attempt -
+       unsolved goals will be returned *)
   ] (* todo: is_local_pred *)
 
 fun xpull_check_not_needed (g as (_, w)) =
@@ -190,7 +187,7 @@ fun xpull_core (g as (_, w)) =
     hclean g
 
 val xpull =
-  xpull_core \\ rpt strip_tac THEN1 (TRY xlocal)
+  xpull_core \\ rpt strip_tac THEN_LT (NTH_GOAL xlocal 1)
 
 (* [xsimpl] *)
 
@@ -209,17 +206,16 @@ val xsimpl =
 
 (* [xlet] *)
 
-fun xlet_core cont0 qname =
+fun xlet_core Q qname =
   xpull_check_not_needed \\
   head_unfold cf_let_def \\
   irule local_elim \\ hnf \\
   rewrite_tac [namespaceTheory.nsOptBind_def] \\
-  cont0 \\
+  qexists_tac Q \\
   rpt CONJ_TAC THENL [
     all_tac,
     TRY (MATCH_ACCEPT_TAC cfHeapsBaseTheory.SEP_IMPPOSTv_inv_POSTv_left),
-    (qx_gen_tac qname \\ simp_tac (srw_ss()) [])
-    \\ TRY xpull
+    qx_gen_tac qname \\ simp_tac (srw_ss()) [] \\ TRY xpull
   ]
 
 val res_CASE_tm =
@@ -267,12 +263,8 @@ fun xlet Q (g as (asl, w)) = let
   val ctx = free_varsl (w :: asl)
   val name = vname_of_post "v" (Term Q)
   val name' = prim_variant ctx (mk_var (name, v_ty)) |> dest_var |> fst
-  val qname = [QUOTE name']
 in
-  xlet_core
-    (qexists_tac Q)
-    qname
-    g
+  xlet_core Q [QUOTE name'] g
 end
 
 (* [xfun] *)
