@@ -177,21 +177,19 @@ Definition delete_literals_sing_def:
   then
     (let nc = Num (-c) in
     case FLOOKUP dm nc of
-      NONE =>
+      SOME F => delete_literals_sing dm cs
+    | _ =>
         if all_assigned dm cs
         then SOME (F, dm |+ (nc,T))
-        else NONE
-    | SOME F => delete_literals_sing dm cs
-    | _ => NONE)
+        else NONE)
   else
     let nc = Num c in
     case FLOOKUP dm nc of
-      NONE =>
+      SOME T => delete_literals_sing dm cs
+    | _ =>
         if all_assigned dm cs
         then SOME (F, dm |+ (nc,F))
-        else NONE
-    | SOME T => delete_literals_sing dm cs
-    | _ => NONE)
+        else NONE)
 End
 
 Definition delete_literals_sing_vec_def:
@@ -204,21 +202,19 @@ Definition delete_literals_sing_vec_def:
     then
       (let nc = Num (-c) in
       case FLOOKUP dm nc of
-        NONE =>
+        SOME F => delete_literals_sing_vec dm v i1
+      | _  =>
           if all_assigned_vec dm v i1
           then SOME (F, dm |+ (nc,T))
-          else NONE
-      | SOME F => delete_literals_sing_vec dm v i1
-      | _ => NONE)
+          else NONE)
     else
       let nc = Num c in
       case FLOOKUP dm nc of
-        NONE =>
+        SOME T => delete_literals_sing_vec dm v i1
+      | _ =>
           if all_assigned_vec dm v i1
           then SOME (F, dm |+ (nc,F))
-          else NONE
-      | SOME T => delete_literals_sing_vec dm v i1
-      | _ => NONE)
+          else NONE)
 End
 
 Theorem delete_literals_sing_vec':
@@ -412,7 +408,8 @@ Proof
     rw[delete_literals_sing_def,satisfies_cclause_def]>>
   rpt strip_tac>>
   gvs[delete_literals_sing_def,AllCaseEqs()]
-  >- (
+  >>~-(
+    [`all_assigned`],
     irule_at Any FUPDATE_EQ>>simp[]>>
     qexists_tac`h`>>simp[]>>
     drule_all lit_map_all_assigned>>
@@ -429,15 +426,6 @@ Proof
       simp[])>>
     irule_at Any FUPDATE_EQ>>simp[]>>
     qexists_tac`h'`>>simp[])
-  >- (
-    irule_at Any FUPDATE_EQ>>simp[]>>
-    qexists_tac`h`>>simp[]>>
-    drule_all lit_map_all_assigned>>
-    rw[EXTENSION,SUBSET_DEF]
-    >- intLib.ARITH_TAC
-    >- metis_tac[]
-    >- intLib.ARITH_TAC
-    >- metis_tac[])
   >- (
     `MEM h d` by (
       fs[lit_map_def]>>first_x_assum drule>>

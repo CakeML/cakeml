@@ -90,30 +90,24 @@ Definition delete_literals_sing_list_def:
     if c < 0
     then
       let nc = Num (-c) in
-      let bb = any_el nc dml (b-1w) in
-      (if bb <+ b
+      if any_el nc dml (b-1w) = b
       then
+        delete_literals_sing_list dml b v i1
+      else
         (if all_assigned_list dml b v i1
           then SOME (F,
             update_resize dml (b-1w) (b+1w) nc)
           else NONE)
-      else if bb = b
-      then
-        delete_literals_sing_list dml b v i1
-      else NONE)
     else
       let nc = Num c in
-      let bb = any_el nc dml (b-1w) in
-      (if bb <+ b
+      if b <+ any_el nc dml (b-1w)
       then
+        delete_literals_sing_list dml b v i1
+      else
         (if all_assigned_list dml b v i1
           then SOME (F,
             update_resize dml (b-1w) b nc)
           else NONE)
-      else if b <+ bb
-      then
-        delete_literals_sing_list dml b v i1
-      else NONE)
 End
 
 Theorem dm_rel_update_resize:
@@ -128,7 +122,6 @@ Proof
   FULL_BBLAST_TAC
 QED
 
-(* TODO: can give more information in NONE case, *)
 Theorem delete_literals_sing_list:
   ∀dml b v i dm res dml'.
   dm_rel dm dml b ∧
@@ -149,21 +142,27 @@ Proof
     DEP_REWRITE_TAC[all_assigned_list]>>simp[]>>
     qpat_assum`dm_rel _ _ _` mp_tac>>
     PURE_REWRITE_TAC[Once dm_rel_def]>>
-    ntac 2 strip_tac>>
-    TOP_CASE_TAC>>gvs[]
-    >-
-      (irule dm_rel_update_resize>>simp[])>>
-    Cases_on`x`>>gvs[]>>
-    FULL_BBLAST_TAC)>>
+    strip_tac>>
+    IF_CASES_TAC
+    >- (
+      gvs[]>>every_case_tac>>gvs[]>>
+      FULL_BBLAST_TAC)>>
+    IF_CASES_TAC>>rw[]>>
+    gvs[]>>every_case_tac>>gvs[]>>
+    irule dm_rel_update_resize>>simp[])>>
   DEP_REWRITE_TAC[all_assigned_list]>>simp[]>>
   qpat_assum`dm_rel _ _ _` mp_tac>>
   PURE_REWRITE_TAC[Once dm_rel_def]>>
-  ntac 2 strip_tac>>
-  TOP_CASE_TAC>>gvs[]
-  >-
-    (irule dm_rel_update_resize>>simp[])>>
-  Cases_on`x`>>gvs[AllCaseEqs()]>>
-  FULL_BBLAST_TAC
+  strip_tac>>
+  IF_CASES_TAC
+  >- (
+    gvs[]>>every_case_tac>>gvs[]>>
+    FULL_BBLAST_TAC)>>
+  IF_CASES_TAC>>rw[]>>
+  gvs[]>>every_case_tac>>gvs[]
+  >- (irule dm_rel_update_resize>>simp[])
+  >- FULL_BBLAST_TAC
+  >- (irule dm_rel_update_resize>>simp[])
 QED
 
 (* Ensures that the dml is of sufficient size
