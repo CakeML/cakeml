@@ -606,10 +606,16 @@ in
 end
 
 val unfold_cases =
-  simp [cf_cases_def] \\
+  (* using the "once" variant does not work *)
+  pure_rewrite_tac [cf_cases_def] \\
   CONSEQ_CONV_TAC (CONSEQ_HO_REWRITE_CONV ([local_elim], [], [])) \\
   CONV_TAC (LAND_CONV clean_cases_conv) \\
-  simp []
+  (* srw_ss() can potentially be weakened much more; bool_ss fails because
+     it does not simplify something like
+       Conv (SOME (TypeStamp "Some" 2)) [Conv NONE [v1_1; v1_2]] =
+          Conv (SOME (TypeStamp "None" 2)) []
+     to F *)
+  asm_simp_tac (srw_ss()) []
 
 fun validate_pat_conv tm = let
   val conv =
