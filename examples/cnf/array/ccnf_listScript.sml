@@ -26,7 +26,7 @@ Proof
 QED
 
 (* We use a scheme where
-  < b is NONE,
+  <+ b is NONE,
   b is SOME F,
   b+1 is SOME T *)
 
@@ -44,7 +44,7 @@ Definition all_assigned_list_def:
       else
         F
     else
-      if any_el (Num c) dml (b-1w) > b
+      if b <+ any_el (Num c) dml (b-1w)
       then
         all_assigned_list dml b v i1
       else F
@@ -52,9 +52,9 @@ End
 
 Definition dm_rel_def:
   dm_rel dm dml (b:word8) ⇔
-  b < 255w ∧
+  0w <+ b ∧ b <+ 255w ∧
   ∀n.
-    (FLOOKUP dm n = NONE ⇔ (any_el n dml (b-1w) < b)) ∧
+    (FLOOKUP dm n = NONE ⇔ (any_el n dml (b-1w) <+ b)) ∧
     (FLOOKUP dm n = SOME F ⇔ any_el n dml (b-1w) = b) ∧
     (FLOOKUP dm n = SOME T ⇔ any_el n dml (b-1w) = b+1w)
 End
@@ -76,15 +76,13 @@ Proof
     Cases_on`x`>>gvs[])>>
   TOP_CASE_TAC>>gvs[]
   >- FULL_BBLAST_TAC>>
-  Cases_on`x`>>gvs[]
-  >- (
-    `b+1w > b` by FULL_BBLAST_TAC>>
-    simp[])>>
-  FULL_BBLAST_TAC
+  Cases_on`x`>>gvs[]>>
+  `b <+ b+1w` by FULL_BBLAST_TAC>>
+  simp[]
 QED
 
 Definition delete_literals_sing_list_def:
-  (delete_literals_sing_list dml b v i =
+  delete_literals_sing_list dml b v i =
   if i = 0 then SOME (T,dml)
   else
     let i1 = i - 1 in
@@ -93,7 +91,7 @@ Definition delete_literals_sing_list_def:
     then
       let nc = Num (-c) in
       let bb = any_el nc dml (b-1w) in
-      (if bb < b
+      (if bb <+ b
       then
         (if all_assigned_list dml b v i1
           then SOME (F,
@@ -106,16 +104,16 @@ Definition delete_literals_sing_list_def:
     else
       let nc = Num c in
       let bb = any_el nc dml (b-1w) in
-      (if bb < b
+      (if bb <+ b
       then
         (if all_assigned_list dml b v i1
           then SOME (F,
             update_resize dml (b-1w) b nc)
           else NONE)
-      else if bb > b
+      else if b <+ bb
       then
         delete_literals_sing_list dml b v i1
-      else NONE))
+      else NONE)
 End
 
 Theorem dm_rel_update_resize:
@@ -168,4 +166,48 @@ Proof
   FULL_BBLAST_TAC
 QED
 
+(* Ensures that the dml is of sufficient size
+  and properly reset *)
+Definition reset_dm_list_def:
+  reset_dm_list dml b sz =
+  if LENGTH dml < sz then
+    (REPLICATE (2 * sz) 0w, 1w)
+  else
+    if b <+ 253w
+    then (dml,b+2w)
+    else (REPLICATE (LENGTH dml) 0w, 1w)
+End
+
+Theorem dm_rel_FEMPTY_REPLICATE:
+  dm_rel FEMPTY (REPLICATE n 0w) 1w
+Proof
+  pure_rewrite_tac[dm_rel_def]>>
+  rw[any_el_ALT,EL_REPLICATE]
+QED
+
+Theorem dm_rel_imp_any_el:
+  dm_rel dm dml b ∧ b <+ 253w ⇒
+  any_el n dml (b-1w) <+ b+2w
+Proof
+  rw[dm_rel_def]>>
+  first_x_assum(qspec_then`n` assume_tac)>>
+  Cases_on`FLOOKUP dm n`>>gvs[]>>
+  FULL_BBLAST_TAC
+QED
+
+Theorem dm_rel_reset_dm_list:
+  dm_rel dm dml b ∧
+  reset_dm_list dml b sz = (dml',b') ⇒
+  dm_rel FEMPTY dml' b' ∧ sz ≤ LENGTH dml'
+Proof
+  rw[reset_dm_list_def]>>
+  fs[LENGTH_REPLICATE,dm_rel_FEMPTY_REPLICATE]>>
+  drule dm_rel_imp_any_el>>
+  fs[dm_rel_def]>>rw[]
+  >- FULL_BBLAST_TAC
+  >- FULL_BBLAST_TAC>>
+  pop_assum (qspec_then`n` assume_tac)>>
+  fs[any_el_ALT]>>rw[]>>gvs[]>>
+  FULL_BBLAST_TAC
+QED
 
