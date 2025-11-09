@@ -13,27 +13,24 @@ open xcf;
 
 val ERR = mk_HOL_ERR "cfTacticsLib";
 
-fun constant_printer s _ _ _ (ppfns:term_pp_types.ppstream_funs) _ _ _ =
-  let
+local
+  fun constant_printer s _ _ _ (ppfns:term_pp_types.ppstream_funs) _ _ _ = let
     open Portable term_pp_types smpp
     val str = #add_string ppfns
   in str s end
-
-val ellipsis_pp = constant_printer "(…)"
-
-val printers = [
-  ("extend_env_ellipsis", ``extend_env _ _ _``, ellipsis_pp),
-  ("extend_env_rec_ellipsis", ``extend_env_rec _ _ _ _ _``, ellipsis_pp),
-  ("extend_env_with_ellipsis", ``extend_env _ _ _ with v := _``, ellipsis_pp),
-  ("extend_env_rec_with_ellipsis", ``extend_env_rec _ _ _ _ _ with v := _``,
-   ellipsis_pp)
-]
-
+  val ellipsis_pp = constant_printer "(…)"
+  val printers = [
+    ("extend_env_ellipsis", ``extend_env _ _ _``, ellipsis_pp),
+    ("extend_env_rec_ellipsis", ``extend_env_rec _ _ _ _ _``, ellipsis_pp),
+    ("extend_env_with_ellipsis", ``extend_env _ _ _ with v := _``, ellipsis_pp),
+    ("extend_env_rec_with_ellipsis",
+     ``extend_env_rec _ _ _ _ _ with v := _``, ellipsis_pp)
+  ]
+in
 fun hide_environments b =
   if b then app temp_add_user_printer printers
   else app (ignore o temp_remove_user_printer) (map #1 printers)
-
-val _ = hide_environments true
+end
 
 (*------------------------------------------------------------------*)
 
