@@ -608,7 +608,7 @@ end
 val unfold_cases =
   (* using the "once" variant does not work *)
   pure_rewrite_tac [cf_cases_def] \\
-  CONSEQ_CONV_TAC (CONSEQ_HO_REWRITE_CONV ([local_elim], [], [])) \\
+  CONSEQ_HO_REWRITE_TAC ([local_elim], [], []) \\
   CONV_TAC (LAND_CONV clean_cases_conv) \\
   (* srw_ss() can potentially be weakened much more; bool_ss fails because
      it does not simplify something like
