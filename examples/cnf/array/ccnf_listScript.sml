@@ -3,7 +3,7 @@
 *)
 Theory ccnf_list
 Ancestors
-  ccnf
+  cnf ccnf
 Libs
   preamble basis blastLib
 
@@ -208,5 +208,79 @@ Proof
   pop_assum (qspec_then`n` assume_tac)>>
   fs[any_el_ALT]>>rw[]>>gvs[]>>
   FULL_BBLAST_TAC
+QED
+
+(* The standard fml rel *)
+Definition fml_rel_def:
+  fml_rel fml fmlls ⇔
+  ∀n.
+    any_el n fmlls NONE = lookup n fml
+End
+
+Definition delete_ids_list_def:
+  (delete_ids_list [] fml = fml) ∧
+  (delete_ids_list (i::is) fml =
+    if LENGTH fml ≤ i
+    then delete_ids_list is fml
+    else delete_ids_list is (LUPDATE NONE i fml))
+End
+
+Theorem delete_ids_list_FOLDL:
+  ∀l fmlls.
+  delete_ids_list l fmlls =
+  FOLDL (\fml i.
+    if LENGTH fml ≤ i then fml else LUPDATE NONE i fml) fmlls l
+Proof
+  Induct>>rw[delete_ids_list_def]
+QED
+
+Theorem LENGTH_delete_ids_list[simp]:
+  ∀l.
+  LENGTH (delete_ids_list l fmlls) = LENGTH fmlls
+Proof
+  simp[delete_ids_list_FOLDL,FOLDL_FOLDR_REVERSE]>>
+  strip_tac>>
+  qabbrev_tac`ll= REVERSE l`>>
+  pop_assum kall_tac>>
+  Induct_on`ll`>>rw[]
+QED
+
+Theorem fml_rel_delete_ids_list:
+  ∀l fml fmlls fmlls'.
+  fml_rel fml fmlls ∧
+  delete_ids_list l fmlls = fmlls' ⇒
+  fml_rel (delete_ids fml l) fmlls'
+Proof
+  simp[delete_ids_def,delete_ids_list_FOLDL,FOLDL_FOLDR_REVERSE]>>
+  strip_tac>>
+  qabbrev_tac`ll= REVERSE l`>>
+  pop_assum kall_tac>>
+  Induct_on`ll`>>rw[]>>
+  first_x_assum drule>>
+  rw[fml_rel_def]
+  >- (
+    rw[lookup_delete]>>
+    first_x_assum(qspec_then`h` (assume_tac o SYM))>>
+    fs[any_el_ALT])>>
+  rw[any_el_ALT,EL_LUPDATE,lookup_delete]>>
+  first_x_assum(qspec_then`n` assume_tac)>>
+  gvs[any_el_ALT]
+QED
+
+Theorem fml_rel_update_resize:
+  fml_rel fml fmlls ⇒
+  fml_rel (insert n v fml) (update_resize fmlls NONE (SOME v) n)
+Proof
+  rw[update_resize_def,fml_rel_def,any_el_ALT,EL_LUPDATE]>>
+  rw[lookup_insert]>>
+  gvs[AllCaseEqs()]
+  >- metis_tac[]
+  >- metis_tac[]
+  >- (
+    fs[EL_APPEND_EQN]>>
+    rw[]>>fs[EL_REPLICATE,LENGTH_REPLICATE]>>
+    metis_tac[]) >>
+  rename1`lookup nn fml`>>
+  first_x_assum(qspec_then`nn` assume_tac)>>rfs[]
 QED
 

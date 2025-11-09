@@ -43,9 +43,15 @@ Definition satisfies_cfml_def:
 End
 
 Definition satisfies_vcfml_def:
-  satisfies_vcfml w =
-  satisfies_cfml w o IMAGE toList
+  satisfies_vcfml = satisfies_fml_gen satisfies_vcclause
 End
+
+Theorem satisfies_vcfml_eq:
+  satisfies_vcfml w = satisfies_cfml w o IMAGE toList
+Proof
+  rw[FUN_EQ_THM,satisfies_vcfml_def,satisfies_cfml_def,satisfies_fml_gen_def,satisfies_vcclause_def]>>
+  simp[PULL_EXISTS]
+QED
 
 Theorem satsifies_cclause_SUBSET:
   satisfies_cclause w c ∧ set c ⊆ set d ⇒
@@ -243,36 +249,36 @@ Proof
   metis_tac[delete_literals_sing_vec']
 QED
 
-Definition is_rup_def:
-  (is_rup fml dm [] = SOME (F,dm)) ∧
-  (is_rup fml dm (i::is) =
+Definition unit_prop_def:
+  (unit_prop fml dm [] = SOME (F,dm)) ∧
+  (unit_prop fml dm (i::is) =
   case lookup i fml of
     NONE => NONE
   | SOME c =>
   case delete_literals_sing dm (REVERSE c) of
     NONE => NONE
   | SOME (T,dm) => SOME (T,dm)
-  | SOME (F,dm') => is_rup fml dm' is)
+  | SOME (F,dm') => unit_prop fml dm' is)
 End
 
-Definition is_rup_vec_def:
-  (is_rup_vec fml dm [] = SOME (F,dm)) ∧
-  (is_rup_vec fml dm (i::is) =
+Definition unit_prop_vec_def:
+  (unit_prop_vec fml dm [] = SOME (F,dm)) ∧
+  (unit_prop_vec fml dm (i::is) =
   case lookup i fml of
     NONE => NONE
   | SOME c =>
   case delete_literals_sing_vec dm c (length c) of
     NONE => NONE
   | SOME (T,dm) => SOME (T,dm)
-  | SOME (F,dm') => is_rup_vec fml dm' is)
+  | SOME (F,dm') => unit_prop_vec fml dm' is)
 End
 
-Theorem is_rup_vec:
+Theorem unit_prop_vec:
   ∀is dm.
-  is_rup_vec (map Vector fml) dm is =
-  is_rup fml dm is
+  unit_prop_vec (map Vector fml) dm is =
+  unit_prop fml dm is
 Proof
-  Induct>>rw[is_rup_vec_def,is_rup_def]>>
+  Induct>>rw[unit_prop_vec_def,unit_prop_def]>>
   simp[lookup_map]>>
   rename1`lookup h fml`>>
   Cases_on`lookup h fml`>>
@@ -281,18 +287,11 @@ Proof
   simp[length_def]
 QED
 
-Theorem map_I:
-  ∀t.
-  sptree$map I t = t
+Theorem unit_prop_vec':
+  unit_prop (map toList fml) dm is =
+  unit_prop_vec fml dm is
 Proof
-  Induct>>rw[map_def]
-QED
-
-Theorem is_rup_vec':
-  is_rup (map toList fml) dm is =
-  is_rup_vec fml dm is
-Proof
-  rw[GSYM is_rup_vec]>>
+  rw[GSYM unit_prop_vec]>>
   AP_THM_TAC>>
   AP_THM_TAC>>
   AP_TERM_TAC>>
@@ -311,12 +310,6 @@ Definition lit_map_def:
     if b then MEM (&n) d
     else MEM (-&n) d
 End
-
-Theorem NOT_NONE_SOME_EXISTS:
-  x ≠ NONE ⇔ ?y. x = SOME y
-Proof
-  Cases_on`x`>>rw[]
-QED
 
 Theorem delete_literals_sing_SOME_T:
   ∀ls.
@@ -436,14 +429,14 @@ Proof
     qexists_tac`h'`>>simp[])
 QED
 
-Theorem is_rup_SOME_T:
+Theorem unit_prop_SOME_T:
   ∀is d dm.
   lit_map d dm ∧
-  is_rup fml dm is = SOME (T,dm') ∧
+  unit_prop fml dm is = SOME (T,dm') ∧
   satisfies_cfml w (range fml) ⇒
   satisfies_cclause w d
 Proof
-  Induct>>rw[is_rup_def]>>
+  Induct>>rw[unit_prop_def]>>
   gvs[AllCaseEqs()]>>
   fs[satisfies_cfml_def]>>
   drule_all satisfies_fml_gen_lookup>>
@@ -465,17 +458,17 @@ Proof
   rw[]>>metis_tac[]
 QED
 
-Theorem is_rup_SOME_F:
+Theorem unit_prop_SOME_F:
   ∀is d dm.
   lit_map d dm ∧
-  is_rup fml dm is = SOME (F,dm') ∧
+  unit_prop fml dm is = SOME (F,dm') ∧
   satisfies_cfml w (range fml) ∧
   ¬ satisfies_cclause w d ⇒
   ∃d'.
   lit_map d' dm' ∧
   ¬ satisfies_cclause w d'
 Proof
-  Induct>>rw[is_rup_def]
+  Induct>>rw[unit_prop_def]
   >- metis_tac[]>>
   gvs[AllCaseEqs()]>>
   fs[satisfies_cfml_def]>>
@@ -513,6 +506,21 @@ Definition init_lit_map_vec_def:
     init_lit_map_vec i1 v (dm |+ (Num (ABS d), d > 0)))
 End
 
+Theorem init_lit_map_vec:
+  ∀i v dm ds.
+  v = Vector ds ∧ i ≤ LENGTH ds ⇒
+  init_lit_map_vec i v dm =
+  init_lit_map (REVERSE (TAKE i ds)) dm
+Proof
+  ho_match_mp_tac init_lit_map_vec_ind>>rw[]>>
+  simp[Once init_lit_map_vec_def]>>
+  Cases_on`i`
+  >- simp[init_lit_map_def]>>
+  gvs[ADD1]>>
+  DEP_REWRITE_TAC[TAKE_EL_SNOC]>>
+  fs[REVERSE_SNOC,init_lit_map_def,sub_def]
+QED
+
 Theorem init_lit_map_lit_map:
   ∀cs d dm dm'.
   lit_map d dm ∧
@@ -528,33 +536,25 @@ Proof
   simp[]
 QED
 
-Theorem range_map:
-  misc$range (map f fml) =
-  IMAGE f (range fml)
-Proof
-  rw[miscTheory.range_def,EXTENSION,lookup_map]>>
-  metis_tac[]
-QED
-
-Theorem is_rup_vec_SOME_T:
+Theorem unit_prop_vec_SOME_T:
   lit_map (toList d) dm ∧
-  is_rup_vec fml dm is = SOME (T,dm') ∧
+  unit_prop_vec fml dm is = SOME (T,dm') ∧
   satisfies_vcfml w (range fml) ⇒
   satisfies_vcclause w d
 Proof
   rw[]>>
-  gvs[satisfies_vcfml_def,satisfies_vcclause_def]>>
-  drule is_rup_SOME_T>>
-  fs[GSYM range_map]>>
+  gvs[satisfies_vcfml_eq]>>
+  drule unit_prop_SOME_T>>
+  gvs[GSYM range_map]>>
   disch_then $ drule_at Any>>
-  simp[is_rup_vec']>>
+  simp[unit_prop_vec']>>
   disch_then $ drule_at Any>>
-  simp[]
+  simp[satisfies_vcclause_def]
 QED
 
-Theorem is_rup_vec_SOME_F:
+Theorem unit_prop_vec_SOME_F:
   lit_map (toList d) dm ∧
-  is_rup_vec fml dm is = SOME (F,dm') ∧
+  unit_prop_vec fml dm is = SOME (F,dm') ∧
   satisfies_vcfml w (range fml) ∧
   ¬ satisfies_vcclause w d ⇒
   ∃d'.
@@ -562,14 +562,69 @@ Theorem is_rup_vec_SOME_F:
   ¬ satisfies_vcclause w d'
 Proof
   rw[]>>
-  gvs[satisfies_vcfml_def,satisfies_vcclause_def]>>
-  drule is_rup_SOME_F>>
+  gvs[satisfies_vcfml_eq,satisfies_vcclause_def]>>
+  drule unit_prop_SOME_F>>
   fs[GSYM range_map]>>
   disch_then $ drule_at Any>>
   disch_then $ drule_at Any>>
-  simp[is_rup_vec']>>
+  simp[unit_prop_vec']>>
   disch_then $ drule_at Any>>
   rw[]>>
   metis_tac[toList_thm]
 QED
 
+(* RUP directly defined for vectors *)
+Definition is_rup_def:
+  is_rup fml v is =
+  let dm = init_lit_map_vec (length v) v FEMPTY in
+  case unit_prop_vec fml dm is of
+    SOME (T,_) => T
+  | _ => F
+End
+
+Theorem lit_map_REVERSE[simp]:
+  lit_map (REVERSE ds) dm ⇔
+  lit_map ds dm
+Proof
+  rw[lit_map_def]
+QED
+
+Theorem is_rup_sound:
+  is_rup fml v is ∧
+  satisfies_vcfml w (range fml) ⇒
+  satisfies_vcclause w v
+Proof
+  rw[is_rup_def]>>
+  gvs[AllCasePreds()]>>
+  irule unit_prop_vec_SOME_T>>
+  first_x_assum $ irule_at Any>>
+  first_x_assum $ irule_at Any>>
+  `∃ds. v = Vector ds` by
+    (Cases_on`v`>>fs[])>>
+  DEP_REWRITE_TAC [init_lit_map_vec]>>
+  gvs[length_def,toList_thm]>>
+  `lit_map [] FEMPTY` by rw[lit_map_def]>>
+  drule init_lit_map_lit_map>>
+  simp[]>>
+  metis_tac[lit_map_REVERSE]
+QED
+
+Definition contains_emp_def:
+  contains_emp fml =
+  let ls = MAP SND (toAList fml) in
+  MEM (Vector []) ls
+End
+
+Theorem contains_emp_unsat:
+  contains_emp fml ⇒
+  ¬satisfies_vcfml w (range fml)
+Proof
+  rw[satisfies_vcfml_def,contains_emp_def,range_def,MEM_MAP,satisfies_cfml_def,satisfies_fml_gen_def]>>
+  simp[PULL_EXISTS]>>
+  rename1`MEM y _`>>
+  Cases_on`y`>>
+  gvs[MEM_toAList]>>
+  first_x_assum (irule_at Any)>>
+  EVAL_TAC>>
+  simp[]
+QED

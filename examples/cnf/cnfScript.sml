@@ -7,6 +7,28 @@ Ancestors
 Libs
   preamble
 
+(* TODO: misc? *)
+Theorem range_map:
+  misc$range (map f fml) =
+  IMAGE f (range fml)
+Proof
+  rw[miscTheory.range_def,EXTENSION,lookup_map]>>
+  metis_tac[]
+QED
+
+Theorem map_I:
+  ∀t.
+  sptree$map I t = t
+Proof
+  Induct>>rw[map_def]
+QED
+
+Theorem NOT_NONE_SOME_EXISTS:
+  x ≠ NONE ⇔ ?y. x = SOME y
+Proof
+  Cases_on`x`>>rw[]
+QED
+
 Datatype:
   lit = Pos 'a | Neg 'a
 End
@@ -65,11 +87,74 @@ Proof
 QED
 
 Theorem satisfies_fml_gen_delete:
-  satisfies_fml_gen sem w (range C) ⇒
-  satisfies_fml_gen sem w (range (delete n C))
+  satisfies_fml_gen sem w (range fml) ⇒
+  satisfies_fml_gen sem w (range (delete n fml))
 Proof
   rw[satisfies_fml_gen_def]>>
   fs[range_def,lookup_delete,PULL_EXISTS]>>
   metis_tac[]
 QED
+
+Definition delete_ids_def:
+  delete_ids fml ls =
+  FOLDL (\a b. sptree$delete b a) fml ls
+End
+
+Theorem satisfies_fml_gen_delete_ids:
+  satisfies_fml_gen f w (range fml) ⇒
+  satisfies_fml_gen f w (range (delete_ids fml ls))
+Proof
+  simp[delete_ids_def]>>
+  qid_spec_tac`fml`>>
+  Induct_on`ls`>>rw[]>>
+  first_x_assum irule>>
+  metis_tac[satisfies_fml_gen_delete]
+QED
+
+Theorem satisfies_fml_gen_insert:
+  satisfies_fml_gen f w (range fml) ∧
+  f w vc ⇒
+  satisfies_fml_gen f w (range (insert n vc fml))
+Proof
+  rw[satisfies_fml_gen_def]>>
+  gvs[range_def,PULL_EXISTS,lookup_insert,AllCaseEqs()]>>
+  metis_tac[]
+QED
+
+(* Build a sptree from a list *)
+Definition build_fml_def:
+  (build_fml (id:num) [] = LN) ∧
+  (build_fml id (cl::cls) =
+    insert id cl (build_fml (id+1) cls))
+End
+
+Theorem lookup_build_fml:
+  ∀ls n acc i.
+  lookup i (build_fml n ls) =
+  if n ≤ i ∧ i < n + LENGTH ls
+  then SOME (EL (i-n) ls)
+  else NONE
+Proof
+  Induct>>rw[build_fml_def,lookup_def,lookup_insert]>>
+  `i-n = SUC(i-(n+1))` by DECIDE_TAC>>
+  simp[]
+QED
+
+Theorem range_build_fml:
+  ∀ls id. range (build_fml id ls) = set ls
+Proof
+  Induct>>fs[build_fml_def,range_def,lookup_def]>>
+  fs[EXTENSION]>>
+  rw[lookup_insert]>>
+  rw[EQ_IMP_THM]
+  >- (
+    every_case_tac>>fs[]>>
+    metis_tac[])
+  >- metis_tac[] >>
+  first_x_assum(qspecl_then[`id+1`,`x`] mp_tac)>>
+  rw[]>>
+  fs[lookup_build_fml]>>
+  qexists_tac`n`>>simp[]
+QED
+
 
