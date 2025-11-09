@@ -108,9 +108,9 @@ val reduce_conv =
     (DEPTH_CONV (
       List.foldl (fn (pat, conv) => (eval_pat pat) ORELSEC conv)
                  ALL_CONV reducible_pats))
-    (* It seems that the next line makes around 29s faster; it would be good
-       to confirm this, though. Maybe doing basic simplifications first results
-       in a smaller term, meaning less work is done in the following
+    (* It seems that the next line makes npbc_arrayProg around 29s faster; it would
+       be good to confirm this, though. Maybe doing basic simplifications first
+       results in a smaller term, meaning less work is done in the following
        SIMP_CONV? *)
     THENC (STRIP_QUANT_CONV (SIMP_CONV pure_ss []))
     (* We probably do not use all of srw_ss, so there may be potential for a
