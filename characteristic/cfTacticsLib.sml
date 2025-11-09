@@ -104,20 +104,20 @@ val reducible_pats = [
   ``Fun_body _``
 ]
 
-val old_reduce_conv =
-    DEPTH_CONV (
-      List.foldl (fn (pat, conv) => (eval_pat pat) ORELSEC conv)
-                 ALL_CONV reducible_pats
-    ) THENC
-    (simp_conv [])
-
 val reduce_conv =
     (DEPTH_CONV (
       List.foldl (fn (pat, conv) => (eval_pat pat) ORELSEC conv)
-                 ALL_CONV reducible_pats
-    )) THENC
-    (STRIP_QUANT_CONV (simp_conv []))
-    THENC (SIMP_CONV (list_ss) [])
+                 ALL_CONV reducible_pats))
+    (* It seems that the next line makes around 29s faster; it would be good
+       to confirm this, though. Maybe doing basic simplifications first results
+       in a smaller term, meaning less work is done in the following
+       SIMP_CONV? *)
+    THENC (STRIP_QUANT_CONV (SIMP_CONV pure_ss []))
+    (* We probably do not use all of srw_ss, so there may be potential for a
+       smaller simpset. Some of the things we use, though:
+       - simpLib.type_ssfrag for at least ast$op
+       - pair_CASE_def *)
+    THENC (SIMP_CONV (srw_ss()) [])
 
 val reduce_tac = CONV_TAC reduce_conv
 
