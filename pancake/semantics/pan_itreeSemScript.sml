@@ -544,7 +544,7 @@ Definition itree_evaluate_def:
   let g= (λx. case x of
               | INR (r:'a result option # 'a bstate) => r
               | INL (l:ffi_outcome + word8 list) =>
-                  (ARB:'a result option # 'a bstate)) in
+                  ((SOME Error, s):'a result option # 'a bstate)) in
   itree_unfold (λx. case x of
                       Ret r => Ret' (g r)
                     | Tau t => Tau' t
@@ -1023,12 +1023,12 @@ Proof
   rw[]>- metis_tac[]
   >- (fs[itree_evaluate_def,mrec_Skip_loop_spin]>>
       fs[Once itree_unfold,Once spin])
-  >- (fs[itree_evaluate_def,mrec_Skip_loop_spin]>>
+  >- (fs[itree_evaluate_def]>>
+      fs[itree_evaluate_def,mrec_Skip_loop_spin]>>
       pop_assum mp_tac>>
-      rewrite_tac[Once itree_unfold,Once spin]>>
-      CASE_TAC>>fs[]>>strip_tac>>
+      rewrite_tac[Once itree_unfold,Once spin]>>simp[]>>rw[]>>
       irule_at Any OR_INTRO_THM1>>
-      irule_at (Pos last) (GSYM spin)>>fs[])
+      irule_at (Pos last) (GSYM spin)>>metis_tac[])
   >- (irule_at Any OR_INTRO_THM1>>
       irule_at Any EQ_REFL>>
       irule_at Any EQ_REFL>>
