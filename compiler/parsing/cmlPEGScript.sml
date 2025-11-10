@@ -9,8 +9,6 @@ Libs
   monadsyntax[qualified] finite_mapSyntax[qualified]
 
 
-fun Store_thm(n,t,tac) = store_thm(n,t,tac) before export_rewrites [n]
-
 val _ = monadsyntax.temp_add_monadsyntax()
 
 Overload monad_bind = “OPTION_BIND”
@@ -645,21 +643,24 @@ val pegnt_case_ths = peg0_cases
                       |> map (Q.SPEC `pnt n`)
                       |> map (CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) [pnt_def])))
 
-val peg0_pegf = Store_thm(
-  "peg0_pegf",
-  ``peg0 G (pegf s f) = peg0 G s``,
-  simp[pegf_def])
+Theorem peg0_pegf[simp]:
+  peg0 G (pegf s f) = peg0 G s
+Proof
+  simp[pegf_def]
+QED
 
-val peg0_seql = Store_thm(
-  "peg0_seql",
-  ``(peg0 G (seql [] f) ⇔ T) ∧
-    (peg0 G (seql (h::t) f) ⇔ peg0 G h ∧ peg0 G (seql t I))``,
-  simp[seql_def])
+Theorem peg0_seql[simp]:
+  (peg0 G (seql [] f) ⇔ T) ∧
+  (peg0 G (seql (h::t) f) ⇔ peg0 G h ∧ peg0 G (seql t I))
+Proof
+  simp[seql_def]
+QED
 
-val peg0_tokeq = Store_thm(
-  "peg0_tokeq",
-  ``peg0 G (tokeq t) = F``,
-  simp[tokeq_def])
+Theorem peg0_tokeq[simp]:
+  peg0 G (tokeq t) = F
+Proof
+  simp[tokeq_def]
+QED
 
 Theorem peg0_tokSymP[simp]:
   peg0 G (tokSymP P) ⇔ F
@@ -667,11 +668,12 @@ Proof
   simp[tokSymP_def]
 QED
 
-val peg0_choicel = Store_thm(
-  "peg0_choicel",
-  ``(peg0 G (choicel []) = F) ∧
-    (peg0 G (choicel (h::t)) ⇔ peg0 G h ∨ pegfail G h ∧ peg0 G (choicel t))``,
-  simp[choicel_def])
+Theorem peg0_choicel[simp]:
+  (peg0 G (choicel []) = F) ∧
+  (peg0 G (choicel (h::t)) ⇔ peg0 G h ∨ pegfail G h ∧ peg0 G (choicel t))
+Proof
+  simp[choicel_def]
+QED
 
 fun pegnt(t,acc) = let
   val th =
@@ -839,5 +841,3 @@ in
 end
 
 end (* local *)
-
-
