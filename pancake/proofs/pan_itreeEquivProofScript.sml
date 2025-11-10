@@ -3050,7 +3050,7 @@ End
 
 Definition itree_behaviour_def:
   itree_behaviour pre fs (prog, s) =
-  let trace = trace_prefix fs (mrec h_prog (h_prog (prog,s))) in
+  let trace = trace_prefix0 fs (itree_evaluate (prog,s)) in
     case some r.
            ∃n s'. ltree fs (mrec h_prog (h_prog (prog,s)))
                = FUNPOW Tau n (Ret (INR (r, s'))): 'a ptree
@@ -3077,7 +3077,7 @@ Theorem evaluate_to_itree:
   evaluate_behaviour (prog,s) =
   itree_behaviour s.ffi.io_events (s.ffi.oracle,s.ffi.ffi_state) (prog,bst s)
 Proof
-  simp[evaluate_behaviour_def,itree_behaviour_def]>>
+  simp[evaluate_behaviour_def,itree_behaviour_def,trace_prefix0_eq_trace_prefix]>>
   rw[]>>
   DEEP_INTRO_TAC some_intro>>
   rw[]
