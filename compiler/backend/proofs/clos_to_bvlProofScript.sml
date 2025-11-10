@@ -2905,11 +2905,12 @@ Proof
   \\ EVAL_TAC \\ decide_tac
 QED
 
-val v_rel_IMP_v_to_words_lemma = prove(
-  ``!x y.
+Theorem v_rel_IMP_v_to_words_lemma[local]:
+    !x y.
       v_rel max_app f refs code x y ==>
       !ns. (v_to_list x = SOME (MAP Word64 ns)) <=>
-           (v_to_list y = SOME (MAP Word64 ns))``,
+           (v_to_list y = SOME (MAP Word64 ns))
+Proof
   ho_match_mp_tac closSemTheory.v_to_list_ind \\ rw []
   \\ fs [bvlSemTheory.v_to_list_def,closSemTheory.v_to_list_def,v_rel_SIMP]
   \\ Cases_on `tag = cons_tag` \\ fs [] \\ rveq \\ fs []
@@ -2917,18 +2918,22 @@ val v_rel_IMP_v_to_words_lemma = prove(
   THEN1
    (Cases_on `ns` \\ fs [] \\ rveq \\ fs [v_rel_SIMP] \\ rveq \\ fs []
     \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs [v_rel_SIMP])
-  \\ Cases_on `ys` \\ fs [bvlSemTheory.v_to_list_def]);
+  \\ Cases_on `ys` \\ fs [bvlSemTheory.v_to_list_def]
+QED
 
-val v_rel_IMP_v_to_words = prove(
-  ``v_rel max_app f refs code x y ==> v_to_words y = v_to_words x``,
+Theorem v_rel_IMP_v_to_words[local]:
+    v_rel max_app f refs code x y ==> v_to_words y = v_to_words x
+Proof
   rw [v_to_words_def,closSemTheory.v_to_words_def]
-  \\ drule v_rel_IMP_v_to_words_lemma \\ fs []);
+  \\ drule v_rel_IMP_v_to_words_lemma \\ fs []
+QED
 
-val v_rel_IMP_v_to_bytes_lemma = prove(
-  ``!x y.
+Theorem v_rel_IMP_v_to_bytes_lemma[local]:
+    !x y.
       v_rel max_app f refs code x y ==>
       !ns. (v_to_list x = SOME (MAP (Number o $& o (w2n:word8->num)) ns)) <=>
-           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))``,
+           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))
+Proof
   ho_match_mp_tac closSemTheory.v_to_list_ind \\ rw []
   \\ fs [bvlSemTheory.v_to_list_def,closSemTheory.v_to_list_def,v_rel_SIMP]
   \\ Cases_on `tag = cons_tag` \\ fs [] \\ rveq \\ fs []
@@ -2936,12 +2941,15 @@ val v_rel_IMP_v_to_bytes_lemma = prove(
   THEN1
    (Cases_on `ns` \\ fs [] \\ rveq \\ fs [v_rel_SIMP] \\ rveq \\ fs []
     \\ rw [] \\ fs [] \\ eq_tac \\ rw [] \\ fs [v_rel_SIMP])
-  \\ Cases_on `ys` \\ fs [bvlSemTheory.v_to_list_def]);
+  \\ Cases_on `ys` \\ fs [bvlSemTheory.v_to_list_def]
+QED
 
-val v_rel_IMP_v_to_bytes = prove(
-  ``v_rel max_app f refs code x y ==> v_to_bytes y = v_to_bytes x``,
+Theorem v_rel_IMP_v_to_bytes[local]:
+    v_rel max_app f refs code x y ==> v_to_bytes y = v_to_bytes x
+Proof
   rw [v_to_bytes_def,closSemTheory.v_to_bytes_def]
-  \\ drule v_rel_IMP_v_to_bytes_lemma \\ fs []);
+  \\ drule v_rel_IMP_v_to_bytes_lemma \\ fs []
+QED
 
 Theorem not_domain_lookup:
    ~(n IN domain x) <=> lookup n x = NONE
@@ -2949,10 +2957,11 @@ Proof
   fs [domain_lookup] \\ Cases_on `lookup n x` \\ fs []
 QED
 
-val cl_rel_union = prove(
-  ``!a x y.
+Theorem cl_rel_union[local]:
+    !a x y.
       cl_rel max_app f2 refs code a x y ==>
-      cl_rel max_app f2 refs (union code c2) a x y``,
+      cl_rel max_app f2 refs (union code c2) a x y
+Proof
   ho_match_mp_tac cl_rel_ind \\ rw []
   THEN1
    (once_rewrite_tac [cl_rel_cases] \\ fs [lookup_union]
@@ -2979,12 +2988,14 @@ val cl_rel_union = prove(
     \\ asm_exists_tac \\ fs []
     \\ fs [code_installed_def]
     \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac MONO_EVERY)
-    \\ fs [FORALL_PROD,lookup_union]));
+    \\ fs [FORALL_PROD,lookup_union])
+QED
 
-val v_rel_union = prove(
-  ``!c2 x y.
+Theorem v_rel_union[local]:
+    !c2 x y.
       v_rel max_app f2 refs code x y ==>
-      v_rel max_app f2 refs (union code c2) x y``,
+      v_rel max_app f2 refs (union code c2) x y
+Proof
   strip_tac \\ ho_match_mp_tac v_rel_ind \\ rw []
   \\ TRY (once_rewrite_tac [v_rel_cases] \\ fs [] \\ NO_TAC)
   THEN1
@@ -3012,7 +3023,8 @@ val v_rel_union = prove(
     \\ qexists_tac `num_args`
     \\ fs [lookup_union]
     \\ rpt strip_tac
-    \\ match_mp_tac cl_rel_union \\ fs []));
+    \\ match_mp_tac cl_rel_union \\ fs [])
+QED
 
 Theorem FEVERY_FUPDATE_LIST_SUFF:
    !progs x p. FEVERY p x /\ EVERY p progs ==> FEVERY p (x |++ progs)
@@ -3092,17 +3104,19 @@ Proof
   \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
 QED
 
-val compile_exps_chain_exps_cons = prove(
-  ``!n h t a new_exps aux x6 x7.
+Theorem compile_exps_chain_exps_cons[local]:
+    !n h t a new_exps aux x6 x7.
       compile_exps max_app (MAP (SND ∘ SND) (chain_exps n (h::t))) a =
        (new_exps,aux) /\ compile_exps max_app (h::t) a = (x6,x7) ⇒
-      x7 = aux``,
+      x7 = aux
+Proof
   Induct_on `t` \\ fs [chain_exps_def] \\ rw [] \\ fs []
   \\ ntac 2 (pop_assum mp_tac)
   \\ simp [Once compile_exps_CONS]
   \\ fs [compile_exps_def]
   \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs [] \\ rw []
-  \\ res_tac \\ fs []);
+  \\ res_tac \\ fs []
+QED
 
 Theorem compile_exps_same_aux:
    compile_exps max_app
@@ -6125,9 +6139,11 @@ Proof
   simp[]
 QED
 
-val FST_EQ_LEMMA = prove(
-  ``FST x = y <=> ?y1. x = (y,y1)``,
-  Cases_on `x` \\ fs []);
+Theorem FST_EQ_LEMMA[local]:
+    FST x = y <=> ?y1. x = (y,y1)
+Proof
+  Cases_on `x` \\ fs []
+QED
 
 val evaluate_add_to_clock_io_events_mono_alt =
   closPropsTheory.evaluate_add_to_clock_io_events_mono
@@ -6153,19 +6169,23 @@ Definition eval_sim_def:
         result_rel (\x y. T) (\x y. T) res1 res2 /\ s2.ffi = t2.ffi
 End
 
-val initial_state_with_clock = prove(
-  ``(initial_state ffi ma code co cc k with clock :=
+Theorem initial_state_with_clock[local]:
+    (initial_state ffi ma code co cc k with clock :=
       (initial_state ffi ma code co cc k).clock + ck) =
-    initial_state ffi ma code co cc (k + ck)``,
-  fs [closSemTheory.initial_state_def]);
+    initial_state ffi ma code co cc (k + ck)
+Proof
+  fs [closSemTheory.initial_state_def]
+QED
 
-val initial_state_with_clock_bvl = prove(
-  ``(initial_state ffi code co cc k with clock :=
+Theorem initial_state_with_clock_bvl[local]:
+    (initial_state ffi code co cc k with clock :=
       (initial_state ffi code co cc k).clock + ck) =
     initial_state ffi code co cc (k + ck) /\
     (bvlProps$inc_clock ck (initial_state ffi code co cc k) =
-    initial_state ffi code co cc (k + ck))``,
-  fs [bvlSemTheory.initial_state_def,inc_clock_def]);
+    initial_state ffi code co cc (k + ck))
+Proof
+  fs [bvlSemTheory.initial_state_def,inc_clock_def]
+QED
 
 Theorem IMP_semantics_eq:
    eval_sim ffi max_app code1 co1 cc1 es1 code2 co2 cc2 start rel /\

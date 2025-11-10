@@ -749,4 +749,3 @@ Theorem same_eval_state:
 Proof
   fs [semanticPrimitivesTheory.state_component_equality]
 QED
-

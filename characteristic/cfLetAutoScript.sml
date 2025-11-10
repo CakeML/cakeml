@@ -698,4 +698,3 @@ Theorem NUM_EQ_SIMP12:
 Proof
 rw[CONV_RULE (SIMP_CONV arith_ss []) NUM_EQ_SIMP6]
 QED
-

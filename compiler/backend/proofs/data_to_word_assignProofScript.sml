@@ -1506,9 +1506,11 @@ Proof
   \\ pop_assum mp_tac \\ EVAL_TAC \\ fs [dimword_def]
 QED
 
-val Num_ABS_AND = prove(
-  ``Num (ABS (& n)) = n /\ Num (ABS (- & n)) = n``,
-  intLib.COOPER_TAC);
+Theorem Num_ABS_AND[local]:
+    Num (ABS (& n)) = n /\ Num (ABS (- & n)) = n
+Proof
+  intLib.COOPER_TAC
+QED
 
 Theorem evaluate_WriteWord64_on_32_num:
    memory_rel c be ts refs sp t.store t.memory t.mdomain
@@ -1785,17 +1787,21 @@ Proof
   fs [word_bit_test]
 QED
 
-val MAP_Number_11_w2n_word8 = prove(
-  ``!ns ns'.
+Theorem MAP_Number_11_w2n_word8[local]:
+    !ns ns'.
       MAP (Number ∘ $& ∘ w2n) ns = MAP (Number ∘ $& ∘ w2n) ns' <=>
-      ns = ns':word8 list``,
-  Induct \\ Cases_on `ns'` \\ fs []);
+      ns = ns':word8 list
+Proof
+  Induct \\ Cases_on `ns'` \\ fs []
+QED
 
-val MAP_Word64_11 = prove(
-  ``!ns ns'.
+Theorem MAP_Word64_11[local]:
+    !ns ns'.
       MAP (Word64) ns = MAP (Word64) ns' <=>
-      ns = ns'``,
-  Induct \\ Cases_on `ns'` \\ fs []);
+      ns = ns'
+Proof
+  Induct \\ Cases_on `ns'` \\ fs []
+QED
 
 Theorem v_to_list_EQ_SOME_NIL:
    v_to_list hv1 = SOME [] <=> ∃ts. hv1 = Block ts 0 []
@@ -2079,20 +2085,26 @@ Proof
          fcpTheory.FCP_BETA,word_lsl_def]
 QED
 
-val MAP_FST_MAP_compile_part = prove(
-  ``!full_list. MAP FST (MAP (compile_part c) full_list) = MAP FST full_list``,
-  Induct \\ fs [FORALL_PROD,compile_part_def]);
+Theorem MAP_FST_MAP_compile_part[local]:
+    !full_list. MAP FST (MAP (compile_part c) full_list) = MAP FST full_list
+Proof
+  Induct \\ fs [FORALL_PROD,compile_part_def]
+QED
 
-val memory_rel_ignore_buffers = prove(
-  ``memory_rel c be ts refs sp (st |+ (BitmapBuffer,x)) m dm vars =
+Theorem memory_rel_ignore_buffers[local]:
+    memory_rel c be ts refs sp (st |+ (BitmapBuffer,x)) m dm vars =
     memory_rel c be ts refs sp st m dm vars /\
     memory_rel c be ts refs sp (st |+ (CodeBuffer,x)) m dm vars =
-    memory_rel c be ts refs sp st m dm vars``,
-  fs [memory_rel_def,heap_in_memory_store_def,FLOOKUP_UPDATE]);
+    memory_rel c be ts refs sp st m dm vars
+Proof
+  fs [memory_rel_def,heap_in_memory_store_def,FLOOKUP_UPDATE]
+QED
 
-val compile_part_loc_IMP = prove(
-  ``compile_part c (a1,a2) = (n,x) ==> n = a1``,
-  PairCases_on `a2` \\ fs [compile_part_def]);
+Theorem compile_part_loc_IMP[local]:
+    compile_part c (a1,a2) = (n,x) ==> n = a1
+Proof
+  PairCases_on `a2` \\ fs [compile_part_def]
+QED
 
 Theorem consume_space_stack_max:
   consume_space a x = SOME s ⇒ x.stack_max = s.stack_max
@@ -2785,9 +2797,11 @@ Proof
   \\ TRY pairarg_tac \\ fs []
 QED
 
-val not_less_zero_int_eq = prove(
-  ``~(i < 0:int) <=> ?n. i = &n``,
-  Cases_on `i` \\ fs []);
+Theorem not_less_zero_int_eq[local]:
+    ~(i < 0:int) <=> ?n. i = &n
+Proof
+  Cases_on `i` \\ fs []
+QED
 
 Theorem assign_WordFromWord:
    (?b. op = WordOp (WordFromWord b)) ==> ^assign_thm_goal
@@ -6523,31 +6537,39 @@ Proof
   \\ simp []
 QED
 
-val LENGTH_n2mw_1 = prove(
-  ``LENGTH ((n2mw n) :'a word list) = 1 <=> n <> 0 /\ n < dimword (:'a)``,
+Theorem LENGTH_n2mw_1[local]:
+    LENGTH ((n2mw n) :'a word list) = 1 <=> n <> 0 /\ n < dimword (:'a)
+Proof
   once_rewrite_tac [multiwordTheory.n2mw_def] \\ rw []
   \\ once_rewrite_tac [multiwordTheory.n2mw_def] \\ rw []
-  \\ fs [dimword_def,DIV_EQ_0]);
+  \\ fs [dimword_def,DIV_EQ_0]
+QED
 
-val WordFromInt_DIV_LEMMA = prove(
-  ``kk < B * B /\ 0 < B ==> B * (kk DIV B) <= B * B − B``,
+Theorem WordFromInt_DIV_LEMMA[local]:
+    kk < B * B /\ 0 < B ==> B * (kk DIV B) <= B * B − B
+Proof
   rw []
   \\ `kk DIV B < B` by fs [DIV_LT_X]
   \\ `B² − B = B * (B - 1)` by fs [LEFT_SUB_DISTRIB]
-  \\ fs []);
+  \\ fs []
+QED
 
-val explode_less_32 = prove(
-  ``(!n. n < 32n ==> P (n:num)) <=>
+Theorem explode_less_32[local]:
+    (!n. n < 32n ==> P (n:num)) <=>
     P 0 /\ P 1 /\ P 2 /\ P 3 /\ P 4 /\ P 5 /\ P 6 /\ P 7 /\ P 8 /\ P 9 /\
     P 10 /\ P 11 /\ P 12 /\ P 13 /\ P 14 /\ P 15 /\ P 16 /\ P 17 /\ P 18 /\ P 19 /\
     P 20 /\ P 21 /\ P 22 /\ P 23 /\ P 24 /\ P 25 /\ P 26 /\ P 27 /\ P 28 /\ P 29 /\
-    P 30 /\ P 31``,
+    P 30 /\ P 31
+Proof
   rw [] \\ eq_tac \\ fs [] \\ rw []
-  \\ rpt (Cases_on `n` \\ fs [] \\ Cases_on `n'` \\ fs []));
+  \\ rpt (Cases_on `n` \\ fs [] \\ Cases_on `n'` \\ fs [])
+QED
 
-val LESS_IMP_NOT_BIT = prove(
-  ``!k n. n < 2 ** k ==> ~BIT k n``,
-  fs [bitTheory.BIT_def,bitTheory.BITS_THM,LESS_DIV_EQ_ZERO]);
+Theorem LESS_IMP_NOT_BIT[local]:
+    !k n. n < 2 ** k ==> ~BIT k n
+Proof
+  fs [bitTheory.BIT_def,bitTheory.BITS_THM,LESS_DIV_EQ_ZERO]
+QED
 
 Theorem Smallnum_alt:
    Smallnum i =
@@ -6558,10 +6580,11 @@ Proof
   \\ simp_tac std_ss [AC WORD_MULT_COMM WORD_MULT_ASSOC]
 QED
 
-val BIT_lemma = prove(
-  ``BIT n (2 ** k - i) <=> if n < k /\ i < 2n ** k /\ i <> 0
+Theorem BIT_lemma[local]:
+    BIT n (2 ** k - i) <=> if n < k /\ i < 2n ** k /\ i <> 0
                            then BIT n (2 ** (MAX n i + 1) - i)
-                           else BIT n (2 ** k - i)``,
+                           else BIT n (2 ** k - i)
+Proof
   IF_CASES_TAC \\ fs []
   \\ `i = i MOD 2 ** k` by fs []
   \\ pop_assum (fn th => CONV_TAC (RATOR_CONV (ONCE_REWRITE_CONV [th])))
@@ -6577,11 +6600,13 @@ val BIT_lemma = prove(
   \\ pop_assum (fn th => rewrite_tac [th])
   \\ rewrite_tac [bitTheory.BIT_COMPLEMENT] \\ fs []
   \\ eq_tac \\ rw []
-  \\ rw [MAX_DEF] \\ fs []);
+  \\ rw [MAX_DEF] \\ fs []
+QED
 
-val BIT_Lemma2 = prove(
-  ``BIT m (2 ** k - n) = if n <> 0 /\ n <= 2 ** m /\ m < k then T
-                         else BIT m (2n ** k - n)``,
+Theorem BIT_Lemma2[local]:
+    BIT m (2 ** k - n) = if n <> 0 /\ n <= 2 ** m /\ m < k then T
+                         else BIT m (2n ** k - n)
+Proof
   IF_CASES_TAC \\ fs []
   \\ imp_res_tac bitTheory.TWOEXP_MONO
   \\ drule0 LESS_EQ_LESS_TRANS
@@ -6592,7 +6617,8 @@ val BIT_Lemma2 = prove(
   \\ rewrite_tac [bitTheory.BIT_COMPLEMENT]
   \\ fs [] \\ fs [bitTheory.BIT_def,bitTheory.BITS_THM]
   \\ `n - 1 < 2 ** m` by fs [] \\ fs []
-  \\ fs [LESS_DIV_EQ_ZERO]);
+  \\ fs [LESS_DIV_EQ_ZERO]
+QED
 
 Theorem assign_WordFromInt:
    op = WordOp WordFromInt ==> ^assign_thm_goal

@@ -4096,7 +4096,7 @@ Proof
   fs[MAP_MAP_o,o_DEF,stack_namesTheory.prog_comp_def,UNCURRY,LAMBDA_PROD]>>
   fs[stack_names_stack_get_handler_labels_comp,stack_names_get_code_labels_comp]>>
   fs[UNCURRY_PAIR_ETA]
-QED;
+QED
 
 (* ---- stack_remove ---- *)
 Triviality stack_remove_get_code_labels_comp:
@@ -4219,7 +4219,7 @@ Proof
       fs[stack_removeTheory.init_stubs_def,stack_removeTheory.stack_err_lab_def,EXISTS_PROD]
     >>
       metis_tac[]
-QED;
+QED
 
 (*
   The same theorem, but for the incremental version
@@ -4239,7 +4239,7 @@ Proof
   drule (stack_remove_get_code_labels_comp |> SIMP_RULE std_ss [SUBSET_DEF])>>
   rw[]>>
   metis_tac[]
-QED;
+QED
 
 (* --- stack_alloc ---- *)
 Triviality stack_alloc_get_code_labels_comp:
@@ -4415,7 +4415,7 @@ Proof
 
   match_mp_tac stack_rawcall_stack_good_code_labels>>
   fs[]
-QED;
+QED
 
 Theorem stack_to_lab_stack_good_code_labels_incr:
   stack_err_lab ∈ elabs ∧
@@ -4433,7 +4433,7 @@ Proof
   simp[]>>
   match_mp_tac stack_alloc_stack_good_code_labels_incr>>
   simp[]
-QED;
+QED
 
 (* nonzero restricted code labels *)
 Theorem nonzero_get_labels_MAP_prog_to_section_SUBSET_code_labels:
@@ -4457,7 +4457,7 @@ Proof
   match_mp_tac SUBSET_TRANS>> asm_exists_tac>>simp[]>>
   metis_tac[MAP_prog_to_section_preserves_handler_labels,one_prog_section,
       SUBSET_UNION,SUBSET_TRANS]
-QED;
+QED
 
 Theorem stack_names_stack_good_handler_labels:
   ∀prog f. stack_good_handler_labels prog ⇒
@@ -4468,20 +4468,20 @@ Proof
   rw[]>>
   fs[GSYM LIST_TO_SET_MAP,MAP_MAP_o,o_DEF,LAMBDA_PROD,stack_names_get_code_labels_comp]>>
   fs[stack_names_stack_get_handler_labels_comp]
-QED;
+QED
 
 Theorem restrict_nonzero_union:
   restrict_nonzero (A ∪ B) = restrict_nonzero A ∪ restrict_nonzero B
 Proof
   rw[backendPropsTheory.restrict_nonzero_def,EXTENSION]>>
   metis_tac[]
-QED;
+QED
 
 Theorem restrict_nonzero_IN:
   x ∈ restrict_nonzero s ⇔ x ∈ s ∧ SND x ≠ 0
 Proof
   EVAL_TAC>>simp[]
-QED;
+QED
 
 Theorem stack_good_handler_labels_append:
   stack_good_handler_labels xs ∧
@@ -4492,7 +4492,7 @@ Proof
   rw[]>>
   fs [SUBSET_DEF] >>
   metis_tac []
-QED;
+QED
 
 Theorem stack_remove_stack_good_handler_labels_incr:
   ∀prog.
@@ -4520,7 +4520,7 @@ Proof
   drule(stack_remove_get_code_labels_comp |> SIMP_RULE std_ss [SUBSET_DEF])>>
   Cases_on`x'`>>simp[]>>
   rw[]>>fs[]
-QED;
+QED
 
 Theorem stack_remove_stack_good_handler_labels:
   ∀prog.
@@ -4545,7 +4545,7 @@ Proof
     metis_tac[SND])
   >>
     metis_tac[stack_remove_stack_good_handler_labels_incr]
-QED;
+QED
 
 Theorem stack_alloc_stack_good_handler_labels_incr:
   ∀prog.
@@ -4563,7 +4563,7 @@ Proof
   simp[backendPropsTheory.restrict_nonzero_def]>>
   Cases_on`x`>>simp[]>>
   metis_tac[]
-QED;
+QED
 
 Theorem stack_alloc_stack_good_handler_labels:
   ∀prog c.

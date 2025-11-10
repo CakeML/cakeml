@@ -86,9 +86,11 @@ val _ = translate (make_header_def |> SIMP_RULE std_ss [word_lsl_n2w]|> conv32_R
 val _ = translate (shift_left_def |> conv32)
 val _ = translate (shift_right_def |> spec32 |> CONV_RULE fcpLib.INDEX_CONV)
 
-val i2w_eq_n2w_lemma = prove(
-  ``i2w (& (k * n)) = n2w (k * n)``,
-  fs [integer_wordTheory.i2w_def]);
+Theorem i2w_eq_n2w_lemma[local]:
+    i2w (& (k * n)) = n2w (k * n)
+Proof
+  fs [integer_wordTheory.i2w_def]
+QED
 
 val lemma2 = prove(
   ``4 * x < (2**32) <=> x < (2**32) DIV 4``,
@@ -152,11 +154,13 @@ val _ = translate (ShiftVar_def |> inline_simp |> conv32);
 val _ = translate (WordShift64_on_32_def |> inline_simp |> conv32)
 val _ = translate (LoadBignum_def |> inline_simp |> conv32)
 
-val Smallnum_alt = prove(
-  ``Smallnum i =
+Theorem Smallnum_alt[local]:
+    Smallnum i =
     if i < 0 then 0w − n2w (Num (ABS (4 * (0 − i))))
-             else n2w (Num (ABS (4 * i)))``,
-  fs [Smallnum_def] \\ Cases_on `i` \\ fs [integerTheory.INT_ABS_NUM]);
+             else n2w (Num (ABS (4 * i)))
+Proof
+  fs [Smallnum_def] \\ Cases_on `i` \\ fs [integerTheory.INT_ABS_NUM]
+QED
 
 val _ = translate (Smallnum_alt |> inline_simp |> conv32)
 val _ = translate (MemEqList_def |> inline_simp |> conv32)

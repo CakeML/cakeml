@@ -611,25 +611,25 @@ Triviality IN_POWERSET:
   !x s. x <: powerset s <=> x <=: s
 Proof
   metis_tac[powerset_def]
-QED;
+QED
 
 Triviality IN_PRODUCT:
   !z s t. z <: product s t <=> ?x y. (z = pair x y) /\ x <: s /\ y <: t
 Proof
   metis_tac[PRODUCT_def]
-QED;
+QED
 
 Triviality IN_COMPREHENSION:
   !p s x. x <: (s suchthat p) <=> x <: s /\ p x
 Proof
   metis_tac[suchthat_def]
-QED;
+QED
 
 Triviality PRODUCT_INHABITED:
   (?x. x <: s) /\ (?y. y <: t) ==> ?z. z <: product s t
 Proof
   metis_tac[IN_PRODUCT]
-QED;
+QED
 
 Definition funspace_def:
   funspace s t = (powerset(product s t) suchthat

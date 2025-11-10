@@ -1452,15 +1452,17 @@ Proof
   \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
 QED
 
-val gc_move_list_ok_irr0 = prove(
-  ``!x s y1 y2 t1 t2 h2 r4.
+Theorem gc_move_list_ok_irr0[local]:
+    !x s y1 y2 t1 t2 h2 r4.
       gen_gc$gc_move gen_conf s x = (y1,t1) /\
       gen_gc$gc_move gen_conf (s with <| h2 := h2 ; r4 := r4 |>) x = (y2,t2) ==>
-      y1 = y2 /\ ?x1 x2. t2 = t1 with <| h2 := x1 ; r4 := x2 |>``,
+      y1 = y2 /\ ?x1 x2. t2 = t1 with <| h2 := x1 ; r4 := x2 |>
+Proof
   Cases \\ fs [gen_gcTheory.gc_move_def] \\ rw []
   \\ fs [gc_sharedTheory.gc_state_component_equality]
   \\ every_case_tac \\ fs []
-  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []);
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+QED
 
 Theorem gc_move_list_ok_irr:
    !x s y1 y2 t1 t2 h2 r4.
@@ -3492,8 +3494,8 @@ Proof
   \\ fs[isRef_def,isMutTag_def]
 QED
 
-val gc_move_ref_list_IMP = prove (
-  ``!conf state refs state1 refs1.
+Theorem gc_move_ref_list_IMP[local]:
+    !conf state refs state1 refs1.
     (gc_move_ref_list conf state refs = (refs1,state1)) ==>
     (state1.old = state.old) /\
     (state1.h1 = state.h1) /\
@@ -3505,7 +3507,7 @@ val gc_move_ref_list_IMP = prove (
     (!ptr.
        isSomeDataElement (heap_lookup ptr refs) ==>
        isSomeDataElement (heap_lookup ptr refs1))
-  ``,
+Proof
   recInduct (fetch "gen_gc_partial" "gc_move_ref_list_ind")
   \\ once_rewrite_tac [gc_move_ref_list_def] \\ fs []
   \\ rpt gen_tac
@@ -3522,7 +3524,8 @@ val gc_move_ref_list_IMP = prove (
   \\ strip_tac
   \\ IF_CASES_TAC \\ fs []
   >- simp [isSomeDataElement_def]
-  \\ IF_CASES_TAC \\ fs [el_length_def]);
+  \\ IF_CASES_TAC \\ fs [el_length_def]
+QED
 
 Theorem heap_length_LENGTH:
   LENGTH x <= heap_length x
@@ -3965,12 +3968,14 @@ Proof
   \\ rfs [] \\ fs [GSYM heap_length_def,heap_length_nil]
 QED
 
-val new_trig_ok = prove(
-  ``a <=+ (bytes_in_word * n2w n) /\ good_dimindex (:'a) ==>
-    a <=+ new_trig (bytes_in_word * (n2w n):'a word) a x``,
+Theorem new_trig_ok[local]:
+    a <=+ (bytes_in_word * n2w n) /\ good_dimindex (:'a) ==>
+    a <=+ new_trig (bytes_in_word * (n2w n):'a word) a x
+Proof
   Cases_on `a` \\ fs [new_trig_def] \\ rw []
   \\ fs [WORD_LO,WORD_LS,MIN_DEF]
-  \\ rw [] \\ rfs [w2n_lt]);
+  \\ rw [] \\ rfs [w2n_lt]
+QED
 
 Theorem byte_aligned_IMP_bytes_in_word:
    byte_aligned w /\ good_dimindex (:'a) ==> ?v. w = bytes_in_word * v:'a word
@@ -4011,10 +4016,11 @@ Proof
     \\ fs [])
 QED
 
-val new_trig_LESS_EQ = prove(
-  ``good_dimindex (:'a) ==>
+Theorem new_trig_LESS_EQ[local]:
+    good_dimindex (:'a) ==>
     ?k. new_trig (bytes_in_word * (n2w n):'a word) a22 a33 =
-        bytes_in_word * n2w k /\ k <= n``,
+        bytes_in_word * n2w k /\ k <= n
+Proof
   rw [new_trig_def]
   \\ fs [GSYM NOT_LESS]
   \\ fs [NOT_LESS]
@@ -4028,7 +4034,8 @@ val new_trig_LESS_EQ = prove(
   \\ imp_res_tac byte_aligned_IMP_bytes_in_word \\ rveq
   \\ imp_res_tac (SIMP_RULE std_ss [Once WORD_MULT_COMM]
         MULT_bytes_in_word_LESS_EQ_IMP)
-  \\ fs [] \\ qexists_tac `l` \\ fs []);
+  \\ fs [] \\ qexists_tac `l` \\ fs []
+QED
 
 Definition alloc_size_def:
   alloc_size k = (if k * (dimindex (:'a) DIV 8) < dimword (:α) then
@@ -4312,12 +4319,14 @@ Theorem word_gc_fun_lemma = Q.prove(`
   \\ fs [] \\ rw [alloc_size_def] \\ fs [alloc_size_def]) |> GEN_ALL
   |> SIMP_RULE (srw_ss()) [LET_DEF,PULL_EXISTS,GSYM CONJ_ASSOC] |> SPEC_ALL;
 
-val abs_ml_inv_ADD = prove(
-  ``abs_ml_inv c xs refs (ys,heap2,be,a2,k2 + k3,0,gens2) limit ts /\
+Theorem abs_ml_inv_ADD[local]:
+    abs_ml_inv c xs refs (ys,heap2,be,a2,k2 + k3,0,gens2) limit ts /\
     c.gc_kind = Generational l ==>
-    abs_ml_inv c xs refs (ys,heap2,be,a2,k2,k3,gens2) limit ts``,
+    abs_ml_inv c xs refs (ys,heap2,be,a2,k2,k3,gens2) limit ts
+Proof
   fs [abs_ml_inv_def,gc_kind_inv_def] \\ rw []
-  \\ fs [gen_state_ok_def]);
+  \\ fs [gen_state_ok_def]
+QED
 
 Theorem alloc_size_check:
   w2n (bytes_in_word * n2w k2 :'a word) < w2n (alloc_size k :'a word) ==>

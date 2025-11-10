@@ -89,12 +89,14 @@ val result = next_ml_names := ["concat"];
 val result = translate FLAT;
 
 (* the let is introduced to produce slight better code (smaller stack frames) *)
-val MAP_let = prove(
-  ``MAP f xs =
+Theorem MAP_let[local]:
+    MAP f xs =
     case xs of
     | [] => []
-    | (y::ys) => let z = f y in z :: MAP f ys``,
-  Cases_on `xs` \\ fs []);
+    | (y::ys) => let z = f y in z :: MAP f ys
+Proof
+  Cases_on `xs` \\ fs []
+QED
 
 Theorem MAP_ind:
    ∀P. (∀f xs. (∀y ys z. xs = y::ys ∧ z = f y ⇒ P f ys) ⇒ P f xs) ⇒
