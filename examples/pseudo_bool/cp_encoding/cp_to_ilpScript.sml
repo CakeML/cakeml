@@ -1365,7 +1365,7 @@ Definition reify_tuple_eq_def:
     ges ++ eqs ++ encode_tuple_eq bnd Xs Ys
 End
 
-Theorem LENGTH_FILTER_GE:
+Theorem LENGTH_FILTER_LE:
   LENGTH ls ≤ LENGTH (FILTER P ls) ⇔ LENGTH ls = LENGTH (FILTER P ls)
 Proof
   metis_tac[GREATER_EQ,LE_ANTISYM,LENGTH_FILTER_LEQ]
@@ -1402,12 +1402,6 @@ Proof
   METIS_TAC[encode_eq_sem]
 QED
 
-Triviality iff_lem:
-  ((R ⇔ P) ⇔ (R ⇔ Q)) ⇔ (P ⇔ Q)
-Proof
-  metis_tac[]
-QED
-
 Theorem encode_tuple_eq_sem:
   valid_assignment bnd wi ∧
   LENGTH Xs = LENGTH Ys ∧
@@ -1418,15 +1412,18 @@ Theorem encode_tuple_eq_sem:
   (wb (INR (Tb Xs Ys)) ⇔ LIST_REL (λX Y. wi X = Y) Xs Ys))
 Proof
   rw[encode_tuple_eq_def,iconstraint_sem_def]>>
-  simp[MAP2_ZIP,EQ_SYM_EQ,iff_lem,eval_lin_term_def,
+  simp[MAP2_ZIP,EQ_SYM_EQ,eval_lin_term_def,
     MAP_MAP_o,iterateTheory.LAMBDA_PAIR,
     combinTheory.o_ABS_R,iSUM_FILTER]>>
+  qho_match_abbrev_tac ‘((R ⇔ P) ⇔ (R ⇔ Q))’>>
+  qsuff_tac ‘P ⇔ Q’
+  >-metis_tac[]>>
+  unabbrev_all_tac>>
   fs[Once $ GSYM combinTheory.o_ABS_R,iSUM_FILTER,LIST_REL_EVERY_ZIP]>>
   drule_then assume_tac $ cj 2 LENGTH_ZIP>>
-  pop_assum (fn thm =>
-    pure_rewrite_tac[
-      GSYM thm,intReduceTheory.INT_GE_CONV_pth,
-      LENGTH_FILTER_GE,LENGTH_FILTER_EQ])>>
+  pop_assum (SUBST_ALL_TAC o SYM)>>
+  pure_rewrite_tac[intReduceTheory.INT_GE_CONV_pth,
+    LENGTH_FILTER_LE,LENGTH_FILTER_EQ]>>
   fs[EVERY_MEM]>>
   ho_match_mp_tac FORALL_IMP_EQ>>
   fs[EQ_SYM_EQ,iterateTheory.LAMBDA_PAIR]
