@@ -1349,8 +1349,7 @@ QED
   Table
 ***)
 
-(* encodes ftable_i ⇒ some X = v and ~fnvalue_v ⇒ no X = v,
-   provided that LENGTH Xs = LENGTH Ys *)
+(* encodes ftable_i ⇔ X = Ti, provided that LENGTH X = LENGTH Ti *)
 Definition encode_tuple_eq_def:
   encode_tuple_eq bnd Xs Ys =
     bimply_bits bnd [Pos (INR (Tb Xs Ys))]
@@ -1403,6 +1402,12 @@ Proof
   METIS_TAC[encode_eq_sem]
 QED
 
+Triviality iff_lem:
+  ((R ⇔ P) ⇔ (R ⇔ Q)) ⇔ (P ⇔ Q)
+Proof
+  metis_tac[]
+QED
+
 Theorem encode_tuple_eq_sem:
   valid_assignment bnd wi ∧
   LENGTH Xs = LENGTH Ys ∧
@@ -1413,8 +1418,18 @@ Theorem encode_tuple_eq_sem:
   (wb (INR (Tb Xs Ys)) ⇔ LIST_REL (λX Y. wi X = Y) Xs Ys))
 Proof
   rw[encode_tuple_eq_def,iconstraint_sem_def]>>
-  simp[MAP2_ZIP]>>
-  cheat
+  simp[MAP2_ZIP,EQ_SYM_EQ,iff_lem,eval_lin_term_def,
+    MAP_MAP_o,iterateTheory.LAMBDA_PAIR,
+    combinTheory.o_ABS_R,iSUM_FILTER]>>
+  fs[Once $ GSYM combinTheory.o_ABS_R,iSUM_FILTER,LIST_REL_EVERY_ZIP]>>
+  drule_then assume_tac $ cj 2 LENGTH_ZIP>>
+  pop_assum (fn thm =>
+    pure_rewrite_tac[
+      GSYM thm,intReduceTheory.INT_GE_CONV_pth,
+      LENGTH_FILTER_GE,LENGTH_FILTER_EQ])>>
+  fs[EVERY_MEM]>>
+  ho_match_mp_tac FORALL_IMP_EQ>>
+  fs[EQ_SYM_EQ,iterateTheory.LAMBDA_PAIR]
 QED
 
 Theorem reify_tuple_eq_sem:
