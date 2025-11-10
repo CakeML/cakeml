@@ -5899,10 +5899,12 @@ val comp_correct_thm =
   |> Q.INST [`regs`|->`s.regs`]
   |> REWRITE_RULE [SUBMAP_REFL];
 
-val with_same_regs_lemma = Q.prove(
-  `s with <| regs := s.regs; compile := cc; compile_oracle := oracle; gc_fun := anything; use_stack := T; use_store := T; use_alloc := F; clock := k; code := c |> =
-   s with <| compile := cc; compile_oracle := oracle; gc_fun := anything; use_stack := T; use_store := T; use_alloc := F; clock := k; code := c |>`,
-  simp[state_component_equality])
+Theorem with_same_regs_lemma[local]:
+   s with <| regs := s.regs; compile := cc; compile_oracle := oracle; gc_fun := anything; use_stack := T; use_store := T; use_alloc := F; clock := k; code := c |> =
+   s with <| compile := cc; compile_oracle := oracle; gc_fun := anything; use_stack := T; use_store := T; use_alloc := F; clock := k; code := c |>
+Proof
+  simp[state_component_equality]
+QED
 val _ = augment_srw_ss[rewrites[with_same_regs_lemma]];
 
 Theorem compile_semantics:

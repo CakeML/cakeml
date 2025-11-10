@@ -1737,8 +1737,10 @@ Proof
   metis_tac[evaluate_io_events_mono,FST,SND,PAIR]
 QED
 
-val with_clock_ffi = Q.prove(
-  `(s with clock := k).ffi = s.ffi`,EVAL_TAC)
+Theorem with_clock_ffi[local]:
+   (s with clock := k).ffi = s.ffi
+Proof EVAL_TAC
+QED
 val lemma = DECIDE``¬(x < y - z) ⇒ ((a:num) + x - (y - z) = x - (y - z) + a)``
 val lemma2 = DECIDE``x ≠ 0n ⇒ a + (x - 1) = a + x - 1``
 val lemma3 = DECIDE``¬(x:num < t+1) ⇒ a + (x - (t+1)) = a + x - (t+1)``
@@ -3751,4 +3753,3 @@ Theorem initial_state_clock:
 Proof
   EVAL_TAC
 QED
-

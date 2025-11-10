@@ -675,7 +675,10 @@ Proof
   rw[] >> simp[mk_linfix_def, left_insert_def]
 QED
 
-val elim_disjineq = Q.prove( `p \/ x ≠ y ⇔ (x = y ⇒ p)`, DECIDE_TAC)
+Theorem elim_disjineq[local]:
+   p \/ x ≠ y ⇔ (x = y ⇒ p)
+Proof DECIDE_TAC
+QED
 Triviality elim_det:
   (!x. P x ⇔ (x = y)) ==> P y
 Proof
