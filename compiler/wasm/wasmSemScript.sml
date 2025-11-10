@@ -15,7 +15,7 @@ Datatype: state =
     memory  : word8 list;
     types   : functype list;
     funcs   : func list;
-    func_table : num list;
+    func_table : word32 list;
   |>
 End
 
@@ -489,6 +489,9 @@ Definition exec_def:
                     | (BlkNil  , [] ) => (RNormal, s with stack :=     orig_stk)
                     | (BlkVal _, [v]) => (RNormal, s with stack := v:: orig_stk)
                     | ( _      , _  ) => inv s)
+(*
+    | RReturn => (RReturn, s with stack := s.stack ++ orig_stk)
+*)
     | _ => (res,s)
   ) ∧
   (exec (Loop bt body) s =
@@ -546,10 +549,10 @@ Definition exec_def:
       case res of
       | RNormal =>
           if LENGTH s1.stack ≠ nr then (RInvalid,s1) else
-            (RReturn, s with stack := s1.stack)
+            (RReturn, s1)
       | RReturn =>
           if LENGTH s1.stack < nr then (RInvalid,s1) else
-            (RReturn, s with stack := TAKE nr s1.stack)
+            (RReturn, s1)
       | RBreak _ => (RInvalid, s1)
       | _ => (res, s1)
   ) ∧
@@ -557,8 +560,11 @@ Definition exec_def:
     case pop s                                        of NONE=>inv s| SOME (x,s) =>
     case dest_i32 x                                   of NONE=>inv s| SOME w     =>
     case lookup_func_tables [s.func_table] (w2n n) w of NONE=>inv s| SOME fi    =>
+(*
     case oEL fi s.funcs                               of NONE=>inv s| SOME f     =>
       exec (ReturnCall (n2w fi)) s
+*)
+    exec (ReturnCall fi) s
   ) ∧
   (exec (Call fi) s =
     case oEL (w2n fi) s.funcs      of NONE => inv s | SOME f          =>
@@ -574,10 +580,10 @@ Definition exec_def:
       case res of
       | RNormal =>
           if LENGTH s1.stack ≠ nr then (RInvalid,s1) else
-            (RNormal, s with stack := s1.stack ++ s.stack)
+            (RNormal, s1 with stack := s1.stack ++ s.stack)
       | RReturn =>
           if LENGTH s1.stack < nr then (RInvalid,s1) else
-            (RNormal, s with stack := TAKE nr s1.stack ++ s.stack)
+            (RNormal, s1 with stack := TAKE nr s1.stack ++ s.stack)
       | RBreak _ => (RInvalid, s1)
       | _ => (res, s1)
   ) ∧
@@ -587,7 +593,7 @@ Definition exec_def:
     (* TODO we removed one layer of indirection *)
     (* we only use one func table *)
     case lookup_func_tables [s.func_table] (w2n n) w of NONE => inv s | SOME fi =>
-      exec (Call (n2w fi)) s
+    exec (Call fi) s
   ) ∧
   (****************)
   (*   Numerics   *)

@@ -25,4 +25,5 @@ Datatype: result
   | RTrap
   | RNormal
   | RTimeout
+  | RHalt (* corresponds to Halt and FinalFFI in stackLang sem *)
 End
