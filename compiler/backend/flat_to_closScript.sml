@@ -165,6 +165,7 @@ Definition compile_op_def:
     | Vsub => Let t xs (If t (Op t (BlockOp BoundsCheckBlock) [Var t 0; Var t 1])
                              (Op t (MemOp El) [Var t 0; Var t 1])
                              (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
+    | Vsub_unsafe => Op t (MemOp El) xs
     | Asub => Let t xs (If t (Op t (MemOp BoundsCheckArray) [Var t 0; Var t 1])
                              (Op t (MemOp El) [Var t 0; Var t 1])
                              (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
@@ -331,4 +332,3 @@ Proof
   qspecl_then [`m`,`[x]`] mp_tac (SIMP_RULE std_ss [] LENGTH_compile)
   \\ Cases_on `compile m [x]` \\ fs []
 QED
-

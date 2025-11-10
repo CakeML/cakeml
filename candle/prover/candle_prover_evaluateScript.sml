@@ -423,6 +423,11 @@ Proof
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ gs [v_ok_def, EVERY_EL])
+  \\ Cases_on ‘op = Vsub_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [SF SFY_ss]
+    \\ first_assum (irule_at Any)
+    \\ gs [v_ok_def, EVERY_EL])
   \\ Cases_on ‘op = VfromList’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [SF SFY_ss]
@@ -1219,4 +1224,3 @@ Proof
                   evaluate_v_ok_decs_Denv, evaluate_v_ok_decs_Dexn,
                   evaluate_v_ok_decs_Dmod, evaluate_v_ok_decs_Dlocal]
 QED
-

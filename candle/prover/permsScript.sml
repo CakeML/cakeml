@@ -406,6 +406,9 @@ Proof
   \\ Cases_on ‘op = Vsub’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [perms_ok_def, EVERY_EL])
+  \\ Cases_on ‘op = Vsub_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [perms_ok_def, EVERY_EL])
   \\ Cases_on ‘op = VfromList’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
@@ -1013,4 +1016,3 @@ Theorem evaluate_perms_ok_dec =
   |> Q.SPECL [‘s’, ‘env’, ‘[dec]’]
   |> GEN_ALL
   |> SIMP_RULE (srw_ss()) [];
-
