@@ -444,7 +444,7 @@ Proof
   fs[FUNPOW_SUC]
 QED
 
-Theorem trace_prefpix0_spin:
+Theorem trace_prefix0_spin:
   trace_prefix0 fs spin = [||]
 Proof
   Cases_on ‘fs’>>
@@ -486,7 +486,8 @@ Theorem trace_eq_lemma:
           (itree_unfold
              (λx.
                   case x of
-                    Ret r => Ret' (case r of INL l => ARB | INR r => r)
+                    Ret r => Ret' (case r of INL l => (a: 'a result option # 'a bstate)
+                                          | INR r => r)
                   | Tau t => Tau' t
                   | Vis e f => Vis' e (λx. f (INL x))) (t: 'a ptree)) =
   trace_prefix fs (t: 'a ptree)
