@@ -1179,4 +1179,3 @@ Proof
   imp_res_tac big_unclocked >> gvs[] >>
   Cases_on `r` >> gvs[combine_dec_result_def]
 QED
-

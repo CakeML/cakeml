@@ -1203,10 +1203,7 @@ Proof
     Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
                            CaseEqs ["list", "v", "option", "prod", "lit",
                                     "store_v"]]
-    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
-    \\ rw [] \\ gvs [CaseEqs ["bool", "option"]]
-    \\ gvs [store_alloc_def, v_rel_def, PULL_EXISTS, CaseEqs ["bool", "option"],
-            v_rel_def, sub_exn_v_def, stamp_rel_cases, subscript_stamp_def]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs [LIST_REL_EL_EQN]
     \\ first_assum (irule_at Any)
     \\ gs [state_rel_def, LIST_REL_EL_EQN])
   \\ Cases_on ‘op = VfromList’ \\ gs []
