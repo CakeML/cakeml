@@ -7,10 +7,9 @@ open preamble
 open set_sepTheory helperLib
 open cfHeapsBaseTheory
 
-val ERR = mk_HOL_ERR"cfHeapsBaseSyntax";
+val ERR = mk_HOL_ERR "cfHeapsBaseSyntax";
 
 local
-
   structure Parse = struct
     open Parse
      val (Type,Term) =
@@ -39,30 +38,41 @@ val heap_part_ty =
 val res_ty =
   mk_thy_type {Thy = "cfHeapsBase", Tyop = "res", Args = []}
 
-fun dest_sep_imp tm = let
-  val format = (fst o dest_eq o concl o SPEC_ALL) SEP_IMP_def
-  in if can (match_term format) tm then (cdr (car tm), cdr tm) else fail() end
+local
+val sep_imp = prim_mk_const {Name = "SEP_IMP", Thy = "set_sep"}
+in
+val dest_sep_imp = dest_binop sep_imp (ERR "dest_sep_imp" "")
+end
 
-fun dest_cell tm = let
-  val format = (fst o dest_eq o concl o SPEC_ALL) cell_def
-  in if can (match_term format) tm then (cdr (car tm), cdr tm) else fail() end
+local
+val cell = prim_mk_const {Name = "cell", Thy = "cfHeapsBase"}
+in
+val dest_cell = dest_binop cell (ERR "dest_cell" "")
+end
 
-fun dest_REF tm = let
-  val format = (fst o dest_eq o concl o SPEC_ALL) REF_def
-  in if can (match_term format) tm then (cdr (car tm), cdr tm) else fail() end
+local
+val REF = prim_mk_const {Name = "REF", Thy = "cfHeapsBase"}
+in
+val dest_REF = dest_binop REF (ERR "dest_REF" "")
+end
 
-fun dest_ARRAY tm = let
-  val format = (fst o dest_eq o concl o SPEC_ALL) ARRAY_def
-  in if can (match_term format) tm then (cdr (car tm), cdr tm) else fail() end
+local
+val ARRAY = prim_mk_const {Name = "ARRAY", Thy = "cfHeapsBase"}
+in
+val dest_ARRAY = dest_binop ARRAY (ERR "dest_ARRAY" "")
+end
 
-fun dest_W8ARRAY tm = let
-  val format = (fst o dest_eq o concl o SPEC_ALL) W8ARRAY_def
-  in if can (match_term format) tm then (cdr (car tm), cdr tm) else fail() end
+local
+val W8ARRAY = prim_mk_const {Name = "W8ARRAY", Thy = "cfHeapsBase"}
+in
+val dest_W8ARRAY = dest_binop W8ARRAY (ERR "dest_W8ARRAY" "")
+end
 
-fun dest_IO tm = let
-  val format = (fst o dest_eq o concl o SPEC_ALL) IO_def
-  in if can (match_term format) tm then (cdr (car (car tm)), cdr (car tm), cdr tm)
-     else fail() end
+local
+val IO = prim_mk_const {Name = "IO", Thy = "cfHeapsBase"}
+in
+val dest_IO = dest_triop IO (ERR "dest_W8ARRAY" "")
+end
 
 fun is_cell tm = can dest_cell tm
 fun is_REF tm = can dest_REF tm
@@ -72,23 +82,28 @@ fun is_IO tm = can dest_IO tm
 
 fun is_sep_imp tm = can dest_sep_imp tm
 
-fun is_sep_imppost tm = let
-  val format = (fst o dest_eq o concl o SPEC_ALL) SEP_IMPPOST_def
-  in can (match_term format) tm end
+local
+val SEP_IMPPOST = prim_mk_const {Name = "SEP_IMPPOST", Thy = "cfHeapsBase"}
+val dest_sep_imppost = dest_binop SEP_IMPPOST (ERR "is_sep_imppost" "")
+in
+val is_sep_imppost = can dest_sep_imppost
+end
 
-fun is_cond tm = let
-  val format = (fst o dest_eq o concl o SPEC_ALL) cond_def
-  in can (match_term format) tm end
+local
+val cond_tm = inst [alpha |-> heap_part_ty]
+              (prim_mk_const {Name = "cond", Thy = "set_sep"})
+in
+val is_cond = can (dest_monop cond_tm (ERR "is_cond" ""))
+fun mk_cond tm = mk_comb (cond_tm,tm)
+                 handle HOL_ERR _ => raise (ERR "mk_cond" "")
+end
 
-fun is_sep_exists tm = let
-  val se = (fst o dest_eq o concl o SPEC_ALL) SEP_EXISTS
-  in (ignore (match_term se (dest_comb tm |> fst)); true)
-     handle HOL_ERR _ => false
-  end
-
-fun mk_cond t =
-  SPEC t (INST_TYPE [alpha |-> heap_part_ty] cond_def)
-  |> concl |> lhs
+local
+val se = (fst o dest_eq o concl o SPEC_ALL) SEP_EXISTS
+in
+fun is_sep_exists tm = (same_const se (dest_comb tm |> fst))
+                       handle HOL_ERR _ => false
+end
 
 val emp_tm =
   inst [alpha |-> heap_part_ty]

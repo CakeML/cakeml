@@ -13,27 +13,24 @@ open xcf;
 
 val ERR = mk_HOL_ERR "cfTacticsLib";
 
-fun constant_printer s _ _ _ (ppfns:term_pp_types.ppstream_funs) _ _ _ =
-  let
+local
+  fun constant_printer s _ _ _ (ppfns:term_pp_types.ppstream_funs) _ _ _ = let
     open Portable term_pp_types smpp
     val str = #add_string ppfns
   in str s end
-
-val ellipsis_pp = constant_printer "(…)"
-
-val printers = [
-  ("extend_env_ellipsis", ``extend_env _ _ _``, ellipsis_pp),
-  ("extend_env_rec_ellipsis", ``extend_env_rec _ _ _ _ _``, ellipsis_pp),
-  ("extend_env_with_ellipsis", ``extend_env _ _ _ with v := _``, ellipsis_pp),
-  ("extend_env_rec_with_ellipsis", ``extend_env_rec _ _ _ _ _ with v := _``,
-   ellipsis_pp)
-]
-
+  val ellipsis_pp = constant_printer "(…)"
+  val printers = [
+    ("extend_env_ellipsis", ``extend_env _ _ _``, ellipsis_pp),
+    ("extend_env_rec_ellipsis", ``extend_env_rec _ _ _ _ _``, ellipsis_pp),
+    ("extend_env_with_ellipsis", ``extend_env _ _ _ with v := _``, ellipsis_pp),
+    ("extend_env_rec_with_ellipsis",
+     ``extend_env_rec _ _ _ _ _ with v := _``, ellipsis_pp)
+  ]
+in
 fun hide_environments b =
   if b then app temp_add_user_printer printers
   else app (ignore o temp_remove_user_printer) (map #1 printers)
-
-val _ = hide_environments true
+end
 
 (*------------------------------------------------------------------*)
 
@@ -107,20 +104,20 @@ val reducible_pats = [
   ``Fun_body _``
 ]
 
-val old_reduce_conv =
-    DEPTH_CONV (
-      List.foldl (fn (pat, conv) => (eval_pat pat) ORELSEC conv)
-                 ALL_CONV reducible_pats
-    ) THENC
-    (simp_conv [])
-
 val reduce_conv =
     (DEPTH_CONV (
       List.foldl (fn (pat, conv) => (eval_pat pat) ORELSEC conv)
-                 ALL_CONV reducible_pats
-    )) THENC
-    (STRIP_QUANT_CONV (simp_conv []))
-    THENC (SIMP_CONV (list_ss) [])
+                 ALL_CONV reducible_pats))
+    (* It seems that the next line makes npbc_arrayProg around 29s faster; it would
+       be good to confirm this, though. Maybe doing basic simplifications first
+       results in a smaller term, meaning less work is done in the following
+       SIMP_CONV? *)
+    THENC (STRIP_QUANT_CONV (SIMP_CONV pure_ss []))
+    (* We probably do not use all of srw_ss, so there may be potential for a
+       smaller simpset. Some of the things we use, though:
+       - simpLib.type_ssfrag for at least ast$op
+       - pair_CASE_def *)
+    THENC (SIMP_CONV (srw_ss()) [])
 
 val reduce_tac = CONV_TAC reduce_conv
 
@@ -171,12 +168,9 @@ val xlocal =
     (HO_MATCH_ACCEPT_TAC cf_cases_local \\ NO_TAC),
     (asm_rewrite_tac (cf_defs) \\
      CONV_TAC (ONCE_DEPTH_CONV BETA_CONV) \\
-     rewrite_tac [local_is_local] \\
-     NO_TAC),
-    (* The previous tactic hopefully takes care of the goal;
-     * however, for backwards compatibility we might as well
-     * keep this around. *)
-    (fs (local_is_local :: cf_defs) \\ NO_TAC)
+     rewrite_tac [local_is_local])
+    (* Note the lack of NO_TAC in the final attempt -
+       unsolved goals will be returned *)
   ] (* todo: is_local_pred *)
 
 fun xpull_check_not_needed (g as (_, w)) =
@@ -190,7 +184,7 @@ fun xpull_core (g as (_, w)) =
     hclean g
 
 val xpull =
-  xpull_core \\ rpt strip_tac THEN1 (TRY xlocal)
+  xpull_core \\ rpt strip_tac THEN_LT (NTH_GOAL xlocal 1)
 
 (* [xsimpl] *)
 
@@ -209,17 +203,16 @@ val xsimpl =
 
 (* [xlet] *)
 
-fun xlet_core cont0 qname =
+fun xlet_core Q qname =
   xpull_check_not_needed \\
   head_unfold cf_let_def \\
   irule local_elim \\ hnf \\
   rewrite_tac [namespaceTheory.nsOptBind_def] \\
-  cont0 \\
+  qexists_tac Q \\
   rpt CONJ_TAC THENL [
     all_tac,
     TRY (MATCH_ACCEPT_TAC cfHeapsBaseTheory.SEP_IMPPOSTv_inv_POSTv_left),
-    (qx_gen_tac qname \\ simp_tac (srw_ss()) [])
-    \\ TRY xpull
+    qx_gen_tac qname \\ simp_tac (srw_ss()) [] \\ TRY xpull
   ]
 
 val res_CASE_tm =
@@ -267,12 +260,8 @@ fun xlet Q (g as (asl, w)) = let
   val ctx = free_varsl (w :: asl)
   val name = vname_of_post "v" (Term Q)
   val name' = prim_variant ctx (mk_var (name, v_ty)) |> dest_var |> fst
-  val qname = [QUOTE name']
 in
-  xlet_core
-    (qexists_tac Q)
-    qname
-    g
+  xlet_core Q [QUOTE name'] g
 end
 
 (* [xfun] *)
@@ -617,10 +606,16 @@ in
 end
 
 val unfold_cases =
-  simp [cf_cases_def] \\
-  CONSEQ_CONV_TAC (CONSEQ_HO_REWRITE_CONV ([local_elim], [], [])) \\
+  (* using the "once" variant does not work *)
+  pure_rewrite_tac [cf_cases_def] \\
+  CONSEQ_HO_REWRITE_TAC ([local_elim], [], []) \\
   CONV_TAC (LAND_CONV clean_cases_conv) \\
-  simp []
+  (* srw_ss() can potentially be weakened much more; bool_ss fails because
+     it does not simplify something like
+       Conv (SOME (TypeStamp "Some" 2)) [Conv NONE [v1_1; v1_2]] =
+          Conv (SOME (TypeStamp "None" 2)) []
+     to F *)
+  asm_simp_tac (srw_ss()) []
 
 fun validate_pat_conv tm = let
   val conv =
