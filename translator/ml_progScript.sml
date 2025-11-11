@@ -227,20 +227,24 @@ Definition write_tdefs_def:
     write_tdefs (n+1) tds (write_conses (REVERSE (build_constrs n condefs)) env)
 End
 
-val write_conses_v = prove(
-  ``!xs env. (write_conses xs env).v = env.v``,
-  Induct \\ fs [write_conses_def,FORALL_PROD,write_cons_def]);
+Theorem write_conses_v[local]:
+    !xs env. (write_conses xs env).v = env.v
+Proof
+  Induct \\ fs [write_conses_def,FORALL_PROD,write_cons_def]
+QED
 
-val write_tdefs_lemma = prove(
-  ``!tds env n.
+Theorem write_tdefs_lemma[local]:
+    !tds env n.
       write_tdefs n tds env =
-      merge_env <|v := nsEmpty; c := build_tdefs n tds|> env``,
+      merge_env <|v := nsEmpty; c := build_tdefs n tds|> env
+Proof
   Induct \\ fs [write_tdefs_def,merge_env_def,build_tdefs_def,FORALL_PROD]
   \\ rw [write_conses_v]
   \\ rewrite_tac [GSYM namespacePropsTheory.nsAppend_assoc]
   \\ AP_TERM_TAC
   \\ Q.SPEC_TAC (`REVERSE (build_constrs n p_2)`,`xs`)
-  \\ Induct \\ fs [write_conses_def,FORALL_PROD,write_cons_def]);
+  \\ Induct \\ fs [write_conses_def,FORALL_PROD,write_cons_def]
+QED
 
 Theorem write_tdefs_thm:
    write_tdefs n tds empty_env =
@@ -249,17 +253,21 @@ Proof
   fs [write_tdefs_lemma,empty_env_def,merge_env_def]
 QED
 
-val merge_env_write_conses = prove(
-  ``!xs env. merge_env (write_conses xs env1) env2 =
-             write_conses xs (merge_env env1 env2)``,
+Theorem merge_env_write_conses[local]:
+    !xs env. merge_env (write_conses xs env1) env2 =
+             write_conses xs (merge_env env1 env2)
+Proof
   Induct \\ fs [write_conses_def,FORALL_PROD]
-  \\ fs [write_cons_def,merge_env_def,sem_env_component_equality]);
+  \\ fs [write_cons_def,merge_env_def,sem_env_component_equality]
+QED
 
-val merge_env_write_tdefs = prove(
-  ``!tds n env1 env2.
+Theorem merge_env_write_tdefs[local]:
+    !tds n env1 env2.
       merge_env (write_tdefs n tds env1) env2 =
-      write_tdefs n tds (merge_env env1 env2)``,
-  Induct \\ fs [write_tdefs_def,FORALL_PROD,merge_env_write_conses]);
+      write_tdefs n tds (merge_env env1 env2)
+Proof
+  Induct \\ fs [write_tdefs_def,FORALL_PROD,merge_env_write_conses]
+QED
 
 (* it's not clear if these are still needed, but ml_progComputeLib and
    cfTacticsLib want them to be present. *)

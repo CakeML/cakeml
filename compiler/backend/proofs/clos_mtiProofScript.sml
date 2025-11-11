@@ -208,20 +208,23 @@ Proof
   fs [dest_closure_def,case_eq_thms] \\ rw [] \\ fs []
 QED
 
-val collect_apps_acc = prove(
-  ``!max_app acc e res s.
+Theorem collect_apps_acc[local]:
+    !max_app acc e res s.
       collect_apps max_app acc e = (res,s) ==>
-      ?other. res = acc ++ other``,
+      ?other. res = acc ++ other
+Proof
   recInduct collect_apps_ind \\ rw []
   \\ pop_assum mp_tac
   \\ simp [collect_apps_def]
   \\ IF_CASES_TAC \\ fs []
-  \\ rw [] \\ res_tac \\ fs []);
+  \\ rw [] \\ res_tac \\ fs []
+QED
 
-val collect_apps_cons_lemma = prove(
-  ``!e1 m ys other e2.
+Theorem collect_apps_cons_lemma[local]:
+    !e1 m ys other e2.
       collect_apps (m+LENGTH ys) ys e1 = (ys ++ other,e2) <=>
-      collect_apps m [] e1 = (other,e2)``,
+      collect_apps m [] e1 = (other,e2)
+Proof
   Induct \\ fs [collect_apps_def]
   \\ rw [] \\ Cases_on `o'` \\ fs [collect_apps_def]
   \\ rw [] \\ fs []
@@ -235,15 +238,18 @@ val collect_apps_cons_lemma = prove(
   \\ pop_assum mp_tac
   \\ `(LENGTH l + LENGTH ys) = LENGTH (ys ++ l)` by fs []
   \\ asm_rewrite_tac []
-  \\ rfs []);
+  \\ rfs []
+QED
 
-val collect_apps_cons = prove(
-  ``!e1 m x other e2.
+Theorem collect_apps_cons[local]:
+    !e1 m x other e2.
       collect_apps m [x] e1 = (x::other,e2) /\ m <> 0 ==>
-      collect_apps (m-1) [] e1 = (other,e2)``,
+      collect_apps (m-1) [] e1 = (other,e2)
+Proof
   once_rewrite_tac [collect_apps_cons_lemma |> GSYM
        |> Q.SPECL [`e1`,`m`,`[x]`]
-       |> SIMP_RULE std_ss [LENGTH,APPEND]] \\ rw []);
+       |> SIMP_RULE std_ss [LENGTH,APPEND]] \\ rw []
+QED
 
 Definition mk_Apps_def:
   mk_Apps e [] = e /\
@@ -273,31 +279,35 @@ Proof
   \\ qexists_tac `t::ts` \\ fs [ZIP,mk_Apps_def]
 QED
 
-val mk_Apps_err_1 = prove(
-  ``∀ts other env1 s1 e3.
+Theorem mk_Apps_err_1[local]:
+    ∀ts other env1 s1 e3.
       evaluate (other,env1,s1) = (Rerr e2,s2) /\
       LENGTH other = LENGTH ts ==>
-      evaluate ([mk_Apps e3 (ZIP (ts,other))],env1,s1) = (Rerr e2,s2)``,
+      evaluate ([mk_Apps e3 (ZIP (ts,other))],env1,s1) = (Rerr e2,s2)
+Proof
   Induct
   \\ fs [evaluate_def]
   \\ Cases_on `other` \\ fs [ZIP,mk_Apps_def]
   \\ once_rewrite_tac [evaluate_CONS]
   \\ rw [] \\ fs [case_eq_thms,pair_case_eq]
-  \\ rveq \\ fs [] \\ fs [evaluate_def]);
+  \\ rveq \\ fs [] \\ fs [evaluate_def]
+QED
 
-val mk_Apps_err_2 = prove(
-  ``∀ts other env1 s1 e3 vs.
+Theorem mk_Apps_err_2[local]:
+    ∀ts other env1 s1 e3 vs.
       evaluate ([e3],env1,s2) = (Rerr e2,s2') /\
       evaluate (other,env1,s1) = (Rval vs,s2) /\
       LENGTH other = LENGTH ts ==>
-      evaluate ([mk_Apps e3 (ZIP (ts,other))],env1,s1) = (Rerr e2,s2')``,
+      evaluate ([mk_Apps e3 (ZIP (ts,other))],env1,s1) = (Rerr e2,s2')
+Proof
   Induct
   \\ fs [evaluate_def,mk_Apps_def]
   \\ Cases_on `other` \\ fs [ZIP,mk_Apps_def]
   \\ once_rewrite_tac [evaluate_CONS]
   \\ rw [] \\ fs [case_eq_thms,pair_case_eq]
   \\ rveq \\ fs [] \\ fs [evaluate_def]
-  \\ imp_res_tac evaluate_SING \\ rveq \\ fs []);
+  \\ imp_res_tac evaluate_SING \\ rveq \\ fs []
+QED
 
 Theorem collect_apps_no_mti:
    !k aux e res e1.
@@ -310,16 +320,18 @@ Proof
   \\ fs [no_mti_def, ETA_THM]
 QED
 
-val evaluate_mk_Apps_err = prove(
-  ``!other ts env1 s1 vs.
+Theorem evaluate_mk_Apps_err[local]:
+    !other ts env1 s1 vs.
       evaluate (other,env1,s1) = (Rval vs,s3) /\
       evaluate ([e],env1,s3) = (Rerr e3,s2') /\
       LENGTH other = LENGTH ts ==>
-      evaluate ([mk_Apps e (ZIP (ts,other))],env1,s1) = (Rerr e3,s2')``,
+      evaluate ([mk_Apps e (ZIP (ts,other))],env1,s1) = (Rerr e3,s2')
+Proof
   Induct \\ Cases_on `ts` \\ fs [mk_Apps_def]
   \\ fs [evaluate_def]
   \\ simp [Once evaluate_CONS] \\ rw []
-  \\ fs [case_eq_thms,pair_case_eq] \\ rveq);
+  \\ fs [case_eq_thms,pair_case_eq] \\ rveq
+QED
 
 Definition evaluate_apps_def:
   evaluate_apps f [] s = (Rval [f], s) /\
@@ -494,9 +506,11 @@ Theorem v_rel_simps[simp] =
         fs [closSemTheory.Unit_def,Once v_rel_cases])]
   |> map GEN_ALL)
 
-val v_rel_opt_thm = prove(
-  ``v_rel_opt m = OPTREL (v_rel m)``,
-  fs [FUN_EQ_THM] \\ Cases  \\ Cases \\ fs [OPTREL_def,v_rel_opt_def]);
+Theorem v_rel_opt_thm[local]:
+    v_rel_opt m = OPTREL (v_rel m)
+Proof
+  fs [FUN_EQ_THM] \\ Cases  \\ Cases \\ fs [OPTREL_def,v_rel_opt_def]
+QED
 
 Theorem simple_val_rel:
   simple_val_rel (v_rel max_app_n)
@@ -582,13 +596,17 @@ Proof
   mp_tac do_app_inst \\ fs [] \\ EVERY_CASE_TAC \\ metis_tac []
 QED
 
-val v_rel_IMP_v_to_bytes = prove(
-  ``v_rel max_app x y ==> v_to_bytes y = v_to_bytes x``,
-  metis_tac [simple_val_rel, simple_val_rel_v_to_bytes]);
+Theorem v_rel_IMP_v_to_bytes[local]:
+    v_rel max_app x y ==> v_to_bytes y = v_to_bytes x
+Proof
+  metis_tac [simple_val_rel, simple_val_rel_v_to_bytes]
+QED
 
-val v_rel_IMP_v_to_words = prove(
-  ``v_rel max_app x y ==> v_to_words y = v_to_words x``,
-  metis_tac [simple_val_rel, simple_val_rel_v_to_words]);
+Theorem v_rel_IMP_v_to_words[local]:
+    v_rel max_app x y ==> v_to_words y = v_to_words x
+Proof
+  metis_tac [simple_val_rel, simple_val_rel_v_to_words]
+QED
 
 val do_install_inst =
   simple_val_rel_do_install
@@ -598,8 +616,8 @@ val do_install_inst =
   |> SIMP_RULE bool_ss [simple_val_rel, simple_state_rel]
   |> Q.SPEC `clos_mti$compile_inc s.max_app`
 
-val do_install_lemma = prove(
-  ``state_rel s t /\ LIST_REL (v_rel s.max_app) xs ys ==>
+Theorem do_install_lemma[local]:
+    state_rel s t /\ LIST_REL (v_rel s.max_app) xs ys ==>
     case do_install xs s of
       | (Rerr err1, s1) => ?err2 t1. do_install ys t = (Rerr err2, t1) /\
                             exc_rel (v_rel s.max_app) err1 err2 /\
@@ -607,7 +625,8 @@ val do_install_lemma = prove(
       | (Rval exps1, s1) => ?exps2 t1. (s1.max_app = s.max_app /\
                                state_rel s1 t1) /\ (~ (exps1 = [])) /\
                                code_rel s.max_app exps1 exps2 /\
-                               do_install ys t = (Rval exps2, t1)``,
+                               do_install ys t = (Rval exps2, t1)
+Proof
   strip_tac
   \\ irule do_install_inst
   \\ fs [simple_compile_state_rel_def, simple_state_rel]
@@ -616,7 +635,7 @@ val do_install_lemma = prove(
             clos_mtiTheory.intro_multi_length, code_rel_def, state_rel_def]
   \\ rw [shift_seq_def, backendPropsTheory.pure_co_def, FUN_EQ_THM] \\ rfs []
   \\ fs [PAIR_FST_SND_EQ] \\ rveq \\ fs []
-  );
+QED
 
 Theorem intro_multi_EQ_NIL[simp]:
    ∀max_app es. intro_multi max_app es = [] ⇔ es = []

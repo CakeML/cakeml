@@ -456,14 +456,18 @@ val def = infer_def ``constrain_op``
 
 val r = translate def
 
-val MAP_type_name_subst = prove(
-  ``MAP (type_name_subst tenvT) ts =
-    MAP (\x. type_name_subst tenvT x) ts``,
-  CONV_TAC (DEPTH_CONV ETA_CONV) \\ simp []);
+Theorem MAP_type_name_subst[local]:
+    MAP (type_name_subst tenvT) ts =
+    MAP (\x. type_name_subst tenvT x) ts
+Proof
+  CONV_TAC (DEPTH_CONV ETA_CONV) \\ simp []
+QED
 
-val lemma = prove(
-  ``MAP (\(x,y). foo x y) = MAP (\z. foo (FST z) (SND z))``,
-  AP_TERM_TAC \\ fs [FUN_EQ_THM,FORALL_PROD]);
+Theorem lemma[local]:
+    MAP (\(x,y). foo x y) = MAP (\z. foo (FST z) (SND z))
+Proof
+  AP_TERM_TAC \\ fs [FUN_EQ_THM,FORALL_PROD]
+QED
 
 val _ = translate (typeSystemTheory.build_ctor_tenv_def
          |> REWRITE_RULE [MAP_type_name_subst]
@@ -667,11 +671,13 @@ Proof
   fs []
 QED
 
-val MEM_anub = prove(``
+Theorem MEM_anub[local]:
   ∀e1M ls k v1.
   MEM (k,v1) (anub e1M ls) ⇒
-  MEM (k,v1) e1M``,
-  ho_match_mp_tac miscTheory.anub_ind>>rw[anub_def]>>metis_tac[]);
+  MEM (k,v1) e1M
+Proof
+  ho_match_mp_tac miscTheory.anub_ind>>rw[anub_def]>>metis_tac[]
+QED
 
 Definition nsSub_translate_def:
   nsSub_translate path R b1 b2 ⇔
@@ -693,20 +699,25 @@ Termination
   >> fs [namespaceTheory.namespace_size_def]
 End
 
-val ALOOKUP_MEM_anub = prove(
-  ``∀ls acc k v.
+Theorem ALOOKUP_MEM_anub[local]:
+    ∀ls acc k v.
     MEM (k,v) (anub ls acc) ⇔
-    (ALOOKUP ls k = SOME v ∧ ¬MEM k acc)``,
+    (ALOOKUP ls k = SOME v ∧ ¬MEM k acc)
+Proof
     ho_match_mp_tac miscTheory.anub_ind>>rw[anub_def]>>IF_CASES_TAC>>fs[]>>
-    metis_tac[]);
+    metis_tac[]
+QED
 
-val MEM_ALOOKUP = prove(``
-  ∀ls k. MEM k (MAP FST ls) ⇒ ∃v. ALOOKUP ls k = SOME v``,
+Theorem MEM_ALOOKUP[local]:
+  ∀ls k. MEM k (MAP FST ls) ⇒ ∃v. ALOOKUP ls k = SOME v
+Proof
   Induct>>fs[MEM_MAP,FORALL_PROD,EXISTS_PROD,PULL_EXISTS]>>rw[]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
-val nsSub_thm = prove(``
-  ∀ls R e1 e2. nsSub_compute ls R e1 e2 ⇔ nsSub_translate ls R e1 e2``,
+Theorem nsSub_thm[local]:
+  ∀ls R e1 e2. nsSub_compute ls R e1 e2 ⇔ nsSub_translate ls R e1 e2
+Proof
   ho_match_mp_tac (fetch "-" "nsSub_translate_ind")>>
   rw[]>>
   simp[Once nsSub_translate_def]>> every_case_tac>>
@@ -726,7 +737,8 @@ val nsSub_thm = prove(``
   >>
     (fs[ALOOKUP_MEM_anub,EVERY_MEM,FORALL_PROD]>>
     imp_res_tac MEM_ALOOKUP>>fs[]>>
-    res_tac>>fs[]>>every_case_tac>>fs[]))
+    res_tac>>fs[]>>every_case_tac>>fs[])
+QED
 
 val res = translate infertype_prog_def;
 

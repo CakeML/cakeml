@@ -2478,7 +2478,7 @@ Proof
     metis_tac[]
   >>
     fs[stubs_fst_eq]
-QED;
+QED
 
 Theorem data_to_word_good_handlers:
   (data_to_word$compile data_conf word_conf asm_conf prog) = (xx,prog') ⇒

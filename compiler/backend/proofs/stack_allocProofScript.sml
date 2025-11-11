@@ -1857,10 +1857,11 @@ Definition word_gen_gc_partial_move_roots_bitmaps_def:
           | SOME stack => (stack,i2,pa2,m2,c2)
 End
 
-val word_gen_gc_partial_move_ref_list_ok = prove(
-  ``!k rs re pb pa old m i gs dm conf c i1 pa1 m1.
+Theorem word_gen_gc_partial_move_ref_list_ok[local]:
+    !k rs re pb pa old m i gs dm conf c i1 pa1 m1.
       word_gen_gc_partial_move_ref_list k conf
-       (pb,i,pa,old,m,dm,c,gs,rs,re) = (i1,pa1,m1,T) ==> c``,
+       (pb,i,pa,old,m,dm,c,gs,rs,re) = (i1,pa1,m1,T) ==> c
+Proof
   Induct
   THEN1 (once_rewrite_tac [word_gen_gc_partial_move_ref_list_def]
          \\ fs [] \\ rw [])
@@ -1871,7 +1872,8 @@ val word_gen_gc_partial_move_ref_list_ok = prove(
   \\ pairarg_tac
   \\ res_tac
   \\ asm_rewrite_tac [] \\ simp_tac std_ss []
-  \\ strip_tac \\ res_tac);
+  \\ strip_tac \\ res_tac
+QED
 
 Triviality gc_thm:
   s.gc_fun = word_gc_fun conf /\ conf.gc_kind = ^kind ==>
@@ -4525,11 +4527,13 @@ Proof
   \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs []
 QED
 
-val word_sub_0_eq = prove(
-  ``((-1w * w + v = 0w) <=> w = v) /\
-    ((v + -1w * w = 0w) <=> w = v)``,
+Theorem word_sub_0_eq[local]:
+    ((-1w * w + v = 0w) <=> w = v) /\
+    ((v + -1w * w = 0w) <=> w = v)
+Proof
   once_rewrite_tac [GSYM wordsTheory.WORD_EQ_NEG]
-  \\ once_rewrite_tac [GSYM wordsTheory.WORD_EQ_SUB_ZERO] \\ fs []);
+  \\ once_rewrite_tac [GSYM wordsTheory.WORD_EQ_SUB_ZERO] \\ fs []
+QED
 
 Theorem good_dimindex_byte_aligned_eq:
    good_dimindex (:'a) ==>
@@ -4540,8 +4544,8 @@ Proof
   \\ fs [alignmentTheory.byte_aligned_def,alignmentTheory.aligned_bitwise_and]
 QED
 
-val evaluate_SetNewTrigger = prove(
-  ``evaluate (SetNewTrigger endh_reg ib_reg gen_sizes,s5) = (res,new_s) ==>
+Theorem evaluate_SetNewTrigger[local]:
+    evaluate (SetNewTrigger endh_reg ib_reg gen_sizes,s5) = (res,new_s) ==>
     !ib endh w.
       good_dimindex (:'a) /\ s5.use_store /\
       ALL_DISTINCT [1; 4; 7; ib_reg; endh_reg] /\
@@ -4552,7 +4556,8 @@ val evaluate_SetNewTrigger = prove(
         res = NONE /\
         new_s = s5 with <| regs := s5.regs |+ (1,r1) |+ (7,r7) |+ (4,r4);
                            store := s5.store |+ (TriggerGC,
-                             Word ((ib + new_trig (endh - ib) w gen_sizes))) |>``,
+                             Word ((ib + new_trig (endh - ib) w gen_sizes))) |>
+Proof
   rw [] \\ qpat_x_assum `evaluate _ = _` mp_tac
   \\ rw [new_trig_def]
   \\ pop_assum mp_tac
@@ -4575,7 +4580,8 @@ val evaluate_SetNewTrigger = prove(
   \\ rw [] \\ fs [state_component_equality]
   \\ fs [fmap_EXT,EXTENSION]
   \\ fs [GSYM PULL_EXISTS]
-  \\ fs [FAPPLY_FUPDATE_THM] \\ metis_tac []);
+  \\ fs [FAPPLY_FUPDATE_THM] \\ metis_tac []
+QED
 
 Theorem alloc_correct_lemma_Generational:
    alloc w (s:('a,'c,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
@@ -4969,23 +4975,26 @@ QED
 
 (* gc_kind = None *)
 
-val filter_bitmap_map_bitmap_IMP = prove(
-  ``!x ws q r x' q' q'' r''.
+Theorem filter_bitmap_map_bitmap_IMP[local]:
+    !x ws q r x' q' q'' r''.
       filter_bitmap x ws = SOME (q,r) /\
       map_bitmap x (q ++ x') ws = SOME (q',q'',r'') ==>
-      q'' = x' /\ r = r'' /\ ws = q' ++ r``,
+      q'' = x' /\ r = r'' /\ ws = q' ++ r
+Proof
   Induct \\ fs [filter_bitmap_def,map_bitmap_def]
   \\ Cases \\ Cases
   \\ fs [filter_bitmap_def,map_bitmap_def]
   \\ every_case_tac \\ fs [map_bitmap_def]
   \\ rw [] \\ every_case_tac \\ fs [] \\ rveq \\ fs []
-  \\ res_tac \\ rveq \\ fs []);
+  \\ res_tac \\ rveq \\ fs []
+QED
 
-val enc_dec_stack = prove(
-  ``!bs ys2 x1 x2.
+Theorem enc_dec_stack[local]:
+    !bs ys2 x1 x2.
       enc_stack bs ys2 = SOME x1 /\
       dec_stack bs x1 ys2 = SOME x2 ==>
-      (ys2 = x2)``,
+      (ys2 = x2)
+Proof
   ho_match_mp_tac enc_stack_ind
   \\ fs [enc_stack_def] \\ rw []
   \\ rw [] \\ fs [dec_stack_def]
@@ -4997,7 +5006,8 @@ val enc_dec_stack = prove(
   \\ drule filter_bitmap_map_bitmap_IMP
   \\ fs [] \\ strip_tac \\ rveq \\ fs []
   \\ pop_assum drule \\ fs [] \\ rw []
-  \\ res_tac \\ rveq \\ fs []);
+  \\ res_tac \\ rveq \\ fs []
+QED
 
 Theorem alloc_correct_lemma_None:
    alloc w (s:('a,'c,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
@@ -5889,10 +5899,12 @@ val comp_correct_thm =
   |> Q.INST [`regs`|->`s.regs`]
   |> REWRITE_RULE [SUBMAP_REFL];
 
-val with_same_regs_lemma = Q.prove(
-  `s with <| regs := s.regs; compile := cc; compile_oracle := oracle; gc_fun := anything; use_stack := T; use_store := T; use_alloc := F; clock := k; code := c |> =
-   s with <| compile := cc; compile_oracle := oracle; gc_fun := anything; use_stack := T; use_store := T; use_alloc := F; clock := k; code := c |>`,
-  simp[state_component_equality])
+Theorem with_same_regs_lemma[local]:
+   s with <| regs := s.regs; compile := cc; compile_oracle := oracle; gc_fun := anything; use_stack := T; use_store := T; use_alloc := F; clock := k; code := c |> =
+   s with <| compile := cc; compile_oracle := oracle; gc_fun := anything; use_stack := T; use_store := T; use_alloc := F; clock := k; code := c |>
+Proof
+  simp[state_component_equality]
+QED
 val _ = augment_srw_ss[rewrites[with_same_regs_lemma]];
 
 Theorem compile_semantics:
@@ -6109,9 +6121,11 @@ Theorem next_lab_EQ_MAX = Q.prove(`
   rpt (pop_assum (fn th => once_rewrite_tac [th])) >>
   fs [AC MAX_ASSOC MAX_COMM]) |> SIMP_RULE std_ss [];
 
-val MAX_SIMP = prove(
-  ``MAX n (MAX n m) = MAX n m``,
-  fs [MAX_DEF]);
+Theorem MAX_SIMP[local]:
+    MAX n (MAX n m) = MAX n m
+Proof
+  fs [MAX_DEF]
+QED
 
 Theorem next_lab_thm:
    !p.

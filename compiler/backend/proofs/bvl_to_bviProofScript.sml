@@ -586,10 +586,12 @@ Proof
 QED
 val _ = print "Proved do_app_ok_lemma\n"
 
-val dec_clock_inc_clock = prove(
-  ``c <> 0 ==> dec_clock 1 (inc_clock c t) =
-               inc_clock (c-1) (t: ('c,'ffi) bviSem$state)``,
-  EVAL_TAC \\ fs [bviSemTheory.state_component_equality]);
+Theorem dec_clock_inc_clock[local]:
+    c <> 0 ==> dec_clock 1 (inc_clock c t) =
+               inc_clock (c-1) (t: ('c,'ffi) bviSem$state)
+Proof
+  EVAL_TAC \\ fs [bviSemTheory.state_component_equality]
+QED
 
 Theorem find_code_bv_ok:
    bvlSem$find_code dest vs s = SOME (args,e2) /\
@@ -1852,21 +1854,27 @@ Proof
     >- metis_tac [])
 QED
 
-val iEval_bVarBound_extra = prove(
-  ``∀n xs n vs s env d.
+Theorem iEval_bVarBound_extra[local]:
+    ∀n xs n vs s env d.
      bVarBound (LENGTH vs) xs ∧ handle_ok xs /\ d = FST (compile_exps n xs) ⇒
      evaluate (d,vs ⧺ env,s)  =
-     evaluate (d,vs,s)``,
-  simp [iEval_bVarBound]);
+     evaluate (d,vs,s)
+Proof
+  simp [iEval_bVarBound]
+QED
 
-val MAP_Num_11 = prove(
-  ``!ns:word8 list ns'.
-      MAP (λx. Number (&w2n x)) ns = MAP (λx. Number (&w2n x)) ns' <=> ns' = ns``,
-  Induct \\ Cases_on `ns'` \\ fs [] \\ rw [] \\ eq_tac \\ rw []);
+Theorem MAP_Num_11[local]:
+    !ns:word8 list ns'.
+      MAP (λx. Number (&w2n x)) ns = MAP (λx. Number (&w2n x)) ns' <=> ns' = ns
+Proof
+  Induct \\ Cases_on `ns'` \\ fs [] \\ rw [] \\ eq_tac \\ rw []
+QED
 
-val MAP_Word_11 = prove(
-  ``!ns ns'. MAP Word64 ns = MAP Word64 ns' <=> ns' = ns``,
-  Induct \\ Cases_on `ns'` \\ fs [] \\ rw [] \\ eq_tac \\ rw []);
+Theorem MAP_Word_11[local]:
+    !ns ns'. MAP Word64 ns = MAP Word64 ns' <=> ns' = ns
+Proof
+  Induct \\ Cases_on `ns'` \\ fs [] \\ rw [] \\ eq_tac \\ rw []
+QED
 
 Theorem IMP_v_to_bytes:
    !v1 ns.
@@ -2024,17 +2032,21 @@ Proof
   metis_tac [APPEND,APPEND_ASSOC]
 QED
 
-val nss_lemma = prove(
-  ``n * nss <> k * nss + 1``,
+Theorem nss_lemma[local]:
+    n * nss <> k * nss + 1
+Proof
   strip_tac
   \\ `(n * nss) MOD nss = (k * nss + 1) MOD nss` by metis_tac [EVAL ``nss``]
   \\ sg `F` \\ fs [] \\ pop_assum mp_tac
-  \\ simp_tac std_ss [MOD_MULT,EVAL ``1 < nss``,MOD_EQ_0,EVAL ``0 < nss``]);
+  \\ simp_tac std_ss [MOD_MULT,EVAL ``1 < nss``,MOD_EQ_0,EVAL ``0 < nss``]
+QED
 
-val in_ns_0_simp = prove(
-  ``in_ns 0 (nss * p_1 + num_stubs)``,
+Theorem in_ns_0_simp[local]:
+    in_ns 0 (nss * p_1 + num_stubs)
+Proof
   fs [in_ns_def] \\ EVAL_TAC
-  \\ `0 < nss` by EVAL_TAC \\ fs [EVAL ``nss``]);
+  \\ `0 < nss` by EVAL_TAC \\ fs [EVAL ``nss``]
+QED
 
 Theorem compile_inc_lemma:
    compile_inc next1 prog1 = (next2,prog2) ==>
@@ -2113,13 +2125,17 @@ Proof
   \\ fs [EVAL ``nss``,ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]
 QED
 
-val not_in_ns_1 = prove(
-  ``~(in_ns_1 (num_stubs + name * nss))``,
-  fs [EVAL ``nss``] \\ EVAL_TAC);
+Theorem not_in_ns_1[local]:
+    ~(in_ns_1 (num_stubs + name * nss))
+Proof
+  fs [EVAL ``nss``] \\ EVAL_TAC
+QED
 
-val names_nss_DIV_nss = prove(
-  ``(name * nss) DIV nss = name``,
-  fs [EVAL ``nss``,MULT_DIV]);
+Theorem names_nss_DIV_nss[local]:
+    (name * nss) DIV nss = name
+Proof
+  fs [EVAL ``nss``,MULT_DIV]
+QED
 
 fun note_tac s g = (print ("compile_exps_correct: " ^ s ^ "\n"); ALL_TAC g);
 

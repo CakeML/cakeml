@@ -1069,9 +1069,11 @@ Proof
   \\ res_tac \\ fs [heap_length_def]
 QED
 
-val isRef_heap_expand = prove(
-  ``!x. EVERY (λx. ¬isRef x) (heap_expand x)``,
-  Cases \\ EVAL_TAC \\ fs [] \\ EVAL_TAC);
+Theorem isRef_heap_expand[local]:
+    !x. EVERY (λx. ¬isRef x) (heap_expand x)
+Proof
+  Cases \\ EVAL_TAC \\ fs [] \\ EVAL_TAC
+QED
 
 Theorem gen_gc_partial_thm:
    abs_ml_inv conf stack refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
@@ -1682,14 +1684,15 @@ Proof
   rw [] \\ ho_match_mp_tac v_inv_SUBMAP \\ rw []
 QED
 
-val heap_store_unused_alt_thm = prove(
-  ``!a n heap h1 h2 heap2 x.
+Theorem heap_store_unused_alt_thm[local]:
+    !a n heap h1 h2 heap2 x.
       heap_split (a + n) heap = SOME (h1,h2) /\
       heap_store_unused_alt a n x heap = (heap2,T) /\
       unused_space_inv (a + el_length x) (n − el_length x) heap2 ==>
       ?h0. h1 = h0 ++ [Unused (n-1)] /\
            heap = h1 ++ h2 /\ heap_length h0 = a /\
-           heap2 = h0 ++ [x] ++ heap_expand (n − el_length x) ++ h2``,
+           heap2 = h0 ++ [x] ++ heap_expand (n − el_length x) ++ h2
+Proof
   fs [heap_store_unused_alt_def] \\ rw []
   \\ fs [unused_space_inv_def]
   \\ imp_res_tac gc_sharedTheory.heap_split_heap_length
@@ -1704,7 +1707,8 @@ val heap_store_unused_alt_thm = prove(
     \\ Cases_on `hb` \\ fs [])
   \\ rveq \\ fs []
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
-  \\ fs [heap_store_lemma]);
+  \\ fs [heap_store_lemma]
+QED
 
 Theorem heap_store_unused_alt_heap_lookup:
    !heap heap2 a k x n.
@@ -1729,11 +1733,12 @@ Proof
   \\ qexists_tac `(a − el_length h)` \\ fs [] \\ metis_tac []
 QED
 
-val heap_split_heap_store = prove(
-  ``!heap e h1 h2 a y heap2.
+Theorem heap_split_heap_store[local]:
+    !heap e h1 h2 a y heap2.
       heap_split e heap = SOME (h1,h2) /\
       heap_store a y heap = (heap2,T) /\ e <= a ==>
-      ?h3. heap_split e heap2 = SOME (h1,h3)``,
+      ?h3. heap_split e heap2 = SOME (h1,h3)
+Proof
   Induct \\ fs [heap_split_def,heap_store_def]
   \\ rpt gen_tac
   \\ IF_CASES_TAC \\ fs []
@@ -1744,12 +1749,14 @@ val heap_split_heap_store = prove(
   \\ Cases_on `a < el_length h` \\ fs []
   \\ pairarg_tac \\ fs [] \\ rveq \\ fs []
   \\ res_tac \\ rfs []
-  \\ fs [heap_split_def]);
+  \\ fs [heap_split_def]
+QED
 
-val heap_store_unused_alt_gen_state_ok = prove(
-  ``heap_store_unused_alt a k x heap = (heap2,T) /\
+Theorem heap_store_unused_alt_gen_state_ok[local]:
+    heap_store_unused_alt a k x heap = (heap2,T) /\
     gen_state_ok a (a + k) heap gens ==>
-    gen_state_ok (a + el_length x) (a + k) heap2 gens``,
+    gen_state_ok (a + el_length x) (a + k) heap2 gens
+Proof
   Cases_on `gens` \\ fs [gen_state_ok_def]
   \\ fs [EVERY_MEM] \\ rw [] \\ res_tac \\ fs []
   \\ fs [gen_start_ok_def]
@@ -1759,7 +1766,8 @@ val heap_store_unused_alt_gen_state_ok = prove(
   \\ every_case_tac \\ fs []
   \\ fs [GSYM IMP_DISJ_THM]
   \\ imp_res_tac heap_split_heap_store \\ fs []
-  \\ rveq \\ fs [] \\ res_tac \\ fs []);
+  \\ rveq \\ fs [] \\ res_tac \\ fs []
+QED
 
 Theorem isDataElement_lemmas[simp]:
    isDataElement (DataElement x1 x2 x3) /\
@@ -3266,11 +3274,12 @@ Proof
   THEN1 (full_simp_tac (srw_ss()) [v_inv_def,SUBMAP_DEF])
 QED
 
-val heap_lookup_heap_split = prove(
-  ``!heap a b h1 h2 x.
+Theorem heap_lookup_heap_split[local]:
+    !heap a b h1 h2 x.
       heap_split a heap = SOME (h1,h2) /\
       heap_lookup b heap = SOME x ==>
-      if b < a then MEM x h1 else MEM x h2``,
+      if b < a then MEM x h1 else MEM x h2
+Proof
   rpt strip_tac
   \\ drule heap_lookup_SPLIT \\ fs [] \\ strip_tac
   \\ rveq \\ fs []
@@ -3283,7 +3292,8 @@ val heap_lookup_heap_split = prove(
   \\ fs [heap_split_def]
   \\ Cases_on `a = heap_length ha` \\ fs []
   \\ rveq \\ fs [] \\ rfs []
-  \\ every_case_tac \\ fs [] \\ rveq \\ fs []);
+  \\ every_case_tac \\ fs [] \\ rveq \\ fs []
+QED
 
 Theorem heap_store_heap_lookup:
    !heap heap2 a x n.
@@ -3313,16 +3323,18 @@ val update_ref_gen_state_ok = prove(
   \\ disch_then drule \\ fs [] \\ strip_tac
   \\ fs [] \\ rpt strip_tac \\ res_tac \\ fs []) |> GEN_ALL;
 
-val data_up_to_alt = prove(
-  ``(data_up_to n [] <=> (n = 0)) /\
+Theorem data_up_to_alt[local]:
+    (data_up_to n [] <=> (n = 0)) /\
     (data_up_to n (x::xs) <=>
        if n = 0 then T else
        if n < el_length x \/ ~isDataElement x then F else
-         data_up_to (n - el_length x) xs)``,
+         data_up_to (n - el_length x) xs)
+Proof
   fs [data_up_to_def,heap_split_def]
   \\ IF_CASES_TAC \\ fs []
   \\ rpt (CASE_TAC \\ fs [])
-  \\ rw [] \\ eq_tac \\ rw []);
+  \\ rw [] \\ eq_tac \\ rw []
+QED
 
 val update_thunk_gen_state_ok = prove(
   ``heap_store b [ThunkBlock ev t1] heap = (heap2,T) ∧ a <= b ∧
@@ -3878,9 +3890,10 @@ Proof
   \\ rw [] \\ fs []
 QED
 
-val gen_state_ok_update_byte = prove(
-  ``gen_state_ok a k (ha ++ [Bytes be fl xs ws] ++ hb) gens ==>
-    gen_state_ok a k (ha ++ [Bytes be fl ys ws] ++ hb) gens``,
+Theorem gen_state_ok_update_byte[local]:
+    gen_state_ok a k (ha ++ [Bytes be fl xs ws] ++ hb) gens ==>
+    gen_state_ok a k (ha ++ [Bytes be fl ys ws] ++ hb) gens
+Proof
   Cases_on `gens` \\ fs [gen_state_ok_def,EVERY_MEM] \\ rw []
   \\ res_tac \\ fs [gen_start_ok_def]
   \\ rpt (qpat_x_assum `!e. _ ==> _` kall_tac)
@@ -3897,17 +3910,19 @@ val gen_state_ok_update_byte = prove(
   \\ CASE_TAC \\ fs [] \\ rveq
   \\ rpt strip_tac
   \\ rveq \\ fs []
-  \\ metis_tac [MEM_APPEND]);
+  \\ metis_tac [MEM_APPEND]
+QED
 
 Theorem heap_length_Bytes =
   EVAL``heap_length [Bytes be fl bs ws]``
   |> SIMP_RULE std_ss [LENGTH_write_bytes]
 
-val unused_space_inv_byte_update = prove(
-  ``unused_space_inv a (sp + sp1)
+Theorem unused_space_inv_byte_update[local]:
+    unused_space_inv a (sp + sp1)
         (ha ++ [Bytes be fl xs (REPLICATE ws 0w)] ++ hb) ==>
     unused_space_inv a (sp + sp1)
-        (ha ++ [Bytes be fl ys (REPLICATE ws 0w)] ++ hb)``,
+        (ha ++ [Bytes be fl ys (REPLICATE ws 0w)] ++ hb)
+Proof
   fs [unused_space_inv_def] \\ rw [] \\ fs []
   \\ fs [heap_lookup_APPEND,heap_length_APPEND,heap_length_Bytes]
   THEN1 (every_case_tac \\ fs [heap_lookup_def,Bytes_def])
@@ -3915,7 +3930,8 @@ val unused_space_inv_byte_update = prove(
   \\ pop_assum mp_tac \\ rpt (pop_assum kall_tac)
   \\ qspec_tac (`a`,`a`) \\ Induct_on `ha`
   \\ fs [data_up_to_alt,el_length_def,Bytes_def]
-  \\ rpt gen_tac \\ Cases_on `a = 0` \\ fs []);
+  \\ rpt gen_tac \\ Cases_on `a = 0` \\ fs []
+QED
 
 Theorem update_byte_ref_thm:
    abs_ml_inv conf ((RefPtr b ptr)::stack) refs (roots,heap,be,a,sp,sp1,gens) limit ts /\
@@ -4067,14 +4083,15 @@ Proof
     \\ rw [] \\ fs [] \\ rfs [heap_length_def,el_length_def] \\ fs [NOT_LESS])
 QED
 
-val heap_store_unused_thm = prove(
-  ``!a n heap h1 h2 heap2 x.
+Theorem heap_store_unused_thm[local]:
+    !a n heap h1 h2 heap2 x.
       heap_split (a + n) heap = SOME (h1,h2) /\
       heap_store_unused a n x heap = (heap2,T) /\
       unused_space_inv a (n − el_length x) heap2 ==>
       ?h0. h1 = h0 ++ [Unused (n-1)] /\
            heap = h1 ++ h2 /\ heap_length h0 = a /\
-           heap2 = h0 ++ heap_expand (n − el_length x) ++ [x] ++ h2``,
+           heap2 = h0 ++ heap_expand (n − el_length x) ++ [x] ++ h2
+Proof
   fs [heap_store_unused_def] \\ rw []
   \\ fs [unused_space_inv_def]
   \\ imp_res_tac gc_sharedTheory.heap_split_heap_length
@@ -4089,7 +4106,8 @@ val heap_store_unused_thm = prove(
     \\ Cases_on `hb` \\ fs [])
   \\ rveq \\ fs []
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
-  \\ fs [heap_store_lemma]);
+  \\ fs [heap_store_lemma]
+QED
 
 Theorem heap_store_unused_heap_lookup:
    !heap heap2 a k x n.
@@ -4114,10 +4132,11 @@ Proof
   \\ qexists_tac `(a − el_length h)` \\ fs [] \\ metis_tac []
 QED
 
-val heap_store_unused_gen_state_ok = prove(
-  ``heap_store_unused a k x heap = (heap2,T) /\
+Theorem heap_store_unused_gen_state_ok[local]:
+    heap_store_unused a k x heap = (heap2,T) /\
     gen_state_ok a (a + k) heap gens ==>
-    gen_state_ok a (a + k - el_length x) heap2 gens``,
+    gen_state_ok a (a + k - el_length x) heap2 gens
+Proof
   Cases_on `gens` \\ fs [gen_state_ok_def]
   \\ fs [EVERY_MEM] \\ rw [] \\ res_tac \\ fs []
   \\ fs [gen_start_ok_def]
@@ -4127,7 +4146,8 @@ val heap_store_unused_gen_state_ok = prove(
   \\ every_case_tac \\ fs []
   \\ fs [GSYM IMP_DISJ_THM]
   \\ imp_res_tac heap_split_heap_store \\ fs []
-  \\ rveq \\ fs [] \\ res_tac \\ fs []);
+  \\ rveq \\ fs [] \\ res_tac \\ fs []
+QED
 
 (* new ref *)
 
@@ -5977,11 +5997,12 @@ Proof
   \\ eq_tac \\ rw []
 QED
 
-val gc_kind_update_Ref = prove(
-  ``gc_kind_inv c a sp sp1 gens
+Theorem gc_kind_update_Ref[local]:
+    gc_kind_inv c a sp sp1 gens
         (ha ++ DataElement (ys1 ++ y::ys2) l (RefTag,[])::hb) ==>
     gc_kind_inv c a sp sp1 gens
-        (ha ++ DataElement (ys1 ++ z::ys2) l (RefTag,[])::hb)``,
+        (ha ++ DataElement (ys1 ++ z::ys2) l (RefTag,[])::hb)
+Proof
   fs [gc_kind_inv_def] \\ every_case_tac \\ fs []
   \\ ntac 2 strip_tac THEN1
    (Cases_on `gens` \\ fs [gen_state_ok_def,EVERY_MEM]
@@ -6003,7 +6024,8 @@ val gc_kind_update_Ref = prove(
   \\ CASE_TAC \\ rw [] \\ fs [isRef_def]
   \\ fs [heap_split_def,el_length_def] \\ rfs []
   \\ rpt (CASE_TAC \\ fs [])
-  \\ rveq \\ fs [isRef_def]);
+  \\ rveq \\ fs [isRef_def]
+QED
 
 Theorem v_all_vs_append:
   ∀x y. v_all_vs (x ++ y) = v_all_vs x ++ v_all_vs y
@@ -9338,13 +9360,15 @@ Proof
                bitTheory.BITSLT_THM2 |> Q.SPEC `59` |> numLib.REDUCE_RULE])
 QED
 
-val small_int_w2i_i2w = prove(
-  ``small_int (:α) i /\ good_dimindex (:'a) ==>
-    w2i ((i2w (4 * i)):'a word) = 4 * i``,
+Theorem small_int_w2i_i2w[local]:
+    small_int (:α) i /\ good_dimindex (:'a) ==>
+    w2i ((i2w (4 * i)):'a word) = 4 * i
+Proof
   strip_tac \\ match_mp_tac integer_wordTheory.w2i_i2w
   \\ fs [small_int_def,dimword_def,good_dimindex_def,
          INT_MIN_def,INT_MAX_def] \\ rfs [] \\ fs []
-  \\ intLib.COOPER_TAC);
+  \\ intLib.COOPER_TAC
+QED
 
 Theorem memory_rel_Add:
    memory_rel c be ts refs sp st m dm
@@ -9574,9 +9598,11 @@ Proof
   \\ imp_res_tac maxout_bits_IMP \\ fs [small_shift_length_def]
 QED
 
-val Num_ABS_lemmas = prove(
-  ``Num (ABS (& n)) = n /\ Num (ABS (- & n)) = n``,
-  intLib.COOPER_TAC);
+Theorem Num_ABS_lemmas[local]:
+    Num (ABS (& n)) = n /\ Num (ABS (- & n)) = n
+Proof
+  intLib.COOPER_TAC
+QED
 
 Definition word_cmp_res_def:
   word_cmp_res i (j:int) =
@@ -9599,8 +9625,8 @@ End
 
 val word_cmp_loop_ind =  theorem"word_cmp_loop_ind";
 
-val word_cmp_loop_thm = prove(
-  ``!xs1 (xs2:'a word list) f1 f2 (a1:'a word) a2.
+Theorem word_cmp_loop_thm[local]:
+    !xs1 (xs2:'a word list) f1 f2 (a1:'a word) a2.
       LENGTH xs1 = LENGTH xs2 /\ LENGTH xs1 < dimword (:'a) /\
       (word_list (a1 + bytes_in_word) (MAP Word xs1) * f1) (fun2set (m,dm)) /\
       (word_list (a2 + bytes_in_word) (MAP Word xs2) * f2) (fun2set (m,dm)) ==>
@@ -9610,7 +9636,8 @@ val word_cmp_loop_thm = prove(
         SOME (case mw_cmp xs1 xs2 of
               | NONE => 1w
               | SOME T => 0w
-              | SOME F => 2w)``,
+              | SOME F => 2w)
+Proof
   ho_match_mp_tac mw_cmp_ind \\ rw []
   \\ `xs1 = [] ∨ ∃y1 ys1. xs1 = SNOC y1 ys1` by metis_tac [SNOC_CASES]
   \\ `xs2 = [] ∨ ∃y2 ys2. xs2 = SNOC y2 ys2` by metis_tac [SNOC_CASES]
@@ -9623,7 +9650,8 @@ val word_cmp_loop_thm = prove(
   \\ SEP_R_TAC \\ rfs [] \\ SEP_R_TAC \\ fs []
   \\ IF_CASES_TAC \\ fs [] \\ rw []
   \\ first_x_assum match_mp_tac
-  \\ metis_tac [STAR_ASSOC]);
+  \\ metis_tac [STAR_ASSOC]
+QED
 
 Theorem memory_rel_Number_cmp:
    memory_rel c be ts refs sp st m dm ((Number i1,v1)::(Number i2,v2)::vars) /\
@@ -9907,20 +9935,24 @@ Proof
     \\ fs[] \\ rveq \\ fs[] \\ rfs [] )
 QED
 
-val do_eq_list_F_IMP_MEM = prove(
-  ``!l l'.
+Theorem do_eq_list_F_IMP_MEM[local]:
+    !l l'.
       do_eq_list refs l l' = Eq_val F /\ LENGTH l' = LENGTH l ==>
-      ?i. i < LENGTH l /\ do_eq refs (EL i l) (EL i l') = Eq_val F``,
+      ?i. i < LENGTH l /\ do_eq refs (EL i l) (EL i l') = Eq_val F
+Proof
   Induct \\ Cases_on `l'` \\ fs [] \\ rpt strip_tac
   \\ every_case_tac \\ fs [] \\ res_tac
   THEN1 (qexists_tac `SUC i` \\ fs [])
-  \\ qexists_tac `0` \\ fs []);
+  \\ qexists_tac `0` \\ fs []
+QED
 
-val memory_rel_rotate3 = prove(
-  ``memory_rel c be ts refs sp st m dm (x1::x2::x3::vars) ==>
-    memory_rel c be ts refs sp st m dm (x3::x1::x2::vars)``,
+Theorem memory_rel_rotate3[local]:
+    memory_rel c be ts refs sp st m dm (x1::x2::x3::vars) ==>
+    memory_rel c be ts refs sp st m dm (x3::x1::x2::vars)
+Proof
   match_mp_tac memory_rel_rearrange
-  \\ fs [] \\ rw [] \\ fs []);
+  \\ fs [] \\ rw [] \\ fs []
+QED
 
 Theorem memory_rel_pointer_eq = Q.prove(`
   ∀v1 v2 w b.
@@ -10289,17 +10321,19 @@ Proof
   \\ imp_res_tac memory_rel_pointer_eq
 QED
 
-val memory_rel_Block_Block_small_eq = prove(
-  ``memory_rel c be ts refs sp st m dm
+Theorem memory_rel_Block_Block_small_eq[local]:
+    memory_rel c be ts refs sp st m dm
       ((Block ts1 t1 v1,Word (w1:'a word))::(Block ts2 t2 v2,Word w2)::vars) /\
     good_dimindex (:'a) /\ w1 <> w2 /\ ¬word_bit 0 w1 ==>
-    LENGTH v1 <> LENGTH v2 \/ t1 <> t2``,
+    LENGTH v1 <> LENGTH v2 \/ t1 <> t2
+Proof
   rw [] \\ drule memory_rel_Block_IMP \\ fs []
   \\ fs [word_bit] \\ strip_tac \\ rveq
   \\ once_rewrite_tac [EQ_SYM_EQ]
   \\ CCONTR_TAC \\ fs [LENGTH_NIL] \\ rveq
   \\ imp_res_tac memory_rel_tail
-  \\ drule memory_rel_Block_IMP \\ fs []);
+  \\ drule memory_rel_Block_IMP \\ fs []
+QED
 
 Theorem memory_rel_simple_eq:
    memory_rel c be ts refs sp st m dm ((v1,x1)::(v2,x2)::vars) /\
@@ -10371,9 +10405,11 @@ Definition fix_clock_def:
   in SOME(y,new_l,new_ck)
 End
 
-val fix_clock_IMP = prove(
-  ``!ck l x. fix_clock ck l x = SOME (w,l1,ck1) ==> ck1 <= ck /\ l1 <= l``,
-  ho_match_mp_tac (theorem "fix_clock_ind") \\ fs [fix_clock_def] \\ rw []);
+Theorem fix_clock_IMP[local]:
+    !ck l x. fix_clock ck l x = SOME (w,l1,ck1) ==> ck1 <= ck /\ l1 <= l
+Proof
+  ho_match_mp_tac (theorem "fix_clock_ind") \\ fs [fix_clock_def] \\ rw []
+QED
 
 Definition word_is_clos_def:
   word_is_clos c h <=>
@@ -10452,11 +10488,13 @@ Proof
   \\ fs[]
 QED
 
-val fix_clock_word_eq = prove(
-  ``fix_clock ck l (word_eq c st dm m l ck w1 w2) = word_eq c st dm m l ck w1 w2``,
+Theorem fix_clock_word_eq[local]:
+    fix_clock ck l (word_eq c st dm m l ck w1 w2) = word_eq c st dm m l ck w1 w2
+Proof
   Cases_on `word_eq c st dm m l ck w1 w2` \\ fs [fix_clock_def]
   \\ PairCases_on `x` \\ fs [] \\ fs [fix_clock_def] \\ rw []
-  \\ imp_res_tac word_eq_LESS_EQ \\ fs []);
+  \\ imp_res_tac word_eq_LESS_EQ \\ fs []
+QED
 
 Theorem word_eq_def[compute,allow_rebind] =
   word_eq_def |> REWRITE_RULE [fix_clock_word_eq]
@@ -10525,11 +10563,12 @@ Proof
   metis_tac[ADD_COMM,ADD_ASSOC]
 QED
 
-val memory_rel_isClos = prove(
-  ``memory_rel c be ts refs sp st m dm ((Block ts1 t1 v1,Word (w1:'a word))::vars) /\
+Theorem memory_rel_isClos[local]:
+    memory_rel c be ts refs sp st m dm ((Block ts1 t1 v1,Word (w1:'a word))::vars) /\
     word_bit 0 w1 /\
     get_real_addr c st w1 = SOME a' /\ m a' = Word x' /\ good_dimindex (:'a) ==>
-    (isClos t1 v1 <=> word_is_clos c x')``,
+    (isClos t1 v1 <=> word_is_clos c x')
+Proof
   rw [] \\ drule memory_rel_Block_IMP \\ fs [word_bit] \\ rw []
   \\ fs [word_is_clos_def]
   \\ drule encode_header_tag_mask \\ fs [] \\ strip_tac
@@ -10540,7 +10579,8 @@ val memory_rel_isClos = prove(
         (fs [good_dimindex_def,dimword_def] \\ rfs []) \\ fs []
   \\ fs [good_dimindex_def,dimword_def,
          backend_commonTheory.partial_app_tag_def,
-         backend_commonTheory.closure_tag_def]);
+         backend_commonTheory.closure_tag_def]
+QED
 
 Definition eq_assum_def:
   (eq_assum a m dm [] = T) /\
@@ -10553,31 +10593,36 @@ Definition eq_explode_def:
   (eq_explode a m dm (v::vs) = (v,m a) :: eq_explode (a + bytes_in_word) m dm vs)
 End
 
-val eq_explode_APPEND = prove(
-  ``!xs ys a.
+Theorem eq_explode_APPEND[local]:
+    !xs ys a.
       eq_explode a m dm (xs ++ ys) =
       eq_explode a m dm xs ++
-      eq_explode (a + n2w (LENGTH xs) * bytes_in_word) m dm ys``,
+      eq_explode (a + n2w (LENGTH xs) * bytes_in_word) m dm ys
+Proof
   Induct \\ fs [eq_explode_def,ADD1,bytes_in_word_def,word_mul_n2w]
-  \\ fs [RIGHT_ADD_DISTRIB] \\ fs [GSYM word_add_n2w]);
+  \\ fs [RIGHT_ADD_DISTRIB] \\ fs [GSYM word_add_n2w]
+QED
 
-val eq_assum_APPEND = prove(
-  ``!xs ys a.
+Theorem eq_assum_APPEND[local]:
+    !xs ys a.
       eq_assum a m dm (xs ++ ys) <=>
       eq_assum a m dm xs /\
-      eq_assum (a + n2w (LENGTH xs) * bytes_in_word) m dm ys``,
+      eq_assum (a + n2w (LENGTH xs) * bytes_in_word) m dm ys
+Proof
   Induct \\ fs [eq_assum_def,ADD1,bytes_in_word_def,word_mul_n2w]
   \\ fs [RIGHT_ADD_DISTRIB] \\ fs [GSYM word_add_n2w]
-  \\ rw [] \\ eq_tac \\ rw []);
+  \\ rw [] \\ eq_tac \\ rw []
+QED
 
-val memory_rel_Block_explode_lemma = prove(
-  ``!n.
+Theorem memory_rel_Block_explode_lemma[local]:
+    !n.
       memory_rel c be ts refs sp st m dm ((Block ts1 t1 v1,Word w1)::vars) /\
       word_bit 0 w1 /\ get_real_addr c st w1 = SOME a /\ good_dimindex (:α) ==>
       memory_rel c be ts refs sp st m dm
         (eq_explode (a + bytes_in_word) m dm (TAKE n v1) ++
          (Block ts1 t1 v1,Word (w1:'a word))::vars) /\
-      eq_assum (a + bytes_in_word) m dm (TAKE n v1)``,
+      eq_assum (a + bytes_in_word) m dm (TAKE n v1)
+Proof
   Induct THEN1
    (fs [TAKE_def,eq_explode_def,eq_assum_def] \\ rw []
     \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
@@ -10599,7 +10644,8 @@ val memory_rel_Block_explode_lemma = prove(
   \\ fs[bytes_in_word_def,word_mul_n2w]
   \\ strip_tac
   \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac memory_rel_rearrange)
-  \\ fs [] \\ rw [] \\ fs []);
+  \\ fs [] \\ rw [] \\ fs []
+QED
 
 Theorem memory_rel_Block_explode:
    memory_rel c be ts refs sp st m dm ((Block ts1 t1 v1,Word w1)::vars) /\
@@ -11146,18 +11192,20 @@ Definition word_mem_eq_def:
        word_mem_eq (a + bytes_in_word) xs dm m)
 End
 
-val word_mem_eq_thm = prove(
-  ``!xs ys a ff.
+Theorem word_mem_eq_thm[local]:
+    !xs ys a ff.
      (word_list a (MAP Word xs) * ff) (fun2set (m,dm)) /\
      LENGTH xs = LENGTH ys ==>
-     word_mem_eq a ys dm m = SOME (xs = ys)``,
+     word_mem_eq a ys dm m = SOME (xs = ys)
+Proof
   Induct \\ Cases_on `ys` \\ fs [word_mem_eq_def]
   \\ fs [word_list_def] \\ rpt strip_tac
   \\ SEP_R_TAC \\ fs [isWord_def]
   \\ IF_CASES_TAC \\ fs [] \\ rveq
   \\ first_x_assum match_mp_tac
   \\ qexists_tac `one (a,Word h) * ff`
-  \\ fs [AC STAR_COMM STAR_ASSOC]);
+  \\ fs [AC STAR_COMM STAR_ASSOC]
+QED
 
 Definition bignum_words_def:
   bignum_words c i =
@@ -11427,9 +11475,11 @@ Proof
   \\ fs [MAP_MAP_o,o_DEF]
 QED
 
-val word_1_and_eq_0 = prove(
-  ``((1w && w) = 0w) <=> ~(word_bit 0 w)``,
-  fs [word_bit_test]);
+Theorem word_1_and_eq_0[local]:
+    ((1w && w) = 0w) <=> ~(word_bit 0 w)
+Proof
+  fs [word_bit_test]
+QED
 
 Theorem memory_rel_Number_single_mul:
    memory_rel c be ts refs sp st m dm
@@ -12379,11 +12429,13 @@ Definition word_copy_array_def:
       word_copy_bwd be n (a+a1+n-1w) (b+b1+n-1w) m dm
 End
 
-val word_copy_bwd_0 = prove(
-  ``good_dimindex (:'a) ==>
-    word_copy_bwd be (0w:'a word) a1 a2 m dm = SOME m``,
+Theorem word_copy_bwd_0[local]:
+    good_dimindex (:'a) ==>
+    word_copy_bwd be (0w:'a word) a1 a2 m dm = SOME m
+Proof
   rw [good_dimindex_def]
-  \\ once_rewrite_tac [word_copy_bwd_def] \\ fs [dimword_def,WORD_LO]);
+  \\ once_rewrite_tac [word_copy_bwd_def] \\ fs [dimword_def,WORD_LO]
+QED
 
 Theorem word_copy_array_thm:
    !n xp yp xs ys ys1 m.

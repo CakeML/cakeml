@@ -103,7 +103,10 @@ val (monad_parameters, store_translation, exn_specs) =
 
 (* mechanism for adding type checking annotations *)
 
-val pure_seq_intro = prove(“x = y ⇒ ∀z. x = pure_seq z y”, fs [pure_seq_def]);
+Theorem pure_seq_intro[local]:
+  x = y ⇒ ∀z. x = pure_seq z y
+Proof fs [pure_seq_def]
+QED
 
 fun mlstring_check s = “mlstring$strlen ^s”
 fun type_check ty = “case ^ty of Tyvar _ => () | _ => abc” |> subst [“abc:unit”|->“()”]

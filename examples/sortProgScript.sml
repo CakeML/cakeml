@@ -334,12 +334,14 @@ Proof
   \\ metis_tac[valid_sort_result_numchars]
 QED
 
-val SORTED_mlstring_le = prove(
-  ``!output. SORTED mlstring_le output = SORTED $<= (MAP explode output)``,
+Theorem SORTED_mlstring_le[local]:
+    !output. SORTED mlstring_le output = SORTED $<= (MAP explode output)
+Proof
   Induct \\ fs [SORTED_DEF]
   \\ Cases_on `output` \\ fs [SORTED_DEF]
   \\ Cases \\ Cases_on `h`
-  \\ fs [explode_def,strlit_le_strlit]);
+  \\ fs [explode_def,strlit_le_strlit]
+QED
 
 Theorem sort_spec:
    (if LENGTH cl ≤ 1 then (∃input. get_file_content fs 0 = SOME (input,0)) else hasFreeFD fs)
