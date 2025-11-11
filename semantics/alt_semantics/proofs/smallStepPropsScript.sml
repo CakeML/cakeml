@@ -1822,4 +1822,3 @@ Proof
   rev_drule RTC_decl_step_confl >> disch_then drule >> rw[] >>
   imp_res_tac RTC_decl_step_reln_io_events_mono >> gvs[io_events_mono_def]
 QED
-

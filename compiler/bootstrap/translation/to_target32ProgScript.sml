@@ -321,9 +321,11 @@ val _ = translate (spec32 filter_skip_def)
 
 val _ = translate (get_jump_offset_def |>INST_TYPE [alpha|->``:32``,beta |-> ``:32``])
 
-val word_2compl_eq = prove(
-  ``!w:'a word. -w = 0w - w``,
-  fs []);
+Theorem word_2compl_eq[local]:
+    !w:'a word. -w = 0w - w
+Proof
+  fs []
+QED
 
 val _ = translate (conv32 reg_imm_ok_def |> SIMP_RULE std_ss [IN_INSERT,NOT_IN_EMPTY,
                                                word_2compl_eq])

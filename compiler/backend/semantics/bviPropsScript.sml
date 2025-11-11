@@ -107,9 +107,11 @@ val result_thms = { nchotomy = semanticPrimitivesTheory.result_nchotomy,
 val ffi_result_thms = { nchotomy = ffiTheory.ffi_result_nchotomy,
                         case_def = ffiTheory.ffi_result_case_def };
 
-val pair_case_elim = prove(
-  ``pair_CASE p f ⇔ ∃x y. p = (x,y) ∧ f x y``,
-  Cases_on`p` \\ rw[]);
+Theorem pair_case_elim[local]:
+    pair_CASE p f ⇔ ∃x y. p = (x,y) ∧ f x y
+Proof
+  Cases_on`p` \\ rw[]
+QED
 
 Theorem case_elim_thms =
   List.map prove_case_elim_thm

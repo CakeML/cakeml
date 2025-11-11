@@ -3232,14 +3232,15 @@ Proof
   \\ fs [state_component_equality]
 QED
 
-val Eval_Con_lemma = prove(
-  ``!ps refs.
+Theorem Eval_Con_lemma[local]:
+    !ps refs.
       (∀p_1 p_2. MEM (p_1,p_2) ps ⇒ Eval env p_2 p_1) ==>
       ?ck1 ck2 refs' vals.
         evaluate (empty_state with <|clock := ck1; refs := refs|>) env
                  (MAP SND ps) =
         (empty_state with <|clock := ck2; refs := refs ⧺ refs'|>,Rval vals) /\
-        LIST_REL (λ(p,x) v. p v) ps vals``,
+        LIST_REL (λ(p,x) v. p v) ps vals
+Proof
   Induct THEN1 fs [state_component_equality]
   \\ fs [FORALL_PROD,Eval_def,eval_rel_def,PULL_EXISTS]
   \\ rw [] \\ once_rewrite_tac [evaluate_cons]
@@ -3254,7 +3255,8 @@ val Eval_Con_lemma = prove(
   \\ drule evaluate_add_to_clock
   \\ disch_then (qspec_then `ck1'` assume_tac) \\ fs []
   \\ asm_exists_tac \\ fs []
-  \\ fs [state_component_equality]);
+  \\ fs [state_component_equality]
+QED
 
 Theorem Eval_Con:
    !ps stamp.

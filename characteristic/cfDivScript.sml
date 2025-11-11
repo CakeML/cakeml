@@ -3469,7 +3469,7 @@ Theorem make_repeat_closure_sound:
     ==> app p (Recclosure env [(fname,farg,fbody)] fname) [x] H ($POSTd Q)
 Proof
   metis_tac[make_repeat_closure_sound_basic,app_def]
-QED;
+QED
 
 Definition some_repeat_clos_def:
   some_repeat_clos env = Recclosure env ^repeat_clos "repeat"
@@ -3990,9 +3990,11 @@ val st = ml_translatorLib.get_ml_prog_state ();
 
 val repeat_v = fetch "-" "repeat_v_def"
 
-val evaluate_IMP_io_events_mono = prove(
-  ``evaluate s e exp = (t,res) ==> io_events_mono s.ffi t.ffi``,
-  metis_tac [evaluatePropsTheory.evaluate_io_events_mono,FST]);
+Theorem evaluate_IMP_io_events_mono[local]:
+    evaluate s e exp = (t,res) ==> io_events_mono s.ffi t.ffi
+Proof
+  metis_tac [evaluatePropsTheory.evaluate_io_events_mono,FST]
+QED
 
 Theorem repeat_POSTd:
     !p fv xv H Q.

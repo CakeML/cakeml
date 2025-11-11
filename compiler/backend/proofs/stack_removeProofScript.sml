@@ -1071,14 +1071,16 @@ Proof
   simp[]
 QED
 
-val name_cases = prove(
-  ``!name. name <> CurrHeap ==> MEM name store_list``,
+Theorem name_cases[local]:
+    !name. name <> CurrHeap ==> MEM name store_list
+Proof
   Cases_on `name` \\ fs [store_list_def]
   \\ CCONTR_TAC \\ fs [] \\ Cases_on `c`
   \\ full_simp_tac std_ss [n2w_11,EVAL ``dimword (:5)``]
   \\ ntac 16 (Cases_on `n` \\ full_simp_tac std_ss [ADD1]
               \\ Cases_on `n'` \\ full_simp_tac std_ss [ADD1,GSYM ADD_ASSOC])
-  \\ pop_assum mp_tac \\ rpt (pop_assum kall_tac) \\ decide_tac);
+  \\ pop_assum mp_tac \\ rpt (pop_assum kall_tac) \\ decide_tac
+QED
 
 (* Significantly faster than SEP_R_TAC *)
 Triviality mem_load_lemma:
@@ -3026,10 +3028,12 @@ Proof
   rw []
 QED
 
-val fmap_simp_lemma1 = prove(
-  ``g |+ (0n,x) |+ (5,y) |+ (0,z) = g |+ (0,z) |+ (5,y)``,
+Theorem fmap_simp_lemma1[local]:
+    g |+ (0n,x) |+ (5,y) |+ (0,z) = g |+ (0,z) |+ (5,y)
+Proof
   fs [fmap_EXT] \\ rw [] \\ fs [EXTENSION,FAPPLY_FUPDATE_THM]
-  \\ rw [] \\ fs [] \\ metis_tac []);
+  \\ rw [] \\ fs [] \\ metis_tac []
+QED
 
 Definition get_stack_heap_limit''_def:
   get_stack_heap_limit'' (h2:num) (h3:num) (h4:num) =

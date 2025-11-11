@@ -328,13 +328,14 @@ Proof
   \\ RES_TAC \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ fs[]
 QED
 
-val do_app_lemma = prove(
-  ``state_rel s t ∧ LIST_REL v_rel xs ys ⇒
+Theorem do_app_lemma[local]:
+    state_rel s t ∧ LIST_REL v_rel xs ys ⇒
     case do_app opp xs s of
       Rval (x,s1) =>
         ∃y t1. v_rel x y ∧ state_rel s1 t1 ∧ do_app opp ys t = Rval (y,t1)
     | Rerr err1 =>
-        ∃err2. do_app opp ys t = Rerr err2 ∧ exc_rel v_rel err1 err2``,
+        ∃err2. do_app opp ys t = Rerr err2 ∧ exc_rel v_rel err1 err2
+Proof
   match_mp_tac simple_val_rel_do_app
   \\ conj_tac THEN1
    (fs [simple_val_rel_def]
@@ -355,7 +356,8 @@ val do_app_lemma = prove(
     \\ rpt (qpat_x_assum `!x. _` kall_tac) \\ rfs []
     \\ Cases_on `s.refs ' ptr` \\ fs [ref_rel_def])
   \\ rfs [] \\ fs [FAPPLY_FUPDATE_THM] \\ rveq
-  \\ fs [ref_rel_def] \\ rw []);
+  \\ fs [ref_rel_def] \\ rw []
+QED
 
 Triviality do_app_thm:
   state_rel s1 t1 /\ EVERY2 v_rel xs ys /\
@@ -370,13 +372,15 @@ Proof
   \\ rpt strip_tac \\ fs []
 QED
 
-val v_rel_Number = prove(
-  ``(v_rel x (Number i) <=> (x = Number i)) /\
+Theorem v_rel_Number[local]:
+    (v_rel x (Number i) <=> (x = Number i)) /\
     (v_rel (Number i) x <=> (x = Number i)) /\
     (v_rel (ByteVector ws) x <=> (x = ByteVector ws)) /\
     (v_rel x (Word64 w) <=> (x = Word64 w)) /\
-    (v_rel (Word64 w) x <=> (x = Word64 w))``,
-  once_rewrite_tac [v_rel_cases] \\ fs []);
+    (v_rel (Word64 w) x <=> (x = Word64 w))
+Proof
+  once_rewrite_tac [v_rel_cases] \\ fs []
+QED
 
 Triviality do_app_err_thm:
   state_rel s1 t1 /\ EVERY2 v_rel xs ys /\
@@ -533,11 +537,13 @@ Proof
   \\ full_simp_tac(srw_ss())[SING_HD,LENGTH_FST_alt_free]
 QED
 
-val FOLDR_mk_Union = prove(
-  ``!ys aux l.
+Theorem FOLDR_mk_Union[local]:
+    !ys aux l.
       FOLDR (λ(x,l) (ts,alt_frees). (x::ts,mk_Union l alt_frees)) (aux,l) ys =
-      (MAP FST ys ++ aux, FOLDR mk_Union l (MAP SND ys))``,
-  Induct \\ fs [FORALL_PROD]);
+      (MAP FST ys ++ aux, FOLDR mk_Union l (MAP SND ys))
+Proof
+  Induct \\ fs [FORALL_PROD]
+QED
 
 (*
 Theorem MAPi_MAPi:
@@ -558,22 +564,26 @@ Proof
   \\ fs [EVAL ``evaluate ([Op v8 (IntOp (Const 0)) []],env,t1)``]
 QED
 
-val no_overlap_has_var_IMP = prove(
-  ``!n l2 x. clos_annotate$no_overlap n l2 /\ has_var x l2 ==> n <= x``,
+Theorem no_overlap_has_var_IMP[local]:
+    !n l2 x. clos_annotate$no_overlap n l2 /\ has_var x l2 ==> n <= x
+Proof
   Induct \\ fs [no_overlap_def] \\ rw [] \\ res_tac
-  \\ Cases_on `x = n` \\ fs []);
+  \\ Cases_on `x = n` \\ fs []
+QED
 
-val evaluate_pure_IMP = prove(
-  ``evaluate (xs,env,(s:('c,'ffi)closSem$state)) = (q,r) /\ EVERY pure xs /\
+Theorem evaluate_pure_IMP[local]:
+    evaluate (xs,env,(s:('c,'ffi)closSem$state)) = (q,r) /\ EVERY pure xs /\
     q <> Rerr (Rabort Rtype_error) ==>
-    ?vs. q = Rval vs /\ r = s /\ LENGTH vs = LENGTH xs``,
+    ?vs. q = Rval vs /\ r = s /\ LENGTH vs = LENGTH xs
+Proof
   rw[]
   \\ imp_res_tac EVERY_pure_correct \\ fs[]
   \\ first_x_assum(qspecl_then[`s`,`env`]mp_tac)
   \\ simp[case_eq_thms]
   \\ CASE_TAC \\ simp[]
   \\ CASE_TAC \\ simp[]
-  \\ strip_tac \\ fs[]);
+  \\ strip_tac \\ fs[]
+QED
 
 val every_Fn_vs_NONE_EVERY_MAP =
   every_Fn_vs_NONE_EVERY

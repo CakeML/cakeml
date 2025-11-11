@@ -2731,7 +2731,7 @@ Proof
   strip_tac>>
   qspec_then `MAP (\p. NONE) progs` assume_tac word_good_handlers_word_to_word_incr_helper>>
   fs[ZIP_MAP,MAP_MAP_o,o_DEF]
-QED;
+QED
 
 Theorem word_good_handlers_word_to_word:
   EVERY (λ(n,m,pp). word_good_handlers n pp) progs ⇒
@@ -2743,7 +2743,7 @@ Proof
   fs[next_n_oracle_def]>>
   every_case_tac>>fs[]>>
   rveq>>fs[]
-QED;
+QED
 
 Triviality word_good_code_labels_word_to_word_incr_helper:
   ∀oracles.
