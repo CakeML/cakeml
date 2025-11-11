@@ -121,7 +121,7 @@ val r = backend_passesTheory.to_clos_all_def |> spec64 |> translate;
 val r = backend_passesTheory.to_bvl_all_def |> spec64 |> translate;
 val r = backend_passesTheory.to_bvi_all_def |> spec64 |> translate;
 
-Triviality backend_passes_to_bvi_all_side:
+Theorem backend_passes_to_bvi_all_side[local]:
   backend_passes_to_bvi_all_side c p
 Proof
   fs [fetch "-" "backend_passes_to_bvi_all_side_def"]
@@ -175,7 +175,7 @@ val r = pan_passesTheory.opsize_to_display_def |> translate;
 val r = pan_passesTheory.shape_to_str_def |> translate;
 val r = pan_passesTheory.insert_es_def |> translate;
 val r = pan_passesTheory.varkind_to_str_def |> translate;
-Triviality lem:
+Theorem lem[local]:
   dimindex(:64) = 64
 Proof
   EVAL_TAC
@@ -412,7 +412,7 @@ Definition compiler_for_eval_def:
   compiler_for_eval = compile_inc_progs_for_eval x64_config
 End
 
-Triviality upper_w2w_eq_I:
+Theorem upper_w2w_eq_I[local]:
   backend$upper_w2w = (I:word64 -> word64)
 Proof
   fs [backendTheory.upper_w2w_def,FUN_EQ_THM]

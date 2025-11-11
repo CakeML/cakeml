@@ -236,7 +236,7 @@ Proof
   \\ every_case_tac \\ fs []
 QED
 
-Triviality b2n_not:
+Theorem b2n_not[local]:
   (if c then 0 else 1) = b2n (~c)
 Proof
   Cases_on ‘c’ \\ EVAL_TAC

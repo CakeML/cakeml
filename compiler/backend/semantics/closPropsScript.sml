@@ -60,7 +60,7 @@ Proof
   \\ fs [list_to_v_def]
 QED
 
-Triviality forall_sum:
+Theorem forall_sum[local]:
   (∀x. P x) ⇔ (∀a. P (INL a)) ∧ ∀ b. P (INR b)
 Proof
   eq_tac \\ fs [] \\ rw [] \\ Cases_on ‘x’ \\ fs []
@@ -986,7 +986,7 @@ Proof
   \\ fs [] \\ Cases_on ‘e’ \\ fs []
 QED
 
-Triviality pair_lam_lem:
+Theorem pair_lam_lem[local]:
   !f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)
 Proof
   srw_tac[][]
@@ -1459,7 +1459,7 @@ Proof
    simp [])
 QED
 
-Triviality revnil:
+Theorem revnil[local]:
   [] = REVERSE l ⇔ l = []
 Proof
   CONV_TAC (LAND_CONV (REWR_CONV EQ_SYM_EQ)) >> simp[]
@@ -1707,7 +1707,7 @@ Proof
   \\ fs [initial_state_def]
 QED
 
-Triviality do_app_io_events_mono:
+Theorem do_app_io_events_mono[local]:
   do_app op vs s = Rval(v,s') ⇒
    s.ffi.io_events ≼ s'.ffi.io_events
 Proof
@@ -1730,7 +1730,7 @@ Proof
   metis_tac[IS_PREFIX_TRANS,do_app_io_events_mono,do_install_const]
 QED
 
-Triviality evaluate_io_events_mono_imp:
+Theorem evaluate_io_events_mono_imp[local]:
   evaluate (es,env,s) = (r,s') ⇒
     s.ffi.io_events ≼ s'.ffi.io_events
 Proof
@@ -2021,7 +2021,7 @@ Definition simple_val_rel_def:
       vr x (Recclosure y1 y2 y3 y4 y5) ==> isClos x)
 End
 
-Triviality simple_val_rel_alt:
+Theorem simple_val_rel_alt[local]:
   simple_val_rel vr <=>
      (∀x n. vr x (Number n) ⇔ x = Number n) ∧
      (∀x p n.
@@ -2354,14 +2354,14 @@ Proof
 QED
 
 (*TODO move to semanticPrimitivesProps*)
-Triviality result_rel_Rval2[simp]:
+Theorem result_rel_Rval2[local,simp]:
  result_rel R1 R2 r (Rval v) = ∃v'. (r = Rval v') ∧ R1 v' v
 Proof
  Cases_on `r` >> srw_tac[][]
 QED
 
 (*TODO upstream to HOL*)
-Triviality PAIR_REL_SIMP[simp]:
+Theorem PAIR_REL_SIMP[local,simp]:
   (((R1 ### R2) n (c,d)) <=> (?x y. n = (x,y) /\ R1 x c /\ R2 y d)) /\
   (((R1 ### R2) (a,b) m) <=> (?x y. m = (x,y) /\ R1 a x /\ R2 b y))
 Proof
@@ -2374,9 +2374,9 @@ QED
 fun case_constant typ =
   prove_case_const_thm {case_def = TypeBase.case_def_of typ,
   nchotomy = TypeBase.nchotomy_of typ};
-Triviality v_case_const[simp] = case_constant ``:closSem$v``
-Triviality option_case_const[simp] = case_constant ``:'a option``
-Triviality list_case_const[simp] = case_constant ``:'a list``
+Theorem v_case_const[local,simp] = case_constant ``:closSem$v``
+Theorem option_case_const[local,simp] = case_constant ``:'a option``
+Theorem list_case_const[local,simp] = case_constant ``:'a list``
 
 Theorem LIST_REL_REFL_EVERY:
   ! l.
@@ -3140,7 +3140,7 @@ Proof
   \\ fsrw_tac [SATISFY_ss] []
 QED
 
-Triviality do_app_lemma_simp:
+Theorem do_app_lemma_simp[local]:
   (exc_rel $= err1 err2 <=> err1 = err2) /\
     LIST_REL $= xs xs /\
     simple_state_rel $= (adj_orac_rel cc f) /\
@@ -3405,13 +3405,13 @@ Proof
   \\ pop_assum (assume_tac o SPEC_ALL) \\ rfs []
 QED
 
-Triviality SUBMAP_refs_clocks_eqs:
+Theorem SUBMAP_refs_clocks_eqs[local]:
   SUBMAP_rel s1 s2 ⇒ s1.refs = s2.refs ∧ s1.clock = s2.clock
 Proof
   rw [SUBMAP_rel_def, state_component_equality]
 QED
 
-Triviality SUBMAP_dec_clock:
+Theorem SUBMAP_dec_clock[local]:
   SUBMAP_rel s1 s2 ⇒ SUBMAP_rel (dec_clock 1 s1) (dec_clock 1 s2)
 Proof
   rw [SUBMAP_rel_def, dec_clock_def, state_component_equality]

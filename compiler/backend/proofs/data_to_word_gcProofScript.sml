@@ -4867,7 +4867,7 @@ QED
 
 val s1 = mk_var("s1",type_of s);
 
-Triviality is_some_lookup_union:
+Theorem is_some_lookup_union[local]:
   IS_SOME (lookup n (union t1 t2)) ⇔
   IS_SOME (lookup n t1) ∨ IS_SOME (lookup n t2)
 Proof
@@ -6191,7 +6191,7 @@ Proof
   \\ gvs [word_addr_def]
 QED
 
-Triviality word_gc_move_roots_IMP_FILTER0:
+Theorem word_gc_move_roots_IMP_FILTER0[local]:
   ∀ws i pa old m dm ws2 i2 pa2 m2 c2 c.
     word_gc_move_roots c (ws,i,pa,old,m,dm) = (ws2,i2,pa2,m2,c2) ∧
     EVERY loc_ok ws ⇒
@@ -6211,7 +6211,7 @@ Proof
   \\ res_tac \\ fs [isWord_def]
 QED
 
-Triviality word_gen_gc_move_roots_IMP_FILTER0:
+Theorem word_gen_gc_move_roots_IMP_FILTER0[local]:
   ∀ws i pa ib pb old m dm ws2 i2 pa2 ib2 pb2 m2 c2 c.
     word_gen_gc_move_roots c (ws,i,pa,ib,pb,old,m,dm) =
                              (ws2,i2,pa2,ib2,pb2,m2,c2) ∧
@@ -6897,7 +6897,7 @@ Inductive traverse_heap:
      traverse_heap heap p1 [Pointer n t] p2)
 End
 
-Triviality size_of_Block:
+Theorem size_of_Block[local]:
   size_of lims [Block ts tag vs] refs seen =
   if vs = [] \/ IS_SOME (lookup ts seen) then (0,refs,seen)
   else let (n,refs',seen') = size_of lims vs refs (insert ts () seen)
@@ -7189,7 +7189,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality stack_rel_imp_subset:
+Theorem stack_rel_imp_subset[local]:
   ∀xs ys.
     LIST_REL stack_rel xs ys ⇒
     set (enc_stack ys) ⊆ set (MAP SND (flat xs ys))
@@ -7973,7 +7973,7 @@ Proof
   \\ gvs [FUPDATE_LIST,FAPPLY_FUPDATE_THM,FLOOKUP_DEF,word_full_gc_def]
 QED
 
-Triviality alloc_with_locals_1_3:
+Theorem alloc_with_locals_1_3[local]:
   alloc k (adjust_sets names)
              (t with locals := insert 1 w1 (insert 3 w2 t.locals)) =
   alloc k (adjust_sets names) t

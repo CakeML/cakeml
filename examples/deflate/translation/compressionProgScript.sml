@@ -40,7 +40,7 @@ val res = translate (nub_def |> REWRITE_RULE [MEMBER_INTRO]);
 val res = translate find_match_def;
 val res = translate (tab_sub_def |> SIMP_RULE std_ss [GSYM mllistTheory.drop_def]);
 
-Triviality tab_sub_ind:
+Theorem tab_sub_ind[local]:
   tab_sub_ind
 Proof
   once_rewrite_tac [fetch "-" "tab_sub_ind_def"]

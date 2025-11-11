@@ -375,7 +375,7 @@ Proof
   rpt (res_tac >> fs [])
 QED
 
-Triviality fix_clock_evaluate:
+Theorem fix_clock_evaluate[local]:
   fix_clock s (evaluate (prog,s)) = evaluate (prog,s)
 Proof
   Cases_on `evaluate (prog,s)` \\ fs [fix_clock_def]

@@ -6,14 +6,14 @@ Ancestors
   x64 x64_target
 
 
-Triviality not_fail:
+Theorem not_fail[local]:
   (case a ++ b :: c of [] => x64_dec_fail | v2::v3 => v2::v3) =
     a ++ b :: c
 Proof
   Cases_on `a`  \\ rw []
 QED
 
-Triviality lem:
+Theorem lem[local]:
   !n. n MOD 8 < 16
 Proof
   strip_tac
@@ -29,7 +29,7 @@ val Zreg2num_num2Zreg =
 val xmm_reg =
   blastLib.BBLAST_PROVE ``((3 >< 3) (w2w (a : word3) : word4) = 0w : word1)``
 
-Triviality xmm_reg2:
+Theorem xmm_reg2[local]:
   !n. (3 >< 3) (n2w (n MOD 8) : word4) = 0w : word1
 Proof
   strip_tac

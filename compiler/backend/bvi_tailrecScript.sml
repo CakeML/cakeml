@@ -864,7 +864,7 @@ val opt_tm = ``
               NONE)))``
 val aux_tm = ``Let [Var 0; Op (IntOp (Const 1)) []] ^opt_tm``
 
-Triviality fac_check_exp:
+Theorem fac_check_exp[local]:
    check_exp 0 1 ^fac_tm = SOME Times
 Proof
   EVAL_TAC
@@ -899,13 +899,13 @@ val opt_tm = ``
 
 val aux_tm = ``Let [Var 0; Op (BlockOp (Cons 0)) []] ^opt_tm``
 
-Triviality rev_check_exp:
+Theorem rev_check_exp[local]:
   check_exp 444 1 ^rev_tm = SOME Append
 Proof
   EVAL_TAC
 QED
 
-Triviality rev_compile_exp:
+Theorem rev_compile_exp[local]:
   compile_exp 444 445 1 ^rev_tm = SOME (^aux_tm, ^opt_tm)
 Proof
   EVAL_TAC

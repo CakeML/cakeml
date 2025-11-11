@@ -258,7 +258,7 @@ Proof
   \\ rw [] \\ fs []
 QED
 
-Triviality build_rec_env_help_lem:
+Theorem build_rec_env_help_lem[local]:
   ∀funs env funs'.
   FOLDR (λ(f,x,e) env'. (f, flatSem$Recclosure env funs' f)::env') env' funs =
   MAP (λ(fn,n,e). (fn, Recclosure env funs' fn)) funs ++ env'
@@ -351,7 +351,7 @@ Proof
   fs []
 QED
 
-Triviality do_app_add_to_clock:
+Theorem do_app_add_to_clock[local]:
   do_app ^s op es = SOME (t, r)
    ==>
    do_app (s with clock := s.clock + k) op es =
@@ -360,7 +360,7 @@ Proof
   rw [do_app_cases] \\ fs []
 QED
 
-Triviality do_app_add_to_clock_NONE:
+Theorem do_app_add_to_clock_NONE[local]:
   do_app ^s op es = NONE
    ==>
    do_app (s with clock := s.clock + k) op es = NONE
@@ -631,7 +631,7 @@ Proof
   \\ rw[Once pmatch_nil]
 QED
 
-Triviality evaluate_decs_add_to_clock_initial_state:
+Theorem evaluate_decs_add_to_clock_initial_state[local]:
   r ≠ SOME (Rabort Rtimeout_error) ∧
    evaluate_decs (initial_state ffi k ec) decs = (s',r) ⇒
    evaluate_decs (initial_state ffi (ck + k) ec) decs =
@@ -641,7 +641,7 @@ Proof
   \\ imp_res_tac evaluate_decs_add_to_clock \\ fs []
 QED
 
-Triviality evaluate_decs_add_to_clock_initial_state_io_events_mono:
+Theorem evaluate_decs_add_to_clock_initial_state_io_events_mono[local]:
   evaluate_decs (initial_state ffi k ec) prog = (s',r) ==>
    s'.ffi.io_events ≼
    (FST (evaluate_decs (initial_state ffi (k+ck) ec) prog)).ffi.io_events
@@ -654,7 +654,7 @@ Proof
   \\ fs [Abbr`s1`]
 QED
 
-Triviality initial_state_with_clock:
+Theorem initial_state_with_clock[local]:
   (initial_state ffi k ec with clock := (initial_state ffi k ec).clock + ck) =
    initial_state ffi (k + ck) ec
 Proof

@@ -428,7 +428,7 @@ Definition EqualityType_def:
     (!x1 v1 x2 v2. abs x1 v1 /\ abs x2 v2 ==> types_match v1 v2)
 End
 
-Triviality LSL_n2w_eq:
+Theorem LSL_n2w_eq[local]:
   a < 2 ** (dimindex (:'a) - n) /\ b < 2 ** (dimindex (:'a) - n) /\
     n <= dimindex (:'a) ==>
   ((n2w a ≪ n) = ((n2w b : 'a word) ≪ n) <=> a = b)
@@ -571,7 +571,7 @@ Definition HOL_STRING_v_def:
   HOL_STRING_v cs = STRING_v (implode cs)
 End
 
-Triviality types_match_list_REPLICATE:
+Theorem types_match_list_REPLICATE[local]:
   !n m. types_match_list (REPLICATE n x) (REPLICATE m y) =
   (n = m /\ (0 < n ==> types_match x y))
 Proof
@@ -639,7 +639,7 @@ Proof
   \\ imp_res_tac types_match_list_length
 QED
 
-Triviality do_eq_succeeds:
+Theorem do_eq_succeeds[local]:
   (!a x1 v1 x2 v2. EqualityType a /\ a x1 v1 /\ a x2 v2 ==>
                    (do_eq v1 v2 = Eq_val (x1 = x2)))
 Proof
@@ -650,7 +650,7 @@ Proof
  \\ fs []
 QED
 
-Triviality empty_state_with_refs_eq:
+Theorem empty_state_with_refs_eq[local]:
   empty_state with refs := r =
    s2 with <| refs := r'; ffi := f |> ⇔
    ∃refs ffi.
@@ -660,7 +660,7 @@ Proof
   rw[state_component_equality,EQ_IMP_THM]
 QED
 
-Triviality empty_state_with_ffi_elim:
+Theorem empty_state_with_ffi_elim[local]:
   empty_state with <| refs := r; ffi := empty_state.ffi |> =
     empty_state with refs := r
 Proof
@@ -922,7 +922,7 @@ QED
 
 (* arithmetic for integers *)
 
-Triviality Eval_Opn:
+Theorem Eval_Opn[local]:
   !f n1 n2.
         Eval env x1 (INT n1) ==>
         Eval env x2 (INT n2) ==>
@@ -946,7 +946,7 @@ in
   val Eval_INT_MOD  = f "INT_MOD" `Modulo`
 end;
 
-Triviality Eval_Opb:
+Theorem Eval_Opb[local]:
   !f n1 n2.
         Eval env x1 (INT n1) ==>
         Eval env x2 (INT n2) ==>
@@ -1210,7 +1210,7 @@ Proof
   tac
 QED
 
-Triviality DISTRIB_ANY:
+Theorem DISTRIB_ANY[local]:
   (p * m + p * n = p * (m + n)) /\
     (p * m + n * p = p * (m + n)) /\
     (m * p + p * n = p * (m + n)) /\
@@ -1223,7 +1223,7 @@ Proof
   fs [LEFT_ADD_DISTRIB]
 QED
 
-Triviality MOD_COMMON_FACTOR_ANY:
+Theorem MOD_COMMON_FACTOR_ANY[local]:
   !n p q. 0 < n ∧ 0 < q ==>
             ((n * p) MOD (n * q) = n * p MOD q) /\
             ((p * n) MOD (n * q) = n * p MOD q) /\
@@ -1233,7 +1233,7 @@ Proof
   fs [GSYM MOD_COMMON_FACTOR]
 QED
 
-Triviality Eval_word_add_lemma:
+Theorem Eval_word_add_lemma[local]:
   dimindex (:'a) <= k ==>
     (2 ** (k − dimindex (:α)) * q MOD dimword (:α)) MOD 2 ** k =
     (2 ** (k − dimindex (:α)) * q) MOD 2 ** k
@@ -1283,7 +1283,7 @@ Proof
   \\ imp_res_tac Eval_word_sub_lemma \\ fs []
 QED
 
-Triviality w2n_w2w_8:
+Theorem w2n_w2w_8[local]:
   dimindex (:α) < 8 ==>
     w2n ((w2w:'a word ->word8) w << (8 − dimindex (:α)) >>>
             (8 − dimindex (:α))) = w2n w
@@ -1298,7 +1298,7 @@ Proof
   \\ fs [MULT_DIV]
 QED
 
-Triviality w2n_w2w_64:
+Theorem w2n_w2w_64[local]:
   dimindex (:α) < 64 ==>
     w2n ((w2w:'a word ->word64) w << (64 − dimindex (:α)) >>>
             (64 − dimindex (:α))) = w2n w
@@ -2535,14 +2535,14 @@ Proof
 QED
 *)
 
-Triviality UNCURRY1:
+Theorem UNCURRY1[local]:
   !f. UNCURRY f = \x. case x of (x,y) => f x y
 Proof
   STRIP_TAC \\ FULL_SIMP_TAC std_ss [FUN_EQ_THM,pair_case_def]
   \\ Cases \\ FULL_SIMP_TAC std_ss [FUN_EQ_THM,pair_case_def]
 QED
 
-Triviality UNCURRY2:
+Theorem UNCURRY2[local]:
   !x y f. pair_CASE x f y  = pair_CASE x (\z1 z2. f z1 z2 y)
 Proof
   Cases \\ EVAL_TAC \\ SIMP_TAC std_ss []
@@ -2589,7 +2589,7 @@ Definition MEMBER_def:
   (MEMBER x (y::ys) <=> (x = y) \/ MEMBER x ys)
 End
 
-Triviality MEM_EQ_MEMBER:
+Theorem MEM_EQ_MEMBER[local]:
   !ys x. MEM x ys = MEMBER x ys
 Proof
   Induct \\ FULL_SIMP_TAC (srw_ss()) [MEMBER_def]
@@ -2633,7 +2633,7 @@ Termination
   \\ Q.EXISTS_TAC `LENGTH xs` \\ fs [rich_listTheory.LENGTH_FILTER_LEQ]
 End
 
-Triviality ASHADOW_PREFIX:
+Theorem ASHADOW_PREFIX[local]:
   !xs ys.
       ALL_DISTINCT (MAP FST xs) /\
       EVERY (\y. ~(MEM y (MAP FST ys))) (MAP FST xs) ==>
@@ -2645,7 +2645,7 @@ Proof
   \\ Cases_on `y` \\ fs [] \\ RES_TAC
 QED
 
-Triviality MEM_MAP_ASHADOW:
+Theorem MEM_MAP_ASHADOW[local]:
   !xs y. MEM y (MAP FST (ASHADOW xs)) = MEM y (MAP FST xs)
 Proof
   STRIP_TAC \\ completeInduct_on `LENGTH xs`
@@ -2660,7 +2660,7 @@ Proof
   \\ fs [MEM_MAP,MEM_FILTER] \\ METIS_TAC []
 QED
 
-Triviality EVERY_ALOOKUP_LEMMA:
+Theorem EVERY_ALOOKUP_LEMMA[local]:
   !xs. ALL_DISTINCT (MAP FST xs) ==>
          EVERY (\ (x,y,z). ALOOKUP xs x = SOME (y,z)) xs
 Proof
@@ -2670,7 +2670,7 @@ Proof
   \\ fs [MEM_MAP,FORALL_PROD] \\ metis_tac []
 QED
 
-Triviality ALOOKUP_FILTER:
+Theorem ALOOKUP_FILTER[local]:
   !t a q. q <> a ==> (ALOOKUP (FILTER (\y. q <> FST y) t) a = ALOOKUP t a)
 Proof
   Induct THEN1 (EVAL_TAC \\ SIMP_TAC std_ss [])
@@ -2679,7 +2679,7 @@ Proof
   \\ SRW_TAC [] []
 QED
 
-Triviality ALOOKUP_ASHADOW:
+Theorem ALOOKUP_ASHADOW[local]:
   !xs a. ALOOKUP (ASHADOW xs) a = ALOOKUP xs a
 Proof
   STRIP_TAC \\ completeInduct_on `LENGTH xs`
@@ -2694,7 +2694,7 @@ Proof
   \\ fs [rich_listTheory.LENGTH_FILTER_LEQ]
 QED
 
-Triviality ALL_DISTINCT_MAP_FST_ASHADOW:
+Theorem ALL_DISTINCT_MAP_FST_ASHADOW[local]:
   !xs. ALL_DISTINCT (MAP FST (ASHADOW xs))
 Proof
   STRIP_TAC \\ completeInduct_on `LENGTH xs`
@@ -2711,7 +2711,7 @@ QED
 
 (* size lemmas *)
 
-Triviality v1_size:
+Theorem v1_size[local]:
   !vs v. (MEM v vs ==> v_size v < v1_size vs)
 Proof
   Induct \\ SRW_TAC [] [semanticPrimitivesTheory.v_size_def]
@@ -2727,7 +2727,7 @@ Definition type_names_def:
   (type_names (x :: xs) names = type_names xs names)
 End
 
-Triviality type_names_eq:
+Theorem type_names_eq[local]:
    !ds names .
       type_names ds names =
       (FLAT (REVERSE (MAP (\d.
@@ -2745,7 +2745,7 @@ Proof
   \\ fs [type_names_def] \\ fs [FORALL_PROD,listTheory.MAP_EQ_f]
 QED
 
-Triviality lookup_APPEND:
+Theorem lookup_APPEND[local]:
   !xs ys n. ~(MEM n (MAP FST ys)) ==>
               (ALOOKUP (xs ++ ys) n = ALOOKUP xs n)
 Proof
@@ -2781,7 +2781,7 @@ Proof
   rw[Eval_rw,EQ_IMP_THM,empty_state_def]
 QED
 
-Triviality evaluate_Var_nsLookup:
+Theorem evaluate_Var_nsLookup[local]:
   eval_rel s env (Var id) s' r <=>
     ?v. nsLookup env.v id = SOME r ∧ s' = s
 Proof
@@ -2789,7 +2789,7 @@ Proof
       state_component_equality] \\ rw [] \\ eq_tac \\ rw []
 QED
 
-Triviality evaluate_Var:
+Theorem evaluate_Var[local]:
   eval_rel s env (Var (Short n)) s' r <=>
     ?v. lookup_var n env = SOME r ∧ s' = s
 Proof

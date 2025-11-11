@@ -79,7 +79,7 @@ Proof
   Cases >> Cases >> simp[]
 QED
 
-Triviality path_imp_mem:
+Theorem path_imp_mem[local]:
   path (x::y) ⇒
    ¬NULL y ⇒ MEM (SND x) (MAP FST y)
 Proof
@@ -87,7 +87,7 @@ Proof
   Cases_on`x`>>Cases>>fs[]
 QED
 
-Triviality path_imp_mem2:
+Theorem path_imp_mem2[local]:
   path x ⇒
    ∀y. MEM y (MAP SND x) ∧
        y ≠ SND(LAST x) ⇒
@@ -100,7 +100,7 @@ Proof
   rw[] >> metis_tac[]
 QED
 
-Triviality NoRead_path:
+Theorem NoRead_path[local]:
   ∀σ. path σ ∧ windmill σ ∧ LENGTH σ ≥ 2 ∧
    FST (HD σ) ≠ SND (LAST σ) ⇒
    NoRead (TL σ) (FST (HD σ))
@@ -362,13 +362,13 @@ End
 val _ = set_fixity"\226\137\161"(Infix(NONASSOC,450));
 Overload "\226\137\161" = ``eqenv``
 
-Triviality eqenv_sym:
+Theorem eqenv_sym[local]:
   p1 ≡ p2 ⇒ p2 ≡ p1
 Proof
   rw[eqenv_def]
 QED
 
-Triviality step_sem:
+Theorem step_sem[local]:
   ∀s1 s2. s1 ▷ s2 ⇒ ⊢ s1 ⇒ (∀ρ. sem s1 ρ ≡ sem s2 ρ)
 Proof
   ho_match_mp_tac step_ind >>
@@ -501,7 +501,7 @@ Overload "\226\134\170*" = ``RTC $↪``
 (* ⊢ s1 condition not included in paper;
    not sure if necessary, but couldn't get
    their proof to work *)
-Triviality dstep_step:
+Theorem dstep_step[local]:
   ∀s1 s2. s1 ↪ s2 ⇒ ⊢ s1 ⇒ s1 ▷* s2
 Proof
   ho_match_mp_tac dstep_ind >> rw[] >>
@@ -1178,7 +1178,7 @@ Proof
   \\ metis_tac[]
 QED
 
-Triviality steps_MAP_INJ:
+Theorem steps_MAP_INJ[local]:
   ∀s1 s2. s1 ▷* s2 ⇒
     inj_on_state f s1 ⇒
     map_state f s1 ▷* map_state f s2

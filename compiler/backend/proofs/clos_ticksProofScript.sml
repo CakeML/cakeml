@@ -382,7 +382,7 @@ Proof
   metis_tac [simple_val_rel, closPropsTheory.simple_val_rel_v_to_words]
 QED
 
-Triviality state_rel_opt_rel_refs:
+Theorem state_rel_opt_rel_refs[local]:
   (state_rel s1 s2 ∧ FLOOKUP s1.refs n = r1 ⇒
      ∃r2. FLOOKUP s2.refs n = r2 ∧ opt_rel ref_rel r1 r2) ∧
   (state_rel s1 s2 ∧ FLOOKUP s2.refs n = r2 ⇒
@@ -391,19 +391,19 @@ Proof
   rw [] \\ gvs [state_rel_def, FMAP_REL_def, FLOOKUP_DEF] \\ rw []
 QED
 
-Triviality state_rel_clock_eqs:
+Theorem state_rel_clock_eqs[local]:
   state_rel s t ⇒ s.clock = t.clock
 Proof
   gvs [state_rel_def]
 QED
 
-Triviality state_rel_dec_clock:
+Theorem state_rel_dec_clock[local]:
   state_rel s1 s2 ⇒ state_rel (dec_clock 1 s1) (dec_clock 1 s2)
 Proof
   rw [state_rel_def, dec_clock_def, state_component_equality]
 QED
 
-Triviality rel_update_thunk:
+Theorem rel_update_thunk[local]:
   state_rel s1 s2 ∧
   LIST_REL v_rel vs ys ⇒
     (update_thunk [RefPtr v ptr] s2.refs ys = NONE ⇒

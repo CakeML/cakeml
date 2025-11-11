@@ -159,7 +159,7 @@ Proof
   Cases \\ rw[Word64Rep_def]
 QED
 
-Triviality v_size_LEMMA:
+Theorem v_size_LEMMA[local]:
   !vs v. MEM v vs ==> v_size v <= v1_size vs
 Proof
   Induct \\ full_simp_tac (srw_ss()) [v_size_def]
@@ -442,7 +442,7 @@ val EVERY2_EQ_EL = LIST_REL_EL_EQN
 val EVERY2_IMP_EL = METIS_PROVE[EVERY2_EQ_EL]
   ``!xs ys P. EVERY2 P xs ys ==> !n. n < LENGTH ys ==> P (EL n xs) (EL n ys)``
 
-Triviality EVERY2_MAP_FST_SND:
+Theorem EVERY2_MAP_FST_SND[local]:
   !xs. EVERY2 P (MAP FST xs) (MAP SND xs) = EVERY (\(x,y). P x y) xs
 Proof
   Induct \\ srw_tac [] [LIST_REL_def] \\ Cases_on `h` \\ srw_tac [] []
@@ -455,7 +455,7 @@ Proof
   simp[FUN_EQ_THM,FAPPLY_FUPDATE_THM,APPLY_UPDATE_THM] >> rw[]
 QED
 
-Triviality heap_lookup_APPEND1:
+Theorem heap_lookup_APPEND1[local]:
   ∀h1 z h2.
     heap_length h1 ≤ z ⇒
     (heap_lookup z (h1 ++ h2) = heap_lookup (z - heap_length h1) h2)
@@ -464,7 +464,7 @@ Proof
   >> fsrw_tac[ARITH_ss][] >> Cases_on`h`>>fs[el_length_def]
 QED
 
-Triviality heap_lookup_APPEND2:
+Theorem heap_lookup_APPEND2[local]:
   ∀h1 z h2.
     z < heap_length h1 ⇒
     (heap_lookup z (h1 ++ h2) = heap_lookup z h1)
@@ -485,13 +485,13 @@ QED
 
 (* Prove refinement is maintained past GC calls *)
 
-Triviality LENGTH_ADDR_MAP:
+Theorem LENGTH_ADDR_MAP[local]:
   !xs f. LENGTH (ADDR_MAP f xs) = LENGTH xs
 Proof
   Induct \\ TRY (Cases_on `h`) \\ srw_tac [] [ADDR_MAP_def]
 QED
 
-Triviality MEM_IMP_v_size:
+Theorem MEM_IMP_v_size[local]:
   !l a. MEM a l ==> v_size a < 1 + list_size v_size l
 Proof
   rw []
@@ -499,7 +499,7 @@ Proof
   \\ pop_assum $ qspec_then ‘v_size’ mp_tac \\ gvs []
 QED
 
-Triviality EL_ADDR_MAP:
+Theorem EL_ADDR_MAP[local]:
   !xs n f.
       n < LENGTH xs ==> (EL n (ADDR_MAP f xs) = ADDR_APPLY f (EL n xs))
 Proof
@@ -509,7 +509,7 @@ QED
 
 val _ = augment_srw_ss [rewrites [LIST_REL_def]];
 
-Triviality v_inv_related:
+Theorem v_inv_related[local]:
   !w x f tf.
         gc_shared$gc_related g heap1 (heap2:'a ml_heap) /\
       (!ptr u. (x = Pointer ptr u) ==> ptr IN FDOM g) /\
@@ -573,7 +573,7 @@ Proof
      \\ full_simp_tac (srw_ss()) [f_o_f_DEF,get_refs_def])
 QED
 
-Triviality EVERY2_ADDR_MAP:
+Theorem EVERY2_ADDR_MAP[local]:
   !zs l. EVERY2 P (ADDR_MAP g zs) l <=>
            EVERY2 (\x y. P (ADDR_APPLY g x) y) zs l
 Proof
@@ -582,7 +582,7 @@ Proof
   \\ full_simp_tac std_ss [LIST_REL_def,ADDR_MAP_def,ADDR_APPLY_def]
 QED
 
-Triviality bc_ref_inv_related:
+Theorem bc_ref_inv_related[local]:
   gc_shared$gc_related g heap1 heap2 /\
     bc_ref_inv conf n refs (f,tf,heap1,be) /\ (f ' n) IN FDOM g ==>
     bc_ref_inv conf n refs (g f_o_f f,g f_o_f tf,heap2,be)
@@ -611,7 +611,7 @@ Proof
   \\ res_tac \\ fs [ADDR_APPLY_def]
 QED
 
-Triviality RTC_lemma:
+Theorem RTC_lemma[local]:
   !r n. RTC (ref_edge refs) r n ==>
           (!m. RTC (ref_edge refs) r m ==> bc_ref_inv conf m refs (f,tf,heap,be)) /\
           gc_shared$gc_related g heap heap2 /\
@@ -645,7 +645,7 @@ Proof
   \\ fs [] \\ metis_tac []
 QED
 
-Triviality reachable_refs_lemma:
+Theorem reachable_refs_lemma[local]:
   gc_related g heap heap2 /\
     EVERY2 (\v x. v_inv conf v (x,f,tf,heap)) stack roots /\
     (!n. reachable_refs stack refs n ==> bc_ref_inv conf n refs (f,tf,heap,be)) /\
@@ -667,7 +667,7 @@ Proof
            bc_ref_inv conf m refs (f,tf,heap,be))` by metis_tac [] \\ imp_res_tac RTC_lemma
 QED
 
-Triviality bc_stack_ref_inv_related:
+Theorem bc_stack_ref_inv_related[local]:
   gc_related g heap1 heap2 /\
     bc_stack_ref_inv conf ts stack refs (roots,heap1,be) /\
     (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM g) ==>
@@ -707,7 +707,7 @@ Definition all_reachable_from_roots_def:
        p IN reachable_addresses roots heap
 End
 
-Triviality IN_reachable_addresses =
+Theorem IN_reachable_addresses[local] =
   “x ∈ reachable_addresses roots heap”
   |> SIMP_CONV std_ss [Once IN_DEF,reachable_addresses_def]
 
@@ -829,7 +829,7 @@ Definition make_gc_conf_def:
     <| limit := limit; isRef := isMutTag o FST |> : (tag # 'a) gen_gc$gen_gc_conf
 End
 
-Triviality gc_move_data_refs_split:
+Theorem gc_move_data_refs_split[local]:
   (gen_gc$gc_move cc s x = (x1,s1)) /\ (∀t r. cc.isRef (t,r) <=> isMutTag t) /\
    EVERY isDataElement s.h2 /\ EVERY (λx. ¬isRef x) s.h2 /\ EVERY isRef s.r4 ==>
    EVERY isDataElement s1.h2 /\
@@ -843,7 +843,7 @@ Proof
   >> Cases_on `b` >> fs[isRef_def] >> metis_tac[]
 QED
 
-Triviality gc_move_list_data_refs_split:
+Theorem gc_move_list_data_refs_split[local]:
   !x x1 s s1.
   (gen_gc$gc_move_list cc s x = (x1,s1)) /\ (!t r. (cc.isRef (t,r) <=> isMutTag t))
    /\ EVERY isDataElement s.h2 /\(EVERY (λx. ¬isRef x)) s.h2 /\ EVERY isRef s.r4 ==>
@@ -854,7 +854,7 @@ Proof
   >> drule gc_move_data_refs_split >> metis_tac[]
 QED
 
-Triviality gc_move_refs_data_refs_split:
+Theorem gc_move_refs_data_refs_split[local]:
   !cc s s1.
   (gen_gc$gc_move_refs cc s = s1) /\ (!t r. (cc.isRef (t,r) <=> isMutTag t))
    /\ EVERY isDataElement (s.h1++s.h2) /\ (EVERY (λx. ¬isRef x)) (s.h1++s.h2) /\
@@ -876,7 +876,7 @@ Proof
   >> Cases_on `b` >> fs[isRef_def]
 QED
 
-Triviality gc_move_data_data_refs_split:
+Theorem gc_move_data_data_refs_split[local]:
   !cc s s1.
   (gen_gc$gc_move_data cc s = s1) /\ (!t r. (cc.isRef (t,r) <=> isMutTag t))
    /\ (EVERY (λx. ¬isRef x)) (s.h1++s.h2) /\
@@ -898,7 +898,7 @@ Proof
   >> Cases_on `state''.h2` >> fs[] >> rfs[isDataElement_def]
 QED
 
-Triviality gc_move_loop_data_refs_split:
+Theorem gc_move_loop_data_refs_split[local]:
   !clock cc s s1.
   (gen_gc$gc_move_loop cc s clock = s1) /\
   (!t r. (cc.isRef (t,r) <=> isMutTag t)) /\
@@ -924,7 +924,7 @@ Proof
   >> rpt strip_tac >> fs[]
 QED
 
-Triviality gen_gc_data_refs_split:
+Theorem gen_gc_data_refs_split[local]:
   !cc roots heap.
   (gen_gc cc (roots,heap) = (roots1,s)) /\
   (!t r. (cc.isRef (t,r) <=> isMutTag t)) ==>
@@ -1379,7 +1379,7 @@ Definition heap_store_rel_def:
            (heap_lookup ptr heap2 = heap_lookup ptr heap))
 End
 
-Triviality isSomeDataElement_heap_lookup_lemma1:
+Theorem isSomeDataElement_heap_lookup_lemma1[local]:
   isSomeDataElement (heap_lookup n (Unused k :: xs)) <=>
     k < n /\ isSomeDataElement (heap_lookup (n-(k+1)) xs)
 Proof
@@ -1388,7 +1388,7 @@ Proof
   \\ `k < n` by DECIDE_TAC \\ full_simp_tac std_ss []
 QED
 
-Triviality isSomeDataElement_heap_lookup_lemma2:
+Theorem isSomeDataElement_heap_lookup_lemma2[local]:
   isSomeDataElement (heap_lookup n (heap_expand k ++ xs)) <=>
     k <= n /\ isSomeDataElement (heap_lookup (n-k) xs)
 Proof
@@ -1399,7 +1399,7 @@ Proof
   \\ full_simp_tac std_ss [] \\ DECIDE_TAC
 QED
 
-Triviality isSomeDataElement_heap_lookup_lemma3:
+Theorem isSomeDataElement_heap_lookup_lemma3[local]:
   n <> 0 ==>
     (isSomeDataElement (heap_lookup n (x::xs)) <=>
      el_length x <= n /\ isSomeDataElement (heap_lookup (n - el_length x) xs))
@@ -1531,7 +1531,7 @@ Proof
   \\ full_simp_tac std_ss [] \\ fs[]
 QED
 
-Triviality IMP_heap_store_unused_alt:
+Theorem IMP_heap_store_unused_alt[local]:
   unused_space_inv a sp (heap:('a,'b) heap_element list) /\
     el_length x <= sp ==>
     ?heap2. (heap_store_unused_alt a sp x heap = (heap2,T)) /\
@@ -1630,7 +1630,7 @@ Proof
   \\ rfs [GSYM SUB_PLUS]
 QED
 
-Triviality heap_store_rel_lemma:
+Theorem heap_store_rel_lemma[local]:
   heap_store_rel h1 h2 /\ (heap_lookup n h1 = SOME (DataElement ys l d)) ==>
     (heap_lookup n h2 = SOME (DataElement ys l d))
 Proof
@@ -1639,7 +1639,7 @@ QED
 
 (* cons *)
 
-Triviality v_inv_SUBMAP:
+Theorem v_inv_SUBMAP[local]:
   !w x.
       f SUBMAP f1 /\ tf SUBMAP tf1 /\
       heap_store_rel heap heap1 /\
@@ -1831,7 +1831,7 @@ Proof
   Induct \\ rw [list_to_BlockReps_def] \\ CASE_TAC \\ fs []
 QED
 
-Triviality list_to_BlockReps_data_up_to_lem:
+Theorem list_to_BlockReps_data_up_to_lem[local]:
   xs <> [] /\
    h1 = list_to_BlockReps conf x len xs ==>
    data_up_to (heap_length h1) (h1 ++ h2)
@@ -1882,7 +1882,7 @@ Proof
   \\ Cases_on `t` \\ fs [list_to_BlockReps_def]
 QED
 
-Triviality list_to_BlockReps_Pointer_lem:
+Theorem list_to_BlockReps_Pointer_lem[local]:
   !xs len ys l d ptr u.
      let allocd = list_to_BlockReps conf x len xs in
        xs <> [] /\
@@ -2415,7 +2415,7 @@ Proof
      \\ rveq \\ fs [])
 QED
 
-Triviality v_inv_ind_alt =
+Theorem v_inv_ind_alt[local] =
   v_inv_ind |> Q.SPEC `λv (x,f,tf,heap). P v x f tf heap`
             |> SIMP_RULE std_ss []
             |> Q.GEN `P`;
@@ -2870,7 +2870,7 @@ QED
 
 (* update ref *)
 
-Triviality ref_edge_ValueArray:
+Theorem ref_edge_ValueArray[local]:
   ref_edge (insert ptr (ValueArray xs) refs) x y =
     if x = ptr then MEM y (get_refs (Block 0 ARB xs)) else ref_edge refs x y
 Proof
@@ -2880,7 +2880,7 @@ Proof
   \\ rw [lookup_insert]
 QED
 
-Triviality ref_edge_Thunk:
+Theorem ref_edge_Thunk[local]:
   ref_edge (insert ptr (Thunk ev v) refs) x y =
     if x = ptr then MEM y (get_refs (Block 0 ARB [v])) else ref_edge refs x y
 Proof
@@ -2890,7 +2890,7 @@ Proof
   \\ rw [lookup_insert]
 QED
 
-Triviality reachable_refs_UPDATE:
+Theorem reachable_refs_UPDATE[local]:
   reachable_refs (xs ++ RefPtr b ptr::stack) (insert ptr (ValueArray xs) refs) n ==>
     reachable_refs (xs ++ RefPtr b ptr::stack) refs n
 Proof
@@ -2914,7 +2914,7 @@ Proof
   \\ full_simp_tac std_ss [] \\ res_tac
 QED
 
-Triviality reachable_refs_Thunk_UPDATE:
+Theorem reachable_refs_Thunk_UPDATE[local]:
   reachable_refs (v::RefPtr b ptr::stack) (insert ptr (Thunk ev v) refs) n ==>
     reachable_refs (v::RefPtr b ptr::stack) refs n
 Proof
@@ -2938,7 +2938,7 @@ Proof
   \\ full_simp_tac std_ss [] \\ res_tac
 QED
 
-Triviality reachable_refs_UPDATE1:
+Theorem reachable_refs_UPDATE1[local]:
   reachable_refs (xs ++ RefPtr b ptr::stack) (insert ptr (ValueArray xs1) refs) n ==>
     (!v. MEM v xs1 ==> ~MEM v xs ==> ?xs2. (lookup ptr refs = SOME (ValueArray xs2)) /\ MEM v xs2) ==>
     reachable_refs (xs ++ RefPtr b ptr::stack) refs n
@@ -3005,7 +3005,7 @@ Proof
   \\ full_simp_tac std_ss [LET_DEF]
 QED
 
-Triviality heap_lookup_RefBlock_lemma:
+Theorem heap_lookup_RefBlock_lemma[local]:
   (heap_lookup n (ha ++ RefBlock y::hb) = SOME x) =
       if n < heap_length ha then
         (heap_lookup n ha = SOME x)
@@ -3028,7 +3028,7 @@ Proof
   \\ DISJ1_TAC \\ DECIDE_TAC
 QED
 
-Triviality heap_store_RefBlock:
+Theorem heap_store_RefBlock[local]:
   (LENGTH y = LENGTH h) /\
     (heap_lookup n heap = SOME (RefBlock y)) ==>
     ?heap2. (heap_store n [RefBlock h] heap = (heap2,T)) /\
@@ -3065,7 +3065,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality NOT_isRefBlock:
+Theorem NOT_isRefBlock[local]:
   ~(isRefBlock (Bignum x)) /\
     ~(isRefBlock (Word64Rep a w)) /\
     ~(isRefBlock (DataElement xs (LENGTH xs) (BlockTag n,[])))
@@ -3076,7 +3076,7 @@ Proof
   \\ EVAL_TAC \\ rw[]
 QED
 
-Triviality v_inv_Ref:
+Theorem v_inv_Ref[local]:
   RefBlock_inv heap heap2 ==>
     !x h f tf. (v_inv conf x (h,f,tf,heap2) = v_inv conf x (h,f,tf,heap))
 Proof
@@ -3153,7 +3153,7 @@ Proof
   \\ full_simp_tac std_ss [LET_DEF]
 QED
 
-Triviality heap_lookup_ThunkBlock_lemma:
+Theorem heap_lookup_ThunkBlock_lemma[local]:
   (heap_lookup n (ha ++ ThunkBlock ev v::hb) = SOME x) =
       if n < heap_length ha then
         (heap_lookup n ha = SOME x)
@@ -3175,7 +3175,7 @@ Proof
   \\ full_simp_tac std_ss [el_length_def,ThunkBlock_def,NOT_LESS]
 QED
 
-Triviality heap_store_ThunkBlock:
+Theorem heap_store_ThunkBlock[local]:
   (heap_lookup n heap = SOME (ThunkBlock NotEvaluated y)) ⇒
   ∃heap2.
     heap_store n [ThunkBlock ev h] heap = (heap2,T) ∧
@@ -3213,7 +3213,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality NOT_isThunkBlock:
+Theorem NOT_isThunkBlock[local]:
   ~(isThunkBlock (Bignum x)) /\
     ~(isThunkBlock (Word64Rep a w)) /\
     ~(isThunkBlock (DataElement xs (LENGTH xs) (BlockTag n,[])))
@@ -3224,7 +3224,7 @@ Proof
   \\ EVAL_TAC \\ rw[]
 QED
 
-Triviality v_inv_Thunk:
+Theorem v_inv_Thunk[local]:
   ThunkBlock_inv heap heap2 ==>
     !x h f tf. (v_inv conf x (h,f,tf,heap2) = v_inv conf x (h,f,tf,heap))
 Proof
@@ -3848,7 +3848,7 @@ Proof
   Induct \\ fs [write_bytes_def]
 QED
 
-Triviality LIST_REL_IMP_LIST_REL:
+Theorem LIST_REL_IMP_LIST_REL[local]:
   !xs ys.
       (!x y. MEM x xs ==> P x y ==> Q x y) ==>
       LIST_REL P xs ys ==> LIST_REL Q xs ys
@@ -3856,14 +3856,14 @@ Proof
   Induct \\ fs [PULL_EXISTS]
 QED
 
-Triviality v_size_LESS_EQ:
+Theorem v_size_LESS_EQ[local]:
   !l x. MEM x l ==> v_size x <= list_size v_size l
 Proof
   rw [] \\ imp_res_tac MEM_list_size
   \\ pop_assum $ qspec_then ‘v_size’ mp_tac \\ gvs []
 QED
 
-Triviality v_inv_IMP:
+Theorem v_inv_IMP[local]:
   ∀y x f tf ha.
       v_inv conf y (x,f,tf,ha ++ [Bytes be fl xs ws] ++ hb) ⇒
       v_inv conf y (x,f,tf,ha ++ [Bytes be fl ys ws] ++ hb)
@@ -5508,7 +5508,7 @@ Definition get_real_simple_addr_def:
     | _ => NONE
 End
 
-Triviality or_1:
+Theorem or_1[local]:
   ∀w. (0 -- 0) w ‖ 1w = 1w :'a word
 Proof
   fs [fcpTheory.CART_EQ,word_or_def,fcpTheory.FCP_BETA,word_lsl_def,
@@ -6190,7 +6190,7 @@ Proof
   \\ fs [GSYM word_add_n2w,AC CONJ_COMM CONJ_ASSOC,PULL_EXISTS]
 QED
 
-Triviality minus_lemma:
+Theorem minus_lemma[local]:
   -1w * (bytes_in_word * w) = bytes_in_word * -w
 Proof
   fs []
@@ -6202,14 +6202,14 @@ Proof
   rw [] \\ simp_tac std_ss [GSYM w2n_11,w2n_lsr] \\ fs []
 QED
 
-Triviality LESS_EXO_SUB:
+Theorem LESS_EXO_SUB[local]:
   n < 2 ** (k - m) ==> n < 2n ** k
 Proof
   rw [] \\ match_mp_tac LESS_LESS_EQ_TRANS
   \\ asm_exists_tac \\ fs []
 QED
 
-Triviality LESS_EXO_SUB_ALT:
+Theorem LESS_EXO_SUB_ALT[local]:
   m <= k ==> n < 2 ** (k - m) ==> n * 2 ** m < 2n ** k
 Proof
   rw [] \\ match_mp_tac LESS_LESS_EQ_TRANS
@@ -6217,7 +6217,7 @@ Proof
   \\ fs [GSYM EXP_ADD]
 QED
 
-Triviality less_pow_dimindex_sub_imp:
+Theorem less_pow_dimindex_sub_imp[local]:
   n < 2 ** (dimindex (:'a) - k) ==> n < dimword (:'a)
 Proof
   fs [dimword_def] \\ metis_tac [LESS_EXO_SUB]
@@ -6232,7 +6232,7 @@ Proof
   \\ qexists_tac `0` \\ fs [] \\ EVAL_TAC
 QED
 
-Triviality encode_header_IMP:
+Theorem encode_header_IMP[local]:
   encode_header c tag len = SOME (hd:'a word) /\
     c.len_size + 5 < dimindex (:'a) /\ good_dimindex (:'a) ==>
     len < 2 ** (dimindex (:'a) - 4) /\
@@ -6325,7 +6325,7 @@ Proof
   \\ SEP_W_TAC \\ fs [AC STAR_ASSOC STAR_COMM]
 QED
 
-Triviality thunk_tag_bits_lemma:
+Theorem thunk_tag_bits_lemma[local]:
   (thunk_tag_to_bits Evaluated ≪ 3 ‖ 6w) = 14w:'a word
 Proof
   simp [thunk_tag_to_bits_def,WORD_MUL_LSL]
@@ -6518,7 +6518,7 @@ Proof
   \\ metis_tac [word_el_IMP_word_list_exists]
 QED
 
-Triviality EVERY2_f_EQ:
+Theorem EVERY2_f_EQ[local]:
   !rs ws f. EVERY2 (\v w. f v = w) rs ws <=> MAP f rs = ws
 Proof
   Induct \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs []
@@ -6532,7 +6532,7 @@ Proof
          SEP_EXISTS_THM,cond_STAR,word_list_def,word_el_def,SEP_CLAUSES]
 QED
 
-Triviality get_lowerbits_or_1:
+Theorem get_lowerbits_or_1[local]:
   get_lowerbits c v = (get_lowerbits c v || 1w)
 Proof
   Cases_on `v` \\ fs [get_lowerbits_def]
@@ -6620,7 +6620,7 @@ Theorem memory_rel_WordOp64_alt =
   memory_rel_Word64_alt |> Q.GEN`vs` |> Q.SPEC`[w1;w2]`
   |> CONV_RULE(LAND_CONV(SIMP_CONV(srw_ss())[]))
 
-Triviality IMP_memory_rel_bignum_alt:
+Theorem IMP_memory_rel_bignum_alt[local]:
   memory_rel c be ts refs sp st m dm (vs ++ vars) ∧
    good_dimindex (:α) ∧ ¬small_int (:α) i ∧
    (Bignum i :α ml_el) = DataElement [] (LENGTH ws) (NumTag is_neg,MAP Word ws) ∧
@@ -7126,7 +7126,7 @@ Theorem ADD_DIV_EQ =
   [GSYM ADD_DIV_ADD_DIV,
    ONCE_REWRITE_RULE [ADD_COMM] (GSYM ADD_DIV_ADD_DIV)]
 
-Triviality set_byte_word_of_byte:
+Theorem set_byte_word_of_byte[local]:
   good_dimindex (:'a) ==>
     set_byte a w (word_of_byte ((w2w w):'a word)) be = word_of_byte (w2w w)
 Proof
@@ -7150,7 +7150,7 @@ Proof
   \\ srw_tac[wordsLib.WORD_BIT_EQ_ss][]
 QED
 
-Triviality write_bytes_REPLICATE:
+Theorem write_bytes_REPLICATE[local]:
   !n m.
       good_dimindex (:'a) ==>
       write_bytes (REPLICATE m w) (REPLICATE n (word_of_byte (w2w w))) be =
@@ -7171,7 +7171,7 @@ Proof
   simp [Once LESS_EQ_EXISTS] \\ rw []
 QED
 
-Triviality shift_shift_lemma:
+Theorem shift_shift_lemma[local]:
   l = k + shift (:'a) /\ t < k /\ n DIV i < 2 ** t /\ l = dimindex (:'a) /\
     i = 2 ** shift (:'a) /\ n < dimword (:'a) ==>
     n2w n << (k - t) >>> (l - t) = (n2w (n DIV i)):'a word
@@ -8023,7 +8023,7 @@ Proof
   \\ strip_tac \\ fs []
 QED
 
-Triviality make_header_tag_mask:
+Theorem make_header_tag_mask[local]:
   k < 2 ** (dimindex (:α) − (c.len_size + 2)) ==>
     (tag_mask c && make_header c ((n2w k):'a word) n) = n2w (4 * k)
 Proof
@@ -8045,7 +8045,7 @@ Proof
                 arithmeticTheory.LESS_LESS_EQ_TRANS]
 QED
 
-Triviality make_header_and_2:
+Theorem make_header_and_2[local]:
   (2w && make_header c w n) = 2w
 Proof
   fs [make_header_def]
@@ -8080,13 +8080,13 @@ Proof
   \\ imp_res_tac encode_header_tag_mask \\ fs []
 QED
 
-Triviality LESS_DIV_16_IMP:
+Theorem LESS_DIV_16_IMP[local]:
   n < k DIV 16 ==> 16 * n + 2 < k:num
 Proof
   fs [X_LT_DIV]
 QED
 
-Triviality MULT_BIT0:
+Theorem MULT_BIT0[local]:
   BIT 0 (m * n) <=> BIT 0 m /\ BIT 0 n
 Proof
   fs [bitTheory.BIT0_ODD,ODD_MULT]
@@ -8114,7 +8114,7 @@ Proof
   \\ CCONTR_TAC \\ fs [] \\ rw [] \\ rfs [LENGTH_NIL,PULL_EXISTS]
 QED
 
-Triviality not_bit_lt_2exp:
+Theorem not_bit_lt_2exp[local]:
   !p x n. n < 2 ** (p + 1) ==> ~BIT (p + (x + 1)) n
 Proof
   metis_tac [DECIDE ``p + 1 <= p + (x + 1n)``, bitTheory.TWOEXP_MONO2,
@@ -8294,7 +8294,7 @@ Proof
   \\ rfs [good_dimindex_def]
 QED
 
-Triviality MOD_MULT_MOD_LEMMA:
+Theorem MOD_MULT_MOD_LEMMA[local]:
   k MOD n = 0 /\ x MOD n = t /\ 0 < k /\ 0 < n /\ n <= k ==>
     x MOD k MOD n = t
 Proof
@@ -9187,7 +9187,7 @@ Proof
   \\ Cases_on `i1` \\ fs [GSYM WORD_NOT_LESS,word_msb_neg]
 QED
 
-Triviality memory_rel_RefPtr_EQ_lemma:
+Theorem memory_rel_RefPtr_EQ_lemma[local]:
   n * 2 ** k < dimword (:'a) /\ m * 2 ** k < dimword (:'a) /\ 0 < k /\
     (n2w n << k || 1w) = (n2w m << k || 1w:'a word) ==> n = m
 Proof
@@ -9288,7 +9288,7 @@ val lt8 =
   DECIDE ``(n < 8n) = (n = 0 \/ n = 1 \/ n = 2 \/ n = 3 \/
                        n = 4 \/ n = 5 \/ n = 6 \/ n = 7)``
 
-Triviality Smallnum_test:
+Theorem Smallnum_test[local]:
   ((Smallnum i && -1w ≪ (dimindex (:'a) − 2)) = 0w:'a word) /\
     good_dimindex (:'a) /\ small_int (:'a) i ==>
     ~(i < 0) /\ i < 2 ** (dimindex (:'a) - 4)
@@ -9422,7 +9422,7 @@ Proof
   \\ intLib.COOPER_TAC
 QED
 
-Triviality exists_num:
+Theorem exists_num[local]:
   ~(i < 0i) <=> ?n. i = &n
 Proof
   Cases_on `i` \\ fs []
@@ -10820,25 +10820,25 @@ Proof
   \\ metis_tac[]
 QED
 
-Triviality MIN_ADD:
+Theorem MIN_ADD[local]:
   MIN a b + c = MIN (a + c) (b + c)
 Proof
   rw[MIN_DEF]
 QED
 
-Triviality MIN_SUB:
+Theorem MIN_SUB[local]:
   MIN a b - c = MIN (a - c) (b - c)
 Proof
   rw[MIN_DEF]
 QED
 
-Triviality MAX_ADD:
+Theorem MAX_ADD[local]:
   MAX a b + c = MAX (a + c) (b + c)
 Proof
   rw[MAX_DEF]
 QED
 
-Triviality MAX_SUB:
+Theorem MAX_SUB[local]:
   MAX a b - c = MAX (a - c) (b - c)
 Proof
   rw[MAX_DEF]
@@ -11319,7 +11319,7 @@ Proof
   \\ Cases_on ‘n = n'’ \\ fs []
 QED
 
-Triviality or_seven_eq:
+Theorem or_seven_eq[local]:
   (w << k) ≠ (v << k) ∧ 2 < k ⇒
   ((w << k) || 7w) ≠ ((v << k) || 7w)
 Proof
@@ -12217,7 +12217,7 @@ Definition list_copy_alias_def:
     else list_copy_bwd_alias n (xp+n-1) (yp+n-1) ys
 End
 
-Triviality list_copy_fwd_eq:
+Theorem list_copy_fwd_eq[local]:
   ∀n xp xs yp ys.
   xp + n <= LENGTH xs ∧
   yp + n <= LENGTH ys ⇒
@@ -12238,7 +12238,7 @@ Proof
   Cases_on`x=yp`>>fs[]
 QED
 
-Triviality list_copy_bwd_eq:
+Theorem list_copy_bwd_eq[local]:
   ∀n xp xs yp ys.
   n ≤ xp+1 ∧ xp < LENGTH xs ∧
   n ≤ yp+1 ∧ yp < LENGTH ys ⇒
@@ -12304,7 +12304,7 @@ QED
 
 (* see more interesting theorem below *)
 
-Triviality list_copy_fwd_alias_eq:
+Theorem list_copy_fwd_alias_eq[local]:
   ∀n xp yp ys.
   yp ≤ xp ∧
   xp + n <= LENGTH ys ∧
@@ -12326,7 +12326,7 @@ Proof
   Cases_on`x=yp`>>fs[]
 QED
 
-Triviality list_copy_bwd_alias_eq:
+Theorem list_copy_bwd_alias_eq[local]:
   ∀n xp yp ys.
   xp <= yp ∧
   n ≤ xp +1 ∧ xp < LENGTH ys ∧
@@ -13951,13 +13951,13 @@ Proof
   \\ fs [MEM_MAP] \\ rw [APPLY_UPDATE_THM] \\ fs [] \\ metis_tac []
 QED
 
-Triviality ZIP_MAP_MAP:
+Theorem ZIP_MAP_MAP[local]:
   ∀xs. ZIP (MAP f xs, MAP g xs) = MAP (λk. (f k, g k)) xs
 Proof
   Induct \\ fs []
 QED
 
-Triviality LENGTH_n2mw_LE_num_size:
+Theorem LENGTH_n2mw_LE_num_size[local]:
   ∀n m. good_dimindex (:'a) ∧ n ≤ m ⇒ SUC (LENGTH (n2mw n : 'a word list)) ≤ num_size m
 Proof
   ho_match_mp_tac multiwordTheory.n2mw_ind \\ rw []
@@ -14568,7 +14568,7 @@ Proof
   \\ gvs []
 QED
 
-Triviality xor_bytes_bytes_to_word:
+Theorem xor_bytes_bytes_to_word[local]:
   ∀k vals1 vals2 res_vals a.
     xor_bytes vals1 vals2 = SOME res_vals ⇒
     bytes_to_word k a vals1 0w be ⊕
@@ -14594,7 +14594,7 @@ Proof
   \\ rw [CaseEq"option"] \\ gvs [] \\ res_tac \\ gvs []
 QED
 
-Triviality xor_bytes_drop:
+Theorem xor_bytes_drop[local]:
   ∀n xs ys zs.
     xor_bytes xs ys = SOME zs ⇒
     xor_bytes (DROP n xs) (DROP n ys) = SOME (DROP n zs)
@@ -14605,7 +14605,7 @@ Proof
   \\ rw [] \\ gvs []
 QED
 
-Triviality xor_bytes_xor_words:
+Theorem xor_bytes_xor_words[local]:
   ∀zs1 zs2 vals1 vals2 res_vals.
     xor_bytes vals1 vals2 = SOME res_vals ∧ good_dimindex (:'a) ∧
     EVERY (λw. w = 0w) zs1 ∧ EVERY (λw. w = 0w) zs2 ∧
@@ -14806,7 +14806,7 @@ Proof
   gvs [el_length_def,Bytes_def]
 QED
 
-Triviality v_inv_alt_ind =
+Theorem v_inv_alt_ind[local] =
   v_inv_ind |> Q.SPEC ‘λx (a,b,c,d). P x a’ |> SRULE [];
 
 Theorem memory_rel_xor_bytes:

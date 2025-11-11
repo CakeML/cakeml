@@ -72,7 +72,7 @@ Definition init_axioms_def:
   init_axioms = []:thm list
 End
 
-Triviality init_axioms_alt:
+Theorem init_axioms_alt[local]:
   init_axioms = case [Sequent [] (Var (strlit "") (Tyvar (strlit "")))] of
                 | [] => []
                 | (_ :: xs) => xs
@@ -334,7 +334,7 @@ Definition term_compare_def:
          | Greater => Greater
 End
 
-Triviality term_cmp_thm:
+Theorem term_cmp_thm[local]:
   term_cmp = term_compare
 Proof
   fs [FUN_EQ_THM]
@@ -516,19 +516,19 @@ val def = list_to_hypset_def |> translate
 
 val _ = ml_prog_update open_local_in_block;
 
-Triviality axioms_eq:
+Theorem axioms_eq[local]:
   axioms u = one_CASE u get_the_axioms
 Proof
   fs [axioms_def]
 QED
 
-Triviality types_eq:
+Theorem types_eq[local]:
   types u = one_CASE u get_the_type_constants
 Proof
   fs [types_def]
 QED
 
-Triviality constants_eq:
+Theorem constants_eq[local]:
   constants u = one_CASE u get_the_term_constants
 Proof
   fs [constants_def]

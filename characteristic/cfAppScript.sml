@@ -59,7 +59,7 @@ Definition app_basic_def:
         Q r h_f /\ evaluate_to_heap st env exp p heap r
 End
 
-Triviality app_basic_local:
+Theorem app_basic_local[local]:
   !f x. is_local (app_basic p f x)
 Proof
   simp [is_local_def] \\ rpt strip_tac \\
@@ -388,7 +388,7 @@ Proof
   \\ simp[]
 QED
 
-Triviality forall_cases:
+Theorem forall_cases[local]:
   (!x. P x) <=> (!x1 x2. P (Mem x1 x2)) /\
                   (P FFI_split) /\
                   (!x3 x4 x2 x1. P (FFI_part x1 x2 x3 x4)) /\
@@ -397,13 +397,13 @@ Proof
   EQ_TAC \\ rw [] \\ Cases_on `x` \\ fs []
 QED
 
-Triviality SPLIT_UNION_IMP_SUBSET:
+Theorem SPLIT_UNION_IMP_SUBSET[local]:
   SPLIT x (y UNION y1,y2) ==> y1 SUBSET x
 Proof
   SPLIT_TAC
 QED
 
-Triviality FILTER_ffi_has_index_in_EQ_NIL:
+Theorem FILTER_ffi_has_index_in_EQ_NIL[local]:
   ~(MEM n xs) /\ EVERY (ffi_has_index_in xs) ys ==>
     FILTER (ffi_has_index_in [n]) ys = []
 Proof
@@ -413,7 +413,7 @@ Proof
   \\ CCONTR_TAC \\ fs [] \\ fs [ffi_has_index_in_def]
 QED
 
-Triviality FILTER_ffi_has_index_in_MEM:
+Theorem FILTER_ffi_has_index_in_MEM[local]:
   !ys zs xs x.
       MEM x xs /\
       FILTER (ffi_has_index_in xs) ys = FILTER (ffi_has_index_in xs) zs ==>
@@ -447,7 +447,7 @@ Proof
   \\ fs [FILTER_APPEND]
 QED
 
-Triviality LENGTH_FILTER_EQ_IMP_EMPTY:
+Theorem LENGTH_FILTER_EQ_IMP_EMPTY[local]:
   !xs l.
       (!io_ev. MEM io_ev l ==>
         ?s bs bs'. io_ev = IO_event (ExtCall s) bs bs') /\
@@ -472,13 +472,13 @@ Proof
   \\ fs[LENGTH]
 QED
 
-Triviality IN_DISJOINT_LEMMA1:
+Theorem IN_DISJOINT_LEMMA1[local]:
   !s. x IN h_g /\ DISJOINT s h_g ==> ~(x IN s)
 Proof
   SPLIT_TAC
 QED
 
-Triviality FFI_part_EXISTS:
+Theorem FFI_part_EXISTS[local]:
   parts_ok s1 (p0,p1) /\ parts_ok s2 (p0,p1) /\
     FFI_part x1 x2 x3 x4 ∈ ffi2heap (p0,p1) s1 ==>
     ?y1 y2 y4. FFI_part y1 y2 x3 y4 ∈ ffi2heap (p0,p1) s2
@@ -487,7 +487,7 @@ Proof
   \\ fs [parts_ok_def] \\ metis_tac []
 QED
 
-Triviality ALL_DISTINCT_FLAT_MEM_IMP:
+Theorem ALL_DISTINCT_FLAT_MEM_IMP[local]:
   !p1 x x2 y2.
       ALL_DISTINCT (FLAT (MAP FST p1)) /\ x <> [] /\
       MEM (x,x2) p1 /\ MEM (x,y2) p1 ==> x2 = y2
@@ -500,7 +500,7 @@ Proof
   \\ metis_tac [MEM]
 QED
 
-Triviality FFI_part_11:
+Theorem FFI_part_11[local]:
   parts_ok s1 (p0,p1) /\ parts_ok s2 (p0,p1) /\
     FFI_part x1 x2 x3 x4 ∈ ffi2heap (p0,p1) s1 /\
     FFI_part y1 y2 x3 y4 ∈ ffi2heap (p0,p1) s1 ==>

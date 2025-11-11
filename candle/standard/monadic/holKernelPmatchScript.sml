@@ -26,7 +26,7 @@ val _ = hide "state";
 Type M = ``: hol_refs -> ('a, hol_exn) exc # hol_refs``
 
 (* TODO: stolen from deepMatchesLib.sml; should be exported? *)
-Triviality PAIR_EQ_COLLAPSE:
+Theorem PAIR_EQ_COLLAPSE[local]:
   (((FST x = (a:'a)) /\ (SND x = (b:'b))) = (x = (a, b)))
 Proof
   Cases_on `x` THEN SIMP_TAC std_ss [] THEN METIS_TAC[]

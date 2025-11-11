@@ -2044,7 +2044,7 @@ Definition t_vwalk_def[nocompute]:
   t_vwalk s v = decode_infer_t (vwalk (encode_infer_t o_f s) v)
 End
 
-Triviality t_vwalk_ind':
+Theorem t_vwalk_ind'[local]:
   !s'. t_wfs s' ⇒
    ∀P.
      (∀v. (∀v1 u. (FLOOKUP s' v = SOME v1) ∧ (v1 = Infer_Tuvar u) ⇒ P u) ⇒ P v) ⇒
@@ -2140,7 +2140,7 @@ metis_tac [t_oc_ind', FMAP2_FMAP2, FMAP2_id, decode_left_inverse]
 QED
 *)
 
-Triviality encode_vwalk:
+Theorem encode_vwalk[local]:
   !s. t_wfs s ⇒ !u. vwalk (encode_infer_t o_f s) u = encode_infer_t (t_vwalk s u)
 Proof
   NTAC 2 STRIP_TAC >>
@@ -2155,7 +2155,7 @@ cases_on `x` >>
 rw [encode_infer_t_def]
 QED
 
-Triviality t_oc_eqn_help:
+Theorem t_oc_eqn_help[local]:
   !l v s.
   oc (encode_infer_t o_f s) (encode_infer_ts l) v ⇔
   EXISTS (λt. oc (encode_infer_t o_f s) (encode_infer_t t) v) l
@@ -2214,7 +2214,7 @@ Definition ts_unify_def:
 (ts_unify s _ _ = NONE)
 End
 
-Triviality encode_walk:
+Theorem encode_walk[local]:
   ∀s. t_wfs s ⇒
       ∀t. walk (encode_infer_t o_f s) (encode_infer_t t) = encode_infer_t (t_walk s t)
 Proof
@@ -2226,7 +2226,7 @@ Proof
   metis_tac[decode_left_inverse]
 QED
 
-Triviality encode_pair_cases:
+Theorem encode_pair_cases[local]:
   (∀t t1 t2.
     (encode_infer_t t = Pair t1 t2) ⇒
       ((t1 = Const Tapp_tag) ∧
@@ -2236,7 +2236,7 @@ Proof
   PROVE_TAC[]
 QED
 
-Triviality encode_unify_lemma:
+Theorem encode_unify_lemma[local]:
   !s t1 t2 s' t1' t2'.
   (s = (encode_infer_t o_f s')) ∧
   (((t1 = encode_infer_t t1') ∧ (t2 = encode_infer_t t2')) ∨
@@ -2376,7 +2376,7 @@ TRY (
 metis_tac[o_f_FUPDATE,o_f_DOMSUB,FUPDATE_PURGE,encode_walk,t_wfs_def]
 QED
 
-Triviality encode_unify:
+Theorem encode_unify[local]:
   !s t1 t2 s' t1' t2'.
   (s = encode_infer_t o_f s') ∧
   (t1 = encode_infer_t t1') ∧ (t2 = encode_infer_t t2') ∧
@@ -2654,7 +2654,7 @@ Proof
   simp[t_walkstar_def, cwalkstar_def]
 QED
 
-Triviality ts_walkstar_thm:
+Theorem ts_walkstar_thm[local]:
   !l s.
   t_wfs s ⇒
   (decode_infer_ts ((encode_infer_t o_f s) ◁ encode_infer_ts l) =
@@ -2743,7 +2743,7 @@ Proof
   metis_tac[encode_infer_t_11,o_f_FAPPLY]
 QED
 
-Triviality t_unify_strongind':
+Theorem t_unify_strongind'[local]:
   !P0 P1.
     (!s t1 t2.
        t_wfs s ∧
@@ -2778,7 +2778,7 @@ QED
 Theorem t_unify_strongind =
   SIMP_RULE (bool_ss) [] t_unify_strongind'
 
-Triviality encode_walkstar:
+Theorem encode_walkstar[local]:
   !s t.
   t_wfs s ⇒
   walkstar (encode_infer_t o_f s) (encode_infer_t t) =

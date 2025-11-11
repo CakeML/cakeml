@@ -510,7 +510,7 @@ Proof
   metis_tac[option_CLAUSES,fml_rel_lookup_core_only]
 QED
 
-Triviality rup_pass1_list_pre:
+Theorem rup_pass1_list_pre[local]:
   ∀assg xs n ys m n1 ys1 m1.
     rup_pass1_list assg xs n ys m = (n1,ys1,m1) ∧
     EVERY (λ(_,_,k). k ≤ m) ys ⇒
@@ -522,7 +522,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality rup_pass2_list_pre:
+Theorem rup_pass2_list_pre[local]:
   ∀assg m xs l changes res changes1 assg1 pre.
     rup_pass2_list assg m xs l changes = (changes1,assg1,pre) ∧
     EVERY (λi. i < LENGTH assg) changes ∧
@@ -543,7 +543,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality update_assg_list_pre:
+Theorem update_assg_list_pre[local]:
   ∀assg x changes assg1 pre.
     update_assg_list assg x = (changes,assg1,pre) ⇒
     pre ∧ EVERY (λi. i < LENGTH assg1) changes ∧
@@ -575,7 +575,7 @@ Proof
   \\ gvs [EL_REPLICATE]
 QED
 
-Triviality check_rup_loop_list_pre:
+Theorem check_rup_loop_list_pre[local]:
   ∀b nc fmlls assg changes ls res assg1 changes1 pre.
     check_rup_loop_list b nc fmlls assg changes ls =
       (res,assg1,changes1,pre) ∧
@@ -614,7 +614,7 @@ Proof
   \\ strip_tac \\ gvs []
 QED
 
-Triviality delete_each_pre:
+Theorem delete_each_pre[local]:
   ∀changes assg zeros pre.
     delete_each changes assg = (zeros,pre) ∧
     EVERY (λi. i < LENGTH assg) changes ∧
@@ -649,7 +649,7 @@ Definition get_assg_def:
     if i < LENGTH xs ∧ EL i xs ≠ (0w:word8) then SOME (EL i xs) else NONE
 End
 
-Triviality get_assg_resize_to_fit[simp]:
+Theorem get_assg_resize_to_fit[local,simp]:
   get_assg i (resize_to_fit m assg) = get_assg i assg
 Proof
   rw [resize_to_fit_def] \\ gvs [get_assg_def]
@@ -657,7 +657,7 @@ Proof
   \\ CCONTR_TAC \\ gvs [EL_REPLICATE]
 QED
 
-Triviality to_get_assg:
+Theorem to_get_assg[local]:
   ~(p < LENGTH assg) ∨ EL p assg = 0w ⇔ get_assg p assg = NONE
 Proof
   gvs [get_assg_def] \\ metis_tac []
@@ -3761,7 +3761,7 @@ Definition check_good_aord_fast_def:
   EVERY (λls. EVERY (λx. case lookup x t of NONE => F | _ => T) ls) (MAP (MAP SND o FST) g)
 End
 
-Triviality check_good_aord_fast_correct_1:
+Theorem check_good_aord_fast_correct_1[local]:
   check_good_aord_fast aord ⇒
   check_good_aord aord
 Proof
@@ -3779,7 +3779,7 @@ Proof
   gvs[domain_lookup]
 QED
 
-Triviality check_good_aord_fast_correct_2:
+Theorem check_good_aord_fast_correct_2[local]:
   check_good_aord aord ⇒
   check_good_aord_fast aord
 Proof
@@ -3838,7 +3838,7 @@ Definition check_ws_fast_def:
   EVERY (λv. case sptree$lookup v t of NONE => T | _ => F) as
 End
 
-Triviality check_ws_fast_correct_1:
+Theorem check_ws_fast_correct_1[local]:
   check_ws_fast aord ws bs cs ⇒
   check_ws aord ws bs cs
 Proof
@@ -3851,7 +3851,7 @@ Proof
   metis_tac[option_CLAUSES]
 QED
 
-Triviality check_ws_fast_correct_2:
+Theorem check_ws_fast_correct_2[local]:
   check_ws aord ws bs cs ⇒
   check_ws_fast aord ws bs cs
 Proof
@@ -4104,7 +4104,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality all_core_list_mem:
+Theorem all_core_list_mem[local]:
   ∀inds fmlls acc inds'.
     all_core_list fmlls inds acc = SOME inds' ⇒
     MEM x inds' ⇒ MEM x acc ∨ MEM x inds

@@ -107,7 +107,7 @@ End
 
 val res = translate TRANS_def;
 
-Triviality PAIR_EQ_COLLAPSE:
+Theorem PAIR_EQ_COLLAPSE[local]:
   (((FST x = (a:'a)) /\ (SND x = (b:'b))) = (x = (a, b)))
 Proof
   Cases_on `x` THEN SIMP_TAC std_ss [] THEN METIS_TAC[]
@@ -204,7 +204,7 @@ Definition raconv_def:
     | _ => F
 End
 
-Triviality raconv_PMATCH:
+Theorem raconv_PMATCH[local]:
   ^(rhs(concl(SPEC_ALL raconv_def))) =
     case (tm1,tm2) of
     | (Var _ _, Var _ _) => alphavars env tm1 tm2

@@ -165,7 +165,7 @@ Proof
   \\ first_x_assum (qspec_then `i` mp_tac) \\ gvs []
 QED
 
-Triviality env_rel_CONS_upd:
+Theorem env_rel_CONS_upd[local]:
   env_rel (env with v updated_by f) m db /\ v_rel v1 v2 ==>
   env_rel (env with v updated_by (\xs. (n,v1) :: f xs)) (SOME n :: m) (v2 :: db)
 Proof
@@ -173,14 +173,14 @@ Proof
   \\ rw [] \\ fs [] \\ rw [] \\ fs []
 QED
 
-Triviality env_rel_CONS:
+Theorem env_rel_CONS[local]:
   env_rel (env with <| v := xs |>) m db /\ v_rel v1 v2 ==>
   env_rel (env with <| v := (n,v1) :: xs |>) (SOME n :: m) (v2 :: db)
 Proof
   simp [K_DEF, env_rel_CONS_upd]
 QED
 
-Triviality env_rel_APPEND:
+Theorem env_rel_APPEND[local]:
   !name_prefix prefix db_prefix env m db.
     env_rel env m db /\
     LIST_REL v_rel (MAP SND prefix) db_prefix /\
@@ -222,13 +222,13 @@ Proof
   fs [state_rel_def,flatSemTheory.initial_state_def,initial_state'_def,store_rel_def]
 QED
 
-Triviality state_rel_IMP_clock:
+Theorem state_rel_IMP_clock[local]:
   state_rel s t ==> s.clock = t.clock
 Proof
   fs [state_rel_def]
 QED
 
-Triviality state_rel_dec_clock:
+Theorem state_rel_dec_clock[local]:
   state_rel s t ==> s.clock = t.clock /\
     state_rel (dec_clock s) (dec_clock 1 t)
 Proof
@@ -394,7 +394,7 @@ Proof
   \\ strip_tac \\ fs []
 QED
 
-Triviality LIST_REL_MAP_GENLIST:
+Theorem LIST_REL_MAP_GENLIST[local]:
   !funs f1 f2 R.
     (!n. n < LENGTH funs ==> R (f1 (EL n funs)) (f2 n)) ==>
     LIST_REL R (MAP f1 funs) (GENLIST f2 (LENGTH funs))
@@ -516,7 +516,7 @@ Proof
   \\ pop_assum mp_tac \\ TOP_CASE_TAC \\ fs [env_rel_def]
 QED
 
-Triviality find_recfun_EL:
+Theorem find_recfun_EL[local]:
   !l0 n.
     n < LENGTH l0 /\ ALL_DISTINCT (MAP FST l0) ==>
     find_recfun (FST (EL n l0)) l0 = SOME (SND (EL n l0))
@@ -527,7 +527,7 @@ Proof
   \\ metis_tac [PAIR,PAIR_EQ,FST]
 QED
 
-Triviality IMP_PAIR:
+Theorem IMP_PAIR[local]:
   z = (x,y) ==> x = FST z /\ y = SND z
 Proof
   Cases_on `z` \\ fs []
@@ -1453,7 +1453,7 @@ Proof
   \\ fs [LENGTH_EQ_NUM_compute]
 QED
 
-Triviality rel_update_thunk:
+Theorem rel_update_thunk[local]:
   state_rel s1 s2 ∧
   LIST_REL v_rel vs ys ⇒
     (update_thunk [Loc v ptr] s1.refs vs = SOME refs1 ⇒
@@ -1901,7 +1901,7 @@ Proof
   \\ gvs [AllCaseEqs(),state_rel_def]
 QED
 
-Triviality inc_compile_decs_intro:
+Theorem inc_compile_decs_intro[local]:
   pure_co (insert_interp ## I) ∘ pure_co inc_compile_decs' ∘ f =
   pure_co inc_compile_decs ∘ f ∧
   pure_cc inc_compile_decs' (pure_cc (insert_interp ## I) cc) =
@@ -2255,25 +2255,25 @@ Proof
   \\ rw [] \\ simp [compile_syntactic_props]
 QED
 
-Triviality contains_App_SOME_compile_init:
+Theorem contains_App_SOME_compile_init[local]:
   0 < max_app ⇒ ¬contains_App_SOME max_app [compile_init b]
 Proof
   EVAL_TAC \\ rw [] \\ EVAL_TAC \\ fs []
 QED
 
-Triviality no_mti_compile_init:
+Theorem no_mti_compile_init[local]:
   no_mti (compile_init b)
 Proof
   Cases_on ‘b’ \\ fs [] \\ EVAL_TAC
 QED
 
-Triviality every_Fn_vs_NONE_compile_init:
+Theorem every_Fn_vs_NONE_compile_init[local]:
   every_Fn_vs_NONE [compile_init b]
 Proof
   Cases_on ‘b’ \\ fs [] \\ EVAL_TAC
 QED
 
-Triviality contains_App_SOME_compile_init:
+Theorem contains_App_SOME_compile_init[local]:
   1 ≤ max_app ⇒
   contains_App_SOME max_app [compile_init b] = F
 Proof

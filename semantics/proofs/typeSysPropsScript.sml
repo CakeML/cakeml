@@ -216,7 +216,7 @@ induct_on `ts` >>
 full_simp_tac(srw_ss())[]
 QED
 
-Triviality deBuijn_inc_lem1:
+Theorem deBuijn_inc_lem1[local]:
   !sk i2 t i1.
   deBruijn_inc sk i1 (deBruijn_inc 0 (sk + i2) t) = deBruijn_inc 0 (i1 + (sk + i2)) t
 Proof
@@ -229,7 +229,7 @@ induct_on `ts` >>
 srw_tac[][]
 QED
 
-Triviality type_subst_deBruijn_inc_single:
+Theorem type_subst_deBruijn_inc_single[local]:
   !s t ts tvs inc sk.
   (LENGTH tvs = LENGTH ts) ∧
   (s = alist_to_fmap (ZIP (tvs,ts))) ∧
@@ -267,7 +267,7 @@ Proof
  metis_tac [type_subst_deBruijn_inc_single]
 QED
 
-Triviality check_freevars_deBruijn_inc:
+Theorem check_freevars_deBruijn_inc[local]:
   !tvs tvs' t. check_freevars tvs tvs' t ⇒
   !n n'. check_freevars (n+tvs) tvs' (deBruijn_inc n' n t)
 Proof
@@ -369,7 +369,7 @@ decide_tac >>
 decide_tac
 QED
 
-Triviality type_subst_deBruijn_subst_single:
+Theorem type_subst_deBruijn_subst_single[local]:
   !s t tvs tvs' ts ts' inc.
   (LENGTH tvs = LENGTH ts) ∧
   check_freevars 0 tvs t ∧
@@ -400,7 +400,7 @@ srw_tac[][] >>
 metis_tac [type_subst_deBruijn_subst_single]
 QED
 
-Triviality check_freevars_lem:
+Theorem check_freevars_lem[local]:
   !l tvs' t.
   check_freevars l tvs' t ⇒
   !targs n1 tvs.
@@ -471,7 +471,7 @@ full_simp_tac (srw_ss()++ARITH_ss) [check_freevars_def, EL_MAP, MEM_EL] >>
 metis_tac [check_freevars_deBruijn_inc]
 QED
 
-Triviality type_e_subst_lem5:
+Theorem type_e_subst_lem5[local]:
   (!t n inc n' targs.
    deBruijn_inc n inc
          (deBruijn_subst (n + n') (MAP (deBruijn_inc 0 (n + n')) targs) t) =
@@ -506,7 +506,7 @@ full_simp_tac (srw_ss()++ARITH_ss) [] >>
 metis_tac []
 QED
 
-Triviality type_e_subst_lem7:
+Theorem type_e_subst_lem7[local]:
   (!t sk targs targs' tvs' tvs''.
   (deBruijn_subst sk (MAP (deBruijn_inc 0 sk) targs') (deBruijn_subst 0 targs t) =
    deBruijn_subst 0 (MAP (deBruijn_subst sk (MAP (deBruijn_inc 0 sk) targs')) targs)
@@ -834,7 +834,7 @@ induct_on `e1` >>
 srw_tac[][tenv_val_exp_ok_def, db_merge_def]
 QED
 
-Triviality tveLookup_freevars:
+Theorem tveLookup_freevars[local]:
   !e n inc t tvs.
   tenv_val_exp_ok e ∧
   tveLookup n inc e = SOME (tvs, t)
@@ -1614,7 +1614,7 @@ Proof
  >> metis_tac []
 QED
 
-Triviality type_e_subst_lem:
+Theorem type_e_subst_lem[local]:
   ∀tenv tenvE e t targs tvs targs'.
   type_e tenv (Bind_name x 0 t1 (bind_tvar (LENGTH targs) tenvE)) e t ∧
   num_tvs tenvE = 0 ∧
@@ -1699,7 +1699,7 @@ Proof
   fs []
 QED
 
-Triviality o_f_FRANGE2:
+Theorem o_f_FRANGE2[local]:
   (?x. y = f x ∧ x ∈ FRANGE g) ⇒ y ∈ FRANGE (f o_f g)
 Proof
   rw [FRANGE_DEF] >>
@@ -1789,7 +1789,7 @@ Proof
   fs []
 QED
 
-Triviality fupdate2_union:
+Theorem fupdate2_union[local]:
   !m a1 a2. m |++ a1 |++ a2 = FEMPTY |++ a2 ⊌ (m |++ a1)
 Proof
   rw [FLOOKUP_EXT, FUN_EQ_THM, FLOOKUP_FUNION, flookup_fupdate_list] >>
@@ -1966,7 +1966,7 @@ Proof
 QED
  *)
 
-Triviality all_distinct_map_fst_lemma:
+Theorem all_distinct_map_fst_lemma[local]:
   !l v. ALL_DISTINCT (MAP (\(x,y). x) l) ⇒ ALL_DISTINCT (MAP (\(x,y). (x, v)) l)
 Proof
   Induct_on `l`
@@ -2228,7 +2228,7 @@ Proof
                arithmeticTheory.GREATER_EQ]
 QED
 
-Triviality remove_lambda_prod:
+Theorem remove_lambda_prod[local]:
   (\(x,y). P x y) = (\xy. P (FST xy) (SND xy))
 Proof
   rw [FUN_EQ_THM]

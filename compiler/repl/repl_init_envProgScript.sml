@@ -19,7 +19,7 @@ val _ = ml_prog_update (ml_progLib.set_eval_state
 val s = get_ml_prog_state () |> get_state
 val env = get_ml_prog_state () |> get_env
 
-Triviality declare_env_thm:
+Theorem declare_env_thm[local]:
   declare_env_rel ^s ^env
     (^s with eval_state := SOME (EvalDecs (eval_state_var with env_id_counter := (0,1,1))))
     (Env ^env (0,0))

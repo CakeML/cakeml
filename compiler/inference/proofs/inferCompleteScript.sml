@@ -12,7 +12,7 @@ Libs
   preamble
 
 
-Triviality generalise_no_uvars:
+Theorem generalise_no_uvars[local]:
   (!t m n s dbvars.
   check_t dbvars {} t
   ⇒
@@ -297,7 +297,7 @@ Proof
     metis_tac [check_freevars_more, nub_set, SUBSET_DEF])
 QED
 
-Triviality env_rel_complete_bind:
+Theorem env_rel_complete_bind[local]:
   env_rel_complete FEMPTY ienv tenv Empty ⇒
   env_rel_complete FEMPTY ienv tenv (bind_tvar tvs Empty)
 Proof
@@ -569,7 +569,7 @@ QED
 fun str_assums strs = ConseqConv.DISCH_ASM_CONSEQ_CONV_TAC
         (ConseqConv.CONSEQ_REWRITE_CONV ([], strs, []));
 
-Triviality ap_lemma:
+Theorem ap_lemma[local]:
   !f. x = y ==> f x = f y
 Proof
   fs []

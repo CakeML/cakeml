@@ -31,7 +31,7 @@ val r = translate (blanks_def |> REWRITE_RULE [GSYM sub_check_def]);
 val r = translate SmartAppend_def;
 val r = translate (print_list_def |> REWRITE_RULE [GSYM sub_check_def]);
 
-Triviality print_list_ind:
+Theorem print_list_ind[local]:
   print_list_ind
 Proof
   once_rewrite_tac [fetch "-" "print_list_ind_def"]
