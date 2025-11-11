@@ -5,33 +5,33 @@ Theory cp_to_ilpImpl
 Libs
   preamble
 Ancestors
-  pbc ilp cp_to_ilp
+  pbc ilp cp_to_ilp mlstring
 
 (*
   In this file, we will prove encodings from
-  string-variabled CP constraints.
+  mlstring-variabled CP constraints.
 
-  string constraint
+  mlstring constraint
 
   into
 
-  (string option # (string, cvar) iconstraint)
+  (mlstring option # (mlstring, cvar) iconstraint)
 
-  where cvar is string reif + num
+  where cvar is mlstring reif + num
 
-  The string option is an annotation.
+  The mlstring option is an annotation.
 *)
 
-Type cvar = ``:(string reif + num)``
-Type ciconstraint = ``:(string, cvar) iconstraint``
+Type cvar = ``:(mlstring reif + num)``
+Type ciconstraint = ``:(mlstring, cvar) iconstraint``
 
 (* TODO: replace ge/eq with faster representations. *)
 Datatype:
   enc_conf =
     <|
        fresh : num (* The next fresh var names for flags *)
-     ; ge : (string # int list) list
-     ; eq : (string # int list) list
+     ; ge : (mlstring # int list) list
+     ; eq : (mlstring # int list) list
     |>
 End
 
@@ -335,8 +335,8 @@ Theorem agree_on_fl_mods_fl_append:
   mods_fl fl1 f1 f1' ∧
   mods_fl fl2 f1' f2 ⇒
   (agree_on_fl (fl1++fl2)
-    (wb:string reif + string flag -> bool)
-    (wbf:string reif + num -> bool) ⇔
+    (wb:mlstring reif + mlstring flag -> bool)
+    (wbf:mlstring reif + num -> bool) ⇔
     agree_on_fl fl1 wb wbf ∧
     agree_on_fl fl2 wb wbf)
 Proof
