@@ -132,7 +132,7 @@ val res = translate check_tm_tm_def;
 (*
 val res = translate mlstringTheory.explode_aux_def;
 val res = translate mlstringTheory.explode_def;
-Triviality explode_aux_side_thm:
+Theorem explode_aux_side_thm[local]:
   ∀s n m. n + m = strlen s ==> explode_aux_side s n m
 Proof
   Induct_on`m` \\ rw[Once (theorem"explode_aux_side_def")]

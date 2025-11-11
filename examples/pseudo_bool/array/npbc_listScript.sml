@@ -3140,7 +3140,7 @@ Proof
   gvs[]
 QED
 
-Triviality earliest_rel_append_NONE:
+Theorem earliest_rel_append_NONE[local]:
   earliest_rel fml earliest ⇒
   earliest_rel (fml ++ REPLICATE k NONE) earliest
 Proof
@@ -3154,7 +3154,7 @@ Proof
   \\ Cases_on ‘lookup x earliest’ \\ gvs [min_opt_def]
 QED
 
-Triviality lookup_update_earliest_none:
+Theorem lookup_update_earliest_none[local]:
   ∀v0 n earliest x.
     lookup x (update_earliest earliest n v0) = NONE ⇒
     ¬MEM x (MAP SND v0) ∧ lookup x earliest = NONE
@@ -3164,7 +3164,7 @@ Proof
   \\ gvs [lookup_insert,AllCaseEqs()]
 QED
 
-Triviality lookup_update_earliest_some:
+Theorem lookup_update_earliest_some[local]:
   ∀v0 n earliest x k.
     lookup x (update_earliest earliest n v0) = SOME k ∧ n < k ⇒
     ¬MEM x (MAP SND v0) ∧ lookup x earliest = SOME k
@@ -3176,7 +3176,7 @@ Proof
   \\ ‘MIN x' n ≠ k’ by gvs [MIN_DEF] \\ gvs []
 QED
 
-Triviality earliest_rel_lupdate:
+Theorem earliest_rel_lupdate[local]:
   n < LENGTH fml ∧
   earliest_rel fml earliest ⇒
   earliest_rel (LUPDATE (SOME (v,b)) n fml)
@@ -4939,4 +4939,3 @@ Proof
   drule_all fml_rel_check_output_list>>
   metis_tac[]
 QED
-

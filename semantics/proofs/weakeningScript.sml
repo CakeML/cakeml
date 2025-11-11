@@ -157,7 +157,7 @@ Proof
 QED
 
       (*
-Triviality weakE_lookup:
+Theorem weakE_lookup[local]:
   !n env env' tvs t.
   weakE env' env ∧
   (ALOOKUP env n = SOME (tvs, t))
@@ -177,7 +177,7 @@ Proof
  metis_tac []
 QED
 
-Triviality weak_tenvM_lookup_lem:
+Theorem weak_tenvM_lookup_lem[local]:
   !tvs.
   EVERY (λx. check_freevars tvs [] (Tvar_db x)) (COUNT_LIST tvs)
 Proof
@@ -186,7 +186,7 @@ rw [COUNT_LIST_def, check_freevars_def, EVERY_MAP] >>
 fs [check_freevars_def]
 QED
 
-Triviality weak_tenvM_lookup:
+Theorem weak_tenvM_lookup[local]:
   !mn tenvM tenvM' tenv tenv' tvs t.
   weakM tenvM' tenvM ∧
   FLOOKUP tenvM mn = SOME tenv
@@ -583,7 +583,7 @@ weakCT_only_other_mods mn ctMap' ctMap =
     (?mn' x. mn ≠ SOME mn' ∧ (tn = TypeId (Long mn' x) ∨ tn = TypeExn (Long mn' x)))
 End
 
-Triviality weakCT_only_other_mods_merge:
+Theorem weakCT_only_other_mods_merge[local]:
   !mn ctMap1 ctMap2 ctMap3.
   weakCT_only_other_mods mn ctMap2 ctMap3
   ⇒
@@ -911,4 +911,3 @@ Proof
  fs [SUBSET_DEF]
 QED
  *)
-

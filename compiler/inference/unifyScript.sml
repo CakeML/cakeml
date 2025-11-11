@@ -2108,7 +2108,7 @@ t_oc s t v = oc (encode_infer_t o_f s) (encode_infer_t t) v
 End
 
 (*
-Triviality t_oc_ind':
+Theorem t_oc_ind'[local]:
   ∀s oc'.
   t_wfs s ∧
   (∀t v. v ∈ t_vars t ∧ v ∉ FDOM s ⇒ oc' t v) ∧
@@ -3215,4 +3215,3 @@ Proof
   Q.ISPECL_THEN [`s`,`t1`,`t2`,`sx'`,`sx`] assume_tac t_unify_mgu>>
   rfs[]
 QED
-

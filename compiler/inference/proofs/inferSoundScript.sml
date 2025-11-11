@@ -891,7 +891,7 @@ Proof
   metis_tac []
 QED
 
-Triviality check_freevars_nub:
+Theorem check_freevars_nub[local]:
   (!t x fvs.
   check_freevars x fvs t ⇒
   check_freevars x (nub fvs) t) ∧
@@ -903,7 +903,7 @@ Proof
 rw [check_freevars_def] >> metis_tac[]
 QED
 
-Triviality check_specs_sound:
+Theorem check_specs_sound[local]:
   !mn tenvT idecls1 ienv1 specs st1 idecls2 ienv2 st2.
     check_specs mn tenvT idecls1 ienv1 specs st1 = (Success (idecls2,ienv2), st2) ∧
     tenv_abbrev_ok tenvT
@@ -1135,4 +1135,3 @@ Proof
   infer_top_invariant]
 QED
 *)
-

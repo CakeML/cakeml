@@ -420,7 +420,7 @@ val type_v_exn = SIMP_RULE (srw_ss()) [] (Q.prove (
                                            metis_tac [type_v_rules]));
 
 (*
-Triviality v_to_list_type:
+Theorem v_to_list_type[local]:
   !v vs.
   ctMap_ok ctMap ∧
   ctMap_has_lists ctMap ∧
@@ -450,7 +450,7 @@ Proof
  srw_tac[][]
 QED
 
-Triviality v_to_char_list_type:
+Theorem v_to_char_list_type[local]:
   !v vs.
   ctMap_has_lists ctMap ∧
   v_to_char_list v = SOME vs ∧
@@ -2680,7 +2680,7 @@ type_sound_invariant st env tdecs ctMap tenvS tenv ⇔
     st.defined_mods ⊆ tdecs_no_sig.defined_mods
 End
 
-Triviality tscheme_inst2_lemma:
+Theorem tscheme_inst2_lemma[local]:
   (λid. tscheme_inst2 (Long mn id)) = tscheme_inst2
 Proof
   rw [FUN_EQ_THM]

@@ -388,14 +388,14 @@ Proof
 QED
 
 (*
-Triviality good_remap_extend_bij:
+Theorem good_remap_extend_bij[local]:
   good_remap f ∧ prim_tids T tids ⇒
   good_remap (extend_bij f g tids n)
 Proof
   rw[good_remap_def, extend_bij_def, prim_tids_def,prim_type_nums_def]
 QED
 
-Triviality good_remap_extend_bij:
+Theorem good_remap_extend_bij[local]:
   good_remap f ∧ prim_tids T tids ⇒
   good_remap (extend_bij f g tids ids n)
 Proof
@@ -1938,4 +1938,3 @@ Proof
  >- metis_tac [extend_dec_tenv_ok]
  >- metis_tac [extend_dec_tenv_ok]
 QED
-

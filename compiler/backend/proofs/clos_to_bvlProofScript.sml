@@ -5859,7 +5859,7 @@ Proof
 QED
 
 (*
-Triviality even_stubs3:
+Theorem even_stubs3[local]:
   !max_app. EVEN (num_stubs max_app + 3)
 Proof
   Induct_on `max_app` >>
@@ -6085,7 +6085,7 @@ Proof
 QED
 
 (*
-Triviality compile_prog_stubs:
+Theorem compile_prog_stubs[local]:
   ∀ls ls' n m e new_e aux.
   MEM (n,m,e) ls ∧
   compile_prog max_app ls = ls' ∧

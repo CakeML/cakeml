@@ -95,7 +95,7 @@ QED
 
 (* TODO? more Manual rewrites to get rid of MachineCode type, which probably isn't that expensive *)
 
-Triviality exh_machine_code:
+Theorem exh_machine_code[local]:
   ∀v f.
 (case
   case v of
@@ -110,21 +110,21 @@ Proof
   rw[]>>PairCases_on`v`>>rw[]
 QED
 
-Triviality LIST_BIND_option:
+Theorem LIST_BIND_option[local]:
   LIST_BIND (case P of NONE => A | SOME v => B v) f =
   case P of NONE => LIST_BIND A f | SOME v => LIST_BIND (B v) f
 Proof
   Cases_on`P`>>rw[]
 QED
 
-Triviality LIST_BIND_pair:
+Theorem LIST_BIND_pair[local]:
   LIST_BIND (case P of (l,r) => A l r) f =
   case P of (l,r) => LIST_BIND (A l r) f
 Proof
   Cases_on`P`>>rw[]
 QED
 
-Triviality notw:
+Theorem notw[local]:
   !a. ~a = (-1w ?? a)
 Proof
   srw_tac[wordsLib.WORD_BIT_EQ_ss][]

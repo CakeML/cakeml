@@ -1980,7 +1980,7 @@ Proof
 QED
 
  (*
-Triviality check_ctor_tenv_type_decs_to_ctMap_lemma:
+Theorem check_ctor_tenv_type_decs_to_ctMap_lemma[local]:
   !tenvT tds mn tvs tn c cn ts.
     check_ctor_tenv tenvT (REVERSE tds) ∧
     MEM (tvs,tn,c) (REVERSE tds) ∧
@@ -2602,7 +2602,7 @@ QED
  *)
 
  (*
-Triviality type_ds_no_dup_types_helper:
+Theorem type_ds_no_dup_types_helper[local]:
   !uniq mn decls tenv ds decls' tenv'.
   type_ds uniq mn decls tenv ds decls' tenv'
   ⇒
@@ -2906,7 +2906,7 @@ Proof
  >> metis_tac [type_top_decls_ok]
 QED
 
-Triviality type_no_dup_top_types_lem:
+Theorem type_no_dup_top_types_lem[local]:
   !uniq decls1 tenv prog decls1' res.
   type_prog uniq decls1 tenv prog decls1' res
   ⇒
@@ -2950,7 +2950,7 @@ Proof
      metis_tac [])
 QED
 
-Triviality type_no_dup_top_types_lem2:
+Theorem type_no_dup_top_types_lem2[local]:
   !uniq decls1 tenv prog decls1' tenv'.
   type_prog uniq decls1 tenv prog decls1' tenv'
   ⇒
@@ -2990,7 +2990,7 @@ Proof
  metis_tac []
 QED
 
-Triviality type_no_dup_mods_lem:
+Theorem type_no_dup_mods_lem[local]:
   !uniq decls1 tenv prog decls1' res.
   type_prog uniq decls1 tenv prog decls1' res
   ⇒
@@ -3059,7 +3059,7 @@ Proof
   simp[EXTENSION] >> metis_tac[]
 QED
 
-Triviality type_p_closed:
+Theorem type_p_closed[local]:
   (∀tvs tcenv p t tenv.
        type_p tvs tcenv p t tenv ⇒
        pat_bindings p [] = MAP FST tenv) ∧
@@ -3073,7 +3073,7 @@ Proof
   srw_tac[][Once pat_bindings_accum]
 QED
 
-Triviality type_funs_dom:
+Theorem type_funs_dom[local]:
   !tenv funs tenv'.
     type_funs tenv funs tenv'
     ⇒
@@ -3085,7 +3085,7 @@ Proof
    metis_tac []
 QED
 
-Triviality type_e_closed:
+Theorem type_e_closed[local]:
   (∀tenv e t.
       type_e tenv e t
       ⇒
@@ -3200,7 +3200,7 @@ Proof
   metis_tac []
 QED
 
-Triviality type_d_closed:
+Theorem type_d_closed[local]:
   ∀uniq mno decls tenv d w x.
       type_d uniq mno decls tenv d w x ⇒
         FV_dec d ⊆ (IMAGE Short (tenv_names tenv.v) ∪ tmenv_dom tenv.m)
@@ -3235,7 +3235,7 @@ Proof
 QED
 
   (*
-Triviality type_d_new_dec_vs:
+Theorem type_d_new_dec_vs[local]:
   !uniq mn decls tenv d decls' new_tenv.
     type_d uniq mn decls tenv d decls' new_tenv
     ⇒
@@ -3251,7 +3251,7 @@ QED
    *)
 
    (*
-Triviality type_ds_closed:
+Theorem type_ds_closed[local]:
   ∀uniq mn decls tenv ds w x. type_ds uniq mn decls tenv ds w x ⇒
      !mn'. mn = SOME mn' ⇒
       FV_decs ds ⊆ (IMAGE Short (tenv_names tenv.v) ∪ tmenv_dom tenv.m)
@@ -3289,7 +3289,7 @@ Proof
 QED
   *)
 
-Triviality type_env_dom:
+Theorem type_env_dom[local]:
   !ctMap tenvS env tenv.
     type_env ctMap tenvS env tenv ⇒
     IMAGE Short (set (MAP FST env)) = IMAGE Short (tenv_names tenv)
@@ -3303,7 +3303,7 @@ Proof
    metis_tac []
 QED
 
-Triviality weakM_dom:
+Theorem weakM_dom[local]:
   !tenvM1 tenvM2.
     weakM tenvM1 tenvM2
     ⇒
@@ -3322,7 +3322,7 @@ Proof
    metis_tac [FST, pair_CASES]
 QED
 
-Triviality type_env_dom2:
+Theorem type_env_dom2[local]:
   !ctMap tenvS env tenv.
     type_env ctMap tenvS env (bind_var_list2 tenv Empty) ⇒
     (set (MAP FST env) = set (MAP FST tenv))
@@ -3339,7 +3339,7 @@ Proof
    metis_tac []
 QED
 
-Triviality consistent_mod_env_dom:
+Theorem consistent_mod_env_dom[local]:
   !tenvS tenvC envM tenvM.
     consistent_mod_env tenvS tenvC envM tenvM
     ⇒
@@ -3393,4 +3393,3 @@ Proof
   metis_tac []
 QED
   *)
-

@@ -767,8 +767,8 @@ get_ml_prog_state ()
   |> ml_progLib.get_thm
   |> REWRITE_RULE [ml_progTheory.ML_code_def]
 
-                  Triviality BUTLAST_compiler64_prog:
-                    ^(mk_eq(concl th |> rator |> rator |> rand,“BUTLAST compiler64_prog”))
+Theorem BUTLAST_compiler64_prog[local]:
+  ^(mk_eq(concl th |> rator |> rator |> rand,“BUTLAST compiler64_prog”))
 Proof
   CONV_TAC (RAND_CONV (ONCE_REWRITE_CONV [compiler64_prog_def]))
   \\ CONV_TAC (RAND_CONV (PURE_REWRITE_CONV [listTheory.FRONT_CONS]))

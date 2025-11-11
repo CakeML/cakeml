@@ -500,7 +500,7 @@ val _ = translate (INST_TYPE [alpha|->``:32``,beta|->``:32``]  word_alloc_def)
 (* BROKEN
 val res = translate_no_ind (spec32 three_to_two_reg_pmatch);
 
-Triviality three_to_two_reg_ind:
+Theorem three_to_two_reg_ind[local]:
   word_inst_three_to_two_reg_ind
 Proof
   rewrite_tac [fetch "-" "word_inst_three_to_two_reg_ind_def"]
@@ -543,7 +543,7 @@ val res = translate (spec32 three_to_two_reg_prog_def);
 (* BROKEN
 val res = translate_no_ind (spec32 word_removeTheory.remove_must_terminate_pmatch);
 
-Triviality remove_must_terminate_ind:
+Theorem remove_must_terminate_ind[local]:
   word_remove_remove_must_terminate_ind
 Proof
   rewrite_tac [fetch "-" "word_remove_remove_must_terminate_ind_def"]

@@ -1951,7 +1951,7 @@ Definition colouring_ok_alt_def:
 End
 
 (*hd element is just get_live*)
-Triviality get_clash_sets_hd:
+Theorem get_clash_sets_hd[local]:
   ∀prog live hd ls.
   get_clash_sets prog live = (hd,ls) ⇒
   get_live prog live = hd
@@ -8877,7 +8877,7 @@ Proof
 QED
 
 (*
-Triviality lookup_undir_g_insert_existing:
+Theorem lookup_undir_g_insert_existing[local]:
   lookup x G = SOME v ⇒
   lookup x (undir_g_insert a b G) =
   if x = a then SOME (insert b () v)

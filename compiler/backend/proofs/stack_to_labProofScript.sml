@@ -3061,7 +3061,7 @@ Proof
 QED
 
 (*
-Triviality FLOOKUP_fp_regs:
+Theorem FLOOKUP_fp_regs[local]:
   !regs n v f s.
       FLOOKUP (FEMPTY |++ MAP (λr. (r,read_fp_reg r s)) regs) n = SOME v ==>
       s.fp_regs n = v

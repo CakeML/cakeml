@@ -268,7 +268,7 @@ Proof
 QED
 
 (*
-Triviality mem_lem9:
+Theorem mem_lem9[local]:
   !n r: word4.
       n < 16 /\ n <> 4 /\ Abbrev (r = n2w n) /\ ((2 >< 0) r = 4w: word3) ==>
       (zR12 = num2Zreg n)
@@ -1337,4 +1337,3 @@ Proof
       \\ next_tac []
       )
 QED
-

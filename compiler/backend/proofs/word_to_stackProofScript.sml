@@ -922,7 +922,7 @@ val convs_def = LIST_CONJ
    wordLangTheory.every_name_def]
 
 (*
-Triviality LENGTH_write_bitmap:
+Theorem LENGTH_write_bitmap[local]:
   state_rel ac k f f' (s:('a,'ffi) wordSem$state) t /\ 1 <= f ==>
     (LENGTH ((write_bitmap (names:num_set) k f'):'a word list) + f' = f)
 Proof
@@ -5122,7 +5122,7 @@ QED
 
 
 (*
-Triviality evaluate_wStackLoad_wRegImm2:
+Theorem evaluate_wStackLoad_wRegImm2[local]:
   wRegImm2 ri (k,f,f') = (x,r') ∧
   (case ri of Reg r => EVEN r | _ => T) ∧
   get_var_imm ri (s:('a,num # 'c,'ffi)state) = SOME (Word c) ∧
