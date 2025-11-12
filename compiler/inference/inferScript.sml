@@ -1011,7 +1011,7 @@ Termination
   rw []
 End
 
-Triviality FUN_EQ_THM_state:
+Theorem FUN_EQ_THM_state[local]:
   f = g ⇔ ∀s. f s = g s
 Proof
   gvs [FUN_EQ_THM]

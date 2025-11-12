@@ -343,7 +343,7 @@ Definition asm_code_length_def:
      asm_code_length ((Section k ys)::xs) + if is_Label y then 0 else 1:num)
 End
 
-Triviality asm_fetch_IMP:
+Theorem asm_fetch_IMP[local]:
   (asm_fetch s = SOME x) ==>
     s.pc < asm_code_length s.code
 Proof

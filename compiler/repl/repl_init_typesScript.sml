@@ -58,7 +58,7 @@ End
 
 val _ = cv_trans locationTheory.unknown_loc_def
 
-Triviality CommandLine_arguments_lemma =
+Theorem CommandLine_arguments_lemma[local] =
   “case infertype_prog_inc (init_config,start_type_id) repl_prog of
    | Failure _ => F
    | Success env => infertype_prog_inc env
@@ -78,7 +78,7 @@ Proof
   rewrite_tac [CommandLine_arguments_lemma]
 QED
 
-Triviality Repl_charsFrom_lemma =
+Theorem Repl_charsFrom_lemma[local] =
   “case infertype_prog_inc (init_config,start_type_id) repl_prog of
    | Failure _ => F
    | Success env => infertype_prog_inc env

@@ -39,7 +39,7 @@ Definition toList_def:
   toList vec = toList_aux vec 0
 End
 
-Triviality toList_aux_thm:
+Theorem toList_aux_thm[local]:
   !vec n. toList_aux vec n = case vec of Vector vs => DROP n vs
 Proof
   ho_match_mp_tac toList_aux_ind \\
@@ -109,7 +109,7 @@ Definition mapi_def:
 End
 
 
-Triviality less_than_length_thm:
+Theorem less_than_length_thm[local]:
   !xs n. (n < LENGTH xs) ==> (?ys z zs. (xs = ys ++ z::zs) /\ (LENGTH ys = n))
 Proof
   rw[] \\
@@ -130,7 +130,7 @@ Definition foldli_def:
   foldli f e vec = foldli_aux f e vec 0 (length vec)
 End
 
-Triviality foldli_aux_thm:
+Theorem foldli_aux_thm[local]:
   !f e vec n len. (n + len = length vec) ==>
     (foldli_aux f e vec n len = mllist$foldli_aux f e n (DROP n (toList vec)))
 Proof
@@ -155,7 +155,7 @@ Definition foldl_def:
   foldl f e vec = foldl_aux f e vec 0 (length vec)
 End
 
-Triviality foldl_aux_thm:
+Theorem foldl_aux_thm[local]:
   !f e vec x len. (x + len = length vec) ==>
     (foldl_aux f e vec x len = FOLDL f e (DROP x (toList vec)))
 Proof
@@ -189,7 +189,7 @@ Definition foldri_def:
 End
 
 
-Triviality foldri_aux_thm:
+Theorem foldri_aux_thm[local]:
   !f e vec len. len <= length vec ==>
     (foldri_aux f e vec len = FOLDRi f e (TAKE len (toList vec)))
 Proof
@@ -216,7 +216,7 @@ Definition foldr_def:
   foldr f e vec = foldr_aux f e vec (length vec)
 End
 
-Triviality foldr_aux_thm:
+Theorem foldr_aux_thm[local]:
   !f e vec len. len <= length vec ==>
     (foldr_aux f e vec len = FOLDR f e (TAKE len (toList vec)))
 Proof
@@ -259,7 +259,7 @@ Definition find_def:
   find f vec = find_aux f vec 0 (length vec)
 End
 
-Triviality find_aux_thm:
+Theorem find_aux_thm[local]:
   !f vec n len. (n + len = length vec) ==> (find_aux f vec n len = FIND f (DROP n (toList vec)))
 Proof
   Induct_on `len` \\ Cases_on `vec` \\ rw [find_aux_def, sub_def, length_def,

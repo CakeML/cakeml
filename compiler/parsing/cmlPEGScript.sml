@@ -582,7 +582,7 @@ val test1 = time EVAL
                         SymbolT ">"; AlphaT "x"] 0)
               [] NONE [] done failed”
 
-Triviality frange_image:
+Theorem frange_image[local]:
   FRANGE fm = IMAGE (FAPPLY fm) (FDOM fm)
 Proof
   simp[finite_mapTheory.FRANGE_DEF, pred_setTheory.EXTENSION] >> metis_tac[]
@@ -762,7 +762,7 @@ set_diff (TypeBase.constructors_of ``:MMLnonT``)
                       ``nDtypeCons``])
 *)
 
-Triviality subexprs_pnt:
+Theorem subexprs_pnt[local]:
   subexprs (pnt n) = {pnt n}
 Proof
   simp[subexprs_def, pnt_def]

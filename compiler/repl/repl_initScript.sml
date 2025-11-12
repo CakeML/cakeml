@@ -79,7 +79,7 @@ Proof
   \\ CASE_TAC \\ fs []
 QED
 
-Triviality app_frame:
+Theorem app_frame[local]:
   app p f xs P Q ⇒ ∀H. app p f xs (P * H) (Q *+ H)
 Proof
   rw []
@@ -95,7 +95,7 @@ Proof
   \\ qexists_tac ‘K T’ \\ fs []
 QED
 
-Triviality app_frame_POSTv:
+Theorem app_frame_POSTv[local]:
   app p f xs P ($POSTv Q) ⇒ ∀H. app p f xs (P * H) (POSTv v. Q v * H)
 Proof
   rw [] \\ drule_then (qspec_then ‘H’ mp_tac) app_frame

@@ -174,7 +174,7 @@ QED
 
 (* addition -- compactness *)
 
-Triviality add_lists_sorted_lemma:
+Theorem add_lists_sorted_lemma[local]:
   ∀l1 l2 h t d x.
     add_lists l1 l2 = (h::t,d) ∧
     SORTED $< (x::MAP SND l1) ∧

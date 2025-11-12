@@ -89,7 +89,7 @@ Definition add_print_then_read_def:
         | (Failure x, _) => Failure x
 End
 
-Triviality eq_inf_x =
+Theorem eq_inf_x[local] =
   ``(v1 with inf_v := v2.inf_v) = v2`` |> REWRITE_CONV [inf_env_component_equality]
     |> GSYM |> MATCH_MP EQ_IMPLIES
 
@@ -163,7 +163,7 @@ Proof
   )
 QED
 
-Triviality add_prints_from_opts_infer:
+Theorem add_prints_from_opts_infer[local]:
   !opts decs_ext ienv inf_st decs_ext2 st2 ienv_res inf_st2.
   add_prints_from_opts opts
     (decs_ext, (extend_dec_ienv ienv init_ienv, inf_st)) =
@@ -185,17 +185,17 @@ Proof
   \\ simp []
 QED
 
-Triviality extend_none:
+Theorem extend_none[local]:
   extend_dec_ienv <|inf_v := nsEmpty; inf_c := nsEmpty; inf_t := nsEmpty|> ienv = ienv
 Proof
   simp [extend_dec_ienv_def, inf_env_component_equality]
 QED
 
-Triviality add_err_message_infer2 = add_err_message_infer
+Theorem add_err_message_infer2[local] = add_err_message_infer
     |> Q.GENL [`decs_ext`, `ienv`, `inf_st`] |> Q.SPEC `[]`
     |> SIMP_RULE (srw_ss ()) [infer_d_def, st_ex_return_def, extend_none]
 
-Triviality add_prints_from_opts_infer2 =
+Theorem add_prints_from_opts_infer2[local] =
     Q.SPECL [`xs`, `[]`] add_prints_from_opts_infer
     |> SIMP_RULE (srw_ss ()) [infer_d_def, st_ex_return_def, extend_none]
 

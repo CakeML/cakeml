@@ -1990,7 +1990,7 @@ QED
 val res = translate EL;
 val res = translate npbc_checkTheory.mk_scope_def;
 
-Triviality el_side:
+Theorem el_side[local]:
   ∀xs n.
   n < LENGTH xs ⇒
   el_side n xs
@@ -2001,7 +2001,7 @@ QED
 
 val _ = el_side |> update_precondition;
 
-Triviality mk_scope_side:
+Theorem mk_scope_side[local]:
   mk_scope_side x y
 Proof
   EVAL_TAC>>rw[]>>
@@ -2454,7 +2454,7 @@ val hash_simps = [h_base_def, h_base_sq_def, h_mod_def, splim_def];
 
 val res = translate (hash_pair_def |> REWRITE_RULE hash_simps);
 
-Triviality hash_pair_side:
+Theorem hash_pair_side[local]:
   hash_pair_side n
 Proof
   rw[Once (fetch "-" "hash_pair_side_def")]>>
@@ -3150,7 +3150,7 @@ Overload "vomap_TYPE" = ``STRING_TYPE``
 val r = translate spt_to_vecTheory.prepend_def;
 val r = translate (spt_to_vecTheory.to_flat_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def])
 
-Triviality to_flat_ind:
+Theorem to_flat_ind[local]:
   to_flat_ind (:'a)
 Proof
   once_rewrite_tac [fetch "-" "to_flat_ind_def"]
@@ -4183,7 +4183,7 @@ val res = translate satisfies_npbc_compute;
 
 val r = translate (npbc_checkTheory.to_flat_d_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def])
 
-Triviality to_flat_d_ind:
+Theorem to_flat_d_ind[local]:
   to_flat_d_ind (:'a)
 Proof
   once_rewrite_tac [fetch "-" "to_flat_d_ind_def"]

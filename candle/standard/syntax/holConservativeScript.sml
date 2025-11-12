@@ -11,7 +11,7 @@ Libs
 
 (* Theorems that should probably be proved elsewhere (perhaps some already are) *)
 
-Triviality CLOSED_INST:
+Theorem CLOSED_INST[local]:
   !tm tysubst. CLOSED tm ∧ welltyped tm ⇒ CLOSED (INST tysubst tm)
 Proof
   rw[INST_def] >>
@@ -20,7 +20,7 @@ Proof
   fs[CLOSED_def]
 QED
 
-Triviality type_ok_subst:
+Theorem type_ok_subst[local]:
   !tys i ty.
   type_ok tys (TYPE_SUBST i ty)
   ⇒
@@ -58,7 +58,7 @@ Proof
   ...
 QED
 
-Triviality term_image_term_remove:
+Theorem term_image_term_remove[local]:
   !x f tm tms.
   (!t1 t2. ACONV t1 t2 ⇒ ACONV (f t1) (f t2)) ∧
   hypset_ok tms ∧
@@ -106,7 +106,7 @@ Definition upd_to_subst_def:
 (upd_to_subst _ = [])
 End
 
-Triviality updates_to_subst:
+Theorem updates_to_subst[local]:
   !upd ctxt.
   upd updates ctxt
   ⇒
@@ -135,7 +135,7 @@ Proof
      metis_tac [pair_CASES, FST, SND])
 QED
 
-Triviality typeof_remove_const:
+Theorem typeof_remove_const[local]:
   !tm thy s. const_subst_ok s ⇒ typeof (remove_const thy s tm) = typeof tm
 Proof
   Induct_on `tm` >>
@@ -157,14 +157,14 @@ Proof
  metis_tac [SELECT_THM]
 QED
 
-Triviality remove_const_eq:
+Theorem remove_const_eq[local]:
   const_subst_ok s ∧ ALOOKUP s (strlit "=") = NONE ⇒
   remove_const thy s (tm1 === tm2) = remove_const thy s tm1 === remove_const thy s tm2
 Proof
   rw [equation_def, remove_const_def, typeof_remove_const]
 QED
 
-Triviality has_type_remove_const:
+Theorem has_type_remove_const[local]:
   !tm ty. tm has_type ty ⇒ !s. const_subst_ok s ⇒ remove_const thy s tm has_type ty
 Proof
   ho_match_mp_tac has_type_ind >>
@@ -189,7 +189,7 @@ Proof
  >- rw [Once has_type_cases]
 QED
 
-Triviality vfree_in_remove_const:
+Theorem vfree_in_remove_const[local]:
   const_subst_ok s ∧ VFREE_IN (Var x ty) (remove_const thy s tm) ⇒ VFREE_IN (Var x ty) tm
 Proof
   Induct_on `tm` >>
@@ -209,7 +209,7 @@ Proof
  metis_tac [CLOSED_INST, CLOSED_def]
 QED
 
-Triviality type_ok_remove_upd:
+Theorem type_ok_remove_upd[local]:
   !sig ty.
   type_ok sig ty
   ⇒
@@ -231,7 +231,7 @@ Proof
  metis_tac []
 QED
 
-Triviality term_ok_remove_upd:
+Theorem term_ok_remove_upd[local]:
   !upd ctxt tm thy.
   term_ok (alist_to_fmap (types_of_upd upd) ⊌ tysof ctxt, alist_to_fmap (consts_of_upd upd) ⊌ tmsof ctxt) tm ∧
   upd updates ctxt ∧
@@ -308,7 +308,7 @@ Proof
  >- metis_tac [type_ok_remove_upd, update_distinct]
 QED
 
-Triviality theory_ok_remove_upd:
+Theorem theory_ok_remove_upd[local]:
   !sig ty.
   (?consts p. upd = ConstSpec consts p) ∧
   upd updates ctxt
@@ -320,7 +320,7 @@ Proof
  fs []
 QED
 
-Triviality remove_const_inst:
+Theorem remove_const_inst[local]:
   !tys consts tyin tm.
   remove_const tys consts (INST tyin tm) = INST tyin (remove_const tys consts tm)
 Proof
@@ -329,7 +329,7 @@ Proof
  ...
 QED
 
-Triviality RACONV_REFL2:
+Theorem RACONV_REFL2[local]:
   !tms tm. EVERY (\(x,y). (x ≠ y) ⇒ ~VFREE_IN x tm ∧ ~VFREE_IN y tm) tms ⇒ RACONV tms (tm,tm)
 Proof
   Induct_on `tm` >>
@@ -351,7 +351,7 @@ Proof
  >- ...
 QED
 
-Triviality remove_const_raconv:
+Theorem remove_const_raconv[local]:
   !tms tm. RACONV tms tm ⇒
   const_subst_ok consts ⇒
   RACONV tms (remove_const tys consts (FST tm), remove_const tys consts (SND tm))
@@ -380,7 +380,7 @@ Proof
  >- rw [Once RACONV_cases]
 QED
 
-Triviality remove_const_aconv:
+Theorem remove_const_aconv[local]:
   !tm1 tm2. const_subst_ok consts ∧ ACONV tm1 tm2 ⇒ ACONV (remove_const tys consts tm1) (remove_const tys consts tm2)
 Proof
   rw [ACONV_def] >>
@@ -388,7 +388,7 @@ Proof
  fs []
 QED
 
-Triviality remove_const_vsubst:
+Theorem remove_const_vsubst[local]:
   !tys consts tm.
   remove_const tys consts (VSUBST ilist tm) =
   VSUBST (MAP (λ(x,y). (remove_const tys consts x, y)) ilist) (remove_const tys consts tm)
@@ -396,7 +396,7 @@ Proof
   ...
 QED
 
-Triviality welltyped_remove_const:
+Theorem welltyped_remove_const[local]:
   !tys consts tm.
   const_subst_ok consts ∧ welltyped tm ⇒ welltyped (remove_const tys consts tm)
 Proof
@@ -405,7 +405,7 @@ Proof
  rw [typeof_remove_const]
 QED
 
-Triviality use_const_spec:
+Theorem use_const_spec[local]:
   !ctxt consts p.
   (thyof ctxt,MAP (λ(s,t). Var s (typeof t) === t) consts) |- p
   ⇒
@@ -415,7 +415,7 @@ Proof
   ...
 QED
 
-Triviality remove_const_old_axiom:
+Theorem remove_const_old_axiom[local]:
   !ctxt consts tm.
   term_ok (sigof ctxt) tm ∧
   (∀s. MEM s (MAP FST consts) ⇒ ¬MEM s (MAP FST (const_list ctxt)))
@@ -434,7 +434,7 @@ Proof
  metis_tac []
 QED
 
-Triviality proves_hypset_ok:
+Theorem proves_hypset_ok[local]:
   !thy h c. (thy,h) |- c ⇒ hypset_ok h
 Proof
   rw [] >>
@@ -442,7 +442,7 @@ Proof
  fs []
 QED
 
-Triviality update_conservative:
+Theorem update_conservative[local]:
   !lhs tm.
   lhs |- tm
   ⇒
@@ -621,4 +621,3 @@ Proof
 QED
 
 *)
-

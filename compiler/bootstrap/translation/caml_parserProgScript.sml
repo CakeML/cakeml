@@ -263,7 +263,7 @@ val r = preprocess ptree_Start_def |> translate;
 
 val _ = extra_preprocessing := [MEMBER_INTRO,MAP]
 
-Triviality and_or_imp_lemma:
+Theorem and_or_imp_lemma[local]:
   (b ∨ c ⇔ if b then T else c) ∧
   (b ∧ c ⇔ if b then c else F) ∧
   ((b ⇒ c) ⇔ if b then c else T) ∧

@@ -1626,7 +1626,7 @@ Proof
 QED
 *)
 
-Triviality evaluate_kernel_perms_lemma:
+Theorem evaluate_kernel_perms_lemma[local]:
   ∀ps.
     evaluate s env [exp] = (s',res) ∧
     perms_ok_exp ps exp ∧ perms_ok_env ps (freevars exp) env ∧ perms_ok_state ps s ∧

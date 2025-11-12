@@ -11,7 +11,7 @@ val () = wordsLib.guess_lengths()
 
 (* some lemmas ---------------------------------------------------------- *)
 
-Triviality bytes_in_memory_thm:
+Theorem bytes_in_memory_thm[local]:
   !w s state a b c d.
       target_state_rel riscv_target s state /\
       bytes_in_memory s.pc [a; b; c; d] s.mem s.mem_domain ==>
@@ -35,7 +35,7 @@ Proof
    \\ fs []
 QED
 
-Triviality bytes_in_memory_thm2:
+Theorem bytes_in_memory_thm2[local]:
   !w s state a b c d.
       target_state_rel riscv_target s state /\
       bytes_in_memory (s.pc + w) [a; b; c; d] s.mem s.mem_domain ==>
@@ -64,7 +64,7 @@ val lem4 = blastLib.BBLAST_PROVE
             c ' 4; c ' 3; c ' 2; c ' 1; c ' 0] : word12) = c : word64)``
 
 
-Triviality lem5:
+Theorem lem5[local]:
   aligned 2 (c: word64) ==> ~c ' 1
 Proof
   simp [alignmentTheory.aligned_extract]
@@ -79,13 +79,13 @@ val lem6 = blastLib.BBLAST_PROVE
 val lem7 = CONJ (bitstringLib.v2w_n2w_CONV ``v2w [F] : word64``)
                 (bitstringLib.v2w_n2w_CONV ``v2w [T] : word64``)
 
-Triviality lem8:
+Theorem lem8[local]:
   ((if b then 1w else 0w : word64) = (v2w [x] || v2w [y])) = (b = (x \/ y))
 Proof
   rw [] \\ blastLib.BBLAST_TAC
 QED
 
-Triviality lem9:
+Theorem lem9[local]:
   !r2 : word64 r3 : word64.
     (18446744073709551616 <= w2n r2 + (w2n r3 + 1) <=>
      18446744073709551616w <=+ w2w r2 + w2w r3 + 1w : 65 word) /\
@@ -117,7 +117,7 @@ val lem12b =
               (0w : word12)) +
        sw2sw ((11 >< 0) c && ~2w) = c : word64)``
 
-Triviality mul_long:
+Theorem mul_long[local]:
   !a : word64 b : word64.
     n2w ((w2n a * w2n b) DIV 18446744073709551616) =
     (127 >< 64) (w2w a * w2w b : word128) : word64
@@ -144,7 +144,7 @@ val riscv_sub_overflow =
          (((x ?? y) && ~(y ?? (x - y))) >>> 63 = 1w)``]
     (Q.INST_TYPE [`:'a` |-> `:64`] integer_wordTheory.sub_overflow)
 
-Triviality ror:
+Theorem ror[local]:
   !w : word64 n. n < 64n ==> ((w << (64 - n) || w >>> n) = w #>> n)
 Proof
   srw_tac [fcpLib.FCP_ss]
@@ -381,7 +381,7 @@ in
     end
 end
 
-Triviality bytes_in_memory_IMP_all_pcs_MEM8:
+Theorem bytes_in_memory_IMP_all_pcs_MEM8[local]:
   !env a xs m dm.
    bytes_in_memory a xs m dm /\
    (!(i:num) ms'. (∀a. a ∈ dm ⇒ (env i ms').MEM8 a = ms'.MEM8 a)) ==>
@@ -451,13 +451,13 @@ end
    riscv target_ok
    ------------------------------------------------------------------------- *)
 
-Triviality length_riscv_encode:
+Theorem length_riscv_encode[local]:
   !i. LENGTH (riscv_encode i) = 4
 Proof
   rw [riscv_encode_def]
 QED
 
-Triviality riscv_encode_not_nil:
+Theorem riscv_encode_not_nil[local]:
   !i. riscv_encode i <> []
 Proof
   simp_tac std_ss [length_riscv_encode, GSYM listTheory.LENGTH_NIL]
@@ -474,7 +474,7 @@ val riscv_encoding = Q.prove (
    )
    |> SIMP_RULE (srw_ss()++boolSimps.LET_ss) [riscv_enc_def]
 
-Triviality riscv_target_ok:
+Theorem riscv_target_ok[local]:
   target_ok riscv_target
 Proof
   rw ([asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,

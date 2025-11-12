@@ -1125,7 +1125,7 @@ Definition split_goals_def:
   EVERY (λ(i,c). c ∈ f ∨ check_triv extra (not c) ∨ mem_constraint c proved) lf
 End
 
-Triviality list_pair_eq_thm:
+Theorem list_pair_eq_thm[local]:
   ∀xs ys. list_pair_eq xs ys ⇔ xs = ys
 Proof
   Induct \\ rw []
@@ -3652,7 +3652,7 @@ Proof
   Induct>>rw[]>>fs[build_fml_def,id_ok_def]
 QED
 
-Triviality subst_eta:
+Theorem subst_eta[local]:
   subst f = subst (λx. f x)
 Proof
   fs [SF ETA_ss]

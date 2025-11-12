@@ -193,7 +193,7 @@ Proof
   simp[closed_def, free_sing_eq] >> pairarg_tac >> gvs[]
 QED
 
-Triviality EL_MEM_LEMMA:
+Theorem EL_MEM_LEMMA[local]:
   !xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs
 Proof
   Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []
@@ -223,7 +223,7 @@ Definition calls_list_def:
           calls_list t (i+1) (loc+2n) xs)
 End
 
-Triviality exp3_size_MAP_SND:
+Theorem exp3_size_MAP_SND[local]:
   !fns. exp3_size (MAP SND fns) <= exp1_size fns
 Proof
   Induct \\ fs [exp_size_def,FORALL_PROD]

@@ -34,13 +34,13 @@ Definition list_result_def[simp]:
   list_result (Rerr e) = Rerr e
 End
 
-Triviality fix_clock_IMP:
+Theorem fix_clock_IMP[local]:
   fix_clock s x = (s1,res) ==> s1.clock <= s.clock
 Proof
   Cases_on ‘x’ \\ fs [fix_clock_def] \\ rw [] \\ fs []
 QED
 
-Triviality list_size_REVERSE:
+Theorem list_size_REVERSE[local]:
   ∀xs. list_size f (REVERSE xs) = list_size f xs
 Proof
   Induct \\ fs [listTheory.list_size_def,listTheory.list_size_append]

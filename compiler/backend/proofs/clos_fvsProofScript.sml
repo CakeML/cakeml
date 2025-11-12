@@ -287,7 +287,7 @@ Proof
   \\ fs [v_rel_cases]
 QED
 
-Triviality state_rel_opt_rel_refs:
+Theorem state_rel_opt_rel_refs[local]:
   (state_rel s1 s2 ∧ FLOOKUP s1.refs n = r1 ⇒
      ∃r2. FLOOKUP s2.refs n = r2 ∧ opt_rel ref_rel r1 r2) ∧
   (state_rel s1 s2 ∧ FLOOKUP s2.refs n = r2 ⇒
@@ -296,19 +296,19 @@ Proof
   rw [] \\ gvs [state_rel_def, fmap_rel_def, FLOOKUP_DEF] \\ rw []
 QED
 
-Triviality state_rel_clocks_eqs:
+Theorem state_rel_clocks_eqs[local]:
   state_rel s1 s2 ⇒ s1.clock = s2.clock
 Proof
   rw [state_rel_def, state_component_equality]
 QED
 
-Triviality state_rel_dec_clock:
+Theorem state_rel_dec_clock[local]:
   state_rel s1 s2 ⇒ state_rel (dec_clock 1 s1) (dec_clock 1 s2)
 Proof
   rw [state_rel_def, dec_clock_def, state_component_equality]
 QED
 
-Triviality rel_update_thunk:
+Theorem rel_update_thunk[local]:
   state_rel s1 s2 ∧
   LIST_REL v_rel vs ys ⇒
     (update_thunk [RefPtr v ptr] s1.refs vs = NONE ⇒

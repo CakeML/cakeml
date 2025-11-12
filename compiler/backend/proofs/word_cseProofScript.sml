@@ -1039,7 +1039,7 @@ Proof
   \\ Cases_on ‘a’ \\ gvs [is_complex_def, inst_def, assign_def, firstRegOfArith_def, AllCaseEqs(), data_inv_set_var]
 QED
 
-Triviality if_eq_rw[simp]:
+Theorem if_eq_rw[local,simp]:
   (if x = y then y else x) = x
 Proof
   rw []

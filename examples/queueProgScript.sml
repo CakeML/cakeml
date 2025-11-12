@@ -213,7 +213,7 @@ Proof
   simp[EL_APPEND1, EL_APPEND2]
 QED
 
-Triviality dequeue_spec_noexn:
+Theorem dequeue_spec_noexn[local]:
   !qv xv vs x. app (p:'ffi ffi_proj) ^(fetch_v "dequeue" st) [qv]
           (QUEUE A mx vs qv * &(vs ≠ []))
           (POSTv v. &(A (HD vs) v) * QUEUE A mx (TL vs) qv)

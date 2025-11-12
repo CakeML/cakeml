@@ -180,7 +180,7 @@ Proof
   \\ rw [] \\ simp [Once pre]
 QED
 
-Triviality fp_reg_ok_arm8_def[cv_inline] = fp_reg_ok_arm8_def;
+Theorem fp_reg_ok_arm8_def[local,cv_inline] = fp_reg_ok_arm8_def;
 
 val _ = cv_auto_trans inst_ok_arm8_def;
 val _ = cv_auto_trans asm_ok_arm8_def;

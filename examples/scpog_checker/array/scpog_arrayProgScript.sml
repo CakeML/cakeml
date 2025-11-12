@@ -1645,7 +1645,7 @@ val res = translate prepend_def;
 
 val r = translate (to_flat_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def])
 
-Triviality to_flat_ind:
+Theorem to_flat_ind[local]:
   to_flat_ind (:'a)
 Proof
   once_rewrite_tac [fetch "-" "to_flat_ind_def"]
@@ -1662,7 +1662,7 @@ val _ = to_flat_ind |> update_precondition;
 
 val r = translate (to_flat_chr_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def])
 
-Triviality to_flat_chr_ind:
+Theorem to_flat_chr_ind[local]:
   to_flat_chr_ind
 Proof
   once_rewrite_tac [fetch "-" "to_flat_chr_ind_def"]

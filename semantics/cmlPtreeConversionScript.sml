@@ -1246,17 +1246,17 @@ Definition ptree_Expr_def[nocompute]:
         | _ => NONE)
 End
 
-Triviality dumb1:
+Theorem dumb1[local]:
   COND (p = q) t e = COND (q = p) t e
 Proof
   rw[]
 QED
-Triviality dumb2:
+Theorem dumb2[local]:
   COND gd t NONE = OPTION_IGNORE_BIND (assert gd) t
 Proof
   Cases_on ‘gd’ >> simp[]
 QED
-Triviality ptree_Expr_def' =
+Theorem ptree_Expr_def'[local] =
   ptree_Expr_def |> ONCE_REWRITE_RULE [dumb1]
                  |> SRULE []
                  |> REWRITE_RULE[dumb2]

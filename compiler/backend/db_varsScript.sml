@@ -129,7 +129,7 @@ Proof
   \\ fs [lookup_db_to_set]
 QED
 
-Triviality has_var_FOLDL_Union:
+Theorem has_var_FOLDL_Union[local]:
   !vs n s. has_var n (FOLDL (\s1 v. Union (Var v) s1) s vs) <=>
              MEM n vs \/ has_var n s
 Proof

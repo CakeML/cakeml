@@ -139,7 +139,7 @@ Termination
   \\ imp_res_tac check_res_IMP \\ fs []
 End
 
-Triviality check_res_size_of:
+Theorem check_res_size_of[local]:
   check_res refs (size_of lims vs refs seen) = size_of lims vs refs seen
 Proof
   qsuff_tac
@@ -1062,13 +1062,13 @@ Definition fix_clock_def:
   fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
 End
 
-Triviality fix_clock_IMP:
+Theorem fix_clock_IMP[local]:
   fix_clock s x = (res,s1) ==> s1.clock <= s.clock
 Proof
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
 QED
 
-Triviality LESS_EQ_dec_clock:
+Theorem LESS_EQ_dec_clock[local]:
   r.clock <= (dec_clock s).clock ==> r.clock <= s.clock
 Proof
   SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC
@@ -1162,7 +1162,7 @@ Definition cut_state_opt_def:
     | SOME names => cut_state names s
 End
 
-Triviality pop_env_clock:
+Theorem pop_env_clock[local]:
   (pop_env s = SOME s1) ==> (s1.clock = s.clock)
 Proof
   full_simp_tac(srw_ss())[pop_env_def]
@@ -1170,7 +1170,7 @@ Proof
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
 QED
 
-Triviality push_env_clock:
+Theorem push_env_clock[local]:
   (push_env env b s).clock = s.clock
 Proof
   Cases_on `b` \\ full_simp_tac(srw_ss())[push_env_def]

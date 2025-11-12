@@ -126,7 +126,7 @@ Proof
   metis_tac[PAIR,FST,evaluate_call_FFI_rel]
 QED
 
-Triviality evaluate_decs_call_FFI_rel:
+Theorem evaluate_decs_call_FFI_rel[local]:
   ∀s e d.
      RTC call_FFI_rel s.ffi (FST (evaluate_decs s e d)).ffi
 Proof
@@ -599,13 +599,13 @@ Proof
   simp_tac bool_ss evaluate_decs_lemmas
 QED
 
-Triviality add_lemma:
+Theorem add_lemma[local]:
   !(k:num) k'. ?extra. k = k' + extra ∨ k' = k + extra
 Proof
   intLib.ARITH_TAC
 QED
 
-Triviality with_clock_ffi:
+Theorem with_clock_ffi[local]:
   (s with clock := k).ffi = s.ffi
 Proof
   EVAL_TAC

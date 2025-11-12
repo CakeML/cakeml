@@ -91,14 +91,14 @@ Proof
   Cases_on `i` \\ fs []
 QED
 
-Triviality push_if:
+Theorem push_if[local]:
   (∀f x y b. (if b then f x else f y) = f (if b then x else y)) ∧
   (∀f h x b. (if b then f x else h x) = (if b then f else h) x)
 Proof
   rw []
 QED
 
-Triviality split_if:
+Theorem split_if[local]:
   (if b then f x else h y) = (if b then f else h) (if b then x else y)
 Proof
   rw []
@@ -546,7 +546,7 @@ Proof
 QED
 
 (* TODO: move to sptreeTheory *)
-Triviality EXISTS_NOT_IN_spt_DOMAIN:
+Theorem EXISTS_NOT_IN_spt_DOMAIN[local]:
   ∃x. x ∉ domain (refs : 'a spt)
 Proof
   assume_tac (Q.INST [`t` |-> `refs`] FINITE_domain
@@ -701,12 +701,12 @@ Proof
   Cases \\ rw [size_of_def] \\ pairarg_tac \\ fs []
 QED
 
-Triviality ADD4DIV4 =
+Theorem ADD4DIV4[local] =
   ADD_DIV_ADD_DIV |> Q.SPEC `4` |> SIMP_RULE std_ss []
   |> Q.SPEC `1` |> SIMP_RULE std_ss[]
   |> Q.SPEC `i` |> PURE_ONCE_REWRITE_RULE [ADD_SYM];
 
-Triviality ADD8DIV8 =
+Theorem ADD8DIV8[local] =
   ADD_DIV_ADD_DIV |> Q.SPEC `8` |> SIMP_RULE std_ss []
   |> Q.SPEC `1` |> SIMP_RULE std_ss[]
   |> Q.SPEC `i` |> PURE_ONCE_REWRITE_RULE [ADD_SYM];
@@ -2518,7 +2518,7 @@ Proof
   EVAL_TAC>>rw[]
 QED
 
-Triviality word_exp_set:
+Theorem word_exp_set[local]:
   (word_exp s (Op Add [Var n; Const c]) =
   case get_var n s of
     SOME (Word w) => SOME (Word (w+c))
@@ -2533,7 +2533,7 @@ Proof
   fs[]
 QED
 
-Triviality good_dimindex_w2w_byte:
+Theorem good_dimindex_w2w_byte[local]:
   good_dimindex (:'a) ⇒
   w2w (w2w (w:word8):'a word) = w
 Proof
@@ -2542,7 +2542,7 @@ Proof
   match_mp_tac WORD_ALL_BITS>>fs[]
 QED
 
-Triviality set_var_consts:
+Theorem set_var_consts[local]:
   (set_var r v s).memory = s.memory ∧
   (set_var r v s).mdomain = s.mdomain ∧
   (set_var r v s).be = s.be ∧
@@ -2551,7 +2551,7 @@ Proof
   fs[wordSemTheory.set_var_def]
 QED
 
-Triviality get_var_consts:
+Theorem get_var_consts[local]:
   get_var r (s with memory:=m) = get_var r s
 Proof
   EVAL_TAC>>rw[]
@@ -3610,7 +3610,7 @@ Proof
   \\ gvs [adjust_sets_def]
 QED
 
-Triviality evaluate_AppendMainLoop_code:
+Theorem evaluate_AppendMainLoop_code[local]:
     !xs ww (t:('a,'c,'ffi)wordSem$state) vars ptr hdr l k frame r1 r2 next_free ts v.
       memory_rel c t.be ts (s:('c,'ffi) dataSem$state).refs sp t.store t.memory t.mdomain
          ((v,Word ww)::vars) /\ xs <> [] /\
@@ -3826,7 +3826,7 @@ Definition STOP_def:
   STOP x = x
 End
 
-Triviality evaluate_AppendMainLoop_code_alt:
+Theorem evaluate_AppendMainLoop_code_alt[local]:
   !xs ww (t:('a,'c,'ffi)wordSem$state) vars ptr hdr l k frame r1 r2 next_free ts v.
     memory_rel c t.be ts (s:('c,'ffi) dataSem$state).refs sp t.store t.memory t.mdomain
        ((v,Word ww)::vars) /\ xs <> [] /\
@@ -4045,7 +4045,7 @@ val evaluate_AppendMainLoop_code_alt = evaluate_AppendMainLoop_code_alt
   |> SIMP_RULE std_ss []
   |> GEN_ALL;
 
-Triviality evaluate_AppendLenLoop_code:
+Theorem evaluate_AppendLenLoop_code[local]:
   !k (t:('a,'c,'ffi)wordSem$state) c xs l1 l2 (w:'a word) vars ts v.
     memory_rel c t.be ts refs sp t.store t.memory t.mdomain
       ((v,Word w)::vars) /\
@@ -4150,7 +4150,7 @@ Proof
 QED
 
 (* TODO: declared with [simp] further down *)
-Triviality opt_map_plus_zero_id:
+Theorem opt_map_plus_zero_id[local]:
   !n. OPTION_MAP2 $+ (SOME 0) n = (n:num option)
 Proof
   Cases_on `n` >> fs []
@@ -6155,7 +6155,7 @@ Proof
   rw[wordSemTheory.set_var_def,lookup_insert]
 QED
 
-Triviality lookup_2_call_env:
+Theorem lookup_2_call_env[local]:
   lookup 0 ((call_env (x::ts) a1 a2).locals) = SOME x ∧
   lookup 2 ((call_env (x::y::ts) a1 a2).locals) = SOME y ∧
   lookup 4 ((call_env (x::y::z::ts) a1 a2).locals) = SOME z
@@ -9598,7 +9598,7 @@ Proof
   \\ eval_tac \\ fs [lookup_insert] \\ fs []
 QED
 
-Triviality MemEqList_thm:
+Theorem MemEqList_thm[local]:
   !offset t xs dm m b a.
       word_mem_eq (a + offset) xs dm m = SOME b /\
       get_var 3 t = SOME (Word a) /\ dm = t.mdomain /\ m = t.memory ==>
@@ -10215,7 +10215,7 @@ Proof
   \\ fs [] \\ asm_exists_tac \\ fs [sane_locals_size_def]
 QED
 
-Triviality MIN_SUB:
+Theorem MIN_SUB[local]:
   MIN a b - c = MIN (a - c) (b - c)
 Proof
   rw[MIN_DEF]
@@ -11413,7 +11413,7 @@ Proof
   Cases \\ fs [w2w_def,dimword_def]
 QED
 
-Triviality fp_greater:
+Theorem fp_greater[local]:
   fp64_greaterThan a b = fp64_lessThan b a /\
   fp64_greaterEqual a b = fp64_lessEqual b a
 Proof
@@ -14073,7 +14073,7 @@ Proof
   \\ Cases_on ‘h’ \\ gvs [do_part_def,AllCaseEqs()]
 QED
 
-Triviality TWO_POW_LEMMA:
+Theorem TWO_POW_LEMMA[local]:
   (2 ** n ≤ 3 ⇒ n < 2) ∧
   (2 ** n ≤ 2 ⇒ n < 2) ∧
   (2 ** n ≤ 1 ⇒ n < 1)
@@ -14249,10 +14249,10 @@ QED
 
 fun foldr1 f (x::xs) = foldr f x xs | foldr1 f [] = fail();
 
-Triviality join_lemma =
+Theorem join_lemma[local] =
   METIS_PROVE [] “(b1 ⇒ x) ∧ (b2 ⇒ x) ⇒ (b1 ∨ b2 ⇒ x)”;
 
-Triviality imp_assign =
+Theorem imp_assign[local] =
   DB.match ["-"] “_ ==> ^assign_thm_goal” |> map (#1 o #2)
   |> foldr1 (fn (x,y) => MATCH_MP join_lemma (CONJ x y));
 

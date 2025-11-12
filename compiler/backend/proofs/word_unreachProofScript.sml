@@ -127,7 +127,7 @@ Proof
   \\ res_tac \\ gvs []
 QED
 
-Triviality get_vars_IS_SOME_lookup:
+Theorem get_vars_IS_SOME_lookup[local]:
   ∀xs s.
     (∃ws. get_vars xs s = SOME ws)
     ⇔
@@ -241,7 +241,7 @@ Proof
   \\ gvs [evaluate_def,AllCaseEqs()]
 QED
 
-Triviality push_env_handler:
+Theorem push_env_handler[local]:
   push_env x' (case handler of
                | NONE => NONE
                | SOME (y1,q2,y2,y3) => SOME (y1,Seq_assoc_right q2 Skip,y2,y3))

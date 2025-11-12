@@ -289,7 +289,7 @@ Definition code_rel_def:
             lookup n c2 = SOME (arity + 1, exp_opt))
 End
 
-Triviality code_rel_find_code_SOME:
+Theorem code_rel_find_code_SOME[local]:
   ∀c1 c2 (args: v list) a exp.
      code_rel c1 c2 ∧
      find_code (SOME n) args c1 = SOME (a, exp) ⇒
@@ -304,7 +304,7 @@ Proof
   \\ pairarg_tac \\ fs []
 QED
 
-Triviality code_rel_find_code_NONE:
+Theorem code_rel_find_code_NONE[local]:
   ∀c1 c2 (args: v list) a exp.
      code_rel c1 c2 ∧
      find_code NONE args c1 = SOME (a, exp) ⇒
@@ -419,7 +419,7 @@ Proof
   \\ Cases_on `h`  \\ fs [] \\ Cases_on `h'` \\ simp [decide_ty_def]
 QED
 
-Triviality ty_rel_APPEND:
+Theorem ty_rel_APPEND[local]:
   ∀env ts ws vs.
      ty_rel env ts ∧ ty_rel vs ws ⇒ ty_rel (vs ++ env) (ws ++ ts)
 Proof
@@ -688,7 +688,7 @@ Definition free_names_def:
   free_names n (name: num) ⇔ ∀k. n + bvl_to_bvi_namespaces*k ≠ name
 End
 
-Triviality more_free_names:
+Theorem more_free_names[local]:
   free_names n name ⇒ free_names (n + bvl_to_bvi_namespaces) name
 Proof
   fs [free_names_def] \\ rpt strip_tac
@@ -696,14 +696,14 @@ Proof
   \\ rw []
 QED
 
-Triviality is_free_name:
+Theorem is_free_name[local]:
   free_names n name ⇒ n ≠ name
 Proof
   fs [free_names_def] \\ strip_tac
   \\ first_x_assum (qspec_then `0` mp_tac) \\ strip_tac \\ rw []
 QED
 
-Triviality compile_exp_next_addr:
+Theorem compile_exp_next_addr[local]:
   compile_exp loc next args exp = NONE ⇒
      compile_exp loc (next + bvl_to_bvi_namespaces) args exp = NONE
 Proof
@@ -747,7 +747,7 @@ Proof
   \\ rw [fromAList_def, lookup_insert, is_free_name]
 QED
 
-Triviality EVERY_free_names_SUCSUC:
+Theorem EVERY_free_names_SUCSUC[local]:
   ∀xs.
      EVERY (free_names n o FST) xs ⇒
        EVERY (free_names (n + bvl_to_bvi_namespaces) o FST) xs
@@ -811,13 +811,13 @@ Proof
   \\ fs[backend_commonTheory.bvl_to_bvi_namespaces_def]
 QED
 
-Triviality check_exp_NONE_compile_exp:
+Theorem check_exp_NONE_compile_exp[local]:
   check_exp loc arity exp = NONE ⇒ compile_exp loc next arity exp = NONE
 Proof
   fs [compile_exp_def]
 QED
 
-Triviality check_exp_SOME_compile_exp:
+Theorem check_exp_SOME_compile_exp[local]:
   check_exp loc arity exp = SOME p ⇒
      ∃q. compile_exp loc next arity exp = SOME q
 Proof
@@ -826,7 +826,7 @@ Proof
   \\ pairarg_tac \\ fs []
 QED
 
-Triviality EVERY_free_names_thm:
+Theorem EVERY_free_names_thm[local]:
   EVERY (free_names next o FST) prog ∧
    lookup loc (fromAList prog) = SOME x ⇒
      free_names next loc
@@ -899,7 +899,7 @@ Proof
   \\ qexists_tac`k'' + 1` \\ simp[]
 QED
 
-Triviality compile_prog_intro:
+Theorem compile_prog_intro[local]:
   ∀xs n ys n1 name.
     ¬MEM name (MAP FST xs) ∧
     free_names n name ∧
