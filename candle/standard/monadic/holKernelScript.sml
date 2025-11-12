@@ -303,6 +303,13 @@ Definition mk_fun_ty_def:
   mk_fun_ty ty1 ty2 = mk_type(strlit"fun",[ty1; ty2])
 End
 
+Definition dest_fun_ty_def:
+  dest_fun_ty ty =
+    dtcase tm of
+      (Tyapp "fun" [ty1,ty2]) => return (ty1,ty2)
+    | _ => failwith (strlit "dest_fun_ty")
+End
+
 Overload bool_ty[local] = ``mk_type(strlit"bool",[])``
 Overload aty[local] = ``mk_vartype (strlit "A")``
 Overload bty[local] = ``mk_vartype (strlit "B")``
@@ -811,6 +818,15 @@ End
       with Failure _ -> failwith "mk_eq";;
 *)
 
+Definition mk_eq_nocheck_def:
+  mk_eq_nocheck ty (l,r) =
+    try (\(l,r).
+           do eq <- mk_const(strlit"=",[]) ;
+              eq_tm <- inst [(ty,aty)] eq ;
+              return (Comb(Comb(eq_tm,l),r))
+           od) (l,r) (strlit "mk_eq_nocheck")
+End
+
 Definition mk_eq_def:
   mk_eq (l,r) =
     try (\(l,r).
@@ -943,11 +959,14 @@ End
 val _ = PmatchHeuristics.with_classic_heuristic Define `
   MK_COMB (Sequent asl1 c1,Sequent asl2 c2) =
    dtcase (c1,c2) of
-     (Comb (Comb (Const (strlit "=") _) l1) r1, Comb (Comb (Const (strlit "=") _) l2) r2) =>
-       do x1 <- mk_comb(l1,l2) ;
-          x2 <- mk_comb(r1,r2) ;
-          eq <- mk_eq(x1,x2) ;
-          return (Sequent(term_union asl1 asl2) eq) od
+     (Comb (Comb (Const (strlit "=") ty1) l1) r1, Comb (Comb (Const (strlit "=") ty2) l2) r2) =>
+       do (dom,rng) <- dest_fun_ty ty1;
+          if dom = ty2 then do
+                               eq <- mk_eq_nocheck rng (Comb(l1,l2),Comb(r1,r2));
+                               return (Sequent(term_union asl1 asl2) eq)
+                            od
+                       else failwith (strlit "MK_COMB")
+       od
    | _ => failwith (strlit "MK_COMB")`
 
 (*
