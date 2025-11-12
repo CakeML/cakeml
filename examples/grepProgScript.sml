@@ -411,12 +411,14 @@ End
 
 val all_charsets_eq = EVAL ``all_charsets``;
 
-val charset_sing_eq = prove(
-  ``!c. charset_sing c = sub all_charsets (ORD c)``,
+Theorem charset_sing_eq[local]:
+    !c. charset_sing c = sub all_charsets (ORD c)
+Proof
   Cases
   \\ `ORD (CHR n) = n` by fs [ORD_CHR]
   \\ asm_rewrite_tac [sub_def,all_charsets_def]
-  \\ fs [EL_GENLIST]);
+  \\ fs [EL_GENLIST]
+QED
 
 val r = translate all_charsets_eq;
 val r = translate charset_sing_eq;

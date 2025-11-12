@@ -484,6 +484,14 @@ Proof
     \\ fs [EVERY_EL]
     \\ first_x_assum drule
     \\ rw [ref_ok_thm, EVERY_EL])
+  \\ Cases_on ‘op = Vsub_unsafe’ \\ gs []
+  >- (
+    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
+         store_lookup_def]
+    \\ drule_then assume_tac state_ok_refs_ok
+    \\ fs [EVERY_EL]
+    \\ first_x_assum drule
+    \\ rw [ref_ok_thm, EVERY_EL])
   \\ Cases_on ‘op = VfromList’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi]

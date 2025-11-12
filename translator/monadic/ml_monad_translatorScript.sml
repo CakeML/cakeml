@@ -1203,13 +1203,14 @@ Proof
   \\ EQ_TAC >> rw[]
 QED
 
-val LIST_CONJ_Eval = prove(
-  ``!xs Ps s:'d state.
+Theorem LIST_CONJ_Eval[local]:
+    !xs Ps s:'d state.
       LIST_CONJ (MAP (λ(exp,P). Eval env exp P) (ZIP (xs,Ps))) /\
       LENGTH xs = LENGTH Ps ==>
       ?ck vs junk.
          evaluate (s with clock := ck) env xs =
-           (s with refs := s.refs ++ junk,Rval vs) /\ LIST_REL (\f x. f x) Ps vs``,
+           (s with refs := s.refs ++ junk,Rval vs) /\ LIST_REL (\f x. f x) Ps vs
+Proof
   Induct \\ Cases_on `Ps` \\ fs [LIST_CONJ_def]
   THEN1 fs [state_component_equality]
   \\ rw []
@@ -1228,7 +1229,8 @@ val LIST_CONJ_Eval = prove(
   \\ drule evaluate_set_clock \\ fs []
   \\ disch_then (qspec_then `ck1''` strip_assume_tac)
   \\ qexists_tac `ck1'''` \\ once_rewrite_tac [evaluate_cons]
-  \\ fs [state_component_equality]);
+  \\ fs [state_component_equality]
+QED
 
 Theorem LIST_REL_EQ_LIST_CONJ_MAP:
    !xs ys.

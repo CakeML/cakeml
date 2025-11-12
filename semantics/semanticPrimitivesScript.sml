@@ -1017,6 +1017,11 @@ Definition do_app_def:
                 SOME ((s,t), Rval (Vectorv vs))
             | NONE => NONE
           )
+    | (Vsub_unsafe, [Vectorv vs; Litv (IntLit i)]) =>
+        if (0:int) ≤ i ∧ Num i < LENGTH vs then
+          SOME ((s,t), Rval (EL (Num i) vs))
+        else
+          NONE
     | (Vsub, [Vectorv vs; Litv (IntLit i)]) =>
         if i <( 0 : int) then
           SOME ((s,t), Rerr (Rraise sub_exn_v))

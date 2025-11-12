@@ -74,10 +74,12 @@ Definition encode_def:
   encode = encode_list (Str o explode)
 End
 
-val encode_11 = prove(
-  ``!x y. encode x = encode y <=> x = y``,
+Theorem encode_11[local]:
+    !x y. encode x = encode y <=> x = y
+Proof
   rw [] \\ eq_tac \\ fs [encode_def] \\ rw []
-  \\ drule encode_list_11 \\ fs [mlstringTheory.explode_11]);
+  \\ drule encode_list_11 \\ fs [mlstringTheory.explode_11]
+QED
 
 val decode_encode = new_specification("decode_encode",["decode"],
   prove(``?decode. !cls. decode (encode cls) = SOME cls``,

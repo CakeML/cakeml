@@ -4873,7 +4873,7 @@ Proof
   rw[]>>
   first_x_assum drule>>fs[]>>
   every_case_tac>>fs[]
-QED;
+QED
 
 (* labs_exist preservation *)
 Theorem line_similar_line_labs_exist:

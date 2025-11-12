@@ -2346,6 +2346,20 @@ Proof
   \\ fs [LIST_REL_EL_EQN]
 QED
 
+Theorem Eval_sub_unsafe:
+  !env x1 x2 a n v.
+     Eval env x1 (VECTOR_TYPE a v) ==>
+     Eval env x2 (NUM n) ==>
+     n < length v ==>
+     Eval env (App Vsub_unsafe [x1; x2]) (a (sub_unsafe v n))
+Proof
+  tac2
+  \\ `?l. v = Vector l` by metis_tac [vector_nchotomy]
+  \\ rw []
+  \\ fs [VECTOR_TYPE_def, length_def, NUM_def, sub_unsafe_def, INT_def]
+  \\ fs [LIST_REL_EL_EQN]
+QED
+
 Theorem Eval_vector:
   !env x1 a l.
      Eval env x1 (LIST_TYPE a l) ==>
@@ -3232,14 +3246,15 @@ Proof
   \\ fs [state_component_equality]
 QED
 
-val Eval_Con_lemma = prove(
-  ``!ps refs.
+Theorem Eval_Con_lemma[local]:
+    !ps refs.
       (∀p_1 p_2. MEM (p_1,p_2) ps ⇒ Eval env p_2 p_1) ==>
       ?ck1 ck2 refs' vals.
         evaluate (empty_state with <|clock := ck1; refs := refs|>) env
                  (MAP SND ps) =
         (empty_state with <|clock := ck2; refs := refs ⧺ refs'|>,Rval vals) /\
-        LIST_REL (λ(p,x) v. p v) ps vals``,
+        LIST_REL (λ(p,x) v. p v) ps vals
+Proof
   Induct THEN1 fs [state_component_equality]
   \\ fs [FORALL_PROD,Eval_def,eval_rel_def,PULL_EXISTS]
   \\ rw [] \\ once_rewrite_tac [evaluate_cons]
@@ -3254,7 +3269,8 @@ val Eval_Con_lemma = prove(
   \\ drule evaluate_add_to_clock
   \\ disch_then (qspec_then `ck1'` assume_tac) \\ fs []
   \\ asm_exists_tac \\ fs []
-  \\ fs [state_component_equality]);
+  \\ fs [state_component_equality]
+QED
 
 Theorem Eval_Con:
    !ps stamp.
@@ -3316,4 +3332,3 @@ Proof
   \\ first_assum $ irule_at $ Pos hd
   \\ fs [state_component_equality]
 QED
-

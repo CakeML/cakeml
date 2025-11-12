@@ -179,16 +179,18 @@ val encode_rwts =
        Utype_def, UJtype_def]
    end
 
-val word_bit_0_add4 = prove(
-  ``word_bit 0 (w +  4w:word64) = word_bit 0 w /\
+Theorem word_bit_0_add4[local]:
+    word_bit 0 (w +  4w:word64) = word_bit 0 w /\
     word_bit 0 (w +  8w:word64) = word_bit 0 w /\
     word_bit 0 (w + 12w:word64) = word_bit 0 w /\
     word_bit 0 (w + 16w:word64) = word_bit 0 w /\
     word_bit 0 (w + 20w:word64) = word_bit 0 w /\
     word_bit 0 (w + 24w:word64) = word_bit 0 w /\
     word_bit 0 (w + 28w:word64) = word_bit 0 w /\
-    word_bit 0 (w + 32w:word64) = word_bit 0 w``,
-  blastLib.BBLAST_TAC);
+    word_bit 0 (w + 32w:word64) = word_bit 0 w
+Proof
+  blastLib.BBLAST_TAC
+QED
 
 val enc_rwts =
   [riscv_config, riscv_asm_ok, lem6, word_bit_0_add4] @ encode_rwts @ asmLib.asm_rwts

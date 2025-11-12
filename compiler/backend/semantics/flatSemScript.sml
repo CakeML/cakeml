@@ -429,6 +429,11 @@ Definition do_app_def:
           SOME (s, Rerr (Rraise subscript_exn_v))
         else
           SOME (s, Rval (EL n vs))
+  | (Vsub_unsafe, [Vectorv vs; Litv (IntLit i)]) =>
+    if 0 ≤ i ∧ Num i < LENGTH vs then
+      SOME (s, Rval (EL (Num i) vs))
+    else
+      NONE
   | (Vlength, [Vectorv vs]) =>
     SOME (s, Rval (Litv (IntLit (int_of_num (LENGTH vs)))))
   | (Aalloc, [Litv (IntLit n); v]) =>
@@ -533,7 +538,7 @@ Definition do_app_def:
     SOME (s, Rval (Boolv (tag = n /\ LENGTH xs = l)))
   | (LenEq l, [Conv _ xs]) =>
     SOME (s, Rval (Boolv (LENGTH xs = l)))
- | (El n, [Conv _ vs]) =>
+  | (El n, [Conv _ vs]) =>
     (if n < LENGTH vs then SOME (s, Rval (EL n vs)) else NONE)
   | (El n, [Loc _ p]) =>
     (if n <> 0 then NONE else
@@ -1057,4 +1062,3 @@ End
 val _ = map (can delete_const)
   ["do_eq_UNION_aux","do_eq_UNION",
    "pmatch_UNION_aux","pmatch_UNION"];
-

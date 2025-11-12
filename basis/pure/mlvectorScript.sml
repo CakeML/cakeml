@@ -13,6 +13,10 @@ Theorem vector_nchotomy =
 Theorem sub_def =
   regexp_compilerTheory.sub_def
 
+Definition sub_unsafe_def: (* same as sub_def, but translator targets Vsub_unsafe *)
+  sub_unsafe (Vector l) n = EL n l
+End
+
 Theorem length_def =
   regexp_compilerTheory.length_def
 

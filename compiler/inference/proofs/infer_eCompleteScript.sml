@@ -123,10 +123,11 @@ val pure_add_constraints_swap = GEN_ALL pure_add_constraints_swap;
 
 (*End pure_add_constraints stuff*)
 
-val extend_t_vR_WF = prove
-(``(check_t lim {} (n) ∧
+Theorem extend_t_vR_WF[local]:
+   (check_t lim {} (n) ∧
    WF (t_vR s) )⇒
-   WF (t_vR (s |+ (uvar,n)))``,
+   WF (t_vR (s |+ (uvar,n)))
+Proof
   fs[WF_DEF]>>rw[]>>
   first_x_assum(qspec_then `B` assume_tac)>>fs[]>>
   Cases_on `?w. B w`>> fs[]>>
@@ -134,7 +135,8 @@ val extend_t_vR_WF = prove
   fs[t_vR_eqn,FLOOKUP_UPDATE]>>
   IF_CASES_TAC>>rw[]>>
   imp_res_tac check_t_t_vars>>
-  fs[FLOOKUP_DEF]);
+  fs[FLOOKUP_DEF]
+QED
 
 Triviality not_t_oc:
   (!t s v lim. t_wfs s ∧ check_t lim {} t ⇒ ¬ t_oc s t v) ∧
@@ -207,9 +209,10 @@ Proof
 QED
 
 (*Can't find a version of this in the right direction*)
-val check_t_t_walkstar = prove
-(``t_wfs s ⇒
-  !tvs (uvars:num ->bool) t. check_t tvs {} (t_walkstar s t) ⇒ check_t tvs (FDOM s) t``,
+Theorem check_t_t_walkstar[local]:
+   t_wfs s ⇒
+  !tvs (uvars:num ->bool) t. check_t tvs {} (t_walkstar s t) ⇒ check_t tvs (FDOM s) t
+Proof
   strip_tac>>ho_match_mp_tac check_t_ind>>
   rw[]
   >-
@@ -225,7 +228,8 @@ val check_t_t_walkstar = prove
     fs[check_t_def,t_walkstar_eqn,t_walk_eqn]>>
     fs[EVERY_MEM]>>rw[]>>
     res_tac>>
-    metis_tac[MEM_MAP]);
+    metis_tac[MEM_MAP]
+QED
 
 (*Ignore increment on deBrujin vars*)
 Triviality t_walkstar_ignore_inc:
@@ -2815,5 +2819,5 @@ Proof
       rfs[]>>
       imp_res_tac sub_completion_completes>>
       AP_TERM_TAC>>metis_tac[t_walkstar_no_vars])
-QED ;
+QED
 

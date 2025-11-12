@@ -248,6 +248,7 @@ Definition op_to_display_def:
   | Strcat => empty_item (strlit "Strcat")
   | VfromList => empty_item (strlit "VfromList")
   | Vsub => empty_item (strlit "Vsub")
+  | Vsub_unsafe => empty_item (strlit "Vsub_unsafe")
   | Vlength => empty_item (strlit "Vlength")
   | Aalloc => empty_item (strlit "Aalloc")
   | AallocEmpty => empty_item (strlit "AallocEmpty")
@@ -476,6 +477,7 @@ Definition flat_op_to_display_def:
     | Strcat => empty_item (strlit "Strcat")
     | VfromList => empty_item (strlit "VfromList")
     | Vsub => empty_item (strlit "Vsub")
+    | Vsub_unsafe => empty_item (strlit "Vsub_unsafe")
     | Vlength => empty_item (strlit "Vlength")
     | Aalloc => empty_item (strlit "Aalloc")
     | AallocFixed => empty_item (strlit "AallocFixed")
@@ -1614,4 +1616,3 @@ val data_prog_tm =
 val _ = data_to_strs data_prog_tm names_tm |> print_strs
 
 *)
-

@@ -574,6 +574,11 @@ Proof
     \\ simp [find_v_globalsL_EL_trans]
     \\ fs [EVERY_EL]
   )
+  >- (
+    qpat_assum `this_case Vsub_unsafe` kall_tac
+    \\ simp [find_v_globalsL_EL_trans]
+    \\ fs [EVERY_EL]
+  )
   >- metis_tac[find_v_globalsL_REPLICATE,SUBSET_TRANS]
   >- (
     qpat_assum `this_case Asub` kall_tac
@@ -1723,4 +1728,3 @@ Theorem remove_flat_prog_distinct_globals:
 Proof
   metis_tac [remove_flat_prog_sub_bag, BAG_ALL_DISTINCT_SUB_BAG]
 QED
-

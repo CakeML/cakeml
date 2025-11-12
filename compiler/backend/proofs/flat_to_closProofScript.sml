@@ -1111,6 +1111,7 @@ QED
 Theorem op_vectors:
   op = Vlength \/
   op = Vsub \/
+  op = Vsub_unsafe \/
   op = VfromList ==>
   ^op_goal
 Proof
@@ -1121,6 +1122,13 @@ Proof
   \\ fs [v_rel_def] \\ rveq \\ fs [PULL_EXISTS]
   \\ fs [compile_op_def,evaluate_def,do_app_def]
   \\ imp_res_tac LIST_REL_LENGTH \\ fs [SWAP_REVERSE_SYM]
+  THEN1
+   (rveq \\ fs [] \\ rename [`0 <= i5`]
+    \\ Cases_on `i5` \\ fs [bool_case_eq] \\ rveq \\ fs []
+    \\ fs [subscript_exn_v_def,v_rel_def,GREATER_EQ]
+    \\ fs [LIST_REL_EL]
+    \\ first_x_assum (qspec_then `0` mp_tac) \\ fs []
+    \\ rename [`wss <> []`] \\ Cases_on `wss` \\ fs [])
   THEN1
    (rveq \\ fs [] \\ rename [`0 <= i5`]
     \\ Cases_on `i5` \\ fs [bool_case_eq] \\ rveq \\ fs []

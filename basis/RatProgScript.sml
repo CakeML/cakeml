@@ -336,11 +336,13 @@ val Eval_REAL_MAX = Q.prove(
   |> (fn th => MATCH_MP th Eval_RAT_MAX)
   |> add_user_proved_v_thm;
 
-val gcd_LESS_EQ = prove(
-  ``!m n. n <> 0 ==> gcd$gcd m n <= n``,
+Theorem gcd_LESS_EQ[local]:
+    !m n. n <> 0 ==> gcd$gcd m n <= n
+Proof
   recInduct gcd_ind \\ rw []
   \\ once_rewrite_tac [gcdTheory.gcd_def]
-  \\ rw [] \\ fs []);
+  \\ rw [] \\ fs []
+QED
 
 Theorem DIV_EQ_0:
    0 < n ==> ((m DIV n = 0) <=> m < n)
@@ -402,9 +404,10 @@ Proof
                 integerTheory.INT_ADD_RINV])
 QED
 
-val PAIR_TYPE_IMP_RAT_TYPE = prove(
-  ``r = rat_of_int m / & n /\ n <> 0 ==>
-    RATIONAL_TYPE (div_gcd m n) v ==> RAT_TYPE r v``,
+Theorem PAIR_TYPE_IMP_RAT_TYPE[local]:
+    r = rat_of_int m / & n /\ n <> 0 ==>
+    RATIONAL_TYPE (div_gcd m n) v ==> RAT_TYPE r v
+Proof
   fs [RAT_TYPE_def,div_gcd_def] \\ rw [] >>
   goal_assum (first_assum o mp_then (Pos last) mp_tac)
   >- fs[num_of_int_def] >>
@@ -426,7 +429,8 @@ val PAIR_TYPE_IMP_RAT_TYPE = prove(
   ‘G * q DIV G = q ∧ G * p DIV G = p’ by metis_tac [MULT_COMM, MULT_DIV] >>
   simp[INT_NEG_DIV_FACTOR, integerTheory.INT_ABS_NEG,
        integerTheory.INT_ABS_NUM, rat_of_int_ainv] >>
-  simp[RAT_MUL_NUM_CALCULATE]);
+  simp[RAT_MUL_NUM_CALCULATE]
+QED
 
 Definition pair_add_def:
   pair_add (RatPair n1 d1) (RatPair n2 d2) =
@@ -515,9 +519,11 @@ val Eval_REAL_SUB = Q.prove(
   |> (fn th => MATCH_MP th Eval_RAT_SUB)
   |> add_user_proved_v_thm;
 
-val rat_neg_lem = prove(
-  ``!(x:rat). - x = 0 - x``,
-  fs[]);
+Theorem rat_neg_lem[local]:
+    !(x:rat). - x = 0 - x
+Proof
+  fs[]
+QED
 
 val _ = next_ml_names := ["~"];
 val Eval_RAT_NEG = translate rat_neg_lem;

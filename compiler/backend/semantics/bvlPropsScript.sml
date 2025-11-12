@@ -45,12 +45,14 @@ val case_eq_thms = CONJ bool_case_eq (CONJ pair_case_eq case_eq_thms)
 Theorem case_eq_thms =
   case_eq_thms
 
-val do_app_split_list = prove(
-  ``do_app op vs s = res
+Theorem do_app_split_list[local]:
+    do_app op vs s = res
     <=>
     vs = [] /\ do_app op [] s = res \/
-    ?v vs1. vs = v::vs1 /\ do_app op (v::vs1) s = res``,
-  Cases_on `vs` \\ fs []);
+    ?v vs1. vs = v::vs1 /\ do_app op (v::vs1) s = res
+Proof
+  Cases_on `vs` \\ fs []
+QED
 
 Triviality pair_lam_lem:
   !f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)

@@ -138,7 +138,8 @@ Datatype:
   | Asub
   | Alength
   | Aupdate
-  (* Unsafe array accesses *)
+  (* Unsafe vector/array accesses *)
+  | Vsub_unsafe
   | Asub_unsafe
   | Aupdate_unsafe
   | Aw8sub_unsafe
@@ -331,4 +332,3 @@ Definition Funs_def:
   Funs [] e = e ∧
   Funs (x::xs) e = Fun x (Funs xs e)
 End
-

@@ -31,9 +31,11 @@ val _ = trans "andb" ``word_and:word8->word8->word8``;
 val _ = trans "orb" ``word_or:word8->word8->word8``;
 val _ = trans "xorb" ``word_xor:word8->word8->word8``;
 
-val word_1comp_eq = prove(
-  ``word_1comp w = word_xor w 0xFFw:word8``,
-  fs []);
+Theorem word_1comp_eq[local]:
+    word_1comp w = word_xor w 0xFFw:word8
+Proof
+  fs []
+QED
 
 val _ = (next_ml_names := ["notb"]);
 val _ = translate word_1comp_eq

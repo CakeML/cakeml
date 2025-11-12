@@ -152,7 +152,7 @@ Proof
   srw_tac[][] >> qmatch_abbrev_tac`X = Y` >> Cases_on`X` >> full_simp_tac(srw_ss())[markerTheory.Abbrev_def] >>
   metis_tac[semanticPrimitivesTheory.match_result_distinct
            ,pmatch_any_no_match,pmatch_any_match]
-QED;
+QED
 
 Theorem pmatch_list_pairwise:
   ∀ps vs ^s env env'.
@@ -163,7 +163,7 @@ Proof
   rpt gen_tac >> BasicProvers.CASE_TAC >> strip_tac >>
   fs [CaseEq"match_result"] >>
   res_tac >> simp[] >> metis_tac[pmatch_any_match]
-QED;
+QED
 
 Theorem pmatch_list_snoc_nil[simp]:
   ∀p ps v vs ^s env.
@@ -171,7 +171,7 @@ Theorem pmatch_list_snoc_nil[simp]:
       (pmatch_list s (SNOC p ps) [] env = Match_type_error)
 Proof
   Cases_on`ps`>>Cases_on`vs`>>simp[pmatch_def]
-QED;
+QED
 
 Theorem pmatch_list_append:
    ∀ps vs ps' vs' s env. LENGTH ps = LENGTH vs ⇒
@@ -207,7 +207,7 @@ Proof
   \\ fs [pmatch_def] \\ rw []
   \\ Cases_on `pmatch s p v env` \\ fs []
   \\ every_case_tac \\ fs []
-QED;
+QED
 
 Theorem map_match_eq_case:
   map_match f v = (case v of Match m => Match (f m) | _ => v)
@@ -493,7 +493,7 @@ Theorem evaluate_dec_io_events_mono:
 Proof
   Cases \\ rw [evaluate_def] \\ every_case_tac \\ fs [] \\ rw []
   \\ metis_tac [evaluate_io_events_mono, FST]
-QED;
+QED
 
 Theorem evaluate_dec_add_to_clock_io_events_mono:
   ∀prog ^s extra.
@@ -518,7 +518,7 @@ Theorem evaluate_decs_add_to_clock_io_events_mono:
      (FST (evaluate_decs (s with clock := s.clock + extra) ds)).ffi.io_events
 Proof
   metis_tac [evaluate_add_to_clock_io_events_mono]
-QED;
+QED
 
 Theorem evaluate_MAP_Var_local:
   MAP (ALOOKUP env.v) xs = MAP SOME vs ⇒
@@ -661,9 +661,11 @@ Proof
   rw [initial_state_def]
 QED
 
-val SND_SND_lemma = prove(
-  ``(SND x) = y <=> ?y1. x = (y1, y)``,
-  PairCases_on `x` \\ fs []);
+Theorem SND_SND_lemma[local]:
+    (SND x) = y <=> ?y1. x = (y1, y)
+Proof
+  PairCases_on `x` \\ fs []
+QED
 
 Definition eval_sim_def:
   eval_sim ffi ds1 ds2 ec ec2 rel allow_fail =

@@ -156,10 +156,12 @@ Definition codomain_def:
   codomain ty = dtcase ty of Tyapp n (y::x::xs) => x | _ => ty
 End
 
-val codomain_PMATCH = Q.prove(
-  `^(rhs(concl(SPEC_ALL codomain_def))) =
-    case ty of Tyapp n (y::x::xs) => x | _ => ty`,
-  rpt tac)
+Theorem codomain_PMATCH[local]:
+   ^(rhs(concl(SPEC_ALL codomain_def))) =
+    case ty of Tyapp n (y::x::xs) => x | _ => ty
+Proof
+  rpt tac
+QED
 val codomain_def = fix codomain_def "codomain_def" codomain_PMATCH
 
 Definition rev_assocd_def:
@@ -169,12 +171,14 @@ Definition rev_assocd_def:
     | ((x,y)::l) => if y = a then x else rev_assocd a l d
 End
 
-val rev_assocd_PMATCH = Q.prove(
-  `^(rhs(concl(SPEC_ALL rev_assocd_def))) =
+Theorem rev_assocd_PMATCH[local]:
+   ^(rhs(concl(SPEC_ALL rev_assocd_def))) =
     case l of
        (x,y)::l1 => if y = a then x else rev_assocd a l1 d
-     | _ => d`,
-  rpt tac)
+     | _ => d
+Proof
+  rpt tac
+QED
 val rev_assocd_def = fix rev_assocd_def "rev_assocd_def" rev_assocd_PMATCH
 
 Definition alphavars_def:

@@ -83,35 +83,43 @@ Proof
   \\ EVAL_TAC
 QED
 
-val SUC_SUC_LENGTH = prove(
-  ``SUC (SUC (LENGTH (TL (TL (REPLICATE (MAX 2 n) x))))) = (MAX 2 n)``,
+Theorem SUC_SUC_LENGTH[local]:
+    SUC (SUC (LENGTH (TL (TL (REPLICATE (MAX 2 n) x))))) = (MAX 2 n)
+Proof
   Cases_on `n` \\ fs [] THEN1 EVAL_TAC
   \\ Cases_on `n'` \\ fs [] THEN1 EVAL_TAC
   \\ fs [ADD1] \\ rw [MAX_DEF]
   \\ fs [EVAL ``REPLICATE 2 x``]
   \\ once_rewrite_tac [ADD_COMM]
   \\ rewrite_tac [GSYM REPLICATE_APPEND]
-  \\ fs [EVAL ``REPLICATE 2 x``]);
+  \\ fs [EVAL ``REPLICATE 2 x``]
+QED
 
-val two_byte_sum = prove(
-  ``k < 65536 ==> k MOD 256 + 256 * (k DIV 256) MOD 256 = k``,
+Theorem two_byte_sum[local]:
+    k < 65536 ==> k MOD 256 + 256 * (k DIV 256) MOD 256 = k
+Proof
   rw []
   \\ `(k DIV 256) MOD 256 = k DIV 256` by
         (match_mp_tac LESS_MOD \\ fs [DIV_LT_X,wfcl_def]) \\ fs []
   \\ `(k DIV 256) * 256 + k MOD 256 = k` by metis_tac [DIVISION,EVAL ``0 < 256n``]
-  \\ fs []);
+  \\ fs []
+QED
 
-val LESS_LENGTH_EXISTS = prove(
-  ``!xs n. n < LENGTH xs ==> ?ys y ts. xs = ys ++ y::ts /\ LENGTH ys = n``,
+Theorem LESS_LENGTH_EXISTS[local]:
+    !xs n. n < LENGTH xs ==> ?ys y ts. xs = ys ++ y::ts /\ LENGTH ys = n
+Proof
   Induct \\ fs [] \\ Cases_on `n` \\ fs []
   \\ rw [] \\ res_tac \\ fs [] \\ rveq \\ fs []
-  \\ qexists_tac `h::ys` \\ fs []);
+  \\ qexists_tac `h::ys` \\ fs []
+QED
 
-val DROP_SUC_LENGTH_MAP = prove(
-  ``(DROP (SUC (LENGTH ys)) (MAP f ys ⧺ y::ts)) = ts``,
+Theorem DROP_SUC_LENGTH_MAP[local]:
+    (DROP (SUC (LENGTH ys)) (MAP f ys ⧺ y::ts)) = ts
+Proof
   qsuff_tac `MAP f ys ⧺ y::ts = (MAP f ys ⧺ [y]) ++ ts /\
              SUC (LENGTH ys) = LENGTH (MAP f ys ⧺ [y])`
-  THEN1 simp_tac std_ss [DROP_LENGTH_APPEND] \\ fs []);
+  THEN1 simp_tac std_ss [DROP_LENGTH_APPEND] \\ fs []
+QED
 
 Theorem CommandLine_cloop_spec:
    !n nv av cv a.

@@ -53,18 +53,24 @@ End
 Theorem BOTTOM_UP_OPT_def[allow_rebind,compute] =
   BOTTOM_UP_OPT_def |> SIMP_RULE std_ss [LET_THM];
 
-val LENGTH_BOTTOM_UP_OPT_LIST = prove(
-  ``!xs. LENGTH (BOTTOM_UP_OPT_LIST f xs) = LENGTH xs``,
-  Induct \\ fs [BOTTOM_UP_OPT_def]);
+Theorem LENGTH_BOTTOM_UP_OPT_LIST[local]:
+    !xs. LENGTH (BOTTOM_UP_OPT_LIST f xs) = LENGTH xs
+Proof
+  Induct \\ fs [BOTTOM_UP_OPT_def]
+QED
 
-val BOTTOM_UP_OPT_LIST_APPEND = prove(
-  ``!xs ys. BOTTOM_UP_OPT_LIST f (xs++ys) =
-            BOTTOM_UP_OPT_LIST f xs ++ BOTTOM_UP_OPT_LIST f ys``,
-  Induct \\ fs [BOTTOM_UP_OPT_def]);
+Theorem BOTTOM_UP_OPT_LIST_APPEND[local]:
+    !xs ys. BOTTOM_UP_OPT_LIST f (xs++ys) =
+            BOTTOM_UP_OPT_LIST f xs ++ BOTTOM_UP_OPT_LIST f ys
+Proof
+  Induct \\ fs [BOTTOM_UP_OPT_def]
+QED
 
-val REVERSE_BOTTOM_UP_OPT_LIST = prove(
-  ``!xs. REVERSE (BOTTOM_UP_OPT_LIST f xs) = BOTTOM_UP_OPT_LIST f (REVERSE xs)``,
-  Induct \\ fs [BOTTOM_UP_OPT_def,BOTTOM_UP_OPT_LIST_APPEND]);
+Theorem REVERSE_BOTTOM_UP_OPT_LIST[local]:
+    !xs. REVERSE (BOTTOM_UP_OPT_LIST f xs) = BOTTOM_UP_OPT_LIST f (REVERSE xs)
+Proof
+  Induct \\ fs [BOTTOM_UP_OPT_def,BOTTOM_UP_OPT_LIST_APPEND]
+QED
 
 Theorem dec_clock_with_clock[simp]:
    (dec_clock st1 with clock := c) = st1 with clock := c
