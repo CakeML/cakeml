@@ -67,7 +67,7 @@ Proof
   gvs[do_app_cases, semanticPrimitivesTheory.do_app_def, store_alloc_def] >>
   every_case_tac >> gvs[] >>
   gvs[semanticPrimitivesTheory.thunk_op_def, itree_semanticsTheory.thunk_op_def] >>
-  gvs[AllCaseEqs(), store_alloc_def]
+  gvs[AllCaseEqs(), store_alloc_def, NOT_LESS]
 QED
 
 Theorem application_rel:
@@ -1880,4 +1880,3 @@ QED
 
 
 (****************************************)
-

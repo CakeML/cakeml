@@ -2346,6 +2346,20 @@ Proof
   \\ fs [LIST_REL_EL_EQN]
 QED
 
+Theorem Eval_sub_unsafe:
+  !env x1 x2 a n v.
+     Eval env x1 (VECTOR_TYPE a v) ==>
+     Eval env x2 (NUM n) ==>
+     n < length v ==>
+     Eval env (App Vsub_unsafe [x1; x2]) (a (sub_unsafe v n))
+Proof
+  tac2
+  \\ `?l. v = Vector l` by metis_tac [vector_nchotomy]
+  \\ rw []
+  \\ fs [VECTOR_TYPE_def, length_def, NUM_def, sub_unsafe_def, INT_def]
+  \\ fs [LIST_REL_EL_EQN]
+QED
+
 Theorem Eval_vector:
   !env x1 a l.
      Eval env x1 (LIST_TYPE a l) ==>
@@ -3318,4 +3332,3 @@ Proof
   \\ first_assum $ irule_at $ Pos hd
   \\ fs [state_component_equality]
 QED
-

@@ -271,6 +271,11 @@ Definition do_app_def:
               SOME (s, Rraise sub_exn_v)
             else
               SOME (s, Rval (EL n vs))
+    | (Vsub_unsafe, [Vectorv vs; Litv (IntLit i)]) =>
+        if 0 ≤ i ∧ Num i < LENGTH vs then
+          SOME (s, Rval (EL (Num i) vs))
+        else
+          NONE
     | (Vlength, [Vectorv vs]) =>
         SOME (s, Rval (Litv (IntLit (int_of_num (LENGTH vs)))))
     | (Aalloc, [Litv (IntLit n); v]) =>
@@ -735,4 +740,3 @@ CoInductive safe_itree:
   (safe_itree P Div) ∧
   ((∀s. P s ⇒ safe_itree P (rest s)) ⇒ safe_itree P (Vis e rest))
 End
-
