@@ -3,7 +3,7 @@
 *)
 Theory infer_eComplete
 Ancestors
-  typeSystem ast semanticPrimitives infer unify infer_t astProps
+  typeSystem ast semanticPrimitives infer unify infer_t
   typeSysProps inferProps namespace namespaceProps envRel
 Libs
   preamble
@@ -2820,4 +2820,3 @@ Proof
       imp_res_tac sub_completion_completes>>
       AP_TERM_TAC>>metis_tac[t_walkstar_no_vars])
 QED
-

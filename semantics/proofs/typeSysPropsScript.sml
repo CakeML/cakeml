@@ -3,7 +3,7 @@
 *)
 Theory typeSysProps
 Ancestors
-  ast namespace typeSystem typeSoundInvariants astProps
+  ast namespace typeSystem typeSoundInvariants
   namespaceProps semanticPrimitivesProps[qualified]
 Libs
   preamble
@@ -3031,12 +3031,11 @@ Overload tmenv_dom =
 
 open boolSimps semanticPrimitivesPropsTheory
 
-Definition tenv_names_def:
+Definition tenv_names_def[simp]:
   (tenv_names Empty = {}) ∧
   (tenv_names (Bind_tvar _ e) = tenv_names e) ∧
   (tenv_names (Bind_name n _ _ e) = n INSERT tenv_names e)
 End
-val _ = export_rewrites["tenv_names_def"]
 
 Theorem lookup_tenv_names:
    ∀tenv n inc x. lookup_tenv_val n inc tenv = SOME x ⇒ n ∈ tenv_names tenv

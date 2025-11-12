@@ -5738,7 +5738,7 @@ Proof
   Induct_on `xs` \\ rw [list_size_def] \\ fs []
 QED
 
-Definition num_bindings_def:
+Definition num_bindings_def[simp]:
    (num_bindings (Dlet _ p _) = LENGTH (pat_bindings p [])) ∧
    (num_bindings (Dletrec _ f) = LENGTH f) ∧
    (num_bindings (Dmod _ ds) = SUM (MAP num_bindings ds)) ∧
@@ -5750,7 +5750,6 @@ Termination
   wf_rel_tac`measure dec_size`
 End
 
-val _ = export_rewrites["num_bindings_def"];
 
 Theorem compile_decs_num_bindings:
   !t n next env envs decs n' next' env' envs' decs'.

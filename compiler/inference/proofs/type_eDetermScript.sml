@@ -3,7 +3,7 @@
 *)
 Theory type_eDeterm
 Ancestors
-  typeSystem ast semanticPrimitives evaluate infer unify astProps
+  typeSystem ast semanticPrimitives evaluate infer unify
   typeSysProps inferProps infer_eSound infer_eComplete envRel
   namespaceProps namespace
 Libs
@@ -636,4 +636,3 @@ Proof
     match_mp_tac (el 4 (CONJUNCTS infer_e_check_s))>>
     asm_exists_tac>>fs[ienv_ok_def,init_infer_state_def,check_s_def]
 QED
-

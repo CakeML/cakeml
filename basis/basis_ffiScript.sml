@@ -287,16 +287,14 @@ Theorem extract_stdo_extract_fs
   \\ rw[] \\ fs[]
   stdo_def
 
-Definition is_write_def:
+Definition is_write_def[simp]:
   (is_write fd (IO_event name _ ((fd',st)::_)) ⇔ name="write" ∧ fd' = fd ∧ st = 0w) ∧
   (is_write _ _ ⇔ F)
 End
-val _ = export_rewrites["is_write_def"];
 
-Definition extract_write_def:
+Definition extract_write_def[simp]:
   extract_write (IO_event _ _ (_::(_,nw)::bytes)) = TAKE (w2n nw) (MAP FST bytes)
 End
-val _ = export_rewrites["extract_write_def"];
 
 Definition extract_writes_def:
   extract_writes fd io_events =

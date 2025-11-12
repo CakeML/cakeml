@@ -5,7 +5,7 @@
 Theory inferProps
 Ancestors
   namespaceProps typeSystem ast semanticPrimitives infer unify
-  infer_t astProps typeSysProps
+  infer_t typeSysProps
 Libs
   preamble
 
@@ -4341,4 +4341,3 @@ Proof
   \\ fs[n_fresh_id_def] \\ rw[]
   \\ metis_tac[]
 QED
-
