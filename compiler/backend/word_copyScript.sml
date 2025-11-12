@@ -329,7 +329,7 @@ Definition copy_prop_prog_def:
       Var n =>
       let n' = lookup_eq cs n in
       (Set name (Var n'), set_store_eq cs name n')
-    | _ => (Set name exp, cs)) ∧ (* flat_exp *)
+    | _ => (Set name exp, empty_eq)) ∧ (* flat_exp *)
   (copy_prop_prog (Get n name) cs =
     case lookup_store_eq cs name of
       NONE =>
