@@ -28,7 +28,7 @@ val RW = REWRITE_RULE
 
 val _ = add_preferred_thy "-";
 
-Triviality NOT_NIL_AND_LEMMA:
+Theorem NOT_NIL_AND_LEMMA[local]:
   (b <> [] /\ x) = if b = [] then F else x
 Proof
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []
@@ -290,7 +290,7 @@ val _ = m_translate_run enc_secs_64_aux_def;
 
 val _ = translate enc_secs_64_def;
 
-Triviality monadic_enc64_enc_line_hash_64_ls_side_def:
+Theorem monadic_enc64_enc_line_hash_64_ls_side_def[local]:
   ∀a b c d e.
   d ≠ 0 ⇒
   monadic_enc64_enc_line_hash_64_ls_side a b c d e ⇔ T
@@ -300,7 +300,7 @@ Proof
   EVAL_TAC>>rw[]>>fs[]
 QED
 
-Triviality monadic_enc64_enc_sec_hash_64_ls_side_def:
+Theorem monadic_enc64_enc_sec_hash_64_ls_side_def[local]:
   ∀a b c d e.
   d ≠ 0 ⇒
   monadic_enc64_enc_sec_hash_64_ls_side a b c d e ⇔ T
@@ -351,7 +351,7 @@ Definition remove_labels_hash_def:
     remove_labels_loop init_clock c pos labs ffis (enc_secs_64 c.encode hash_size sec_list)
 End
 
-Triviality remove_labels_hash_correct:
+Theorem remove_labels_hash_correct[local]:
   remove_labels_hash c.init_clock c.asm_conf c.pos c.labels ffis c.hash_size sec_list =
   remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list
 Proof

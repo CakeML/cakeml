@@ -610,7 +610,7 @@ End
 
 Theorem compile_prog_eq = compile_prog_def |> SRULE [compile_exp_sing_eq];
 
-Triviality pair_lem1:
+Theorem pair_lem1[local]:
   !f x. (\(a,b). f a b) x = f (FST x) (SND x)
 Proof
   rw [] >>
@@ -618,7 +618,7 @@ Proof
   fs []
 QED
 
-Triviality pair_lem2:
+Theorem pair_lem2[local]:
   !x y z. (x,y) = z ⇔ x = FST z ∧ y = SND z
 Proof
   rw [] >>

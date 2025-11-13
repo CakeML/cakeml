@@ -446,7 +446,7 @@ Definition extract_labels_def:
 End
 
 (*** Property on max_var ***)
-Triviality max_var_exp_IMP:
+Theorem max_var_exp_IMP[local]:
   ∀exp.
   P 0 ∧ every_var_exp P exp ⇒
   P (max_var_exp exp)

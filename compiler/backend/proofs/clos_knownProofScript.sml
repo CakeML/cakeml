@@ -708,7 +708,7 @@ val value_ind =
    |> SIMP_RULE (srw_ss()) []
    |> UNDISCH |> CONJUNCT1 |> DISCH_ALL |> Q.GEN `P`;
 
-Triviality not_less_zero_imp:
+Theorem not_less_zero_imp[local]:
   ~(i < 0:int) ⇒ ∃k. i = & k
 Proof
   Cases_on ‘i’ \\ fs []
@@ -863,7 +863,7 @@ Proof
    THEN1 (irule EVERY_DROP \\ simp [EVERY_REVERSE])
 QED
 
-Triviality update_thunk_ssgc_free:
+Theorem update_thunk_ssgc_free[local]:
   ssgc_free s ∧
   EVERY vsgc_free vs ∧
   update_thunk [RefPtr v ptr] s.refs vs = SOME refs ⇒
@@ -881,7 +881,7 @@ QED
 val say = say0 "evaluate_changed_globals_0";
 
 (* Evaluate  *)
-Triviality evaluate_changed_globals_0:
+Theorem evaluate_changed_globals_0[local]:
   (!es env (s0:('c,'ffi) closSem$state) res s.
       evaluate (es, env, s0) = (res, s) /\
       ssgc_free s0 /\ EVERY esgc_free es /\
@@ -1497,7 +1497,7 @@ Proof
   simp[o_DEF,ADD1]
 QED
 
-Triviality letrec_case_eq:
+Theorem letrec_case_eq[local]:
   !limit loc fns.
   (case loc of
     NONE => REPLICATE (LENGTH fns) Other
@@ -2781,7 +2781,7 @@ Definition state_rel_def:
     t.compile_oracle = state_co (compile_inc c) s.compile_oracle
 End
 
-Triviality compile_inc_upd_inline_factor:
+Theorem compile_inc_upd_inline_factor[local]:
   compile_inc (c with inline_factor := k) = compile_inc c
 Proof
   simp [compile_inc_def, FUN_EQ_THM, FORALL_PROD, reset_inline_factor_def]
@@ -2915,7 +2915,7 @@ Proof
   \\ metis_tac [OPTREL_SOME]
 QED
 
-Triviality do_app_lemma:
+Theorem do_app_lemma[local]:
   !c g s t xs ys opp. state_rel c g s t /\ LIST_REL (v_rel c g) xs ys ==>
     case do_app opp xs s of
       | Rerr err1 => ?err2. do_app opp ys t = Rerr err2 /\
@@ -3145,7 +3145,7 @@ Proof
     \\ rw[] \\ metis_tac[])
 QED
 
-Triviality state_rel_opt_rel_refs:
+Theorem state_rel_opt_rel_refs[local]:
   (state_rel c g s1 s2 ∧ FLOOKUP s1.refs n = r1 ⇒
      ∃r2. FLOOKUP s2.refs n = r2 ∧ OPTREL (ref_rel c g) r1 r2) ∧
   (state_rel c g s1 s2 ∧ FLOOKUP s2.refs n = r2 ⇒
@@ -3154,7 +3154,7 @@ Proof
   rw [] \\ gvs [state_rel_def, fmap_rel_def, FLOOKUP_DEF] \\ rw []
 QED
 
-Triviality rel_update_thunk:
+Theorem rel_update_thunk[local]:
   state_rel c g s1 s2 ∧
   LIST_REL (v_rel c g) vs ys ⇒
     (update_thunk [RefPtr v ptr] s1.refs vs = SOME refs1 ⇒
@@ -5521,7 +5521,7 @@ fun trivial x = x
               |> snd
               |> aconv T
 
-Triviality val_approx_no_Labels_simp[simp] = (val_approx_no_Labels_def
+Theorem val_approx_no_Labels_simp[local,simp] = (val_approx_no_Labels_def
                                             |> CONJUNCTS
                                             |> (filter trivial)
                                             |> LIST_CONJ)

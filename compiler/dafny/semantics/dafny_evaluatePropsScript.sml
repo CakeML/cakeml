@@ -62,7 +62,7 @@ QED
 
 (* After evaluate, only the value of locals can have changed. *)
 
-Triviality evaluate_exp_locals:
+Theorem evaluate_exp_locals[local]:
   (∀s env e s' r.
      evaluate_exp s env e = (s', r) ⇒
      MAP FST s'.locals = MAP FST s.locals) ∧
@@ -107,7 +107,7 @@ Proof
 QED
 
 (* todo move to dafnyProp *)
-Triviality update_local_locals:
+Theorem update_local_locals[local]:
   ∀s var val s'.
     update_local s var val = SOME s' ⇒
     MAP FST s'.locals = MAP FST s.locals
@@ -142,7 +142,7 @@ Proof
   \\ res_tac \\ gvs []
 QED
 
-Triviality CONS_LENGTH:
+Theorem CONS_LENGTH[local]:
   xs = x::xs' ⇒ 1 ≤ LENGTH xs
 Proof
   gvs []

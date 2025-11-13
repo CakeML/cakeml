@@ -81,13 +81,13 @@ Proof
   EVAL_TAC
 QED
 
-Triviality set_fp_var_with_const[simp]:
+Theorem set_fp_var_with_const[local,simp]:
    set_fp_var x y (z with clock := k) = set_fp_var x y z with clock := k
 Proof
   EVAL_TAC
 QED
 
-Triviality set_fp_var_const[simp]:
+Theorem set_fp_var_const[local,simp]:
    (set_fp_var x y z).ffi = z.ffi ∧
    (set_fp_var x y z).clock = z.clock ∧
    (set_fp_var x y z).use_alloc = z.use_alloc ∧
@@ -107,7 +107,7 @@ Proof
   EVAL_TAC
 QED
 
-Triviality get_fp_var_with_const[simp]:
+Theorem get_fp_var_with_const[local,simp]:
    get_fp_var x (y with clock := k) = get_fp_var x y
 Proof
   EVAL_TAC
@@ -122,7 +122,7 @@ Proof
   EVAL_TAC
 QED
 
-Triviality get_vars_with_const[simp]:
+Theorem get_vars_with_const[local,simp]:
    get_vars xs (y with clock := k) = get_vars xs y
 Proof
   Induct_on `xs` >> EVAL_TAC >> simp[]
@@ -292,7 +292,7 @@ Proof
   gs[]
 QED
 
-Triviality sh_mem_op_with_const[simp]:
+Theorem sh_mem_op_with_const[local,simp]:
    (sh_mem_op op x y (z with clock := k)) = (I ## (\s. s with clock := k)) (sh_mem_op op x y z)
 Proof
   gs[oneline sh_mem_op_def] >>
@@ -635,7 +635,7 @@ Definition clock_neutral_def:
   (clock_neutral r <=> F)
 End
 
-Triviality inst_clock_neutral:
+Theorem inst_clock_neutral[local]:
   (inst i s = SOME t ==> inst i (s with clock := k) = SOME (t with clock := k)) /\
     (inst i s = NONE ==> inst i (s with clock := k) = NONE)
 Proof
@@ -647,7 +647,7 @@ Proof
   \\ srw_tac[][state_component_equality]
 QED
 
-Triviality inst_clock_neutral_ffi:
+Theorem inst_clock_neutral_ffi[local]:
   (inst i s = SOME t ==> inst i (s with ffi := k) = SOME (t with ffi := k)) /\
     (inst i s = NONE ==> inst i (s with ffi := k) = NONE)
 Proof

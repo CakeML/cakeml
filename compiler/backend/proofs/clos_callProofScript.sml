@@ -30,7 +30,7 @@ val _ = temp_bring_to_front_overload"wf"{Name="wf",Thy="sptree"};
 
 val PUSH_EXISTS_IMP = SPEC_ALL RIGHT_EXISTS_IMP_THM;
 
-Triviality v_size_lemma:
+Theorem v_size_lemma[local]:
   MEM (v:closSem$v) vl ⇒ v_size v < v1_size vl
 Proof
   Induct_on `vl` >> dsimp[v_size_def] >> rpt strip_tac >>
@@ -78,7 +78,7 @@ Definition every_refv_def:
 End
 val _ = export_rewrites["every_refv_def"];
 
-Triviality IMP_EXISTS_IFF:
+Theorem IMP_EXISTS_IFF[local]:
   !xs. (!x. MEM x xs ==> (P x <=> Q x)) ==>
          (EXISTS P xs <=> EXISTS Q xs)
 Proof
@@ -1122,7 +1122,7 @@ Proof
   \\ metis_tac[SND_insert_each, SND, FST_insert_each_same, FST]
 QED
 
-Triviality calls_acc_0:
+Theorem calls_acc_0[local]:
   !xs tmp x r.
      x ++ r = SND tmp ⇒
      calls xs tmp = (I ## I ## (combin$C (++) r)) (calls xs (FST tmp, x))
@@ -2415,7 +2415,7 @@ Proof
   \\ EVERY_CASE_TAC \\ rw [] \\ fs []
 QED
 
-Triviality state_rel_opt_rel_refs:
+Theorem state_rel_opt_rel_refs[local]:
   (state_rel g l s1 s2 ∧ FLOOKUP s1.refs n = r1 ⇒
      ∃r2. FLOOKUP s2.refs n = r2 ∧
           OPTREL (ref_rel (v_rel g l s2.code)) r1 r2) ∧
@@ -4416,14 +4416,14 @@ Proof
   )
 QED
 
-Triviality code_locs_calls_list:
+Theorem code_locs_calls_list[local]:
   ∀ls n tr i. code_locs (MAP SND (calls_list tr i n ls)) = []
 Proof
   Induct>>fs[calls_list_def,FORALL_PROD,Once code_locs_cons]>>
   rw[Once code_locs_def]
 QED
 
-Triviality code_locs_code_list_MEM:
+Theorem code_locs_code_list_MEM[local]:
   ∀ls n rest x.
   MEM x (code_locs (MAP (SND o SND) (SND (code_list n ls rest)))) ⇔
   MEM x (code_locs (MAP (SND o SND) (SND rest)++MAP SND ls))
@@ -4434,7 +4434,7 @@ Proof
   fs[Once code_locs_cons,code_locs_def]
 QED
 
-Triviality code_locs_code_list_ALL_DISTINCT:
+Theorem code_locs_code_list_ALL_DISTINCT[local]:
   ∀ls n rest.
   ALL_DISTINCT (code_locs (MAP (SND o SND) (SND (code_list n ls rest)))) ⇔
   ALL_DISTINCT (code_locs (MAP (SND o SND) (SND rest)++MAP SND ls))

@@ -17,7 +17,7 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = option_monadsyntax.temp_add_option_monadsyntax()
 
 (* TODO: this is duplicated in parserProgTheory *)
-Triviality monad_unitbind_assert:
+Theorem monad_unitbind_assert[local]:
   !b x. monad_unitbind (assert b) x = if b then x else NONE
 Proof
   Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []
@@ -192,13 +192,13 @@ Proof
   \\ simp[stringTheory.CHR_ORD]
 QED
 
-Triviality isHexDigit_alt:
+Theorem isHexDigit_alt[local]:
   isHexDigit c ⇔ c ∈ set "0123456789abcdefABCDEF"
 Proof
   rw[stringTheory.isHexDigit_def, EQ_IMP_THM] >> CONV_TAC EVAL >> simp[]
 QED
 
-Triviality UNHEX_lt16:
+Theorem UNHEX_lt16[local]:
   isHexDigit c ⇒ UNHEX c < 16
 Proof
   dsimp[isHexDigit_alt, ASCIInumbersTheory.UNHEX_def]

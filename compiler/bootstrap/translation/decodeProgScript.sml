@@ -214,7 +214,7 @@ val def = closLang_exp_dec'_def |> DefnBase.one_line_ify NONE
           |> CONV_RULE (DEPTH_CONV BETA_CONV)
 val res = translate_no_ind def;
 
-Triviality closlang_exp_dec'_ind:
+Theorem closlang_exp_dec'_ind[local]:
   closlang_exp_dec'_ind
 Proof
   rewrite_tac [fetch "-" "closlang_exp_dec'_ind_def"]

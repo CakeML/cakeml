@@ -177,7 +177,7 @@ Definition catfiles_string_def:
     concat (MAP (λfnm. file_contents fnm fs) fns)
 End
 
-Triviality cat_spec0:
+Theorem cat_spec0[local]:
   ∀fns fnsv fs.
      LIST_TYPE FILENAME fns fnsv ∧
      EVERY (inFS_fname fs) fns ∧

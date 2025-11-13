@@ -160,13 +160,13 @@ Definition state_rel_def:
     t.compile_oracle = pure_co (clos_mti$compile_inc s.max_app) o s.compile_oracle
 End
 
-Triviality state_rel_max_app:
+Theorem state_rel_max_app[local]:
   state_rel s t ⇒ s.max_app = t.max_app ∧ 1 ≤ t.max_app
 Proof
   gvs [state_rel_def]
 QED
 
-Triviality state_rel_clocks:
+Theorem state_rel_clocks[local]:
   state_rel s t ⇒ s.clock = t.clock
 Proof
   gvs [state_rel_def]
@@ -341,7 +341,7 @@ Definition evaluate_apps_def:
     | res => res
 End
 
-Triviality evaluate_mk_Apps_ok:
+Theorem evaluate_mk_Apps_ok[local]:
   !other ts env1 s1 vs.
       evaluate ([e],env1,s3) = (Rval [f],s2') /\
       evaluate (other,env1,s1) = (Rval vs,s3) /\
@@ -366,7 +366,7 @@ Proof
   \\ rveq \\ fs []
 QED
 
-Triviality dest_closure_NONE_IMP_apps:
+Theorem dest_closure_NONE_IMP_apps[local]:
   !xs f1 s1.
       dest_closure s1.max_app NONE f1 [LAST xs] = NONE /\ xs <> [] ==>
       evaluate_apps f1 xs s1 = (Rerr (Rabort Rtype_error),s1)
@@ -376,7 +376,7 @@ Proof
   \\ fs [evaluate_apps_def,evaluate_def]
 QED
 
-Triviality evaluate_apps_SNOC:
+Theorem evaluate_apps_SNOC[local]:
   !xs x f s.
       evaluate_apps f (SNOC x xs) s =
       case evaluate_app NONE f [x] s of
@@ -394,7 +394,7 @@ Proof
   \\ Cases_on `t` \\ fs []
 QED
 
-Triviality evaluate_apps_Clos_timeout:
+Theorem evaluate_apps_Clos_timeout[local]:
   !ys ts s1 e1 env.
       s1.clock < LENGTH ys /\ LENGTH ys <= LENGTH ts /\
       1 ≤ s1.max_app ==>
@@ -412,7 +412,7 @@ Proof
   \\ fs [dec_clock_def]
 QED
 
-Triviality evaluate_apps_Clos_timeout_alt:
+Theorem evaluate_apps_Clos_timeout_alt[local]:
   !ys ts s1 e1 env.
       s1.clock <= LENGTH ts /\ LENGTH ts < LENGTH ys /\
       1 ≤ s1.max_app ==>
@@ -430,7 +430,7 @@ Proof
   \\ fs [dec_clock_def]
 QED
 
-Triviality evaluate_apps_Clos_short:
+Theorem evaluate_apps_Clos_short[local]:
   !ys ts s1 e1 env.
       LENGTH ys <= s1.clock /\ LENGTH ys <= LENGTH ts /\
       1 ≤ s1.max_app ==>
@@ -452,7 +452,7 @@ Proof
   \\ fs [dec_clock_def,ADD1]
 QED
 
-Triviality evaluate_apps_Clos_long:
+Theorem evaluate_apps_Clos_long[local]:
   !ys ts s1 e1 env.
       LENGTH ts < s1.clock /\ LENGTH ts < LENGTH ys /\
       1 ≤ s1.max_app ==>
@@ -483,7 +483,7 @@ Proof
   \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
 QED
 
-Triviality LIST_REL_f_rel_IMP:
+Theorem LIST_REL_f_rel_IMP[local]:
   !fns funs1. LIST_REL (f_rel max_app) funs1 fns ==> !x. ~(MEM (0,x) fns)
 Proof
   Induct \\ fs [PULL_EXISTS] \\ rw [] \\ res_tac
@@ -542,7 +542,7 @@ Proof
     \\ fs [FAPPLY_FUPDATE_THM])
 QED
 
-Triviality state_rel_opt_rel_refs:
+Theorem state_rel_opt_rel_refs[local]:
   (state_rel s1 s2 ∧ FLOOKUP s1.refs n = r1 ⇒
      ∃r2. FLOOKUP s2.refs n = r2 ∧ OPTREL (ref_rel s1.max_app) r1 r2) ∧
   (state_rel s1 s2 ∧ FLOOKUP s2.refs n = r2 ⇒
@@ -551,7 +551,7 @@ Proof
   rw [] \\ gvs [state_rel_def, FMAP_REL_def, FLOOKUP_DEF] \\ rw []
 QED
 
-Triviality rel_update_thunk:
+Theorem rel_update_thunk[local]:
   state_rel s1 s2 ∧
   LIST_REL (v_rel s1.max_app) vs ys ⇒
     (update_thunk [RefPtr v ptr] s2.refs ys = NONE ⇒
@@ -1374,7 +1374,7 @@ Proof
   rpt strip_tac >> metis_tac[set_globals_empty_esgc_free]
 QED
 
-Triviality every_Fn_vs_NONE_collect_apps:
+Theorem every_Fn_vs_NONE_collect_apps[local]:
   ∀max_app es e x y. collect_apps max_app es e = (x,y) ⇒
   (every_Fn_vs_NONE x ∧ every_Fn_vs_NONE [y] ⇔
    every_Fn_vs_NONE es ∧ every_Fn_vs_NONE [e])
@@ -1385,7 +1385,7 @@ Proof
   srw_tac[][] >> metis_tac[]
 QED
 
-Triviality every_Fn_vs_NONE_collect_args:
+Theorem every_Fn_vs_NONE_collect_args[local]:
   ∀max_app es e x y. collect_args max_app es e = (x,y) ⇒
     (every_Fn_vs_NONE [y] ⇔ every_Fn_vs_NONE [e])
 Proof
@@ -1429,7 +1429,7 @@ Proof
   Cases_on`do_mti` \\ rw[clos_mtiTheory.compile_def, clos_mtiTheory.intro_multi_length]
 QED
 
-Triviality EVERY_HD:
+Theorem EVERY_HD[local]:
   EVERY P l ∧ l ≠ [] ⇒ P (HD l)
 Proof
   Cases_on `l` >> simp[]

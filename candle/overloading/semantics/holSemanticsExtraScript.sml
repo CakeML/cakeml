@@ -19,7 +19,7 @@ val mem = ``mem:'U->'U->bool``
 fun drule0 th =
   first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
 
-Triviality consts_of_term_RACONV:
+Theorem consts_of_term_RACONV[local]:
   !env tt.
      RACONV env tt /\ welltyped(FST tt) /\ welltyped(SND tt)
      /\ (!x y. MEM (x,y) env ==> ?n ty n' ty'. x = Var n ty /\ y = Var n' ty')
@@ -37,7 +37,7 @@ Proof
   rw[ACONV_def] >> drule consts_of_term_RACONV >> simp[]
 QED
 
-Triviality allTypes_RACONV:
+Theorem allTypes_RACONV[local]:
   !env tt.
      RACONV env tt /\ welltyped(FST tt) /\ welltyped(SND tt)
      /\ (!x y. MEM (x,y) env ==> ?n ty n'. x = Var n ty /\ y = Var n' ty)
@@ -168,7 +168,7 @@ Proof
   >> metis_tac[]
 QED
 
-Triviality typeof_VSUBST:
+Theorem typeof_VSUBST[local]:
   !l a. EVERY (\(x,y). typeof x = typeof y) l /\ welltyped a
     ==> typeof (VSUBST l a) = typeof a
 Proof
@@ -180,7 +180,7 @@ Proof
   >> first_x_assum match_mp_tac >> fs[EVERY_FILTER_IMP]
 QED
 
-Triviality TYPE_SUBST_tyvars:
+Theorem TYPE_SUBST_tyvars[local]:
   !sigma ty. tyvars ty = [] ==> TYPE_SUBST sigma ty = ty
 Proof
   ho_match_mp_tac TYPE_SUBST_ind >> rpt strip_tac
@@ -201,7 +201,7 @@ Proof
   >> simp[] >> metis_tac[list_CASES,EL_MAP]
 QED
 
-Triviality TYPE_SUBST_2:
+Theorem TYPE_SUBST_2[local]:
   !sigma ty. EVERY (λty. tyvars ty = []) (MAP FST sigma)
     ==> TYPE_SUBST sigma (TYPE_SUBST sigma ty) = TYPE_SUBST sigma ty
 Proof
@@ -241,7 +241,7 @@ Proof
       >> HINT_EXISTS_TAC >> simp[])
 QED
 
-Triviality VSUBST_id_lemma:
+Theorem VSUBST_id_lemma[local]:
   !tm ilist v. welltyped tm ==> VSUBST (ilist ++ [(Var x ty,Var x ty)]) tm = VSUBST ilist tm
 Proof
   Induct >> rpt strip_tac
@@ -481,7 +481,7 @@ Proof
   >> metis_tac[term_ok_def]
 QED
 
-Triviality TYPE_SUBSTf_lemma:
+Theorem TYPE_SUBSTf_lemma[local]:
   !ty sigma sigma'. (!tv. MEM tv (tyvars ty) ==> REV_ASSOCD (Tyvar tv) sigma' (Tyvar tv) = sigma tv) ==>
   TYPE_SUBSTf sigma ty = TYPE_SUBST sigma' ty
 Proof
@@ -541,7 +541,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality LIST_LENGTH_2:
+Theorem LIST_LENGTH_2[local]:
   LENGTH l = 2 ⇔ ∃e1 e2. l = [e1; e2]
 Proof
   Cases_on ‘l’ \\ fs [] \\ Cases_on ‘t’ \\ fs []

@@ -432,7 +432,7 @@ Proof
   \\ fs [write_def,empty_env_def]
 QED
 
-Triviality FOLDR_LEMMA:
+Theorem FOLDR_LEMMA[local]:
   ∀xs ys. FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) [] xs ++ ys =
           FOLDR (\(x1,x2,x3) x4. (x1, f x1 x2 x3) :: x4) ys xs
 Proof
@@ -744,7 +744,7 @@ QED
 
 (* appending a Letrec *)
 
-Triviality build_rec_env_APPEND:
+Theorem build_rec_env_APPEND[local]:
   nsAppend (build_rec_env funs cl_env nsEmpty) add_to_env =
    build_rec_env funs cl_env add_to_env
 Proof
@@ -912,7 +912,7 @@ QED
 (* theorems about old lookup functions *)
 (* FIXME: everything below this line is unlikely to be needed. *)
 
-Triviality nsLookupMod_nsBind:
+Theorem nsLookupMod_nsBind[local]:
   p ≠ [] ⇒
   nsLookupMod (nsBind k v env) p = nsLookupMod env p
 Proof

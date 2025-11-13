@@ -158,7 +158,7 @@ Proof
     Cases_on `n = 0` >> fs[] >>  fs[EXTENSION, SUBSET_DEF]
 QED
 
-Triviality find_v_globalsL_EL_trans:
+Theorem find_v_globalsL_EL_trans[local]:
     n < LENGTH vs ∧ domain(find_v_globalsL vs) ⊆ R ⇒
     domain (find_v_globals (EL n vs)) ⊆ R
 Proof
@@ -454,7 +454,7 @@ Proof
   simp [EVERY_EL]
 QED
 
-Triviality not_v_has_Eval_EVERY_EL:
+Theorem not_v_has_Eval_EVERY_EL[local]:
   EVERY ($~ ∘ v_has_Eval) xs /\ i < LENGTH xs ==> ~ v_has_Eval (EL i xs)
 Proof
   simp [EVERY_EL]
@@ -483,19 +483,19 @@ fun qif_pat_tac qpat (tac : tactic) goal = if can (rename [qpat]) goal
 
 fun conseq xs = ConseqConv.CONSEQ_REWRITE_TAC (xs, [], [])
 
-Triviality fvg_map_char_empty:
+Theorem fvg_map_char_empty[local]:
   find_v_globals (list_to_v (MAP (λc. Litv (Char c)) ss)) = LN
 Proof
   Induct_on `ss` \\ simp [find_v_globals_def, list_to_v_def]
 QED
 
-Triviality not_LE_LESS_IMP:
+Theorem not_LE_LESS_IMP[local]:
   (~ (x >= y)) ==> ((x : num) < y)
 Proof
   simp []
 QED
 
-Triviality EL_REP_NONE_SOME_trivia:
+Theorem EL_REP_NONE_SOME_trivia[local]:
   n < LENGTH xs + i ==>
   (EL n (xs ++ REPLICATE i NONE) = SOME y <=>
     n < LENGTH xs /\ EL n xs = SOME y)
@@ -1670,7 +1670,7 @@ Theorem flat_remove_semantics =
 
 (* syntactic results *)
 
-Triviality elist_globals_filter:
+Theorem elist_globals_filter[local]:
   elist_globals (MAP dest_Dlet (FILTER is_Dlet ds)) = {||}
    ==>
    elist_globals (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds))) = {||}
@@ -1678,7 +1678,7 @@ Proof
   Induct_on `ds` \\ rw [] \\ fs [SUB_BAG_UNION]
 QED
 
-Triviality esgc_free_filter:
+Theorem esgc_free_filter[local]:
   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds))
    ==>
    EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds)))
@@ -1686,7 +1686,7 @@ Proof
   Induct_on `ds` \\ rw []
 QED
 
-Triviality elist_globals_filter_SUB_BAG:
+Theorem elist_globals_filter_SUB_BAG[local]:
   elist_globals (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds))) <=
    elist_globals (MAP dest_Dlet (FILTER is_Dlet ds))
 Proof

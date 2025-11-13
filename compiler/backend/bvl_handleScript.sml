@@ -76,7 +76,7 @@ Definition handle_size_def:
   (handle_size1 (x::xs) = 1 + handle_size x + handle_size1 xs)
 End
 
-Triviality handle_size_non_zero:
+Theorem handle_size_non_zero[local]:
   0 < handle_size x
 Proof
   Cases_on ‘x’ \\ fs [handle_size_def]

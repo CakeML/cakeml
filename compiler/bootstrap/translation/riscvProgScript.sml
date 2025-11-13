@@ -25,7 +25,7 @@ val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "riscvProg");
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-Triviality NOT_NIL_AND_LEMMA:
+Theorem NOT_NIL_AND_LEMMA[local]:
   (b <> [] /\ x) = if b = [] then F else x
 Proof
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []
@@ -61,7 +61,7 @@ val _ = translate (conv64_RHS integer_wordTheory.WORD_LTi)
 val spec_word_bit1 = word_bit |> ISPEC``foo:word32`` |> SPEC``11n``|> SIMP_RULE std_ss [word_bit_test] |> CONV_RULE (wordsLib.WORD_CONV)
 val spec_word_bit2 = word_bit |> ISPEC``foo:word64`` |> SPEC``31n``|> SIMP_RULE std_ss [word_bit_test] |> CONV_RULE (wordsLib.WORD_CONV)
 
-Triviality v2w_rw:
+Theorem v2w_rw[local]:
   v2w [P] = if P then 1w else 0w
 Proof
   rw[]>>EVAL_TAC
@@ -156,7 +156,7 @@ val riscv_enc1_4 = reconstruct_case ``riscv_enc (Inst (Mem m n a))``
   (Addr n' c)))`` (rand o rator o rator o rand o rand)
   riscv_enc1_4_aux];
 
-Triviality notw2w:
+Theorem notw2w[local]:
   !a. ~w2w a = (-1w ?? (w2w a))
 Proof
   srw_tac[wordsLib.WORD_BIT_EQ_ss][]
@@ -169,7 +169,7 @@ val riscv_simp1 = reconstruct_case ``riscv_enc (Inst i)`` (rand o
   riscv_enc1_5] |> SIMP_RULE std_ss[notw2w, word_2comp_def,
   dimword_32, dimword_20] |> gconv;
 
-Triviality if_eq1w:
+Theorem if_eq1w[local]:
   ((if w2w (c ⋙ m && 1w:word64) = 1w:word20 then 1w:word1 else 0w) && 1w)
   =
   w2w (c ⋙ m && 1w)

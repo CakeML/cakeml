@@ -23,7 +23,7 @@ val RW = REWRITE_RULE
 
 val _ = add_preferred_thy "-";
 
-Triviality NOT_NIL_AND_LEMMA:
+Theorem NOT_NIL_AND_LEMMA[local]:
   (b <> [] /\ x) = if b = [] then F else x
 Proof
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []
@@ -129,7 +129,7 @@ val _ = translate (GiveUp_def |> wcomp_simp |> conv64)
 
 val _ = matches:= [``foo:'a wordLang$prog``,``foo:'a wordLang$exp``]
 
-Triviality assign_rw:
+Theorem assign_rw[local]:
   (i < 0 ⇒ n2w (Num (4 * (0 -i))) = n2w (Num (ABS (4*(0-i))))) ∧
   (¬(i < 0) ⇒ n2w (Num (4 * i)) = n2w (Num (ABS (4*i))))
 Proof
@@ -283,7 +283,7 @@ fun tweak_assign_def th =
 val res = all_assign_defs |> CONJUNCTS |> map tweak_assign_def |> map translate;
 val res = translate (assign_def |> tweak_assign_def);
 
-Triviality lemma:
+Theorem lemma[local]:
   !A B. A = B ==> B ≠ A ==> F
 Proof
   metis_tac[]
@@ -340,7 +340,7 @@ val res = translate (word_copyTheory.copy_prop_def |> spec64);
 
 val res = translate_no_ind miscTheory.anub_def;
 
-Triviality misc_anub_ind:
+Theorem misc_anub_ind[local]:
   misc_anub_ind (:'a) (:'b)
 Proof
   once_rewrite_tac [fetch "-" "misc_anub_ind_def"]
@@ -359,7 +359,7 @@ val res = translate (spec64 word_unreachTheory.remove_unreach_def);
 
 val _ = translate (const_fp_inst_cs_def |> spec64 |> econv)
 
-Triviality rws:
+Theorem rws[local]:
   ($+ = λx y. x + y) ∧
   ($&& = λx y. x && y) ∧
   ($|| = λx y. x || y) ∧
@@ -370,7 +370,7 @@ QED
 
 val _ = translate (wordLangTheory.word_op_def |> ONCE_REWRITE_RULE [rws,WORD_NOT_0] |> spec64 |> gconv)
 
-Triviality word_msb_rw:
+Theorem word_msb_rw[local]:
   word_msb (a:word64) ⇔ (a>>>63) <> 0w
 Proof
   rw[word_msb_def,fcpTheory.CART_EQ,word_index,word_lsr_def,fcpTheory.FCP_BETA]
@@ -421,7 +421,7 @@ val _ = translate (asmTheory.offset_ok_def |> SIMP_RULE std_ss [alignmentTheory.
 val _ = translate (is_Lookup_CurrHeap_pmatch |> conv64)
 val res = translate_no_ind (inst_select_exp_pmatch |> conv64 |> SIMP_RULE std_ss [word_mul_def,word_2comp_def] |> conv64)
 
-Triviality inst_select_exp_ind:
+Theorem inst_select_exp_ind[local]:
   word_inst_inst_select_exp_ind
 Proof
   rewrite_tac [fetch "-" "word_inst_inst_select_exp_ind_def"]
@@ -475,7 +475,7 @@ val _ = translate (conv64 remove_dead_inst_def)
 val _ = translate (conv64 get_live_inst_def)
 val _ = translate (spec64 remove_dead_prog_def)
 
-Triviality lem:
+Theorem lem[local]:
   dimindex(:64) = 64 ∧
   dimindex(:32) = 32
 Proof
@@ -493,7 +493,7 @@ val _ = translate (INST_TYPE [alpha|->``:64``,beta|->``:64``]  word_alloc_def)
 (* BROKEN
 val res = translate_no_ind (spec64 three_to_two_reg_pmatch);
 
-Triviality three_to_two_reg_ind:
+Theorem three_to_two_reg_ind[local]:
   word_inst_three_to_two_reg_ind
 Proof
   rewrite_tac [fetch "-" "word_inst_three_to_two_reg_ind_def"]
@@ -535,7 +535,7 @@ val res = translate (spec64 three_to_two_reg_prog_def);
 (*
 val res = translate_no_ind (spec64 word_removeTheory.remove_must_terminate_pmatch);
 
-Triviality remove_must_terminate_ind:
+Theorem remove_must_terminate_ind[local]:
   word_remove_remove_must_terminate_ind
 Proof
   rewrite_tac [fetch "-" "word_remove_remove_must_terminate_ind_def"]

@@ -1645,7 +1645,7 @@ Definition let_op_cc_def:
      (λcfg prog. cc cfg (MAP (I ## let_opt q4 l4) prog))
 End
 
-Triviality let_evaluate_Call:
+Theorem let_evaluate_Call[local]:
   evaluate ([Call 0 (SOME start) []], [],
              initial_state ffi0 prog co (let_op_cc q4 l4 cc) k) = (r, s) /\
    r <> Rerr (Rabort Rtype_error) ⇒
@@ -2212,4 +2212,3 @@ Proof
   \\ imp_res_tac tick_inline_all_code_labels
   \\ fs [o_DEF, toList_def, toListA_def]
 QED
-

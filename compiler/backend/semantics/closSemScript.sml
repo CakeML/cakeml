@@ -453,7 +453,7 @@ Definition dec_clock_def:
   dec_clock n ^s = s with clock := s.clock - n
 End
 
-Triviality LESS_EQ_dec_clock:
+Theorem LESS_EQ_dec_clock[local]:
   (r:('c,'ffi) closSem$state).clock <= (dec_clock n s).clock ==> r.clock <= s.clock
 Proof
   SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC
@@ -479,7 +479,7 @@ Definition fix_clock_def:
   fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
 End
 
-Triviality fix_clock_IMP:
+Theorem fix_clock_IMP[local]:
   fix_clock s x = (res,s1) ==> s1.clock <= s.clock
 Proof
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
@@ -664,7 +664,7 @@ Definition exp_alt_size_def[simp]:
   exp3_alt_size (a0::a1) = 1 + (exp_alt_size a0 + exp3_alt_size a1)
 End
 
-Triviality exp3_alt_size[simp]:
+Theorem exp3_alt_size[local,simp]:
   exp3_alt_size xs = list_size exp_alt_size xs
 Proof
   Induct_on `xs` \\ simp []
@@ -825,7 +825,7 @@ Proof
   \\ every_case_tac \\ fs[] \\ rveq \\ fs[]
 QED
 
-Triviality evaluate_clock_help:
+Theorem evaluate_clock_help[local]:
   (!tup vs (s2:('c,'ffi) closSem$state).
       (evaluate tup = (vs,s2)) ==> s2.clock <= (SND (SND tup)).clock) ∧
     (!loc_opt f args (s1:('c,'ffi) closSem$state) vs s2.

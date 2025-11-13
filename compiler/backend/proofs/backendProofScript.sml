@@ -491,13 +491,13 @@ Proof
   \\ simp [clos_knownTheory.known_static_conf_def, clos_knownTheory.reset_inline_factor_def]
 QED
 
-Triviality keep_progs_T:
+Theorem keep_progs_T[local]:
   keep_progs T = I
 Proof
   simp [keep_progs_def, FUN_EQ_THM]
 QED
 
-Triviality compile_inc_progs_defs =
+Theorem compile_inc_progs_defs[local] =
   LIST_CONJ [compile_inc_progs_def, keep_progs_T]
 
 Theorem cake_orac_eqs:
@@ -612,7 +612,7 @@ Proof
   \\ rveq \\ fs []
 QED
 
-Triviality compile_inc_progs_src_env_tup:
+Theorem compile_inc_progs_src_env_tup[local]:
   compile_inc_progs T cfg p = (cfg', progs) ==>
   progs.env_id = FST p /\ progs.source_prog = SND p
 Proof
@@ -1002,7 +1002,7 @@ Proof
   \\ rveq \\ fs []
 QED
 
-Triviality SND_flat_to_clos_inc_compile =
+Theorem SND_flat_to_clos_inc_compile[local] =
     REWRITE_CONV [flat_to_closTheory.inc_compile_decs_def]
         ``SND (flat_to_clos_inc_compile p)``
 
@@ -1030,7 +1030,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality BAG_ALL_DISTINCT_BAG_IMAGE_SUC[simp]:
+Theorem BAG_ALL_DISTINCT_BAG_IMAGE_SUC[local,simp]:
   BAG_ALL_DISTINCT s ⇒  BAG_ALL_DISTINCT (BAG_IMAGE SUC s)
 Proof
   fs [BAG_ALL_DISTINCT] \\ rw []
@@ -1049,7 +1049,7 @@ Proof
   \\ rw [BAG_INSERT,EMPTY_BAG]
 QED
 
-Triviality BAG_ALL_DISTINCT_BAG_IMAGE_SUC'[simp]:
+Theorem BAG_ALL_DISTINCT_BAG_IMAGE_SUC'[local,simp]:
   BAG_ALL_DISTINCT s ⇒  BAG_ALL_DISTINCT ({|0|} ⊎ BAG_IMAGE SUC s)
 Proof
   fs [bagTheory.BAG_ALL_DISTINCT_BAG_UNION,BAG_ALL_DISTINCT_BAG_IMAGE_SUC]
@@ -2553,14 +2553,14 @@ Definition read_limits_def:
        mc.target.get_reg ms (find_name c.stack_conf.reg_names 4) :'a word)
 End
 
-Triviality FST_SND_EQ:
+Theorem FST_SND_EQ[local]:
   (FST x = y /\ SND x = z <=> x = (y,z)) /\
   (SND x = z /\ FST x = y <=> x = (y,z))
 Proof
   Cases_on `x` \\ fs [] \\ metis_tac []
 QED
 
-Triviality PERMUTE_IMP_LINV:
+Theorem PERMUTE_IMP_LINV[local]:
   f PERMUTES UNIV ⇒ ∀x y. (y = LINV f UNIV x ⇔ x = f y)
 Proof
   rw [] \\ eq_tac \\ rw []
@@ -2716,7 +2716,7 @@ Proof
   \\ simp [DROP_APPEND]
 QED
 
-Triviality compile_inc_progs_src_env:
+Theorem compile_inc_progs_src_env[local]:
   (SND (compile_inc_progs T c env_decs)).env_id = FST env_decs /\
   (SND (compile_inc_progs T c env_decs)).source_prog = SND env_decs
 Proof
@@ -2755,7 +2755,7 @@ Proof
   \\ fs [cake_configs_def, state_orac_states_def]
 QED
 
-Triviality cake_orac_extended_wf:
+Theorem cake_orac_extended_wf[local]:
   compile (c : 'a config) prog = SOME (b,bm,c') /\
   opt_eval_config_wf c' (SOME ci) ==>
   orac_extended_wf (mk_compiler_fun_from_ci ci)
@@ -2784,7 +2784,7 @@ Proof
   \\ simp []
 QED
 
-Triviality compile_inc_progs_asm_conf:
+Theorem compile_inc_progs_asm_conf[local]:
   compile_inc_progs k c p_env = (c', progs) ==>
   c'.lab_conf.asm_conf = c.lab_conf.asm_conf
 Proof
@@ -2811,7 +2811,7 @@ Proof
   strip_tac>>strip_tac>>CASE_TAC>>fs[w2n_lt]
 QED
 
-Triviality cake_orac_eq_get_oracle:
+Theorem cake_orac_eq_get_oracle[local]:
   ¬ semantics_prog s env prog Fail /\
   opt_eval_config_wf (c':'a config) (SOME ci) /\
   nsAll (K concrete_v) env.v /\ s.refs = [] /\
@@ -2866,7 +2866,7 @@ Proof
   )
 QED
 
-Triviality compile_inc_config_inv:
+Theorem compile_inc_config_inv[local]:
   compile (c : 'a config) prog = SOME (b,bm,c') ==>
   inc_config_to_config c.lab_conf.asm_conf
     (config_to_inc_config (cake_configs c' syntax k)) =
@@ -2877,7 +2877,7 @@ Proof
   \\ simp [inc_config_to_config_inv]
 QED
 
-Triviality step_invs_cake_orac:
+Theorem step_invs_cake_orac[local]:
   st.oracle = f o cake_orac c' syn I I ==>
   (! x k env_id st decs. x = cake_orac c' syn I I k ==>
     f x = (env_id, st, decs) ==>
@@ -2906,7 +2906,7 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
 QED
 
-Triviality source_to_source_semantics_prog_equiv:
+Theorem source_to_source_semantics_prog_equiv[local]:
   ~ semantics_prog s0 env prog Fail ==>
   semantics_prog s0 env (source_to_source$compile prog) res =
   semantics_prog s0 env prog res
@@ -2915,7 +2915,7 @@ Proof
                   source_to_sourceProofTheory.compile_semantics]
 QED
 
-Triviality source_to_source_semantics_prog_intro:
+Theorem source_to_source_semantics_prog_intro[local]:
   ~ semantics_prog s0 env prog Fail ==>
   (~ semantics_prog s0 env (source_to_source$compile prog) Fail ==>
     semantics_prog s0 env (source_to_source$compile prog) res) ==>
@@ -2925,7 +2925,7 @@ Proof
                   source_to_sourceProofTheory.compile_semantics]
 QED
 
-Triviality eval_oracle_semantics_prog_intro:
+Theorem eval_oracle_semantics_prog_intro[local]:
   !ci. ~ semantics_prog s1 env decs Fail /\
   precond_eval_state orac ci s1 env decs /\ s1.refs = [] /\
   nsAll (K concrete_v) env.v /\
@@ -2937,7 +2937,7 @@ Proof
             source_evalProofTheory.oracle_semantics_prog]
 QED
 
-Triviality source_to_source_semantics_prog_oracle_intro:
+Theorem source_to_source_semantics_prog_oracle_intro[local]:
   ~ semantics_prog (s0 with eval_state := insert_gen_oracle ev I sf orac es) env prog Fail ==>
   (~ semantics_prog (s0 with eval_state := insert_gen_oracle ev source_to_source$compile sf orac es) env prog Fail ==>
       semantics_prog (s0 with eval_state := insert_gen_oracle ev source_to_source$compile sf orac es) env prog res) ==>
@@ -4163,7 +4163,7 @@ Proof
   fs [extend_with_resource_limit'_def]
 QED
 
-Triviality compile_correct_no_eval =
+Theorem compile_correct_no_eval[local] =
   compile_correct' |> Q.INST [`ev` |-> `NONE`]
     |> SIMP_RULE bool_ss [add_eval_state_def, opt_eval_config_wf_def]
 

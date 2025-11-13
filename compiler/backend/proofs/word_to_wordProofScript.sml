@@ -135,7 +135,7 @@ Proof
   every_case_tac>>gvs[]
 QED
 
-Triviality rm_perm:
+Theorem rm_perm[local]:
   s with permute:= s.permute = s
 Proof
   full_simp_tac(srw_ss())[state_component_equality]
@@ -143,7 +143,7 @@ QED
 
 val size_tac= (full_simp_tac(srw_ss())[wordLangTheory.prog_size_def]>>DECIDE_TAC);
 
-Triviality find_code_thm:
+Theorem find_code_thm[local]:
   (!n v. lookup n st.code = SOME v ==>
          ∃t k a c col.
          lookup n l = SOME (SND (compile_single t k a c ((n,v),col)))) ∧
@@ -167,7 +167,7 @@ Proof
     metis_tac[]
 QED
 
-Triviality pop_env_termdep:
+Theorem pop_env_termdep[local]:
   pop_env rst = SOME x ⇒ x.termdep = rst.termdep
 Proof
   full_simp_tac(srw_ss())[pop_env_def]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[state_component_equality]
@@ -181,7 +181,7 @@ Definition code_rel_def:
          lookup n ttc = SOME (SND (compile_single t k a c ((n,v),col))))
 End
 
-Triviality compile_single_eta:
+Theorem compile_single_eta[local]:
   compile_single t k a c ((p,x),y) =
   (p,SND (compile_single t k a c ((p,x),y)))
 Proof
@@ -189,7 +189,7 @@ Proof
 QED
 
 
-Triviality code_rel_union_fromAList:
+Theorem code_rel_union_fromAList[local]:
   ∀s l ls.
   code_rel s l ∧
   domain s = domain l
@@ -867,12 +867,12 @@ Proof
   simp []
 QED
 
-Triviality code_rel_P = Q.GEN `P` code_rel_not_created_subprogs;
+Theorem code_rel_P[local] = Q.GEN `P` code_rel_not_created_subprogs;
 
-Triviality code_rel_no_alloc = code_rel_P |> Q.SPEC `(<>) (Alloc 0 (LN,LN))`
+Theorem code_rel_no_alloc[local] = code_rel_P |> Q.SPEC `(<>) (Alloc 0 (LN,LN))`
     |> REWRITE_RULE [GSYM no_alloc_subprogs_def]
 
-Triviality code_rel_no_install = code_rel_P |> Q.SPEC `(<>) (Install 0 0 0 0 (LN,LN))`
+Theorem code_rel_no_install[local] = code_rel_P |> Q.SPEC `(<>) (Install 0 0 0 0 (LN,LN))`
     |> REWRITE_RULE [GSYM no_install_subprogs_def]
 
 

@@ -199,7 +199,7 @@ Theorem Decls_repl_prog =
 
 (* verification of Repl.charsFrom *)
 
-Triviality foldl_char_cons:
+Theorem foldl_char_cons[local]:
   ∀xs ys. foldl char_cons ys xs = REVERSE xs ++ ys
 Proof
   Induct \\ fs [mllistTheory.foldl_def,char_cons_def]

@@ -456,7 +456,7 @@ Proof
   Cases_on ‘f h’ \\ gvs[]
 QED
 
-Triviality OPT_MMAP_eval_some_eq:
+Theorem OPT_MMAP_eval_some_eq[local]:
   OPT_MMAP (λa. eval s a) es = SOME vs /\
   state_rel s t t.code ==>
   OPT_MMAP (λa. eval t a) es = SOME vs

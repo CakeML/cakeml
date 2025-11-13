@@ -132,7 +132,7 @@ Theorem mergesortN_ind =
   mergesortTheory.mergesortN_ind |> REWRITE_RULE[GSYM mllistTheory.drop_def]
 val r = translate (mergesortTheory.mergesortN_def |> REWRITE_RULE[GSYM mllistTheory.drop_def,GSYM mllistTheory.take_def]);
 
-Triviality mergesortn_side:
+Theorem mergesortn_side[local]:
   ∀x y z.
   mergesortn_side x y z
 Proof
@@ -238,13 +238,13 @@ QED
 
 val r = translate regexp_matcher_with_limit_def;
 
-Triviality mem_tolist:
+Theorem mem_tolist[local]:
   MEM (toList l) (MAP toList ll) = MEM l ll
 Proof
   Induct_on `ll` >> fs[]
 QED
 
-Triviality EL_map_toList:
+Theorem EL_map_toList[local]:
   !n. n < LENGTH l ==> EL n' (EL n (MAP toList l)) = sub (EL n l) n'
 Proof
   Induct_on `l`
@@ -254,7 +254,7 @@ Proof
   >> fs[mlvectorTheory.EL_toList]
 QED
 
-Triviality length_tolist_cancel:
+Theorem length_tolist_cancel[local]:
   !n. n < LENGTH l ==> LENGTH (EL n (MAP mlvector$toList l)) = length (EL n l)
 Proof
   Induct_on `l`
@@ -264,7 +264,7 @@ Proof
   >> fs[mlvectorTheory.length_toList]
 QED
 
-Triviality exec_dfa_side_imp:
+Theorem exec_dfa_side_imp[local]:
   !finals table n s.
    good_vec (MAP toList (toList table)) (toList finals)
     /\ EVERY (λc. MEM (ORD c) ALPHABET) (EXPLODE s)
@@ -291,7 +291,7 @@ Proof
     >> rfs[mlvectorTheory.length_toList,mem_tolist,EL_map_toList,length_tolist_cancel]
 QED
 
-Triviality compile_regexp_with_limit_dom_brz:
+Theorem compile_regexp_with_limit_dom_brz[local]:
   !r result.
     compile_regexp_with_limit r = SOME result
     ==> dom_Brz empty (singleton (normalize r) ())
@@ -302,7 +302,7 @@ Proof
   >> metis_tac [IS_SOME_EXISTS]
 QED
 
-Triviality compile_regexp_with_limit_lookup:
+Theorem compile_regexp_with_limit_lookup[local]:
   !r state_numbering delta accepts.
    compile_regexp_with_limit r = SOME(state_numbering,delta,accepts)
    ==> IS_SOME(lookup regexp_compare (normalize r) state_numbering)
@@ -325,7 +325,7 @@ QED
 val compile_regexp_with_limit_side_def =
     fetch"-" "compile_regexp_with_limit_side_def"
 
-Triviality lem:
+Theorem lem[local]:
   !bst. balanced_map$null bst <=> (bst = Tip)
 Proof
   Cases >> rw[balanced_mapTheory.null_def]
@@ -335,7 +335,7 @@ val brz_side_def =
   fetch "-" "brz_side_def"
     |> simp_rule [deleteFindmin_side_thm,lem]
 
-Triviality brz_side_thm:
+Theorem brz_side_thm[local]:
   !a b c d. brz_side a b c d
 Proof
   Induct_on `d` >> rw[Once brz_side_def]

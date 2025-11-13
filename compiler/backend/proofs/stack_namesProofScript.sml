@@ -189,7 +189,7 @@ Proof
   Cases_on ‘op’>>rw[sh_mem_op_def]
 QED
 
-Triviality prog_comp_eta:
+Theorem prog_comp_eta[local]:
   prog_comp f = λ(x,y). (x,comp f y)
 Proof
   rw[prog_comp_def,FUN_EQ_THM,FORALL_PROD]
@@ -277,14 +277,14 @@ Proof
   rw[rename_state_def,domain_fromAList,toAList_domain,EXTENSION]
 QED
 
-Triviality comp_STOP_While:
+Theorem comp_STOP_While[local]:
   comp f (STOP (While cmp r1 ri c1)) =
     STOP (While cmp (find_name f r1) (ri_find_name f ri) (comp f c1))
 Proof
   simp [Once comp_def] \\ fs [STOP_def]
 QED
 
-Triviality get_labels_comp:
+Theorem get_labels_comp[local]:
   !f p. get_labels (comp f p) = get_labels p
 Proof
   HO_MATCH_MP_TAC stack_namesTheory.comp_ind \\ rw []
@@ -292,7 +292,7 @@ Proof
   \\ every_case_tac \\ fs [get_labels_def]
 QED
 
-Triviality loc_check_rename_state:
+Theorem loc_check_rename_state[local]:
   loc_check (rename_state c f s).code (l1,l2) =
     loc_check s.code (l1,l2)
 Proof
@@ -555,7 +555,7 @@ Proof
   srw_tac[QUANT_INST_ss[pair_default_qp]][]
 QED
 
-Triviality compile_semantics_alt:
+Theorem compile_semantics_alt[local]:
   !s t.
       BIJ (find_name f) UNIV UNIV /\ (rename_state t.compile f s = t) /\
       s.compile = (λc. t.compile c o (compile f)) /\
@@ -606,7 +606,7 @@ Proof
   BasicProvers.EVERY_CASE_TAC>>fs[extract_labels_def]
 QED
 
-Triviality names_ok_imp:
+Theorem names_ok_imp[local]:
   names_ok f c.reg_count c.avoid_regs ⇒
   ∀n. reg_name n c ⇒
   reg_ok (find_name f n) c
@@ -614,7 +614,7 @@ Proof
   fs[names_ok_def,EVERY_GENLIST,reg_name_def,asmTheory.reg_ok_def]
 QED
 
-Triviality names_ok_imp2:
+Theorem names_ok_imp2[local]:
   names_ok f c.reg_count c.avoid_regs ∧
   n ≠ n' ∧
   reg_name n c ∧ reg_name n' c ⇒
@@ -624,7 +624,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality stack_names_comp_stack_asm_ok:
+Theorem stack_names_comp_stack_asm_ok[local]:
   ∀f p.
   stack_asm_name c p ∧ names_ok f c.reg_count c.avoid_regs ∧
   fixed_names f c ⇒

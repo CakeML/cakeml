@@ -265,7 +265,8 @@ Definition compile_def:
                                          inf_env_to_types_string ic ++
                                          [strlit "\n"]))), Nil)
           else if c.only_print_sexp then
-            (Failure (TypeError (implode(print_sexp (listsexp (MAP decsexp full_prog))))),Nil)
+            (Failure (TypeError (implode
+               ("\n" ++ print_sexp (listsexp (MAP decsexp full_prog))))),Nil)
           else
           case backend_passes$compile_tap c.backend_config full_prog of
           | (NONE, td) => (Failure AssembleError, td)
@@ -819,4 +820,3 @@ Definition full_compile_32_def:
     in
       add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err
 End
-

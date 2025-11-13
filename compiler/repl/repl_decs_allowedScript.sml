@@ -20,7 +20,7 @@ End
 
 (* pmatch lemmas *)
 
-Triviality safe_exp_pmatch_lemma:
+Theorem safe_exp_pmatch_lemma[local]:
   safe_exp =
      every_exp $ λx. case x of
                      | Con opt xs => (dtcase opt of

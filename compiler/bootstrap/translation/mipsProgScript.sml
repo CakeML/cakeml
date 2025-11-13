@@ -25,7 +25,7 @@ val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "mipsProg");
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-Triviality NOT_NIL_AND_LEMMA:
+Theorem NOT_NIL_AND_LEMMA[local]:
   (b <> [] /\ x) = if b = [] then F else x
 Proof
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []

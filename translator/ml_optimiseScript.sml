@@ -114,7 +114,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality BOTTOM_UP_OPT_THM1:
+Theorem BOTTOM_UP_OPT_THM1[local]:
   (!x ^s env s1 r. eval_rel ^s env x s1 r ==> eval_rel ^s env (f x) s1 r) ==>
   (!g x s s1 r env. g = f /\ eval_rel ^s env x s1 r ==> eval_rel ^s env (BOTTOM_UP_OPT f x) s1 r) /\
   (!g xs s s1 r env. g = f /\ eval_list_rel ^s env xs s1 r ==>
@@ -305,7 +305,7 @@ Definition abs2let_def:
              | rest => rest
 End
 
-Triviality abs2let_thm:
+Theorem abs2let_thm[local]:
   !env s exp t res. eval_rel s env exp t res ==>
                      eval_rel s env (abs2let exp) t res
 Proof
@@ -333,7 +333,7 @@ Definition let_id_def:
   (let_id rest = rest)
 End
 
-Triviality let_id_thm:
+Theorem let_id_thm[local]:
   !env s exp t res. eval_rel s env exp t res ==>
                      eval_rel s env (let_id exp) t res
 Proof
@@ -372,14 +372,14 @@ Definition opt_sub_add_def:
          | _ => x
 End
 
-Triviality dest_binop_thm:
+Theorem dest_binop_thm[local]:
   !x. (dest_binop x = SOME (x1,x2,x3)) <=> (x = App (Opn x1) [x2; x3])
 Proof
   HO_MATCH_MP_TAC (fetch "-" "dest_binop_ind")
   \\ FULL_SIMP_TAC (srw_ss()) [dest_binop_def]
 QED
 
-Triviality opt_sub_add_thm:
+Theorem opt_sub_add_thm[local]:
   !env s exp t res. eval_rel s env exp t res ==>
                      eval_rel s env (opt_sub_add exp) t res
 Proof

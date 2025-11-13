@@ -722,7 +722,7 @@ Definition is_builtin_type_def:
        (m = strlit "bool" /\ LENGTH ty = 0)))
 End
 
-Triviality type1_size_append:
+Theorem type1_size_append[local]:
   ∀l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2
 Proof
   Induct >> simp[fetch "-" "type_size_def"]
