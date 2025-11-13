@@ -453,7 +453,7 @@ Proof
   \\ gvs [compile_exps_def,compile_exps_sing_def,SmartAppend_Nil]
 QED
 
-Triviality compile_exps_LENGTH_lemma:
+Theorem compile_exps_LENGTH_lemma[local]:
   !n xs. (LENGTH (FST (compile_exps n xs)) = LENGTH xs)
 Proof
   HO_MATCH_MP_TAC compile_exps_ind \\ REPEAT STRIP_TAC

@@ -268,7 +268,7 @@ Proof
   simp[GSYM MEMBER_NOT_EMPTY] >> rw[] >> metis_tac[]
 QED
 
-Triviality LEAST_EXISTS:
+Theorem LEAST_EXISTS[local]:
   (∃n:num. P n) ⇒ ∃k. P k ∧ ∀m. m < k ⇒ ¬(P m)
 Proof
   metis_tac[WhileTheory.LEAST_EXISTS]

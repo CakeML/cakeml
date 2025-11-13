@@ -35,7 +35,7 @@ fun list_mk_fun_type [ty] = ty
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-Triviality NOT_NIL_AND_LEMMA:
+Theorem NOT_NIL_AND_LEMMA[local]:
   (b <> [] /\ x) = if b = [] then F else x
 Proof
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []
@@ -78,7 +78,7 @@ val r = translate clos_to_bvlTheory.compile_op_pmatch;
 
 val r = translate (bvl_jumpTheory.JumpList_def |> REWRITE_RULE [GSYM mllistTheory.take_def,GSYM mllistTheory.drop_def]);
 
-Triviality bvl_jump_jumplist_ind:
+Theorem bvl_jump_jumplist_ind[local]:
   bvl_jump_jumplist_ind
 Proof
   once_rewrite_tac [fetch "-" "bvl_jump_jumplist_ind_def"]
@@ -266,7 +266,7 @@ val bvl_inline_tick_inline_side = Q.prove (
 
 val r = translate (bvl_inlineTheory.is_small_aux_def |> REWRITE_RULE [GSYM sub_check_def]);
 
-Triviality bvl_inline_is_small_aux_ind:
+Theorem bvl_inline_is_small_aux_ind[local]:
   bvl_inline_is_small_aux_ind
 Proof
   once_rewrite_tac [fetch "-" "bvl_inline_is_small_aux_ind_def"]

@@ -343,7 +343,7 @@ Definition asm_code_length_def:
      asm_code_length ((Section k ys)::xs) + if is_Label y then 0 else 1:num)
 End
 
-Triviality asm_fetch_IMP:
+Theorem asm_fetch_IMP[local]:
   (asm_fetch s = SOME x) ==>
     s.pc < asm_code_length s.code
 Proof
@@ -404,7 +404,7 @@ Proof
     Cases_on`f`
     \\ fs[fp_upd_def,upd_reg_def,upd_fp_reg_def,assert_def]
     \\ BasicProvers.EVERY_CASE_TAC \\ fs[upd_fp_reg_def]
-QED ;
+QED
 
 Definition get_pc_value_def:
   get_pc_value lab (s:('a,'c,'ffi) labSem$state) =

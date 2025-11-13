@@ -60,7 +60,7 @@ Proof
   \\ fs [list_to_v_def]
 QED
 
-Triviality forall_sum:
+Theorem forall_sum[local]:
   (∀x. P x) ⇔ (∀a. P (INL a)) ∧ ∀ b. P (INR b)
 Proof
   eq_tac \\ fs [] \\ rw [] \\ Cases_on ‘x’ \\ fs []
@@ -986,7 +986,7 @@ Proof
   \\ fs [] \\ Cases_on ‘e’ \\ fs []
 QED
 
-Triviality pair_lam_lem:
+Theorem pair_lam_lem[local]:
   !f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)
 Proof
   srw_tac[][]
@@ -1459,7 +1459,7 @@ Proof
    simp [])
 QED
 
-Triviality revnil:
+Theorem revnil[local]:
   [] = REVERSE l ⇔ l = []
 Proof
   CONV_TAC (LAND_CONV (REWR_CONV EQ_SYM_EQ)) >> simp[]
@@ -1707,7 +1707,7 @@ Proof
   \\ fs [initial_state_def]
 QED
 
-Triviality do_app_io_events_mono:
+Theorem do_app_io_events_mono[local]:
   do_app op vs s = Rval(v,s') ⇒
    s.ffi.io_events ≼ s'.ffi.io_events
 Proof
@@ -1730,15 +1730,17 @@ Proof
   metis_tac[IS_PREFIX_TRANS,do_app_io_events_mono,do_install_const]
 QED
 
-Triviality evaluate_io_events_mono_imp:
+Theorem evaluate_io_events_mono_imp[local]:
   evaluate (es,env,s) = (r,s') ⇒
     s.ffi.io_events ≼ s'.ffi.io_events
 Proof
   metis_tac[evaluate_io_events_mono,FST,SND,PAIR]
 QED
 
-val with_clock_ffi = Q.prove(
-  `(s with clock := k).ffi = s.ffi`,EVAL_TAC)
+Theorem with_clock_ffi[local]:
+   (s with clock := k).ffi = s.ffi
+Proof EVAL_TAC
+QED
 val lemma = DECIDE``¬(x < y - z) ⇒ ((a:num) + x - (y - z) = x - (y - z) + a)``
 val lemma2 = DECIDE``x ≠ 0n ⇒ a + (x - 1) = a + x - 1``
 val lemma3 = DECIDE``¬(x:num < t+1) ⇒ a + (x - (t+1)) = a + x - (t+1)``
@@ -2019,7 +2021,7 @@ Definition simple_val_rel_def:
       vr x (Recclosure y1 y2 y3 y4 y5) ==> isClos x)
 End
 
-Triviality simple_val_rel_alt:
+Theorem simple_val_rel_alt[local]:
   simple_val_rel vr <=>
      (∀x n. vr x (Number n) ⇔ x = Number n) ∧
      (∀x p n.
@@ -2090,47 +2092,59 @@ Proof
   fs [simple_state_rel_def]
 QED
 
-val simple_state_rel_update_ffi = prove(
-  ``simple_state_rel vr sr /\ sr s t ==>
-    sr (s with ffi := f) (t with ffi := f)``,
-  fs [simple_state_rel_def]);
+Theorem simple_state_rel_update_ffi[local]:
+    simple_state_rel vr sr /\ sr s t ==>
+    sr (s with ffi := f) (t with ffi := f)
+Proof
+  fs [simple_state_rel_def]
+QED
 
-val simple_state_rel_update_bytes = prove(
-  ``simple_state_rel vr sr /\ sr s t ==>
+Theorem simple_state_rel_update_bytes[local]:
+    simple_state_rel vr sr /\ sr s t ==>
     sr (s with refs := s.refs |+ (p,ByteArray bs))
-       (t with refs := t.refs |+ (p,ByteArray bs))``,
-  fs [simple_state_rel_def]);
+       (t with refs := t.refs |+ (p,ByteArray bs))
+Proof
+  fs [simple_state_rel_def]
+QED
 
-val simple_state_rel_update_values = prove(
-  ``simple_state_rel vr sr /\ sr s t /\ LIST_REL vr xs ys ==>
+Theorem simple_state_rel_update_values[local]:
+    simple_state_rel vr sr /\ sr s t /\ LIST_REL vr xs ys ==>
     sr (s with refs := s.refs |+ (p,ValueArray xs))
-       (t with refs := t.refs |+ (p,ValueArray ys))``,
-  fs [simple_state_rel_def]);
+       (t with refs := t.refs |+ (p,ValueArray ys))
+Proof
+  fs [simple_state_rel_def]
+QED
 
-val simple_state_rel_update_thunks = prove(
-  ``simple_state_rel vr sr /\ sr s t /\ vr v w ==>
+Theorem simple_state_rel_update_thunks[local]:
+    simple_state_rel vr sr /\ sr s t /\ vr v w ==>
     sr (s with refs := s.refs |+ (p,Thunk m v))
-       (t with refs := t.refs |+ (p,Thunk m w))``,
-  fs [simple_state_rel_def]);
+       (t with refs := t.refs |+ (p,Thunk m w))
+Proof
+  fs [simple_state_rel_def]
+QED
 
-val simple_state_rel_update_globals = prove(
-  ``simple_state_rel vr sr /\ sr s t /\ LIST_REL (OPTREL vr) xs ys ==>
-    sr (s with globals := xs) (t with globals := ys)``,
-  fs [simple_state_rel_def]);
+Theorem simple_state_rel_update_globals[local]:
+    simple_state_rel vr sr /\ sr s t /\ LIST_REL (OPTREL vr) xs ys ==>
+    sr (s with globals := xs) (t with globals := ys)
+Proof
+  fs [simple_state_rel_def]
+QED
 
-val simple_state_rel_get_global = prove(
-  ``simple_state_rel vr sr /\ sr s t /\ get_global n t.globals = x ⇒
+Theorem simple_state_rel_get_global[local]:
+    simple_state_rel vr sr /\ sr s t /\ get_global n t.globals = x ⇒
     case x of
     | NONE => get_global n s.globals = NONE
     | SOME NONE => get_global n s.globals = SOME NONE
-    | SOME (SOME y) => ?x. get_global n s.globals = SOME (SOME x) /\ vr x y``,
+    | SOME (SOME y) => ?x. get_global n s.globals = SOME (SOME x) /\ vr x y
+Proof
   fs [simple_state_rel_def] \\ fs [get_global_def] \\ rw [] \\ fs []
   \\ `LIST_REL (OPTREL vr) s.globals t.globals` by fs []
   \\ imp_res_tac LIST_REL_LENGTH \\ fs []
   \\ fs [LIST_REL_EL_EQN]
   \\ qpat_x_assum `_ = _` assume_tac \\ fs []
   \\ first_x_assum drule
-  \\ Cases_on `EL n t.globals` \\ fs [OPTREL_def]);
+  \\ Cases_on `EL n t.globals` \\ fs [OPTREL_def]
+QED
 
 Theorem list_to_v_INJ[simp]:
  !xs ys.
@@ -2141,16 +2155,19 @@ Proof
   Cases_on `ys` >> fs[list_to_v_def]
 QED
 
-val isClos_IMP_v_to_list_NONE = prove(
-  ``isClos x ==> v_to_list x = NONE``,
-  Cases_on `x` \\ fs [v_to_list_def]);
+Theorem isClos_IMP_v_to_list_NONE[local]:
+    isClos x ==> v_to_list x = NONE
+Proof
+  Cases_on `x` \\ fs [v_to_list_def]
+QED
 
-val v_rel_to_list_ByteVector = prove(
-  ``simple_val_rel vr ==>
+Theorem v_rel_to_list_ByteVector[local]:
+    simple_val_rel vr ==>
     !lv x.
       vr x lv ==>
       !wss. (v_to_list x = SOME (MAP ByteVector wss) <=>
-             v_to_list lv = SOME (MAP ByteVector wss))``,
+             v_to_list lv = SOME (MAP ByteVector wss))
+Proof
   strip_tac \\ fs [simple_val_rel_def]
   \\ ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def]
@@ -2163,14 +2180,16 @@ val v_rel_to_list_ByteVector = prove(
   \\ eq_tac \\ rw [] \\ fs []
   \\ rfs []
   \\ Cases_on `h` \\ fs [] \\ rfs []
-  \\ res_tac \\ fs []);
+  \\ res_tac \\ fs []
+QED
 
-val v_rel_to_list_byte1 = prove(
-  ``simple_val_rel vr ==>
+Theorem v_rel_to_list_byte1[local]:
+    simple_val_rel vr ==>
     !y x.
       vr x y ==>
       !ns. (v_to_list x = SOME (MAP (Number ∘ $&) ns)) <=>
-           (v_to_list y = SOME (MAP (Number ∘ $&) ns))``,
+           (v_to_list y = SOME (MAP (Number ∘ $&) ns))
+Proof
   strip_tac \\ fs [simple_val_rel_def]
   \\ ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def] \\ res_tac
@@ -2182,47 +2201,56 @@ val v_rel_to_list_byte1 = prove(
   \\ eq_tac \\ rw [] \\ fs []
   \\ res_tac \\ fs []
   \\ Cases_on `h` \\ rfs []
-  \\ res_tac \\ fs []);
+  \\ res_tac \\ fs []
+QED
 
-val v_rel_to_list_byte2 = prove(
-  ``simple_val_rel vr ==>
+Theorem v_rel_to_list_byte2[local]:
+    simple_val_rel vr ==>
     !y x.
       vr x y ==>
       !ns. (v_to_list x = SOME (MAP (Number ∘ $&) ns) ∧
             EVERY (λn. n < 256) ns) <=>
            (v_to_list y = SOME (MAP (Number ∘ $&) ns) ∧
-            EVERY (λn. n < 256) ns)``,
-  metis_tac [v_rel_to_list_byte1]);
+            EVERY (λn. n < 256) ns)
+Proof
+  metis_tac [v_rel_to_list_byte1]
+QED
 
- val v_to_list_SOME = prove(
-  ``simple_val_rel vr ==>
+
+Theorem v_to_list_SOME[local]:
+    simple_val_rel vr ==>
     !y ys x.
       vr x y /\ v_to_list y = SOME ys ==>
-      ∃xs. LIST_REL vr xs ys ∧ v_to_list x = SOME xs``,
+      ∃xs. LIST_REL vr xs ys ∧ v_to_list x = SOME xs
+Proof
   strip_tac \\ fs [simple_val_rel_def]
   \\ ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def] \\ rveq \\ fs []
   \\ fs [case_eq_thms] \\ rveq \\ fs []
-  \\ res_tac \\ fs []);
+  \\ res_tac \\ fs []
+QED
 
-val v_to_list_NONE = prove(
-  ``simple_val_rel vr ==>
+Theorem v_to_list_NONE[local]:
+    simple_val_rel vr ==>
     !y x. vr x y /\ v_to_list y = NONE ==>
-          v_to_list x = NONE``,
+          v_to_list x = NONE
+Proof
   strip_tac \\ fs [simple_val_rel_def]
   \\ ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def] \\ res_tac
   \\ imp_res_tac isClos_IMP_v_to_list_NONE \\ fs []
-  \\ rw [] \\ fs [case_eq_thms]);
+  \\ rw [] \\ fs [case_eq_thms]
+QED
 
-val v_rel_do_eq = prove(
-  ``simple_val_rel vr ==>
+Theorem v_rel_do_eq[local]:
+    simple_val_rel vr ==>
     (!y1 y2 x1 x2.
       vr x1 y1 /\ vr x2 y2 ==>
       do_eq x1 x2 = do_eq y1 y2) /\
     (!y1 y2 x1 x2.
       LIST_REL vr x1 y1 /\ LIST_REL vr x2 y2 ==>
-      do_eq_list x1 x2 = do_eq_list y1 y2)``,
+      do_eq_list x1 x2 = do_eq_list y1 y2)
+Proof
   strip_tac \\ fs [simple_val_rel_def]
   \\ ho_match_mp_tac do_eq_ind \\ rw []
   THEN1
@@ -2233,7 +2261,8 @@ val v_rel_do_eq = prove(
   \\ once_rewrite_tac [do_eq_def]
   \\ fs [case_eq_thms]
   \\ Cases_on `do_eq y1 y2` \\ fs []
-  \\ Cases_on `b` \\ fs []);
+  \\ Cases_on `b` \\ fs []
+QED
 
 Theorem simple_state_rel_FLOOKUP_refs_IMP:
    simple_state_rel vr sr /\ sr s t /\
@@ -2250,10 +2279,12 @@ Proof
   \\ res_tac \\ fs [] \\ rename1 `_ = SOME yy` \\ Cases_on `yy` \\ fs []
 QED
 
-val refs_ffi_lemma = prove(
-  ``((s:('c,'ffi) closSem$state) with <|refs := refs'; ffi := ffi'|>) =
-    ((s with refs := refs') with ffi := ffi')``,
-  fs []);
+Theorem refs_ffi_lemma[local]:
+    ((s:('c,'ffi) closSem$state) with <|refs := refs'; ffi := ffi'|>) =
+    ((s with refs := refs') with ffi := ffi')
+Proof
+  fs []
+QED
 
 Theorem simple_val_rel_list:
    !x x1 xs vr.
@@ -2323,14 +2354,14 @@ Proof
 QED
 
 (*TODO move to semanticPrimitivesProps*)
-Triviality result_rel_Rval2[simp]:
+Theorem result_rel_Rval2[local,simp]:
  result_rel R1 R2 r (Rval v) = ∃v'. (r = Rval v') ∧ R1 v' v
 Proof
  Cases_on `r` >> srw_tac[][]
 QED
 
 (*TODO upstream to HOL*)
-Triviality PAIR_REL_SIMP[simp]:
+Theorem PAIR_REL_SIMP[local,simp]:
   (((R1 ### R2) n (c,d)) <=> (?x y. n = (x,y) /\ R1 x c /\ R2 y d)) /\
   (((R1 ### R2) (a,b) m) <=> (?x y. m = (x,y) /\ R1 a x /\ R2 b y))
 Proof
@@ -2343,9 +2374,9 @@ QED
 fun case_constant typ =
   prove_case_const_thm {case_def = TypeBase.case_def_of typ,
   nchotomy = TypeBase.nchotomy_of typ};
-Triviality v_case_const[simp] = case_constant ``:closSem$v``
-Triviality option_case_const[simp] = case_constant ``:'a option``
-Triviality list_case_const[simp] = case_constant ``:'a list``
+Theorem v_case_const[local,simp] = case_constant ``:closSem$v``
+Theorem option_case_const[local,simp] = case_constant ``:'a option``
+Theorem list_case_const[local,simp] = case_constant ``:'a list``
 
 Theorem LIST_REL_REFL_EVERY:
   ! l.
@@ -2720,9 +2751,11 @@ QED
 
 (* a generic semantics preservation lemma *)
 
-val FST_EQ_LEMMA = prove(
-  ``FST x = y <=> ?y1. x = (y,y1)``,
-  Cases_on `x` \\ fs []);
+Theorem FST_EQ_LEMMA[local]:
+    FST x = y <=> ?y1. x = (y,y1)
+Proof
+  Cases_on `x` \\ fs []
+QED
 
 Theorem initial_state_max_app[simp]:
    (initial_state ffi max_app code co cc k).max_app = max_app
@@ -2748,11 +2781,13 @@ val evaluate_add_to_clock_io_events_mono_alt =
   |> DISCH ``evaluate (es,env,s) = (res,s1:('c,'ffi) closSem$state)``
   |> SIMP_RULE std_ss [] |> GEN_ALL;
 
-val initial_state_with_clock = prove(
-  ``(initial_state ffi ma code co cc k with clock :=
+Theorem initial_state_with_clock[local]:
+    (initial_state ffi ma code co cc k with clock :=
       (initial_state ffi ma code co cc k).clock + ck) =
-    initial_state ffi ma code co cc (k + ck)``,
-  fs [initial_state_def]);
+    initial_state ffi ma code co cc (k + ck)
+Proof
+  fs [initial_state_def]
+QED
 
 Theorem IMP_semantics_eq:
    eval_sim ffi max_app code1 co1 cc1 es1 code2 co2 cc2 es2 rel F /\
@@ -3105,7 +3140,7 @@ Proof
   \\ fsrw_tac [SATISFY_ss] []
 QED
 
-Triviality do_app_lemma_simp:
+Theorem do_app_lemma_simp[local]:
   (exc_rel $= err1 err2 <=> err1 = err2) /\
     LIST_REL $= xs xs /\
     simple_state_rel $= (adj_orac_rel cc f) /\
@@ -3325,18 +3360,20 @@ Proof
 QED
 
 
-val do_app_lemma_simp = prove(
-  ``(exc_rel $= err1 err2 <=> err1 = err2) /\
+Theorem do_app_lemma_simp[local]:
+    (exc_rel $= err1 err2 <=> err1 = err2) /\
     LIST_REL $= xs xs /\
     simple_state_rel $= SUBMAP_rel /\
-    simple_val_rel $=``,
+    simple_val_rel $=
+Proof
   rw [] \\ fs [simple_state_rel_def]
   THEN1
    (Cases_on `err1` \\ fs [semanticPrimitivesPropsTheory.exc_rel_def]
     \\ eq_tac \\ rw [])
   \\ fs [simple_val_rel_def]
   \\ fs[SUBMAP_rel_def, closSemTheory.state_component_equality]
-  \\ metis_tac[]);
+  \\ metis_tac[]
+QED
 
 val do_app_lemma =
   simple_val_rel_do_app
@@ -3368,13 +3405,13 @@ Proof
   \\ pop_assum (assume_tac o SPEC_ALL) \\ rfs []
 QED
 
-Triviality SUBMAP_refs_clocks_eqs:
+Theorem SUBMAP_refs_clocks_eqs[local]:
   SUBMAP_rel s1 s2 ⇒ s1.refs = s2.refs ∧ s1.clock = s2.clock
 Proof
   rw [SUBMAP_rel_def, state_component_equality]
 QED
 
-Triviality SUBMAP_dec_clock:
+Theorem SUBMAP_dec_clock[local]:
   SUBMAP_rel s1 s2 ⇒ SUBMAP_rel (dec_clock 1 s1) (dec_clock 1 s2)
 Proof
   rw [SUBMAP_rel_def, dec_clock_def, state_component_equality]
@@ -3716,4 +3753,3 @@ Theorem initial_state_clock:
 Proof
   EVAL_TAC
 QED
-

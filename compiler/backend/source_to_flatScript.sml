@@ -117,6 +117,7 @@ Definition astOp_to_flatOp_def:
   | Strcat => flatLang$Strcat
   | VfromList => flatLang$VfromList
   | Vsub => flatLang$Vsub
+  | Vsub_unsafe => flatLang$Vsub_unsafe
   | Vlength => flatLang$Vlength
   | Aalloc => flatLang$Aalloc
   | AallocFixed => flatLang$AallocFixed
@@ -535,4 +536,3 @@ Definition inc_compile_def:
     let p' = MAP (flat_pattern$compile_dec c'.pattern_cfg) p' in
     (c', p')
 End
-

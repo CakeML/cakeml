@@ -21,7 +21,7 @@ Definition STATE_PINV_def:
   STATE_PINV = \state. EVEN state.the_num /\ (state.the_string = "")
 End
 
-Triviality STATE_PINV_VALID:
+Theorem STATE_PINV_VALID[local]:
   (state.the_num = 0) /\ (state.the_string = "") ==> STATE_PINV state
 Proof
   rw[STATE_PINV_def]
@@ -90,7 +90,7 @@ End
 val mf6_v_thm = m_translate mf6_def;
 
 val length_v_thm = translate listTheory.LENGTH;
-Triviality ZIP_def2:
+Theorem ZIP_def2[local]:
   ZIP x = dtcase x of
       (x::l1, y::l2) => (x, y) :: ( ZIP (l1,l2) )
     | ([], [])       => []

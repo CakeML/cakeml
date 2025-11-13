@@ -185,7 +185,7 @@ Definition good_table_32_def:
   LENGTH s.hash_tab_32 = n
 End
 
-Triviality lookup_ins_table_32_correct:
+Theorem lookup_ins_table_32_correct[local]:
   good_table_32 enc n s ∧
   0 < n ⇒
   ∃s'.
@@ -215,7 +215,7 @@ Proof
   fs[]
 QED
 
-Triviality enc_line_hash_32_correct:
+Theorem enc_line_hash_32_correct[local]:
   ∀line.
     good_table_32 enc n s ∧ 0 < n ⇒
     ∃s'.
@@ -230,7 +230,7 @@ Proof
   old_drule lookup_ins_table_32_correct>>rw[]>>simp[]
 QED
 
-Triviality enc_line_hash_32_ls_correct:
+Theorem enc_line_hash_32_ls_correct[local]:
   ∀xs s.
   good_table_32 enc n s ∧ 0 < n ⇒
   ∃s'.
@@ -247,7 +247,7 @@ Proof
   rw[]>>simp[]
 QED
 
-Triviality enc_sec_hash_32_ls_correct:
+Theorem enc_sec_hash_32_ls_correct[local]:
   ∀xs s.
   good_table_32 enc n s ∧ 0 < n ⇒
   ∃s'.

@@ -232,14 +232,14 @@ val wz_thms = { nchotomy = word_size_nchotomy, case_def = word_size_case_def}
 val eqs = LIST_CONJ (map prove_case_eq_thm
   [op_thms, list_thms, option_thms, v_thms, store_v_thms, lit_thms, eq_v_thms, wz_thms])
 
-Triviality pair_case_eq:
+Theorem pair_case_eq[local]:
   pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v
 Proof
   Cases_on `x` >>
  srw_tac[][]
 QED
 
-Triviality pair_lam_lem:
+Theorem pair_lam_lem[local]:
   !f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)
 Proof
   srw_tac[][]
@@ -357,7 +357,7 @@ Proof
   dsimp[AllCaseEqs(), PULL_EXISTS, UNCURRY_EQ]
 QED
 
-Triviality build_rec_env_help_lem:
+Theorem build_rec_env_help_lem[local]:
   ∀funs env funs'.
     FOLDR (λ(f,x,e) env'. nsBind f (Recclosure env funs' f) env') env' funs =
     nsAppend (alist_to_ns (MAP (λ(f,n,e). (f, Recclosure env funs' f)) funs)) env'

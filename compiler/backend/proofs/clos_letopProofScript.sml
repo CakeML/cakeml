@@ -127,39 +127,47 @@ End
 
 (* *)
 
-val v_rel_IMP_v_to_bytes_lemma = prove(
-  ``!x y.
+Theorem v_rel_IMP_v_to_bytes_lemma[local]:
+    !x y.
       v_rel x y ==>
       !ns. (v_to_list x = SOME (MAP (Number o $& o (w2n:word8->num)) ns)) <=>
-           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))``,
+           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))
+Proof
   ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def]
   \\ Cases_on `tag = cons_tag` \\ fs []
   \\ res_tac \\ fs [case_eq_thms]
   \\ Cases_on `ns` \\ fs []
   \\ eq_tac \\ rw [] \\ fs []
-  \\ Cases_on `h` \\ fs []);
+  \\ Cases_on `h` \\ fs []
+QED
 
-val v_rel_IMP_v_to_bytes = prove(
-  ``v_rel x y ==> v_to_bytes y = v_to_bytes x``,
-  rw [v_to_bytes_def] \\ drule v_rel_IMP_v_to_bytes_lemma \\ fs []);
+Theorem v_rel_IMP_v_to_bytes[local]:
+    v_rel x y ==> v_to_bytes y = v_to_bytes x
+Proof
+  rw [v_to_bytes_def] \\ drule v_rel_IMP_v_to_bytes_lemma \\ fs []
+QED
 
-val v_rel_IMP_v_to_words_lemma = prove(
-  ``!x y.
+Theorem v_rel_IMP_v_to_words_lemma[local]:
+    !x y.
       v_rel x y ==>
       !ns. (v_to_list x = SOME (MAP Word64 ns)) <=>
-           (v_to_list y = SOME (MAP Word64 ns))``,
+           (v_to_list y = SOME (MAP Word64 ns))
+Proof
   ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def]
   \\ Cases_on `tag = cons_tag` \\ fs []
   \\ res_tac \\ fs [case_eq_thms]
   \\ Cases_on `ns` \\ fs []
   \\ eq_tac \\ rw [] \\ fs []
-  \\ Cases_on `h` \\ fs []);
+  \\ Cases_on `h` \\ fs []
+QED
 
-val v_rel_IMP_v_to_words = prove(
-  ``v_rel x y ==> v_to_words y = v_to_words x``,
-  rw [v_to_words_def] \\ drule v_rel_IMP_v_to_words_lemma \\ fs []);
+Theorem v_rel_IMP_v_to_words[local]:
+    v_rel x y ==> v_to_words y = v_to_words x
+Proof
+  rw [v_to_words_def] \\ drule v_rel_IMP_v_to_words_lemma \\ fs []
+QED
 
 
 (* *)
@@ -183,10 +191,11 @@ Proof
   \\ res_tac
 QED
 
-val var_list_IMP_evaluate = prove(
-  ``!a2 a1 xs (ys:closLang$exp list) (s:('c,'ffi) closSem$state) env.
+Theorem var_list_IMP_evaluate[local]:
+    !a2 a1 xs (ys:closLang$exp list) (s:('c,'ffi) closSem$state) env.
       var_list (LENGTH a1) xs ys /\ LENGTH ys = LENGTH a2 ==>
-      evaluate (xs,a1++a2++env,s) = (Rval a2,s)``,
+      evaluate (xs,a1++a2++env,s) = (Rval a2,s)
+Proof
   Induct THEN1 (rw [] \\ imp_res_tac var_list_IMP_LENGTH \\ fs [])
   \\ Cases_on `ys` \\ fs [LENGTH]
   \\ Cases_on `xs` \\ fs [var_list_def]
@@ -197,16 +206,19 @@ val var_list_IMP_evaluate = prove(
   \\ first_x_assum (qspec_then `a1 ++ [h']` mp_tac)
   \\ fs [] \\ rw [] \\ res_tac
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
-  \\ fs [EL_LENGTH_APPEND]);
+  \\ fs [EL_LENGTH_APPEND]
+QED
 
-val var_list_IMP_evaluate = prove(
-  ``!vs xs (ys:closLang$exp list) (s:('c,'ffi) closSem$state) env.
+Theorem var_list_IMP_evaluate[local]:
+    !vs xs (ys:closLang$exp list) (s:('c,'ffi) closSem$state) env.
       var_list 0 xs ys /\ LENGTH ys = LENGTH vs ==>
-        evaluate (xs, vs ++ env, s) = (Rval vs, s)``,
+        evaluate (xs, vs ++ env, s) = (Rval vs, s)
+Proof
   rw []
   \\ match_mp_tac (Q.SPECL [`vs`, `[]`] var_list_IMP_evaluate
        |> SIMP_RULE std_ss [APPEND,LENGTH])
-  \\ asm_exists_tac \\ fs []);
+  \\ asm_exists_tac \\ fs []
+QED
 
 Theorem lookup_vars_lemma:
    !vs env1 env2. LIST_REL v_rel env1 env2 ==>
@@ -285,40 +297,46 @@ Proof
    \\ irule EVERY2_APPEND_suff \\ simp []
 QED
 
-val simple_state_rel = prove(
-  ``simple_state_rel v_rel state_rel``,
+Theorem simple_state_rel[local]:
+    simple_state_rel v_rel state_rel
+Proof
   fs [simple_state_rel_def, state_rel_def]
   \\ rw [] \\ fs [FMAP_REL_def, FLOOKUP_DEF]
   \\ rfs []
   \\ TRY (first_x_assum drule \\ fs [ref_rel_cases])
   \\ fs [FAPPLY_FUPDATE_THM]
-  \\ rw [] \\ fs [ref_rel_cases]);
+  \\ rw [] \\ fs [ref_rel_cases]
+QED
 
-val do_app_lemma = prove(
-  ``state_rel s t /\ LIST_REL v_rel xs ys ==>
+Theorem do_app_lemma[local]:
+    state_rel s t /\ LIST_REL v_rel xs ys ==>
     case do_app opp xs s of
       | Rerr err1 => ?err2. do_app opp ys t = Rerr err2 /\
                             exc_rel v_rel err1 err2
       | Rval (x, s1) => ?y t1. v_rel x y /\ state_rel s1 t1 /\
-                               do_app opp ys t = Rval (y, t1)``,
+                               do_app opp ys t = Rval (y, t1)
+Proof
   match_mp_tac simple_val_rel_do_app
-  \\ fs [simple_val_rel_def, simple_state_rel] \\ rw [] \\ fs [v_rel_cases]);
+  \\ fs [simple_val_rel_def, simple_state_rel] \\ rw [] \\ fs [v_rel_cases]
+QED
 
-val do_install_lemma = prove(
-  ``state_rel s t /\ LIST_REL v_rel xs ys ==>
+Theorem do_install_lemma[local]:
+    state_rel s t /\ LIST_REL v_rel xs ys ==>
     case do_install xs s of
       | (Rerr err1, s1) => ?err2 t1. do_install ys t = (Rerr err2, t1) /\
                             exc_rel v_rel err1 err2 /\ state_rel s1 t1
       | (Rval exps1, s1) => ?exps2 t1. state_rel s1 t1 /\ (~ (exps1 = [])) /\
                                code_rel exps1 exps2 /\
-                               do_install ys t = (Rval exps2, t1)``,
+                               do_install ys t = (Rval exps2, t1)
+Proof
   ho_match_mp_tac (Q.SPEC `compile_inc` simple_val_rel_do_install)
   \\ fs [simple_state_rel, simple_compile_state_rel_def, state_rel_def]
   \\ fs [compile_inc_def, pairTheory.FORALL_PROD, LENGTH_let_op, code_rel_def]
   \\ fs [simple_val_rel_def, simple_state_rel] \\ rw [] \\ fs [v_rel_cases]
-  \\ EVAL_TAC \\ fs [FUN_EQ_THM]);
+  \\ EVAL_TAC \\ fs [FUN_EQ_THM]
+QED
 
-Triviality state_rel_opt_rel_refs:
+Theorem state_rel_opt_rel_refs[local]:
   (state_rel s1 s2 ∧ FLOOKUP s1.refs n = r1 ⇒
      ∃r2. FLOOKUP s2.refs n = r2 ∧ opt_rel ref_rel r1 r2) ∧
   (state_rel s1 s2 ∧ FLOOKUP s2.refs n = r2 ⇒
@@ -327,19 +345,19 @@ Proof
   rw [] \\ gvs [state_rel_def, FMAP_REL_def, FLOOKUP_DEF] \\ rw []
 QED
 
-Triviality state_rel_clocks_eqs:
+Theorem state_rel_clocks_eqs[local]:
   state_rel s1 s2 ⇒ s1.clock = s2.clock
 Proof
   rw [state_rel_def, state_component_equality]
 QED
 
-Triviality state_rel_dec_clock:
+Theorem state_rel_dec_clock[local]:
   state_rel s1 s2 ⇒ state_rel (dec_clock 1 s1) (dec_clock 1 s2)
 Proof
   rw [state_rel_def, dec_clock_def, state_component_equality]
 QED
 
-Triviality rel_update_thunk:
+Theorem rel_update_thunk[local]:
   state_rel s1 s2 ∧
   LIST_REL v_rel vs ys ⇒
     (update_thunk [RefPtr v ptr] s1.refs vs = NONE ⇒
@@ -709,22 +727,26 @@ QED
 
 (* syntactic properties *)
 
-val var_list_IMP_code_locs = prove(
-  ``!k l x. var_list k l x ==> code_locs l = []``,
+Theorem var_list_IMP_code_locs[local]:
+    !k l x. var_list k l x ==> code_locs l = []
+Proof
   ho_match_mp_tac var_list_ind
   \\ rw [] \\ fs [var_list_def,code_locs_def]
   \\ rveq \\ fs []
   \\ once_rewrite_tac [code_locs_cons]
-  \\ fs [code_locs_def]);
+  \\ fs [code_locs_def]
+QED
 
-val var_list_let_op_IMP_code_locs = prove(
-  ``!k l x. var_list k (let_op l) x ==> code_locs l = []``,
+Theorem var_list_let_op_IMP_code_locs[local]:
+    !k l x. var_list k (let_op l) x ==> code_locs l = []
+Proof
   ho_match_mp_tac var_list_ind
   \\ rw [] \\ fs [var_list_def,code_locs_def]
   \\ pop_assum mp_tac
   \\ rename [`_::l`]
   \\ Cases_on `l` \\ fs [let_op_def,var_list_def,code_locs_def]
-  \\ every_case_tac \\ fs [var_list_def]);
+  \\ every_case_tac \\ fs [var_list_def]
+QED
 
 Theorem code_locs_let_op:
    !xs. code_locs (let_op xs) = code_locs xs

@@ -116,7 +116,7 @@ QED
 
 val r = translate EL;
 
-Triviality el_side_thm:
+Theorem el_side_thm[local]:
   ∀n xs. el_side n xs = (n < LENGTH xs)
 Proof
   Induct THEN Cases_on ‘xs’ THEN ONCE_REWRITE_TAC [fetch "-" "el_side_def"]
@@ -131,7 +131,7 @@ val r = translate print_sexp_alt_thm;
 
 val _ = use_string_type false;
 
-Triviality listsexp_alt:
+Theorem listsexp_alt[local]:
   listsexp = FOLDR (λs1 s2. SX_CONS s1 s2) nil
 Proof
   rpt(CHANGED_TAC(CONV_TAC (DEPTH_CONV ETA_CONV))) >> simp[listsexp_def]
@@ -150,7 +150,7 @@ End
 
 val r = translate hex_alt_def;
 
-Triviality hex_alt_side_thm:
+Theorem hex_alt_side_thm[local]:
   ∀n. hex_alt_side n ⇔ T
 Proof
   PURE_REWRITE_TAC [fetch "-" "hex_alt_side_def",fetch "-" "hex_side_def"]
@@ -175,7 +175,7 @@ QED
 
 val r = translate numposrepTheory.n2l_def;
 
-Triviality n2l_side_thm:
+Theorem n2l_side_thm[local]:
   ∀n m. n2l_side n m ⇔ n ≠ 0
 Proof
   strip_tac >>
@@ -190,7 +190,7 @@ val _ = n2l_side_thm |> update_precondition;
 
 val r = translate ASCIInumbersTheory.n2s_def;
 
-Triviality n2s_side_thm:
+Theorem n2s_side_thm[local]:
   ∀n f m. n2s_side n f m ⇔ n ≠ 0
 Proof
   rpt strip_tac >>
@@ -214,7 +214,7 @@ val _ = ml_translatorLib.use_string_type false;
 
 val r = translate fromSexpTheory.litsexp_def;
 
-Triviality litsexp_side_thm:
+Theorem litsexp_side_thm[local]:
   ∀v. litsexp_side v ⇔ T
 Proof
   PURE_ONCE_REWRITE_TAC[fetch "-" "litsexp_side_def"] >> rw[]

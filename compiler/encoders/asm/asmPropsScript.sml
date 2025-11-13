@@ -336,7 +336,7 @@ Proof
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
 QED
 
-Triviality SND_read_mem_word_consts:
+Theorem SND_read_mem_word_consts[local]:
   !n a s. ((SND (read_mem_word a n s)).be = s.be) /\
             ((SND (read_mem_word a n s)).lr = s.lr) /\
             ((SND (read_mem_word a n s)).align = s.align) /\
@@ -347,7 +347,7 @@ Proof
   \\ full_simp_tac(srw_ss())[assert_def]
 QED
 
-Triviality write_mem_word_consts:
+Theorem write_mem_word_consts[local]:
   !n a w s. ((write_mem_word a n w s).be = s.be) /\
               ((write_mem_word a n w s).lr = s.lr) /\
               ((write_mem_word a n w s).align = s.align) /\

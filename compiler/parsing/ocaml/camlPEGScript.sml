@@ -1073,7 +1073,7 @@ val topo_nts =
 Theorem cml_wfpeg_thm =
   LIST_CONJ (List.foldl wfnt [] topo_nts)
 
-Triviality subexprs_pnt:
+Theorem subexprs_pnt[local]:
   subexprs (pnt n) = {pnt n}
 Proof
   simp [pegTheory.subexprs_def, pnt_def]

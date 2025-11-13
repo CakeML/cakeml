@@ -52,7 +52,7 @@ Definition state_inv_def:
     locals_inv st.heap st.locals ∧ heap_inv st.heap
 End
 
-Triviality state_inv_with_clock:
+Theorem state_inv_with_clock[local]:
   state_inv (st with clock := ck) ⇔ state_inv st
 Proof
   simp [state_inv_def]
@@ -164,7 +164,7 @@ Definition can_get_type_def:
   (can_get_type (ArrSel arr idx) ⇔ can_get_type arr ∧ can_get_type idx)
 End
 
-Triviality get_type_inr_can_get_type:
+Theorem get_type_inr_can_get_type[local]:
   ∀ls e ty. get_type ls e = INR ty ⇒ can_get_type e
 Proof
   ho_match_mp_tac get_type_ind
@@ -177,7 +177,7 @@ Definition get_types_def:
   get_types ls es = result_mmap (get_type ls) es
 End
 
-Triviality get_types_inr_every_can_get_type:
+Theorem get_types_inr_every_can_get_type[local]:
   ∀es ls tys. get_types ls es = INR tys ⇒ EVERY (λe. can_get_type e) es
 Proof
   Induct >- (simp [get_types_def])
@@ -358,14 +358,14 @@ Definition freevars_def:
   freevars e = FST (freevars_aux e)
 End
 
-Triviality push_locals_with_locals:
+Theorem push_locals_with_locals[local]:
   push_locals s xs with locals := l =
   s with locals := l
 Proof
   gvs [push_locals_def]
 QED
 
-Triviality map_lambda_pair_zip:
+Theorem map_lambda_pair_zip[local]:
   LENGTH xs = LENGTH ys ⇒
   MAP (λ(var,val). (var,SOME val)) (ZIP (xs,ys)) = ZIP (xs,MAP SOME ys)
 Proof
@@ -376,7 +376,7 @@ Proof
   \\ Cases_on ‘xy’ \\ simp []
 QED
 
-Triviality push_locals_zip:
+Theorem push_locals_zip[local]:
   LENGTH xs = LENGTH ys ⇒
   push_locals s (ZIP (xs,ys)) =
   s with locals := REVERSE (ZIP (xs, MAP SOME ys)) ++ s.locals
@@ -585,7 +585,7 @@ Proof
   \\ fs[state_component_equality]
 QED
 
-Triviality eval_exp_freevars_lemma:
+Theorem eval_exp_freevars_lemma[local]:
   (∀n. n ∈ freevars e ⇒ ALOOKUP l1 n = ALOOKUP l2 n) ⇒
   eval_exp (st with locals := l1) env e v ⇒
   eval_exp (st with locals := l2) env e v
@@ -1056,7 +1056,7 @@ Definition opt_lt_def:
   opt_lt _ _ = F
 End
 
-Triviality WF_lemma:
+Theorem WF_lemma[local]:
   WF (prim_rec$< LEX SHORTLEX opt_lt)
 Proof
   irule pairTheory.WF_LEX
@@ -1072,7 +1072,7 @@ Proof
   \\ Cases \\ gvs [opt_lt_def]
 QED
 
-Triviality WF_ind =
+Theorem WF_ind[local] =
 MATCH_MP relationTheory.WF_INDUCTION_THM WF_lemma;
 
 Definition evaluate_exp_total_def:
@@ -1102,14 +1102,14 @@ Proof
   simp [conditions_hold_def,eval_true_def,evaluate_exp_def,eval_exp_def]
 QED
 
-Triviality conditions_hold_cons:
+Theorem conditions_hold_cons[local]:
   conditions_hold st env (e::es) ⇔
     eval_true st env e ∧ conditions_hold st env es
 Proof
   gvs [conditions_hold_def]
 QED
 
-Triviality eval_decreases_old_eq:
+Theorem eval_decreases_old_eq[local]:
   ∀es st st₁ env.
     st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ∧
     st₁.locals_prev = st.locals_prev ∧ st₁.heap_prev = st.heap_prev ⇒
@@ -1127,21 +1127,21 @@ Proof
   \\ drule_all eval_exp_old_eq \\ gvs []
 QED
 
-Triviality push_local_with_prev:
+Theorem push_local_with_prev[local]:
   push_local (s with <|locals_prev := l; heap_prev := h|>) vn v =
   push_local s vn v with <|locals_prev := l; heap_prev := h|>
 Proof
   gvs [push_local_def]
 QED
 
-Triviality push_locals_with_prev:
+Theorem push_locals_with_prev[local]:
   push_locals (s with <|locals_prev := l; heap_prev := h|>) binds =
   push_locals s binds with <|locals_prev := l; heap_prev := h|>
 Proof
   gvs [push_locals_def]
 QED
 
-Triviality no_Prev_b_mono:
+Theorem no_Prev_b_mono[local]:
   ∀b e.
   ¬ b ∧ no_Prev b e ⇒
   no_Prev T e
@@ -1261,7 +1261,7 @@ Proof
   \\ drule_all eval_exp_no_Prev_alt \\ fs []
 QED
 
-Triviality eval_exp_old_eq_no_Prev_imp:
+Theorem eval_exp_old_eq_no_Prev_imp[local]:
   st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ∧
   no_Prev b e ∧
   eval_exp st₁ env (Old e) v ⇒
@@ -1287,7 +1287,7 @@ Proof
   metis_tac [eval_exp_old_eq_no_Prev_imp]
 QED
 
-Triviality eval_decreases_old_eq_no_Prev:
+Theorem eval_decreases_old_eq_no_Prev[local]:
   ∀es st st₁ env.
     st₁.locals_old = st.locals_old ∧ st₁.heap_old = st.heap_old ∧
     EVERY (no_Prev b) es ⇒
@@ -1305,7 +1305,7 @@ Proof
   \\ drule_all eval_exp_old_eq_no_Prev \\ gvs []
 QED
 
-Triviality Rcont_eval_measure:
+Theorem Rcont_eval_measure[local]:
   eval_stmt st env stmt st₁ Rcont ⇒
   eval_measure st₁ env (wrap_old decs) =
   eval_measure st env (wrap_old decs)
@@ -1318,7 +1318,7 @@ Proof
   \\ simp []
 QED
 
-Triviality conditions_hold_imp_case_split:
+Theorem conditions_hold_imp_case_split[local]:
   conditions_hold st env [IsBool a; imp a b; imp (not a) c] ⇒
   conditions_hold st env [a] ∧ conditions_hold st env [b] ∨
   conditions_hold st env [not a] ∧ conditions_hold st env [c]
@@ -1339,7 +1339,7 @@ Proof
   \\ rewrite_tac [eval_true_cons] \\ simp []
 QED
 
-Triviality LIST_REL_eval_exp_MAP_Var:
+Theorem LIST_REL_eval_exp_MAP_Var[local]:
   ∀ns vs.
     LIST_REL (eval_exp st env) (MAP Var ns) vs ⇒
     OPT_MMAP (read_local st.locals) ns = SOME vs
@@ -1459,7 +1459,7 @@ Proof
 QED
 
 (* TODO keep triv; move to evaluate props *)
-Triviality push_local_with_old:
+Theorem push_local_with_old[local]:
   push_local (s with <|locals_old := l; heap_old := h|>) vn v =
   push_local s vn v with <|locals_old := l; heap_old := h|>
 Proof
@@ -1467,7 +1467,7 @@ Proof
 QED
 
 (* TODO keep triv; move to evaluate props *)
-Triviality push_locals_with_old:
+Theorem push_locals_with_old[local]:
   push_locals (s with <|locals_old := l; heap_old := h|>) binds =
   push_locals s binds with <|locals_old := l; heap_old := h|>
 Proof
@@ -1561,7 +1561,7 @@ Proof
 QED
 
 (* TODO Keep triv; Move to dafny_eval_rel *)
-Triviality eval_exp_no_old_lemma:
+Theorem eval_exp_no_old_lemma[local]:
   no_Old F e ∧ eval_exp st env e v ⇒
   eval_exp (st with <| heap_old := h; locals_old := l |>) env e v
 Proof
@@ -1598,13 +1598,13 @@ Proof
 QED
 
 (* TODO keep triv; Move to dafny_eval_rel *)
-Triviality pair_I:
+Theorem pair_I[local]:
   (λ(x,y). (x,y)) = I
 Proof
   rewrite_tac [FUN_EQ_THM] \\ Cases \\ simp []
 QED
 
-Triviality eval_exp_val_eq:
+Theorem eval_exp_val_eq[local]:
   eval_exp st env e v ∧
   evaluate_exp (st with clock := ck) env e = (st', Rval v') ⇒
   v' = v
@@ -1618,7 +1618,7 @@ Proof
   \\ gvs []
 QED
 
-Triviality list_rel_eval_exp_vals_eq:
+Theorem list_rel_eval_exp_vals_eq[local]:
   LIST_REL (eval_exp st env) es vs ∧
   evaluate_exps (st with clock := ck) env es = (st', Rval vs') ⇒
   vs' = vs
@@ -1633,7 +1633,7 @@ Proof
   \\ gvs []
 QED
 
-Triviality eval_exp_Let_lr:
+Theorem eval_exp_Let_lr[local]:
   LIST_REL (eval_exp st env) args vs ∧
   LENGTH ns = LENGTH args
   ⇒
@@ -1677,7 +1677,7 @@ Proof
   \\ qexistsl [‘ck₃’, ‘ck₄’] \\ gvs [AllCaseEqs()]
 QED
 
-Triviality eval_exp_Let_rl:
+Theorem eval_exp_Let_rl[local]:
   LIST_REL (eval_exp st env) args vs ∧
   LENGTH ns = LENGTH args ∧
   ALL_DISTINCT ns ⇒
@@ -1729,7 +1729,7 @@ Proof
   \\ drule_all eval_exp_Let_rl \\ simp []
 QED
 
-Triviality eval_exp_swap_locals_alt_aux:
+Theorem eval_exp_swap_locals_alt_aux[local]:
   ALOOKUP l' = ALOOKUP l ∧
   eval_exp (st with locals := l') env e v ⇒
   eval_exp (st with locals := l) env e v
@@ -1758,7 +1758,7 @@ Proof
   \\ metis_tac [with_same_locals, eval_exp_swap_locals_alt]
 QED
 
-Triviality eval_true_swap_locals_alt:
+Theorem eval_true_swap_locals_alt[local]:
   ALOOKUP l' = ALOOKUP l ⇒
   eval_true (st with locals := l') env e =
   eval_true (st with locals := l) env e
@@ -1768,7 +1768,7 @@ Proof
   \\ drule eval_exp_swap_locals_alt \\ simp []
 QED
 
-Triviality ALOOKUP_MAP_SOME:
+Theorem ALOOKUP_MAP_SOME[local]:
   ∀ns vs.
     LENGTH ns = LENGTH vs ⇒
     (ALOOKUP (ZIP (ns,MAP SOME vs)) n = SOME (SOME v) ⇔
@@ -1868,7 +1868,7 @@ Proof
   \\ full_simp_tac std_ss [GSYM APPEND_ASSOC, APPEND]
 QED
 
-Triviality alookup_distinct_reverse_append:
+Theorem alookup_distinct_reverse_append[local]:
   ALL_DISTINCT (MAP FST xs) ⇒
   ALOOKUP (REVERSE xs ++ ys) = ALOOKUP (xs ++ ys)
 Proof
@@ -1878,7 +1878,7 @@ Proof
   \\ simp [alookup_distinct_reverse]
 QED
 
-Triviality eval_true_with_locals_reverse:
+Theorem eval_true_with_locals_reverse[local]:
   ALL_DISTINCT (MAP FST xs) ⇒
   eval_true (st with locals := REVERSE xs ++ st.locals) env e =
   eval_true (st with locals := xs ++ st.locals) env e
@@ -1890,7 +1890,7 @@ Proof
   \\ drule eval_exp_swap_locals_alt \\ gvs []
 QED
 
-Triviality list_rel_locals_map_fst:
+Theorem list_rel_locals_map_fst[local]:
   ∀ns xs.
     LIST_REL
     (λ(n,ty) (m,x). m = n ∧ ∃v. v ∈ all_values ty ∧ x = SOME v) ns xs ⇒
@@ -1902,7 +1902,7 @@ Proof
   \\ rpt (pairarg_tac \\ gvs [])
 QED
 
-Triviality eval_true_Foralls_distinct:
+Theorem eval_true_Foralls_distinct[local]:
   eval_true st env (Foralls ns b) ∧ ALL_DISTINCT (MAP FST ns) ⇒
   ∀xs.
     LIST_REL (λ(n,ty) (m,x). m = n ∧ ∃v. v ∈ all_values ty ∧ x = SOME v) ns xs ⇒
@@ -1923,7 +1923,7 @@ Definition assi_value_def:
       (st' with clock := ck2,Rcont)
 End
 
-Triviality locals_inv_cons_update:
+Theorem locals_inv_cons_update[local]:
   locals_inv heap ((n,xv)::xs) ∧
   value_inv heap v
   ⇒
@@ -1932,7 +1932,7 @@ Proof
   simp [locals_inv_def]
 QED
 
-Triviality locals_inv_cons:
+Theorem locals_inv_cons[local]:
   locals_inv heap ((xn,xv)::xs) ⇔
     locals_inv heap xs ∧
     ∀val. xv = SOME val ⇒ value_inv heap val
@@ -2031,13 +2031,13 @@ Proof
   \\ gvs [assign_values_def, state_component_equality]
 QED
 
-Triviality ALOOKUP_APPEND_same_prefix:
+Theorem ALOOKUP_APPEND_same_prefix[local]:
   ALOOKUP ys = ALOOKUP zs ⇒ ALOOKUP (xs ++ ys) = ALOOKUP (xs ++ zs)
 Proof
   simp [FUN_EQ_THM, ALOOKUP_APPEND]
 QED
 
-Triviality strict_locals_ok_IMP_LIST_REL:
+Theorem strict_locals_ok_IMP_LIST_REL[local]:
   ∀vs st_locals.
     strict_locals_ok vs st_locals ⇒
     ∃xs.
@@ -2058,7 +2058,7 @@ Proof
   \\ qexists ‘(n, SOME val)’ \\ simp []
 QED
 
-Triviality LIST_REL_ALOOKUP:
+Theorem LIST_REL_ALOOKUP[local]:
   ∀xs vs.
     LIST_REL
       (λ(n,ty) (m,x).
@@ -2077,21 +2077,21 @@ Proof
   \\ last_x_assum drule \\ simp []
 QED
 
-Triviality MEM_MAP_FST:
+Theorem MEM_MAP_FST[local]:
   ∀xs. MEM (x,y) xs ⇒ MEM x (MAP FST xs)
 Proof
   Induct \\ gvs []
   \\ rpt strip_tac \\ gvs []
 QED
 
-Triviality MEM_MAP_SND:
+Theorem MEM_MAP_SND[local]:
   ∀xs. MEM (x,y) xs ⇒ MEM y (MAP SND xs)
 Proof
   Induct \\ gvs []
   \\ rpt strip_tac \\ gvs []
 QED
 
-Triviality ALOOKUP_MEM_FST:
+Theorem ALOOKUP_MEM_FST[local]:
   ALOOKUP xs x = SOME y ⇒ MEM x (MAP FST xs)
 Proof
   rpt strip_tac
@@ -2139,7 +2139,7 @@ Proof
   \\ rw [] \\ res_tac \\ fs []
 QED
 
-Triviality locals_ok_is_some_alookup:
+Theorem locals_ok_is_some_alookup[local]:
   locals_ok locals st_locals ⇒
   EVERY (λn. IS_SOME (ALOOKUP st_locals n)) (MAP FST locals)
 Proof
@@ -2151,7 +2151,7 @@ Proof
   \\ rpt strip_tac \\ simp []
 QED
 
-Triviality subset_every:
+Theorem subset_every[local]:
   set xs ⊆ set ys ∧ EVERY P ys ⇒ EVERY P xs
 Proof
   simp [EVERY_MEM, SUBSET_DEF]
@@ -2191,7 +2191,7 @@ Proof
   \\ irule ALOOKUP_APPEND_same_prefix \\ simp []
 QED
 
-Triviality IMP_assi_values_distinct:
+Theorem IMP_assi_values_distinct[local]:
   ∀ret_names out_vs st.
     EVERY (λn. IS_SOME (ALOOKUP st.locals n)) ret_names ∧
     ALL_DISTINCT ret_names ∧ LENGTH out_vs = LENGTH ret_names ∧
@@ -2307,7 +2307,7 @@ Proof
   simp [eval_exp_def]
 QED
 
-Triviality conj_MAP_wrap_Old:
+Theorem conj_MAP_wrap_Old[local]:
   ∀xs vs. conj (MAP (wrap_Old vs) xs) = wrap_Old vs (conj xs)
 Proof
   ho_match_mp_tac conj_ind \\ fs [conj_def,wrap_Old_def]
@@ -2316,25 +2316,25 @@ QED
 (* *** *)
 
 (* TODO Move to dafnyProps? *)
-Triviality do_cond_none:
+Theorem do_cond_none[local]:
   do_cond v (x₀:exp) (x₁:exp) = NONE ⇒ do_cond v (y₀:exp) (y₁:exp) = NONE
 Proof
   Cases_on ‘v’ \\ gvs [do_cond_def]
 QED
 
-Triviality fst_lambda:
+Theorem fst_lambda[local]:
   FST ∘ (λ(x, y). (x, f y)) = FST
 Proof
   simp [FUN_EQ_THM] \\ Cases \\ simp []
 QED
 
-Triviality snd_lambda:
+Theorem snd_lambda[local]:
   SND ∘ (λ(x, y). (x, f y)) = f ∘ SND
 Proof
   simp [FUN_EQ_THM] \\ Cases \\ simp []
 QED
 
-Triviality ALOOKUP_ZIP_SOME:
+Theorem ALOOKUP_ZIP_SOME[local]:
   ∀A B x. LENGTH A = LENGTH B ∧ MEM x A ⇒ ∃v. ALOOKUP (ZIP (A,B)) x = SOME v
 Proof
   rpt strip_tac
@@ -2342,20 +2342,20 @@ Proof
   \\ gvs [ALOOKUP_ZIP_FAIL]
 QED
 
-Triviality index_array_with_locals:
+Theorem index_array_with_locals[local]:
   index_array (st with locals := l) arr idx = index_array st arr idx
 Proof
   gvs [index_array_def]
 QED
 
-Triviality set_up_call_with_clock_locals:
+Theorem set_up_call_with_clock_locals[local]:
   set_up_call (st with <|clock := ck; locals := l|>) in_ns in_vs outs =
   set_up_call (st with clock := ck) in_ns in_vs outs
 Proof
   gvs [set_up_call_def]
 QED
 
-Triviality not_mem_alookup_zip_none =
+Theorem not_mem_alookup_zip_none[local] =
   SRULE [AND_IMP_INTRO] $ iffRL ALOOKUP_ZIP_FAIL
 
 Theorem evaluate_exp_wrap_Old_locals:
@@ -2691,7 +2691,7 @@ Proof
     \\ TOP_CASE_TAC \\ gvs [])
 QED
 
-Triviality list_rel_eval_exp_old_var:
+Theorem list_rel_eval_exp_old_var[local]:
   ∀ns vs n st env.
     LIST_REL (eval_exp st env) (MAP (Old ∘ Var) ns) vs ∧ MEM n ns ⇒
     ∃v.
@@ -2759,7 +2759,7 @@ Proof
   \\ rpt (pairarg_tac \\ gvs[])
 QED
 
-Triviality read_out_lemma:
+Theorem read_out_lemma[local]:
   ∀names out_vs n st.
     OPT_MMAP (read_local st.locals) names = SOME out_vs ∧
     MEM n names ∧ ALL_DISTINCT names ⇒
@@ -2773,7 +2773,7 @@ Proof
   \\ IF_CASES_TAC \\ gvs []
 QED
 
-Triviality IMP_LIST_REL_EXISTS_EVERY:
+Theorem IMP_LIST_REL_EXISTS_EVERY[local]:
   EVERY (λx. ∃y. R x y ∧ P y) xs ⇒
   ∃ys. (LIST_REL R xs ys ∧ EVERY P ys)
 Proof
@@ -2781,20 +2781,20 @@ Proof
   metis_tac[]
 QED
 
-Triviality value_same_type_bool:
+Theorem value_same_type_bool[local]:
   value_same_type v (BoolV b) ⇒ v ∈ all_values BoolT
 Proof
   Cases_on ‘v’ \\ gvs [all_values_def]
 QED
 
-Triviality value_same_type_int:
+Theorem value_same_type_int[local]:
   value_same_type v (IntV i) ⇒ v ∈ all_values IntT
 Proof
   Cases_on ‘v’ \\ gvs [all_values_def]
 QED
 
 (* TODO Move to dafny_eval_rel *)
-Triviality eval_exp_eq_value:
+Theorem eval_exp_eq_value[local]:
   eval_exp st env e v ∧ eval_exp st env e v' ⇒ v' = v
 Proof
   gvs [eval_exp_def, PULL_EXISTS]
@@ -2806,7 +2806,7 @@ Proof
   \\ disch_then $ qspec_then ‘ck’ assume_tac \\ gvs []
 QED
 
-Triviality is_some_none:
+Theorem is_some_none[local]:
   IS_SOME x ⇔ x ≠ NONE
 Proof
   Cases_on ‘x’ \\ simp []
@@ -2839,7 +2839,7 @@ Proof
   \\ gvs [state_component_equality]
 QED
 
-Triviality eval_measure_with_locals_wrap_old:
+Theorem eval_measure_with_locals_wrap_old[local]:
   eval_measure (st with locals := xs) env (wrap_old r_es) =
   eval_measure st env (wrap_old r_es)
 Proof
@@ -2854,7 +2854,7 @@ Proof
   \\ DEP_REWRITE_TAC [eval_exp_old_eq] \\ simp []
 QED
 
-Triviality locals_ok_cons_none:
+Theorem locals_ok_cons_none[local]:
   locals_ok xs ys ∧ ¬MEM n (MAP FST xs) ⇒
   locals_ok ((n,ty)::xs) ((n,NONE)::ys)
 Proof
@@ -2863,7 +2863,7 @@ Proof
   \\ IF_CASES_TAC \\ gvs []
 QED
 
-Triviality locals_ok_cons_some:
+Theorem locals_ok_cons_some[local]:
   locals_ok xs ys ∧ ¬MEM n (MAP FST xs) ∧
   v ∈ all_values ty ⇒
   locals_ok ((n,ty)::xs) ((n,SOME v)::ys)
@@ -2874,7 +2874,7 @@ Proof
   \\ drule MEM_MAP_FST \\ simp []
 QED
 
-Triviality map_fst_alookup_some:
+Theorem map_fst_alookup_some[local]:
   ∀(xs: (α # β) list) (ys: (α # β) list) n v.
     MAP FST xs = MAP FST ys ∧ ALOOKUP ys n = SOME v ⇒
     ∃v'. ALOOKUP xs n = SOME v'
@@ -2890,7 +2890,7 @@ Proof
   \\ simp []
 QED
 
-Triviality locals_ok_cons_drop:
+Theorem locals_ok_cons_drop[local]:
   locals_ok ((n,ty)::xs) ys ∧
   locals_ok xs zs ∧
   ¬MEM n (MAP FST xs) ∧
@@ -2907,7 +2907,7 @@ Proof
   \\ drule MEM_MAP_FST \\ gvs []
 QED
 
-Triviality conditions_hold_cons_not_free:
+Theorem conditions_hold_cons_not_free[local]:
   EVERY (λe. n ∉ freevars e) es ∧
   conditions_hold (st with locals := xs) env es ⇒
   conditions_hold (st with locals := (n,v)::xs) env es
@@ -2924,7 +2924,7 @@ Proof
   \\ IF_CASES_TAC \\ gvs []
 QED
 
-Triviality conditions_hold_cons_drop:
+Theorem conditions_hold_cons_drop[local]:
   EVERY (λe. n ∉ freevars e) es ∧
   conditions_hold st env es ∧
   MAP FST st.locals = n::ys ⇒
@@ -2944,7 +2944,7 @@ Proof
   \\ IF_CASES_TAC \\ gvs []
 QED
 
-Triviality ALOOKUP_append_distinct:
+Theorem ALOOKUP_append_distinct[local]:
   ALL_DISTINCT (MAP FST xs ++ MAP FST ys) ⇒
   ALOOKUP (xs ++ ys) = ALOOKUP (ys ++ xs)
 Proof
@@ -2957,7 +2957,7 @@ Proof
   \\ imp_res_tac ALOOKUP_MEM_FST \\ gvs []
 QED
 
-Triviality MEM_MAP_FST_ALOOKUP:
+Theorem MEM_MAP_FST_ALOOKUP[local]:
   MEM n (MAP FST xs) ⇒ ALOOKUP (xs ++ ys) n = ALOOKUP xs n
 Proof
   rpt strip_tac
@@ -2966,7 +2966,7 @@ Proof
   \\ gvs [ALOOKUP_NONE]
 QED
 
-Triviality ALOOKUP_ZIP_REPLICATE:
+Theorem ALOOKUP_ZIP_REPLICATE[local]:
   ∀xs cnt n val.
     MEM n xs ∧ LENGTH xs = cnt ⇒
     ALOOKUP (ZIP (xs, REPLICATE cnt val)) n = SOME val
@@ -2975,14 +2975,14 @@ Proof
   \\ rpt strip_tac \\ gvs []
 QED
 
-Triviality ALOOKUP_locals_ok_eq:
+Theorem ALOOKUP_locals_ok_eq[local]:
   ALOOKUP xs = ALOOKUP ys ⇒
   locals_ok ls xs = locals_ok ls ys
 Proof
   gvs [locals_ok_def]
 QED
 
-Triviality locals_ok_append_right:
+Theorem locals_ok_append_right[local]:
   locals_ok ls ys ∧
   (∀n ty. MEM (n, ty) ls ∧ MEM n (MAP FST xs) ⇒
           ∃oval.
@@ -3000,14 +3000,14 @@ Proof
   \\ rpt strip_tac \\ gvs []
 QED
 
-Triviality value_has_type_eq_all_values:
+Theorem value_has_type_eq_all_values[local]:
   value_has_type ty val ⇔ val ∈ all_values ty
 Proof
   Cases_on ‘ty’ \\ Cases_on ‘val’
   \\ simp [value_has_type_def, all_values_def]
 QED
 
-Triviality index_array_all_values:
+Theorem index_array_all_values[local]:
   arr ∈ all_values (ArrT ty) ∧ idx ∈ all_values IntT ∧
   index_array st arr idx = SOME val ∧
   value_inv st.heap arr ∧ heap_inv st.heap ⇒
@@ -3020,19 +3020,19 @@ Proof
   \\ simp [value_has_type_eq_all_values]
 QED
 
-Triviality value_inv_boolv:
+Theorem value_inv_boolv[local]:
   value_inv heap (BoolV b)
 Proof
   simp [value_inv_def]
 QED
 
-Triviality value_inv_intv:
+Theorem value_inv_intv[local]:
   value_inv heap (IntV b)
 Proof
   simp [value_inv_def]
 QED
 
-Triviality arrv_idx_heap_inv:
+Theorem arrv_idx_heap_inv[local]:
   value_inv heap (ArrV len loc ty) ∧
   LLOOKUP heap loc = SOME (HArr arr ty') ∧
   LLOOKUP arr idx = SOME v ∧
@@ -3047,7 +3047,7 @@ Proof
   \\ last_x_assum drule_all \\ simp []
 QED
 
-Triviality read_local_value_inv:
+Theorem read_local_value_inv[local]:
   read_local st.locals name = SOME v ∧ state_inv st
   ⇒
   value_inv st.heap v
@@ -3058,7 +3058,7 @@ Proof
   \\ last_x_assum drule \\ simp []
 QED
 
-Triviality evaluate_exp_value_inv:
+Theorem evaluate_exp_value_inv[local]:
   (∀st env e st' v.
      evaluate_exp st env e = (st', Rval v) ∧ state_inv st ∧ can_get_type e ⇒
      state_inv st' ∧ value_inv st.heap v) ∧
@@ -3109,7 +3109,7 @@ Proof
   \\ gvs [can_get_type_def]
 QED
 
-Triviality eval_exp_value_inv:
+Theorem eval_exp_value_inv[local]:
   eval_exp st env e v ∧ state_inv st ∧ can_get_type e ⇒ value_inv st.heap v
 Proof
   simp [eval_exp_def]
@@ -3118,7 +3118,7 @@ Proof
   \\ simp [state_inv_with_clock]
 QED
 
-Triviality list_rel_eval_exp_value_inv:
+Theorem list_rel_eval_exp_value_inv[local]:
   ∀es vs.
     LIST_REL (eval_exp st env) es vs ∧ state_inv st ∧
     EVERY (λe. can_get_type e) es ⇒
@@ -3131,7 +3131,7 @@ Proof
   \\ drule_all eval_exp_value_inv \\ simp []
 QED
 
-Triviality eval_exp_get_type:
+Theorem eval_exp_get_type[local]:
   ∀locals e ty val st.
     get_type locals e = INR ty ∧
     eval_exp st env e val ∧
@@ -3182,7 +3182,7 @@ Proof
           all_values_def, AllCaseEqs()]
 QED
 
-Triviality list_rel_eval_exp_get_types:
+Theorem list_rel_eval_exp_get_types[local]:
   ∀exps vs tys.
     LIST_REL (eval_exp st env) exps vs ∧
     get_types locals exps = INR tys ∧
@@ -3197,7 +3197,7 @@ Proof
   \\ drule_all eval_exp_get_type \\ simp []
 QED
 
-Triviality get_types_var:
+Theorem get_types_var[local]:
   ∀ns tys.
     get_types ls (MAP Var ns) = INR tys ⇒
     LIST_REL (λn ty. MEM (n,ty) ls) ns tys
@@ -3209,7 +3209,7 @@ Proof
   \\ drule ALOOKUP_MEM \\ simp []
 QED
 
-Triviality lookup_ret_name:
+Theorem lookup_ret_name[local]:
   ∀vs lhs_tys ret_names n locals.
     MEM n ret_names ∧
     LIST_REL (λv ty. v ∈ all_values ty) vs lhs_tys ∧
@@ -3230,7 +3230,7 @@ Proof
   \\ first_assum $ irule_at $ Pos hd \\ simp []
 QED
 
-Triviality ALL_DISTINCT_MAP_FST_EQ:
+Theorem ALL_DISTINCT_MAP_FST_EQ[local]:
   ∀xs x y y'.
     ALL_DISTINCT (MAP FST xs) ∧ MEM (x,y) xs ∧ MEM (x,y') xs ⇒ y' = y
 Proof
@@ -3241,7 +3241,7 @@ Proof
   \\ last_x_assum dxrule_all \\ simp []
 QED
 
-Triviality locals_unique_types:
+Theorem locals_unique_types[local]:
   locals_ok locals st_locals ∧ MEM (n,ty) locals ∧ MEM (n,ty') locals ⇒
   ty' = ty
 Proof
@@ -3250,7 +3250,7 @@ Proof
   \\ dxrule_all ALL_DISTINCT_MAP_FST_EQ \\ simp []
 QED
 
-Triviality ALOOKUP_ZIP_MAP_SOME:
+Theorem ALOOKUP_ZIP_MAP_SOME[local]:
   ∀ns vs.
     LENGTH ns = LENGTH vs ⇒
     (ALOOKUP (ZIP (ns,MAP SOME vs)) n = SOME (SOME val) ⇔
@@ -3262,7 +3262,7 @@ Proof
   \\ IF_CASES_TAC \\ gvs []
 QED
 
-Triviality locals_ok_restore_caller:
+Theorem locals_ok_restore_caller[local]:
   locals_ok locals st.locals ⇒ locals_ok locals (restore_caller st' st).locals
 Proof
   simp [locals_ok_def, restore_caller_def]
@@ -3280,7 +3280,7 @@ Proof
   \\ disch_then $ qspec_then ‘ck₂’ assume_tac \\ gvs []
 QED
 
-Triviality strict_locals_ok_swap_imp:
+Theorem strict_locals_ok_swap_imp[local]:
   (∀n ty. MEM (n,ty) ls ⇒ ALOOKUP xs n = ALOOKUP ys n)
   ⇒
   strict_locals_ok ls xs ⇒ strict_locals_ok ls ys
@@ -3293,7 +3293,7 @@ Proof
   \\ first_assum $ irule_at (Pos last) \\ simp []
 QED
 
-Triviality strict_locals_ok_swap:
+Theorem strict_locals_ok_swap[local]:
   (∀n ty. MEM (n,ty) ls ⇒ ALOOKUP xs n = ALOOKUP ys n)
   ⇒
   (strict_locals_ok ls xs ⇔ strict_locals_ok ls ys)
@@ -3301,7 +3301,7 @@ Proof
   metis_tac [strict_locals_ok_swap_imp]
 QED
 
-Triviality strict_locals_ok_cons_lr:
+Theorem strict_locals_ok_cons_lr[local]:
   strict_locals_ok ((n,ty)::ls) ((n,SOME v)::rs) ⇒
   v ∈ all_values ty ∧ strict_locals_ok ls rs ∧ ¬MEM n (MAP FST ls)
 Proof
@@ -3315,7 +3315,7 @@ Proof
   \\ drule MEM_MAP_FST \\ simp []
 QED
 
-Triviality strict_locals_ok_cons_rl:
+Theorem strict_locals_ok_cons_rl[local]:
   v ∈ all_values ty ∧ strict_locals_ok ls rs ∧ ¬MEM n (MAP FST ls) ⇒
   strict_locals_ok ((n,ty)::ls) ((n,SOME v)::rs)
 Proof
@@ -3325,14 +3325,14 @@ Proof
   \\ drule MEM_MAP_FST \\ simp []
 QED
 
-Triviality strict_locals_ok_cons:
+Theorem strict_locals_ok_cons[local]:
   strict_locals_ok ((n,ty)::ls) ((n,SOME v)::rs) ⇔
     v ∈ all_values ty ∧ strict_locals_ok ls rs ∧ ¬MEM n (MAP FST ls)
 Proof
   metis_tac [strict_locals_ok_cons_rl, strict_locals_ok_cons_lr]
 QED
 
-Triviality locals_ok_append_left:
+Theorem locals_ok_append_left[local]:
   locals_ok (xs ++ ys) zs ⇔
     (locals_ok xs zs ∧ locals_ok ys zs ∧
      (∀e. MEM e (MAP FST xs) ⇒ ¬MEM e (MAP FST ys)))
@@ -3343,7 +3343,7 @@ Proof
   \\ rpt strip_tac \\ gvs []
 QED
 
-Triviality strict_locals_ok_zip_some:
+Theorem strict_locals_ok_zip_some[local]:
   ∀ls vs.
     LENGTH vs = LENGTH ls ⇒
     (strict_locals_ok ls (ZIP (MAP FST ls, MAP SOME vs)) ⇔
@@ -3359,7 +3359,7 @@ Proof
   \\ simp [strict_locals_ok_cons, AC CONJ_COMM CONJ_ASSOC]
 QED
 
-Triviality MEM_MAP_FST_TUPLE:
+Theorem MEM_MAP_FST_TUPLE[local]:
   MEM x (MAP FST xs) ⇒ ∃y. MEM (x,y) xs
 Proof
   simp [MEM_MAP]
@@ -3367,7 +3367,7 @@ Proof
   \\ Cases_on ‘y’ \\ gvs [SF SFY_ss]
 QED
 
-Triviality strict_locals_ok_opt_mmap_read_local:
+Theorem strict_locals_ok_opt_mmap_read_local[local]:
   ∀ys xs st_ls.
     strict_locals_ok xs st_ls ∧ (∀y. MEM y ys ⇒ MEM y (MAP FST xs)) ⇒
     ∃out_vs. OPT_MMAP (read_local st_ls) ys = SOME out_vs
@@ -3387,14 +3387,14 @@ Proof
 QED
 
 (* TODO Upstream? *)
-Triviality OPT_MMAP_LENGTH:
+Theorem OPT_MMAP_LENGTH[local]:
   ∀xs ys. OPT_MMAP f xs = SOME ys ⇒ LENGTH ys = LENGTH xs
 Proof
   Induct \\ simp []
   \\ gen_tac \\ Cases \\ simp []
 QED
 
-Triviality strict_locals_ok_cons_left:
+Theorem strict_locals_ok_cons_left[local]:
   strict_locals_ok ((n,ty)::ls) st_ls ⇔
     strict_locals_ok ls st_ls ∧
     ∃v.
@@ -3405,7 +3405,7 @@ Proof
   \\ rpt strip_tac \\ gvs []
 QED
 
-Triviality locals_ok_cons_left:
+Theorem locals_ok_cons_left[local]:
   locals_ok ((n,ty)::ls) st_ls ⇔
     locals_ok ls st_ls ∧ ¬MEM n (MAP FST ls) ∧
     ∃oval.
@@ -3417,7 +3417,7 @@ Proof
   \\ rpt strip_tac \\ gvs []
 QED
 
-Triviality strict_locals_ok_opt_mmap_read_local:
+Theorem strict_locals_ok_opt_mmap_read_local[local]:
   ∀ls st_ls.
     strict_locals_ok ls st_ls ⇒
     ∃vs.
@@ -3430,7 +3430,7 @@ Proof
   \\ simp [read_local_def]
 QED
 
-Triviality locals_ok_list_rel_all_values:
+Theorem locals_ok_list_rel_all_values[local]:
   ∀ls vals st env.
     locals_ok ls st.locals ∧
     LIST_REL (eval_exp st env) (MAP Var (MAP FST ls)) vals
@@ -3577,7 +3577,7 @@ Proof
 QED
 
 (* todo move to evaluateProps *)
-Triviality locals_rel_seen_imp:
+Theorem locals_rel_seen_imp[local]:
   ∀seen xs ys.
     locals_rel seen xs ys ⇒
     (∀n. n ∈ seen ⇒ LIST_REL (λ(n₁,v₁) (n₂,v₂). n₁ = n ⇒ v₁ = v₂) xs ys)
@@ -3586,7 +3586,7 @@ Proof
 QED
 
 (* todo move to evaluateProps *)
-Triviality locals_rel_insert_imp:
+Theorem locals_rel_insert_imp[local]:
   ∀xs ys seen. locals_rel (n INSERT seen) xs ys ⇒ locals_rel seen xs ys
 Proof
   Induct
@@ -3602,7 +3602,7 @@ Proof
 QED
 
 (* todo move to evaluateProps *)
-Triviality locals_rel_insert_lr:
+Theorem locals_rel_insert_lr[local]:
   locals_rel (n INSERT seen) xs ys ⇒
   locals_rel seen xs ys ∧
   LIST_REL (λ(n₁,v₁) (n₂,v₂). n₁ = n ⇒ v₁ = v₂) xs ys
@@ -3614,7 +3614,7 @@ Proof
 QED
 
 (* todo move to evaluateProps *)
-Triviality locals_rel_insert_rl:
+Theorem locals_rel_insert_rl[local]:
   ∀seen xs ys.
     locals_rel seen xs ys ∧
     LIST_REL (λ(n₁,v₁) (n₂,v₂). n₁ = n ⇒ v₁ = v₂) xs ys ⇒
@@ -3885,7 +3885,7 @@ Proof
 QED
 
 (* todo move to evaluateProps *)
-Triviality evaluate_stmt_declare_local_alookup:
+Theorem evaluate_stmt_declare_local_alookup[local]:
   evaluate_stmt (declare_local s v) env stmt = (s₁, r) ∧
   pop_locals 1 s₁ = SOME s'
   ⇒
@@ -4050,14 +4050,14 @@ Proof
   \\ drule_all evaluate_stmt_not_assigned_in  \\ simp []
 QED
 
-Triviality eval_exp_eq_ignore_clock:
+Theorem eval_exp_eq_ignore_clock[local]:
   (∀ck. (st with clock := ck) = (st' with clock := ck)) ⇒
   eval_exp st = eval_exp st'
 Proof
   gvs [eval_exp_def,FUN_EQ_THM]
 QED
 
-Triviality bigunion_freevars_subset_vars:
+Theorem bigunion_freevars_subset_vars[local]:
   ∀xs.
     (∀e. MEM e xs ⇒ freevars e ⊆ set (get_vars_exp e)) ⇒
     BIGUNION (set (MAP (λa. freevars a) xs)) ⊆
@@ -4070,7 +4070,7 @@ Proof
   \\ gvs [SUBSET_DEF]
 QED
 
-Triviality freevars_aux_subset_vars:
+Theorem freevars_aux_subset_vars[local]:
   ∀e.
     FST (freevars_aux e) ⊆ set (get_vars_exp e) ∧
     SND (freevars_aux e) ⊆ set (get_vars_exp e)
@@ -4082,13 +4082,13 @@ Proof
   metis_tac[]
 QED
 
-Triviality freevars_subset_vars:
+Theorem freevars_subset_vars[local]:
   ∀e. freevars e ⊆ set (get_vars_exp e)
 Proof
   rw[freevars_def,freevars_aux_subset_vars]
 QED
 
-Triviality disjoint_alookup_append:
+Theorem disjoint_alookup_append[local]:
   ∀vs.
     DISJOINT (set (MAP FST vs)) xs ⇒
     (∀n. n ∈ xs ⇒ ALOOKUP (vs ++ ys) n = ALOOKUP ys n)
@@ -4098,7 +4098,7 @@ Proof
   \\ IF_CASES_TAC \\ gvs []
 QED
 
-Triviality disjoint_get_vars_exp_alookup:
+Theorem disjoint_get_vars_exp_alookup[local]:
   DISJOINT (set (get_vars_exp e)) (set (MAP FST ys)) ⇒
   ∀n. n ∈ freevars e ⇒ ALOOKUP (xs ++ ys ++ zs) n = ALOOKUP (xs ++ zs) n
 Proof
@@ -4113,7 +4113,7 @@ Proof
   \\ drule_all disjoint_alookup_append \\ simp []
 QED
 
-Triviality disjoint_get_vars_exp_every_alookup:
+Theorem disjoint_get_vars_exp_every_alookup[local]:
   ∀es.
     DISJOINT (set (FLAT (MAP get_vars_exp es))) (set (MAP FST ys)) ⇒
     EVERY (λe. ∀n. n ∈ freevars e ⇒
@@ -4124,7 +4124,7 @@ Proof
   \\ drule disjoint_get_vars_exp_alookup \\ simp []
 QED
 
-Triviality evaluate_exp_ignore_unused:
+Theorem evaluate_exp_ignore_unused[local]:
   evaluate_exp st env e = (st', r) ∧
   DISJOINT (set (get_vars_exp e)) (set (MAP FST ys)) ∧
   st.locals = xs ++ ys ++ zs ⇒
@@ -4137,7 +4137,7 @@ Proof
   \\ drule_all (cj 1 evaluate_exp_freevars) \\ simp []
 QED
 
-Triviality evaluate_exps_ignore_unused:
+Theorem evaluate_exps_ignore_unused[local]:
   evaluate_exps st env es = (st', r) ∧
   DISJOINT (set (FLAT (MAP get_vars_exp es))) (set (MAP FST ys)) ∧
   st.locals = xs ++ ys ++ zs ⇒
@@ -4151,7 +4151,7 @@ Proof
   \\ drule_all evaluate_exps_freevars \\ simp []
 QED
 
-Triviality evaluate_rhs_exp_ignore_unused:
+Theorem evaluate_rhs_exp_ignore_unused[local]:
   evaluate_rhs_exp st env lhs = (st', r) ∧
   DISJOINT (set (get_vars_rhs_exp lhs)) (set (MAP FST ys)) ∧
   st.locals = xs ++ ys ++ zs ⇒
@@ -4170,7 +4170,7 @@ Proof
     \\ gvs [alloc_array_def, AllCaseEqs()])
 QED
 
-Triviality evaluate_rhs_exps_ignore_unused:
+Theorem evaluate_rhs_exps_ignore_unused[local]:
   ∀rhss st st' r.
     evaluate_rhs_exps st env rhss = (st',r) ∧
     DISJOINT (set (FLAT (MAP get_vars_rhs_exp rhss))) (set (MAP FST ys)) ∧
@@ -4186,7 +4186,7 @@ Proof
 QED
 
 (* TODO Move to dafnyProps *)
-Triviality update_local_aux_none_eq:
+Theorem update_local_aux_none_eq[local]:
   update_local_aux xs m val = NONE ⇔ ¬MEM m (MAP FST xs)
 Proof
   Induct_on ‘xs’ >- (simp [update_local_aux_def])
@@ -4196,7 +4196,7 @@ Proof
 QED
 
 (* TODO Move to dafnyProps *)
-Triviality update_local_aux_mem:
+Theorem update_local_aux_mem[local]:
   ∀xs m.
     MEM m (MAP FST xs) ⇒
     ∃xs₁. ∀ys.
@@ -4213,7 +4213,7 @@ Proof
 QED
 
 (* TODO Move to dafnyProps *)
-Triviality update_local_aux_not_mem_lr:
+Theorem update_local_aux_not_mem_lr[local]:
   ∀xs m locals.
     ¬MEM m (MAP FST xs) ∧ update_local_aux (xs ++ ys) m val = SOME locals ⇒
     ∃rest.
@@ -4230,7 +4230,7 @@ Proof
 QED
 
 (* TODO Move to dafnyProps *)
-Triviality update_local_aux_not_mem_rl:
+Theorem update_local_aux_not_mem_rl[local]:
   ∀xs m rest.
     ¬MEM m (MAP FST xs) ∧ update_local_aux ys m val = SOME rest ⇒
     update_local_aux (xs ++ ys) m val = SOME (xs ++ rest)
@@ -4243,7 +4243,7 @@ QED
 
 
 (* TODO Move to dafnyProps *)
-Triviality update_local_aux_not_mem:
+Theorem update_local_aux_not_mem[local]:
   ¬MEM m (MAP FST xs) ⇒
   (update_local_aux (xs ++ ys) m val = SOME locals ⇔
      ∃rest.
@@ -4253,7 +4253,7 @@ Proof
   metis_tac [update_local_aux_not_mem_lr, update_local_aux_not_mem_rl]
 QED
 
-Triviality update_local_aux_ignore_unused:
+Theorem update_local_aux_ignore_unused[local]:
   update_local_aux (xs ++ ys ++ zs) m val = SOME new_locals ∧
   ¬MEM m (MAP FST ys) ⇒
   ∃xs₁ zs₁.
@@ -4274,7 +4274,7 @@ Proof
   \\ irule_at (Pos hd) EQ_REFL \\ simp []
 QED
 
-Triviality assign_value_ignore_unused:
+Theorem assign_value_ignore_unused[local]:
   assign_value st env lhs val = (st', r) ∧
   DISJOINT (set (get_vars_lhs_exp lhs)) (set (MAP FST ys)) ∧
   st.locals = xs ++ ys ++ zs ⇒
@@ -4301,7 +4301,7 @@ Proof
     \\ irule_at (Pos hd) EQ_REFL \\ simp [])
 QED
 
-Triviality assign_values_ignore_unused:
+Theorem assign_values_ignore_unused[local]:
   ∀st env lhss vals st' r xs ys zs.
     assign_values st env lhss vals = (st',r) ∧
     DISJOINT (set (FLAT (MAP get_vars_lhs_exp lhss))) (set (MAP FST ys)) ∧
@@ -4328,14 +4328,14 @@ Proof
 QED
 
 (* TODO move to dafnyProps, and replace set_up_call_none_with_clock *)
-Triviality set_up_call_none:
+Theorem set_up_call_none[local]:
   set_up_call s in_ns in_vs outs = NONE ⇒
   set_up_call s' in_ns in_vs outs = NONE
 Proof
   simp [set_up_call_def, AllCaseEqs()]
 QED
 
-Triviality set_up_call_some_with_locals:
+Theorem set_up_call_some_with_locals[local]:
   set_up_call st in_ns in_vs outs = SOME st₁ ⇒
   set_up_call (st with locals := ls) in_ns in_vs outs = SOME st₁
 Proof
@@ -4486,7 +4486,7 @@ Proof
   \\ first_assum $ irule_at $ Pos hd \\ simp []
 QED
 
-Triviality eval_stmt_ignore_unused_prefix =
+Theorem eval_stmt_ignore_unused_prefix[local] =
   eval_stmt_ignore_unused
   |> Q.SPECL [‘st with locals := ys ++ zs’,‘env’,‘c’,‘st1’,‘res’,‘[]’,‘ys’,‘zs’]
   |> SRULE [];
@@ -4537,7 +4537,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality disjoint_freevars_eval_exp_locals:
+Theorem disjoint_freevars_eval_exp_locals[local]:
   DISJOINT (set (MAP FST vs)) (freevars e) ⇒
   (eval_exp st env e v ⇔ eval_exp (st with locals := vs ++ st.locals) env e v)
 Proof
@@ -4547,7 +4547,7 @@ Proof
   \\ drule eval_exp_freevars \\ simp []
 QED
 
-Triviality disjoint_vars_eval_exp_locals:
+Theorem disjoint_vars_eval_exp_locals[local]:
   DISJOINT (set (get_vars_exp e)) (set (MAP FST vs)) ⇒
   (eval_exp st env e v ⇔ eval_exp (st with locals := vs ++ st.locals) env e v)
 Proof
@@ -4559,7 +4559,7 @@ Proof
   \\ rewrite_tac [disjoint_freevars_eval_exp_locals]
 QED
 
-Triviality not_mem_var_eval_exp_locals:
+Theorem not_mem_var_eval_exp_locals[local]:
   eval_exp st env e v ∧ ¬MEM ds_var (get_vars_exp e) ⇒
   eval_exp (st with locals := (ds_var,ov)::st.locals) env e v
 Proof
@@ -4570,7 +4570,7 @@ Proof
   \\ disch_then $ mp_tac o iffLR \\ simp []
 QED
 
-Triviality eval_true_drop_unused:
+Theorem eval_true_drop_unused[local]:
   eval_true st1 env guard ∧
   DISJOINT (set (get_vars_exp guard)) (set (MAP FST ds1)) ⇒
   eval_true (st1 with locals := ds1 ++ st1.locals) env guard
@@ -4581,7 +4581,7 @@ Proof
   \\ simp []
 QED
 
-Triviality eval_true_dec_assum_eq:
+Theorem eval_true_dec_assum_eq[local]:
   eval_true s env (dec_assum var d) ⇔
     ∃ds_val. eval_exp s env d ds_val ∧ eval_exp s env (Var var) ds_val
 Proof
@@ -4599,7 +4599,7 @@ Proof
   \\ first_assum $ irule_at (Pos hd)
 QED
 
-Triviality eval_exp_eval_true_dec_assum:
+Theorem eval_exp_eval_true_dec_assum[local]:
   ¬MEM ds_var (get_vars_exp d) ∧
   eval_exp (s with locals := xs) env d ds_val ⇒
   eval_true (s with locals := (ds_var, SOME ds_val)::xs) env
@@ -4615,7 +4615,7 @@ Proof
   \\ simp [state_component_equality]
 QED
 
-Triviality every_eval_true_dec_assum:
+Theorem every_eval_true_dec_assum[local]:
   ∀ds ds_vars.
     ¬MEM ds_var ds_vars ∧ ¬MEM ds_var (FLAT (MAP get_vars_exp ds)) ∧
     EVERY (eval_true (s with locals := xs) env)
@@ -4634,7 +4634,7 @@ Proof
   \\ simp [get_vars_exp_def]
 QED
 
-Triviality IMP_dec_assum_no_abbrev:
+Theorem IMP_dec_assum_no_abbrev[local]:
   ∀ds ds_vals ds_vars.
     LIST_REL (λe v. eval_exp st1 env e v) ds ds_vals ∧
     LENGTH ds_vals = LENGTH ds_vars ∧
@@ -4662,7 +4662,7 @@ Proof
   \\ drule_all every_eval_true_dec_assum \\ simp []
 QED
 
-Triviality IMP_dec_assum:
+Theorem IMP_dec_assum[local]:
   LIST_REL (λe v. eval_exp st1 env e v) ds ds_vals ∧
   Abbrev (ds1 = ZIP (ds_vars,MAP SOME ds_vals)) ∧
   LENGTH ds_vals = LENGTH ds_vars ∧
@@ -4676,7 +4676,7 @@ Proof
   \\ drule_all IMP_dec_assum_no_abbrev \\ simp []
 QED
 
-Triviality state_inv_with_locals_cons_none:
+Theorem state_inv_with_locals_cons_none[local]:
   state_inv st ⇒ state_inv (st with locals := (n, NONE)::st.locals)
 Proof
   gvs [state_inv_def, locals_inv_def]
@@ -4685,7 +4685,7 @@ Proof
   \\ last_x_assum drule \\ simp []
 QED
 
-Triviality state_inv_with_locals_drop:
+Theorem state_inv_with_locals_drop[local]:
   state_inv st ⇒ state_inv (st with locals := DROP n st.locals)
 Proof
   simp [state_inv_def, locals_inv_def]
@@ -4693,19 +4693,19 @@ Proof
   \\ irule EVERY_DROP \\ simp []
 QED
 
-Triviality locals_inv_reverse:
+Theorem locals_inv_reverse[local]:
   locals_inv heap (REVERSE xs) ⇔ locals_inv heap xs
 Proof
   simp [locals_inv_def, EVERY_REVERSE]
 QED
 
-Triviality locals_inv_append:
+Theorem locals_inv_append[local]:
   locals_inv heap (xs ++ ys) ⇔ locals_inv heap xs ∧ locals_inv heap ys
 Proof
   simp [locals_inv_def, EVERY_APPEND]
 QED
 
-Triviality locals_inv_zip_none:
+Theorem locals_inv_zip_none[local]:
   ∀xs n. LENGTH xs = n ⇒ locals_inv heap (ZIP (xs, REPLICATE n NONE))
 Proof
   Induct >- (simp [locals_inv_def])
@@ -4713,7 +4713,7 @@ Proof
   \\ rewrite_tac [locals_inv_cons] \\ simp []
 QED
 
-Triviality locals_inv_zip_some:
+Theorem locals_inv_zip_some[local]:
   EVERY (value_inv heap) vs ∧ LENGTH ns = LENGTH vs ⇒
   locals_inv heap (ZIP (ns, MAP SOME vs))
 Proof
@@ -4725,7 +4725,7 @@ Proof
   \\ simp [MEM_MAP]
 QED
 
-Triviality can_get_type_map_var:
+Theorem can_get_type_map_var[local]:
   EVERY (λe. can_get_type e) (MAP Var ns)
 Proof
   simp [EVERY_MEM]
@@ -4733,7 +4733,7 @@ Proof
   \\ gvs [MEM_MAP, can_get_type_def]
 QED
 
-Triviality IMP_evaluate_exp_num:
+Theorem IMP_evaluate_exp_num[local]:
   ∀v. eval_exp st1 env1 e1 v ∧ eval_exp st2 env2 e2 v ⇒
       evaluate_exp_num st1 env1 e1 = evaluate_exp_num st2 env2 e2
 Proof
@@ -4745,7 +4745,7 @@ Proof
   \\ metis_tac [eval_exp_11]
 QED
 
-Triviality alookup_zip_lemma_el:
+Theorem alookup_zip_lemma_el[local]:
   ∀ds_n ds_vals ds_vars.
     ds_n < LENGTH ds_vals ∧
     LENGTH ds_vars = LENGTH ds_vals ∧
@@ -4763,7 +4763,7 @@ Proof
   \\ drule EL_MEM \\ strip_tac \\ gvs []
 QED
 
-Triviality mem_varlhs_get_vars:
+Theorem mem_varlhs_get_vars[local]:
   ∀lhss v. MEM (VarLhs v) lhss ⇒ MEM v (FLAT (MAP get_vars_lhs_exp lhss))
 Proof
   Induct >- (simp [])
@@ -4786,7 +4786,7 @@ Definition IS_SOME_SOME_def:
   IS_SOME_SOME x = ∃y. x = SOME (SOME (y:'a))
 End
 
-Triviality update_local_assigned_inv:
+Theorem update_local_assigned_inv[local]:
   ∀locals locals'.
     update_local_aux locals var val = SOME locals' ∧
     IS_SOME_SOME (ALOOKUP locals v) ⇒
@@ -4803,7 +4803,7 @@ Proof
   \\ IF_CASES_TAC \\ gvs []
 QED
 
-Triviality update_local_assigned_inv:
+Theorem update_local_assigned_inv[local]:
   update_local s var val = SOME s' ∧
   IS_SOME_SOME (ALOOKUP s.locals v) ⇒
   IS_SOME_SOME (ALOOKUP s'.locals v)
@@ -4814,7 +4814,7 @@ Proof
   \\ strip_tac \\ gvs []
 QED
 
-Triviality assign_value_assigned_inv:
+Theorem assign_value_assigned_inv[local]:
   assign_value s env lhs rhs = (s', r) ∧
   IS_SOME_SOME (ALOOKUP s.locals v) ⇒
   IS_SOME_SOME (ALOOKUP s'.locals v)
@@ -4836,7 +4836,7 @@ Proof
     \\ gvs [update_array_def, AllCaseEqs()])
 QED
 
-Triviality assign_values_assigned_inv:
+Theorem assign_values_assigned_inv[local]:
   ∀s env lhss rhss.
     assign_values s env lhss rhss = (s', r) ∧
     IS_SOME_SOME (ALOOKUP s.locals v) ⇒
@@ -4852,7 +4852,7 @@ QED
 (* TODO Instead of proving it separately; maybe we could just strengthen
    locals_rel to say that something that has been assigned cannot go back to
    being unassigned - would definitely be cleaner. *)
-Triviality evaluate_stmt_assigned_inv:
+Theorem evaluate_stmt_assigned_inv[local]:
   ∀s env stmt s' r.
     evaluate_stmt s env stmt = (s', r) ∧
     IS_SOME_SOME (ALOOKUP s.locals v) ⇒
@@ -4965,7 +4965,7 @@ Proof
   \\ drule evaluate_stmt_assigned_inv \\ simp []
 QED
 
-Triviality eval_true_CanEval_Var_IS_SOME_SOME:
+Theorem eval_true_CanEval_Var_IS_SOME_SOME[local]:
   eval_true st env (CanEval (Var p_1)) ⇒
   IS_SOME_SOME (ALOOKUP st.locals p_1)
 Proof
@@ -4980,7 +4980,7 @@ Proof
 QED
 
 (* todo move to dafny_evalrel *)
-Triviality eval_stmt_Print:
+Theorem eval_stmt_Print[local]:
   (∃v. eval_exp st env e v ∧ value_has_type t v) ⇒
   eval_stmt st env (Print e t) st Rcont
 Proof
@@ -5002,7 +5002,7 @@ Proof
   \\ gvs [eval_true_CanEval_Var, is_initialized_def]
 QED
 
-Triviality DISJOINT_set_IMP:
+Theorem DISJOINT_set_IMP[local]:
   DISJOINT (set xs) (set ys) ⇒ (∀x. MEM x xs ⇒ ¬MEM x ys)
 Proof
   simp [DISJOINT_DEF, INTER_DEF]
@@ -5010,7 +5010,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality locals_ok_split:
+Theorem locals_ok_split[local]:
   locals_ok vs1 xs1 ∧ locals_ok vs2 xs2 ∧
   DISJOINT (set (MAP FST vs1)) (set (MAP FST vs2)) ∧
   DISJOINT (set (MAP FST xs1)) (set (MAP FST vs2))
@@ -5039,7 +5039,7 @@ Proof
   \\ first_x_assum drule \\ simp []
 QED
 
-Triviality strict_locals_ok_split:
+Theorem strict_locals_ok_split[local]:
   strict_locals_ok vs1 xs1 ∧ strict_locals_ok vs2 xs2 ∧
   DISJOINT (set (MAP FST vs1)) (set (MAP FST vs2)) ∧
   DISJOINT (set (MAP FST xs1)) (set (MAP FST vs2))
@@ -5068,7 +5068,7 @@ Proof
   \\ first_x_assum drule \\ simp []
 QED
 
-Triviality locals_ok_IntT_MAP_ZIP:
+Theorem locals_ok_IntT_MAP_ZIP[local]:
   ∀ds_vars ds_vals.
     EVERY (λv. ∃i. v = IntV i) ds_vals ∧
     LENGTH ds_vars = LENGTH ds_vals ∧
@@ -5119,7 +5119,7 @@ Proof
   \\ last_x_assum $ drule_then assume_tac \\ gvs []
 QED
 
-Triviality strict_locals_ok_IMP_LIST_REL:
+Theorem strict_locals_ok_IMP_LIST_REL[local]:
   strict_locals_ok (MAP (λv. (v,IntT)) ds_vars)
                    (ZIP (ds_vars,MAP SOME ds_vals)) ∧
   EVERY (λv. ∃i. v = IntV i) ds_vals ∧
@@ -5161,7 +5161,7 @@ Definition mod_loc_def:
     ALOOKUP locals var_name = SOME (SOME (ArrV len loc ty))
 End
 
-Triviality mod_locs_lemma:
+Theorem mod_locs_lemma[local]:
   ∀mods vs st st2 mod_locs locs ck.
     evaluate_exps (st with clock := ck) env (MAP Var mods) = (st2,Rval vs) ∧
     OPT_MMAP dafny_semanticPrimitives$get_loc vs = SOME locs ∧
@@ -5194,7 +5194,7 @@ Proof
   \\ gvs [state_component_equality]
 QED
 
-Triviality MEM_MAP2:
+Theorem MEM_MAP2[local]:
   ∀xs ys z f. MEM z (MAP2 f xs ys) ⇒ ∃x y. MEM x xs ∧ MEM y ys ∧ z = f x y
 Proof
   Induct \\ Cases_on ‘ys’ \\ fs []
@@ -5405,13 +5405,13 @@ Proof
   \\ Cases_on ‘err’ \\ gvs []
 QED
 
-Triviality IMP_MEM_EL:
+Theorem IMP_MEM_EL[local]:
   ∀xs n. n < LENGTH xs ⇒ MEM (EL n xs) xs
 Proof
   Induct \\ Cases_on ‘n’ \\ gvs []
 QED
 
-Triviality mod_loc_drop_1:
+Theorem mod_loc_drop_1[local]:
   ¬MEM n mods ∧ MAP FST ys = n::MAP FST xs ⇒
   LIST_REL (mod_loc (DROP 1 ys)) mods mod_locs =
   LIST_REL (mod_loc ys) mods mod_locs
@@ -5469,7 +5469,7 @@ Proof
   \\ gvs [conditions_hold_cons_drop]
 QED
 
-Triviality LIST_REL_mono_alt:
+Theorem LIST_REL_mono_alt[local]:
   ∀xs ys R1 R2.
     (∀x y. MEM x xs ∧ R2 x y ⇒ R1 x y) ⇒
     LIST_REL R2 xs ys ⇒
@@ -5557,14 +5557,14 @@ Proof
   \\ simp [MAP_ZIP]
 QED
 
-Triviality disjoint_vars_while_ds:
+Theorem disjoint_vars_while_ds[local]:
   DISJOINT (set (get_vars_stmt (While guard invs ds mods body))) xs ⇒
   DISJOINT (set (FLAT (MAP get_vars_exp ds))) xs
 Proof
   simp [get_vars_stmt_def]
 QED
 
-Triviality EVERY2_MEM_MONO_weak:
+Theorem EVERY2_MEM_MONO_weak[local]:
   (∀x y. MEM x l1 ∧ MEM y l2 ∧ P x y ⇒ Q x y) ∧
   LIST_REL P l1 l2 ⇒
   LIST_REL Q l1 l2
@@ -5575,7 +5575,7 @@ Proof
   metis_tac[MEM_EL]
 QED
 
-Triviality mod_loc_prepend_outside:
+Theorem mod_loc_prepend_outside[local]:
   mod_loc l x y ∧ ¬MEM x (MAP FST s) ⇒
   mod_loc (s ++ l) x y
 Proof
@@ -5605,7 +5605,7 @@ Proof
   \\ fs [] \\ metis_tac []
 QED
 
-Triviality update_array_value_inv_pres:
+Theorem update_array_value_inv_pres[local]:
   update_array st1 arr idx rhs = SOME st2 ∧
   value_inv st1.heap val ⇒
   value_inv st2.heap val
@@ -6010,7 +6010,7 @@ Theorem eval_true_Forall_IMP =
     |> Q.SPEC ‘[(x,ty)]’
     |> SRULE [Foralls_def,PULL_EXISTS,FORALL_PROD];
 
-Triviality oEL_SNOC:
+Theorem oEL_SNOC[local]:
   oEL n (SNOC x xs) = SOME y ⇔
   oEL n xs = SOME y ∨
   n = LENGTH xs ∧ x = y
@@ -6733,7 +6733,7 @@ Proof
   qexists_tac`i+1`>>simp[GSYM ADD1]
 QED
 
-Triviality value_inv_pres_snoc:
+Theorem value_inv_pres_snoc[local]:
   value_inv heap val ⇒
   value_inv (SNOC hv heap) val
 Proof
@@ -6744,7 +6744,7 @@ Proof
   \\ gvs [oEL_EQ_EL, EL_SNOC]
 QED
 
-Triviality alloc_array_value_inv_pres:
+Theorem alloc_array_value_inv_pres[local]:
   alloc_array st1 len init t = SOME (st2, arr) ∧
   value_inv st1.heap val ⇒
   value_inv st2.heap val
@@ -6770,7 +6770,7 @@ Proof
     \\ drule alloc_array_value_inv_pres \\ simp [])
 QED
 
-Triviality update_local_heap_eq:
+Theorem update_local_heap_eq[local]:
   update_local st1 m rhs = SOME st2 ⇒ st2.heap = st1.heap
 Proof
   rpt strip_tac
@@ -6818,7 +6818,7 @@ Proof
   \\ last_x_assum drule_all \\ simp []
 QED
 
-Triviality set_up_call_heap_eq:
+Theorem set_up_call_heap_eq[local]:
   set_up_call st in_ns in_vs outs = SOME st₁ ⇒ st₁.heap = st.heap
 Proof
   rpt strip_tac \\ gvs [set_up_call_def, AllCaseEqs()]
@@ -7514,7 +7514,7 @@ Proof
     stmt_wp_sound_MetCall]
 QED
 
-Triviality evaluate_exp_total_old:
+Theorem evaluate_exp_total_old[local]:
   st.locals_old = st.locals ∧ st.heap_old = st.heap ∧ ¬env.is_running ⇒
   evaluate_exp_total st env (Old e) = evaluate_exp_total st env e
 Proof
@@ -7522,7 +7522,7 @@ Proof
   \\ simp [evaluate_exp_total_def, eval_exp_old_eq_not_old]
 QED
 
-Triviality eval_decreases_map_old:
+Theorem eval_decreases_map_old[local]:
   ∀es st env.
     st.locals_old = st.locals ∧ st.heap_old = st.heap ∧ ¬env.is_running ⇒
     eval_decreases st env (MAP Old es) = eval_decreases st env es
@@ -7542,7 +7542,7 @@ Proof
   \\ simp [wrap_old_def, eval_measure_def, eval_decreases_map_old]
 QED
 
-Triviality caneval_dfy_eq_lhs_imp:
+Theorem caneval_dfy_eq_lhs_imp[local]:
   eval_true st env (CanEval (dfy_eq (Var n) e)) ⇒
   eval_true st env (CanEval (Var n))
 Proof
@@ -7626,7 +7626,7 @@ Definition dest_VarLhs_def:
   dest_VarLhs _ = fail «dest_VarLhs: Not VarLhs»
 End
 
-Triviality result_mmap_dest_VarLhs:
+Theorem result_mmap_dest_VarLhs[local]:
   ∀lhss vars. result_mmap dest_VarLhs lhss = INR vars ⇒ lhss = MAP VarLhs vars
 Proof
   Induct \\ simp [result_mmap_def, oneline bind_def]
@@ -7639,7 +7639,7 @@ Definition dest_ExpRhs_def:
   dest_ExpRhs _ = fail «dest_ExpRhs: Not ExpRhs»
 End
 
-Triviality result_mmap_dest_ExpRhs:
+Theorem result_mmap_dest_ExpRhs[local]:
   ∀lhss vars. result_mmap dest_ExpRhs lhss = INR vars ⇒ lhss = MAP ExpRhs vars
 Proof
   Induct \\ simp [result_mmap_def, oneline bind_def]
@@ -7655,7 +7655,7 @@ Definition find_met_def:
     else find_met name rest
 End
 
-Triviality find_met_inr:
+Theorem find_met_inr[local]:
   ∀methods name method.
     find_met name methods = INR method ⇒
     ∃spec body. method = Method name spec body ∧ MEM method methods
@@ -7757,7 +7757,7 @@ Definition list_disjoint_def:
 End
 
 (* TODO Move? *)
-Triviality LIST_TO_SET_DISJOINT:
+Theorem LIST_TO_SET_DISJOINT[local]:
   list_disjoint xs ys = DISJOINT (set xs) (set ys)
 Proof
   simp [list_disjoint_def, list_inter_def, FILTER_EQ_NIL, EVERY_MEM]
@@ -7771,7 +7771,7 @@ Definition list_subset_def:
 End
 
 (* TODO Move? *)
-Triviality LIST_TO_SET_SUBSET:
+Theorem LIST_TO_SET_SUBSET[local]:
   list_subset xs ys ⇔ (set xs) ⊆ (set ys)
 Proof
   simp [list_subset_def, EVERY_MEM]
@@ -7782,13 +7782,13 @@ Definition gen_ds_vars_def:
   gen_ds_vars ds = GENLIST (λn. «ds» ^ (num_to_str n)) (LENGTH ds)
 End
 
-Triviality ALL_DISTINCT_gen_ds_vars:
+Theorem ALL_DISTINCT_gen_ds_vars[local]:
   ∀ds. ALL_DISTINCT (gen_ds_vars ds)
 Proof
   simp [ALL_DISTINCT_GENLIST, gen_ds_vars_def, num_to_str_11]
 QED
 
-Triviality LENGTH_gen_ds_vars:
+Theorem LENGTH_gen_ds_vars[local]:
   ∀ds. LENGTH (gen_ds_vars ds) = LENGTH ds
 Proof
   simp [gen_ds_vars_def]
@@ -7818,20 +7818,20 @@ Definition find_assigned_in_def:
   (find_assigned_in Return = [])
 End
 
-Triviality LIST_TO_SET_MEM:
+Theorem LIST_TO_SET_MEM[local]:
   set xs x ⇔ MEM x xs
 Proof
   Induct_on ‘xs’ \\ gvs []
 QED
 
-Triviality MEM_get_VarLhss:
+Theorem MEM_get_VarLhss[local]:
   MEM v (get_VarLhss lhss) ⇔ MEM (VarLhs v) lhss
 Proof
   Induct_on ‘lhss’ \\ gvs [get_VarLhss_def]
   \\ Cases \\ gvs []
 QED
 
-Triviality set_find_assigned_in:
+Theorem set_find_assigned_in[local]:
   set (find_assigned_in stmt) = assigned_in stmt
 Proof
   Induct_on ‘stmt’
@@ -8197,7 +8197,7 @@ Definition wrap_Old_list_def:
     ForallHeap (MAP (wrap_Old_list vs) mods) (wrap_Old_list vs term)
 End
 
-Triviality mem_wrap_Old_list_eq:
+Theorem mem_wrap_Old_list_eq[local]:
   (∀e. MEM e args ⇒ wrap_Old_list vs e = wrap_Old (set vs) e) ⇒
   MAP (λa. wrap_Old_list vs a) args = MAP (λa. wrap_Old (set vs) a) args
 Proof
@@ -8206,7 +8206,7 @@ Proof
   \\ irule MAP_CONG \\ gvs []
 QED
 
-Triviality wrap_Old_list_eq_aux:
+Theorem wrap_Old_list_eq_aux[local]:
   ∀vs e. wrap_Old_list vs e = wrap_Old (set vs) e
 Proof
   ho_match_mp_tac wrap_Old_list_ind >>

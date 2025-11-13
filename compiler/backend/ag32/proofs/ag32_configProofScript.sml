@@ -97,7 +97,7 @@ Proof
   \\ pairarg_tac \\ gvs []
 QED
 
-Triviality IMP_EVERY_list_add_if_fresh:
+Theorem IMP_EVERY_list_add_if_fresh[local]:
   ∀xs x p. p x ∧ EVERY p xs ⇒ EVERY p (list_add_if_fresh x xs)
 Proof
   Induct \\ gvs [lab_to_targetTheory.list_add_if_fresh_def] \\ rw []

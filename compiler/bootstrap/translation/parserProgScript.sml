@@ -88,7 +88,7 @@ QED
 
 val _ = translate locnle;
 
-Triviality validaddsym_side_lemma:
+Theorem validaddsym_side_lemma[local]:
   ∀x. validaddsym_side x = T
 Proof
   simp[fetch "-" "validaddsym_side_def"]
@@ -165,7 +165,7 @@ val res = translate def;
 
 val _ = def_of_const “ptree_SignatureValue” |> translate
 
-Triviality ptree_Decls:
+Theorem ptree_Decls[local]:
   ptree_Decls x =
      case x of
      | Lf t => ptree_Decls (Lf t)
@@ -175,7 +175,7 @@ Proof
   \\ rename [‘Nd p’] \\ PairCases_on ‘p’ \\ fs []
 QED
 
-Triviality ptree_Structure:
+Theorem ptree_Structure[local]:
   ptree_Structure x =
      case x of
      | Lf t => ptree_Structure (Lf t)
@@ -199,7 +199,7 @@ val def =
 
 val res = translate_no_ind def;
 
-Triviality ind_lemma:
+Theorem ind_lemma[local]:
   ptree_decl_ind
 Proof
   rewrite_tac [fetch "-" "ptree_decl_ind_def"]

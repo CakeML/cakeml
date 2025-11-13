@@ -86,7 +86,7 @@ End
 val find_code_def = bvlSemTheory.find_code_def;
 val _ = temp_bring_to_front_overload"find_code"{Name="find_code",Thy="bvlSem"};
 
-Triviality find_code_lemma:
+Theorem find_code_lemma[local]:
   state_rel r t2 ∧
     find_code dest (MAP data_to_bvi_v a) r.code = SOME (args,exp)
     ⇒ ∃args' ss.
@@ -130,7 +130,7 @@ Proof
   \\ rfs [] \\ MAP_EVERY qexists_tac [`safe'`,`peak'`,`smx`,`ls`] \\ rw [state_component_equality]
 QED
 
-Triviality compile_RANGE_lemma:
+Theorem compile_RANGE_lemma[local]:
   !n env tail live xs.
       EVERY (\v. v < (SND (SND (compile n env tail live xs))))
         (FST (SND (compile n env tail live xs)))
@@ -146,7 +146,7 @@ Proof
   \\ TRY (Cases_on `tail`) \\ full_simp_tac(srw_ss())[] \\ DECIDE_TAC
 QED
 
-Triviality compile_RANGE:
+Theorem compile_RANGE[local]:
   (compile n env tail live xs = (ys,vs,k)) ==> EVERY (\v.  v < k) vs
 Proof
   REPEAT STRIP_TAC \\ MP_TAC (compile_RANGE_lemma |> SPEC_ALL) \\ full_simp_tac(srw_ss())[]
@@ -160,7 +160,7 @@ val stack_case_eq_thm = prove_case_eq_thm { nchotomy = stack_nchotomy, case_def 
 
 val RW = REWRITE_RULE;
 
-Triviality compile_part_thm:
+Theorem compile_part_thm[local]:
   compile_part = λ(x,y). (x, (λ(a,b). (a, compile_exp a b)) y)
 Proof
   simp[FUN_EQ_THM,FORALL_PROD,compile_part_def]
@@ -444,7 +444,7 @@ Proof
 QED
 *)
 
-Triviality refs_rel_LEAST_eq:
+Theorem refs_rel_LEAST_eq[local]:
    ∀s1 s2.
     (∀n. FLOOKUP s1 n = lookup n (map data_to_bvi_ref s2))
     ⇒ (LEAST ptr. ptr ∉ FDOM s1) = LEAST ptr. ptr ∉ domain s2
@@ -2111,7 +2111,7 @@ Proof
   \\ fs [state_rel_def]
 QED
 
-Triviality state_rel_dec_clock:
+Theorem state_rel_dec_clock[local]:
   state_rel s1 t1 ⇒ state_rel (dec_clock 1 s1) (dec_clock t1)
 Proof
   srw_tac[][state_rel_def,bviSemTheory.dec_clock_def,dataSemTheory.dec_clock_def]

@@ -35,7 +35,7 @@ End
 val _ = next_ml_names := ["fromByte"];
 val res = translate fromByte_def;
 
-Triviality frombyte_side_thm:
+Theorem frombyte_side_thm[local]:
   frombyte_side v = T
 Proof
   fs [fetch "-" "frombyte_side_def"]
@@ -72,7 +72,7 @@ val _ = ml_prog_update open_local_in_block;
 val _ = next_ml_names := ["some"];
 val res = translate some_char_def;
 
-Triviality some_char_side_thm:
+Theorem some_char_side_thm[local]:
   some_char_side v = T
 Proof
   fs [fetch "-" "some_char_side_def"] \\ EVAL_TAC \\ fs [ORD_BOUND]

@@ -10,7 +10,7 @@ Ancestors
 Libs
   preamble
 
-Triviality letrec_lemma2:
+Theorem letrec_lemma2[local]:
   !funs_ts l l' s s'.
  (!t1 t2. t_walkstar s t1 = t_walkstar s t2 ⇒  t_walkstar s' t1 = t_walkstar s' t2) ∧
  (LENGTH funs_ts = LENGTH l) ∧
@@ -32,14 +32,14 @@ fs [] >|
  metis_tac []]
 QED
 
-Triviality sub_completion_empty:
+Theorem sub_completion_empty[local]:
   !m n s s'. sub_completion m n s [] s' ⇔ count n ⊆ FDOM s' ∧ (∀uv. uv ∈ FDOM s' ⇒ check_t m ∅ (t_walkstar s' (Infer_Tuvar uv))) ∧ s = s'
 Proof
   rw [sub_completion_def, pure_add_constraints_def] >>
  metis_tac []
 QED
 
-Triviality generalise_none:
+Theorem generalise_none[local]:
   (!t s' t' x.
    check_t 0 x t ∧
    generalise 0 0 FEMPTY t = (0, s', t')
@@ -71,7 +71,7 @@ Proof
  metis_tac []
 QED
 
-Triviality lookup_var_empty:
+Theorem lookup_var_empty[local]:
   lookup_var x (bind_tvar tvs Empty) tenv =
   lookup_var x Empty tenv
 Proof
@@ -102,7 +102,7 @@ Definition set_ids_def:
   set_ids n1 (n2:num) = {m | n1 ≤ m ∧ m < n2}
 End
 
-Triviality set_ids_eq:
+Theorem set_ids_eq[local]:
   set_ids n1 n2 =
   set (GENLIST (λx. x + n1) (n2-n1))
 Proof
@@ -891,7 +891,7 @@ Proof
   metis_tac []
 QED
 
-Triviality check_freevars_nub:
+Theorem check_freevars_nub[local]:
   (!t x fvs.
   check_freevars x fvs t ⇒
   check_freevars x (nub fvs) t) ∧
@@ -903,7 +903,7 @@ Proof
 rw [check_freevars_def] >> metis_tac[]
 QED
 
-Triviality check_specs_sound:
+Theorem check_specs_sound[local]:
   !mn tenvT idecls1 ienv1 specs st1 idecls2 ienv2 st2.
     check_specs mn tenvT idecls1 ienv1 specs st1 = (Success (idecls2,ienv2), st2) ∧
     tenv_abbrev_ok tenvT
@@ -1135,4 +1135,3 @@ Proof
   infer_top_invariant]
 QED
 *)
-

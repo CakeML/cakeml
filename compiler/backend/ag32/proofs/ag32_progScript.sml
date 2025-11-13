@@ -83,43 +83,51 @@ End
 
 (* lemmas about proj *)
 
-val ag32_proj'_SUBSET_ag32_proj = prove(
-  ``!y s. ag32_proj' y s SUBSET ag32_proj s``,
+Theorem ag32_proj'_SUBSET_ag32_proj[local]:
+    !y s. ag32_proj' y s SUBSET ag32_proj s
+Proof
   strip_tac \\ PairCases_on `y`
-  \\ rw [ag32_proj_def,ag32_proj'_def,SUBSET_DEF]);
+  \\ rw [ag32_proj_def,ag32_proj'_def,SUBSET_DEF]
+QED
 
-val SPLIT_ag32_proj = prove(
-  ``!x s. SPLIT (ag32_proj s) (ag32_proj' x s, ag32_proj'' x s)``,
+Theorem SPLIT_ag32_proj[local]:
+    !x s. SPLIT (ag32_proj s) (ag32_proj' x s, ag32_proj'' x s)
+Proof
   rpt strip_tac
   \\ `ag32_proj' x s SUBSET ag32_proj s` by metis_tac [ag32_proj'_SUBSET_ag32_proj]
   \\ simp [SPLIT_def,EXTENSION,IN_UNION,IN_DIFF,ag32_proj''_def]
   \\ simp [DISJOINT_DEF,EXTENSION,IN_INTER,NOT_IN_EMPTY,IN_DIFF]
-  \\ metis_tac [SUBSET_DEF]);
+  \\ metis_tac [SUBSET_DEF]
+QED
 
 val PUSH_IN_INTO_IF = METIS_PROVE []
   ``!g x y z. (x IN (if g then y else z)) = if g then x IN y else x IN z``;
 
-val SUBSET_ag32_proj = prove(
-  ``!u s. u SUBSET ag32_proj s <=> ?y. u = ag32_proj' y s``,
+Theorem SUBSET_ag32_proj[local]:
+    !u s. u SUBSET ag32_proj s <=> ?y. u = ag32_proj' y s
+Proof
   rw [] \\ eq_tac \\ rw [] \\ rw [ag32_proj'_SUBSET_ag32_proj]
   \\ qexists_tac `((?y. aState y IN u),
                    { a | a| ?x. aMem a x IN u },(?y. aPc y IN u))`
   \\ fs [ag32_proj'_def,ag32_proj_def,EXTENSION,SUBSET_DEF,PUSH_IN_INTO_IF]
   \\ rw [] \\ eq_tac \\ rw [] THEN1 metis_tac []
-  \\ res_tac \\ fs []);
+  \\ res_tac \\ fs []
+QED
 
-val SPLIT_ag32_proj_EXISTS = prove(
-  ``!s u v. SPLIT (ag32_proj s) (u,v) =
-            ?y. (u = ag32_proj' y s) /\ (v = ag32_proj'' y s)``,
+Theorem SPLIT_ag32_proj_EXISTS[local]:
+    !s u v. SPLIT (ag32_proj s) (u,v) =
+            ?y. (u = ag32_proj' y s) /\ (v = ag32_proj'' y s)
+Proof
   rpt strip_tac \\ eq_tac \\ rpt strip_tac \\ asm_rewrite_tac [SPLIT_ag32_proj]
   \\ fs [SPLIT_def,ag32_proj'_def,ag32_proj''_def]
   \\ `u SUBSET (ag32_proj s)` by
        (full_simp_tac std_ss [EXTENSION,SUBSET_DEF,IN_UNION] \\ metis_tac [])
   \\ fs [SUBSET_ag32_proj] \\ qexists_tac `y` \\ rewrite_tac []
   \\ fs [EXTENSION,IN_DIFF,IN_UNION,DISJOINT_DEF,NOT_IN_EMPTY,IN_INTER]
-  \\ metis_tac []);
+  \\ metis_tac []
+QED
 
-val IN_ag32_proj = prove(``
+Theorem IN_ag32_proj[local]:
   (!x s. aPc x IN (ag32_proj s) <=> (x = s.PC)) /\
   (!x s. aPc x IN (ag32_proj' (fs,ms,pc) s) <=> (x = s.PC) /\ pc) /\
   (!x s. aPc x IN (ag32_proj'' (fs,ms,pc) s) <=> (x = s.PC) /\ ~pc) /\
@@ -128,11 +136,14 @@ val IN_ag32_proj = prove(``
   (!x s. aState x IN (ag32_proj'' (fs,ms,pc) s) <=> (x = s) /\ ~fs) /\
   (!p x s. aMem p x IN (ag32_proj s) <=> (x = s.MEM p)) /\
   (!p x s. aMem p x IN (ag32_proj' (fs,ms,pc) s) <=> (x = s.MEM p) /\ p IN ms) /\
-  (!p x s. aMem p x IN (ag32_proj'' (fs,ms,pc) s) <=> (x = s.MEM p) /\ ~(p IN ms))``,
-  rw [ag32_proj'_def,ag32_proj''_def,ag32_proj_def] \\ metis_tac []);
+  (!p x s. aMem p x IN (ag32_proj'' (fs,ms,pc) s) <=> (x = s.MEM p) /\ ~(p IN ms))
+Proof
+  rw [ag32_proj'_def,ag32_proj''_def,ag32_proj_def] \\ metis_tac []
+QED
 
-val ag32_proj''_11 = prove(
-  ``!y y' s s'. (ag32_proj'' y' s' = ag32_proj'' y s) ==> (y = y')``,
+Theorem ag32_proj''_11[local]:
+    !y y' s s'. (ag32_proj'' y' s' = ag32_proj'' y s) ==> (y = y')
+Proof
   rpt strip_tac \\ CCONTR_TAC
   \\ rename [`x <> y`]
   \\ PairCases_on `x`
@@ -157,24 +168,29 @@ val ag32_proj''_11 = prove(
        (?x. aPc x IN ag32_proj'' (y0,y1,y2) s'))` by
       (Q.PAT_X_ASSUM `ag32_proj'' _ _ = ag32_proj'' _ _` (K ALL_TAC)
        \\ full_simp_tac bool_ss [IN_ag32_proj] \\ metis_tac [])
-    \\ fs [EXTENSION] \\ metis_tac []));
+    \\ fs [EXTENSION] \\ metis_tac [])
+QED
 
-val DELETE_ag32_proj = prove(``
+Theorem DELETE_ag32_proj[local]:
   (!s. (ag32_proj' (fs,ms,pc) s) DELETE aState s =
        (ag32_proj' (F,ms,pc) s)) /\
   (!b s. (ag32_proj' (fs,ms,pc) s) DELETE aMem b (s.MEM b) =
          (ag32_proj' (fs,ms DELETE b,pc) s)) /\
   (!s. (ag32_proj' (fs,ms,pc) s) DELETE aPc (s.PC) =
-       (ag32_proj' (fs,ms,F) s))``,
+       (ag32_proj' (fs,ms,F) s))
+Proof
   rw [ag32_proj'_def,EXTENSION,IN_UNION,GSPECIFICATION,LEFT_AND_OVER_OR,
     EXISTS_OR_THM,IN_DELETE,IN_INSERT,NOT_IN_EMPTY,PUSH_IN_INTO_IF]
-  \\ Cases_on `x` \\ SRW_TAC [] [] \\ metis_tac []);
+  \\ Cases_on `x` \\ SRW_TAC [] [] \\ metis_tac []
+QED
 
-val EMPTY_ag32_proj = prove(``
-  (ag32_proj' (fs,ms,pc) s = {}) <=> ~fs /\ (ms = {}) /\ ~pc``,
+Theorem EMPTY_ag32_proj[local]:
+  (ag32_proj' (fs,ms,pc) s = {}) <=> ~fs /\ (ms = {}) /\ ~pc
+Proof
   rw [ag32_proj'_def,EXTENSION]
   \\ SRW_TAC [] [ag32_proj'_def,EXTENSION,IN_UNION,GSPECIFICATION,LEFT_AND_OVER_OR,
-    EXISTS_OR_THM,IN_DELETE,IN_INSERT,NOT_IN_EMPTY,PUSH_IN_INTO_IF]);
+    EXISTS_OR_THM,IN_DELETE,IN_INSERT,NOT_IN_EMPTY,PUSH_IN_INTO_IF]
+QED
 
 (* theorems for construction of |- SPEC AG32_MODEL ... *)
 
@@ -251,18 +267,21 @@ Proof
   \\ asm_simp_tac std_ss [AC CONJ_COMM CONJ_ASSOC]
 QED
 
-val CODE_POOL_ag32_proj_LEMMA = prove(
-  ``!x y z. (x = (z INSERT y)) <=> (z INSERT y) SUBSET x /\
-            ((x DIFF (z INSERT y)) = {})``,
-  fs [EXTENSION,SUBSET_DEF,IN_INSERT,NOT_IN_EMPTY,IN_DIFF] \\ metis_tac []);
+Theorem CODE_POOL_ag32_proj_LEMMA[local]:
+    !x y z. (x = (z INSERT y)) <=> (z INSERT y) SUBSET x /\
+            ((x DIFF (z INSERT y)) = {})
+Proof
+  fs [EXTENSION,SUBSET_DEF,IN_INSERT,NOT_IN_EMPTY,IN_DIFF] \\ metis_tac []
+QED
 
-val CODE_POOL_ag32_proj = prove(
-  ``CODE_POOL ag32_instr {(p,c)} (ag32_proj' (fs,ms,pc) s) <=>
+Theorem CODE_POOL_ag32_proj[local]:
+    CODE_POOL ag32_instr {(p,c)} (ag32_proj' (fs,ms,pc) s) <=>
       ({p+3w;p+2w;p+1w;p} = ms) /\ ~fs /\ ~pc /\
       (s.MEM (p + 0w) = ( 7 ><  0) c) /\
       (s.MEM (p + 1w) = (15 ><  8) c) /\
       (s.MEM (p + 2w) = (23 >< 16) c) /\
-      (s.MEM (p + 3w) = (31 >< 24) c)``,
+      (s.MEM (p + 3w) = (31 >< 24) c)
+Proof
   simp_tac bool_ss [CODE_POOL_def,IMAGE_INSERT,IMAGE_EMPTY,BIGUNION_INSERT,
     BIGUNION_EMPTY,UNION_EMPTY,ag32_instr_def,CODE_POOL_ag32_proj_LEMMA,
     GSYM DELETE_DEF, INSERT_SUBSET, EMPTY_SUBSET,IN_ag32_proj]
@@ -271,25 +290,28 @@ val CODE_POOL_ag32_proj = prove(
   \\ Cases_on `(15 ><  8) c = s.MEM (p + 1w)` \\ asm_simp_tac std_ss []
   \\ Cases_on `( 7 ><  0) c = s.MEM (p + 0w)` \\ asm_simp_tac std_ss [WORD_ADD_0]
   \\ asm_simp_tac std_ss [DELETE_ag32_proj,EMPTY_ag32_proj,DIFF_INSERT]
-  \\ asm_simp_tac std_ss [AC CONJ_COMM CONJ_ASSOC,DIFF_EMPTY,EMPTY_ag32_proj]);
+  \\ asm_simp_tac std_ss [AC CONJ_COMM CONJ_ASSOC,DIFF_EMPTY,EMPTY_ag32_proj]
+QED
 
 val AG32_SPEC_CODE =
   SPEC_CODE |> ISPEC ``AG32_MODEL``
   |> SIMP_RULE std_ss [AG32_MODEL_def]
   |> REWRITE_RULE [GSYM AG32_MODEL_def];
 
-val IMP_AG32_SPEC_LEMMA = prove(
-  ``!p q.
+Theorem IMP_AG32_SPEC_LEMMA[local]:
+    !p q.
       (!fs ms pc s. ?s'.
         (p (ag32_proj' (fs,ms,pc) s) ==>
         (Next s = s') /\ q (ag32_proj' (fs,ms,pc) s') /\
         (ag32_proj'' (fs,ms,pc) s = ag32_proj'' (fs,ms,pc) s'))) ==>
-      SPEC AG32_MODEL p {} q``,
+      SPEC AG32_MODEL p {} q
+Proof
   simp_tac std_ss [RIGHT_EXISTS_IMP_THM] \\ rewrite_tac [AG32_SPEC_SEMANTICS]
   \\ simp_tac std_ss [FORALL_PROD]
   \\ rpt strip_tac \\ RES_TAC
   \\ full_simp_tac bool_ss [rel_sequence_def]
-  \\ qexists_tac `SUC 0` \\ metis_tac [PAIR,optionTheory.SOME_11]);
+  \\ qexists_tac `SUC 0` \\ metis_tac [PAIR,optionTheory.SOME_11]
+QED
 
 val _ = wordsLib.guess_lengths();
 Theorem BYTES_TO_WORD_LEMMA:

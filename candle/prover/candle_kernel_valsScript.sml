@@ -338,7 +338,7 @@ Proof
   fs [do_partial_app_def]
 QED
 
-Triviality same_clock_exists:
+Theorem same_clock_exists[local]:
   (∃k. s = s with clock := k) = T ∧
   (∃k. s with clock := k' = s with clock := k) = T
 Proof

@@ -9,7 +9,7 @@ Libs
 
 val _ = cv_memLib.use_long_names := true;
 
-Triviality list_mem[cv_inline] = listTheory.MEM;
+Theorem list_mem[local,cv_inline] = listTheory.MEM;
 
 val _ = cv_trans sptreeTheory.fromAList_def;
 val _ = cv_trans miscTheory.SmartAppend_def;
@@ -42,7 +42,7 @@ Proof
   \\ ‘k MOD 10 < 10’ by gvs [] \\ simp []
 QED
 
-Triviality Num_ABS:
+Theorem Num_ABS[local]:
   Num (ABS i) = Num i
 Proof
   Cases_on ‘i’ \\ gvs []

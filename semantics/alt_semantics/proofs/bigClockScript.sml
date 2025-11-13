@@ -41,7 +41,7 @@ Proof
   \\ gvs [do_app_cases,AllCaseEqs(),oneline thunk_op_def,store_alloc_def]
 QED
 
-Triviality lemma:
+Theorem lemma[local]:
   ((s with clock := c) with <| refs := r; ffi := io |>) =
   s with <| clock := c; refs := r; ffi := io |>
 Proof
@@ -245,7 +245,7 @@ Proof
   metis_tac []
 QED
 
-Triviality with_clock_clock:
+Theorem with_clock_clock[local]:
   (s with clock := a).clock = a
 Proof
   rw[]
@@ -349,7 +349,7 @@ Proof
   full_simp_tac (srw_ss()++ARITH_ss) []
 QED
 
-Triviality with_same_clock:
+Theorem with_same_clock[local]:
   (s with clock := s.clock) = s
 Proof
   rw[state_component_equality]
@@ -378,7 +378,7 @@ Proof
              with_clock_with_clock]
 QED
 
-Triviality wf_lem:
+Theorem wf_lem[local]:
   WF (($< :(num->num->bool)) LEX measure exp_size)
 Proof
   rw [] >>
@@ -1092,13 +1092,13 @@ Theorem evaluate_decs_unclocked_to_clocked =
   CONJUNCTS |> map (Q.SPEC `F`) |> LIST_CONJ |>
   SIMP_RULE (srw_ss()) [FORALL_PROD, AND_IMP_INTRO];
 
-Triviality wf_dec_lem:
+Theorem wf_dec_lem[local]:
   WF $ ($< : num -> num -> bool) LEX measure dec_size
 Proof
   simp[WF_LEX]
 QED
 
-Triviality dec_ind = MATCH_MP WF_INDUCTION_THM wf_dec_lem;
+Theorem dec_ind[local] = MATCH_MP WF_INDUCTION_THM wf_dec_lem;
 
 Theorem evaluate_decs_total_lemma:
   ∀ds env ^s clk.
@@ -1179,4 +1179,3 @@ Proof
   imp_res_tac big_unclocked >> gvs[] >>
   Cases_on `r` >> gvs[combine_dec_result_def]
 QED
-

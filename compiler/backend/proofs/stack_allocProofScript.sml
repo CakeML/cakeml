@@ -64,7 +64,7 @@ QED
 
 (* ---- *)
 
-Triviality get_var_imm_case:
+Theorem get_var_imm_case[local]:
   get_var_imm ri s =
     case ri of
     | Reg n => get_var n s
@@ -73,7 +73,7 @@ Proof
   Cases_on `ri` \\ full_simp_tac(srw_ss())[get_var_imm_def]
 QED
 
-Triviality prog_comp_lemma:
+Theorem prog_comp_lemma[local]:
   prog_comp = \(n,p). (n,FST (comp n (next_lab p 2) p))
 Proof
   full_simp_tac(srw_ss())[FUN_EQ_THM,FORALL_PROD,prog_comp_def]
@@ -98,7 +98,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality map_bitmap_APPEND:
+Theorem map_bitmap_APPEND[local]:
   !x q stack p0 p1.
       filter_bitmap x stack = SOME (p0,p1) /\
       LENGTH q = LENGTH p0 ==>
@@ -165,7 +165,7 @@ Proof
   \\ full_simp_tac(srw_ss())[ADD1] \\ srw_tac[][]
 QED
 
-Triviality word_lsr_dimindex:
+Theorem word_lsr_dimindex[local]:
   (w:'a word) >>> dimindex (:'a) = 0w
 Proof
   full_simp_tac(srw_ss())[]
@@ -190,7 +190,7 @@ Proof
   \\ simp []
 QED
 
-Triviality word_msb_IMP_bit_length:
+Theorem word_msb_IMP_bit_length[local]:
   !h. word_msb (h:'a word) ==> (bit_length h = dimindex (:'a))
 Proof
   srw_tac[][] \\ imp_res_tac shift_to_zero_word_msb \\ CCONTR_TAC
@@ -200,14 +200,14 @@ Proof
   \\ decide_tac
 QED
 
-Triviality get_bits_intro:
+Theorem get_bits_intro[local]:
   word_msb (h:'a word) ==>
     GENLIST (\i. h ' i) (dimindex (:'a) - 1) = get_bits h
 Proof
   full_simp_tac(srw_ss())[get_bits_def,word_msb_IMP_bit_length]
 QED
 
-Triviality filter_bitmap_APPEND:
+Theorem filter_bitmap_APPEND[local]:
   !xs stack ys.
       filter_bitmap (xs ++ ys) stack =
       case filter_bitmap xs stack of
@@ -250,7 +250,7 @@ Proof
   srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]
 QED
 
-Triviality split_num_forall_to_10:
+Theorem split_num_forall_to_10[local]:
   ($! P) <=> P 0 /\ P 1 /\ P 2 /\ P 3 /\ P 4 /\ P 5 /\
                P 6 /\ P 7 /\ P 8 /\ P 9 /\ !x. 9 < x ==> P (x:num)
 Proof
@@ -286,33 +286,33 @@ Proof
   srw_tac [wordsLib.WORD_BIT_EQ_ss] [] \\ eq_tac \\ rw []
 QED
 
-Triviality is_fwd_ptr_iff:
+Theorem is_fwd_ptr_iff[local]:
   !w. is_fwd_ptr w <=> ?v. w = Word v /\ (v && 3w) = 0w
 Proof
   Cases \\ full_simp_tac(srw_ss())[wordSemTheory.is_fwd_ptr_def]
 QED
 
-Triviality isWord_thm:
+Theorem isWord_thm[local]:
   !w. isWord w = ?v. w = Word v
 Proof
   Cases \\ full_simp_tac(srw_ss())[wordSemTheory.isWord_def]
 QED
 
-Triviality lower_2w_eq:
+Theorem lower_2w_eq[local]:
   !w:'a word. good_dimindex (:'a) ==> (w <+ 2w <=> w = 0w \/ w = 1w)
 Proof
   Cases \\ fs [good_dimindex_def,WORD_LO,dimword_def]
   \\ rw [] \\ rw []
 QED
 
-Triviality EL_LENGTH_ADD_LEMMA:
+Theorem EL_LENGTH_ADD_LEMMA[local]:
   EL (LENGTH init + LENGTH old) (init ++ old ++ [x] ++ st1) = x
 Proof
   mp_tac (EL_LENGTH_APPEND |> Q.SPECL [`[x] ++ st1`,`init++old`])
   \\ fs []
 QED
 
-Triviality LUPDATE_LENGTH_ADD_LEMMA:
+Theorem LUPDATE_LENGTH_ADD_LEMMA[local]:
   LUPDATE w (LENGTH init + LENGTH old) (init ++ old ++ [x] ++ st1) =
        init ++ old ++ [w] ++ st1
 Proof
@@ -345,7 +345,7 @@ Proof
   \\ every_case_tac \\ fs []
 QED
 
-Triviality EL_LENGTH_ADD_LEMMA:
+Theorem EL_LENGTH_ADD_LEMMA[local]:
   !n xs y ys. LENGTH xs = n ==> EL n (xs ++ y::ys) = y
 Proof
   fs [EL_LENGTH_APPEND]
@@ -381,7 +381,7 @@ fun abbrev_under_exists tm tac =
   (fn state => (`?^(tm). ^(hd (fst (hd (fst (tac state)))))` by
         (fs [markerTheory.Abbrev_def] \\ NO_TAC)) state)
 
-Triviality memcpy_code_thm:
+Theorem memcpy_code_thm[local]:
   !n a b m dm b1 m1 (s:('a,'c,'b)stackSem$state).
       memcpy ((n2w n):'a word) a b m dm = (b1:'a word,m1,T) /\
       n < dimword (:'a) /\
@@ -472,7 +472,7 @@ val word_gc_fun_lemma =
   |> SIMP_RULE std_ss [Once LET_THM]
   |> SIMP_RULE std_ss [Once LET_THM,word_gc_move_roots_def]
 
-Triviality word_gc_fun_thm:
+Theorem word_gc_fun_thm[local]:
   conf.gc_kind = Simple ==>
    word_gc_fun conf (roots,m,dm,s) =
       let (w1,i1:'a word,pa1,m1,c1) =
@@ -545,7 +545,7 @@ Proof
   Cases_on `c` \\ fs [] \\ rw [] \\ imp_res_tac word_gc_move_loop_F \\ fs []
 QED
 
-Triviality gc_thm:
+Theorem gc_thm[local]:
   s.gc_fun = word_gc_fun conf /\ conf.gc_kind = Simple ==>
    gc (s:('a,'c,'b)stackSem$state) =
    if LENGTH s.stack < s.stack_space then NONE else
@@ -620,7 +620,7 @@ Definition word_gc_move_bitmaps_def:
               SOME (hd,ws,i2,pa2,m2,c2)
 End
 
-Triviality word_gc_move_roots_APPEND:
+Theorem word_gc_move_roots_APPEND[local]:
   !xs ys i1 pa1 m.
       word_gc_move_roots conf (xs++ys,i1,pa1,curr,m,dm) =
         let (ws1,i1,pa1,m1,c1) = word_gc_move_roots conf (xs,i1,pa1,curr,m,dm) in
@@ -647,7 +647,7 @@ Proof
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[] \\ res_tac
 QED
 
-Triviality word_gc_move_roots_bitmaps:
+Theorem word_gc_move_roots_bitmaps[local]:
   !stack i1 pa1 m stack2 i2 pa2 m2.
       (word_gc_move_roots_bitmaps conf (stack,bitmaps,i1,pa1,curr,m,dm) =
         (stack2,i2,pa2,m2,T)) ==>
@@ -737,7 +737,7 @@ val word_gc_move_bitmaps_Loc =
   ``word_gc_move_bitmaps conf (Loc l1 l2,stack,bitmaps,i1,pa1,curr,m,dm)``
   |> SIMP_CONV std_ss [word_gc_move_bitmaps_def,full_read_bitmap_def];
 
-Triviality word_gc_move_bitmaps_unroll:
+Theorem word_gc_move_bitmaps_unroll[local]:
   word_gc_move_bitmaps conf (Word w,stack,bitmaps,i1,pa1,curr,m,dm) = SOME x /\
     LENGTH bitmaps < dimword (:'a) - 1 /\ good_dimindex (:'a) ==>
     word_gc_move_bitmaps conf (Word w,stack,bitmaps,i1,pa1,curr,m,dm) =
@@ -814,7 +814,7 @@ Proof
   \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[]
 QED
 
-Triviality word_gc_move_bitmap_unroll:
+Theorem word_gc_move_bitmap_unroll[local]:
   word_gc_move_bitmap conf (w,stack,i1,pa1,curr,m,dm) =
     if w = 0w:'a word then SOME ([],stack,i1,pa1,m,T) else
     if w = 1w then SOME ([],stack,i1,pa1,m,T) else
@@ -1041,7 +1041,7 @@ Proof
   \\ full_simp_tac(srw_ss())[nine_less]
 QED
 
-Triviality word_gc_move_loop_code_thm:
+Theorem word_gc_move_loop_code_thm[local]:
   !k pb1 i1 pa1 old1 m1 dm1 c1 i2 pa2 m2 (s:('a,'c,'b)stackSem$state).
       word_gc_move_loop k conf (pb1,i1,pa1,old1,m1,dm1,c1) = (i2,pa2,m2,T) /\
       shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
@@ -1722,7 +1722,7 @@ val word_gc_fun_lemma =
   |> SIMP_RULE std_ss [Once LET_THM]
   |> SIMP_RULE std_ss [Once LET_THM,word_gen_gc_move_roots_def]
 
-Triviality word_gc_fun_thm:
+Theorem word_gc_fun_thm[local]:
   conf.gc_kind = ^kind ==>
    word_gc_fun conf (roots,m,dm,s) =
      if ¬word_gc_fun_assum conf s then NONE else
@@ -1857,10 +1857,11 @@ Definition word_gen_gc_partial_move_roots_bitmaps_def:
           | SOME stack => (stack,i2,pa2,m2,c2)
 End
 
-val word_gen_gc_partial_move_ref_list_ok = prove(
-  ``!k rs re pb pa old m i gs dm conf c i1 pa1 m1.
+Theorem word_gen_gc_partial_move_ref_list_ok[local]:
+    !k rs re pb pa old m i gs dm conf c i1 pa1 m1.
       word_gen_gc_partial_move_ref_list k conf
-       (pb,i,pa,old,m,dm,c,gs,rs,re) = (i1,pa1,m1,T) ==> c``,
+       (pb,i,pa,old,m,dm,c,gs,rs,re) = (i1,pa1,m1,T) ==> c
+Proof
   Induct
   THEN1 (once_rewrite_tac [word_gen_gc_partial_move_ref_list_def]
          \\ fs [] \\ rw [])
@@ -1871,9 +1872,10 @@ val word_gen_gc_partial_move_ref_list_ok = prove(
   \\ pairarg_tac
   \\ res_tac
   \\ asm_rewrite_tac [] \\ simp_tac std_ss []
-  \\ strip_tac \\ res_tac);
+  \\ strip_tac \\ res_tac
+QED
 
-Triviality gc_thm:
+Theorem gc_thm[local]:
   s.gc_fun = word_gc_fun conf /\ conf.gc_kind = ^kind ==>
    gc (s:('a,'c,'b)stackSem$state) =
    if LENGTH s.stack < s.stack_space then NONE else
@@ -2020,7 +2022,7 @@ Definition word_gen_gc_partial_move_bitmaps_def:
               SOME (hd,ws,i2,pa2,m2,c2)
 End
 
-Triviality word_gen_gc_move_roots_APPEND:
+Theorem word_gen_gc_move_roots_APPEND[local]:
   !xs ys i1 pa1 ib1 pb1 m.
       word_gen_gc_move_roots conf (xs++ys,i1,pa1,ib1,pb1,curr,m,dm) =
         let (ws1,i1,pa1,ib1,pb1,m1,c1) =
@@ -2038,7 +2040,7 @@ Proof
   \\ rveq \\ fs[] \\ EQ_TAC \\ fs[] \\ rw[]
 QED
 
-Triviality word_gen_gc_partial_move_roots_APPEND:
+Theorem word_gen_gc_partial_move_roots_APPEND[local]:
   !xs ys i1 pa1 ib1 pb1 m.
       word_gen_gc_partial_move_roots conf (xs++ys,i1,pa1,curr,m,dm,gs,rs) =
         let (ws1,i1,pa1,m1,c1) =
@@ -2080,7 +2082,7 @@ Proof
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[] \\ res_tac
 QED
 
-Triviality word_gen_gc_move_roots_bitmaps:
+Theorem word_gen_gc_move_roots_bitmaps[local]:
   !stack i1 pa1 m stack2 i2 pa2 m2.
       (word_gen_gc_move_roots_bitmaps conf (stack,bitmaps,i1,pa1,ib1,pb1,curr,m,dm) =
         (stack2,i2,pa2,ib2,pb2,m2,T)) ==>
@@ -2133,7 +2135,7 @@ Proof
   \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
 QED
 
-Triviality word_gen_gc_partial_move_roots_bitmaps:
+Theorem word_gen_gc_partial_move_roots_bitmaps[local]:
   !stack i1 pa1 m stack2 i2 pa2 m2.
       (word_gen_gc_partial_move_roots_bitmaps conf
         (stack,bitmaps,i1,pa1,curr,m,dm,gs,rs) =
@@ -2246,7 +2248,7 @@ val word_gen_gc_partial_move_bitmaps_Loc =
   ``word_gen_gc_partial_move_bitmaps conf (Loc l1 l2,stack,bitmaps,i1,pa1,curr,m,dm,gs,rs)``
   |> SIMP_CONV std_ss [word_gen_gc_partial_move_bitmaps_def,full_read_bitmap_def];
 
-Triviality word_gen_gc_move_bitmaps_unroll:
+Theorem word_gen_gc_move_bitmaps_unroll[local]:
   word_gen_gc_move_bitmaps conf (Word w,stack,bitmaps,i1,pa1,ib1,pb1,curr,m,dm) = SOME x /\
     LENGTH bitmaps < dimword (:'a) - 1 /\ good_dimindex (:'a) ==>
     word_gen_gc_move_bitmaps conf (Word w,stack,bitmaps,i1,pa1,ib1,pb1,curr,m,dm) =
@@ -2323,7 +2325,7 @@ Proof
   \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[]
 QED
 
-Triviality word_gen_gc_partial_move_bitmaps_unroll:
+Theorem word_gen_gc_partial_move_bitmaps_unroll[local]:
   word_gen_gc_partial_move_bitmaps conf
       (Word w,stack,bitmaps,i1,pa1,curr,m,dm,gs,rs) = SOME x /\
     LENGTH bitmaps < dimword (:'a) - 1 /\ good_dimindex (:'a) ==>
@@ -2403,7 +2405,7 @@ Proof
   \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[]
 QED
 
-Triviality word_gen_gc_move_bitmap_unroll:
+Theorem word_gen_gc_move_bitmap_unroll[local]:
   word_gen_gc_move_bitmap conf (w,stack,i1,pa1,ib1,pb1,curr,m,dm) =
     if w = 0w:'a word then SOME ([],stack,i1,pa1,ib1,pb1,m,T) else
     if w = 1w then SOME ([],stack,i1,pa1,ib1,pb1,m,T) else
@@ -2458,7 +2460,7 @@ Proof
   \\ rpt (CASE_TAC \\ full_simp_tac(srw_ss())[])
 QED
 
-Triviality word_gen_gc_partial_move_bitmap_unroll:
+Theorem word_gen_gc_partial_move_bitmap_unroll[local]:
   word_gen_gc_partial_move_bitmap conf (w,stack,i1,pa1,curr,m,dm,gs,rs) =
     if w = 0w:'a word then SOME ([],stack,i1,pa1,m,T) else
     if w = 1w then SOME ([],stack,i1,pa1,m,T) else
@@ -3888,7 +3890,7 @@ Proof
   \\ full_simp_tac(srw_ss())[nine_less]
 QED
 
-Triviality word_gen_gc_partial_move_ref_list_code_thm:
+Theorem word_gen_gc_partial_move_ref_list_code_thm[local]:
   !k r2a1 r1a1 r2a2 i1 pa1 ib1 pb1 old1 m1 dm1 c1 i2 pa2 ib2 pb2 m2 (s:('a,'c,'b)stackSem$state).
       word_gen_gc_partial_move_ref_list k conf (r1a1,i1,pa1,old1,m1,dm1,T,gs,rs,r2a1) =
         (i2,pa2,m2,T) /\
@@ -3981,7 +3983,7 @@ Proof
   \\ full_simp_tac(srw_ss())[nine_less]
 QED
 
-Triviality word_gen_gc_move_data_code_thm:
+Theorem word_gen_gc_move_data_code_thm[local]:
   !k ha1 i1 pa1 ib1 pb1 old1 m1 dm1 c1 i2 pa2 ib2 pb2 m2 (s:('a,'c,'b)stackSem$state).
       word_gen_gc_move_data conf k (ha1,i1,pa1,ib1,pb1,old1,m1,dm1) =
         (i2,pa2,ib2,pb2,m2,T) /\
@@ -4113,7 +4115,7 @@ Proof
   \\ rw [] \\ eq_tac \\ rw[] \\ fs []
 QED
 
-Triviality word_gen_gc_partial_move_data_code_thm:
+Theorem word_gen_gc_partial_move_data_code_thm[local]:
   !k ha1 i1 pa1 old1 m1 dm1 c1 i2 pa2 m2 (s:('a,'c,'b)stackSem$state).
       word_gen_gc_partial_move_data conf k (ha1,i1,pa1,old1,m1,dm1,gs,rs) =
         (i2,pa2,m2,T) /\
@@ -4232,7 +4234,7 @@ Proof
   \\ full_simp_tac(srw_ss())[nine_less]
 QED
 
-Triviality word_gen_gc_move_refs_code_thm:
+Theorem word_gen_gc_move_refs_code_thm[local]:
   !k r2a1 r1a1 r2a2 i1 pa1 ib1 pb1 old1 m1 dm1 c1 i2 pa2 ib2 pb2 m2 (s:('a,'c,'b)stackSem$state).
       word_gen_gc_move_refs conf k (r2a1,r1a1,i1,pa1,ib1,pb1,old1,m1,dm1) =
         (r2a2,i2,pa2,ib2,pb2,m2,T) /\
@@ -4336,7 +4338,7 @@ Proof
   \\ rw [] \\ eq_tac \\ rw[] \\ fs []
 QED
 
-Triviality word_gen_gc_move_loop_code_thm:
+Theorem word_gen_gc_move_loop_code_thm[local]:
   !k pax i pa ib pb pbx old m dm i1 pa1 ib1 pb1 m1 tt (s:('a,'c,'b)stackSem$state).
       word_gen_gc_move_loop conf k (pax,i,pa,ib,pb,pbx,old,m,dm) =
           (i1,pa1,ib1,pb1,m1,T) /\
@@ -4525,11 +4527,13 @@ Proof
   \\ fs [] \\ rw [] \\ eq_tac \\ rw [] \\ fs []
 QED
 
-val word_sub_0_eq = prove(
-  ``((-1w * w + v = 0w) <=> w = v) /\
-    ((v + -1w * w = 0w) <=> w = v)``,
+Theorem word_sub_0_eq[local]:
+    ((-1w * w + v = 0w) <=> w = v) /\
+    ((v + -1w * w = 0w) <=> w = v)
+Proof
   once_rewrite_tac [GSYM wordsTheory.WORD_EQ_NEG]
-  \\ once_rewrite_tac [GSYM wordsTheory.WORD_EQ_SUB_ZERO] \\ fs []);
+  \\ once_rewrite_tac [GSYM wordsTheory.WORD_EQ_SUB_ZERO] \\ fs []
+QED
 
 Theorem good_dimindex_byte_aligned_eq:
    good_dimindex (:'a) ==>
@@ -4540,8 +4544,8 @@ Proof
   \\ fs [alignmentTheory.byte_aligned_def,alignmentTheory.aligned_bitwise_and]
 QED
 
-val evaluate_SetNewTrigger = prove(
-  ``evaluate (SetNewTrigger endh_reg ib_reg gen_sizes,s5) = (res,new_s) ==>
+Theorem evaluate_SetNewTrigger[local]:
+    evaluate (SetNewTrigger endh_reg ib_reg gen_sizes,s5) = (res,new_s) ==>
     !ib endh w.
       good_dimindex (:'a) /\ s5.use_store /\
       ALL_DISTINCT [1; 4; 7; ib_reg; endh_reg] /\
@@ -4552,7 +4556,8 @@ val evaluate_SetNewTrigger = prove(
         res = NONE /\
         new_s = s5 with <| regs := s5.regs |+ (1,r1) |+ (7,r7) |+ (4,r4);
                            store := s5.store |+ (TriggerGC,
-                             Word ((ib + new_trig (endh - ib) w gen_sizes))) |>``,
+                             Word ((ib + new_trig (endh - ib) w gen_sizes))) |>
+Proof
   rw [] \\ qpat_x_assum `evaluate _ = _` mp_tac
   \\ rw [new_trig_def]
   \\ pop_assum mp_tac
@@ -4575,7 +4580,8 @@ val evaluate_SetNewTrigger = prove(
   \\ rw [] \\ fs [state_component_equality]
   \\ fs [fmap_EXT,EXTENSION]
   \\ fs [GSYM PULL_EXISTS]
-  \\ fs [FAPPLY_FUPDATE_THM] \\ metis_tac []);
+  \\ fs [FAPPLY_FUPDATE_THM] \\ metis_tac []
+QED
 
 Theorem alloc_correct_lemma_Generational:
    alloc w (s:('a,'c,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
@@ -4969,23 +4975,26 @@ QED
 
 (* gc_kind = None *)
 
-val filter_bitmap_map_bitmap_IMP = prove(
-  ``!x ws q r x' q' q'' r''.
+Theorem filter_bitmap_map_bitmap_IMP[local]:
+    !x ws q r x' q' q'' r''.
       filter_bitmap x ws = SOME (q,r) /\
       map_bitmap x (q ++ x') ws = SOME (q',q'',r'') ==>
-      q'' = x' /\ r = r'' /\ ws = q' ++ r``,
+      q'' = x' /\ r = r'' /\ ws = q' ++ r
+Proof
   Induct \\ fs [filter_bitmap_def,map_bitmap_def]
   \\ Cases \\ Cases
   \\ fs [filter_bitmap_def,map_bitmap_def]
   \\ every_case_tac \\ fs [map_bitmap_def]
   \\ rw [] \\ every_case_tac \\ fs [] \\ rveq \\ fs []
-  \\ res_tac \\ rveq \\ fs []);
+  \\ res_tac \\ rveq \\ fs []
+QED
 
-val enc_dec_stack = prove(
-  ``!bs ys2 x1 x2.
+Theorem enc_dec_stack[local]:
+    !bs ys2 x1 x2.
       enc_stack bs ys2 = SOME x1 /\
       dec_stack bs x1 ys2 = SOME x2 ==>
-      (ys2 = x2)``,
+      (ys2 = x2)
+Proof
   ho_match_mp_tac enc_stack_ind
   \\ fs [enc_stack_def] \\ rw []
   \\ rw [] \\ fs [dec_stack_def]
@@ -4997,7 +5006,8 @@ val enc_dec_stack = prove(
   \\ drule filter_bitmap_map_bitmap_IMP
   \\ fs [] \\ strip_tac \\ rveq \\ fs []
   \\ pop_assum drule \\ fs [] \\ rw []
-  \\ res_tac \\ rveq \\ fs []);
+  \\ res_tac \\ rveq \\ fs []
+QED
 
 Theorem alloc_correct_lemma_None:
    alloc w (s:('a,'c,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
@@ -5088,7 +5098,7 @@ Proof
   THEN1 metis_tac [alloc_correct_lemma_Generational]
 QED
 
-Triviality alloc_correct:
+Theorem alloc_correct[local]:
   alloc w (s:('a,'c,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
     s.gc_fun = word_gc_fun c /\
     LENGTH s.bitmaps < dimword (:'a) - 1 /\
@@ -5118,7 +5128,7 @@ Proof
   \\ Cases_on `r` \\ fs [state_component_equality]
 QED
 
-Triviality find_code_IMP_lookup:
+Theorem find_code_IMP_lookup[local]:
   find_code dest regs (s:'a num_map) = SOME x ==>
     ?k. sptree$lookup k s = SOME x /\
         (find_code dest regs = ((lookup k):'a num_map -> 'a option))
@@ -5187,7 +5197,7 @@ Proof
   \\ rw [] \\ metis_tac [get_labels_comp,SUBSET_DEF]
 QED
 
-Triviality SUBMAP_DOMSUB_both:
+Theorem SUBMAP_DOMSUB_both[local]:
   A SUBMAP B ⇒
   A \\ c SUBMAP B \\ c
 Proof
@@ -5195,7 +5205,7 @@ Proof
   metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB]
 QED
 
-Triviality SUBMAP_FUPDATE_both:
+Theorem SUBMAP_FUPDATE_both[local]:
   A SUBMAP B ⇒
   A |+ (n,v) SUBMAP B |+ (n,v)
 Proof
@@ -5204,7 +5214,7 @@ Proof
 QED
 
 (* This proof is very slow! *)
-Triviality inst_correct:
+Theorem inst_correct[local]:
   inst (i:'a inst) (s:('a,'c,'b) stackSem$state) = SOME t ∧
   LENGTH s.stack * (dimindex (:α) DIV 8) < dimword (:α) ∧
   LENGTH s.data_buffer.buffer + (LENGTH s.bitmaps + s.data_buffer.space_left) < dimword (:'a) - 1 ∧
@@ -5889,10 +5899,12 @@ val comp_correct_thm =
   |> Q.INST [`regs`|->`s.regs`]
   |> REWRITE_RULE [SUBMAP_REFL];
 
-val with_same_regs_lemma = Q.prove(
-  `s with <| regs := s.regs; compile := cc; compile_oracle := oracle; gc_fun := anything; use_stack := T; use_store := T; use_alloc := F; clock := k; code := c |> =
-   s with <| compile := cc; compile_oracle := oracle; gc_fun := anything; use_stack := T; use_store := T; use_alloc := F; clock := k; code := c |>`,
-  simp[state_component_equality])
+Theorem with_same_regs_lemma[local]:
+   s with <| regs := s.regs; compile := cc; compile_oracle := oracle; gc_fun := anything; use_stack := T; use_store := T; use_alloc := F; clock := k; code := c |> =
+   s with <| compile := cc; compile_oracle := oracle; gc_fun := anything; use_stack := T; use_store := T; use_alloc := F; clock := k; code := c |>
+Proof
+  simp[state_component_equality]
+QED
 val _ = augment_srw_ss[rewrites[with_same_regs_lemma]];
 
 Theorem compile_semantics:
@@ -6109,9 +6121,11 @@ Theorem next_lab_EQ_MAX = Q.prove(`
   rpt (pop_assum (fn th => once_rewrite_tac [th])) >>
   fs [AC MAX_ASSOC MAX_COMM]) |> SIMP_RULE std_ss [];
 
-val MAX_SIMP = prove(
-  ``MAX n (MAX n m) = MAX n m``,
-  fs [MAX_DEF]);
+Theorem MAX_SIMP[local]:
+    MAX n (MAX n m) = MAX n m
+Proof
+  fs [MAX_DEF]
+QED
 
 Theorem next_lab_thm:
    !p.

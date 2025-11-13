@@ -39,7 +39,7 @@ Proof
      GSYM STAR_ASSOC,encode_def] >>
   IMP_RES_TAC FRAME_UNIQUE_IO >>
   fs[IO_fs_component_equality]
-QED;
+QED
 
 Theorem IOFS_FFI_part_hprop:
   FFI_part_hprop (IOFS fs)
@@ -53,7 +53,7 @@ Proof
   \\ fs[set_sepTheory.one_STAR,STAR_def]
   \\ imp_res_tac SPLIT_SUBSET >> fs[SUBSET_DEF]
   \\ metis_tac[]
-QED;
+QED
 
 Theorem IOFS_iobuff_HPROP_INJ[hprop_inj]:
   !fs1 fs2. HPROP_INJ (IOFS fs1) (IOFS fs2) (fs2 = fs1)
@@ -62,7 +62,7 @@ Proof
      HCOND_EXTRACT] >>
   fs[IOFS_def,cfHeapsBaseTheory.IOx_def, fs_ffi_part_def] >>
   EQ_TAC >> rpt DISCH_TAC >> IMP_RES_TAC FRAME_UNIQUE_IO >> fs[]
-QED;
+QED
 
 (* "end-user" property *)
 (* abstracts away the lazy list and ensure that standard streams are opened on
@@ -82,13 +82,13 @@ Theorem STDIO_numchars:
   STDIO (fs with numchars := x) = STDIO fs
 Proof
   rw[STDIO_def,GSYM STD_streams_numchars]
-QED;
+QED
 
 Theorem STDIO_bumpFD[simp]:
   STDIO (bumpFD fd fs n) = STDIO (forwardFD fs fd n)
 Proof
   rw[bumpFD_forwardFD,STDIO_numchars]
-QED;
+QED
 
 Theorem UNIQUE_STDIO:
   !s. VALID_HEAP s ==> !fs1 fs2 H1 H2. (STDIO fs1 * H1) s /\
@@ -99,7 +99,7 @@ Proof
   fs[Once STAR_COMM] >>
   imp_res_tac UNIQUE_IOFS >>
   cases_on`fs1` >> cases_on`fs2` >> fs[recordtype_IO_fs_seldef_numchars_fupd_def]
-QED;
+QED
 
 (* weak injection theorem *)
 Theorem STDIO_HPROP_INJ[hprop_inj]:
@@ -130,7 +130,7 @@ Proof
   qexists_tac`u1` >> fs[PULL_EXISTS] >> qexists_tac`ll` >> fs[] >>
   cases_on`fs1` >> cases_on`fs2` >> fs[recordtype_IO_fs_seldef_numchars_fupd_def] >>
   metis_tac[]
-QED;
+QED
 
 (* refinement invariant for filenames *)
 Definition FILENAME_def:
@@ -146,39 +146,39 @@ Theorem FILENAME_UNICITY_R[xlet_auto_match]:
   !f fv fv'. FILENAME f fv ==> (FILENAME f fv' <=> fv' = fv)
 Proof
   filename_tac
-QED;
+QED
 
 Theorem FILENAME_UNICITY_L[xlet_auto_match]:
   !f f' fv. FILENAME f fv ==> (FILENAME f' fv <=> f' = f)
 Proof
   filename_tac
-QED;
+QED
 
 Theorem FILENAME_STRING_UNICITY_R[xlet_auto_match]:
   !f fv fv'. FILENAME f fv ==> (STRING_TYPE f fv' <=> fv' = fv)
 Proof
   filename_tac
-QED;
+QED
 
 Theorem FILENAME_STRING_UNICITY_L[xlet_auto_match]:
   !f f' fv. FILENAME f fv ==> (STRING_TYPE f' fv <=> f' = f)
 Proof
   filename_tac
-QED;
+QED
 
 Theorem STRING_FILENAME_UNICITY_R[xlet_auto_match]:
   !f fv fv'. STRING_TYPE f fv ==>
     (FILENAME f fv' <=> fv' = fv /\ ¬MEM #"\^@" (explode f) /\ strlen f < 256 * 256)
 Proof
   filename_tac
-QED;
+QED
 
 Theorem STRING_FILENAME_UNICITY_L[xlet_auto_match]:
   !f f' fv. STRING_TYPE f fv ==>
     (FILENAME f' fv <=> f' = f /\ ¬MEM #"\^@" (explode f) /\ strlen f < 256 * 256)
 Proof
   filename_tac
-QED;
+QED
 
 (* exception refinement invariant lemmas *)
 
@@ -186,25 +186,25 @@ Theorem BadFileName_UNICITY[xlet_auto_match]:
 !v1 v2. BadFileName_exn v1 ==> (BadFileName_exn v2 <=> v2 = v1)
 Proof
   fs[BadFileName_exn_def]
-QED;
+QED
 
 Theorem InvalidFD_UNICITY[xlet_auto_match]:
   !v1 v2. InvalidFD_exn v1 ==> (InvalidFD_exn v2 <=> v2 = v1)
 Proof
   fs[InvalidFD_exn_def]
-QED;
+QED
 
 Theorem EndOfFile_UNICITY[xlet_auto_match]:
   !v1 v2. EndOfFile_exn v1 ==> (EndOfFile_exn v2 <=> v2 = v1)
 Proof
   fs[EndOfFile_exn_def]
-QED;
+QED
 
 Theorem IllegalArgument_UNICITY[xlet_auto_match]:
   !v1 v2. IllegalArgument_exn v1 ==> (IllegalArgument_exn v2 <=> v2 = v1)
 Proof
   fs[IllegalArgument_exn_def]
-QED;
+QED
 
 (* convenient functions for standard output/error
  * n.b. numchars is ignored *)
@@ -6217,7 +6217,7 @@ Definition INSTREAM_STR'_def:
          get_mode fs fd = SOME ReadMode)
 End
 
-Triviality INSTREAM_STR'_F_F:
+Theorem INSTREAM_STR'_F_F[local]:
   INSTREAM_STR' fd is input fs F F = INSTREAM_STR fd is input fs
 Proof
   gvs [INSTREAM_STR'_def,INSTREAM_STR_def]
@@ -6433,7 +6433,7 @@ QED
 
 (*** END TODO COPIED ***)
 
-Triviality MAP_MAP_n2w_ORD:
+Theorem MAP_MAP_n2w_ORD[local]:
   (!xs. MAP (n2w ∘ ORD) (MAP (CHR ∘ (w2n:word8 -> num)) xs) = xs) /\
   (!xs. MAP (CHR ∘ (w2n:word8 -> num)) (MAP (n2w ∘ ORD) xs) = xs)
 Proof
@@ -6919,13 +6919,13 @@ Proof
   \\ xapp
 QED
 
-Triviality to_W8ARRAY:
+Theorem to_W8ARRAY[local]:
   loc ~~>> W8array bcontent = W8ARRAY (Loc T loc) bcontent
 Proof
   gvs [W8ARRAY_def,cond_STAR,FUN_EQ_THM,SEP_EXISTS_THM]
 QED
 
-Triviality ind_surplus_fun_eq_NONE:
+Theorem ind_surplus_fun_eq_NONE[local]:
   ∀c bcontent r w.
     w ≤ LENGTH bcontent ∧ r ≤ w ∧
     (∀i. r ≤ i ∧ i < w ⇒ w2n (EL i bcontent) ≠ ORD c) ⇒
@@ -6935,7 +6935,7 @@ Proof
   \\ simp [Once find_surplus_fun_def]
 QED
 
-Triviality ind_surplus_fun_eq_SOME:
+Theorem ind_surplus_fun_eq_SOME[local]:
   ∀c bcontent r w.
     w ≤ LENGTH bcontent ∧ r ≤ j ∧ j < LENGTH bcontent ∧
     w2n (EL j bcontent) = ORD c ∧ r < w ∧ j < w ∧
@@ -6987,7 +6987,7 @@ Proof
   \\ gvs [instream_buffered_inv_def]
 QED
 
-Triviality TAKE_LENGTH_ADD1:
+Theorem TAKE_LENGTH_ADD1[local]:
   TAKE (LENGTH xs + 1) (xs ++ y::ys) = xs ++ [y]
 Proof
   ‘xs ++ y::ys = (xs ++ [y]) ++ ys’ by rewrite_tac [GSYM APPEND_ASSOC,APPEND]
@@ -7050,7 +7050,7 @@ Proof
   \\ qexists_tac ‘old ++ bs1 ++ [n2w (ORD c)]’ \\ gvs []
 QED
 
-Triviality not_EVERY_imp:
+Theorem not_EVERY_imp[local]:
   ∀xs. ¬EVERY p xs ⇒ ∃ys z zs. xs = ys ++ z::zs ∧ EVERY p ys ∧ ~ p z
 Proof
   Induct \\ gvs [] \\ strip_tac \\ Cases_on ‘p h’ \\ gvs [] \\ rw [] \\ gvs []

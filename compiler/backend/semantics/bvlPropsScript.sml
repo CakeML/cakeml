@@ -45,14 +45,16 @@ val case_eq_thms = CONJ bool_case_eq (CONJ pair_case_eq case_eq_thms)
 Theorem case_eq_thms =
   case_eq_thms
 
-val do_app_split_list = prove(
-  ``do_app op vs s = res
+Theorem do_app_split_list[local]:
+    do_app op vs s = res
     <=>
     vs = [] /\ do_app op [] s = res \/
-    ?v vs1. vs = v::vs1 /\ do_app op (v::vs1) s = res``,
-  Cases_on `vs` \\ fs []);
+    ?v vs1. vs = v::vs1 /\ do_app op (v::vs1) s = res
+Proof
+  Cases_on `vs` \\ fs []
+QED
 
-Triviality pair_lam_lem:
+Theorem pair_lam_lem[local]:
   !f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)
 Proof
   srw_tac[][]
@@ -600,7 +602,7 @@ Proof
   metis_tac[IS_PREFIX_TRANS,do_app_io_events_mono]
 QED
 
-Triviality do_app_inc_clock:
+Theorem do_app_inc_clock[local]:
   do_app op vs (inc_clock x y) =
    map_result (λ(v,s). (v,s with clock := x + y.clock)) I (do_app op vs y)
 Proof
@@ -610,19 +612,19 @@ Proof
   full_simp_tac(srw_ss())[inc_clock_def] >> simp[]
 QED
 
-Triviality dec_clock_1_inc_clock:
+Theorem dec_clock_1_inc_clock[local]:
   x ≠ 0 ⇒ dec_clock 1 (inc_clock x s) = inc_clock (x-1) s
 Proof
   simp[state_component_equality,inc_clock_def,dec_clock_def]
 QED
 
-Triviality dec_clock_1_inc_clock2:
+Theorem dec_clock_1_inc_clock2[local]:
   s.clock ≠ 0 ⇒ dec_clock 1 (inc_clock x s) = inc_clock x (dec_clock 1 s)
 Proof
   simp[state_component_equality,inc_clock_def,dec_clock_def]
 QED
 
-Triviality dec_clock_inc_clock:
+Theorem dec_clock_inc_clock[local]:
   ¬(s.clock < n) ⇒ dec_clock n (inc_clock x s) = inc_clock x (dec_clock n s)
 Proof
   simp[state_component_equality,inc_clock_def,dec_clock_def]
@@ -652,7 +654,7 @@ Proof
             inc_clock_ffi,dec_clock_ffi]
 QED
 
-Triviality take_drop_lem:
+Theorem take_drop_lem[local]:
   !skip env.
     skip < LENGTH env ∧
     skip + SUC n ≤ LENGTH env ∧
@@ -736,7 +738,7 @@ Proof
   metis_tac [evaluate_var_reverse]
 QED
 
-Triviality do_build_SUBSET:
+Theorem do_build_SUBSET[local]:
   ∀m n parts refs q rs.
     do_build m n parts refs = (q,rs) ⇒ FDOM refs SUBSET FDOM rs
 Proof
@@ -755,7 +757,7 @@ Proof
   \\ imp_res_tac do_build_SUBSET \\ fs [SUBSET_DEF]
 QED
 
-Triviality evaluate_refs_SUBSET_lemma:
+Theorem evaluate_refs_SUBSET_lemma[local]:
   !xs env s. FDOM s.refs SUBSET FDOM (SND (evaluate (xs,env,s))).refs
 Proof
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[evaluate_def]

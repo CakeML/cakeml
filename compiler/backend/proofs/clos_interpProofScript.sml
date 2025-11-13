@@ -39,13 +39,13 @@ Definition state_rel_1_def:
     t.compile_oracle = pure_co (insert_interp ## I) o s.compile_oracle
 End
 
-Triviality LIST_REL_eq':
+Theorem LIST_REL_eq'[local]:
   ∀xs ys. LIST_REL (λv1 v2. v1 = v2) = (\xs ys. xs = ys)
 Proof
   fs[LIST_REL_eq ,SF ETA_ss]
 QED
 
-Triviality OPTREL_eq':
+Theorem OPTREL_eq'[local]:
   (OPTREL (λv1 v2. v1 = v2)) =  (\x y. x = y)
 Proof
   fs[OPTREL_eq,SF ETA_ss]
@@ -189,7 +189,7 @@ val init_tac =
   \\ qpat_x_assum ‘evaluate ([_],env,s4) = (r,s5)’ mp_tac
   \\ simp [Once evaluate_def,CaseEq"prod"] \\ rw [PULL_EXISTS];
 
-Triviality evaluate_SING_intro:
+Theorem evaluate_SING_intro[local]:
   x = (Rval [v],s) ∧ vs = [v] ⇒ x = (Rval vs,s)
 Proof
   rw []
@@ -727,13 +727,13 @@ Proof
   \\ gvs [AllCaseEqs()]
 QED
 
-Triviality state_rel_refs_clocks_eqs:
+Theorem state_rel_refs_clocks_eqs[local]:
   state_rel s1 s2 ⇒ s1.refs = s2.refs ∧ s1.clock = s2.clock
 Proof
   rw [state_rel_def, state_component_equality]
 QED
 
-Triviality state_rel_update_thunk:
+Theorem state_rel_update_thunk[local]:
   state_rel s1 s2 ⇒
     update_thunk [RefPtr v ptr] s1.refs vs = SOME refs1 ⇒
       ∃refs2. update_thunk [RefPtr v ptr] s2.refs vs = SOME refs2 ∧
@@ -1128,25 +1128,25 @@ Proof
   \\ gvs [EVERY_EL]
 QED
 
-Triviality state_rel'_clock:
+Theorem state_rel'_clock[local]:
   state_rel' s t ⇒ t.clock = s.clock
 Proof
   fs [state_rel'_def]
 QED
 
-Triviality state_rel'_refs:
+Theorem state_rel'_refs[local]:
   state_rel' s t ⇒ t.refs = s.refs
 Proof
   fs [state_rel'_def]
 QED
 
-Triviality state_rel'_dec_clock:
+Theorem state_rel'_dec_clock[local]:
   state_rel' s t ⇒ state_rel' (dec_clock 1 s) (dec_clock 1 t)
 Proof
   gvs [state_rel'_def, dec_clock_def]
 QED
 
-Triviality has_install_list_eq:
+Theorem has_install_list_eq[local]:
   ∀xs. has_install_list xs ⇔ EXISTS has_install xs
 Proof
   Induct \\ fs [has_install_def]
@@ -1344,7 +1344,7 @@ QED
    preservation of observable semantics
  * ------------------------------------------------------------------------- *)
 
-Triviality init_globals:
+Theorem init_globals[local]:
   (initial_state ffi max_app f co cc ck).globals = []
 Proof
   EVAL_TAC
