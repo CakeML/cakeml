@@ -2,11 +2,17 @@
 
 See the [Pancake how-to](/pancake/how-to.md) for a guide on how to use Pancake.
 
-## Structures
+## Top-Level Declarations
 
 | Feature | Syntax | Notes |
 | --- | --- | --- |
 | Function declaration | `fun RETSHAPE FNAME ( ARGS ) { BODY }` | `ARGS` may be empty. Each argument expects both a shape and an identifier, and are comma separated, eg `1 x, {1,2} y`. `BODY` must include a function return in all execution branches. Optionally, add `export` keyword before `fun` for multiple entry points feature. All functions are callable from function bodies |
+| Global variable declaration | `var SHAPE VNAME = EXP;` | Globals cannot be initialised with a function call. Globals are usable from all function bodies and to any globals declared after them. Beware of shadowing |
+
+## Structures
+
+| Feature | Syntax | Notes |
+| --- | --- | --- |
 | Block scope | `{ BODY };` | Must have semicolon after right brace. `BODY` may be empty |
 | Conditional statement | `if CONDITION { BODY } else { BODY }` | `else` and second body optional. `CONDITION` need not be enclosed in brackets, is considered false if equal to 0 and true otherwise. `BODY` may be empty. `else if` is NOT supported syntax, and such behaviour can be achieved through nesting |
 | Loop | `while CONDITION { BODY }` | `CONDITION` need not be enclosed in brackets, is considered false if equal to 0 and true otherwise. `BODY` may be empty |
@@ -15,7 +21,7 @@ See the [Pancake how-to](/pancake/how-to.md) for a guide on how to use Pancake.
 
 | Feature | Syntax | Notes |
 | --- | --- | --- |
-| Variable declaration | `var SHAPE VNAME = EXP;`, `var SHAPE VNAME = FNAME(ARGS);` | Variable declarations within function bodies are local, and all others are global. Globals cannot be initialised with a function call. Globals are usable from all function bodies and to any globals declared after them. Beware of shadowing |
+| Local variable declaration | `var SHAPE VNAME = EXP;`, `var SHAPE VNAME = FNAME(ARGS);` | Beware of shadowing |
 | Assignment | `VNAME = EXP;`, `VNAME = FNAME(ARGS);` | Variable assignment only; no struct field assignment yet |
 | Stand-alone function call | `FNAME(ARGS);` | |
 | Function return | `return EXP;`, `return FNAME(ARGS);` | |
