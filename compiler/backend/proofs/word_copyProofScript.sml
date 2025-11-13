@@ -101,11 +101,13 @@ Theorem set_store_eq_inv:
   CPstate_inv cs ⇒
   CPstate_inv (set_store_eq cs name e)
 Proof
-  rw[set_store_eq_def]>>
-  TOP_CASE_TAC>>
-  gvs[AllCaseEqs(),CPstate_inv_def]>>
-  rw[lookup_insert]>>
-  metis_tac[n_lt_n1,option_CLAUSES]
+  rw[set_store_eq_def]
+  >- (
+    TOP_CASE_TAC>>
+    gvs[AllCaseEqs(),CPstate_inv_def]>>
+    rw[lookup_insert]>>
+    metis_tac[n_lt_n1,option_CLAUSES])>>
+  fs[empty_eq_inv]
 QED
 
 Theorem same_classD:
@@ -121,6 +123,19 @@ Proof
   >>fs[lookup_eq_def]
   >>every_case_tac>>gvs[CPstate_inv_def]
   >>metis_tac[NOT_NONE_SOME,SOME_11]
+QED
+
+Theorem same_classD':
+  CPstate_inv cs ∧
+  lookup_store_eq cs x = SOME (lookup_eq cs y) ⇒
+  ∃c rep.
+    ALOOKUP cs.store_to_eq x = SOME c ∧
+    lookup y cs.to_eq = SOME c ∧
+    lookup c cs.from_eq = SOME rep
+Proof
+  fs[lookup_store_eq_def,lookup_eq_def,AllCaseEqs()]>>
+  rw[]>>gvs[CPstate_inv_def]>>
+  metis_tac[NOT_NONE_SOME,SOME_11]
 QED
 
 Theorem lookup_eqI:
@@ -316,12 +331,16 @@ QED
 Theorem CPstate_modelsD:
   CPstate_inv cs ∧
   CPstate_models cs st ⇒
-  ∀x y.
+  (∀x y.
     lookup_eq cs x = lookup_eq cs y ⇒
-    lookup x st.locals = lookup y st.locals
+    lookup x st.locals = lookup y st.locals) ∧
+  (∀x y.
+    lookup_store_eq cs x = SOME (lookup_eq cs y) ⇒
+    FLOOKUP st.store x = lookup y st.locals)
 Proof
-  rw[CPstate_models_def]>>
-  metis_tac[same_classD]
+  rw[CPstate_models_def]
+  >- metis_tac[same_classD]
+  >- metis_tac[same_classD']
 QED
 
 Theorem remove_eq_model:
@@ -422,6 +441,22 @@ Proof
   metis_tac[CPstate_inv_def,NOT_NONE_SOME]
 QED
 
+Theorem lookup_store_eq_set_eqD:
+  CPstate_inv cs ⇒
+  lookup t cs.to_eq = NONE ⇒
+  lookup_store_eq (set_eq cs t s) v = SOME r ⇒
+  (r=t ⇒ lookup_store_eq cs v = SOME (lookup_eq cs s)) ∧
+  (r≠t ⇒ lookup_store_eq cs v = SOME r)
+Proof
+  Cases_on‘both_alloc_vars (t,s)’>>rw[]>>
+  gvs[lookup_store_eq_def,AllCaseEqs()]>>
+  gvs[set_eq_def,both_alloc_vars_def]>>
+  every_case_tac>>
+  gvs[lookup_insert,AllCaseEqs(),lookup_eq_def,CPstate_inv_def]>>
+  rpt(first_x_assum drule)>>gvs[]>>
+  every_case_tac>>gvs[]
+QED
+
 Theorem copy_prop_move_model_aux:
   CPstate_inv cs ∧
   CPstate_models cs st ∧
@@ -469,8 +504,15 @@ Proof
     )
   )
   >- (
-    cheat
-  )
+    rw[lookup_insert]>>gvs[]
+    >- (
+      gs[lookup_eq_set_eq_t]>>
+      drule_at (Pos last) lookup_store_eq_set_eqD>> simp[]>>
+      metis_tac[remove_eq_model,CPstate_modelsD]) >>
+    Cases_on‘lookup_store_eq (remove_eq cs t) x = SOME (lookup_eq (remove_eq cs t) s)’>>
+    Cases_on‘lookup_eq (remove_eq cs t) s = lookup_eq (remove_eq cs t) y’>>
+    metis_tac[lookup_eq_set_eq_is_alloc_var1,lookup_eq_set_eq_is_alloc_var2,
+        lookup_store_eq_set_eqD,lookup_eq_set_eqD,remove_eq_model,CPstate_modelsD])
 QED
 
 Theorem set_eq_remove_eq_models:
@@ -953,6 +995,68 @@ Proof
   every_case_tac>>fs[empty_eq_def]
 QED
 
+Theorem lookup_eq_set_store_eq:
+  CPstate_inv cs ∧
+  is_alloc_var x ⇒
+  lookup_eq (set_store_eq cs s x) y =
+  lookup_eq cs y
+Proof
+  rw[set_store_eq_def,lookup_eq_def]>>
+  every_case_tac>>gvs[lookup_insert,AllCaseEqs()]>>
+  gvs[CPstate_inv_def]>>
+  rpt(first_x_assum drule)>>gs[]
+QED
+
+Theorem lookup_store_eq_set_store_eq_1:
+  CPstate_inv cs ∧
+  is_alloc_var x ∧
+  lookup_store_eq (set_store_eq cs s x) s = SOME y ⇒
+  lookup_eq cs x = lookup_eq cs y
+Proof
+  rw[set_store_eq_def,lookup_store_eq_def,lookup_eq_def]>>
+  every_case_tac>>gvs[lookup_insert,AllCaseEqs()]>>
+  gvs[CPstate_inv_def,domain_lookup,PULL_EXISTS]>>
+  res_tac>>gvs[]
+QED
+
+Theorem lookup_store_eq_set_store_eq_2:
+  CPstate_inv cs ∧
+  is_alloc_var x ∧
+  s ≠ t ∧
+  lookup_store_eq (set_store_eq cs s x) t = SOME y ⇒
+  lookup_store_eq cs t = SOME y
+Proof
+  rw[set_store_eq_def,lookup_store_eq_def]>>
+  every_case_tac>>gvs[lookup_insert,AllCaseEqs()]>>
+  gvs[CPstate_inv_def,domain_lookup,PULL_EXISTS]>>
+  rpt(first_x_assum drule)>>gs[]>>rw[]>>gvs[]
+QED
+
+Theorem set_store_eq_model_set_store:
+  CPstate_inv cs ∧
+  CPstate_models cs st ∧
+  get_var n st = SOME w ⇒
+  CPstate_models (set_store_eq cs s n) (set_store s w st)
+Proof
+  rw[]>>
+  reverse (Cases_on`is_alloc_var n`)
+  >- (
+    simp[set_store_eq_def]>>
+    metis_tac[empty_eq_model])>>
+  irule CPstate_modelsI>>
+  simp[Once CONJ_ASSOC]>>
+  reverse CONJ_ASM2_TAC >- simp[set_store_eq_inv]>>
+  gvs[lookup_eq_set_store_eq,get_var_def]>>
+  rw[]
+  >- metis_tac[CPstate_modelsD]>>
+  simp[set_store_def,FLOOKUP_UPDATE]>>rw[]
+  >- (
+    drule_all lookup_store_eq_set_store_eq_1>>
+    simp[lookup_eq_idempotent]>>
+    metis_tac[CPstate_modelsD])>>
+  metis_tac[lookup_store_eq_set_store_eq_2,CPstate_modelsD]
+QED
+
 Theorem copy_prop_correct:
   ∀prog cs st prog' cs' err st'.
   CPstate_inv cs ∧
@@ -1003,13 +1107,7 @@ Proof
     >> gvs[AllCaseEqs(),evaluate_def]
     >> simp[set_store_eq_inv,empty_eq_model]
     >> fs[word_exp_def, CPstate_modelsD_get_var]
-    >> cheat
-  )
-    (*
-    (* old *)
-    rw[copy_prop_prog_def,evaluate_def]>>
-    gvs[AllCaseEqs(),evaluate_def]>>
-    metis_tac[CPstate_modelsD_Var,set_store_model] *)
+    >> metis_tac[set_store_eq_model_set_store])
   >~[`Store`]
   >-(
     rw[copy_prop_prog_def,evaluate_def]
@@ -1148,21 +1246,16 @@ Proof
   )
   >~[`OpCurrHeap`]
   >-(
-    cheat
-    (* TODO: don't do this case yet,
-    compiler needs to be changed *)
-    (*
-    rw[copy_prop_prog_def,evaluate_def]
-    >- fs[remove_eq_inv]
-    >-(gvs[AllCaseEqs(),remove_eq_model_set_var])
+    rw[copy_prop_prog_def]>>
+    fs[evaluate_def]
+    >- (
+      gvs[AllCaseEqs(),remove_eq_model_set_var])
     >-(
       pop_assum sym_sub_tac>>
       irule option_case_cong>> simp[]>>
       irule word_exp_cong_Op>>
       gvs[CPstate_modelsD_Var])
-    >- metis_tac[remove_eq_inv]
-    >- (gvs[AllCaseEqs()]>>metis_tac[remove_eq_model_set_var])
-  *))
+    >- (gvs[AllCaseEqs()]>>metis_tac[remove_eq_model_set_var]))
   >~[`LocValue`]
   >-(
     rw[copy_prop_prog_def]>>

@@ -243,7 +243,7 @@ Definition set_store_eq_def:
          next := cs.next +1 |>
     | SOME c =>
       cs with store_to_eq := (s,c)::cs.store_to_eq
-  else cs
+  else empty_eq
 End
 
 Definition lookup_store_eq_def:
@@ -328,7 +328,7 @@ Definition copy_prop_prog_def:
     case exp of
       Var n =>
       let n' = lookup_eq cs n in
-      (Set name (Var n'), set_store_eq cs name n')
+      (Set name (Var n'), set_store_eq cs name n)
     | _ => (Set name exp, empty_eq)) ∧ (* flat_exp *)
   (copy_prop_prog (Get n name) cs =
     case lookup_store_eq cs name of
