@@ -179,7 +179,7 @@ Proof
   \\ rw [] \\ gvs [AllCaseEqs()]
 QED
 
-Triviality check_cons_dec_list_sing[simp]:
+Theorem check_cons_dec_list_sing[local,simp]:
   check_cons_dec_list env_c [d] = check_cons_dec env_c d
 Proof
   simp [check_cons_dec_list_def] \\ CASE_TAC \\ gvs []

@@ -25,7 +25,7 @@ val RW = REWRITE_RULE
 
 val _ = add_preferred_thy "-";
 
-Triviality NOT_NIL_AND_LEMMA:
+Theorem NOT_NIL_AND_LEMMA[local]:
   (b <> [] /\ x) = if b = [] then F else x
 Proof
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []
@@ -109,7 +109,7 @@ val _ = translate $ spec32 nested_decs_def;
 
 val _ = translate $ spec32 nested_seq_def;
 
-Triviality lem:
+Theorem lem[local]:
   dimindex(:32) = 32
 Proof
   EVAL_TAC
@@ -159,7 +159,7 @@ val _ = translate size_of_shape_def;
 
 val _ = translate_no_ind $ SIMP_RULE std_ss [byteTheory.bytes_in_word_def,lem] $ conv32 compile_decs_def;
 
-Triviality pan_globals_compile_decs_ind:
+Theorem pan_globals_compile_decs_ind[local]:
   pan_globals_compile_decs_ind
 Proof
   once_rewrite_tac [fetch "-" "pan_globals_compile_decs_ind_def"]
@@ -448,7 +448,7 @@ End
 
 val tree = “tree:(panLexer$token, pancakeNT, α) parsetree”
 
-Triviality conv_Shapelist_thm:
+Theorem conv_Shapelist_thm[local]:
   (∀tree. conv_Shape_alt tree = conv_Shape ^tree)
   ∧
   (∀xs. conv_ShapeList xs = OPT_MMAP (λtree. conv_Shape ^tree) xs)
@@ -497,7 +497,7 @@ Proof
   Cases_on ‘x’ \\ Cases_on ‘y’ \\ rw[]
 QED
 
-Triviality FOLDR_eta:
+Theorem FOLDR_eta[local]:
   FOLDR (λt. f t) = FOLDR (λt e. f t e)
 Proof
   CONV_TAC(DEPTH_CONV ETA_CONV) \\ rw[]
@@ -673,7 +673,7 @@ End
 val tree = “tree:(panLexer$token, pancakeNT, β) parsetree”
 val trees = “trees:(panLexer$token, pancakeNT, β) parsetree list”
 
-Triviality conv_Exp_thm:
+Theorem conv_Exp_thm[local]:
   (∀trees. (conv_mmap_exp ^trees:'a panLang$exp list option) = OPT_MMAP (λtree. conv_Exp ^tree) ^trees)
   ∧
   (∀tree. conv_ArgList_alt ^tree = (conv_ArgList ^tree: 'a panLang$exp list option))
@@ -777,7 +777,7 @@ val res  = translate $ conv_export_def;
 
 val res = translate_no_ind $ spec32 conv_TopDec_def;
 
-Triviality panptreeconversion_conv_topdec_side:
+Theorem panptreeconversion_conv_topdec_side[local]:
   ∀t. panptreeconversion_conv_topdec_side t
 Proof
   once_rewrite_tac [fetch "-" "panptreeconversion_conv_topdec_side_def"]
@@ -797,7 +797,7 @@ val _ = panptreeconversion_conv_topdec_side |> update_precondition;
 
 val res = translate_no_ind $ spec32 conv_TopDecList_def;
 
-Triviality panptreeconversion_conv_topdeclist_ind:
+Theorem panptreeconversion_conv_topdeclist_ind[local]:
   panptreeconversion_conv_topdeclist_ind
 Proof
   once_rewrite_tac [fetch "-" "panptreeconversion_conv_topdeclist_ind_def"]
@@ -820,7 +820,7 @@ val res = translate $ spec32 localise_exp_def;
 
 val res = translate_no_ind $ preprocess $ spec32 localise_prog_def;
 
-Triviality panptreeconversion_localise_prog_ind:
+Theorem panptreeconversion_localise_prog_ind[local]:
   panptreeconversion_localise_prog_ind
 Proof
   once_rewrite_tac [fetch "-" "panptreeconversion_localise_prog_ind_def"]

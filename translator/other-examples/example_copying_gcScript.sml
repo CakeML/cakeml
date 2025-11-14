@@ -14,7 +14,7 @@ val res = translate rel_move_def;
 val res = translate rel_move_list_def;
 val res = translate rel_gc_step_def;
 
-Triviality rel_gc_loop_thm:
+Theorem rel_gc_loop_thm[local]:
   rel_gc_loop z y =
      case y of (i,j,m,b,e,b2,e2) =>
        if i = j then (i,m)

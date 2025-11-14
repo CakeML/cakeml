@@ -1353,9 +1353,9 @@ Theorem member_cutset_survives_comp_exps =
      member_cutset_survives_comp_exp_cases |> CONJUNCT2
 
 
-Triviality member_cutset_survives_comp_exp_flip =
+Theorem member_cutset_survives_comp_exp_flip[local] =
     member_cutset_survives_comp_exp |> ONCE_REWRITE_RULE [CONJ_COMM]
-Triviality member_cutset_survives_comp_exps_flip =
+Theorem member_cutset_survives_comp_exps_flip[local] =
     member_cutset_survives_comp_exps |> ONCE_REWRITE_RULE [CONJ_COMM]
 
 
@@ -2894,7 +2894,7 @@ Proof
   fs [wlab_wloc_def]
 QED
 
-Triviality evaluate_none_nested_seq_append_eq:
+Theorem evaluate_none_nested_seq_append_eq[local]:
   evaluate (loopLang$nested_seq p, s) = (NONE, s1) /\
   evaluate (nested_seq q, s1) = res_s
   ==> evaluate (nested_seq (p ++ q), s) = res_s
@@ -2902,7 +2902,7 @@ Proof
   rw [] \\ simp [evaluate_none_nested_seq_append]
 QED
 
-Triviality find_code_collapse_cases:
+Theorem find_code_collapse_cases[local]:
   (dest <> NONE ==> dest = SOME loc) ==>
   find_code dest (args1 ++ TAKE (case dest of NONE => 1 | SOME _ => 0) [Loc loc 0]) st.code
   = (case lookup loc st.code of
@@ -2916,7 +2916,7 @@ Proof
   \\ fs [find_code_def, FRONT_APPEND]
 QED
 
-Triviality OPT_MMAP_APPEND:
+Theorem OPT_MMAP_APPEND[local]:
   OPT_MMAP f (xs ++ ys) = (OPTION_BIND (OPT_MMAP f xs)
     (\xsv. OPTION_BIND (OPT_MMAP f ys) (\ysv. SOME (xsv ++ ysv))))
 Proof
@@ -2927,31 +2927,31 @@ Proof
   \\ Cases_on `OPT_MMAP f xs` \\ simp []
 QED
 
-Triviality case_le:
+Theorem case_le[local]:
   (case dest of NONE => 1 | SOME v1 => 0) <= 1n
 Proof
   TOP_CASE_TAC \\ simp []
 QED
 
-Triviality crep_eval_upd_clock:
+Theorem crep_eval_upd_clock[local]:
   crepSem$eval (s with clock := v) = crepSem$eval s
 Proof
   simp [FUN_EQ_THM, crepPropsTheory.eval_upd_clock_eq]
 QED
 
-Triviality loop_eval_upd_clock:
+Theorem loop_eval_upd_clock[local]:
   loopSem$eval (s with clock := v) = eval s
 Proof
   simp [FUN_EQ_THM, loopPropsTheory.eval_upd_clock_eq]
 QED
 
-Triviality UNCURRY_eq_case:
+Theorem UNCURRY_eq_case[local]:
   UNCURRY f x = (case x of (a, b) => f a b)
 Proof
   Cases_on `x` \\ simp []
 QED
 
-Triviality locals_rel_lookup_same:
+Theorem locals_rel_lookup_same[local]:
   locals_rel ctxt l locs1 locs2 ==>
   (! n. lookup n locs2 = lookup n locs3) ==>
   locals_rel ctxt l locs1 locs3
@@ -2960,7 +2960,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality locals_rel_inter_helper:
+Theorem locals_rel_inter_helper[local]:
   locals_rel ctxt l locs1 locs2 ==>
   EVERY (\i. lookup i l = NONE) xs ==>
   LENGTH xs = LENGTH ys ==>
@@ -3467,7 +3467,7 @@ Definition code_rel2_def:
    code_rel ctxt (FMAP_MAP2 (\(s, n, p). (n,crep_arith$simp_prog p)) s_code) t_code
 End
 
-Triviality ALOOKUP_EQ_EL:
+Theorem ALOOKUP_EQ_EL[local]:
   n < LENGTH xs ==>
   FST (EL n xs) = nm ==>
   ALL_DISTINCT (MAP FST xs) ==>
@@ -3630,7 +3630,7 @@ Proof
   fs [ALL_DISTINCT_GENLIST]
 QED
 
-Triviality evaluate_Seq_Skip:
+Theorem evaluate_Seq_Skip[local]:
   loopSem$evaluate (Seq prog Skip, s) = evaluate (prog, s)
 Proof
   simp [evaluate_def]
@@ -3638,7 +3638,7 @@ Proof
   \\ simp [CaseEq "bool"]
 QED
 
-Triviality evaluate_less_clock_cases:
+Theorem evaluate_less_clock_cases[local]:
   loopSem$evaluate (prog, s) = (res, s2) ==>
   ck <= s.clock ==>
   ? res2 s3.
@@ -3656,7 +3656,7 @@ Proof
   \\ fs [loopSemTheory.state_component_equality]
 QED
 
-Triviality evaluate_twice_cases:
+Theorem evaluate_twice_cases[local]:
   loopSem$evaluate (prog, s) = (res, s2) ==>
   loopSem$evaluate (prog, s3) = (res2, s4) ==>
   (s with clock := 0) = (s3 with clock := 0) ==>
@@ -3686,7 +3686,7 @@ Proof
   )
 QED
 
-Triviality evaluate_io_mono_rephrases =
+Theorem evaluate_io_mono_rephrases[local] =
   [crepPropsTheory.evaluate_add_clock_io_events_mono |> Q.SPECL [`exs`, `s with clock := k`],
     loopPropsTheory.evaluate_add_clock_io_events_mono |> Q.SPECL [`exs`, `s with clock := k`]]
     |> map (SIMP_RULE (srw_ss ()) [])
@@ -3934,7 +3934,7 @@ Proof
   \\ gs []
 QED
 
-Triviality PAIR_MAP_EQ_UNCURRY:
+Theorem PAIR_MAP_EQ_UNCURRY[local]:
   (f ## g) = (\(x, y). (f x, g y))
 Proof
   simp [FUN_EQ_THM, FORALL_PROD]

@@ -199,7 +199,7 @@ Definition subst_clos_term_rel_def:
    else F
 End
 
-Triviality LIST_LENGTH_2:
+Theorem LIST_LENGTH_2[local]:
   LENGTH l = 2 ⇔ ∃e1 e2. l = [e1; e2]
 Proof
   Cases_on ‘l’ \\ fs [] \\ Cases_on ‘t’ \\ fs []

@@ -9,7 +9,7 @@ Ancestors
 Libs
   preamble
 
-Triviality result_cases:
+Theorem result_cases[local]:
   !r.
     (?s v. r = (s, Rval v)) ∨
     (?s v. r = (s, Rerr (Rraise v))) ∨
@@ -37,13 +37,13 @@ Definition to_small_res_def:
   to_small_res r = (to_small_st (FST r), SND r)
 End
 
-Triviality do_opapp_too_many:
+Theorem do_opapp_too_many[local]:
   !vs'. do_opapp (REVERSE (v''::vs') ++ [v'] ++ [v]) = NONE
 Proof
   rw[do_opapp_def] >> ntac 3 (TOP_CASE_TAC >> gvs[])
 QED
 
-Triviality opClass_op_Force[simp]:
+Theorem opClass_op_Force[local,simp]:
   opClass op Force ⇔ op = ThunkOp ForceThunk
 Proof
   Cases_on ‘op’ >> gvs[opClass_cases]
@@ -1165,7 +1165,7 @@ Proof
   rw[evaluate_ctxt_cases]
 QED
 
-Triviality evaluate_change_state = Q.prove(
+Theorem evaluate_change_state[local] = Q.prove(
   `evaluate a b c d (e,f) ∧ c = c' ∧ e = e' ⇒
    evaluate a b c' d (e',f)`,
    srw_tac[][] >> srw_tac[][]) |> GEN_ALL;
@@ -2059,14 +2059,14 @@ Proof
   simp[collapse_env_def] >> disch_then drule >> simp[SF SFY_ss]
 QED
 
-Triviality combine_dec_result_alt:
+Theorem combine_dec_result_alt[local]:
   combine_dec_result env (Rval env') = Rval (env' +++ env) ∧
   combine_dec_result env (Rerr e) = Rerr e
 Proof
   rw[combine_dec_result_def, extend_dec_env_def]
 QED
 
-Triviality evaluate_state_no_ctxt_alt:
+Theorem evaluate_state_no_ctxt_alt[local]:
   evaluate_state ck (env,s,Exp e,[]) r ⇔
   ∃clk. evaluate ck env (s with clock := clk) e r
 Proof
@@ -2074,7 +2074,7 @@ Proof
   PairCases_on `r` >> simp[]
 QED
 
-Triviality evaluate_state_val_no_ctxt_alt:
+Theorem evaluate_state_val_no_ctxt_alt[local]:
   evaluate_state ck (env,s,Val e,[]) r ⇔
   ∃clk. r = (s with clock := clk, Rval e)
 Proof

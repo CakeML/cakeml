@@ -544,7 +544,7 @@ val strxor_c_arr = process_topdecs`
       end
   end` |> append_prog;
 
-Triviality xor_bytes_eq:
+Theorem xor_bytes_eq[local]:
   ∀xs ys zs.
     LENGTH xs = LENGTH ys ⇒
     xor_bytes xs (ys ++ zs) = SOME (MAP2 word_xor xs ys ++ zs)
@@ -552,7 +552,7 @@ Proof
   Induct \\ Cases_on ‘ys’ \\ gvs [semanticPrimitivesTheory.xor_bytes_def]
 QED
 
-Triviality xor_bytes_same:
+Theorem xor_bytes_same[local]:
   LENGTH xs = LENGTH ys ⇒
   xor_bytes xs ys = SOME (MAP2 word_xor xs ys)
 Proof
@@ -562,7 +562,7 @@ Proof
   \\ gvs []
 QED
 
-Triviality xor_bytes_rest:
+Theorem xor_bytes_rest[local]:
   ∀s ys1 ys2.
     LENGTH s = LENGTH ys1 ⇒
     THE (xor_bytes s (ys1 ++ ys2)) =
@@ -573,7 +573,7 @@ Proof
   \\ gvs []
 QED
 
-Triviality xor_bytes_snoc:
+Theorem xor_bytes_snoc[local]:
   ∀xs ys xs1 ys1.
     LENGTH xs = LENGTH ys ⇒
     xor_bytes (xs ++ xs1) (ys ++ ys1) =
@@ -593,7 +593,7 @@ Proof
   \\ CASE_TAC \\ asm_simp_tac (srw_ss()) []
 QED
 
-Triviality xor_bytes_lemma:
+Theorem xor_bytes_lemma[local]:
   ∀s r ys1 ys2.
     LENGTH ys1 = LENGTH s ⇒
     THE (xor_bytes (MAP (n2w ∘ ORD) s) ys1) ++ ys2 =
@@ -616,7 +616,7 @@ Proof
   \\ DEP_REWRITE_TAC [xor_bytes_same]   \\ gvs []
 QED
 
-Triviality xor_bytes_strxor_aux_c:
+Theorem xor_bytes_strxor_aux_c[local]:
   LENGTH s ≤ LENGTH cs ⇒
   THE (xor_bytes (MAP (n2w ∘ ORD) s) cs) =
   strxor_aux_c cs (strlit s) (STRLEN s)
@@ -2550,7 +2550,7 @@ val result = translate fromChars_range_unsafe_alt;
 val res = translate_no_ind (mlintTheory.fromChars_unsafe_def
   |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
 
-Triviality fromChars_unsafe_ind:
+Theorem fromChars_unsafe_ind[local]:
   fromchars_unsafe_ind
 Proof
   rewrite_tac [fetch "-" "fromchars_unsafe_ind_def"]

@@ -333,20 +333,20 @@ Proof
   \\ fs [CaseEq"option"] \\ rveq \\ fs []
 QED
 
-Triviality case_cut_res:
+Theorem case_cut_res[local]:
   cut_res x y = (res,s) ⇒
   ∃part1 part2. cut_res x (part1, part2) = (res,s) ∧ y = (part1, part2)
 Proof
   Cases_on ‘y’ \\ fs []
 QED
 
-Triviality state_rel_IMP_locals:
+Theorem state_rel_IMP_locals[local]:
   state_rel s t ⇒ s.locals = t.locals
 Proof
   fs [state_rel_def] \\ rw [] \\ rveq \\ fs []
 QED
 
-Triviality state_rel_IMP_clock:
+Theorem state_rel_IMP_clock[local]:
   state_rel s t ⇒ s.clock = t.clock
 Proof
   fs [state_rel_def] \\ rw [] \\ rveq \\ fs []
@@ -1437,7 +1437,7 @@ Proof
   qexists_tac ‘(q', r')’ >> fs []
 QED
 
-Triviality state_rel_imp_code_rel:
+Theorem state_rel_imp_code_rel[local]:
   state_rel s t ⇒ ∃c. t = s with code := c
 Proof
   rw [state_rel_def] >>

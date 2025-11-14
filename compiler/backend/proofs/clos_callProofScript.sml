@@ -30,7 +30,7 @@ val _ = temp_bring_to_front_overload"wf"{Name="wf",Thy="sptree"};
 
 val PUSH_EXISTS_IMP = SPEC_ALL RIGHT_EXISTS_IMP_THM;
 
-Triviality v_size_lemma:
+Theorem v_size_lemma[local]:
   MEM (v:closSem$v) vl ⇒ v_size v < v1_size vl
 Proof
   Induct_on `vl` >> dsimp[v_size_def] >> rpt strip_tac >>
@@ -78,7 +78,7 @@ Definition every_refv_def:
 End
 val _ = export_rewrites["every_refv_def"];
 
-Triviality IMP_EXISTS_IFF:
+Theorem IMP_EXISTS_IFF[local]:
   !xs. (!x. MEM x xs ==> (P x <=> Q x)) ==>
          (EXISTS P xs <=> EXISTS Q xs)
 Proof
@@ -162,10 +162,12 @@ Definition make_g_def:
     else NONE
 End
 
-val ALL_DISTINCT_MAP_FST_ADD1 = prove(
-  ``!xs. ALL_DISTINCT (MAP (λk. FST k + 1n) xs) =
-         ALL_DISTINCT (MAP FST xs)``,
-  Induct \\ fs [MEM_MAP]);
+Theorem ALL_DISTINCT_MAP_FST_ADD1[local]:
+    !xs. ALL_DISTINCT (MAP (λk. FST k + 1n) xs) =
+         ALL_DISTINCT (MAP FST xs)
+Proof
+  Induct \\ fs [MEM_MAP]
+QED
 
 Theorem make_g_wfg:
    make_g d code = SOME g ==> wfg g
@@ -1120,7 +1122,7 @@ Proof
   \\ metis_tac[SND_insert_each, SND, FST_insert_each_same, FST]
 QED
 
-Triviality calls_acc_0:
+Theorem calls_acc_0[local]:
   !xs tmp x r.
      x ++ r = SND tmp ⇒
      calls xs tmp = (I ## I ## (combin$C (++) r)) (calls xs (FST tmp, x))
@@ -1606,9 +1608,11 @@ Proof
   \\ metis_tac[ADD_ASSOC,ADD_COMM]
 QED
 
-val code_includes_SUBMAP = prove(
-  ``code_includes x y1 /\ y1 SUBMAP y2 ==> code_includes x y2``,
-  fs [code_includes_def,SUBMAP_DEF,FLOOKUP_DEF] \\ metis_tac []);
+Theorem code_includes_SUBMAP[local]:
+    code_includes x y1 /\ y1 SUBMAP y2 ==> code_includes x y2
+Proof
+  fs [code_includes_def,SUBMAP_DEF,FLOOKUP_DEF] \\ metis_tac []
+QED
 
 Theorem wfv_subg:
    ∀g l code v g' l' code'.
@@ -1754,11 +1758,12 @@ Proof
   \\ res_tac \\ fs [] \\ rw []
 QED
 
-val v_rel_IMP_v_to_bytes_lemma = prove(
-  ``!x y c g code.
+Theorem v_rel_IMP_v_to_bytes_lemma[local]:
+    !x y c g code.
       v_rel c g code x y ==>
       !ns. (v_to_list x = SOME (MAP (Number o $& o (w2n:word8->num)) ns)) <=>
-           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))``,
+           (v_to_list y = SOME (MAP (Number o $& o (w2n:word8->num)) ns))
+Proof
   ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def,v_rel_def]
   \\ Cases_on `tag = cons_tag` \\ fs []
@@ -1766,13 +1771,15 @@ val v_rel_IMP_v_to_bytes_lemma = prove(
   \\ Cases_on `ns` \\ fs []
   \\ eq_tac \\ rw [] \\ fs []
   \\ Cases_on `h'` \\ fs [v_rel_def]
-  \\ Cases_on `h` \\ fs [v_rel_def]);
+  \\ Cases_on `h` \\ fs [v_rel_def]
+QED
 
-val v_rel_IMP_v_to_words_lemma = prove(
-  ``!x y c g.
+Theorem v_rel_IMP_v_to_words_lemma[local]:
+    !x y c g.
       v_rel c g code x y ==>
       !ns. (v_to_list x = SOME (MAP Word64 ns)) <=>
-           (v_to_list y = SOME (MAP Word64 ns))``,
+           (v_to_list y = SOME (MAP Word64 ns))
+Proof
   ho_match_mp_tac v_to_list_ind \\ rw []
   \\ fs [v_to_list_def,v_rel_def]
   \\ Cases_on `tag = cons_tag` \\ fs []
@@ -1780,7 +1787,8 @@ val v_rel_IMP_v_to_words_lemma = prove(
   \\ Cases_on `ns` \\ fs []
   \\ eq_tac \\ rw [] \\ fs []
   \\ Cases_on `h'` \\ fs [v_rel_def]
-  \\ Cases_on `h` \\ fs [v_rel_def]);
+  \\ Cases_on `h` \\ fs [v_rel_def]
+QED
 
 Theorem v_to_bytes_thm:
    !h h' x.
@@ -2011,12 +2019,14 @@ Proof
   Cases_on `b` \\ Cases_on `v` \\ fs [v_rel_def,Boolv_def]
 QED
 
-val env_rel_Op_Install = prove(
-  ``env_rel r env env2 0 [(0,Op v6 Install e1)] <=>
-    env_rel r env env2 0 (MAP (λx. (0,x)) e1)``,
+Theorem env_rel_Op_Install[local]:
+    env_rel r env env2 0 [(0,Op v6 Install e1)] <=>
+    env_rel r env env2 0 (MAP (λx. (0,x)) e1)
+Proof
   fs [env_rel_def] \\ rw [] \\ fs [fv1_thm,EXISTS_MAP]
   \\ qsuff_tac `!x. EXISTS (λx'. fv1 x x') e1 = fv x e1` \\ fs []
-  \\ Induct_on `e1` \\ fs []);
+  \\ Induct_on `e1` \\ fs []
+QED
 
 Definition syntax_ok_def:
   syntax_ok x ⇔ every_Fn_SOME x ∧ every_Fn_vs_NONE x ∧ ALL_DISTINCT (code_locs x)
@@ -2405,7 +2415,7 @@ Proof
   \\ EVERY_CASE_TAC \\ rw [] \\ fs []
 QED
 
-Triviality state_rel_opt_rel_refs:
+Theorem state_rel_opt_rel_refs[local]:
   (state_rel g l s1 s2 ∧ FLOOKUP s1.refs n = r1 ⇒
      ∃r2. FLOOKUP s2.refs n = r2 ∧
           OPTREL (ref_rel (v_rel g l s2.code)) r1 r2) ∧
@@ -4406,14 +4416,14 @@ Proof
   )
 QED
 
-Triviality code_locs_calls_list:
+Theorem code_locs_calls_list[local]:
   ∀ls n tr i. code_locs (MAP SND (calls_list tr i n ls)) = []
 Proof
   Induct>>fs[calls_list_def,FORALL_PROD,Once code_locs_cons]>>
   rw[Once code_locs_def]
 QED
 
-Triviality code_locs_code_list_MEM:
+Theorem code_locs_code_list_MEM[local]:
   ∀ls n rest x.
   MEM x (code_locs (MAP (SND o SND) (SND (code_list n ls rest)))) ⇔
   MEM x (code_locs (MAP (SND o SND) (SND rest)++MAP SND ls))
@@ -4424,7 +4434,7 @@ Proof
   fs[Once code_locs_cons,code_locs_def]
 QED
 
-Triviality code_locs_code_list_ALL_DISTINCT:
+Theorem code_locs_code_list_ALL_DISTINCT[local]:
   ∀ls n rest.
   ALL_DISTINCT (code_locs (MAP (SND o SND) (SND (code_list n ls rest)))) ⇔
   ALL_DISTINCT (code_locs (MAP (SND o SND) (SND rest)++MAP SND ls))

@@ -67,7 +67,7 @@ Proof
   gvs[do_app_cases, semanticPrimitivesTheory.do_app_def, store_alloc_def] >>
   every_case_tac >> gvs[] >>
   gvs[semanticPrimitivesTheory.thunk_op_def, itree_semanticsTheory.thunk_op_def] >>
-  gvs[AllCaseEqs(), store_alloc_def]
+  gvs[AllCaseEqs(), store_alloc_def, NOT_LESS]
 QED
 
 Theorem application_rel:
@@ -171,7 +171,7 @@ QED
 
 (******************** Relating non-FFI steps ********************)
 
-Triviality FST_THM:
+Theorem FST_THM[local]:
   FST = λ(x,y,z). x
 Proof
   rw[FUN_EQ_THM, UNCURRY]
@@ -1657,7 +1657,7 @@ End
 
 Overload itree_ffi = `` λst. (st.ffi.oracle,st.ffi.ffi_state)``;
 
-Triviality evaluate_decs_NIL[simp]:
+Theorem evaluate_decs_NIL[local,simp]:
   evaluate_decs ck env st [] res ⇔ res = (st, Rval empty_dec_env)
 Proof
   simp[Once bigStepTheory.evaluate_dec_cases, empty_dec_env_def]
@@ -1880,4 +1880,3 @@ QED
 
 
 (****************************************)
-

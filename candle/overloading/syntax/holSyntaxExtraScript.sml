@@ -889,7 +889,7 @@ Theorem subterm_Abs =
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
       [Once relationTheory.RTC_CASES2,subterm1_cases]
 
-Triviality subterm_welltyped_helper:
+Theorem subterm_welltyped_helper[local]:
   ∀tm ty. tm has_type ty ⇒ ∀t. t subterm tm ⇒ welltyped t
 Proof
   ho_match_mp_tac has_type_strongind >>
@@ -7184,13 +7184,13 @@ Proof
   >> fs[]
 QED
 
-Triviality subtype_subtype_at_Tyvar:
+Theorem subtype_subtype_at_Tyvar[local]:
   !x a. x subtype (Tyvar a) <=> subtype_at (Tyvar a) [] = SOME x
 Proof
   fs[subtype_Tyvar,subtype_at_def,EQ_SYM_EQ]
 QED
 
-Triviality subtype1_subtype_at:
+Theorem subtype1_subtype_at[local]:
   !l x m. subtype1 x (Tyapp m l) <=> ?n. subtype_at (Tyapp m l) [(m,n)] = SOME x
 Proof
   fs[subtype1_cases,subtype_at_def,MEM_EL,EQ_SYM_EQ]
@@ -13054,7 +13054,7 @@ End
 
 (* A kingdom for higher-order unification.... *)
 
-Triviality mk_witness1:
+Theorem mk_witness1[local]:
   (dependency ctxt (h a2) (i b2))
   ==>
   (?a1 b1 c1.
@@ -13065,7 +13065,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality mk_witness2:
+Theorem mk_witness2[local]:
   (dependency ctxt (h b2) (i a2))
   ==>
   (?a1 b1 c1.

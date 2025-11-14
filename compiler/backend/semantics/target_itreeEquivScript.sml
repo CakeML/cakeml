@@ -371,7 +371,7 @@ Definition halt_rel_def:
   halt_rel _ _ = F
 End
 
-Triviality halt_rel_alt_def:
+Theorem halt_rel_alt_def[local]:
   halt_rel h Success = (h = Termination) ∧
   halt_rel h Resource_limit_hit = (h = OutOfMemory) ∧
   halt_rel h (FFI_outcome _) = F
@@ -379,7 +379,7 @@ Proof
   Cases_on `h` >> rw[halt_rel_def]
 QED
 
-Triviality halt_rel_imps:
+Theorem halt_rel_imps[local]:
   halt_rel r h ⇒ r ≠ Error ∧ (∀p out. r ≠ FinalFFI p out)
 Proof
   rw[] >> CCONTR_TAC >> gvs[halt_rel_def]
@@ -606,7 +606,7 @@ QED
 Overload mk_ffi[local] =
   ``λffi oracle st. ffi with <| oracle := oracle; ffi_state := st |>``;
 
-Triviality mk_ffi_I[simp]:
+Theorem mk_ffi_I[local,simp]:
   mk_ffi ffi ffi.oracle ffi.ffi_state = ffi
 Proof
   rw[ffi_state_component_equality]
@@ -1019,15 +1019,15 @@ Proof
     )
 QED
 
-Triviality trace_prefix_machine_halt_alt =
+Theorem trace_prefix_machine_halt_alt[local] =
   Q.INST [`oracle` |-> `ffi.oracle`, `ffi_st` |-> `ffi.ffi_state`]
     trace_prefix_machine_halt |> SRULE [];
 
-Triviality trace_prefix_machine_error_alt =
+Theorem trace_prefix_machine_error_alt[local] =
   Q.INST [`oracle` |-> `ffi.oracle`, `ffi_st` |-> `ffi.ffi_state`]
     trace_prefix_machine_error |> SRULE [];
 
-Triviality trace_prefix_machine_ffi_error_alt =
+Theorem trace_prefix_machine_ffi_error_alt[local] =
   Q.INST [`oracle` |-> `ffi.oracle`, `ffi_st` |-> `ffi.ffi_state`]
     trace_prefix_machine_ffi_error |> SRULE [];
 

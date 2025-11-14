@@ -7,7 +7,7 @@ Ancestors
 Libs
   preamble
 
-Triviality evaluate_JumpList:
+Theorem evaluate_JumpList[local]:
   !n xs k.
       k < LENGTH xs ==>
       (evaluate ([JumpList n xs],Number (&(n+k))::env,s) =

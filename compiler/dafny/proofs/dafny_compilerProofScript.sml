@@ -11,19 +11,19 @@ Libs
   preamble
 
 
-Triviality UNZIP_LENGTH:
+Theorem UNZIP_LENGTH[local]:
   ∀xs ys zs. UNZIP xs = (ys, zs) ⇒ LENGTH ys = LENGTH zs
 Proof
   Induct \\ gvs []
 QED
 
-Triviality UNZIP_EQ_NIL:
+Theorem UNZIP_EQ_NIL[local]:
   UNZIP l = ([], []) ⇔ l = []
 Proof
   Cases_on ‘l’ \\ gvs []
 QED
 
-Triviality has_main_freshen:
+Theorem has_main_freshen[local]:
   has_main (Program (MAP freshen_member members)) =
   has_main (Program members)
 Proof
@@ -44,7 +44,7 @@ Definition valid_members_def:
   EVERY (λmember. ALL_DISTINCT (get_param_names member)) members
 End
 
-Triviality map_freshen_member_is_fresh:
+Theorem map_freshen_member_is_fresh[local]:
   EVERY (λmember. ALL_DISTINCT (get_param_names member)) members ⇒
   EVERY is_fresh_member (MAP freshen_member members)
 Proof
@@ -53,7 +53,7 @@ Proof
   \\ irule freshen_member_is_fresh \\ simp []
 QED
 
-Triviality map_freshen_member_no_shadow_method:
+Theorem map_freshen_member_no_shadow_method[local]:
   EVERY (λmember. ALL_DISTINCT (get_param_names member)) members ⇒
   EVERY no_shadow_method (MAP freshen_member members)
 Proof
@@ -71,7 +71,7 @@ Definition cml_init_env_def:
   cml_init_env ffi = (SND (THE (prim_sem_env ffi)))
 End
 
-Triviality has_basic_cons_cml_init_env:
+Theorem has_basic_cons_cml_init_env[local]:
   has_basic_cons (cml_init_env ffi)
 Proof
   gvs [cml_init_env_def, prim_sem_env_def, prim_types_program_def,
@@ -80,7 +80,7 @@ Proof
        build_constrs_def, extend_dec_env_def, list_type_num_def]
 QED
 
-Triviality cml_init_state_next_exn_stamp:
+Theorem cml_init_state_next_exn_stamp[local]:
   ExnStamp (cml_init_state ffi ck).next_exn_stamp = ret_stamp
 Proof
   gvs [cml_init_state_def, prim_sem_env_def, prim_types_program_def,
@@ -92,14 +92,14 @@ Proof
   \\ rewrite_tac [ret_stamp_def] \\ simp []
 QED
 
-Triviality cml_init_state_clock:
+Theorem cml_init_state_clock[local]:
   (cml_init_state ffi ck).clock = ck
 Proof
   gvs [cml_init_state_def]
 QED
 
 (* Allows us to irule the correctness theorem for from_program. *)
-Triviality cml_init_state_extra_clock:
+Theorem cml_init_state_extra_clock[local]:
   cml_init_state ffi (dfy_ck + ck) =
   cml_init_state ffi dfy_ck with clock := (cml_init_state ffi dfy_ck).clock + ck
 Proof

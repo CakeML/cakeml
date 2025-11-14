@@ -103,7 +103,10 @@ val (monad_parameters, store_translation, exn_specs) =
 
 (* mechanism for adding type checking annotations *)
 
-val pure_seq_intro = prove(“x = y ⇒ ∀z. x = pure_seq z y”, fs [pure_seq_def]);
+Theorem pure_seq_intro[local]:
+  x = y ⇒ ∀z. x = pure_seq z y
+Proof fs [pure_seq_def]
+QED
 
 fun mlstring_check s = “mlstring$strlen ^s”
 fun type_check ty = “case ^ty of Tyvar _ => () | _ => abc” |> subst [“abc:unit”|->“()”]
@@ -175,7 +178,7 @@ val res = translate check_tm_tm_def;
 (*
 val res = translate mlstringTheory.explode_aux_def;
 val res = translate mlstringTheory.explode_def;
-Triviality explode_aux_side_thm:
+Theorem explode_aux_side_thm[local]:
   ∀s n m. n + m = strlen s ==> explode_aux_side s n m
 Proof
   Induct_on`m` \\ rw[Once (theorem"explode_aux_side_def")]
@@ -377,7 +380,7 @@ Definition term_compare_def:
          | Greater => Greater
 End
 
-Triviality term_cmp_thm:
+Theorem term_cmp_thm[local]:
   term_cmp = term_compare
 Proof
   fs [FUN_EQ_THM]
@@ -518,7 +521,7 @@ val def = new_basic_definition_def |> check [‘tm’] |> m_translate
 
 val def = holSyntaxExtraTheory.instance_subst_def |> PURE_REWRITE_RULE [MEM_EXISTS] |> translate_no_ind
 
-Triviality instance_subst_ind:
+Theorem instance_subst_ind[local]:
   instance_subst_ind
 Proof
   rewrite_tac [fetch "-" "instance_subst_ind_def"]
@@ -548,7 +551,7 @@ Definition allTypes_ty_def:
   allTypes_ty = allTypes'
 End
 
-Triviality allTypes'_eqn:
+Theorem allTypes'_eqn[local]:
   allTypes' ty =
     case ty of
       Tyapp s tys =>
@@ -571,7 +574,7 @@ val def = holSyntaxTheory.allTypes_def
           |> REWRITE_RULE[GSYM allTypes_ty_def]
           |> translate
 
-Triviality allCInsts_eqn =
+Theorem allCInsts_eqn[local] =
   holSyntaxTheory.allCInsts_def
   |> SIMP_RULE std_ss [holSyntaxTheory.builtin_const_def,
                        holSyntaxTheory.init_ctxt_def,FILTER,
@@ -599,7 +602,7 @@ QED*)
 
 (*val def = FOLDL |> translate*)
 
-Triviality lambda_lemma:
+Theorem lambda_lemma[local]:
   (λx y. (λ(a,b) c. P a b c) y x) = λc (a,b). P a b c
 Proof
   rw[ELIM_UNCURRY]
@@ -652,7 +655,7 @@ val def = holSyntaxExtraTheory.unify_types_def
                                 PURE_REWRITE_RULE[GSYM FUN_EQ_THM] (GSYM (cj 1 holKernelProofTheory.type_subst))]
           |> translate_no_ind
 
-Triviality unify_types_ind:
+Theorem unify_types_ind[local]:
   unify_types_ind
 Proof
   rewrite_tac [fetch "-" "unify_types_ind_def"]

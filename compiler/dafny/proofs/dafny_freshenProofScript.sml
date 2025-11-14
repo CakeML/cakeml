@@ -41,21 +41,21 @@ End
 
 (* simps *)
 
-Triviality lookup_not_head[simp]:
+Theorem lookup_not_head[local,simp]:
   ∀v v' n ms.
     v ≠ v' ⇒ lookup ((v,n)::ms) v' = lookup ms v'
 Proof
   rpt strip_tac \\ gvs [lookup_def]
 QED
 
-Triviality lookup_head[simp]:
+Theorem lookup_head[local,simp]:
   ∀v n ms.
     lookup ((v,n)::ms) v = «v» ^ toString n
 Proof
   rpt strip_tac \\ gvs [lookup_def]
 QED
 
-Triviality not_mem_map_lookup[simp]:
+Theorem not_mem_map_lookup[local,simp]:
   ¬MEM snam xs ⇒ MAP (lookup ((snam,tnum)::ms)) xs = MAP (lookup ms) xs
 Proof
   Induct_on ‘xs’ \\ gvs []
@@ -63,32 +63,32 @@ QED
 
 (* Various trivialities *)
 
-Triviality REVERSE_LENGTH:
+Theorem REVERSE_LENGTH[local]:
   ∀xs ys. ys = REVERSE xs ⇒ LENGTH ys = LENGTH xs
 Proof
   Induct using SNOC_INDUCT \\ gvs []
 QED
 
-Triviality ALL_DISTINCT_APPEND_COMM:
+Theorem ALL_DISTINCT_APPEND_COMM[local]:
   ALL_DISTINCT (x ++ y) ⇔ ALL_DISTINCT (y ++ x)
 Proof
   eq_tac \\ gvs [ALL_DISTINCT_APPEND]
   \\ rpt strip_tac \\ res_tac
 QED
 
-Triviality distinct_reverse_append:
+Theorem distinct_reverse_append[local]:
   ALL_DISTINCT (REVERSE xs ++ REVERSE ys) ⇔ ALL_DISTINCT (xs ++ ys)
 Proof
   gvs [ALL_DISTINCT_APPEND]
 QED
 
-Triviality map_fst_reverse_imp:
+Theorem map_fst_reverse_imp[local]:
   MAP FST m = REVERSE ns ⇒ (∀n. MEM n ns ⇒ MEM n (MAP FST m))
 Proof
   gvs []
 QED
 
-Triviality every_less_weaken:
+Theorem every_less_weaken[local]:
   EVERY (λi. i < ub) (xs: num list) ∧ ub ≤ ub' ⇒
   EVERY (λi. i < ub') xs
 Proof
@@ -97,14 +97,14 @@ Proof
   \\ qexists ‘λi. i < ub’ \\ gvs []
 QED
 
-Triviality sorted_desc_cons_not_mem:
+Theorem sorted_desc_cons_not_mem[local]:
   SORTED $> ((x: num)::xs) ⇒ ¬MEM x xs
 Proof
   strip_tac \\ gvs [greater_sorted_eq]
   \\ rpt strip_tac \\ res_tac \\ gvs []
 QED
 
-Triviality SORTED_DESC_EVERY:
+Theorem SORTED_DESC_EVERY[local]:
   ∀(x: num) xs. SORTED $> (x::xs) ⇒ EVERY (λi. i < x) xs
 Proof
   Induct_on ‘xs’ \\ rpt strip_tac \\ gvs []
@@ -112,7 +112,7 @@ Proof
   \\ irule MONO_EVERY \\ qexists ‘λi. i < h’ \\ gvs []
 QED
 
-Triviality UNZIP_LENGTH:
+Theorem UNZIP_LENGTH[local]:
   ∀xs ys zs. UNZIP xs = (ys, zs) ⇒ LENGTH ys = LENGTH zs
 Proof
   Induct \\ gvs []
@@ -120,13 +120,13 @@ QED
 
 (* lookup *)
 
-Triviality lookup_pop:
+Theorem lookup_pop[local]:
   snam ≠ var ⇒ lookup ((snam,tnum)::m) var = lookup m var
 Proof
   gvs [lookup_def]
 QED
 
-Triviality lookup_append_eq:
+Theorem lookup_append_eq[local]:
   ∀n m₁ m₀.
     MEM n (MAP FST m₁) ⇒ lookup (m₁ ++ m₀) n = lookup m₁ n
 Proof
@@ -136,7 +136,7 @@ Proof
   \\ gvs [ALOOKUP_NONE]
 QED
 
-Triviality not_mem_lookup_append_eq:
+Theorem not_mem_lookup_append_eq[local]:
   ¬MEM n (MAP FST m₁) ⇒
   lookup (m₁ ++ [(n,cnt)] ++ m₀) n = «v» ^ toString cnt
 Proof
@@ -146,7 +146,7 @@ Proof
   \\ asm_simp_tac std_ss []
 QED
 
-Triviality gen_map_lookup_append_eq:
+Theorem gen_map_lookup_append_eq[local]:
   ∀ns m₁ m₀.
     (∀n. MEM n ns ⇒ MEM n (MAP FST m₁)) ⇒
     MAP (lookup (m₁ ++ m₀)) ns = MAP (lookup m₁) ns
@@ -156,7 +156,7 @@ Proof
   \\ metis_tac [lookup_append_eq]
 QED
 
-Triviality map_lookup_append_eq:
+Theorem map_lookup_append_eq[local]:
   MAP FST m₁ = REVERSE ns ⇒
   MAP (lookup (m₁ ++ m₀)) ns = MAP (lookup m₁) ns
 Proof
@@ -165,7 +165,7 @@ Proof
   \\ rpt strip_tac \\ gvs []
 QED
 
-Triviality distinct_names_map_lookup:
+Theorem distinct_names_map_lookup[local]:
   ¬MEM snam (MAP FST ms) ∧ ALL_DISTINCT (MAP FST ms) ⇒
   MAP (lookup ((snam,tnum)::ms)) (MAP FST ms) =
   MAP (lookup ms) (MAP FST ms)
@@ -173,7 +173,7 @@ Proof
   rpt strip_tac \\ gvs []
 QED
 
-Triviality gen_map_lookup_map_tostring:
+Theorem gen_map_lookup_map_tostring[local]:
   ALL_DISTINCT (MAP FST m) ⇒
   MAP (lookup m) (MAP FST m) = MAP (λi. «v» ^ toString i) (MAP SND m)
 Proof
@@ -182,7 +182,7 @@ Proof
   \\ namedCases_on ‘h’ ["n num"] \\ gvs []
 QED
 
-Triviality map_lookup_map_tostring:
+Theorem map_lookup_map_tostring[local]:
   ∀m₁ ns m₀.
     MAP FST m₁ = REVERSE ns ∧ ALL_DISTINCT (MAP FST m₁) ⇒
     MAP (lookup (m₁ ++ m₀)) ns =
@@ -198,7 +198,7 @@ Proof
   \\ gvs [MAP_REVERSE]
 QED
 
-Triviality distinct_nums_names:
+Theorem distinct_nums_names[local]:
   ALL_DISTINCT xs ⇒
   ALL_DISTINCT (MAP (λi. «v» ^ toString i) xs)
 Proof
@@ -207,7 +207,7 @@ Proof
   \\ rw [mlstring_common_prefix, num_to_str_11]
 QED
 
-Triviality distinct_nums_names_append:
+Theorem distinct_nums_names_append[local]:
   ALL_DISTINCT (xs ++ ys) ⇒
   ALL_DISTINCT
     (MAP (λi. «v» ^ toString i) xs ++
@@ -220,7 +220,7 @@ QED
 
 (* map_inv *)
 
-Triviality map_inv_pair_pop:
+Theorem map_inv_pair_pop[local]:
   map_inv ((snam,tnum)::ms) cnt ⇒ map_inv ms tnum
 Proof
   rpt strip_tac \\ gvs [map_inv_def]
@@ -228,20 +228,20 @@ Proof
   \\ drule SORTED_DESC_EVERY \\ gvs []
 QED
 
-Triviality map_inv_pop:
+Theorem map_inv_pop[local]:
   map_inv (m::ms) cnt ⇒ map_inv ms cnt
 Proof
   rpt strip_tac \\ gvs [map_inv_def]
   \\ drule SORTED_TL \\ strip_tac \\ gvs []
 QED
 
-Triviality map_inv_cons:
+Theorem map_inv_cons[local]:
   map_inv (m::ms) cnt ⇒ ∃snam tnum. m = (snam, tnum) ∧ tnum < cnt
 Proof
   PairCases_on ‘m’ \\ rpt strip_tac \\ gvs [map_inv_def]
 QED
 
-Triviality map_inv_mono:
+Theorem map_inv_mono[local]:
   ∀m cnt cnt'.
     map_inv m cnt ∧ cnt ≤ cnt' ⇒ map_inv m cnt'
 Proof
@@ -249,7 +249,7 @@ Proof
   \\ irule MONO_EVERY \\ qexists ‘λi. i < cnt’ \\ gvs []
 QED
 
-Triviality map_inv_lookup_neq:
+Theorem map_inv_lookup_neq[local]:
   ∀m tnum var.
     map_inv m tnum ⇒ lookup m var ≠ «v» ^ toString tnum
 Proof
@@ -264,7 +264,7 @@ Proof
   \\ gvs [lookup_def, mlstring_common_prefix, num_to_str_11]
 QED
 
-Triviality map_inv_distinct:
+Theorem map_inv_distinct[local]:
   map_inv m cnt ⇒ ALL_DISTINCT (MAP SND m)
 Proof
   Induct_on ‘m’ \\ rpt strip_tac \\ gvs [map_inv_def]
@@ -274,14 +274,14 @@ QED
 
 (* locals_rel *)
 
-Triviality locals_rel_length:
+Theorem locals_rel_length[local]:
   ∀xs ys zs.
     locals_rel xs ys zs ⇒ LENGTH xs = LENGTH ys ∧ LENGTH ys = LENGTH zs
 Proof
   ho_match_mp_tac locals_rel_ind \\ gvs [locals_rel_def]
 QED
 
-Triviality locals_rel_drop:
+Theorem locals_rel_drop[local]:
   ∀n xs ys zs.
     locals_rel xs ys zs ⇒ locals_rel (DROP n xs) (DROP n ys) (DROP n zs)
 Proof
@@ -295,7 +295,7 @@ Proof
   \\ gvs [locals_rel_def]
 QED
 
-Triviality locals_rel_append:
+Theorem locals_rel_append[local]:
   ∀xs' ys' zs' xs ys zs.
     locals_rel xs' ys' zs' ∧
     locals_rel xs ys zs ⇒
@@ -304,7 +304,7 @@ Proof
   recInduct locals_rel_ind \\ rpt strip_tac \\ gvs [locals_rel_def]
 QED
 
-Triviality locals_rel_pop:
+Theorem locals_rel_pop[local]:
   ∀sl ss ml ms tl ts.
     locals_rel (sl::ss) (ml::ms) (tl::ts) ⇒ locals_rel ss ms ts
 Proof
@@ -313,7 +313,7 @@ Proof
   \\ gvs [locals_rel_def]
 QED
 
-Triviality locals_rel_push:
+Theorem locals_rel_push[local]:
   ∀ss ms ts old v cnt.
     locals_rel ss ms ts ⇒
     locals_rel ((old, v)::ss) ((old, cnt)::ms)
@@ -322,7 +322,7 @@ Proof
   gvs [locals_rel_def, lookup_def]
 QED
 
-Triviality locals_rel_from_map:
+Theorem locals_rel_from_map[local]:
   ∀(vs: (value option) list) (m: (mlstring # num) list).
     ALL_DISTINCT (MAP FST m) ∧ LENGTH vs = LENGTH m ⇒
     locals_rel (ZIP (MAP FST m, vs)) m
@@ -336,7 +336,7 @@ Proof
   \\ drule distinct_names_map_lookup \\ gvs []
 QED
 
-Triviality locals_rel_read_local:
+Theorem locals_rel_read_local[local]:
   ∀ss m ts var val cnt.
     locals_rel ss m ts ∧ map_inv m cnt ∧
     read_local ss var = SOME val ⇒
@@ -353,7 +353,7 @@ Proof
   \\ last_x_assum drule_all \\ gvs []
 QED
 
-Triviality opt_mmap_read_local:
+Theorem opt_mmap_read_local[local]:
   ∀s t m m_old m_prev cnt ns vals.
     state_rel s t m m_old m_prev cnt ∧
     OPT_MMAP (read_local s.locals) ns = SOME vals ⇒
@@ -367,7 +367,7 @@ QED
 
 (* add_fresh *)
 
-Triviality add_fresh_map_inv:
+Theorem add_fresh_map_inv[local]:
   add_fresh m cnt old = (cnt', m') ∧ map_inv m cnt ⇒
   map_inv m' cnt'
 Proof
@@ -378,7 +378,7 @@ Proof
   \\ gvs [greater_sorted_eq, EVERY_MEM]
 QED
 
-Triviality map_add_fresh_map_inv:
+Theorem map_add_fresh_map_inv[local]:
   ∀m cnt ns cnt' m'.
     map_add_fresh m cnt ns = (cnt', m') ∧ map_inv m cnt ⇒
     map_inv m' cnt'
@@ -390,7 +390,7 @@ Proof
   \\ last_x_assum drule \\ gvs []
 QED
 
-Triviality map_add_fresh_mono:
+Theorem map_add_fresh_mono[local]:
   ∀ns m m' cnt cnt'. map_add_fresh m cnt ns = (cnt', m') ⇒ cnt ≤ cnt'
 Proof
   Induct
@@ -400,7 +400,7 @@ Proof
   \\ res_tac \\ gvs [add_fresh_def]
 QED
 
-Triviality map_add_fresh_distinct:
+Theorem map_add_fresh_distinct[local]:
   ∀m cnt ns cnt' m'.
     map_add_fresh m cnt ns = (cnt', m') ∧
     ALL_DISTINCT ((MAP FST m) ++ ns) ⇒
@@ -416,7 +416,7 @@ Proof
   \\ first_x_assum drule \\ gvs []
 QED
 
-Triviality map_add_fresh_len:
+Theorem map_add_fresh_len[local]:
   ∀m cnt ns cnt' ms' m'.
     map_add_fresh m cnt ns = (cnt', m') ⇒
     LENGTH m' = LENGTH m + LENGTH ns
@@ -426,7 +426,7 @@ Proof
   \\ res_tac \\ gvs []
 QED
 
-Triviality map_add_fresh_exists:
+Theorem map_add_fresh_exists[local]:
   ∀m cnt ns cnt' m'.
     map_add_fresh m cnt ns = (cnt', m') ⇒
     ∃m₁. m' = m₁ ++ m ∧ MAP FST m₁ = REVERSE ns
@@ -436,7 +436,7 @@ Proof
   \\ last_x_assum drule_all \\ rpt strip_tac \\ gvs []
 QED
 
-Triviality map_add_fresh_imp:
+Theorem map_add_fresh_imp[local]:
   map_add_fresh m₀ cnt ns = (cnt', m') ∧
   map_inv m₀ cnt ⇒
   ∃m₁.
@@ -451,7 +451,7 @@ Proof
   \\ gvs [ALL_DISTINCT_APPEND_COMM]
 QED
 
-Triviality map_add_fresh_all_distinct:
+Theorem map_add_fresh_all_distinct[local]:
   ∀names m m' cnt cnt'.
     map_add_fresh m cnt names = (cnt', m') ∧
     map_inv m cnt ∧
@@ -465,7 +465,7 @@ Proof
   \\ gvs [ALL_DISTINCT_APPEND, MAP_REVERSE, distinct_nums_names]
 QED
 
-Triviality map_add_fresh_ins_locals_rel:
+Theorem map_add_fresh_ins_locals_rel[local]:
   ∀ins (in_vs: value list) cnt m.
     map_add_fresh [] 0 (MAP FST ins) = (cnt, m) ∧
     ALL_DISTINCT (MAP FST ins) ∧
@@ -484,7 +484,7 @@ Proof
   \\ gvs [MAP_REVERSE, REVERSE_ZIP]
 QED
 
-Triviality map_add_fresh_ins_outs_locals_rel:
+Theorem map_add_fresh_ins_outs_locals_rel[local]:
   ∀ins (in_vs: value list) cnt₁ m outs cnt₂ m'.
     map_add_fresh [] 0 (MAP FST ins) = (cnt₁,m) ∧
     map_add_fresh m cnt₁ (MAP FST outs) = (cnt₂,m') ∧
@@ -517,7 +517,7 @@ Proof
   \\ disch_then $ qspec_then ‘m’ assume_tac \\ gvs []
 QED
 
-Triviality map_add_fresh_drop:
+Theorem map_add_fresh_drop[local]:
   ∀xs m m' cnt cnt'.
     map_add_fresh m cnt xs = (cnt', m') ⇒ m = DROP (LENGTH xs) m'
 Proof
@@ -534,7 +534,7 @@ QED
 
 (* Monotonicity for freshen definitions *)
 
-Triviality freshen_exp_mono:
+Theorem freshen_exp_mono[local]:
   (∀m m_old m_prev cnt e cnt' e'.
      freshen_exp m m_old m_prev cnt e = (cnt', e') ⇒ cnt ≤ cnt') ∧
   (∀m m_old m_prev cnt es cnt' es'.
@@ -547,7 +547,7 @@ Proof
   \\ imp_res_tac map_add_fresh_mono \\ simp []
 QED
 
-Triviality freshen_lhs_exp_mono:
+Theorem freshen_lhs_exp_mono[local]:
  ∀m m_old m_prev cnt lhs cnt' lhs'.
     freshen_lhs_exp m m_old m_prev cnt lhs = (cnt', lhs') ⇒ cnt ≤ cnt'
 Proof
@@ -556,7 +556,7 @@ Proof
   \\ imp_res_tac freshen_exp_mono \\ gvs []
 QED
 
-Triviality freshen_lhs_exps_mono:
+Theorem freshen_lhs_exps_mono[local]:
   ∀m m_old m_prev cnt lhss cnt' lhss'.
     freshen_lhs_exps m m_old m_prev cnt lhss = (cnt', lhss') ⇒ cnt ≤ cnt'
 Proof
@@ -565,7 +565,7 @@ Proof
   \\ imp_res_tac freshen_lhs_exp_mono \\ res_tac \\ gvs []
 QED
 
-Triviality freshen_rhs_exp_mono:
+Theorem freshen_rhs_exp_mono[local]:
  ∀m m_old m_prev cnt rhs cnt' rhs'.
     freshen_rhs_exp m m_old m_prev cnt rhs = (cnt', rhs') ⇒ cnt ≤ cnt'
 Proof
@@ -574,7 +574,7 @@ Proof
   \\ imp_res_tac freshen_exp_mono \\ gvs []
 QED
 
-Triviality freshen_rhs_exps_mono:
+Theorem freshen_rhs_exps_mono[local]:
   ∀m m_old m_prev cnt rhss cnt' rhss'.
     freshen_rhs_exps m m_old m_prev cnt rhss = (cnt', rhss') ⇒ cnt ≤ cnt'
 Proof
@@ -583,7 +583,7 @@ Proof
   \\ imp_res_tac freshen_rhs_exp_mono \\ res_tac \\ gvs []
 QED
 
-Triviality freshen_stmt_mono:
+Theorem freshen_stmt_mono[local]:
   ∀m m_old m_prev cnt stmt cnt' stmt'.
     freshen_stmt m m_old m_prev cnt stmt = (cnt', stmt') ⇒ cnt ≤ cnt'
 Proof
@@ -596,28 +596,28 @@ QED
 
 (* state_rel *)
 
-Triviality state_rel_mono:
+Theorem state_rel_mono[local]:
   state_rel s t m m_old m_prev cnt ∧ cnt ≤ cnt' ⇒
   state_rel s t m m_old m_prev cnt'
 Proof
   gvs [state_rel_def] \\ rpt strip_tac \\ imp_res_tac map_inv_mono
 QED
 
-Triviality state_rel_dec_clock:
+Theorem state_rel_dec_clock[local]:
   state_rel s t m m_old m_prev cnt ⇒
   state_rel (dec_clock s) (dec_clock t) m m_old m_prev cnt
 Proof
   rpt strip_tac \\ gvs [state_rel_def, dec_clock_def]
 QED
 
-Triviality state_rel_same_map_imp:
+Theorem state_rel_same_map_imp[local]:
   state_rel s t m m_old m_prev cnt ∧ state_rel s' t' m m_old m_prev cnt' ⇒
   state_rel s' t' m m_old m_prev cnt
 Proof
   rpt strip_tac \\ gvs [state_rel_def]
 QED
 
-Triviality state_rel_push_locals:
+Theorem state_rel_push_locals[local]:
   ∀names s t m m' m_old m_prev cnt cnt₂ cnt₃ vs.
     state_rel s t m m_old m_prev cnt ∧
     map_add_fresh m cnt₂ names = (cnt₃, m') ∧
@@ -658,7 +658,7 @@ Proof
   \\ first_assum $ irule_at (Pos last) \\ simp []
 QED
 
-Triviality state_rel_drop:
+Theorem state_rel_drop[local]:
   state_rel s₁ t₁ m m_old m_prev cnt ∧
   state_rel s₂ t₂ m' m_old m_prev cnt₁ ∧
   map_add_fresh m cnt₂ names = (cnt₃,m') ∧
@@ -678,7 +678,7 @@ QED
 
 (* get_member *)
 
-Triviality get_member_aux_some:
+Theorem get_member_aux_some[local]:
   ∀name members member.
     get_member_aux name members = SOME member ⇒
     get_member_aux name (MAP freshen_member members) =
@@ -692,7 +692,7 @@ Proof
   \\ gvs [freshen_member_def] \\ rpt (pairarg_tac \\ gvs [])
 QED
 
-Triviality get_member_some:
+Theorem get_member_some[local]:
   ∀name env member env'.
     get_member name env.prog = SOME member ∧ env_rel env env' ⇒
     get_member name env'.prog = SOME (freshen_member member)
@@ -706,7 +706,7 @@ QED
 
 (* len_eq lemmas *)
 
-Triviality freshen_exps_len_eq:
+Theorem freshen_exps_len_eq[local]:
   ∀m m_old m_prev cnt es cnt' es'.
   freshen_exps m m_old m_prev cnt es = (cnt', es') ⇒ LENGTH es = LENGTH es'
 Proof
@@ -714,7 +714,7 @@ Proof
   \\ gvs [freshen_exp_def] \\ rpt (pairarg_tac \\ gvs[]) \\ res_tac
 QED
 
-Triviality freshen_rhs_exp_len_eq:
+Theorem freshen_rhs_exp_len_eq[local]:
   ∀m m_old m_prev cnt rhss cnt' rhss'.
     freshen_rhs_exps m m_old m_prev cnt rhss = (cnt', rhss') ⇒
     LENGTH rhss' = LENGTH rhss
@@ -725,7 +725,7 @@ Proof
   \\ res_tac
 QED
 
-Triviality freshen_lhs_exp_len_eq:
+Theorem freshen_lhs_exp_len_eq[local]:
   ∀m m_old m_prev cnt lhss cnt' lhss'.
     freshen_lhs_exps m m_old m_prev cnt lhss = (cnt', lhss') ⇒
     LENGTH lhss' = LENGTH lhss
@@ -739,7 +739,7 @@ QED
 (* Proving the main theorems, namely the correctness of the freshen pass. *)
 
 (* Used in the proof for function calls. *)
-Triviality distinct_ins_lookup:
+Theorem distinct_ins_lookup[local]:
   map_add_fresh [] 0 ns = (cnt, m) ∧ ALL_DISTINCT ns ⇒
   ALL_DISTINCT (MAP (lookup m) ns)
 Proof
@@ -1236,7 +1236,7 @@ QED
 (* state_rel implies that updating the value of locals and the heap succeeds;
    it is also maintained. *)
 
-Triviality update_local_aux_locals_rel:
+Theorem update_local_aux_locals_rel[local]:
   ∀ss var val ss' m ts cnt.
     update_local_aux ss var val = SOME ss' ∧
     locals_rel ss m ts ∧ map_inv m cnt ⇒
@@ -1263,7 +1263,7 @@ Proof
   \\ drule_all locals_rel_push \\ gvs [lookup_def]
 QED
 
-Triviality update_local_state_rel:
+Theorem update_local_state_rel[local]:
   ∀s var rhs s' t m m_old m_prev cnt.
     update_local s var rhs = SOME s' ∧ state_rel s t m m_old m_prev cnt ⇒
     ∃t'.
@@ -1276,7 +1276,7 @@ Proof
   \\ rpt strip_tac \\ gvs []
 QED
 
-Triviality assign_value_state_rel:
+Theorem assign_value_state_rel[local]:
   ∀s env lhs rhs s' res t m m_old m_prev cnt cnt' lhs' env'.
     assign_value s env lhs rhs = (s', res) ∧ state_rel s t m m_old m_prev cnt ∧
     freshen_lhs_exp m m_old m_prev cnt lhs = (cnt', lhs') ∧ env_rel env env' ∧
@@ -1304,7 +1304,7 @@ Proof
     \\ gvs [update_array_def, state_rel_def, AllCaseEqs()])
 QED
 
-Triviality assign_values_state_rel:
+Theorem assign_values_state_rel[local]:
   ∀s env lhss rhss s' res t m m_old m_prev cnt lhss' cnt' env'.
     assign_values s env lhss rhss = (s', res) ∧ state_rel s t m m_old m_prev cnt ∧
     freshen_lhs_exps m m_old m_prev cnt lhss = (cnt', lhss') ∧ env_rel env env' ∧
@@ -1383,7 +1383,7 @@ Proof
 QED
 
 (* Used in the proof for method calls. *)
-Triviality distinct_ins_out_lookup:
+Theorem distinct_ins_out_lookup[local]:
   map_add_fresh [] 0 (MAP FST ins) = (cnt, m₀) ∧
   map_add_fresh m₀ cnt (MAP FST outs) = (cnt', m₁) ∧
   ALL_DISTINCT (MAP FST ins ++ MAP FST outs) ⇒
@@ -1405,7 +1405,7 @@ Proof
   \\ gvs [MAP_REVERSE, distinct_reverse_append, distinct_nums_names_append]
 QED
 
-Triviality IMP_LENGTH_EQ:
+Theorem IMP_LENGTH_EQ[local]:
   xs = ys ⇒ LENGTH xs = LENGTH ys
 Proof
   gvs []
@@ -1649,7 +1649,7 @@ Proof
   \\ gvs [evaluate_stmt_def, freshen_stmt_def]
 QED
 
-Triviality MAP_member_name_MAP_freshen_member_eq:
+Theorem MAP_member_name_MAP_freshen_member_eq[local]:
   ∀members.
     (MAP member_name (MAP freshen_member members)) =
     (MAP member_name members)
@@ -1659,7 +1659,7 @@ Proof
   \\ rpt (pairarg_tac \\ gvs [])
 QED
 
-Triviality locals_rel_nil_eq:
+Theorem locals_rel_nil_eq[local]:
   locals_rel xs [] ys ⇒ xs = [] ∧ ys = []
 Proof
   rpt strip_tac
@@ -1792,13 +1792,13 @@ Definition is_fresh_member_def[simp]:
      EVERY (λe. is_fresh_exp e) decrs ∧ is_fresh_exp body)
 End
 
-Triviality add_fresh_is_fresh:
+Theorem add_fresh_is_fresh[local]:
   add_fresh m cnt v = (cnt', m') ⇒ is_fresh (lookup m' v)
 Proof
   disch_tac \\ gvs [add_fresh_def, lookup_def, is_fresh_def, isprefix_strcat]
 QED
 
-Triviality map_add_fresh_every_is_fresh:
+Theorem map_add_fresh_every_is_fresh[local]:
   ∀ns m cnt cnt' m'.
     map_add_fresh m cnt ns = (cnt', m') ⇒
     EVERY (λn. is_fresh n) (MAP (lookup m') ns)
@@ -1820,7 +1820,7 @@ Proof
   \\ last_assum $ irule_at Any
 QED
 
-Triviality freshen_exp_is_fresh:
+Theorem freshen_exp_is_fresh[local]:
   (∀m m_old m_prev cnt e cnt' e'.
      freshen_exp m m_old m_prev cnt e = (cnt', e') ⇒ is_fresh_exp e') ∧
   (∀m m_old m_prev cnt es cnt' es'.
@@ -1851,7 +1851,7 @@ Proof
   \\ rpt (pairarg_tac \\ gvs [])
 QED
 
-Triviality freshen_lhs_exp_is_fresh:
+Theorem freshen_lhs_exp_is_fresh[local]:
   freshen_lhs_exp m m_old m_prev cnt lhs = (cnt', lhs') ⇒ is_fresh_lhs_exp lhs'
 Proof
   Cases_on ‘lhs’
@@ -1867,7 +1867,7 @@ Proof
     \\ imp_res_tac (cj 1 freshen_exp_is_fresh) \\ simp [])
 QED
 
-Triviality freshen_lhs_exps_is_fresh:
+Theorem freshen_lhs_exps_is_fresh[local]:
   ∀lhss m m_old m_prev cnt cnt' lhss'.
     freshen_lhs_exps m m_old m_prev cnt lhss = (cnt', lhss') ⇒
     EVERY (λe. is_fresh_lhs_exp e) lhss'
@@ -1879,7 +1879,7 @@ Proof
   \\ res_tac
 QED
 
-Triviality freshen_rhs_exp_is_fresh:
+Theorem freshen_rhs_exp_is_fresh[local]:
   freshen_rhs_exp m m_old m_prev cnt rhs = (cnt', rhs') ⇒ is_fresh_rhs_exp rhs'
 Proof
   Cases_on ‘rhs’
@@ -1895,7 +1895,7 @@ Proof
     \\ imp_res_tac (cj 1 freshen_exp_is_fresh) \\ simp [])
 QED
 
-Triviality freshen_rhs_exps_is_fresh:
+Theorem freshen_rhs_exps_is_fresh[local]:
   ∀rhss m m_old m_prev cnt cnt' rhss'.
     freshen_rhs_exps m m_old m_prev cnt rhss = (cnt', rhss') ⇒
     EVERY (λe. is_fresh_rhs_exp e) rhss'
@@ -1907,7 +1907,7 @@ Proof
   \\ res_tac
 QED
 
-Triviality freshen_stmt_is_fresh:
+Theorem freshen_stmt_is_fresh[local]:
   ∀stmt m m_old m_prev cnt cnt' stmt'.
     freshen_stmt m m_old m_prev cnt stmt = (cnt', stmt') ⇒ is_fresh_stmt stmt'
 Proof
@@ -1999,7 +1999,7 @@ Definition no_shadow_method_def[simp]:
   no_shadow_method _ = T
 End
 
-Triviality freshen_stmt_no_shadow:
+Theorem freshen_stmt_no_shadow[local]:
   ∀stmt m cnt cnt' stmt'.
     freshen_stmt m m_old m_prev cnt stmt = (cnt', stmt') ∧
     map_inv m cnt ⇒

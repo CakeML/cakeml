@@ -28,7 +28,7 @@ val _ = find_def_for_const := def_of_const;
 
 val _ = translate parse_patch_header_def;
 
-Triviality tokens_less_eq:
+Theorem tokens_less_eq[local]:
   !s f. EVERY (\x. strlen x <= strlen s) (tokens f s)
 Proof
   Induct >> Ho_Rewrite.PURE_ONCE_REWRITE_TAC[SWAP_FORALL_THM]
@@ -44,7 +44,7 @@ Proof
   >> drule EVERY_MONOTONIC >> pop_assum kall_tac >> disch_then match_mp_tac >> rw[]
 QED
 
-Triviality tokens_sum_less_eq:
+Theorem tokens_sum_less_eq[local]:
   !s f. SUM(MAP strlen (tokens f s)) <= strlen s
 Proof
   Induct >> Ho_Rewrite.PURE_ONCE_REWRITE_TAC[SWAP_FORALL_THM]
@@ -56,7 +56,7 @@ Proof
   >> CONV_TAC(RAND_CONV(ONCE_REWRITE_CONV[GSYM SPLITP_LENGTH])) >> fs[]
 QED
 
-Triviality tokens_not_nil:
+Theorem tokens_not_nil[local]:
   !s f. EVERY (\x. x <> strlit "") (tokens f s)
 Proof
   Induct >> Ho_Rewrite.PURE_ONCE_REWRITE_TAC[SWAP_FORALL_THM]
@@ -66,7 +66,7 @@ Proof
   >> fs[implode_def]
 QED
 
-Triviality tokens_two_less:
+Theorem tokens_two_less[local]:
   !s f s1 s2. tokens f s = [s1;s2] ==> strlen s1 < strlen s /\ strlen s2 < strlen s
 Proof
   ntac 2 strip_tac >> qspecl_then [`s`,`f`] assume_tac tokens_sum_less_eq

@@ -47,7 +47,7 @@ Proof
   >> fs[]
 QED
 
-Triviality REPLICATE_inj:
+Theorem REPLICATE_inj[local]:
   !x y a. REPLICATE x a = REPLICATE y a ==> x = y
 Proof
   Induct >> fs[REPLICATE]
@@ -74,7 +74,7 @@ Proof
   >> fs[Abbr`zipl`,MAP_ZIP,EL_ZIP,EL_MAP]
 QED
 
-Triviality LENGTH_mlstring_sort:
+Theorem LENGTH_mlstring_sort[local]:
   LENGTH (mlstring_sort (tvars a)) = LENGTH (tvars a)
 Proof
   fs[mlstring_sort_def]
@@ -255,14 +255,14 @@ Proof
   >> fs[]
 QED
 
-Triviality nonbuiltin_types_TYPE_SUBST:
+Theorem nonbuiltin_types_TYPE_SUBST[local]:
   !m l i. (Tyapp m l) ∈ nonbuiltin_types
   ==> TYPE_SUBST i (Tyapp m l) ∈ nonbuiltin_types
 Proof
   fs[nonbuiltin_types_def,is_builtin_type_def]
 QED
 
-Triviality nonbuiltin_types_TYPE_SUBSTf:
+Theorem nonbuiltin_types_TYPE_SUBSTf[local]:
   !m l i. (Tyapp m l) ∈ nonbuiltin_types
   ==> TYPE_SUBSTf i (Tyapp m l) ∈ nonbuiltin_types
 Proof
@@ -291,7 +291,7 @@ Proof
   >> fs[EVERY_MEM]
 QED
 
-Triviality nonbuiltin_types_allTypes:
+Theorem nonbuiltin_types_allTypes[local]:
   !ty. ty ∈ nonbuiltin_types ==> allTypes' ty = [ty]
 Proof
   Cases
@@ -377,7 +377,7 @@ Theorem extends_init_IS_SUFFIX =
   CONV_RULE SWAP_FORALL_CONV extends_IS_SUFFIX |> Q.SPEC `init_ctxt`
   |> REWRITE_RULE [GSYM extends_init_def]
 
-Triviality extends_init_Fun:
+Theorem extends_init_Fun[local]:
   extends_init ctxt ==> MEM (NewType «fun» 2) ctxt
 Proof
   rw[]
@@ -386,7 +386,7 @@ Proof
   >> rw[MEM_APPEND]
 QED
 
-Triviality extends_init_Bool:
+Theorem extends_init_Bool[local]:
   extends_init ctxt ==> MEM (NewType «bool» 0) ctxt
 Proof
   rw[]
@@ -433,7 +433,7 @@ QED
 
 (* properties about the dependency relation *)
 
-Triviality dependency_INR_is_Const:
+Theorem dependency_INR_is_Const[local]:
   (!a b. dependency ctxt a (INR b) ==> ?c ty. b = Const c ty)
   ∧ !a b. dependency ctxt (INR b) a ==> ?c ty. b = Const c ty
 Proof
@@ -821,7 +821,7 @@ Definition indep_frag_def:
       ((FST frag) DIFF v_t, (SND frag) DIFF v_c)
 End
 
-Triviality indep_frag_subset_frag:
+Theorem indep_frag_subset_frag[local]:
   !ctxt u frag.
   (FST (indep_frag ctxt u frag)) ⊆ (FST (frag))
   /\ (SND (indep_frag ctxt u frag)) ⊆ (SND (frag))
@@ -958,7 +958,7 @@ Definition upd_introduces_def:
   /\ (upd_introduces (NewAxiom prop) = [])
 End
 
-Triviality upd_introduces_is_const_or_type:
+Theorem upd_introduces_is_const_or_type[local]:
   !upd u. MEM u (upd_introduces upd) ⇒ is_const_or_type u
 Proof
   Cases >> rw[is_const_or_type_def,upd_introduces_def,MEM_MAP,PULL_EXISTS] >>
@@ -5045,25 +5045,25 @@ QED
 (* Various lemmas MEM_*_indep_frag, saying that constants and types introduced
  * by mk_bool_ctxt and mk_infinity_ctxt are in the independent fragment *)
 
-Triviality MEM_mk_bool_ctxt_nil:
+Theorem MEM_mk_bool_ctxt_nil[local]:
   MEM x (mk_bool_ctxt [])⇒ ?name defn. x = ConstDef name defn
 Proof
   rw[holBoolSyntaxTheory.mk_bool_ctxt_def]
 QED
 
-Triviality mk_bool_ctxt_nil_eq:
+Theorem mk_bool_ctxt_nil_eq[local]:
   !ctxt. mk_bool_ctxt ctxt = (mk_bool_ctxt [] ++ ctxt)
 Proof
   fs[holBoolSyntaxTheory.mk_bool_ctxt_def]
 QED
 
-Triviality mk_infinity_ctxt_nil_eq:
+Theorem mk_infinity_ctxt_nil_eq[local]:
   !ctxt. mk_infinity_ctxt ctxt = (mk_infinity_ctxt [] ++ ctxt)
 Proof
   fs[mk_infinity_ctxt_def]
 QED
 
-Triviality mk_select_ctxt_nil_eq:
+Theorem mk_select_ctxt_nil_eq[local]:
   !ctxt.  mk_select_ctxt ctxt = (mk_select_ctxt [] ++ ctxt)
 Proof
   fs[mk_select_ctxt_def]

@@ -636,6 +636,7 @@ Definition op_to_string_def:
   (op_to_string Strcat = (implode "Strcat", 1)) ∧
   (op_to_string VfromList = (implode "VfromList", 1)) ∧
   (op_to_string Vsub = (implode "Vsub", 2)) ∧
+  (op_to_string Vsub_unsafe = (implode "Vsub_unsafe", 2)) ∧
   (op_to_string Vlength = (implode "Vlength", 1)) ∧
   (op_to_string Aalloc = (implode "Aalloc", 2)) ∧
   (op_to_string AallocEmpty = (implode "AallocEmpty", 1)) ∧
@@ -784,6 +785,7 @@ constrain_op l op ts s =
           () <- add_constraint l t2 (Infer_Tapp [uvar] Tlist_num);
           return (Infer_Tapp [uvar] Tlist_num)
        od s
+   | (Vsub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
    | (Asub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
    | (Aupdate_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
    | (Aw8sub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
@@ -1009,7 +1011,7 @@ Termination
   rw []
 End
 
-Triviality FUN_EQ_THM_state:
+Theorem FUN_EQ_THM_state[local]:
   f = g ⇔ ∀s. f s = g s
 Proof
   gvs [FUN_EQ_THM]
@@ -1251,4 +1253,3 @@ Definition inf_env_to_types_string_def:
                                     strlit "\n";]) l in
       (* sort mlstring_le *) REVERSE xs
 End
-

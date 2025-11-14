@@ -20,7 +20,7 @@ Definition fix_clock_def:
   (st₁ with clock := if st₁.clock ≤ st₀.clock then st₁.clock else st₀.clock, res)
 End
 
-Triviality fix_clock_IMP:
+Theorem fix_clock_IMP[local]:
   fix_clock st₀ x = (st₁, res) ⇒ st₁.clock ≤ st₀.clock
 Proof
   Cases_on ‘x’ >> rw[fix_clock_def] >> gvs[]

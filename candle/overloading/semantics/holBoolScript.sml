@@ -298,7 +298,7 @@ Proof
 QED
 
 (* TODO: move *)
-Triviality builtins_std_assignment:
+Theorem builtins_std_assignment[local]:
   is_std_type_assignment(ext_type_frag_builtins δ)
 Proof
   rw[is_std_type_assignment_def]

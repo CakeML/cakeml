@@ -1194,7 +1194,7 @@ Proof
   rw [nsLookupMod_def]
 QED
 
-Triviality lemma:
+Theorem lemma[local]:
   (?x. y = SOME x) ⇔ y ≠ NONE
 Proof
   Cases_on `y` >>

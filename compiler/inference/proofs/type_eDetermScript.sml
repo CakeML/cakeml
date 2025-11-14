@@ -9,7 +9,7 @@ Ancestors
 Libs
   preamble
 
-Triviality sub_completion_empty:
+Theorem sub_completion_empty[local]:
   !m n s s'. sub_completion m n s [] s' ⇔ count n ⊆ FDOM s' ∧ (∀uv. uv ∈ FDOM s' ⇒ check_t m ∅ (t_walkstar s' (Infer_Tuvar uv))) ∧ s = s'
 Proof
   rw [sub_completion_def, pure_add_constraints_def] >>
@@ -147,7 +147,7 @@ Proof
     metis_tac[check_freevars_empty_convert_unconvert_id]
 QED
 
-Triviality unconvert_11:
+Theorem unconvert_11[local]:
   !t1 t2. check_freevars 0 [] t1 ∧ check_freevars 0 [] t2 ⇒
   (unconvert_t t1 = unconvert_t t2 ⇔ t1 = t2)
 Proof

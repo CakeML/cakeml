@@ -136,7 +136,7 @@ Proof
   res_tac >> fsrw_tac[ARITH_ss][ADD1]
 QED
 
-Triviality code_installed_get_labels_IMP:
+Theorem code_installed_get_labels_IMP[local]:
   !top e n q pc.
       code_installed pc (append (FST (flatten top e n q))) c /\
       (l1,l2) ∈ get_labels e ==>
@@ -169,7 +169,7 @@ QED
 (* TODO: these may already be proved in lab_filter or lab_to_target,
          they ought to move into labProps
 *)
-Triviality asm_fetch_aux_SOME_append:
+Theorem asm_fetch_aux_SOME_append[local]:
   ∀pc code l code2.
   asm_fetch_aux pc code = SOME l ⇒
   asm_fetch_aux pc (code++code2) = SOME l
@@ -177,7 +177,7 @@ Proof
   ho_match_mp_tac asm_fetch_aux_ind>>simp[asm_fetch_aux_def]>>rw[]
 QED
 
-Triviality asm_fetch_aux_SOME_isPREFIX:
+Theorem asm_fetch_aux_SOME_isPREFIX[local]:
   ∀pc code l code2.
   asm_fetch_aux pc code = SOME l /\
   code ≼ code2 ==>
@@ -242,7 +242,7 @@ Proof
   rw[]>>fs[IS_PREFIX_APPEND]>>metis_tac[loc_to_pc_APPEND]
 QED
 
-Triviality MAP_prog_to_section_FST:
+Theorem MAP_prog_to_section_FST[local]:
   MAP (λs. case s of Section n v => n) (MAP prog_to_section prog) =
   MAP FST prog
 Proof
@@ -431,7 +431,7 @@ Proof
   \\ rw [] \\ res_tac \\ fs [asm_fetch_aux_add]
 QED
 
-Triviality code_installed_prog_to_section_lemma:
+Theorem code_installed_prog_to_section_lemma[local]:
   !prog4 n prog3.
       ALOOKUP prog4 n = SOME prog3 ==>
       ?pc.
@@ -3031,7 +3031,7 @@ Definition memory_assumption_def:
        (fun2set (t.mem,t.mem_domain))
 End
 
-Triviality halt_assum_lemma:
+Theorem halt_assum_lemma[local]:
   halt_assum (:'ffi#'c)
      (fromAList (stack_names$compile f
        (compile jump off gen max_heap k l code)))
@@ -3051,7 +3051,7 @@ Proof
          get_var_def,FLOOKUP_UPDATE]
 QED
 
-Triviality FLOOKUP_regs:
+Theorem FLOOKUP_regs[local]:
   !regs n v f s.
       FLOOKUP (FEMPTY |++ MAP (λr. (r,read_reg r s)) regs) n = SOME v ==>
       read_reg n s = v
@@ -3061,7 +3061,7 @@ Proof
 QED
 
 (*
-Triviality FLOOKUP_fp_regs:
+Theorem FLOOKUP_fp_regs[local]:
   !regs n v f s.
       FLOOKUP (FEMPTY |++ MAP (λr. (r,read_fp_reg r s)) regs) n = SOME v ==>
       s.fp_regs n = v
@@ -3103,7 +3103,7 @@ Proof
   \\ metis_tac [FLOOKUP_regs]
 QED
 
-Triviality MAP_FST_compile_compile:
+Theorem MAP_FST_compile_compile[local]:
   MAP FST (compile jump off gen max_heap k InitGlobals_location
               (stack_alloc$compile c
                  (stack_rawcall$compile code))) =
@@ -3181,7 +3181,7 @@ Proof
 QED
 *)
 
-Triviality MAP_prog_to_section_FST:
+Theorem MAP_prog_to_section_FST[local]:
   MAP (λs. case s of Section n v => n) (MAP prog_to_section prog) =
   MAP FST prog
 Proof
@@ -3189,7 +3189,7 @@ Proof
   pairarg_tac>>fs[]
 QED
 
-Triviality extract_label_store_list_code:
+Theorem extract_label_store_list_code[local]:
   ∀a t ls.
   extract_labels (store_list_code a t ls) = []
 Proof
@@ -3536,7 +3536,7 @@ QED
 
 val stack_asm_ok_def = stackPropsTheory.stack_asm_ok_def
 
-Triviality flatten_line_ok_pre:
+Theorem flatten_line_ok_pre[local]:
   ∀t p n m ls a b c.
   byte_offset_ok c 0w /\
   stack_asm_ok c p ∧
@@ -3850,7 +3850,7 @@ Proof
   \\ metis_tac[]
 QED
 
-Triviality prog_to_section_preserves_MAP_FST:
+Theorem prog_to_section_preserves_MAP_FST[local]:
   ∀p.
     IMAGE (λn. n,0) (set (MAP FST p)) ⊆
     get_code_labels (MAP prog_to_section p)
@@ -3989,7 +3989,7 @@ QED
     (I think the latter may be sufficient)
  *)
 (* stack_names *)
-Triviality get_code_labels_comp:
+Theorem get_code_labels_comp[local]:
   !f p. complex_get_code_labels (stack_names$comp f p) = complex_get_code_labels p
 Proof
   HO_MATCH_MP_TAC stack_namesTheory.comp_ind \\ rw []
@@ -4009,7 +4009,7 @@ Proof
 QED
 
 (* stack_remove *)
-Triviality get_code_labels_comp:
+Theorem get_code_labels_comp[local]:
   !a b c p. get_code_labels (comp a b c p) SUBSET (stack_err_lab,0) INSERT get_code_labels p
 Proof
   HO_MATCH_MP_TAC stack_removeTheory.comp_ind \\ rw []
@@ -4053,14 +4053,14 @@ Proof
     fs[stack_removeTheory.max_stack_alloc_def])
 QED
 
-Triviality init_stubs_labels:
+Theorem init_stubs_labels[local]:
   EVERY (λp. get_code_labels p SUBSET (set [(1n,0n);(start,0n)])) (MAP SND (init_stubs ggc mh k start))
 Proof
   rpt(EVAL_TAC>>rw[]>>fs[])
 QED
 
 (* ---- stack_names  ----*)
-Triviality stack_names_get_code_labels_comp:
+Theorem stack_names_get_code_labels_comp[local]:
   !f p. get_code_labels (stack_names$comp f p) = get_code_labels p
 Proof
   HO_MATCH_MP_TAC stack_namesTheory.comp_ind \\ rw []
@@ -4069,7 +4069,7 @@ Proof
   fs[stack_namesTheory.dest_find_name_def]
 QED
 
-Triviality stack_names_stack_get_handler_labels_comp:
+Theorem stack_names_stack_get_handler_labels_comp[local]:
   !f p n.
   stack_get_handler_labels n (stack_names$comp f p) =
   stack_get_handler_labels n p
@@ -4080,7 +4080,7 @@ Proof
   fs[stack_namesTheory.dest_find_name_def]
 QED
 
-Triviality UNCURRY_PAIR_ETA:
+Theorem UNCURRY_PAIR_ETA[local]:
   UNCURRY f = λ(p1,p2). f p1 p2
 Proof
   fs[FUN_EQ_THM]
@@ -4096,10 +4096,10 @@ Proof
   fs[MAP_MAP_o,o_DEF,stack_namesTheory.prog_comp_def,UNCURRY,LAMBDA_PROD]>>
   fs[stack_names_stack_get_handler_labels_comp,stack_names_get_code_labels_comp]>>
   fs[UNCURRY_PAIR_ETA]
-QED;
+QED
 
 (* ---- stack_remove ---- *)
-Triviality stack_remove_get_code_labels_comp:
+Theorem stack_remove_get_code_labels_comp[local]:
   !a b c p.
   get_code_labels (comp a b c p) SUBSET (stack_err_lab,0) INSERT get_code_labels p
 Proof
@@ -4144,7 +4144,7 @@ Proof
     fs[stack_removeTheory.max_stack_alloc_def])
 QED
 
-Triviality stack_remove_stack_get_handler_labels_comp:
+Theorem stack_remove_stack_get_handler_labels_comp[local]:
   !a b c p m.
   stack_get_handler_labels m (comp a b c p) =
   stack_get_handler_labels m p
@@ -4185,7 +4185,7 @@ Proof
     fs[stack_removeTheory.max_stack_alloc_def])
 QED
 
-Triviality stack_remove_init_code_labels:
+Theorem stack_remove_init_code_labels[local]:
   x ∈ get_code_labels (init_code ggc mh sp) ⇒ x = (1n,0n)
 Proof
   rpt(EVAL_TAC>>rw[]>>fs[])
@@ -4219,7 +4219,7 @@ Proof
       fs[stack_removeTheory.init_stubs_def,stack_removeTheory.stack_err_lab_def,EXISTS_PROD]
     >>
       metis_tac[]
-QED;
+QED
 
 (*
   The same theorem, but for the incremental version
@@ -4239,10 +4239,10 @@ Proof
   drule (stack_remove_get_code_labels_comp |> SIMP_RULE std_ss [SUBSET_DEF])>>
   rw[]>>
   metis_tac[]
-QED;
+QED
 
 (* --- stack_alloc ---- *)
-Triviality stack_alloc_get_code_labels_comp:
+Theorem stack_alloc_get_code_labels_comp[local]:
   !n m p pp mm.
   get_code_labels (FST (comp n m p)) ⊆ (gc_stub_location,0) INSERT get_code_labels p
 Proof
@@ -4254,7 +4254,7 @@ Proof
   \\ fs[SUBSET_DEF]>>metis_tac[]
 QED
 
-Triviality stack_alloc_stack_get_handler_labels_comp:
+Theorem stack_alloc_stack_get_handler_labels_comp[local]:
   !n m p pp mm.
   stack_get_handler_labels i (FST (comp n m p)) = stack_get_handler_labels i p
 Proof
@@ -4266,7 +4266,7 @@ Proof
   \\ fs[stack_get_handler_labels_def]
 QED
 
-Triviality stack_alloc_init_code_labels:
+Theorem stack_alloc_init_code_labels[local]:
   get_code_labels (word_gc_code c) = {}
 Proof
   simp[stack_allocTheory.word_gc_code_def]>>
@@ -4415,7 +4415,7 @@ Proof
 
   match_mp_tac stack_rawcall_stack_good_code_labels>>
   fs[]
-QED;
+QED
 
 Theorem stack_to_lab_stack_good_code_labels_incr:
   stack_err_lab ∈ elabs ∧
@@ -4433,7 +4433,7 @@ Proof
   simp[]>>
   match_mp_tac stack_alloc_stack_good_code_labels_incr>>
   simp[]
-QED;
+QED
 
 (* nonzero restricted code labels *)
 Theorem nonzero_get_labels_MAP_prog_to_section_SUBSET_code_labels:
@@ -4457,7 +4457,7 @@ Proof
   match_mp_tac SUBSET_TRANS>> asm_exists_tac>>simp[]>>
   metis_tac[MAP_prog_to_section_preserves_handler_labels,one_prog_section,
       SUBSET_UNION,SUBSET_TRANS]
-QED;
+QED
 
 Theorem stack_names_stack_good_handler_labels:
   ∀prog f. stack_good_handler_labels prog ⇒
@@ -4468,20 +4468,20 @@ Proof
   rw[]>>
   fs[GSYM LIST_TO_SET_MAP,MAP_MAP_o,o_DEF,LAMBDA_PROD,stack_names_get_code_labels_comp]>>
   fs[stack_names_stack_get_handler_labels_comp]
-QED;
+QED
 
 Theorem restrict_nonzero_union:
   restrict_nonzero (A ∪ B) = restrict_nonzero A ∪ restrict_nonzero B
 Proof
   rw[backendPropsTheory.restrict_nonzero_def,EXTENSION]>>
   metis_tac[]
-QED;
+QED
 
 Theorem restrict_nonzero_IN:
   x ∈ restrict_nonzero s ⇔ x ∈ s ∧ SND x ≠ 0
 Proof
   EVAL_TAC>>simp[]
-QED;
+QED
 
 Theorem stack_good_handler_labels_append:
   stack_good_handler_labels xs ∧
@@ -4492,7 +4492,7 @@ Proof
   rw[]>>
   fs [SUBSET_DEF] >>
   metis_tac []
-QED;
+QED
 
 Theorem stack_remove_stack_good_handler_labels_incr:
   ∀prog.
@@ -4520,7 +4520,7 @@ Proof
   drule(stack_remove_get_code_labels_comp |> SIMP_RULE std_ss [SUBSET_DEF])>>
   Cases_on`x'`>>simp[]>>
   rw[]>>fs[]
-QED;
+QED
 
 Theorem stack_remove_stack_good_handler_labels:
   ∀prog.
@@ -4545,7 +4545,7 @@ Proof
     metis_tac[SND])
   >>
     metis_tac[stack_remove_stack_good_handler_labels_incr]
-QED;
+QED
 
 Theorem stack_alloc_stack_good_handler_labels_incr:
   ∀prog.
@@ -4563,7 +4563,7 @@ Proof
   simp[backendPropsTheory.restrict_nonzero_def]>>
   Cases_on`x`>>simp[]>>
   metis_tac[]
-QED;
+QED
 
 Theorem stack_alloc_stack_good_handler_labels:
   ∀prog c.

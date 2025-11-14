@@ -2924,6 +2924,7 @@ val builtin_binops =
    Eval_strsub,
    Eval_ListAppend,
    Eval_sub,
+   Eval_sub_unsafe,
    Eval_Implies,
    Eval_pure_seq]
  |> map (fn th =>
@@ -4154,7 +4155,7 @@ fun print_unable_to_prove_ind_thm ind_goal_def original_def ml_name = let
   val _ = print ("\n")
   val _ = print ("\nval res = translate_no_ind "^name^";")
   val _ = print ("\n")
-  val _ = print ("\nTriviality " ^ ind_name ^ ":")
+  val _ = print ("\nTheorem " ^ ind_name ^ "[local]:")
   val _ = print ("\n  " ^ ind_name)
   val _ = print ("\nProof")
   val _ = print ("\n  once_rewrite_tac [fetch \"-\" \"" ^ ind_name ^ "_def\"]")

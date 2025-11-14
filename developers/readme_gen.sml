@@ -57,7 +57,9 @@ val ILLEGAL_STRINGS =
    (* HACK Stop readme_gen from flagging itself by using \ \ in strings *)
    ("new_\ \theory","Use Theory syntax instead of old new_\ \theory"),
    ("export_\ \theory","Use Theory sytnax instead of old export_\ \theory"),
-   ("TheoryPP.include_\ \docs","Add the no_sig_docs tag to the theory name instead of TheoryPP.include_\ \docs.")]
+   ("TheoryPP.include_\ \docs","Add the no_sig_docs tag to the theory name instead of TheoryPP.include_\ \docs."),
+   ("Trivialit\ \y", "Trivialit\ \y has been deprecated. Please use Theorem with a local tag instead.")
+  ]
 
 (* Helper functions *)
 

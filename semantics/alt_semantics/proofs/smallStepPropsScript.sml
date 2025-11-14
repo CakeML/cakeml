@@ -1529,7 +1529,7 @@ Proof
   goal_assum drule >> simp[]
 QED
 
-Triviality small_decl_diverges_ExpVal_lemma:
+Theorem small_decl_diverges_ExpVal_lemma[local]:
   ∀benv (st:'ffi state) env ev cs locs p dcs b.
     (decl_step_reln benv)꙳ (st,ExpVal env ev cs locs p,dcs) b ∧
     (∀res. (e_step_reln꙳ (env,(st.refs,st.ffi),ev,cs) res ⇒
@@ -1822,4 +1822,3 @@ Proof
   rev_drule RTC_decl_step_confl >> disch_then drule >> rw[] >>
   imp_res_tac RTC_decl_step_reln_io_events_mono >> gvs[io_events_mono_def]
 QED
-

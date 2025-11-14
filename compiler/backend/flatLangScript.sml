@@ -72,6 +72,7 @@ Datatype:
   (* Vector operations *)
   | VfromList
   | Vsub
+  | Vsub_unsafe
   | Vlength
   (* Array operations *)
   | Aalloc
@@ -264,4 +265,3 @@ Proof
   \\ CONV_TAC (RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   \\ rw [SmartIf_def]
 QED
-

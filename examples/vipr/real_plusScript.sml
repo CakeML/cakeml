@@ -42,7 +42,7 @@ Definition coeff_def:
     | NONE => 0:real
 End
 
-Triviality lookup_mk_BN_BS:
+Theorem lookup_mk_BN_BS[local]:
   lookup n (mk_BN t1 t2) = lookup n (BN t1 t2) ∧
   lookup n (mk_BS t1 x t2) = lookup n (BS t1 x t2)
 Proof

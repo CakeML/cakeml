@@ -134,7 +134,7 @@ val _ = Parse.hide "mem";
 val mem = ``mem:'U->'U-> bool``;
 Overload reader[local] = ``\inp r. readLines init_state inp r``
 
-Triviality all_lines_stdin_fs:
+Theorem all_lines_stdin_fs[local]:
   all_lines_inode (stdin_fs inp) (UStream «stdin»)
    =
    lines_of (implode inp)

@@ -310,13 +310,13 @@ Proof
   fs [LIST_RELi_EL_EQN,env_rel_def]
 QED
 
-Triviality opt_lemma:
+Theorem opt_lemma[local]:
   x = y <=> (x = SOME () <=> y = SOME ())
 Proof
   Cases_on `x` \\ Cases_on `y` \\ fs []
 QED
 
-Triviality OptionalLetLet_IMP:
+Theorem OptionalLetLet_IMP[local]:
   (ys,l,s',nr') = OptionalLetLet y (LENGTH env) lx s1 limit nr /\
     (∀env2 extra.
       env_rel l env env2 ⇒ evaluate ([y],env2 ++ extra,s) = res) /\
@@ -807,7 +807,7 @@ Proof
   \\ EVAL_TAC \\ rw []
 QED
 
-Triviality get_code_labels_dest_handle_Raise:
+Theorem get_code_labels_dest_handle_Raise[local]:
   ∀c x. dest_handle_Raise c = SOME x ⇒
         get_code_labels c = get_code_labels x
 Proof
@@ -815,7 +815,7 @@ Proof
   \\ rpt strip_tac \\ gvs [dest_handle_Raise_def,AllCaseEqs()]
 QED
 
-Triviality get_code_labels_handle_adj_vars:
+Theorem get_code_labels_handle_adj_vars[local]:
   (∀x d l. get_code_labels (handle_adj_vars d l x) = get_code_labels x) ∧
   (∀x d l. MAP get_code_labels (handle_adj_vars1 d l x) = MAP get_code_labels x)
 Proof

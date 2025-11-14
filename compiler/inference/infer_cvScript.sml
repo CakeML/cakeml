@@ -43,7 +43,7 @@ Definition map_t_walkstar_def:
   map_t_walkstar s (t::ts) = t_walkstar s t :: map_t_walkstar s ts
 End
 
-Triviality map_t_walkstar_thm:
+Theorem map_t_walkstar_thm[local]:
   MAP (t_walkstar s) ts = map_t_walkstar s ts
 Proof
   Induct_on ‘ts’ \\ gvs [map_t_walkstar_def]

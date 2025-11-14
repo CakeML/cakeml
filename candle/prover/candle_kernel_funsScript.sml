@@ -123,7 +123,7 @@ Proof
   \\ gs [io_events_mono_antisym]
 QED
 
-Triviality GC_T:
+Theorem GC_T[local]:
   GC s = T
 Proof
   fs [cfHeapsBaseTheory.GC_def,set_sepTheory.SEP_EXISTS_THM]
@@ -195,7 +195,7 @@ Proof
          the_context_def]
 QED
 
-Triviality IMP_perms_ok_lemma:
+Theorem IMP_perms_ok_lemma[local]:
   (LIST_TYPE (PAIR_TYPE STRING_TYPE NUM) x1 v ⇒ perms_ok ps v) ∧
   (LIST_TYPE (PAIR_TYPE STRING_TYPE TYPE_TYPE) x2 v ⇒ perms_ok ps v) ∧
   (LIST_TYPE THM_TYPE x3 v ⇒ perms_ok ps v) ∧

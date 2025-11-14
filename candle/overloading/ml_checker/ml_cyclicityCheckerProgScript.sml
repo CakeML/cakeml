@@ -37,7 +37,7 @@ End
 
 val res = parse_strlit_innards_def |> translate_no_ind;
 
-Triviality parse_strlit_innards_ind:
+Theorem parse_strlit_innards_ind[local]:
   parse_strlit_innards_ind
 Proof
   rewrite_tac [fetch "-" "parse_strlit_innards_ind_def"]

@@ -40,7 +40,7 @@ end;
 `;
 val insertsort_st = ml_progLib.add_prog insertsort ml_progLib.pick_name (basis_st());
 
-Triviality list_rel_perm_help:
+Theorem list_rel_perm_help[local]:
   !l1 l2.
     PERM l1 l2
     ⇒
@@ -93,7 +93,7 @@ Proof
   metis_tac [ZIP_APPEND, LENGTH]
 QED
 
-Triviality arith:
+Theorem arith[local]:
   !x:num. x ≠ 0 ⇒ &(x-1) = &x - 1:int
 Proof
   rw [int_arithTheory.INT_NUM_SUB]

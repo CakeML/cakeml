@@ -33,13 +33,13 @@ val res = translate toChar_def;
 
 val res = translate num_to_chars_def;
 
-Triviality tochar_side_dec:
+Theorem tochar_side_dec[local]:
   i < 10 ==> tochar_side i
 Proof
   EVAL_TAC \\ simp []
 QED
 
-Triviality num_to_chars_side:
+Theorem num_to_chars_side[local]:
   !i j k acc. num_to_chars_side i j k acc
 Proof
   ho_match_mp_tac mlintTheory.num_to_chars_ind

@@ -225,7 +225,7 @@ Proof
   metis_tac[V_bij]
 QED
 
-Triviality V_choice_exists:
+Theorem V_choice_exists[local]:
   ∃ch. is_choice V_mem ch
 Proof
   simp[is_choice_def,GSYM SKOLEM_THM] >>

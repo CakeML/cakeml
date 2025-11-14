@@ -41,7 +41,7 @@ Proof
   >> rw []
 QED
 
-Triviality fst_triple:
+Theorem fst_triple[local]:
   (\ (x,y,z). x) = FST
 Proof
   rw [FUN_EQ_THM]
@@ -56,7 +56,7 @@ Proof
   >> metis_tac []
 QED
 
-Triviality sing_list:
+Theorem sing_list[local]:
   !l. LENGTH l = 1 ⇔ ?x. l = [x]
 Proof
   Cases
@@ -65,7 +65,7 @@ Proof
   >> rw []
 QED
 
-Triviality EVERY_LIST_REL:
+Theorem EVERY_LIST_REL[local]:
   EVERY (\x. f x y) l = LIST_REL (\x y. f x y) l (REPLICATE (LENGTH l) y)
 Proof
   induct_on `l` >>
@@ -135,7 +135,7 @@ Proof
   fs [type_sv_def]
 QED
 
-Triviality has_lists_v_to_list:
+Theorem has_lists_v_to_list[local]:
   !ctMap tvs tenvS t3.
     ctMap_ok ctMap ∧
     ctMap_has_lists ctMap ∧
@@ -229,14 +229,14 @@ Proof
   fs [])
 QED
 
-Triviality same_type_refl:
+Theorem same_type_refl[local]:
   !t. same_type t t
 Proof
   Cases_on `t` >>
   rw [same_type_def]
 QED
 
-Triviality eq_same_type:
+Theorem eq_same_type[local]:
   (!v1 v2 tvs ctMap cns tenvS t.
      ctMap_ok ctMap ∧
      type_v tvs ctMap tenvS v1 t ∧
@@ -311,7 +311,7 @@ Proof
       \\ metis_tac[])
 QED
 
-Triviality type_env_conv_thm:
+Theorem type_env_conv_thm[local]:
   ∀ctMap envC tenvC.
     nsAll2 (type_ctor ctMap) envC tenvC ⇒
     ∀cn tvs ts tn ti.
@@ -329,7 +329,7 @@ Proof
   metis_tac [nsAll2_nsLookup_none]
 QED
 
-Triviality type_funs_fst:
+Theorem type_funs_fst[local]:
   !tenv tenvE funs tenv'.
     type_funs tenv tenvE funs tenv'
     ⇒
@@ -343,7 +343,7 @@ Proof
   metis_tac []
 QED
 
-Triviality type_recfun_env_help:
+Theorem type_recfun_env_help[local]:
   ∀fn funs funs' ctMap tenv bindings tenvE env tenvS tvs bindings'.
     ALL_DISTINCT (MAP FST funs') ∧
     tenv_ok tenv ∧
@@ -392,7 +392,7 @@ Proof
   >> metis_tac [SOME_11, NOT_SOME_NONE])
 QED
 
-Triviality type_recfun_env:
+Theorem type_recfun_env[local]:
   ∀funs ctMap tenvS tvs tenv tenvE env bindings.
     tenv_ok tenv ∧
     type_all_env ctMap tenvS env (tenv with v := add_tenvE tenvE tenv.v) ∧
@@ -420,7 +420,7 @@ val type_v_exn = SIMP_RULE (srw_ss()) [] (Q.prove (
                                            metis_tac [type_v_rules]));
 
 (*
-Triviality v_to_list_type:
+Theorem v_to_list_type[local]:
   !v vs.
   ctMap_ok ctMap ∧
   ctMap_has_lists ctMap ∧
@@ -450,7 +450,7 @@ Proof
  srw_tac[][]
 QED
 
-Triviality v_to_char_list_type:
+Theorem v_to_char_list_type[local]:
   !v vs.
   ctMap_has_lists ctMap ∧
   v_to_char_list v = SOME vs ∧
@@ -471,7 +471,7 @@ QED
 
 *)
 
-Triviality type_v_Boolv:
+Theorem type_v_Boolv[local]:
   ctMap_has_bools ctMap ⇒ type_v tvs ctMap tenvS (Boolv b) Tbool
 Proof
   srw_tac[][Boolv_def] >>
@@ -480,7 +480,7 @@ Proof
   srw_tac[][Once type_v_cases]
 QED
 
-Triviality remove_lambda_prod:
+Theorem remove_lambda_prod[local]:
   (\ (x,y). P x y) = (\xy. P (FST xy) (SND xy))
 Proof
   rw [FUN_EQ_THM]
@@ -1971,7 +1971,7 @@ val let_tac =
       >> metis_tac [weakCT_refl, type_v_weakening, store_type_extension_weakS])
     >- metis_tac [DIFF_EQ_EMPTY, weakCT_refl]);
 
-Triviality build_tdefs_build_tenv:
+Theorem build_tdefs_build_tenv[local]:
   !tenvT (tds : type_def) (tids : type_ident list) next (ctMap : ctMap).
     EVERY (λ(_, _, ctors). ALL_DISTINCT (MAP FST ctors)) tds ∧
     LENGTH tds = LENGTH tids ⇒
@@ -2045,7 +2045,7 @@ Proof
       rw []))
 QED
 
-Triviality type_sound_invariant_union:
+Theorem type_sound_invariant_union[local]:
   type_sound_invariant st env ctMap tenvS (tids1 ∪ tids2) tenv
    ⇒
    type_sound_invariant st env ctMap tenvS tids1 tenv
@@ -2054,7 +2054,7 @@ Proof
   metis_tac []
 QED
 
-Triviality check_ctor_tenv_dups:
+Theorem check_ctor_tenv_dups[local]:
   !tenvT tds. check_ctor_tenv tenvT tds ⇒ EVERY check_dup_ctors tds
 Proof
   ho_match_mp_tac check_ctor_tenv_ind >>
@@ -2680,7 +2680,7 @@ type_sound_invariant st env tdecs ctMap tenvS tenv ⇔
     st.defined_mods ⊆ tdecs_no_sig.defined_mods
 End
 
-Triviality tscheme_inst2_lemma:
+Theorem tscheme_inst2_lemma[local]:
   (λid. tscheme_inst2 (Long mn id)) = tscheme_inst2
 Proof
   rw [FUN_EQ_THM]

@@ -107,7 +107,7 @@ val r = translate sort_def;
  * least-to-most significant. E.g., if the size is 9, there should be 2 lists,
  * the first of length 1, and the second of length 8.*)
 
-Triviality sortable_inv_sorted:
+Theorem sortable_inv_sorted[local]:
   !leq size segs m. sortable_inv leq (size,segs) m ⇒ EVERY (SORTED leq) segs
 Proof
   recInduct sortable_inv_ind >>
@@ -118,7 +118,7 @@ every_case_tac >>
 fs []
 QED
 
-Triviality mrg_sorted:
+Theorem mrg_sorted[local]:
   !leq xs ys.
   WeakLinearOrder leq ∧ SORTED leq xs ∧ SORTED leq ys
   ⇒
@@ -133,7 +133,7 @@ fs [SORTED_DEF] >>
 metis_tac [WeakLinearOrder_neg]
 QED
 
-Triviality mrg_perm:
+Theorem mrg_perm[local]:
   !leq xs ys. PERM (mrg leq xs ys) (xs++ys)
 Proof
   recInduct mrg_ind >>
@@ -142,14 +142,14 @@ metis_tac [PERM_FUN_APPEND, PERM_CONS_IFF, CONS_PERM, PERM_SWAP_AT_FRONT,
            PERM_TRANS, PERM_REFL]
 QED
 
-Triviality mrg_length:
+Theorem mrg_length[local]:
   !leq xs ys. LENGTH (mrg leq xs ys) = LENGTH xs + LENGTH ys
 Proof
   recInduct mrg_ind >>
 srw_tac [ARITH_ss] [mrg_def]
 QED
 
-Triviality mrg_bag:
+Theorem mrg_bag[local]:
   !leq xs ys.
   list_to_bag (mrg leq xs ys) = BAG_UNION (list_to_bag xs) (list_to_bag ys)
 Proof
@@ -157,7 +157,7 @@ Proof
 srw_tac [BAG_ss] [list_to_bag_def, mrg_def, BAG_INSERT_UNION]
 QED
 
-Triviality add_seg_sub_inv:
+Theorem add_seg_sub_inv[local]:
   !leq size segs n seg.
   WeakLinearOrder leq ∧
   (n ≠ 0) ∧
@@ -203,7 +203,7 @@ rw [] >|
                      ``!n:num. ~EVEN n ⇒ (n DIV 2 + 1 = (n + 1) DIV 2)``]]]
 QED
 
-Triviality add_seg_bag:
+Theorem add_seg_bag[local]:
   !leq size segs n seg SIZE.
   sortable_inv leq (size,segs) n
   ⇒
@@ -245,7 +245,7 @@ match_mp_tac add_seg_sub_inv >>
 rw [SORTED_DEF]
 QED
 
-Triviality mrg_all_sorted:
+Theorem mrg_all_sorted[local]:
   !leq xs segs.
   WeakLinearOrder leq ∧
   EVERY (SORTED leq) segs ∧ SORTED leq xs
@@ -257,7 +257,7 @@ rw [mrg_all_def] >>
 metis_tac [mrg_sorted]
 QED
 
-Triviality mrg_all_perm:
+Theorem mrg_all_perm[local]:
   !leq xs segs. PERM (mrg_all leq xs segs) (xs++FLAT segs)
 Proof
   induct_on `segs` >>
@@ -275,7 +275,7 @@ rw [sort_def] >>
 metis_tac [sortable_inv_sorted, SORTED_DEF, mrg_all_sorted]
 QED
 
-Triviality sortable_to_bag_lem:
+Theorem sortable_to_bag_lem[local]:
   !size segs. sortable_to_bag (size,segs) = list_to_bag (FLAT segs)
 Proof
   induct_on `segs` >>
@@ -296,7 +296,7 @@ QED
 
 val add_seg_side_cases = fetch "-" "add_seg_side_def"
 
-Triviality add_seg_side:
+Theorem add_seg_side[local]:
   !leq size segs n seg.
   sortable_inv leq (size,segs) n ⇒ add_seg_side leq seg segs size
 Proof
@@ -309,7 +309,7 @@ ONCE_REWRITE_TAC [Once add_seg_side_cases] >>
 rw []
 QED
 
-Triviality add_side:
+Theorem add_side[local]:
   !leq x size segs n.
   sortable_inv leq (size,segs) n ⇒ add_side leq x (size,segs)
 Proof

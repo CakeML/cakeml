@@ -1029,7 +1029,7 @@ Proof
   \\ rpt (first_assum $ irule_at Any)
 QED
 
-Triviality INJ_count_ADD:
+Theorem INJ_count_ADD[local]:
   INJ f a (count k) ⇒ INJ f a (count (t + k))
 Proof
   fs [INJ_DEF] \\ rw [] \\ res_tac \\ fs []
