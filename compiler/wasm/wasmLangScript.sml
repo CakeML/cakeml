@@ -296,6 +296,18 @@ Datatype: names =
    |>
 End
 
+Definition blank_mod_def:
+  blank_mod = module [] [] [] [] []
+End
+
+Definition blank_names_def:
+  blank_names : names =
+  <| mname  := «»
+   ; fnames := []
+   ; lnames := []
+   |>
+End
+
 (*******************)
 (*                 *)
 (*     Modules     *)

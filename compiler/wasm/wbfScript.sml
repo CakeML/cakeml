@@ -1263,14 +1263,6 @@ Definition magic_bytes_def:
   magic_bytes : byteSeq = string2bytes "name"
 End
 
-Definition blank_def:
-  blank : names =
-  <| mname  := «»
-   ; fnames := []
-   ; lnames := []
-   |>
-End
-
 
 Definition enc_names_section_def:
   enc_names_section (n:names) =
@@ -1292,11 +1284,13 @@ Definition enc_names_section_def:
 End
 
 Definition dec_names_section_def:
-  dec_names_section [] : names list dcdr = ret [] [blank]
+  dec_names_section [] : names list dcdr = ret [] [blank_names]
   ∧
-  dec_names_section (b::bs) = let failure = error (b::bs) ""
+  dec_names_section (b::bs) =
+    let failure      = error (b::bs) "" in
+    let pass_through = ret (b::bs) []
     in
-    if b ≠ 0w then ret (b::bs) [] (* skip decode if this isn't the names section *)
+    if b ≠ 0w then pass_through (* skip decode if this isn't the names section *)
     else
     case dec_u32 bs of (INL _,_) => failure | ret rs l (* length of the NS *)
     =>
@@ -1305,8 +1299,8 @@ Definition dec_names_section_def:
     | [_]     => failure
     | [_;_]   => failure
     | [_;_;_] => failure
-    | n::a::m::e::bs => if [n;a;m;e] ≠ magic_bytes then failure        else
-                        if NULL bs                 then ret [] [blank] else
+    | n::a::m::e::bs => if [n;a;m;e] ≠ magic_bytes then pass_through   else (* This is a custom section but not the names section *)
+                        if NULL bs                 then ret [] [blank_names] else
         case dec_section 0w  dec_byte               bs of (INL _,_)=>failure| (INR s  , bs) =>
         case dec_section 1w  dec_ass                bs of (INL _,_)=>failure| (INR fns, bs) =>
         case dec_section 2w (dec_idx_alpha dec_map) bs of                     (INR lns, []) =>
@@ -1317,7 +1311,7 @@ Definition dec_names_section_def:
         | _ =>failure
 End
 
-Theorem dec_names_section_shortens:
+Theorem dec_names_section_shortens_maybe:
   ∀bs rs x. dec_names_section bs = (INR x, rs) ⇒ rs [≤] bs
 Proof
   Cases
@@ -1346,8 +1340,8 @@ End
 
 
 (* From CWasm (not Wasm!) modules to WBF *)
-Definition enc_module_def:
-  enc_module (m:module) (n:names) =
+Definition enc_mod_and_names_def:
+  enc_mod_and_names (m:module) (n:names) =
     let (funs, code) = split_funcs m.funcs in do
     m_types    <- enc_section   1w enc_functype  m.types  ;
     m_funs     <- enc_section   3w enc_u32       funs     ;
@@ -1356,17 +1350,22 @@ Definition enc_module_def:
     m_code     <- enc_section  10w enc_code      code     ;
     m_datas    <- enc_section  11w enc_data      m.datas  ;
     nms        <- enc_names_section              n        ;
-      SOME $ List mod_leader +++
-      m_types    +++ m_funs  +++ m_mems   +++
-      m_globals  +++ m_code  +++ m_datas  +++ nms od
+    contents  <<- m_types   +++ m_funs +++ m_mems  +++
+                  m_globals +++ m_code +++ m_datas +++ nms;
+    if NULL $ append contents
+    then Soli []
+    else SOME $ List mod_leader +++ contents
+    od
 End
 
+Overload enc_module = “λm. enc_mod_and_names m blank_names”
 
 
-Definition dec_module_def:
-  dec_module bs : (module # names) dcdr = case bs of
+
+Definition dec_mod_and_names_def:
+  dec_mod_and_names bs : (module # names) dcdr = case bs of
   | l1::l2::l3::l4::l5::l6::l7::l8::bs => (
-    let failure = error bs "[dec_module] : malformed leader"
+    let failure = error bs "[dec_mod_and_names] : malformed leader"
     in
     if [l1;l2;l3;l4;l5;l6;l7;l8] ≠ mod_leader then failure
     else
@@ -1384,16 +1383,17 @@ Definition dec_module_def:
       in
       ret bs (m,n)
     | _ => failure )
-  | _  => error bs "[dec_module]: missing leader (less than 8 bytes)"
+  | [] => ret [] (blank_mod,blank_names)
+  | _  => error bs "[dec_mod_and_names]: missing leader (less than 8 bytes)"
 End
 
-Theorem dec_module_shortens:
-  ∀bs rs x. dec_module bs = (INR x, rs) ⇒ rs [≤] bs
+Theorem dec_module_shortens_maybe:
+  ∀bs rs x. dec_mod_and_names bs = (INR x, rs) ⇒ rs [≤] bs
 Proof
-     simp[dec_module_def, AllCaseEqs(), mod_leader_def]
+     simp[dec_mod_and_names_def, AllCaseEqs(), mod_leader_def]
   \\ rpt strip_tac \\ gvs[]
   \\ rpt (dxrule_at Any dec_section_shortens_maybe_lt)
-  \\ dxrule dec_names_section_shortens
+  \\ dxrule dec_names_section_shortens_maybe
   \\ simp[ dec_limits_shortens, dec_code_shortens, dec_functype_shortens
          , dec_global_shortens, dec_data_shortens, dec_u32_shortens    ]
 QED
