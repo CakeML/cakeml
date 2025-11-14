@@ -678,7 +678,7 @@ Proof
   \\ simp[]
 QED
 
-Triviality blank_names_values[simp]:
+Triviality blank_names_values:
   blank_names = names «» [] []
 Proof
   simp[blank_names_def, names_component_equality]
@@ -717,7 +717,7 @@ Triviality enc_names_section_blank_conv:
   ∀x ex. enc_names_section x = SOME ex ∧ NULL (append ex) ⇒
   x = blank_names
 Proof
-     rw[enc_names_section_def, enc_section_def, NULL_EQ_NIL]
+     rw[enc_names_section_def, enc_section_def, NULL_EQ_NIL, blank_names_values]
   >> Cases_on `x`
   >> gvs[names_component_equality]
 QED
@@ -731,7 +731,7 @@ Proof
   \\ namedCases_on ‘s’ ["", "s ss"]
   >> namedCases_on ‘f_names’ ["", "f fs"]
   >> namedCases_on ‘l_names’ ["", "l ls"]
-  >> simp[]
+  >> simp[blank_names_values]
 QED
 
 Triviality names_not_blank':
@@ -753,6 +753,30 @@ Proof
      rpt strip_tac
   \\ imp_res_tac enc_names_section_blank_conv
 QED
+
+Triviality enc_names_section_nEmp':
+  ∀x encx. x ≠ blank_names ∧ enc_names_section x = SOME encx ⇒
+  ∃dc. append encx = 0w::dc
+Proof
+     rpt strip_tac
+  \\ drule enc_names_section_blank_conv
+  \\ rw[]
+  \\ gvs[oneline enc_names_section_def, NULL_EQ_NIL]
+  >> Cases_on `append ss0`
+  >> Cases_on `append ss1`
+  >> Cases_on `append ss2`
+  >> gvs[]
+QED
+
+
+(*
+Triviality enc_names_section_nEmp:
+  ∀x. x ≠ blank_names ⇒ ∃encx. enc_names_section x = SOME encx
+Proof
+  Cases
+  rw[enc_names_section_def]
+QED
+*)
 
 Triviality dec_names_section_empty[simp]:
   ∀lb enc. dec_names_section [] = ret [] [blank_names]
@@ -1131,15 +1155,26 @@ Proof
   qspec_then `[]` mp_tac widget10_rest \\ simp[]
 QED
 
+Triviality widget11_rest:
+  ∀rest x xs es.
+  enc_section 11w enc_data (x::xs) = SOME es ⇒
+  dec_section 11w dec_data (es a++ rest) = ret rest (x::xs)
+Proof
+     rpt strip_tac
+  >> imp_res_tac enc_section_nEmp
+  >> assume_tac dec_enc_data
+  >> imp_res_tac dec_enc_section
+  >> pop_assum $ qspec_then ‘rest’ mp_tac
+  >> simp[]
+QED
+
+
 Triviality widget11:
   ∀x xs es.
   enc_section 11w enc_data (x::xs) = SOME es ⇒
   dec_section 11w dec_data (append es) = ret [] (x::xs)
 Proof
-     rpt strip_tac
-  \\ imp_res_tac enc_section_nEmp
-  \\ assume_tac dec_enc_data
-  \\ imp_res_tac dec_enc_section_NR
+  qspec_then `[]` mp_tac widget11_rest \\ simp[]
 QED
 
 Triviality pt01_rest:
@@ -1229,6 +1264,58 @@ Triviality pt11_10:
 Proof
      rpt strip_tac
   >> qspecl_then [‘10w’, ‘dec_code’] (drule_at Any) enc_dec_section_passThrough
+  >> simp[]
+QED
+
+
+
+Triviality pt11_1_rest:
+  ∀x xs es rest.
+  enc_section 11w enc_data (x::xs) = SOME es ⇒
+  dec_section 1w dec_functype (es a++ rest) = ret (es a++ rest) []
+Proof
+     rpt strip_tac
+  >> qspecl_then [‘1w’, ‘dec_functype’] (drule_at Any) enc_dec_section_passThrough_rest
+  >> simp[]
+QED
+
+Triviality pt11_3_rest:
+  ∀x xs es rest.
+  enc_section 11w enc_data (x::xs) = SOME es ⇒
+  dec_section 3w dec_u32 (es a++ rest) = ret (es a++ rest) []
+Proof
+     rpt strip_tac
+  >> qspecl_then [‘3w’, ‘dec_u32’] (drule_at Any) enc_dec_section_passThrough_rest
+  >> simp[]
+QED
+
+Triviality pt11_5_rest:
+  ∀x xs es rest.
+  enc_section 11w enc_data (x::xs) = SOME es ⇒
+  dec_section 5w dec_limits (es a++ rest) = ret (es a++ rest) []
+Proof
+     rpt strip_tac
+  >> qspecl_then [‘5w’, ‘dec_limits’] (drule_at Any) enc_dec_section_passThrough_rest
+  >> simp[]
+QED
+
+Triviality pt11_6_rest:
+  ∀x xs es rest.
+  enc_section 11w enc_data (x::xs) = SOME es ⇒
+  dec_section 6w dec_global (es a++ rest) = ret (es a++ rest) []
+Proof
+     rpt strip_tac
+  >> qspecl_then [‘6w’, ‘dec_global’] (drule_at Any) enc_dec_section_passThrough_rest
+  >> simp[]
+QED
+
+Triviality pt11_10_rest:
+  ∀x xs es rest.
+  enc_section 11w enc_data (x::xs) = SOME es ⇒
+  dec_section 10w dec_code (es a++ rest) = ret (es a++ rest) []
+Proof
+     rpt strip_tac
+  >> qspecl_then [‘10w’, ‘dec_code’] (drule_at Any) enc_dec_section_passThrough_rest
   >> simp[]
 QED
 
@@ -1418,6 +1505,79 @@ Proof
   >> simp[]
 QED
 
+Triviality ptns_1:
+  ∀x ex.
+  enc_names_section x = SOME ex ⇒
+  dec_section 1w dec_functype (append ex) = ret (append ex) []
+Proof
+     rpt strip_tac
+  \\ `x = blank_names ∨ x ≠ blank_names` by simp[]
+  >- gvs[]
+  \\ imp_res_tac enc_names_section_nEmp'
+  >> rw[oneline dec_section_def]
+QED
+
+
+Triviality ptns_3:
+  ∀x ex.
+  enc_names_section x = SOME ex ⇒
+  dec_section 3w dec_u32 (append ex) = ret (append ex) []
+Proof
+     rpt strip_tac
+  \\ `x = blank_names ∨ x ≠ blank_names` by simp[]
+  >- gvs[]
+  \\ imp_res_tac enc_names_section_nEmp'
+  >> rw[oneline dec_section_def]
+QED
+
+Triviality ptns_5:
+  ∀x ex.
+  enc_names_section x = SOME ex ⇒
+  dec_section 5w dec_limits (append ex) = ret (append ex) []
+Proof
+     rpt strip_tac
+  \\ `x = blank_names ∨ x ≠ blank_names` by simp[]
+  >- gvs[]
+  \\ imp_res_tac enc_names_section_nEmp'
+  >> rw[oneline dec_section_def]
+QED
+
+Triviality ptns_6:
+  ∀x ex.
+  enc_names_section x = SOME ex ⇒
+  dec_section 6w dec_global (append ex) = ret (append ex) []
+Proof
+     rpt strip_tac
+  \\ `x = blank_names ∨ x ≠ blank_names` by simp[]
+  >- gvs[]
+  \\ imp_res_tac enc_names_section_nEmp'
+  >> rw[oneline dec_section_def]
+QED
+
+Triviality ptns_10:
+  ∀x ex.
+  enc_names_section x = SOME ex ⇒
+  dec_section 10w dec_code (append ex) = ret (append ex) []
+Proof
+     rpt strip_tac
+  \\ `x = blank_names ∨ x ≠ blank_names` by simp[]
+  >- gvs[]
+  \\ imp_res_tac enc_names_section_nEmp'
+  >> rw[oneline dec_section_def]
+QED
+
+Triviality ptns_11:
+  ∀x ex.
+  enc_names_section x = SOME ex ⇒
+  dec_section 11w dec_data (append ex) = ret (append ex) []
+Proof
+     rpt strip_tac
+  \\ `x = blank_names ∨ x ≠ blank_names` by simp[]
+  >- gvs[]
+  \\ imp_res_tac enc_names_section_nEmp'
+  >> rw[oneline dec_section_def]
+QED
+
 
 Theorem dec_enc_names:
   ∀n encn rest.
@@ -1430,7 +1590,7 @@ Proof
   \\ namedCases_on ‘s’ ["", "s ss"]
   >> namedCases_on ‘f_names’ ["", "f fs"]
   >> namedCases_on ‘l_names’ ["", "l ls"]
-    >> rw $ ssaa [enc_names_section_def, prepend_sz_def, string2bytes_def]
+    >> rw $ ssaa [enc_names_section_def, prepend_sz_def, string2bytes_def, blank_names_values]
     (* get encoders in the right shape *)
     >> TRY $ qpat_x_assum ‘SOME _ = enc_u32 _         ’ $ assume_tac o GSYM
     >> TRY $ qpat_x_assum ‘SOME _ = enc_section 0w _ _’ $ mp_tac o GSYM
@@ -1501,7 +1661,7 @@ Proof
   \\ gvs[zip_funcs_def, func_component_equality]
 QED
 
-Theorem dec_enc_mod:
+Theorem dec_enc_module:
   ∀mod emn. enc_module mod = SOME emn ⇒
   dec_mod_and_names $ append emn = ret [] (mod,blank_names)
 Proof
@@ -1554,6 +1714,82 @@ Proof
     >> imp_res_tac widget3
     >> imp_res_tac widget_1_rest
     >> imp_res_tac widget_1
+    (**)
+    >> ifsolves (simp $ ssaa [module_component_equality, func_component_equality, zip_funcs_def, split_zip_funcs])
+    >> simp                  [module_component_equality, func_component_equality, zip_funcs_def, split_zip_funcs]
+QED
+
+Theorem dec_enc_mod_and_names:
+  ∀mod emn nms. enc_mod_and_names mod nms = SOME emn ⇒
+  dec_mod_and_names $ append emn = ret [] (mod,nms)
+Proof
+  rpt strip_tac
+  \\ `nms = blank_names ∨ nms ≠ blank_names` by simp[]
+  >- gvs[dec_enc_module]
+  \\
+     namedCases_on ‘mod’ ["types funcs mems globals datas"]
+  >> namedCases_on ‘funcs’   ["","f fs"]
+  >> TRY $ qpat_assum ‘enc_mod_and_names (_ _ (f::fs) _ _ _) _ = _’ (fn _ => namedCases_on `split_funcs fs` ["fs_types fs_lbods"])
+  >> namedCases_on ‘types’   ["","t ts"]
+  >> namedCases_on ‘mems’    ["","m ms"]
+  >> namedCases_on ‘globals’ ["","g gs"]
+  >> namedCases_on ‘datas’   ["","d ds"]
+    >> gvs[blank_mod_def, enc_mod_and_names_def, dec_mod_and_names_def, split_funcs_def]
+    >> imp_res_tac enc_section_nEmp
+    >> imp_res_tac enc_names_section_nEmp
+    >> gvs[mod_leader_def]
+    (**)
+    >> imp_res_tac pt11_1
+    >> imp_res_tac pt11_1_rest
+    >> imp_res_tac pt11_3
+    >> imp_res_tac pt11_3_rest
+    >> imp_res_tac pt11_5
+    >> imp_res_tac pt11_5_rest
+    >> imp_res_tac pt11_6
+    >> imp_res_tac pt11_6_rest
+    >> imp_res_tac pt11_10
+    >> imp_res_tac pt11_10_rest
+    (**)
+    >> imp_res_tac pt10_5
+    >> imp_res_tac pt10_5_rest
+    >> imp_res_tac pt10_6
+    >> imp_res_tac pt10_6_rest
+    (**)
+    >> imp_res_tac pt6_1
+    >> imp_res_tac pt6_1_rest
+    >> imp_res_tac pt6_3
+    >> imp_res_tac pt6_3_rest
+    >> imp_res_tac pt6_5
+    >> imp_res_tac pt6_5_rest
+    (**)
+    >> imp_res_tac pt5_1
+    >> imp_res_tac pt5_1_rest
+    >> imp_res_tac pt5_3
+    >> imp_res_tac pt5_3_rest
+    (**)
+    >> imp_res_tac pt3_1
+    >> imp_res_tac pt3_1_rest
+    (**)
+    >> imp_res_tac widget11_rest
+    >> imp_res_tac widget11
+    >> imp_res_tac widget10_rest
+    >> imp_res_tac widget10
+    >> imp_res_tac widget6_rest
+    >> imp_res_tac widget6
+    >> imp_res_tac widget5_rest
+    >> imp_res_tac widget5
+    >> imp_res_tac widget3_rest
+    >> imp_res_tac widget3
+    >> imp_res_tac widget_1_rest
+    >> imp_res_tac widget_1
+    (**)
+    >> imp_res_tac ptns_1
+    >> imp_res_tac ptns_3
+    >> imp_res_tac ptns_5
+    >> imp_res_tac ptns_6
+    >> imp_res_tac ptns_10
+    >> imp_res_tac ptns_11
+    >> imp_res_tac dec_enc_names_NR
     (**)
     >> ifsolves (simp $ ssaa [module_component_equality, func_component_equality, zip_funcs_def, split_zip_funcs])
     >> simp                  [module_component_equality, func_component_equality, zip_funcs_def, split_zip_funcs]
