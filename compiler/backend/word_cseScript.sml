@@ -320,21 +320,22 @@ Definition add_to_data_def:
       add_to_data_aux data r i (Inst x)
 End
 
-Definition is_store_def:
-  is_store Load = F ∧
-  is_store Load8 = F ∧
-  is_store Load32 = F ∧
-  is_store Store = T ∧
-  is_store Store8 = T ∧
-  is_store Store32 = T
+Definition can_mem_arith_def:
+  can_mem_arith (Binop _ _ r1 (Reg r2)) = (ODD r1 ∧ ODD r2) ∧
+  can_mem_arith (Binop _ _ r1 (Imm _)) = ODD r1 ∧
+  can_mem_arith (Div _ r1 r2) = (ODD r1 ∧ ODD r2) ∧
+  can_mem_arith (Shift _ _ r _) = ODD r ∧
+  can_mem_arith _ = F
 End
 
 Definition is_store_def:
   (is_store Load = F) ∧
   (is_store Load8 = F) ∧
+  (is_store Load16 = F) ∧
   (is_store Load32 = F) ∧
   (is_store Store = T) ∧
   (is_store Store8 = T) ∧
+  (is_store Store16 = T) ∧
   (is_store Store32 = T)
 End
 
