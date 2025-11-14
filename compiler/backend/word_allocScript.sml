@@ -1420,7 +1420,7 @@ End
 (*Extract a colouring function from the generated sptree*)
 Definition total_colour_def:
   total_colour col x =
-    dtcase lookup x col of NONE => if is_phy_var x then x else 2*x | SOME x => 2*x
+    dtcase lookup x col of NONE => if is_phy_var x then x else 0 | SOME x => 2*x
 End
 
 Theorem total_colour_alt:
