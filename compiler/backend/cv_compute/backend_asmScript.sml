@@ -573,7 +573,8 @@ Definition to_bvl_all_def:
            call_state := (g,aux)|> in
     let init_stubs = toAList (init_code c1.max_app) in
     let init_globs =
-            [(num_stubs c1.max_app − 1,0,
+            [(num_stubs c1.max_app − 2, 2, force_thunk_code);
+             (num_stubs c1.max_app − 1, 0,
               init_globals c1.max_app (num_stubs c1.max_app + c1.start))] in
     let comp_progs = clos_to_bvl$compile_prog c1.max_app prog in
     let prog' = init_stubs ++ init_globs ++ comp_progs in
