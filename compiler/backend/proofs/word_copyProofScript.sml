@@ -57,7 +57,7 @@ Proof
   rw[remove_eqs_def,remove_eq_inv]
 QED
 
-Triviality n_lt_n1:
+Theorem n_lt_n1[local]:
   n:num < n + 1 ∧
   (x:num < y ∧ y < z ⇒ x < z)
 Proof

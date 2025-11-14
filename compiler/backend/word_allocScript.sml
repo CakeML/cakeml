@@ -818,6 +818,17 @@ Definition remove_dead_def:
     if lookup r live = NONE then
       (Skip, live,nlive)
     else (LocValue r l1, delete r live,nlive)) ∧
+  (remove_dead (Set store_name exp) live nlive =
+    dtcase exp of
+      Var r =>
+      if MEM store_name nlive then
+        (Skip, live, nlive)
+      else
+        (Set store_name (Var r), insert r () live, store_name::nlive)
+    | _ =>
+      let prog = Set store_name exp in
+        (prog,get_live prog live,[])
+  ) ∧
   (remove_dead (Seq s1 s2) live nlive =
     let (s2,s2live,s2nlive) = remove_dead s2 live nlive in
     let (s1,s1live,s1nlive) = remove_dead s1 s2live s2nlive in
@@ -858,22 +869,24 @@ Definition remove_dead_def:
       | SOME(v',prog,l1,l2) =>
         SOME(v',FST (remove_dead prog live nlive),l1,l2)) in
     (Call (SOME (v,cutsets,ret_handler,l1,l2)) dest args h,(live_set,[]))) ∧
-  (remove_dead (Set store_name exp) live nlive =
-    dtcase exp of
-      Var r =>
-      if MEM store_name nlive then
-        (Skip, delete r live,nlive)
-      else
-        (Set store_name (Var r), insert r () live, store_name::nlive)
-    | _ =>
-      let prog = Set store_name exp in
-        (prog,get_live prog live,[])
-  ) ∧
   (* we should not remove the ShareInst Load instructions.
     * It produces a ffi event even if the variable is not in
     * the live set *)
-  (* TODO update to not throw away all Globals *)
-  (remove_dead prog live nlive = (prog,get_live prog live,[] ))
+  (* In the cases below, we either return nlive unchanged
+    or we return [] because of control flow *)
+  (remove_dead (Call NONE a b c) live nlive =
+    let prog = Call NONE a b c in
+      (prog, get_live prog live, [])) ∧
+  (remove_dead (Alloc a b) live nlive =
+    let prog = Alloc a b in
+      (prog, get_live prog live, [])) ∧
+  (remove_dead (Raise a) live nlive =
+    let prog = Raise a in
+      (prog, get_live prog live, [])) ∧
+  (remove_dead (Return a b) live nlive =
+    let prog = Return a b in
+      (prog, get_live prog live, [])) ∧
+  (remove_dead prog live nlive = (prog,get_live prog live,nlive))
 End
 
 Definition remove_dead_prog_def:
