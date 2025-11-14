@@ -1,14 +1,31 @@
 (*
    Basic specification of an xlrup checker (minimal optimization)
 *)
-open preamble miscTheory mlstringTheory cnf_xorTheory blastLib;
+Theory xlrup
+Libs
+  preamble blastLib
+Ancestors
+  mlvector mllist sptree misc cnf_ext bitstring[qualified]
+  mlstring mergesort
 
-val _ = new_theory "xlrup";
+val _ = temp_bring_to_front_overload "range" {Name="range", Thy="misc"};
 
 (* Internal representations *)
 Type cclause = ``:int list``;
+
 Type strxor = ``:mlstring``;
 Type rawxor = ``:int list``;
+
+(* The constraint
+  \Sum c*X ≥ k,
+  together with auxiliary counters UB, LB
+  which are required to bound \Sum c*X from above
+  and below, respectively (for all assignments).
+*)
+Type cardc = ``:(num # int vector) # int # int # int``
+
+(* A cardinality constraint and the reification literal on the RHS *)
+Type ibnn = ``:cardc # int option``;
 
 (* Satisfiability for clauses is defined by interpreting into the
   top-level semantics *)
@@ -23,8 +40,9 @@ Definition isat_cclause_def:
   ∃l. MEM l ls ∧ l ≠ 0 ∧ sat_lit w (interp_lit l)
 End
 
-Definition isat_cfml_def:
-  isat_cfml w cfml ⇔ (∀C. C ∈ cfml ⇒ isat_cclause w C)
+Definition isat_fml_gen_def:
+  isat_fml_gen sem w fml ⇔
+    (∀C. C ∈ fml ⇒ sem w  C)
 End
 
 (* Satisfiability for XORs uses a string-based
@@ -79,13 +97,55 @@ Definition isat_strxor_def:
     EVEN (sum_bitlist w (string_to_bits x))
 End
 
-Definition isat_xfml_def:
-  isat_xfml w xfml ⇔ (∀C. C ∈ xfml ⇒ isat_strxor w C)
+Definition as_list_def:
+  as_list (off,ns) =
+    MAPi (λk v. (k + off,v)) (mlvector$toList ns)
 End
 
+Definition iSUM_def:
+  (iSUM [] = 0:int) ∧
+  (iSUM (x::xs) = x + iSUM xs)
+End
+
+Definition isat_cardc_def:
+  isat_cardc (w:assignment) ((ons,k,lb,ub):cardc) ⇔
+  let ls = as_list ons in
+  k ≤ iSUM
+    (MAP (λ(k,v).
+      if w k then v else 0i) ls)
+End
+
+Definition isat_ibnn_def:
+  isat_ibnn (w:assignment) ((cc,oy):ibnn) ⇔
+  (isat_cardc w cc ⇔ OPTION_ALL (sat_lit w o interp_lit) oy)
+End
+
+(* offset doesn't actually matter here *)
+Definition wf_cardc_def:
+  wf_cardc ((ons,k,lb,ub):cardc) ⇔
+  let ls = as_list ons in
+  lb ≤ iSUM
+    (MAP (λ(k,v).
+      if v < 0 then v else 0) ls) ∧
+  iSUM
+    (MAP (λ(k,v).
+      if v > 0 then v else 0) ls) ≤ ub
+End
+
+Definition wf_ibnn_def:
+  wf_ibnn ((cc,oy):ibnn) ⇔
+  wf_cardc cc
+End
+
+Overload isat_cfml = ``isat_fml_gen isat_cclause``;
+Overload isat_xfml = ``isat_fml_gen isat_strxor``;
+Overload isat_bfml = ``isat_fml_gen isat_ibnn``;
+
 Definition isat_fml_def:
-  isat_fml w f (cfml,xfml) ⇔
-  isat_cfml w cfml ∧ isat_xfml (w o f) xfml
+  isat_fml w f (cfml,xfml,bfml) ⇔
+  isat_cfml w cfml ∧
+  isat_xfml (w o f) xfml ∧
+  isat_bfml w bfml
 End
 
 (* Connection to the top-level semantics *)
@@ -98,16 +158,12 @@ Definition conv_cfml_def:
   conv_cfml cfml = MAP (MAP conv_lit) cfml
 End
 
-Definition nz_lit_def[simp]:
-  (nz_lit (Pos n) <=> n ≠ (0:num)) ∧
-  (nz_lit (Neg n) <=> n ≠ 0)
-End
-
 Theorem interp_lit_conv_lit:
   nz_lit y ⇒
   interp_lit (conv_lit y) = y
 Proof
-  Cases_on`y`>>rw[conv_lit_def,interp_lit_def]>>
+  Cases_on`y`>>
+  rw[conv_lit_def,interp_lit_def]>>
   intLib.ARITH_TAC
 QED
 
@@ -124,7 +180,7 @@ Proof
   Cases_on`y`>>rw[conv_lit_def]
 QED
 
-Theorem issat_cclause_MAP_conv_lit:
+Theorem isat_cclause_MAP_conv_lit:
   EVERY nz_lit C ⇒
   (isat_cclause w (MAP conv_lit C) ⇔
   sat_clause w C)
@@ -138,8 +194,12 @@ Theorem conv_cfml_sound:
   (isat_cfml w (set (conv_cfml cfml)) ⇔
   (∀C. C ∈ set cfml ⇒ sat_clause w C))
 Proof
-  rw[isat_cfml_def,conv_cfml_def,MEM_MAP,PULL_EXISTS,EVERY_MEM]>>
-  metis_tac[issat_cclause_MAP_conv_lit,EVERY_MEM]
+  rw[isat_fml_gen_def,conv_cfml_def,MEM_MAP,PULL_EXISTS,EVERY_MEM]>>
+  simp[GSYM EVERY_MEM]>>
+  match_mp_tac EVERY_CONG>>rw[]>>
+  irule isat_cclause_MAP_conv_lit>>
+  gvs[EVERY_MEM]>>
+  metis_tac[]
 QED
 
 (* Get and Set bit in a string
@@ -768,7 +828,8 @@ Proof
   >-
     simp[sat_cmsxor_def]
   >- (
-    reverse(Cases_on`h`>>fs[sat_lit_def,conv_lit_def])
+    reverse(Cases_on`h`>>
+      fs[sat_lit_def,conv_lit_def])
     >-
       `F` by intLib.ARITH_TAC>>
     DEP_REWRITE_TAC[isat_strxor_flip_bit]>>
@@ -776,7 +837,8 @@ Proof
       simp[strlen_extend_s]>>
     simp[isat_strxor_extend_s]>>
     metis_tac[]) >>
-  Cases_on`h`>>fs[sat_lit_def,conv_lit_def]
+  Cases_on`h`>>
+  fs[sat_lit_def,conv_lit_def]
   >-
     `F` by intLib.ARITH_TAC>>
   DEP_REWRITE_TAC[isat_strxor_flip_bit]>>
@@ -799,6 +861,7 @@ Datatype:
   | Del (num list) (* Clauses to delete *)
   | RUP num cclause (num list)
     (* RUP n C hints : derive clause C by RUP using hints *)
+
   | XOrig num (lit list)
     (* XOrig n C : add XOR C from original at ID n *)
   | XAdd num rawxor (num list) (num list)
@@ -809,6 +872,13 @@ Datatype:
     (* Derive clause from hint XORs *)
   | XFromC num rawxor (num list)
     (* Derive XOR from hint clauses *)
+
+  | BOrig num cmsbnn
+  | BAdd num cmsbnn num (num list)
+  (* BAdd n B bhint hints derive BNN B from the BNN at bhint using units *)
+  | BDel (num list) (* BNN constraints to delete *)
+  | CFromB num cclause num (num list)
+    (* Derive clause from hint BNN and rup hints *)
 End
 
 Definition delete_literals_def:
@@ -845,7 +915,7 @@ End
 
 (* Unit propagation on an XOR *)
 Definition unit_prop_xor_def:
-  unit_prop_xor t l s =
+  unit_prop_xor t s l =
   let n = Num (ABS l) in
   case lookup n t of NONE => s
   | SOME n =>
@@ -858,14 +928,21 @@ Definition unit_prop_xor_def:
   else s
 End
 
-(* It doesn't make sense to unit propagate on *)
-Definition unit_props_xor_def:
-  (unit_props_xor fml t [] s = SOME s) ∧
-  (unit_props_xor fml t (i::is) s =
+(* Extracts unit clauses in REVERSE order *)
+Definition get_units_def:
+  (get_units fml [] cs = SOME cs) ∧
+  (get_units fml (i::is) cs =
   case lookup i fml of
   | SOME [l] =>
-    unit_props_xor fml t is (unit_prop_xor t l s)
+    get_units fml is (l::cs)
   | _ => NONE)
+End
+
+Definition unit_props_xor_def:
+  unit_props_xor fml t ls s =
+  case get_units fml ls [] of NONE => NONE
+  | SOME cs =>
+    SOME (FOLDL (unit_prop_xor t) s cs)
 End
 
 Definition is_xor_def:
@@ -900,13 +977,13 @@ Definition is_cfromx_def:
     strxor_imp_cclause def x c
 End
 
-Definition get_clauses_def:
-  (get_clauses fml [] = SOME []) ∧
-  (get_clauses fml (i::is) =
+Definition get_constrs_def:
+  (get_constrs fml [] = SOME []) ∧
+  (get_constrs fml (i::is) =
     case lookup i fml of
       NONE => NONE
     | SOME Ci =>
-      (case get_clauses fml is of NONE => NONE
+      (case get_constrs fml is of NONE => NONE
       | SOME Cs => SOME (Ci::Cs)))
 End
 
@@ -933,7 +1010,7 @@ End
 (* Every clause in ds must be in cs *)
 Definition is_xfromc_def:
   is_xfromc fml is rx =
-  case get_clauses fml is of NONE => F
+  case get_constrs fml is of NONE => F
   | SOME ds =>
     check_rawxor_imp ds rx
 End
@@ -971,52 +1048,332 @@ Definition ren_lit_ls_def:
         ren_lit_ls tn is (Neg m::acc))
 End
 
+Definition lookup_ons_def:
+  lookup_ons n (off,ns) =
+  if n < off then 0i
+  else
+  let n = n - off in
+    if n < length ns
+    then
+      sub ns n
+    else 0
+End
+
+Definition prop_cardc_def:
+  (prop_cardc ons k lb ub [] = (k:int,lb:int,ub:int)) ∧
+  (prop_cardc ons k lb ub (l::ls) =
+    let n = Num (ABS l) in
+    let c = lookup_ons n ons in
+    if c = 0 then
+      prop_cardc ons k lb ub ls
+    else
+      let k' = if l > 0 then k else k - c in
+      if c > 0 then
+        prop_cardc ons k' lb (ub - c) ls
+      else
+        prop_cardc ons k' (lb - c) ub ls)
+End
+
+(* Propagate *)
+Definition prop_lit_def:
+  (prop_lit ny [] = NONE) ∧
+  (prop_lit ny (l::ls) =
+    if ny = Num (ABS l) then
+      SOME (l <= 0)
+    else prop_lit ny ls)
+End
+
+(* True if given BNN constraint is falsified by
+  the propagated literals *)
+Definition check_ibnn_def:
+  check_ibnn ((ons,k,lb,ub),oy) ls = (
+  let (k,lb,ub) = prop_cardc ons k lb ub ls in
+  case oy of
+    NONE => ub < k
+  | SOME y =>
+  case prop_lit (Num (ABS y)) ls of
+    NONE => F (* failed to propagate y *)
+  | SOME b =>
+    let b' = (b ⇔ y > 0) in
+    if b' then
+      ub < k
+    else
+      k ≤ lb)
+End
+
+(* TODO: unify the two RUPs with efficient representations
+  This version makes sure the propagations are distinct
+Definition is_rup2_def:
+  (is_rup2 fml [] (C:cclause) = SOME C) ∧
+  (is_rup2 fml (i::is) C =
+  case lookup i fml of
+    NONE => NONE
+  | SOME Ci =>
+  case delete_literals Ci C of
+    [] => NONE
+  | [l] =>
+    if l = 0 ∨ MEM (Num (ABS l)) (MAP (λl. Num (ABS l)) C)
+    then NONE
+    else
+      is_rup2 fml is (-l :: C)
+  | _ => NONE)
+End
+ *)
+
+Definition mk_strict_aux_def:
+  (mk_strict_aux x [] acc = x::acc) ∧
+  (mk_strict_aux x (y::ys) acc =
+    if x = (y:int) then
+      mk_strict_aux x ys acc
+    else mk_strict_aux y ys (x::acc))
+End
+
+Definition mk_strict_def:
+  mk_strict ls =
+  case sort (\x y. x ≥ y) ls of
+    [] => []
+  | (x::xs) => mk_strict_aux x xs []
+End
+
+Definition is_cfromb_def:
+  is_cfromb C cfml bfml ib i0 =
+  case lookup ib bfml of NONE => F
+  | SOME bnn =>
+  case get_units cfml i0 [] of NONE => F
+  | SOME cs =>
+  let ls = MAP (λl. -l) cs ++ C in
+    check_ibnn bnn (mk_strict ls)
+End
+
+Definition min_loop_def:
+  min_loop [] min k = (min,k:int) ∧
+  min_loop (Pos n :: rest) min k = min_loop rest (MIN n min) k ∧
+  min_loop (Neg n :: rest) min k = min_loop rest (MIN n min) (k - 1)
+End
+
+Definition min_def:
+  min (Pos n) rest k = min_loop rest n k ∧
+  min (Neg n) rest k = min_loop rest n k
+End
+
+Definition to_spt_def:
+  to_spt [] min acc = acc ∧
+  to_spt ((Pos n) :: rest) min acc =
+    (let m = n - min in
+       to_spt rest min (case lookup m acc of
+        | NONE => insert m 1 acc
+        | SOME i => if i = -1 then delete m acc else insert m (i+1) acc)) ∧
+  to_spt ((Neg n) :: rest) min acc =
+    (let m = n - min in
+       to_spt rest min (case lookup m acc of
+        | NONE => insert m (-1:int) acc
+        | SOME i => if i = 1 then delete m acc else insert m (i-1) acc))
+End
+
+Definition lb_ub_spt_def:
+  lb_ub_spt LN = (0:int,0:int) ∧
+  lb_ub_spt (LS x) = (if x < 0 then (x,0) else (0,x)) ∧
+  lb_ub_spt (BN t1 t2) =
+    (let (lb1,ub1) = lb_ub_spt t1 in
+     let (lb2,ub2) = lb_ub_spt t2 in
+       (lb1 + lb2, ub1 + ub2)) ∧
+  lb_ub_spt (BS t1 i t2) =
+    (let (lb1,ub1) = lb_ub_spt t1 in
+     let (lb2,ub2) = lb_ub_spt t2 in
+       if i < 0 then
+         (lb1 + i + lb2, ub1 + ub2)
+       else
+         (lb1 + lb2, ub1 + i + ub2))
+End
+
+Definition while_var_def:
+  while_var n k [] t = (k,[],t) ∧
+  while_var n k (x::xs) t =
+    case x of
+    | Pos v => (if n = v then while_var n k xs (t+1) else (k,x::xs,t))
+    | Neg v => (if n = v then while_var n (k-1) xs (t-1) else (k,x::xs,t))
+End
+
+Theorem while_var_LENGTH[local]:
+  ∀n k xs t new_k new_xs new_t.
+    (new_k,new_xs,new_t) = while_var n k xs t ⇒
+    ∃ys. xs = ys ++ new_xs ∧ EVERY (λx. var_lit x = n) ys ∧
+         ∀z zs. new_xs = z :: zs ⇒ n ≠ var_lit z
+Proof
+  Induct_on ‘xs’ \\ gvs [while_var_def,AllCaseEqs()] \\ rw []
+  \\ pop_assum $ mp_tac o GSYM
+  \\ strip_tac \\ res_tac \\ gvs []
+QED
+
+Definition to_vector_def:
+  to_vector k lb ub n [] acc = SOME (k,lb,ub,Vector (REVERSE acc)) ∧
+  to_vector k lb ub n ((Pos v)::xs) acc =
+    (if n < v then to_vector k lb ub (n+1) ((Pos v)::xs) (0::acc) else
+     if n > v then NONE else
+       let (new_k,new_xs,new_t) = while_var n k xs 1 in
+         if new_t < 0 then
+           to_vector new_k (lb + new_t) ub (n+1) new_xs (new_t::acc)
+         else
+           to_vector new_k lb (ub + new_t) (n+1) new_xs (new_t::acc)) ∧
+  to_vector k lb ub n ((Neg v)::xs) acc =
+    (if n < v then to_vector k lb ub (n+1) ((Neg v)::xs) (0::acc) else
+     if n > v then NONE else
+       let (new_k,new_xs,new_t) = while_var n (k-1) xs (0-1) in
+         if new_t < 0 then
+           to_vector new_k (lb + new_t) ub (n+1) new_xs (new_t::acc)
+         else
+           to_vector new_k lb (ub + new_t) (n+1) new_xs (new_t::acc))
+Termination
+  WF_REL_TAC ‘measure (λ(k,lb,ub,n,xs,acc). SUM (MAP var_lit xs) + LENGTH xs - n)’ \\ rw []
+  \\ imp_res_tac while_var_LENGTH \\ gvs [SUM_APPEND]
+End
+
+Definition lit_le_def:
+  lit_le x y = (var_lit x ≤ var_lit y)
+End
+
+Theorem SORTED_lit_le_DROP[local]:
+  ∀ys y.
+    SORTED lit_le (y::(ys ++ new_xs)) ∧
+    EVERY (λx. var_lit y = var_lit x) ys ⇒
+    SORTED lit_le (y::new_xs)
+Proof
+  Induct \\ gvs [lit_le_def] \\ rw []
+  \\ last_x_assum irule \\ gvs []
+  \\ Cases_on ‘new_xs’ \\ fs [lit_le_def]
+  \\ Cases_on ‘ys’ \\ fs [lit_le_def]
+QED
+
+Theorem SORTED_to_vector:
+  ∀k lb ub n cs acc.
+    SORTED lit_le (Pos n :: cs) ⇒ to_vector k lb ub n cs acc ≠ NONE
+Proof
+  ho_match_mp_tac to_vector_ind \\ rw []
+  \\ simp [Once to_vector_def]
+  \\ rw [] \\ gvs [lit_le_def]
+  \\ pairarg_tac \\ gvs []
+  \\ imp_res_tac $ GSYM while_var_LENGTH
+  \\ gvs [] \\ rw [] \\ gvs []
+  \\ last_x_assum irule
+  \\ ‘n = k'’ by gvs [] \\ gvs []
+  \\ full_simp_tac bool_ss [GSYM APPEND]
+  \\ ‘transitive lit_le’ by gvs [transitive_def,lit_le_def]
+  \\ full_simp_tac bool_ss [SORTED_APPEND]
+  \\ Cases_on ‘new_xs’ \\ gvs [SORTED_DEF]
+  \\ gvs [SF DNF_ss]
+  \\ Cases_on ‘h’ \\ gvs [var_lit_def,lit_le_def]
+QED
+
+Theorem SORTED_sort_lit_le[local]:
+  SORTED lit_le (sort lit_le cs)
+Proof
+  DEP_REWRITE_TAC[sort_SORTED]>>
+  simp[lit_le_def,total_def,transitive_def]
+QED
+
+Definition conv_bnn_def:
+  conv_bnn ((cs,k,y):cmsbnn) =
+    let init_n = (case cs of [] => 0 | (c::cs) => var_lit c) in
+      case to_vector (& k) 0 0 init_n cs [] of
+      | NONE => conv_bnn ((sort lit_le cs,k,y):cmsbnn)
+      | SOME (k,lb,ub,vec) => (((init_n,vec),k,lb,ub), OPTION_MAP conv_lit y):ibnn
+Termination
+  WF_REL_TAC ‘measure (λ(cs,k,y). if SORTED lit_le cs then 0 else 1:num)’
+  \\ gvs [SORTED_sort_lit_le] \\ rw []
+  \\ irule SORTED_to_vector
+  \\ Cases_on ‘cs’ \\ gvs [lit_le_def,SORTED_sort_lit_le]
+End
+
+(* TODO: *)
+Definition is_bnn_def:
+  is_bnn
+    (rB : ibnn)
+    (cfml : int list sptree$num_map)
+    (bfml : ibnn sptree$num_map)
+    (ib : num)
+    (i0 : num list)
+  ⇔
+    case lookup ib bfml of
+    | NONE => F
+    | SOME (x,opt) => T
+End
+
 (* note: in CFromX, we remap the clause for checking against XORs but store the original clause  *)
 Definition check_xlrup_def:
-  check_xlrup xorig xlrup cfml xfml tn def =
+  check_xlrup xorig borig xlrup cfml xfml bfml tn def =
   case xlrup of
     Del cl =>
-    SOME (FOLDL (\a b. delete b a) cfml cl, xfml, tn, def)
+    SOME (FOLDL (\a b. delete b a) cfml cl, xfml, bfml,
+      tn, def)
   | RUP n C i0 =>
     if is_rup cfml i0 C then
-      SOME (insert n C cfml, xfml, tn, def)
+      SOME (insert n C cfml, xfml, bfml, tn, def)
     else NONE
   | XOrig n rX =>
     if MEM rX xorig
     then
       let (mX,tn) = ren_lit_ls tn rX [] in
       let X = conv_xor_mv def mX in
-      SOME (cfml, insert n X xfml, tn, MAX def (strlen X))
+      SOME (cfml, insert n X xfml, bfml,
+        tn, MAX def (strlen X))
     else NONE
   | XAdd n rX i0 i1 =>
     let (mX,tn) = ren_int_ls tn rX [] in
     let X = conv_rawxor def mX in
     if is_xor def xfml i0 cfml i1 (FST tn) X then
-      SOME (cfml, insert n X xfml, tn, MAX def (strlen X))
+      SOME (cfml, insert n X xfml, bfml,
+        tn, MAX def (strlen X))
     else NONE
   | XDel xl =>
-      SOME (cfml, FOLDL (\a b. delete b a) xfml xl, tn, def)
+      SOME (cfml, FOLDL (\a b. delete b a) xfml xl, bfml,
+        tn, def)
   | CFromX n C i0 =>
     let (mC,tn) = ren_int_ls tn C [] in
     if is_cfromx def xfml i0 mC then
-      SOME (insert n C cfml, xfml, tn, def)
+      SOME (insert n C cfml, xfml, bfml,
+        tn, def)
     else NONE
   | XFromC n rX i0 =>
     if is_xfromc cfml i0 rX then
       let (mX,tn) = ren_int_ls tn rX [] in
       let X = conv_rawxor def mX in
-      SOME (cfml, insert n X xfml, tn, MAX def (strlen X))
+      SOME (cfml, insert n X xfml, bfml,
+        tn, MAX def (strlen X))
+    else NONE
+  | BOrig n rB =>
+    if MEM rB borig
+    then
+      let B = conv_bnn rB in
+        SOME (cfml, xfml, insert n B bfml, tn, def)
+    else NONE
+  | BAdd n rB ib i0 =>
+    (* check the raw BNN before adding it *)
+    let B = conv_bnn rB in
+      (* TODO: add support TODO: add support  *)
+      NONE
+    (*
+      if is_bnn B cfml bfml ib i0 then
+        SOME (cfml, xfml, insert n B bfml, tn, def)
+      else NONE
+    *)
+  | BDel bl =>
+      SOME (cfml, xfml, FOLDL (\a b. delete b a) bfml bl,
+        tn, def)
+  | CFromB n C ib i0 =>
+    if is_cfromb C cfml bfml ib i0 then
+      SOME (insert n C cfml, xfml, bfml,
+        tn, def)
     else NONE
 End
 
 Definition check_xlrups_def:
-  (check_xlrups xorig [] cfml xfml tn def =
-    SOME (cfml,xfml,tn,def)) ∧
-  (check_xlrups xorig (x::xs) cfml xfml tn def =
-  case check_xlrup xorig x cfml xfml tn def of
+  (check_xlrups xorig borig [] cfml xfml bfml tn def =
+    SOME (cfml,xfml,bfml,tn,def)) ∧
+  (check_xlrups xorig borig (x::xs) cfml xfml bfml tn def =
+  case check_xlrup xorig borig x cfml xfml bfml tn def of
     NONE => NONE
-  | SOME (cfml',xfml',tn',def') =>
-    check_xlrups xorig xs cfml' xfml' tn' def')
+  | SOME (cfml',xfml',bfml',tn',def') =>
+    check_xlrups xorig borig xs cfml' xfml' bfml' tn' def')
 End
 
 Definition contains_emp_def:
@@ -1026,10 +1383,10 @@ Definition contains_emp_def:
 End
 
 Definition check_xlrups_unsat_def:
-  check_xlrups_unsat xorig xlrups cfml xfml tn def =
-  case check_xlrups xorig xlrups cfml xfml tn def of
+  check_xlrups_unsat xorig borig xlrups cfml xfml bfml tn def =
+  case check_xlrups xorig borig xlrups cfml xfml bfml tn def of
     NONE => F
-  | SOME (cfml',xfml',tn'def') => contains_emp cfml'
+  | SOME (cfml',_) => contains_emp cfml'
 End
 
 (* Proofs *)
@@ -1066,7 +1423,7 @@ Proof
    metis_tac[set_delete_literals]>>
   gvs[]
   >- (
-    fs[isat_cfml_def,PULL_EXISTS,range_def]>>
+    fs[isat_fml_gen_def,PULL_EXISTS,range_def]>>
     first_x_assum drule>>
     rw[isat_cclause_def]>>
     first_x_assum (irule_at Any)>>
@@ -1077,7 +1434,7 @@ Proof
     gvs[isat_cclause_def,EXTENSION]>>
     reverse (rw[])
     >- metis_tac[]>>
-    fs[isat_cfml_def,PULL_EXISTS,range_def]>>
+    fs[isat_fml_gen_def,PULL_EXISTS,range_def]>>
     first_x_assum drule>>
     rw[isat_cclause_def]>>
     Cases_on`MEM l C`
@@ -1116,7 +1473,7 @@ Proof
   first_x_assum (irule_at Any)>>
   match_mp_tac isat_strxor_strxor>>
   simp[]>>
-  fs[isat_xfml_def,range_def,PULL_EXISTS]>>
+  fs[isat_fml_gen_def,range_def,PULL_EXISTS]>>
   metis_tac[]
 QED
 
@@ -1176,24 +1533,16 @@ Proof
   simp[EVERY_MAP,MAP2_MAP,charxor_self]
 QED
 
-Theorem delete_preserves_isat_cfml:
-  isat_cfml w (range C) ⇒
-  isat_cfml w (range (delete n C))
+Theorem delete_preserves_isat_fml_gen:
+  isat_fml_gen sem w (range C) ⇒
+  isat_fml_gen sem w (range (delete n C))
 Proof
-  rw[isat_cfml_def]>>
+  rw[isat_fml_gen_def]>>
   fs[range_def,lookup_delete,PULL_EXISTS]>>
   metis_tac[]
 QED
 
-Theorem delete_preserves_isat_xfml:
-  isat_xfml w (range x) ⇒
-  isat_xfml w (range (delete n x))
-Proof
-  rw[isat_xfml_def]>>
-  fs[range_def,lookup_delete,PULL_EXISTS]>>
-  metis_tac[]
-QED
-
+(* TODO: make generic *)
 Theorem delete_clauses_sound:
   ∀l fml.
   isat_fml w f (range fml,x) ⇒
@@ -1201,17 +1550,27 @@ Theorem delete_clauses_sound:
 Proof
   Induct>>simp[]>>
   rw[]>>
-  metis_tac[delete_preserves_isat_cfml,isat_fml_def]
+  metis_tac[delete_preserves_isat_fml_gen,isat_fml_def,PAIR]
 QED
 
 Theorem delete_xors_sound:
   ∀l x.
-  isat_fml w f (fml,range x) ⇒
-  isat_fml w f (fml, range (FOLDL (λa b. delete b a) x l))
+  isat_fml w f (fml,range x,rest) ⇒
+  isat_fml w f (fml, range (FOLDL (λa b. delete b a) x l), rest)
 Proof
   Induct>>simp[]>>
   rw[]>>
-  metis_tac[delete_preserves_isat_xfml,isat_fml_def]
+  metis_tac[delete_preserves_isat_fml_gen,isat_fml_def,PAIR]
+QED
+
+Theorem delete_bnns_sound:
+  ∀l x.
+  isat_fml w f (fml,fml',range x) ⇒
+  isat_fml w f (fml,fml',range (FOLDL (λa b. delete b a) x l))
+Proof
+  Induct>>simp[]>>
+  rw[]>>
+  metis_tac[delete_preserves_isat_fml_gen,isat_fml_def,PAIR]
 QED
 
 Theorem range_FOLDL_delete_SUBSET:
@@ -1223,22 +1582,12 @@ Proof
   metis_tac[range_delete,SUBSET_TRANS]
 QED
 
-Theorem isat_cfml_insert:
-  isat_cfml w (range cfml) ∧
-  isat_cclause w c ⇒
-  isat_cfml w (range (insert n c cfml))
+Theorem isat_fml_gen_insert:
+  isat_fml_gen sem w (range cfml) ∧
+  sem w c ⇒
+  isat_fml_gen sem w (range (insert n c cfml))
 Proof
-  rw[isat_cfml_def,range_def,lookup_insert]>>
-  gvs[AllCaseEqs()]>>
-  metis_tac[]
-QED
-
-Theorem isat_xfml_insert:
-  isat_xfml w (range xfml) ∧
-  isat_strxor w x ⇒
-  isat_xfml w (range (insert n x xfml))
-Proof
-  rw[isat_xfml_def,range_def,lookup_insert]>>
+  rw[isat_fml_gen_def,range_def,lookup_insert]>>
   gvs[AllCaseEqs()]>>
   metis_tac[]
 QED
@@ -1256,8 +1605,13 @@ Definition wf_clause_def:
 End
 
 Definition wf_cfml_def:
-  wf_cfml cfml ⇔
+  wf_cfml (cfml:int list num_map) ⇔
   ∀C. C ∈ range cfml ⇒ wf_clause C
+End
+
+Definition wf_cmsbnn_def:
+  wf_cmsbnn ((C, k, oy):cmsbnn) ⇔
+  OPTION_ALL nz_lit oy ∧ EVERY nz_lit C
 End
 
 Definition wf_xlrup_def:
@@ -1265,6 +1619,9 @@ Definition wf_xlrup_def:
   (wf_xlrup (CFromX n C i0) = wf_clause C) ∧
   (wf_xlrup (XFromC n X i0) = wf_clause X) ∧
   (wf_xlrup (XOrig n rX) = EVERY nz_lit rX) ∧
+  (wf_xlrup (BOrig n rB) = wf_cmsbnn rB) ∧
+  (wf_xlrup (BAdd n rB ib i0) = wf_cmsbnn rB) ∧
+  (wf_xlrup (CFromB n C ib i0) = wf_clause C) ∧
   (wf_xlrup _ = T)
 End
 
@@ -1295,20 +1652,16 @@ QED
 
 Theorem wf_cfml_check_xlrup:
   wf_cfml cfml ∧ wf_xlrup xlrup ∧
-  check_xlrup xorig xlrup cfml xfml tn def =
-    SOME (cfml',xfml',tn',def') ⇒
+  check_xlrup xorig borig xlrup cfml xfml bfml tn def =
+    SOME (cfml',xfml',bfml',tn',def') ⇒
   wf_cfml cfml'
 Proof
   rw[check_xlrup_def]>>gvs[AllCaseEqs()]>>
   rpt(pairarg_tac>>fs[])
   >-
-    metis_tac[wf_cfml_delete_clauses]
-  >- (
-    fs[wf_xlrup_def]>>
-    metis_tac[wf_cfml_insert])
-  >- (
-    fs[wf_xlrup_def]>>
-    metis_tac[wf_cfml_insert])
+    metis_tac[wf_cfml_delete_clauses]>>
+  fs[wf_xlrup_def]>>
+  metis_tac[wf_cfml_insert]
 QED
 
 Theorem conv_xor_aux_cclause_sound:
@@ -1434,16 +1787,16 @@ Proof
   metis_tac[]
 QED
 
-Theorem isat_cfml_get_clauses:
+Theorem isat_fml_gen_get_constrs:
   ∀is xs x.
-  isat_cfml w (range fml) ∧
-  get_clauses fml is = SOME xs ∧
+  isat_fml_gen sem w (range fml) ∧
+  get_constrs fml is = SOME xs ∧
   MEM x xs ⇒
-  isat_cclause w x
+  sem w x
 Proof
-  Induct>>rw[get_clauses_def]>>
+  Induct>>rw[get_constrs_def]>>
   gvs[AllCaseEqs()]>>
-  fs[isat_cfml_def,range_def]>>
+  fs[isat_fml_gen_def,range_def]>>
   metis_tac[]
 QED
 
@@ -1461,7 +1814,7 @@ Proof
   fs[check_rawxor_imp_def,EVERY_MEM]>>
   rw[]>>first_x_assum drule>>
   rw[EXISTS_MEM]>>
-  metis_tac[isat_cfml_get_clauses,imp_cclause_imp]
+  metis_tac[isat_fml_gen_get_constrs,imp_cclause_imp]
 QED
 
 Definition tn_inv_def:
@@ -1843,7 +2196,7 @@ Theorem isat_xfml_restore_str_submap:
   isat_xfml (w ∘ restore_fn tn) (range xfml) ⇒
   isat_xfml (w ∘ restore_fn tn') (range xfml)
 Proof
-  rw[range_def,isat_xfml_def]>>
+  rw[range_def,isat_fml_gen_def]>>
   match_mp_tac isat_strxor_restore_str_submap>>
   metis_tac[]
 QED
@@ -1851,7 +2204,7 @@ QED
 Theorem unit_prop_xor_sound:
   tn_inv (t,n) ∧
   sat_lit w (interp_lit l) ⇒
-  (isat_strxor (w o restore_fn (t,n)) (unit_prop_xor t l X) ⇔
+  (isat_strxor (w o restore_fn (t,n)) (unit_prop_xor t X l) ⇔
     isat_strxor (w o restore_fn (t,n)) X)
 Proof
   rw[unit_prop_xor_def]>>
@@ -1883,6 +2236,20 @@ Proof
   simp[of_bool_def]
 QED
 
+Theorem get_units_sound:
+  ∀ls cs.
+  isat_cfml w (range fml) ∧
+  EVERY (λl. sat_lit w (interp_lit l)) cs ∧
+  get_units fml ls cs = SOME cs' ⇒
+  EVERY (λl. sat_lit w (interp_lit l)) cs'
+Proof
+  Induct>>rw[get_units_def]>>gvs[AllCaseEqs()]>>
+  first_x_assum irule>>
+  first_x_assum (irule_at Any)>>
+  gvs[isat_fml_gen_def,range_def,PULL_EXISTS]>>
+  first_x_assum drule>>simp[isat_cclause_def]
+QED
+
 Theorem unit_props_xor_sound:
   ∀is X Y.
   tn_inv (t,n) ∧
@@ -1891,13 +2258,17 @@ Theorem unit_props_xor_sound:
   (isat_strxor (w ∘ restore_fn (t,n)) X ⇔
     isat_strxor (w ∘ restore_fn (t,n)) Y)
 Proof
-  Induct>>rw[unit_props_xor_def]>>
+  rw[unit_props_xor_def]>>
   gvs[AllCaseEqs()]>>
-  first_x_assum drule>>
-  DEP_REWRITE_TAC[unit_prop_xor_sound]>>
-  fs[isat_cfml_def,range_def,PULL_EXISTS]>>
-  first_x_assum drule>>
-  simp[isat_cclause_def]
+  drule get_units_sound>>
+  disch_then (drule_at Any)>>
+  simp[]>>
+  pop_assum kall_tac>>
+  qid_spec_tac`cs`>>
+  ho_match_mp_tac SNOC_INDUCT>>rw[]>>
+  gvs[EVERY_SNOC,FOLDL_SNOC]>>
+  match_mp_tac (GSYM unit_prop_xor_sound)>>
+  gvs[]
 QED
 
 Theorem is_xor_sound:
@@ -1978,16 +2349,600 @@ Proof
   simp[restore_int_def]
 QED
 
+Definition delete_ons_def:
+  delete_ons n (off,ns) =
+  if n < off then (off,ns)
+  else
+  let n = n - off in
+  if n < length ns then
+    (off,update ns n 0i)
+  else
+    (off,ns)
+End
+
+(* We'll reason about this *)
+Definition prop_cardc_sem_def:
+  (prop_cardc_sem ons k lb ub [] = (ons,k:int,lb:int,ub:int)) ∧
+  (prop_cardc_sem ons k lb ub (l::ls) =
+    let n = Num (ABS l) in
+    let c = lookup_ons n ons in
+    let ons' = delete_ons n ons in
+    if c = 0 then
+      prop_cardc_sem ons' k lb ub ls
+    else
+      let k' = if l > 0 then k else k - c in
+      if c > 0 then
+        prop_cardc_sem ons' k' lb (ub - c) ls
+      else
+        prop_cardc_sem ons' k' (lb - c) ub ls)
+End
+
+Theorem lookup_ons_delete_ons:
+  lookup_ons n (delete_ons n' t) =
+  if n = n' then 0
+  else lookup_ons n t
+Proof
+  Cases_on`t`>>Cases_on`r`>>
+  rw[lookup_ons_def,delete_ons_def]>>
+  gvs[update_def,length_def,toList_thm,sub_def]>>
+  rw[EL_LUPDATE]
+QED
+
+Theorem prop_cardc_sem_eq_aux:
+  ∀ls ons k lb ub.
+  ALL_DISTINCT (MAP (λl. Num (ABS l)) ls) ∧
+  (∀n.
+    MEM n (MAP (λl. Num (ABS l)) ls) ⇒
+    lookup_ons n ons = lookup_ons n ons') ⇒
+  SND (prop_cardc_sem ons k lb ub ls) =
+  prop_cardc ons' k lb ub ls
+Proof
+  Induct>>rw[prop_cardc_sem_def,prop_cardc_def]>>
+  first_x_assum irule>>
+  rw[lookup_ons_delete_ons]
+QED
+
+Theorem prop_cardc_sem_eq:
+  ALL_DISTINCT (MAP (λl. Num (ABS l)) ls) ⇒
+  prop_cardc ons k lb ub ls =
+  SND (prop_cardc_sem ons k lb ub ls)
+Proof
+  metis_tac[prop_cardc_sem_eq_aux]
+QED
+
+Theorem iSUM_le:
+  (∀x. MEM x ls ⇒ f x ≤ g x)
+  ⇒
+  iSUM (MAP f ls) ≤ iSUM (MAP g ls)
+Proof
+  Induct_on`ls`>>rw[iSUM_def]>>
+  gvs[SF DNF_ss]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem iSUM_LUPDATE:
+  ∀ls v n.
+  n < LENGTH ls ⇒
+  iSUM (LUPDATE v n ls) =
+  iSUM ls - EL n ls + v
+Proof
+  Induct>>rw[]>>
+  Cases_on`n`>>gvs[LUPDATE_def,iSUM_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem iSUM_as_list_delete_ons:
+  (∀n. f (n,0) = 0) ⇒
+  iSUM (MAP f (as_list ons)) =
+  iSUM (MAP f (as_list (delete_ons n ons))) +
+  f (n, lookup_ons n ons)
+Proof
+  Cases_on`ons`>>
+  rw[lookup_ons_def,as_list_def,delete_ons_def,o_DEF]>>
+  Cases_on`r`>>simp[update_def,toList_thm,MAPi_LUPDATE]>>
+  DEP_REWRITE_TAC[iSUM_LUPDATE]>>
+  gvs[length_def,sub_def]
+QED
+
+Theorem prop_cardc_sem_isat_cardc:
+  ∀ls ons k lb ub.
+  prop_cardc_sem ons k lb ub ls = (ons',k',lb',ub') ∧
+  (∀l. MEM l ls ⇒ ¬sat_lit w (interp_lit l)) ⇒
+  (isat_cardc w (ons,k,lb,ub) ⇔
+  isat_cardc w (ons',k',lb',ub'))
+Proof
+  Induct>>rw[prop_cardc_sem_def]>>
+  gvs[AllCaseEqs(),SF DNF_ss]>>
+  first_x_assum drule>>
+  disch_then (fn th => simp[GSYM th])>>
+  gvs[isat_cardc_def]>>rw[]>>
+  qmatch_goalsub_abbrev_tac`iSUM (MAP f _)`>>
+  qmatch_goalsub_abbrev_tac`delete_ons n ons`>>
+  mp_tac iSUM_as_list_delete_ons>>
+  gvs[Abbr`f`,Abbr`n`,sat_lit_def,interp_lit_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem prop_cardc_sem_wf_cardc:
+  ∀ls ons k lb ub.
+  prop_cardc_sem ons k lb ub ls = (ons',k',lb',ub') ∧
+  wf_cardc (ons,k,lb,ub) ⇒
+  wf_cardc (ons',k',lb',ub')
+Proof
+  Induct>>rw[prop_cardc_sem_def]
+  >-
+    metis_tac[]>>
+  gvs[AllCaseEqs(),SF DNF_ss]>>
+  first_x_assum irule>>
+  last_x_assum (irule_at Any)>>
+  gvs[wf_cardc_def]>>rw[]>>
+  qmatch_goalsub_abbrev_tac`iSUM (MAP f _)`>>
+  qmatch_goalsub_abbrev_tac`delete_ons n ons`>>
+  mp_tac iSUM_as_list_delete_ons>>
+  gvs[Abbr`f`,Abbr`n`,sat_lit_def,interp_lit_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem prop_lit_sat_lit:
+  prop_lit n ls = SOME b ∧
+  (∀l. MEM l ls ⇒ ¬sat_lit w (interp_lit l)) ⇒
+  w n = b
+Proof
+  Induct_on`ls`>>rw[prop_lit_def]>>
+  gvs[SF DNF_ss,sat_lit_def,interp_lit_def,AllCaseEqs(),AllCasePreds()]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem wf_cardc_ub:
+  wf_cardc (x,k,lb,ub) ∧
+  ub < k ⇒
+  ¬isat_cardc w (x,k,lb,ub)
+Proof
+  rw[isat_cardc_def,wf_cardc_def]>>
+  qmatch_asmsub_abbrev_tac `iSUM (MAP f1 _) ≤ ub`>>
+  qmatch_goalsub_abbrev_tac `iSUM (MAP f2 _)`>>
+  CCONTR_TAC>>gvs[]>>
+  `iSUM (MAP f2 (as_list x)) ≤ iSUM (MAP f1 (as_list x))` by
+    (match_mp_tac iSUM_le>>
+    rw[Abbr`f1`,Abbr`f2`]>>
+    pairarg_tac>>rw[]>>
+    intLib.ARITH_TAC)>>
+  intLib.ARITH_TAC
+QED
+
+Theorem wf_cardc_lb:
+  wf_cardc (x,k,lb,ub) ∧
+  k ≤ lb ⇒
+  isat_cardc w (x,k,lb,ub)
+Proof
+  rw[isat_cardc_def,wf_cardc_def]>>
+  qmatch_asmsub_abbrev_tac `lb ≤ iSUM (MAP f1 _)`>>
+  qmatch_goalsub_abbrev_tac `iSUM (MAP f2 _)`>>
+  CCONTR_TAC>>gvs[]>>
+  `iSUM (MAP f1 (as_list x)) ≤ iSUM (MAP f2 (as_list x))` by
+    (match_mp_tac iSUM_le>>
+    rw[Abbr`f1`,Abbr`f2`]>>
+    pairarg_tac>>rw[]>>
+    intLib.ARITH_TAC)>>
+  intLib.ARITH_TAC
+QED
+
+Theorem check_ibnn_sound:
+  check_ibnn bnn ls ∧
+  wf_ibnn bnn ∧
+  ALL_DISTINCT (MAP (λl. Num (ABS l)) ls) ∧
+  (∀l. MEM l ls ⇒ ¬sat_lit w (interp_lit l))
+  ⇒
+  ¬isat_ibnn w bnn
+Proof
+  PairCases_on`bnn`>>
+  rw[check_ibnn_def]>>
+  gvs[AllCasePreds(),wf_ibnn_def]>>
+  pairarg_tac>>gvs[]>>
+  drule prop_cardc_sem_eq>>
+  strip_tac>>gvs[SND_EQ_EQUIV]>>
+  CCONTR_TAC>>gvs[isat_ibnn_def]
+  >- (
+    drule_at Any prop_cardc_sem_isat_cardc>>
+    disch_then drule>> gvs[]>>
+    drule_all prop_cardc_sem_wf_cardc>>strip_tac>>
+    irule wf_cardc_ub>>
+    gvs[])
+  >- (
+    drule_all prop_lit_sat_lit>>
+    drule_all prop_cardc_sem_isat_cardc>>
+    drule_all prop_cardc_sem_wf_cardc>>
+    rw[sat_lit_def,interp_lit_def]>>
+    irule wf_cardc_ub>>
+    gvs[])
+  >- (
+    drule_all prop_lit_sat_lit>>
+    strip_tac>>
+    drule_all prop_cardc_sem_isat_cardc>>
+    disch_then (fn th => gvs[th])>>
+    `¬sat_lit w (interp_lit y)` by
+      (rw[sat_lit_def,interp_lit_def]>>gvs[])>>
+    gvs[]>>
+    drule_all prop_cardc_sem_wf_cardc>>strip_tac>>
+    drule wf_cardc_lb>>
+    metis_tac[])
+QED
+
+(*
+Theorem is_rup2_sound:
+  ∀is C.
+  wf_clause C ∧
+  is_rup2 fml is C = SOME D ∧
+  isat_cfml w (range fml) ∧
+  ¬ isat_cclause w C ∧
+  MEM l D ⇒
+  ¬sat_lit w (interp_lit l)
+Proof
+  Induct>>fs[is_rup2_def]>>rw[]
+  >- (
+    gvs[isat_cclause_def,wf_clause_def]>>
+    metis_tac[])>>
+  gvs[AllCaseEqs()]>>
+  rename1`delete_literals x C`>>
+  first_x_assum irule>>
+  first_x_assum (irule_at (Pos last))>>
+  rw[]
+  >-
+    gvs[wf_clause_def]>>
+  fs[isat_fml_gen_def,PULL_EXISTS,range_def]>>
+  first_x_assum drule>>
+  gvs[isat_cclause_cons]>>
+  `set x DIFF set C =
+   set (delete_literals x C)` by
+   metis_tac[set_delete_literals]>>
+  gvs[isat_cclause_def]>>rw[]>>
+  gvs[EXTENSION]>>
+  metis_tac[sat_lit_interp_lit_neg]
+QED
+
+Theorem is_rup2_wf:
+  ∀i0 C.
+  is_rup2 cfml i0 C = SOME ls ∧
+  ALL_DISTINCT (MAP (λl. Num (ABS l)) C) ⇒
+  ALL_DISTINCT (MAP (λl. Num (ABS l)) ls)
+Proof
+  Induct>>rw[is_rup2_def]>>gvs[AllCaseEqs()]>>
+  first_x_assum irule>>
+  first_x_assum (irule_at (Pos last))>>
+  gvs[]
+QED
+*)
+Theorem get_units_wf:
+  ∀i0 cs.
+  wf_cfml cfml ∧
+  get_units cfml i0 cs = SOME cs' ∧
+  wf_clause cs ⇒
+  wf_clause cs'
+Proof
+  Induct>>rw[get_units_def]>>gvs[AllCaseEqs()]>>
+  first_x_assum irule>>
+  first_x_assum (irule_at (Pos last))>>
+  gvs[wf_clause_def,wf_cfml_def,range_def,PULL_EXISTS]>>
+  first_x_assum drule>>
+  simp[]
+QED
+
+Theorem mk_strict_aux_SORTED:
+  ∀ls x acc.
+  SORTED (\x y. x ≥ y) (x::ls) ∧
+  SORTED $< (x::acc) ⇒
+  SORTED $< (mk_strict_aux x ls acc)
+Proof
+  Induct>>rw[mk_strict_aux_def]>>
+  first_x_assum irule>>gvs[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem mk_strict_SORTED:
+  SORTED $< (mk_strict ls)
+Proof
+  rw[mk_strict_def]>>
+  every_case_tac>>gvs[]>>
+  irule mk_strict_aux_SORTED>>
+  gvs[]>>
+  pop_assum sym_sub_tac>>
+  DEP_REWRITE_TAC[sort_SORTED]>>
+  simp[total_def,transitive_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem mk_strict_aux_MEM:
+  ∀ls y acc.
+  MEM x (mk_strict_aux y ls acc) ⇔
+  x = y ∨ MEM x ls ∨ MEM x acc
+Proof
+  Induct>>rw[mk_strict_aux_def]>>
+  metis_tac[]
+QED
+
+Theorem mk_strict_MEM:
+  MEM x (mk_strict ls) ⇔ MEM x ls
+Proof
+  rw[mk_strict_def]>>
+  every_case_tac>>gvs[]>>
+  pop_assum mp_tac>>
+  simp[mk_strict_aux_MEM]>>
+  metis_tac[sort_MEM,MEM]
+QED
+
+Theorem not_sat_lit_inj:
+  ¬ sat_lit w (interp_lit x) ∧
+  ¬ sat_lit w (interp_lit y) ∧
+  Num (ABS x) = Num (ABS y) ⇒
+  x = y
+Proof
+  simp[interp_lit_def,sat_lit_def,AllCasePreds()]>>
+  rw[]>>gvs[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem is_cfromb_sound:
+  wf_clause C ∧
+  wf_cfml cfml ∧
+  (∀b. b ∈ range bfml ⇒ wf_ibnn b) ∧
+  isat_cfml w (range cfml) ∧
+  isat_bfml w (range bfml) ∧
+  is_cfromb C cfml bfml ib i0  ⇒
+  isat_cclause w C
+Proof
+  rw[is_cfromb_def]>>
+  gvs[AllCasePreds()]>>
+  CCONTR_TAC>>
+  drule get_units_sound>>
+  disch_then (drule_at Any)>>
+  strip_tac>>gvs[]>>
+  qmatch_asmsub_abbrev_tac`check_ibnn bnn ls`>>
+  `SORTED $< ls` by (
+    gvs[Abbr`ls`]>>
+    metis_tac[mk_strict_SORTED])>>
+  `ALL_DISTINCT ls` by (
+    irule SORTED_ALL_DISTINCT>>
+    first_x_assum (irule_at Any)>>
+    simp[irreflexive_def,transitive_def]>>
+    intLib.ARITH_TAC)>>
+  drule check_ibnn_sound>>
+  disch_then(qspec_then`w` mp_tac)>>
+  impl_tac >- (
+    CONJ_TAC >- (
+      gvs[range_def]>>
+      metis_tac[])>>
+    CONJ_ASM2_TAC >- (
+      CCONTR_TAC>>
+      gvs[EL_ALL_DISTINCT_EL_EQ,EL_MAP]>>
+      rename1`_ ⇎ n1 = n2`>>
+      Cases_on`n1 = n2`>>gvs[]>>
+      gvs[MEM_EL,PULL_EXISTS]>>
+      metis_tac[not_sat_lit_inj])>>
+    gvs[MAP_MAP_o,o_DEF,Abbr`ls`,mk_strict_MEM]>>
+    gvs[isat_cclause_def,wf_clause_def,EVERY_MEM,MEM_MAP]>>
+    rw[]
+    >- (
+      DEP_REWRITE_TAC[sat_lit_interp_lit_neg]>>
+      drule get_units_wf>>
+      disch_then drule>>
+      simp[wf_clause_def]>>
+      metis_tac[])>>
+    metis_tac[])>>
+  gvs[isat_fml_gen_def,range_def]>>
+  metis_tac[]
+QED
+
+Theorem foldi_cons_lemma[local]:
+  ∀t acc k. foldi (λk v a. f v::a) k acc t =
+            foldi (λk v a. f v::a) k [] t ++ acc
+Proof
+  Induct
+  \\ rewrite_tac [foldi_def,APPEND]
+  \\ rpt (pop_assum (fn th => once_rewrite_tac [th]))
+  \\ simp []
+QED
+
+(*
+
+Theorem iSUM_MAP_toAList_EQ_MAP_toList:
+  iSUM (MAP (λ(x,y). f y) (toAList t)) = iSUM (MAP f (toList t))
+Proof
+  gvs [toAList_def]
+  \\ gvs [sptreeTheory.MAP_foldi,toList_def]
+  \\ qsuff_tac ‘∀t l. iSUM (foldi (λk v a. f v::a) l [] t) = iSUM (MAP f (toList t))’
+  >- metis_tac [toList_def]
+  \\ Induct
+  \\ gvs [foldi_def,toList_def,toListA_def]
+  \\ once_rewrite_tac [foldi_cons_lemma]
+  \\ once_rewrite_tac [sptreeTheory.toListA_append]
+  \\ gvs [iSUM_append,iSUM_def]
+  \\ gvs [AC integerTheory.INT_ADD_ASSOC integerTheory.INT_ADD_COMM]
+QED
+
+Theorem lb_ub_spt_thm:
+  lb_ub_spt s = (iSUM (MAP (λp2. if p2 < 0 then p2 else 0) (toList s)),
+                 iSUM (MAP (λp2. if p2 > 0 then p2 else 0) (toList s)))
+Proof
+  Induct_on ‘s’
+  \\ gvs [lb_ub_spt_def,EVAL “toList LN”,iSUM_def,toList_def,toListA_def]
+  \\ rw [] \\ once_rewrite_tac [sptreeTheory.toListA_append]
+  \\ gvs [GSYM toListA_def,iSUM_append]
+  \\ gvs [lb_ub_spt_def,EVAL “toList LN”,iSUM_def,toList_def,toListA_def]
+  \\ rw [] \\ intLib.COOPER_TAC
+QED
+*)
+
+Theorem iSUM_append:
+  ∀xs ys. iSUM (xs ++ ys) = iSUM xs + iSUM ys
+Proof
+  Induct \\ gvs [iSUM_def,AC integerTheory.INT_ADD_ASSOC integerTheory.INT_ADD_COMM]
+QED
+
+Theorem iSUM_REVERSE:
+  ∀xs. iSUM (REVERSE xs) = iSUM xs
+Proof
+  Induct \\ gvs [REVERSE_DEF,iSUM_append,iSUM_def]
+  \\ gvs [AC integerTheory.INT_ADD_ASSOC integerTheory.INT_ADD_COMM]
+QED
+
+Theorem to_vector_bounds:
+  ∀k lb ub n xs acc x0 x1 x2 x3.
+    to_vector k lb ub n xs acc = SOME (x0,x1,x2,x3) ⇒
+    x1 = iSUM (MAP (λv. if v < 0 then v else 0) (toList x3))
+          - iSUM (MAP (λv. if v < 0 then v else 0) acc) + lb ∧
+    x2 = iSUM (MAP (λv. if v > 0 then v else 0) (toList x3))
+          - iSUM (MAP (λv. if v > 0 then v else 0) acc) + ub
+Proof
+  recInduct to_vector_ind \\ rpt conj_tac
+  \\ rpt gen_tac \\ disch_tac
+  >- gvs [to_vector_def,toList_thm,MAP_REVERSE,iSUM_REVERSE]
+  \\ simp [Once to_vector_def]
+  \\ IF_CASES_TAC \\ gvs []
+  \\ rpt strip_tac \\ gvs [iSUM_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [AllCaseEqs()]
+  \\ intLib.COOPER_TAC
+QED
+
+Theorem to_vector_acc:
+  ∀k lb ub n xs (_acc:int list) (acc:int list) x0 x1 x2 x3.
+    to_vector k lb ub n xs acc = SOME (x0,x1,x2,x3) ⇔
+    ∃y3. to_vector k lb ub n xs [] = SOME (x0,x1,x2,y3) ∧
+         x3 = Vector (REVERSE acc ++ toList y3)
+Proof
+  recInduct to_vector_ind \\ rpt conj_tac
+  \\ rpt gen_tac
+  >- (gvs [to_vector_def,toList_thm] \\ metis_tac [])
+  \\ strip_tac
+  \\ once_rewrite_tac [to_vector_def]
+  \\ rpt IF_CASES_TAC
+  \\ rewrite_tac []
+  \\ rpt gen_tac
+  \\ simp_tac std_ss [LET_THM]
+  \\ rpt $ pop_assum $ mp_tac o GSYM
+  \\ rpt strip_tac
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ rpt IF_CASES_TAC \\ gvs []
+  \\ last_x_assum (fn th => once_rewrite_tac [GSYM th])
+  \\ gvs [PULL_EXISTS,toList_thm]
+  \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+QED
+
+Theorem as_list_cons:
+  as_list (n,Vector (x::xs)) = (n,x) :: as_list (n+1,Vector xs)
+Proof
+  gvs [as_list_def,toList_thm,o_DEF,ADD1]
+  \\ AP_THM_TAC \\ AP_TERM_TAC \\ gvs [FUN_EQ_THM]
+QED
+
+Theorem Vector_toList[local,simp]:
+  ∀v. Vector (toList v) = v
+Proof
+  Cases \\ gvs [toList_thm]
+QED
+
+Theorem while_var_thm:
+  ∀n k xs t new_k new_xs new_t.
+    while_var n k xs t = (new_k,new_xs,new_t) ⇒
+    ∃ys. xs = ys ++ new_xs ∧
+         & SUM (MAP (of_bool ∘ sat_lit w) xs) =
+         (if w n then (new_t - t) else 0) +
+         & SUM (MAP (of_bool ∘ sat_lit w) new_xs) - new_k + k
+Proof
+  Induct_on ‘xs’ \\ gvs [while_var_def,AllCaseEqs()]
+  \\ rpt strip_tac \\ gvs []
+  \\ last_x_assum drule \\ strip_tac \\ gvs []
+  \\ gvs [SUM_APPEND,intLib.COOPER_PROVE “& (m + n) : int = & m + & n”]
+  \\ Cases_on ‘w n’
+  \\ gvs [sat_lit_def,of_bool_def]
+  \\ intLib.COOPER_TAC
+QED
+
+Theorem to_vector_lemma:
+  ∀k lb ub n xs (acc:int list) x0 x1 x2 x3.
+    to_vector k lb ub n xs [] = SOME (x0,x1,x2,x3) ⇒
+    & SUM (MAP (of_bool o sat_lit w) xs) =
+    iSUM (MAP (λ(k,v). if w k then v else 0) (as_list (n,x3))) + k - x0
+Proof
+  recInduct to_vector_ind \\ rpt conj_tac
+  \\ rpt gen_tac \\ disch_tac
+  >- gvs [to_vector_def,as_list_def,toList_thm,iSUM_def]
+  \\ simp [Once to_vector_def]
+  \\ rpt gen_tac
+  \\ rpt IF_CASES_TAC \\ gvs []
+  \\ rpt strip_tac
+  \\ pop_assum mp_tac
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ rpt IF_CASES_TAC \\ gvs []
+  \\ simp [Once to_vector_acc]
+  \\ strip_tac \\ gvs [as_list_cons,iSUM_def]
+  \\ drule while_var_thm
+  \\ disch_then $ qspec_then ‘w’ strip_assume_tac
+  \\ gvs [SUM_APPEND,intLib.COOPER_PROVE “& (m + n) : int = & m + & n”]
+  \\ qabbrev_tac ‘j = iSUM (MAP (λ(k,v). if w k then v else 0) (as_list (n + 1,y3)))’
+  \\ gvs [sat_lit_def,of_bool_def]
+  \\ ‘n = v’ by intLib.COOPER_TAC
+  \\ IF_CASES_TAC \\ gvs [of_bool_def]
+  \\ intLib.COOPER_TAC
+QED
+
+Theorem conv_bnn_sound:
+  ∀C k y w.
+    wf_cmsbnn (C,k,y) ⇒
+    wf_ibnn (conv_bnn (C,k,y)) ∧
+    (isat_ibnn w (conv_bnn (C,k,y)) ⇔ sat_cmsbnn w (C,k,y))
+Proof
+  simp[wf_cmsbnn_def]
+  \\ recInduct conv_bnn_ind
+  \\ rpt gen_tac \\ rpt disch_tac
+  \\ rpt gen_tac \\ rpt disch_tac
+  \\ gvs []
+  \\ simp [Once conv_bnn_def]
+  \\ TOP_CASE_TAC \\ gvs []
+  >-
+   (pop_assum $ qspec_then ‘w’ mp_tac
+    \\ impl_tac
+    >- gvs[EVERY_MEM,sort_MEM]
+    \\ strip_tac \\ gvs []
+    \\ simp [Once conv_bnn_def]
+    \\ gvs [sat_cmsbnn_def]
+    \\ irule (METIS_PROVE [] “y = z ⇒ (x = (y >= k) ⇔ x = (z >= k:num))”)
+    \\ simp [Once EQ_SYM_EQ]
+    \\ irule sortingTheory.PERM_SUM
+    \\ irule PERM_MAP
+    \\ simp[sort_PERM])
+  \\ PairCases_on ‘x’ \\ gvs [wf_ibnn_def,wf_cardc_def]
+  \\ conj_tac
+  >- (gvs [as_list_def,o_DEF]
+      \\ drule to_vector_bounds \\ gvs [] \\ strip_tac \\ gvs [iSUM_def])
+  \\ simp [Once conv_bnn_def,isat_ibnn_def,sat_cmsbnn_def]
+  \\ `OPTION_ALL (sat_lit w ∘ interp_lit) (OPTION_MAP conv_lit y) =
+    OPTION_ALL (sat_lit w) y` by (
+      Cases_on`y`
+      \\ gvs [interp_lit_conv_lit,isat_cardc_def])
+  \\ gvs [isat_cardc_def]
+  \\ irule (METIS_PROVE [] “y = z ⇒ (y = x ⇔ x = z)”)
+  \\ gvs [GREATER_EQ]
+  \\ drule to_vector_lemma \\ gvs []
+  \\ gvs [as_list_def,toList_thm,iSUM_def]
+  \\ disch_then $ qspec_then ‘w’ mp_tac
+  \\ intLib.COOPER_TAC
+QED
+
 Theorem check_xlrup_sound:
   wf_xlrup xlrup ∧
-  check_xlrup xorig xlrup cfml xfml tn def =
-    SOME (cfml',xfml',tn',def') ∧ tn_inv tn ∧
+  wf_cfml cfml ∧
+  check_xlrup xorig borig xlrup cfml xfml bfml tn def =
+    SOME (cfml',xfml',bfml',tn',def') ∧ tn_inv tn ∧
   (∀x. MEM x xorig ⇒ sat_cmsxor w x) ∧
+  (∀x. MEM x borig ⇒ sat_cmsbnn w x) ∧
   (∀s. s ∈ range xfml ⇒ can_restore_str tn s) ∧
-  isat_fml w (restore_fn tn) (range cfml, range xfml)
+  (∀b. b ∈ range bfml ⇒ wf_ibnn b) ∧
+  isat_fml w (restore_fn tn) (range cfml, range xfml, range bfml)
   ⇒
   (∀s. s ∈ range xfml' ⇒ can_restore_str tn' s) ∧
-  isat_fml w (restore_fn tn') (range cfml', range xfml')
+  (∀b. b ∈ range bfml' ⇒ wf_ibnn b) ∧
+  isat_fml w (restore_fn tn') (range cfml', range xfml', range bfml')
 Proof
   simp[check_xlrup_def]>>strip_tac>>
   gvs[AllCaseEqs()]
@@ -1995,7 +2950,7 @@ Proof
     metis_tac[delete_clauses_sound]
   >~ [‘RUP’] >- (
     fs[isat_fml_def]>>
-    match_mp_tac isat_cfml_insert>>
+    match_mp_tac isat_fml_gen_insert>>
     simp[]>>
     match_mp_tac (GEN_ALL is_rup_sound)>>gvs[]>>
     asm_exists_tac>>simp[])
@@ -2010,7 +2965,7 @@ Proof
         match_mp_tac can_restore_str_conv_xor_mv
         \\ metis_tac [can_restore_str_submap])
       \\ metis_tac [can_restore_str_submap])>>
-    match_mp_tac isat_xfml_insert>>
+    match_mp_tac isat_fml_gen_insert>>
     CONJ_TAC >-
       metis_tac[isat_xfml_restore_str_submap]>>
     fs[wf_xlrup_def] >>
@@ -2036,7 +2991,7 @@ Proof
         metis_tac[ETA_AX])>>
       fs[range_def]
       \\ metis_tac [can_restore_str_submap])>>
-    match_mp_tac isat_xfml_insert>>
+    match_mp_tac isat_fml_gen_insert>>
     CONJ_TAC >-
       metis_tac[isat_xfml_restore_str_submap]>>
     match_mp_tac (GEN_ALL is_xor_sound)>>gvs[]>>
@@ -2058,7 +3013,7 @@ Proof
       fs[range_def]
       \\ metis_tac [can_restore_str_submap])>>
     CONJ_ASM2_TAC >- (
-      match_mp_tac isat_cfml_insert>>
+      match_mp_tac isat_fml_gen_insert>>
       simp[]>>
       fs[wf_xlrup_def]>>
       drule_at (Pos last) (GEN_ALL is_cfromx_sound)>>
@@ -2082,7 +3037,7 @@ Proof
         metis_tac[ETA_AX])>>
       fs[range_def]
       \\ metis_tac [can_restore_str_submap])>>
-    match_mp_tac isat_xfml_insert>>
+    match_mp_tac isat_fml_gen_insert>>
     CONJ_TAC >-
       metis_tac[isat_xfml_restore_str_submap]>>
     drule_at (Pos last) is_xfromc_sound >>
@@ -2097,7 +3052,7 @@ Proof
     rw[]
     >- (
       fs[wf_clause_def,EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
-      rw[nz_lit_def,interp_lit_def]
+      rw[interp_lit_def]
       >- intLib.ARITH_TAC>>
       CCONTR_TAC>>
       fs[]>>
@@ -2109,10 +3064,49 @@ Proof
     CONJ_TAC >-
       (EVAL_TAC>>rw[])>>
     EVAL_TAC)
+  >~ [‘BOrig’] >- (
+    gvs[wf_xlrup_def,AllCasePreds()]>>
+    PairCases_on`rB`>>
+    drule_all conv_bnn_sound>>
+    strip_tac>>
+    rw[]
+    >-
+      metis_tac[range_insert_2]>>
+    fs[isat_fml_def]>>
+    match_mp_tac isat_fml_gen_insert>>
+    gvs[])
+  (* TODO add support *)
+  (*
+  >~ [‘BAdd n rB ib i0’] >- (
+    gvs[wf_xlrup_def,AllCasePreds()]>>
+    rename1`wf_cmsbnn rB`>>
+    PairCases_on`rB`>>
+    drule_all conv_bnn_sound>>
+    strip_tac>>
+    rw[]
+    >-
+      metis_tac[range_insert_2]>>
+    fs[isat_fml_def]>>
+    match_mp_tac isat_fml_gen_insert>>
+    gvs[SF DNF_ss]>>
+    rename [‘sat_cmsbnn w (C1,k,oy)’]>>
+    ) *)
+  >~ [‘BDel’] >- (
+    rw[]
+    >-
+      metis_tac[range_FOLDL_delete_SUBSET,SUBSET_DEF]>>
+    metis_tac[delete_bnns_sound])
+  >~ [‘CFromB ’] >- (
+    fs[isat_fml_def]>>
+    match_mp_tac isat_fml_gen_insert>>
+    simp[]>>
+    fs[wf_xlrup_def]>>
+    metis_tac[is_cfromb_sound])
 QED
 
 Theorem check_xlrup_tn_inv:
-  check_xlrup xorig xlrup cfml xfml tn def = SOME (cfml',xfml',tn',def') ∧ tn_inv tn ⇒
+  check_xlrup xorig borig xlrup cfml xfml bfml tn def =
+    SOME (cfml',xfml',bfml',tn',def') ∧ tn_inv tn ⇒
   tn_inv tn'
 Proof
   rw[check_xlrup_def]
@@ -2124,14 +3118,16 @@ QED
 
 (* The main operational theorem about check_xlrups *)
 Theorem check_xlrups_sound:
-  ∀ls cfml xfml def def' tn tn'.
-  EVERY wf_xlrup ls ∧ tn_inv tn ∧
-  check_xlrups xorig ls cfml xfml tn def =
-    SOME (cfml',xfml', tn', def') ∧
+  ∀ls cfml xfml bfml def def' tn tn'.
+  EVERY wf_xlrup ls ∧ wf_cfml cfml ∧ tn_inv tn ∧
+  check_xlrups xorig borig ls cfml xfml bfml tn def =
+    SOME (cfml', xfml', bfml', tn', def') ∧
   (∀s. s ∈ range xfml ⇒ can_restore_str tn s) ∧
-  (∀x. MEM x xorig ⇒ sat_cmsxor w x) ⇒
-  (isat_fml w (restore_fn tn) (range cfml, range xfml) ⇒
-   isat_fml w (restore_fn tn') (range cfml', range xfml'))
+  (∀b. b ∈ range bfml ⇒ wf_ibnn b) ∧
+  (∀x. MEM x xorig ⇒ sat_cmsxor w x) ∧
+  (∀x. MEM x borig ⇒ sat_cmsbnn w x) ⇒
+  (isat_fml w (restore_fn tn) (range cfml, range xfml, range bfml) ⇒
+   isat_fml w (restore_fn tn') (range cfml', range xfml', range bfml'))
 Proof
   Induct>>simp[check_xlrups_def]>>
   rw[]>>
@@ -2142,6 +3138,7 @@ Proof
   strip_tac>>
   first_x_assum drule_all>>
   rw[]>>
+  drule_all wf_cfml_check_xlrup>>
   drule_all check_xlrup_tn_inv>>
   metis_tac[]
 QED
@@ -2185,16 +3182,18 @@ QED
 (* Main theorem *)
 Theorem check_xlrups_unsat_sound:
   EVERY wf_xlrup xlrups ∧
-  check_xlrups_unsat xfml xlrups
-    (build_fml cid cfml) LN (LN,1) def ⇒
+  EVERY wf_clause cfml ∧
+  check_xlrups_unsat xfml bfml xlrups
+    (build_fml cid cfml) LN LN (LN,1) def ⇒
   ¬ ∃w.
     isat_cfml w (set cfml) ∧
-    (∀x. MEM x xfml ⇒ sat_cmsxor w x)
+    (∀x. MEM x xfml ⇒ sat_cmsxor w x) ∧
+    (∀x. MEM x bfml ⇒ sat_cmsbnn w x)
 Proof
   rw[check_xlrups_unsat_def]>>
   every_case_tac>>fs[]>>
   `¬∃w. isat_cfml w (range q)` by (
-    fs[isat_cfml_def,contains_emp_def,MEM_MAP]>>
+    fs[isat_fml_gen_def,contains_emp_def,MEM_MAP]>>
     Cases_on`y`>>fs[MEM_toAList,range_def,PULL_EXISTS]>>
     rw[]>>
     asm_exists_tac>>simp[isat_cclause_def])>>
@@ -2202,8 +3201,8 @@ Proof
   PairCases_on`r`>>drule check_xlrups_sound>>
   disch_then (drule_at Any)>>
   ‘tn_inv (LN,1)’ by fs [tn_inv_def]>>
-  fs[isat_fml_def,range_build_fml]>>
-  simp[range_def,isat_xfml_def]>>
+  fs[isat_fml_def,range_build_fml,EVERY_MEM,wf_cfml_def]>>
+  simp[range_def,isat_fml_gen_def]>>
   metis_tac[]
 QED
 
@@ -2235,13 +3234,35 @@ Theorem conv_xfml_sound:
   (isat_xfml w (set (conv_xfml mv xfml)) ⇔
   (∀C. C ∈ set xfml ⇒ sat_cmsxor w C))
 Proof
-  rw[isat_xfml_def,conv_xfml_def,MEM_MAP,PULL_EXISTS,EVERY_MEM]>>
-  metis_tac[conv_xor_base,EVERY_MEM]
+  rw[isat_fml_gen_def,conv_xfml_def,MEM_MAP,PULL_EXISTS,EVERY_MEM]>>
+  simp[GSYM EVERY_MEM]>>
+  match_mp_tac EVERY_CONG>>rw[]>>
+  match_mp_tac conv_xor_base>>
+  gvs[EVERY_MEM]>>
+  metis_tac[]
+QED
+
+(* Unused *)
+Definition conv_bfml_def:
+  conv_bfml bfml =
+  MAP (conv_bnn) bfml
+End
+
+Theorem conv_bfml_sound:
+  EVERY wf_cmsbnn bfml ⇒
+  (isat_bfml w (set (conv_bfml bfml)) ⇔
+  (∀b. b ∈ set bfml ⇒ sat_cmsbnn w b))
+Proof
+  rw[isat_fml_gen_def,conv_bfml_def,MEM_MAP,PULL_EXISTS,EVERY_MEM]>>
+  simp[GSYM EVERY_MEM]>>
+  match_mp_tac EVERY_CONG>>rw[]>>
+  first_x_assum drule>>
+  metis_tac[conv_bnn_sound,PAIR]
 QED
 
 Definition conv_fml_def:
-  conv_fml mv (cfml,xfml) =
-  (conv_cfml cfml, conv_xfml xfml)
+  conv_fml mv (cfml,xfml,bfml) =
+  (conv_cfml cfml, conv_xfml xfml, conv_bfml bfml)
 End
 
 (* 1-sided variant of strxor *)
@@ -2273,7 +3294,7 @@ Proof
   >- (
     TOP_CASE_TAC>>fs[]>>
     EVAL_TAC)>>
-  TOP_CASE_TAC>>fs[]>>
+  TOP_CASE_TAC>>fs[SNOC_APPEND]>>
   simp[LUPDATE_def]
 QED
 
@@ -2351,5 +3372,3 @@ Proof
   first_x_assum drule>>
   simp[strxor_aux_c_strxor_aux,MAP_MAP_o,o_DEF]
 QED
-
-val _ = export_theory ();

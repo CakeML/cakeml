@@ -3,9 +3,11 @@
   There is a more advanced inlining optimisation as part of
   clos_known.
 *)
-open preamble bvlTheory bvl_handleTheory;
-
-val _ = new_theory "bvl_inline";
+Theory bvl_inline
+Ancestors
+  bvl bvl_handle
+Libs
+  preamble
 
 (* tick_inline -- a function that inlines a function body *)
 
@@ -30,13 +32,12 @@ Definition tick_inline_def:
      [Op op (tick_inline cs xs)]) /\
   (tick_inline cs [Tick x] =
      [Tick (HD (tick_inline cs [x]))]) /\
+  (tick_inline cs [Force m n] = [Force m n]) /\
   (tick_inline cs [Call ticks dest xs] =
      case dest of NONE => [Call ticks dest (tick_inline cs xs)] | SOME n =>
      case lookup n cs of
      | NONE => [Call ticks dest (tick_inline cs xs)]
      | SOME (arity,code) => [Let (tick_inline cs xs) (mk_tick (SUC ticks) code)])
-Termination
-  WF_REL_TAC `measure (exp1_size o SND)`
 End
 
 Definition tick_inline_sing_def:
@@ -57,6 +58,7 @@ Definition tick_inline_sing_def:
      (Op op (tick_inline_list cs xs))) /\
   (tick_inline_sing cs (Tick x) =
      (Tick (tick_inline_sing cs x))) /\
+  (tick_inline_sing cs (Force m n) = Force m n) /\
   (tick_inline_sing cs (Call ticks dest xs) =
      case dest of NONE => Call ticks dest (tick_inline_list cs xs) | SOME n =>
      case lookup n cs of
@@ -105,11 +107,10 @@ Definition is_small_aux_def:
      let n = n - 1 in if n = 0 then 0 else
        is_small_aux n xs) /\
   (is_small_aux n [Tick x] = is_small_aux n [x]) /\
+  (is_small_aux n [Force _ _] = n) /\
   (is_small_aux n [Call ticks dest xs] =
      let n = n - 1 in if n = 0 then 0 else
        is_small_aux n xs)
-Termination
-  WF_REL_TAC `measure (exp1_size o SND)`
 End
 
 Definition is_small_sing_def:
@@ -134,6 +135,7 @@ Definition is_small_sing_def:
      let n = n - 1 in if n = 0 then 0 else
        is_small_list n xs) /\
   (is_small_sing n (Tick x) = is_small_sing n x) /\
+  (is_small_sing n (Force _ _) = n) /\
   (is_small_sing n (Call ticks dest xs) =
      let n = n - 1 in if n = 0 then 0 else
        is_small_list n xs) /\
@@ -180,10 +182,9 @@ Definition is_rec_def:
        is_rec n [x2]) /\
   (is_rec n [Op op xs] = is_rec n xs) /\
   (is_rec n [Tick x] = is_rec n [x]) /\
+  (is_rec n [Force _ _] = F) /\
   (is_rec n [Call ticks dest xs] =
      if dest = SOME n then T else is_rec n xs)
-Termination
-  WF_REL_TAC `measure (exp1_size o SND)`
 End
 
 Definition is_rec_sing_def:
@@ -201,6 +202,7 @@ Definition is_rec_sing_def:
        is_rec_sing n x2) /\
   (is_rec_sing n (Op op xs) = is_rec_list n xs) /\
   (is_rec_sing n (Tick x) = is_rec_sing n x) /\
+  (is_rec_sing n (Force _ _) = F) /\
   (is_rec_sing n (Call ticks dest xs) =
      if dest = SOME n then T else is_rec_list n xs) /\
   (is_rec_list n [] = F) /\
@@ -275,10 +277,9 @@ Definition remove_ticks_def:
   (remove_ticks [Op op xs] =
      [Op op (remove_ticks xs)]) /\
   (remove_ticks [Tick x] = remove_ticks [x]) /\
+  (remove_ticks [Force m n] = [Force m n]) /\
   (remove_ticks [Call ticks dest xs] =
      [Call 0 dest (remove_ticks xs)])
-Termination
-  WF_REL_TAC `measure exp1_size`
 End
 
 Definition remove_ticks_sing_def:
@@ -297,6 +298,7 @@ Definition remove_ticks_sing_def:
   (remove_ticks_sing (Op op xs) =
      Op op (remove_ticks_list xs)) /\
   (remove_ticks_sing (Tick x) = remove_ticks_sing x) /\
+  (remove_ticks_sing (Force m n) = Force m n) /\
   (remove_ticks_sing (Call ticks dest xs) =
      Call 0 dest (remove_ticks_list xs)) /\
   (remove_ticks_list [] = []) /\
@@ -362,9 +364,8 @@ Definition let_op_def:
   (let_op [Op op xs] =
      [Op op (let_op xs)]) /\
   (let_op [Tick x] = [Tick (HD (let_op [x]))]) /\
+  (let_op [Force m n] = [Force m n]) /\
   (let_op [Call ticks dest xs] = [Call ticks dest (let_op xs)])
-Termination
-  WF_REL_TAC `measure exp1_size`
 End
 
 Definition let_op_one_def:
@@ -387,6 +388,7 @@ Definition let_op_one_def:
   (let_op_one (Op op xs) =
      Op op (let_op_list xs)) /\
   (let_op_one (Tick x) = Tick (let_op_one x)) /\
+  (let_op_one (Force m n) = Force m n) /\
   (let_op_one (Call ticks dest xs) = Call ticks dest (let_op_list xs)) /\
   (let_op_list [] = []) /\
   (let_op_list ((x:bvl$exp)::xs) =
@@ -406,7 +408,7 @@ Definition let_op_sing_def:
   let_op_sing x =
     case let_op [x] of
     | (y::ys) => y
-    | _ => Op (Const 0) []
+    | _ => Op (IntOp (Const 0)) []
 End
 
 Theorem let_op_sing_eq = let_op_sing_def |> SRULE [let_op_one];
@@ -430,4 +432,3 @@ Definition compile_prog_def:
     compile_inc limit split_seq cut_size LN prog
 End
 
-val _ = export_theory();

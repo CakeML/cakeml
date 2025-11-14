@@ -2,10 +2,13 @@
   Defines a common sub-expression elimination pass on a wordLang program.
   This pass is to run immediately after the SSA-like renaming.
 *)
+Theory word_cse
+Ancestors
+  wordLang words bool balanced_map sptree
+Libs
+  preamble
 
-open preamble wordLangTheory wordsTheory boolTheory balanced_mapTheory sptreeTheory;
 
-val _ = new_theory "word_cse";
 
 (* DATA
 
@@ -223,7 +226,7 @@ Definition memOpToNum_def:
   memOpToNum Load32 = 44 ∧
   memOpToNum Store = 23 ∧
   memOpToNum Store8 = 24 ∧
-  memOpToNum Store32 = 45
+  memOpToNum Store34 = 45
 End
 
 Definition fpToNumList_def:
@@ -317,12 +320,13 @@ Definition add_to_data_def:
       add_to_data_aux data r i (Inst x)
 End
 
-Definition can_mem_arith_def:
-  can_mem_arith (Binop _ _ r1 (Reg r2)) = (ODD r1 ∧ ODD r2) ∧
-  can_mem_arith (Binop _ _ r1 (Imm _)) = ODD r1 ∧
-  can_mem_arith (Div _ r1 r2) = (ODD r1 ∧ ODD r2) ∧
-  can_mem_arith (Shift _ _ r _) = ODD r ∧
-  can_mem_arith _ = F
+Definition is_store_def:
+  is_store Load = F ∧
+  is_store Load8 = F ∧
+  is_store Load32 = F ∧
+  is_store Store = T ∧
+  is_store Store8 = T ∧
+  is_store Store32 = T
 End
 
 Definition is_store_def:
@@ -410,8 +414,13 @@ Definition word_cse_def:
                                                     data.to_canonical |>,
                      Set x e)) ∧
   (word_cse data (MustTerminate p) =
-    let (data', p') = word_cse data p in
-      (data', MustTerminate p')) ∧
+            let (data', p') = word_cse data p in
+                (data', MustTerminate p')) ∧
+  (word_cse data (Call ret dest args handler) =
+            case ret of
+            | NONE => (empty_data, Call ret dest args handler)
+            | SOME (ret_reg, cut_set, p, l1, k) =>
+                      (empty_data with all_names:=inter data.all_names cut_set, Call ret dest args handler)) ∧
   (word_cse data (Seq p1 p2) =
     let (data1, p1') = word_cse data p1 in
     let (data2, p2') = word_cse data1 p2 in
@@ -583,5 +592,3 @@ Proof
 QED
 
 val _ = Theory.delete_const "Seqs";
-
-val _ = export_theory ();

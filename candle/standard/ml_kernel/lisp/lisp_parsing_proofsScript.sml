@@ -1,11 +1,10 @@
 (*
   Proof that pretty printong then parsing returns the same
 *)
-open HolKernel Parse boolLib bossLib;
-open arithmeticTheory listTheory pairTheory finite_mapTheory stringTheory;
-open lisp_valuesTheory lisp_printingTheory lisp_parsingTheory;
-
-val _ = new_theory "lisp_parsing_proofs";
+Theory lisp_parsing_proofs
+Ancestors
+  arithmetic list pair finite_map string lisp_values
+  lisp_printing lisp_parsing
 
 Definition dest_quote_def:
   dest_quote v =
@@ -500,7 +499,7 @@ Proof
   \\ rpt strip_tac \\ rw [] \\ fs [PULL_FORALL]
   \\ Cases_on ‘vs = []’ THEN1 rw []
   \\ ‘∃x l. vs = SNOC x l’ by metis_tac [SNOC_CASES]
-  \\ fs [REVERSE_APPEND]
+  \\ fs [REVERSE_APPEND,SNOC_APPEND]
   \\ Cases_on ‘l ≠ []’ THEN1
    (first_assum
        (qspecl_then [‘[x]’,‘ys’,‘xs’,‘REVERSE (FLAT (MAP v2toks l)) ⧺ ts’,‘e’] mp_tac)
@@ -560,4 +559,3 @@ Proof
   \\ fs [parse_def,any_list_def,list_def]
 QED
 
-val _ = export_theory();

@@ -1,9 +1,11 @@
 (*
   Defines the HOL inference system.
 *)
-open preamble holSyntaxLibTheory mlstringTheory totoTheory
-
-val _ = new_theory "holSyntax"
+Theory holSyntax
+Ancestors
+  holSyntaxLib mlstring toto
+Libs
+  preamble
 
 (* HOL types *)
 
@@ -296,7 +298,7 @@ QED
 Theorem LEAST_EXISTS[local]:
   (∃n:num. P n) ⇒ ∃k. P k ∧ ∀m. m < k ⇒ ¬(P m)
 Proof
-  metis_tac[whileTheory.LEAST_EXISTS]
+  metis_tac[WhileTheory.LEAST_EXISTS]
 QED
 
 val VARIANT_PRIMES_def = new_specification
@@ -720,7 +722,7 @@ Definition is_builtin_type_def:
        (m = strlit "bool" /\ LENGTH ty = 0)))
 End
 
-Triviality type1_size_append:
+Theorem type1_size_append[local]:
   ∀l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2
 Proof
   Induct >> simp[fetch "-" "type_size_def"]
@@ -1054,4 +1056,3 @@ Definition definitional_def:
   definitional ctxt = ?l. (set l = set ctxt) /\ definitional_dec l
 End
 
-val _ = export_theory()

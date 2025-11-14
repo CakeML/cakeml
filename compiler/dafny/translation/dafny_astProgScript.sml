@@ -1,18 +1,14 @@
 (*
- * Translates functions for Dafny's AST.
- *)
+ Translates Dafny's AST types.
+*)
+Theory dafny_astProg
+Ancestors
+  cakeml_astProg dafny_ast
+Libs
+  preamble ml_translatorLib
 
-open preamble ml_translatorLib
-open cakeml_and_dafny_astProgTheory
-open dafny_astTheory
 
-val _ = new_theory "dafny_astProg";
+val _ = translation_extends "cakeml_astProg";
 
-val _ = translation_extends "cakeml_and_dafny_astProg";
+val _ = register_type “:program”;
 
-val r = translate dafny_astTheory.dest_Ident_def;
-val r = translate dafny_astTheory.dest_varName_def;
-val r = translate dafny_astTheory.dest_Method_def;
-val r = translate dafny_astTheory.unescape_string_def;
-
-val _ = export_theory ();

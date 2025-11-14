@@ -1,19 +1,14 @@
 (*
   Correctness proof for bvi_inline
 *)
-
-open preamble backendPropsTheory
-     bvlSemTheory bvlPropsTheory
-     bvl_inlineTheory
-local open bvl_handleProofTheory in end
+Theory bvl_inlineProof
+Ancestors
+  bvlSem bvlProps backendProps
+  bvl_handleProof[qualified] bvl_inline
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj", "fromAList_def"]
-
-val _ = new_theory"bvl_inlineProof";
-
-val _ = set_grammar_ancestry [ "bvlSem", "bvlProps", "bvl_inline" ];
-
-val drule = old_drule
 
 (* removal of ticks *)
 
@@ -213,12 +208,16 @@ Proof
     \\ drule evaluate_add_clock \\ fs [inc_clock_def])
   THEN1 (* Op *)
    (fs [remove_ticks_def,evaluate_def]
+    \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gvs []
+    >- (gvs [AllCaseEqs(), do_app_def, PULL_EXISTS] \\ metis_tac [])
     \\ FULL_CASE_TAC \\ fs []
     \\ first_x_assum drule \\ fs []
     \\ disch_then drule \\ strip_tac
     \\ qexists_tac `ck` \\ fs []
     \\ reverse (Cases_on `q`) \\ fs [] \\ rveq \\ fs []
-    \\ drule do_app_lemma \\ every_case_tac \\ fs []
+    \\ drule do_app_lemma
+    \\ disch_then(qspecl_then [`op`,`a`] assume_tac)
+    \\ every_case_tac \\ fs []
     \\ rveq \\ fs [])
   THEN1 (* Tick *)
    (fs [remove_ticks_def]
@@ -226,6 +225,14 @@ Proof
     \\ disch_then drule \\ strip_tac
     \\ fs [bvlSemTheory.evaluate_def]
     \\ qexists_tac `ck + 1` \\ fs [dec_clock_def])
+  THEN1
+   (gvs [remove_ticks_def, evaluate_def, oneline dest_thunk_def,
+         AllCaseEqs(), PULL_EXISTS, state_rel_def, find_code_def,
+         lookup_map, dec_clock_def]
+    >- (qexistsl [‘0’, ‘t with clock := 0`] \\ gvs [])
+    \\ last_x_assum $ drule_at (Pat ‘evaluate _ = _’)
+    \\ disch_then $ qspec_then ‘t with clock := t.clock - 1’ assume_tac
+    \\ gvs [] \\ metis_tac [])
   (* Call *)
   \\ fs [remove_ticks_def]
   \\ fs [bvlSemTheory.evaluate_def]
@@ -288,12 +295,13 @@ val evaluate_remove_ticks_thm =
 
 Definition remove_ticks_cc_def:
   remove_ticks_cc cc =
-    (λcfg prog'. cc cfg (MAP (I ## I ## (λx. HD (remove_ticks [x]))) prog'))
+    (λcfg prog'.
+         cc cfg (MAP (I ## I ## (λx. HD (bvl_inline$remove_ticks [x]))) prog'))
 End
 
 Definition remove_ticks_co_def:
   remove_ticks_co =
-    (I ## MAP (I ## I ## (λx. HD (remove_ticks [x]))))
+    (I ## MAP (I ## I ## (λx. HD (bvl_inline$remove_ticks [x]))))
 End
 
 Theorem evaluate_compile_prog:
@@ -553,7 +561,7 @@ Proof
 QED
 
 val remove_ticks_CONS = prove(
-  ``!xs x. remove_ticks (x::xs) =
+  ``!xs x. bvl_inline$remove_ticks (x::xs) =
            HD (remove_ticks [x]) :: remove_ticks xs``,
   Cases \\ fs [remove_ticks_def]);
 
@@ -582,6 +590,7 @@ Inductive exp_rel:
    exp_rel cs [Tick x] [Tick y]) /\
   (exp_rel cs xs ys ==>
    exp_rel cs [Op op xs] [Op op ys]) /\
+  (exp_rel cs [Force loc n] [Force loc n]) /\
   (exp_rel cs xs ys ==>
    exp_rel cs [Call ticks dest xs] [Call ticks dest ys]) /\
   (exp_rel cs xs ys /\ lookup n cs = SOME (arity, x) /\
@@ -823,7 +832,6 @@ Proof
     \\ match_mp_tac exp_rel_tick_inline \\ metis_tac [])
   \\ fs [lookup_union,case_eq_thms,GSYM lookup_NONE_domain,lookup_insert,
          lookup_def]
-  \\ pop_assum (assume_tac o GSYM)
   \\ first_x_assum drule \\ strip_tac \\ fs []
   \\ match_mp_tac (subspt_exp_rel |> ONCE_REWRITE_RULE [CONJ_COMM])
   \\ asm_exists_tac \\ fs []
@@ -908,6 +916,16 @@ Proof
   \\ imp_res_tac do_app_const \\ fs []
 QED
 
+Theorem exp_rel_refl:
+   !cs xs. exp_rel cs xs xs
+Proof
+  ho_match_mp_tac tick_inline_ind \\ rw []
+  \\ once_rewrite_tac [exp_rel_cases] \\ fs []
+  \\ Cases_on `dest` \\ fs []
+  \\ Cases_on `lookup x cs` \\ fs []
+  \\ Cases_on `x'` \\ fs []
+QED
+
 Theorem evaluate_inline:
    !es env s1 res t1 s2 es2.
       in_state_rel limit s1 t1 /\ exp_rel s1.code es es2 /\
@@ -966,12 +984,15 @@ Proof
     \\ drule subspt_exp_rel \\ disch_then drule \\ rw []
     \\ pop_assum drule \\ rw [] \\ fs [])
   THEN1
-   (fs [case_eq_thms] \\ rveq \\ fs []
+   (Cases_on ‘op = ThunkOp ForceThunk’ \\ gvs []
+    >- gvs [evaluate_def, do_app_def, AllCaseEqs()]
+    \\ fs [case_eq_thms] \\ rveq \\ fs []
     \\ first_x_assum drule
     \\ disch_then drule \\ strip_tac
     \\ fs [evaluate_def]
     \\ drule (Q.GEN `a` in_do_app_lemma)
-    \\ disch_then (qspec_then `REVERSE vs` mp_tac) \\ fs []
+    \\ disch_then (qspecl_then [`op`,`REVERSE vs`] mp_tac)
+    \\ fs []
     \\ strip_tac \\ fs [])
   THEN1
    (`s.clock = t1.clock` by fs [in_state_rel_def]
@@ -983,6 +1004,17 @@ Proof
     \\ first_x_assum drule
     \\ disch_then drule \\ strip_tac
     \\ fs [evaluate_def])
+  THEN1
+   (gvs [AllCaseEqs(), evaluate_def, PULL_EXISTS, oneline dest_thunk_def]
+    >- gvs [in_state_rel_def]
+    >- (
+      gvs [in_state_rel_def, find_code_def, AllCaseEqs()]
+      \\ first_x_assum drule \\ rw [] \\ gvs [])
+    \\ ‘in_state_rel limit (dec_clock 1 s) (dec_clock 1 t1)’
+      by gvs [in_state_rel_def, dec_clock_def]
+    \\ last_x_assum drule \\ rw []
+    \\ gvs [find_code_def, AllCaseEqs(), in_state_rel_def, PULL_EXISTS]
+    \\ last_x_assum drule \\ rw [] \\ gvs [])
   THEN1
    (reverse (fs [case_eq_thms] \\ rveq \\ fs [])
     \\ first_x_assum drule
@@ -1023,16 +1055,6 @@ Proof
   \\ `FST (evaluate ([y],args,dec_clock (ticks + 1) t2)) <>
       Rerr (Rabort Rtype_error)` by fs []
   \\ drule evaluate_expand_env \\ fs []
-QED
-
-Theorem exp_rel_refl:
-   !cs xs. exp_rel cs xs xs
-Proof
-  ho_match_mp_tac tick_inline_ind \\ rw []
-  \\ once_rewrite_tac [exp_rel_cases] \\ fs []
-  \\ Cases_on `dest` \\ fs []
-  \\ Cases_on `lookup x cs` \\ fs []
-  \\ Cases_on `x'` \\ fs []
 QED
 
 Definition in_co_def:
@@ -1413,20 +1435,20 @@ val let_state_rel_def = let_state_rel_def
   |> SIMP_RULE (srw_ss()) [state_component_equality,GSYM CONJ_ASSOC];
 
 Theorem HD_let_op[simp]:
-   [HD (let_op [x])] = let_op [x]
+   [HD (let_op [x :bvl$exp])] = let_op [x]
 Proof
   Cases_on `x` \\ simp_tac std_ss [let_op_def] \\ fs []
   \\ CASE_TAC \\ fs []
 QED
 
 val let_op_sing_thm = prove(
-  ``let_op_sing x = HD (let_op [x])``,
+  ``let_op_sing (x :bvl$exp) = HD (let_op [x])``,
   fs [let_op_sing_def]
   \\ once_rewrite_tac [GSYM HD_let_op] \\ fs []);
 
 val var_list_IMP_evaluate = prove(
-  ``!a2 a1 l xs s.
-      var_list (LENGTH a1) l xs /\ LENGTH (xs:bvl$exp list) = LENGTH a2 ==>
+  ``!a2 a1 l (xs :bvl$exp list) (s :('a, 'b) state).
+      var_list (LENGTH a1) l xs /\ LENGTH xs = LENGTH a2 ==>
       evaluate (l,a1++a2++env,s) = (Rval a2,s)``,
   Induct THEN1
    (fs [APPEND_NIL,var_list_def]
@@ -1445,14 +1467,14 @@ val var_list_IMP_evaluate = prove(
 
 val var_list_IMP_evaluate = prove(
   ``var_list 0 l xs /\ LENGTH (xs:bvl$exp list) = LENGTH a ==>
-    evaluate (l,a++env,s) = (Rval a,s)``,
+    evaluate (l,a++env,(s :('a, 'b) state)) = (Rval a,s)``,
   rw []
   \\ match_mp_tac (Q.SPECL [`xs`,`[]`] var_list_IMP_evaluate
        |> SIMP_RULE std_ss [APPEND,LENGTH])
   \\ asm_exists_tac \\ fs []);
 
 Theorem LENGTH_let_op:
-   !xs. LENGTH (let_op xs) = LENGTH xs
+   !(xs :bvl$exp list). LENGTH (let_op xs) = LENGTH xs
 Proof
   ho_match_mp_tac let_op_ind \\ rw [let_op_def]
   \\ CASE_TAC \\ fs []
@@ -1518,16 +1540,23 @@ Proof
     \\ res_tac \\ fs [])
   THEN1 (rw [] \\ fs [])
   THEN1
-   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
-    \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM))
-    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs [])
+   (fs [case_eq_thms] \\ rveq \\ fs []
+   \\ res_tac \\ fs [] \\ res_tac \\ fs [])
   THEN1
-   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
+   (fs [case_eq_thms] \\ rveq \\ fs []
     \\ first_x_assum drule \\ rw [] \\ fs []
     THEN1
      (first_x_assum drule \\ rw [] \\ fs []
       \\ TOP_CASE_TAC \\ fs []
       \\ fs [evaluate_def]
+      \\ Cases_on `x = ThunkOp ForceThunk` \\ gvs [] >- (
+        Cases_on `HD (let_op [x2])` \\ gvs [dest_op_def]
+        \\ drule (GEN_ALL var_list_IMP_evaluate) \\ fs [LENGTH_let_op]
+        \\ imp_res_tac evaluate_IMP_LENGTH
+        \\ disch_then drule \\ rw []
+        \\ qsuff_tac `let_op [x2] = [Op (ThunkOp ForceThunk) l]`
+        >- (rw [] \\ gvs [evaluate_def])
+        \\ once_rewrite_tac [GSYM HD_let_op] \\ gvs [])
       \\ Cases_on `HD (let_op [x2])` \\ fs [dest_op_def] \\ rveq
       \\ drule (GEN_ALL var_list_IMP_evaluate) \\ fs [LENGTH_let_op]
       \\ imp_res_tac evaluate_IMP_LENGTH
@@ -1539,24 +1568,23 @@ Proof
     \\ TOP_CASE_TAC \\ fs []
     \\ fs [evaluate_def])
   THEN1
-   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
-    \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM))
-    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs [])
+   (fs [case_eq_thms] \\ rveq \\ fs []
+   \\ res_tac \\ fs [] \\ res_tac \\ fs [])
   THEN1
-   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
-    \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM))
-    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs [])
+   (fs [case_eq_thms] \\ rveq \\ fs []
+   \\ res_tac \\ fs [] \\ res_tac \\ fs [])
   THEN1
-   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
-    \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM)) \\ fs []
-    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs []
+   (Cases_on ‘op = ThunkOp ForceThunk’ \\ gvs []
+    >- gvs [AllCaseEqs(), PULL_EXISTS, do_app_def]
+    \\ fs [case_eq_thms] \\ rveq \\ fs []
+    \\ res_tac \\ fs [] \\ res_tac \\ fs []
     \\ rveq \\ fs []
-    \\ drule (do_app_lemma |> Q.GEN `a` |> Q.SPEC `REVERSE vs`)
+    \\ drule do_app_lemma
+    \\ disch_then (qspecl_then [`op`,`REVERSE vs`] mp_tac)
     \\ fs [] \\ rw [] \\ fs [])
   THEN1
-   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
-    \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM))
-    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs []
+   (fs [case_eq_thms] \\ rveq \\ fs []
+    \\ res_tac \\ fs [] \\ res_tac \\ fs []
     THEN1 (fs [let_state_rel_def])
     \\ `let_state_rel q4 l4 (dec_clock 1 s) (dec_clock 1 t1)`
            by fs [let_state_rel_def,dec_clock_def]
@@ -1564,9 +1592,30 @@ Proof
     \\ rveq \\ fs []
     \\ qexists_tac `t2` \\ fs [] \\ fs [let_state_rel_def])
   THEN1
-   (fs [case_eq_thms] \\ rveq \\ fs [] \\ fs[]
-    \\ rpt (qpat_x_assum `_ = bvlSem$evaluate _` (assume_tac o GSYM))
-    \\ fs [] \\ res_tac \\ fs [] \\ res_tac \\ fs [] \\ rveq
+   (gvs [AllCaseEqs(), PULL_EXISTS]
+    >- gvs [let_state_rel_def]
+    >- gvs [let_state_rel_def, find_code_def, AllCaseEqs(), lookup_map,
+            let_opt_def]
+    \\ rename1 ‘let_state_rel q l s t’
+    \\ ‘let_state_rel q l (dec_clock 1 s) (dec_clock 1 t)’
+      by gvs [let_state_rel_def, dec_clock_def]
+    \\ last_x_assum drule \\ rw []
+    \\ gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
+    \\ ‘FLOOKUP t.refs ptr = SOME (Thunk NotEvaluated v)’
+      by gvs [let_state_rel_def]
+    \\ gvs []
+    \\ ‘t.clock ≠ 0’ by gvs [let_state_rel_def] \\ gvs [PULL_EXISTS]
+    \\ goal_assum $ drule_at Any \\ gvs []
+    \\ ‘find_code (SOME force_loc) [RefPtr v0 ptr; v] t.code = SOME (args,
+           compile_any q l (LENGTH args) (let_op_sing exp))’
+      by gvs [find_code_def, AllCaseEqs(), let_state_rel_def, lookup_map,
+              let_opt_def]
+    \\ gvs []
+    \\ match_mp_tac bvl_handleProofTheory.compile_any_correct \\ fs []
+    \\ gvs [let_op_sing_thm])
+  THEN1
+   (fs [case_eq_thms] \\ rveq \\ fs []
+    \\ res_tac \\ fs [] \\ res_tac \\ fs [] \\ rveq
     \\ res_tac \\ fs [PULL_EXISTS]
     THEN1
      (qexists_tac `t2' with clock := 0` \\ fs [let_state_rel_def]
@@ -1587,7 +1636,6 @@ Proof
     \\ res_tac \\ fs [] \\ rfs [let_state_rel_def]
     \\ rename1 `_ = (res,t9)`
     \\ qexists_tac `t9` \\ fs []
-    \\ once_rewrite_tac [EQ_SYM_EQ]
     \\ match_mp_tac bvl_handleProofTheory.compile_any_correct \\ fs []
     \\ fs [let_op_sing_thm,HD_let_op])
 QED
@@ -1597,7 +1645,7 @@ Definition let_op_cc_def:
      (λcfg prog. cc cfg (MAP (I ## let_opt q4 l4) prog))
 End
 
-Triviality let_evaluate_Call:
+Theorem let_evaluate_Call[local]:
   evaluate ([Call 0 (SOME start) []], [],
              initial_state ffi0 prog co (let_op_cc q4 l4 cc) k) = (r, s) /\
    r <> Rerr (Rabort Rtype_error) ⇒
@@ -2164,5 +2212,3 @@ Proof
   \\ imp_res_tac tick_inline_all_code_labels
   \\ fs [o_DEF, toList_def, toListA_def]
 QED
-
-val _ = export_theory();

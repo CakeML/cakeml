@@ -1,11 +1,13 @@
 (*
   Correctness proof for clos_number
 *)
-open preamble backendPropsTheory closLangTheory clos_numberTheory closSemTheory closPropsTheory;
+Theory clos_numberProof
+Ancestors
+  backendProps closLang clos_number closSem closProps
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory"clos_numberProof";
 
 val _ = temp_bring_to_front_overload"lookup"{Name="lookup",Thy="sptree"};
 val _ = temp_bring_to_front_overload"insert"{Name="insert",Thy="sptree"};
@@ -150,7 +152,7 @@ Proof
   \\ qexists_tac `$<` \\ simp [relationTheory.irreflexive_def]
 QED
 
-Triviality renumber_code_locs_list_els:
+Theorem renumber_code_locs_list_els[local]:
   ∀ls ls' n n'. renumber_code_locs_list n ls = (n',ls') ⇒
       ∀x. x < LENGTH ls ⇒
         ∃m. EL x ls' = SND (renumber_code_locs m (EL x ls))
@@ -203,39 +205,39 @@ Definition state_rel_def:
     s.code = FEMPTY ∧ t.code = FEMPTY
 End
 
-Triviality state_rel_max_app:
+Theorem state_rel_max_app[local]:
   !s t. state_rel s t ⇒ s.max_app = t.max_app
 Proof
   srw_tac[][state_rel_def]
 QED
 
-Triviality state_rel_with_clock:
+Theorem state_rel_with_clock[local]:
   !s t. state_rel s t ⇒ state_rel (s with clock := x) (t with clock := x)
 Proof
   srw_tac[][state_rel_def] \\ rfs[]
 QED
 
-Triviality state_rel_clock:
+Theorem state_rel_clock[local]:
   state_rel s t ⇒ s.clock = t.clock
 Proof
   rw[state_rel_def]
 QED
 
-Triviality state_rel_globals:
+Theorem state_rel_globals[local]:
   state_rel s t ⇒
     LIST_REL (OPTREL (v_rel s.max_app)) s.globals t.globals
 Proof
   srw_tac[][state_rel_def]
 QED
 
-Triviality state_rel_refs:
+Theorem state_rel_refs[local]:
   state_rel s t ⇒
     fmap_rel (ref_rel (v_rel t.max_app)) s.refs t.refs
 Proof
   srw_tac[][state_rel_def]
 QED
 
-Triviality state_rel_code:
+Theorem state_rel_code[local]:
   state_rel s t ⇒ s.code = FEMPTY ∧ t.code = FEMPTY
 Proof
   rw[state_rel_def]
@@ -276,7 +278,7 @@ QED
 
 (* semantic functions respect relation *)
 
-Triviality dest_closure_v_rel_none:
+Theorem dest_closure_v_rel_none[local]:
   !f args f' args'.
     v_rel max_app f f' ∧
     LIST_REL (v_rel max_app) args args' ∧
@@ -311,7 +313,7 @@ Proof
   rev_full_simp_tac(srw_ss())[]
 QED
 
-Triviality dest_closure_v_rel_partial:
+Theorem dest_closure_v_rel_partial[local]:
   !c f args f' args'.
     v_rel max_app f f' ∧
     LIST_REL (v_rel max_app) args args' ∧
@@ -350,7 +352,7 @@ Proof
   metis_tac [SND, EVERY2_APPEND]
 QED
 
-Triviality dest_closure_v_rel_full:
+Theorem dest_closure_v_rel_full[local]:
   !c f args f' args' args1 args2.
     v_rel max_app f f' ∧
     LIST_REL (v_rel max_app) args args' ∧
@@ -412,19 +414,19 @@ Proof
   metis_tac [EVERY2_APPEND, list_rel_lastn, LENGTH_LASTN, LENGTH_GENLIST, EVERY2_LENGTH, list_rel_butlastn]
 QED
 
-Triviality helper:
+Theorem helper[local]:
   SND ((λ(n',x'). (n',[x'])) x) = [SND x]
 Proof
   Cases_on `x` >> full_simp_tac(srw_ss())[]
 QED
 
-Triviality v_rel_Boolv_mono:
+Theorem v_rel_Boolv_mono[local]:
   (x ⇔ y) ⇒ (v_rel max_app (Boolv x) (Boolv y))
 Proof
   Cases_on`x`>>simp[Boolv_def,v_rel_simp]
 QED
 
-Triviality v_to_list:
+Theorem v_to_list[local]:
   ∀x y. v_rel max_app x y ⇒
           OPTREL (LIST_REL (v_rel max_app)) (v_to_list x) (v_to_list y)
 Proof
@@ -455,8 +457,11 @@ Proof
    (`ref_rel (v_rel s.max_app) (s.refs ' ptr) (t.refs ' ptr)` by fs[]
     \\ rpt (qpat_x_assum `!x._` kall_tac)
     \\ rfs [] \\ Cases_on `s.refs ' ptr` \\ fs [ref_rel_def])
+  THEN1
+   (`ref_rel (v_rel s.max_app) (s.refs ' ptr) (t.refs ' ptr)` by fs[]
+    \\ rpt (qpat_x_assum `!x._` kall_tac)
+    \\ rfs [] \\ Cases_on `s.refs ' ptr` \\ fs [ref_rel_def])
   \\ rpt gen_tac \\ fs [] \\ Cases_on `x = p` \\ fs [FAPPLY_FUPDATE_THM]
-  \\ metis_tac []
 QED
 
 val do_app_inst =
@@ -492,7 +497,7 @@ Proof
   \\ rw [] \\ fs [v_rel_simp, list_to_v_def]
 QED
 
-Triviality do_app:
+Theorem do_app[local]:
   state_rel s1 s2 ∧
     LIST_REL (v_rel s1.max_app) x1 x2 ⇒
     (∀err.
@@ -514,13 +519,13 @@ Proof
   \\ every_case_tac \\ fs[]
 QED
 
-Triviality v_to_bytes:
+Theorem v_to_bytes[local]:
   v_rel m v w ⇒ v_to_bytes v = v_to_bytes w
 Proof
   metis_tac [simple_val_rel, simple_val_rel_v_to_bytes]
 QED
 
-Triviality v_to_words:
+Theorem v_to_words[local]:
   v_rel m v w ⇒ v_to_words v = v_to_words w
 Proof
   metis_tac [simple_val_rel, simple_val_rel_v_to_words]
@@ -542,7 +547,7 @@ Proof
   \\ pairarg_tac \\ rw[] \\ rw[]
 QED
 
-Triviality do_install:
+Theorem do_install[local]:
   state_rel s1 s2 ∧
    LIST_REL (v_rel s1.max_app) x1 x2 ⇒
    (∀err t. do_install x1 s1 = (Rerr (Rabort Rtimeout_error),t) ⇒
@@ -610,6 +615,26 @@ Proof
   simp[lookup_vars_def] >>
   dsimp[CaseEq"option"] >> reverse conj_tac >- metis_tac[] >>
   simp[LIST_REL_EL_EQN]
+QED
+
+Theorem rel_update_thunk[local]:
+  state_rel s1 s2 ∧
+  LIST_REL (v_rel s1.max_app) vs ys ∧
+  update_thunk [RefPtr v ptr] s1.refs vs = SOME refs1 ⇒
+    ∃refs2. update_thunk [RefPtr v ptr] s2.refs ys = SOME refs2 ∧
+            state_rel (s1 with refs := refs1) (s2 with refs := refs2)
+Proof
+  rw []
+  \\ gvs [oneline update_thunk_def, AllCaseEqs()] \\ rw []
+  \\ gvs [oneline dest_thunk_def, AllCaseEqs()]
+  \\ (
+    gvs [Once v_rel_cases, oneline store_thunk_def, AllCaseEqs(), PULL_EXISTS]
+    \\ rpt (
+      imp_res_tac state_rel_refs \\ gvs [fmap_rel_def, FLOOKUP_DEF]
+      \\ first_x_assum dxrule \\ rw [] \\ gvs [])
+    \\ gvs [state_rel_def, fmap_rel_def, FAPPLY_FUPDATE_THM] \\ rw []
+    \\ simp [Once v_rel_cases]
+    \\ metis_tac [])
 QED
 
 (*
@@ -741,7 +766,7 @@ Proof
     `r1 <> Rerr (Rabort Rtype_error)` by (strip_tac \\ fs []) \\ fs[] >>
     tac >> full_simp_tac(srw_ss())[] >>
     Cases_on`op = Install` >- (
-      fs[]
+      gvs [contains_App_SOME_def]
       \\ first_x_assum drule
       \\ disch_then drule
       \\ disch_then(qspec_then`n`strip_assume_tac) \\ rfs[]
@@ -775,7 +800,7 @@ Proof
         \\ fs[LIST_REL_SNOC]
         \\ pairarg_tac \\ fs []
         \\ once_rewrite_tac [evaluate_CONS]
-        \\ fs [EVAL ``evaluate ([Op None (Const n) []],[],t)``])
+        \\ fs [EVAL ``evaluate ([Op None (IntOp (Const n)) []],[],t)``])
       \\ Q.ISPEC_THEN`v'`FULL_STRUCT_CASES_TAC SNOC_CASES
       >- (
         imp_res_tac evaluate_IMP_LENGTH
@@ -784,7 +809,7 @@ Proof
       \\ fs[LIST_REL_SNOC]
       \\ pairarg_tac \\ fs []
       \\ once_rewrite_tac [evaluate_CONS]
-      \\ fs [EVAL ``evaluate ([Op None (Const n) []],[],t)``]
+      \\ fs [EVAL ``evaluate ([Op None (IntOp (Const n)) []],[],t)``]
       \\ rename [`LIST_REL _ a vss`]
       \\ reverse (Q.ISPEC_THEN`vss`FULL_STRUCT_CASES_TAC SNOC_CASES)
       THEN1 (rewrite_tac [GSYM SNOC,LAST_SNOC] \\ fs [LIST_REL_SNOC])
@@ -794,6 +819,34 @@ Proof
       \\ fs [do_install_def,case_eq_thms,bool_case_eq,pair_case_eq]
     ) >>
     srw_tac[][] >>
+    Cases_on`op = ThunkOp ForceThunk` >- (
+      gvs [contains_App_SOME_def]
+      \\ first_x_assum drule_all \\ rw []
+      \\ pop_assum $ qspec_then `n` assume_tac \\ gvs []
+      \\ Cases_on `res'` \\ Cases_on `r1` \\ gvs []
+      \\ imp_res_tac state_rel_max_app \\ gvs []
+      \\ imp_res_tac evaluate_const \\ gvs []
+      \\ imp_res_tac state_rel_clock \\ gvs []
+      \\ gvs [AllCaseEqs()]
+      \\ gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
+      \\ rgs [Once v_rel_cases]
+      \\ imp_res_tac state_rel_refs \\ gvs [fmap_rel_def, FLOOKUP_DEF]
+      \\ first_x_assum drule \\ rw [] \\ gvs [PULL_EXISTS]
+      \\ gvs [AppUnit_def, contains_App_SOME_def]
+      \\ `(dec_clock 1 s2').max_app = s2'.max_app` by (
+        gvs [state_rel_def, dec_clock_def]) \\ gvs []
+      \\ `state_rel (dec_clock 1 s2') (dec_clock 1 t2)` by (
+        drule state_rel_with_clock \\ rw [dec_clock_def])
+      \\ last_x_assum $ drule_all_then $ qspec_then `n` mp_tac
+      \\ rw [renumber_code_locs_def]
+      \\ goal_assum drule \\ rw []
+      \\ imp_res_tac evaluate_const \\ gvs []
+      \\ drule_at (Pos $ el 3) rel_update_thunk \\ gvs []) >>
+    srw_tac[][] >>
+    `¬contains_App_SOME s.max_app xs` by (
+      Cases_on `op` \\ gvs [contains_App_SOME_def]
+      \\ Cases_on `t` \\ gvs [contains_App_SOME_def]) >>
+    gvs[] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(fn th => first_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >> rev_full_simp_tac(srw_ss())[] >>
     Cases_on `r1` \\ full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
@@ -807,7 +860,7 @@ Proof
     last_x_assum mp_tac >>
     BasicProvers.CASE_TAC >> TRY(Cases_on`a'`) >> srw_tac[][] >> simp[] >>
     imp_res_tac do_app_err >>
-    reverse(Cases_on`op=Equal`) >> full_simp_tac(srw_ss())[] >>
+    reverse(Cases_on`op=BlockOp Equal`) >> full_simp_tac(srw_ss())[] >>
     full_simp_tac(srw_ss())[do_app_def] >>
     every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][v_rel_simp])
   THEN1 (* Fn *)
@@ -1028,7 +1081,7 @@ Theorem renumber_code_locs_elist_globals:
 Proof
   ho_match_mp_tac renumber_code_locs_ind >>
   simp[renumber_code_locs_def] >> rpt strip_tac >>
-  rpt (pairarg_tac >> fs[]) >> rveq >> fs[EVAL ``op_gbag Add``] >>
+  rpt (pairarg_tac >> fs[]) >> rveq >> fs[EVAL ``op_gbag (IntOp Add)``] >>
   rename1`renumber_code_locs_list locn1 (MAP SND functions)` >>
   qspecl_then [`locn1`, `MAP SND functions`] mp_tac
     (CONJUNCT1 renumber_code_locs_length) >>
@@ -1326,4 +1379,3 @@ Proof
   \\ Cases_on `e` \\ fs []
 QED
 
-val _ = export_theory();

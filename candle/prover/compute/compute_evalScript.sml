@@ -1,12 +1,13 @@
 (*
    Interpreter function for the Candle compute primitive.
  *)
+Theory compute_eval
+Ancestors
+  holSyntax holSyntaxExtra holSyntaxLib holKernel holKernelProof
+  compute_syntax ml_monadBase
+Libs
+  preamble ml_monadBaseLib
 
-open preamble holSyntaxTheory holSyntaxExtraTheory holSyntaxLibTheory
-     holKernelTheory holKernelProofTheory compute_syntaxTheory;
-open ml_monadBaseTheory ml_monadBaseLib;
-
-val _ = new_theory "compute_eval";
 
 val _ = numLib.temp_prefer_num ();
 
@@ -241,7 +242,13 @@ Termination
   wf_rel_tac ‘measure term_size_alt’ \\ rw []
   \\ drule_then assume_tac list_dest_comb_term_size
   \\ gs [list_term_size_alt_def, term_size_alt_def]
-  \\ drule_then assume_tac list_term_size_MEM \\ gs []
+  \\ pop_assum $ rewrite_tac o single o GSYM
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac ‘a’
+  \\ qid_spec_tac ‘args’
+  \\ Induct \\ gvs [] \\ rw []
+  \\ gvs [list_term_size_alt_def]
+  \\ rw [] \\ res_tac \\ decide_tac
 End
 
 (* TODO use term_size and list_size as measure instead *)
@@ -436,7 +443,7 @@ Definition compute_eval_def:
 Termination
   wf_rel_tac ‘inv_image ($< LEX $<)
              (λx. case x of INL (ck,_,cv) => (ck, compute_exp_size cv)
-                          | INR (ck,_,cv) => (ck, compute_exp1_size cv))’
+                          | INR (ck,_,cv) => (ck, list_size compute_exp_size cv))’
 End
 
 (* Let and App cases are modified below to get a more useful ind theorem *)
@@ -492,9 +499,8 @@ Definition compute_eval_ind_def:
 Termination
   wf_rel_tac ‘inv_image ($< LEX $<)
              (λx. case x of INL (ck,_,cv) => (ck, compute_exp_size cv)
-                          | INR (ck,_,cv) => (ck, compute_exp1_size cv))’
+                          | INR (ck,_,cv) => (ck, list_size compute_exp_size cv))’
 End
 
 val _ = Theory.delete_binding "compute_eval_ind_def"
 
-val _ = export_theory ();

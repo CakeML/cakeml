@@ -1,13 +1,14 @@
 (*
   The formal semantics of BVI
 *)
-open preamble bviTheory;
-local open backend_commonTheory bvlSemTheory in end;
-local open backendPropsTheory in end;
+Theory bviSem
+Ancestors
+  bvi backend_common[qualified] bvlSem[qualified]
+  backendProps[qualified]
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"bviSem";
 
 Overload num_stubs[local] = ``bvl_num_stubs``
 
@@ -26,7 +27,7 @@ Definition dec_clock_def:
   dec_clock x s = s with clock := s.clock - x
 End
 
-Triviality LESS_EQ_dec_clock:
+Theorem LESS_EQ_dec_clock[local]:
   r.clock <= (dec_clock x s).clock ==> r.clock <= s.clock
 Proof
   SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC
@@ -52,25 +53,26 @@ val s = ``(s:('c,'ffi) bviSem$state)``
 Definition do_app_aux_def:
   do_app_aux op (vs:bvlSem$v list) ^s =
     case (op,vs) of
-    | (Const i,xs) => if small_enough_int i then
-                        SOME (SOME (Number i, s))
-                      else NONE
+    | (IntOp (Const i),xs) =>
+      if small_enough_int i /\ NULL xs then
+        SOME (SOME (Number i, s))
+      else NONE
     | (Label l,xs) => (case xs of
                        | [] => if l IN domain s.code then
                                  SOME (SOME (CodePtr l, s))
                                else NONE
                        | _ => NONE)
-    | (GlobalsPtr,xs) =>
+    | (GlobOp GlobalsPtr,xs) =>
         (case xs of
          | [] => (case s.global of
                   | SOME p => SOME (SOME (RefPtr T p, s))
                   | NONE => NONE)
          | _ => NONE)
-    | (SetGlobalsPtr,xs) =>
+    | (GlobOp SetGlobalsPtr,xs) =>
         (case xs of
          | [RefPtr T p] => SOME (SOME (Unit, s with global := SOME p))
          | _ => NONE)
-    | (Global n, xs) =>
+    | (GlobOp (Global n), xs) =>
         (case xs of
          | [] => (case s.global of
                    | SOME ptr =>
@@ -82,7 +84,7 @@ Definition do_app_aux_def:
                         | _ => NONE)
                    | NONE => NONE)
          | _ => NONE)
-    | (SetGlobal n, xs) =>
+    | (GlobOp (SetGlobal n), xs) =>
         (case xs of
          | [x] => (case s.global of
                    | SOME ptr =>
@@ -95,7 +97,7 @@ Definition do_app_aux_def:
                         | _ => NONE)
                    | NONE => NONE)
          | _ => NONE)
-    | (FromList n, xs) =>
+    | (BlockOp (FromList n), xs) =>
         (case xs of
          | [len;lv] =>
             (case v_to_list lv of
@@ -104,7 +106,7 @@ Definition do_app_aux_def:
                           else NONE
              | _ => NONE)
          | _ => NONE)
-    | (RefByte f, xs) =>
+    | (MemOp (RefByte f), xs) =>
         (case xs of
           | [Number i; Number b] =>
             if 0 ≤ i ∧ (∃w:word8. b = & (w2n w)) then
@@ -113,11 +115,11 @@ Definition do_app_aux_def:
                   (ptr, ByteArray f (REPLICATE (Num i) (i2w b)))))
             else NONE
           | _ => NONE)
-    | (AllocGlobal, _) => NONE
-    | (FromListByte, _) => NONE
-    | (ToListByte, _) => NONE
-    | (ConcatByteVec, _) => NONE
-    | (CopyByte T, _) => NONE
+    | (GlobOp AllocGlobal, _) => NONE
+    | (MemOp FromListByte, _) => NONE
+    | (MemOp ToListByte, _) => NONE
+    | (MemOp ConcatByteVec, _) => NONE
+    | (MemOp (CopyByte T), _) => NONE
     | _ => SOME NONE
 End
 
@@ -160,6 +162,24 @@ Definition do_app_def:
                     | Rval (v,t) => Rval (v, bvl_to_bvi t s))
 End
 
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk (RefPtr _ ptr) refs =
+    (case FLOOKUP refs ptr of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk vs refs = NotThunk
+End
+
+
 (* The evaluation is defined as a clocked functional version of
    a conventional big-step operational semantics. *)
 
@@ -167,7 +187,7 @@ Definition fix_clock_def:
   fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
 End
 
-Triviality fix_clock_IMP:
+Theorem fix_clock_IMP[local]:
   fix_clock s x = (res,s1) ==> s1.clock <= s.clock
 Proof
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
@@ -204,14 +224,30 @@ Definition evaluate_def:
      | (Rval vs,s) => (Rerr(Rraise (HD vs)),s)
      | res => res) /\
   (evaluate ([Op op xs],env,s) =
-     case evaluate (xs,env,s) of
-     | (Rval vs,s) => (case do_app op (REVERSE vs) s of
-                          | Rerr e => (Rerr e,s)
-                          | Rval (v,s) => (Rval [v],s))
+     case fix_clock s (evaluate (xs,env,s)) of
+     | (Rval vs,s) =>
+         (case do_app op (REVERSE vs) s of
+          | Rerr e => (Rerr e,s)
+          | Rval (v,s) => (Rval [v],s))
      | res => res) /\
   (evaluate ([Tick x],env,s) =
      if s.clock = 0 then (Rerr(Rabort Rtimeout_error),s) else
        evaluate ([x],env,dec_clock 1 s)) /\
+  (evaluate ([Force force_loc n],env,s) =
+     if ~(n < LENGTH env) then (Rerr(Rabort Rtype_error),s) else
+       let thunk_v = EL n env in
+         case dest_thunk thunk_v s.refs of
+         | BadRef => (Rerr (Rabort Rtype_error),s)
+         | NotThunk => (Rerr (Rabort Rtype_error),s)
+         | IsThunk Evaluated v => (Rval [v],s)
+         | IsThunk NotEvaluated f =>
+             (case find_code (SOME force_loc) [thunk_v; f] s.code of
+              | NONE => (Rerr(Rabort Rtype_error),s)
+              | SOME (args,exp) =>
+                  if s.clock = 0 then
+                    (Rerr(Rabort Rtimeout_error),s with clock := 0)
+                  else
+                    evaluate ([exp],args,dec_clock 1 s))) /\
   (evaluate ([Call ticks dest xs handler],env,s1) =
      if IS_NONE dest /\ IS_SOME handler then (Rerr(Rabort Rtype_error),s1) else
      case fix_clock s1 (evaluate (xs,env,s1)) of
@@ -228,7 +264,7 @@ Definition evaluate_def:
                 | res => res)
      | res => res)
 Termination
-  WF_REL_TAC `(inv_image (measure I LEX measure exp2_size)
+  WF_REL_TAC `(inv_image (measure I LEX measure (list_size exp_size))
                           (\(xs,env,s). (s.clock,xs)))`
   >> rpt strip_tac
   >> simp[dec_clock_def]
@@ -329,4 +365,3 @@ End
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
 
-val _ = export_theory()

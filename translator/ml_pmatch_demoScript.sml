@@ -2,12 +2,13 @@
   Demonstration of using the translator on functions containing PMATCH-based
   pattern matching.
 *)
-open HolKernel Parse boolLib bossLib;
-open patternMatchesLib ml_translatorLib patternMatchesSyntax patternMatchesTheory;
+Theory ml_pmatch_demo
+Ancestors
+  patternMatches ml_pmatch ml_optimise
+Libs
+  patternMatchesLib ml_translatorLib patternMatchesSyntax
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "ml_pmatch_demo";
 
 (* basic example *)
 
@@ -106,7 +107,7 @@ End
 
 val res = translate TRANS_def;
 
-Triviality PAIR_EQ_COLLAPSE:
+Theorem PAIR_EQ_COLLAPSE[local]:
   (((FST x = (a:'a)) /\ (SND x = (b:'b))) = (x = (a, b)))
 Proof
   Cases_on `x` THEN SIMP_TAC std_ss [] THEN METIS_TAC[]
@@ -155,10 +156,12 @@ Definition codomain_def:
   codomain ty = dtcase ty of Tyapp n (y::x::xs) => x | _ => ty
 End
 
-val codomain_PMATCH = Q.prove(
-  `^(rhs(concl(SPEC_ALL codomain_def))) =
-    case ty of Tyapp n (y::x::xs) => x | _ => ty`,
-  rpt tac)
+Theorem codomain_PMATCH[local]:
+   ^(rhs(concl(SPEC_ALL codomain_def))) =
+    case ty of Tyapp n (y::x::xs) => x | _ => ty
+Proof
+  rpt tac
+QED
 val codomain_def = fix codomain_def "codomain_def" codomain_PMATCH
 
 Definition rev_assocd_def:
@@ -168,12 +171,14 @@ Definition rev_assocd_def:
     | ((x,y)::l) => if y = a then x else rev_assocd a l d
 End
 
-val rev_assocd_PMATCH = Q.prove(
-  `^(rhs(concl(SPEC_ALL rev_assocd_def))) =
+Theorem rev_assocd_PMATCH[local]:
+   ^(rhs(concl(SPEC_ALL rev_assocd_def))) =
     case l of
        (x,y)::l1 => if y = a then x else rev_assocd a l1 d
-     | _ => d`,
-  rpt tac)
+     | _ => d
+Proof
+  rpt tac
+QED
 val rev_assocd_def = fix rev_assocd_def "rev_assocd_def" rev_assocd_PMATCH
 
 Definition alphavars_def:
@@ -199,7 +204,7 @@ Definition raconv_def:
     | _ => F
 End
 
-Triviality raconv_PMATCH:
+Theorem raconv_PMATCH[local]:
   ^(rhs(concl(SPEC_ALL raconv_def))) =
     case (tm1,tm2) of
     | (Var _ _, Var _ _) => alphavars env tm1 tm2
@@ -278,5 +283,3 @@ Definition foo1_def:
 End
 
 val res = translate foo1_def
-
-val _ = export_theory();

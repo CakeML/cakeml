@@ -1,10 +1,13 @@
 (*
   Context extensions for asserting the mathematical axioms.
 *)
-open preamble holBoolSyntaxTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
-val _ = temp_delsimps ["NORMEQ_CONV"]
+Theory holAxiomsSyntax
+Ancestors
+  holBoolSyntax holSyntaxLib holSyntax holSyntaxExtra
+Libs
+  preamble
 
-val _ = new_theory"holAxiomsSyntax"
+val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = Parse.hide "mem"
 
@@ -82,7 +85,7 @@ Definition mk_infinity_ctxt_def:
     ctxt
 End
 
-Triviality tyvar_inst_exists:
+Theorem tyvar_inst_exists[local]:
   ∃i. ty = REV_ASSOCD (Tyvar a) i b
 Proof
   qexists_tac`[(ty,Tyvar a)]` >>
@@ -146,4 +149,3 @@ Proof
   PROVE_TAC[]
 QED
 
-val _ = export_theory()

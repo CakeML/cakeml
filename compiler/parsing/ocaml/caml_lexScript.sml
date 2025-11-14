@@ -1,12 +1,12 @@
 (*
   Lexer for the OCaml frontend.
  *)
+Theory caml_lex
+Ancestors
+  misc[qualified] location lexer_impl lexer_fun[qualified]
+Libs
+  preamble
 
-open preamble locationTheory lexer_implTheory;
-
-val _ = set_grammar_ancestry [ "misc", "location", "lexer_impl", "lexer_fun" ];
-
-val _ = new_theory "caml_lex";
 
 val _ = numLib.prefer_num ();
 
@@ -1042,6 +1042,4 @@ Proof
   CONV_TAC (DEPTH_CONV PMCONV)
   \\ Cases \\ rw []
 QED
-
-val _ = export_theory ();
 

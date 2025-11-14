@@ -7,15 +7,14 @@
   This builds on the inferencer run over the basis in
   basisTypeCheckTheory.
 *)
+Theory printingTest
+Ancestors
+  basisTypeCheck addPrintVals addTypePP printTweaks infer_cv
+  fromSexp[qualified]
+Libs
+  preamble basicComputeLib ml_translatorLib ml_progLib
+  basisFunctionsLib cv_transLib astToSexprLib[qualified]
 
-open preamble basicComputeLib basisTypeCheckTheory
-open ml_translatorLib ml_progLib basisFunctionsLib
-open addPrintValsTheory addTypePPTheory printTweaksTheory
-open infer_cvTheory cv_transLib;
-local open fromSexpTheory in end
-local open astToSexprLib in end
-
-val _ = new_theory "printingTest"
 
 val _ = translation_extends "basisProg"
 val _ = (use_full_type_names := false);
@@ -184,4 +183,3 @@ val _ = print "Success.\n";
 
 *)
 
-val _ = export_theory ();

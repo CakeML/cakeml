@@ -60,6 +60,7 @@ val int_lit = ``ast$IntLit``;
 val char_lit = ``ast$Char``;
 val word8_lit = ``ast$Word8``;
 val word64_lit = ``ast$Word64``;
+val float64_lit = prim_mk_const{Thy = "ast", Name = "Float64"}
 fun lit_to_exp t =
   let
     val (x, xs) = strip_comb t
@@ -69,6 +70,7 @@ fun lit_to_exp t =
     else if same_const x char_lit then char_to_exp h
     else if same_const x word8_lit then word_to_exp "word8" h
     else if same_const x word64_lit then word_to_exp "word64" h
+    else if same_const x float64_lit then word_to_exp "float64" h
     else string_to_exp h
   end
 

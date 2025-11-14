@@ -2,11 +2,11 @@
   For ARMv8, prove that the compiler configuration is well formed, and
   instantiate the compiler correctness theorem.
 *)
-open preamble backendProofTheory
-     arm8_configTheory arm8_targetProofTheory
-open blastLib;
-
-val _ = new_theory"arm8_configProof";
+Theory arm8_configProof
+Ancestors
+  lab_to_targetProof backendProof arm8_config arm8_targetProof
+Libs
+  preamble blastLib
 
 Definition is_arm8_machine_config_def:
   is_arm8_machine_config mc ⇔
@@ -30,6 +30,13 @@ Proof
   >- fs[arm8_backend_config_def]
   >- (EVAL_TAC>> blastLib.FULL_BBLAST_TAC)
   >- names_tac
+  >- (
+    fs [stack_removeTheory.store_offset_def,
+        stack_removeTheory.store_pos_def]
+    \\ every_case_tac \\ fs [] THEN1 EVAL_TAC
+    \\ fs [stack_removeTheory.store_list_def]
+    \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
+    \\ rveq \\ fs [] \\ EVAL_TAC)
   >- (
     fs [stack_removeTheory.store_offset_def,
         stack_removeTheory.store_pos_def]
@@ -84,5 +91,3 @@ Theorem arm8_compile_correct =
   |> SIMP_RULE (srw_ss()) [arm8_backend_config_ok,UNDISCH arm8_machine_config_ok,UNDISCH arm8_init_ok]
   |> CONV_RULE (ONCE_DEPTH_CONV(EVAL o (assert(same_const``heap_regs``o fst o strip_comb))))
   |> DISCH_ALL
-
-val _ = export_theory();

@@ -1,11 +1,12 @@
 (*
   Define arm8 specialised backend functions.
 *)
+Theory backend_arm8
+Ancestors
+  arm8_target
+Libs
+  preamble backend_asmLib
 
-open preamble backend_asmLib arm8_targetTheory;
-
-val _ = new_theory "backend_arm8";
 
 val _ = define_target_specific_backend arm8_config_def;
 
-val _ = export_theory();

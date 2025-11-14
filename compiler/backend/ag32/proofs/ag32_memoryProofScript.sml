@@ -3,14 +3,14 @@
   correctness of the startup code and length and lookup theorems for
   other parts of memory.
 *)
-open preamble ag32_memoryTheory
-local
-  open wordsLib blastLib asmLib combinLib ag32_targetLib
-  open data_to_word_memoryProofTheory backendProofTheory
-       ag32_machine_configTheory
-in end
-
-val _ = new_theory"ag32_memoryProof";
+Theory ag32_memoryProof
+Ancestors
+  ag32_memory data_to_word_memoryProof[qualified]
+  backendProof[qualified] ag32_machine_config[qualified]
+Libs
+  preamble wordsLib[qualified] blastLib[qualified]
+  asmLib[qualified] combinLib[qualified]
+  ag32_targetLib[qualified]
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -285,7 +285,7 @@ Proof
   \\ rw[]
 QED
 
-Triviality get_byte_repl:
+Theorem get_byte_repl[local]:
   n+m < dimword(:32) ∧
   (m MOD 4 = 0n) ==>
   (get_byte ((n2w (n + m)):word32) w F =
@@ -393,7 +393,7 @@ Proof
   simp[Abbr`codel`]
 QED
 
-Triviality lem:
+Theorem lem[local]:
   (m MOD 4 = 0) ∧ n < m ⇒ n DIV 4 < m DIV 4
 Proof
   intLib.ARITH_TAC
@@ -407,10 +407,10 @@ Proof
   Cases_on`inputs`
   \\ ntac 5 strip_tac
   \\ simp[init_memory_def]
-  \\ qmatch_goalsub_abbrev_tac`EL n sc`
-  \\ Q.ISPECL_THEN[`n`,`F`,`sc`]mp_tac
+  \\ qmatch_goalsub_abbrev_tac`EL n scc`
+  \\ Q.ISPECL_THEN[`n`,`F`,`scc`]mp_tac
        (Q.GEN`i`(INST_TYPE[alpha|->``:32``]get_byte_EL_words_of_bytes))
-  \\ simp[init_memory_words_def,Abbr`sc`]
+  \\ simp[init_memory_words_def,Abbr`scc`]
   \\ simp[bytes_in_word_def]
   \\ qmatch_asmsub_rename_tac`_ f c d`
   \\ assume_tac LENGTH_startup_code
@@ -785,21 +785,21 @@ Proof
 QED
 
 Theorem init_memory_startup_bytes_in_memory:
-   i < LENGTH sc  ∧
-   (sc = startup_asm_code (LENGTH ffis) (n2w (LENGTH code)) (n2w (4 * (LENGTH data)))) ⇒
-   bytes_in_memory (n2w (SUM (MAP (LENGTH o ag32_enc) (TAKE i sc)))) (ag32_enc (EL i sc))
+   i < LENGTH scc  ∧
+   (scc = startup_asm_code (LENGTH ffis) (n2w (LENGTH code)) (n2w (4 * (LENGTH data)))) ⇒
+   bytes_in_memory (n2w (SUM (MAP (LENGTH o ag32_enc) (TAKE i scc)))) (ag32_enc (EL i scc))
      (init_memory code data ffis inputs) ag32_startup_addresses
 Proof
   rw[]
-  \\ qmatch_asmsub_abbrev_tac`i < LENGTH sc`
+  \\ qmatch_asmsub_abbrev_tac`i < LENGTH scc`
   \\ qmatch_goalsub_abbrev_tac`bytes_in_memory a _ m`
   \\ `∃ll lr.
-        (init_memory_words code data ffis (FST inputs) (SND inputs) = ll ++ words_of_bytes F (ag32_enc (EL i sc)) ++ lr) ∧
+        (init_memory_words code data ffis (FST inputs) (SND inputs) = ll ++ words_of_bytes F (ag32_enc (EL i scc)) ++ lr) ∧
         (n2w (4 * LENGTH ll) = a) ∧
         (4 * LENGTH ll < dimword(:31))`
   by (
     simp[init_memory_words_def, startup_code_def]
-    \\ `MAP ag32_enc sc = MAP ag32_enc (TAKE i sc ++ [EL i sc] ++ DROP (i+1) sc)`
+    \\ `MAP ag32_enc scc = MAP ag32_enc (TAKE i scc ++ [EL i scc] ++ DROP (i+1) scc)`
     by (
       AP_TERM_TAC
       \\ rewrite_tac[GSYM CONS_APPEND, GSYM APPEND_ASSOC]
@@ -839,7 +839,7 @@ Proof
     \\ `4 * d = d * 4` by simp[]
     \\ pop_assum SUBST_ALL_TAC
     \\ simp[MULT_DIV]
-    \\ fs[Abbr`sc`, LENGTH_startup_asm_code]
+    \\ fs[Abbr`scc`, LENGTH_startup_asm_code]
     \\ qmatch_asmsub_abbrev_tac`SUM (MAP f ls)`
     \\ `SUM (MAP f ls) ≤ LENGTH ls * 16`
     by (
@@ -858,7 +858,7 @@ Proof
   \\ simp[]
   \\ conj_tac
   >- (
-    qspec_then`EL i sc`mp_tac(Q.GEN`istr`ag32_enc_lengths)
+    qspec_then`EL i scc`mp_tac(Q.GEN`istr`ag32_enc_lengths)
     \\ rw[] )
   \\ simp[SUBSET_DEF, IN_all_words, PULL_EXISTS]
   \\ simp[Abbr`a`, word_add_n2w]
@@ -873,13 +873,13 @@ Proof
     \\ rw[] )
   \\ `j < 16`
   by (
-    qspec_then`EL i sc`mp_tac(Q.GEN`istr`ag32_enc_lengths)
+    qspec_then`EL i scc`mp_tac(Q.GEN`istr`ag32_enc_lengths)
     \\ rw[] \\ fs[] )
   \\ simp[ag32_machine_configTheory.ag32_startup_addresses_def,
           word_ls_n2w, word_lo_n2w]
   \\ simp[EVAL``heap_start_offset``, EVAL``startup_code_size``]
   \\ fs[Abbr`ls`, LENGTH_TAKE_EQ] \\ rfs[]
-  \\ fs[Abbr`sc`, LENGTH_startup_asm_code]
+  \\ fs[Abbr`scc`, LENGTH_startup_asm_code]
 QED
 
 Definition init_asm_state_def:
@@ -942,7 +942,7 @@ val mem_ok_tac =
      addressTheory.ALIGNED_n2w,
      bitTheory.BITS_ZERO3 ]
 
-Triviality bounded_bits:
+Theorem bounded_bits[local]:
   ll < 4294967296 ⇒
    ((BIT 0 (ll MOD 256) ⇔ BIT 0 ll) ∧ (BIT 1 (ll MOD 256) ⇔ BIT 1 ll) ∧
    (BIT 2 (ll MOD 256) ⇔ BIT 2 ll) ∧ (BIT 3 (ll MOD 256) ⇔ BIT 3 ll) ∧
@@ -1011,7 +1011,7 @@ val mem_word_tac =
     blastLib.BBLAST_TAC>>
     simp[bounded_bits]
 
-Triviality ag32_const_enc:
+Theorem ag32_const_enc[local]:
   (∃a b c d.
   ag32_enc (Inst (Const r w)) = [a;b;c;d]) ∨
   ∃a b c d e f g h. ag32_enc (Inst (Const r w)) = [a;b;c;d;e;f;g;h]
@@ -1035,7 +1035,7 @@ fun LENGTH_ag32_enc_cases_tac
     \\ simp[]
   end g
 
-Triviality FLAT_CONS:
+Theorem FLAT_CONS[local]:
   FLAT (h::t) = h ++ FLAT t
 Proof
   fs[]
@@ -1311,4 +1311,3 @@ Proof
   \\ rfs[]
 QED
 
-val _ = export_theory();

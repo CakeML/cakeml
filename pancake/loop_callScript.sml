@@ -1,13 +1,16 @@
 (*
   Call optimisation for loopLang
 *)
-open preamble loopLangTheory
-
-val _ = new_theory "loop_call"
+Theory loop_call
+Ancestors
+  loopLang
+Libs
+  preamble
 
 Definition is_load_def:
   (is_load Load = T) ∧
   (is_load Load8 = T) ∧
+  (is_load Load16 = T) ∧
   (is_load Load32 = T) ∧
   (is_load _ = F)
 End
@@ -35,6 +38,10 @@ Definition comp_def:
                            | NONE => l
                            | _ => delete n l)) /\
   (comp l (ShMem op n e) = (ShMem op n e, LN)) /\
+  (comp l (Load32 m n) = (Load32 m n,
+                            case lookup n l of
+                             | NONE => l
+                             | _ => delete n l)) /\
   (comp l (LoadByte m n) = (LoadByte m n,
                             case lookup n l of
                              | NONE => l
@@ -107,4 +114,3 @@ EVAL “(comp
 *)
 
 
-val _ = export_theory();

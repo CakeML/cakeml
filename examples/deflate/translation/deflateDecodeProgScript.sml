@@ -1,12 +1,14 @@
 (*
   Encoding program for the Deflate Decoder
 *)
-
-open preamble basis miscTheory lispProgTheory listTheory arithmeticTheory;
-open deflateTheory deflateTableTheory rleTheory huffmanTheory LZSSTheory;
-open (* for parsing: *) parsingTheory source_valuesTheory;
-
-val _ = new_theory "deflateDecodeProg";
+Theory deflateDecodeProg
+Libs
+  preamble basis
+Ancestors
+  misc lispProg list arithmetic deflate deflateTable rle huffman
+  LZSS
+  (* for parsing: *) parsing source_values
+  std_prelude
 
 val _ = translation_extends "lispProg";
 
@@ -81,7 +83,7 @@ val res = translate encode_rle_def;
 val res = translate decode_repeating_def;
 val res = translate (decode_rle_aux_def |> REWRITE_RULE [GSYM sub_check_def]);
 
-Triviality decode_rle_aux_ind:
+Theorem decode_rle_aux_ind[local]:
   decode_rle_aux_ind
 Proof
   once_rewrite_tac [fetch "-" "decode_rle_aux_ind_def"]
@@ -104,7 +106,7 @@ val res = translate getMatch_def;
 val res = translate (LZmatch_def |> REWRITE_RULE [GSYM sub_check_def]);
 val res = translate (LZcomp_def |> REWRITE_RULE [GSYM sub_check_def]);
 
-Triviality lzcomp_ind:
+Theorem lzcomp_ind[local]:
   lzcomp_ind (:'a)
 Proof
   once_rewrite_tac [fetch "-" "lzcomp_ind_def"]
@@ -189,5 +191,3 @@ val prog =
 Definition deflateDecode_prog_def:
   deflateDecode_prog = ^prog
 End
-
-val _ = export_theory();

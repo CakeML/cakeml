@@ -1,11 +1,13 @@
 (*
   Correctness proof for data_space
 *)
-open preamble data_spaceTheory dataSemTheory dataPropsTheory;
+Theory data_spaceProof
+Ancestors
+  data_space dataSem dataProps
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory"data_spaceProof";
 
 val _ = temp_bring_to_front_overload"get_vars"{Name="get_vars",Thy="dataSem"};
 val _ = temp_bring_to_front_overload"cut_env"{Name="cut_env",Thy="dataSem"};
@@ -14,13 +16,13 @@ val _ = temp_bring_to_front_overload"lookup"{Name="lookup",Thy="sptree"};
 val _ = temp_bring_to_front_overload"insert"{Name="insert",Thy="sptree"};
 val _ = temp_bring_to_front_overload"wf"{Name="wf",Thy="sptree"};
 
-Triviality IMP_sptree_eq:
+Theorem IMP_sptree_eq[local]:
   wf x /\ wf y /\ (!a. lookup a x = lookup a y) ==> (x = y)
 Proof
   METIS_TAC [spt_eq_thm]
 QED
 
-Triviality mk_wf_inter:
+Theorem mk_wf_inter[local]:
   !t1 t2. inter t1 t2 = mk_wf (inter t1 t2)
 Proof
   full_simp_tac(srw_ss())[]
@@ -32,8 +34,6 @@ Proof
   Induct \\ fs [get_vars_def] \\ rw [] \\ every_case_tac \\ fs []
   \\ rw [] \\ fs [] \\ res_tac \\ fs []
 QED
-
-val case_eq_thms = bvlPropsTheory.case_eq_thms;
 
 Theorem do_stack_with_space:
   ∀op vs s z . do_stack op vs (s with space := z) = (do_stack op vs s) with space := z
@@ -47,7 +47,7 @@ Proof
   rw [do_stack_def,stack_consumed_def]
 QED
 
-Triviality evaluate_compile:
+Theorem evaluate_compile[local]:
   !c s res s2 vars l.
      res <> SOME (Rerr(Rabort Rtype_error)) /\ (evaluate (c,s) = (res,s2)) /\
      locals_ok s.locals l ==>
@@ -77,7 +77,8 @@ Proof
     \\ fs[lookup_insert,state_component_equality]
     \\ METIS_TAC [])
   THEN1 (* Assign *)
-   (BasicProvers.TOP_CASE_TAC \\ fs[cut_state_opt_def]
+   (gvs []
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[cut_state_opt_def]
     \\ BasicProvers.CASE_TAC \\ fs[]
     THEN1 (Cases_on `get_vars args s.locals`
       \\ fs[cut_state_opt_def]
@@ -212,7 +213,8 @@ Proof
       \\ MAP_EVERY Q.EXISTS_TAC [`w'`,`safe'''`,`peak'''`,`smx'''`]
       \\ IF_CASES_TAC \\ fs [])
     THEN1 (* Assign *)
-     (fs[pMakeSpace_def,space_def] \\ reverse (Cases_on `o0`)
+     (gvs []
+      \\ fs[pMakeSpace_def,space_def] \\ reverse (Cases_on `o0`)
       \\ fs[evaluate_def,cut_state_opt_def]
       THEN1
        (fs[pMakeSpace_def,space_def,evaluate_def,
@@ -295,12 +297,13 @@ Proof
          \\ fs[case_eq_thms] \\ rveq
          \\ fs [] \\ rfs []
          \\ fs[state_component_equality] \\ rveq
+         \\ qpat_x_assum `_ = s1.locals` (assume_tac o GSYM) \\ gvs []
+         \\ rveq
          \\ fs[op_space_req_def]
          \\ first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]evaluate_locals))
          \\ disch_then drule
          \\ simp[]
-         \\ qpat_abbrev_tac`ll = insert n _ (inter _ _)`
-         \\ disch_then(qspec_then`ll`mp_tac)
+         \\ disch_then(qspec_then`s1.locals`mp_tac)
          \\ impl_tac THEN1
            (UNABBREV_ALL_TAC \\ fs[]
             \\ fs[dataSemTheory.state_component_equality]
@@ -308,9 +311,9 @@ Proof
             \\ fs[locals_ok_def,lookup_insert,lookup_inter_alt]
             \\ fs[domain_delete,domain_list_insert])
          \\ strip_tac \\ simp[]
-         \\ drule_then (qspecl_then [ `v4.stack_max`
-                                    , `v4.safe_for_space`
-                                    , `v4.peak_heap_length`] ASSUME_TAC)
+         \\ drule_then (qspecl_then [ `s1.stack_max`
+                                    , `s1.safe_for_space`
+                                    , `s1.peak_heap_length`] ASSUME_TAC)
                        evaluate_smx_safe_peak_swap
          \\ fs [state_fupdcanon]
          \\ qexists_tac`w`
@@ -447,6 +450,31 @@ Proof
    (Cases_on `get_var n s.locals` \\ fs[]
     \\ IMP_RES_TAC locals_ok_get_var \\ fs[]
     \\ SRW_TAC [] [] \\ fs[])
+  THEN1 (* Force *)
+    (gvs [AllCaseEqs(), PULL_EXISTS]
+     \\ imp_res_tac locals_ok_get_var \\ gvs []
+     \\ imp_res_tac locals_ok_cut_env \\ gvs []
+     >- gvs [flush_state_def, state_component_equality, locals_ok_def]
+     >- (
+      gvs [set_var_def, state_component_equality, locals_ok_def]
+      \\ rw [lookup_insert])
+     >- gvs [flush_state_def, state_component_equality, locals_ok_def]
+     >- (
+      `call_env args1 ss (dec_clock (s with locals := l)) =
+          call_env args1 ss (dec_clock s)`
+        by gvs [state_component_equality, dec_clock_def, call_env_def] \\ gvs []
+      \\ gvs [state_component_equality]
+      \\ metis_tac [locals_ok_refl])
+     >- (
+      gvs [PULL_EXISTS]
+      \\ gvs [call_env_def, dec_clock_def, push_env_def, locals_ok_def]
+      \\ gvs [state_component_equality])
+    >- (
+      gvs [call_env_def, push_env_def, dec_clock_def, state_component_equality]
+      \\ metis_tac [locals_ok_refl])
+    >- (
+      gvs [call_env_def, push_env_def, dec_clock_def, state_component_equality]
+      \\ metis_tac [locals_ok_refl]))
   THEN1 (* Call *)
    (Cases_on `get_vars args s.locals` \\ fs[]
     \\ IMP_RES_TAC locals_ok_get_vars \\ fs[]
@@ -543,4 +571,3 @@ Proof
   \\ imp_res_tac get_code_labels_space
 QED
 
-val _ = export_theory();

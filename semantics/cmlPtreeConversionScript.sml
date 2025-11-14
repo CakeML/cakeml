@@ -1,12 +1,13 @@
 (*
   Specification of how to convert parse trees to abstract syntax.
 *)
+Theory cmlPtreeConversion
+Ancestors
+  gram tokenUtils ast namespace[qualified]
+Libs
+  preamble
 
-open preamble gramTheory tokenUtilsTheory astTheory
 
-val _ = new_theory "cmlPtreeConversion"
-
-val _ = set_grammar_ancestry ["gram", "tokenUtils", "ast", "namespace"]
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 (* handling constructor arities gets very complicated when "open" is
@@ -137,6 +138,11 @@ Definition ptree_TyvarN_def:
         | _ => NONE
 End
 
+Definition Long_Short_def:
+  Long_Short End s = Short (s:string) ∧
+  Long_Short (Mod x xs) s = Long (x:string) (Long_Short xs s)
+End
+
 Definition ptree_Tyop_def:
   ptree_Tyop (Lf _) = NONE ∧
   ptree_Tyop (Nd nt args) =
@@ -145,8 +151,8 @@ Definition ptree_Tyop_def:
       dtcase args of
           [pt] =>
           do
-            (str,s) <- destLongidT ' (destTOK ' (destLf pt));
-            SOME(Long str (Short s))
+            (xs,s) <- destLongidT ' (destTOK ' (destLf pt));
+            SOME(Long_Short xs s)
           od ++
           do
             nm <- ptree_UQTyop pt;
@@ -339,8 +345,8 @@ Definition ptree_ConstructorName_def:
                 SOME (Short s)
               od ++
               do
-                (str,s) <- destLongidT ' (destTOK ' (destLf pt));
-                SOME (Long str (Short s))
+                (xs,s) <- destLongidT ' (destTOK ' (destLf pt));
+                SOME (Long_Short xs s)
               od
             | _ => NONE
 End
@@ -518,21 +524,21 @@ Definition ptree_FQV_def:
       dtcase args of
           [pt] => OPTION_MAP Short (ptree_V pt) ++
                   do
-                    (str,s) <- destLongidT ' (destTOK ' (destLf pt));
-                    SOME(Long str (Short s))
+                    (xs,s) <- destLongidT ' (destTOK ' (destLf pt));
+                    SOME(Long_Short xs s)
                   od
         | _ => NONE
 End
 
 Definition isSymbolicConstructor_def:
-  isSymbolicConstructor (structopt : modN option) s =
+  isSymbolicConstructor s =
     return (s = "::")
 End
 
 Definition isConstructor_def:
-  isConstructor structopt s =
+  isConstructor s =
     do
-      ifM (isSymbolicConstructor structopt s)
+      ifM (isSymbolicConstructor s)
         (return T)
         (return (dtcase oHD s of NONE => F | SOME c => isAlpha c ∧ isUpper c))
     od
@@ -558,24 +564,24 @@ Definition ptree_OpID_def:
           [Lf (TK tk, _)] =>
           do
               s <- destAlphaT tk ;
-              ifM (isConstructor NONE s)
+              ifM (isConstructor s)
                   (return (Con (SOME (Short s)) []))
                   (return (Var (Short s)))
           od ++
           do
               s <- destSymbolT tk ;
-              ifM (isSymbolicConstructor NONE s)
+              ifM (isSymbolicConstructor s)
                   (return (Con (SOME (Short s)) []))
                   (return (Var (Short s)))
           od ++
           do
-              (str,s) <- destLongidT tk ;
-              ifM (isConstructor (SOME str) s)
-                  (return (Con (SOME (Long str (Short s))) []))
-                  (return (Var (Long str (Short s))))
+              (path,s) <- destLongidT tk ;
+              ifM (isConstructor s)
+                  (return (Con (SOME (Long_Short path s)) []))
+                  (return (Var (Long_Short path s)))
           od ++
           (if tk = StarT then
-             ifM (isSymbolicConstructor NONE "*")
+             ifM (isSymbolicConstructor "*")
                  (return (Con (SOME (Short "*")) []))
                  (return (Var (Short "*")))
            else if tk = EqualsT then return (Var (Short "="))
@@ -1240,17 +1246,17 @@ Definition ptree_Expr_def[nocompute]:
         | _ => NONE)
 End
 
-Triviality dumb1:
+Theorem dumb1[local]:
   COND (p = q) t e = COND (q = p) t e
 Proof
   rw[]
 QED
-Triviality dumb2:
+Theorem dumb2[local]:
   COND gd t NONE = OPTION_IGNORE_BIND (assert gd) t
 Proof
   Cases_on ‘gd’ >> simp[]
 QED
-Triviality ptree_Expr_def' =
+Theorem ptree_Expr_def'[local] =
   ptree_Expr_def |> ONCE_REWRITE_RULE [dumb1]
                  |> SRULE []
                  |> REWRITE_RULE[dumb2]
@@ -1487,4 +1493,3 @@ Definition ptree_TopLevelDecs_def:
        | _ => fail)
 End
 
-val _ = export_theory()

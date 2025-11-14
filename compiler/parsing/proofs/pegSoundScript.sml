@@ -2,17 +2,21 @@
   Soundness proof for the parser. If the parser returns a parse tree,
   then it is valid w.r.t. the specification grammar.
 *)
-open preamble pegTheory cmlPEGTheory gramTheory gramPropsTheory
-     grammarTheory
+Theory pegSound
+Libs
+  preamble
+Ancestors
+  cmlPEG gramProps peg gram grammar
 
-val _ = new_theory "pegSound";
-val _ = set_grammar_ancestry ["cmlPEG", "gramProps"]
+(* Set up ML bindings *)
+open pegTheory cmlPEGTheory gramTheory gramPropsTheory grammarTheory;
 
 infix >*
 fun t1 >* t2 = (t1 >> conj_tac) >- t2
 
 val _ = hide "choicel"
 Overload choicel = “cmlPEG$choicel”
+val choicel_def = cmlPEGTheory.choicel_def
 
 Theorem Success_COND_Failure[simp]:
   Success i r opt ≠ if P then Failure fl1 fe1 else Failure fl2 fe2
@@ -431,7 +435,9 @@ QED
 
 Theorem PAIR_MAP_I[local,simp]:
   (f ## I) x = (f (FST x), SND x) ⇔ T
-Proof simp[PAIR_MAP]
+Proof
+  PURE_REWRITE_TAC[PAIR_MAP]>>
+  rw[]
 QED
 
 Theorem bindNT0_lemma[local,simp] = REWRITE_RULE [GSYM mkNd_def] bindNT0_def
@@ -478,7 +484,7 @@ val pmap_cases =
 Theorem pmap_EQ_pair[simp,local]:
   (f ## g) p = (a,b) ⇔ ∃c d. p = (c,d) ∧ f c = a ∧ g d = b
 Proof
-  Cases_on ‘p’ >> simp[]
+  simp[]>>metis_tac[]
 QED
 
 Theorem pair_EQ_components[simp,local]:
@@ -1395,5 +1401,3 @@ Proof
   simp[peg_V_def, peg_eval_choice] >>
   strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied, PAIR_MAP]
 QED
-
-val _ = export_theory()

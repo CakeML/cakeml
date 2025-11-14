@@ -54,8 +54,7 @@ local
   structure Parse = struct
     open Parse
      val (Type,Term) =
-         parse_from_grammars
-           ml_monad_translatorTheory.ml_monad_translator_grammars
+         parse_from_grammars $ valOf $ grammarDB {thyname="ml_monad_translator"}
   end
   open Parse
 
@@ -1820,7 +1819,7 @@ fun prove_EvalMPatBind goal = let
     \\ fs [])
   in UNDISCH_ALL th end
   handle HOL_ERR e =>
-    failwith ("prove_EvalMPatBind failed: (" ^ #message e ^ ")")
+    failwith ("prove_EvalMPatBind failed: (" ^ message_of e ^ ")")
 
 and pmatch_m2deep tm = let
   val (x,ts) = dest_pmatch_K_T tm
@@ -1888,7 +1887,7 @@ and pmatch_m2deep tm = let
        variable is sometimes renamed?? *)
   val th = UNDISCH_ALL (th |> CONJUNCT2)
   in th end handle HOL_ERR e =>
-  failwith ("pmatch_m2deep failed (" ^ #message e ^ ")")
+  failwith ("pmatch_m2deep failed (" ^ message_of e ^ ")")
 
 and inst_case_thm tm = let
   fun inst_monad_type tm =

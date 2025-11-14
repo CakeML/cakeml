@@ -27,7 +27,7 @@ local
   structure Parse = struct
     open Parse
      val (Type,Term) =
-         parse_from_grammars ml_translatorTheory.ml_translator_grammars
+         parse_from_grammars $ valOf $ grammarDB {thyname="ml_translator"}
   end
   open Parse
   val prim_exn_list = let
@@ -137,7 +137,7 @@ fun MY_MP name th1 th2 =
       val _ = print "\n\n"
     in raise e end
 
-fun reraise fname message r = raise (ERR fname (message ^ ": " ^ #message r))
+fun reraise fname message r = raise (ERR fname (message ^ ": " ^ message_of r))
 
 fun auto_prove_asms name ((asms,goal),tac) = let
   val (rest,validation) = tac (asms,goal)
@@ -345,7 +345,10 @@ in
           subst [code |-> mk_Var(mk_Short (stringSyntax.fromMLstring ml_name))] tm
     in
       ASSUME tm |> SPEC_ALL |> UNDISCH_ALL
-    end handle HOL_ERR {origin_function="first",...} => raise NotFoundVThm const
+    end handle e as HOL_ERR holerr =>
+      if top_function_of holerr = "first" then
+         raise NotFoundVThm const
+      else raise e
   fun lookup_eval_thm const = let
     val (name,c,th) = (first (fn c => can (match_term (#2 c)) const) (!eval_thms))
     in th |> SPEC_ALL |> UNDISCH_ALL end
@@ -565,6 +568,11 @@ in
   fun is_primitive_exception name = can get_primitive_exception name
 end;
 
+val float64_ty = mk_thy_type{Args = [fcpSyntax.mk_int_numeric_type 52,
+                                     fcpSyntax.mk_int_numeric_type 11],
+                             Thy = "binary_ieee",
+                             Tyop = "float"}
+
 val default_eq_lemmas = CONJUNCTS EqualityType_NUM_BOOL
     @ CONJUNCTS IsTypeRep_NUM_BOOL
     @ [IsTypeRep_PAIR, IsTypeRep_LIST, IsTypeRep_VECTOR]
@@ -604,6 +612,8 @@ in
   val word8_ast_t = prim_type "word8"
   val word64_ast_t = prim_type "word64"
   val string_ast_t = prim_type "string"
+  val double_ast_t = prim_type "double"
+
   val one_ast_t = mk_Attup(listSyntax.mk_list([],ast_t_ty))
   fun type2t ty =
     if ty = bool then bool_ast_t else
@@ -618,6 +628,7 @@ in
     if ty = oneSyntax.one_ty then one_ast_t else
     if ty = stringSyntax.string_ty andalso use_hol_string_type() then string_ast_t else
     if ty = mlstring_ty then string_ast_t else
+    if ty = float64_ty then double_ast_t else
     if can dest_vartype ty then
       astSyntax.mk_Atvar(stringSyntax.fromMLstring (dest_vartype ty))
     else let
@@ -668,6 +679,7 @@ in
     if ty = stringSyntax.char_ty then CHAR else
     if ty = stringSyntax.string_ty andalso use_hol_string_type() then HOL_STRING_TYPE else
     if ty = mlstringSyntax.mlstring_ty then STRING_TYPE else
+    if ty = float64_ty then FLOAT64 else
     if is_vector_type ty then let
       val inv = get_type_inv (dest_vector_type ty)
       in VECTOR_TYPE_def |> ISPEC inv |> SPEC_ALL
@@ -775,7 +787,7 @@ val quietDefine = (* quiet version of Define -- by Anthony Fox *)
   Lib.with_flag (Feedback.emit_WARNING, false) $
   Lib.with_flag (Feedback.emit_ERR, false) $
   Lib.with_flag (Feedback.emit_MESG, false) $
-  Feedback.trace ("auto Defn.tgoal", 0) $
+  Feedback.trace ("Definition.auto Defn.tgoal", 0) $
   allowing_rebind $
     TotalDefn.Define
 
@@ -1592,29 +1604,6 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
 fun domain ty = ty |> dest_fun_type |> fst
 fun codomain ty = ty |> dest_fun_type |> snd
 
-fun persistent_skip_case_const const = let
-  val ty = (domain (type_of const))
-  fun thy_name_to_string thy name =
-    if thy = current_theory() then name else thy ^ "Theory." ^ name
-  val thm_name = if ty = bool then "COND_DEF" else
-    DB.match [] (concl (TypeBase.case_def_of ty))
-    |> map (fn ((thy,name),_) => thy_name_to_string thy name) |> hd
-  val str = thm_name
-  val str = "(Drule.CONJUNCTS " ^ str ^ ")"
-  val str = "(List.hd " ^ str ^ ")"
-  val str = "(Drule.SPEC_ALL " ^ str ^ ")"
-  val str = "(Thm.concl " ^ str ^ ")"
-  val str = "(boolSyntax.dest_eq " ^ str ^ ")"
-  val str = "(Lib.fst " ^ str ^ ")"
-  val str = "(Lib.repeat Term.rator " ^ str ^ ")"
-  val str = "val () = computeLib.set_skip computeLib.the_compset" ^
-            " " ^ str ^ " (SOME 1);\n"
-  val _ = adjoin_to_theory
-     {sig_ps = NONE, struct_ps = SOME(fn _ => PP.add_string str)}
-  in computeLib.set_skip computeLib.the_compset const (SOME 1) end
-
-val _ = persistent_skip_case_const (get_term "COND");
-
 val (FILTER_ASSUM_TAC : (term -> bool) -> tactic) = let
   fun sing f [x] = f x
     | sing f _ = raise ERR "sing" "Bind Error"
@@ -1778,7 +1767,6 @@ val th = inv_defs |> map #2 |> hd
     val (x1,x2) = cases_th |> CONJUNCTS |> hd |> concl |> repeat (snd o dest_forall)
                            |> dest_eq
     val case_const = x1 |> repeat rator
-    (* val _ = persistent_skip_case_const case_const *)
     val ty1 = case_const |> type_of |> domain
     val ty2 = x2 |> type_of
     val cases_th = INST_TYPE [ty2 |-> mk_vartype "'return_type"] cases_th
@@ -2100,7 +2088,9 @@ fun register_term_types register_type tm = let
     ((if is_abs tm then every_term f (snd (dest_abs tm))
       else if is_comb tm then (every_term f (rand tm); every_term f (rator tm))
       else ()); f tm)
-  val special_types = [numSyntax.num,intSyntax.int_ty,bool,stringSyntax.char_ty,mlstringSyntax.mlstring_ty,mk_vector_type alpha,wordsSyntax.mk_word_type alpha]
+  val special_types = [numSyntax.num,intSyntax.int_ty,bool,stringSyntax.char_ty,
+                       mlstringSyntax.mlstring_ty,mk_vector_type alpha,
+                       wordsSyntax.mk_word_type alpha, float64_ty]
                       @ get_user_supplied_types ()
   fun ignore_type ty =
     if can (first (fn ty1 => can (match_type ty1) ty)) special_types then true else
@@ -2553,7 +2543,7 @@ fun pmatch_hol2deep tm hol2deep = let
   val th = UNDISCH_ALL (th |> CONJUNCT2)
   in th end handle HOL_ERR e =>
   (pmatch_hol2deep_fail := tm;
-   failwith ("pmatch_hol2deep failed (" ^ #message e ^ ")"));
+   failwith ("pmatch_hol2deep failed (" ^ message_of e ^ ")"));
 
 local
   (* list_conv: applies c to every xi in a term such as [x1;x2;x3;x4] *)
@@ -2934,6 +2924,7 @@ val builtin_binops =
    Eval_strsub,
    Eval_ListAppend,
    Eval_sub,
+   Eval_sub_unsafe,
    Eval_Implies,
    Eval_pure_seq]
  |> map (fn th =>
@@ -2953,6 +2944,8 @@ val builtin_monops =
    Eval_FLOAT_ABS,
    Eval_FLOAT_SQRT,
    Eval_FLOAT_NEG,
+   Eval_FP_fromWord,
+   Eval_FP_toWord,
    Eval_empty_ffi,
    Eval_force_out_of_memory_error,
    Eval_Chr,
@@ -3379,6 +3372,26 @@ val tm = sortingTheory.PARTITION_DEF |> SPEC_ALL |> concl |> rhs
 val tm = def |> SPEC_ALL |> concl |> rand
 *)
 
+val float64_ty = mk_thy_type{
+      Args = [
+          fcpSyntax.mk_numeric_type (Arbnum.fromInt 52),
+          fcpSyntax.mk_numeric_type (Arbnum.fromInt 11)
+      ],
+      Thy = "binary_ieee",
+      Tyop = "float"
+    }
+
+(* slightly more generous than binary_ieeeSyntax.dest_floating_point which
+   insists on the record fields in the exp-sign-signif order *)
+fun is_float_literal tm =
+    let val (ty, alist) = TypeBase.dest_record tm
+        val _ = ty = float64_ty orelse raise ERR "" ""
+        val _ = Listsort.sort String.compare (map #1 alist) =
+                ["Exponent", "Sign", "Significand"] orelse raise ERR "" ""
+    in
+      List.all (wordsSyntax.is_word_literal o #2) alist
+    end handle HOL_ERR _ => false
+
 fun hol2deep tm =
   (* variables *)
   if is_var tm then let
@@ -3401,6 +3414,17 @@ fun hol2deep tm =
                  |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "word_literal" tm result end else
   if stringSyntax.is_char_literal tm then SPEC tm Eval_Val_CHAR else
+  if is_float_literal tm then
+    let
+      val th0 = SPEC tm Eval_Val_FLOAT64
+    in
+      CONV_RULE
+        (LAND_CONV
+           (RAND_CONV
+              (RAND_CONV (REWR_CONV machine_ieeeTheory.float_to_fp64_def THENC
+                          EVAL))))
+        th0
+    end else
   if mlstringSyntax.is_mlstring_literal tm then
     SPEC (rand tm) Eval_Val_STRING else
   if use_hol_string_type () andalso can stringSyntax.fromHOLstring tm then
@@ -3657,8 +3681,8 @@ fun hol2deep tm =
     fun pat_match pat tm = (match_term pat tm; rator pat)
     val r = pat_match MAP_pattern tm handle HOL_ERR _ =>
             pat_match EVERY_pattern tm handle HOL_ERR _ =>
-         (* pat_match EXISTS_pattern tm handle HOL_ERR _ =>
-            pat_match FILTER_pattern tm handle HOL_ERR _ => *) fail()
+            pat_match EXISTS_pattern tm handle HOL_ERR _ =>
+          (* pat_match FILTER_pattern tm handle HOL_ERR _ => *) fail()
     val (m,f) = dest_comb tm
     val th_m = hol2deep r
     val (v,x) = dest_abs f
@@ -4131,7 +4155,7 @@ fun print_unable_to_prove_ind_thm ind_goal_def original_def ml_name = let
   val _ = print ("\n")
   val _ = print ("\nval res = translate_no_ind "^name^";")
   val _ = print ("\n")
-  val _ = print ("\nTriviality " ^ ind_name ^ ":")
+  val _ = print ("\nTheorem " ^ ind_name ^ "[local]:")
   val _ = print ("\n  " ^ ind_name)
   val _ = print ("\nProof")
   val _ = print ("\n  once_rewrite_tac [fetch \"-\" \"" ^ ind_name ^ "_def\"]")

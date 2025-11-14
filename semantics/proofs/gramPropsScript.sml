@@ -3,13 +3,11 @@
   nullability results for various non-terminals, and results about
   the grammar’s rules finite map.
 *)
-open HolKernel Parse boolLib bossLib
-
-open boolSimps
-open gramTheory
-open NTpropertiesTheory
-open pred_setTheory
-open preamble
+Theory gramProps
+Ancestors
+  gram NTproperties pred_set
+Libs
+  boolSimps preamble
 
 fun dsimp thl = asm_simp_tac (srw_ss() ++ DNF_ss) thl
 fun asimp thl = asm_simp_tac (srw_ss() ++ ARITH_ss) thl
@@ -36,9 +34,6 @@ end
 val APPEND_EQ_SING' = CONV_RULE (LAND_CONV (ONCE_REWRITE_CONV [EQ_SYM_EQ]))
                                 listTheory.APPEND_EQ_SING
 val _ = augment_srw_ss [rewrites [APPEND_EQ_SING']]
-
-val _ = new_theory "gramProps"
-val _ = set_grammar_ancestry ["gram", "NTproperties"]
 
 Definition NT_rank_def:
   NT_rank N =
@@ -138,13 +133,13 @@ end
 Theorem cmlG_FDOM =
   SIMP_CONV (srw_ss()) [cmlG_def] ``FDOM cmlG.rules``
 
-Triviality paireq:
+Theorem paireq[local]:
   (x,y) = z ⇔ x = FST z ∧ y = SND z
 Proof
   Cases_on `z` >> simp[]
 QED
 
-Triviality GSPEC_INTER:
+Theorem GSPEC_INTER[local]:
   GSPEC f ∩ Q =
     GSPEC (S ($, o FST o f) (S ($/\ o SND o f) (Q o FST o f)))
 Proof
@@ -152,13 +147,13 @@ Proof
   simp[paireq] >> metis_tac[]
 QED
 
-Triviality RIGHT_INTER_OVER_UNION:
+Theorem RIGHT_INTER_OVER_UNION[local]:
   (a ∪ b) ∩ c = (a ∩ c) ∪ (b ∩ c)
 Proof
   simp[EXTENSION] >> metis_tac[]
 QED
 
-Triviality GSPEC_applied:
+Theorem GSPEC_applied[local]:
   GSPEC f x ⇔ x IN GSPEC f
 Proof
   simp[SPECIFICATION]
@@ -183,13 +178,13 @@ val safenml = LIST_CONJ (List.take(CONJUNCTS nullableML_def, 2))
 
 val nullML_t = prim_mk_const {Thy = "NTproperties", Name = "nullableML"}
 
-Triviality nullloop_th:
+Theorem nullloop_th[local]:
   nullableML G (N INSERT sn) (NT N :: rest) = F
 Proof
   simp[Once nullableML_def]
 QED
 
-Triviality null2:
+Theorem null2[local]:
   nullableML G sn (x :: y :: z) <=>
       nullableML G sn [x] ∧ nullableML G sn [y] ∧
       nullableML G sn z
@@ -355,4 +350,3 @@ Theorem parsing_ind =
     |> SIMP_RULE (srw_ss()) [relationTheory.inv_image_def,
                              pairTheory.LEX_DEF]
 
-val _ = export_theory()

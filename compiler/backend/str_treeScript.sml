@@ -1,10 +1,9 @@
 (*
   A Lisp inspired tree of mlstrings and a pretty printing function
 *)
-open HolKernel Parse boolLib bossLib;
-open arithmeticTheory listTheory pairTheory mlstringTheory;
-
-val _ = new_theory "str_tree";
+Theory str_tree
+Ancestors
+  arithmetic list pair mlstring
 
 (* datatype and helper functions *)
 
@@ -29,7 +28,7 @@ Definition dest_list_def:
   dest_list other = ([],other)
 End
 
-Triviality dest_list_size:
+Theorem dest_list_size[local]:
   ∀v e l.
     (l,e) = dest_list v ⇒
     str_tree_size e ≤ str_tree_size v ∧
@@ -131,7 +130,7 @@ Definition v2strs_def:
   v2strs end v = flatten (strlit "\n") (smart_remove 0 0 (annotate (v2pretty v))) [end]
 End
 
-Triviality test1:
+Theorem test1[local]:
   concat (v2strs (strlit "")
                  (Pair (Str (strlit "hello"))
                        (Pair (Str (strlit "there")) (Str (strlit ""))))) =
@@ -140,7 +139,7 @@ Proof
   EVAL_TAC
 QED
 
-Triviality test2:
+Theorem test2[local]:
   concat (v2strs (strlit "")
                  (mk_list (Str (strlit "test") ::
                   MAP GrabLine [Str (strlit "hi"); Str (strlit "there")]))) =
@@ -158,4 +157,3 @@ Definition vs2str_def:
 End
 *)
 
-val _ = export_theory();

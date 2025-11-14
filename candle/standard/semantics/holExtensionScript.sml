@@ -3,10 +3,12 @@
   be extended to a model of the context obtained by applying one of the
   non-axiomatic context updates.
 *)
-open preamble mlstringTheory setSpecTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
-     holSemanticsTheory holSemanticsExtraTheory holSoundnessTheory
-
-val _ = new_theory"holExtension"
+Theory holExtension
+Ancestors
+  mlstring setSpec holSyntaxLib holSyntax holSyntaxExtra
+  holSemantics holSemanticsExtra holSoundness
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -880,4 +882,3 @@ Proof
   fs[EVERY_MEM]
 QED
 
-val _ = export_theory()

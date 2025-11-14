@@ -1,12 +1,11 @@
 (*
   Lemmas used in proof of clos_known
 *)
-open HolKernel Parse boolLib bossLib;
-
-open preamble
-open closPropsTheory clos_knownTheory
-
-val _ = new_theory "clos_knownProps";
+Theory clos_knownProps
+Ancestors
+  closProps clos_known
+Libs
+  preamble
 
 val va_case_eq =
     prove_case_eq_thm{case_def = TypeBase.case_def_of ``:val_approx``,
@@ -153,10 +152,12 @@ QED
 Theorem known_op_better_definedg:
    known_op opn apxs g0 = (a,g) ⇒ better_definedg g0 g
 Proof
-  Cases_on `opn` >>
-  simp[known_op_def, pair_case_eq, closSemTheory.case_eq_thms, va_case_eq, bool_case_eq] >> rw[] >>
-  rw[better_definedg_def, lookup_insert] >>
-  rw[] >> fs[lookup_NONE_domain]
+  Cases_on `opn`
+  >> simp[known_op_def, pair_case_eq, closSemTheory.case_eq_thms, va_case_eq, bool_case_eq]
+  >| map Cases_on [`i`,`b`,`g'`,`m`]
+  >> simp[known_op_def, pair_case_eq, closSemTheory.case_eq_thms, va_case_eq, bool_case_eq] >> rw[]
+  >> rw[better_definedg_def, lookup_insert]
+  >> rw[] >> fs[lookup_NONE_domain]
 QED
 
 Theorem known_better_definedg:
@@ -177,4 +178,3 @@ Proof
   conj_tac \\ simp [Once mk_Ticks_def]
 QED
 
-val _ = export_theory();

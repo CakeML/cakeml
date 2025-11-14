@@ -5,11 +5,11 @@
   to remove them because they get in the way of pattern matching done
   by several optimisations.
 *)
-open preamble closLangTheory;
-
-val _ = new_theory "clos_ticks";
-
-val _ = set_grammar_ancestry ["closLang"]
+Theory clos_ticks
+Ancestors
+  closLang
+Libs
+  preamble
 
 Definition remove_ticks_def:
   (remove_ticks [] = []) /\
@@ -39,12 +39,6 @@ Definition remove_ticks_def:
      [Letrec t loc_opt vs new_fns (HD (remove_ticks [x1]))]) /\
   (remove_ticks [Fn t loc_opt vs num_args x1] =
      [Fn t loc_opt vs num_args (HD (remove_ticks [x1]))])
-Termination
-  WF_REL_TAC `measure exp3_size`
-  \\ simp []
-  \\ rpt strip_tac
-  \\ imp_res_tac exp1_size_lemma
-  \\ simp []
 End
 
 Definition remove_ticks_sing_def:
@@ -78,11 +72,6 @@ Definition remove_ticks_sing_def:
   (remove_ticks_let [] = []) /\
   (remove_ticks_let ((num_args, x)::xs) =
    (num_args, remove_ticks_sing x) :: remove_ticks_let xs)
-Termination
-  wf_rel_tac ‘measure $ λx. case x of
-                            | INL x => exp_size x
-                            | INR(INL x) => exp3_size x
-                            | INR(INR x) => exp1_size x’
 End
 
 val remove_ticks_ind = theorem "remove_ticks_ind";
@@ -110,4 +99,3 @@ Definition compile_inc_def:
   compile_inc (e, xs) = (remove_ticks e, [])
 End
 
-val _ = export_theory();

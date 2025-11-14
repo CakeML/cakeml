@@ -1,11 +1,12 @@
 (*
   Defines functions for turning a ctxt & thm to a string and back
 *)
-open preamble;
-open holKernelTheory mlstringTheory;
-open lisp_valuesTheory lisp_parsingTheory lisp_printingTheory lisp_parsing_proofsTheory;
-
-val _ = new_theory "print_thm";
+Theory print_thm
+Ancestors
+  holKernel mlstring lisp_values lisp_parsing lisp_printing
+  lisp_parsing_proofs
+Libs
+  preamble
 
 (* encoding into v *)
 
@@ -72,7 +73,7 @@ Definition v_to_str_def:
   v_to_str x = implode (MAP (λv. CHR (getNum v)) (v2list (el1 x)))
 End
 
-Triviality v2list_lisp_v_size:
+Theorem v2list_lisp_v_size[local]:
   ∀x a. MEM a (v2list x) ⇒ lisp_v_size a < lisp_v_size x
 Proof
   Induct \\ simp [Once v2list_def] \\ rw [] \\ fs [] \\ res_tac \\ fs []
@@ -243,4 +244,3 @@ val _ =
 
 end
 
-val _ = export_theory();

@@ -1,19 +1,19 @@
 (*
   Implementation of interpreter for closLang expressions written in closLang.
 *)
-open preamble closLangTheory backend_commonTheory;
-
-val _ = new_theory "clos_interp";
-
-val _ = set_grammar_ancestry ["closLang", "backend_common"];
+Theory clos_interp
+Ancestors
+  closLang backend_common
+Libs
+  preamble
 
 (* fits in subset *)
 
 Definition can_interpret_op_def:
-  can_interpret_op (Cons tag) l = (l = 0n ∨ tag < 3n) ∧
-  can_interpret_op (Const i) l = (l = 0) ∧
-  can_interpret_op (Global n) l = (l = 0) ∧
-  can_interpret_op (Constant c) l = (l = 0) ∧
+  can_interpret_op (BlockOp (Cons tag)) l = (l = 0n ∨ tag < 3n) ∧
+  can_interpret_op (IntOp (Const i)) l = (l = 0) ∧
+  can_interpret_op (GlobOp (Global n)) l = (l = 0) ∧
+  can_interpret_op (BlockOp (Constant c)) l = (l = 0) ∧
   can_interpret_op _ l = F
 End
 
@@ -39,9 +39,9 @@ End
 (* check size *)
 
 Definition check_size_op_def:
-  check_size_op k (Cons tag) l = (if l = 0:num then k else k-1:num) ∧
-  check_size_op k (Const i) l = (k:num) ∧
-  check_size_op k (Global n) l = k ∧
+  check_size_op k (BlockOp (Cons tag)) l = (if l = 0:num then k else k-1:num) ∧
+  check_size_op k (IntOp (Const i)) l = (k:num) ∧
+  check_size_op k (GlobOp (Global n)) l = k ∧
   check_size_op k _ l = k-1
 End
 
@@ -81,10 +81,10 @@ End
 (* convert to const *)
 
 Definition to_constant_op_def:
-  to_constant_op (Const i) l cs = ConstCons 1 [ConstInt i] ∧
-  to_constant_op (Constant c) l cs = ConstCons 1 [c] ∧
-  to_constant_op (Global n) l cs = ConstCons 2 [ConstInt (& n)] ∧
-  to_constant_op (Cons tag) l cs =
+  to_constant_op (IntOp (Const i)) l cs = ConstCons 1 [ConstInt i] ∧
+  to_constant_op (BlockOp (Constant c)) l cs = ConstCons 1 [c] ∧
+  to_constant_op (GlobOp (Global n)) l cs = ConstCons 2 [ConstInt (& n)] ∧
+  to_constant_op (BlockOp (Cons tag)) l cs =
     (if l = 0n then ConstCons 1 [ConstCons tag []]
                else ConstCons (tag + 5) [cs]) ∧
   to_constant_op _ l cs = ConstInt 0
@@ -116,41 +116,41 @@ End
 
 Overload V[local] = “Var None”;
 
-Overload IsCase[local] = “λtag len. If None (Op None (TagLenEq tag len) [V 0])”;
+Overload IsCase[local] = “λtag len. If None (Op None (BlockOp (TagLenEq tag len)) [V 0])”;
 
-Overload GetEl[local] = “λn x. Op None (ElemAt n) [x]”;
+Overload GetEl[local] = “λn x. Op None (BlockOp (ElemAt n)) [x]”;
 
 Overload CallInterp[local] =
-  “λenv x. App None NONE (App None NONE (App None NONE (Op None (Global 0) [])
-            [env]) [Op None (Cons 0) []]) [x]”
+  “λenv x. App None NONE (App None NONE (App None NONE (Op None (GlobOp (Global 0)) [])
+            [env]) [Op None (BlockOp (Cons 0)) []]) [x]”
 
 Overload CallInterpList[local] =
-  “λenv x. App None NONE (App None NONE (App None NONE (Op None (Global 0) [])
-            [env]) [Op None (Cons 1) []]) [x]”
+  “λenv x. App None NONE (App None NONE (App None NONE (Op None (GlobOp (Global 0)) [])
+            [env]) [Op None (BlockOp (Cons 1)) []]) [x]”
 
 Definition clos_interp_el_def:
   clos_interp_el =
-    If None (Op None (EqualConst (Int 0)) [V 1])
+    If None (Op None (BlockOp (EqualConst (Int 0))) [V 1])
       (GetEl 0 $ V 0) $
     App None NONE (App None NONE (V 2)
-      [Op None Sub [Op None (Const 1) []; V 1]]) [GetEl 1 $ V 0]
+      [Op None (IntOp Sub) [Op None (IntOp (Const 1)) []; V 1]]) [GetEl 1 $ V 0]
 End
 
 Definition clos_interp_rev_def:
   clos_interp_rev =
-    If None (Op None (LenEq 0) [V 1])
+    If None (Op None (BlockOp (LenEq 0)) [V 1])
       (V 0) $
     App None NONE (App None NONE (V 2)
-      [GetEl 1 $ V 1]) [Op None (Cons 0) [V 0; GetEl 0 $ V 1]]
+      [GetEl 1 $ V 1]) [Op None (BlockOp (Cons 0)) [V 0; GetEl 0 $ V 1]]
 End
 
 Definition clos_interpreter_body_def:
   clos_interpreter_body =
       If None (V 1) (* is _list version *)
-        (If None (Op None (LenEq 0) [V 0]) (V 0) $
+        (If None (Op None (BlockOp (LenEq 0)) [V 0]) (V 0) $
            Let None [CallInterp (V 2) (GetEl 0 $ V 0);
                      CallInterpList (V 2) (GetEl 1 $ V 0)] $
-             (Op None (Cons 0) [V 1; V 0])) $
+             (Op None (BlockOp (Cons 0)) [V 1; V 0])) $
       (* normal cases *)
       IsCase 0 2 (* App *)
         (App None NONE (CallInterp (V 2) (GetEl 0 $ V 0))
@@ -158,17 +158,17 @@ Definition clos_interpreter_body_def:
       IsCase 1 1 (* Constant *)
         (GetEl 0 $ V 0) $
       IsCase 2 1 (* Global *)
-        (Op None (Global 0) [GetEl 0 $ V 0]) $
+        (Op None (GlobOp (Global 0)) [GetEl 0 $ V 0]) $
       IsCase 0 1 (* Var *)
         (Letrec [] NONE NONE
            [(1,Fn (mlstring$strlit "") NONE NONE 1 clos_interp_el)] $
            App None NONE (App None NONE (V 0) [GetEl 0 $ V 1]) [V 3]) $
       IsCase 1 2 (* Let *)
         (Let None [CallInterpList (V 2) (GetEl 0 $ V 0)] $
-           CallInterp (Op None ListAppend [V 3; V 0]) (GetEl 1 $ V 1)) $
+           CallInterp (Op None (BlockOp ListAppend) [V 3; V 0]) (GetEl 1 $ V 1)) $
       IsCase 2 2 (* Handle *)
         (Handle None (CallInterp (V 2) (GetEl 0 $ V 0)) $
-           CallInterp (Op None (Cons 0) [V 3; V 0]) (GetEl 1 $ V 1)) $
+           CallInterp (Op None (BlockOp (Cons 0)) [V 3; V 0]) (GetEl 1 $ V 1)) $
       IsCase 0 3 (* If *)
         (If None (CallInterp (V 2) (GetEl 0 $ V 0))
                  (CallInterp (V 2) (GetEl 1 $ V 0))
@@ -181,12 +181,12 @@ Definition clos_interpreter_body_def:
       Let None [CallInterpList (V 2) (GetEl 0 $ V 0)] $
       Letrec [] NONE NONE
         [(1,Fn (mlstring$strlit "") NONE NONE 1 clos_interp_rev)] $
-      Let None [App None NONE (App None NONE (V 0) [V 1]) [Op None (Cons 0) []]] $
+      Let None [App None NONE (App None NONE (V 0) [V 1]) [Op None (BlockOp (Cons 0)) []]] $
       Let None [V 3] $
-      IsCase 5 1 (* Cons 0 *) (Op None (FromList 0) [V 1]) $
-      IsCase 6 1 (* Cons 1 *) (Op None (FromList 1) [V 1]) $
-      IsCase 7 1 (* Cons 2 *) (Op None (FromList 2) [V 1]) $
-      Op None (Cons 0) []
+      IsCase 5 1 (* Cons 0 *) (Op None (BlockOp (FromList 0)) [V 1]) $
+      IsCase 6 1 (* Cons 1 *) (Op None (BlockOp (FromList 1)) [V 1]) $
+      IsCase 7 1 (* Cons 2 *) (Op None (BlockOp (FromList 2)) [V 1]) $
+      Op None (BlockOp (Cons 0)) []
 End
 
 Definition clos_interpreter_def:
@@ -201,7 +201,7 @@ End
 Definition opt_interp_def:
   opt_interp e =
     if can_interpret e ∧ nontrivial_size e then
-      SOME $ CallInterp (Op None (Cons 0) []) (Op None (Constant (to_constant e)) [])
+      SOME $ CallInterp (Op None (BlockOp (Cons 0)) []) (Op None (BlockOp (Constant (to_constant e))) [])
     else NONE
 End
 
@@ -224,12 +224,12 @@ End
 
 Definition compile_init_def:
   compile_init b =
-    Let None [Op None AllocGlobal [Op None (Const 1) []];
+    Let None [Op None (GlobOp AllocGlobal) [Op None (IntOp (Const 1)) []];
               if b then
                 Fn (mlstring$strlit "clos_interpreter") NONE NONE 1 clos_interpreter
               else
-                Op None (Cons 0) []]
-      (Op None (SetGlobal 0) [Var None 1])
+                Op None (BlockOp (Cons 0)) []]
+      (Op None (GlobOp (SetGlobal 0)) [Var None 1])
 End
 
 Definition attach_interpreter_def:
@@ -248,40 +248,39 @@ val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 Theorem can_interpret_op_pmatch:
   can_interpret_op p l =
     case p of
-    | Cons tag => (l = 0n ∨ tag < 3n)
-    | Const i => (l = 0)
-    | Global n => (l = 0)
-    | Constant c => (l = 0)
+    | BlockOp (Cons tag) => (l = 0n ∨ tag < 3n)
+    | IntOp (Const i) => (l = 0)
+    | GlobOp (Global n) => (l = 0)
+    | BlockOp (Constant c) => (l = 0)
     | _ => F
 Proof
   CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
-  \\ Cases_on ‘p’ \\ fs [can_interpret_op_def]
+  \\ rpt CASE_TAC \\ fs [can_interpret_op_def]
 QED
 
 Theorem check_size_op_pmatch:
   check_size_op k p l =
     case p of
-    | Cons tag => (if l = 0:num then k else k-1:num)
-    | Const i => k
-    | Global n => k
+    | BlockOp (Cons tag) => (if l = 0:num then k else k-1:num)
+    | IntOp (Const i) => k
+    | GlobOp (Global n) => k
     | _ => k-1
 Proof
   CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
-  \\ Cases_on ‘p’ \\ fs [check_size_op_def]
+  \\ rpt CASE_TAC \\ fs [check_size_op_def]
 QED
 
 Theorem to_constant_op_pmatch:
   to_constant_op p l cs =
     case p of
-    | Const i => ConstCons 1 [ConstInt i]
-    | Constant c => ConstCons 1 [c]
-    | Global n => ConstCons 2 [ConstInt (& n)]
-    | Cons tag => (if l = 0n then ConstCons 1 [ConstCons tag []]
+    | IntOp (Const i) => ConstCons 1 [ConstInt i]
+    | BlockOp (Constant c) => ConstCons 1 [c]
+    | GlobOp (Global n) => ConstCons 2 [ConstInt (& n)]
+    | BlockOp (Cons tag) => (if l = 0n then ConstCons 1 [ConstCons tag []]
                              else ConstCons (tag + 5) [cs])
     | _ => ConstInt 0
 Proof
   CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
-  \\ Cases_on ‘p’ \\ fs [to_constant_op_def]
+  \\ rpt CASE_TAC \\ fs [to_constant_op_def]
 QED
 
-val _ = export_theory();

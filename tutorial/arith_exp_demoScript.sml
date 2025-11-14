@@ -10,15 +10,15 @@
   typically open HolKernel boolLib bossLib and Parse (at least). CakeML's
   preamble wrapper includes all of those structures and more.
 *)
+Theory arith_exp_demo
+Libs
+  preamble
 
-open preamble
 
 (*
   Create the logical theory in which we will work. Its name should match the name
   of this file, before the "Script.sml" suffix.
 *)
-
-val _ = new_theory "arith_exp_demo";
 
 (*
   Define the arithmetic expression type.
@@ -105,4 +105,3 @@ QED
   >- ...
 *)
 
-val _ = export_theory();

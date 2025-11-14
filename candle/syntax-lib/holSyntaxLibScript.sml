@@ -1,9 +1,11 @@
 (*
   Definitions for manipulating (deeply embedded) HOL syntax.
 *)
-open preamble mlstringTheory
-
-val _ = new_theory"holSyntaxLib"
+Theory holSyntaxLib
+Ancestors
+  mlstring
+Libs
+  preamble
 
 Definition ALPHAVARS_def:
   (ALPHAVARS [] tmp ⇔ (FST tmp = SND tmp)) ∧
@@ -210,7 +212,7 @@ Definition INORDER_INSERT_def:
    (APPEND [x] (FILTER (λy. string_lt x y) xs))
 End
 
-Triviality LENGTH_INORDER_INSERT:
+Theorem LENGTH_INORDER_INSERT[local]:
   !xs. ALL_DISTINCT (x::xs) ==> (LENGTH (INORDER_INSERT x xs) = SUC (LENGTH xs))
 Proof
   FULL_SIMP_TAC std_ss [INORDER_INSERT_def,LENGTH_APPEND,LENGTH]
@@ -225,7 +227,7 @@ Proof
   \\ METIS_TAC [stringTheory.string_lt_cases,stringTheory.string_lt_antisym]
 QED
 
-Triviality ALL_DISTINCT_INORDER_INSERT:
+Theorem ALL_DISTINCT_INORDER_INSERT[local]:
   !xs h. ALL_DISTINCT xs ==> ALL_DISTINCT (INORDER_INSERT h xs)
 Proof
   FULL_SIMP_TAC (srw_ss()) [ALL_DISTINCT,INORDER_INSERT_def,
@@ -235,7 +237,7 @@ Proof
   \\ METIS_TAC [stringTheory.string_lt_antisym]
 QED
 
-Triviality ALL_DISTINCT_FOLDR_INORDER_INSERT:
+Theorem ALL_DISTINCT_FOLDR_INORDER_INSERT[local]:
   !xs. ALL_DISTINCT (FOLDR INORDER_INSERT [] xs)
 Proof
   Induct \\ SIMP_TAC std_ss [ALL_DISTINCT,FOLDR] \\ REPEAT STRIP_TAC
@@ -369,4 +371,3 @@ Proof
       set_MAP_implode_STRING_SORT_MAP_explode]
 QED
 
-val _ = export_theory()

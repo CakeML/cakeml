@@ -1,11 +1,13 @@
 (*
   Syntactic properties used by wordLang across passes.
 *)
-open preamble BasicProvers
-     wordLangTheory asmTheory reg_allocTheory ;
+Theory wordConvs
+Ancestors
+  wordLang asm reg_alloc
+Libs
+  preamble BasicProvers
 
-val _ = new_theory "wordConvs";
-
+val _ = temp_delsimps ["misc.max3_def"];
 (*** Mono and conj lemmas for every_var/every_stack_var ***)
 Theorem every_var_inst_mono:
   ∀P inst Q.
@@ -222,7 +224,11 @@ Definition inst_ok_less_def:
   (inst_ok_less c (Arith (SubOverflow r1 r2 r3 r4)) ⇔
     (((c.ISA = MIPS) \/ (c.ISA = RISC_V)) ==> r1 ≠ r3)) ∧
   (inst_ok_less c (Mem m r (Addr r' w)) ⇔
-    if m IN {Load; Store; Load32; Store32} then addr_offset_ok c w else byte_offset_ok c w) ∧
+     if m IN {Load; Store; Load16; Store16; Load32; Store32}
+     then addr_offset_ok c w
+     else if m IN {Load16; Store16}
+     then hw_offset_ok c w
+     else byte_offset_ok c w) ∧
   (inst_ok_less c (FP (FPLess r d1 d2)) ⇔  fp_reg_ok d1 c ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less c (FP (FPLessEqual r d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c) ∧
   (inst_ok_less c (FP (FPEqual r d1 d2)) ⇔ fp_reg_ok d1 c  ∧ fp_reg_ok d2 c)  ∧
@@ -323,27 +329,34 @@ Definition full_inst_ok_less_def:
     case exp_to_addr ad of
     | SOME (Addr _ w) =>
       if op IN {Load; Store; Load32; Store32}
-        then addr_offset_ok c w
-        else byte_offset_ok c w
+      then addr_offset_ok c w
+      else if op IN {Load16; Store16}
+      then hw_offset_ok c w
+      else byte_offset_ok c w
     | NONE => F) ∧
   (full_inst_ok_less c prog ⇔ T)
 End
 
 (*** All cutsets are well-formed ***)
+Definition wf_names_def:
+  wf_names t =
+    (wf (FST t) ∧ wf (SND t))
+End
+
 Definition wf_cutsets_def:
-  (wf_cutsets (Alloc n s) = wf s) ∧
-  (wf_cutsets (Install _ _ _ _ s) = wf s) ∧
+  (wf_cutsets (Alloc n s) = wf_names s) ∧
+  (wf_cutsets (Install _ _ _ _ s) = wf_names s) ∧
   (wf_cutsets (Call ret dest args h) =
     (case ret of
       NONE => T
     | SOME (v,cutset,ret_handler,l1,l2) =>
-      wf cutset ∧
+      wf_names cutset ∧
       wf_cutsets ret_handler ∧
       (case h of
         NONE => T
       | SOME (v,prog,l1,l2) =>
         wf_cutsets prog))) ∧
-  (wf_cutsets (FFI x1 y1 x2 y2 z args) = wf args) ∧
+  (wf_cutsets (FFI x1 y1 x2 y2 z args) = wf_names args) ∧
   (wf_cutsets (MustTerminate s) = wf_cutsets s) ∧
   (wf_cutsets (Seq s1 s2) =
     (wf_cutsets s1 ∧ wf_cutsets s2)) ∧
@@ -369,7 +382,7 @@ End
 Definition call_arg_convention_def:
   (call_arg_convention (Inst i) =
     inst_arg_convention i) ∧
-  (call_arg_convention (Return x y) = (y=2)) ∧
+  (call_arg_convention (Return x ys) = (ys = GENLIST (\x.2*(x+1)) (LENGTH ys))) ∧
   (call_arg_convention (Raise y) = (y=2)) ∧
   (call_arg_convention (Install ptr len _ _ _) = (ptr = 2 ∧ len = 4)) ∧
   (call_arg_convention (FFI x ptr len ptr2 len2 args) = (ptr = 2 ∧ len = 4 ∧
@@ -380,9 +393,9 @@ Definition call_arg_convention_def:
   (call_arg_convention (Call ret dest args h) =
     (case ret of
       NONE => args = GENLIST (\x.2*x) (LENGTH args)
-    | SOME (v,cutset,ret_handler,l1,l2) =>
+    | SOME (vs,cutset,ret_handler,l1,l2) =>
       args = GENLIST (\x.2*(x+1)) (LENGTH args) ∧
-      (v = 2) ∧ call_arg_convention ret_handler ∧
+      (vs = GENLIST (\x.2*(x+1)) (LENGTH vs)) ∧ call_arg_convention ret_handler ∧
     (case h of  (*Does not check the case where Calls are ill-formed*)
       NONE => T
     | SOME (v,prog,l1,l2) =>
@@ -433,14 +446,14 @@ Definition extract_labels_def:
 End
 
 (*** Property on max_var ***)
-Triviality max_var_exp_IMP:
+Theorem max_var_exp_IMP[local]:
   ∀exp.
   P 0 ∧ every_var_exp P exp ⇒
   P (max_var_exp exp)
 Proof
   ho_match_mp_tac max_var_exp_ind>>fs[max_var_exp_def,every_var_exp_def]>>
   srw_tac[][]>>
-  match_mp_tac list_max_intro>>
+  match_mp_tac MAX_LIST_intro>>
   fs[EVERY_MAP,EVERY_MEM]
 QED
 
@@ -449,20 +462,21 @@ Theorem max_var_intro:
   P 0 ∧ every_var P prog ⇒
   P (max_var prog)
 Proof
-  ho_match_mp_tac max_var_ind>>
-  fs[every_var_def,max_var_def,max_var_exp_IMP,MAX_DEF]>>srw_tac[][]>>
-  TRY(metis_tac[max_var_exp_IMP])>>
-  TRY (match_mp_tac list_max_intro>>fs[EVERY_APPEND,every_name_def])
-  >-
-    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>
-    TRY(Cases_on`f`)>>
-    fs[max_var_inst_def,every_var_inst_def,every_var_imm_def,MAX_DEF]>>
-    EVERY_CASE_TAC>>fs[every_var_imm_def])
-  >-
-    (TOP_CASE_TAC>>unabbrev_all_tac>>fs[list_max_intro]>>
-    EVERY_CASE_TAC>>fs[LET_THM]>>srw_tac[][]>>
-    match_mp_tac list_max_intro>>fs[EVERY_APPEND,every_name_def])
-  >> (unabbrev_all_tac>>EVERY_CASE_TAC>>fs[every_var_imm_def])
+  ho_match_mp_tac max_var_ind >> rpt strip_tac
+  >~ [`Inst`]
+  >- (fs[every_var_def,max_var_def,max_var_exp_IMP] >>
+      rpt $ pop_assum mp_tac >>
+      MAP_EVERY qid_spec_tac $ List.rev [`P`,`i`] >>
+      ho_match_mp_tac every_var_inst_ind >> rpt strip_tac >>
+      fs[every_var_inst_def,max_var_inst_def] >>
+      simp_tac(pure_ss)[MAX_DEF,max3_def] >>
+      rpt TOP_CASE_TAC >> fs[] >> fs[every_var_imm_def])
+  (*Remaining cases*)
+  >> fs[every_var_def,max_var_def,max_var_exp_IMP] >>
+  simp_tac(pure_ss)[MAX_DEF,max3_def] >>
+  rpt TOP_CASE_TAC >> fs[] >>
+  TRY (MAP_FIRST irule [MAX_LIST_intro,max_var_exp_IMP]) >>
+  fs[] >> fs[every_name_def,every_var_imm_def]
 QED
 
 (*** code_labels ***)
@@ -518,10 +532,10 @@ Definition not_created_subprogs_def:
     (case h of NONE => T | SOME (_, p, h1, _) =>
         P (wordLang$Call NONE NONE [] (SOME (0, Skip, h1, 0))) /\
         not_created_subprogs P p)) /\
-  not_created_subprogs P (Alloc _ _) = P (Alloc 0 LN) /\
+  not_created_subprogs P (Alloc _ _) = P (Alloc 0 (LN,LN)) /\
   not_created_subprogs P (LocValue _ l) = P (LocValue 0 l) /\
   not_created_subprogs P (ShareInst _ _ _) = P (ShareInst ARB 0 (Var 0)) /\
-  not_created_subprogs P (Install _ _ _ _ _) = P (Install 0 0 0 0 LN) /\
+  not_created_subprogs P (Install _ _ _ _ _) = P (Install 0 0 0 0 (LN,LN)) /\
   not_created_subprogs _ _ = T
 End
 
@@ -533,7 +547,7 @@ Theorem not_created_subprogs_P_def = not_created_subprogs_def
 
 (* no_alloc specialisation *)
 
-val no_alloc_P = ``((<>) (Alloc 0 LN))``
+val no_alloc_P = ``((<>) (Alloc 0 (LN,LN)))``
 
 Definition no_alloc_subprogs_def:
   no_alloc p = not_created_subprogs ^no_alloc_P p
@@ -543,7 +557,7 @@ Theorem no_alloc_def = not_created_subprogs_P_def
   |> ISPEC no_alloc_P
   |> REWRITE_RULE [GSYM no_alloc_subprogs_def]
 
-val no_install_P = ``((<>) (Install 0 0 0 0 LN))``
+val no_install_P = ``((<>) (Install 0 0 0 0 (LN,LN)))``
 
 Definition no_install_subprogs_def:
   no_install p = not_created_subprogs ^no_install_P p
@@ -581,4 +595,3 @@ Overload word_get_code_labels = ``wordConvs$get_code_labels``
 Overload word_good_handlers = ``wordConvs$good_handlers``
 Overload word_good_code_labels = ``wordConvs$good_code_labels``
 
-val _ = export_theory();

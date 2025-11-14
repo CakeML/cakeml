@@ -12,7 +12,7 @@ local
   structure Parse = struct
     open Parse
      val (Type,Term) =
-         parse_from_grammars ml_monadBaseTheory.ml_monadBase_grammars
+         parse_from_grammars (valOf (grammarDB {thyname="ml_monadBase"}))
   end
   open Parse
 
@@ -169,7 +169,7 @@ fun my_list_mk_comb (comb, []) = comb
       list_mk_comb(Term.inst f_sub comb, List.map (Term.inst arg_sub) args)
     end
     handle HOL_ERR e => raise (mk_HOL_ERR "ml_monadBaseLib" "my_list_mk_comb"
-                                          (#message e));
+                                          (message_of e));
 
 (* TODO tidy *)
 fun mk_list_vars basename types =

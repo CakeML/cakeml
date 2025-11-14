@@ -1,17 +1,17 @@
 (*
   Prove `encoder_correct` for ARMv7
 *)
-open HolKernel Parse boolLib bossLib;
-open arm_stepLib;
-open asmLib arm7_targetTheory;
-
-val () = new_theory "arm7_targetProof"
+Theory arm7_targetProof
+Ancestors
+  arm7_target
+Libs
+  arm_stepLib asmLib
 
 val () = wordsLib.guess_lengths ()
 
 (* some lemmas ---------------------------------------------------------- *)
 
-Triviality valid_immediate:
+Theorem valid_immediate[local]:
   !i. IS_SOME (EncodeARMImmediate i) = valid_immediate i
 Proof
   simp [valid_immediate_def]
@@ -32,7 +32,7 @@ val arm7_config =
 val arm7_asm_ok =
   REWRITE_RULE [valid_immediate] arm7_targetTheory.arm7_asm_ok
 
-Triviality lem1:
+Theorem lem1[local]:
   !n m. n < 16 /\ n <> 13 /\ n <> 15 ==>
           RName_PC <> R_mode m (n2w n) /\ n MOD 16 <> 15
 Proof
@@ -68,7 +68,14 @@ val lem5 =
    blastLib.BBLAST_PROVE
       ``~(0w <= c) /\ 0xFFFFF001w <= c ==> -1w * c <=+ 4095w: word32``
 
-Triviality lem6:
+val lem4b =
+   blastLib.BBLAST_PROVE ``0w <= c /\ c <= 255w ==> c <=+ 255w: word32``
+
+val lem5b =
+   blastLib.BBLAST_PROVE
+      ``~(0w <= c) /\ 0xFFFFFF01w <= c ==> -1w * c <=+ 255w: word32``
+
+Theorem lem6[local]:
   !s state c n.
       target_state_rel arm7_target s state /\ n < 16 /\ n <> 13 /\ n <> 15 /\
       aligned 2 (c + s.regs n) ==>
@@ -78,7 +85,7 @@ Proof
        arm7_target_def, arm7_config_def, lem1]
 QED
 
-Triviality lem7:
+Theorem lem7[local]:
   !a: word24. aligned 2 (sw2sw ((a @@ (0w: word2)): 26 word) : word32)
 Proof
   srw_tac [wordsLib.WORD_EXTRACT_ss] [alignmentTheory.aligned_extract]
@@ -120,7 +127,7 @@ val lem11 =
    (REWRITE_RULE [wordsTheory.WORD_ADD_0] o  Q.INST [`c` |-> `0w`] o
     Drule.SPEC_ALL) lem6
 
-Triviality lem12:
+Theorem lem12[local]:
   !x: word32. aligned 2 x ==> ~word_bit 1 x /\ ~word_bit 0 x
 Proof
   simp [alignmentTheory.aligned_extract]
@@ -166,7 +173,7 @@ fun tac n =
    \\ blastLib.FULL_BBLAST_TAC
    \\ blastLib.BBLAST_TAC
 
-Triviality decode_imm_thm:
+Theorem decode_imm_thm[local]:
   !c.
       valid_immediate c ==>
       let imm12 = THE (EncodeARMImmediate c) in
@@ -221,7 +228,7 @@ val decode_imm12_thm =
        (w2w (v2w [c ' 11; c ' 10; c ' 9; c ' 8; c ' 7; c ' 6;
                   c ' 5; c ' 4; c ' 3; c ' 2; c ' 1; c ' 0] : word12) = c)``
 
-Triviality decode_neg_imm12_thm:
+Theorem decode_neg_imm12_thm[local]:
   !c: word32 d.
        0xFFFFF001w <= c /\ ~(0w <= c) /\ Abbrev (d = -1w * c) ==>
        (-1w *
@@ -233,135 +240,35 @@ Proof
    \\ blastLib.FULL_BBLAST_TAC
 QED
 
-Triviality decode_imm8_thm1:
+Theorem decode_imm8_thm[local]:
   !c: word32.
-       8w <= c /\ c <= 263w ==>
-       (EncodeARMImmediate (c + 0xFFFFFFF8w) =
-        SOME ((7 >< 0) (c + 0xFFFFFFF8w)))
+    c <=+ 255w ==>
+    (w2w (v2w [c ' 7; c ' 6;
+               c ' 5; c ' 4; c ' 3; c ' 2; c ' 1; c ' 0] : word8) = c)
 Proof
-  rw [armTheory.EncodeARMImmediate_def,
-       Once armTheory.EncodeARMImmediate_aux_def]
+  blastLib.BBLAST_TAC
+QED
+
+Theorem decode_imm8_thm0[local]:
+    c <=+ 255w ==>
+    (w2w ((v2w [c ' 7; c ' 6; c ' 5; c ' 4] : word4) @@
+              (v2w [c ' 3; c ' 2; c ' 1; c ' 0] : word4)) = c: word32)
+Proof
+  blastLib.FULL_BBLAST_TAC
+QED
+
+Theorem decode_neg_imm8_thm0[local]:
+  !c: word32.
+    0xFFFFFF01w <= c /\ ~(0w <= c) /\ Abbrev (d = -1w * c) ==>
+    (-1w *
+      w2w ((v2w [d ' 7; d ' 6; d ' 5; d ' 4] : word4) @@
+           (v2w [d ' 3; d ' 2; d ' 1; d ' 0] : word4)) = c)
+Proof
+  rw []
+   \\ qunabbrev_tac `d`
    \\ blastLib.FULL_BBLAST_TAC
 QED
 
-val decode_imm8_thm2 =
-   blastLib.BBLAST_PROVE
-     ``!c: word32.
-         8w <= c /\ c + 0xFFFFFFF8w <+ 256w ==>
-         (w2w (v2w [c ' 7 <=> c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
-                    c ' 6 <=> c ' 5 \/ c ' 4 \/ c ' 3; c ' 5 <=> c ' 4 \/ c ' 3;
-                    c ' 4 <=> c ' 3; ~c ' 3; c ' 2; c ' 1; c ' 0]: word8) =
-         c - 8w)``
-
-Triviality decode_imm8_thm3:
-  !c: word32.
-       ~(8w <= c) /\ 0xFFFFFF09w <= c ==>
-       (EncodeARMImmediate (-1w * c + 8w) = SOME ((7 >< 0) (-1w * c + 8w)))
-Proof
-  rw [armTheory.EncodeARMImmediate_def,
-       Once armTheory.EncodeARMImmediate_aux_def]
-   \\ blastLib.FULL_BBLAST_TAC
-QED
-
-val decode_imm8_thm4 =
-   blastLib.BBLAST_PROVE
-     ``!c: word32 p.
-         8w <= c /\ c <= 0x10007w /\ ~(c + 0xFFFFFFF8w <+ 256w) ==>
-  (c + p =
-   w2w
-      (v2w
-         [c ' 7 <=> c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
-          c ' 6 <=> c ' 5 \/ c ' 4 \/ c ' 3; c ' 5 <=> c ' 4 \/ c ' 3;
-          c ' 4 <=> c ' 3; ~c ' 3; c ' 2; c ' 1; c ' 0] : word8) +
-    p +
-    w2w
-      (v2w
-         [c ' 15 <=>
-          c ' 14 \/ c ' 13 \/ c ' 12 \/ c ' 11 \/ c ' 10 \/ c ' 9 \/
-          c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
-          c ' 14 <=>
-          c ' 13 \/ c ' 12 \/ c ' 11 \/ c ' 10 \/ c ' 9 \/ c ' 8 \/
-          c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
-          c ' 13 <=>
-          c ' 12 \/ c ' 11 \/ c ' 10 \/ c ' 9 \/ c ' 8 \/ c ' 7 \/ c ' 6 \/
-          c ' 5 \/ c ' 4 \/ c ' 3;
-          c ' 12 <=>
-          c ' 11 \/ c ' 10 \/ c ' 9 \/ c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/
-          c ' 4 \/ c ' 3;
-          c ' 11 <=>
-          c ' 10 \/ c ' 9 \/ c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/
-          c ' 3;
-          c ' 10 <=>
-          c ' 9 \/ c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
-          c ' 9 <=> c ' 8 \/ c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3;
-          c ' 8 <=> c ' 7 \/ c ' 6 \/ c ' 5 \/ c ' 4 \/ c ' 3] : word8) #>> 24 +
-    8w)``
-
-val decode_imm8_thm5 =
-   blastLib.BBLAST_PROVE
-     ``!c: word32 p.
-         ~(8w <= c) /\ 0xFFFF0009w <= c /\ -1w * c + 8w <+ 256w ==>
-  (c + p =
-   -1w *
-   w2w
-     (v2w
-        [c ' 7 <=>
-         ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 6 <=>
-         ~c ' 5 /\ ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 5 <=> ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 4 <=> ~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0;
-         c ' 3 <=> c ' 2 \/ c ' 1 \/ c ' 0; c ' 2 <=> ~c ' 1 /\ ~c ' 0;
-         ~c ' 1 <=> c ' 0; c ' 0]: word8) + p + 8w)``
-
-val decode_imm8_thm6 =
-   blastLib.BBLAST_PROVE
-     ``!c: word32 p.
-         ~(8w <= c) /\ 0xFFFF0009w <= c /\ ~(-1w * c + 8w <+ 256w) ==>
-  (c + p =
-   -1w *
-   w2w
-     (v2w
-        [c ' 7 <=>
-         ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 6 <=>
-         ~c ' 5 /\ ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 5 <=> ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 4 <=> ~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0;
-         c ' 3 <=> c ' 2 \/ c ' 1 \/ c ' 0; c ' 2 <=> ~c ' 1 /\ ~c ' 0;
-         ~c ' 1 <=> c ' 0; c ' 0]: word8) + p +
-   -1w *
-   w2w
-     (v2w
-        [c ' 15 <=>
-         ~c ' 14 /\ ~c ' 13 /\ ~c ' 12 /\ ~c ' 11 /\ ~c ' 10 /\ ~c ' 9 /\
-         ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 14 <=>
-         ~c ' 13 /\ ~c ' 12 /\ ~c ' 11 /\ ~c ' 10 /\ ~c ' 9 /\ ~c ' 8 /\
-         ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 13 <=>
-         ~c ' 12 /\ ~c ' 11 /\ ~c ' 10 /\ ~c ' 9 /\ ~c ' 8 /\ ~c ' 7 /\
-         ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 12 <=>
-         ~c ' 11 /\ ~c ' 10 /\ ~c ' 9 /\ ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\
-         ~c ' 5 /\ ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 11 <=>
-         ~c ' 10 /\ ~c ' 9 /\ ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\
-         ~c ' 4 /\ (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 10 <=>
-         ~c ' 9 /\ ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 9 <=>
-         ~c ' 8 /\ ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0);
-         c ' 8 <=>
-         ~c ' 7 /\ ~c ' 6 /\ ~c ' 5 /\ ~c ' 4 /\
-         (~c ' 3 \/ ~c ' 2 /\ ~c ' 1 /\ ~c ' 0)]: word8) #>> 24 + 8w)``
 val loc_lem =
   utilsLib.map_conv asmLib.mk_blast_thm
     [``(31 >< 24) (a - 8w : word32) : word8``,
@@ -373,13 +280,13 @@ val loc_lem =
      ``(15 >< 8) (-1w * a + 8w : word32) : word8``,
      ``(7 >< 0) (-1w * a + 8w : word32) : word8``]
 
-Triviality word_lo_not_carry:
+Theorem word_lo_not_carry[local]:
   !a b. (a <+ b) = ~CARRY_OUT a (~b) T
 Proof
   simp [wordsTheory.ADD_WITH_CARRY_SUB, wordsTheory.WORD_NOT_LOWER_EQUAL]
 QED
 
-Triviality word_lt_n_eq_v:
+Theorem word_lt_n_eq_v[local]:
   !a b: word32. (a < b) = ((word_bit 31 (a + -1w * b) <> OVERFLOW a (~b) T))
 Proof
   simp [wordsTheory.ADD_WITH_CARRY_SUB, GSYM wordsTheory.WORD_LO]
@@ -424,7 +331,7 @@ in
         |> REWRITE_RULE [wordsTheory.w2n_eq_0]
 end
 
-Triviality reg_mode_eq:
+Theorem reg_mode_eq[local]:
   !m ms1 ms2.
        (ms1.REG o R_mode m = ms2.REG o R_mode m) <=>
        (!i. ms1.REG (R_mode m (n2w i)) = ms2.REG (R_mode m (n2w i))) /\
@@ -438,7 +345,7 @@ Proof
    \\ simp []
 QED
 
-Triviality aligned_add:
+Theorem aligned_add[local]:
   !p a b. aligned p a ==> (aligned p (a + b) = aligned p b)
 Proof
   metis_tac [wordsTheory.WORD_ADD_COMM, alignmentTheory.aligned_add_sub]
@@ -446,7 +353,7 @@ QED
 
 val _ = diminish_srw_ss ["MOD"]
 
-Triviality adc_lem1:
+Theorem adc_lem1[local]:
   !r2 r3 : word32 r4 : word32.
       CARRY_OUT r2 r3 (CARRY_OUT r4 (-1w) T) <=>
       4294967296 <= w2n r2 + (w2n r3 + 1)
@@ -454,7 +361,7 @@ Proof
   rw [wordsTheory.add_with_carry_def]
 QED
 
-Triviality adc_lem2:
+Theorem adc_lem2[local]:
   !r2 r3 : word32 r4 : word32.
       FST (add_with_carry (r2,r3,CARRY_OUT r4 (-1w) T)) =
       n2w (w2n r2 + (w2n r3 + 1))
@@ -462,26 +369,26 @@ Proof
   rw [wordsTheory.add_with_carry_def]
 QED
 
-Triviality adc_lem3:
+Theorem adc_lem3[local]:
   !r2 r3 : word32. CARRY_OUT r2 r3 F <=> 4294967296 <= w2n r2 + w2n r3
 Proof
   rw [wordsTheory.add_with_carry_def]
 QED
 
-Triviality adc_lem4:
+Theorem adc_lem4[local]:
   !r2 r3 : word32. FST (add_with_carry (r2,r3,F)) = n2w (w2n r2 + w2n r3)
 Proof
   rw [wordsTheory.add_with_carry_def]
 QED
 
-Triviality mul_long_lem1:
+Theorem mul_long_lem1[local]:
   !a : word32 b. (31 >< 0) (w2w a * w2w b : word64) = a * b
 Proof
   srw_tac [wordsLib.WORD_EXTRACT_ss]
     [Once wordsTheory.WORD_EXTRACT_OVER_MUL]
 QED
 
-Triviality mul_long_lem2:
+Theorem mul_long_lem2[local]:
   !a : word32 b : word32.
     n2w ((w2n a * w2n b) DIV 4294967296) =
     (63 >< 32) (w2w a * w2w b : word64) : word32
@@ -492,7 +399,7 @@ Proof
          wordsTheory.word_extract_n2w, bitTheory.BITS_THM]
 QED
 
-Triviality adc_lem1:
+Theorem adc_lem1[local]:
   !r2 r3 : word32 r4 : word32.
       CARRY_OUT r2 r3 (CARRY_OUT r4 (-1w) T) <=>
       4294967296 <= w2n r2 + (w2n r3 + 1)
@@ -500,7 +407,7 @@ Proof
   rw [wordsTheory.add_with_carry_def]
 QED
 
-Triviality adc_lem2:
+Theorem adc_lem2[local]:
   !r2 r3 : word32 r4 : word32.
       FST (add_with_carry (r2,r3,CARRY_OUT r4 (-1w) T)) =
       n2w (w2n r2 + (w2n r3 + 1))
@@ -508,19 +415,19 @@ Proof
   rw [wordsTheory.add_with_carry_def]
 QED
 
-Triviality adc_lem3:
+Theorem adc_lem3[local]:
   !r2 r3 : word32. CARRY_OUT r2 r3 F <=> 4294967296 <= w2n r2 + w2n r3
 Proof
   rw [wordsTheory.add_with_carry_def]
 QED
 
-Triviality adc_lem4:
+Theorem adc_lem4[local]:
   !r2 r3 : word32. FST (add_with_carry (r2,r3,F)) = n2w (w2n r2 + w2n r3)
 Proof
   rw [wordsTheory.add_with_carry_def]
 QED
 
-Triviality float_is_nan:
+Theorem float_is_nan[local]:
   !x. float_is_nan x = (float_value x = NaN)
 Proof
   rw [binary_ieeeTheory.float_is_nan_def]
@@ -544,60 +451,60 @@ val fp_tac =
          binary_ieeeTheory.float_equal_def,
          binary_ieeeTheory.float_compare_def]
 
-Triviality fp_lem1:
+Theorem fp_lem1[local]:
   fp64_lessThan a b ==> ~fp64_isNan a /\ ~fp64_isNan b /\ ~fp64_equal a b
 Proof
   fp_tac
 QED
 
-Triviality fp_lem2:
+Theorem fp_lem2[local]:
   fp64_lessEqual a b ==>
    (fp64_equal a b \/ fp64_lessThan a b) /\ ~fp64_isNan a /\ ~fp64_isNan b
 Proof
   fp_tac
 QED
 
-Triviality fp_lem3:
+Theorem fp_lem3[local]:
   ~fp64_lessEqual a b ==> ~fp64_lessThan a b /\ ~fp64_equal a b
 Proof
   fp_tac
 QED
 
-Triviality fp_lem4:
+Theorem fp_lem4[local]:
   fp64_greaterThan a b ==>
    ~fp64_lessThan a b /\ ~fp64_isNan a /\ ~fp64_isNan b /\ ~fp64_equal a b
 Proof
   fp_tac
 QED
 
-Triviality fp_lem5:
+Theorem fp_lem5[local]:
   ~fp64_greaterThan a b ==>
    fp64_equal a b \/ fp64_lessThan a b \/ fp64_isNan a \/ fp64_isNan b
 Proof
   fp_tac
 QED
 
-Triviality fp_lem6:
+Theorem fp_lem6[local]:
   fp64_greaterEqual a b ==>
    ~fp64_lessThan a b /\ ~fp64_isNan a /\ ~fp64_isNan b
 Proof
   fp_tac
 QED
 
-Triviality fp_lem7:
+Theorem fp_lem7[local]:
   ~fp64_greaterEqual a b ==>
    ~fp64_equal a b /\ (fp64_lessThan a b \/ fp64_isNan a \/ fp64_isNan b)
 Proof
   fp_tac
 QED
 
-Triviality fp_lem8:
+Theorem fp_lem8[local]:
   fp64_equal a b ==> ~fp64_isNan a /\ ~fp64_isNan b
 Proof
   fp_tac
 QED
 
-Triviality fp_to_int_lem:
+Theorem fp_to_int_lem[local]:
   !i w : word32. (w2i w = i) ==> -0x80000000 <= i /\ i <= 0x7FFFFFFF
 Proof
   ntac 3 strip_tac
@@ -612,7 +519,7 @@ Proof
   \\ rfs []
 QED
 
-Triviality fp_to_int_lem2:
+Theorem fp_to_int_lem2[local]:
   !n. n < 32 ==> n DIV 2 < 32n
 Proof
   simp [arithmeticTheory.DIV_LT_X]
@@ -633,8 +540,8 @@ val encode_rwts =
    end
 
 val enc_rwts =
-   [asmPropsTheory.offset_monotonic_def, lem4, lem5, lem8, decode_imm8_thm1,
-    decode_imm8_thm3, arm_stepTheory.Aligned, alignmentTheory.aligned_0,
+   [asmPropsTheory.offset_monotonic_def, lem4, lem5, lem8, lem4b, lem5b,
+    arm_stepTheory.Aligned, alignmentTheory.aligned_0,
     alignmentTheory.aligned_numeric, arm7_asm_ok, Once valid_immediate2] @
    encode_rwts @ asmLib.asm_rwts
 
@@ -643,7 +550,7 @@ val enc_ok_rwts =
 
 (* some custom tactics ---------------------------------------------------- *)
 
-Triviality bytes_in_memory_thm:
+Theorem bytes_in_memory_thm[local]:
   !s state a b c d.
       target_state_rel arm7_target s state /\
       bytes_in_memory s.pc [a; b; c; d] s.mem s.mem_domain ==>
@@ -672,7 +579,7 @@ Proof
    \\ rfs [alignmentTheory.aligned_extract]
 QED
 
-Triviality bytes_in_memory_thm2:
+Theorem bytes_in_memory_thm2[local]:
   !w s state a b c d.
       target_state_rel arm7_target s state /\
       bytes_in_memory (s.pc + w) [a; b; c; d] s.mem s.mem_domain ==>
@@ -749,6 +656,7 @@ local
          \\ assume_tac step_thm
          \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss())
               [lem1, lem2, lem3, lem3b, lem3c, lem3d, lem4, lem7,
+               lem4b, lem5b, decode_imm8_thm, decode_imm8_thm0,
                decode_imm12_thm, decode_imm_thm, armTheory.FPCompare64_def,
                arm_stepTheory.DecodeRoundingMode_def,
                alignmentTheory.aligned_0, alignmentTheory.aligned_numeric,
@@ -770,7 +678,7 @@ in
      ORELSE next_state_tac0 [false, true]
 end
 
-Triviality adc_lem1:
+Theorem adc_lem1[local]:
   !r2 r3 : word32 r4 : word32.
       CARRY_OUT r2 r3 (CARRY_OUT r4 (-1w) T) <=>
       4294967296 <= w2n r2 + (w2n r3 + 1)
@@ -778,7 +686,7 @@ Proof
   rw [wordsTheory.add_with_carry_def]
 QED
 
-Triviality adc_lem2:
+Theorem adc_lem2[local]:
   !r2 r3 : word32 r4 : word32.
       FST (add_with_carry (r2,r3,CARRY_OUT r4 (-1w) T)) =
       n2w (w2n r2 + (w2n r3 + 1))
@@ -786,13 +694,13 @@ Proof
   rw [wordsTheory.add_with_carry_def]
 QED
 
-Triviality adc_lem3:
+Theorem adc_lem3[local]:
   !r2 r3 : word32. CARRY_OUT r2 r3 F <=> 4294967296 <= w2n r2 + w2n r3
 Proof
   rw [wordsTheory.add_with_carry_def]
 QED
 
-Triviality adc_lem4:
+Theorem adc_lem4[local]:
   !r2 r3 : word32. FST (add_with_carry (r2,r3,F)) = n2w (w2n r2 + w2n r3)
 Proof
   rw [wordsTheory.add_with_carry_def]
@@ -830,16 +738,18 @@ in
       \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()) []
       \\ REPEAT strip_tac
       \\ reg_tac
+      \\ imp_res_tac decode_neg_imm8_thm0
       \\ fs [DISCH_ALL arm_stepTheory.R_x_not_pc, combinTheory.UPDATE_APPLY,
              lem1, lem2, lem3, lem3b, lem3c, lem3d, adc_lem2, adc_lem4,
-             fp_to_int_lem2, mul_long_lem1, mul_long_lem2,
+             fp_to_int_lem2, mul_long_lem1, mul_long_lem2, lem4b,
              GSYM wordsTheory.word_mul_def, alignmentTheory.align_aligned]
       \\ srw_tac []
             [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
              updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1,
-             decode_some_encode_immediate, decode_imm8_thm2, decode_imm8_thm5,
+             decode_some_encode_immediate,
              fp_to_int_lem2]
       \\ fs [adc_lem1, adc_lem3]
+
 end
 
 local
@@ -867,6 +777,7 @@ local
          \\ (if neg_mem then
                qabbrev_tac `d = -1w * c`
                \\ imp_res_tac decode_neg_imm12_thm
+               \\ imp_res_tac decode_neg_imm8_thm0
              else if asmLib.isJumpCmp asm then
                qabbrev_tac `r = c0 + 0xFFFFFFF4w`
              else if asmLib.isJumpReg asm then
@@ -975,7 +886,7 @@ end
    arm7 target_ok
    ------------------------------------------------------------------------- *)
 
-Triviality length_arm7_encode1:
+Theorem length_arm7_encode1[local]:
   !c i. LENGTH (arm7_encode1 c i) = 4
 Proof
   Cases
@@ -984,7 +895,7 @@ Proof
   \\ simp []
 QED
 
-Triviality length_arm7_encode:
+Theorem length_arm7_encode[local]:
   !l. LENGTH (arm7_encode l) = 4 * LENGTH l
 Proof
   Induct >- rw [arm7_encode_def]
@@ -993,7 +904,7 @@ Proof
   \\ fs [arm7_encode_def]
 QED
 
-Triviality arm7_encode_not_nil:
+Theorem arm7_encode_not_nil[local]:
   (!c i. arm7_encode1 c i <> []) /\ (!l. (arm7_encode l <> []) = (l <> []))
 Proof
   simp_tac std_ss
@@ -1011,7 +922,7 @@ val arm7_encoding = Q.prove (
    )
    |> SIMP_RULE (bool_ss++boolSimps.LET_ss) []
 
-Triviality arm7_target_ok:
+Theorem arm7_target_ok[local]:
   target_ok arm7_target
 Proof
   rw ([asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
@@ -1270,4 +1181,3 @@ Proof
       )
 QED
 
-val () = export_theory ()

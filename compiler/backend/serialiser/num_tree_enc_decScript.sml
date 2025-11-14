@@ -2,14 +2,13 @@
   Encoders and decoders to/from types represented as trees
   consisting of natural numbers.
 *)
-open integerTheory ml_progTheory
-     astTheory semanticPrimitivesTheory
-     semanticPrimitivesPropsTheory evaluatePropsTheory
-     fpSemTheory mlvectorTheory mlstringTheory
-     ml_translatorTheory miscTheory num_list_enc_decTheory;
-open preamble;
-
-val _ = new_theory "num_tree_enc_dec";
+Theory num_tree_enc_dec
+Ancestors
+  integer ml_prog ast semanticPrimitives semanticPrimitivesProps
+  evaluateProps fpSem mlvector mlstring ml_translator misc
+  num_list_enc_dec
+Libs
+  preamble
 
 Datatype:
   num_tree = Tree num (num_tree list)
@@ -20,8 +19,6 @@ Definition num_tree_enc'_def:
   num_tree_enc' ((Tree k xs)::ts) =
     Append (Append (List [k; LENGTH xs]) (num_tree_enc' xs))
            (num_tree_enc' ts)
-Termination
-  WF_REL_TAC ‘measure num_tree1_size’
 End
 
 Theorem fix_res_IMP:
@@ -330,4 +327,3 @@ Proof
   fs [word64_dec'_def,word64_enc'_def]
 QED
 
-val _ = export_theory();

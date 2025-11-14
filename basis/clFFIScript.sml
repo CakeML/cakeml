@@ -1,11 +1,11 @@
 (*
   Logical model of the commandline state: simply a list of mlstrings
 *)
-open preamble
-     cfHeapsBaseTheory
-
-val _ = new_theory"clFFI";
-
+Theory clFFI
+Ancestors
+  mlstring cfHeapsBase
+Libs
+  preamble
 
 (* a valid argument has a length that fits 16 bits and no null bytes *)
 
@@ -74,10 +74,12 @@ Definition encode_def:
   encode = encode_list (Str o explode)
 End
 
-val encode_11 = prove(
-  ``!x y. encode x = encode y <=> x = y``,
+Theorem encode_11[local]:
+    !x y. encode x = encode y <=> x = y
+Proof
   rw [] \\ eq_tac \\ fs [encode_def] \\ rw []
-  \\ drule encode_list_11 \\ fs [mlstringTheory.explode_11]);
+  \\ drule encode_list_11 \\ fs [mlstringTheory.explode_11]
+QED
 
 val decode_encode = new_specification("decode_encode",["decode"],
   prove(``?decode. !cls. decode (encode cls) = SOME cls``,
@@ -90,5 +92,3 @@ Definition cl_ffi_part_def:
      ("get_arg_length",ffi_get_arg_length);
      ("get_arg",ffi_get_arg)])
 End
-
-val _ = export_theory();

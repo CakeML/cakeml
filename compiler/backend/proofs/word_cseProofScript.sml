@@ -1,21 +1,12 @@
 (*
   Correctness proof for word_cse
 *)
-open preamble alistTheory totoTheory;
-open wordLangTheory wordSemTheory wordPropsTheory reg_allocTheory;
-open word_simpTheory word_cseTheory helperLib;
-
-val _ = new_theory "word_cseProof";
-
-val _ = set_grammar_ancestry ["wordLang", "wordSem", "wordProps", "word_cse"];
-
-Definition in_names_set_def:
-  in_names_set (Binop _ _ r1 (Reg r2)) s = (r1 ∈ s ∧ r2 ∈ s) ∧
-  in_names_set (Binop _ _ r1 (Imm _)) s = (r1 ∈ s) ∧
-  in_names_set (Div _ r1 r2) s = (r1 ∈ s ∧ r2 ∈ s) ∧
-  in_names_set (Shift _ _ r _) s = (r ∈ s) ∧
-  in_names_set _ s = F
-End
+Theory word_cseProof
+Libs
+  preamble helperLib
+Ancestors
+  wordLang wordSem wordProps word_cse alist toto reg_alloc
+  word_simp wordConvs
 
 Definition data_inv_def:
   data_inv (data:knowledge) (s:('a,'c,'ffi) wordSem$state) ⇔
@@ -202,11 +193,12 @@ Proof
   \\ Cases_on ‘a’ \\ gvs [is_complex_def, are_reads_seen_def]
   >- (Cases_on ‘r'’ \\ gvs [are_reads_seen_def]
       \\ gvs [evaluate_def, inst_def, assign_def, word_exp_def, the_words_def]
-      >- (Cases_on ‘n0=r’ \\ gvs [set_var_def, lookup_insert]
+      >- (
+          Cases_on ‘n0=r’ \\ gvs [get_var_def,set_var_def, lookup_insert]
           \\ Cases_on ‘n'=r’ \\ gvs [AllCaseEqs(), firstRegOfArith_def]
           \\ gvs [state_component_equality]
           \\ gvs [insert_eq])
-      \\ Cases_on ‘n0=r’ \\ gvs [set_var_def, lookup_insert]
+      \\ Cases_on ‘n0=r’ \\ gvs [get_var_def,set_var_def, lookup_insert]
       \\ gvs [AllCaseEqs(), firstRegOfArith_def]
       \\ gvs [state_component_equality]
       \\ gvs [insert_eq])
@@ -299,7 +291,7 @@ Proof
   >- (drule_all evaluate_arith_insert
       \\ Cases_on ‘v'=n’ \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def])
   \\ Cases_on ‘v'=n’ \\ gvs [get_var_def, set_var_def, lookup_insert, domain_lookup, is_seen_def]
-  \\ gvs [word_exp_def, the_words_def, lookup_insert]
+  \\ gvs [get_var_def,word_exp_def, the_words_def, lookup_insert]
   \\ Cases_on ‘src=n’ \\ gvs []
 QED
 

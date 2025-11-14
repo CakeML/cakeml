@@ -1,11 +1,12 @@
 (*
   An example based on searching an array.
 *)
-open preamble semanticPrimitivesTheory
-open ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
-open basisProgTheory quicksortProgTheory ArrayProofTheory UnsafeProgTheory UnsafeProofTheory
-
-val _ = new_theory "array_searchProg";
+Theory array_searchProg
+Ancestors
+  semanticPrimitives ml_translator basisProg quicksortProg
+  ArrayProof UnsafeProg UnsafeProof
+Libs
+  preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -463,6 +464,7 @@ Proof
       fs[] >>
       `start ≤ ((finish + start) DIV 2)` by fs[X_LE_DIV] >>
       imp_res_tac LIST_REL_EL_EQN >> fs[]) >>
+
   xlet `POSTv bv . ARRAY arr_v elem_vs * &BOOL F bv` (* d *)
   >- (xapp >> xsimpl >>
       qexists_tac `EL ((finish + start) DIV 2) elems` >>
@@ -497,6 +499,7 @@ Proof
       fs[DIV_LT_X]) >>
   qabbrev_tac `mid = (finish + start) DIV 2` >> fs[] >>
   qabbrev_tac `sub_list = DROP start (TAKE finish elems)` >>
+
   xif
   >- ( (* LOWER CASE - value in left half of sub_list *)
   qabbrev_tac `rec_len = mid - start` >>
@@ -617,6 +620,7 @@ Proof
   >- (qsuff_tac `mid < finish` >> fs[] >>
       UNABBREV_TAC "mid" >> fs[] >>
       fs[DIV_LT_X])
+  >- gvs []
   >-  fs[EVERY2_DROP]
   >- (
     qexists_tac `u` >> fs[] >>
@@ -654,5 +658,3 @@ Proof
     )
   )
 QED
-
-val _ = export_theory ();

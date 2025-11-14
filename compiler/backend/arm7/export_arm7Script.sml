@@ -1,9 +1,11 @@
 (*
   Define the format of the compiler-generated .S file for ARMv7
 *)
-open preamble exportTheory
-
-val () = new_theory "export_arm7";
+Theory export_arm7
+Ancestors
+  export
+Libs
+  preamble
 
 (*
 CakeML expects 4 arguments in order:
@@ -182,4 +184,3 @@ Definition arm7_export_def:
       else List []))))
 End
 
-val _ = export_theory ();

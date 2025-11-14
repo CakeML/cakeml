@@ -1,9 +1,11 @@
 (*
   Some lemmas about the semantics.
 *)
-open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory setSpecTheory
-
-val _ = new_theory"holSemanticsExtra"
+Theory holSemanticsExtra
+Ancestors
+  holSyntaxLib holSyntax holSyntaxExtra holSemantics setSpec
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
@@ -17,7 +19,7 @@ val mem = ``mem:'U->'U->bool``
 fun drule0 th =
   first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
 
-Triviality consts_of_term_RACONV:
+Theorem consts_of_term_RACONV[local]:
   !env tt.
      RACONV env tt /\ welltyped(FST tt) /\ welltyped(SND tt)
      /\ (!x y. MEM (x,y) env ==> ?n ty n' ty'. x = Var n ty /\ y = Var n' ty')
@@ -35,7 +37,7 @@ Proof
   rw[ACONV_def] >> drule consts_of_term_RACONV >> simp[]
 QED
 
-Triviality allTypes_RACONV:
+Theorem allTypes_RACONV[local]:
   !env tt.
      RACONV env tt /\ welltyped(FST tt) /\ welltyped(SND tt)
      /\ (!x y. MEM (x,y) env ==> ?n ty n'. x = Var n ty /\ y = Var n' ty)
@@ -166,7 +168,7 @@ Proof
   >> metis_tac[]
 QED
 
-Triviality typeof_VSUBST:
+Theorem typeof_VSUBST[local]:
   !l a. EVERY (\(x,y). typeof x = typeof y) l /\ welltyped a
     ==> typeof (VSUBST l a) = typeof a
 Proof
@@ -178,7 +180,7 @@ Proof
   >> first_x_assum match_mp_tac >> fs[EVERY_FILTER_IMP]
 QED
 
-Triviality TYPE_SUBST_tyvars:
+Theorem TYPE_SUBST_tyvars[local]:
   !sigma ty. tyvars ty = [] ==> TYPE_SUBST sigma ty = ty
 Proof
   ho_match_mp_tac TYPE_SUBST_ind >> rpt strip_tac
@@ -199,7 +201,7 @@ Proof
   >> simp[] >> metis_tac[list_CASES,EL_MAP]
 QED
 
-Triviality TYPE_SUBST_2:
+Theorem TYPE_SUBST_2[local]:
   !sigma ty. EVERY (λty. tyvars ty = []) (MAP FST sigma)
     ==> TYPE_SUBST sigma (TYPE_SUBST sigma ty) = TYPE_SUBST sigma ty
 Proof
@@ -239,7 +241,7 @@ Proof
       >> HINT_EXISTS_TAC >> simp[])
 QED
 
-Triviality VSUBST_id_lemma:
+Theorem VSUBST_id_lemma[local]:
   !tm ilist v. welltyped tm ==> VSUBST (ilist ++ [(Var x ty,Var x ty)]) tm = VSUBST ilist tm
 Proof
   Induct >> rpt strip_tac
@@ -479,7 +481,7 @@ Proof
   >> metis_tac[term_ok_def]
 QED
 
-Triviality TYPE_SUBSTf_lemma:
+Theorem TYPE_SUBSTf_lemma[local]:
   !ty sigma sigma'. (!tv. MEM tv (tyvars ty) ==> REV_ASSOCD (Tyvar tv) sigma' (Tyvar tv) = sigma tv) ==>
   TYPE_SUBSTf sigma ty = TYPE_SUBST sigma' ty
 Proof
@@ -539,7 +541,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality LIST_LENGTH_2:
+Theorem LIST_LENGTH_2[local]:
   LENGTH l = 2 ⇔ ∃e1 e2. l = [e1; e2]
 Proof
   Cases_on ‘l’ \\ fs [] \\ Cases_on ‘t’ \\ fs []
@@ -678,10 +680,11 @@ Proof
   qunabbrev_tac`ls` >>
   simp[ALOOKUP_FILTER,Abbr`P`,Abbr`sw`,combinTheory.o_DEF,LAMBDA_PROD] >- (
     rw[combinTheory.APPLY_UPDATE_THM,APPLY_UPDATE_LIST_ALOOKUP] >>
-    qmatch_assum_abbrev_tac`P ⇒ ALOOKUP ls vv = NONE` >>
+    gvs[]>>
+    qmatch_assum_abbrev_tac`ALOOKUP ls vv = NONE` >>
     Q.ISPECL_THEN[`ls`,`termsem δ γ v sigma`,`z`,`tyr`]mp_tac ALOOKUP_MAP_dest_var >>
-    impl_tac >- (simp[EVERY_MAP,EVERY_MEM,FORALL_PROD,Abbr`ls`] >> metis_tac[]) >>
-    rw[] >> fs[Abbr`P`] ) >>
+    (impl_tac >- (simp[EVERY_MAP,EVERY_MEM,FORALL_PROD,Abbr`ls`] >> metis_tac[]) >>
+    fs[]))>>
   simp[combinTheory.APPLY_UPDATE_THM,APPLY_UPDATE_LIST_ALOOKUP] >>
   rw[Abbr`f`] >>
   qmatch_assum_abbrev_tac`ALOOKUP ls vv = SOME zz` >>
@@ -902,4 +905,3 @@ Definition equal_on_def:
   fleq (total_fragment sig,i) (total_fragment sig, i')
 End
 
-val _ = export_theory()

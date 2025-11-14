@@ -1,11 +1,12 @@
 (*
  * Properties of RenamingTheory for our syntax
  *)
-open preamble totoTheory comparisonTheory ternaryComparisonsTheory mlstringTheory
-     holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
-     holSyntaxRenamingTheory
-
-val _ = new_theory"holSyntaxRenamingTyvar"
+Theory holSyntaxRenamingTyvar
+Ancestors
+  toto comparison ternaryComparisons mlstring holSyntaxLib
+  holSyntax holSyntaxExtra holSyntaxRenaming
+Libs
+  preamble
 
 (* overloads for set operations on lists *)
 
@@ -19,13 +20,6 @@ val _ = Parse.add_infix("⊆", 401, Parse.NONASSOC)
 Overload "⊆" = ``λs t. list_subset s t``
 
 (* general properties of pairs *)
-
-Theorem FST_SND_PAIR_MAP:
-  !f g. FST o (f ## g) = f o FST
-  /\ !f g. SND o (f ## g) = g o SND
-Proof
-  rw[SND_PAIR_MAP,FST_PAIR_MAP,FUN_EQ_THM,o_DEF]
-QED
 
 Theorem MEM_MAP_SWAP':
   !x s. MEM x (MAP SWAP s) = MEM (SWAP x) s
@@ -44,7 +38,7 @@ Proof
   >> fs[SWAP_def]
 QED
 
-Triviality EVERY_MEM_SWAP_eq:
+Theorem EVERY_MEM_SWAP_eq[local]:
   !s. EVERY (λx. MEM (SWAP x) s) s ⇔  set (MAP SWAP s) = set s
 Proof
   rw[EQ_IMP_THM,EVERY_MEM,pred_setTheory.EXTENSION,FORALL_AND_THM]
@@ -378,7 +372,7 @@ Proof
     >> drule_all_then strip_assume_tac rename_bij_MEM_REV_ASSOCD
     >> ASM_REWRITE_TAC[]
     >> ONCE_REWRITE_TAC[GSYM FST_SND_SWAP]
-    >> fs[o_DEF]
+    >> full_simp_tac(bool_ss)[o_DEF]
     >> match_mp_tac rename_bij_MEM_REV_ASSOCD
     >> fs[rename_bij_SWAP_IMP,MEM_MAP_SWAP]
   )
@@ -702,7 +696,7 @@ Proof
 QED
 
 (* TODO remove unused theorem *)
-Triviality var_renaming_compose_set:
+Theorem var_renaming_compose_set[local]:
   !r s. var_renaming r ∧ var_renaming s⇒
   set (MAP FST (MAP (TYPE_SUBST s ## I) r))
   = ({ FST x | MEM x s ∧ MEM (SND x) (MAP FST r) }
@@ -756,7 +750,7 @@ Proof
 QED
 
 (* TODO remove unused theorem *)
-Triviality var_renaming_compose_props:
+Theorem var_renaming_compose_props[local]:
   ∀r s. var_renaming s ∧ var_renaming r
   ⇒ let s = MAP (TYPE_SUBST s ## I) r ++ s
   in
@@ -786,7 +780,7 @@ Proof
   >> fs[UNION_DIFF_EQ,UNION_IDEMPOT,AC UNION_ASSOC UNION_COMM,SUBSET_UNION_ABSORPTION]
 QED
 
-Triviality var_renaming_compose_set_FST_FILTER:
+Theorem var_renaming_compose_set_FST_FILTER[local]:
   !r s.  var_renaming s ∧ var_renaming r
   ⇒ set (MAP FST (FILTER (λ(x,y). x ≠ y) (MAP (TYPE_SUBST s ## I) r)))
   = ({ FST x | ∃a. MEM x s ∧ MEM (SND x,a) r ∧ a ≠ FST x}
@@ -845,7 +839,7 @@ Proof
   >> fs[ELIM_UNCURRY]
 QED
 
-Triviality var_renaming_compose_set_SND_FILTER:
+Theorem var_renaming_compose_set_SND_FILTER[local]:
   !r s.  var_renaming s ∧ var_renaming r
   ⇒ set (MAP SND (FILTER (λ(x,y). x ≠ y) (MAP (TYPE_SUBST s ## I) r)))
   = { SND x | MEM x r ∧ ¬MEM (SWAP x) s}
@@ -1511,7 +1505,7 @@ Termination
   >> rgs[Abbr`f`,o_DEF]
 End
 
-Triviality SUBSET_UNION_DISJ:
+Theorem SUBSET_UNION_DISJ[local]:
   (!a b (c:'a set). a ⊆ b ∪ c /\ (a ∩ b) = EMPTY ==> a ⊆ c)
   /\ (!a b (c:'a set). a ⊆ b ∪ c /\ (a ∩ c) = EMPTY ==> a ⊆ b)
 Proof
@@ -1847,7 +1841,7 @@ Theorem ren_ALL_DISTINCT:
   !r c. ALL_DISTINCT (MAP SND (ren r c))
   /\ ALL_DISTINCT (MAP FST (ren r c))
 Proof
-  fs[ren_def,MAP_MAP_o,FST_SND_PAIR_MAP]
+  fs[ren_def,MAP_MAP_o]
   >> fs[GSYM MAP_MAP_o]
   >> rpt gen_tac
   >> qmatch_goalsub_abbrev_tac `MAP FST rab`
@@ -1860,8 +1854,7 @@ QED
 Theorem ren_MEM:
   !x y r c. MEM (Tyvar y,Tyvar x) (ren r c) ==> (~MEM y c /\ MEM x (list_inter c r))
 Proof
-  rw[ren_def,MAP_MAP_o,FST_SND_PAIR_MAP,MEM_MAP,PAIR_MAP]
-  >> Cases_on `y'`
+  rw[ren_def,MAP_MAP_o,MEM_MAP,PAIR_MAP]
   >> imp_res_tac rename_apart_by_MEM
   >> fs[]
 QED
@@ -1886,7 +1879,7 @@ QED
 Theorem ren_MEM_SND:
   !r c x. MEM x (list_inter r c) = MEM (Tyvar x) (MAP SND (ren r c))
 Proof
-  fs[ren_def,MAP_MAP_o,FST_SND_PAIR_MAP]
+  fs[ren_def,MAP_MAP_o]
   >> fs[GSYM MAP_MAP_o,MEM_Tyvar_MAP_Tyvar,rename_apart_by_MEM_SND]
 QED
 
@@ -1895,7 +1888,7 @@ Theorem ren_MEM_SND1 = ONCE_REWRITE_RULE[list_inter_set_comm] ren_MEM_SND
 Theorem ren_disj_dom_img:
   !r c. NULL (list_inter (MAP FST (ren r c)) (MAP SND (ren r c)))
 Proof
-  fs[ren_def,MAP_MAP_o,FST_SND_PAIR_MAP]
+  fs[ren_def,MAP_MAP_o]
   >> rw[GSYM MAP_MAP_o,NULL_list_inter_MAP_Tyvar,rename_apart_by_disj_dom_img]
 QED
 
@@ -1910,7 +1903,7 @@ QED
 Theorem ren_disj_img_c:
   !r c. NULL (list_inter (MAP FST (ren r c)) (MAP Tyvar c))
 Proof
-  fs[ren_def,MAP_MAP_o,FST_SND_PAIR_MAP]
+  fs[ren_def,MAP_MAP_o]
   >> rw[GSYM MAP_MAP_o,NULL_list_inter_MAP_Tyvar,rename_apart_by_disj_img_c]
 QED
 
@@ -1935,7 +1928,7 @@ QED
 Theorem ren_disj_img_r:
   !r c. NULL (list_inter (MAP FST (ren r c)) (MAP Tyvar r))
 Proof
-  fs[ren_def,MAP_MAP_o,FST_SND_PAIR_MAP]
+  fs[ren_def,MAP_MAP_o]
   >> rw[GSYM MAP_MAP_o,NULL_list_inter_MAP_Tyvar,rename_apart_by_disj_img_r]
 QED
 
@@ -1953,9 +1946,8 @@ Proof
   >> fs[GSYM MAP_MAP_o]
   >- (
     Q.ISPECL_THEN [`Tyvar`,`Tyvar`] assume_tac MEM_ALOOKUP_INJ
-    >> fs[MEM_MAP]
-    >> Cases_on `y`
-    >> fs[PAIR_MAP,rename_apart_by_ALOOKUP]
+    >> fs[MEM_MAP] >> rveq
+    >> fs[rename_apart_by_ALOOKUP]
   )
   >> qmatch_asmsub_abbrev_tac `MAP SWAP rab`
   >> fs[ALOOKUP_MEM_eq,PAIR_MAP]
@@ -2034,7 +2026,7 @@ Theorem ren_renaming:
 Proof
   rw[renaming_eq,MEM_MAP,GSYM ren_ALOOKUP]
   >> Cases_on `y`
-  >> fs[ren_def,MEM_MAP,PAIR_MAP]
+  >> fs[ren_def,MEM_MAP] >> rveq
   >> goal_assum (first_assum o mp_then Any mp_tac)
   >> fs[]
 QED
@@ -2042,7 +2034,7 @@ QED
 Theorem ren_list_complement:
    !r rc c. NULL (list_inter (MAP SND (ren (list_complement r rc) c)) (MAP Tyvar rc))
 Proof
-  fs[ren_def,MAP_MAP_o,FST_SND_PAIR_MAP]
+  fs[ren_def,MAP_MAP_o]
   >> rw[GSYM MAP_MAP_o,NULL_list_inter_MAP_Tyvar,rename_apart_by_list_complement]
 QED
 
@@ -2050,7 +2042,7 @@ Theorem ren_LIST_UNION:
    (!r c1 c2. NULL (list_inter (MAP FST (ren r (LIST_UNION c1 c2))) (MAP Tyvar c1)))
    /\ !r c1 c2. NULL (list_inter (MAP FST (ren r (LIST_UNION c1 c2))) (MAP Tyvar c2))
 Proof
-  fs[ren_def,MAP_MAP_o,FST_SND_PAIR_MAP]
+  fs[ren_def,MAP_MAP_o]
   >> rw[GSYM MAP_MAP_o,NULL_list_inter_MAP_Tyvar,rename_apart_by_LIST_UNION]
 QED
 
@@ -2602,4 +2594,3 @@ Proof
   >> gvs[]
 QED
 
-val _ = export_theory();

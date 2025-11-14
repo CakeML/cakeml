@@ -14,10 +14,6 @@ Two benchmark suites for the CakeML compiler.
 Theories that perform proof-grounded bootstrapping of
 the CakeML compiler in HOL.
 
-[compilationLib.sml](compilationLib.sml):
-Library for in-logic compilation of CakeML abstract syntax producing machine
-code (for a variety of targets) using the CakeML compiler backend.
-
 [compilerScript.sml](compilerScript.sml):
 Definition of the CakeML compiler as a function that takes a list of command
 line arguments and a string corresponding to standard input, and produces a
@@ -25,7 +21,7 @@ pair of output strings for standard error and standard output (the latter
 containing the generated machine code if successful).
 
 [dafny](dafny):
-Translate Dafny into CakeML.
+A verified VCG and verified compiler for Dafny
 
 [encoders](encoders):
 Encoders for CakeML's ASM abstract assembly language into each of the concrete
@@ -46,3 +42,6 @@ Correctness proof for the CakeML compiler.
 [repl](repl):
 Some definitions and proofs used in the proof of the CakeML
 and Candle read-eval-print loop (REPL).
+
+[scheme](scheme):
+A compiler from Scheme to CakeML

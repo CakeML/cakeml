@@ -3,14 +3,13 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     TextIOProofTheory
-     satSemTheory lprTheory lpr_listTheory lpr_arrayPackingProgTheory
-     lpr_parsingTheory lpr_arrayPackingCompileTheory lpr_composeProgTheory
-     lpr_listTheory packingTheory;
-
-val _ = new_theory"lpr_arrayPackingProof";
+Theory lpr_arrayPackingProof
+Ancestors
+  semanticsProps backendProof x64_configProof TextIOProof satSem
+  lpr lpr_list lpr_arrayPackingProg lpr_parsing
+  lpr_arrayPackingCompile lpr_composeProg lpr_list packing
+Libs
+  preamble
 
 val main_io_events_def = new_specification("main_io_events_def",["main_io_events"],
   main_semantics |> Q.GENL[`cl`,`fs`]
@@ -125,4 +124,3 @@ Proof
   metis_tac[unsat_is_plane_packing]
 QED
 
-val _ = export_theory();

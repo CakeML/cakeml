@@ -1,10 +1,12 @@
 (*
   Encoding from boolExp to cnf using Tseytin transformation
 *)
+Theory boolExpToCnf
+Ancestors
+  misc ASCIInumbers cnf
+Libs
+  preamble
 
-open preamble miscTheory ASCIInumbersTheory cnfTheory;
-
-val _ = new_theory "boolExpToCnf";
 
 (* --------------------------- Datatypes -------------------------------- *)
 
@@ -899,4 +901,3 @@ Proof
   \\ gvs [boolExp_to_cnf_preserves_sat]
 QED
 
-val _ = export_theory();

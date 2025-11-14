@@ -1,36 +1,46 @@
 (*
   Definition of a function for mapping types back to ASTs, and proofs that
   check that the conversion functions are doing something reasonable.
-  TODO: check this description is correct
 *)
-open HolKernel Parse boolLib bossLib;
-open preamble boolSimps
-
-open cmlPtreeConversionTheory
-open gramPropsTheory
-
-val _ = new_theory "cmlPtreeConversionProps";
-val _ = set_grammar_ancestry ["cmlPtreeConversion", "gramProps"]
+Theory cmlPtreeConversionProps
+Ancestors
+  cmlPtreeConversion gramProps
+Libs
+  preamble boolSimps
 
 val _ = option_monadsyntax.temp_add_option_monadsyntax()
 
 (* first, capture those types that we expect to be in the range of the
    conversion *)
 Definition user_expressible_tyname_def:
-  (user_expressible_tyname (Short s) ⇔ T) ∧
-  (user_expressible_tyname (Long m (Short s)) ⇔ T) ∧
-  (user_expressible_tyname _ ⇔ F)
+  (user_expressible_tyname _ ⇔ T)
 End
 val _ = augment_srw_ss [rewrites [user_expressible_tyname_def]]
 
 Overload ND[local] = “λn. Nd (mkNT n, ARB)”
 Overload LF[local] = “λt. Lf (TOK t, ARB)”
 
+Definition id_to_path_def:
+  id_to_path (Short n) = (End,n) ∧
+  id_to_path (Long s t) =
+    let (p,n) = id_to_path t in
+      (Mod s p,n)
+End
+
 Definition tyname_to_AST_def:
   tyname_to_AST (Short n) = ND nTyOp [ND nUQTyOp [LF (AlphaT n)]] ∧
-  tyname_to_AST (Long md (Short n)) = ND nTyOp [LF (LongidT md n)] ∧
-  tyname_to_AST _ = ARB
+  tyname_to_AST other = let (p,n) = id_to_path other in
+                          ND nTyOp [LF (LongidT p n)]
 End
+
+Theorem id_to_path_Long_Short:
+  ∀i p n. id_to_path i = (p,n) ⇒ Long_Short p n = i
+Proof
+  Induct
+  \\ gvs [id_to_path_def,Long_Short_def]
+  \\ rw [] \\ pairarg_tac \\ gvs []
+  \\ gvs [id_to_path_def,Long_Short_def]
+QED
 
 Theorem tyname_inverted:
    ∀id. user_expressible_tyname id ⇒
@@ -38,8 +48,9 @@ Theorem tyname_inverted:
 Proof
   Cases >>
   simp[ptree_Tyop_def, tyname_to_AST_def, ptree_UQTyop_def] >>
-  rename [‘Long m j’] >> Cases_on ‘j’ >>
-  simp[ptree_Tyop_def, tyname_to_AST_def, ptree_UQTyop_def]
+  pairarg_tac >> gvs [] >>
+  simp[ptree_Tyop_def, tyname_to_AST_def, ptree_UQTyop_def] >>
+  imp_res_tac id_to_path_Long_Short
 QED
 
 Theorem tyname_validptree:
@@ -48,10 +59,9 @@ Theorem tyname_validptree:
           ptree_head (tyname_to_AST id) = NN nTyOp
 Proof
   Cases >> simp[tyname_to_AST_def, cmlG_FDOM, cmlG_applied] >>
-  rename [‘Long m j’] >> Cases_on ‘j’ >>
+  pairarg_tac >> gvs [] >>
   simp[tyname_to_AST_def, cmlG_applied, cmlG_FDOM]
 QED
-
 
 Definition user_expressible_type_def:
   (user_expressible_type (Atvar _) ⇔ T) ∧
@@ -62,11 +72,8 @@ Definition user_expressible_type_def:
      EVERY user_expressible_type tys ∧ 2 ≤ LENGTH tys) ∧
   (user_expressible_type (Atfun dty rty) ⇔
      user_expressible_type dty ∧ user_expressible_type rty)
-Termination
-  WF_REL_TAC ‘measure ast$ast_t_size’ >> simp[] >> conj_tac >> rpt gen_tac >>
-   Induct_on ‘tys’ >>
-   dsimp[astTheory.ast_t_size_def] >> rpt strip_tac >> res_tac  >> simp[]
 End
+
 val _ = augment_srw_ss [rewrites [
            SIMP_RULE (srw_ss() ++ ETA_ss) [] user_expressible_type_def]]
 
@@ -126,19 +133,13 @@ Definition type_to_AST_def:
     ND nPType [ND nDType [ND nTbase [LF LparT; type_to_AST ty; LF RparT]];
                LF StarT;
                typel_to_AST_PType tys]
-Termination
-  WF_REL_TAC
-     ‘measure (λs. case s of INL ty => ast_t_size ty
-                           | INR (INL tyl) => ast_t1_size tyl
-                           | INR (INR tyl) => ast_t1_size tyl)’
 End
 
 Theorem destTyvarPT_tyname_to_AST:
    ∀i. user_expressible_tyname i ⇒ destTyvarPT (tyname_to_AST i) = NONE
 Proof
   Cases >> simp[tyname_to_AST_def] >>
-  rename [‘Long _ j’] >> Cases_on ‘j’ >>
-  simp[tyname_to_AST_def]
+  pairarg_tac >> gvs []
 QED
 
 Type PT = “:(token,MMLnonT,α) parsetree”
@@ -396,7 +397,7 @@ Proof
   simp[ptree_Op_def, tokcheck_def, tokcheckl_def, singleSymP_def]
 QED
 
-Triviality MAP_TK11:
+Theorem MAP_TK11[local]:
   ∀l1 l2. MAP TK l1 = MAP TK l2 ⇔ l1 = l2
 Proof
   Induct_on `l1` >> simp[] >> rpt gen_tac >>
@@ -550,7 +551,7 @@ Proof
    metis_tac[pair_CASES]) >>~-
   ([‘∃p. ptree_Op pt = SOME p (* g *)’],
    match_mp_tac (GEN_ALL Ops_OK0) >> simp[]) >>~-
-  ([‘∃es. Eseq_encode el = SOME es’],
+  ([‘∃es. Eseq_encode _ = SOME es’],
    erule strip_assume_tac Eseq_encode_OK >> simp[]) >~
   [‘∃ty. ptree_Type nType pt = SOME ty’]
   >- (erule strip_assume_tac (n Type_OK) >> simp[]) >~
@@ -832,20 +833,3 @@ Proof
       >- (rename[`Lf p`] >> Cases_on `p` >> fs[] >> fs[]) >>
       metis_tac[Decl_OK, grammarTheory.ptree_fringe_def])
 QED
-
-(*
-Theorem REPLTop_OK:
-   valid_ptree cmlG pt ∧ ptree_head pt = NN nREPLTop ∧
-    MAP TK toks = ptree_fringe pt ⇒
-    ∃r. ptree_REPLTop pt = SOME r
-Proof
-  start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >>
-  simp[ptree_REPLTop_def]
-  >- (erule strip_assume_tac (n TopLevelDec_OK) >> simp[]) >>
-  rename1 `ptree_TopLevelDec pt0` >>
-  Cases_on `ptree_TopLevelDec pt0` >> simp[] >>
-  erule strip_assume_tac (n E_OK) >> simp[]
-QED
-*)
-
-val _ = export_theory();

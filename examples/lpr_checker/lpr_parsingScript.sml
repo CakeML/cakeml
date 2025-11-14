@@ -1,9 +1,11 @@
 (*
    Parsing interface for DIMACS and LPR
 *)
-open preamble miscTheory lprTheory mlintTheory;
-
-val _ = new_theory "lpr_parsing";
+Theory lpr_parsing
+Ancestors
+  misc lpr mlint
+Libs
+  preamble
 
 (*
   Parses a list of strings (1 per line of a file) in
@@ -139,7 +141,7 @@ Proof
   simp [toStdString_def]
 QED
 
-Triviality isDigit_not_blanks:
+Theorem isDigit_not_blanks[local]:
   isDigit c ==> ~ blanks c
 Proof
   CCONTR_TAC \\ fs [blanks_def] \\ fs [isDigit_def]
@@ -972,7 +974,7 @@ Definition parse_vb_until_nn_def:
   )
 End
 
-Triviality parse_vb_until_nn_length:
+Theorem parse_vb_until_nn_length[local]:
   ∀ls acc a b c.
   parse_vb_until_nn ls acc = (a,b,c) ∧ a ≠ 0 ⇒
   LENGTH c < LENGTH ls
@@ -1141,4 +1143,3 @@ val res = EVAL ``good_char (strsub (HD ^(clprraw)) 0)``
 
 val res = EVAL``parse_pr ^(clprraw)``
 
-val _ = export_theory ();

@@ -11,7 +11,7 @@ local
   structure Parse = struct
     open Parse
      val (Type,Term) =
-         parse_from_grammars cfMonadTheory.cfMonad_grammars
+         parse_from_grammars $ valOf $ grammarDB {thyname = "cfMonad"}
   end
   open Parse
 in

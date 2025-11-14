@@ -1,26 +1,26 @@
 (*
   Correctness proof for data_simp
 *)
-open preamble data_simpTheory dataSemTheory dataPropsTheory;
+Theory data_simpProof
+Ancestors
+  data_simp dataSem dataProps
+Libs
+  preamble
 
-val _ = new_theory"data_simpProof";
-
-val _ = set_grammar_ancestry ["data_simp", "dataSem", "dataProps"];
-
-Triviality evaluate_Seq_Skip:
+Theorem evaluate_Seq_Skip[local]:
   !c s. evaluate (Seq c Skip,s) = evaluate (c,s)
 Proof
   fs [evaluate_def,LET_DEF] \\ REPEAT STRIP_TAC
   \\ Cases_on `evaluate (c,s)` \\ fs [] \\ SRW_TAC [] []
 QED
 
-Triviality evaluate_pSeq:
+Theorem evaluate_pSeq[local]:
   evaluate (pSeq c1 c2, s) = evaluate (Seq c1 c2, s)
 Proof
   SRW_TAC [] [pSeq_def] \\ fs [evaluate_Seq_Skip]
 QED
 
-Triviality evaluate_simp:
+Theorem evaluate_simp[local]:
   !c1 s c2. evaluate (simp c1 c2,s) = evaluate (Seq c1 c2,s)
 Proof
   recInduct evaluate_ind \\ reverse (REPEAT STRIP_TAC) THEN1
@@ -56,4 +56,3 @@ Proof
   \\ metis_tac[]
 QED
 
-val _ = export_theory();

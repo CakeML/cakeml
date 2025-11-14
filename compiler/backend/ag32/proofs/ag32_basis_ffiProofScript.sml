@@ -2,16 +2,14 @@
   Verify that the ag32 implementation of the FFI primitives satisfies
   interference_implemented.
 *)
-open preamble
-  ag32_memoryTheory
-  ag32_machine_configTheory
-  ag32_ffi_codeProofTheory
-  ag32_memoryProofTheory
-local open blastLib basis_ffiTheory in end
+Theory ag32_basis_ffiProof
+Ancestors
+  ag32_memory ag32_machine_config ag32_ffi_codeProof
+  ag32_memoryProof basis_ffi[qualified]
+Libs
+  preamble blastLib[qualified]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"ag32_basis_ffiProof";
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -2149,7 +2147,7 @@ Proof
   >- (
     rw[bytes_in_memory_APPEND]
     \\ rw[get_next_mem_arg_LEAST]
-    \\ simp[whileTheory.OLEAST_def]
+    \\ simp[WhileTheory.OLEAST_def]
     \\ reverse IF_CASES_TAC
     >- ( fs[SNOC_APPEND, bytes_in_memory_APPEND, bytes_in_memory_def] )
     \\ simp[]
@@ -2171,7 +2169,7 @@ Proof
   \\ first_x_assum drule
   \\ disch_then drule
   \\ rw[]
-  \\ simp[get_next_mem_arg_LEAST, whileTheory.OLEAST_def]
+  \\ simp[get_next_mem_arg_LEAST, WhileTheory.OLEAST_def]
   \\ reverse IF_CASES_TAC
   >- ( fs[SNOC_APPEND, bytes_in_memory_APPEND, bytes_in_memory_def] )
   \\ simp[]
@@ -2405,7 +2403,7 @@ Proof
     \\ qpat_x_assum`a' = a`SUBST_ALL_TAC
     \\ qpat_x_assum`a = _`(assume_tac o SYM)
     \\ simp[Abbr`s1`, APPLY_UPDATE_THM]
-    \\ simp[whileTheory.OLEAST_def]
+    \\ simp[WhileTheory.OLEAST_def]
     \\ simp[GSYM CONJ_ASSOC]
     \\ conj_asm1_tac
     >- (
@@ -7532,12 +7530,12 @@ Proof
         \\ `sz DIV 4 + (startup_code_size - sz) DIV 4 = startup_code_size DIV 4`
         by (
           DEP_REWRITE_TAC[GSYM ADD_DIV_RWT]
-          \\ simp[LENGTH_startup_code_MOD_4, Abbr`sz`, Abbr`sc`]
+          \\ simp[LENGTH_startup_code_MOD_4, Abbr`sz`, Abbr`startup`]
           \\ once_rewrite_tac[ADD_COMM]
           \\ DEP_REWRITE_TAC[SUB_ADD]
           \\ simp[LENGTH_startup_code])
         \\ rewrite_tac[ADD_ASSOC] \\ pop_assum SUBST1_TAC
-        \\ simp[Abbr`sz`,Abbr`sc`]
+        \\ simp[Abbr`sz`, Abbr`startup`]
         \\ qpat_abbrev_tac`cz = if _ < cline_size then _ else _`
         \\ `cz = cline_size` by (rw[Abbr`cz`])
         \\ qpat_x_assum`Abbrev(cz = _)`kall_tac
@@ -7675,12 +7673,12 @@ Proof
       \\ `sz DIV 4 + (startup_code_size - sz) DIV 4 = startup_code_size DIV 4`
       by (
         DEP_REWRITE_TAC[GSYM ADD_DIV_RWT]
-        \\ simp[LENGTH_startup_code_MOD_4, Abbr`sz`, Abbr`sc`]
+        \\ simp[LENGTH_startup_code_MOD_4, Abbr`sz`, Abbr`startup`]
         \\ once_rewrite_tac[ADD_COMM]
         \\ DEP_REWRITE_TAC[SUB_ADD]
         \\ simp[LENGTH_startup_code])
       \\ rewrite_tac[ADD_ASSOC] \\ pop_assum SUBST1_TAC
-      \\ simp[Abbr`sz`,Abbr`sc`]
+      \\ simp[Abbr`sz`,Abbr`startup`]
       \\ simp[LENGTH_startup_code_MOD_4] \\ EVAL_TAC )
     \\ rewrite_tac[GSYM APPEND_ASSOC] \\ DEP_ONCE_REWRITE_TAC[EL_APPEND2]
     \\ simp[]
@@ -7821,4 +7819,3 @@ Proof
   \\ fs[markerTheory.Abbrev_def]
 QED
 
-val _ = export_theory();

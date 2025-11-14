@@ -3,11 +3,11 @@
  * 9th May 2023: Updated with function declarations
  * March 2024: Updated with shared memory instructions
  *)
-open HolKernel Parse boolLib bossLib stringLib numLib intLib;
-open preamble panPtreeConversionTheory;
-open helperLib;
-
-val _ = new_theory "panConcreteExamples";
+Theory panConcreteExamples
+Ancestors
+  panPtreeConversion
+Libs
+  stringLib numLib intLib preamble helperLib
 
 local
   val f =
@@ -38,7 +38,7 @@ fun parse_pancake q =
   let
     val code = quote_to_strings q |> String.concatWith "\n" |> fromMLstring
   in
-    EVAL “parse_funs_to_ast ^code”
+    EVAL “parse_topdecs_to_ast ^code”
   end
 
 val check_success = assert $ sumSyntax.is_inl o rhs o concl
@@ -132,6 +132,22 @@ val ex4 = ‘
   }’;
 
 val treeEx4 = check_success $ parse_pancake ex4;
+
+val ex4' = ‘
+  fun loopy() {
+    while b | c {
+      if x >= 5 {
+        break;
+      } else {
+        st32 y, 8; // store byte
+        @foo(x,y,k,z); // ffi function call with pointer args
+        x = x + 1;
+        y = x + 1;
+      }
+    }
+  }’;
+
+val treeEx4' = check_success $ parse_pancake ex4';
 
 (** Declarations: intended semantics is the variable scope extends as
     far left as possible. *)
@@ -230,7 +246,7 @@ val ex9 = ‘
    var d = 1;
    @out_morefun(a,b,c,d);
    st @base, ic;
-   return 0;
+   return @top;
  }’;
 
 val treeEx10 = check_success $ parse_pancake ex9;
@@ -344,8 +360,10 @@ val locmem_ex = ‘
     var v = 12;
     st 1000, 1 + 1; // store 1 + 1 (ie 2) at local memory address 1000
     st8 1000 + 4, v; // store byte from variable v (12) to local memory address 1004
+    st32 1000 + 4, v; // store word32 from variable v (12) to local memory address 1004
     v = lds 1 1000 + 8; // load word from local address 1008 and assign to variable v
     v = ld8 1000 + 4 * 3; // load byte from local address 1012 and assign to variable v
+    v = ld32 1000 + 4 * 3; // load word32 from local address 1012 and assign to variable v
   }’;
 
 val locmem_ex_parse =  check_success $ parse_pancake locmem_ex;
@@ -354,9 +372,11 @@ val shmem_ex = ‘
   fun test_shmem() {
     var v = 12;
     !st8 1000, v; // store byte from variable v (12) to shared memory address 1000
+    !st16 1000, v; // store 32 bits from variable v (12) to shared memory address 1000
     !st32 1000, v; // store 32 bits from variable v (12) to shared memory address 1000
     !stw 1004, 1+1; // store 1+1 (aka 2) to shared memory address 1004
     !ld8 v, 1000 + 12; // load byte stored in shared memory address 1012 to v
+    !ld16 v, 1000 + 12; // load 32 bits from shared memory address 1012 to v
     !ld32 v, 1000 + 12; // load 32 bits from shared memory address 1012 to v
     !ldw v, 1000 + 12 * 2; // load word stored in shared memory address 1024 to v
   }’;
@@ -402,22 +422,20 @@ val error_line_ex2 =
 
 val error_line_ex2_parse = check_failure $ parse_pancake error_line_ex2
 
-(** Function pointers
+val error_line_ex3 =
+‘
+  fun foo() {
+    skip;
+    while (1) {
+      skip;
+      skip;
+      skeep;
+      skip;
+    }
+  }
+’
 
-    & can only be used to get the address of functions.
-    Function pointers can be stored in variables, in shapes, passed as arguments,
-    stored on the heap, and invoked.
-    Any other use of them---including but not limited to arithmetic and
-    shared memory operations---is considered undefined behaviour.
- *)
-val fun_pointer_ex1 =
-  ‘fun main () {
-     var x = &main;
-     return *x(); //  this is a recursive call
-   }
-  ’
-
-val fun_pointer_ex1_parse = check_success $ parse_pancake fun_pointer_ex1;
+val error_line_ex3_parse = check_failure $ parse_pancake error_line_ex3
 
 (* Exporting a function, that is, making a function callable for external entry into Pancake,
    uses the `export` keyword. Functions without this keyword are not callable in this way *)
@@ -460,7 +478,54 @@ val empty_blocks =
   fun j() { if(1) { x = 5; } else { } }
   ’
 
-val empty_body_parse = check_success $ parse_pancake empty_blocks;
+val empty_blocks_parse = check_success $ parse_pancake empty_blocks;
+
+(* Various kinds of global variables *)
+val globals1 =
+ ‘
+  var 1 x = 1+1;
+  ’
+
+val globals1_parse = check_success $ parse_pancake globals1;
+
+val globals2 =
+ ‘
+  var 1 x = 1+1;
+
+  fun f() { x = x + 1; return x; }
+
+  var 1 y = x+1;
+  ’
+
+val globals2_parse = check_success $ parse_pancake globals2;
+
+val globals3 =
+ ‘
+  var 1 x = 0;
+
+  fun f(1 y) { x = y + 1; var x = 5; return x; }
+  ’
+
+val globals3_parse = check_success $ parse_pancake globals3;
+
+val globals4 =
+ ‘
+  var 1 x = 0;
+
+  fun f(1 y) { x = f(x); var x = 5; x = f(x); return x; }
+  ’
+
+val globals4_parse = check_success $ parse_pancake globals4;
+
+(* Dec blocks with no subsequent prog *)
+val empty_dec_prog =
+ ‘
+  fun f() { var x = 0; }
+
+  fun g() { var 1 x = f(); }
+  ’
+
+val empty_dec_prog_parse = check_success $ parse_pancake empty_dec_prog;
 
 (* Using the annotation comment syntax. *)
 val annot_fun =
@@ -483,4 +548,25 @@ val annots = annot_fun_lex |> concl |> rhs |> listSyntax.dest_list |> fst
   |> filter (can (find_term (can (match_term ``AnnotCommentT``))))
 val has_annot = assert (not o null) annots;
 
-val _ = export_theory();
+(* Default shape annotation *)
+val opt_shape_dec =
+ ‘
+  var 1 x = 0;
+  var y = 0;
+
+  fun 1 f(1 a) {
+    x = a + 1;
+    var 1 z = f(a);
+    var 1 x = 5;
+    return x;
+  }
+
+  fun g(b) {
+    y = b + 1;
+    var z = g(a);
+    var y = 5;
+    return y;
+  }
+  ’
+
+val opt_shape_dec_parse = check_success $ parse_pancake opt_shape_dec;

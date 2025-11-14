@@ -2,11 +2,9 @@
   A type system for values, and
   the invariants that are used for type soundness.
 *)
-open HolKernel Parse boolLib bossLib;
-open astTheory namespaceTheory semanticPrimitivesTheory typeSystemTheory;
-open namespacePropsTheory;
-
-val _ = new_theory "typeSoundInvariants"
+Theory typeSoundInvariants
+Ancestors
+  ast namespace semanticPrimitives typeSystem namespaceProps
 
 Datatype:
  store_t =
@@ -94,10 +92,8 @@ Inductive type_v:
     type_v tvs ctMap tenvS (Litv (Word8 w)) Tword8) ∧
   (!tvs ctMap tenvS w.
     type_v tvs ctMap tenvS (Litv (Word64 w)) Tword64) ∧
-  (!tvs ctMap tenvS v.
-    type_v tvs ctMap tenvS (FP_WordTree v) Tdouble) /\
-  (!tvs ctMap tenvS r.
-    type_v tvs ctMap tenvS (Real r) Treal) /\
+  (!tvs ctMap tenvS w.
+    type_v tvs ctMap tenvS (Litv (Float64 w)) Tdouble) ∧
   (!tvs ctMap tenvS vs tvs' stamp ts' ts ti.
     EVERY (check_freevars tvs []) ts' ∧
     LENGTH tvs' = LENGTH ts' ∧
@@ -260,4 +256,3 @@ type_sound_invariant st env ctMap tenvS type_idents tenv ⇔
 End
 
 
-val _ = export_theory();

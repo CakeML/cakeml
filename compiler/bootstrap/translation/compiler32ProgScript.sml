@@ -1,17 +1,20 @@
 (*
   Finish translation of the 32-bit version of the compiler.
 *)
+Theory compiler32Prog[no_sig_docs]
+Ancestors
+  compiler export ml_translator ag32Prog[qualified]
+  arm7Prog[qualified] basis_ffi[qualified]
+Libs
+  preamble ml_translatorLib cfLib basis
+
 open preamble;
-local open ag32ProgTheory in end;
-local open arm7ProgTheory in end;
 open compilerTheory
      exportTheory
      ml_translatorLib ml_translatorTheory;
 open cfLib basis;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"compiler32Prog";
 
 val _ = translation_extends "ag32Prog";
 val _ = ml_translatorLib.use_string_type true;
@@ -25,11 +28,55 @@ val () = use_long_names := true;
 
 val spec32 = INST_TYPE[alpha|->``:32``]
 
-val res = translate $ spec32 panScopeTheory.scope_check_exp_def;
-val res = translate $ spec32 panScopeTheory.scope_check_prog_def;
-val res = translate $
-  INST_TYPE[beta|->``:32``] panScopeTheory.scope_check_funs_def;
-val res = translate $ INST_TYPE[beta|->``:32``] panScopeTheory.scope_check_def;
+val res = translate $ errorLogMonadTheory.return_def;
+val res = translate $ errorLogMonadTheory.bind_def;
+val res = translate $ errorLogMonadTheory.log_def;
+val res = translate $ errorLogMonadTheory.error_def;
+
+val res = translate $ panStaticTheory.sh_bd_from_sh_def;
+val res = translate $ panStaticTheory.sh_bd_from_bd_def;
+val res = translate $ panStaticTheory.sh_bd_has_shape_def;
+val res = translate $ panStaticTheory.sh_bd_eq_shapes_def;
+val res = translate $ panStaticTheory.index_sh_bd_def;
+val res = translate $ panStaticTheory.based_merge_def;
+val res = translate $ panStaticTheory.sh_bd_branch_def;
+val res = translate $ panStaticTheory.branch_loc_inf_def;
+val res = translate $ panStaticTheory.seq_loc_inf_def;
+
+val res = translate $ panStaticTheory.last_to_str_def;
+val res = translate $ panStaticTheory.next_is_reachable_def;
+val res = translate $ panStaticTheory.next_now_unreachable_def;
+val res = translate $ spec32 $ panStaticTheory.reached_warnable_def;
+val res = translate $ panStaticTheory.branch_last_stmt_def;
+val res = translate $ panStaticTheory.seq_last_stmt_def;
+
+val res = translate $ panStaticTheory.get_scope_desc_def;
+val res = translate $ panStaticTheory.get_scope_msg_def;
+val res = translate $ panStaticTheory.get_redec_msg_def;
+val res = translate $ panStaticTheory.get_memop_msg_def;
+val res = translate $ panStaticTheory.get_oparg_msg_def;
+val res = translate $ panStaticTheory.get_unreach_msg_def;
+val res = translate $ panStaticTheory.get_rogue_msg_def;
+val res = translate $ panStaticTheory.get_non_word_msg_def;
+val res = translate $ panStaticTheory.get_shape_mismatch_msg_def;
+
+val res = translate $ panStaticTheory.first_repeat_def;
+val res = translate $ panStaticTheory.binop_to_str_def;
+val res = translate $ panStaticTheory.panop_to_str_def;
+
+val res = translate $ panStaticTheory.scope_check_fun_name_def;
+val res = translate $ panStaticTheory.scope_check_global_var_def;
+val res = translate $ panStaticTheory.scope_check_local_var_def;
+val res = translate $ panStaticTheory.check_redec_var_def;
+val res = translate $ panStaticTheory.check_export_params_def;
+val res = translate $ panStaticTheory.check_operands_def;
+val res = translate $ panStaticTheory.check_func_args_def;
+
+val res = translate $ spec32 $ panStaticTheory.static_check_exp_def;
+val res = translate $ spec32 $ panStaticTheory.static_check_prog_def;
+val res = translate $ spec32 $ panStaticTheory.static_check_progs_def;
+val res = translate $ spec32 $ panStaticTheory.static_check_decls_def;
+val res = translate $ spec32 $ panStaticTheory.static_check_def;
 
 Definition max_heap_limit_32_def:
   max_heap_limit_32 c =
@@ -68,7 +115,7 @@ val r = backend_passesTheory.to_clos_all_def |> spec32 |> translate;
 val r = backend_passesTheory.to_bvl_all_def |> spec32 |> translate;
 val r = backend_passesTheory.to_bvi_all_def |> spec32 |> translate;
 
-Triviality backend_passes_to_bvi_all_side:
+Theorem backend_passes_to_bvi_all_side[local]:
   backend_passes_to_bvi_all_side c p
 Proof
   fs [fetch "-" "backend_passes_to_bvi_all_side_def"]
@@ -121,7 +168,8 @@ val r = pan_passesTheory.pan_to_target_all_def |> spec32
 val r = pan_passesTheory.opsize_to_display_def |> translate;
 val r = pan_passesTheory.shape_to_str_def |> translate;
 val r = pan_passesTheory.insert_es_def |> translate;
-Triviality lem:
+val r = pan_passesTheory.varkind_to_str_def |> translate;
+Theorem lem[local]:
   dimindex(:32) = 32
 Proof
   EVAL_TAC
@@ -483,6 +531,4 @@ Theorem semantics_compiler32_prog =
   |> DISCH_ALL
   |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.reset_translation(); (* because this translation won't be continued *)
-val _ = export_theory();

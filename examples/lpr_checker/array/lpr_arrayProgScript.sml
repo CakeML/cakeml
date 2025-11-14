@@ -1,9 +1,11 @@
 (*
   This refines lpr_list to use arrays
 *)
-open preamble basis md5ProgTheory lpr_composeProgTheory UnsafeProofTheory lprTheory lpr_listTheory HashtableProofTheory;
-
-val _ = new_theory "lpr_arrayProg"
+Theory lpr_arrayProg
+Ancestors
+  md5Prog lpr_composeProg UnsafeProof lpr lpr_list HashtableProof
+Libs
+  preamble basis
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -168,9 +170,7 @@ Proof
     metis_tac[])>>
   rpt xlet_autop>>
   xraise>>xsimpl>>
-  IF_CASES_TAC>-
-    metis_tac[NOT_EVERY]>>
-  simp[unwrap_TYPE_def,Fail_exn_def]>>
+  gvs[unwrap_TYPE_def,Fail_exn_def]>>
   metis_tac[]
 QED
 
@@ -274,7 +274,6 @@ Proof
     xcon>>xsimpl>>
     simp[SUM_TYPE_def])>>
   rpt xlet_autop>>
-
   `index z < LENGTH Clist ∧ WORD8 w8o w8o_v` by (
     fs[w8o_v_thm]>>
     fs[bounded_fml_def,EVERY_EL]>>
@@ -288,7 +287,6 @@ Proof
     rpt (first_x_assum drule)>>
     rw[]>>
     qpat_x_assum`-z = _` sym_sub_tac>>fs[])>>
-
   rpt xlet_autop>>
   xapp>>
   xsimpl>>
@@ -1120,7 +1118,7 @@ QED
 
 val _ = translate safe_hd_def;
 
-val _ = translate list_max_def;
+val _ = translate MAX_LIST_def;
 val _ = translate list_max_index_def;
 
 (* bump up the length to a large number *)
@@ -1406,7 +1404,9 @@ Theorem list_max_index_bounded_clause:
   EVERY ($> n o index) l ∧ EVERY ($> n o index o $~) l
 Proof
   simp[list_max_index_def]>>
-  Induct>>rw[list_max_def,index_def]>>
+  Induct>>rw[] >>
+  fs[MAX_LIST_def,MAX_DEF,index_def]>>
+  rw[] >>
   intLib.ARITH_TAC
 QED
 
@@ -1440,8 +1440,8 @@ Theorem EVERY_index_resize_Clist:
 Proof
   rw[]>>
   simp[resize_Clist_def,list_max_index_def]>>
-  qmatch_goalsub_abbrev_tac`list_max lss`>>
-  qspec_then `lss` assume_tac list_max_max>>
+  qmatch_goalsub_abbrev_tac`MAX_LIST lss`>>
+  qspec_then `lss` assume_tac MAX_LIST_PROPERTY>>
   fs[EVERY_MEM,Abbr`lss`,MEM_MAP,PULL_EXISTS]>>
   ntac 2 strip_tac>>first_x_assum drule>>
   rw[]>>simp[index_def]>>rw[]>>
@@ -1975,5 +1975,3 @@ Proof
   drule reindex_characterize>>fs[]>>
   simp[MEM_MAP]
 QED
-
-val _ = export_theory();

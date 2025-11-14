@@ -1,11 +1,13 @@
 (*
   Correctness proof for bvl_jump
 *)
-open preamble bvl_jumpTheory bvlSemTheory bvlPropsTheory;
+Theory bvl_jumpProof
+Ancestors
+  bvl_jump bvlSem bvlProps
+Libs
+  preamble
 
-val _ = new_theory"bvl_jumpProof";
-
-Triviality evaluate_JumpList:
+Theorem evaluate_JumpList[local]:
   !n xs k.
       k < LENGTH xs ==>
       (evaluate ([JumpList n xs],Number (&(n+k))::env,s) =
@@ -17,7 +19,7 @@ Proof
   \\ IF_CASES_TAC THEN1 fs []
   \\ IF_CASES_TAC THEN1 fs []
   \\ fs [] \\ rw []
-  \\ fs[bvlSemTheory.evaluate_def,do_app_def]
+  \\ fs[bvlSemTheory.evaluate_def,do_app_def,do_int_app_def]
   \\ Q.ISPEC_THEN`xs`strip_assume_tac SPLIT_LIST
   \\ FULL_SIMP_TAC std_ss []
   \\ `(LENGTH ys = 0) ==> LENGTH zs <> 0` by (fs[] \\ DECIDE_TAC)
@@ -54,4 +56,3 @@ Proof
   \\ simp[]
 QED
 
-val _ = export_theory();

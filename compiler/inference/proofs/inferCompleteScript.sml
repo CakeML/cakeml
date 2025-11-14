@@ -3,15 +3,16 @@
   for the program, then the type inferencer will find a type (the most
   general type).
 *)
+Theory inferComplete
+Ancestors
+  semanticPrimitives namespaceProps ast astProps typeSystem
+  typeSysProps unify infer infer_t inferProps envRel infer_eSound
+  infer_eComplete type_eDeterm type_dCanon
+Libs
+  preamble
 
-open preamble semanticPrimitivesTheory namespacePropsTheory
-     astTheory astPropsTheory typeSystemTheory typeSysPropsTheory
-     unifyTheory inferTheory infer_tTheory inferPropsTheory envRelTheory
-     infer_eSoundTheory infer_eCompleteTheory type_eDetermTheory type_dCanonTheory;
 
-val _ = new_theory "inferComplete";
-
-Triviality generalise_no_uvars:
+Theorem generalise_no_uvars[local]:
   (!t m n s dbvars.
   check_t dbvars {} t
   ⇒
@@ -296,7 +297,7 @@ Proof
     metis_tac [check_freevars_more, nub_set, SUBSET_DEF])
 QED
 
-Triviality env_rel_complete_bind:
+Theorem env_rel_complete_bind[local]:
   env_rel_complete FEMPTY ienv tenv Empty ⇒
   env_rel_complete FEMPTY ienv tenv (bind_tvar tvs Empty)
 Proof
@@ -568,7 +569,7 @@ QED
 fun str_assums strs = ConseqConv.DISCH_ASM_CONSEQ_CONV_TAC
         (ConseqConv.CONSEQ_REWRITE_CONV ([], strs, []));
 
-Triviality ap_lemma:
+Theorem ap_lemma[local]:
   !f. x = y ==> f x = f y
 Proof
   fs []
@@ -1639,7 +1640,7 @@ Proof
       simp_tac std_ss [nsAppend_nsSing, GSYM nsAppend_assoc]))
 QED
 
-Triviality n_fresh_uvar_rw:
+Theorem n_fresh_uvar_rw[local]:
   ∀n st.n_fresh_uvar n st = (Success (GENLIST (λi.Infer_Tuvar(i+st.next_uvar)) n), st with next_uvar := st.next_uvar + n)
 Proof
   Induct>>simp[Once n_fresh_uvar_def]
@@ -1652,7 +1653,7 @@ Proof
     fs[FUN_EQ_THM]
 QED
 
-Triviality t_walkstar_infer_deBruijn_subst:
+Theorem t_walkstar_infer_deBruijn_subst[local]:
   t_wfs s ∧
  LENGTH ls = tvs ∧
  EVERY (check_t y {}) ls ∧
@@ -1678,7 +1679,7 @@ Proof
     fs[t_walkstar_eqn1,MAP_MAP_o,MAP_EQ_f]
 QED
 
-Triviality infer_deBruijn_subst_check_t:
+Theorem infer_deBruijn_subst_check_t[local]:
   EVERY (check_t tvs {}) ls
   ⇒
   (∀t.
@@ -1787,5 +1788,3 @@ Proof
   fs [EVERY_MEM]
 QED
 *)
-
-val _ = export_theory ();

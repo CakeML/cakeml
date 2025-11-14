@@ -2,11 +2,14 @@
   Prove correctness of the monadic functions, i.e. prove that they are
   faithful to the inference rules of the Candle logic.
 *)
-open preamble mlstringTheory ml_monadBaseTheory holKernelTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
+Theory holKernelProof
+Libs
+  preamble
+Ancestors
+  mlstring mllist ml_monadBase holKernel holSyntaxLib
+  holSyntax holSyntaxExtra
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "holKernelProof";
 
 val _ = ParseExtras.temp_loose_equality();
 val _ = hide"str";
@@ -33,7 +36,7 @@ QED
 
 val REPLICATE_GENLIST = rich_listTheory.REPLICATE_GENLIST
 
-Triviality REPLICATE_11:
+Theorem REPLICATE_11[local]:
   !m n x. (REPLICATE n x = REPLICATE m x) = (m = n)
 Proof
   Induct \\ Cases \\ SRW_TAC [] [rich_listTheory.REPLICATE]
@@ -85,20 +88,20 @@ End
 (* impossible term lemmas                                                    *)
 (* ------------------------------------------------------------------------- *)
 
-Triviality term_ok_impossible_term:
+Theorem term_ok_impossible_term[local]:
   ~(term_ok defs impossible_term)
 Proof
   simp[term_ok_def]
 QED
 
-Triviality impossible_term_thm:
+Theorem impossible_term_thm[local]:
   TERM defs tm ==> tm <> impossible_term
 Proof
   SIMP_TAC std_ss [TERM_def] \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [term_ok_impossible_term]
 QED
 
-Triviality Abs_Var:
+Theorem Abs_Var[local]:
   TERM defs (Abs v tm) ==> ?s ty. v = Var s ty
 Proof
   simp[TERM_def,term_ok_def] >> rw[]
@@ -108,7 +111,7 @@ QED
 (* invariant lemmas                                                          *)
 (* ------------------------------------------------------------------------- *)
 
-Triviality CONTEXT_ALL_DISTINCT:
+Theorem CONTEXT_ALL_DISTINCT[local]:
   CONTEXT defs ⇒ ALL_DISTINCT (MAP FST (type_list defs)) ∧
                    ALL_DISTINCT (MAP FST (const_list defs))
 Proof
@@ -116,7 +119,7 @@ Proof
   METIS_TAC[extends_ALL_DISTINCT,init_ALL_DISTINCT]
 QED
 
-Triviality STATE_ALL_DISTINCT:
+Theorem STATE_ALL_DISTINCT[local]:
   STATE defs s ⇒ ALL_DISTINCT (MAP FST s.the_type_constants) ∧
                    ALL_DISTINCT (MAP FST s.the_term_constants)
 Proof
@@ -126,7 +129,7 @@ Proof
   fs[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX]
 QED
 
-Triviality TYPE_Tyapp:
+Theorem TYPE_Tyapp[local]:
   MEM (tyop,LENGTH args) r.the_type_constants /\
     STATE defs r /\ EVERY (TYPE defs) args ==>
     TYPE defs (Tyapp tyop args)
@@ -138,7 +141,7 @@ Proof
   rfs[STATE_def]
 QED
 
-Triviality CONTEXT_std_sig:
+Theorem CONTEXT_std_sig[local]:
   CONTEXT defs ⇒ is_std_sig (sigof defs)
 Proof
   rw[CONTEXT_def] >>
@@ -146,7 +149,7 @@ Proof
   imp_res_tac theory_ok_sig >> fs[is_std_sig_def]
 QED
 
-Triviality CONTEXT_fun:
+Theorem CONTEXT_fun[local]:
   CONTEXT defs ⇒
       ∀a. MEM (strlit"fun",a) (type_list defs) ⇔ (a = 2)
 Proof
@@ -178,7 +181,7 @@ Proof
   rw[TERM_def,TYPE_def] >> fs[term_ok_def]
 QED
 
-Triviality TYPE_Fun:
+Theorem TYPE_Fun[local]:
   CONTEXT defs ∧ TYPE defs ty1 /\ TYPE defs ty2 ==>
     TYPE defs (Tyapp (strlit "fun") [ty1;ty2])
 Proof
@@ -187,26 +190,26 @@ Proof
   METIS_TAC[ALOOKUP_ALL_DISTINCT_MEM,CONTEXT_ALL_DISTINCT]
 QED
 
-Triviality TERM_Var_SIMP:
+Theorem TERM_Var_SIMP[local]:
   (TERM defs (Var n ty) = TYPE defs ty)
 Proof
   rw[TERM_def,TYPE_def,term_ok_def]
 QED
 
-Triviality TERM_Var:
+Theorem TERM_Var[local]:
   TYPE defs ty ==> TERM defs (Var n ty)
 Proof
   METIS_TAC [TERM_Var_SIMP]
 QED
 
-Triviality IMP_TERM_Abs:
+Theorem IMP_TERM_Abs[local]:
   TERM defs (Var str ty) /\ TERM defs bod ==>
     TERM defs (Abs (Var str ty) bod)
 Proof
   fs[TERM_def,term_ok_def]
 QED
 
-Triviality IMP_TERM_Comb:
+Theorem IMP_TERM_Comb[local]:
   TERM defs f /\
     TERM defs a /\
     (typeof a = ty1) /\
@@ -217,7 +220,7 @@ Proof
   METIS_TAC[term_ok_welltyped]
 QED
 
-Triviality TERM_Abs:
+Theorem TERM_Abs[local]:
   TERM defs (Abs (Var v ty) tm) <=> TYPE defs ty /\ TERM defs tm
 Proof
   rw[TERM_def,term_ok_def,TYPE_def]
@@ -267,7 +270,7 @@ val type_IND = type_induction
   |> UNDISCH_ALL |> CONJUNCT1 |> DISCH_ALL
   |> Q.GEN`P`
 
-Triviality type_subst_EMPTY:
+Theorem type_subst_EMPTY[local]:
   !ty. type_subst [] ty = ty
 Proof
   HO_MATCH_MP_TAC type_IND
@@ -277,19 +280,19 @@ Proof
   \\ Induct_on `l` \\ FULL_SIMP_TAC std_ss [MAP,EVERY_DEF]
 QED
 
-Triviality MAP_EQ_2:
+Theorem MAP_EQ_2[local]:
   (MAP f l = [x;y]) ⇔ ∃x0 y0. (l = [x0;y0]) ∧ (x = f x0) ∧ (y = f y0)
 Proof
   Cases_on`l`>>simp[]>>Cases_on`t`>>simp[]>>METIS_TAC[]
 QED
 
-Triviality sequent_has_type_bool:
+Theorem sequent_has_type_bool[local]:
   (d,h) |- c ⇒ EVERY (λt. t has_type Bool) (c::h)
 Proof
   strip_tac >> imp_res_tac proves_term_ok >> fs[EVERY_MEM]
 QED
 
-Triviality THM_term_ok_bool:
+Theorem THM_term_ok_bool[local]:
   THM defs (Sequent asl p) ⇒
     EVERY (λt. term_ok (sigof defs) t ∧ (typeof t = Bool)) (p::asl)
 Proof
@@ -351,7 +354,7 @@ QED
 (* ------------------------------------------------------------------------- *)
 (* Verification of type functions                                            *)
 (* ------------------------------------------------------------------------- *)
-Triviality can_thm:
+Theorem can_thm[local]:
   can f x s = case f x s of (M_success _,s) => (M_success T,s) |
                               (_,s) => (M_success F,s)
 Proof
@@ -372,7 +375,7 @@ Proof
   \\ METIS_TAC []
 QED
 
-Triviality get_type_arity_thm:
+Theorem get_type_arity_thm[local]:
   !name s z s'.
       (get_type_arity name s = (z,s')) ==> (s' = s) /\
       (!i. (z = M_success i) ==> MEM (name,i) s.the_type_constants) /\
@@ -442,7 +445,7 @@ Proof
   Cases \\ SIMP_TAC (srw_ss()) [is_vartype_def]
 QED
 
-Triviality tyvars_thm:
+Theorem tyvars_thm[local]:
   !ty s. MEM s (holKernel$tyvars ty) = MEM s (holSyntax$tyvars ty)
 Proof
   HO_MATCH_MP_TAC holKernelTheory.tyvars_ind \\ REPEAT STRIP_TAC
@@ -492,7 +495,7 @@ QED
 
 Overload aty[local] = ``(Tyvar (strlit "A")):type``
 
-Triviality get_const_type_thm:
+Theorem get_const_type_thm[local]:
   !name s z s'.
       (get_const_type name s = (z,s')) ==> (s' = s) /\
       (!i. (z = M_success i) ==> MEM (name,i) s.the_term_constants) /\
@@ -606,7 +609,7 @@ Proof
   \\ FULL_SIMP_TAC (srw_ss()) [st_ex_bind_def]
 QED
 
-Triviality alphavars_thm:
+Theorem alphavars_thm[local]:
   !env.
       STATE defs s /\ TERM defs tm1 /\ TERM defs tm2 /\
       EVERY (\(v1,v2). TERM defs v1 /\ TERM defs v2) env ==>
@@ -617,7 +620,7 @@ Proof
   \\ METIS_TAC []
 QED
 
-Triviality raconv_thm:
+Theorem raconv_thm[local]:
   !tm1 tm2 env.
       STATE defs s /\ TERM defs tm1 /\ TERM defs tm2 /\
       EVERY (\(v1,v2). TERM defs v1 /\ TERM defs v2) env ==>
@@ -777,19 +780,19 @@ Proof
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC TERM
 QED
 
-Triviality type_subst_bool:
+Theorem type_subst_bool[local]:
   type_subst i Bool = Bool
 Proof
   SIMP_TAC (srw_ss()) [Once type_subst_def,LET_DEF]
 QED
 
-Triviality type_subst_fun:
+Theorem type_subst_fun[local]:
   type_subst i (Fun ty1 ty2) = Fun (type_subst i ty1) (type_subst i ty2)
 Proof
   SIMP_TAC (srw_ss()) [Once type_subst_def,LET_DEF] \\ SRW_TAC [] []
 QED
 
-Triviality TERM_Const:
+Theorem TERM_Const[local]:
   STATE defs r /\ MEM (name,a) r.the_term_constants ==>
     TERM defs (Const name a)
 Proof
@@ -809,7 +812,7 @@ Proof
   simp[ALOOKUP_MAP] >> METIS_TAC[]
 QED
 
-Triviality TERM_Const_type_subst:
+Theorem TERM_Const_type_subst[local]:
   EVERY (\(x,y). TYPE defs x /\ TYPE defs y) theta /\
     TERM defs (Const name a) ==> TERM defs (Const name (type_subst theta a))
 Proof
@@ -843,7 +846,7 @@ Proof
   \\ IMP_RES_TAC TERM_Const
 QED
 
-Triviality get_const_type_Equal:
+Theorem get_const_type_Equal[local]:
   STATE defs s ==>
     (get_const_type (strlit "=") s = (M_success (Fun aty (Fun aty Bool)),s))
 Proof
@@ -861,7 +864,7 @@ Proof
   rfs[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX]
 QED
 
-Triviality mk_const_eq:
+Theorem mk_const_eq[local]:
   STATE defs s ==>
     (mk_const ((strlit "="),[]) s =
      (M_success (Const (strlit "=") (Fun aty (Fun aty Bool))),s))
@@ -872,7 +875,7 @@ Proof
   \\ EVAL_TAC
 QED
 
-Triviality mk_eq_lemma:
+Theorem mk_eq_lemma[local]:
   inst [(term_type x,aty)] (Const (strlit "=") (Fun aty (Fun aty Bool))) s =
     ex_return
         (Const (strlit "=")
@@ -939,7 +942,7 @@ Proof
          st_ex_bind_def,dest_type_def]
 QED
 
-Triviality TERM_Eq_x:
+Theorem TERM_Eq_x[local]:
   STATE defs s /\ TERM defs (Comb (Const (strlit "=") ty) x) ==>
     (Fun (typeof x) (Fun (typeof x) Bool) = ty)
 Proof
@@ -950,7 +953,7 @@ Proof
   fs[TYPE_SUBST_def]
 QED
 
-Triviality TERM_Comb:
+Theorem TERM_Comb[local]:
   CONTEXT defs ⇒
     (TERM defs (Comb f a) <=>
      TERM defs f /\ TERM defs a /\
@@ -963,13 +966,13 @@ Proof
   \\ METIS_TAC[term_ok_welltyped]
 QED
 
-Triviality MAP_EQ_2_SYM:
+Theorem MAP_EQ_2_SYM[local]:
   ([x;y] = MAP f l) ⇔ (MAP f l = [x;y])
 Proof
   METIS_TAC[]
 QED
 
-Triviality Equal_type:
+Theorem Equal_type[local]:
   STATE defs s ∧ TERM defs (Const (strlit "=") ty) ==> ?a. ty = Fun a (Fun a Bool)
 Proof
   rw[STATE_def,TERM_def] >>
@@ -977,7 +980,7 @@ Proof
   fs[is_std_sig_def,term_ok_def]
 QED
 
-Triviality Equal_type_IMP:
+Theorem Equal_type_IMP[local]:
   STATE defs s ∧ TERM defs (Comb (Const (strlit "=") (Fun a' (Fun a' Bool))) ll) ==>
     (typeof ll = a')
 Proof
@@ -1003,7 +1006,7 @@ Proof
   \\ IMP_RES_TAC TERM_Eq_x
 QED
 
-Triviality VFREE_IN_IMP:
+Theorem VFREE_IN_IMP[local]:
   !y. TERM defs y /\ TYPE defs ty /\ STATE defs s /\
         VFREE_IN (Var name ty) y ==>
         vfree_in (Var name ty) y
@@ -1011,7 +1014,7 @@ Proof
   METIS_TAC [vfree_in_thm]
 QED
 
-Triviality SELECT_LEMMA:
+Theorem SELECT_LEMMA[local]:
   (@f. !s s'. f (s',s) <=> s <> t) = (\(z,y). y <> t)
 Proof
   Q.ABBREV_TAC `p = (@f. !s s'. f (s',s) <=> s <> t)`
@@ -1021,7 +1024,7 @@ Proof
   \\ FULL_SIMP_TAC std_ss [FUN_EQ_THM,FORALL_PROD]
 QED
 
-Triviality SELECT_LEMMA2:
+Theorem SELECT_LEMMA2[local]:
   (@f.
        !s s''.
          f (s'',s) <=>
@@ -1039,20 +1042,20 @@ Proof
   \\ FULL_SIMP_TAC std_ss [FUN_EQ_THM,FORALL_PROD]
 QED
 
-Triviality is_var_thm:
+Theorem is_var_thm[local]:
   !x. is_var x = ?v ty. x = Var v ty
 Proof
   Cases \\ FULL_SIMP_TAC (srw_ss()) [is_var_def]
 QED
 
-Triviality VSUBST_EMPTY:
+Theorem VSUBST_EMPTY[local]:
   (!tm. holSyntax$VSUBST [] tm = tm)
 Proof
   Induct
   \\ FULL_SIMP_TAC (srw_ss()) [VSUBST_def,REV_ASSOCD,EVERY_DEF,FILTER,LET_THM]
 QED
 
-Triviality VFREE_IN_TYPE:
+Theorem VFREE_IN_TYPE[local]:
   !x. VFREE_IN (Var name oty) x /\ TERM defs x ==>
         ?ty. (oty = ty) /\ TYPE defs ty
 Proof
@@ -1067,7 +1070,7 @@ Proof
   \\ FULL_SIMP_TAC std_ss [VFREE_IN_def] \\ METIS_TAC []
 QED
 
-Triviality VFREE_IN_IMP_MEM:
+Theorem VFREE_IN_IMP_MEM[local]:
   VFREE_IN (Var name oty) h0 /\ TERM defs h0 /\ STATE defs s ==>
     ?ty1. MEM (Var name ty1) (frees h0) /\ (oty = ty1) /\ TYPE defs ty1
 Proof
@@ -1086,13 +1089,13 @@ Proof
   \\ fs[]
 QED
 
-Triviality term_type_Var:
+Theorem term_type_Var[local]:
   term_type (Var v ty) = ty
 Proof
   SIMP_TAC (srw_ss()) [Once term_type_def]
 QED
 
-Triviality vsubst_aux_thm:
+Theorem vsubst_aux_thm[local]:
   !t tm theta. EVERY (\(t1,t2). TERM defs t1 /\ TERM defs t2 /\
                      (term_type t1 = term_type t2) /\ is_var t2) theta /\
     TERM defs tm /\ STATE defs s /\
@@ -1231,7 +1234,7 @@ Proof
   simp[]
 QED
 
-Triviality forall_thm:
+Theorem forall_thm[local]:
   !f s xs. (forall f xs s = (res,s')) ==>
     (!x. ?r. f x s = (r,s)) ==>
     (s' = s) /\ ((res = M_success T) ==> EVERY (\x. FST (f x s) = M_success T) xs)
@@ -1245,14 +1248,14 @@ Proof
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [] \\ METIS_TAC [FST,PAIR]
 QED
 
-Triviality assoc_state:
+Theorem assoc_state[local]:
   !xs x. ?r. assoc x xs s = (r,s)
 Proof
   Induct \\ ONCE_REWRITE_TAC [assoc_def] \\ TRY Cases
   \\ FULL_SIMP_TAC (srw_ss()) [raise_Fail_def,st_ex_return_def] \\ SRW_TAC [] []
 QED
 
-Triviality type_of_state:
+Theorem type_of_state[local]:
   !tm. ?r. type_of tm s = (r,s)
 Proof
   HO_MATCH_MP_TAC type_of_ind \\ REPEAT STRIP_TAC
@@ -1563,7 +1566,7 @@ Proof
   BasicProvers.CASE_TAC >> fs[]
 QED
 
-Triviality inst_lemma:
+Theorem inst_lemma[local]:
   EVERY (\(t1,t2). TYPE defs t1 /\ TYPE defs t2) theta /\
     TERM defs tm /\ STATE defs s /\
     (inst theta tm s = (res, s')) ==>
@@ -1625,7 +1628,7 @@ Proof
   \\ METIS_TAC []
 QED
 
-Triviality freesin_IMP:
+Theorem freesin_IMP[local]:
   !rhs vars.
        freesin vars rhs /\ TERM defs rhs /\ VFREE_IN (Var x ty) (rhs) ==>
        MEM (Var x ty) vars
@@ -1681,8 +1684,8 @@ Proof
   \\ IMP_RES_TAC TERM_Var \\ FULL_SIMP_TAC std_ss [pred_setTheory.IN_UNION]
 QED
 
-Theorem QSORT_type_vars_in_term:
-  (QSORT $<= (MAP explode (type_vars_in_term P)) = STRING_SORT (MAP explode (tvars P)))
+Theorem sort_type_vars_in_term:
+  (sort $<= (MAP explode (type_vars_in_term P)) = STRING_SORT (MAP explode (tvars P)))
 Proof
   REPEAT STRIP_TAC \\
   MATCH_MP_TAC (MP_CANON sortingTheory.SORTED_PERM_EQ) \\
@@ -1691,7 +1694,7 @@ Proof
     simp[relationTheory.transitive_def,relationTheory.antisymmetric_def,stringTheory.string_le_def] >>
     METIS_TAC[stringTheory.string_lt_antisym,stringTheory.string_lt_trans] ) >>
   conj_tac >- (
-    MATCH_MP_TAC sortingTheory.QSORT_SORTED >>
+    MATCH_MP_TAC sort_SORTED >>
     simp[relationTheory.total_def,stringTheory.string_le_def] >>
     METIS_TAC[stringTheory.string_lt_cases] ) >>
   conj_tac >- (
@@ -1701,11 +1704,11 @@ Proof
   MATCH_MP_TAC (MP_CANON sortingTheory.PERM_ALL_DISTINCT) >>
   conj_tac >- (
     METIS_TAC[sortingTheory.ALL_DISTINCT_PERM
-             ,sortingTheory.QSORT_PERM
+             ,sort_PERM
              ,ALL_DISTINCT_type_vars_in_term
              ,ALL_DISTINCT_MAP_explode] ) >>
   simp[ALL_DISTINCT_STRING_SORT] >>
-  METIS_TAC[sortingTheory.QSORT_MEM,MEM_type_vars_in_term,MEM_MAP]
+  METIS_TAC[MEM_type_vars_in_term,MEM_MAP]
 QED
 
 (* ------------------------------------------------------------------------- *)
@@ -1816,7 +1819,7 @@ Proof
   match_mp_tac proveHyp >> rw[]
 QED
 
-Triviality map_type_of:
+Theorem map_type_of[local]:
   ∀ls s r s'.
       EVERY (TERM defs) ls ∧ STATE defs s ∧
       (map type_of ls s = (M_success r,s')) ⇒
@@ -1831,7 +1834,7 @@ Proof
   METIS_TAC[]
 QED
 
-Triviality map_type_of_state:
+Theorem map_type_of_state[local]:
   ∀ls s r s'.
       (map type_of ls s = (r,s')) ⇒
       (s' = s)
@@ -2123,7 +2126,7 @@ Proof
   simp[]
 QED
 
-Triviality image_lemma:
+Theorem image_lemma[local]:
   ∀f l s g defs res s'.
       (image f l s = (res,s')) ∧ STATE defs s ⇒
       EVERY (λx. ∀s. STATE defs s ⇒
@@ -2178,7 +2181,7 @@ Proof
   METIS_TAC[]
 QED
 
-Triviality image_lemma:
+Theorem image_lemma[local]:
   ∀f l s g defs res s'.
       (image f l s = (res,s')) ∧ STATE defs s ⇒
       EVERY (λx. ∀s. STATE defs s ⇒
@@ -2299,17 +2302,16 @@ Definition STRCAT_SHADOW_def[nocompute]:
   STRCAT_SHADOW = STRCAT
 End
 
-Triviality first_dup_thm:
+Theorem first_dup_thm[local]:
   ∀ls acc. (first_dup ls acc = NONE) ⇒ ALL_DISTINCT ls ∧ (∀x. MEM x ls ⇒ ¬MEM x acc)
 Proof
   Induct >> simp[Once first_dup_def] >>
-  rpt gen_tac >>
-  BasicProvers.CASE_TAC >>
-  strip_tac >> res_tac >>
-  fs[MEM] >> METIS_TAC[]
+  rpt (gen_tac ORELSE disch_then strip_assume_tac) >>
+  first_x_assum drule >>
+  fs[DISJ_IMP_THM,IMP_CONJ_THM,FORALL_AND_THM]
 QED
 
-Triviality first_dup_SOME:
+Theorem first_dup_SOME[local]:
   ∀ls acc. (first_dup ls acc = SOME x) ⇒ ¬ALL_DISTINCT (ls++acc)
 Proof
   Induct >> simp[Once first_dup_def] >>
@@ -2318,7 +2320,7 @@ Proof
   METIS_TAC[]
 QED
 
-Triviality add_constants_thm:
+Theorem add_constants_thm[local]:
   ∀ls s res s'. (add_constants ls s = (res,s')) ⇒
       (∀u. (res = M_success u) ∧ ALL_DISTINCT (MAP FST s.the_term_constants) ⇒
            ALL_DISTINCT (MAP FST ls ++ MAP FST s.the_term_constants) ∧
@@ -2708,7 +2710,7 @@ Definition TYPE_OR_TERM_def:
   (TYPE_OR_TERM ctxt (INR tm) ⇔ TERM ctxt tm)
 End
 
-Triviality unify_LR_cases =
+Theorem unify_LR_cases[local] =
   holSyntaxCyclicityTheory.unify_LR_ind
   |> Q.SPEC ‘λct1 ct2. (x = ct1) ∧ (y = ct2) ⇒ P’
   |> CONV_RULE (DEPTH_CONV BETA_CONV)
@@ -3543,7 +3545,7 @@ Proof
   impl_tac >- METIS_TAC[STATE_def,TERM_Comb,THM] >>
   simp[] >> disch_then kall_tac >>
   simp[Once st_ex_bind_def] >>
-  Q.PAT_ABBREV_TAC`vs:string list = QSORT R X` >>
+  Q.PAT_ABBREV_TAC`vs:string list = sort R X` >>
   simp[add_type_def,can_def,otherwise_def,st_ex_return_def] >>
   ntac 2 (simp[Once st_ex_bind_def]) >>
   simp[Once st_ex_bind_def,get_the_type_constants_def] >>
@@ -3599,12 +3601,12 @@ Proof
       rfs[TERM_def] >> METIS_TAC[]) >>
     imp_res_tac THM >> rfs[TERM_Comb] >>
     imp_res_tac THM_term_ok_bool >>
-    fs[term_ok_def,QSORT_type_vars_in_term] >>
+    fs[term_ok_def,sort_type_vars_in_term] >>
     rfs[WELLTYPED] >>
     simp[Abbr`s2`,Abbr`s1`,Abbr`vs`,Abbr`l1`] >>
     CONJ_TAC >- (
-      qspec_then ‘P’ (mp_tac o Q.AP_TERM ‘LENGTH’) (GEN_ALL QSORT_type_vars_in_term) >>
-      simp[LENGTH_QSORT,LENGTH_STRING_SORT,LENGTH_MAP,tvars_ALL_DISTINCT]) >>
+      qspec_then ‘P’ (mp_tac o Q.AP_TERM ‘LENGTH’) (GEN_ALL sort_type_vars_in_term) >>
+      simp[sort_LENGTH])>>
     METIS_TAC[term_type]) >>
   qmatch_assum_abbrev_tac`Abbrev(l1 = [(absname,absty);(repname,repty)])` >>
   `mk_const (repname,[]) s2 = (M_success (Const repname repty), s2)` by (
@@ -3780,15 +3782,15 @@ Proof
     \\ conj_tac
     >- METIS_TAC[STATE_def,CONTEXT_def,extends_theory_ok,init_theory_ok]
     \\ simp [Abbr`s2`,conexts_of_upd_def]
-    \\ imp_res_tac QSORT_type_vars_in_term
-    \\ simp [equation_def,Abbr`vs`,MAP_MAP_o,combinTheory.o_DEF,ETA_AX,QSORT_type_vars_in_term])
+    \\ imp_res_tac sort_type_vars_in_term
+    \\ simp [equation_def,Abbr`vs`,MAP_MAP_o,combinTheory.o_DEF,ETA_AX,sort_type_vars_in_term])
   \\ conj_tac
   >-
    (match_mp_tac (List.nth(CONJUNCTS proves_rules,9))
     \\ conj_tac
     >- METIS_TAC[STATE_def,CONTEXT_def,extends_theory_ok,init_theory_ok]
     \\ simp [Abbr`s2`,conexts_of_upd_def]
-    \\ simp [QSORT_type_vars_in_term,equation_def,Abbr`vs`,MAP_MAP_o,combinTheory.o_DEF,ETA_AX])
+    \\ simp [sort_type_vars_in_term,equation_def,Abbr`vs`,MAP_MAP_o,combinTheory.o_DEF,ETA_AX])
   \\ Cases
   \\ once_rewrite_tac [THM_def]
   \\ strip_tac
@@ -4395,5 +4397,3 @@ Proof
   \\ CCONTR_TAC \\ fs [] \\ rw [] \\ fs [image_clash_thm]
 QED
 *)
-
-val _ = export_theory();

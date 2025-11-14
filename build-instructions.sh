@@ -3,11 +3,15 @@
 
 ## build Poly/ML
 ## alternatively on macOS
+# Note that as of 3/1/2025 polyml from brew is broken
 # brew install polyml
 cd
 git clone https://github.com/polyml/polyml
 cd polyml
-./configure --prefix=/usr
+./configure --prefix=/usr --enable-intinf-as-int
+# --enable-intinf-as-int is to make polyml use gmp for arbitrary precision integer.
+# gmp headers is needed to be installed for polyml to build and
+# libgmp would be needed as a library for polyml to run
 ## on Debian/Ubuntu, either:
 ##  - make sure to use --prefix=/usr
 ##  - or add "export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH" to ~/.profile
@@ -22,10 +26,8 @@ make install
 
 ## build HOL
 cd
-git clone https://github.com/HOL-Theorem-Prover/HOL
+git clone https://github.com/HOL-Theorem-Prover/HOL -b master
 cd HOL
-## optionally switch to a released version, e.g., kananaskis-11
-# git checkout kananaskis-11
 ## note: currently, we only aim to ensure that
 ##       CakeML branch master builds on HOL branch master
 poly --script tools/smart-configure.sml

@@ -1,10 +1,11 @@
 (*
   Module about the built-in word64 type.
 *)
-open preamble ml_translatorLib ml_progLib basisFunctionsLib
-     CharProgTheory
-
-val _ = new_theory "Word64Prog";
+Theory Word64Prog
+Ancestors
+  CharProg
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
 
 val _ = translation_extends "CharProg";
 
@@ -27,9 +28,11 @@ val _ = trans "andb" ``word_and:word64->word64->word64``;;
 val _ = trans "orb" ``word_or:word64->word64->word64``;
 val _ = trans "xorb" ``word_xor:word64->word64->word64``;
 
-val word_1comp_eq = prove(
-  ``word_1comp w = word_xor w 0xFFFFFFFFFFFFFFFFw:word64``,
-  fs []);
+Theorem word_1comp_eq[local]:
+    word_1comp w = word_xor w 0xFFFFFFFFFFFFFFFFw:word64
+Proof
+  fs []
+QED
 
 val _ = (next_ml_names := ["notb"]);
 val _ = translate word_1comp_eq
@@ -98,8 +101,8 @@ Theorem var_word_asr_thm[simp]:
    var_word_asr w n = word_asr w n
 Proof
   ntac 32 (
-    Cases_on `n` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [ASR_ADD])
-    \\ Cases_on `n'` \\ fs [ADD1] THEN1 (EVAL_TAC \\ fs [ASR_ADD]))
+    Cases_on `n` \\ fs [ADD1] THEN1 (rw [] \\ EVAL_TAC \\ fs [ASR_ADD])
+    \\ Cases_on `n'` \\ fs [ADD1] THEN1 (rw [] \\ EVAL_TAC \\ fs [ASR_ADD]))
   \\ ntac 9 (once_rewrite_tac [var_word_asr_def] \\ fs [])
 QED
 
@@ -128,4 +131,3 @@ val sigs = module_signatures ["fromInt", "toInt", "andb",
 
 val _ = ml_prog_update (close_module (SOME sigs));
 
-val _ = export_theory();

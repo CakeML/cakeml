@@ -1,14 +1,13 @@
 (*
   Permissions for CakeML values.
  *)
+Theory perms
+Ancestors
+  semanticPrimitives semanticPrimitivesProps namespaceProps
+  evaluateProps evaluate sptree ml_prog ast_extras
+Libs
+  preamble
 
-open preamble;
-open semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     namespacePropsTheory evaluatePropsTheory evaluateTheory
-     sptreeTheory ml_progTheory;
-open ast_extrasTheory;
-
-val _ = new_theory "perms";
 
 Type loc = “:num”;
 
@@ -38,7 +37,9 @@ Definition perms_ok_exp_def:
           (op = AallocFixed ⇒ RefAlloc ∈ ps) ∧
           (op = Aw8alloc ⇒ W8Alloc ∈ ps) ∧
           (op = Opassign ⇒ RefUpdate ∈ ps) ∧
-          (∀chn. op = FFI chn ⇒ FFIWrite chn ∈ ps ∧ DoFFI ∈ ps)
+          (∀chn. op = FFI chn ⇒ FFIWrite chn ∈ ps ∧ DoFFI ∈ ps) ∧
+          (∀m. op = ThunkOp (AllocThunk m) ⇒ RefAlloc ∈ ps) ∧
+          (∀m. op = ThunkOp (UpdateThunk m) ⇒ RefUpdate ∈ ps)
       | _ => T
 End
 
@@ -108,15 +109,6 @@ Inductive perms_ok:
 [~Litv:]
   (∀ps lit.
      perms_ok ps (Litv lit))
-[~FP_WordTree:]
-  (∀ fp.
-     perms_ok ps (FP_WordTree fp))
-[~FP_BoolTree:]
-  (∀ fp.
-     perms_ok ps (FP_BoolTree fp))
-[~Real:]
-  (∀ r.
-     perms_ok ps (Real r))
 [~Loc:]
   (∀ps b loc.
      RefMention loc ∈ ps ⇒
@@ -141,10 +133,7 @@ Theorem perms_ok_def =
    “perms_ok ps (Recclosure env f n)”,
    “perms_ok ps (Loc b loc)”,
    “perms_ok ps (Vectorv vs)”,
-   “perms_ok ps (Env env ns)”,
-   “perms_ok ps (FP_WordTree fp)”,
-   “perms_ok ps (FP_BoolTree fp)”,
-   “perms_ok ps (Real r)”]
+   “perms_ok ps (Env env ns)”]
   |> map (SIMP_CONV (srw_ss()) [Once perms_ok_cases])
   |> LIST_CONJ;
 
@@ -195,7 +184,8 @@ QED
 Definition perms_ok_ref_def:
   perms_ok_ref ps (Refv v) = perms_ok ps v ∧
   perms_ok_ref ps (Varray vs) = EVERY (perms_ok ps) vs ∧
-  perms_ok_ref ps (W8array ws) = T
+  perms_ok_ref ps (W8array ws) = T ∧
+  perms_ok_ref ps (Thunk _ v) = perms_ok ps v
 End
 
 Definition perms_ok_state_def:
@@ -308,6 +298,8 @@ Theorem do_app_perms:
   (op = Aw8alloc ⇒ W8Alloc ∈ ps) ∧
   (op = Opassign ⇒ RefUpdate ∈ ps) ∧
   (∀chn. op = FFI chn ⇒ FFIWrite chn ∈ ps ∧ DoFFI ∈ ps) ∧
+  (∀m. op = ThunkOp (AllocThunk m) ⇒ RefAlloc ∈ ps) ∧
+  (∀m. op = ThunkOp (UpdateThunk m) ⇒ RefUpdate ∈ ps) ∧
   op ≠ Opapp ⇒
     (∀n. n < LENGTH refs1 ∧ RefMention n ∈ ps ⇒ perms_ok_ref ps (EL n refs1)) ∧
     (RefAlloc ∉ ps ∧ W8Alloc ∉ ps ⇒ LENGTH refs1 = LENGTH refs) ∧
@@ -414,6 +406,9 @@ Proof
   \\ Cases_on ‘op = Vsub’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [perms_ok_def, EVERY_EL])
+  \\ Cases_on ‘op = Vsub_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [perms_ok_def, EVERY_EL])
   \\ Cases_on ‘op = VfromList’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
@@ -454,6 +449,11 @@ Proof
   >- (
     rw [do_app_cases] \\ gs []
     \\ simp [perms_ok_def])
+  \\ Cases_on ‘op = XorAw8Str_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [perms_ok_def]
+    \\ gvs [store_assign_def, EL_LUPDATE]
+    \\ rw [perms_ok_ref_def])
   \\ Cases_on ‘op = CopyAw8Aw8’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [perms_ok_def]
@@ -517,19 +517,6 @@ Proof
     rw [do_app_cases] \\ gs []
     \\ simp [Boolv_def]
     \\ rw [perms_ok_def])
-  \\ Cases_on ‘∃bop. op = Real_bop bop’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [perms_ok_def])
-  \\ Cases_on ‘∃uop. op = Real_uop uop’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ rw [perms_ok_def])
-  \\ Cases_on ‘∃cmp. op = Real_cmp cmp’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [Boolv_def]
-    \\ rw [perms_ok_def])
   \\ Cases_on ‘∃opn. op = Opn opn’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
@@ -577,11 +564,22 @@ Proof
   >- (
     rw [do_app_cases] \\ gs[]
     \\ rw [perms_ok_def])
-  \\ Cases_on ‘op = RealFromFP’ \\ gs[]
+  \\ Cases_on ‘∃m. op = ThunkOp (AllocThunk m)’ \\ gs[]
   >- (
-    rw [do_app_cases] \\ gs[]
-    \\ rw [perms_ok_def])
+    rw [do_app_cases] \\ gs [thunk_op_def, AllCaseEqs()] \\ pairarg_tac \\ gs []
+    \\ gvs [perms_ok_def, store_alloc_def, perms_ok_ref_def, SUBSET_DEF]
+    \\ simp [EL_APPEND_EQN]
+    \\ rw [] \\ gs []
+    \\ gvs [NOT_LESS, LESS_OR_EQ, perms_ok_ref_def])
+  \\ Cases_on ‘∃m. op = ThunkOp (UpdateThunk m)’ \\ gs[]
+  >- (
+    rw [do_app_cases] \\ gs [thunk_op_def, AllCaseEqs()]
+    \\ gvs [perms_ok_def, store_assign_def]
+    \\ rw [EL_LUPDATE, perms_ok_ref_def])
+  \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gs[]
+  >- (rw [do_app_cases] \\ gvs [thunk_op_def, AllCaseEqs()])
   \\ Cases_on ‘op’ \\ gs []
+  \\ Cases_on ‘t’ \\ gs []
 QED
 
 Theorem perms_ok_do_opapp:
@@ -619,15 +617,6 @@ Proof
     \\ first_assum (irule_at (Pos last))
     \\ first_assum (irule_at Any) \\ gs []
     \\ strip_tac \\ gvs [])
-QED
-
-Theorem EVERY_perms_ok_optimise[local]:
-  ∀ sc vs ps.
-    EVERY (perms_ok ps) vs ⇒
-    EVERY (perms_ok ps) (do_fpoptimise sc vs)
-Proof
-  ho_match_mp_tac do_fpoptimise_ind \\ rpt conj_tac
-  \\ gs[do_fpoptimise_def, perms_ok_def]
 QED
 
 Theorem evaluate_perms_ok:
@@ -726,7 +715,78 @@ Proof
   >~ [‘Fun n e’] >- (
     gvs [evaluate_def, perms_ok_env_def, perms_ok_def, SF SFY_ss])
   >~ [‘App op xs’] >- (
-    gvs [evaluate_def]
+    Cases_on ‘getOpClass op = Force’ \\ gvs []
+    >- (
+      gvs [AllCaseEqs()] \\ gvs [evaluate_def] \\ gvs [AllCaseEqs()]
+      \\ gvs [perms_ok_env_BIGUNION, MEM_MAP, PULL_EXISTS, EVERY_MEM]
+      >- (
+        gvs [oneline dest_thunk_def, AllCaseEqs(), store_lookup_def,
+             perms_ok_state_def]
+        \\ last_x_assum drule \\ rw [] \\ gvs [perms_ok_def, perms_ok_ref_def])
+      \\ (
+        gvs [dec_clock_def]
+        \\ gvs [oneline dest_thunk_def, AllCaseEqs(), store_lookup_def]
+        \\ gvs [do_opapp_cases]
+        >- ((* Closure *)
+          last_x_assum mp_tac
+          \\ reverse impl_tac
+          >- (
+            rw [] \\ gs []
+            \\ gvs [oneline update_thunk_def, AllCaseEqs(), store_assign_def,
+                 perms_ok_state_def, EL_LUPDATE] \\ rw []
+            \\ gvs [perms_ok_ref_def]
+            \\ first_x_assum (drule_then assume_tac) \\ gs [])
+          \\ gvs [perms_ok_state_def]
+          \\ first_x_assum (drule_then assume_tac) \\ gvs []
+          \\ gvs [perms_ok_ref_def, perms_ok_def, perms_ok_env_def]
+          \\ Cases \\ simp [nsLookup_nsBind_compute]
+          \\ rw [] \\ gvs [perms_ok_def]
+          \\ first_x_assum irule
+          \\ first_x_assum (irule_at Any) \\ gvs [])
+        >- ((* Recclosure *)
+          last_x_assum mp_tac
+          \\ reverse impl_tac
+          >- (
+            rw [] \\ gs []
+            \\ gvs [oneline update_thunk_def, AllCaseEqs(), store_assign_def,
+                 perms_ok_state_def, EL_LUPDATE] \\ rw []
+            \\ gvs [perms_ok_ref_def]
+            \\ first_x_assum (drule_then assume_tac) \\ gs [])
+          \\ gvs [perms_ok_state_def]
+          \\ first_x_assum (drule_then assume_tac) \\ gvs []
+          \\ gvs [perms_ok_ref_def, perms_ok_def, perms_ok_env_def]
+          \\ gvs [SF DNF_ss, find_recfun_ALOOKUP, EVERY_MEM, MEM_MAP,
+                  PULL_EXISTS]
+          \\ drule_then assume_tac ALOOKUP_MEM
+          \\ qmatch_asmsub_abbrev_tac ‘MEM yyy funs’
+          \\ first_assum drule \\ simp_tac std_ss [Abbr ‘yyy’]
+          \\ strip_tac
+          \\ simp [build_rec_env_merge]
+          \\ Cases \\ simp [nsLookup_nsBind_compute]
+          \\ rw [] \\ gs [nsLookup_nsAppend_some, nsLookup_alist_to_ns_some,
+                          nsLookup_alist_to_ns_none]
+          >- gvs [perms_ok_def]
+          >~ [‘ALOOKUP _ _ = NONE’] >- (
+            first_x_assum irule
+            \\ first_assum (irule_at Any)
+            \\ gs [ALOOKUP_NONE, MAP_MAP_o, o_DEF, LAMBDA_PROD, MEM_MAP,
+                   EXISTS_PROD]
+            \\ first_assum (irule_at Any)
+            \\ first_assum (irule_at Any) \\ gs []
+            \\ strip_tac \\ gvs [])
+          >~ [‘ALOOKUP _ _ = SOME _’] >- (
+            drule_then assume_tac ALOOKUP_MEM
+            \\ gs [MEM_MAP, EXISTS_PROD, perms_ok_def, EVERY_MAP, EVERY_MEM]
+            \\ gs [perms_ok_env_def, MEM_MAP, EXISTS_PROD]
+            \\ rw [] \\ gs [FORALL_PROD, SF SFY_ss])
+          \\ first_x_assum irule
+          \\ first_assum (irule_at Any)
+          \\ gs [ALOOKUP_NONE, MAP_MAP_o, o_DEF, LAMBDA_PROD, MEM_MAP,
+                 EXISTS_PROD]
+          \\ first_assum (irule_at Any)
+          \\ first_assum (irule_at Any) \\ gs [])))
+    \\ gvs [AllCaseEqs()]
+    \\ gvs [evaluate_def]
     \\ Cases_on ‘op = Opapp’ \\ gs []
     >- ((* Opapp *)
       gvs [CaseEqs ["result", "prod", "bool", "option"],
@@ -788,45 +848,9 @@ Proof
     \\ Cases_on ‘getOpClass op’ \\ gs[]
     >~ [‘EvalOp’] >- (Cases_on ‘op’ \\ gs[])
     >~ [‘FunApp’] >- (Cases_on ‘op’ \\ gs[])
+    >~ [‘Force’] >- (Cases_on ‘op’ \\ gs[])
     >~ [‘Simple’] >- (
       gvs [CaseEqs ["result", "prod", "bool", "option"]]
-      \\ drule_then (qspec_then ‘ps’ mp_tac) do_app_perms
-      \\ impl_tac
-      >- (
-        gs [perms_ok_state_def, SUBSET_DEF])
-      \\ strip_tac \\ gs []
-      \\ gs [perms_ok_state_def]
-      \\ rw [] \\ gs []
-      \\ first_x_assum (drule_then assume_tac) \\ gs [])
-    >~ [‘Icing’] >- (
-      gvs [CaseEqs ["result", "prod", "bool", "option"]]
-      \\ drule_then (qspec_then ‘ps’ mp_tac) do_app_perms
-      \\ impl_tac
-      >- (
-        gs [perms_ok_state_def, SUBSET_DEF])
-      \\ strip_tac \\ gs [shift_fp_opts_def]
-      \\ gs [perms_ok_state_def]
-      \\ rw [] \\ gs [Boolv_def]
-      >- (first_x_assum (drule_then assume_tac) \\ gs [])
-      >- (
-        rename1 ‘st2.fp_state.canOpt = FPScope Opt’
-        \\ Cases_on ‘do_fprw r (st2.fp_state.opts 0) st2.fp_state.rws’ \\ gs[]
-        \\ Cases_on ‘r’ \\ gs[do_fprw_def]
-        \\ Cases_on ‘a’ \\ gvs[CaseEqs["list","option"], perms_ok_def]
-        \\ TOP_CASE_TAC \\ gs[perms_ok_def])
-      >- (
-        Cases_on ‘r’ \\ gs[]
-        \\ Cases_on ‘a’ \\ gvs[CaseEqs["list","option"], perms_ok_def]
-        \\ TOP_CASE_TAC \\ gs[perms_ok_def])
-      >- (
-        rename1 ‘st2.fp_state.canOpt = FPScope Opt’
-        \\ Cases_on ‘do_fprw r (st2.fp_state.opts 0) st2.fp_state.rws’ \\ gs[]
-        \\ Cases_on ‘r’ \\ gs[do_fprw_def]
-        \\ Cases_on ‘a’ \\ gvs[CaseEqs["list","option"], perms_ok_def]
-        \\ TOP_CASE_TAC \\ gs[perms_ok_def])
-    )
-    >~ [‘Reals’] >- (
-      gvs [CaseEqs ["result", "prod", "bool", "option"], shift_fp_opts_def, perms_ok_state_def]
       \\ drule_then (qspec_then ‘ps’ mp_tac) do_app_perms
       \\ impl_tac
       >- (
@@ -888,12 +912,6 @@ Proof
     gvs [evaluate_def, CaseEqs ["result", "prod"]])
   >~ [‘Lannot x l’] >- (
     gvs [evaluate_def, CaseEqs ["result", "prod"]])
-  >~ [‘FpOptimise sc e’] >- (
-    gvs [evaluate_def, CaseEqs ["result", "prod"]]
-    \\ last_x_assum mp_tac \\ reverse impl_tac
-    \\ TRY (
-      rw [] \\ gs[perms_ok_state_def, EVERY_perms_ok_optimise])
-    \\ gvs [perms_ok_exp_def])
   >~ [‘[]’] >- (
     gvs [evaluate_def])
   >~ [‘_::_’] >- (
@@ -998,5 +1016,3 @@ Theorem evaluate_perms_ok_dec =
   |> Q.SPECL [‘s’, ‘env’, ‘[dec]’]
   |> GEN_ALL
   |> SIMP_RULE (srw_ss()) [];
-
-val _ = export_theory ();

@@ -1,14 +1,19 @@
 (*
   Translate the compiler's type inferencer.
 *)
+Theory inferProg[no_sig_docs]
+Ancestors
+  parserProg reg_allocProg infer ml_translator semanticPrimitives
+  inferProps
+Libs
+  preamble ml_translatorLib
+
 open preamble parserProgTheory
      reg_allocProgTheory inferTheory
      ml_translatorLib ml_translatorTheory
-     semanticPrimitivesTheory inferPropsTheory
+     semanticPrimitivesTheory inferPropsTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "inferProg"
 
 val _ = translation_extends "reg_allocProg";
 val _ = ml_translatorLib.use_string_type true;
@@ -66,7 +71,7 @@ val _ = (find_def_for_const := def_of_const);
 
 (* type inference: t_walkstar and t_unify *)
 
-Triviality PRECONDITION_INTRO:
+Theorem PRECONDITION_INTRO[local]:
   (b ==> (x = y)) ==> (x = if PRECONDITION b then y else x)
 Proof
   Cases_on `b` THEN SIMP_TAC std_ss [PRECONDITION_def]
@@ -116,7 +121,7 @@ Proof
   METIS_TAC [unifyTheory.t_walkstar_ind]
 QED
 
-Triviality expand_lemma:
+Theorem expand_lemma[local]:
   t_walkstar s = \x. t_walkstar s x
 Proof
   SIMP_TAC std_ss [FUN_EQ_THM]
@@ -152,7 +157,7 @@ Proof
   THEN POP_ASSUM HO_MATCH_MP_TAC THEN METIS_TAC []
 QED
 
-Triviality EXISTS_LEMMA:
+Theorem EXISTS_LEMMA[local]:
   !xs P. EXISTS P xs = EXISTS I (MAP P xs)
 Proof
   Induct THEN SRW_TAC [] []
@@ -272,7 +277,7 @@ val _ = translate (def_of_const ``infer_type_subst``)
 val _ = translate rich_listTheory.COUNT_LIST_AUX_def
 val _ = translate rich_listTheory.COUNT_LIST_compute
 
-Triviality pair_abs_hack:
+Theorem pair_abs_hack[local]:
   (\(v2:string,v1:infer_t). (v2,0,v1)) =
     (\v3. case v3 of (v2,v1) => (v2,0:num,v1))
 Proof
@@ -308,19 +313,19 @@ fun fix_infer_induction_thm def = let
   val _ = save_thm(ind_name,ind)
   in () end handle HOL_ERR _ => ();
 
-Triviality if_apply:
+Theorem if_apply[local]:
   !b. (if b then x1 else x2) x = if b then x1 x else x2 x
 Proof
   Cases THEN SRW_TAC [] []
 QED
 
-Triviality option_case_apply:
+Theorem option_case_apply[local]:
   !oo. option_CASE oo x1 x2 x = option_CASE oo (x1 x) (\y. x2 y x)
 Proof
   Cases THEN SRW_TAC [] []
 QED
 
-Triviality pr_CASE:
+Theorem pr_CASE[local]:
   pair_CASE (x,y) f = f x y
 Proof
   SRW_TAC [] []
@@ -336,7 +341,7 @@ val op_apply =
     val rthm3 = Q.ISPEC `\g. g (y : 'b)` rthm2
   in BETA_RULE rthm3 |> Q.GEN ‘x’ end;
 
-Triviality list_apply:
+Theorem list_apply[local]:
   !op. (list_CASE op x1 x2) y =
          (list_CASE op (x1 y) (\z1 z2. x2 z1 z2 y))
 Proof
@@ -438,7 +443,7 @@ Proof
   \\ metis_tac[unifyTheory.t_unify_wfs]
 QED
 
-Triviality LET3_APP:
+Theorem LET3_APP[local]:
   (let (a, b, c) = x in y a b c) z = (let (a, b, c) = x in y a b c z)
 Proof
   simp [ELIM_UNCURRY]
@@ -451,26 +456,30 @@ val def = infer_def ``constrain_op``
 
 val r = translate def
 
-val MAP_type_name_subst = prove(
-  ``MAP (type_name_subst tenvT) ts =
-    MAP (\x. type_name_subst tenvT x) ts``,
-  CONV_TAC (DEPTH_CONV ETA_CONV) \\ simp []);
+Theorem MAP_type_name_subst[local]:
+    MAP (type_name_subst tenvT) ts =
+    MAP (\x. type_name_subst tenvT x) ts
+Proof
+  CONV_TAC (DEPTH_CONV ETA_CONV) \\ simp []
+QED
 
-val lemma = prove(
-  ``MAP (\(x,y). foo x y) = MAP (\z. foo (FST z) (SND z))``,
-  AP_TERM_TAC \\ fs [FUN_EQ_THM,FORALL_PROD]);
+Theorem lemma[local]:
+    MAP (\(x,y). foo x y) = MAP (\z. foo (FST z) (SND z))
+Proof
+  AP_TERM_TAC \\ fs [FUN_EQ_THM,FORALL_PROD]
+QED
 
 val _ = translate (typeSystemTheory.build_ctor_tenv_def
          |> REWRITE_RULE [MAP_type_name_subst]
                     |> SIMP_RULE std_ss [lemma]);
 
-Triviality EVERY_INTRO:
+Theorem EVERY_INTRO[local]:
   (!x::set s. P x) = EVERY P s
 Proof
   SIMP_TAC std_ss [res_quanTheory.RES_FORALL,EVERY_MEM]
 QED
 
-Triviality EVERY_EQ_EVERY:
+Theorem EVERY_EQ_EVERY[local]:
   !xs. EVERY P xs = EVERY I (MAP P xs)
 Proof
   Induct THEN SRW_TAC [] []
@@ -618,7 +627,7 @@ val _ = print "Translated infer_d\n";
 
 val infer_d_side_def = fetch "-" "infer_d_side_def";
 
-Triviality generalise_list_length:
+Theorem generalise_list_length[local]:
   !min start s x.
     LENGTH x = LENGTH (SND (SND (generalise_list min start s (MAP f (MAP SND x)))))
 Proof
@@ -636,7 +645,7 @@ Definition gen_d_ind_def:
   (gen_ds_ind (x::xs) = (gen_d_ind x /\ gen_ds_ind xs))
 Termination
   WF_REL_TAC `measure (\x. case x of INL d => dec_size d
-                                    | INR ds => dec1_size ds)`
+                                   | INR ds => list_size dec_size ds)`
 End
 
 val infer_p_wfs_dest = infer_p_wfs |> BODY_CONJUNCTS
@@ -662,11 +671,13 @@ Proof
   fs []
 QED
 
-val MEM_anub = prove(``
+Theorem MEM_anub[local]:
   ∀e1M ls k v1.
   MEM (k,v1) (anub e1M ls) ⇒
-  MEM (k,v1) e1M``,
-  ho_match_mp_tac miscTheory.anub_ind>>rw[anub_def]>>metis_tac[]);
+  MEM (k,v1) e1M
+Proof
+  ho_match_mp_tac miscTheory.anub_ind>>rw[anub_def]>>metis_tac[]
+QED
 
 Definition nsSub_translate_def:
   nsSub_translate path R b1 b2 ⇔
@@ -688,20 +699,25 @@ Termination
   >> fs [namespaceTheory.namespace_size_def]
 End
 
-val ALOOKUP_MEM_anub = prove(
-  ``∀ls acc k v.
+Theorem ALOOKUP_MEM_anub[local]:
+    ∀ls acc k v.
     MEM (k,v) (anub ls acc) ⇔
-    (ALOOKUP ls k = SOME v ∧ ¬MEM k acc)``,
+    (ALOOKUP ls k = SOME v ∧ ¬MEM k acc)
+Proof
     ho_match_mp_tac miscTheory.anub_ind>>rw[anub_def]>>IF_CASES_TAC>>fs[]>>
-    metis_tac[]);
+    metis_tac[]
+QED
 
-val MEM_ALOOKUP = prove(``
-  ∀ls k. MEM k (MAP FST ls) ⇒ ∃v. ALOOKUP ls k = SOME v``,
+Theorem MEM_ALOOKUP[local]:
+  ∀ls k. MEM k (MAP FST ls) ⇒ ∃v. ALOOKUP ls k = SOME v
+Proof
   Induct>>fs[MEM_MAP,FORALL_PROD,EXISTS_PROD,PULL_EXISTS]>>rw[]>>
-  metis_tac[]);
+  metis_tac[]
+QED
 
-val nsSub_thm = prove(``
-  ∀ls R e1 e2. nsSub_compute ls R e1 e2 ⇔ nsSub_translate ls R e1 e2``,
+Theorem nsSub_thm[local]:
+  ∀ls R e1 e2. nsSub_compute ls R e1 e2 ⇔ nsSub_translate ls R e1 e2
+Proof
   ho_match_mp_tac (fetch "-" "nsSub_translate_ind")>>
   rw[]>>
   simp[Once nsSub_translate_def]>> every_case_tac>>
@@ -721,7 +737,8 @@ val nsSub_thm = prove(``
   >>
     (fs[ALOOKUP_MEM_anub,EVERY_MEM,FORALL_PROD]>>
     imp_res_tac MEM_ALOOKUP>>fs[]>>
-    res_tac>>fs[]>>every_case_tac>>fs[]))
+    res_tac>>fs[]>>every_case_tac>>fs[])
+QED
 
 val res = translate infertype_prog_def;
 
@@ -731,10 +748,7 @@ Theorem infertype_prog_side_thm = Q.prove(`
   \\ match_mp_tac (CONJUNCT2 infer_d_side_thm) \\ fs [])
   |> update_precondition;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

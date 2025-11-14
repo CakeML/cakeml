@@ -1,10 +1,11 @@
 (*
   Common Properties for Pancake ILS
 *)
-
-open preamble pan_commonTheory;
-
-val _ = new_theory "pan_commonProps";
+Theory pan_commonProps
+Ancestors
+  misc[qualified] pan_common
+Libs
+  preamble
 
 
 Definition ctxt_max_def:
@@ -312,7 +313,7 @@ Proof
   Induct >> rw []
 QED
 
-Triviality FUPDATE_LIST_APPLY_NOT_MEM_ZIP:
+Theorem FUPDATE_LIST_APPLY_NOT_MEM_ZIP[local]:
   ∀l1 l2 f k.
   LENGTH l1 = LENGTH l2 ∧ ¬MEM k l1 ⇒ (f |++ ZIP (l1, l2)) ' k = f ' k
 Proof
@@ -800,6 +801,3 @@ Proof
     fs [ALL_DISTINCT_fmap_to_alist_keys]) >>
   gs []
 QED
-
-
-val _ = export_theory();

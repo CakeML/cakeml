@@ -17,9 +17,6 @@ Simplification of arithmetic in crepLang.
 [crep_to_loopScript.sml](crep_to_loopScript.sml):
 Compilation from crepLang to panLang.
 
-[ffi](ffi):
-FFI for Pancake
-
 [loopLangScript.sml](loopLangScript.sml):
 loopLang intermediate language
 
@@ -42,11 +39,14 @@ instructions for conditionals, While loop,
 memory load and store, functions,
 and foreign function calls.
 
-[panScopeScript.sml](panScopeScript.sml):
-Scope checking for Pancake.
+[panStaticScript.sml](panStaticScript.sml):
+Static checking for Pancake.
 
 [pan_commonScript.sml](pan_commonScript.sml):
 Common definitions for Pancake compiler
+
+[pan_globalsScript.sml](pan_globalsScript.sml):
+Allocate globals at the end of heap.
 
 [pan_passesScript.sml](pan_passesScript.sml):
 Reformulates compile definition to expose the result of each internal
@@ -73,20 +73,8 @@ Proofs files for compiling Pancake.
 [semantics](semantics):
 Semantics for Pancake and its intermediate languages.
 
-[taParserScript.sml](taParserScript.sml):
-Parser for compactDSL programs
-
-[ta_progs](ta_progs):
-Some sample timed automata (TA) programs.
+[static_checker](static_checker):
+Support files for Pancake static checker
 
 [temp](temp):
 Temporary files
-
-[timeLangScript.sml](timeLangScript.sml):
-Abstract syntax for timeLang
-
-[time_to_panScript.sml](time_to_panScript.sml):
-Compilation from timeLang to panLang
-
-[time_to_targetScript.sml](time_to_targetScript.sml):
-Compiler from timeLang to machine code

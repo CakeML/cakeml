@@ -1,16 +1,19 @@
 (*
   The formal semantics of closLang
 *)
-open preamble backend_commonTheory closLangTheory flatLangTheory
-     semanticPrimitivesPropsTheory (* for opw_lookup and others *)
-
-val _ = new_theory"closSem"
+Theory closSem
+Ancestors
+  backend_common closLang flatLang
+  semanticPrimitivesProps (* for opw_lookup and others *)
+Libs
+  preamble
 
 (* differs from store_v by removing the single value Refv,
    also, adds flag to ByteArray for equality semantics *)
 Datatype:
   ref = ValueArray ('a list)
       | ByteArray (word8 list)
+      | Thunk thunk_mode 'a
 End
 
 (* --- Semantics of ClosLang --- *)
@@ -91,9 +94,6 @@ Definition do_eq_def:
      | Eq_val T => do_eq_list xs ys
      | res => res) /\
   (do_eq_list _ _ = Eq_val F)
-Termination
-  WF_REL_TAC `measure (\x. case x of INL (v,_) => v_size v
-                                   | INR (vs,_) => v1_size vs)`
 End
 
 Definition v_to_list_def:
@@ -174,83 +174,144 @@ Termination
   \\ pop_assum (qspec_then ‘t’ assume_tac) \\ fs []
 End
 
+Definition do_int_app_def:
+  do_int_app (Const n) [] = SOME (Number n) /\
+  do_int_app (Add) [Number n1;Number n2] = SOME (Number (n1 + n2)) /\
+  do_int_app (Sub) [Number n1;Number n2] = SOME (Number (n1 - n2)) /\
+  do_int_app (Mult) [Number n1;Number n2] = SOME (Number (n1 * n2)) /\
+  do_int_app (Div) [Number n1;Number n2] =
+      (if n2 = 0 then NONE else SOME (Number (n1 / n2))) /\
+  do_int_app (Mod) [Number n1;Number n2] =
+      (if n2 = 0 then NONE else SOME (Number (n1 % n2))) /\
+  do_int_app (Less) [Number n1;Number n2] = SOME (Boolv (n1 < n2)) /\
+  do_int_app (LessEq) [Number n1;Number n2] = SOME (Boolv (n1 <= n2)) /\
+  do_int_app (Greater) [Number n1;Number n2] = SOME (Boolv (n1 > n2)) /\
+  do_int_app (GreaterEq) [Number n1;Number n2] = SOME (Boolv (n1 >= n2)) /\
+  do_int_app (LessConstSmall n) [Number i] =
+        (if 0 <= i /\ i <= 1000000 /\ n < 1000000 then
+          SOME (Boolv (i < &n)) else NONE) /\
+  do_int_app (op:closLang$int_op) (vs:closSem$v list) = NONE
+End
+
+Definition do_word_app_def:
+  (do_word_app (WordOpw W8 opw) [Number n1; Number n2] =
+       (case some (w1:word8,w2:word8). n1 = &(w2n w1) ∧ n2 = &(w2n w2) of
+        | NONE => NONE
+        | SOME (w1,w2) => SOME (Number &(w2n (opw_lookup opw w1 w2))))) /\
+  do_word_app (WordOpw W64 opw) [Word64 w1; Word64 w2] =
+        SOME (Word64 (opw_lookup opw w1 w2)) /\
+  do_word_app (WordShift W8 sh n) [Number i] =
+       (case some (w:word8). i = &(w2n w) of
+        | NONE => NONE
+        | SOME w => SOME (Number &(w2n (shift_lookup sh w n)))) /\
+  do_word_app (WordShift W64 sh n) [Word64 w] =
+       SOME (Word64 (shift_lookup sh w n)) /\
+  do_word_app (WordFromInt) [Number i] =
+       SOME (Word64 (i2w i)) /\
+  do_word_app WordToInt [Word64 w] =
+       SOME (Number (&(w2n w))) /\
+  do_word_app (WordFromWord T) [Word64 w] =
+       SOME (Number (&(w2n ((w2w:word64->word8) w)))) /\
+  do_word_app (WordFromWord F) [Number n] =
+       (case some (w:word8). n = &(w2n w) of
+        | NONE => NONE
+        | SOME w => SOME (Word64 (w2w w))) /\
+  do_word_app (FP_top t_op) ws =
+        (case ws of
+         | [Word64 w1; Word64 w2; Word64 w3] =>
+             (SOME (Word64 (fp_top_comp t_op w1 w2 w3)))
+         | _ => NONE) /\
+  do_word_app (FP_bop bop) ws =
+        (case ws of
+         | [Word64 w1; Word64 w2] => (SOME (Word64 (fp_bop_comp bop w1 w2)))
+         | _ => NONE) /\
+  do_word_app (FP_uop uop) ws =
+        (case ws of
+         | [Word64 w] => (SOME (Word64 (fp_uop_comp uop w)))
+         | _ => NONE) /\
+  do_word_app (FP_cmp cmp) ws =
+        (case ws of
+         | [Word64 w1; Word64 w2] => (SOME (Boolv (fp_cmp_comp cmp w1 w2)))
+         | _ => NONE) /\
+  do_word_app (op:closLang$word_op) (vs:closSem$v list) = NONE
+End
+
 Definition do_app_def:
   do_app (op:closLang$op) (vs:closSem$v list) ^s =
     case (op,vs) of
-    | (Global n,[]:closSem$v list) =>
+    | (GlobOp (Global n),[]:closSem$v list) =>
         (case get_global n s.globals of
          | SOME (SOME v) => (Rval (v,s))
          | _ => Error)
-    | (Global _,[Number i]) =>
+    | (GlobOp (Global _),[Number i]) =>
         (if i < 0 then Error else
          case get_global (Num i) s.globals of
          | SOME (SOME v) => (Rval (v,s))
          | _ => Error)
-    | (SetGlobal n,[v]) =>
+    | (GlobOp (SetGlobal n),[v]) =>
         (case get_global n s.globals of
          | SOME NONE => Rval (Unit,
              s with globals := (LUPDATE (SOME v) n s.globals))
          | _ => Error)
-    | (AllocGlobal,[Number i]) =>
+    | (GlobOp AllocGlobal,[Number i]) =>
         (if i < 0 then Error
          else Rval (Unit, s with globals := s.globals ++ REPLICATE (Num i) NONE))
-    | (Const i,[]) => Rval (Number i, s)
-    | (Constant c,[]) => Rval (make_const c, s)
-    | (Cons tag,xs) => Rval (Block tag xs, s)
-    | (ConsExtend tag, Block _ xs'::Number lower::Number len::Number tot::xs) =>
+    | (BlockOp (Constant c),[]) => Rval (make_const c, s)
+    | (BlockOp (Cons tag),xs) => Rval (Block tag xs, s)
+    | (BlockOp (ConsExtend tag), Block _ xs'::Number lower::Number len::Number tot::xs) =>
         if lower < 0 ∨ len < 0 ∨ &LENGTH xs' < lower + len ∨
            tot = 0 ∨ tot ≠ &LENGTH xs + len then
           Error
         else
           Rval (Block tag (xs++TAKE (Num len) (DROP (Num lower) xs')), s)
-    | (ConsExtend tag,_) => Error
-    | (El,[Block tag xs; Number i]) =>
+    | (BlockOp (ConsExtend tag),_) => Error
+    | (MemOp El,[Block tag xs; Number i]) =>
         if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Error
-    | (El,[RefPtr _ ptr; Number i]) =>
+    | (MemOp El,[RefPtr _ ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ValueArray xs) =>
             (if 0 <= i /\ i < & (LENGTH xs)
              then Rval (EL (Num i) xs, s)
              else Error)
          | _ => Error)
-    | (ElemAt n,[Block tag xs]) =>
+    | (BlockOp (ElemAt n),[Block tag xs]) =>
         if n < LENGTH xs then Rval (EL n xs, s) else Error
-    | (ListAppend, [x1; x2]) =>
+    | (BlockOp ListAppend, [x1; x2]) =>
         (case (v_to_list x1, v_to_list x2) of
         | (SOME xs, SOME ys) => Rval (list_to_v (xs ++ ys), s)
         | _ => Error)
-    | (LengthBlock,[Block tag xs]) =>
+    | (BlockOp LengthBlock,[Block tag xs]) =>
         Rval (Number (&LENGTH xs), s)
-    | (Length,[RefPtr _ ptr]) =>
+    | (MemOp Length,[RefPtr _ ptr]) =>
         (case FLOOKUP s.refs ptr of
           | SOME (ValueArray xs) =>
               Rval (Number (&LENGTH xs), s)
           | _ => Error)
-    | (LengthByte,[RefPtr _ ptr]) =>
+    | (MemOp LengthByte,[RefPtr _ ptr]) =>
         (case FLOOKUP s.refs ptr of
           | SOME (ByteArray xs) =>
               Rval (Number (&LENGTH xs), s)
           | _ => Error)
-    | (RefByte F,[Number i;Number b]) =>
+    | (MemOp (RefByte F),[Number i;Number b]) =>
          if 0 ≤ i ∧ (∃w:word8. b = & (w2n w)) then
            let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
              Rval (RefPtr T ptr, s with refs := s.refs |+
                (ptr,ByteArray (REPLICATE (Num i) (i2w b))))
          else Error
-    | (RefArray,[Number i;v]) =>
+    | (MemOp RefArray,[Number i;v]) =>
         if 0 ≤ i then
           let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
             Rval (RefPtr T ptr, s with refs := s.refs |+
               (ptr,ValueArray (REPLICATE (Num i) v)))
          else Error
-    | (DerefByte,[RefPtr _ ptr; Number i]) =>
+    | (MemOp DerefByte,[RefPtr _ ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray ws) =>
             (if 0 ≤ i ∧ i < &LENGTH ws
              then Rval (Number (& (w2n (EL (Num i) ws))),s)
              else Error)
          | _ => Error)
-    | (UpdateByte,[RefPtr _ ptr; Number i; Number b]) =>
+    | (MemOp UpdateByte,[RefPtr _ ptr; Number i; Number b]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray bs) =>
             (if 0 ≤ i ∧ i < &LENGTH bs ∧ (∃w:word8. b = & (w2n w))
@@ -259,58 +320,65 @@ Definition do_app_def:
                  (ptr, ByteArray (LUPDATE (i2w b) (Num i) bs)))
              else Error)
          | _ => Error)
-    | (ConcatByteVec,[lv]) =>
+    | (MemOp ConcatByteVec,[lv]) =>
         (case (some wss. v_to_list lv = SOME (MAP ByteVector wss)) of
          | SOME wss => Rval (ByteVector (FLAT wss), s)
          | _ => Error)
-    | (FromList n,[lv]) =>
+    | (BlockOp (FromList n),[lv]) =>
         (case v_to_list lv of
          | SOME vs => Rval (Block n vs, s)
          | _ => Error)
-    | (FromListByte,[lv]) =>
+    | (MemOp FromListByte,[lv]) =>
         (case some ns. v_to_list lv = SOME (MAP (Number o $&) ns) ∧ EVERY (λn. n < 256) ns of
          | SOME ns => Rval (ByteVector (MAP n2w ns), s)
          | NONE => Error)
-    | (ToListByte,[ByteVector bs]) =>
+    | (MemOp ToListByte,[ByteVector bs]) =>
         (Rval (list_to_v (MAP (\b. Number (& (w2n b))) bs), s))
-    | (LengthByteVec,[ByteVector bs]) =>
+    | (MemOp LengthByteVec,[ByteVector bs]) =>
         (Rval (Number (& LENGTH bs), s))
-    | (DerefByteVec,[ByteVector bs; Number i]) =>
+    | (MemOp DerefByteVec,[ByteVector bs; Number i]) =>
         (if 0 ≤ i ∧ i < &LENGTH bs then
            Rval (Number (&(w2n(EL (Num i) bs))), s)
          else Error)
-    | (CopyByte F,[ByteVector ws; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
+    | (MemOp (CopyByte F),[ByteVector ws; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
         (case FLOOKUP s.refs dst of
          | SOME (ByteArray ds) =>
            (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
             | SOME ds => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray ds))
             | NONE => Error)
          | _ => Error)
-    | (CopyByte F,[RefPtr _ src; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
+    | (MemOp (CopyByte F),[RefPtr _ src; Number srcoff; Number len; RefPtr _ dst; Number dstoff]) =>
         (case (FLOOKUP s.refs src, FLOOKUP s.refs dst) of
          | (SOME (ByteArray ws), SOME (ByteArray ds)) =>
            (case copy_array (ws,srcoff) len (SOME(ds,dstoff)) of
             | SOME ds => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray ds))
             | NONE => Error)
          | _ => Error)
-    | (CopyByte T,[ByteVector ws; Number srcoff; Number len]) =>
+    | (MemOp (CopyByte T),[ByteVector ws; Number srcoff; Number len]) =>
        (case copy_array (ws,srcoff) len NONE of
         | SOME ds => Rval (ByteVector ds, s)
         | _ => Error)
-    | (CopyByte T,[RefPtr _ src; Number srcoff; Number len]) =>
+    | (MemOp (CopyByte T),[RefPtr _ src; Number srcoff; Number len]) =>
        (case FLOOKUP s.refs src of
         | SOME (ByteArray ws) =>
           (case copy_array (ws,srcoff) len NONE of
            | SOME ds => Rval (ByteVector ds, s)
            | _ => Error)
         | _ => Error)
-    | (TagEq n,[Block tag xs]) =>
+    | (MemOp XorByte,[RefPtr _ dst; ByteVector ws]) =>
+       (case FLOOKUP s.refs dst of
+        | SOME (ByteArray ds) =>
+          (case xor_bytes ws ds of
+           | SOME ds1 => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray ds1))
+           | _ => Error)
+        | _ => Error)
+    | (BlockOp (TagEq n),[Block tag xs]) =>
         Rval (Boolv (tag = n), s)
-    | (LenEq l,[Block tag xs]) =>
+    | (BlockOp (LenEq l),[Block tag xs]) =>
         Rval (Boolv (LENGTH xs = l),s)
-    | (TagLenEq n l,[Block tag xs]) =>
+    | (BlockOp (TagLenEq n l),[Block tag xs]) =>
         Rval (Boolv (tag = n ∧ LENGTH xs = l),s)
-    | (EqualConst p,[x1]) =>
+    | (BlockOp (EqualConst p),[x1]) =>
         (case p of
          | Int i => (case x1 of Number j => Rval (Boolv (i = j), s) | _ => Error)
          | W64 i => (case x1 of Word64 j => Rval (Boolv (i = j), s) | _ => Error)
@@ -318,14 +386,14 @@ Definition do_app_def:
                      | ByteVector j => Rval (Boolv (j = MAP (n2w ∘ ORD) (explode i)), s)
                      | _ => Error)
          | _ => Error)
-    | (Equal,[x1;x2]) =>
+    | (BlockOp Equal,[x1;x2]) =>
         (case do_eq x1 x2 of
          | Eq_val b => Rval (Boolv b, s)
          | _ => Error)
-    | (Ref,xs) =>
+    | (MemOp Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
           Rval (RefPtr T ptr, s with refs := s.refs |+ (ptr,ValueArray xs))
-    | (Update,[RefPtr _ ptr; Number i; x]) =>
+    | (MemOp Update,[RefPtr _ ptr; Number i; x]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ValueArray xs) =>
             (if 0 <= i /\ i < & (LENGTH xs)
@@ -333,43 +401,14 @@ Definition do_app_def:
                               (ptr,ValueArray (LUPDATE x (Num i) xs)))
              else Error)
          | _ => Error)
-    | (Add,[Number n1; Number n2]) => Rval (Number (n1 + n2),s)
-    | (Sub,[Number n1; Number n2]) => Rval (Number (n1 - n2),s)
-    | (Mult,[Number n1; Number n2]) => Rval (Number (n1 * n2),s)
-    | (Div,[Number n1; Number n2]) =>
-         if n2 = 0 then Error else Rval (Number (n1 / n2),s)
-    | (Mod,[Number n1; Number n2]) =>
-         if n2 = 0 then Error else Rval (Number (n1 % n2),s)
-    | (Less,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 < n2),s)
-    | (LessEq,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 <= n2),s)
-    | (Greater,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 > n2),s)
-    | (GreaterEq,[Number n1; Number n2]) =>
-         Rval (Boolv (n1 >= n2),s)
-    | (WordOp W8 opw,[Number n1; Number n2]) =>
-       (case some (w1:word8,w2:word8). n1 = &(w2n w1) ∧ n2 = &(w2n w2) of
-        | NONE => Error
-        | SOME (w1,w2) => Rval (Number &(w2n (opw_lookup opw w1 w2)),s))
-    | (WordOp W64 opw,[Word64 w1; Word64 w2]) =>
-        Rval (Word64 (opw_lookup opw w1 w2),s)
-    | (WordShift W8 sh n, [Number i]) =>
-       (case some (w:word8). i = &(w2n w) of
-        | NONE => Error
-        | SOME w => Rval (Number &(w2n (shift_lookup sh w n)),s))
-    | (WordShift W64 sh n, [Word64 w]) =>
-        Rval (Word64 (shift_lookup sh w n),s)
-    | (WordFromInt, [Number i]) =>
-        Rval (Word64 (i2w i),s)
-    | (WordToInt, [Word64 w]) =>
-        Rval (Number (&(w2n w)),s)
-    | (WordFromWord T, [Word64 w]) =>
-        Rval (Number (&(w2n ((w2w:word64->word8) w))),s)
-    | (WordFromWord F, [Number n]) =>
-       (case some (w:word8). n = &(w2n w) of
-        | NONE => Error
-        | SOME w => Rval (Word64 (w2w w),s))
+    | (IntOp int_op, vs) =>
+        (case do_int_app int_op vs of
+        | SOME res => Rval (res ,s)
+        | _ => Error)
+    | (WordOp word_op, vs) =>
+        (case do_word_app word_op vs of
+        | SOME res => Rval (res ,s)
+        | _ => Error)
     | (FFI n, [ByteVector conf; RefPtr _ ptr]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray ws) =>
@@ -381,40 +420,32 @@ Definition do_app_def:
             | FFI_final outcome =>
                 Rerr (Rabort (Rffi_error outcome)))
          | _ => Error)
-    | (FP_top t_op, ws) =>
-        (case ws of
-         | [Word64 w1; Word64 w2; Word64 w3] =>
-             (Rval (Word64 (fp_top_comp t_op w1 w2 w3),s))
-         | _ => Error)
-    | (FP_bop bop, ws) =>
-        (case ws of
-         | [Word64 w1; Word64 w2] => (Rval (Word64 (fp_bop_comp bop w1 w2),s))
-         | _ => Error)
-    | (FP_uop uop, ws) =>
-        (case ws of
-         | [Word64 w] => (Rval (Word64 (fp_uop_comp uop w),s))
-         | _ => Error)
-    | (FP_cmp cmp, ws) =>
-        (case ws of
-         | [Word64 w1; Word64 w2] => (Rval (Boolv (fp_cmp_comp cmp w1 w2),s))
-         | _ => Error)
-    | (BoundsCheckBlock,[Block tag ys; Number i]) =>
+    | (BlockOp BoundsCheckBlock,[Block tag ys; Number i]) =>
         Rval (Boolv (0 <= i /\ i < & LENGTH ys),s)
-    | (BoundsCheckByte loose,[ByteVector bs; Number i]) =>
+    | (MemOp (BoundsCheckByte loose),[ByteVector bs; Number i]) =>
         Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH bs)),s)
-    | (BoundsCheckByte loose,[RefPtr _ ptr; Number i]) =>
+    | (MemOp (BoundsCheckByte loose),[RefPtr _ ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray ws) =>
              Rval (Boolv (0 <= i /\ (if loose then $<= else $<) i (& LENGTH ws)),s)
          | _ => Error)
-    | (BoundsCheckArray,[RefPtr _ ptr; Number i]) =>
+    | (MemOp BoundsCheckArray,[RefPtr _ ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ValueArray ws) =>
              Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
          | _ => Error)
-    | (LessConstSmall n,[Number i]) =>
-        (if 0 <= i /\ i <= 1000000 /\ n < 1000000 then Rval (Boolv (i < &n),s) else Error)
-    | (ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
+    | (MemOp ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
+    | (ThunkOp th_op, vs) =>
+        (case (th_op,vs) of
+         | (AllocThunk m, [v]) =>
+             (let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
+                Rval (RefPtr F ptr, s with refs := s.refs |+ (ptr,Thunk m v)))
+         | (UpdateThunk m, [RefPtr _ ptr; v]) =>
+             (case FLOOKUP s.refs ptr of
+              | SOME (Thunk NotEvaluated _) =>
+                 Rval (Unit, s with refs := s.refs |+ (ptr,Thunk m v))
+              | _ => Error)
+         | _ => Error)
     | _ => Error
 End
 
@@ -422,7 +453,7 @@ Definition dec_clock_def:
   dec_clock n ^s = s with clock := s.clock - n
 End
 
-Triviality LESS_EQ_dec_clock:
+Theorem LESS_EQ_dec_clock[local]:
   (r:('c,'ffi) closSem$state).clock <= (dec_clock n s).clock ==> r.clock <= s.clock
 Proof
   SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC
@@ -448,7 +479,7 @@ Definition fix_clock_def:
   fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
 End
 
-Triviality fix_clock_IMP:
+Theorem fix_clock_IMP[local]:
   fix_clock s x = (res,s1) ==> s1.clock <= s.clock
 Proof
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
@@ -538,41 +569,105 @@ Definition build_recc_def:
     | NONE => NONE
 End
 
-val op_thms = { nchotomy = closLangTheory.op_nchotomy, case_def = closLangTheory.op_case_def}
-val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
-val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def}
-val v_thms = { nchotomy = theorem"v_nchotomy", case_def = definition"v_case_def"}
-val ref_thms = { nchotomy = theorem"ref_nchotomy", case_def = definition"ref_case_def"}
-val result_thms = { nchotomy = TypeBase.nchotomy_of ``:('a,'b)result``,
-                    case_def = TypeBase.case_def_of ``:('a,'b)result`` }
-val error_result_thms = { nchotomy = TypeBase.nchotomy_of ``:'a error_result``,
-                          case_def = TypeBase.case_def_of ``:'a error_result`` }
-val eq_result_thms = { nchotomy = TypeBase.nchotomy_of ``:eq_result``,
-                       case_def = TypeBase.case_def_of ``:eq_result`` }
-val appkind_thms = { nchotomy = TypeBase.nchotomy_of ``:app_kind``,
-                     case_def = TypeBase.case_def_of ``:app_kind`` }
-val word_size_thms = { nchotomy = TypeBase.nchotomy_of ``:word_size``,
-                     case_def = TypeBase.case_def_of ``:word_size`` }
-
-val case_eq_thms = LIST_CONJ (CaseEq"const_part" :: map prove_case_eq_thm
-  [op_thms, list_thms, option_thms, v_thms, ref_thms,
-   result_thms, error_result_thms, eq_result_thms, appkind_thms, word_size_thms])
-
-Theorem case_eq_thms =
-  case_eq_thms
+Theorem case_eq_thms = LIST_CONJ (
+  CaseEq"const_part" ::
+  closLangTheory.op_case_eq ::
+  closLangTheory.int_op_case_eq ::
+  closLangTheory.word_op_case_eq ::
+  closLangTheory.block_op_case_eq ::
+  closLangTheory.glob_op_case_eq ::
+  closLangTheory.mem_op_case_eq ::
+  astTheory.thunk_op_case_eq :: map CaseEq
+  ["list","option","v","ref",
+   "result","error_result","eq_result","app_kind","word_size"]);
 
 Theorem do_install_clock:
    do_install vs s = (Rval e,s') ⇒ 0 < s.clock ∧ s'.clock = s.clock-1
 Proof
   rw[do_install_def,case_eq_thms]
-  \\ pairarg_tac \\ fs[case_eq_thms,pair_case_eq,bool_case_eq]
+  \\ pairarg_tac \\ gvs[case_eq_thms,pair_case_eq,bool_case_eq]
 QED
 
 Theorem do_install_clock_less_eq:
    do_install vs s = (res,s') ⇒ s'.clock <= s.clock
 Proof
   rw[do_install_def,case_eq_thms] \\ fs []
-  \\ pairarg_tac \\ fs[case_eq_thms,pair_case_eq,bool_case_eq]
+  \\ pairarg_tac \\ gvs[case_eq_thms,pair_case_eq,bool_case_eq]
+QED
+
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk [RefPtr _ ptr] refs =
+    (case FLOOKUP refs ptr of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk vs refs = NotThunk
+End
+
+Definition store_thunk_def:
+  store_thunk ptr v refs =
+    case FLOOKUP refs ptr of
+    | SOME (Thunk NotEvaluated _) => SOME (refs |+ (ptr,v))
+    | _ => NONE
+End
+
+Definition update_thunk_def:
+  update_thunk [RefPtr _ ptr] refs [v] =
+    (case dest_thunk [v] refs of
+     | NotThunk => store_thunk ptr (Thunk Evaluated v) refs
+     | _ => NONE) ∧
+  update_thunk _ _ _ = NONE
+End
+
+Definition AppUnit_def:
+  AppUnit x = closLang$App None NONE x [Op None (BlockOp (Cons 0)) []]
+End
+
+Definition exp_alt_size_def[simp]:
+  exp_alt_size (Var a0 a1) = 1 + (tra_size a0 + a1) ∧
+  exp_alt_size (If a0 a1 a2 a3) =
+  1 + (tra_size a0 + (exp_alt_size a1 + (exp_alt_size a2 + exp_alt_size a3))) ∧
+  exp_alt_size (Let a0 a1 a2) =
+  1 + (tra_size a0 + (exp3_alt_size a1 + exp_alt_size a2)) ∧
+  exp_alt_size (Raise a0 a1) = 1 + (tra_size a0 + exp_alt_size a1) ∧
+  exp_alt_size (Handle a0 a1 a2) =
+  1 + (tra_size a0 + (exp_alt_size a1 + exp_alt_size a2)) ∧
+  exp_alt_size (Tick a0 a1) = 1 + (tra_size a0 + exp_alt_size a1) ∧
+  exp_alt_size (Call a0 a1 a2 a3) =
+  1 + (tra_size a0 + (a1 + (a2 + exp3_alt_size a3))) ∧
+  exp_alt_size (App a0 a1 a2 a3) =
+  1 +
+  (tra_size a0 + (option_size (λx. x) a1 + (exp_alt_size a2 + exp3_alt_size a3))) ∧
+  exp_alt_size (Fn a0 a1 a2 a3 a4) =
+  1 +
+  (mlstring_size a0 +
+   (option_size (λx. x) a1 +
+    (option_size (list_size (λx. x)) a2 + (a3 + exp_alt_size a4)))) ∧
+  exp_alt_size (Letrec a0 a1 a2 a3 a4) =
+  1 +
+  (list_size mlstring_size a0 +
+   (option_size (λx. x) a1 +
+    (option_size (list_size (λx. x)) a2 + (exp1_alt_size a3 + exp_alt_size a4)))) ∧
+  exp_alt_size (Op a0 a1 a2) = 1 + (tra_size a0 + (op_size a1 + exp3_alt_size a2))
+    + (if a1 = ThunkOp ForceThunk then 100 else 0) ∧
+  exp1_alt_size [] = 0 ∧
+  exp1_alt_size (a0::a1) = 1 + (exp2_alt_size a0 + exp1_alt_size a1) ∧
+  exp2_alt_size (a0,a1) = 1 + (a0 + exp_alt_size a1) ∧ exp3_alt_size [] = 0 ∧
+  exp3_alt_size (a0::a1) = 1 + (exp_alt_size a0 + exp3_alt_size a1)
+End
+
+Theorem exp3_alt_size[local,simp]:
+  exp3_alt_size xs = list_size exp_alt_size xs
+Proof
+  Induct_on `xs` \\ simp []
 QED
 
 Definition evaluate_def[nocompute]:
@@ -615,6 +710,18 @@ Definition evaluate_def[nocompute]:
              | (Rval vs,s) => (Rval [LAST vs],s)
              | res => res)
         | (Rerr err,s) => (Rerr err,s))
+       else if op = ThunkOp ForceThunk then
+         (case dest_thunk vs s.refs of
+          | BadRef => (Rerr (Rabort Rtype_error),s)
+          | NotThunk => (Rerr (Rabort Rtype_error),s)
+          | IsThunk Evaluated v => (Rval [v],s)
+          | IsThunk NotEvaluated f =>
+             (case evaluate ([AppUnit (Var None 0)],[f],s) of
+              | (Rval vs2,s) =>
+                 (case update_thunk vs s.refs vs2 of
+                  | NONE => (Rerr (Rabort Rtype_error),s)
+                  | SOME refs => (Rval vs2,s with refs := refs))
+              | (Rerr e,s) => (Rerr e,s)))
        else
        (case do_app op (REVERSE vs) s of
         | Rerr err => (Rerr err,s)
@@ -684,9 +791,9 @@ Definition evaluate_def[nocompute]:
                evaluate_app loc_opt v rest_args s1
            | res => res)
 Termination
- WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure I)
-               (\x. case x of INL (xs,env,s) => (s.clock,exp3_size xs,0)
-                            | INR (l,f,args,s) => (s.clock,0,LENGTH args)))`
+  WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure I)
+                (\x. case x of INL (xs,env,s) => (s.clock,list_size exp_alt_size xs,0)
+                             | INR (l,f,args,s) => (s.clock,0,LENGTH args)))`
   \\ rpt strip_tac
   \\ simp[dec_clock_def]
   \\ imp_res_tac fix_clock_IMP
@@ -696,7 +803,8 @@ Termination
   \\ imp_res_tac dest_closure_length
   \\ imp_res_tac LESS_EQ_dec_clock
   \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ decide_tac
+  \\ simp [AppUnit_def]
+  \\ IF_CASES_TAC \\ gvs []
 End
 
 Theorem evaluate_app_NIL[simp] =
@@ -717,7 +825,7 @@ Proof
   \\ every_case_tac \\ fs[] \\ rveq \\ fs[]
 QED
 
-Triviality evaluate_clock_help:
+Theorem evaluate_clock_help[local]:
   (!tup vs (s2:('c,'ffi) closSem$state).
       (evaluate tup = (vs,s2)) ==> s2.clock <= (SND (SND tup)).clock) ∧
     (!loc_opt f args (s1:('c,'ffi) closSem$state) vs s2.
@@ -796,5 +904,3 @@ Definition semantics_def:
              (IMAGE (λk. fromList
                 (SND (evaluate (es,[],st k))).ffi.io_events) UNIV))
 End
-
-val _ = export_theory()

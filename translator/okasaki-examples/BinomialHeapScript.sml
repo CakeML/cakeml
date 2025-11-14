@@ -2,13 +2,14 @@
   This is an example of applying the translator to the Binomial Heap
   algorithm from Chris Okasaki's book.
 *)
-open preamble
-open bagTheory bagLib okasaki_miscTheory ml_translatorLib ListProgTheory;
+Theory BinomialHeap
+Ancestors
+  bag okasaki_misc ListProg
+Libs
+  preamble bagLib ml_translatorLib
 
 val fs = full_simp_tac (srw_ss ())
 val rw = srw_tac []
-
-val _ = new_theory "BinomialHeap"
 
 val _ = translation_extends "ListProg";
 
@@ -20,8 +21,6 @@ End
 
 Type heap = ``:'a tree list``
 
-val tree_size_def = fetch "-" "tree_size_def";
-
 Definition heap_to_bag_def:
 (heap_to_bag [] = {||}) ∧
 (heap_to_bag (h::hs) =
@@ -29,10 +28,6 @@ Definition heap_to_bag_def:
 
 (tree_to_bag (Node _ x hs) =
   BAG_INSERT x (heap_to_bag hs))
-Termination
-  wf_rel_tac `measure (\x. case x of INL x => tree1_size (\x.0) x
-                                  | INR x => tree_size (\x.0) x)` >>
- rw [tree_size_def]
 End
 
 Definition is_heap_ordered_def:
@@ -43,10 +38,6 @@ Definition is_heap_ordered_def:
 (is_heap_ordered_tree get_key leq (Node _ x hs) <=>
   is_heap_ordered get_key leq hs ∧
   BAG_EVERY (\y. leq (get_key x) (get_key y)) (heap_to_bag hs))
-Termination
-  wf_rel_tac `measure (\x. case x of INL (_,_,x) => tree1_size (\x.0) x
-                                  | INR (_,_,x) => tree_size (\x.0) x)` >>
- rw [tree_size_def]
 End
 
 Definition empty_def:
@@ -137,7 +128,7 @@ val r = translate delete_min_def;
 
 (* Functional correctness proof *)
 
-Triviality ins_bag:
+Theorem ins_bag[local]:
   !get_key leq t h.
   heap_to_bag (ins_tree get_key leq t h) =
   BAG_UNION (tree_to_bag t) (heap_to_bag h)
@@ -149,7 +140,7 @@ cases_on `h'` >>
 srw_tac [BAG_ss] [heap_to_bag_def, ins_tree_def, link_def, BAG_INSERT_UNION]
 QED
 
-Triviality ins_heap_ordered:
+Theorem ins_heap_ordered[local]:
   !get_key leq t h.
   WeakLinearOrder leq ∧
   is_heap_ordered_tree get_key leq t ∧
@@ -220,7 +211,7 @@ fs [is_heap_ordered_def, BAG_EVERY, heap_to_bag_def] >>
 metis_tac [WeakLinearOrder, WeakOrder, transitive_def, WeakLinearOrder_neg]
 QED
 
-Triviality remove_min_tree:
+Theorem remove_min_tree[local]:
   ∀get_key leq h t h'.
   WeakLinearOrder leq ∧
   (h ≠ []) ∧
@@ -311,7 +302,7 @@ fs [BAG_EVERY, heap_to_bag_def, root_def, is_heap_ordered_def] >>
 metis_tac [WeakLinearOrder, WeakOrder, reflexive_def]
 QED
 
-Triviality reverse_heap_ordered:
+Theorem reverse_heap_ordered[local]:
   !get_key leq l.
   is_heap_ordered get_key leq l ⇒ is_heap_ordered get_key leq (REVERSE l)
 Proof
@@ -325,14 +316,14 @@ induct_on `l'` >>
 rw [is_heap_ordered_def]
 QED
 
-Triviality append_bag:
+Theorem append_bag[local]:
   !h1 h2. heap_to_bag (h1++h2) = BAG_UNION (heap_to_bag h1) (heap_to_bag h2)
 Proof
   induct_on `h1` >>
 srw_tac [BAG_ss] [heap_to_bag_def]
 QED
 
-Triviality reverse_bag:
+Theorem reverse_bag[local]:
   !l. heap_to_bag (REVERSE l) = heap_to_bag l
 Proof
   induct_on `l` >>
@@ -369,10 +360,6 @@ Definition heap_size_def:
 (heap_size [] = 0) ∧
 (heap_size (t::ts) = heap_tree_size t + heap_size ts) ∧
 (heap_tree_size (Node _ _ trees) = (1:num) + heap_size trees)
-Termination
-  wf_rel_tac `measure (\x. case x of INR y => tree_size (\x.0) y
-                                  | INL z => tree1_size (\x.0) z)` >>
- rw []
 End
 
 Definition is_binomial_tree_def:
@@ -387,7 +374,7 @@ End
 
 val is_binomial_tree_ind = fetch "-" "is_binomial_tree_ind";
 
-Triviality exp2_mod2:
+Theorem exp2_mod2[local]:
   !x. x ≠ 0 ⇒ (2 ** x MOD 2 = 0)
 Proof
   induct_on `x` >>
@@ -416,21 +403,21 @@ is_binomial_heap h <=>
   EVERY is_binomial_tree h ∧ SORTED ($< : num->num->bool) (MAP rank h)
 End
 
-Triviality trans_less:
+Theorem trans_less[local]:
   transitive ($< : num->num->bool)
 Proof
   rw [transitive_def] >>
 decide_tac
 QED
 
-Triviality trans_great:
+Theorem trans_great[local]:
   transitive ($> : num->num->bool)
 Proof
   rw [transitive_def] >>
 decide_tac
 QED
 
-Triviality link_binomial_tree:
+Theorem link_binomial_tree[local]:
   !get_key leq t1 t2.
   is_binomial_tree t1 ∧ is_binomial_tree t2 ∧ (rank t1 = rank t2)
   ⇒
@@ -448,7 +435,7 @@ res_tac >>
 decide_tac
 QED
 
-Triviality ins_binomial_heap:
+Theorem ins_binomial_heap[local]:
   !get_key leq t h.
   is_binomial_tree t ∧
   is_binomial_heap h ∧
@@ -518,7 +505,7 @@ rw [insert_def] >>
 metis_tac [ins_binomial_heap, rank_def, DECIDE ``!(x:num). 0 ≤ x``]
 QED
 
-Triviality remove_min_binomial_heap:
+Theorem remove_min_binomial_heap[local]:
   !get_key leq h t h'.
   (h ≠ []) ∧ is_binomial_heap h ∧ ((t,h') = remove_min_tree get_key leq h)
   ⇒
@@ -544,7 +531,7 @@ fs [] >>
 metis_tac [MEM_MAP, trans_less, transitive_def]
 QED
 
-Triviality delete_lem:
+Theorem delete_lem[local]:
   !n a l. is_binomial_tree (Node n a l) ⇒ is_binomial_heap (REVERSE l)
 Proof
   induct_on `l` >>
@@ -578,7 +565,7 @@ QED
 
 val remove_min_tree_side_def = fetch "-" "remove_min_tree_side_def"
 
-Triviality remove_min_tree_side:
+Theorem remove_min_tree_side[local]:
   !get_key leq h. remove_min_tree_side get_key leq h = (h ≠ [])
 Proof
   Induct_on `h`
@@ -586,4 +573,3 @@ THEN SIMP_TAC std_ss [Once remove_min_tree_side_def]
 THEN Cases_on `h` THEN FULL_SIMP_TAC (srw_ss()) []
 QED
 
-val _ = export_theory ();

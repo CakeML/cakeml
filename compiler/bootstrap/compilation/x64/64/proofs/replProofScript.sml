@@ -1,13 +1,13 @@
 (*
   Verification of the function (called repl) that implements the REPL
 *)
-open preamble
-open semanticsPropsTheory backendProofTheory x64_configProofTheory compiler64ProgTheory
-open evaluateTheory
-open semanticPrimitivesTheory ml_translatorTheory
-open repl_typesTheory repl_check_and_tweakTheory repl_initTheory
-
-val _ = new_theory"replProof";
+Theory replProof
+Ancestors
+  semanticsProps backendProof x64_configProof compiler64Prog
+  evaluate semanticPrimitives ml_translator repl_types
+  repl_check_and_tweak repl_init
+Libs
+  preamble
 
 val _ = (max_print_depth := 12);
 
@@ -29,7 +29,7 @@ Proof
   \\ fs [ml_translatorTheory.no_closures_def, SF ETA_ss, concrete_v_def]
 QED
 
-Triviality EqualityType_concrete_v:
+Theorem EqualityType_concrete_v[local]:
   a x v ∧ EqualityType a ⇒ concrete_v v
 Proof
   fs [ml_translatorTheory.EqualityType_def]
@@ -1093,7 +1093,7 @@ Proof
   \\ Cases_on ‘xs’ \\ fs []
 QED
 
-Triviality BACKEND_INC_CONFIG_TYPE_v:
+Theorem BACKEND_INC_CONFIG_TYPE_v[local]:
   BACKEND_INC_CONFIG_TYPE conf u ⇒
   u = BACKEND_INC_CONFIG_v conf
 Proof
@@ -1295,4 +1295,3 @@ Proof
   \\ qexists_tac ‘k’ \\ fs []
 QED
 
-val _ = export_theory();

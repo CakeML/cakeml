@@ -8,7 +8,7 @@ misc
 
 # build many things in parallel at the start
 compiler/proofs
-compiler/bootstrap/translation
+compiler/bootstrap/compilation/x64/64/proofs
 
 # semantics and metatheory
 semantics/ffi
@@ -28,6 +28,9 @@ characteristic
 # monadic translator
 translator/monadic
 translator/monadic/monad_base
+
+# profiler
+profiler
 
 # basis library
 basis
@@ -105,14 +108,22 @@ candle/prover/compute
 pancake
 pancake/semantics
 pancake/parser
+pancake/static_checker
 pancake/proofs
-pancake/ta_progs
 
 # dafny compiler
 compiler/dafny
 compiler/dafny/translation
 compiler/dafny/compilation
 compiler/dafny/semantics
+compiler/dafny/proofs
+compiler/dafny/vcg
+
+# Scheme compiler
+compiler/scheme
+compiler/scheme/translation
+compiler/scheme/compilation
+compiler/scheme/proofs
 
 # examples and tests
 characteristic/examples
@@ -136,6 +147,11 @@ examples/xlrup_checker
 examples/xlrup_checker/array
 examples/xlrup_checker/array/compilation
 examples/xlrup_checker/array/compilation/proofs
+
+examples/scpog_checker
+examples/scpog_checker/array
+examples/scpog_checker/array/compilation
+examples/scpog_checker/array/compilation/proofs
 
 examples/pseudo_bool
 examples/pseudo_bool/cnf_encoding
@@ -168,13 +184,6 @@ compiler/parsing/tests
 compiler/inference/tests
 compiler/printing/test
 
-# Floating-Point optimizer
-icing/flover
-icing/flover/Infra
-icing/flover/semantics
-icing/
-icing/examples
-
 # compiler translation
 compiler/repl
 
@@ -188,8 +197,8 @@ compiler/benchmarks/cakeml_benchmarks/cakeml
 compiler/benchmarks/mlton_benchmarks/cakeml
 
 # compiler HOL bootstrap
+compiler/bootstrap/translation
 compiler/bootstrap/compilation/x64/64:cake-x64-64.tar.gz
-compiler/bootstrap/compilation/x64/64/proofs
 compiler/bootstrap/compilation/x64/32:cake-x64-32.tar.gz
 compiler/bootstrap/compilation/x64/32/proofs
 compiler/bootstrap/compilation/arm8/64:cake-arm8-64.tar.gz

@@ -6,9 +6,11 @@
   2) Marking clauses (in the is_AT step)
   3) Tracking earliest occurences of pivots
 *)
-open preamble basis lprTheory;
-
-val _ = new_theory "lpr_list"
+Theory lpr_list
+Ancestors
+  lpr
+Libs
+  preamble basis
 
 Definition w8z_def:
   w8z = (0w:word8)
@@ -302,8 +304,9 @@ Definition safe_hd_def:
   safe_hd ls = case ls of [] => (0:int) | (x::xs) => x
 End
 
+(*Might want to rename to MAX_LIST_index*)
 Definition list_max_index_def:
-  list_max_index C = 2*list_max (MAP (λc. Num (ABS c)) C) + 1
+  list_max_index C = 2*MAX_LIST (MAP (λc. Num (ABS c)) C) + 1
 End
 
 (* bump up the length to a large number *)
@@ -2171,4 +2174,3 @@ Proof
   rw[]
 QED
 
-val _ = export_theory();

@@ -1,11 +1,12 @@
 (*
   Encoding program for simple compression
 *)
-open preamble basis miscTheory set_sepTheory listTheory lispProgTheory arithmeticTheory numposrepTheory;
-open compressionTheory;
-open parsingTheory source_valuesTheory;
-
-val _ = new_theory "compressionProg";
+Theory compressionProg
+Ancestors
+  misc set_sep list lispProg arithmetic numposrep compression
+  parsing source_values
+Libs
+  preamble basis
 
 val _ = translation_extends "lispProg";
 
@@ -39,7 +40,7 @@ val res = translate (nub_def |> REWRITE_RULE [MEMBER_INTRO]);
 val res = translate find_match_def;
 val res = translate (tab_sub_def |> SIMP_RULE std_ss [GSYM mllistTheory.drop_def]);
 
-Triviality tab_sub_ind:
+Theorem tab_sub_ind[local]:
   tab_sub_ind
 Proof
   once_rewrite_tac [fetch "-" "tab_sub_ind_def"]
@@ -97,4 +98,3 @@ Definition compression_prog_def:
   compression_prog = ^prog
 End
 
-val _ = export_theory();

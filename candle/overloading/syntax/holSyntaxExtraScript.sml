@@ -1,10 +1,12 @@
 (*
   Some lemmas about the syntactic functions.
 *)
-open preamble totoTheory comparisonTheory ternaryComparisonsTheory mlstringTheory
-     holSyntaxLibTheory holSyntaxTheory
-
-val _ = new_theory"holSyntaxExtra"
+Theory holSyntaxExtra
+Libs
+  preamble
+Ancestors
+  toto comparison ternaryComparisons mlstring holSyntaxLib
+  holSyntax
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
@@ -887,7 +889,7 @@ Theorem subterm_Abs =
   |> SIMP_CONV(srw_ss()++boolSimps.DNF_ss)
       [Once relationTheory.RTC_CASES2,subterm1_cases]
 
-Triviality subterm_welltyped_helper:
+Theorem subterm_welltyped_helper[local]:
   ∀tm ty. tm has_type ty ⇒ ∀t. t subterm tm ⇒ welltyped t
 Proof
   ho_match_mp_tac has_type_strongind >>
@@ -7182,13 +7184,13 @@ Proof
   >> fs[]
 QED
 
-Triviality subtype_subtype_at_Tyvar:
+Theorem subtype_subtype_at_Tyvar[local]:
   !x a. x subtype (Tyvar a) <=> subtype_at (Tyvar a) [] = SOME x
 Proof
   fs[subtype_Tyvar,subtype_at_def,EQ_SYM_EQ]
 QED
 
-Triviality subtype1_subtype_at:
+Theorem subtype1_subtype_at[local]:
   !l x m. subtype1 x (Tyapp m l) <=> ?n. subtype_at (Tyapp m l) [(m,n)] = SOME x
 Proof
   fs[subtype1_cases,subtype_at_def,MEM_EL,EQ_SYM_EQ]
@@ -7987,14 +7989,12 @@ Proof
   >- (
     fs[unify_types_invariant_def,EVERY_MEM]
     >> rw[MEM_MAP]
-    >> Cases_on `y`
+    >> rename [`MEM (q,r) l`]
     >> qpat_x_assum `!a b. (_ /\ _) \/ _ ==> _` (qspecl_then [`q`,`r`] mp_tac)
     >> rw[]
     >> NTAC 2 (
       qmatch_asmsub_rename_tac `subtype_at (TYPE_SUBST sigma x) _ = SOME in_x`
       >> qmatch_asmsub_rename_tac `subtype_at (TYPE_SUBST sigma y) _ = SOME in_y`
-      >> qmatch_asmsub_rename_tac `(subs_in_x, subs_in_y) = _ (in_x,in_y)`
-        ORELSE qmatch_asmsub_rename_tac `(subs_in_y, subs_in_x) = _ (in_y,in_x)`
       >> asm_exists_tac
       >> qexists_tac `p`
       >> rw[AC DISJ_ASSOC DISJ_COMM]
@@ -8010,7 +8010,6 @@ Proof
           qpat_x_assum `!x. MEM _ (tyvars (Tyvar a)) \/ _ ==> ~MEM _ _` (qspec_then `a` mp_tac)
           >> rw[MEM_MAP,tyvars_def]
         )
-        >- fs[o_PAIR_MAP]
         >> CONV_TAC(RHS_CONV(PURE_ONCE_REWRITE_CONV [INSERT_SING_UNION]))
         >> fs[AC UNION_ASSOC UNION_COMM]
       )
@@ -8048,7 +8047,6 @@ Proof
         >> qpat_x_assum `!x. MEM _ (tyvars (Tyvar a)) \/ _ ==> ~MEM _ _` $ qspec_then `a` mp_tac
         >> rw[MEM_MAP,tyvars_def]
       )
-      >- fs[o_PAIR_MAP]
       >> CONV_TAC $ RHS_CONV $ PURE_ONCE_REWRITE_CONV [INSERT_SING_UNION]
       >> fs[AC UNION_ASSOC UNION_COMM]
     )
@@ -8200,9 +8198,11 @@ Proof
        fs[tyvars_def,MEM_FOLDR_LIST_UNION,EVERY_MEM] >>
        res_tac >>
        Cases_on `Tyvar a = y` >-
-         (rveq >> fs[MEM_SPLIT,type_size_def,type1_size_append]) >>
+         (rveq >> fs[MEM_SPLIT]>>
+          simp[list_size_APPEND]) >>
        res_tac >>
-       fs[MEM_SPLIT,type_size_def,type1_size_append]) >>
+       fs[MEM_SPLIT,list_size_APPEND]
+       ) >>
   first_x_assum drule_all >>
   `type_size(TYPE_SUBST s (Tyvar a)) = type_size(TYPE_SUBST s ty)`
     by rw[] >>
@@ -12996,7 +12996,7 @@ Proof
   rw[] >>
   last_x_assum(qspec_then `f` mp_tac) >>
   disch_then assume_tac >>
-  pop_assum(mp_tac o Ho_Rewrite.REWRITE_RULE[whileTheory.LEAST_EXISTS]) >>
+  pop_assum(mp_tac o Ho_Rewrite.REWRITE_RULE[WhileTheory.LEAST_EXISTS]) >>
   rename1 `f n` >>
   rpt strip_tac >>
   reverse(Cases_on `R' (f n) (f (SUC n))`) >- goal_assum drule >>
@@ -13054,7 +13054,7 @@ End
 
 (* A kingdom for higher-order unification.... *)
 
-Triviality mk_witness1:
+Theorem mk_witness1[local]:
   (dependency ctxt (h a2) (i b2))
   ==>
   (?a1 b1 c1.
@@ -13065,7 +13065,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality mk_witness2:
+Theorem mk_witness2[local]:
   (dependency ctxt (h b2) (i a2))
   ==>
   (?a1 b1 c1.
@@ -14533,12 +14533,7 @@ Definition tymatch_def:
   (tymatch (Tyapp c1 a1::ps) (Tyapp c2 a2::obs) sids =
    if c1=c2 then tymatch (a1++ps) (a2++obs) sids else NONE) ∧
   (tymatch _ _ _ = NONE)
-Termination
-  WF_REL_TAC`measure (λx. type1_size (FST x) + type1_size (FST(SND x)))`
-  >> simp[type1_size_append]
 End
-
-val tymatch_ind = theorem "tymatch_ind";
 
 Definition arities_match_def:
   (arities_match [] [] ⇔ T) ∧
@@ -14547,10 +14542,7 @@ Definition arities_match_def:
   (arities_match (Tyapp c1 a1::xs) (Tyapp c2 a2::ys) ⇔
    ((c1 = c2) ⇒ arities_match a1 a2) ∧ arities_match xs ys) ∧
   (arities_match (_::xs) (_::ys) ⇔ arities_match xs ys)
-Termination
-  WF_REL_TAC`measure (λx. type1_size (FST x) + type1_size (SND x))`
 End
-val arities_match_ind = theorem "arities_match_ind"
 
 Theorem arities_match_length:
    ∀l1 l2. arities_match l1 l2 ⇒ (LENGTH l1 = LENGTH l2)
@@ -15306,5 +15298,3 @@ Proof
   >> imp_res_tac WELLTYPED_LEMMA
   >> fs[]
 QED
-
-val _ = export_theory()

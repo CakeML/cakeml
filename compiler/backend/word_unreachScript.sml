@@ -1,9 +1,11 @@
 (*
   This compilation pass removes trivially unreachable code.
 *)
-open preamble wordLangTheory;
-
-val _ = new_theory "word_unreach";
+Theory word_unreach
+Ancestors
+  wordLang
+Libs
+  preamble
 
 (* function that makes all Seq associate to the right *)
 
@@ -66,7 +68,7 @@ Definition remove_unreach_def:
     Seq_assoc_right e Skip
 End
 
-Triviality remove_unreach_test:
+Theorem remove_unreach_test[local]:
   remove_unreach (Seq (Move 1 [(1,11);(2,22);(3,33)])
                       (Move 1 [(3,1);(2,99)]))
   =
@@ -75,4 +77,3 @@ Proof
   EVAL_TAC
 QED
 
-val _ = export_theory();

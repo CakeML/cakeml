@@ -1,11 +1,12 @@
 (*
   Implement and prove correct monadic version of encoder
 *)
-open preamble state_transformerTheory
-open ml_monadBaseLib ml_monadBaseTheory
-open asmTheory lab_to_targetTheory monadic_encTheory
+Theory monadic_enc64
+Ancestors
+  state_transformer ml_monadBase asm lab_to_target monadic_enc
+Libs
+  preamble ml_monadBaseLib
 
-val _ = new_theory "monadic_enc64"
 val _ = monadsyntax.temp_add_monadsyntax()
 
 Overload monad_bind[local] = ``st_ex_bind``
@@ -184,7 +185,7 @@ Definition good_table_64_def:
   LENGTH s.hash_tab_64 = n
 End
 
-Triviality lookup_ins_table_64_correct:
+Theorem lookup_ins_table_64_correct[local]:
   good_table_64 enc n s ∧
   0 < n ⇒
   ∃s'.
@@ -214,7 +215,7 @@ Proof
   fs[]
 QED
 
-Triviality enc_line_hash_64_correct:
+Theorem enc_line_hash_64_correct[local]:
   ∀line.
   good_table_64 enc n s ∧ 0 < n ⇒
   ∃s'.
@@ -229,7 +230,7 @@ Proof
   old_drule lookup_ins_table_64_correct>>rw[]>>simp[]
 QED
 
-Triviality enc_line_hash_64_ls_correct:
+Theorem enc_line_hash_64_ls_correct[local]:
   ∀xs s.
   good_table_64 enc n s ∧ 0 < n ⇒
   ∃s'.
@@ -246,7 +247,7 @@ Proof
   rw[]>>simp[]
 QED
 
-Triviality enc_sec_hash_64_ls_correct:
+Theorem enc_sec_hash_64_ls_correct[local]:
   ∀xs s.
   good_table_64 enc n s ∧ 0 < n ⇒
   ∃s'.
@@ -280,4 +281,3 @@ Proof
   fs[enc_sec_list_def]
 QED
 
-val _ = export_theory();

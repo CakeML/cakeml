@@ -1,9 +1,11 @@
 (*
   Define a monad to make dataLang ASTs nicer to work with
 *)
-open preamble dataLangTheory dataSemTheory;
-
-val _ = new_theory"data_monad";
+Theory data_monad
+Ancestors
+  dataLang dataSem
+Libs
+  preamble
 
 Type M = ``:('c,'ffi) dataSem$state -> (v, v) result option # ('c,'ffi) dataSem$state``
 
@@ -119,6 +121,50 @@ Definition assign_def:
           | Rval (v,s) => (NONE, set_var dest v (install_sfs op s))
 End
 
+Definition force_def:
+  force ret loc src s =
+    case get_var src s.locals of
+    | NONE => fail s
+    | SOME thunk_v =>
+      (case dest_thunk thunk_v s.refs of
+       | BadRef => fail s
+       | NotThunk => fail s
+       | IsThunk Evaluated v =>
+         (case ret of
+          | NONE => (SOME (Rval v),flush_state F s)
+          | SOME (dest,names) =>
+            (case cut_env names s.locals of
+             | NONE => fail s
+             | SOME env => (NONE, set_var dest v (s with locals := env))))
+      | IsThunk NotEvaluated f =>
+        (case find_code (SOME loc) [thunk_v; f] s.code s.stack_frame_sizes of
+         | NONE => fail s
+         | SOME (args1,prog,ss) =>
+           (case ret of
+            | NONE =>
+              (if s.clock = 0 then
+                 timeout (s with <| stack := []; locals := LN |>)
+               else
+                 (case evaluate (prog, call_env args1 ss (dec_clock s)) of
+                  | (NONE,s) => fail s
+                  | (SOME res,s) => (SOME res,s)))
+            | SOME (dest,names) =>
+              (case cut_env names s.locals of
+               | NONE => fail s
+               | SOME env =>
+                   let s1 = call_env args1 ss (push_env env F (dec_clock s)) in
+                     if s.clock = 0 then
+                       timeout (s1 with <| stack := []; locals := LN |>)
+                     else
+                       (case evaluate (prog, s1) of
+                        | (SOME (Rval x),s2) =>
+                          (case pop_env s2 of
+                           | NONE => fail s2
+                           | SOME s1 => (NONE, set_var dest x s1))
+                        | (NONE,s) => fail s
+                        | res => res)))))
+End
+
 Overload ":≡" = ``assign``
 val _ = set_fixity ":≡" (Infixl 480);
 
@@ -155,6 +201,7 @@ Definition to_shallow_def:
   to_shallow (Assign n op vars cutset) = assign n (op, vars, cutset) /\
   to_shallow (Seq p1 p2) = bind (to_shallow p1) (to_shallow p2) /\
   to_shallow (Return n) = return n /\
+  to_shallow (Force ret loc src) = force ret loc src /\
   to_shallow (Call NONE       dest args NONE) = tailcall dest args /\
   to_shallow (Call NONE       dest args (SOME x)) = fail /\
   to_shallow (Call (SOME ret) dest args handler) = call ret dest args handler /\
@@ -192,7 +239,9 @@ Proof
   >- (fs [get_var_def] \\ rw []
      \\ CASE_TAC \\ fs [call_env_def,fromList_def])
   (* Tick *)
-  \\ rw[tick_def,timeout_def,call_env_def,state_component_equality,fromList_def]
+  >- rw[tick_def,timeout_def,call_env_def,state_component_equality,fromList_def]
+  (* Force *)
+  >- rw [force_def, timeout_def]
 QED
 
 Overload monad_unitbind[local] = ``bind``
@@ -201,13 +250,13 @@ Overload return[local] = ``return``
 val _ = monadsyntax.temp_add_monadsyntax()
 
 val challenge_program =
-  ``Seq (Assign 2 (TagLenEq 0 0) [0] NONE)
+  ``Seq (Assign 2 (BlockOp (TagLenEq 0 0)) [0] NONE)
         (If 2 (Return 1)
-              (Seq (Assign 5 (Const 0) [] NONE)
-              (Seq (Assign 3 El [0; 5] NONE)
-              (Seq (Assign 5 (Const 1) [] NONE)
-              (Seq (Assign 6 El [0; 5] NONE)
-              (Seq (Assign 4 (Cons 0) [5; 1] NONE)
+              (Seq (Assign 5 (IntOp (Const 0)) [] NONE)
+              (Seq (Assign 3 (MemOp El) [0; 5] NONE)
+              (Seq (Assign 5 (IntOp (Const 1)) [] NONE)
+              (Seq (Assign 6 (MemOp El) [0; 5] NONE)
+              (Seq (Assign 4 (BlockOp (Cons 0)) [5; 1] NONE)
                    (Call NONE (SOME 500) [6; 4] NONE)))))))``
 
 val to_shallow_thm =
@@ -279,4 +328,3 @@ Proof
   \\ rw [] \\ fs [data_safe_def]
 QED
 
-val _ = export_theory();

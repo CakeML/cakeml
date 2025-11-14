@@ -1,13 +1,15 @@
 (*
   Filter case study from CASE.
 *)
-open preamble basis MapProgTheory ml_translatorLib ml_progLib basisFunctionsLib ml_translatorTheory
-     charsetTheory regexpTheory regexp_parserTheory regexp_compilerTheory cfTacticsBaseLib
-     cfDivTheory cfDivLib;
+Theory filterProg
+Ancestors
+  MapProg ml_translator charset regexp regexp_parser
+  regexp_compiler cfDiv
+Libs
+  preamble basis ml_translatorLib ml_progLib basisFunctionsLib
+  cfTacticsBaseLib cfDivLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "filterProg";
 
 (*---------------------------------------------------------------------------*)
 (* The regexp wrt. which we're filtering                                     *)
@@ -47,7 +49,7 @@ Definition language_def:
                  ^(matcher_certificate |> concl |> dest_forall |> snd |> rhs |> rator)
 End
 
-Triviality match_string_eq:
+Theorem match_string_eq[local]:
   match_string = language o explode
 Proof
   `!s. match_string s = (language o explode) s` suffices_by metis_tac[]
@@ -87,13 +89,13 @@ val spec64 = INST_TYPE[alpha|->``:64``]
 
 val _ = translate matcher_def
 
-Triviality mem_tolist:
+Theorem mem_tolist[local]:
   MEM (toList l) (MAP toList ll) = MEM l ll
 Proof
   Induct_on `ll` >> fs[]
 QED
 
-Triviality length_tolist_cancel:
+Theorem length_tolist_cancel[local]:
   !n. n < LENGTH l ==> LENGTH (EL n (MAP mlvector$toList l)) = length (EL n l)
 Proof
   Induct_on `l`
@@ -103,7 +105,7 @@ Proof
   >> fs[mlvectorTheory.length_toList]
 QED
 
-Triviality EL_map_toList:
+Theorem EL_map_toList[local]:
   !n. n < LENGTH l ==> EL n' (EL n (MAP toList l)) = sub (EL n l) n'
 Proof
   Induct_on `l`
@@ -113,7 +115,7 @@ Proof
   >> fs[mlvectorTheory.EL_toList]
 QED
 
-Triviality exec_dfa_side_imp:
+Theorem exec_dfa_side_imp[local]:
   !finals table n s.
    good_vec (MAP toList (toList table)) (toList finals)
     /\ EVERY (λc. MEM (ORD c) ALPHABET) (EXPLODE s)
@@ -140,7 +142,7 @@ Proof
     >> rfs[mlvectorTheory.length_toList,mem_tolist,EL_map_toList,length_tolist_cancel]
 QED
 
-Triviality all_ord_string:
+Theorem all_ord_string[local]:
   EVERY (\c. MEM (ORD c) ALPHABET) s
    <=>
   EVERY (\c. ORD c < alphabet_size) s
@@ -612,7 +614,7 @@ Proof
   Induct >> Cases_on `ll1` >> rw[] >> rw[] >> metis_tac[]
 QED
 
-Triviality LLENGTH_NONE_LTAKE:
+Theorem LLENGTH_NONE_LTAKE[local]:
   !n ll. LLENGTH ll = NONE ==> ?l. LTAKE n ll = SOME l
 Proof
   Induct >> Cases_on `ll` >> rw[]
@@ -800,7 +802,7 @@ Proof
         qexists_tac `n0 - n` >> simp[] >> metis_tac[]))
 QED
 
-Triviality cut_at_null_simplify:
+Theorem cut_at_null_simplify[local]:
   (?n' e'.
    SOME e' =
      LNTH n'
@@ -818,7 +820,7 @@ QED
 val LFLATTEN_fromList_GENLIST =
     LFLATTEN_fromList |> Q.SPEC `GENLIST f n` |> SIMP_RULE std_ss [MAP_GENLIST,o_DEF]
 
-Triviality LFILTER_fromList:
+Theorem LFILTER_fromList[local]:
   !l. LFILTER f (fromList l) = fromList(FILTER f l)
 Proof
   Induct >> rw[]
@@ -996,7 +998,7 @@ Proof
      impl_tac >- rw[every_LNTH,LNTH_LGENLIST,next_filter_events,LFINITE_fromList] >>
      simp[SimpL ``$==>``,exists_LNTH,LNTH_LGENLIST] >>
      Ho_Rewrite.PURE_ONCE_REWRITE_TAC [cut_at_null_simplify] >>
-     disch_then(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[whileTheory.LEAST_EXISTS]) >>
+     disch_then(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[WhileTheory.LEAST_EXISTS]) >>
      rename1 `LNTH n0` >>
      qmatch_goalsub_abbrev_tac `LGENLIST f` >>
      Q.ISPECL_THEN [`n0`,`f`] assume_tac (GEN_ALL LGENLIST_CHUNK_GENLIST) >>
@@ -1045,7 +1047,7 @@ Proof
      impl_tac >- rw[every_LNTH,LNTH_LGENLIST,next_filter_events,LFINITE_fromList] >>
      simp[SimpL ``$==>``,exists_LNTH,LNTH_LGENLIST] >>
      Ho_Rewrite.PURE_ONCE_REWRITE_TAC [cut_at_null_simplify] >>
-     disch_then(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[whileTheory.LEAST_EXISTS]) >>
+     disch_then(strip_assume_tac o Ho_Rewrite.REWRITE_RULE[WhileTheory.LEAST_EXISTS]) >>
      rename1 `LNTH n0` >>
      qmatch_goalsub_abbrev_tac `LGENLIST f` >>
      Q.ISPECL_THEN [`n0`,`f`] assume_tac (GEN_ALL LGENLIST_CHUNK_GENLIST) >>
@@ -1530,4 +1532,3 @@ QED
 val _ = astToSexprLib.write_ast_to_file "../program.sexp" prog;
 *)
 
-val _ = export_theory ();
