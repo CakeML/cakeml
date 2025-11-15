@@ -1,0 +1,171 @@
+<<HOL message: Created theory "holSyntax">>
+Saved theorem _______ "type_size_eq"
+Saved theorem _______ "datatype_type"
+Saved theorem _______ "type_11"
+Saved theorem _______ "type_distinct"
+Saved theorem _______ "type_nchotomy"
+Saved theorem _______ "type_Axiom"
+Saved theorem _______ "type_induction"
+Saved theorem _______ "type_case_cong"
+Saved theorem _______ "type_case_eq"
+<<HOL message: Defined type: "type">>
+<<HOL message: mk_functional: 
+  pattern completion has added 1 clause to the original specification.>>
+Saved definition ____ "domain_raw"
+Saved theorem _______ "domain_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "codomain_raw"
+Saved theorem _______ "codomain_def"
+Saved theorem _______ "datatype_term"
+Saved theorem _______ "term_11"
+Saved theorem _______ "term_distinct"
+Saved theorem _______ "term_nchotomy"
+Saved theorem _______ "term_Axiom"
+Saved theorem _______ "term_induction"
+Saved theorem _______ "term_case_cong"
+Saved theorem _______ "term_case_eq"
+<<HOL message: Defined type: "term">>
+Saved definition ____ "dest_var_def"
+<<HOL message: Generalising variables "n", "ty" in clause #0 (65:3-65:26)>>
+<<HOL message: Generalising variables "n", "ty" in clause #1 (66:3-66:26)>>
+<<HOL message: Generalising variables "dty", "rty", "s", "t" in clause #2 (67:3-70:25)>>
+<<HOL message: Generalising variables "dty", "n", "rty", "t" in clause #3 (71:3-72:44)>>
+Saved theorem _______ "has_type_rules"
+Saved theorem _______ "has_type_ind"
+Saved theorem _______ "has_type_strongind"
+Saved theorem _______ "has_type_cases"
+Saved definition ____ "welltyped_def"
+Saved definition ____ "typeof_def"
+<<HOL message: Generalising variables "env", "ty1", "ty2", "x1", "x2" in clause #0 (93:3-94:41)>>
+<<HOL message: Generalising variables "env", "ty", "x" in clause #1 (95:3-95:36)>>
+<<HOL message: Generalising variables "env", "s1", "s2", "t1", "t2" in clause #2 (96:3-97:41)>>
+<<HOL message: Generalising variables "env", "t1", "t2", "v1", "v2" in clause #3 (98:3-99:39)>>
+Saved theorem _______ "RACONV_rules"
+Saved theorem _______ "RACONV_ind"
+Saved theorem _______ "RACONV_strongind"
+Saved theorem _______ "RACONV_cases"
+Saved definition ____ "ACONV_def"
+<<HOL message: Generalising variables "x1", "x2" in clause #0 (114:3-114:53)>>
+<<HOL message: Generalising variables "args2", "x1", "x2" in clause #1 (115:3-115:37)>>
+<<HOL message: Generalising variables "args1", "args2", "x1", "x2" in clause #2 (116:3-117:45)>>
+Saved theorem _______ "type_lt_rules"
+Saved theorem _______ "type_lt_ind"
+Saved theorem _______ "type_lt_strongind"
+Saved theorem _______ "type_lt_cases"
+<<HOL message: Generalising variables "ty1", "ty2", "x1", "x2" in clause #0 (121:3-122:36)>>
+<<HOL message: Generalising variables "ty1", "ty2", "x1", "x2" in clause #1 (123:3-123:37)>>
+<<HOL message: Generalising variables "t1", "t2", "ty1", "x1" in clause #2 (124:3-124:35)>>
+<<HOL message: Generalising variables "t1", "t2", "ty1", "x1" in clause #3 (125:3-125:34)>>
+<<HOL message: Generalising variables "ty1", "ty2", "x1", "x2" in clause #4 (126:3-127:40)>>
+<<HOL message: Generalising variables "t1", "t2", "ty1", "x1" in clause #5 (128:3-128:37)>>
+<<HOL message: Generalising variables "t1", "t2", "ty1", "x1" in clause #6 (129:3-129:36)>>
+<<HOL message: Generalising variables "s1", "s2", "t1", "t2" in clause #7 (130:3-131:35)>>
+<<HOL message: Generalising variables "s1", "s2", "t1", "t2" in clause #8 (132:3-132:34)>>
+<<HOL message: Generalising variables "s1", "s2", "t1", "t2" in clause #9 (133:3-134:33)>>
+Saved theorem _______ "term_lt_rules"
+Saved theorem _______ "term_lt_ind"
+Saved theorem _______ "term_lt_strongind"
+Saved theorem _______ "term_lt_cases"
+Saved definition ____ "term_cmp_def"
+Saved definition ____ "type_cmp_def"
+Saved definition ____ "ordav_def"
+Saved induction _____ "ordav_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 6 clauses to the original specification.>>
+Saved definition ____ "orda_def"
+Saved induction _____ "orda_ind"
+Saved definition ____ "term_union_def"
+Saved induction _____ "term_union_ind"
+Saved definition ____ "term_remove_def"
+Saved induction _____ "term_remove_ind"
+Saved definition ____ "term_image_def"
+Saved induction _____ "term_image_ind"
+Saved definition ____ "VFREE_IN_def"
+Saved definition ____ "CLOSED_def"
+Saved theorem _______ "VFREE_IN_FINITE"
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+Saved theorem _______ "VFREE_IN_FINITE_ALT"
+Saved theorem _______ "PRIMED_NAME_EXISTS"
+Proved triviality ___ "LEAST_EXISTS"
+Saved definition ____ "VARIANT_def"
+Saved theorem _______ "VARIANT_THM"
+<<HOL message: mk_functional: The following input rows (counting from zero) are inaccessible: 2.
+They have been ignored.>>
+Saved definition ____ "TYPE_SUBST_def"
+Saved induction _____ "TYPE_SUBST_ind"
+Saved definition ____ "VSUBST_def"
+Saved definition ____ "sizeof_def"
+Saved theorem _______ "SIZEOF_VSUBST"
+Saved theorem _______ "sizeof_positive"
+Saved definition ____ "INST_CORE_def"
+Saved induction _____ "INST_CORE_ind"
+Saved definition ____ "INST_def"
+Saved definition ____ "tyvars_def"
+Saved induction _____ "tyvars_ind"
+Saved definition ____ "tvars_def"
+Saved definition ____ "equation_def"
+Saved definition ____ "type_ok_def"
+Saved induction _____ "type_ok_ind"
+Saved definition ____ "term_ok_def"
+Saved definition ____ "alpha_lt_def"
+Saved definition ____ "hypset_ok_def"
+Saved definition ____ "is_std_sig_def"
+Saved definition ____ "theory_ok_def"
+<<HOL message: Generalising variables "h", "l", "r", "thy", "ty", "x" in clause #0 (499:3-501:59)>>
+<<HOL message: Generalising variables "p", "thy" in clause #1 (504:3-505:21)>>
+<<HOL message: Generalising variables "t", "thy", "ty", "x" in clause #2 (508:3-509:59)>>
+<<HOL message: Generalising variables "c1", "c2", "h1", "h2", "thy" in clause #3 (512:3-516:22)>>
+<<HOL message: Generalising variables "h1", "h2", "p", "p'", "q", "thy" in clause #4 (519:3-521:34)>>
+<<HOL message: Generalising variables "c", "h", "ilist", "thy" in clause #5 (524:3-527:58)>>
+<<HOL message: Generalising variables "c", "h", "thy", "tyin" in clause #6 (530:3-532:52)>>
+<<HOL message: Generalising variables "h1", "h2", "l1", "l2", "r1", "r2", "thy" in clause #7 (535:3-538:58)>>
+<<HOL message: Generalising variables "t", "thy" in clause #8 (541:3-542:26)>>
+<<HOL message: Generalising variables "c", "thy" in clause #9 (545:3-546:20)>>
+Saved theorem _______ "proves_rules"
+Saved theorem _______ "proves_ind"
+Saved theorem _______ "proves_strongind"
+Saved theorem _______ "proves_cases"
+Saved theorem _______ "proves_ABS"
+Saved theorem _______ "proves_ASSUME"
+Saved theorem _______ "proves_BETA"
+Saved theorem _______ "proves_DEDUCT_ANTISYM"
+Saved theorem _______ "proves_EQ_MP"
+Saved theorem _______ "proves_INST"
+Saved theorem _______ "proves_INST_TYPE"
+Saved theorem _______ "proves_MK_COMB"
+Saved theorem _______ "proves_REFL"
+Saved theorem _______ "proves_axioms"
+Saved theorem _______ "datatype_update"
+Saved theorem _______ "update_11"
+Saved theorem _______ "update_distinct"
+Saved theorem _______ "update_nchotomy"
+Saved theorem _______ "update_Axiom"
+Saved theorem _______ "update_induction"
+Saved theorem _______ "update_case_cong"
+Saved theorem _______ "update_case_eq"
+<<HOL message: Defined type: "update">>
+Saved definition ____ "types_of_upd_def"
+Saved definition ____ "consts_of_upd_def"
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+Saved definition ____ "axexts_of_upd_def"
+Saved induction _____ "axexts_of_upd_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 2 clauses to the original specification.>>
+Saved definition ____ "conexts_of_upd_def"
+Saved induction _____ "conexts_of_upd_ind"
+<<HOL message: Generalising variables "ctxt", "prop" in clause #0 (641:3-643:34)>>
+<<HOL message: Generalising variables "ctxt", "name", "ty" in clause #1 (646:3-648:37)>>
+<<HOL message: Generalising variables "ctxt", "eqs", "prop" in clause #2 (651:3-660:39)>>
+<<HOL message: Generalising variables "arity", "ctxt", "name" in clause #3 (663:3-664:39)>>
+<<HOL message: Generalising variables "abs", "ctxt", "name", "pred", "rep", "witness" in clause #4 (667:3-673:47)>>
+Saved theorem _______ "updates_rules"
+Saved theorem _______ "updates_ind"
+Saved theorem _______ "updates_strongind"
+Saved theorem _______ "updates_cases"
+Saved definition ____ "extends_def"
+Saved definition ____ "init_ctxt_def"
+Exporting theory "holSyntax" ... done.
+Theory "holSyntax" took 16.6s to build

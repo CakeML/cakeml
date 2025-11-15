@@ -1,0 +1,153 @@
+<<HOL message: Created theory "littleTheoriesSyntax">>
+Saved theorem _______ "datatype_ethy"
+Saved theorem _______ "ethy_11"
+Saved theorem _______ "ethy_nchotomy"
+Saved theorem _______ "ethy_Axiom"
+Saved theorem _______ "ethy_induction"
+Saved theorem _______ "ethy_case_cong"
+Saved theorem _______ "ethy_case_eq"
+<<HOL message: Defined type: "ethy">>
+Saved definition ____ "ctys_def"
+Saved definition ____ "ctms_def"
+Saved definition ____ "sigof'_def"
+Saved definition ____ "term_ok'_def"
+Saved definition ____ "theory_ok'_def"
+Saved definition ____ "ty_esubst_def"
+Saved induction _____ "ty_esubst_ind"
+Saved definition ____ "esubst_sig_def"
+Saved definition ____ "try_def"
+Saved definition ____ "tm_names_def"
+Saved definition ____ "nvar_aux"
+Saved induction _____ "nvar_aux_ind"
+Saved definition ____ "NVARIANT"
+Saved definition ____ "esubst_ty0_def"
+Saved induction _____ "esubst_ty0_ind"
+Saved definition ____ "esubst_ty_def"
+Saved definition ____ "esubst_tm_def"
+Saved definition ____ "esubst_def"
+Saved definition ____ "esubst_thy_def"
+Saved definition ____ "vsubst_tys_ok_def"
+Saved definition ____ "env_ok_def"
+Saved theorem _______ "env_ok_ext"
+Saved theorem _______ "env_ok_nil"
+Saved definition ____ "FVs_def"
+Saved definition ____ "free_names"
+Saved theorem _______ "free_names_var"
+Saved definition ____ "alist_to_fm_def"
+Saved induction _____ "alist_to_fm_ind"
+Saved definition ____ "VSUBSTfm"
+Saved definition ____ "nullary_ops_of_def"
+Saved induction _____ "nullary_ops_of_ind"
+Saved definition ____ "esubsts_ok_def"
+Saved theorem _______ "esubst_sig_is_std_sig"
+Saved definition ____ "nullary_ops_of_tm_def"
+Saved definition ____ "safe_sequent_esubst"
+Saved definition ____ "esubsts_total_def"
+<<HOL message: Generalising variables "es", "h", "l", "r", "thy", "ty", "x" in clause #0 (324:3-326:64)>>
+<<HOL message: Generalising variables "p", "thy" in clause #1 (329:3-330:26)>>
+<<HOL message: Generalising variables "t", "thy", "ty", "x" in clause #2 (333:3-335:64)>>
+<<HOL message: Generalising variables "c1", "c2", "es1", "es2", "h1", "h2", "thy" in clause #3 (338:3-342:17)>>
+<<HOL message: Generalising variables "es1", "es2", "h1", "h2", "p", "p'", "q", "thy" in clause #4 (345:3-347:48)>>
+<<HOL message: Generalising variables "c", "es", "h", "ilist", "thy" in clause #5 (350:3-354:63)>>
+<<HOL message: Generalising variables "c", "es", "h", "thy", "tyin" in clause #6 (357:3-359:57)>>
+<<HOL message: Generalising variables "es1", "es2", "h1", "h2", "l1", "l2", "r1", "r2", "thy" in clause #7 (362:3-365:72)>>
+<<HOL message: Generalising variables "t", "thy" in clause #8 (368:3-369:31)>>
+<<HOL message: Generalising variables "c", "thy" in clause #9 (372:3-373:25)>>
+<<HOL message: Generalising variables "c1", "c2", "es1", "es2", "h2", "thy" in clause #10 (376:3-377:47)>>
+<<HOL message: Generalising variables "c", "es", "h", "thy", "σ" in clause #11 (380:3-384:39)>>
+<<HOL message: Generalising variables "c", "thy" in clause #12 (387:3-388:26)>>
+Saved theorem _______ "proves'_rules"
+Saved theorem _______ "proves'_ind"
+Saved theorem _______ "proves'_strongind"
+Saved theorem _______ "proves'_cases"
+Saved theorem _______ "proves'_ABS"
+Saved theorem _______ "proves'_ASSUME"
+Saved theorem _______ "proves'_BETA"
+Saved theorem _______ "proves'_DEDUCT_ANTISYM"
+Saved theorem _______ "proves'_EQ_MP"
+Saved theorem _______ "proves'_INST"
+Saved theorem _______ "proves'_INST_TYPE"
+Saved theorem _______ "proves'_MK_COMB"
+Saved theorem _______ "proves'_REFL"
+Saved theorem _______ "proves'_axioms"
+Saved theorem _______ "proves'_elim_discharge"
+Saved theorem _______ "proves'_elim_inst"
+Saved theorem _______ "proves'_elim_axioms"
+Saved definition ____ "lift_thy_def"
+Saved theorem _______ "tmsof_lift_thy"
+Saved theorem _______ "tysof_lift_thy"
+Saved theorem _______ "axsof_lift_thy"
+Saved theorem _______ "eaxsof_lift_thy"
+Saved theorem _______ "etmsof_lift_thy"
+Saved theorem _______ "etysof_lift_thy"
+Saved theorem _______ "sigof_lift_thy"
+Saved theorem _______ "ctys_lift_thy"
+Saved theorem _______ "ctms_lift_thy"
+Saved theorem _______ "theory_ok'_lift_thy"
+Saved theorem _______ "term_ok'_lift_thy"
+Saved definition ____ "drop_thy"
+Saved theorem _______ "sigof_drop_thy"
+Saved theorem _______ "axsof_drop_thy"
+<<HOL message: Generalising variables "h", "l", "n", "r", "thy", "ty", "x" in clause #0 (487:3-489:67)>>
+<<HOL message: Generalising variables "p", "thy" in clause #1 (492:3-493:25)>>
+<<HOL message: Generalising variables "t", "thy", "ty", "x" in clause #2 (496:3-497:63)>>
+<<HOL message: Generalising variables "c1", "c2", "h1", "h2", "m", "n", "thy" in clause #3 (500:3-505:15)>>
+<<HOL message: Generalising variables "h1", "h2", "m", "n", "p", "p'", "q", "thy" in clause #4 (508:3-510:46)>>
+<<HOL message: Generalising variables "c", "h", "ilist", "n", "thy" in clause #5 (513:3-516:66)>>
+<<HOL message: Generalising variables "c", "h", "n", "thy", "tyin" in clause #6 (519:3-521:60)>>
+<<HOL message: Generalising variables "h1", "h2", "l1", "l2", "m", "n", "r1", "r2", "thy" in clause #7 (524:3-527:70)>>
+<<HOL message: Generalising variables "t", "thy" in clause #8 (530:3-531:30)>>
+<<HOL message: Generalising variables "c", "thy" in clause #9 (534:3-535:28)>>
+Saved theorem _______ "nproves_rules"
+Saved theorem _______ "nproves_ind"
+Saved theorem _______ "nproves_strongind"
+Saved theorem _______ "nproves_cases"
+Saved theorem _______ "nproves_ABS"
+Saved theorem _______ "nproves_ASSUME"
+Saved theorem _______ "nproves_BETA"
+Saved theorem _______ "nproves_DEDUCT_ANTISYM"
+Saved theorem _______ "nproves_EQ_MP"
+Saved theorem _______ "nproves_INST"
+Saved theorem _______ "nproves_INST_TYPE"
+Saved theorem _______ "nproves_MK_COMB"
+Saved theorem _______ "nproves_REFL"
+Saved theorem _______ "nproves_axioms"
+<<HOL warning: Type.mk_vartype: non-standard syntax>>
+Saved theorem _______ "datatype_update'"
+Saved theorem _______ "update'_11"
+Saved theorem _______ "update'_distinct"
+Saved theorem _______ "update'_nchotomy"
+Saved theorem _______ "update'_Axiom"
+Saved theorem _______ "update'_induction"
+Saved theorem _______ "update'_case_cong"
+Saved theorem _______ "update'_case_eq"
+<<HOL message: Defined type: "update'">>
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+Saved definition ____ "types_of_upd'_def"
+Saved induction _____ "types_of_upd'_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 3 clauses to the original specification.>>
+Saved definition ____ "consts_of_upd'_def"
+Saved induction _____ "consts_of_upd'_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 5 clauses to the original specification.>>
+Saved definition ____ "axexts_of_upd'_def"
+Saved induction _____ "axexts_of_upd'_ind"
+<<HOL message: mk_functional: 
+  pattern completion has added 4 clauses to the original specification.>>
+Saved definition ____ "conexts_of_upd'_def"
+Saved induction _____ "conexts_of_upd'_ind"
+<<HOL message: Generalising variables "ctxt", "prop" in clause #0 (641:3-643:35)>>
+<<HOL message: Generalising variables "ctxt", "name", "ty" in clause #1 (646:3-648:38)>>
+<<HOL message: Generalising variables "ctxt", "eqs", "prop" in clause #2 (651:3-660:40)>>
+<<HOL message: Generalising variables "arity", "ctxt", "name" in clause #3 (663:3-664:40)>>
+<<HOL message: Generalising variables "abs", "ctxt", "name", "pred", "rep", "witness" in clause #4 (667:3-673:48)>>
+Saved theorem _______ "updates'_rules"
+Saved theorem _______ "updates'_ind"
+Saved theorem _______ "updates'_strongind"
+Saved theorem _______ "updates'_cases"
+Saved definition ____ "extends'_def"
+Saved definition ____ "init_ctxt_def"
+Exporting theory "littleTheoriesSyntax" ... done.
+Theory "littleTheoriesSyntax" took 15.0s to build

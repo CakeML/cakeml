@@ -1,0 +1,14 @@
+<<HOL message: Created theory "holSoundness">>
+Saved theorem _______ "binary_inference_rule"
+Saved theorem _______ "ABS_correct"
+Saved theorem _______ "ASSUME_correct"
+Saved theorem _______ "BETA_correct"
+Saved theorem _______ "DEDUCT_ANTISYM_correct"
+Saved theorem _______ "EQ_MP_correct"
+Saved theorem _______ "INST_correct"
+Saved theorem _______ "INST_TYPE_correct"
+Saved theorem _______ "MK_COMB_correct"
+Saved theorem _______ "REFL_correct"
+Saved theorem _______ "proves_sound"
+Exporting theory "holSoundness" ... done.
+Theory "holSoundness" took 6.0s to build
