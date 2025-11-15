@@ -1220,7 +1220,7 @@ End
 
 Definition sp_default_def:
   sp_default t i =
-  (case lookup i t of NONE => if is_phy_var i then i DIV 2 else i | SOME x => x)
+  (case lookup i t of NONE => if is_phy_var i then i DIV 2 else 0 | SOME x => x)
 End
 
 Definition extend_graph_def:
