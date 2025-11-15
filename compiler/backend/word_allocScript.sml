@@ -20,7 +20,7 @@ Overload Move0[inferior] = ``Move 0n``;
 Overload Move1[inferior] = ``Move 1n``;
 
 (*SSA form*)
-Definition apply_nummap_key_def:
+Definition apply_nummap_key_def[simp]:
   apply_nummap_key f names =
   fromAList (MAP (λx,y.f x,y) (toAList names))
 End
@@ -497,7 +497,7 @@ End
 
 (*Recursively applying colours to a program*)
 
-Definition apply_colour_exp_def:
+Definition apply_colour_exp_def[simp]:
   (apply_colour_exp f (Var num) = Var (f num)) /\
   (apply_colour_exp f (Load exp) = Load (apply_colour_exp f exp)) /\
   (apply_colour_exp f (Op wop ls) = Op wop (MAP (apply_colour_exp f) ls)) /\
@@ -505,12 +505,12 @@ Definition apply_colour_exp_def:
   (apply_colour_exp f expr = expr)
 End
 
-Definition apply_colour_imm_def:
+Definition apply_colour_imm_def[simp]:
   (apply_colour_imm f (Reg n) = Reg (f n)) ∧
   (apply_colour_imm f x = x)
 End
 
-Definition apply_colour_inst_def:
+Definition apply_colour_inst_def[simp]:
   (apply_colour_inst f Skip = Skip) ∧
   (apply_colour_inst f (Const reg w) = Const (f reg) w) ∧
   (apply_colour_inst f (Arith (Binop bop r1 r2 ri)) =
@@ -549,7 +549,7 @@ Definition apply_colour_inst_def:
   (apply_colour_inst f x = x)
 End (*Catchall -- for future instructions to be added*)
 
-Definition apply_colour_def:
+Definition apply_colour_def[simp]:
   (apply_colour f Skip = Skip) ∧
   (apply_colour f (Move pri ls) =
     Move pri (ZIP (MAP (f o FST) ls, MAP (f o SND) ls))) ∧
@@ -592,9 +592,6 @@ Definition apply_colour_def:
   (apply_colour f p = p )
 End
 
-val _ = export_rewrites ["apply_nummap_key_def", "apply_nummap_key_def",
-                        "apply_colour_exp_def","apply_colour_inst_def",
-                        "apply_colour_imm_def","apply_colour_def"];
 
 (* Liveness Analysis*)
 

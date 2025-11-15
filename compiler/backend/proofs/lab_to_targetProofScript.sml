@@ -2925,12 +2925,11 @@ QED
 
 (* annotated line length *)
 
-Definition line_len_def:
+Definition line_len_def[simp]:
   (line_len (Label _ _ l) = l) ∧
   (line_len (Asm _ _ l) = l) ∧
   (line_len (LabAsm _ _ _ l) = l)
 End
-val _ = export_rewrites["line_len_def"];
 
 (* annotated section length *)
 
@@ -3423,10 +3422,9 @@ Definition line_encd0_def:
   (line_encd0 enc _ ⇔ T)
 End
 
-Definition sec_encd0_def:
+Definition sec_encd0_def[simp]:
   sec_encd0 enc (Section _ ls) = EVERY (line_encd0 enc) ls
 End
-val _ = export_rewrites["sec_encd0_def"];
 
 Overload all_encd0 = ``λenc l. EVERY (sec_encd0 enc) l``
 
@@ -3501,34 +3499,30 @@ QED
 (* invariant: annotated lengths are not too small *)
 (* this is a consequence of encd (below) and not treated separately much *)
 
-Definition line_length_leq_def:
+Definition line_length_leq_def[simp]:
   (line_length_leq (LabAsm _ _ bytes l) ⇔
     LENGTH bytes ≤ l) ∧
   (line_length_leq (Asm _ bytes l) ⇔
     LENGTH bytes ≤ l) ∧
   (line_length_leq _ ⇔ T)
 End
-val _ = export_rewrites["line_length_leq_def"];
 
-Definition sec_length_leq_def:
+Definition sec_length_leq_def[simp]:
   sec_length_leq (Section _ ls) = EVERY line_length_leq ls
 End
-val _ = export_rewrites["sec_length_leq_def"];
 
 Overload all_length_leq = ``λl. EVERY sec_length_leq l``
 
 (* invariant: label annotated lengths are 0 or 1 *)
 
-Definition label_one_def:
+Definition label_one_def[simp]:
   (label_one (Label _ _ n) ⇔ n ≤ 1) ∧
   (label_one _ ⇔ T)
 End
-val _ = export_rewrites["label_one_def"];
 
-Definition sec_label_one_def:
+Definition sec_label_one_def[simp]:
   sec_label_one (Section _ ls) = EVERY label_one ls
 End
-val _ = export_rewrites["sec_label_one_def"];
 
 (* establishing label_one *)
 
@@ -3745,11 +3739,10 @@ QED
 
 (* invariant: all labels annotated with length 0 *)
 
-Definition label_zero_def:
+Definition label_zero_def[simp]:
   (label_zero (Label _ _ n) ⇔ n = 0) ∧
   (label_zero _ ⇔ T)
 End
-val _ = export_rewrites["label_zero_def"];
 
 Definition sec_label_zero_def:
   sec_label_zero (Section _ ls) = EVERY label_zero ls
@@ -3915,10 +3908,9 @@ Definition line_aligned_def:
     line_length l MOD m = 0
 End
 
-Definition sec_aligned_def:
+Definition sec_aligned_def[simp]:
   sec_aligned noplen (Section _ ls) = EVERY (line_aligned noplen) ls
 End
-val _ = export_rewrites["sec_aligned_def"];
 
 (* establishing aligned *)
 
@@ -3983,10 +3975,9 @@ Definition label_prefix_zero_def:
         ∀m. m ≤ n ⇒ line_len (EL m ls) = 0)
 End
 
-Definition sec_label_prefix_zero_def:
+Definition sec_label_prefix_zero_def[simp]:
   sec_label_prefix_zero (Section k ls) ⇔ label_prefix_zero ls
 End
-val _ = export_rewrites["sec_label_prefix_zero_def"];
 
 Theorem label_prefix_zero_cons:
    (label_prefix_zero (Label l1 l2 len::ls) ⇔ ((len = 0) ∧ label_prefix_zero ls)) ∧
@@ -4799,7 +4790,7 @@ QED
 
 (* invariant: referenced labels exist *)
 
-Definition line_labs_exist_def:
+Definition line_labs_exist_def[simp]:
   (line_labs_exist labs (LabAsm a _ _ _) ⇔
     ∀n1 n2. (n1,n2) ∈ labs_of a ⇒ lab_lookup n1 n2 labs ≠ NONE) ∧
   (line_labs_exist _ _ ⇔ T)
@@ -4807,12 +4798,9 @@ End
 
 val line_labs_exist_ind = theorem "line_labs_exist_ind";
 
-val _ = export_rewrites["line_labs_exist_def"];
-
-Definition sec_labs_exist_def:
+Definition sec_labs_exist_def[simp]:
   sec_labs_exist labs (Section _ ls) ⇔ EVERY (line_labs_exist labs) ls
 End
-val _ = export_rewrites["sec_labs_exist_def"];
 
 Overload all_labs_exist = ``λlabs code. EVERY (sec_labs_exist labs) code``
 
@@ -10509,4 +10497,3 @@ Proof
   match_mp_tac semantics_compile_lemma \\
   fs[good_code_def]
 QED
-

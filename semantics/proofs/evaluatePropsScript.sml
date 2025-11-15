@@ -38,10 +38,9 @@ Proof
   \\ rw[call_FFI_rel_consts]
 QED
 
-Definition dest_IO_event_def:
+Definition dest_IO_event_def[simp]:
   dest_IO_event (IO_event s c b) = (s,c,b)
 End
-val _ = export_rewrites["dest_IO_event_def"];
 
 Definition io_events_mono_def:
   io_events_mono s1 s2 ⇔

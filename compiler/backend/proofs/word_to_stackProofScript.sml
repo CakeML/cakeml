@@ -2353,7 +2353,7 @@ Proof
   \\ fs[]
 QED
 
-Definition compile_result_def:
+Definition compile_result_def[simp]:
   (compile_result (Result w1 w2) = Result w1) ∧
   (compile_result (Exception w1 w2) = Exception w1) ∧
   (compile_result TimeOut = TimeOut) ∧
@@ -2361,7 +2361,6 @@ Definition compile_result_def:
   (compile_result (FinalFFI f) = FinalFFI f) ∧
   (compile_result Error = Error)
 End
-val _ = export_rewrites["compile_result_def"];
 
 Theorem Halt_EQ_compile_result[local]:
   (Halt (Word 1w) = compile_result z <=> z = NotEnoughSpace) /\
@@ -3998,7 +3997,7 @@ Theorem wStackLoad_thm3 =
  |> Q.INST [`t`|->`set_var v1 v2 t`]
  |> PURE_REWRITE_RULE[wordPropsTheory.set_var_const,set_var_const]
 *)
-Definition map_var_def:
+Definition map_var_def[simp]:
   (map_var f (Var num) = Var (f num)) ∧
   (map_var f (Load exp) = Load (map_var f exp)) ∧
   (map_var f (Op wop ls) = Op wop (MAP (map_var f) ls)) ∧
@@ -4011,7 +4010,6 @@ Termination
  \\ Induct \\ simp[] \\ rw[]
  \\ EVAL_TAC \\ simp[] \\ res_tac \\ simp[]
 End
-val _ = export_rewrites["map_var_def"];
 
 Theorem the_words_EVERY_IS_SOME_Word:
    ∀ls x. the_words ls = SOME x ⇒ ∀a. MEM a ls ⇒ ∃w. a = SOME (Word w)
