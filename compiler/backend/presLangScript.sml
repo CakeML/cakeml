@@ -204,6 +204,22 @@ Definition thunk_op_to_display_def:
   (thunk_op_to_display ForceThunk = empty_item (strlit "ForceThunk"))
 End
 
+Definition test_to_display_def:
+  test_to_display Equal = empty_item (strlit "Equal") ∧
+  test_to_display Less = empty_item (strlit "Less") ∧
+  test_to_display Less_alt = empty_item (strlit "Less_alt")
+End
+
+Definition prim_type_to_display_def:
+  prim_type_to_display BoolT = empty_item (strlit "BoolT") ∧
+  prim_type_to_display IntT = empty_item (strlit "IntT") ∧
+  prim_type_to_display CharT = empty_item (strlit "CharT") ∧
+  prim_type_to_display StrT = empty_item (strlit "StrT") ∧
+  prim_type_to_display Float64T = empty_item (strlit "Float64T") ∧
+  prim_type_to_display (WordT W8) = empty_item (strlit "WordT_W8") ∧
+  prim_type_to_display (WordT W64) = empty_item (strlit "WordT_W64")
+End
+
 Definition op_to_display_def:
   op_to_display (p:ast$op) =
   case p of
@@ -215,6 +231,9 @@ Definition op_to_display_def:
                             [word_size_to_display ws;
                              shift_to_display sh;
                              num_to_display num]
+  | Test test ty => Item NONE (strlit "Test")
+                         [test_to_display test;
+                          prim_type_to_display ty]
   | Equality => empty_item (strlit "Equality")
   | FP_cmp cmp => fp_cmp_to_display cmp
   | FP_uop op => fp_uop_to_display op

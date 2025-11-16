@@ -80,31 +80,17 @@ Datatype:
   | ForceThunk
 End
 
-(* Types used in type annotations *)
-Datatype:
- ast_t =
-  (* Type variables that the user writes down ('a, 'b, etc.) *)
-    Atvar tvarN
-  (* Function type *)
-  | Atfun ast_t ast_t
-  (* Tuple type *)
-  | Attup (ast_t list)
-  (* Type constructor applications.
-    0-ary type applications represent unparameterised types (e.g., num or string) *)
-  | Atapp (ast_t list) ((modN, typeN) id)
-End
-
 Datatype:
   test = Equal | Less | Less_alt
 End
 
 Datatype:
-  test_type = BoolT
+  prim_type = BoolT
             | IntT
             | CharT
             | StrT
             | WordT word_size
-            | UserT ast_t
+            | Float64T
 End
 
 Datatype:
@@ -116,7 +102,7 @@ Datatype:
   | Opw word_size opw
   | Shift word_size shift num
   | Equality
-  | TypedTest test test_type
+  | Test test prim_type
   (* FP operations *)
   | FP_cmp fp_cmp
   | FP_uop fp_uop
@@ -210,6 +196,20 @@ End
 (* Logical operations *)
 Datatype:
  lop = And | Or
+End
+
+(* Types used in type annotations *)
+Datatype:
+ ast_t =
+  (* Type variables that the user writes down ('a, 'b, etc.) *)
+    Atvar tvarN
+  (* Function type *)
+  | Atfun ast_t ast_t
+  (* Tuple type *)
+  | Attup (ast_t list)
+  (* Type constructor applications.
+    0-ary type applications represent unparameterised types (e.g., num or string) *)
+  | Atapp (ast_t list) ((modN, typeN) id)
 End
 
 (* Patterns *)

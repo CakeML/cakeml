@@ -609,6 +609,7 @@ Definition op_to_string_def:
   (op_to_string (FpFromWord) = (implode "FpFromWord", 1)) /\
   (op_to_string (Shift _ _ _) = (implode "Shift", 1)) ∧
   (op_to_string Equality = (implode "Equality", 2)) ∧
+  (op_to_string (Test _ _) = (implode "Test", 2)) ∧
   (op_to_string Opapp = (implode "Opapp", 2)) ∧
   (op_to_string Opassign = (implode "Opassign", 2)) ∧
   (op_to_string Opref = (implode "Opref", 1)) ∧
@@ -658,12 +659,25 @@ End
 
 Overload Tem[local,inferior] = ``Infer_Tapp []``
 
+Definition t_num_of_def[simp]:
+  t_num_of BoolT       = Tbool_num   ∧
+  t_num_of IntT        = Tint_num    ∧
+  t_num_of CharT       = Tchar_num   ∧
+  t_num_of StrT        = Tstring_num ∧
+  t_num_of (WordT W8)  = Tword8_num  ∧
+  t_num_of (WordT W64) = Tword64_num ∧
+  t_num_of Float64T    = Tdouble_num
+End
+
 Definition op_simple_constraints_def:
 op_simple_constraints op =
   dtcase op of
    | Opn _ => (T, [Tem Tint_num; Tem Tint_num], Tem Tint_num)
    | Opb _ => (T, [Tem Tint_num; Tem Tint_num], Tem Tbool_num)
    | Opw wz opw => (T, [Tem (word_tc wz); Tem (word_tc wz)], Tem (word_tc wz))
+   | Test test ty => (supported_test test ty,
+                      [Tem (t_num_of ty); Tem (t_num_of ty)],
+                      Tem Tbool_num)
    | FP_top _ => (T, [Tem Tdouble_num; Tem Tdouble_num; Tem Tdouble_num],
         Tem Tdouble_num)
    | FP_bop _ => (T, [Tem Tdouble_num; Tem Tdouble_num], Tem Tdouble_num)
@@ -795,6 +809,7 @@ constrain_op l op ts s =
    | (Eval, _) => failwith l (implode "Unsafe ops do not have a type") s
    | (Env_id, _) => failwith l (implode "Unsafe ops do not have a type") s
    | (ThunkOp _, _) => failwith l (implode "Thunk ops do not have a type") s
+   | (Test _ _, _) => failwith l (implode "Type mismatch") s
    | _ => failwith l (op_n_args_msg op (LENGTH ts)) s
 End
 
@@ -814,26 +829,33 @@ Proof
 QED
 
 Theorem constrain_op_error_msg_sanity:
- !l op args s l' s' msg.
-  LENGTH args = SND (op_to_string op) ∧
-  constrain_op l op args s = (Failure (l',msg), s')
-  ⇒
-  IS_PREFIX (explode msg) "Type mismatch" ∨
-  IS_PREFIX (explode msg) "Unsafe" ∨
-  IS_PREFIX (explode msg) "Thunk"
+  ∀l op args s l' s' msg.
+    LENGTH args = SND (op_to_string op) ∧
+    constrain_op l op args s = (Failure (l',msg), s')
+    ⇒
+    IS_PREFIX (explode msg) "Type mismatch" ∨
+    IS_PREFIX (explode msg) "Unsafe" ∨
+    IS_PREFIX (explode msg) "Thunk"
 Proof
- rpt strip_tac >>
- qmatch_abbrev_tac `IS_PREFIX _ m1 \/ IS_PREFIX _ m2 \/ IS_PREFIX _ m3` >>
- cases_on `op` >>
- fs [op_to_string_def, constrain_op_dtcase_def, op_simple_constraints_def] >>
- gvs [LENGTH_EQ_NUM_compute] >>
- rfs [] >>
- fs [add_constraints_def, add_constraint_def, fresh_uvar_def,
-   st_ex_bind_failure, st_ex_return_def, option_case_eq] >>
- rw [] >>
- fs [mlstringTheory.concat_thm] >>
- fs [failwith_def] >> rw [] >> fs [] >>
- unabbrev_all_tac >> fs []
+  rpt strip_tac >>
+  qmatch_abbrev_tac `IS_PREFIX _ m1 \/ IS_PREFIX _ m2 \/ IS_PREFIX _ m3` >>
+  cases_on `op` >>
+  fs [op_to_string_def, constrain_op_dtcase_def, op_simple_constraints_def] >>
+  gvs [LENGTH_EQ_NUM_compute] >>
+  rfs [] >>
+  fs [add_constraints_def, add_constraint_def, fresh_uvar_def,
+      st_ex_bind_failure, st_ex_return_def, option_case_eq] >>
+  rw [] >>
+  fs [mlstringTheory.concat_thm] >>
+  fs [failwith_def] >> rw [] >> fs [] >>
+  unabbrev_all_tac >> fs [] >>
+  pop_assum mp_tac >>
+  IF_CASES_TAC >> gvs [] >>
+  fs [add_constraints_def, add_constraint_def, fresh_uvar_def,
+      st_ex_bind_failure, st_ex_return_def, option_case_eq] >>
+  fs [mlstringTheory.concat_thm] >>
+  fs [failwith_def] >> rw [] >> fs [] >>
+  unabbrev_all_tac >> fs []
 QED
 
 Definition infer_e_def:

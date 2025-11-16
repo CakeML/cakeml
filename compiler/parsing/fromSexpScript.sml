@@ -677,21 +677,16 @@ Definition decode_test_def:
   decode_test _ = NONE
 End
 
-Definition decode_test_type_def:
-  decode_test_type (SX_SYM s) =
+Definition decode_prim_type_def:
+  decode_prim_type (SX_SYM s) =
     (if s = "BoolT" then SOME BoolT else
      if s = "IntT" then SOME IntT else
      if s = "CharT" then SOME CharT else
      if s = "StrT" then SOME StrT else
      if s = "Word8T" then SOME $ WordT W8 else
-     if s = "Word64T" then SOME $ WordT W64 else NONE) ∧
-  decode_test_type (SX_CONS (SX_SYM s) y) =
-    (if s = "UserT" then
-       case sexptype y of
-       | SOME ast_t => SOME (UserT ast_t)
-       | NONE => NONE
-     else NONE) ∧
-  decode_test_type _ = NONE
+     if s = "Word64T" then SOME $ WordT W64 else
+     if s = "Float64T" then SOME Float64T else NONE) ∧
+  decode_prim_type _ = NONE
 End
 
 Definition sexpop_def:
@@ -798,9 +793,9 @@ Definition sexpop_def:
     if s = "Shift64Asr" then SOME (Shift W64 Asr n) else
     if s = "Shift64Ror" then SOME (Shift W64 Ror n) else NONE) ∧
   (sexpop (SX_CONS (SX_SYM s) (SX_CONS x y)) =
-    if s = "TypedTest" then
-      (case (decode_test x, decode_test_type y) of
-       | (SOME test, SOME test_type) => SOME (TypedTest test test_type)
+    if s = "Test" then
+      (case (decode_test x, decode_prim_type y) of
+       | (SOME test, SOME prim_type) => SOME (Test test prim_type)
        | _ => NONE)
     else NONE) ∧
   (sexpop _ = NONE)
@@ -1344,14 +1339,14 @@ Proof
   Cases \\ fs [decode_test_def,testsexp_def]
 QED
 
-Definition test_typesexp_def:
-  test_typesexp BoolT = SX_SYM "BoolT" ∧
-  test_typesexp IntT = SX_SYM "IntT" ∧
-  test_typesexp CharT = SX_SYM "CharT" ∧
-  test_typesexp StrT = SX_SYM "StrT" ∧
-  test_typesexp (WordT W8) = SX_SYM "Word8T" ∧
-  test_typesexp (WordT W64) = SX_SYM "Word64T" ∧
-  test_typesexp (UserT ast_t) = SX_CONS (SX_SYM "UserT") (typesexp ast_t)
+Definition prim_typesexp_def:
+  prim_typesexp BoolT = SX_SYM "BoolT" ∧
+  prim_typesexp IntT = SX_SYM "IntT" ∧
+  prim_typesexp CharT = SX_SYM "CharT" ∧
+  prim_typesexp StrT = SX_SYM "StrT" ∧
+  prim_typesexp (WordT W8) = SX_SYM "Word8T" ∧
+  prim_typesexp (WordT W64) = SX_SYM "Word64T" ∧
+  prim_typesexp Float64T = SX_SYM "Float64T"
 End
 
 Theorem sexplist_listsexp_matchable:
@@ -1508,19 +1503,19 @@ Proof
   metis_tac[])
 QED
 
-Theorem sexptest_type_testsexp[simp]:
-  ∀x. decode_test_type (test_typesexp x) = SOME x
+Theorem sexpprim_type_testsexp[simp]:
+  ∀x. decode_prim_type (prim_typesexp x) = SOME x
 Proof
-  Cases \\ fs [decode_test_type_def,test_typesexp_def]
-  \\ Cases_on ‘w’ \\ fs [decode_test_type_def,test_typesexp_def]
+  Cases \\ fs [decode_prim_type_def,prim_typesexp_def]
+  \\ Cases_on ‘w’ \\ fs [decode_prim_type_def,prim_typesexp_def]
 QED
 
-Theorem test_typesexp_11[simp]:
-   ∀l1 l2. test_typesexp l1 = test_typesexp l2 ⇔ l1 = l2
+Theorem prim_typesexp_11[simp]:
+   ∀l1 l2. prim_typesexp l1 = prim_typesexp l2 ⇔ l1 = l2
 Proof
-  Cases \\ Cases \\ simp[test_typesexp_def]
-  \\ Cases_on ‘w’ \\ simp[test_typesexp_def]
-  \\ Cases_on ‘w'’ \\ simp[test_typesexp_def]
+  Cases \\ Cases \\ simp[prim_typesexp_def]
+  \\ Cases_on ‘w’ \\ simp[prim_typesexp_def]
+  \\ Cases_on ‘w'’ \\ simp[prim_typesexp_def]
 QED
 
 Definition opsexp_def:
@@ -1619,10 +1614,10 @@ Definition opsexp_def:
     SX_CONS (SX_SYM "AllocThunk") (SX_SYM (encode_thunk_mode m))) ∧
   (opsexp (ThunkOp (UpdateThunk m)) =
     SX_CONS (SX_SYM "UpdateThunk") (SX_SYM (encode_thunk_mode m))) ∧
-  (opsexp (TypedTest test test_type) =
-    SX_CONS (SX_SYM "TypedTest") $
+  (opsexp (Test test prim_type) =
+    SX_CONS (SX_SYM "Test") $
     SX_CONS (testsexp test)
-            (test_typesexp test_type))
+            (prim_typesexp prim_type))
 End
 
 Theorem sexpop_opsexp[simp]:
@@ -2008,12 +2003,12 @@ Proof
   \\ simp [testsexp_def]
 QED
 
-Theorem decode_test_type_test_typesexp:
-  decode_test_type s0 = SOME test_type ⇒
-  test_typesexp test_type = s0
+Theorem decode_prim_type_prim_typesexp:
+  decode_prim_type s0 = SOME prim_type ⇒
+  prim_typesexp prim_type = s0
 Proof
-  rw [oneline decode_test_type_def, AllCaseEqs()]
-  \\ simp [test_typesexp_def] \\ gvs [typesexp_sexptype]
+  rw [oneline decode_prim_type_def, AllCaseEqs()]
+  \\ simp [prim_typesexp_def] \\ gvs [typesexp_sexptype]
 QED
 
 Theorem opsexp_sexpop:
@@ -2025,7 +2020,7 @@ Proof
   \\ Cases_on ‘s2’
   \\ gvs[sexpop_def, AllCaseEqs(), opsexp_def, encode_decode_control]
   \\ gvs [encode_thunk_mode_def,decode_thunk_mode_def,AllCaseEqs(),
-          decode_test_testsexp,decode_test_type_test_typesexp]
+          decode_test_testsexp,decode_prim_type_prim_typesexp]
 QED
 
 Theorem lopsexp_sexplop:
@@ -2196,8 +2191,8 @@ Proof
   \\ rw[EVERY_MEM,EVERY_MAP]
 QED
 
-Theorem valid_sexp_test_typesexp[simp]:
-  ∀t. valid_sexp (test_typesexp t)
+Theorem valid_sexp_prim_typesexp[simp]:
+  ∀t. valid_sexp (prim_typesexp t)
 Proof
   Cases \\ EVAL_TAC \\ fs []
   \\ Cases_on ‘w’ \\ fs [] \\ EVAL_TAC
