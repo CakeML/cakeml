@@ -65,6 +65,11 @@ Definition do_app_def:
             Eq_type_error => NONE
           | Eq_val b => SOME (s, Rval (Boolv b))
         )
+    | (Test test test_ty, [v1; v2]) =>
+        (case do_test test test_ty v1 v2 of
+            Eq_type_error => NONE
+          | Eq_val b => SOME (s, Rval (Boolv b))
+        )
     | (Opassign, [Loc _ lnum; v]) =>
         (case store_assign lnum (Refv v) s of
             SOME s' => SOME (s', Rval (Conv NONE []))

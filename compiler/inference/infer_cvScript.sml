@@ -117,7 +117,7 @@ QED
 
 val _ = cv_trans word_tc_def
 val _ = cv_trans op_to_string_def
-val _ = cv_trans supported_test_def
+val _ = cv_trans (supported_test_def |> oneline |> SRULE [])
 val _ = cv_trans t_num_of_def
 val _ = cv_trans op_simple_constraints_def
 val _ = cv_trans op_n_args_msg_def

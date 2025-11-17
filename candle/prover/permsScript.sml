@@ -539,6 +539,11 @@ Proof
     rw [do_app_cases] \\ gs []
     \\ simp [Boolv_def]
     \\ rw [perms_ok_def])
+  \\ Cases_on ‘∃test ty. op = Test test ty’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [Boolv_def]
+    \\ rw [perms_ok_def])
   \\ Cases_on ‘op = Opderef’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []

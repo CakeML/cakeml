@@ -603,6 +603,18 @@ Theorem sv_rel_l_cases =
   |> map (SIMP_CONV (srw_ss ()) [sv_rel_cases])
   |> map GEN_ALL |> LIST_CONJ
 
+Theorem v_rel_check_type[local]:
+  v_rel x v1 v2 ⇒
+  (check_type ty v1 = check_type ty v2) ∧
+  (dest_Litv v1 = dest_Litv v2)
+Proof
+  simp [Once v_rel_cases]
+  \\ rw [] \\ gvs [check_type_def,dest_Litv_def, oneline v_to_env_id_def,AllCaseEqs()]
+  \\ gvs [oneline check_type_def,Boolv_def]
+  \\ Cases_on ‘ty’ \\ gvs []
+  \\ eq_tac \\ rw [] \\ gvs []
+QED
+
 Theorem do_app_sim:
   do_app (s.refs, s.ffi) op (REVERSE xs) = SOME ((refs, ffi), r) /\
   s_rel ^ci s t /\
@@ -621,6 +633,11 @@ Proof
   \\ simp [Once do_app_cases] \\ rw [listTheory.SWAP_REVERSE_SYM]
   \\ fs [CaseEq "ffi_result", option_case_eq] \\ rveq \\ fs []
   \\ simp [do_app_def]
+  >~ [`do_test`] >- (
+    imp_res_tac v_rel_check_type
+    \\ Cases_on ‘test’ \\ gvs [do_test_def,AllCaseEqs()]
+    \\ irule (cj 1 do_eq)
+    \\ rpt $ first_assum $ irule_at Any)
   >~ [`thunk_op`]
   >- (
     gvs [AllCaseEqs(), PULL_EXISTS, thunk_op_def]
@@ -2459,4 +2476,3 @@ Proof
     \\ simp []
   )
 QED
-

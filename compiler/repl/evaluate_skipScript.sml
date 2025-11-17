@@ -804,6 +804,48 @@ Proof
   \\ metis_tac[INJ_DEF]
 QED
 
+Theorem v_rel_IMP_check_type_eq[local]:
+  state_rel l fr ft fe s t ⇒
+  v_rel fr ft fe v1 w1 ⇒ (check_type ty v1 = check_type ty w1)
+Proof
+  simp [Once v_rel_cases] \\ rw [] \\ simp [check_type_def]
+  \\ Cases_on ‘ty’ \\ TRY (rename [‘WordT ww’] \\ Cases_on ‘ww’)
+  \\ gvs [check_type_def,Boolv_def]
+  \\ eq_tac \\ rw [] \\ gvs [OPTREL_def,stamp_rel_cases]
+  \\ gvs [state_rel_def]
+  \\ rpt $ pop_assum mp_tac
+  \\ once_rewrite_tac [INJ_DEF]
+  \\ rewrite_tac [FLOOKUP_DEF,AllCaseEqs(),NOT_NONE_SOME,SOME_11]
+  \\ metis_tac []
+QED
+
+Theorem v_rel_IMP_dest_Litv_eq[local]:
+  v_rel fr ft fe v1 w1 ⇒ dest_Litv v1 = dest_Litv w1
+Proof
+  simp [Once v_rel_cases] \\ rw [] \\ simp [dest_Litv_def]
+QED
+
+Theorem do_test_thm[local]:
+  do_test test ty v1 v2 = res ∧
+  v_rel fr ft fe v1 w1 ∧
+  v_rel fr ft fe v2 w2 ∧
+  state_rel l fr ft fe s t ⇒
+  do_test test ty w1 w2 = res
+Proof
+  rewrite_tac [oneline do_test_def,AllCaseEqs()]
+  \\ strip_tac
+  \\ imp_res_tac v_rel_IMP_check_type_eq \\ rw []
+  \\ gvs []
+  >-
+   (Cases_on ‘ty’ \\ TRY (rename [‘WordT ww’] \\ Cases_on ‘ww’)
+    \\ gvs [check_type_def]
+    \\ fs [do_eq_def,Boolv_def] \\ EVAL_TAC
+    \\ rpt $ pop_assum mp_tac
+    \\ once_rewrite_tac [v_rel_cases]
+    \\ gvs [stamp_rel_cases])
+  \\ imp_res_tac v_rel_IMP_dest_Litv_eq \\ fs []
+QED
+
 Theorem do_app_update:
   do_app (s.refs,s.ffi) op vs = res ∧
   state_rel l fr ft fe s t ∧
@@ -828,6 +870,18 @@ Theorem do_app_update:
               res res1
 Proof
   strip_tac
+  \\ Cases_on ‘∃test ty. op = Test test ty’ \\ gs []
+  >- (
+    Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,
+                           CaseEqs ["list", "v", "option", "prod", "lit",
+                                    "store_v", "word_size"]]
+    \\ rpt (irule_at Any SUBMAP_REFL) \\ gs []
+    \\ gvs [CaseEqs ["eq_result"], EXISTS_PROD, PULL_EXISTS]
+    \\ drule_all do_test_thm \\ fs [] \\ rw []
+    \\ qpat_assum ‘state_rel l fr ft fe s t’ $ irule_at Any \\ fs []
+    \\ Cases_on ‘b’ \\ gvs [Boolv_def]
+    \\ simp [Once v_rel_cases,stamp_rel_cases]
+    \\ gvs [state_rel_def])
   \\ Cases_on ‘op = Env_id’ \\ gs []
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, CaseEqs ["list", "v", "option", "prod"],
@@ -2576,7 +2630,7 @@ Proof
 QED
 
 (* --------------------------------------------------------------------------
- *
+ *  top-level theorem
  * -------------------------------------------------------------------------- *)
 
 Theorem evaluate_decs_skip:
