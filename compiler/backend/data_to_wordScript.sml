@@ -162,14 +162,13 @@ Datatype:
   word_op_type = Bitwise binop | Carried binop
 End
 
-Definition lookup_word_op_def:
+Definition lookup_word_op_def[simp]:
   (lookup_word_op Andw = Bitwise And) ∧
   (lookup_word_op Orw = Bitwise Or) ∧
   (lookup_word_op Xor = Bitwise Xor) ∧
   (lookup_word_op Add = Carried Add) ∧
   (lookup_word_op Sub = Carried Sub)
 End
-val _ = export_rewrites["lookup_word_op_def"];
 
 Definition FromList_location_def:
   FromList_location = word_num_stubs

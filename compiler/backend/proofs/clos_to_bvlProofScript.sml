@@ -1098,13 +1098,12 @@ Definition compile_oracle_inv_def:
 End
 *)
 
-Definition ref_rel_def:
+Definition ref_rel_def[simp]:
   (ref_rel R (closSem$ValueArray vs) (bvlSem$ValueArray ws) ⇔ LIST_REL R vs ws) ∧
   (ref_rel R (closSem$Thunk m1 v) (bvlSem$Thunk m2 w) ⇔ m1 = m2 ∧ R v w) ∧
   (ref_rel R (ByteArray as) (ByteArray g bs) ⇔ ~g ∧ as = bs) ∧
   (ref_rel _ _ _ = F)
 End
-val _ = export_rewrites["ref_rel_def"];
 
 Theorem ref_rel_simp[simp]:
    (ref_rel R (ValueArray vs) y ⇔ ∃ws. y = ValueArray ws ∧ LIST_REL R vs ws) ∧
@@ -1843,11 +1842,10 @@ QED
 
 (* correctness of implemented primitives *)
 
-Definition eq_res_def:
+Definition eq_res_def[simp]:
   eq_res (Eq_val b) = Rval [bvlSem$Boolv b] ∧
   eq_res _ = Rerr (Rabort Rtype_error)
 End
-val _ = export_rewrites["eq_res_def"];
 
 Theorem eq_res_not_timeout[local]:
   eq_res x ≠ Rerr (Rabort Rtimeout_error)

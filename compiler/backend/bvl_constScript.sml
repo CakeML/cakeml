@@ -19,11 +19,10 @@ Libs
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
-Definition dest_simple_def:
+Definition dest_simple_def[simp]:
   (dest_simple (bvl$Op (IntOp (Const i)) xs) = if NULL xs then SOME i else NONE) /\
   (dest_simple _ = NONE)
 End
-val _ = export_rewrites["dest_simple_def"];
 
 Theorem dest_simple_pmatch:
     ∀op. dest_simple op =

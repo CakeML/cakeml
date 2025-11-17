@@ -2161,7 +2161,7 @@ Proof
   \\ imp_res_tac semantics_Term_IMP_PREFIX \\ fs []
 QED
 
-Definition get_code_labels_def:
+Definition get_code_labels_def[simp]:
   (get_code_labels (Call r d a h) =
     (case d of SOME x => {x} | _ => {}) ∪
     (case h of SOME (n,p) => get_code_labels p | _ => {})) ∧
@@ -2171,7 +2171,6 @@ Definition get_code_labels_def:
   (get_code_labels (Assign _ op _ _) = closLang$assign_get_code_label op) ∧
   (get_code_labels _ = {})
 End
-val _ = export_rewrites["get_code_labels_def"];
 
 Definition good_code_labels_def:
   good_code_labels p elabs ⇔

@@ -999,27 +999,25 @@ Theorem evaluate_def[compute,allow_rebind] =
 Theorem evaluate_ind[allow_rebind] =
   REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
 
-Definition bool_ctors_def:
+Definition bool_ctors_def[simp]:
   bool_ctors =
     { ((true_tag, SOME bool_id), 0n)
     ; ((false_tag, SOME bool_id), 0n) }
 End
 
-Definition list_ctors_def:
+Definition list_ctors_def[simp]:
   list_ctors =
     { ((cons_tag, SOME list_id), 2n)
     ; ((nil_tag, SOME list_id), 0n) }
 End
 
-Definition exn_ctors_def:
+Definition exn_ctors_def[simp]:
   exn_ctors =
     { ((div_tag, NONE), 0n)
     ; ((chr_tag, NONE), 0n)
     ; ((subscript_tag, NONE), 0n)
     ; ((bind_tag, NONE), 0n) }
 End
-
-val _ = export_rewrites ["bool_ctors_def", "list_ctors_def", "exn_ctors_def"];
 
 Definition initial_ctors_def:
    initial_ctors = bool_ctors UNION list_ctors UNION exn_ctors

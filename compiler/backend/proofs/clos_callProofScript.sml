@@ -65,18 +65,16 @@ val evaluate_add_clock =
   |> CONJUNCT1 |> GEN_ALL
   |> REWRITE_RULE[GSYM AND_IMP_INTRO]
 
-Definition is_Recclosure_def:
+Definition is_Recclosure_def[simp]:
   is_Recclosure (Recclosure _ _ _ _ _) = T ∧
   is_Recclosure _ = F
 End
-val _ = export_rewrites["is_Recclosure_def"];
 
-Definition every_refv_def:
+Definition every_refv_def[simp]:
   (every_refv P (ValueArray vs) ⇔ EVERY P vs) ∧
   (every_refv P (Thunk m v) ⇔ P v) ∧
   (every_refv P _ ⇔ T)
 End
-val _ = export_rewrites["every_refv_def"];
 
 Theorem IMP_EXISTS_IFF[local]:
   !xs. (!x. MEM x xs ==> (P x <=> Q x)) ==>
@@ -335,7 +333,7 @@ End
 
 val v_rel_ind = theorem"v_rel_ind";
 
-Definition wfv_def:
+Definition wfv_def[simp]:
   (wfv g l code (Closure NONE _ _ _ _) ⇔ F) ∧
   (wfv g l code (Recclosure NONE _ _ _ _) ⇔ F) ∧
   (wfv g l code (Closure (SOME loc) vs env n bod) ⇔
@@ -352,7 +350,6 @@ Termination
   WF_REL_TAC `measure (v_size o SND o SND o SND)` >> simp[v_size_def] >>
    rpt strip_tac >> imp_res_tac v_size_lemma >> simp[]
 End
-val _ = export_rewrites["wfv_def"];
 
 val wfv_ind = theorem"wfv_ind";
 
