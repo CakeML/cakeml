@@ -168,6 +168,15 @@ Definition unreach_elim_def:
   (unreach_elim p = (p, NONE))
 End
 
+
+(*
+  Transformation of Return statements
+ *)
+
+
+(* -----------------------------------------------------------------------------------*)
+(* Return statement at the end of control flow (no early return, no branching returns *)
+(* -----------------------------------------------------------------------------------*)
 (* Transform the return statements in an inlined standalone call into
    do-nothing statements
  *)
@@ -186,13 +195,46 @@ Definition assign_eoc_def:
   (assign_eoc rt p = p)
 End
 
-(* Merge the callee body of a standalone call into the caller's body *)
+
+
+(* -----------------------------------------------------------------------------------*)
+(* Return statements can be inside a branching statement (If), but not inside a loop  *)
+(* -----------------------------------------------------------------------------------*)
+(* Transform the return statements in an inlined standalone call into
+   do-nothing statements
+ *)
+Definition standalone_branch_def:
+  (standalone_branch (Return e) = Break) ∧
+  (standalone_branch (Call NONE e args) = Seq (Call (SOME(NONE, Skip, NONE)) e args) Break) ∧
+  (standalone_branch p = p)
+End
+
+(* Transform the return statements in an inlined assign call into
+   assign statements
+*)
+Definition assign_branch_def:
+  (assign_branch rt (Return e) = Seq (Assign rt e) Break) ∧
+  (assign_branch rt (Call NONE e args) = Seq (Call (SOME(SOME rt, Skip, NONE)) e args) Break) ∧
+  (assign_branch rt p = p)
+End
+
+
+
+
+(* -----------------------------------------------------------------------------------*)
+(* Extra wrappers to attach the inlined callee to the caller's call site              *)
+(* -----------------------------------------------------------------------------------*)
+(* Merge the callee body of a standalone call into the caller's body
+   This only applies to callees without branching returns
+ *)
 Definition inline_standalone_eoc_def:
   inline_standalone_eoc p q =
     Seq (Seq Tick p) q
 End
 
-(* Merge the callee body of an assign call into the caller's body *)
+(* Merge the callee body of an assign call into the caller's body
+   This only applies to callees without branching returns
+ *)
 Definition inline_assign_eoc_def:
   inline_assign_eoc p q ret_max rt =
     Seq
@@ -204,6 +246,32 @@ Definition inline_assign_eoc_def:
        )
        q
 End
+
+(* Merge the callee body of a standalone call to the caller's body
+   This only applies to callees where returns are not inside loops
+ *)
+Definition inline_standalone_branch_def:
+  inline_standalone_branch p q =
+    Seq
+       (While (Const 1w) p)
+       q
+End
+
+(* Merge the callee body of an assign call to the caller's body
+   This only applies to callees where returns are not inside loops
+ *)
+Definition inline_assign_branch_def:
+  inline_assign_branch p q ret_max rt =
+    Seq
+       (Dec ret_max (Const 0w)
+            (Seq
+                (While (Const 1w) p)
+                (Assign rt (Var ret_max))
+            )
+       )
+       q
+End
+
 
 (* Perform function inlining over a program's body, with a known inline map.
    This only inlines functions that has Return at the end of control flow,
@@ -235,8 +303,26 @@ Definition inline_prog_def:
                 (case hdl of
                    | NONE =>
                      (case ¬not_branch_ret inlined_callee of
-                       | T => (Call ctyp_inl e args)
+                       | T =>
+                         (case return_in_loop inlined_callee of
+                           | T => (Call ctyp_inl e args)
+                           | F =>
+                             (* Return not inside loops, While wrapper needed
+                                Normal calls are turned into tail calls
+                              *)
+                             (case ret_var of
+                               | NONE => inline_standalone_branch (arg_load tmp_vars args args_vname
+                                                                            (transform_rec standalone_branch inlined_callee)) q
+                               | SOME rt =>
+                                 let ret_max = SUC (MAX_LIST [rt; vmax_prog inlined_callee; MAX_LIST tmp_vars; MAX_LIST args_vname]) in
+                                   inline_assign_branch (arg_load tmp_vars args args_vname
+                                                                  (transform_rec (assign_branch ret_max) inlined_callee)) q ret_max rt
+                             )
+                         )
                        | F =>
+                         (* Return not inside any branching statement
+                            Functions are properly inlined
+                          *)
                          (case ret_var of
                            | NONE => inline_standalone_eoc (arg_load tmp_vars args args_vname
                                                                         (transform_rec standalone_eoc inlined_callee)) q

@@ -2593,7 +2593,7 @@ Proof
   metis_tac[evaluate_unreach_elim_evaluate_transform_assign]
 QED
 
-Theorem inline_standalone_correct:
+Theorem inline_standalone_eoc_correct:
   ∀p s r s' k st q ns args tmp_vars argexps res.
     evaluate (p, dec_clock s with locals := FEMPTY |++ ZIP (ns, args)) = (k, st) ∧
     (case k of
@@ -2663,7 +2663,7 @@ Proof
 QED
 
 
-Theorem inline_assign_correct:
+Theorem inline_assign_eoc_correct:
   ∀p s r s' k st q rt ns args argexps ret_max tmp_vars res.
     evaluate (p, dec_clock s with locals := FEMPTY |++ ZIP (ns, args)) = (k, st) ∧
     (case k of
@@ -2787,6 +2787,521 @@ Proof
   >>~- ([`state_rel (empty_locals _) (_ with locals := res_var _ _)`],
     Cases_on `FLOOKUP s.locals ret_max` >> gvs[state_rel_def, empty_locals_def, res_var_def]
   ) >>
+  fs[locals_ext_rel_def, FDIFF_def] >>
+  qpat_x_assum `FOLDL _ _ _ SUBMAP _` $ assume_tac o SRULE [SUBMAP_FLOOKUP_EQN] >>
+  first_assum $ qspec_then `ret_max` assume_tac >> fs[] >>
+  drule_at (Pos last) $ INST_TYPE [alpha |-> ``:num``, beta |-> ``:'a word_lab``] flookup_res_var_distinct_zip_eq >>
+  disch_then $ qspecl_then [`MAP (FLOOKUP (s.locals |+ (ret_max, Word 0w))) ns`, `s1'.locals`] assume_tac >> gs[] >>
+  imp_res_tac MAP_ZIP >> fs[] >>
+  ntac 4 (pop_assum kall_tac) >>
+  qpat_assum `!_ _. FLOOKUP _ _ = _ ⇒ FLOOKUP _ _ = _` imp_res_tac >> fs[eval_def] >>
+  qpat_assum `DRESTRICT _ (COMPL {_}) = DRESTRICT _ (COMPL _)` $ assume_tac o SRULE [fmap_eq_flookup] >> fs[FLOOKUP_DRESTRICT] >>
+  first_x_assum $ qspec_then `rt` $ assume_tac o GSYM >> gs[] >>
+  subgoal `state_rel (r' with locals := s.locals |+ (rt, w)) (st with locals := res_var st.locals (ret_max, FLOOKUP s.locals ret_max))`
+  >- (
+    Cases_on `FLOOKUP s.locals ret_max` >> Cases_on `FLOOKUP s.locals rt` >> gvs[state_rel_def]
+  ) >>
+  subgoal `locals_rel (r' with locals := s.locals |+ (rt, w)) (st with locals := res_var st.locals (ret_max, FLOOKUP s.locals ret_max))`
+  >- (
+    fs[locals_rel_def] >>
+    Cases_on `FLOOKUP s.locals ret_max` >> Cases_on `FLOOKUP s.locals rt` >> gvs[res_var_def, SUBMAP_FLOOKUP_EQN]
+    >- (
+      qpat_assum `DRESTRICT _ (COMPL {_}) = DRESTRICT _ (COMPL _)` $ assume_tac o SRULE [fmap_eq_flookup] >> fs[FLOOKUP_DRESTRICT] >>
+      rpt strip_tac >>
+      Cases_on `x = rt` >> fs[FLOOKUP_UPDATE, DOMSUB_FLOOKUP_THM] >>
+      Cases_on `x = ret_max` >> fs[] >>
+      first_x_assum $ qspec_then `x` assume_tac >> gs[]
+    ) >>
+    qpat_assum `DRESTRICT _ (COMPL {_}) = DRESTRICT _ (COMPL _)` $ assume_tac o SRULE [fmap_eq_flookup] >> fs[FLOOKUP_DRESTRICT] >>
+    rpt strip_tac >>
+    Cases_on `x' = rt` >> fs[FLOOKUP_UPDATE] >>
+    Cases_on `x' = ret_max` >> gs[] >>
+    first_x_assum $ qspec_then `x'` assume_tac >> gs[]
+  ) >>
+  Cases_on `FLOOKUP s.locals rt` >> fs[] >>
+  rev_drule evaluate_state_locals_rel_strong >> fs[] >>
+  disch_then $ drule_at (Pos last) >> fs[] >>
+  disch_tac >> fs[] >>
+  Cases_on `r` >> TRY (Cases_on `x`) >> TRY (Cases_on `x'`) >> gvs[locals_rel_def, locals_strong_rel_def, locals_ext_rel_def, FDIFF_def] >>
+  imp_res_tac evaluate_locals_same_fdom' >> gvs[] >>
+  simp[EQ_FDOM_SUBMAP] >>
+  qpat_x_assum `rt INSERT FDOM _ = FDOM _` $ simp o single o GSYM >>
+  qpat_x_assum `FDOM (res_var _ _) = FDOM _.locals` $ simp o single o GSYM >>
+  qpat_x_assum `DRESTRICT _ (COMP {_}) = DRESTRICT _ (COMPL {_})` $ assume_tac o SRULE [EQ_FDOM_SUBMAP, FDOM_DRESTRICT] >> fs[] >>
+  Cases_on `FLOOKUP s.locals ret_max` >> gvs[res_var_def, DELETE_INSERT]
+  >>~- ([`_ INSERT FDOM _ DELETE _`],
+    pop_assum $ assume_tac o SRULE [flookup_thm] >>
+    drule DELETE_NON_ELEMENT_RWT >>
+    fs[dec_clock_def] >>
+    qpat_x_assum `ret_max INSERT FDOM _ = FDOM _` $ simp o single o GSYM >>
+    fs[DELETE_INSERT]
+  ) >>
+  simp[Once INSERT_COMM] >>
+  fs[dec_clock_def] >>
+  qpat_x_assum `ret_max INSERT FDOM _ = FDOM _` $ simp o single o GSYM >>
+  pop_assum $ assume_tac o SRULE [flookup_thm] >> fs[] >>
+  fs[ABSORPTION]
+QED
+
+
+Theorem evaluate_unreach_elim_evaluate_transform_standalone_branch:
+  ∀p s r s' f res.
+    unreach_elim p = (p, res) ∧
+    evaluate (p, s) = (r, s') ∧
+    ~return_in_loop p ∧
+    f = standalone_branch ∧
+    r ≠ SOME Error ⇒
+    ∃r1 s1'.
+      evaluate (transform_rec f p, s) = (r1, s1') ∧
+      state_rel s' s1' ∧
+      case r of
+        | NONE => r1 = NONE ∧ locals_strong_rel s' s1'
+        | SOME Break => r1 = SOME Break ∧ locals_strong_rel s' s1'
+        | SOME Continue => r1 = SOME Continue ∧ locals_strong_rel s' s1'
+        | SOME (Return retv) => r1 = SOME Break
+        | SOME (Exception eid) => r1 = SOME (Exception eid)
+        | SOME TimeOut => r1 = SOME TimeOut
+        | SOME (FinalFFI ffi) => r1 = SOME (FinalFFI ffi)
+        | _ => F
+Proof
+  recInduct evaluate_ind >> rw[transform_rec_def, unreach_elim_def, return_in_loop_def, standalone_branch_def]
+  >~ [`evaluate (While _ _, _)`]
+  >- fs[state_rel_def]
+  >~ [`evaluate (Call _ _ _, _)`]
+  >- (
+    Cases_on `caltyp` >> fs[]
+    >- gvs[evaluate_def, CaseEq "option", CaseEq "word_lab", CaseEq "bool", CaseEq "prod", CaseEq "result", state_rel_def, empty_locals_def] >>
+    PairCases_on `x` >> fs[] >>
+    Cases_on `x2` >> fs[] >>
+    pairarg_tac >> gvs[]
+    >- (
+      gvs[evaluate_def, CaseEq "option", CaseEq "word_lab", CaseEq "prod", CaseEq "bool"]
+      >- fs[state_rel_def, empty_locals_def] >>
+      Cases_on `v9` >> fs[]
+      >>~- ([`state_rel s' s'`], every_case_tac >> fs[state_rel_def]) >>
+      Cases_on `x0` >> gs[CaseEq "option"]
+    ) >>
+    PairCases_on `x` >> gvs[CaseEq "option", CaseEq "word_lab", CaseEq "prod", CaseEq "bool", evaluate_def]
+    >- fs[state_rel_def, empty_locals_def] >>
+    Cases_on `v9` >> rpt (pairarg_tac >> gvs[])
+    >>~- ([`state_rel s' s'`], every_case_tac >> fs[state_rel_def])
+    >- (
+      Cases_on `x0` >> gs[CaseEq "option"] >>
+      imp_res_tac not_has_return_imp_not_branch_ret >> fs[]
+    ) >>
+    Cases_on `c <> x0'` >> fs[]
+    >- (every_case_tac >> gvs[state_rel_def]) >>
+    imp_res_tac not_has_return_imp_not_branch_ret >> fs[]
+  )
+  >~ [`evaluate (Dec _ _ _, _)`]
+  >- (
+    pairarg_tac >> gvs[evaluate_def, CaseEq "option"] >>
+    rpt (pairarg_tac >> gvs[]) >>
+    res_tac >> gvs[] >>
+    Cases_on `FLOOKUP s.locals v` >> fs[res_var_def, state_rel_def, locals_strong_rel_def] >>
+    every_case_tac >> gvs[]
+  )
+  >~ [`evaluate (If _ _ _, _)`]
+  >- (
+    rpt (pairarg_tac >> gvs[evaluate_def, CaseEq "option", CaseEq "word_lab"]) >>
+    Cases_on `w ≠ 0w` >> res_tac >> imp_res_tac not_has_return_imp_not_branch_ret >> gvs[]
+  )
+  >~ [`evaluate (Seq _ _, _)`]
+  >- (
+   rpt (pairarg_tac >> gvs[evaluate_def]) >>
+   Cases_on `r1 <> NONE` >> gvs[]
+   >- (imp_res_tac unreach_elim_prog_size >> gvs[prog_size_def]) >>
+   Cases_on `res'' = NONE` >> gvs[]
+   >- (
+     `s1 = s1'` by fs[locals_strong_rel_def, state_rel_def, state_component_equality] >> gvs[]
+   ) >>
+   every_case_tac >> gvs[] >>
+   imp_res_tac not_branch_ret_evaluate_return_unreach_elim >> fs[]
+  )
+  >~ [`evaluate (While _ _, _)`]
+  >- (
+    pairarg_tac >> gvs[Once evaluate_def, CaseEq "option", CaseEq "word_lab"] >>
+    qpat_x_assum `evaluate (While _ _, _) = _` $ assume_tac o SRULE [Once evaluate_def] >>
+    gvs[CaseEq "option", CaseEq "word_lab"] >>
+    Cases_on `w = 0w` >> fs[]
+    >- fs[locals_strong_rel_def] >>
+    Cases_on `s.clock = 0` >> fs[] >>
+    pairarg_tac >> gvs[] >>
+    imp_res_tac not_has_return_imp_not_branch_ret >> gvs[CaseEq "option", CaseEq "prod", CaseEq "result"]
+    >- fs[locals_strong_rel_def]
+    >- (
+      qpat_x_assum `evaluate (While _ _, _) = _` $ assume_tac o SRULE [Once evaluate_def] >>
+      gvs[CaseEq "option", CaseEq "word_lab"]
+    ) >>
+    imp_res_tac not_has_return_not_evaluate_return' >> gvs[]
+  ) >>
+  gvs[evaluate_def, CaseEq "option", CaseEq "word_lab", locals_strong_rel_def, state_rel_def, CaseEq "bool", empty_locals_def]
+  >- (
+    Cases_on `op` >> gvs[sh_mem_op_def, sh_mem_load_def, sh_mem_store_def] >>
+    every_case_tac >> gvs[]
+  ) >>
+  every_case_tac >> gvs[]
+QED
+
+Theorem evaluate_unreach_elim_evaluate_transform_assign_branch:
+  ∀p s r s' f res x.
+    unreach_elim p = (p, res) ∧
+    evaluate (p, s) = (r, s') ∧
+    ~return_in_loop p ∧
+    ¬MEM x (var_prog p) ∧
+    f = assign_branch x ∧
+    (∃z. FLOOKUP s.locals x = SOME z) ∧
+    r ≠ SOME Error ⇒
+    ∃r1 s1'.
+      evaluate (transform_rec f p, s) = (r1, s1') ∧
+      state_rel s' s1' ∧
+      case r of
+        | NONE => r1 = NONE ∧ locals_strong_rel s' s1'
+        | SOME Break => r1 = SOME Break ∧ locals_strong_rel s' s1'
+        | SOME Continue => r1 = SOME Continue ∧ locals_strong_rel s' s1'
+        | SOME (Return retv) => r1 = SOME Break ∧ FLOOKUP s1'.locals x = SOME retv
+        | SOME (Exception eid) => r1 = SOME (Exception eid)
+        | SOME TimeOut => r1 = SOME TimeOut
+        | SOME (FinalFFI ffi) => r1 = SOME (FinalFFI ffi)
+        | _ => F
+Proof
+  recInduct evaluate_ind >> rw[var_prog_def, unreach_elim_def, return_in_loop_def, transform_rec_def, assign_branch_def]
+  >>~ [`evaluate (While _ _, _)`]
+  >- fs[state_rel_def]
+  >- (
+    pairarg_tac >> gvs[] >>
+    qpat_x_assum `evaluate _ = _` $ assume_tac o SRULE [Once evaluate_def] >>
+    gvs[CaseEq "option", CaseEq "word_lab"] >>
+    Cases_on `w = 0w` >> fs[]
+    >- fs[locals_strong_rel_def] >>
+    Cases_on `s.clock = 0` >> fs[] >>
+    pairarg_tac >> gvs[CaseEq "prod", CaseEq "option", CaseEq "result"] >>
+    imp_res_tac not_has_return_imp_not_branch_ret >> gvs[]
+    >- (
+      `(dec_clock s).locals = s.locals` by fs[dec_clock_def] >> gvs[] >>
+      drule evaluate_locals_same_fdom' >> fs[] >>
+      disch_tac >> fs[fdom_eq_flookup_thm]
+    )
+    >- fs[locals_strong_rel_def]
+    >- (
+      `(dec_clock s).locals = s.locals` by fs[dec_clock_def] >> gvs[] >>
+      drule evaluate_locals_same_fdom' >> fs[] >>
+      disch_tac >> fs[fdom_eq_flookup_thm]
+    ) >>
+    imp_res_tac not_has_return_not_evaluate_return' >> fs[]
+  )
+  >~ [`evaluate (Call _ _ _, _)`]
+  >- (
+    Cases_on `caltyp` >> fs[]
+    >- gvs[state_rel_def, empty_locals_def, evaluate_def, CaseEq "option", CaseEq "word_lab", CaseEq "prod", lookup_code_def, CaseEq "bool", CaseEq "result", FLOOKUP_UPDATE] >>
+    Cases_on `x'` >> fs[] >>
+    Cases_on `r'` >> fs[] >>
+    Cases_on `r''` >> fs[]
+    >- (
+      Cases_on `q` >> fs[] >>
+      rpt (pairarg_tac >> gvs[evaluate_def, CaseEq "option", CaseEq "word_lab", CaseEq "prod", lookup_code_def, CaseEq "bool", CaseEq "result", state_rel_def, empty_locals_def]) >>
+      last_x_assum drule >> impl_tac
+      >- fs[FLOOKUP_UPDATE] >>
+      disch_tac >> gvs[]
+    ) >>
+    Cases_on `x'` >>
+    rpt (pairarg_tac >> gvs[]) >>
+    gvs[evaluate_def, CaseEq "option", CaseEq "word_lab", CaseEq "prod", lookup_code_def, CaseEq "bool"]
+    >- fs[state_rel_def, empty_locals_def] >>
+    Cases_on `v9` >> gvs[]
+    >>~- ([`state_rel s' s'`], fs[state_rel_def, empty_locals_def])
+    >- (
+      Cases_on `q` >> fs[] >>
+      imp_res_tac not_has_return_imp_not_branch_ret >> gvs[] >>
+      Cases_on `FLOOKUP s.locals x'` >> gvs[] >>
+      last_x_assum drule >> impl_tac
+      >- fs[FLOOKUP_UPDATE] >>
+      disch_tac >> gvs[]
+    ) >>
+    Cases_on `c = q''` >> gvs[] >>
+    imp_res_tac not_has_return_imp_not_branch_ret >> gvs[state_rel_def] >>
+    Cases_on `q` >> gvs[]
+  )
+  >~ [`evaluate (Dec _ _ _, _)`]
+  >- (
+    pairarg_tac >> gvs[evaluate_def, CaseEq "option", CaseEq "word_lab"] >>
+    rpt (pairarg_tac >> gvs[]) >>
+    last_x_assum drule >> impl_tac
+    >- fs[FLOOKUP_UPDATE] >>
+    disch_tac >> gvs[] >>
+    Cases_on `FLOOKUP s.locals v` >> gvs[res_var_def] >>
+    every_case_tac >> gvs[state_rel_def, locals_strong_rel_def, DOMSUB_FLOOKUP_THM, FLOOKUP_UPDATE]
+  )
+  >~ [`evaluate (If _ _ _, _)`]
+  >- (
+    rpt (pairarg_tac >> gvs[evaluate_def, CaseEq "option", CaseEq "word_lab"]) >>
+    Cases_on `w = 0w` >> gvs[] >>
+    imp_res_tac not_has_return_imp_not_branch_ret >> gvs[]
+  )
+  >~ [`evaluate (Seq _ _, _)`]
+  >- (
+    rpt (pairarg_tac >> gvs[evaluate_def]) >>
+    Cases_on `r1 ≠ NONE` >> gvs[]
+    >- (imp_res_tac unreach_elim_prog_size >> fs[prog_size_def]) >>
+    Cases_on `res'' = NONE` >> gvs[]
+    >- (
+      rpt (
+        last_x_assum drule >> impl_tac
+        >- (drule evaluate_locals_same_fdom' >> fs[fdom_eq_flookup_thm]) >>
+        disch_tac >> gvs[])
+       >>
+       `s1 = s1'` by fs[state_rel_def, locals_strong_rel_def, state_component_equality] >> gvs[]
+    ) >>
+    last_x_assum drule >> impl_tac >> fs[] >>
+    disch_tac >> gvs[] >>
+    every_case_tac >> gvs[] >>
+    imp_res_tac not_branch_ret_evaluate_return_unreach_elim >> gvs[]
+  ) >>
+  gvs[evaluate_def, CaseEq "option", CaseEq "word_lab", CaseEq "ffi_result", CaseEq "bool", state_rel_def, locals_strong_rel_def, empty_locals_def, FLOOKUP_UPDATE] >>
+  Cases_on `op` >> gvs[sh_mem_op_def, sh_mem_store_def, sh_mem_load_def, AllCaseEqs()]
+QED
+
+
+Theorem transform_rec_standalone_branch_correct:
+  ∀p s r s' res.
+    evaluate (p, s) = (r, s') ∧
+    unreach_elim p = (p, res) ∧
+    ~return_in_loop p ∧
+    r ≠ SOME Error ⇒
+    ∃r1 s1'.
+      evaluate (transform_rec standalone_branch p, s) = (r1, s1') ∧
+      state_rel s' s1' ∧
+      case r of
+        | NONE => r1 = NONE ∧ locals_strong_rel s' s1'
+        | SOME Break => r1 = SOME Break ∧ locals_strong_rel s' s1'
+        | SOME Continue => r1 = SOME Continue ∧ locals_strong_rel s' s1'
+        | SOME (Return retv) => r1 = SOME Break
+        | SOME (Exception eid) => r1 = SOME (Exception eid)
+        | SOME TimeOut => r1 = SOME TimeOut
+        | SOME (FinalFFI ffi) => r1 = SOME (FinalFFI ffi)
+        | _ => F
+Proof
+  metis_tac[evaluate_unreach_elim_evaluate_transform_standalone_branch]
+QED
+
+Theorem transform_rec_assign_branch_correct:
+  ∀p s r s' res x.
+    evaluate (p, s) = (r, s') ∧
+    unreach_elim p = (p, res) ∧
+    ~return_in_loop p ∧
+    ¬MEM x (var_prog p) ∧
+    (∃z. FLOOKUP s.locals x = SOME z) ∧
+    r ≠ SOME Error ⇒
+    ∃r1 s1'.
+      evaluate (transform_rec (assign_branch x) p, s) = (r1, s1') ∧
+      state_rel s' s1' ∧
+      case r of
+        | NONE => r1 = NONE ∧ locals_strong_rel s' s1'
+        | SOME Break => r1 = SOME Break ∧ locals_strong_rel s' s1'
+        | SOME Continue => r1 = SOME Continue ∧ locals_strong_rel s' s1'
+        | SOME (Return retv) => r1 = SOME Break ∧ FLOOKUP s1'.locals x = SOME retv
+        | SOME (Exception eid) => r1 = SOME (Exception eid)
+        | SOME TimeOut => r1 = SOME TimeOut
+        | SOME (FinalFFI ffi) => r1 = SOME (FinalFFI ffi)
+        | _ => F
+Proof
+  metis_tac[evaluate_unreach_elim_evaluate_transform_assign_branch]
+QED
+
+Theorem inline_standalone_branch_correct:
+  ∀p s r s' k st q ns args tmp_vars argexps res.
+    evaluate (p, dec_clock s with locals := FEMPTY |++ ZIP (ns, args)) = (k, st) ∧
+    (case k of
+       | NONE => (SOME Error, st)
+       | SOME Error => (SOME Error, empty_locals st)
+       | SOME TimeOut => (SOME TimeOut, empty_locals st)
+       | SOME Break => (SOME Error, st)
+       | SOME Continue => (SOME Error, st)
+       | SOME (Return retv) => evaluate (q, st with locals := s.locals)
+       | SOME (Exception eid) => (SOME (Exception eid), empty_locals st)
+       | SOME (FinalFFI ffi) => (SOME (FinalFFI ffi), empty_locals st))
+    = (r, s') ∧
+    s.clock ≠ 0 ∧
+    r ≠ SOME Error ∧
+    ALL_DISTINCT ns ∧ LENGTH ns = LENGTH args ∧
+    OPT_MMAP (eval s) argexps = SOME args ∧
+    tmp_vars = GENLIST (λx. MAX_LIST ns + MAX_LIST (FLAT (MAP var_cexp argexps)) + SUC x) (LENGTH ns) ∧
+   unreach_elim p = (p, res) ∧
+   ~return_in_loop p
+   ⇒
+    ∃s1'.
+      evaluate (inline_standalone_branch
+                 (arg_load tmp_vars argexps ns
+                   (transform_rec standalone_branch p)) q, s) = (r, s1') ∧
+      state_rel s' s1' ∧
+      case r of
+        | NONE => locals_strong_rel s' s1'
+        | SOME Break => locals_strong_rel s' s1'
+        | SOME Continue => locals_strong_rel s' s1'
+        | SOME Error => F
+        | _ => T
+Proof
+  rpt strip_tac >>
+  drule transform_rec_standalone_branch_correct >>
+  disch_then $ qspec_then `res` mp_tac >>
+  impl_tac
+  >- (
+    simp[] >>
+    Cases_on `k` >> TRY (Cases_on `x`) >> fs[]
+  ) >>
+  disch_tac >> fs[] >>
+  drule_at (Pos $ el 5) arg_load_stronger >>
+  disch_then $ qspecl_then [`argexps`, `tmp_vars`] mp_tac >> fs[] >> impl_tac
+  >- (
+    simp[opt_mmap_eval_dec_clock_eq] >>
+    Cases_on `k` >> TRY (Cases_on `x`) >> fs[]
+  ) >>
+  disch_tac >> fs[] >>
+  simp[inline_standalone_branch_def, Ntimes evaluate_def 2, eval_def] >>
+  rpt (pairarg_tac >> fs[]) >>
+  Cases_on `k` >> TRY (Cases_on `x`) >> gvs[]
+  >~ [`evaluate _ = (SOME (Return _), _)`]
+  >- (
+    qpat_x_assum `evaluate (q, st with locals := s.locals) = _` assume_tac >>
+    drule evaluate_state_locals_rel_strong >> fs[] >>
+    disch_then $ qspec_then `s1` mp_tac >> impl_tac
+    >- (
+      fs[locals_rel_def, state_rel_def, dec_clock_def]
+    ) >>
+    disch_tac >> fs[] >>
+    qpat_x_assum `evaluate (q, st with locals := s.locals) = _` assume_tac >>
+    imp_res_tac evaluate_locals_same_fdom' >>
+    Cases_on `r` >> TRY (Cases_on `x`) >> fs[dec_clock_def,locals_rel_def, locals_strong_rel_def, EQ_FDOM_SUBMAP]
+  ) >>
+  every_case_tac >> gvs[evaluate_def, state_rel_def, empty_locals_def]
+QED
+
+
+Theorem inline_assign_branch_correct:
+  ∀p s r s' k st q rt ns args argexps ret_max tmp_vars res.
+    evaluate (p, dec_clock s with locals := FEMPTY |++ ZIP (ns, args)) = (k, st) ∧
+    (case k of
+      | NONE => (SOME Error, st)
+      | SOME Error => (SOME Error, empty_locals st)
+      | SOME TimeOut => (SOME TimeOut, empty_locals st)
+      | SOME Break => (SOME Error, st)
+      | SOME Continue => (SOME Error, st)
+      | SOME (Return retv) =>
+          (case FLOOKUP s.locals rt of
+            | NONE => (SOME Error, st)
+            | SOME vs => evaluate (q, st with locals := s.locals |+ (rt, retv)))
+      | SOME (Exception eid) => (SOME (Exception eid), empty_locals st)
+      | SOME (FinalFFI ffi) => (SOME (FinalFFI ffi), empty_locals st))
+    = (r, s') ∧
+    r ≠ SOME Error ∧
+    s.clock  ≠ 0 ∧
+    (!rv. k = SOME (Return rv) ⇒ ∃v. FLOOKUP s.locals rt = SOME v) ∧
+    ALL_DISTINCT ns ∧ LENGTH ns = LENGTH args ∧
+    OPT_MMAP (eval s) argexps = SOME args ∧
+    unreach_elim p = (p, res) ∧
+    ~return_in_loop p ∧
+    tmp_vars = GENLIST (λx. MAX_LIST ns + MAX_LIST (FLAT (MAP var_cexp argexps)) + SUC x) (LENGTH ns) ∧
+    ret_max ≠ rt ∧
+    ¬MEM ret_max (FLAT (MAP var_cexp argexps)) ∧
+    ¬MEM ret_max (var_prog p) ∧
+    ¬MEM ret_max tmp_vars ∧
+    ¬MEM ret_max ns ⇒
+    ∃s1'.
+      evaluate (inline_assign_branch
+                 (arg_load tmp_vars argexps ns
+                   (transform_rec (assign_branch ret_max) p)) q ret_max rt, s) = (r, s1') ∧
+      state_rel s' s1' ∧
+      case r of
+        | NONE => locals_strong_rel s' s1'
+        | SOME Break => locals_strong_rel s' s1'
+        | SOME Continue => locals_strong_rel s' s1'
+        | SOME Error => F
+        | _ => T
+Proof
+  rpt strip_tac >>
+  Cases_on `evaluate (p, dec_clock s with locals := FEMPTY |++ ZIP (ns, args))` >>
+  drule not_var_prog_not_affect_evaluate >>
+  disch_then $ qspecl_then [`ret_max`, `Word 0w`] mp_tac >> fs[] >> impl_tac
+  >- (
+    Cases_on `k` >> TRY (Cases_on `x`) >> gvs[]
+  ) >>
+  disch_tac >> fs[] >>
+  `¬MEM ret_max (MAP FST (ZIP (ns, args)))` by (
+    drule MAP_ZIP >> fs[]
+  ) >>
+  drule FUPDATE_FUPDATE_LIST_COMMUTES >>
+  disch_then $ qspecl_then [`Word 0w`, `FEMPTY`] $ assume_tac o GSYM >> fs[] >>
+  drule transform_rec_assign_branch_correct >>
+  disch_then $ qspec_then `res` mp_tac >>
+  disch_then $ qspec_then `ret_max` mp_tac >> fs[] >> impl_tac
+  >- (
+    drule_at (Pos last) $ INST_TYPE [alpha |-> ``:num``, beta |-> ``:'a word_lab``] flookup_fupdate_zip_not_mem >>
+    imp_res_tac MAP_ZIP >> fs[] >>
+    disch_then $ qspecl_then [`args`, `FEMPTY |+ (ret_max, Word 0w)`] assume_tac >> fs[FLOOKUP_UPDATE] >>
+    Cases_on `k` >> TRY (Cases_on `x`) >> fs[]
+  ) >>
+  disch_tac >> fs[] >>
+  drule evaluate_state_locals_rel_strong >>
+  disch_then $ qspec_then `dec_clock s with locals := s.locals |+ (ret_max, Word 0w) |++ ZIP (ns, args)` mp_tac >> impl_tac
+  >- (
+    conj_tac
+    >- (
+      Cases_on `k` >> TRY (Cases_on `x`) >> fs[]
+    ) >>
+    simp[state_rel_def, locals_rel_def, SUBMAP_FLOOKUP_EQN] >>
+    rpt strip_tac >>
+    Cases_on `MEM x ns`
+    >- (
+      pop_assum $ assume_tac o SRULE [MEM_EL] >>
+      gs[] >>
+      drule $ INST_TYPE [alpha |-> ``:num``, beta |-> ``:'a word_lab``] update_eq_zip_flookup >>
+      disch_then imp_res_tac >> rfs[] >> pop_assum imp_res_tac >>
+      pop_assum $ qspec_then `FEMPTY |+ (ret_max, Word 0w)` assume_tac >> fs[]
+    ) >>
+    drule $ INST_TYPE [alpha |-> ``:num``, beta |-> ``:'a word_lab``] flookup_fupdate_zip_not_mem >>
+    disch_then drule >>
+    disch_tac >>
+    first_assum $ qspec_then `FEMPTY |+ (ret_max, Word 0w)` assume_tac >> fs[] >>
+    first_x_assum $ qspec_then `s.locals |+ (ret_max, Word 0w)` assume_tac >> fs[FLOOKUP_UPDATE]
+  ) >>
+  disch_tac >> fs[] >>
+  qspec_then `dec_clock s with locals := s.locals |+ (ret_max, Word 0w)` mp_tac arg_load_stronger >>
+  disch_then $ qspecl_then [`argexps`, `args`, `ns`, `FEMPTY |+ (ret_max, Word 0w)`, `transform_rec (assign_branch ret_max) p`, `r1`, `s1'`, `tmp_vars`] mp_tac >> impl_tac
+  >- (
+    conj_tac
+    >- (
+      qpat_assum `OPT_MMAP _ _ = SOME _` $ PURE_REWRITE_TAC o single o GSYM >>
+      irule OPT_MMAP_CONG >>
+      rpt strip_tac
+      >- (
+        `eval s x = eval (dec_clock s) x` by simp[eval_dec_clock_eq] >> simp[] >>
+        `s.locals = (dec_clock s).locals` by simp[dec_clock_def] >> simp[] >>
+        irule update_locals_not_vars_eval_eq' >>
+        qpat_x_assum `~MEM _ (FLAT (MAP _ _))` assume_tac >>
+        fs[MEM_FLAT, MEM_MAP] >>
+        pop_assum $ qspec_then `var_cexp x` mp_tac >> fs[] >>
+        disch_tac >> fs[] >>
+        pop_assum $ qspec_then `x` mp_tac >> fs[]
+      ) >>
+      simp[]
+    ) >>
+    fs[] >>
+    conj_tac
+    >- (
+      simp[FLOOKUP_UPDATE, SUBMAP_FLOOKUP_EQN]
+    ) >>
+    gs[] >>
+    Cases_on `k` >> TRY (Cases_on `x`) >> fs[]
+  ) >>
+  disch_tac >> fs[] >>
+  simp[inline_assign_branch_def, Ntimes evaluate_def 4, eval_def] >>
+  rpt (pairarg_tac >> gvs[]) >>
+  `dec_clock (s with locals := s.locals |+ (ret_max, Word 0w)) = dec_clock s with locals := s.locals |+ (ret_max, Word 0w)` by fs[dec_clock_def] >> gs[] >>
+  Cases_on `k` >> TRY (Cases_on `x`) >> gvs[]
+  >>~- ([`state_rel (empty_locals _) (_ with locals := res_var _ _)`],
+    Cases_on `FLOOKUP s.locals ret_max` >> gvs[state_rel_def, empty_locals_def, res_var_def]
+  ) >>
+  gvs[evaluate_def] >>
   fs[locals_ext_rel_def, FDIFF_def] >>
   qpat_x_assum `FOLDL _ _ _ SUBMAP _` $ assume_tac o SRULE [SUBMAP_FLOOKUP_EQN] >>
   first_assum $ qspec_then `ret_max` assume_tac >> fs[] >>
@@ -3016,12 +3531,34 @@ Proof
     `s1.clock = s.clock` by fs[state_rel_code_def] >>
     pairarg_tac >> gvs[] >>
     Cases_on `¬not_branch_ret inlined_callee` >> fs[]
+    (* branching return vs not branching return  *)
     >- (
-      Cases_on `x` >> fs[] >>
-      Cases_on `r'` >> fs[] >>
-      Cases_on `evaluate (prog, dec_clock s with locals := FEMPTY |++ ZIP (ns, args))` >> gs[] >>
-      Cases_on `r''` >> fs[evaluate_def, lookup_code_def]
+      (* branching return *)
+      Cases_on `return_in_loop inlined_callee` >> fs[]
       >- (
+        (* return in loop *)
+        Cases_on `x` >> fs[] >>
+        Cases_on `r'` >> fs[] >>
+        Cases_on `evaluate (prog, dec_clock s with locals := FEMPTY |++ ZIP (ns, args))` >> gs[] >>
+        Cases_on `r''` >> fs[evaluate_def, lookup_code_def]
+        >- (
+          Cases_on `s.clock = 0` >> fs[]
+          >- gvs[state_rel_code_def, empty_locals_def, code_inl_rel_def] >>
+          first_x_assum $ qspecl_then [`inl_fs`, `dec_clock s1 with locals := FEMPTY |++ ZIP (ns, args)`, `inl_bag'`] mp_tac >> impl_tac
+          >- gvs[AllCaseEqs(), dec_clock_def, state_rel_code_def, locals_strong_rel_def, code_inl_rel_def] >>
+          disch_tac >> gvs[AllCaseEqs()]
+          >>~- ([`state_rel_code _ (empty_locals _)`],
+            fs[state_rel_code_def, code_inl_rel_def, empty_locals_def])
+          >- (
+            first_x_assum $ qspecl_then [`inl_fs`, `s1'' with locals := s1.locals`, `inl_bag`] mp_tac >> impl_tac
+            >- (imp_res_tac evaluate_code_invariant >> gs[state_rel_code_def, code_inl_rel_def, locals_strong_rel_def, dec_clock_def]) >>
+            disch_tac >> fs[]
+          ) >>
+          first_x_assum $ qspecl_then [`inl_fs`, `s1'' with locals := s1.locals |+ (rt, retv)`, `inl_bag`] mp_tac >> impl_tac
+          >- (imp_res_tac evaluate_code_invariant >> gs[state_rel_code_def, code_inl_rel_def, locals_strong_rel_def, dec_clock_def]) >>
+          disch_tac >> fs[fmap_eq_flookup, locals_strong_rel_def]
+        ) >>
+        Cases_on `x` >> fs[evaluate_def, lookup_code_def] >>
         Cases_on `s.clock = 0` >> fs[]
         >- gvs[state_rel_code_def, empty_locals_def, code_inl_rel_def] >>
         first_x_assum $ qspecl_then [`inl_fs`, `dec_clock s1 with locals := FEMPTY |++ ZIP (ns, args)`, `inl_bag'`] mp_tac >> impl_tac
@@ -3033,34 +3570,246 @@ Proof
           first_x_assum $ qspecl_then [`inl_fs`, `s1'' with locals := s1.locals`, `inl_bag`] mp_tac >> impl_tac
           >- (imp_res_tac evaluate_code_invariant >> gs[state_rel_code_def, code_inl_rel_def, locals_strong_rel_def, dec_clock_def]) >>
           disch_tac >> fs[]
+        )
+        >- (
+          first_x_assum $ qspecl_then [`inl_fs`, `s1'' with locals := s1.locals |+ (rt, retv)`, `inl_bag`] mp_tac >> impl_tac
+          >- (imp_res_tac evaluate_code_invariant >> gs[state_rel_code_def, code_inl_rel_def, locals_strong_rel_def, dec_clock_def]) >>
+          disch_tac >> fs[fmap_eq_flookup, locals_strong_rel_def]
         ) >>
-        first_x_assum $ qspecl_then [`inl_fs`, `s1'' with locals := s1.locals |+ (rt, retv)`, `inl_bag`] mp_tac >> impl_tac
-        >- (imp_res_tac evaluate_code_invariant >> gs[state_rel_code_def, code_inl_rel_def, locals_strong_rel_def, dec_clock_def]) >>
-        disch_tac >> fs[fmap_eq_flookup, locals_strong_rel_def]
-      ) >>
-      Cases_on `x` >> fs[evaluate_def, lookup_code_def] >>
-      Cases_on `s.clock = 0` >> fs[]
-      >- gvs[state_rel_code_def, empty_locals_def, code_inl_rel_def] >>
-      first_x_assum $ qspecl_then [`inl_fs`, `dec_clock s1 with locals := FEMPTY |++ ZIP (ns, args)`, `inl_bag'`] mp_tac >> impl_tac
-      >- gvs[AllCaseEqs(), dec_clock_def, state_rel_code_def, locals_strong_rel_def, code_inl_rel_def] >>
-      disch_tac >> gvs[AllCaseEqs()]
-      >>~- ([`state_rel_code _ (empty_locals _)`],
-        fs[state_rel_code_def, code_inl_rel_def, empty_locals_def])
-      >- (
         first_x_assum $ qspecl_then [`inl_fs`, `s1'' with locals := s1.locals`, `inl_bag`] mp_tac >> impl_tac
         >- (imp_res_tac evaluate_code_invariant >> gs[state_rel_code_def, code_inl_rel_def, locals_strong_rel_def, dec_clock_def]) >>
         disch_tac >> fs[]
+      ) >>
+      (* branching return, return not in loop *)
+      Cases_on `evaluate (prog,dec_clock s with locals := FEMPTY |++ ZIP (ns,args))` >> gs[] >>
+      qabbrev_tac `tvar = GENLIST (λx. MAX_LIST ns + (MAX_LIST (FLAT (MAP var_cexp argexps)) + SUC x)) (LENGTH args)` >>
+      Cases_on `x` >> fs[] >>
+      Cases_on `r''` >> fs[] >>
+      Cases_on `r'''` >> fs[] >>
+      Cases_on `q'` >> fs[]
+      >- (
+        Cases_on `s.clock = 0` >> fs[]
+        >- (
+          gvs[inline_standalone_branch_def, Ntimes evaluate_def 2, eval_def] >>
+          rpt (pairarg_tac >> gvs[evaluate_def, state_rel_code_def, empty_locals_def, code_inl_rel_def]) >>
+          gvs[state_rel_code_def, empty_locals_def, code_inl_rel_def]
+        ) >>
+        first_x_assum $ qspecl_then [`inl_fs`, `dec_clock s1 with locals := FEMPTY |++ ZIP (ns, args)`, `inl_bag \\ fname`] mp_tac >> impl_tac
+        >- (
+          conj_tac
+          >- gvs[AllCaseEqs()] >>
+          gvs[dec_clock_def, state_rel_code_def, locals_strong_rel_def, code_inl_rel_def] >>
+          irule SUBMAP_TRANS >> qrefine `inl_bag` >> fs[]
+        ) >>
+        disch_tac >> fs[] >>
+        drule unreach_elim_correct >> fs[] >> impl_tac
+        >- (every_case_tac >> gvs[]) >>
+        disch_tac >> fs[] >>
+        imp_res_tac unreach_elim_converge >>
+        drule inline_standalone_branch_correct >>
+        disch_then $ qspecl_then [`(case r1 of
+                                     | NONE => SOME Error
+                                     | SOME Break => SOME Error
+                                     | SOME Continue => SOME Error
+                                     | SOME (Return retv) =>
+                                        FST (evaluate (inline_prog inl_bag q'', s1'' with locals := s1.locals))
+                                     | res => res)`,
+                                  `(case r1 of
+                                     | NONE => s1''
+                                     | SOME Break => s1''
+                                     | SOME Continue => s1''
+                                     | SOME (Return retv) => SND (evaluate (inline_prog inl_bag q'', s1'' with locals := s1.locals))
+                                     | _ => empty_locals s1'')`,
+                                  `inline_prog inl_bag q''`,
+                                  `tvar`,
+                                  `argexps`,
+                                  `exit_type`] mp_tac >> impl_tac
+        >- (
+          conj_tac
+          >- (
+            Cases_on `q` >> fs[] >>
+            Cases_on `x` >> gvs[]
+          ) >>
+          fs[Abbr `tvar`] >>
+          Cases_on `q` >> TRY (Cases_on `x`) >> gvs[] >>
+          last_x_assum $ qspecl_then [`inl_fs`, `s1'' with locals := s1.locals`, `inl_bag`] mp_tac >> impl_tac
+          >- (imp_res_tac evaluate_code_invariant >> gvs[state_rel_code_def, locals_strong_rel_def, code_inl_rel_def, dec_clock_def]) >>
+          disch_tac >> fs[] >>
+          Cases_on `r` >> TRY (Cases_on `x`) >> gvs[]
+        ) >>
+        disch_tac >> gs[] >>
+        Cases_on `q` >> TRY (Cases_on `x`) >> fs[]
+        >~ [`evaluate _ = (SOME (Return _), _)`]
+        >- (
+          last_x_assum $ qspecl_then [`inl_fs`, `s1'' with locals := s1.locals`, `inl_bag`] mp_tac >> impl_tac
+          >- (imp_res_tac evaluate_code_invariant >> gvs[dec_clock_def, state_rel_code_def, locals_strong_rel_def, code_inl_rel_def]) >>
+          disch_tac >> fs[] >>
+          imp_res_tac evaluate_code_invariant >> fs[] >>
+          Cases_on `r` >> TRY (Cases_on `x`) >> gs[state_rel_code_def, locals_strong_rel_def, code_inl_rel_def, state_rel_def]
+        ) >>
+        gvs[state_rel_def, state_rel_code_def, code_inl_rel_def, empty_locals_def]
+      )
+      (* Assign-branch *)
+      >- (
+        qabbrev_tac `ret_var = SUC (MAX x (MAX (vmax_prog inlined_callee) (MAX (MAX_LIST tvar) (MAX_LIST ns))))` >>
+        Cases_on `s.clock = 0` >> fs[]
+        >- (
+          gs[inline_assign_branch_def, Ntimes evaluate_def 4, eval_def] >>
+          rpt (pairarg_tac >> gvs[evaluate_def]) >>
+          Cases_on `FLOOKUP s1.locals ret_var` >> gvs[state_rel_code_def, code_inl_rel_def, empty_locals_def, res_var_def]
+        ) >>
+        gs[] >>
+        first_x_assum $ qspecl_then [`inl_fs`, `dec_clock s1 with locals := FEMPTY |++ ZIP (ns, args)`, `inl_bag \\ fname`] mp_tac >> impl_tac
+        >- (
+          gvs[AllCaseEqs(), state_rel_code_def, locals_strong_rel_def, code_inl_rel_def, dec_clock_def] >>
+          irule SUBMAP_TRANS >> qrefine `inl_bag` >> fs[]
+        ) >>
+        disch_tac >> fs[] >>
+        drule unreach_elim_correct >> fs[] >> impl_tac
+        >- (every_case_tac >> gvs[]) >>
+        disch_tac >> fs[] >>
+        qpat_assum `locals_strong_rel _ _` $ assume_tac o SRULE [locals_strong_rel_def, fmap_eq_flookup] >>
+        imp_res_tac unreach_elim_converge >>
+        drule inline_assign_branch_correct >>
+        disch_then $ qspecl_then [`(case r1 of
+                                     | NONE => SOME Error
+                                     | SOME Break => SOME Error
+                                     | SOME Continue => SOME Error
+                                     | SOME (Return retv) =>
+                                         (case FLOOKUP s1.locals x of
+                                           | NONE => SOME Error
+                                           | SOME vs => FST (evaluate (inline_prog inl_bag q'', s1'' with locals := s1.locals |+ (x, retv))))
+                                     | res => res)`,
+                                  `(case r1 of
+                                     | NONE => s1''
+                                     | SOME Break => s1''
+                                     | SOME Continue => s1''
+                                     | SOME (Return retv) =>
+                                         (case FLOOKUP s1.locals x of
+                                           | NONE => s1''
+                                           | SOME vs => SND (evaluate (inline_prog inl_bag q'', s1'' with locals := s1.locals |+ (x, retv))))
+                                     | res => empty_locals s1'')`,
+                                  `inline_prog inl_bag q''`,
+                                  `x`,
+                                  `argexps`,
+                                  `ret_var`,
+                                  `tvar`,
+                                  `exit_type`] mp_tac >> impl_tac
+        >- (
+          qspecl_then [`ret_var`, `x`, `inlined_callee`, `tvar`, `ns`] mp_tac unique_var_is_unique >> impl_tac
+          >- fs[Abbr `ret_var`] >>
+          disch_tac >> fs[] >>
+          subgoal `¬MEM ret_var (FLAT (MAP var_cexp argexps))`
+          >- (
+            Cases_on `LENGTH args = 0`
+            >- (
+              qpat_x_assum `OPT_MMAP _ _ = _` assume_tac >>
+              imp_res_tac opt_mmap_length_eq >> rfs[]
+            ) >>
+            irule MORE_THEN_NOT_MAX_LIST >>
+            irule LESS_TRANS >>
+            qrefine `MAX_LIST tvar` >> conj_tac
+            >- (
+              subgoal `tvar ≠ []`
+              >- (
+                simp[Abbr `tvar`] >>
+                strip_tac >>
+                drule $ iffRL LENGTH_NIL >>
+                disch_then $ assume_tac o SIMP_RULE bool_ss [LENGTH_GENLIST] >>
+                fs[LENGTH_NIL]
+              ) >>
+              drule MAX_LIST_MEM >>
+              qunabbrev_tac `tvar` >> fs[MEM_GENLIST]
+            ) >>
+            fs[Abbr `ret_var`, LT_SUC_LE]
+          ) >>
+          fs[] >>
+          conj_tac
+          >- (
+            Cases_on `q` >> TRY (Cases_on `x'`) >> gvs[] >>
+            Cases_on `FLOOKUP s1.locals x` >> fs[]
+          ) >>
+          conj_tac
+          >- (
+            Cases_on `q` >> TRY (Cases_on `x'`) >> gvs[] >>
+            Cases_on `FLOOKUP s1.locals x` >> fs[] >>
+            last_x_assum $ qspecl_then [`inl_fs`, `s1'' with locals := s1.locals |+ (x, w)`, `inl_bag`] mp_tac >> impl_tac
+            >- (imp_res_tac evaluate_code_invariant >> gvs[dec_clock_def, state_rel_code_def, locals_strong_rel_def, state_rel_def, code_inl_rel_def]) >>
+            disch_tac >> fs[] >>
+            Cases_on `r` >> TRY (Cases_on `x''`) >> fs[]
+          ) >>
+          Cases_on `q` >> TRY (Cases_on `x'`) >> gvs[] >>
+          Cases_on `FLOOKUP s1.locals x` >> fs[]
+        ) >>
+        disch_tac >> gs[] >>
+        Cases_on `q` >> TRY (Cases_on `x'`) >> gs[]
+        >~ [`r1 = SOME (Return w)`]
+        >- (
+          Cases_on `FLOOKUP s1.locals x` >> fs[] >>
+          last_x_assum $ qspecl_then [`inl_fs`, `s1'' with locals := s1.locals |+ (x, w)`, `inl_bag`] mp_tac >> impl_tac
+          >- (imp_res_tac evaluate_code_invariant >> gs[dec_clock_def, state_rel_code_def, locals_strong_rel_def, code_inl_rel_def]) >>
+          disch_tac >> gvs[] >>
+          imp_res_tac evaluate_code_invariant >>
+          Cases_on `r` >> TRY (Cases_on `x''`) >> fs[state_rel_code_def, state_rel_def, code_inl_rel_def, locals_strong_rel_def, dec_clock_def]
+        ) >>
+        gvs[] >>
+        imp_res_tac evaluate_code_invariant >> gvs[state_rel_code_def, state_rel_def, empty_locals_def, code_inl_rel_def]
       )
       >- (
-        first_x_assum $ qspecl_then [`inl_fs`, `s1'' with locals := s1.locals |+ (rt, retv)`, `inl_bag`] mp_tac >> impl_tac
-        >- (imp_res_tac evaluate_code_invariant >> gs[state_rel_code_def, code_inl_rel_def, locals_strong_rel_def, dec_clock_def]) >>
-        disch_tac >> fs[fmap_eq_flookup, locals_strong_rel_def]
+    (* hdl, branch *)
+        Cases_on `x` >> fs[evaluate_def, eval_def, lookup_code_def] >>
+        Cases_on `s.clock = 0` >> fs[]
+        >- gvs[state_rel_code_def, empty_locals_def, code_inl_rel_def] >>
+        Cases_on `evaluate (prog, dec_clock s with locals := FEMPTY |++ ZIP (ns, args))` >> gs[] >>
+        first_x_assum $ qspecl_then [`inl_fs`, `dec_clock s1 with locals := FEMPTY |++ ZIP (ns, args)`, `inl_bag'`] mp_tac >> impl_tac
+        >- gvs[AllCaseEqs(), dec_clock_def, state_rel_code_def, locals_strong_rel_def, code_inl_rel_def] >>
+        disch_tac >> fs[] >>
+        Cases_on `q` >> TRY (Cases_on `x`) >> gvs[]
+        >~ [`evaluate _ = (SOME (Return _), _)`]
+        >- (
+          first_x_assum $ qspecl_then [`inl_fs`, `s1'' with locals := s1.locals`, `inl_bag`] mp_tac >> impl_tac
+          >- (imp_res_tac evaluate_code_invariant >> gvs[state_rel_code_def, dec_clock_def, locals_strong_rel_def, code_inl_rel_def]) >>
+          disch_tac >> fs[]
+        )
+        >~ [`evaluate _ = (SOME (Exception _), _)`]
+        >- (
+          Cases_on `c ≠ q'` >> fs[]
+          >- (imp_res_tac evaluate_code_invariant >> gvs[state_rel_code_def, dec_clock_def, locals_strong_rel_def, code_inl_rel_def, empty_locals_def]) >>
+          first_x_assum $ qspecl_then [`inl_fs`, `s1'' with locals := s1.locals`, `inl_bag`] mp_tac >>impl_tac
+          >- (imp_res_tac evaluate_code_invariant >> gvs[state_rel_code_def, dec_clock_def, locals_strong_rel_def, code_inl_rel_def]) >>
+          disch_tac >> fs[]
+        ) >>
+        imp_res_tac evaluate_code_invariant >>
+        gvs[state_rel_code_def, empty_locals_def, dec_clock_def, code_inl_rel_def]
       ) >>
-      first_x_assum $ qspecl_then [`inl_fs`, `s1'' with locals := s1.locals`, `inl_bag`] mp_tac >> impl_tac
-      >- (imp_res_tac evaluate_code_invariant >> gs[state_rel_code_def, code_inl_rel_def, locals_strong_rel_def, dec_clock_def]) >>
-      disch_tac >> fs[]
+      Cases_on `x` >> fs[] >>
+      gvs[evaluate_def, lookup_code_def, CaseEq "option", CaseEq "word_lab", CaseEq "bool"]
+      >- gvs[state_rel_code_def, empty_locals_def, code_inl_rel_def] >>
+      Cases_on `v9 = Error` >> gvs[] >>
+      first_x_assum $ qspecl_then [`inl_fs`, `dec_clock s1 with locals := FEMPTY |++ ZIP (ns, args)`, `inl_bag'`] mp_tac >> impl_tac
+      >- gvs[dec_clock_def, state_rel_code_def, locals_strong_rel_def, code_inl_rel_def] >>
+      disch_tac >> gvs[CaseEq "result"]
+      >~ [`evaluate _ = (SOME (Return _), _)`]
+      >- (
+        qpat_assum `locals_strong_rel _ _` $ rw o single o GSYM o SRULE[locals_strong_rel_def, fmap_eq_flookup] >>
+        gvs[CaseEq "option"] >>
+        last_x_assum $ qspecl_then [`inl_fs`, `s1'' with locals := s1.locals |+ (x', retv)`, `inl_bag`] mp_tac >> impl_tac
+        >- (imp_res_tac evaluate_code_invariant >> gvs[state_rel_code_def, locals_strong_rel_def, code_inl_rel_def, dec_clock_def]) >>
+        disch_tac >> fs[]
+      )
+      >~ [`evaluate _ = (SOME (Exception _), _)`]
+      >- (
+        Cases_on `eid = q'` >> gvs[]
+        >- (
+          last_x_assum $ qspecl_then [`inl_fs`, `s1'' with locals := s1.locals`, `inl_bag`] mp_tac >> impl_tac
+          >- (imp_res_tac evaluate_code_invariant >> gvs[state_rel_code_def, locals_strong_rel_def, code_inl_rel_def, dec_clock_def]) >>
+          disch_tac >> fs[]
+        ) >>
+        gvs[state_rel_code_def, empty_locals_def, code_inl_rel_def]
+      ) >>
+      gvs[state_rel_code_def, empty_locals_def, code_inl_rel_def]
     ) >>
-    (* Non trivial case, is inlined *)
+    (* straight-line return (return at the end of control flow, no branching *)
     Cases_on `x` >> fs[] >>
     Cases_on `r'` >> fs[] >>
     Cases_on `r''` >> fs[]
@@ -3087,7 +3836,7 @@ Proof
         >- (every_case_tac >> gvs[]) >>
         disch_tac >> fs[] >>
         imp_res_tac unreach_elim_converge >>
-        drule inline_standalone_correct >>
+        drule inline_standalone_eoc_correct >>
         disch_then $ qspecl_then [`(case r1 of
                                      | NONE => SOME Error
                                      | SOME Break => SOME Error
@@ -3149,7 +3898,7 @@ Proof
       disch_tac >> fs[] >>
       qpat_assum `locals_strong_rel _ _` $ assume_tac o SRULE [locals_strong_rel_def, fmap_eq_flookup] >>
       imp_res_tac unreach_elim_converge >>
-      drule inline_assign_correct >>
+      drule inline_assign_eoc_correct >>
       disch_then $ qspecl_then [`(case r1 of
                                    | NONE => SOME Error
                                    | SOME Break => SOME Error
@@ -3388,6 +4137,29 @@ Proof
   Cases_on `x` >> fs[exps_of_def]
 QED
 
+
+Theorem exps_of_transform_rec_standalone_branch:
+  ∀f p e.
+    f = standalone_branch ∧
+    MEM e (exps_of (transform_rec f p)) ⇒
+    MEM e (exps_of p)
+Proof
+  recInduct transform_rec_ind >> rw[] >>
+  gvs[exps_of_def, transform_rec_def, standalone_branch_def] >>
+  Cases_on `ctyp` >> fs[exps_of_def] >>
+  PairCases_on `x` >> fs[] >>
+  Cases_on `x2` >> fs[exps_of_def] >>
+  Cases_on `x` >> fs[exps_of_def]
+QED
+
+Theorem exps_of_transform_standalone_branch_simp:
+  ∀p e.
+    MEM e (exps_of (transform_rec standalone_branch p)) ⇒
+    MEM e (exps_of p)
+Proof
+  metis_tac[exps_of_transform_rec_standalone_branch]
+QED
+
 Theorem exps_of_transform_standalone_simp:
   ∀p e.
     MEM e (exps_of (transform_rec standalone_eoc p)) ⇒
@@ -3432,12 +4204,56 @@ Proof
   last_x_assum $ qspecl_then [`e'`, `rt`] assume_tac >> gvs[]
 QED
 
+Theorem exps_of_transform_rec_assign_branch:
+  ∀f p e rt.
+    f = assign_branch rt ∧
+    MEM e (exps_of (transform_rec f p)) ⇒
+    MEM e (exps_of p)
+Proof
+  recInduct transform_rec_ind >> rw[] >>
+  gvs[exps_of_def, transform_rec_def, assign_branch_def]
+  >- (
+    first_x_assum $ qspecl_then [`e'`, `rt`] assume_tac >> gvs[]
+  )
+  >- (
+    last_x_assum $ qspecl_then [`e`, `rt`] assume_tac >> gvs[]
+  )
+  >- (
+    first_x_assum $ qspecl_then [`e`, `rt`] assume_tac >> gvs[]
+  )
+  >- (
+    last_x_assum $ qspecl_then [`e'`, `rt`] assume_tac >> gvs[]
+  )
+  >- (
+    first_x_assum $ qspecl_then [`e'`, `rt`] assume_tac >> gvs[]
+  ) >>
+  Cases_on `ctyp` >> fs[exps_of_def] >>
+  PairCases_on `x` >> fs[] >>
+  Cases_on `x2` >> fs[exps_of_def]
+  >- (
+    first_x_assum $ qspecl_then [`e'`, `rt`] assume_tac >> gvs[]
+  ) >>
+  Cases_on `x` >> fs[exps_of_def]
+  >- (
+    first_x_assum $ qspecl_then [`e'`, `rt`] assume_tac >> gvs[]
+  ) >>
+  last_x_assum $ qspecl_then [`e'`, `rt`] assume_tac >> gvs[]
+QED
+
 Theorem exps_of_transform_assign_simp:
   ∀p e rt.
     MEM e (exps_of (transform_rec (assign_eoc rt) p)) ⇒
     MEM e (exps_of p)
 Proof
   metis_tac[exps_of_transform_rec_assign]
+QED
+
+Theorem exps_of_transform_assign_branch_simp:
+  ∀p e rt.
+    MEM e (exps_of (transform_rec (assign_branch rt) p)) ⇒
+    MEM e (exps_of p)
+Proof
+  metis_tac[exps_of_transform_rec_assign_branch]
 QED
 
 Theorem exps_of_unreach_elim:
@@ -3510,7 +4326,47 @@ Proof
     >- (
       Cases_on `~not_branch_ret inlined_callee` >> fs[]
       >- (
-        fs[exps_of_def] >>
+        Cases_on `return_in_loop inlined_callee` >> fs[]
+        >- (
+          fs[exps_of_def] >>
+          first_x_assum drule_all >> disch_tac >> fs[] >>
+          rpt disj2_tac >> qrefine `name` >> qrefine `params` >> qrefine `body` >> fs[]
+        ) >>
+        Cases_on `q'` >> fs[exps_of_def, inline_standalone_branch_def, inline_assign_branch_def]
+        >- (
+          imp_res_tac exps_of_arg_load >> fs[] >>
+          imp_res_tac exps_of_transform_standalone_branch_simp >> fs[] >>
+          subgoal `inlineable_fs \\ e SUBMAP alist_to_fmap crep_code`
+          >- (
+            irule SUBMAP_TRANS >> qrefine `inlineable_fs` >> fs[]
+          ) >>
+          drule_all exps_of_unreach_elim >> gvs[] >> disch_tac >>
+          last_x_assum drule_all >> disch_tac >> fs[]
+          >- (
+            drule_all submap_flookup_alist_to_fmap >> disch_tac >>
+            rpt disj2_tac >> qrefine `e` >> qrefine `q` >> qrefine `r` >> fs[]
+          ) >>
+          rpt disj2_tac >> qrefine `name` >> qrefine `params` >> qrefine `body` >> fs[]
+        )
+        >- (
+          first_x_assum drule_all >> disch_tac >> fs[] >>
+          rpt disj2_tac >> qrefine `name` >> qrefine `params` >> qrefine `body` >> fs[]
+        )
+        >- (
+          imp_res_tac exps_of_arg_load >> fs[] >>
+          imp_res_tac exps_of_transform_assign_branch_simp >> fs[] >>
+          subgoal `inlineable_fs \\ e SUBMAP alist_to_fmap crep_code`
+          >- (
+            irule SUBMAP_TRANS >> qrefine `inlineable_fs` >> fs[]
+          ) >>
+          drule_all exps_of_unreach_elim >> gvs[] >> disch_tac >>
+          last_x_assum drule_all >> disch_tac >> fs[]
+          >- (
+            drule_all submap_flookup_alist_to_fmap >> disch_tac >>
+            rpt disj2_tac >> qrefine `e` >> qrefine `q` >> qrefine `r` >> fs[]
+          ) >>
+          rpt disj2_tac >> qrefine `name` >> qrefine `params` >> qrefine `body` >> fs[]
+        ) >>
         first_x_assum drule_all >> disch_tac >> fs[] >>
         rpt disj2_tac >> qrefine `name` >> qrefine `params` >> qrefine `body` >> fs[]
       ) >>
