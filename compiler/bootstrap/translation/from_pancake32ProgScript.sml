@@ -254,11 +254,19 @@ val _ = translate $ spec32 standalone_eoc_def;
 
 val _ = translate $ spec32 assign_eoc_def;
 
+val _ = translate $ spec32 standalone_branch_def;
+
+val _ = translate $ spec32 assign_branch_def;
+
 val _ = translate $ spec32 inline_tail_def;
 
 val _ = translate $ spec32 inline_standalone_eoc_def;
 
 val _ = translate $ spec32 inline_assign_eoc_def;
+
+val _ = translate $ spec32 inline_standalone_branch_def;
+
+val _ = translate $ spec32 inline_assign_branch_def;
 
 val _ = translate $ spec32 inline_prog_def;
 
