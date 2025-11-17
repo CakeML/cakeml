@@ -7,6 +7,7 @@ Ancestors
 Libs
   preamble basis blastLib
 
+(* TODO: move? *)
 Theorem any_el_update_resize:
   any_el y (update_resize ls def v x) def =
   if y = x then v
@@ -29,7 +30,6 @@ QED
   <+ b is NONE,
   b is SOME F,
   b+1 is SOME T *)
-
 Definition all_assigned_list_def:
   all_assigned_list dml (b:word8) v (i:num) =
   if i = 0 then T
@@ -81,6 +81,62 @@ Proof
   simp[]
 QED
 
+Definition assert_def:
+  assert P x =
+    if P then x else NONE
+End
+
+Definition all_assigned_list'_def:
+  all_assigned_list' dml (b:word8) v (i:num) =
+  if i = 0 then SOME T
+  else
+    let i1 = i - 1 in
+    assert (i1 < length v)
+    let c = sub v i1 in
+    if c < 0
+    then
+      assert (Num (-c) < LENGTH dml)
+      if EL (Num (-c)) dml = b
+      then
+        all_assigned_list' dml b v i1
+      else
+        SOME F
+    else
+      assert (Num c < LENGTH dml)
+      if b <+ any_el (Num c) dml (b-1w)
+      then
+        all_assigned_list' dml b v i1
+      else SOME F
+End
+
+Theorem assert_cond[simp]:
+  assert x y = SOME res ⇔
+  x ∧ y = SOME res
+Proof
+  Cases_on`y`>>rw[assert_def]>>
+  metis_tac[]
+QED
+
+Theorem IS_SOME_assert[simp]:
+  IS_SOME(assert x y) ⇔
+  x ∧ (x ⇒ IS_SOME y)
+Proof
+  Cases_on`y`>>rw[assert_def]
+QED
+
+Theorem all_assigned_list':
+  ∀dml b v i res.
+  all_assigned_list' dml b v i = SOME res ⇒
+  all_assigned_list dml b v i = res
+Proof
+  ho_match_mp_tac all_assigned_list_ind>>
+  rw[]>>
+  pop_assum mp_tac>>
+  simp[Once all_assigned_list_def,
+       Once all_assigned_list'_def]>>
+  every_case_tac>>gvs[any_el_ALT,AllCaseEqs()]
+QED
+
 Definition delete_literals_sing_list_def:
   delete_literals_sing_list dml b v i =
   if i = 0 then SOME (T,dml)
@@ -113,9 +169,10 @@ End
 Theorem dm_rel_update_resize:
   dm_rel dm dml b ∧
   bbb = (if bb then b+1w else b) ∧
-  b1 = b-1w ⇒
+  b1 = b-1w ∧
+  nn = n ⇒
   dm_rel (dm |+ (n,bb))
-    (update_resize dml b1 bbb n) b
+    (update_resize dml b1 bbb nn) b
 Proof
   rw[dm_rel_def,any_el_update_resize,FLOOKUP_UPDATE]>>
   rw[]>>
@@ -163,6 +220,123 @@ Proof
   >- (irule dm_rel_update_resize>>simp[])
   >- FULL_BBLAST_TAC
   >- (irule dm_rel_update_resize>>simp[])
+QED
+
+Definition delete_literals_sing_list'_def:
+  delete_literals_sing_list' dml b v i =
+  if i = 0 then SOME (SOME (T,dml))
+  else
+    let i1 = i - 1 in
+    assert (i1 < length v)
+    let c = sub v i1 in
+    if c < 0
+    then
+      let nc = Num (-c) in
+      assert (nc < LENGTH dml)
+      (if EL nc dml = b
+      then
+        delete_literals_sing_list' dml b v i1
+      else
+        OPTION_MAP
+        (λres.
+          if res
+          then SOME (F, LUPDATE (b+1w) nc dml)
+          else NONE)
+        (all_assigned_list' dml b v i1)
+      )
+    else
+      let nc = Num c in
+      assert (nc < LENGTH dml)
+      (if b <+ any_el nc dml (b-1w)
+      then
+        delete_literals_sing_list' dml b v i1
+      else
+        OPTION_MAP
+        (λres.
+          if res
+          then SOME (F, LUPDATE b nc dml)
+          else NONE)
+        (all_assigned_list' dml b v i1))
+End
+
+Theorem delete_literals_sing_list':
+  ∀dml b v i res.
+  delete_literals_sing_list' dml b v i = SOME res ⇒
+  delete_literals_sing_list dml b v i = res
+Proof
+  ho_match_mp_tac delete_literals_sing_list_ind>>
+  rw[]>>
+  pop_assum mp_tac>>
+  simp[Once delete_literals_sing_list_def,
+       Once delete_literals_sing_list'_def]>>
+  every_case_tac>>
+  gvs[any_el_ALT,AllCaseEqs(),update_resize_def]>>
+  rw[]>>
+  metis_tac[all_assigned_list']
+QED
+
+(* Clause which is bounded in size *)
+Definition bnd_clause_def:
+  bnd_clause v sz ⇔
+  ∀n. n < length v ⇒
+    Num (ABS (sub v n)) < sz
+End
+
+Theorem bnd_clause_imp:
+  bnd_clause v sz ∧
+  n ≠ 0 ∧ n ≤ length v ∧
+  nn = Num (ABS (sub v (n - 1))) ⇒
+  nn < sz
+Proof
+  rw[bnd_clause_def]
+QED
+
+Theorem all_assigned_list'_SOME:
+  ∀dml b v i res.
+  bnd_clause v (LENGTH dml) ∧
+  i ≤ length v ⇒
+  IS_SOME (all_assigned_list' dml b v i)
+Proof
+  ho_match_mp_tac all_assigned_list'_ind>>
+  rw[]>>
+  simp[Once all_assigned_list'_def]>>
+  rw[]>>
+  gvs[any_el_ALT]>>
+  drule_then irule bnd_clause_imp>>
+  rpt(first_x_assum (irule_at Any))>>
+  intLib.ARITH_TAC
+QED
+
+Theorem delete_literals_sing_list'_SOME:
+  ∀dml b v i res.
+  bnd_clause v (LENGTH dml) ∧
+  i ≤ length v ⇒
+  IS_SOME (delete_literals_sing_list' dml b v i)
+Proof
+  ho_match_mp_tac delete_literals_sing_list'_ind>>
+  rw[]>>
+  simp[Once delete_literals_sing_list'_def]>>
+  rw[]>>
+  gvs[any_el_ALT,IS_SOME_MAP]
+  >>~[`all_assigned_list'`]
+  >- (irule all_assigned_list'_SOME>>gvs[])
+  >- (irule all_assigned_list'_SOME>>gvs[])>>
+  drule_then irule bnd_clause_imp>>
+  rpt(first_x_assum (irule_at Any))>>
+  intLib.ARITH_TAC
+QED
+
+Theorem delete_literals_sing_list'_LENGTH:
+  ∀dml b v i.
+  delete_literals_sing_list' dml b v i =
+    SOME(SOME(res,dml')) ⇒
+  LENGTH dml = LENGTH dml'
+Proof
+  ho_match_mp_tac delete_literals_sing_list'_ind>>
+  rw[]>>
+  pop_assum mp_tac>>
+  simp[Once delete_literals_sing_list'_def]>>
+  rw[]>>gvs[]
 QED
 
 (* Ensures that the dml is of sufficient size
@@ -216,6 +390,247 @@ Definition fml_rel_def:
   ∀n.
     any_el n fmlls NONE = lookup n fml
 End
+
+Definition bnd_fml_def:
+  bnd_fml fmlls sz ⇔
+  ∀n v.
+    n < LENGTH fmlls ∧
+    EL n fmlls = SOME v ⇒
+    bnd_clause v sz
+End
+
+(* Unit propagating on an array *)
+Definition unit_prop_list_def:
+  (unit_prop_list fmlls dml b [] = SOME (F,dml)) ∧
+  (unit_prop_list fmlls dml b (i::is) =
+  case any_el i fmlls NONE of
+    NONE => NONE
+  | SOME c =>
+  case delete_literals_sing_list dml b c (length c) of
+    NONE => NONE
+  | SOME (T,dml') => SOME (T,dml')
+  | SOME (F,dml') => unit_prop_list fmlls dml' b is)
+End
+
+Theorem unit_prop_list:
+  ∀is dm dml dml'.
+  fml_rel fml fmlls ∧
+  dm_rel dm dml b ∧
+  unit_prop_list fmlls dml b is = SOME (res,dml') ⇒
+  ∃dm'.
+    unit_prop_vec fml dm is = SOME (res,dm') ∧
+    dm_rel dm' dml' b
+Proof
+  Induct>>rw[unit_prop_vec_def,unit_prop_list_def]>>
+  gvs[AllCaseEqs(),PULL_EXISTS,fml_rel_def]>>
+  drule_all delete_literals_sing_list>>rw[]>>
+  simp[]>>
+  metis_tac[]
+QED
+
+Definition unit_prop_list'_def:
+  (unit_prop_list' fmlls dml b [] =
+    SOME (SOME (F,dml))) ∧
+  (unit_prop_list' fmlls dml b (i::is) =
+  case any_el i fmlls NONE of
+    NONE => SOME NONE
+  | SOME c =>
+  OPTION_BIND
+    (delete_literals_sing_list' dml b c (length c))
+    (λres.
+    case res of
+      NONE => SOME NONE
+    | SOME (T,dml') => SOME (SOME (T,dml'))
+    | SOME (F,dml') => unit_prop_list' fmlls dml' b is))
+End
+
+Theorem unit_prop_list':
+  ∀is dml res.
+  unit_prop_list' fmlls dml b is = SOME res ⇒
+  unit_prop_list fmlls dml b is = res
+Proof
+  Induct>>
+  rw[unit_prop_list_def,unit_prop_list'_def]>>
+  gvs[AllCaseEqs()]>>
+  drule delete_literals_sing_list'>>rw[]
+QED
+
+Theorem IS_SOME_OPTION_BIND:
+  IS_SOME (OPTION_BIND opt f) ⇔
+  IS_SOME opt ∧
+  ∀v. opt = SOME v ⇒ IS_SOME (f v)
+Proof
+  Cases_on`opt`>>rw[]
+QED
+
+Theorem unit_prop_list'_SOME:
+  ∀is dml res.
+  bnd_fml fmlls (LENGTH dml) ⇒
+  IS_SOME (unit_prop_list' fmlls dml b is)
+Proof
+  Induct>>
+  rw[unit_prop_list'_def]>>
+  every_case_tac>>gvs[IS_SOME_OPTION_BIND]>>
+  rw[]
+  >- (
+    irule delete_literals_sing_list'_SOME>>
+    gvs[bnd_fml_def,any_el_ALT]>>
+    metis_tac[])>>
+  every_case_tac>>fs[]>>
+  first_x_assum irule>>
+  drule delete_literals_sing_list'_LENGTH>>
+  metis_tac[]
+QED
+
+Theorem unit_prop_list'_LENGTH:
+  ∀is dml.
+  unit_prop_list' fmlls dml b is = SOME (SOME (res,dml')) ⇒
+  LENGTH dml = LENGTH dml'
+Proof
+  Induct>>
+  rw[unit_prop_list'_def]>>
+  gvs[AllCaseEqs()]>>
+  drule delete_literals_sing_list'_LENGTH>>
+  rw[]
+QED
+
+Definition init_lit_map_list_def:
+  init_lit_map_list i v dml b =
+  if i = 0
+  then dml
+  else
+    let i1 = i - 1 in
+    let d = sub v i1 in
+    let (bb,nc) = if d > 0 then (b+1w, d) else (b,-d) in
+    init_lit_map_list i1 v (update_resize dml (b-1w) bb (Num nc)) b
+End
+
+Theorem init_lit_map_list:
+  ∀i v dml b dm.
+  dm_rel dm dml b ⇒
+  dm_rel (init_lit_map_vec i v dm) (init_lit_map_list i v dml b) b
+Proof
+  ho_match_mp_tac init_lit_map_list_ind>>
+  rpt gen_tac>>strip_tac>>
+  rw[Once init_lit_map_list_def,Once init_lit_map_vec_def]>>
+  fs[] >>
+  first_x_assum irule>>simp[]>>
+  irule dm_rel_update_resize>>
+  simp[]>>
+  intLib.ARITH_TAC
+QED
+
+Definition init_lit_map_list'_def:
+  init_lit_map_list' i v dml b =
+  if i = 0
+  then SOME dml
+  else
+    let i1 = i - 1 in
+    assert (i1 < length v)
+    let d = sub v i1 in
+    let (bb,nc) = (if d > 0 then (b+1w, d) else (b,-d)) in
+    init_lit_map_list' i1 v
+      (LUPDATE bb (Num nc) dml) b
+End
+
+Theorem update_resize_LUPDATE:
+  n < LENGTH ls ⇒
+  update_resize ls def v n = LUPDATE v n ls
+Proof
+  rw[update_resize_def]
+QED
+
+Theorem init_lit_map_list':
+  ∀i v dml b.
+  bnd_clause v (LENGTH dml) ∧
+  i ≤ length v ∧
+  init_lit_map_list' i v dml b = SOME res ⇒
+  init_lit_map_list i v dml b = res
+Proof
+  ho_match_mp_tac init_lit_map_list_ind>>
+  rpt gen_tac>>strip_tac>>
+  rw[Once init_lit_map_list_def,Once init_lit_map_list'_def]>>
+  fs[] >>
+  first_x_assum irule>>
+  DEP_REWRITE_TAC[update_resize_LUPDATE]>>
+  simp[]>>
+  drule_then irule bnd_clause_imp>>
+  first_x_assum $ irule_at Any>>
+  fs[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem init_lit_map_list'_SOME:
+  ∀i v dml b.
+  bnd_clause v (LENGTH dml) ∧
+  i ≤ length v ⇒
+  IS_SOME (init_lit_map_list' i v dml b)
+Proof
+  ho_match_mp_tac init_lit_map_list'_ind>>
+  rpt gen_tac>>strip_tac>>
+  rw[Once init_lit_map_list'_def]
+QED
+
+(* TODO below *)
+
+(* Automatically resize the dml if needed for the new clause *)
+Definition is_rup_list_def:
+  is_rup_list fmlls dml b sz v is =
+  let (dml',b') = reset_dm_list dml b sz in
+  let dml'' = init_lit_map_list (length v) v dml' b' in
+  case unit_prop_list fmlls dml'' b' is of
+    SOME (T,dml''') => (T,dml''',b')
+  | _ => (F, (dml'',b'))
+End
+
+Theorem is_rup_list:
+  fml_rel fml fmlls ∧
+  dm_rel dm dml b ∧
+  is_rup_list fmlls dml b sz v is = (T, (dml',b')) ⇒
+  is_rup fml v is ∧
+  ∃dm'. dm_rel dm' dml' b'
+Proof
+  strip_tac>>
+  gvs[is_rup_list_def,UNCURRY_EQ,AllCaseEqs()]>>
+  drule_all dm_rel_reset_dm_list>>
+  strip_tac>>
+  drule unit_prop_list>>
+  disch_then $ drule_at (Pos (el 2))>>
+  simp[is_rup_def]>>
+  drule init_lit_map_list>>
+  rw[AllCasePreds()]>>
+  metis_tac[]
+QED
+
+Definition is_rup_list'_def:
+  is_rup_list' fmlls dml b sz v is =
+  let (dml',b') = reset_dm_list dml b sz in
+  let dml'' = init_lit_map_list (length v) v dml' b' in
+  case unit_prop_list fmlls dml'' b' is of
+    SOME (T,dml''') => (T,dml''',b')
+  | _ => (F, (dml'',b'))
+End
+
+Theorem is_rup_list:
+  fml_rel fml fmlls ∧
+  dm_rel dm dml b ∧
+  is_rup_list fmlls dml b sz v is = (T, (dml',b')) ⇒
+  is_rup fml v is ∧
+  ∃dm'. dm_rel dm' dml' b'
+Proof
+  strip_tac>>
+  gvs[is_rup_list_def,UNCURRY_EQ,AllCaseEqs()]>>
+  drule_all dm_rel_reset_dm_list>>
+  strip_tac>>
+  drule unit_prop_list>>
+  disch_then $ drule_at (Pos (el 2))>>
+  simp[is_rup_def]>>
+  drule init_lit_map_list>>
+  rw[AllCasePreds()]>>
+  metis_tac[]
+QED
+
+
 
 Definition delete_ids_list_def:
   (delete_ids_list [] fml = fml) ∧
