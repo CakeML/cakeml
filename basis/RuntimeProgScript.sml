@@ -9,7 +9,6 @@ Libs
   preamble ml_translatorLib ml_progLib basisFunctionsLib
 
 val _ = translation_extends "cfDiv";
-val cakeml = append_prog o process_topdecs;
 
 val _ = ml_prog_update (open_module "Runtime");
 

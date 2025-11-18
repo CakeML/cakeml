@@ -8,7 +8,7 @@ Libs
   preamble ml_translatorLib ml_progLib basisFunctionsLib
 
 val _ = translation_extends "SetProg"
-val cakeml = append_prog o process_topdecs;
+
 val () = ml_prog_update(open_module "Hashtable");
 
 (*Local structure:

@@ -9,7 +9,6 @@ Libs
   preamble ml_translatorLib ml_progLib basisFunctionsLib cfLib
 
 val _ = translation_extends "DoubleProg";
-val cakeml = append_prog o process_topdecs;
 
 (* Word8 module -- translated *)
 

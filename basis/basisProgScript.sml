@@ -10,8 +10,6 @@ Libs
 
 val _ = translation_extends"TextIOProg";
 
-val cakeml = append_prog o process_topdecs;
-
 val print_e = ``Var(Long"TextIO"(Short"print"))``
 val eval_thm = let
   val env = get_ml_prog_state () |> ml_progLib.get_env

@@ -7,8 +7,6 @@ struct
 open preamble
      semanticPrimitivesTheory ml_translatorTheory
      ml_translatorLib ml_progLib cfLib
-(* TODO: process_topdecs is exported here, but should probably be in a parsing
-         library instead *)
 
 fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f;
 
@@ -62,5 +60,8 @@ fun prove_ref_spec op_name =
   fs [cf_ref_def, cf_deref_def, cf_assign_def] \\ irule local_elim \\
   reduce_tac \\ fs [app_ref_def, app_deref_def, app_assign_def] \\
   xsimpl \\ fs [UNIT_TYPE_def]
+
+(* Enables Quote cakeml: syntax*)
+val cakeml = append_prog o process_topdecs;
 
 end

@@ -8,7 +8,6 @@ Libs
   preamble ml_translatorLib ml_progLib basisFunctionsLib
 
 val _ = translation_extends "Word8Prog";
-val cakeml = append_prog o process_topdecs;
 
 val _ = ml_prog_update (add_dec
   ``Dtabbrev unknown_loc [] "byte_array" (Atapp [] (Short "word8array"))`` I);

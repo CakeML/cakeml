@@ -9,8 +9,6 @@ Libs
 
 val _ = translation_extends "OptionProg"
 
-val cakeml = append_prog o process_topdecs;
-
 val _ = ml_prog_update (open_module "List");
 
 val () = generate_sigs := true;

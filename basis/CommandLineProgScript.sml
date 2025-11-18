@@ -12,8 +12,6 @@ val _ = translation_extends "HashtableProg";
 
 val _ = option_monadsyntax.temp_add_option_monadsyntax();
 
-val cakeml = append_prog o process_topdecs;
-
 val _ = ml_prog_update (open_module "CommandLine")
 
 val _ = ml_prog_update open_local_block;

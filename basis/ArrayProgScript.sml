@@ -9,8 +9,6 @@ Libs
 
 val _ = translation_extends"Word8ArrayProg"
 
-val cakeml = append_prog o process_topdecs;
-
 val () = ml_prog_update (open_module "Array");
 
 val _ = ml_prog_update (add_dec

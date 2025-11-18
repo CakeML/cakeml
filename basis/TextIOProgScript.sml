@@ -10,8 +10,6 @@ Libs
 
 val _ = translation_extends "MarshallingProg";
 
-val cakeml = append_prog o process_topdecs;
-
 val _ = ml_prog_update (open_module "TextIO");
 
 val _ = ml_prog_update open_local_block;

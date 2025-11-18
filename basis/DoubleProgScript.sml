@@ -13,8 +13,6 @@ Libs
 
 val _ = translation_extends "CommandLineProg";
 
-val cakeml = append_prog o process_topdecs;
-
 (* Double module -- translated *)
 
 val _ = ml_prog_update (open_module "Double");
