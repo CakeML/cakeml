@@ -1182,6 +1182,8 @@ Proof
   \\ simp [Once do_app_def]
   \\ simp [case_eq_thms, bool_case_eq, pair_case_eq]
   \\ simp_tac bool_ss [PULL_EXISTS, DISJ_IMP_THM, FORALL_AND_THM]
+  \\ Cases_on ‘∃test ty. op = Test test ty’
+  >- (gvs [PULL_EXISTS,do_app_def,AllCaseEqs()] \\ cheat)
   \\ Cases_on ‘∃t. op = ThunkOp t’
   >-
    (gvs [] \\ gvs [AllCaseEqs()] \\ rw [] \\ gvs [do_app_def]
@@ -1440,4 +1442,3 @@ Definition mk_flat_install_conf_def:
   mk_flat_install_conf cc co =
     <| compile := cc ; compile_oracle := co |> : 'c flatSem$install_config
 End
-

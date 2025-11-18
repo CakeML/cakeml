@@ -92,6 +92,7 @@ Definition astOp_to_flatOp_def:
   | FpFromWord => flatLang$FpFromWord
   | FpToWord => flatLang$FpToWord
   | Equality => flatLang$Equality
+  | Test test test_ty => flatLang$Test test test_ty
   | Opapp => flatLang$Opapp
   | Opassign => flatLang$Opassign
   | Opref => flatLang$Opref

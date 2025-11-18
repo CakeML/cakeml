@@ -1573,29 +1573,7 @@ Theorem do_app_add_to_clock:
    (do_app op vs (s with clock := s.clock + extra) =
     map_result (λ(v,s). (v,s with clock := s.clock + extra)) I (do_app op vs s))
 Proof
-  Cases_on`do_app op vs s` >>
-  TRY(rename1`Rerr e`>>Cases_on`e`)>>
-  TRY(rename1`Rval a`>>Cases_on`a`)>>
-  TRY(rename1`Rabort a`>>Cases_on`a`)>>
-  full_simp_tac(srw_ss())[do_app_cases_val,do_app_cases_err,do_app_cases_timeout] >>
-  full_simp_tac(srw_ss())[LET_THM,
-     semanticPrimitivesTheory.store_alloc_def,
-     semanticPrimitivesTheory.store_lookup_def,
-     semanticPrimitivesTheory.store_assign_def,ffiTheory.call_FFI_def]
-  >>~- ([`ThunkOp _`], gvs [AllCaseEqs()])
-  \\ srw_tac[][]
-  \\ fs [case_eq_thms] \\ rveq \\ fs []
-  \\ rpt (pop_assum (mp_tac o GSYM))
-  \\ fs [case_eq_thms] \\ rveq \\ fs []
-  \\ rw [] \\ rpt (pop_assum (mp_tac o GSYM)) \\ rw []
-  \\ TRY (drule do_app_ffi_error_IMP
-          \\ rw [] \\ fs [do_app_def,case_eq_thms] \\ NO_TAC)
-  \\ pop_assum mp_tac
-  \\ simp [Once do_app_def]
-  \\ fs [case_eq_thms]
-  \\ rpt strip_tac \\ fs []
-  \\ rveq \\ simp [do_app_def]
-  \\ fs [AllCaseEqs()]
+  Cases_on`do_app op vs s` \\ gvs [do_app_def,AllCaseEqs()]
 QED
 
 Theorem do_install_add_to_clock:
@@ -2391,6 +2369,14 @@ Proof
   Cases_on `i` >> fs[]
 QED
 
+Theorem simple_val_rel_Boolv:
+  simple_val_rel vr ⇒
+  (vr (Boolv b) v1 ⇒ v1 = Boolv b) ∧
+  (vr v1 (Boolv b) ⇒ v1 = Boolv b)
+Proof
+  cheat
+QED
+
 val _ = print "The following proof is slow due to Rerr cases.\n";
 Theorem simple_val_rel_do_app_rev:
     simple_val_rel vr /\ simple_state_rel vr sr ==>
@@ -2411,6 +2397,23 @@ Proof
      Cases_on `a` >> Cases_on `a'` >>
      fs[])
   \\ `?this_is_case. this_is_case opp` by (qexists_tac `K T` \\ fs [])
+  \\ Cases_on `∃test. opp = BlockOp (BoolTest test)`
+  >-
+   (gvs [do_app_def] \\ rw []
+    \\ rename [‘LIST_REL _ xs ys’] \\ Cases_on ‘xs’ \\ gvs []
+    \\ rename [‘LIST_REL _ xs ys’] \\ Cases_on ‘xs’ \\ gvs []
+    \\ rename [‘LIST_REL _ xs ys’] \\ Cases_on ‘xs’ \\ gvs []
+    \\ drule simple_val_rel_Boolv
+    \\ strip_tac
+    \\ rpt (IF_CASES_TAC \\ gvs [] \\ res_tac)
+    \\ gvs []
+    \\ gvs [simple_val_rel_def,Boolv_def])
+  \\ Cases_on `∃ws test. opp = WordOp (WordTest ws test)`
+  >-
+   (rw [] \\ Cases_on ‘ws’ \\ Cases_on ‘test’ \\ gvs [do_app_def] \\ rw []
+    \\ rename [‘LIST_REL _ xs ys’] \\ Cases_on ‘xs’ \\ gvs [do_word_app_def]
+    \\ rename [‘LIST_REL _ xs ys’] \\ Cases_on ‘xs’ \\ gvs [do_word_app_def]
+    \\ cheat)
   \\ Cases_on `opp = MemOp XorByte`
   THEN1
    (Cases_on `do_app opp ys t` \\ fs [] \\ rveq \\ pop_assum mp_tac

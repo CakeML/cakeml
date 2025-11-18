@@ -461,6 +461,9 @@ Definition flat_op_to_display_def:
       word_size_to_display ws;
       shift_to_display sh;
       num_to_display num]
+    | Test test ty => Item NONE (strlit "Test")
+                           [test_to_display test;
+                            prim_type_to_display ty]
     | Equality => empty_item (strlit "Equality")
     | FP_cmp cmp => fp_cmp_to_display cmp
     | FP_uop op => fp_uop_to_display op
@@ -669,6 +672,7 @@ Definition clos_op_to_display_def:
     | BlockOp (Cons num) => item_with_num (strlit "Cons") num
     | BlockOp (ElemAt num) => item_with_num (strlit "ElemAt") num
     | BlockOp (TagLenEq n1 n2) => item_with_nums (strlit "TagLenEq") [n1; n2]
+    | BlockOp (BoolTest test) => Item NONE (strlit "BoolTest") [test_to_display test]
     | BlockOp (LenEq num) => item_with_num (strlit "LenEq") num
     | BlockOp (TagEq num) => item_with_num (strlit "TagEq") num
     | BlockOp LengthBlock => String (strlit "LengthBlock")
@@ -712,13 +716,16 @@ Definition clos_op_to_display_def:
     | IntOp Greater => String (strlit "Greater")
     | IntOp GreaterEq => String (strlit "GreaterEq")
     | IntOp (LessConstSmall num) => item_with_num (strlit "LessConstSmall") num
-    | WordOp (WordOpw ws op) =>
-        Item NONE (strlit "WordOp") [ word_size_to_display ws; opw_to_display op ]
-    | WordOp (WordShift ws sh num) => Item NONE (strlit "WordShift") [
-      word_size_to_display ws;
-      shift_to_display sh;
-      num_to_display num
-    ]
+    | WordOp (WordOpw ws op) => Item NONE (strlit "WordOp")
+                                     [word_size_to_display ws;
+                                      opw_to_display op]
+    | WordOp (WordShift ws sh num) => Item NONE (strlit "WordShift")
+                                           [word_size_to_display ws;
+                                            shift_to_display sh;
+                                            num_to_display num]
+    | WordOp (WordTest ws test) => Item NONE (strlit "WordTest")
+                                        [word_size_to_display ws;
+                                         test_to_display test]
     | WordOp WordFromInt => String (strlit "WordFromInt")
     | WordOp WordToInt => String (strlit "WordToInt")
     | WordOp (WordFromWord b) => Item NONE (strlit "WordFromWord") [bool_to_display b]
