@@ -333,6 +333,51 @@ Proof
   metis_tac[encode_not_equals_sem,not_equals_sem_aux]
 QED
 
+(* HERE *)
+Definition encode_different_row_def:
+  (encode_different_row bnd X [] = []) ∧
+  (encode_different_row bnd X (Y::Ys) =
+    encode_not_equals bnd X Y ++ encode_different_row bnd X Ys)
+End
+
+Definition encode_all_different_alt_def:
+  (encode_all_different_alt bnd [] = []) ∧
+  (encode_all_different_alt bnd (A::As) =
+    encode_different_row bnd A As ++ encode_all_different_alt bnd As)
+End
+
+Theorem lem1:
+  FLAT $ GENLIST (λj. if i < j then f (EL j (A::As)) else []) (SUC (LENGTH As)) =
+  FLAT $ GENLIST (λj. if i ≤ j then f (EL j As) else []) (LENGTH As)
+Proof
+  simp[listTheory.GENLIST_CONS]>>
+  simp[combinTheory.o_ABS_L]>>
+  simp[LT_SUC_LE]
+QED
+
+Theorem encode_all_different_iff:
+  (encode_all_different bnd [] = []) ∧
+  (encode_all_different bnd (A::As) =
+    encode_different_row bnd A As ++ encode_all_different bnd As)
+Proof
+  rw[encode_all_different_def]>>
+  simp[lem1]>>
+  simp[listTheory.GENLIST_CONS]>>
+  simp[combinTheory.o_ABS_L]>>
+  simp[GSYM LESS_EQ]>>
+  Induct_on ‘As’>>
+  rw[encode_different_row_def]>>
+  simp[Once listTheory.GENLIST_CONS]>>
+  simp[combinTheory.o_ABS_L]
+QED
+
+Theorem encode_all_different_sem_prsv:
+  encode_all_different bnd As = encode_all_different_alt bnd As
+Proof
+  Induct_on ‘As’>>
+  rw[encode_all_different_alt_def,encode_all_different_iff]
+QED
+
 (***
   Element
 ***)
