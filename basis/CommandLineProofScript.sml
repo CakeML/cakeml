@@ -86,8 +86,8 @@ QED
 Theorem SUC_SUC_LENGTH[local]:
     SUC (SUC (LENGTH (TL (TL (REPLICATE (MAX 2 n) x))))) = (MAX 2 n)
 Proof
-  Cases_on `n` \\ fs [] THEN1 EVAL_TAC
-  \\ Cases_on `n'` \\ fs [] THEN1 EVAL_TAC
+  Cases_on `n` \\ fs []
+  \\ Cases_on `n'` \\ fs []
   \\ fs [ADD1] \\ rw [MAX_DEF]
   \\ fs [EVAL ``REPLICATE 2 x``]
   \\ once_rewrite_tac [ADD_COMM]

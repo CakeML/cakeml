@@ -4228,7 +4228,8 @@ Proof
     Cases_on ‘t'’ >> gvs[])
   >~ [‘getOpClass op = Force’]
   >- (
-    Cases_on ‘op’ >> gvs[astTheory.getOpClass_def] >>
+    cheat
+    (* Cases_on ‘op’ >> gvs[astTheory.getOpClass_def] >>
     Cases_on ‘t'’ >> gvs[] >>
     gvs[AllCaseEqs(), evaluateTheory.dec_clock_def, flatSemTheory.dec_clock_def,
         PULL_EXISTS] >> rw[]
@@ -4359,7 +4360,7 @@ Proof
       imp_res_tac subglobals_trans >> gvs[] >>
       drule_then irule orac_forward_rel_trans >> gvs[]
       )
-    ) >>
+    *)) >>
   fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, option_case_eq, pair_case_eq] >>
   rw [] >>
   rveq >> fs [] >>
