@@ -141,7 +141,7 @@ Proof
   simp [toStdString_def]
 QED
 
-Triviality isDigit_not_blanks:
+Theorem isDigit_not_blanks[local]:
   isDigit c ==> ~ blanks c
 Proof
   CCONTR_TAC \\ fs [blanks_def] \\ fs [isDigit_def]
@@ -974,7 +974,7 @@ Definition parse_vb_until_nn_def:
   )
 End
 
-Triviality parse_vb_until_nn_length:
+Theorem parse_vb_until_nn_length[local]:
   ∀ls acc a b c.
   parse_vb_until_nn ls acc = (a,b,c) ∧ a ≠ 0 ⇒
   LENGTH c < LENGTH ls

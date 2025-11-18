@@ -74,15 +74,25 @@ Definition encode_def:
   encode = encode_list (Str o explode)
 End
 
-val encode_11 = prove(
-  ``!x y. encode x = encode y <=> x = y``,
+Theorem encode_11[local]:
+    !x y. encode x = encode y <=> x = y
+Proof
   rw [] \\ eq_tac \\ fs [encode_def] \\ rw []
-  \\ drule encode_list_11 \\ fs [mlstringTheory.explode_11]);
+  \\ drule encode_list_11 \\ fs [mlstringTheory.explode_11]
+QED
 
-val decode_encode = new_specification("decode_encode",["decode"],
-  prove(``?decode. !cls. decode (encode cls) = SOME cls``,
-        qexists_tac `\f. some c. encode c = f` \\ fs [encode_11]));
-val _ = export_rewrites ["decode_encode"];
+Theorem encode_decode_exists[local]:
+  ?decode. !cls. decode (encode cls) = SOME cls
+Proof
+  qexists_tac `\f. some c. encode c = f` \\ fs [encode_11]
+QED
+
+val decode_encode_name = "decode_encode";
+val decode_encode = new_specification(
+  decode_encode_name,
+  ["decode"],
+  encode_decode_exists);
+val _ = export_rewrites [decode_encode_name];
 
 Definition cl_ffi_part_def:
   cl_ffi_part = (encode,decode,

@@ -713,13 +713,13 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality state_rel_IMP_clock:
+Theorem state_rel_IMP_clock[local]:
   state_rel cfg s t ==> t.clock = s.clock
 Proof
   fs [state_rel_def]
 QED
 
-Triviality state_rel_IMP_c:
+Theorem state_rel_IMP_c[local]:
   state_rel cfg s t ==> t.c = s.c
 Proof
   fs [state_rel_def]
@@ -1383,7 +1383,7 @@ Proof
   \\ TRY (qexists_tac `SUC i` \\ simp [] \\ NO_TAC)
 QED
 
-Triviality comp_thm = pattern_compTheory.comp_thm
+Theorem comp_thm[local] = pattern_compTheory.comp_thm
   |> REWRITE_RULE [GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE]
   |> SIMP_RULE bool_ss [IS_SOME_EXISTS, PULL_EXISTS]
 

@@ -7,19 +7,19 @@ Libs
 
 (* Miscellaneous lemmas that may belong elsewhere *)
 
-Triviality sub_suc_0:
+Theorem sub_suc_0[local]:
   x - SUC x = 0
 Proof
   Induct_on `x` >> fs[SUB]
 QED
 
-Triviality take_suc_length:
+Theorem take_suc_length[local]:
   TAKE (SUC (LENGTH l)) l = l
 Proof
   Induct_on `l` >> fs[]
 QED
 
-Triviality is_suffix_length:
+Theorem is_suffix_length[local]:
   IS_SUFFIX l1 l2 ==> LENGTH l1 >= LENGTH l2
 Proof
   rpt strip_tac
@@ -27,7 +27,7 @@ Proof
   >> fs[IS_SUBLIST_APPEND]
 QED
 
-Triviality is_suffix_take:
+Theorem is_suffix_take[local]:
   IS_SUFFIX l (h::r) ==>
   (TAKE (LENGTH l − LENGTH r) l = TAKE (LENGTH l − SUC(LENGTH r)) l ++ [h])
 Proof
@@ -37,7 +37,7 @@ Proof
   >> fs[TAKE_APPEND, GSYM ADD1, take_suc_length, sub_suc_0]
 QED
 
-Triviality is_suffix_drop:
+Theorem is_suffix_drop[local]:
   IS_SUFFIX l (h::r) ==> (DROP (LENGTH l − SUC(LENGTH r)) l = h::r)
 Proof
   fs[IS_SUFFIX_APPEND]
@@ -48,25 +48,25 @@ Proof
   >> fs[]
 QED
 
-Triviality suc_ge:
+Theorem suc_ge[local]:
   (SUC x >= SUC y) = (x >= y)
 Proof
   fs[]
 QED
 
-Triviality take_singleton_one:
+Theorem take_singleton_one[local]:
   (TAKE n r = [e]) ==> (TAKE 1 r = [e])
 Proof
   Cases_on `r` >> Cases_on `n` >> fs[]
 QED
 
-Triviality sub_le_suc:
+Theorem sub_le_suc[local]:
   n ≥ SUC m ==> (n + SUC l − SUC m = n + l − m)
 Proof
   fs[]
 QED
 
-Triviality if_length_lemma:
+Theorem if_length_lemma[local]:
   TAKE (if LENGTH r <= 1 then 1 else LENGTH r) r = r
 Proof
   Induct_on `r` >> rw[] >> Cases_on `r` >> fs[]
@@ -284,7 +284,7 @@ Proof
   fs[lcs_def,common_subsequence_def,is_subsequence_refl,is_subsequence_length]
 QED
 
-Triviality is_subsequence_greater:
+Theorem is_subsequence_greater[local]:
   !l' l. is_subsequence l' l /\ LENGTH l ≤ LENGTH l'
   ==> l = l'
 Proof
@@ -311,7 +311,7 @@ Proof
   metis_tac[lcs_def,common_subsequence_sym]
 QED
 
-Triviality lcs_empty:
+Theorem lcs_empty[local]:
   lcs [] l [] /\ lcs [] [] l
 Proof
   fs[lcs_def,common_subsequence_def,is_subsequence_nil]
@@ -662,7 +662,7 @@ Proof
   >> rw[naive_lcs_clauses, MIN_DEF, longest_def]
 QED
 
-Triviality naive_lcs_length:
+Theorem naive_lcs_length[local]:
   !l l' h. LENGTH(naive_lcs l l') + 1 >= LENGTH(naive_lcs l (l' ++ [h]))
 Proof
   ho_match_mp_tac (theorem "naive_lcs_ind")
@@ -675,7 +675,7 @@ Proof
   >> fs[]
 QED
 
-Triviality naive_lcs_length':
+Theorem naive_lcs_length'[local]:
   !l l' h. LENGTH(naive_lcs l l') + 1 >= LENGTH(naive_lcs (l ++ [h]) l')
 Proof
   ho_match_mp_tac (theorem "naive_lcs_ind")
@@ -714,7 +714,7 @@ Definition longest'_def:
   longest' (l,n) (l',n') = if n:num >= n' then (l,n) else (l',n')
 End
 
-Triviality longest'_thm:
+Theorem longest'_thm[local]:
   !l l'. longest' l l' = if SND l >= SND l' then l else l'
 Proof
   Cases >> Cases >> fs[longest'_def]

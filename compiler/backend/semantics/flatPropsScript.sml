@@ -152,7 +152,7 @@ Proof
   srw_tac[][] >> qmatch_abbrev_tac`X = Y` >> Cases_on`X` >> full_simp_tac(srw_ss())[markerTheory.Abbrev_def] >>
   metis_tac[semanticPrimitivesTheory.match_result_distinct
            ,pmatch_any_no_match,pmatch_any_match]
-QED;
+QED
 
 Theorem pmatch_list_pairwise:
   ∀ps vs ^s env env'.
@@ -163,7 +163,7 @@ Proof
   rpt gen_tac >> BasicProvers.CASE_TAC >> strip_tac >>
   fs [CaseEq"match_result"] >>
   res_tac >> simp[] >> metis_tac[pmatch_any_match]
-QED;
+QED
 
 Theorem pmatch_list_snoc_nil[simp]:
   ∀p ps v vs ^s env.
@@ -171,7 +171,7 @@ Theorem pmatch_list_snoc_nil[simp]:
       (pmatch_list s (SNOC p ps) [] env = Match_type_error)
 Proof
   Cases_on`ps`>>Cases_on`vs`>>simp[pmatch_def]
-QED;
+QED
 
 Theorem pmatch_list_append:
    ∀ps vs ps' vs' s env. LENGTH ps = LENGTH vs ⇒
@@ -207,7 +207,7 @@ Proof
   \\ fs [pmatch_def] \\ rw []
   \\ Cases_on `pmatch s p v env` \\ fs []
   \\ every_case_tac \\ fs []
-QED;
+QED
 
 Theorem map_match_eq_case:
   map_match f v = (case v of Match m => Match (f m) | _ => v)
@@ -258,7 +258,7 @@ Proof
   \\ rw [] \\ fs []
 QED
 
-Triviality build_rec_env_help_lem:
+Theorem build_rec_env_help_lem[local]:
   ∀funs env funs'.
   FOLDR (λ(f,x,e) env'. (f, flatSem$Recclosure env funs' f)::env') env' funs =
   MAP (λ(fn,n,e). (fn, Recclosure env funs' fn)) funs ++ env'
@@ -351,7 +351,7 @@ Proof
   fs []
 QED
 
-Triviality do_app_add_to_clock:
+Theorem do_app_add_to_clock[local]:
   do_app ^s op es = SOME (t, r)
    ==>
    do_app (s with clock := s.clock + k) op es =
@@ -360,7 +360,7 @@ Proof
   rw [do_app_cases] \\ fs []
 QED
 
-Triviality do_app_add_to_clock_NONE:
+Theorem do_app_add_to_clock_NONE[local]:
   do_app ^s op es = NONE
    ==>
    do_app (s with clock := s.clock + k) op es = NONE
@@ -493,7 +493,7 @@ Theorem evaluate_dec_io_events_mono:
 Proof
   Cases \\ rw [evaluate_def] \\ every_case_tac \\ fs [] \\ rw []
   \\ metis_tac [evaluate_io_events_mono, FST]
-QED;
+QED
 
 Theorem evaluate_dec_add_to_clock_io_events_mono:
   ∀prog ^s extra.
@@ -518,7 +518,7 @@ Theorem evaluate_decs_add_to_clock_io_events_mono:
      (FST (evaluate_decs (s with clock := s.clock + extra) ds)).ffi.io_events
 Proof
   metis_tac [evaluate_add_to_clock_io_events_mono]
-QED;
+QED
 
 Theorem evaluate_MAP_Var_local:
   MAP (ALOOKUP env.v) xs = MAP SOME vs ⇒
@@ -631,7 +631,7 @@ Proof
   \\ rw[Once pmatch_nil]
 QED
 
-Triviality evaluate_decs_add_to_clock_initial_state:
+Theorem evaluate_decs_add_to_clock_initial_state[local]:
   r ≠ SOME (Rabort Rtimeout_error) ∧
    evaluate_decs (initial_state ffi k ec) decs = (s',r) ⇒
    evaluate_decs (initial_state ffi (ck + k) ec) decs =
@@ -641,7 +641,7 @@ Proof
   \\ imp_res_tac evaluate_decs_add_to_clock \\ fs []
 QED
 
-Triviality evaluate_decs_add_to_clock_initial_state_io_events_mono:
+Theorem evaluate_decs_add_to_clock_initial_state_io_events_mono[local]:
   evaluate_decs (initial_state ffi k ec) prog = (s',r) ==>
    s'.ffi.io_events ≼
    (FST (evaluate_decs (initial_state ffi (k+ck) ec) prog)).ffi.io_events
@@ -654,16 +654,18 @@ Proof
   \\ fs [Abbr`s1`]
 QED
 
-Triviality initial_state_with_clock:
+Theorem initial_state_with_clock[local]:
   (initial_state ffi k ec with clock := (initial_state ffi k ec).clock + ck) =
    initial_state ffi (k + ck) ec
 Proof
   rw [initial_state_def]
 QED
 
-val SND_SND_lemma = prove(
-  ``(SND x) = y <=> ?y1. x = (y1, y)``,
-  PairCases_on `x` \\ fs []);
+Theorem SND_SND_lemma[local]:
+    (SND x) = y <=> ?y1. x = (y1, y)
+Proof
+  PairCases_on `x` \\ fs []
+QED
 
 Definition eval_sim_def:
   eval_sim ffi ds1 ds2 ec ec2 rel allow_fail =
@@ -815,7 +817,7 @@ Definition op_gbag_def:
   op_gbag _ = {||}
 End
 
-Definition set_globals_def:
+Definition set_globals_def[simp]:
   (set_globals (Raise t e) = set_globals e) /\
   (set_globals (Handle t e pes) = set_globals e ⊎ elist_globals (MAP SND pes)) /\
   (set_globals (Con t id es) = elist_globals es) /\
@@ -846,7 +848,6 @@ Termination
   \\ Induct_on ‘pes’ \\ gvs [FORALL_PROD]
 End
 
-val _ = export_rewrites ["set_globals_def"];
 
 Definition esgc_free_def:
   (esgc_free (Raise t e) <=> esgc_free e) /\
@@ -897,16 +898,15 @@ Proof
   Induct_on `es` \\ simp [elist_globals_append, COMM_BAG_UNION]
 QED
 
-Definition is_Dlet_def:
+Definition is_Dlet_def[simp]:
   (is_Dlet (Dlet _) <=> T) /\
   (is_Dlet _ <=> F)
 End
 
-Definition dest_Dlet_def:
+Definition dest_Dlet_def[simp]:
   dest_Dlet (Dlet e) = e
 End
 
-val _ = export_rewrites ["is_Dlet_def", "dest_Dlet_def"];
 
 Theorem initial_state_clock:
   (initial_state ffi k ec).clock = k /\
@@ -1438,4 +1438,3 @@ Definition mk_flat_install_conf_def:
   mk_flat_install_conf cc co =
     <| compile := cc ; compile_oracle := co |> : 'c flatSem$install_config
 End
-

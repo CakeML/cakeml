@@ -218,13 +218,12 @@ Proof
   metis_tac[types_inverted]
 QED
 
-Theorem ptree_head_TOK:
+Theorem ptree_head_TOK[simp]:
    (ptree_head pt = TOK sym ⇔ ?l. pt = Lf (TOK sym,l)) ∧
     (TOK sym = ptree_head pt ⇔ ?l. pt = Lf (TOK sym,l))
 Proof
   Cases_on `pt` >> Cases_on`p` >> simp[] >> metis_tac[]
 QED
-val _ = export_rewrites ["ptree_head_TOK"]
 
 val start =
   Cases_on `pt` >> Cases_on `p` >> simp[]
@@ -397,7 +396,7 @@ Proof
   simp[ptree_Op_def, tokcheck_def, tokcheckl_def, singleSymP_def]
 QED
 
-Triviality MAP_TK11:
+Theorem MAP_TK11[local]:
   ∀l1 l2. MAP TK l1 = MAP TK l2 ⇔ l1 = l2
 Proof
   Induct_on `l1` >> simp[] >> rpt gen_tac >>

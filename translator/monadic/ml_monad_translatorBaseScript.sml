@@ -148,7 +148,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality NEG_DISJ_TO_IMP:
+Theorem NEG_DISJ_TO_IMP[local]:
   !A B. ~A \/ ~B <=> A /\ B ==> F
 Proof
   rw[]
@@ -698,7 +698,7 @@ Proof
   \\ rw[]
 QED
 
-Triviality GC_ABSORB_L:
+Theorem GC_ABSORB_L[local]:
   !A B s. (A * B * GC) s ==> (A * GC) s
 Proof
   rw[]

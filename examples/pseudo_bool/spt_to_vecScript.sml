@@ -28,14 +28,14 @@ Definition vec_lookup_def:
     if n < length opt_vec then sub opt_vec n else NONE
 End
 
-Triviality prepend_eq:
+Theorem prepend_eq[local]:
   ∀n x xs. prepend n x xs = REPLICATE n x ++ xs
 Proof
   Induct \\ rewrite_tac [GSYM SNOC_REPLICATE, SNOC_APPEND]
   \\ fs [ADD1] \\ once_rewrite_tac [prepend_def] \\ fs []
 QED
 
-Triviality to_flat_lemma:
+Theorem to_flat_lemma[local]:
   ∀xs xs0 n.
     SORTED $< (MAP FST (xs0 ++ xs)) ∧ EVERY (λm. m < n) (MAP FST xs0) ∧
     (xs ≠ [] ⇒ n ≤ FST (HD xs)) ⇒

@@ -213,9 +213,11 @@ Proof
   \\ rw [] \\ Cases_on `i = 0` \\ fs [word_bit_def]
 QED
 
-val if_eq_b2w = prove(
-  ``(if b then 1w else 0w) = b2w b``,
-  Cases_on `b` \\ EVAL_TAC);
+Theorem if_eq_b2w[local]:
+    (if b then 1w else 0w) = b2w b
+Proof
+  Cases_on `b` \\ EVAL_TAC
+QED
 
 
 Theorem option_le_max_dest:
@@ -234,7 +236,7 @@ Proof
   \\ every_case_tac \\ fs []
 QED
 
-Triviality b2n_not:
+Theorem b2n_not[local]:
   (if c then 0 else 1) = b2n (~c)
 Proof
   Cases_on ‘c’ \\ EVAL_TAC

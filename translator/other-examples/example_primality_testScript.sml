@@ -22,7 +22,7 @@ val _ = translation_extends "ListProg";
 
 val res = translate EVEN_MOD2;
 
-Triviality UNIT_thm:
+Theorem UNIT_thm[local]:
   UNIT x s = (x,s)
 Proof
   FULL_SIMP_TAC std_ss [state_transformerTheory.UNIT_DEF]
@@ -33,7 +33,7 @@ val _ = translate UNIT_thm;
 val def = find_def ``BIND``;
 val _ = translate (SIMP_RULE std_ss [FUN_EQ_THM] def);
 
-Triviality lemma:
+Theorem lemma[local]:
   prob_while_cut c b n = \x. prob_while_cut c b n x
 Proof
   SIMP_TAC std_ss [FUN_EQ_THM]

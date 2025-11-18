@@ -74,7 +74,7 @@ val r = translate partition_def;
 val partition_ind = fetch "-" "partition_ind"
 val heap_size_def = fetch "-" "heap_size_def"
 
-Triviality partition_size:
+Theorem partition_size[local]:
   !get_key leq p h1 h2 h3.
   ((h2,h3) = partition get_key leq p h1)
   ⇒
@@ -137,7 +137,7 @@ val delete_min_ind = fetch "-" "delete_min_ind"
 
 (* Functional correctnes proof *)
 
-Triviality partition_bags:
+Theorem partition_bags[local]:
   !get_key leq p h1 h2 h3.
   ((h2,h3) = partition get_key leq p h1)
   ⇒
@@ -155,7 +155,7 @@ rw [heap_to_bag_def, BAG_UNION_INSERT] >>
 metis_tac [ASSOC_BAG_UNION, COMM_BAG_UNION, BAG_INSERT_commutes]
 QED
 
-Triviality partition_split:
+Theorem partition_split[local]:
   !get_key leq p h1 h2 h3.
   transitive leq ∧
   trichotomous leq ∧
@@ -179,7 +179,7 @@ fs [BAG_EVERY, transitive_def, trichotomous] >>
 metis_tac []
 QED
 
-Triviality partition_heap_ordered_lem:
+Theorem partition_heap_ordered_lem[local]:
   !get_key leq p h1 h2 h3.
   (partition get_key leq p h1 = (h2, h3)) ⇒
   BAG_EVERY P (heap_to_bag h1) ⇒
@@ -194,7 +194,7 @@ fs [BAG_EVERY_UNION] >>
 rw []
 QED
 
-Triviality partition_heap_ordered:
+Theorem partition_heap_ordered[local]:
   !get_key leq p h1 h2 h3.
   WeakLinearOrder leq ∧
   ((h2,h3) = partition get_key leq p h1) ∧
@@ -344,14 +344,14 @@ QED
 val delete_min_side_def = fetch "-" "delete_min_side_def"
 val find_min_side_def = fetch "-" "find_min_side_def"
 
-Triviality delete_min_side:
+Theorem delete_min_side[local]:
   !h. delete_min_side h = (h ≠ Empty)
 Proof
   recInduct delete_min_ind THEN REPEAT STRIP_TAC
 THEN ONCE_REWRITE_TAC [delete_min_side_def] THEN SRW_TAC [] []
 QED
 
-Triviality find_min_side:
+Theorem find_min_side[local]:
   !h. find_min_side h = (h ≠ Empty)
 Proof
   recInduct find_min_ind THEN REPEAT STRIP_TAC

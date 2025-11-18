@@ -27,7 +27,7 @@ Definition dec_clock_def:
   dec_clock x s = s with clock := s.clock - x
 End
 
-Triviality LESS_EQ_dec_clock:
+Theorem LESS_EQ_dec_clock[local]:
   r.clock <= (dec_clock x s).clock ==> r.clock <= s.clock
 Proof
   SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC
@@ -187,7 +187,7 @@ Definition fix_clock_def:
   fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
 End
 
-Triviality fix_clock_IMP:
+Theorem fix_clock_IMP[local]:
   fix_clock s x = (res,s1) ==> s1.clock <= s.clock
 Proof
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []

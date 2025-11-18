@@ -18,7 +18,7 @@ val init_v = translate init_def;
 val res = translate DROP_def;
 val res = translate subVec_def;
 
-Triviality word_not_thm:
+Theorem word_not_thm[local]:
   ¬w = word_xor w (0xFFFFFFFFw:word32)
 Proof
   fs []

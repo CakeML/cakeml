@@ -326,7 +326,7 @@ Definition eq_pure_def:
   eq_pure x y = ConjList (append (eq_pure_list [(x,y)]))
 End
 
-Triviality eq_pure_list_test:
+Theorem eq_pure_list_test[local]:
    append
        (eq_pure_list
           [(Var None 5,

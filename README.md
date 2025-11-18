@@ -74,6 +74,9 @@ and what we want to use for CakeML development.
 The Pancake compiler, i.e. a C-like compiler built from the lower
 parts of the CakeML compiler.
 
+[profiler](profiler):
+Basic profiling facilities for theories and proofs.
+
 [semantics](semantics):
 The definition of the CakeML language.
 The directory includes definitions of:

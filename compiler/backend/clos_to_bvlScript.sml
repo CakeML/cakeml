@@ -119,7 +119,7 @@ Definition partial_app_label_table_loc_def:
   partial_app_label_table_loc = 0n
 End
 
-Definition compile_op_def:
+Definition compile_op_def[simp]:
   compile_op (BlockOp (Cons tag)) = BlockOp (Cons (clos_tag_shift tag)) ∧
   compile_op (BlockOp (ConsExtend tag)) = BlockOp (ConsExtend (clos_tag_shift tag)) ∧
   compile_op (BlockOp (TagEq tag)) = BlockOp (TagEq (clos_tag_shift tag)) ∧
@@ -132,7 +132,6 @@ Definition compile_op_def:
   compile_op (BlockOp (Constant c)) = compile_const c ∧
   compile_op x = x
 End
-val _ = export_rewrites["compile_op_def"];
 
 Theorem compile_op_pmatch:
   ∀op.
@@ -610,7 +609,7 @@ End
 
 Theorem compile_prog_eq = compile_prog_def |> SRULE [compile_exp_sing_eq];
 
-Triviality pair_lem1:
+Theorem pair_lem1[local]:
   !f x. (\(a,b). f a b) x = f (FST x) (SND x)
 Proof
   rw [] >>
@@ -618,7 +617,7 @@ Proof
   fs []
 QED
 
-Triviality pair_lem2:
+Theorem pair_lem2[local]:
   !x y z. (x,y) = z ⇔ x = FST z ∧ y = SND z
 Proof
   rw [] >>

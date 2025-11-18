@@ -7,7 +7,7 @@ Ancestors
 Libs
   preamble
 
-Triviality disjImpI:
+Theorem disjImpI[local]:
   ~p \/ q ⇔ p ⇒ q
 Proof
   DECIDE_TAC

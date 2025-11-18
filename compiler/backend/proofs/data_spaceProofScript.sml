@@ -16,13 +16,13 @@ val _ = temp_bring_to_front_overload"lookup"{Name="lookup",Thy="sptree"};
 val _ = temp_bring_to_front_overload"insert"{Name="insert",Thy="sptree"};
 val _ = temp_bring_to_front_overload"wf"{Name="wf",Thy="sptree"};
 
-Triviality IMP_sptree_eq:
+Theorem IMP_sptree_eq[local]:
   wf x /\ wf y /\ (!a. lookup a x = lookup a y) ==> (x = y)
 Proof
   METIS_TAC [spt_eq_thm]
 QED
 
-Triviality mk_wf_inter:
+Theorem mk_wf_inter[local]:
   !t1 t2. inter t1 t2 = mk_wf (inter t1 t2)
 Proof
   full_simp_tac(srw_ss())[]
@@ -47,7 +47,7 @@ Proof
   rw [do_stack_def,stack_consumed_def]
 QED
 
-Triviality evaluate_compile:
+Theorem evaluate_compile[local]:
   !c s res s2 vars l.
      res <> SOME (Rerr(Rabort Rtype_error)) /\ (evaluate (c,s) = (res,s2)) /\
      locals_ok s.locals l ==>

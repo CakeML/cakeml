@@ -446,7 +446,7 @@ Definition extract_labels_def:
 End
 
 (*** Property on max_var ***)
-Triviality max_var_exp_IMP:
+Theorem max_var_exp_IMP[local]:
   ∀exp.
   P 0 ∧ every_var_exp P exp ⇒
   P (max_var_exp exp)
@@ -495,7 +495,7 @@ End
 (*** TODO: This seems like it must have been established before
   handler labels point only within the current table entry
 ***)
-Definition good_handlers_def:
+Definition good_handlers_def[simp]:
   (good_handlers n (Call r d a h) <=>
     case r of
       NONE => T
@@ -506,7 +506,6 @@ Definition good_handlers_def:
   (good_handlers n (MustTerminate p) <=> good_handlers n p) ∧
   (good_handlers n _ <=> T)
 End
-val _ = export_rewrites["good_handlers_def"];
 
 Definition good_code_labels_def:
   good_code_labels p elabs ⇔

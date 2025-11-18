@@ -229,7 +229,7 @@ Proof
   \\ split_pair_case_tac \\ rw[push_env_def,FUN_EQ_THM]
 QED
 
-Triviality pair_map_I:
+Theorem pair_map_I[local]:
    (λ(k,v). (k,f v)) = (I ## f) /\
    (λ(k,v). (f k,v)) = (f ## I)
 Proof

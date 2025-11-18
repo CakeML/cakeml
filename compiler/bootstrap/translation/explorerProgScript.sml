@@ -44,7 +44,7 @@ val res = translate jsonLangTheory.concat_with_def;
 
 val res = translate_no_ind jsonLangTheory.json_to_mlstring_def;
 
-Triviality json_to_mlstring_ind:
+Theorem json_to_mlstring_ind[local]:
   json_to_mlstring_ind
 Proof
   rewrite_tac [fetch "-" "json_to_mlstring_ind_def"]
@@ -100,7 +100,7 @@ val r = translate presLangTheory.bvi_to_display_def;
 val r = translate presLangTheory.bvi_fun_to_display_def;
 val r = translate presLangTheory.bvi_to_strs_def;
 
-Triviality string_imp_thm:
+Theorem string_imp_thm[local]:
   string_imp = λs. String (implode s)
 Proof
   fs [FUN_EQ_THM,presLangTheory.string_imp_def]

@@ -137,7 +137,7 @@ val r = translate partition_def;
 val partition_ind = fetch "-" "partition_ind"
 val heap_size_def = fetch "-" "heap_size_def"
 
-Triviality partition_size:
+Theorem partition_size[local]:
   !get_key leq p h1 h2 h3.
   ((h2,h3) = partition get_key leq p h1)
   ⇒

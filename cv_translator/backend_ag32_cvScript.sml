@@ -61,7 +61,7 @@ Proof
   \\ rw [] \\ simp [Once pre]
 QED
 
-Triviality fp_ok_false:
+Theorem fp_ok_false[local]:
   fp_ok_ag32 v = F
 Proof
   Cases_on ‘v’ \\ gvs [fp_ok_ag32_def |> SRULE [fp_reg_ok_ag32_def]]

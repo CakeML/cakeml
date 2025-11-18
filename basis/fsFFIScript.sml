@@ -383,10 +383,18 @@ Proof
   \\ fs [IO_fs_component_equality]
 QED
 
-val decode_encode = new_specification("decode_encode",["decode"],
-  prove(``?decode. !cls. decode (encode cls) = SOME cls``,
-        qexists_tac `\f. some c. encode c = f` \\ fs [encode_11]));
-val _ = export_rewrites ["decode_encode"];
+Theorem encode_decode_exists[local]:
+  ?decode. !cls. decode (encode cls) = SOME cls
+Proof
+  qexists_tac `\f. some c. encode c = f` \\ fs [encode_11]
+QED
+
+val decode_encode_name = "decode_encode";
+val decode_encode = new_specification(
+  decode_encode_name,
+  ["decode"],
+  encode_decode_exists);
+val _ = export_rewrites [decode_encode_name];
 
 Definition fs_ffi_part_def:
   fs_ffi_part =
@@ -397,4 +405,3 @@ Definition fs_ffi_part_def:
        ("write",ffi_write);
        ("close",ffi_close)])
 End
-

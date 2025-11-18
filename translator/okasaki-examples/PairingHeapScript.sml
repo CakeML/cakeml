@@ -151,14 +151,14 @@ fs [BAG_EVERY] >>
 metis_tac [WeakLinearOrder, WeakOrder, reflexive_def]
 QED
 
-Triviality merge_pairs_bag:
+Theorem merge_pairs_bag[local]:
   !get_key leq hs. heap_to_bag (merge_pairs get_key leq hs) = heaps_to_bag hs
 Proof
   recInduct merge_pairs_ind >>
 srw_tac [BAG_ss] [merge_pairs_def, heap_to_bag_def, merge_bag]
 QED
 
-Triviality merge_pairs_heap_ordered:
+Theorem merge_pairs_heap_ordered[local]:
   !get_key leq hs.
   WeakLinearOrder leq ∧ EVERY (is_heap_ordered get_key leq) hs
   ⇒
@@ -188,14 +188,14 @@ QED
 val delete_min_side_def = fetch "-" "delete_min_side_def"
 val find_min_side_def = fetch "-" "find_min_side_def"
 
-Triviality delete_min_side:
+Theorem delete_min_side[local]:
   !get_key leq h. delete_min_side get_key leq h = (h ≠ Empty)
 Proof
   cases_on `h` >>
 rw [delete_min_side_def]
 QED
 
-Triviality find_min_side:
+Theorem find_min_side[local]:
   !h. find_min_side h = (h ≠ Empty)
 Proof
   cases_on `h` >>

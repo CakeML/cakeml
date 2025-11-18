@@ -152,7 +152,7 @@ Proof
   \\ qexists_tac `$<` \\ simp [relationTheory.irreflexive_def]
 QED
 
-Triviality renumber_code_locs_list_els:
+Theorem renumber_code_locs_list_els[local]:
   ∀ls ls' n n'. renumber_code_locs_list n ls = (n',ls') ⇒
       ∀x. x < LENGTH ls ⇒
         ∃m. EL x ls' = SND (renumber_code_locs m (EL x ls))
@@ -205,39 +205,39 @@ Definition state_rel_def:
     s.code = FEMPTY ∧ t.code = FEMPTY
 End
 
-Triviality state_rel_max_app:
+Theorem state_rel_max_app[local]:
   !s t. state_rel s t ⇒ s.max_app = t.max_app
 Proof
   srw_tac[][state_rel_def]
 QED
 
-Triviality state_rel_with_clock:
+Theorem state_rel_with_clock[local]:
   !s t. state_rel s t ⇒ state_rel (s with clock := x) (t with clock := x)
 Proof
   srw_tac[][state_rel_def] \\ rfs[]
 QED
 
-Triviality state_rel_clock:
+Theorem state_rel_clock[local]:
   state_rel s t ⇒ s.clock = t.clock
 Proof
   rw[state_rel_def]
 QED
 
-Triviality state_rel_globals:
+Theorem state_rel_globals[local]:
   state_rel s t ⇒
     LIST_REL (OPTREL (v_rel s.max_app)) s.globals t.globals
 Proof
   srw_tac[][state_rel_def]
 QED
 
-Triviality state_rel_refs:
+Theorem state_rel_refs[local]:
   state_rel s t ⇒
     fmap_rel (ref_rel (v_rel t.max_app)) s.refs t.refs
 Proof
   srw_tac[][state_rel_def]
 QED
 
-Triviality state_rel_code:
+Theorem state_rel_code[local]:
   state_rel s t ⇒ s.code = FEMPTY ∧ t.code = FEMPTY
 Proof
   rw[state_rel_def]
@@ -278,7 +278,7 @@ QED
 
 (* semantic functions respect relation *)
 
-Triviality dest_closure_v_rel_none:
+Theorem dest_closure_v_rel_none[local]:
   !f args f' args'.
     v_rel max_app f f' ∧
     LIST_REL (v_rel max_app) args args' ∧
@@ -313,7 +313,7 @@ Proof
   rev_full_simp_tac(srw_ss())[]
 QED
 
-Triviality dest_closure_v_rel_partial:
+Theorem dest_closure_v_rel_partial[local]:
   !c f args f' args'.
     v_rel max_app f f' ∧
     LIST_REL (v_rel max_app) args args' ∧
@@ -352,7 +352,7 @@ Proof
   metis_tac [SND, EVERY2_APPEND]
 QED
 
-Triviality dest_closure_v_rel_full:
+Theorem dest_closure_v_rel_full[local]:
   !c f args f' args' args1 args2.
     v_rel max_app f f' ∧
     LIST_REL (v_rel max_app) args args' ∧
@@ -414,19 +414,19 @@ Proof
   metis_tac [EVERY2_APPEND, list_rel_lastn, LENGTH_LASTN, LENGTH_GENLIST, EVERY2_LENGTH, list_rel_butlastn]
 QED
 
-Triviality helper:
+Theorem helper[local]:
   SND ((λ(n',x'). (n',[x'])) x) = [SND x]
 Proof
   Cases_on `x` >> full_simp_tac(srw_ss())[]
 QED
 
-Triviality v_rel_Boolv_mono:
+Theorem v_rel_Boolv_mono[local]:
   (x ⇔ y) ⇒ (v_rel max_app (Boolv x) (Boolv y))
 Proof
   Cases_on`x`>>simp[Boolv_def,v_rel_simp]
 QED
 
-Triviality v_to_list:
+Theorem v_to_list[local]:
   ∀x y. v_rel max_app x y ⇒
           OPTREL (LIST_REL (v_rel max_app)) (v_to_list x) (v_to_list y)
 Proof
@@ -497,7 +497,7 @@ Proof
   \\ rw [] \\ fs [v_rel_simp, list_to_v_def]
 QED
 
-Triviality do_app:
+Theorem do_app[local]:
   state_rel s1 s2 ∧
     LIST_REL (v_rel s1.max_app) x1 x2 ⇒
     (∀err.
@@ -519,13 +519,13 @@ Proof
   \\ every_case_tac \\ fs[]
 QED
 
-Triviality v_to_bytes:
+Theorem v_to_bytes[local]:
   v_rel m v w ⇒ v_to_bytes v = v_to_bytes w
 Proof
   metis_tac [simple_val_rel, simple_val_rel_v_to_bytes]
 QED
 
-Triviality v_to_words:
+Theorem v_to_words[local]:
   v_rel m v w ⇒ v_to_words v = v_to_words w
 Proof
   metis_tac [simple_val_rel, simple_val_rel_v_to_words]
@@ -547,7 +547,7 @@ Proof
   \\ pairarg_tac \\ rw[] \\ rw[]
 QED
 
-Triviality do_install:
+Theorem do_install[local]:
   state_rel s1 s2 ∧
    LIST_REL (v_rel s1.max_app) x1 x2 ⇒
    (∀err t. do_install x1 s1 = (Rerr (Rabort Rtimeout_error),t) ⇒
@@ -617,7 +617,7 @@ Proof
   simp[LIST_REL_EL_EQN]
 QED
 
-Triviality rel_update_thunk:
+Theorem rel_update_thunk[local]:
   state_rel s1 s2 ∧
   LIST_REL (v_rel s1.max_app) vs ys ∧
   update_thunk [RefPtr v ptr] s1.refs vs = SOME refs1 ⇒

@@ -115,7 +115,7 @@ val r = backend_passesTheory.to_clos_all_def |> spec32 |> translate;
 val r = backend_passesTheory.to_bvl_all_def |> spec32 |> translate;
 val r = backend_passesTheory.to_bvi_all_def |> spec32 |> translate;
 
-Triviality backend_passes_to_bvi_all_side:
+Theorem backend_passes_to_bvi_all_side[local]:
   backend_passes_to_bvi_all_side c p
 Proof
   fs [fetch "-" "backend_passes_to_bvi_all_side_def"]
@@ -169,7 +169,7 @@ val r = pan_passesTheory.opsize_to_display_def |> translate;
 val r = pan_passesTheory.shape_to_str_def |> translate;
 val r = pan_passesTheory.insert_es_def |> translate;
 val r = pan_passesTheory.varkind_to_str_def |> translate;
-Triviality lem:
+Theorem lem[local]:
   dimindex(:32) = 32
 Proof
   EVAL_TAC

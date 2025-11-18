@@ -2682,7 +2682,7 @@ Proof
   \\ rw [] \\ res_tac \\ fs [pmatch_NIL_IMP]
 QED
 
-Triviality IMP_xor_bytes_SOME:
+Theorem IMP_xor_bytes_SOME[local]:
   ∀s wd.
     STRLEN s ≤ LENGTH wd ⇒
     ∃xor_res. xor_bytes (MAP (n2w ∘ ORD) s) wd = SOME xor_res

@@ -17,7 +17,7 @@ val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = option_monadsyntax.temp_add_option_monadsyntax()
 
 (* TODO: this is duplicated in parserProgTheory *)
-Triviality monad_unitbind_assert:
+Theorem monad_unitbind_assert[local]:
   !b x. monad_unitbind (assert b) x = if b then x else NONE
 Proof
   Cases THEN EVAL_TAC THEN SIMP_TAC std_ss []
@@ -192,13 +192,13 @@ Proof
   \\ simp[stringTheory.CHR_ORD]
 QED
 
-Triviality isHexDigit_alt:
+Theorem isHexDigit_alt[local]:
   isHexDigit c ⇔ c ∈ set "0123456789abcdefABCDEF"
 Proof
   rw[stringTheory.isHexDigit_def, EQ_IMP_THM] >> CONV_TAC EVAL >> simp[]
 QED
 
-Triviality UNHEX_lt16:
+Theorem UNHEX_lt16[local]:
   isHexDigit c ⇒ UNHEX c < 16
 Proof
   dsimp[isHexDigit_alt, ASCIInumbersTheory.UNHEX_def]
@@ -738,6 +738,7 @@ Definition sexpop_def:
   if s = "Strcat" then SOME Strcat else
   if s = "VfromList" then SOME VfromList else
   if s = "Vsub" then SOME Vsub else
+  if s = "Vsub_unsafe" then SOME Vsub_unsafe else
   if s = "Vlength" then SOME Vlength else
   if s = "ListAppend" then SOME ListAppend else
   if s = "Aalloc" then SOME Aalloc else
@@ -1370,6 +1371,7 @@ Definition opsexp_def:
   (opsexp Strcat = SX_SYM "Strcat") ∧
   (opsexp VfromList = SX_SYM "VfromList") ∧
   (opsexp Vsub = SX_SYM "Vsub") ∧
+  (opsexp Vsub_unsafe = SX_SYM "Vsub_unsafe") ∧
   (opsexp Vlength = SX_SYM "Vlength") ∧
   (opsexp ListAppend = SX_SYM "ListAppend") ∧
   (opsexp Aalloc = SX_SYM "Aalloc") ∧
@@ -2154,4 +2156,3 @@ Proof
   \\ rw[]
   \\ simp[EVERY_MAP,EVERY_MEM, FORALL_PROD]
 QED
-

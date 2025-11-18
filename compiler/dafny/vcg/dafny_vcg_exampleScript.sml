@@ -89,7 +89,7 @@ val mccarthy_valid_prop = valid_vcg_prop mccarthy_vcg;
 (* Make the goal actually readable *)
 val _ = max_print_depth := 20;
 
-Triviality eval_forall_True:
+Theorem eval_forall_True[local]:
   (∀v. v ∈ dom ⇒ SND (eval v) = Rval (BoolV T)) ⇒
   eval_forall dom eval = Rval (BoolV T)
 Proof
@@ -424,7 +424,7 @@ fun step n =
         unuse_prev_def, push_local_def, use_prev_heap_def, use_old_heap_def,
         unuse_old_heap_def];
 
-Triviality IMP_SND_evaluate_exp_imp:
+Theorem IMP_SND_evaluate_exp_imp[local]:
   evaluate_exp st env b = (st, Rval (BoolV bv)) ∧
   (bv ⇒ evaluate_exp st env a = (st, Rval (BoolV T)))
   ⇒

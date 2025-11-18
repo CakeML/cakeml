@@ -85,7 +85,7 @@ Definition mk_infinity_ctxt_def:
     ctxt
 End
 
-Triviality tyvar_inst_exists:
+Theorem tyvar_inst_exists[local]:
   ∃i. ty = REV_ASSOCD (Tyvar a) i b
 Proof
   qexists_tac`[(ty,Tyvar a)]` >>

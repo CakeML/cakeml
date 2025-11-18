@@ -111,7 +111,7 @@ val r = m_translate check_var_def;
 val _ = use_mem_intro := true;
 val res = translate_no_ind check_cexp_closed_def;
 
-Triviality check_cexp_closed_ind:
+Theorem check_cexp_closed_ind[local]:
   check_cexp_closed_ind
 Proof
   rewrite_tac [fetch "-" "check_cexp_closed_ind_def"]

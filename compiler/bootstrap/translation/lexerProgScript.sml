@@ -113,7 +113,7 @@ val num_from_hex_string_alt_side = Q.prove(`
     strip_tac>>
     fs[]) |> update_precondition;
 
-Triviality next_sym_alt_side:
+Theorem next_sym_alt_side[local]:
   ∀x l. next_sym_alt_side x l ⇔ T
 Proof
   ho_match_mp_tac next_sym_alt_ind>>rw[]>>

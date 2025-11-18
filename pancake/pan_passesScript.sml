@@ -67,19 +67,19 @@ Definition pan_to_target_all_def:
         (ps ++ MAP (λ(n,p). (n,Cake p)) ps1,out)
 End
 
-Triviality MAP2_MAP:
+Theorem MAP2_MAP[local]:
   ∀xs ys. MAP2 g xs (MAP f ys) = MAP2 (λx y. g x (f y)) xs ys
 Proof
   Induct \\ Cases_on ‘ys’ \\ gvs []
 QED
 
-Triviality MAP_MAP2:
+Theorem MAP_MAP2[local]:
   ∀xs ys. MAP f (MAP2 g xs ys) = MAP2 (λx y. f (g x y)) xs ys
 Proof
   Induct \\ Cases_on ‘ys’ \\ gvs []
 QED
 
-Triviality make_funcs_MAP:
+Theorem make_funcs_MAP[local]:
   ∀xs. make_funcs (MAP (λ(n,ps,e). (n,ps,f e)) xs) = crep_to_loop$make_funcs xs
 Proof
   simp [crep_to_loopTheory.make_funcs_def]
@@ -183,7 +183,7 @@ Definition pan_seqs_def:
     | _ => List [z]
 End
 
-Triviality MEM_append_pan_seqs:
+Theorem MEM_append_pan_seqs[local]:
   ∀prog1 a.
     MEM a (append (pan_seqs prog1)) ⇒
     prog_size ARB a ≤ prog_size ARB prog1
@@ -359,7 +359,7 @@ Definition crep_seqs_def:
     | _ => List [z]
 End
 
-Triviality MEM_append_crep_seqs:
+Theorem MEM_append_crep_seqs[local]:
   ∀prog1 a.
     MEM a (append (crep_seqs prog1)) ⇒
     prog_size ARB a ≤ prog_size ARB prog1
@@ -512,7 +512,7 @@ Definition loop_seqs_def:
     | _ => List [z]
 End
 
-Triviality MEM_append_loop_seqs:
+Theorem MEM_append_loop_seqs[local]:
   ∀prog1 a.
     MEM a (append (loop_seqs prog1)) ⇒
     prog_size ARB a ≤ prog_size ARB prog1
