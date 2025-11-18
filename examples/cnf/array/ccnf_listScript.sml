@@ -394,8 +394,7 @@ End
 Definition bnd_fml_def:
   bnd_fml fmlls sz ⇔
   ∀n v.
-    n < LENGTH fmlls ∧
-    EL n fmlls = SOME v ⇒
+    any_el n fmlls NONE = SOME v ⇒
     bnd_clause v sz
 End
 
@@ -571,27 +570,120 @@ Proof
   rw[Once init_lit_map_list'_def]
 QED
 
-(* TODO below *)
+Definition sz_lit_map_list_def:
+  sz_lit_map_list i v m =
+  if i = 0
+  then
+    m
+  else
+    let i1 = i - 1 in
+    let d = Num (ABS (sub v i1)) in
+    if d < m
+    then
+      sz_lit_map_list i1 v m
+    else
+      sz_lit_map_list i1 v (d+1)
+End
 
-(* Automatically resize the dml if needed for the new clause *)
-Definition is_rup_list_def:
-  is_rup_list fmlls dml b sz v is =
+Theorem sz_lit_map_list_inc:
+  ∀i v m.
+  m ≤ sz_lit_map_list i v m
+Proof
+  ho_match_mp_tac sz_lit_map_list_ind>>
+  rw[]>>
+  simp[Once sz_lit_map_list_def]
+QED
+
+Theorem sz_lit_map_list_bnd_clause:
+  ∀i v m m'.
+  i ≤ length v ∧
+  sz_lit_map_list i v m = m' ⇒
+  ∀j. j < i ⇒
+    Num (ABS (sub v j)) < m'
+Proof
+  ho_match_mp_tac sz_lit_map_list_ind>>
+  rw[]>>
+  simp[Once sz_lit_map_list_def]>>
+  rw[]>>gvs[]>>
+  Cases_on`j < i - 1`>>gvs[]>>
+  `j = i -1` by fs[]>>
+  gvs[]
+  >- (
+    qspecl_then[`i-1`,`v`,`m`] assume_tac sz_lit_map_list_inc>>
+    fs[])>>
+  rename1`Num mm`>>
+  qspecl_then[`i-1`,`v`,`Num mm + 1`] assume_tac sz_lit_map_list_inc>>
+  fs[]
+QED
+
+Definition sz_lit_map_list'_def:
+  sz_lit_map_list' i v m =
+  if i = 0
+  then
+    SOME m
+  else
+    let i1 = i - 1 in
+    assert (i1 < length v)
+    let d = Num (ABS (sub v i1)) in
+    if d < m
+    then
+      sz_lit_map_list' i1 v m
+    else
+      sz_lit_map_list' i1 v (d+1)
+End
+
+Theorem sz_lit_map_list':
+  ∀i v m.
+  sz_lit_map_list' i v m = SOME res ⇒
+  sz_lit_map_list i v m = res
+Proof
+  ho_match_mp_tac sz_lit_map_list_ind>>
+  rpt gen_tac>>strip_tac>>
+  rw[Once sz_lit_map_list_def,Once sz_lit_map_list'_def]>>
+  fs[]
+QED
+
+Theorem sz_lit_map_list'_SOME:
+  ∀i v m.
+  i ≤ length v ⇒
+  IS_SOME (sz_lit_map_list' i v m)
+Proof
+  ho_match_mp_tac sz_lit_map_list'_ind>>
+  rpt gen_tac>>strip_tac>>
+  rw[Once sz_lit_map_list'_def]
+QED
+
+(* Automatically resize the dml if needed for the new clause
+*)
+Definition prepare_rup_def:
+  prepare_rup dml b v =
+  let lv = length v in
+  let sz = sz_lit_map_list lv v 0 in
   let (dml',b') = reset_dm_list dml b sz in
-  let dml'' = init_lit_map_list (length v) v dml' b' in
-  case unit_prop_list fmlls dml'' b' is of
-    SOME (T,dml''') => (T,dml''',b')
-  | _ => (F, (dml'',b'))
+  let dml'' = init_lit_map_list lv v dml' b' in
+    (dml'',b')
+End
+
+(* TODO: prepare_rup should be unconditional,
+  not sure if this is the right theorem... *)
+
+Definition is_rup_list_def:
+  is_rup_list fmlls dml b v is =
+  let (dml',b') = prepare_rup dml b v in
+  case unit_prop_list fmlls dml' b' is of
+    SOME (T,dml'') => (T,dml'',b')
+  | _ => (F, (dml',b'))
 End
 
 Theorem is_rup_list:
   fml_rel fml fmlls ∧
   dm_rel dm dml b ∧
-  is_rup_list fmlls dml b sz v is = (T, (dml',b')) ⇒
+  is_rup_list fmlls dml b v is = (T, (dml',b')) ⇒
   is_rup fml v is ∧
   ∃dm'. dm_rel dm' dml' b'
 Proof
   strip_tac>>
-  gvs[is_rup_list_def,UNCURRY_EQ,AllCaseEqs()]>>
+  gvs[is_rup_list_def,UNCURRY_EQ,AllCaseEqs(),prepare_rup_def]>>
   drule_all dm_rel_reset_dm_list>>
   strip_tac>>
   drule unit_prop_list>>
@@ -603,34 +695,48 @@ Proof
 QED
 
 Definition is_rup_list'_def:
-  is_rup_list' fmlls dml b sz v is =
-  let (dml',b') = reset_dm_list dml b sz in
-  let dml'' = init_lit_map_list (length v) v dml' b' in
-  case unit_prop_list fmlls dml'' b' is of
-    SOME (T,dml''') => (T,dml''',b')
-  | _ => (F, (dml'',b'))
+  is_rup_list' fmlls dml b v is =
+  let (dml',b') = prepare_rup dml b v in
+  OPTION_MAP
+  (λres.
+    case res of
+      SOME (T,dml'') => (T,dml'',b')
+    | _ => (F, (dml',b')))
+  (unit_prop_list' fmlls dml' b' is)
 End
 
-Theorem is_rup_list:
-  fml_rel fml fmlls ∧
-  dm_rel dm dml b ∧
-  is_rup_list fmlls dml b sz v is = (T, (dml',b')) ⇒
-  is_rup fml v is ∧
-  ∃dm'. dm_rel dm' dml' b'
+Theorem is_rup_list':
+  is_rup_list' fmlls dml b v is = SOME res ⇒
+  is_rup_list fmlls dml b v is = res
 Proof
-  strip_tac>>
-  gvs[is_rup_list_def,UNCURRY_EQ,AllCaseEqs()]>>
-  drule_all dm_rel_reset_dm_list>>
-  strip_tac>>
-  drule unit_prop_list>>
-  disch_then $ drule_at (Pos (el 2))>>
-  simp[is_rup_def]>>
-  drule init_lit_map_list>>
-  rw[AllCasePreds()]>>
-  metis_tac[]
+  rw[is_rup_list'_def,is_rup_list_def]>>
+  gvs[UNCURRY_EQ,AllCaseEqs()]>>
+  drule unit_prop_list'>>rw[]
 QED
 
+Theorem prepare_rup_LENGTH:
+  prepare_rup dml b v = (dml',b') ⇒
+  LENGTH dml ≤ LENGTH dml'
+Proof
+  rw[prepare_rup_def]>>
+  gvs[UNCURRY_EQ]>>
+  (* annoying! *)
+  cheat
+QED
 
+Theorem is_rup_list'_SOME:
+  bnd_fml fmlls (LENGTH dml) ⇒
+  IS_SOME (is_rup_list' fmlls dml b v is)
+Proof
+  rw[is_rup_list'_def]>>
+  pairarg_tac>>gvs[IS_SOME_MAP]>>
+  irule unit_prop_list'_SOME>>
+  drule prepare_rup_LENGTH>>
+  fs[bnd_fml_def,bnd_clause_def]>>
+  rw[]>>
+  first_x_assum drule_all>>
+  fs[]
+QED
 
 Definition delete_ids_list_def:
   (delete_ids_list [] fml = fml) ∧
@@ -699,3 +805,11 @@ Proof
   first_x_assum(qspec_then`nn` assume_tac)>>rfs[]
 QED
 
+Theorem bnd_fml_update_resize:
+  bnd_fml fmlls sz ∧ bnd_clause v sz ⇒
+  bnd_fml (update_resize fmlls NONE (SOME v) n) sz
+Proof
+  rw[bnd_fml_def,any_el_update_resize]>>
+  gvs[AllCaseEqs()]>>
+  metis_tac[]
+QED
