@@ -1259,6 +1259,48 @@ Proof
   \\ match_mp_tac EVERY2_APPEND_suff \\ fs []
 QED
 
+Theorem MAP_n2w_ORD_eq[local]:
+  ∀s s'. (MAP (n2w ∘ ORD) s = MAP (n2w ∘ ORD) s' :word8 list) ⇔ s = s'
+Proof
+  Induct \\ Cases_on ‘s'’ \\ gvs [ORD_BOUND,ORD_11]
+QED
+
+Theorem op_test:
+  (∃test ty. op = Test test ty) ==>
+  ^op_goal
+Proof
+  rpt strip_tac \\ rveq \\ fs []
+  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
+         CaseEq "ast$lit",store_assign_def,option_case_eq]
+  \\ rw [] \\ fs [] \\ rveq \\ fs [LENGTH_EQ_NUM_compute] \\ rveq \\ fs []
+  \\ gvs [listTheory.SWAP_REVERSE_SYM,CaseEq"eq_result"]
+  \\ gvs [compile_op_def]
+  \\ reverse $ gvs [oneline do_test_def,AllCaseEqs()]
+  >-
+   (gvs [oneline dest_Litv_def, AllCaseEqs()]
+    \\ fs [Once v_rel_cases] \\ gvs []
+    \\ gvs [closSemTheory.evaluate_def,
+            closSemTheory.do_app_def,
+            w2n_lt |> INST_TYPE [alpha|->“:8”] |> SRULE [],
+            closSemTheory.do_word_app_def])
+  >-
+   (gvs [oneline dest_Litv_def, AllCaseEqs()]
+    \\ fs [Once v_rel_cases] \\ gvs []
+    \\ gvs [closSemTheory.evaluate_def,char_lt_def,
+            closSemTheory.do_app_def,ORD_BOUND,
+            closSemTheory.do_word_app_def])
+  \\ Cases_on ‘ty’ \\ TRY (rename [‘WordT ws’] \\ Cases_on ‘ws’)
+  \\ gvs [flatSemTheory.check_type_def,
+          flatSemTheory.do_eq_def,flatSemTheory.Boolv_def,AllCaseEqs()]
+  \\ gvs [closSemTheory.evaluate_def,
+          closSemTheory.do_app_def,
+          closSemTheory.Boolv_def]
+  \\ fs [Once v_rel_cases]
+  \\ gvs [closSemTheory.do_eq_def,ORD_BOUND,MAP_n2w_ORD_eq,
+          w2n_lt |> INST_TYPE [alpha|->“:8”] |> SRULE [],
+          closSemTheory.do_word_app_def,closSemTheory.Boolv_def,ORD_11]
+QED
+
 Theorem op_ffi:
   (?n. op = FFI n) ==>
   ^op_goal
@@ -1345,7 +1387,7 @@ Theorem compile_op_correct:
 Proof
   EVERY (map assume_tac
     [op_refs, op_chars, op_ints, op_words, op_str, op_shifts, op_thunk,
-     op_floats, op_eq_gc, op_byte_arrays, op_vectors, op_arrays,
+     op_floats, op_eq_gc, op_byte_arrays, op_vectors, op_arrays, op_test,
      op_globals, op_blocks, op_ffi, op_byte_copy, op_eval, op_id])
   \\ `?this_is_case. this_is_case op` by (qexists_tac `K T` \\ fs [])
   \\ rpt strip_tac \\ fs [] \\ Cases_on `op` \\ fs []

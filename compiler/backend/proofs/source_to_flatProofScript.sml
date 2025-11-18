@@ -935,6 +935,14 @@ Proof
   Cases_on `xs` \\ simp []
 QED
 
+Theorem do_test_lemma[local]:
+  do_test test ty v1 v2 = Eq_val b ∧
+  v_rel genv v1 w1 ∧ v_rel genv v2 w2 ⇒
+  do_test test ty w1 w2 = Eq_val b
+Proof
+  cheat
+QED
+
 val s_i1 = ``s_i1 : ('f_orac_st, 'ffi) flatSem$state``;
 val s1_i1 = mk_var ("s1_i1", type_of s_i1);
 
@@ -994,6 +1002,12 @@ Proof
       every_case_tac >>
       full_simp_tac(srw_ss())[] >>
       metis_tac [Boolv_11, do_eq, eq_result_11, eq_result_distinct, v_rel_lems])
+  >~ [‘Test test ty’] >- (
+      gvs [oneline semanticPrimitivesTheory.do_app_def,AllCaseEqs()]
+      \\ gvs [oneline flatSemTheory.do_app_def,AllCaseEqs()]
+      \\ rw [PULL_EXISTS] \\ gvs []
+      \\ drule_all do_test_lemma \\ fs []
+      \\ full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
   >~ [‘FP_cmp’] >- (
       rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       gvs[v_rel_eqns, result_rel_cases, v_rel_lems])

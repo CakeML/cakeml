@@ -727,7 +727,7 @@ Definition do_word_app_def:
        (if 0 ≤ n1 ∧ n1 < 256 ∧ 0 ≤ n2 ∧ n2 < 256 then
           (case test of
            | Equal => SOME (Boolv (n1 = n2))
-           | Less => SOME (Boolv (n1 < n1))
+           | Less => SOME (Boolv (n1 < n2))
            | _ => NONE)
         else NONE) /\
   do_word_app (WordShift W8 sh n) [Number i] =

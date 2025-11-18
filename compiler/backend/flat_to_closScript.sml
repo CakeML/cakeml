@@ -151,7 +151,7 @@ Definition compile_op_def:
     | Aw8xor_unsafe => Op t (MemOp XorByte) xs
     | VfromList => Op t (BlockOp (FromList 0)) xs
     | Test test test_ty =>
-         (case test_ty of
+         (dtcase test_ty of
           | BoolT => Op t (BlockOp (BoolTest test)) xs
           | CharT => Op t (WordOp (WordTest W8 test)) xs
           | WordT W8 => Op t (WordOp (WordTest W8 test)) xs
