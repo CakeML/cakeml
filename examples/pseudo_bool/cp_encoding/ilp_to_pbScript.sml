@@ -5,7 +5,7 @@ Theory ilp_to_pb
 Libs
   preamble
 Ancestors
-  ilp pbc pbc_encode int_bitwise cp cp_to_ilp;
+  ilp pbc pbc_encode int_bitwise cp cp_to_ilpImpl;
 
 Datatype:
   epb =
@@ -49,7 +49,7 @@ Definition encode_ivar_def:
   else (bits:('a,'b) epb lin_term)
 End
 
-Triviality iSUM_GENLIST_eq_SUM_GENLIST:
+Theorem iSUM_GENLIST_eq_SUM_GENLIST[local]:
   iSUM (GENLIST (λi. &(2 ** i) * b2i (f i)) h) =
   & (SUM (GENLIST (λi. if f i then 2 ** i else 0) h))
 Proof
@@ -70,7 +70,7 @@ Proof
   \\ gvs [] \\ gvs [bitTheory.BITS_SUC_THM,bitTheory.SBIT_def]
 QED
 
-Triviality LESS_EXP_MAX:
+Theorem LESS_EXP_MAX[local]:
   (k:num) < 2 ** MAX m n ⇔ k < 2 ** m ∨ k < 2 ** n
 Proof
   rw [MAX_DEF]
@@ -80,7 +80,7 @@ Proof
   \\ gvs []
 QED
 
-Triviality LESS_EQ_EXP_MAX:
+Theorem LESS_EQ_EXP_MAX[local]:
   (k:num) ≤ 2 ** MAX m n ⇔ k ≤ 2 ** m ∨ k ≤ 2 ** n
 Proof
   rw [MAX_DEF]
@@ -98,7 +98,7 @@ Proof
   \\ rw [] \\ gvs []
 QED
 
-Triviality bit_width_lemma1:
+Theorem bit_width_lemma1[local]:
   bit_width bnd X = (b,h) ∧ bnd X = (q,r) ∧ &n ≤ r ⇒ n < 2 ** h
 Proof
   strip_tac
@@ -111,7 +111,7 @@ Proof
   \\ irule_at Any LESS_LENGTH_bits_of_num \\ gvs []
 QED
 
-Triviality bit_width_lemma2:
+Theorem bit_width_lemma2[local]:
   bit_width bnd X = (T,h) ∧ bnd X = (q,r) ∧ q ≤ -&n ⇒
     n ≤ 2**h
 Proof
@@ -130,7 +130,7 @@ Proof
   \\ gvs [LESS_EQ_EXP_MAX]
 QED
 
-Triviality SUM_GENLIST_LE:
+Theorem SUM_GENLIST_LE[local]:
   ∀g h. SUM (GENLIST (λi. if g i then 2 ** i else 0) h) ≤ 2 ** h
 Proof
   gen_tac \\ Induct

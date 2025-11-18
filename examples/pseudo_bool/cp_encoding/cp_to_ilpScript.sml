@@ -153,7 +153,7 @@ Definition encode_eqs_def:
   FLAT (GENLIST (λi. encode_eq bnd X (&(i + 1))) n)
 End
 
-Triviality FORALL_LT:
+Theorem FORALL_LT[local]:
   (∀i. i < n ⇒ P (int_of_num (i + 1))) ⇔ (∀i. 1 ≤ i ∧ i ≤ n ⇒ P $ int_of_num i)
 Proof
   iff_tac>>
@@ -162,7 +162,7 @@ Proof
   fs[]
 QED
 
-Triviality FORALL_IMP_EQ = METIS_PROVE []
+Theorem FORALL_IMP_EQ[local] = METIS_PROVE []
   ``(∀x. P x ⇒ (Q x ⇔ R x)) ⇒ ((∀x. P x ⇒ Q x) ⇔ (∀x. P x ⇒ R x))``;
 
 Theorem encode_eqs_sem[simp]:
@@ -248,7 +248,7 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Triviality IMP_AND_LEFT:
+Theorem IMP_AND_LEFT[local]:
   (P ⇒ Q) ⇒
   (P ∧ Q ⇔ P)
 Proof
@@ -340,7 +340,7 @@ Definition encode_different_row_def:
 End
 
 (* recurrence equation for encode_all_different involving encode_different_row *)
-Theorem encode_all_different_row:
+Theorem encode_all_different_alt:
   (encode_all_different bnd [] = []) ∧
   (encode_all_different bnd (A::As) =
     encode_different_row bnd A As ++ encode_all_different bnd As)
@@ -348,20 +348,6 @@ Proof
   rw[encode_all_different_def,GENLIST_CONS,combinTheory.o_ABS_L,LT_SUC_LE]>>
   Induct_on ‘As’>>
   rw[encode_different_row_def,GENLIST_CONS,combinTheory.o_ABS_L]
-QED
-
-(* proposed alternative form of encode_all_different *)
-Definition encode_all_different_alt_def:
-  (encode_all_different_alt bnd [] = []) ∧
-  (encode_all_different_alt bnd (A::As) =
-    encode_different_row bnd A As ++ encode_all_different_alt bnd As)
-End
-
-Theorem encode_all_different_eq_alt:
-  encode_all_different bnd As = encode_all_different_alt bnd As
-Proof
-  Induct_on ‘As’>>
-  rw[encode_all_different_alt_def,encode_all_different_row]
 QED
 
 (***
@@ -401,13 +387,13 @@ Definition encode_element_var_def:
     FLAT (MAP (encode_element_eq bnd R X) (enumerate 0n As))
 End
 
-Triviality numint_le_2:
+Theorem numint_le_2[local]:
   (Num X ≤ Y ⇒ X ≤ &Y) ∧ (1 ≤ X ∧ X ≤ &Y ⇒ 1 ≤ Num X ∧ Num X ≤ Y)
 Proof
   intLib.ARITH_TAC
 QED
 
-Triviality varc_INL:
+Theorem varc_INL[local]:
   varc w (INL x) = w x
 Proof
   simp[varc_def]
@@ -661,7 +647,7 @@ Definition encode_element2d_vv_def:
     else [([],[],1)]
 End
 
-Triviality EVERY_enumerate2d:
+Theorem EVERY_enumerate2d[local]:
   0 < LENGTH Tss ∧ EVERY (λTs. LENGTH Ts = LENGTH (HD Tss)) Tss ⇒
   EVERY (λp. EVERY (λq. R (FST p) q) (SND p))
     (enumerate 0 (MAP (λTs. enumerate 0 Ts) Tss)) = (
@@ -1411,7 +1397,7 @@ Proof
   simp[GREATER_DEF,GSYM LE_LT1,LENGTH_FILTER_LEQ,LENGTH_FILTER_LEQ]
 QED
 
-Triviality reify_tuple_eq_aux:
+Theorem reify_tuple_eq_aux[local]:
   valid_assignment bnd wi ⇒ (
   LIST_REL (λX Y.
     (wb (INL (Ge X Y)) ⇔ wi X ≥ Y) ∧
