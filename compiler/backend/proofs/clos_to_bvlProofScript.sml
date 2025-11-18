@@ -1555,7 +1555,11 @@ Theorem do_app[local]:
      state_rel f s2 t2 /\
      (t1.refs = t2.refs) /\ (t1.code = t2.code)
 Proof
-  Cases_on `op = BlockOp ListAppend`
+  Cases_on `∃test. op = BlockOp (BoolTest test)`
+  >- cheat
+  \\ Cases_on `∃ws test. op = WordOp (WordTest ws test)`
+  >- cheat
+  \\ Cases_on `op = BlockOp ListAppend`
   >-
    (rw []
     \\ fs [do_app_def, closSemTheory.do_app_def, case_eq_thms, PULL_EXISTS]
@@ -1623,16 +1627,16 @@ Proof
     rw []) >>
   Cases_on `?tag. op = BlockOp (ConsExtend tag)`
   >- (
-    fs [closPropsTheory.do_app_cases_val] >>
-    fs [] >>
-    rw [do_app_def] >>
-    fs [v_rel_SIMP] >>
-    rw [] >>
-    imp_res_tac LIST_REL_LENGTH
-    >- intLib.ARITH_TAC >>
-    irule EVERY2_APPEND_suff >>
-    simp [] >>
-    metis_tac [EVERY2_TAKE, EVERY2_DROP]) >>
+    fs [closSemTheory.do_app_def,AllCaseEqs(),bvlSemTheory.do_app_def,PULL_EXISTS]
+    \\ rpt strip_tac \\ gvs []
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ gvs [v_rel_SIMP]
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ conj_tac
+    >- intLib.ARITH_TAC
+    \\ irule EVERY2_APPEND_suff
+    \\ simp []
+    \\ metis_tac [EVERY2_TAKE, EVERY2_DROP]) >>
   Cases_on `?l. op = BlockOp (LenEq l)`
   >- (
     fs [closSemTheory.do_app_def,bvlSemTheory.do_app_def,bvlSemTheory.do_eq_def] >>

@@ -504,6 +504,8 @@ Theorem data_to_bvi_do_app:
 Proof
   strip_tac
   \\ ‘∃this_is_case. this_is_case op’ by (qexists_tac ‘K T’ \\ fs [])
+  \\ Cases_on ‘∃test. op = BlockOp (BoolTest test)’ >- cheat
+  \\ Cases_on ‘∃ws test. op = WordOp (WordTest ws test)’ >- cheat
   \\ cases_on_op `op`
   >~ [`do_app (IntOp _)`]
   >- (fs[oneline bviSemTheory.do_app_def,
@@ -2371,4 +2373,3 @@ Proof
   \\ disch_then drule
   \\ simp[Abbr`e`]
 QED
-
