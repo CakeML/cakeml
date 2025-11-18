@@ -103,7 +103,7 @@ Definition all_assigned_list'_def:
         SOME F
     else
       assert (Num c < LENGTH dml)
-      if b <+ any_el (Num c) dml (b-1w)
+      if b <+ EL (Num c) dml
       then
         all_assigned_list' dml b v i1
       else SOME F
@@ -247,7 +247,7 @@ Definition delete_literals_sing_list'_def:
     else
       let nc = Num c in
       assert (nc < LENGTH dml)
-      (if b <+ any_el nc dml (b-1w)
+      (if b <+ EL nc dml
       then
         delete_literals_sing_list' dml b v i1
       else
@@ -527,9 +527,10 @@ Definition init_lit_map_list'_def:
     let i1 = i - 1 in
     assert (i1 < length v)
     let d = sub v i1 in
-    let (bb,nc) = (if d > 0 then (b+1w, d) else (b,-d)) in
-    init_lit_map_list' i1 v
-      (LUPDATE bb (Num nc) dml) b
+    let (bb,nc) = (if d > 0 then (b+1w, Num d) else (b,Num (-d))) in
+    assert (nc < LENGTH dml)
+    (init_lit_map_list' i1 v
+      (LUPDATE bb nc dml) b)
 End
 
 Theorem update_resize_LUPDATE:
@@ -541,8 +542,6 @@ QED
 
 Theorem init_lit_map_list':
   ∀i v dml b.
-  bnd_clause v (LENGTH dml) ∧
-  i ≤ length v ∧
   init_lit_map_list' i v dml b = SOME res ⇒
   init_lit_map_list i v dml b = res
 Proof
@@ -552,11 +551,7 @@ Proof
   fs[] >>
   first_x_assum irule>>
   DEP_REWRITE_TAC[update_resize_LUPDATE]>>
-  simp[]>>
-  drule_then irule bnd_clause_imp>>
-  first_x_assum $ irule_at Any>>
-  fs[]>>
-  intLib.ARITH_TAC
+  simp[]
 QED
 
 Theorem init_lit_map_list'_SOME:
@@ -567,90 +562,81 @@ Theorem init_lit_map_list'_SOME:
 Proof
   ho_match_mp_tac init_lit_map_list'_ind>>
   rpt gen_tac>>strip_tac>>
-  rw[Once init_lit_map_list'_def]
+  rw[Once init_lit_map_list'_def]>>
+  drule_then irule bnd_clause_imp>>
+  first_x_assum $ irule_at Any>>
+  fs[]>>
+  intLib.ARITH_TAC
 QED
 
-Definition sz_lit_map_list_def:
-  sz_lit_map_list i v m =
+Definition sz_lit_map_def:
+  sz_lit_map i v m =
   if i = 0
   then
     m
   else
     let i1 = i - 1 in
-    let d = Num (ABS (sub v i1)) in
+    let d = Num (ABS (sub_unsafe v i1)) in
     if d < m
     then
-      sz_lit_map_list i1 v m
+      sz_lit_map i1 v m
     else
-      sz_lit_map_list i1 v (d+1)
+      sz_lit_map i1 v (d+1)
 End
 
-Theorem sz_lit_map_list_inc:
+Theorem sz_lit_map_inc:
   ∀i v m.
-  m ≤ sz_lit_map_list i v m
+  m ≤ sz_lit_map i v m
 Proof
-  ho_match_mp_tac sz_lit_map_list_ind>>
+  ho_match_mp_tac sz_lit_map_ind>>
   rw[]>>
-  simp[Once sz_lit_map_list_def]
+  simp[Once sz_lit_map_def]
 QED
 
-Theorem sz_lit_map_list_bnd_clause:
+Theorem sub_unsafe_eq_sub:
+  sub_unsafe v n = sub v n
+Proof
+  simp[oneline mlvectorTheory.sub_unsafe_def,oneline mlvectorTheory.sub_def]
+QED
+
+Theorem sz_lit_map_bnd_clause':
   ∀i v m m'.
   i ≤ length v ∧
-  sz_lit_map_list i v m = m' ⇒
+  sz_lit_map i v m = m' ⇒
   ∀j. j < i ⇒
     Num (ABS (sub v j)) < m'
 Proof
-  ho_match_mp_tac sz_lit_map_list_ind>>
+  ho_match_mp_tac sz_lit_map_ind>>
   rw[]>>
-  simp[Once sz_lit_map_list_def]>>
-  rw[]>>gvs[]>>
+  simp[Once sz_lit_map_def]>>
+  rw[]>>gvs[sub_unsafe_eq_sub]>>
   Cases_on`j < i - 1`>>gvs[]>>
   `j = i -1` by fs[]>>
   gvs[]
   >- (
-    qspecl_then[`i-1`,`v`,`m`] assume_tac sz_lit_map_list_inc>>
+    qspecl_then[`i-1`,`v`,`m`] assume_tac sz_lit_map_inc>>
     fs[])>>
   rename1`Num mm`>>
-  qspecl_then[`i-1`,`v`,`Num mm + 1`] assume_tac sz_lit_map_list_inc>>
+  qspecl_then[`i-1`,`v`,`Num mm + 1`] assume_tac sz_lit_map_inc>>
   fs[]
 QED
 
-Definition sz_lit_map_list'_def:
-  sz_lit_map_list' i v m =
-  if i = 0
-  then
-    SOME m
-  else
-    let i1 = i - 1 in
-    assert (i1 < length v)
-    let d = Num (ABS (sub v i1)) in
-    if d < m
-    then
-      sz_lit_map_list' i1 v m
-    else
-      sz_lit_map_list' i1 v (d+1)
-End
-
-Theorem sz_lit_map_list':
-  ∀i v m.
-  sz_lit_map_list' i v m = SOME res ⇒
-  sz_lit_map_list i v m = res
+Theorem sz_lit_map_bnd_clause:
+  bnd_clause v (sz_lit_map (length v) v m)
 Proof
-  ho_match_mp_tac sz_lit_map_list_ind>>
-  rpt gen_tac>>strip_tac>>
-  rw[Once sz_lit_map_list_def,Once sz_lit_map_list'_def]>>
-  fs[]
+  rw[bnd_clause_def]>>
+  irule sz_lit_map_bnd_clause'>>
+  qexists_tac`length v`>>simp[]>>
+  metis_tac[]
 QED
 
-Theorem sz_lit_map_list'_SOME:
-  ∀i v m.
-  i ≤ length v ⇒
-  IS_SOME (sz_lit_map_list' i v m)
+Theorem bnd_clause_le:
+  bnd_clause v sz ∧ sz ≤ sz' ⇒
+  bnd_clause v sz'
 Proof
-  ho_match_mp_tac sz_lit_map_list'_ind>>
-  rpt gen_tac>>strip_tac>>
-  rw[Once sz_lit_map_list'_def]
+  rw[bnd_clause_def]>>
+  first_x_assum drule>>
+  gvs[]
 QED
 
 (* Automatically resize the dml if needed for the new clause
@@ -658,7 +644,7 @@ QED
 Definition prepare_rup_def:
   prepare_rup dml b v =
   let lv = length v in
-  let sz = sz_lit_map_list lv v 0 in
+  let sz = sz_lit_map lv v 0 in
   let (dml',b') = reset_dm_list dml b sz in
   let dml'' = init_lit_map_list lv v dml' b' in
     (dml'',b')
@@ -712,6 +698,14 @@ Proof
   rw[is_rup_list'_def,is_rup_list_def]>>
   gvs[UNCURRY_EQ,AllCaseEqs()]>>
   drule unit_prop_list'>>rw[]
+QED
+
+Theorem reset_dm_list_LENGTH:
+  reset_dm_list dml b sz = (dml',b') ⇒
+  LENGTH dml ≤ LENGTH dml' ∧ sz ≤ LENGTH dml'
+Proof
+  rw[reset_dm_list_def]>>
+  simp[LENGTH_REPLICATE]
 QED
 
 Theorem prepare_rup_LENGTH:
