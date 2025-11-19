@@ -8600,7 +8600,9 @@ Proof
           `t' = TL (DROP (num_stack_ret' + t1.stack_space) t1.stack)`
           by (LABEL_X_ASSUM "DROP_NOT_NIL" assume_tac >> TIDY_ABBREVS >> simp[]) >>
           LABEL_X_ASSUM "DROP_NOT_NIL" (assume_tac o SRULE[markerTheory.Abbrev_def]) >>
-          fs[] >>
+          reverse (fs[])
+          >- full_simp_tac(srw_ss())[LLOOKUP_THM,Excl "SUB_RIGHT_LESS",
+             LENGTH_TAKE_EQ_MIN] >>
           simp[LLOOKUP_THM,Excl"SUB_RIGHT_LESS"] >>
           DEP_REWRITE_TAC[EL_TAKE,EL_DROP,GSYM EL] >>
           rewrite_tac[CONJ_ASSOC] >>
