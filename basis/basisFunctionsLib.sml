@@ -61,7 +61,11 @@ fun prove_ref_spec op_name =
   reduce_tac \\ fs [app_ref_def, app_deref_def, app_assign_def] \\
   xsimpl \\ fs [UNIT_TYPE_def]
 
-(* Enables Quote cakeml: syntax*)
-val cakeml = append_prog o process_topdecs;
+(* Enables Quote foo = cakeml: syntax for getting parsed CakeML AST *)
+val cakeml = process_topdecs;
+
+(* Enables Quote add_cakeml: syntax for parsing then directly adding the result
+to the program being built. *)
+val add_cakeml = append_prog o process_topdecs;
 
 end

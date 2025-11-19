@@ -13,6 +13,7 @@ sig
     val append_prog       : term -> unit
     val prove_ref_spec    : string -> goal -> goal list * (thm list -> thm)
     val process_topdecs   : string quotation -> term
-    val cakeml            : string quotation -> unit
+    val cakeml            : string quotation -> term
+    val add_cakeml        : string quotation -> unit
 
 end

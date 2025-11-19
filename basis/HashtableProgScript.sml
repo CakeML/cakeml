@@ -42,7 +42,7 @@ val () = ml_prog_update(open_module "Hashtable");
 
 val _ = ml_prog_update open_local_block;
 
-Quote cakeml:
+Quote add_cakeml:
   datatype ('k, 'v) hashtable =
   Hashtable
     (int ref) (*Element counter*)
@@ -65,7 +65,7 @@ val _ = ml_prog_update open_local_in_block;
 val _ = ml_prog_update (add_dec
   ``Dtabbrev unknown_loc ["'a";"'b"] "hashtable" (Atapp [Atvar "'a"; Atvar "'b"] (Short "hashtable"))`` I);
 
-Quote cakeml:
+Quote add_cakeml:
   fun delete ht k =
     case ht of Hashtable usedRef bucketsRef hf _ =>
       let
@@ -83,7 +83,7 @@ Quote cakeml:
       end
 End
 
-Quote cakeml:
+Quote add_cakeml:
   fun lookup ht k =
     case ht of Hashtable usedRef bucketsRef hf cmp =>
       let
@@ -94,13 +94,13 @@ Quote cakeml:
     end
 End
 
-Quote cakeml:
+Quote add_cakeml:
   fun toAscList ht =
     case ht of Hashtable _ bucketsRef _ cmp =>
       Map.toAscList (Array.foldr Map.union (Map.empty cmp) (!bucketsRef))
 End
 
-Quote cakeml:
+Quote add_cakeml:
   fun size ht =
     case ht of Hashtable usedRef bucketsRef hf cmp =>
       !usedRef
@@ -108,13 +108,13 @@ End
 
 val _ = ml_prog_update open_local_block;
 
-Quote cakeml:
+Quote add_cakeml:
   fun initBuckets n cmp = Array.array n (Map.empty cmp)
 End
 
 val _ = ml_prog_update open_local_in_block;
 
-Quote cakeml:
+Quote add_cakeml:
   fun empty size hf cmp =
     ( Hashtable
       (Ref 0)
@@ -124,7 +124,7 @@ Quote cakeml:
     )
 End
 
-Quote cakeml:
+Quote add_cakeml:
   fun clear ht =
     case ht of Hashtable usedRef bucketsRef _ cmp =>
       (bucketsRef := initBuckets (Array.length (!bucketsRef)) cmp;
@@ -133,7 +133,7 @@ End
 
 val _ = ml_prog_update open_local_block;
 
-Quote cakeml:
+Quote add_cakeml:
   fun staticInsert ht k v =
     case ht of Hashtable usedRef bucketsRef hf cmp =>
       let
@@ -152,11 +152,11 @@ End
 val _ = ml_prog_update open_local_in_block;
 val _ = ml_prog_update open_local_block;
 
-Quote cakeml:
+Quote add_cakeml:
   fun insertList ht l = List.app (fn (k,v) => staticInsert ht k v) l
 End
 
-Quote cakeml:
+Quote add_cakeml:
   fun doubleCapacity ht =
     case ht of Hashtable usedRef bucketsRef _ cmp =>
       let
@@ -173,7 +173,7 @@ End
 val _ = ml_prog_update open_local_in_block;
 
 (*Load treshold values for insert function, default 3/4*)
-Quote cakeml:
+Quote add_cakeml:
   fun insert ht k v =
     case ht of Hashtable usedRef bucketsRef _ _ =>
       if (4*(!usedRef))<(3* (Array.length (!bucketsRef)))

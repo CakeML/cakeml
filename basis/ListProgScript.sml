@@ -116,7 +116,7 @@ val result = next_ml_names := ["mapi","mapPartial"];
 val result = translate MAPI_thm;
 val result = translate mapPartial_def;
 
-Quote cakeml:
+Quote add_cakeml:
   fun app f ls = case ls of [] => ()
     | (x::xs) => (f x; app f xs)
 End

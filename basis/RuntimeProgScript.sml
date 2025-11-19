@@ -43,11 +43,11 @@ val exit =
 
 val _ = append_prog exit
 
-Quote cakeml:
+Quote add_cakeml:
   fun abort u = case u of () => exit 1
 End
 
-Quote cakeml:
+Quote add_cakeml:
   fun assert cond msg =
     if cond
     then ()

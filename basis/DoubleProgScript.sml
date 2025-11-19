@@ -99,7 +99,7 @@ End
 
 val _ = translate is_0_byte_def;
 
-Quote cakeml:
+Quote add_cakeml:
   fun read_bytes offset =
     let
       val a = Word8Array.sub bytes offset;
@@ -115,7 +115,7 @@ Quote cakeml:
     end
 End
 
-Quote cakeml:
+Quote add_cakeml:
   fun write_bytes offset d =
     let
       val _ = Word8Array.update bytes offset (byte_0 d);
@@ -151,7 +151,7 @@ val _ = append_prog
  * ------------------------------------------------------------------------- *)
 
 (* 0: Double.fromString *)
-Quote cakeml:
+Quote add_cakeml:
   fun fromString s =
     let
       val _ = #(double_fromString) (preparestring s) bytes;
@@ -165,7 +165,7 @@ Quote cakeml:
 End
 
 (* 1: Double.toString *)
-Quote cakeml:
+Quote add_cakeml:
   fun toString d =
     let
       val _ = write_bytes 0 (toWord d)
@@ -177,7 +177,7 @@ Quote cakeml:
 End
 
 (* 2: Double.fromInt *)
-Quote cakeml:
+Quote add_cakeml:
   fun fromInt n =
     let
       val _ = write_bytes 0 (Word64.fromInt n)
@@ -188,7 +188,7 @@ Quote cakeml:
 End
 
 (* 3: Double.toInt *)
-Quote cakeml:
+Quote add_cakeml:
   fun toInt d =
     let
       val _ = write_bytes 0 (toWord d)
@@ -199,7 +199,7 @@ Quote cakeml:
 End
 
 (* 4: Double.pow *)
-Quote cakeml:
+Quote add_cakeml:
   fun pow x y =
     let
       val _ = write_bytes 0 (toWord x)
@@ -211,7 +211,7 @@ Quote cakeml:
 End
 
 (* 5: Double.ln *)
-Quote cakeml:
+Quote add_cakeml:
   fun ln d =
     let
       val _ = write_bytes 0 (toWord d)
@@ -222,7 +222,7 @@ Quote cakeml:
 End
 
 (* 6: Double.exp *)
-Quote cakeml:
+Quote add_cakeml:
   fun exp d =
     let
       val _ = write_bytes 0 (toWord d)
@@ -233,7 +233,7 @@ Quote cakeml:
 End
 
 (* 7: Double.floor *)
-Quote cakeml:
+Quote add_cakeml:
   fun floor d =
     let
       val _ = write_bytes 0 (toWord d)

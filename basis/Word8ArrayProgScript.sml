@@ -34,7 +34,7 @@ val _ = append_decs
 
 val _ = ml_prog_update open_local_block;
 
-Quote cakeml:
+Quote add_cakeml:
   fun findi_aux f arr max n =
     if n = max
       then None
@@ -45,7 +45,7 @@ End
 
 val _ = ml_prog_update open_local_in_block;
 
-Quote cakeml:
+Quote add_cakeml:
   fun findi f arr =
     findi_aux f arr (length arr) 0
 End
