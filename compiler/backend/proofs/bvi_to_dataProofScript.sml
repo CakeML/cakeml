@@ -486,6 +486,13 @@ Proof
   \\ rw [FLOOKUP_UPDATE,data_to_bvi_ref_def,lookup_insert]
 QED
 
+Theorem data_to_bvi_v_Boolv_IMP[local]:
+  data_to_bvi_v x0 = Boolv b ⇒  dest_Boolv x0 = SOME b
+Proof
+  rw [bvlSemTheory.Boolv_def,dataSemTheory.dest_Boolv_def]
+  \\ Cases_on ‘b’ \\ simp [] \\ EVAL_TAC
+QED
+
 fun cases_on_op q = Cases_on q
   >>> TRY_LT (SELECT_LT_THEN (Q.RENAME_TAC [‘BlockOp b_’]) (Cases_on `b_`))
   >>> TRY_LT (SELECT_LT_THEN (Q.RENAME_TAC [‘GlobOp g_’]) (Cases_on `g_`))
@@ -504,9 +511,16 @@ Theorem data_to_bvi_do_app:
 Proof
   strip_tac
   \\ ‘∃this_is_case. this_is_case op’ by (qexists_tac ‘K T’ \\ fs [])
-  \\ Cases_on ‘∃test. op = BlockOp (BoolTest test)’ >- cheat
-  \\ Cases_on ‘∃ws test. op = WordOp (WordTest ws test)’ >- cheat
   \\ cases_on_op `op`
+  >~ [`do_app (BlockOp (BoolTest test))`]
+  >- (fs[oneline bviSemTheory.do_app_def,
+      oneline bviSemTheory.do_app_aux_def,
+      bvlSemTheory.do_app_def,
+      oneline bvlSemTheory.do_word_app_def] >>
+      rw[AllCaseEqs()] >>
+      gvs[NULL_EQ_NIL,MAP_EQ_CONS]>>
+      simp[do_app_aux_def,do_word_app_def,bvl_to_bvi_id] >>
+      imp_res_tac data_to_bvi_v_Boolv_IMP >> fs [])
   >~ [`do_app (IntOp _)`]
   >- (fs[oneline bviSemTheory.do_app_def,
       oneline bviSemTheory.do_app_aux_def,

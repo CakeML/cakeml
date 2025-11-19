@@ -1556,9 +1556,16 @@ Theorem do_app[local]:
      (t1.refs = t2.refs) /\ (t1.code = t2.code)
 Proof
   Cases_on `∃test. op = BlockOp (BoolTest test)`
-  >- cheat
+  >-
+   (gvs [closSemTheory.do_app_def,AllCaseEqs()] \\ rw []
+    \\ gvs [bvlSemTheory.do_app_def])
   \\ Cases_on `∃ws test. op = WordOp (WordTest ws test)`
-  >- cheat
+  >-
+   (fs [] \\ Cases_on ‘ws’ \\ Cases_on ‘test’
+    \\ gvs [closSemTheory.do_app_def,AllCaseEqs()] \\ rw []
+    \\ gvs [oneline closSemTheory.do_word_app_def,AllCaseEqs()] \\ rw []
+    \\ gvs [v_rel_SIMP,bvlSemTheory.do_app_def]
+    \\ gvs [bvlSemTheory.do_word_app_def])
   \\ Cases_on `op = BlockOp ListAppend`
   >-
    (rw []
@@ -1803,13 +1810,6 @@ val v_case_eq_thms =
     prove_case_eq_thm{nchotomy = closSemTheory.v_nchotomy, case_def = closSemTheory.v_case_def},
     prove_case_eq_thm{nchotomy = bvlSemTheory.v_nchotomy, case_def = bvlSemTheory.v_case_def}];
 
-val clos_do_app_case_eqs = closSemTheory.do_app_def |> concl
-  |> find_terms (can TypeBase.dest_case)
-  |> map (type_of o #2 o TypeBase.dest_case)
-  |> Redblackset.fromList Type.compare
-  |> Redblackset.listItems
-  |> map (TypeBasePure.case_eq_of o Option.valOf o TypeBase.fetch);
-
 Theorem do_app_err[local]:
   do_app op xs s1 = Rerr err ∧
    err ≠ Rabort Rtype_error ∧
@@ -1823,22 +1823,16 @@ Proof
     (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []) >>
   Cases_on `?tag. op = BlockOp (ConsExtend tag)`
   >- (
-    Cases_on `err` >>
-    rw [closPropsTheory.do_app_cases_err] >>
-    fs ([closSemTheory.do_app_def] @ clos_do_app_case_eqs)
+    Cases_on `err` >> gvs [] >> rw []
+    >> gvs [closSemTheory.do_app_def,AllCaseEqs(),do_app_def]
   )
   \\ Cases_on `?n. op = FFI n`
-  >- (Cases_on `err`
-      >> rw [closPropsTheory.do_app_cases_err]
-      >> fs ([closSemTheory.do_app_def] @ clos_do_app_case_eqs)
-      >> rveq >> fs [] >> rveq >> fs []
-      >> drule(GEN_ALL state_rel_refs_lookup) >> strip_tac
-      >> simp[Once do_app_def] >> fs[v_rel_SIMP]
-      >> first_x_assum drule >> disch_then drule
-      >> strip_tac >> simp[]
-      >> fs[ref_rel_simp]
+  >- (Cases_on `err` >> gvs [] >> rw []
+      >> gvs [closSemTheory.do_app_def,AllCaseEqs(),do_app_def,v_rel_SIMP]
+      >> simp [PULL_EXISTS]
       >> rfs[state_rel_def]
-      >> fs [])
+      >> res_tac
+      >> gvs[ref_rel_simp])
   \\ cases_on_op `op`
   \\ srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def]
   \\ TRY (fs[case_eq_thms,bool_case_eq,v_case_eq_thms] \\ NO_TAC)

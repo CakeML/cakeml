@@ -1183,7 +1183,13 @@ Proof
   \\ simp [case_eq_thms, bool_case_eq, pair_case_eq]
   \\ simp_tac bool_ss [PULL_EXISTS, DISJ_IMP_THM, FORALL_AND_THM]
   \\ Cases_on ‘∃test ty. op = Test test ty’
-  >- (gvs [PULL_EXISTS,do_app_def,AllCaseEqs()] \\ cheat)
+  >-
+   (gvs [PULL_EXISTS,do_app_def,AllCaseEqs()] \\ rw []
+    \\ qexists_tac ‘b’ \\ conj_tac >- gvs [Boolv_def]
+    \\ gvs [AllCaseEqs(), oneline do_test_def,PULL_EXISTS]
+    \\ gvs [oneline dest_Litv_def, AllCaseEqs()]
+    \\ Cases_on ‘ty’ \\ TRY (rename [‘WordT ws’] \\ Cases_on ‘ws’)
+    \\ gvs [check_type_def,Boolv_def])
   \\ Cases_on ‘∃t. op = ThunkOp t’
   >-
    (gvs [] \\ gvs [AllCaseEqs()] \\ rw [] \\ gvs [do_app_def]
