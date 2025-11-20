@@ -12,8 +12,6 @@ Libs
 Datatype:
   sem_env =
   <|
-    (* Determines whether evaluate is actually running; relevant for Forall *)
-    is_running : bool;
     (* Store functions and methods *)
     prog : program
   |>;
@@ -74,8 +72,7 @@ Datatype:
 End
 
 Definition mk_env_def:
-  mk_env is_running program =
-    <| is_running := is_running; prog := program |>
+  mk_env program = <| prog := program |>
 End
 
 Definition get_member_aux_def:

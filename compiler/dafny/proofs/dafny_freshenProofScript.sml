@@ -35,7 +35,6 @@ End
 
 Definition env_rel_def:
   env_rel env env' ⇔
-    env'.is_running = env.is_running ∧
     env'.prog = freshen_program env.prog
 End
 
@@ -904,8 +903,6 @@ Proof
        \\ irule map_inv_mono
        \\ last_assum $ irule_at (Pos last) \\ simp [])
     \\ simp [evaluate_exp_def]
-    \\ ‘env'.is_running = env.is_running’ by (gvs [env_rel_def])
-    \\ IF_CASES_TAC \\ gvs []
     \\ rewrite_tac [GSYM AND_IMP_INTRO] \\ strip_tac \\ gvs []
     \\ gvs [eval_forall_def]
     \\ IF_CASES_TAC \\ gvs []
@@ -974,8 +971,6 @@ Proof
     \\ rpt (pairarg_tac \\ gvs [])
     \\ rename [‘freshen_exp _ _ _ _ _ = (cnt₁, _)’]
     \\ gvs [evaluate_exp_def]
-    \\ ‘env'.is_running = env.is_running’ by (gvs [env_rel_def]) \\ gvs []
-    \\ IF_CASES_TAC \\ gvs []
     \\ namedCases_on ‘evaluate_exp (use_old s) env e’ ["s₁ r"] \\ gvs []
     \\ last_x_assum $ drule_at (Pos last)
     \\ disch_then $ drule_at (Pos last)
@@ -996,7 +991,6 @@ Proof
     \\ impl_tac >-
      (gvs [state_rel_def, use_old_heap_def])
     \\ rpt strip_tac \\ simp [evaluate_exp_def]
-    \\ ‘env'.is_running = env.is_running’ by (gvs [env_rel_def]) \\ gvs []
     \\ gvs [state_rel_def, unuse_old_heap_def])
   >~ [‘Prev e’] >-
    (gvs [evaluate_exp_def, freshen_exp_def, AllCaseEqs()]
@@ -1008,7 +1002,6 @@ Proof
     \\ impl_tac >-
       (gvs [state_rel_def, use_prev_def])
     \\ rpt strip_tac \\ simp [evaluate_exp_def]
-    \\ ‘env'.is_running = env.is_running’ by (gvs [env_rel_def]) \\ gvs []
     \\ gvs [state_rel_def, unuse_prev_def]
     \\ irule map_inv_mono
     \\ last_assum $ irule_at (Pos last)
@@ -1022,7 +1015,6 @@ Proof
     \\ impl_tac >-
       (gvs [state_rel_def, use_prev_heap_def])
     \\ rpt strip_tac \\ simp [evaluate_exp_def]
-    \\ ‘env'.is_running = env.is_running’ by (gvs [env_rel_def]) \\ gvs []
     \\ gvs [state_rel_def, unuse_prev_heap_def])
   >~ [‘SetPrev e’] >-
    (gvs [evaluate_exp_def, freshen_exp_def, AllCaseEqs()]
@@ -1033,7 +1025,6 @@ Proof
     \\ impl_tac >-
       (gvs [state_rel_def, set_prev_def])
     \\ rpt strip_tac \\ simp [evaluate_exp_def]
-    \\ ‘env'.is_running = env.is_running’ by (gvs [env_rel_def]) \\ gvs []
     \\ gvs [state_rel_def, unset_prev_def]
     \\ irule map_inv_mono
     \\ last_assum $ irule_at (Pos last)
@@ -1104,8 +1095,6 @@ Proof
     \\ rename [‘freshen_exps _ _ _ _ _ = (cnt₁, mods')’,
                ‘freshen_exp _ _ _ _ _ = (cnt₂, term')’]
     \\ gvs [evaluate_exp_def]
-    \\ ‘env'.is_running = env.is_running’ by (gvs [env_rel_def])
-    \\ IF_CASES_TAC \\ gvs []
     \\ namedCases_on ‘evaluate_exps s env mods’ ["s₁ r₁"] \\ gvs []
     \\ ‘r₁ ≠ Rerr Rtype_error’ by (Cases_on ‘r₁’ \\ gvs []) \\ gvs []
     \\ first_x_assum drule_all
@@ -1638,14 +1627,15 @@ Proof
    (gvs [evaluate_stmt_def, freshen_stmt_def]
     \\ rpt (pairarg_tac \\ gvs [])
     \\ gvs [evaluate_stmt_def]
-    \\ ‘env'.is_running = env.is_running’ by gvs [env_rel_def] \\ gvs []
-    \\ Cases_on ‘env.is_running’ \\ gvs []
-    >- (imp_res_tac freshen_exp_mono \\ imp_res_tac state_rel_mono)
     \\ namedCases_on ‘evaluate_exp s env e’ ["s₁ r"] \\ gvs []
-    \\ namedCases_on ‘r’ ["v", "err"] \\ gvs []
-    \\ drule (cj 1 correct_freshen_exp) \\ gvs [] \\ disch_then drule_all
-    \\ rpt strip_tac \\ gvs []
-    \\ IF_CASES_TAC \\ gvs [])
+    \\ ‘r ≠ Rerr Rtype_error’ by (Cases_on ‘r’ \\ gvs [])
+    \\ drule (cj 1 correct_freshen_exp) \\ gvs []
+    \\ disch_then drule_all \\ rpt strip_tac \\ gvs []
+    \\ ‘s' = s’ by (gvs [AllCaseEqs()]) \\ gvs []
+    \\ qexists ‘t’
+    \\ conj_tac
+    >- (gvs [AllCaseEqs()])
+    >- (imp_res_tac freshen_exp_mono \\ imp_res_tac state_rel_mono))
   \\ gvs [evaluate_stmt_def, freshen_stmt_def]
 QED
 
@@ -1671,9 +1661,9 @@ QED
 (* Correctness of the freshen pass. *)
 Theorem correct_freshen_program:
   ∀ck is_running prog s r.
-    evaluate_program ck is_running prog = (s, r) ∧
+    evaluate_program ck prog = (s, r) ∧
     r ≠ Rstop (Serr Rtype_error) ⇒
-    evaluate_program ck is_running (freshen_program prog) = (s, r)
+    evaluate_program ck (freshen_program prog) = (s, r)
 Proof
   rpt strip_tac
   \\ namedCases_on ‘prog’ ["members"]
@@ -1685,8 +1675,8 @@ Proof
   \\ ‘freshen_stmt [] [] [] 0 (MetCall [] «Main» []) = (0, MetCall [] «Main» [])’ by
        gvs [freshen_stmt_def, freshen_lhs_exps_def, freshen_exp_def]
   \\ ‘env_rel
-        (mk_env is_running (Program members))
-        (mk_env is_running (Program (MAP freshen_member members)))’ by
+        (mk_env (Program members))
+        (mk_env (Program (MAP freshen_member members)))’ by
     (gvs [freshen_program_def, env_rel_def, mk_env_def])
   \\ drule_all correct_freshen_stmt
   \\ rpt strip_tac \\ gvs []

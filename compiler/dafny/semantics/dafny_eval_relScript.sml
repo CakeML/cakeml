@@ -261,11 +261,10 @@ Theorem eval_stmt_Assert:
   eval_stmt st env (Assert e) st Rcont
 Proof
   strip_tac
-  \\ gvs [eval_stmt_def, evaluate_stmt_def]
-  \\ Cases_on ‘env.is_running’ \\ simp []
-  >- (gvs [state_component_equality])
-  \\ gvs [eval_true_def, eval_exp_def, AllCaseEqs()]
+  \\ gvs [eval_stmt_def, evaluate_stmt_def, eval_true_def, eval_exp_def,
+          AllCaseEqs()]
   \\ last_assum $ irule_at (Pos hd)
+  \\ simp [state_component_equality]
 QED
 
 Theorem eval_stmt_Return:
@@ -460,7 +459,7 @@ Proof
 QED
 
 Theorem eval_exp_old_eq_not_old:
-  st.locals_old = st.locals ∧ st.heap_old = st.heap ∧ ¬env.is_running ⇒
+  st.locals_old = st.locals ∧ st.heap_old = st.heap ⇒
   eval_exp st env (Old e) v = eval_exp st env e v
 Proof
   rpt strip_tac

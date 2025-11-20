@@ -24,10 +24,12 @@ Proof
 QED
 
 Theorem has_main_freshen[local]:
-  has_main (Program (MAP freshen_member members)) =
-  has_main (Program members)
+  has_main (freshen_program prog) =
+  has_main prog
 Proof
-  Induct_on ‘members’ \\ simp []
+  simp [oneline freshen_program_def]
+  \\ CASE_TAC \\ rename [‘MAP freshen_member members’]
+  \\ Induct_on ‘members’ \\ simp []
   \\ qx_gen_tac ‘member’
   \\ gvs [has_main_def, get_member_def, get_member_aux_def]
   \\ Cases_on ‘member’ \\ simp [freshen_member_def]
@@ -45,19 +47,21 @@ Definition valid_members_def:
 End
 
 Theorem map_freshen_member_is_fresh[local]:
-  EVERY (λmember. ALL_DISTINCT (get_param_names member)) members ⇒
+  valid_members (Program members) ⇒
   EVERY is_fresh_member (MAP freshen_member members)
 Proof
-  Induct_on ‘members’ \\ simp []
+  simp [valid_members_def]
+  \\ Induct_on ‘members’ \\ simp []
   \\ rpt strip_tac
   \\ irule freshen_member_is_fresh \\ simp []
 QED
 
 Theorem map_freshen_member_no_shadow_method[local]:
-  EVERY (λmember. ALL_DISTINCT (get_param_names member)) members ⇒
+  valid_members (Program members) ⇒
   EVERY no_shadow_method (MAP freshen_member members)
 Proof
-  Induct_on ‘members’ \\ simp []
+  simp [valid_members_def]
+  \\ Induct_on ‘members’ \\ simp []
   \\ rpt strip_tac
   \\ irule no_shadow_method_freshen_member \\ simp []
 QED
@@ -106,20 +110,106 @@ Proof
   gvs [cml_init_state_def]
 QED
 
-(* TODO I suspect valid_members is not strictly necessary *)
+(* -- TODO Move to appropriate place -- *)
+Definition remove_assert_stmt_def:
+  remove_assert_stmt = I
+End
+
+Definition remove_assert_member_def:
+  remove_assert_member (Method name ins req ens reads decreases outs mod body) =
+    Method name ins req ens reads decreases outs mod (remove_assert_stmt body) ∧
+  remove_assert_member member = member
+End
+
+Definition remove_assert_def:
+  remove_assert (Program members) =
+    Program (MAP remove_assert_member members)
+End
+
+Definition compile_def:
+  compile dfy = from_program $ freshen_program $ remove_assert dfy
+End
+
+open dafny_evaluateTheory;
+Theorem all_distinct_member_name_remove_assert[local]:
+  ¬ALL_DISTINCT (MAP member_name (MAP remove_assert_member members)) =
+  ¬ALL_DISTINCT (MAP member_name members)
+Proof
+  cheat
+QED
+
+Definition env_rel_def:
+  env_rel env env' ⇔
+    env'.prog = remove_assert env.prog
+End
+
+Theorem correct_remove_assert_stmt:
+  ∀s env stmt s' env'.
+    evaluate_stmt s env stmt = (s', Rcont) ∧ env_rel env env' ⇒
+    evaluate_stmt s env' (remove_assert_stmt stmt) = (s', Rcont)
+Proof
+  ho_match_mp_tac evaluate_stmt_ind \\ rpt strip_tac
+  \\ cheat
+QED
+
+Theorem correct_remove_assert:
+  evaluate_program ck prog = (s,Rcont) ⇒
+  evaluate_program ck (remove_assert prog) = (s,Rcont)
+Proof
+  namedCases_on ‘prog’ ["members"]
+  \\ simp [remove_assert_def, evaluate_program_def]
+  \\ simp [all_distinct_member_name_remove_assert]
+  \\ IF_CASES_TAC \\ simp []
+  \\ simp [mk_env_def]
+  \\ cheat
+QED
+
+Theorem has_main_remove_assert[local]:
+  has_main (remove_assert prog) = has_main prog
+Proof
+  cheat
+QED
+
+Theorem valid_members_remove_assert[local]:
+  valid_members prog ⇒ valid_members (remove_assert prog)
+Proof
+  cheat
+QED
+
+Definition no_assert_def:
+  no_assert (Program members) = EVERY no_assert_member members
+End
+
+Theorem remove_assert_no_assert[local]:
+  ∀prog. no_assert (remove_assert prog)
+Proof
+  cheat
+QED
+
+Theorem no_assert_freshen[local]:
+  no_assert prog ⇒ no_assert (freshen_program prog)
+Proof
+  cheat
+QED
+
+(* -- * -- *)
+
+
 Theorem correct_compile:
-  ∀dfy_ck prog s' r_dfy cml_decs (ffi: 'ffi ffi_state).
-    evaluate_program dfy_ck T prog = (s', r_dfy) ∧
-    r_dfy ≠ Rstop (Serr Rtype_error) ∧
+  ∀dfy_ck prog s cml_decs (ffi: 'ffi ffi_state).
+    evaluate_program dfy_ck prog = (s, Rcont) ∧
     compile prog = INR cml_decs ∧
-    has_main prog ∧ valid_members prog
+    (* TODO Can we infer this from evaluate_program now? *)
+    has_main prog ∧
+    (* TODO Shouldn't freshen already guarantee this? *)
+    valid_members prog
     ⇒
     ∃ck t' m' r_cml.
       evaluate_decs
         (cml_init_state ffi (dfy_ck + ck))
         (cml_init_env ffi) cml_decs = (t', r_cml) ∧
-      state_rel m' FEMPTY s' t' (cml_init_env ffi) ∧
-      stmt_res_rel r_dfy r_cml
+      state_rel m' FEMPTY s t' (cml_init_env ffi) ∧
+      stmt_res_rel Rcont r_cml
 Proof
   rpt strip_tac
   \\ rewrite_tac [cml_init_state_extra_clock]
@@ -129,10 +219,24 @@ Proof
   \\ simp [cml_init_state_clock]
   \\ fs [compile_def]
   \\ last_assum $ irule_at (Pos last)
-  \\ irule_at (Pos last) correct_freshen_program \\ simp []
-  \\ namedCases_on ‘prog’ ["members"]
-  \\ simp [valid_prog_def, freshen_program_def, has_main_freshen]
-  \\ irule_at (Pos hd) map_freshen_member_is_fresh
-  \\ irule_at (Pos last) map_freshen_member_no_shadow_method
-  \\ fs [valid_members_def]
+  \\ conj_tac
+  >- (* valid_prog *)
+   ((* has_main preserved *)
+    drule_then assume_tac (iffRL has_main_remove_assert)
+    \\ drule_then assume_tac (iffRL has_main_freshen)
+    (* valid_members preserved *)
+    \\ drule_then assume_tac valid_members_remove_assert
+    (* no_assert *)
+    \\ qspec_then ‘prog’ assume_tac remove_assert_no_assert
+    \\ drule_then assume_tac no_assert_freshen
+    (* start proving valid_prog *)
+    \\ namedCases_on ‘prog’ ["members"]
+    \\ gvs [valid_prog_def, freshen_program_def, remove_assert_def]
+    \\ rpt strip_tac
+    >- (irule map_freshen_member_is_fresh \\ simp [])
+    >- (irule map_freshen_member_no_shadow_method \\ simp [])
+    >- (fs [no_assert_def]))
+  >- (* evaluate_prog *)
+   (irule correct_freshen_program \\ simp []
+    \\ irule correct_remove_assert \\ simp [])
 QED

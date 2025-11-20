@@ -106,29 +106,23 @@ Definition evaluate_exp_ann_def[nocompute]:
                   | (st₃, Rval v) =>
                       (restore_caller st₃ st₁, Rval v))))))) ∧
   evaluate_exp st env (Forall (vn, vt) e) =
-  (if env.is_running then (st, Rerr Rtype_error) else
-   let eval = (λv. evaluate_exp (push_local st vn v) env e) in
+  (let eval = (λv. evaluate_exp (push_local st vn v) env e) in
      (st, eval_forall (all_values vt) eval)) ∧
   evaluate_exp st env (Old e) =
-  (if env.is_running then (st, Rerr Rtype_error) else
-   (case evaluate_exp (use_old st) env e of
-    | (st₁, r) => (unuse_old st₁ st, r))) ∧
+  (case evaluate_exp (use_old st) env e of
+   | (st₁, r) => (unuse_old st₁ st, r)) ∧
   evaluate_exp st env (OldHeap e) =
-  (if env.is_running then (st, Rerr Rtype_error) else
-   (case evaluate_exp (use_old_heap st) env e of
-    | (st₁, r) => (unuse_old_heap st₁ st, r))) ∧
+  (case evaluate_exp (use_old_heap st) env e of
+   | (st₁, r) => (unuse_old_heap st₁ st, r)) ∧
   evaluate_exp st env (Prev e) =
-  (if env.is_running then (st, Rerr Rtype_error) else
-   (case evaluate_exp (use_prev st) env e of
-    | (st₁, r) => (unuse_prev st₁ st, r))) ∧
+  (case evaluate_exp (use_prev st) env e of
+   | (st₁, r) => (unuse_prev st₁ st, r)) ∧
   evaluate_exp st env (PrevHeap e) =
-  (if env.is_running then (st, Rerr Rtype_error) else
-   (case evaluate_exp (use_prev_heap st) env e of
-    | (st₁, r) => (unuse_prev_heap st₁ st, r))) ∧
+  (case evaluate_exp (use_prev_heap st) env e of
+   | (st₁, r) => (unuse_prev_heap st₁ st, r)) ∧
   evaluate_exp st env (SetPrev e) =
-  (if env.is_running then (st, Rerr Rtype_error) else
-   (case evaluate_exp (set_prev st) env e of
-    | (st₁, r) => (unset_prev st₁ st, r))) ∧
+  (case evaluate_exp (set_prev st) env e of
+   | (st₁, r) => (unset_prev st₁ st, r)) ∧
   evaluate_exp st env (Let vars body) =
   (let (names, rhss) = UNZIP vars in
    if ¬ALL_DISTINCT names
@@ -144,8 +138,7 @@ Definition evaluate_exp_ann_def[nocompute]:
           | NONE => (st₂, Rerr Rtype_error)  (* unreachable *)
           | SOME st₃ => (st₃, res))))) ∧
   evaluate_exp st env (ForallHeap mods body) =
-  (if env.is_running then (st, Rerr Rtype_error) else
-   case fix_clock st (evaluate_exps st env mods) of
+  (case fix_clock st (evaluate_exps st env mods) of
    | (st₁, Rerr err) => (st₁, Rerr err)
    | (st₁, Rval vs) =>
      case get_locs vs of
@@ -329,13 +322,11 @@ End
 Definition evaluate_stmt_ann_def[nocompute]:
   evaluate_stmt st env Skip = (st, Rcont) ∧
   evaluate_stmt st₀ env (Assert e) =
-  (* When a program is running, we want to ignore asserts. *)
-  (if env.is_running then (st₀, Rcont) else
   (case evaluate_exp st₀ env e of
-   | (st₁, Rerr err) => (st₁, Rstop (Serr err))
+   | (st₁, Rerr err) => (st₀, Rstop (Serr err))
    | (st₁, Rval vs) =>
-       if vs = BoolV T then (st₁, Rcont)
-       else (st₁, Rstop (Serr Rtype_error)))) ∧
+       if vs = BoolV T then (st₀, Rcont)
+       else (st₀, Rstop (Serr Rtype_error))) ∧
   evaluate_stmt st₀ env (Then stmt₁ stmt₂) =
   (case fix_clock st₀ (evaluate_stmt st₀ env stmt₁) of
    | (st₁, Rstop stp) => (st₁, Rstop stp)
@@ -452,10 +443,10 @@ Theorem evaluate_stmt_ind =
   REWRITE_RULE [fix_clock_evaluate_stmt] evaluate_stmt_ann_ind
 
 Definition evaluate_program_def:
-  evaluate_program ck is_running (Program members) =
+  evaluate_program ck (Program members) =
   if ¬ALL_DISTINCT (MAP member_name members)
   then (init_state ck, Rstop (Serr Rtype_error))
   else
-    evaluate_stmt (init_state ck) (mk_env is_running (Program members))
+    evaluate_stmt (init_state ck) (mk_env (Program members))
       (MetCall [] «Main» [])
 End

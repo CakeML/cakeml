@@ -360,6 +360,24 @@ Definition dest_program_def:
   dest_program (Program members) = members
 End
 
+
+(* assert-statements should be ignored by the compiler *)
+Definition no_assert_stmt_def:
+  (no_assert_stmt (Assert _) ⇔ F) ∧
+  (no_assert_stmt (Then stmt₁ stmt₂) ⇔
+     no_assert_stmt stmt₁ ∧ no_assert_stmt stmt₂) ∧
+  (no_assert_stmt (If _ stmt₁ stmt₂) ⇔
+     no_assert_stmt stmt₁ ∧ no_assert_stmt stmt₂) ∧
+  (no_assert_stmt (Dec _ body) ⇔ no_assert_stmt body) ∧
+  (no_assert_stmt (While _ _ _ _ body) ⇔ no_assert_stmt body) ∧
+  (no_assert_stmt _ ⇔ T)
+End
+
+Definition no_assert_member_def:
+  (no_assert_member (Method _ _ _ _ _ _ _ _ stmt) = no_assert_stmt stmt) ∧
+  (no_assert_member _ = T)
+End
+
 Inductive callable_rel:
   get_member name prog = SOME member ∧
   result_mmap from_member_decl (dest_program prog) = INR cml_funs ∧
@@ -374,7 +392,6 @@ End
 
 Definition env_rel_def:
   env_rel env_dfy env_cml ⇔
-    env_dfy.is_running ∧
     has_cons env_cml.c ∧
     (∃clos_env.
        nsLookup env_cml.v (Short cml_int_to_string_name) =
@@ -384,6 +401,7 @@ Definition env_rel_def:
       get_member name env_dfy.prog = SOME member ⇒
       is_fresh_member member ∧
       no_shadow_method member ∧
+      no_assert_member member ∧
       ∃reclos.
         nsLookup env_cml.v (Short ("dfy_" ++ (explode name))) = SOME reclos ∧
         callable_rel env_dfy.prog name reclos
@@ -879,7 +897,7 @@ QED
 Theorem env_rel_nsLookup[local]:
   env_rel env_dfy env_cml ∧
   get_member name env_dfy.prog = SOME member ⇒
-  is_fresh_member member ∧ no_shadow_method member ∧
+  is_fresh_member member ∧ no_shadow_method member ∧ no_assert_member member ∧
   ∃reclos.
     nsLookup env_cml.v (Short ("dfy_" ++ (explode name))) = SOME reclos ∧
     callable_rel env_dfy.prog name reclos
@@ -1485,6 +1503,7 @@ Proof
             \\ strip_tac \\ qexists ‘clos_env’ \\ simp [])
         >- res_tac
         >- res_tac
+        >- res_tac
         >- (drule_all nslookup_build_rec_env_reclos \\ gvs []))
       \\ rpt strip_tac
       \\ rename [‘evaluate (_ with clock := ck' + _) _ _ = _’]
@@ -1590,6 +1609,7 @@ Proof
           \\ drule_all nslookup_build_rec_env_int_to_string
           \\ strip_tac \\ fs []
           \\ first_assum $ irule_at (Pos last) \\ simp [])
+        >- res_tac
         >- res_tac
         >- res_tac
         \\ rename [‘get_member name' _ = SOME _’]
@@ -2974,6 +2994,7 @@ Theorem correct_from_stmt:
     base_at_most base t.refs l ∧
     env_rel env_dfy env_cml ∧ is_fresh_stmt stmt_dfy ∧
     no_shadow (set (MAP FST s.locals)) stmt_dfy ∧
+    no_assert_stmt stmt_dfy ∧
     r_dfy ≠ Rstop (Serr Rtype_error)
     ⇒ ∃ck (t': 'ffi cml_state) m' r_cml.
         evaluate$evaluate (t with clock := t.clock + ck) env_cml [e_cml] =
@@ -2982,15 +3003,10 @@ Theorem correct_from_stmt:
         m ⊑ m' ∧ stmt_res_rel r_dfy r_cml
 Proof
   ho_match_mp_tac evaluate_stmt_ind
-  \\ rpt strip_tac
+  \\ rpt strip_tac \\ fs [no_assert_stmt_def]
   >~ [‘Skip’] >-
    (gvs [evaluate_stmt_def, from_stmt_def, evaluate_def, do_con_check_def,
          build_conv_def]
-    \\ qexistsl [‘0’, ‘m’] \\ gvs [])
-  >~ [‘Assert e’] >-
-   (gvs [evaluate_stmt_def, from_stmt_def, evaluate_def, do_con_check_def,
-         build_conv_def]
-    \\ ‘env_dfy.is_running’ by gvs [env_rel_def] \\ gvs []
     \\ qexistsl [‘0’, ‘m’] \\ gvs [])
   >~ [‘Then stmt₁ stmt₂’] >-
    (gvs [evaluate_stmt_def, from_stmt_def, oneline bind_def, CaseEq "sum"]
@@ -3366,8 +3382,9 @@ Proof
     \\ gvs []
     \\ disch_then $ qspecl_then [‘m₁’, ‘l’, ‘base’] mp_tac \\ gvs []
     \\ impl_tac
-    >- (gvs [dec_clock_def, evaluateTheory.dec_clock_def, state_rel_def]
-        \\ gvs [base_at_most_def, store_preserve_all_def, store_preserve_def]
+    >- (gvs [dec_clock_def, evaluateTheory.dec_clock_def, state_rel_def,
+             base_at_most_def, store_preserve_all_def, store_preserve_def,
+             no_assert_stmt_def]
         \\ irule_at (Pos last) no_shadow_evaluate_stmt
         \\ last_assum $ irule_at (Pos $ el 2) \\ gvs []
         \\ irule locals_rel_env_change
@@ -3599,7 +3616,8 @@ Proof
           \\ disch_then $ qspec_then ‘env.v’ mp_tac
           \\ rpt strip_tac
           \\ first_assum $ irule_at (Pos last) \\ gvs [])
-        >- (gvs [dec_clock_def, Abbr ‘dfy_locals’, REVERSE_ZIP, MAP_ZIP]))
+        >- (gvs [dec_clock_def, Abbr ‘dfy_locals’, REVERSE_ZIP, MAP_ZIP])
+        >- fs [no_assert_member_def])
       \\ disch_then $ qx_choosel_then [‘ck₁’, ‘t₂’, ‘m₁’] mp_tac
       \\ rpt strip_tac \\ gvs []
       \\ gvs [Abbr ‘call_t’]
@@ -3904,8 +3922,8 @@ Proof
       >- (* base_at_most *)
        (gvs [base_at_most_def, Abbr ‘call_refs’] \\ rpt strip_tac
         \\ drule (cj 1 FRANGE_mk_locals_map) \\ gvs [])
-      (* env_rel *)
-      \\ gvs [env_rel_def]
+      (* env_rel and no_assert_stmt *)
+      \\ gvs [env_rel_def, no_assert_member_def]
       \\ rpt conj_tac
       >- (gvs [Abbr ‘call_env₂’, Abbr ‘call_env₁’, Abbr ‘call_env’,
                has_cons_def])
@@ -4486,7 +4504,8 @@ Definition valid_prog_def:
   valid_prog (Program members) ⇔
     has_main (Program members) ∧
     EVERY is_fresh_member members ∧
-    EVERY no_shadow_method members
+    EVERY no_shadow_method members ∧
+    EVERY no_assert_member members
 End
 
 Theorem find_recfun_main[local]:
@@ -4495,11 +4514,13 @@ Theorem find_recfun_main[local]:
       SOME (Method «Main» [] reqs ens rds decrs [] mod body) ∧
     result_mmap from_member_decl members = INR cml_funs ∧
     EVERY is_fresh_member members ∧
-    EVERY no_shadow_method members ⇒
+    EVERY no_shadow_method members ∧
+    EVERY no_assert_member members ⇒
     ∃cml_param cml_body.
       from_stmt body 0 = INR cml_body ∧
       is_fresh_stmt body ∧
       no_shadow ∅ body ∧
+      no_assert_stmt body ∧
       ¬("dfy" ≼ cml_param) ∧
       cml_param ≠ cml_int_to_string_name ∧
       find_recfun "dfy_Main" cml_funs =
@@ -4526,8 +4547,8 @@ Proof
   \\ gvs [result_mmap_def, from_member_decl_def, oneline bind_def,
           CaseEq "sum"]
   >- (* found main at head *)
-   (simp [set_up_cml_fun_def, cml_fun_def, set_up_in_refs_def,
-          cml_new_refs_def, mk_id_def, Stuple_def, Once find_recfun_def])
+   (fs [set_up_cml_fun_def, cml_fun_def, set_up_in_refs_def, cml_new_refs_def,
+        mk_id_def, Stuple_def, Once find_recfun_def, no_assert_member_def])
   (* main is in tail *)
   \\ ‘explode m ≠ "Main"’ by
     (spose_not_then assume_tac \\ Cases_on ‘m’ \\ gvs [])
@@ -4540,11 +4561,13 @@ Theorem valid_main_nslookup[local]:
     SOME (Method «Main» [] reqs ens rds decrs [] mod body) ∧
   result_mmap from_member_decl members = INR cml_funs ∧
   EVERY is_fresh_member members ∧
-  EVERY no_shadow_method members ⇒
+  EVERY no_shadow_method members ∧
+  EVERY no_assert_member members ⇒
   ∃cml_param cml_body.
     from_stmt body 0 = INR cml_body ∧
     is_fresh_stmt body ∧
     no_shadow ∅ body ∧
+    no_assert_stmt body ∧
     ¬("dfy" ≼ cml_param) ∧
     cml_param ≠ cml_int_to_string_name ∧
     find_recfun "dfy_Main" cml_funs =
@@ -4590,7 +4613,7 @@ End
 
 Theorem correct_from_program:
   ∀dfy_ck prog s' r_dfy cml_decs env_cml (t: 'ffi cml_state).
-    evaluate_program dfy_ck T prog = (s', r_dfy) ∧
+    evaluate_program dfy_ck prog = (s', r_dfy) ∧
     from_program prog = INR cml_decs ∧
     valid_prog prog ∧ has_basic_cons env_cml ∧
     t.clock = dfy_ck ∧ ExnStamp t.next_exn_stamp = ret_stamp ∧

@@ -403,7 +403,6 @@ Proof
    (gvs [evaluate_stmt_def])
   >~ [‘Assert e’] >-
    (gvs [evaluate_stmt_def]
-    \\ IF_CASES_TAC \\ gvs []
     \\ namedCases_on ‘evaluate_exp s env e’ ["s₁ r₁"] \\ gvs []
     \\ ‘r₁ ≠ Rerr Rtimeout_error’ by (spose_not_then assume_tac \\ gvs [])
     \\ drule_all (cj 1 evaluate_exp_add_to_clock) \\ simp []
