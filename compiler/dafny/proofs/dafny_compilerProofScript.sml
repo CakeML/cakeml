@@ -111,6 +111,8 @@ Proof
 QED
 
 (* -- TODO Move to appropriate place -- *)
+open dafny_evaluateTheory;
+
 Definition remove_assert_stmt_def:
   remove_assert_stmt (Assert _) = Skip ∧
   remove_assert_stmt (Then stmt₁ stmt₂) =
@@ -139,24 +141,31 @@ Definition compile_def:
   compile dfy = from_program $ freshen_program $ remove_assert dfy
 End
 
-open dafny_evaluateTheory;
-Theorem all_distinct_member_name_remove_assert[local]:
-  ¬ALL_DISTINCT (MAP member_name (MAP remove_assert_member members)) =
-  ¬ALL_DISTINCT (MAP member_name members)
-Proof
-  cheat
-QED
-
 Definition env_rel_def:
   env_rel env env' ⇔
     env'.prog = remove_assert env.prog
 End
 
+Theorem env_rel_get_member_none_aux[local]:
+  ∀members name.
+    get_member_aux name members = NONE ⇒
+    get_member_aux name (MAP remove_assert_member members) = NONE
+Proof
+  Induct >- (simp [])
+  \\ qx_gen_tac ‘member’ \\ rpt strip_tac
+  \\ Cases_on ‘member’
+  \\ gvs [get_member_aux_def, remove_assert_member_def]
+QED
+
 Theorem env_rel_get_member_none[local]:
   env_rel env env' ∧ get_member name env.prog = NONE ⇒
   get_member name env'.prog = NONE
 Proof
-  cheat
+  rpt strip_tac
+  \\ gvs [env_rel_def]
+  \\ namedCases_on ‘env.prog’ ["members"]
+  \\ gvs [get_member_def, remove_assert_def]
+  \\ drule env_rel_get_member_none_aux \\ simp []
 QED
 
 Theorem env_rel_get_member_method[local]:
@@ -254,6 +263,57 @@ Proof
     \\ first_x_assum $ drule_then assume_tac \\ simp [])
 QED
 
+Theorem env_rel_evaluate_rhs_exp[local]:
+  env_rel env env' ⇒
+  evaluate_rhs_exp s env' e = evaluate_rhs_exp s env e
+Proof
+  strip_tac
+  \\ Cases_on ‘e’
+  >~ [‘ExpRhs’] >-
+   (simp [evaluate_rhs_exp_def]
+    \\ drule_then assume_tac (cj 1 env_rel_evaluate_exp) \\ simp [])
+  >~ [‘ArrAlloc’] >-
+   (simp [evaluate_rhs_exp_def]
+    \\ TOP_CASE_TAC
+    \\ drule_then assume_tac (cj 1 env_rel_evaluate_exp) \\ gvs [])
+QED
+
+Theorem env_rel_evaluate_rhs_exps[local]:
+  ∀s env' es env.
+    env_rel env env' ⇒
+    evaluate_rhs_exps s env' es = evaluate_rhs_exps s env es
+Proof
+  Induct_on ‘es’ >- (simp [evaluate_rhs_exps_def])
+  \\ rpt strip_tac
+  \\ simp [evaluate_rhs_exps_def]
+  \\ drule_then assume_tac env_rel_evaluate_rhs_exp \\ simp []
+  \\ ntac 2 TOP_CASE_TAC
+  \\ last_x_assum $ drule_then assume_tac \\ simp []
+QED
+
+Theorem env_rel_assign_value[local]:
+  env_rel env env' ⇒
+  assign_value s env' lhs rhs = assign_value s env lhs rhs
+Proof
+  strip_tac
+  \\ Cases_on ‘lhs’ >- (simp [assign_value_def])
+  \\ simp [assign_value_def]
+  \\ TOP_CASE_TAC
+  \\ drule_all_then assume_tac (cj 1 env_rel_evaluate_exp) \\ gvs []
+QED
+
+Theorem env_rel_assign_values[local]:
+  ∀s env' lhss rhss env.
+    env_rel env env' ⇒
+    assign_values s env' lhss rhss = assign_values s env lhss rhss
+Proof
+  ho_match_mp_tac assign_values_ind
+  \\ rpt strip_tac
+  \\ gvs [assign_values_def]
+  \\ drule_then assume_tac env_rel_assign_value \\ gvs []
+  \\ ntac 2 TOP_CASE_TAC \\ simp []
+QED
+
 Theorem correct_remove_assert_stmt:
   ∀s env stmt s' env' r.
     evaluate_stmt s env stmt = (s', r) ∧ env_rel env env' ∧
@@ -277,15 +337,54 @@ Proof
     \\ rpt (pairarg_tac \\ gvs [])
     \\ TOP_CASE_TAC \\ rpt strip_tac \\ gvs [])
   >~ [‘Assign’] >-
-   (cheat)
+   (gvs [evaluate_stmt_def]
+    \\ drule_then assume_tac env_rel_evaluate_rhs_exps \\ simp []
+    \\ ntac 2 TOP_CASE_TAC \\ gvs []
+    \\ drule_then assume_tac env_rel_assign_values \\ simp [])
   >~ [‘While’] >-
-   (cheat)
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ IF_CASES_TAC >- (simp [])
+    \\ simp []
+    \\ drule_then assume_tac (cj 1 env_rel_evaluate_exp) \\ simp []
+    \\ ntac 2 TOP_CASE_TAC
+    \\ IF_CASES_TAC >- (simp [])
+    \\ reverse IF_CASES_TAC >- (simp [])
+    \\ TOP_CASE_TAC
+    \\ reverse TOP_CASE_TAC >- (rpt strip_tac \\ gvs [])
+    \\ strip_tac \\ gvs []
+    \\ last_x_assum drule
+    \\ simp [STOP_def, remove_assert_stmt_def])
   >~ [‘Print’] >-
    (drule_then assume_tac (cj 1 env_rel_evaluate_exp)
     \\ gvs [evaluate_stmt_def])
   >~ [‘MetCall’] >-
-   (cheat)
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ TOP_CASE_TAC >- (simp [])
+    \\ reverse TOP_CASE_TAC >- (simp [])
+    \\ drule_all_then assume_tac env_rel_get_member_method \\ simp []
+    \\ TOP_CASE_TAC
+    \\ drule_then assume_tac (cj 2 env_rel_evaluate_exp) \\ simp []
+    \\ ntac 2 TOP_CASE_TAC
+    \\ IF_CASES_TAC >- (simp [])
+    \\ simp []
+    \\ TOP_CASE_TAC
+    \\ TOP_CASE_TAC  >- (simp [])
+    \\ reverse TOP_CASE_TAC >- (rpt strip_tac \\ gvs [])
+    \\ gvs []
+    \\ TOP_CASE_TAC
+    \\ IF_CASES_TAC >- (simp [])
+    \\ simp []
+    \\ strip_tac \\ drule env_rel_assign_values \\ simp [])
   >~ [‘Return’] >- (gvs [evaluate_stmt_def])
+QED
+
+Theorem all_distinct_member_name_remove_assert[local]:
+  ¬ALL_DISTINCT (MAP member_name (MAP remove_assert_member members)) =
+  ¬ALL_DISTINCT (MAP member_name members)
+Proof
+  cheat
 QED
 
 Theorem correct_remove_assert:
