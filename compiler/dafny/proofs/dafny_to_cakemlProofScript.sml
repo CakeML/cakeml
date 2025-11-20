@@ -4,7 +4,7 @@
 Theory dafny_to_cakemlProof
 Ancestors
   ast semanticPrimitives evaluate evaluateProps ffi
-  dafny_semanticPrimitives dafny_evaluate dafny_evaluateProps
+  dafnyProps dafny_semanticPrimitives dafny_evaluate dafny_evaluateProps
   namespace namespaceProps mlstring integer mlint result_monad
   dafny_freshenProof dafny_to_cakeml dafny_ast
 Libs
@@ -677,17 +677,6 @@ Proof
   rpt strip_tac
   \\ gvs [state_rel_def, array_rel_def]
   \\ last_x_assum drule \\ rpt strip_tac \\ gvs []
-QED
-
-Theorem get_member_some_fun_name[local]:
-  get_member n p = SOME (Function n' ins res_t reqs rds decrs body) ⇒
-  n' = n
-Proof
-  namedCases_on ‘p’ ["members"] \\ Induct_on ‘members’
-  \\ gvs [get_member_def, get_member_aux_def]
-  \\ qx_gen_tac ‘member’ \\ rpt strip_tac
-  \\ namedCases_on ‘member’ ["mem_n _ _ _ _ _ _ _ _", "mem_n _ _ _ _ _ _"]
-  \\ Cases_on ‘mem_n = n’ \\ gvs []
 QED
 
 Theorem find_recfun_some_aux[local]:
@@ -2563,19 +2552,6 @@ Proof
   \\ ‘¬is_fresh «»’ by gvs [is_fresh_def, isprefix_thm]
   \\ first_assum $ irule_at (Pos hd) \\ gvs []
   \\ first_assum $ irule_at Any
-QED
-
-(* TODO Similar to _some_fun_name: Is there a better way than writing them
-   separately? *)
-Theorem get_member_some_met_name[local]:
-  get_member n p = SOME (Method n' ins reqs ens rds decrs outs mods body) ⇒
-  n' = n
-Proof
-  namedCases_on ‘p’ ["members"] \\ Induct_on ‘members’
-  \\ gvs [get_member_def, get_member_aux_def]
-  \\ qx_gen_tac ‘member’ \\ rpt strip_tac
-  \\ namedCases_on ‘member’ ["mem_n _ _ _ _ _ _ _ _", "mem_n _ _ _ _ _ _"]
-  \\ Cases_on ‘mem_n = n’ \\ gvs []
 QED
 
 Theorem evaluate_cml_new_refs[local]:

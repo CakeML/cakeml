@@ -112,7 +112,16 @@ QED
 
 (* -- TODO Move to appropriate place -- *)
 Definition remove_assert_stmt_def:
-  remove_assert_stmt = I
+  remove_assert_stmt (Assert _) = Skip ∧
+  remove_assert_stmt (Then stmt₁ stmt₂) =
+    Then (remove_assert_stmt stmt₁) (remove_assert_stmt stmt₂) ∧
+  remove_assert_stmt (If cnd thn els) =
+    If cnd (remove_assert_stmt thn) (remove_assert_stmt els) ∧
+  remove_assert_stmt (Dec lcl stmt) =
+    Dec lcl (remove_assert_stmt stmt) ∧
+  remove_assert_stmt (While grd invs decrs mod body) =
+    While grd invs decrs mod (remove_assert_stmt body) ∧
+  remove_assert_stmt stmt = stmt
 End
 
 Definition remove_assert_member_def:
@@ -143,13 +152,140 @@ Definition env_rel_def:
     env'.prog = remove_assert env.prog
 End
 
-Theorem correct_remove_assert_stmt:
-  ∀s env stmt s' env'.
-    evaluate_stmt s env stmt = (s', Rcont) ∧ env_rel env env' ⇒
-    evaluate_stmt s env' (remove_assert_stmt stmt) = (s', Rcont)
+Theorem env_rel_get_member_none[local]:
+  env_rel env env' ∧ get_member name env.prog = NONE ⇒
+  get_member name env'.prog = NONE
 Proof
-  ho_match_mp_tac evaluate_stmt_ind \\ rpt strip_tac
-  \\ cheat
+  cheat
+QED
+
+Theorem env_rel_get_member_method[local]:
+  env_rel env env' ∧
+  get_member name env.prog =
+  SOME (Method name' ins req ens rds decrs outs mod body) ⇒
+  get_member name env'.prog =
+    SOME (Method name' ins req ens rds decrs outs mod (remove_assert_stmt body))
+Proof
+  cheat
+QED
+
+Theorem env_rel_get_member_function[local]:
+  env_rel env env' ∧
+  get_member name env.prog = r ∧
+  r = SOME (Function name' ins res_t req rds decrs body) ⇒
+  get_member name env'.prog = r
+Proof
+  cheat
+QED
+
+Theorem env_rel_evaluate_exp[local]:
+  (∀s env' e env.
+     env_rel env env' ⇒ evaluate_exp s env' e = evaluate_exp s env e) ∧
+  (∀s env' es env.
+     env_rel env env' ⇒ evaluate_exps s env' es = evaluate_exps s env es)
+Proof
+  ho_match_mp_tac evaluate_exp_ind
+  \\ rpt strip_tac
+  >~ [‘Lit’] >- (gvs [evaluate_exp_def])
+  >~ [‘Var’] >- (gvs [evaluate_exp_def])
+  >~ [‘If’] >-
+   (gvs [evaluate_exp_def]
+    \\ last_x_assum $ drule_then assume_tac \\ simp []
+    \\ ntac 3 TOP_CASE_TAC \\ simp [])
+  >~ [‘UnOp’] >-
+   (gvs [evaluate_exp_def]
+    \\ last_x_assum $ drule_then assume_tac \\ simp [])
+  >~ [‘BinOp’] >-
+   (gvs [evaluate_exp_def]
+    \\ last_x_assum $ drule_then assume_tac \\ simp []
+    \\ ntac 3 TOP_CASE_TAC \\ gvs []
+    \\ last_x_assum $ drule_then assume_tac \\ simp [])
+  >~ [‘ArrLen’] >-
+   (gvs [evaluate_exp_def]
+    \\ last_x_assum $ drule_then assume_tac \\ simp [])
+  >~ [‘ArrSel’] >-
+   (gvs [evaluate_exp_def]
+    \\ last_x_assum $ drule_then assume_tac \\ simp []
+    \\ ntac 2 TOP_CASE_TAC \\ gvs []
+    \\ last_x_assum $ drule_then assume_tac \\ simp [])
+  >~ [‘FunCall’] >-
+   (gvs [evaluate_exp_def]
+    \\ namedCases_on ‘get_member name env.prog’ ["", "member"] \\ simp []
+    >- (drule_all_then assume_tac env_rel_get_member_none \\ simp [])
+    \\ Cases_on ‘member’ \\ simp []
+    >- (drule_all_then assume_tac env_rel_get_member_method \\ simp [])
+    >-
+     (drule env_rel_get_member_function \\ simp []
+      \\ disch_then $ drule_then assume_tac \\ gvs []
+      \\ first_x_assum $ drule_then assume_tac \\ simp []
+      \\ ntac 3 TOP_CASE_TAC
+      \\ IF_CASES_TAC \\ gvs []
+      \\ first_x_assum $ drule_then assume_tac \\ simp []))
+  >~ [‘Forall’] >-
+   (last_x_assum $ drule_then assume_tac
+    \\ gvs [evaluate_exp_def, eval_forall_def])
+  >~ [‘Old’] >-
+   (last_x_assum $ drule_then assume_tac \\ gvs [evaluate_exp_def])
+  >~ [‘OldHeap’] >-
+   (last_x_assum $ drule_then assume_tac \\ gvs [evaluate_exp_def])
+  >~ [‘Prev’] >-
+   (last_x_assum $ drule_then assume_tac \\ gvs [evaluate_exp_def])
+  >~ [‘PrevHeap’] >-
+   (last_x_assum $ drule_then assume_tac \\ gvs [evaluate_exp_def])
+  >~ [‘SetPrev’] >-
+   (last_x_assum $ drule_then assume_tac \\ gvs [evaluate_exp_def])
+  >~ [‘Let’] >-
+   (gvs [evaluate_exp_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ IF_CASES_TAC \\ gvs []
+    \\ first_x_assum $ drule_then assume_tac \\ simp []
+    \\ ntac 2 TOP_CASE_TAC \\ gvs []
+    \\ first_x_assum $ drule_then assume_tac \\ simp [])
+  >~ [‘ForallHeap’] >-
+   (first_x_assum $ drule_then assume_tac
+    \\ gvs [evaluate_exp_def]
+    \\ ntac 3 TOP_CASE_TAC \\ gvs []
+    \\ first_x_assum $ drule_then assume_tac \\ simp [])
+  >~ [‘[]’] >- (gvs [evaluate_exp_def])
+  >~ [‘_::_’] >-
+   (first_x_assum $ drule_then assume_tac
+    \\ gvs [evaluate_exp_def]
+    \\ ntac 2 TOP_CASE_TAC \\ gvs []
+    \\ first_x_assum $ drule_then assume_tac \\ simp [])
+QED
+
+Theorem correct_remove_assert_stmt:
+  ∀s env stmt s' env' r.
+    evaluate_stmt s env stmt = (s', r) ∧ env_rel env env' ∧
+    r ≠ Rstop (Serr Rtype_error) ∧ r ≠ Rstop (Serr Rtimeout_error) ⇒
+    evaluate_stmt s env' (remove_assert_stmt stmt) = (s', r)
+Proof
+  ho_match_mp_tac evaluate_stmt_ind
+  \\ simp [remove_assert_stmt_def]
+  \\ rpt strip_tac
+  >~ [‘Skip’] >- (gvs [evaluate_stmt_def])
+  >~ [‘Assert’] >-
+   (gvs [evaluate_stmt_def, AllCaseEqs()]
+    \\ rename [‘Rerr err’] \\ Cases_on ‘err’ \\ gvs [])
+  >~ [‘Then’] >- (gvs [evaluate_stmt_def, AllCaseEqs()])
+  >~ [‘If’] >-
+   (drule_then assume_tac (cj 1 env_rel_evaluate_exp)
+    \\ gvs [evaluate_stmt_def, oneline do_cond_def, AllCaseEqs()])
+  >~ [‘Dec local’] >-
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _ ’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ TOP_CASE_TAC \\ rpt strip_tac \\ gvs [])
+  >~ [‘Assign’] >-
+   (cheat)
+  >~ [‘While’] >-
+   (cheat)
+  >~ [‘Print’] >-
+   (drule_then assume_tac (cj 1 env_rel_evaluate_exp)
+    \\ gvs [evaluate_stmt_def])
+  >~ [‘MetCall’] >-
+   (cheat)
+  >~ [‘Return’] >- (gvs [evaluate_stmt_def])
 QED
 
 Theorem correct_remove_assert:
@@ -161,13 +297,23 @@ Proof
   \\ simp [all_distinct_member_name_remove_assert]
   \\ IF_CASES_TAC \\ simp []
   \\ simp [mk_env_def]
-  \\ cheat
+  \\ strip_tac
+  \\ drule correct_remove_assert_stmt \\ simp [remove_assert_stmt_def]
+  \\ disch_then irule
+  \\ simp [env_rel_def, remove_assert_def]
 QED
 
 Theorem has_main_remove_assert[local]:
   has_main (remove_assert prog) = has_main prog
 Proof
-  cheat
+  namedCases_on ‘prog’ ["members"]
+  \\ simp [remove_assert_def]
+  \\ Induct_on ‘members’
+  >- (simp [remove_assert_member_def])
+  \\ qx_gen_tac ‘member’
+  \\ gvs [has_main_def, get_member_def, get_member_aux_def]
+  \\ Cases_on ‘member’ \\ simp [remove_assert_member_def]
+  \\ IF_CASES_TAC \\ gvs []
 QED
 
 Theorem valid_members_remove_assert[local]:
