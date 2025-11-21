@@ -754,12 +754,12 @@ Theorem correct_freshen_exp:
   (∀s env e s' res t m m_old m_prev cnt cnt' e' env'.
      evaluate_exp s env e = (s', res) ∧ state_rel s t m m_old m_prev cnt ∧
      freshen_exp m m_old m_prev cnt e = (cnt', e') ∧
-     env_rel env env' ∧ res ≠ Rerr Rtype_error ⇒
+     env_rel env env' ∧ res ≠ Rerr Rfail ⇒
      ∃t'. evaluate_exp t env' e' = (t', res) ∧ state_rel s' t' m m_old m_prev cnt') ∧
   (∀s env es s' res t m m_old m_prev cnt cnt' es' env'.
      evaluate_exps s env es = (s', res) ∧ state_rel s t m m_old m_prev cnt ∧
      freshen_exps m m_old m_prev cnt es = (cnt', es') ∧
-     env_rel env env' ∧ res ≠ Rerr Rtype_error ⇒
+     env_rel env env' ∧ res ≠ Rerr Rfail ⇒
      ∃t'. evaluate_exps t env' es' = (t', res) ∧ state_rel s' t' m m_old m_prev cnt')
 Proof
   ho_match_mp_tac evaluate_exp_ind \\ rpt strip_tac
@@ -865,7 +865,7 @@ Proof
      (gvs [restore_caller_def, state_rel_def])
     \\ gvs [CaseEq "prod"]
     \\ rename [‘evaluate_exp _ _ _ = (_, r)’]
-    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+    \\ Cases_on ‘r = Rerr Rfail’ \\ gvs []
     \\ last_x_assum $ drule_at $ Pos last
     \\ disch_then $ drule_at $ Pos last
     \\ qmatch_goalsub_abbrev_tac ‘evaluate_exp call_t’
@@ -1044,7 +1044,7 @@ Proof
     \\ disch_tac
     \\ rename [‘evaluate_exps _ _ rhss’]
     \\ namedCases_on ‘evaluate_exps s env rhss’ ["s₁ r"] \\ gvs []
-    \\ ‘r ≠ Rerr Rtype_error’ by (spose_not_then assume_tac \\ gvs [])
+    \\ ‘r ≠ Rerr Rfail’ by (spose_not_then assume_tac \\ gvs [])
     \\ gvs []
     \\ qmatch_goalsub_abbrev_tac ‘ZIP (fresh_lhss, fresh_rhss)’
     \\ ‘LENGTH lhss = LENGTH rhss’ by (imp_res_tac UNZIP_LENGTH)
@@ -1096,7 +1096,7 @@ Proof
                ‘freshen_exp _ _ _ _ _ = (cnt₂, term')’]
     \\ gvs [evaluate_exp_def]
     \\ namedCases_on ‘evaluate_exps s env mods’ ["s₁ r₁"] \\ gvs []
-    \\ ‘r₁ ≠ Rerr Rtype_error’ by (Cases_on ‘r₁’ \\ gvs []) \\ gvs []
+    \\ ‘r₁ ≠ Rerr Rfail’ by (Cases_on ‘r₁’ \\ gvs []) \\ gvs []
     \\ first_x_assum drule_all
     \\ disch_then $ qx_choose_then ‘t₁’ mp_tac \\ strip_tac \\ gvs []
     \\ reverse $ namedCases_on ‘r₁’ ["vs", "err"] \\ gvs []
@@ -1269,7 +1269,7 @@ Theorem assign_value_state_rel[local]:
   ∀s env lhs rhs s' res t m m_old m_prev cnt cnt' lhs' env'.
     assign_value s env lhs rhs = (s', res) ∧ state_rel s t m m_old m_prev cnt ∧
     freshen_lhs_exp m m_old m_prev cnt lhs = (cnt', lhs') ∧ env_rel env env' ∧
-    res ≠ Rstop (Serr Rtype_error) ⇒
+    res ≠ Rstop (Serr Rfail) ⇒
     ∃t'.
       assign_value t env' lhs' rhs = (t', res) ∧ state_rel s' t' m m_old m_prev cnt'
 Proof
@@ -1297,7 +1297,7 @@ Theorem assign_values_state_rel[local]:
   ∀s env lhss rhss s' res t m m_old m_prev cnt lhss' cnt' env'.
     assign_values s env lhss rhss = (s', res) ∧ state_rel s t m m_old m_prev cnt ∧
     freshen_lhs_exps m m_old m_prev cnt lhss = (cnt', lhss') ∧ env_rel env env' ∧
-    res ≠ Rstop (Serr Rtype_error) ⇒
+    res ≠ Rstop (Serr Rfail) ⇒
     ∃t'.
       assign_values t env' lhss' rhss = (t', res) ∧ state_rel s' t' m m_old m_prev cnt'
 Proof
@@ -1318,7 +1318,7 @@ Theorem correct_freshen_rhs_exp:
   ∀s env rhs_e s' res t m m_old m_prev cnt cnt' rhs_e' env'.
     evaluate_rhs_exp s env rhs_e = (s', res) ∧ state_rel s t m m_old m_prev cnt ∧
     freshen_rhs_exp m m_old m_prev cnt rhs_e = (cnt', rhs_e') ∧ env_rel env env' ∧
-    res ≠ Rerr Rtype_error ⇒
+    res ≠ Rerr Rfail ⇒
     ∃t'.
       evaluate_rhs_exp t env' rhs_e' = (t', res) ∧ state_rel s' t' m m_old m_prev cnt'
 Proof
@@ -1349,7 +1349,7 @@ Theorem correct_freshen_rhs_exps:
   ∀s env rhs_es s' res t m m_old m_prev cnt cnt' rhs_es' env'.
     evaluate_rhs_exps s env rhs_es = (s', res) ∧ state_rel s t m m_old m_prev cnt ∧
     freshen_rhs_exps m m_old m_prev cnt rhs_es = (cnt', rhs_es') ∧ env_rel env env' ∧
-    res ≠ Rerr Rtype_error ⇒
+    res ≠ Rerr Rfail ⇒
     ∃t'.
       evaluate_rhs_exps t env' rhs_es' = (t', res) ∧
       state_rel s' t' m m_old m_prev cnt'
@@ -1404,7 +1404,7 @@ Theorem correct_freshen_stmt:
   ∀s env stmt s' res t m m_old m_prev cnt cnt' stmt' env'.
     evaluate_stmt s env stmt = (s', res) ∧ state_rel s t m m_old m_prev cnt ∧
     freshen_stmt m m_old m_prev cnt stmt = (cnt', stmt') ∧ env_rel env env' ∧
-    res ≠ Rstop (Serr Rtype_error) ⇒
+    res ≠ Rstop (Serr Rfail) ⇒
     ∃t'. evaluate_stmt t env' stmt' = (t', res) ∧ state_rel s' t' m m_old m_prev cnt'
 Proof
   ho_match_mp_tac evaluate_stmt_ind \\ rpt strip_tac
@@ -1448,7 +1448,7 @@ Proof
           ZIP (MAP (lookup m₂') (MAP FST outs),
                REPLICATE (LENGTH outs) (NONE: value option))’
     \\ gvs [CaseEq "prod"] \\ rename [‘evaluate_stmt _ _ _ = (_, r)’]
-    \\ Cases_on ‘r = Rstop (Serr Rtype_error)’ \\ gvs []
+    \\ Cases_on ‘r = Rstop (Serr Rfail)’ \\ gvs []
     \\ last_x_assum $ drule_at $ Pos last
     \\ disch_then $ drule_at $ Pos last
     \\ qmatch_goalsub_abbrev_tac ‘evaluate_stmt call_t’
@@ -1476,7 +1476,7 @@ Proof
     \\ qmatch_asmsub_abbrev_tac ‘assign_values s₂_with’
     \\ namedCases_on ‘assign_values s₂_with env lhss out_vs’ ["st₃ r"]
     \\ simp [Abbr ‘s₂_with’]
-    \\ Cases_on ‘r = Rstop (Serr Rtype_error)’ \\ gvs []
+    \\ Cases_on ‘r = Rstop (Serr Rfail)’ \\ gvs []
     \\ qmatch_goalsub_abbrev_tac ‘assign_values t₂_with’
     \\ drule assign_values_state_rel \\ gvs []
     \\ disch_then $ drule_at $ Pos last
@@ -1505,7 +1505,7 @@ Proof
     \\ imp_res_tac pop_local_some
     \\ rename [‘pop_locals _ _ = SOME s₃’] \\ pop_assum $ mp_tac
     \\ rename [‘pop_locals _ _ = SOME t₃’] \\ strip_tac
-    \\ ‘r ≠ Rstop (Serr Rtype_error)’ by (spose_not_then assume_tac \\ gvs [])
+    \\ ‘r ≠ Rstop (Serr Rfail)’ by (spose_not_then assume_tac \\ gvs [])
     \\ qsuff_tac ‘state_rel s₁ t₁ m' m_old m_prev cnt₁’
     >- (strip_tac \\ last_x_assum $ drule_all \\ strip_tac \\ gvs []
         \\ rename [‘evaluate_stmt _ _ _' = (t₂, _)’]
@@ -1583,7 +1583,7 @@ Proof
     >- (imp_res_tac freshen_exp_mono \\ imp_res_tac freshen_stmt_mono
         \\ imp_res_tac state_rel_mono \\ gvs [])
     \\ namedCases_on ‘evaluate_exp (dec_clock s) env grd’ ["s₁ r"] \\ gvs []
-    \\ ‘r ≠ Rerr Rtype_error’ by (spose_not_then assume_tac \\ gvs [])
+    \\ ‘r ≠ Rerr Rfail’ by (spose_not_then assume_tac \\ gvs [])
     \\ drule (cj 1 correct_freshen_exp) \\ gvs []
     \\ ntac 2 (disch_then $ drule_at (Pos last))
     \\ disch_then $ qspec_then ‘dec_clock t’ mp_tac
@@ -1618,7 +1618,7 @@ Proof
     \\ rpt (pairarg_tac \\ gvs [])
     \\ gvs [evaluate_stmt_def]
     \\ namedCases_on ‘evaluate_exp s env e’ ["s₁ r"] \\ gvs []
-    \\ ‘r ≠ Rerr Rtype_error’ by (Cases_on ‘r’ \\ gvs [])
+    \\ ‘r ≠ Rerr Rfail’ by (Cases_on ‘r’ \\ gvs [])
     \\ drule_all (cj 1 correct_freshen_exp) \\ gvs []
     \\ disch_then $ qx_choose_then ‘t₁’ assume_tac \\ gvs []
     \\ reverse $ namedCases_on ‘r’ ["v", "err"] \\ gvs []
@@ -1628,7 +1628,7 @@ Proof
     \\ rpt (pairarg_tac \\ gvs [])
     \\ gvs [evaluate_stmt_def]
     \\ namedCases_on ‘evaluate_exp s env e’ ["s₁ r"] \\ gvs []
-    \\ ‘r ≠ Rerr Rtype_error’ by (Cases_on ‘r’ \\ gvs [])
+    \\ ‘r ≠ Rerr Rfail’ by (Cases_on ‘r’ \\ gvs [])
     \\ drule (cj 1 correct_freshen_exp) \\ gvs []
     \\ disch_then drule_all \\ rpt strip_tac \\ gvs []
     \\ ‘s' = s’ by (gvs [AllCaseEqs()]) \\ gvs []
@@ -1662,7 +1662,7 @@ QED
 Theorem correct_freshen_program:
   ∀ck is_running prog s r.
     evaluate_program ck prog = (s, r) ∧
-    r ≠ Rstop (Serr Rtype_error) ⇒
+    r ≠ Rstop (Serr Rfail) ⇒
     evaluate_program ck (freshen_program prog) = (s, r)
 Proof
   rpt strip_tac

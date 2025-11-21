@@ -349,7 +349,7 @@ QED
 Theorem correct_remove_assert_stmt:
   ∀s env stmt s' env' r.
     evaluate_stmt s env stmt = (s', r) ∧ env_rel env env' ∧
-    r ≠ Rstop (Serr Rtype_error) ∧ r ≠ Rstop (Serr Rtimeout_error) ⇒
+    r ≠ Rstop (Serr Rfail) ∧ r ≠ Rstop (Serr Rtimeout_error) ⇒
     evaluate_stmt s env' (remove_assert_stmt stmt) = (s', r)
 Proof
   ho_match_mp_tac evaluate_stmt_ind

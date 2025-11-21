@@ -1374,7 +1374,7 @@ Theorem correct_from_exp:
      evaluate_exp s env_dfy e_dfy = (s', r_dfy) ∧
      from_exp e_dfy = INR e_cml ∧ state_rel m l s t env_cml ∧
      env_rel env_dfy env_cml ∧ is_fresh_exp e_dfy ∧
-     r_dfy ≠ Rerr Rtype_error
+     r_dfy ≠ Rerr Rfail
      ⇒ ∃ck (t': 'ffi cml_state) r_cml.
          evaluate$evaluate (t with clock := t.clock + ck) env_cml [e_cml] =
            (t', r_cml) ∧
@@ -1385,7 +1385,7 @@ Theorem correct_from_exp:
      evaluate_exps s env_dfy es_dfy = (s', rs_dfy) ∧
      map_from_exp es_dfy = INR es_cml ∧ state_rel m l s t env_cml ∧
      env_rel env_dfy env_cml ∧ EVERY (λe. is_fresh_exp e) es_dfy ∧
-     rs_dfy ≠ Rerr Rtype_error
+     rs_dfy ≠ Rerr Rfail
      ⇒ ∃ck (t': 'ffi cml_state) rs_cml.
          evaluate$evaluate (t with clock := t.clock + ck) env_cml es_cml =
            (t', rs_cml) ∧
@@ -1407,7 +1407,7 @@ Proof
     \\ qabbrev_tac ‘fname = "dfy_" ++ (explode name)’ \\ gvs []
     \\ drule map_from_exp_len \\ rpt strip_tac \\ gvs []
     \\ namedCases_on ‘evaluate_exps s env_dfy args’ ["s₁ r"] \\ gvs []
-    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+    \\ Cases_on ‘r = Rerr Rfail’ \\ gvs []
     \\ last_x_assum drule_all \\ rpt strip_tac \\ gvs []
     \\ rename [‘evaluate (_ with clock := ck + _) _ _ = (t₁,_)’]
     \\ reverse $ namedCases_on ‘r’ ["in_vs", "err"] \\ gvs []
@@ -1465,7 +1465,7 @@ Proof
     \\ qmatch_asmsub_abbrev_tac ‘evaluate_exp call_t’
     \\ namedCases_on ‘evaluate_exp call_t env_dfy body’ ["s₂ r"]
     \\ gvs [Abbr ‘call_t’]
-    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+    \\ Cases_on ‘r = Rerr Rfail’ \\ gvs []
     (* Show how compiling the function body succeeds *)
     \\ drule callable_rel_inversion \\ rpt strip_tac \\ gvs []
     \\ drule find_recfun_some \\ rpt strip_tac \\ gvs []
@@ -1681,7 +1681,7 @@ Proof
   >~ [‘If grd thn els’] >-
    (gvs [evaluate_exp_def, from_exp_def, oneline bind_def, CaseEq "sum"]
     \\ namedCases_on ‘evaluate_exp s env_dfy grd’ ["s₁ r"] \\ gvs []
-    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+    \\ Cases_on ‘r = Rerr Rfail’ \\ gvs []
     \\ first_x_assum drule_all \\ rpt strip_tac
     \\ rename [‘evaluate (_ with clock := ck + _) _ _’]
     \\ gvs [evaluate_def]
@@ -1700,7 +1700,7 @@ Proof
   >~ [‘UnOp uop e’] >-
    (gvs [evaluate_exp_def, from_exp_def, oneline bind_def, CaseEq "sum"]
     \\ namedCases_on ‘evaluate_exp s env_dfy e’ ["s₁ r"] \\ gvs []
-    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+    \\ Cases_on ‘r = Rerr Rfail’ \\ gvs []
     \\ first_x_assum drule_all \\ rpt strip_tac
     \\ rename [‘evaluate (_ with clock := ck + _) _ _’]
     \\ qexists ‘ck’
@@ -1713,7 +1713,7 @@ Proof
   >~ [‘BinOp bop e₀ e₁’] >-
    (gvs [evaluate_exp_def, from_exp_def, oneline bind_def, CaseEq "sum"]
     \\ namedCases_on ‘evaluate_exp s env_dfy e₀’ ["s₁ r"] \\ gvs []
-    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+    \\ Cases_on ‘r = Rerr Rfail’ \\ gvs []
     \\ first_x_assum drule_all \\ rpt strip_tac \\ gvs []
     \\ rename [‘evaluate (_ with clock := ck + _) _ _ = (t₁, _)’]
     \\ gvs [evaluate_def]
@@ -1728,7 +1728,7 @@ Proof
               build_conv_def, bool_type_num_def, env_rel_def,
               has_cons_def, AllCaseEqs()])
     \\ namedCases_on ‘evaluate_exp s₁ env_dfy e₁’ ["s₂ r"] \\ gvs []
-    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+    \\ Cases_on ‘r = Rerr Rfail’ \\ gvs []
     \\ ‘¬is_fresh « l»’ by gvs [is_fresh_def, isprefix_thm]
     \\ drule_all state_rel_env_push_not_fresh
     \\ disch_then $ qspec_then ‘cml_v₀’ assume_tac
@@ -1825,7 +1825,7 @@ Proof
    (gvs [from_exp_def, oneline bind_def, CaseEq "sum"]
     \\ gvs [evaluate_exp_def]
     \\ namedCases_on ‘evaluate_exp s env_dfy arr’ ["s₁ r"] \\ gvs []
-    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+    \\ Cases_on ‘r = Rerr Rfail’ \\ gvs []
     \\ last_x_assum drule_all \\ rpt strip_tac
     \\ rename [‘evaluate (_ with clock := ck + _) _ _’]
     \\ qexists ‘ck’
@@ -1843,7 +1843,7 @@ Proof
    (gvs [from_exp_def, oneline bind_def, CaseEq "sum"]
     \\ gvs [evaluate_exp_def]
     \\ namedCases_on ‘evaluate_exp s env_dfy arr’ ["s₁ r"] \\ gvs []
-    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+    \\ Cases_on ‘r = Rerr Rfail’ \\ gvs []
     \\ first_x_assum drule_all \\ rpt strip_tac
     \\ rename [‘evaluate (_ with clock := ck + _) _ _’]
     \\ gvs [cml_get_arr_data_def, cml_tup_select_def, cml_tup_case_def]
@@ -1853,7 +1853,7 @@ Proof
     \\ gvs [evaluate_def]
     \\ rename [‘val_rel _ dfy_arr cml_arr’]
     \\ namedCases_on ‘evaluate_exp s₁ env_dfy idx’ ["s₂ r"] \\ gvs []
-    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+    \\ Cases_on ‘r = Rerr Rfail’ \\ gvs []
     \\ ‘¬is_fresh « arr»’ by gvs [is_fresh_def, isprefix_thm]
     \\ drule_all state_rel_env_push_not_fresh \\ gvs []
     \\ disch_then $ qspec_then ‘cml_arr’ assume_tac \\ gvs []
@@ -1888,7 +1888,7 @@ Proof
    (gvs [from_exp_def, oneline bind_def, AllCaseEqs()]
     \\ gvs [evaluate_exp_def]
     \\ namedCases_on ‘evaluate_exp s env_dfy e’ ["s₁ r"] \\ gvs []
-    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+    \\ Cases_on ‘r = Rerr Rfail’ \\ gvs []
     \\ first_x_assum drule_all \\ rpt strip_tac \\ gvs []
     \\ rename [‘evaluate (_ with clock := ck + _) _ _’]
     \\ reverse $ namedCases_on ‘r’ ["cml_e",  "err"] \\ gvs []
@@ -1898,7 +1898,7 @@ Proof
     \\ namedCases_on ‘es’ ["", "e' es"] \\ gvs []
     >- (qexists ‘ck’ \\ gvs [evaluate_exp_def, from_exp_def])
     \\ namedCases_on ‘evaluate_exps s₁ env_dfy (e'::es')’ ["s₂ r"] \\ gvs []
-    \\ Cases_on ‘r = Rerr Rtype_error’ \\ gvs []
+    \\ Cases_on ‘r = Rerr Rfail’ \\ gvs []
     \\ gvs [from_exp_def, oneline bind_def, CaseEq "sum"]
     \\ last_x_assum drule_all \\ rpt strip_tac \\ gvs []
     \\ rename [‘evaluate (_ with clock := ck' + _) _ _ = (t₂, _)’]
@@ -2020,7 +2020,7 @@ Theorem correct_from_rhs_exp:
     evaluate_rhs_exp s env_dfy rhs_dfy = (s', r_dfy) ∧
     from_rhs_exp rhs_dfy = INR e_cml ∧ state_rel m l s t env_cml ∧
     env_rel env_dfy env_cml ∧ is_fresh_rhs_exp rhs_dfy ∧
-    r_dfy ≠ Rerr Rtype_error ⇒
+    r_dfy ≠ Rerr Rfail ⇒
     ∃ck (t': 'ffi cml_state) m' r_cml.
       evaluate$evaluate (t with clock := t.clock + ck) env_cml [e_cml] =
       (t', r_cml) ∧ store_preserve_all t.refs t'.refs ∧
@@ -2036,7 +2036,7 @@ Proof
    (gvs [evaluate_rhs_exp_def]
     \\ gvs [from_rhs_exp_def, oneline bind_def, CaseEq "sum"]
     \\ namedCases_on ‘evaluate_exp s env_dfy len’ ["s₁ r"] \\ gvs []
-    \\ ‘r ≠ Rerr Rtype_error’ by (spose_not_then assume_tac \\ gvs [])
+    \\ ‘r ≠ Rerr Rfail’ by (spose_not_then assume_tac \\ gvs [])
     \\ drule_all (cj 1 correct_from_exp)
     \\ disch_then $ qx_choosel_then [‘ck’, ‘t₁’] mp_tac
     \\ rpt strip_tac \\ gvs []
@@ -2044,7 +2044,7 @@ Proof
     >- (qexistsl [‘ck’, ‘t₁’, ‘m’]
         \\ gvs [cml_alloc_arr_def, evaluate_def])
     \\ namedCases_on ‘evaluate_exp s₁ env_dfy init’ ["s₂ r"] \\ gvs []
-    \\ ‘r ≠ Rerr Rtype_error’ by (spose_not_then assume_tac \\ gvs [])
+    \\ ‘r ≠ Rerr Rfail’ by (spose_not_then assume_tac \\ gvs [])
     \\ drule (cj 1 correct_from_exp)
     \\ disch_then drule
     \\ disch_then $
@@ -2107,7 +2107,7 @@ Theorem correct_map_from_rhs_exp:
     result_mmap from_rhs_exp rhss_dfy = INR es_cml ∧
     state_rel m l s t env_cml ∧ env_rel env_dfy env_cml ∧
     EVERY (λrhs. is_fresh_rhs_exp rhs) rhss_dfy ∧
-    r_dfy ≠ Rerr Rtype_error ⇒
+    r_dfy ≠ Rerr Rfail ⇒
     ∃ck (t': 'ffi cml_state) m' r_cml.
       evaluate$evaluate (t with clock := t.clock + ck) env_cml es_cml =
       (t', r_cml) ∧ store_preserve_all t.refs t'.refs ∧
@@ -2119,7 +2119,7 @@ Proof
   \\ rename [‘rhs_dfy::rhss_dfy’]
   \\ gvs [evaluate_rhs_exps_def]
   \\ namedCases_on ‘evaluate_rhs_exp s env_dfy rhs_dfy’ ["s₁ r"] \\ gvs []
-  \\ ‘r ≠ Rerr Rtype_error’ by (spose_not_then assume_tac \\ gvs [])
+  \\ ‘r ≠ Rerr Rfail’ by (spose_not_then assume_tac \\ gvs [])
   \\ gvs [result_mmap_def, oneline bind_def, CaseEq "sum"]
   \\ drule_all correct_from_rhs_exp
   \\ disch_then $ qx_choosel_then [‘ck’, ‘t₁’, ‘m₁’] mp_tac
@@ -2127,7 +2127,7 @@ Proof
   \\ reverse $ namedCases_on ‘r’ ["rhs_v", "err"] \\ gvs []
   >- (qexists ‘ck’ \\ simp [Once evaluate_cons] \\ gvs [SF SFY_ss])
   \\ namedCases_on ‘evaluate_rhs_exps s₁ env_dfy rhss_dfy’ ["s₂ r"] \\ gvs []
-  \\ ‘r ≠ Rerr Rtype_error’ by (spose_not_then assume_tac \\ gvs [])
+  \\ ‘r ≠ Rerr Rfail’ by (spose_not_then assume_tac \\ gvs [])
   \\ last_x_assum drule_all
   \\ disch_then $ qx_choosel_then [‘ck'’, ‘t₂’, ‘m₂’] mp_tac
   \\ rpt strip_tac
@@ -2369,7 +2369,7 @@ Theorem evaluate_assign_values[local]:
     EVERY (λlhs. is_fresh_lhs_exp lhs) lhss ∧
     EVERY (λn. " arr" ≠ n) names ∧
     base_at_most base t.refs l ∧
-    r_dfy ≠ Rstop (Serr Rtype_error) ⇒
+    r_dfy ≠ Rstop (Serr Rfail) ⇒
     ∃ck t' r_cml.
       evaluate (t with clock := t.clock + ck) env_cml [Seqs asss_cml] =
       (t', r_cml) ∧
@@ -2416,7 +2416,7 @@ Proof
     \\ rpt (last_assum $ irule_at Any))
   (* Array update *)
   \\ namedCases_on ‘evaluate_exp s env_dfy arr’ ["s₁ r"] \\ gvs []
-  \\ ‘r ≠ Rerr Rtype_error’ by (spose_not_then assume_tac \\ gvs [])
+  \\ ‘r ≠ Rerr Rfail’ by (spose_not_then assume_tac \\ gvs [])
   \\ drule_all (cj 1 correct_from_exp)
   \\ disch_then $ qx_choosel_then [‘ck’, ‘t₁’] mp_tac \\ rpt strip_tac \\ gvs []
   \\ reverse $ namedCases_on ‘r’ ["arr_v", "err"] \\ gvs []
@@ -2424,7 +2424,7 @@ Proof
       \\ gvs [evaluate_def, store_preserve_all_def, store_preserve_def,
               store_lookup_def])
   \\ namedCases_on ‘evaluate_exp s₁ env_dfy idx’ ["s₂ r"] \\ gvs []
-  \\ ‘r ≠ Rerr Rtype_error’ by (spose_not_then assume_tac \\ gvs [])
+  \\ ‘r ≠ Rerr Rfail’ by (spose_not_then assume_tac \\ gvs [])
   \\ drule (cj 1 correct_from_exp)
   \\ disch_then drule
   \\ disch_then $
@@ -2971,7 +2971,7 @@ Theorem correct_from_stmt:
     env_rel env_dfy env_cml ∧ is_fresh_stmt stmt_dfy ∧
     no_shadow (set (MAP FST s.locals)) stmt_dfy ∧
     no_assert_stmt stmt_dfy ∧
-    r_dfy ≠ Rstop (Serr Rtype_error)
+    r_dfy ≠ Rstop (Serr Rfail)
     ⇒ ∃ck (t': 'ffi cml_state) m' r_cml.
         evaluate$evaluate (t with clock := t.clock + ck) env_cml [e_cml] =
         (t', r_cml) ∧
@@ -2987,7 +2987,7 @@ Proof
   >~ [‘Then stmt₁ stmt₂’] >-
    (gvs [evaluate_stmt_def, from_stmt_def, oneline bind_def, CaseEq "sum"]
     \\ namedCases_on ‘evaluate_stmt s env_dfy stmt₁’ ["s₁ r"] \\ gvs []
-    \\ ‘r ≠ Rstop (Serr Rtype_error)’ by (Cases_on ‘r’ \\ gvs []) \\ gvs []
+    \\ ‘r ≠ Rstop (Serr Rfail)’ by (Cases_on ‘r’ \\ gvs []) \\ gvs []
     \\ first_x_assum drule_all
     \\ disch_then $ qx_choosel_then [‘ck’, ‘t₁’, ‘m₁’] mp_tac
     \\ rpt strip_tac \\ gvs []
@@ -3013,7 +3013,7 @@ Proof
   >~ [‘If tst thn els’] >-
    (gvs [evaluate_stmt_def, from_stmt_def, oneline bind_def, CaseEq "sum"]
     \\ namedCases_on ‘evaluate_exp s env_dfy tst’ ["s₁ r"] \\ gvs []
-    \\ ‘r ≠ Rerr Rtype_error’ by (Cases_on ‘r’ \\ gvs []) \\ gvs []
+    \\ ‘r ≠ Rerr Rfail’ by (Cases_on ‘r’ \\ gvs []) \\ gvs []
     \\ drule_all (cj 1 correct_from_exp)
     \\ disch_then $ qx_choosel_then [‘ck’, ‘t₁’] mp_tac
     \\ rpt strip_tac \\ gvs []
@@ -3111,7 +3111,7 @@ Proof
     \\ ‘LENGTH ass = LENGTH cml_rhss’ by
       (unabbrev_all_tac \\ imp_res_tac result_mmap_len \\ gvs [])
     \\ gvs []
-    \\ ‘r ≠ Rerr Rtype_error’ by (spose_not_then assume_tac \\ gvs [])
+    \\ ‘r ≠ Rerr Rfail’ by (spose_not_then assume_tac \\ gvs [])
     \\ drule_all correct_map_from_rhs_exp
     \\ disch_then $ qx_choosel_then [‘ck’, ‘t₁’, ‘m₁’] mp_tac \\ rpt strip_tac
     \\ gvs [evaluate_def]
@@ -3262,7 +3262,7 @@ Proof
         \\ gvs [find_recfun_def, state_rel_def]
         \\ rpt (last_assum $ irule_at Any) \\ gvs [])
     \\ namedCases_on ‘evaluate_exp (dec_clock s) env_dfy grd’ ["s₁ r"] \\ gvs []
-    \\ ‘r ≠ Rerr Rtype_error’ by (spose_not_then assume_tac \\ gvs [])
+    \\ ‘r ≠ Rerr Rfail’ by (spose_not_then assume_tac \\ gvs [])
     (* TODO Better way to do this than writing this big block? *)
     \\ qabbrev_tac
        ‘env_cml₁ =
@@ -3326,7 +3326,7 @@ Proof
         \\ first_assum $ irule_at (Pos hd) \\ gvs [])
     \\ Cases_on ‘grd_v = BoolV T’ \\ gvs []
     \\ namedCases_on ‘evaluate_stmt s₁ env_dfy body’ ["s₂ r"] \\ gvs []
-    \\ ‘r ≠ Rstop (Serr Rtype_error)’ by (spose_not_then assume_tac \\ gvs [])
+    \\ ‘r ≠ Rstop (Serr Rfail)’ by (spose_not_then assume_tac \\ gvs [])
     \\ ‘no_shadow (set (MAP FST s₁.locals)) body’ by
       (irule no_shadow_evaluate_exp
        \\ first_assum $ irule_at (Pos hd)
@@ -3396,7 +3396,7 @@ Proof
    (gvs [evaluate_stmt_def]
     \\ gvs [from_stmt_def, oneline bind_def, CaseEq "sum"]
     \\ namedCases_on ‘evaluate_exp s env_dfy e’ ["s₁ r"] \\ gvs []
-    \\ ‘r ≠ Rerr Rtype_error’ by (Cases_on ‘r’ \\ gvs [])
+    \\ ‘r ≠ Rerr Rfail’ by (Cases_on ‘r’ \\ gvs [])
     \\ drule_all (cj 1 correct_from_exp)
     \\ disch_then $ qx_choose_then ‘ck’ mp_tac \\ strip_tac
     \\ simp [Once evaluate_def]
@@ -3476,7 +3476,7 @@ Proof
     \\ rename [‘map_from_exp _ = INR cml_args’]
     \\ imp_res_tac map_from_exp_len \\ gvs []
     \\ namedCases_on ‘evaluate_exps s env_dfy args’ ["s₁ r"] \\ gvs []
-    \\ ‘r ≠ Rerr Rtype_error’ by (spose_not_then assume_tac \\ gvs []) \\ gvs []
+    \\ ‘r ≠ Rerr Rfail’ by (spose_not_then assume_tac \\ gvs []) \\ gvs []
     \\ drule_all (cj 2 correct_from_exp)
     \\ disch_then $ qx_choosel_then [‘ck’, ‘t₁’] mp_tac
     \\ rpt strip_tac \\ gvs []
@@ -3550,7 +3550,7 @@ Proof
       \\ qmatch_asmsub_abbrev_tac ‘evaluate_stmt call_s’
       \\ namedCases_on ‘evaluate_stmt call_s env_dfy body’ ["s₂ r"]
       \\ gvs [Abbr ‘call_s’]
-      \\ ‘r ≠ Rstop (Serr Rtype_error)’ by (spose_not_then assume_tac \\ gvs [])
+      \\ ‘r ≠ Rstop (Serr Rfail)’ by (spose_not_then assume_tac \\ gvs [])
       \\ gvs []
       \\ last_x_assum drule
       \\ disch_then $ qspecl_then
@@ -3864,7 +3864,7 @@ Proof
     \\ qmatch_asmsub_abbrev_tac ‘evaluate_stmt call_s₁’
     \\ namedCases_on ‘evaluate_stmt call_s₁ env_dfy body’ ["s₂ r"]
     \\ gvs [Abbr ‘call_s₁’]
-    \\ ‘r ≠ Rstop (Serr Rtype_error)’ by (spose_not_then assume_tac \\ gvs [])
+    \\ ‘r ≠ Rstop (Serr Rfail)’ by (spose_not_then assume_tac \\ gvs [])
     \\ gvs []
     (* Apply induction hypothesis *)
     \\ qmatch_goalsub_abbrev_tac
@@ -4593,7 +4593,7 @@ Theorem correct_from_program:
     from_program prog = INR cml_decs ∧
     valid_prog prog ∧ has_basic_cons env_cml ∧
     t.clock = dfy_ck ∧ ExnStamp t.next_exn_stamp = ret_stamp ∧
-    r_dfy ≠ Rstop (Serr Rtype_error) ⇒
+    r_dfy ≠ Rstop (Serr Rfail) ⇒
     ∃ck t' m' r_cml.
       evaluate_decs (t with clock := t.clock + ck) env_cml cml_decs =
         (t', r_cml) ∧
