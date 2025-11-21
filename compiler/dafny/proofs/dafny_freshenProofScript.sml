@@ -1953,20 +1953,25 @@ Proof
   \\ simp [freshen_stmt_def]
 QED
 
-Theorem freshen_member_is_fresh:
-  ALL_DISTINCT (get_param_names member) ⇒
+Theorem is_fresh_member_freshen_member:
   is_fresh_member (freshen_member member)
 Proof
-  disch_tac
-  \\ namedCases_on ‘member’
-       ["name ins reqs ens rds decrs outs mods body",
-        "name ins res_t reqs rds decrs body"]
+  namedCases_on ‘member’
+    ["name ins reqs ens rds decrs outs mods body",
+     "name ins res_t reqs rds decrs body"]
   \\ gvs [freshen_member_def]
   \\ rpt (pairarg_tac \\ gvs [])
   \\ EVERY (map imp_res_tac
                 [freshen_exp_is_fresh, UNZIP_LENGTH,
                  map_add_fresh_every_is_fresh, freshen_stmt_is_fresh])
   \\ gvs [MAP_ZIP, UNZIP_MAP, ALL_DISTINCT_APPEND]
+QED
+
+Theorem every_is_fresh_member_map_freshen_member:
+  EVERY is_fresh_member (MAP freshen_member members)
+Proof
+  Induct_on ‘members’ >- (simp [])
+  \\ simp [is_fresh_member_freshen_member]
 QED
 
 (** no_shadow: After the freshening pass no variables are shadowed. **)
@@ -2051,14 +2056,41 @@ Proof
   \\ rpt (pairarg_tac \\ gvs [])
 QED
 
+Theorem no_shadow_subset[local]:
+  ∀xs stmt ys.
+    no_shadow xs stmt ∧ ys ⊆ xs ⇒ no_shadow ys stmt
+Proof
+  ho_match_mp_tac no_shadow_ind
+  \\ rpt strip_tac
+  \\ gvs [no_shadow_def]
+  (* Only Dec case should remain; the state should talk about inserting *)
+  \\ last_x_assum $ irule_at (Pos last)
+  \\ gvs [SUBSET_DEF]
+  \\ spose_not_then assume_tac \\ fs []
+QED
+
+Theorem lookup_subset[local]:
+  ∀m.
+    set (MAP (lookup m) (MAP FST m)) ⊆
+    set (MAP (λi. «v» ^ toString i) (MAP SND m))
+Proof
+  cheat
+QED
+
+Theorem map_inv_append[local]:
+ ∀m₁ m₀ cnt. map_inv (m₁ ++ m₀) cnt ⇒ map_inv m₁ cnt
+Proof
+  Induct >- (simp [map_inv_def])
+  \\ namedCases ["snam tnum"] \\ rpt strip_tac
+  \\ gvs [map_inv_def, greater_sorted_eq, SORTED_APPEND_GEN]
+QED
+
 Theorem no_shadow_method_freshen_member:
-  ALL_DISTINCT (get_param_names member) ⇒
   no_shadow_method (freshen_member member)
 Proof
-  disch_tac
-  \\ namedCases_on ‘member’
-       ["name ins reqs ens rds decrs outs mods body",
-        "name ins res_t reqs rds decrs body"]
+  namedCases_on ‘member’
+    ["name ins reqs ens rds decrs outs mods body",
+     "name ins res_t reqs rds decrs body"]
   \\ simp [freshen_member_def]
   \\ rpt (pairarg_tac \\ simp [])
   \\ imp_res_tac UNZIP_LENGTH
@@ -2080,10 +2112,20 @@ Proof
   \\ disch_then kall_tac
   \\ rev_drule map_add_fresh_exists
   \\ rpt strip_tac \\ gvs []
+  \\ rename [‘map_inv (m₁ ++ m)’]
   \\ ‘MAP FST ins = REVERSE (MAP FST m)’ by (gvs []) \\ fs []
   \\ ‘MAP FST outs = REVERSE (MAP FST m₁)’ by (gvs []) \\ fs []
-  \\ simp [MAP_REVERSE]
-  \\ DEP_REWRITE_TAC [gen_map_lookup_map_tostring]
-  \\ conj_tac >- (gvs [ALL_DISTINCT_APPEND])
-  \\ gvs [UNION_COMM]
+  \\ gvs [MAP_REVERSE]
+  \\ drule no_shadow_subset
+  \\ disch_then irule \\ simp []
+  \\ qspec_then ‘m’ assume_tac lookup_subset
+  \\ qspec_then ‘m₁’ assume_tac lookup_subset
+  \\ gvs [SUBSET_DEF]
+QED
+
+Theorem every_no_shadow_method_freshen_member:
+  EVERY no_shadow_method (MAP freshen_member members)
+Proof
+  Induct_on ‘members’ >- (simp [])
+  \\ simp [no_shadow_method_freshen_member]
 QED

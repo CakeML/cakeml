@@ -47,26 +47,6 @@ Definition valid_members_def:
   EVERY (λmember. ALL_DISTINCT (get_param_names member)) members
 End
 
-Theorem map_freshen_member_is_fresh[local]:
-  valid_members (Program members) ⇒
-  EVERY is_fresh_member (MAP freshen_member members)
-Proof
-  simp [valid_members_def]
-  \\ Induct_on ‘members’ \\ simp []
-  \\ rpt strip_tac
-  \\ irule freshen_member_is_fresh \\ simp []
-QED
-
-Theorem map_freshen_member_no_shadow_method[local]:
-  valid_members (Program members) ⇒
-  EVERY no_shadow_method (MAP freshen_member members)
-Proof
-  simp [valid_members_def]
-  \\ Induct_on ‘members’ \\ simp []
-  \\ rpt strip_tac
-  \\ irule no_shadow_method_freshen_member \\ simp []
-QED
-
 Definition cml_init_state_def:
   cml_init_state ffi ck =
     (FST (THE (prim_sem_env ffi))) with clock := ck
@@ -522,14 +502,10 @@ Proof
   \\ drule no_assert_member_freshen_member \\ simp []
 QED
 
-(* -- * -- *)
-
 Theorem correct_compile:
   ∀dfy_ck prog s cml_decs (ffi: 'ffi ffi_state).
     evaluate_program dfy_ck prog = (s, Rcont) ∧
-    compile prog = INR cml_decs ∧
-    (* TODO Shouldn't freshen already guarantee this? *)
-    valid_members prog
+    compile prog = INR cml_decs
     ⇒
     ∃ck t' m' r_cml.
       evaluate_decs
@@ -552,17 +528,15 @@ Proof
     drule_then assume_tac evaluate_program_rcont_has_main
     \\ drule_then assume_tac (iffRL has_main_remove_assert)
     \\ drule_then assume_tac (iffRL has_main_freshen)
-    (* valid_members preserved *)
-    \\ drule_then assume_tac valid_members_remove_assert
     (* no_assert *)
     \\ qspec_then ‘prog’ assume_tac no_assert_remove_assert
     \\ drule_then assume_tac no_assert_freshen
-    (* start proving valid_prog *)
+    (* actually valid_prog *)
     \\ namedCases_on ‘prog’ ["members"]
     \\ gvs [valid_prog_def, freshen_program_def, remove_assert_def]
     \\ rpt strip_tac
-    >- (irule map_freshen_member_is_fresh \\ simp [])
-    >- (irule map_freshen_member_no_shadow_method \\ simp [])
+    >- (simp [every_is_fresh_member_map_freshen_member])
+    >- (simp [every_no_shadow_method_freshen_member])
     >- (fs [no_assert_def]))
   >- (* evaluate_prog *)
    (irule correct_freshen_program \\ simp []
