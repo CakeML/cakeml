@@ -629,7 +629,6 @@ Definition op_to_string_def:
   (op_to_string CopyAw8Aw8 = (implode "CopyAw8Aw8", 5)) ∧
   (op_to_string Chr = (implode "Chr", 1)) ∧
   (op_to_string Ord = (implode "Ord", 1)) ∧
-  (op_to_string (Chopb _) = (implode "Chopb", 2)) ∧
   (op_to_string Strsub = (implode "Strsub", 2)) ∧
   (op_to_string Implode = (implode "Implode", 1)) ∧
   (op_to_string Explode = (implode "Explode", 1)) ∧
@@ -703,7 +702,6 @@ op_simple_constraints op =
             Tem Tword8array_num; Tem Tint_num], Tem Ttup_num)
    | Chr => (T, [Tem Tint_num], Tem Tchar_num)
    | Ord => (T, [Tem Tchar_num], Tem Tint_num)
-   | Chopb _ => (T, [Tem Tchar_num; Tem Tchar_num], Tem Tbool_num)
    | Strsub => (T, [Tem Tstring_num; Tem Tint_num], Tem Tchar_num)
    | Strlen => (T, [Tem Tstring_num], Tem Tint_num)
    | ConfigGC => (T, [Tem Tint_num; Tem Tint_num], Tem Ttup_num)

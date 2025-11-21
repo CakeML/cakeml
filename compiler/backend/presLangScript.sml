@@ -261,7 +261,6 @@ Definition op_to_display_def:
   | CopyAw8Aw8 => empty_item (strlit "CopyAw8Aw8")
   | Ord => empty_item (strlit "Ord")
   | Chr => empty_item (strlit "Chr")
-  | Chopb op => Item NONE (strlit "Chopb") [opb_to_display op]
   | Implode => empty_item (strlit "Implode")
   | Explode => empty_item (strlit "Explode")
   | Strsub => empty_item (strlit "Strsub")
@@ -493,7 +492,6 @@ Definition flat_op_to_display_def:
     | Aw8xor_unsafe => empty_item (strlit "Aw8xor_unsafe")
     | Ord => empty_item (strlit "Ord")
     | Chr => empty_item (strlit "Chr")
-    | Chopb op => Item NONE (strlit "Chopb") [opb_to_display op]
     | Implode => empty_item (strlit "Implode")
     | Explode => empty_item (strlit "Explode")
     | Strsub => empty_item (strlit "Strsub")

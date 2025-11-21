@@ -110,11 +110,6 @@ Definition compile_op_def:
                         (If t (Op t (IntOp Less) [Var t 0; Op None (IntOp (Const 255)) []])
                           (Raise t (Op t (BlockOp (Cons chr_tag)) []))
                           (Var t 0)))
-    | Chopb chop => Op t (IntOp (dtcase chop of
-                                 | Lt => Less
-                                 | Gt => Greater
-                                 | Leq => LessEq
-                                 | Geq => GreaterEq)) xs
     | Opassign => arg2 xs (\x y. Op t (MemOp Update) [x; Op None (IntOp (Const 0)) []; y])
     | Opref => Op t (MemOp Ref) xs
     | ConfigGC => Op t (MemOp ConfigGC) xs

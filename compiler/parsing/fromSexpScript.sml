@@ -749,10 +749,6 @@ Definition sexpop_def:
   if s = "W8toInt" then SOME (WordToInt W8) else
   if s = "W64fromInt" then SOME (WordFromInt W64) else
   if s = "W64toInt" then SOME (WordToInt W64) else
-  if s = "ChopbLt" then SOME (Chopb Lt) else
-  if s = "ChopbGt" then SOME (Chopb Gt) else
-  if s = "ChopbLeq" then SOME (Chopb Leq) else
-  if s = "ChopbGeq" then SOME (Chopb Geq) else
   if s = "Implode" then SOME Implode else
   if s = "Explode" then SOME Explode else
   if s = "Strsub" then SOME Strsub else
@@ -1587,10 +1583,6 @@ Definition opsexp_def:
   (opsexp (WordToInt W8) = SX_SYM "W8toInt") ∧
   (opsexp (WordFromInt W64) = SX_SYM "W64fromInt") ∧
   (opsexp (WordToInt W64) = SX_SYM "W64toInt") ∧
-  (opsexp (Chopb Lt) = SX_SYM "ChopbLt") ∧
-  (opsexp (Chopb Gt) = SX_SYM "ChopbGt") ∧
-  (opsexp (Chopb Leq)= SX_SYM "ChopbLeq") ∧
-  (opsexp (Chopb Geq)= SX_SYM "ChopbGeq") ∧
   (opsexp Implode = SX_SYM "Implode") ∧
   (opsexp Explode = SX_SYM "Explode") ∧
   (opsexp Strsub = SX_SYM "Strsub") ∧
@@ -1634,7 +1626,7 @@ Proof
       \\ Cases_on ‘t'’ \\ gvs [encode_thunk_mode_def,decode_thunk_mode_def]) >>
   Cases_on`op`>>fs []>>rw[sexpop_def,opsexp_def] >>
   TRY(MAP_FIRST rename1 [
-        ‘Opn c1’, ‘Opb c1’, ‘Opw c2 c1’, ‘Chopb c1’, ‘Shift c1 c2 _’,
+        ‘Opn c1’, ‘Opb c1’, ‘Opw c2 c1’, ‘Shift c1 c2 _’,
         ‘FP_cmp c1’, ‘FP_uop c1’, ‘FP_bop c1’, ‘FP_top c1’,
         ‘WordFromInt c1’, ‘WordToInt c1’
       ] >>

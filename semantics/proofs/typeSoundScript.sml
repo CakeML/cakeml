@@ -924,10 +924,6 @@ Proof
       >> fs []
       >> simp [Once type_v_cases]
       >> metis_tac [store_type_extension_refl]) >~
-  [‘Chopb’]
-  >- ((* character boolean ops *)
-      rw [do_app_cases, PULL_EXISTS] >>
-      metis_tac [type_v_Boolv, store_type_extension_refl, Tbool_def]) >~
   [‘Implode’]
   >- (rw [do_app_cases, PULL_EXISTS] >>
       MAP_EVERY (TRY o drule o SIMP_RULE (srw_ss()) [] o GEN_ALL)

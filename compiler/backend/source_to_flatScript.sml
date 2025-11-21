@@ -110,7 +110,6 @@ Definition astOp_to_flatOp_def:
   | XorAw8Str_unsafe => flatLang$Aw8xor_unsafe
   | Ord => flatLang$Ord
   | Chr => flatLang$Chr
-  | Chopb opb => flatLang$Chopb opb
   | Implode => flatLang$Implode
   | Explode => flatLang$Explode
   | Strsub => flatLang$Strsub

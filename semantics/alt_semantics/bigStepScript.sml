@@ -13,7 +13,6 @@ val _ = numLib.temp_prefer_num();
 
 (* getOpClass as a inductive to make the proofs potentially easier *)
 Inductive opClass:
-(∀ op. opClass (Chopb op) Simple) ∧
 (∀ op. opClass (Opn op) Simple) ∧
 (∀ op. opClass (Opb op) Simple) ∧
 (∀ op. opClass (FFI op) Simple) ∧
