@@ -7,7 +7,8 @@ Ancestors
   dafny_evaluate
   dafny_eval_rel
   dafny_freshen
-  dafny_wp_calc
+  dafny_wp_calc (* For forall_def *)
+  dafny_vcg
 Libs
   preamble
 

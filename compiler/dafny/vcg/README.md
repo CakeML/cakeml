@@ -1,5 +1,11 @@
 Verification condition generation (VCG) for Dafny.
 
+[dafny_vcgProofScript.sml](dafny_vcgProofScript.sml):
+Proves that the VCG is an implementation of the wp-calculus.
+
+[dafny_vcgScript.sml](dafny_vcgScript.sml):
+Verification Condition Generator for Dafny.
+
 [dafny_vcg_exampleScript.sml](dafny_vcg_exampleScript.sml):
 Concrete examples demonstrating the wp calculus.
 
