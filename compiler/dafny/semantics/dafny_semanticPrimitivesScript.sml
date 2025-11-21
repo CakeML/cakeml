@@ -48,7 +48,7 @@ End
 Datatype:
   error_result =
   | Rfail
-  | Rtimeout_error
+  | Rtimeout
 End
 
 Datatype:
@@ -396,8 +396,8 @@ Definition eval_forall_def:
   eval_forall (dom: α set) eval =
     if (∃v. v ∈ dom ∧ SND (eval v) = Rerr Rfail)
     then Rerr Rfail
-    else if (∃v. v ∈ dom ∧ SND (eval v) = Rerr Rtimeout_error)
-    then Rerr Rtimeout_error
+    else if (∃v. v ∈ dom ∧ SND (eval v) = Rerr Rtimeout)
+    then Rerr Rtimeout
     else if (∀v. v ∈ dom ⇒ SND (eval v) = Rval (BoolV T))
     then Rval (BoolV T)
     (* NOTE For now, for simplicity reasons, we do not check whether (eval v) *)

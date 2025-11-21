@@ -172,11 +172,11 @@ QED
 (* We can add extra ticks to the clock if we didn't timeout before *)
 Theorem evaluate_exp_add_to_clock:
   (∀s env e s' r extra.
-     evaluate_exp s env e = (s', r) ∧ r ≠ Rerr Rtimeout_error ⇒
+     evaluate_exp s env e = (s', r) ∧ r ≠ Rerr Rtimeout ⇒
      evaluate_exp (s with clock := s.clock + extra) env e =
      (s' with clock := s'.clock + extra, r)) ∧
   (∀s env es s' r extra.
-     evaluate_exps s env es = (s', r) ∧ r ≠ Rerr Rtimeout_error ⇒
+     evaluate_exps s env es = (s', r) ∧ r ≠ Rerr Rtimeout ⇒
      evaluate_exps (s with clock := s.clock + extra) env es =
      (s' with clock := s'.clock + extra, r))
 Proof
@@ -261,7 +261,7 @@ Proof
     \\ rpt (pairarg_tac \\ gvs [])
     \\ IF_CASES_TAC \\ gvs []
     \\ namedCases_on ‘evaluate_exps s env rhss’ ["s₁ r₁"] \\ gvs []
-    \\ ‘r₁ ≠ Rerr Rtimeout_error’ by (spose_not_then assume_tac \\ gvs [])
+    \\ ‘r₁ ≠ Rerr Rtimeout’ by (spose_not_then assume_tac \\ gvs [])
     \\ namedCases_on ‘r₁’ ["vs", "err"] \\ gvs []
     \\ first_x_assum $ qspec_then ‘extra’ assume_tac
     \\ qmatch_asmsub_abbrev_tac ‘evaluate_exp s₂’
@@ -292,7 +292,7 @@ QED
 Theorem assign_value_add_to_clock:
   ∀s env lhs val s' r extra.
     assign_value s env lhs val = (s', r) ∧
-    r ≠ Rstop (Serr Rtimeout_error) ⇒
+    r ≠ Rstop (Serr Rtimeout) ⇒
     assign_value (s with clock := s.clock + extra) env lhs val =
     (s' with clock := s'.clock + extra, r)
 Proof
@@ -307,7 +307,7 @@ Proof
     \\ namedCases_on ‘evaluate_exp s env arr’ ["s₁ r₁"] \\ gvs []
     \\ drule (cj 1 evaluate_exp_with_clock)
     \\ disch_then $ qx_choose_then ‘ck’ assume_tac \\ gvs []
-    \\ ‘r₁ ≠ Rerr Rtimeout_error’ by (gvs [AllCaseEqs()])
+    \\ ‘r₁ ≠ Rerr Rtimeout’ by (gvs [AllCaseEqs()])
     \\ dxrule (cj 1 evaluate_exp_add_to_clock) \\ simp []
     \\ disch_then $ qspec_then ‘extra’ assume_tac \\ simp []
     \\ namedCases_on ‘r₁’ ["arr_v", "err"] \\ gvs []
@@ -316,7 +316,7 @@ Proof
     \\ gvs []
     \\ drule (cj 1 evaluate_exp_with_clock)
     \\ disch_then $ qx_choose_then ‘ck₁’ assume_tac \\ gvs []
-    \\ ‘r₂ ≠ Rerr Rtimeout_error’ by (gvs [AllCaseEqs()])
+    \\ ‘r₂ ≠ Rerr Rtimeout’ by (gvs [AllCaseEqs()])
     \\ dxrule (cj 1 evaluate_exp_add_to_clock) \\ simp []
     \\ disch_then $ qspec_then ‘extra’ assume_tac \\ simp []
     \\ namedCases_on ‘r₂’ ["idx_v", "err"] \\ gvs []
@@ -329,7 +329,7 @@ QED
 Theorem assign_values_add_to_clock:
   ∀s env lhss vals s' r extra.
     assign_values s env lhss vals = (s', r) ∧
-    r ≠ Rstop (Serr Rtimeout_error) ⇒
+    r ≠ Rstop (Serr Rtimeout) ⇒
     assign_values (s with clock := s.clock + extra) env lhss vals =
     (s' with clock := s'.clock + extra, r)
 Proof
@@ -340,7 +340,7 @@ QED
 
 Theorem evaluate_rhs_exp_add_to_clock:
   ∀s env e s' r extra.
-    evaluate_rhs_exp s env e = (s', r) ∧ r ≠ Rerr Rtimeout_error ⇒
+    evaluate_rhs_exp s env e = (s', r) ∧ r ≠ Rerr Rtimeout ⇒
     evaluate_rhs_exp (s with clock := s.clock + extra) env e =
     (s' with clock := s'.clock + extra, r)
 Proof
@@ -353,7 +353,7 @@ Proof
     \\ namedCases_on ‘evaluate_exp s env len’ ["s₁ r₁"] \\ gvs []
     \\ drule (cj 1 evaluate_exp_with_clock)
     \\ disch_then $ qx_choose_then ‘ck’ assume_tac \\ gvs []
-    \\ ‘r₁ ≠ Rerr Rtimeout_error’ by (gvs [AllCaseEqs()])
+    \\ ‘r₁ ≠ Rerr Rtimeout’ by (gvs [AllCaseEqs()])
     \\ drule (cj 1 evaluate_exp_add_to_clock) \\ simp []
     \\ disch_then $ qspec_then ‘extra’ assume_tac \\ simp []
     \\ namedCases_on ‘r₁’ ["len_v", "err"] \\ gvs []
@@ -361,7 +361,7 @@ Proof
     \\ gvs []
     \\ drule (cj 1 evaluate_exp_with_clock)
     \\ disch_then $ qx_choose_then ‘ck₁’ assume_tac \\ gvs []
-    \\ ‘r₂ ≠ Rerr Rtimeout_error’ by (gvs [AllCaseEqs()])
+    \\ ‘r₂ ≠ Rerr Rtimeout’ by (gvs [AllCaseEqs()])
     \\ drule (cj 1 evaluate_exp_add_to_clock) \\ simp []
     \\ disch_then $ qspec_then ‘extra’ assume_tac \\ simp []
     \\ namedCases_on ‘r₂’ ["init_v", "err"] \\ gvs []
@@ -373,7 +373,7 @@ QED
 
 Theorem evaluate_rhs_exps_add_to_clock:
   ∀s env es s' r extra.
-    evaluate_rhs_exps s env es = (s', r) ∧ r ≠ Rerr Rtimeout_error ⇒
+    evaluate_rhs_exps s env es = (s', r) ∧ r ≠ Rerr Rtimeout ⇒
     evaluate_rhs_exps (s with clock := s.clock + extra) env es =
     (s' with clock := s'.clock + extra, r)
 Proof
@@ -381,19 +381,19 @@ Proof
   \\ qx_genl_tac [‘e’, ‘s’, ‘env’, ‘s'’, ‘r’, ‘extra’]
   \\ rpt strip_tac
   \\ namedCases_on ‘evaluate_rhs_exp s env e’ ["s₁ r₁"] \\ gvs []
-  \\ ‘r₁ ≠ Rerr Rtimeout_error’ by (gvs [AllCaseEqs()])
+  \\ ‘r₁ ≠ Rerr Rtimeout’ by (gvs [AllCaseEqs()])
   \\ drule evaluate_rhs_exp_add_to_clock \\ simp []
   \\ disch_then $ qspec_then ‘extra’ assume_tac
   \\ Cases_on ‘r₁’ \\ gvs []
   \\ namedCases_on ‘evaluate_rhs_exps s₁ env es’ ["s₂ r₂"] \\ gvs []
-  \\ ‘r₂ ≠ Rerr Rtimeout_error’ by (gvs [AllCaseEqs()])
+  \\ ‘r₂ ≠ Rerr Rtimeout’ by (gvs [AllCaseEqs()])
   \\ last_x_assum drule \\ simp []
   \\ Cases_on ‘r₂’ \\ gvs []
 QED
 
 Theorem evaluate_stmt_add_to_clock:
   ∀s env stmt s' r extra.
-    evaluate_stmt s env stmt = (s', r) ∧ r ≠ Rstop (Serr Rtimeout_error) ⇒
+    evaluate_stmt s env stmt = (s', r) ∧ r ≠ Rstop (Serr Rtimeout) ⇒
     evaluate_stmt (s with clock := s.clock + extra) env stmt =
     (s' with clock := s'.clock + extra, r)
 Proof
@@ -404,7 +404,7 @@ Proof
   >~ [‘Assert e’] >-
    (gvs [evaluate_stmt_def]
     \\ namedCases_on ‘evaluate_exp s env e’ ["s₁ r₁"] \\ gvs []
-    \\ ‘r₁ ≠ Rerr Rtimeout_error’ by (spose_not_then assume_tac \\ gvs [])
+    \\ ‘r₁ ≠ Rerr Rtimeout’ by (spose_not_then assume_tac \\ gvs [])
     \\ drule_all (cj 1 evaluate_exp_add_to_clock) \\ simp []
     \\ gvs [AllCaseEqs()])
   >~ [‘Then stmt₁ stmt₂’] >-
@@ -414,7 +414,7 @@ Proof
   >~ [‘If tst thn els’] >-
    (gvs [evaluate_stmt_def]
     \\ namedCases_on ‘evaluate_exp s env tst’ ["s₂ r₁"] \\ gvs []
-    \\ ‘r₁ ≠ Rerr Rtimeout_error’ by (Cases_on ‘r₁’ \\ gvs [])
+    \\ ‘r₁ ≠ Rerr Rtimeout’ by (Cases_on ‘r₁’ \\ gvs [])
     \\ drule_all (cj 1 evaluate_exp_add_to_clock) \\ simp []
     \\ disch_then kall_tac
     \\ namedCases_on ‘r₁’ ["tst_v", "err"] \\ gvs []
@@ -437,7 +437,7 @@ Proof
   >~ [‘Assign ass’] >-
    (gvs [evaluate_stmt_def]
     \\ namedCases_on ‘evaluate_rhs_exps s env (MAP SND ass)’ ["s₁ r₁"] \\ gvs []
-    \\ ‘r₁ ≠ Rerr Rtimeout_error’ by (Cases_on ‘r₁’ \\ gvs [])
+    \\ ‘r₁ ≠ Rerr Rtimeout’ by (Cases_on ‘r₁’ \\ gvs [])
     \\ dxrule evaluate_rhs_exps_add_to_clock \\ simp []
     \\ disch_then $ qspec_then ‘extra’ assume_tac \\ simp []
     \\ namedCases_on ‘r₁’ ["vals", "err"] \\ gvs []
@@ -450,7 +450,7 @@ Proof
     \\ namedCases_on ‘evaluate_exp s₁ env grd’ ["s₂ r₁"] \\ gvs []
     \\ drule (cj 1 evaluate_exp_with_clock)
     \\ disch_then $ qx_choose_then ‘ck’ assume_tac \\ gvs [Abbr ‘s₁’]
-    \\ ‘r₁ ≠ Rerr Rtimeout_error’ by (Cases_on ‘r₁’ \\ gvs [])
+    \\ ‘r₁ ≠ Rerr Rtimeout’ by (Cases_on ‘r₁’ \\ gvs [])
     \\ dxrule (cj 1 evaluate_exp_add_to_clock) \\ simp []
     \\ disch_then $ qspec_then ‘extra’ assume_tac
     \\ namedCases_on ‘r₁’ ["grd_v", "err"] \\ gvs []
@@ -458,7 +458,7 @@ Proof
     \\ IF_CASES_TAC \\ gvs []
     \\ namedCases_on ‘evaluate_stmt (s with clock := ck) env body’ ["s₃ r₂"]
     \\ gvs []
-    \\ ‘r₂ ≠ Rstop (Serr Rtimeout_error)’ by (Cases_on ‘r₂’ \\ gvs [])
+    \\ ‘r₂ ≠ Rstop (Serr Rtimeout)’ by (Cases_on ‘r₂’ \\ gvs [])
     \\ fs []
     \\ Cases_on ‘r₂’ \\ gvs [])
   >~ [‘Print e t’] >-
@@ -466,7 +466,7 @@ Proof
     \\ namedCases_on ‘evaluate_exp s env e’ ["s₁ r₁"] \\ gvs []
     \\ drule (cj 1 evaluate_exp_with_clock)
     \\ disch_then $ qx_choose_then ‘ck’ assume_tac \\ gvs []
-    \\ ‘r₁ ≠ Rerr Rtimeout_error’ by (Cases_on ‘r₁’ \\ gvs [])
+    \\ ‘r₁ ≠ Rerr Rtimeout’ by (Cases_on ‘r₁’ \\ gvs [])
     \\ dxrule (cj 1 evaluate_exp_add_to_clock)
     \\ disch_then $ qspec_then ‘extra’ assume_tac \\ gvs []
     \\ namedCases_on ‘r₁’ ["v", "err"] \\ gvs []
@@ -479,7 +479,7 @@ Proof
     \\ namedCases_on ‘evaluate_exps s env args’ ["s₁ r₁"] \\ gvs []
     \\ drule (cj 2 evaluate_exp_with_clock)
     \\ disch_then $ qx_choose_then ‘ck’ assume_tac \\ gvs []
-    \\ ‘r₁ ≠ Rerr Rtimeout_error’ by (Cases_on ‘r₁’ \\ gvs [])
+    \\ ‘r₁ ≠ Rerr Rtimeout’ by (Cases_on ‘r₁’ \\ gvs [])
     \\ dxrule (cj 2 evaluate_exp_add_to_clock) \\ simp []
     \\ disch_then $ qspec_then ‘extra’ assume_tac \\ gvs []
     \\ namedCases_on ‘r₁’ ["in_vs", "err"] \\ gvs []
@@ -497,7 +497,7 @@ Proof
     \\ qmatch_asmsub_abbrev_tac ‘evaluate_stmt s₂'’
     \\ namedCases_on ‘evaluate_stmt s₂' env body’ ["s₃ r₃"]
     \\ gvs [Abbr ‘s₂'’]
-    \\ ‘r₃ ≠ Rstop (Serr Rtimeout_error)’ by (gvs [AllCaseEqs()]) \\ fs []
+    \\ ‘r₃ ≠ Rstop (Serr Rtimeout)’ by (gvs [AllCaseEqs()]) \\ fs []
     \\ namedCases_on ‘r₃’ ["", "stp"] \\ gvs []
     \\ gvs [restore_caller_cur_with_clock, restore_caller_prev_with_clock]
     \\ reverse $ Cases_on ‘stp’ \\ gvs []

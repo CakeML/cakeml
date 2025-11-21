@@ -5621,11 +5621,11 @@ Theorem no_ticks_lemma:
   (∀st env e st1 r.
     no_ticks e ∧
     evaluate_exp st env e = (st1,r) ⇒
-    st = st1 ∧ r ≠ Rerr Rtimeout_error) ∧
+    st = st1 ∧ r ≠ Rerr Rtimeout) ∧
   (∀st env es st1 r.
     EVERY no_ticks es ∧
     evaluate_exps st env es = (st1,r) ⇒
-    st = st1 ∧ r ≠ Rerr Rtimeout_error)
+    st = st1 ∧ r ≠ Rerr Rtimeout)
 Proof
   ho_match_mp_tac evaluate_exp_ind>>rw[no_ticks_def]>>
   gvs[evaluate_exp_def,AllCaseEqs()]>>
@@ -5639,7 +5639,7 @@ QED
 Theorem no_ticks:
     no_ticks e ∧
     evaluate_exp st env e = (st1,r) ⇒
-    st1 = st ∧ r ≠ Rerr Rtimeout_error
+    st1 = st ∧ r ≠ Rerr Rtimeout
 Proof
   metis_tac[(cj 1 no_ticks_lemma)]
 QED

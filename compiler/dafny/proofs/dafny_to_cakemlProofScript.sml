@@ -463,7 +463,7 @@ End
 
 Definition exp_res_rel_def[simp]:
   (exp_res_rel m (Rval dfy_v) (Rval [cml_v]) ⇔ val_rel m dfy_v cml_v) ∧
-  (exp_res_rel m (Rerr Rtimeout_error) (Rerr (Rabort Rtimeout_error)) ⇔
+  (exp_res_rel m (Rerr Rtimeout) (Rerr (Rabort Rtimeout_error)) ⇔
      T) ∧
   (exp_res_rel _ _ _ ⇔ F)
 End
@@ -479,7 +479,7 @@ QED
 
 Theorem exp_res_rel_rerr[local,simp]:
   exp_res_rel m (Rerr dfy_err) r_cml ⇔
-  dfy_err = Rtimeout_error ∧ r_cml = (Rerr (Rabort Rtimeout_error))
+  dfy_err = Rtimeout ∧ r_cml = (Rerr (Rabort Rtimeout_error))
 Proof
   namedCases_on ‘r_cml’ ["vs", "err"] \\ gvs []
   \\ namedCases_on ‘err’ ["raise", "abort"] \\ gvs []
@@ -490,14 +490,14 @@ QED
 Definition exp_ress_rel_def[simp]:
   (exp_ress_rel m (Rval dfy_vs) (Rval cml_vs) ⇔
      LIST_REL (val_rel m) dfy_vs cml_vs) ∧
-  (exp_ress_rel m (Rerr Rtimeout_error) (Rerr (Rabort Rtimeout_error)) ⇔
+  (exp_ress_rel m (Rerr Rtimeout) (Rerr (Rabort Rtimeout_error)) ⇔
      T) ∧
   (exp_ress_rel _ _ _ ⇔ F)
 End
 
 Theorem exp_ress_rel_rerr[local,simp]:
   exp_ress_rel m (Rerr dfy_err) rs_cml ⇔
-  dfy_err = Rtimeout_error ∧ rs_cml = (Rerr (Rabort Rtimeout_error))
+  dfy_err = Rtimeout ∧ rs_cml = (Rerr (Rabort Rtimeout_error))
 Proof
   namedCases_on ‘rs_cml’ ["vs", "err"] \\ gvs []
   \\ namedCases_on ‘err’ ["raise", "abort"] \\ gvs []
@@ -515,7 +515,7 @@ QED
 Definition stmt_res_rel_def[simp]:
   (stmt_res_rel Rcont (Rval _) ⇔ T) ∧
   (stmt_res_rel (Rstop Sret) (Rerr (Rraise val)) ⇔ is_ret_exn val) ∧
-  (stmt_res_rel (Rstop (Serr Rtimeout_error))
+  (stmt_res_rel (Rstop (Serr Rtimeout))
      (Rerr (Rabort Rtimeout_error)) ⇔ T) ∧
   (stmt_res_rel _ _ ⇔ F)
 End
@@ -525,7 +525,7 @@ Theorem stmt_res_rel_simp[local,simp]:
      ∃vs. r_cml = Rval vs) ∧
   (stmt_res_rel (Rstop Sret) r_cml ⇔
      ∃v. r_cml = Rerr (Rraise v) ∧ is_ret_exn v) ∧
-  (stmt_res_rel (Rstop (Serr Rtimeout_error)) r_cml ⇔
+  (stmt_res_rel (Rstop (Serr Rtimeout)) r_cml ⇔
      r_cml = (Rerr (Rabort Rtimeout_error)))
 Proof
   namedCases_on ‘r_cml’ ["vs", "err"] \\ gvs []

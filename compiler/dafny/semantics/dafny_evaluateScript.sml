@@ -98,7 +98,7 @@ Definition evaluate_exp_ann_def[nocompute]:
              | NONE => (st₁, Rerr Rfail)
              | SOME st₂ =>
                if st₂.clock = 0
-               then (restore_caller st₂ st₁, Rerr Rtimeout_error)
+               then (restore_caller st₂ st₁, Rerr Rtimeout)
                else
                  (case evaluate_exp (dec_clock st₂) env body of
                   | (st₃, Rerr err) =>
@@ -351,7 +351,7 @@ Definition evaluate_stmt_ann_def[nocompute]:
   (* By having the check and decrement at the beginning (instead of right
      before going into the next iteration), the compiler proof for the While
      case becomes significantly easier, as the clocks match up. *)
-  (if st₀.clock = 0 then (st₀, Rstop (Serr Rtimeout_error)) else
+  (if st₀.clock = 0 then (st₀, Rstop (Serr Rtimeout)) else
    (case evaluate_exp (dec_clock st₀) env guard of
     | (st₁, Rerr err) => (st₁, Rstop (Serr err))
     | (st₁, Rval guard_v) =>
@@ -384,7 +384,7 @@ Definition evaluate_stmt_ann_def[nocompute]:
             | NONE => (st₁, Rstop (Serr Rfail))
             | SOME st₂ =>
               if st₂.clock = 0
-              then (restore_caller st₂ st₁, Rstop (Serr Rtimeout_error))
+              then (restore_caller st₂ st₁, Rstop (Serr Rtimeout))
               else
                 (case evaluate_stmt (dec_clock st₂) env body of
                  | (st₃, Rcont) =>
