@@ -21,37 +21,6 @@ val _ = ml_prog_update (add_dec
 val _ = trans "ord" stringSyntax.ord_tm;
 val _ = trans "chr" stringSyntax.chr_tm;
 val _ = trans "=" “(=):char->char->bool”;
-
-(*
-Definition basis_char_lt_def[simp]:
-  basis_char_lt (c1:char) (c2:char) = (c1 < c2)
-End
-
-val _ = (next_ml_names := ["<"]);
-val _ = translate basis_char_lt_def;
-
-Definition basis_char_gt_def[simp]:
-  basis_char_gt (c1:char) (c2:char) = (c1 > c2)
-End
-
-val _ = (next_ml_names := [">"]);
-val _ = translate basis_char_gt_def;
-
-Definition basis_char_le_def[simp]:
-  basis_char_le (c1:char) (c2:char) = (c1 <= c2)
-End
-
-val _ = (next_ml_names := ["<="]);
-val _ = translate basis_char_le_def;
-
-Definition basis_char_ge_def[simp]:
-  basis_char_ge (c1:char) (c2:char) = (c1 >= c2)
-End
-
-val _ = (next_ml_names := [">="]);
-val _ = translate basis_char_ge_def;
-*)
-
 val _ = trans "<" stringSyntax.char_lt_tm;
 val _ = trans ">" stringSyntax.char_gt_tm;
 val _ = trans "<=" stringSyntax.char_le_tm;

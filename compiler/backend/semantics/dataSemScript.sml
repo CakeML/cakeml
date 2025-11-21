@@ -726,8 +726,9 @@ Definition do_word_app_def:
   do_word_app (WordTest W8 test) [Number n1; Number n2] =
        (if 0 ≤ n1 ∧ n1 < 256 ∧ 0 ≤ n2 ∧ n2 < 256 then
           (case test of
-           | Equal => SOME (Boolv (n1 = n2))
-           | Less => SOME (Boolv (n1 < n2))
+           | Equal  => SOME (Boolv (n1 = n2))
+           | Less   => SOME (Boolv (n1 < n2))
+           | LessEq => SOME (Boolv (n1 <= n2))
            | _ => NONE)
         else NONE) /\
   do_word_app (WordShift W8 sh n) [Number i] =

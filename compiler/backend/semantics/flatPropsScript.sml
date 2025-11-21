@@ -1163,7 +1163,7 @@ Proof
   \\ rfs [EL_MAP]
 QED
 
-val sv_rel_cases = semanticPrimitivesPropsTheory.sv_rel_cases
+val sv_rel_cases = semanticPrimitivesPropsTheory.sv_rel_cases;
 
 Theorem simple_do_app_thm:
   simple_val_rel vr /\
@@ -1184,9 +1184,10 @@ Proof
   >-
    (gvs [PULL_EXISTS,do_app_def,AllCaseEqs()] \\ rw []
     \\ qexists_tac ‘b’ \\ conj_tac >- gvs [Boolv_def]
-    \\ gvs [AllCaseEqs(), oneline do_test_def,PULL_EXISTS]
-    \\ gvs [oneline dest_Litv_def, AllCaseEqs()]
     \\ Cases_on ‘ty’ \\ TRY (rename [‘WordT ws’] \\ Cases_on ‘ws’)
+    \\ Cases_on ‘test’
+    \\ gvs [AllCaseEqs(),flatSemTheory.do_test_def,PULL_EXISTS]
+    \\ gvs [oneline dest_Litv_def, AllCaseEqs()]
     \\ gvs [check_type_def,Boolv_def])
   \\ Cases_on ‘∃t. op = ThunkOp t’
   >-

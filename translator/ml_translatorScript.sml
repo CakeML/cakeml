@@ -1360,8 +1360,7 @@ Proof
   >-
    (fs [dest_Litv_def,state_component_equality,BOOL_def]
     \\ Cases_on ‘w1’ \\ Cases_on ‘w2’ \\ fs [w2w_def,WORD_LO,word_lsl_n2w]
-    \\ ‘~(8 < 9 − dimindex (:α))’ by
-      (‘0 < dimindex (:'a)’ by fs [] \\ decide_tac)
+    \\ ‘~(8 < 9 − dimindex (:α))’ by (‘0 < dimindex (:'a)’ by fs [] \\ decide_tac)
     \\ fs []
     \\ DEP_REWRITE_TAC [LESS_MOD] \\ fs [WORD_LO]
     \\ rpt strip_tac
@@ -1381,18 +1380,51 @@ Proof
   \\ rewrite_tac [w2n_lt]
 QED
 
+Theorem Eval_word_ls:
+  Eval env x1 (WORD (w1:'a word)) /\
+  Eval env x2 (WORD (w2:'a word)) ==>
+  Eval env
+    (if dimindex (:'a) <= 8 then
+       App (Test LessEq (WordT W8)) [x1;x2]
+     else
+       App (Opb Leq) [App (WordToInt W64) [x1];
+                     App (WordToInt W64) [x2]])
+    (BOOL (w1 <=+ w2))
+Proof
+  rw[Eval_rw] \\ Eval2_tac \\ fs [do_app_def,WORD_def,do_test_def,check_type_def]
+  \\ rw [] \\ fs [WORD_def,state_component_equality,do_eq_def,lit_same_type_def]
+  >-
+   (fs [dest_Litv_def,state_component_equality,BOOL_def]
+    \\ Cases_on ‘w1’ \\ Cases_on ‘w2’ \\ fs [w2w_def,WORD_LO,word_lsl_n2w]
+    \\ ‘~(8 < 9 − dimindex (:α))’ by (‘0 < dimindex (:'a)’ by fs [] \\ decide_tac)
+    \\ fs []
+    \\ DEP_REWRITE_TAC [LESS_MOD] \\ fs [WORD_LS]
+    \\ rpt strip_tac
+    \\ irule LESS_LESS_EQ_TRANS
+    \\ qexists_tac ‘2 ** 8’ \\ (reverse conj_tac >- EVAL_TAC)
+    \\ irule less_two_pow_lemma
+    \\ asm_rewrite_tac [GSYM dimword_def]
+    \\ rewrite_tac [w2n_lt])
+  \\ fs [AllCaseEqs(),PULL_EXISTS,opb_lookup_def,empty_state_def,
+         BOOL_def,w2w_def,word_lsl_n2w]
+  \\ DEP_REWRITE_TAC [LESS_MOD] \\ fs [WORD_LS]
+  \\ rpt strip_tac
+  \\ irule LESS_LESS_EQ_TRANS
+  \\ qexists_tac ‘2 ** 64’ \\ (reverse conj_tac >- EVAL_TAC)
+  \\ irule less_two_pow_lemma
+  \\ asm_rewrite_tac [GSYM dimword_def]
+  \\ rewrite_tac [w2n_lt]
+QED
+
 Theorem Eval_word_hi = Eval_word_lo
   |> REWRITE_RULE [GSYM WORD_HIGHER]
   |> Q.INST [‘x1’|->‘x2’,‘x2’|->‘x1’,‘w1’|->‘w2’,‘w2’|->‘w1’]
   |> ONCE_REWRITE_RULE [CONJ_COMM];
 
-Theorem Eval_word_ls = (* TODO: avoid using NOT *)
-  MATCH_MP Eval_Bool_Not (Eval_word_hi |> UNDISCH) |> DISCH_ALL
-  |> REWRITE_RULE [wordsTheory.WORD_NOT_HIGHER];
-
-Theorem Eval_word_hs = (* TODO: avoid using NOT *)
-  MATCH_MP Eval_Bool_Not (Eval_word_lo |> UNDISCH) |> DISCH_ALL
-  |> REWRITE_RULE [wordsTheory.WORD_NOT_LOWER,GSYM WORD_HIGHER_EQ];
+Theorem Eval_word_hs = Eval_word_ls
+  |> REWRITE_RULE [GSYM WORD_HIGHER_EQ]
+  |> Q.INST [‘x1’|->‘x2’,‘x2’|->‘x1’,‘w1’|->‘w2’,‘w2’|->‘w1’]
+  |> ONCE_REWRITE_RULE [CONJ_COMM];
 
 Theorem w2n_w2w_8[local]:
   dimindex (:α) < 8 ==>
@@ -2108,20 +2140,27 @@ Proof
   \\ rw[stringTheory.char_lt_def]
 QED
 
+Theorem Eval_char_le:
+  Eval env x1 (CHAR c1) ==>
+  Eval env x2 (CHAR c2) ==>
+  Eval env (App (Test LessEq CharT) [x1;x2]) (BOOL (c1 <= c2))
+Proof
+  rw[Eval_rw,CHAR_def,NUM_def,INT_def]
+  \\ Eval2_tac \\ fs [do_app_def,empty_state_def]
+  \\ rw[BOOL_def,opb_lookup_def,Boolv_11,do_test_def,dest_Litv_def]
+  \\ rw[stringTheory.char_le_def]
+QED
+
 Theorem Eval_char_gt = Eval_char_lt
   |> REWRITE_RULE [GSYM char_gt_def,char_lt_def,GSYM GREATER_DEF,AND_IMP_INTRO]
   |> Q.INST [‘x1’|->‘x2’,‘x2’|->‘x1’,‘c1’|->‘c2’,‘c2’|->‘c1’]
   |> ONCE_REWRITE_RULE [CONJ_COMM]
   |> REWRITE_RULE [GSYM AND_IMP_INTRO];
 
-Theorem Eval_char_le = (* TODO: avoid using NOT *)
-  MATCH_MP Eval_Bool_Not (Eval_char_gt |> SPEC_ALL |> REWRITE_RULE [AND_IMP_INTRO] |> UNDISCH) |> DISCH_ALL
-  |> REWRITE_RULE [char_gt_def,GREATER_DEF,NOT_LESS,GSYM char_le_def]
-  |> REWRITE_RULE [GSYM AND_IMP_INTRO];
-
-Theorem Eval_char_ge = (* TODO: avoid using NOT *)
-  MATCH_MP Eval_Bool_Not (Eval_char_lt |> SPEC_ALL |> REWRITE_RULE [AND_IMP_INTRO] |> UNDISCH) |> DISCH_ALL
-  |> REWRITE_RULE [char_lt_def,GREATER_DEF,NOT_LESS,GSYM GREATER_EQ,GSYM char_ge_def]
+Theorem Eval_char_ge = Eval_char_le
+  |> REWRITE_RULE [GSYM char_ge_def,char_le_def,GSYM GREATER_EQ,AND_IMP_INTRO]
+  |> Q.INST [‘x1’|->‘x2’,‘x2’|->‘x1’,‘c1’|->‘c2’,‘c2’|->‘c1’]
+  |> ONCE_REWRITE_RULE [CONJ_COMM]
   |> REWRITE_RULE [GSYM AND_IMP_INTRO];
 
 Theorem Eval_char_eq:

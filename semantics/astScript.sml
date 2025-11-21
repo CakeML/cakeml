@@ -81,7 +81,7 @@ Datatype:
 End
 
 Datatype:
-  test = Equal | Less | Less_alt
+  test = Equal | Less | Less_alt | LessEq | LessEq_alt
 End
 
 Datatype:

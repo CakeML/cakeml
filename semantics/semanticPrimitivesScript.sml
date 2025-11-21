@@ -804,7 +804,12 @@ Definition do_test_def: (* TODO: extend with more cases *)
      | (CharT, SOME (Char i), SOME (Char j)) => Eq_val (i < j)
      | (WordT W8, SOME (Word8 w), SOME (Word8 v)) => Eq_val (w2n w < w2n v)
      | _ => Eq_type_error) ∧
-  do_test Less_alt ty v1 v2 = Eq_type_error
+  do_test LessEq ty v1 v2 =
+    (case (ty, dest_Litv v1, dest_Litv v2) of
+     | (CharT, SOME (Char i), SOME (Char j)) => Eq_val (i <= j)
+     | (WordT W8, SOME (Word8 w), SOME (Word8 v)) => Eq_val (w2n w <= w2n v)
+     | _ => Eq_type_error) ∧
+  do_test _ ty v1 v2 = Eq_type_error
 End
 
 Definition do_app_def:

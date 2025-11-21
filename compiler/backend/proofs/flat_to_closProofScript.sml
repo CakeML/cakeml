@@ -1286,7 +1286,20 @@ Proof
   >-
    (gvs [oneline dest_Litv_def, AllCaseEqs()]
     \\ fs [Once v_rel_cases] \\ gvs []
-    \\ gvs [closSemTheory.evaluate_def,char_lt_def,
+    \\ gvs [closSemTheory.evaluate_def,char_lt_def,char_le_def,
+            closSemTheory.do_app_def,ORD_BOUND,
+            closSemTheory.do_word_app_def])
+  >-
+   (gvs [oneline dest_Litv_def, AllCaseEqs()]
+    \\ fs [Once v_rel_cases] \\ gvs []
+    \\ gvs [closSemTheory.evaluate_def,
+            closSemTheory.do_app_def,
+            w2n_lt |> INST_TYPE [alpha|->“:8”] |> SRULE [],
+            closSemTheory.do_word_app_def])
+  >-
+   (gvs [oneline dest_Litv_def, AllCaseEqs()]
+    \\ fs [Once v_rel_cases] \\ gvs []
+    \\ gvs [closSemTheory.evaluate_def,char_lt_def,char_le_def,
             closSemTheory.do_app_def,ORD_BOUND,
             closSemTheory.do_word_app_def])
   \\ Cases_on ‘ty’ \\ TRY (rename [‘WordT ws’] \\ Cases_on ‘ws’)

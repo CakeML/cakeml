@@ -673,7 +673,9 @@ Definition decode_test_def:
   decode_test (SX_SYM s) =
     (if s = "Equal" then SOME Equal else
      if s = "Less" then SOME Less else
-     if s = "Less_alt" then SOME Less_alt else NONE) ∧
+     if s = "Less_alt" then SOME Less_alt else
+     if s = "LessEq" then SOME LessEq else
+     if s = "LessEq_alt" then SOME LessEq_alt else NONE) ∧
   decode_test _ = NONE
 End
 
@@ -1324,7 +1326,9 @@ QED
 Definition testsexp_def:
   testsexp Equal = SX_SYM "Equal" ∧
   testsexp Less = SX_SYM "Less" ∧
-  testsexp Less_alt = SX_SYM "Less_alt"
+  testsexp Less_alt = SX_SYM "Less_alt" ∧
+  testsexp LessEq = SX_SYM "LessEq" ∧
+  testsexp LessEq_alt = SX_SYM "LessEq_alt"
 End
 
 Theorem testsexp_11[simp]:
