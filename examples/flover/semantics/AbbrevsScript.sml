@@ -13,11 +13,11 @@ problem of computability as we have it in Coq
 **)
 Type interval = “:real#real”
 
-Definition IVlo_def:
+Definition IVlo_def[simp]:
   IVlo (iv:interval) = FST iv
 End
 
-Definition IVhi_def:
+Definition IVhi_def[simp]:
   IVhi (iv:interval) = SND iv
 End
 
@@ -35,14 +35,14 @@ Type env = “:num -> real option”
 (**
   The empty environment must return NONE for every variable
 **)
-Definition emptyEnv_def:
+Definition emptyEnv_def[simp]:
   emptyEnv (x:num) = NONE
 End
 
 (**
   Define environment update function as abbreviation, for variable environments
 **)
-Definition updEnv_def:
+Definition updEnv_def[simp]:
   updEnv (x:num) (v:real) (E:env) (y:num) :real option =
     if y = x then SOME v else E y
 End
@@ -50,7 +50,3 @@ End
 Definition noDivzero_def:
   noDivzero (a:real) (b:real) = (a < &0 \/ &0 < b)
 End
-
-val _ = export_rewrites ["IVlo_def", "IVhi_def",
-                         "emptyEnv_def", "updEnv_def"]
-

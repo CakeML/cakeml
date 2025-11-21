@@ -38,11 +38,10 @@ Datatype:
      |>
 End
 
-Definition is_Label_def:
+Definition is_Label_def[simp]:
   (is_Label (Label _ _ _) = T) /\
   (is_Label _ = F)
 End
-val _ = export_rewrites["is_Label_def"];
 
 Definition asm_fetch_aux_def:
   (asm_fetch_aux pos [] = NONE) /\
@@ -75,11 +74,10 @@ Definition assert_def:
   assert b s = s with failed := (~b \/ s.failed)
 End
 
-Definition reg_imm_def:
+Definition reg_imm_def[simp]:
   (reg_imm (Reg r) s = read_reg r s) /\
   (reg_imm (Imm w) s = Word w)
 End
-val _ = export_rewrites["reg_imm_def"];
 
 Definition binop_upd_def:
   (binop_upd r Add w1 w2 = upd_reg r (Word (w1 + w2))) /\
@@ -103,7 +101,7 @@ Definition word_cmp_def:
   (word_cmp _ _ _ = NONE)
 End
 
-Definition arith_upd_def:
+Definition arith_upd_def[simp]:
   (arith_upd (Binop b r1 r2 (ri:'a reg_imm)) s =
      case (read_reg r2 s, reg_imm ri s) of
      | (Word w1, Word w2) => binop_upd r1 b w1 w2 s
@@ -165,7 +163,7 @@ Definition read_fp_reg_def:
   read_fp_reg r s = s.fp_regs r
 End
 
-Definition fp_upd_def:
+Definition fp_upd_def[simp]:
   (fp_upd (FPLess r d1 d2) (s:('a,'c,'ffi) state) =
      upd_reg r (Word (if fp64_lessThan (read_fp_reg d1 s) (read_fp_reg d2 s)
                       then 1w
@@ -307,7 +305,7 @@ Definition mem_store_byte_def:
         | _ => assert F s
 End
 
-Definition mem_op_def:
+Definition mem_op_def[simp]:
   (mem_op Load r a = mem_load r a) /\
   (mem_op Store r a = mem_store r a) /\
   (mem_op Load32 r a = mem_load32 r a) /\
@@ -318,15 +316,13 @@ Definition mem_op_def:
   (mem_op Store16 r (a:'a addr) = assert F)
 End
 
-Definition asm_inst_def:
+Definition asm_inst_def[simp]:
   (asm_inst Skip s = (s:('a,'c,'ffi) labSem$state)) /\
   (asm_inst (Const r imm) s = upd_reg r (Word imm) s) /\
   (asm_inst (Arith x) s = arith_upd x s) /\
   (asm_inst (Mem m r a) s = mem_op m r a s) /\
   (asm_inst (FP fp) s = fp_upd fp s)
 End
-
-val _ = export_rewrites["mem_op_def","asm_inst_def","arith_upd_def","fp_upd_def"]
 
 Definition dec_clock_def:
   dec_clock s = s with clock := s.clock - 1
@@ -632,4 +628,3 @@ Definition semantics_def:
          (build_lprefix_lub
            (IMAGE (λk. fromList (SND (evaluate (s with clock := k))).ffi.io_events) UNIV))
 End
-

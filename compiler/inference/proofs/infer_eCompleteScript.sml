@@ -3,7 +3,7 @@
 *)
 Theory infer_eComplete
 Ancestors
-  typeSystem ast semanticPrimitives infer unify infer_t astProps
+  typeSystem ast semanticPrimitives infer unify infer_t
   typeSysProps inferProps namespace namespaceProps envRel
 Libs
   preamble

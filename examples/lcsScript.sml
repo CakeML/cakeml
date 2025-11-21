@@ -5,6 +5,9 @@ Theory lcs
 Libs
   preamble
 
+(* remove annoying rewrite *)
+val _ = temp_delsimps ["LENGTH_TL"];
+
 (* Miscellaneous lemmas that may belong elsewhere *)
 
 Theorem sub_suc_0[local]:

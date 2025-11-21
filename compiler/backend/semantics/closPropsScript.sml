@@ -238,7 +238,7 @@ Proof
   Cases_on`ls`>>full_simp_tac(srw_ss())[contains_App_SOME_def]
 QED
 
-Definition every_Fn_SOME_def:
+Definition every_Fn_SOME_def[simp]:
   (every_Fn_SOME [] ⇔ T) ∧
   (every_Fn_SOME (x::y::xs) ⇔
      every_Fn_SOME [x] ∧
@@ -276,7 +276,6 @@ Termination
   WF_REL_TAC `measure (list_size exp_size)`
   \\ gvs [list_size_pair_size_MAP_FST_SND]
 End
-val _ = export_rewrites["every_Fn_SOME_def"];
 
 Theorem every_Fn_SOME_EVERY:
    ∀ls. every_Fn_SOME ls ⇔ EVERY (λx. every_Fn_SOME [x]) ls
@@ -291,7 +290,7 @@ Proof
   once_rewrite_tac[every_Fn_SOME_EVERY] \\ rw[]
 QED
 
-Definition every_Fn_vs_NONE_def:
+Definition every_Fn_vs_NONE_def[simp]:
   (every_Fn_vs_NONE [] ⇔ T) ∧
   (every_Fn_vs_NONE (x::y::xs) ⇔
      every_Fn_vs_NONE [x] ∧
@@ -329,7 +328,6 @@ Termination
   WF_REL_TAC `measure (list_size exp_size)`
   \\ gvs [list_size_pair_size_MAP_FST_SND]
 End
-val _ = export_rewrites["every_Fn_vs_NONE_def"];
 
 Theorem every_Fn_vs_NONE_EVERY:
    ∀ls. every_Fn_vs_NONE ls ⇔ EVERY (λx. every_Fn_vs_NONE [x]) ls
@@ -351,7 +349,7 @@ Proof
   once_rewrite_tac[every_Fn_vs_NONE_EVERY] \\ rw[]
 QED
 
-Definition every_Fn_vs_SOME_def:
+Definition every_Fn_vs_SOME_def[simp]:
   (every_Fn_vs_SOME [] ⇔ T) ∧
   (every_Fn_vs_SOME (x::y::xs) ⇔
      every_Fn_vs_SOME [x] ∧
@@ -389,7 +387,6 @@ Termination
   WF_REL_TAC `measure (list_size exp_size)`
   \\ gvs [list_size_pair_size_MAP_FST_SND]
 End
-val _ = export_rewrites["every_Fn_vs_SOME_def"];
 
 Theorem every_Fn_vs_SOME_EVERY:
    ∀ls. every_Fn_vs_SOME ls ⇔ EVERY (λx. every_Fn_vs_SOME [x]) ls
@@ -1021,51 +1018,44 @@ Proof
   rev_full_simp_tac(srw_ss())[DROP_NIL]
 QED
 
-Definition is_closure_def:
+Definition is_closure_def[simp]:
   (is_closure (Closure _ _ _ _ _) ⇔ T) ∧
   (is_closure (Recclosure _ _ _ _ _) ⇔ T) ∧
   (is_closure _ ⇔ F)
 End
-val _ = export_rewrites ["is_closure_def"]
 
-Definition clo_to_loc_def:
+Definition clo_to_loc_def[simp]:
   (clo_to_loc (Closure l _ _ _ _) = l) ∧
   (clo_to_loc (Recclosure l _ _ _ i) = OPTION_MAP ((+) (2 * i)) l)
 End
-val _ = export_rewrites ["clo_to_loc_def"]
 
-Definition clo_to_env_def:
+Definition clo_to_env_def[simp]:
   (clo_to_env (Closure _ _ env _ _) = env) ∧
   (clo_to_env (Recclosure loc _ env fns _) =
    GENLIST (Recclosure loc [] env fns) (LENGTH fns) ++ env)
 End
-val _ = export_rewrites ["clo_to_env_def"]
 
-Definition clo_to_partial_args_def:
+Definition clo_to_partial_args_def[simp]:
   (clo_to_partial_args (Closure _ args _ _ _) = args) ∧
   (clo_to_partial_args (Recclosure _ args _ _ _) = args)
 End
-val _ = export_rewrites ["clo_to_partial_args_def"]
 
-Definition clo_add_partial_args_def:
+Definition clo_add_partial_args_def[simp]:
   (clo_add_partial_args args (Closure x1 args' x2 x3 x4) =
    Closure x1 (args ++ args') x2 x3 x4) ∧
   (clo_add_partial_args args (Recclosure x1 args' x2 x3 x4) =
    Recclosure x1 (args ++ args') x2 x3 x4)
 End
-val _ = export_rewrites ["clo_add_partial_args_def"]
 
-Definition clo_to_num_params_def:
+Definition clo_to_num_params_def[simp]:
   (clo_to_num_params (Closure _ _ _ n _) = n) ∧
   (clo_to_num_params (Recclosure _ _ _ fns i) = FST (EL i fns))
 End
-val _ = export_rewrites ["clo_to_num_params_def"]
 
-Definition rec_clo_ok_def:
+Definition rec_clo_ok_def[simp]:
   (rec_clo_ok (Recclosure _ _ _ fns i) ⇔ i < LENGTH fns) ∧
   (rec_clo_ok (Closure _ _ _ _ _) ⇔ T)
 End
-val _ = export_rewrites ["rec_clo_ok_def"]
 
 Theorem dest_closure_full_length:
   !max_app l v vs e args rest.
@@ -1776,7 +1766,7 @@ Proof
   Cases_on `h` >> simp[]
 QED
 
-Definition set_globals_def:
+Definition set_globals_def[simp]:
   (set_globals (Var _ _) = {||}) ∧
   (set_globals (If _ e1 e2 e3) =
     set_globals e1 ⊎ set_globals e2 ⊎ set_globals e3) ∧
@@ -1796,7 +1786,6 @@ Termination
   WF_REL_TAC ‘measure (sum_size exp_size (list_size exp_size))’
   \\ rw [] \\ gvs [list_size_pair_size_MAP_FST_SND]
 End
-val _ = export_rewrites ["set_globals_def"]
 
 (* {foo}sgc_free: foo is free of SetGlobal closures, meaning closures that
    include calls to SetGlobal, for
@@ -1840,12 +1829,11 @@ Proof
 QED
 
 (* result is setglobal-closure free *)
-Definition rsgc_free_def:
+Definition rsgc_free_def[simp]:
   (rsgc_free (Rval vs) ⇔ EVERY vsgc_free vs) ∧
   (rsgc_free (Rerr (Rabort _)) ⇔ T) ∧
   (rsgc_free (Rerr (Rraise v)) ⇔ vsgc_free v)
 End
-val _ = export_rewrites ["rsgc_free_def"]
 
 Definition esgc_free_def:
   (esgc_free (Var _ _) ⇔ T) ∧
@@ -1927,12 +1915,11 @@ QED
 
 (* generic do_app compile proof *)
 
-Definition isClos_def:
+Definition isClos_def[simp]:
   isClos (Closure x1 x2 x3 x4 x5) = T /\
   isClos (Recclosure y1 y2 y3 y4 y5) = T /\
   isClos _ = F
 End
-val _ = export_rewrites ["isClos_def"];
 
 Theorem isClos_cases:
    isClos x <=>

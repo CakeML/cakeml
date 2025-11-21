@@ -212,16 +212,15 @@ Definition fix_clock_def:
          termdep := old_s.termdep |>)
 End
 
-Definition is_word_def:
+Definition is_word_def[simp]:
   (is_word (Word w) = T) /\
   (is_word _ = F)
 End
 
-Definition get_word_def:
+Definition get_word_def[simp]:
   get_word (Word w) = w
 End
 
-val _ = export_rewrites["is_word_def","get_word_def"];
 
 Definition mem_store_def:
   mem_store (addr:'a word) (w:'a word_loc) ^s =

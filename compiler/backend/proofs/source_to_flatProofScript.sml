@@ -4274,11 +4274,10 @@ Proof
       rgs[Once v_rel_cases] >> gvs[] >>
       simp[dest_thunk_def, AllCaseEqs(), PULL_EXISTS] >>
       gvs[store_lookup_def, s_rel_cases, LIST_REL_EL_EQN] >>
-      `n + 1 < LENGTH s'_i1.refs` by (Cases_on `s'_i1.refs` >> gvs[]) >>
-      gvs[] >>
       `∃v''. EL n (TL s'_i1.refs) = Thunk Evaluated v'' ∧
              v_rel genv' v v''` by (
-        first_x_assum drule >> gvs[] >> rw[Once sv_rel_cases]) >>
+        first_x_assum (qspec_then`n` mp_tac) >>
+        gvs[] >> rw[Once sv_rel_cases]) >>
       simp[REWRITE_RULE [ADD1] EL, Once result_rel_cases] >>
       goal_assum drule >> rw[])
     >- (
@@ -4290,11 +4289,10 @@ Proof
       rgs[Once v_rel_cases] >> gvs[] >>
       simp[dest_thunk_def, AllCaseEqs(), PULL_EXISTS] >>
       gvs[store_lookup_def, s_rel_cases, LIST_REL_EL_EQN] >>
-      `n + 1 < LENGTH s'_i1.refs` by (Cases_on `s'_i1.refs` >> gvs[]) >>
-      gvs[] >>
       `∃v'. EL n (TL s'_i1.refs) = Thunk NotEvaluated v' ∧
              v_rel genv' v v'` by (
-        first_x_assum drule >> gvs[] >> rw[Once sv_rel_cases]) >>
+        first_x_assum (qspec_then`n` mp_tac) >>
+        gvs[] >> rw[Once sv_rel_cases]) >>
       simp[REWRITE_RULE [ADD1] EL, Once result_rel_cases, PULL_EXISTS] >>
       simp[AppUnit_def, dec_clock_def] >>
       ntac 5 $ simp[Once evaluate_def] >>
@@ -4311,11 +4309,10 @@ Proof
       rgs[Once v_rel_cases] >> gvs[] >>
       simp[dest_thunk_def, AllCaseEqs(), PULL_EXISTS] >>
       gvs[store_lookup_def, s_rel_cases, LIST_REL_EL_EQN] >>
-      `n + 1 < LENGTH s'_i1.refs` by (Cases_on `s'_i1.refs` >> gvs[]) >>
-      gvs[] >>
       `∃v'. EL n (TL s'_i1.refs) = Thunk NotEvaluated v' ∧
              v_rel genv' v v'` by (
-        first_x_assum drule >> gvs[] >> rw[Once sv_rel_cases]) >>
+        first_x_assum (qspec_then`n` mp_tac) >>
+        gvs[] >> rw[Once sv_rel_cases]) >>
       simp[REWRITE_RULE [ADD1] EL, Once result_rel_cases, PULL_EXISTS] >>
       simp[AppUnit_def, dec_clock_def] >>
       ntac 5 $ simp[Once evaluate_def] >>
@@ -4334,7 +4331,7 @@ Proof
         gvs[semanticPrimitivesTheory.dest_thunk_def, store_lookup_def] >>
         reverse $ rw []
         >- (Cases_on `s'_i1'.refs` >> gvs []) >>
-        `n' < LENGTH (TL s'_i1'.refs)` by (Cases_on `s'_i1'.refs` >> gvs[]) >>
+        `n' < LENGTH s'_i1'.refs -1` by (Cases_on `s'_i1'.refs` >> gvs[]) >>
         gvs[] >>
         first_x_assum drule >> simp[REWRITE_RULE [ADD1] EL] >>
         Cases_on `EL n' st2.refs` >> Cases_on `EL n' (TL s'_i1'.refs)` >>
@@ -4349,7 +4346,6 @@ Proof
         first_x_assum drule >>
         Cases_on `EL n st2.refs` >> Cases_on `EL n t'` >> gvs[] >>
         rw[Once sv_rel_cases])
-      >- rw[REWRITE_RULE [ADD1] LUPDATE_def]
       >- rw[REWRITE_RULE [ADD1] LUPDATE_def]
       >- (
         rw[REWRITE_RULE [ADD1] LUPDATE_def, EL_LUPDATE] >>
@@ -4373,11 +4369,10 @@ Proof
       rgs[Once v_rel_cases] >> gvs[] >>
       simp[dest_thunk_def, AllCaseEqs(), PULL_EXISTS] >>
       gvs[store_lookup_def, s_rel_cases, LIST_REL_EL_EQN] >>
-      `n + 1 < LENGTH s'_i1.refs` by (Cases_on `s'_i1.refs` >> gvs[]) >>
-      gvs[] >>
       `∃v'. EL n (TL s'_i1.refs) = Thunk NotEvaluated v' ∧
              v_rel genv' v v'` by (
-        first_x_assum drule >> gvs[] >> rw[Once sv_rel_cases]) >>
+        first_x_assum (qspec_then`n` mp_tac) >>
+        gvs[] >> rw[Once sv_rel_cases]) >>
       simp[REWRITE_RULE [ADD1] EL, Once result_rel_cases, PULL_EXISTS] >>
       simp[AppUnit_def, dec_clock_def] >>
       ntac 5 $ simp[Once evaluate_def] >>
@@ -4391,8 +4386,7 @@ Proof
       imp_res_tac SUBMAP_TRANS >> gvs[] >>
       imp_res_tac subglobals_trans >> gvs[] >>
       drule_then irule orac_forward_rel_trans >> gvs[]
-      )
-    ) >>
+      )) >>
   fs [Q.ISPEC `(a, b)` EQ_SYM_EQ, option_case_eq, pair_case_eq] >>
   rw [] >>
   rveq >> fs [] >>
@@ -5771,7 +5765,7 @@ Proof
   Induct_on `xs` \\ rw [list_size_def] \\ fs []
 QED
 
-Definition num_bindings_def:
+Definition num_bindings_def[simp]:
    (num_bindings (Dlet _ p _) = LENGTH (pat_bindings p [])) ∧
    (num_bindings (Dletrec _ f) = LENGTH f) ∧
    (num_bindings (Dmod _ ds) = SUM (MAP num_bindings ds)) ∧
@@ -5783,7 +5777,6 @@ Termination
   wf_rel_tac`measure dec_size`
 End
 
-val _ = export_rewrites["num_bindings_def"];
 
 Theorem compile_decs_num_bindings:
   !t n next env envs decs n' next' env' envs' decs'.

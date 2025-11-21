@@ -4,7 +4,7 @@
 Theory weakening
 Ancestors
   option rich_list alist ast typeSystem typeSysProps
-  namespaceProps semanticPrimitives astProps typeSoundInvariants
+  namespaceProps semanticPrimitives typeSoundInvariants
 Libs
   preamble
 

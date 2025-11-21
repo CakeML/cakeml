@@ -951,27 +951,24 @@ Datatype:
   result_view = Vloc num num | Vtimeout | Verr
 End
 
-Definition result_view_def:
+Definition result_view_def[simp]:
   (result_view (Result (Loc n1 n2)) = Vloc n1 n2) ∧
   (result_view (Exception (Loc n1 n2)) = Vloc n1 n2) ∧
   (result_view TimeOut = Vtimeout) ∧
   (result_view _ = Verr)
 End
-val _ = export_rewrites["result_view_def"];
 
-Definition halt_word_view_def:
+Definition halt_word_view_def[simp]:
   (halt_word_view (Word 0w) = Halt Success) ∧
   (halt_word_view (Word _) = Halt Resource_limit_hit) ∧
   (halt_word_view _ = Error)
 End
-val _ = export_rewrites["halt_word_view_def"];
 
-Definition halt_view_def:
+Definition halt_view_def[simp]:
   (halt_view (SOME (Halt w)) = SOME (halt_word_view w)) ∧
   (halt_view (SOME (FinalFFI outcome)) = SOME (Halt(FFI_outcome outcome))) ∧
   (halt_view _ = NONE)
 End
-val _ = export_rewrites["halt_view_def"];
 
 val finish_tac =
   rename1`halt_view (SOME z)` \\ Cases_on`z` \\ fs[] >>
@@ -3707,7 +3704,7 @@ Proof
   \\ fs [stack_allocProofTheory.make_init_def]
 QED
 
-Definition complex_get_code_labels_def:
+Definition complex_get_code_labels_def[simp]:
   (complex_get_code_labels (Seq p1 p2) = complex_get_code_labels p1 UNION complex_get_code_labels p2) /\
   (complex_get_code_labels (If _ _ _ p1 p2) = complex_get_code_labels p1 UNION complex_get_code_labels p2) /\
   (complex_get_code_labels (Call ret dest handler) =
@@ -3724,7 +3721,6 @@ Definition complex_get_code_labels_def:
   (complex_get_code_labels (JumpLower n m l) = {(l,0)}) /\
   (complex_get_code_labels _ = {})
 End
-val _ = export_rewrites["complex_get_code_labels_def"];
 
 Theorem complex_flatten_labels:
     ∀t p n m.

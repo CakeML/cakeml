@@ -3,7 +3,7 @@
 *)
 Theory infer_eSound
 Ancestors
-  typeSystem ast semanticPrimitives infer unify infer_t astProps
+  typeSystem ast semanticPrimitives infer unify infer_t
   inferProps envRel typeSysProps namespaceProps
   typeSoundInvariants[qualified]
 Libs
