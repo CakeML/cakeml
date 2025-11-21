@@ -442,3 +442,10 @@ End
 Definition get_locs_def:
   get_locs vs = OPT_MMAP get_loc vs
 End
+
+Definition has_main_def:
+  has_main prog ⇔
+    (∃name reqs ens reads decrs mods body.
+       get_member «Main» prog =
+       SOME (Method name [] reqs ens reads decrs [] mods body))
+End

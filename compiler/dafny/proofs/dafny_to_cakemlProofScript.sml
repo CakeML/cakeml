@@ -4,6 +4,7 @@
 Theory dafny_to_cakemlProof
 Ancestors
   ast semanticPrimitives evaluate evaluateProps ffi
+  dafny_misc  (* OPT_MMAP_LENGTH *)
   dafnyProps dafny_semanticPrimitives dafny_evaluate dafny_evaluateProps
   namespace namespaceProps mlstring integer mlint result_monad
   dafny_freshenProof dafny_to_cakeml dafny_ast
@@ -2805,14 +2806,6 @@ Proof
   \\ first_assum $ irule_at (Pos hd) \\ gvs []
 QED
 
-Theorem OPT_MMAP_SOME_LENGTH[local]:
-  ∀f xs ys. OPT_MMAP f xs = SOME ys ⇒ LENGTH ys = LENGTH xs
-Proof
-  Induct_on ‘xs’ \\ gvs []
-  \\ rpt strip_tac \\ gvs []
-  \\ last_assum drule \\ gvs []
-QED
-
 Theorem GENLIST_lambda_MAP[local]:
   GENLIST (λx. f (g x)) len = MAP f (GENLIST (λx. g x) len)
 Proof
@@ -3712,7 +3705,7 @@ Proof
       \\ disch_then kall_tac
       \\ gvs [build_conv_def]
       \\ DEP_REWRITE_TAC [Pstuple_Tuple] \\ gvs []
-      \\ imp_res_tac OPT_MMAP_SOME_LENGTH \\ gvs []
+      \\ imp_res_tac OPT_MMAP_LENGTH \\ gvs []
       \\ gvs [pmatch_def]
       \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
       \\ gvs [GENLIST_MAP_Pvar]
@@ -4044,7 +4037,7 @@ Proof
       \\ rpt gen_tac \\ disch_tac
       \\ simp [is_fresh_neq_cml_tup_vname])
     \\ DEP_REWRITE_TAC [Stuple_Tuple] \\ gvs []
-    \\ imp_res_tac OPT_MMAP_SOME_LENGTH \\ gvs []
+    \\ imp_res_tac OPT_MMAP_LENGTH \\ gvs []
     \\ drule_all evaluate_map_cml_read_var \\ rpt strip_tac \\ gvs [MAP_MAP_o]
     \\ drule evaluate_add_to_clock \\ gvs [evaluate_def]
     \\ disch_then kall_tac
@@ -4468,13 +4461,6 @@ Proof
   \\ imp_res_tac from_member_decl_one_con_check
   \\ res_tac \\ gvs []
 QED
-
-Definition has_main_def:
-  has_main prog ⇔
-    (∃name reqs ens reads decrs mods body.
-       get_member «Main» prog =
-       SOME (Method name [] reqs ens reads decrs [] mods body))
-End
 
 Definition valid_prog_def:
   valid_prog (Program members) ⇔

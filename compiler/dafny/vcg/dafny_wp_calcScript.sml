@@ -4,6 +4,7 @@
 Theory dafny_wp_calc
 Ancestors
   integer result_monad topological_sort
+  dafny_misc  (* OPT_MMAP_LENGTH *)
   dafny_ast dafny_semanticPrimitives dafnyProps
   dafny_evaluate dafny_evaluateProps dafny_eval_rel
   mlint (* num_to_str *)
@@ -3373,14 +3374,6 @@ Proof
   \\ qx_gen_tac ‘ty’ \\ strip_tac
   \\ first_x_assum drule \\ strip_tac
   \\ simp [read_local_def]
-QED
-
-(* TODO Upstream? *)
-Theorem OPT_MMAP_LENGTH[local]:
-  ∀xs ys. OPT_MMAP f xs = SOME ys ⇒ LENGTH ys = LENGTH xs
-Proof
-  Induct \\ simp []
-  \\ gen_tac \\ Cases \\ simp []
 QED
 
 Theorem strict_locals_ok_cons_left[local]:

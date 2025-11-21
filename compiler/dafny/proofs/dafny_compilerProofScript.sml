@@ -4,6 +4,7 @@
 Theory dafny_compilerProof
 Ancestors
   dafny_semanticPrimitives dafny_freshen dafny_freshenProof
+  dafny_evaluateProps
   dafny_to_cakeml dafny_to_cakemlProof dafny_compiler
   mlstring (* isPrefix *)
   primTypes evaluate semanticPrimitives namespace
@@ -523,13 +524,10 @@ QED
 
 (* -- * -- *)
 
-
 Theorem correct_compile:
   ∀dfy_ck prog s cml_decs (ffi: 'ffi ffi_state).
     evaluate_program dfy_ck prog = (s, Rcont) ∧
     compile prog = INR cml_decs ∧
-    (* TODO Can we infer this from evaluate_program now? *)
-    has_main prog ∧
     (* TODO Shouldn't freshen already guarantee this? *)
     valid_members prog
     ⇒
@@ -550,8 +548,9 @@ Proof
   \\ last_assum $ irule_at (Pos last)
   \\ conj_tac
   >- (* valid_prog *)
-   ((* has_main preserved *)
-    drule_then assume_tac (iffRL has_main_remove_assert)
+   ((* has_main *)
+    drule_then assume_tac evaluate_program_rcont_has_main
+    \\ drule_then assume_tac (iffRL has_main_remove_assert)
     \\ drule_then assume_tac (iffRL has_main_freshen)
     (* valid_members preserved *)
     \\ drule_then assume_tac valid_members_remove_assert

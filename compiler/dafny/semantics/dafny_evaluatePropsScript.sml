@@ -3,6 +3,7 @@
 *)
 Theory dafny_evaluateProps
 Ancestors
+  dafny_misc  (* OPT_MMAP_LENGTH *)
   dafny_semanticPrimitives
   dafnyProps
   dafny_evaluate
@@ -620,4 +621,16 @@ Proof
       use_old (st with clock := st₁.clock)’ by
     (gvs [use_old_def, state_component_equality])
   \\ gvs []
+QED
+
+Theorem evaluate_program_rcont_has_main:
+  evaluate_program dfy_ck prog = (s, Rcont) ⇒ has_main prog
+Proof
+  strip_tac
+  \\ namedCases_on ‘prog’ ["members"]
+  \\ gvs [evaluate_program_def, evaluate_stmt_def, AllCaseEqs()]
+  \\ simp [has_main_def] \\ fs [mk_env_def]
+  \\ drule_then assume_tac evaluate_exps_len_eq \\ gvs []
+  \\ gvs [set_up_call_def, safe_zip_def, AllCaseEqs()]
+  \\ imp_res_tac OPT_MMAP_LENGTH \\ gvs []
 QED
