@@ -1184,32 +1184,31 @@ end;
 
 Theorem Eval_NUM_LESS =
   Eval_INT_LESS |> Q.SPECL [`&n1`,`&n2`]
-  |> REWRITE_RULE [GSYM NUM_def,INT_LT,INT_LE,int_ge,int_gt]
+  |> REWRITE_RULE [GSYM NUM_def,INT_LT,INT_LE,int_ge,int_gt];
 
 Theorem Eval_NUM_LESS_EQ =
   Eval_INT_LESS_EQ |> Q.SPECL [`&n1`,`&n2`]
-  |> REWRITE_RULE [GSYM NUM_def,INT_LT,INT_LE,int_ge,int_gt]
+  |> REWRITE_RULE [GSYM NUM_def,INT_LT,INT_LE,int_ge,int_gt];
 
 Theorem Eval_NUM_GREATER =
   Eval_INT_GREATER |> Q.SPECL [`&n1`,`&n2`]
   |> REWRITE_RULE [GSYM NUM_def,INT_LT,INT_LE,int_ge,int_gt]
-  |> REWRITE_RULE [GSYM GREATER_DEF, GSYM GREATER_EQ]
+  |> REWRITE_RULE [GSYM GREATER_DEF, GSYM GREATER_EQ];
 
 Theorem Eval_NUM_GREATER_EQ =
   Eval_INT_GREATER_EQ |> Q.SPECL [`&n1`,`&n2`]
   |> REWRITE_RULE [GSYM NUM_def,INT_LT,INT_LE,int_ge,int_gt]
-  |> REWRITE_RULE [GSYM GREATER_DEF, GSYM GREATER_EQ]
+  |> REWRITE_RULE [GSYM GREATER_DEF, GSYM GREATER_EQ];
 
 Theorem Eval_NUM_EQ_0:
    !n. Eval env x (NUM n) ==>
-        Eval env (App Equality [x; Lit (IntLit 0)]) (BOOL (n = 0))
+        Eval env (App (Test Equal IntT) [x; Lit (IntLit 0)]) (BOOL (n = 0))
 Proof
-  REPEAT STRIP_TAC \\ ASSUME_TAC (Q.SPEC `0` Eval_Val_NUM)
-  \\ pop_assum mp_tac
-  \\ drule (GEN_ALL Eval_Equality)
-  \\ rw [] \\ res_tac
-  \\ first_x_assum match_mp_tac
-  \\ fs [EqualityType_NUM_BOOL]
+  rw [Eval_def,evaluate_def,eval_rel_def,AllCaseEqs(),PULL_EXISTS]
+  \\ first_x_assum $ qspec_then ‘refs’ mp_tac \\ strip_tac
+  \\ last_x_assum $ irule_at Any
+  \\ fs [do_app_def,do_test_def,check_type_def,NUM_def,INT_def,do_eq_def,
+         lit_same_type_def,BOOL_def,empty_state_def,state_component_equality]
 QED
 
 (* word operations *)
@@ -2098,50 +2097,32 @@ Proof
   Cases_on `b1` \\ Cases_on `b2` \\ EVAL_TAC
 QED
 
-val tac =
+Theorem Eval_char_lt:
+  Eval env x1 (CHAR c1) ==>
+  Eval env x2 (CHAR c2) ==>
+  Eval env (App (Test Less CharT) [x1;x2]) (BOOL (c1 < c2))
+Proof
   rw[Eval_rw,CHAR_def,NUM_def,INT_def]
   \\ Eval2_tac \\ fs [do_app_def,empty_state_def]
-  \\ rw[BOOL_def,opb_lookup_def,Boolv_11]
-
-Theorem Eval_char_lt:
-   !c1 c2.
-      Eval env x1 (CHAR c1) ==>
-      Eval env x2 (CHAR c2) ==>
-      Eval env (App (Chopb Lt) [x1;x2]) (BOOL (c1 < c2))
-Proof
-  tac \\ rw[stringTheory.char_lt_def]
-  \\ metis_tac[APPEND_ASSOC]
+  \\ rw[BOOL_def,opb_lookup_def,Boolv_11,do_test_def,dest_Litv_def]
+  \\ rw[stringTheory.char_lt_def]
 QED
 
-Theorem Eval_char_le:
-   !c1 c2.
-      Eval env x1 (CHAR c1) ==>
-      Eval env x2 (CHAR c2) ==>
-      Eval env (App (Chopb Leq) [x1;x2]) (BOOL (c1 ≤ c2))
-Proof
-  tac \\ rw[stringTheory.char_le_def]
-  \\ metis_tac[APPEND_ASSOC]
-QED
+Theorem Eval_char_gt = Eval_char_lt
+  |> REWRITE_RULE [GSYM char_gt_def,char_lt_def,GSYM GREATER_DEF,AND_IMP_INTRO]
+  |> Q.INST [‘x1’|->‘x2’,‘x2’|->‘x1’,‘c1’|->‘c2’,‘c2’|->‘c1’]
+  |> ONCE_REWRITE_RULE [CONJ_COMM]
+  |> REWRITE_RULE [GSYM AND_IMP_INTRO];
 
-Theorem Eval_char_gt:
-   !c1 c2.
-      Eval env x1 (CHAR c1) ==>
-      Eval env x2 (CHAR c2) ==>
-      Eval env (App (Chopb Gt) [x1;x2]) (BOOL (c1 > c2))
-Proof
-  tac \\ rw[stringTheory.char_gt_def,int_gt,GREATER_DEF]
-  \\ metis_tac[APPEND_ASSOC]
-QED
+Theorem Eval_char_le = (* TODO: avoid using NOT *)
+  MATCH_MP Eval_Bool_Not (Eval_char_gt |> SPEC_ALL |> REWRITE_RULE [AND_IMP_INTRO] |> UNDISCH) |> DISCH_ALL
+  |> REWRITE_RULE [char_gt_def,GREATER_DEF,NOT_LESS,GSYM char_le_def]
+  |> REWRITE_RULE [GSYM AND_IMP_INTRO];
 
-Theorem Eval_char_ge:
-   !c1 c2.
-      Eval env x1 (CHAR c1) ==>
-      Eval env x2 (CHAR c2) ==>
-      Eval env (App (Chopb Geq) [x1;x2]) (BOOL (c1 ≥ c2))
-Proof
-  tac \\ rw[stringTheory.char_ge_def,int_ge,GREATER_EQ]
-  \\ metis_tac[APPEND_ASSOC]
-QED
+Theorem Eval_char_ge = (* TODO: avoid using NOT *)
+  MATCH_MP Eval_Bool_Not (Eval_char_lt |> SPEC_ALL |> REWRITE_RULE [AND_IMP_INTRO] |> UNDISCH) |> DISCH_ALL
+  |> REWRITE_RULE [char_lt_def,GREATER_DEF,NOT_LESS,GSYM GREATER_EQ,GSYM char_ge_def]
+  |> REWRITE_RULE [GSYM AND_IMP_INTRO];
 
 Theorem Eval_char_eq:
   Eval env x1 (CHAR c1) ==>
@@ -2268,6 +2249,19 @@ Proof
   \\ fs[NUM_def,INT_def,IMPLODE_EXPLODE_I]
   \\ rw[copy_array_def,INT_ABS_NUM,INT_ADD,
         substring_def,SEG_TAKE_DROP,STRING_TYPE_def]
+QED
+
+Theorem Eval_str_eq:
+  Eval env x1 (STRING_TYPE s1) ==>
+  Eval env x2 (STRING_TYPE s2) ==>
+  Eval env (App (Test Equal StrT) [x1; x2]) (BOOL (s1 = s2))
+Proof
+  Cases_on ‘s1’ \\ Cases_on ‘s2’
+  \\ simp [Eval_rw,STRING_TYPE_def] \\ rw []
+  \\ Eval2_tac
+  \\ fs [do_app_def,do_test_def,check_type_def,do_eq_def,lit_same_type_def]
+  \\ rw[state_component_equality]
+  \\ fs [ctor_same_type_def,same_type_def,BOOL_def]
 QED
 
 (* char list as string *)

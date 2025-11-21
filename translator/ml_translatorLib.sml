@@ -2904,6 +2904,7 @@ val builtin_binops =
    Eval_char_gt,
    Eval_char_ge,
    Eval_char_eq,
+   Eval_str_eq,
    Eval_INT_ADD,
    Eval_INT_SUB,
    Eval_INT_MULT,

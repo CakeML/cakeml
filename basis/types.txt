@@ -96,6 +96,7 @@ String.concat: string list -> string
 String.substring: string -> int -> int -> string
 String.strcat: string -> string -> string
 String.^: string -> string -> string
+String.=: string -> string -> bool
 String.extract: string -> int -> int option -> string
 String.concatWith: string -> string list -> string
 String.str: char -> string
@@ -117,6 +118,7 @@ String.char_escape_seq: char -> string option
 String.escape_str: string -> string
 String.escape_char: char -> string
 Bool.not: bool -> bool
+Bool.=: bool -> bool -> bool
 Bool.toString: bool -> string
 Bool.fromString: string -> bool option
 Bool.compare: bool -> bool -> ordering
@@ -179,6 +181,7 @@ Rat.ceiling: rat -> int
 Rat.is_int: rat -> bool
 Char.ord: char -> int
 Char.chr: int -> char
+Char.=: char -> char -> bool
 Char.<: char -> char -> bool
 Char.>: char -> char -> bool
 Char.<=: char -> char -> bool
@@ -195,6 +198,11 @@ Word64.xorb: Word64.word -> Word64.word -> Word64.word
 Word64.notb: Word64.word -> Word64.word
 Word64.+: Word64.word -> Word64.word -> Word64.word
 Word64.-: Word64.word -> Word64.word -> Word64.word
+Word64.=: Word64.word -> Word64.word -> bool
+Word64.<: Word64.word -> Word64.word -> bool
+Word64.>: Word64.word -> Word64.word -> bool
+Word64.<=: Word64.word -> Word64.word -> bool
+Word64.>=: Word64.word -> Word64.word -> bool
 Word64.<<: Word64.word -> int -> Word64.word
 Word64.>>: Word64.word -> int -> Word64.word
 Word64.~>>: Word64.word -> int -> Word64.word
@@ -208,6 +216,11 @@ Word8.xorb: Word8.word -> Word8.word -> Word8.word
 Word8.notb: Word8.word -> Word8.word
 Word8.+: Word8.word -> Word8.word -> Word8.word
 Word8.-: Word8.word -> Word8.word -> Word8.word
+Word8.=: Word8.word -> Word8.word -> bool
+Word8.<: Word8.word -> Word8.word -> bool
+Word8.>: Word8.word -> Word8.word -> bool
+Word8.<=: Word8.word -> Word8.word -> bool
+Word8.>=: Word8.word -> Word8.word -> bool
 Word8.<<: Word8.word -> int -> Word8.word
 Word8.>>: Word8.word -> int -> Word8.word
 Word8.~>>: Word8.word -> int -> Word8.word

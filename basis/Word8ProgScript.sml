@@ -43,6 +43,11 @@ val _ = translate word_1comp_eq
 (* arithmetic *)
 val _ = trans "+" ``word_add:word8->word8->word8``;
 val _ = trans "-" ``word_sub:word8->word8->word8``;
+val _ = trans "=" ``(=):word8->word8->bool``;
+val _ = trans "<" ``word_lo:word8->word8->bool``;
+val _ = trans ">" ``word_hi:word8->word8->bool``;
+val _ = trans "<=" ``word_ls:word8->word8->bool``;
+val _ = trans ">=" ``word_hs:word8->word8->bool``;
 
 (* shifts *)
 
@@ -152,4 +157,3 @@ Proof
 QED
 
 Overload WORD8 = ``WORD:word8 -> v -> bool``
-
