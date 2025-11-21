@@ -444,7 +444,6 @@ Proof
     >- metis_tac[])
   >~ [‘Forall’] >- (
     gvs [evaluate_exp_def, freevars_aux_def]
-    \\ IF_CASES_TAC \\ gvs []
     \\ simp [eval_forall_def]
     \\ ‘∀v. SND (evaluate_exp (push_local (st with <|locals := l2; locals_prev := p2|>) vn v) env e) =
             SND (evaluate_exp (push_local st vn v) env e)’ by
@@ -515,7 +514,6 @@ Proof
   >~ [‘ForallHeap’] >- (
     gvs [evaluate_exp_def, freevars_aux_def]
     \\ rpt (pairarg_tac \\ gvs[])
-    \\ IF_CASES_TAC \\ gvs []
     \\ namedCases_on ‘evaluate_exps st env es’ ["st₁ r₁"] \\ gvs []
     \\ drule (cj 2 evaluate_exp_with_clock)
     \\ strip_tac \\ gvs []
@@ -992,7 +990,6 @@ Definition forall_def:
       strict_locals_ok vars st.locals ∧
       st.heap = st.heap_old ∧
       st.locals = st.locals_old ∧
-      ¬env.is_running ∧
       state_inv st ⇒
       eval_true st env prop
 End
@@ -1017,7 +1014,6 @@ End
 
 Definition compatible_env_def:
   compatible_env env m ⇔
-    ¬env.is_running ∧
     (∀name mspec body.
        Method name mspec body ∈ m ⇒
        get_member name env.prog =
@@ -1490,7 +1486,6 @@ Proof
   >~ [‘Forall (vn,vt) e’] >-
    (qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
     \\ simp [evaluate_exp_def, eval_forall_def]
-    \\ IF_CASES_TAC \\ gvs []
     \\ gvs [push_local_with_old, no_Old_def]
     \\ ‘∀v. SND (evaluate_exp
                  (push_local s vn v with <|locals_old := l; heap_old := h|>) env e) =
@@ -1518,7 +1513,6 @@ Proof
   >~ [‘ForallHeap mods e’] >-
    (qpat_x_assum ‘evaluate_exp _ _ _ = _’ mp_tac
     \\ simp [evaluate_exp_def]
-    \\ IF_CASES_TAC \\ gvs []
     \\ gvs [no_Old_def]
     \\ namedCases_on ‘evaluate_exps s env mods’ ["s₁ r₁"] \\ gvs []
     \\ namedCases_on ‘r₁’ ["vs", "err"] \\ gvs []
@@ -1832,7 +1826,6 @@ Proof
   \\ simp [eval_true_def, eval_exp_def, PULL_EXISTS]
   \\ qx_genl_tac [‘ck’, ‘ck₁’]
   \\ simp [evaluate_exp_def]
-  \\ IF_CASES_TAC \\ gvs []
   \\ simp [state_component_equality]
   \\ simp [GSYM AND_IMP_INTRO]
   \\ strip_tac \\ gvs []
@@ -2103,7 +2096,6 @@ Theorem forall_imp_conditions_hold:
   forall vs (imp (conj reqs) (conj wp_pre)) ∧
   ALL_DISTINCT (MAP FST vs) ∧
   conditions_hold st env reqs ∧
-  ¬env.is_running ∧
   strict_locals_ok vs st.locals ∧
   st.locals_old = st.locals ∧
   st.heap_old = st.heap ∧
@@ -2366,8 +2358,7 @@ Theorem evaluate_exp_wrap_Old_locals:
           ∃v. read_local st.locals_old n = SOME v ∧
               ALOOKUP l n = SOME (SOME v)) ∧
      (∀n. n ∉ nss ⇒ ALOOKUP l n = ALOOKUP st.locals n) ∧
-     no_Prev F e ∧
-     ¬env.is_running ⇒
+     no_Prev F e ⇒
      evaluate_exp (st with locals := l) env e = (st' with locals := l, r)) ∧
   (∀st env es' nss es st' r l.
      evaluate_exps st env es' = (st', r) ∧
@@ -2376,8 +2367,7 @@ Theorem evaluate_exp_wrap_Old_locals:
           ∃v. read_local st.locals_old n = SOME v ∧
               ALOOKUP l n = SOME (SOME v)) ∧
      (∀n. n ∉ nss ⇒ ALOOKUP l n = ALOOKUP st.locals n) ∧
-     EVERY (no_Prev F) es ∧
-     ¬env.is_running ⇒
+     EVERY (no_Prev F) es ⇒
      evaluate_exps (st with locals := l) env es = (st' with locals := l, r))
 Proof
   ho_match_mp_tac evaluate_exp_ind
@@ -2710,8 +2700,7 @@ QED
 Theorem eval_exp_wrap_Old_IMP:
   eval_exp st env (wrap_Old (set ns) x) v ∧
   LIST_REL (eval_exp st env) (MAP (Old ∘ Var) ns) vs ∧
-  no_Prev F x ∧
-  ¬env.is_running ⇒
+  no_Prev F x ⇒
   eval_exp (st with locals := ZIP (ns,MAP SOME vs) ++ st.locals) env x v
 Proof
   simp [eval_exp_def, PULL_EXISTS]
@@ -3785,7 +3774,6 @@ Proof
   >~ [‘Assert’] >-
    (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
     \\ simp [evaluate_stmt_def]
-    \\ IF_CASES_TAC \\ simp []
     \\ TOP_CASE_TAC
     \\ dxrule_then assume_tac (cj 1 evaluate_exp_with_clock) \\ gvs []
     \\ TOP_CASE_TAC \\ simp [state_component_equality]
@@ -4865,7 +4853,6 @@ Proof
   >~ [‘Assert’] >-
    (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
     \\ simp [evaluate_stmt_def]
-    \\ IF_CASES_TAC >- (strip_tac \\ gvs [])
     \\ TOP_CASE_TAC
     \\ dxrule_then assume_tac (cj 1 evaluate_exp_with_clock) \\ gvs []
     \\ reverse TOP_CASE_TAC >- (strip_tac \\ gvs [])
@@ -5183,7 +5170,7 @@ Theorem eval_true_ForallHeap:
       eval_true (st with heap := h) env b
 Proof
   fs [eval_true_def,eval_exp_def,evaluate_exp_def,get_locs_def]
-  \\ rw [] \\ Cases_on ‘env.is_running’ \\ fs []
+  \\ rw []
   \\ fs [eval_forall_def,AllCaseEqs(),IN_DEF] \\ gvs []
   \\ drule_all mod_locs_lemma
   \\ strip_tac \\ gvs []
@@ -5213,7 +5200,6 @@ Proof
 QED
 
 Theorem eval_exp_Prev:
-  ¬env.is_running ⇒
   (eval_exp st env (Prev e) v ⇔
    eval_exp (st with <| locals := st.locals_prev; heap := st.heap_prev |>) env e v)
 Proof
@@ -5225,7 +5211,6 @@ Proof
 QED
 
 Theorem eval_exp_PrevHeap:
-  ¬env.is_running ⇒
   (eval_exp st env (PrevHeap e) v ⇔
    eval_exp (st with <| heap := st.heap_prev |>) env e v)
 Proof
@@ -5683,7 +5668,7 @@ QED
 
 Theorem eval_true_Forall:
   (∀(i:int). eval_true (st with locals := (v,SOME (IntV i))::st.locals) env b) ∧
-  ¬ env.is_running ∧ no_ticks b ⇒
+  no_ticks b ⇒
   eval_true st env (Forall (v,IntT) b)
 Proof
   Cases_on ‘no_ticks b’ \\ simp []
@@ -5693,10 +5678,8 @@ Proof
      oneline all_values_def]>>
   fs [PULL_EXISTS,AllCaseEqs(),push_local_def]
   \\ Cases_on ‘evaluate_exp (st with locals := (v,SOME (IntV i))::st.locals) env b’
-  >- (disj1_tac \\ qexists_tac ‘i’ \\ fs [])
-  >- (disj1_tac \\ qexists_tac ‘i’ \\ fs [])
-  \\ gvs []
-  \\ disj1_tac
+  >- (qexists_tac ‘i’ \\ fs [])
+  >- (qexists_tac ‘i’ \\ fs [])
   \\ CCONTR_TAC \\ gvs []
 QED
 
@@ -5884,7 +5867,6 @@ Proof
   \\ conj_tac
   >-
    (irule eval_true_dfy_eq
-    \\ ‘~env.is_running’ by fs [compatible_env_def]
     \\ simp [eval_exp_Prev]
     \\ qexists_tac ‘v’
     \\ reverse conj_tac
@@ -5910,7 +5892,6 @@ Proof
     \\ match_mp_tac EQ_IMPLIES
     \\ rpt AP_THM_TAC \\ AP_TERM_TAC
     \\ fs [state_component_equality])
-  \\ ‘~env.is_running’ by fs [compatible_env_def]
   \\ simp [eval_true_def]
   \\ irule IMP_eval_exp_Let1
   \\ simp [GSYM eval_true_def]
@@ -5939,8 +5920,7 @@ Proof
     \\ irule eval_true_dfy_eq
     \\ gvs [intLib.COOPER_PROVE “0 ≤ i ⇔ ∃n. (i:int) = & n”]
     \\ qexists_tac ‘EL n arr’
-    \\ drule eval_exp_PrevHeap
-    \\ disch_then $ rewrite_tac o single \\ fs []
+    \\ rewrite_tac o single $ eval_exp_PrevHeap \\ fs []
     \\ strip_tac
     \\ irule eval_exp_ArrSel
     \\ fs [mod_loc_def,Abbr‘new_heap’,oEL_LUPDATE,Abbr‘new_vals’]
@@ -6136,7 +6116,6 @@ Proof
        (simp [eval_exp_def,evaluate_exp_def,read_local_def,Abbr‘s3’,
               get_array_len_def,Abbr‘arr_loc’]
         \\ simp [state_component_equality])
-      \\ ‘¬env.is_running’ by fs [compatible_env_def]
       \\ simp [eval_exp_Prev,Abbr‘s3’]
       \\ irule eval_exp_no_Prev_alt
       \\ conj_tac >- (first_x_assum $ irule_at Any)
@@ -6149,7 +6128,6 @@ Proof
     \\ irule IMP_eval_exp_Let1
     \\ rewrite_tac [GSYM eval_true_def]
     \\ qexists_tac ‘v’
-    \\ ‘¬env.is_running’ by fs [compatible_env_def]
     \\ conj_tac
     >-
      (simp [eval_exp_Prev]
@@ -7515,7 +7493,7 @@ Proof
 QED
 
 Theorem evaluate_exp_total_old[local]:
-  st.locals_old = st.locals ∧ st.heap_old = st.heap ∧ ¬env.is_running ⇒
+  st.locals_old = st.locals ∧ st.heap_old = st.heap ⇒
   evaluate_exp_total st env (Old e) = evaluate_exp_total st env e
 Proof
   rpt strip_tac
@@ -7524,7 +7502,7 @@ QED
 
 Theorem eval_decreases_map_old[local]:
   ∀es st env.
-    st.locals_old = st.locals ∧ st.heap_old = st.heap ∧ ¬env.is_running ⇒
+    st.locals_old = st.locals ∧ st.heap_old = st.heap ⇒
     eval_decreases st env (MAP Old es) = eval_decreases st env es
 Proof
   Induct \\ gvs []
@@ -7533,7 +7511,7 @@ Proof
 QED
 
 Theorem eval_measure_wrap_old:
-  st.locals_old = st.locals ∧ st.heap_old = st.heap ∧ ¬env.is_running ⇒
+  st.locals_old = st.locals ∧ st.heap_old = st.heap ⇒
   eval_measure st env (wrap_old decs) =
   eval_measure st env decs
 Proof
@@ -7561,7 +7539,6 @@ Theorem methods_lemma[local]:
       st.locals_old = st.locals ∧
       st.heap_old = st.heap ∧
       state_inv st ∧
-      ¬env.is_running ∧
       dest_Vars mspec.mods = INR mods ∧
       LIST_REL (mod_loc st.locals) mods mod_locs ∧
       conditions_hold st env mspec.reqs ∧ compatible_env env m ∧
