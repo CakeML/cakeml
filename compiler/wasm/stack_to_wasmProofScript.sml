@@ -412,6 +412,7 @@ val goal_tm = “
     s_res ≠ SOME Error ∧
     state_rel c s t ⇒
     ∃ck t_res t_fin.
+      (* wasm program may consume more clock *)
       exec_list (flatten (compile p)) (t with clock := ck + t.clock) = (t_res, t_fin) ∧
       res_rel s_res t_res (t.stack, t_fin.stack) ∧
       state_rel c s_fin t_fin
@@ -1059,7 +1060,7 @@ QED
 (* a proof for each case *)
 
 Theorem compile_Skip:
-  ^(get_goal "Skip")
+  ^(jget_goal "Skip")
 Proof
   rpt strip_tac
   >> gvs [compile_def,exec_def,stackSemTheory.evaluate_def]
@@ -1536,8 +1537,7 @@ rpt strip_tac
     )
     >>pop_assum (fn eq=>simp[eq])
     >>once_rewrite_tac[exec_list_cons]
-    >>simp[CALL_def,compile_def,exec_def]
-    (*shit unfolds*)
+    >>simp[CALL_def,compile_def,exec_def] (* gets ugly from here *)
     >>‘LLOOKUP t.types (w2n cakeml_ftype_index) = SOME ([], [Tnum Int W32])’ by fs[wasm_state_ok_def]
     >>pop_assum (fn eq=>simp[eq])
     >>simp[pop_n_def]
