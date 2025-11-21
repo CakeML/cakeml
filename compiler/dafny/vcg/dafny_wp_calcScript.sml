@@ -2071,13 +2071,6 @@ Proof
   \\ last_x_assum drule \\ simp []
 QED
 
-Theorem MEM_MAP_FST[local]:
-  ∀xs. MEM (x,y) xs ⇒ MEM x (MAP FST xs)
-Proof
-  Induct \\ gvs []
-  \\ rpt strip_tac \\ gvs []
-QED
-
 Theorem MEM_MAP_SND[local]:
   ∀xs. MEM (x,y) xs ⇒ MEM y (MAP SND xs)
 Proof

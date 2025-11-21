@@ -5,7 +5,9 @@ Theory dafny_freshenProof
 Libs
   preamble
 Ancestors
-  mlstring mlint dafny_ast dafny_semanticPrimitives
+  mlstring mlint
+  dafny_misc
+  dafny_ast dafny_semanticPrimitives
   dafnyProps dafny_evaluate dafny_evaluateProps dafny_freshen
 
 (* Relations and invariants *)
@@ -2074,7 +2076,16 @@ Theorem lookup_subset[local]:
     set (MAP (lookup m) (MAP FST m)) ⊆
     set (MAP (λi. «v» ^ toString i) (MAP SND m))
 Proof
-  cheat
+  rw [SUBSET_DEF, MEM_MAP]
+  \\ rename [‘MEM x _’]
+  \\ namedCases_on ‘x’ ["snam tnum"]
+  \\ drule_then assume_tac MEM_MAP_FST
+  \\ simp [lookup_def]
+  \\ Cases_on ‘ALOOKUP m snam’ \\ gvs []
+  >- (gvs [ALOOKUP_NONE])
+  \\ drule_then assume_tac ALOOKUP_MEM
+  \\ first_assum $ irule_at (Pos last)
+  \\ simp []
 QED
 
 Theorem map_inv_append[local]:
