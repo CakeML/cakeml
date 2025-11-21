@@ -112,6 +112,7 @@ QED
 
 (* -- TODO Move to appropriate place -- *)
 open dafny_evaluateTheory;
+open dafny_astTheory;
 
 Definition remove_assert_stmt_def:
   remove_assert_stmt (Assert _) = Skip ∧
@@ -147,13 +148,11 @@ Definition env_rel_def:
 End
 
 Theorem env_rel_get_member_none_aux[local]:
-  ∀members name.
-    get_member_aux name members = NONE ⇒
-    get_member_aux name (MAP remove_assert_member members) = NONE
+  get_member_aux name members = NONE ⇒
+  get_member_aux name (MAP remove_assert_member members) = NONE
 Proof
-  Induct >- (simp [])
-  \\ qx_gen_tac ‘member’ \\ rpt strip_tac
-  \\ Cases_on ‘member’
+  Induct_on ‘members’ >- (simp [])
+  \\ Cases \\ rpt strip_tac
   \\ gvs [get_member_aux_def, remove_assert_member_def]
 QED
 
@@ -168,6 +167,19 @@ Proof
   \\ drule env_rel_get_member_none_aux \\ simp []
 QED
 
+Theorem env_rel_get_member_method_aux[local]:
+  get_member_aux name members =
+    SOME (Method name' ins req ens rds decrs outs mod body) ⇒
+  get_member_aux name (MAP remove_assert_member members) =
+    SOME
+      (Method name' ins req ens rds decrs outs mod (remove_assert_stmt body))
+Proof
+  Induct_on ‘members’ >- (simp [get_member_aux_def])
+  \\ Cases \\ rpt strip_tac
+  \\ gvs [get_member_aux_def, remove_assert_member_def]
+  \\ IF_CASES_TAC \\ gvs []
+QED
+
 Theorem env_rel_get_member_method[local]:
   env_rel env env' ∧
   get_member name env.prog =
@@ -175,7 +187,23 @@ Theorem env_rel_get_member_method[local]:
   get_member name env'.prog =
     SOME (Method name' ins req ens rds decrs outs mod (remove_assert_stmt body))
 Proof
-  cheat
+  rpt strip_tac
+  \\ gvs [env_rel_def]
+  \\ namedCases_on ‘env.prog’ ["members"]
+  \\ gvs [get_member_def, remove_assert_def]
+  \\ drule env_rel_get_member_method_aux \\ simp []
+QED
+
+Theorem env_rel_get_member_function_aux[local]:
+  get_member_aux name members =
+    SOME (Function name' ins res_t req rds decrs body) ⇒
+  get_member_aux name (MAP remove_assert_member members) =
+    SOME (Function name' ins res_t req rds decrs body)
+Proof
+  Induct_on ‘members’ >- (simp [])
+  \\ Cases \\ rpt strip_tac
+  \\ gvs [get_member_aux_def, remove_assert_member_def]
+  \\ IF_CASES_TAC \\ gvs []
 QED
 
 Theorem env_rel_get_member_function[local]:
@@ -184,7 +212,11 @@ Theorem env_rel_get_member_function[local]:
   r = SOME (Function name' ins res_t req rds decrs body) ⇒
   get_member name env'.prog = r
 Proof
-  cheat
+  rpt strip_tac
+  \\ gvs [env_rel_def]
+  \\ namedCases_on ‘env.prog’ ["members"]
+  \\ gvs [get_member_def, remove_assert_def]
+  \\ drule env_rel_get_member_function_aux \\ simp []
 QED
 
 Theorem env_rel_evaluate_exp[local]:
@@ -380,11 +412,12 @@ Proof
   >~ [‘Return’] >- (gvs [evaluate_stmt_def])
 QED
 
-Theorem all_distinct_member_name_remove_assert[local]:
-  ¬ALL_DISTINCT (MAP member_name (MAP remove_assert_member members)) =
-  ¬ALL_DISTINCT (MAP member_name members)
+Theorem member_name_remove_assert_member_eq[local]:
+  MAP member_name (MAP remove_assert_member members) =
+  MAP member_name members
 Proof
-  cheat
+  Induct_on ‘members’ >- (simp [])
+  \\ Cases \\ gvs [remove_assert_member_def]
 QED
 
 Theorem correct_remove_assert:
@@ -393,7 +426,7 @@ Theorem correct_remove_assert:
 Proof
   namedCases_on ‘prog’ ["members"]
   \\ simp [remove_assert_def, evaluate_program_def]
-  \\ simp [all_distinct_member_name_remove_assert]
+  \\ simp [member_name_remove_assert_member_eq]
   \\ IF_CASES_TAC \\ simp []
   \\ simp [mk_env_def]
   \\ strip_tac
@@ -418,23 +451,74 @@ QED
 Theorem valid_members_remove_assert[local]:
   valid_members prog ⇒ valid_members (remove_assert prog)
 Proof
-  cheat
+  namedCases_on ‘prog’ ["members"]
+  \\ simp [valid_members_def, remove_assert_def]
+  \\ Induct_on ‘members’ >- (simp [])
+  \\ Cases \\ rpt strip_tac \\ gvs []
+  \\ simp [remove_assert_member_def, get_param_names_def]
 QED
 
 Definition no_assert_def:
   no_assert (Program members) = EVERY no_assert_member members
 End
 
-Theorem remove_assert_no_assert[local]:
+Theorem no_assert_stmt_remove_assert_stmt[local]:
+  ∀stmt. no_assert_stmt (remove_assert_stmt stmt)
+Proof
+  ho_match_mp_tac remove_assert_stmt_ind
+  \\ simp [no_assert_stmt_def, remove_assert_stmt_def]
+QED
+
+Theorem no_assert_member_remove_assert_member[local]:
+  no_assert_member (remove_assert_member member)
+Proof
+  Cases_on ‘member’
+  \\ simp [no_assert_member_def, remove_assert_member_def]
+  \\ simp [no_assert_stmt_remove_assert_stmt]
+QED
+
+Theorem no_assert_remove_assert[local]:
   ∀prog. no_assert (remove_assert prog)
 Proof
-  cheat
+  namedCases ["members"]
+  \\ simp [no_assert_def, remove_assert_def]
+  \\ Induct_on ‘members’ >- (simp [])
+  \\ simp [no_assert_member_remove_assert_member]
+QED
+
+Theorem no_assert_member_freshen_member[local]:
+  ∀stmt₀ m₀ m₁ m₂ cnt₀ cnt₁ stmt₁.
+    no_assert_stmt stmt₀ ∧
+    freshen_stmt m₀ m₁ m₂ cnt₀ stmt₀ = (cnt₁, stmt₁) ⇒
+    no_assert_stmt stmt₁
+Proof
+  Induct
+  \\ rpt strip_tac
+  \\ gvs [freshen_stmt_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [no_assert_stmt_def]
+  \\ res_tac \\ simp []
+QED
+
+Theorem no_assert_member_freshen_member[local]:
+  no_assert_member member ⇒ no_assert_member (freshen_member member)
+Proof
+  strip_tac
+  \\ Cases_on ‘member’
+  \\ simp [freshen_member_def]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [no_assert_member_def]
+  \\ drule_all no_assert_member_freshen_member \\ simp []
 QED
 
 Theorem no_assert_freshen[local]:
   no_assert prog ⇒ no_assert (freshen_program prog)
 Proof
-  cheat
+  namedCases_on ‘prog’ ["members"]
+  \\ simp [no_assert_def, freshen_program_def]
+  \\ Induct_on ‘members’ >- (simp [])
+  \\ rpt strip_tac \\ fs []
+  \\ drule no_assert_member_freshen_member \\ simp []
 QED
 
 (* -- * -- *)
@@ -472,7 +556,7 @@ Proof
     (* valid_members preserved *)
     \\ drule_then assume_tac valid_members_remove_assert
     (* no_assert *)
-    \\ qspec_then ‘prog’ assume_tac remove_assert_no_assert
+    \\ qspec_then ‘prog’ assume_tac no_assert_remove_assert
     \\ drule_then assume_tac no_assert_freshen
     (* start proving valid_prog *)
     \\ namedCases_on ‘prog’ ["members"]
