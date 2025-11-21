@@ -123,7 +123,7 @@ Proof
   \\ qabbrev_tac ‘k = n MOD dimindex (:α)’ \\ simp []
   \\ Cases_on ‘i + k < dimindex (:'a)’ \\ simp []
   \\ gvs [NOT_LESS]
-  \\ ‘k < dimindex (:α)’ by cheat
+  \\ ‘k < dimindex (:α)’ by fs[Abbr`k`]
   \\ AP_TERM_TAC
   \\ gvs [LESS_EQ_EXISTS]
 QED
