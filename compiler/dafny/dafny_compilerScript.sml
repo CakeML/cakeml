@@ -4,7 +4,7 @@
 Theory dafny_compiler
 Ancestors
   result_monad dafny_sexp sexp_to_dafny dafny_to_cakeml
-  dafny_freshen fromSexp simpleSexpParse
+  dafny_freshen dafny_remove_assert fromSexp simpleSexpParse
 Libs
   preamble
 
@@ -20,7 +20,7 @@ Definition frontend_def:
 End
 
 Definition compile_def:
-  compile dfy = from_program (freshen_program dfy)
+  compile dfy = from_program $ freshen_program $ remove_assert dfy
 End
 
 Definition dfy_to_cml_def:
@@ -61,4 +61,3 @@ Definition main_function_def:
   in
     implode cml_str
 End
-
