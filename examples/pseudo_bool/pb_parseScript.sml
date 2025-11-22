@@ -134,8 +134,9 @@ End
 (* Parse the LHS of a constraint and returns the remainder of the line *)
 Definition parse_constraint_LHS_aux_def:
   (parse_constraint_LHS_aux (INR n::INL v::rest) acc =
-    case parse_lit v of NONE => (INR n::INL v::rest,REVERSE acc)
-    | SOME lit => parse_constraint_LHS_aux rest ((n,lit)::acc)) ∧
+    case parse_lit v of
+      NONE => (INR n::INL v::rest,REVERSE acc)
+    | SOME l => parse_constraint_LHS_aux rest ((n,l)::acc)) ∧
   (parse_constraint_LHS_aux ls acc = (ls,REVERSE acc))
 End
 
@@ -1984,4 +1985,3 @@ Definition parse_pbp_def:
   parse_pbp strs = parse_pbp_toks (MAP toks_fast strs)
 End
 *)
-

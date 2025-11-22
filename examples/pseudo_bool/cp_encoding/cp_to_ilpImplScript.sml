@@ -506,10 +506,10 @@ Theorem cencode_cp_all_thm_1:
   cencode_cp_all bnd cs n init_ec = (es,ec') ∧
   EVERY (λc. constraint_sem c wi) cs ⇒
   ∃wbf.
-  EVERY (λx. iconstraint_sem (SND x) (wi,wbf))
-    (append es)
+  EVERY (λx. iconstraint_sem x (wi,wbf))
+    (MAP SND (append es))
 Proof
-  rw[]>>
+  rw[EVERY_MAP]>>
   drule_all encode_cp_all_sem_1>>
   strip_tac>>
   drule cencode_cp_all_sem>>
@@ -528,10 +528,10 @@ QED
 Theorem cencode_cp_all_thm_2:
   valid_assignment bnd wi ∧
   cencode_cp_all bnd cs n init_ec = (es,ec') ∧
-  EVERY (λx. iconstraint_sem (SND x) (wi,wbf)) (append es) ⇒
+  EVERY (λx. iconstraint_sem x (wi,wbf)) (MAP SND (append es)) ⇒
   EVERY (λc. constraint_sem c wi) cs
 Proof
-  rw[]>>
+  rw[EVERY_MAP]>>
   irule encode_cp_all_sem_2>>
   first_assum (irule_at Any)>>
   drule_all cencode_cp_all_sem>>
