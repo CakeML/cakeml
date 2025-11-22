@@ -229,6 +229,8 @@ val r = translate fromSexpTheory.typesexp_def;
 val r = translate fromSexpTheory.patsexp_def;
 val r = translate fromSexpTheory.encode_thunk_mode_def;
 (* TODO 101 automatically added string IMPLODEs *)
+val r = translate fromSexpTheory.prim_typesexp_def;
+val r = translate fromSexpTheory.testsexp_def;
 val r = translate fromSexpTheory.opsexp_def;
 val r = translate fromSexpTheory.lopsexp_def;
 (* TODO 24 automatically added string IMPLODEs *)
