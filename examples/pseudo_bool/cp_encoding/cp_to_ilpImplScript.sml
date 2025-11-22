@@ -167,6 +167,49 @@ Definition enc_rel_def:
     (append es))
 End
 
+Theorem enc_rel_Nil:
+  enc_rel [] wi Nil [] ec ec
+Proof
+  rw[enc_rel_def,agree_on_fl_def]
+QED
+
+Theorem agree_on_fl_mods_fl_append:
+  mods_fl fl1 f1 f1' ∧
+  mods_fl fl2 f1' f2 ⇒
+  (agree_on_fl (fl1++fl2)
+    (wb:mlstring reif + mlstring flag -> bool)
+    (wbf:mlstring reif + num -> bool) ⇔
+    agree_on_fl fl1 wb wbf ∧
+    agree_on_fl fl2 wb wbf)
+Proof
+  rw[mods_fl_def,agree_on_fl_def,ALOOKUP_APPEND]>>
+  iff_tac>>rw[]
+  >- (
+    first_x_assum irule>>
+    drule ALOOKUP_MEM>>
+    CCONTR_TAC>>gvs[AllCaseEqs(),ALOOKUP_NONE]>>
+    first_x_assum drule>>
+    gvs[MEM_MAP,PULL_EXISTS]>>
+    first_x_assum drule>>
+    simp[])>>
+  gvs[AllCaseEqs()]
+QED
+
+Theorem enc_rel_Append:
+  enc_rel fl wi es xs ec ec' ∧
+  enc_rel fl' wi es' xs' ec' ec'' ⇒
+  enc_rel (fl++fl') wi (Append es es') (xs++xs') ec ec''
+Proof
+  rw[]>>
+  fs[enc_rel_def]>>
+  CONJ_TAC >- (
+    fs[mods_fl_def]>>rw[]>>
+    first_x_assum drule>>rw[])>>
+  drule_all agree_on_fl_mods_fl_append>>
+  rw[]>>
+  metis_tac[]
+QED
+
 (***
   Dealing with ge / eq
 ***)
@@ -305,15 +348,22 @@ Definition cencode_different_row_def:
       (Append f fs,ec''))
 End
 
-(* Prove a Lemma enc_rel [] here *)
-
 Theorem cencode_different_row_sem:
+  ∀Ys ec es ec'.
   valid_assignment bnd wi ∧
   cencode_different_row bnd X Ys pref ec = (es,ec') ⇒
   ∃fl.
   enc_rel fl wi es (encode_different_row bnd X Ys) ec ec'
 Proof
-  cheat
+  Induct
+  >- (
+    rw[cencode_different_row_def,encode_different_row_def]>>
+    metis_tac[enc_rel_Nil])>>
+  rw[cencode_different_row_def,encode_different_row_def]>>
+  gvs[UNCURRY_EQ]>>
+  drule_all cencode_not_equals_sem>>
+  first_x_assum drule>>rw[]>>
+  metis_tac[enc_rel_Append]
 QED
 
 Definition cencode_all_different_def:
@@ -326,29 +376,6 @@ Definition cencode_all_different_def:
       (Append f fs,ec''))
 End
 
-(* WAS PLACED BEFORE cencode_cp_all_sem *)
-Theorem agree_on_fl_mods_fl_append:
-  mods_fl fl1 f1 f1' ∧
-  mods_fl fl2 f1' f2 ⇒
-  (agree_on_fl (fl1++fl2)
-    (wb:mlstring reif + mlstring flag -> bool)
-    (wbf:mlstring reif + num -> bool) ⇔
-    agree_on_fl fl1 wb wbf ∧
-    agree_on_fl fl2 wb wbf)
-Proof
-  rw[mods_fl_def,agree_on_fl_def,ALOOKUP_APPEND]>>
-  iff_tac>>rw[]
-  >- (
-    first_x_assum irule>>
-    drule ALOOKUP_MEM>>
-    CCONTR_TAC>>gvs[AllCaseEqs(),ALOOKUP_NONE]>>
-    first_x_assum drule>>
-    gvs[MEM_MAP,PULL_EXISTS]>>
-    first_x_assum drule>>
-    simp[])>>
-  gvs[AllCaseEqs()]
-QED
-
 Theorem cencode_all_different_sem:
   ∀As ec es.
   valid_assignment bnd wi ∧
@@ -356,37 +383,14 @@ Theorem cencode_all_different_sem:
   ∃fl.
   enc_rel fl wi es (encode_all_different bnd As) ec ec'
 Proof
-  Induct_on ‘As’
-  >-rw[cencode_all_different_def,encode_all_different_alt,
-    enc_rel_def,mods_fl_def,GSYM rich_listTheory.NIL_NO_MEM,
-    agree_on_fl_def]>>
-  rw[cencode_all_different_def,encode_all_different_alt]>>
-  gvs[UNCURRY_EQ,next_fresh_def]>>
-  last_x_assum $ drule_then assume_tac>>
-  pop_assum $ qx_choose_then ‘fl2’ assume_tac>>
-  drule_then assume_tac cencode_different_row_sem>>
-  first_x_assum $ drule_then assume_tac>>
-  pop_assum $ qx_choose_then ‘fl1’ assume_tac>>
-  qexists_tac ‘fl1 ++ fl2’>>
-  fs[enc_rel_def]>>
-  CONJ_TAC
-  >-(
-    fs[mods_fl_def]>>
-    rw[]
-    >-gs[]
-    >-(
-      irule LESS_LESS_EQ_TRANS>>
-      metis_tac[])
-    >-(
-      irule LESS_EQ_TRANS>>
-      metis_tac[])>>
-    gs[])>>
-  CONJ_TAC
-  >-(
-    rw[]>>
-    drule_all_then (fn thm => simp[thm]) agree_on_fl_mods_fl_append)>>
+  Induct_on ‘As’>>
+  rw[encode_all_different_alt,cencode_all_different_def]
+  >- metis_tac[enc_rel_Nil]>>
+  gvs[UNCURRY_EQ]>>
+  drule_all cencode_different_row_sem>>
+  first_x_assum drule_all>>
   rw[]>>
-  cheat
+  metis_tac[enc_rel_Append]
 QED
 
 (***
