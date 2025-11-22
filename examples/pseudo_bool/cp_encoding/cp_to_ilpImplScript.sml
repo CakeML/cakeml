@@ -489,22 +489,12 @@ Proof
   Induct>>
   rw[]>>
   gvs[cencode_cp_all_def,encode_cp_all_def]
-  >- (
-    qexists_tac`[]`>>
-    simp[enc_rel_def,agree_on_fl_def])>>
+  >- metis_tac[enc_rel_Nil]>>
   gvs[UNCURRY_EQ]>>
-  drule_all cencode_cp_one_sem>>rw[]>>
-  rename1`enc_rel fl1 wi es1 _ ec ec1`>>
-  first_x_assum drule>>rw[]>>
-  rename1`enc_rel fl2 wi es2 _ ec1 ec2`>>
-  qexists_tac`fl1 ++ fl2`>>
-  fs[enc_rel_def]>>
-  CONJ_TAC >- (
-    fs[mods_fl_def]>>rw[]>>
-    first_x_assum drule>>rw[])>>
-  drule_all agree_on_fl_mods_fl_append>>
+  drule_all cencode_cp_one_sem>>
+  first_x_assum drule_all>>
   rw[]>>
-  metis_tac[]
+  metis_tac[enc_rel_Append]
 QED
 
 Definition init_ec_def:
