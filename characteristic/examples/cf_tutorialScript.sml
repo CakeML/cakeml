@@ -18,8 +18,6 @@ Libs
   preamble ml_translatorLib cfTacticsBaseLib cfTacticsLib
   basisFunctionsLib ml_progLib[qualified]
 
-val cakeml = append_prog o process_topdecs;
-
 val _ = translation_extends "basisProg"
 
 (* We use basisFunctionsLib for managing the state resulting from
@@ -32,7 +30,7 @@ val _ = translation_extends "basisProg"
    function we want to specify (it takes a list of bytes, and returns
    a new bytearray containing those bytes).
 *)
-Quote cakeml:
+Quote add_cakeml:
    fun length l =
      case l of
          [] => 0
