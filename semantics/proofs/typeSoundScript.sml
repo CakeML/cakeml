@@ -722,6 +722,20 @@ Proof
   \\ EVAL_TAC \\ metis_tac [Tlist_num_def]
 QED
 
+Theorem do_eq_Boolv:
+  do_eq (Boolv b) (Boolv b') = Eq_val (b = b')
+Proof
+  Cases_on ‘b’ >> Cases_on ‘b'’ >>
+  gvs [do_eq_def,Boolv_def,ctor_same_type_def,same_type_def]
+QED
+
+Theorem prim_canonical_Boolv_thm:
+  (type_v tvs ctMap tenvS v Tbool ∧ ctMap_ok ctMap ∧ ctMap_has_bools ctMap ⇒
+  (∃b. v = Boolv b))
+Proof
+  metis_tac [ctor_canonical_values_thm]
+QED
+
 Theorem op_type_sound:
  !ctMap tenvS vs op ts t store (ffi : 'ffi ffi_state).
    good_ctMap ctMap ∧
@@ -767,6 +781,19 @@ Proof
   >- (rw [do_app_cases, PULL_EXISTS] >>
       metis_tac [Tbool_def, type_v_Boolv, store_type_extension_refl,
                  eq_result_nchotomy, eq_same_type]) >~
+  [‘Test’]
+  >- (rw [do_app_cases, PULL_EXISTS] >>
+      rename [‘do_test test ty x y’] >>
+      qsuff_tac ‘∃b. do_test test ty x y = Eq_val b’
+      >- (metis_tac [Tbool_def, type_v_Boolv, store_type_extension_refl,
+                     eq_result_nchotomy, eq_same_type]) >>
+      Cases_on ‘ty’ \\ rpt (Cases_on ‘w’) \\ fs [t_of_def] >>
+      imp_res_tac prim_canonical_values_thm >>
+      imp_res_tac prim_canonical_Boolv_thm >>
+      fs [] \\ res_tac >>
+      Cases_on ‘test’ >>
+      gvs [do_test_def,check_type_def,do_eq_def,lit_same_type_def,
+           dest_Litv_def,supported_test_def,do_eq_Boolv]) >~
   [‘Opassign’]
   >- (res_tac >>
       rw [do_app_cases, PULL_EXISTS] >>
@@ -897,10 +924,6 @@ Proof
       >> fs []
       >> simp [Once type_v_cases]
       >> metis_tac [store_type_extension_refl]) >~
-  [‘Chopb’]
-  >- ((* character boolean ops *)
-      rw [do_app_cases, PULL_EXISTS] >>
-      metis_tac [type_v_Boolv, store_type_extension_refl, Tbool_def]) >~
   [‘Implode’]
   >- (rw [do_app_cases, PULL_EXISTS] >>
       MAP_EVERY (TRY o drule o SIMP_RULE (srw_ss()) [] o GEN_ALL)

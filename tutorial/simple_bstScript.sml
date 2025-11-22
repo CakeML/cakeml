@@ -156,10 +156,7 @@ QED
 
 (*
   We start by defining what a predicate on trees indicating
-  whether they have the binary search tree property. By adding
-  the simp tag, we make this definition an automatic rewrite,
-  so it is expanded automatically by simplification tactics
-  (such as rw, fs, and simp)
+  whether they have the binary search tree property
 *)
 Definition key_ordered_def[simp]:
   (key_ordered cmp k Leaf res ⇔ T) ∧
@@ -168,6 +165,9 @@ Definition key_ordered_def[simp]:
    key_ordered cmp k l res ∧
    key_ordered cmp k r res)
 End
+
+(* We make this definition an automatic rewrite, so it is expanded
+   automatically by simplification tactics (such as rw, fs, and simp) *)
 
 Definition wf_tree_def:
   (wf_tree cmp Leaf ⇔ T) ∧

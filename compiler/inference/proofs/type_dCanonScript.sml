@@ -615,7 +615,7 @@ Theorem type_op_ts_tid_rename:
   type_op op (MAP (ts_tid_rename f) ts) (ts_tid_rename f t)
 Proof
   rw[]>>
-  fs[typeSysPropsTheory.type_op_cases]>>
+  fs[typeSysPropsTheory.type_op_cases,oneline t_of_def]>>
   every_case_tac >> fs[ts_tid_rename_def] >>
   fs[good_remap_def,prim_type_nums_def]
 QED

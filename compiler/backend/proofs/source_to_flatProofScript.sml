@@ -935,6 +935,33 @@ Proof
   Cases_on `xs` \\ simp []
 QED
 
+Theorem v_rel_check_type:
+  v_rel genv v1 w1 ∧ genv_c_ok genv.c ∧ check_type ty v1 ⇒ check_type ty w1
+Proof
+  Cases_on ‘ty’ \\ TRY (rename [‘WordT ws’] \\ Cases_on ‘ws’)
+  \\ rw [] \\ gvs [semanticPrimitivesTheory.check_type_def]
+  \\ gvs [v_rel_eqns,semanticPrimitivesTheory.Boolv_def]
+  \\ rw [] \\ gvs [flatSemTheory.check_type_def,Boolv_def]
+  \\ gvs [genv_c_ok_def,has_bools_def] \\ res_tac \\ fs []
+QED
+
+Theorem do_test_lemma[local]:
+  do_test test ty v1 v2 = Eq_val b ∧
+  genv_c_ok genv.c ∧
+  v_rel genv v1 w1 ∧ v_rel genv v2 w2 ⇒
+  do_test test ty w1 w2 = Eq_val b
+Proof
+  strip_tac
+  \\ gvs [oneline semanticPrimitivesTheory.do_test_def, AllCaseEqs()]
+  \\ gvs [oneline flatSemTheory.do_test_def, AllCaseEqs()]
+  >-
+   (drule_all (cj 1 do_eq) \\ simp []
+    \\ imp_res_tac v_rel_check_type \\ fs [])
+  \\ gvs [oneline semanticPrimitivesTheory.dest_Litv_def, AllCaseEqs()]
+  \\ gvs [oneline flatSemTheory.dest_Litv_def, AllCaseEqs()]
+  \\ gvs [v_rel_eqns]
+QED
+
 val s_i1 = ``s_i1 : ('f_orac_st, 'ffi) flatSem$state``;
 val s1_i1 = mk_var ("s1_i1", type_of s_i1);
 
@@ -994,6 +1021,12 @@ Proof
       every_case_tac >>
       full_simp_tac(srw_ss())[] >>
       metis_tac [Boolv_11, do_eq, eq_result_11, eq_result_distinct, v_rel_lems])
+  >~ [‘Test test ty’] >- (
+      gvs [oneline semanticPrimitivesTheory.do_app_def,AllCaseEqs()]
+      \\ gvs [oneline flatSemTheory.do_app_def,AllCaseEqs()]
+      \\ rw [PULL_EXISTS] \\ gvs []
+      \\ drule_all do_test_lemma \\ fs []
+      \\ full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
   >~ [‘FP_cmp’] >- (
       rw[semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       gvs[v_rel_eqns, result_rel_cases, v_rel_lems])
@@ -1145,9 +1178,6 @@ Proof
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases,v_rel_lems])
   >~ [‘Chr’] >- (
-      srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
-      full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
-  >~ [‘Chopb’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
   >~ [‘Implode’] >- (

@@ -105,6 +105,7 @@ End
 val _ = ml_prog_update (open_module "Bool");
 val _ = (next_ml_names := ["not"]);
 val _ = trans "not" ``\x. ~x:bool``;
+val _ = trans "=" “(=):bool->bool->bool”;
 val _ = (next_ml_names := ["toString"]);
 val _ = translate bool_toString_def;
 val _ = (next_ml_names := ["fromString"]);
@@ -130,4 +131,3 @@ val _ = translate pair_toString_def;
 val _ = (next_ml_names := ["compare"]);
 val _ = translate comparisonTheory.pair_cmp_def;
 val _ = ml_prog_update (close_module NONE);
-

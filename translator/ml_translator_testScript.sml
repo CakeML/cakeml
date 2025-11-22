@@ -8,7 +8,6 @@ Ancestors
 Libs
   ml_translatorLib ml_progLib blastLib
 
-
 val _ = register_type “:'a list”;
 val _ = register_type “:'a option”;
 
@@ -632,4 +631,3 @@ val _ = use_sub_check true;
 
 (* no precondition *)
 val res = translate foo_sub_def;
-

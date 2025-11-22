@@ -1325,7 +1325,10 @@ Proof
      srw_tac[][] >>
      TRY(cases_on`wz`\\CHANGED_TAC(fs[])) >>
      TRY (Cases_on ‘v31’ >> fs[]) >>
-     full_simp_tac(srw_ss())[deBruijn_subst_def] >>
+     full_simp_tac(srw_ss())[deBruijn_subst_def]
+     >~ [‘t_of ty’] >-
+      (Cases_on ‘ty’ >> gvs [t_of_def,deBruijn_subst_def] >>
+       Cases_on ‘w’ >> gvs [t_of_def,deBruijn_subst_def]) >>
      metis_tac [])
    >- metis_tac [SIMP_RULE (srw_ss()) [PULL_FORALL] type_e_subst_lem3, ADD_COMM])
  >- (full_simp_tac(srw_ss())[RES_FORALL] >>

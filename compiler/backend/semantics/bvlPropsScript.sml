@@ -80,12 +80,15 @@ Theorem do_app_Rval_swap:
     do_app op a
       ((t1:('c,'d) bvlSem$state) with
        <| globals := s1.globals; refs := s1.refs;
-          clock := s1.clock; ffi := s1.ffi |>) = Rval
+          clock := s1.clock; ffi := s1.ffi |>) =
+    Rval
       (x0,t1 with
        <| globals := x1.globals; refs := x1.refs;
           clock := x1.clock; ffi := x1.ffi |>)
 Proof
-  rw[do_app_cases_val] \\ rfs[SUBSET_DEF] \\ fs [] \\ gvs [AllCaseEqs()]
+  strip_tac \\ Cases_on ‘op’ \\ gvs [do_app_def,AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ gvs [state_component_equality,SUBSET_DEF]
 QED
 
 Theorem do_app_with_code:
@@ -98,15 +101,9 @@ Theorem do_app_with_code:
                          ; compile := cc
                          ; compile_oracle := co |>)
 Proof
-  rpt strip_tac
-  \\ qmatch_goalsub_abbrev_tac `do_app _ _ s4`
-  \\ drule (do_app_Rval_swap |> INST_TYPE [delta|->beta,gamma|->alpha] |> GEN_ALL)
-  \\ disch_then (qspec_then `s4` mp_tac)
-  \\ unabbrev_all_tac \\ fs []
-  \\ qmatch_goalsub_abbrev_tac `do_app _ _ s1 = Rval (_,s2) ==>
-                                do_app _ _ t1 = Rval (_,t2)`
-  \\ qsuff_tac `t1 = s1 /\ t2 = s2` \\ rw []
-  \\ unabbrev_all_tac \\ fs [state_component_equality]
+  strip_tac \\ Cases_on ‘op’ \\ gvs [do_app_def,AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ gvs [state_component_equality,SUBSET_DEF]
 QED
 
 Theorem do_app_Rerr_swap:
@@ -117,9 +114,10 @@ Theorem do_app_Rerr_swap:
        <| globals := s1.globals; refs := s1.refs; clock := s1.clock;
           ffi := s1.ffi|> ) = Rerr e
 Proof
-  Cases_on `op` \\ rw[do_app_cases_err] \\ rfs[SUBSET_DEF] \\ fs []
-  \\ TRY (strip_tac \\ res_tac \\ fs [])
-  \\ gvs [AllCaseEqs()]
+  strip_tac \\ Cases_on ‘op’ \\ gvs [do_app_def,AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ gvs [state_component_equality,SUBSET_DEF]
+  \\ CCONTR_TAC \\ gvs [] \\ res_tac
 QED
 
 Theorem do_app_with_code_err_not_Install:
@@ -129,8 +127,10 @@ Theorem do_app_with_code_err_not_Install:
                          ; compile := cc
                          ; compile_oracle := co |>) = Rerr e
 Proof
-  rw [Once do_app_cases_err] >> rw [do_app_def] >> fs [SUBSET_DEF] >>
-  gvs [AllCaseEqs()]
+  strip_tac \\ Cases_on ‘op’ \\ gvs [do_app_def,AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rw [] \\ gvs [SUBSET_DEF]
+  \\ CCONTR_TAC \\ gvs [] \\ res_tac
 QED
 
 Theorem do_app_with_code_err:
@@ -138,9 +138,11 @@ Theorem do_app_with_code_err:
    (domain c = domain s.code ∨ e ≠ Rabort Rtype_error) ⇒
    do_app op vs (s with code := c) = Rerr e
 Proof
-  rw [Once do_app_cases_err] >> rw [do_app_def] >> fs [SUBSET_DEF] >>
-  fs [do_install_def,case_eq_thms,UNCURRY] >>
-  rveq \\ fs [PULL_EXISTS]
+  strip_tac \\ Cases_on ‘op’ \\ gvs [do_app_def,AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ rename [‘do_install’]
+  \\ fs [do_install_def,case_eq_thms,UNCURRY]
+  \\ rveq \\ fs [PULL_EXISTS]
   \\ CCONTR_TAC \\ fs []
   THEN1 gvs [EVERY_MEM,EXISTS_MEM]
   \\ TRY (
@@ -200,12 +202,13 @@ Proof
 QED
 
 Theorem do_app_err:
-   do_app op vs s = Rerr e ⇒ (e = Rabort Rtype_error)
-                             \/
-                             (?i x. op = FFI i /\ e = Rabort (Rffi_error x))
+  do_app op vs s = Rerr e ⇒ (e = Rabort Rtype_error)
+                            \/
+                            (?i x. op = FFI i /\ e = Rabort (Rffi_error x))
 Proof
-  rw [do_app_cases_err,do_install_def,UNCURRY] >> fs []
-  \\ every_case_tac \\ fs []
+  strip_tac \\ Cases_on ‘op’ \\ gvs [do_app_def,AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ fs [do_install_def,UNCURRY,AllCaseEqs()]
 QED
 
 val evaluate_LENGTH = Q.prove(
@@ -220,8 +223,7 @@ val evaluate_LENGTH = Q.prove(
   \\ REV_FULL_SIMP_TAC std_ss [] \\ FULL_SIMP_TAC (srw_ss()) [])
   |> SIMP_RULE std_ss [];
 
-Theorem evaluate_LENGTH =
-  evaluate_LENGTH
+Theorem evaluate_LENGTH = evaluate_LENGTH;
 
 Theorem evaluate_IMP_LENGTH:
    (evaluate (xs,s,env) = (Rval res,s1)) ==> (LENGTH xs = LENGTH res)
@@ -383,12 +385,12 @@ Proof
 QED
 
 Theorem evaluate_mk_tick:
-   !exp env s n.
+  !exp env s n.
     evaluate ([mk_tick n exp], env, s) =
-      if s.clock < n then
-        (Rerr(Rabort Rtimeout_error), s with clock := 0)
-      else
-        evaluate ([exp], env, dec_clock n s)
+    if s.clock < n then
+      (Rerr(Rabort Rtimeout_error), s with clock := 0)
+    else
+      evaluate ([exp], env, dec_clock n s)
 Proof
   Induct_on `n` >>
   srw_tac[][mk_tick_def, evaluate_def, dec_clock_def, FUNPOW] >>
@@ -400,15 +402,15 @@ Proof
 QED
 
 Theorem evaluate_MAP_Const:
-   !exps.
-      evaluate (MAP (K (Op (IntOp (Const i)) [])) (exps:'a list),env,t1) =
-        (Rval (MAP (K (Number i)) exps),t1)
+  !exps.
+    evaluate (MAP (K (Op (IntOp (Const i)) [])) (exps:'a list),env,t1) =
+    (Rval (MAP (K (Number i)) exps),t1)
 Proof
   Induct \\ full_simp_tac(srw_ss())[evaluate_def,Once evaluate_CONS,do_app_def,do_int_app_def]
 QED
 
 Theorem evaluate_Bool[simp]:
-   evaluate ([Bool b],env,s) = (Rval [Boolv b],s)
+  evaluate ([Bool b],env,s) = (Rval [Boolv b],s)
 Proof
   EVAL_TAC
 QED
@@ -416,9 +418,9 @@ QED
 fun split_tac q = Cases_on q \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [];
 
 Theorem evaluate_expand_env:
-   !xs a s env.
-     FST (evaluate (xs,a,s)) <> Rerr(Rabort Rtype_error) ==>
-     (evaluate (xs,a ++ env,s) = evaluate (xs,a,s))
+  !xs a s env.
+    FST (evaluate (xs,a,s)) <> Rerr(Rabort Rtype_error) ==>
+    (evaluate (xs,a ++ env,s) = evaluate (xs,a,s))
 Proof
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ POP_ASSUM MP_TAC
   \\ ONCE_REWRITE_TAC [evaluate_def] \\ ASM_SIMP_TAC std_ss []
@@ -443,86 +445,89 @@ Definition inc_clock_def:
 End
 
 Theorem inc_clock_code[simp]:
-   !n ^s. (inc_clock n s).code = s.code
+  !n ^s. (inc_clock n s).code = s.code
 Proof
   srw_tac[][inc_clock_def]
 QED
 
 Theorem inc_clock_refs[simp]:
-   !n ^s. (inc_clock n s).refs = s.refs
+  !n ^s. (inc_clock n s).refs = s.refs
 Proof
   srw_tac[][inc_clock_def]
 QED
 
 Theorem inc_clock_ffi[simp]:
-   !n ^s. (inc_clock n s).ffi = s.ffi
+  !n ^s. (inc_clock n s).ffi = s.ffi
 Proof
   srw_tac[][inc_clock_def]
 QED
 
 Theorem inc_clock_clock[simp]:
-   !n ^s. (inc_clock n s).clock = s.clock + n
+  !n ^s. (inc_clock n s).clock = s.clock + n
 Proof
   srw_tac[][inc_clock_def]
 QED
 
 Theorem inc_clock0[simp]:
-   !n ^s. inc_clock 0 s = s
+  !n ^s. inc_clock 0 s = s
 Proof
   simp [inc_clock_def, state_component_equality]
 QED
 
 Theorem inc_clock_add:
-   inc_clock k1 (inc_clock k2 s) = inc_clock (k1 + k2) s
+  inc_clock k1 (inc_clock k2 s) = inc_clock (k1 + k2) s
 Proof
   simp[inc_clock_def,state_component_equality]
 QED
 
 Theorem dec_clock_code[simp]:
-   !n ^s. (dec_clock n s).code = s.code
+  !n ^s. (dec_clock n s).code = s.code
 Proof
   srw_tac[][dec_clock_def]
 QED
 
 Theorem dec_clock_refs[simp]:
-   !n ^s. (dec_clock n s).refs = s.refs
+  !n ^s. (dec_clock n s).refs = s.refs
 Proof
   srw_tac[][dec_clock_def]
 QED
 
 Theorem dec_clock_ffi[simp]:
-   !n ^s. (dec_clock n s).ffi = s.ffi
+  !n ^s. (dec_clock n s).ffi = s.ffi
 Proof
   srw_tac[][dec_clock_def]
 QED
 
 Theorem dec_clock0[simp]:
-   !n ^s. dec_clock 0 s = s
+  !n ^s. dec_clock 0 s = s
 Proof
   simp [dec_clock_def, state_component_equality]
 QED
 
 Theorem do_app_change_clock:
-   (do_app op args s1 = Rval (res,s2)) ==>
-   (do_app op args (s1 with clock := ck) = Rval (res,s2 with clock := ck))
+  (do_app op args s1 = Rval (res,s2)) ==>
+  (do_app op args (s1 with clock := ck) = Rval (res,s2 with clock := ck))
 Proof
-  rw [do_app_cases_val,UNCURRY,do_install_def]
-  \\ every_case_tac \\ fs [state_component_equality]
+  rw [] \\ Cases_on ‘op’ \\ gvs [do_app_def,AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ fs []) \\ gvs []
+  \\ gvs [do_install_def,AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ fs []) \\ gvs []
+  \\ gvs [do_install_def,AllCaseEqs()]
 QED
 
 Theorem do_app_change_clock_err:
-   (do_app op args s1 = Rerr e) ==>
-   (do_app op args (s1 with clock := ck) = Rerr e)
+  (do_app op args s1 = Rerr e) ==>
+  (do_app op args (s1 with clock := ck) = Rerr e)
 Proof
-  disch_then (strip_assume_tac o SIMP_RULE (srw_ss()) [do_app_cases_err])
-  \\ rveq \\ asm_simp_tac (srw_ss()) [do_app_def]
-  \\ fs [] \\ every_case_tac \\ fs [] \\ rveq \\ fs []
-  \\ fs [do_install_def,UNCURRY] \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
-  \\ gvs [EVERY_MEM,EXISTS_MEM]
+  rw [] \\ Cases_on ‘op’ \\ gvs [do_app_def,AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ fs []) \\ gvs []
+  \\ gvs [do_install_def,AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ fs []) \\ gvs []
+  \\ gvs [do_install_def,AllCaseEqs()]
 QED
 
 Theorem evaluate_add_clock:
-   !exps env s1 res s2.
+  ∀exps env s1 res s2.
     evaluate (exps,env,s1) = (res, s2) ∧
     res ≠ Rerr(Rabort Rtimeout_error)
     ⇒
@@ -583,14 +588,15 @@ Theorem do_app_io_events_mono:
    do_app op vs s1 = Rval (x,s2) ⇒
    s1.ffi.io_events ≼ s2.ffi.io_events
 Proof
-  rw [do_app_cases_val] >>
-  fs[ffiTheory.call_FFI_def,case_eq_thms] >>
-  every_case_tac \\ fs[] \\ rw[] \\ rfs[do_install_def,UNCURRY] >>
-  every_case_tac \\ fs[] \\ rw[] \\ rfs[do_install_def,UNCURRY]
+  rw [] \\ Cases_on ‘op’ \\ gvs [do_app_def,AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ fs []) \\ gvs []
+  \\ gvs [do_install_def,AllCaseEqs(),ffiTheory.call_FFI_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ gvs []
+  \\ gvs [do_install_def,AllCaseEqs()]
 QED
 
 Theorem evaluate_io_events_mono:
-   !exps env s1 res s2.
+  ∀exps env s1 res s2.
     evaluate (exps,env,s1) = (res, s2)
     ⇒
     s1.ffi.io_events ≼ s2.ffi.io_events
@@ -606,10 +612,12 @@ Theorem do_app_inc_clock[local]:
   do_app op vs (inc_clock x y) =
    map_result (λ(v,s). (v,s with clock := x + y.clock)) I (do_app op vs y)
 Proof
-  Cases_on`do_app op vs y` >>
-  imp_res_tac do_app_change_clock_err >>
-  TRY(Cases_on`a`>>imp_res_tac do_app_change_clock) >>
-  full_simp_tac(srw_ss())[inc_clock_def] >> simp[]
+  Cases_on ‘do_app op vs y’
+  \\ Cases_on ‘op’ \\ gvs [do_app_def,AllCaseEqs(),inc_clock_def]
+  \\ rpt (pairarg_tac \\ fs []) \\ gvs []
+  \\ gvs [do_install_def,AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ fs []) \\ gvs []
+  \\ gvs [do_install_def,AllCaseEqs()]
 QED
 
 Theorem dec_clock_1_inc_clock[local]:
@@ -751,9 +759,13 @@ QED
 Theorem do_app_refs_SUBSET:
   (do_app op a r = Rval (q,t)) ==> FDOM r.refs SUBSET FDOM t.refs
 Proof
-  rw [do_app_cases_val] >>
-  fs [SUBSET_DEF,IN_INSERT,dec_clock_def,do_install_def] >>
-  fs [UNCURRY] >> every_case_tac >> fs [] \\ rw [] \\ fs [do_build_const_def]
+  strip_tac \\ Cases_on ‘op’ \\ gvs [do_app_def,AllCaseEqs()]
+  \\ gvs [ffiTheory.call_FFI_def,AllCaseEqs(),SUBSET_DEF]
+  \\ rpt (pairarg_tac \\ fs []) \\ gvs []
+  \\ gvs [do_install_def,AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ fs []) \\ gvs []
+  \\ gvs [do_install_def,AllCaseEqs()]
+  \\ fs [do_build_const_def]
   \\ imp_res_tac do_build_SUBSET \\ fs [SUBSET_DEF]
 QED
 
@@ -882,6 +894,7 @@ Termination
   \\ rw[bvlTheory.exp_size_def]
   \\ simp[] \\ res_tac \\ simp[]
 End
+
 Theorem get_code_labels_def[simp,compute,allow_rebind] =
   get_code_labels_def |> SIMP_RULE (srw_ss()++ETA_ss)[]
 
@@ -890,4 +903,3 @@ Theorem mk_tick_code_labels[simp]:
 Proof
   Induct \\ rw [] \\ fs [bvlTheory.mk_tick_def, FUNPOW_SUC]
 QED
-

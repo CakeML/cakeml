@@ -34,5 +34,12 @@ val () = append_decs
 val () = append_decs
    ``[mk_binop "w8xor_str" XorAw8Str_unsafe]``;
 
-val _ = ml_prog_update (close_module NONE);
+Definition vsub_def[simp]:
+  vsub v n = sub_unsafe v n
+End
 
+val _ = (next_ml_names := ["vsub"]);
+val _ = translate vsub_def;
+val _ = update_precondition (fetch "-" "vsub_side_def");
+
+val _ = ml_prog_update (close_module NONE);
