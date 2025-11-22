@@ -22,10 +22,28 @@ Ancestors
   The mlstring option is an annotation.
 *)
 
+(**
+WEI-LIN:
+ciconstraint has the form
+(int, mlstring-named integer variable) list,
+(int, cvar-named Boolean variable) list,
+RHS
+
+a "concrete" ILP constraint consists of an optional annotation
+and a ciconstraint
+ **)
 Type cvar = ``:(mlstring reif + num)``
 Type ciconstraint = ``:(mlstring, cvar) iconstraint``
 
 (* TODO: replace ge/eq with faster representations. *)
+(**
+WEI-LIN:
+encoding configuration is a record in which
+ge has the form
+(var "X≥1", var "X≥-3", ...)
+eq has the form
+(var "Y=9", var "Y=-100", ...)
+ **)
 Datatype:
   enc_conf =
     <|
@@ -46,6 +64,13 @@ End
 ***)
 
 (* TODO *)
+(**
+WEI-LIN:
+wb is an assignment for (mlstring+flag)-named variables,
+wbf is an assignment for cvar-named variables.
+A flag can be associated with multiple num-named variables,
+fl is a mapping from num-named variables to flags.
+ **)
 Definition agree_on_fl_def:
   agree_on_fl fl wb wbf ⇔
   (∀x. wb (INL x) = wbf (INL x)) ∧
@@ -73,6 +98,11 @@ Proof
 QED
 
 (* lookup for when the given ge for a variable has been encoded *)
+(**
+WEI-LIN:
+The next two definitions check whether the reification variables
+"Y≥n" and "Y=n", respectively, have been encoded
+ **)
 Definition has_ge_def:
   has_ge Y n ec =
   case ALOOKUP ec.ge Y of
@@ -87,12 +117,20 @@ Definition has_eq_def:
   | SOME ls => MEM n ls
 End
 
+(**
+WEI-LIN:
+wbf, wi and ec are "consistent"
+ **)
 Definition good_reif_def:
   good_reif wbf wi ec ⇔
   (∀Y n. has_ge Y n ec ⇒ (wbf (INL (Ge Y n)) ⇔ wi Y ≥ n)) ∧
   (∀Y n. has_eq Y n ec ⇒ (wbf (INL (Eq Y n)) ⇔ wi Y = n))
 End
 
+(**
+WEI-LIN:
+fresh from ec is irrelevant to good_reif_def
+ **)
 Theorem good_reif_with_fresh[simp]:
   good_reif wbf wi (ec with fresh := f) =
   good_reif wbf wi ec
@@ -101,6 +139,16 @@ Proof
 QED
 
 (* enc_rel, just a shorthand *)
+(**
+WEI-LIN:
+es:  an app_list of optionally annotated "concrete" ILP constraints
+     encoding a CP constraint
+es': a list of "abstract" ILP constraints encoding the same CP constraint
+ec:  old encoding configuration, before encoding the CP constraint
+ec': new encoding configuration, after encoding the CP constraint
+fl:  lookup table for the incremental (num, mlstring flag) from ec to ec'
+wi:  assignment for mlstring-named integer variables
+ **)
 Definition enc_rel_def:
   enc_rel fl wi es es' ec ec' ⇔
   mods_fl fl ec.fresh ec'.fresh ∧
@@ -122,6 +170,12 @@ End
 (***
   Dealing with ge / eq
 ***)
+(**
+WEI-LIN:
+the next two defintions may introduce duplicates?
+Not a problem for cencode_ge as it does membership check
+before adding a ge
+ **)
 Definition add_ge_def:
   add_ge Y n ec =
   let tt =
@@ -182,7 +236,17 @@ Proof
   rw[has_eq_def,add_ge_def]>>every_case_tac>>simp[]
 QED
 
+(**
+WEI-LIN:
+cencode has this format
+(app_list of "concrete" ILP constraints, enc_conf)
+ **)
+
 (* TODO: what annotation should we use? *)
+(**
+WEI-LIN:
+the provisional optional annotation currently is NONE
+ **)
 Definition cencode_ge_def:
   cencode_ge bnd Y n ec =
   if has_ge Y n ec
@@ -231,17 +295,97 @@ QED
   AllDifferent
 ***)
 
-Definition cencode_all_different_def:
-  cencode_all_different bnd As pref ec =
-  (ARB: (mlstring option # ciconstraint) app_list # enc_conf)
+Definition cencode_different_row_def:
+  (cencode_different_row bnd X [] pref ec = (Nil,ec)) ∧
+  (cencode_different_row bnd X (Y::Ys) pref ec =
+    let
+      (f,ec') = cencode_not_equals bnd X Y pref ec;
+      (fs,ec'') = cencode_different_row bnd X Ys pref ec'
+    in
+      (Append f fs,ec''))
 End
 
+(* Prove a Lemma enc_rel [] here *)
+
+Theorem cencode_different_row_sem:
+  valid_assignment bnd wi ∧
+  cencode_different_row bnd X Ys pref ec = (es,ec') ⇒
+  ∃fl.
+  enc_rel fl wi es (encode_different_row bnd X Ys) ec ec'
+Proof
+  cheat
+QED
+
+Definition cencode_all_different_def:
+  (cencode_all_different bnd [] pref ec = (Nil,ec)) ∧
+  (cencode_all_different bnd (A::As) pref ec =
+    let
+      (f,ec') = cencode_different_row bnd A As pref ec;
+      (fs,ec'') = cencode_all_different bnd As pref ec'
+    in
+      (Append f fs,ec''))
+End
+
+(* WAS PLACED BEFORE cencode_cp_all_sem *)
+Theorem agree_on_fl_mods_fl_append:
+  mods_fl fl1 f1 f1' ∧
+  mods_fl fl2 f1' f2 ⇒
+  (agree_on_fl (fl1++fl2)
+    (wb:mlstring reif + mlstring flag -> bool)
+    (wbf:mlstring reif + num -> bool) ⇔
+    agree_on_fl fl1 wb wbf ∧
+    agree_on_fl fl2 wb wbf)
+Proof
+  rw[mods_fl_def,agree_on_fl_def,ALOOKUP_APPEND]>>
+  iff_tac>>rw[]
+  >- (
+    first_x_assum irule>>
+    drule ALOOKUP_MEM>>
+    CCONTR_TAC>>gvs[AllCaseEqs(),ALOOKUP_NONE]>>
+    first_x_assum drule>>
+    gvs[MEM_MAP,PULL_EXISTS]>>
+    first_x_assum drule>>
+    simp[])>>
+  gvs[AllCaseEqs()]
+QED
+
 Theorem cencode_all_different_sem:
+  ∀As ec es.
   valid_assignment bnd wi ∧
   cencode_all_different bnd As pref ec = (es,ec') ⇒
   ∃fl.
   enc_rel fl wi es (encode_all_different bnd As) ec ec'
 Proof
+  Induct_on ‘As’
+  >-rw[cencode_all_different_def,encode_all_different_alt,
+    enc_rel_def,mods_fl_def,GSYM rich_listTheory.NIL_NO_MEM,
+    agree_on_fl_def]>>
+  rw[cencode_all_different_def,encode_all_different_alt]>>
+  gvs[UNCURRY_EQ,next_fresh_def]>>
+  last_x_assum $ drule_then assume_tac>>
+  pop_assum $ qx_choose_then ‘fl2’ assume_tac>>
+  drule_then assume_tac cencode_different_row_sem>>
+  first_x_assum $ drule_then assume_tac>>
+  pop_assum $ qx_choose_then ‘fl1’ assume_tac>>
+  qexists_tac ‘fl1 ++ fl2’>>
+  fs[enc_rel_def]>>
+  CONJ_TAC
+  >-(
+    fs[mods_fl_def]>>
+    rw[]
+    >-gs[]
+    >-(
+      irule LESS_LESS_EQ_TRANS>>
+      metis_tac[])
+    >-(
+      irule LESS_EQ_TRANS>>
+      metis_tac[])>>
+    gs[])>>
+  CONJ_TAC
+  >-(
+    rw[]>>
+    drule_all_then (fn thm => simp[thm]) agree_on_fl_mods_fl_append)>>
+  rw[]>>
   cheat
 QED
 
@@ -330,28 +474,6 @@ Definition cencode_cp_all_def:
    let (ess,ec'') = cencode_cp_all bnd cs (n+1) ec' in
    (Append es ess, ec''))
 End
-
-Theorem agree_on_fl_mods_fl_append:
-  mods_fl fl1 f1 f1' ∧
-  mods_fl fl2 f1' f2 ⇒
-  (agree_on_fl (fl1++fl2)
-    (wb:mlstring reif + mlstring flag -> bool)
-    (wbf:mlstring reif + num -> bool) ⇔
-    agree_on_fl fl1 wb wbf ∧
-    agree_on_fl fl2 wb wbf)
-Proof
-  rw[mods_fl_def,agree_on_fl_def,ALOOKUP_APPEND]>>
-  iff_tac>>rw[]
-  >- (
-    first_x_assum irule>>
-    drule ALOOKUP_MEM>>
-    CCONTR_TAC>>gvs[AllCaseEqs(),ALOOKUP_NONE]>>
-    first_x_assum drule>>
-    gvs[MEM_MAP,PULL_EXISTS]>>
-    first_x_assum drule>>
-    simp[])>>
-  gvs[AllCaseEqs()]
-QED
 
 Theorem cencode_cp_all_sem:
   ∀cs n ec es ec'.
