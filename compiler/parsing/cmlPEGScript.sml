@@ -582,7 +582,7 @@ val test1 = time EVAL
                         SymbolT ">"; AlphaT "x"] 0)
               [] NONE [] done failed”
 
-Triviality frange_image:
+Theorem frange_image[local]:
   FRANGE fm = IMAGE (FAPPLY fm) (FDOM fm)
 Proof
   simp[finite_mapTheory.FRANGE_DEF, pred_setTheory.EXTENSION] >> metis_tac[]
@@ -762,7 +762,7 @@ set_diff (TypeBase.constructors_of ``:MMLnonT``)
                       ``nDtypeCons``])
 *)
 
-Triviality subexprs_pnt:
+Theorem subexprs_pnt[local]:
   subexprs (pnt n) = {pnt n}
 Proof
   simp[subexprs_def, pnt_def]
@@ -811,33 +811,31 @@ local
         | NONE => acc
   val nts = recurse [] r
 in
-val FDOM_cmlPEG_nts = let
-  fun p t = Q.prove(`^t ∈ FDOM cmlPEG.rules`, simp[FDOM_cmlPEG])
-in
-  save_thm("FDOM_cmlPEG_nts", LIST_CONJ (map p nts)) before
-  export_rewrites ["FDOM_cmlPEG_nts"]
-end
-val NTS_in_PEG_exprs = let
-  val exprs_th' = REWRITE_RULE [pnt_def] PEG_exprs
-                                           |> INST_TYPE [alpha |-> “:string”]
-  val exprs_t = rhs (concl exprs_th')
-  val nt = mk_thy_const{Thy = "peg", Name = "nt",
-                        Ty = ``:MMLnonT inf -> (mlptree list -> mlptree list) ->
-                                (token,MMLnonT,mlptree list,string) pegsym``}
-  val I_t = mk_thy_const{Thy = "combin", Name = "I",
-                         Ty = ``:mlptree list -> mlptree list``}
-  fun p t = let
-    val _ = print ("PEGexpr: "^term_to_string t^"\n")
-    val th0 = prove(pred_setSyntax.mk_in(list_mk_comb(nt,[t,I_t]), exprs_t),
-                    simp[pnt_def])
-              handle e => (print("Failed on "^term_to_string t^"\n");
-                           raise e)
+
+  local
+    fun p t = Q.prove(`^t ∈ FDOM cmlPEG.rules`, simp[FDOM_cmlPEG])
   in
-    CONV_RULE (RAND_CONV (K (SYM exprs_th'))) th0
+Theorem FDOM_cmlPEG_nts[simp] = LIST_CONJ (map p nts);
   end
-  val th = LIST_CONJ (map p nts)
-in
-  save_thm("NTS_in_PEG_exprs", th) before export_rewrites ["NTS_in_PEG_exprs"]
-end
+
+  local
+    val exprs_th' = REWRITE_RULE [pnt_def] PEG_exprs
+                                 |> INST_TYPE [alpha |-> “:string”]
+    val exprs_t = rhs (concl exprs_th')
+    val nt = mk_thy_const{Thy = "peg", Name = "nt",
+                          Ty = ``:MMLnonT inf -> (mlptree list -> mlptree list) ->
+                               (token,MMLnonT,mlptree list,string) pegsym``}
+    val I_t = mk_thy_const{Thy = "combin", Name = "I",
+                           Ty = ``:mlptree list -> mlptree list``}
+    fun p t = let
+      val _ = print ("PEGexpr: "^term_to_string t^"\n")
+      val th0 = prove(pred_setSyntax.mk_in(list_mk_comb(nt,[t,I_t]), exprs_t),
+                      simp[pnt_def])
+                handle e => (print("Failed on "^term_to_string t^"\n");
+                             raise e)
+    in CONV_RULE (RAND_CONV (K (SYM exprs_th'))) th0 end
+  in
+Theorem NTS_in_PEG_exprs[simp] = LIST_CONJ (map p nts);
+  end
 
 end (* local *)

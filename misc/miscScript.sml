@@ -224,12 +224,11 @@ Proof
   \\ once_rewrite_tac [append_aux_thm] \\ fs []
 QED
 
-Definition SmartAppend_def:
+Definition SmartAppend_def[simp]:
   (SmartAppend Nil l2 = l2) ∧
   (SmartAppend l1 Nil = l1) ∧
   (SmartAppend l1 l2 = Append l1 l2)
 End
-val _ = export_rewrites["SmartAppend_def"];
 
 Theorem SmartAppend_thm:
    ∀l1 l2.
@@ -270,11 +269,10 @@ Proof
 QED
 
 (* MAP3 never used *)
-Definition MAP3_def:
+Definition MAP3_def[simp]:
   (MAP3 f [] [] [] = []) /\
   (MAP3 f (h1::t1) (h2::t2) (h3::t3) = f h1 h2 h3::MAP3 f t1 t2 t3)
 End
-val _ = export_rewrites["MAP3_def"];
 
 val MAP3_ind = theorem"MAP3_ind";
 
@@ -353,7 +351,7 @@ Proof
     [`l1`,`l2`]
 QED
 
-Triviality lemmas:
+Theorem lemmas[local]:
   (2 + 2 * n - 1 = 2 * n + 1:num) /\
     (2 + 2 * n' = 2 * n'' + 2 <=> n' = n'':num) /\
     (2 * m = 2 * n <=> (m = n)) /\
@@ -376,7 +374,7 @@ Definition fromList2_def:
   fromList2 l = SND (FOLDL (\(i,t) a. (i + 2,insert i a t)) (0,LN) l)
 End
 
-Triviality EVEN_fromList2_lemma:
+Theorem EVEN_fromList2_lemma[local]:
   !l n t.
       EVEN n /\ (!x. x IN domain t ==> EVEN x) ==>
       !x. x IN domain (SND (FOLDL (\(i,t) a. (i + 2,insert i a t)) (n,t) l)) ==> EVEN x
@@ -679,11 +677,10 @@ Definition list_inter_def:
   list_inter xs ys = FILTER (\y. MEM y xs) ys
 End
 
-Definition max3_def:
+Definition max3_def[simp]:
   max3 (x:num) y z = if x > y then (if z > x then z else x)
                      else (if z > y then z else y)
 End
-val _ = export_rewrites["max3_def"];
 
 Theorem ALOOKUP_SNOC:
    ∀ls p k. ALOOKUP (SNOC p ls) k =
@@ -835,13 +832,12 @@ Proof
   full_simp_tac(srw_ss())[EXISTS_PROD,MEM_MAP,MEM_toAList,domain_lookup]
 QED
 
-Theorem domain_nat_set_from_list:
+Theorem domain_nat_set_from_list[simp]:
    ∀ls ns. domain (FOLDL (λs n. insert n () s) ns ls) = domain ns ∪ set ls
 Proof
   Induct >> simp[sptreeTheory.domain_insert] >>
   srw_tac[][EXTENSION] >> metis_tac[]
 QED
-val _ = export_rewrites["domain_nat_set_from_list"]
 
 Theorem wf_nat_set_from_list:
    ∀ls ns. wf ns ⇒ wf (FOLDL (λs n. insert n z s) ns ls)
@@ -1197,7 +1193,7 @@ Proof
   imp_res_tac find_index_LESS_LENGTH >> full_simp_tac(srw_ss())[EL_MAP]
 QED
 
-Theorem find_index_ALL_DISTINCT_EL:
+Theorem find_index_ALL_DISTINCT_EL[simp]:
  ∀ls n m. ALL_DISTINCT ls ∧ n < LENGTH ls ⇒ (find_index (EL n ls) ls m = SOME (m + n))
 Proof
 Induct >- srw_tac[][] >>
@@ -1205,7 +1201,6 @@ gen_tac >> Cases >>
 srw_tac[ARITH_ss][find_index_def] >>
 metis_tac[MEM_EL]
 QED
-val _ = export_rewrites["find_index_ALL_DISTINCT_EL"]
 
 Theorem find_index_ALL_DISTINCT_EL_eq:
    ∀ls. ALL_DISTINCT ls ⇒ ∀x m i. (find_index x ls m = SOME i) =
@@ -1506,12 +1501,11 @@ Proof
    FIRST_X_ASSUM(Q.SPEC_THEN`SUC n`MP_TAC)THEN SRW_TAC[][] )
 QED
 
-Theorem EVERY2_RC_same:
+Theorem EVERY2_RC_same[simp]:
    EVERY2 (RC R) l l
 Proof
   srw_tac[DNF_ss][EVERY2_EVERY,EVERY_MEM,MEM_ZIP,relationTheory.RC_DEF]
 QED
-val _ = export_rewrites["EVERY2_RC_same"]
 
 (* used twice, and only in source_to_flatProof *)
 Theorem FOLDL_invariant:
@@ -1753,24 +1747,22 @@ QED
 
 (* Specialisations to FEMPTY *)
 
-Theorem FUN_FMAP_FAPPLY_FEMPTY_FAPPLY:
+Theorem FUN_FMAP_FAPPLY_FEMPTY_FAPPLY[simp]:
  FINITE s ==> (FUN_FMAP ($FAPPLY FEMPTY) s ' x = FEMPTY ' x)
 Proof
 Cases_on `x IN s` >>
 srw_tac[][FUN_FMAP_DEF,NOT_FDOM_FAPPLY_FEMPTY]
 QED
-val _ = export_rewrites["FUN_FMAP_FAPPLY_FEMPTY_FAPPLY"]
 
 (* FUPDATE_LIST stuff *)
 
 (* Misc. *)
 
-Theorem LESS_1:
+Theorem LESS_1[simp]:
  x < 1 ⇔ (x = 0:num)
 Proof
 DECIDE_TAC
 QED
-val _ = export_rewrites["LESS_1"]
 
 
 
@@ -2473,7 +2465,7 @@ Proof
     \\ fs[DROP_EL_CONS]
 QED
 
-Triviality FRONT_APPEND':
+Theorem FRONT_APPEND'[local]:
   !l h a b t. l = h ++ [a; b] ++ t ==>
       FRONT l = h ++ FRONT([a; b] ++ t)
 Proof
@@ -2483,19 +2475,19 @@ Proof
 QED
 
 
-Triviality EVERY_NOT_IMP:
+Theorem EVERY_NOT_IMP[local]:
   !ls a. (EVERY ($~ o (\x. x = a)) ls) ==> (LIST_ELEM_COUNT a ls = 0)
 Proof
   Induct \\ rw[LIST_ELEM_COUNT_DEF] \\ fs[LIST_ELEM_COUNT_DEF]
 QED
 
-Triviality LIST_ELEM_COUNT_CONS:
+Theorem LIST_ELEM_COUNT_CONS[local]:
   !h t a. LIST_ELEM_COUNT a (h::t) = LIST_ELEM_COUNT a [h] + LIST_ELEM_COUNT a t
 Proof
   simp_tac std_ss [Once CONS_APPEND, LIST_ELEM_COUNT_THM]
 QED
 
-Triviality FRONT_COUNT_IMP:
+Theorem FRONT_COUNT_IMP[local]:
   !l1 l2 a. l1 <> [] /\ FRONT l1 = l2 ==> (LIST_ELEM_COUNT a l2 = LIST_ELEM_COUNT a l1) \/ (LIST_ELEM_COUNT a l2 + 1 = LIST_ELEM_COUNT a l1)
 Proof
   gen_tac \\ Induct_on `l1` \\ gen_tac \\ Cases_on `l2` \\ rw[FRONT_DEF]
@@ -4378,7 +4370,7 @@ Proof
   fs[good_dimindex_def]
 QED
 
-Triviality byte_index_LESS_IMP:
+Theorem byte_index_LESS_IMP[local]:
   (dimindex (:'a) = 32 \/ dimindex (:'a) = 64) /\
     byte_index (a:'a word) be < byte_index (a':'a word) be /\ i < 8 ==>
     byte_index a be + i < byte_index a' be /\
@@ -4395,7 +4387,7 @@ Proof
   \\ decide_tac
 QED
 
-Triviality NOT_w2w_bit:
+Theorem NOT_w2w_bit[local]:
   8 <= i /\ i < dimindex (:'b) ==> ~((w2w:word8->'b word) w ' i)
 Proof
   rpt strip_tac \\ rfs [w2w] \\ decide_tac
@@ -4405,7 +4397,7 @@ val LESS4 = DECIDE ``n < 4 <=> (n = 0) \/ (n = 1) \/ (n = 2) \/ (n = 3:num)``
 val LESS8 = DECIDE ``n < 8 <=> (n = 0) \/ (n = 1) \/ (n = 2) \/ (n = 3:num) \/
                                (n = 4) \/ (n = 5) \/ (n = 6) \/ (n = 7)``
 
-Triviality DIV_EQ_DIV_IMP:
+Theorem DIV_EQ_DIV_IMP[local]:
   0 < d /\ n <> n' /\ (n DIV d * d = n' DIV d * d) ==> n MOD d <> n' MOD d
 Proof
   rpt strip_tac \\ Q.PAT_X_ASSUM `n <> n'` mp_tac \\ fs []

@@ -52,7 +52,7 @@ val _ = add_type_inv ``REAL_TYPE`` ``:rational``;
 
 (* transfer *)
 
-Triviality RAT_RAT:
+Theorem RAT_RAT[local]:
   (!r1. real_of_rat (f1 r1) = f2 (real_of_rat r1)) ==>
    !v. (RAT_TYPE --> RAT_TYPE) f1 v ==>
        (REAL_TYPE --> REAL_TYPE) f2 v
@@ -68,7 +68,7 @@ Proof
   \\ fs [] \\ asm_exists_tac \\ fs []
 QED
 
-Triviality RAT_RAT_RAT:
+Theorem RAT_RAT_RAT[local]:
   (!r1 r2. real_of_rat (f1 r1 r2) = f2 (real_of_rat r1) (real_of_rat r2)) ==>
    !v. (RAT_TYPE --> RAT_TYPE --> RAT_TYPE) f1 v ==>
        (REAL_TYPE --> REAL_TYPE --> REAL_TYPE) f2 v
@@ -87,7 +87,7 @@ Proof
   \\ strip_tac \\ rpt (asm_exists_tac \\ fs [])
 QED
 
-Triviality RAT_RAT_BOOL:
+Theorem RAT_RAT_BOOL[local]:
   (!r1 r2. f1 r1 r2 <=> f2 (real_of_rat r1) (real_of_rat r2)) ==>
    !v. (RAT_TYPE --> RAT_TYPE --> BOOL) f1 v ==>
        (REAL_TYPE --> REAL_TYPE --> BOOL) f2 v
@@ -106,7 +106,7 @@ Proof
   \\ strip_tac \\ rpt (asm_exists_tac \\ fs [])
 QED
 
-Triviality RAT_BOOL:
+Theorem RAT_BOOL[local]:
   (!r1. (f1 r1) = f2 (real_of_rat r1)) ==>
    !v. (RAT_TYPE --> BOOL) f1 v ==>
        (REAL_TYPE --> BOOL) f2 v
@@ -116,7 +116,7 @@ Proof
                           FORALL_PROD] \\ rw []
 QED
 
-Triviality RAT_INT:
+Theorem RAT_INT[local]:
   (!r1. (f1 r1) = f2 (real_of_rat r1)) ==>
    !v. (RAT_TYPE --> INT) f1 v ==>
        (REAL_TYPE --> INT) f2 v
@@ -374,7 +374,7 @@ Proof
          arithmeticTheory.NOT_ZERO_LT_ZERO])
 QED
 
-Triviality INT_NEG_DIV_FACTOR:
+Theorem INT_NEG_DIV_FACTOR[local]:
   0 < (x:num) ==> (-&(x * y):int / &x = -&y)
 Proof
   strip_tac >> qspec_then ‘&x’ mp_tac integerTheory.INT_DIVISION >>
@@ -440,7 +440,7 @@ End
 val _ = next_ml_names := ["+"];
 val pair_add_v_thm = translate pair_add_def;
 
-Triviality abs_rat_ONTO:
+Theorem abs_rat_ONTO[local]:
   !r. ?f. abs_rat f = r
 Proof
   gen_tac >> qexists_tac ‘rep_rat r’ >> simp[rat_type_thm]

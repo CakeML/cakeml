@@ -633,7 +633,7 @@ Proof
   gvs[state_rel_def,SUBSET_DEF]
 QED
 
-Triviality v_neq_v':
+Theorem v_neq_v'[local]:
   v ≠ v ^ «'»
 Proof
   Cases_on ‘v’ >>
@@ -980,7 +980,7 @@ Proof
   rpt (FULL_CASE_TAC>>gvs[])
 QED
 
-Triviality evaluate_two_fresh_locals:
+Theorem evaluate_two_fresh_locals[local]:
   ∀z1 v1 z2 v2 p s res s'.
   ~MEM z1 (free_var_ids p) ∧
   ~MEM z2 (free_var_ids p) ∧
@@ -2165,7 +2165,7 @@ Proof
   imp_res_tac compile_decs_EVERY_is_function
 QED
 
-Triviality evaluate_two:
+Theorem evaluate_two[local]:
   panSem$evaluate(p,t with clock := k) = (res,st) ∧
   evaluate(p,t with clock := k') = (res',st') ∧ res ≠ SOME TimeOut ∧ res' ≠ SOME TimeOut
   ⇒
@@ -2191,13 +2191,13 @@ Proof
   rw[] >> rw[]
 QED
 
-Triviality num_cases_lemma:
+Theorem num_cases_lemma[local]:
   $!P ⇒ P 0 ∧ ∀x. P(SUC x)
 Proof
   rw[FORALL_DEF]
 QED
 
-Triviality LUB_IMAGE_SUC:
+Theorem LUB_IMAGE_SUC[local]:
   (∀x. LPREFIX (f x) (f(SUC x))) ⇒
   LUB(IMAGE f (𝕌(:num))) = LUB(IMAGE (f o SUC) (𝕌(:num)))
 Proof
@@ -2364,7 +2364,7 @@ Proof
   rw[fperm_decs_def,is_function_def]
 QED
 
-Triviality ALOOKUP_MAP3:
+Theorem ALOOKUP_MAP3[local]:
   ALOOKUP (MAP (λ(x,y,z). (x,y,f z)) al) = OPTION_MAP (I ## f) ∘ ALOOKUP al
 Proof
   rw[FUN_EQ_THM] >>

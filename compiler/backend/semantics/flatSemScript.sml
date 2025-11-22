@@ -655,7 +655,7 @@ Definition fix_clock_def:
   fix_clock s (s1,res) = (s1 with clock := MIN s.clock s1.clock,res)
 End
 
-Triviality fix_clock_IMP:
+Theorem fix_clock_IMP[local]:
   fix_clock s x = (s1,res) ==> s1.clock <= s.clock
 Proof
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
@@ -945,14 +945,14 @@ val eqs = LIST_CONJ (map prove_case_eq_thm
 Theorem case_eq_thms =
   eqs
 
-Triviality pair_case_eq:
+Theorem pair_case_eq[local]:
   pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v
 Proof
   Cases_on `x` >>
  srw_tac[][]
 QED
 
-Triviality pair_lam_lem:
+Theorem pair_lam_lem[local]:
   !f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)
 Proof
   srw_tac[][]
@@ -999,27 +999,25 @@ Theorem evaluate_def[compute,allow_rebind] =
 Theorem evaluate_ind[allow_rebind] =
   REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
 
-Definition bool_ctors_def:
+Definition bool_ctors_def[simp]:
   bool_ctors =
     { ((true_tag, SOME bool_id), 0n)
     ; ((false_tag, SOME bool_id), 0n) }
 End
 
-Definition list_ctors_def:
+Definition list_ctors_def[simp]:
   list_ctors =
     { ((cons_tag, SOME list_id), 2n)
     ; ((nil_tag, SOME list_id), 0n) }
 End
 
-Definition exn_ctors_def:
+Definition exn_ctors_def[simp]:
   exn_ctors =
     { ((div_tag, NONE), 0n)
     ; ((chr_tag, NONE), 0n)
     ; ((subscript_tag, NONE), 0n)
     ; ((bind_tag, NONE), 0n) }
 End
-
-val _ = export_rewrites ["bool_ctors_def", "list_ctors_def", "exn_ctors_def"];
 
 Definition initial_ctors_def:
    initial_ctors = bool_ctors UNION list_ctors UNION exn_ctors

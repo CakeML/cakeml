@@ -179,7 +179,7 @@ QED
 
 val env_ok_def = v_rel_cases |> CONJUNCT2
 
-Triviality env_ok_EXTEND:
+Theorem env_ok_EXTEND[local]:
   EVERY2 v_rel env1 env2 /\ (l1 = LENGTH env1) /\
     (l1 <= n ==> env_ok m l i env1' env2' (n - l1)) ==>
     env_ok m (l + l1) i (env1 ++ env1') (env2 ++ env2') n
@@ -225,7 +225,7 @@ val env_ok_append = env_ok_EXTEND
   |> GSYM |> Q.INST [`l`|->`0`]
   |> SIMP_RULE (srw_ss()) []
 
-Triviality env_ok_EXTEND_IGNORE:
+Theorem env_ok_EXTEND_IGNORE[local]:
   (LENGTH env2 = LENGTH env1) /\ LENGTH env1 <= n /\ l1 = LENGTH env1 /\
    env_ok m l i env1' env2' (n - l1) ==>
    env_ok m (l + l1) i (env1 ++ env1') (env2 ++ env2') n
@@ -308,7 +308,7 @@ Proof
   \\ rw [] \\ fs [v_rel_simp, list_to_v_def]
 QED
 
-Triviality v_to_list:
+Theorem v_to_list[local]:
   !h h'.
       v_rel h h' ==>
       (v_to_list h = NONE /\
@@ -359,7 +359,7 @@ Proof
   \\ fs [ref_rel_def] \\ rw []
 QED
 
-Triviality do_app_thm:
+Theorem do_app_thm[local]:
   state_rel s1 t1 /\ EVERY2 v_rel xs ys /\
    (do_app op xs s1 = Rval (v,s2)) ==>
    ?w t2. (do_app op ys t1 = Rval (w,t2)) /\
@@ -382,7 +382,7 @@ Proof
   once_rewrite_tac [v_rel_cases] \\ fs []
 QED
 
-Triviality do_app_err_thm:
+Theorem do_app_err_thm[local]:
   state_rel s1 t1 /\ EVERY2 v_rel xs ys /\
    do_app op xs s1 = Rerr err /\ (err <> Rabort Rtype_error) ==>
      ?w. do_app op ys t1 = Rerr w /\
@@ -481,7 +481,7 @@ QED
 
 (* compiler correctness *)
 
-Triviality lookup_EL_shifted_env:
+Theorem lookup_EL_shifted_env[local]:
   !y n k. n < LENGTH y /\ ALL_DISTINCT y ==>
             (lookup (EL n y) (shifted_env k y) = SOME (k + n))
 Proof
@@ -490,7 +490,7 @@ Proof
   \\ full_simp_tac(srw_ss())[MEM_EL] \\ METIS_TAC []
 QED
 
-Triviality env_ok_shifted_env:
+Theorem env_ok_shifted_env[local]:
   env_ok m l i env env2 k /\ MEM k live /\ ALL_DISTINCT live /\
     (lookup_vars (MAP (get_var m l i) (FILTER (\n. n < m + l) live)) env2 =
       SOME x) ==>
@@ -522,7 +522,7 @@ Proof
   \\ IMP_RES_TAC lookup_vars_SOME \\ full_simp_tac(srw_ss())[]
 QED
 
-Triviality EL_shift_alt_free:
+Theorem EL_shift_alt_free[local]:
   !fns index.
      index < LENGTH fns ==>
      ([EL index (shift (FST (alt_free fns)) l m i)] =
@@ -598,7 +598,7 @@ val code_tac =
           EVERY_MAP,EVERY_GENLIST,shift_seq_def]
     \\ fs[every_Fn_vs_NONE_EVERY_MAP,o_DEF];
 
-Triviality state_rel_opt_rel_refs:
+Theorem state_rel_opt_rel_refs[local]:
   (state_rel s1 s2 ∧ FLOOKUP s1.refs n = r1 ⇒
      ∃r2. FLOOKUP s2.refs n = r2 ∧ opt_rel (ref_rel v_rel) r1 r2) ∧
   (state_rel s1 s2 ∧ FLOOKUP s2.refs n = r2 ⇒
@@ -607,13 +607,13 @@ Proof
   rw [] \\ gvs [state_rel_def, FLOOKUP_DEF] \\ rw []
 QED
 
-Triviality state_rel_clocks_eqs:
+Theorem state_rel_clocks_eqs[local]:
   state_rel s t ⇒ s.clock = t.clock
 Proof
   gvs [state_rel_def]
 QED
 
-Triviality rel_update_thunk:
+Theorem rel_update_thunk[local]:
   state_rel s1 s2 ∧
   LIST_REL v_rel vs ys ⇒
     (update_thunk [RefPtr v ptr] s1.refs vs = SOME refs1 ⇒
@@ -634,7 +634,7 @@ Proof
     \\ metis_tac [])
 QED
 
-Triviality shift_correct:
+Theorem shift_correct[local]:
   (!xs env (s1:('c,'ffi) closSem$state) env' t1 res s2 m l i.
      (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr (Rabort Rtype_error) /\
      (LENGTH env = m + l) /\
@@ -1312,7 +1312,7 @@ Proof
     \\ full_simp_tac(srw_ss())[])
 QED
 
-Triviality env_set_default:
+Theorem env_set_default[local]:
   x SUBSET env_ok 0 0 LN [] env'
 Proof
   full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,env_ok_def]
@@ -1389,7 +1389,7 @@ QED
 
 val IF_MAP_EQ = MAP_EQ_f |> SPEC_ALL |> EQ_IMP_RULE |> snd;
 
-Triviality shift_code_locs:
+Theorem shift_code_locs[local]:
   !xs env s1 env'. code_locs (shift xs env s1 env') = code_locs xs
 Proof
   ho_match_mp_tac shift_ind
@@ -1406,7 +1406,7 @@ Proof
 EVAL_TAC
 QED
 
-Triviality alt_free_code_locs:
+Theorem alt_free_code_locs[local]:
   !xs. set (code_locs (FST (alt_free xs))) ⊆ set (code_locs xs)
 Proof
   ho_match_mp_tac alt_free_ind
@@ -1421,7 +1421,7 @@ Proof
   \\ metis_tac[HD_FST_alt_free,FST,PAIR]
 QED
 
-Triviality alt_free_code_locs_distinct:
+Theorem alt_free_code_locs_distinct[local]:
   ∀xs. ALL_DISTINCT (code_locs xs) ⇒ ALL_DISTINCT (code_locs (FST (alt_free xs)))
 Proof
   recInduct alt_free_ind

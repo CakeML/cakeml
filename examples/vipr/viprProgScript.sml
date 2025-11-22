@@ -309,7 +309,7 @@ Definition vipr_prog_def:
   vipr_prog = ^prog_tm
 End
 
-Triviality clean_up:
+Theorem clean_up[local]:
   (b' ⇒ c) ⇒ ∀b. (b ⇒ b') ⇒ b ⇒ c
 Proof
   fs []

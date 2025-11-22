@@ -922,7 +922,7 @@ Proof
   \\ rw [] \\ fs [] \\ metis_tac [to_gen_heap_address_11]
 QED
 
-Triviality gc_forward_ptr_data_pres:
+Theorem gc_forward_ptr_data_pres[local]:
   !x a ptr d ok x' ok'.
    (gc_forward_ptr a x ptr d ok = (x',ok'))
    ==> (MEM (DataElement xs l dd) x
@@ -938,7 +938,7 @@ Proof
   >> fs[] >> metis_tac[]
 QED
 
-Triviality gc_move_data_pres:
+Theorem gc_move_data_pres[local]:
   (gc_move conf state x = (x1,state1))
    ==> (MEM (DataElement xs l dd) (state1.heap++state1.h2)
         = MEM (DataElement xs l dd) (state.heap++state.h2))
@@ -949,7 +949,7 @@ Proof
   >> drule gc_forward_ptr_data_pres >> strip_tac >> fs[] >> metis_tac[]
 QED
 
-Triviality gc_move_list_data_pres:
+Theorem gc_move_list_data_pres[local]:
   !x conf state x1 state1 xs l dd.
    (gc_move_list conf state x = (x1,state1))
    ==> (MEM (DataElement xs l dd) (state1.heap++state1.h2)
@@ -962,7 +962,7 @@ Proof
   >> metis_tac[]
 QED
 
-Triviality gc_move_ref_list_data_pres:
+Theorem gc_move_ref_list_data_pres[local]:
   !x conf state x1 state1 xs l dd.
    (gc_move_ref_list conf state x = (x1,state1))
    ==> (MEM (DataElement xs l dd) (state1.heap++state1.h2)
@@ -1120,7 +1120,7 @@ Proof
   \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
 QED
 
-Triviality gc_move_ref_list_heap_length:
+Theorem gc_move_ref_list_heap_length[local]:
   !h x state state'. (gc_move_ref_list conf state h = (x,state')) ==> (heap_length state.heap = heap_length state'.heap)
 Proof
   Induct_on `h`
@@ -1134,7 +1134,7 @@ Proof
   >> metis_tac[gc_move_list_heap_length]
 QED
 
-Triviality gc_move_data_r1:
+Theorem gc_move_data_r1[local]:
   (gc_move_data conf state).r1 = state.r1
 Proof
   metis_tac[gc_move_data_IMP]

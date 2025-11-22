@@ -60,7 +60,7 @@ Proof
   \\ fs [list_to_v_def]
 QED
 
-Triviality forall_sum:
+Theorem forall_sum[local]:
   (∀x. P x) ⇔ (∀a. P (INL a)) ∧ ∀ b. P (INR b)
 Proof
   eq_tac \\ fs [] \\ rw [] \\ Cases_on ‘x’ \\ fs []
@@ -238,7 +238,7 @@ Proof
   Cases_on`ls`>>full_simp_tac(srw_ss())[contains_App_SOME_def]
 QED
 
-Definition every_Fn_SOME_def:
+Definition every_Fn_SOME_def[simp]:
   (every_Fn_SOME [] ⇔ T) ∧
   (every_Fn_SOME (x::y::xs) ⇔
      every_Fn_SOME [x] ∧
@@ -276,7 +276,6 @@ Termination
   WF_REL_TAC `measure (list_size exp_size)`
   \\ gvs [list_size_pair_size_MAP_FST_SND]
 End
-val _ = export_rewrites["every_Fn_SOME_def"];
 
 Theorem every_Fn_SOME_EVERY:
    ∀ls. every_Fn_SOME ls ⇔ EVERY (λx. every_Fn_SOME [x]) ls
@@ -291,7 +290,7 @@ Proof
   once_rewrite_tac[every_Fn_SOME_EVERY] \\ rw[]
 QED
 
-Definition every_Fn_vs_NONE_def:
+Definition every_Fn_vs_NONE_def[simp]:
   (every_Fn_vs_NONE [] ⇔ T) ∧
   (every_Fn_vs_NONE (x::y::xs) ⇔
      every_Fn_vs_NONE [x] ∧
@@ -329,7 +328,6 @@ Termination
   WF_REL_TAC `measure (list_size exp_size)`
   \\ gvs [list_size_pair_size_MAP_FST_SND]
 End
-val _ = export_rewrites["every_Fn_vs_NONE_def"];
 
 Theorem every_Fn_vs_NONE_EVERY:
    ∀ls. every_Fn_vs_NONE ls ⇔ EVERY (λx. every_Fn_vs_NONE [x]) ls
@@ -351,7 +349,7 @@ Proof
   once_rewrite_tac[every_Fn_vs_NONE_EVERY] \\ rw[]
 QED
 
-Definition every_Fn_vs_SOME_def:
+Definition every_Fn_vs_SOME_def[simp]:
   (every_Fn_vs_SOME [] ⇔ T) ∧
   (every_Fn_vs_SOME (x::y::xs) ⇔
      every_Fn_vs_SOME [x] ∧
@@ -389,7 +387,6 @@ Termination
   WF_REL_TAC `measure (list_size exp_size)`
   \\ gvs [list_size_pair_size_MAP_FST_SND]
 End
-val _ = export_rewrites["every_Fn_vs_SOME_def"];
 
 Theorem every_Fn_vs_SOME_EVERY:
    ∀ls. every_Fn_vs_SOME ls ⇔ EVERY (λx. every_Fn_vs_SOME [x]) ls
@@ -986,7 +983,7 @@ Proof
   \\ fs [] \\ Cases_on ‘e’ \\ fs []
 QED
 
-Triviality pair_lam_lem:
+Theorem pair_lam_lem[local]:
   !f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)
 Proof
   srw_tac[][]
@@ -1058,51 +1055,44 @@ Proof
  rev_full_simp_tac(srw_ss())[DROP_NIL]
 QED
 
-Definition is_closure_def:
+Definition is_closure_def[simp]:
 (is_closure (Closure _ _ _ _ _) ⇔ T) ∧
 (is_closure (Recclosure _ _ _ _ _) ⇔ T) ∧
 (is_closure _ ⇔ F)
 End
-val _ = export_rewrites ["is_closure_def"]
 
-Definition clo_to_loc_def:
+Definition clo_to_loc_def[simp]:
 (clo_to_loc (Closure l _ _ _ _) = l) ∧
 (clo_to_loc (Recclosure l _ _ _ i) = OPTION_MAP ((+) (2 * i)) l)
 End
-val _ = export_rewrites ["clo_to_loc_def"]
 
-Definition clo_to_env_def:
+Definition clo_to_env_def[simp]:
 (clo_to_env (Closure _ _ env _ _) = env) ∧
 (clo_to_env (Recclosure loc _ env fns _) =
   GENLIST (Recclosure loc [] env fns) (LENGTH fns) ++ env)
 End
-val _ = export_rewrites ["clo_to_env_def"]
 
-Definition clo_to_partial_args_def:
+Definition clo_to_partial_args_def[simp]:
 (clo_to_partial_args (Closure _ args _ _ _) = args) ∧
 (clo_to_partial_args (Recclosure _ args _ _ _) = args)
 End
-val _ = export_rewrites ["clo_to_partial_args_def"]
 
-Definition clo_add_partial_args_def:
+Definition clo_add_partial_args_def[simp]:
 (clo_add_partial_args args (Closure x1 args' x2 x3 x4) =
   Closure x1 (args ++ args') x2 x3 x4) ∧
 (clo_add_partial_args args (Recclosure x1 args' x2 x3 x4) =
   Recclosure x1 (args ++ args') x2 x3 x4)
 End
-val _ = export_rewrites ["clo_add_partial_args_def"]
 
-Definition clo_to_num_params_def:
+Definition clo_to_num_params_def[simp]:
 (clo_to_num_params (Closure _ _ _ n _) = n) ∧
 (clo_to_num_params (Recclosure _ _ _ fns i) = FST (EL i fns))
 End
-val _ = export_rewrites ["clo_to_num_params_def"]
 
-Definition rec_clo_ok_def:
+Definition rec_clo_ok_def[simp]:
 (rec_clo_ok (Recclosure _ _ _ fns i) ⇔ i < LENGTH fns) ∧
 (rec_clo_ok (Closure _ _ _ _ _) ⇔ T)
 End
-val _ = export_rewrites ["rec_clo_ok_def"]
 
 Theorem dest_closure_full_length:
  !max_app l v vs e args rest.
@@ -1459,7 +1449,7 @@ Proof
    simp [])
 QED
 
-Triviality revnil:
+Theorem revnil[local]:
   [] = REVERSE l ⇔ l = []
 Proof
   CONV_TAC (LAND_CONV (REWR_CONV EQ_SYM_EQ)) >> simp[]
@@ -1707,7 +1697,7 @@ Proof
   \\ fs [initial_state_def]
 QED
 
-Triviality do_app_io_events_mono:
+Theorem do_app_io_events_mono[local]:
   do_app op vs s = Rval(v,s') ⇒
    s.ffi.io_events ≼ s'.ffi.io_events
 Proof
@@ -1730,7 +1720,7 @@ Proof
   metis_tac[IS_PREFIX_TRANS,do_app_io_events_mono,do_install_const]
 QED
 
-Triviality evaluate_io_events_mono_imp:
+Theorem evaluate_io_events_mono_imp[local]:
   evaluate (es,env,s) = (r,s') ⇒
     s.ffi.io_events ≼ s'.ffi.io_events
 Proof
@@ -1840,7 +1830,7 @@ Proof
   Cases_on `h` >> simp[]
 QED
 
-Definition set_globals_def:
+Definition set_globals_def[simp]:
   (set_globals (Var _ _) = {||}) ∧
   (set_globals (If _ e1 e2 e3) =
     set_globals e1 ⊎ set_globals e2 ⊎ set_globals e3) ∧
@@ -1860,7 +1850,6 @@ Termination
   WF_REL_TAC ‘measure (sum_size exp_size (list_size exp_size))’
   \\ rw [] \\ gvs [list_size_pair_size_MAP_FST_SND]
 End
-val _ = export_rewrites ["set_globals_def"]
 
 (* {foo}sgc_free: foo is free of SetGlobal closures, meaning closures that
    include calls to SetGlobal, for
@@ -1904,12 +1893,11 @@ Proof
 QED
 
 (* result is setglobal-closure free *)
-Definition rsgc_free_def:
+Definition rsgc_free_def[simp]:
   (rsgc_free (Rval vs) ⇔ EVERY vsgc_free vs) ∧
   (rsgc_free (Rerr (Rabort _)) ⇔ T) ∧
   (rsgc_free (Rerr (Rraise v)) ⇔ vsgc_free v)
 End
-val _ = export_rewrites ["rsgc_free_def"]
 
 Definition esgc_free_def:
   (esgc_free (Var _ _) ⇔ T) ∧
@@ -1991,12 +1979,11 @@ QED
 
 (* generic do_app compile proof *)
 
-Definition isClos_def:
+Definition isClos_def[simp]:
   isClos (Closure x1 x2 x3 x4 x5) = T /\
   isClos (Recclosure y1 y2 y3 y4 y5) = T /\
   isClos _ = F
 End
-val _ = export_rewrites ["isClos_def"];
 
 Theorem isClos_cases:
    isClos x <=>
@@ -2021,7 +2008,7 @@ Definition simple_val_rel_def:
       vr x (Recclosure y1 y2 y3 y4 y5) ==> isClos x)
 End
 
-Triviality simple_val_rel_alt:
+Theorem simple_val_rel_alt[local]:
   simple_val_rel vr <=>
      (∀x n. vr x (Number n) ⇔ x = Number n) ∧
      (∀x p n.
@@ -2354,14 +2341,14 @@ Proof
 QED
 
 (*TODO move to semanticPrimitivesProps*)
-Triviality result_rel_Rval2[simp]:
+Theorem result_rel_Rval2[local,simp]:
  result_rel R1 R2 r (Rval v) = ∃v'. (r = Rval v') ∧ R1 v' v
 Proof
  Cases_on `r` >> srw_tac[][]
 QED
 
 (*TODO upstream to HOL*)
-Triviality PAIR_REL_SIMP[simp]:
+Theorem PAIR_REL_SIMP[local,simp]:
   (((R1 ### R2) n (c,d)) <=> (?x y. n = (x,y) /\ R1 x c /\ R2 y d)) /\
   (((R1 ### R2) (a,b) m) <=> (?x y. m = (x,y) /\ R1 a x /\ R2 b y))
 Proof
@@ -2374,9 +2361,9 @@ QED
 fun case_constant typ =
   prove_case_const_thm {case_def = TypeBase.case_def_of typ,
   nchotomy = TypeBase.nchotomy_of typ};
-Triviality v_case_const[simp] = case_constant ``:closSem$v``
-Triviality option_case_const[simp] = case_constant ``:'a option``
-Triviality list_case_const[simp] = case_constant ``:'a list``
+Theorem v_case_const[local,simp] = case_constant ``:closSem$v``
+Theorem option_case_const[local,simp] = case_constant ``:'a option``
+Theorem list_case_const[local,simp] = case_constant ``:'a list``
 
 Theorem LIST_REL_REFL_EVERY:
   ! l.
@@ -3140,7 +3127,7 @@ Proof
   \\ fsrw_tac [SATISFY_ss] []
 QED
 
-Triviality do_app_lemma_simp:
+Theorem do_app_lemma_simp[local]:
   (exc_rel $= err1 err2 <=> err1 = err2) /\
     LIST_REL $= xs xs /\
     simple_state_rel $= (adj_orac_rel cc f) /\
@@ -3405,13 +3392,13 @@ Proof
   \\ pop_assum (assume_tac o SPEC_ALL) \\ rfs []
 QED
 
-Triviality SUBMAP_refs_clocks_eqs:
+Theorem SUBMAP_refs_clocks_eqs[local]:
   SUBMAP_rel s1 s2 ⇒ s1.refs = s2.refs ∧ s1.clock = s2.clock
 Proof
   rw [SUBMAP_rel_def, state_component_equality]
 QED
 
-Triviality SUBMAP_dec_clock:
+Theorem SUBMAP_dec_clock[local]:
   SUBMAP_rel s1 s2 ⇒ SUBMAP_rel (dec_clock 1 s1) (dec_clock 1 s2)
 Proof
   rw [SUBMAP_rel_def, dec_clock_def, state_component_equality]

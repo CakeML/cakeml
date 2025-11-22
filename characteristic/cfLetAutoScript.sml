@@ -106,14 +106,14 @@ metis_tac[]
 QED *)
 
 (* The following lemmas aim to prove that a valid heap can not have one pointer pointing to two different values *)
-Triviality PTR_MEM_LEM:
+Theorem PTR_MEM_LEM[local]:
   !s l xv H. (l ~~>> xv * H) s ==> Mem l xv IN s
 Proof
   rw[STAR_def, SPLIT_def, cell_def, one_def] >> fs[]
 QED
 
 (* Intermediate lemma to reason on subsets of heaps *)
-Triviality HEAP_SUBSET_GC:
+Theorem HEAP_SUBSET_GC[local]:
   !s s' H. s SUBSET s' ==> H s ==> (H * GC) s'
 Proof
   rw[STAR_def] >>
@@ -124,7 +124,7 @@ rw[]
 QED
 
 (* UNIQUE_PTRS property for a heap converted from a state *)
-Triviality UNIQUE_PTRS_HFS:
+Theorem UNIQUE_PTRS_HFS[local]:
   !s. HEAP_FROM_STATE s ==> !l xv xv' H H'. (l ~~>> xv * H) s /\ (l ~~>> xv' * H') s ==> xv' = xv
 Proof
   rw[HEAP_FROM_STATE_def] >>
@@ -207,7 +207,7 @@ prove_hprop_inj_tac UNIQUE_W8ARRAYS
 QED
 
 (* A valid heap must have proper ffi partitions *)
-Triviality NON_OVERLAP_FFI_PART_HFS:
+Theorem NON_OVERLAP_FFI_PART_HFS[local]:
   !s. HEAP_FROM_STATE s ==>
 !s1 u1 ns1 ts1 s2 u2 ns2 ts2. FFI_part s1 u1 ns1 ts1 IN s /\ FFI_part s2 u2 ns2 ts2 IN s /\ (?p. MEM p ns1 /\ MEM p ns2) ==>
 s2 = s1 /\ u2 = u1 /\ ns2 = ns1 /\ ts2 = ts1
@@ -271,7 +271,7 @@ rw[]
 QED
 
 (* A minor lemma *)
-Triviality FFI_PORT_IN_HEAP_LEM:
+Theorem FFI_PORT_IN_HEAP_LEM[local]:
   !s u ns events H h. (one (FFI_part s u ns events) * H) h ==> FFI_part s u ns events IN h
 Proof
   rw[one_def, STAR_def, SPLIT_def, IN_DEF, UNION_DEF] >> rw[]
@@ -309,7 +309,7 @@ Proof
 Induct >-(strip_tac >> rw[]) >> rw[]
 QED
 
-Triviality REPLICATE_APPEND_RIGHT:
+Theorem REPLICATE_APPEND_RIGHT[local]:
   a++b = REPLICATE n x ==> b = REPLICATE (LENGTH b) x
 Proof
   strip_tac >>
@@ -319,7 +319,7 @@ Proof
 fs[LENGTH_REPLICATE]
 QED
 
-Triviality REPLICATE_APPEND_LEFT:
+Theorem REPLICATE_APPEND_LEFT[local]:
   a++b = REPLICATE n x ==> a = REPLICATE (LENGTH a) x
 Proof
   strip_tac >> `b = REPLICATE (LENGTH b) x` by metis_tac[REPLICATE_APPEND_RIGHT] >>
@@ -346,7 +346,7 @@ Proof
 `n+1 = SUC n` by rw[] >> rw[REPLICATE]
 QED
 
-Triviality LIST_REL_DECOMPOSE_RIGHT_recip:
+Theorem LIST_REL_DECOMPOSE_RIGHT_recip[local]:
   !R. LIST_REL R (a ++ b) x ==> LIST_REL R a (TAKE (LENGTH a) x) /\ LIST_REL R b (DROP (LENGTH a) x)
 Proof
   strip_tac >> strip_tac >>
@@ -357,7 +357,7 @@ POP_ASSUM (fn x => CONV_RULE (SIMP_CONV list_ss []) x |> ASSUME_TAC) >>
 metis_tac[LENGTH_TAKE, LIST_REL_APPEND_IMP]
 QED
 
-Triviality LIST_REL_DECOMPOSE_RIGHT_imp:
+Theorem LIST_REL_DECOMPOSE_RIGHT_imp[local]:
   !R. LIST_REL R a (TAKE (LENGTH a) x) /\ LIST_REL R b (DROP (LENGTH a) x) ==> LIST_REL R (a ++ b) x
 Proof
   rpt strip_tac >>
@@ -371,7 +371,7 @@ Proof
 strip_tac >> metis_tac[LIST_REL_DECOMPOSE_RIGHT_recip, LIST_REL_DECOMPOSE_RIGHT_imp]
 QED
 
-Triviality LIST_REL_DECOMPOSE_LEFT_recip:
+Theorem LIST_REL_DECOMPOSE_LEFT_recip[local]:
   !R. LIST_REL R x (a ++ b) ==> LIST_REL R (TAKE (LENGTH a) x) a /\ LIST_REL R (DROP (LENGTH a) x) b
 Proof
   strip_tac >> strip_tac >>
@@ -382,7 +382,7 @@ POP_ASSUM (fn x => CONV_RULE (SIMP_CONV list_ss []) x |> ASSUME_TAC) >>
 metis_tac[LENGTH_TAKE, LIST_REL_APPEND_IMP]
 QED
 
-Triviality LIST_REL_DECOMPOSE_LEFT_imp:
+Theorem LIST_REL_DECOMPOSE_LEFT_imp[local]:
   !R. LIST_REL R (TAKE (LENGTH a) x) a /\ LIST_REL R (DROP (LENGTH a) x) b ==> LIST_REL R x (a ++ b)
 Proof
   rpt strip_tac >>
@@ -445,7 +445,7 @@ Definition InjectiveRel_def:
 InjectiveRel A = !x1 y1 x2 y2. A x1 y1 /\ A x2 y2 ==> (x1 = x2 <=> y1 = y2)
 End
 
-Triviality EQTYPE_INJECTIVEREL:
+Theorem EQTYPE_INJECTIVEREL[local]:
   EqualityType A ==> InjectiveRel A
 Proof
   rw[InjectiveRel_def, EqualityType_def]
@@ -503,7 +503,7 @@ fs[PAIR_TYPE_def, types_match_def, semanticPrimitivesTheory.ctor_same_type_def] 
 metis_tac[]
 QED
 
-Triviality LIST_TYPE_no_closure:
+Theorem LIST_TYPE_no_closure[local]:
   !A x xv. EqualityType A ==> LIST_TYPE A x xv ==> no_closures xv
 Proof
   Induct_on `x`
@@ -514,7 +514,7 @@ rw[no_closures_def]
 last_assum IMP_RES_TAC
 QED
 
-Triviality LIST_TYPE_inj:
+Theorem LIST_TYPE_inj[local]:
   !A x1 x2 v1 v2. EqualityType A ==> LIST_TYPE A x1 v1 ==> LIST_TYPE A x2 v2 ==>
 (v1 = v2 <=> x1 = x2)
 Proof
@@ -532,7 +532,7 @@ metis_tac[]
 QED
 
 val types_match_tac = rpt (CHANGED_TAC (rw[LIST_TYPE_def, types_match_def, semanticPrimitivesTheory.ctor_same_type_def]));
-Triviality LIST_TYPE_types_match:
+Theorem LIST_TYPE_types_match[local]:
   !A x1 x2 v1 v2. EqualityType A ==> LIST_TYPE A x1 v1 ==> LIST_TYPE A x2 v2 ==>
 types_match v1 v2
 Proof
@@ -584,7 +584,7 @@ QED
 
 (* Some rules used to simplify arithmetic equations (not happy with that: write a conversion instead? *)
 
-Triviality NUM_EQ_lem:
+Theorem NUM_EQ_lem[local]:
   !(a1:num) (a2:num) (b:num). b <= a1 ==> b <= a2 ==> (a1 = a2 <=> a1 - b = a2 - b)
 Proof
   rw[]

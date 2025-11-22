@@ -145,26 +145,26 @@ Termination
   \\ fs [LENGTH_FRONT] \\ Cases \\ fs []
 End
 
-Triviality MEM_exp_size:
+Theorem MEM_exp_size[local]:
   !args a. MEM a args ==> exp_size a <= exp6_size args
 Proof
   Induct \\ fs [astTheory.exp_size_def] \\ rw [] \\ res_tac \\ fs []
 QED
 
-Triviality MEM_exp1_size:
+Theorem MEM_exp1_size[local]:
   !rs. MEM (v,a,e') rs ==> exp_size e' < exp1_size rs
 Proof
   Induct \\ fs [astTheory.exp_size_def] \\ rw [] \\ res_tac \\ fs []
   \\ fs [astTheory.exp_size_def]
 QED
 
-Triviality exp6_size_lemma:
+Theorem exp6_size_lemma[local]:
   !xs ys. exp6_size (xs ++ ys) = exp6_size xs + exp6_size ys
 Proof
   Induct \\ fs [astTheory.exp_size_def]
 QED
 
-Triviality dest_opapp_size:
+Theorem dest_opapp_size[local]:
   !xs p_1 p_2.
       dest_opapp xs = SOME (p_1,p_2) ==>
       exp_size p_1 + exp6_size p_2 < exp_size xs
@@ -419,7 +419,7 @@ Definition full_normalise_def:
   full_normalise ns e = FST (protect T ns (strip_annot_exp e))
 End
 
-Triviality MEM_v_size:
+Theorem MEM_v_size[local]:
   !xs. MEM a xs ==> v_size a < v7_size xs
 Proof
   Induct  \\ fs [v_size_def] \\ rw [] \\ res_tac \\ fs []

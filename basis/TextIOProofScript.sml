@@ -6217,7 +6217,7 @@ Definition INSTREAM_STR'_def:
          get_mode fs fd = SOME ReadMode)
 End
 
-Triviality INSTREAM_STR'_F_F:
+Theorem INSTREAM_STR'_F_F[local]:
   INSTREAM_STR' fd is input fs F F = INSTREAM_STR fd is input fs
 Proof
   gvs [INSTREAM_STR'_def,INSTREAM_STR_def]
@@ -6433,7 +6433,7 @@ QED
 
 (*** END TODO COPIED ***)
 
-Triviality MAP_MAP_n2w_ORD:
+Theorem MAP_MAP_n2w_ORD[local]:
   (!xs. MAP (n2w ∘ ORD) (MAP (CHR ∘ (w2n:word8 -> num)) xs) = xs) /\
   (!xs. MAP (CHR ∘ (w2n:word8 -> num)) (MAP (n2w ∘ ORD) xs) = xs)
 Proof
@@ -6919,13 +6919,13 @@ Proof
   \\ xapp
 QED
 
-Triviality to_W8ARRAY:
+Theorem to_W8ARRAY[local]:
   loc ~~>> W8array bcontent = W8ARRAY (Loc T loc) bcontent
 Proof
   gvs [W8ARRAY_def,cond_STAR,FUN_EQ_THM,SEP_EXISTS_THM]
 QED
 
-Triviality ind_surplus_fun_eq_NONE:
+Theorem ind_surplus_fun_eq_NONE[local]:
   ∀c bcontent r w.
     w ≤ LENGTH bcontent ∧ r ≤ w ∧
     (∀i. r ≤ i ∧ i < w ⇒ w2n (EL i bcontent) ≠ ORD c) ⇒
@@ -6935,7 +6935,7 @@ Proof
   \\ simp [Once find_surplus_fun_def]
 QED
 
-Triviality ind_surplus_fun_eq_SOME:
+Theorem ind_surplus_fun_eq_SOME[local]:
   ∀c bcontent r w.
     w ≤ LENGTH bcontent ∧ r ≤ j ∧ j < LENGTH bcontent ∧
     w2n (EL j bcontent) = ORD c ∧ r < w ∧ j < w ∧
@@ -6987,7 +6987,7 @@ Proof
   \\ gvs [instream_buffered_inv_def]
 QED
 
-Triviality TAKE_LENGTH_ADD1:
+Theorem TAKE_LENGTH_ADD1[local]:
   TAKE (LENGTH xs + 1) (xs ++ y::ys) = xs ++ [y]
 Proof
   ‘xs ++ y::ys = (xs ++ [y]) ++ ys’ by rewrite_tac [GSYM APPEND_ASSOC,APPEND]
@@ -7050,7 +7050,7 @@ Proof
   \\ qexists_tac ‘old ++ bs1 ++ [n2w (ORD c)]’ \\ gvs []
 QED
 
-Triviality not_EVERY_imp:
+Theorem not_EVERY_imp[local]:
   ∀xs. ¬EVERY p xs ⇒ ∃ys z zs. xs = ys ++ z::zs ∧ EVERY p ys ∧ ~ p z
 Proof
   Induct \\ gvs [] \\ strip_tac \\ Cases_on ‘p h’ \\ gvs [] \\ rw [] \\ gvs []

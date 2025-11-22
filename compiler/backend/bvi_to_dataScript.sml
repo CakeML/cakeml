@@ -219,7 +219,7 @@ Proof
   \\ gvs [compile_def]
 QED
 
-Triviality compile_LESS_EQ_lemma:
+Theorem compile_LESS_EQ_lemma[local]:
   !n env tail live xs.
       n <= SND (SND (compile n env tail live xs))
 Proof
@@ -236,7 +236,7 @@ Proof
   \\ FULL_SIMP_TAC std_ss []
 QED
 
-Triviality compile_LENGTH_lemma:
+Theorem compile_LENGTH_lemma[local]:
   !n env tail live xs.
       (LENGTH (FST (SND (compile n env tail live xs))) = LENGTH xs)
 Proof

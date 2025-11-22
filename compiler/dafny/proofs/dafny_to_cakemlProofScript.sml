@@ -27,58 +27,58 @@ Type cml_ns[pp] = “:(string, string, v) namespace”
 (* Some general simps *)
 
 (* TODO Better way of writing this? Perhaps using state_fupdcanon? *)
-Triviality with_same_refs_ffi[simp]:
+Theorem with_same_refs_ffi[local,simp]:
   (t: 'ffi cml_state) with <| refs := t.refs; ffi := t.ffi |> = t
 Proof
   gvs [semanticPrimitivesTheory.state_component_equality]
 QED
 
-Triviality with_same_ffi[simp]:
+Theorem with_same_ffi[local,simp]:
   (t: 'ffi cml_state) with <| clock := c; refs := r; ffi := t.ffi |> =
   t with <| clock := c; refs := r |>
 Proof
   gvs [semanticPrimitivesTheory.state_component_equality]
 QED
 
-Triviality with_same_ffi1[simp]:
+Theorem with_same_ffi1[local,simp]:
   (t: 'ffi cml_state) with <| refs := r; ffi := t.ffi |> =
   t with <| refs := r |>
 Proof
   gvs [semanticPrimitivesTheory.state_component_equality]
 QED
 
-Triviality with_same_clock[simp]:
+Theorem with_same_clock[local,simp]:
   (t: 'ffi cml_state) with clock := t.clock = t
 Proof
   gvs [semanticPrimitivesTheory.state_component_equality]
 QED
 
-Triviality with_same_refs[simp]:
+Theorem with_same_refs[local,simp]:
   s with refs := s.refs = s
 Proof
   gvs [semanticPrimitivesTheory.state_component_equality]
 QED
 
 (* TODO Check if needed; add to namespaceTheory? *)
-Triviality nsAppend_empty[simp]:
+Theorem nsAppend_empty[local,simp]:
   nsAppend (Bind [] []) b = b
 Proof
   Cases_on ‘b’ \\ gvs [nsAppend_def]
 QED
 
-Triviality value_has_type_bool[simp]:
+Theorem value_has_type_bool[local,simp]:
   value_has_type BoolT v ⇔ ∃b. v = BoolV b
 Proof
   Cases_on ‘v’ \\ simp []
 QED
 
-Triviality value_has_type_str[simp]:
+Theorem value_has_type_str[local,simp]:
   value_has_type StrT v ⇔ ∃s. v = StrV s
 Proof
   Cases_on ‘v’ \\ simp []
 QED
 
-Triviality value_has_type_int[simp]:
+Theorem value_has_type_int[local,simp]:
   value_has_type IntT v ⇔ ∃i. v = IntV i
 Proof
   Cases_on ‘v’ \\ simp []
@@ -138,7 +138,7 @@ Definition nat_to_string_def:
   else nat_to_string (n DIV 10) ++ dec_to_string (n MOD 10)
 End
 
-Triviality evaluate_Strcat:
+Theorem evaluate_Strcat[local]:
   evaluate s env [re] = (s₁, Rval [Litv (StrLit rs)]) ∧
   evaluate s₁ env [le] = (s₂, Rval [Litv (StrLit ls)]) ∧
   has_list_cons env
@@ -286,7 +286,7 @@ Proof
   \\ simp [evaluate_def]
 QED
 
-Triviality Stuple_Tuple:
+Theorem Stuple_Tuple[local]:
   LENGTH xs ≠ 1 ⇒ Stuple xs = Tuple xs
 Proof
   namedCases_on ‘xs’ ["", "x xs'"]
@@ -295,7 +295,7 @@ Proof
   \\ gvs [Stuple_def]
 QED
 
-Triviality Pstuple_Tuple:
+Theorem Pstuple_Tuple[local]:
   LENGTH xs ≠ 1 ⇒ Pstuple xs = Pcon NONE xs
 Proof
   namedCases_on ‘xs’ ["", "x xs'"]
@@ -304,26 +304,26 @@ Proof
   \\ gvs [Pstuple_def]
 QED
 
-Triviality is_fresh_neq[simp]:
+Theorem is_fresh_neq[local,simp]:
   is_fresh n ∧ ¬is_fresh n' ⇒ n ≠ n'
 Proof
   rpt strip_tac \\ gvs [is_fresh_def]
 QED
 
 (* TODO Upstream these? Most likely will break things. *)
-Triviality nsOptBind_some_simp[simp]:
+Theorem nsOptBind_some_simp[local,simp]:
   nsOptBind (SOME n) x env = nsBind n x env
 Proof
   gvs [nsOptBind_def]
 QED
 
-Triviality nsOptBind_none_simp[simp]:
+Theorem nsOptBind_none_simp[local,simp]:
   nsOptBind NONE x env = env
 Proof
   gvs [nsOptBind_def]
 QED
 
-Triviality no_shadow_evaluate_exp:
+Theorem no_shadow_evaluate_exp[local]:
   no_shadow (set (MAP FST s.locals)) stmt ∧
   evaluate_exp s env stmt' = (s', r) ⇒
   no_shadow (set (MAP FST s'.locals)) stmt
@@ -332,7 +332,7 @@ Proof
   \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
 QED
 
-Triviality no_shadow_evaluate_stmt:
+Theorem no_shadow_evaluate_stmt[local]:
   no_shadow (set (MAP FST s.locals)) stmt ∧
   evaluate_stmt s env stmt' = (s', r) ⇒
   no_shadow (set (MAP FST s'.locals)) stmt
@@ -450,7 +450,7 @@ Definition exp_res_rel_def[simp]:
   (exp_res_rel _ _ _ ⇔ F)
 End
 
-Triviality exp_res_rel_rval[simp]:
+Theorem exp_res_rel_rval[local,simp]:
   exp_res_rel m (Rval dfy_v) r_cml ⇔
     ∃cml_v. r_cml = Rval [cml_v] ∧ val_rel m dfy_v cml_v
 Proof
@@ -459,7 +459,7 @@ Proof
   \\ Cases_on ‘rest’ \\ gvs []
 QED
 
-Triviality exp_res_rel_rerr[simp]:
+Theorem exp_res_rel_rerr[local,simp]:
   exp_res_rel m (Rerr dfy_err) r_cml ⇔
   dfy_err = Rtimeout_error ∧ r_cml = (Rerr (Rabort Rtimeout_error))
 Proof
@@ -477,7 +477,7 @@ Definition exp_ress_rel_def[simp]:
   (exp_ress_rel _ _ _ ⇔ F)
 End
 
-Triviality exp_ress_rel_rerr[simp]:
+Theorem exp_ress_rel_rerr[local,simp]:
   exp_ress_rel m (Rerr dfy_err) rs_cml ⇔
   dfy_err = Rtimeout_error ∧ rs_cml = (Rerr (Rabort Rtimeout_error))
 Proof
@@ -487,7 +487,7 @@ Proof
   \\ Cases_on ‘dfy_err’ \\ gvs []
 QED
 
-Triviality exp_ress_rel_rval[simp]:
+Theorem exp_ress_rel_rval[local,simp]:
   exp_ress_rel m (Rval dfy_vs) rs_cml ⇔
   ∃cml_vs. rs_cml = Rval cml_vs ∧ LIST_REL (val_rel m) dfy_vs cml_vs
 Proof
@@ -502,7 +502,7 @@ Definition stmt_res_rel_def[simp]:
   (stmt_res_rel _ _ ⇔ F)
 End
 
-Triviality stmt_res_rel_simp[simp]:
+Theorem stmt_res_rel_simp[local,simp]:
   (stmt_res_rel Rcont r_cml ⇔
      ∃vs. r_cml = Rval vs) ∧
   (stmt_res_rel (Rstop Sret) r_cml ⇔
@@ -515,7 +515,7 @@ Proof
   \\ Cases_on ‘abrt’ \\ gvs []
 QED
 
-Triviality read_local_some_imp:
+Theorem read_local_some_imp[local]:
   read_local s.locals name = SOME dfy_v ∧
   state_rel m l s (t: 'ffi cml_state) env ∧
   is_fresh name ⇒
@@ -535,21 +535,21 @@ QED
      general form? *)
 
 (* TODO Upstream? *)
-Triviality nslookup_nsbind[simp]:
+Theorem nslookup_nsbind[local,simp]:
   nsLookup (nsBind n v env) (Short n) = SOME v
 Proof
   Cases_on ‘env’ \\ gvs [nsBind_def, nsLookup_def]
 QED
 
 (* TODO Upstream? *)
-Triviality neq_nslookup_nsbind:
+Theorem neq_nslookup_nsbind[local]:
   n ≠ n' ⇒
   nsLookup (nsBind n' v env) (Short n) = nsLookup env (Short n)
 Proof
   Cases_on ‘env’ \\ gvs [nsBind_def, nsLookup_def]
 QED
 
-Triviality state_rel_env_push_not_fresh:
+Theorem state_rel_env_push_not_fresh[local]:
   state_rel m l s (t: 'ffi cml_state) env ∧ ¬(is_fresh n) ⇒
   state_rel m l s t (env with v := (nsBind (explode n) v env.v))
 Proof
@@ -561,7 +561,7 @@ Proof
   \\ qexistsl [‘loc’, ‘cml_v’] \\ gvs []
 QED
 
-Triviality state_rel_env_pop_not_fresh:
+Theorem state_rel_env_pop_not_fresh[local]:
   ¬(is_fresh n) ∧
   state_rel m l s (t: 'ffi cml_state)
             (env with v := (nsBind (explode n) v env.v)) ⇒
@@ -575,13 +575,13 @@ Proof
   \\ qexistsl [‘loc’, ‘cml_v’] \\ gvs []
 QED
 
-Triviality is_fresh_not_dfy_pfx:
+Theorem is_fresh_not_dfy_pfx[local]:
   is_fresh (implode n) ⇒ n ≠ ("dfy_" ++ explode sfx)
 Proof
   Cases_on ‘n’ \\ simp [is_fresh_def, isprefix_thm]
 QED
 
-Triviality every_is_fresh_not_dfy:
+Theorem every_is_fresh_not_dfy[local]:
   EVERY (λn. is_fresh n) ns ⇒
   ∀sfx. EVERY (λn. n ≠ "dfy_" ++ (explode sfx)) (MAP explode ns)
 Proof
@@ -593,7 +593,7 @@ Proof
   \\ fs [is_fresh_def, isprefix_thm]
 QED
 
-Triviality every_is_fresh_not_int_to_string:
+Theorem every_is_fresh_not_int_to_string[local]:
   EVERY (λn. is_fresh n) ns ⇒
   EVERY (λn. n ≠ cml_int_to_string_name) (MAP explode ns)
 Proof
@@ -605,7 +605,7 @@ Proof
   \\ fs [is_fresh_def, isprefix_thm]
 QED
 
-Triviality locals_rel_env_change:
+Theorem locals_rel_env_change[local]:
   (∀n. is_fresh n ⇒
        nsLookup env_v (Short (explode n)) =
        nsLookup env_v' (Short (explode n))) ∧
@@ -621,7 +621,7 @@ Proof
   \\ gvs []
 QED
 
-Triviality state_rel_env_change:
+Theorem state_rel_env_change[local]:
   (∀n. is_fresh n ⇒
        nsLookup env.v (Short (explode n)) =
        nsLookup env'.v (Short (explode n))) ∧
@@ -633,7 +633,7 @@ Proof
   \\ last_assum $ irule_at Any \\ gvs []
 QED
 
-Triviality env_rel_env_change:
+Theorem env_rel_env_change[local]:
   (∀n. "dfy_" ≼ n ⇒
        nsLookup env_cml.v (Short n) = nsLookup env_cml'.v (Short n)) ∧
   (∃clos_env.
@@ -648,7 +648,7 @@ Proof
   \\ first_x_assum drule \\ gvs []
 QED
 
-Triviality state_rel_llookup:
+Theorem state_rel_llookup[local]:
   state_rel m l s t env ∧
   LLOOKUP s.heap dfy_loc = SOME (HArr dfy_arr ty) ∧
   FLOOKUP m dfy_loc = SOME cml_loc ⇒
@@ -661,7 +661,7 @@ Proof
   \\ last_x_assum drule \\ rpt strip_tac \\ gvs []
 QED
 
-Triviality get_member_some_fun_name:
+Theorem get_member_some_fun_name[local]:
   get_member n p = SOME (Function n' ins res_t reqs rds decrs body) ⇒
   n' = n
 Proof
@@ -672,7 +672,7 @@ Proof
   \\ Cases_on ‘mem_n = n’ \\ gvs []
 QED
 
-Triviality find_recfun_some_aux:
+Theorem find_recfun_some_aux[local]:
   ∀name members member cml_funs.
     get_member_aux name members = SOME member ∧
     result_mmap from_member_decl members = INR cml_funs ⇒
@@ -692,7 +692,7 @@ Proof
   \\ simp [Once find_recfun_def]
 QED
 
-Triviality find_recfun_some:
+Theorem find_recfun_some[local]:
   get_member name prog = SOME member ∧
   result_mmap from_member_decl (dest_program prog) = INR cml_funs ⇒
   ∃cml_param cml_body.
@@ -707,7 +707,7 @@ Proof
   \\ drule_all find_recfun_some_aux \\ gvs []
 QED
 
-Triviality callable_rel_inversion:
+Theorem callable_rel_inversion[local]:
   callable_rel prog name reclos ⇒
   ∃clos_env env cml_funs member.
     reclos = (Recclosure env cml_funs ("dfy_" ++ (explode name))) ∧
@@ -723,19 +723,19 @@ Proof
   \\ first_assum $ irule_at (Pos last) \\ simp []
 QED
 
-Triviality nsLookup_nsBind:
+Theorem nsLookup_nsBind[local]:
   nsLookup (nsBind k x b) (Short k) = SOME x
 Proof
   Cases_on ‘b’ \\ gvs [nsLookup_def, nsBind_def]
 QED
 
-Triviality nsLookup_nsBind_neq:
+Theorem nsLookup_nsBind_neq[local]:
   k' ≠ k ⇒ nsLookup (nsBind k' x b) (Short k) = nsLookup b (Short k)
 Proof
   Cases_on ‘b’ \\ gvs [nsLookup_def, nsBind_def]
 QED
 
-Triviality nslookup_build_rec_env_reclos_aux:
+Theorem nslookup_build_rec_env_reclos_aux[local]:
   ∀name members member cml_funs' cml_funs env (env₂_v: cml_ns).
     get_member_aux name members = SOME member ∧
     result_mmap from_member_decl members = INR cml_funs ⇒
@@ -755,7 +755,7 @@ Proof
   \\ gvs [build_rec_env_def, nsLookup_nsBind, nsLookup_nsBind_neq]
 QED
 
-Triviality nslookup_build_rec_env_reclos:
+Theorem nslookup_build_rec_env_reclos[local]:
   get_member name prog = SOME member ∧
   result_mmap from_member_decl (dest_program prog) = INR cml_funs ∧
   ALL_DISTINCT (MAP (λ(f,x,e). f) cml_funs) ∧
@@ -795,51 +795,51 @@ Definition store_preserve_all_def:
   store_preserve_all xs ys ⇔ store_preserve (LENGTH xs) xs ys
 End
 
-Triviality store_preserve_same[simp]:
+Theorem store_preserve_same[local,simp]:
   store_preserve base xs xs
 Proof
   gvs [store_preserve_def]
 QED
 
-Triviality store_preserve_all_same[simp]:
+Theorem store_preserve_all_same[local,simp]:
   store_preserve_all xs xs
 Proof
   gvs [store_preserve_all_def]
 QED
 
-Triviality store_preserve_decat:
+Theorem store_preserve_decat[local]:
   store_preserve base (xs ++ ys) zs ⇒ store_preserve base xs zs
 Proof
   gvs [store_preserve_def, store_lookup_def, EL_APPEND]
 QED
 
-Triviality store_preserve_trans:
+Theorem store_preserve_trans[local]:
   store_preserve base xs ys ∧ store_preserve base ys zs ⇒
   store_preserve base xs zs
 Proof
   gvs [store_preserve_def]
 QED
 
-Triviality store_preserve_all_trans:
+Theorem store_preserve_all_trans[local]:
   store_preserve_all xs ys ∧ store_preserve_all ys zs ⇒
   store_preserve_all xs zs
 Proof
   gvs [store_preserve_all_def, store_preserve_def]
 QED
 
-Triviality store_preserve_all_concat:
+Theorem store_preserve_all_concat[local]:
   store_preserve_all xs ys ⇒ store_preserve_all xs (ys ++ zs)
 Proof
   gvs [store_preserve_all_def, store_preserve_def, store_lookup_def, EL_APPEND]
 QED
 
-Triviality store_preserve_all_decat:
+Theorem store_preserve_all_decat[local]:
   store_preserve_all (xs ++ ys) zs ⇒ store_preserve_all xs zs
 Proof
   gvs [store_preserve_all_def, store_preserve_def, store_lookup_def, EL_APPEND]
 QED
 
-Triviality store_preserve_all_locals_rel:
+Theorem store_preserve_all_locals_rel[local]:
   locals_rel m l s.locals (t: 'ffi cml_state).refs env ∧
   store_preserve_all t.refs (t': 'ffi cml_state).refs ⇒
   locals_rel m l s.locals t'.refs env
@@ -852,13 +852,13 @@ Proof
   \\ gvs [store_lookup_def]
 QED
 
-Triviality store_preserve_all_weaken:
+Theorem store_preserve_all_weaken[local]:
   store_preserve_all xs ys ⇒ store_preserve base xs ys
 Proof
   gvs [store_preserve_all_def, store_preserve_def, store_lookup_def]
 QED
 
-Triviality state_rel_restore_caller:
+Theorem state_rel_restore_caller[local]:
   state_rel m l s (t: 'ffi cml_state) env ∧
   state_rel m l s' (t': 'ffi cml_state) env' ∧
   store_preserve_all t.refs t'.refs ⇒
@@ -870,13 +870,13 @@ Proof
   \\ last_x_assum $ irule_at Any \\ gvs []
 QED
 
-Triviality gen_arg_names_len[simp]:
+Theorem gen_arg_names_len[local,simp]:
   LENGTH (gen_arg_names xs) = LENGTH xs
 Proof
   gvs [gen_arg_names_def]
 QED
 
-Triviality env_rel_nsLookup:
+Theorem env_rel_nsLookup[local]:
   env_rel env_dfy env_cml ∧
   get_member name env_dfy.prog = SOME member ⇒
   is_fresh_member member ∧ no_shadow_method member ∧
@@ -887,13 +887,13 @@ Proof
   rpt strip_tac \\ gvs [env_rel_def] \\ res_tac
 QED
 
-Triviality map_from_exp_empty[simp]:
+Theorem map_from_exp_empty[local,simp]:
   map_from_exp [] = INR []
 Proof
   gvs [from_exp_def]
 QED
 
-Triviality cml_apps_apps:
+Theorem cml_apps_apps[local]:
   ∀xs id. xs ≠ [] ⇒ cml_apps id xs = Apps id xs
 Proof
   Cases_on ‘xs’ \\ gvs [cml_apps_def]
@@ -904,7 +904,7 @@ Definition member_get_ins_def[simp]:
   member_get_ins (Function _ ins _ _ _ _ _) = ins
 End
 
-Triviality map_from_exp_len:
+Theorem map_from_exp_len[local]:
   ∀es cml_es. map_from_exp es = INR cml_es ⇒ LENGTH cml_es = LENGTH es
 Proof
   Induct_on ‘es’ \\ rpt strip_tac
@@ -912,7 +912,7 @@ Proof
 QED
 
 (* TODO Move to evaluateProps *)
-Triviality evaluate_exps_length:
+Theorem evaluate_exps_length[local]:
   ∀s env es s' vs.
     evaluate_exps s env es = (s', Rval vs) ⇒ LENGTH vs = LENGTH es
 Proof
@@ -925,14 +925,14 @@ Definition enumerate_from_def:
   enumerate_from offset ns = MAPi (λi n. (n, offset + i)) ns
 End
 
-Triviality enumerate_from_cons:
+Theorem enumerate_from_cons[local]:
   enumerate_from offset (n::ns) =
   (n, offset)::(enumerate_from (offset + 1) ns)
 Proof
   gvs [enumerate_from_def] \\ irule MAPi_CONG \\ gvs [ADD1]
 QED
 
-Triviality enumerate_from_append:
+Theorem enumerate_from_append[local]:
   ∀offset xs ys.
     enumerate_from offset (xs ++ ys) =
     (enumerate_from offset xs) ++ (enumerate_from (offset + LENGTH xs) ys)
@@ -955,14 +955,14 @@ Definition mk_locals_map_def:
     FEMPTY |++ (enumerate_from offset ns)
 End
 
-Triviality mk_locals_map_append:
+Theorem mk_locals_map_append[local]:
   mk_locals_map (xs ++ ys) offset =
   (mk_locals_map xs offset) |++ (enumerate_from (offset + LENGTH xs) ys)
 Proof
   gvs [mk_locals_map_def] \\ gvs [enumerate_from_append, FUPDATE_LIST_APPEND]
 QED
 
-Triviality inj_mk_locals_map:
+Theorem inj_mk_locals_map[local]:
   INJ
     (λn. mk_locals_map ns offset ' n) (FDOM (mk_locals_map ns offset)) 𝕌(:num)
 Proof
@@ -974,7 +974,7 @@ Proof
   \\ gvs [MEM_EL, enumerate_from_def]
 QED
 
-Triviality FST_enumerate_from[simp]:
+Theorem FST_enumerate_from[local,simp]:
   ∀offset. MAP FST (enumerate_from offset vars) = vars
 Proof
   Induct_on ‘vars’
@@ -982,13 +982,13 @@ Proof
   \\ gvs [enumerate_from_cons]
 QED
 
-Triviality lambda_SUC[simp]:
+Theorem lambda_SUC[local,simp]:
   (λi n. (n, i + x)) ∘ SUC = (λi n. (n, i + (x + 1)))
 Proof
   gvs [FUN_EQ_THM]
 QED
 
-Triviality ALOOKUP_enumerate_from:
+Theorem ALOOKUP_enumerate_from[local]:
   ∀i vars offset.
     i < LENGTH vars ∧ ALL_DISTINCT vars⇒
     ALOOKUP (enumerate_from offset vars) (EL i vars) = SOME (i + offset)
@@ -1003,7 +1003,7 @@ Proof
   \\ gvs [EL_MEM]
 QED
 
-Triviality FRANGE_mk_locals_map:
+Theorem FRANGE_mk_locals_map[local]:
   ∀vars offset.
     i ∈ FRANGE (mk_locals_map vars offset) ∧ ALL_DISTINCT vars ⇒
     offset ≤ i ∧ i < LENGTH vars + offset
@@ -1020,7 +1020,7 @@ Proof
 QED
 
 (* TODO Is this useful to be in namespaceTheory? *)
-Triviality nsappend_alist_to_ns_nsbind:
+Theorem nsappend_alist_to_ns_nsbind[local]:
   LENGTH vs = LENGTH ns ⇒
   nsAppend (alist_to_ns (ZIP (ns, vs))) (nsBind n v env) =
   nsAppend (alist_to_ns (ZIP (SNOC n ns, SNOC v vs))) env
@@ -1032,7 +1032,7 @@ Proof
   \\ simp []
 QED
 
-Triviality nsappend_alist_to_ns_reverse_cons:
+Theorem nsappend_alist_to_ns_reverse_cons[local]:
   nsAppend (alist_to_ns (REVERSE xs ++ [(n,v)])) env_v =
   nsAppend (alist_to_ns (REVERSE xs)) (nsBind n v env_v)
 Proof
@@ -1040,7 +1040,7 @@ Proof
   \\ gvs [alist_to_ns_def, nsAppend_def, nsBind_def]
 QED
 
-Triviality add_refs_to_env_cons:
+Theorem add_refs_to_env_cons[local]:
   add_refs_to_env env_v (n::ns) offset =
   (add_refs_to_env (nsBind n (Loc T offset) env_v) ns (offset + 1))
 Proof
@@ -1048,7 +1048,7 @@ Proof
        nsappend_alist_to_ns_reverse_cons]
 QED
 
-Triviality evaluate_set_up_in_refs:
+Theorem evaluate_set_up_in_refs[local]:
   ∀params vs s env body.
     LIST_REL (λn v. nsLookup env.v (Short n) = SOME v) params vs ∧
     ALL_DISTINCT params ⇒
@@ -1079,7 +1079,7 @@ Proof
   \\ simp [] \\ pop_assum kall_tac
 QED
 
-Triviality not_mem_nslookup_nsappend_alist:
+Theorem not_mem_nslookup_nsappend_alist[local]:
   ¬MEM x (MAP FST ys) ⇒
   nsLookup (nsAppend (alist_to_ns ys) ns) (Short x) = nsLookup ns (Short x)
 Proof
@@ -1091,13 +1091,13 @@ Proof
   \\ simp [nsLookup_alist_to_ns_none, ALOOKUP_NONE, id_to_mods_def]
 QED
 
-Triviality FST_o_n_Loc[simp]:
+Theorem FST_o_n_Loc[local,simp]:
   FST ∘ (λ(n,i). (n, Loc T i)) = FST
 Proof
   gvs [FUN_EQ_THM] \\ Cases \\ gvs []
 QED
 
-Triviality not_mem_nslookup_add_refs_to_env:
+Theorem not_mem_nslookup_add_refs_to_env[local]:
   ¬MEM x ns ⇒
   nsLookup (add_refs_to_env env_v ns offset) (Short x) =
   nsLookup env_v (Short x)
@@ -1108,13 +1108,13 @@ Proof
   \\ simp [MAP_REVERSE, MAP_MAP_o]
 QED
 
-Triviality store_lookup_append:
+Theorem store_lookup_append[local]:
   store_lookup l st = SOME v ⇒ store_lookup l (st ++ st') = SOME v
 Proof
   rpt strip_tac \\ gvs [store_lookup_def, rich_listTheory.EL_APPEND1]
 QED
 
-Triviality array_rel_append:
+Theorem array_rel_append[local]:
   array_rel m s_heap t_heap ⇒
   array_rel m s_heap (t_heap ++ xs)
 Proof
@@ -1128,7 +1128,7 @@ Proof
   \\ gvs []
 QED
 
-Triviality read_local_reverse_eq:
+Theorem read_local_reverse_eq[local]:
   ALL_DISTINCT (MAP FST l) ⇒ read_local (REVERSE l) var = read_local l var
 Proof
   rpt strip_tac
@@ -1137,7 +1137,7 @@ Proof
   \\ gvs [read_local_def]
 QED
 
-Triviality ALOOKUP_ZIP_SOME_EL:
+Theorem ALOOKUP_ZIP_SOME_EL[local]:
   ∀(ns: mlstring list) (vs: value list) var val.
     ALOOKUP (ZIP (ns, MAP SOME vs)) var = SOME (SOME val) ∧
     ALL_DISTINCT ns ∧ LENGTH vs = LENGTH ns ⇒
@@ -1149,7 +1149,7 @@ Proof
   \\ gvs [EL_ZIP, find_index_ALL_DISTINCT_EL_eq, EL_MAP, MAP_ZIP]
 QED
 
-Triviality nsLookup_add_refs_to_env:
+Theorem nsLookup_add_refs_to_env[local]:
   ALL_DISTINCT ns ∧
   i < LENGTH ns ⇒
   nsLookup
@@ -1169,7 +1169,7 @@ Proof
   \\ simp [ALOOKUP_enumerate_from]
 QED
 
-Triviality LIST_REL_store_lookup:
+Theorem LIST_REL_store_lookup[local]:
   LIST_REL (val_rel m) in_vs cml_vs ∧
   i < LENGTH cml_vs ⇒
   store_lookup (i + LENGTH s.refs) (s.refs ++ MAP Refv cml_vs) =
@@ -1181,7 +1181,7 @@ Proof
   \\ fs [LIST_REL_EL_EQN]
 QED
 
-Triviality ALOOKUP_ZIP_MAP_SOME_SOME:
+Theorem ALOOKUP_ZIP_MAP_SOME_SOME[local]:
   ALOOKUP (ZIP (ns, MAP SOME vs)) var = SOME ov ∧
   LENGTH ns = LENGTH vs ⇒
   ∃v. ov = SOME v
@@ -1191,7 +1191,7 @@ Proof
   \\ gvs [MEM_ZIP, EL_MAP]
 QED
 
-Triviality FLOOKUP_mk_locals_map:
+Theorem FLOOKUP_mk_locals_map[local]:
   i < LENGTH ns ∧ ALL_DISTINCT ns ⇒
   FLOOKUP (mk_locals_map ns offset) (EL i ns) = SOME (i + offset)
 Proof
@@ -1202,7 +1202,7 @@ Proof
 QED
 
 (* TODO Is this a good way to write this?/Upstream to HOL *)
-Triviality SNOC_HD_REVERSE_TL:
+Theorem SNOC_HD_REVERSE_TL[local]:
   xs ≠ [] ⇒ SNOC (HD xs) (REVERSE (TL xs)) = REVERSE xs
 Proof
   rpt strip_tac
@@ -1210,7 +1210,7 @@ Proof
   \\ asm_rewrite_tac [GSYM (cj 2 REVERSE_SNOC_DEF)]
 QED
 
-Triviality INJ_FLOOKUP_IMP:
+Theorem INJ_FLOOKUP_IMP[local]:
   INJ (λx: num. m ' x) (FDOM m) 𝕌(:num) ∧
   FLOOKUP m x = SOME v ∧ FLOOKUP m y = SOME w ⇒
   (v = w ⇔ x = y)
@@ -1218,7 +1218,7 @@ Proof
   simp [INJ_DEF, FLOOKUP_DEF] \\ metis_tac []
 QED
 
-Triviality state_rel_array_loc_INJ:
+Theorem state_rel_array_loc_INJ[local]:
   state_rel m l s (t: 'ffi cml_state) env_cml ⇒
   INJ (λx. m ' x) (FDOM m) 𝕌(:num)
 Proof
@@ -1226,7 +1226,7 @@ Proof
 QED
 
 (* TODO Upstream? *)
-Triviality LIST_REL_nsLookup_nsAppend:
+Theorem LIST_REL_nsLookup_nsAppend[local]:
   ∀names vals (ns: (string, string, v) namespace).
     ALL_DISTINCT names ∧
     LENGTH names = LENGTH vals ⇒
@@ -1246,7 +1246,7 @@ Proof
 QED
 
 (* TODO better way to write this? *)
-Triviality LIST_REL_nsLookup_nsAppend_REVERSE:
+Theorem LIST_REL_nsLookup_nsAppend_REVERSE[local]:
   ∀names vals (ns: (string, string, v) namespace).
     ALL_DISTINCT names ∧
     LENGTH names = LENGTH vals ⇒
@@ -1266,7 +1266,7 @@ Proof
 QED
 
 (* TODO better way to write this? *)
-Triviality LIST_REL_nsLookup_nsAppend_REVERSE1:
+Theorem LIST_REL_nsLookup_nsAppend_REVERSE1[local]:
   ∀names vals (ns: (string, string, v) namespace).
     ALL_DISTINCT names ∧
     LENGTH names = LENGTH vals ⇒
@@ -1283,7 +1283,7 @@ Proof
   \\ drule_all EVERY2_REVERSE
 QED
 
-Triviality alookup_nslookup_store_lookup:
+Theorem alookup_nslookup_store_lookup[local]:
   ∀(s: 'ffi cml_state) env ins in_vs var dfy_v m cml_vs.
     ALOOKUP (ZIP (MAP FST ins, MAP SOME in_vs)) var = SOME (SOME dfy_v) ∧
     LIST_REL (val_rel m) in_vs cml_vs ∧
@@ -1308,20 +1308,20 @@ Proof
   \\ imp_res_tac LIST_REL_LENGTH \\ simp []
 QED
 
-Triviality NOT_MEM_TL:
+Theorem NOT_MEM_TL[local]:
   ¬MEM x xs ⇒ ¬MEM x (TL xs)
 Proof
   rpt strip_tac \\ drule MEM_TL \\ simp []
 QED
 
-Triviality cml_fun_MEM_var:
+Theorem cml_fun_MEM_var[local]:
   cml_fun params body = (param, cml_body) ∧ params ≠ [] ⇒
   MEM param params
 Proof
   Cases_on ‘params’ \\ simp [cml_fun_def]
 QED
 
-Triviality nslookup_build_rec_env_int_to_string_aux:
+Theorem nslookup_build_rec_env_int_to_string_aux[local]:
   ∀members cml_funs' cml_funs (env_v: cml_ns) clos_env.
     result_mmap from_member_decl members = INR cml_funs ∧
     nsLookup env_v (Short "int_to_string") =
@@ -1343,7 +1343,7 @@ Proof
   \\ rpt (pairarg_tac \\ gvs [])
 QED
 
-Triviality nslookup_build_rec_env_int_to_string:
+Theorem nslookup_build_rec_env_int_to_string[local]:
   result_mmap from_member_decl (dest_program prog) = INR cml_funs ∧
   nsLookup env.v (Short "int_to_string") =
     SOME (cml_int_to_string_clos clos_env) ∧
@@ -1902,7 +1902,7 @@ Proof
   \\ gvs [from_exp_def]  (* These expression do not get compiled *)
 QED
 
-Triviality array_rel_submap:
+Theorem array_rel_submap[local]:
   array_rel m s.heap t.refs ⇒ m ⊑ m |+ (LENGTH s.heap, LENGTH t.refs)
 Proof
   gvs [array_rel_def]
@@ -1913,14 +1913,14 @@ Proof
   \\ rpt strip_tac \\ gvs []
 QED
 
-Triviality submap_val_rel:
+Theorem submap_val_rel[local]:
   val_rel m dfy_v cml_v ∧ m ⊑ m' ⇒ val_rel m' dfy_v cml_v
 Proof
   rpt strip_tac \\ gvs [val_rel_cases, SUBMAP_FLOOKUP_EQN]
 QED
 
 (* TODO Upstream? *)
-Triviality IMP_LIST_REL_REPLICATE:
+Theorem IMP_LIST_REL_REPLICATE[local]:
   P x y ⇒ LIST_REL P (REPLICATE n x) (REPLICATE n y)
 Proof
   Cases_on ‘n’ >- simp []
@@ -1930,7 +1930,7 @@ Proof
   \\ fs []
 QED
 
-Triviality array_rel_add:
+Theorem array_rel_add[local]:
   array_rel m s.heap (t: 'ffi cml_state).refs ∧
   val_rel m init_v init_cml_v ⇒
   array_rel
@@ -1993,7 +1993,7 @@ Proof
   \\ simp []
 QED
 
-Triviality locals_rel_add_array:
+Theorem locals_rel_add_array[local]:
   locals_rel m l s.locals t.refs env_cml ∧ m ⊑ m' ⇒
   locals_rel m' l s.locals (t.refs ++ xs) env_cml
 Proof
@@ -2140,20 +2140,20 @@ Definition base_at_most_def:
     (base ≤ LENGTH t_refs ∧ ∀i. i ∈ FRANGE l ⇒ base ≤ i)
 End
 
-Triviality base_at_most_lupdate[simp]:
+Theorem base_at_most_lupdate[local,simp]:
   base_at_most base (LUPDATE store_v loc xs) l = base_at_most base xs l
 Proof
   gvs [base_at_most_def]
 QED
 
-Triviality store_preserve_base_at_most:
+Theorem store_preserve_base_at_most[local]:
   store_preserve base t.refs t'.refs ∧ base_at_most base t.refs l ⇒
   base_at_most base t'.refs l
 Proof
   gvs [base_at_most_def, store_preserve_def]
 QED
 
-Triviality locals_above_extend:
+Theorem locals_above_extend[local]:
   base_at_most base t_refs l ⇒
   base_at_most base (t_refs ++ xs) (l |+ (n, LENGTH t_refs))
 Proof
@@ -2163,7 +2163,7 @@ Proof
 QED
 
 (* TODO Upstream? *)
-Triviality pmatch_list_MAP_Pvar:
+Theorem pmatch_list_MAP_Pvar[local]:
   ∀xs vs env refs acc.
     LENGTH xs = LENGTH vs ⇒
     pmatch_list env refs (MAP Pvar xs) vs acc =
@@ -2176,7 +2176,7 @@ Proof
   \\ gvs []
 QED
 
-Triviality store_preserve_lupdate_local:
+Theorem store_preserve_lupdate_local[local]:
   FLOOKUP l var = SOME loc ∧
   base_at_most base t.refs l ∧
   store_preserve base (LUPDATE store_v loc t.refs) t'.refs ⇒
@@ -2195,7 +2195,7 @@ Proof
   \\ decide_tac
 QED
 
-Triviality store_preserve_lupdate_array:
+Theorem store_preserve_lupdate_array[local]:
   store_lookup loc t.refs = SOME (Varray varr) ∧
   store_preserve base (LUPDATE store_v loc t.refs) t'.refs ⇒
   store_preserve base t.refs t'.refs
@@ -2207,7 +2207,7 @@ Proof
   \\ Cases_on ‘i = loc’ \\ gvs []
 QED
 
-Triviality update_array_some_eqs:
+Theorem update_array_some_eqs[local]:
   update_array s (ArrV len loc ty) (IntV idx) val = SOME s' ⇒
   s'.clock = s.clock ∧ s'.locals = s.locals ∧
   LENGTH s'.heap = LENGTH s.heap ∧
@@ -2217,7 +2217,7 @@ Proof
 QED
 
 (* TODO Rename? *)
-Triviality update_array_some_llookup:
+Theorem update_array_some_llookup[local]:
   update_array s arr_v idx_v rhs_v = SOME s' ⇒
   ∃len loc ty idx arr ty'.
     arr_v = ArrV len loc ty ∧ idx_v = IntV idx ∧ 0 ≤ idx ∧
@@ -2232,7 +2232,7 @@ Proof
   \\ intLib.COOPER_TAC
 QED
 
-Triviality update_array_state_rel:
+Theorem update_array_state_rel[local]:
   update_array s (ArrV arr_len loc ty) (IntV idx) v = SOME s' ∧
   FLOOKUP m loc = SOME loc_cml ∧
   store_lookup loc_cml t.refs = SOME (Varray varr) ∧
@@ -2266,7 +2266,7 @@ Proof
   \\ IF_CASES_TAC \\ gvs [INJ_DEF, FLOOKUP_DEF]
 QED
 
-Triviality update_local_aux_some:
+Theorem update_local_aux_some[local]:
   ∀s_locals var val new_locals.
     update_local_aux s_locals var val = SOME new_locals ⇒
     ALOOKUP new_locals var = SOME (SOME val) ∧
@@ -2283,7 +2283,7 @@ Proof
   \\ last_x_assum drule \\ rpt strip_tac \\ gvs []
 QED
 
-Triviality lookup_locals_some:
+Theorem lookup_locals_some[local]:
   state_rel m l s t env_cml ∧
   ALOOKUP s.locals var = SOME ov ∧ is_fresh var ⇒
   ∃loc cml_v.
@@ -2297,14 +2297,14 @@ Proof
   \\ rpt strip_tac \\ gvs []
 QED
 
-Triviality update_local_some_eqs:
+Theorem update_local_some_eqs[local]:
   update_local s var val = SOME s' ⇒
   s'.clock = s.clock ∧ s'.heap = s.heap
 Proof
   rpt strip_tac \\ gvs [update_local_def, CaseEq "option"]
 QED
 
-Triviality update_local_some_alookup:
+Theorem update_local_some_alookup[local]:
   update_local s var val = SOME s' ⇒
   ALOOKUP s'.locals var = SOME (SOME val) ∧
   (∃ov. ALOOKUP s.locals var = SOME ov) ∧
@@ -2315,7 +2315,7 @@ Proof
   \\ gvs [update_local_def, CaseEq "option"]
 QED
 
-Triviality update_local_state_rel:
+Theorem update_local_state_rel[local]:
   update_local s var new_v_dfy = SOME s' ∧
   is_fresh var ∧
   state_rel m l s t env_cml ∧
@@ -2348,7 +2348,7 @@ Proof
   \\ gvs [store_lookup_def, EL_LUPDATE]
 QED
 
-Triviality evaluate_assign_values:
+Theorem evaluate_assign_values[local]:
   ∀s env_dfy lhss rhs_vs s' r_dfy names asss_cml cml_vs m l (t: 'ffi cml_state)
      env_cml base.
     assign_values s env_dfy lhss rhs_vs = (s', r_dfy) ∧
@@ -2505,7 +2505,7 @@ Proof
 QED
 
 (* TODO Why does this work *)
-Triviality cml_tup_vname_neq_arr:
+Theorem cml_tup_vname_neq_arr[local]:
   cml_tup_vname n ≠ " arr"
 Proof
   simp [cml_tup_vname_def]
@@ -2514,13 +2514,13 @@ Proof
   \\ strip_tac \\ fs []
 QED
 
-Triviality all_distinct_genlist_cml_tup_vname:
+Theorem all_distinct_genlist_cml_tup_vname[local]:
   ALL_DISTINCT (GENLIST (λn. cml_tup_vname n) len)
 Proof
   simp [ALL_DISTINCT_GENLIST, cml_tup_vname_def, num_to_str_11]
 QED
 
-Triviality ALL_DISTINCT_pats_bindings:
+Theorem ALL_DISTINCT_pats_bindings[local]:
   ∀xs ys.
     ALL_DISTINCT (xs ++ ys) ⇒
     ALL_DISTINCT (pats_bindings (MAP Pvar xs) ys)
@@ -2529,7 +2529,7 @@ Proof
   \\ rpt strip_tac \\ gvs [ALL_DISTINCT_APPEND]
 QED
 
-Triviality state_rel_pop_env_while:
+Theorem state_rel_pop_env_while[local]:
   state_rel m l s t
     (env with v := nsBind "" v₀ (nsBind (loop_name lvl) v₁ env.v)) ⇒
   state_rel m l s t env
@@ -2547,7 +2547,7 @@ QED
 
 (* TODO Similar to _some_fun_name: Is there a better way than writing them
    separately? *)
-Triviality get_member_some_met_name:
+Theorem get_member_some_met_name[local]:
   get_member n p = SOME (Method n' ins reqs ens rds decrs outs mods body) ⇒
   n' = n
 Proof
@@ -2558,7 +2558,7 @@ Proof
   \\ Cases_on ‘mem_n = n’ \\ gvs []
 QED
 
-Triviality evaluate_cml_new_refs:
+Theorem evaluate_cml_new_refs[local]:
   ∀s env ns e.
     evaluate s env [cml_new_refs ns e] =
     evaluate
@@ -2574,7 +2574,7 @@ Proof
 QED
 
 (* TODO Upstream? *)
-Triviality NOT_MEM_FLOOKUP_UPDATE_LIST:
+Theorem NOT_MEM_FLOOKUP_UPDATE_LIST[local]:
   ¬MEM x (MAP FST l) ⇒ FLOOKUP (m |++ l) x = FLOOKUP m x
 Proof
   rpt strip_tac
@@ -2583,13 +2583,13 @@ Proof
   \\ gvs [ALOOKUP_NONE, MAP_REVERSE]
 QED
 
-Triviality MEM_explode_MAP[simp]:
+Theorem MEM_explode_MAP[local,simp]:
   ∀xs x. MEM (explode x) (MAP explode xs) ⇔ MEM x xs
 Proof
   Induct \\ simp []
 QED
 
-Triviality locals_rel_decl_uninit_vars:
+Theorem locals_rel_decl_uninit_vars[local]:
   locals_rel m l s_locals t_refs env_v ∧
   ALL_DISTINCT vars ∧
   (∀v. MEM v vars ⇒ ¬MEM v (MAP FST s_locals)) ⇒
@@ -2656,7 +2656,7 @@ Proof
           nsLookup_add_refs_to_env]
 QED
 
-Triviality locals_rel_decl_uninit_var:
+Theorem locals_rel_decl_uninit_var[local]:
   locals_rel m l s.locals t.refs env_v ∧
   ¬MEM n (MAP FST s.locals) ⇒
   locals_rel m (l |+ (n,LENGTH t.refs)) ((n,NONE)::s.locals)
@@ -2671,7 +2671,7 @@ Proof
   \\ pure_rewrite_tac [ONE, REPLICATE] \\ gvs []
 QED
 
-Triviality locals_rel_mk_locals_map_outs:
+Theorem locals_rel_mk_locals_map_outs[local]:
   ALL_DISTINCT (MAP FST outs) ⇒
   locals_rel m (mk_locals_map (MAP FST outs) (LENGTH t_refs))
     (REVERSE (ZIP (MAP FST outs, REPLICATE (LENGTH outs) NONE)))
@@ -2685,7 +2685,7 @@ Proof
   \\ gvs [MAP_MAP_o]
 QED
 
-Triviality locals_rel_mk_locals_map_ins:
+Theorem locals_rel_mk_locals_map_ins[local]:
   ALL_DISTINCT (MAP FST ins) ∧
   LIST_REL (val_rel m) in_vs in_vs_cml ∧
   LENGTH in_vs = LENGTH ins ⇒
@@ -2718,7 +2718,7 @@ Proof
   \\ gvs [LIST_REL_EL_EQN]
 QED
 
-Triviality locals_mk_locals_map_ins_outs:
+Theorem locals_mk_locals_map_ins_outs[local]:
   ALL_DISTINCT (MAP FST ins ++ MAP FST outs) ∧
   LIST_REL (val_rel m) in_vs cml_vs ∧
   LENGTH in_vs = LENGTH ins ⇒
@@ -2749,7 +2749,7 @@ Proof
   \\ impl_tac >- metis_tac [] \\ gvs []
 QED
 
-Triviality locals_rel_submap:
+Theorem locals_rel_submap[local]:
   locals_rel m l s.locals t.refs env_cml ∧ m ⊑ m' ⇒
   locals_rel m' l s.locals t.refs env_cml
 Proof
@@ -2763,7 +2763,7 @@ Proof
   \\ gvs []
 QED
 
-Triviality evaluate_cml_read_var:
+Theorem evaluate_cml_read_var[local]:
   read_local s.locals var = SOME val ∧
   state_rel m l s (t: 'ffi cml_state) env ∧
   is_fresh var ⇒
@@ -2777,7 +2777,7 @@ Proof
   \\ gvs [evaluate_def, cml_read_var_def, do_app_def]
 QED
 
-Triviality evaluate_map_cml_read_var:
+Theorem evaluate_map_cml_read_var[local]:
   ∀s vars vals m l t env.
     OPT_MMAP (read_local s.locals) vars = SOME vals ∧
     state_rel m l s (t: 'ffi cml_state) env ∧
@@ -2794,7 +2794,7 @@ Proof
 QED
 
 (* TODO Merge with state_rel_restore_caller *)
-Triviality state_rel_restore_caller1:
+Theorem state_rel_restore_caller1[local]:
   state_rel m l s (t: 'ffi cml_state) env ∧
   state_rel m' l' s' (t': 'ffi cml_state) env' ∧
   store_preserve_all t.refs t'.refs ∧
@@ -2809,7 +2809,7 @@ Proof
   \\ first_assum $ irule_at (Pos hd) \\ gvs []
 QED
 
-Triviality OPT_MMAP_SOME_LENGTH:
+Theorem OPT_MMAP_SOME_LENGTH[local]:
   ∀f xs ys. OPT_MMAP f xs = SOME ys ⇒ LENGTH ys = LENGTH xs
 Proof
   Induct_on ‘xs’ \\ gvs []
@@ -2817,20 +2817,20 @@ Proof
   \\ last_assum drule \\ gvs []
 QED
 
-Triviality GENLIST_lambda_MAP:
+Theorem GENLIST_lambda_MAP[local]:
   GENLIST (λx. f (g x)) len = MAP f (GENLIST (λx. g x) len)
 Proof
   gvs [MAP_GENLIST, o_DEF]
 QED
 
-Triviality GENLIST_MAP_Pvar:
+Theorem GENLIST_MAP_Pvar[local]:
   GENLIST (λn. Pvar (cml_tup_vname n)) len =
   MAP Pvar (GENLIST (λn. cml_tup_vname n) len)
 Proof
   gvs [GENLIST_lambda_MAP]
 QED
 
-Triviality evaluate_map_var_short:
+Theorem evaluate_map_var_short[local]:
   ∀env vars vals t.
     LIST_REL (λn v. nsLookup env.v (Short n) = SOME v) vars vals ⇒
     evaluate (t: 'ffi cml_state) env (MAP (Var ∘ Short) vars) = (t, Rval vals)
@@ -2842,7 +2842,7 @@ Proof
   \\ gvs [evaluate_def]
 QED
 
-Triviality MEM_explode_implode:
+Theorem MEM_explode_implode[local]:
   ∀xs x. MEM (implode x) xs ⇔ MEM x (MAP explode xs)
 Proof
   Induct \\ gvs []
@@ -2852,7 +2852,7 @@ Proof
   \\ simp []
 QED
 
-Triviality evaluate_Apps_with_clock:
+Theorem evaluate_Apps_with_clock[local]:
   ∀xs (st:'ffi cml_state) env s1 s2 vs ck.
     evaluate st env xs = (s1,Rval vs) ∧
     LENGTH xs = SUC (LENGTH ns) ∧
@@ -2872,7 +2872,7 @@ Proof
   \\ drule_all evaluate_Apps \\ gvs []
 QED
 
-Triviality nsappend_alist_to_ns_concat:
+Theorem nsappend_alist_to_ns_concat[local]:
   ∀xs ys ns.
     nsAppend (alist_to_ns (xs ++ ys)) ns =
     nsAppend (alist_to_ns xs) (nsAppend (alist_to_ns ys) ns)
@@ -2880,52 +2880,52 @@ Proof
   gvs []
 QED
 
-Triviality is_fresh_cml_tup_vname_neq:
+Theorem is_fresh_cml_tup_vname_neq[local]:
   is_fresh n ⇒ explode n ≠ cml_tup_vname i
 Proof
   rpt strip_tac \\ gvs [is_fresh_def, isprefix_thm, cml_tup_vname_def]
 QED
 
-Triviality dfy_pfx_cml_tup_vname_neq:
+Theorem dfy_pfx_cml_tup_vname_neq[local]:
   "dfy_" ≼ n ⇒ n ≠ cml_tup_vname i
 Proof
   rpt strip_tac \\ gvs [cml_tup_vname_def]
 QED
 
-Triviality is_fresh_neq_cml_tup_vname:
+Theorem is_fresh_neq_cml_tup_vname[local]:
   is_fresh n ⇒ explode n ≠ cml_tup_vname i
 Proof
   Cases_on ‘explode n’
   \\ simp [cml_tup_vname_def, is_fresh_def, isprefix_thm]
 QED
 
-Triviality is_fresh_not_mem_genlist:
+Theorem is_fresh_not_mem_genlist[local]:
   ∀n. is_fresh n ⇒ ¬MEM (explode n) (GENLIST (λn. cml_tup_vname n) len)
 Proof
   rpt strip_tac
   \\ gvs [MEM_GENLIST, cml_tup_vname_def, is_fresh_def, isprefix_thm]
 QED
 
-Triviality dfy_pfx_not_mem_genlist:
+Theorem dfy_pfx_not_mem_genlist[local]:
   ∀n. "dfy_" ≼ n ⇒ ¬MEM n (GENLIST (λn. cml_tup_vname n) len)
 Proof
   rpt strip_tac
   \\ gvs [MEM_GENLIST, cml_tup_vname_def, is_fresh_def, isprefix_thm]
 QED
 
-Triviality int_to_string_not_mem_genlist:
+Theorem int_to_string_not_mem_genlist[local]:
   ∀len. ¬MEM cml_int_to_string_name (GENLIST (λn. cml_tup_vname n) len)
 Proof
   gvs [MEM_GENLIST, cml_tup_vname_def]
 QED
 
-Triviality MEM_LAST:
+Theorem MEM_LAST[local]:
   xs ≠ [] ⇒ MEM (LAST xs) xs
 Proof
   Induct_on ‘xs’ using SNOC_INDUCT \\ gvs []
 QED
 
-Triviality store_preserve_append:
+Theorem store_preserve_append[local]:
   store_preserve base xs ys ⇒
   store_preserve base xs (ys ++ zs)
 Proof
@@ -2934,7 +2934,7 @@ Proof
   \\ irule store_lookup_append \\ simp []
 QED
 
-Triviality state_rel_refs_append:
+Theorem state_rel_refs_append[local]:
   state_rel m l s t env ⇒
   state_rel m l s (t with refs := t.refs ++ xs) env
 Proof
@@ -2959,7 +2959,7 @@ Proof
   \\ irule store_lookup_append \\ simp []
 QED
 
-Triviality is_fresh_not_int_to_string:
+Theorem is_fresh_not_int_to_string[local]:
   is_fresh n ⇒ explode n ≠ cml_int_to_string_name
 Proof
   simp [is_fresh_def, isprefix_thm]
@@ -4144,7 +4144,7 @@ Proof
     \\ simp [MAP_ZIP, is_fresh_not_mem_genlist])
 QED
 
-Triviality from_member_decl_name:
+Theorem from_member_decl_name[local]:
   from_member_decl member = INR cml_f ⇒
   (λ(x,y,z). x) $ cml_f = "dfy_" ++ explode (member_name member)
 Proof
@@ -4154,7 +4154,7 @@ Proof
   \\ rpt (pairarg_tac \\ gvs [])
 QED
 
-Triviality map_from_member_decl_name:
+Theorem map_from_member_decl_name[local]:
   ∀members cml_fs.
     result_mmap from_member_decl members = INR cml_fs ⇒
     MAP (λ(x,y,z). x) cml_fs =
@@ -4165,13 +4165,13 @@ Proof
   \\ imp_res_tac from_member_decl_name \\ gvs []
 QED
 
-Triviality MEM_dfy_MAP:
+Theorem MEM_dfy_MAP[local]:
   ∀xs x. MEM ("dfy_" ++ x) (MAP (λx. "dfy_" ++ x) xs) = MEM x xs
 Proof
   Induct \\ gvs []
 QED
 
-Triviality ALL_DISTINCT_member_name:
+Theorem ALL_DISTINCT_member_name[local]:
   ∀members cml_fs.
     ALL_DISTINCT (MAP member_name members) ∧
     result_mmap from_member_decl members = INR cml_fs ⇒
@@ -4193,7 +4193,7 @@ QED
 (* Proving that a generated CakeML expression e satisfies
    every_exp (one_con_check env_c) e *)
 
-Triviality Apps_one_con_check:
+Theorem Apps_one_con_check[local]:
   ∀xs env_c f.
     every_exp (one_con_check env_c) f ∧
     EVERY (every_exp (one_con_check env_c)) xs ⇒
@@ -4202,7 +4202,7 @@ Proof
   Induct \\ gvs [Apps_def]
 QED
 
-Triviality Funs_one_con_check:
+Theorem Funs_one_con_check[local]:
   ∀xs env_c body.
     every_exp (one_con_check env_c) body ⇒
     every_exp (one_con_check env_c) (Funs xs body)
@@ -4210,7 +4210,7 @@ Proof
   Induct \\ gvs [Funs_def]
 QED
 
-Triviality from_exp_one_con_check:
+Theorem from_exp_one_con_check[local]:
   (∀body cml_body envc.
      from_exp body = INR cml_body ∧
      has_cons envc ⇒
@@ -4268,7 +4268,7 @@ Proof
   \\ simp [from_exp_def]
 QED
 
-Triviality cml_new_refs_one_con_check:
+Theorem cml_new_refs_one_con_check[local]:
   ∀names env_c body.
     every_exp (one_con_check env_c) body ⇒
     every_exp (one_con_check env_c) (cml_new_refs names body)
@@ -4276,7 +4276,7 @@ Proof
   Induct \\ gvs [cml_new_refs_def]
 QED
 
-Triviality from_rhs_exp_one_con_check:
+Theorem from_rhs_exp_one_con_check[local]:
   ∀rhs cml_rhs envc.
     from_rhs_exp rhs = INR cml_rhs ∧
     has_cons envc ⇒
@@ -4292,7 +4292,7 @@ Proof
     \\ gvs [cml_alloc_arr_def, do_con_check_def])
 QED
 
-Triviality map_from_rhs_exp_one_con_check:
+Theorem map_from_rhs_exp_one_con_check[local]:
   ∀rhss cml_rhss envc.
     result_mmap from_rhs_exp rhss = INR cml_rhss ∧
     has_cons envc ⇒
@@ -4303,7 +4303,7 @@ Proof
   \\ imp_res_tac from_rhs_exp_one_con_check \\ gvs []
 QED
 
-Triviality Seqs_one_con_check:
+Theorem Seqs_one_con_check[local]:
   ∀es env.
     EVERY (λe. every_exp (one_con_check envc) e) es ⇒
     every_exp (one_con_check envc) (Seqs es)
@@ -4311,7 +4311,7 @@ Proof
   Induct \\ gvs [Seqs_def, do_con_check_def]
 QED
 
-Triviality assign_single_one_con_check:
+Theorem assign_single_one_con_check[local]:
   assign_single lhs (Var (Short n)) = INR ass ∧
   has_cons envc ⇒
   every_exp (one_con_check envc) ass
@@ -4322,7 +4322,7 @@ Proof
   \\ gvs [cml_get_arr_data_def, cml_tup_select_def, cml_tup_case_def]
 QED
 
-Triviality map_assign_single_one_con_check:
+Theorem map_assign_single_one_con_check[local]:
   ∀lhss ns ass envc.
     result_mmap2 assign_single lhss (MAP (Var ∘ Short) ns) = INR ass ∧
     has_cons envc ⇒
@@ -4334,7 +4334,7 @@ Proof
   \\ res_tac \\ gvs []
 QED
 
-Triviality Stuple_one_con_check:
+Theorem Stuple_one_con_check[local]:
   EVERY (λe. every_exp (one_con_check env_c) e) es ⇒
   every_exp (one_con_check env_c) (Stuple es)
 Proof
@@ -4344,7 +4344,7 @@ Proof
   \\ simp [do_con_check_def]
 QED
 
-Triviality par_assign_one_con_check:
+Theorem par_assign_one_con_check[local]:
   par_assign lhss cml_rhss = INR cml_body ∧
   EVERY (λe. every_exp (one_con_check envc) e) cml_rhss ∧
   has_cons envc ⇒
@@ -4356,7 +4356,7 @@ Proof
   \\ imp_res_tac map_assign_single_one_con_check \\ gvs []
 QED
 
-Triviality to_string_one_con_check:
+Theorem to_string_one_con_check[local]:
   to_string cml_e t = INR cml_str ∧
   every_exp (one_con_check env_c) cml_e ⇒
   every_exp (one_con_check env_c) cml_str
@@ -4365,7 +4365,7 @@ Proof
   \\ gvs [cml_fapp_def, cml_apps_def, Apps_def]
 QED
 
-Triviality from_stmt_one_con_check:
+Theorem from_stmt_one_con_check[local]:
   ∀body lvl cml_body envc.
     from_stmt body lvl = INR cml_body ∧
     has_cons envc ⇒
@@ -4416,7 +4416,7 @@ Proof
     \\ imp_res_tac (cj 2 from_exp_one_con_check))
 QED
 
-Triviality set_up_in_refs_one_con_check:
+Theorem set_up_in_refs_one_con_check[local]:
   ∀names env_c body.
     every_exp (one_con_check env_c) body ⇒
     every_exp (one_con_check env_c) (set_up_in_refs names body)
@@ -4424,7 +4424,7 @@ Proof
   Induct \\ gvs [set_up_in_refs_def]
 QED
 
-Triviality set_up_cml_fun_one_con_check:
+Theorem set_up_cml_fun_one_con_check[local]:
   every_exp (one_con_check env_c) body ⇒
   (λ(f,n,e). every_exp (one_con_check env_c) e)
     (set_up_cml_fun n ins body)
@@ -4437,14 +4437,14 @@ Proof
   \\ DEP_REWRITE_TAC [Funs_one_con_check] \\ simp []
 QED
 
-Triviality MAP_cml_read_var_one_con_check:
+Theorem MAP_cml_read_var_one_con_check[local]:
   ∀ns env_c e.
     EVERY (λe. every_exp (one_con_check env_c) e) (MAP cml_read_var ns)
 Proof
   Induct \\ gvs [one_con_check_def, cml_read_var_def]
 QED
 
-Triviality from_member_decl_one_con_check:
+Theorem from_member_decl_one_con_check[local]:
   from_member_decl member = INR cml_f ∧
   has_cons envc ⇒
   (λ(f,n,e). every_exp (one_con_check envc) e) cml_f
@@ -4462,7 +4462,7 @@ Proof
   \\ last_assum $ irule_at (Pos hd) \\ simp []
 QED
 
-Triviality map_from_member_decl_one_con_check:
+Theorem map_from_member_decl_one_con_check[local]:
   ∀members cml_fs envc.
     result_mmap from_member_decl members = INR cml_fs ∧
     has_cons envc ⇒
@@ -4489,7 +4489,7 @@ Definition valid_prog_def:
     EVERY no_shadow_method members
 End
 
-Triviality find_recfun_main:
+Theorem find_recfun_main[local]:
   ∀members reqs ens rds decrs mod body cml_funs.
     get_member_aux «Main» members =
       SOME (Method «Main» [] reqs ens rds decrs [] mod body) ∧
@@ -4535,7 +4535,7 @@ Proof
   \\ rpt (pairarg_tac \\ gvs [])
 QED
 
-Triviality valid_main_nslookup:
+Theorem valid_main_nslookup[local]:
   get_member «Main» (Program members) =
     SOME (Method «Main» [] reqs ens rds decrs [] mod body) ∧
   result_mmap from_member_decl members = INR cml_funs ∧
@@ -4564,7 +4564,7 @@ Proof
   \\ drule_all nslookup_build_rec_env_reclos_aux \\ simp []
 QED
 
-Triviality get_member_MEM_aux:
+Theorem get_member_MEM_aux[local]:
   ∀members. get_member_aux name members = SOME member ⇒ MEM member members
 Proof
   Induct
@@ -4574,7 +4574,7 @@ Proof
   \\ IF_CASES_TAC \\ simp []
 QED
 
-Triviality get_member_MEM:
+Theorem get_member_MEM[local]:
   get_member name (Program members) = SOME member ⇒ MEM member members
 Proof
   simp [get_member_def] \\ disch_tac \\ imp_res_tac get_member_MEM_aux

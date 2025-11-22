@@ -24,7 +24,7 @@ val skths = [GSYM RIGHT_EXISTS_IMP_THM, SKOLEM_THM]
 val SKRULE = SRULE skths
 val SKTAC = gs skths
 
-Triviality option_case_eq:
+Theorem option_case_eq[local]:
   (option_CASE optv n sf = v) ⇔
      optv = NONE ∧ n = v ∨ ∃v0. optv = SOME v0 ∧ sf v0 = v
 Proof
@@ -183,7 +183,7 @@ Proof
   rename [‘hdi = (_,_)’] >> Cases_on ‘hdi’ >> simp[] >> metis_tac[]
 QED
 
-Triviality disjImpI:
+Theorem disjImpI[local]:
   ~p \/ q ⇔ p ⇒ q
 Proof
   DECIDE_TAC
@@ -313,7 +313,7 @@ Proof
   drule_all not_peg0_LENGTH_decreases >> simp[]
 QED
 
-Triviality list_case_lemma:
+Theorem list_case_lemma[local]:
   ([x] = case a of [] => [] | h::t => f h t) ⇔
     (a ≠ [] ∧ [x] = f (HD a) (TL a))
 Proof
@@ -679,7 +679,8 @@ Theorem elim_disjineq[local]:
    p \/ x ≠ y ⇔ (x = y ⇒ p)
 Proof DECIDE_TAC
 QED
-Triviality elim_det:
+
+Theorem elim_det[local]:
   (!x. P x ⇔ (x = y)) ==> P y
 Proof
   METIS_TAC[]
@@ -1127,7 +1128,7 @@ Proof
   first_x_assum irule >> metis_tac[]
 QED
 
-Triviality peg_eval_TyOp_LparT[simp]:
+Theorem peg_eval_TyOp_LparT[local,simp]:
   peg_eval cmlPEG ((LparT, loc)::i0, nt (mkNT nTyOp) I) (Success i r eo) ⇔ F
 Proof
   simp[] >> strip_tac >> dxrule peg_respects_firstSets' >> simp[]

@@ -114,7 +114,7 @@ Termination
   \\ simp []
 End
 
-Triviality findi_map_escape:
+Theorem findi_map_escape[local]:
   !P i s. P = IS_SOME o char_escape_seq ==>
   FLAT (MAP char_escaped (DROP i (explode s))) =
   case str_findi P i s of

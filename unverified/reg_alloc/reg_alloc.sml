@@ -234,7 +234,7 @@ structure reg_alloc = struct
       case  (lookup_1 v2 v3)
       of  NONE =>  (if  (is_phy_var v2)
       then  (v2 div 2)
-      else  v2)
+      else  0)
       |   SOME(v1) =>  v1);
   fun  extract_tag v2 =
     case  v2

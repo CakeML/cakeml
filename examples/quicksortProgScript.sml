@@ -15,7 +15,7 @@ val _ = translation_extends"basisProg";
 
 (* TODO: move *)
 
-Triviality list_rel_perm_help:
+Theorem list_rel_perm_help[local]:
   !l1 l2.
     PERM l1 l2
     ⇒
@@ -42,7 +42,7 @@ Proof
   rw [MAP_ZIP]
 QED
 
-Triviality split_list:
+Theorem split_list[local]:
   !l x. x < LENGTH l ⇒ ?l1 l2. x = LENGTH l1 ∧ l = l1++[EL x l]++l2
 Proof
   induct_on `l` >>
@@ -52,7 +52,7 @@ Proof
   metis_tac [APPEND, LENGTH]
 QED
 
-Triviality split_list2:
+Theorem split_list2[local]:
   !l1 l2 l3 l4.
     LENGTH l1 < LENGTH l3 ∧ l1++l2 = l3++l4
     ⇒
@@ -65,7 +65,7 @@ Proof
   metis_tac []
 QED
 
-Triviality perm_swap_help:
+Theorem perm_swap_help[local]:
   !l x y.
     x < LENGTH l ∧ y < LENGTH l ∧ y < x
     ⇒
@@ -120,7 +120,7 @@ Proof
   fs [LUPDATE_def]
 QED
 
-Triviality el_append_length1:
+Theorem el_append_length1[local]:
   !n l1 l2. EL (n + LENGTH l1) (l1 ++ l2) = EL n l2
 Proof
   Induct_on `l1` >>
@@ -245,7 +245,7 @@ Definition partition_pred_def:
       EVERY (\e. ¬cmp e pivot) elems2
 End
 
-Triviality perm_helper:
+Theorem perm_helper[local]:
   !a b c. PERM b c ∧ PERM a b ⇒ PERM a c
 Proof
   metis_tac [PERM_SYM, PERM_TRANS]

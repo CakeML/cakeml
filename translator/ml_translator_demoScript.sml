@@ -37,7 +37,7 @@ Theorem lookup_qsort =
 
 (* --- a more concrete example, not much use --- *)
 
-Triviality Eval_Var_lemma:
+Theorem Eval_Var_lemma[local]:
   (lookup_var name env = SOME x) /\ P x ==> Eval env (Var (Short name)) P
 Proof
   fs[Eval_Var]

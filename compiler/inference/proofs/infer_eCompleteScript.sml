@@ -3,7 +3,7 @@
 *)
 Theory infer_eComplete
 Ancestors
-  typeSystem ast semanticPrimitives infer unify infer_t astProps
+  typeSystem ast semanticPrimitives infer unify infer_t
   typeSysProps inferProps namespace namespaceProps envRel
 Libs
   preamble
@@ -81,7 +81,7 @@ Proof
 QED
 
 (*1 direction is sufficient to imply the other*)
-Triviality pure_add_constraints_swap_lemma:
+Theorem pure_add_constraints_swap_lemma[local]:
   t_wfs s ∧
   pure_add_constraints s (a++b) sx
   ⇒
@@ -138,7 +138,7 @@ Proof
   fs[FLOOKUP_DEF]
 QED
 
-Triviality not_t_oc:
+Theorem not_t_oc[local]:
   (!t s v lim. t_wfs s ∧ check_t lim {} t ⇒ ¬ t_oc s t v) ∧
   (!ts s t v lim. t_wfs s ∧ EVERY (check_t lim {}) ts ⇒ ~ EXISTS (\t. t_oc s t v) ts)
 Proof
@@ -153,7 +153,7 @@ Proof
   res_tac
 QED
 
-Triviality FDOM_extend:
+Theorem FDOM_extend[local]:
   FDOM s = count next_uvar ⇒
    FDOM (s |+ (next_uvar, n)) = count (SUC next_uvar)
 Proof
@@ -232,7 +232,7 @@ Proof
 QED
 
 (*Ignore increment on deBrujin vars*)
-Triviality t_walkstar_ignore_inc:
+Theorem t_walkstar_ignore_inc[local]:
   t_wfs s ⇒
 (!t.(!uv. uv ∈ FDOM s ⇒ check_t 0 {} (t_walkstar s (Infer_Tuvar uv)))
 ⇒
@@ -265,7 +265,7 @@ Proof
 QED
 
 (*Adding a list of keys that did not already exist is safe*)
-Triviality SUBMAP_FUPDATE_LIST_NON_EXIST:
+Theorem SUBMAP_FUPDATE_LIST_NON_EXIST[local]:
   set (MAP FST ls) ∩ (FDOM s) = {}
   ⇒
   s SUBMAP (s|++ls)
@@ -287,7 +287,7 @@ Proof
   metis_tac[SUBMAP_TRANS]
 QED
 
-Triviality t_vwalk_o_f_id:
+Theorem t_vwalk_o_f_id[local]:
   t_wfs s ⇒
   !t. t_vwalk (infer_deBruijn_inc 0 o_f s) t = t_vwalk s t
 Proof
@@ -303,7 +303,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality t_walkstar_o_f_id:
+Theorem t_walkstar_o_f_id[local]:
   t_wfs s ⇒
   !t. t_walkstar ((infer_deBruijn_inc 0) o_f s) t  = t_walkstar s t
 Proof
@@ -322,14 +322,14 @@ Proof
   fs[t_walkstar_eqn]
 QED
 
-Triviality deBruijn_subst_id:
+Theorem deBruijn_subst_id[local]:
   (!t. deBruijn_subst 0 [] t = t) ∧
   (!ts. MAP (deBruijn_subst 0 []) ts = ts)
 Proof
   Induct>>rw[]>>fs[deBruijn_subst_def,MAP_EQ_ID]
 QED
 
-Triviality tscheme_approx_weakening2:
+Theorem tscheme_approx_weakening2[local]:
   tscheme_approx tvs s t1 t2 ∧ t_compat s s' ∧ FDOM s ⊆ FDOM s' ⇒
   tscheme_approx tvs s' t1 t2
 Proof
@@ -344,7 +344,7 @@ Proof
   fs[t_compat_def]>>metis_tac[]
 QED
 
-Triviality env_rel_complete_t_compat:
+Theorem env_rel_complete_t_compat[local]:
   t_compat s s' ∧
   FDOM s ⊆ FDOM s' ∧
   t_wfs s' ∧
@@ -359,13 +359,13 @@ Proof
   metis_tac[tscheme_approx_weakening2]
 QED
 
-Triviality NOT_SOME_NONE:
+Theorem NOT_SOME_NONE[local]:
   (!x. A ≠ SOME x) ⇒ A = NONE
 Proof
   metis_tac[optionTheory.option_nchotomy]
 QED
 
-Triviality t_walk_submap_walkstar:
+Theorem t_walk_submap_walkstar[local]:
   !s s'. s SUBMAP s' ∧ t_wfs s ∧ t_wfs s'
 ⇒
 (!h. t_walk s (t_walkstar s' h) = t_walkstar s' h) ∧
@@ -383,7 +383,7 @@ Proof
   fs[]
 QED
 
-Triviality t_unify_to_pure_add_constraints:
+Theorem t_unify_to_pure_add_constraints[local]:
   !s s' h t constraints s''.
 pure_add_constraints s (constraints ++ [h,t]) s'' ⇒
 (?s'. pure_add_constraints s constraints s' ∧
@@ -394,7 +394,7 @@ Proof
   fs[pure_add_constraints_def]
 QED
 
-Triviality add_constraint_success2:
+Theorem add_constraint_success2[local]:
   !l t1 t2 st st' x.
   add_constraint l t1 t2 st = (Success x, st') ⇔
   x = () ∧
@@ -406,7 +406,7 @@ Proof
   rw[infer_st_rewrs,infer_st_component_equality]
 QED
 
-Triviality pure_add_constraints_combine:
+Theorem pure_add_constraints_combine[local]:
   (?st'. (pure_add_constraints st.subst ls st'.subst ∧ st'.next_uvar = x1 ∧ st'.next_id = x2) ∧
 (pure_add_constraints st'.subst ls' st''.subst ∧ y1 = st'.next_uvar ∧ y2 = st'.next_id))
 ⇔
@@ -420,7 +420,7 @@ Proof
   Q.EXISTS_TAC `<| subst:= s2 ; next_uvar := x1 ; next_id:=x2|>`>>fs[]
 QED
 
-Triviality t_unify_ignore:
+Theorem t_unify_ignore[local]:
   (!s t t'.
   t_wfs s ⇒
   t_walkstar s t = t_walkstar s t' ⇒
@@ -454,7 +454,7 @@ Proof
 QED
 
 (*t_compat preserves all grounded (no unification variable after walk) terms*)
-Triviality t_compat_ground:
+Theorem t_compat_ground[local]:
   t_compat a b
   ⇒
   ∀uv. uv ∈ FDOM a ∧
@@ -469,7 +469,7 @@ Proof
   metis_tac[t_walkstar_tuvar_props]
 QED
 
-Triviality t_walkstar_tuvar_props2:
+Theorem t_walkstar_tuvar_props2[local]:
   t_wfs s ∧ t_walkstar s x = Infer_Tuvar uv
   ⇒
   ?k. x = Infer_Tuvar k ∧
@@ -567,7 +567,7 @@ Proof
 QED
 
 (*Free properties when extending the completed map with uvar->ground var*)
-Triviality extend_one_props:
+Theorem extend_one_props[local]:
   t_wfs st.subst ∧
   t_wfs s ∧
   pure_add_constraints st.subst constraints s ∧
@@ -644,7 +644,7 @@ val ALOOKUP_lemma = GEN_ALL (prove(
   fs[MEM_ZIP,LENGTH_COUNT_LIST]>>HINT_EXISTS_TAC>>
   fs[EL_MAP,LENGTH_COUNT_LIST,EL_COUNT_LIST]));
 
-Triviality submap_t_walkstar_replace:
+Theorem submap_t_walkstar_replace[local]:
   t_wfs s' ∧
   s SUBMAP s' ∧
   check_t n {} (t_walkstar s h)
@@ -843,7 +843,7 @@ val extend_uvar_tac = Q_TAC extend_uvar_tac;
 
 fun TRY1 tac = TRY (tac >> NO_TAC)
 
-Triviality constrain_op_complete_simple_helper:
+Theorem constrain_op_complete_simple_helper[local]:
   !n.
 sub_completion n st.next_uvar st.subst constraints s ∧
 type_op op ts t ∧
@@ -883,7 +883,7 @@ Proof
   \\ unconversion_tac
 QED
 
-Triviality constrain_op_complete:
+Theorem constrain_op_complete[local]:
   !n.
 type_op op ts t ∧
 sub_completion n st.next_uvar st.subst constraints s ∧
@@ -1098,13 +1098,13 @@ Definition simp_tenv_invC_def:
   ?t. ALOOKUP tenvE n = SOME t
 End
 
-Triviality simp_tenv_invC_empty:
+Theorem simp_tenv_invC_empty[local]:
   simp_tenv_invC s n [] []
 Proof
   rw[simp_tenv_invC_def]
 QED
 
-Triviality simp_tenv_invC_more:
+Theorem simp_tenv_invC_more[local]:
   simp_tenv_invC s tvs tenv tenvE ∧
   t_compat s s' ⇒
   simp_tenv_invC s' tvs tenv tenvE
@@ -1115,7 +1115,7 @@ Proof
   metis_tac[check_freevars_to_check_t,t_walkstar_no_vars]
 QED
 
-Triviality simp_tenv_invC_append:
+Theorem simp_tenv_invC_append[local]:
   simp_tenv_invC s'' tvs tenv tenvE ∧
   simp_tenv_invC s'' tvs tenv' tenvE'
   ⇒
@@ -1140,7 +1140,7 @@ Proof
 QED
 
 (*Substituting every tvs away with something that has no tvs leaves none left*)
-Triviality infer_type_subst_check_t_less:
+Theorem infer_type_subst_check_t_less[local]:
   LENGTH ls = LENGTH tvs ∧
   EVERY (check_t n {}) ls ⇒
   (!t.
@@ -1475,7 +1475,7 @@ Proof
   impl_tac>>fs[]
 QED
 
-Triviality lookup_var_bind_var_list:
+Theorem lookup_var_bind_var_list[local]:
   !bindings.
   lookup_var x (bind_var_list 0 bindings tenvE) tenv =
   case x of
@@ -1492,7 +1492,7 @@ Proof
 QED
 
 (*This should be general enough to prove both Mat and Handle cases*)
-Triviality infer_pes_complete:
+Theorem infer_pes_complete[local]:
   ∀pes st' constraints' s'.
   pes ≠ [] ∧
   ienv_ok (count uvar) ienv ∧
@@ -1682,7 +1682,7 @@ Proof
     metis_tac[t_compat_trans])
 QED
 
-Triviality deBrujin_subst_excess:
+Theorem deBrujin_subst_excess[local]:
   (∀n targs t t'.
   check_freevars (LENGTH targs) [] t ∧
   deBruijn_subst n targs t = t'
@@ -1703,7 +1703,7 @@ Proof
   fs[MAP_EQ_f,check_freevars_def,EVERY_MEM]
 QED
 
-Triviality convert_infer_deBruijn_subst:
+Theorem convert_infer_deBruijn_subst[local]:
   ∀subst t.
   check_t (LENGTH subst) {} t ⇒
   convert_t (infer_deBruijn_subst subst t) =
@@ -1717,7 +1717,7 @@ Proof
   fs[EVERY_MEM]
 QED
 
-Triviality t_walkstar_infer_db_subst:
+Theorem t_walkstar_infer_db_subst[local]:
   ∀s s' uvars subst tvs.
   s SUBMAP s' ∧ t_wfs s' ∧
   FDOM s = count uvars ∧
@@ -1749,7 +1749,7 @@ Proof
     metis_tac[t_walkstar_SUBMAP]
 QED
 
-Triviality ienv_val_ok_more:
+Theorem ienv_val_ok_more[local]:
   (ienv_val_ok cuvs env ∧ cuvs ⊆ cuvs' ⇒
   ienv_val_ok cuvs' env) ∧
   (ienv_val_ok (count uvs) env ∧ uvs ≤ uvs' ⇒
@@ -2820,4 +2820,3 @@ Proof
       imp_res_tac sub_completion_completes>>
       AP_TERM_TAC>>metis_tac[t_walkstar_no_vars])
 QED
-

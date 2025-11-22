@@ -17,7 +17,7 @@ val _ = set_trace "BasicProvers.var_eq_old" 1
 
 fun say0 pfx s g = (print (pfx ^ ": " ^ s ^ "\n"); ALL_TAC g)
 
-Triviality evaluate_ignore_clocks:
+Theorem evaluate_ignore_clocks[local]:
   evaluate mc_conf ffi k ms = (r1,ms1,st1) /\ r1 <> TimeOut /\
     evaluate mc_conf ffi k' ms = (r2,ms2,st2) /\ r2 <> TimeOut ==>
     (r1,ms1,st1) = (r2,ms2,st2)
@@ -103,7 +103,7 @@ Definition enc_with_nop_def:
           bytes = init ++ FLAT (REPLICATE n step)
 End
 
-Triviality enc_with_nop_thm:
+Theorem enc_with_nop_thm[local]:
   enc_with_nop enc (b:'a asm) bytes =
       ?n. bytes = enc b ++ FLAT (REPLICATE n (enc (asm$Inst Skip)))
 Proof
@@ -131,14 +131,14 @@ val evaluate_nop_step =
     |> SIMP_RULE (srw_ss()) [asm_def,inst_def,asm_ok_def,inst_ok_def,
          Once upd_pc_def,GSYM CONJ_ASSOC]
 
-Triviality shift_interfer_0:
+Theorem shift_interfer_0[local]:
   shift_interfer 0 = I
 Proof
   full_simp_tac(srw_ss())[shift_interfer_def,FUN_EQ_THM,shift_seq_def,
       machine_config_component_equality]
 QED
 
-Triviality upd_pc_with_pc:
+Theorem upd_pc_with_pc[local]:
   upd_pc s1.pc s1 = s1:'a asm_state
 Proof
   full_simp_tac(srw_ss())[asm_state_component_equality,upd_pc_def]
@@ -151,7 +151,7 @@ Proof
   full_simp_tac(srw_ss())[shift_interfer_def,shift_seq_def,AC ADD_COMM ADD_ASSOC]
 QED
 
-Triviality evaluate_nop_steps:
+Theorem evaluate_nop_steps[local]:
   !n s1 ms1 c.
       encoder_correct c.target /\
       c.prog_addresses = s1.mem_domain /\
@@ -351,7 +351,7 @@ Definition lab_lookup_def:
     | SOME f => lookup k2 f
 End
 
-Triviality lab_lookup_IMP:
+Theorem lab_lookup_IMP[local]:
   (lab_lookup l1 l2 labs = SOME x) ==>
     (find_pos (Lab l1 l2) labs = x)
 Proof
@@ -437,7 +437,7 @@ Proof
   match_mp_tac EVERY2_refl >> simp[]
 QED
 
-Triviality line_similar_trans:
+Theorem line_similar_trans[local]:
   line_similar x y /\ line_similar y z ==> line_similar x z
 Proof
   Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs[line_similar_def]
@@ -641,7 +641,7 @@ Proof
   Induct_on`lines` \\ rw[sec_pos_val_def]
 QED
 
-Triviality pos_val_thm0:
+Theorem pos_val_thm0[local]:
   ∀i pos acc.
     pos_val i pos acc =
       case acc of [] => pos
@@ -960,7 +960,7 @@ Proof
 QED
 
 (* bytes_in_memory lemmas *)
-Triviality prog_to_bytes_lemma:
+Theorem prog_to_bytes_lemma[local]:
   !code2 code1 pc i pos.
       code_similar code1 code2 /\
       all_enc_ok (mc_conf:('a,'state,'b) machine_config).target.config
@@ -1019,7 +1019,7 @@ val prog_to_bytes_lemma = prog_to_bytes_lemma
   |> Q.SPECL [`code2`,`code1`,`pc`,`i`,`0`]
   |> SIMP_RULE std_ss [];
 
-Triviality bytes_in_mem_APPEND:
+Theorem bytes_in_mem_APPEND[local]:
   !xs ys a m md md1.
       bytes_in_mem a (xs ++ ys) m md md1 <=>
       bytes_in_mem a xs m md md1 /\
@@ -1047,7 +1047,7 @@ QED
 
 val s1 = ``s1:('a,'a lab_to_target$config,'ffi) labSem$state``;
 
-Triviality IMP_bytes_in_memory:
+Theorem IMP_bytes_in_memory[local]:
   code_similar code1 code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     (asm_fetch_aux pc code1 = SOME i) /\
@@ -1065,7 +1065,7 @@ Proof
   \\ Q.EXISTS_TAC `j` \\ fs[] \\ decide_tac
 QED
 
-Triviality IMP_bytes_in_memory_JumpReg:
+Theorem IMP_bytes_in_memory_JumpReg[local]:
   code_similar s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
@@ -1094,7 +1094,7 @@ val bool_case_eq_thms = map (fn th =>
   let val v = th |> concl |> lhs |> rhs
   in th |> GEN v |> Q.ISPEC`T` |> SIMP_RULE bool_ss [] end) case_eq_thms0
 
-Triviality IMP_bytes_in_memory_Jump:
+Theorem IMP_bytes_in_memory_Jump[local]:
   code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
@@ -1122,7 +1122,7 @@ Proof
          bytes_in_memory_APPEND]
 QED
 
-Triviality IMP_bytes_in_memory_JumpCmp:
+Theorem IMP_bytes_in_memory_JumpCmp[local]:
   code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
@@ -1150,7 +1150,7 @@ Proof
          bytes_in_memory_APPEND]
 QED
 
-Triviality IMP_bytes_in_memory_JumpCmp_1:
+Theorem IMP_bytes_in_memory_JumpCmp_1[local]:
   code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
@@ -1179,7 +1179,7 @@ Proof
   \\ metis_tac[]
 QED
 
-Triviality IMP_bytes_in_memory_Call:
+Theorem IMP_bytes_in_memory_Call[local]:
   code_similar ^s1.code code2 /\
     all_enc_ok
       (mc_conf: ('a,'state,'b) machine_config).target.config labs ffi_names 0 code2 /\
@@ -1195,7 +1195,7 @@ Proof
   \\ full_simp_tac(srw_ss())[line_ok_def] \\ rev_full_simp_tac(srw_ss())[]
 QED
 
-Triviality IMP_bytes_in_memory_LocValue:
+Theorem IMP_bytes_in_memory_LocValue[local]:
   code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
@@ -1224,7 +1224,7 @@ Proof
          bytes_in_memory_APPEND] \\ srw_tac[][] \\ metis_tac[]
 QED
 
-Triviality IMP_bytes_in_memory_Inst:
+Theorem IMP_bytes_in_memory_Inst[local]:
   code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
@@ -1253,7 +1253,7 @@ Proof
          bytes_in_memory_APPEND] \\ srw_tac[][]
 QED
 
-Triviality IMP_bytes_in_memory_Cbw:
+Theorem IMP_bytes_in_memory_Cbw[local]:
   code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
@@ -1282,7 +1282,7 @@ Proof
          bytes_in_memory_APPEND] \\ srw_tac[][]
 QED
 
-Triviality IMP_bytes_in_memory_CallFFI:
+Theorem IMP_bytes_in_memory_CallFFI[local]:
   code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
@@ -1307,7 +1307,7 @@ Proof
          bytes_in_memory_APPEND]
 QED
 
-Triviality IMP_bytes_in_memory_Halt:
+Theorem IMP_bytes_in_memory_Halt[local]:
   code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
@@ -1332,7 +1332,7 @@ Proof
          bytes_in_memory_APPEND]
 QED
 
-Triviality IMP_bytes_in_memory_Install:
+Theorem IMP_bytes_in_memory_Install[local]:
   code_similar ^s1.code code2 /\
     all_enc_ok mc_conf.target.config labs ffi_names 0 code2 /\
     bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
@@ -1463,7 +1463,7 @@ Proof
   \\ gvs[line_length_def,enc_with_nop_thm,FLAT_REPLICATE_NIL]
 QED
 
-Triviality bytes_in_mem_IMP_memory:
+Theorem bytes_in_mem_IMP_memory[local]:
   !xs a.
       (!a. ~(a IN dm1) ==> m a = m1 a) ==>
       bytes_in_mem a xs m dm dm1 ==>
@@ -1474,7 +1474,7 @@ QED
 
 (* read/write bytearrays for FFI *)
 
-Triviality read_bytearray_state_rel:
+Theorem read_bytearray_state_rel[local]:
   !n a x.
       state_rel (mc_conf,code2,labs,p) s1 t1 ms1 /\
       (read_bytearray a n (mem_load_byte_aux s1.mem s1.mem_domain s1.be) = SOME x) ==>
@@ -1494,7 +1494,7 @@ Proof
   \\ rev_full_simp_tac(srw_ss())[word_loc_val_byte_def,word_loc_val_def]
 QED
 
-Triviality IMP_has_io_name:
+Theorem IMP_has_io_name[local]:
   (asm_fetch s1 = SOME (LabAsm (CallFFI index) l bytes n)) ==>
     has_io_name index s1.code
 Proof
@@ -1508,7 +1508,7 @@ Proof
   \\ Cases_on `pc = 0` \\ full_simp_tac(srw_ss())[] \\ res_tac \\ full_simp_tac(srw_ss())[]
 QED
 
-Triviality bytes_in_mem_asm_write_bytearray_lemma:
+Theorem bytes_in_mem_asm_write_bytearray_lemma[local]:
   !xs p.
       (!a. ~(a IN k) ==> (m1 a = m2 a)) ==>
       bytes_in_mem p xs m1 d k ==>
@@ -1517,7 +1517,7 @@ Proof
   Induct \\ full_simp_tac(srw_ss())[bytes_in_mem_def]
 QED
 
-Triviality bytes_in_mem_asm_write_bytearray:
+Theorem bytes_in_mem_asm_write_bytearray[local]:
   (∀a. byte_align a ∈ s1.mem_domain ⇒ a ∈ s1.mem_domain) ∧
     (read_bytearray c1 (LENGTH new_bytes) (mem_load_byte_aux s1.mem s1.mem_domain s1.be) = SOME x) ==>
     bytes_in_mem p xs t1.mem t1.mem_domain s1.mem_domain ==>
@@ -1543,7 +1543,7 @@ Proof
   \\ full_simp_tac(srw_ss())[] \\ res_tac
 QED
 
-Triviality write_bytearray_NOT_Loc:
+Theorem write_bytearray_NOT_Loc[local]:
   !xs c1 s1 a c.
       (s1.mem a = Word c) ==>
       (write_bytearray c1 xs s1.mem s1.mem_domain s1.be) a <> Loc n n0
@@ -1555,7 +1555,7 @@ Proof
   \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]
 QED
 
-Triviality CallFFI_bytearray_lemma:
+Theorem CallFFI_bytearray_lemma[local]:
   byte_align (a:'a word) IN s1.mem_domain /\ good_dimindex (:'a) /\
     a IN t1.mem_domain /\
     a IN s1.mem_domain /\
@@ -1594,7 +1594,7 @@ QED
 
 (* inst correct *)
 
-Triviality MULT_ADD_LESS_MULT:
+Theorem MULT_ADD_LESS_MULT[local]:
   !m n k l j. m < l /\ n < k /\ j <= k ==> m * j + n < l * k:num
 Proof
   rpt strip_tac
@@ -1604,7 +1604,7 @@ Proof
   \\ decide_tac
 QED
 
-Triviality aligned_IMP_ADD_LESS_dimword:
+Theorem aligned_IMP_ADD_LESS_dimword[local]:
   aligned k (x:'a word) /\ k <= dimindex (:'a) ==>
     w2n x + (2 ** k - 1) < dimword (:'a)
 Proof
@@ -1671,7 +1671,7 @@ Proof
     metis_tac[aligned_3_imp]
 QED
 
-Triviality dimword_eq_32_imp_or_bytes:
+Theorem dimword_eq_32_imp_or_bytes[local]:
   dimindex (:'a) = 32 ==>
     (w2w ((w2w (x:'a word)):word8) ||
      w2w ((w2w (x ⋙ 8)):word8) ≪ 8 ||
@@ -1681,7 +1681,7 @@ Proof
   srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] []
 QED
 
-Triviality dimword_eq_64_imp_or_bytes:
+Theorem dimword_eq_64_imp_or_bytes[local]:
   dimindex (:'a) = 64 ==>
     (w2w ((w2w (x:'a word)):word8) ||
      w2w ((w2w (x ⋙ 8)):word8) ≪ 8 ||
@@ -1695,7 +1695,7 @@ Proof
   srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] []
 QED
 
-Triviality byte_align_32_eq:
+Theorem byte_align_32_eq[local]:
   dimindex (:'a) = 32 ⇒
   byte_align (a:'a word) +n2w (w2n a MOD 4) = a
 Proof
@@ -1707,7 +1707,7 @@ Proof
   simp[]
 QED
 
-Triviality byte_align_64_eq:
+Theorem byte_align_64_eq[local]:
   dimindex (:'a) = 64 ⇒
   byte_align (a:'a word) +n2w (w2n a MOD 8) = a
 Proof
@@ -1719,7 +1719,7 @@ Proof
   simp[]
 QED
 
-Triviality byte_align_32_IMP:
+Theorem byte_align_32_IMP[local]:
   dimindex(:'a) = 32 ⇒
   (byte_align a = a ⇒ w2n a MOD 4 = 0) ∧
   (byte_align a + (1w:'a word) = a ⇒ w2n a MOD 4 = 1) ∧
@@ -1739,7 +1739,7 @@ Proof
   DECIDE_TAC
 QED
 
-Triviality MOD4_CASES:
+Theorem MOD4_CASES[local]:
   ∀n. n MOD 4 = 0 ∨ n MOD 4 = 1 ∨ n MOD 4 = 2 ∨ n MOD 4 = 3
 Proof
   rw[]>>`n MOD 4 < 4` by fs []
@@ -1748,7 +1748,7 @@ Proof
   \\ fs []
 QED
 
-Triviality byte_align_32_CASES:
+Theorem byte_align_32_CASES[local]:
   dimindex(:'a) = 32 ⇒
   byte_align a + (3w:'a word) = a ∨
   byte_align a + (2w:'a word) = a ∨
@@ -1761,7 +1761,7 @@ Proof
   fs[]
 QED
 
-Triviality MOD8_CASES:
+Theorem MOD8_CASES[local]:
   ∀n. n MOD 8 = 0 ∨ n MOD 8 = 1 ∨ n MOD 8 = 2 ∨ n MOD 8 = 3 ∨
       n MOD 8 = 4 ∨ n MOD 8 = 5 ∨ n MOD 8 = 6 ∨ n MOD 8 = 7
 Proof
@@ -1772,7 +1772,7 @@ Proof
   \\ fs []
 QED
 
-Triviality byte_align_64_CASES:
+Theorem byte_align_64_CASES[local]:
   dimindex(:'a) = 64 ⇒
   byte_align a + (7w:'a word) = a ∨
   byte_align a + (6w:'a word) = a ∨
@@ -1789,7 +1789,7 @@ Proof
   fs[]
 QED
 
-Triviality byte_align_64_IMP:
+Theorem byte_align_64_IMP[local]:
   dimindex(:'a) = 64 ⇒
   (byte_align a + (7w:'a word) = a ⇒ w2n a MOD 8 = 7) ∧
   (byte_align a + (6w:'a word) = a ⇒ w2n a MOD 8 = 6) ∧
@@ -1813,7 +1813,7 @@ Proof
   DECIDE_TAC
 QED
 
-Triviality arith_upd_lemma:
+Theorem arith_upd_lemma[local]:
   (∀r. word_loc_val p labs (read_reg r s1) = SOME (t1.regs r)) ∧ ¬(arith_upd a s1).failed ⇒
    ∀r. word_loc_val p labs (read_reg r (arith_upd a s1)) =
        SOME ((arith_upd a t1).regs r)
@@ -1871,7 +1871,7 @@ Proof
   fs[]
 QED
 
-Triviality fp_upd_lemma:
+Theorem fp_upd_lemma[local]:
   (∀r. word_loc_val p labs (read_reg r s1) = SOME (t1.regs r)) ∧
   (!r. s1.fp_regs r = t1.fp_regs r) /\
    ¬(fp_upd f s1).failed ⇒
@@ -2732,7 +2732,7 @@ QED
 
 (* compile correct *)
 
-Triviality line_length_MOD_0:
+Theorem line_length_MOD_0[local]:
   encoder_correct mc_conf.target /\
     (~EVEN p ==> (mc_conf.target.config.code_alignment = 0)) /\
     line_ok mc_conf.target.config labs ffi_names p h ==>
@@ -2747,7 +2747,7 @@ Proof
   \\ full_simp_tac(srw_ss())[LET_DEF,map_replicate,SUM_REPLICATE]
 QED
 
-Triviality pos_val_MOD_0_lemma:
+Theorem pos_val_MOD_0_lemma[local]:
   (0 MOD 2 ** mc_conf.target.config.code_alignment = 0)
 Proof
   full_simp_tac(srw_ss())[]
@@ -2803,7 +2803,7 @@ Proof
   simp[]
 QED
 
-Triviality word_cmp_lemma:
+Theorem word_cmp_lemma[local]:
   state_rel (mc_conf,code2,labs,p) s1 t1 ms1 /\
     (word_cmp cmp (read_reg rr s1) (reg_imm ri s1) = SOME x) ==>
     (x = word_cmp cmp (read_reg rr t1) (reg_imm ri t1))
@@ -2826,7 +2826,7 @@ Proof
   \\ metis_tac[EVEN_add_AND]
 QED
 
-Triviality list_add_if_fresh_simp:
+Theorem list_add_if_fresh_simp[local]:
   !n s. list_add_if_fresh s l =
     if find_index s l n = NONE then
       APPEND l [s]
@@ -2853,7 +2853,7 @@ QED
 
 val list_add_if_fresh_simp = Q.SPECL [`n`,`s`] list_add_if_fresh_simp
 
-Triviality find_index_append:
+Theorem find_index_append[local]:
   !n. find_index s (l++l') n =
   (case find_index s l n of NONE => find_index s l' (n + LENGTH l) | SOME i => SOME i)
 Proof
@@ -2867,7 +2867,7 @@ Proof
    >> fs [find_index_def,ADD1])
 QED
 
-Triviality has_io_name_find_index:
+Theorem has_io_name_find_index[local]:
   !l s. has_io_name s l
   ==> ?y. find_index (ExtCall s) (find_ffi_names l) 0 = SOME y
 Proof
@@ -2883,7 +2883,7 @@ Proof
       >> metis_tac [NOT_NONE_SOME])
 QED
 
-Triviality find_index_in_range:
+Theorem find_index_in_range[local]:
   !n. find_index s l n = SOME x ==> x < n + LENGTH l /\ x >= n
 Proof
   Induct_on `l`
@@ -2894,7 +2894,7 @@ Proof
   >> rfs [find_index_def]
 QED
 
-Triviality find_index_in_range0:
+Theorem find_index_in_range0[local]:
   find_index s l 0 = SOME x ==> x < LENGTH l /\ x >= 0
 Proof
   ASSUME_TAC (Q.SPEC `0` find_index_in_range) >> rfs []
@@ -2925,12 +2925,11 @@ QED
 
 (* annotated line length *)
 
-Definition line_len_def:
+Definition line_len_def[simp]:
   (line_len (Label _ _ l) = l) ∧
   (line_len (Asm _ _ l) = l) ∧
   (line_len (LabAsm _ _ _ l) = l)
 End
-val _ = export_rewrites["line_len_def"];
 
 (* annotated section length *)
 
@@ -2973,7 +2972,7 @@ End
 
 val enc_lines_again_simp_ind = theorem"enc_lines_again_simp_ind";
 
-Triviality enc_lines_again_simp_EQ:
+Theorem enc_lines_again_simp_EQ[local]:
   ∀labs ffis pos enc ls acc b.
   let (ls',flag) = enc_lines_again_simp labs ffis pos enc ls in
   enc_lines_again labs ffis pos enc ls (acc,b) = (REVERSE acc ++ ls',sec_length ls' pos,b ∧ flag)
@@ -3097,7 +3096,7 @@ QED
 
 (* code_similar preservation *)
 
-Triviality line_similar_add_nop:
+Theorem line_similar_add_nop[local]:
   ∀ls ls' h.
   LIST_REL line_similar ls ls' ⇒
   LIST_REL line_similar ls (add_nop h ls')
@@ -3152,7 +3151,7 @@ Proof
   simp[]
 QED
 
-Triviality LIST_REL_enc_line:
+Theorem LIST_REL_enc_line[local]:
   ∀ls ls'.
   LIST_REL line_similar ls ls' ⇔
   LIST_REL line_similar (MAP (enc_line enc len) ls) ls'
@@ -3175,7 +3174,7 @@ Proof
    metis_tac[LIST_REL_enc_line]
 QED
 
-Triviality enc_lines_again_IMP_similar:
+Theorem enc_lines_again_IMP_similar[local]:
   ∀labs ffis pos enc lines acc ok lines' ok' curr.
   enc_lines_again labs ffis pos enc lines (acc,ok) = (lines',ok') ⇒
   LIST_REL line_similar curr (REVERSE acc) ⇒
@@ -3209,7 +3208,7 @@ val lines_upd_lab_len_AUX = Q.prove(
   \\ Cases \\ simp_tac std_ss [lines_upd_lab_len_def,LET_DEF]
   \\ pop_assum (fn th => once_rewrite_tac [GSYM th]) \\ fs []) |> GSYM
 
-Triviality line_similar_lines_upd_lab_len:
+Theorem line_similar_lines_upd_lab_len[local]:
   !l aux pos l1.
       LIST_REL line_similar (FST (lines_upd_lab_len pos l [])) l1 =
       LIST_REL line_similar l l1
@@ -3323,7 +3322,7 @@ Proof
   \\ strip_tac \\ res_tac \\ fs[]
 QED
 
-Triviality enc_lines_again_sec_labels_ok:
+Theorem enc_lines_again_sec_labels_ok[local]:
   ∀labs ffis pos enc lines acc ok res ok' k.
     enc_lines_again labs ffis pos enc lines (acc,ok) = (res,ok') ∧
     EVERY (sec_label_ok k) acc ∧
@@ -3346,7 +3345,7 @@ Proof
   \\ asm_exists_tac \\ fs[]
 QED
 
-Triviality lines_upd_lab_len_sec_label_ok:
+Theorem lines_upd_lab_len_sec_label_ok[local]:
   ∀pos lines acc k.
      EVERY (sec_label_ok k) lines ∧
      EVERY (sec_label_ok k) acc ⇒
@@ -3367,7 +3366,7 @@ Proof
   \\ rw[]
 QED
 
-Triviality add_nop_sec_label_ok:
+Theorem add_nop_sec_label_ok[local]:
   ∀nop aux.
     EVERY (sec_label_ok k) aux ⇒
     EVERY (sec_label_ok k) (add_nop nop aux)
@@ -3376,7 +3375,7 @@ Proof
   \\ rw[add_nop_def]
 QED
 
-Triviality pad_section_sec_label_ok:
+Theorem pad_section_sec_label_ok[local]:
   ∀nop xs acc k.
     EVERY (sec_label_ok k) xs ∧
     EVERY (sec_label_ok k) acc ⇒
@@ -3423,10 +3422,9 @@ Definition line_encd0_def:
   (line_encd0 enc _ ⇔ T)
 End
 
-Definition sec_encd0_def:
+Definition sec_encd0_def[simp]:
   sec_encd0 enc (Section _ ls) = EVERY (line_encd0 enc) ls
 End
-val _ = export_rewrites["sec_encd0_def"];
 
 Overload all_encd0 = ``λenc l. EVERY (sec_encd0 enc) l``
 
@@ -3501,34 +3499,30 @@ QED
 (* invariant: annotated lengths are not too small *)
 (* this is a consequence of encd (below) and not treated separately much *)
 
-Definition line_length_leq_def:
+Definition line_length_leq_def[simp]:
   (line_length_leq (LabAsm _ _ bytes l) ⇔
     LENGTH bytes ≤ l) ∧
   (line_length_leq (Asm _ bytes l) ⇔
     LENGTH bytes ≤ l) ∧
   (line_length_leq _ ⇔ T)
 End
-val _ = export_rewrites["line_length_leq_def"];
 
-Definition sec_length_leq_def:
+Definition sec_length_leq_def[simp]:
   sec_length_leq (Section _ ls) = EVERY line_length_leq ls
 End
-val _ = export_rewrites["sec_length_leq_def"];
 
 Overload all_length_leq = ``λl. EVERY sec_length_leq l``
 
 (* invariant: label annotated lengths are 0 or 1 *)
 
-Definition label_one_def:
+Definition label_one_def[simp]:
   (label_one (Label _ _ n) ⇔ n ≤ 1) ∧
   (label_one _ ⇔ T)
 End
-val _ = export_rewrites["label_one_def"];
 
-Definition sec_label_one_def:
+Definition sec_label_one_def[simp]:
   sec_label_one (Section _ ls) = EVERY label_one ls
 End
-val _ = export_rewrites["sec_label_one_def"];
 
 (* establishing label_one *)
 
@@ -3745,11 +3739,10 @@ QED
 
 (* invariant: all labels annotated with length 0 *)
 
-Definition label_zero_def:
+Definition label_zero_def[simp]:
   (label_zero (Label _ _ n) ⇔ n = 0) ∧
   (label_zero _ ⇔ T)
 End
-val _ = export_rewrites["label_zero_def"];
 
 Definition sec_label_zero_def:
   sec_label_zero (Section _ ls) = EVERY label_zero ls
@@ -3757,7 +3750,7 @@ End
 
 (* label_zero preservation *)
 
-Triviality EVERY_label_zero_add_nop:
+Theorem EVERY_label_zero_add_nop[local]:
   !xs. EVERY label_zero (add_nop nop xs) = EVERY label_zero xs
 Proof
   Induct \\ fs [add_nop_def,EVERY_REVERSE]
@@ -3915,10 +3908,9 @@ Definition line_aligned_def:
     line_length l MOD m = 0
 End
 
-Definition sec_aligned_def:
+Definition sec_aligned_def[simp]:
   sec_aligned noplen (Section _ ls) = EVERY (line_aligned noplen) ls
 End
-val _ = export_rewrites["sec_aligned_def"];
 
 (* establishing aligned *)
 
@@ -3983,10 +3975,9 @@ Definition label_prefix_zero_def:
         ∀m. m ≤ n ⇒ line_len (EL m ls) = 0)
 End
 
-Definition sec_label_prefix_zero_def:
+Definition sec_label_prefix_zero_def[simp]:
   sec_label_prefix_zero (Section k ls) ⇔ label_prefix_zero ls
 End
-val _ = export_rewrites["sec_label_prefix_zero_def"];
 
 Theorem label_prefix_zero_cons:
    (label_prefix_zero (Label l1 l2 len::ls) ⇔ ((len = 0) ∧ label_prefix_zero ls)) ∧
@@ -4799,7 +4790,7 @@ QED
 
 (* invariant: referenced labels exist *)
 
-Definition line_labs_exist_def:
+Definition line_labs_exist_def[simp]:
   (line_labs_exist labs (LabAsm a _ _ _) ⇔
     ∀n1 n2. (n1,n2) ∈ labs_of a ⇒ lab_lookup n1 n2 labs ≠ NONE) ∧
   (line_labs_exist _ _ ⇔ T)
@@ -4807,17 +4798,14 @@ End
 
 val line_labs_exist_ind = theorem "line_labs_exist_ind";
 
-val _ = export_rewrites["line_labs_exist_def"];
-
-Definition sec_labs_exist_def:
+Definition sec_labs_exist_def[simp]:
   sec_labs_exist labs (Section _ ls) ⇔ EVERY (line_labs_exist labs) ls
 End
-val _ = export_rewrites["sec_labs_exist_def"];
 
 Overload all_labs_exist = ``λlabs code. EVERY (sec_labs_exist labs) code``
 
 (* Remove tail recursion from zero_labs_acc_exist *)
-Triviality zero_labs_acc_of_eq_zero_labs_of:
+Theorem zero_labs_acc_of_eq_zero_labs_of[local]:
   domain (zero_labs_acc_of l acc) =
   IMAGE FST (restrict_zero (labs_of l)) ∪ domain acc
 Proof
@@ -4827,7 +4815,7 @@ Proof
   simp[EXTENSION]
 QED
 
-Triviality line_get_zero_labs_acc_eq_line_get_zero_labels:
+Theorem line_get_zero_labs_acc_eq_line_get_zero_labels[local]:
   domain (line_get_zero_labs_acc l acc) =
   IMAGE FST (restrict_zero (line_get_labels l)) ∪ domain acc
 Proof
@@ -4836,7 +4824,7 @@ Proof
   fs[zero_labs_acc_of_eq_zero_labs_of,backendPropsTheory.restrict_zero_def]
 QED
 
-Triviality sec_get_zero_labs_acc_eq_sec_get_zero_labels:
+Theorem sec_get_zero_labs_acc_eq_sec_get_zero_labels[local]:
   domain (sec_get_zero_labs_acc sec acc) =
   IMAGE FST (restrict_zero (sec_get_labels sec)) ∪ domain acc
 Proof
@@ -4847,7 +4835,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality get_zero_labs_acc_eq_get_zero_labels:
+Theorem get_zero_labs_acc_eq_get_zero_labels[local]:
   domain (FOLDR sec_get_zero_labs_acc acc code) =
   IMAGE FST (restrict_zero (get_labels code)) ∪ domain acc
 Proof
@@ -5118,7 +5106,7 @@ Proof
   \\ asm_exists_tac \\ fs[]
 QED
 
-Triviality all_enc_ok_split:
+Theorem all_enc_ok_split[local]:
   ∀c labs ffis pos k lines xs.
   all_enc_ok c labs ffis pos (Section k lines::xs) ⇒
   all_enc_ok c labs ffis pos [Section k lines] ∧
@@ -5132,7 +5120,7 @@ Proof
   metis_tac[ADD_ASSOC]
 QED
 
-Triviality all_enc_ok_even:
+Theorem all_enc_ok_even[local]:
   ∀lines pos.
   all_enc_ok c labs ffis pos [Section k lines] ⇒
   EVEN (sec_length lines pos)
@@ -5147,7 +5135,7 @@ Proof
   fs(bool_case_eq_thms) \\ imp_res_tac lab_lookup_IMP \\ rw[]
 QED
 
-Triviality all_enc_ok_lab_lookup_even:
+Theorem all_enc_ok_lab_lookup_even[local]:
   ∀c labs ffis pos sec_list l1 l2 acc x.
       all_enc_ok c labs ffis pos sec_list ∧
       lab_lookup l1 l2 (compute_labels_alt pos sec_list acc) = SOME x ∧
@@ -5617,7 +5605,7 @@ Proof
   \\ simp[]
 QED
 
-Triviality enc_lines_again_all_enc_ok_pre:
+Theorem enc_lines_again_all_enc_ok_pre[local]:
   ∀labs ffis pos enc lines acc ok res ok' c.
   enc_lines_again labs ffis pos enc lines (acc,ok) = (res,ok') ∧
   EVERY (line_ok_pre c) lines ∧ EVERY (line_ok_pre c) acc ⇒
@@ -5627,7 +5615,7 @@ Proof
   rw[EVERY_REVERSE]>>fs[line_ok_pre_def]
 QED
 
-Triviality enc_secs_again_all_enc_ok_pre:
+Theorem enc_secs_again_all_enc_ok_pre[local]:
   ∀pos labs ffis enc ls res ok c.
   enc_secs_again pos labs ffis enc ls = (res,ok) ∧ all_enc_ok_pre c ls ⇒
   all_enc_ok_pre c res
@@ -5639,14 +5627,14 @@ Proof
   match_mp_tac enc_lines_again_all_enc_ok_pre>>asm_exists_tac>>fs[]
 QED
 
-Triviality line_ok_pre_add_nop:
+Theorem line_ok_pre_add_nop[local]:
   EVERY (line_ok_pre c) xs ⇒
   EVERY (line_ok_pre c) (add_nop nop xs)
 Proof
   Induct_on`xs`>>EVAL_TAC>>Cases>>fs[]>>rw[]>>EVAL_TAC>>fs[line_ok_pre_def]
 QED
 
-Triviality line_ok_pre_pad_section:
+Theorem line_ok_pre_pad_section[local]:
   ∀nop xs acc c.
   EVERY (line_ok_pre c) xs ∧ EVERY (line_ok_pre c) acc ⇒
   EVERY (line_ok_pre c) (pad_section nop xs acc)
@@ -5657,7 +5645,7 @@ Proof
   metis_tac[line_ok_pre_add_nop]
 QED
 
-Triviality all_enc_ok_pre_pad_code:
+Theorem all_enc_ok_pre_pad_code[local]:
   ∀nop code c.
   all_enc_ok_pre c code ⇒
   all_enc_ok_pre c (pad_code nop code)
@@ -5667,7 +5655,7 @@ Proof
   match_mp_tac line_ok_pre_pad_section>>fs[]
 QED
 
-Triviality all_enc_ok_pre_lines_upd_lab_len:
+Theorem all_enc_ok_pre_lines_upd_lab_len[local]:
   ∀n lines acc.
   EVERY (line_ok_pre c) lines ∧
   EVERY (line_ok_pre c) acc ⇒
@@ -5677,7 +5665,7 @@ Proof
   fs[EVERY_REVERSE,line_ok_pre_def]
 QED
 
-Triviality all_enc_ok_pre_upd_lab_len:
+Theorem all_enc_ok_pre_upd_lab_len[local]:
   ∀n code.
   all_enc_ok_pre c code ⇒
   all_enc_ok_pre c (upd_lab_len n code)
@@ -5688,7 +5676,7 @@ Proof
   \\ rw[]
 QED
 
-Triviality EXP_IMP_ZERO_LT:
+Theorem EXP_IMP_ZERO_LT[local]:
   (2n ** y = x) ⇒ 0 < x
 Proof
   metis_tac[bitTheory.TWOEXP_NOT_ZERO,NOT_ZERO_LT_ZERO]
@@ -5732,7 +5720,7 @@ Proof
   \\ metis_tac[line_ok_alignment,ODD_EVEN]
 QED
 
-Triviality remove_labels_loop_thm:
+Theorem remove_labels_loop_thm[local]:
   ∀n c init_pos init_labs ffis code code2 labs.
     remove_labels_loop n c init_pos init_labs ffis code = SOME (code2,labs) ∧
     EVERY sec_ends_with_label code ∧
@@ -5969,7 +5957,7 @@ Proof
   >> BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[])
 QED
 
-Triviality all_enc_ok_pre_enc_sec_list:
+Theorem all_enc_ok_pre_enc_sec_list[local]:
   ∀code enc c.
   all_enc_ok_pre c code ⇒
   all_enc_ok_pre c (enc_sec_list enc code)
@@ -6137,7 +6125,7 @@ Proof
   Induct>>rw[lines_ok_def]>> metis_tac[line_ok_line_byte_length]
 QED
 
-Triviality all_enc_ok_prog_to_bytes_EVEN:
+Theorem all_enc_ok_prog_to_bytes_EVEN[local]:
   ∀code n c labs ffi pos.
    EVEN pos ∧
    all_enc_ok c labs ffi pos code ⇒
@@ -6154,7 +6142,7 @@ Proof
   metis_tac[EVEN_ADD]
 QED
 
-Triviality loc_to_pc_append:
+Theorem loc_to_pc_append[local]:
   ∀l1 l2 c1 c2 conf labs ffis pos.
   EVERY sec_labels_ok (c1++c2) ⇒
   loc_to_pc l1 l2 (c1++c2) =
@@ -6336,7 +6324,7 @@ Proof
     res_tac>>fs[]
 QED
 
-Triviality find_ffi_names_append:
+Theorem find_ffi_names_append[local]:
   ∀l1 l2.
   find_ffi_names (l1++l2) =
   (find_ffi_names l2) ++
@@ -9095,7 +9083,7 @@ Proof
   gvs[]
 QED
 
-Triviality FILTER_NOT_MEM_Mapped:
+Theorem FILTER_NOT_MEM_Mapped[local]:
   ~MEM "MappedRead" (FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite") l) /\
   ~MEM "MappedWrite" (FILTER (\x. x <> "MappedRead" /\ x <> "MappedWrite") l)
 Proof
@@ -9476,7 +9464,7 @@ Proof
 QED
 
 (* This is set up for the very first compile call *)
-Triviality IMP_state_rel_make_init:
+Theorem IMP_state_rel_make_init[local]:
   good_code mc_conf.target.config LN (code: 'a sec list) ∧
    mc_conf_ok mc_conf ∧
    (no_share_mem_inst code ==>
@@ -9776,7 +9764,7 @@ Proof
   \\ fs [lab_filterTheory.not_skip_def,find_ffi_names_def]
 QED
 
-Triviality all_enc_ok_pre_filter_skip:
+Theorem all_enc_ok_pre_filter_skip[local]:
   ∀code c.
   all_enc_ok_pre c code ⇒
   all_enc_ok_pre c (filter_skip code)
@@ -9849,7 +9837,7 @@ Proof
   IF_CASES_TAC>>fs[ALL_DISTINCT_APPEND]
 QED
 
-Triviality not_not_skip_IMP_Skip:
+Theorem not_not_skip_IMP_Skip[local]:
   ~not_skip inst' ==> ?l n. inst' = Asm (Asmi (Inst Skip)) l n
 Proof
   gvs[DefnBase.one_line_ify NONE lab_filterTheory.not_skip_def] >>
@@ -10509,4 +10497,3 @@ Proof
   match_mp_tac semantics_compile_lemma \\
   fs[good_code_def]
 QED
-

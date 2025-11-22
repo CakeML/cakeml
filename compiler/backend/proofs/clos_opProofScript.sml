@@ -8,14 +8,14 @@ Libs
   preamble
 
 
-Triviality list_split3:
+Theorem list_split3[local]:
   ∀P. P [] ∧ (∀x y z zs. P (x::y::z::zs)) ∧ (∀x. P [x]) ∧ (∀x y. P [x; y]) ⇒
       ∀xs. P xs
 Proof
   rw[] \\ Cases_on ‘xs’ \\ fs [] \\ Cases_on ‘t’ \\ fs [] \\ Cases_on ‘t'’ \\ fs []
 QED
 
-Triviality evaluate_MakeBool:
+Theorem evaluate_MakeBool[local]:
   ∀b. evaluate ([MakeBool b],vs,s) = (Rval [Boolv b],s)
 Proof
   Cases \\ EVAL_TAC

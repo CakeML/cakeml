@@ -81,10 +81,18 @@ Proof
   \\ drule encode_list_11 \\ fs [mlstringTheory.explode_11]
 QED
 
-val decode_encode = new_specification("decode_encode",["decode"],
-  prove(``?decode. !cls. decode (encode cls) = SOME cls``,
-        qexists_tac `\f. some c. encode c = f` \\ fs [encode_11]));
-val _ = export_rewrites ["decode_encode"];
+Theorem encode_decode_exists[local]:
+  ?decode. !cls. decode (encode cls) = SOME cls
+Proof
+  qexists_tac `\f. some c. encode c = f` \\ fs [encode_11]
+QED
+
+val decode_encode_name = "decode_encode";
+val decode_encode = new_specification(
+  decode_encode_name,
+  ["decode"],
+  encode_decode_exists);
+val _ = export_rewrites [decode_encode_name];
 
 Definition cl_ffi_part_def:
   cl_ffi_part = (encode,decode,

@@ -71,16 +71,12 @@ Theorem el_side:
 Proof
   gs[Once el_side_def]
   >> Induct
-  >- (rw[]
-      >> Cases_on ‘l = []’ >> gs[])
+  >- (
+    rw[]>>
+    pure_rewrite_tac[GSYM LENGTH_NIL]>>
+    intLib.ARITH_TAC)
   >> rw[]
   >> rw[Once el_side_def]
-  >- (Cases_on ‘l’ >> gs[]
-      >> Cases_on ‘t’ >> gs[])
-  >> first_x_assum (qspecl_then [‘TL l’] assume_tac)
-  >> first_x_assum irule
-  >> gs[ADD1]
-  >> Cases_on ‘l’ >> gs[]
 QED
 
 val res = translate encode_eqConst_def; (* side *)

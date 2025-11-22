@@ -340,7 +340,7 @@ Definition mk_tailrec_closure_def:
     od) /\ mk_tailrec_closure _ = NONE
 End
 
-Triviality mk_single_app_F_unchanged_gen:
+Theorem mk_single_app_F_unchanged_gen[local]:
   (!fname allow_fname e e'. mk_single_app fname allow_fname e = SOME e'
                /\ allow_fname = F ==> e = e') /\
    (!fname allow_fname es es'. mk_single_apps fname allow_fname es = SOME es'
@@ -423,7 +423,7 @@ Proof
     fs[quantHeuristicsTheory.LIST_LENGTH_1]
 QED
 
-Triviality build_conv_check_IMP_nsLookup:
+Theorem build_conv_check_IMP_nsLookup[local]:
   !env const v consname stamp n.
   (∀v. build_conv env (SOME const) [v] =
    SOME (Conv (SOME stamp) [v])) /\
@@ -488,7 +488,7 @@ Proof
   \\ rw [] \\ fs [] \\ res_tac \\ fs []
 QED
 
-Triviality mk_single_app_NONE_evaluate:
+Theorem mk_single_app_NONE_evaluate[local]:
   (!^st env es es'. mk_single_apps NONE T es = SOME es'
     /\ do_con_check env.c (SOME (Short "Inr")) 1 = T
     /\ (!v. build_conv env.c (SOME (Short "Inr")) [v] =
@@ -635,7 +635,7 @@ Proof
       TOP_CASE_TAC >> gs[] >> rveq >> fs[mk_inr_res_def])
 QED
 
-Triviality mk_single_app_NONE_evaluate_single:
+Theorem mk_single_app_NONE_evaluate_single[local]:
   (!^st env e e'. mk_single_app NONE T e = SOME e'
     /\ do_con_check env.c (SOME (Short "Inr")) 1
     /\ (!v. build_conv env.c (SOME (Short "Inr")) [v] =
@@ -687,7 +687,7 @@ partially_evaluates_to_match fv mv err_v env st (pr1,pr2) =
    | (st',rerr) => evaluate_match st env mv pr2 err_v = (st',rerr)
 End
 
-Triviality mk_single_app_evaluate:
+Theorem mk_single_app_evaluate[local]:
   (!^st env es es' fname fv. mk_single_apps (SOME fname) T es = SOME es'
     /\ do_con_check env.c (SOME (Short "Inr")) 1 = T
     /\ (!v. build_conv env.c (SOME (Short "Inr")) [v] =
@@ -966,7 +966,7 @@ Proof
   rpt(disch_then drule) >> simp[]
 QED
 
-Triviality evaluate_tailrec_ind_lemma:
+Theorem evaluate_tailrec_ind_lemma[local]:
   !ck fbody gbody env env' ^st farg x v fname st' res.
    mk_single_app (SOME fname) T fbody = SOME gbody /\
    do_con_check env.c (SOME (Short "Inr")) 1 /\
@@ -1122,7 +1122,7 @@ Proof
       fs[semanticPrimitivesTheory.state_component_equality])
 QED
 
-Triviality evaluate_tailrec_lemma:
+Theorem evaluate_tailrec_lemma[local]:
   !ck fbody gbody env ^st farg x fname st' res.
    mk_single_app (SOME fname) T fbody = SOME gbody /\
    do_con_check env.c (SOME (Short "Inr")) 1 /\
@@ -1175,7 +1175,7 @@ Proof
   simp[semanticPrimitivesTheory.state_component_equality]
 QED
 
-Triviality mk_single_app_unroll_lemma:
+Theorem mk_single_app_unroll_lemma[local]:
   !fname fbody gbody ^st st' ck1 env farg ck2 x v.
     mk_single_app (SOME fname) T fbody = SOME gbody /\
     evaluate (^st with clock := ck1)
@@ -1223,7 +1223,7 @@ Proof
   simp[] >> fs[build_rec_env_def]
 QED
 
-Triviality evaluate_tailrec_diverge_lemma:
+Theorem evaluate_tailrec_diverge_lemma[local]:
   !ck fbody gbody env env' ^st farg x v fname.
    mk_single_app (SOME fname) T fbody = SOME gbody /\
    do_con_check env.c (SOME (Short "Inr")) 1 /\
@@ -1392,7 +1392,7 @@ Proof
     )
 QED
 
-Triviality evaluate_tailrec_div_ind_lemma:
+Theorem evaluate_tailrec_div_ind_lemma[local]:
   !ck fbody gbody env env' ^st farg x v fname st' res.
    mk_single_app (SOME fname) T fbody = SOME gbody /\
    do_con_check env.c (SOME (Short "Inr")) 1 /\
@@ -1534,7 +1534,7 @@ Proof
       asm_exists_tac >> first_x_assum ACCEPT_TAC)
 QED
 
-Triviality evaluate_tailrec_div_ind_lemma2:
+Theorem evaluate_tailrec_div_ind_lemma2[local]:
   !ck fbody gbody env env' ^st farg x v fname st' res.
    mk_single_app (SOME fname) T fbody = SOME gbody /\
    do_con_check env.c (SOME (Short "Inr")) 1 /\
@@ -1643,7 +1643,7 @@ Proof
       imp_res_tac evaluate_clock >> fs[])
 QED
 
-Triviality lprefix_mono_lprefix:
+Theorem lprefix_mono_lprefix[local]:
   !f i k.
  (!i. LPREFIX (f i) (f(i + 1)))
  ==> LPREFIX (f i) (f(i + (k:num)))
@@ -1654,7 +1654,7 @@ Proof
  metis_tac[LPREFIX_TRANS]
 QED
 
-Triviality gify:
+Theorem gify[local]:
   !g n.
  (!i. g i < g (i +1))
  ==> ?k (i:num). g i = (n:num) + k
@@ -1864,7 +1864,7 @@ Proof
   \\ qexists_tac `ck-ck0` \\ fs []
 QED
 
-Triviality lprefix_mono_lprefix:
+Theorem lprefix_mono_lprefix[local]:
   !f i k.
   (!i. LPREFIX (f i) (f(i + 1)))
   ==> LPREFIX (f i) (f(i + (k:num)))
@@ -1875,7 +1875,7 @@ Proof
   metis_tac[LPREFIX_TRANS]
 QED
 
-Triviality gify:
+Theorem gify[local]:
   !g n.
   (!i. g i < g (i +1))
   ==> ?k (i:num). g i = (n:num) + k
@@ -2489,7 +2489,7 @@ Definition make_repeat_closure_def:
     od) /\ make_repeat_closure _ = NONE
 End
 
-Triviality make_single_app_F_unchanged_gen:
+Theorem make_single_app_F_unchanged_gen[local]:
   (!fname allow_fname e e'. make_single_app fname allow_fname e = SOME e'
                /\ allow_fname = F ==> e = e') /\
    (!fname es es'. make_single_apps fname es = SOME es'
@@ -2963,7 +2963,7 @@ QED
 val make_single_app_SOME_evaluate_exp =
   make_single_app_SOME_evaluate |> CONJUNCT1 |> SIMP_RULE std_ss [];
 
-Triviality make_single_app_unroll_lemma:
+Theorem make_single_app_unroll_lemma[local]:
   !fname fbody gbody ^st st' ck1 env farg ck2 x v.
     make_single_app (SOME fname) T fbody = SOME gbody /\
     evaluate (^st with clock := ck1)
@@ -3002,7 +3002,7 @@ Proof
   simp[] >> fs[build_rec_env_def]
 QED
 
-Triviality evaluate_repeat_diverge_lemma:
+Theorem evaluate_repeat_diverge_lemma[local]:
   !ck fbody gbody env env' ^st farg x v fname.
    make_single_app (SOME fname) T fbody = SOME gbody /\
    fname <> farg /\
@@ -3150,7 +3150,7 @@ Proof
    simp[] >> simp[build_rec_env_def]
 QED
 
-Triviality evaluate_repeat_div_ind_lemma:
+Theorem evaluate_repeat_div_ind_lemma[local]:
   !ck fbody gbody env env' ^st farg x v fname st' res.
    make_single_app (SOME fname) T fbody = SOME gbody /\
    fname <> farg /\
@@ -3263,7 +3263,7 @@ Proof
   asm_exists_tac >> first_x_assum ACCEPT_TAC
 QED
 
-Triviality evaluate_repeat_div_ind_lemma2:
+Theorem evaluate_repeat_div_ind_lemma2[local]:
   !ck fbody gbody env env' ^st farg x v fname st' res.
    make_single_app (SOME fname) T fbody = SOME gbody /\
    fname <> farg /\
@@ -4369,7 +4369,7 @@ Proof
  simp[LNTH_LUNFOLD,FUNPOW]
 QED
 
-Triviality every_LGENLIST:
+Theorem every_LGENLIST[local]:
   every P (LGENLIST f NONE)
   = !x. P(f x)
 Proof
@@ -4455,13 +4455,13 @@ Proof
   \\ fs[o_DEF]
 QED
 
-Triviality list_length_eq:
+Theorem list_length_eq[local]:
   l1 = l2 ==> LENGTH l1 = LENGTH l2
 Proof
   simp[]
 QED
 
-Triviality list_length_eq2:
+Theorem list_length_eq2[local]:
   l1 = l2 ==> LENGTH(FLAT(MAP FST l1)) = LENGTH(FLAT(MAP FST l2))
 Proof
   simp[]

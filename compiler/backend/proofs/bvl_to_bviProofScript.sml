@@ -61,7 +61,7 @@ Definition aux_code_installed_def:
      aux_code_installed rest t)
 End
 
-Triviality aux_code_installed_APPEND:
+Theorem aux_code_installed_APPEND[local]:
   !xs ys.
       aux_code_installed (xs++ys) code ==>
       aux_code_installed xs code /\
@@ -171,7 +171,7 @@ End
 
 val bv_ok_ind = theorem"bv_ok_ind";
 
-Triviality bv_ok_SUBSET_IMP:
+Theorem bv_ok_SUBSET_IMP[local]:
   !refs x refs2.
       bv_ok refs x /\ FDOM refs SUBSET FDOM refs2 ==> bv_ok refs2 x
 Proof
@@ -191,7 +191,7 @@ Proof
   EVAL_TAC
 QED
 
-Triviality bv_ok_IMP_adjust_bv_eq:
+Theorem bv_ok_IMP_adjust_bv_eq[local]:
   !b2 a1 b3.
       bv_ok refs a1 /\
       (!a. a IN FDOM refs ==> b2 a = b3 a) ==>
@@ -213,14 +213,14 @@ End
 
 (* evaluate preserves state_ok *)
 
-Triviality evaluate_ok_lemma:
+Theorem evaluate_ok_lemma[local]:
   (state_ok (dec_clock n s) = state_ok s) /\
     ((dec_clock n s).refs = s.refs)
 Proof
   full_simp_tac(srw_ss())[state_ok_def,bvlSemTheory.dec_clock_def]
 QED
 
-Triviality evaluate_IMP_bv_ok:
+Theorem evaluate_IMP_bv_ok[local]:
   (bvlSem$evaluate (xs,env,s) = (res,t)) ==>
     (bv_ok s.refs a1 ==> bv_ok t.refs a1) /\
     (EVERY (bv_ok s.refs) as ==> EVERY (bv_ok t.refs) as)
@@ -230,7 +230,7 @@ Proof
   \\ IMP_RES_TAC evaluate_refs_SUBSET \\ IMP_RES_TAC bv_ok_SUBSET_IMP
 QED
 
-Triviality v_to_list_ok:
+Theorem v_to_list_ok[local]:
   ∀v x. v_to_list v = SOME x ∧
          bv_ok refs v ⇒
          EVERY (bv_ok refs) x
@@ -697,7 +697,7 @@ val evaluate_MAP_Var2 = Q.prove(
   \\ full_simp_tac(srw_ss())[rich_listTheory.EL_APPEND1]) |> SPEC_ALL
   |> INST_TYPE[beta|->``:'ffi``,alpha|->``:'c``];
 
-Triviality bEval_bVarBound:
+Theorem bEval_bVarBound[local]:
   !xs vs s env.
       bVarBound (LENGTH vs) xs ==>
       (bvlSem$evaluate (xs,vs ++ env,s) = evaluate (xs,vs,s))
@@ -722,7 +722,7 @@ val iEval_def = bviSemTheory.evaluate_def;
 val bEvalOp_def = bvlSemTheory.do_app_def;
 val iEvalOp_def = bviSemTheory.do_app_def;
 
-Triviality evaluate_CopyGlobals_code:
+Theorem evaluate_CopyGlobals_code[local]:
   ∀n l1 s.
    lookup CopyGlobals_location s.code = SOME (3,SND CopyGlobals_code) ∧
    FLOOKUP s.refs p = SOME (ValueArray ls) ∧
@@ -1077,7 +1077,7 @@ QED
 val bEval_def = bvlSemTheory.evaluate_def;
 val iEval_append = bviPropsTheory.evaluate_APPEND;
 
-Triviality compile_exps_Var_list:
+Theorem compile_exps_Var_list[local]:
   !l n. EVERY isVar l ==> (∃aux. compile_exps n l = (MAP (Var o destVar) l ,aux,n) ∧ append aux = [])
 Proof
   Induct \\ fs[compile_exps_def] \\ Cases \\ rw[isVar_def] \\ fs[]
@@ -1301,7 +1301,7 @@ Proof
   \\ FIRST_X_ASSUM MATCH_MP_TAC \\ full_simp_tac(srw_ss())[ADD1]
 QED
 
-Triviality v_to_list_adjust:
+Theorem v_to_list_adjust[local]:
   ∀x. v_to_list (adjust_bv f x) = OPTION_MAP (MAP (adjust_bv f)) (v_to_list x)
 Proof
   ho_match_mp_tac v_to_list_ind >>
@@ -1309,7 +1309,7 @@ Proof
   Cases_on`v_to_list x`>>full_simp_tac(srw_ss())[]
 QED
 
-Triviality do_eq_adjust_lemma:
+Theorem do_eq_adjust_lemma[local]:
   (!refs x1 x2 b.
               refs = r.refs /\
               do_eq refs x1 x2 = Eq_val b /\ state_rel b2 r t2 /\
@@ -1340,7 +1340,7 @@ Proof
   \\ rw [] \\ every_case_tac \\ fs []
 QED
 
-Triviality do_eq_adjust:
+Theorem do_eq_adjust[local]:
   do_eq r.refs x1 x2 = Eq_val b /\ state_rel b2 r t2 /\
    bv_ok r.refs x1 /\ bv_ok r.refs x2 ==>
    do_eq t2.refs (adjust_bv b2 x1) (adjust_bv b2 x2) = Eq_val b
@@ -1712,7 +1712,7 @@ Proof
   \\ fs [MEM_EL] \\ asm_exists_tac \\ fs []
 QED
 
-Triviality do_app_Ref:
+Theorem do_app_Ref[local]:
   do_app (MemOp Ref) vs s =
      Rval
       (RefPtr T (LEAST ptr. ptr ∉ FDOM s.refs),
@@ -1988,7 +1988,7 @@ Proof
   impl_keep_tac >- EVAL_TAC \\ simp[]
 QED
 
-Triviality compile_list_imp:
+Theorem compile_list_imp[local]:
   ∀n prog code n' name arity exp.
      compile_list n prog = (code,n') ∧
      ALOOKUP prog name = SOME (arity,exp) ⇒
@@ -4109,7 +4109,7 @@ Proof
   Cases_on`e`>>simp[] >> METIS_TAC[]
 QED
 
-Triviality evaluate_REPLICATE_0:
+Theorem evaluate_REPLICATE_0[local]:
   !n. evaluate (REPLICATE n (Op (IntOp (Const 0)) []),env,s) =
           (Rval (REPLICATE n (Number 0)),s)
 Proof
@@ -4608,7 +4608,7 @@ Proof
   \\ fs [FILTER_APPEND] \\ EVAL_TAC
 QED
 
-Triviality ODD_lemma:
+Theorem ODD_lemma[local]:
   ODD (2 * n + k) = ODD k
 Proof
   fs [ODD_ADD] \\ simp [ODD_EVEN,EVEN_DOUBLE]

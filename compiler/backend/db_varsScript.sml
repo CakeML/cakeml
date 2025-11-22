@@ -79,13 +79,12 @@ Definition vars_flatten_def:
   vars_flatten db = vars_from_list (vars_to_list db)
 End
 
-Definition has_var_def:
+Definition has_var_def[simp]:
   (has_var n Empty <=> F) /\
   (has_var n (Var v) <=> (n = v)) /\
   (has_var n (Shift k d) <=> has_var (n + k) d) /\
   (has_var n (Union d1 d2) <=> has_var n d1 \/ has_var n d2)
 End
-val _ = export_rewrites["has_var_def"];
 
 Theorem has_var_mk_Union[simp]:
    has_var n (mk_Union l1 l2) <=> has_var n l1 \/ has_var n l2
@@ -129,7 +128,7 @@ Proof
   \\ fs [lookup_db_to_set]
 QED
 
-Triviality has_var_FOLDL_Union:
+Theorem has_var_FOLDL_Union[local]:
   !vs n s. has_var n (FOLDL (\s1 v. Union (Var v) s1) s vs) <=>
              MEM n vs \/ has_var n s
 Proof

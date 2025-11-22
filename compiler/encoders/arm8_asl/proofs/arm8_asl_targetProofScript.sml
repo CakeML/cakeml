@@ -350,7 +350,7 @@ Proof
     )
 QED
 
-Triviality exists_arm8_ok:
+Theorem exists_arm8_ok[local]:
   ∀s asl.  target_state_rel arm8_asl_target s asl ⇒
     ∃l3. state_rel l3 asl ∧ arm8_ok l3 ∧
          target_state_rel arm8_target s l3
@@ -361,7 +361,7 @@ Proof
   irule $ iffRL l3_asl_target_state_rel >> rpt $ goal_assum drule
 QED
 
-Triviality l3_asl_arm8_encode_fail[simp]:
+Theorem l3_asl_arm8_encode_fail[local,simp]:
   ∀instr. MEM instr arm8_target$arm8_encode_fail ⇒ l3_models_asl_instr instr
 Proof
   rw[arm8_encode_fail_def] >> simp[l3_models_asl_NoOperation]
