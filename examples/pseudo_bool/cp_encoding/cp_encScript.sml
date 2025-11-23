@@ -12,10 +12,10 @@ Ancestors
 
 - bnd : (mlstring, int # int) alist
 - cs : mlstring constraint list
-- obj : mlstring option (objective variable, if it exists)
+- obj : mlstring objective
 *)
 
-Type cp_inst = ``:(mlstring, int # int) alist # mlstring constraint list # mlstring option``;
+Type cp_inst = ``:(mlstring, int # int) alist # mlstring constraint list # mlstring objective``;
 
 (* For any unspecified variable, default to (0,0) *)
 Definition bnd_lookup_def:
@@ -25,30 +25,8 @@ Definition bnd_lookup_def:
     | SOME v => v
 End
 
-Definition cp_inst_sat_def:
-  cp_inst_sat (inst:cp_inst) w ⇔
-  case inst of (bnd,cs,v) =>
-    cp_sat (bnd_lookup bnd) (set cs) w
-End
-
-Definition cp_inst_satisfiable_def:
-  cp_inst_satisfiable inst ⇔
-  ∃w. cp_inst_sat inst w
-End
-
-Definition cp_inst_minimal_def:
-  cp_inst_minimal (inst:cp_inst) w ⇔
-  case inst of (bnd,cs,v) =>
-    cp_minimal (bnd_lookup bnd) (set cs) (THE v) w
-End
-
-Definition cp_inst_maximal_def:
-  cp_inst_maximal (inst:cp_inst) w ⇔
-  case inst of (bnd,cs,v) =>
-    cp_maximal (bnd_lookup bnd) (set cs) (THE v) w
-End
-
 (* The encoder *)
+
 (*
 Definition mk_map_def:
   mk_map bnd =
@@ -71,7 +49,7 @@ End
 
 Definition encode_def:
   encode (inst:cp_inst) =
-  case inst of (bnd,cs,v) =>
+  case inst of (bnd,cs,_) =>
   let bndm = bnd_lookup bnd in
   let cs = append (FST (cencode_cp_all bndm cs 1 init_ec)) in
   let cs' = MAP (I ## encode_iconstraint_one bndm) cs in
@@ -79,6 +57,20 @@ Definition encode_def:
   (bndcs ++ cs'):
     (mlstring option #
     (mlstring, mlstring reif + num) epb pbc) list
+End
+
+Definition encode_nivar_def:
+  encode_nivar bnd V =
+  mul_lin_term (-1) (encode_ivar bnd V)
+End
+
+Definition encode_obj_def:
+  encode_obj inst =
+  case inst of (bnd,cs,obj) =>
+  case obj of
+    NoObjective => NONE
+  | Minimize v => SOME (encode_ivar (bnd_lookup bnd) v, 0i)
+  | Maximize v => SOME (encode_nivar (bnd_lookup bnd) v, 0i)
 End
 
 Theorem MAP_SND_MAP_I_FST:
@@ -89,14 +81,13 @@ Proof
 QED
 
 Theorem encode_sem_1:
-  cp_inst_sat inst wi ⇒
+  cp_sat (bnd_lookup bnd) (set cs) wi ⇒
   ∃wb.
   satisfies (reify_epb (wi,wb))
-    (set (MAP SND (encode inst)))
+    (set (MAP SND (encode (bnd,cs,v))))
 Proof
-  `∃bnd cs v. inst = (bnd,cs,v)` by metis_tac[PAIR]>>
   `∃es ec'. cencode_cp_all (bnd_lookup bnd) cs 1 init_ec = (es,ec')` by metis_tac[PAIR]>>
-  rw[encode_def,cp_inst_sat_def,cp_sat_def,MAP_SND_MAP_I_FST]>>
+  rw[encode_def,cp_sat_def,MAP_SND_MAP_I_FST]>>
   simp[GSYM encode_iconstraint_all_def,GSYM encode_iconstraint_all_sem_1]>>
   fs[GSYM EVERY_MEM]>>
   drule_all cencode_cp_all_thm_1>>
@@ -108,10 +99,9 @@ Proof
 QED
 
 Theorem encode_sem_2:
-  satisfies w (set (MAP SND (encode inst))) ⇒
-  cp_inst_sat inst (unreify_epb (bnd_lookup (FST inst)) w)
+  satisfies w (set (MAP SND (encode (bnd,cs,v)))) ⇒
+  cp_sat (bnd_lookup bnd) (set cs) (unreify_epb (bnd_lookup bnd) w)
 Proof
-  `∃bnd cs v. inst = (bnd,cs,v)` by metis_tac[PAIR]>>
   `∃es ec'. cencode_cp_all (bnd_lookup bnd) cs 1 init_ec = (es,ec')` by metis_tac[PAIR]>>
   rw[encode_def]>>
   fs[MAP_SND_MAP_I_FST,cencode_bound_all_def,MAP_MAP_o,o_DEF]>>
@@ -123,7 +113,7 @@ Proof
     simp[MEM_MAP]>>
     metis_tac[FST])>>
   rw[]>>
-  simp[cp_sat_def,GSYM EVERY_MEM,cp_inst_sat_def]>>
+  simp[cp_sat_def,GSYM EVERY_MEM]>>
   irule cencode_cp_all_thm_2>>
   first_assum (irule_at Any)>>
   first_assum (irule_at Any)>>
@@ -132,64 +122,7 @@ Proof
   gvs[encode_iconstraint_all_def,MAP_MAP_o,o_DEF]
 QED
 
-Theorem encode_equisatisfiable:
-  (
-    cp_inst_satisfiable inst ⇔
-    satisfiable (set (MAP SND (encode inst)))
-  )
-Proof
-  rw[cp_inst_satisfiable_def,satisfiable_def]>>
-  metis_tac[encode_sem_1,encode_sem_2]
-QED
-
-(* Every solution to CP is also optimal for PB *)
-Theorem encode_sem_minimal_1:
-  cp_inst_minimal inst wi ⇒
-  ∃wb.
-  optimal (reify_epb (wi,wb))
-    (set (MAP SND (encode inst)))
-    (encode_ivar (bnd_lookup (FST inst))
-      (THE (SND (SND inst))))
-Proof
-  `∃bnd cs v. inst = (bnd,cs,v)` by metis_tac[PAIR]>>
-  rw[cp_inst_minimal_def,optimal_def,cp_minimal_def]>>
-  `cp_inst_sat (bnd,cs,v) wi` by
-    fs[cp_inst_sat_def]>>
-  drule encode_sem_1>>rw[]>>
-  first_x_assum $ irule_at Any>>
-  rw[]>>
-  drule_all encode_sem_2>>
-  rw[cp_inst_sat_def]>>
-  first_x_assum drule>>
-  DEP_REWRITE_TAC[encode_ivar_sem_1]>>
-  simp[encode_ivar_sem_2]>>
-  gvs[cp_sat_def]
-QED
-
-(* Every solution to PB is also optimal for CP *)
-Theorem encode_sem_minimal_2:
-  optimal w
-    (set (MAP SND (encode inst)))
-    (encode_ivar (bnd_lookup (FST inst))
-      (THE (SND (SND inst)))) ⇒
-  cp_inst_minimal inst (unreify_epb (bnd_lookup (FST inst)) w)
-Proof
-  `∃bnd cs v. inst = (bnd,cs,v)` by metis_tac[PAIR]>>
-  rw[cp_inst_minimal_def,optimal_def,cp_minimal_def]
-  >- (
-    drule encode_sem_2>>
-    simp[cp_inst_sat_def])>>
-  rename1`cp_sat _ _ w'`>>
-  `cp_inst_sat (bnd,cs,v) w'` by
-    fs[cp_inst_sat_def]>>
-  drule_all encode_sem_1>>
-  rw[]>>
-  first_x_assum drule>>
-  DEP_REWRITE_TAC[encode_ivar_sem_1]>>
-  simp[encode_ivar_sem_2]>>
-  gvs[cp_sat_def]
-QED
-
+(* Going into strings for the final encoder *)
 Definition enc_fresh_def:
   enc_fresh n =
     strlit"f_" ^ toString (n:num)
@@ -219,14 +152,6 @@ Proof
   cheat
 QED
 
-Definition encode_obj_def:
-  encode_obj inst =
-  case inst of (bnd,cs,v) =>
-  case v of NONE => NONE
-  | SOME v => SOME (
-    encode_ivar (bnd_lookup bnd) v, 0i)
-End
-
 Definition full_encode_def:
   full_encode inst =
   (map_obj enc_string
@@ -234,29 +159,26 @@ Definition full_encode_def:
   MAP (I ## map_pbc enc_string) (encode inst))
 End
 
-(* Interpreting a PB conclusion as CP instead. *)
-Definition cp_sem_concl_def:
-  (cp_sem_concl inst NoConcl ⇔ T) ∧
-  (cp_sem_concl inst DSat ⇔ cp_inst_satisfiable inst) ∧
-  (cp_sem_concl inst DUnsat ⇔ ¬cp_inst_satisfiable inst) ∧
-  (cp_sem_concl inst (OBounds lbi ubi) ⇔
-    ((case lbi of
-      NONE => ¬cp_inst_satisfiable inst
-    | SOME lb =>
-      (∀w. cp_inst_sat inst w ⇒
-        lb ≤ w (THE (SND (SND inst))))) ∧
-    (case ubi of
-      NONE => T
-    | SOME ub =>
-      (∃w. cp_inst_sat inst w ∧
-        w (THE (SND (SND inst))) ≤ ub))))
+Definition cp_inst_sem_concl_def:
+  cp_inst_sem_concl (inst:cp_inst) concl ⇔
+  case inst of (bnd,cs,obj) =>
+    cp_sem_concl (bnd_lookup bnd) (set cs) obj concl
+End
+
+Definition conv_concl_def:
+  (conv_concl inst (OBounds lbi ubi) =
+  case SND (SND inst) of
+    Maximize v => OBounds (OPTION_MAP (λv. -v) ubi) (OPTION_MAP (λv. -v) lbi)
+  | _ => (OBounds lbi ubi)) ∧
+  (conv_concl inst concl = concl)
 End
 
 Theorem full_encode_sem_concl:
   full_encode inst = (obj,pbf) ∧
   sem_concl (set (MAP SND pbf)) obj concl ⇒
-  cp_sem_concl inst concl
+  cp_inst_sem_concl inst (conv_concl inst concl)
 Proof
+  `∃bnd cs v. inst = (bnd,cs,v)` by metis_tac[PAIR]>>
   strip_tac>>
   gvs[full_encode_def]>>
   qpat_x_assum`sem_concl _ _ _` mp_tac>>
@@ -268,14 +190,62 @@ Proof
     drule INJ_SUBSET>>
     disch_then match_mp_tac>>
     simp[])>>
-  Cases_on`concl`>>fs[cp_sem_concl_def]>>
-  simp[sem_concl_def,unsatisfiable_def]
-  >- metis_tac[encode_equisatisfiable]
-  >- metis_tac[encode_equisatisfiable]>>
-  rw[]>>gvs[AllCasePreds()]
-  >- metis_tac[encode_equisatisfiable]
-  >- metis_tac[encode_equisatisfiable] >>
-  cheat
+  Cases_on`concl`>>fs[conv_concl_def]
+  >~[`NoConcl`]
+  >- fs[cp_inst_sem_concl_def,cp_sem_concl_def]
+  >~[`DSat`]
+  >- (
+    fs[cp_inst_sem_concl_def,cp_sem_concl_def,sem_concl_def]>>
+    simp[cp_satisfiable_def,satisfiable_def]>>
+    metis_tac[encode_sem_1,encode_sem_2,PAIR])
+  >~[`DUnsat`]
+  >- (
+    fs[cp_inst_sem_concl_def,cp_sem_concl_def,sem_concl_def]>>
+    simp[cp_unsatisfiable_def,cp_satisfiable_def,unsatisfiable_def,satisfiable_def]>>
+    metis_tac[encode_sem_1,encode_sem_2,PAIR])
+  >~[`OBounds lbi ubi`]
+  >- (
+    Cases_on`v`>>
+    fs[cp_inst_sem_concl_def,cp_sem_concl_def,sem_concl_def]>>
+    strip_tac
+    >- (
+      simp[cp_is_lb_def,cp_has_ub_def]>>
+      CONJ_TAC >- (
+        Cases_on`lbi`>>fs[]
+        >- (
+          fs[cp_unsatisfiable_def,cp_satisfiable_def,unsatisfiable_def,satisfiable_def]>>
+          metis_tac[encode_sem_1,encode_sem_2,PAIR])>>
+        rw[]>>
+        drule encode_sem_1>>
+        disch_then (qspec_then`Minimize a` assume_tac)>>fs[]>>
+        first_x_assum drule>>
+        simp[encode_obj_def,eval_obj_def]>>
+        DEP_REWRITE_TAC[encode_ivar_sem_1]>>
+        fs[cp_sat_def])>>
+      Cases_on`ubi`>>fs[]>>
+      drule encode_sem_2>>
+      disch_then (irule_at Any)>>
+      fs[GSYM encode_ivar_sem_2,encode_obj_def,eval_obj_def])
+    >- (
+      simp[cp_is_ub_def,cp_has_lb_def]>>
+      CONJ_TAC >- (
+        Cases_on`ubi`>>fs[]>>
+        drule encode_sem_2>>
+        disch_then (irule_at Any)>>
+        fs[GSYM encode_ivar_sem_2,encode_obj_def,eval_obj_def,encode_nivar_def]>>
+        intLib.ARITH_TAC)>>
+      Cases_on`lbi`>>fs[]
+      >- (
+        fs[cp_unsatisfiable_def,cp_satisfiable_def,unsatisfiable_def,satisfiable_def]>>
+        metis_tac[encode_sem_1,encode_sem_2,PAIR])>>
+      rw[]>>
+      drule encode_sem_1>>
+      disch_then (qspec_then`Maximize a` assume_tac)>>fs[]>>
+      first_x_assum drule>>
+      simp[encode_obj_def,eval_obj_def,encode_nivar_def]>>
+      DEP_REWRITE_TAC[encode_ivar_sem_1]>>
+      fs[cp_sat_def]>>
+      intLib.ARITH_TAC))
 QED
 
 (*
@@ -286,5 +256,5 @@ EVAL ``full_encode
   [
     NotEquals (INL (strlit "X")) (INR 5)
   ],
-  SOME (strlit "Z"))``
+  Maximize (strlit "Z"))``
 *)

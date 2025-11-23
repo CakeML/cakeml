@@ -146,32 +146,120 @@ End
 
 Type constraints = ``: 'a constraint set``;
 
+Datatype:
+  objective =
+    NoObjective
+  | Minimize 'a
+  | Maximize 'a
+End
+
 Definition cp_sat_def:
   cp_sat bnd cs w ⇔
     valid_assignment bnd w ∧
     ∀c. c ∈ cs ⇒ constraint_sem c w
 End
 
-(* Satisfiability for a CP decision instance *)
 Definition cp_satisfiable_def:
   cp_satisfiable bnd cs ⇔
   ∃w. cp_sat bnd cs w
 End
 
-(* Minimality for a CP optimization instance *)
-Definition cp_minimal_def:
-  cp_minimal bnd cs V (w: 'a assignment) ⇔
-  cp_sat bnd cs w ∧
-  ∀w'.
-    cp_sat bnd cs w' ⇒
-    w V ≤ w' V
+Definition cp_unsatisfiable_def:
+  cp_unsatisfiable bnd cs ⇔
+    ¬cp_satisfiable bnd cs
 End
 
-(* Maximality for a CP optimization instance *)
-Definition cp_maximal_def:
-  cp_maximal bnd cs V (w: 'a assignment) ⇔
-  cp_sat bnd cs w ∧
-  ∀w'.
-    cp_sat bnd cs w' ⇒
-    w' V ≤ w V
+(* lb is a lower bound on the value of v, NONE means +infinity *)
+Definition cp_is_lb_def:
+  cp_is_lb bnd cs v lbi ⇔
+    case lbi of
+      NONE => cp_unsatisfiable bnd cs
+    | SOME lb =>
+      (∀w. cp_sat bnd cs w ⇒ lb ≤ w v)
 End
+
+(* An attainable lower bound on the value of v, NONE means -infinity *)
+Definition cp_has_lb_def:
+  cp_has_lb bnd cs v lbi ⇔
+    case lbi of
+      NONE => T
+    | SOME lb =>
+      (∃w. cp_sat bnd cs w ∧ lb ≤ w v)
+End
+
+(* ub is an upper bound on the value of v, NONE means -infinity *)
+Definition cp_is_ub_def:
+  cp_is_ub bnd cs v ubi ⇔
+    case ubi of
+      NONE => cp_unsatisfiable bnd cs
+    | SOME ub =>
+      (∀w. cp_sat bnd cs w ⇒ w v ≤ ub)
+End
+
+(* An attainable upper bound on the value of v, NONE means +infinity *)
+Definition cp_has_ub_def:
+  cp_has_ub bnd cs v ubi ⇔
+    case ubi of
+      NONE => T
+    | SOME ub =>
+      (∃w. cp_sat bnd cs w ∧ w v ≤ ub)
+End
+
+(* We reuse the conclusion type from PBC to define the meaning of a CP problem.
+  The important case is for OBounds, where it depends on the CP problem
+*)
+Definition cp_sem_concl_def:
+  (cp_sem_concl bnd cs obj NoConcl ⇔ T) ∧
+  (cp_sem_concl bnd cs obj DSat ⇔ cp_satisfiable bnd cs) ∧
+  (cp_sem_concl bnd cs obj DUnsat ⇔ cp_unsatisfiable bnd cs) ∧
+  (cp_sem_concl bnd cs obj (OBounds lbi ubi) =
+    case obj of
+      NoObjective => T
+    | Minimize v =>
+      cp_is_lb bnd cs v lbi ∧
+      cp_has_ub bnd cs v ubi
+    | Maximize v =>
+      cp_has_lb bnd cs v lbi ∧
+      cp_is_ub bnd cs v ubi
+  )
+End
+
+(* The minimal value for a CP minimization instance *)
+Definition cp_minimal_def:
+  cp_minimal bnd cs v b ⇔
+  ∃w.
+    cp_sat bnd cs w ∧ w v = b ∧
+    ∀w'.
+      cp_sat bnd cs w' ⇒ b ≤ w' v
+End
+
+(* The maximal value for a CP maximization instance *)
+Definition cp_maximal_def:
+  cp_maximal bnd cs v b ⇔
+  ∃w.
+    cp_sat bnd cs w ∧ w v = b ∧
+    ∀w'.
+      cp_sat bnd cs w' ⇒ w' v ≤ b
+End
+
+Theorem cp_sem_concl_minimize:
+  cp_sem_concl bnd cs (Minimize v) (OBounds (SOME b) (SOME b)) ⇒
+  cp_minimal bnd cs v b
+Proof
+  rw[cp_sem_concl_def,cp_minimal_def,cp_is_lb_def,cp_has_ub_def]>>
+  first_x_assum drule>>
+  rw[]>>first_assum $ irule_at Any>>
+  intLib.ARITH_TAC
+QED
+
+Theorem cp_sem_concl_maximize:
+  cp_sem_concl bnd cs (Maximize v) (OBounds (SOME b) (SOME b)) ⇒
+  cp_maximal bnd cs v b
+Proof
+  rw[cp_sem_concl_def,cp_maximal_def,cp_has_lb_def,cp_is_ub_def]>>
+  first_x_assum drule>>
+  rw[]>>first_assum $ irule_at Any>>
+  intLib.ARITH_TAC
+QED
+
+
