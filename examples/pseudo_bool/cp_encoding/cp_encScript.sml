@@ -8,23 +8,6 @@ Ancestors
   pbc cp cp_to_ilpImpl ilp_to_pb mlstring
   (* mlmap *)
 
-(* Our concrete CP instances will consist of:
-
-- bnd : (mlstring, int # int) alist
-- cs : mlstring constraint list
-- obj : mlstring objective
-*)
-
-Type cp_inst = ``:(mlstring, int # int) alist # mlstring constraint list # mlstring objective``;
-
-(* For any unspecified variable, default to (0,0) *)
-Definition bnd_lookup_def:
-  bnd_lookup ls x =
-    case ALOOKUP ls x of
-      NONE => (0i,0i)
-    | SOME v => v
-End
-
 (* The encoder *)
 
 (*
@@ -157,12 +140,6 @@ Definition full_encode_def:
   (map_obj enc_string
     (encode_obj inst),
   MAP (I ## map_pbc enc_string) (encode inst))
-End
-
-Definition cp_inst_sem_concl_def:
-  cp_inst_sem_concl (inst:cp_inst) concl ⇔
-  case inst of (bnd,cs,obj) =>
-    cp_sem_concl (bnd_lookup bnd) (set cs) obj concl
 End
 
 Definition conv_concl_def:

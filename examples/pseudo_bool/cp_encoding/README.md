@@ -6,6 +6,9 @@ Definition of CP problem syntax and semantics
 [cp_encScript.sml](cp_encScript.sml):
 The end-to-end encoder from CP to PB
 
+[cp_parseScript.sml](cp_parseScript.sml):
+A parser for CP problems based on sexpressions
+
 [cp_to_ilpImplScript.sml](cp_to_ilpImplScript.sml):
 Implementation of a concrete CP-to-ILP phase
 
