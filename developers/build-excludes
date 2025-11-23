@@ -11,3 +11,6 @@ unverified
 examples/flover
 examples/flover/Infra
 examples/flover/semantics
+
+unverified/sexpr-bootstrap/x64/64
+unverified/sexpr-bootstrap/x64/32
