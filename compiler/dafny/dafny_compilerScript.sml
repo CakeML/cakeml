@@ -19,6 +19,9 @@ Definition frontend_def:
   od
 End
 
+(* TODO First do freshen, then remove assert
+   Both compile and vcg require freshen, but only compile removing asserts;
+   if we start with freshen, there is more overlap in the path a program takes *)
 Definition compile_def:
   compile dfy = from_program $ freshen_program $ remove_assert dfy
 End

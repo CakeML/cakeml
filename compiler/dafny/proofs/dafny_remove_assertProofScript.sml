@@ -214,22 +214,52 @@ Proof
 QED
 
 Theorem correct_remove_assert_stmt:
-  ∀s env stmt s' env' r.
-    evaluate_stmt s env stmt = (s', r) ∧ env_rel env env' ∧
+  ∀s env stmt s' r.
+    evaluate_stmt s env stmt = (s', r) ∧
     r ≠ Rstop (Serr Rfail) ∧ r ≠ Rstop (Serr Rtimeout) ⇒
-    evaluate_stmt s env' (remove_assert_stmt stmt) = (s', r)
+    evaluate_stmt s env (remove_assert_stmt stmt) = (s', r)
 Proof
   ho_match_mp_tac evaluate_stmt_ind
   \\ simp [remove_assert_stmt_def]
   \\ rpt strip_tac
-  >~ [‘Skip’] >- (gvs [evaluate_stmt_def])
   >~ [‘Assert’] >-
    (gvs [evaluate_stmt_def, AllCaseEqs()]
     \\ rename [‘Rerr err’] \\ Cases_on ‘err’ \\ gvs [])
   >~ [‘Then’] >- (gvs [evaluate_stmt_def, AllCaseEqs()])
   >~ [‘If’] >-
-   (drule_then assume_tac (cj 1 env_rel_evaluate_exp)
-    \\ gvs [evaluate_stmt_def, oneline do_cond_def, AllCaseEqs()])
+   (gvs [evaluate_stmt_def, oneline do_cond_def, AllCaseEqs()])
+  >~ [‘Dec local’] >-
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _ ’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ rpt (pairarg_tac \\ gvs [])
+    \\ TOP_CASE_TAC \\ rpt strip_tac \\ gvs [])
+  >~ [‘While’] >-
+   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
+    \\ simp [evaluate_stmt_def]
+    \\ IF_CASES_TAC >- (simp [])
+    \\ simp []
+    \\ ntac 2 TOP_CASE_TAC
+    \\ IF_CASES_TAC >- (simp [])
+    \\ reverse IF_CASES_TAC >- (simp [])
+    \\ TOP_CASE_TAC
+    \\ reverse TOP_CASE_TAC >- (rpt strip_tac \\ gvs [])
+    \\ strip_tac
+    \\ gvs [STOP_def, remove_assert_stmt_def])
+QED
+
+Theorem env_rel_evaluate_stmt[local]:
+  ∀s env stmt s' r env'.
+    evaluate_stmt s env stmt = (s', r) ∧ env_rel env env' ∧
+    r ≠ Rstop (Serr Rfail) ∧ r ≠ Rstop (Serr Rtimeout) ⇒
+    evaluate_stmt s env' stmt = (s', r)
+Proof
+  ho_match_mp_tac evaluate_stmt_ind
+  \\ rpt strip_tac
+  \\ imp_res_tac env_rel_evaluate_exp
+  >~ [‘Skip’] >- (gvs [evaluate_stmt_def])
+  >~ [‘Assert’] >- (gvs [evaluate_stmt_def])
+  >~ [‘Then’] >- (gvs [evaluate_stmt_def, AllCaseEqs()])
+  >~ [‘If’] >- (gvs [evaluate_stmt_def, AllCaseEqs()])
   >~ [‘Dec local’] >-
    (qpat_x_assum ‘evaluate_stmt _ _ _ = _ ’ mp_tac
     \\ simp [evaluate_stmt_def]
@@ -240,23 +270,8 @@ Proof
     \\ drule_then assume_tac env_rel_evaluate_rhs_exps \\ simp []
     \\ ntac 2 TOP_CASE_TAC \\ gvs []
     \\ drule_then assume_tac env_rel_assign_values \\ simp [])
-  >~ [‘While’] >-
-   (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
-    \\ simp [evaluate_stmt_def]
-    \\ IF_CASES_TAC >- (simp [])
-    \\ simp []
-    \\ drule_then assume_tac (cj 1 env_rel_evaluate_exp) \\ simp []
-    \\ ntac 2 TOP_CASE_TAC
-    \\ IF_CASES_TAC >- (simp [])
-    \\ reverse IF_CASES_TAC >- (simp [])
-    \\ TOP_CASE_TAC
-    \\ reverse TOP_CASE_TAC >- (rpt strip_tac \\ gvs [])
-    \\ strip_tac \\ gvs []
-    \\ last_x_assum drule
-    \\ simp [STOP_def, remove_assert_stmt_def])
-  >~ [‘Print’] >-
-   (drule_then assume_tac (cj 1 env_rel_evaluate_exp)
-    \\ gvs [evaluate_stmt_def])
+  >~ [‘While’] >- (gvs [evaluate_stmt_def, AllCaseEqs()])
+  >~ [‘Print’] >- (gvs [evaluate_stmt_def, AllCaseEqs()])
   >~ [‘MetCall’] >-
    (qpat_x_assum ‘evaluate_stmt _ _ _ = _’ mp_tac
     \\ simp [evaluate_stmt_def]
@@ -270,12 +285,14 @@ Proof
     \\ simp []
     \\ TOP_CASE_TAC
     \\ TOP_CASE_TAC  >- (simp [])
-    \\ reverse TOP_CASE_TAC >- (rpt strip_tac \\ gvs [])
-    \\ gvs []
-    \\ TOP_CASE_TAC
-    \\ IF_CASES_TAC >- (simp [])
-    \\ simp []
-    \\ strip_tac \\ drule env_rel_assign_values \\ simp [])
+    \\ TOP_CASE_TAC (* Should spawn 2 subgoals *)
+    \\ rpt strip_tac \\ gvs []
+    \\ first_assum $ drule_then assume_tac
+    \\ drule_then assume_tac correct_remove_assert_stmt \\ gvs []
+    (* Only one subgoal should remain *)
+    \\ TOP_CASE_TAC >- (gvs [])
+    \\ IF_CASES_TAC >- (gvs [])
+    \\ drule env_rel_assign_values \\ gvs [])
   >~ [‘Return’] >- (gvs [evaluate_stmt_def])
 QED
 
@@ -291,13 +308,15 @@ Theorem correct_remove_assert:
   evaluate_program ck prog = (s,Rcont) ⇒
   evaluate_program ck (remove_assert prog) = (s,Rcont)
 Proof
-  namedCases_on ‘prog’ ["members"]
+  ‘env_rel (mk_env prog) (mk_env (remove_assert prog))’ by
+    (simp [env_rel_def, mk_env_def])
+  \\ namedCases_on ‘prog’ ["members"]
   \\ simp [remove_assert_def, evaluate_program_def]
   \\ simp [member_name_remove_assert_member_eq]
   \\ IF_CASES_TAC \\ simp []
-  \\ simp [mk_env_def]
+  \\ gvs [mk_env_def]
   \\ strip_tac
-  \\ drule correct_remove_assert_stmt \\ simp [remove_assert_stmt_def]
-  \\ disch_then irule
-  \\ simp [env_rel_def, remove_assert_def]
+  \\ drule env_rel_evaluate_stmt
+  \\ disch_then drule
+  \\ simp [remove_assert_def]
 QED

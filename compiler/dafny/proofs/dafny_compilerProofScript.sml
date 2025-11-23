@@ -284,23 +284,48 @@ Definition state_ok_def:
     strict_locals_ok ins s.locals ∧ locals_ok outs s.locals
 End
 
+Definition stmt_ok_def:
+  stmt_ok s_locals stmt ⇔
+    is_fresh_stmt stmt ∧
+    no_shadow (set (MAP FST s_locals)) stmt
+End
+
+Theorem eval_stmt_remove_assert_stmt[local]:
+  eval_stmt s env stmt st' (Rstop Sret) ⇒
+  eval_stmt s env (remove_assert_stmt stmt) st' (Rstop Sret)
+Proof
+  simp [eval_stmt_def] \\ rpt strip_tac
+  \\ drule correct_remove_assert_stmt \\ simp []
+  \\ disch_then $ irule_at Any
+QED
+
+Theorem is_fresh_stmt_remove_assert_stmt[local]:
+  is_fresh_stmt stmt ⇒ is_fresh_stmt (remove_assert_stmt stmt)
+Proof
+  cheat
+QED
+
+Theorem no_shadow_remove_assert_stmt[local]:
+  no_shadow (set (MAP FST s.locals)) stmt ⇒
+  no_shadow (set (MAP FST s.locals)) (remove_assert_stmt stmt)
+Proof
+  cheat
+QED
+
 Theorem vc_ok_imp[local]:
   vc_ok prog ∧
   get_member name prog =
     SOME (Method name' ins reqs ens reads decrs outs mods body) ∧
   conditions_hold s <| prog := prog |> reqs ∧
-  (* (some "technical" conditions) *)
+  from_stmt (remove_assert_stmt body) lvl = INR body_cml ∧
+  state_rel m l s t env_cml ∧
+  (* ("technical" conditions) *)
   ALL_DISTINCT (MAP FST ins ++ MAP FST outs) ∧
   mods_ok s.locals mods mod_vars mod_locs ∧
   state_ok s ins outs ∧
-  (* compiler stuff *)
-  from_stmt body lvl = INR body_cml ∧
-  state_rel m l s t env_cml ∧
+  stmt_ok s.locals body ∧
   base_at_most base t.refs l ∧
-  env_rel <| prog := prog |> env_cml ∧
-  is_fresh_stmt body ∧
-  no_shadow (set (MAP FST s.locals)) body ∧
-  no_assert_stmt body
+  env_rel <| prog := prog |> env_cml
   ⇒
   ∃s' ck ck₁ (t': 'ffi cml_state) m'.
     (* Dafny *)
@@ -332,6 +357,7 @@ Proof
   \\ first_assum $ irule_at (Pos hd)
   \\ simp [can_read_outs_def]
   \\ first_assum $ irule_at (Pos hd)
+  \\ drule_then assume_tac eval_stmt_remove_assert_stmt
   \\ gvs [eval_stmt_def]
   \\ drule correct_from_stmt
   \\ disch_then drule
@@ -339,7 +365,12 @@ Proof
   \\ disch_then $
        qspecl_then [‘t with clock := ck₁’, ‘env_cml’, ‘m’, ‘l’, ‘base’] mp_tac
   \\ simp []
-  \\ impl_tac >- (gvs [state_rel_def])
+  \\ impl_tac >-
+   (gvs [state_rel_def, stmt_ok_def]
+    \\ simp [no_assert_stmt_remove_assert_stmt]
+    \\ DEP_REWRITE_TAC
+         [is_fresh_stmt_remove_assert_stmt, no_shadow_remove_assert_stmt]
+    \\ simp [])
   \\ rpt strip_tac
   \\ namedCases_on ‘r_cml’ ["v", "err"] \\ gvs [stmt_res_rel_def]
   \\ Cases_on ‘err’ \\ gvs [stmt_res_rel_def]
