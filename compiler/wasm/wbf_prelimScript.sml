@@ -155,8 +155,8 @@ End
 
 Definition dec_2u32_def:
   dec_2u32 bs : (word32 # word32) dcdr =
-    case dec_u32 bs of (INL _, _) => err | (INR n, bs) =>
-    case dec_u32 bs of (INL _, _) => err | (INR m, bs) =>
+    case dec_u32 bs of (INL _, _) => err | ret bs n =>
+    case dec_u32 bs of (INL _, _) => err | ret bs m =>
     ret bs (n,m)
 End
 
@@ -170,8 +170,8 @@ End
 
 Definition dec_2u32_u8_def:
   dec_2u32_u8 bs : (word32 # word32 # byte) dcdr =
-    case dec_2u32 bs of (INL _, _) => err | (INR (i,j), bs) =>
-    case dec_u8   bs of (INL _, _) => err | (INR k    , bs) =>
+    case dec_2u32 bs of (INL _, _) => err | ret bs (i,j) =>
+    case dec_u8   bs of (INL _, _) => err | ret bs k     =>
     ret bs (i,j,k)
 End
 
@@ -256,24 +256,27 @@ QED
 (***********************************)
 
 Theorem dec_enc_s32:
-  ∀x encx rest. enc_s32 x = SOME encx ⇒
-  dec_s32 $ append encx ++ rest = (INR x, rest)
+  ∀x encx rest.
+    enc_s32 x = SOME encx ⇒
+    dec_s32 $ append encx ++ rest = (INR x, rest)
 Proof
      rw[enc_s32_def, dec_s32_def, AllCaseEqs()]
   \\ rw[append_def, dec_enc_signed_word32]
 QED
 
 Theorem dec_enc_s64:
-  ∀x encx rest. enc_s64 x = SOME encx ⇒
-  dec_s64 $ append encx ++ rest = (INR x, rest)
+  ∀x encx rest.
+    enc_s64 x = SOME encx ⇒
+    dec_s64 $ append encx ++ rest = (INR x, rest)
 Proof
      rw[enc_s64_def, dec_s64_def, AllCaseEqs()]
   \\ rw[append_def, dec_enc_signed_word64]
 QED
 
 Theorem dec_enc_s33:
-  ∀x encx rest. enc_s33 x = SOME encx ⇒
-  dec_s33 $ append encx ++ rest = (INR x, rest)
+  ∀x encx rest.
+    enc_s33 x = SOME encx ⇒
+    dec_s33 $ append encx ++ rest = (INR x, rest)
 Proof
      rw[dec_s33_def, AllCaseEqs(), enc_s33_def]
   >> rw[append_def, dec_signed_word_def, dec_enc_w7s, or_w7s_def]
@@ -282,7 +285,8 @@ Proof
 QED
 
 Theorem dec_enc_u8:
-  ∀x encx rest. enc_u8 x = SOME encx ⇒
+  ∀rest x encx.
+    enc_u8 x = SOME encx ⇒
   dec_u8 $ append encx ++ rest = (INR x, rest)
 Proof
      rw[dec_u8_def, enc_u8_def, AllCaseEqs()]
@@ -290,16 +294,18 @@ Proof
 QED
 
 Theorem dec_enc_u32:
-  ∀x encx rest. enc_u32 x = SOME encx ⇒
-  dec_u32 $ append encx ++ rest = (INR x, rest)
+  ∀rest x encx.
+    enc_u32 x = SOME encx ⇒
+    dec_u32 $ append encx ++ rest = (INR x, rest)
 Proof
      rw[dec_u32_def, enc_u32_def, AllCaseEqs()]
   \\ rw[append_def, dec_enc_unsigned_word]
 QED
 
 Theorem dec_enc_2u32:
-  ∀x y encx rest. enc_2u32 x y = SOME encx ⇒
-  dec_2u32 $ append encx ++ rest = (INR (x,y), rest)
+  ∀rest x y encx.
+    enc_2u32 x y = SOME encx ⇒
+    dec_2u32 $ append encx ++ rest = (INR (x,y), rest)
 Proof
      rw[dec_2u32_def, enc_2u32_def, AllCaseEqs()]
   \\ simp $ ssa
@@ -309,8 +315,9 @@ Proof
 QED
 
 Theorem dec_enc_2u32_u8:
-  ∀x y z encx rest. enc_2u32_u8 x y z = SOME encx ⇒
-  dec_2u32_u8 $ append encx ++ rest = (INR (x,y,z), rest)
+  ∀rest x y z encx.
+    enc_2u32_u8 x y z = SOME encx ⇒
+    dec_2u32_u8 $ append encx ++ rest = (INR (x,y,z), rest)
 Proof
      rw[dec_2u32_u8_def, enc_2u32_u8_def, AllCaseEqs()]
   \\ simp $ ssa
