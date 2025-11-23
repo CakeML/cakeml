@@ -259,91 +259,90 @@ Proof
 QED
 
 open dafny_miscTheory;
-Theorem vcg_eval_stmt_imp[local]:
+
+Definition mods_ok_def:
+  mods_ok s_locals mods mod_vars mod_locs ⇔
+    (* modifies currently only supports variables *)
+    dest_Vars mods = INR mod_vars ∧
+    (* mod_vars are locations *)
+    LIST_REL (mod_loc s_locals) mod_vars mod_locs
+End
+
+Definition vc_ok_def:
+  vc_ok prog ⇔
+    ∃vcs. vcg prog = INR vcs ∧ EVERY (λ(vs,p). forall vs p) vcs
+End
+
+Definition can_read_outs_def:
+  can_read_outs s env outs ⇔
+    ∃out_vs. LIST_REL (eval_exp s env) (MAP (Var ∘ FST) outs) out_vs
+End
+
+Definition state_ok_def:
+  state_ok s ins outs ⇔
+    s.locals_old = s.locals ∧ s.heap_old = s.heap ∧ state_inv s ∧
+    strict_locals_ok ins s.locals ∧ locals_ok outs s.locals
+End
+
+Theorem vc_ok_imp[local]:
+  vc_ok prog ∧
   get_member name prog =
     SOME (Method name' ins reqs ens reads decrs outs mods body) ∧
-  (* Method signature (+ specifiation) is ok *)
-  dest_Vars mods = INR mod_vars ∧
+  conditions_hold s <| prog := prog |> reqs ∧
+  (* (some "technical" conditions) *)
   ALL_DISTINCT (MAP FST ins ++ MAP FST outs) ∧
-  (* VC is ok *)
-  vcg prog = INR vcs ∧
-  EVERY (λ(vs,p). forall vs p) vcs ∧
-  (* arguments are ok *)
-  LIST_REL (eval_exp s <| prog := prog |>) args vs ∧
-  LENGTH args = LENGTH ins ∧
-  (* initial state is ok *)
-  Abbrev
-    (callee_locals =
-     REVERSE
-       (ZIP (MAP FST ins,MAP SOME vs) ++
-        ZIP (MAP FST outs,REPLICATE (LENGTH outs) NONE))) ∧
-  Abbrev
-    (callee_s =
-     (s with
-            <|locals := callee_locals; locals_old := callee_locals;
-              heap_old := s.heap; locals_prev := callee_locals;
-              heap_prev := s.heap|>)) ∧
-  state_inv callee_s ∧
-  LIST_REL (mod_loc callee_locals) mod_vars mod_locs ∧
-  conditions_hold callee_s <|prog := prog|> reqs ∧
-  strict_locals_ok ins callee_locals ∧ locals_ok outs callee_locals
+  mods_ok s.locals mods mod_vars mod_locs ∧
+  state_ok s ins outs ∧
+  (* compiler stuff *)
+  from_stmt body lvl = INR body_cml ∧
+  state_rel m l s t env_cml ∧
+  base_at_most base t.refs l ∧
+  env_rel <| prog := prog |> env_cml ∧
+  is_fresh_stmt body ∧
+  no_shadow (set (MAP FST s.locals)) body ∧
+  no_assert_stmt body
   ⇒
-  ∃s'.  (* TODO Add what we learn about s' *)
-    eval_stmt s <| prog := prog |>
-      (MetCall (MAP (VarLhs ∘ FST) outs) name' args) s' Rcont
+  ∃s' ck ck₁ (t': 'ffi cml_state) m'.
+    (* Dafny *)
+    eval_stmt s <| prog := prog |> body s' (Rstop Sret) ∧
+    valid_mod s.heap (MAP get_loc mod_locs) s'.heap ∧
+    conditions_hold s' <| prog := prog |>
+      (MAP (wrap_Old (set (MAP FST ins))) ens) ∧
+    can_read_outs s' <| prog := prog |> outs ∧
+    (* CakeML *)
+    evaluate$evaluate (t with clock := ck) env_cml [body_cml] =
+      (t', Rerr (Rraise (Conv (SOME ret_stamp) []))) ∧
+    store_preserve base t.refs t'.refs ∧
+    state_rel m' l (s' with clock := ck₁) t' env_cml ∧ m ⊑ m'
 Proof
   rpt strip_tac
-  \\ imp_res_tac LIST_REL_LENGTH \\ gvs []
-  \\ drule_all_then assume_tac get_member_some_met_name \\ gvs []
-  \\ drule_all_then assume_tac eval_exp_evaluate_exps \\ gvs []
-  \\ drule_then assume_tac (cj 2 evaluate_exp_add_to_clock) \\ gvs []
-  \\ simp [eval_stmt_def, evaluate_stmt_def]
-  \\ rename [‘evaluate_exps (s with clock := ck) _’]
-  \\ qrefinel [‘_’, ‘1 + ck + ck1’] \\ simp []
-  \\ simp [set_up_call_def, safe_zip_def, dec_clock_def]
-
   \\ namedCases_on ‘prog’ ["members"]
-  \\ gvs [vcg_def, oneline bind_def, CaseEq "sum"]
-  \\ drule_all_then assume_tac mets_vcg_correct
+  \\ gvs [vc_ok_def, vcg_def, oneline bind_def, CaseEq "sum"]
   \\ drule_all_then assume_tac rank_methods_compatible_env
+  \\ drule_all_then assume_tac mets_vcg_correct
   \\ fs [get_member_def]
   \\ drule_all get_member_aux_rank_methods \\ rpt strip_tac
   \\ drule methods_correct
-  \\ disch_then drule \\ gvs []  (* instantiate method *)
+  \\ disch_then drule \\ simp []
   \\ disch_then $
-       qspecl_then [
-         ‘callee_s’,
-         ‘<|prog := Program members|>’,
-         ‘mod_locs’ ]
-       mp_tac
-  \\ simp []
-  \\ impl_tac >- (simp [Abbr ‘callee_s’])
-
+       qspecl_then
+         [‘s’, ‘<|prog := Program members|>’, ‘mod_vars’, ‘mod_locs’] mp_tac
+  \\ fs [mods_ok_def, state_ok_def]
   \\ rpt strip_tac
+  \\ first_assum $ irule_at (Pos hd)
+  \\ simp [can_read_outs_def]
+  \\ first_assum $ irule_at (Pos hd)
   \\ gvs [eval_stmt_def]
-  \\ rename [‘evaluate_stmt (callee_s with clock := ck₂)’]
-  \\ cheat
-
-  (* Get past clocks *)
-  (* \\ drule evaluate_stmt_add_to_clock \\ gvs [] *)
-  (* \\ disch_then $ qspec_then ‘ck₁’ assume_tac *)
-  (* \\ dxrule_then assume_tac evaluate_stmt_add_to_clock \\ gvs [] *)
-  (* \\ qrefine ‘ck₂ + ck1’ \\ gvs [] *)
-
-  (* Deal with assign *)
-  (* \\ fs [GSYM MAP_MAP_o] *)
-  (* \\ drule_all_then assume_tac LIST_REL_eval_exp_MAP_Var \\ simp [] *)
-  (* \\ drule_all_then assume_tac OPT_MMAP_LENGTH \\ simp [] *)
-  (* \\ rename [‘OPT_MMAP (read_local s₁.locals)’] *)
-  (* \\ ‘EVERY (λn. IS_SOME (ALOOKUP (restore_caller s₁ s).locals n)) (MAP FST outs)’ by cheat *)
-  (* \\ drule IMP_assi_values *)
-  (* \\ disch_then drule *)
-  (* \\ disch_then $ qspec_then ‘<|prog := Program members|>’ mp_tac *)
-  (* \\ impl_tac >- *)
-  (*  (simp [restore_caller_def] *)
-  (*   \\ drule_all_then assume_tac opt_mmap_read_local_every_value_inv *)
-  (*   \\ gvs [state_inv_def] *)
-  (*   \\ cheat) *)
-  (* \\ rpt strip_tac *)
-  (* \\ gvs [assi_values_def, restore_caller_def] *)
+  \\ drule correct_from_stmt
+  \\ disch_then drule
+  \\ rename [‘evaluate_stmt (s with clock := ck₁)’]
+  \\ disch_then $
+       qspecl_then [‘t with clock := ck₁’, ‘env_cml’, ‘m’, ‘l’, ‘base’] mp_tac
+  \\ simp []
+  \\ impl_tac >- (gvs [state_rel_def])
+  \\ rpt strip_tac
+  \\ namedCases_on ‘r_cml’ ["v", "err"] \\ gvs [stmt_res_rel_def]
+  \\ Cases_on ‘err’ \\ gvs [stmt_res_rel_def]
+  \\ first_assum $ irule_at (Pos hd) \\ simp []
+  \\ first_assum $ irule_at (Pos hd) \\ simp []
 QED
