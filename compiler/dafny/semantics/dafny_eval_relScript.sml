@@ -477,3 +477,12 @@ Proof
     (gvs [state_component_equality])
   \\ gvs []
 QED
+
+Theorem LIST_REL_eval_exp_MAP_Var:
+  ∀ns vs.
+    LIST_REL (eval_exp st env) (MAP Var ns) vs ⇒
+    OPT_MMAP (read_local st.locals) ns = SOME vs
+Proof
+  Induct \\ Cases_on ‘vs’ \\ gvs []
+  \\ gvs [eval_exp_def,evaluate_exp_def,AllCaseEqs(),PULL_EXISTS]
+QED

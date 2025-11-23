@@ -1335,15 +1335,6 @@ Proof
   \\ rewrite_tac [eval_true_cons] \\ simp []
 QED
 
-Theorem LIST_REL_eval_exp_MAP_Var[local]:
-  ∀ns vs.
-    LIST_REL (eval_exp st env) (MAP Var ns) vs ⇒
-    OPT_MMAP (read_local st.locals) ns = SOME vs
-Proof
-  Induct \\ Cases_on ‘vs’ \\ gvs []
-  \\ gvs [eval_exp_def,evaluate_exp_def,AllCaseEqs(),PULL_EXISTS]
-QED
-
 (* TODO Move to dafny_eval_rel *)
 Theorem eval_true_False[simp]:
   ~eval_true st env False
@@ -3029,7 +3020,7 @@ Proof
   \\ last_x_assum drule_all \\ simp []
 QED
 
-Theorem read_local_value_inv[local]:
+Theorem read_local_value_inv:
   read_local st.locals name = SOME v ∧ state_inv st
   ⇒
   value_inv st.heap v

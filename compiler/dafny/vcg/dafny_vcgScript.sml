@@ -511,12 +511,19 @@ Definition to_mets_def:
   to_mets methods = to_mets_aux 0 methods
 End
 
+Definition rank_methods_def:
+  rank_methods members =
+  do
+    top_sorted_methods <- top_sorted_deps members;
+    to_mets top_sorted_methods
+  od
+End
+
 Definition vcg_def:
   vcg (Program members) =
   do
-    top_sorted_methods <- top_sorted_deps members;
-    mets <- to_mets top_sorted_methods;
-    result_mmap (met_vcg mets) mets
+    mets <- rank_methods members;
+    mets_vcg mets
   od
 End
 
