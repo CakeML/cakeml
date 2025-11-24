@@ -504,33 +504,35 @@ Proof
 QED
 
 Theorem vc_ok_imp:
-  vc_ok dafny_env.prog ∧
-  get_member name dafny_env.prog =
-    SOME (Method name' ins reqs ens reads decrs outs mods body) ∧
-  conditions_hold s dafny_env reqs ∧
-  from_stmt (remove_assert_stmt body) lvl = INR body_cml ∧
-  state_rel m l s t env_cml ∧
-  (* ("technical" conditions) *)
-  ALL_DISTINCT (MAP FST ins ++ MAP FST outs) ∧
-  mods_ok s.locals mods mod_vars mod_locs ∧
-  state_ok s ins outs ∧
-  no_overload dafny_env.prog ∧
-  stmt_ok s.locals body ∧
-  base_at_most base t.refs l ∧
-  env_rel dafny_env env_cml
-  ⇒
-  ∃s' ck ck₁ (t': 'ffi cml_state) m'.
-    (* Dafny *)
-    eval_stmt s dafny_env body s' (Rstop Sret) ∧
-    valid_mod s.heap (MAP get_loc mod_locs) s'.heap ∧
-    conditions_hold s' dafny_env
-      (MAP (wrap_Old (set (MAP FST ins))) ens) ∧
-    can_read_outs s' dafny_env outs ∧
-    (* CakeML *)
-    evaluate$evaluate (t with clock := ck) env_cml [body_cml] =
-      (t', Rerr (Rraise (Conv (SOME ret_stamp) []))) ∧
-    store_preserve base t.refs t'.refs ∧
-    state_rel m' l (s' with clock := ck₁) t' env_cml ∧ m ⊑ m'
+  ∀dafny_env name name' ins reqs ens reads decrs outs mods body s lvl body_cml
+   m l t env_cml mod_vars mod_locs base.
+    vc_ok dafny_env.prog ∧
+    get_member name dafny_env.prog =
+      SOME (Method name' ins reqs ens reads decrs outs mods body) ∧
+    conditions_hold s dafny_env reqs ∧
+    from_stmt (remove_assert_stmt body) lvl = INR body_cml ∧
+    state_rel m l s t env_cml ∧
+    (* ("technical" conditions) *)
+    ALL_DISTINCT (MAP FST ins ++ MAP FST outs) ∧
+    mods_ok s.locals mods mod_vars mod_locs ∧
+    state_ok s ins outs ∧
+    no_overload dafny_env.prog ∧
+    stmt_ok s.locals body ∧
+    base_at_most base t.refs l ∧
+    env_rel dafny_env env_cml
+    ⇒
+    ∃s' ck ck₁ (t': 'ffi cml_state) m'.
+      (* Dafny *)
+      eval_stmt s dafny_env body s' (Rstop Sret) ∧
+      valid_mod s.heap (MAP get_loc mod_locs) s'.heap ∧
+      conditions_hold s' dafny_env
+        (MAP (wrap_Old (set (MAP FST ins))) ens) ∧
+      can_read_outs s' dafny_env outs ∧
+      (* CakeML *)
+      evaluate$evaluate (t with clock := ck) env_cml [body_cml] =
+        (t', Rerr (Rraise (Conv (SOME ret_stamp) []))) ∧
+      store_preserve base t.refs t'.refs ∧
+      state_rel m' l (s' with clock := ck₁) t' env_cml ∧ m ⊑ m'
 Proof
   rpt strip_tac
   \\ namedCases_on ‘dafny_env.prog’ ["members"]

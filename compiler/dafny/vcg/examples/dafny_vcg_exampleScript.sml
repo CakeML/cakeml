@@ -9,6 +9,9 @@ Ancestors
   dafny_freshen
   dafny_wp_calc (* For forall_def *)
   dafny_vcg
+  (* For vc_ok_imp *)
+  result_monad
+  dafny_compilerProof
 Libs
   preamble
 
@@ -381,6 +384,63 @@ Proof
            unuse_old_def, do_cond_def, get_locs_def, set_prev_def, unset_prev_def,
            do_uop_def]
   \\ simp [state_component_equality]
+QED
+
+Theorem vc_ok_mccarthy:
+  vc_ok ^mccarthy
+Proof
+  simp [vc_ok_def] \\ EVAL_TAC \\ simp [mccarthy_correct]
+QED
+
+(* TODO mccarthy -> mccarthy_prog *)
+(* TODO Split mccarthy_prog into mccarthy (method), use that in the
+   theorem instead *)
+(* TODO ? Maybe we should add something like ALOOKUP s.locals v0 = ...,
+   in the assumption, and then have a result about the integer value *)
+
+val mccarthy_body_cakeml = EVAL
+  “from_stmt
+     (remove_assert_stmt
+        (Then
+           (If (int_le (Var «v0») (int_lit 100))
+              (Dec («v2»,IntT)
+                 (Then
+                    (MetCall [VarLhs «v2»] «M»
+                       [BinOp Add (Var «v0») (int_lit 11)])
+                    (MetCall [VarLhs «v1»] «M» [Var «v2»])))
+              (Assign
+                 [(VarLhs «v1»,ExpRhs (BinOp Sub (Var «v0») (int_lit 10)))]))
+           Return)) 0”
+  |> concl |> rhs |> rand;
+
+Theorem vc_ok_mccarthy_imp[local]:
+  state_rel m l s (t: 'ffi cml_state) env_cml ∧
+  env_rel <| prog := ^mccarthy |> env_cml ∧
+  state_ok s [(«v0»,IntT)] [(«v1»,IntT)] ∧
+  ¬MEM «v2» (MAP FST s.locals)
+  ⇒
+  bar = baz
+Proof
+  rpt strip_tac
+  \\ qspecl_then [‘<| prog := ^mccarthy |>’, ‘«M»’] mp_tac vc_ok_imp
+  \\ simp [vc_ok_mccarthy, get_member_def, get_member_aux_def]
+  (* lvl doesn't matter as we don't have loops *)
+  \\ disch_then $
+       qspecl_then [‘s’, ‘0’, ‘^mccarthy_body_cakeml’, ‘m’,
+                    ‘l’, ‘t’, ‘env_cml’, ‘[]’, ‘[]’, ‘0’] mp_tac
+  \\ impl_tac >-
+   (rpt strip_tac
+    >- (EVAL_TAC)
+    >- (EVAL_TAC)
+    >- (simp [])
+    >- (EVAL_TAC)
+    >- (simp [])
+    >- (EVAL_TAC)
+    >- (EVAL_TAC \\ simp [])
+    >- (EVAL_TAC \\ simp [])
+    >- (simp []))
+  \\ rpt strip_tac
+  \\ cheat
 QED
 
 (** Example 3: Swapping elements in an array **********************************)
