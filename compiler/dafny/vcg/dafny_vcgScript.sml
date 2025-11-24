@@ -477,7 +477,6 @@ End
 Definition top_sorted_deps_def:
   top_sorted_deps members =
   do
-    members <<- nub members;
     deps <- result_mmap (dependencies members) members;
     return $ top_sort_any deps
   od

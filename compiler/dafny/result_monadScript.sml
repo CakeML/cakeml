@@ -49,7 +49,18 @@ Proof
   \\ res_tac
 QED
 
-Theorem mem_result_mmap:
+Theorem mem_result_mmap_rl:
+  ∀xs ys.
+    result_mmap f xs = INR ys ∧ MEM y ys ⇒
+    ∃x. f x = INR y ∧ MEM x xs
+Proof
+  Induct
+  \\ rpt strip_tac
+  \\ gvs [result_mmap_def, oneline bind_def, CaseEq "sum"]
+  \\ first_assum $ irule_at (Pos hd) \\ simp []
+QED
+
+Theorem mem_result_mmap_lr:
   ∀xs ys.
     result_mmap f xs = INR ys ∧ MEM x xs ⇒
     ∃y. f x = INR y ∧ MEM y ys
