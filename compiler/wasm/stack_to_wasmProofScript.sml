@@ -1060,7 +1060,7 @@ QED
 (* a proof for each case *)
 
 Theorem compile_Skip:
-  ^(jget_goal "Skip")
+  ^(get_goal "Skip")
 Proof
   rpt strip_tac
   >> gvs [compile_def,exec_def,stackSemTheory.evaluate_def]
@@ -1723,7 +1723,6 @@ rpt strip_tac
 >>simp[compile_def]
 (* Goal: ∃t_res t_fin. exec_list [I32_CONST 0w; RETURN] t = (res1,t1) ∧ ... *)
 >>simp[exec_list_cons,exec_I32_CONST,exec_RETURN]
->>simp[conf_rel_def]
 (* prove res_rel *)
 >>gvs[res_rel_def,push_def]
 (* prove state_rel *)
