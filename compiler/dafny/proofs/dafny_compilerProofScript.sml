@@ -220,6 +220,116 @@ QED
 open dafny_evaluateTheory;
 open result_monadTheory;
 open dafny_wp_calcTheory;
+open topological_sortTheory;
+
+Theorem result_mmap_dependencies_map_fst[local]:
+  ∀members deps.
+    result_mmap (dependencies members') members = INR deps ⇒
+    MAP FST deps = members
+Proof
+  Induct >- (simp [result_mmap_def])
+  \\ rpt strip_tac
+  \\ gvs [result_mmap_def, oneline bind_def, dependencies_def, AllCaseEqs()]
+QED
+
+Theorem mem_result_mmap_dependencies[local]:
+  result_mmap (dependencies members) members = INR deps ∧
+  MEM member members
+  ⇒
+  MEM member (MAP FST deps)
+Proof
+  rpt strip_tac
+  \\ drule_then assume_tac result_mmap_dependencies_map_fst \\ gvs []
+QED
+
+Theorem distinct_result_mmap_dependencies[local]:
+  result_mmap (dependencies members₁) members = INR deps ∧
+  ALL_DISTINCT members
+  ⇒
+  ALL_DISTINCT (MAP FST deps)
+Proof
+  rpt strip_tac
+  \\ drule_then assume_tac result_mmap_dependencies_map_fst \\ gvs []
+QED
+
+Theorem mem_flat_top_sort_any[local]:
+  ALL_DISTINCT (MAP FST deps) ∧ MEM member (MAP FST deps) ⇒
+  MEM member (FLAT (top_sort_any deps))
+Proof
+  rpt strip_tac \\ drule_then assume_tac top_sort_any_correct \\ gvs []
+QED
+
+Theorem mem_top_sorted_deps[local]:
+  MEM member members ∧
+  top_sorted_deps members = INR top_sorted_methods ⇒
+  MEM member (FLAT top_sorted_methods)
+Proof
+  rpt strip_tac
+  \\ gvs [top_sorted_deps_def, oneline bind_def, CaseEq "sum"]
+  \\ drule mem_result_mmap_dependencies \\ simp []
+  \\ disch_then $ drule_then assume_tac
+  \\ drule distinct_result_mmap_dependencies \\ simp [] \\ strip_tac
+  \\ drule_all mem_flat_top_sort_any \\ simp []
+QED
+
+Theorem mem_to_mets_aux[local]:
+  ∀top_sorted_methods rank mets.
+    MEM (Method name ins reqs ens reads decreases outs mods body)
+        (FLAT top_sorted_methods) ∧
+    to_mets_aux rank top_sorted_methods = INR mets
+    ⇒
+    ∃rank'.
+      MEM
+      (Method name
+         <| ins := ins; reqs := reqs; ens := ens; reads := reads;
+            decreases := decreases; outs := outs; mods := mods;
+            rank := rank' |> body) mets
+Proof
+  Induct >- (simp [])
+  \\ rpt strip_tac
+  \\ gvs [to_mets_aux_def, oneline bind_def, CaseEq "sum"]
+  >-
+   (drule_all mem_result_mmap
+    \\ simp [to_met_def, oneline bind_def, CaseEq "sum"] \\ strip_tac
+    \\ rename [‘result_mmap (to_met rank)’]
+    \\ qexists ‘rank’ \\ simp [])
+  \\ last_x_assum drule
+  \\ disch_then $ qx_choose_then ‘rank'’ assume_tac
+  \\ qexists ‘rank'’ \\ simp []
+QED
+
+Theorem mem_to_mets[local]:
+  MEM (Method name ins reqs ens reads decreases outs mods body)
+    (FLAT top_sorted_methods) ∧
+  to_mets top_sorted_methods = INR mets
+  ⇒
+  ∃rank.
+    MEM
+      (Method name
+         <| ins := ins; reqs := reqs; ens := ens; reads := reads;
+            decreases := decreases; outs := outs; mods := mods;
+            rank := rank |> body) mets
+Proof
+  rpt strip_tac
+  \\ gvs [to_mets_def]
+  \\ drule_all mem_to_mets_aux \\ simp []
+QED
+
+Theorem mem_rank_methods[local]:
+  MEM (Method name ins reqs ens reads decreases outs mods body) members ∧
+  rank_methods members = INR mets ⇒
+  ∃rank.
+    MEM
+      (Method name
+         <| ins := ins; reqs := reqs; ens := ens; reads := reads;
+            decreases := decreases; outs := outs; mods := mods;
+            rank := rank |> body) mets
+Proof
+  rpt strip_tac
+  \\ gvs [rank_methods_def, oneline bind_def, CaseEq "sum"]
+  \\ drule_all_then assume_tac mem_top_sorted_deps
+  \\ drule_all mem_to_mets \\ simp []
+QED
 
 Theorem get_member_aux_rank_methods[local]:
   get_member_aux name members =
@@ -232,7 +342,9 @@ Theorem get_member_aux_rank_methods[local]:
             decreases := decreases; outs := outs; mods := mods;
             rank := rank |> body) mets
 Proof
-  cheat
+  rpt strip_tac
+  \\ drule_then assume_tac get_member_aux_some_mem
+  \\ drule_all mem_rank_methods \\ simp []
 QED
 
 Theorem rank_methods_compatible_env[local]:

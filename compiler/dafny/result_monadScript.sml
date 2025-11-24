@@ -49,6 +49,16 @@ Proof
   \\ res_tac
 QED
 
+Theorem mem_result_mmap:
+  ∀xs ys.
+    result_mmap f xs = INR ys ∧ MEM x xs ⇒
+    ∃y. f x = INR y ∧ MEM y ys
+Proof
+  Induct
+  \\ rpt strip_tac
+  \\ gvs [result_mmap_def, oneline bind_def, CaseEq "sum"]
+QED
+
 Definition result_mmap2_def:
   result_mmap2 f [] [] = return [] ∧
   result_mmap2 f (h0::t0) (h1::t1) =
@@ -82,4 +92,3 @@ End
 Definition extend_path_def:
   extend_path cur next = concat [cur; next; «:»]
 End
-

@@ -36,6 +36,15 @@ QED
 
 (* misc *)
 
+Theorem get_member_aux_some_mem:
+  get_member_aux name members = SOME member ⇒
+  MEM member members
+Proof
+  Induct_on ‘members’ >- (simp [get_member_aux_def])
+  \\ gen_tac \\ simp [get_member_aux_def]
+  \\ TOP_CASE_TAC \\ IF_CASES_TAC \\ gvs []
+QED
+
 (* TODO Similar to _some_fun_name: Is there a better way than writing them
    separately? *)
 Theorem get_member_some_met_name:
