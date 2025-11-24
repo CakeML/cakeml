@@ -20,43 +20,283 @@ Definition varc_def:
   | INR c => c
 End
 
-Definition not_equals_sem_def:
-  not_equals_sem (X:'a varc) (Y:'a varc) (w: 'a assignment) =
-    (varc w X ≠ varc w Y)
+Datatype:
+  prim_unop = Negative | Abs
 End
 
-Definition all_different_sem_def:
-  all_different_sem (As: ('a varc) list) (w: 'a assignment) =
-    ALL_DISTINCT (MAP (varc w) As)
+Datatype:
+  prim_binop =
+    Plus | Minus
+  | Times | Div | Mod | Pow
+  | Min | Max
 End
 
-Definition element_sem_def:
-  element_sem (R : 'a varc) (X : 'a varc) (As: ('a varc) list)
-    (w: 'a assignment) =
-    (1 ≤ varc w X ∧ Num (varc w X) ≤ LENGTH As ∧
-      varc w R = varc w (EL (Num (varc w X) - 1) As)
-    )
+Datatype:
+  cmpop =
+    Equal | NotEqual
+  | GreaterEqual | GreaterThan
+  | LessEqual | LessThan
 End
 
-Definition element2d_sem_def:
-  element2d_sem (R: 'a varc) (X: 'a varc) (Y: 'a varc) (Tss: ('a varc) list list)
-    (w: 'a assignment) =
-  let
-    vX = varc w X;
-    vY = varc w Y
-  in
-    1 ≤ vX ∧ Num vX ≤ LENGTH Tss ∧ 1 ≤ vY ∧ Num vY ≤ LENGTH $ HD Tss ∧
-    EVERY (λTs. LENGTH Ts = LENGTH $ HD Tss) Tss ∧
-    varc w R = varc w (EL (Num vY - 1) $ EL (Num vX - 1) Tss)
+Type reify = ``: ('a varc + 'a varc) option``;
+
+(* For binary operations, we have the arguments
+  to the operations followed by the RHS,
+  e.g., Plus X Y Z means:
+  X + Y = Z
+
+  For the reified cmpops, the names are appended
+  with -if or -iff, e.g.:
+  equal-if
+  equal-iff
+*)
+Datatype:
+  prim_constr =
+    (* op X Y : op X = Y *)
+  | Unop prim_unop ('a varc) ('a varc)
+    (* Binop op X Y Z : X op Y = Z *)
+  | Binop prim_binop ('a varc) ('a varc) ('a varc)
+    (* Cmpop op X Y : X cmp Y *)
+  | Cmpop ('a reify) cmpop ('a varc) ('a varc)
 End
 
-Definition abs_sem_def:
-  abs_sem X Y (w: 'a assignment) ⇔
-    varc w X = ABS (varc w Y)
+(* The ones below are general constraints.
+  Our policy: keep only general and widely-used ones.
+  Those that can be readily encoded using other constraints are removed. *)
+
+Datatype:
+  counting_constr =
+    (* AllDifferent Xs *)
+  | AllDifferent ('a varc list)
+    (* NValue Xs Y : Y is num. distinct in Xs *)
+  | NValue ('a varc list) ('a varc)
+    (* Count Xs Y Z : Z is num. times Y appears in Xs *)
+  | Count ('a varc list) ('a varc) ('a varc)
+    (* Among Xs iS Y : Y is how many times the values in iS (as set)
+       appear in Xs *)
+  | Among ('a varc list) (int list) ('a varc)
+  (* AtMostOne TODO *)
 End
 
 Type iclin_term = ``:(int # 'a varc) list ``
 
+(* The op is prefixed with "linear-", e.g.:
+  lin-equal-if ((1 X) (2 5) ...) 5 *)
+Datatype:
+  linear_constr =
+    (* Linear op Xs Y : Xs op Y *)
+  | Lin ('a reify) cmpop ('a iclin_term) ('a varc)
+End
+
+(* The second value is the offset to interpret this index *)
+Type array_ind = ``:('a varc # int)``
+
+Datatype:
+  array_constr =
+    (* Element Xs Y Z : Xs[Y] = Z *)
+  | Element ('a varc list) ('a array_ind) ('a varc)
+    (* Element2D Xs Y1 Y2 Z : Xs[Y1][Y2] = Z *)
+  | Element2D ('a varc list list) ('a array_ind) ('a array_ind) ('a varc)
+    (* ArrayMax Xs Y : Y = max(Xs) *)
+  | ArrayMax ('a varc list) ('a varc)
+    (* ArrayMin Xs Y : Y = min(Xs) *)
+  | ArrayMin ('a varc list) ('a varc)
+    (* ArrayArgMax Xs Y : Xs[Y] = max(Xs), and Y is leftmost such element *)
+  | ArrayArgMax ('a varc list) ('a array_ind)
+    (* ArrayArgMin Xs Y : Xs[Y] = max(Xs), and Y is leftmost such element *)
+  | ArrayArgMin ('a varc list) ('a array_ind)
+    (* In Y Xs: Y is in Xs *)
+  | In ('a varc) ('a varc list)
+End
+
+(* NONE represents a wildcard entry for that element *)
+Datatype:
+  extensional_constr =
+    Table ((int option) list list) ('a list)
+End
+
+Datatype:
+  logical_constr =
+    (* And Xs Y : Y > 0 ⇔ And_i (X_i > 0) *)
+    And ('a varc list) ('a varc)
+    (* Or Xs Y : Y > 0 ⇔ Or_i (X_i > 0) *)
+  | Or ('a varc list) ('a varc)
+    (* Parity Xs : Odd number of (X_i > 0) *)
+  | Parity ('a varc list)
+End
+
+(* The op is prefixed with "lex-", e.g.:
+  lex-less (X Y Z) (A B C) *)
+Datatype:
+  lexicographical_constr =
+    Lex cmpop ('a varc list) ('a varc list)
+End
+
+Datatype:
+  channeling_constr =
+    (* Second arg is inverse of first when viewed
+      as functions; second arg in each pair is the index *)
+    Inverse ('a varc list # int) ('a varc list # int)
+End
+
+Datatype:
+  misc_constr =
+    (* List is a successor encoding, 0 indexed *)
+    Circuit ('a varc list)
+    (* Two equation version:
+      weights, profits, variables
+      total weight, total profit
+      dot product of weights & variables = total weight
+      dot product of profit & variables = total profit
+    TODO Knapsack (int list) (int list) ('a varc list) ('a varc) ('a varc)  *)
+End
+
+Datatype:
+  constraint =
+  | Prim ('a prim_constr)
+  | Counting ('a counting_constr)
+  | Linear ('a linear_constr)
+  | Array ('a array_constr)
+  | Extensional ('a extensional_constr)
+  | Logical ('a logical_constr)
+  | Lexicographical ('a lexicographical_constr)
+  | Channeling ('a channeling_constr)
+  | Misc ('a misc_constr)
+End
+
+(* Semantics *)
+
+(***
+  prim_constr
+***)
+Definition unop_val_def:
+  unop_val unop x =
+  case unop of
+    Negative => - x
+  | Abs => ABS x
+End
+
+Definition unop_sem_def:
+  unop_sem unop X Y w ⇔
+  unop_val unop (varc w X) = varc w Y
+End
+
+(* TODO: ?? *)
+Definition guard_binop_def:
+  guard_binop bop y ⇔
+  case bop of
+    Div => y ≠ 0
+  | Mod => y ≠ 0
+  | Pow => y ≥ 0
+  | _ => T
+End
+
+Definition binop_val_def:
+  binop_val bop x y =
+  case bop of
+    Plus => x + y
+  | Minus => x - y
+  | Times => x * y
+  | Div => x / y
+  | Mod => x % y
+  | Pow => x ** Num y
+  | Min => int_min x y
+  | Max => int_max x y
+End
+
+Definition binop_sem_def:
+  binop_sem bop X Y Z w =
+  let x = varc w X in
+  let y = varc w Y in
+  let z = varc w Z in
+  guard_binop bop y ∧
+  binop_val bop x y = z
+End
+
+Definition cmpop_val_def:
+  cmpop_val cmp x (y:int) =
+  case cmp of
+    Equal => x = y
+  | NotEqual => x ≠ y
+  | GreaterEqual => x ≥ y
+  | GreaterThan => x > y
+  | LessEqual => x ≤ y
+  | LessThan => x < y
+End
+
+(* NONE : no reification
+  INL Z : one-sided reification
+  INR Z : full reification *)
+Definition reify_sem_def:
+  reify_sem Zr w b =
+  case Zr of
+    NONE => b
+  | SOME (INL Z) => varc w Z > 0 ⇒ b
+  | SOME (INR Z) => varc w Z > 0 ⇔ b
+End
+
+Definition cmpop_sem_def:
+  cmpop_sem Zr cmp X Y w =
+  let x = varc w X in
+  let y = varc w Y in
+  reify_sem Zr w (cmpop_val cmp x y)
+End
+
+Definition prim_constr_sem_def:
+  prim_constr_sem c w =
+  case c of
+    Unop uop X Y => unop_sem uop X Y w
+  | Binop bop X Y Z => binop_sem bop X Y Z w
+  | Cmpop Zr cmp X Y => cmpop_sem Zr cmp X Y w
+End
+
+(***
+  counting_constr
+***)
+Definition all_different_sem_def:
+  all_different_sem Xs w =
+    ALL_DISTINCT (MAP (varc w) Xs)
+End
+
+Definition n_value_sem_def:
+  n_value_sem Xs Y w =
+  (varc w Y ≥ 0 ∧
+    (Num $ varc w Y =
+    CARD $ set (MAP (varc w) Xs)))
+End
+
+Definition count_sem_def:
+  count_sem Xs Y Z w =
+  (varc w Z =
+    iSUM $
+      MAP
+      (λX.
+        b2i (varc w X = varc w Y)
+      ) Xs)
+End
+
+Definition among_sem_def:
+  among_sem Xs iS Y w =
+  (varc w Y =
+    iSUM $
+      MAP
+      (λX.
+        b2i (varc w X ∈ set iS)
+      ) Xs)
+End
+
+Definition counting_constr_sem_def:
+  counting_constr_sem c w =
+  case c of
+    AllDifferent Xs => all_different_sem Xs w
+  | NValue Xs Y => n_value_sem Xs Y w
+  | Count Xs Y Z => count_sem Xs Y Z w
+  | Among Xs iS Y => among_sem Xs iS Y w
+End
+
+(***
+  linear_constr
+***)
 Definition eval_icterm_def[simp]:
   eval_icterm w (c:int,X) = c * varc w X
 End
@@ -66,75 +306,238 @@ Definition eval_iclin_term_def:
     iSUM (MAP (eval_icterm w) xs)
 End
 
-Definition ilc_sem_def:
-  ilc_sem (Xs : 'a iclin_term) op rhs (w:'a assignment) ⇔
-  do_op op (eval_iclin_term w Xs) rhs
+Definition lin_sem_def:
+  lin_sem Zr cmp Xs Y w ⇔
+  reify_sem Zr w
+  (cmpop_val cmp
+    (eval_iclin_term w Xs)
+    (varc w Y))
 End
 
-Definition arr_max_sem_def:
-  arr_max_sem (M: 'a varc) (As: ('a varc) list) (w: 'a assignment) =
+Definition linear_constr_sem_def:
+  linear_constr_sem c w ⇔
+  case c of Lin Zr cmp Xs Y =>
+    lin_sem Zr cmp Xs Y w
+End
+
+(***
+  array_constr
+***)
+
+(* i is the 0th position, and we offset from there *)
+Definition mk_array_ind_def:
+  mk_array_ind (Y,i) w =
+  varc w Y - i
+End
+
+Definition element_sem_def:
+  element_sem Xs Yi Z w ⇔
+  let y = mk_array_ind Yi w in
+  0 ≤ y ∧ Num y < LENGTH Xs ∧
+  varc w Z =
+    varc w (EL (Num y) Xs)
+End
+
+(* TODO *)
+Definition element2d_sem_def:
+  element2d_sem Xss Y1i Y2i Z w ⇔
+  let y1 = mk_array_ind Y1i w in
+  let y2 = mk_array_ind Y2i w in
+  0 ≤ y1 ∧ Num y1 < LENGTH Xss ∧
+  0 ≤ y2 ∧
+  (∃l.
+    EVERY (λXs. LENGTH Xs = l) Xss ∧
+    Num y2 < l) ∧
+  varc w Z =
+    varc w (
+      EL (Num y2)
+        (EL (Num y1) Xss))
+End
+
+Definition array_max_sem_def:
+  array_max_sem Xs Y w =
   let
-    vM = varc w M;
-    vAs = MAP (varc w) As
+    y = varc w Y;
+    xs = MAP (varc w) Xs
   in
-    MEM vM vAs ∧ EVERY (λe. e ≤ vM) vAs
+    MEM y xs ∧
+    EVERY (λx. x ≤ y) xs
 End
 
-Definition arr_min_sem_def:
-  arr_min_sem (M: 'a varc) (As: ('a varc) list) (w: 'a assignment) =
+Definition array_min_sem_def:
+  array_min_sem Xs Y w =
   let
-    vM = varc w M;
-    vAs = MAP (varc w) As
+    y = varc w Y;
+    xs = MAP (varc w) Xs
   in
-    MEM vM vAs ∧ EVERY (λe. vM ≤ e) vAs
+    MEM y xs ∧
+    EVERY (λx. y ≤ x) xs
 End
 
-Definition count_sem_def:
-  count_sem (Y: 'a varc) (C: 'a varc) (As: ('a varc) list) (w: 'a assignment) =
-  (varc w C =
-    iSUM $
-      MAP (λA. if varc w A = varc w Y then 1 else 0) As)
+Definition array_arg_max_sem_def:
+  array_arg_max_sem Xs Yi w =
+  let
+    y = mk_array_ind Yi w;
+    xs = MAP (varc w) Xs
+  in
+    0 ≤ y ∧ Num y < LENGTH xs ∧
+    EVERY (λx. x ≤ EL (Num y) xs) xs
 End
 
-Definition nvalue_sem_def:
-  nvalue_sem (Y: 'a varc) (As: 'a list) (w: 'a assignment) =
-  (varc w Y ≥ 0 ∧ (Num $ varc w Y = CARD $ set (MAP w As)))
+Definition array_arg_min_sem_def:
+  array_arg_min_sem Xs Yi w =
+  let
+    y = mk_array_ind Yi w;
+    xs = MAP (varc w) Xs
+  in
+    0 ≤ y ∧ Num y < LENGTH xs ∧
+    EVERY (λx. EL (Num y) xs ≤ x) xs
+End
+
+Definition in_sem_def:
+  in_sem Y Xs w =
+  let
+    y = varc w Y;
+    xs = MAP (varc w) Xs
+  in
+    MEM y xs
+End
+
+Definition array_constr_sem_def:
+  array_constr_sem c w ⇔
+  case c of
+    Element Xs Yi Z => element_sem Xs Yi Z w
+  | Element2D Xss Y1i Y2i Z =>
+      element2d_sem Xss Y1i Y2i Z w
+  | ArrayMax Xs Y => array_max_sem Xs Y w
+  | ArrayMin Xs Y => array_min_sem Xs Y w
+  | ArrayArgMax Xs Yi =>
+      array_arg_max_sem Xs Yi w
+  | ArrayArgMin Xs Yi =>
+      array_arg_min_sem Xs Yi w
+  | In Y Xs => in_sem Y Xs w
+End
+
+(***
+  extensional_constr
+***)
+Definition match_row_def:
+  match_row ts xs ⇔
+  LIST_REL
+    (λt x.
+      case t of
+        NONE => T
+      | SOME v => v = x) ts xs
 End
 
 Definition table_sem_def:
-  table_sem (Xs: 'a list) (Tss: int list list) (w: 'a assignment) ⇔
-  EVERY (λTs. LENGTH Ts = LENGTH Xs) Tss ∧ MEM (MAP w Xs) Tss
+  table_sem tss Xs w ⇔
+  EVERY (λts. LENGTH ts = LENGTH Xs) tss ∧
+  ∃ts. MEM ts tss ∧ match_row ts (MAP w Xs)
 End
 
-Datatype:
-  constraint =
-    NotEquals ('a varc) ('a varc)
-  | AllDifferent ('a varc list)
-  | Element ('a varc) ('a varc) ('a varc list)
-  | Element2D ('a varc) ('a varc) ('a varc) ('a varc list list)
-  | Abs ('a varc) ('a varc)
-  | Ilc ('a iclin_term) pbop int
-  | ArrMax ('a varc) ('a varc list)
-  | ArrMin ('a varc) ('a varc list)
-  | Count ('a varc) ('a varc) ('a varc list)
-  | Nvalue ('a varc) ('a list)
-  | Table ('a list) (int list list)
+Definition extensional_constr_sem_def:
+  extensional_constr_sem c w ⇔
+  case c of Table tss Xs =>
+    table_sem tss Xs w
+End
+
+(***
+  logical_constr
+***)
+Definition and_sem_def:
+  and_sem Xs Y w =
+   reify_sem (SOME (INR Y)) w
+    (EVERY (λX. varc w X > 0) Xs)
+End
+
+Definition or_sem_def:
+  or_sem Xs Y w =
+   reify_sem (SOME (INR Y)) w
+    (EXISTS (λX. varc w X > 0) Xs)
+End
+
+Definition parity_sem_def:
+  parity_sem Xs w =
+   ODD
+   (SUM $
+      MAP
+      (λX.
+        if varc w X > 0 then 1n else 0n
+      ) Xs)
+End
+
+Definition logical_constr_sem_def:
+  logical_constr_sem c w ⇔
+  case c of
+    And Xs Y => and_sem Xs Y w
+  | Or Xs Y => or_sem Xs Y w
+  | Parity Xs => parity_sem Xs w
+End
+
+(***
+  lexicographical_constr
+***)
+
+(* Our semantics assumes LENGTH xs = LENGTH ys *)
+Definition row_lt_def:
+  (row_lt (x::xs) (y::ys) ⇔
+    (x:int) < y ∨
+    (x = y) ∧ row_lt xs ys) ∧
+  (row_lt _ _ ⇔ F)
+End
+
+Definition cmpop_row_val_def:
+  cmpop_row_val cmp (xs:int list) (ys:int list) =
+  case cmp of
+    Equal => xs = ys
+  | NotEqual => xs ≠ ys
+  | GreaterEqual => row_lt ys xs ∨ xs = ys
+  | GreaterThan => row_lt ys xs
+  | LessEqual => row_lt xs ys ∨ xs = ys
+  | LessThan => row_lt xs ys
+End
+
+Definition lex_sem_def:
+  lex_sem cmp Xs Ys w ⇔
+  LENGTH Xs = LENGTH Ys ∧
+  cmpop_row_val cmp (MAP (varc w) Xs) (MAP (varc w) Ys)
+End
+
+Definition lexicographical_constr_sem_def:
+  lexicographical_constr_sem c w ⇔
+  case c of Lex cmp Xs Ys =>
+    lex_sem cmp Xs Ys w
+End
+
+(***
+  channeling_constr TODO
+***)
+Definition channeling_constr_sem_def:
+  channeling_constr_sem c w ⇔
+  T
+End
+
+(***
+  misc_constr TODO
+***)
+Definition misc_constr_sem_def:
+  misc_constr_sem c w ⇔
+  T
 End
 
 Definition constraint_sem_def:
   constraint_sem c (w: 'a assignment) =
   case c of
-    NotEquals X Y => not_equals_sem X Y w
-  | AllDifferent As => all_different_sem As w
-  | Element R X As => element_sem R X As w
-  | Element2D R X Y Tss => element2d_sem R X Y Tss w
-  | Abs X Y => abs_sem X Y w
-  | Ilc Xs op rhs => ilc_sem Xs op rhs w
-  | ArrMax M As => arr_max_sem M As w
-  | ArrMin M As => arr_min_sem M As w
-  | Count Y C As => count_sem Y C As w
-  | Nvalue Y As => nvalue_sem Y As w
-  | Table Xs Tss => table_sem Xs Tss w
+    Prim c => prim_constr_sem c w
+  | Counting c => counting_constr_sem c w
+  | Linear c => linear_constr_sem c w
+  | Array c => array_constr_sem c w
+  | Extensional c => extensional_constr_sem c w
+  | Logical c => logical_constr_sem c w
+  | Lexicographical c => lexicographical_constr_sem c w
+  | Channeling c => channeling_constr_sem c w
+  | Misc c => misc_constr_sem c w
 End
 
 Definition valid_assignment_def:
