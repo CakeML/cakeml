@@ -333,6 +333,45 @@ Definition cakeml_ftype_index_def:
   cakeml_ftype_index = 0w:word32
 End
 
+Definition stack_wasm_ok_def:
+  (stack_wasm_ok c (ShMemOp _ _ _) <=> F) ∧
+  (stack_wasm_ok c (Get _ _) ⇔ F) ∧
+  (stack_wasm_ok c (Set _ _) ⇔ F) ∧
+  (stack_wasm_ok c (OpCurrHeap _ _ _) ⇔ F) ∧
+  (stack_wasm_ok c (JumpLower _ _ _) ⇔ F) ∧
+  (stack_wasm_ok c (Alloc _) ⇔ F) ∧
+  (stack_wasm_ok c (StoreConsts _ _ _) ⇔ F) ∧
+  (stack_wasm_ok c (Install _ _ _ _ _) ⇔ F) ∧
+  (stack_wasm_ok c (CodeBufferWrite _ _) ⇔ F) ∧
+  (stack_wasm_ok c (DataBufferWrite _ _) ⇔ F) ∧
+  (stack_wasm_ok c (RawCall _) ⇔ F) ∧
+  (stack_wasm_ok c (StackAlloc _) ⇔ F) ∧
+  (stack_wasm_ok c (StackFree _) ⇔ F) ∧
+  (stack_wasm_ok c (StackStore _ _) ⇔ F) ∧
+  (stack_wasm_ok c (StackStoreAny _ _) ⇔ F) ∧
+  (stack_wasm_ok c (StackLoad _ _) ⇔ F) ∧
+  (stack_wasm_ok c (StackLoadAny _ _) ⇔ F) ∧
+  (stack_wasm_ok c (StackGetSize _) ⇔ F) ∧
+  (stack_wasm_ok c (StackSetSize _) ⇔ F) ∧
+  (stack_wasm_ok c (StackAlloc _) ⇔ F) ∧
+
+  (stack_wasm_ok c ((Inst i):'a stackLang$prog) ⇔ asm$inst_ok i c) ∧
+  (stack_wasm_ok c (Raise n) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
+  (stack_wasm_ok c (Return n) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
+
+  (stack_wasm_ok c (Seq p1 p2) ⇔ stack_wasm_ok c p1 ∧ stack_wasm_ok c p2) ∧
+  (stack_wasm_ok c (If cmp n r p1 p2) ⇔ stack_wasm_ok c p1 ∧ stack_wasm_ok c p2) ∧
+  (stack_wasm_ok c (While cmp n r p) ⇔ stack_wasm_ok c p) ∧
+  (stack_wasm_ok c (Call r tar h) ⇔
+    (case tar of INR r => r < c.reg_count ∧ ¬MEM r c.avoid_regs | _ => T) ∧
+    case r of NONE => T
+    | SOME (rp,lr,_,_) =>
+      stack_wasm_ok c rp ∧ lr < c.reg_count ∧
+      (case h of NONE=>T | SOME (hp,_,_) => stack_wasm_ok c hp)
+  )
+
+End
+
 (*
 Datatype: func =
   <| ftype  : index
@@ -355,7 +394,7 @@ Definition code_rel_def:
         locals := []; (* we don't use wasm local variables lol *)
         body := flatten (compile prog)
       |> (*/\
-    stack_asm_ok c prog*)
+    stack_wasm_ok c prog*)
 End
 
 Definition wasm_state_ok_def:
@@ -374,7 +413,7 @@ Definition state_rel_def:
     (* s only *)
     ¬ s.use_stack ∧ ¬ s.use_store ∧ ¬ s.use_alloc ∧ ¬ s.be ∧
     empty_buffer s.code_buffer ∧ empty_buffer s.data_buffer ∧
-    (∀i p. lookup i s.code = SOME p ⇒ stack_asm_ok c p) ∧ (* TODO: move to code_rel? *)
+    (∀i p. lookup i s.code = SOME p ⇒ stack_wasm_ok c p) ∧ (* TODO: move to code_rel? *)
     (* t only *)
     wasm_state_ok t ∧
     (* actually relate s and t *)
@@ -401,14 +440,35 @@ Proof
   >>(Cases_on`x`>>simp[res_rel_def])
 QED
 
+(*
+Definition stack_asm_ok_def:
+  (stack_asm_ok c ((Inst i):'a stackLang$prog) ⇔ asm$inst_ok i c) ∧
+  (stack_asm_ok c (ShMemOp op r ad) ⇔ reg_ok r c ∧ addr_ok op ad c) ∧
+  (stack_asm_ok c (CodeBufferWrite r1 r2) ⇔ r1 < c.reg_count ∧ r2 < c.reg_count ∧ ¬MEM r1 c.avoid_regs ∧ ¬MEM r2 c.avoid_regs) ∧
+  (stack_asm_ok c (Seq p1 p2) ⇔ stack_asm_ok c p1 ∧ stack_asm_ok c p2) ∧
+  (stack_asm_ok c (If cmp n r p p') ⇔ stack_asm_ok c p ∧ stack_asm_ok c p') ∧
+  (stack_asm_ok c (While cmp n r p) ⇔ stack_asm_ok c p) ∧
+  (stack_asm_ok c (Raise n) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
+  (stack_asm_ok c (Return n) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
+  (stack_asm_ok c (Call r tar h) ⇔
+    (case tar of INR r => r < c.reg_count ∧ ¬MEM r c.avoid_regs | _ => T) ∧
+    case r of
+      (SOME (p,_,_,_) => stack_asm_ok c p ∧
+      case h of
+      SOME (p',_,_) => stack_asm_ok c p'
+      | _ => T)
+    | _ => T) ∧
+  (stack_asm_ok c _ ⇔  T)
+End
+*)
+
 (* set up for one theorem per case *)
 
 val goal_tm = “
   λ(p,^s). ∀s_res s_fin t.
     evaluate (p,s) = (s_res, s_fin) ∧
     conf_ok c ∧
-    stack_asm_ok c p ∧ (* from stackProps *)
-    (* TODO: no banned instructions like Install, RawCall, etc. *)
+    stack_wasm_ok c p ∧
     s_res ≠ SOME Error ∧
     state_rel c s t ⇒
     ∃ck t_res t_fin.
@@ -1086,7 +1146,8 @@ rpt strip_tac
 >>rpt$peel[]
 >-(
   (* c1 finishes normally *)
-  first_x_assum drule
+  fs[stack_wasm_ok_def] (* unfold ‘stack_wasm_ok c (Seq c1 c2)’ *)
+  >>first_x_assum drule (* use IH *)
   >>strip_tac
   >>strip_tac
   >>fs[]
@@ -1109,11 +1170,12 @@ rpt strip_tac
   (* goal: res_rel s_res t_res (t.stack,t_fin.stack) *)
   (* we have ‘res_rel NONE t_res1 (t.stack,t1.stack)’; note that ‘t1.stack = t.stack’ (from ‘res_rel NONE t_res1 (t.stack,t1.stack)’) *)
   >>‘t1.stack = t.stack’ by (qpat_x_assum ‘res_rel NONE t_res1 (t.stack,t1.stack)’ mp_tac >> simp[res_rel_def])
-  >>metis_tac[]
+  >>metis_tac[] (*equational*)
 )
 >>rename1 `evaluate (c1,s) = (s_res1,s1)`
 >>strip_tac
 >>(Cases_on`s_res1`>>gvs[]) (* obtain x where ‘s_res1 = SOME x’ *)
+>>fs[stack_wasm_ok_def]
 >>first_x_assum drule
 >>strip_tac
 >>imp_res_tac res_rel_SOME
@@ -1234,7 +1296,7 @@ Theorem compile_If:
 Proof
   rpt strip_tac
   >>qpat_x_assum `evaluate _ = _` mp_tac
-  >>fs[evaluate_def,stack_asm_ok_def]
+  >>fs[evaluate_def,stack_wasm_ok_def]
   >>rpt(peel[])
   >>(
     strip_tac
@@ -1342,7 +1404,7 @@ rpt strip_tac
     )
     (* non-timeout case *)
     >>gvs[pair_case_eq,option_case_eq] (* `evaluate (prog,dec_clock s)` does not result in Error *)
-    >>`stack_asm_ok c prog` by (fs[state_rel_def]>>metis_tac[])
+    >>`stack_wasm_ok c prog` by (fs[state_rel_def]>>metis_tac[])
     >>subgoal `state_rel c (dec_clock s) (t with <| clock := s.clock-1; stack:=[]; locals:=[] |>)`
     >-(
       simp[dec_clock_def]
@@ -1410,7 +1472,7 @@ rpt strip_tac
     )
     (* non-timeout case *)
     >>gvs[pair_case_eq,option_case_eq] (* `evaluate (prog,dec_clock s)` does not result in Error *)
-    >>`stack_asm_ok c prog` by (fs[state_rel_def]>>metis_tac[])
+    >>`stack_wasm_ok c prog` by (fs[state_rel_def]>>metis_tac[])
     >>subgoal `state_rel c (dec_clock s) (t with <| clock := s.clock-1; stack:=[]; locals:=[] |>)`
     >-(
       simp[dec_clock_def]
@@ -1501,7 +1563,7 @@ rpt strip_tac
     >>simp[compile_def]
     (* use IH 2 to obtain ck, t_res_call, t_call *)
     (* premise 1/3 *)
-    >>subgoal `stack_asm_ok c prog`
+    >>subgoal `stack_wasm_ok c prog`
     >-(
       qpat_x_assum `state_rel c s t` mp_tac >> simp[state_rel_def]
       >>metis_tac[]
@@ -1556,7 +1618,7 @@ rpt strip_tac
         (* Result *)
         (Cases_on`wl = Loc l m`>>fs[])
         (* use IH 1 *)
-        >>`stack_asm_ok c ret_handler` by fs[stack_asm_ok_def]
+        >>`stack_wasm_ok c ret_handler` by fs[stack_wasm_ok_def]
         (* BE CAREFUL WITH ∀t'!! *)
         >>`state_rel c s_call (t_call with stack:=[])` by metis_tac[state_rel_with_stack]
         >>(first_x_assum drule_all >> strip_tac (* apply IH; obtain ck' *))
@@ -1597,7 +1659,7 @@ rpt strip_tac
         (* has exn handler *)
         >>(`∃eh eh_l eh_m. x = (eh, eh_l, eh_m)` by metis_tac[pair_CASES]>>gvs[])
         >>(Cases_on`wl = Loc eh_l eh_m`>>fs[])
-        >>`stack_asm_ok c eh` by fs[stack_asm_ok_def]
+        >>`stack_wasm_ok c eh` by fs[stack_wasm_ok_def]
         (* BE CAREFUL WITH ∀t'!! *)
         >>`state_rel c s_call (t_call with stack:=[])` by metis_tac[state_rel_with_stack]
         >>(first_x_assum drule_all >> strip_tac (* apply IH; obtain ck' *))
@@ -1661,7 +1723,7 @@ Proof cheat
     >>simp[]
     >>CONV_TAC(DEPTH_CONV record_canon_simp_conv)
     >>impl_keep_tac
-    >-fs[stack_asm_ok_def,inst_ok_def,reg_ok_def,conf_ok_def,state_rel_def,regs_rel_def]
+    >-fs[stack_wasm_ok_def,inst_ok_def,reg_ok_def,conf_ok_def,state_rel_def,regs_rel_def]
     >>rw[]
     >-simp[res_rel_def]
     >>irule state_rel_set_var
@@ -1674,7 +1736,7 @@ Proof cheat
     >~[`Shift`] >- cheat
     >~[`Div`] >- cheat
     >~[`LongMul`] >- cheat
-    >~[`LongDiv`] >- fs[stack_asm_ok_def,inst_ok_def,arith_ok_def,conf_ok_def]
+    >~[`LongDiv`] >- fs[stack_wasm_ok_def,inst_ok_def,arith_ok_def,conf_ok_def]
     >~[`AddCarry`] >- cheat
     >~[`AddOverflow`] >- cheat
     >~[`SubOverflow`] >- cheat
@@ -1682,7 +1744,7 @@ Proof cheat
   >~[`Mem`] >-
     cheat
   >~[`FP`] >-
-    gvs[stack_asm_ok_def,inst_ok_def,oneline fp_ok_def,AllCasePreds(),fp_reg_ok_def,conf_ok_def]
+    gvs[stack_wasm_ok_def,inst_ok_def,oneline fp_ok_def,AllCasePreds(),fp_reg_ok_def,conf_ok_def]
 *)
 QED
 
