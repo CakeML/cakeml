@@ -513,8 +513,8 @@ QED
 
 (* {locals,heap}_{old,prev} is preserved *)
 
-Theorem assign_value_Rcont_const:
-  assign_value st env lhs v = (st', Rcont) ⇒
+Theorem assign_value_const:
+  assign_value st env lhs v = (st', r) ⇒
   st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old ∧
   st'.locals_prev = st.locals_prev ∧ st'.heap_prev = st.heap_prev
 Proof
@@ -524,9 +524,9 @@ Proof
   \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
 QED
 
-Theorem assign_values_Rcont_const:
+Theorem assign_values_const:
   ∀lhss vs st env st'.
-    assign_values st env lhss vs = (st', Rcont) ⇒
+    assign_values st env lhss vs = (st', r) ⇒
     st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old ∧
     st'.locals_prev = st.locals_prev ∧ st'.heap_prev = st.heap_prev
 Proof
@@ -534,12 +534,12 @@ Proof
   \\ simp [assign_values_def]
   \\ rpt gen_tac \\ strip_tac
   \\ gvs [AllCaseEqs()]
-  \\ imp_res_tac assign_value_Rcont_const
+  \\ imp_res_tac assign_value_const
   \\ res_tac \\ gvs []
 QED
 
-Theorem evaluate_rhs_exp_Rval_const:
-  evaluate_rhs_exp st env rhs = (st', Rval v) ⇒
+Theorem evaluate_rhs_exp_const:
+  evaluate_rhs_exp st env rhs = (st', r) ⇒
   st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old ∧
   st'.locals_prev = st.locals_prev ∧ st'.heap_prev = st.heap_prev
 Proof
@@ -549,21 +549,21 @@ Proof
   \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
 QED
 
-Theorem evaluate_rhs_exps_Rval_const:
-  ∀rhss st st' env vs.
-    evaluate_rhs_exps st env rhss = (st', Rval vs) ⇒
+Theorem evaluate_rhs_exps_const:
+  ∀rhss st st' env r.
+    evaluate_rhs_exps st env rhss = (st', r) ⇒
     st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old ∧
     st'.locals_prev = st.locals_prev ∧ st'.heap_prev = st.heap_prev
 Proof
   Induct \\ gvs [evaluate_rhs_exps_def]
   \\ rpt gen_tac \\ disch_tac
   \\ gvs [AllCaseEqs()]
-  \\ res_tac \\ imp_res_tac evaluate_rhs_exp_Rval_const \\ gvs []
+  \\ res_tac \\ imp_res_tac evaluate_rhs_exp_const \\ gvs []
 QED
 
-Theorem evaluate_stmt_Rcont_const:
-  ∀st env stmt st'.
-    evaluate_stmt st env stmt = (st', Rcont) ⇒
+Theorem evaluate_stmt_const:
+  ∀st env stmt st' r.
+    evaluate_stmt st env stmt = (st', r) ⇒
     st'.locals_old = st.locals_old ∧ st'.heap_old = st.heap_old ∧
     st'.locals_prev = st.locals_prev ∧ st'.heap_prev = st.heap_prev
 Proof
@@ -590,8 +590,8 @@ Proof
     \\ last_x_assum drule \\ gvs [])
   >~ [‘Assign ass’] >-
    (gvs [evaluate_stmt_def, AllCaseEqs()]
-    \\ imp_res_tac evaluate_rhs_exps_Rval_const
-    \\ imp_res_tac assign_values_Rcont_const \\ gvs [])
+    \\ imp_res_tac evaluate_rhs_exps_const
+    \\ imp_res_tac assign_values_const \\ gvs [])
   >~ [‘While grd invs decrs mods body’] >-
    (gvs [evaluate_stmt_def, AllCaseEqs()]
     \\ imp_res_tac evaluate_exp_with_clock \\ gvs [dec_clock_def])
@@ -602,7 +602,7 @@ Proof
   >~ [‘MetCall lhss name args’] >-
    (gvs [evaluate_stmt_def, AllCaseEqs()]
     \\ imp_res_tac evaluate_exp_with_clock \\ gvs []
-    \\ imp_res_tac assign_values_Rcont_const \\ gvs []
+    \\ imp_res_tac assign_values_const \\ gvs []
     \\ gvs [restore_caller_def])
   >~ [‘Return’] >-
    (gvs [evaluate_stmt_def])

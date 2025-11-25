@@ -68,7 +68,7 @@ QED
 
 (** Example 2: McCarthy's 91 function *****************************************)
 
-val mccarthy = eval_freshen
+val mccarthy_prog = eval_freshen
   “Program
      [Method «M» [(«n»,IntT)] []
        [dfy_eq (Var «r»)
@@ -86,9 +86,15 @@ val mccarthy = eval_freshen
                   [(VarLhs «r»,ExpRhs (BinOp Sub (Var «n») (int_lit 10)))]))
             Return)]”;
 
-val mccarthy_vcg = eval_vcg mccarthy;
+val mccarthy_body = EVAL
+  “case ^mccarthy_prog of
+   | Program [Method _ _ _ _ _ _ _ _ body] => body
+   | _ => ARB”
+  |> concl |> rhs;
 
-val mccarthy_valid_prop = valid_vcg_prop mccarthy_vcg;
+val mccarthy_prog_vcg = eval_vcg mccarthy_prog;
+
+val mccarthy_prog_valid_prop = valid_vcg_prop mccarthy_prog_vcg;
 
 (* Make the goal actually readable *)
 val _ = max_print_depth := 20;
@@ -102,8 +108,8 @@ Proof
   \\ rpt strip_tac \\ gvs []
 QED
 
-Theorem mccarthy_correct:
-  ^mccarthy_valid_prop
+Theorem mccarthy_prog_correct:
+  ^mccarthy_prog_valid_prop
 Proof
   (* TODO Combine simps; the main thing that probably needs some care is that
      the parts around "qmatch_goalsub_abbrev_tac ‘eval_forall dom evalf’" keep
@@ -386,48 +392,44 @@ Proof
   \\ simp [state_component_equality]
 QED
 
-Theorem vc_ok_mccarthy:
-  vc_ok ^mccarthy
+Theorem vc_ok_mccarthy_prog:
+  vc_ok ^mccarthy_prog
 Proof
-  simp [vc_ok_def] \\ EVAL_TAC \\ simp [mccarthy_correct]
+  simp [vc_ok_def] \\ EVAL_TAC \\ simp [mccarthy_prog_correct]
 QED
 
-(* TODO mccarthy -> mccarthy_prog *)
-(* TODO Split mccarthy_prog into mccarthy (method), use that in the
-   theorem instead *)
-(* TODO ? Maybe we should add something like ALOOKUP s.locals v0 = ...,
-   in the assumption, and then have a result about the integer value *)
-
 val mccarthy_body_cakeml = EVAL
-  “from_stmt
-     (remove_assert_stmt
-        (Then
-           (If (int_le (Var «v0») (int_lit 100))
-              (Dec («v2»,IntT)
-                 (Then
-                    (MetCall [VarLhs «v2»] «M»
-                       [BinOp Add (Var «v0») (int_lit 11)])
-                    (MetCall [VarLhs «v1»] «M» [Var «v2»])))
-              (Assign
-                 [(VarLhs «v1»,ExpRhs (BinOp Sub (Var «v0») (int_lit 10)))]))
-           Return)) 0”
+  “from_stmt (remove_assert_stmt ^mccarthy_body) 0”
   |> concl |> rhs |> rand;
 
-Theorem vc_ok_mccarthy_imp[local]:
+Definition mccarthy_env_def:
+  mccarthy_env = <| prog := ^mccarthy_prog |>
+End
+
+Theorem vc_ok_mccarthy_imp:
+  ALOOKUP s.locals «v0» = SOME (SOME (IntV n)) ∧
+  (* more "technical" conditions *)
   state_rel m l s (t: 'ffi cml_state) env_cml ∧
-  env_rel <| prog := ^mccarthy |> env_cml ∧
-  state_ok s [(«v0»,IntT)] [(«v1»,IntT)] ∧
-  ¬MEM «v2» (MAP FST s.locals)
+  env_rel mccarthy_env env_cml ∧
+  state_ok s [] [(«v1»,IntT)] ∧ ¬MEM «v2» (MAP FST s.locals)
   ⇒
-  bar = baz
+  ∃s' ck t' m' ck'.
+    eval_stmt s mccarthy_env ^mccarthy_body s' (Rstop Sret) ∧
+    ALOOKUP s'.locals «v1» = SOME (SOME (IntV if n <= 100 then 91 else n - 10)) ∧
+    evaluate (t with clock := ck) env_cml [^mccarthy_body_cakeml] =
+      (t', Rerr (Rraise (Conv (SOME ret_stamp) []))) ∧
+    state_rel m' l (s' with clock := ck') t' env_cml ∧ m ⊑ m'
 Proof
   rpt strip_tac
-  \\ qspecl_then [‘<| prog := ^mccarthy |>’, ‘«M»’] mp_tac vc_ok_imp
-  \\ simp [vc_ok_mccarthy, get_member_def, get_member_aux_def]
+  \\ qspecl_then [‘mccarthy_env’, ‘«M»’] mp_tac vc_ok_imp
+  \\ gvs [mccarthy_env_def]
+  \\ simp [vc_ok_mccarthy_prog, get_member_def, get_member_aux_def]
   (* lvl doesn't matter as we don't have loops *)
   \\ disch_then $
        qspecl_then [‘s’, ‘0’, ‘^mccarthy_body_cakeml’, ‘m’,
                     ‘l’, ‘t’, ‘env_cml’, ‘[]’, ‘[]’, ‘0’] mp_tac
+  \\ ‘state_ok s [(«v0»,IntT)] [(«v1»,IntT)]’ by
+    (gvs [state_ok_def, strict_locals_ok_def, all_values_def])
   \\ impl_tac >-
    (rpt strip_tac
     >- (EVAL_TAC)
@@ -440,7 +442,27 @@ Proof
     >- (EVAL_TAC \\ simp [])
     >- (simp []))
   \\ rpt strip_tac
-  \\ cheat
+  \\ first_assum $ irule_at (Pos hd)
+  \\ first_assum $ irule_at (Pos last)
+  \\ first_assum $ irule_at (Pos last)
+  \\ first_assum $ irule_at (Pos last)
+  \\ drule_then assume_tac eval_stmt_const
+  \\ rename [‘eval_stmt _ _ _ s' _’]
+  \\ ‘s'.locals_old = s.locals’ by (gvs [state_ok_def])
+  \\ gvs []
+  \\ qpat_x_assum ‘conditions_hold _ _ _’ mp_tac
+  \\ gvs [conditions_hold_def, eval_true_def, wrap_Old_def,
+          eval_exp_def, evaluate_exp_def, read_local_def]
+  \\ ntac 2 CASE_TAC \\ gvs []
+  \\ simp [do_sc_def, use_old_def, do_bop_def, do_cond_def, unuse_old_def]
+  \\ IF_CASES_TAC >-
+   (simp [evaluate_exp_def]
+    \\ simp [oneline value_same_type_def] \\ CASE_TAC \\ gvs []
+    \\ rpt strip_tac \\ gvs [])
+  \\ simp [evaluate_exp_def, read_local_def, use_old_def, do_sc_def, do_bop_def]
+  \\ simp [oneline value_same_type_def] \\ CASE_TAC \\ gvs []
+  \\ simp [unuse_old_def]
+  \\ rpt strip_tac \\ gvs []
 QED
 
 (** Example 3: Swapping elements in an array **********************************)
