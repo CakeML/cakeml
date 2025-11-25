@@ -791,20 +791,20 @@ Proof
 QED
 
 Definition store_preserve_def:
-  store_preserve base t_refs t'_refs ⇔
+  store_preserve m base t_refs t'_refs ⇔
     LENGTH t_refs ≤ LENGTH t'_refs ∧
-    (* All references below base are unchanged *)
+    (* Everything below base and not part of m(odifies) is unchanged. *)
     ∀i v.
-      i < base ∧ store_lookup i t_refs = SOME (Refv v) ⇒
-      store_lookup i t'_refs = SOME (Refv v)
+      i < base ∧ i ∉ m ∧ store_lookup i t_refs = SOME v ⇒
+      store_lookup i t'_refs = SOME v
 End
 
 Definition store_preserve_all_def:
-  store_preserve_all xs ys ⇔ store_preserve (LENGTH xs) xs ys
+  store_preserve_all xs ys ⇔ store_preserve ∅ (LENGTH xs) xs ys
 End
 
 Theorem store_preserve_same[local,simp]:
-  store_preserve base xs xs
+  store_preserve m base xs xs
 Proof
   gvs [store_preserve_def]
 QED
@@ -816,14 +816,14 @@ Proof
 QED
 
 Theorem store_preserve_decat[local]:
-  store_preserve base (xs ++ ys) zs ⇒ store_preserve base xs zs
+  store_preserve m base (xs ++ ys) zs ⇒ store_preserve m base xs zs
 Proof
   gvs [store_preserve_def, store_lookup_def, EL_APPEND]
 QED
 
 Theorem store_preserve_trans[local]:
-  store_preserve base xs ys ∧ store_preserve base ys zs ⇒
-  store_preserve base xs zs
+  store_preserve m base xs ys ∧ store_preserve m base ys zs ⇒
+  store_preserve m base xs zs
 Proof
   gvs [store_preserve_def]
 QED
@@ -861,7 +861,7 @@ Proof
 QED
 
 Theorem store_preserve_all_weaken[local]:
-  store_preserve_all xs ys ⇒ store_preserve base xs ys
+  store_preserve_all xs ys ⇒ store_preserve m base xs ys
 Proof
   gvs [store_preserve_all_def, store_preserve_def, store_lookup_def]
 QED
@@ -2157,7 +2157,7 @@ Proof
 QED
 
 Theorem store_preserve_base_at_most[local]:
-  store_preserve base t.refs t'.refs ∧ base_at_most base t.refs l ⇒
+  store_preserve m base t.refs t'.refs ∧ base_at_most base t.refs l ⇒
   base_at_most base t'.refs l
 Proof
   gvs [base_at_most_def, store_preserve_def]
@@ -2189,13 +2189,13 @@ QED
 Theorem store_preserve_lupdate_local[local]:
   FLOOKUP l var = SOME loc ∧
   base_at_most base t.refs l ∧
-  store_preserve base (LUPDATE store_v loc t.refs) t'.refs ⇒
-  store_preserve base t.refs t'.refs
+  store_preserve m base (LUPDATE store_v loc t.refs) t'.refs ⇒
+  store_preserve m base t.refs t'.refs
 Proof
   gvs [store_preserve_def]
   \\ rpt strip_tac
-  \\ last_x_assum drule
-  \\ rename [‘store_lookup i _ = SOME (Refv v)’]
+  \\ last_x_assum drule \\ simp []
+  \\ rename [‘store_lookup i _ = SOME v’]
   \\ disch_then $ qspec_then ‘v’ mp_tac
   \\ impl_tac \\ gvs []
   \\ gvs [store_lookup_def, base_at_most_def, EL_LUPDATE]
@@ -2206,15 +2206,13 @@ Proof
 QED
 
 Theorem store_preserve_lupdate_array[local]:
-  store_lookup loc t.refs = SOME (Varray varr) ∧
-  store_preserve base (LUPDATE store_v loc t.refs) t'.refs ⇒
-  store_preserve base t.refs t'.refs
+  store_preserve m base (LUPDATE store_v loc t.refs) t'.refs ∧ loc ∈ m ⇒
+  store_preserve m base t.refs t'.refs
 Proof
   gvs [store_preserve_def]
   \\ rpt strip_tac
-  \\ rename [‘store_lookup i _ = SOME (Refv v)’]
   \\ gvs [store_lookup_def, EL_LUPDATE]
-  \\ Cases_on ‘i = loc’ \\ gvs []
+  \\ IF_CASES_TAC \\ gvs []
 QED
 
 Theorem update_array_some_eqs[local]:
@@ -2374,7 +2372,7 @@ Theorem evaluate_assign_values[local]:
     ∃ck t' r_cml.
       evaluate (t with clock := t.clock + ck) env_cml [Seqs asss_cml] =
       (t', r_cml) ∧
-      store_preserve base t.refs t'.refs ∧
+      store_preserve (FRANGE m) base t.refs t'.refs ∧
       state_rel m l s' t' env_cml ∧ stmt_res_rel r_dfy r_cml
 Proof
   Induct_on ‘lhss’ \\ Cases_on ‘rhs_vs’ \\ gvs [assign_values_def]
@@ -2467,7 +2465,6 @@ Proof
        qx_choosel_then
          [‘arr_len’, ‘arr_loc’, ‘arr_ty’, ‘idx_int’, ‘harr’, ‘harr_ty’]
          assume_tac
-
   \\ gvs []
   \\ rename [‘val_rel _ _ rhs_v_cml’, ‘Loc T loc_cml’]
   \\ drule_all state_rel_llookup
@@ -2512,6 +2509,7 @@ Proof
   \\ irule store_preserve_lupdate_array
   \\ gvs [store_lookup_def]
   \\ rpt (last_assum $ irule_at Any)
+  \\ imp_res_tac FINITE_MAP_LOOKUP_RANGE
 QED
 
 (* TODO Why does this work *)
@@ -2915,8 +2913,8 @@ Proof
 QED
 
 Theorem store_preserve_append[local]:
-  store_preserve base xs ys ⇒
-  store_preserve base xs (ys ++ zs)
+  store_preserve m base xs ys ⇒
+  store_preserve m base xs (ys ++ zs)
 Proof
   simp [store_preserve_def]
   \\ rpt strip_tac
@@ -2955,6 +2953,12 @@ Proof
   \\ CASE_TAC \\ gvs []
 QED
 
+(* Definition is_extension_def: *)
+(*   is_extension t_refs m m' ⇔ *)
+(*     (∀cml_loc. *)
+(*        cml_loc ∈ FRANGE m' ⇒ cml_loc ∈ FRANGE m ∨ (LENGTH t_refs) < cml_loc) *)
+(* End *)
+
 (* TODO split up cases into separate trivialities like other compiler proofs *)
 Theorem correct_from_stmt:
   ∀s env_dfy stmt_dfy s' r_dfy lvl (t: 'ffi cml_state) env_cml e_cml m l base.
@@ -2968,8 +2972,11 @@ Theorem correct_from_stmt:
     ⇒ ∃ck (t': 'ffi cml_state) m' r_cml.
         evaluate$evaluate (t with clock := t.clock + ck) env_cml [e_cml] =
         (t', r_cml) ∧
-        store_preserve base t.refs t'.refs ∧ state_rel m' l s' t' env_cml ∧
-        m ⊑ m' ∧ stmt_res_rel r_dfy r_cml
+        store_preserve (FRANGE m) base t.refs t'.refs ∧
+        state_rel m' l s' t' env_cml ∧
+        m ⊑ m' ∧
+        (* is_extension t_refs m m' ∧ *)
+        stmt_res_rel r_dfy r_cml
 Proof
   ho_match_mp_tac evaluate_stmt_ind
   \\ rpt strip_tac \\ fs [no_assert_stmt_def]
@@ -3000,9 +3007,13 @@ Proof
     \\ rev_drule evaluate_add_to_clock \\ gvs []
     \\ disch_then $ qspec_then ‘ck'’ assume_tac
     \\ qexists ‘ck' + ck’ \\ gvs []
+
     \\ irule_at Any store_preserve_trans
     \\ qexistsl [‘t₁.refs’, ‘m₂’] \\ gvs []
-    \\ irule_at Any SUBMAP_TRANS \\ gvs [SF SFY_ss])
+
+    \\ irule_at Any SUBMAP_TRANS
+    \\ first_assum $ irule_at (Pos hd) \\ simp []
+    \\ gvs [SF SFY_ss])
   >~ [‘If tst thn els’] >-
    (gvs [evaluate_stmt_def, from_stmt_def, oneline bind_def, CaseEq "sum"]
     \\ namedCases_on ‘evaluate_exp s env_dfy tst’ ["s₁ r"] \\ gvs []
