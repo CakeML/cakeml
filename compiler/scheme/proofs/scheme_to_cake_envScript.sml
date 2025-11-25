@@ -13,8 +13,8 @@ Libs
 val _ = (max_print_depth := 30);
 
 Definition scheme_init_def:
-  scheme_init =
-    [scheme_basis_types] ++ scheme_basis ++ [scheme_basis_list; scheme_basis_app]
+  scheme_init = [Dtype unknown_loc [(["'a"],"option", [("None",[]); ("Some",[Atvar "'a"])])]]
+    ++ [scheme_basis_types] ++ scheme_basis ++ [scheme_basis_list; scheme_basis_app]
 End
 
 local
