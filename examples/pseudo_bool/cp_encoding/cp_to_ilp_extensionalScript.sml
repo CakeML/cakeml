@@ -27,10 +27,9 @@ End
 Definition reify_tuple_eq_def:
   reify_tuple_eq bnd Xts =
   let
-    ges = FLAT $ MAP (λ(X,t). encode_ge bnd X t ++ encode_ge bnd X (t + 1)) Xts;
-    eqs = FLAT $ MAP (λ(X,t). encode_eq bnd X t) Xts
+    eqs = FLAT $ MAP (λ(X,t). encode_full_eq bnd X t) Xts;
   in
-    ges ++ eqs ++ encode_tuple_eq bnd Xts
+    eqs ++ encode_tuple_eq bnd Xts
 End
 
 Theorem encode_tuple_eq_sem:
@@ -62,6 +61,11 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Definition table_ge_def[simp]:
+  table_ge Xtss =
+    (([], MAP (λXts. (1i, Pos (INR (Tb Xts)))) Xtss, 1):'a aiconstraint)
+End
+
 Definition encode_table_def:
   encode_table bnd tss Xs =
   let n = LENGTH Xs in
@@ -69,7 +73,7 @@ Definition encode_table_def:
     then
       let Xtss = MAP (λts. filter_match (ZIP (Xs,ts))) tss in
       (FLAT $ MAP (λXts. reify_tuple_eq bnd Xts) Xtss) ++
-      [([], MAP (λXts. (1i, Pos (INR (Tb Xts)))) Xtss, 1)]
+      [table_ge Xtss]
     else
       [false_constr]
 End
@@ -101,7 +105,6 @@ Theorem reify_tuple_eq_sem_reify:
 Proof
   rw[reify_tuple_eq_def]>>
   simp[EVERY_FLAT]
-  >- simp[Once EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,reify_avar_def,reify_reif_def]
   >- simp[Once EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,reify_avar_def,reify_reif_def]>>
   metis_tac[encode_tuple_eq_sem_reify]
 QED
@@ -136,14 +139,7 @@ Proof
   simp[EVERY_FLAT,MAP_MAP_o,o_DEF,EVERY_MAP]>>
   simp[Once EVERY_MEM]>>
   disch_then drule>>
-  pairarg_tac>>gvs[]>>
-  DEP_REWRITE_TAC[encode_eq_sem]>>
-  simp[]>>
-  qpat_x_assum`EVERY _ (FLAT _)` mp_tac>>
-  simp[EVERY_FLAT,MAP_MAP_o,o_DEF,EVERY_MAP]>>
-  simp[Once EVERY_MEM]>>
-  disch_then drule>>
-  simp[]
+  pairarg_tac>>gvs[]
 QED
 
 Theorem encode_table_sem_2:
@@ -170,8 +166,7 @@ QED
 
 Definition encode_extensional_constr_def:
   encode_extensional_constr bnd c =
-  case c of
-    Table tss Xs =>
+  case c of Table tss Xs =>
   encode_table bnd tss Xs
 End
 
@@ -196,21 +191,72 @@ Proof
   metis_tac[encode_table_sem_2]
 QED
 
+(* The reifications needed for tuple eq on a given row *)
+Definition cencode_full_eqs_def:
+  (cencode_full_eqs bnd [] ec = (Nil,ec)) ∧
+  (cencode_full_eqs bnd ((X,t)::Xts) ec =
+    let (ys,ec') = cencode_full_eq bnd X t ec in
+    let (yss,ec'') = cencode_full_eqs bnd Xts ec' in
+    (Append ys yss, ec''))
+End
+
+Definition creify_tuple_eq_def:
+  creify_tuple_eq bnd Xts pref ec =
+  let
+    (eqs,ec') = cencode_full_eqs bnd Xts ec;
+    tup =
+      List (
+      mk_annotate [
+        (strlit "BIG TODO");
+        (strlit "BIG TODO2");
+      ]
+      (encode_tuple_eq bnd Xts))
+  in
+    (Append eqs tup, ec')
+End
+
+Definition creify_tuple_eqs_def:
+  (creify_tuple_eqs bnd [] pref ec = (Nil,ec)) ∧
+  (creify_tuple_eqs bnd (x::xs) pref ec =
+  let
+    (y,ec') = creify_tuple_eq bnd x pref ec;
+    (ys,ec'') = creify_tuple_eqs bnd xs pref ec'
+  in
+    (Append y ys, ec''))
+End
+
+Definition cencode_table_def:
+  cencode_table bnd tss Xs pref ec =
+  let n = LENGTH Xs in
+    if EVERY (λYs. LENGTH Ys = n) tss
+    then
+      let Xtss = MAP (λts. filter_match (ZIP (Xs,ts))) tss in
+      let (ys,ec') = creify_tuple_eqs bnd Xtss pref ec in
+      (Append ys
+        (List
+          [(SOME (strlit"BIG TODO 3"), table_ge Xtss)]), ec')
+    else
+      (List [cfalse_constr],ec)
+End
+
 Definition cencode_extensional_constr_def:
   cencode_extensional_constr bnd c pref ec =
-  (ARB:(mlstring option # ciconstraint) app_list,ec:enc_conf)
+  case c of Table tss Xs =>
+  cencode_table bnd tss Xs pref ec
 End
 
 Theorem cencode_extensional_constr_sem:
   valid_assignment bnd wi ∧
   cencode_extensional_constr bnd c pref ec = (es,ec') ⇒
-  ∃fl.
-  enc_rel fl wi es (encode_extensional_constr bnd c) ec ec'
+  enc_rel wi es (encode_extensional_constr bnd c) ec ec'
 Proof
+  rw[cencode_extensional_constr_def,encode_extensional_constr_def]>>
+  gvs[CaseEq"extensional_constr"]>>
+  fs[encode_table_def,cencode_table_def]>>
+  rw[]>>
+  gvs[UNCURRY_EQ]>>
+  irule enc_rel_Append>>
+  irule_at Any enc_rel_List_refl_1>>
   cheat
 QED
 
-Definition sexp_extensional_constr_def:
-  sexp_extensional_constr name (rest:sexp) =
-    fail (strlit "unsupported constraint: " ^ name)
-End

@@ -44,14 +44,12 @@ Definition reify_flag_def:
 End
 
 (*
-  In this file, we first design and prove sound the
+  We first design and prove sound the
   abstract encodings into the Boolean variable type:
     ('a reif + 'a flag)
-
-  Later on, we will turn the 'a flag into a counter
 *)
-Type avar = ``:('a reif + 'a flag)``
-Type aiconstraint = ``:('a, 'a avar) iconstraint``
+Type avar[pp] = ``:('a reif + 'a flag)``
+Type aiconstraint[pp] = ``:('a, 'a avar) iconstraint``
 
 Definition reify_avar_def:
   reify_avar wi eb ⇔
@@ -59,7 +57,6 @@ Definition reify_avar_def:
     INL reif => reify_reif wi reif
   | INR flag => reify_flag wi flag
 End
-
 
 (***
   Helper encoding functions
@@ -82,7 +79,7 @@ Proof
   metis_tac[]
 QED
 
-(* Encoding a single variable X = i
+(* Encoding a single variable X = i, separate from encode_ge
   X_{=i} ⇔ X_{>=i} ∧ ~X_{>=i+1}
 *)
 Definition encode_eq_def:
@@ -107,6 +104,27 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Definition encode_full_eq_def:
+  encode_full_eq bnd X i =
+  encode_ge bnd X i ++
+  encode_ge bnd X (i+1) ++
+  encode_eq bnd X i
+End
+
+Theorem encode_full_eq_sem[simp]:
+  valid_assignment bnd wi
+  ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_full_eq bnd X i)
+  =
+  ((wb (INL (Ge X i)) ⇔ wi X ≥ i) ∧
+  (wb (INL (Ge X (i+1))) ⇔ wi X ≥ i+1) ∧
+  (wb (INL (Eq X i)) ⇔ wi X = i))
+Proof
+  rw[encode_full_eq_def]>>
+  metis_tac[encode_eq_sem]
+QED
+
+(*
 (* encodes X ≥ 1,...,X ≥ n *)
 Definition encode_ges_def:
   encode_ges bnd X n =
@@ -153,6 +171,7 @@ Proof
   rw[]>>
   simp[GSYM integerTheory.INT]
 QED
+*)
 
 (* Encodes a * X + b * Y ≥ c where both X, Y are varc *)
 Definition mk_constraint_ge_def:
@@ -185,61 +204,23 @@ QED
 
   into
 
-  (mlstring option # (mlstring, cvar) iconstraint)
-
-  where cvar is mlstring reif + num
+  (mlstring option # (mlstring, mlstring avar) iconstraint)
 
   The mlstring option is an annotation.
 *)
-
-Type cvar = ``:(mlstring reif + num)``
-Type ciconstraint = ``:(mlstring, cvar) iconstraint``
 
 (* TODO: replace ge/eq with faster representations. *)
 Datatype:
   enc_conf =
     <|
-       fresh : num (* The next fresh var names for flags *)
-     ; ge : (mlstring # int list) list
+       ge : (mlstring # int list) list
      ; eq : (mlstring # int list) list
     |>
-End
-
-Definition next_fresh_def:
-  next_fresh ec =
-  let f = ec.fresh in
-  (f, ec with fresh := f+1)
 End
 
 (***
   Semantic tools
 ***)
-
-Definition agree_on_fl_def:
-  agree_on_fl fl wb wbf ⇔
-  (∀x. wb (INL x) = wbf (INL x)) ∧
-  (∀x y.
-    ALOOKUP fl y = SOME x ⇒
-    wb (INR x) = wbf (INR y))
-End
-
-Definition mods_fl_def:
-  mods_fl fl (n:num) m ⇔
-  ∀x. x ∈ set (MAP FST fl) ⇒
-    n ≤ x ∧ x < m
-End
-
-Theorem mods_fl_nil[simp]:
-  mods_fl [] a b
-Proof
-  rw[mods_fl_def]
-QED
-
-Theorem mods_fl_sing[simp]:
-  mods_fl [(f, v)] f (f+1)
-Proof
-  rw[mods_fl_def]
-QED
 
 (* lookup for when the given ge for a variable has been encoded *)
 Definition has_ge_def:
@@ -257,76 +238,37 @@ Definition has_eq_def:
 End
 
 Definition good_reif_def:
-  good_reif wbf wi ec ⇔
-  (∀Y n. has_ge Y n ec ⇒ (wbf (INL (Ge Y n)) ⇔ wi Y ≥ n)) ∧
-  (∀Y n. has_eq Y n ec ⇒ (wbf (INL (Eq Y n)) ⇔ wi Y = n))
+  good_reif wb wi ec ⇔
+  (∀Y n. has_ge Y n ec ⇒ (wb (INL (Ge Y n)) ⇔ wi Y ≥ n)) ∧
+  (∀Y n. has_eq Y n ec ⇒ (wb (INL (Eq Y n)) ⇔ wi Y = n))
 End
-
-Theorem good_reif_with_fresh[simp]:
-  good_reif wbf wi (ec with fresh := f) =
-  good_reif wbf wi ec
-Proof
-  rw[good_reif_def,has_ge_def,has_eq_def]
-QED
 
 (* enc_rel, just a shorthand *)
 Definition enc_rel_def:
-  enc_rel fl wi es es' ec ec' ⇔
-  mods_fl fl ec.fresh ec'.fresh ∧
-  ec.fresh ≤ ec'.fresh ∧
-  (∀wbf.
-    EVERY (λx. iconstraint_sem (SND x) (wi,wbf)) (append es) ∧
-    good_reif wbf wi ec ⇒
-    agree_on_fl fl
-      (λx. case x of INL v => wbf (INL v) | INR v => reify_flag wi v) wbf ∧
-    good_reif wbf wi ec') ∧
-  ∀wb wbf.
-  agree_on_fl fl wb wbf ∧
-  good_reif wbf wi ec ⇒
+  enc_rel wi es es' ec ec' ⇔
+  (∀wb.
+    EVERY (λx. iconstraint_sem (SND x) (wi,wb)) (append es) ∧
+    good_reif wb wi ec ⇒
+    good_reif wb wi ec') ∧
+  ∀wb.
+  good_reif wb wi ec ⇒
   (EVERY (λx. iconstraint_sem x (wi,wb)) es' ⇔
-  EVERY (λx. iconstraint_sem (SND x) (wi,wbf))
-    (append es))
+  EVERY (λx. iconstraint_sem (SND x) (wi,wb)) (append es))
 End
 
 Theorem enc_rel_Nil:
-  enc_rel [] wi Nil [] ec ec
+  enc_rel wi Nil [] ec ec
 Proof
-  rw[enc_rel_def,agree_on_fl_def]
-QED
-
-Theorem agree_on_fl_mods_fl_append:
-  mods_fl fl1 f1 f1' ∧
-  mods_fl fl2 f1' f2 ⇒
-  (agree_on_fl (fl1++fl2)
-    (wb:mlstring reif + mlstring flag -> bool)
-    (wbf:mlstring reif + num -> bool) ⇔
-    agree_on_fl fl1 wb wbf ∧
-    agree_on_fl fl2 wb wbf)
-Proof
-  rw[mods_fl_def,agree_on_fl_def,ALOOKUP_APPEND]>>
-  iff_tac>>rw[]
-  >- (
-    first_x_assum irule>>
-    drule ALOOKUP_MEM>>
-    CCONTR_TAC>>gvs[AllCaseEqs(),ALOOKUP_NONE]>>
-    first_x_assum drule>>
-    gvs[MEM_MAP,PULL_EXISTS]>>
-    first_x_assum drule>>
-    simp[])>>
-  gvs[AllCaseEqs()]
+  rw[enc_rel_def]
 QED
 
 Theorem enc_rel_Append:
-  enc_rel fl wi es xs ec ec' ∧
-  enc_rel fl' wi es' xs' ec' ec'' ⇒
-  enc_rel (fl++fl') wi (Append es es') (xs++xs') ec ec''
+  enc_rel wi es xs ec ec' ∧
+  enc_rel wi es' xs' ec' ec'' ⇒
+  enc_rel wi (Append es es') (xs++xs') ec ec''
 Proof
   rw[]>>
   fs[enc_rel_def]>>
-  CONJ_TAC >- (
-    fs[mods_fl_def]>>rw[]>>
-    first_x_assum drule>>rw[])>>
-  drule_all agree_on_fl_mods_fl_append>>
   rw[]>>
   metis_tac[]
 QED
@@ -351,18 +293,6 @@ Definition add_eq_def:
     | SOME ls => ls) in
   ec with eq := (Y,n::tt)::ec.eq
 End
-
-Theorem add_ge_fresh[simp]:
-  (add_ge Y n ec).fresh = ec.fresh
-Proof
-  rw[add_ge_def]
-QED
-
-Theorem add_eq_fresh[simp]:
-  (add_eq Y n ec).fresh = ec.fresh
-Proof
-  rw[add_eq_def]
-QED
 
 Theorem has_ge_add_ge[simp]:
   has_ge X n (add_ge Y m ec) ⇔
@@ -394,6 +324,18 @@ Proof
   rw[has_eq_def,add_ge_def]>>every_case_tac>>simp[]
 QED
 
+Type ciconstraint[pp] = ``:(mlstring, mlstring avar) iconstraint``
+Type ann_ciconstraint[pp] = ``:mlstring option # (mlstring, mlstring avar) iconstraint``
+
+(* Tool for sticking on annotations *)
+Definition mk_annotate_def:
+  (mk_annotate (_:mlstring list) ([]:ciconstraint list) = []) ∧
+  (mk_annotate (x::xs) (y::ys) =
+    (SOME x,y)::mk_annotate xs ys) ∧
+  (mk_annotate [] ys =
+    MAP (λy. (NONE,y)) ys)
+End
+
 (* TODO: what annotation should we use? *)
 Definition cencode_ge_def:
   cencode_ge bnd Y n ec =
@@ -401,7 +343,36 @@ Definition cencode_ge_def:
   then (Nil, ec)
   else
     let ec = add_ge Y n ec in
-    (List (MAP (\x. (NONE,x)) (encode_ge bnd Y n)), ec)
+    (List (
+      mk_annotate [
+        (strlit "ge_" ^ Y ^ strlit"_" ^ toString n);
+        (strlit "ge_" ^ Y ^ strlit"_" ^ toString n ^ strlit"_R");
+      ]
+      (encode_ge bnd Y n)), ec)
+End
+
+Definition cencode_eq_def:
+  cencode_eq bnd Y n ec =
+  if has_eq Y n ec
+  then (Nil, ec)
+  else
+    let ec = add_eq Y n ec in
+    (List (
+      mk_annotate [
+        (strlit "eq_" ^ Y ^ strlit"_" ^ toString n);
+        (strlit "eq_" ^ Y ^ strlit"_" ^ toString n ^ strlit"_R");
+      ]
+      (encode_eq bnd Y n)), ec)
+End
+
+Definition cencode_full_eq_def:
+  cencode_full_eq bnd Y n ec =
+  let
+    (x1,ec') = cencode_ge bnd Y n ec;
+    (x2,ec'') = cencode_ge bnd Y (n+1) ec';
+    (x3,ec''') = cencode_eq bnd Y n ec''
+  in
+    (Append x1 (Append x2 x3), ec''')
 End
 
 (* TODO: lemmas *)
@@ -460,12 +431,28 @@ Proof
 QED
 
 Definition false_constr_def:
-  false_constr = ([], [], 1i)
+  false_constr = (([], [], 1i):ciconstraint)
 End
 
 Theorem iconstraint_sem_false_constr[simp]:
   ¬iconstraint_sem false_constr w
 Proof
   Cases_on`w`>>EVAL_TAC
+QED
+
+Definition cfalse_constr_def:
+  cfalse_constr = (SOME (strlit"BAD INPUT"), false_constr)
+End
+
+Theorem enc_rel_cfalse_constr[simp]:
+  enc_rel wi (List [cfalse_constr]) [false_constr] ec ec
+Proof
+  rw[enc_rel_def,cfalse_constr_def]
+QED
+
+Theorem enc_rel_List_refl_1:
+  enc_rel wi (List [(ann,c)]) [c] ec ec
+Proof
+  rw[enc_rel_def]
 QED
 
