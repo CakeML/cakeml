@@ -21,6 +21,7 @@ local
 val scheme_init_eq = EVAL “scheme_init”;
 val prog_tm = scheme_init_eq |> concl |> rand;
 val state = ml_progLib.add_prog prog_tm I ml_progLib.init_state;
+val env_tm = state |> ml_progLib.get_env
 in
 
 Theorem evaluate_decs_scheme_init_thm =
@@ -30,7 +31,46 @@ Theorem evaluate_decs_scheme_init_thm =
 Theorem scheme_init_v_defs =
   state |> ml_progLib.get_v_defs |> rev |> LIST_CONJ;
 
+Theorem most_scheme_init_env_defs =
+  find "scheme_to_cake_env_env~def" |> map (fn (_,(th,_,_)) => th) |> rev |> tl |> LIST_CONJ
+    |> SRULE [ml_progTheory.write_def];
+
 Theorem scheme_init_env_defs =
-  find "scheme_to_cake_env_env~def" |> map (fn (_,(th,_,_)) => th) |> rev |> LIST_CONJ;
+  find "scheme_to_cake_env_env~def" |> map (fn (_,(th,_,_)) => th) |> rev |> LIST_CONJ
+    |> SRULE [ml_progTheory.write_def];
+
+Definition scheme_to_cake_env_def:
+  scheme_to_cake_env = ^env_tm
+End
+
+(*
+
+fun lookup_cons str = let
+  val str_tm = stringSyntax.fromMLstring
+
+*)
+
+Theorem example =
+  “nsLookup_Short scheme_to_cake_env_env.c "SNum"”
+  |> SCONV [nsLookup_write_cons_eqs,fetch "-" "scheme_to_cake_env_env_def" ,ALOOKUP_def,
+            alist_treeTheory.option_choice_f_def]
+  |> SRULE [nsLookup_Short_def];
+
+Theorem example1 =
+  “nsLookup scheme_to_cake_env.c (Short "SNum")”
+  |> SCONV [scheme_to_cake_env_def,merge_env_def,nsLookup_nsAppend]
+  |> SRULE [Once most_scheme_init_env_defs]
+  |> SRULE [Once most_scheme_init_env_defs]
+  |> SRULE [Once most_scheme_init_env_defs]
+  |> SRULE [Once most_scheme_init_env_defs]
+  |> SRULE [Once most_scheme_init_env_defs]
+  |> SRULE [Once most_scheme_init_env_defs]
+  |> SRULE [Once most_scheme_init_env_defs]
+  |> SRULE [Once most_scheme_init_env_defs]
+  |> SRULE [Once most_scheme_init_env_defs]
+  |> SRULE [Once most_scheme_init_env_defs]
+  |> SRULE [Once most_scheme_init_env_defs]
+  |> SRULE [Once most_scheme_init_env_defs]
+  |> SRULE [example];
 
 end
