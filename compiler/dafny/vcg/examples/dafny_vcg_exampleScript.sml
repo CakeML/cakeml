@@ -2,7 +2,17 @@
   Concrete examples demonstrating the wp calculus.
 *)
 Theory dafny_vcg_example
+(* For mccarthy_appreturns *)
+Ancestors[ignore_grammar]
+  ml_translator
+  ml_prog
 Ancestors
+  ast
+  semanticPrimitives
+  evaluate
+  dafny_to_cakemlProof
+  namespace
+  (* -- *)
   dafny_semanticPrimitives
   dafny_evaluate
   dafny_eval_rel
@@ -86,11 +96,25 @@ val mccarthy_prog = eval_freshen
                   [(VarLhs «r»,ExpRhs (BinOp Sub (Var «n») (int_lit 10)))]))
             Return)]”;
 
-val mccarthy_body = EVAL
+val mccarthy = EVAL
   “case ^mccarthy_prog of
-   | Program [Method _ _ _ _ _ _ _ _ body] => body
+   | Program [method] => method
    | _ => ARB”
   |> concl |> rhs;
+
+Definition mccarthy_def:
+  mccarthy = ^mccarthy
+End
+
+val mccarthy_body = EVAL
+  “case mccarthy of
+   | Method _ _ _ _ _ _ _ _ body => body
+   | _ => ARB”
+  |> concl |> rhs;
+
+Definition mccarthy_body_def:
+  mccarthy_body = ^mccarthy_body
+End
 
 val mccarthy_prog_vcg = eval_vcg mccarthy_prog;
 
@@ -398,27 +422,30 @@ Proof
   simp [vc_ok_def] \\ EVAL_TAC \\ simp [mccarthy_prog_correct]
 QED
 
-val mccarthy_body_cakeml = EVAL
-  “from_stmt (remove_assert_stmt ^mccarthy_body) 0”
-  |> concl |> rhs |> rand;
-
 Definition mccarthy_env_def:
   mccarthy_env = <| prog := ^mccarthy_prog |>
 End
 
+Definition compile_stmt_def:
+  compile_stmt stmt = from_stmt (remove_assert_stmt stmt) 0
+End
+
 Theorem vc_ok_mccarthy_imp:
   ALOOKUP s.locals «v0» = SOME (SOME (IntV n)) ∧
+  compile_stmt mccarthy_body = INR mccarthy_body_cml ∧
   (* more "technical" conditions *)
   state_rel m l s (t: 'ffi cml_state) env_cml ∧
+  base_at_most base t.refs l ∧
   env_rel mccarthy_env env_cml ∧
   state_ok s [] [(«v1»,IntT)] ∧ ¬MEM «v2» (MAP FST s.locals)
   ⇒
   ∃s' ck t' m' ck'.
-    eval_stmt s mccarthy_env ^mccarthy_body s' (Rstop Sret) ∧
+    eval_stmt s mccarthy_env mccarthy_body s' (Rstop Sret) ∧
     ALOOKUP s'.locals «v1» = SOME (SOME (IntV if n <= 100 then 91 else n - 10)) ∧
-    evaluate (t with clock := ck) env_cml [^mccarthy_body_cakeml] =
+    evaluate (t with clock := ck) env_cml [mccarthy_body_cml] =
       (t', Rerr (Rraise (Conv (SOME ret_stamp) []))) ∧
-    state_rel m' l (s' with clock := ck') t' env_cml ∧ m ⊑ m'
+    state_rel m' l (s' with clock := ck') t' env_cml ∧ m ⊑ m' ∧
+    store_preserve base t.refs t'.refs
 Proof
   rpt strip_tac
   \\ qspecl_then [‘mccarthy_env’, ‘«M»’] mp_tac vc_ok_imp
@@ -426,23 +453,24 @@ Proof
   \\ simp [vc_ok_mccarthy_prog, get_member_def, get_member_aux_def]
   (* lvl doesn't matter as we don't have loops *)
   \\ disch_then $
-       qspecl_then [‘s’, ‘0’, ‘^mccarthy_body_cakeml’, ‘m’,
-                    ‘l’, ‘t’, ‘env_cml’, ‘[]’, ‘[]’, ‘0’] mp_tac
+       qspecl_then [‘s’, ‘0’, ‘mccarthy_body_cml’, ‘m’,
+                    ‘l’, ‘t’, ‘env_cml’, ‘[]’, ‘[]’, ‘base’] mp_tac
   \\ ‘state_ok s [(«v0»,IntT)] [(«v1»,IntT)]’ by
     (gvs [state_ok_def, strict_locals_ok_def, all_values_def])
   \\ impl_tac >-
    (rpt strip_tac
     >- (EVAL_TAC)
-    >- (EVAL_TAC)
+    >- (simp [] \\ EVAL_TAC)
     >- (simp [])
     >- (EVAL_TAC)
     >- (simp [])
     >- (EVAL_TAC)
     >- (EVAL_TAC \\ simp [])
-    >- (EVAL_TAC \\ simp [])
+    >- (simp [])
     >- (simp []))
   \\ rpt strip_tac
-  \\ first_assum $ irule_at (Pos hd)
+  \\ simp [mccarthy_body_def] \\ first_assum $ irule_at (Pos hd)
+  \\ first_assum $ irule_at (Pos last)
   \\ first_assum $ irule_at (Pos last)
   \\ first_assum $ irule_at (Pos last)
   \\ first_assum $ irule_at (Pos last)
@@ -463,6 +491,145 @@ Proof
   \\ simp [oneline value_same_type_def] \\ CASE_TAC \\ gvs []
   \\ simp [unuse_old_def]
   \\ rpt strip_tac \\ gvs []
+QED
+
+(* Manually adding what we need from ml_translator to our grammar: *)
+Overload "AppReturns"[local] = “ml_translator$AppReturns”
+Overload "INT"[local] = “ml_translator$INT”
+Overload "eval_rel"[local] = “ml_prog$eval_rel”
+Overload "empty_state"[local] = “ml_translator$empty_state”
+
+Definition compile_member_def:
+  compile_member member = from_member_decl $ remove_assert_member member
+End
+
+Definition clos_env_ok_def:
+  clos_env_ok clos_env ⇔
+    has_cons clos_env.c ∧
+    (∃clos_env'.
+       nsLookup clos_env.v (Short "int_to_string") =
+         SOME (cml_int_to_string_clos clos_env') ∧
+       int_to_string_env clos_env')
+End
+
+Theorem get_member_mccarthy_imp[local]:
+  get_member name mccarthy_env.prog = SOME member ⇒
+  name = «M» ∧ member = mccarthy
+Proof
+  EVAL_TAC \\ IF_CASES_TAC \\ simp []
+QED
+
+Theorem same_prefix[local]:
+  ∀xs ys.
+    LENGTH ys ≤ LENGTH xs ∧
+    (∀i. i < LENGTH ys ⇒ EL i xs = EL i ys) ⇒
+    ∃zs. xs = ys ++ zs
+Proof
+  Induct \\ simp []
+  \\ gen_tac \\ Cases
+  \\ rpt strip_tac \\ gvs []
+  \\ last_x_assum drule \\ rpt strip_tac \\ gvs [ADD1]
+  \\ cheat
+QED
+
+Theorem mccarthy_cakeml[local]:
+  compile_member mccarthy = INR mccarthy_cml ∧ clos_env_ok clos_env
+  ⇒
+  ∃env exp ck.
+    do_opapp [Recclosure clos_env [mccarthy_cml] "dfy_M"; Litv (IntLit n)] =
+      SOME (env,exp) ∧
+    evaluate (s with clock := ck) env [e] =
+      (s', Rval [Litv (IntLit (if n <= 100 then 91 else n - 10))])
+Proof
+  cheat
+QED
+
+Theorem mccarthy_appreturns[local]:
+  compile_member mccarthy = INR mccarthy_cml ∧
+  clos_env_ok clos_env
+  ⇒
+  AppReturns (INT n) (Recclosure clos_env [mccarthy_cml] "dfy_M")
+    (INT (if n <= 100 then 91 else n - 10))
+Proof
+
+  rpt strip_tac
+  \\ qpat_x_assum ‘compile_member _ = _’ $
+       assume_tac o GSYM o CONV_RULE EVAL
+  \\ simp [AppReturns_def]
+  \\ rpt strip_tac
+  \\ simp [do_opapp_def, find_recfun_def, eval_rel_def, empty_state_def,
+           PULL_EXISTS]
+  \\ simp [Ntimes evaluate_def 3, do_app_def, store_alloc_def]
+  \\ simp [Ntimes evaluate_def 3, do_app_def, store_alloc_def]
+  \\ simp [Ntimes evaluate_def 1]
+  \\ qmatch_goalsub_abbrev_tac ‘evaluate _ env_cml’
+  \\ ‘env_rel mccarthy_env env_cml’ by
+    (simp [env_rel_def]
+     \\ rpt strip_tac
+     >- (* has_cons *)
+      (gvs [clos_env_ok_def, has_cons_def]
+       \\ unabbrev_all_tac \\ gvs [])
+     >- (* int_to_string available *)
+      (gvs [clos_env_ok_def, has_cons_def]
+       \\ unabbrev_all_tac
+       \\ simp [nsOptBind_def, build_rec_env_def]
+       \\ first_assum $ irule_at (Pos last) \\ simp [])
+     >- (* is_fresh_member *)
+      (imp_res_tac get_member_mccarthy_imp
+       \\ gvs [] \\ EVAL_TAC)
+     >- (* no_shadow_method *)
+      (imp_res_tac get_member_mccarthy_imp
+       \\ gvs [] \\ EVAL_TAC)
+     >- (* no_assert_member *)
+      (imp_res_tac get_member_mccarthy_imp
+       \\ gvs [] \\ EVAL_TAC)
+     >- (* callable_rel *)
+      (imp_res_tac get_member_mccarthy_imp \\ gvs []
+       \\ unabbrev_all_tac
+       \\ gvs [nsOptBind_def, build_rec_env_def, mccarthy_env_def]
+       \\ drule callable_rel_rules \\ simp []
+       \\ disch_then irule \\ gvs []
+       \\ gvs [clos_env_ok_def]
+       \\ conj_tac
+       >- (first_assum $ irule_at (Pos hd) \\ simp [])
+       \\ EVAL_TAC))
+  \\ qabbrev_tac
+     ‘t =
+      <| clock := 42;  (* clock shouldn't matter *)
+         refs := refs ++ [Refv v] ++ [Refv (Litv (IntLit 0))];
+         ffi := initial_ffi_state ARB (); next_type_stamp := 0;
+         next_exn_stamp := 0; eval_state := NONE|>’
+
+  \\ ‘∃m l s.
+        ALOOKUP s.locals «v0» = SOME (SOME (IntV n)) ∧
+        state_ok s [] [(«v1»,IntT)] ∧ ¬MEM «v2» (MAP FST s.locals) ∧
+        state_rel m l s t env_cml ∧ base_at_most (LENGTH refs) t.refs l’ by
+    (cheat)
+
+  \\ drule $ INST_TYPE [“:'ffi” |-> “:unit”] vc_ok_mccarthy_imp \\ simp []
+  \\ disch_then $ drule_at (Pos last)
+  \\ disch_then $ drule_at (Pos last)
+  \\ disch_then $ drule_at (Pos last)
+  \\ assume_tac $ EVAL “compile_stmt mccarthy_body” \\ simp []
+  \\ disch_then $ qx_choosel_then [‘s'’, ‘ck’, ‘t'’, ‘m'’, ‘ck'’] assume_tac
+  \\ fs []
+  \\ qrefinel [‘_’, ‘_’, ‘ck’]
+  \\ gvs [Abbr ‘t’]
+  \\ simp [can_pmatch_all_def, pmatch_def]
+  \\ gvs [clos_env_ok_def, has_cons_def]
+  \\ simp [same_type_def, ret_stamp_def, same_ctor_def]
+  \\ simp [evaluate_match_def, pat_bindings_def, pmatch_def, Abbr ‘env_cml’]
+  \\ simp [same_type_def, ret_stamp_def, same_ctor_def]
+  \\ simp [evaluate_def, nsOptBind_def, do_app_def]
+
+  \\ ‘store_lookup (LENGTH refs + 1) t'.refs =
+        SOME (Refv (Litv (IntLit (if n ≤ 100 then 91 else n − 10))))’ by
+    (gvs [state_rel_def, dafny_to_cakemlProofTheory.locals_rel_def]
+     \\ first_x_assum $ drule
+     \\ impl_tac >- (EVAL_TAC)
+     \\ simp [nsOptBind_def])
+  \\ simp [INT_def]
+  \\ cheat
 QED
 
 (** Example 3: Swapping elements in an array **********************************)
