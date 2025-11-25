@@ -56,7 +56,7 @@ Datatype:
   | Unop prim_unop ('a varc) ('a varc)
     (* Binop op X Y Z : X op Y = Z *)
   | Binop prim_binop ('a varc) ('a varc) ('a varc)
-    (* Cmpop op X Y : X cmp Y *)
+    (* Cmpop reif op X Y : reify(X cmp Y) *)
   | Cmpop ('a reify) cmpop ('a varc) ('a varc)
 End
 
