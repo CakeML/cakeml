@@ -34,17 +34,17 @@ End
 
 Theorem encode_tuple_eq_sem:
   valid_assignment bnd wi ∧
-  EVERY (λ(X,t). wb (INL (Eq X t)) ⇔ wi X = t) Xts
+  EVERY (λ(X,t). wb (INL (Eq X t)) ⇔ varc wi X = t) Xts
   ⇒
   (EVERY (λx. iconstraint_sem x (wi,wb))
     (encode_tuple_eq bnd Xts) ⇔
-  (wb (INR (Tb Xts)) ⇔ EVERY (λ(X,t). wi X = t) Xts))
+  (wb (INR (Tb Xts)) ⇔ EVERY (λ(X,t). varc wi X = t) Xts))
 Proof
   rw[encode_tuple_eq_def,iconstraint_sem_def]>>
   simp[eval_lin_term_def]>>
   qho_match_abbrev_tac ‘((P ⇔ R) ⇔ (R ⇔ Q))’>>
   qsuff_tac ‘P ⇔ Q’
-  >-metis_tac[]>>
+  >- metis_tac[]>>
   unabbrev_all_tac>>
   pop_assum mp_tac>>
   last_x_assum kall_tac>>
@@ -129,7 +129,7 @@ Theorem reify_tuple_eq_sem:
   wb (INR (Tb Xts)) ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
     (reify_tuple_eq bnd Xts) ⇒
-  EVERY (λ(X,t). wi X = t) Xts
+  EVERY (λ(X,t). varc wi X = t) Xts
 Proof
   rw[reify_tuple_eq_def]>>
   pop_assum mp_tac>>

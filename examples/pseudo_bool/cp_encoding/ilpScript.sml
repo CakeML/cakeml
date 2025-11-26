@@ -14,13 +14,13 @@ Ancestors
   It is NOT intended for use as a standalone and NOT a pure ILP formalization.
 *)
 
-Type ilin_term = ``:(int # 'a) list ``
+Type ilin_term[pp] = ``:(int # 'a) list ``
 
 (* A constraint consists of two lists (c_i, X_i), (d_i, l_i) and a RHS *)
-Type iconstraint = ``:'a ilin_term # 'b lin_term # int``
+Type iconstraint[pp] = ``:'a ilin_term # 'b lin_term # int``
 
 (* An assignment assigns both the integer and boolean variables *)
-Type iassignment = ``:('a -> int) # ('b -> bool)``;
+Type iassignment[pp] = ``:('a -> int) # ('b -> bool)``;
 
 Definition eval_iterm_def[simp]:
   eval_iterm wi (c:int,X) = c * wi X

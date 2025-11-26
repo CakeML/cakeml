@@ -7,11 +7,11 @@ Libs
 Ancestors
   mlint pbc
 
-Type assignment = ``:('a -> int)``;
+Type assignment[pp] = ``:('a -> int)``;
 
-Type varc = ``: 'a + int``;
+Type varc[pp] = ``: 'a + int``;
 
-Type bounds = ``:'a -> int # int``;
+Type bounds[pp] = ``:'a -> int # int``;
 
 Definition varc_def:
   varc (w:'a assignment) (vc:'a varc) =
@@ -39,7 +39,7 @@ Datatype:
   | LessEqual | LessThan
 End
 
-Type reify = ``: ('a varc + 'a varc) option``;
+Type reify[pp] = ``: ('a varc + 'a varc) option``;
 
 (* For binary operations, we have the arguments
   to the operations followed by the RHS,
@@ -78,7 +78,7 @@ Datatype:
   (* AtMostOne TODO: future work, not yet in solver *)
 End
 
-Type iclin_term = ``:(int # 'a varc) list ``
+Type iclin_term[pp] = ``:(int # 'a varc) list ``
 
 (* The op is prefixed with "linear-", e.g.:
   lin-equal-if ((1 X) (2 5) ...) 5 *)
@@ -89,7 +89,7 @@ Datatype:
 End
 
 (* The second value is the offset to interpret this index *)
-Type array_ind = ``:('a varc # int)``
+Type array_ind[pp] = ``:('a varc # int)``
 
 Datatype:
   array_constr =
@@ -114,7 +114,7 @@ End
 (* NONE represents a wildcard entry for that element *)
 Datatype:
   extensional_constr =
-    Table ((int option) list list) ('a list)
+    Table ((int option) list list) ('a varc list)
 End
 
 Datatype:
@@ -442,7 +442,7 @@ End
 Definition table_sem_def:
   table_sem tss Xs w ⇔
   EVERY (λts. LENGTH ts = LENGTH Xs) tss ∧
-  ∃ts. MEM ts tss ∧ match_row ts (MAP w Xs)
+  ∃ts. MEM ts tss ∧ match_row ts (MAP (varc w) Xs)
 End
 
 Definition extensional_constr_sem_def:
@@ -579,7 +579,7 @@ Definition valid_assignment_def:
     lb ≤ w x ∧ w x ≤ ub
 End
 
-Type constraints = ``: 'a constraint set``;
+Type constraints[pp] = ``: 'a constraint set``;
 
 Datatype:
   objective =
@@ -704,7 +704,7 @@ QED
 - obj : mlstring objective
 *)
 
-Type cp_inst = ``:(mlstring, int # int) alist # mlstring constraint list # mlstring objective``;
+Type cp_inst[pp] = ``:(mlstring, int # int) alist # mlstring constraint list # mlstring objective``;
 
 (* For any unspecified variable, default to (0,0) *)
 Definition bnd_lookup_def:

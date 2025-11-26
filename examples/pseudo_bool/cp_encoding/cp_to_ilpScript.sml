@@ -12,15 +12,15 @@ Ancestors
 (* The datatype for reified variables in the ILP encoding *)
 Datatype:
   reif =
-  | Ge 'a int (* Reifies X ≥ i *)
-  | Eq 'a int (* Reifies X = i *)
+  | Ge ('a varc) int (* Reifies X ≥ i *)
+  | Eq ('a varc) int (* Reifies X = i *)
 End
 
 Definition reify_reif_def:
   reify_reif wi reif ⇔
   case reif of
-    Ge X i => wi X ≥ i
-  | Eq X i => wi X = i
+    Ge X i => varc wi X ≥ i
+  | Eq X i => varc wi X = i
 End
 
 (* The datatype for flags in the ILP encoding. *)
@@ -30,7 +30,7 @@ Datatype:
   | Gem ('a + int) ('a + int) (* Used to force X ≥ Y in Array Max *)
   | Eqc ('a + int) ('a + int) (* Used to force X = Y in Count *)
   | Nv ('a list) int (* Used to force some element in As = v *)
-  | Tb (('a # int) list) (* Forces Xs = t for a given row*)
+  | Tb (('a varc # int) list) (* Forces Xs = t for a given row*)
 End
 
 Definition reify_flag_def:
@@ -39,7 +39,7 @@ Definition reify_flag_def:
   | Ne X Y => varc wi X > varc wi Y
   | Gem X Y => varc wi X ≥ varc wi Y
   | Eqc X Y => varc wi X = varc wi Y
-  | Tb Xts => EVERY (λ(X,t). wi X = t) Xts
+  | Tb Xts => EVERY (λ(X,t). varc wi X = t) Xts
   | Nv Xs v => MEM v $ MAP wi Xs
 End
 
@@ -64,19 +64,26 @@ End
 
 (* Encoding a single variable X_{>=i} ⇔ X ≥ i *)
 Definition encode_ge_def:
-  encode_ge bnd X i =
-  (bimply_bits bnd [Pos (INL (Ge X i))] ([(1,X)],[],i))
+  encode_ge (bnd:'a bounds) (Xi:'a varc) i =
+  let cc =
+    case Xi of
+      INL X => ([(1,X)],[],i)
+    | INR v => ([],[],1 - b2i (v ≥ i))
+  in
+  bimply_bits bnd [Pos (INL (Ge Xi i))] cc
 End
 
 Theorem encode_ge_sem[simp]:
   valid_assignment bnd wi ⇒
   EVERY (λx. iconstraint_sem x (wi,wb)) (encode_ge bnd X i)
   =
-  (wb (INL (Ge X i)) ⇔ wi X ≥ i)
+  (wb (INL (Ge X i)) ⇔ varc wi X ≥ i)
 Proof
   rw[encode_ge_def]>>
-  simp[iconstraint_sem_def,eval_ilin_term_def,iSUM_def]>>
-  metis_tac[]
+  TOP_CASE_TAC>>
+  simp[iconstraint_sem_def,eval_ilin_term_def,iSUM_def,varc_def]
+  >- metis_tac[]
+  >- rw[b2i_alt]
 QED
 
 (* Encoding a single variable X = i, separate from encode_ge
@@ -90,12 +97,12 @@ End
 
 Theorem encode_eq_sem[simp]:
   valid_assignment bnd wi ∧
-  (wb (INL (Ge X i)) ⇔ wi X ≥ i) ∧
-  (wb (INL (Ge X (i+1))) ⇔ wi X ≥ i+1)
+  (wb (INL (Ge X i)) ⇔ varc wi X ≥ i) ∧
+  (wb (INL (Ge X (i+1))) ⇔ varc wi X ≥ i+1)
   ⇒
   EVERY (λx. iconstraint_sem x (wi,wb)) (encode_eq bnd X i)
   =
-  (wb (INL (Eq X i)) ⇔ wi X = i)
+  (wb (INL (Eq X i)) ⇔ varc wi X = i)
 Proof
   rw[encode_eq_def]>>
   gs[iconstraint_sem_def,b2i_alt]>>
@@ -116,9 +123,9 @@ Theorem encode_full_eq_sem[simp]:
   ⇒
   EVERY (λx. iconstraint_sem x (wi,wb)) (encode_full_eq bnd X i)
   =
-  ((wb (INL (Ge X i)) ⇔ wi X ≥ i) ∧
-  (wb (INL (Ge X (i+1))) ⇔ wi X ≥ i+1) ∧
-  (wb (INL (Eq X i)) ⇔ wi X = i))
+  ((wb (INL (Ge X i)) ⇔ varc wi X ≥ i) ∧
+  (wb (INL (Ge X (i+1))) ⇔ varc wi X ≥ i+1) ∧
+  (wb (INL (Eq X i)) ⇔ varc wi X = i))
 Proof
   rw[encode_full_eq_def]>>
   metis_tac[encode_eq_sem]
@@ -213,8 +220,8 @@ QED
 Datatype:
   enc_conf =
     <|
-       ge : (mlstring # int list) list
-     ; eq : (mlstring # int list) list
+       ge : ( (mlstring varc) # int list) list
+     ; eq : ( (mlstring varc) # int list) list
     |>
 End
 
@@ -239,8 +246,8 @@ End
 
 Definition good_reif_def:
   good_reif wb wi ec ⇔
-  (∀Y n. has_ge Y n ec ⇒ (wb (INL (Ge Y n)) ⇔ wi Y ≥ n)) ∧
-  (∀Y n. has_eq Y n ec ⇒ (wb (INL (Eq Y n)) ⇔ wi Y = n))
+  (∀Y n. has_ge Y n ec ⇒ (wb (INL (Ge Y n)) ⇔ varc wi Y ≥ n)) ∧
+  (∀Y n. has_eq Y n ec ⇒ (wb (INL (Eq Y n)) ⇔ varc wi Y = n))
 End
 
 (* enc_rel, just a shorthand *)
@@ -327,6 +334,27 @@ QED
 Type ciconstraint[pp] = ``:(mlstring, mlstring avar) iconstraint``
 Type ann_ciconstraint[pp] = ``:mlstring option # (mlstring, mlstring avar) iconstraint``
 
+Definition format_varc_def:
+  format_varc X =
+  case X of
+    INL s => strlit"v" ^ s
+  | INR i => strlit"i" ^ int_to_string #"-" i
+End
+
+Definition format_reif_def:
+  format_reif pref X i =
+  concat[strlit"i[";format_varc X;strlit"][";pref;
+    int_to_string #"-" i;strlit"]"]
+End
+
+(* Name of a reification *)
+Definition enc_reif_def:
+  enc_reif reif =
+  case reif of
+    Ge X i => format_reif (strlit"ge") X i
+  | Eq X i => format_reif (strlit"eq") X i
+End
+
 (* Tool for sticking on annotations *)
 Definition mk_annotate_def:
   (mk_annotate (_:mlstring list) ([]:ciconstraint list) = []) ∧
@@ -343,10 +371,11 @@ Definition cencode_ge_def:
   then (Nil, ec)
   else
     let ec = add_ge Y n ec in
+    let fmt = format_reif (strlit "ge") Y n in
     (List (
       mk_annotate [
-        (strlit "ge_" ^ Y ^ strlit"_" ^ toString n);
-        (strlit "ge_" ^ Y ^ strlit"_" ^ toString n ^ strlit"_R");
+        fmt ^ strlit"[f]";
+        fmt ^ strlit"[r]"
       ]
       (encode_ge bnd Y n)), ec)
 End
@@ -357,10 +386,11 @@ Definition cencode_eq_def:
   then (Nil, ec)
   else
     let ec = add_eq Y n ec in
+    let fmt = format_reif (strlit "eq") Y n in
     (List (
       mk_annotate [
-        (strlit "eq_" ^ Y ^ strlit"_" ^ toString n);
-        (strlit "eq_" ^ Y ^ strlit"_" ^ toString n ^ strlit"_R");
+        fmt ^ strlit"[f]";
+        fmt ^ strlit"[r]"
       ]
       (encode_eq bnd Y n)), ec)
 End
@@ -455,4 +485,8 @@ Theorem enc_rel_List_refl_1:
 Proof
   rw[enc_rel_def]
 QED
+
+Definition init_ec_def:
+  init_ec = <| ge := [] ; eq := [] |>
+End
 
