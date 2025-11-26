@@ -27,7 +27,8 @@ End
 Datatype:
   prim_binop =
     Plus | Minus
-  | Times | Div | Mod | Pow
+  (* TODO: future work, not in solver except maybe Times
+  | Times | Div | Mod | Pow *)
   | Min | Max
 End
 
@@ -63,7 +64,6 @@ End
 (* The ones below are general constraints.
   Our policy: keep only general and widely-used ones.
   Those that can be readily encoded using other constraints are removed. *)
-
 Datatype:
   counting_constr =
     (* AllDifferent Xs *)
@@ -75,7 +75,7 @@ Datatype:
     (* Among Xs iS Y : Y is how many times the values in iS (as set)
        appear in Xs *)
   | Among ('a varc list) (int list) ('a varc)
-  (* AtMostOne TODO *)
+  (* AtMostOne TODO: future work, not yet in solver *)
 End
 
 Type iclin_term = ``:(int # 'a varc) list ``
@@ -101,12 +101,14 @@ Datatype:
   | ArrayMax ('a varc list) ('a varc)
     (* ArrayMin Xs Y : Y = min(Xs) *)
   | ArrayMin ('a varc list) ('a varc)
+  (* TODO: future work, not yet in solver
     (* ArrayArgMax Xs Y : Xs[Y] = max(Xs), and Y is leftmost such element *)
   | ArrayArgMax ('a varc list) ('a array_ind)
     (* ArrayArgMin Xs Y : Xs[Y] = max(Xs), and Y is leftmost such element *)
   | ArrayArgMin ('a varc list) ('a array_ind)
     (* In Y Xs: Y is in Xs *)
   | In ('a varc) ('a varc list)
+  *)
 End
 
 (* NONE represents a wildcard entry for that element *)
@@ -181,7 +183,7 @@ Definition unop_sem_def:
   unop_val unop (varc w X) = varc w Y
 End
 
-(* TODO: ?? *)
+(* Future work
 Definition guard_binop_def:
   guard_binop bop y ⇔
   case bop of
@@ -190,18 +192,21 @@ Definition guard_binop_def:
   | Pow => y ≥ 0
   | _ => T
 End
+*)
 
 Definition binop_val_def:
   binop_val bop x y =
   case bop of
     Plus => x + y
   | Minus => x - y
+  | Min => int_min x y
+  | Max => int_max x y
+(*
   | Times => x * y
   | Div => x / y
   | Mod => x % y
   | Pow => x ** Num y
-  | Min => int_min x y
-  | Max => int_max x y
+*)
 End
 
 Definition binop_sem_def:
@@ -209,7 +214,7 @@ Definition binop_sem_def:
   let x = varc w X in
   let y = varc w Y in
   let z = varc w Z in
-  guard_binop bop y ∧
+  (* guard_binop bop y ∧ *)
   binop_val bop x y = z
 End
 
@@ -374,6 +379,7 @@ Definition array_min_sem_def:
     EVERY (λx. y ≤ x) xs
 End
 
+(*
 Definition array_arg_max_sem_def:
   array_arg_max_sem Xs Yi w =
   let
@@ -402,6 +408,7 @@ Definition in_sem_def:
   in
     MEM y xs
 End
+*)
 
 Definition array_constr_sem_def:
   array_constr_sem c w ⇔
@@ -411,11 +418,13 @@ Definition array_constr_sem_def:
       element2d_sem Xss Y1i Y2i Z w
   | ArrayMax Xs Y => array_max_sem Xs Y w
   | ArrayMin Xs Y => array_min_sem Xs Y w
+  (*
   | ArrayArgMax Xs Yi =>
       array_arg_max_sem Xs Yi w
   | ArrayArgMin Xs Yi =>
       array_arg_min_sem Xs Yi w
   | In Y Xs => in_sem Y Xs w
+  *)
 End
 
 (***
@@ -513,9 +522,32 @@ End
 (***
   channeling_constr TODO
 ***)
+Definition inverse_sem_def:
+  inverse_sem (Xs,offx) (Ys,offy) w ⇔
+  let
+    lXs = &LENGTH Xs;
+    lYs = &LENGTH Ys
+  in
+    lXs = lYs ∧
+  EVERY (λX.
+    let n = mk_array_ind (X,offy) w in
+    0 ≤ n ∧ n < lYs) Xs ∧
+  EVERY (λY.
+    let n = mk_array_ind (Y,offx) w in
+    0 ≤ n ∧ n < lXs) Ys ∧
+  ∀i j.
+    offx ≤ i ∧ i < offx + lXs ∧
+    offy ≤ j ∧ j < offy + lYs ⇒
+    (
+      varc w (EL (Num (i - offx)) Xs) = j ⇔
+      varc w (EL (Num (j - offy)) Ys) = i
+    )
+End
+
 Definition channeling_constr_sem_def:
   channeling_constr_sem c w ⇔
-  T
+  case c of Inverse Xsi Ysi =>
+    inverse_sem Xsi Ysi w
 End
 
 (***
