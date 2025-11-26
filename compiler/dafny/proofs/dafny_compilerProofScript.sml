@@ -533,7 +533,8 @@ Theorem vc_ok_imp:
         (t', Rerr (Rraise (Conv (SOME ret_stamp) []))) ∧
       store_preserve (FRANGE m) base t.refs t'.refs ∧
       state_rel m' l (s' with clock := ck₁) t' env_cml ∧
-      m ⊑ m' ∧ is_extension t.refs m m'
+      m ⊑ m' ∧ is_extension t.refs m m' ∧
+      cml_state_preserved t t'
 Proof
   rpt strip_tac
   \\ namedCases_on ‘dafny_env.prog’ ["members"]
@@ -572,4 +573,5 @@ Proof
   \\ Cases_on ‘err’ \\ gvs [stmt_res_rel_def]
   \\ first_assum $ irule_at (Pos hd) \\ simp []
   \\ first_assum $ irule_at (Pos hd) \\ simp []
+  \\ gvs [cml_state_preserved_def]
 QED

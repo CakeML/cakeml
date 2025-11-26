@@ -446,7 +446,8 @@ Theorem vc_ok_mccarthy_imp:
       (t', Rerr (Rraise (Conv (SOME ret_stamp) []))) ∧
     state_rel m' l (s' with clock := ck') t' env_cml ∧
     store_preserve (FRANGE m) base t.refs t'.refs ∧
-    m ⊑ m' ∧ is_extension t.refs m m'
+    m ⊑ m' ∧ is_extension t.refs m m' ∧
+    cml_state_preserved t t'
 Proof
   rpt strip_tac
   \\ qspecl_then [‘mccarthy_env’, ‘«M»’] mp_tac vc_ok_imp
@@ -488,11 +489,13 @@ Proof
    (simp [evaluate_exp_def]
     \\ simp [oneline value_same_type_def] \\ CASE_TAC \\ gvs []
     \\ rpt strip_tac \\ gvs []
+    \\ first_assum $ irule_at (Pos hd)
     \\ first_assum $ irule_at (Pos hd))
   \\ simp [evaluate_exp_def, read_local_def, use_old_def, do_sc_def, do_bop_def]
   \\ simp [oneline value_same_type_def] \\ CASE_TAC \\ gvs []
   \\ simp [unuse_old_def]
   \\ rpt strip_tac \\ gvs []
+  \\ first_assum $ irule_at (Pos hd)
   \\ first_assum $ irule_at (Pos hd)
 QED
 
@@ -529,7 +532,6 @@ Theorem mccarthy_appreturns[local]:
   AppReturns (INT n) (Recclosure clos_env [mccarthy_cml] "dfy_M")
     (INT (if n <= 100 then 91 else n - 10))
 Proof
-
   rpt strip_tac
   \\ qpat_x_assum ‘compile_member _ = _’ $
        assume_tac o GSYM o CONV_RULE EVAL
@@ -577,13 +579,46 @@ Proof
          refs := refs ++ [Refv v] ++ [Refv (Litv (IntLit 0))];
          ffi := initial_ffi_state ARB (); next_type_stamp := 0;
          next_exn_stamp := 0; eval_state := NONE|>’
-
   \\ ‘∃l s.
         ALOOKUP s.locals «v0» = SOME (SOME (IntV n)) ∧
         state_ok s [] [(«v1»,IntT)] ∧ ¬MEM «v2» (MAP FST s.locals) ∧
         state_rel FEMPTY l s t env_cml ∧ base_at_most (LENGTH refs) t.refs l’ by
-    (cheat)
-
+    (qexists ‘FEMPTY |++ [(«v0», LENGTH refs); («v1», LENGTH refs + 1)]’
+     \\ qexists
+        ‘<| clock := t.clock;
+            locals := [(«v0», SOME (IntV n)); («v1», NONE)];
+            heap := [];
+            locals_old := [(«v0», SOME (IntV n)); («v1», NONE)];
+            heap_old := [];
+            locals_prev := []; heap_prev := [] |>’
+     \\ simp []
+     \\ rpt conj_tac
+     \\ gvs [Abbr ‘t’, Abbr ‘env_cml’]
+     >- (* state_ok *)
+      (simp [state_ok_def, state_inv_def, locals_inv_def, strict_locals_ok_def,
+             value_inv_def, heap_inv_def, locals_ok_def, LLOOKUP_def])
+     >- (* state_rel *)
+      (simp [state_rel_def, array_rel_def, LLOOKUP_def]
+       \\ simp [dafny_to_cakemlProofTheory.locals_rel_def]
+       \\ rpt strip_tac
+       >- (EVAL_TAC \\ gvs [INJ_DEF] \\ rpt strip_tac \\ gvs [])
+       >- (dxrule_then assume_tac (SRULE [SUBSET_DEF] FRANGE_FUPDATE_LIST_SUBSET)
+           \\ gvs [])
+       >- (gvs [AllCaseEqs()]
+           >-
+            (qexists ‘LENGTH refs’ \\ EVAL_TAC
+             \\ simp [LENGTH_APPEND, EL_APPEND]
+             \\ gvs [INT_def]
+             \\ gvs [Abbr ‘env_cml’, nsOptBind_def])
+           >-
+            (qexists ‘LENGTH refs + 1’ \\ EVAL_TAC
+             \\ simp [LENGTH_APPEND, EL_APPEND]
+             \\ gvs [INT_def]
+             \\ gvs [nsOptBind_def])))
+     >- (simp [base_at_most_def]
+         \\ rpt strip_tac
+         \\ dxrule_then assume_tac (SRULE [SUBSET_DEF] FRANGE_FUPDATE_LIST_SUBSET)
+         \\ gvs []))
   \\ drule $ INST_TYPE [“:'ffi” |-> “:unit”] vc_ok_mccarthy_imp \\ simp []
   \\ disch_then $ drule_at (Pos last)
   \\ disch_then $ drule_at (Pos last)
@@ -608,15 +643,14 @@ Proof
   \\ simp [INT_def]
   \\ qexistsl [‘DROP (LENGTH refs) t'.refs’, ‘t'.clock’]
   \\ simp [semanticPrimitivesTheory.state_component_equality]
-  \\ conj_tac >-
-   (gvs [store_preserve_def, store_lookup_def]
-    \\ irule LIST_EQ \\ gvs []
-    \\ rpt strip_tac
-    \\ gvs [EL_APPEND]
-    \\ IF_CASES_TAC
-    \\ gvs [EL_DROP])
-
-  \\ cheat
+  \\ gvs [cml_state_preserved_def]
+  (* refs *)
+  \\ gvs [store_preserve_def, store_lookup_def]
+  \\ irule LIST_EQ \\ gvs []
+  \\ rpt strip_tac
+  \\ gvs [EL_APPEND]
+  \\ IF_CASES_TAC
+  \\ gvs [EL_DROP]
 QED
 
 (** Example 3: Swapping elements in an array **********************************)
