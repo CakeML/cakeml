@@ -464,6 +464,24 @@ Definition state_rel_def:
     locals_rel m l s.locals t.refs cml_env.v
 End
 
+(* TODO (?) Instead of mentioning what is preserved, it may have made more
+ * sense to make the correctness lemmas mention what is changed, e.g.,
+   ∃refs ck.
+     ... = (t with <| refs := refs; clock := ck |>
+   Changing this at this point sounds a bit tedious, so I will leave this for a
+   future larger refactor (TM). *)
+Definition cml_state_preserved_def:
+  cml_state_preserved t t' ⇔
+    t'.ffi = t.ffi ∧ t'.next_type_stamp = t.next_type_stamp ∧
+    t'.next_exn_stamp = t.next_exn_stamp ∧ t'.eval_state = t.eval_state
+End
+
+Theorem cml_state_preserved_refl[local,simp]:
+  cml_state_preserved t t
+Proof
+  simp [cml_state_preserved_def]
+QED
+
 Definition exp_res_rel_def[simp]:
   (exp_res_rel m (Rval dfy_v) (Rval [cml_v]) ⇔ val_rel m dfy_v cml_v) ∧
   (exp_res_rel m (Rerr Rtimeout) (Rerr (Rabort Rtimeout_error)) ⇔
@@ -1394,6 +1412,7 @@ Theorem correct_from_exp:
            (t', r_cml) ∧
          store_preserve_all t.refs t'.refs ∧
          state_rel m l s' t' env_cml ∧
+         cml_state_preserved t t' ∧
          exp_res_rel m r_dfy r_cml) ∧
   (∀s env_dfy es_dfy s' rs_dfy (t: 'ffi cml_state) env_cml es_cml m l.
      evaluate_exps s env_dfy es_dfy = (s', rs_dfy) ∧
@@ -1405,6 +1424,7 @@ Theorem correct_from_exp:
            (t', rs_cml) ∧
          store_preserve_all t.refs t'.refs ∧
          state_rel m l s' t' env_cml ∧
+         cml_state_preserved t t' ∧
          exp_ress_rel m rs_dfy rs_cml)
 Proof
   ho_match_mp_tac evaluate_exp_ind
@@ -1474,7 +1494,7 @@ Proof
       \\ pop_assum $ kall_tac
       (* Finished instantiating evaluate_Apps *)
       \\ ‘t₁.clock = s₁.clock’ by gvs [state_rel_def] \\ gvs []
-      \\ gvs [restore_caller_def, state_rel_def])
+      \\ gvs [restore_caller_def, state_rel_def, cml_state_preserved_def])
     \\ qabbrev_tac ‘dfy_locals = REVERSE (ZIP (MAP FST ins, MAP SOME in_vs))’
     \\ qmatch_asmsub_abbrev_tac ‘evaluate_exp call_t’
     \\ namedCases_on ‘evaluate_exp call_t env_dfy body’ ["s₂ r"]
@@ -1517,7 +1537,8 @@ Proof
       \\ gvs [evaluate_def, do_con_check_def, build_conv_def,
               evaluateTheory.dec_clock_def]
       \\ Cases_on ‘r’ \\ gvs []
-      \\ drule_all state_rel_restore_caller \\ gvs [])
+      \\ drule_all state_rel_restore_caller \\ gvs []
+      \\ gvs [cml_state_preserved_def])
     (* Evaluating (non-empty) args succeeded *)
     \\ Cases_on ‘cml_args = []’ \\ gvs []
     \\ Cases_on ‘cml_vs = []’ \\ gvs []
@@ -1676,11 +1697,11 @@ Proof
        \\ last_assum $ irule_at Any \\ gvs [])
     \\ gvs []
     \\ namedCases_on ‘r’ ["", "v err"] \\ gvs []
-    \\ gvs [state_rel_def, restore_caller_def]
+    \\ gvs [state_rel_def, restore_caller_def, cml_state_preserved_def]
     \\ irule store_preserve_all_locals_rel
     \\ last_assum $ irule_at (Pos hd) \\ gvs [])
   >~ [‘Lit l’] >-
-   (qexists ‘0’
+   (qexistsl [‘0’, ‘t’]
     \\ Cases_on ‘l’
     \\ gvs [evaluate_exp_def, from_lit_def, from_exp_def, evaluate_def]
     \\ rename [‘Boolv b’] \\ Cases_on ‘b’
@@ -1709,7 +1730,7 @@ Proof
     \\ qexists ‘ck' + ck’
     \\ rev_drule evaluate_add_to_clock \\ gvs []
     \\ disch_then $ qspec_then ‘ck'’ assume_tac \\ gvs []
-    \\ gvs [do_if_def]
+    \\ gvs [do_if_def, cml_state_preserved_def]
     \\ irule store_preserve_all_trans \\ gvs [SF SFY_ss])
   >~ [‘UnOp uop e’] >-
    (gvs [evaluate_exp_def, from_exp_def, oneline bind_def, CaseEq "sum"]
@@ -1760,9 +1781,11 @@ Proof
     \\ drule state_rel_env_pop_not_fresh \\ gvs []
     \\ disch_then $ drule \\ rpt strip_tac \\ gvs []
     \\ reverse $ Cases_on ‘r’ \\ gvs []
-    >- (Cases_on ‘bop’
-        \\ gvs [oneline do_sc_def, val_rel_cases, from_bin_op_def,
-                evaluate_def, do_log_def, do_if_def, AllCaseEqs()])
+    >-
+     (Cases_on ‘bop’
+      \\ gvs [oneline do_sc_def, val_rel_cases, from_bin_op_def,
+              evaluate_def, do_log_def, do_if_def, cml_state_preserved_def,
+              AllCaseEqs()])
     \\ rename [‘val_rel _ dfy_v₁ cml_v₁’]
     \\ Cases_on ‘do_bop bop dfy_v₀ dfy_v₁’ \\ gvs []
     \\ Cases_on ‘bop = Div’ \\ gvs [] >-
@@ -1770,13 +1793,15 @@ Proof
       \\ gvs [from_bin_op_def, EDIV_DEF]
       \\ gvs [evaluate_def, do_app_def, do_if_def, opb_lookup_def]
       \\ Cases_on ‘0 < i₁’
-      \\ gvs [evaluate_def, do_app_def, opn_lookup_def, Boolv_def])
+      \\ gvs [evaluate_def, do_app_def, opn_lookup_def, Boolv_def]
+      \\ gvs [cml_state_preserved_def, state_rel_def])
     \\ Cases_on ‘bop = Mod’ \\ gvs [] >-
      (gvs [do_bop_def, CaseEq "value"]
       \\ gvs [from_bin_op_def, EMOD_DEF]
       \\ gvs [evaluate_def, do_app_def, do_if_def, opb_lookup_def]
       \\ Cases_on ‘i₁ < 0’
-      \\ gvs [evaluate_def, do_app_def, opn_lookup_def, INT_ABS])
+      \\ gvs [evaluate_def, do_app_def, opn_lookup_def, INT_ABS]
+      \\ gvs [cml_state_preserved_def])
     \\ Cases_on ‘bop = Eq’ \\ gvs [] >-
      (gvs [do_bop_def]
       \\ gvs [from_bin_op_def]
@@ -1786,7 +1811,8 @@ Proof
       >~ [‘do_eq (Boolv _) (Boolv _)’] >-
        (Cases_on ‘b’ \\ Cases_on ‘b'’
         \\ gvs [do_eq_def, lit_same_type_def, Boolv_def, ctor_same_type_def,
-                same_type_def])
+                same_type_def]
+        \\ gvs [cml_state_preserved_def])
       >~ [‘do_eq (Conv _ _) (Conv _ _)’] >-
        (drule_all state_rel_array_loc_INJ \\ rpt strip_tac
         \\ drule INJ_FLOOKUP_IMP
@@ -1794,8 +1820,10 @@ Proof
         \\ disch_then drule_all
         \\ gvs [do_eq_def, lit_same_type_def]
         \\ Cases_on ‘len = len'’ \\ gvs []
-        \\ Cases_on ‘dfy_loc = dfy_loc'’ \\ gvs [])
-      \\ gvs [do_eq_def, lit_same_type_def])
+        \\ Cases_on ‘dfy_loc = dfy_loc'’
+        \\ gvs [cml_state_preserved_def, state_rel_def])
+      \\ gvs [do_eq_def, lit_same_type_def]
+      \\ gvs [cml_state_preserved_def])
     \\ Cases_on ‘bop = Neq’ \\ gvs [] >-
      (gvs [do_bop_def]
       \\ gvs [from_bin_op_def]
@@ -1809,7 +1837,8 @@ Proof
         \\ gvs [evaluate_def, do_eq_def, lit_same_type_def, Boolv_def,
                 ctor_same_type_def, same_type_def, do_if_def, do_con_check_def,
                 build_conv_def, env_rel_def, has_cons_def,
-                bool_type_num_def])
+                bool_type_num_def]
+        \\ gvs [cml_state_preserved_def])
       >~ [‘do_eq (Conv _ _) (Conv _ _)’] >-
        (drule_all state_rel_array_loc_INJ \\ rpt strip_tac
         \\ drule INJ_FLOOKUP_IMP
@@ -1820,21 +1849,25 @@ Proof
         \\ Cases_on ‘dfy_loc = dfy_loc'’
         \\ gvs [do_if_def, evaluate_def, do_con_check_def, env_rel_def,
                 build_conv_def, Boolv_def, bool_type_num_def,
-                has_cons_def])
+                has_cons_def]
+        \\ gvs [cml_state_preserved_def])
       >~ [‘do_eq (Litv (IntLit _)) (Litv (IntLit _))’] >-
        (gvs [do_eq_def, lit_same_type_def, do_if_def]
         \\ Cases_on ‘i' = i’
         \\ gvs [evaluate_def, do_con_check_def, build_conv_def, env_rel_def,
-                Boolv_def, bool_type_num_def, has_cons_def])
+                Boolv_def, bool_type_num_def, has_cons_def]
+        \\ gvs [cml_state_preserved_def])
       >~ [‘do_eq (Litv (StrLit _)) (Litv (StrLit _))’] >-
        (gvs [do_eq_def, lit_same_type_def, do_if_def]
         \\ Cases_on ‘dfy_str = dfy_str'’
         \\ gvs [evaluate_def, do_con_check_def, build_conv_def, env_rel_def,
-                Boolv_def, bool_type_num_def, has_cons_def]))
-      \\ gvs [oneline do_bop_def, do_sc_def, AllCaseEqs()]
-      \\ gvs [from_bin_op_def]
-      \\ gvs [evaluate_def, do_app_def, opb_lookup_def, opn_lookup_def,
-              do_log_def, do_if_def])
+                Boolv_def, bool_type_num_def, has_cons_def]
+        \\ gvs [cml_state_preserved_def]))
+    \\ gvs [oneline do_bop_def, do_sc_def, AllCaseEqs()]
+    \\ gvs [from_bin_op_def]
+    \\ gvs [evaluate_def, do_app_def, opb_lookup_def, opn_lookup_def,
+              do_log_def, do_if_def]
+    \\ gvs [cml_state_preserved_def])
   >~ [‘ArrLen arr’] >-
    (gvs [from_exp_def, oneline bind_def, CaseEq "sum"]
     \\ gvs [evaluate_exp_def]
@@ -1892,10 +1925,12 @@ Proof
     \\ gvs [can_pmatch_all_def, pmatch_def, cml_tup_vname_def,
             pat_bindings_def, num_to_str_11]
     \\ gvs [do_app_def]
+    \\ gvs [cml_state_preserved_def]
     \\ drule_all state_rel_llookup \\ rpt strip_tac \\ gvs []
     \\ gvs [INT_ABS]
     \\ drule LIST_REL_LENGTH \\ rpt strip_tac
-    \\ gvs [LLOOKUP_EQ_EL, LIST_REL_EL_EQN])
+    \\ gvs [LLOOKUP_EQ_EL, LIST_REL_EL_EQN]
+    \\ gvs [state_rel_def])
   >~ [‘map_from_exp []’] >-
    (qexists ‘0’ \\ gvs [from_exp_def, evaluate_exp_def, evaluate_def])
   >~ [‘map_from_exp (e::es)’] >-
@@ -1921,7 +1956,8 @@ Proof
     \\ disch_then $ qspec_then ‘ck'’ assume_tac \\ gvs []
     \\ ‘store_preserve_all t.refs t₂.refs’ by
       (irule store_preserve_all_trans \\ gvs [SF SFY_ss])
-    \\ reverse $ Cases_on ‘r’ \\ gvs [evaluate_def])
+    \\ reverse $ Cases_on ‘r’ \\ gvs [evaluate_def]
+    \\ gvs [cml_state_preserved_def])
   \\ gvs [from_exp_def]  (* These expression do not get compiled *)
 QED
 
@@ -2094,7 +2130,8 @@ Theorem correct_from_rhs_exp:
     ∃ck (t': 'ffi cml_state) m' r_cml.
       evaluate$evaluate (t with clock := t.clock + ck) env_cml [e_cml] =
       (t', r_cml) ∧ store_preserve_all t.refs t'.refs ∧
-      state_rel m' l s' t' env_cml ∧ exp_res_rel m' r_dfy r_cml ∧
+      state_rel m' l s' t' env_cml ∧ cml_state_preserved t t' ∧
+      exp_res_rel m' r_dfy r_cml ∧
       m ⊑ m' ∧ is_extension t.refs m m'
 Proof
   Cases_on ‘rhs_dfy’ \\ rpt strip_tac
@@ -2146,6 +2183,7 @@ Proof
     >- (qexists ‘m’
         \\ drule state_rel_env_pop_not_fresh \\ gvs []
         \\ disch_then drule \\ rpt strip_tac \\ gvs []
+        \\ gvs [cml_state_preserved_def]
         \\ irule_at Any store_preserve_all_trans \\ gvs [SF SFY_ss])
     \\ rename [‘do_app _ _ [len_cml_v; init_cml_v]’]
     \\ namedCases_on ‘alloc_array s₂ len_v init_v ty’ ["", "r"] \\ gvs []
@@ -2167,6 +2205,7 @@ Proof
         \\ ‘explode n ≠ " len"’ by
           (Cases_on ‘explode n’ \\ gvs [is_fresh_def, isprefix_thm])
         \\ simp [])
+    >- gvs [cml_state_preserved_def]
     >- intLib.COOPER_TAC
     >- gvs [FLOOKUP_SIMP]
     >- (irule array_rel_submap \\ gvs [state_rel_def])
@@ -2184,7 +2223,8 @@ Theorem correct_map_from_rhs_exp:
     ∃ck (t': 'ffi cml_state) m' r_cml.
       evaluate$evaluate (t with clock := t.clock + ck) env_cml es_cml =
       (t', r_cml) ∧ store_preserve_all t.refs t'.refs ∧
-      state_rel m' l s' t' env_cml ∧ exp_ress_rel m' r_dfy r_cml ∧
+      state_rel m' l s' t' env_cml ∧ cml_state_preserved t t' ∧
+      exp_ress_rel m' r_dfy r_cml ∧
       m ⊑ m' ∧ is_extension t.refs m m'
 Proof
   Induct_on ‘rhss_dfy’ \\ rpt strip_tac
@@ -2223,6 +2263,7 @@ Proof
     (irule_at Any SUBMAP_TRANS
      \\ first_assum $ irule_at Any \\ simp [])
   \\ simp []
+  \\ gvs [cml_state_preserved_def]
   \\ irule submap_val_rel \\ gvs [SF SFY_ss]
 QED
 
@@ -2479,7 +2520,8 @@ Theorem evaluate_assign_values[local]:
       evaluate (t with clock := t.clock + ck) env_cml [Seqs asss_cml] =
       (t', r_cml) ∧
       store_preserve (FRANGE m) base t.refs t'.refs ∧
-      state_rel m l s' t' env_cml ∧ stmt_res_rel r_dfy r_cml
+      state_rel m l s' t' env_cml ∧ cml_state_preserved t t' ∧
+      stmt_res_rel r_dfy r_cml
 Proof
   Induct_on ‘lhss’ \\ Cases_on ‘rhs_vs’ \\ gvs [assign_values_def]
   \\ rpt strip_tac
@@ -2517,6 +2559,7 @@ Proof
     \\ gvs []
     \\ disch_then $ qx_choosel_then [‘ck’, ‘t'’] mp_tac \\ rpt strip_tac
     \\ qexists ‘ck’ \\ gvs []
+    \\ gvs [cml_state_preserved_def]
     \\ irule store_preserve_lupdate_local
     \\ rpt (last_assum $ irule_at Any))
   (* Array update *)
@@ -2561,6 +2604,7 @@ Proof
     \\ gvs [evaluate_def]
     \\ irule_at Any state_rel_env_pop_not_fresh
     \\ rpt (first_assum $ irule_at Any \\ gvs [])
+    \\ gvs [cml_state_preserved_def]
     \\ irule store_preserve_all_weaken
     \\ irule store_preserve_all_trans
     \\ gvs [SF SFY_ss])
@@ -2606,6 +2650,7 @@ Proof
   \\ ‘¬(idx_int < 0)’ by intLib.COOPER_TAC \\ gvs [INT_ABS]
   \\ ‘Num idx_int < LENGTH varr’ by (drule LIST_REL_LENGTH \\ gvs []) \\ gvs []
   \\ gvs [store_assign_def, store_lookup_def, store_v_same_type_def]
+  \\ gvs [cml_state_preserved_def]
   \\ irule store_preserve_trans
   \\ qexists ‘m’ \\ simp []
   \\ irule_at (Pos hd) store_preserve_all_weaken
@@ -3103,6 +3148,7 @@ Theorem correct_from_stmt:
         (t', r_cml) ∧
         store_preserve (FRANGE m) base t.refs t'.refs ∧
         state_rel m' l s' t' env_cml ∧
+        cml_state_preserved t t' ∧
         m ⊑ m' ∧ is_extension t.refs m m' ∧
         stmt_res_rel r_dfy r_cml
 Proof
@@ -3138,6 +3184,7 @@ Proof
     \\ qexists ‘m₂’ \\ simp []
     \\ rpt conj_tac
     >- (drule_all store_preserve_trans \\ simp [])
+    >- gvs [cml_state_preserved_def]
     >- (drule_all SUBMAP_TRANS \\ simp [])
     >- (irule is_extension_trans
         \\ first_assum $ irule_at (Pos last)
@@ -3179,7 +3226,7 @@ Proof
       (irule store_preserve_trans
       \\ first_assum $ irule_at (Pos last) \\ simp []
        \\ irule store_preserve_all_weaken \\ simp [])
-    \\ simp [])
+    \\ gvs [cml_state_preserved_def])
   >~ [‘Return’] >-
    (gvs [evaluate_stmt_def, from_stmt_def, mk_id_def, evaluate_def,
          do_con_check_def, env_rel_def, has_cons_def, build_conv_def]
@@ -3232,6 +3279,7 @@ Proof
     \\ drule_then assume_tac store_preserve_decat
     \\ drule_then assume_tac is_extension_decat
     \\ qexists ‘m₁’ \\ gvs []
+    \\ gvs [cml_state_preserved_def]
     (* state_rel *)
     \\ gvs [state_rel_def]
     \\ gvs [locals_rel_def]
@@ -3301,7 +3349,8 @@ Proof
       \\ irule_at Any state_rel_env_pop_not_fresh
       \\ last_assum $ irule_at (Pos hd)
       \\ gvs []
-      \\ last_assum $ irule_at (Pos hd) \\ gvs [])
+      \\ last_assum $ irule_at (Pos hd) \\ gvs []
+      \\ gvs [cml_state_preserved_def])
     \\ imp_res_tac result_mmap_len
     \\ gvs [Stuple_Tuple, evaluate_def, do_con_check_def, build_conv_def]
     \\ reverse $ namedCases_on ‘r’ ["rhs_vs", "err"] \\ gvs []
@@ -3382,12 +3431,13 @@ Proof
     \\ pop_assum kall_tac
     \\ DEP_REWRITE_TAC [pmatch_list_MAP_Pvar]
     \\ gvs []
-    (* store_preserve + is_extension *)
+    (* store_preserve + + cml_state_preserved + is_extension *)
     \\ irule_at Any store_preserve_trans \\ gvs []
     \\ irule_at (Pos hd) store_preserve_all_weaken
     \\ first_x_assum $ irule_at (Pos hd) \\ gvs []
     \\ first_x_assum $ irule_at (Pos hd) \\ simp []
     \\ first_x_assum $ irule_at (Pos last) \\ simp []
+    \\ gvs [cml_state_preserved_def]
     (* state_rel *)
     \\ irule state_rel_env_change
     \\ first_x_assum $ irule_at Any
@@ -3405,7 +3455,8 @@ Proof
                 Apps_def, do_con_check_def, build_conv_def, loop_name_def,
                 mk_id_def, do_opapp_def]
         \\ gvs [find_recfun_def, state_rel_def]
-        \\ rpt (last_assum $ irule_at Any) \\ gvs [])
+        \\ rpt (last_assum $ irule_at Any) \\ gvs []
+        \\ gvs [cml_state_preserved_def])
     \\ namedCases_on ‘evaluate_exp (dec_clock s) env_dfy grd’ ["s₁ r"] \\ gvs []
     \\ ‘r ≠ Rerr Rfail’ by (spose_not_then assume_tac \\ gvs [])
     (* TODO Better way to do this than writing this big block? *)
@@ -3460,7 +3511,8 @@ Proof
         \\ irule_at (Pos hd) store_preserve_all_weaken \\ gvs []
         \\ gvs [Abbr ‘env_cml₁’]
         \\ irule_at (Pos hd) state_rel_pop_env_while
-        \\ first_assum $ irule_at (Pos hd) \\ gvs [])
+        \\ first_assum $ irule_at (Pos hd) \\ gvs []
+        \\ gvs [cml_state_preserved_def])
     \\ Cases_on ‘grd_v = BoolV F’ \\ gvs []
     >- (qexists ‘ck’
         \\ gvs [evaluateTheory.dec_clock_def]
@@ -3468,7 +3520,8 @@ Proof
         \\ irule_at (Pos hd) store_preserve_all_weaken \\ gvs []
         \\ gvs [Abbr ‘env_cml₁’]
         \\ irule_at (Pos hd) state_rel_pop_env_while
-        \\ first_assum $ irule_at (Pos hd) \\ gvs [])
+        \\ first_assum $ irule_at (Pos hd) \\ gvs []
+        \\ gvs [cml_state_preserved_def])
     \\ Cases_on ‘grd_v = BoolV T’ \\ gvs []
     \\ namedCases_on ‘evaluate_stmt s₁ env_dfy body’ ["s₂ r"] \\ gvs []
     \\ ‘r ≠ Rstop (Serr Rfail)’ by (spose_not_then assume_tac \\ gvs [])
@@ -3498,6 +3551,7 @@ Proof
         \\ gvs [Abbr ‘env_cml₁’]
         \\ irule_at (Pos hd) state_rel_pop_env_while
         \\ first_assum $ irule_at (Pos hd) \\ gvs []
+        \\ gvs [cml_state_preserved_def]
         (* is_extension *)
         \\ drule is_extension_weaken
         \\ disch_then irule
@@ -3539,6 +3593,7 @@ Proof
     \\ fs [evaluateTheory.dec_clock_def]
     \\ last_assum $ irule_at (Pos hd)
     \\ irule_at (Pos hd) store_preserve_trans
+    \\ gvs [cml_state_preserved_def]
     (* Get rid of store_preserve in the goal *)
     \\ ntac 2 (last_assum $ irule_at (Pos hd))
     \\ simp []
@@ -3579,6 +3634,7 @@ Proof
       \\ simp [evaluate_def, do_app_def, store_alloc_def, store_lookup_def,
                EL_LENGTH_APPEND_0, call_FFI_def, store_assign_def,
                store_v_same_type_def]
+      \\ gvs [cml_state_preserved_def]
       \\ irule_at Any store_preserve_append
       \\ irule_at Any state_rel_refs_append
       \\ irule_at Any store_preserve_all_weaken \\ simp []
@@ -3601,6 +3657,7 @@ Proof
       \\ simp [evaluate_def, do_app_def, store_alloc_def, store_lookup_def,
                EL_LENGTH_APPEND_0, call_FFI_def, store_assign_def,
                store_v_same_type_def]
+      \\ gvs [cml_state_preserved_def]
       \\ irule_at Any store_preserve_append
       \\ irule_at Any state_rel_refs_append
       \\ irule_at Any store_preserve_all_weaken \\ simp []
@@ -3617,6 +3674,7 @@ Proof
     \\ simp [evaluate_def, do_app_def, store_alloc_def, store_lookup_def,
              EL_LENGTH_APPEND_0, call_FFI_def, store_assign_def,
              store_v_same_type_def]
+    \\ gvs [cml_state_preserved_def]
     \\ irule_at Any store_preserve_append
     \\ irule_at Any state_rel_refs_append
     \\ irule_at Any store_preserve_all_weaken \\ simp []
@@ -3772,6 +3830,7 @@ Proof
       >-
        (qexists ‘0’
         \\ Cases_on ‘err’ \\ gvs []
+        \\ gvs [cml_state_preserved_def]
         (* Timed out *)
         \\ gvs [state_rel_def, restore_caller_def]
         \\ first_assum $ irule_at (Pos hd) \\ gvs []
@@ -3804,6 +3863,7 @@ Proof
                 pmatch_def, pat_bindings_def]
         (* TODO Same as the timeout case - refactor? *)
         \\ gvs [state_rel_def, restore_caller_def]
+        \\ gvs [cml_state_preserved_def]
         \\ first_assum $ irule_at (Pos hd) \\ gvs []
         \\ irule locals_rel_submap
         \\ first_assum $ irule_at (Pos hd)
@@ -3859,6 +3919,7 @@ Proof
         \\ disch_then $ qx_choosel_then [‘ck₂’, ‘t₃’] mp_tac
         \\ rpt strip_tac \\ gvs []
         \\ first_assum $ irule_at (Pos hd) \\ gvs []
+        \\ gvs [cml_state_preserved_def]
         \\ irule_at (Pos hd) store_preserve_trans
         \\ ntac 2 (first_assum $ irule_at (Pos hd))
         \\ drule_then assume_tac is_extension_decat \\ simp []
@@ -3952,6 +4013,7 @@ Proof
       \\ rpt strip_tac \\ gvs []
       \\ qexists ‘ck₂’ \\ gvs []
       \\ qexists ‘m₁’ \\ simp []
+      \\ gvs [cml_state_preserved_def]
       \\ drule_then assume_tac is_extension_decat \\ simp []
       \\ irule_at (Pos hd) store_preserve_trans
       \\ ntac 2 (first_assum $ irule_at (Pos hd))
@@ -4000,7 +4062,8 @@ Proof
     \\ Cases_on ‘s₁.clock = 0’ \\ gvs []
     >- (qexists ‘0’ \\ gvs []
         \\ irule_at (Pos hd) store_preserve_all_weaken \\ gvs []
-        \\ qexists ‘m’ \\ gvs [restore_caller_def, state_rel_def])
+        \\ qexists ‘m’ \\ gvs [restore_caller_def, state_rel_def]
+        \\ gvs [cml_state_preserved_def])
     (* Dafny ran the call *)
     \\ ‘cml_param = HD (REVERSE params)’ by
       (Cases_on ‘REVERSE params’ \\ gvs [cml_fun_def])
@@ -4142,6 +4205,7 @@ Proof
       \\ qexists ‘0’ \\ gvs []
       \\ gvs [Abbr ‘call_refs’]
       \\ qexists ‘m₁’ \\ simp []
+      \\ gvs [cml_state_preserved_def]
       \\ irule state_rel_restore_caller1
       \\ last_assum $ irule_at (Pos hd) \\ gvs []
       \\ last_assum $ irule_at (Pos last) \\ gvs []
@@ -4208,6 +4272,7 @@ Proof
       \\ disch_then $ qx_choosel_then [‘ck₂’, ‘t₃’] mp_tac
       \\ rpt strip_tac \\ gvs []
       \\ first_assum $ irule_at (Pos hd) \\ gvs []
+      \\ gvs [cml_state_preserved_def]
       \\ irule_at (Pos hd) store_preserve_trans
       \\ first_assum $ irule_at (Pos hd)
       \\ first_assum $ irule_at (Pos hd) \\ simp []
@@ -4298,6 +4363,7 @@ Proof
     \\ disch_then $ qx_choosel_then [‘ck₂’, ‘t₃’] mp_tac
     \\ rpt strip_tac \\ gvs []
     \\ qexists ‘ck₂’ \\ gvs []
+    \\ gvs [cml_state_preserved_def]
     \\ irule_at (Pos hd) store_preserve_trans
     \\ first_assum $ irule_at (Pos hd)
     \\ first_assum $ irule_at (Pos hd)
