@@ -531,8 +531,9 @@ Theorem vc_ok_imp:
       (* CakeML *)
       evaluate$evaluate (t with clock := ck) env_cml [body_cml] =
         (t', Rerr (Rraise (Conv (SOME ret_stamp) []))) ∧
-      store_preserve base t.refs t'.refs ∧
-      state_rel m' l (s' with clock := ck₁) t' env_cml ∧ m ⊑ m'
+      store_preserve (FRANGE m) base t.refs t'.refs ∧
+      state_rel m' l (s' with clock := ck₁) t' env_cml ∧
+      m ⊑ m' ∧ is_extension t.refs m m'
 Proof
   rpt strip_tac
   \\ namedCases_on ‘dafny_env.prog’ ["members"]
