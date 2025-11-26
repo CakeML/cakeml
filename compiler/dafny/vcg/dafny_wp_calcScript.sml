@@ -5197,18 +5197,6 @@ Proof
   \\ imp_res_tac evaluate_exp_with_clock \\ fs []
 QED
 
-fun setup (q : term quotation, t : tactic) = let
-    val the_concl = Parse.typedTerm q bool
-    val t2 = (t \\ rpt (pop_assum mp_tac))
-    val (goals, validation) = t2 ([], the_concl)
-    fun get_goal q = first (can (rename [q])) goals |> snd
-    fun init thms st = if null (fst st) andalso aconv (snd st) the_concl
-      then ((K (goals, validation)) \\ TRY (MAP_FIRST ACCEPT_TAC thms)) st
-      else failwith "setup tactic: mismatching starting state"
-  in {get_goal = get_goal, concl = fn () => the_concl,
-      init = (init : thm list -> tactic),
-      all_goals = fn () => map snd goals} end
-
 val stmt_wp_sound_setup = setup (`
   ∀m reqs stmt post ens decs mods locals.
     stmt_wp m reqs stmt post ens decs mods locals ⇒

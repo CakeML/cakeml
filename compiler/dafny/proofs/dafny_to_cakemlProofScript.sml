@@ -430,7 +430,9 @@ Definition array_rel_def:
   array_rel m s_heap c_store ⇔
     INJ (λx. m ' x) (FDOM m) 𝕌(:num) ∧
     (∀i. i ∈ FDOM m ⇒ i < LENGTH s_heap) ∧
-    (∀i. i ∈ FRANGE m ⇒ i < LENGTH c_store) ∧
+    (∀i. i ∈ FRANGE m ⇒
+         i < LENGTH c_store ∧
+         ∃vs. store_lookup i c_store = SOME (Varray vs)) ∧
     ∀loc vs ty.
       LLOOKUP s_heap loc = SOME (HArr vs ty) ⇒
       ∃loc' vs'.
@@ -803,6 +805,26 @@ Definition store_preserve_all_def:
   store_preserve_all xs ys ⇔ store_preserve ∅ (LENGTH xs) xs ys
 End
 
+Theorem store_preserve_length[local]:
+  store_preserve m base xs ys ⇒ LENGTH xs ≤ LENGTH ys
+Proof
+  simp [store_preserve_def]
+QED
+
+Theorem store_preserve_weaken_base[local]:
+  store_preserve m base' xs ys ∧ base ≤ base' ⇒
+  store_preserve m base xs ys
+Proof
+  simp [store_preserve_def]
+QED
+
+Theorem store_preserve_all_length[local]:
+  store_preserve_all xs ys ⇒ LENGTH xs ≤ LENGTH ys
+Proof
+  simp [store_preserve_all_def] \\ strip_tac
+  \\ drule store_preserve_length \\ simp []
+QED
+
 Theorem store_preserve_same[local,simp]:
   store_preserve m base xs xs
 Proof
@@ -819,13 +841,6 @@ Theorem store_preserve_decat[local]:
   store_preserve m base (xs ++ ys) zs ⇒ store_preserve m base xs zs
 Proof
   gvs [store_preserve_def, store_lookup_def, EL_APPEND]
-QED
-
-Theorem store_preserve_trans[local]:
-  store_preserve m base xs ys ∧ store_preserve m base ys zs ⇒
-  store_preserve m base xs zs
-Proof
-  gvs [store_preserve_def]
 QED
 
 Theorem store_preserve_all_trans[local]:
@@ -1128,12 +1143,10 @@ Theorem array_rel_append[local]:
 Proof
   gvs [array_rel_def]
   \\ rpt strip_tac
-  >- (qpat_assum ‘∀_. _ ∈ FRANGE _ ⇒ _ < _’ $ drule_then assume_tac
-      \\ intLib.COOPER_TAC)
-  \\ last_x_assum drule \\ rpt strip_tac
-  \\ drule store_lookup_append
-  \\ disch_then $ qspec_then ‘xs’ assume_tac
-  \\ gvs []
+  \\ res_tac
+  >- (intLib.COOPER_TAC)
+  >- (drule store_lookup_append \\ simp [])
+  >- (drule store_lookup_append \\ simp [])
 QED
 
 Theorem read_local_reverse_eq[local]:
@@ -1975,9 +1988,14 @@ Proof
       \\ disch_then $ drule_all \\ simp [])
   >- (qpat_assum ‘∀_. _ ∈ FDOM _ ⇒ _’ $ drule_then assume_tac
       \\ intLib.COOPER_TAC)
+  >- (simp [store_lookup_def, EL_APPEND])
   >- (drule (SRULE [SUBSET_DEF] FRANGE_DOMSUB_SUBSET) \\ rpt strip_tac
-      \\ qpat_assum ‘∀_. _ ∈ FRANGE _ ⇒ _’ $ drule_then assume_tac
-      \\ intLib.COOPER_TAC)
+      \\ qpat_x_assum ‘∀_. _ ∈ FRANGE _ ⇒ _’ $ drule_then assume_tac
+      \\ gvs [])
+  >- (drule_then assume_tac (SRULE [SUBSET_DEF] FRANGE_DOMSUB_SUBSET)
+      \\ qpat_x_assum ‘∀_. _ ∈ FRANGE _ ⇒ _’ $ drule_then assume_tac
+      \\ fs []
+      \\ drule store_lookup_append \\ simp [])
   \\ gvs [LLOOKUP_EQ_EL]
   \\ rename [‘loc < SUC _’]
   \\ Cases_on ‘loc = LENGTH s.heap’ \\ gvs []
@@ -2016,6 +2034,57 @@ Proof
   \\ irule submap_val_rel \\ gvs [SF SFY_ss]
 QED
 
+Definition is_extension_def:
+  is_extension t_refs m m' ⇔
+    (∀cml_loc.
+       cml_loc ∈ FRANGE m' ⇒ cml_loc ∈ FRANGE m ∨ (LENGTH t_refs) ≤ cml_loc)
+End
+
+Theorem is_extension_same[local,simp]:
+  is_extension xs m m
+Proof
+  simp [is_extension_def]
+QED
+
+Theorem is_extension_fupdate[local]:
+  LENGTH t_refs ≤ cml_loc ⇒
+  is_extension t_refs m (m |+ (dfy_loc, cml_loc))
+Proof
+  simp [is_extension_def]
+  \\ metis_tac [SUBSET_THM, FRANGE_DOMSUB_SUBSET]
+QED
+
+Theorem is_extension_decat[local]:
+  is_extension (xs ++ ys) m m₁ ⇒
+  is_extension xs m m₁
+Proof
+  simp [is_extension_def]
+  \\ rpt strip_tac
+  \\ res_tac \\ gvs []
+QED
+
+Theorem is_extension_weaken[local]:
+  is_extension (xs: v store_v list) m m₁ ∧ LENGTH xs' ≤ LENGTH xs
+  ⇒
+  is_extension (xs': v store_v list) m m₁
+Proof
+  simp [is_extension_def]
+  \\ rpt strip_tac
+  \\ res_tac \\ gvs []
+QED
+
+Theorem is_extension_trans[local]:
+  is_extension xs m m₁ ∧
+  is_extension (ys: v store_v list) (m₁: num |-> num) m₂ ∧
+  LENGTH xs ≤ LENGTH ys
+  ⇒
+  is_extension xs m m₂
+Proof
+  simp [is_extension_def]
+  \\ rpt strip_tac
+  \\ res_tac \\ gvs []
+QED
+
 Theorem correct_from_rhs_exp:
   ∀s env_dfy rhs_dfy s' r_dfy (t: 'ffi cml_state) env_cml e_cml m l.
     evaluate_rhs_exp s env_dfy rhs_dfy = (s', r_dfy) ∧
@@ -2025,7 +2094,8 @@ Theorem correct_from_rhs_exp:
     ∃ck (t': 'ffi cml_state) m' r_cml.
       evaluate$evaluate (t with clock := t.clock + ck) env_cml [e_cml] =
       (t', r_cml) ∧ store_preserve_all t.refs t'.refs ∧
-      state_rel m' l s' t' env_cml ∧ exp_res_rel m' r_dfy r_cml ∧ m ⊑ m'
+      state_rel m' l s' t' env_cml ∧ exp_res_rel m' r_dfy r_cml ∧
+      m ⊑ m' ∧ is_extension t.refs m m'
 Proof
   Cases_on ‘rhs_dfy’ \\ rpt strip_tac
   >~ [‘ExpRhs e’] >-
@@ -2099,7 +2169,9 @@ Proof
         \\ simp [])
     >- intLib.COOPER_TAC
     >- gvs [FLOOKUP_SIMP]
-    \\ irule array_rel_submap \\ gvs [state_rel_def])
+    >- (irule array_rel_submap \\ gvs [state_rel_def])
+    >- (irule is_extension_fupdate
+        \\ imp_res_tac store_preserve_all_length \\ simp []))
 QED
 
 Theorem correct_map_from_rhs_exp:
@@ -2112,7 +2184,8 @@ Theorem correct_map_from_rhs_exp:
     ∃ck (t': 'ffi cml_state) m' r_cml.
       evaluate$evaluate (t with clock := t.clock + ck) env_cml es_cml =
       (t', r_cml) ∧ store_preserve_all t.refs t'.refs ∧
-      state_rel m' l s' t' env_cml ∧ exp_ress_rel m' r_dfy r_cml ∧ m ⊑ m'
+      state_rel m' l s' t' env_cml ∧ exp_ress_rel m' r_dfy r_cml ∧
+      m ⊑ m' ∧ is_extension t.refs m m'
 Proof
   Induct_on ‘rhss_dfy’ \\ rpt strip_tac
   >- (gvs [evaluate_rhs_exps_def, result_mmap_def]
@@ -2138,9 +2211,19 @@ Proof
   \\ simp [Once evaluate_cons]
   \\ reverse $ namedCases_on ‘r’ ["rhss_v", "err"] \\ gvs []
   \\ qexists ‘m₂’
-  \\ irule_at Any store_preserve_all_trans \\ gvs []
-  \\ irule_at Any SUBMAP_TRANS \\ gvs [SF SFY_ss]
-  \\ irule_at Any submap_val_rel \\ gvs [SF SFY_ss]
+  \\ ‘store_preserve_all t.refs t₂.refs’ by
+    (irule store_preserve_all_trans
+     \\ first_assum $ irule_at (Pos hd)\\ simp [])
+  \\ ‘is_extension t.refs m m₂’ by
+    (irule is_extension_trans
+     \\ first_assum $ irule_at (Pos last)
+     \\ imp_res_tac store_preserve_all_length
+     \\ simp [])
+  \\ ‘m ⊑ m₂’ by
+    (irule_at Any SUBMAP_TRANS
+     \\ first_assum $ irule_at Any \\ simp [])
+  \\ simp []
+  \\ irule submap_val_rel \\ gvs [SF SFY_ss]
 QED
 
 (* The base can be at most at our lowest locals or the current length of
@@ -2258,20 +2341,26 @@ Proof
   \\ gvs [state_rel_def]
   \\ drule update_array_some_eqs \\ gvs []
   \\ rpt strip_tac
-  >~ [‘locals_rel _ _ _ _ _ (* g *)’] >-
-   (gvs [locals_rel_def] \\ rpt strip_tac
-    \\ first_x_assum drule_all \\ rpt strip_tac \\ gvs []
+  >- (* array_rel *)
+   (gvs [array_rel_def]
+    \\ conj_tac >-
+     (rpt strip_tac
+      \\ qpat_x_assum ‘∀_. _ ∈ FRANGE _ ⇒ _’ $ drule_then assume_tac
+      \\ gvs [store_lookup_def, EL_LUPDATE]
+      \\ IF_CASES_TAC \\ gvs [])
+    \\ qx_gen_tac ‘loc'’ \\ rpt strip_tac \\ gvs []
+    \\ Cases_on ‘loc' = loc’ \\ gvs []
+    >- (gvs [store_lookup_def, EL_LUPDATE]
+        \\ irule EVERY2_LUPDATE_same \\ gvs [])
+    \\ first_x_assum drule \\ rpt strip_tac \\ gvs []
+    \\ first_x_assum drule \\ rpt strip_tac \\ gvs []
     \\ gvs [store_lookup_def, EL_LUPDATE]
-    \\ IF_CASES_TAC \\ gvs [])
-  \\ gvs [array_rel_def]
-  \\ qx_gen_tac ‘loc'’ \\ rpt strip_tac \\ gvs []
-  \\ Cases_on ‘loc' = loc’ \\ gvs []
-  >- (gvs [store_lookup_def, EL_LUPDATE]
-      \\ irule EVERY2_LUPDATE_same \\ gvs [])
-  \\ first_x_assum drule \\ rpt strip_tac \\ gvs []
-  \\ first_x_assum drule \\ rpt strip_tac \\ gvs []
+    \\ IF_CASES_TAC \\ gvs [INJ_DEF, FLOOKUP_DEF])
+  (* local_rel *)
+  \\ gvs [locals_rel_def] \\ rpt strip_tac
+  \\ first_x_assum drule_all \\ rpt strip_tac \\ gvs []
   \\ gvs [store_lookup_def, EL_LUPDATE]
-  \\ IF_CASES_TAC \\ gvs [INJ_DEF, FLOOKUP_DEF]
+  \\ IF_CASES_TAC \\ gvs []
 QED
 
 Theorem update_local_aux_some[local]:
@@ -2354,6 +2443,23 @@ Proof
       \\ IF_CASES_TAC >- (gvs [INJ_DEF, FLOOKUP_DEF])
       \\ gvs [])
   \\ gvs [store_lookup_def, EL_LUPDATE]
+QED
+
+(* TODO Remove record accesses *)
+Theorem store_preserve_trans[local]:
+  store_preserve (FRANGE m) base t_refs t₁_refs ∧
+  store_preserve (FRANGE m₁) base
+    (t₁_refs: v store_v list) (t₂_refs: v store_v list) ∧
+  is_extension t_refs (m: num |-> num) (m₁: num |-> num)
+  ⇒
+  store_preserve (FRANGE m) base t_refs t₂_refs
+Proof
+  simp [store_preserve_def, is_extension_def]
+  \\ rpt strip_tac
+  \\ last_x_assum $ drule_all_then assume_tac
+  \\ Cases_on ‘i ∈ FRANGE m₁’ \\ gvs []
+  \\ first_x_assum drule \\ strip_tac
+  \\ gvs [store_lookup_def]
 QED
 
 Theorem evaluate_assign_values[local]:
@@ -2501,9 +2607,11 @@ Proof
   \\ ‘Num idx_int < LENGTH varr’ by (drule LIST_REL_LENGTH \\ gvs []) \\ gvs []
   \\ gvs [store_assign_def, store_lookup_def, store_v_same_type_def]
   \\ irule store_preserve_trans
+  \\ qexists ‘m’ \\ simp []
   \\ irule_at (Pos hd) store_preserve_all_weaken
   \\ last_assum $ irule_at (Pos hd)
   \\ irule store_preserve_trans
+  \\ qexists ‘m’ \\ simp []
   \\ irule_at (Pos hd) store_preserve_all_weaken
   \\ last_assum $ irule_at (Pos hd)
   \\ irule store_preserve_lupdate_array
@@ -2788,20 +2896,41 @@ Proof
   \\ gvs [evaluate_append, cml_read_var_def, evaluate_def, do_app_def]
 QED
 
-(* TODO Merge with state_rel_restore_caller *)
+Theorem locals_rel_array_rel_store_preserve_imp[local]:
+  locals_rel m l s₁.locals (t: 'ffi cml_state).refs env_cml.v ∧
+  array_rel m xs t.refs ∧
+  store_preserve (FRANGE m) (LENGTH t.refs) t.refs (t₂: 'ffi cml_state).refs
+  ⇒
+  locals_rel m l s₁.locals t₂.refs env_cml.v
+Proof
+  rpt strip_tac
+  \\ drule_then assume_tac store_preserve_length
+  \\ gvs [locals_rel_def, array_rel_def, store_preserve_def]
+  \\ rpt strip_tac \\ gvs []
+  >-
+   (qpat_x_assum ‘∀_. _ ∈ FRANGE _ ⇒ _’ $ drule_then assume_tac \\ gvs [])
+  \\ last_x_assum $ drule_all_then assume_tac \\ gvs []
+  \\ rename [‘store_lookup loc’]
+  \\ ‘loc ∉ FRANGE m’ by
+    (spose_not_then assume_tac \\ gvs []
+     \\ qpat_x_assum ‘∀_. _ ∈ FRANGE m ⇒ _’ $ drule_then assume_tac
+     \\ gvs [])
+  \\ gvs [store_lookup_def]
+QED
+
 Theorem state_rel_restore_caller1[local]:
   state_rel m l s (t: 'ffi cml_state) env ∧
   state_rel m' l' s' (t': 'ffi cml_state) env' ∧
-  store_preserve_all t.refs t'.refs ∧
-  m ⊑ m' ⇒
+  store_preserve (FRANGE m) (LENGTH t.refs) t.refs t'.refs ∧ m ⊑ m' ⇒
   state_rel m' l (restore_caller s' s) t' env
 Proof
   rpt strip_tac
   \\ gvs [restore_caller_def, state_rel_def]
-  \\ irule store_preserve_all_locals_rel
-  \\ last_x_assum $ irule_at Any \\ gvs []
-  \\ irule locals_rel_submap \\ gvs []
-  \\ first_assum $ irule_at (Pos hd) \\ gvs []
+  \\ irule locals_rel_submap
+  \\ first_assum $ irule_at (Pos hd)
+  \\ irule locals_rel_array_rel_store_preserve_imp
+  \\ first_assum $ irule_at (Pos hd)
+  \\ simp []
 QED
 
 Theorem GENLIST_lambda_MAP[local]:
@@ -2927,14 +3056,7 @@ Theorem state_rel_refs_append[local]:
 Proof
   simp [state_rel_def]
   \\ rpt strip_tac
-  >- (* array_rel *)
-   (gvs [array_rel_def]
-    \\ rpt strip_tac
-    >- (first_x_assum $ drule_then assume_tac \\ simp [])
-    \\ first_x_assum drule
-    \\ rpt strip_tac \\ simp []
-    \\ first_assum $ irule_at (Pos last)
-    \\ irule store_lookup_append \\ simp [])
+  >- (drule_all array_rel_append \\ simp [])
   (* locals_rel *)
   \\ gvs [locals_rel_def]
   \\ rpt strip_tac
@@ -2953,11 +3075,18 @@ Proof
   \\ CASE_TAC \\ gvs []
 QED
 
-(* Definition is_extension_def: *)
-(*   is_extension t_refs m m' ⇔ *)
-(*     (∀cml_loc. *)
-(*        cml_loc ∈ FRANGE m' ⇒ cml_loc ∈ FRANGE m ∨ (LENGTH t_refs) < cml_loc) *)
-(* End *)
+Theorem store_preserve_is_extension[local]:
+  store_preserve (FRANGE m₁) base t.refs t₁.refs ∧
+  is_extension t.refs m m₁ ∧ m ⊑ m₁
+  ⇒
+  store_preserve (FRANGE m) base t.refs t₁.refs
+Proof
+  simp [is_extension_def, store_preserve_def]
+  \\ rpt strip_tac
+  \\ Cases_on ‘i ∈ FRANGE m₁’ \\ gvs []
+  \\ first_x_assum $ drule_then assume_tac \\ gvs []
+  \\ gvs [store_lookup_def]
+QED
 
 (* TODO split up cases into separate trivialities like other compiler proofs *)
 Theorem correct_from_stmt:
@@ -2974,8 +3103,7 @@ Theorem correct_from_stmt:
         (t', r_cml) ∧
         store_preserve (FRANGE m) base t.refs t'.refs ∧
         state_rel m' l s' t' env_cml ∧
-        m ⊑ m' ∧
-        (* is_extension t_refs m m' ∧ *)
+        m ⊑ m' ∧ is_extension t.refs m m' ∧
         stmt_res_rel r_dfy r_cml
 Proof
   ho_match_mp_tac evaluate_stmt_ind
@@ -3007,13 +3135,14 @@ Proof
     \\ rev_drule evaluate_add_to_clock \\ gvs []
     \\ disch_then $ qspec_then ‘ck'’ assume_tac
     \\ qexists ‘ck' + ck’ \\ gvs []
-
-    \\ irule_at Any store_preserve_trans
-    \\ qexistsl [‘t₁.refs’, ‘m₂’] \\ gvs []
-
-    \\ irule_at Any SUBMAP_TRANS
-    \\ first_assum $ irule_at (Pos hd) \\ simp []
-    \\ gvs [SF SFY_ss])
+    \\ qexists ‘m₂’ \\ simp []
+    \\ rpt conj_tac
+    >- (drule_all store_preserve_trans \\ simp [])
+    >- (drule_all SUBMAP_TRANS \\ simp [])
+    >- (irule is_extension_trans
+        \\ first_assum $ irule_at (Pos last)
+        \\ imp_res_tac store_preserve_length
+        \\ simp []))
   >~ [‘If tst thn els’] >-
    (gvs [evaluate_stmt_def, from_stmt_def, oneline bind_def, CaseEq "sum"]
     \\ namedCases_on ‘evaluate_exp s env_dfy tst’ ["s₁ r"] \\ gvs []
@@ -3021,11 +3150,10 @@ Proof
     \\ drule_all (cj 1 correct_from_exp)
     \\ disch_then $ qx_choosel_then [‘ck’, ‘t₁’] mp_tac
     \\ rpt strip_tac \\ gvs []
-    \\ ‘store_preserve base t.refs t₁.refs’ by
-      gvs [store_preserve_all_def, store_preserve_def, base_at_most_def]
     \\ gvs [evaluate_def]
     \\ reverse $ namedCases_on ‘r’ ["tst_v", "err"] \\ gvs []
-    >- (qexists ‘ck’ \\ gvs [] \\ first_assum $ irule_at (Pos hd) \\ gvs [])
+    >- (qrefinel [‘ck’, ‘_’, ‘m’] \\ simp []
+        \\ irule store_preserve_all_weaken \\ simp [])
     \\ namedCases_on ‘do_cond tst_v thn els’ ["", "branch"] \\ gvs []
     \\ gvs [oneline do_cond_def, CaseEq "value"]
     \\ rename [‘Boolv b’] \\ Cases_on ‘b’ \\ gvs []
@@ -3042,8 +3170,16 @@ Proof
     \\ disch_then $ qspec_then ‘ck'’ assume_tac \\ gvs []
     \\ qexists ‘ck' + ck’ \\ gvs []
     \\ gvs [do_if_def]
-    \\ irule_at Any store_preserve_trans
-    \\ qexistsl [‘t₁.refs’, ‘m₁’] \\ gvs [])
+    \\ qexists ‘m₁’ \\ simp []
+    \\ ‘is_extension t.refs m m₁’ by
+      (irule is_extension_weaken
+       \\ first_assum $ irule_at (Pos last)
+       \\ imp_res_tac store_preserve_all_length)
+    \\ ‘store_preserve (FRANGE m) base t.refs t₂.refs’ by
+      (irule store_preserve_trans
+      \\ first_assum $ irule_at (Pos last) \\ simp []
+       \\ irule store_preserve_all_weaken \\ simp [])
+    \\ simp [])
   >~ [‘Return’] >-
    (gvs [evaluate_stmt_def, from_stmt_def, mk_id_def, evaluate_def,
          do_con_check_def, env_rel_def, has_cons_def, build_conv_def]
@@ -3093,8 +3229,10 @@ Proof
     \\ qexists ‘ck’
     \\ gvs [cml_new_refs_def]
     \\ gvs [evaluate_def, do_app_def, store_alloc_def]
-    \\ drule store_preserve_decat \\ rpt strip_tac \\ gvs []
+    \\ drule_then assume_tac store_preserve_decat
+    \\ drule_then assume_tac is_extension_decat
     \\ qexists ‘m₁’ \\ gvs []
+    (* state_rel *)
     \\ gvs [state_rel_def]
     \\ gvs [locals_rel_def]
     \\ rpt strip_tac
@@ -3244,10 +3382,13 @@ Proof
     \\ pop_assum kall_tac
     \\ DEP_REWRITE_TAC [pmatch_list_MAP_Pvar]
     \\ gvs []
+    (* store_preserve + is_extension *)
     \\ irule_at Any store_preserve_trans \\ gvs []
     \\ irule_at (Pos hd) store_preserve_all_weaken
     \\ first_x_assum $ irule_at (Pos hd) \\ gvs []
-    \\ first_x_assum $ irule_at Any
+    \\ first_x_assum $ irule_at (Pos hd) \\ simp []
+    \\ first_x_assum $ irule_at (Pos last) \\ simp []
+    (* state_rel *)
     \\ irule state_rel_env_change
     \\ first_x_assum $ irule_at Any
     \\ rpt strip_tac
@@ -3356,7 +3497,11 @@ Proof
         \\ ntac 2 (first_assum $ irule_at (Pos hd))
         \\ gvs [Abbr ‘env_cml₁’]
         \\ irule_at (Pos hd) state_rel_pop_env_while
-        \\ first_assum $ irule_at (Pos hd) \\ gvs [])
+        \\ first_assum $ irule_at (Pos hd) \\ gvs []
+        (* is_extension *)
+        \\ drule is_extension_weaken
+        \\ disch_then irule
+        \\ imp_res_tac store_preserve_all_length)
     \\ gvs [STOP_def, from_stmt_def, oneline bind_def, CaseEq "sum"]
     \\ last_x_assum $ qspecl_then [‘lvl’, ‘t₂’, ‘env_cml’] mp_tac
     \\ gvs []
@@ -3390,12 +3535,26 @@ Proof
              loop_name_def]
     \\ disch_then kall_tac
     \\ irule_at (Pos hd) store_preserve_trans
-    \\ irule_at (Pos hd) store_preserve_trans
     \\ irule_at (Pos hd) store_preserve_all_weaken
-    \\ gvs [evaluateTheory.dec_clock_def]
-    \\ rpt (last_assum $ irule_at (Pos hd))
-    \\ irule SUBMAP_TRANS
-    \\ rpt (last_assum $ irule_at (Pos hd)))
+    \\ fs [evaluateTheory.dec_clock_def]
+    \\ last_assum $ irule_at (Pos hd)
+    \\ irule_at (Pos hd) store_preserve_trans
+    (* Get rid of store_preserve in the goal *)
+    \\ ntac 2 (last_assum $ irule_at (Pos hd))
+    \\ simp []
+    (* state_rel *)
+    \\ first_assum $ irule_at (Pos hd)
+    \\ irule_at (Pos hd) SUBMAP_TRANS
+    \\ last_assum $ irule_at (Pos hd) \\ simp []
+    (* is_extension *)
+    \\ irule is_extension_trans
+    \\ first_assum $ irule_at (Pos last)
+    \\ imp_res_tac store_preserve_all_length
+    \\ imp_res_tac store_preserve_length
+    \\ simp []
+    \\ irule is_extension_weaken
+    \\ first_assum $ irule_at (Pos last)
+    \\ simp [])
   >~ [‘Print e t’] >-
    (gvs [evaluate_stmt_def]
     \\ gvs [from_stmt_def, oneline bind_def, CaseEq "sum"]
@@ -3602,10 +3761,11 @@ Proof
       \\ rpt strip_tac \\ gvs []
       \\ gvs [Abbr ‘call_t’]
       (* Will be useful for finishing up proofs *)
-      \\ ‘store_preserve_all t.refs t₂.refs’ by
-        (gvs [store_preserve_all_def]
-         \\ irule_at Any store_preserve_decat
-         \\ first_assum $ irule_at (Pos hd))
+      \\ drule_then assume_tac store_preserve_decat
+      \\ ‘store_preserve (FRANGE m) base t.refs t₂.refs’ by
+        (irule store_preserve_weaken_base
+         \\ first_assum $ irule_at (Pos last)
+         \\ fs [base_at_most_def])
       \\ qrefine ‘ck₂ + ck₁’
       \\ namedCases_on ‘r’ ["", "stp"] \\ gvs []
       \\ reverse $ namedCases_on ‘stp’ ["", "err"] \\ gvs []
@@ -3613,13 +3773,13 @@ Proof
        (qexists ‘0’
         \\ Cases_on ‘err’ \\ gvs []
         (* Timed out *)
-        \\ irule_at (Pos hd) store_preserve_all_weaken \\ gvs []
         \\ gvs [state_rel_def, restore_caller_def]
         \\ first_assum $ irule_at (Pos hd) \\ gvs []
-        \\ irule store_preserve_all_locals_rel \\ gvs []
-        \\ first_assum $ irule_at (Pos hd) \\ gvs []
+        \\ drule_then assume_tac is_extension_decat \\ simp []
         \\ irule locals_rel_submap
-        \\ first_assum $ irule_at (Pos hd) \\ gvs [])
+        \\ first_assum $ irule_at (Pos hd)
+        \\ drule_all locals_rel_array_rel_store_preserve_imp
+        \\ simp [])
       (* Read outs *)
       \\ namedCases_on
            ‘OPT_MMAP (read_local s₂.locals) (MAP FST outs)’
@@ -3643,13 +3803,12 @@ Proof
                 do_con_check_def, build_conv_def, can_pmatch_all_def,
                 pmatch_def, pat_bindings_def]
         (* TODO Same as the timeout case - refactor? *)
-        \\ irule_at (Pos hd) store_preserve_all_weaken \\ gvs []
         \\ gvs [state_rel_def, restore_caller_def]
         \\ first_assum $ irule_at (Pos hd) \\ gvs []
-        \\ irule store_preserve_all_locals_rel \\ gvs []
-        \\ first_assum $ irule_at (Pos hd) \\ gvs []
         \\ irule locals_rel_submap
-        \\ first_assum $ irule_at (Pos hd) \\ gvs [])
+        \\ first_assum $ irule_at (Pos hd)
+        \\ drule_all locals_rel_array_rel_store_preserve_imp
+        \\ simp [])
       \\ Cases_on ‘LENGTH outs = 1’ \\ gvs []
       >- (* Assigning a single value (no tuple used) *)
        (gvs [LENGTH_EQ_1, Stuple_def, Pstuple_def]
@@ -3677,7 +3836,7 @@ Proof
         \\ impl_tac >-
          (rpt strip_tac
           >- (* state_rel *)
-           (irule state_rel_restore_caller1 \\ gvs []
+           (irule state_rel_restore_caller1 \\ gvs [PULL_EXISTS]
             \\ first_assum $ irule_at (Pos hd) \\ gvs []
             \\ qexists ‘t with clock := ck + t.clock’ \\ gvs []
             \\ first_assum $ irule_at (Pos last) \\ gvs []
@@ -3701,8 +3860,8 @@ Proof
         \\ rpt strip_tac \\ gvs []
         \\ first_assum $ irule_at (Pos hd) \\ gvs []
         \\ irule_at (Pos hd) store_preserve_trans
-        \\ irule_at (Pos hd) store_preserve_all_weaken
         \\ ntac 2 (first_assum $ irule_at (Pos hd))
+        \\ drule_then assume_tac is_extension_decat \\ simp []
         \\ gvs [state_rel_def]
         \\ irule locals_rel_env_change
         \\ first_assum $ irule_at (Pos last)
@@ -3792,10 +3951,11 @@ Proof
       \\ disch_then $ qx_choosel_then [‘ck₂’, ‘t₃’] mp_tac
       \\ rpt strip_tac \\ gvs []
       \\ qexists ‘ck₂’ \\ gvs []
-      \\ first_assum $ irule_at (Pos last) \\ gvs []
+      \\ qexists ‘m₁’ \\ simp []
+      \\ drule_then assume_tac is_extension_decat \\ simp []
       \\ irule_at (Pos hd) store_preserve_trans
-      \\ irule_at (Pos hd) store_preserve_all_weaken
       \\ ntac 2 (first_assum $ irule_at (Pos hd))
+      \\ simp []
       \\ gvs [state_rel_def]
       \\ irule locals_rel_env_change
       \\ first_assum $ irule_at (Pos last)
@@ -3950,24 +4110,42 @@ Proof
     \\ disch_then $ qx_choosel_then [‘ck₁’, ‘t₂’, ‘m₁’] mp_tac
     \\ rpt strip_tac \\ gvs []
     \\ qrefine ‘ck₁ + ck₂’ \\ gvs []
+    \\ gvs [evaluateTheory.dec_clock_def, ADD1]
+    \\ ‘is_extension t₁.refs m m₁’ by
+      (simp [Abbr‘call_refs’]
+       \\ drule_then assume_tac is_extension_decat
+       \\ drule_then assume_tac is_extension_decat
+       \\ simp [])
+    \\ ‘is_extension t.refs m m₁’ by
+      (irule is_extension_weaken
+       \\ first_assum $ irule_at (Pos last)
+       \\ imp_res_tac store_preserve_all_length)
+    \\ ‘store_preserve (FRANGE m) (LENGTH t₁.refs) t₁.refs t₂.refs’ by
+      (simp [Abbr ‘call_refs’]
+       \\ drule_then assume_tac store_preserve_decat
+       \\ drule_then assume_tac store_preserve_decat
+       \\ simp [])
+    \\ ‘store_preserve (FRANGE m) base t.refs t₂.refs’ by
+      (irule store_preserve_trans
+       \\ qexists ‘m’ \\ simp []
+       \\ irule_at (Pos hd) store_preserve_all_weaken
+       \\ last_assum $ irule_at (Pos hd)
+       \\ irule store_preserve_weaken_base
+       \\ first_assum $ irule_at (Pos last)
+       \\ imp_res_tac store_preserve_all_length
+       \\ fs [base_at_most_def])
     \\ namedCases_on ‘r’ ["", "stp"] \\ gvs []
     \\ reverse $ namedCases_on ‘stp’ ["", "err"] \\ gvs []
-    >- (Cases_on ‘err’ \\ gvs []
-        (* Evaluating the body timed out *)
-        \\ qexists ‘0’ \\ gvs []
-        \\ gvs [evaluateTheory.dec_clock_def, ADD1, Abbr ‘call_refs’]
-        \\ ‘store_preserve_all t₁.refs t₂.refs’ by
-          (ntac 2 $ drule_then assume_tac store_preserve_decat
-           \\ gvs [store_preserve_all_def])
-        (* store_preserve *)
-        \\ irule_at (Pos hd) store_preserve_trans
-        \\ irule_at (Pos hd) store_preserve_all_weaken
-        \\ last_assum $ irule_at (Pos hd)
-        \\ irule_at (Pos hd) store_preserve_all_weaken \\ gvs []
-        (* state_rel *)
-        \\ irule_at (Pos hd) state_rel_restore_caller1
-        \\ last_assum $ irule_at (Pos hd) \\ gvs []
-        \\ first_assum $ irule_at (Pos hd) \\ gvs [])
+    >-
+     (Cases_on ‘err’ \\ gvs []
+      (* Evaluating the body timed out *)
+      \\ qexists ‘0’ \\ gvs []
+      \\ gvs [Abbr ‘call_refs’]
+      \\ qexists ‘m₁’ \\ simp []
+      \\ irule state_rel_restore_caller1
+      \\ last_assum $ irule_at (Pos hd) \\ gvs []
+      \\ last_assum $ irule_at (Pos last) \\ gvs []
+      \\ last_assum $ irule_at (Pos last) \\ gvs [])
     (* Dafny: read_locals *)
     \\ namedCases_on ‘OPT_MMAP (read_local s₂.locals) (MAP FST outs)’
          ["", "out_vs"]
@@ -3975,15 +4153,10 @@ Proof
     \\ ‘LENGTH lhss = LENGTH out_vs’ by (spose_not_then assume_tac \\ gvs [])
     \\ gvs []
     \\ gvs [par_assign_def, oneline bind_def, CaseEq "sum"]
-    \\ gvs [evaluateTheory.dec_clock_def, ADD1]
     \\ drule evaluate_add_to_clock \\ gvs []
     \\ disch_then kall_tac
     \\ gvs [can_pmatch_all_def, pmatch_def, ret_stamp_def, same_type_def,
             same_ctor_def, pat_bindings_def]
-    \\ ‘store_preserve_all t₁.refs t₂.refs’ by
-      (gvs [store_preserve_all_def, Abbr ‘call_refs’]
-       \\ ntac 2 $ irule_at (Pos hd) store_preserve_decat
-       \\ first_assum $ irule_at (Pos hd))
     \\ Cases_on ‘LENGTH outs = 1’ \\ gvs []
     >- (* Method returns value directly, instead of a tuple *)
      (gvs [LENGTH_EQ_1]
@@ -4036,13 +4209,10 @@ Proof
       \\ rpt strip_tac \\ gvs []
       \\ first_assum $ irule_at (Pos hd) \\ gvs []
       \\ irule_at (Pos hd) store_preserve_trans
-      \\ irule_at (Pos hd) store_preserve_all_weaken
       \\ first_assum $ irule_at (Pos hd)
-      \\ irule_at (Pos hd) store_preserve_trans
-      \\ irule_at (Pos hd) store_preserve_all_weaken
-      \\ ntac 2 (first_assum $ irule_at (Pos hd))
+      \\ first_assum $ irule_at (Pos hd) \\ simp []
+      \\ qexists ‘m₁’ \\ simp []
       \\ gvs [state_rel_def]
-      \\ first_assum $ irule_at (Pos hd) \\ gvs []
       \\ irule locals_rel_env_change
       \\ first_assum $ irule_at (Pos last)
       \\ rpt gen_tac \\ disch_tac
@@ -4128,11 +4298,11 @@ Proof
     \\ disch_then $ qx_choosel_then [‘ck₂’, ‘t₃’] mp_tac
     \\ rpt strip_tac \\ gvs []
     \\ qexists ‘ck₂’ \\ gvs []
-    \\ first_assum $ irule_at (Pos last) \\ gvs []
     \\ irule_at (Pos hd) store_preserve_trans
-    \\ irule_at (Pos hd) store_preserve_all_weaken
-    \\ irule_at (Pos hd) store_preserve_all_trans
-    \\ ntac 3 (first_assum $ irule_at (Pos hd))
+    \\ first_assum $ irule_at (Pos hd)
+    \\ first_assum $ irule_at (Pos hd)
+    \\ simp []
+    \\ qexists ‘m₁’
     \\ gvs [state_rel_def]
     \\ irule locals_rel_env_change
     \\ first_assum $ irule_at (Pos last)
