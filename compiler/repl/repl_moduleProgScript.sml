@@ -36,11 +36,11 @@
        All values below 1 are treated as 1.
 
 *)
-open preamble
-     ml_translatorTheory ml_translatorLib ml_progLib basisFunctionsLib
-     candle_kernelProgTheory cfLib
-
-val _ = new_theory"repl_moduleProg";
+Theory repl_moduleProg
+Ancestors
+  ml_translator candle_kernelProg
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib cfLib
 
 val _ = translation_extends "candle_kernelProg";
 
@@ -199,7 +199,7 @@ Theorem Decls_repl_prog =
 
 (* verification of Repl.charsFrom *)
 
-Triviality foldl_char_cons:
+Theorem foldl_char_cons[local]:
   ∀xs ys. foldl char_cons ys xs = REVERSE xs ++ ys
 Proof
   Induct \\ fs [mllistTheory.foldl_def,char_cons_def]
@@ -240,4 +240,3 @@ Proof
   \\ fs [foldl_char_cons]
 QED
 
-val _ = export_theory();

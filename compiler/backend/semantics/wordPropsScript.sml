@@ -1,10 +1,13 @@
 (*
   Properties about wordLang and its semantics
 *)
-open preamble BasicProvers
-     wordLangTheory wordSemTheory wordConvsTheory
-     asmTheory reg_allocTheory backendPropsTheory helperLib
-     mllistTheory;
+Theory wordProps
+Libs
+  preamble BasicProvers helperLib
+Ancestors
+  mllist backendProps wordConvs wordLang wordSem asm reg_alloc
+
+val _ = temp_bring_to_front_overload "Set" {Name="Set", Thy="wordLang"};
 
 (*
 Main lemmas:
@@ -17,10 +20,6 @@ Main lemmas:
 
 (*TODO remove *)
 val _ = temp_delsimps ["NORMEQ_CONV"];
-
-val _ = new_theory "wordProps";
-
-val _ = set_grammar_ancestry ["backendProps","wordConvs", "wordLang","wordSem"]
 
 (*TODO move*)
 Theorem domain_fromAList_toAList:
@@ -920,7 +919,7 @@ Proof
 QED
 
 (*FIXME dupe*)
-Triviality inst_code_gc_fun_const:
+Theorem inst_code_gc_fun_const[local]:
   inst i s = SOME t ⇒
      s.code = t.code /\ s.gc_fun = t.gc_fun /\ s.sh_mdomain = t.sh_mdomain /\ s.mdomain = t.mdomain /\ s.be = t.be
      ∧ s.compile = t.compile ∧ s.stack_size = t.stack_size ∧ s.stack_limit = t.stack_limit
@@ -1096,6 +1095,35 @@ Proof
   gvs[flush_state_def]
 QED
 
+Theorem sh_mem_store16_const:
+  sh_mem_store16 ad v s = (res, s') ==>
+  s'.clock = s.clock ∧
+  s'.compile_oracle = s.compile_oracle ∧
+  s'.compile = s.compile ∧
+  s'.be = s.be ∧
+  s'.gc_fun = s.gc_fun ∧
+  s'.mdomain = s.mdomain ∧
+  s'.sh_mdomain = s.sh_mdomain ∧
+  s'.code = s.code ∧
+  s'.code_buffer = s.code_buffer ∧
+  s'.data_buffer = s.data_buffer ∧
+  s'.permute = s.permute ∧
+  s'.handler = s.handler ∧
+  s'.stack_limit = s.stack_limit ∧
+  s'.stack_max = s.stack_max ∧
+  (res = SOME Error ==> s'.locals_size = s.locals_size) ∧
+  (res = NONE ==> s'.locals_size = s.locals_size) ∧
+  (res = NONE ==> s'.stack_max = s.stack_max) ∧
+  (res = SOME Error ==> s'.stack_max = s.stack_max) ∧
+  (res = NONE ==> s'.stack_size = s.stack_size) ∧
+  (res = SOME Error ==> s'.stack_size = s.stack_size)
+Proof
+  gvs[sh_mem_store16_def] >>
+  rpt (TOP_CASE_TAC>> fs[]) >>
+  rpt strip_tac >>
+  gvs[flush_state_def]
+QED
+
 Theorem sh_mem_store32_const:
   sh_mem_store32 ad v s = (res, s') ==>
   s'.clock = s.clock ∧
@@ -1146,7 +1174,7 @@ Proof
   gvs[share_inst_def]
   >> rpt (CASE_ONE >> gvs[])
   >> strip_tac >> gvs[]
-  >> drulel [sh_mem_set_var_const,sh_mem_store_const,sh_mem_store_byte_const,sh_mem_store32_const]
+  >> drulel [sh_mem_set_var_const,sh_mem_store_const,sh_mem_store_byte_const,sh_mem_store16_const,sh_mem_store32_const]
   >> gvs[]
 QED
 
@@ -1182,6 +1210,15 @@ Proof
   EVAL_TAC
 QED
 
+Theorem sh_mem_load16_with_const[simp]:
+  sh_mem_load16 a (s with locals := l) = sh_mem_load16 a s /\
+  sh_mem_load16 a (s with permute := p) = sh_mem_load16 a s /\
+  sh_mem_load16 a (s with clock := k) = sh_mem_load16 a s /\
+  sh_mem_load16 a (s with stack := xs) = sh_mem_load16 a s
+Proof
+  gvs[sh_mem_load16_def]
+QED
+
 Theorem sh_mem_load32_with_const[simp]:
   sh_mem_load32 a (s with locals := l) = sh_mem_load32 a s /\
   sh_mem_load32 a (s with permute := p) = sh_mem_load32 a s /\
@@ -1207,6 +1244,15 @@ Theorem sh_mem_store_byte_with_const[simp]:
   (I ## (λs. s with clock := k)) (sh_mem_store_byte a w s)
 Proof
   fs[sh_mem_store_byte_def] >> (rpt (CASE_ONE >> fs[]))
+QED
+
+Theorem sh_mem_store16_with_const[simp]:
+  sh_mem_store16 a w (s with permute := p) =
+  (I ## (λs. s with permute := p)) (sh_mem_store16 a w s) /\
+  sh_mem_store16 a w (s with clock := k) =
+  (I ## (λs. s with clock := k)) (sh_mem_store16 a w s)
+Proof
+  fs[sh_mem_store16_def] >> (rpt (CASE_ONE >> fs[]))
 QED
 
 Theorem sh_mem_store32_with_const[simp]:
@@ -1778,6 +1824,7 @@ Proof
        (strip_assume_tac o SRULE[oneline share_inst_def,
           sh_mem_store_def,sh_mem_store_byte_def,
           sh_mem_load_def,sh_mem_load_byte_def,
+          sh_mem_load16_def,sh_mem_store16_def,
           sh_mem_load32_def,sh_mem_store32_def,
           oneline sh_mem_set_var_def,
           AllCaseEqs()]) >>
@@ -1793,7 +1840,7 @@ Proof
   >> (metis_tac[IS_PREFIX_TRANS])
 QED
 
-Triviality SND_alt_def:
+Theorem SND_alt_def[local]:
    SND c = (λ(a,b). b) c
 Proof
   pairarg_tac >>
@@ -2020,7 +2067,7 @@ Proof
 QED
 
 (*transitive*)
-Triviality s_frame_key_eq_trans:
+Theorem s_frame_key_eq_trans[local]:
   !a b c. s_frame_key_eq a b /\ s_frame_key_eq b c ==>
             s_frame_key_eq a c
 Proof
@@ -2038,7 +2085,7 @@ Proof
   ACCEPT_TAC s_frame_key_eq_trans
 QED
 
-Triviality s_frame_val_eq_trans:
+Theorem s_frame_val_eq_trans[local]:
   !a b c. s_frame_val_eq a b /\ s_frame_val_eq b c ==>
             s_frame_val_eq a c
 Proof
@@ -2058,7 +2105,7 @@ QED
 
 
 (*Symmetric*)
-Triviality s_frame_key_eq_sym:
+Theorem s_frame_key_eq_sym[local]:
   !a b. s_frame_key_eq a b <=> s_frame_key_eq b a
 Proof
   simp[oneline s_frame_key_eq_def] >>
@@ -2078,7 +2125,7 @@ Proof
   rpt strip_tac >> simp[Once s_frame_key_eq_sym]
 QED
 
-Triviality s_frame_val_eq_sym:
+Theorem s_frame_val_eq_sym[local]:
   !a b. s_frame_val_eq a b <=> s_frame_val_eq b a
 Proof
   simp[oneline s_frame_val_eq_def] >>
@@ -2097,7 +2144,7 @@ Proof
   rpt strip_tac >> simp[Once s_frame_val_eq_sym]
 QED
 
-Triviality s_frame_val_and_key_eq:
+Theorem s_frame_val_and_key_eq[local]:
   !s t. s_frame_val_eq s t /\ s_frame_key_eq s t ==> s = t
 Proof
   recInduct s_frame_val_eq_ind >>
@@ -2124,7 +2171,7 @@ Proof
   simp[s_frame_val_and_key_eq]
 QED
 
-Triviality dec_stack_stack_key_eq:
+Theorem dec_stack_stack_key_eq[local]:
   !wl st st'. dec_stack wl st = SOME st' ==> s_key_eq st st'
 Proof
   ho_match_mp_tac dec_stack_ind>>simp[dec_stack_def]>>
@@ -2143,7 +2190,7 @@ Proof
   full_simp_tac(srw_ss())[state_component_equality]>>rev_full_simp_tac(srw_ss())[]
 QED
 
-Triviality s_val_eq_enc_stack:
+Theorem s_val_eq_enc_stack[local]:
   !st st'. s_val_eq st st' ==> enc_stack st = enc_stack st'
 Proof
   Induct>>Cases_on`st'`>>full_simp_tac(srw_ss())[s_val_eq_def2]>>
@@ -2151,7 +2198,7 @@ Proof
   full_simp_tac(srw_ss())[s_frame_val_eq_def2,enc_stack_def]
 QED
 
-Triviality s_val_eq_dec_stack:
+Theorem s_val_eq_dec_stack[local]:
   !q st st' x. s_val_eq st st' /\ dec_stack q st = SOME x ==>
     ?y. dec_stack q st' = SOME y /\ s_val_eq x y
 Proof
@@ -2266,7 +2313,7 @@ Proof
     ,EXISTS_PROD,domain_lookup] >> METIS_TAC[]
 QED
 
-Triviality get_vars_stack_swap:
+Theorem get_vars_stack_swap[local]:
   !l s t. s.locals = t.locals ==>
     get_vars l s = get_vars l t
 Proof
@@ -2290,28 +2337,28 @@ Proof
   Cases>>full_simp_tac(srw_ss())[s_key_eq_def]
 QED
 
-Triviality s_val_eq_APPEND:
+Theorem s_val_eq_APPEND[local]:
   !s t x y. (s_val_eq s t /\ s_val_eq x y)==> s_val_eq (s++x) (t++y)
 Proof
   ho_match_mp_tac (s_val_eq_ind)>>
   srw_tac[][]>>full_simp_tac(srw_ss())[s_val_eq_def]
 QED
 
-Triviality s_val_eq_REVERSE:
+Theorem s_val_eq_REVERSE[local]:
   !s t. s_val_eq s t ==> s_val_eq (REVERSE s) (REVERSE t)
 Proof
   ho_match_mp_tac (s_val_eq_ind)>>
   srw_tac[][]>>full_simp_tac(srw_ss())[s_val_eq_def,s_val_eq_APPEND]
 QED
 
-Triviality s_val_eq_TAKE:
+Theorem s_val_eq_TAKE[local]:
   !s t n. s_val_eq s t ==> s_val_eq (TAKE n s) (TAKE n t)
 Proof
   ho_match_mp_tac (s_val_eq_ind)>>rw[]>>
   Cases_on`n`>>fs[s_val_eq_def]
 QED
 
-Triviality s_val_eq_LASTN:
+Theorem s_val_eq_LASTN[local]:
   !s t n. s_val_eq s t
     ==> s_val_eq (LASTN n s) (LASTN n t)
 Proof
@@ -2324,28 +2371,28 @@ Proof
   metis_tac[s_val_eq_REVERSE]
 QED
 
-Triviality s_key_eq_APPEND:
+Theorem s_key_eq_APPEND[local]:
   !s t x y. (s_key_eq s t /\ s_key_eq x y)==> s_key_eq (s++x) (t++y)
 Proof
   ho_match_mp_tac s_key_eq_ind>>
   srw_tac[][]>>full_simp_tac(srw_ss())[s_key_eq_def]
 QED
 
-Triviality s_key_eq_REVERSE:
+Theorem s_key_eq_REVERSE[local]:
   !s t. s_key_eq s t ==> s_key_eq (REVERSE s) (REVERSE t)
 Proof
   ho_match_mp_tac s_key_eq_ind>>
   srw_tac[][]>>full_simp_tac(srw_ss())[s_key_eq_def,s_key_eq_APPEND]
 QED
 
-Triviality s_key_eq_TAKE:
+Theorem s_key_eq_TAKE[local]:
   !s t n. s_key_eq s t ==> s_key_eq (TAKE n s) (TAKE n t)
 Proof
   ho_match_mp_tac s_key_eq_ind>>
   rw[]>>Cases_on`n`>>fs[s_key_eq_def]
 QED
 
-Triviality s_key_eq_LASTN:
+Theorem s_key_eq_LASTN[local]:
   !s t n. s_key_eq s t
     ==> s_key_eq (LASTN n s) (LASTN n t)
 Proof
@@ -2364,13 +2411,13 @@ Proof
   full_simp_tac(srw_ss())[s_key_eq_def]
 QED
 
-Triviality s_val_eq_tail:
+Theorem s_val_eq_tail[local]:
   !a b c d. s_val_eq (a::b) (c::d) ==> s_val_eq b d
 Proof
   full_simp_tac(srw_ss())[s_val_eq_def]
 QED
 
-Triviality s_key_eq_LASTN_exists:
+Theorem s_key_eq_LASTN_exists[local]:
   !s t n m e0 e y xs. s_key_eq s t /\
     LASTN n s = StackFrame m e0 e (SOME y)::xs
     ==> ?e' ls. LASTN n t = StackFrame m e0 e' (SOME y)::ls
@@ -2406,7 +2453,7 @@ Proof
   metis_tac[LASTN_LENGTH_ID]
 QED
 
-Triviality handler_eq:
+Theorem handler_eq[local]:
   x with handler := x.handler = x
 Proof
   full_simp_tac(srw_ss())[state_component_equality]
@@ -2692,6 +2739,9 @@ Proof
     fs[flush_state_def] >>
     fs[s_key_eq_refl])
     >-(fs[sh_mem_store_byte_def] >> every_case_tac >>
+    fs[flush_state_def] >>
+    fs[s_key_eq_refl])
+    >-(fs[sh_mem_store16_def] >> every_case_tac >>
     fs[flush_state_def] >>
     fs[s_key_eq_refl])
     >-(fs[sh_mem_store32_def] >> every_case_tac >>
@@ -3302,7 +3352,7 @@ Proof
     fs[])
 QED
 
-Triviality locals_rel_set_var:
+Theorem locals_rel_set_var[local]:
   ∀n s t.
   locals_rel temp s t ⇒
   locals_rel temp (insert n v s) (insert n v t)
@@ -3310,7 +3360,7 @@ Proof
   srw_tac[][]>>full_simp_tac(srw_ss())[locals_rel_def,lookup_insert]
 QED
 
-Triviality locals_rel_delete:
+Theorem locals_rel_delete[local]:
   ∀n s t.
   locals_rel temp s t ⇒
   locals_rel temp (delete n s) (delete n t)
@@ -3318,7 +3368,7 @@ Proof
   rw[locals_rel_def,lookup_delete]
 QED
 
-Triviality locals_rel_cut_envs:
+Theorem locals_rel_cut_envs[local]:
   locals_rel temp loc loc' ∧
   every_name (λx. x < temp) names ∧
   cut_envs names loc = SOME x ⇒
@@ -3339,7 +3389,7 @@ Proof
   metis_tac[domain_lookup]
 QED
 
-Triviality locals_rel_cut_env:
+Theorem locals_rel_cut_env[local]:
   locals_rel temp loc loc' ∧
   every_name (λx. x < temp) names ∧
   cut_env names loc = SOME x ⇒
@@ -3521,7 +3571,8 @@ Proof
       gvs[AllCaseEqs()] >> fs[set_var_def]
       >-(irule locals_rel_set_var >> fs[]) >>
      simp[state_component_equality]) >>
-    fs[sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def] >>
+    fs[sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def,
+       sh_mem_store16_def] >>
     gvs[AllCaseEqs()] >> simp[state_component_equality])
   >>
     gvs[evaluate_def] >>
@@ -3689,7 +3740,7 @@ Proof
   Cases_on `m` >> fs[]
 QED
 
-Triviality option_le_stack_size_nil:
+Theorem option_le_stack_size_nil[local]:
   option_le (stack_size []) (OPTION_MAP2 $+ (stack_size xs) opt)
 Proof
   rw[OPTION_MAP2_DEF,IS_SOME_EXISTS]>>
@@ -3902,6 +3953,7 @@ Proof
   >- ( (* ShareInst *)
     gvs[evaluate_def,(oneline share_inst_def),AllCaseEqs()] >>
     gvs[sh_mem_store_def,sh_mem_load_def,sh_mem_store_byte_def,
+        sh_mem_load16_def,sh_mem_store16_def,
         sh_mem_load_byte_def,sh_mem_load32_def,sh_mem_store32_def]
     >>~- ([`sh_mem_set_var`],
       every_case_tac
@@ -3938,12 +3990,12 @@ Proof
     (PairCases_on `x` >>
      fs[push_env_def,ELIM_UNCURRY])
 QED
-Triviality  call_env_option_le_stack_max:
+Theorem  call_env_option_le_stack_max[local]:
   option_le s.stack_max (call_env args1 ss s).stack_max
 Proof
   fs[call_env_def,env_to_list_def,option_le_max_right]
 QED
-Triviality call_push_env_option_le_stack_max:
+Theorem call_push_env_option_le_stack_max[local]:
         option_le s.stack_max
           (call_env args1 ss (push_env envs handler s)).stack_max
 Proof
@@ -4521,6 +4573,7 @@ Proof
    >- (
      gvs[evaluate_def, oneline share_inst_def ,AllCaseEqs()] >>
      gvs[oneline sh_mem_set_var_def,oneline sh_mem_store_def,
+         oneline sh_mem_load16_def,oneline sh_mem_store16_def,
          oneline sh_mem_store_byte_def,oneline sh_mem_store32_def,
          AllCaseEqs()] >>
      simp[state_component_equality,flush_state_def])
@@ -4783,5 +4836,3 @@ Proof
   gvs[] >>
   simp[state_component_equality]
 QED
-
-val _ = export_theory();

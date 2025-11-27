@@ -1,14 +1,12 @@
 (*
   Correctness proof for loop_live
 *)
+Theory loop_liveProof
+Ancestors
+  loopSem loopProps loop_live loop_callProof wordSem[qualified]
+Libs
+  preamble
 
-open preamble
-     loopSemTheory loopPropsTheory
-     loop_liveTheory loop_callProofTheory
-
-local open wordSemTheory in end
-
-val _ = new_theory "loop_liveProof";
 
 val _ = temp_delsimps ["fromAList_def", "domain_union",
                        "domain_inter", "domain_difference",
@@ -89,7 +87,7 @@ Proof
   \\ disch_then drule \\ fs [] \\ strip_tac \\ fs [evaluate_def]
 QED
 
-Triviality subspt_IMP_domain:
+Theorem subspt_IMP_domain[local]:
   subspt l1 l2 ⇒ domain l1 SUBSET domain l2
 Proof
   fs [subspt_def,SUBSET_DEF]
@@ -830,4 +828,3 @@ Proof
 QED
 
 
-val _ = export_theory();

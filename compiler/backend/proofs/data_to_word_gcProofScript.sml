@@ -1,26 +1,20 @@
 (*
   Part of the correctness proof for data_to_word
 *)
-open preamble dataSemTheory dataPropsTheory copying_gcTheory
-     int_bitwiseTheory data_to_word_memoryProofTheory finite_mapTheory
-     data_to_wordTheory wordPropsTheory whileTheory
-     set_sepTheory semanticsPropsTheory
-     helperLib alignmentTheory blastLib word_bignumTheory wordLangTheory
-     word_bignumProofTheory gen_gc_partialTheory gc_sharedTheory
-     word_gcFunctionsTheory backendPropsTheory mllistTheory;
-local open gen_gcTheory in end
-
-val _ = new_theory "data_to_word_gcProof";
+Theory data_to_word_gcProof
+Libs
+  preamble helperLib blastLib
+Ancestors
+  mllist dataSem wordSem[qualified] data_to_word backendProps
+  data_to_word_memoryProof dataProps copying_gc int_bitwise
+  finite_map wordProps While set_sep semanticsProps alignment
+  word_bignum wordLang word_bignumProof gen_gc_partial gc_shared
+  word_gcFunctions gen_gc[qualified]
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
-
-val _ = set_grammar_ancestry
-  ["dataSem", "wordSem", "data_to_word", "backendProps",
-   "data_to_word_memoryProof"
-  ];
 
 val shift_def = backend_commonTheory.word_shift_def
 val isWord_def = wordSemTheory.isWord_def
@@ -1218,30 +1212,29 @@ QED
 
 Theorem is_ref_header_alt:
    good_dimindex (:'a) ==>
-    (is_ref_header (w:'a word) <=> ~(w ' 2) /\ (w ' 3) /\ ~(w ' 4))
+    (is_ref_header (w:'a word) <=> ~(w ' 2) /\ (w ' 3))
 Proof
   fs [is_ref_header_def,fcpTheory.CART_EQ,good_dimindex_def] \\ rw []
   \\ fs [word_and_def,word_index,fcpTheory.FCP_BETA]
   \\ rw [] \\ eq_tac \\ rw [] \\ fs []
   \\ TRY (qpat_x_assum `!x._`
        (fn th => qspec_then `2` mp_tac th
-                 \\ qspec_then `3` mp_tac th
-                 \\ qspec_then `4` mp_tac th ))
+                 \\ qspec_then `3` mp_tac th))
   \\ fs [] \\ Cases_on `i = 2`
-  \\ fs [] \\ Cases_on `i = 3`
-  \\ fs [] \\ Cases_on `i = 4` \\ fs []
+  \\ fs [] \\ Cases_on `i = 3` \\ fs []
 QED
 
 Theorem is_ref_header_thm:
    (word_payload addrs ll tt0 tt1 conf = (h,ts,c5)) /\ good_dimindex (:'a) /\
     conf.len_size + 5 <= dimindex (:'a) ==>
-    (is_ref_header (h:'a word) ⇔ tt0 = RefTag)
+    (is_ref_header (h:'a word) ⇔ isMutTag tt0)
 Proof
   Cases_on `tt0` \\ fs [word_payload_def] \\ rw []
   \\ fs [make_header_def,make_byte_header_def,is_ref_header_alt]
   \\ fs [word_or_def,fcpTheory.FCP_BETA,good_dimindex_def,word_lsl_def,word_index]
   \\ rw []
   \\ fs [word_or_def,fcpTheory.FCP_BETA,good_dimindex_def,word_lsl_def,word_index]
+  \\ simp [isMutTag_def]
 QED
 
 Definition is_Ref_def:
@@ -1258,7 +1251,7 @@ End
 Theorem word_gen_gc_move_thm:
    (gen_gc$gc_move gen_conf s x = (x1,s1)) /\ s1.ok /\ s.h2 = [] /\ s.r4 = [] /\
     heap_length s.heap <= dimword (:'a) DIV 2 ** shift_length conf /\
-    (!t r. (gen_conf.isRef (t,r) <=> t = RefTag)) /\
+    (!t r. (gen_conf.isRef (t,r) <=> isMutTag t)) /\
     conf.len_size + 5 <= dimindex (:'a) /\
     (word_heap curr s.heap conf *
      word_list pa xs * frame) (fun2set (m,dm)) /\
@@ -1328,7 +1321,7 @@ Proof
   \\ drule is_ref_header_thm
   \\ asm_simp_tac std_ss []
   \\ disch_then kall_tac
-  \\ reverse (Cases_on `tt0 = RefTag`) \\ fs []
+  \\ reverse (Cases_on `isMutTag tt0`) \\ fs []
   THEN1
    (pairarg_tac \\ full_simp_tac(srw_ss())[]
     \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
@@ -1459,15 +1452,17 @@ Proof
   \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
 QED
 
-val gc_move_list_ok_irr0 = prove(
-  ``!x s y1 y2 t1 t2 h2 r4.
+Theorem gc_move_list_ok_irr0[local]:
+    !x s y1 y2 t1 t2 h2 r4.
       gen_gc$gc_move gen_conf s x = (y1,t1) /\
       gen_gc$gc_move gen_conf (s with <| h2 := h2 ; r4 := r4 |>) x = (y2,t2) ==>
-      y1 = y2 /\ ?x1 x2. t2 = t1 with <| h2 := x1 ; r4 := x2 |>``,
+      y1 = y2 /\ ?x1 x2. t2 = t1 with <| h2 := x1 ; r4 := x2 |>
+Proof
   Cases \\ fs [gen_gcTheory.gc_move_def] \\ rw []
   \\ fs [gc_sharedTheory.gc_state_component_equality]
   \\ every_case_tac \\ fs []
-  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []);
+  \\ rpt (pairarg_tac \\ fs []) \\ rveq \\ fs []
+QED
 
 Theorem gc_move_list_ok_irr:
    !x s y1 y2 t1 t2 h2 r4.
@@ -1524,7 +1519,7 @@ Theorem word_gen_gc_move_roots_thm:
    !x xs x1 w s1 s pb1 pa1 pa m1 m ib1 i1 frame dm curr c1.
     (gen_gc$gc_move_list gen_conf s x = (x1,s1)) /\ s1.ok /\ s.h2 = [] /\ s.r4 = [] /\
     heap_length s.heap <= dimword (:'a) DIV 2 ** shift_length conf /\
-    (!t r. (gen_conf.isRef (t,r) <=> t = RefTag)) /\
+    (!t r. (gen_conf.isRef (t,r) <=> isMutTag t)) /\
     conf.len_size + 5 <= dimindex (:'a) /\
     (word_heap curr s.heap conf *
      word_list pa xs * frame) (fun2set (m,dm)) /\
@@ -1578,7 +1573,7 @@ Theorem word_gen_gc_move_list_thm = Q.prove(`
   !x xs x1 w s1 s pb1 pa1 pa m1 m ib1 i1 frame dm curr c1 k k1.
     (gen_gc$gc_move_list gen_conf s x = (x1,s1)) /\ s1.ok /\ s.h2 = [] /\ s.r4 = [] /\
     heap_length s.heap <= dimword (:'a) DIV 2 ** shift_length conf /\
-    (!t r. (gen_conf.isRef (t,r) <=> t = RefTag)) /\
+    (!t r. (gen_conf.isRef (t,r) <=> isMutTag t)) /\
     conf.len_size + 5 <= dimindex (:'a) /\
     (word_heap curr s.heap conf * word_list pa xs *
      word_list k (MAP (word_addr conf) x) * frame) (fun2set (m,dm)) /\
@@ -1843,12 +1838,29 @@ Proof
   \\ drule word_list_IMP_limit \\ fs []
 QED
 
+Definition muttag_header_def:
+  muttag_header (ThunkTag e) = (thunk_tag_to_bits e ≪ 3 ‖ 6w) ∧
+  muttag_header _ = 2w
+End
+
+Theorem isMutTag_word_payload_IMP:
+  ∀x1 x2 x3.
+    word_payload ys l t qs conf = (x1,x2,x3) ∧
+    isMutTag t ⇒
+    x1 = make_header conf (muttag_header t) (LENGTH ys) ∧
+    x2 = MAP (word_addr conf) ys ∧
+    x3 = (qs = [] ∧ LENGTH ys = l ∧ (t ≠ RefTag ⇒ l = 1))
+Proof
+  rw [isMutTag_def,muttag_header_def]
+  \\ fs [word_payload_def,SF CONJ_ss,muttag_header_def]
+QED
+
 Theorem word_gen_gc_move_refs_thm:
    !k s m dm curr xs s1 pb1 pa1 m1 ib1 i1 frame c1 p1.
     (gen_gc$gc_move_refs gen_conf s = s1) /\ s1.ok /\
     heap_length s.heap <= dimword (:'a) DIV 2 ** shift_length conf /\
     heap_length s.heap * (dimindex (:'a) DIV 8) < dimword (:'a) /\
-    (!t r. (gen_conf.isRef (t,r) <=> t = RefTag)) /\
+    (!t r. (gen_conf.isRef (t,r) <=> isMutTag t)) /\
     conf.len_size + 5 <= dimindex (:'a) /\
     (word_gen_gc_move_refs conf k
        ((* r2a *) p + bytes_in_word *
@@ -1941,6 +1953,14 @@ Proof
   \\ fs [word_heap_parts_def,word_heap_APPEND,word_heap_def,word_el_def,
          heap_length_APPEND,word_payload_def,GSYM word_add_n2w,
          WORD_LEFT_ADD_DISTRIB,word_list_def]
+  \\ pairarg_tac \\ fs []
+  \\ dxrule_then drule isMutTag_word_payload_IMP
+  \\ strip_tac \\ rveq
+  \\ fs [word_heap_parts_def,word_heap_APPEND,word_heap_def,word_el_def,
+         heap_length_APPEND,word_payload_def,GSYM word_add_n2w,
+         WORD_LEFT_ADD_DISTRIB,word_list_def]
+  \\ fs [heap_length_def,el_length_def]
+  \\ fs [GSYM heap_length_def]
   \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR] \\ rfs [] \\ rveq
   \\ ntac 4 (pop_assum mp_tac)
   \\ SEP_R_TAC \\ fs [theWord_def,isWord_def]
@@ -1985,6 +2005,12 @@ Proof
     \\ fs [word_heap_parts_def,word_heap_APPEND,word_heap_def,word_el_def,
           heap_length_APPEND,word_payload_def,GSYM word_add_n2w,SUM_APPEND,
           WORD_LEFT_ADD_DISTRIB,word_list_def,el_length_def,heap_length_def]
+    \\ pairarg_tac \\ fs []
+    \\ dxrule_then drule isMutTag_word_payload_IMP
+    \\ strip_tac \\ rveq
+    \\ fs [word_heap_parts_def,word_heap_APPEND,word_heap_def,word_el_def,
+          heap_length_APPEND,word_payload_def,GSYM word_add_n2w,SUM_APPEND,
+          WORD_LEFT_ADD_DISTRIB,word_list_def,el_length_def,heap_length_def]
     \\ match_mp_tac (METIS_PROVE [] ``f = g ==> f x ==> g x``)
     \\ fs [AC STAR_ASSOC STAR_COMM,SEP_CLAUSES]
     \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC))
@@ -2005,7 +2031,7 @@ Theorem word_gen_gc_move_data_thm:
     heap_length s.heap <= dimword (:'a) DIV 2 ** shift_length conf /\
     heap_length s.heap * (dimindex (:'a) DIV 8) < dimword (:'a) /\
     conf.len_size + 2 < dimindex (:α) /\
-    (!t r. (gen_conf.isRef (t,r) <=> t = RefTag)) /\
+    (!t r. (gen_conf.isRef (t,r) <=> isMutTag t)) /\
     conf.len_size + 5 <= dimindex (:'a) /\
     (word_gen_gc_move_data conf k
        ((* h2a *) p + bytes_in_word * n2w (heap_length s.h1),
@@ -2213,7 +2239,7 @@ Theorem word_gen_gc_move_loop_thm:
     heap_length s.heap <= dimword (:'a) DIV 2 ** shift_length conf /\
     heap_length s.heap * (dimindex (:'a) DIV 8) < dimword (:'a) /\
     conf.len_size + 2 < dimindex (:α) /\ s.r3 = [] /\ s.r2 = [] /\
-    (!t r. (gen_conf.isRef (t,r) <=> t = RefTag)) /\
+    (!t r. (gen_conf.isRef (t,r) <=> isMutTag t)) /\
     conf.len_size + 5 <= dimindex (:'a) /\
     (word_gen_gc_move_loop conf k
        ((* pax *) p + bytes_in_word * n2w (heap_length s.h1),
@@ -2369,7 +2395,7 @@ Theorem word_gen_gc_thm:
     heap_length heap <= dimword (:'a) DIV 2 ** shift_length conf /\
     heap_length heap * (dimindex (:'a) DIV 8) < dimword (:'a) /\
     conf.len_size + 2 < dimindex (:α) /\
-    (!t r. (gen_conf.isRef (t,r) <=> t = RefTag)) /\
+    (!t r. (gen_conf.isRef (t,r) <=> isMutTag t)) /\
     conf.len_size + 5 <= dimindex (:'a) /\
     good_dimindex (:'a) /\
     (word_heap curr heap conf *
@@ -2467,9 +2493,9 @@ Proof
 QED
 
 Theorem heap_drop_0:
-   heap_drop 0 h = h
+  heap_drop 0 h = h
 Proof
-Cases_on `h` >> fs[heap_drop_def,heap_split_def]
+  Cases_on `h` >> fs[heap_drop_def,heap_split_def]
 QED
 
 Theorem gc_forward_ptr_heap_split:
@@ -2557,7 +2583,7 @@ Theorem word_gen_gc_partial_move_thm:
     (heap_segment (gc_conf.gen_start,gc_conf.refs_start) gcstate.heap = SOME(old,current,refs)) /\
     heap_length gcstate.heap * (dimindex (:α) DIV 8) < dimword (:α) /\
     (word_heap (curr + bytes_in_word * n2w(heap_length old)) current conf * word_list pa xs * frame) (fun2set (m,dm)) /\
-    (!t r. (gc_conf.isRef (t,r) <=> t = RefTag)) /\
+    (!t r. (gc_conf.isRef (t,r) <=> isMutTag t)) /\
     (word_gen_gc_partial_move conf (word_addr conf x,n2w gcstate.a,pa,curr,m,dm,
                                     bytes_in_word * n2w gc_conf.gen_start,
                                     bytes_in_word * n2w gc_conf.refs_start) =
@@ -2673,7 +2699,7 @@ Proof
   \\ drule is_ref_header_thm
   \\ asm_simp_tac std_ss []
   \\ disch_then kall_tac
-  \\ reverse (Cases_on `tt0 = RefTag`) \\ fs []
+  \\ reverse (Cases_on `isMutTag tt0`) \\ fs []
   THEN1
    (pairarg_tac \\ full_simp_tac(srw_ss())[]
     \\ pairarg_tac \\ full_simp_tac(srw_ss())[]
@@ -2981,7 +3007,7 @@ Theorem word_gen_gc_partial_move_roots_thm:
     gen_conf.gen_start <= gen_conf.refs_start /\
     gen_conf.refs_start <= heap_length s.heap /\
     (heap_segment (gen_conf.gen_start,gen_conf.refs_start) s.heap = SOME(old,current,refs)) /\
-    (!t r. (gen_conf.isRef (t,r) <=> t = RefTag)) /\
+    (!t r. (gen_conf.isRef (t,r) <=> isMutTag t)) /\
     heap_length s.heap * (dimindex (:α) DIV 8) < dimword (:α) /\
     (word_heap (curr + bytes_in_word * n2w(heap_length old)) current conf * word_list pa xs * frame) (fun2set (m,dm)) /\
     (word_gen_gc_partial_move_roots conf (MAP (word_addr conf) x,n2w s.a,pa,
@@ -3049,7 +3075,7 @@ Theorem word_gen_gc_partial_move_list_thm:
     gen_conf.gen_start <= gen_conf.refs_start /\
     gen_conf.refs_start <= heap_length s.heap /\
     (heap_segment (gen_conf.gen_start,gen_conf.refs_start) s.heap = SOME(old,current,refs)) /\
-    (!t r. (gen_conf.isRef (t,r) <=> t = RefTag)) /\
+    (!t r. (gen_conf.isRef (t,r) <=> isMutTag t)) /\
     heap_length s.heap * (dimindex (:α) DIV 8) < dimword (:α) /\
     (word_heap (curr + bytes_in_word * n2w(heap_length old)) current conf * word_list pa xs *
      word_list k (MAP (word_addr conf) x) * frame) (fun2set (m,dm)) /\
@@ -3162,7 +3188,7 @@ Theorem word_gen_gc_partial_move_data_thm:
     gen_conf.refs_start <= heap_length s.heap /\
     (heap_segment (gen_conf.gen_start,gen_conf.refs_start) s.heap = SOME(old,current,refs)) /\
     conf.len_size + 2 < dimindex (:α) /\
-    (!t r. (gen_conf.isRef (t,r) <=> t = RefTag)) /\
+    (!t r. (gen_conf.isRef (t,r) <=> isMutTag t)) /\
     (word_gen_gc_partial_move_data conf k
        ((* h2a *) p + bytes_in_word * n2w (heap_length s.h1),
         n2w s.a,
@@ -3366,7 +3392,6 @@ Proof
          WORD_LEFT_ADD_DISTRIB,word_list_def,el_length_def,heap_length_def]
 QED
 
-
 Theorem word_gen_gc_partial_move_ref_list_thm:
    !x ck xs x1 s1 s pa1 pa m1 m i1 frame dm curr c1 k old current refs.
     (gen_gc_partial$gc_move_ref_list gen_conf s x = (x1,s1)) /\ s1.ok /\ s.h2 = [] /\ s.r4 = [] /\
@@ -3378,7 +3403,7 @@ Theorem word_gen_gc_partial_move_ref_list_thm:
     heap_segment (gen_conf.gen_start,gen_conf.refs_start) s.heap = SOME(old,current,refs) /\
     heap_length x <= heap_length s.heap /\
     EVERY isRef x /\
-    (!t r. (gen_conf.isRef (t,r) <=> t = RefTag)) /\
+    (!t r. (gen_conf.isRef (t,r) <=> isMutTag t)) /\
     heap_length s.heap * (dimindex (:α) DIV 8) < dimword (:α) /\
     (word_heap (curr+bytes_in_word * n2w(heap_length old)) current conf * word_list pa xs *
      word_heap k x conf * frame) (fun2set (m,dm)) /\
@@ -3425,10 +3450,13 @@ Proof
   \\ fs[word_heap_def] \\ rfs[]
   \\ PairCases_on `b`
   \\ fs[word_el_def]
-  \\ pairarg_tac \\ fs[isRef_def] \\ rveq \\ fs[word_payload_def]
+  \\ pairarg_tac \\ fs []
+  \\ pairarg_tac \\ fs [isRef_def]
+  \\ dxrule_then drule isMutTag_word_payload_IMP
+  \\ strip_tac \\ rveq
   \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR]
   \\ rveq \\ fs[word_list_def]
-  \\ `m k = Word(make_header conf 2w (LENGTH l))` by SEP_R_TAC
+  \\ `m k = Word(make_header conf (muttag_header b0) (LENGTH l))` by SEP_R_TAC
   \\ fs[theWord_def,el_length_def]
   \\ ntac 2 (pairarg_tac \\ fs[])
   \\ drule(GEN_ALL word_gen_gc_partial_move_list_thm)
@@ -3457,14 +3485,17 @@ Proof
   \\ fs[word_heap_APPEND,word_heap_def,word_el_def,el_length_def]
   \\ pairarg_tac \\ fs[] \\ fs[word_list_def]
   \\ fs[word_payload_def] \\ rveq \\ fs[]
+  \\ dxrule_then drule isMutTag_word_payload_IMP
+  \\ strip_tac \\ rveq
+  \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR]
   \\ fs[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,heap_length_def]
   \\ fs[AC STAR_ASSOC STAR_COMM]
   \\ fs[SEP_CLAUSES]
-  \\ fs[isRef_def]
+  \\ fs[isRef_def,isMutTag_def]
 QED
 
-val gc_move_ref_list_IMP = prove (
-  ``!conf state refs state1 refs1.
+Theorem gc_move_ref_list_IMP[local]:
+    !conf state refs state1 refs1.
     (gc_move_ref_list conf state refs = (refs1,state1)) ==>
     (state1.old = state.old) /\
     (state1.h1 = state.h1) /\
@@ -3476,7 +3507,7 @@ val gc_move_ref_list_IMP = prove (
     (!ptr.
        isSomeDataElement (heap_lookup ptr refs) ==>
        isSomeDataElement (heap_lookup ptr refs1))
-  ``,
+Proof
   recInduct (fetch "gen_gc_partial" "gc_move_ref_list_ind")
   \\ once_rewrite_tac [gc_move_ref_list_def] \\ fs []
   \\ rpt gen_tac
@@ -3493,7 +3524,8 @@ val gc_move_ref_list_IMP = prove (
   \\ strip_tac
   \\ IF_CASES_TAC \\ fs []
   >- simp [isSomeDataElement_def]
-  \\ IF_CASES_TAC \\ fs [el_length_def]);
+  \\ IF_CASES_TAC \\ fs [el_length_def]
+QED
 
 Theorem heap_length_LENGTH:
   LENGTH x <= heap_length x
@@ -3510,17 +3542,18 @@ Proof
   Induct >- fs[gc_move_ref_list_def]
   >> Cases >> rpt strip_tac
   >> fs[gc_move_ref_list_def]
-  >> rveq >> fs[is_Ref_def]
+  >> rveq >> fs[is_Ref_def,isMutTag_def]
   >> ntac 2 (pairarg_tac >> fs[])
-  >> rveq >> fs[is_Ref_def]
+  >> rveq >> fs[is_Ref_def,isMutTag_def]
   >> metis_tac[]
 QED
 
 Theorem EVERY_is_Ref_isRef:
-   (∀t r. f (t,r) ⇔ t = RefTag) ==> EVERY (is_Ref f) refs = EVERY isRef refs
+   (∀t r. f (t,r) ⇔ isMutTag t) ==> EVERY (is_Ref f) refs = EVERY isRef refs
 Proof
-  Induct_on `refs` >- fs[] >> Cases >> rpt strip_tac >> fs[isRef_def,is_Ref_def]
-  >> Cases_on `b` >> fs[isRef_def]
+  Induct_on `refs` >- fs[] >> Cases >> rpt strip_tac
+  >> fs[isRef_def,is_Ref_def,isMutTag_def]
+  >> Cases_on `b` >> fs[isRef_def,isMutTag_def]
 QED
 
 Definition ends_with_refs_def:
@@ -3529,7 +3562,7 @@ Definition ends_with_refs_def:
 End
 
 Theorem word_gen_gc_partial_thm:
-   !m dm curr s1 pa1 m1 i1 frame c1 roots heap roots1 roots1' new.
+  ∀m dm curr s1 pa1 m1 i1 frame c1 roots heap roots1 roots1' new.
     (gen_gc_partial$partial_gc gen_conf (roots,heap) = (roots1,s1)) /\ s1.ok /\
     heap_length heap <= dimword (:'a) DIV 2 ** shift_length conf /\
     heap_length heap * (dimindex (:'a) DIV 8) < dimword (:'a) /\
@@ -3539,7 +3572,7 @@ Theorem word_gen_gc_partial_thm:
     ends_with_refs gen_conf.refs_start heap /\
     heap_length heap * (dimindex (:α) DIV 8) < dimword (:α) /\
     conf.len_size + 2 < dimindex (:α) /\
-    (!t r. (gen_conf.isRef (t,r) <=> t = RefTag)) /\
+    (!t r. (gen_conf.isRef (t,r) <=> isMutTag t)) /\
     (word_gen_gc_partial conf (MAP (word_addr conf) roots,curr,new,
                                bytes_in_word * n2w (heap_length heap),m,dm,
                                bytes_in_word * n2w gen_conf.gen_start,
@@ -3679,7 +3712,7 @@ Theorem word_gen_gc_partial_full_thm:
     gen_conf.refs_start <= heap_length heap /\
     heap_length heap * (dimindex (:α) DIV 8) < dimword (:α) /\
     conf.len_size + 2 < dimindex (:α) /\
-    (!t r. (gen_conf.isRef (t,r) <=> t = RefTag)) /\
+    (!t r. (gen_conf.isRef (t,r) <=> isMutTag t)) /\
     (word_gen_gc_partial_full conf (MAP (word_addr conf) roots,curr,new,
                                bytes_in_word * n2w (heap_length heap),m,dm,
                                bytes_in_word * n2w gen_conf.gen_start,
@@ -3906,7 +3939,7 @@ Proof
   fs [abs_ml_inv_def,unused_space_inv_def,gc_kind_inv_def]
   \\ strip_tac \\ fs []
   \\ `EVERY isDataElement h2` by
-       (fs [EVERY_MEM] \\ Cases \\ strip_tac \\ res_tac \\ fs [isRef_def])
+       (fs [EVERY_MEM] \\ Cases \\ strip_tac \\ res_tac \\ fs [isRef_def,isMutTag_def])
   \\ fs [data_up_to_def]
   \\ Cases_on `sp + sp1 = 0` \\ fs []
   THEN1
@@ -3935,12 +3968,14 @@ Proof
   \\ rfs [] \\ fs [GSYM heap_length_def,heap_length_nil]
 QED
 
-val new_trig_ok = prove(
-  ``a <=+ (bytes_in_word * n2w n) /\ good_dimindex (:'a) ==>
-    a <=+ new_trig (bytes_in_word * (n2w n):'a word) a x``,
+Theorem new_trig_ok[local]:
+    a <=+ (bytes_in_word * n2w n) /\ good_dimindex (:'a) ==>
+    a <=+ new_trig (bytes_in_word * (n2w n):'a word) a x
+Proof
   Cases_on `a` \\ fs [new_trig_def] \\ rw []
   \\ fs [WORD_LO,WORD_LS,MIN_DEF]
-  \\ rw [] \\ rfs [w2n_lt]);
+  \\ rw [] \\ rfs [w2n_lt]
+QED
 
 Theorem byte_aligned_IMP_bytes_in_word:
    byte_aligned w /\ good_dimindex (:'a) ==> ?v. w = bytes_in_word * v:'a word
@@ -3981,10 +4016,11 @@ Proof
     \\ fs [])
 QED
 
-val new_trig_LESS_EQ = prove(
-  ``good_dimindex (:'a) ==>
+Theorem new_trig_LESS_EQ[local]:
+    good_dimindex (:'a) ==>
     ?k. new_trig (bytes_in_word * (n2w n):'a word) a22 a33 =
-        bytes_in_word * n2w k /\ k <= n``,
+        bytes_in_word * n2w k /\ k <= n
+Proof
   rw [new_trig_def]
   \\ fs [GSYM NOT_LESS]
   \\ fs [NOT_LESS]
@@ -3998,7 +4034,8 @@ val new_trig_LESS_EQ = prove(
   \\ imp_res_tac byte_aligned_IMP_bytes_in_word \\ rveq
   \\ imp_res_tac (SIMP_RULE std_ss [Once WORD_MULT_COMM]
         MULT_bytes_in_word_LESS_EQ_IMP)
-  \\ fs [] \\ qexists_tac `l` \\ fs []);
+  \\ fs [] \\ qexists_tac `l` \\ fs []
+QED
 
 Definition alloc_size_def:
   alloc_size k = (if k * (dimindex (:'a) DIV 8) < dimword (:α) then
@@ -4282,12 +4319,14 @@ Theorem word_gc_fun_lemma = Q.prove(`
   \\ fs [] \\ rw [alloc_size_def] \\ fs [alloc_size_def]) |> GEN_ALL
   |> SIMP_RULE (srw_ss()) [LET_DEF,PULL_EXISTS,GSYM CONJ_ASSOC] |> SPEC_ALL;
 
-val abs_ml_inv_ADD = prove(
-  ``abs_ml_inv c xs refs (ys,heap2,be,a2,k2 + k3,0,gens2) limit ts /\
+Theorem abs_ml_inv_ADD[local]:
+    abs_ml_inv c xs refs (ys,heap2,be,a2,k2 + k3,0,gens2) limit ts /\
     c.gc_kind = Generational l ==>
-    abs_ml_inv c xs refs (ys,heap2,be,a2,k2,k3,gens2) limit ts``,
+    abs_ml_inv c xs refs (ys,heap2,be,a2,k2,k3,gens2) limit ts
+Proof
   fs [abs_ml_inv_def,gc_kind_inv_def] \\ rw []
-  \\ fs [gen_state_ok_def]);
+  \\ fs [gen_state_ok_def]
+QED
 
 Theorem alloc_size_check:
   w2n (bytes_in_word * n2w k2 :'a word) < w2n (alloc_size k :'a word) ==>
@@ -4616,7 +4655,7 @@ Proof
     \\ fs [heap_split_0]
     \\ fs [gen_state_ok_def,EVERY_MAP,gen_start_ok_def,heap_split_0]
     \\ fs [heap_split_def,el_length_def] \\ every_case_tac
-    \\ fs [isRef_def,heap_lookup_def])
+    \\ fs [isRef_def,heap_lookup_def,isMutTag_def])
   \\ pop_assum $ irule_at Any
   \\ CASE_TAC \\ fs []
   \\ fs [heap_in_memory_store_def,heap_length_heap_expand,word_heap_heap_expand]
@@ -4828,7 +4867,7 @@ QED
 
 val s1 = mk_var("s1",type_of s);
 
-Triviality is_some_lookup_union:
+Theorem is_some_lookup_union[local]:
   IS_SOME (lookup n (union t1 t2)) ⇔
   IS_SOME (lookup n t1) ∨ IS_SOME (lookup n t2)
 Proof
@@ -5327,16 +5366,17 @@ QED
 
 val _ = temp_delsimps ["fromAList_def"]
 
-Theorem state_rel_call_env_push_env: (* TODO: tidy up proof *)
-   !opt:(num # 'a wordLang$prog # num # num) option.
-      state_rel c l1 l2 s (t:('a,'c,'ffi)wordSem$state) [] locs /\
-      get_vars args s.locals = SOME xs /\
-      get_vars (MAP adjust_var args) t = SOME ws /\
-      dataSem$cut_env r s.locals = SOME x /\
-      wordSem$cut_envs (adjust_sets r) t.locals = SOME y ==>
-      state_rel c q l (call_env xs ss (push_env x (IS_SOME opt) (dec_clock s)))
-       (call_env (Loc q l::ws) ss (push_env y opt (dec_clock t))) []
-       ((l1,l2)::locs)
+Theorem state_rel_call_env_push_opt:
+  ∀(opt:(num # 'a wordLang$prog # num # num) option).
+    state_rel c l1 l2 s t (ZIP(xs,ws)) locs ∧
+    lookup 0 t.locals = SOME (Loc l1 l2) ∧
+    LENGTH xs = LENGTH ws ∧
+    cut_env r s.locals = SOME x ∧
+    cut_envs (adjust_sets r) t.locals = SOME y ⇒
+    state_rel c q l
+      (call_env xs ss (push_env x (IS_SOME opt) (dec_clock s)))
+      (call_env (Loc q l::ws) ss (push_env y opt (dec_clock t))) []
+      ((l1,l2)::locs)
 Proof
   Cases \\ TRY (PairCases_on `x'`) \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[state_rel_def,call_env_def,push_env_def,
@@ -5389,16 +5429,16 @@ Proof
     \\ full_simp_tac(srw_ss())[DIV_LT_X]
     \\ `k < 2 + LENGTH xs * 2 /\ 0 < LENGTH xs * 2` by
      (rev_full_simp_tac(srw_ss())[] \\ Cases_on `xs` \\ full_simp_tac(srw_ss())[]
-      THEN1 (Cases_on `k` \\ full_simp_tac(srw_ss())[]
-      \\ Cases_on `n` \\ full_simp_tac(srw_ss())[] \\ decide_tac)
-      \\ full_simp_tac(srw_ss())[MULT_CLAUSES] \\ decide_tac)
+      THEN1 (gvs [] \\ Cases_on `k` \\ gvs [DECIDE “SUC n < 2 ⇔ n = 0”])
+      \\ Cases_on ‘ws’ \\ gvs [])
     \\ full_simp_tac(srw_ss())[] \\ qexists_tac `(k - 2) DIV 2` \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[DIV_LT_X]
+    \\ gvs []
     \\ Cases_on `k` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `n` \\ full_simp_tac(srw_ss())[DECIDE ``SUC (SUC n) = n + 2``]
     \\ full_simp_tac(srw_ss())[MATCH_MP ADD_DIV_RWT (DECIDE ``0<2:num``)]
     \\ full_simp_tac(srw_ss())[GSYM ADD1,EL] \\ NO_TAC)
-  \\ full_simp_tac(srw_ss())[] \\ disj1_tac \\ disj2_tac
+  \\ full_simp_tac(srw_ss())[] \\ disj2_tac \\ disj1_tac
   \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[join_env_def,MEM_MAP,MEM_FILTER,EXISTS_PROD]
   \\ full_simp_tac(srw_ss())[MEM_toAList] \\ srw_tac[][MEM_ZIP]
   \\ full_simp_tac(srw_ss())[lookup_fromList2,lookup_fromList,lookup_inter_alt]
@@ -5420,6 +5460,45 @@ Proof
   \\ res_tac \\ full_simp_tac(srw_ss())[MEM_toAList]
   \\ rpt var_eq_tac
   \\ imp_res_tac lookup_adjust_var_after_cut \\ gvs []
+QED
+
+Theorem state_rel_call_env_push:
+  state_rel c l1 l2 s t (ZIP(xs,ws)) locs ∧
+  LENGTH xs = LENGTH ws ∧
+  lookup 0 t.locals = SOME (Loc l1 l2) ∧
+  cut_env r s.locals = SOME x ∧
+  cut_envs (adjust_sets r) t.locals = SOME y ⇒
+  state_rel c q l
+    (call_env xs ss (push_env x F (dec_clock s)))
+    (call_env (Loc q l::ws) ss (push_env y NONE (dec_clock t))) []
+    ((l1,l2)::locs)
+Proof
+  strip_tac
+  \\ drule_all (state_rel_call_env_push_opt |> Q.SPEC ‘NONE’ |> SRULE [])
+  \\ fs []
+QED
+
+Theorem state_rel_call_env_push_env: (* TODO: tidy up proof *)
+  !opt:(num # 'a wordLang$prog # num # num) option.
+    state_rel c l1 l2 s (t:('a,'c,'ffi)wordSem$state) [] locs /\
+    get_vars args s.locals = SOME xs /\
+    get_vars (MAP adjust_var args) t = SOME ws /\
+    dataSem$cut_env r s.locals = SOME x /\
+    wordSem$cut_envs (adjust_sets r) t.locals = SOME y ==>
+    state_rel c q l (call_env xs ss (push_env x (IS_SOME opt) (dec_clock s)))
+       (call_env (Loc q l::ws) ss (push_env y opt (dec_clock t))) []
+       ((l1,l2)::locs)
+Proof
+  rpt strip_tac
+  \\ irule state_rel_call_env_push_opt
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ full_simp_tac(srw_ss())[]
+  \\ imp_res_tac wordPropsTheory.get_vars_length_lemma \\ full_simp_tac(srw_ss())[IS_SOME_IF]
+  \\ rpt $ first_x_assum $ irule_at $ Pos hd
+  \\ fs [state_rel_def]
+  \\ rpt $ first_x_assum $ irule_at Any
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+  \\ drule_all word_ml_inv_get_vars_IMP
+  \\ fs []
 QED
 
 Theorem find_code_thm_ret:
@@ -6112,7 +6191,7 @@ Proof
   \\ gvs [word_addr_def]
 QED
 
-Triviality word_gc_move_roots_IMP_FILTER0:
+Theorem word_gc_move_roots_IMP_FILTER0[local]:
   ∀ws i pa old m dm ws2 i2 pa2 m2 c2 c.
     word_gc_move_roots c (ws,i,pa,old,m,dm) = (ws2,i2,pa2,m2,c2) ∧
     EVERY loc_ok ws ⇒
@@ -6132,7 +6211,7 @@ Proof
   \\ res_tac \\ fs [isWord_def]
 QED
 
-Triviality word_gen_gc_move_roots_IMP_FILTER0:
+Theorem word_gen_gc_move_roots_IMP_FILTER0[local]:
   ∀ws i pa ib pb old m dm ws2 i2 pa2 ib2 pb2 m2 c2 c.
     word_gen_gc_move_roots c (ws,i,pa,ib,pb,old,m,dm) =
                              (ws2,i2,pa2,ib2,pb2,m2,c2) ∧
@@ -6818,7 +6897,7 @@ Inductive traverse_heap:
      traverse_heap heap p1 [Pointer n t] p2)
 End
 
-Triviality size_of_Block:
+Theorem size_of_Block[local]:
   size_of lims [Block ts tag vs] refs seen =
   if vs = [] \/ IS_SOME (lookup ts seen) then (0,refs,seen)
   else let (n,refs',seen') = size_of lims vs refs (insert ts () seen)
@@ -6847,8 +6926,8 @@ Proof
 QED
 
 Theorem soundness_size_of:
-  !lims roots r1 s1 root_vars
-   (vars:'a word_loc heap_address list) n2 r2 s2 p1 refs.
+  ∀lims roots r1 s1 root_vars
+    (vars:'a word_loc heap_address list) n2 r2 s2 p1 refs.
     (∀n. reachable_refs root_vars refs n ⇒
          bc_ref_inv c n refs (f,tf,heap,be)) /\
     LIST_REL (λv x. v_inv c v (x,f,tf,heap)) root_vars vars /\
@@ -6858,7 +6937,7 @@ Theorem soundness_size_of:
     FDOM f SUBSET domain refs /\ subspt r1 refs /\
     (lims.arch_64_bit ⇔ dimindex (:α) = 64) /\
     size_of lims roots r1 s1 = (n2,r2,s2) ==>
-    ?p2. SUM (MAP (lookup_len heap) p2) <= n2 + SUM (MAP (lookup_len heap) p1) /\
+    ∃p2. SUM (MAP (lookup_len heap) p2) <= n2 + SUM (MAP (lookup_len heap) p1) /\
          traverse_heap heap p1 vars p2 /\ subspt r2 refs /\
          IMAGE ($' tf) (domain s2) SUBSET set p2 /\
          IMAGE ($' f) (domain refs DIFF domain r2) SUBSET set p2
@@ -6893,7 +6972,7 @@ Proof
     \\ asm_exists_tac \\ fs []
     \\ asm_exists_tac \\ fs []
     \\ fs [EXTENSION] \\ metis_tac [])
-  THEN1 (* Word case *)
+  >~ [‘Word64’] >-
    (fs [size_of_def] \\ rveq
     \\ fs [v_inv_def] \\ rveq \\ fs [Word64Rep_def]
     \\ every_case_tac \\ fs []
@@ -6902,7 +6981,7 @@ Proof
     \\ fs [SUBSET_DEF]
     \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
     \\ once_rewrite_tac [traverse_heap_cases] \\ fs [])
-  THEN1 (* Number case *)
+  >~ [‘Number’] >-
    (fs [] \\ rveq \\ fs [] \\ fs [v_inv_def]
     \\ Cases_on `small_int (:α) i` \\ fs [] \\ rveq \\ fs []
     THEN1
@@ -6918,12 +6997,12 @@ Proof
     \\ fs [SUBSET_DEF]
     \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
     \\ once_rewrite_tac [traverse_heap_cases] \\ fs [])
-  THEN1 (* CodePtr case *)
+  >~ [‘CodePtr’] >-
    (fs [size_of_def] \\ rveq
     \\ fs [v_inv_def] \\ rveq \\ fs []
     \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
     \\ qexists_tac `p1` \\ fs [])
-  THEN1 (* RefPtr case *)
+  >~ [‘RefPtr r1 r’] >-
    (fs [size_of_def] \\ rveq
     \\ fs [v_inv_def] \\ rveq \\ fs [CaseEq"option"] \\ rveq \\ fs []
     THEN1
@@ -6931,8 +7010,9 @@ Proof
       THEN1 (once_rewrite_tac [traverse_heap_cases]\\ fs [])
       \\ fs [SUBSET_DEF] \\ first_x_assum match_mp_tac
       \\ qexists_tac `r` \\ fs [] \\ fs [domain_lookup])
+    \\ rename [‘lookup r refs1 = SOME v’]
     \\ reverse (Cases_on `v`) \\ fs []
-    THEN1
+    >~ [‘ByteArray b l’] >-
      (rveq \\ fs [] \\ fs []
       \\ first_x_assum (qspec_then `r` mp_tac)
       \\ (impl_tac THEN1 fs [reachable_refs_def,get_refs_def])
@@ -6946,6 +7026,33 @@ Proof
       \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
       \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
       \\ fs [SUBSET_DEF,PULL_EXISTS] \\ metis_tac [])
+    >~ [‘Thunk t a’] >-
+     (pairarg_tac \\ gvs [PULL_EXISTS]
+      \\ first_assum (qspec_then `r` mp_tac)
+      \\ impl_tac THEN1 fs [reachable_refs_def,get_refs_def]
+      \\ simp [bc_ref_inv_def,FLOOKUP_DEF]
+      \\ CASE_TAC \\ gvs []
+      \\ fs [subspt_lookup]
+      \\ first_assum drule
+      \\ strip_tac \\ fs [] \\ rveq \\ fs []
+      \\ strip_tac \\ fs []
+      \\ last_x_assum $ drule_at $ Pos $ el 2
+      \\ disch_then $ qspecl_then [`f ' r :: p1`,`refs`] mp_tac
+      \\ impl_tac THEN1
+       (fs [] \\ fs [lookup_delete,SUBSET_DEF,PULL_EXISTS]
+        \\ simp [SF DNF_ss]
+        \\ rpt strip_tac
+        \\ first_x_assum match_mp_tac
+        \\ fs [reachable_refs_def,get_refs_def]
+        \\ once_rewrite_tac [RTC_CASES1] \\ disj2_tac
+        \\ rename [`RTC _ r5 r6`] \\ qexists_tac `r5` \\ fs []
+        \\ simp [ref_edge_def,get_refs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS]
+        \\ asm_exists_tac \\ fs [])
+      \\ strip_tac \\ qexists_tac `p2` \\ fs []
+      \\ rfs [lookup_len_def,el_length_def,ThunkBlock_def]
+      \\ once_rewrite_tac [traverse_heap_cases]
+      \\ rpt disj2_tac \\ fs [])
+    \\ rename [‘ValueArray l’]
     \\ pop_assum mp_tac
     \\ pairarg_tac \\ fs [] \\ rw []
     \\ first_assum (qspec_then `r` mp_tac)
@@ -6970,7 +7077,7 @@ Proof
     \\ imp_res_tac LIST_REL_LENGTH \\ fs []
     \\ once_rewrite_tac [traverse_heap_cases]
     \\ rpt disj2_tac \\ fs [])
-  THEN1 (* empty Block *)
+  >~ [‘Block ts tag []’] >-
    (fs [size_of_def] \\ rveq
     \\ fs [v_inv_def] \\ rveq \\ fs []
     \\ once_rewrite_tac [traverse_heap_cases] \\ fs []
@@ -7082,7 +7189,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality stack_rel_imp_subset:
+Theorem stack_rel_imp_subset[local]:
   ∀xs ys.
     LIST_REL stack_rel xs ys ⇒
     set (enc_stack ys) ⊆ set (MAP SND (flat xs ys))
@@ -7866,7 +7973,7 @@ Proof
   \\ gvs [FUPDATE_LIST,FAPPLY_FUPDATE_THM,FLOOKUP_DEF,word_full_gc_def]
 QED
 
-Triviality alloc_with_locals_1_3:
+Theorem alloc_with_locals_1_3[local]:
   alloc k (adjust_sets names)
              (t with locals := insert 1 w1 (insert 3 w2 t.locals)) =
   alloc k (adjust_sets names) t
@@ -8382,5 +8489,3 @@ Theorem word_ml_inv_get_var_IMP[allow_rebind] =
   |> Q.INST [`n`|->`[n1]`,`x`|->`[x1]`] |> GEN_ALL
   |> REWRITE_RULE [get_vars_SOME_IFF,get_vars_SOME_IFF_data,MAP]
   |> SIMP_RULE std_ss [Once get_vars_sing,PULL_EXISTS,get_vars_SOME_IFF,ZIP,APPEND]
-
-val _ = export_theory();

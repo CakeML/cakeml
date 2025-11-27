@@ -1,10 +1,11 @@
 (*
   Module about the built-in word8 type.
 *)
-open preamble ml_translatorLib ml_progLib basisFunctionsLib
-     Word64ProgTheory
-
-val _ = new_theory "Word8Prog";
+Theory Word8Prog
+Ancestors
+  Word64Prog ml_translator
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
 
 val _ = translation_extends "Word64Prog";
 
@@ -30,9 +31,11 @@ val _ = trans "andb" ``word_and:word8->word8->word8``;
 val _ = trans "orb" ``word_or:word8->word8->word8``;
 val _ = trans "xorb" ``word_xor:word8->word8->word8``;
 
-val word_1comp_eq = prove(
-  ``word_1comp w = word_xor w 0xFFw:word8``,
-  fs []);
+Theorem word_1comp_eq[local]:
+    word_1comp w = word_xor w 0xFFw:word8
+Proof
+  fs []
+QED
 
 val _ = (next_ml_names := ["notb"]);
 val _ = translate word_1comp_eq
@@ -122,8 +125,6 @@ val _ = ml_prog_update (close_module (SOME sigs));
 
 (* if any more theorems get added here, probably should create Word8ProofTheory *)
 
-open ml_translatorTheory
-
 Theorem WORD_UNICITY_R[xlet_auto_match]:
  !f fv fv'. WORD (f :word8) fv ==> (WORD f fv' <=> fv' = fv)
 Proof
@@ -152,4 +153,3 @@ QED
 
 Overload WORD8 = ``WORD:word8 -> v -> bool``
 
-val _ = export_theory()

@@ -2,10 +2,12 @@
   Definitions for the state-and-exception monad that is supported by the
   proof-producing monadic translator.
 *)
+Theory ml_monadBase
+Ancestors
+  semanticPrimitives
+Libs
+  preamble packLib
 
-open preamble semanticPrimitivesTheory packLib
-
-val _ = new_theory "ml_monadBase";
 
 val _ = hide "state";
 
@@ -358,7 +360,7 @@ End
 val _ = ParseExtras.temp_tight_equality ();
 
 (* Rules to deal with the monads *)
-Triviality st_ex_return_success:
+Theorem st_ex_return_success[local]:
   !v st r st'.
      st_ex_return v st = (r, st')
      <=>
@@ -367,7 +369,7 @@ Proof
   rw [st_ex_return_def] \\ metis_tac[]
 QED
 
-Triviality st_ex_bind_success:
+Theorem st_ex_bind_success[local]:
   !f g st st' v.
      st_ex_bind f g st = (M_success v, st')
      <=>
@@ -382,7 +384,7 @@ Proof
   rw []
 QED
 
-Triviality otherwise_success:
+Theorem otherwise_success[local]:
   (x otherwise y) s = (M_success v, s')
    <=>
    x s = (M_success v, s') \/
@@ -396,7 +398,7 @@ Proof
   >> fs[]
 QED
 
-Triviality otherwise_failure:
+Theorem otherwise_failure[local]:
   (x otherwise y) s = (M_failure e, s')
    <=>
    ?e' s''. x s = (M_failure e', s'') /\ y s'' = (M_failure e, s')
@@ -409,7 +411,7 @@ Proof
   >> fs[]
 QED
 
-Triviality otherwise_eq:
+Theorem otherwise_eq[local]:
   (x otherwise y) s = (r, s')
    <=>
    (?v. ((x s = (M_success v, s') /\ r = M_success v) \/
@@ -427,7 +429,7 @@ Proof
   \\ metis_tac[]
 QED
 
-Triviality can_success:
+Theorem can_success[local]:
   can f x s = (M_failure e, s') <=> F
 Proof
   rw[can_def, otherwise_def, st_ex_ignore_bind_def]
@@ -436,7 +438,7 @@ Proof
   \\ fs[st_ex_return_def]
 QED
 
-Triviality Marray_length_success:
+Theorem Marray_length_success[local]:
   !get_arr s r s'.
      Marray_length get_arr s = (r, s')
      <=>
@@ -446,7 +448,7 @@ Proof
   rw[Marray_length_def] \\ metis_tac[]
 QED
 
-Triviality Marray_sub_success:
+Theorem Marray_sub_success[local]:
   !get_arr e n s v s'.
      Marray_sub get_arr e n s = (M_success v, s')
      <=>
@@ -461,7 +463,7 @@ Proof
   \\ fs [Msub_eq, Msub_exn_eq]
 QED
 
-Triviality Marray_sub_failure:
+Theorem Marray_sub_failure[local]:
   !get_arr e n s e' s'.
      Marray_sub get_arr e n s = (M_failure e', s')
      <=>
@@ -476,7 +478,7 @@ Proof
   \\ fs [Msub_eq, Msub_exn_eq]
 QED
 
-Triviality Marray_sub_eq:
+Theorem Marray_sub_eq[local]:
   Marray_sub get_arr e n s = (r, s')
    <=>
    (n < LENGTH (get_arr s) /\ s' = s /\ r = M_success (EL n (get_arr s))) \/
@@ -487,7 +489,7 @@ Proof
   >> metis_tac[]
 QED
 
-Triviality Marray_update_success:
+Theorem Marray_update_success[local]:
   !get_arr set_arr e n x s s'.
      Marray_update get_arr set_arr e n x s = (M_success v, s')
      <=>
@@ -503,7 +505,7 @@ Proof
   \\ fs [Mupdate_eq, Mupdate_exn_eq]
 QED
 
-Triviality Marray_update_failure:
+Theorem Marray_update_failure[local]:
   !get_arr set_arr e e' n x s s'.
      Marray_update get_arr set_arr e n x s = (M_failure e', s')
      <=>
@@ -519,7 +521,7 @@ Proof
   \\ fs [Mupdate_eq, Mupdate_exn_eq]
 QED
 
-Triviality Marray_update_eq:
+Theorem Marray_update_eq[local]:
   Marray_update get_arr set_arr e n x s = (r, s')
    <=>
    (n < LENGTH (get_arr s) /\
@@ -535,7 +537,7 @@ Proof
   >> metis_tac[]
 QED
 
-Triviality Marray_alloc_success:
+Theorem Marray_alloc_success[local]:
   Marray_alloc set_arr n x s = (r, s')
    <=>
    r = M_success () /\
@@ -559,4 +561,3 @@ Definition run_def:
 End
 
 
-val _ = export_theory ();

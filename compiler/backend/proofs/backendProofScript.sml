@@ -1,24 +1,16 @@
 (*
   Composes the correctness theorems for all of the compiler phases.
 *)
-open preamble primSemEnvTheory semanticsPropsTheory
-     backendTheory
-     source_to_sourceProofTheory
-     source_to_flatProofTheory
-     flat_to_closProofTheory
-     clos_to_bvlProofTheory
-     bvl_to_bviProofTheory
-     bvi_to_dataProofTheory
-     data_to_wordProofTheory
-     word_to_stackProofTheory
-     stack_to_labProofTheory
-     lab_to_targetProofTheory
-     backend_commonTheory
-     backendPropsTheory
-local open dataPropsTheory finite_mapSyntax backend_passesTheory in end
-open word_to_stackTheory
-
-val _ = new_theory"backendProof";
+Theory backendProof
+Ancestors
+  primSemEnv semanticsProps backend source_to_sourceProof
+  source_to_flatProof flat_to_closProof clos_to_bvlProof
+  bvl_to_bviProof bvi_to_dataProof data_to_wordProof
+  word_to_stackProof stack_to_labProof lab_to_targetProof
+  backend_common backendProps word_to_stack dataProps[qualified]
+  backend_passes[qualified]
+Libs
+  preamble finite_mapSyntax[qualified]
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
@@ -82,6 +74,7 @@ Definition backend_config_ok_def:
     (c.data_conf.has_fp_ops ⇔ 1 < c.lab_conf.asm_conf.fp_reg_count) ∧
     max_stack_alloc ≤ 2 * max_heap_limit (:'a) c.data_conf − 1 ∧
     addr_offset_ok c.lab_conf.asm_conf 0w ∧
+    hw_offset_ok c.lab_conf.asm_conf 0w ∧
     (∀w. -8w ≤ w ∧ w ≤ 8w ⇒ byte_offset_ok c.lab_conf.asm_conf w) ∧
     c.lab_conf.asm_conf.valid_imm (INL Add) 8w ∧
     c.lab_conf.asm_conf.valid_imm (INL Add) 4w ∧
@@ -92,6 +85,7 @@ Definition backend_config_ok_def:
     names_ok c.stack_conf.reg_names c.lab_conf.asm_conf.reg_count c.lab_conf.asm_conf.avoid_regs ∧
     stackProps$fixed_names c.stack_conf.reg_names c.lab_conf.asm_conf ∧
     (∀s. addr_offset_ok c.lab_conf.asm_conf (store_offset s)) ∧
+    (∀s. hw_offset_ok c.lab_conf.asm_conf (store_offset s)) ∧
     (∀n.
          n ≤ max_stack_alloc ⇒
          c.lab_conf.asm_conf.valid_imm (INL Sub) (n2w (n * (dimindex (:α) DIV 8))) ∧
@@ -497,13 +491,13 @@ Proof
   \\ simp [clos_knownTheory.known_static_conf_def, clos_knownTheory.reset_inline_factor_def]
 QED
 
-Triviality keep_progs_T:
+Theorem keep_progs_T[local]:
   keep_progs T = I
 Proof
   simp [keep_progs_def, FUN_EQ_THM]
 QED
 
-Triviality compile_inc_progs_defs =
+Theorem compile_inc_progs_defs[local] =
   LIST_CONJ [compile_inc_progs_def, keep_progs_T]
 
 Theorem cake_orac_eqs:
@@ -618,7 +612,7 @@ Proof
   \\ rveq \\ fs []
 QED
 
-Triviality compile_inc_progs_src_env_tup:
+Theorem compile_inc_progs_src_env_tup[local]:
   compile_inc_progs T cfg p = (cfg', progs) ==>
   progs.env_id = FST p /\ progs.source_prog = SND p
 Proof
@@ -1008,7 +1002,7 @@ Proof
   \\ rveq \\ fs []
 QED
 
-Triviality SND_flat_to_clos_inc_compile =
+Theorem SND_flat_to_clos_inc_compile[local] =
     REWRITE_CONV [flat_to_closTheory.inc_compile_decs_def]
         ``SND (flat_to_clos_inc_compile p)``
 
@@ -1036,7 +1030,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality BAG_ALL_DISTINCT_BAG_IMAGE_SUC[simp]:
+Theorem BAG_ALL_DISTINCT_BAG_IMAGE_SUC[local,simp]:
   BAG_ALL_DISTINCT s ⇒  BAG_ALL_DISTINCT (BAG_IMAGE SUC s)
 Proof
   fs [BAG_ALL_DISTINCT] \\ rw []
@@ -1055,7 +1049,7 @@ Proof
   \\ rw [BAG_INSERT,EMPTY_BAG]
 QED
 
-Triviality BAG_ALL_DISTINCT_BAG_IMAGE_SUC'[simp]:
+Theorem BAG_ALL_DISTINCT_BAG_IMAGE_SUC'[local,simp]:
   BAG_ALL_DISTINCT s ⇒  BAG_ALL_DISTINCT ({|0|} ⊎ BAG_IMAGE SUC s)
 Proof
   fs [bagTheory.BAG_ALL_DISTINCT_BAG_UNION,BAG_ALL_DISTINCT_BAG_IMAGE_SUC]
@@ -1223,7 +1217,8 @@ Proof
 QED
 
 Theorem compile_to_word_conventions2:
-  compile wc ac p = (_,ps) ==>
+  compile wc ac p = (_,ps) ∧
+  EVERY (λ(_,_,prg). wordConvs$no_share_inst prg ∨ ac.ISA ≠ Ag32) p ==>
   MAP FST ps = MAP FST p ∧
   LIST_REL wordConvs$labels_rel
     (MAP (wordConvs$extract_labels ∘ SND ∘ SND) p)
@@ -1233,15 +1228,17 @@ Theorem compile_to_word_conventions2:
     wordConvs$post_alloc_conventions
       (ac.reg_count - (5 + LENGTH ac.avoid_regs)) prog ∧
     (EVERY (λ(n,m,prog).
-                      wordConvs$every_inst (wordConvs$inst_ok_less ac) prog)
-                 p ∧ addr_offset_ok ac 0w ∧ byte_offset_ok ac 0w ⇒
+              wordConvs$every_inst (wordConvs$inst_ok_less ac) prog)
+           p ∧ addr_offset_ok ac 0w ∧ hw_offset_ok ac 0w ∧
+     byte_offset_ok ac 0w ⇒
                wordConvs$full_inst_ok_less ac prog) ∧
               (ac.two_reg_arith ⇒
-               wordConvs$every_inst wordConvs$two_reg_inst prog)) ps
+               wordConvs$every_inst wordConvs$two_reg_inst prog) ∧
+              (wordConvs$no_share_inst prog ∨ ac.ISA ≠ Ag32)) ps
 Proof
   rw []
   \\ mp_tac word_to_wordProofTheory.compile_to_word_conventions
-  \\ simp []
+  \\ simp [] \\ rw[]
 QED
 
 Theorem sec_labels_ok_FST_code_labels_Section_num:
@@ -1309,6 +1306,15 @@ Proof
   \\ drule_then assume_tac (GEN_ALL MAP_full_compile_single_to_compile)
   \\ rfs []
   \\ drule compile_to_word_conventions2
+  \\ impl_tac
+  >- (irule_at Any EVERY_MONOTONIC>>
+      qexists ‘λx. wordConvs$no_share_inst (SND $ SND x)’>>
+      simp[FORALL_PROD]>>
+      fs[EVERY_MAP,LAMBDA_PROD]>>
+      simp[data_to_wordTheory.compile_part_def]>>
+      simp[EVERY_MEM]>>rw[]>>
+      pairarg_tac>>fs[]>>
+      irule comp_no_share_inst>>metis_tac[PAIR])
   \\ rw []
   \\ qhdtm_x_assum`EVERY`mp_tac
   \\ simp[Once EVERY_MEM] \\ strip_tac
@@ -2086,6 +2092,16 @@ Proof
       \\ drule_then assume_tac (GEN_ALL MAP_full_compile_single_to_compile)
       \\ drule_then (fn t => rfs [t]) cake_orac_config_eqs
       \\ drule compile_to_word_conventions2
+      \\ impl_tac
+      >- (fs[Abbr‘pp0’]>>
+          irule_at Any EVERY_MONOTONIC>>
+          qexists ‘λx. wordConvs$no_share_inst (SND $ SND x)’>>
+          simp[FORALL_PROD]>>
+          fs[EVERY_MAP,LAMBDA_PROD]>>
+          simp[data_to_wordTheory.compile_part_def]>>
+          simp[EVERY_MEM]>>rw[]>>
+          pairarg_tac>>fs[]>>
+          irule comp_no_share_inst>>metis_tac[PAIR])
       \\ simp[]
       \\ simp[EVERY_MEM, UNCURRY, Abbr`kkk`]
       \\ rw[]
@@ -2096,7 +2112,7 @@ Proof
       \\ simp[MEM_MAP, EXISTS_PROD]
       \\ simp[data_to_wordTheory.compile_part_def]
       \\ simp[PULL_EXISTS]
-      \\ reverse conj_tac
+      \\ (reverse conj_tac
       >- (
         first_x_assum irule >>
         fs[mc_conf_ok_def,WORD_LE,good_dimindex_def,
@@ -2110,7 +2126,7 @@ Proof
       \\ fsrw_tac[DNF_ss][]
       \\ conj_tac \\ first_x_assum irule
       \\ fs[mc_conf_ok_def]
-      \\ fs[WORD_LE,good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w] )
+      \\ fs[WORD_LE,good_dimindex_def,word_2comp_n2w,dimword_def,word_msb_n2w] ))
     \\ simp[EVERY_MEM, FORALL_PROD] \\ fs[]
     \\ disch_then drule
     \\ simp[]
@@ -2187,6 +2203,16 @@ Proof
   \\ drule_then assume_tac (GEN_ALL MAP_full_compile_single_to_compile)
   \\ rfs []
   \\ drule compile_to_word_conventions2
+  \\ impl_tac
+  >- (fs[Abbr‘pp0’]>>
+      irule_at Any EVERY_MONOTONIC>>
+      qexists ‘λx. wordConvs$no_share_inst (SND $ SND x)’>>
+      simp[FORALL_PROD]>>
+      fs[EVERY_MAP,LAMBDA_PROD]>>
+      simp[data_to_wordTheory.compile_part_def]>>
+      simp[EVERY_MEM]>>rw[]>>
+      pairarg_tac>>fs[]>>
+      irule comp_no_share_inst>>metis_tac[PAIR])
   \\ gvs[Abbr`ac`]
   \\ drule cake_orac_config_eqs
   \\ strip_tac
@@ -2205,12 +2231,12 @@ Proof
     \\ simp[MEM_MAP, EXISTS_PROD]
     \\ simp[data_to_wordTheory.compile_part_def]
     \\ simp[PULL_EXISTS]
-    \\ reverse conj_tac
+    \\ (reverse conj_tac
     >- (
       first_x_assum irule >>
       fs[mc_conf_ok_def,WORD_LE,good_dimindex_def,
         word_2comp_n2w,dimword_def,word_msb_n2w])
-    \\ rw[]
+    \\ rw[])
     \\ irule data_to_wordProofTheory.comp_no_inst
     \\ drule_then (fn t => simp [t]) cake_orac_config_eqs
     \\ fs[backend_config_ok_def, asmTheory.offset_ok_def, ensure_fp_conf_ok_def]
@@ -2527,14 +2553,14 @@ Definition read_limits_def:
        mc.target.get_reg ms (find_name c.stack_conf.reg_names 4) :'a word)
 End
 
-Triviality FST_SND_EQ:
+Theorem FST_SND_EQ[local]:
   (FST x = y /\ SND x = z <=> x = (y,z)) /\
   (SND x = z /\ FST x = y <=> x = (y,z))
 Proof
   Cases_on `x` \\ fs [] \\ metis_tac []
 QED
 
-Triviality PERMUTE_IMP_LINV:
+Theorem PERMUTE_IMP_LINV[local]:
   f PERMUTES UNIV ⇒ ∀x y. (y = LINV f UNIV x ⇔ x = f y)
 Proof
   rw [] \\ eq_tac \\ rw []
@@ -2690,7 +2716,7 @@ Proof
   \\ simp [DROP_APPEND]
 QED
 
-Triviality compile_inc_progs_src_env:
+Theorem compile_inc_progs_src_env[local]:
   (SND (compile_inc_progs T c env_decs)).env_id = FST env_decs /\
   (SND (compile_inc_progs T c env_decs)).source_prog = SND env_decs
 Proof
@@ -2729,7 +2755,7 @@ Proof
   \\ fs [cake_configs_def, state_orac_states_def]
 QED
 
-Triviality cake_orac_extended_wf:
+Theorem cake_orac_extended_wf[local]:
   compile (c : 'a config) prog = SOME (b,bm,c') /\
   opt_eval_config_wf c' (SOME ci) ==>
   orac_extended_wf (mk_compiler_fun_from_ci ci)
@@ -2758,7 +2784,7 @@ Proof
   \\ simp []
 QED
 
-Triviality compile_inc_progs_asm_conf:
+Theorem compile_inc_progs_asm_conf[local]:
   compile_inc_progs k c p_env = (c', progs) ==>
   c'.lab_conf.asm_conf = c.lab_conf.asm_conf
 Proof
@@ -2785,7 +2811,7 @@ Proof
   strip_tac>>strip_tac>>CASE_TAC>>fs[w2n_lt]
 QED
 
-Triviality cake_orac_eq_get_oracle:
+Theorem cake_orac_eq_get_oracle[local]:
   ¬ semantics_prog s env prog Fail /\
   opt_eval_config_wf (c':'a config) (SOME ci) /\
   nsAll (K concrete_v) env.v /\ s.refs = [] /\
@@ -2840,7 +2866,7 @@ Proof
   )
 QED
 
-Triviality compile_inc_config_inv:
+Theorem compile_inc_config_inv[local]:
   compile (c : 'a config) prog = SOME (b,bm,c') ==>
   inc_config_to_config c.lab_conf.asm_conf
     (config_to_inc_config (cake_configs c' syntax k)) =
@@ -2851,7 +2877,7 @@ Proof
   \\ simp [inc_config_to_config_inv]
 QED
 
-Triviality step_invs_cake_orac:
+Theorem step_invs_cake_orac[local]:
   st.oracle = f o cake_orac c' syn I I ==>
   (! x k env_id st decs. x = cake_orac c' syn I I k ==>
     f x = (env_id, st, decs) ==>
@@ -2880,7 +2906,7 @@ Proof
   \\ rpt (pairarg_tac \\ fs [])
 QED
 
-Triviality source_to_source_semantics_prog_equiv:
+Theorem source_to_source_semantics_prog_equiv[local]:
   ~ semantics_prog s0 env prog Fail ==>
   semantics_prog s0 env (source_to_source$compile prog) res =
   semantics_prog s0 env prog res
@@ -2889,7 +2915,7 @@ Proof
                   source_to_sourceProofTheory.compile_semantics]
 QED
 
-Triviality source_to_source_semantics_prog_intro:
+Theorem source_to_source_semantics_prog_intro[local]:
   ~ semantics_prog s0 env prog Fail ==>
   (~ semantics_prog s0 env (source_to_source$compile prog) Fail ==>
     semantics_prog s0 env (source_to_source$compile prog) res) ==>
@@ -2899,7 +2925,7 @@ Proof
                   source_to_sourceProofTheory.compile_semantics]
 QED
 
-Triviality eval_oracle_semantics_prog_intro:
+Theorem eval_oracle_semantics_prog_intro[local]:
   !ci. ~ semantics_prog s1 env decs Fail /\
   precond_eval_state orac ci s1 env decs /\ s1.refs = [] /\
   nsAll (K concrete_v) env.v /\
@@ -2911,7 +2937,7 @@ Proof
             source_evalProofTheory.oracle_semantics_prog]
 QED
 
-Triviality source_to_source_semantics_prog_oracle_intro:
+Theorem source_to_source_semantics_prog_oracle_intro[local]:
   ~ semantics_prog (s0 with eval_state := insert_gen_oracle ev I sf orac es) env prog Fail ==>
   (~ semantics_prog (s0 with eval_state := insert_gen_oracle ev source_to_source$compile sf orac es) env prog Fail ==>
       semantics_prog (s0 with eval_state := insert_gen_oracle ev source_to_source$compile sf orac es) env prog res) ==>
@@ -3493,6 +3519,7 @@ Proof
     (fs[Abbr`c4`,EVERY_MEM,FORALL_PROD]>>
      unabbrev_all_tac \\ fs[] >>
     metis_tac[])>>
+
   strip_tac>>
   old_drule (word_to_stack_stack_convs|> GEN_ALL)>>
   simp[]>>
@@ -4051,6 +4078,16 @@ Proof
       \\ drule_then assume_tac (GEN_ALL MAP_full_compile_single_to_compile)
       \\ fs []
       \\ drule compile_to_word_conventions2
+      \\ impl_tac >- (
+            irule_at Any EVERY_MONOTONIC>>
+            qexists ‘λx. wordConvs$no_share_inst (SND $ SND x)’>>
+            simp[FORALL_PROD]>>
+            fs[EVERY_MAP,LAMBDA_PROD]>>
+            simp[data_to_wordTheory.compile_part_def]>>
+            simp[EVERY_MEM]>>rw[]>>
+            pairarg_tac>>fs[]>>
+            irule comp_no_share_inst>>metis_tac[PAIR]
+)
       \\ simp [EVERY_MAP |> REWRITE_RULE [GSYM o_DEF] |> Q.SPEC `P` |> Q.ISPEC `FST` |> GSYM]
       \\ simp [MAP_MAP_o |> REWRITE_RULE [o_DEF], Q.ISPEC `FST` ETA_THM]
       \\ rw [EVERY_MEM] \\ TRY (first_x_assum drule \\ simp [UNCURRY])
@@ -4126,7 +4163,7 @@ Proof
   fs [extend_with_resource_limit'_def]
 QED
 
-Triviality compile_correct_no_eval =
+Theorem compile_correct_no_eval[local] =
   compile_correct' |> Q.INST [`ev` |-> `NONE`]
     |> SIMP_RULE bool_ss [add_eval_state_def, opt_eval_config_wf_def]
 
@@ -4198,4 +4235,3 @@ Proof
   \\ fs [extend_with_resource_limit_def,SUBSET_DEF]
 QED
 
-val _ = export_theory();

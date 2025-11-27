@@ -1,11 +1,12 @@
 (*
   Correctness proof for crep_arith pass
 *)
+Theory crep_arithProof
+Ancestors
+  crepSem crepProps crep_arith
+Libs
+  preamble
 
-open preamble
-     crepSemTheory crepPropsTheory crep_arithTheory
-
-val _ = new_theory "crep_arithProof";
 
 Theorem dest_const_thm:
   dest_const exp = SOME v ==> exp = Const v
@@ -25,7 +26,7 @@ Proof
   \\ CCONTR_TAC \\ fs []
 QED
 
-Triviality OPT_MMAP_EQ_SOME_MONO:
+Theorem OPT_MMAP_EQ_SOME_MONO[local]:
   OPT_MMAP f xs = SOME y ==>
   (! x z. MEM x xs ==> f x = SOME z ==> g x = SOME z) ==>
   OPT_MMAP g xs = SOME y
@@ -43,7 +44,7 @@ QED
 
 Overload mapc[local] = ``\f s. s with code := FMAP_MAP2 f s.code``
 
-Triviality simp_exp_correct1:
+Theorem simp_exp_correct1[local]:
   ! s exp v.
   crepSem$eval s exp <> NONE ==>
   eval (mapc f s) (simp_exp exp) = eval s exp
@@ -84,7 +85,7 @@ QED
 
 Overload mapcs[local] = ``mapc (\(s,n,p). (n, simp_prog p))``
 
-Triviality lookup_code:
+Theorem lookup_code[local]:
   lookup_code (FMAP_MAP2 (\(s,n,p). (n, simp_prog p)) c) fname args len =
   OPTION_MAP (simp_prog ## I) (lookup_code c fname args len)
 Proof
@@ -94,7 +95,7 @@ Proof
   \\ rw []
 QED
 
-Triviality sh_mem_op_code:
+Theorem sh_mem_op_code[local]:
   sh_mem_op op p addr (mapc f s) =
     (I ## mapc f) (sh_mem_op op p addr s)
 Proof
@@ -102,7 +103,7 @@ Proof
   \\ every_case_tac \\ fs [set_var_def, empty_locals_def]
 QED
 
-Triviality ind_thm = crepSemTheory.evaluate_ind
+Theorem ind_thm[local] = crepSemTheory.evaluate_ind
     |> Q.SPEC `UNCURRY Q`
     |> REWRITE_RULE [UNCURRY_DEF]
     |> Q.GEN `Q`
@@ -147,4 +148,3 @@ Proof
   \\ fs [sh_mem_op_code]
 QED
 
-val _ = export_theory();

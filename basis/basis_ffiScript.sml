@@ -1,15 +1,14 @@
 (*
   Instantiate the CakeML FFI oracle for the oracle of the basis library.
 *)
-open preamble ml_translatorTheory ml_translatorLib ml_progLib
-     cfLib basisFunctionsLib set_sepTheory
-     fsFFITheory fsFFIPropsTheory
-     CommandLineProofTheory TextIOProofTheory
-     runtimeFFITheory RuntimeProofTheory
+Theory basis_ffi
+Ancestors
+  ml_translator set_sep fsFFI fsFFIProps CommandLineProof
+  TextIOProof runtimeFFI RuntimeProof
+Libs
+  preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"basis_ffi";
 
 (*---------------------------------------------------------------------------*)
 (* GENERALISED FFI *)
@@ -750,5 +749,3 @@ Theorem same_eval_state:
 Proof
   fs [semanticPrimitivesTheory.state_component_equality]
 QED
-
-val _ = export_theory();

@@ -1,8 +1,11 @@
 (*
   The CakeML REPL
 *)
+Theory replProg
+Libs
+  preamble basis
 
-open preamble basis
+
 (*
   TODO: add this to INCLUDES as necessary, depending where this file ends up
   val () = loadPath := "../compiler/inference/" :: !loadPath;
@@ -11,8 +14,6 @@ local open lexer_funTheory cmlParseTheory
            infer_tTheory inferTheory
 in end
 *)
-
-val _ = new_theory"replProg";
 
 (*
 
@@ -284,4 +285,3 @@ val main_ast = process_topdecs`
 
 *)
 
-val _ = export_theory();

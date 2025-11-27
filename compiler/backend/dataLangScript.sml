@@ -23,12 +23,13 @@
   translation from dataLang into more concete forms must implement a
   GC that only looks at the variables in the SOME annotations.
 *)
+Theory dataLang
+Ancestors[qualified]
+  closLang (* for op *)
+  misc (* for num_set *)
+Libs
+  preamble
 
-open preamble;
-local open closLangTheory in end;
-
-val _ = new_theory "dataLang";
-val _ = set_grammar_ancestry ["closLang" (* for op *), "misc" (* for num_set *)]
 
 (* --- Syntax of dataLang --- *)
 Definition op_space_reset_def:
@@ -74,10 +75,9 @@ Datatype:
        | Raise num
        | Return num
        | Tick
+       | Force ((num # num_set) option) num num
 End
 
 Definition mk_ticks_def:
   mk_ticks n e = FUNPOW (Seq Tick) n e
 End
-
-val _ = export_theory();

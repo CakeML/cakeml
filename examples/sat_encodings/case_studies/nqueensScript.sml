@@ -1,10 +1,11 @@
 (*
   Encoding of n-queeens problem to cnf
 *)
-
-open preamble miscTheory boolExpToCnfTheory quantifierExpTheory cnfTheory;
-
-val _ = new_theory "nqueens";
+Theory nqueens
+Ancestors
+  misc boolExpToCnf quantifierExp cnf
+Libs
+  preamble
 
 
 (* ---------------------------- Help functions ------------------------- *)
@@ -167,4 +168,3 @@ Proof
   >> metis_tac[]
 QED
 
-val _ = export_theory();

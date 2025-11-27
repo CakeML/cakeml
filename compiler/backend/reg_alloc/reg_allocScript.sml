@@ -1,11 +1,13 @@
 (*
   A monadic graph-coloring register allocator
 *)
+Theory reg_alloc
+Libs
+  preamble ml_monadBaseLib
+Ancestors
+  mllist state_transformer ml_monadBase sorting
 
-open preamble state_transformerTheory
-  ml_monadBaseLib ml_monadBaseTheory mllistTheory;
 
-val _ = new_theory "reg_alloc"
 val _ = ParseExtras.temp_tight_equality();
 val _ = monadsyntax.temp_add_monadsyntax()
 
@@ -1473,5 +1475,3 @@ Definition reg_alloc_def:
   reg_alloc alg scost k moves ct forced fs =
     reg_alloc_aux alg scost k moves ct forced fs (mk_bij ct)
 End
-
-val _ = export_theory();

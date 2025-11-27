@@ -1,12 +1,11 @@
 (*
   Parser for Scheme
 *)
-open preamble;
-open mlstringTheory;
-open scheme_valuesTheory;
-open scheme_astTheory;
-
-val _ = new_theory "scheme_parsing";
+Theory scheme_parsing
+Ancestors
+  mlstring scheme_values scheme_ast
+Libs
+  preamble
 
 val _ = monadsyntax.declare_monad("sum", {
   unit = “INR”,
@@ -327,4 +326,3 @@ EVAL “parse_to_ast "(letrec ((x 3) (y x)) 2)"”
 EVAL “parse_to_ast "(cons 3 2)"”
 *)
 
-val _ = export_theory();

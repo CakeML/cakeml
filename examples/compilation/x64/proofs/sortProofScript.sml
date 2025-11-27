@@ -3,11 +3,12 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     sortProgTheory sortCompileTheory
-
-val _ = new_theory"sortProof";
+Theory sortProof
+Ancestors
+  semanticsProps backendProof x64_configProof sortProg
+  sortCompile
+Libs
+  preamble
 
 val sort_io_events_def = new_specification("sort_io_events_def", ["sort_io_events"],
   sort_semantics |> Q.GENL[`cl`,`fs`]
@@ -34,4 +35,3 @@ Theorem sort_compiled_thm =
   |> DISCH_ALL
   |> check_thm
 
-val _ = export_theory();

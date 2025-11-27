@@ -3,11 +3,11 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     catProgTheory catCompileTheory
-
-val _ = new_theory"catProof";
+Theory catProof
+Ancestors
+  semanticsProps backendProof x64_configProof catProg catCompile
+Libs
+  preamble
 
 val cat_io_events_def = new_specification("cat_io_events_def",["cat_io_events"],
   cat_semantics_thm |> Q.GENL[`cl`,`fs`]
@@ -34,4 +34,3 @@ Theorem cat_compiled_thm =
   |> DISCH_ALL
   |> check_thm
 
-val _ = export_theory();

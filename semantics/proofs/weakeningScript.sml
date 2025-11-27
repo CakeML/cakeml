@@ -1,15 +1,12 @@
 (*
   Weakening lemmas used in type soundness
 *)
-open preamble;
-open optionTheory rich_listTheory alistTheory;
-open astTheory typeSystemTheory typeSysPropsTheory;
-open namespacePropsTheory;
-open semanticPrimitivesTheory;
-open astPropsTheory;
-open typeSoundInvariantsTheory;
-
-val _ = new_theory "weakening";
+Theory weakening
+Ancestors
+  option rich_list alist ast typeSystem typeSysProps
+  namespaceProps semanticPrimitives astProps typeSoundInvariants
+Libs
+  preamble
 
 Definition weak_tenvE_def:
 weak_tenvE tenv tenv' =
@@ -72,7 +69,7 @@ Proof
  rw [weakS_def, FLOOKUP_UPDATE, flookup_thm]
 QED
 
-Triviality weak_tenvE_freevars:
+Theorem weak_tenvE_freevars[local]:
   !tenv tenv' tvs t.
   weak_tenvE tenv' tenv ∧
   check_freevars (num_tvs tenv) tvs t ⇒
@@ -82,7 +79,7 @@ Proof
 metis_tac [check_freevars_add]
 QED
 
-Triviality weak_tenvE_bind:
+Theorem weak_tenvE_bind[local]:
   !tenv tenv' n tvs t.
   weak_tenvE tenv' tenv ⇒
   weak_tenvE (Bind_name n tvs t tenv') (Bind_name n tvs t tenv)
@@ -92,7 +89,7 @@ every_case_tac >>
 rw []
 QED
 
-Triviality weak_tenvE_opt_bind:
+Theorem weak_tenvE_opt_bind[local]:
   !tenv tenv' n tvs t.
   weak_tenvE tenv' tenv ⇒
   weak_tenvE (opt_bind_name n tvs t tenv') (opt_bind_name n tvs t tenv)
@@ -104,7 +101,7 @@ Proof
  fs []
 QED
 
-Triviality weak_tenvE_bind_tvar:
+Theorem weak_tenvE_bind_tvar[local]:
   !tenv tenv' tvs.
   weak_tenvE tenv' tenv ⇒
   weak_tenvE (bind_tvar tvs tenv') (bind_tvar tvs tenv)
@@ -113,7 +110,7 @@ Proof
 decide_tac
 QED
 
-Triviality weak_tenvE_bind_tvar2:
+Theorem weak_tenvE_bind_tvar2[local]:
   !tenv tenv' n tvs t.
   tenv_val_exp_ok tenv ∧
   num_tvs tenv = 0 ∧
@@ -124,7 +121,7 @@ Proof
  >> metis_tac [tveLookup_no_tvs]
 QED
 
-Triviality weak_tenvE_bind_var_list:
+Theorem weak_tenvE_bind_var_list[local]:
   !bindings tenvE tenvE' n tvs t .
   weak_tenvE tenvE' tenvE ⇒
   weak_tenvE (bind_var_list tvs bindings tenvE') (bind_var_list tvs bindings tenvE)
@@ -138,7 +135,7 @@ fs [weak_tenvE_def] >>
 PROVE_TAC []
 QED
 
-Triviality eLookupC_weak:
+Theorem eLookupC_weak[local]:
   ∀cn tenv tenv' tvs ts tn.
     weak_tenv tenv' tenv ∧
     nsLookup tenv.c cn = SOME (tvs,ts,tn)
@@ -148,7 +145,7 @@ Proof
   rw [weak_tenv_def, namespaceTheory.nsSub_def]
 QED
 
-Triviality eLookupV_weak:
+Theorem eLookupV_weak[local]:
   ∀n tenv tenv' tvs t.
     weak_tenv tenv' tenv ∧
     nsLookup tenv.v n = SOME (tvs,t)
@@ -160,7 +157,7 @@ Proof
 QED
 
       (*
-Triviality weakE_lookup:
+Theorem weakE_lookup[local]:
   !n env env' tvs t.
   weakE env' env ∧
   (ALOOKUP env n = SOME (tvs, t))
@@ -180,7 +177,7 @@ Proof
  metis_tac []
 QED
 
-Triviality weak_tenvM_lookup_lem:
+Theorem weak_tenvM_lookup_lem[local]:
   !tvs.
   EVERY (λx. check_freevars tvs [] (Tvar_db x)) (COUNT_LIST tvs)
 Proof
@@ -189,7 +186,7 @@ rw [COUNT_LIST_def, check_freevars_def, EVERY_MAP] >>
 fs [check_freevars_def]
 QED
 
-Triviality weak_tenvM_lookup:
+Theorem weak_tenvM_lookup[local]:
   !mn tenvM tenvM' tenv tenv' tvs t.
   weakM tenvM' tenvM ∧
   FLOOKUP tenvM mn = SOME tenv
@@ -222,7 +219,7 @@ Proof
  metis_tac [weak_def, check_freevars_add, EVERY_MEM, eLookupC_weak]
 QED
 
-Triviality type_e_weakening_lem:
+Theorem type_e_weakening_lem[local]:
   (!tenv tenvE e t. type_e tenv tenvE e t ⇒
     ∀tenv' tenvE'. weak tenv' tenv ∧ weak_tenvE tenvE' tenvE ⇒ type_e tenv' tenvE' e t) ∧
  (!tenv tenvE es ts. type_es tenv tenvE es ts ⇒
@@ -327,7 +324,7 @@ Proof
 metis_tac [type_e_weakening_lem]
 QED
 
-Triviality gt_0:
+Theorem gt_0[local]:
   !x:num.x ≥ 0
 Proof
   decide_tac
@@ -337,7 +334,7 @@ Definition weakCT_def:
 weakCT cenv_impl cenv_spec ⇔ cenv_spec SUBMAP cenv_impl
 End
 
-Triviality weak_ctMap_lookup:
+Theorem weak_ctMap_lookup[local]:
   ∀ctMap ctMap' tvs ts stamp.
   weakCT ctMap' ctMap ∧
   FLOOKUP ctMap stamp = SOME (tvs,ts)
@@ -396,7 +393,7 @@ Proof
  >> metis_tac [FLOOKUP_SUBMAP]
 QED
 
-Triviality type_tenv_val_weakening_lemma:
+Theorem type_tenv_val_weakening_lemma[local]:
   !ctMap tenvS tenvV envV ctMap' tenvS'.
   weakCT ctMap' ctMap ∧
   weakS tenvS' tenvS ∧
@@ -423,7 +420,7 @@ Proof
  >> fs []
 QED
 
-Triviality remove_lambda_prod:
+Theorem remove_lambda_prod[local]:
   (\(x,y). P x y) = (\xy. P (FST xy) (SND xy))
 Proof
   rw [FUN_EQ_THM]
@@ -586,7 +583,7 @@ weakCT_only_other_mods mn ctMap' ctMap =
     (?mn' x. mn ≠ SOME mn' ∧ (tn = TypeId (Long mn' x) ∨ tn = TypeExn (Long mn' x)))
 End
 
-Triviality weakCT_only_other_mods_merge:
+Theorem weakCT_only_other_mods_merge[local]:
   !mn ctMap1 ctMap2 ctMap3.
   weakCT_only_other_mods mn ctMap2 ctMap3
   ⇒
@@ -914,5 +911,3 @@ Proof
  fs [SUBSET_DEF]
 QED
  *)
-
-val _ = export_theory ();

@@ -1,30 +1,17 @@
 (*
   Proof of semantic preservation from Scheme to CakeML
 *)
-open preamble;
-open computeLib;
-open scheme_astTheory;
-open scheme_semanticsTheory;
-open scheme_to_cakeTheory;
-open scheme_semanticsPropsTheory;
+Theory scheme_to_cakeProof
+Ancestors
+  scheme_ast scheme_semantics scheme_to_cake
+  scheme_semanticsProps ast evaluate evaluateProps (*primSemEnv num ffi*)
+  semanticPrimitives namespace primTypes namespaceProps integer
+Libs
+  preamble computeLib
 
-open astTheory;
-open evaluateTheory;
-open evaluatePropsTheory;
-open primSemEnvTheory;
-open semanticPrimitivesTheory;
-open namespaceTheory;
-open primTypesTheory;
-open namespacePropsTheory;
-open integerTheory;
-open numTheory;
-open ffiTheory;
+val _ = (max_print_depth := 30);
 
 Type state = ``:'ffi semanticPrimitives$state``
-
-val _ = new_theory "scheme_to_cakeProof";
-
-val _ = (max_print_depth := 4);
 
 Definition empty_ffi_def[simp]:
   empty_ffi = <| oracle := K (K (K (K (Oracle_return () []))))
@@ -2204,4 +2191,3 @@ Proof
   *)
 QED
 
-val _ = export_theory();

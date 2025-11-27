@@ -1,21 +1,23 @@
 (*
   Correctness proof for flat_pattern
 *)
+Theory flat_patternProof
+Libs
+  preamble bagSimps[qualified] induct_tweakLib[qualified]
+Ancestors
+  flat_pattern misc[qualified] ffi[qualified] bag[qualified]
+  flatProps backendProps backend_common[qualified]
+  pattern_semantics
+Ancestors[ignore_grammar]
+  semanticPrimitives semanticPrimitivesProps flatLang
+  flatSem
 
-open preamble flat_patternTheory
-     semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     flatLangTheory flatSemTheory flatPropsTheory backendPropsTheory
-     pattern_semanticsTheory
-local open bagSimps induct_tweakLib in end
+(* Set up ML bindings *)
+open flat_patternTheory semanticPrimitivesTheory
+     semanticPrimitivesPropsTheory flatLangTheory flatSemTheory
+     flatPropsTheory backendPropsTheory pattern_semanticsTheory
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "flat_patternProof"
-
-val _ = set_grammar_ancestry ["flat_pattern",
-                              "misc","ffi","bag","flatProps",
-                              "backendProps","backend_common",
-                              "pattern_semantics"];
 
 (* simple properties *)
 Theorem op_sets_globals_gbag:
@@ -711,13 +713,13 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality state_rel_IMP_clock:
+Theorem state_rel_IMP_clock[local]:
   state_rel cfg s t ==> t.clock = s.clock
 Proof
   fs [state_rel_def]
 QED
 
-Triviality state_rel_IMP_c:
+Theorem state_rel_IMP_c[local]:
   state_rel cfg s t ==> t.c = s.c
 Proof
   fs [state_rel_def]
@@ -1381,7 +1383,7 @@ Proof
   \\ TRY (qexists_tac `SUC i` \\ simp [] \\ NO_TAC)
 QED
 
-Triviality comp_thm = pattern_compTheory.comp_thm
+Theorem comp_thm[local] = pattern_compTheory.comp_thm
   |> REWRITE_RULE [GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE]
   |> SIMP_RULE bool_ss [IS_SOME_EXISTS, PULL_EXISTS]
 
@@ -1490,8 +1492,8 @@ Theorem evaluate_compile_pat_rhs:
   env_rel (N - 1) (env1 with <| v := l_bindings ++ env1.v |>) ext_env
 Proof
   simp [compile_pat_rhs_def, max_dec_name_LESS_EVERY]
-  \\ qmatch_goalsub_abbrev_tac `evaluate _ _ [SND comp]`
-  \\ PairCases_on `comp`
+  \\ qmatch_goalsub_abbrev_tac `evaluate _ _ [SND comp₁]`
+  \\ PairCases_on `comp₁`
   \\ fs [markerTheory.Abbrev_def, Q.ISPEC `(a, b)` EQ_SYM_EQ]
   \\ rw []
   \\ drule (compile_pat_bindings_simulation |> SPEC_ALL |> Q.GEN `vs`
@@ -1755,6 +1757,64 @@ Proof
       \\ fs [option_case_eq] \\ rveq \\ fs []
       \\ rfs [env_rel_def, PULL_EXISTS, OPTREL_def]
     )
+    \\ Cases_on `op = ThunkOp ForceThunk`
+    >- (
+      gvs [AllCaseEqs(), dec_clock_def, PULL_EXISTS]
+      >- (
+        gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS,
+             store_lookup_def]
+        \\ rgs [Once v_rel_cases]
+        \\ gvs [state_rel_def, LIST_REL_EL_EQN]
+        \\ `sv_rel v_rel (Thunk Evaluated v) (EL n t2.refs)` by (
+          qpat_x_assum `∀n. n < LENGTH t2.refs ⇒ _` drule \\ rw [])
+        \\ gvs []
+        \\ Cases_on `EL n t2.refs` \\ gvs [])
+      >- (
+        gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS,
+             store_lookup_def]
+        \\ rgs [Once v_rel_cases]
+        \\ `∃a. EL n t2.refs = Thunk NotEvaluated a ∧
+                v_rel v a` by (
+          gvs [state_rel_def, LIST_REL_EL_EQN]
+          \\ qpat_x_assum `∀n. n < LENGTH t2.refs ⇒ _` drule \\ rw []
+          \\ Cases_on `EL n t2.refs` \\ gvs []) \\ gvs []
+        \\ simp [PULL_EXISTS]
+        \\ gvs [AppUnit_def, compile_exp_def, PULL_EXISTS, dec_name_to_num_def]
+        \\ last_x_assum $ qspecl_then [`1`, `<|v := [("f",a)]|>`, `t2`] mp_tac
+        \\ impl_tac
+        >- gvs [env_rel_def, ALOOKUP_rel_def, OPTREL_def, state_rel_def]
+        \\ rw [] \\ gvs []
+        \\ gvs [oneline update_thunk_def, AllCaseEqs()]
+        \\ gvs [store_assign_def, store_v_same_type_def]
+        \\ gvs [state_rel_def, LIST_REL_EL_EQN, EL_LUPDATE]
+        \\ rw []
+        >- (
+          qpat_x_assum `v_rel v'' y` mp_tac
+          \\ gvs [oneline dest_thunk_def, AllCaseEqs()]
+          \\ rw [Once v_rel_cases]
+          \\ gvs [store_lookup_def]
+          \\ qpat_x_assum `∀n. n < LENGTH t2'.refs ⇒ _`
+               $ qspec_then `n'` assume_tac \\ gvs []
+          \\ Cases_on `EL n' t2'.refs` \\ gvs [])
+        >- (
+          first_x_assum drule \\ rw []
+          \\ Cases_on `EL n s''.refs` \\ Cases_on `EL n t2'.refs` \\ gvs []))
+      >- (
+        gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS,
+             store_lookup_def]
+        \\ rgs [Once v_rel_cases]
+        \\ `∃a. EL n t2.refs = Thunk NotEvaluated a ∧
+                v_rel v a` by (
+          gvs [state_rel_def, LIST_REL_EL_EQN]
+          \\ qpat_x_assum `∀n. n < LENGTH t2.refs ⇒ _` drule \\ rw []
+          \\ Cases_on `EL n t2.refs` \\ gvs []) \\ gvs []
+        \\ gvs [AppUnit_def, compile_exp_def, PULL_EXISTS, dec_name_to_num_def]
+        \\ last_x_assum $ qspecl_then [`1`, `<|v := [("f",a)]|>`, `t2`] mp_tac
+        \\ impl_tac
+        >- gvs [env_rel_def, ALOOKUP_rel_def, OPTREL_def, state_rel_def]
+        \\ rw [] \\ gvs []
+        \\ gvs [evaluate_def, do_opapp_def, AllCaseEqs()]
+        \\ gvs [state_rel_def, LIST_REL_EL_EQN]))
     \\ fs [option_case_eq, pair_case_eq]
     \\ rveq \\ fs []
     \\ drule_then (drule_then drule) do_app_thm_REVERSE
@@ -2422,5 +2482,3 @@ Proof
   \\ rveq \\ fs []
   \\ imp_res_tac compile_exp_no_Mat
 QED
-
-val _ = export_theory()

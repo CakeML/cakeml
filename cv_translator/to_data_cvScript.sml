@@ -1,15 +1,15 @@
 (*
   Translation of the to_data compiler function.
 *)
-open preamble cv_transLib cv_stdTheory basis_cvTheory;
-open backendTheory backend_asmTheory;
-open unify_cvTheory infer_cvTheory;
-
-val _ = new_theory "to_data_cv";
+Theory to_data_cv[no_sig_docs]
+Ancestors
+  cv_std basis_cv backend backend_asm unify_cv infer_cv
+Libs
+  preamble cv_transLib
 
 val _ = cv_memLib.use_long_names := true;
 
-Triviality list_mem[cv_inline] = listTheory.MEM;
+Theorem list_mem[local,cv_inline] = listTheory.MEM;
 
 (* source_let *)
 
@@ -1291,7 +1291,7 @@ Proof
   rw[] >> rw[Once pre]
 QED
 
-Triviality free_LENGTH_LEMMA:
+Theorem free_LENGTH_LEMMA[local]:
   !xs ys s1. free xs = (ys,s1) ⇒ LENGTH xs = LENGTH ys
 Proof
   recInduct clos_knownTheory.free_ind \\ rpt strip_tac
@@ -1670,7 +1670,7 @@ Proof
   gvs[cv_stdTheory.MAPi_eq_list_mapi]
 QED
 
-Triviality SUM_MAP_const =
+Theorem SUM_MAP_const[local] =
   SUM_MAP_PLUS
         |> CONV_RULE SWAP_FORALL_CONV
         |> Q.SPEC ‘K x’
@@ -1772,7 +1772,7 @@ Proof
   rw[] >> rw[Once pre]
 QED
 
-Triviality cons_measure_pmatch_elim = clos_opTheory.cons_measure_def
+Theorem cons_measure_pmatch_elim[local] = clos_opTheory.cons_measure_def
                                         |> CONV_RULE $ QUANT_CONV $ RHS_CONV $ patternMatchesLib.PMATCH_ELIM_CONV;
 
 Theorem cons_measure_alt_thm:
@@ -1805,7 +1805,7 @@ Proof
   Cases_on ‘x’ \\ gvs []
 QED
 
-Triviality cv_lt_eq_SUC:
+Theorem cv_lt_eq_SUC[local]:
   cv_lt x y = cv$Num(SUC k) ⇔
   k = 0 ∧ ∃n m. x = cv$Num n ∧ y = cv$Num m ∧ n < m
 Proof
@@ -2190,6 +2190,14 @@ val _ = cv_auto_trans backend_asmTheory.to_bvl_def;
 
 (* bvl_const *)
 
+(* Bring everything from bvl to the front -- everything because this file is
+   too big for me to try everything separately. *)
+val bvl_names =
+  ["Var", "If", "Let", "Raise", "Handle", "Tick", "Force", "Call", "Op", "Bool",
+   "mk_tick"];
+val _ = app (fn name =>
+  temp_bring_to_front_overload name {Name=name, Thy="bvl"}) bvl_names;
+
 Definition mk_add_const_def:
   mk_add_const = λx1 c2.
             if c2 = 0 then x1 else Op (IntOp Add) [x1; Op (IntOp (Const c2)) []]
@@ -2467,7 +2475,7 @@ val _ = cv_trans bvl_inlineTheory.compile_prog_def;
 val _ = cv_trans (bvi_tailrecTheory.is_rec_def |> measure_args [1]);
 val _ = cv_auto_trans bvi_tailrecTheory.let_wrap_def;
 
-Triviality term_ok_int_eq:
+Theorem term_ok_int_eq[local]:
   term_ok_int ts expr ⇔
   case expr of
   | Var i => if i < LENGTH ts then EL i ts = Int else F
@@ -2497,7 +2505,7 @@ QED
 
 val _ = cv_trans bvi_tailrecTheory.get_bin_args_def;
 
-Triviality cv_bvi_tailrec_get_bin_args_lemma:
+Theorem cv_bvi_tailrec_get_bin_args_lemma[local]:
   cv_bvi_tailrec_get_bin_args (cv$Pair t v) = cv$Pair x (cv$Pair y z) ⇒
   cv_size y ≤ cv_size v ∧
   cv_size z ≤ cv_size v
@@ -2708,7 +2716,7 @@ val _ = cv_trans backend_asmTheory.to_bvl_all_def;
 val _ = cv_auto_trans (backend_asmTheory.to_bvi_all_def
                          |> REWRITE_RULE [bvl_inlineTheory.remove_ticks_sing,HD]);
 
-Triviality bvi_to_data_compile_sing:
+Theorem bvi_to_data_compile_sing[local]:
   FST (bvi_to_data$compile n env t l [x]) = FST (compile_sing n env t l x)
 Proof
   ‘∃y. compile_sing n env t l x = y’ by gvs []
@@ -2721,7 +2729,7 @@ val _ = cv_auto_trans (to_data_all_def |> REWRITE_RULE [bvi_to_data_compile_sing
 (* Explorer *)
 val _ = cv_auto_trans (str_treeTheory.smart_remove_def |> SRULE [GSYM GREATER_DEF]);
 
-Triviality dest_list_size_lemma:
+Theorem dest_list_size_lemma[local]:
   ∀x v w.
     (v,w) = dest_list x ⇒
     list_size str_tree_size v + str_tree_size w ≤ str_tree_size x
@@ -2776,7 +2784,7 @@ Proof
   Cases_on`z`>>cv_termination_tac
 QED
 
-Triviality cv_str_tree_dest_list_size:
+Theorem cv_str_tree_dest_list_size[local]:
   ∀v x1 x2.
     cv_str_tree_dest_list v = cv$Pair x1 x2 ⇒
     cv_size x1 < cv_size v ∧
@@ -2942,5 +2950,3 @@ val _ = cv_auto_trans presLangTheory.word_prog_to_display_def;
 
 val _ = cv_auto_trans presLangTheory.stack_prog_to_display_def;
 
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
-val _ = export_theory();

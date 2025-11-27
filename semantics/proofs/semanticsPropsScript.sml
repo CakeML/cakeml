@@ -1,13 +1,11 @@
 (*
   Theorems about the top-level semantics, including totality and determinism.
 *)
-open preamble
-     evaluateTheory
-     evaluatePropsTheory
-     semanticsTheory lprefix_lubTheory
-     typeSoundTheory;
-
-val _ = new_theory"semanticsProps"
+Theory semanticsProps
+Ancestors
+  evaluate evaluateProps semantics lprefix_lub typeSound
+Libs
+  preamble
 
 Theorem evaluate_prog_events_determ:
    !st env k p k'.
@@ -69,7 +67,7 @@ Proof
   MATCH_ACCEPT_TAC evaluate_prog_io_events_chain
 QED
 
-Triviality with_clock_ffi:
+Theorem with_clock_ffi[local]:
   (s with clock := x).ffi = s.ffi
 Proof
   EVAL_TAC
@@ -160,7 +158,7 @@ Definition state_invariant_def:
     type_sound_invariant st.sem_st st.sem_env ctMap tenvS {} st.tenv
 End
 
-Triviality clock_lemmas:
+Theorem clock_lemmas[local]:
   ((x with clock := c).clock = c) ∧
    (((x with clock := c) with clock := d) = (x with clock := d)) ∧
    (x with clock := x.clock = x)
@@ -244,7 +242,7 @@ Proof
   \\ full_simp_tac(srw_ss())[extend_with_resource_limit_def]
 QED
 
-Triviality isPREFIX_IMP_LPREFIX:
+Theorem isPREFIX_IMP_LPREFIX[local]:
   !xs ys. isPREFIX xs ys ==> LPREFIX (fromList xs) (fromList ys)
 Proof
   full_simp_tac(srw_ss())[LPREFIX_def,llistTheory.from_toList]
@@ -308,4 +306,3 @@ Proof
   \\ fs [extend_with_resource_limit'_def,extend_with_resource_limit_def,SUBSET_DEF]
 QED
 
-val _ = export_theory()

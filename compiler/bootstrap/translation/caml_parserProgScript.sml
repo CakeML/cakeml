@@ -1,16 +1,17 @@
 (*
   Translation of the functions in caml_parserScript.sml
  *)
+Theory caml_parserProg[no_sig_docs]
+Ancestors
+  misc[qualified] camlPEG camlPtreeConversion caml_parser
+  ml_translator caml_lexProg
+Libs
+  preamble ml_translatorLib
 
 open preamble camlPEGTheory camlPtreeConversionTheory caml_parserTheory;
 open caml_lexProgTheory;
 open ml_translatorLib ml_translatorTheory;
 
-val _ = new_theory "caml_parserProg";
-
-val _ = set_grammar_ancestry [
-  "misc", "camlPEG", "camlPtreeConversion", "caml_parser",
-  "ml_translator" ];
 
 val _ = translation_extends "caml_lexProg";
 
@@ -262,7 +263,7 @@ val r = preprocess ptree_Start_def |> translate;
 
 val _ = extra_preprocessing := [MEMBER_INTRO,MAP]
 
-Triviality and_or_imp_lemma:
+Theorem and_or_imp_lemma[local]:
   (b ∨ c ⇔ if b then T else c) ∧
   (b ∧ c ⇔ if b then c else F) ∧
   ((b ⇒ c) ⇔ if b then c else T) ∧
@@ -299,7 +300,5 @@ QED
 
 val _ = update_precondition run_side;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val () = ml_translatorLib.clean_on_exit := true;
 
-val _ = export_theory ();

@@ -1,11 +1,11 @@
 (*
   In-place quick sort on a polymorphic array.
 *)
-open preamble semanticPrimitivesTheory
-open ml_translatorTheory ml_translatorLib ml_progLib cfLib basisFunctionsLib
-open basisProgTheory ArrayProofTheory
-
-val _ = new_theory "quicksortProg";
+Theory quicksortProg
+Ancestors
+  semanticPrimitives ml_translator basisProg ArrayProof
+Libs
+  preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -15,7 +15,7 @@ val _ = translation_extends"basisProg";
 
 (* TODO: move *)
 
-Triviality list_rel_perm_help:
+Theorem list_rel_perm_help[local]:
   !l1 l2.
     PERM l1 l2
     ⇒
@@ -42,7 +42,7 @@ Proof
   rw [MAP_ZIP]
 QED
 
-Triviality split_list:
+Theorem split_list[local]:
   !l x. x < LENGTH l ⇒ ?l1 l2. x = LENGTH l1 ∧ l = l1++[EL x l]++l2
 Proof
   induct_on `l` >>
@@ -52,7 +52,7 @@ Proof
   metis_tac [APPEND, LENGTH]
 QED
 
-Triviality split_list2:
+Theorem split_list2[local]:
   !l1 l2 l3 l4.
     LENGTH l1 < LENGTH l3 ∧ l1++l2 = l3++l4
     ⇒
@@ -65,7 +65,7 @@ Proof
   metis_tac []
 QED
 
-Triviality perm_swap_help:
+Theorem perm_swap_help[local]:
   !l x y.
     x < LENGTH l ∧ y < LENGTH l ∧ y < x
     ⇒
@@ -120,7 +120,7 @@ Proof
   fs [LUPDATE_def]
 QED
 
-Triviality el_append_length1:
+Theorem el_append_length1[local]:
   !n l1 l2. EL (n + LENGTH l1) (l1 ++ l2) = EL n l2
 Proof
   Induct_on `l1` >>
@@ -245,7 +245,7 @@ Definition partition_pred_def:
       EVERY (\e. ¬cmp e pivot) elems2
 End
 
-Triviality perm_helper:
+Theorem perm_helper[local]:
   !a b c. PERM b c ∧ PERM a b ⇒ PERM a c
 Proof
   metis_tac [PERM_SYM, PERM_TRANS]
@@ -366,7 +366,7 @@ Proof
       xapp >>
       xsimpl >>
       rw [BOOL_def] >>
-      metis_tac []) >>
+      gvs [] >> metis_tac []) >>
     xif
     >- (
       (* Set up the invariant for the recursive call.
@@ -471,7 +471,7 @@ Proof
       xapp >>
       xsimpl >>
       rw [BOOL_def] >>
-      metis_tac []) >>
+      gvs [] >> metis_tac []) >>
     xif
     >- (
       first_x_assum (qspecl_then [`i-1`] mp_tac) >>
@@ -786,9 +786,10 @@ Proof
         `cmp pivot (EL (n + new_upper − LENGTH lower_part) elems2')`
         suffices_by metis_tac [strict_weak_order_def] >>
         fs [EL_APPEND_EQN]) >>
+      conj_tac >- fs [] >>
       conj_tac
       (* We got the lower index value right in the above exists_tac *)
-      >- simp [integerTheory.INT_SUB] >>
+      >- gvs [integerTheory.INT_SUB] >>
       conj_tac
       (* There is a stopping element in the new lower partition, plus new
        * middle. The one we just swapped in will do. *)
@@ -1218,5 +1219,3 @@ Proof
   rw [] >>
   metis_tac [PERM_SYM]
 QED
-
-val _ = export_theory ();

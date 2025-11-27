@@ -3,9 +3,11 @@
   table and tries to change calls to known closures into fast C-style
   function calls.
 *)
-open preamble closLangTheory db_varsTheory;
-
-val _ = new_theory "clos_call";
+Theory clos_call
+Ancestors
+  closLang db_vars
+Libs
+  preamble
 
 Definition free_def:
   (free [] = ([],Empty)) /\
@@ -191,7 +193,7 @@ Proof
   simp[closed_def, free_sing_eq] >> pairarg_tac >> gvs[]
 QED
 
-Triviality EL_MEM_LEMMA:
+Theorem EL_MEM_LEMMA[local]:
   !xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs
 Proof
   Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []
@@ -221,7 +223,7 @@ Definition calls_list_def:
           calls_list t (i+1) (loc+2n) xs)
 End
 
-Triviality exp3_size_MAP_SND:
+Theorem exp3_size_MAP_SND[local]:
   !fns. exp3_size (MAP SND fns) <= exp1_size fns
 Proof
   Induct \\ fs [exp_size_def,FORALL_PROD]
@@ -471,4 +473,3 @@ val selftest = let
   val _ = (n = 5) orelse failwith "clos_call implementation broken"
   in tm end
 
-val _ = export_theory();

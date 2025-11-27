@@ -1,9 +1,11 @@
 (*
   Define the compiler configuration for ARMv8
 *)
-open preamble backendTheory arm8_targetTheory arm8_targetLib
-
-val _ = new_theory"arm8_config";
+Theory arm8_config
+Ancestors
+  backend arm8_target
+Libs
+  preamble arm8_targetLib
 
 Definition arm8_names_def:
   arm8_names =
@@ -55,4 +57,3 @@ Definition arm8_backend_config_def:
                |>
 End
 
-val _ = export_theory();

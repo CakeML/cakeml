@@ -1,20 +1,26 @@
 (*
   Encoders and decoders to/from configuration types in backend.
 *)
-open integerTheory ml_progTheory
-     astTheory semanticPrimitivesTheory
-     semanticPrimitivesPropsTheory evaluatePropsTheory
-     fpSemTheory mlvectorTheory mlstringTheory
-     ml_translatorTheory miscTheory
-     backendTheory backend_commonTheory
-     num_list_enc_decTheory num_tree_enc_decTheory;
-open preamble;
-
-val _ = new_theory "backend_enc_dec";
+Theory backend_enc_dec
+Ancestors
+  integer ml_prog ast semanticPrimitives semanticPrimitivesProps
+  evaluateProps fpSem mlvector mlstring ml_translator misc
+  backend backend_common num_list_enc_dec num_tree_enc_dec
+Libs
+  preamble
 
 fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f;
 
 (* automation *)
+
+(* Creates fully-qualified types, with some (basic) exceptions. *)
+(* Shadows Hol_pp.type_to_string, whose string output depends on the grammar *)
+fun type_to_string ty = let
+  val except_thy = ["mlstring"]
+  val {Thy, Tyop, ...} = dest_thy_type ty
+  val skip_qualifier = List.exists (fn x => x = Thy) except_thy
+  val s = if skip_qualifier then Tyop else String.concat [Thy, "_", Tyop]
+in s end;
 
 val enc_dec_mapping =
   ref ([(“:bool”, “bool_enc'”, “bool_dec'”),
@@ -62,8 +68,7 @@ fun get_enc_dec_for ty =
     in (x,y) end handle HOL_ERR _ => failwith ("Missing type: " ^ type_to_string ty)
 
 fun enc_dec_for ty = let
-  val name = type_to_string ty |> explode |> tl |> implode
-             |> String.translate (fn c => if c = #"$" then "_" else implode [c])
+  val name = type_to_string ty
   val enc_name = name ^ "_enc'"
   val enc_tm = mk_var(enc_name,mk_type("fun",[ty,“:num_tree”]))
   val dec_name = name ^ "_dec'"
@@ -110,22 +115,21 @@ fun define_enc_dec ty = let
   val (d,_) = dec_def |> CONJUNCTS |> hd |> concl |> dest_eq |> fst |> dest_comb
   val x = mk_var("x",type_of x)
   val goal = mk_forall(x,mk_eq(mk_comb(d,mk_comb(e,x)),x))
-  val ty_n = type_to_string ty |> explode |> tl |> implode
-             |> String.translate (fn c => if c = #"$" then "_" else implode [c])
+  val ty_n = type_to_string ty
   val lemma = prove(goal,Cases \\ fs [enc_def,dec_def])
   val _ = allowing_rebind save_thm(ty_n ^ "_enc'_thm[simp]",lemma)
   val _ = reg_enc_dec lemma
   in (enc_def,dec_def,lemma) end;
 
-(* tra *)
+(* backend_common_tra *)
 
 val (e,d) = enc_dec_for “:tra”
 
-Definition tra_enc'_def:
+Definition backend_common_tra_enc'_def:
   ^e
 End
 
-Definition tra_dec'_def:
+Definition backend_common_tra_dec'_def:
   ^d
 Termination
   WF_REL_TAC `measure num_tree_size`
@@ -141,13 +145,14 @@ Termination
   \\ fs [num_tree_size_def]
 End
 
-Theorem tra_enc'_thm[simp]:
-  tra_dec' (tra_enc' x) = x
+Theorem backend_common_tra_enc'_thm[simp]:
+  backend_common_tra_dec' (backend_common_tra_enc' x) = x
 Proof
-  Induct_on ‘x’ \\ fs [tra_enc'_def,Once tra_dec'_def]
+  Induct_on ‘x’
+  \\ fs [backend_common_tra_enc'_def,Once backend_common_tra_dec'_def]
 QED
 
-val _ = reg_enc_dec tra_enc'_thm;
+val _ = reg_enc_dec backend_common_tra_enc'_thm;
 
 (* some simple ones *)
 
@@ -157,17 +162,17 @@ val res = define_enc_dec “:mlstring”
 val res = define_enc_dec “:shmem_op”
 val res = define_enc_dec “:ffiname”
 
-(* const *)
+(* closLang_const *)
 
 val (e,d) = enc_dec_for “:const”
 
-Definition const_enc'_def:
+Definition closLang_const_enc'_def:
   ^e
 Termination
   WF_REL_TAC ‘measure const_size’
 End
 
-Definition const_dec'_def:
+Definition closLang_const_dec'_def:
   ^d
 Termination
   WF_REL_TAC `measure num_tree_size`
@@ -181,21 +186,23 @@ Termination
   \\ fs [list_dec'_def] \\ rw []
 End
 
-Theorem const_enc'_thm[simp]:
-  const_dec' (const_enc' x) = x
+Theorem closLang_const_enc'_thm[simp]:
+  closLang_const_dec' (closLang_const_enc' x) = x
 Proof
   qid_spec_tac ‘x’
-  \\ ho_match_mp_tac const_enc'_ind \\ rw []
-  \\ TRY (fs [const_enc'_def,Once const_dec'_def] \\ NO_TAC)
-  \\ simp [const_enc'_def,Once const_dec'_def,SF ETA_ss]
+  \\ ho_match_mp_tac closLang_const_enc'_ind \\ rw []
+  \\ TRY (fs [closLang_const_enc'_def,Once closLang_const_dec'_def] \\ NO_TAC)
+  \\ simp [closLang_const_enc'_def,Once closLang_const_dec'_def,SF ETA_ss]
   \\ irule list_enc'_mem
   \\ fs []
 QED
 
-val _ = reg_enc_dec const_enc'_thm;
+val _ = reg_enc_dec closLang_const_enc'_thm;
 
 val res = define_enc_dec “:opw”;
 val res = define_enc_dec “:ast$shift”;
+val res = define_enc_dec “:ast$thunk_mode”
+val res = define_enc_dec “:ast$thunk_op”;
 val res = define_enc_dec “:fp_cmp”;
 val res = define_enc_dec “:fp_uop”;
 val res = define_enc_dec “:fp_bop”;
@@ -214,7 +221,7 @@ val res = define_enc_dec “:tap_config”;
 
 val (e,d) = enc_dec_for “:closLang$exp”
 
-Triviality MEM_exp_size:
+Theorem MEM_exp_size[local]:
   (∀xs x. MEM x xs ⇒ exp_size x ≤ closLang$exp3_size xs) ∧
   (∀xs x y. MEM (x,y) xs ⇒ exp_size y ≤ closLang$exp1_size xs)
 Proof
@@ -246,7 +253,7 @@ Termination
   \\ Cases_on ‘x’ \\ gvs [list_dec'_def]
 End
 
-Triviality bvl_MEM_exp_size:
+Theorem bvl_MEM_exp_size[local]:
   (∀xs x. MEM x xs ⇒ exp_size x ≤ bvl$exp1_size xs)
 Proof
   Induct \\ fs [] \\ rw [] \\ fs [bvlTheory.exp_size_def]
@@ -308,11 +315,11 @@ val _ = reg_enc_dec bvl_exp_enc'_thm;
 
 val (e,d) = enc_dec_for “:val_approx”
 
-Definition val_approx_enc'_def:
+Definition clos_known_val_approx_enc'_def:
   ^e
 End
 
-Definition val_approx_dec'_def:
+Definition clos_known_val_approx_dec'_def:
   ^d
 Termination
   WF_REL_TAC `measure num_tree_size`
@@ -327,17 +334,17 @@ Termination
   \\ imp_res_tac MEM_num_tree_size \\ fs [num_tree_size_def]
 End
 
-Theorem val_approx_enc'_thm[simp]:
-  ∀x. val_approx_dec' (val_approx_enc' x) = x
+Theorem clos_known_val_approx_enc'_thm[simp]:
+  ∀x. clos_known_val_approx_dec' (clos_known_val_approx_enc' x) = x
 Proof
-  ho_match_mp_tac val_approx_enc'_ind \\ rw []
-  \\ fs [val_approx_enc'_def]
-  \\ once_rewrite_tac [val_approx_dec'_def] \\ gvs []
+  ho_match_mp_tac clos_known_val_approx_enc'_ind \\ rw []
+  \\ fs [clos_known_val_approx_enc'_def]
+  \\ once_rewrite_tac [clos_known_val_approx_dec'_def] \\ gvs []
   \\ fs [SF ETA_ss]
   \\ match_mp_tac list_enc'_mem \\ fs []
 QED
 
-val _ = reg_enc_dec val_approx_enc'_thm;
+val _ = reg_enc_dec clos_known_val_approx_enc'_thm;
 
 (* automation for producing enc/dec for record types *)
 
@@ -424,10 +431,10 @@ fun encode_for_rec ty = let
   val th = MATCH_MP enc_dec_ok'_o (CONJ thi lemma)
             |> SIMP_RULE std_ss [o_DEF,prod_enc_def]
   val enc_tm = th |> concl |> rator |> rand
-  val enc_name = type_to_string ty ^ "_enc" |> explode |> tl |> implode
+  val enc_name = type_to_string ty ^ "_enc"
   val enc_def = define_abbrev enc_name enc_tm
   val dec_tm = th |> concl |> rand
-  val dec_name = type_to_string ty ^ "_dec" |> explode |> tl |> implode
+  val dec_name = type_to_string ty ^ "_dec"
   val dec_def = define_abbrev dec_name dec_tm
   val res = CONV_RULE (RAND_CONV (REWR_CONV (GSYM dec_def))
                        THENC (RATOR_CONV o RAND_CONV) (REWR_CONV (GSYM enc_def))) th
@@ -452,7 +459,7 @@ val res = encode_for_rec “:lab_to_target$shmem_info_num”;
 val res = encode_for_rec “:lab_to_target$inc_config”;
 val res = encode_for_rec “:backend$inc_config”;
 
-Theorem inc_config_dec_thm =
+Theorem backend_inc_config_dec_thm =
   res |> SIMP_RULE std_ss [enc_dec_ok'_def]
       |> CONJUNCT2 |> Q.SPECL [‘c’,‘[]’]
       |> GEN_ALL |> SIMP_RULE std_ss [APPEND_NIL];
@@ -461,18 +468,16 @@ Theorem inc_config_dec_thm =
 
 Definition encode_backend_config_def:
   encode_backend_config c =
-    rev_nums_to_chars (append_rev (inc_config_enc c) []) "" : char list
+    rev_nums_to_chars (append_rev (backend_inc_config_enc c) []) "" : char list
 End
 
 Definition decode_backend_config_def:
-  decode_backend_config s = FST (inc_config_dec (chars_to_nums s))
+  decode_backend_config s = FST (backend_inc_config_dec (chars_to_nums s))
 End
 
 Theorem encode_backend_config_thm:
   decode_backend_config (encode_backend_config c) = c
 Proof
   fs [encode_backend_config_def,decode_backend_config_def,rev_nums_to_chars_thm,
-      chars_to_nums_nums_to_chars,inc_config_dec_thm,append_rev_thm]
+      chars_to_nums_nums_to_chars,backend_inc_config_dec_thm,append_rev_thm]
 QED
-
-val _ = export_theory();

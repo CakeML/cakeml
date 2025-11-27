@@ -2,14 +2,18 @@
   Completeness proof for the parser. If a successful parse exists,
   then the parser will find one.
 *)
-open preamble
-     pegTheory grammarTheory pegSoundTheory
-     gramTheory gramPropsTheory cmlPEGTheory cmlNTPropsTheory
+Theory pegComplete
+Libs
+  preamble
+Ancestors
+  pegSound peg grammar gram gramProps cmlPEG cmlNTProps
+  NTproperties grammar
+
+(* Set up ML bindings *)
+open pegTheory grammarTheory pegSoundTheory
+     gramTheory gramPropsTheory cmlPEGTheory cmlNTPropsTheory;
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "pegComplete"
-val _ = set_grammar_ancestry ["pegSound"]
 
 val bindNT0_lemma = REWRITE_RULE [GSYM mkNd_def] bindNT0_def
 val _ = augment_srw_ss [rewrites [bindNT0_lemma]]
@@ -20,7 +24,7 @@ val skths = [GSYM RIGHT_EXISTS_IMP_THM, SKOLEM_THM]
 val SKRULE = SRULE skths
 val SKTAC = gs skths
 
-Triviality option_case_eq:
+Theorem option_case_eq[local]:
   (option_CASE optv n sf = v) ⇔
      optv = NONE ∧ n = v ∨ ∃v0. optv = SOME v0 ∧ sf v0 = v
 Proof
@@ -179,7 +183,7 @@ Proof
   rename [‘hdi = (_,_)’] >> Cases_on ‘hdi’ >> simp[] >> metis_tac[]
 QED
 
-Triviality disjImpI:
+Theorem disjImpI[local]:
   ~p \/ q ⇔ p ⇒ q
 Proof
   DECIDE_TAC
@@ -194,7 +198,6 @@ Theorem ptree_head_eq_tok[simp] =
   CONJ ptree_head_eq_tok0
        (CONV_RULE (LAND_CONV (REWR_CONV EQ_SYM_EQ)) ptree_head_eq_tok0);
 
-open NTpropertiesTheory
 val cmlPEG_total =
     peg_eval_total |> Q.GEN `G` |> Q.ISPEC `cmlPEG`
                              |> C MATCH_MP PEG_wellformed
@@ -310,7 +313,7 @@ Proof
   drule_all not_peg0_LENGTH_decreases >> simp[]
 QED
 
-Triviality list_case_lemma:
+Theorem list_case_lemma[local]:
   ([x] = case a of [] => [] | h::t => f h t) ⇔
     (a ≠ [] ∧ [x] = f (HD a) (TL a))
 Proof
@@ -326,8 +329,6 @@ Definition left_insert1_def:
        | [x] => mkNd n [mkNd n [pt]; x]
        | x::xs => mkNd n (left_insert1 pt x :: xs))
 End
-
-open grammarTheory
 
 Theorem left_insert1_FOLDL:
    left_insert1 pt (FOLDL (λa b. mkNd (mkNT P) [a; b]) acc arg) =
@@ -674,8 +675,12 @@ Proof
   rw[] >> simp[mk_linfix_def, left_insert_def]
 QED
 
-val elim_disjineq = Q.prove( `p \/ x ≠ y ⇔ (x = y ⇒ p)`, DECIDE_TAC)
-Triviality elim_det:
+Theorem elim_disjineq[local]:
+   p \/ x ≠ y ⇔ (x = y ⇒ p)
+Proof DECIDE_TAC
+QED
+
+Theorem elim_det[local]:
   (!x. P x ⇔ (x = y)) ==> P y
 Proof
   METIS_TAC[]
@@ -1123,7 +1128,7 @@ Proof
   first_x_assum irule >> metis_tac[]
 QED
 
-Triviality peg_eval_TyOp_LparT[simp]:
+Theorem peg_eval_TyOp_LparT[local,simp]:
   peg_eval cmlPEG ((LparT, loc)::i0, nt (mkNT nTyOp) I) (Success i r eo) ⇔ F
 Proof
   simp[] >> strip_tac >> dxrule peg_respects_firstSets' >> simp[]
@@ -3584,5 +3589,3 @@ Proof
                       MP_TAC (Q.SPEC ‘pt2’ th)) >> simp[] >>
   rw[] >> dxrule_then assume_tac peg_det >> gvs[]
 QED
-
-val _ = export_theory();

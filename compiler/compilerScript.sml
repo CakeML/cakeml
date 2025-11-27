@@ -4,23 +4,16 @@
   pair of output strings for standard error and standard output (the latter
   containing the generated machine code if successful).
 *)
-open preamble
-     lexer_funTheory lexer_implTheory
-     cmlParseTheory
-     inferTheory
-     backendTheory backend_passesTheory
-     mlintTheory mlstringTheory basisProgTheory
-     fromSexpTheory simpleSexpParseTheory
-
-open x64_configTheory export_x64Theory
-open arm8_configTheory export_arm8Theory
-open riscv_configTheory export_riscvTheory
-open mips_configTheory export_mipsTheory
-open arm7_configTheory export_arm7Theory
-open ag32_configTheory export_ag32Theory
-open panPtreeConversionTheory pan_to_targetTheory panStaticTheory pan_passesTheory
-
-val _ = new_theory"compiler";
+Theory compiler
+Ancestors
+  lexer_fun lexer_impl cmlParse infer backend backend_passes
+  mlint mlstring basisProg fromSexp simpleSexpParse x64_config
+  export_x64 arm8_config export_arm8 riscv_config export_riscv
+  mips_config export_mips arm7_config export_arm7 ag32_config
+  export_ag32 panPtreeConversion pan_to_target panStatic
+  pan_passes
+Libs
+  preamble
 
 val help_string = (* beginning of --help string *) ‘
 
@@ -272,7 +265,8 @@ Definition compile_def:
                                          inf_env_to_types_string ic ++
                                          [strlit "\n"]))), Nil)
           else if c.only_print_sexp then
-            (Failure (TypeError (implode(print_sexp (listsexp (MAP decsexp full_prog))))),Nil)
+            (Failure (TypeError (implode
+               ("\n" ++ print_sexp (listsexp (MAP decsexp full_prog))))),Nil)
           else
           case backend_passes$compile_tap c.backend_config full_prog of
           | (NONE, td) => (Failure AssembleError, td)
@@ -282,7 +276,7 @@ End
 Definition compile_pancake_def:
   compile_pancake c input =
   let _ = empty_ffi (strlit "finished: start up") in
-  case panPtreeConversion$parse_funs_to_ast input of
+  case panPtreeConversion$parse_topdecs_to_ast input of
   | INR errs =>
     ((Failure $ ParseError $ concat $
        MAP (λ(msg,loc). concat [msg; strlit " at ";
@@ -826,5 +820,3 @@ Definition full_compile_32_def:
     in
       add_stderr (add_stdout (fastForwardFD fs 0) (concat (append out))) err
 End
-
-val _ = export_theory();

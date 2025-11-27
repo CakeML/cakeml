@@ -1,9 +1,11 @@
 (*
   This refines xlrup_list to use arrays
 *)
-open preamble mllistTheory basis UnsafeProofTheory xlrupTheory xlrup_listTheory xlrup_parsingTheory blastLib;
-
-val _ = new_theory "xlrup_arrayProg"
+Theory xlrup_arrayProg
+Libs
+  preamble basis blastLib
+Ancestors
+  mllist UnsafeProof xlrup xlrup_list xlrup_parsing mlint
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -174,10 +176,8 @@ Proof
     metis_tac[])>>
   rpt xlet_autop>>
   xraise>>xsimpl>>
-  IF_CASES_TAC>-
-    metis_tac[NOT_EVERY]>>
-  simp[unwrap_TYPE_def,Fail_exn_def]>>
-  metis_tac[]
+  gvs[unwrap_TYPE_def,Fail_exn_def]>>
+  metis_tac[NOT_EVERY]
 QED
 
 val is_rup_arr_aux = process_topdecs`
@@ -544,7 +544,7 @@ val strxor_c_arr = process_topdecs`
       end
   end` |> append_prog;
 
-Triviality xor_bytes_eq:
+Theorem xor_bytes_eq[local]:
   ∀xs ys zs.
     LENGTH xs = LENGTH ys ⇒
     xor_bytes xs (ys ++ zs) = SOME (MAP2 word_xor xs ys ++ zs)
@@ -552,7 +552,7 @@ Proof
   Induct \\ Cases_on ‘ys’ \\ gvs [semanticPrimitivesTheory.xor_bytes_def]
 QED
 
-Triviality xor_bytes_same:
+Theorem xor_bytes_same[local]:
   LENGTH xs = LENGTH ys ⇒
   xor_bytes xs ys = SOME (MAP2 word_xor xs ys)
 Proof
@@ -562,7 +562,7 @@ Proof
   \\ gvs []
 QED
 
-Triviality xor_bytes_rest:
+Theorem xor_bytes_rest[local]:
   ∀s ys1 ys2.
     LENGTH s = LENGTH ys1 ⇒
     THE (xor_bytes s (ys1 ++ ys2)) =
@@ -573,7 +573,7 @@ Proof
   \\ gvs []
 QED
 
-Triviality xor_bytes_snoc:
+Theorem xor_bytes_snoc[local]:
   ∀xs ys xs1 ys1.
     LENGTH xs = LENGTH ys ⇒
     xor_bytes (xs ++ xs1) (ys ++ ys1) =
@@ -593,7 +593,7 @@ Proof
   \\ CASE_TAC \\ asm_simp_tac (srw_ss()) []
 QED
 
-Triviality xor_bytes_lemma:
+Theorem xor_bytes_lemma[local]:
   ∀s r ys1 ys2.
     LENGTH ys1 = LENGTH s ⇒
     THE (xor_bytes (MAP (n2w ∘ ORD) s) ys1) ++ ys2 =
@@ -616,7 +616,7 @@ Proof
   \\ DEP_REWRITE_TAC [xor_bytes_same]   \\ gvs []
 QED
 
-Triviality xor_bytes_strxor_aux_c:
+Theorem xor_bytes_strxor_aux_c[local]:
   LENGTH s ≤ LENGTH cs ⇒
   THE (xor_bytes (MAP (n2w ∘ ORD) s) cs) =
   strxor_aux_c cs (strlit s) (STRLEN s)
@@ -2492,8 +2492,6 @@ Proof
   fs[contains_emp_list_def,LIST_REL_EL_EQN]
 QED
 
-open mlintTheory;
-
 (* TODO: Mostly copied from mlintTheory *)
 val result = translate (fromChar_unsafe_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 
@@ -2552,7 +2550,7 @@ val result = translate fromChars_range_unsafe_alt;
 val res = translate_no_ind (mlintTheory.fromChars_unsafe_def
   |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
 
-Triviality fromChars_unsafe_ind:
+Theorem fromChars_unsafe_ind[local]:
   fromchars_unsafe_ind
 Proof
   rewrite_tac [fetch "-" "fromchars_unsafe_ind_def"]
@@ -3232,7 +3230,8 @@ Proof
         xcon >>
         xsimpl>>
         rename [`forwardFD _ _ k`] \\ qexists_tac `k` >>
-        rename [`INSTREAM_LINES _ _ _ rr`] \\ qexists_tac `rr` \\ xsimpl) >>
+        rename [`INSTREAM_LINES _ _ _ rr`] \\ qexists_tac `rr`
+        \\ xsimpl \\ gvs []) >>
       xsimpl>>simp[unwrap_TYPE_def]>>
       PairCases_on`x`>>fs[]>>rw[]>>xsimpl >>
       rename [`forwardFD _ _ kk`] \\
@@ -3240,7 +3239,7 @@ Proof
       rename [`INSTREAM_LINES _ _ _ rr`] \\ qexists_tac `rr` \\ xsimpl)>>
   qspecl_then [`all_lines fs f`,`xorig`,`borig`,`cfmlls`,`xfmlls`,`bfmlls`,`tn`,`def`,`Clist`]
     strip_assume_tac parse_and_run_file_list_eq>>
-  fs[]>>rw[]>>
+  gs[]>>rw[]>>
   pop_assum kall_tac >>
   xlet `POSTv v. STDIO fs *
     ARRAY cfmlv' cfmllsv' * ARRAY xfmlv' xfmllsv'`
@@ -3265,7 +3264,8 @@ Proof
     imp_res_tac fsFFIPropsTheory.nextFD_leX \\ fs [] >>
     drule fsFFIPropsTheory.openFileFS_ADELKEY_nextFD >>
     fs [Abbr`fss`] \\ xsimpl) >>
-  Cases_on`parse_xlrups (all_lines fs f)`>> fs[OPTION_TYPE_def]
+  Cases_on`parse_xlrups (all_lines fs f)`>>
+  fs[OPTION_TYPE_def]
   >- (
     xmatch>>
     xcon >> xsimpl >>
@@ -3520,5 +3520,3 @@ Proof
 QED
 
 val _ = translate rev_enum_full_def;
-
-val _ = export_theory();

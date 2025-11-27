@@ -1,12 +1,14 @@
 (*
   Deriviation of a functional big-step semantics from the relational one.
 *)
-open preamble;
-open fpSemPropsTheory astTheory semanticPrimitivesTheory bigStepTheory;
-open determTheory bigClockTheory;
-local open state_transformerTheory in end
+Theory interp
+Ancestors
+  ast semanticPrimitives bigStep determ bigClock
+  state_transformer[qualified]
+Libs
+  preamble
 
-val _ = new_theory "interp";
+val _ = monadsyntax.enable_monadsyntax()
 
 val st = ``st:'ffi state``;
 
@@ -19,27 +21,27 @@ Theorem run_eval_spec_lem:
     (!env v pes err_v ^st.
        evaluate_match T env st v pes err_v (run_eval_match env v pes err_v st))
 Proof
-  simp [METIS_PROVE [] ``(?x y z. P x ∧ Q y ∧ R z) =
-                         ((?x. P x) ∧ (?y. Q y) ∧ (?z. R z))``, GSYM SKOLEM_THM] >>
+  simp [METIS_PROVE [] “(?x y z. P x ∧ Q y ∧ R z) =
+                         ((?x. P x) ∧ (?y. Q y) ∧ (?z. R z))”, GSYM SKOLEM_THM] >>
   strip_tac
   >- metis_tac [big_clocked_total, pair_CASES] >>
   strip_tac
-  >- (induct_on `es` >>
+  >- (induct_on ‘es’ >>
       rw [Once evaluate_cases] >>
-      `?s' r. evaluate T env st h (s',r)` by metis_tac [big_clocked_total, pair_CASES] >>
+      ‘?s' r. evaluate T env st h (s',r)’ by metis_tac [big_clocked_total, pair_CASES] >>
       metis_tac [pair_CASES, result_nchotomy]) >>
   strip_tac
   >-
-   (induct_on `pes` >>
+   (induct_on ‘pes’ >>
     rw [Once evaluate_cases] >>
-    `(?p e. h = (p,e))` by metis_tac [pair_CASES] >>
+    ‘(?p e. h = (p,e))’ by metis_tac [pair_CASES] >>
     rw [] >>
     rw [] >>
-    cases_on `pmatch env.c st.refs p v []` >>
+    cases_on ‘pmatch env.c st.refs p v []’ >>
     rw []
     >- metis_tac []
     >- metis_tac []
-    >- (`?s' r. evaluate T (env with v := nsAppend (alist_to_ns a) env.v) st e (s',r)` by
+    >- (‘?s' r. evaluate T (env with v := nsAppend (alist_to_ns a) env.v) st e (s',r)’ by
           metis_tac [big_clocked_total, pair_CASES] >>
         metis_tac []))
 QED
@@ -137,33 +139,9 @@ val _ = temp_delsimps["getOpClass_def"]
 Theorem getOpClass_opClass:
   (getOpClass op = FunApp ⇔ opClass op FunApp) ∧
   (getOpClass op = Simple ⇔ opClass op Simple) ∧
-  (getOpClass op = Icing ⇔ opClass op Icing) ∧
-  (getOpClass op = Reals ⇔ opClass op Reals)
+  (getOpClass op = Force ⇔ opClass op Force)
 Proof
-  Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases]
-QED
-
-Theorem evaluate_strict_fp_sticky:
-  (∀ ck env ^st e r.
-    evaluate ck env st e r ⇒
-    ∀ st2 v.
-    r = (st2, v) ∧
-    st.fp_state.canOpt = Strict ⇒
-    st2.fp_state.canOpt = Strict) ∧
-  (∀ ck env ^st e r.
-     evaluate_list ck env st e r ⇒
-     ∀ st2 vs.
-       r = (st2, vs) ∧
-       st.fp_state.canOpt = Strict ⇒
-       st2.fp_state.canOpt = Strict) ∧
-  (∀ ck env ^st v ps vr r.
-     evaluate_match ck env st v ps vr r ⇒
-     ∀ st2 res.
-     r = (st2, res) ∧
-     st.fp_state.canOpt = Strict ⇒
-     st2.fp_state.canOpt = Strict)
-Proof
-  ho_match_mp_tac evaluate_ind >> rw[evaluate_cases, shift_fp_opts_def]
+  Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases, AllCaseEqs()]
 QED
 
 Theorem run_eval_def:
@@ -218,56 +196,43 @@ Theorem run_eval_def:
   (!env op e1 e2.
      run_eval env (App op es)
      =
-     do vs <- run_eval_list env (REVERSE es);
-        ^st <- get_store;
-        (case getOpClass op of
+     do
+       vs <- run_eval_list env (REVERSE es);
+       ^st <- get_store;
+       (case getOpClass op of
         | FunApp =>
-          (case do_opapp (REVERSE vs) of
-          | NONE => raise (Rabort Rtype_error)
-          | SOME (env', e3) =>
-              do () <- dec_clock;
-                 run_eval env' e3
-              od)
+            (case do_opapp (REVERSE vs) of
+             | NONE => raise (Rabort Rtype_error)
+             | SOME (env', e3) =>
+                 do () <- dec_clock;
+                    run_eval env' e3
+                 od)
+        | Force =>
+            (case dest_thunk (REVERSE vs) st.refs of
+             | BadRef => raise (Rabort Rtype_error)
+             | NotThunk => raise (Rabort Rtype_error)
+             | IsThunk Evaluated v => return v
+             | IsThunk NotEvaluated f =>
+                case do_opapp [f; Conv NONE []] of
+                | SOME (env',e) => do
+                    () <- dec_clock;
+                    v2 <- run_eval env' e;
+                    ^st <- get_store;
+                    (case update_thunk (REVERSE vs) st.refs [v2] of
+                     | NONE => raise (Rabort Rtype_error)
+                     | SOME refs => do
+                        () <- set_store (st with refs := refs);
+                        return v2;
+                     od)
+                  od
+                | NONE => raise (Rabort Rtype_error))
         | Simple =>
-          (case do_app (st.refs,st.ffi) op (REVERSE vs) of
-          | NONE => raise (Rabort Rtype_error)
-          | SOME ((refs',ffi'),res) =>
+            (case do_app (st.refs,st.ffi) op (REVERSE vs) of
+             | NONE => raise (Rabort Rtype_error)
+             | SOME ((refs',ffi'),res) =>
               do () <- set_store (st with <| refs := refs'; ffi := ffi' |>);
-                       combin$C return res
+                 combin$C return res
               od)
-        | Icing =>
-          (case do_app (st.refs,st.ffi) op (REVERSE vs) of
-           | NONE => raise (Rabort Rtype_error)
-           | SOME ((refs,ffi),r) => let
-             fp_opt =
-               (if (st.fp_state.canOpt = FPScope Opt) then
-                (case (do_fprw r (st.fp_state.opts 0) st.fp_state.rws) of
-                 (* if it fails, just use the old value tree *)
-                 | NONE => r
-                 | SOME r_opt => r_opt)
-                (* If we cannot optimize, we should not allow matching on the
-                   structure in the oracle *)
-                else r);
-             (stN:'ffi state) = (if st.fp_state.canOpt = FPScope Opt then shift_fp_opts st else st);
-             fp_res = if (isFpBool op) then
-                      (case fp_opt of
-                         Rval (FP_BoolTree fv) => Rval (Boolv (compress_bool fv))
-                       | v => v)
-                      else fp_opt
-            in
-              do () <- set_store (stN with <| refs := refs; ffi := ffi |>);
-                 combin$C return fp_res
-              od)
-        | Reals =>
-            if (st.fp_state.real_sem) then
-              (case do_app (st.refs,st.ffi) op (REVERSE vs) of
-               | NONE => raise (Rabort Rtype_error)
-               | SOME ((refs,ffi),r) =>
-                   combin$C return r)
-            else
-              do () <- set_store (shift_fp_opts st);
-                 raise (Rabort Rtype_error)
-              od
         | _ => raise (Rabort Rtype_error))
      od) ∧
   (!env lop e1 e2.
@@ -294,7 +259,7 @@ Theorem run_eval_def:
         ^st <- get_store;
         (if can_pmatch_all env.c st.refs (MAP FST pes) v then
            run_eval_match env v pes bind_exn_v
-         else raise (Rabort Rtype_error))
+         else result_raise (Rabort Rtype_error))
      od) ∧
   (!env x e1 e2.
      run_eval env (Let x e1 e2)
@@ -317,22 +282,6 @@ Theorem run_eval_def:
      run_eval env (Lannot e l)
      =
      run_eval env e) ∧
-  (!env e.
-     run_eval env (FpOptimise fpopt e) =
-     (** We expand the monad here as we need to alter the state
-     even if evaluation fails to leave the optimizer in a consistent state **)
-     λ ^st.
-       let newSt = st with fp_state :=
-                   (if (st.fp_state.canOpt = Strict) then st.fp_state
-                   else st.fp_state with <| canOpt := FPScope fpopt|>)
-       in
-         case run_eval env e newSt of
-         (st', Rval v) =>
-           (st' with <| fp_state := st'.fp_state with <| canOpt := st.fp_state.canOpt |> |>,
-            Rval (HD (do_fpoptimise fpopt [v])))
-         | (st', Rerr e) =>
-             (st' with<| fp_state := st'.fp_state with <| canOpt := st.fp_state.canOpt |> |>,
-              Rerr e)) ∧
   (!env.
      run_eval_list env []
      =
@@ -382,68 +331,42 @@ Proof
       Cases_on ‘getOpClass op = FunApp’ >> gs[]
       >- (every_case_tac >>
           rw [] >>
-          fs [remove_lambda_pair, shift_fp_opts_def, getOpClass_opClass] >>
+          fs [remove_lambda_pair, getOpClass_opClass] >>
           rw [] >>
           every_case_tac >>
           fs [GSYM evaluate_run_eval_list] >>
           rw [] >>
           rw [] >> fs[state_transformerTheory.UNIT_DEF] >>
           metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec]) >>
+      Cases_on ‘getOpClass op = Force’ >> gvs[]
+      >- (
+        gvs[getOpClass_opClass] >>
+        ‘¬opClass op FunApp ∧ ¬opClass op Simple’ by (Cases_on ‘op’ >> gvs[opClass_cases]) >>
+        simp[] >>
+        every_case_tac >> gvs[GSYM evaluate_run_eval_list, GSYM evaluate_run_eval] >>
+        gvs[LESS_OR_EQ] >> metis_tac[]
+        ) >>
       Cases_on ‘getOpClass op = Simple’ >> gs[]
-      >- (‘~ opClass op Icing’ by (Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases]) >>
-          ‘~ opClass op FunApp’ by (Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases]) >>
-          ‘~ opClass op Reals’ by (Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases]) >>
+      >- (‘~ opClass op FunApp ∧ ¬opClass op Force’ by
+            (Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases,AllCaseEqs()]) >>
           gs[getOpClass_opClass] >>
           every_case_tac >>
           rw [] >>
-          fs [remove_lambda_pair, shift_fp_opts_def] >>
+          fs [remove_lambda_pair] >>
           rw [] >>
           every_case_tac >>
           fs [GSYM evaluate_run_eval_list] >>
           rw [] >>
           rw [] >> fs[state_transformerTheory.UNIT_DEF] >>
           metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec]) >>
-      Cases_on ‘getOpClass op = EvalOp’ >> gs[]
-      >- (‘~ opClass op Icing’ by (Cases_on ‘op’ >> gs[opClass_cases, getOpClass_def]) >>
-          ‘~ opClass op FunApp’ by (Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases]) >>
-          ‘~ opClass op Reals’ by (Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases]) >>
-          gs[] >> every_case_tac >> gs[remove_lambda_pair] >>
-          fs [GSYM evaluate_run_eval_list] >>
-          Cases_on ‘op’ >> gs[opClass_cases, getOpClass_def] >> gs[do_app_def]
-          >> disj1_tac >> first_x_assum $ irule_at Any >> every_case_tac >> gs[]) >>
-      Cases_on ‘getOpClass op = Reals’ >> gs[]
-      >- (‘~ opClass op Icing’ by (Cases_on ‘op’ >> gs[opClass_cases, getOpClass_def]) >>
-          ‘~ opClass op FunApp’ by (Cases_on ‘op’ >> gs[opClass_cases, getOpClass_def]) >>
-          ‘opClass op Reals’ by (Cases_on ‘op’ >> gs[opClass_cases, getOpClass_def]) >>
-          gs[] >> every_case_tac >> gs[remove_lambda_pair] >>
-          fs [GSYM evaluate_run_eval_list]
-          >- (ntac 3 disj2_tac >> disj1_tac >> first_x_assum $ irule_at Any >> gs[])
-          >- (disj2_tac >> disj1_tac >> first_x_assum $ irule_at Any >>
-              fs[state_transformerTheory.UNIT_DEF, compress_if_bool_def] >>
-              first_x_assum $ mp_then Any assume_tac (INST_TYPE [beta |-> “:'ffi”, alpha |->“:'ffi”] realOp_determ) >>
-              Cases_on ‘q'’ >> gs[] >>
-              res_tac >>
-              first_x_assum $ qspec_then ‘q.ffi’ assume_tac >> gs[] >>
-              rveq >> gs[state_component_equality])
-          >> ntac 2 disj2_tac >> disj1_tac
-          >> first_x_assum $ irule_at Any>> rw[]) >>
-      ‘getOpClass op = Icing’ by (Cases_on ‘op’ >> gs[opClass_cases, getOpClass_def]) >>
-      ‘~ opClass op FunApp’ by (Cases_on ‘op’ >> gs[opClass_cases, getOpClass_def]) >>
-      ‘~ opClass op Simple’ by (Cases_on ‘op’ >> gs[opClass_cases, getOpClass_def]) >>
-      ‘~ opClass op Reals’ by (Cases_on ‘op’ >> gs[opClass_cases, getOpClass_def]) >>
-      gs[] >>
-      ntac 2 TOP_CASE_TAC >> gs[GSYM evaluate_run_eval_list] >>
-      TOP_CASE_TAC >> gs[]
-      >- metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec] >>
-      ntac 2 TOP_CASE_TAC >> gs[getOpClass_opClass] >>
-      rename1 ‘s2.fp_state.canOpt = FPScope Opt’ >>
-      reverse $ Cases_on ‘s2.fp_state.canOpt = FPScope Opt’ >> gs[]
-      >- ( fs[state_transformerTheory.UNIT_DEF, compress_if_bool_def] >>
-           metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec]) >>
-      disj2_tac >>
-      Cases_on ‘do_fprw r (s2.fp_state.opts 0) s2.fp_state.rws’ >> gs[] >>
-      fs[state_transformerTheory.UNIT_DEF, compress_if_bool_def] >>
-      metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec])
+      ‘getOpClass op = EvalOp’
+        by (Cases_on ‘op’ >> gs[opClass_cases, getOpClass_def,AllCaseEqs()]) >> gs[] >>
+      ‘~ opClass op FunApp’ by
+        (Cases_on ‘op’ >> gs[getOpClass_def, opClass_cases,AllCaseEqs()]) >>
+      gs[] >> every_case_tac >> gs[remove_lambda_pair] >>
+      fs [GSYM evaluate_run_eval_list] >>
+      Cases_on ‘op’ >> gs[opClass_cases, getOpClass_def] >> gs[do_app_def]
+      >> disj1_tac >> first_x_assum $ irule_at Any >> every_case_tac >> gs[])
   >- (every_case_tac >>
       rw [] >>
       fs [remove_lambda_pair, GSYM evaluate_run_eval] >>
@@ -464,15 +387,6 @@ Proof
   >- metis_tac [fst_lem, run_eval_spec]
   >- metis_tac [fst_lem, run_eval_spec]
   >- metis_tac [fst_lem, run_eval_spec]
-  >- (every_case_tac >> rw[] >> gs [GSYM evaluate_run_eval] >>
-      ‘st with fp_state := st.fp_state = st’ by gs[state_component_equality] >>
-      gs[] >>
-      imp_res_tac evaluate_strict_fp_sticky >> gs[] >>
-      first_x_assum $ irule_at Any >> gs[state_component_equality, fpState_component_equality])
-  >- (every_case_tac >> rw[] >> gs [GSYM evaluate_run_eval] >>
-      ‘st with fp_state := st.fp_state = st’ by gs[state_component_equality] >>
-      gs[] >>
-      first_x_assum $ irule_at Any >> gs[state_component_equality, fpState_component_equality])
   >- (rw [GSYM evaluate_run_eval_list] >>
       rw [Once evaluate_cases])
   >- (every_case_tac >>
@@ -590,4 +504,3 @@ Proof
   metis_tac[decs_determ]
 QED
 
-val _ = export_theory ();

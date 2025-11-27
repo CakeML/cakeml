@@ -1,19 +1,14 @@
 (*
   Correctness proof for flatLang dead code elimination
 *)
-open preamble sptreeTheory flatLangTheory flat_elimTheory
-     flatSemTheory flatPropsTheory spt_closureTheory
+Theory flat_elimProof
+Ancestors
+  flat_elim flatSem flatLang flatProps spt_closure
+  misc[qualified] ffi[qualified] sptree
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "flat_elimProof";
-
-val grammar_ancestry =
-  ["flat_elim", "flatSem", "flatLang", "flatProps",
-   "spt_closure",  "misc", "ffi", "sptree"];
-
-val _ = set_grammar_ancestry grammar_ancestry;
-
 
 (************************** LEMMAS ***************************)
 
@@ -163,7 +158,7 @@ Proof
     Cases_on `n = 0` >> fs[] >>  fs[EXTENSION, SUBSET_DEF]
 QED
 
-Triviality find_v_globalsL_EL_trans:
+Theorem find_v_globalsL_EL_trans[local]:
     n < LENGTH vs ∧ domain(find_v_globalsL vs) ⊆ R ⇒
     domain (find_v_globals (EL n vs)) ⊆ R
 Proof
@@ -221,6 +216,8 @@ Definition find_refs_globals_def:
         union (find_v_globals a) (find_refs_globals t)) ∧
     (find_refs_globals (Varray l::t) =
         union (find_v_globalsL l) (find_refs_globals t)) ∧
+    (find_refs_globals (Thunk _ a::t) =
+        union (find_v_globals a) (find_refs_globals t)) ∧
     (find_refs_globals (_::t) = find_refs_globals t) ∧
     (find_refs_globals [] = LN)
 End
@@ -233,10 +230,13 @@ Theorem find_refs_globals_MEM:
       ⇒ (∀ a . MEM (Refv a) refs
             ⇒ domain (find_v_globals a) ⊆ R) ∧
         (∀ vs . MEM (Varray vs) refs
-            ⇒ domain (find_v_globalsL vs) ⊆ R)
+            ⇒ domain (find_v_globalsL vs) ⊆ R) ∧
+        (∀ m a . MEM (Thunk m a) refs
+            ⇒ domain (find_v_globals a) ⊆ R)
 Proof
     Induct >> rw[] >> fs[find_refs_globals_def, domain_union] >>
-    Cases_on `h` >> fs[find_refs_globals_def, domain_union]
+    Cases_on `h` >> fs[find_refs_globals_def, domain_union] >>
+    first_x_assum drule >> gvs []
 QED
 
 Theorem find_refs_globals_EL:
@@ -244,7 +244,9 @@ Theorem find_refs_globals_EL:
     (∀ a . EL n refs = Refv a
             ⇒ domain (find_v_globals a) ⊆ R) ∧
     (∀ vs . EL n refs = Varray vs
-            ⇒ domain (find_v_globalsL vs) ⊆ R)
+            ⇒ domain (find_v_globalsL vs) ⊆ R) ∧
+    (∀ m a . EL n refs = Thunk m a
+            ⇒ domain (find_v_globals a) ⊆ R)
 Proof
   metis_tac [EL_MEM, find_refs_globals_MEM]
 QED
@@ -260,7 +262,10 @@ Theorem find_refs_globals_LUPDATE:
         ⇒ domain (find_refs_globals (LUPDATE (Varray vs) n  refs))
             ⊆ domain reachable) ∧
     (∀ ws. domain (find_refs_globals (LUPDATE (W8array ws) n refs))
-        ⊆ domain reachable)
+        ⊆ domain reachable) ∧
+    (∀ m a. domain (find_v_globals a) ⊆ domain reachable
+        ⇒ domain (find_refs_globals (LUPDATE (Thunk m a) n refs))
+            ⊆ domain reachable)
 Proof
     Induct_on `refs` >> rw[] >> Cases_on `h` >>
     fs[find_refs_globals_def, domain_union] >>
@@ -449,7 +454,7 @@ Proof
   simp [EVERY_EL]
 QED
 
-Triviality not_v_has_Eval_EVERY_EL:
+Theorem not_v_has_Eval_EVERY_EL[local]:
   EVERY ($~ ∘ v_has_Eval) xs /\ i < LENGTH xs ==> ~ v_has_Eval (EL i xs)
 Proof
   simp [EVERY_EL]
@@ -478,19 +483,19 @@ fun qif_pat_tac qpat (tac : tactic) goal = if can (rename [qpat]) goal
 
 fun conseq xs = ConseqConv.CONSEQ_REWRITE_TAC (xs, [], [])
 
-Triviality fvg_map_char_empty:
+Theorem fvg_map_char_empty[local]:
   find_v_globals (list_to_v (MAP (λc. Litv (Char c)) ss)) = LN
 Proof
   Induct_on `ss` \\ simp [find_v_globals_def, list_to_v_def]
 QED
 
-Triviality not_LE_LESS_IMP:
+Theorem not_LE_LESS_IMP[local]:
   (~ (x >= y)) ==> ((x : num) < y)
 Proof
   simp []
 QED
 
-Triviality EL_REP_NONE_SOME_trivia:
+Theorem EL_REP_NONE_SOME_trivia[local]:
   n < LENGTH xs + i ==>
   (EL n (xs ++ REPLICATE i NONE) = SOME y <=>
     n < LENGTH xs /\ EL n xs = SOME y)
@@ -566,6 +571,11 @@ Proof
   )
   >- (
     qpat_assum `this_case Vsub` kall_tac
+    \\ simp [find_v_globalsL_EL_trans]
+    \\ fs [EVERY_EL]
+  )
+  >- (
+    qpat_assum `this_case Vsub_unsafe` kall_tac
     \\ simp [find_v_globalsL_EL_trans]
     \\ fs [EVERY_EL]
   )
@@ -969,6 +979,51 @@ Proof
         )
       )
     >- (
+      Cases_on `op = ThunkOp ForceThunk` >> gvs []
+      >- (
+        gvs [AllCaseEqs(), dec_clock_def, dest_GlobalVarLookup_def, PULL_EXISTS]
+        >- (
+          gvs [oneline dest_thunk_def, AllCaseEqs(),
+               semanticPrimitivesTheory.store_lookup_def, flat_state_rel_def,
+               EVERY_EL] >>
+          first_x_assum drule >> gvs [] >> rw [] >>
+          gvs [find_sem_prim_res_globals_def, find_v_globals_def] >>
+          drule_all find_refs_globals_EL >> rw [])
+        >- (
+          gvs [oneline dest_thunk_def, AllCaseEqs(),
+               semanticPrimitivesTheory.store_lookup_def, flat_state_rel_def] >>
+          simp [PULL_EXISTS] >>
+          last_x_assum $ qspecl_then
+            [`reachable`, `new_removed_state`] mp_tac >>
+          impl_tac
+          >- (
+            gvs [AppUnit_def, find_lookups_def, dest_GlobalVarLookup_def,
+                 find_env_globals_def, find_v_globals_def, has_Eval_def,
+                 EVERY_EL] >>
+            first_x_assum drule >> rw [] >>
+            drule_all find_refs_globals_EL >> rw []) >>
+          rw [] >>
+          goal_assum drule >> simp [] >>
+          gvs [oneline update_thunk_def, AllCaseEqs(),
+               semanticPrimitivesTheory.store_assign_def,
+               find_sem_prim_res_globals_def, find_v_globals_def] >>
+          rw []
+          >- (drule_all find_refs_globals_LUPDATE >> gvs []) >>
+          gvs [EVERY_EL, EL_LUPDATE] >> rw [])
+        >- (
+          gvs [oneline dest_thunk_def, AllCaseEqs(),
+               semanticPrimitivesTheory.store_lookup_def, flat_state_rel_def] >>
+          last_x_assum $ qspecl_then
+            [`reachable`, `new_removed_state`] mp_tac >>
+          impl_tac
+          >- (
+            gvs [AppUnit_def, find_lookups_def, dest_GlobalVarLookup_def,
+                 find_env_globals_def, find_v_globals_def, has_Eval_def,
+                 EVERY_EL] >>
+            first_x_assum drule >> rw [] >>
+            drule_all find_refs_globals_EL >> rw []) >>
+          rw [] >>
+          goal_assum drule >> simp [])) >>
       Cases_on `do_app q op (REVERSE a)` >> fs[] >>
       PairCases_on `x` >> fs[] >> rveq >>
       drule (GEN_ALL do_app_SOME_flat_state_rel) >>
@@ -1615,7 +1670,7 @@ Theorem flat_remove_semantics =
 
 (* syntactic results *)
 
-Triviality elist_globals_filter:
+Theorem elist_globals_filter[local]:
   elist_globals (MAP dest_Dlet (FILTER is_Dlet ds)) = {||}
    ==>
    elist_globals (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds))) = {||}
@@ -1623,7 +1678,7 @@ Proof
   Induct_on `ds` \\ rw [] \\ fs [SUB_BAG_UNION]
 QED
 
-Triviality esgc_free_filter:
+Theorem esgc_free_filter[local]:
   EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet ds))
    ==>
    EVERY esgc_free (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds)))
@@ -1631,7 +1686,7 @@ Proof
   Induct_on `ds` \\ rw []
 QED
 
-Triviality elist_globals_filter_SUB_BAG:
+Theorem elist_globals_filter_SUB_BAG[local]:
   elist_globals (MAP dest_Dlet (FILTER is_Dlet (FILTER P ds))) <=
    elist_globals (MAP dest_Dlet (FILTER is_Dlet ds))
 Proof
@@ -1673,5 +1728,3 @@ Theorem remove_flat_prog_distinct_globals:
 Proof
   metis_tac [remove_flat_prog_sub_bag, BAG_ALL_DISTINCT_SUB_BAG]
 QED
-
-val _ = export_theory();

@@ -5,9 +5,11 @@
     algorithm for parallel moves
   http://gallium.inria.fr/~xleroy/publi/parallel-move.pdf
 *)
-open preamble;
-
-val _ = new_theory "parmove";
+Theory parmove
+Ancestors
+  misc
+Libs
+  preamble
 
 (* Non-deterministic algorithm *)
 
@@ -77,7 +79,7 @@ Proof
   Cases >> Cases >> simp[]
 QED
 
-Triviality path_imp_mem:
+Theorem path_imp_mem[local]:
   path (x::y) ⇒
    ¬NULL y ⇒ MEM (SND x) (MAP FST y)
 Proof
@@ -85,7 +87,7 @@ Proof
   Cases_on`x`>>Cases>>fs[]
 QED
 
-Triviality path_imp_mem2:
+Theorem path_imp_mem2[local]:
   path x ⇒
    ∀y. MEM y (MAP SND x) ∧
        y ≠ SND(LAST x) ⇒
@@ -98,7 +100,7 @@ Proof
   rw[] >> metis_tac[]
 QED
 
-Triviality NoRead_path:
+Theorem NoRead_path[local]:
   ∀σ. path σ ∧ windmill σ ∧ LENGTH σ ≥ 2 ∧
    FST (HD σ) ≠ SND (LAST σ) ⇒
    NoRead (TL σ) (FST (HD σ))
@@ -125,7 +127,7 @@ Definition wf_def:
     EVERY IS_SOME (MAP FST σ) ∧
     path σ
 End
-val _ = overload_on(UnicodeChars.turnstile,``wf``);
+Overload "⊢" = “wf”
 
 Theorem wf_init:
    windmill μ ∧
@@ -360,13 +362,13 @@ End
 val _ = set_fixity"\226\137\161"(Infix(NONASSOC,450));
 Overload "\226\137\161" = ``eqenv``
 
-Triviality eqenv_sym:
+Theorem eqenv_sym[local]:
   p1 ≡ p2 ⇒ p2 ≡ p1
 Proof
   rw[eqenv_def]
 QED
 
-Triviality step_sem:
+Theorem step_sem[local]:
   ∀s1 s2. s1 ▷ s2 ⇒ ⊢ s1 ⇒ (∀ρ. sem s1 ρ ≡ sem s2 ρ)
 Proof
   ho_match_mp_tac step_ind >>
@@ -499,7 +501,7 @@ Overload "\226\134\170*" = ``RTC $↪``
 (* ⊢ s1 condition not included in paper;
    not sure if necessary, but couldn't get
    their proof to work *)
-Triviality dstep_step:
+Theorem dstep_step[local]:
   ∀s1 s2. s1 ↪ s2 ⇒ ⊢ s1 ⇒ s1 ▷* s2
 Proof
   ho_match_mp_tac dstep_ind >> rw[] >>
@@ -555,9 +557,9 @@ val tac =
       rw[dstep_cases] >>
       TRY(map_every qexists_tac[`FST(LAST t')`,`SND(LAST t')`,`FRONT t'`]) >>
       rw[APPEND_FRONT_LAST] >>
-      fs[whileTheory.OLEAST_def,MEM_MAP,MEM_EL] >>
+      fs[WhileTheory.OLEAST_def,MEM_MAP,MEM_EL] >>
       metis_tac[] ) >>
-  fs[whileTheory.OLEAST_def] >>
+  fs[WhileTheory.OLEAST_def] >>
   BasicProvers.CASE_TAC >- (
       fs[DROP_NIL] >> rw[] >>
       pop_assum mp_tac >>
@@ -626,7 +628,7 @@ Termination
        fs[NULL_LENGTH,LENGTH_NIL] >>
        simp[LENGTH_FRONT,PRE_SUB1,LENGTH_NOT_NULL,NULL_LENGTH,LENGTH_NIL] >>
        NO_TAC) >>
-     fs[whileTheory.OLEAST_def] >> rw[] >>
+     fs[WhileTheory.OLEAST_def] >> rw[] >>
      pop_assum mp_tac >>
      numLib.LEAST_ELIM_TAC >>
      conj_tac >- metis_tac[] >>
@@ -1176,7 +1178,7 @@ Proof
   \\ metis_tac[]
 QED
 
-Triviality steps_MAP_INJ:
+Theorem steps_MAP_INJ[local]:
   ∀s1 s2. s1 ▷* s2 ⇒
     inj_on_state f s1 ⇒
     map_state f s1 ▷* map_state f s2
@@ -1330,5 +1332,3 @@ Proof
   \\ fs[]
   \\ simp[map_state_def]
 QED
-
-val _ = export_theory();

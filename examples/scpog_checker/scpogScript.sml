@@ -1,11 +1,11 @@
 (*
   Defines the proof checker for SCPOG
 *)
-open preamble miscTheory mlstringTheory mlintTheory mllistTheory mlvectorTheory sptreeTheory cnf_scpogSemTheory;
-
-val _ = set_grammar_ancestry ["mlstring","mllist","mlvector","sptree","misc","cnf_scpogSem"];
-
-val _ = new_theory "scpog";
+Theory scpog
+Libs
+  preamble
+Ancestors
+  mlstring mllist mlvector sptree mergesort misc cnf_scpogSem mlint
 
 (* Implementation *)
 Type clause = ``:int list``;
@@ -13,6 +13,8 @@ Type hint = ``:num list``;
 Type lit = ``:int``;
 Type var = ``:num``;
 Type id = ``:num``;
+
+val _ = temp_bring_to_front_overload "insert" {Name="insert", Thy="sptree"};
 
 (* Proof steps *)
 Datatype:
@@ -1520,14 +1522,14 @@ Definition to_flat_def:
     | ((m,x)::xs) => to_flat (m+1) xs (SOME x :: prepend (m-n) NONE acc)
 End
 
-Triviality prepend_eq:
+Theorem prepend_eq[local]:
   ∀n x xs. prepend n x xs = REPLICATE n x ++ xs
 Proof
   Induct \\ rewrite_tac [GSYM SNOC_REPLICATE, SNOC_APPEND]
   \\ fs [ADD1] \\ once_rewrite_tac [prepend_def] \\ fs []
 QED
 
-Triviality to_flat_lemma:
+Theorem to_flat_lemma[local]:
   ∀xs xs0 n.
     SORTED $< (MAP FST (xs0 ++ xs)) ∧ EVERY (λm. m < n) (MAP FST xs0) ∧
     (xs ≠ [] ⇒ n ≤ FST (HD xs)) ⇒
@@ -3077,5 +3079,3 @@ Proof
   first_x_assum drule>>
   simp[sat_clause_def]
 QED
-
-val _ = export_theory ();

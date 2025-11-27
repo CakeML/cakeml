@@ -1,14 +1,12 @@
 (*
   Parses an S-expression into a Dafny AST.
 *)
+Theory sexp_to_dafny
+Ancestors
+  result_monad dafny_sexp dafny_ast mlint
+Libs
+  preamble
 
-open preamble
-open result_monadTheory
-open dafny_sexpTheory
-open dafny_astTheory
-open mlintTheory
-
-val _ = new_theory "sexp_to_dafny";
 
 (* TODO Possible improvement: Use a logging monad instead of result monad,
    to avoid having to write ... <- prefix_error here ... over and over again.
@@ -190,6 +188,8 @@ Definition to_bin_op_def:
        do _ <- prefix_error here (dest0 args); return Imp od
      else if (cns = «Div») then
        do _ <- prefix_error here (dest0 args); return Div od
+     else if (cns = «Mod») then
+       do _ <- prefix_error here (dest0 args); return Mod od
      else
        bad_con here
    od)
@@ -310,6 +310,14 @@ Definition to_exp_def:
               term <- prefix_error here (to_exp term);
               return (Forall bound_var term)
             od)
+       else if (cns = «OldHeap») then
+         (case dest1 args of
+          | INL err => fail (here ^ err)
+          | INR old_e =>
+            do
+              old_e <- prefix_error here (to_exp old_e);
+              return (OldHeap old_e)
+            od)
        else
          bad_con here))) ∧
   map_to_exp [] = return [] ∧
@@ -405,10 +413,11 @@ Definition to_rhs_exp_def:
        od
      else if (cns = «ArrAlloc») then
        do
-         (len, init) <- prefix_error here (dest2 args);
+         (len, init, ty) <- prefix_error here (dest3 args);
          len <- prefix_error here (to_exp len);
          init <- prefix_error here (to_exp init);
-         return (ArrAlloc len init)
+         ty <- prefix_error here (to_type ty);
+         return (ArrAlloc len init ty)
        od
      else
        bad_con here
@@ -584,5 +593,3 @@ Definition to_program_def:
        bad_con here
    od)
 End
-
-val _ = export_theory ();

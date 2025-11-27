@@ -3,13 +3,11 @@
   intermediate language that has closure values. This language is
   designed for optimisation of function calls.
 *)
-open preamble backend_commonTheory mlstringTheory;
-
-local open astTheory in end
-
-val _ = new_theory "closLang";
-
-val _ = set_grammar_ancestry ["ast"]
+Theory closLang
+Ancestors
+  ast[qualified] backend_common mlstring
+Libs
+  preamble
 
 (* compilation from this language removes closures *)
 
@@ -118,6 +116,7 @@ Datatype:
      | GlobOp glob_op
      | MemOp mem_op
      | Install       (* installs new code at runtime *)
+     | ThunkOp thunk_op
 End
 
 Datatype:
@@ -182,6 +181,7 @@ Definition pure_op_def:
     | MemOp Ref => F
     | MemOp Update => F
     | Install => F
+    | ThunkOp _ => F
     | _ => T
 End
 
@@ -220,4 +220,3 @@ Type clos_prog = ``: closLang$exp list # (num # num # closLang$exp) list``
 
 Type clos_cc = ``:'c -> clos_prog -> (word8 list # word64 list # 'c) option``
 
-val _ = export_theory()

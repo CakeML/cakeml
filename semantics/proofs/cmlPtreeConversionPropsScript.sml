@@ -2,14 +2,11 @@
   Definition of a function for mapping types back to ASTs, and proofs that
   check that the conversion functions are doing something reasonable.
 *)
-open HolKernel Parse boolLib bossLib;
-open preamble boolSimps
-
-open cmlPtreeConversionTheory
-open gramPropsTheory
-
-val _ = new_theory "cmlPtreeConversionProps";
-val _ = set_grammar_ancestry ["cmlPtreeConversion", "gramProps"]
+Theory cmlPtreeConversionProps
+Ancestors
+  cmlPtreeConversion gramProps
+Libs
+  preamble boolSimps
 
 val _ = option_monadsyntax.temp_add_option_monadsyntax()
 
@@ -400,7 +397,7 @@ Proof
   simp[ptree_Op_def, tokcheck_def, tokcheckl_def, singleSymP_def]
 QED
 
-Triviality MAP_TK11:
+Theorem MAP_TK11[local]:
   ∀l1 l2. MAP TK l1 = MAP TK l2 ⇔ l1 = l2
 Proof
   Induct_on `l1` >> simp[] >> rpt gen_tac >>
@@ -554,7 +551,7 @@ Proof
    metis_tac[pair_CASES]) >>~-
   ([‘∃p. ptree_Op pt = SOME p (* g *)’],
    match_mp_tac (GEN_ALL Ops_OK0) >> simp[]) >>~-
-  ([‘∃es. Eseq_encode el = SOME es’],
+  ([‘∃es. Eseq_encode _ = SOME es’],
    erule strip_assume_tac Eseq_encode_OK >> simp[]) >~
   [‘∃ty. ptree_Type nType pt = SOME ty’]
   >- (erule strip_assume_tac (n Type_OK) >> simp[]) >~
@@ -836,5 +833,3 @@ Proof
       >- (rename[`Lf p`] >> Cases_on `p` >> fs[] >> fs[]) >>
       metis_tac[Decl_OK, grammarTheory.ptree_fringe_def])
 QED
-
-val _ = export_theory();

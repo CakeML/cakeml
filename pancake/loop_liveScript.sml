@@ -1,17 +1,18 @@
 (*
   Correctness proof for loop to loop_remove
 *)
+Theory loop_live
+Ancestors
+  loopLang loop_call
+Libs
+  preamble
 
-open preamble loopLangTheory
-     loop_callTheory
-
-
-val _ = new_theory "loop_live";
 
 Definition vars_of_exp_def:
   vars_of_exp (loopLang$Var v) l = insert v () l ∧
   vars_of_exp (Const _) l = l ∧
   vars_of_exp (BaseAddr) l = l ∧
+  vars_of_exp (TopAddr) l = l ∧
   vars_of_exp (Lookup _) l = l ∧
   vars_of_exp (Load a) l = vars_of_exp a l ∧
   vars_of_exp (Op x vs) l = vars_of_exp_list vs l ∧
@@ -217,4 +218,3 @@ Definition optimise_def:
 End
 
 
-val _ = export_theory();

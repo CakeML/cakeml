@@ -4,18 +4,16 @@
   in Silver machine code. Also define shallow embeddings of the FFI primitives
   and prove theorems summarising their effects.
 *)
+Theory ag32_memory
+Ancestors[qualified]
+  ag32 ag32_target asmSem asmProps mlstring Marshalling
+  lab_to_target
+Libs
+  preamble blastLib[qualified]
 
-open preamble
-local open
-  ag32Theory ag32_targetTheory
-  asmSemTheory asmPropsTheory
-  mlstringTheory MarshallingTheory
-  lab_to_targetTheory blastLib
-in end
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory"ag32_memory";
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
@@ -878,7 +876,7 @@ Theorem ag32_ffi_get_arg_length_loop1_thm:
                     ((4w =+ s.R 4w + n2w (n+1))
                     ((5w =+ s.R 5w + n2w (n+1)) s.R))) |>
 Proof
-  reverse(rw[whileTheory.OLEAST_def])
+  reverse(rw[WhileTheory.OLEAST_def])
   >- (
     rw[Once ag32_ffi_get_arg_length_loop1_def]
     \\ fs[] \\ metis_tac[] )
@@ -989,7 +987,7 @@ Proof
   \\ simp[Once get_next_mem_arg_def]
   \\ Cases_on`m a = 0w` \\ fs[]
   >- (
-    simp[whileTheory.OLEAST_def]
+    simp[WhileTheory.OLEAST_def]
     \\ IF_CASES_TAC \\ fs[]
     \\ numLib.LEAST_ELIM_TAC
     \\ conj_tac >- metis_tac[]
@@ -998,9 +996,9 @@ Proof
     \\ first_x_assum(qspec_then`0`mp_tac)
     \\ simp[] )
   \\ IF_CASES_TAC
-  >- ( simp[whileTheory.OLEAST_def] )
+  >- ( simp[WhileTheory.OLEAST_def] )
   \\ fs[]
-  \\ simp[whileTheory.OLEAST_def]
+  \\ simp[WhileTheory.OLEAST_def]
   \\ reverse IF_CASES_TAC \\ fs[]
   >- (
     Cases_on`n` \\ fs[]
@@ -1055,7 +1053,7 @@ Proof
             ag32Theory.dfn'JumpIfNotZero_def, ag32_ffi_get_arg_length_loop1_thm,
             APPLY_UPDATE_THM]
     \\ CASE_TAC \\ simp[APPLY_UPDATE_THM]
-    \\ fs[whileTheory.OLEAST_def]
+    \\ fs[WhileTheory.OLEAST_def]
     \\ simp[Once ag32_ffi_get_arg_length_loop_def, APPLY_UPDATE_THM]
     \\ simp[ag32Theory.dfn'JumpIfZero_def, ag32Theory.incPC_def,
             ag32Theory.ri2word_def, ag32Theory.ALU_def, APPLY_UPDATE_THM]
@@ -1070,7 +1068,7 @@ Proof
     \\ rw[] \\ fs[]
     \\ AP_THM_TAC \\ AP_TERM_TAC
     \\ AP_THM_TAC \\ AP_TERM_TAC
-    \\ simp[get_next_mem_arg_LEAST, whileTheory.OLEAST_def]
+    \\ simp[get_next_mem_arg_LEAST, WhileTheory.OLEAST_def]
     \\ IF_CASES_TAC \\ fs[])
   \\ rw[]
   \\ simp[Once ag32_ffi_get_arg_length_loop_def]
@@ -1080,7 +1078,7 @@ Proof
           ag32Theory.dfn'JumpIfNotZero_def, ag32_ffi_get_arg_length_loop1_thm,
           APPLY_UPDATE_THM]
   \\ CASE_TAC \\ simp[APPLY_UPDATE_THM]
-  \\ fs[whileTheory.OLEAST_def]
+  \\ fs[WhileTheory.OLEAST_def]
   \\ qmatch_goalsub_abbrev_tac`ag32_ffi_get_arg_length_loop s'`
   \\ first_x_assum(qspec_then`s'`mp_tac)
   \\ simp[Abbr`s'`, APPLY_UPDATE_THM, ADD1, GSYM word_add_n2w]
@@ -1108,7 +1106,7 @@ Proof
   \\ simp[get_mem_arg_def, GSYM ADD1, UNCURRY]
   \\ AP_TERM_TAC
   \\ AP_TERM_TAC
-  \\ simp[get_next_mem_arg_LEAST, whileTheory.OLEAST_def]
+  \\ simp[get_next_mem_arg_LEAST, WhileTheory.OLEAST_def]
   \\ IF_CASES_TAC \\ fs[]
 QED
 
@@ -1296,7 +1294,7 @@ Theorem ag32_ffi_get_arg_find1_thm:
                R := ((8w =+ 0w)
                     ((5w =+ s.R 5w + n2w (n+1)) s.R)) |>
 Proof
-  reverse(rw[whileTheory.OLEAST_def])
+  reverse(rw[WhileTheory.OLEAST_def])
   >- (
     rw[Once ag32_ffi_get_arg_find1_def]
     \\ fs[] \\ metis_tac[] )
@@ -1402,7 +1400,7 @@ Proof
           ag32Theory.incPC_def, ag32Theory.ALU_def, ag32Theory.dfn'JumpIfZero_def,
           ag32Theory.dfn'JumpIfNotZero_def, ag32_ffi_get_arg_find1_thm,
           APPLY_UPDATE_THM]
-  \\ CASE_TAC \\ simp[APPLY_UPDATE_THM] \\ fs[whileTheory.OLEAST_def]
+  \\ CASE_TAC \\ simp[APPLY_UPDATE_THM] \\ fs[WhileTheory.OLEAST_def]
   \\ qmatch_goalsub_abbrev_tac`ag32_ffi_get_arg_find s'`
   \\ first_x_assum(qspec_then`s'`mp_tac)
   \\ simp[Abbr`s'`, APPLY_UPDATE_THM, ADD1, GSYM word_add_n2w]
@@ -1432,12 +1430,12 @@ Proof
     rw[]
     \\ rw[get_mem_arg_def]
     \\ rw[get_next_mem_arg_LEAST]
-    \\ rw[whileTheory.OLEAST_def]
+    \\ rw[WhileTheory.OLEAST_def]
     \\ fs[] )
   \\ rw[] \\ fs[]
   \\ Cases_on`index` \\ fs[get_mem_arg_def]
   \\ simp[UNCURRY]
-  \\ simp[get_next_mem_arg_LEAST, whileTheory.OLEAST_def]
+  \\ simp[get_next_mem_arg_LEAST, WhileTheory.OLEAST_def]
   \\ IF_CASES_TAC \\ fs[]
 QED
 
@@ -1513,7 +1511,7 @@ Proof
   \\ Induct_on`n` \\ rw[]
   >- (
     simp[Once ag32_ffi_get_arg_store_def]
-    \\ fs[whileTheory.OLEAST_def]
+    \\ fs[WhileTheory.OLEAST_def]
     \\ qpat_x_assum`_ = 0n`mp_tac
     \\ numLib.LEAST_ELIM_TAC
     \\ conj_tac >- metis_tac[]
@@ -1539,7 +1537,7 @@ Proof
   \\ simp[Once ag32_ffi_get_arg_store_def]
   \\ IF_CASES_TAC
   >- (
-    fs[whileTheory.OLEAST_def]
+    fs[WhileTheory.OLEAST_def]
     \\ first_assum(qspec_then`n'`mp_tac)
     \\ simp_tac(srw_ss())[DISJ_EQ_IMP]
     \\ impl_tac >- fs[] \\ strip_tac
@@ -1573,7 +1571,7 @@ Proof
     \\ disch_then(qspec_then`n'`mp_tac)
     \\ strip_tac \\ fs[]
     \\ fs[bitTheory.BITS_ZERO3, NOT_LESS_EQUAL, DISJ_EQ_IMP] \\ rw[]
-    \\ fs[whileTheory.OLEAST_def]
+    \\ fs[WhileTheory.OLEAST_def]
     \\ qpat_x_assum`_ = SUC _`mp_tac
     \\ numLib.LEAST_ELIM_TAC
     \\ conj_tac >- metis_tac[]
@@ -1582,7 +1580,7 @@ Proof
     \\ simp[] )
   \\ qmatch_goalsub_abbrev_tac`ag32_ffi_get_arg_store s'`
   \\ last_x_assum(qspec_then`s'`mp_tac)
-  \\ fs[whileTheory.OLEAST_def]
+  \\ fs[WhileTheory.OLEAST_def]
   \\ qpat_x_assum`_ = SUC _`mp_tac
   \\ numLib.LEAST_ELIM_TAC
   \\ conj_tac >- metis_tac[]
@@ -3722,4 +3720,3 @@ Definition init_memory_def:
   get_byte k (EL (w2n (byte_align k) DIV 4) (init_memory_words code data ffis cl stdin)) F
 End
 
-val _ = export_theory();

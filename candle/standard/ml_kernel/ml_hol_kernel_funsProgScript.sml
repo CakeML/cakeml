@@ -4,23 +4,24 @@
   monadic translator proves certificate theorems that state a formal
   connection between the generated code and the input HOL functions.
 *)
-open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
-open astTheory evaluateTheory semanticPrimitivesTheory
-open ml_progLib ml_progTheory evaluateTheory
-open set_sepTheory cfTheory cfStoreTheory cfTacticsLib Satisfy
-open cfHeapsBaseTheory basisFunctionsLib
-open ml_monadBaseTheory ml_monad_translatorTheory ml_monadStoreLib ml_monad_translatorLib
-open holKernelTheory
-open basisProgTheory
-open holAxiomsSyntaxTheory (* for setting up the context *)
-local open holKernelPmatchTheory in end
-open runtime_checkTheory runtime_checkLib; (* Adds runtime type checks *)
+Theory ml_hol_kernel_funsProg
+Ancestors
+  ml_translator ml_pmatch patternMatches ast evaluate
+  semanticPrimitives ml_prog evaluate set_sep cf cfStore
+  cfHeapsBase ml_monadBase ml_monad_translator holKernel
+  basisProg
+  holAxiomsSyntax (* for setting up the context *)
+  runtime_check (* Adds runtime type checks *)
+  holKernelPmatch[qualified]
+Libs
+  preamble ml_translatorLib ml_progLib cfTacticsLib Satisfy
+  basisFunctionsLib ml_monadStoreLib ml_monad_translatorLib
+  runtime_checkLib (* Adds runtime type checks *)
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory "ml_hol_kernel_funsProg";
 val _ = translation_extends "basisProg"
 
 val _ = (use_full_type_names := false);
@@ -71,7 +72,7 @@ Definition init_axioms_def:
   init_axioms = []:thm list
 End
 
-Triviality init_axioms_alt:
+Theorem init_axioms_alt[local]:
   init_axioms = case [Sequent [] (Var (strlit "") (Tyvar (strlit "")))] of
                 | [] => []
                 | (_ :: xs) => xs
@@ -131,7 +132,7 @@ val res = translate check_tm_tm_def;
 (*
 val res = translate mlstringTheory.explode_aux_def;
 val res = translate mlstringTheory.explode_def;
-Triviality explode_aux_side_thm:
+Theorem explode_aux_side_thm[local]:
   ∀s n m. n + m = strlen s ==> explode_aux_side s n m
 Proof
   Induct_on`m` \\ rw[Once (theorem"explode_aux_side_def")]
@@ -333,7 +334,7 @@ Definition term_compare_def:
          | Greater => Greater
 End
 
-Triviality term_cmp_thm:
+Theorem term_cmp_thm[local]:
   term_cmp = term_compare
 Proof
   fs [FUN_EQ_THM]
@@ -490,7 +491,13 @@ val MK_COMB_lemma = prove(
   every_case_tac)
   |> CONV_RULE (RAND_CONV (SIMP_CONV std_ss [holKernelPmatchTheory.MK_COMB_def]));
 val def = MK_COMB_lemma |> m_translate
+
 val def = holKernelPmatchTheory.ABS_def |> check [‘v’] |> m_translate
+(* workaround contamination of translator's guts by DoubleProg.abs *)
+Overload abs_v = “abs_1_v”
+Theorem abs_v_def = DB.fetch "-" "abs_1_v_def"
+Theorem abs_v_thm = DB.fetch "-" "abs_1_v_thm"
+
 val def = holKernelPmatchTheory.BETA_def |> check [‘tm’] |> m_translate
 
 val _ = next_ml_names := ["DEDUCT_ANTISYM_RULE"];
@@ -509,19 +516,19 @@ val def = list_to_hypset_def |> translate
 
 val _ = ml_prog_update open_local_in_block;
 
-Triviality axioms_eq:
+Theorem axioms_eq[local]:
   axioms u = one_CASE u get_the_axioms
 Proof
   fs [axioms_def]
 QED
 
-Triviality types_eq:
+Theorem types_eq[local]:
   types u = one_CASE u get_the_type_constants
 Proof
   fs [types_def]
 QED
 
-Triviality constants_eq:
+Theorem constants_eq[local]:
   constants u = one_CASE u get_the_term_constants
 Proof
   fs [constants_def]
@@ -536,5 +543,3 @@ val def = m_translate constants_eq;
 
 val _ = Globals.max_print_depth := 10;
 val _ = print_asts := false;
-
-val _ = export_theory();

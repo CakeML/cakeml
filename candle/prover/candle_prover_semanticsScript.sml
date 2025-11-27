@@ -1,24 +1,17 @@
 (*
   Top-level soundness theorem for the Candle theorem prover.
  *)
+Theory candle_prover_semantics
+Ancestors
+  misc[qualified] semanticPrimitivesProps namespaceProps evaluate
+  candle_prover_inv candle_basis_evaluate candle_kernelProg
+  semantics semanticPrimitives evaluateProps sptree perms
+  candle_kernel_funs candle_kernel_vals candle_prover_evaluate
+  ast_extras holKernelProof basisProg ml_hol_kernel_funsProg
+  ml_prog
+Libs
+  preamble helperLib ml_translatorLib ml_progLib[qualified]
 
-open preamble helperLib;
-open semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     evaluateTheory namespacePropsTheory evaluatePropsTheory
-     sptreeTheory candle_kernelProgTheory
-open permsTheory candle_kernel_funsTheory candle_kernel_valsTheory
-     candle_prover_invTheory candle_prover_evaluateTheory ast_extrasTheory
-     candle_basis_evaluateTheory semanticsTheory;
-open holKernelProofTheory basisProgTheory ml_hol_kernel_funsProgTheory;
-open ml_translatorLib ml_progTheory;
-local open ml_progLib in end
-
-val _ = new_theory "candle_prover_semantics";
-
-val _ = set_grammar_ancestry [
-  "misc", "semanticPrimitivesProps", "namespaceProps", "evaluate",
-   "candle_prover_inv", "candle_basis_evaluate", "candle_kernelProg",
-   "semantics" ];
 
 val _ = translation_extends "candle_kernelProg";
 
@@ -577,4 +570,3 @@ Proof
   \\ res_tac
 QED
 
-val _ = export_theory ();

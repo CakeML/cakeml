@@ -1,9 +1,11 @@
 (*
   Normalizes pbc into npbc
 *)
-open preamble pbcTheory npbcTheory mllistTheory mlmapTheory;
-
-val _ = new_theory "pbc_normalise";
+Theory pbc_normalise
+Libs
+  preamble
+Ancestors
+  pbc npbc mllist mlmap mergesort
 
 val _ = numLib.temp_prefer_num();
 
@@ -114,7 +116,7 @@ Proof
   \\ fs [hashChar_def]
 QED
 
-Triviality hashChar_bound:
+Theorem hashChar_bound[local]:
   ∀h. hashChar h < 71
 Proof
   rw [hashChar_def,hashNon_def,non_list_eq,lookup_fromAList]>>
@@ -122,7 +124,7 @@ Proof
   rw[]
 QED
 
-Triviality hashChar_11:
+Theorem hashChar_11[local]:
   hashChar h <> 0 /\ hashChar h' <> 0 ==>
   (hashChar h = hashChar h' <=> h = h')
 Proof
@@ -512,7 +514,7 @@ Definition pbc_to_npbc_def:
   (pbc_to_npbc (GreaterEqual,lhs,n) =
     let (lhs',m') = compact_lhs (sort term_le lhs) 0 in
     let (lhs'',m'') = normalise_lhs lhs' [] 0 in
-    let rhs = if n-(m'+m'') ≥ 0 then Num(n-(m'+m'')) else 0 in
+    let rhs = n-(m'+m'') in
     (lhs'',rhs):npbc) ∧
   (pbc_to_npbc _ = ([],0))
 End
@@ -1532,5 +1534,3 @@ Proof
   qexists_tac`st3`>>
   gvs[]
 QED
-
-val _ = export_theory();

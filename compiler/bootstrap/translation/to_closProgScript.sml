@@ -1,13 +1,19 @@
 (*
   Translate the backend phase from flatLang to closLang.
 *)
-open preamble ml_translatorLib ml_translatorTheory to_flatProgTheory
-local open flat_to_closTheory clos_mtiTheory clos_numberTheory
-  clos_knownTheory clos_callTheory clos_annotateTheory in end
+Theory to_closProg[no_sig_docs]
+Ancestors
+  ml_translator to_flatProg flat_to_clos[qualified]
+  clos_mti[qualified] clos_number[qualified]
+  clos_known[qualified] clos_call[qualified]
+  clos_annotate[qualified]
+Libs
+  preamble ml_translatorLib
+
+open preamble ml_translatorLib ml_translatorTheory to_flatProgTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
-val _ = new_theory "to_closProg";
 val _ = translation_extends "to_flatProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_closProg");
@@ -32,7 +38,7 @@ fun list_mk_fun_type [ty] = ty
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-Triviality NOT_NIL_AND_LEMMA:
+Theorem NOT_NIL_AND_LEMMA[local]:
   (b <> [] /\ x) = if b = [] then F else x
 Proof
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []
@@ -224,7 +230,7 @@ val r = translate clos_opTheory.SmartOp_def;
 
 val r = translate clos_knownTheory.merge_alt;
 
-Triviality num_abs_intro:
+Theorem num_abs_intro[local]:
   ∀x. Num x = if 0 ≤ x then Num (ABS x) else Num x
 Proof
   rw[]>>intLib.COOPER_TAC
@@ -256,7 +262,7 @@ Theorem clos_known_free_side = Q.prove(
 
 val r = translate (clos_knownTheory.get_size_sc_aux_def |> REWRITE_RULE [GSYM sub_check_def]);
 
-Triviality clos_known_get_size_sc_aux_ind:
+Theorem clos_known_get_size_sc_aux_ind[local]:
   clos_known_get_size_sc_aux_ind
 Proof
   once_rewrite_tac [fetch "-" "clos_known_get_size_sc_aux_ind_def"]
@@ -412,7 +418,5 @@ val r = translate clos_ticksTheory.compile_inc_def;
 
 (* ------------------------------------------------------------------------- *)
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 val _ = ml_translatorLib.clean_on_exit := true;
-val _ = export_theory ();

@@ -3,14 +3,13 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory
-     arm8_asl_configProofTheory
-     TextIOProofTheory
-     satSemTheory lprTheory lpr_listTheory lpr_arrayFullProgTheory
-     lpr_parsingTheory lpr_arrayCompileARM8Theory lpr_composeProgTheory;
-
-val _ = new_theory"lpr_arrayProofARM8";
+Theory lpr_arrayProofARM8
+Ancestors
+  semanticsProps backendProof arm8_asl_configProof TextIOProof
+  satSem lpr lpr_list lpr_arrayFullProg lpr_parsing
+  lpr_arrayCompileARM8 lpr_composeProg
+Libs
+  preamble
 
 val check_unsat_io_events_def = new_specification("check_unsat_io_events_def",["check_unsat_io_events"],
   check_unsat_semantics |> Q.GENL[`cl`,`fs`]
@@ -467,4 +466,3 @@ Proof
   metis_tac[stdout_add_stderr]
 QED
 
-val _ = export_theory();

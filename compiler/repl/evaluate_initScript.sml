@@ -2,14 +2,13 @@
   Lemma used in repl_typesTheory: that evaluate_skip's invariant
   holds at initialisation.
 *)
+Theory evaluate_init
+Ancestors
+  evaluate semanticPrimitives evaluateProps namespaceProps
+  ml_prog evaluate_skip
+Libs
+  preamble helperLib[qualified]
 
-open preamble
-open evaluateTheory semanticPrimitivesTheory evaluatePropsTheory
-open namespacePropsTheory ml_progTheory
-open evaluate_skipTheory
-local open helperLib in end
-
-val _ = new_theory "evaluate_init";
 
 (* TODO: move *)
 
@@ -64,7 +63,8 @@ End
 Theorem ref_ok_thm:
   ref_ok s (Refv v) = v_ok s v ∧
   ref_ok s (Varray vs) = EVERY (v_ok s) vs ∧
-  ref_ok s (W8array a) = T
+  ref_ok s (W8array a) = T ∧
+  ref_ok s (Thunk _ v) = v_ok s v
 Proof
   rw [ref_ok_def, ref_rel_def, v_ok_def, LIST_REL_EL_EQN, EVERY_EL]
 QED
@@ -113,9 +113,6 @@ Theorem v_ok_thm:
   (∀env f n. v_ok s (Recclosure env f n) ⇔ env_ok s env) ∧
   (∀vs. v_ok s (Vectorv vs) ⇔ EVERY (v_ok s) vs) ∧
   (∀lit. v_ok s (Litv lit)) ∧
-  (∀ fp. v_ok s (FP_WordTree fp)) ∧
-  (∀ fp. v_ok s (FP_BoolTree fp)) ∧
-  (∀ r. v_ok s (Real r)) ∧
   (∀loc b. v_ok s (Loc b loc) ⇔ loc < LENGTH s.refs) ∧
   (∀env ns. v_ok s (Env env ns) ⇔ env_ok s env)
 Proof
@@ -472,12 +469,6 @@ Proof
       \\ irule_at Any v_rel_update
       \\ first_assum (irule_at Any)
       \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
-    >- (
-      irule ref_rel_mono
-      \\ first_assum (irule_at Any) \\ rw []
-      \\ irule_at Any v_rel_update
-      \\ first_assum (irule_at Any)
-      \\ gs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
     \\ rw [Once listTheory.LIST_REL_EL_EQN]
     \\ irule_at Any v_rel_update \\ gs[v_ok_def]
     \\ first_x_assum $ irule_at Any \\ rw [v_ok_def]
@@ -486,6 +477,14 @@ Proof
   >- (
     gvs [do_app_cases, v_ok_thm, store_alloc_def, with_same_refs_and_ffi])
   \\ Cases_on ‘op = Vsub’ \\ gs []
+  >- (
+    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
+         store_lookup_def]
+    \\ drule_then assume_tac state_ok_refs_ok
+    \\ fs [EVERY_EL]
+    \\ first_x_assum drule
+    \\ rw [ref_ok_thm, EVERY_EL])
+  \\ Cases_on ‘op = Vsub_unsafe’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_lookup_def]
@@ -604,24 +603,10 @@ Proof
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_lookup_def, copy_array_def, store_assign_def,
-         v_ok_def, v_rel_def])
-  \\ Cases_on ‘∃bop. op = Real_bop bop’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def,
-         v_ok_def, v_rel_def])
-  \\ Cases_on ‘∃uop. op = Real_uop uop’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def,
-         v_ok_def, v_rel_def])
-  \\ Cases_on ‘∃cmp. op = Real_cmp cmp’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def,
          v_ok_def, v_rel_def, Boolv_def]
-    \\ TOP_CASE_TAC
-    \\ gs[v_rel_def, stamp_rel_cases, state_ok_def, state_rel_def])
+    \\ rw []  \\ fs [v_rel_def, stamp_rel_cases]
+    \\ fs [Boolv_def, state_ok_def, v_ok_thm, stamp_ok_def, stamp_rel_cases,
+           FLOOKUP_FUN_FMAP, state_rel_def])
   \\ Cases_on ‘∃opn. op = Opn opn’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
@@ -680,38 +665,121 @@ Proof
     gvs[do_app_cases, v_ok_thm]
     \\ ‘s with <| refs := s.refs; ffi := s.ffi |> = s’ suffices_by gs[]
     \\ gs[state_component_equality])
-  \\ Cases_on ‘op = RealFromFP’ \\ gs[]
+  \\ Cases_on ‘∃m. op = ThunkOp (AllocThunk m)’ \\ gs[]
   >- (
-    gvs[do_app_cases, v_ok_thm]
-    \\ ‘s with <| refs := s.refs; ffi := s.ffi |> = s’ suffices_by gs[]
-    \\ gs[state_component_equality])
+    gvs [do_app_cases, v_ok_thm, thunk_op_def, AllCaseEqs()]
+    \\ pairarg_tac \\ gvs []
+    \\ gvs [store_alloc_def, state_ok_def, v_ok_thm, state_rel_def, EVERY_EL,
+            INJ_IFF, FLOOKUP_FUN_FMAP, EL_APPEND_EQN]
+    \\ rw [] \\ gvs [FUN_FMAP_DEF, ref_rel_def, NOT_LESS, LESS_OR_EQ,
+                     ref_ok_def]
+    >- (
+      irule ref_rel_mono
+      \\ first_assum (irule_at Any) \\ rw []
+      \\ irule_at Any v_rel_update
+      \\ first_assum (irule_at Any)
+      \\ gvs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
+    \\ gvs [v_ok_def]
+    \\ irule_at Any v_rel_update
+    \\ first_assum (irule_at Any)
+    \\ gvs [FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO])
+  \\ Cases_on ‘∃m. op = ThunkOp (UpdateThunk m)’ \\ gs[]
+  >- (
+    gvs [do_app_cases, thunk_op_def, AllCaseEqs(), v_ok_thm, store_assign_def,
+         state_ok_def, v_ok_def, state_rel_def, FLOOKUP_FUN_FMAP]
+    \\ rw [v_rel_def, EL_LUPDATE, ref_rel_def])
+  \\ Cases_on ‘op = ThunkOp ForceThunk’ \\ gs[]
+  >- gvs [do_app_def, AllCaseEqs(), thunk_op_def]
   \\ Cases_on ‘op’ \\ gs []
+  \\ Cases_on ‘t’ \\ gs []
 QED
 
 Theorem do_app_ok[allow_rebind] = SIMP_RULE (srw_ss()) [LET_THM] do_app_ok;
+
+Theorem dest_thunk_ok:
+  state_ok s ∧
+  dest_thunk vs s.refs = IsThunk m v ∧
+  do_opapp [v; Conv NONE []] = SOME (env,e) ⇒
+    state_ok (dec_clock s) ∧ env_ok (dec_clock s) env
+Proof
+  rw []
+  >- gvs [dec_clock_def, state_ok_def, state_rel_def]
+  \\ gvs [do_opapp_def, AllCaseEqs()]
+  >- (
+    gvs [dec_clock_def, env_ok_def, env_rel_def]
+    \\ irule_at Any nsAll2_nsBind \\ gvs []
+    \\ conj_tac >- simp [v_rel_def]
+    \\ gvs [state_ok_def, state_rel_def, FLOOKUP_FUN_FMAP]
+    \\ gvs [oneline dest_thunk_def, AllCaseEqs(), store_lookup_def]
+    \\ first_x_assum drule \\ rw [ref_rel_def, v_rel_def, env_rel_def])
+  \\ simp [env_ok_def, env_rel_def, dec_clock_def]
+  \\ irule_at Any nsAll2_nsBind \\ gvs []
+  \\ conj_tac >- simp [v_rel_def]
+  \\ simp [semanticPrimitivesPropsTheory.build_rec_env_merge]
+  \\ irule_at Any nsAll2_nsAppend \\ gvs []
+  \\ irule_at Any nsAll2_alist_to_ns \\ gvs []
+  \\ gs [EVERY2_MAP, LAMBDA_PROD, v_rel_def, env_rel_def]
+  \\ rw [ELIM_UNCURRY, LIST_REL_EL_EQN]
+  \\ gvs [state_ok_def, state_rel_def, FLOOKUP_FUN_FMAP]
+  \\ gvs [oneline dest_thunk_def, AllCaseEqs(), store_lookup_def]
+  \\ first_x_assum drule \\ rw [ref_rel_def, v_rel_def, env_rel_def]
+QED
 
 Theorem evaluate_ok_Op:
   op ≠ Opapp ∧ op ≠ Eval ⇒ ^(get_goal "App")
 Proof
   strip_tac
-  \\ ‘~ (getOpClass op = EvalOp)’ by (Cases_on ‘op’ \\ gs[])
-  \\ ‘~ (getOpClass op = FunApp)’ by (Cases_on ‘op’ \\ gs[])
+  \\ ‘~ (getOpClass op = EvalOp)’ by (
+    Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
+  \\ ‘~ (getOpClass op = FunApp)’ by (
+    Cases_on ‘op’ \\ gs[] \\ Cases_on ‘t’ \\ gs[])
   \\ rpt strip_tac
   \\ gs[evaluate_def, Excl "getOpClass_def"]
   \\ Cases_on ‘getOpClass op’ \\ gs[Excl "getOpClass_def"]
+  >>~ [‘getOpClass op = Force’]
+  >- (
+    Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []
+    \\ Cases_on ‘t'’ \\ full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
+    >- (
+      drule_all dest_thunk_ok \\ rw [] \\ gvs []
+      \\ qpat_x_assum ‘state_ok st2’ mp_tac
+      \\ rw [state_ok_def, state_rel_def] \\ gvs [FLOOKUP_FUN_FMAP]
+      >- simp [INJ_DEF, FUN_FMAP_DEF]
+      \\ rw []
+      \\ gvs [oneline update_thunk_def, AllCaseEqs(), store_assign_def,
+              EL_LUPDATE]
+      \\ IF_CASES_TAC \\ gvs [ref_rel_def, v_ok_def])
+    >- (drule_all dest_thunk_ok \\ gvs []))
+  >- (
+    Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []
+    \\ Cases_on ‘t'’ \\ full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
+    \\ (
+      drule_all dest_thunk_ok \\ rw [] \\ gvs []
+      \\ imp_res_tac (CONJUNCT1 evaluate_next_type_stamp_mono)
+      \\ imp_res_tac (CONJUNCT1 evaluate_next_exn_stamp_mono)
+      \\ imp_res_tac (CONJUNCT1 evaluate_refs_length_mono)
+      \\ gvs [dec_clock_def, env_ok_def]
+      \\ irule env_rel_update
+      \\ first_assum (irule_at Any)
+      \\ gvs [oneline update_thunk_def, AllCaseEqs(), store_assign_def,
+              FUN_FMAP_SUBMAP_SUBSET, COUNT_MONO]))
+  >- (
+    Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []
+    \\ Cases_on ‘t'’ \\ full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
+    >- (
+      gvs [oneline dest_thunk_def, AllCaseEqs(), store_lookup_def]
+      \\ qpat_x_assum ‘state_ok st'’ mp_tac
+      \\ rw [state_ok_def, state_rel_def] \\ gvs [FLOOKUP_FUN_FMAP]
+      \\ first_x_assum drule \\ rw [ref_rel_def, v_ok_def])
+    \\ drule_all dest_thunk_ok \\ rw [] \\ gvs []
+    \\ gvs [EVERY_EL, v_ok_def, oneline update_thunk_def, AllCaseEqs(),
+            store_assign_def])
+  >- (
+    Cases_on ‘op’ \\ full_simp_tac (srw_ss()) []
+    \\ Cases_on ‘t'’ \\ full_simp_tac (srw_ss()) [AllCaseEqs()] \\ gvs []
+    \\ drule_all dest_thunk_ok \\ gvs [])
   \\ gvs [CaseEqs ["prod", "result", "option"]]
   \\ dxrule_then assume_tac (iffRL EVERY_REVERSE)
-  \\ TRY (
-    rename1 ‘evaluate st env (REVERSE es) = (st2, Rval vs)’
-    \\ ‘st2.fp_state.canOpt = Strict’
-      by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv
-          \\ gs[state_ok_def, state_rel_def]))
-  \\ TRY (
-    rename1 ‘evaluate st env (REVERSE es) = (st2, Rval vs2)’
-    \\ ‘~ st2.fp_state.real_sem’
-      by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv
-          \\ gs[state_ok_def, state_rel_def])
-    \\ gs[] \\ NO_TAC)
   \\ drule_all_then assume_tac do_app_ok \\ gs []
   \\ gs [env_ok_def]
   \\ drule_then assume_tac (CONJUNCT1 evaluate_next_type_stamp_mono)
@@ -897,32 +965,6 @@ Theorem evaluate_ok_Lannot:
   ^(get_goal "Lannot")
 Proof
   rw [evaluate_def]
-QED
-
-Theorem EVERY_do_fpoptimise:
-  ∀ ann vs st.
-    EVERY (v_ok st) vs ⇒
-    EVERY (v_ok st) (do_fpoptimise ann vs)
-Proof
-  ho_match_mp_tac do_fpoptimise_ind
-  \\ rw[do_fpoptimise_def, v_ok_def, v_rel_def]
-  \\ irule LIST_REL_do_fpoptimise \\ gs[]
-QED
-
-Theorem evaluate_ok_FpOptimise:
-  ^(get_goal "FpOptimise")
-Proof
-  rw [evaluate_def]
-  \\ ‘st.fp_state.canOpt = Strict’ by gs [state_ok_def, state_rel_def]
-  \\ ‘st with fp_state := st.fp_state = st’ by gs[state_component_equality]
-  \\ gvs [CaseEqs["prod","result"]]
-  \\ rename1 ‘evaluate st env [e] = (st2, _)’
-  \\ ‘st2 with fp_state := st2.fp_state with canOpt := Strict = st2’
-     by (imp_res_tac fpSemPropsTheory.evaluate_fp_opts_inv
-         \\ gs [state_component_equality, fpState_component_equality])
-  \\ gvs[]
-  \\ irule EVERY_do_fpoptimise
-  \\ gs[]
 QED
 
 Theorem evaluate_ok_pmatch_Nil:
@@ -1220,7 +1262,6 @@ Proof
                   evaluate_ok_If, evaluate_ok_Mat,
                   evaluate_ok_Let, evaluate_ok_Letrec,
                   evaluate_ok_Tannot, evaluate_ok_Lannot,
-                  evaluate_ok_FpOptimise,
                   evaluate_ok_pmatch_Nil, evaluate_ok_pmatch_Cons,
                   evaluate_ok_decs_Nil, evaluate_ok_decs_Cons,
                   evaluate_ok_decs_Dlet, evaluate_ok_decs_Dletrec,
@@ -1265,5 +1306,3 @@ Proof
   \\ rw [state_ok_init, env_ok_init]
   \\ irule env_ok_extend_dec_env \\ gs []
 QED
-
-val _ = export_theory();

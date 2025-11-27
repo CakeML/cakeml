@@ -2,10 +2,11 @@
   A compiler phase that turns programs of the functional language BVI
   into the first imperative language of the CakeML compiler: dataLang.
 *)
-open preamble bviTheory dataLangTheory
-     data_simpTheory data_liveTheory data_spaceTheory;
-
-val _ = new_theory "bvi_to_data";
+Theory bvi_to_data
+Ancestors
+  bvi dataLang data_simp data_live data_space
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -120,6 +121,11 @@ Definition compile_def:
   (compile n env tail live [Tick x1] =
      let (c1,v1,n1) = compile n env tail live [x1] in
        (Seq Tick c1, v1, n1)) /\
+  (compile n env tail live [Force loc v] =
+     let var = any_el v env 0n in
+     let ret = (if tail then NONE
+                else SOME (n, list_to_num_set (live ++ env))) in
+       (Force ret loc var, [n], MAX (n+1) (var+1))) ∧
   (compile n env tail live [Call ticks dest xs NONE] =
      let (c1,vs,n1) = compile n env F live xs in
      let ret = (if tail then NONE
@@ -162,6 +168,11 @@ Definition compile_sing_def:
   (compile_sing n env tail live (Tick x1) =
      let (c1,v1,n1) = compile_sing n env tail live x1 in
        (Seq Tick c1, v1, n1)) /\
+  (compile_sing n env tail live (Force loc v) =
+     let var = any_el v env 0n in
+     let ret = (if tail then NONE
+                else SOME (n, list_to_num_set (live ++ env))) in
+       (Force ret loc var, n, MAX (n+1) (var+1))) ∧
   (compile_sing n env tail live (Call ticks dest xs NONE) =
      let (c1,vs,n1) = compile_list n env live xs in
      let ret = (if tail then NONE
@@ -208,7 +219,7 @@ Proof
   \\ gvs [compile_def]
 QED
 
-Triviality compile_LESS_EQ_lemma:
+Theorem compile_LESS_EQ_lemma[local]:
   !n env tail live xs.
       n <= SND (SND (compile n env tail live xs))
 Proof
@@ -225,7 +236,7 @@ Proof
   \\ FULL_SIMP_TAC std_ss []
 QED
 
-Triviality compile_LENGTH_lemma:
+Theorem compile_LENGTH_lemma[local]:
   !n env tail live xs.
       (LENGTH (FST (SND (compile n env tail live xs))) = LENGTH xs)
 Proof
@@ -283,4 +294,3 @@ Proof
   \\ gvs [compile_exp_def]
 QED
 
-val _ = export_theory();

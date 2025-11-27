@@ -1,9 +1,11 @@
 (*
   Some lemmas about the semantics.
 *)
-open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory setSpecTheory
-
-val _ = new_theory"holSemanticsExtra"
+Theory holSemanticsExtra
+Ancestors
+  holSyntaxLib holSyntax holSyntaxExtra holSemantics setSpec
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -899,4 +901,3 @@ Proof
   metis_tac[]
 QED
 
-val _ = export_theory()

@@ -2,12 +2,11 @@
   This file contains parts of the Splay Heap and Implicit Queue
   examples.  This file has been used to generate benchmark programs.
 *)
-open HolKernel Parse boolLib bossLib;
-open bagTheory relationTheory bagLib miscTheory ml_translatorLib;
-open preamble
-open listTheory arithmeticTheory ml_translatorLib ListProgTheory;
-
-val _ = new_theory "benchmark";
+Theory benchmark
+Ancestors
+  bag relation misc list arithmetic ListProg
+Libs
+  bagLib ml_translatorLib preamble ml_translatorLib
 
 val _ = translation_extends "ListProg";
 
@@ -138,7 +137,7 @@ val r = translate partition_def;
 val partition_ind = fetch "-" "partition_ind"
 val heap_size_def = fetch "-" "heap_size_def"
 
-Triviality partition_size:
+Theorem partition_size[local]:
   !get_key leq p h1 h2 h3.
   ((h2,h3) = partition get_key leq p h1)
   ⇒
@@ -211,4 +210,3 @@ run_heap ⇔ find_min (use_heap 1000 empty')
 End
 val r = translate run_heap;
 
-val _ = export_theory ();

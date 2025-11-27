@@ -1,9 +1,11 @@
 (*
   Proofs about the module about the list tyoe.
 *)
-open preamble ml_translatorTheory ml_translatorLib cfLib ListProgTheory
-
-val _ = new_theory "ListProof";
+Theory ListProof
+Ancestors
+  ml_translator ListProg
+Libs
+  preamble ml_translatorLib cfLib
 
 val _ = translation_extends "ListProg";
 
@@ -39,4 +41,3 @@ Theorem app_spec = Q.prove(
 |> Q.SPEC`0` |> SIMP_RULE(srw_ss())[]
 |> Q.GENL[`eff`,`fv`]
 
-val _ = export_theory();

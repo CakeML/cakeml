@@ -1,15 +1,17 @@
 (*
   Correctness proof for word_bignum
 *)
-open preamble astTheory wordLangTheory wordSemTheory wordPropsTheory tailrecTheory;
-open mc_multiwordTheory set_sepTheory helperLib word_bignumTheory mllistTheory;
+Theory word_bignumProof
+Libs
+  preamble helperLib
+Ancestors
+  mllist ast wordLang wordSem wordProps tailrec mc_multiword
+  set_sep word_bignum
 
 val good_dimindex_def = miscTheory.good_dimindex_def;
 val env_to_list_lookup_equiv = wordPropsTheory.env_to_list_lookup_equiv;
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "word_bignumProof";
 
 val shift_def = backend_commonTheory.word_shift_def
 
@@ -276,22 +278,26 @@ Definition state_rel_def:
     (!n. (!r. n <> Temp r) ==> FLOOKUP t.store n = FLOOKUP t0.store n)
 End
 
-val state_rel_delete_vars = prove(
-  ``s1.arrays = s2.arrays /\ s1.clock = s2.clock /\
+Theorem state_rel_delete_vars[local]:
+    s1.arrays = s2.arrays /\ s1.clock = s2.clock /\
     s2.regs SUBMAP s1.regs ==>
     state_rel s1 t1 cs t0 frame ==>
-    state_rel s2 t1 cs t0 frame``,
+    state_rel s2 t1 cs t0 frame
+Proof
   fs [state_rel_def] \\ rw []
   \\ fs [SUBMAP_DEF,FLOOKUP_DEF]
-  \\ metis_tac []);
+  \\ metis_tac []
+QED
 
-val state_rel_delete_vars = prove(
-  ``!vs. state_rel s1 t1 cs t0 frame ==>
-         state_rel (delete_vars vs s1) t1 cs t0 frame``,
+Theorem state_rel_delete_vars[local]:
+    !vs. state_rel s1 t1 cs t0 frame ==>
+         state_rel (delete_vars vs s1) t1 cs t0 frame
+Proof
   strip_tac
   \\ match_mp_tac state_rel_delete_vars
   \\ Induct_on `vs` \\ fs [delete_vars_def,reg_write_def]
-  \\ fs [SUBMAP_DEF,FDOM_DOMSUB,DOMSUB_FAPPLY_THM]);
+  \\ fs [SUBMAP_DEF,FDOM_DOMSUB,DOMSUB_FAPPLY_THM]
+QED
 
 Definition exp_ok_def:
   (exp_ok (Const _) <=> T) /\
@@ -346,27 +352,34 @@ Proof
   \\ rw []
 QED
 
-val env_to_list_insert_0_LN = prove(
-  ``env_to_list (insert 0 ret_val LN) p = ([0,ret_val],(\n. p (n+1)))``,
+Theorem env_to_list_insert_0_LN[local]:
+    env_to_list (insert 0 ret_val LN) p = ([0,ret_val],(\n. p (n+1)))
+Proof
   fs [env_to_list_def,toAList_def,Once insert_def,foldi_def]
   \\ fs [sort_def,
          mergesortTheory.mergesort_tail_def,
          Once $ mergesortTheory.mergesortN_tail_def
         ]
   \\ fs [list_rearrange_def] \\ rw []
-  \\ fs [BIJ_DEF,EVAL ``count 1``,INJ_DEF,SURJ_DEF]);
+  \\ fs [BIJ_DEF,EVAL ``count 1``,INJ_DEF,SURJ_DEF]
+QED
 
-val code_subset_refl = prove(
-  ``!c1. code_subset c1 c1``,
-  fs [code_subset_def,FORALL_PROD]);
+Theorem code_subset_refl[local]:
+    !c1. code_subset c1 c1
+Proof
+  fs [code_subset_def,FORALL_PROD]
+QED
 
-val code_subset_trans = prove(
-  ``!c1 c2 c3. code_subset c1 c2 /\ code_subset c2 c3 ==> code_subset c1 c3``,
-  fs [code_subset_def,FORALL_PROD]);
+Theorem code_subset_trans[local]:
+    !c1 c2 c3. code_subset c1 c2 /\ code_subset c2 c3 ==> code_subset c1 c3
+Proof
+  fs [code_subset_def,FORALL_PROD]
+QED
 
-val compile_IMP_code_subset = prove(
-  ``!prog n l i cs p1 l1 i1 cs1.
-      compile n l i cs prog = (p1,l1,i1,cs1) ==> code_subset cs cs1 /\ i <= i1``,
+Theorem compile_IMP_code_subset[local]:
+    !prog n l i cs p1 l1 i1 cs1.
+      compile n l i cs prog = (p1,l1,i1,cs1) ==> code_subset cs cs1 /\ i <= i1
+Proof
   Induct
   \\ TRY (fs [compile_def,code_subset_refl] \\ NO_TAC)
   \\ fs [compile_def]
@@ -381,14 +394,16 @@ val compile_IMP_code_subset = prove(
   \\ every_case_tac \\ fs []
   \\ res_tac \\ fs [code_acc_next_def] \\ rveq
   \\ Cases_on `cs'` \\ fs [code_subset_def,install_def]
-  \\ rw [] \\ fs []);
+  \\ rw [] \\ fs []
+QED
 
-val has_compiled_lemma = prove(
-  ``state_rel s1 t1 cs2 t0 frame ∧
+Theorem has_compiled_lemma[local]:
+    state_rel s1 t1 cs2 t0 frame ∧
     has_compiled p cs = INL x /\ code_subset cs cs2 ==>
     ?cs0 p1 l1 i1 cs' cs1.
       compile x 2 1 cs' p = (p1,l1,i1,cs1) /\ code_subset cs1 cs2 /\
-      lookup x t1.code = SOME (1,Seq p1 (Return 0 [0]))``,
+      lookup x t1.code = SOME (1,Seq p1 (Return 0 [0]))
+Proof
   Cases_on `cs`
   \\ Cases_on `cs2`
   \\ fs [state_rel_def,code_rel_def,has_compiled_def]
@@ -398,18 +413,22 @@ val has_compiled_lemma = prove(
   \\ every_case_tac \\ fs [] \\ rveq
   \\ fs [code_subset_def]
   \\ res_tac \\ res_tac
-  \\ asm_exists_tac \\ fs []);
+  \\ asm_exists_tac \\ fs []
+QED
 
-val state_rel_IN_FDOM = prove(
-  ``state_rel s1 t1 cs2 t0 frame /\ r ∈ FDOM s1.regs ==>
+Theorem state_rel_IN_FDOM[local]:
+    state_rel s1 t1 cs2 t0 frame /\ r ∈ FDOM s1.regs ==>
     Temp (n2w r) ∈ FDOM t1.store /\
-    t1.store ' (Temp (n2w r)) = Word (s1.regs ' r)``,
-  fs [state_rel_def] \\ rw [] \\ fs [FLOOKUP_DEF]);
+    t1.store ' (Temp (n2w r)) = Word (s1.regs ' r)
+Proof
+  fs [state_rel_def] \\ rw [] \\ fs [FLOOKUP_DEF]
+QED
 
 
-val compile_exp_thm = prove(
-  ``state_rel s1 t1 cs2 t0 frame /\ eval_exp_pre s1 x /\ good_dimindex (:α) ==>
-    word_exp t1 (compile_exp x) = SOME (Word (eval_exp s1 (x:'a wordLang$exp)))``,
+Theorem compile_exp_thm[local]:
+  state_rel s1 t1 cs2 t0 frame /\ eval_exp_pre s1 x /\ good_dimindex (:α) ==>
+  word_exp t1 (compile_exp x) = SOME (Word (eval_exp s1 (x:'a wordLang$exp)))
+Proof
   completeInduct_on `wordLang$exp_size (K 0) x`
   \\ rw [] \\ fs [PULL_FORALL]
   \\ Cases_on `x`
@@ -434,44 +453,53 @@ val compile_exp_thm = prove(
   \\ res_tac \\ fs []
   \\ Cases_on `s`
   \\ fs [word_sh_def,eval_exp_def]
-  \\ fs [good_dimindex_def]);
+  \\ fs [good_dimindex_def]
+QED
 
-val evaluate_SeqTemp = prove(
-  ``evaluate (SeqTemp i r p,t) =
+Theorem evaluate_SeqTemp[local]:
+    evaluate (SeqTemp i r p,t) =
     if Temp (n2w r) IN FDOM t.store then
        evaluate (p,set_var i (t.store ' (Temp (n2w r))) t)
-    else evaluate (SeqTemp i r p,t)``,
-  rw [] \\ fs [SeqTemp_def,evaluate_def,word_exp_def,get_store_def,FLOOKUP_DEF]);
+    else evaluate (SeqTemp i r p,t)
+Proof
+  rw [] \\ fs [SeqTemp_def,evaluate_def,word_exp_def,get_store_def,FLOOKUP_DEF]
+QED
 
-val evaluate_SeqTempImm = prove(
-  ``evaluate (SeqTempImm i ri p,t) =
+Theorem evaluate_SeqTempImm[local]:
+    evaluate (SeqTempImm i ri p,t) =
     if !r. ri = Reg r ==> Temp (n2w r) IN FDOM t.store then
        evaluate (p,set_var i (case ri of Imm w => Word w
                               | Reg r => t.store ' (Temp (n2w r))) t)
-    else evaluate (SeqTempImm i ri p,t)``,
+    else evaluate (SeqTempImm i ri p,t)
+Proof
   Cases_on `ri` \\ fs [SeqTempImm_def]
   \\ once_rewrite_tac [evaluate_SeqTemp]
   \\ fs [] \\ rw [] \\ fs []
-  \\ fs [SeqTemp_def,evaluate_def,word_exp_def,FLOOKUP_DEF]);
+  \\ fs [SeqTemp_def,evaluate_def,word_exp_def,FLOOKUP_DEF]
+QED
 
-val evaluate_SeqTempImmNot = prove(
-  ``evaluate (SeqTempImmNot i ri p,t) =
+Theorem evaluate_SeqTempImmNot[local]:
+    evaluate (SeqTempImmNot i ri p,t) =
     if !r. ri = Reg r ==> Temp (n2w r) IN FDOM t.store /\
                           ?w. t.store ' (Temp (n2w r)) = Word w then
        evaluate (p,set_var i (case ri of Imm w => Word (~w)
                               | Reg r => case t.store ' (Temp (n2w r)) of
                                          | Word w => Word (~w)) t)
-    else evaluate (SeqTempImmNot i ri p,t)``,
+    else evaluate (SeqTempImmNot i ri p,t)
+Proof
   Cases_on `ri` \\ fs [SeqTempImmNot_def]
   \\ fs [SeqTemp_def,evaluate_def,word_exp_def,get_store_def,FLOOKUP_DEF]
   \\ rw [] \\ fs [set_var_def,get_var_def,the_words_def,word_op_def]
-  \\ fs [insert_shadow]);
+  \\ fs [insert_shadow]
+QED
 
-val LESS_LENGTH_IMP_APPEND = prove(
-  ``!xs n. n < LENGTH xs ==>
-           ?ys z zs. xs = ys ++ z::zs /\ LENGTH ys = n``,
+Theorem LESS_LENGTH_IMP_APPEND[local]:
+    !xs n. n < LENGTH xs ==>
+           ?ys z zs. xs = ys ++ z::zs /\ LENGTH ys = n
+Proof
   Induct \\ fs [] \\ Cases_on `n` \\ fs [LENGTH_NIL]
-  \\ rw [] \\ res_tac \\ fs [] \\ qexists_tac `h::ys` \\ fs []);
+  \\ rw [] \\ res_tac \\ fs [] \\ qexists_tac `h::ys` \\ fs []
+QED
 
 Theorem word_list_APPEND:
    !xs ys a. word_list a (xs ++ ys) =
@@ -481,19 +509,25 @@ Proof
                 GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
 QED
 
-val shift_eq_bytes_in_word = prove(
-  ``good_dimindex (:'a) ==>
-    (w << shift (:'a) = w * bytes_in_word:'a word)``,
+Theorem shift_eq_bytes_in_word[local]:
+    good_dimindex (:'a) ==>
+    (w << shift (:'a) = w * bytes_in_word:'a word)
+Proof
   fs [shift_def,good_dimindex_def] \\ rw []
-  \\ fs [WORD_MUL_LSL,bytes_in_word_def]);
+  \\ fs [WORD_MUL_LSL,bytes_in_word_def]
+QED
 
-val b2w_if = prove(
-  ``b2w b = if b then 1w else 0w``,
-  Cases_on `b` \\ EVAL_TAC);
+Theorem b2w_if[local]:
+    b2w b = if b then 1w else 0w
+Proof
+  Cases_on `b` \\ EVAL_TAC
+QED
 
-val b2n_if = prove(
-  ``b2n b = if ~b then 0 else 1``,
-  Cases_on `b` \\ EVAL_TAC);
+Theorem b2n_if[local]:
+    b2n b = if ~b then 0 else 1
+Proof
+  Cases_on `b` \\ EVAL_TAC
+QED
 (*Is this worth the hassle*)
 Definition list_update_def:
   list_update [] ys t = t /\
@@ -510,14 +544,15 @@ Proof
   fs[list_update_def,alist_insert_def]
 QED
 
-val evaluate_LoadRegs = prove(
-  ``!save_regs vals t1.
+Theorem evaluate_LoadRegs[local]:
+    !save_regs vals t1.
       state_rel s1 t1 cs2 t0 frame /\
       EVERY (λn. n < max_var_name) save_regs /\ ALL_DISTINCT save_regs /\
       EVERY2 (\n v. FLOOKUP s1.regs n = SOME v) save_regs vals ==>
       evaluate (LoadRegs save_regs p, t1) =
       evaluate (p, t1 with locals :=
-           list_update (MAP (\n. n+2) save_regs) (MAP Word vals) t1.locals)``,
+           list_update (MAP (\n. n+2) save_regs) (MAP Word vals) t1.locals)
+Proof
   Induct \\ fs [LoadRegs_def,list_update_def]
   THEN1 (rw [] \\ AP_TERM_TAC \\ fs [wordSemTheory.state_component_equality])
   \\ rw [] \\ fs [evaluate_def]
@@ -539,32 +574,38 @@ val evaluate_LoadRegs = prove(
   \\ qspec_tac (`ys`,`ys`)
   \\ qspec_tac (`save_regs`,`xs`)
   \\ Induct \\ Cases_on `ys` \\ fs [list_update_def]
-  \\ simp [Once insert_insert]);
+  \\ simp [Once insert_insert]
+QED
 
-val domain_list_update = prove(
-  ``∀xs ys x t. x ∈ domain (list_update xs ys t) ⇔ MEM x xs ∨ x ∈ domain t``,
-  Induct \\ Cases_on `ys` \\ fs [list_update_def] \\ metis_tac []);
+Theorem domain_list_update[local]:
+    ∀xs ys x t. x ∈ domain (list_update xs ys t) ⇔ MEM x xs ∨ x ∈ domain t
+Proof
+  Induct \\ Cases_on `ys` \\ fs [list_update_def] \\ metis_tac []
+QED
 
 Definition list_store_def:
   list_store [] ys s = s /\
   list_store (x::xs) ys s = (list_store xs (TL ys) s) |+ (Temp (n2w x),HD ys)
 End
 
-val list_store_FUPDATE = prove(
-  ``!save_regs st ys.
+Theorem list_store_FUPDATE[local]:
+    !save_regs st ys.
       ¬MEM h save_regs /\ h < max_var_name /\
       EVERY (λn. n < max_var_name) save_regs ==>
       list_store save_regs ys (st |+ (Temp (n2w h),Word v)) =
-      list_store save_regs ys st |+ (Temp (n2w h),Word v)``,
+      list_store save_regs ys st |+ (Temp (n2w h),Word v)
+Proof
   Induct \\ fs [list_store_def] \\ rpt strip_tac
-  \\ match_mp_tac FUPDATE_COMMUTES \\ fs [] \\ metis_tac []);
+  \\ match_mp_tac FUPDATE_COMMUTES \\ fs [] \\ metis_tac []
+QED
 
-val evaluate_SaveRegs = prove(
-  ``!save_regs t7 vals.
+Theorem evaluate_SaveRegs[local]:
+    !save_regs t7 vals.
       LIST_REL (λn v. lookup (n + 2) t7.locals = SOME (Word v)) save_regs vals /\
       ALL_DISTINCT save_regs /\ EVERY (\n. n < max_var_name) save_regs ==>
       evaluate (SaveRegs save_regs,t7) =
-        (NONE,t7 with store := list_store save_regs (MAP Word vals) t7.store)``,
+        (NONE,t7 with store := list_store save_regs (MAP Word vals) t7.store)
+Proof
   Induct \\ fs [list_store_def,SaveRegs_def]
   THEN1 (simp [Once evaluate_def,wordSemTheory.state_component_equality])
   \\ fs [PULL_EXISTS]
@@ -576,54 +617,67 @@ val evaluate_SaveRegs = prove(
   \\ fs [] \\ unabbrev_all_tac \\ fs []
   \\ fs [wordSemTheory.state_component_equality]
   \\ rpt strip_tac \\ fs[set_store_def]
-  \\ match_mp_tac list_store_FUPDATE \\ fs []);
+  \\ match_mp_tac list_store_FUPDATE \\ fs []
+QED
 
-val FLOOKUP_list_store_ignore = prove(
-  ``!save_regs vals st.
+Theorem FLOOKUP_list_store_ignore[local]:
+    !save_regs vals st.
     EVERY (λn. n < max_var_name) save_regs ==>
     FLOOKUP (list_store save_regs vals st) TempIn1 = FLOOKUP st TempIn1 /\
     FLOOKUP (list_store save_regs vals st) TempIn2 = FLOOKUP st TempIn2 /\
     FLOOKUP (list_store save_regs vals st) TempOut = FLOOKUP st TempOut /\
     !n. (!r. n <> Temp r) ==>
-        FLOOKUP (list_store save_regs vals st) n = FLOOKUP st n``,
+        FLOOKUP (list_store save_regs vals st) n = FLOOKUP st n
+Proof
   Induct \\ Cases_on `vals`
   \\ fs [list_store_def,FLOOKUP_UPDATE,
-         TempIn1_def,TempIn2_def,TempOut_def]);
+         TempIn1_def,TempIn2_def,TempOut_def]
+QED
 
-val copy_vars_const = prove(
-  ``!save_regs s2 s3.
+Theorem copy_vars_const[local]:
+    !save_regs s2 s3.
       copy_vars save_regs s1.regs s2 = SOME s3 ==>
-      s3.clock = s2.clock /\ s3.arrays = s2.arrays``,
+      s3.clock = s2.clock /\ s3.arrays = s2.arrays
+Proof
   Induct \\ fs [copy_vars_def] \\ rpt strip_tac \\ FULL_CASE_TAC \\ fs []
-  \\ res_tac \\ fs [reg_write_def]);
+  \\ res_tac \\ fs [reg_write_def]
+QED
 
-val lookup_list_update_ADD_2 = prove(
-  ``!save_regs ws.
-      lookup 0 (list_update (MAP (λn. n + 2) save_regs) ws l) = lookup 0 l``,
-  Induct \\ Cases_on `ws` \\ fs [list_update_def,lookup_insert]);
+Theorem lookup_list_update_ADD_2[local]:
+    !save_regs ws.
+      lookup 0 (list_update (MAP (λn. n + 2) save_regs) ws l) = lookup 0 l
+Proof
+  Induct \\ Cases_on `ws` \\ fs [list_update_def,lookup_insert]
+QED
 
-val copy_vars_ignore = prove(
-  ``!save_regs regs s2 s3.
+Theorem copy_vars_ignore[local]:
+    !save_regs regs s2 s3.
       copy_vars save_regs regs s2 = SOME s3 /\
       ~MEM a save_regs /\ a < max_var_name /\
       EVERY (λn. n < max_var_name) save_regs ==>
-      s3.regs ' a = s2.regs ' a``,
+      s3.regs ' a = s2.regs ' a
+Proof
   Induct \\ fs [copy_vars_def] \\ rpt strip_tac \\ FULL_CASE_TAC \\ fs []
-  \\ res_tac \\ rfs [reg_write_def,FAPPLY_FUPDATE_THM]);
+  \\ res_tac \\ rfs [reg_write_def,FAPPLY_FUPDATE_THM]
+QED
 
-val copy_vars_IMP = prove(
-  ``!save_regs s2 s3.
+Theorem copy_vars_IMP[local]:
+    !save_regs s2 s3.
       copy_vars save_regs s1.regs s2 = SOME s3 ==>
-      ?vals. EVERY2 (\n v. FLOOKUP s1.regs n = SOME v) save_regs vals``,
+      ?vals. EVERY2 (\n v. FLOOKUP s1.regs n = SOME v) save_regs vals
+Proof
   Induct \\ fs [copy_vars_def] \\ rw [] \\ FULL_CASE_TAC
-  \\ fs [] \\ res_tac \\ metis_tac []);
+  \\ fs [] \\ res_tac \\ metis_tac []
+QED
 
-val LIST_REL_lemma = prove(
-  ``!xs ys.
+Theorem LIST_REL_lemma[local]:
+    !xs ys.
       (!x y. MEM x xs /\ MEM y ys ==> P x y ==> Q x y) ==>
       LIST_REL P xs ys ==>
-      LIST_REL Q xs ys``,
-  Induct \\ fs [] \\ rpt strip_tac \\ rveq \\ fs []);
+      LIST_REL Q xs ys
+Proof
+  Induct \\ fs [] \\ rpt strip_tac \\ rveq \\ fs []
+QED
 
 fun uncurry_case_rand x = x
                          |> TypeBase.case_rand_of
@@ -1206,11 +1260,12 @@ Definition good_code_def:
         compile n 2 1 cs1 prog = (p2,l2',i2,cs2) ∧ code_subset cs2 cs3
 End
 
-val compile_LESS_mini_size = prove(
-  ``!k l1 l2 yy5 code xx1 xx2 xx3 xx5.
+Theorem compile_LESS_mini_size[local]:
+    !k l1 l2 yy5 code xx1 xx2 xx3 xx5.
       compile k l1 l2 yy5 code = (xx1,xx2,xx3,xx5) ==>
       !x. MEM x (SND xx5) /\ ~MEM x (SND yy5) ==>
-          mini_size (K 0) (FST x) < mini_size (K 0) code``,
+          mini_size (K 0) (FST x) < mini_size (K 0) code
+Proof
   HO_MATCH_MP_TAC compile_ind \\ reverse (rpt strip_tac)
   \\ TRY (fs [compile_def] \\ rfs [] \\ res_tac \\ fs [mini_size_def] \\ NO_TAC)
   \\ fs [compile_def] \\ rfs []
@@ -1223,13 +1278,15 @@ val compile_LESS_mini_size = prove(
   \\ pairarg_tac \\ fs [mini_size_def] \\ rveq
   \\ Cases_on `cs'` \\ fs [install_def]
   \\ Cases_on `yy5` \\ fs [code_acc_next_def]
-  \\ res_tac \\ fs []);
+  \\ res_tac \\ fs []
+QED
 
-val MEM_compile = prove(
-  ``!k l1 l2 yy5 code xx1 xx2 xx3 xx5.
+Theorem MEM_compile[local]:
+    !k l1 l2 yy5 code xx1 xx2 xx3 xx5.
       good_code yy5 /\
       compile k l1 l2 yy5 code = (xx1,xx2,xx3,xx5) ==>
-      good_code xx5``,
+      good_code xx5
+Proof
   HO_MATCH_MP_TAC compile_ind \\ reverse (rpt strip_tac)
   \\ TRY (fs [compile_def] \\ rfs [] \\ NO_TAC)
   THEN1
@@ -1267,7 +1324,8 @@ val MEM_compile = prove(
          \\ rw [] \\ fs [] \\ res_tac \\ fs [])
   \\ qexists_tac `(code_acc_next (n,r))` \\ fs []
   \\ fs [code_subset_def]
-  \\ rw [] \\ fs []);
+  \\ rw [] \\ fs []
+QED
 
 Theorem compile_NIL_IMP =
   MEM_compile
@@ -1284,111 +1342,139 @@ Definition Corr_def:
     (p ==> Eval NONE s prog s1)
 End
 
-val Corr_Skip = prove(
-  ``Corr Skip s (INR s) T``,
-  fs [Corr_def,eval_cases]);
+Theorem Corr_Skip[local]:
+    Corr Skip s (INR s) T
+Proof
+  fs [Corr_def,eval_cases]
+QED
 
-val Corr_Seq = prove(
-  ``Corr p2 s1 s2 q2 ==>
+Theorem Corr_Seq[local]:
+    Corr p2 s1 s2 q2 ==>
     Corr p1 s (INR s1) q1 ==>
-    Corr (Seq p1 p2) s s2 (q1 /\ q2)``,
+    Corr (Seq p1 p2) s s2 (q1 /\ q2)
+Proof
   fs [Corr_def,eval_cases] \\ rw [] \\ fs []
-  \\ asm_exists_tac \\ fs []);
+  \\ asm_exists_tac \\ fs []
+QED
 
-val Corr_Seq_alt = prove(
-  ``(b ==> Corr p2 s1 s2 q2) ==>
+Theorem Corr_Seq_alt[local]:
+    (b ==> Corr p2 s1 s2 q2) ==>
     Corr p1 s (INR s1) q1 ==>
-    b ==> Corr (Seq p1 p2) s s2 (q1 /\ q2)``,
+    b ==> Corr (Seq p1 p2) s s2 (q1 /\ q2)
+Proof
   fs [Corr_def,eval_cases] \\ rw [] \\ fs []
-  \\ asm_exists_tac \\ fs []);
+  \\ asm_exists_tac \\ fs []
+QED
 
-val Corr_Continue = prove(
-  ``Corr Continue s (INL s) T``,
-  fs [Corr_def,eval_cases]);
+Theorem Corr_Continue[local]:
+    Corr Continue s (INL s) T
+Proof
+  fs [Corr_def,eval_cases]
+QED
 
-val Corr_Assign = prove(
-  ``Corr (Assign n x) s
+Theorem Corr_Assign[local]:
+    Corr (Assign n x) s
       (INR (reg_write n (SOME (eval_exp s x)) s))
-      (eval_exp_pre s x)``,
-  fs [Corr_def,eval_cases]);
+      (eval_exp_pre s x)
+Proof
+  fs [Corr_def,eval_cases]
+QED
 
-val Corr_Delete = prove(
-  ``Corr (Delete vs) s (INR (delete_vars vs s)) T``,
-  fs [Corr_def,eval_cases,FLOOKUP_DEF]);
+Theorem Corr_Delete[local]:
+    Corr (Delete vs) s (INR (delete_vars vs s)) T
+Proof
+  fs [Corr_def,eval_cases,FLOOKUP_DEF]
+QED
 
-val Corr_Load = prove(
-  ``Corr (Load r i a) s
+Theorem Corr_Load[local]:
+    Corr (Load r i a) s
         (INR (reg_write r (SOME (EL (w2n (s.regs ' i)) (s.arrays a))) s))
-        (i IN FDOM s.regs /\ w2n (s.regs ' i) < LENGTH (s.arrays a))``,
-  fs [Corr_def,eval_cases,FLOOKUP_DEF]);
+        (i IN FDOM s.regs /\ w2n (s.regs ' i) < LENGTH (s.arrays a))
+Proof
+  fs [Corr_def,eval_cases,FLOOKUP_DEF]
+QED
 
-val Corr_Store = prove(
-  ``Corr (Store r i) s
+Theorem Corr_Store[local]:
+    Corr (Store r i) s
         (INR (array_write Out (LUPDATE (s.regs ' r) (w2n (s.regs ' i))
                     (s.arrays Out)) s))
         (r IN FDOM s.regs /\ i IN FDOM s.regs /\
-         w2n (s.regs ' i) < LENGTH (s.arrays Out))``,
-  fs [Corr_def,eval_cases,FLOOKUP_DEF]);
+         w2n (s.regs ' i) < LENGTH (s.arrays Out))
+Proof
+  fs [Corr_def,eval_cases,FLOOKUP_DEF]
+QED
 
-val Corr_Swap = prove(
-  ``Corr Swap s
-      (INR (array_write In1 (s.arrays In2) (array_write In2 (s.arrays In1) s))) T``,
+Theorem Corr_Swap[local]:
+    Corr Swap s
+      (INR (array_write In1 (s.arrays In2) (array_write In2 (s.arrays In1) s))) T
+Proof
   fs [Corr_def,eval_cases,FLOOKUP_DEF]
   \\ fs [fetch "-" "state_component_equality"]
-  \\ rw [] \\ qexists_tac `s` \\ fs []);
+  \\ rw [] \\ qexists_tac `s` \\ fs []
+QED
 
-val Corr_Add = prove(
-  ``Corr (Add n1 n2 n3 ri1 ri2) s
+Theorem Corr_Add[local]:
+    Corr (Add n1 n2 n3 ri1 ri2) s
      (INR (reg_write n1
             (SOME (FST (single_add_word (s.regs ' n3) (eval_ri s ri1) (eval_ri s ri2))))
           (reg_write n2
             (SOME (SND (single_add_word (s.regs ' n3) (eval_ri s ri1) (eval_ri s ri2)))) s)))
      (n3 ∈ FDOM s.regs ∧ eval_ri_pre s ri1 ∧ eval_ri_pre s ri2 /\
-      (eval_ri s ri2 ≠ 0w ==> eval_ri s ri2 = 1w) /\ n1 <> n2)``,
+      (eval_ri s ri2 ≠ 0w ==> eval_ri s ri2 = 1w) /\ n1 <> n2)
+Proof
   fs [Corr_def,eval_cases]
   \\ fs [fetch "-" "state_component_equality"] \\ rw []
-  \\ fs [single_add_word_def,multiwordTheory.single_add_def]);
+  \\ fs [single_add_word_def,multiwordTheory.single_add_def]
+QED
 
-val Corr_Sub = prove(
-  ``Corr (Sub n1 n2 n3 ri1 ri2) s
+Theorem Corr_Sub[local]:
+    Corr (Sub n1 n2 n3 ri1 ri2) s
      (INR (reg_write n1
             (SOME (FST (single_sub_word (s.regs ' n3) (eval_ri s ri1) (eval_ri s ri2))))
           (reg_write n2
             (SOME (SND (single_sub_word (s.regs ' n3) (eval_ri s ri1) (eval_ri s ri2)))) s)))
      (n3 ∈ FDOM s.regs ∧ eval_ri_pre s ri1 ∧ eval_ri_pre s ri2 /\
-      (eval_ri s ri2 ≠ 0w ==> eval_ri s ri2 = 1w) /\ n1 <> n2)``,
+      (eval_ri s ri2 ≠ 0w ==> eval_ri s ri2 = 1w) /\ n1 <> n2)
+Proof
   fs [Corr_def,eval_cases]
   \\ fs [fetch "-" "state_component_equality"] \\ rw []
   \\ fs [single_sub_word_def,multiwordTheory.single_add_def,
-         multiwordTheory.single_sub_def]);
+         multiwordTheory.single_sub_def]
+QED
 
-val Corr_Mul = prove(
-  ``Corr (Mul n1 n2 n3 n4) s
+Theorem Corr_Mul[local]:
+    Corr (Mul n1 n2 n3 n4) s
      (INR (reg_write n1 (SOME (FST (single_mul (s.regs ' n3) (s.regs ' n4) 0w)))
           (reg_write n2 (SOME (SND (single_mul (s.regs ' n3) (s.regs ' n4) 0w))) s)))
-     (n3 ∈ FDOM s.regs ∧ n4 ∈ FDOM s.regs /\ n1 <> n2)``,
+     (n3 ∈ FDOM s.regs ∧ n4 ∈ FDOM s.regs /\ n1 <> n2)
+Proof
   fs [Corr_def,eval_cases]
-  \\ fs [fetch "-" "state_component_equality"] \\ rw []);
+  \\ fs [fetch "-" "state_component_equality"] \\ rw []
+QED
 
-val Corr_Div = prove(
-  ``Corr (Div n1 n2 n3 n4 n5) s
+Theorem Corr_Div[local]:
+    Corr (Div n1 n2 n3 n4 n5) s
      (INR (reg_write n1
              (SOME (FST (single_div (s.regs ' n3) (s.regs ' n4) (s.regs ' n5))))
           (reg_write n2
              (SOME (SND (single_div (s.regs ' n3) (s.regs ' n4) (s.regs ' n5)))) s)))
      (n3 ∈ FDOM s.regs ∧ n4 ∈ FDOM s.regs ∧ n5 ∈ FDOM s.regs /\ n1 <> n2 /\
-      single_div_pre (s.regs ' n3) (s.regs ' n4) (s.regs ' n5))``,
+      single_div_pre (s.regs ' n3) (s.regs ' n4) (s.regs ' n5))
+Proof
   fs [Corr_def,eval_cases]
-  \\ fs [fetch "-" "state_component_equality"] \\ rw []);
+  \\ fs [fetch "-" "state_component_equality"] \\ rw []
+QED
 
-val Corr_If = prove(
-  ``Corr p1 s f1 q1 /\ Corr p2 s f2 q2 ==>
+Theorem Corr_If[local]:
+    Corr p1 s f1 q1 /\ Corr p2 s f2 q2 ==>
     Corr (If c r ri p1 p2) s
       (if word_cmp c (eval_exp s (Var r)) (eval_ri s ri) then f1 else f2)
       (r IN FDOM s.regs /\ eval_ri_pre s ri /\
-       if word_cmp c (eval_exp s (Var r)) (eval_ri s ri) then q1 else q2)``,
+       if word_cmp c (eval_exp s (Var r)) (eval_ri s ri) then q1 else q2)
+Proof
   fs [Corr_def,eval_cases] \\ rw [] \\ fs []
-  \\ asm_exists_tac \\ fs [] \\ rw [] \\ fs []);
+  \\ asm_exists_tac \\ fs [] \\ rw [] \\ fs []
+QED
 
 Definition loop_app_def:
   loop_app f g x =
@@ -1397,10 +1483,11 @@ Definition loop_app_def:
     | INR s => (INR s, g x)
 End
 
-val Corr_LoopBody = prove(
-  ``(!s. Corr p s (f s) (q s)) ==>
+Theorem Corr_LoopBody[local]:
+    (!s. Corr p s (f s) (q s)) ==>
     !s. Corr (LoopBody p) s (INR (SHORT_TAILREC (loop_app f q) s))
-                                 (SHORT_TAILREC_PRE (loop_app f q) s)``,
+                                 (SHORT_TAILREC_PRE (loop_app f q) s)
+Proof
   fs [Corr_def,SHORT_TAILREC_PRE_def,SHORT_TAILREC_def] \\ strip_tac
   \\ ho_match_mp_tac TAILREC_PRE_INDUCT \\ reverse (rw [])
   \\ fs [loop_app_def]
@@ -1409,36 +1496,43 @@ val Corr_LoopBody = prove(
   \\ fs [] \\ res_tac \\ fs [loop_app_def]
   \\ Cases_on `f s` \\ fs []
   \\ qpat_x_assum `!x. _` imp_res_tac \\ rfs []
-  \\ asm_exists_tac \\ fs []);
+  \\ asm_exists_tac \\ fs []
+QED
 
 Definition tick_before_def:
   tick_before vs f s =
     if s.clock = 0 then (s,F) else f (delete_vars vs (dec_clock s))
 End
 
-val Corr_Loop_lemma = prove(
-  ``(!s. Corr (LoopBody p) s (INR (f s)) (q s)) ==>
+Theorem Corr_Loop_lemma[local]:
+    (!s. Corr (LoopBody p) s (INR (f s)) (q s)) ==>
     Corr (Loop F vs p) s (INR (f (delete_vars vs (dec_clock s))))
-      (q (delete_vars vs (dec_clock s)) /\ s.clock <> 0)``,
+      (q (delete_vars vs (dec_clock s)) /\ s.clock <> 0)
+Proof
   fs [Corr_def] \\ rw []
   \\ once_rewrite_tac [eval_cases] \\ fs []
-  \\ qpat_x_assum `!x. _` imp_res_tac \\ rfs []);
+  \\ qpat_x_assum `!x. _` imp_res_tac \\ rfs []
+QED
 
 val Corr_Loop = MATCH_MP Corr_Loop_lemma (Corr_LoopBody |> UNDISCH) |> DISCH_ALL;
 
-val Corr_STRENGTHEN_TERM = prove(
-  ``Corr p s f q ==>
+Theorem Corr_STRENGTHEN_TERM[local]:
+    Corr p s f q ==>
     !f' q'.
       (q' ==> (f = INR f') /\ q) ==>
-      Corr p s (INR f') q'``,
-  rw [Corr_def] \\ fs []);
+      Corr p s (INR f') q'
+Proof
+  rw [Corr_def] \\ fs []
+QED
 
 
 (* derive Corr thm from AST *)
 
-val dec_clock_thm = prove(
-  ``dec_clock s = clock_write (s.clock - 1) s``,
-  EVAL_TAC);
+Theorem dec_clock_thm[local]:
+    dec_clock s = clock_write (s.clock - 1) s
+Proof
+  EVAL_TAC
+QED
 
 Theorem array_write_cancel[simp]:
    array_write n (s.arrays n) s = s
@@ -1457,14 +1551,16 @@ Proof
   \\ strip_tac \\ fs []
 QED
 
-val state_eq_lemma = prove(
-  ``(s0 = s1) <=>
+Theorem state_eq_lemma[local]:
+    (s0 = s1) <=>
     s0.clock = s1.clock /\
     FDOM s0.regs = FDOM s1.regs /\
     (!n. n IN FDOM s0.regs ==> s0.regs ' n = s1.regs ' n) /\
-    (!n. s0.arrays n = s1.arrays n)``,
+    (!n. s0.arrays n = s1.arrays n)
+Proof
   fs [fetch "-" "state_component_equality",fmap_EXT,FUN_EQ_THM]
-  \\ rw [] \\ eq_tac \\ rw []);
+  \\ rw [] \\ eq_tac \\ rw []
+QED
 
 Theorem clock_write_simp[simp]:
    (clock_write n s).regs = s.regs /\
@@ -1679,30 +1775,38 @@ fun remove_write_from_init th = let
     \\ fs [state_eq_lemma,clock_write_def]) |> UNDISCH_ALL
   in th |> CONV_RULE ((RATOR_CONV o RATOR_CONV o RAND_CONV) (REWR_CONV lemma)) end
 
-val reg_read_lemma1 = prove(
-  ``!v n. FLOOKUP s.regs n = SOME v ==> (n IN FDOM s.regs <=> T)``,
-  fs [FLOOKUP_DEF]);
+Theorem reg_read_lemma1[local]:
+    !v n. FLOOKUP s.regs n = SOME v ==> (n IN FDOM s.regs <=> T)
+Proof
+  fs [FLOOKUP_DEF]
+QED
 
 val reg_read_lemma1_pat =
   reg_read_lemma1 |> SPEC_ALL |> concl |> dest_imp |> snd |> lhs
 
-val reg_read_lemma2 = prove(
-  ``!v n. FLOOKUP s.regs n = SOME v ==> s.regs ' n = v``,
-  fs [FLOOKUP_DEF]);
+Theorem reg_read_lemma2[local]:
+    !v n. FLOOKUP s.regs n = SOME v ==> s.regs ' n = v
+Proof
+  fs [FLOOKUP_DEF]
+QED
 
 val reg_read_lemma2_pat =
   reg_read_lemma2 |> SPEC_ALL |> concl |> dest_imp |> snd |> lhs
 
-val array_read_lemma = prove(
-  ``!v n. s.arrays n = v ==> s.arrays n = v``,
-  fs []);
+Theorem array_read_lemma[local]:
+    !v n. s.arrays n = v ==> s.arrays n = v
+Proof
+  fs []
+QED
 
 val array_read_lemma_pat =
   array_read_lemma |> SPEC_ALL |> concl |> dest_imp |> snd |> lhs
 
-val clock_read_lemma = prove(
-  ``s.clock = l ==> s.clock = l``,
-  fs []);
+Theorem clock_read_lemma[local]:
+    s.clock = l ==> s.clock = l
+Proof
+  fs []
+QED
 
 val clock_read_lemma_pat =
   clock_read_lemma |> SPEC_ALL |> concl |> dest_imp |> snd |> lhs
@@ -1754,18 +1858,22 @@ fun list_let_intro_conv [] = ALL_CONV
   | list_let_intro_conv (v::vs) =
       let_intro_conv v THENC list_let_intro_conv vs
 
-val Corr_move_pre = prove(
-  ``(b ==> Corr code s f p) <=> Corr code s f (b /\ p)``,
-  fs [Corr_def] \\ Cases_on `b` \\ fs []);
+Theorem Corr_move_pre[local]:
+    (b ==> Corr code s f p) <=> Corr code s f (b /\ p)
+Proof
+  fs [Corr_def] \\ Cases_on `b` \\ fs []
+QED
 
-val loop_app_EQ = prove(
-  ``(loop_app f g x = (INR t,T) <=> f x = INR t /\ g x) /\
+Theorem loop_app_EQ[local]:
+    (loop_app f g x = (INR t,T) <=> f x = INR t /\ g x) /\
     (loop_app f g x = (INL t,T) <=>
-       ?x'. f x = INL x' /\ dec_clock x' = t /\ g x /\ x'.clock <> 0)``,
-  fs [loop_app_def] \\ Cases_on `f x` \\ fs []);
+       ?x'. f x = INL x' /\ dec_clock x' = t /\ g x /\ x'.clock <> 0)
+Proof
+  fs [loop_app_def] \\ Cases_on `f x` \\ fs []
+QED
 
-val true_pres = prove(
-  ``mc_single_mul_pre (r0,r1,r2) /\
+Theorem true_pres[local]:
+    mc_single_mul_pre (r0,r1,r2) /\
     mc_mul_by_single2_pre (r6,r7,r8) /\
     mc_cmp3_pre (r1,r2,r3,r9,r10,r11) /\
     mc_cmp_mul2_pre (r6,r7,r8,r9,r10,r11) /\
@@ -1777,18 +1885,22 @@ val true_pres = prove(
     mc_iadd3_pre (r1,xs,ys) /\
     mc_isub_flip_pre (r1,r2) /\
     mc_imul1_pre (r10,r11) /\
-    mc_sub1_pre r6 /\ mc_cmp2_pre (r0,r2,r10,r11)``,
+    mc_sub1_pre r6 /\ mc_cmp2_pre (r0,r2,r10,r11)
+Proof
   fs [mc_single_mul_pre_def, mc_cmp3_pre_def, mc_cmp_mul2_pre_def,
       mc_cmp2_pre_def, mc_mul_by_single2_pre_def, mc_adj_cmp_pre_def,
       mc_sub1_pre_def, mc_cmp2_pre_def, mc_idiv_mod_header_pre_def,
       mc_iadd1_pre_def, mc_iadd2_pre_def, mc_iadd3_pre_def,
       mc_imul1_pre_def, mc_isub_flip_pre_def]
-  \\ rpt (pairarg_tac \\ fs []));
+  \\ rpt (pairarg_tac \\ fs [])
+QED
 
-val single_add_word_imp_0_1 = prove(
-  ``single_add_word x1 x2 x3 = (y1,y2) ==> y2 <> 0w ==> y2 = 1w``,
+Theorem single_add_word_imp_0_1[local]:
+    single_add_word x1 x2 x3 = (y1,y2) ==> y2 <> 0w ==> y2 = 1w
+Proof
   fs [single_add_word_def,multiwordTheory.single_add_def] \\ rw []
-  \\ fs [multiwordTheory.b2w_def]);
+  \\ fs [multiwordTheory.b2w_def]
+QED
 
 fun first_let_if_conv c tm =
   if is_cond tm then
@@ -2156,18 +2268,24 @@ val lemma = METIS_PROVE [] ``b /\ c <=> b /\ (b ==> c)``
 
 val lemma2 = multiwordTheory.mwi_op_thm |> Q.SPECL [`iop`,`i1`,`i2`]
 
-val i2mw_NOT_NIL = prove(
-  ``SND (i2mw i2) ≠ [] <=> i2 <> 0``,
+Theorem i2mw_NOT_NIL[local]:
+    SND (i2mw i2) ≠ [] <=> i2 <> 0
+Proof
   fs [multiwordTheory.i2mw_def,Once multiwordTheory.n2mw_def]
-  \\ rw [] \\ Cases_on `i2` \\ fs [] \\ intLib.COOPER_TAC);
+  \\ rw [] \\ Cases_on `i2` \\ fs [] \\ intLib.COOPER_TAC
+QED
 
-val mw_ok_SND_i2mw = prove(
-  ``mw_ok (SND (i2mw fg))``,
-  fs [multiwordTheory.i2mw_def,multiwordTheory.mw_ok_n2mw]);
+Theorem mw_ok_SND_i2mw[local]:
+    mw_ok (SND (i2mw fg))
+Proof
+  fs [multiwordTheory.i2mw_def,multiwordTheory.mw_ok_n2mw]
+QED
 
-val code_subset_refl = prove(
-  ``!cs. code_subset cs cs``,
-  fs [code_subset_def,FORALL_PROD]);
+Theorem code_subset_refl[local]:
+    !cs. code_subset cs cs
+Proof
+  fs [code_subset_def,FORALL_PROD]
+QED
 
 val mc_iop_corr_thm = fetch "-" "mc_iop_corr_thm"
 
@@ -2216,5 +2334,3 @@ Theorem evaluate_mc_iop =
   |> SIMP_RULE std_ss [code_subset_refl]
   |> Q.GENL [`i1`,`i2`,`l'`,`frame`,`zs`,`t`,`ret_val`,
              `n`,`l`,`iop`,`p1`,`l1`,`i'`,`cs`]
-
-val _ = export_theory();

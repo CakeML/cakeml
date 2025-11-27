@@ -1,11 +1,14 @@
 (*
    Basic specification of an xlrup checker (minimal optimization)
 *)
-open preamble miscTheory mlstringTheory mllistTheory cnf_extTheory blastLib sptreeTheory mlvectorTheory;
+Theory xlrup
+Libs
+  preamble blastLib
+Ancestors
+  mlvector mllist sptree misc cnf_ext bitstring[qualified]
+  mlstring mergesort
 
-val _ = new_theory "xlrup";
-
-val _ = set_grammar_ancestry ["mlvector","mllist","sptree","misc","cnf_ext","bitstring"]
+val _ = temp_bring_to_front_overload "range" {Name="range", Thy="misc"};
 
 (* Internal representations *)
 Type cclause = ``:int list``;
@@ -1191,7 +1194,7 @@ Definition while_var_def:
     | Neg v => (if n = v then while_var n (k-1) xs (t-1) else (k,x::xs,t))
 End
 
-Triviality while_var_LENGTH:
+Theorem while_var_LENGTH[local]:
   ∀n k xs t new_k new_xs new_t.
     (new_k,new_xs,new_t) = while_var n k xs t ⇒
     ∃ys. xs = ys ++ new_xs ∧ EVERY (λx. var_lit x = n) ys ∧
@@ -1229,7 +1232,7 @@ Definition lit_le_def:
   lit_le x y = (var_lit x ≤ var_lit y)
 End
 
-Triviality SORTED_lit_le_DROP:
+Theorem SORTED_lit_le_DROP[local]:
   ∀ys y.
     SORTED lit_le (y::(ys ++ new_xs)) ∧
     EVERY (λx. var_lit y = var_lit x) ys ⇒
@@ -1261,7 +1264,7 @@ Proof
   \\ Cases_on ‘h’ \\ gvs [var_lit_def,lit_le_def]
 QED
 
-Triviality SORTED_sort_lit_le:
+Theorem SORTED_sort_lit_le[local]:
   SORTED lit_le (sort lit_le cs)
 Proof
   DEP_REWRITE_TAC[sort_SORTED]>>
@@ -2729,7 +2732,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality foldi_cons_lemma:
+Theorem foldi_cons_lemma[local]:
   ∀t acc k. foldi (λk v a. f v::a) k acc t =
             foldi (λk v a. f v::a) k [] t ++ acc
 Proof
@@ -2832,7 +2835,7 @@ Proof
   \\ AP_THM_TAC \\ AP_TERM_TAC \\ gvs [FUN_EQ_THM]
 QED
 
-Triviality Vector_toList[simp]:
+Theorem Vector_toList[local,simp]:
   ∀v. Vector (toList v) = v
 Proof
   Cases \\ gvs [toList_thm]
@@ -3369,5 +3372,3 @@ Proof
   first_x_assum drule>>
   simp[strxor_aux_c_strxor_aux,MAP_MAP_o,o_DEF]
 QED
-
-val _ = export_theory ();

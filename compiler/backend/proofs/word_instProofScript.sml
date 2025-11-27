@@ -1,18 +1,15 @@
 (*
   Correctness proof for word_inst
 *)
-open preamble
-     wordLangTheory wordPropsTheory wordConvsTheory
-     word_instTheory wordSemTheory
-     asmTheory;
+Theory word_instProof
+Libs
+  preamble
+Ancestors
+  wordLang wordProps word_inst wordSem wordConvs asm
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "word_instProof";
-
-val _ = set_grammar_ancestry ["wordLang", "wordProps", "word_inst", "wordSem"];
 
 (* resolve ambiguity between semanticsPrimitives$result and wordSem$result
    in latter's favour
@@ -27,14 +24,14 @@ Proof
   metis_tac[PERM_APPEND]
 QED
 
-Triviality EL_FILTER:
+Theorem EL_FILTER[local]:
   ∀ls x. x < LENGTH (FILTER P ls) ⇒ P (EL x (FILTER P ls))
 Proof
   Induct>>srw_tac[][]>>
   Cases_on`x`>>full_simp_tac(srw_ss())[EL]
 QED
 
-Triviality PERM_SWAP:
+Theorem PERM_SWAP[local]:
   PERM (A ++ B ++ C) (B++(A++C))
 Proof
   full_simp_tac(srw_ss())[PERM_DEF]>>srw_tac[][]>>
@@ -61,7 +58,7 @@ QED
 *)
 
 (* pull_exp correctness *)
-Triviality convert_sub_ok:
+Theorem convert_sub_ok[local]:
   ∀ls.
   word_exp s (convert_sub ls) = word_exp s (Op Sub ls)
 Proof
@@ -72,7 +69,7 @@ Proof
 QED
 
 (*In general, any permutation works*)
-Triviality word_exp_op_permute_lem:
+Theorem word_exp_op_permute_lem[local]:
   op ≠ Sub ⇒
   ∀ls ls'.
   PERM ls ls' ⇒
@@ -104,7 +101,7 @@ Definition pull_ops_simp_def:
     |  _  => x::(pull_ops_simp op xs))
 End
 
-Triviality pull_ops_simp_pull_ops_perm:
+Theorem pull_ops_simp_pull_ops_perm[local]:
   ∀ls x.
   PERM (pull_ops op ls x) ((pull_ops_simp op ls)++x)
 Proof
@@ -115,7 +112,7 @@ Proof
   metis_tac[PERM_SWAP,PERM_TRANS,PERM_SWAP_SIMP,PERM_SYM]
 QED
 
-Triviality pull_ops_simp_pull_ops_word_exp:
+Theorem pull_ops_simp_pull_ops_word_exp[local]:
   op ≠ Sub ⇒
   word_exp s (Op op (pull_ops op ls [])) = word_exp s (Op op (pull_ops_simp op ls))
 Proof
@@ -127,7 +124,7 @@ QED
 
 (* TODO: Maybe move to props, if these are needed elsewhere *)
 
-Triviality word_exp_op_mono:
+Theorem word_exp_op_mono[local]:
   op ≠ Sub ⇒
   word_exp s (Op op ls) = word_exp s (Op op ls') ⇒
   word_exp s (Op op (x::ls)) =
@@ -140,7 +137,7 @@ Proof
   Cases_on`op`>>full_simp_tac(srw_ss())[word_op_def]
 QED
 
-Triviality the_words_append:
+Theorem the_words_append[local]:
   ∀ls ls'.
   the_words (ls ++ ls') =
   case the_words ls of
@@ -157,7 +154,7 @@ Proof
   Cases_on`the_words ls'`>>fs[]
 QED
 
-Triviality word_exp_op_op:
+Theorem word_exp_op_op[local]:
   op ≠ Sub ⇒
   ∀ls ls'.
   word_exp s (Op op ls) = word_exp s (Op op ls') ⇒
@@ -176,7 +173,7 @@ Proof
   Induct_on`x`>>fs[]
 QED
 
-Triviality pull_ops_ok:
+Theorem pull_ops_ok[local]:
   op ≠ Sub ⇒
   ∀ls. word_exp s (Op op (pull_ops op ls [])) =
          word_exp s (Op op ls)
@@ -193,7 +190,7 @@ QED
 
 (* Done with pull_ops, next is optimize_consts *)
 
-Triviality word_exp_swap_head:
+Theorem word_exp_swap_head[local]:
   ∀B.
   op ≠ Sub ⇒
   word_exp s (Op op A) = SOME (Word w) ⇒
@@ -207,14 +204,14 @@ Proof
   Induct_on`x'`>>full_simp_tac(srw_ss())[]
 QED
 
-Triviality EVERY_is_const_word_exp:
+Theorem EVERY_is_const_word_exp[local]:
   ∀ls. EVERY is_const ls ⇒
   EVERY IS_SOME (MAP (λa. word_exp s a) ls)
 Proof
   Induct>>srw_tac[][]>>Cases_on`h`>>full_simp_tac(srw_ss())[is_const_def,word_exp_def]
 QED
 
-Triviality all_consts_simp:
+Theorem all_consts_simp[local]:
   op ≠ Sub ⇒
   ∀ls.
   EVERY is_const ls ⇒
@@ -234,7 +231,7 @@ Proof
   Cases_on`op`>>fs[word_op_def,rm_const_def]
 QED
 
-Triviality word_exp_reduce_const:
+Theorem word_exp_reduce_const[local]:
   word_exp s (Op op (Const w :: rest)) = SOME x ⇒
   word_exp s (reduce_const op w rest) = SOME x
 Proof
@@ -243,7 +240,7 @@ Proof
   gvs[the_words_def,word_exp_def,word_op_def,AllCaseEqs()]
 QED
 
-Triviality optimize_consts_ok:
+Theorem optimize_consts_ok[local]:
   op ≠ Sub ∧ word_exp s (Op op ls) = SOME x ⇒
   word_exp s (optimize_consts op ls) = SOME x
 Proof
@@ -272,7 +269,7 @@ Proof
   metis_tac[word_exp_op_permute_lem,PERM_APPEND]
 QED
 
-Triviality pull_exp_ok:
+Theorem pull_exp_ok[local]:
   ∀exp s x.
   word_exp s exp = SOME x ⇒
   word_exp s (pull_exp exp) = SOME x
@@ -320,7 +317,7 @@ Proof
 QED
 
 (* pull_exp syntax *)
-Triviality convert_sub_every_var_exp:
+Theorem convert_sub_every_var_exp[local]:
   ∀ls.
   (∀x. MEM x ls ⇒ every_var_exp P x) ⇒
   every_var_exp P (convert_sub ls)
@@ -329,7 +326,7 @@ Proof
   full_simp_tac(srw_ss())[every_var_exp_def,EVERY_MEM]
 QED
 
-Triviality optimize_consts_every_var_exp:
+Theorem optimize_consts_every_var_exp[local]:
   ∀ls.
   (∀x. MEM x ls ⇒ every_var_exp P x) ⇒
   every_var_exp P (optimize_consts op ls)
@@ -348,7 +345,7 @@ val pull_ops_every_var_exp = Q.prove(`
   Induct>>full_simp_tac(srw_ss())[pull_ops_def]>>srw_tac[][]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[every_var_exp_def]>>
   metis_tac[ETA_AX,EVERY_APPEND,every_var_exp_def]) |> REWRITE_RULE[EVERY_MEM];
 
-Triviality pull_exp_every_var_exp:
+Theorem pull_exp_every_var_exp[local]:
   ∀exp.
   every_var_exp P exp ⇒
   every_var_exp P (pull_exp exp)
@@ -363,7 +360,7 @@ Proof
 QED
 
 (* flatten_exp correctness *)
-Triviality flatten_exp_ok:
+Theorem flatten_exp_ok[local]:
   ∀exp s x.
   word_exp s exp = SOME x ⇒
   word_exp s (flatten_exp exp) = SOME x
@@ -412,7 +409,7 @@ Termination
 End
 
 (* flatten_exp syntax *)
-Triviality flatten_exp_binary_branch_exp:
+Theorem flatten_exp_binary_branch_exp[local]:
   ∀exp.
   binary_branch_exp (flatten_exp exp)
 Proof
@@ -675,7 +672,7 @@ Proof
       full_simp_tac(srw_ss())[word_sh_def]))
 QED
 
-Triviality locals_rm:
+Theorem locals_rm[local]:
   D with locals := D.locals = D
 Proof
   full_simp_tac(srw_ss())[state_component_equality]
@@ -867,6 +864,7 @@ Proof
           oneline share_inst_def,
           sh_mem_load_def,sh_mem_load_byte_def,sh_mem_store_def,sh_mem_store_byte_def,
           oneline sh_mem_set_var_def, sh_mem_load32_def, sh_mem_store32_def,
+          sh_mem_load16_def,sh_mem_store16_def,
           set_var_def,locals_rel_def,word_exp_def,the_words_def,word_op_def,
           get_var_def,state_component_equality,lookup_insert,flush_state_def] >>
         metis_tac[lookup_insert]
@@ -885,6 +883,7 @@ Proof
         oneline share_inst_def,
         sh_mem_load_def,sh_mem_load_byte_def,sh_mem_store_def,sh_mem_store_byte_def,
         oneline sh_mem_set_var_def, sh_mem_load32_def, sh_mem_store32_def,
+        sh_mem_load16_def,sh_mem_store16_def,
         set_var_def,locals_rel_def,word_exp_def,the_words_def,word_op_def,
         get_var_def,state_component_equality,lookup_insert,flush_state_def] >>
       metis_tac[lookup_insert]) >>
@@ -908,6 +907,7 @@ Proof
       oneline share_inst_def,
       sh_mem_load_def,sh_mem_load_byte_def,sh_mem_store_def,sh_mem_store_byte_def,
       oneline sh_mem_set_var_def, sh_mem_load32_def, sh_mem_store32_def,
+      sh_mem_load16_def,sh_mem_store16_def,
       set_var_def,locals_rel_def,word_exp_def,the_words_def,word_op_def,
       get_var_def,state_component_equality,lookup_insert,flush_state_def] >>
     metis_tac[lookup_insert])
@@ -1033,5 +1033,3 @@ Proof
   drule_all three_to_two_reg_correct>>
   simp[]
 QED
-
-val _ = export_theory ();

@@ -1,10 +1,12 @@
 (*
   This refines scpog_list to use arrays
 *)
-open preamble basis UnsafeProofTheory cnf_scpogSemTheory scpogTheory
-  scpog_listTheory lpr_parsingTheory scpog_parsingTheory blastLib;
-
-val _ = new_theory "scpog_arrayProg"
+Theory scpog_arrayProg
+Ancestors
+  UnsafeProof cnf_scpogSem scpog scpog_list lpr_parsing
+  scpog_parsing
+Libs
+  preamble basis blastLib
 
 val _ = diminish_srw_ss ["ABBREV"]
 
@@ -189,7 +191,7 @@ Proof
   >- (
     xapp>>xsimpl>>simp[unwrap_TYPE_def]>>
     metis_tac[])>>
-  IF_CASES_TAC>- metis_tac[NOT_EVERY]>>
+  gvs[NOT_EVERY]>>
   raise_tac
 QED
 
@@ -1643,7 +1645,7 @@ val res = translate prepend_def;
 
 val r = translate (to_flat_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def])
 
-Triviality to_flat_ind:
+Theorem to_flat_ind[local]:
   to_flat_ind (:'a)
 Proof
   once_rewrite_tac [fetch "-" "to_flat_ind_def"]
@@ -1660,7 +1662,7 @@ val _ = to_flat_ind |> update_precondition;
 
 val r = translate (to_flat_chr_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def])
 
-Triviality to_flat_chr_ind:
+Theorem to_flat_chr_ind[local]:
   to_flat_chr_ind
 Proof
   once_rewrite_tac [fetch "-" "to_flat_chr_ind_def"]
@@ -2335,13 +2337,14 @@ Proof
         xcon >>
         xsimpl>>
         rename [`forwardFD _ _ k`] \\ qexists_tac `k` >>
-        rename [`INSTREAM_LINES _ _ _ rr`] \\ qexists_tac `rr` \\ xsimpl) >>
+        rename [`INSTREAM_LINES _ _ _ rr`] \\ qexists_tac `rr`
+        \\ gvs[] \\ xsimpl) >>
       xsimpl>>simp[unwrap_TYPE_def]>>
       Cases_on`x`>>fs[]>>rw[]>>xsimpl >>
       rename [`forwardFD _ _ k`] \\ qexists_tac `k` >>
       rename [`INSTREAM_LINES _ _ _ rr`] \\ qexists_tac `rr` \\ xsimpl)>>
   qspecl_then [`all_lines fs f`,`pc`,`fmlls`,`sc`,`Clist`] strip_assume_tac parse_and_run_file_list_eq>>
-  fs[]>>rw[]>>
+  gs[]>>rw[]>>
   xlet `POSTv v. STDIO fs * ARRAY fmlv' fmllsv'`
   THEN1
    (xapp_spec b_closeIn_spec_lines >>
@@ -2364,7 +2367,8 @@ Proof
     imp_res_tac fsFFIPropsTheory.nextFD_leX \\ fs [] >>
     drule fsFFIPropsTheory.openFileFS_ADELKEY_nextFD >>
     fs [Abbr`fss`] \\ xsimpl) >>
-  Cases_on`parse_scpsteps (all_lines fs f)`>> fs[OPTION_TYPE_def]
+  Cases_on`parse_scpsteps (all_lines fs f)`>>
+  fs[OPTION_TYPE_def]
   >- (
     xmatch>>
     xcon >> xsimpl >>
@@ -2382,4 +2386,3 @@ Proof
   metis_tac[]
 QED
 
-val _ = export_theory();

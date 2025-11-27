@@ -4,9 +4,11 @@ An example of a queue data structure implemented using CakeML arrays, verified
 using CF.
 
 *)
-open preamble basis
-
-val _ = new_theory "queueProg";
+Theory queueProg
+Ancestors
+  cfApp
+Libs
+  preamble basis
 
 val _ = translation_extends"basisProg";
 
@@ -147,7 +149,10 @@ Proof
     simp[lqueue_def, LIST_REL_REPLICATE_same]
 QED
 
-val EqualityType_INT = prove(``EqualityType INT``, simp[EqualityType_NUM_BOOL])
+Theorem EqualityType_INT[local]:
+   EqualityType INT
+Proof simp[EqualityType_NUM_BOOL]
+QED
 
 val eq_int_thm = mlbasicsProgTheory.eq_v_thm
                    |> INST_TYPE [alpha |-> “:int”]
@@ -179,7 +184,7 @@ Proof
     xlet ‘POSTv bv. QUEUE A mx vs qv * &(BOOL (LENGTH vs = mx) bv)’
     >- (xapp >> xsimpl >> qexists_tac `emp` >> xsimpl >>
         map_every qexists_tac [`vs`, `mx`, `A`] >> xsimpl) >>
-    xs_auto_tac >> qexists_tac `F` >> simp[] >>
+    gvs [] >> xs_auto_tac >> qexists_tac `F` >> simp[] >>
     simp[QUEUE_def] >> xpull >> xs_auto_tac >> reverse (rw[])
     >- EVAL_TAC >>
     xs_auto_tac
@@ -208,7 +213,7 @@ Proof
   simp[EL_APPEND1, EL_APPEND2]
 QED
 
-Triviality dequeue_spec_noexn:
+Theorem dequeue_spec_noexn[local]:
   !qv xv vs x. app (p:'ffi ffi_proj) ^(fetch_v "dequeue" st) [qv]
           (QUEUE A mx vs qv * &(vs ≠ []))
           (POSTv v. &(A (HD vs) v) * QUEUE A mx (TL vs) qv)
@@ -255,5 +260,3 @@ Proof
   Cases_on `vs` >> fs[integerTheory.INT_SUB] >>
   metis_tac[lqueue_dequeue, LIST_REL_REL_lqueue_HD]
 QED
-
-val _ = export_theory ()

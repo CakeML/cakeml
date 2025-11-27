@@ -1,9 +1,11 @@
 (*
   Addition of linear terms with real-valued coefficients
 *)
-open preamble sptreeTheory realTheory
-
-val _ = new_theory "real_plus"
+Theory real_plus
+Ancestors
+  sptree real
+Libs
+  preamble
 
 Definition plus_def:
   plus LN t = t ∧
@@ -40,7 +42,7 @@ Definition coeff_def:
     | NONE => 0:real
 End
 
-Triviality lookup_mk_BN_BS:
+Theorem lookup_mk_BN_BS[local]:
   lookup n (mk_BN t1 t2) = lookup n (BN t1 t2) ∧
   lookup n (mk_BS t1 x t2) = lookup n (BS t1 x t2)
 Proof
@@ -99,4 +101,3 @@ Proof
   \\ rpt $ irule sptreeTheory.wf_mk_BS \\ fs []
 QED
 
-val _ = export_theory ()

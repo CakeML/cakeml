@@ -1,17 +1,15 @@
 (*
   Prove perms theorems for kernel functions
  *)
+Theory candle_kernel_perms
+Libs
+  preamble helperLib ml_progLib
+Ancestors
+  candle_kernel_vals perms misc[qualified] semanticPrimitives
+  semanticPrimitivesProps sptree evaluate namespaceProps
+  evaluateProps candle_kernelProg candle_prover_inv
+  ml_hol_kernel_funsProg ast_extras
 
-open preamble helperLib;
-open semanticPrimitivesTheory semanticPrimitivesPropsTheory sptreeTheory
-     evaluateTheory namespacePropsTheory evaluatePropsTheory
-     candle_kernel_valsTheory candle_kernelProgTheory;
-open candle_prover_invTheory;
-open permsTheory ml_hol_kernel_funsProgTheory ml_progLib ast_extrasTheory;
-
-val _ = new_theory "candle_kernel_perms";
-
-val _ = set_grammar_ancestry ["candle_kernel_vals", "perms", "misc"];
 
 val eval_nsLookup_tac =
   rewrite_tac [ml_progTheory.nsLookup_merge_env]
@@ -1628,7 +1626,7 @@ Proof
 QED
 *)
 
-Triviality evaluate_kernel_perms_lemma:
+Theorem evaluate_kernel_perms_lemma[local]:
   ∀ps.
     evaluate s env [exp] = (s',res) ∧
     perms_ok_exp ps exp ∧ perms_ok_env ps (freevars exp) env ∧ perms_ok_state ps s ∧
@@ -1650,5 +1648,3 @@ Theorem evaluate_empty_perms =
   evaluate_kernel_perms_lemma
   |> Q.SPEC ‘{}’
   |> SIMP_RULE (srw_ss()) [];
-
-val _ = export_theory ();

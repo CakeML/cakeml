@@ -1,9 +1,11 @@
 (*
   Refine PB proof checker to use arrays
 *)
-open preamble npbc_checkTheory;
-
-val _ = new_theory "npbc_list"
+Theory npbc_list
+Ancestors
+  npbc_check
+Libs
+  preamble
 
 Theorem any_el_update_resize:
   any_el n (update_resize fml def v id) def =
@@ -126,6 +128,11 @@ End
 
 Definition update_assg_list_def:
   update_assg_list assg (ls,n) =
+    if n ≤ 0
+    then
+      ([],assg,T)
+    else
+    let n = Num (ABS n) in
     let (max,ls1,m) = rup_pass1_list assg ls 0 [] 0 in
     let assg1 = resize_to_fit m assg in
       rup_pass2_list assg1 max ls1 n []
@@ -146,8 +153,10 @@ Definition check_rup_loop_list_def:
     | NONE => (F,assg,all_changes,T)
     | SOME c =>
         if NULL ns then
+          if SND c ≤ 0 then (F,assg,all_changes,T)
+          else
           let (max,ls1,m) = rup_pass1_list assg (FST c) 0 [] 0 in
-            (max < SND c,assg,all_changes,T)
+            (max < Num (ABS (SND c)),assg,all_changes,T)
         else
           let (new_changes,assg,pre) = update_assg_list assg c in
           let all_changes = new_changes ++ all_changes in
@@ -501,7 +510,7 @@ Proof
   metis_tac[option_CLAUSES,fml_rel_lookup_core_only]
 QED
 
-Triviality rup_pass1_list_pre:
+Theorem rup_pass1_list_pre[local]:
   ∀assg xs n ys m n1 ys1 m1.
     rup_pass1_list assg xs n ys m = (n1,ys1,m1) ∧
     EVERY (λ(_,_,k). k ≤ m) ys ⇒
@@ -513,7 +522,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality rup_pass2_list_pre:
+Theorem rup_pass2_list_pre[local]:
   ∀assg m xs l changes res changes1 assg1 pre.
     rup_pass2_list assg m xs l changes = (changes1,assg1,pre) ∧
     EVERY (λi. i < LENGTH assg) changes ∧
@@ -534,7 +543,7 @@ Proof
   \\ metis_tac []
 QED
 
-Triviality update_assg_list_pre:
+Theorem update_assg_list_pre[local]:
   ∀assg x changes assg1 pre.
     update_assg_list assg x = (changes,assg1,pre) ⇒
     pre ∧ EVERY (λi. i < LENGTH assg1) changes ∧
@@ -544,6 +553,8 @@ Triviality update_assg_list_pre:
 Proof
   rpt gen_tac \\ PairCases_on ‘x’
   \\ gvs [update_assg_list_def]
+  \\ IF_CASES_TAC
+  >- gvs[]
   \\ pairarg_tac \\ gvs [] \\ strip_tac
   \\ drule rup_pass1_list_pre \\ gvs [] \\ strip_tac
   \\ drule rup_pass2_list_pre \\ fs []
@@ -564,7 +575,7 @@ Proof
   \\ gvs [EL_REPLICATE]
 QED
 
-Triviality check_rup_loop_list_pre:
+Theorem check_rup_loop_list_pre[local]:
   ∀b nc fmlls assg changes ls res assg1 changes1 pre.
     check_rup_loop_list b nc fmlls assg changes ls =
       (res,assg1,changes1,pre) ∧
@@ -579,7 +590,12 @@ Proof
   \\ rpt gen_tac \\ TOP_CASE_TAC \\ gvs []
   >- (strip_tac \\ gvs [])
   \\ IF_CASES_TAC
-  >- (pairarg_tac \\ gvs [] \\ strip_tac \\ gvs [])
+  >- (
+    IF_CASES_TAC
+    >- (
+      rw[]>>
+      metis_tac[])
+    >- (pairarg_tac \\ gvs [] \\ strip_tac \\ gvs []))
   \\ pairarg_tac \\ gvs []
   \\ strip_tac
   \\ drule update_assg_list_pre \\ strip_tac
@@ -598,7 +614,7 @@ Proof
   \\ strip_tac \\ gvs []
 QED
 
-Triviality delete_each_pre:
+Theorem delete_each_pre[local]:
   ∀changes assg zeros pre.
     delete_each changes assg = (zeros,pre) ∧
     EVERY (λi. i < LENGTH assg) changes ∧
@@ -633,7 +649,7 @@ Definition get_assg_def:
     if i < LENGTH xs ∧ EL i xs ≠ (0w:word8) then SOME (EL i xs) else NONE
 End
 
-Triviality get_assg_resize_to_fit[simp]:
+Theorem get_assg_resize_to_fit[local,simp]:
   get_assg i (resize_to_fit m assg) = get_assg i assg
 Proof
   rw [resize_to_fit_def] \\ gvs [get_assg_def]
@@ -641,7 +657,7 @@ Proof
   \\ CCONTR_TAC \\ gvs [EL_REPLICATE]
 QED
 
-Triviality to_get_assg:
+Theorem to_get_assg[local]:
   ~(p < LENGTH assg) ∨ EL p assg = 0w ⇔ get_assg p assg = NONE
 Proof
   gvs [get_assg_def] \\ metis_tac []
@@ -701,11 +717,11 @@ Theorem update_assg_list_invs:
 Proof
   rpt gen_tac \\ strip_tac \\ PairCases_on ‘x’
   \\ gvs [update_assg_list_def]
+  \\ Cases_on`x1 ≤ 0` \\ gvs[]
   \\ rpt (pairarg_tac \\ gvs [])
   \\ imp_res_tac rup_pass1_list_pre \\ gvs []
   \\ dxrule_then dxrule rup_pass1_list_invs
   \\ impl_tac >- simp [] \\ strip_tac \\ gvs []
-  \\ Cases_on ‘max' < x1’ \\ gvs []
   \\ dxrule_then dxrule rup_pass2_list_invs
   \\ reverse impl_tac >- (strip_tac \\ gvs [])
   \\ gvs []
@@ -829,6 +845,7 @@ Proof
   \\ rpt (pairarg_tac \\ gvs [])
   \\ PairCases_on ‘c’
   \\ gvs [update_assg_list_def,update_assg_def]
+  \\ TRY(IF_CASES_TAC \\ gvs[] >- metis_tac[])
   \\ rpt (pairarg_tac \\ gvs [])
   \\ drule_then drule rup_pass1_list_thm
   \\ (impl_tac >- simp [] \\ strip_tac \\ gvs [])
@@ -1191,7 +1208,7 @@ End
 
 Definition hash_constraint_def:
   hash_constraint (c,n) =
-  ((n + h_base * hash_list c) MOD h_mod) MOD splim
+  ((Num (ABS n) + h_base * hash_list c) MOD h_mod) MOD splim
 End
 
 Definition mk_hashset_def:
@@ -1252,7 +1269,7 @@ End
   as much as possible *)
 Definition split_goals_hash_def:
   split_goals_hash fmlls extra (proved:num_set)
-    (goals:(num # (int # num) list # num) list) =
+    (goals:(num # (int # num) list # int) list) =
   let (lp,lf) =
     PARTITION (λ(i,c). lookup i proved ≠ NONE) goals in
   let lf = FILTER (λc. ¬check_triv extra (not c)) (MAP SND lf) in
@@ -1362,7 +1379,7 @@ Theorem subst_aux_no_INR_FILTER:
   subst_aux f l =
   (FILTER (λ(c,x). f x = NONE) l,
     [],
-   SUM (MAP (λ(c,x).
+   &SUM (MAP (λ(c,x).
     if is_Pos c ⇔ OUTL (THE (f x))
     then Num(ABS c) else 0)
     (FILTER (λ(c,x). f x ≠ NONE) l)))
@@ -1372,7 +1389,8 @@ Proof
   simp[npbcTheory.subst_aux_def]>>
   Cases_on`f x`>>fs[]>>
   Cases_on`x'`>>fs[]>>
-  rw[]>>fs[]
+  rw[]>>fs[]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem add_lists_emp_2:
@@ -1386,7 +1404,7 @@ Theorem subst_lhs_no_INR_FILTER:
   EVERY (λ(c,x). case f x of SOME (INR _ ) => F | _ => T) l ⇒
   subst_lhs f l =
   (FILTER (λ(c,x). f x = NONE) l,
-   SUM (MAP (λ(c,x).
+   &SUM (MAP (λ(c,x).
     if is_Pos c ⇔ OUTL (THE (f x))
     then Num(ABS c) else 0)
     (FILTER (λ(c,x). f x ≠ NONE) l)))
@@ -1442,7 +1460,7 @@ Theorem obj_constraint_simp:
   SORTED $< (MAP SND l) ⇒
   obj_constraint f (l,b) =
     (FILTER (λ(c,x). f x ≠ NONE) l,
-      SUM
+      &SUM
       (MAP
          (λ(c,x). if 0 ≤ c ⇔ OUTL (THE (f x)) then Num (ABS c) else 0)
          (FILTER (λ(c,x). f x ≠ NONE) l)))
@@ -1460,12 +1478,10 @@ Proof
   Induct_on`l`>>simp[FORALL_PROD]>>
   rw[]>>
   every_case_tac>>gvs[]
-  >- (
-    `p_1 = 0` by intLib.ARITH_TAC>>
-    simp[])
-  >- (
-    DEP_REWRITE_TAC[LESS_EQ_ADD_SUB]>>
-    simp[SUM_SPLIT_LE])
+  >- intLib.ARITH_TAC
+  >- intLib.ARITH_TAC
+  >- intLib.ARITH_TAC
+  >- intLib.ARITH_TAC
   >- (
     DEP_REWRITE_TAC[LESS_EQ_ADD_SUB]>>
     simp[SUM_SPLIT_LE]>>
@@ -1475,25 +1491,25 @@ QED
 
 (* one pass obj_constraint *)
 Definition obj_single_aux_def:
-  (obj_single_aux f n [] acc k = SOME(REVERSE acc,k:num)) ∧
+  (obj_single_aux f n [] acc k = SOME(REVERSE acc,k:int)) ∧
   (obj_single_aux f n ((c,x:num)::xs) acc k =
     if n < x then
       case f x of
         NONE => obj_single_aux f x xs acc k
       | SOME (INL b) =>
-        let r = if is_Pos c ⇔ b then k + Num (ABS c) else k in
+        let r = if is_Pos c ⇔ b then k + ABS c else k in
           obj_single_aux f x xs ((c,x)::acc) r
       | SOME (INR _) => NONE
     else NONE)
 End
 
 Definition obj_single_def:
-  (obj_single f [] = SOME([],0:num)) ∧
+  (obj_single f [] = SOME([],0:int)) ∧
   (obj_single f ((c,x:num)::xs) =
       case f x of
         NONE => obj_single_aux f x xs [] 0
       | SOME (INL b) =>
-        let r = if is_Pos c ⇔ b then Num (ABS c) else 0 in
+        let r = if is_Pos c ⇔ b then ABS c else 0 in
           obj_single_aux f x xs [(c,x)] r
       | SOME (INR _) => NONE)
 End
@@ -1504,7 +1520,7 @@ Theorem obj_single_aux_eq_SOME:
   EVERY (λ(c,x). case f x of SOME (INR _ ) => F | _ => T) l ∧
   SORTED $< (n::MAP SND l) ∧
   res = (REVERSE acc ++ FILTER (λ(c,x). f x ≠ NONE) l,
-      k + SUM
+      k + &SUM
       (MAP
          (λ(c,x). if 0 ≤ c ⇔ OUTL (THE (f x)) then Num (ABS c) else 0)
          (FILTER (λ(c,x). f x ≠ NONE) l)))
@@ -1512,7 +1528,8 @@ Proof
   Induct>>simp[obj_single_aux_def,FORALL_PROD]>>rw[]>>
   gvs[AllCaseEqs()]>>
   first_x_assum drule>>
-  simp[]>>rw[]
+  simp[]>>rw[]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem obj_single_eq:
@@ -1526,7 +1543,8 @@ Proof
   gvs[AllCaseEqs()]>>
   drule obj_single_aux_eq_SOME>>rw[]>>
   DEP_REWRITE_TAC[obj_constraint_simp]>>
-  simp[]
+  simp[]>>
+  intLib.ARITH_TAC
 QED
 
 Definition full_obj_single_def:
@@ -3122,7 +3140,7 @@ Proof
   gvs[]
 QED
 
-Triviality earliest_rel_append_NONE:
+Theorem earliest_rel_append_NONE[local]:
   earliest_rel fml earliest ⇒
   earliest_rel (fml ++ REPLICATE k NONE) earliest
 Proof
@@ -3136,7 +3154,7 @@ Proof
   \\ Cases_on ‘lookup x earliest’ \\ gvs [min_opt_def]
 QED
 
-Triviality lookup_update_earliest_none:
+Theorem lookup_update_earliest_none[local]:
   ∀v0 n earliest x.
     lookup x (update_earliest earliest n v0) = NONE ⇒
     ¬MEM x (MAP SND v0) ∧ lookup x earliest = NONE
@@ -3146,7 +3164,7 @@ Proof
   \\ gvs [lookup_insert,AllCaseEqs()]
 QED
 
-Triviality lookup_update_earliest_some:
+Theorem lookup_update_earliest_some[local]:
   ∀v0 n earliest x k.
     lookup x (update_earliest earliest n v0) = SOME k ∧ n < k ⇒
     ¬MEM x (MAP SND v0) ∧ lookup x earliest = SOME k
@@ -3158,7 +3176,7 @@ Proof
   \\ ‘MIN x' n ≠ k’ by gvs [MIN_DEF] \\ gvs []
 QED
 
-Triviality earliest_rel_lupdate:
+Theorem earliest_rel_lupdate[local]:
   n < LENGTH fml ∧
   earliest_rel fml earliest ⇒
   earliest_rel (LUPDATE (SOME (v,b)) n fml)
@@ -3743,7 +3761,7 @@ Definition check_good_aord_fast_def:
   EVERY (λls. EVERY (λx. case lookup x t of NONE => F | _ => T) ls) (MAP (MAP SND o FST) g)
 End
 
-Triviality check_good_aord_fast_correct_1:
+Theorem check_good_aord_fast_correct_1[local]:
   check_good_aord_fast aord ⇒
   check_good_aord aord
 Proof
@@ -3761,7 +3779,7 @@ Proof
   gvs[domain_lookup]
 QED
 
-Triviality check_good_aord_fast_correct_2:
+Theorem check_good_aord_fast_correct_2[local]:
   check_good_aord aord ⇒
   check_good_aord_fast aord
 Proof
@@ -3820,7 +3838,7 @@ Definition check_ws_fast_def:
   EVERY (λv. case sptree$lookup v t of NONE => T | _ => F) as
 End
 
-Triviality check_ws_fast_correct_1:
+Theorem check_ws_fast_correct_1[local]:
   check_ws_fast aord ws bs cs ⇒
   check_ws aord ws bs cs
 Proof
@@ -3833,7 +3851,7 @@ Proof
   metis_tac[option_CLAUSES]
 QED
 
-Triviality check_ws_fast_correct_2:
+Theorem check_ws_fast_correct_2[local]:
   check_ws aord ws bs cs ⇒
   check_ws_fast aord ws bs cs
 Proof
@@ -3990,8 +4008,8 @@ Definition check_cstep_list_def:
     case check_obj pc.obj w (MAP SND corels) bopt of
       NONE => NONE
     | SOME new =>
-      let (bound',dbound') =
-        update_bound pc.chk pc.bound pc.dbound new in
+      let bound' = update_bound pc.chk pc.bound new in
+      let dbound' = update_dbound pc.dbound new in
       if mi then
         let c = model_improving pc.obj new in
         SOME (
@@ -4022,6 +4040,19 @@ Definition check_cstep_list_def:
     if check_eq_obj pc.obj fc'
     then SOME (fml, zeros, inds, vimap, vomap, pc)
     else NONE
+  | AssertObj i => (
+      let c = model_improving pc.obj i in
+      let dbound' = update_dbound pc.dbound i in
+        SOME (
+          update_resize fml NONE (SOME (c,T)) pc.id,
+          zeros,
+          sorted_insert pc.id inds,
+          update_vimap vimap pc.id (FST c),
+          vomap,
+          pc with
+          <| id := pc.id+1;
+             dbound := dbound' |>)
+    )
   | ChangePres b v c pfs =>
     (case check_change_pres_list b fml pc.id pc.pres
         v c pfs zeros of
@@ -4073,7 +4104,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality all_core_list_mem:
+Theorem all_core_list_mem[local]:
   ∀inds fmlls acc inds'.
     all_core_list fmlls inds acc = SOME inds' ⇒
     MEM x inds' ⇒ MEM x acc ∨ MEM x inds
@@ -4379,7 +4410,6 @@ Proof
       simp[lookup_mk_core_fml]>>
       metis_tac[ind_rel_lookup_core_only_list,fml_rel_lookup_core_only])>>
     drule check_obj_cong>>rw[]>>fs[]>>
-    pairarg_tac>>gvs[]>>
     rw[]>>gvs[]
     >- metis_tac[fml_rel_update_resize]
     >- metis_tac[ind_rel_update_resize_sorted_insert]
@@ -4418,8 +4448,14 @@ Proof
     simp[any_el_rollback]>>
     metis_tac[check_subproofs_list_zeros])
   >~ [‘CheckObj’] >- (
-    fs[check_cstep_def,check_cstep_list_def]
-  )
+    fs[check_cstep_def,check_cstep_list_def])
+  >~ [‘AssertObj’] >- (
+    gvs[check_cstep_def,check_cstep_list_def]>>
+    rw[]
+    >- metis_tac[fml_rel_update_resize]
+    >- metis_tac[ind_rel_update_resize_sorted_insert]
+    >- metis_tac[vimap_rel_update_resize_update_vimap]>>
+    simp[any_el_update_resize])
   >~ [‘ChangePres’] >- (
     fs[check_cstep_def,check_cstep_list_def]>>
     gvs[AllCaseEqs(),check_change_pres_list_def,check_change_pres_def]>>
@@ -4903,5 +4939,3 @@ Proof
   drule_all fml_rel_check_output_list>>
   metis_tac[]
 QED
-
-val _ = export_theory();

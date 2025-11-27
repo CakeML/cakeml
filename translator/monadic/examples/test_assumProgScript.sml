@@ -1,9 +1,13 @@
 (*
   Test the monadic translator's handling of assumptions
 *)
-open preamble ml_monad_translator_interfaceLib
+Theory test_assumProg
+Libs
+  preamble ml_monad_translator_interfaceLib
+Ancestors
+  ml_monad_translator
 
-val _ = new_theory "test_assumProg";
+val _ = set_up_monadic_translator ();
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -17,7 +21,7 @@ Definition STATE_PINV_def:
   STATE_PINV = \state. EVEN state.the_num /\ (state.the_string = "")
 End
 
-Triviality STATE_PINV_VALID:
+Theorem STATE_PINV_VALID[local]:
   (state.the_num = 0) /\ (state.the_string = "") ==> STATE_PINV state
 Proof
   rw[STATE_PINV_def]
@@ -86,7 +90,7 @@ End
 val mf6_v_thm = m_translate mf6_def;
 
 val length_v_thm = translate listTheory.LENGTH;
-Triviality ZIP_def2:
+Theorem ZIP_def2[local]:
   ZIP x = dtcase x of
       (x::l1, y::l2) => (x, y) :: ( ZIP (l1,l2) )
     | ([], [])       => []
@@ -105,5 +109,3 @@ Definition mf7_def:
     return (ZIP (l1, l2)) od
 End
 val mf7_v_thm = m_translate mf7_def;
-
-val _ = export_theory ();

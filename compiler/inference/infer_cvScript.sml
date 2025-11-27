@@ -1,12 +1,11 @@
 (*
   Translating inferTheory to cv equations for use with cv_eval
 *)
-open preamble miscTheory;
-open cv_transLib;
-open astTheory namespaceTheory inferTheory inferPropsTheory;
-open basis_cvTheory unify_cvTheory;
-
-val _ = new_theory "infer_cv";
+Theory infer_cv[no_sig_docs]
+Ancestors
+  misc ast namespace infer inferProps basis_cv unify_cv
+Libs
+  preamble cv_transLib
 
 val expand = let
   val th1 = SRULE [FUN_EQ_THM] st_ex_bind_def
@@ -44,7 +43,7 @@ Definition map_t_walkstar_def:
   map_t_walkstar s (t::ts) = t_walkstar s t :: map_t_walkstar s ts
 End
 
-Triviality map_t_walkstar_thm:
+Theorem map_t_walkstar_thm[local]:
   MAP (t_walkstar s) ts = map_t_walkstar s ts
 Proof
   Induct_on ‘ts’ \\ gvs [map_t_walkstar_def]
@@ -411,5 +410,3 @@ val _ = cv_auto_trans (infertype_prog_inc_eq |> SRULE [extend_dec_ienv_def]);
 (* main results stored as: cv_infertype_prog_thm
                            cv_infertype_prog_inc_thm *)
 
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
-val _ = export_theory ();

@@ -4,9 +4,11 @@
   Defines mlstring as a separate type from string in HOL's standard library (a
   synonym for char list).
 *)
-open preamble totoTheory mllistTheory
-
-val _ = new_theory"mlstring"
+Theory mlstring
+Ancestors
+  misc toto mllist
+Libs
+  preamble
 
 val cpn_distinct = TypeBase.distinct_of ``:ordering``
 val cpn_nchotomy = TypeBase.nchotomy_of ``:ordering``
@@ -260,7 +262,7 @@ Definition concatWith_def:
   concatWith s l = concatWith_aux s l T
 End
 
-Triviality concatWith_CONCAT_WITH_aux:
+Theorem concatWith_CONCAT_WITH_aux[local]:
   !s l fl. (CONCAT_WITH_aux s l fl = REVERSE fl ++ explode (concatWith (implode s) (MAP implode l)))
 Proof
   ho_match_mp_tac CONCAT_WITH_aux_ind
@@ -300,7 +302,7 @@ Definition translate_def:
   translate f s = implode (translate_aux f s 0 (strlen s))
 End
 
-Triviality translate_aux_thm:
+Theorem translate_aux_thm[local]:
   !f s n len. (n + len = strlen s) ==> (translate_aux f s n len = MAP f (DROP n (explode s)))
 Proof
   Cases_on `s` \\ Induct_on `len` \\ rw [translate_aux_def, strlen_def, explode_def] \\
@@ -399,7 +401,7 @@ Definition tokens_def:
 End
 
 
-Triviality tokens_aux_filter:
+Theorem tokens_aux_filter[local]:
   !f s ss n len. (n + len = strlen s) ==> (concat (tokens_aux f s ss n len) =
       implode (REVERSE ss++FILTER ($~ o f) (DROP n (explode s))))
 Proof
@@ -645,7 +647,7 @@ End
 
 
 
-Triviality fields_aux_filter:
+Theorem fields_aux_filter[local]:
   !f s ss n len. (n + len = strlen s) ==> (concat (fields_aux f s ss n len) =
       implode (REVERSE ss++FILTER ($~ o f) (DROP n (explode s))))
 Proof
@@ -660,7 +662,7 @@ Proof
   rw [fields_def, fields_aux_filter]
 QED
 
-Triviality fields_aux_length:
+Theorem fields_aux_length[local]:
   !f s ss n len. (n + len = strlen s) ==>
     (LENGTH (fields_aux f s ss n len) = LENGTH (FILTER f (DROP n (explode s))) + 1)
 Proof
@@ -747,10 +749,10 @@ Theorem OLEAST_LE_STEP:
     else (OLEAST j. i + 1 <= j /\ P j))
 Proof
   rw []
-  \\ simp [whileTheory.OLEAST_EQ_SOME]
+  \\ simp [WhileTheory.OLEAST_EQ_SOME]
   \\ qmatch_goalsub_abbrev_tac `opt1 = $OLEAST _`
   \\ Cases_on `opt1`
-  \\ fs [whileTheory.OLEAST_EQ_SOME]
+  \\ fs [WhileTheory.OLEAST_EQ_SOME]
   \\ rw []
   \\ fs [LESS_EQ |> REWRITE_RULE [ADD1] |> GSYM, arithmeticTheory.LT_LE]
   \\ CCONTR_TAC
@@ -807,7 +809,7 @@ Proof
   \\ pop_assum $ irule_at Any
 QED
 
-Triviality isprefix_thm_aux:
+Theorem isprefix_thm_aux[local]:
   ∀ys xs zs.
     LENGTH ys ≤ LENGTH zs ⇒
     (isStringThere_aux (strlit (xs ++ ys)) (strlit (xs ++ zs))
@@ -975,7 +977,7 @@ Overload ">=" = ``λx y. mlstring_ge x y``
 val flip_ord_def = ternaryComparisonsTheory.invert_comparison_def
 Overload flip_ord = ``invert_comparison``
 
-Triviality compare_aux_spec:
+Theorem compare_aux_spec[local]:
   !s1 s2 ord_in start len.
     len + start ≤ strlen s1 ∧ len + start ≤ strlen s2 ⇒
     (compare_aux s1 s2 ord_in start len =
@@ -1001,7 +1003,7 @@ Proof
   fs [char_lt_def, CHAR_EQ_THM]
 QED
 
-Triviality compare_aux_refl:
+Theorem compare_aux_refl[local]:
   !s1 s2 start len.
     start + len ≤ strlen s1 ∧ start + len ≤ strlen s2
     ⇒
@@ -1012,7 +1014,7 @@ Proof
   rw [compare_aux_spec]
 QED
 
-Triviality compare_aux_equal:
+Theorem compare_aux_equal[local]:
   !s1 s2 ord_in start len.
     (compare_aux s1 s2 ord_in start len = EQUAL) ⇒ (ord_in = EQUAL)
 Proof
@@ -1026,7 +1028,7 @@ Proof
   metis_tac []
 QED
 
-Triviality compare_aux_sym:
+Theorem compare_aux_sym[local]:
   !s1 s2 ord_in start len ord_out.
     (compare_aux s1 s2 ord_in start len = ord_out)
     ⇔
@@ -1057,7 +1059,7 @@ Proof
   metis_tac []
 QED
 
-Triviality string_lt_take_mono:
+Theorem string_lt_take_mono[local]:
   !s1 s2 x.
     s1 < s2 ⇒ TAKE x s1 < TAKE x s2 ∨ (TAKE x s1 = TAKE x s2)
 Proof
@@ -1068,7 +1070,7 @@ Proof
   metis_tac []
 QED
 
-Triviality string_lt_remove_take:
+Theorem string_lt_remove_take[local]:
   !s1 s2 x. TAKE x s1 < TAKE x s2 ⇒ s1 < s2
 Proof
   ho_match_mp_tac string_lt_ind >>
@@ -1078,7 +1080,7 @@ Proof
   metis_tac []
 QED
 
-Triviality string_prefix_le:
+Theorem string_prefix_le[local]:
   !s1 s2. s1 ≼ s2 ⇒ s1 ≤ s2
 Proof
   ho_match_mp_tac string_lt_ind >>
@@ -1087,7 +1089,7 @@ Proof
   fs []
 QED
 
-Triviality take_prefix:
+Theorem take_prefix[local]:
   !l s. TAKE l s ≼ s
 Proof
   Induct_on `s` >>
@@ -1243,7 +1245,7 @@ Proof
   \\ imp_res_tac string_lt_total \\ fs []
 QED
 
-Triviality transitive_mlstring_lt:
+Theorem transitive_mlstring_lt[local]:
   transitive mlstring_lt
 Proof
   simp[mlstring_lt_inv_image] >>
@@ -1258,7 +1260,7 @@ Proof
   \\ fs [string_le_def,mlstring_lt_inv_image]
 QED
 
-Triviality irreflexive_mlstring_lt:
+Theorem irreflexive_mlstring_lt[local]:
   irreflexive mlstring_lt
 Proof
   simp[mlstring_lt_inv_image] >>
@@ -1266,7 +1268,7 @@ Proof
   simp[irreflexive_def,string_lt_nonrefl]
 QED
 
-Triviality trichotomous_mlstring_lt:
+Theorem trichotomous_mlstring_lt[local]:
   trichotomous mlstring_lt
 Proof
   simp[mlstring_lt_inv_image] >>
@@ -1431,7 +1433,7 @@ Definition str_app_list_opt_def:
       shrink t
 End
 
-Triviality str_app_list_opt_test:
+Theorem str_app_list_opt_test[local]:
   str_app_list_opt (Append (List [strlit "Hello"; strlit " there"])
                            (List [strlit "!"])) =
   List [strlit "Hello there!"]
@@ -1468,5 +1470,3 @@ QED
 Definition empty_ffi_def:
   empty_ffi (s:mlstring) = ()
 End
-
-val _ = export_theory()

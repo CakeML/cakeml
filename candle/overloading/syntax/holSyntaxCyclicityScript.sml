@@ -2,11 +2,13 @@
  Implementation of cyclicity check for function definitions
  based on [Kunčar, CPP 2015](https://doi.org/10.1145/2676724.2693175)
  *)
-open preamble totoTheory comparisonTheory ternaryComparisonsTheory mlstringTheory
-     holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
-     holSyntaxRenamingTyvarTheory
+Theory holSyntaxCyclicity
+Ancestors
+  toto comparison ternaryComparisons mlstring holSyntaxLib
+  holSyntax holSyntaxExtra holSyntaxRenamingTyvar
+Libs
+  preamble
 
-val _ = new_theory"holSyntaxCyclicity"
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 Overload is_instance = ``λty0 ty. ∃i. ty = TYPE_SUBST i ty0``
@@ -554,13 +556,13 @@ Definition wf_pqs_def:
   wf_pqs = EVERY (UNCURRY $/\ o (is_const_or_type ## is_const_or_type))
 End
 
-Triviality wf_pqs_APPEND:
+Theorem wf_pqs_APPEND[local]:
   wf_pqs (l ++ l') <=> wf_pqs l /\ wf_pqs l'
 Proof
   fs[wf_pqs_def]
 QED
 
-Triviality wf_pqs_CONS:
+Theorem wf_pqs_CONS[local]:
   wf_pqs (h::t) <=> is_const_or_type (FST h) /\ is_const_or_type (SND h) /\ wf_pqs t
 Proof
   fs[wf_pqs_def,ELIM_UNCURRY,EQ_IMP_THM]
@@ -3939,13 +3941,13 @@ Proof
   >> fs[]
 QED
 
-Triviality CONS_FRONT:
+Theorem CONS_FRONT[local]:
   !s. 1 < LENGTH s ==> HD s::TL (FRONT s) = FRONT s
 Proof
   Induct >> rw[FRONT_DEF]
 QED
 
-Triviality EVERY_FRONT:
+Theorem EVERY_FRONT[local]:
   !l P. ~NULL l /\ EVERY P l ==> EVERY P (FRONT l)
 Proof
   Induct >> rw[FRONT_DEF,NULL_EQ]
@@ -6767,7 +6769,7 @@ Proof
   >> gs[composable_def,GSYM invertible_on_equiv_ts_on_FV]
 QED
 
-Triviality composable_step_INR_eq:
+Theorem composable_step_INR_eq[local]:
   !dep q p steps. is_const_or_type q /\ wf_pqs dep
   ==> (composable_step q dep steps = INR p <=> composable_step q dep [] = INR p)
 Proof
@@ -7244,7 +7246,7 @@ Proof
   >> gs[wf_pqs_APPEND,wf_pqs_CONS,CaseEq"sum",DISJ_IMP_THM,FORALL_AND_THM]
 QED
 
-Triviality EXISTS_LENGTH_FILTER:
+Theorem EXISTS_LENGTH_FILTER[local]:
   !ls f. EXISTS f ls <=> 0 < LENGTH $ FILTER f ls
 Proof
   Induct >> rw[]
@@ -8791,4 +8793,3 @@ Proof
   >> fs[wf_dep_dependency_ctxt,GSYM wf_dep_wf_pqs,DEPENDENCY_EQUIV,GSYM is_instance_LR_equiv,monotone_dependency_good_constspec_names]
 QED
 
-val _ = export_theory();

@@ -1,10 +1,11 @@
 (*
   The formal semantics of labLang
 *)
-open preamble labLangTheory wordSemTheory;
-local open alignmentTheory targetSemTheory in end;
-
-val _ = new_theory"labSem";
+Theory labSem
+Ancestors
+  labLang wordSem alignment[qualified] targetSem[qualified]
+Libs
+  preamble
 
 Datatype:
   word8_loc = Byte word8 | LocByte num num num
@@ -313,8 +314,8 @@ Definition mem_op_def:
   (mem_op Store32 r a = mem_store32 r a) /\
   (mem_op Load8 r a = mem_load_byte r a) /\
   (mem_op Store8 r a = mem_store_byte r a) /\
-  (mem_op Load32 r (a:'a addr) = assert F) /\
-  (mem_op Store32 r (a:'a addr) = assert F)
+  (mem_op Load16 r (a:'a addr) = assert F) /\
+  (mem_op Store16 r (a:'a addr) = assert F)
 End
 
 Definition asm_inst_def:
@@ -342,7 +343,7 @@ Definition asm_code_length_def:
      asm_code_length ((Section k ys)::xs) + if is_Label y then 0 else 1:num)
 End
 
-Triviality asm_fetch_IMP:
+Theorem asm_fetch_IMP[local]:
   (asm_fetch s = SOME x) ==>
     s.pc < asm_code_length s.code
 Proof
@@ -403,7 +404,7 @@ Proof
     Cases_on`f`
     \\ fs[fp_upd_def,upd_reg_def,upd_fp_reg_def,assert_def]
     \\ BasicProvers.EVERY_CASE_TAC \\ fs[upd_fp_reg_def]
-QED ;
+QED
 
 Definition get_pc_value_def:
   get_pc_value lab (s:('a,'c,'ffi) labSem$state) =
@@ -486,8 +487,10 @@ Definition share_mem_op_def:
   (share_mem_op Load r ad (s: ('a,'c,'ffi) labSem$state) =
     share_mem_load r ad s 0) /\
   (share_mem_op Load8 r ad s = share_mem_load r ad s 1) /\
+  (share_mem_op Load16 r ad s = share_mem_load r ad s 2) /\
   (share_mem_op Store r ad s = share_mem_store r ad s 0) /\
   (share_mem_op Store8 r ad s = share_mem_store r ad s 1) /\
+  (share_mem_op Store16 r ad s = share_mem_store r ad s 2) /\
   (share_mem_op Load32 r ad s = share_mem_load r ad s 4) /\
   (share_mem_op Store32 r ad s = share_mem_store r ad s 4)
 End
@@ -630,4 +633,3 @@ Definition semantics_def:
            (IMAGE (λk. fromList (SND (evaluate (s with clock := k))).ffi.io_events) UNIV))
 End
 
-val _ = export_theory();

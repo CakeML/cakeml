@@ -1,13 +1,13 @@
 (*
   Correctness proof for word_elim
 *)
+Theory word_elimProof
+Libs
+  preamble
+Ancestors
+  mllist wordLang word_elim wordSem wordProps spt_closure wordConvs
 
-open preamble wordLangTheory mllistTheory
-     word_elimTheory wordSemTheory wordPropsTheory wordConvsTheory spt_closureTheory;
 
-val _ = new_theory "word_elimProof";
-val _ = set_grammar_ancestry
-  ["wordLang", "word_elim", "wordSem", "wordProps", "spt_closure"];
 val _ = temp_delsimps ["fromAList_def"]
 val _ = Parse.hide"mem";
 val _ = Parse.bring_to_front_overload"domain"{Thy="sptree",Name="domain"};
@@ -1199,6 +1199,7 @@ Proof
         gvs[AllCaseEqs(),
         sh_mem_load_def,sh_mem_load_byte_def,
         sh_mem_load32_def,sh_mem_store32_def,
+        sh_mem_load16_def,sh_mem_store16_def,
         sh_mem_store_def,sh_mem_store_byte_def,
         DefnBase.one_line_ify NONE sh_mem_set_var_def] >>
       rw[set_var_def,dest_result_loc_def,flush_state_def] >>
@@ -1533,5 +1534,3 @@ Proof
                 ) >> fs[ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME])
         )
 QED
-
-val _ = export_theory();

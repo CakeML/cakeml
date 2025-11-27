@@ -1,13 +1,15 @@
 (*
   Correctness proof for lab_filter
 *)
-open preamble labSemTheory labPropsTheory lab_filterTheory;
+Theory lab_filterProof
+Ancestors
+  labSem labProps lab_filter
+Libs
+  preamble
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "lab_filterProof";
 
 Definition adjust_pc_def:
   adjust_pc p xs =
@@ -32,7 +34,7 @@ Definition all_skips_def:
     asm_fetch_aux (pc+i) code = SOME(Asm (Asmi(Inst Skip)) x y)
 End
 
-Triviality is_Label_not_skip:
+Theorem is_Label_not_skip[local]:
   is_Label y ⇒ not_skip y
 Proof
   Cases_on`y`>>full_simp_tac(srw_ss())[is_Label_def,not_skip_def]
@@ -120,7 +122,7 @@ Proof
 QED
 (*For any adjusted fetch, the original fetch is either equal or is a skip
 This is probably the wrong direction*)
-Triviality asm_fetch_not_skip_adjust_pc:
+Theorem asm_fetch_not_skip_adjust_pc[local]:
   ∀pc code inst.
   (∀x y.asm_fetch_aux pc code ≠ SOME (Asm (Asmi(Inst Skip)) x y)) ⇒
   asm_fetch_aux pc code = asm_fetch_aux (adjust_pc pc code) (filter_skip code)
@@ -156,7 +158,7 @@ Proof
     simp[asm_fetch_aux_def]
 QED
 
-Triviality state_rw:
+Theorem state_rw[local]:
   s with clock := s.clock = s ∧
   s with pc := s.pc = s ∧
   s with <|pc := s.pc; clock:= s.clock+k'|> = s with clock:=s.clock+k'
@@ -165,7 +167,7 @@ Proof
 QED
 
 (* 2) all_skips allow swapping pc for clock*)
-Triviality all_skips_evaluate:
+Theorem all_skips_evaluate[local]:
   ∀k s.
   all_skips s.pc s.code k ∧
   ¬s.failed ⇒
@@ -206,7 +208,7 @@ Definition state_rel_def:
     ¬t1.failed
 End
 
-Triviality adjust_pc_all_skips:
+Theorem adjust_pc_all_skips[local]:
   ∀k pc code.
   all_skips pc code k ⇒
   adjust_pc pc code +1 = adjust_pc (pc+k+1) code
@@ -247,7 +249,7 @@ Proof
     full_simp_tac(srw_ss())[]
 QED
 
-Triviality asm_fetch_aux_eq2:
+Theorem asm_fetch_aux_eq2[local]:
   asm_fetch_aux (adjust_pc pc code) (filter_skip code) = x ⇒
   ∃k.
   asm_fetch_aux (pc+k) code = x ∧
@@ -258,7 +260,7 @@ QED
 
 val all_skips_evaluate_0 = all_skips_evaluate |>SIMP_RULE std_ss [PULL_FORALL]|>(Q.SPECL[`k`,`s`,`0`])|>GEN_ALL|>SIMP_RULE std_ss[]
 
-Triviality all_skips_evaluate_rw:
+Theorem all_skips_evaluate_rw[local]:
   all_skips s.pc s.code k ∧ ¬s.failed ∧
   s.clock = clk + k ∧
   t = s with <| pc:= s.pc +k ; clock := clk |> ⇒
@@ -276,7 +278,7 @@ Proof
 QED
 
 (*For all initial code there is some all_skips*)
-Triviality all_skips_initial_adjust:
+Theorem all_skips_initial_adjust[local]:
   ∀code.
   ∃k. all_skips 0 code k ∧ adjust_pc k code = 0
 Proof
@@ -305,7 +307,7 @@ Proof
 QED
 
 (*May need strengthening*)
-Triviality loc_to_pc_eq_NONE:
+Theorem loc_to_pc_eq_NONE[local]:
   ∀n1 n2 code.
   loc_to_pc n1 n2 (filter_skip code) = NONE ⇒
   loc_to_pc n1 n2 code = NONE
@@ -340,7 +342,7 @@ Proof
   simp[Once loc_to_pc_def]
 QED
 
-Triviality loc_to_pc_eq_SOME:
+Theorem loc_to_pc_eq_SOME[local]:
   ∀n1 n2 code pc.
   loc_to_pc n1 n2 (filter_skip code) = SOME pc ⇒
   ∃pc'.
@@ -411,7 +413,7 @@ Proof
         simp[Once adjust_pc_def]))
 QED
 
-Triviality next_label_filter_skip:
+Theorem next_label_filter_skip[local]:
   ∀code.
   next_label code = next_label (filter_skip code)
 Proof
@@ -420,7 +422,7 @@ Proof
   EVERY_CASE_TAC>>full_simp_tac(srw_ss())[next_label_def]
 QED
 
-Triviality all_skips_get_lab_after:
+Theorem all_skips_get_lab_after[local]:
   ∀code k.
   all_skips 0 code k ⇒
   get_lab_after k code =
@@ -463,7 +465,7 @@ Proof
     full_simp_tac(srw_ss())[]
 QED
 
-Triviality get_lab_after_adjust:
+Theorem get_lab_after_adjust[local]:
   ∀pc code k.
   all_skips pc code k ⇒
   get_lab_after (pc+k) code = get_lab_after (adjust_pc pc code) (filter_skip code)
@@ -517,7 +519,7 @@ Proof
       full_simp_tac(srw_ss())[all_skips_def,asm_fetch_aux_def]
 QED
 
-Triviality loc_to_pc_adjust_pc_append:
+Theorem loc_to_pc_adjust_pc_append[local]:
   ∀n1 n2 code pc ls.
   loc_to_pc n1 n2 code = SOME pc ==>
   adjust_pc pc code = adjust_pc pc (code++ls)
@@ -634,6 +636,8 @@ Proof
   >- share_mem_load_filter_correct_tac
   >- share_mem_load_filter_correct_tac
   >- share_mem_load_filter_correct_tac
+  >- share_mem_load_filter_correct_tac
+  >- share_mem_store_filter_correct_tac
   >- share_mem_store_filter_correct_tac
   >- share_mem_store_filter_correct_tac
   >- share_mem_store_filter_correct_tac
@@ -1027,7 +1031,7 @@ Proof
       same_inst_tac
 QED
 
-Triviality state_rel_IMP_sem_EQ_sem:
+Theorem state_rel_IMP_sem_EQ_sem[local]:
   !s t. state_rel s t ==> semantics s = semantics t
 Proof
   srw_tac[][labSemTheory.semantics_def] >- (
@@ -1171,4 +1175,3 @@ Proof
   \\ fs[LAST_CONS_cond]
 QED
 
-val _ = export_theory();

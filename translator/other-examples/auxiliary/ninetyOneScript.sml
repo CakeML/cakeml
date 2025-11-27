@@ -1,10 +1,11 @@
 (*---------------------------------------------------------------------------
            McCarthy's 91 function.
  ---------------------------------------------------------------------------*)
-open bossLib Theory Parse Tactic boolLib Lib
-open TotalDefn numLib prim_recTheory arithmeticTheory;
-
-val _ = new_theory "ninetyOne"
+Theory ninetyOne
+Ancestors
+   prim_rec arithmetic
+Libs
+  Tactic Lib TotalDefn numLib
 
 val _ = ParseExtras.temp_loose_equality()
 
@@ -28,7 +29,7 @@ val [E] = map DISCH_ALL (Defn.eqns_of N_aux_defn);
       works when the termination relation has not yet been supplied.
  ---------------------------------------------------------------------------*)
 
-Triviality Npartly_correct:
+Theorem Npartly_correct[local]:
   WF R /\
   (!x. ~(x > 100) ==> R (N_aux R (x + 11)) x) /\
   (!x. ~(x > 100) ==> R (x + 11) x)
@@ -41,7 +42,7 @@ Proof
    THEN RW_TAC arith_ss []
 QED
 
-Triviality N_aux_partial_correctness:
+Theorem N_aux_partial_correctness[local]:
   WF R /\
   (!x. ~(x > 100) ==> R (N_aux R (x + 11)) x) /\
   (!x. ~(x > 100) ==> R (x + 11) x)
@@ -59,7 +60,7 @@ QED
 
 val lem = DECIDE ``~(x > 100) ==> (101-y < 101-x = x<y)``;
 
-Triviality unexpand_measure:
+Theorem unexpand_measure[local]:
   (\x' x''. 101 < x' + (101 - x'') /\ x'' < 101) = measure \x. 101-x
 Proof
   RW_TAC arith_ss [FUN_EQ_THM, measure_thm]
@@ -169,4 +170,3 @@ EVAL ``N 127``;
 
 (* val _ = ml_translatorLib.translate N_def; *)
 
-val _ = export_theory ()

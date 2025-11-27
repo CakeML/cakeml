@@ -1,15 +1,14 @@
 (*
   Compiler correctness for the itree CakeML semantics
 *)
-open preamble;
-open semanticsPropsTheory evaluatePropsTheory ffiTheory targetPropsTheory
-     backendProofTheory primSemEnvTheory alt_semanticsTheory;
-open target_itreeSemTheory target_itreePropsTheory target_itreeEquivTheory
-     itree_semanticsTheory itree_semanticsPropsTheory itree_semanticsEquivTheory;
-
-
-val _ = new_theory "backend_itreeProof"
-
+Theory backend_itreeProof
+Ancestors
+  semanticsProps evaluateProps ffi targetProps lab_to_targetProof
+  backendProof primSemEnv alt_semantics target_itreeSem
+  target_itreeProps target_itreeEquiv itree_semantics
+  itree_semanticsProps itree_semanticsEquiv
+Libs
+  preamble
 
 (*********** Definitions **********)
 
@@ -100,7 +99,7 @@ Proof
     )
 QED
 
-Triviality make_ffi_simps[simp]:
+Theorem make_ffi_simps[local,simp]:
   (make_ffi l).oracle = list_oracle ∧
   (make_ffi l).io_events = [] ∧
   (make_ffi l).ffi_state = l
@@ -108,14 +107,14 @@ Proof
   rw[make_ffi_def]
 QED
 
-Triviality list_oracle_apply =
+Theorem list_oracle_apply[local] =
   SIMP_CONV (srw_ss()) [DefnBase.one_line_ify NONE list_oracle_def]
     ``list_oracle name l ws1 ws2``;
 
-Triviality trace_rel_simps[simp] =
+Theorem trace_rel_simps[local,simp] =
   trace_rel_rules |> CONJUNCTS |> butlast |> LIST_CONJ;
 
-Triviality trace_rel_prefix:
+Theorem trace_rel_prefix[local]:
   trace_rel exact a b ⇒ isPREFIX (FST b) (FST a)
 Proof
   rw[trace_rel_cases] >> simp[]
@@ -129,7 +128,7 @@ Proof
   Induct_on `trace_rel` >> rw[] >> gvs[trace_rel_cases, IS_PREFIX]
 QED
 
-Triviality ffi_invariant_simps[simp]:
+Theorem ffi_invariant_simps[local,simp]:
   ffi_invariant f (Ret x) = (∀e input. x ≠ f e input) ∧
   ffi_invariant f Div = T ∧
   ffi_invariant f (Vis e g) = (
@@ -620,5 +619,3 @@ QED
 
 
 (**********)
-
-val _ = export_theory();

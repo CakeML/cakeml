@@ -1,11 +1,13 @@
 (*
   Correctness proof for bvl_jump
 *)
-open preamble bvl_jumpTheory bvlSemTheory bvlPropsTheory;
+Theory bvl_jumpProof
+Ancestors
+  bvl_jump bvlSem bvlProps
+Libs
+  preamble
 
-val _ = new_theory"bvl_jumpProof";
-
-Triviality evaluate_JumpList:
+Theorem evaluate_JumpList[local]:
   !n xs k.
       k < LENGTH xs ==>
       (evaluate ([JumpList n xs],Number (&(n+k))::env,s) =
@@ -54,4 +56,3 @@ Proof
   \\ simp[]
 QED
 
-val _ = export_theory();

@@ -3,12 +3,12 @@
   embedded functions in HOL using a monadic style in order to
   conveniently pass around state and propagate exceptions.
 *)
-open preamble mlstringTheory holSyntaxExtraTheory
-              holSyntaxCyclicityTheory
-              ml_monadBaseTheory ml_monadBaseLib
-open mllistTheory
+Theory holKernel
+Libs
+  preamble ml_monadBaseLib
+Ancestors
+  mlstring mllist holSyntaxExtra holSyntaxCyclicity ml_monadBase
 
-val _ = new_theory "holKernel";
 val _ = ParseExtras.temp_loose_equality();
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 val _ = monadsyntax.temp_add_monadsyntax()
@@ -577,19 +577,19 @@ End
   this a non-failing function to make it pure.
 *)
 
-Triviality EXISTS_IMP:
+Theorem EXISTS_IMP[local]:
   !xs p. EXISTS p xs ==> ?x. MEM x xs /\ p x
 Proof
   Induct THEN SIMP_TAC (srw_ss()) [EXISTS_DEF] THEN METIS_TAC []
 QED
 
-Triviality MEM_subtract:
+Theorem MEM_subtract[local]:
   !y z x. MEM x (subtract y z) = (MEM x y /\ ~MEM x z)
 Proof
   FULL_SIMP_TAC std_ss [subtract_def,MEM_FILTER] THEN METIS_TAC []
 QED
 
-Triviality vfree_in_IMP:
+Theorem vfree_in_IMP[local]:
   !(t:term) x v. vfree_in (Var v ty) x ==> MEM (Var v ty) (frees x)
 Proof
   HO_MATCH_MP_TAC (SIMP_RULE std_ss [] (vfree_in_ind))
@@ -685,7 +685,7 @@ Definition my_term_size_def:
   (my_term_size (Abs s1 s2) = 1 + my_term_size s1 + my_term_size s2)
 End
 
-Triviality my_term_size_variant:
+Theorem my_term_size_variant[local]:
   !avoid t. my_term_size (variant avoid t) = my_term_size t
 Proof
   HO_MATCH_MP_TAC (variant_ind) THEN REPEAT STRIP_TAC
@@ -695,7 +695,7 @@ Proof
   THEN FULL_SIMP_TAC std_ss [my_term_size_def]
 QED
 
-Triviality is_var_variant:
+Theorem is_var_variant[local]:
   !avoid t. is_var (variant avoid t) = is_var t
 Proof
   HO_MATCH_MP_TAC (variant_ind) THEN REPEAT STRIP_TAC
@@ -727,7 +727,7 @@ val my_term_size_vsubst_aux = Q.prove(
   |> Q.SPECL [`t`,`[(Var v ty,x)]`]
   |> SIMP_RULE (srw_ss()) [EVERY_DEF,fetch "-" "is_var_def"]
 
-Triviality ZERO_LT_term_size:
+Theorem ZERO_LT_term_size[local]:
   !t. 0 < my_term_size t
 Proof
   Cases THEN EVAL_TAC THEN DECIDE_TAC
@@ -1373,5 +1373,3 @@ End
 Definition context_def:
   context () = get_the_context
 End
-
-val _ = export_theory();
