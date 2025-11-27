@@ -88,7 +88,6 @@ structure astSyntax = struct
   val (Attup_tm,mk_Attup,dest_Attup,is_Attup) = s "Attup";
   val (Atvar_tm,mk_Atvar,dest_Atvar,is_Atvar) = s "Atvar";
   val (Char_tm,mk_Char,dest_Char,is_Char) = s "Char";
-  val (Chopb_tm,mk_Chopb,dest_Chopb,is_Chopb) = s "Chopb";
   val (FFI_tm,mk_FFI,dest_FFI,is_FFI) = s "FFI";
   val (FP_bop_tm,mk_FP_bop,dest_FP_bop,is_FP_bop) = s "FP_bop";
   val (FP_cmp_tm,mk_FP_cmp,dest_FP_cmp,is_FP_cmp) = s "FP_cmp";

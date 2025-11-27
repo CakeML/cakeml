@@ -880,6 +880,8 @@ Proof
   \\ fs [markerTheory.Abbrev_def, t_walkstar_eqn1, convert_t_def, word_tc_def]
   \\ irule pure_add_constraints_ignore
   \\ simp [t_walkstar_eqn1]
+  \\ TRY (rename [‘t_num_of ty’] \\ Cases_on ‘ty’
+          \\ TRY (rename [‘WordT ww’] \\ Cases_on ‘ww’) \\ gvs [])
   \\ unconversion_tac
 QED
 

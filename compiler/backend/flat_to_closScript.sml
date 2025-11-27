@@ -110,11 +110,6 @@ Definition compile_op_def:
                         (If t (Op t (IntOp Less) [Var t 0; Op None (IntOp (Const 255)) []])
                           (Raise t (Op t (BlockOp (Cons chr_tag)) []))
                           (Var t 0)))
-    | Chopb chop => Op t (IntOp (dtcase chop of
-                                 | Lt => Less
-                                 | Gt => Greater
-                                 | Leq => LessEq
-                                 | Geq => GreaterEq)) xs
     | Opassign => arg2 xs (\x y. Op t (MemOp Update) [x; Op None (IntOp (Const 0)) []; y])
     | Opref => Op t (MemOp Ref) xs
     | ConfigGC => Op t (MemOp ConfigGC) xs
@@ -150,6 +145,12 @@ Definition compile_op_def:
     | CopyAw8Aw8 => Let t xs (CopyByteAw8 t)
     | Aw8xor_unsafe => Op t (MemOp XorByte) xs
     | VfromList => Op t (BlockOp (FromList 0)) xs
+    | Test test test_ty =>
+         (dtcase test_ty of
+          | BoolT => Op t (BlockOp (BoolTest test)) xs
+          | CharT => Op t (WordOp (WordTest W8 test)) xs
+          | WordT W8 => Op t (WordOp (WordTest W8 test)) xs
+          | _ => Op t (BlockOp Equal) xs)
     | WordFromInt W64 => Op t (WordOp WordFromInt) xs
     | WordToInt W64 => Op t (WordOp WordToInt) xs
     | WordFromInt W8 => arg1 xs (\x. Op t (IntOp Mod) [Op t (IntOp (Const 256)) []; x])

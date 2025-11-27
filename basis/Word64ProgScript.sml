@@ -40,6 +40,11 @@ val _ = translate word_1comp_eq
 (* arithmetic *)
 val _ = trans "+" ``word_add:word64->word64->word64``;
 val _ = trans "-" ``word_sub:word64->word64->word64``;
+val _ = trans "=" ``(=):word64->word64->bool``;
+val _ = trans "<" ``word_lo:word64->word64->bool``;
+val _ = trans ">" ``word_hi:word64->word64->bool``;
+val _ = trans "<=" ``word_ls:word64->word64->bool``;
+val _ = trans ">=" ``word_hs:word64->word64->bool``;
 
 (* shifts *)
 

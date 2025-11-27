@@ -161,6 +161,8 @@ val res = define_enc_dec “:word_size”
 val res = define_enc_dec “:mlstring”
 val res = define_enc_dec “:shmem_op”
 val res = define_enc_dec “:ffiname”
+val res = define_enc_dec “:ast$prim_type”
+val res = define_enc_dec “:ast$test”
 
 (* closLang_const *)
 

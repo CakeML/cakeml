@@ -513,9 +513,6 @@ Proof
   \\ Cases_on ‘op = Implode’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
-  \\ Cases_on ‘∃opb. op = Chopb opb’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
   \\ Cases_on ‘op = Chr’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
@@ -624,6 +621,10 @@ Proof
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_lookup_def, copy_array_def, store_assign_def])
   \\ Cases_on ‘op = Equality’ \\ gs []
+  >- (
+    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
+         store_lookup_def, copy_array_def, store_assign_def])
+  \\ Cases_on ‘∃test ty. op = Test test ty’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_lookup_def, copy_array_def, store_assign_def])
@@ -1272,7 +1273,7 @@ Proof
 QED
 
 (* -------------------------------------------------------------------------
- *
+ *  top-level results
  * ------------------------------------------------------------------------- *)
 
 Theorem state_ok_init:

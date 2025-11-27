@@ -90,7 +90,6 @@ fun chltprinter _ _ sysp _ gs d t =
   in
     sys gs d ``App Opapp [App Opapp [Var(Short"<");^l];^r]``
   end
-val _ = add_astPP("chltprinter",``App (Chopb Lt) [x;y]``,chltprinter)
 
 val _ = enable_astPP()
 
@@ -108,4 +107,3 @@ val _ = app appthis (fst(listSyntax.dest_list decls))
 val _ = TextIO.closeOut f
 
 val _ = disable_astPP()
-

@@ -388,20 +388,11 @@ Theorem do_app_err_thm[local]:
      ?w. do_app op ys t1 = Rerr w /\
           exc_rel v_rel err w
 Proof
-  srw_tac[][] >>
-  imp_res_tac do_app_err >> fsrw_tac[][] >>
-  Cases_on `?i. op = BlockOp (EqualConst i)`
-  THEN1 (rw [] \\ fsrw_tac[][do_app_def] \\ every_case_tac >> fs[])
-  \\ Cases_on `err` \\ fs []
-  \\ fs [do_app_cases_err]
-  \\ Cases_on `a` \\ fs []
-  \\ imp_res_tac do_app_ffi_error_IMP
-  \\ fs[do_app_def]
-  \\ rpt(PURE_TOP_CASE_TAC >> fs[] >> rveq >> fs[v_rel_simp]
-         \\ rveq >> fs[] >> fs[v_rel_simp])
-  \\ rpt(PURE_FULL_CASE_TAC \\ fs[])
-  \\ fs[state_rel_def] \\ first_x_assum drule \\ strip_tac \\ fs[]
-  \\ rveq \\ rfs[]
+  srw_tac[][]
+  \\ imp_res_tac do_app_err \\ fsrw_tac[][]
+  \\ gvs [oneline do_app_def, AllCaseEqs()]
+  \\ fs[v_rel_simp,state_rel_def]
+  \\ res_tac \\ gvs []
 QED
 
 Theorem v_to_bytes:
@@ -1716,4 +1707,3 @@ Proof
   \\ fs [HD_annotate_SING]
   \\ match_mp_tac every_Fn_SOME_annotate \\ fs []
 QED
-
