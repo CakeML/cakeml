@@ -18,18 +18,18 @@ End
 
 (* encodes ftable_i ⇔ X = Ti, provided that LENGTH X = LENGTH Ti *)
 Definition encode_tuple_eq_def:
-  encode_tuple_eq bnd Xts =
-    bimply_bits bnd [Pos (INR (Tb Xts))]
+  encode_tuple_eq bnd Xts name n =
+    bimply_bits bnd [Pos (INR (Tb name n))]
       ([], MAP (λ(X,t). (1i, Pos (INL (Eq X t)))) Xts, &LENGTH Xts)
 End
 
 (* The reifications needed for tuple eq on a given row *)
 Definition reify_tuple_eq_def:
-  reify_tuple_eq bnd Xts =
+  reify_tuple_eq bnd Xts name n =
   let
-    eqs = FLAT $ MAP (λ(X,t). encode_full_eq bnd X t) Xts;
+    eqs = FLAT $ MAPi (λn (X,t). encode_full_eq bnd X t) Xts;
   in
-    eqs ++ encode_tuple_eq bnd Xts
+    eqs ++ encode_tuple_eq bnd Xts name n
 End
 
 Theorem encode_tuple_eq_sem:
@@ -37,8 +37,8 @@ Theorem encode_tuple_eq_sem:
   EVERY (λ(X,t). wb (INL (Eq X t)) ⇔ varc wi X = t) Xts
   ⇒
   (EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_tuple_eq bnd Xts) ⇔
-  (wb (INR (Tb Xts)) ⇔ EVERY (λ(X,t). varc wi X = t) Xts))
+    (encode_tuple_eq bnd Xts name n) ⇔
+  (wb (INR (Tb name n)) ⇔ EVERY (λ(X,t). varc wi X = t) Xts))
 Proof
   rw[encode_tuple_eq_def,iconstraint_sem_def]>>
   simp[eval_lin_term_def]>>
@@ -62,18 +62,19 @@ Proof
 QED
 
 Definition table_al1_def[simp]:
-  table_al1 Xtss =
-    (([], MAP (λXts. (1i, Pos (INR (Tb Xts)))) Xtss, 1):'a aiconstraint)
+  table_al1 Xtss name =
+    (([],
+      MAPi (λn Xts. (1i, Pos (INR (Tb name n)))) Xtss, 1):'a aiconstraint)
 End
 
 Definition encode_table_def:
-  encode_table bnd tss Xs =
+  encode_table bnd tss Xs name =
   let n = LENGTH Xs in
     if EVERY (λYs. LENGTH Ys = n) tss
     then
       let Xtss = MAP (λts. filter_match (ZIP (Xs,ts))) tss in
-      (FLAT $ MAP (λXts. reify_tuple_eq bnd Xts) Xtss) ++
-      [table_al1 Xtss]
+      (FLAT $ MAPi (λn Xts. reify_tuple_eq bnd Xts name n) Xtss) ++
+      [table_al1 Xtss name]
     else
       [false_constr]
 End
@@ -91,44 +92,67 @@ Proof
 QED
 
 Theorem encode_tuple_eq_sem_reify:
-  valid_assignment bnd wi  ⇒
-  EVERY (λx. iconstraint_sem x (wi,reify_avar wi)) (encode_tuple_eq bnd Xts)
+  valid_assignment bnd wi ∧
+  ALOOKUP cs name = SOME (Extensional (Table tss Xs)) ∧
+  n < LENGTH tss ∧
+  LENGTH (EL n tss) = LENGTH Xs ∧
+  Xts = filter_match (ZIP (Xs,EL n tss)) ⇒
+  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi)) (encode_tuple_eq bnd Xts name n)
 Proof
   rw[encode_tuple_eq_def,reify_avar_def,reify_flag_def]>>
-  simp[iconstraint_sem_def,MAP_MAP_o,o_DEF,eval_lin_term_def,iterateTheory.LAMBDA_PAIR,
-    reify_avar_def,reify_reif_def,EVERY_MEM]
+  simp[iconstraint_sem_def,eval_lin_term_def,iterateTheory.LAMBDA_PAIR,
+    reify_avar_def,reify_reif_def,MAP_MAP_o,o_DEF,
+    match_row_filter_match,EVERY_MEM]
 QED
 
 Theorem reify_tuple_eq_sem_reify:
-  valid_assignment bnd wi  ⇒
-  EVERY (λx. iconstraint_sem x (wi,reify_avar wi)) (reify_tuple_eq bnd Xts)
+  valid_assignment bnd wi ∧
+  ALOOKUP cs name = SOME (Extensional (Table tss Xs)) ∧
+  n < LENGTH tss ∧
+  LENGTH (EL n tss) = LENGTH Xs ∧
+  Xts = filter_match (ZIP (Xs,EL n tss))
+  ⇒
+  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
+    (reify_tuple_eq bnd Xts name n)
 Proof
   rw[reify_tuple_eq_def]>>
   simp[EVERY_FLAT]
-  >- simp[Once EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,reify_avar_def,reify_reif_def]>>
-  metis_tac[encode_tuple_eq_sem_reify]
+  >-
+    simp[Once EVERY_MEM,MEM_MAPi,PULL_EXISTS,iterateTheory.LAMBDA_PAIR,reify_avar_def,reify_reif_def]>>
+  irule encode_tuple_eq_sem_reify>>
+  simp[]
 QED
 
 Theorem encode_table_sem_1:
   valid_assignment bnd wi ∧
+  ALOOKUP cs name = SOME (Extensional (Table tss Xs)) ∧
   table_sem tss Xs wi ⇒
-  EVERY (λx. iconstraint_sem x (wi,reify_avar wi)) (encode_table bnd tss Xs)
+  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
+    (encode_table bnd tss Xs name)
 Proof
   simp[encode_table_def,table_sem_def]>>
   strip_tac>>
-  CONJ_TAC >-
-    simp[EVERY_FLAT,EVERY_MAP,EVERY_FLAT,Once EVERY_MEM,reify_tuple_eq_sem_reify]>>
+  CONJ_TAC >- (
+    simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,PULL_EXISTS,EL_MAP]>>
+    rw[]>>
+    irule reify_tuple_eq_sem_reify>>simp[]>>
+    fs[EVERY_MEM]>>metis_tac[MEM_EL])>>
   fs[EVERY_MEM]>>first_x_assum drule>>
-  strip_tac>> gs[match_row_filter_match]>>
-  simp[iconstraint_sem_def,MAP_MAP_o,o_DEF,eval_lin_term_def,reify_avar_def,reify_flag_def]>>
-  metis_tac[]
+  strip_tac>>
+  simp[iconstraint_sem_def,eval_lin_term_def,reify_avar_def,reify_flag_def,
+    o_DEF,miscTheory.MAPi_enumerate_MAP,MAP_MAP_o,iterateTheory.LAMBDA_PAIR]>>
+  qpat_x_assum`MEM _ _` mp_tac>>
+  simp[Once MEM_EL]>>rw[]>>
+  simp[EXISTS_PROD]>>
+  qexists_tac`n`>>
+  simp[MEM_enumerate]
 QED
 
 Theorem reify_tuple_eq_sem:
   valid_assignment bnd wi ∧
-  wb (INR (Tb Xts)) ∧
+  wb (INR (Tb name n)) ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (reify_tuple_eq bnd Xts) ⇒
+    (reify_tuple_eq bnd Xts name n) ⇒
   EVERY (λ(X,t). varc wi X = t) Xts
 Proof
   rw[reify_tuple_eq_def]>>
@@ -136,45 +160,72 @@ Proof
   DEP_REWRITE_TAC[encode_tuple_eq_sem]>>
   rw[EVERY_MEM]>>
   qpat_x_assum`EVERY _ (FLAT _)` mp_tac>>
-  simp[EVERY_FLAT,MAP_MAP_o,o_DEF,EVERY_MAP]>>
-  simp[Once EVERY_MEM]>>
-  disch_then drule>>
-  pairarg_tac>>gvs[]
+  simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,PULL_EXISTS]>>
+  simp[iterateTheory.LAMBDA_PAIR]>>
+  metis_tac[MEM_EL]
+QED
+
+Theorem MEM_enumerate_IMP':
+  ∀ls k.
+  MEM (i,e) (enumerate k ls) ⇒
+  MEM e ls ∧ k ≤ i ∧ i < k + LENGTH ls
+Proof
+  Induct>>
+  rw[miscTheory.enumerate_def]>>
+  fs[ADD1]>>
+  first_x_assum drule>>
+  simp[]
+QED
+
+Theorem MEM_enumerate_0:
+  MEM (i,e) (enumerate 0 ls) ⇒
+  EL i ls = e ∧ i < LENGTH ls
+Proof
+  rw[]>>
+  drule MEM_enumerate_IMP'>>
+  simp[]>>
+  metis_tac[MEM_enumerate]
 QED
 
 Theorem encode_table_sem_2:
   valid_assignment bnd wi ∧
-  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_table bnd tss Xs) ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_table bnd tss Xs name) ⇒
   table_sem tss Xs wi
 Proof
   simp[encode_table_def,table_sem_def]>>
   IF_CASES_TAC>>fs[]>>
   rw[]>>
   pop_assum mp_tac>>
-  simp[iconstraint_sem_def,MAP_MAP_o,o_DEF,eval_lin_term_def,reify_avar_def,reify_flag_def]>>
-  strip_tac>>
+  simp[iconstraint_sem_def,eval_lin_term_def,reify_avar_def,reify_flag_def,
+    o_DEF,miscTheory.MAPi_enumerate_MAP,MAP_MAP_o,iterateTheory.LAMBDA_PAIR]>>
+  simp[EXISTS_PROD]>>rw[]>>
+  dxrule MEM_enumerate_0>>
+  rw[]>>
+  simp[MEM_EL,PULL_EXISTS]>>
   first_assum $ irule_at Any>>
   DEP_REWRITE_TAC [match_row_filter_match]>>
   CONJ_ASM1_TAC
-  >- fs[EVERY_MEM]>>
+  >- (
+    fs[EVERY_MEM]>>
+    metis_tac[MEM_EL])>>
+  drule_at (Pos (el 2)) reify_tuple_eq_sem>>
+  disch_then (drule_then irule)>>
   qpat_x_assum`EVERY _ (FLAT _)` mp_tac>>
-  simp[EVERY_FLAT,MAP_MAP_o,o_DEF,EVERY_MAP]>>
-  simp[Once EVERY_MEM]>>
-  disch_then drule>>
-  metis_tac[reify_tuple_eq_sem]
+  simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,PULL_EXISTS,EL_MAP]
 QED
 
 Definition encode_extensional_constr_def:
-  encode_extensional_constr bnd c =
+  encode_extensional_constr bnd c name =
   case c of Table tss Xs =>
-  encode_table bnd tss Xs
+  encode_table bnd tss Xs name
 End
 
 Theorem encode_extensional_constr_sem_1:
   valid_assignment bnd wi ∧
+  ALOOKUP cs name = SOME (Extensional c) ∧
   extensional_constr_sem c wi ⇒
-  EVERY (λx. iconstraint_sem x (wi,reify_avar wi))
-    (encode_extensional_constr bnd c)
+  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
+    (encode_extensional_constr bnd c name)
 Proof
   Cases_on`c`>>
   rw[encode_extensional_constr_def,extensional_constr_sem_def]>>
@@ -183,7 +234,7 @@ QED
 
 Theorem encode_extensional_constr_sem_2:
   valid_assignment bnd wi ∧
-  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_extensional_constr bnd c) ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (encode_extensional_constr bnd c name) ⇒
   extensional_constr_sem c wi
 Proof
   Cases_on`c`>>
