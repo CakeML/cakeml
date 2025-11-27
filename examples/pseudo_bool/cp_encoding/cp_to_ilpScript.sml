@@ -204,17 +204,48 @@ Proof
 QED
 
 (*
-  General setup for problem encodings from
-  mlstring-variabled CP constraints.
+  Our "names" will always be of the form
+    [...][...][...]
 
-  mlstring constraint
+  General setup for problem encodings from
+  name-variabled CP constraints.
+
+  name constraint
 
   into
 
-  (mlstring option # (mlstring, mlstring avar) iconstraint)
+  (name option # (mlstring, mlstring avar) iconstraint)
 
   The mlstring option is an annotation.
 *)
+
+Type name[pp] = ``:mlstring list``;
+
+Definition format_int_def:
+  format_int i = int_to_string #"-" i
+End
+
+Definition format_varc_def:
+  format_varc X =
+  case X of
+    INL s => strlit"v" ^ s
+  | INR i => strlit"i" ^ int_to_string #"-" i
+End
+
+Definition format_reif_def:
+  format_reif reif =
+  case reif of
+    Ge X i => [format_varc X;strlit"ge"; format_int i]
+  | Eq X i => [format_varc X;strlit"eq";format_int i]
+End
+
+Definition flat_name_def:
+  flat_name ls =
+    concat (MAP (λs. strlit"[" ^ s ^ strlit "]") ls)
+End
+
+Type cvar[pp] = ``:(mlstring reif + name)``
+Type ciconstraint[pp] = ``:(mlstring, cvar) iconstraint``
 
 (* TODO: replace ge/eq with faster representations. *)
 Datatype:
@@ -243,42 +274,6 @@ Definition has_eq_def:
     NONE => F
   | SOME ls => MEM n ls
 End
-
-Definition good_reif_def:
-  good_reif wb wi ec ⇔
-  (∀Y n. has_ge Y n ec ⇒ (wb (INL (Ge Y n)) ⇔ varc wi Y ≥ n)) ∧
-  (∀Y n. has_eq Y n ec ⇒ (wb (INL (Eq Y n)) ⇔ varc wi Y = n))
-End
-
-(* enc_rel, just a shorthand *)
-Definition enc_rel_def:
-  enc_rel wi es es' ec ec' ⇔
-  (∀wb.
-    EVERY (λx. iconstraint_sem (SND x) (wi,wb)) (append es) ∧
-    good_reif wb wi ec ⇒
-    good_reif wb wi ec') ∧
-  ∀wb.
-  good_reif wb wi ec ⇒
-  (EVERY (λx. iconstraint_sem x (wi,wb)) es' ⇔
-  EVERY (λx. iconstraint_sem (SND x) (wi,wb)) (append es))
-End
-
-Theorem enc_rel_Nil:
-  enc_rel wi Nil [] ec ec
-Proof
-  rw[enc_rel_def]
-QED
-
-Theorem enc_rel_Append:
-  enc_rel wi es xs ec ec' ∧
-  enc_rel wi es' xs' ec' ec'' ⇒
-  enc_rel wi (Append es es') (xs++xs') ec ec''
-Proof
-  rw[]>>
-  fs[enc_rel_def]>>
-  rw[]>>
-  metis_tac[]
-QED
 
 (***
   Dealing with ge / eq
@@ -331,51 +326,32 @@ Proof
   rw[has_eq_def,add_ge_def]>>every_case_tac>>simp[]
 QED
 
-Type ciconstraint[pp] = ``:(mlstring, mlstring avar) iconstraint``
-Type ann_ciconstraint[pp] = ``:mlstring option # (mlstring, mlstring avar) iconstraint``
+Type ann_ciconstraint[pp] = ``:name option # ciconstraint``
 
-Definition format_varc_def:
-  format_varc X =
-  case X of
-    INL s => strlit"v" ^ s
-  | INR i => strlit"i" ^ int_to_string #"-" i
-End
-
-Definition format_reif_def:
-  format_reif pref X i =
-  concat[strlit"i[";format_varc X;strlit"][";pref;
-    int_to_string #"-" i;strlit"]"]
-End
-
-(* Name of a reification *)
-Definition enc_reif_def:
-  enc_reif reif =
-  case reif of
-    Ge X i => format_reif (strlit"ge") X i
-  | Eq X i => format_reif (strlit"eq") X i
+Definition init_ec_def:
+  init_ec = <| ge := [] ; eq := [] |>
 End
 
 (* Tool for sticking on annotations *)
 Definition mk_annotate_def:
-  (mk_annotate (_:mlstring list) ([]:ciconstraint list) = []) ∧
+  (mk_annotate (_:name list) ([]:ciconstraint list) = []) ∧
   (mk_annotate (x::xs) (y::ys) =
     (SOME x,y)::mk_annotate xs ys) ∧
   (mk_annotate [] ys =
     MAP (λy. (NONE,y)) ys)
 End
 
-(* TODO: what annotation should we use? *)
 Definition cencode_ge_def:
   cencode_ge bnd Y n ec =
   if has_ge Y n ec
   then (Nil, ec)
   else
     let ec = add_ge Y n ec in
-    let fmt = format_reif (strlit "ge") Y n in
+    let fmt = format_reif (Ge Y n) in
     (List (
       mk_annotate [
-        fmt ^ strlit"[f]";
-        fmt ^ strlit"[r]"
+        fmt ++ [strlit"f"];
+        fmt ++ [strlit"r"]
       ]
       (encode_ge bnd Y n)), ec)
 End
@@ -386,11 +362,11 @@ Definition cencode_eq_def:
   then (Nil, ec)
   else
     let ec = add_eq Y n ec in
-    let fmt = format_reif (strlit "eq") Y n in
+    let fmt = format_reif (Eq Y n) in
     (List (
       mk_annotate [
-        fmt ^ strlit"[f]";
-        fmt ^ strlit"[r]"
+        fmt ++ [strlit"f"];
+        fmt ++ [strlit"r"]
       ]
       (encode_eq bnd Y n)), ec)
 End
@@ -461,7 +437,7 @@ Proof
 QED
 
 Definition false_constr_def:
-  false_constr = (([], [], 1i):ciconstraint)
+  false_constr = (([], [], 1i))
 End
 
 Theorem iconstraint_sem_false_constr[simp]:
@@ -471,9 +447,10 @@ Proof
 QED
 
 Definition cfalse_constr_def:
-  cfalse_constr = (SOME (strlit"BAD INPUT"), false_constr)
+  cfalse_constr = (SOME [(strlit"BAD INPUT")], false_constr)
 End
 
+(*
 Theorem enc_rel_cfalse_constr[simp]:
   enc_rel wi (List [cfalse_constr]) [false_constr] ec ec
 Proof
@@ -486,7 +463,4 @@ Proof
   rw[enc_rel_def]
 QED
 
-Definition init_ec_def:
-  init_ec = <| ge := [] ; eq := [] |>
-End
-
+*)

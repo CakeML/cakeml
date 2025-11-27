@@ -61,8 +61,8 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Definition table_ge_def[simp]:
-  table_ge Xtss =
+Definition table_al1_def[simp]:
+  table_al1 Xtss =
     (([], MAP (λXts. (1i, Pos (INR (Tb Xts)))) Xtss, 1):'a aiconstraint)
 End
 
@@ -73,7 +73,7 @@ Definition encode_table_def:
     then
       let Xtss = MAP (λts. filter_match (ZIP (Xs,ts))) tss in
       (FLAT $ MAP (λXts. reify_tuple_eq bnd Xts) Xtss) ++
-      [table_ge Xtss]
+      [table_al1 Xtss]
     else
       [false_constr]
 End
@@ -200,29 +200,38 @@ Definition cencode_full_eqs_def:
     (Append ys yss, ec''))
 End
 
+Definition cencode_tuple_eq_def:
+  cencode_tuple_eq bnd Xts name =
+    mk_annotate [
+      name ++ [strlit"f"];
+      name ++ [strlit"r"]
+    ]
+    (bimply_bits bnd [Pos (INR name)]
+      ([], MAP (λ(X,t). (1i, Pos (INL (Eq X t)))) Xts, &LENGTH Xts))
+End
+
 Definition creify_tuple_eq_def:
-  creify_tuple_eq bnd Xts pref ec =
+  creify_tuple_eq bnd (name,Xts) ec =
   let
     (eqs,ec') = cencode_full_eqs bnd Xts ec;
-    tup =
-      List (
-      mk_annotate [
-        (strlit "BIG TODO");
-        (strlit "BIG TODO2");
-      ]
-      (encode_tuple_eq bnd Xts))
+    tup = List (cencode_tuple_eq bnd Xts name)
   in
     (Append eqs tup, ec')
 End
 
 Definition creify_tuple_eqs_def:
-  (creify_tuple_eqs bnd [] pref ec = (Nil,ec)) ∧
-  (creify_tuple_eqs bnd (x::xs) pref ec =
+  (creify_tuple_eqs bnd [] ec = (Nil,ec)) ∧
+  (creify_tuple_eqs bnd (x::xs) ec =
   let
-    (y,ec') = creify_tuple_eq bnd x pref ec;
-    (ys,ec'') = creify_tuple_eqs bnd xs pref ec'
+    (y,ec') = creify_tuple_eq bnd x ec;
+    (ys,ec'') = creify_tuple_eqs bnd xs ec'
   in
     (Append y ys, ec''))
+End
+
+Definition ctable_al1_def[simp]:
+  ctable_al1 Xtss pref =
+    (SOME (pref++[strlit"al1"]), (([], MAP (λ(name,Xts). (1i, Pos (INR name))) Xtss, 1):ciconstraint))
 End
 
 Definition cencode_table_def:
@@ -230,11 +239,12 @@ Definition cencode_table_def:
   let n = LENGTH Xs in
     if EVERY (λYs. LENGTH Ys = n) tss
     then
-      let Xtss = MAP (λts. filter_match (ZIP (Xs,ts))) tss in
-      let (ys,ec') = creify_tuple_eqs bnd Xtss pref ec in
+      let Xtss = MAPi (λn ts.
+        (pref ++ [strlit"r" ^ toString n],
+        filter_match (ZIP (Xs,ts)))) tss in
+      let (ys,ec') = creify_tuple_eqs bnd Xtss ec in
       (Append ys
-        (List
-          [(SOME (strlit"BIG TODO 3"), table_ge Xtss)]), ec')
+        (List [ctable_al1 Xtss pref]), ec')
     else
       (List [cfalse_constr],ec)
 End
@@ -244,6 +254,11 @@ Definition cencode_extensional_constr_def:
   case c of Table tss Xs =>
   cencode_table bnd tss Xs pref ec
 End
+
+(*
+EVAL``append o FST $ cencode_extensional_constr
+  (\x. (-5,5))
+  (Table [[SOME 1i;SOME 2i];[NONE;NONE];[SOME 1i;NONE];] [INL (strlit "x");INL (strlit "y")]) [strlit"t1"] init_ec``
 
 Theorem cencode_extensional_constr_sem:
   valid_assignment bnd wi ∧
@@ -259,4 +274,4 @@ Proof
   irule_at Any enc_rel_List_refl_1>>
   cheat
 QED
-
+*)
