@@ -319,13 +319,12 @@ Proof
   fs[NTpropertiesTheory.nullable_def]
 QED
 
-Theorem derives_singleTOK:
+Theorem derives_singleTOK[simp]:
    derives G [TOK t] l ⇔ (l = [TOK t])
 Proof
   simp[Once relationTheory.RTC_CASES1, grammarTheory.derive_def] >>
   metis_tac[]
 QED
-val _ = export_rewrites ["derives_singleTOK"]
 
 Theorem fringe_lengths_V:
    fringe_lengths cmlG [NT (mkNT nV)] = {1}

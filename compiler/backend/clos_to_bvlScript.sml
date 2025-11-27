@@ -119,7 +119,7 @@ Definition partial_app_label_table_loc_def:
   partial_app_label_table_loc = 0n
 End
 
-Definition compile_op_def:
+Definition compile_op_def[simp]:
   compile_op (BlockOp (Cons tag)) = BlockOp (Cons (clos_tag_shift tag)) ∧
   compile_op (BlockOp (ConsExtend tag)) = BlockOp (ConsExtend (clos_tag_shift tag)) ∧
   compile_op (BlockOp (TagEq tag)) = BlockOp (TagEq (clos_tag_shift tag)) ∧
@@ -132,7 +132,6 @@ Definition compile_op_def:
   compile_op (BlockOp (Constant c)) = compile_const c ∧
   compile_op x = x
 End
-val _ = export_rewrites["compile_op_def"];
 
 Theorem compile_op_pmatch:
   ∀op.

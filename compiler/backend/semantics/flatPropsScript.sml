@@ -817,7 +817,7 @@ Definition op_gbag_def:
   op_gbag _ = {||}
 End
 
-Definition set_globals_def:
+Definition set_globals_def[simp]:
   (set_globals (Raise t e) = set_globals e) /\
   (set_globals (Handle t e pes) = set_globals e ⊎ elist_globals (MAP SND pes)) /\
   (set_globals (Con t id es) = elist_globals es) /\
@@ -848,7 +848,6 @@ Termination
   \\ Induct_on ‘pes’ \\ gvs [FORALL_PROD]
 End
 
-val _ = export_rewrites ["set_globals_def"];
 
 Definition esgc_free_def:
   (esgc_free (Raise t e) <=> esgc_free e) /\
@@ -899,16 +898,15 @@ Proof
   Induct_on `es` \\ simp [elist_globals_append, COMM_BAG_UNION]
 QED
 
-Definition is_Dlet_def:
+Definition is_Dlet_def[simp]:
   (is_Dlet (Dlet _) <=> T) /\
   (is_Dlet _ <=> F)
 End
 
-Definition dest_Dlet_def:
+Definition dest_Dlet_def[simp]:
   dest_Dlet (Dlet e) = e
 End
 
-val _ = export_rewrites ["is_Dlet_def", "dest_Dlet_def"];
 
 Theorem initial_state_clock:
   (initial_state ffi k ec).clock = k /\
@@ -1165,7 +1163,7 @@ Proof
   \\ rfs [EL_MAP]
 QED
 
-val sv_rel_cases = semanticPrimitivesPropsTheory.sv_rel_cases
+val sv_rel_cases = semanticPrimitivesPropsTheory.sv_rel_cases;
 
 Theorem simple_do_app_thm:
   simple_val_rel vr /\
@@ -1182,6 +1180,15 @@ Proof
   \\ simp [Once do_app_def]
   \\ simp [case_eq_thms, bool_case_eq, pair_case_eq]
   \\ simp_tac bool_ss [PULL_EXISTS, DISJ_IMP_THM, FORALL_AND_THM]
+  \\ Cases_on ‘∃test ty. op = Test test ty’
+  >-
+   (gvs [PULL_EXISTS,do_app_def,AllCaseEqs()] \\ rw []
+    \\ qexists_tac ‘b’ \\ conj_tac >- gvs [Boolv_def]
+    \\ Cases_on ‘ty’ \\ TRY (rename [‘WordT ws’] \\ Cases_on ‘ws’)
+    \\ Cases_on ‘test’
+    \\ gvs [AllCaseEqs(),flatSemTheory.do_test_def,PULL_EXISTS]
+    \\ gvs [oneline dest_Litv_def, AllCaseEqs()]
+    \\ gvs [check_type_def,Boolv_def])
   \\ Cases_on ‘∃t. op = ThunkOp t’
   >-
    (gvs [] \\ gvs [AllCaseEqs()] \\ rw [] \\ gvs [do_app_def]
@@ -1440,4 +1447,3 @@ Definition mk_flat_install_conf_def:
   mk_flat_install_conf cc co =
     <| compile := cc ; compile_oracle := co |> : 'c flatSem$install_config
 End
-

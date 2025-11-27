@@ -4248,12 +4248,11 @@ Proof
   \\ res_tac \\ fs []
 QED
 
-Definition sizeof'_def:
+Definition sizeof'_def[simp]:
   (sizeof' (Comb s t) = 1 + sizeof' s + sizeof' t) ∧
   (sizeof' (Abs v t) = 1 + sizeof' v + sizeof' t) ∧
   (sizeof' _ = 1n)
 End
-val _ = export_rewrites["sizeof'_def"];
 
 Theorem sizeof'_rev_assocd:
    ∀x  l d.

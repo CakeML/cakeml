@@ -20,6 +20,7 @@ val _ = ml_prog_update (add_dec
 
 val _ = trans "ord" stringSyntax.ord_tm;
 val _ = trans "chr" stringSyntax.chr_tm;
+val _ = trans "=" “(=):char->char->bool”;
 val _ = trans "<" stringSyntax.char_lt_tm;
 val _ = trans ">" stringSyntax.char_gt_tm;
 val _ = trans "<=" stringSyntax.char_le_tm;
@@ -83,4 +84,3 @@ val _ = update_precondition some_char_side_thm;
 val _ = ml_prog_update close_local_blocks;
 
 val _ = ml_prog_update (close_module NONE);
-

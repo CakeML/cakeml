@@ -5,7 +5,7 @@
 Theory inferProps
 Ancestors
   namespaceProps typeSystem ast semanticPrimitives infer unify
-  infer_t astProps typeSysProps
+  infer_t typeSysProps
 Libs
   preamble
 
@@ -3862,6 +3862,8 @@ Proof
                   \\fs[prim_tids_def,prim_type_nums_def]))
     \\ strip_tac \\ fs[])
   \\ rveq \\ fs[inf_set_tids_def,prim_tids_def, prim_type_nums_def]
+  \\ rename [‘supported_test  _ ty’] \\ Cases_on ‘ty’ \\ gvs []
+  \\ rename [‘WordT ws’] \\ Cases_on ‘ws’ \\ gvs []
 QED
 
 Theorem infer_e_inf_set_tids:
@@ -4341,4 +4343,3 @@ Proof
   \\ fs[n_fresh_id_def] \\ rw[]
   \\ metis_tac[]
 QED
-

@@ -781,6 +781,37 @@ Definition thunk_op_def:
     | _ => NONE
 End
 
+Definition check_type_def:
+  check_type BoolT v = (v = Boolv T ∨ v = Boolv F) ∧
+  check_type IntT v = (∃i. v = Litv (IntLit i)) ∧
+  check_type CharT v = (∃c. v = Litv (Char c)) ∧
+  check_type StrT v = (∃s. v = Litv (StrLit s)) ∧
+  check_type (WordT W8) v = (∃w. v = Litv (Word8 w)) ∧
+  check_type (WordT W64) v = (∃w. v = Litv (Word64 w)) ∧
+  check_type Float64T v = (∃w. v = Litv (Float64 w))
+End
+
+Definition dest_Litv_def:
+  dest_Litv (Litv v) = SOME v ∧
+  dest_Litv _ = NONE
+End
+
+Definition do_test_def: (* TODO: extend with more cases *)
+  do_test Equal ty v1 v2 =
+    (if check_type ty v1 ∧ check_type ty v2 then do_eq v1 v2 else Eq_type_error) ∧
+  do_test Less ty v1 v2 =
+    (case (ty, dest_Litv v1, dest_Litv v2) of
+     | (CharT, SOME (Char i), SOME (Char j)) => Eq_val (i < j)
+     | (WordT W8, SOME (Word8 w), SOME (Word8 v)) => Eq_val (w2n w < w2n v)
+     | _ => Eq_type_error) ∧
+  do_test LessEq ty v1 v2 =
+    (case (ty, dest_Litv v1, dest_Litv v2) of
+     | (CharT, SOME (Char i), SOME (Char j)) => Eq_val (i <= j)
+     | (WordT W8, SOME (Word8 w), SOME (Word8 v)) => Eq_val (w2n w <= w2n v)
+     | _ => Eq_type_error) ∧
+  do_test _ ty v1 v2 = Eq_type_error
+End
+
 Definition do_app_def:
   do_app (s: v store_v list, t: 'ffi ffi_state) op vs =
     case (op, vs) of
@@ -976,8 +1007,6 @@ Definition do_app_def:
             Rerr (Rraise chr_exn_v)
           else
             Rval (Litv(Char(CHR(Num (ABS (I i))))))))
-    | (Chopb op, [Litv (Char c1); Litv (Char c2)]) =>
-        SOME ((s,t), Rval (Boolv (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2)))))
     | (Implode, [v]) =>
           (case v_to_char_list v of
             SOME ls =>
@@ -1134,6 +1163,11 @@ Definition do_app_def:
     | (Env_id, [Conv NONE [gen; id]]) => SOME ((s, t),
             Rval (Conv NONE [gen; id]))
     | (ThunkOp th_op, vs) => thunk_op (s,t) th_op vs
+    | (Test test test_ty, [v1; v2]) =>
+        (case do_test test test_ty v1 v2 of
+            Eq_type_error => NONE
+          | Eq_val b => SOME ((s,t), Rval (Boolv b))
+        )
     | _ => NONE
 End
 

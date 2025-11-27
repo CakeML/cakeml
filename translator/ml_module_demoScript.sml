@@ -30,4 +30,3 @@ End
 val r = translate add_def;
 
 val _ = ml_prog_update (close_module NONE);
-

@@ -5,7 +5,7 @@
 *)
 Theory inferComplete
 Ancestors
-  semanticPrimitives namespaceProps ast astProps typeSystem
+  semanticPrimitives namespaceProps ast typeSystem
   typeSysProps unify infer infer_t inferProps envRel infer_eSound
   infer_eComplete type_eDeterm type_dCanon
 Libs
