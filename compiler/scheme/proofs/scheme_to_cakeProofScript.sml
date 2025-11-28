@@ -27,17 +27,16 @@ Definition closure_in_env_def:
 End
 
 Definition scheme_cons_env_def[nocompute]:
-  scheme_cons_env = nsAppend scheme_to_cake_env_env_0.c init_env.c
+  scheme_cons_env = nsAppend scheme_to_cake_env_env_1.c init_env.c
 End
 
 Theorem scheme_cons_env_simp =
   scheme_cons_env_def
   |> SRULE [Once scheme_init_env_defs, init_env_def]
+  |> SRULE [Once scheme_init_env_defs]
   |> SRULE [scheme_to_cake_env_env_def, empty_env_def]
   |> SRULE [Ntimes write_cons_def 22]
   |> SRULE [nsBind_def, nsEmpty_def, nsAppend_def];
-
-Theorem scheme_cons_env_eq[compute] = EVAL ``scheme_cons_env``;
 
 Theorem scheme_env_app_def[allow_rebind, compute] = SRULE [] $ EVAL_RULE $ zDefine ‘
   scheme_env_app env <=>
@@ -60,7 +59,7 @@ Theorem scheme_env_def[allow_rebind, compute] = SRULE [] $ RESTR_EVAL_RULE [``sc
 ’;
 
 val scheme_init_conjs = BODY_CONJUNCTS scheme_init_env_defs;
-val scheme_init_env_defs_but_0 = LIST_CONJ $ List.take (scheme_init_conjs, length scheme_init_conjs - 1);
+val scheme_init_env_defs_but_1 = LIST_CONJ $ append (List.take (scheme_init_conjs,9)) (List.drop (scheme_init_conjs,10));
 
 Theorem basis_scheme_env:
   scheme_env scheme_to_cake_env
@@ -83,13 +82,14 @@ Proof
     >> simp[scheme_cons_env_def]
   )
   >- (
-    qexists `merge_env scheme_to_cake_env_env_11 init_env`
+    qexists `merge_env scheme_to_cake_env_env_12 init_env`
     >> simp[cj 11 scheme_init_env_defs]
     >> simp[scheme_init_v_defs]
     >> simp[merge_env_def]
     >> simp[scheme_env_app_def]
     >> simp[cj 12 scheme_init_env_defs]
     >> simp[cj 13 scheme_init_env_defs]
+    >> simp[cj 14 scheme_init_env_defs]
     >> simp[cj 2 scheme_init_env_defs]
     >> simp[cj 3 scheme_init_env_defs]
     >> simp[cj 4 scheme_init_env_defs]
@@ -98,10 +98,9 @@ Proof
     >> simp[cj 7 scheme_init_env_defs]
     >> simp[cj 8 scheme_init_env_defs]
     >> simp[cj 9 scheme_init_env_defs]
-    >> simp[cj 10 scheme_init_env_defs]
     >> simp[scheme_cons_env_def]
     >> simp[scheme_init_v_defs, merge_env_def]
-    >> simp[scheme_init_env_defs_but_0]
+    >> simp[scheme_init_env_defs_but_1]
     >> simp[scheme_init_v_defs]
     >> simp[merge_env_def]
   )
@@ -110,7 +109,7 @@ Proof
   >> simp[cj 12 scheme_init_env_defs]
   >> simp[scheme_cons_env_def]
   >> simp[scheme_init_v_defs, merge_env_def]
-  >> simp[scheme_init_env_defs_but_0]
+  >> simp[scheme_init_env_defs_but_1]
 QED
 
 (*
@@ -336,18 +335,25 @@ Theorem scheme_cons_lookup:
   ! env . scheme_env env ==> EVERY (\c . nsLookup env.c (Short c) = nsLookup scheme_cons_env (Short c)) scheme_conses
 Proof
   rpt strip_tac
-  >> gvs[scheme_env_def, scheme_cons_env_eq, scheme_conses_def, nsLookup_def]
+  >> gvs[scheme_env_def, scheme_cons_env_simp, scheme_conses_def, nsLookup_def]
 QED
 
 Theorem scheme_app_cons_lookup:
   ! env . scheme_env_app env ==> EVERY (\c . nsLookup env.c (Short c) = nsLookup scheme_cons_env (Short c)) scheme_conses
 Proof
   rpt strip_tac
-  >> gvs[scheme_env_app_def, scheme_cons_env_eq, scheme_conses_def, nsLookup_def]
+  >> gvs[scheme_env_app_def, scheme_cons_env_simp, scheme_conses_def, nsLookup_def]
 QED
 
-val _ = augment_srw_ss $ single $ rewrites $ BODY_CONJUNCTS $ SRULE [IMP_CONJ_THM] $ RESTR_EVAL_RULE [``scheme_env``] scheme_cons_lookup;
-val _ = augment_srw_ss $ single $ rewrites $ BODY_CONJUNCTS $ SRULE [IMP_CONJ_THM] $ RESTR_EVAL_RULE [``scheme_env_app``] scheme_app_cons_lookup;
+Theorem scheme_env_cons_lookup:
+  EVERY (\c . nsLookup scheme_cons_env (Short c) = nsLookup scheme_cons_env (Short c)) scheme_conses
+Proof
+  simp[]
+QED
+
+val _ = augment_srw_ss $ single $ rewrites $ BODY_CONJUNCTS $ SRULE [IMP_CONJ_THM, scheme_cons_env_simp, nsLookup_def] $ RESTR_EVAL_RULE [``scheme_env``] scheme_cons_lookup;
+val _ = augment_srw_ss $ single $ rewrites $ BODY_CONJUNCTS $ SRULE [IMP_CONJ_THM, scheme_cons_env_simp, nsLookup_def] $ RESTR_EVAL_RULE [``scheme_env_app``] scheme_app_cons_lookup;
+val _ = augment_srw_ss $ single $ rewrites $ BODY_CONJUNCTS $ EVAL_RULE $ SIMP_RULE pure_ss [SimpRHS, scheme_cons_env_simp, nsLookup_def] $ scheme_env_cons_lookup;
 
 (*only to help write theorems*)
 Definition trivial_eval_def[simp]:
@@ -383,7 +389,7 @@ Theorem cons_trivial_eval:
       )) scheme_conses
 Proof
   rpt strip_tac
-  >> gvs[scheme_env_def, scheme_cons_env_eq, scheme_conses_def, nsLookup_def]
+  >> gvs[scheme_env_def, scheme_cons_env_simp, scheme_conses_def, nsLookup_def]
   >> simp [evaluate_def, do_con_check_def, build_conv_def, nsLookup_def]
   >> rpt strip_tac
   >> Cases_on `es` using SNOC_CASES
@@ -497,30 +503,6 @@ Proof
   >> simp[Once cont_rel_cases]
   >> metis_tac[]
 QED
-
-Theorem scheme_cons_lookup:
-  ! env . scheme_env env ==> EVERY (\c . nsLookup env.c (Short c) = nsLookup scheme_cons_env (Short c)) scheme_conses
-Proof
-  rpt strip_tac
-  >> gvs[scheme_env_def, scheme_cons_env_simp, scheme_conses_def, nsLookup_def]
-QED
-
-Theorem scheme_app_cons_lookup:
-  ! env . scheme_env_app env ==> EVERY (\c . nsLookup env.c (Short c) = nsLookup scheme_cons_env (Short c)) scheme_conses
-Proof
-  rpt strip_tac
-  >> gvs[scheme_env_app_def, scheme_cons_env_simp, scheme_conses_def, nsLookup_def]
-QED
-
-Theorem scheme_env_cons_lookup:
-  EVERY (\c . nsLookup scheme_cons_env (Short c) = nsLookup scheme_cons_env (Short c)) scheme_conses
-Proof
-  simp[]
-QED
-
-val _ = augment_srw_ss $ single $ rewrites $ BODY_CONJUNCTS $ SRULE [IMP_CONJ_THM, scheme_cons_env_simp, nsLookup_def] $ RESTR_EVAL_RULE [``scheme_env``] scheme_cons_lookup;
-val _ = augment_srw_ss $ single $ rewrites $ BODY_CONJUNCTS $ SRULE [IMP_CONJ_THM, scheme_cons_env_simp, nsLookup_def] $ RESTR_EVAL_RULE [``scheme_env_app``] scheme_app_cons_lookup;
-val _ = augment_srw_ss $ single $ rewrites $ BODY_CONJUNCTS $ EVAL_RULE $ SIMP_RULE pure_ss [SimpRHS, scheme_cons_env_simp, nsLookup_def] $ scheme_env_cons_lookup;
 
 (*
 open scheme_to_cakeProofTheory;

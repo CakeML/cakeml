@@ -13,8 +13,8 @@ Libs
 val _ = (max_print_depth := 30);
 
 Definition scheme_init_def:
-  scheme_init = [Dtype unknown_loc [(["'a"],"option", [("None",[]); ("Some",[Atvar "'a"])])]]
-    ++ [scheme_basis_types] ++ scheme_basis ++ [scheme_basis_list; scheme_basis_app]
+  scheme_init =
+    scheme_basis_types ++ scheme_basis ++ [scheme_basis_list; scheme_basis_app]
 End
 
 local
@@ -37,6 +37,10 @@ Theorem most_scheme_init_env_defs =
 
 Theorem scheme_init_env_defs =
   find "scheme_to_cake_env_env~def" |> map (fn (_,(th,_,_)) => th) |> rev |> LIST_CONJ
+    |> SRULE [ml_progTheory.write_def];
+
+Theorem scheme_init_st_defs =
+  find "scheme_to_cake_env_st~def" |> map (fn (_,(th,_,_)) => th) |> rev |> LIST_CONJ
     |> SRULE [ml_progTheory.write_def];
 
 Definition scheme_to_cake_env_def:

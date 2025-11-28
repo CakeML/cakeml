@@ -199,8 +199,7 @@ Definition step_def:
 End
 
 Definition steps_def:
-  steps (n:num) t = if n = 0 then t
-    else steps (n - 1) $ step t
+  steps = FUNPOW step
 End
 
 Datatype:
