@@ -1283,7 +1283,7 @@ fun mk_EqualityType_ind typ = let
         \\ full_simp_tac ss [EqualityType_eq_at, markerTheory.Case_def]
         \\ simp_tac (bool_ss ++ simpLib.type_ssfrag typ) []
     )
-  in (assums, thm) end
+  in (assums, thm) end;
 
 fun mk_EqualityType_thm is_exn_type typ = let
     val final_goal = ml_translatorSyntax.mk_EqualityType (get_type_inv typ)
@@ -1325,7 +1325,7 @@ fun fetch_v_fun_ex extra_tms extra_thms ty = case assoc1 ty extra_tms of
     val m = match_type f_arg ty
   in (list_mk_comb (inst m f, arg_funs), thms @ List.concat (map snd rec_xs)) end
 
-fun mk_v_app extras v = mk_comb (fetch_v_fun_ex extras [] (type_of v) |> fst, v)
+fun mk_v_app extras v = mk_comb (fetch_v_fun_ex extras [] (type_of v) |> fst, v);
 
 val fetch_v_fun = fetch_v_fun_ex [] []
 
@@ -1394,7 +1394,7 @@ fun define_type_reps [] = []
     val more = case fetch_v_fun_ex [] reps ty of
         (_, []) => define_v_fun ty
       | _ => []
-  in more @ reps end
+  in more @ reps end;
 
 fun EqualityType_cc dir tm = let
     val lemmas = map (REWRITE_RULE [AND_IMP_INTRO]) (eq_lemmas ())
@@ -1601,8 +1601,8 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
       |> map fst |> define_type_reps |> map simp_eq_lemma
   in (name,res,type_rep_lemmas) end;
 
-fun domain ty = ty |> dest_fun_type |> fst
-fun codomain ty = ty |> dest_fun_type |> snd
+fun domain ty = ty |> dest_fun_type |> fst;
+fun codomain ty = ty |> dest_fun_type |> snd;
 
 val (FILTER_ASSUM_TAC : (term -> bool) -> tactic) = let
   fun sing f [x] = f x
@@ -1611,7 +1611,7 @@ val (FILTER_ASSUM_TAC : (term -> bool) -> tactic) = let
   fun f p (asl,w) =
     ([(filter p asl,w)], sing (fn th =>
            (foldr add_assum th (filter (not o p) asl))))
-  in f end
+  in f end;
 
 (*
 val ty = ``:lit``; derive_thms_for_type false ty
@@ -1639,7 +1639,7 @@ fun avoid_v_subst ty = let
       [mk_vartype "'v" |-> mk_vartype(prime_v "'w")]
     else
       []
-  end
+  end;
 
 fun derive_thms_for_type is_exn_type ty = let
 
@@ -2897,15 +2897,20 @@ val builtin_binops =
    Eval_NUM_LESS_EQ,
    Eval_NUM_GREATER,
    Eval_NUM_GREATER_EQ,
+   Eval_NUM_EQ,
+   Eval_BOOL_EQ,
    Eval_char_lt,
    Eval_char_le,
    Eval_char_gt,
    Eval_char_ge,
+   Eval_char_eq,
+   Eval_str_eq,
    Eval_INT_ADD,
    Eval_INT_SUB,
    Eval_INT_MULT,
    Eval_INT_DIV,
    Eval_INT_MOD,
+   Eval_INT_EQ,
    Eval_INT_LESS,
    Eval_INT_LESS_EQ,
    Eval_INT_GREATER,
@@ -2924,6 +2929,7 @@ val builtin_binops =
    Eval_strsub,
    Eval_ListAppend,
    Eval_sub,
+   Eval_sub_unsafe,
    Eval_Implies,
    Eval_pure_seq]
  |> map (fn th =>
@@ -3321,6 +3327,11 @@ fun dest_word_binop tm =
   if wordsSyntax.is_word_or  tm then Eval_word_or  else
   if wordsSyntax.is_word_xor tm then Eval_word_xor else
   if wordsSyntax.is_word_sub tm then Eval_word_sub else
+  if wordsSyntax.is_word_lo tm  then Eval_word_lo else
+  if wordsSyntax.is_word_ls tm  then Eval_word_ls else
+  if wordsSyntax.is_word_hi tm  then Eval_word_hi else
+  if wordsSyntax.is_word_hs tm  then Eval_word_hs else
+  if is_eq tm                   then Eval_word_eq else
     failwith("not a word binop")
 
 fun dest_word_shift tm =
@@ -3510,6 +3521,18 @@ fun hol2deep tm =
     val th3 = hol2deep x3
     val result = MATCH_MP (MATCH_MP (MATCH_MP lemma th1) (UNDISCH_ALL th2)) (UNDISCH_ALL th3) |> UNDISCH_ALL
     in check_inv "terop" tm result end else
+  (* equality: n = 0 *)
+  if can (match_term (get_term "n = 0")) tm then let
+    val x1 = fst (dest_eq tm)
+    val th1 = hol2deep x1
+    val result = MATCH_MP Eval_NUM_EQ_0 th1
+    in check_inv "num_eq_0" tm result end else
+  (* equality: 0 = n *)
+  if can (match_term (get_term "0 = n")) tm then let
+    val x1 = snd (dest_eq tm)
+    val th1 = hol2deep x1
+    val result = MATCH_MP (GSYM Eval_NUM_EQ_0) th1
+    in check_inv "0_eq_num" tm result end else
   (* built-in binary operations *)
   if can dest_builtin_binop tm then let
     val (p,x1,x2,lemma) = dest_builtin_binop tm
@@ -3523,20 +3546,8 @@ fun hol2deep tm =
     val th1 = hol2deep x1
     val result = MATCH_MP lemma th1 |> UNDISCH_ALL
     in check_inv "monop" tm result end else
-  (* equality: n = 0 *)
-  if can (match_term (get_term "n = 0")) tm then let
-    val x1 = fst (dest_eq tm)
-    val th1 = hol2deep x1
-    val result = MATCH_MP Eval_NUM_EQ_0 th1
-    in check_inv "num_eq_0" tm result end else
-  (* equality: 0 = n *)
-  if can (match_term (get_term "0 = n")) tm then let
-    val x1 = snd (dest_eq tm)
-    val th1 = hol2deep x1
-    val result = MATCH_MP (GSYM Eval_NUM_EQ_0) th1
-    in check_inv "0_eq_num" tm result end else
-  (* equality *)
-  if is_eq tm then let
+  (* equality (but not word equality) *)
+  if is_eq tm andalso not (word_ty_ok (type_of (rand tm))) then let
     val (x1,x2) = dest_eq tm
     val th1 = hol2deep x1
     val th2 = hol2deep x2
@@ -3633,7 +3644,7 @@ fun hol2deep tm =
           (hol2deep x1)
     in check_inv "w2w" tm result end else
   (* word_add, _and, _or, _xor, _sub *)
-  if can dest_word_binop tm andalso word_ty_ok (type_of tm) then let
+  if can dest_word_binop tm andalso word_ty_ok (type_of (rand tm)) then let
     val lemma = dest_word_binop tm
     val th1 = hol2deep (tm |> rator |> rand)
     val th2 = hol2deep (tm |> rand)
@@ -4154,7 +4165,7 @@ fun print_unable_to_prove_ind_thm ind_goal_def original_def ml_name = let
   val _ = print ("\n")
   val _ = print ("\nval res = translate_no_ind "^name^";")
   val _ = print ("\n")
-  val _ = print ("\nTriviality " ^ ind_name ^ ":")
+  val _ = print ("\nTheorem " ^ ind_name ^ "[local]:")
   val _ = print ("\n  " ^ ind_name)
   val _ = print ("\nProof")
   val _ = print ("\n  once_rewrite_tac [fetch \"-\" \"" ^ ind_name ^ "_def\"]")

@@ -251,7 +251,7 @@ Proof
   rw[word_to_wordTheory.next_n_oracle_def]>>fs[LENGTH_TAKE]
 QED
 
-Triviality ZIP_MAP_1:
+Theorem ZIP_MAP_1[local]:
   ∀l1 l2 f1 f2.
     LENGTH l1 = LENGTH l2 ⇒
     ZIP (MAP f1 l1,l2) = MAP (λp. (f1 (FST p),SND p)) (ZIP (l1,l2))

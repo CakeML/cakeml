@@ -35,7 +35,7 @@ Proof
   \\ Cases \\ fs [env_rel_def]
 QED
 
-Triviality env_rel_LLOOKUP_NONE:
+Theorem env_rel_LLOOKUP_NONE[local]:
   !ax env env2 n.
       env_rel (:'c) (:'ffi) ax env env2 /\
       (LLOOKUP ax n = NONE \/ LLOOKUP ax n = SOME NONE) ==>
@@ -46,7 +46,7 @@ Proof
   \\ rw [] \\ fs [] \\ Cases_on `n` \\ fs [EL]
 QED
 
-Triviality env_rel_LOOKUP_SOME:
+Theorem env_rel_LOOKUP_SOME[local]:
   !env env2 ax x n.
       env_rel (:'c) (:'ffi) ax env env2 /\
       LLOOKUP ax n = SOME (SOME x) ==>
@@ -70,7 +70,7 @@ Proof
   \\ CCONTR_TAC \\ fs [] \\ rw []
 QED
 
-Triviality evaluate_delete_var_Rerr:
+Theorem evaluate_delete_var_Rerr[local]:
   !xs s r e env2.
       evaluate (xs,env2,s) = (Rerr e,r) /\
       e <> Rabort Rtype_error ==>
@@ -86,7 +86,7 @@ Proof
   \\ fs[AllCaseEqs()]
 QED
 
-Triviality evaluate_delete_var_Rval:
+Theorem evaluate_delete_var_Rval[local]:
   !xs env2 s a r ax env.
       evaluate (xs,env2,s:('c,'ffi) bvlSem$state) = (Rval a,r) /\
       env_rel (:'c) (:'ffi) ax env env2 ==>
@@ -129,7 +129,7 @@ Proof
   \\ CCONTR_TAC \\ fs [] \\ fs [evaluate_def]
 QED
 
-Triviality dest_simple_eq:
+Theorem dest_simple_eq[local]:
   dest_simple h = SOME y <=> (h = Op (IntOp (Const y)) [])
 Proof
   Cases_on `h` \\ fs [dest_simple_def]
@@ -138,7 +138,7 @@ Proof
   \\ eq_tac \\ rw [] \\ rw []
 QED
 
-Triviality case_op_const_eq:
+Theorem case_op_const_eq[local]:
   case_op_const exp = SOME x <=>
   (?op x1 n2. x = (op, x1, n2) /\ (exp = Op op [x1; Op (IntOp (Const n2)) []]))
 Proof
@@ -147,7 +147,7 @@ Proof
   eq_tac \\ rw []
 QED
 
-Triviality SmartOp_flip_thm:
+Theorem SmartOp_flip_thm[local]:
   (op', x1', x2') = SmartOp_flip op x1 x2 /\
   evaluate ([Op op [x1; x2]], env, s) = (res, s2) /\
   res ≠ Rerr (Rabort Rtype_error) ==>
@@ -167,7 +167,7 @@ Proof
   fs [SmartOp_flip_def]
 QED
 
-Triviality SmartOp2_thm:
+Theorem SmartOp2_thm[local]:
   evaluate ([Op op [x1;x2]],env,s) = (res,s2) /\
   res ≠ Rerr (Rabort Rtype_error) ==>
   evaluate ([SmartOp2 (op,x1,x2)],env,s) = (res,s2)

@@ -204,6 +204,24 @@ Definition thunk_op_to_display_def:
   (thunk_op_to_display ForceThunk = empty_item (strlit "ForceThunk"))
 End
 
+Definition test_to_display_def:
+  test_to_display Equal = empty_item (strlit "Equal") ∧
+  test_to_display Less = empty_item (strlit "Less") ∧
+  test_to_display Less_alt = empty_item (strlit "Less_alt") ∧
+  test_to_display LessEq = empty_item (strlit "LessEq") ∧
+  test_to_display LessEq_alt = empty_item (strlit "LessEq_alt")
+End
+
+Definition prim_type_to_display_def:
+  prim_type_to_display BoolT = empty_item (strlit "BoolT") ∧
+  prim_type_to_display IntT = empty_item (strlit "IntT") ∧
+  prim_type_to_display CharT = empty_item (strlit "CharT") ∧
+  prim_type_to_display StrT = empty_item (strlit "StrT") ∧
+  prim_type_to_display Float64T = empty_item (strlit "Float64T") ∧
+  prim_type_to_display (WordT W8) = empty_item (strlit "WordT_W8") ∧
+  prim_type_to_display (WordT W64) = empty_item (strlit "WordT_W64")
+End
+
 Definition op_to_display_def:
   op_to_display (p:ast$op) =
   case p of
@@ -215,6 +233,9 @@ Definition op_to_display_def:
                             [word_size_to_display ws;
                              shift_to_display sh;
                              num_to_display num]
+  | Test test ty => Item NONE (strlit "Test")
+                         [test_to_display test;
+                          prim_type_to_display ty]
   | Equality => empty_item (strlit "Equality")
   | FP_cmp cmp => fp_cmp_to_display cmp
   | FP_uop op => fp_uop_to_display op
@@ -240,7 +261,6 @@ Definition op_to_display_def:
   | CopyAw8Aw8 => empty_item (strlit "CopyAw8Aw8")
   | Ord => empty_item (strlit "Ord")
   | Chr => empty_item (strlit "Chr")
-  | Chopb op => Item NONE (strlit "Chopb") [opb_to_display op]
   | Implode => empty_item (strlit "Implode")
   | Explode => empty_item (strlit "Explode")
   | Strsub => empty_item (strlit "Strsub")
@@ -248,6 +268,7 @@ Definition op_to_display_def:
   | Strcat => empty_item (strlit "Strcat")
   | VfromList => empty_item (strlit "VfromList")
   | Vsub => empty_item (strlit "Vsub")
+  | Vsub_unsafe => empty_item (strlit "Vsub_unsafe")
   | Vlength => empty_item (strlit "Vlength")
   | Aalloc => empty_item (strlit "Aalloc")
   | AallocEmpty => empty_item (strlit "AallocEmpty")
@@ -400,7 +421,7 @@ End
 
 (* flatLang *)
 
-Triviality MEM_pat_size:
+Theorem MEM_pat_size[local]:
   !pats a. MEM a (pats:flatLang$pat list) ==> pat_size a < pat1_size pats
 Proof
   Induct \\ rw [] \\ rw [flatLangTheory.pat_size_def] \\ res_tac \\ fs []
@@ -441,6 +462,9 @@ Definition flat_op_to_display_def:
       word_size_to_display ws;
       shift_to_display sh;
       num_to_display num]
+    | Test test ty => Item NONE (strlit "Test")
+                           [test_to_display test;
+                            prim_type_to_display ty]
     | Equality => empty_item (strlit "Equality")
     | FP_cmp cmp => fp_cmp_to_display cmp
     | FP_uop op => fp_uop_to_display op
@@ -468,7 +492,6 @@ Definition flat_op_to_display_def:
     | Aw8xor_unsafe => empty_item (strlit "Aw8xor_unsafe")
     | Ord => empty_item (strlit "Ord")
     | Chr => empty_item (strlit "Chr")
-    | Chopb op => Item NONE (strlit "Chopb") [opb_to_display op]
     | Implode => empty_item (strlit "Implode")
     | Explode => empty_item (strlit "Explode")
     | Strsub => empty_item (strlit "Strsub")
@@ -476,6 +499,7 @@ Definition flat_op_to_display_def:
     | Strcat => empty_item (strlit "Strcat")
     | VfromList => empty_item (strlit "VfromList")
     | Vsub => empty_item (strlit "Vsub")
+    | Vsub_unsafe => empty_item (strlit "Vsub_unsafe")
     | Vlength => empty_item (strlit "Vlength")
     | Aalloc => empty_item (strlit "Aalloc")
     | AallocFixed => empty_item (strlit "AallocFixed")
@@ -498,21 +522,21 @@ Definition flat_op_to_display_def:
     | Id => empty_item (strlit "Id")
 End
 
-Triviality MEM_funs_size:
+Theorem MEM_funs_size[local]:
   !fs v1 v2 e. MEM (v1,v2,e) fs ==> flatLang$exp_size e < exp1_size fs
 Proof
   Induct \\ fs [flatLangTheory.exp_size_def] \\ rw []
   \\ fs [flatLangTheory.exp_size_def] \\ res_tac \\ fs []
 QED
 
-Triviality MEM_exps_size:
+Theorem MEM_exps_size[local]:
   !exps e. MEM e exps ==> flatLang$exp_size e < exp6_size exps
 Proof
   Induct \\ fs [flatLangTheory.exp_size_def] \\ rw []
   \\ fs [flatLangTheory.exp_size_def] \\ res_tac \\ fs []
 QED
 
-Triviality MEM_pats_size:
+Theorem MEM_pats_size[local]:
   !pats p e. MEM (p, e) pats ==> flatLang$exp_size e < exp3_size pats
 Proof
   Induct \\ fs [flatLangTheory.exp_size_def] \\ rw []
@@ -648,6 +672,7 @@ Definition clos_op_to_display_def:
     | BlockOp (Cons num) => item_with_num (strlit "Cons") num
     | BlockOp (ElemAt num) => item_with_num (strlit "ElemAt") num
     | BlockOp (TagLenEq n1 n2) => item_with_nums (strlit "TagLenEq") [n1; n2]
+    | BlockOp (BoolTest test) => Item NONE (strlit "BoolTest") [test_to_display test]
     | BlockOp (LenEq num) => item_with_num (strlit "LenEq") num
     | BlockOp (TagEq num) => item_with_num (strlit "TagEq") num
     | BlockOp LengthBlock => String (strlit "LengthBlock")
@@ -691,13 +716,16 @@ Definition clos_op_to_display_def:
     | IntOp Greater => String (strlit "Greater")
     | IntOp GreaterEq => String (strlit "GreaterEq")
     | IntOp (LessConstSmall num) => item_with_num (strlit "LessConstSmall") num
-    | WordOp (WordOpw ws op) =>
-        Item NONE (strlit "WordOp") [ word_size_to_display ws; opw_to_display op ]
-    | WordOp (WordShift ws sh num) => Item NONE (strlit "WordShift") [
-      word_size_to_display ws;
-      shift_to_display sh;
-      num_to_display num
-    ]
+    | WordOp (WordOpw ws op) => Item NONE (strlit "WordOp")
+                                     [word_size_to_display ws;
+                                      opw_to_display op]
+    | WordOp (WordShift ws sh num) => Item NONE (strlit "WordShift")
+                                           [word_size_to_display ws;
+                                            shift_to_display sh;
+                                            num_to_display num]
+    | WordOp (WordTest ws test) => Item NONE (strlit "WordTest")
+                                        [word_size_to_display ws;
+                                         test_to_display test]
     | WordOp WordFromInt => String (strlit "WordFromInt")
     | WordOp WordToInt => String (strlit "WordToInt")
     | WordOp (WordFromWord b) => Item NONE (strlit "WordFromWord") [bool_to_display b]
@@ -709,7 +737,7 @@ Definition clos_op_to_display_def:
     | ThunkOp t => thunk_op_to_display t
 End
 
-Triviality MEM_clos_exps_size:
+Theorem MEM_clos_exps_size[local]:
   !exps e. MEM e exps ==> closLang$exp_size e < exp3_size exps
 Proof
   Induct \\ fs [closLangTheory.exp_size_def] \\ rw []
@@ -803,7 +831,7 @@ End
 
 (* bvl to displayLang *)
 
-Triviality MEM_bvl_exps_size:
+Theorem MEM_bvl_exps_size[local]:
   !exps e. MEM e exps ==> bvl$exp_size e < exp1_size exps
 Proof
   Induct \\ fs [bvlTheory.exp_size_def] \\ rw []
@@ -863,7 +891,7 @@ End
 
 (* bvi to displayLang *)
 
-Triviality MEM_bvi_exps_size:
+Theorem MEM_bvi_exps_size[local]:
   !exps e. MEM e exps ==> bvi$exp_size e < exp2_size exps
 Proof
   Induct \\ fs [bviTheory.exp_size_def] \\ rw []
@@ -938,14 +966,14 @@ Definition data_seqs_def:
     | _ => List [z]
 End
 
-Triviality MEM_append_data_seqs:
+Theorem MEM_append_data_seqs[local]:
   ∀x. MEM a (append (data_seqs x)) ⇒ prog_size a ≤ prog_size x
 Proof
   Induct \\ simp [Once data_seqs_def,dataLangTheory.prog_size_def]
   \\ rw [] \\ res_tac \\ gvs []
 QED
 
-Triviality list_size_append_data_seqs:
+Theorem list_size_append_data_seqs[local]:
   ∀x.
   list_size prog_size (append (data_seqs x)) =
   prog_size x + 1
@@ -1152,14 +1180,14 @@ Definition stack_seqs_def:
     | _ => List [z]
 End
 
-Triviality MEM_append_stack_seqs:
+Theorem MEM_append_stack_seqs[local]:
   ∀x. MEM a (append (stack_seqs x)) ⇒ prog_size ARB a ≤ prog_size ARB x
 Proof
   Induct \\ simp [Once stack_seqs_def,stackLangTheory.prog_size_def]
   \\ rw [] \\ res_tac \\ gvs []
 QED
 
-Triviality list_size_append_stack_seqs:
+Theorem list_size_append_stack_seqs[local]:
   ∀x.
   list_size (prog_size ARB) (append (stack_seqs x)) =
   prog_size ARB x + 1
@@ -1324,14 +1352,14 @@ Definition word_seqs_def:
     | _ => List [z]
 End
 
-Triviality MEM_append_word_seqs:
+Theorem MEM_append_word_seqs[local]:
   ∀x. MEM a (append (word_seqs x)) ⇒ prog_size ARB a ≤ prog_size ARB x
 Proof
   Induct \\ simp [Once word_seqs_def,wordLangTheory.prog_size_def]
   \\ rw [] \\ res_tac \\ gvs []
 QED
 
-Triviality MEM_word_exps_size_ARB =
+Theorem MEM_word_exps_size_ARB[local] =
   wordLangTheory.MEM_IMP_exp_size |> Q.GEN `l` |> Q.SPEC `ARB`;
 
 Definition word_exp_to_display_def:
@@ -1614,4 +1642,3 @@ val data_prog_tm =
 val _ = data_to_strs data_prog_tm names_tm |> print_strs
 
 *)
-

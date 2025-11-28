@@ -1301,7 +1301,7 @@ Proof
  fs[STD_streams_def]
 QED
 
-Triviality lemma:
+Theorem lemma[local]:
   UStream (strlit "stdin") ≠ UStream (strlit "stdout") ∧
    UStream (strlit "stdin") ≠ UStream (strlit "stderr") ∧
    UStream (strlit "stdout") ≠ UStream (strlit "stderr")

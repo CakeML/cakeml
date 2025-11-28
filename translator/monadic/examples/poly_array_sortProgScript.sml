@@ -1303,7 +1303,7 @@ val run_quicksort_v_thm = m_translate_run run_quicksort_def;
 
 val qsort_v_thm = translate qsort_def;
 
-Triviality qsort_v_precond:
+Theorem qsort_v_precond[local]:
   ∀ cmp l . strict_weak_order cmp ⇒ qsort_side cmp l
 Proof
   rw[fetch "-" "qsort_side_def"] >>

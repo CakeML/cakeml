@@ -406,6 +406,9 @@ Proof
   \\ Cases_on ‘op = Vsub’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [perms_ok_def, EVERY_EL])
+  \\ Cases_on ‘op = Vsub_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [perms_ok_def, EVERY_EL])
   \\ Cases_on ‘op = VfromList’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
@@ -433,11 +436,6 @@ Proof
   >- (
     rw [do_app_cases] \\ gs []
     \\ simp [perms_ok_def])
-  \\ Cases_on ‘∃opb. op = Chopb opb’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs []
-    \\ simp [Boolv_def]
-    \\ rw [perms_ok_def])
   \\ Cases_on ‘op = Chr’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
@@ -532,6 +530,11 @@ Proof
     rw [do_app_cases] \\ gs []
     \\ simp [perms_ok_def])
   \\ Cases_on ‘op = Equality’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [Boolv_def]
+    \\ rw [perms_ok_def])
+  \\ Cases_on ‘∃test ty. op = Test test ty’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []
     \\ simp [Boolv_def]
@@ -1013,4 +1016,3 @@ Theorem evaluate_perms_ok_dec =
   |> Q.SPECL [‘s’, ‘env’, ‘[dec]’]
   |> GEN_ALL
   |> SIMP_RULE (srw_ss()) [];
-

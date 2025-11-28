@@ -33,6 +33,7 @@ Datatype:
   | Opw word_size opw
   | Shift word_size shift num
   | Equality
+  | Test test prim_type
   (* FP operations *)
   | FP_cmp fp_cmp
   | FP_uop fp_uop
@@ -62,7 +63,6 @@ Datatype:
   (* Char operations *)
   | Ord
   | Chr
-  | Chopb opb
   (* String operations *)
   | Implode
   | Explode
@@ -72,6 +72,7 @@ Datatype:
   (* Vector operations *)
   | VfromList
   | Vsub
+  | Vsub_unsafe
   | Vlength
   (* Array operations *)
   | Aalloc
@@ -264,4 +265,3 @@ Proof
   \\ CONV_TAC (RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   \\ rw [SmartIf_def]
 QED
-

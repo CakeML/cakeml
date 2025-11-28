@@ -428,13 +428,13 @@ Definition from_livesets_def:
   from_word c names p
 End
 
-Triviality ZIP_MAP_MAP:
+Theorem ZIP_MAP_MAP[local]:
   ∀xs. ZIP (MAP f xs, MAP g xs) = MAP (λx. (f x, g x)) xs
 Proof
   Induct \\ fs []
 QED
 
-Triviality EL_ZIP_MAP:
+Theorem EL_ZIP_MAP[local]:
   ∀p q x.
     x < LENGTH q ∧ x < LENGTH p ⇒
     (EL x (ZIP (q, MAP f p))) = (λ(y,x). (x,f y)) (EL x (ZIP (p,q)))

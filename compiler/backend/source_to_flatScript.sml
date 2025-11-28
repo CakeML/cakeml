@@ -92,6 +92,7 @@ Definition astOp_to_flatOp_def:
   | FpFromWord => flatLang$FpFromWord
   | FpToWord => flatLang$FpToWord
   | Equality => flatLang$Equality
+  | Test test test_ty => flatLang$Test test test_ty
   | Opapp => flatLang$Opapp
   | Opassign => flatLang$Opassign
   | Opref => flatLang$Opref
@@ -109,7 +110,6 @@ Definition astOp_to_flatOp_def:
   | XorAw8Str_unsafe => flatLang$Aw8xor_unsafe
   | Ord => flatLang$Ord
   | Chr => flatLang$Chr
-  | Chopb opb => flatLang$Chopb opb
   | Implode => flatLang$Implode
   | Explode => flatLang$Explode
   | Strsub => flatLang$Strsub
@@ -117,6 +117,7 @@ Definition astOp_to_flatOp_def:
   | Strcat => flatLang$Strcat
   | VfromList => flatLang$VfromList
   | Vsub => flatLang$Vsub
+  | Vsub_unsafe => flatLang$Vsub_unsafe
   | Vlength => flatLang$Vlength
   | Aalloc => flatLang$Aalloc
   | AallocFixed => flatLang$AallocFixed
@@ -535,4 +536,3 @@ Definition inc_compile_def:
     let p' = MAP (flat_pattern$compile_dec c'.pattern_cfg) p' in
     (c', p')
 End
-

@@ -176,7 +176,7 @@ Proof
     )
 QED
 
-Triviality alt_free_LENGTH_LEMMA:
+Theorem alt_free_LENGTH_LEMMA[local]:
   !xs. (case alt_free xs of (ys,s1) => (LENGTH xs = LENGTH ys))
 Proof
   recInduct alt_free_ind \\ REPEAT STRIP_TAC

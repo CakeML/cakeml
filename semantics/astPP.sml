@@ -705,17 +705,6 @@ val _ = map add_astPP [
 val _=add_astPP ("charordrealprint", ``App Ord ls``,genPrint (prefixargsPrint "Char.ord"));
 val _=add_astPP ("charchrrealprint", ``App Chr ls``,genPrint (prefixargsPrint "Char.chr"));
 (*I think these are currently prefixes*)
-val _=add_astPP ("chargteqrealprint", ``App (Chopb Geq) [x;y]``,genPrint (prefixargsPrint "Char.>="));
-val _=add_astPP ("charlteqrealrealprint", ``App (Chopb Leq) [x;y]``,genPrint (prefixargsPrint "Char.<="));
-val _=add_astPP ("chargtrealprint", ``App (Chopb Gt) [x;y]``,genPrint (prefixargsPrint "Char.>"));
-val _=add_astPP ("charltrealprint", ``App (Chopb Lt) [x;y]``,genPrint (prefixargsPrint "Char.<"));
-
-(* These are the infix versions
-val _=add_astPP ("gteqrealcharprint", ``App (Chopb Geq) [x;y]``,genPrint (infixrealPrint ">="));
-val _=add_astPP ("lteqrealcharprint", ``App (Chopb Leq) [x;y]``,genPrint (infixrealPrint "<="));
-val _=add_astPP ("gtrealcharprint", ``App (Chopb Gt) [x;y]``,genPrint (infixrealPrint ">"));
-val _=add_astPP ("ltrealcharprint", ``App (Chopb Lt) [x;y]``,genPrint (infixrealPrint "<"));
-*)
 
 (*String curried, not checking arity*)
 val _=add_astPP ("stringimploderealprint", ``App Implode ls``,genPrint (prefixargsPrint "String.implode"));

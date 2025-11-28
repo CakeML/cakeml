@@ -20,6 +20,7 @@ val _ = ml_prog_update (add_dec
 
 val _ = trans "ord" stringSyntax.ord_tm;
 val _ = trans "chr" stringSyntax.chr_tm;
+val _ = trans "=" “(=):char->char->bool”;
 val _ = trans "<" stringSyntax.char_lt_tm;
 val _ = trans ">" stringSyntax.char_gt_tm;
 val _ = trans "<=" stringSyntax.char_le_tm;
@@ -35,7 +36,7 @@ End
 val _ = next_ml_names := ["fromByte"];
 val res = translate fromByte_def;
 
-Triviality frombyte_side_thm:
+Theorem frombyte_side_thm[local]:
   frombyte_side v = T
 Proof
   fs [fetch "-" "frombyte_side_def"]
@@ -72,7 +73,7 @@ val _ = ml_prog_update open_local_in_block;
 val _ = next_ml_names := ["some"];
 val res = translate some_char_def;
 
-Triviality some_char_side_thm:
+Theorem some_char_side_thm[local]:
   some_char_side v = T
 Proof
   fs [fetch "-" "some_char_side_def"] \\ EVAL_TAC \\ fs [ORD_BOUND]
@@ -83,4 +84,3 @@ val _ = update_precondition some_char_side_thm;
 val _ = ml_prog_update close_local_blocks;
 
 val _ = ml_prog_update (close_module NONE);
-

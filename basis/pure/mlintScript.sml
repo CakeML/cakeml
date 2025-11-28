@@ -53,7 +53,7 @@ Termination
   \\ Cases_on `i = 0` \\ fs []
 End
 
-Triviality add_lt_divisible_iff:
+Theorem add_lt_divisible_iff[local]:
   y MOD n = 0n ==> (x + y < n <=> x < n /\ y = 0)
 Proof
   rw []
@@ -398,7 +398,7 @@ Proof
   \\ simp[toNum_toString, integerTheory.INT_OF_NUM]
 QED
 
-Triviality fromString_helper:
+Theorem fromString_helper[local]:
   HD (toString (i : num)) = c ==> isDigit c
 Proof
   qspec_then `i` mp_tac EVERY_isDigit_num_to_dec_string
@@ -407,7 +407,7 @@ Proof
   \\ simp []
 QED
 
-Triviality fromString_hd:
+Theorem fromString_hd[local]:
   HD (toString (i : num)) = c ==> isDigit c
 Proof
   qspec_then `i` mp_tac EVERY_isDigit_num_to_dec_string
@@ -416,13 +416,13 @@ Proof
   \\ simp []
 QED
 
-Triviality toString_len:
+Theorem toString_len[local]:
   STRLEN (toString (i : num)) + 1 ≥ 2
 Proof
   Cases_on `toString i : string` \\ fs []
 QED
 
-Triviality toString_len_1:
+Theorem toString_len_1[local]:
   ¬ (HD (toString (i:num)) = #"~") ∧
   ¬ (HD (toString (i:num)) = #"-") ∧
   ¬ (HD (toString (i:num)) = #"+")
@@ -578,13 +578,13 @@ Proof
   \\ rw [] \\ fs [num_to_dec_string_def]
 QED
 
-Triviality ORD_HEX_BOUND1:
+Theorem ORD_HEX_BOUND1[local]:
   i < 10 ⇒ 48 ≤ ORD (HEX (i:num))
 Proof
   Cases_on ‘i’ \\ fs [] \\ ntac 6 (Cases_on ‘n’ \\ fs [] \\ Cases_on ‘n'’ \\ fs [])
 QED
 
-Triviality ORD_HEX_BOUND2:
+Theorem ORD_HEX_BOUND2[local]:
   i < 10 ⇒ ORD (HEX (i:num)) ≤ 57
 Proof
   Cases_on ‘i’ \\ fs [] \\ ntac 6 (Cases_on ‘n’ \\ fs [] \\ Cases_on ‘n'’ \\ fs [])

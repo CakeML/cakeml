@@ -79,7 +79,7 @@ Proof
   \\ rw [] \\ every_case_tac \\ fs []
 QED
 
-Triviality pmatchResult_case_NONE:
+Theorem pmatchResult_case_NONE[local]:
   (case x of PMatchSuccess => NONE
            | PMatchFailure => NONE
            | PTypeFailure => K NONE NONE) = NONE
@@ -442,13 +442,13 @@ Proof
   \\ CASE_TAC \\ fs []
 QED
 
-Triviality is_True_thm:
+Theorem is_True_thm[local]:
   is_True t <=> t = True
 Proof
   Cases_on `t` \\ fs [is_True_def]
 QED
 
-Triviality dt_eval_guard_mk_Conj:
+Theorem dt_eval_guard_mk_Conj[local]:
   dt_eval_guard refs v (mk_Conj p q) =
   dt_eval_guard refs v (Conj p q)
 Proof
@@ -534,7 +534,7 @@ Proof
     \\ fs [CaseEq"pmatchResult"])
 QED
 
-Triviality mk_If_thm:
+Theorem mk_If_thm[local]:
   dt_eval refs v (mk_If g p q) = dt_eval refs v (If g p q)
 Proof
   rw [mk_If_def] \\ fs [is_True_thm,dt_eval_def,dt_eval_guard_def]

@@ -113,19 +113,19 @@ Definition queue_inv_def:
   queue_inv q t <=> queue_ok 0 t /\ (q = flatten t)
 End
 
-Triviality empty_thm:
+Theorem empty_thm[local]:
   queue_inv [] empty
 Proof
   EVAL_TAC
 QED
 
-Triviality exps_NOT_NIL:
+Theorem exps_NOT_NIL[local]:
   !e. ~(exps e = [])
 Proof
   Induct THEN EVAL_TAC THEN FULL_SIMP_TAC std_ss [APPEND_eq_NIL]
 QED
 
-Triviality is_empty_thm:
+Theorem is_empty_thm[local]:
   !xs q. queue_inv xs q ==> (is_empty q = (xs = []))
 Proof
   Cases THEN Cases THEN EVAL_TAC
@@ -135,7 +135,7 @@ Proof
   THEN Cases_on `d` THEN EVAL_TAC
 QED
 
-Triviality flatten_snoc:
+Theorem flatten_snoc[local]:
   !x y n. queue_ok n x ==> (flatten (snoc x y) = flatten x ++ exps y)
 Proof
   Induct THEN Cases_on `d`
@@ -144,7 +144,7 @@ Proof
   THEN RES_TAC THEN FULL_SIMP_TAC std_ss [exps_def,APPEND_ASSOC]
 QED
 
-Triviality queue_ok_snoc:
+Theorem queue_ok_snoc[local]:
   !q y n. queue_ok n q /\ depth n y ==> queue_ok n (snoc q y)
 Proof
   Induct THEN Cases_on `d`
@@ -154,7 +154,7 @@ Proof
   THEN FULL_SIMP_TAC (srw_ss()) [depth_def]
 QED
 
-Triviality snoc_thm:
+Theorem snoc_thm[local]:
   !q xs x. queue_inv xs q ==> queue_inv (xs ++ [x]) (snoc q (Once x))
 Proof
   STRIP_TAC THEN SIMP_TAC std_ss [queue_inv_def] THEN REPEAT STRIP_TAC
@@ -162,13 +162,13 @@ Proof
   THEN MATCH_MP_TAC queue_ok_snoc THEN FULL_SIMP_TAC std_ss [] THEN EVAL_TAC
 QED
 
-Triviality depth_0:
+Theorem depth_0[local]:
   !e. depth 0 e ==> ?x. e = Once x
 Proof
   Cases THEN SIMP_TAC (srw_ss()) [depth_def]
 QED
 
-Triviality head_thm:
+Theorem head_thm[local]:
   !q x xs. queue_inv (x::xs) q ==> (head q = Once x)
 Proof
   Cases THEN TRY (Cases_on `d`) THEN TRY (Cases_on `d0`)
@@ -177,7 +177,7 @@ Proof
   THEN FULL_SIMP_TAC (srw_ss()) [exps_def]
 QED
 
-Triviality depth_IMP:
+Theorem depth_IMP[local]:
   !t n. depth n t ==> (LENGTH (exps t) = 2**n)
 Proof
   Induct THEN1 (EVAL_TAC THEN FULL_SIMP_TAC std_ss [])
@@ -186,20 +186,20 @@ Proof
   THEN FULL_SIMP_TAC (srw_ss()) [exps_def,GSYM ADD1,EXP] THEN DECIDE_TAC
 QED
 
-Triviality LENGTH_EQ_APPEND_EQ:
+Theorem LENGTH_EQ_APPEND_EQ[local]:
   !xs xs2 ys ys2.
       (LENGTH xs = LENGTH ys) /\ (xs ++ xs2 = ys ++ ys2) ==> (xs2 = ys2)
 Proof
   Induct THEN Cases_on `ys` THEN FULL_SIMP_TAC (srw_ss()) [ADD1]
 QED
 
-Triviality is_empty_EQ:
+Theorem is_empty_EQ[local]:
   !q. is_empty q = (q = Shallow Zero)
 Proof
   Cases THEN Cases_on `d` THEN EVAL_TAC
 QED
 
-Triviality tail_lemma:
+Theorem tail_lemma[local]:
   !q n x xs.
       queue_ok n q /\ (exps x ++ xs = flatten q) /\ depth n x ==>
       queue_ok n (tail q) /\ (xs = flatten (tail q))
@@ -260,7 +260,7 @@ Proof
   THEN FULL_SIMP_TAC std_ss [exps_def,depth_def]
 QED
 
-Triviality tail_thm:
+Theorem tail_thm[local]:
   !q x xs. queue_inv (x::xs) q ==> queue_inv xs (tail q)
 Proof
   FULL_SIMP_TAC std_ss [queue_inv_def] THEN NTAC 4 STRIP_TAC

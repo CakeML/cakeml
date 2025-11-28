@@ -423,6 +423,11 @@ Proof
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ gs [v_ok_def, EVERY_EL])
+  \\ Cases_on ‘op = Vsub_unsafe’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [SF SFY_ss]
+    \\ first_assum (irule_at Any)
+    \\ gs [v_ok_def, EVERY_EL])
   \\ Cases_on ‘op = VfromList’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [SF SFY_ss]
@@ -456,12 +461,6 @@ Proof
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
-  \\ Cases_on ‘∃opb. op = Chopb opb’ \\ gs []
-  >- (
-    rw [do_app_cases] \\ gs [SF SFY_ss]
-    \\ first_assum (irule_at Any)
-    \\ simp [Boolv_def]
-    \\ rw [v_ok_def])
   \\ Cases_on ‘op = Chr’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [SF SFY_ss]
@@ -593,6 +592,12 @@ Proof
     \\ first_assum (irule_at Any)
     \\ simp [v_ok_def])
   \\ Cases_on ‘op = Equality’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs [SF SFY_ss]
+    \\ first_assum (irule_at Any)
+    \\ simp [Boolv_def]
+    \\ rw [v_ok_def])
+  \\ Cases_on ‘∃test ty. op = Test test ty’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
@@ -1219,4 +1224,3 @@ Proof
                   evaluate_v_ok_decs_Denv, evaluate_v_ok_decs_Dexn,
                   evaluate_v_ok_decs_Dmod, evaluate_v_ok_decs_Dlocal]
 QED
-

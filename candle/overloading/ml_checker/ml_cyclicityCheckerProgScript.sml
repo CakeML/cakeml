@@ -37,7 +37,7 @@ End
 
 val res = parse_strlit_innards_def |> translate_no_ind;
 
-Triviality parse_strlit_innards_ind:
+Theorem parse_strlit_innards_ind[local]:
   parse_strlit_innards_ind
 Proof
   rewrite_tac [fetch "-" "parse_strlit_innards_ind_def"]
@@ -268,6 +268,6 @@ val _ = (append_prog o process_topdecs)
 val prog =
   “SNOC (Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short "main"); Con NONE []]))
         ^(get_ml_prog_state() |> get_prog)
-  ” |> EVAL |> concl |> rhs
+  ” |> EVAL |> concl |> rhs;
 
 val _ = astToSexprLib.write_ast_to_file "cyclicity_checker.sexp" prog;

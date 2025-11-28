@@ -29,7 +29,7 @@ Proof
   \\ fs [ml_translatorTheory.no_closures_def, SF ETA_ss, concrete_v_def]
 QED
 
-Triviality EqualityType_concrete_v:
+Theorem EqualityType_concrete_v[local]:
   a x v ∧ EqualityType a ⇒ concrete_v v
 Proof
   fs [ml_translatorTheory.EqualityType_def]
@@ -1093,7 +1093,7 @@ Proof
   \\ Cases_on ‘xs’ \\ fs []
 QED
 
-Triviality BACKEND_INC_CONFIG_TYPE_v:
+Theorem BACKEND_INC_CONFIG_TYPE_v[local]:
   BACKEND_INC_CONFIG_TYPE conf u ⇒
   u = BACKEND_INC_CONFIG_v conf
 Proof

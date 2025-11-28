@@ -212,16 +212,15 @@ Definition fix_clock_def:
          termdep := old_s.termdep |>)
 End
 
-Definition is_word_def:
+Definition is_word_def[simp]:
   (is_word (Word w) = T) /\
   (is_word _ = F)
 End
 
-Definition get_word_def:
+Definition get_word_def[simp]:
   get_word (Word w) = w
 End
 
-val _ = export_rewrites["is_word_def","get_word_def"];
 
 Definition mem_store_def:
   mem_store (addr:'a word) (w:'a word_loc) ^s =
@@ -488,7 +487,7 @@ Definition pop_env_def:
     | _ => NONE
 End
 
-Triviality push_env_clock:
+Theorem push_env_clock[local]:
   (wordSem$push_env env b ^s).clock = s.clock
 Proof
   Cases_on `b` \\ TRY(PairCases_on`x`) \\ full_simp_tac(srw_ss())[push_env_def]
@@ -496,7 +495,7 @@ Proof
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
 QED
 
-Triviality pop_env_clock:
+Theorem pop_env_clock[local]:
   (wordSem$pop_env ^s = SOME s1) ==> (s1.clock = s.clock)
 Proof
   full_simp_tac(srw_ss())[pop_env_def]
@@ -895,7 +894,7 @@ Definition bad_dest_args_def:
   bad_dest_args dest args ⇔ dest = NONE ∧ args = []
 End
 
-Triviality termdep_rw:
+Theorem termdep_rw[local]:
   ((call_env p_1 ss ^s).termdep = s.termdep) /\
     ((dec_clock s).termdep = s.termdep) /\
     ((set_var n v s).termdep = s.termdep)
@@ -903,7 +902,7 @@ Proof
   EVAL_TAC \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
 QED
 
-Triviality fix_clock_IMP_LESS_EQ:
+Theorem fix_clock_IMP_LESS_EQ[local]:
   !x. fix_clock ^s x = (res,s1) ==> s1.clock <= s.clock /\ s1.termdep = s.termdep
 Proof
   full_simp_tac(srw_ss())[fix_clock_def,FORALL_PROD] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ decide_tac
@@ -1208,7 +1207,7 @@ Proof
   simp[]
 QED
 
-Triviality inst_clock:
+Theorem inst_clock[local]:
   inst i s = SOME s2 ==> s2.clock <= s.clock /\ s2.termdep = s.termdep
 Proof
   Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,get_vars_def,LET_THM]
@@ -1250,7 +1249,7 @@ Proof
   \\ decide_tac
 QED
 
-Triviality fix_clock_evaluate:
+Theorem fix_clock_evaluate[local]:
   fix_clock s (evaluate (c1,s)) = evaluate (c1,s)
 Proof
   Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[fix_clock_def]

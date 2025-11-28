@@ -484,6 +484,14 @@ Proof
     \\ fs [EVERY_EL]
     \\ first_x_assum drule
     \\ rw [ref_ok_thm, EVERY_EL])
+  \\ Cases_on ‘op = Vsub_unsafe’ \\ gs []
+  >- (
+    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
+         store_lookup_def]
+    \\ drule_then assume_tac state_ok_refs_ok
+    \\ fs [EVERY_EL]
+    \\ first_x_assum drule
+    \\ rw [ref_ok_thm, EVERY_EL])
   \\ Cases_on ‘op = VfromList’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi]
@@ -503,9 +511,6 @@ Proof
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi]
     \\ irule v_ok_list_to_v \\ gs [EVERY_MAP, v_ok_thm])
   \\ Cases_on ‘op = Implode’ \\ gs []
-  >- (
-    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
-  \\ Cases_on ‘∃opb. op = Chopb opb’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi])
   \\ Cases_on ‘op = Chr’ \\ gs []
@@ -616,6 +621,10 @@ Proof
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_lookup_def, copy_array_def, store_assign_def])
   \\ Cases_on ‘op = Equality’ \\ gs []
+  >- (
+    gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
+         store_lookup_def, copy_array_def, store_assign_def])
+  \\ Cases_on ‘∃test ty. op = Test test ty’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_lookup_def, copy_array_def, store_assign_def])
@@ -1264,7 +1273,7 @@ Proof
 QED
 
 (* -------------------------------------------------------------------------
- *
+ *  top-level results
  * ------------------------------------------------------------------------- *)
 
 Theorem state_ok_init:

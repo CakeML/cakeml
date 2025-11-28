@@ -21,7 +21,7 @@ Definition compile_jump_def:
   (compile_jump (INR r) = Asm (JumpReg r) [] 0)
 End
 
-Definition negate_def:
+Definition negate_def[simp]:
   (negate Less = NotLess) /\
   (negate Equal = NotEqual) /\
   (negate Lower = NotLower) /\
@@ -32,7 +32,6 @@ Definition negate_def:
   (negate NotTest = Test)
 End
 
-val _ = export_rewrites ["negate_def"];
 
 Overload "++"[local] = ``misc$Append``
 

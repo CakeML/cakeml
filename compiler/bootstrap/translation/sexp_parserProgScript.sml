@@ -155,7 +155,7 @@ Proof
   fs[EVERY_MEM,lexer_implTheory.unhex_alt_def]
 QED
 
-Triviality lemma:
+Theorem lemma[local]:
   isHexDigit x ∧ isHexDigit y ∧ A ∧ B ∧ ¬isPrint (CHR (num_from_hex_string[x;y])) ⇔
   isHexDigit x ∧ isHexDigit y ∧ A ∧ B ∧ ¬isPrint (CHR (num_from_hex_string_alt[x;y]))
 Proof
@@ -163,7 +163,7 @@ Proof
   \\ rfs[num_from_hex_string_alt_intro]
 QED
 
-Triviality lemma2:
+Theorem lemma2[local]:
   isHexDigit x ∧ isHexDigit y ⇒
   num_from_hex_string [x;y] = num_from_hex_string_alt [x;y]
 Proof
@@ -178,7 +178,7 @@ val r = fromSexpTheory.decode_control_def
         |> SIMP_RULE std_ss [monad_unitbind_assert,lemma,lemma2]
         |> translate_no_ind;
 
-Triviality decode_control_ind:
+Theorem decode_control_ind[local]:
   decode_control_ind
 Proof
   once_rewrite_tac [fetch "-" "decode_control_ind_def"]
@@ -280,6 +280,9 @@ val r = translate sexppat_alt_def;
 
 val r = translate encode_thunk_mode_def;
 val r = translate decode_thunk_mode_def;
+
+val _ = fromSexpTheory.decode_test_def |> translate;
+val _ = fromSexpTheory.decode_prim_type_def |> translate;
 
 val r = translate (fromSexpTheory.sexpop_def
                    |> REWRITE_RULE [decode_control_eq]);
@@ -385,7 +388,7 @@ val _ = translate print_sexp_alt_def;
 
 val _ = translate print_sexp_alt_thm;
 
-Triviality listsexp_alt:
+Theorem listsexp_alt[local]:
   listsexp = FOLDR (λs1 s2. SX_CONS s1 s2) nil
 Proof
   rpt(CHANGED_TAC(CONV_TAC (DEPTH_CONV ETA_CONV))) >> simp[listsexp_def]
@@ -399,7 +402,7 @@ val _ = ml_translatorLib.use_string_type false;
 
 val _ = translate HEX_def
 
-Triviality l2n_side_thm:
+Theorem l2n_side_thm[local]:
   !n l. l2n_side n l <=> (l <> [] ==> n <> 0)
 Proof
   strip_tac >>
@@ -410,7 +413,7 @@ Proof
   Cases_on `l = []` >> fs[]
 QED
 
-Triviality s2n_side_thm:
+Theorem s2n_side_thm[local]:
   !n f l. s2n_side n f l <=> (l <> [] ==> n <> 0)
 Proof
   rw[l2n_side_thm,lexerProgTheory.s2n_side_def]
@@ -476,6 +479,8 @@ val _ = translate optsexp_def;
 val _ = translate idsexp_def;
 val _ = translate typesexp_def;
 val _ = translate patsexp_def;
+val _ = translate prim_typesexp_def;
+val _ = translate testsexp_def;
 val _ = translate opsexp_def;
 val _ = translate lopsexp_def;
 val _ = translate locssexp_def;

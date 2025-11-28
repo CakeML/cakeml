@@ -200,6 +200,14 @@ Definition do_word_app_def:
         | SOME (w1,w2) => SOME (Number &(w2n (opw_lookup opw w1 w2))))) /\
   do_word_app (WordOpw W64 opw) [Word64 w1; Word64 w2] =
         SOME (Word64 (opw_lookup opw w1 w2)) /\
+  do_word_app (WordTest W8 test) [Number n1; Number n2] =
+       (if 0 ≤ n1 ∧ n1 < 256 ∧ 0 ≤ n2 ∧ n2 < 256 then
+          (case test of
+           | Equal  => SOME (Boolv (n1 = n2))
+           | Less   => SOME (Boolv (n1 < n2))
+           | LessEq => SOME (Boolv (n1 <= n2))
+           | _ => NONE)
+        else NONE) /\
   do_word_app (WordShift W8 sh n) [Number i] =
        (case some (w:word8). i = &(w2n w) of
         | NONE => NONE
@@ -274,6 +282,10 @@ Definition do_app_def:
              then Rval (EL (Num i) xs, s)
              else Error)
          | _ => Error)
+    | (BlockOp (BoolTest test),[v1;v2]) =>
+        (if (v1 ≠ Boolv T ∧ v1 ≠ Boolv F) then Error else
+         if (v2 ≠ Boolv T ∧ v2 ≠ Boolv F) then Error else
+           Rval (Boolv (v1 = v2), s))
     | (BlockOp (ElemAt n),[Block tag xs]) =>
         if n < LENGTH xs then Rval (EL n xs, s) else Error
     | (BlockOp ListAppend, [x1; x2]) =>
@@ -453,7 +465,7 @@ Definition dec_clock_def:
   dec_clock n ^s = s with clock := s.clock - n
 End
 
-Triviality LESS_EQ_dec_clock:
+Theorem LESS_EQ_dec_clock[local]:
   (r:('c,'ffi) closSem$state).clock <= (dec_clock n s).clock ==> r.clock <= s.clock
 Proof
   SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC
@@ -479,7 +491,7 @@ Definition fix_clock_def:
   fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
 End
 
-Triviality fix_clock_IMP:
+Theorem fix_clock_IMP[local]:
   fix_clock s x = (res,s1) ==> s1.clock <= s.clock
 Proof
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
@@ -664,7 +676,7 @@ Definition exp_alt_size_def[simp]:
   exp3_alt_size (a0::a1) = 1 + (exp_alt_size a0 + exp3_alt_size a1)
 End
 
-Triviality exp3_alt_size[simp]:
+Theorem exp3_alt_size[local,simp]:
   exp3_alt_size xs = list_size exp_alt_size xs
 Proof
   Induct_on `xs` \\ simp []
@@ -825,7 +837,7 @@ Proof
   \\ every_case_tac \\ fs[] \\ rveq \\ fs[]
 QED
 
-Triviality evaluate_clock_help:
+Theorem evaluate_clock_help[local]:
   (!tup vs (s2:('c,'ffi) closSem$state).
       (evaluate tup = (vs,s2)) ==> s2.clock <= (SND (SND tup)).clock) ∧
     (!loc_opt f args (s1:('c,'ffi) closSem$state) vs s2.

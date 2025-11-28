@@ -121,7 +121,7 @@ QED
 
 (* Diff algorithm properties *)
 
-Triviality diff_with_lcs_refl:
+Theorem diff_with_lcs_refl[local]:
    ∀n n'. diff_with_lcs l l n l n' = []
 Proof
   Induct_on ‘l’ >> rw[diff_with_lcs_def,SPLITP]
@@ -279,7 +279,7 @@ Proof
   rw[tokens_def,tokens_aux_def]
 QED
 
-Triviality one_to_ten:
+Theorem one_to_ten[local]:
    ∀P. P 0 /\ P 1 /\ P 2 /\ P 3 /\ P 4 /\ P 5 /\ P 6 /\ P 7 /\ P 8 /\ P 9 /\ (∀n. (n:num) >= 10 ==> P n) ==> ∀n. P n
 Proof
   ntac 2 strip_tac >>
@@ -287,7 +287,7 @@ Proof
       (fn g as (hs,c) => ID_SPEC_TAC (hd $ free_vars c) g))
 QED
 
-Triviality SPLITP_HEX:
+Theorem SPLITP_HEX[local]:
   ∀n. n < 10 ==> SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
                         (STRING (HEX n) acc) =
                  let (l,r) = SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n") acc in
@@ -300,7 +300,7 @@ Overload ml_num_toString[local] = ``mlint$num_to_str``
 Overload hol_int_toString[local] = ``integer_word$toString``
 Overload num_toString[local] = ``num_to_dec_string``
 
-Triviality SPLITP_num_toString:
+Theorem SPLITP_num_toString[local]:
   ∀i.
   SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
          (toString (i:num)) = (toString i,[])
@@ -317,14 +317,14 @@ Proof
   >> recInduct one_to_ten >> fs[]
 QED
 
-Triviality SPLITP_int_toString:
+Theorem SPLITP_int_toString[local]:
   ∀i. SPLITP (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
              (toString (i:int)) = (toString i,[])
 Proof
   rpt strip_tac >> fs[integer_wordTheory.toString_def] >> rw[] >> fs[SPLITP,SPLITP_num_toString]
 QED
 
-Triviality TOKENS_tostring:
+Theorem TOKENS_tostring[local]:
   TOKENS (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n") (toString(n:num)) = [toString n]
 Proof
   Cases_on `num_toString n` >> fs[TOKENS_def]
@@ -334,19 +334,19 @@ Proof
   >> qpat_x_assum `STRING _ _ = _` (assume_tac o GSYM) >> fs[]
 QED
 
-Triviality num_le_10:
+Theorem num_le_10[local]:
   ∀n. 0 ≤ n /\ n < 10 ==> Num n < 10
 Proof
   Cases >> fs[]
 QED
 
-Triviality tokens_toString:
+Theorem tokens_toString[local]:
   tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n") (toString (n:num)) = [toString n]
 Proof
   simp [toString_thm, num_to_str_thm, TOKENS_eq_tokens_sym, TOKENS_tostring]
 QED
 
-Triviality tokens_strcat:
+Theorem tokens_strcat[local]:
   l ≠ [] ==>
   (tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
           (toString (n:num) ^
@@ -357,7 +357,7 @@ Proof
   fs[tokens_append_strlit,strcat_assoc,tokens_append_right_strlit,tokens_toString]
 QED
 
-Triviality tokens_strcat':
+Theorem tokens_strcat'[local]:
   r ≠ [] ==>
   (tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
           (toString (n:num) ^
@@ -368,20 +368,20 @@ Proof
   fs[acd_def,tokens_append_strlit,strcat_assoc,tokens_append_right_strlit,tokens_toString]
 QED
 
-Triviality strsub_strcat:
+Theorem strsub_strcat[local]:
   ∀s s'. strsub(s ^ s') n = if n < strlen s then strsub s n else strsub s' (n - strlen s)
 Proof
     Induct >> simp[strcat_thm,implode_def,strsub_def,EL_APPEND_EQN]
     \\ gen_tac \\ Cases \\ simp[]
 QED
 
-Triviality strsub_str:
+Theorem strsub_str[local]:
    strsub (str c) 0 = c
 Proof
   rw[str_def,implode_def,strsub_def]
 QED
 
-Triviality acd_simps:
+Theorem acd_simps[local]:
   (l ≠ [] ⇒ acd [] l = #"a" ∧ acd l [] = #"d") ∧
   (l ≠ [] ∧ r ≠ [] ⇒ acd l r = #"c")
 Proof
@@ -389,7 +389,7 @@ Proof
   rpt(PURE_TOP_CASE_TAC >> fs[])
 QED
 
-Triviality HEX_isDigit:
+Theorem HEX_isDigit[local]:
   !n. n < 10 ==> isDigit(HEX n)
 Proof
   recInduct one_to_ten >> fs[isDigit_def]
@@ -416,7 +416,7 @@ Proof
   >> fs[integer_wordTheory.toString_def]
 QED
 
-Triviality substring_adhoc_simps:
+Theorem substring_adhoc_simps[local]:
   ∀h.
    substring (strlit "> " ^ h) 0 2 = strlit "> " ∧
    substring (strlit "> " ^ h) 2 (strlen h) = h ∧
@@ -428,25 +428,25 @@ Proof
   >> fs[SEG_LENGTH_ID]
 QED
 
-Triviality depatch_lines_strcat_cancel:
+Theorem depatch_lines_strcat_cancel[local]:
   ∀r. depatch_lines (MAP (strcat (strlit "> ")) r) = SOME r
 Proof
   Induct >> fs[depatch_lines_def,depatch_line_def,strlen_strcat,substring_adhoc_simps]
 QED
 
-Triviality depatch_lines_diff_add_prefix_cancel:
+Theorem depatch_lines_diff_add_prefix_cancel[local]:
    depatch_lines (diff_add_prefix l (strlit "> ")) = SOME l
 Proof
   fs[diff_add_prefix_def,depatch_lines_strcat_cancel]
 QED
 
-Triviality patch_aux_nil:
+Theorem patch_aux_nil[local]:
   patch_aux [] file remfl n = SOME file
 Proof
   fs[patch_aux_def]
 QED
 
-Triviality line_numbers_not_empty:
+Theorem line_numbers_not_empty[local]:
   ∀l n . line_numbers l n <> strlit ""
 Proof
   fs[line_numbers_def, num_to_str_thm, implode_def]
@@ -464,7 +464,7 @@ Proof
   \\ fs [o_DEF,SPLITP_EVERY,TOKENS_def]
 QED
 
-Triviality tokens_toString_comma:
+Theorem tokens_toString_comma[local]:
   tokens ($= #",") (toString (n:num)) = [toString n]
 Proof
   rw [] \\ match_mp_tac tokens_eq_sing
@@ -474,7 +474,7 @@ Proof
   \\ fs [EVERY_isDigit_num_to_dec_string] \\ EVAL_TAC
 QED
 
-Triviality tokens_comma_lemma:
+Theorem tokens_comma_lemma[local]:
   tokens (λx. x = #"a" ∨ x = #"d" ∨ x = #"c" ∨ x = #"\n")
      (line_numbers l n) = [line_numbers l n]
 Proof
@@ -493,7 +493,7 @@ Proof
   \\ fs [strcat_def,concat_def]
 QED
 
-Triviality parse_header_cancel:
+Theorem parse_header_cancel[local]:
  l ≠ [] ∨ l' ≠ [] ⇒
  parse_patch_header(diff_single_header l n l' n') =
   SOME(n,
@@ -520,7 +520,7 @@ Proof
         GSYM str_def,tokens_append,strsub_str]
 QED
 
-Triviality patch_aux_cancel_base_case:
+Theorem patch_aux_cancel_base_case[local]:
   patch_aux (diff_with_lcs [] r n r' m) r (LENGTH r) n = SOME r'
 Proof
   fs[diff_with_lcs_def,diff_single_def] >> rw[]
@@ -567,19 +567,19 @@ Proof
   fs[diff_add_prefix_def]
 QED
 
-Triviality ONE_MINUS_SUCC:
+Theorem ONE_MINUS_SUCC[local]:
   1 - SUC x = 0
 Proof
   intLib.COOPER_TAC
 QED
 
-Triviality SUCC_LE_ONE:
+Theorem SUCC_LE_ONE[local]:
   SUC n ≤ 1 ⇔ n = 0
 Proof
   intLib.COOPER_TAC
 QED
 
-Triviality patch_aux_keep_init:
+Theorem patch_aux_keep_init[local]:
   ∀l p t n t' m.
   common_subsequence l t t' ==>
   patch_aux (diff_with_lcs l t (n + LENGTH p) t' (m + LENGTH p)) (p ++ t) (LENGTH t + LENGTH p) n
@@ -620,7 +620,7 @@ Proof
   >> every_case_tac >> fs []
 QED
 
-Triviality patch_aux_keep_init_cons:
+Theorem patch_aux_keep_init_cons[local]:
   ∀l t n t' h m.
   common_subsequence l t t' ⇒
   patch_aux (diff_with_lcs l t (n + 1) t' (m + 1)) (h::t) (SUC (LENGTH t)) n
@@ -633,25 +633,25 @@ Proof
   disch_then $ qspec_then ‘[h]’ assume_tac >> fs[ADD1]
 QED
 
-Triviality list_nil_sub_length:
+Theorem list_nil_sub_length[local]:
   l ≠ [] ⇒ 1 - LENGTH l = 0
 Proof
   Cases_on `l` >> fs[]
 QED
 
-Triviality list_length_1_lemma:
+Theorem list_length_1_lemma[local]:
   l ≠ [] ∧ LENGTH l <= 1 ⇒ LENGTH l = 1
 Proof
   Cases_on `LENGTH l` >> fs[]
 QED
 
-Triviality minus_add_too_large:
+Theorem minus_add_too_large[local]:
   a - ((a:num) + n) = 0
 Proof
   intLib.COOPER_TAC
 QED
 
-Triviality minus_add_too_large':
+Theorem minus_add_too_large'[local]:
   (a + 1) - ((a:num) + 2) = 0
 Proof
   intLib.COOPER_TAC
@@ -804,7 +804,7 @@ Proof
   rw [fromNatString_def,fromString_gt]
 QED
 
-Triviality parse_nonheader_lemma:
+Theorem parse_nonheader_lemma[local]:
   ∀f r. EVERY (OPTION_ALL f) (MAP parse_patch_header (diff_add_prefix r (strlit "> ")))
 Proof
   strip_tac >> Induct
@@ -820,7 +820,7 @@ Proof
   >> fs[explode_implode,isDigit_def,fromNatString_gt]
 QED
 
-Triviality parse_nonheader_lemma2:
+Theorem parse_nonheader_lemma2[local]:
   ∀f r. EVERY (OPTION_ALL f) (MAP parse_patch_header (diff_add_prefix r (strlit "< ")))
 Proof
   strip_tac >> Induct
@@ -836,7 +836,7 @@ Proof
   >> fs[explode_implode,isDigit_def,fromNatString_gt]
 QED
 
-Triviality parse_nonheader_lemma3:
+Theorem parse_nonheader_lemma3[local]:
   parse_patch_header (strlit "---\n") = NONE
 Proof
   fs[parse_patch_header_def]
@@ -921,7 +921,7 @@ Proof
   >> metis_tac[IS_SUFFIX_CONS]
 QED
 
-Triviality headers_within_snoc:
+Theorem headers_within_snoc[local]:
   ∀p1 n l m e.
   headers_within m (n + LENGTH l) p1 ∧ m <= (n + LENGTH l) ⇒
   patch_alg_offs n p1 (SNOC e l) = OPTION_MAP (SNOC e) (patch_alg_offs n p1 l)
@@ -1230,7 +1230,7 @@ Definition is_patch_line_def:
       F
 End
 
-Triviality is_patch_line_simps:
+Theorem is_patch_line_simps[local]:
   ∀r.
   FILTER is_patch_line (MAP (strcat (strlit "> ")) r) = (MAP (strcat (strlit "> ")) r) ∧
   FILTER is_patch_line (MAP (strcat (strlit "< ")) r) = MAP (strcat (strlit "< ")) r
@@ -1240,7 +1240,7 @@ Proof
   >> simp_tac pure_ss [ONE,TWO,SEG] >> fs[]
 QED
 
-Triviality toString_obtain_digits:
+Theorem toString_obtain_digits[local]:
   ∀n. ∃f r. toString (n:num) = strlit(f::r) ∧ isDigit f ∧ EVERY isDigit r
 Proof
   strip_tac >> fs[num_to_str_thm,implode_def]
@@ -1248,7 +1248,7 @@ Proof
   >> Cases_on `num_toString n` >> fs[]
 QED
 
-Triviality diff_single_patch_length:
+Theorem diff_single_patch_length[local]:
   ∀r n r' m. LENGTH (FILTER is_patch_line (diff_single r n r' m)) = LENGTH r + LENGTH r'
 Proof
   rpt strip_tac
@@ -1263,7 +1263,7 @@ Proof
   >> fs[]
 QED
 
-Triviality diff_with_lcs_optimal:
+Theorem diff_with_lcs_optimal[local]:
   ∀l r r' n m.
   lcs l r r' ⇒
   LENGTH(FILTER is_patch_line (diff_with_lcs l r n r' m)) = LENGTH r + LENGTH r' - (2*LENGTH l)

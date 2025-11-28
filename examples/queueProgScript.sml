@@ -149,7 +149,10 @@ Proof
     simp[lqueue_def, LIST_REL_REPLICATE_same]
 QED
 
-val EqualityType_INT = prove(``EqualityType INT``, simp[EqualityType_NUM_BOOL])
+Theorem EqualityType_INT[local]:
+   EqualityType INT
+Proof simp[EqualityType_NUM_BOOL]
+QED
 
 val eq_int_thm = mlbasicsProgTheory.eq_v_thm
                    |> INST_TYPE [alpha |-> “:int”]
@@ -210,7 +213,7 @@ Proof
   simp[EL_APPEND1, EL_APPEND2]
 QED
 
-Triviality dequeue_spec_noexn:
+Theorem dequeue_spec_noexn[local]:
   !qv xv vs x. app (p:'ffi ffi_proj) ^(fetch_v "dequeue" st) [qv]
           (QUEUE A mx vs qv * &(vs ≠ []))
           (POSTv v. &(A (HD vs) v) * QUEUE A mx (TL vs) qv)

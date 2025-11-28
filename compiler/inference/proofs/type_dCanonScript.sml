@@ -273,7 +273,7 @@ Definition good_remap_def:
     Tlist_num :: (Tbool_num :: prim_type_nums)
 End
 
-Triviality ts_tid_rename_type_subst:
+Theorem ts_tid_rename_type_subst[local]:
   ∀s t f.
   ts_tid_rename f (type_subst s t) =
   type_subst (ts_tid_rename f o_f s) (ts_tid_rename f t)
@@ -286,7 +286,7 @@ Proof
     fs[MAP_MAP_o,MAP_EQ_f]
 QED
 
-Triviality ts_tid_rename_type_name_subst:
+Theorem ts_tid_rename_type_name_subst[local]:
   ∀tenvt t f tenv.
   good_remap f ∧
   check_type_names tenvt t ⇒
@@ -312,7 +312,7 @@ Proof
     metis_tac[EL_MEM])
 QED
 
-Triviality check_type_names_ts_tid_rename:
+Theorem check_type_names_ts_tid_rename[local]:
   ∀tenvt t.
   check_type_names tenvt t <=>
   check_type_names (nsMap (λ(ls,t). (ls,ts_tid_rename f t)) tenvt) t
@@ -359,7 +359,7 @@ Proof
 QED
 
 (* needs monotonicity of set_tids_tenv *)
-Triviality set_tids_tenv_extend_dec_tenv:
+Theorem set_tids_tenv_extend_dec_tenv[local]:
   ∀s t s' t'.
   set_tids_tenv (s' ∪ s) t' ∧
   set_tids_tenv (s' ∪ s) t ⇒
@@ -380,7 +380,7 @@ Proof
   \\ metis_tac[]
 QED
 
-Triviality good_remap_extend_bij:
+Theorem good_remap_extend_bij[local]:
   good_remap f ∧ prim_tids F ids ⇒
   good_remap (extend_bij f g ids n)
 Proof
@@ -388,14 +388,14 @@ Proof
 QED
 
 (*
-Triviality good_remap_extend_bij:
+Theorem good_remap_extend_bij[local]:
   good_remap f ∧ prim_tids T tids ⇒
   good_remap (extend_bij f g tids n)
 Proof
   rw[good_remap_def, extend_bij_def, prim_tids_def,prim_type_nums_def]
 QED
 
-Triviality good_remap_extend_bij:
+Theorem good_remap_extend_bij[local]:
   good_remap f ∧ prim_tids T tids ⇒
   good_remap (extend_bij f g tids ids n)
 Proof
@@ -403,7 +403,7 @@ Proof
 QED
 *)
 
-Triviality remap_tenv_extend_dec_tenv:
+Theorem remap_tenv_extend_dec_tenv[local]:
   remap_tenv f (extend_dec_tenv t t') =
   extend_dec_tenv (remap_tenv f t) (remap_tenv f t')
 Proof
@@ -467,7 +467,7 @@ Proof
   rw[set_tids_subset_def, SUBSET_DEF]
 QED
 
-Triviality set_tids_tenv_mono:
+Theorem set_tids_tenv_mono[local]:
   set_tids_tenv tids tenv ∧ tids ⊆ tids' ⇒
   set_tids_tenv tids' tenv
 Proof
@@ -479,7 +479,7 @@ Proof
   \\ metis_tac[set_tids_subset_mono,SUBSET_DEF]
 QED
 
-Triviality check_freevars_ts_tid_rename:
+Theorem check_freevars_ts_tid_rename[local]:
   ∀ts ls t.
   check_freevars ts ls (ts_tid_rename f t) ⇔
   check_freevars ts ls t
@@ -500,7 +500,7 @@ val ast_t_ind = ast_t_induction
   |> SIMP_RULE (srw_ss()) []
   |> Q.GEN`P`;
 
-Triviality sing_renum_NOT_tscheme_inst:
+Theorem sing_renum_NOT_tscheme_inst[local]:
   ∀t.
   m ∈ set_tids t ∧
   m ≠ n ⇒
@@ -615,7 +615,7 @@ Theorem type_op_ts_tid_rename:
   type_op op (MAP (ts_tid_rename f) ts) (ts_tid_rename f t)
 Proof
   rw[]>>
-  fs[typeSysPropsTheory.type_op_cases]>>
+  fs[typeSysPropsTheory.type_op_cases,oneline t_of_def]>>
   every_case_tac >> fs[ts_tid_rename_def] >>
   fs[good_remap_def,prim_type_nums_def]
 QED
@@ -626,13 +626,13 @@ Definition remap_tenvE_def:
   (remap_tenvE f (Bind_name s n t e) = Bind_name s n (ts_tid_rename f t) (remap_tenvE f e))
 End
 
-Triviality num_tvs_remap_tenvE:
+Theorem num_tvs_remap_tenvE[local]:
   ∀tenvE. num_tvs (remap_tenvE f tenvE) = num_tvs tenvE
 Proof
   Induct>>fs[remap_tenvE_def]
 QED
 
-Triviality remap_tenvE_bind_var_list:
+Theorem remap_tenvE_bind_var_list[local]:
   ∀n env tenvE.
   remap_tenvE f (bind_var_list n env tenvE) =
   bind_var_list n (MAP (λ(n,t). (n, ts_tid_rename f t)) env) (remap_tenvE f tenvE)
@@ -648,7 +648,7 @@ Proof
   rw[bind_tvar_def, remap_tenvE_def]
 QED
 
-Triviality deBruijn_inc_ts_tid_rename:
+Theorem deBruijn_inc_ts_tid_rename[local]:
   ∀skip n t.
   ts_tid_rename f (deBruijn_inc skip n t) =
   deBruijn_inc skip n (ts_tid_rename f t)
@@ -658,7 +658,7 @@ Proof
   fs[MAP_EQ_f]
 QED
 
-Triviality lookup_varE_remap_tenvE:
+Theorem lookup_varE_remap_tenvE[local]:
   ∀n tenvE.
   lookup_varE n (remap_tenvE f tenvE)
   = OPTION_MAP (λid,t. (id, ts_tid_rename f t)) (lookup_varE n tenvE)
@@ -670,7 +670,7 @@ Proof
   fs[deBruijn_inc_ts_tid_rename]
 QED
 
-Triviality ts_tid_rename_deBruijn_subst:
+Theorem ts_tid_rename_deBruijn_subst[local]:
   ∀n targs t.
   ts_tid_rename f (deBruijn_subst n targs t) =
   deBruijn_subst n (MAP (ts_tid_rename f) targs) (ts_tid_rename f t)
@@ -943,7 +943,7 @@ Theorem remap_tenv_LINVI
      set_tids_tenv_def]
 *)
 
-Triviality type_p_ts_tid_rename_sing_renum:
+Theorem type_p_ts_tid_rename_sing_renum[local]:
   m ∉ tids ∧ prim_tids T tids ∧
   type_p tvs tenv p t bindings ∧
   set_tids_tenv tids tenv
@@ -966,7 +966,7 @@ Proof
   metis_tac[type_p_tenv_equiv]
 QED
 
-Triviality type_e_ts_tid_rename_sing_renum:
+Theorem type_e_ts_tid_rename_sing_renum[local]:
   m ∉ tids ∧ prim_tids T tids ∧
   type_e tenv tenvE e t ∧
   set_tids_tenv tids tenv
@@ -1011,7 +1011,7 @@ Proof
   metis_tac[type_e_tenv_equiv]
 QED
 
-Triviality type_pe_bindings_tids:
+Theorem type_pe_bindings_tids[local]:
   prim_tids T tids ∧
   set_tids_tenv tids tenv ∧
   type_p tvs tenv p t bindings ∧
@@ -1938,4 +1938,3 @@ Proof
  >- metis_tac [extend_dec_tenv_ok]
  >- metis_tac [extend_dec_tenv_ok]
 QED
-

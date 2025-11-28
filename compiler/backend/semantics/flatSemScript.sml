@@ -224,6 +224,37 @@ Definition v_to_words_def:
   v_to_words lv = some ns. v_to_list lv = SOME (MAP (Litv o Word64) ns)
 End
 
+Definition check_type_def:
+  check_type BoolT v = (v = Boolv T ∨ v = Boolv F) ∧
+  check_type IntT v = (∃i. v = Litv (IntLit i)) ∧
+  check_type CharT v = (∃c. v = Litv (Char c)) ∧
+  check_type StrT v = (∃s. v = Litv (StrLit s)) ∧
+  check_type (WordT W8) v = (∃w. v = Litv (Word8 w)) ∧
+  check_type (WordT W64) v = (∃w. v = Litv (Word64 w)) ∧
+  check_type Float64T v = (∃w. v = Litv (Float64 w))
+End
+
+Definition dest_Litv_def:
+  dest_Litv (Litv v) = SOME v ∧
+  dest_Litv _ = NONE
+End
+
+Definition do_test_def: (* TODO: extend with more cases *)
+  do_test Equal ty v1 v2 =
+    (if check_type ty v1 ∧ check_type ty v2 then do_eq v1 v2 else Eq_type_error) ∧
+  do_test Less ty v1 v2 =
+    (case (ty, dest_Litv v1, dest_Litv v2) of
+     | (CharT, SOME (Char i), SOME (Char j)) => Eq_val (i < j)
+     | (WordT W8, SOME (Word8 w), SOME (Word8 v)) => Eq_val (w2n w < w2n v)
+     | _ => Eq_type_error) ∧
+  do_test LessEq ty v1 v2 =
+    (case (ty, dest_Litv v1, dest_Litv v2) of
+     | (CharT, SOME (Char i), SOME (Char j)) => Eq_val (i <= j)
+     | (WordT W8, SOME (Word8 w), SOME (Word8 v)) => Eq_val (w2n w <= w2n v)
+     | _ => Eq_type_error) ∧
+  do_test _ ty v1 v2 = Eq_type_error
+End
+
 Definition do_app_def:
   do_app s op (vs:flatSem$v list) =
   case (op, vs) of
@@ -254,6 +285,10 @@ Definition do_app_def:
          | SOME w => SOME (s, Rval (Litv w)))
   | (Equality, [v1; v2]) =>
     (case do_eq v1 v2 of
+     | Eq_type_error => NONE
+     | Eq_val b => SOME (s, Rval (Boolv b)))
+  | (Test test test_ty, [v1; v2]) =>
+    (case do_test test test_ty v1 v2 of
      | Eq_type_error => NONE
      | Eq_val b => SOME (s, Rval (Boolv b)))
   | (Opassign, [Loc _ lnum; v]) =>
@@ -387,8 +422,6 @@ Definition do_app_def:
             Rerr (Rraise chr_exn_v)
           else
             Rval (Litv(Char(CHR(Num(ABS i))))))
-  | (Chopb op, [Litv (Char c1); Litv (Char c2)]) =>
-    SOME (s, Rval (Boolv (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2)))))
   | (Implode, [v]) =>
     (case v_to_char_list v of
      | SOME ls =>
@@ -429,6 +462,11 @@ Definition do_app_def:
           SOME (s, Rerr (Rraise subscript_exn_v))
         else
           SOME (s, Rval (EL n vs))
+  | (Vsub_unsafe, [Vectorv vs; Litv (IntLit i)]) =>
+    if 0 ≤ i ∧ Num i < LENGTH vs then
+      SOME (s, Rval (EL (Num i) vs))
+    else
+      NONE
   | (Vlength, [Vectorv vs]) =>
     SOME (s, Rval (Litv (IntLit (int_of_num (LENGTH vs)))))
   | (Aalloc, [Litv (IntLit n); v]) =>
@@ -533,7 +571,7 @@ Definition do_app_def:
     SOME (s, Rval (Boolv (tag = n /\ LENGTH xs = l)))
   | (LenEq l, [Conv _ xs]) =>
     SOME (s, Rval (Boolv (LENGTH xs = l)))
- | (El n, [Conv _ vs]) =>
+  | (El n, [Conv _ vs]) =>
     (if n < LENGTH vs then SOME (s, Rval (EL n vs)) else NONE)
   | (El n, [Loc _ p]) =>
     (if n <> 0 then NONE else
@@ -650,7 +688,7 @@ Definition fix_clock_def:
   fix_clock s (s1,res) = (s1 with clock := MIN s.clock s1.clock,res)
 End
 
-Triviality fix_clock_IMP:
+Theorem fix_clock_IMP[local]:
   fix_clock s x = (s1,res) ==> s1.clock <= s.clock
 Proof
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
@@ -940,14 +978,14 @@ val eqs = LIST_CONJ (map prove_case_eq_thm
 Theorem case_eq_thms =
   eqs
 
-Triviality pair_case_eq:
+Theorem pair_case_eq[local]:
   pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v
 Proof
   Cases_on `x` >>
  srw_tac[][]
 QED
 
-Triviality pair_lam_lem:
+Theorem pair_lam_lem[local]:
   !f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)
 Proof
   srw_tac[][]
@@ -994,27 +1032,25 @@ Theorem evaluate_def[compute,allow_rebind] =
 Theorem evaluate_ind[allow_rebind] =
   REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
 
-Definition bool_ctors_def:
+Definition bool_ctors_def[simp]:
   bool_ctors =
     { ((true_tag, SOME bool_id), 0n)
     ; ((false_tag, SOME bool_id), 0n) }
 End
 
-Definition list_ctors_def:
+Definition list_ctors_def[simp]:
   list_ctors =
     { ((cons_tag, SOME list_id), 2n)
     ; ((nil_tag, SOME list_id), 0n) }
 End
 
-Definition exn_ctors_def:
+Definition exn_ctors_def[simp]:
   exn_ctors =
     { ((div_tag, NONE), 0n)
     ; ((chr_tag, NONE), 0n)
     ; ((subscript_tag, NONE), 0n)
     ; ((bind_tag, NONE), 0n) }
 End
-
-val _ = export_rewrites ["bool_ctors_def", "list_ctors_def", "exn_ctors_def"];
 
 Definition initial_ctors_def:
    initial_ctors = bool_ctors UNION list_ctors UNION exn_ctors
@@ -1057,4 +1093,3 @@ End
 val _ = map (can delete_const)
   ["do_eq_UNION_aux","do_eq_UNION",
    "pmatch_UNION_aux","pmatch_UNION"];
-

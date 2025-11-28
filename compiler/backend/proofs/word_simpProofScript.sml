@@ -385,7 +385,7 @@ Proof
 QED
 
 (*TODO delete*)
-Triviality pop_env_stack_gc:
+Theorem pop_env_stack_gc[local]:
    !s. pop_env s = SOME s' ==> s'.gc_fun = s.gc_fun
 Proof
   rw [pop_env_def] \\ every_case_tac \\ fs [] \\ rw []
@@ -1051,7 +1051,7 @@ QED
 
 (* the duplicate-if pass *)
 
-Triviality evaluate_try_if_hoist2:
+Theorem evaluate_try_if_hoist2[local]:
   ! N p1 interm dummy p2 s.
   try_if_hoist2 N p1 interm dummy p2 = SOME p3 ==>
   gc_fun_const_ok s.gc_fun ==>
@@ -1088,7 +1088,7 @@ Proof
   )
 QED
 
-Triviality evaluate_try_if_hoist1:
+Theorem evaluate_try_if_hoist1[local]:
   try_if_hoist1 p1 p2 = SOME p3 ==>
   gc_fun_const_ok s.gc_fun ==>
   evaluate (p3, s) = evaluate (Seq p1 p2, s)
@@ -1145,7 +1145,7 @@ Proof
   \\ simp [evaluate_def]
 QED
 
-Triviality push_out_if_aux_T:
+Theorem push_out_if_aux_T[local]:
   !c2 c2' res s s'.
   push_out_if_aux c2 = (c2',T) ==>
   evaluate (c2,s) = (res,s') ==>

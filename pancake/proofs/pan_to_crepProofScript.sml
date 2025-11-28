@@ -2890,7 +2890,7 @@ val ret_call_excp_handler_tac =
      fs []) >>
     strip_tac >> fs [])
 
-Triviality flatten_nil_no_size:
+Theorem flatten_nil_no_size[local]:
   flatten x = [] ⇔ size_of_shape(shape_of x) = 0
 Proof
   rw[EQ_IMP_THM,GSYM length_flatten_eq_size_of_shape]
@@ -3237,7 +3237,7 @@ Proof
   TRY (rpt TOP_CASE_TAC) >> fs [] >> call_tail_ret_impl_tac
 QED
 
-Triviality locals_id_update:
+Theorem locals_id_update[local]:
   t with locals := t.locals = t
 Proof
   rw[state_component_equality]
@@ -4531,7 +4531,7 @@ Proof
   rfs [arithmeticTheory.LESS_MOD]
 QED
 
-Triviality pair_map_I:
+Theorem pair_map_I[local]:
   (λ(x,y). (x,y)) = I
 Proof
   rw[FUN_EQ_THM,ELIM_UNCURRY]

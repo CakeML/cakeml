@@ -65,6 +65,11 @@ Definition do_app_def:
             Eq_type_error => NONE
           | Eq_val b => SOME (s, Rval (Boolv b))
         )
+    | (Test test test_ty, [v1; v2]) =>
+        (case do_test test test_ty v1 v2 of
+            Eq_type_error => NONE
+          | Eq_val b => SOME (s, Rval (Boolv b))
+        )
     | (Opassign, [Loc _ lnum; v]) =>
         (case store_assign lnum (Refv v) s of
             SOME s' => SOME (s', Rval (Conv NONE []))
@@ -221,8 +226,6 @@ Definition do_app_def:
             Rraise chr_exn_v
           else
             Rval (Litv(Char(CHR(Num (ABS (I i))))))))
-    | (Chopb op, [Litv (Char c1); Litv (Char c2)]) =>
-        SOME (s, Rval (Boolv (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2)))))
     | (Implode, [v]) =>
           (case v_to_char_list v of
             SOME ls =>
@@ -271,6 +274,11 @@ Definition do_app_def:
               SOME (s, Rraise sub_exn_v)
             else
               SOME (s, Rval (EL n vs))
+    | (Vsub_unsafe, [Vectorv vs; Litv (IntLit i)]) =>
+        if 0 ≤ i ∧ Num i < LENGTH vs then
+          SOME (s, Rval (EL (Num i) vs))
+        else
+          NONE
     | (Vlength, [Vectorv vs]) =>
         SOME (s, Rval (Litv (IntLit (int_of_num (LENGTH vs)))))
     | (Aalloc, [Litv (IntLit n); v]) =>
@@ -735,4 +743,3 @@ CoInductive safe_itree:
   (safe_itree P Div) ∧
   ((∀s. P s ⇒ safe_itree P (rest s)) ⇒ safe_itree P (Vis e rest))
 End
-
