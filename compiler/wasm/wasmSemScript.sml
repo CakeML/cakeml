@@ -15,6 +15,7 @@ Datatype: state =
     memory  : word8 list;
     types   : functype list;
     funcs   : func list;
+    (* TODO funcs   : (func + hostfunc) list; hostfunc is index_into_types # mlstring *)
     func_table : word32 list;
   |>
 End
@@ -537,6 +538,9 @@ Definition exec_def:
   ) ∧
   (exec (ReturnCall fi) s =
     case oEL (w2n fi) s.funcs      of NONE => inv s | SOME f          =>
+    (* TODO: Check that f is a native function *)
+    (* official wasm sem allows return_call into host fn, just without the
+       guarantee that the stack won't grow *)
     case oEL (w2n f.ftype) s.types of NONE => inv s | SOME (ins,outs) =>
     let np = LENGTH ins in
     let nr = LENGTH outs in
@@ -568,6 +572,7 @@ Definition exec_def:
   ) ∧
   (exec (Call fi) s =
     case oEL (w2n fi) s.funcs      of NONE => inv s | SOME f          =>
+    (* TODO: Case split on f whether it is a host or native function *)
     case oEL (w2n f.ftype) s.types of NONE => inv s | SOME (ins,outs) =>
     let np = LENGTH ins in
     let nr = LENGTH outs in

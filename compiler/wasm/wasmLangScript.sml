@@ -282,6 +282,10 @@ End
 
 Datatype: module =
   <| types   : functype list
+   (* TODO: add imports and exports
+   ; import_funcs : (index_into_types # (mlstring # mlstring)) list
+   ; export_mems : (index_into_mems # mlstring) list
+   *)
    ; funcs   : func     list
    ; mems    : memtype  list
    ; globals : global   list

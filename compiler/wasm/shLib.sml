@@ -172,19 +172,5 @@ fun record_canon_simp_conv tm = let
   val eq2 = prove (mk_eq (inner_tm', inner_tm), REWRITE_TAC[trivial_simps ty])
   in TRANS eq1 (PURE_REWRITE_CONV [eq2] tm1) end
 
-(* Irvin's simps *)
-
-Theorem option_CASE_OPTION_MAP[simp]:
-  (option_CASE (OPTION_MAP f e) a b) = option_CASE e a (λx. b (f x))
-Proof
-  Cases_on`e`>>simp[]
-QED
-
-Theorem pair_CASE_PAIR_MAP[simp]:
-  pair_CASE ((f ## g) e) a = pair_CASE e (\x y. a (f x) (g y))
-Proof
-  Cases_on`e`>>simp[]
-QED
-
 end (*local*)
 end (*struct*)

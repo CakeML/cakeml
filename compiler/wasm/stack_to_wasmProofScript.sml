@@ -5,10 +5,21 @@ Theory stack_to_wasmProof
 Libs
   preamble helperLib shLib
 Ancestors
-  wasmLang words arithmetic list rich_list sptree mlstring
-  wasmSem stackSem stackLang stackProps pair asm
+  misc wasmLang
+  wasmSem stackSem stackLang stackProps asm
 
+(* TODO: move Irvin's simps *)
+Theorem option_CASE_OPTION_MAP[simp]:
+  (option_CASE (OPTION_MAP f e) a b) = option_CASE e a (λx. b (f x))
+Proof
+  Cases_on`e`>>simp[]
+QED
 
+Theorem pair_CASE_PAIR_MAP[simp]:
+  pair_CASE ((f ## g) e) a = pair_CASE e (\x y. a (f x) (g y))
+Proof
+  Cases_on`e`>>simp[]
+QED
 
 (* shorthands for wasm instructions *)
 Definition I64_EQ_def:
@@ -335,41 +346,20 @@ End
 
 Definition stack_wasm_ok_def:
   (stack_wasm_ok c (ShMemOp _ _ _) <=> F) ∧
-  (stack_wasm_ok c (Get _ _) ⇔ F) ∧
-  (stack_wasm_ok c (Set _ _) ⇔ F) ∧
-  (stack_wasm_ok c (OpCurrHeap _ _ _) ⇔ F) ∧
   (stack_wasm_ok c (JumpLower _ _ _) ⇔ F) ∧
-  (stack_wasm_ok c (Alloc _) ⇔ F) ∧
-  (stack_wasm_ok c (StoreConsts _ _ _) ⇔ F) ∧
   (stack_wasm_ok c (Install _ _ _ _ _) ⇔ F) ∧
   (stack_wasm_ok c (CodeBufferWrite _ _) ⇔ F) ∧
   (stack_wasm_ok c (DataBufferWrite _ _) ⇔ F) ∧
   (stack_wasm_ok c (RawCall _) ⇔ F) ∧
-  (stack_wasm_ok c (StackAlloc _) ⇔ F) ∧
-  (stack_wasm_ok c (StackFree _) ⇔ F) ∧
-  (stack_wasm_ok c (StackStore _ _) ⇔ F) ∧
-  (stack_wasm_ok c (StackStoreAny _ _) ⇔ F) ∧
-  (stack_wasm_ok c (StackLoad _ _) ⇔ F) ∧
-  (stack_wasm_ok c (StackLoadAny _ _) ⇔ F) ∧
-  (stack_wasm_ok c (StackGetSize _) ⇔ F) ∧
-  (stack_wasm_ok c (StackSetSize _) ⇔ F) ∧
-  (stack_wasm_ok c (StackAlloc _) ⇔ F) ∧
-
-  (stack_wasm_ok c ((Inst i):'a stackLang$prog) ⇔ asm$inst_ok i c) ∧
-  (stack_wasm_ok c (Raise n) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
-  (stack_wasm_ok c (Return n) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
-
   (stack_wasm_ok c (Seq p1 p2) ⇔ stack_wasm_ok c p1 ∧ stack_wasm_ok c p2) ∧
   (stack_wasm_ok c (If cmp n r p1 p2) ⇔ stack_wasm_ok c p1 ∧ stack_wasm_ok c p2) ∧
   (stack_wasm_ok c (While cmp n r p) ⇔ stack_wasm_ok c p) ∧
   (stack_wasm_ok c (Call r tar h) ⇔
-    (case tar of INR r => r < c.reg_count ∧ ¬MEM r c.avoid_regs | _ => T) ∧
     case r of NONE => T
     | SOME (rp,lr,_,_) =>
       stack_wasm_ok c rp ∧ lr < c.reg_count ∧
       (case h of NONE=>T | SOME (hp,_,_) => stack_wasm_ok c hp)
   )
-
 End
 
 (*
@@ -769,13 +759,13 @@ Proof
   fs[state_rel_def,wasm_state_ok_def]>>rw[]
 QED
 
-Theorem state_rel_with_stack:
+Theorem state_rel_with_stack[simp]:
   state_rel c s (t with stack updated_by _) = state_rel c s t
 Proof
   fs[state_rel_def,wasm_state_ok_def]
 QED
 
-Theorem state_rel_with_locals:
+Theorem state_rel_with_locals[simp]:
   state_rel c s (t with locals updated_by _) = state_rel c s t
 Proof
   fs[state_rel_def,wasm_state_ok_def]
@@ -797,8 +787,9 @@ Proof
 QED
 
 Theorem state_rel_empty_env_t_with_globals:
-  state_rel c s t ⇒
-  state_rel c (empty_env s) (t with globals := LUPDATE x r t.globals)
+  state_rel c s t ∧
+  t' = t with globals := LUPDATE x r t.globals ⇒
+  state_rel c (empty_env s) t'
 Proof
   rw[empty_env_def,state_rel_def]
   >-metis_tac[]
@@ -1048,10 +1039,7 @@ rpt strip_tac
 >>gvs[]
 >>(pairarg_tac>>fs[])
 >>subgoal`state_rel c s (push (wl_value wa) t)`
->-(
-  simp[push_def]
-  >>metis_tac[state_rel_with_stack]
-)
+>- simp[push_def]
 >>drule_all_then assume_tac exec_comp_ri
 >>gvs[]
 (* *)
@@ -1284,10 +1272,7 @@ rw[exec_def]
   drule_then (qspec_then`t.stack`assume_tac) exec_Block_BlkNil_RNormal
   (* from ‘res_rel s_res RNormal ([],t1.stack)’ have ‘t1.stack=[]’ *)
   >>‘t1.stack=[]’ by metis_tac[res_rel_RNormal]
-  >>fs[]
-  >>(rw[]>-fs[res_rel_RNormal])
-  >>metis_tac[state_rel_with_stack]
-)
+  >>fs[res_rel_RNormal])
 >-metis_tac[res_rel_RTimeout]
 >-metis_tac[res_rel_RHalt]
 QED
@@ -1303,7 +1288,7 @@ Proof
     strip_tac
     >>fs[]
     >>first_x_assum $ qspec_then`t with stack:=[]`mp_tac
-    >>simp[state_rel_with_stack]
+    >>simp[]
     >>strip_tac
     >>qexists_tac`ck`
     >>simp[compile_def]
@@ -1356,7 +1341,21 @@ Proof
   >-metis_tac[res_rel_RHalt]
 QED
 
+Theorem wasm_state_ok_LLOOKUP_cakeml_ftype_index:
+  wasm_state_ok t ⇒
+  LLOOKUP t.types (w2n cakeml_ftype_index) = SOME ([], [Tnum Int W32])
+Proof
+  fs[wasm_state_ok_def]
+QED
+
 fun simp1 thm = simp[thm];
+
+Theorem state_rel_with_clock':
+  state_rel c s (t with <| clock:=ck; stack:=st ; locals :=l|>) ⇔
+  state_rel c s (t with <| clock := ck|>)
+Proof
+  simp[state_rel_def,wasm_state_ok_def]
+QED
 
 Theorem compile_Call_aux2:
   (
@@ -1456,8 +1455,9 @@ rpt strip_tac
 )
 (* done *)
 >>pop_assum simp1
->>‘LLOOKUP t.types (w2n cakeml_ftype_index) = SOME ([], [Tnum Int W32])’ by fs[wasm_state_ok_def]
->>pop_assum simp1
+>>DEP_REWRITE_TAC[wasm_state_ok_LLOOKUP_cakeml_ftype_index]
+>>simp[]
+
 >>simp[pop_n_def]
 >>`t.clock=s.clock` by fs[state_rel_def]
 (* timeout or not? *)
@@ -1465,11 +1465,11 @@ rpt strip_tac
 >-(
   (* timeout case *)
   qexists_tac`0` (*ck*)
-  >>simp[res_rel_RTimeout]
+  >>gvs[res_rel_RTimeout]
+  >>irule state_rel_empty_env_t_with_globals
+  >>simp[wasmSemTheory.state_component_equality]
+  >>metis_tac[]
   (* auto[state_rel_empty_env_t_with_globals] *)
-  >>qpat_x_assum `t.clock=0` (fn eq=>pure_rewrite_tac[GSYM eq])
-  >>CONV_TAC(DEPTH_CONV record_canon_simp_conv)
-  >>metis_tac[state_rel_empty_env_t_with_globals]
 )
 (* non-timeout case *)
 >>gvs[pair_case_eq,option_case_eq]
@@ -1499,21 +1499,7 @@ rpt strip_tac
     >>(qpat_x_assum `state_rel c s t` mp_tac >> simp[state_rel_def,regs_rel_def])
   )
   >>dxrule_all state_rel_set_var
-  >>simp[]
-  (* it's 2025 and we waste precious time like this *)
-  >>`
-    state_rel c (set_var link_reg (Loc l m) s with clock := s.clock − 1)
-      (t with
-       <|clock := s.clock − 1; stack := []; locals := [];
-         globals := LUPDATE (I64 (n2w l ≪ 1)) link_reg t.globals|>) =
-    state_rel c (set_var link_reg (Loc l m) s with clock := s.clock − 1)
-      (((t with
-       <|clock := s.clock − 1;
-         globals := LUPDATE (I64 (n2w l ≪ 1)) link_reg t.globals|>) with stack:=[]) with locals:=[])
-    ` by simp[]
-  >>pop_assum (fn eq=>pure_rewrite_tac[eq])
-  >>metis_tac[state_rel_with_stack,state_rel_with_locals]
-)
+  >>simp[state_rel_with_clock'])
 >>first_x_assum dxrule_all (* apply IH *)
 >>strip_tac
 >>fs[]
@@ -1610,7 +1596,7 @@ rpt strip_tac
 )
 QED
 
-Theorem get_var_set_var:
+Theorem get_var_set_var[simp]:
 get_var r (set_var r v s) = SOME v
 Proof
 simp[get_var_def,set_var_def,FLOOKUP_SIMP]
