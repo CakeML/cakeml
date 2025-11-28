@@ -356,10 +356,7 @@ Definition bc_stack_ref_inv_def:
       FDOM tf SUBSET (all_ts refs stack) /\
       FDOM tf SUBSET { n | n < ts } /\ be_ok conf.be be /\
       EVERY2 (\v x. v_inv conf v refs (x,f,tf,heap)) stack roots /\
-      !n.
-        reachable_refs stack refs n ∧
-        n ∈ FDOM f ==>
-          bc_ref_inv conf n refs (f,tf,heap,be)
+      !n. reachable_refs stack refs n ==> bc_ref_inv conf n refs (f,tf,heap,be)
 End
 
 Definition data_up_to_def:
@@ -4863,7 +4860,8 @@ Theorem deref_thm:
           ?y. (heap_el r n heap = (y,T)) /\
                 abs_ml_inv conf (EL n vs::RefPtr b ptr::stack) refs
                   (y::roots,heap,be,a,sp,sp1,gens) limit ts
-      | Thunk m v =>
+      | Thunk Evaluated v => T
+      | Thunk NotEvaluated v =>
       ?y. (heap_el r 0 heap = (y,T)) /\
             abs_ml_inv conf (v::RefPtr b ptr::stack) refs
               (y::roots,heap,be,a,sp,sp1,gens) limit ts
@@ -4877,12 +4875,13 @@ Proof
   \\ res_tac \\ POP_ASSUM MP_TAC
   \\ simp_tac std_ss [Once bc_ref_inv_def]
   \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF]
-  >- cheat
+  >- (rw [] \\ Cases_on ‘ptr ∈ FDOM f’ \\ gvs [domain_lookup, SUBSET_DEF])
   \\ `ptr IN (domain refs)` by fs [SUBSET_DEF]
   \\ full_simp_tac (srw_ss()) [domain_lookup]
   \\ reverse (Cases_on `v`) \\ full_simp_tac (srw_ss()) []
   >- (
     strip_tac
+    \\ TOP_CASE_TAC \\ gvs []
     \\ imp_res_tac EVERY2_IMP_LENGTH
     \\ asm_simp_tac (srw_ss()) [heap_el_def,RefBlock_def,ThunkBlock_def]
     \\ srw_tac [] [] THEN1
@@ -5146,8 +5145,7 @@ Proof
   \\ `n ∈ (domain refs)`
      by (pop_assum mp_tac \\ every_case_tac \\ rveq \\ fs [domain_lookup])
   \\ pop_assum (fn thm => pop_assum mp_tac \\ assume_tac thm)
-  \\ TOP_CASE_TAC \\ fs [] \\ rveq \\ fs []
-  \\ TOP_CASE_TAC \\ fs [] \\ rveq \\ fs []
+  \\ ntac 3 (TOP_CASE_TAC \\ fs [] \\ rveq \\ fs [])
   \\ fs [Bytes_def,isDataElement_def,LET_THM,heap_store_rel_def,
          isSomeDataElement_def,PULL_EXISTS,RefBlock_def,lookup_NONE_domain,
          ThunkBlock_def] \\ rw []
