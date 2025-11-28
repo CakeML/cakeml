@@ -704,7 +704,8 @@ QED
 - obj : mlstring objective
 *)
 
-Type cp_inst[pp] = ``:(mlstring, int # int) alist # mlstring constraint list # mlstring objective``;
+Type cp_inst[pp] = ``:(mlstring, int # int) alist #
+  (mlstring # mlstring constraint) list # mlstring objective``;
 
 (* For any unspecified variable, default to (0,0) *)
 Definition bnd_lookup_def:
@@ -717,7 +718,7 @@ End
 Definition cp_inst_sem_concl_def:
   cp_inst_sem_concl (inst:cp_inst) concl ⇔
   case inst of (bnd,cs,obj) =>
-    cp_sem_concl (bnd_lookup bnd) (set cs) obj concl
+    cp_sem_concl (bnd_lookup bnd) (set (MAP SND cs)) obj concl
 End
 
 

@@ -5,41 +5,35 @@ Theory cp_enc
 Libs
   preamble
 Ancestors
-  pbc cp cp_to_ilpImpl ilp_to_pb mlstring
-  (* mlmap *)
+  cp pbc cp_to_ilp cp_to_ilp_all ilp_to_pb
 
-(* The encoder *)
-
-(*
-Definition mk_map_def:
-  mk_map bnd =
-    fromList mlstring$compare bnd
+Definition cencode_bound_var_def:
+  cencode_bound_var bnd X =
+  let (lb,ub) = bnd X in
+  let bX = encode_ivar bnd (X:mlstring) in
+  [
+    (SOME(concat[strlit"i[";X;strlit"][lb]"])
+      ,(pbc$GreaterEqual,bX,lb));
+    (SOME(concat[strlit"i[";X;strlit"][ub]"])
+      ,(pbc$LessEqual,bX,ub));
+  ]
 End
 
-Definition lookup_map_def:
-  lookup_map bnd x =
-  case lookup bnd x of
-    NONE => (0i,0i)
-  | SOME v => v
-End
-*)
-
-(* TODO: temporary *)
 Definition cencode_bound_all_def:
-  cencode_bound_all bnd Xs =
-  MAP (λc. (NONE,c)) (encode_bound_all bnd Xs)
+  (cencode_bound_all bnd [] = Nil) ∧
+  (cencode_bound_all bnd (x::xs) =
+    Append (List (cencode_bound_var bnd x))
+      (cencode_bound_all bnd xs))
 End
 
 Definition encode_def:
   encode (inst:cp_inst) =
   case inst of (bnd,cs,_) =>
   let bndm = bnd_lookup bnd in
-  let cs = append (FST (cencode_cp_all bndm cs 1 init_ec)) in
+  let cs = append (FST (cencode_constraints bndm cs init_ec)) in
   let cs' = MAP (I ## encode_iconstraint_one bndm) cs in
   let bndcs = cencode_bound_all bndm (MAP FST bnd) in
-  (bndcs ++ cs'):
-    (mlstring option #
-    (mlstring, mlstring reif + num) epb pbc) list
+  append (Append bndcs (List cs'))
 End
 
 Definition encode_nivar_def:
@@ -63,29 +57,40 @@ Proof
   rw[MAP_MAP_o]
 QED
 
+Theorem MAP_SND_cencode_bound_all[simp]:
+  ∀ls.
+  MAP SND (append (cencode_bound_all bnd ls)) =
+  encode_bound_all bnd ls
+Proof
+  Induct>>
+  rw[cencode_bound_all_def,encode_bound_all_def,
+    cencode_bound_var_def,encode_bound_var_def]>>
+  pairarg_tac>>simp[]
+QED
+
 Theorem encode_sem_1:
-  cp_sat (bnd_lookup bnd) (set cs) wi ⇒
+  ALL_DISTINCT (MAP FST cs) ∧
+  cp_sat (bnd_lookup bnd) (set (MAP SND cs)) wi ⇒
   ∃wb.
   satisfies (reify_epb (wi,wb))
     (set (MAP SND (encode (bnd,cs,v))))
 Proof
-  `∃es ec'. cencode_cp_all (bnd_lookup bnd) cs 1 init_ec = (es,ec')` by metis_tac[PAIR]>>
+  `∃es ec'. cencode_constraints (bnd_lookup bnd) cs init_ec = (es,ec')` by metis_tac[PAIR]>>
   rw[encode_def,cp_sat_def,MAP_SND_MAP_I_FST]>>
   simp[GSYM encode_iconstraint_all_def,GSYM encode_iconstraint_all_sem_1]>>
-  fs[GSYM EVERY_MEM]>>
-  drule_all cencode_cp_all_thm_1>>
+  fs[GSYM EVERY_MEM,EVERY_MAP]>>
+  drule_all cencode_constraints_thm_1>>
   rw[]>>
   fs[EVERY_MAP]>>
-  first_x_assum (irule_at Any)>>
-  simp[cencode_bound_all_def,MAP_MAP_o,o_DEF]>>
   metis_tac[encode_bound_all_sem_1]
 QED
 
 Theorem encode_sem_2:
   satisfies w (set (MAP SND (encode (bnd,cs,v)))) ⇒
-  cp_sat (bnd_lookup bnd) (set cs) (unreify_epb (bnd_lookup bnd) w)
+  cp_sat (bnd_lookup bnd) (set (MAP SND cs))
+    (unreify_epb (bnd_lookup bnd) w)
 Proof
-  `∃es ec'. cencode_cp_all (bnd_lookup bnd) cs 1 init_ec = (es,ec')` by metis_tac[PAIR]>>
+  `∃es ec'. cencode_constraints (bnd_lookup bnd) cs init_ec = (es,ec')` by metis_tac[PAIR]>>
   rw[encode_def]>>
   fs[MAP_SND_MAP_I_FST,cencode_bound_all_def,MAP_MAP_o,o_DEF]>>
   drule_at Any encode_bound_all_sem_2>>
@@ -96,8 +101,8 @@ Proof
     simp[MEM_MAP]>>
     metis_tac[FST])>>
   rw[]>>
-  simp[cp_sat_def,GSYM EVERY_MEM]>>
-  irule cencode_cp_all_thm_2>>
+  simp[cp_sat_def,GSYM EVERY_MEM,EVERY_MAP]>>
+  irule cencode_constraints_thm_2>>
   first_assum (irule_at Any)>>
   first_assum (irule_at Any)>>
   qexists_tac`λx. w (Var x)`>>
@@ -106,40 +111,30 @@ Proof
 QED
 
 (* Going into strings for the final encoder *)
-Definition enc_fresh_def:
-  enc_fresh n =
-    strlit"f_" ^ toString (n:num)
-End
-
-Definition enc_reif_def:
-  enc_reif reif =
-  case reif of
-    Ge X i => concat[strlit"ge_";X;toString i]
-  | Eq X i => concat[strlit"eq_";X;toString i]
-End
-
-Definition enc_string_def:
-  enc_string epb =
+Definition format_string_def:
+  format_string epb =
   case epb of
-    Sign x => strlit"s_" ^ x
-  | Bit x n => concat[strlit"b_";toString n;strlit"_";x]
+    Sign x =>
+      concat [strlit"i[";x;strlit"][sign]"]
+  | Bit x n =>
+      concat [strlit"i[";x;strlit"][b";toString n;strlit"]"]
   | Var x =>
     case x of
-      INL y => enc_reif y
-    | INR z => enc_fresh z
+      INL y => format_reif y
+    | INR z => format_flag z
 End
 
-Theorem enc_string_INJ:
-  INJ enc_string UNIV UNIV
+Theorem format_string_INJ:
+  INJ format_string UNIV UNIV
 Proof
   cheat
 QED
 
 Definition full_encode_def:
   full_encode inst =
-  (map_obj enc_string
+  (map_obj format_string
     (encode_obj inst),
-  MAP (I ## map_pbc enc_string) (encode inst))
+  MAP (I ## map_pbc format_string) (encode inst))
 End
 
 Definition conv_concl_def:
@@ -151,6 +146,7 @@ Definition conv_concl_def:
 End
 
 Theorem full_encode_sem_concl:
+  ALL_DISTINCT (MAP FST (FST (SND inst))) ∧
   full_encode inst = (obj,pbf) ∧
   sem_concl (set (MAP SND pbf)) obj concl ⇒
   cp_inst_sem_concl inst (conv_concl inst concl)
@@ -163,7 +159,7 @@ Proof
   simp[GSYM IMAGE_IMAGE, GSYM (Once LIST_TO_SET_MAP)]>>
   DEP_REWRITE_TAC[GSYM concl_INJ_iff]>>
   CONJ_TAC >- (
-    assume_tac enc_string_INJ>>
+    assume_tac format_string_INJ>>
     drule INJ_SUBSET>>
     disch_then match_mp_tac>>
     simp[])>>
@@ -193,7 +189,7 @@ Proof
           fs[cp_unsatisfiable_def,cp_satisfiable_def,unsatisfiable_def,satisfiable_def]>>
           metis_tac[encode_sem_1,encode_sem_2,PAIR])>>
         rw[]>>
-        drule encode_sem_1>>
+        drule_all encode_sem_1>>
         disch_then (qspec_then`Minimize a` assume_tac)>>fs[]>>
         first_x_assum drule>>
         simp[encode_obj_def,eval_obj_def]>>
@@ -216,7 +212,7 @@ Proof
         fs[cp_unsatisfiable_def,cp_satisfiable_def,unsatisfiable_def,satisfiable_def]>>
         metis_tac[encode_sem_1,encode_sem_2,PAIR])>>
       rw[]>>
-      drule encode_sem_1>>
+      drule_all encode_sem_1>>
       disch_then (qspec_then`Maximize a` assume_tac)>>fs[]>>
       first_x_assum drule>>
       simp[encode_obj_def,eval_obj_def,encode_nivar_def]>>
@@ -226,12 +222,21 @@ Proof
 QED
 
 (*
-EVAL ``full_encode
+open pb_parseTheory
+
+(rconc (EVAL ``
+  concat
+  (print_annot_prob
+  (NONE,
+  (full_encode
   ([strlit "X", (-5,10);
    strlit "Y", (-5,5);
    strlit "Z", (0,100)],
   [
-    NotEquals (INL (strlit "X")) (INR 5)
+    (strlit"foo",
+      Extensional (Table [[SOME 1; NONE; SOME 2]; [SOME 1; NONE; SOME 3]]
+        [INL (strlit "X"); INL (strlit "Y"); INL (strlit "Z")]))
   ],
-  Maximize (strlit "Z"))``
+  Maximize (strlit "Z")))))``));
+
 *)

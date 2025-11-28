@@ -5,7 +5,7 @@ Theory ilp_to_pb
 Libs
   preamble
 Ancestors
-  ilp pbc pbc_encode int_bitwise cp cp_to_ilpImpl;
+  cp ilp pbc pbc_encode int_bitwise
 
 Datatype:
   epb =
@@ -231,7 +231,7 @@ End
 Definition encode_iconstraint_one_def:
   encode_iconstraint_one bnd (is,bs,c) =
     (
-    GreaterEqual,
+    pbc$GreaterEqual,
     FLAT
       (MAP (λ(d,X).
         mul_lin_term d (encode_ivar bnd X)) is) ++
@@ -335,8 +335,8 @@ Definition encode_bound_var_def:
   let (lb,ub) = bnd X in
   let bX = encode_ivar bnd (X:'a) in
   [
-    (GreaterEqual,bX,lb);
-    (LessEqual,bX,ub);
+    (pbc$GreaterEqual,bX,lb);
+    (pbc$LessEqual,bX,ub);
   ]
 End
 
