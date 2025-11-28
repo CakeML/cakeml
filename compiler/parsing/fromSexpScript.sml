@@ -672,10 +672,14 @@ End
 Definition decode_test_def:
   decode_test (SX_SYM s) =
     (if s = "Equal" then SOME Equal else
-     if s = "Less" then SOME Less else
-     if s = "Less_alt" then SOME Less_alt else
-     if s = "LessEq" then SOME LessEq else
-     if s = "LessEq_alt" then SOME LessEq_alt else NONE) ∧
+     if s = "Less" then SOME (Compare Lt) else
+     if s = "LessEq" then SOME (Compare Leq) else
+     if s = "Greater" then SOME (Compare Gt) else
+     if s = "GreaterEq" then SOME (Compare Geq) else
+     if s = "AltLess" then SOME (AltCompare Lt) else
+     if s = "AltLessEq" then SOME (AltCompare Leq) else
+     if s = "AltGreater" then SOME (AltCompare Gt) else
+     if s = "AltGreaterEq" then SOME (AltCompare Geq) else NONE) ∧
   decode_test _ = NONE
 End
 
@@ -1321,22 +1325,31 @@ QED
 
 Definition testsexp_def:
   testsexp Equal = SX_SYM "Equal" ∧
-  testsexp Less = SX_SYM "Less" ∧
-  testsexp Less_alt = SX_SYM "Less_alt" ∧
-  testsexp LessEq = SX_SYM "LessEq" ∧
-  testsexp LessEq_alt = SX_SYM "LessEq_alt"
+  testsexp (Compare Lt) = SX_SYM "Less" ∧
+  testsexp (Compare Leq) = SX_SYM "LessEq" ∧
+  testsexp (Compare Gt) = SX_SYM "Greater" ∧
+  testsexp (Compare Geq) = SX_SYM "GreaterEq" ∧
+  testsexp (AltCompare Lt) = SX_SYM "AltLess" ∧
+  testsexp (AltCompare Leq) = SX_SYM "AltLessEq" ∧
+  testsexp (AltCompare Gt) = SX_SYM "AltGreater" ∧
+  testsexp (AltCompare Geq) = SX_SYM "AltGreaterEq"
 End
 
 Theorem testsexp_11[simp]:
    ∀l1 l2. testsexp l1 = testsexp l2 ⇔ l1 = l2
 Proof
-  Cases \\ Cases \\ simp[testsexp_def]
+  rw []
+  \\ simp [oneline testsexp_def]
+  \\ every_case_tac \\ fs []
 QED
 
 Theorem sexptest_testsexp[simp]:
   ∀x. decode_test (testsexp x) = SOME x
 Proof
-  Cases \\ fs [decode_test_def,testsexp_def]
+  Cases
+  \\ TRY (rename [‘Compare oo’] \\ Cases_on ‘oo’)
+  \\ TRY (rename [‘AltCompare oo’] \\ Cases_on ‘oo’)
+  \\ fs [decode_test_def,testsexp_def]
 QED
 
 Definition prim_typesexp_def:
@@ -2208,6 +2221,8 @@ Proof
   \\ TRY(Cases_on`t'`) \\ simp[encode_thunk_mode_def]
   \\ TRY(Cases_on`b`) \\ simp[opsexp_def]
   \\ EVAL_TAC
+  \\ TRY (rename [‘Compare oo’] \\ Cases_on ‘oo’ \\ EVAL_TAC)
+  \\ TRY (rename [‘AltCompare oo’] \\ Cases_on ‘oo’ \\ EVAL_TAC)
 QED
 
 Theorem lopsexp_valid[simp]:

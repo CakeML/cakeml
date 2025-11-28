@@ -81,7 +81,7 @@ Datatype:
 End
 
 Datatype:
-  test = Equal | Less | Less_alt | LessEq | LessEq_alt
+  test = Equal | Compare opb | AltCompare opb
 End
 
 Datatype:

@@ -239,18 +239,14 @@ Definition dest_Litv_def:
   dest_Litv _ = NONE
 End
 
-Definition do_test_def: (* TODO: extend with more cases *)
+Definition do_test_def:
   do_test Equal ty v1 v2 =
     (if check_type ty v1 ∧ check_type ty v2 then do_eq v1 v2 else Eq_type_error) ∧
-  do_test Less ty v1 v2 =
+  do_test (Compare cmp) ty v1 v2 =
     (case (ty, dest_Litv v1, dest_Litv v2) of
-     | (CharT, SOME (Char i), SOME (Char j)) => Eq_val (i < j)
-     | (WordT W8, SOME (Word8 w), SOME (Word8 v)) => Eq_val (w2n w < w2n v)
-     | _ => Eq_type_error) ∧
-  do_test LessEq ty v1 v2 =
-    (case (ty, dest_Litv v1, dest_Litv v2) of
-     | (CharT, SOME (Char i), SOME (Char j)) => Eq_val (i <= j)
-     | (WordT W8, SOME (Word8 w), SOME (Word8 v)) => Eq_val (w2n w <= w2n v)
+     | (IntT,     SOME (IntLit i), SOME (IntLit j)) => Eq_val (int_cmp cmp i j)
+     | (CharT,    SOME (Char c),   SOME (Char d))   => Eq_val (num_cmp cmp (ORD c) (ORD d))
+     | (WordT W8, SOME (Word8 w),  SOME (Word8 v))  => Eq_val (num_cmp cmp (w2n w) (w2n v))
      | _ => Eq_type_error) ∧
   do_test _ ty v1 v2 = Eq_type_error
 End

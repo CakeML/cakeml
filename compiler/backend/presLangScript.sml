@@ -206,10 +206,8 @@ End
 
 Definition test_to_display_def:
   test_to_display Equal = empty_item (strlit "Equal") ∧
-  test_to_display Less = empty_item (strlit "Less") ∧
-  test_to_display Less_alt = empty_item (strlit "Less_alt") ∧
-  test_to_display LessEq = empty_item (strlit "LessEq") ∧
-  test_to_display LessEq_alt = empty_item (strlit "LessEq_alt")
+  test_to_display (Compare cmp) = Item NONE (strlit "Compare") [opb_to_display cmp] ∧
+  test_to_display (AltCompare cmp) = Item NONE (strlit "AltCompare") [opb_to_display cmp]
 End
 
 Definition prim_type_to_display_def:

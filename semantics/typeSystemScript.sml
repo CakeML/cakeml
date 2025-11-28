@@ -360,10 +360,9 @@ Definition t_of_def[simp]:
 End
 
 Definition supported_test_def[simp]:
-  supported_test Equal  ty = T ∧
-  supported_test Less   ty = MEM ty [CharT; WordT W8] ∧
-  supported_test LessEq ty = MEM ty [CharT; WordT W8] ∧
-  supported_test _      ty = F
+  supported_test Equal       ty = T ∧
+  supported_test (Compare _) ty = MEM ty [IntT; CharT; WordT W8] ∧
+  supported_test _           ty = F
 End
 
 (* Check that the operator can have type (t1 -> ... -> tn -> t) *)

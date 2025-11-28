@@ -147,10 +147,16 @@ Definition compile_op_def:
     | VfromList => Op t (BlockOp (FromList 0)) xs
     | Test test test_ty =>
          (dtcase test_ty of
-          | BoolT => Op t (BlockOp (BoolTest test)) xs
-          | CharT => Op t (WordOp (WordTest W8 test)) xs
-          | WordT W8 => Op t (WordOp (WordTest W8 test)) xs
-          | _ => Op t (BlockOp Equal) xs)
+          | BoolT     => Op t (BlockOp (BoolTest test)) xs
+          | CharT     => Op t (WordOp (WordTest W8 test)) xs
+          | WordT W8  => Op t (WordOp (WordTest W8 test)) xs
+          | IntT      => (dtcase test of
+                          | Compare Lt  => Op t (IntOp Less) xs
+                          | Compare Leq => Op t (IntOp LessEq) xs
+                          | Compare Gt  => Op t (IntOp Greater) xs
+                          | Compare Geq => Op t (IntOp GreaterEq) xs
+                          | _           => Op t (BlockOp Equal) xs)
+          | _         => Op t (BlockOp Equal) xs)
     | WordFromInt W64 => Op t (WordOp WordFromInt) xs
     | WordToInt W64 => Op t (WordOp WordToInt) xs
     | WordFromInt W8 => arg1 xs (\x. Op t (IntOp Mod) [Op t (IntOp (Const 256)) []; x])

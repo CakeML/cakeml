@@ -1253,6 +1253,12 @@ Proof
   Induct \\ Cases_on ‘s'’ \\ gvs [ORD_BOUND,ORD_11]
 QED
 
+Theorem imp_cmp_eq_num_cmp:
+  ∀cmp. int_cmp cmp (&m) (&n) ⇔ num_cmp cmp m n
+Proof
+  Cases \\ gvs [int_cmp_def] \\ intLib.COOPER_TAC
+QED
+
 Theorem op_test:
   (∃test ty. op = Test test ty) ==>
   ^op_goal
@@ -1268,27 +1274,23 @@ Proof
    (gvs [oneline dest_Litv_def, AllCaseEqs()]
     \\ fs [Once v_rel_cases] \\ gvs []
     \\ gvs [closSemTheory.evaluate_def,
-            closSemTheory.do_app_def,
+            closSemTheory.do_app_def,imp_cmp_eq_num_cmp,
             w2n_lt |> INST_TYPE [alpha|->“:8”] |> SRULE [],
             closSemTheory.do_word_app_def])
   >-
    (gvs [oneline dest_Litv_def, AllCaseEqs()]
     \\ fs [Once v_rel_cases] \\ gvs []
     \\ gvs [closSemTheory.evaluate_def,char_lt_def,char_le_def,
-            closSemTheory.do_app_def,ORD_BOUND,
+            closSemTheory.do_app_def,imp_cmp_eq_num_cmp,ORD_BOUND,
             closSemTheory.do_word_app_def])
   >-
    (gvs [oneline dest_Litv_def, AllCaseEqs()]
     \\ fs [Once v_rel_cases] \\ gvs []
-    \\ gvs [closSemTheory.evaluate_def,
-            closSemTheory.do_app_def,
+    \\ rename [‘int_cmp cmp’]
+    \\ Cases_on ‘cmp’ \\ gvs []
+    \\ gvs [closSemTheory.evaluate_def,do_int_app_def,
+            closSemTheory.do_app_def,imp_cmp_eq_num_cmp,
             w2n_lt |> INST_TYPE [alpha|->“:8”] |> SRULE [],
-            closSemTheory.do_word_app_def])
-  >-
-   (gvs [oneline dest_Litv_def, AllCaseEqs()]
-    \\ fs [Once v_rel_cases] \\ gvs []
-    \\ gvs [closSemTheory.evaluate_def,char_lt_def,char_le_def,
-            closSemTheory.do_app_def,ORD_BOUND,
             closSemTheory.do_word_app_def])
   \\ Cases_on ‘ty’ \\ TRY (rename [‘WordT ws’] \\ Cases_on ‘ws’)
   \\ gvs [flatSemTheory.check_type_def,

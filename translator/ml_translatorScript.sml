@@ -1349,7 +1349,7 @@ Theorem Eval_word_lo:
   Eval env x2 (WORD (w2:'a word)) ==>
   Eval env
     (if dimindex (:'a) <= 8 then
-       App (Test Less (WordT W8)) [x1;x2]
+       App (Test (Compare Lt) (WordT W8)) [x1;x2]
      else
        App (Opb Lt) [App (WordToInt W64) [x1];
                      App (WordToInt W64) [x2]])
@@ -1385,7 +1385,7 @@ Theorem Eval_word_ls:
   Eval env x2 (WORD (w2:'a word)) ==>
   Eval env
     (if dimindex (:'a) <= 8 then
-       App (Test LessEq (WordT W8)) [x1;x2]
+       App (Test (Compare Leq) (WordT W8)) [x1;x2]
      else
        App (Opb Leq) [App (WordToInt W64) [x1];
                      App (WordToInt W64) [x2]])
@@ -2132,7 +2132,7 @@ QED
 Theorem Eval_char_lt:
   Eval env x1 (CHAR c1) ==>
   Eval env x2 (CHAR c2) ==>
-  Eval env (App (Test Less CharT) [x1;x2]) (BOOL (c1 < c2))
+  Eval env (App (Test (Compare Lt) CharT) [x1;x2]) (BOOL (c1 < c2))
 Proof
   rw[Eval_rw,CHAR_def,NUM_def,INT_def]
   \\ Eval2_tac \\ fs [do_app_def,empty_state_def]
@@ -2143,7 +2143,7 @@ QED
 Theorem Eval_char_le:
   Eval env x1 (CHAR c1) ==>
   Eval env x2 (CHAR c2) ==>
-  Eval env (App (Test LessEq CharT) [x1;x2]) (BOOL (c1 <= c2))
+  Eval env (App (Test (Compare Leq) CharT) [x1;x2]) (BOOL (c1 <= c2))
 Proof
   rw[Eval_rw,CHAR_def,NUM_def,INT_def]
   \\ Eval2_tac \\ fs [do_app_def,empty_state_def]
