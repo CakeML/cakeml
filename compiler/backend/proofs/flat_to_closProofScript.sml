@@ -1273,6 +1273,13 @@ Proof
   >-
    (gvs [oneline dest_Litv_def, AllCaseEqs()]
     \\ fs [Once v_rel_cases] \\ gvs []
+    \\ Cases_on ‘cmp’
+    \\ gvs [closSemTheory.evaluate_def,closSemTheory.do_app_def,
+            fpSemTheory.fp_cmp_def,
+            closSemTheory.do_word_app_def,fpSemTheory.fp_cmp_comp_def])
+  >-
+   (gvs [oneline dest_Litv_def, AllCaseEqs()]
+    \\ fs [Once v_rel_cases] \\ gvs []
     \\ gvs [closSemTheory.evaluate_def,
             closSemTheory.do_app_def,imp_cmp_eq_num_cmp,
             w2n_lt |> INST_TYPE [alpha|->“:8”] |> SRULE [],
@@ -1292,16 +1299,23 @@ Proof
             closSemTheory.do_app_def,imp_cmp_eq_num_cmp,
             w2n_lt |> INST_TYPE [alpha|->“:8”] |> SRULE [],
             closSemTheory.do_word_app_def])
-  \\ Cases_on ‘ty’ \\ TRY (rename [‘WordT ws’] \\ Cases_on ‘ws’)
-  \\ gvs [flatSemTheory.check_type_def,
-          flatSemTheory.do_eq_def,flatSemTheory.Boolv_def,AllCaseEqs()]
-  \\ gvs [closSemTheory.evaluate_def,
-          closSemTheory.do_app_def,
-          closSemTheory.Boolv_def]
-  \\ fs [Once v_rel_cases]
-  \\ gvs [closSemTheory.do_eq_def,ORD_BOUND,MAP_n2w_ORD_eq,
-          w2n_lt |> INST_TYPE [alpha|->“:8”] |> SRULE [],
-          closSemTheory.do_word_app_def,closSemTheory.Boolv_def,ORD_11]
+  >-
+   (Cases_on ‘ty’ \\ TRY (rename [‘WordT ws’] \\ Cases_on ‘ws’)
+    \\ gvs [flatSemTheory.check_type_def,
+            flatSemTheory.do_eq_def,flatSemTheory.Boolv_def,AllCaseEqs()]
+    \\ gvs [closSemTheory.evaluate_def,
+            closSemTheory.do_app_def,
+            closSemTheory.Boolv_def]
+    \\ fs [Once v_rel_cases]
+    \\ gvs [closSemTheory.do_eq_def,ORD_BOUND,MAP_n2w_ORD_eq,
+            w2n_lt |> INST_TYPE [alpha|->“:8”] |> SRULE [],
+            closSemTheory.do_word_app_def,closSemTheory.Boolv_def,ORD_11])
+  \\ gvs [flatSemTheory.check_type_def]
+  \\ fs [Once v_rel_cases] \\ gvs [the_Litv_Float64_def]
+  \\ gvs [closSemTheory.evaluate_def,closSemTheory.do_word_app_def,
+          closSemTheory.do_app_def,AllCaseEqs(),
+          closSemTheory.Boolv_def,fpSemTheory.fp_cmp_comp_def]
+  \\ CCONTR_TAC \\ gvs []
 QED
 
 Theorem op_ffi:

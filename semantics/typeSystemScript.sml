@@ -361,7 +361,7 @@ End
 
 Definition supported_test_def[simp]:
   supported_test Equal       ty = T ∧
-  supported_test (Compare _) ty = MEM ty [IntT; CharT; WordT W8] ∧
+  supported_test (Compare _) ty = MEM ty [IntT; CharT; WordT W8; Float64T] ∧
   supported_test _           ty = F
 End
 

@@ -156,6 +156,12 @@ Definition compile_op_def:
                           | Compare Gt  => Op t (IntOp Greater) xs
                           | Compare Geq => Op t (IntOp GreaterEq) xs
                           | _           => Op t (BlockOp Equal) xs)
+          | Float64T  => (dtcase test of
+                          | Compare Lt  => Op t (WordOp (FP_cmp FP_Less)) xs
+                          | Compare Leq => Op t (WordOp (FP_cmp FP_LessEqual)) xs
+                          | Compare Gt  => Op t (WordOp (FP_cmp FP_Greater)) xs
+                          | Compare Geq => Op t (WordOp (FP_cmp FP_GreaterEqual)) xs
+                          | _           => Op t (WordOp (FP_cmp FP_Equal)) xs)
           | _         => Op t (BlockOp Equal) xs)
     | WordFromInt W64 => Op t (WordOp WordFromInt) xs
     | WordToInt W64 => Op t (WordOp WordToInt) xs

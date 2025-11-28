@@ -636,8 +636,13 @@ Proof
   >~ [`do_test`] >- (
     imp_res_tac v_rel_check_type
     \\ Cases_on ‘test’ \\ gvs [do_test_def,AllCaseEqs()]
-    \\ irule (cj 1 do_eq)
-    \\ rpt $ first_assum $ irule_at Any)
+    >- (Cases_on ‘y’ \\ Cases_on ‘y'’ \\ gvs [check_type_def]
+        \\ gvs [dest_Litv_def]
+        \\ gvs [oneline dest_Litv_def,AllCaseEqs()])
+    \\ res_tac
+    \\ Cases_on ‘test_ty’ \\ gvs [check_type_def]
+    \\ res_tac
+    \\ rename [‘WordT wt’] \\ Cases_on ‘wt’ \\ gvs [check_type_def])
   >~ [`thunk_op`]
   >- (
     gvs [AllCaseEqs(), PULL_EXISTS, thunk_op_def]

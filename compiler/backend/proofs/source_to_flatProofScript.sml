@@ -955,6 +955,12 @@ Proof
   \\ gvs [oneline semanticPrimitivesTheory.do_test_def, AllCaseEqs()]
   \\ gvs [oneline flatSemTheory.do_test_def, AllCaseEqs()]
   >-
+   (gvs [semanticPrimitivesTheory.check_type_def]
+    \\ fs [Once v_rel_cases] \\ gvs []
+    \\ fs [the_Litv_Float64_def]
+    \\ fs [semanticPrimitivesTheory.the_Litv_Float64_def]
+    \\ gvs [check_type_def])
+  >-
    (drule_all (cj 1 do_eq) \\ simp []
     \\ imp_res_tac v_rel_check_type \\ fs [])
   \\ gvs [oneline semanticPrimitivesTheory.dest_Litv_def, AllCaseEqs()]

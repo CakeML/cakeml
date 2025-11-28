@@ -4,7 +4,7 @@
 *)
 Theory semanticPrimitives
 Ancestors
-  misc ast namespace ffi fpSem
+  misc ast machine_ieee namespace ffi fpSem
 
 val _ = numLib.temp_prefer_num();
 
@@ -796,6 +796,10 @@ Definition dest_Litv_def:
   dest_Litv _ = NONE
 End
 
+Definition the_Litv_Float64_def:
+  the_Litv_Float64 (Litv (Float64 w)) = w
+End
+
 Definition num_cmp_def[simp]:
   num_cmp Lt  i j = (i <  j:num) ∧
   num_cmp Leq i j = (i <= j) ∧
@@ -812,12 +816,17 @@ End
 
 Definition do_test_def: (* TODO: extend with more cases *)
   do_test Equal ty v1 v2 =
-    (if check_type ty v1 ∧ check_type ty v2 then do_eq v1 v2 else Eq_type_error) ∧
+    (if check_type ty v1 ∧ check_type ty v2 then
+       (if ty = Float64T
+        then Eq_val (fp64_equal (the_Litv_Float64 v1) (the_Litv_Float64 v2))
+        else do_eq v1 v2)
+     else Eq_type_error) ∧
   do_test (Compare cmp) ty v1 v2 =
     (case (ty, dest_Litv v1, dest_Litv v2) of
-     | (IntT,     SOME (IntLit i), SOME (IntLit j)) => Eq_val (int_cmp cmp i j)
-     | (CharT,    SOME (Char c),   SOME (Char d))   => Eq_val (num_cmp cmp (ORD c) (ORD d))
-     | (WordT W8, SOME (Word8 w),  SOME (Word8 v))  => Eq_val (num_cmp cmp (w2n w) (w2n v))
+     | (IntT,     SOME (IntLit i),  SOME (IntLit j))  => Eq_val (int_cmp cmp i j)
+     | (CharT,    SOME (Char c),    SOME (Char d))    => Eq_val (num_cmp cmp (ORD c) (ORD d))
+     | (WordT W8, SOME (Word8 w),   SOME (Word8 v))   => Eq_val (num_cmp cmp (w2n w) (w2n v))
+     | (Float64T, SOME (Float64 w), SOME (Float64 v)) => Eq_val (fp_cmp cmp w v)
      | _ => Eq_type_error) ∧
   do_test _ ty v1 v2 = Eq_type_error
 End

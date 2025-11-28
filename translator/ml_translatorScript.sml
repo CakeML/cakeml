@@ -1845,74 +1845,74 @@ in
 end;
 
 Definition lift_fp_cmp_def:
-  lift_fp_cmp f f1 f2 = fp_cmp_comp f (float_to_fp64 f1) (float_to_fp64 f2)
+  lift_fp_cmp f f1 f2 = fp_cmp f (float_to_fp64 f1) (float_to_fp64 f2)
 End
 
 Definition float64_less_def:
-  float64_less = lift_fp_cmp FP_Less
+  float64_less = lift_fp_cmp Lt
 End
 
 Theorem float64_less_thm:
   float64_less f1 f2 = float_less_than f1 f2
 Proof
-  simp[float64_less_def, lift_fp_cmp_def, fp_cmp_comp_def, fp64_lessThan_def,
+  simp[float64_less_def, lift_fp_cmp_def, fp_cmp_def, fp64_lessThan_def,
        fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
 QED
 
 Definition float64_less_equal_def:
-  float64_less_equal = lift_fp_cmp FP_LessEqual
+  float64_less_equal = lift_fp_cmp Leq
 End
 
 Theorem float64_less_equal_thm:
   float64_less_equal f1 f2 = float_less_equal f1 f2
 Proof
-  simp[float64_less_equal_def, lift_fp_cmp_def, fp_cmp_comp_def,
+  simp[float64_less_equal_def, lift_fp_cmp_def, fp_cmp_def,
        fp64_lessEqual_def,
        fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
 QED
 
 Definition float64_greater_def:
-  float64_greater = lift_fp_cmp FP_Greater
+  float64_greater = lift_fp_cmp Gt
 End
 
 Theorem float64_greater_thm:
   float64_greater f1 f2 = float_greater_than f1 f2
 Proof
-  simp[float64_greater_def, lift_fp_cmp_def, fp_cmp_comp_def, fp64_greaterThan_def,
+  simp[float64_greater_def, lift_fp_cmp_def, fp_cmp_def, fp64_greaterThan_def,
        fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
 QED
 
 Definition float64_greater_equal_def:
-  float64_greater_equal = lift_fp_cmp FP_GreaterEqual
+  float64_greater_equal = lift_fp_cmp Geq
 End
 
 Theorem float64_greater_equal_thm:
   float64_greater_equal f1 f2 = float_greater_equal f1 f2
 Proof
-  simp[float64_greater_equal_def, lift_fp_cmp_def, fp_cmp_comp_def,
+  simp[float64_greater_equal_def, lift_fp_cmp_def, fp_cmp_def,
        fp64_greaterEqual_def,
        fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
 QED
 
 Definition float64_equal_def:
-  float64_equal = lift_fp_cmp FP_Equal
+  float64_equal f1 f2 = fp64_equal (float_to_fp64 f1) (float_to_fp64 f2)
 End
 
 Theorem float64_equal_thm:
   float64_equal f1 f2 = float_equal f1 f2
 Proof
-  simp[float64_equal_def, lift_fp_cmp_def, fp_cmp_comp_def, fp64_equal_def,
+  simp[float64_equal_def, lift_fp_cmp_def, fp64_equal_def,
        fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
 QED
 
-Theorem Eval_FP_cmp:
-  !f f1 f2.
+Theorem Eval_FP_cmp[local]:
+  !cmp f1 f2.
     Eval env x1 (FLOAT64 f1) ==>
     Eval env x2 (FLOAT64 f2) ==>
-    Eval env (App (FP_cmp f) [x1;x2]) (BOOL (lift_fp_cmp f f1 f2))
+    Eval env (App (Test (Compare cmp) Float64T) [x1;x2]) (BOOL (lift_fp_cmp cmp f1 f2))
 Proof
   rw[Eval_rw,FLOAT64_def,BOOL_def,lift_fp_cmp_def]
-  \\ Eval2_tac \\ fs [do_app_def] \\ rw []
+  \\ Eval2_tac \\ fs [do_app_def,do_test_def,dest_Litv_def] \\ rw []
   \\ fs[empty_state_def, isFpBool_def, Boolv_def]
 QED
 
@@ -1929,12 +1929,22 @@ local
     val _ = save_thm("Eval_" ^ name,SPEC_ALL th)
    in th end
 in
-  val Eval_FLOAT_LESS = f "FLOAT_LESS" `FP_Less`
-  val Eval_FLOAT_LESS_EQ = f "FLOAT_LESS_EQ" `FP_LessEqual`
-  val Eval_FLOAT_GREATER = f "FLOAT_GREATER" `FP_Greater`
-  val Eval_FLOAT_GREATER_EQ = f "FLOAT_GREATER_EQ" `FP_GreaterEqual`
-  val Eval_FLOAT_EQ = f "FLOAT_EQ" `FP_Equal`
+  val Eval_FLOAT_LESS = f "FLOAT_LESS" `Lt`
+  val Eval_FLOAT_LESS_EQ = f "FLOAT_LESS_EQ" `Leq`
+  val Eval_FLOAT_GREATER = f "FLOAT_GREATER" `Gt`
+  val Eval_FLOAT_GREATER_EQ = f "FLOAT_GREATER_EQ" `Geq`
 end;
+
+Theorem Eval_FLOAT_EQ:
+  Eval env x1 (FLOAT64 f1) ==>
+  Eval env x2 (FLOAT64 f2) ==>
+  Eval env (App (Test Equal Float64T) [x1;x2]) (BOOL (float64_equal f1 f2))
+Proof
+  rw[Eval_rw,FLOAT64_def,BOOL_def,lift_fp_cmp_def]
+  \\ Eval2_tac \\ fs [do_app_def,do_test_def,dest_Litv_def] \\ rw []
+  \\ fs[empty_state_def, isFpBool_def, Boolv_def, check_type_def,
+        the_Litv_Float64_def, float64_equal_def]
+QED
 
 Definition lift_fp_uop_def:
   lift_fp_uop f f1 = fp64_to_float (fp_uop_comp f (float_to_fp64 f1))
