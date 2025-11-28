@@ -218,6 +218,16 @@ Inductive v_inv_rel:
                 f,tf,heap:'a ml_heap)
 End
 
+Theorem v_inv_rel_strongind_alt = v_inv_rel_strongind
+  |> Q.SPECL [‘conf’, ‘λv refs x. P v refs (FST x)
+                                           (FST (SND x))
+                                           (FST (SND (SND x)))
+                                           (SND (SND (SND x)))’]
+  |> SRULE [FORALL_PROD] |> UNDISCH
+  |> Q.SPECL [‘v’,‘refs’,‘x’,‘f’,‘tf’,‘heap’]
+  |> Q.GENL [‘v’,‘refs’,‘x’,‘f’,‘tf’,‘heap’]
+  |> DISCH_ALL |> Q.GENL [‘conf’,‘P’];
+
 Theorem v_inv_def:
   (v_inv conf (Number i) (refs :v ref sptree$num_map)
               (x,f,tf,heap:'a ml_heap) <=>
