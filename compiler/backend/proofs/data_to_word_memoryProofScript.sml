@@ -201,7 +201,7 @@ Inductive v_inv_rel:
   lookup n refs = SOME (Thunk Evaluated v) ∧
   dest_thunk v refs = NotThunk ∧
   v_inv conf v refs (x,f,tf,heap) ⇒
-    v_inv conf (RefPtr b n) refs (x,f,tf,heap:'a ml_heap)
+    v_inv conf (RefPtr F n) refs (x,f,tf,heap:'a ml_heap)
 [~BlockNil:]
   vs = [] ∧
   n < dimword(:'a) DIV 16 ∧
@@ -229,8 +229,9 @@ Theorem v_inv_def:
           (heap_lookup ptr heap = SOME (Word64Rep (:'a) w))) /\
   (v_inv conf (CodePtr n) refs (x,f,tf,heap) <=>
      (x = Data (Loc n 0))) /\
-  (v_inv conf (RefPtr _ n) refs (x,f,tf,heap) <=>
+  (v_inv conf (RefPtr b n) refs (x,f,tf,heap) <=>
      (∃v. lookup n refs = SOME (Thunk Evaluated v) ∧
+          b = F ∧
           dest_thunk v refs = NotThunk ∧
           v_inv conf v refs (x,f,tf,heap)) ∨
      (n ∈ FDOM f ∧
@@ -259,27 +260,6 @@ Proof
   rw []
   \\ imp_res_tac MEM_list_size
   \\ pop_assum $ qspec_then ‘v_size’ mp_tac \\ gvs []
-QED
-
-Theorem v_inv_ind:
-  ∀P. (∀conf i refs x f tf heap. P conf (Number i) refs (x,f,tf,heap)) ∧
-      (∀conf w refs x f tf heap. P conf (Word64 w) refs (x,f,tf,heap)) ∧
-      (∀conf n refs x f tf heap. P conf (CodePtr n) refs (x,f,tf,heap)) ∧
-      (∀conf v0 n refs x f tf heap. P conf (RefPtr v0 n) refs (x,f,tf,heap)) ∧
-      (∀conf ts n vs refs x f tf heap.
-         (∀v x' xs.
-            vs ≠ [] ∧ MEM v vs ∧ MEM x' xs ⇒ P conf v refs (x',f,tf,heap)) ⇒
-         P conf (Block ts n vs) refs (x,f,tf,heap)) ⇒
-      ∀conf v1 refs v2 v3 v4 v5. P conf v1 refs (v2,v3,v4,v5)
-Proof
-  rw []
-  \\ qid_spec_tac ‘v2’
-  \\ completeInduct_on ‘v_size v1’ \\ rw []
-  \\ fs [PULL_FORALL]
-  \\ Cases_on ‘v1’ \\ gvs []
-  \\ last_x_assum irule \\ rw []
-  \\ first_x_assum irule \\ gvs []
-  \\ imp_res_tac MEM_IMP_v_size \\ gvs []
 QED
 
 Definition get_refs_def:
@@ -2554,11 +2534,6 @@ Theorem v_inv_tf_update:
 Proof
   metis_tac [v_inv_tf_update_lemma]
 QED
-
-Theorem v_inv_ind_alt[local] =
-  v_inv_ind |> Q.SPEC `λconf v refs (x,f,tf,heap). P conf v refs x f tf heap`
-            |> SIMP_RULE std_ss []
-            |> Q.GEN `P`;
 
 Theorem v_inv_tf_restrict_lemma:
   ∀v1 refs v2.
@@ -5185,10 +5160,9 @@ Theorem ref_eq_thm:
     ((p1 = p2) <=> (r1 = r2)) /\
     ?p1 p2. r1 = Pointer p1 (Word 0w) /\ r2 = Pointer p2 (Word 0w)
 Proof
-  cheat
-  (*full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ rpt strip_tac
+  full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ rpt strip_tac
   \\ fs [v_inv_def,INJ_DEF] \\ res_tac \\ fs [] \\ fs []
-  \\ eq_tac \\ rw [] \\ fs []*)
+  \\ eq_tac \\ rw [] \\ fs []
 QED
 
 Theorem num_eq_thm:
@@ -9523,8 +9497,7 @@ Theorem memory_rel_RefPtr_EQ:
       ((RefPtr T i1,w1)::(RefPtr T i2,w2)::vars) /\ good_dimindex (:'a) ==>
       ?v1 v2. w1 = Word v1 /\ w2 = Word (v2:'a word) /\ (v1 = v2 <=> i1 = i2)
 Proof
-  cheat
-  (*fs [memory_rel_def] \\ rw [] \\ fs [word_ml_inv_def] \\ clean_tac
+  fs [memory_rel_def] \\ rw [] \\ fs [word_ml_inv_def] \\ clean_tac
   \\ drule ref_eq_thm \\ rw [] \\ clean_tac
   \\ fs [word_addr_def,get_addr_def]
   \\ eq_tac \\ rw [] \\ fs [get_lowerbits_def]
@@ -9548,7 +9521,7 @@ Proof
       f ' i2 * 2 ** shift_length c < dimword (:'a)` by
     (fs [X_LT_DIV,RIGHT_ADD_DISTRIB]
      \\ Cases_on `2 ** shift_length c` \\ fs []) \\ fs []
-  \\ imp_res_tac memory_rel_RefPtr_EQ_lemma \\ rfs[]*)
+  \\ imp_res_tac memory_rel_RefPtr_EQ_lemma \\ rfs[]
 QED
 
 Theorem memory_rel_RefPtr_EQ_IMP:
@@ -15119,9 +15092,6 @@ Theorem el_length_Bytes:
 Proof
   gvs [el_length_def,Bytes_def]
 QED
-
-Theorem v_inv_alt_ind[local] =
-  v_inv_ind |> Q.SPEC ‘λconf x refs (a,b,c,d). P x a’ |> SRULE [];
 
 Theorem memory_rel_xor_bytes:
    memory_rel c be ts refs sp st m dm
