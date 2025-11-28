@@ -19,8 +19,10 @@ End
 (* encodes ftable_i ⇔ X = Ti, provided that LENGTH X = LENGTH Ti *)
 Definition encode_tuple_eq_def:
   encode_tuple_eq bnd Xts name n =
-    bimply_bits bnd [Pos (INR (Tb name n))]
-      ([], MAP (λ(X,t). (1i, Pos (INL (Eq X t)))) Xts, &LENGTH Xts)
+    bimply_bits bnd [Pos (INR (name,Index n))]
+      ([],
+      MAP (λ(X,t). (1i, Pos (INL (Eq X t)))) Xts,
+      &LENGTH Xts)
 End
 
 (* The reifications needed for tuple eq on a given row *)
@@ -38,7 +40,7 @@ Theorem encode_tuple_eq_sem:
   ⇒
   (EVERY (λx. iconstraint_sem x (wi,wb))
     (encode_tuple_eq bnd Xts name n) ⇔
-  (wb (INR (Tb name n)) ⇔ EVERY (λ(X,t). varc wi X = t) Xts))
+  (wb (INR (name, Index n)) ⇔ EVERY (λ(X,t). varc wi X = t) Xts))
 Proof
   rw[encode_tuple_eq_def,iconstraint_sem_def]>>
   simp[eval_lin_term_def]>>
@@ -64,7 +66,7 @@ QED
 Definition table_al1_def[simp]:
   table_al1 Xtss name =
     (([],
-      MAPi (λn Xts. (1i, Pos (INR (Tb name n)))) Xtss, 1):'a aiconstraint)
+      MAPi (λn Xts. (1i, Pos (INR (name,Index n)))) Xtss, 1):'a aiconstraint)
 End
 
 Definition encode_table_def:
@@ -150,7 +152,7 @@ QED
 
 Theorem reify_tuple_eq_sem:
   valid_assignment bnd wi ∧
-  wb (INR (Tb name n)) ∧
+  wb (INR (name, Index n)) ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
     (reify_tuple_eq bnd Xts name n) ⇒
   EVERY (λ(X,t). varc wi X = t) Xts

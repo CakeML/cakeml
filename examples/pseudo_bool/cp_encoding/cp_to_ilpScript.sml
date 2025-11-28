@@ -26,33 +26,42 @@ End
 (* The datatype for flags in the ILP encoding. *)
 Datatype:
   flag =
-  | Tb mlstring num
-  | Ne ('a + int) ('a + int)  (* Used to force X ≠ Y *)
+  | Indices (num list) (mlstring option)
+    (* [i][n1][n2]...[optional string] *)
+  | Flag mlstring
+    (* [f][string] *)
+  | Value (int list) (mlstring option)
+    (* [v][i1][i2]...[optional string] *)
 End
 
+Overload Index = ``λn. Indices [n] NONE``;
+
 Definition reify_flag_def:
-  reify_flag cs wi flag ⇔
+  reify_flag cs wi (name,flag) ⇔
   case flag of
-  | Tb n i =>
-    (case ALOOKUP cs n of
+  | Indices i ann =>
+    (case ALOOKUP cs name of
     | SOME (Extensional (Table tss Xs)) =>
-      match_row (EL i tss) (MAP (varc wi) Xs)
-    | _ => ARB)
+      match_row (EL (HD i) tss) (MAP (varc wi) Xs))
+  | Flag ann =>
+    (case ALOOKUP cs name of
+    | SOME (Prim (Cmpop _ _ X Y)) =>
+      varc wi X > varc wi Y)
 End
 
 (*
   We first design and prove sound the
   abstract encodings into the Boolean variable type:
-    ('a reif + 'a flag)
+    ('a reif + flag)
 *)
-Type avar[pp] = ``:('a reif + 'a flag)``
+Type avar[pp] = ``:('a reif + (mlstring # flag))``
 Type aiconstraint[pp] = ``:('a, 'a avar) iconstraint``
 
 Definition reify_avar_def:
   reify_avar cs wi eb ⇔
   case eb of
     INL reif => reify_reif wi reif
-  | INR flag => reify_flag cs wi flag
+  | INR nflag => reify_flag cs wi nflag
 End
 
 (***
