@@ -12,7 +12,8 @@ Ancestors
 (* The datatype for reified variables in the ILP encoding *)
 Datatype:
   reif =
-  | Ge ('a varc) int (* Reifies X ≥ i *)
+  | Ge ('a varc) int
+    (* Reifies X ≥ i *)
   | Eq ('a varc) int (* Reifies X = i *)
 End
 
@@ -23,18 +24,23 @@ Definition reify_reif_def:
   | Eq X i => varc wi X = i
 End
 
-(* The datatype for flags in the ILP encoding. *)
+(* The datatype for flags in the ILP encoding.
+  Each flag comes with a (separate) name for
+    the constraint it belongs to.
+  The (name,flag) pair variables are printed as:
+  c[name](flag format...)
+*)
 Datatype:
   flag =
   | Indices (num list) (mlstring option)
     (* [i][n1][n2]...[optional string] *)
   | Flag mlstring
-    (* [f][string] *)
-  | Value (int list) (mlstring option)
+    (* b[name][annotated mlstring] *)
+  | Values (int list) (mlstring option)
     (* [v][i1][i2]...[optional string] *)
 End
 
-Overload Index = ``λn. Indices [n] NONE``;
+Overload Index = ``λname n. (name,Indices [n] NONE)``;
 
 Definition reify_flag_def:
   reify_flag cs wi (name,flag) ⇔
@@ -46,7 +52,51 @@ Definition reify_flag_def:
   | Flag ann =>
     (case ALOOKUP cs name of
     | SOME (Prim (Cmpop _ _ X Y)) =>
-      varc wi X > varc wi Y)
+      if ann = strlit"lt"
+      then varc wi X < varc wi Y
+      else varc wi X > varc wi Y)
+End
+
+Definition format_varc_def:
+  format_varc X =
+  case X of
+    INL s => strlit"i[" ^ s ^ strlit "]"
+  | INR i => strlit"n[" ^ int_to_string #"-" i ^ strlit"]"
+End
+
+Definition format_reif_def:
+  format_reif reif =
+  case reif of
+    Ge X i =>
+    concat[format_varc X;strlit"[ge";
+      int_to_string #"-" i;strlit"]"]
+  | Eq X i =>
+    concat[format_varc X;strlit"[eq";
+      int_to_string #"-" i;strlit"]"]
+End
+
+Definition format_annot_def:
+  (format_annot NONE = strlit"") ∧
+  (format_annot (SOME s) = strlit"[" ^ s ^ strlit"]")
+End
+
+Definition format_num_list_def:
+  format_num_list (ls:num list) = concatWith (strlit"_") (MAP toString ls)
+End
+
+Definition format_int_list_def:
+  format_int_list (ls:int list) = concatWith (strlit"_") (MAP (int_to_string #"-") ls)
+End
+
+Definition format_flag_def:
+  format_flag (name,flag) =
+  case flag of
+    Flag ann =>
+      strlit"b[" ^ name ^ strlit"][" ^ ann ^ strlit "]"
+  | Indices ns annot =>
+      strlit"x[" ^ name ^ strlit"][" ^ format_num_list ns ^ strlit"]" ^ format_annot annot
+  | Values ns annot =>
+      strlit"v[" ^ name ^ strlit"][" ^ format_int_list ns ^ strlit"]" ^ format_annot annot
 End
 
 (*
@@ -253,7 +303,8 @@ End
 Definition good_reif_def:
   good_reif wb wi ec ⇔
   (∀Y n. has_ge Y n ec ⇒ (wb (INL (Ge Y n)) ⇔ varc wi Y ≥ n)) ∧
-  (∀Y n. has_eq Y n ec ⇒ (wb (INL (Eq Y n)) ⇔ varc wi Y = n))
+  (∀Y n. has_eq Y n ec ⇒ (wb (INL (Eq Y n)) ⇔
+    wb (INL (Ge Y n)) ∧ ¬wb (INL (Ge Y (n + 1)))))
 End
 
 (* enc_rel, just a shorthand *)
@@ -269,7 +320,7 @@ Definition enc_rel_def:
   EVERY (λx. iconstraint_sem (SND x) (wi,wb)) (append es))
 End
 
-Theorem enc_rel_Nil:
+Theorem enc_rel_Nil[simp]:
   enc_rel wi Nil [] ec ec
 Proof
   rw[enc_rel_def]
@@ -284,6 +335,29 @@ Proof
   fs[enc_rel_def]>>
   rw[]>>
   metis_tac[]
+QED
+
+Definition fold_cenc_def:
+  (fold_cenc cenc [] ec = (Nil,ec)) ∧
+  (fold_cenc cenc (x::xs) ec =
+    let (ys,ec') = cenc x ec in
+    let (yss,ec'') = fold_cenc cenc xs ec' in
+    (Append ys yss, ec''))
+End
+
+Theorem enc_rel_fold_cenc:
+  (∀h ec ys ec'.
+    cf h ec = (ys, ec') ⇒
+    enc_rel wi ys (f h) ec ec') ⇒
+  ∀ls ec ys ec'.
+  fold_cenc cf ls ec = (ys,ec') ⇒
+  enc_rel wi ys
+    (FLAT (MAP f ls)) ec ec'
+Proof
+  strip_tac>>
+  Induct>>rw[fold_cenc_def]>>
+  gvs[UNCURRY_EQ]>>
+  metis_tac[enc_rel_Append]
 QED
 
 (***
@@ -340,27 +414,6 @@ QED
 Type ciconstraint[pp] = ``:(mlstring, mlstring avar) iconstraint``
 Type ann_ciconstraint[pp] = ``:mlstring option # (mlstring, mlstring avar) iconstraint``
 
-Definition format_varc_def:
-  format_varc X =
-  case X of
-    INL s => strlit"v" ^ s
-  | INR i => strlit"i" ^ int_to_string #"-" i
-End
-
-Definition format_reif_def:
-  format_reif pref X i =
-  concat[strlit"i[";format_varc X;strlit"][";pref;
-    int_to_string #"-" i;strlit"]"]
-End
-
-(* Name of a reification *)
-Definition enc_reif_def:
-  enc_reif reif =
-  case reif of
-    Ge X i => format_reif (strlit"ge") X i
-  | Eq X i => format_reif (strlit"eq") X i
-End
-
 (* Tool for sticking on annotations *)
 Definition mk_annotate_def:
   (mk_annotate (_:mlstring list) ([]:ciconstraint list) = []) ∧
@@ -370,14 +423,13 @@ Definition mk_annotate_def:
     MAP (λy. (NONE,y)) ys)
 End
 
-(* TODO: what annotation should we use? *)
 Definition cencode_ge_def:
   cencode_ge bnd Y n ec =
   if has_ge Y n ec
   then (Nil, ec)
   else
     let ec = add_ge Y n ec in
-    let fmt = format_reif (strlit "ge") Y n in
+    let fmt = format_reif (Ge Y n) in
     (List (
       mk_annotate [
         fmt ^ strlit"[f]";
@@ -392,7 +444,7 @@ Definition cencode_eq_def:
   then (Nil, ec)
   else
     let ec = add_eq Y n ec in
-    let fmt = format_reif (strlit "eq") Y n in
+    let fmt = format_reif (Eq Y n)  in
     (List (
       mk_annotate [
         fmt ^ strlit"[f]";
@@ -408,7 +460,7 @@ Definition cencode_full_eq_def:
     (x2,ec'') = cencode_ge bnd Y (n+1) ec';
     (x3,ec''') = cencode_eq bnd Y n ec''
   in
-    (Append x1 (Append x2 x3), ec''')
+    (Append (Append x1 x2) x3, ec''')
 End
 
 (* TODO: lemmas *)
@@ -490,6 +542,61 @@ Theorem enc_rel_List_refl_1:
   enc_rel wi (List [(ann,c)]) [c] ec ec
 Proof
   rw[enc_rel_def]
+QED
+
+Theorem EVERY_SND_mk_annotate[simp]:
+  ∀ann ls.
+  EVERY (λx. iconstraint_sem (SND x) (wi,wb)) (mk_annotate ann ls) ⇔
+  EVERY (λx. iconstraint_sem x (wi,wb)) ls
+Proof
+  ho_match_mp_tac mk_annotate_ind>>
+  rw[mk_annotate_def]>>
+  simp[EVERY_MAP]
+QED
+
+Theorem enc_rel_List_mk_annotate:
+  enc_rel wi (List (mk_annotate ann ls)) ls ec ec
+Proof
+  rw[enc_rel_def]
+QED
+
+Theorem enc_rel_encode_ge:
+  valid_assignment bnd wi ∧
+  cencode_ge bnd X t ec = (x1,ec') ⇒
+  enc_rel wi x1 (encode_ge bnd X t) ec ec'
+Proof
+  rw[cencode_ge_def]
+  >-
+    rw[enc_rel_def,good_reif_def]>>
+  rw[enc_rel_def,good_reif_def]>>
+  fs[]
+QED
+
+Theorem enc_rel_encode_eq:
+  valid_assignment bnd wi ∧
+  cencode_eq bnd X t ec = (x1,ec') ⇒
+  enc_rel wi x1 (encode_eq bnd X t) ec ec'
+Proof
+  rw[cencode_eq_def]
+  >- (
+    rw[enc_rel_def,good_reif_def]>>
+    simp[encode_eq_def,iconstraint_sem_def])>>
+  rw[enc_rel_def,good_reif_def]>>
+  gs[encode_eq_def,iconstraint_sem_def]
+QED
+
+Theorem enc_rel_encode_full_eq:
+  valid_assignment bnd wi ∧
+  cencode_full_eq bnd X t ec = (x1,ec') ⇒
+  enc_rel wi x1 (encode_full_eq bnd X t) ec ec'
+Proof
+  rw[cencode_full_eq_def,encode_full_eq_def]>>
+  gvs[UNCURRY_EQ]>>
+  irule enc_rel_Append>>
+  irule_at Any enc_rel_encode_eq>>
+  simp[]>> first_x_assum $ irule_at Any>>
+  irule enc_rel_Append>>
+  metis_tac[enc_rel_encode_ge]
 QED
 
 Definition init_ec_def:

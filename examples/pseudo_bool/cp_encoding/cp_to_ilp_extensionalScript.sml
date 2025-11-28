@@ -19,7 +19,7 @@ End
 (* encodes ftable_i ⇔ X = Ti, provided that LENGTH X = LENGTH Ti *)
 Definition encode_tuple_eq_def:
   encode_tuple_eq bnd Xts name n =
-    bimply_bits bnd [Pos (INR (name,Index n))]
+    bimply_bits bnd [Pos (INR (Index name n))]
       ([],
       MAP (λ(X,t). (1i, Pos (INL (Eq X t)))) Xts,
       &LENGTH Xts)
@@ -29,7 +29,7 @@ End
 Definition reify_tuple_eq_def:
   reify_tuple_eq bnd Xts name n =
   let
-    eqs = FLAT $ MAPi (λn (X,t). encode_full_eq bnd X t) Xts;
+    eqs = FLAT $ MAP (λ(X,t). encode_full_eq bnd X t) Xts;
   in
     eqs ++ encode_tuple_eq bnd Xts name n
 End
@@ -40,7 +40,7 @@ Theorem encode_tuple_eq_sem:
   ⇒
   (EVERY (λx. iconstraint_sem x (wi,wb))
     (encode_tuple_eq bnd Xts name n) ⇔
-  (wb (INR (name, Index n)) ⇔ EVERY (λ(X,t). varc wi X = t) Xts))
+  (wb (INR (Index name n)) ⇔ EVERY (λ(X,t). varc wi X = t) Xts))
 Proof
   rw[encode_tuple_eq_def,iconstraint_sem_def]>>
   simp[eval_lin_term_def]>>
@@ -66,7 +66,7 @@ QED
 Definition table_al1_def[simp]:
   table_al1 Xtss name =
     (([],
-      MAPi (λn Xts. (1i, Pos (INR (name,Index n)))) Xtss, 1):'a aiconstraint)
+      MAPi (λn Xts. (1i, Pos (INR (Index name n)))) Xtss, 1):'a aiconstraint)
 End
 
 Definition encode_table_def:
@@ -120,7 +120,7 @@ Proof
   rw[reify_tuple_eq_def]>>
   simp[EVERY_FLAT]
   >-
-    simp[Once EVERY_MEM,MEM_MAPi,PULL_EXISTS,iterateTheory.LAMBDA_PAIR,reify_avar_def,reify_reif_def]>>
+    simp[Once EVERY_MEM,MEM_MAP,PULL_EXISTS,iterateTheory.LAMBDA_PAIR,reify_avar_def,reify_reif_def]>>
   irule encode_tuple_eq_sem_reify>>
   simp[]
 QED
@@ -152,7 +152,7 @@ QED
 
 Theorem reify_tuple_eq_sem:
   valid_assignment bnd wi ∧
-  wb (INR (name, Index n)) ∧
+  wb (INR (Index name n)) ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
     (reify_tuple_eq bnd Xts name n) ⇒
   EVERY (λ(X,t). varc wi X = t) Xts
@@ -162,7 +162,7 @@ Proof
   DEP_REWRITE_TAC[encode_tuple_eq_sem]>>
   rw[EVERY_MEM]>>
   qpat_x_assum`EVERY _ (FLAT _)` mp_tac>>
-  simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,PULL_EXISTS]>>
+  simp[EVERY_FLAT,Once EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
   simp[iterateTheory.LAMBDA_PAIR]>>
   metis_tac[MEM_EL]
 QED
@@ -245,78 +245,68 @@ Proof
 QED
 
 (* The reifications needed for tuple eq on a given row *)
+
 Definition cencode_full_eqs_def:
-  (cencode_full_eqs bnd [] ec = (Nil,ec)) ∧
-  (cencode_full_eqs bnd ((X,t)::Xts) ec =
-    let (ys,ec') = cencode_full_eq bnd X t ec in
-    let (yss,ec'') = cencode_full_eqs bnd Xts ec' in
-    (Append ys yss, ec''))
+  cencode_full_eqs bnd xs ec =
+    fold_cenc
+      (λXt ec. cencode_full_eq bnd (FST Xt) (SND Xt) ec) xs ec
 End
 
 Definition cencode_tuple_eq_def:
-  cencode_tuple_eq bnd Xts name =
+  cencode_tuple_eq bnd Xts name n =
+    let nm = format_flag (Index name n) in
     mk_annotate [
-      name ++ [strlit"f"];
-      name ++ [strlit"r"]
+      nm ^ strlit"[f]";
+      nm ^ strlit"[r]"
     ]
-    (bimply_bits bnd [Pos (INR name)]
-      ([], MAP (λ(X,t). (1i, Pos (INL (Eq X t)))) Xts, &LENGTH Xts))
+    (encode_tuple_eq bnd Xts name n)
 End
 
 Definition creify_tuple_eq_def:
-  creify_tuple_eq bnd (name,Xts) ec =
+  creify_tuple_eq bnd Xts name n ec =
   let
     (eqs,ec') = cencode_full_eqs bnd Xts ec;
-    tup = List (cencode_tuple_eq bnd Xts name)
   in
-    (Append eqs tup, ec')
+    (Append eqs
+      (List (cencode_tuple_eq bnd Xts name n)), ec')
 End
 
 Definition creify_tuple_eqs_def:
-  (creify_tuple_eqs bnd [] ec = (Nil,ec)) ∧
-  (creify_tuple_eqs bnd (x::xs) ec =
-  let
-    (y,ec') = creify_tuple_eq bnd x ec;
-    (ys,ec'') = creify_tuple_eqs bnd xs ec'
-  in
-    (Append y ys, ec''))
+  creify_tuple_eqs bnd name nXtss ec =
+  fold_cenc
+    (λ(n,Xts) ec. creify_tuple_eq bnd Xts name n ec) nXtss ec
 End
 
 Definition ctable_al1_def[simp]:
-  ctable_al1 Xtss pref =
-    (SOME (pref++[strlit"al1"]), (([], MAP (λ(name,Xts). (1i, Pos (INR name))) Xtss, 1):ciconstraint))
+  ctable_al1 Xtss name =
+    (SOME (strlit"c[" ^ name ^ strlit"][al1]"),
+      table_al1 Xtss name)
 End
 
 Definition cencode_table_def:
-  cencode_table bnd tss Xs pref ec =
+  cencode_table bnd tss Xs name ec =
   let n = LENGTH Xs in
     if EVERY (λYs. LENGTH Ys = n) tss
     then
-      let Xtss = MAPi (λn ts.
-        (pref ++ [strlit"r" ^ toString n],
-        filter_match (ZIP (Xs,ts)))) tss in
-      let (ys,ec') = creify_tuple_eqs bnd Xtss ec in
+      let Xtss = MAP (λts. filter_match (ZIP (Xs,ts))) tss in
+      let nXtss = enumerate 0 Xtss in
+      let (ys,ec') = creify_tuple_eqs bnd name nXtss ec in
       (Append ys
-        (List [ctable_al1 Xtss pref]), ec')
+        (List [ctable_al1 Xtss name]), ec')
     else
-      (List [cfalse_constr],ec)
+      (List [cfalse_constr], ec)
 End
 
 Definition cencode_extensional_constr_def:
-  cencode_extensional_constr bnd c pref ec =
+  cencode_extensional_constr bnd c name ec =
   case c of Table tss Xs =>
-  cencode_table bnd tss Xs pref ec
+  cencode_table bnd tss Xs name ec
 End
-
-(*
-EVAL``append o FST $ cencode_extensional_constr
-  (\x. (-5,5))
-  (Table [[SOME 1i;SOME 2i];[NONE;NONE];[SOME 1i;NONE];] [INL (strlit "x");INL (strlit "y")]) [strlit"t1"] init_ec``
 
 Theorem cencode_extensional_constr_sem:
   valid_assignment bnd wi ∧
-  cencode_extensional_constr bnd c pref ec = (es,ec') ⇒
-  enc_rel wi es (encode_extensional_constr bnd c) ec ec'
+  cencode_extensional_constr bnd c name ec = (es,ec') ⇒
+  enc_rel wi es (encode_extensional_constr bnd c name) ec ec'
 Proof
   rw[cencode_extensional_constr_def,encode_extensional_constr_def]>>
   gvs[CaseEq"extensional_constr"]>>
@@ -325,6 +315,30 @@ Proof
   gvs[UNCURRY_EQ]>>
   irule enc_rel_Append>>
   irule_at Any enc_rel_List_refl_1>>
-  cheat
+  simp[MAPi_enumerate_MAP]>>
+  irule_at Any enc_rel_fold_cenc>>
+  fs[creify_tuple_eqs_def]>>
+  first_x_assum (irule_at Any)>>
+  rw[]>>
+  pairarg_tac>>
+  gvs[creify_tuple_eq_def,reify_tuple_eq_def]>>
+  pairarg_tac>>gvs[]>>
+  irule enc_rel_Append>>
+  simp[cencode_tuple_eq_def]>>
+  irule_at Any enc_rel_List_mk_annotate>>
+  simp[MAPi_enumerate_MAP]>>
+  irule_at Any enc_rel_fold_cenc>>
+  fs[cencode_full_eqs_def]>>
+  first_x_assum (irule_at Any)>>
+  rw[]>>
+  pairarg_tac>>
+  gvs[enc_rel_encode_full_eq]
 QED
+
+(*
+EVAL``append o FST $ cencode_extensional_constr
+  (\x. (-5,5))
+  (Table [[SOME 1i;SOME 2i];[NONE;NONE];[SOME 1i;NONE];] [INL (strlit "x");INL (strlit "y")]) (strlit"t1") init_ec``
 *)
+
+
