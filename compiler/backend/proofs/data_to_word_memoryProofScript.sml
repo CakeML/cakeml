@@ -356,7 +356,10 @@ Definition bc_stack_ref_inv_def:
       FDOM tf SUBSET (all_ts refs stack) /\
       FDOM tf SUBSET { n | n < ts } /\ be_ok conf.be be /\
       EVERY2 (\v x. v_inv conf v refs (x,f,tf,heap)) stack roots /\
-      !n. reachable_refs stack refs n ==> bc_ref_inv conf n refs (f,tf,heap,be)
+      !n.
+        reachable_refs stack refs n ∧
+        n ∈ FDOM f ⇒
+          bc_ref_inv conf n refs (f,tf,heap,be)
 End
 
 Definition data_up_to_def:
@@ -5145,7 +5148,7 @@ Proof
   \\ `n ∈ (domain refs)`
      by (pop_assum mp_tac \\ every_case_tac \\ rveq \\ fs [domain_lookup])
   \\ pop_assum (fn thm => pop_assum mp_tac \\ assume_tac thm)
-  \\ ntac 3 (TOP_CASE_TAC \\ fs [] \\ rveq \\ fs [])
+  \\ ntac 2 (TOP_CASE_TAC \\ fs [] \\ rveq \\ fs [])
   \\ fs [Bytes_def,isDataElement_def,LET_THM,heap_store_rel_def,
          isSomeDataElement_def,PULL_EXISTS,RefBlock_def,lookup_NONE_domain,
          ThunkBlock_def] \\ rw []
