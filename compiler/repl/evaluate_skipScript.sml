@@ -837,6 +837,9 @@ Proof
   \\ imp_res_tac v_rel_IMP_check_type_eq \\ rw []
   \\ gvs []
   >-
+   (gvs [check_type_def,the_Litv_Float64_def]
+   \\ fs [Once v_rel_cases])
+  >-
    (Cases_on ‘ty’ \\ TRY (rename [‘WordT ww’] \\ Cases_on ‘ww’)
     \\ gvs [check_type_def]
     \\ fs [do_eq_def,Boolv_def] \\ EVAL_TAC

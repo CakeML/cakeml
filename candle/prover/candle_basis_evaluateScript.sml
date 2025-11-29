@@ -26,6 +26,7 @@ Definition simple_exp_def:
       App op xs => (case op of
         VfromList => T
       | Aw8alloc => T
+      | Test _ _ => T
       | Opb _ => T
       | _ => F)
     | Lit lit => T
@@ -408,4 +409,3 @@ Theorem post_state_ok_with_clock[simp]:
 Proof
   rw [post_state_ok_def]
 QED
-

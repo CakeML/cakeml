@@ -81,15 +81,15 @@ val from_int_op = ``ast$WordFromInt``;
 val ffi_op = ``ast$FFI``;
 val wordT_W8 = ``WordT W8``;
 val wordT_W64 = ``WordT W64``;
-val test_eq = ``Test Equal``
-val test_lt = ``Test (Compare Lt)``
-val test_leq = ``Test (Compare Leq)``
-val test_gt = ``Test (Compare Gt)``
-val test_geq = ``Test (Compare Geq)``
-val test_alt_lt = ``Test (AltCompare Lt)``
-val test_alt_leq = ``Test (AltCompare Leq)``
-val test_alt_gt = ``Test (AltCompare Gt)``
-val test_alt_geq = ``Test (AltCompare Geq)``
+val test_eq = ``ast$Equal``
+val test_lt = ``ast$Compare Lt``
+val test_leq = ``ast$Compare Leq``
+val test_gt = ``ast$Compare Gt``
+val test_geq = ``ast$Compare Geq``
+val test_alt_lt = ``ast$AltCompare Lt``
+val test_alt_leq = ``ast$AltCompare Leq``
+val test_alt_gt = ``ast$AltCompare Gt``
+val test_alt_geq = ``ast$AltCompare Geq``
 fun op_to_exp arg =
   let
     val underscore_filter =
@@ -114,7 +114,8 @@ fun op_to_exp arg =
       if aconv x test_alt_lt  then exp_str "AltLess" else
       if aconv x test_alt_leq then exp_str "AltLessEq" else
       if aconv x test_alt_gt  then exp_str "AltGreater" else
-      if aconv x test_alt_geq then exp_str "AltGreaterEq" else fail()
+      if aconv x test_alt_geq then exp_str "AltGreaterEq" else
+        failwith ("test_name failed for: " ^ term_to_string x)
     fun test xs = exp_tuple [exp_str "Test",
                              test_name (hd xs),
                              test_ty (hd (tl xs))]
