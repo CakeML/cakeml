@@ -5,8 +5,8 @@ Theory scheme_to_cakeProof
 Ancestors
   scheme_to_cake_env scheme_ast scheme_semantics scheme_to_cake
   scheme_semanticsProps ast evaluate evaluateProps ml_prog (*primSemEnv num ffi*)
-  scheme_semanticsProps ast evaluate evaluateProps ml_prog
-  semanticPrimitives namespace primTypes namespaceProps integer
+  semanticPrimitives namespace primTypes namespaceProps integer basicSize
+  wellorder
 Libs
   preamble computeLib
 
@@ -619,6 +619,12 @@ QED
 
 Theorem state_refs_trivial[simp]:
   ! st:'ffi state . st with refs := st.refs = st
+Proof
+  simp[state_component_equality]
+QED
+
+Theorem state_clock_trivial[simp]:
+  ! st:'ffi state . st with clock := st.clock = st
 Proof
   simp[state_component_equality]
 QED
@@ -1628,6 +1634,42 @@ Proof
   >> first_assum $ irule_at $ Pos hd
 QED
 
+Definition lex_scheme_exp_order_def:
+  lex_scheme_exp_order = inv_image ($< LEX $< LEX $<) (\ e.
+    case e of
+    | Exp _ e' => (1,
+      scheme_ast$exp_size e',
+      case e' of Letrecstar _ _ => 1n | _ => 0)
+    | _ => (0n, 0n, 0n)
+  )
+End
+
+Theorem WF_lex_scheme_exp_order:
+  WF lex_scheme_exp_order
+Proof
+  simp[lex_scheme_exp_order_def]
+  >> irule WF_inv_image
+  >> rpt (irule WF_LEX >> simp[])
+QED
+
+Definition lex_sim_order_def:
+  lex_sim_order = ($< :num -> num -> bool) LEX lex_scheme_exp_order
+End
+
+Theorem lex_sim_order_simp =
+  lex_sim_order_def |> SRULE [lex_scheme_exp_order_def, inv_image_def, LEX_DEF];
+
+Theorem WF_lex_sim_order:
+  WF lex_sim_order
+Proof
+  simp[lex_sim_order_def]
+  >> irule WF_LEX
+  >> simp[WF_lex_scheme_exp_order]
+QED
+
+Theorem lex_sim_order_ind =
+  WF_lex_sim_order |> SRULE [WF_IND];
+
 Theorem step_preservation:
   ∀ store store' e e' ks ks' (st : 'ffi state) mlenv k kv mle .
     step (store, ks, e) = (store', ks', e') ∧
@@ -1638,12 +1680,13 @@ Theorem step_preservation:
     ⇒
     ∃ ck st' mlenv' k' kv' mle' .
       (∀ start . evaluate (st with clock := start + ck) mlenv [mle]
-      =
-      evaluate (st' with clock := start) mlenv' [mle']) ∧
+        =
+        evaluate (st' with clock := start) mlenv' [mle'] ∧
+        (¬terminating_state (store, ks, e) ==> lex_sim_order (start, e') (start + ck, e))
+      ) ∧
       cont_rel ks' kv' ∧
       cps_rel st' e' k' mlenv' kv' mle' ∧
       LIST_REL store_entry_rel store' st'.refs ∧
-      (? v . e = Val v /\ ks <> [] ⇒ 0 < ck) ∧
       st.ffi = st'.ffi
 Proof
   Cases_on ‘e’
@@ -1664,6 +1707,7 @@ Proof
       >> rpt strip_tac
       >> gvs[cps_transform_def] >- (
         reduce_to_cps 0 [letpreinit_ml_def, letinit_ml_def]
+        >> simp[lex_sim_order_simp]
         >> simp[GSYM eval_eq_def]
         >> irule_at (Pos hd) eval_eq_trivial
         >> first_assum $ irule_at $ Pos hd
@@ -1676,6 +1720,7 @@ Proof
       >> simp[letpreinit_ml_eval]
       >> gvs[letrec_preinit_APPEND]
       >> reduce_to_cps 0 []
+      >> simp[lex_sim_order_simp]
       >> simp[GSYM eval_eq_def]
       >> irule_at (Pos hd) eval_eq_trivial
       >> simp[Once cps_rel_cases]
@@ -1713,6 +1758,9 @@ Proof
       >> rpt (pairarg_tac >> gvs[])
       >> simp[letpreinit_ml_eval]
       >> gvs[letrec_preinit_APPEND]
+      >> simp[lex_sim_order_simp]
+      >> simp[UNCURRY, LAMBDA_PROD,
+        SRULE [LAMBDA_PROD] $ lambdify $ oneline pair_size_def]
       >> simp[GSYM eval_eq_def]
       >> irule_at (Pos hd) eval_eq_trivial
       >> simp[Once cps_rel_cases]
@@ -1766,6 +1814,7 @@ Proof
       >> pop_assum $ drule_then assume_tac
       >> gvs[store_entry_rel_cases]
       >> reduce_to_cps 0 []
+      >> simp[lex_sim_order_simp]
       >> simp[GSYM eval_eq_def]
       >> irule_at (Pos hd) eval_eq_trivial
       >> qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
@@ -1774,6 +1823,7 @@ Proof
       >> simp[]
     )
     >> reduce_to_cps 0 []
+    >> simp[lex_sim_order_simp]
     >> simp[GSYM eval_eq_def]
     >> irule_at (Pos hd) eval_eq_trivial
     >> TRY $ qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
@@ -1794,6 +1844,7 @@ Proof
     >- (
       simp[step_def, return_def]
       >> rw[]
+      >> simp[lex_sim_order_simp]
       >> simp[GSYM eval_eq_def]
       >> irule_at (Pos hd) eval_eq_trivial
       >> simp[]
@@ -1816,6 +1867,7 @@ Proof
       )
       >> simp[Once evaluate_def]
       >> reduce_to_cps 1 []
+      >> simp[lex_sim_order_simp]
       >> simp[GSYM eval_eq_def]
       >> irule_at (Pos hd) eval_eq_trivial
       >> qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
@@ -1830,6 +1882,7 @@ Proof
       >> gvs[cps_transform_def, step_def, return_def]
       >> simp[Once evaluate_def]
       >> reduce_to_cps 1 []
+      >> simp[lex_sim_order_simp]
       >> simp[GSYM eval_eq_def]
       >> irule_at (Pos hd) eval_eq_trivial
       >> simp[Once cps_rel_cases]
@@ -1853,6 +1906,7 @@ Proof
       >> gvs[store_entry_rel_cases]
       >> simp[Once evaluate_def]
       >> reduce_to_cps 1 []
+      >> simp[lex_sim_order_simp]
       >> simp[GSYM eval_eq_def]
       >> irule_at (Pos hd) eval_eq_trivial
       >> simp[]
@@ -1869,7 +1923,9 @@ Proof
       >> gvs[Once cont_rel_cases, Once cps_rel_cases]
       >> gvs[cps_transform_def, step_def, return_def]
       >> simp[Once evaluate_def]
-      >> reduce_to_cps 1 [] >- (
+      >> reduce_to_cps 1 []
+      >> simp[lex_sim_order_simp]
+      >- (
         gvs[Once valid_state_cases]
         >> gvs[Once valid_cont_cases]
         >> ‘∃ xvs' . (x,v)::xvs = xvs'’ by simp[]
@@ -1906,6 +1962,7 @@ Proof
       >> gvs[]
       >> simp[cps_transform_def]
       >> reduce_to_cps 0 []
+      >> simp[lex_sim_order_simp]
       >> simp[GSYM eval_eq_def]
       >> irule_at (Pos hd) eval_eq_trivial
       >> simp[Once cps_rel_cases, Once cont_rel_cases]
@@ -1946,6 +2003,7 @@ Proof
       >> rpt strip_tac
       >> simp[evaluate_def]
       >> reduce_to_cps 1 []
+      >> simp[lex_sim_order_simp]
       >> simp[GSYM eval_eq_def]
       >> irule_at (Pos hd) eval_eq_trivial
       >> simp[Once cps_rel_cases, Once cont_rel_cases]
@@ -1959,6 +2017,7 @@ Proof
       >> rpt strip_tac
       >> simp[evaluate_def]
       >> reduce_to_cps 1 []
+      >> simp[lex_sim_order_simp]
       >> simp[GSYM eval_eq_def]
       >> irule_at (Pos hd) eval_eq_trivial
       >> simp[Once cps_rel_cases, Once cont_rel_cases]
@@ -1994,6 +2053,7 @@ Proof
       >> gvs[Once cps_rel_cases, Once cont_rel_cases]
       >> simp[Once evaluate_def]
       >> reduce_to_cps 1 []
+      >> simp[lex_sim_order_simp]
       >> simp[cps_transform_def]
       >> simp_tac bool_ss [Once ADD_COMM]
       >> `cons_list [] = cons_list $ MAP (Var o Short) []` by simp[]
@@ -2012,6 +2072,7 @@ Proof
       >> gvs[Once cont_rel_cases, Excl "MAP"]
       >> simp[Once evaluate_def]
       >> reduce_to_cps 1 [Excl "MAP"]
+      >> simp[lex_sim_order_simp, Excl "MAP"]
       >> gvs[cps_transform_def, Excl "MAP"]
       >> simp_tac bool_ss [GSYM MAP_REVERSE, Excl "MAP"]
       >> simp_tac bool_ss [Once ADD_COMM]
@@ -2061,11 +2122,10 @@ Theorem steps_preservation:
     cont_rel k' kv' ∧
     cps_rel st' e' var' mlenv' kv' mle' ∧
     LIST_REL store_entry_rel store' st'.refs ∧
-    (¬ terminating_state (store', k', e') ⇒ n ≤ ck) ∧
+    (*(¬ terminating_state (store', k', e') ⇒ n ≤ ck) ∧*)
     st.ffi = st'.ffi
 Proof
-  cheat
-  (*Induct >- (
+  Induct >- (
     simp[terminating_state_def]
     >> rpt strip_tac
     >> rpt $ pop_assum $ irule_at Any
@@ -2091,7 +2151,6 @@ Proof
   >> gvs[terminating_state_def]
   >> drule_all_then assume_tac terminating_direction_n
   >> gvs[]
-  *)
 QED
 
 Theorem value_terminating:
@@ -2125,78 +2184,122 @@ Proof
   >> simp[evaluate_def, do_opapp_def, dec_clock_def]
 QED
 
+
+Theorem evaluate_clock_dec =
+  cj 2 $
+    SRULE [is_clock_io_mono_def, pair_CASE_eq_forall] $
+      cj 1 is_clock_io_mono_evaluate;
+
+Theorem clock_to_io_mono =
+  cj 4 $ SRULE [PULL_FORALL] $ cj 1 $
+    SRULE [is_clock_io_mono_def, pair_CASE_eq_forall] $
+      cj 1 is_clock_io_mono_evaluate;
+
+
 Theorem evaluate_timeout_smaller_clock:
-  ∀ ck ck' st' (st:'ffi state) env e .
-    evaluate (st with clock := ck) env [e] = (st', Rerr (Rabort Rtimeout_error)) ∧
-    ck' ≤ ck
+  ∀ (st:'ffi state) st' ck env e .
+    evaluate st env [e] = (st', Rerr (Rabort Rtimeout_error)) ∧
+    ck ≤ st.clock
     ⇒
-    ∃ st'' . evaluate (st with clock := ck') env [e] = (st'', Rerr (Rabort Rtimeout_error))
+    ∃ st'' . evaluate (st with clock := ck) env [e] = (st'', Rerr (Rabort Rtimeout_error)) /\
+      io_events_mono st''.ffi st'.ffi (*this io_events_mono bit doesn't seem to help*)
 Proof
   rpt strip_tac
-  >> ‘∃ i . ck = ck' + i’ by (qexists ‘ck - ck'’ >> simp[])
-  >> qpat_x_assum ‘_ ≤ _’ kall_tac
+  >> gvs[LESS_EQ_EXISTS]
+  >> Cases_on ‘evaluate (st with clock := ck) env [e]’
   >> gvs[]
-  >> spose_not_then assume_tac
-  >> Cases_on ‘evaluate (st with clock := ck') env [e]’
-  >> gvs[]
-  >> drule_all_then assume_tac evaluate_add_to_clock
+  >> conj_tac >- (
+    spose_not_then assume_tac
+    >> drule_all_then assume_tac evaluate_add_to_clock
+    >> gvs[]
+    >> pop_assum $ qspec_then `p` assume_tac
+    >> gvs[]
+    >> qpat_assum `_ = _ + _` $ gvs o single o GSYM
+  )
+  >> irule clock_to_io_mono
+  >> pop_assum $ irule_at $ Pos last
   >> gvs[]
 QED
 
-(*
-Theorem cps_val:
-  ∀ st env e . ∃ mle .
-    evaluate st env [cps_transform e] = (st, Rval [Closure env "k" mle])
+Theorem evaluate_sufficient_smaller_clock:
+  ! (st :'ffi state) st' env env' e e' ck .
+    evaluate st env [e] = evaluate st' env' [e'] /\
+    st'.clock = 0 /\
+    ck < st.clock
+    ==>
+    ? st'' .
+      evaluate (st with clock := ck) env [e] = (st'', Rerr (Rabort Rtimeout_error)) /\
+      io_events_mono st''.ffi st'.ffi
 Proof
-  Cases_on ‘e’
-  >> simp[cps_transform_def, evaluate_def]
+  rpt strip_tac
+  >> Cases_on ‘evaluate st' env' [e']’
+  >~ [`(st'', res)`]
+  >> drule_then assume_tac evaluate_clock_dec
+  >> gvs[]
+  >> Cases_on `res = Rerr (Rabort Rtimeout_error)`
+  >> gvs[]
+  >- (
+    rev_drule_then assume_tac evaluate_timeout_smaller_clock
+    >> pop_assum $ qspec_then `ck` assume_tac
+    >> gvs[]
+    >> cheat
+  )
+  >> Cases_on ‘evaluate (st with clock := ck) env [e]’
+  >> gvs[]
+  >> conj_tac >- (
+    spose_not_then assume_tac
+    >> drule_all_then assume_tac evaluate_add_to_clock
+    >> pop_assum $ qspec_then `st.clock - ck` assume_tac
+    >> gvs[]
+  )
+  >> cheat
 QED
-*)
 
 Theorem diverges:
-  ∀ e v mle mlv store store' ks (st:'ffi state) mlenv var kv .
-    (∀ n . ¬ terminating_state (FUNPOW step n (store, ks, e))) ∧
+  ∀ e v mle mlv store ks (st:'ffi state) mlenv var kv ck_e ck .
+    ck_e = (ck, e) ==>
+    (∀ n . ¬terminating_state (FUNPOW step n (store, ks, e))) ∧
     valid_state store ks e ∧
     cps_rel st e var mlenv kv mle ∧
     cont_rel ks kv ∧
     LIST_REL store_entry_rel store st.refs
     ⇒
-    ∀ ck . ∃ st' . evaluate (st with clock:=ck) mlenv [mle]
+    ∃ st' . evaluate (st with clock:=ck) mlenv [mle]
       = (st', Rerr (Rabort Rtimeout_error)) ∧
       st.ffi = st'.ffi
 Proof
-  cheat
-  (*
-  rpt strip_tac
-  >> last_x_assum $ qspec_then ‘ck’ assume_tac
-  >> Cases_on ‘FUNPOW step ck (store,ks,e)’
-  >> PairCases_on ‘r’
-  >> drule_all steps_preservation
+  Induct_on `ck_e` using lex_sim_order_ind
   >> rpt strip_tac
   >> gvs[]
-  >> first_x_assum $ qspec_then ‘0’ assume_tac
-  >> qpat_x_assum ‘cps_rel _ _ _ _ mle'’ $ assume_tac o SRULE [Once cps_rel_cases]
-  >> gvs[terminating_state_def]
-  >> qpat_x_assum ‘cont_rel _ kv'’ $ assume_tac o SRULE [Once cont_rel_cases]
-  >> qspecl_then [‘st' with clock:=0’,‘mlenv'’,‘e'’] mp_tac cps_val
-  >> strip_tac
-  >> gvs[evaluate_def, do_opapp_def]
-  >> drule_all evaluate_timeout_smaller_clock
-  >> strip_tac
-  >> simp[]
-  >> rpt $ last_assum $ irule_at Any
-  >> qpat_assum ‘st.ffi = _’ $ simp o single o GSYM o Once
+  >> Cases_on `step (store, ks, e)`
+  >~ [`step _ = (store',ks_e')`]
+  >> PairCases_on `ks_e'`
+  >~ [`step _ = (store',ks',e')`]
+  >> drule_all_then assume_tac step_preservation
+  >> gvs[]
+  >> Cases_on `ck' <= ck` >- (
+    gvs[LESS_EQ_EXISTS]
+    >> last_x_assum irule
+    >> rpt $ first_assum $ irule_at Any
+    >> irule_at Any EQ_REFL
+    >> drule_then assume_tac valid_state_progress
+    >> gvs[]
+    >> conj_tac >- (
+      gen_tac
+      >> last_x_assum $ qspec_then `SUC n` assume_tac
+      >> gvs[FUNPOW]
+    )
+    >> last_x_assum $ qspec_then `0` assume_tac
+    >> gvs[FUNPOW]
+  )
+  >> first_x_assum $ qspec_then `0` assume_tac
+  >> gvs[]
+  >> drule_then assume_tac evaluate_sufficient_smaller_clock
+  >> gvs[]
+  >> pop_assum $ qspec_then `ck` assume_tac
+  >> gvs[]
   >> irule io_events_mono_antisym
   >> drule_then assume_tac $ cj 1 evaluate_io_events_mono_imp
   >> gvs[]
-  >> rev_drule_then assume_tac (
-    cj 4 $ SRULE [PULL_FORALL] $ cj 6 $
-    SRULE [is_clock_io_mono_def, pair_CASE_eq_forall] $
-      cj 1 is_clock_io_mono_evaluate
-  )
-  >> gvs[]
-  >> pop_assum $ drule_then assume_tac
-  >> gvs[]
-  *)
 QED
 
