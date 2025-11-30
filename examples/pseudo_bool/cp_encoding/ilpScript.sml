@@ -5,7 +5,7 @@ Theory ilp
 Libs
   preamble
 Ancestors
-  mlint pbc cp pbc_encode
+  mlint pbc cp pbc_encode int_bitwise
 
 (*
   This "ILP"-style intermediate language is designed for convenience of
@@ -73,11 +73,85 @@ Proof
   simp[eval_ilin_term_def,iSUM_def]
 QED
 
+(* twos-compplement representation *)
+Definition bit_width_def:
+  bit_width bnd X =
+    let (lb,ub) = bnd X in
+     (lb < 0,
+      if lb < 0 then
+        MAX (LENGTH (FST (bits_of_int lb)))
+            (LENGTH (FST (bits_of_int ub)))
+      else LENGTH (FST (bits_of_int ub)))
+End
+
+Theorem LESS_EXP_MAX[local]:
+  (k:num) < 2 ** MAX m n ⇔ k < 2 ** m ∨ k < 2 ** n
+Proof
+  rw [MAX_DEF]
+  \\ eq_tac \\ rw []
+  \\ irule LESS_LESS_EQ_TRANS
+  \\ pop_assum $ irule_at Any
+  \\ gvs []
+QED
+
+Theorem LESS_EQ_EXP_MAX[local]:
+  (k:num) ≤ 2 ** MAX m n ⇔ k ≤ 2 ** m ∨ k ≤ 2 ** n
+Proof
+  rw [MAX_DEF]
+  \\ eq_tac \\ rw []
+  \\ irule LESS_EQ_TRANS
+  \\ pop_assum $ irule_at Any
+  \\ gvs []
+QED
+
+Theorem LESS_LENGTH_bits_of_num:
+  ∀k. k < 2 ** LENGTH (bits_of_num k)
+Proof
+  ho_match_mp_tac bits_of_num_ind \\ rw []
+  \\ simp [Once bits_of_num_def]
+  \\ rw [] \\ gvs []
+QED
+
+Theorem bit_width_lemma1:
+  bit_width bnd X = (b,h) ∧ bnd X = (q,r) ∧ &n ≤ r ⇒ n < 2 ** h
+Proof
+  strip_tac
+  \\ gvs [bit_width_def] \\ rw []
+  \\ gvs [LESS_EXP_MAX]
+  \\ ‘∃k. r = & k’ by intLib.COOPER_TAC
+  \\ gvs [bits_of_int_def]
+  \\ rpt disj2_tac
+  \\ irule LESS_EQ_LESS_TRANS
+  \\ irule_at Any LESS_LENGTH_bits_of_num \\ gvs []
+QED
+
+Theorem bit_width_lemma2:
+  bit_width bnd X = (T,h) ∧ bnd X = (q,r) ∧ q ≤ -&n ⇒
+    n ≤ 2**h
+Proof
+  strip_tac
+  \\ gvs [bit_width_def]
+  \\ Cases_on ‘q’ \\ gvs []
+  \\ rename [‘k ≠ 0:num’]
+  \\ ‘- & k - 1 = -& (k + 1):int’ by intLib.COOPER_TAC \\ gvs []
+  \\ gvs [bits_of_int_def]
+  \\ gvs [int_not_def]
+  \\ ‘&(k + 1) − 1 = & k : int’ by intLib.COOPER_TAC \\ gvs []
+  \\ qmatch_goalsub_abbrev_tac`MAX lbb ubb`
+  \\ qspec_then `Num (&k -1)` assume_tac LESS_LENGTH_bits_of_num
+  \\ gvs[]
+  \\ `k ≤ 2** lbb` by intLib.ARITH_TAC
+  \\ gvs [LESS_EQ_EXP_MAX]
+QED
+
+(* Rounding to the nearest powers of two *)
 Definition min_iterm_def:
   min_iterm bnd (c,X) =
-    let (lb,ub) = bnd X in
-      if c < 0i then c * ub
-      else c * lb
+  let (comp,h) = bit_width bnd X in
+    if c < 0i then c * (2 ** h - 1)
+    else
+      if comp then c * (-(2**h))
+      else 0
 End
 
 Theorem min_iterm_le:
@@ -85,16 +159,31 @@ Theorem min_iterm_le:
   min_iterm bnd t ≤ eval_iterm w t
 Proof
   Cases_on`t`>>
+  rename1`(x,y)`>>
   rw[valid_assignment_def,eval_iterm_def,min_iterm_def]>>
-  pairarg_tac>>gvs[]>>
+  pairarg_tac>>fs[]>>
+  `?lb ub. bnd y = (lb,ub)` by metis_tac[PAIR]>>
   first_x_assum drule>>gvs[]>>
+  strip_tac>>
   rw[]
   >- (
-    DEP_REWRITE_TAC[INT_LE_ANTIMONO]>>
-    simp[])
-  >>
+    simp[INT_LE_ANTIMONO]>>
+    qsuff_tac`w y < &(2 ** h)` >- intLib.ARITH_TAC>>
+    Cases_on `w y < 0` >- intLib.ARITH_TAC>>
+    `?yy. w y = & yy` by intLib.ARITH_TAC>>
+    fs[]>>
+    irule bit_width_lemma1>>
+    metis_tac[])
+  >- (
     match_mp_tac INT_LE_MONO_IMP>>
-    intLib.ARITH_TAC
+    CONJ_TAC >- intLib.ARITH_TAC>>
+    drule bit_width_lemma2>>
+    disch_then drule>>
+    intLib.ARITH_TAC)
+  >- (
+    gvs[bit_width_def]>>
+    irule integerTheory.INT_LE_MUL>>
+    intLib.ARITH_TAC)
 QED
 
 Definition min_ilin_term_def:
@@ -156,9 +245,12 @@ QED
 
 Definition max_iterm_def:
   max_iterm bnd (c,X) =
-    let (lb,ub) = bnd X in
-      if c < 0i then c * lb
-      else c * ub
+  let (comp,h) = bit_width bnd X in
+    if c < 0i then
+      (if comp then c * (-(2**h))
+      else 0)
+    else
+      c * (2 ** h - 1)
 End
 
 Theorem max_iterm_le:
@@ -166,16 +258,34 @@ Theorem max_iterm_le:
   eval_iterm w t ≤ max_iterm bnd t
 Proof
   Cases_on`t`>>
+  rename1`(x,y)`>>
   rw[valid_assignment_def,eval_iterm_def,max_iterm_def]>>
-  pairarg_tac>>gvs[]>>rw[]>>
-  first_x_assum(qspec_then`r` mp_tac)>>gvs[]>>
+  pairarg_tac>>fs[]>>
+  `?lb ub. bnd y = (lb,ub)` by metis_tac[PAIR]>>
+  first_x_assum drule>>gvs[]>>
+  strip_tac>>
   rw[]
   >- (
-    DEP_REWRITE_TAC[INT_LE_ANTIMONO]>>
-    simp[])
-  >>
+    simp[INT_LE_ANTIMONO]>>
+    drule bit_width_lemma2>>
+    disch_then drule>>
+    intLib.ARITH_TAC)
+  >- (
+    drule INT_LE_ANTIMONO>>
+    disch_then (qspecl_then [`0`,`w y`] mp_tac)>>
+    simp[]>>
+    disch_then kall_tac>>
+    gvs[bit_width_def]>>
+    intLib.ARITH_TAC)
+  >- (
     match_mp_tac INT_LE_MONO_IMP>>
-    intLib.ARITH_TAC
+    CONJ_TAC >- intLib.ARITH_TAC>>
+    qsuff_tac`w y < &(2 ** h)` >- intLib.ARITH_TAC>>
+    Cases_on `w y < 0` >- intLib.ARITH_TAC>>
+    `?yy. w y = & yy` by intLib.ARITH_TAC>>
+    fs[]>>
+    irule bit_width_lemma1>>
+    metis_tac[])
 QED
 
 Definition max_ilin_term_def:
