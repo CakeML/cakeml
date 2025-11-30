@@ -2191,17 +2191,22 @@ Theorem evaluate_clock_dec =
       cj 1 is_clock_io_mono_evaluate;
 
 Theorem clock_to_io_mono =
-  cj 4 $ SRULE [PULL_FORALL] $ cj 1 $
+  (* cj 4 $ *) SRULE [PULL_FORALL] $ cj 1 $
     SRULE [is_clock_io_mono_def, pair_CASE_eq_forall] $
       cj 1 is_clock_io_mono_evaluate;
 
+Theorem evaluate_imp_clock[local] =
+  SRULE [is_clock_io_mono_def, pair_CASE_eq_forall] $
+        cj 1 is_clock_io_mono_evaluate;
 
-Theorem evaluate_timeout_smaller_clock:
+(*
+Theorem evaluate_timeout_smaller_clock[local]:
   ∀ (st:'ffi state) st' ck env e .
     evaluate st env [e] = (st', Rerr (Rabort Rtimeout_error)) ∧
     ck ≤ st.clock
     ⇒
-    ∃ st'' . evaluate (st with clock := ck) env [e] = (st'', Rerr (Rabort Rtimeout_error)) /\
+    ∃ st'' .
+      evaluate (st with clock := ck) env [e] = (st'', Rerr (Rabort Rtimeout_error)) /\
       io_events_mono st''.ffi st'.ffi (*this io_events_mono bit doesn't seem to help*)
 Proof
   rpt strip_tac
@@ -2254,6 +2259,57 @@ Proof
   )
   >> cheat
 QED
+*)
+
+Theorem evaluate_too_small_clock_lemma_1[local]:
+  evaluate (st with clock := ck') mlenv es =
+  evaluate (st' with clock := 0) mlenv' es' ∧
+  ck < ck' ⇒
+  ∃st''.
+    evaluate (st with clock := ck) mlenv es =
+    (st'',Rerr (Rabort Rtimeout_error))
+Proof
+  Cases_on ‘evaluate (st' with clock := 0) mlenv' es'’
+  \\ Cases_on ‘r = Rerr (Rabort Rtimeout_error)’
+  >- cheat (* easy *)
+  \\ ‘q.clock = 0’ by (drule evaluate_imp_clock \\ simp [])
+  \\ strip_tac
+  \\ CCONTR_TAC \\ fs []
+  \\ Cases_on ‘evaluate (st with clock := ck) mlenv es’ \\ gvs []
+  \\ ‘∃extra. ck' = ck + extra ∧ extra ≠ 0’ by
+    (qexists_tac ‘ck' - ck’ \\ decide_tac)
+  \\ gvs []
+  \\ drule_all evaluate_add_to_clock
+  \\ disch_then $ qspec_then ‘extra’ assume_tac
+  \\ fs [state_component_equality]
+QED
+
+Theorem evaluate_too_small_clock_lemma[local]:
+  evaluate (st with clock := ck') mlenv es =
+  evaluate (st' with clock := 0) mlenv' es' ∧
+  st.ffi = st'.ffi ∧
+  ck < ck' ⇒
+  ∃st''.
+    evaluate (st with clock := ck) mlenv es =
+    (st'',Rerr (Rabort Rtimeout_error)) ∧
+    st'.ffi = st''.ffi
+Proof
+  Cases_on ‘evaluate (st' with clock := 0) mlenv' es'’
+  \\ Cases_on ‘r = Rerr (Rabort Rtimeout_error)’
+  >- cheat (* ? *)
+  \\ ‘q.clock = 0’ by (drule evaluate_imp_clock \\ simp [])
+  \\ strip_tac
+  \\ CCONTR_TAC \\ fs []
+  \\ Cases_on ‘evaluate (st with clock := ck) mlenv es’ \\ gvs []
+  \\ ‘∃extra. ck' = ck + extra ∧ extra ≠ 0’ by
+    (qexists_tac ‘ck' - ck’ \\ decide_tac)
+  \\ gvs []
+  \\ Cases_on ‘r' = Rerr (Rabort Rtimeout_error)’ \\ gvs []
+  >- cheat
+  \\ drule_all evaluate_add_to_clock
+  \\ disch_then $ qspec_then ‘extra’ assume_tac
+  \\ fs [state_component_equality]
+QED
 
 Theorem diverges:
   ∀ e v mle mlv store ks (st:'ffi state) mlenv var kv ck_e ck .
@@ -2294,6 +2350,10 @@ Proof
   )
   >> first_x_assum $ qspec_then `0` assume_tac
   >> gvs[]
+  >> gvs [GSYM NOT_LESS]
+  >> drule_all evaluate_too_small_clock_lemma
+  >> fs []
+(*
   >> drule_then assume_tac evaluate_sufficient_smaller_clock
   >> gvs[]
   >> pop_assum $ qspec_then `ck` assume_tac
@@ -2301,5 +2361,5 @@ Proof
   >> irule io_events_mono_antisym
   >> drule_then assume_tac $ cj 1 evaluate_io_events_mono_imp
   >> gvs[]
+*)
 QED
-

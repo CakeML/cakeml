@@ -1,5 +1,8 @@
 Proofs for Scheme to CakeML compiler
 
+[scheme_compileCorrectScript.sml](scheme_compileCorrectScript.sml):
+Top-level semantic preservation proof for Scheme
+
 [scheme_semanticsPropsScript.sml](scheme_semanticsPropsScript.sml):
 Proofs of Scheme semantics properties
 
