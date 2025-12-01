@@ -2259,7 +2259,6 @@ Proof
   )
   >> cheat
 QED
-*)
 
 Theorem evaluate_too_small_clock_lemma_1[local]:
   evaluate (st with clock := ck') mlenv es =
@@ -2283,10 +2282,12 @@ Proof
   \\ disch_then $ qspec_then ‘extra’ assume_tac
   \\ fs [state_component_equality]
 QED
+*)
 
 Theorem evaluate_too_small_clock_lemma[local]:
   evaluate (st with clock := ck') mlenv es =
   evaluate (st' with clock := 0) mlenv' es' ∧
+  evaluate (st' with clock := 0) mlenv' es' = (q,r) ∧ st'.ffi = q.ffi ∧
   st.ffi = st'.ffi ∧
   ck < ck' ⇒
   ∃st''.
@@ -2294,9 +2295,20 @@ Theorem evaluate_too_small_clock_lemma[local]:
     (st'',Rerr (Rabort Rtimeout_error)) ∧
     st'.ffi = st''.ffi
 Proof
-  Cases_on ‘evaluate (st' with clock := 0) mlenv' es'’
+  Cases_on ‘evaluate (st' with clock := 0) mlenv' es' = (q,r)’ \\ simp []
+  \\ Cases_on ‘q.ffi = st'.ffi’ \\ simp []
   \\ Cases_on ‘r = Rerr (Rabort Rtimeout_error)’
-  >- cheat (* ? *)
+  >-
+   (Cases_on ‘evaluate (st with clock := ck) mlenv es’ \\ gvs []
+    \\ strip_tac
+    \\ drule evaluate_imp_clock
+    \\ strip_tac \\ gvs []
+    \\ first_x_assum $ qspec_then ‘ck’ assume_tac \\ rfs []
+    \\ gvs []
+    \\ imp_res_tac evaluatePropsTheory.evaluate_io_events_mono_imp
+    \\ fs []
+    \\ irule evaluatePropsTheory.io_events_mono_antisym
+    \\ simp [] \\ metis_tac [])
   \\ ‘q.clock = 0’ by (drule evaluate_imp_clock \\ simp [])
   \\ strip_tac
   \\ CCONTR_TAC \\ fs []
@@ -2305,10 +2317,29 @@ Proof
     (qexists_tac ‘ck' - ck’ \\ decide_tac)
   \\ gvs []
   \\ Cases_on ‘r' = Rerr (Rabort Rtimeout_error)’ \\ gvs []
-  >- cheat
+  >-
+   (drule evaluate_imp_clock
+    \\ strip_tac \\ gvs []
+    \\ pop_assum $ qspec_then ‘ck + extra’ assume_tac \\ gvs []
+    \\ qpat_x_assum ‘_ es = (q,r)’ assume_tac
+    \\ drule evaluate_imp_clock
+    \\ strip_tac \\ gvs []
+    \\ pop_assum $ qspec_then ‘ck’ assume_tac
+    \\ rfs []
+    \\ qpat_x_assum ‘st'.ffi ≠ q'.ffi’ mp_tac \\ simp []
+    \\ irule evaluatePropsTheory.io_events_mono_antisym
+    \\ simp [] \\ metis_tac [])
   \\ drule_all evaluate_add_to_clock
   \\ disch_then $ qspec_then ‘extra’ assume_tac
   \\ fs [state_component_equality]
+QED
+
+Theorem cps_rel_clock_zero_ffi_eq:
+  cps_rel st e k mlenv kv mle ∧
+  evaluate (st with clock := 0) mlenv [mle] = (st1,res) ⇒
+  st.ffi = st1.ffi
+Proof
+  cheat
 QED
 
 Theorem diverges:
@@ -2351,7 +2382,11 @@ Proof
   >> first_x_assum $ qspec_then `0` assume_tac
   >> gvs[]
   >> gvs [GSYM NOT_LESS]
-  >> drule_all evaluate_too_small_clock_lemma
+  >> drule evaluate_too_small_clock_lemma
+  >> Cases_on ‘evaluate (st' with clock := 0) mlenv' [mle']’ >> simp []
+  >> drule_all cps_rel_clock_zero_ffi_eq >> strip_tac
+  >> disch_then drule_all
+  >> strip_tac
   >> fs []
 (*
   >> drule_then assume_tac evaluate_sufficient_smaller_clock
