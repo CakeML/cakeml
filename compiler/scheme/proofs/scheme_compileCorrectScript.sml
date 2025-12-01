@@ -215,6 +215,72 @@ Proof
     scheme_out_oracle_def,v_to_string_def]
 QED
 
+Theorem scheme_semantics_preservation_diverges:
+  ∀ prog cml_prog v st env .
+    scheme_semantics_prog prog (SDiverge) /\
+    static_scope_check prog = INR prog /\
+    codegen prog = INR cml_prog
+    ==>
+    semantics_prog (init_state scheme_out_oracle) init_env cml_prog
+                   (Diverge [||])
+Proof
+  simp[semantics_prog_def, scheme_semantics_prog_def]
+  >> simp[static_scope_check_def]
+  >> simp_tac std_ss [codegen_def]
+  >> simp[evaluate_prog_with_clock_def]
+  >> rpt strip_tac
+  >>> LASTGOAL cheat
+  >> qspec_then `scheme_out_oracle` assume_tac scheme_init_evaluate_dec
+  >> gvs[]
+  >> Cases_on `ck1 <= k`
+  >>> LASTGOAL cheat
+  >> gvs[LESS_EQ_EXISTS]
+  >> gvs[scheme_init_def]
+  >> simp[Once evaluate_decs_append]
+  >> dxrule_then assume_tac evaluate_decs_add_to_clock
+  >> gvs[]
+  >> pop_assum kall_tac
+  >> simp[Ntimes evaluate_decs_def 2]
+  >> simp[compile_scheme_prog_def]
+  >> simp[pat_bindings_def]
+  >> simp[extend_dec_env_def]
+  >> simp[Once scheme_init_env_defs]
+  >> simp[Once scheme_init_env_defs]
+  >> simp[Once scheme_init_env_defs]
+  >> simp[Once scheme_init_env_defs]
+  >> simp[Once scheme_init_env_defs]
+  >> simp[Once scheme_init_env_defs]
+  >> simp[Once scheme_init_env_defs]
+  >> simp[Once scheme_init_env_defs]
+  >> simp[Once scheme_init_env_defs]
+  >> simp[Once scheme_init_env_defs]
+  >> simp[Once scheme_init_env_defs]
+  >> simp[Once scheme_init_env_defs]
+  >> simp[GSYM scheme_cons_env_def]
+  >> simp[every_one_con_check]
+
+  >> simp[GSYM merge_env_def]
+  >> simp[GSYM scheme_to_cake_env_def]
+  >> simp[pmatch_def]
+  >> simp[Ntimes evaluate_def 2, nsOptBind_def]
+
+  >> gvs[scheme_semanticsTheory.steps_def]
+  >> drule_then assume_tac (diverges |> INST_TYPE [“:'ffi”|->“:unit”] |> SRULE [])
+
+  >> gvs[Once cont_rel_cases, Once valid_state_cases]
+  >> gvs[Once valid_cont_cases, can_lookup_cases, FEVERY_FEMPTY]
+  >> gvs[Once cps_rel_cases]
+  >> qmatch_goalsub_abbrev_tac `evaluate _ newenv [_]`
+  >> first_x_assum $ qspecl_then
+       [`scheme_to_cake_env_st_1 scheme_out_oracle`, `newenv`] assume_tac
+  >> unabbrev_all_tac
+  >> gvs[scheme_init_st_defs]
+  >> gvs[scheme_env_sub, scheme_runtime_funs_def, basis_scheme_env]
+  >> pop_assum $ qspec_then `ck2 + p` assume_tac
+  >> gvs[]
+  >> simp[combine_dec_result_def]
+QED
+
 Theorem imp_semantics_prog:
   evaluate_decs (st with clock := ck) env p = (st1, Rval r) ∧
   st1.ffi.io_events = out ⇒
