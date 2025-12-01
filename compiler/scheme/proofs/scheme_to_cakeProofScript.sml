@@ -2334,12 +2334,118 @@ Proof
   \\ fs [state_component_equality]
 QED
 
+Definition scheme_exp_unique_decomp_def:
+  scheme_exp_unique_decomp (Lit v) = T /\
+  scheme_exp_unique_decomp (Lambda xs xp e) = T /\
+  scheme_exp_unique_decomp (Ident x) = T /\
+  scheme_exp_unique_decomp (Cond c t f) = scheme_exp_unique_decomp c /\
+  scheme_exp_unique_decomp (Apply fn args) = scheme_exp_unique_decomp fn /\
+  scheme_exp_unique_decomp (Begin [] e) = scheme_exp_unique_decomp e /\
+  scheme_exp_unique_decomp (Begin (e::es) e') = scheme_exp_unique_decomp e /\
+  scheme_exp_unique_decomp (Set x e) = scheme_exp_unique_decomp e /\
+  scheme_exp_unique_decomp (Letrec [] e) = scheme_exp_unique_decomp e /\
+  scheme_exp_unique_decomp (Letrec ((x,e)::bs) e') = scheme_exp_unique_decomp e /\
+  scheme_exp_unique_decomp (Letrecstar [] e) = scheme_exp_unique_decomp e /\
+  scheme_exp_unique_decomp (Letrecstar ((x,e)::bs) e') = scheme_exp_unique_decomp e
+End
+
+Theorem cps_transform_clock_zero_ffi_eq:
+  ! prog k kv (st :'ffi state) env st' res .
+    scheme_env env /\
+    evaluate (st with clock := 0) env [cps_transform prog k] = (st', res)
+    ==>
+    st.ffi = st'.ffi
+Proof
+  ho_match_mp_tac scheme_exp_unique_decomp_ind
+  >> rpt strip_tac
+  >- (
+    gvs[cps_transform_def]
+    >> gvs[evaluate_def]
+    >> Cases_on `prog`
+    >~ [`LitPrim p`] >>> HEADGOAL $ Cases_on `p`
+    >~ [`LitBool b`] >>> HEADGOAL $ Cases_on `b`
+    >> gvs[lit_to_ml_val_def, evaluate_def, do_con_check_def, build_conv_def]
+    >> rpt (FULL_CASE_TAC >> gvs[])
+  )
+  >- (
+    gvs[cps_transform_def]
+    >> gvs[evaluate_def, do_app_def, do_con_check_def, build_conv_def]
+    >> rpt (FULL_CASE_TAC >> gvs[])
+  )
+  >- (
+    gvs[cps_transform_def]
+    >> gvs[evaluate_def, do_app_def, do_con_check_def, build_conv_def]
+    >> rpt (FULL_CASE_TAC >> gvs[])
+  )
+  >~ [`Letrec ((_,_)::_) _`] >- (
+    gvs[cps_transform_def, letinit_ml_def, letpreinit_ml_def]
+    >> gvs[evaluate_def, do_app_def, store_alloc_def, nsOptBind_def]
+    >> qmatch_asmsub_abbrev_tac `evaluate _ newenv _`
+    >> `scheme_env newenv` by (unabbrev_all_tac >> simp[scheme_env_sub, scheme_runtime_funs_def])
+    >> gvs[letpreinit_ml_eval]
+    >> gvs[evaluate_def, nsOptBind_def]
+    >> last_x_assum $ drule_at_then (Pos last) assume_tac
+    >> gvs[scheme_env_sub, scheme_runtime_funs_def, letpreinit_mlenv_def]
+    >> pop_assum irule
+    >> gvs[scheme_env_def]
+    >> simp[nsLookup_nsAppend_some, id_to_mods_def,
+      nsLookup_def, ALOOKUP_NONE, MEM_MAP]
+    >> first_assum $ irule_at $ Pos hd
+    >> qexists `env_list'`
+    >> simp[]
+    >> rpt strip_tac
+    >> disj2_tac
+    >> PairCases
+    >> simp[]
+  )
+  >~ [`Letrecstar ((_,_)::_) _`] >- (
+    gvs[cps_transform_def, letinit_ml_def, letpreinit_ml_def]
+    >> gvs[evaluate_def, do_app_def, store_alloc_def, nsOptBind_def]
+    >> qmatch_asmsub_abbrev_tac `evaluate _ newenv _`
+    >> `scheme_env newenv` by (unabbrev_all_tac >> simp[scheme_env_sub, scheme_runtime_funs_def])
+    >> gvs[letpreinit_ml_eval]
+    >> gvs[evaluate_def, nsOptBind_def]
+    >> last_x_assum $ drule_at_then (Pos last) assume_tac
+    >> gvs[scheme_env_sub, scheme_runtime_funs_def, letpreinit_mlenv_def]
+    >> pop_assum irule
+    >> gvs[scheme_env_def]
+    >> simp[nsLookup_nsAppend_some, id_to_mods_def,
+      nsLookup_def, ALOOKUP_NONE, MEM_MAP]
+    >> first_assum $ irule_at $ Pos hd
+    >> qexists `env_list'`
+    >> simp[]
+    >> rpt strip_tac
+    >> disj2_tac
+    >> PairCases
+    >> simp[]
+  )
+  >> gvs[cps_transform_def]
+  >> gvs[evaluate_def, nsOptBind_def, letinit_ml_def, letpreinit_ml_def]
+  >> last_x_assum $ drule_at_then (Pos last) irule
+  >> simp[scheme_env_sub, scheme_runtime_funs_def]
+QED
+
 Theorem cps_rel_clock_zero_ffi_eq:
   cps_rel st e k mlenv kv mle ∧
   evaluate (st with clock := 0) mlenv [mle] = (st1,res) ⇒
   st.ffi = st1.ffi
 Proof
-  cheat
+  strip_tac
+  >> gvs[Once cps_rel_cases]
+  >- (
+    gvs[evaluate_def]
+    >> FULL_CASE_TAC
+    >> gvs[]
+    >> Cases_on `x`
+    >> gvs[]
+  )
+  >- (
+    irule cps_transform_clock_zero_ffi_eq
+    >> rpt $ first_assum $ irule_at Any
+  )
+  >> gvs[evaluate_def]
+  >> rpt FULL_CASE_TAC
+  >> gvs[]
 QED
 
 Theorem diverges:
