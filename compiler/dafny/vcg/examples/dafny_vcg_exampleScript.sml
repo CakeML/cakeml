@@ -525,7 +525,7 @@ Proof
   EVAL_TAC \\ IF_CASES_TAC \\ simp []
 QED
 
-Theorem mccarthy_appreturns[local]:
+Theorem mccarthy_appreturns:
   compile_member mccarthy = INR mccarthy_cml ∧
   clos_env_ok clos_env
   ⇒
