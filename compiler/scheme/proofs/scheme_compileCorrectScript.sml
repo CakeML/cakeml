@@ -215,25 +215,42 @@ Proof
     scheme_out_oracle_def,v_to_string_def]
 QED
 
-Theorem scheme_semantics_preservation_diverges:
+Theorem lprefix_lub_LNIL:
+  s = { [||] } ⇒ lprefix_lub s [||]
+Proof
+  fs [lprefix_lubTheory.lprefix_lub_def]
+QED
+
+Theorem scheme_semantics_preservation_diverges_lemma:
   ∀ prog cml_prog v st env .
     scheme_semantics_prog prog (SDiverge) /\
     static_scope_check prog = INR prog /\
     codegen prog = INR cml_prog
     ==>
-    semantics_prog (init_state scheme_out_oracle) init_env cml_prog
-                   (Diverge [||])
+    ∀k.
+      ∃ffi.
+        evaluate_prog_with_clock
+          (init_state scheme_out_oracle) init_env k cml_prog
+        =
+        (ffi, Rerr (Rabort Rtimeout_error)) ∧ ffi.io_events = []
 Proof
+  cheat
+(*
   simp[semantics_prog_def, scheme_semantics_prog_def]
   >> simp[static_scope_check_def]
   >> simp_tac std_ss [codegen_def]
   >> simp[evaluate_prog_with_clock_def]
-  >> rpt strip_tac
-  >>> LASTGOAL cheat
+  >> reverse $ rpt strip_tac
+  >-
+   (irule lprefix_lub_LNIL \\ simp [EXTENSION] \\ rw []
+    \\ ho_match_mp_tac lemma
+    \\ simp [llistTheory.fromList_EQ_LNIL]
+    \\ simp [UNCURRY]
+    \\ cheat)
   >> qspec_then `scheme_out_oracle` assume_tac scheme_init_evaluate_dec
   >> gvs[]
-  >> Cases_on `ck1 <= k`
-  >>> LASTGOAL cheat
+  >> reverse $ Cases_on `ck1 <= k` (* might not be the right case split here *)
+  >- cheat
   >> gvs[LESS_EQ_EXISTS]
   >> gvs[scheme_init_def]
   >> simp[Once evaluate_decs_append]
@@ -279,6 +296,32 @@ Proof
   >> pop_assum $ qspec_then `ck2 + p` assume_tac
   >> gvs[]
   >> simp[combine_dec_result_def]
+*)
+QED
+
+Theorem div_lnil_lemma[local]:
+  (∀k. f k = [||]) ⇒ ((∃k. x = f k) ⇔ x = [||])
+Proof
+  metis_tac []
+QED
+
+Theorem scheme_semantics_preservation_diverges:
+  ∀ prog cml_prog v st env .
+    scheme_semantics_prog prog (SDiverge) /\
+    static_scope_check prog = INR prog /\
+    codegen prog = INR cml_prog
+    ==>
+    semantics_prog (init_state scheme_out_oracle) init_env cml_prog
+                   (Diverge [||])
+Proof
+  rpt strip_tac
+  \\ dxrule_all scheme_semantics_preservation_diverges_lemma
+  \\ simp [] \\ strip_tac
+  \\ simp [semantics_prog_def]
+  \\ conj_tac >- metis_tac []
+  \\ irule lprefix_lub_LNIL \\ simp [EXTENSION] \\ rw []
+  \\ ho_match_mp_tac div_lnil_lemma \\ rw []
+  \\ last_x_assum $ qspec_then ‘k’ strip_assume_tac \\ fs []
 QED
 
 Theorem imp_semantics_prog:
