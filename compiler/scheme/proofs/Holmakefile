@@ -2,6 +2,7 @@ INCLUDES = $(CAKEMLDIR)/translator \
            $(CAKEMLDIR)/basis \
            $(CAKEMLDIR)/basis/pure \
            $(CAKEMLDIR)/compiler/parsing \
+           $(CAKEMLDIR)/compiler/backend/proofs \
            $(CAKEMLDIR)/semantics \
            $(CAKEMLDIR)/semantics/proofs \
            $(CAKEMLDIR)/misc \

@@ -12,3 +12,6 @@ Proof of semantic preservation from Scheme to CakeML
 [scheme_to_cake_envScript.sml](scheme_to_cake_envScript.sml):
 Defines the env and state that results from running evaluate_decs
 through the scheme-to-cake compilers init code.
+
+[scheme_to_machine_code_correctScript.sml](scheme_to_machine_code_correctScript.sml):
+End-to-end correctness of Scheme compiler
