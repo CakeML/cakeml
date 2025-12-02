@@ -32,8 +32,7 @@ Theorem scheme_to_machine_code_terminates:
   codegen prog = INR cml_prog
   ⇒
   compile c cml_prog = SOME (bytes,bitmaps,c') ∧
-  backend_config_ok c ∧
-  lab_to_targetProof$mc_conf_ok mc ∧ mc_init_ok c mc ∧
+  backend_config_ok c ∧ mc_conf_ok mc ∧ mc_init_ok c mc ∧
   installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
             (heap_regs c.stack_conf.reg_names) mc c'.lab_conf.shmem_extra ms
   ⇒
