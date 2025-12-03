@@ -160,6 +160,90 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Definition encode_greater_equal_def:
+  encode_greater_equal bnd Zr X Y =
+  let constr = mk_constraint_ge 1 X (-1) Y 0 in
+  case Zr of
+    NONE => [constr]
+  | SOME (INL Z) =>
+    [bits_imply bnd [Pos (INL (Ge Z 1))] constr]
+  | SOME (INR Z) =>
+    bimply_bits bnd [Pos (INL (Ge Z 1))] constr
+End
+
+Theorem encode_greater_equal_sem_1:
+  valid_assignment bnd wi ∧
+  reify_sem Zr wi
+    (varc wi X ≥ varc wi Y) ⇒
+  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
+    (encode_greater_equal bnd Zr X Y)
+Proof
+  rw[reify_sem_def,encode_greater_equal_def]>>
+  gvs[AllCasePreds(),reify_avar_def,reify_reif_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem encode_greater_equal_sem_2:
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_greater_equal bnd Zr X Y) ⇒
+  reify_sem Zr wi
+    (varc wi X ≥ varc wi Y)
+Proof
+  cheat
+QED
+
+Definition encode_greater_than_def:
+  encode_greater_than bnd Zr X Y =
+  let constr = mk_constraint_ge 1 X (-1) Y 1 in
+  case Zr of
+    NONE => [constr]
+  | SOME (INL Z) =>
+    [bits_imply bnd [Pos (INL (Ge Z 1))] constr]
+  | SOME (INR Z) =>
+    bimply_bits bnd [Pos (INL (Ge Z 1))] constr
+End
+
+Definition encode_less_equal_def:
+  encode_less_equal bnd Zr X Y =
+  let constr = mk_constraint_ge (-1) X 1 Y 0 in
+  case Zr of
+    NONE => [constr]
+  | SOME (INL Z) =>
+    [bits_imply bnd [Pos (INL (Ge Z 1))] constr]
+  | SOME (INR Z) =>
+    bimply_bits bnd [Pos (INL (Ge Z 1))] constr
+End
+
+Definition encode_less_than_def:
+  encode_less_than bnd Zr X Y =
+  let constr = mk_constraint_ge (-1) X 1 Y 1 in
+  case Zr of
+    NONE => [constr]
+  | SOME (INL Z) =>
+      [bits_imply bnd [Pos (INL (Ge Z 1))] constr]
+  | SOME (INR Z) =>
+      bimply_bits bnd [Pos (INL (Ge Z 1))] constr
+End
+
+Definition encode_negative_def:
+  encode_negative X Y =
+  [
+    mk_constraint_ge 1 X (-1) Y 0;
+    mk_constraint_ge (-1) X 1 Y 0
+  ]
+End
+
+Definition encode_abs_def:
+  encode_abs bnd X Y =
+  [
+    bits_imply bnd [Pos (INL (Ge X 0))] (mk_constraint_ge 1 X (-1) Y 0);
+    bits_imply bnd [Pos (INL (Ge X 0))] (mk_constraint_ge (-1) X 1 Y 0);
+    bits_imply bnd [Neg (INL (Ge X 0))] (mk_constraint_ge 1 X 1 Y 0);
+    bits_imply bnd [Neg (INL (Ge X 0))] (mk_constraint_ge (-1) X (-1) Y 0)
+  ]
+End
+
 Definition encode_prim_constr_def:
   encode_prim_constr bnd c name =
   case c of
@@ -167,7 +251,10 @@ Definition encode_prim_constr_def:
       (case cmp of
         Equal => encode_equal bnd Zr X Y name
       | NotEqual => encode_not_equal bnd Zr X Y name
-      | _ => ARB)
+      | GreaterEqual => encode_greater_equal bnd Zr X Y
+      | GreaterThan => encode_greater_than bnd Zr X Y
+      | LessEqual => encode_less_equal bnd Zr X Y
+      | LessThan => encode_less_than bnd Zr X Y)
   | _ => ARB
 End
 
