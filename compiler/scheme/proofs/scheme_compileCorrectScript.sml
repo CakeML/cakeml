@@ -221,6 +221,45 @@ Proof
   fs [lprefix_lubTheory.lprefix_lub_def]
 QED
 
+Theorem decs_smaller_clock_io_mono[local] =
+  cj 4 $ SRULE [PULL_FORALL] $ cj 6 $
+    SRULE [is_clock_io_mono_def, pair_CASE_eq_forall] $
+      cj 1 is_clock_io_mono_evaluate_decs;
+
+Theorem evaluate_decs_timeout_smaller_clock[local]:
+  ∀ (st:'ffi state) st' ck env e .
+    evaluate_decs st env e = (st', Rerr (Rabort Rtimeout_error)) ∧
+    ck ≤ st.clock
+    ⇒
+    ∃ st'' .
+      evaluate_decs (st with clock := ck) env e = (st'', Rerr (Rabort Rtimeout_error)) /\
+      io_events_mono st''.ffi st'.ffi
+Proof
+  rpt strip_tac
+  >> gvs[LESS_EQ_EXISTS]
+  >> Cases_on ‘evaluate_decs (st with clock := ck) env e’
+  >> gvs[]
+  >> conj_tac >- (
+    spose_not_then assume_tac
+    >> drule_all_then assume_tac evaluate_decs_add_to_clock
+    >> gvs[]
+    >> pop_assum $ qspec_then `p` assume_tac
+    >> gvs[]
+    >> qpat_assum `_ = _ + _` $ gvs o single o GSYM
+  )
+  >> irule decs_smaller_clock_io_mono
+  >> pop_assum $ irule_at $ Pos last
+  >> gvs[]
+QED
+
+Theorem TRUE_AND_IMP_FALSE_IND:
+  ! P . P T /\ (P T ==> P F) ==> ! b . P b
+Proof
+  rpt strip_tac
+  >> Cases_on `b`
+  >> gvs[]
+QED
+
 Theorem scheme_semantics_preservation_diverges_lemma:
   ∀ prog cml_prog v st env .
     scheme_semantics_prog prog (SDiverge) /\
@@ -234,23 +273,25 @@ Theorem scheme_semantics_preservation_diverges_lemma:
         =
         (ffi, Rerr (Rabort Rtimeout_error)) ∧ ffi.io_events = []
 Proof
-  cheat
-(*
   simp[semantics_prog_def, scheme_semantics_prog_def]
   >> simp[static_scope_check_def]
   >> simp_tac std_ss [codegen_def]
   >> simp[evaluate_prog_with_clock_def]
-  >> reverse $ rpt strip_tac
-  >-
-   (irule lprefix_lub_LNIL \\ simp [EXTENSION] \\ rw []
-    \\ ho_match_mp_tac lemma
-    \\ simp [llistTheory.fromList_EQ_LNIL]
-    \\ simp [UNCURRY]
-    \\ cheat)
+  >> rpt strip_tac
   >> qspec_then `scheme_out_oracle` assume_tac scheme_init_evaluate_dec
   >> gvs[]
-  >> reverse $ Cases_on `ck1 <= k` (* might not be the right case split here *)
-  >- cheat
+  >> reverse $ Induct_on `ck1 <= k` using TRUE_AND_IMP_FALSE_IND
+  >> rpt strip_tac
+  >> gvs[]
+  >- (
+    spose_not_then assume_tac
+    >> first_x_assum $ qspecl_then [`ck1`, `ck1`] assume_tac
+    >> gvs[]
+    >> rpt (pairarg_tac >> gvs[])
+    >> drule_then assume_tac evaluate_decs_timeout_smaller_clock
+    >> pop_assum $ qspec_then `k` assume_tac
+    >> gvs[io_events_mono_def]
+  )
   >> gvs[LESS_EQ_EXISTS]
   >> gvs[scheme_init_def]
   >> simp[Once evaluate_decs_append]
@@ -296,7 +337,7 @@ Proof
   >> pop_assum $ qspec_then `ck2 + p` assume_tac
   >> gvs[]
   >> simp[combine_dec_result_def]
-*)
+  >> simp[scheme_out_oracle_def]
 QED
 
 Theorem div_lnil_lemma[local]:
