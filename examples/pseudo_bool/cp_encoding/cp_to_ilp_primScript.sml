@@ -166,8 +166,10 @@ Definition encode_greater_equal_def:
   case Zr of
     NONE => [constr]
   | SOME (INL Z) =>
+    encode_ge bnd Z 1 ++
     [bits_imply bnd [Pos (INL (Ge Z 1))] constr]
   | SOME (INR Z) =>
+    encode_ge bnd Z 1 ++
     bimply_bits bnd [Pos (INL (Ge Z 1))] constr
 End
 
@@ -190,7 +192,14 @@ Theorem encode_greater_equal_sem_2:
   reify_sem Zr wi
     (varc wi X ≥ varc wi Y)
 Proof
-  cheat
+  rw[reify_sem_def,encode_greater_equal_def]>>
+  Cases_on ‘Zr’>>
+  gvs[AllCasePreds()]
+  >- intLib.ARITH_TAC>>
+  rename1 ‘Z = INL _’>>
+  Cases_on ‘Z’>>
+  gvs[reify_avar_def,reify_reif_def]>>
+  intLib.ARITH_TAC
 QED
 
 Definition encode_greater_than_def:
@@ -199,8 +208,10 @@ Definition encode_greater_than_def:
   case Zr of
     NONE => [constr]
   | SOME (INL Z) =>
+    encode_ge bnd Z 1 ++
     [bits_imply bnd [Pos (INL (Ge Z 1))] constr]
   | SOME (INR Z) =>
+    encode_ge bnd Z 1 ++
     bimply_bits bnd [Pos (INL (Ge Z 1))] constr
 End
 
@@ -210,8 +221,10 @@ Definition encode_less_equal_def:
   case Zr of
     NONE => [constr]
   | SOME (INL Z) =>
+    encode_ge bnd Z 1 ++
     [bits_imply bnd [Pos (INL (Ge Z 1))] constr]
   | SOME (INR Z) =>
+    encode_ge bnd Z 1 ++
     bimply_bits bnd [Pos (INL (Ge Z 1))] constr
 End
 
@@ -221,9 +234,11 @@ Definition encode_less_than_def:
   case Zr of
     NONE => [constr]
   | SOME (INL Z) =>
-      [bits_imply bnd [Pos (INL (Ge Z 1))] constr]
+    encode_ge bnd Z 1 ++
+    [bits_imply bnd [Pos (INL (Ge Z 1))] constr]
   | SOME (INR Z) =>
-      bimply_bits bnd [Pos (INL (Ge Z 1))] constr
+    encode_ge bnd Z 1 ++
+    bimply_bits bnd [Pos (INL (Ge Z 1))] constr
 End
 
 Definition encode_negative_def:
