@@ -539,6 +539,16 @@ Proof
     rw [do_app_cases] \\ gs []
     \\ simp [Boolv_def]
     \\ rw [perms_ok_def])
+  \\ Cases_on ‘∃a ty. op = Arith a ty’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [Boolv_def]
+    \\ rw [perms_ok_def])
+  \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ \\ gs []
+  >- (
+    rw [do_app_cases] \\ gs []
+    \\ simp [Boolv_def]
+    \\ rw [perms_ok_def])
   \\ Cases_on ‘op = Opderef’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs []

@@ -359,10 +359,23 @@ Definition t_of_def[simp]:
   t_of Float64T    = Tdouble
 End
 
+Definition supported_arith_def[simp]:
+  supported_arith a (ty:prim_type) =
+    case a of
+    | Add => (NONE : num option)
+    | Xor => NONE
+    | FMA => NONE
+    | _   => NONE
+End
+
 Definition supported_test_def[simp]:
   supported_test Equal       ty = T ∧
   supported_test (Compare _) ty = MEM ty [IntT; CharT; WordT W8; Float64T] ∧
   supported_test _           ty = F
+End
+
+Definition supported_conversion_def[simp]:
+  supported_conversion (from_ty:prim_type) (to_ty:prim_type) = F
 End
 
 (* Check that the operator can have type (t1 -> ... -> tn -> t) *)
@@ -384,6 +397,10 @@ Definition type_op_def:
     | (Shift W8 _ _, [t1]) => (t1 = Tword8) /\ (t = Tword8)
     | (Shift W64 _ _, [t1]) => (t1 = Tword64) /\ (t = Tword64)
     | (Equality, [t1; t2]) => (t1 = t2) /\ (t = Tbool)
+    | (Arith a ty, ts) => EVERY (λarg. arg = t_of ty) ts /\ (t = t_of ty) /\
+                          supported_arith a ty = SOME (LENGTH ts)
+    | (FromTo ty1 ty2, [t1]) => (t1 = t_of ty1) /\ (t = t_of ty2) /\
+                                supported_conversion ty1 ty2
     | (Test test ty, [t1; t2]) => (t1 = t2) /\ (t = Tbool) /\ (t1 = t_of ty) /\
                                   supported_test test ty
     | (Opassign, [t1; t2]) => (t1 = Tref t2) /\ (t = Ttup [])

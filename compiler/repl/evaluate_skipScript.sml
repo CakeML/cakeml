@@ -873,6 +873,10 @@ Theorem do_app_update:
               res res1
 Proof
   strip_tac
+  \\ Cases_on ‘∃a ty. op = Arith a ty’ \\ gs []
+  >- (gvs [do_app_def] \\ rpt $ irule_at Any SUBMAP_REFL)
+  \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ \\ gs []
+  >- (gvs [do_app_def] \\ rpt $ irule_at Any SUBMAP_REFL)
   \\ Cases_on ‘∃test ty. op = Test test ty’ \\ gs []
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,

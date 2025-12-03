@@ -27,6 +27,8 @@ Definition simple_exp_def:
         VfromList => T
       | Aw8alloc => T
       | Test _ _ => T
+      | Arith _ _ => T
+      | FromTo _ _ => T
       | Opb _ => T
       | _ => F)
     | Lit lit => T

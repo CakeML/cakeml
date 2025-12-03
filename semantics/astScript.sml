@@ -4,7 +4,7 @@
 Theory ast
 Ancestors
   integer[qualified] words[qualified] string[qualified] namespace
-  location[qualified]
+  location[qualified] ast_temp
 
 (* Literal constants *)
 Datatype:
@@ -95,8 +95,12 @@ End
 
 Datatype:
   op =
+  (* primitive operations for the primitive types: +, -, and, sqrt, etc. *)
+    Arith arith prim_type
+  (* conversions between primitive types: char<->int, word<->double, word<->int *)
+  | FromTo prim_type prim_type
   (* Operations on integers *)
-    Opn opn
+  | Opn opn
   | Opb opb
   (* Operations on words *)
   | Opw word_size opw

@@ -695,6 +695,23 @@ Definition decode_prim_type_def:
   decode_prim_type _ = NONE
 End
 
+Definition decode_arith_def:
+  decode_arith (SX_SYM s) =
+    (if s = "Add" then SOME Add else
+     if s = "Sub" then SOME Sub else
+     if s = "Mul" then SOME Mul else
+     if s = "Div" then SOME Div else
+     if s = "Mod" then SOME Mod else
+     if s = "Neg" then SOME Neg else
+     if s = "And" then SOME And else
+     if s = "Xor" then SOME Xor else
+     if s = "Or"  then SOME Or  else
+     if s = "Not" then SOME Not else
+     if s = "Sqrt" then SOME Sqrt else
+     if s = "FMA" then SOME FMA else NONE) ∧
+  decode_arith _ = NONE
+End
+
 Definition sexpop_def:
   (sexpop (SX_SYM s) =
   if s = "OpnPlus" then SOME (Opn Plus) else
@@ -795,7 +812,15 @@ Definition sexpop_def:
     if s = "Shift64Asr" then SOME (Shift W64 Asr n) else
     if s = "Shift64Ror" then SOME (Shift W64 Ror n) else NONE) ∧
   (sexpop (SX_CONS (SX_SYM s) (SX_CONS x y)) =
-    if s = "Test" then
+    if s = "Arith" then
+      (case (decode_arith x, decode_prim_type y) of
+       | (SOME a, SOME prim_type) => SOME (Arith a prim_type)
+       | _ => NONE)
+    else if s = "FromTo" then
+      (case (decode_prim_type x, decode_prim_type y) of
+       | (SOME ty1, SOME ty2) => SOME (FromTo ty1 ty2)
+       | _ => NONE)
+    else if s = "Test" then
       (case (decode_test x, decode_prim_type y) of
        | (SOME test, SOME prim_type) => SOME (Test test prim_type)
        | _ => NONE)
@@ -1352,6 +1377,35 @@ Proof
   \\ fs [decode_test_def,testsexp_def]
 QED
 
+Definition arithsexp_def:
+  arithsexp Add = SX_SYM "Add" ∧
+  arithsexp Sub = SX_SYM "Sub" ∧
+  arithsexp Mul = SX_SYM "Mul" ∧
+  arithsexp Div = SX_SYM "Div" ∧
+  arithsexp Mod = SX_SYM "Mod" ∧
+  arithsexp And = SX_SYM "And" ∧
+  arithsexp Xor = SX_SYM "Xor" ∧
+  arithsexp Or  = SX_SYM "Or" ∧
+  arithsexp Not = SX_SYM "Not" ∧
+  arithsexp Neg = SX_SYM "Neg" ∧
+  arithsexp Sqrt = SX_SYM "Sqrt" ∧
+  arithsexp FMA = SX_SYM "FMA"
+End
+
+Theorem arithsexp_11[simp]:
+   ∀l1 l2. arithsexp l1 = arithsexp l2 ⇔ l1 = l2
+Proof
+  rw []
+  \\ simp [oneline arithsexp_def]
+  \\ every_case_tac \\ fs []
+QED
+
+Theorem sexparith_arithsexp[simp]:
+  ∀x. decode_arith (arithsexp x) = SOME x
+Proof
+  Cases \\ fs [decode_arith_def,arithsexp_def]
+QED
+
 Definition prim_typesexp_def:
   prim_typesexp BoolT = SX_SYM "BoolT" ∧
   prim_typesexp IntT = SX_SYM "IntT" ∧
@@ -1623,6 +1677,14 @@ Definition opsexp_def:
     SX_CONS (SX_SYM "AllocThunk") (SX_SYM (encode_thunk_mode m))) ∧
   (opsexp (ThunkOp (UpdateThunk m)) =
     SX_CONS (SX_SYM "UpdateThunk") (SX_SYM (encode_thunk_mode m))) ∧
+  (opsexp (Arith a prim_type) =
+    SX_CONS (SX_SYM "Arith") $
+    SX_CONS (arithsexp a)
+            (prim_typesexp prim_type)) ∧
+  (opsexp (FromTo ty1 ty2) =
+    SX_CONS (SX_SYM "FromTo") $
+    SX_CONS (prim_typesexp ty1)
+            (prim_typesexp ty2)) ∧
   (opsexp (Test test prim_type) =
     SX_CONS (SX_SYM "Test") $
     SX_CONS (testsexp test)
@@ -2012,6 +2074,13 @@ Proof
   \\ simp [testsexp_def]
 QED
 
+Theorem decode_arith_arithsexp:
+  decode_arith s = SOME arith ⇒ arithsexp arith = s
+Proof
+  rw [oneline decode_arith_def, AllCaseEqs()]
+  \\ simp [arithsexp_def]
+QED
+
 Theorem decode_prim_type_prim_typesexp:
   decode_prim_type s0 = SOME prim_type ⇒
   prim_typesexp prim_type = s0
@@ -2029,7 +2098,8 @@ Proof
   \\ Cases_on ‘s2’
   \\ gvs[sexpop_def, AllCaseEqs(), opsexp_def, encode_decode_control]
   \\ gvs [encode_thunk_mode_def,decode_thunk_mode_def,AllCaseEqs(),
-          decode_test_testsexp,decode_prim_type_prim_typesexp]
+          decode_test_testsexp,decode_prim_type_prim_typesexp,
+          decode_arith_arithsexp]
 QED
 
 Theorem lopsexp_sexplop:
@@ -2205,6 +2275,12 @@ Theorem valid_sexp_prim_typesexp[simp]:
 Proof
   Cases \\ EVAL_TAC \\ fs []
   \\ Cases_on ‘w’ \\ fs [] \\ EVAL_TAC
+QED
+
+Theorem valid_sexp_arithsexp[local,simp]:
+  valid_sexp (arithsexp a)
+Proof
+  Cases_on ‘a’ \\ EVAL_TAC
 QED
 
 Theorem opsexp_valid[simp]:

@@ -1259,6 +1259,24 @@ Proof
   Cases \\ gvs [int_cmp_def] \\ intLib.COOPER_TAC
 QED
 
+Theorem op_arith:
+  (∃a ty. op = Arith a ty) ==>
+  ^op_goal
+Proof
+  rpt strip_tac \\ rveq \\ fs []
+  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
+         CaseEq "ast$lit",store_assign_def,option_case_eq]
+QED
+
+Theorem op_from_to:
+  (∃ty1 ty2. op = FromTo ty1 ty2) ==>
+  ^op_goal
+Proof
+  rpt strip_tac \\ rveq \\ fs []
+  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
+         CaseEq "ast$lit",store_assign_def,option_case_eq]
+QED
+
 Theorem op_test:
   (∃test ty. op = Test test ty) ==>
   ^op_goal
@@ -1403,9 +1421,10 @@ Theorem compile_op_correct:
   ^op_goal
 Proof
   EVERY (map assume_tac
-    [op_refs, op_chars, op_ints, op_words, op_str, op_shifts, op_thunk,
-     op_floats, op_eq_gc, op_byte_arrays, op_vectors, op_arrays, op_test,
-     op_globals, op_blocks, op_ffi, op_byte_copy, op_eval, op_id])
+    [op_refs, op_chars, op_ints, op_words, op_str, op_shifts,
+     op_thunk, op_floats, op_eq_gc, op_byte_arrays, op_vectors,
+     op_arrays, op_test, op_arith, op_from_to, op_globals, op_blocks,
+     op_ffi, op_byte_copy, op_eval, op_id])
   \\ `?this_is_case. this_is_case op` by (qexists_tac `K T` \\ fs [])
   \\ rpt strip_tac \\ fs [] \\ Cases_on `op` \\ fs []
 QED
