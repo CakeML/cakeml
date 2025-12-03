@@ -10,7 +10,6 @@ Libs
 Type senv = “:(mlstring |-> num)”
 Type loc = “:num”
 
-(* This needs completing: Var, Lit, ... *)
 Datatype:
   prim = SAdd | SMul | SMinus | SEqv | CallCC
        | Cons | Car | Cdr | IsNull | IsPair

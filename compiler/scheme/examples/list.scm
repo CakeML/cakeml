@@ -25,6 +25,6 @@
      (cat (lambda (x) (foldl append null x))))
     ((lambda y
         ((lambda x
-             (el 9 (cat (cons x (cons y (cons y (cons x null)))))))
+             (eqv? 9 (el 6 (cat (cons x (cons y (cons y (cons x null))))))))
              1 2 3))
          9 8 7))

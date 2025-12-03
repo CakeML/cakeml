@@ -4,4 +4,4 @@
                    (if (eqv? n 1) n
                        (+ (fib (- n 1))
                           (fib (- n 2))))))))
-    (fib 30))
+    (eqv? (fib 10) 55))

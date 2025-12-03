@@ -1,35 +1,23 @@
 (letrec
-    ((nondet
+    ((mklist (lambda x x))
+     (nondet
       (lambda (fun)
           (call/cc
            (lambda (cc)
                (letrec ((k cc))
                    (fun
-                    (lambda (f n m)
-                         (letrec ((i n)
-                                  (last k))
+                    (lambda (l)
+                         (letrec ((last k))
                              (begin
                               (call/cc
-                               (lambda (cc) (set! k (lambda (v) (begin (set! i (+ i 1)) (cc v))))))
-                              (if (eqv? i m)
+                               (lambda (cc) (set! k (lambda (v) (begin (set! l (cdr l)) (cc v))))))
+                              (if (null? l)
                                   (begin (set! k last) (k (- 1)))
-                                  (f i)))))
-                    (lambda () (k (- 1)))))))))
+                                  (car l)))))
+                    (lambda () (k (- 1))))))))))
 
-     (triangle
-      (lambda (n)
-          (if (eqv? n 0) n
-              (+ n (triangle (- n 1))))))
-     (fib
-      (lambda (n)
-          (if (eqv? n 0) n
-              (if (eqv? n 1) n
-                  (+ (fib (- n 1))
-                     (fib (- n 2))))))))
-
-    ;(display
-     (nondet
+     (eqv? 6 (nondet
       (lambda (choose fail)
-          (letrec ((x (choose triangle 3 10))
-                   (y (choose fib 3 10)))
-              (if (eqv? x y) x (fail))))));)
+          (letrec ((x (choose (mklist 2 4 6 8)))
+                   (y (choose (mklist 3 6 9 12))))
+              (if (eqv? x y) x (fail)))))))

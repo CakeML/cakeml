@@ -32,10 +32,6 @@ Definition compile_def:
         | INR cake_prog => cake_prog_to_string cake_prog))
 End
 
-(*
-EVAL “compile "(print hi)"”
-*)
-
 Definition main_function_def:
   main_function s = implode (compile (explode s))
 End

@@ -141,12 +141,6 @@ Definition lexer_def:
 End
 
 
-(* parsing *)
-
-(*Definition quote_def:
-  quote n = list [Num (name "'"); Num n]
-End*)
-
 Definition parse_def:
   parse [] x [] = INR x ∧
   parse [] x s = INL "Too many close brackets" ∧
@@ -163,17 +157,6 @@ Definition parse_def:
   (*parse (QUOTE n :: rest) x s = parse rest (Pair (quote n) x) s ∧*)
   parse (DOT :: rest) x s = parse rest (head x) s
 End
-
-(*
-EVAL “case lexer "(print hi)" of
-| INL x => INL x
-| INR y => case parse y Nil [] of
-  | INL x => INL x
-  | INR y => INR (head y)”
-*)
-
-
-(* conversion to AST *)
 
 Definition pair_to_list_def:
   pair_to_list Nil = SOME [] ∧
@@ -316,13 +299,3 @@ Definition parse_to_ast_def:
       cons_ast (head e);
     od
 End
-
-(*
-EVAL “cons_ast (Pair (Word "print") (Pair (Word "hi") Nil))”
-EVAL “do e <- do es' <- mapM cons_ast [Word "t"; Word "h"]; return (Apply (Val (SNum 0)) es') od; es <- mapM cons_ast [Pair (Word "+") Nil; Word "-"]; return (Apply e es) od”
-EVAL “parse_to_ast "((if #t + * ) 2 3)"”
-EVAL “parse_to_ast "(lambda (x y . l) 2)"”
-EVAL “parse_to_ast "(letrec ((x 3) (y x)) 2)"”
-EVAL “parse_to_ast "(cons 3 2)"”
-*)
-

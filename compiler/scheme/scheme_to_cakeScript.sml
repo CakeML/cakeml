@@ -506,11 +506,3 @@ Definition codegen_def:
     ]
   ]
 End
-
-(*
-open scheme_parsingTheory;
-open scheme_to_cakeTheory;
-EVAL “cps_transform $ OUTR $ parse_to_ast
-"(cons 1 2)"”
-*)
-

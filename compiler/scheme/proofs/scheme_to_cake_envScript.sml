@@ -47,13 +47,6 @@ Definition scheme_to_cake_env_def:
   scheme_to_cake_env = ^env_tm
 End
 
-(*
-
-fun lookup_cons str = let
-  val str_tm = stringSyntax.fromMLstring
-
-*)
-
 Theorem example =
   “nsLookup_Short scheme_to_cake_env_env.c "SNum"”
   |> SCONV [nsLookup_write_cons_eqs,fetch "-" "scheme_to_cake_env_env_def" ,ALOOKUP_def,

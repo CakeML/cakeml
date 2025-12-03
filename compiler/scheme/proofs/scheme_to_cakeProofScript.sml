@@ -4,7 +4,7 @@
 Theory scheme_to_cakeProof
 Ancestors
   scheme_to_cake_env scheme_ast scheme_semantics scheme_to_cake
-  scheme_semanticsProps ast evaluate evaluateProps ml_prog (*primSemEnv num ffi*)
+  scheme_semanticsProps ast evaluate evaluateProps ml_prog
   semanticPrimitives namespace primTypes namespaceProps integer basicSize
   wellorder
 Libs
@@ -111,24 +111,6 @@ Proof
   >> simp[scheme_init_v_defs, merge_env_def]
   >> simp[scheme_init_env_defs_but_1]
 QED
-
-(*
-Example lambda calculus code of conditional expression,
-before and after step in CEK machine
-
-(\k0 -> (\k1 -> k1 $ SBool T)
-  (\t0 -> match t0
-          | SBool F => (\k2 -> k2 (SNum 1)) k0
-          | _ => (\k2 -> k2 (SNum 2)) k0))
-(\t -> t)
-
--->
-
-(\k1 -> k1 $ SBool T)
-(\t0 -> match t0
-        | SBool F => (\k2 -> k2 (SNum 1)) (\t -> t)
-        | _ => (\k2 -> k2 (SNum 2)) (\t -> t)))
-*)
 
 Theorem scheme_conses_def[allow_rebind, compute] = EVAL_RULE $ SRULE [scheme_cons_env_simp] $ zDefine‘
   scheme_conses = case scheme_cons_env of
@@ -399,7 +381,6 @@ Proof
   >> gvs[Once LIST_REL_SNOC]
   >> Cases_on `l` using SNOC_CASES
   >> gvs[]
-  (*I barely know what I'm doing here*)
 QED
 
 Theorem cons_trivial_eval[allow_rebind, simp] = SRULE [cj 1 PULL_FORALL] $
@@ -467,6 +448,7 @@ Proof
   >> simp[FAPPLY_FUPDATE_THM]
 QED
 
+(*Lemma 5.5*)
 Theorem env_rel_non_var[simp]:
   ! se env envv var v .
     (! x . var <> "var" ++ x)
@@ -505,11 +487,6 @@ Proof
   >> simp[Once cont_rel_cases]
   >> metis_tac[]
 QED
-
-(*
-open scheme_to_cakeProofTheory;
-open scheme_parsingTheory;
-*)
 
 Theorem cps_app_ts_res:
   ∀ t ts vs .
@@ -631,6 +608,67 @@ Proof
   simp[state_component_equality]
 QED
 
+(*Lemma 5.3*)
+Theorem store_sync:
+  ∀ store store' (st : 'ffi state) mlenv loc v mlv .
+    LIST_REL store_entry_rel store st.refs /\
+    nsLookup mlenv.v (Short "t") = SOME mlv /\
+    scheme_env mlenv /\
+    ml_v_vals v mlv /\
+    (loc, store') = fresh_loc store (Mut (SOME v))
+    ⇒
+    ∃ st' .
+      evaluate st mlenv [App Opref [Con (SOME (Short "Some")) [Var (Short "t")]]]
+      =
+      (st', Rval [Loc T loc]) /\
+      LIST_REL store_entry_rel store' st'.refs
+Proof
+  rpt strip_tac
+  >> gvs[fresh_loc_def]
+  >> simp[evaluate_def]
+  >> simp[do_con_check_def, build_conv_def, do_app_def, store_alloc_def]
+  >> irule_at (Pos hd) $ GSYM LIST_REL_LENGTH
+  >> last_assum $ irule_at $ Pos hd
+  >> simp[SNOC_APPEND]
+  >> simp[store_entry_rel_cases]
+QED
+
+(*Lemma 5.4*)
+Theorem store_env_sync:
+  ∀ store store' env env' (st : 'ffi state) mlenv loc v mlv x mle .
+    LIST_REL store_entry_rel store st.refs /\
+    nsLookup mlenv.v (Short "t") = SOME mlv /\
+    env_rel env mlenv /\
+    scheme_env mlenv /\
+    ml_v_vals v mlv /\
+    (loc, store') = fresh_loc store (Mut (SOME v))
+    ⇒
+    ∃ st' mlenv' .
+      evaluate st mlenv [Let (SOME ("var" ++ explode x))
+        (App Opref [Con (SOME (Short "Some")) [Var (Short "t")]])
+        mle]
+      =
+      evaluate st' mlenv' [mle] /\
+      env_rel (env |+ (x,loc)) mlenv' /\
+      LIST_REL store_entry_rel store' st'.refs
+Proof
+  rpt strip_tac
+  >> gvs[fresh_loc_def]
+  >> simp[evaluate_def, nsOptBind_def]
+  >> simp[do_con_check_def, build_conv_def, do_app_def, store_alloc_def]
+  >> irule_at (Pos hd) EQ_REFL
+  >> drule_then assume_tac $ GSYM LIST_REL_LENGTH
+  >> simp[]
+  >> irule_at (Pos hd) $ SRULE [] env_rel_FUPDATE
+  >> simp[SRULE [] env_rel_FUPDATE]
+  >> simp[SNOC_APPEND]
+  >> simp[store_entry_rel_cases]
+QED
+
+(*Note the above 2 lemmas are not directly used in following proofs,
+but the same tactics are used. This is because they are simple enough
+to proof that it is more flexible to prove similar goals as we go.*)
+
 Definition letpreinit_mlenv_def:
   letpreinit_mlenv mlenv xs l
   =
@@ -709,6 +747,7 @@ Proof
   >> simp[FAPPLY_FUPDATE_THM]
 QED
 
+(*Lemma 5.6*)
 Theorem allocate_list_ml:
   ! store store' (st:'ffi state) env env_list vs mlvs tail ts ck .
     env.c = scheme_cons_env /\
@@ -1262,6 +1301,9 @@ Proof
     >> simp[Once evaluate_def]
     >> gvs[application_def]
     >> rpt (pairarg_tac >> gvs[])
+    (*Case here is procedure application case in paper.
+      Full relation captured by cps_rel, cont_rel,
+      and LIST_REL store_entry_rel.*)
     >> last_x_assum kall_tac
     >> last_x_assum kall_tac
     >> last_x_assum kall_tac
@@ -1359,6 +1401,9 @@ Proof
     >> simp[do_opapp_def, dec_clock_def]
     >> simp[Ntimes find_recfun_def 2, Ntimes build_rec_env_def 2]
     >> simp[Once evaluate_def]
+    (*Case here is call/cc case in paper.
+      Full relation captured by cps_rel, cont_rel,
+      and LIST_REL store_entry_rel.*)
     >> Cases_on `mlvs`
     >> Cases_on `vs`
     >> gvs[vcons_list_def] >>> LASTGOAL (
@@ -1677,6 +1722,7 @@ QED
 Theorem lex_sim_order_ind =
   WF_lex_sim_order |> SRULE [WF_IND];
 
+(*Theorem 5.1*)
 Theorem step_preservation:
   ∀ store store' e e' ks ks' (st : 'ffi state) mlenv k kv mle .
     step (store, ks, e) = (store', ks', e') ∧
@@ -2130,7 +2176,6 @@ Theorem steps_preservation:
     cont_rel k' kv' ∧
     cps_rel st' e' var' mlenv' kv' mle' ∧
     LIST_REL store_entry_rel store' st'.refs ∧
-    (*(¬ terminating_state (store', k', e') ⇒ n ≤ ck) ∧*)
     st.ffi = st'.ffi
 Proof
   Induct >- (
@@ -2161,6 +2206,7 @@ Proof
   >> gvs[]
 QED
 
+(*Corollary 5.2*)
 Theorem value_terminating:
   ∀ n e v mle mlv store store' ks (st:'ffi state) mlenv var kv .
     FUNPOW step n (store, ks, e) = (store', [], Val v) ∧
