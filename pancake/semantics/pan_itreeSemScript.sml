@@ -1545,7 +1545,7 @@ Proof
   rw[comp_ffi_def]>>simp[Once WhileTheory.WHILE] >>
   rw[ELIM_UNCURRY] >>
   PURE_TOP_CASE_TAC >> rw[]
-QED        
+QED
 
 (***)
 

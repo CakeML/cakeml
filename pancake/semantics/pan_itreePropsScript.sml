@@ -399,7 +399,7 @@ Proof
   simp[Once LUNFOLD_BISIMULATION]>>
   qexists ‘CURRY {((r,spin),())|fs|T}’>>
   rw[] >>
-  simp[Once spin]   
+  simp[Once spin]
 QED
 
 Theorem trace_prefix_bind_append:
