@@ -487,18 +487,22 @@ Definition codegen_def:
   codegen p = INR $ scheme_basis_types ++ scheme_basis ++ [scheme_basis_list; scheme_basis_app] ++ [
     Dlet unknown_loc (Pvar "res") $ compile_scheme_prog p;
     Dlet unknown_loc Pany $ Mat (Var (Short "res")) [
-      (*(Pcon (SOME $ Short "SNum") [Pvar "n"],
-        App Opapp [Var (Short "print_int"); Var (Short "n")]);*)
+      (Pcon (SOME $ Short "SNum") [Pvar "n"],
+        App (FFI "scheme_out") [Lit $ StrLit "num"; App Aw8alloc [Lit $ IntLit 0; Lit $ Word8 0w]]);
       (Pcon (SOME $ Short "SBool") [Pcon (SOME $ Short "True") []],
         App (FFI "scheme_out") [Lit $ StrLit "#t"; App Aw8alloc [Lit $ IntLit 0; Lit $ Word8 0w]]);
       (Pcon (SOME $ Short "SBool") [Pcon (SOME $ Short "False") []],
         App (FFI "scheme_out") [Lit $ StrLit "#f"; App Aw8alloc [Lit $ IntLit 0; Lit $ Word8 0w]]);
-      (*(Pcon (SOME $ Short "Ex") [Pvar "ex"],
-        App Opapp [Var (Short "print"); Var (Short "ex")]);
+      (Pcon (SOME $ Short "Ex") [Pvar "ex"],
+        App (FFI "scheme_out") [Var (Short "ex"); App Aw8alloc [Lit $ IntLit 0; Lit $ Word8 0w]]);
       (Pcon (SOME $ Short "Wrong") [Pany],
-        App Opapp [Var (Short "print"); Lit $ StrLit "unspecified"]);*)
+        App (FFI "scheme_out") [Lit $ StrLit "unspecified"; App Aw8alloc [Lit $ IntLit 0; Lit $ Word8 0w]]);
+      (Pcon (SOME $ Short "PairP") [Pany],
+        App (FFI "scheme_out") [Lit $ StrLit "pair"; App Aw8alloc [Lit $ IntLit 0; Lit $ Word8 0w]]);
+      (Pcon (SOME $ Short "Null") [],
+        App (FFI "scheme_out") [Lit $ StrLit "null"; App Aw8alloc [Lit $ IntLit 0; Lit $ Word8 0w]]);
       (Pany,
-        App (FFI "scheme_out") [Lit $ StrLit "other"; App Aw8alloc [Lit $ IntLit 0; Lit $ Word8 0w]]);
+        App (FFI "scheme_out") [Lit $ StrLit "proc"; App Aw8alloc [Lit $ IntLit 0; Lit $ Word8 0w]]);
     ]
   ]
 End

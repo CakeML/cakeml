@@ -439,6 +439,8 @@ Inductive cps_rel:
   ⇒
   cps_rel st (Exp senv e) var env kv $ cps_transform e "k"
 [~Exception:]
+  env.c = scheme_cons_env
+  ⇒
   cps_rel st (Exception s) var env kv $
     Con (SOME $ Short "Ex") [Lit $ StrLit $ explode s]
 End
@@ -1297,6 +1299,7 @@ Proof
         >> irule_at (Pos hd) eval_eq_trivial
         >> first_assum $ irule_at $ Pat ‘cont_rel _ _’
         >> simp[Once cps_rel_cases]
+        >> gvs[scheme_env_def]
       )
       >> gvs[parameterize_def, fresh_loc_def]
       >> rpt (pairarg_tac >> gvs[])
@@ -1331,6 +1334,7 @@ Proof
       >> simp[GSYM eval_eq_def]
       >> irule_at (Pos hd) eval_eq_trivial
       >> simp[Once cps_rel_cases]
+      >> gvs[scheme_env_def]
     )
     >> reduce_to_cps 0 [can_pmatch_all_def, vcons_list_def, pmatch_def, store_alloc_def]
     >> qpat_abbrev_tac `new_st = st with refs := new_refs`
@@ -1381,7 +1385,9 @@ Proof
     >> simp[GSYM eval_eq_def]
     >> irule_at (Pos hd) eval_eq_trivial
     >> simp[Once cps_rel_cases]
+    >> gvs[]
     >> first_assum $ irule_at $ Pos hd
+    >> gvs[scheme_env_app_def]
   )
   >~ [`Throw ks`] >- (
     drule $ cj 10 $ iffLR scheme_env_app_def
@@ -1632,6 +1638,7 @@ Proof
   >> irule_at (Pos hd) eval_eq_trivial
   >> simp[Once cps_rel_cases]
   >> first_assum $ irule_at $ Pos hd
+  >> gvs[scheme_env_app_def]
 QED
 
 Definition lex_scheme_exp_order_def:
@@ -1819,6 +1826,7 @@ Proof
       >> irule_at (Pos hd) eval_eq_trivial
       >> qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
       >> simp[Once cps_rel_cases]
+      >- gvs[scheme_env_def]
       >> first_assum $ irule_at Any
       >> simp[]
     )
@@ -2183,6 +2191,34 @@ Proof
   >> gvs[]
   >> simp[evaluate_def, do_opapp_def, dec_clock_def]
 QED
+
+Theorem exception_terminating:
+  ∀ n e s mle store store' ks (st:'ffi state) mlenv var kv .
+    FUNPOW step n (store, ks, e) = (store', [], Exception s) ∧
+    valid_state store ks e ∧
+    cps_rel st e var mlenv kv mle ∧
+    cont_rel ks kv ∧
+    LIST_REL store_entry_rel store st.refs
+    ⇒
+    ∃ ck st' mlv . evaluate (st with clock:=ck) mlenv [mle]
+      = (st', Rval [Conv (SOME (scheme_typestamp "Ex")) [Litv (StrLit (explode s))]]) ∧
+    st.ffi = st'.ffi
+Proof
+  rpt strip_tac
+  >> drule_all steps_preservation
+  >> rpt strip_tac
+  >> first_x_assum $ qspec_then ‘1’ $ assume_tac
+  >> qexists ‘1 + ck’
+  >> irule_at (Pos hd) EQ_TRANS
+  >> pop_assum $ irule_at (Pos hd)
+  >> qpat_x_assum ‘cps_rel _ (Exception s) _ _ _ _’ $ mp_tac
+    o SRULE [Once cps_rel_cases]
+  >> rpt strip_tac
+  >> gvs[]
+  >> simp[evaluate_def, do_con_check_def, build_conv_def]
+QED
+
+Theorem exception_terminating[allow_rebind] = exception_terminating |> SRULE [];
 
 
 Theorem evaluate_clock_dec =

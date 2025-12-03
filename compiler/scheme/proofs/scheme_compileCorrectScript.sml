@@ -29,9 +29,13 @@ Proof
 QED
 
 Definition v_to_string_def:
+  v_to_string (SNum _) = IO_event (ExtCall "scheme_out") (MAP (n2w o ORD) "num") [] /\
   v_to_string (SBool F) = IO_event (ExtCall "scheme_out") (MAP (n2w o ORD) "#f") [] /\
   v_to_string (SBool T) = IO_event (ExtCall "scheme_out") (MAP (n2w o ORD) "#t") [] /\
-  v_to_string _ = IO_event (ExtCall "scheme_out") (MAP (n2w o ORD) "other") []
+  v_to_string (Wrong _) = IO_event (ExtCall "scheme_out") (MAP (n2w o ORD) "unspecified") [] /\
+  v_to_string (PairP _) = IO_event (ExtCall "scheme_out") (MAP (n2w o ORD) "pair") [] /\
+  v_to_string Null = IO_event (ExtCall "scheme_out") (MAP (n2w o ORD) "null") [] /\
+  v_to_string _ = IO_event (ExtCall "scheme_out") (MAP (n2w o ORD) "proc") []
 End
 
 Theorem every_one_con_check:
@@ -111,7 +115,7 @@ Definition scheme_out_oracle_def:
      ; io_events   := []  |>  :unit ffi_state
 End
 
-Theorem scheme_semantics_preservation_terminates:
+Theorem scheme_semantics_preservation_value_terminates:
   ∀ prog cml_prog v st env .
     scheme_semantics_prog prog (STerminate v) /\
     static_scope_check prog = INR prog /\
@@ -202,6 +206,108 @@ Proof
   >> simp[scheme_cons_env_simp]
   >> gvs[Once ml_v_vals_cases]
   >~ [`bool_val_rel b mlb`] >>> HEADGOAL $ gvs[Once bool_val_rel_cases]
+  >> simp[Ntimes evaluate_def 2]
+  >> simp[evaluate_match_def, can_pmatch_all_def, pmatch_def,
+    nsLookup_def, same_type_def, same_ctor_def, pat_bindings_def]
+  >> simp[Ntimes evaluate_def 4, do_app_def, store_alloc_def, store_lookup_def,
+    EL_APPEND_EQN, call_FFI_def, store_assign_def, store_v_same_type_def,
+    scheme_out_oracle_def]
+  >> fs [combine_dec_result_def,v_to_string_def]
+  >> gvs [bool_val_rel_cases,pmatch_def,nsLookup_def,same_type_def,same_ctor_def]
+  >> simp[Ntimes evaluate_def 4, do_app_def, store_alloc_def, store_lookup_def,
+    EL_APPEND_EQN, call_FFI_def, store_assign_def, store_v_same_type_def,
+    scheme_out_oracle_def,v_to_string_def]
+QED
+
+Theorem scheme_semantics_preservation_exception_terminates:
+  ∀ prog cml_prog s st env .
+    scheme_semantics_prog prog (SError s) /\
+    static_scope_check prog = INR prog /\
+    codegen prog = INR cml_prog
+    ==>
+    semantics_prog (init_state scheme_out_oracle) init_env cml_prog
+                   (Terminate Success [IO_event (ExtCall "scheme_out") (MAP (n2w o ORD) (explode s)) []])
+Proof
+  simp[semantics_prog_def, scheme_semantics_prog_def]
+  >> simp[static_scope_check_def]
+  >> simp_tac std_ss [codegen_def]
+  >> simp[evaluate_prog_with_clock_def]
+  >> rpt strip_tac
+  >> qspec_then `scheme_out_oracle` assume_tac scheme_init_evaluate_dec
+  >> gvs[]
+  >> qrefine `ck1 + k`
+  >> gvs[scheme_init_def]
+  >> simp[Once evaluate_decs_append]
+  >> dxrule_then assume_tac evaluate_decs_add_to_clock
+  >> gvs[]
+  >> pop_assum kall_tac
+  >> simp[Ntimes evaluate_decs_def 2]
+  >> simp[compile_scheme_prog_def]
+  >> simp[pat_bindings_def]
+  >> simp[extend_dec_env_def]
+  >> simp[Once scheme_init_env_defs]
+  >> simp[Once scheme_init_env_defs]
+  >> simp[Once scheme_init_env_defs]
+  >> simp[Once scheme_init_env_defs]
+  >> simp[Once scheme_init_env_defs]
+  >> simp[Once scheme_init_env_defs]
+  >> simp[Once scheme_init_env_defs]
+  >> simp[Once scheme_init_env_defs]
+  >> simp[Once scheme_init_env_defs]
+  >> simp[Once scheme_init_env_defs]
+  >> simp[Once scheme_init_env_defs]
+  >> simp[Once scheme_init_env_defs]
+  >> simp[GSYM scheme_cons_env_def]
+  >> simp[every_one_con_check]
+
+  >> simp[GSYM merge_env_def]
+  >> simp[GSYM scheme_to_cake_env_def]
+  >> simp[pmatch_def]
+  >> simp[Ntimes evaluate_def 2, nsOptBind_def]
+
+  >> gvs[scheme_semanticsTheory.steps_def]
+  >> drule_then assume_tac (exception_terminating |> INST_TYPE [“:'ffi”|->“:unit”])
+
+  >> gvs[Once cont_rel_cases, Once valid_state_cases]
+  >> gvs[Once valid_cont_cases, can_lookup_cases, FEVERY_FEMPTY]
+  >> gvs[Once cps_rel_cases]
+  >> qmatch_goalsub_abbrev_tac `evaluate _ newenv [_]`
+  >> first_x_assum $ qspecl_then
+       [`scheme_to_cake_env_st_1 scheme_out_oracle`, `newenv`] assume_tac
+  >> unabbrev_all_tac
+  >> gvs[scheme_init_st_defs]
+  >> gvs[scheme_env_sub, scheme_runtime_funs_def, basis_scheme_env]
+  >> Cases_on `ck2 <= ck`
+  >>> HEADGOAL (
+    qexists `ck - ck2`
+    >> simp[Once ADD_COMM]
+  )
+  >>> LASTGOAL (
+    qexists `0`
+    >> simp[]
+    >> dxrule_then assume_tac evaluate_add_to_clock
+    >> gvs[]
+    >> pop_assum $ qspec_then `ck2 - ck` assume_tac
+    >> gvs[]
+  )
+  >> simp[Ntimes evaluate_decs_def 2]
+  >> simp[pat_bindings_def]
+  >> `nsAppend scheme_to_cake_env_env_13.c init_env.c = scheme_cons_env` by (
+    simp[Once scheme_init_env_defs]
+    >> simp[Once scheme_init_env_defs]
+    >> simp[Once scheme_init_env_defs]
+    >> simp[Once scheme_init_env_defs]
+    >> simp[Once scheme_init_env_defs]
+    >> simp[Once scheme_init_env_defs]
+    >> simp[Once scheme_init_env_defs]
+    >> simp[Once scheme_init_env_defs]
+    >> simp[Once scheme_init_env_defs]
+    >> simp[Once scheme_init_env_defs]
+    >> simp[Once scheme_init_env_defs]
+    >> simp[Once scheme_init_env_defs]
+    >> simp[GSYM scheme_cons_env_def]
+  )
+  >> simp[scheme_cons_env_simp]
   >> simp[Ntimes evaluate_def 2]
   >> simp[evaluate_match_def, can_pmatch_all_def, pmatch_def,
     nsLookup_def, same_type_def, same_ctor_def, pat_bindings_def]
