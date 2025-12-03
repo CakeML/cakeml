@@ -160,6 +160,31 @@ Proof
   intLib.ARITH_TAC
 QED
 
+(* this will encompass ≥, >, ≤, < *)
+Definition encode_other_cmpops_def:
+  encode_other_cmpops bnd Zr cmp X Y =
+  let constr =
+    (case cmp of
+      GreaterEqual => mk_constraint_ge 1 X (-1) Y 0
+    | GreaterThan  => mk_constraint_ge 1 X (-1) Y 1
+    | LessEqual    => mk_constraint_ge (-1) X 1 Y 0
+    | LessThan     => mk_constraint_ge (-1) X 1 Y 1
+    | _            => ARB)
+  in
+    if (cmp = Equal ∨ cmp = NotEqual)
+    then [([],[],0i)]
+    else
+      case Zr of
+        NONE => [constr]
+      | SOME (INL Z) =>
+        encode_ge bnd Z 1 ++
+        [bits_imply bnd [Pos (INL (Ge Z 1))] constr]
+      | SOME (INR Z) =>
+        encode_ge bnd Z 1 ++
+        bimply_bits bnd [Pos (INL (Ge Z 1))] constr
+End
+
+(* to be deprecated *)
 Definition encode_greater_equal_def:
   encode_greater_equal bnd Zr X Y =
   let constr = mk_constraint_ge 1 X (-1) Y 0 in
@@ -173,6 +198,7 @@ Definition encode_greater_equal_def:
     bimply_bits bnd [Pos (INL (Ge Z 1))] constr
 End
 
+(* to be deprecated *)
 Theorem encode_greater_equal_sem_1:
   valid_assignment bnd wi ∧
   reify_sem Zr wi
@@ -185,6 +211,7 @@ Proof
   intLib.ARITH_TAC
 QED
 
+(* to be deprecated *)
 Theorem encode_greater_equal_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
@@ -193,15 +220,12 @@ Theorem encode_greater_equal_sem_2:
     (varc wi X ≥ varc wi Y)
 Proof
   rw[reify_sem_def,encode_greater_equal_def]>>
-  Cases_on ‘Zr’>>
-  gvs[AllCasePreds()]
-  >- intLib.ARITH_TAC>>
-  rename1 ‘Z = INL _’>>
-  Cases_on ‘Z’>>
-  gvs[reify_avar_def,reify_reif_def]>>
+  every_case_tac>>
+  gvs[]>>
   intLib.ARITH_TAC
 QED
 
+(* to be deprecated *)
 Definition encode_greater_than_def:
   encode_greater_than bnd Zr X Y =
   let constr = mk_constraint_ge 1 X (-1) Y 1 in
@@ -215,6 +239,7 @@ Definition encode_greater_than_def:
     bimply_bits bnd [Pos (INL (Ge Z 1))] constr
 End
 
+(* to be deprecated *)
 Definition encode_less_equal_def:
   encode_less_equal bnd Zr X Y =
   let constr = mk_constraint_ge (-1) X 1 Y 0 in
@@ -228,6 +253,7 @@ Definition encode_less_equal_def:
     bimply_bits bnd [Pos (INL (Ge Z 1))] constr
 End
 
+(* to be deprecated *)
 Definition encode_less_than_def:
   encode_less_than bnd Zr X Y =
   let constr = mk_constraint_ge (-1) X 1 Y 1 in
