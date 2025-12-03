@@ -1,6 +1,6 @@
 INCLUDES = $(CAKEMLDIR)/translator \
-           # $(CAKEMLDIR)/basis \
-           # $(CAKEMLDIR)/basis/pure \
+           $(CAKEMLDIR)/basis \
+           $(CAKEMLDIR)/basis/pure \
            $(CAKEMLDIR)/compiler/parsing \
            $(CAKEMLDIR)/semantics \
            $(CAKEMLDIR)/misc \
