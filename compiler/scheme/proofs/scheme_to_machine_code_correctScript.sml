@@ -51,4 +51,31 @@ Proof
   \\ simp []
 QED
 
-val _ = check_thm scheme_to_machine_code_terminates; (* asserts that no proof was cheated *)
+Theorem scheme_to_machine_code_diverges:
+  scheme_semantics_prog prog SDiverge ∧
+  static_scope_check prog = INR prog ∧
+  codegen prog = INR cml_prog
+  ⇒
+  compile c cml_prog = SOME (bytes,bitmaps,c') ∧
+  backend_config_ok c ∧ mc_conf_ok mc ∧ mc_init_ok c mc ∧
+  installed bytes cbspace bitmaps data_sp c'.lab_conf.ffi_names
+            (heap_regs c.stack_conf.reg_names) mc c'.lab_conf.shmem_extra ms
+  ⇒
+  machine_sem mc scheme_out_oracle ms
+  ⊆
+  extend_with_resource_limit {Diverge [||]}
+Proof
+  strip_tac
+  \\ dxrule_all scheme_semantics_preservation_diverges
+  \\ simp [] \\ rpt strip_tac
+  \\ dxrule semanticsPropsTheory.semantics_prog_Diverge_not_Fail
+  \\ strip_tac
+  \\ drule_at (Pos last) compile_correct_inst
+  \\ disch_then drule
+  \\ impl_tac >- simp []
+  \\ simp []
+QED
+
+(* asserts that no proof was cheated *)
+val _ = check_thm scheme_to_machine_code_terminates;
+val _ = check_thm scheme_to_machine_code_diverges;
