@@ -3,7 +3,7 @@
 *)
 Theory infer_eComplete
 Ancestors
-  typeSystem ast semanticPrimitives infer unify infer_t astProps
+  typeSystem ast semanticPrimitives infer unify infer_t
   typeSysProps inferProps namespace namespaceProps envRel
 Libs
   preamble
@@ -880,6 +880,8 @@ Proof
   \\ fs [markerTheory.Abbrev_def, t_walkstar_eqn1, convert_t_def, word_tc_def]
   \\ irule pure_add_constraints_ignore
   \\ simp [t_walkstar_eqn1]
+  \\ TRY (rename [‘t_num_of ty’] \\ Cases_on ‘ty’
+          \\ TRY (rename [‘WordT ww’] \\ Cases_on ‘ww’) \\ gvs [])
   \\ unconversion_tac
 QED
 
@@ -2820,4 +2822,3 @@ Proof
       imp_res_tac sub_completion_completes>>
       AP_TERM_TAC>>metis_tac[t_walkstar_no_vars])
 QED
-

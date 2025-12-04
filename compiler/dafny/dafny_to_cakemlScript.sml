@@ -377,7 +377,7 @@ Definition cml_int_to_string_dlet_def:
 End
 
 Definition to_string_def:
-  (to_string cml_e BoolT =
+  (to_string cml_e dafny_ast$BoolT =
      return (If cml_e (Lit (StrLit "true")) (Lit (StrLit "false")))) ∧
   (to_string cml_e IntT =
      return (cml_fapp [] cml_int_to_string_name [cml_e])) ∧

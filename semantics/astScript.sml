@@ -81,6 +81,19 @@ Datatype:
 End
 
 Datatype:
+  test = Equal | Less | Less_alt | LessEq | LessEq_alt
+End
+
+Datatype:
+  prim_type = BoolT
+            | IntT
+            | CharT
+            | StrT
+            | WordT word_size
+            | Float64T
+End
+
+Datatype:
   op =
   (* Operations on integers *)
     Opn opn
@@ -89,6 +102,7 @@ Datatype:
   | Opw word_size opw
   | Shift word_size shift num
   | Equality
+  | Test test prim_type
   (* FP operations *)
   | FP_cmp fp_cmp
   | FP_uop fp_uop
@@ -120,7 +134,6 @@ Datatype:
   (* Char operations *)
   | Ord
   | Chr
-  | Chopb opb
   (* String operations *)
   | Implode
   | Explode
@@ -184,7 +197,7 @@ Datatype:
  lop = And | Or
 End
 
-(* Types *)
+(* Types used in type annotations *)
 Datatype:
  ast_t =
   (* Type variables that the user writes down ('a, 'b, etc.) *)

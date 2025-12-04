@@ -77,7 +77,7 @@ Definition terms_of_frag_def:
         /\ set(allTypes t) ⊆ tys /\ welltyped t}
 End
 
-Definition TYPE_SUBSTf_def:
+Definition TYPE_SUBSTf_def[simp]:
   (TYPE_SUBSTf i (Tyvar v) = i v) ∧
   (TYPE_SUBSTf i (Tyapp v tys) =
     Tyapp v (MAP (λa. TYPE_SUBSTf i a) tys))
@@ -87,7 +87,6 @@ Termination
    simp[] >> res_tac >> simp[]
 End
 
-val _ = export_rewrites["TYPE_SUBSTf_def"]
 
 Definition terms_of_frag_uninst_def:
   terms_of_frag_uninst (tys,consts) sigma =

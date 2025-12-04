@@ -1001,7 +1001,7 @@ End
 
 (* stack_remove requires that all register arguments are bounded by k *)
 
-Definition reg_bound_exp_def:
+Definition reg_bound_exp_def[simp]:
   (reg_bound_exp (Var n) k ⇔ n < k) ∧
   (reg_bound_exp (Load e) k ⇔ reg_bound_exp e k) ∧
   (reg_bound_exp (Shift _ e _) k ⇔ reg_bound_exp e k) ∧
@@ -1013,9 +1013,8 @@ Termination
    \\ Induct \\ simp[wordLangTheory.exp_size_def]
    \\ srw_tac[][] \\ res_tac \\ simp[]
 End
-val _ = export_rewrites["reg_bound_exp_def"];
 
-Definition reg_bound_inst_def:
+Definition reg_bound_inst_def[simp]:
   (reg_bound_inst (Mem _ n (Addr a _)) k ⇔ n < k ∧ a < k) ∧
   (reg_bound_inst (Const n _) k ⇔ n < k) ∧
   (reg_bound_inst (Arith (Shift _ n r2 _)) k ⇔ r2 < k ∧ n < k) ∧
@@ -1033,7 +1032,6 @@ Definition reg_bound_inst_def:
   (reg_bound_inst (FP (FPMovFromReg d r1 r2)) k ⇔ r1 < k ∧ r2 < k) ∧
   (reg_bound_inst _ _ ⇔ T)
 End
-val _ = export_rewrites["reg_bound_inst_def"];
 
 Definition reg_bound_def:
   (reg_bound (Halt v1) k <=>
@@ -1116,7 +1114,7 @@ End
 
 (* TODO: remove "stack_" prefix from these functions *)
 
-Definition stack_get_handler_labels_def:
+Definition stack_get_handler_labels_def[simp]:
   (stack_get_handler_labels n (Call r d h) =
     (case r of SOME (x,_,_) => stack_get_handler_labels n x  ∪
       (case h of SOME (x,l1,l2) => (if l1 = n then {(l1,l2)} else {}) ∪ (stack_get_handler_labels n x) | _ => {})
@@ -1127,9 +1125,8 @@ Definition stack_get_handler_labels_def:
   (stack_get_handler_labels n (While _ _ _ p) = stack_get_handler_labels n p) ∧
   (stack_get_handler_labels n _ = {})
 End
-val _ = export_rewrites["stack_get_handler_labels_def"];
 
-Definition get_code_labels_def:
+Definition get_code_labels_def[simp]:
   (get_code_labels (Call r d h) =
     (case d of INL x => {(x,0n)} | _ => {}) ∪
     (case r of SOME (x,_,_) => get_code_labels x | _ => {}) ∪
@@ -1143,7 +1140,6 @@ Definition get_code_labels_def:
   (get_code_labels (StoreConsts _ _ (SOME l)) = {(l,0)}) ∧
   (get_code_labels _ = {})
 End
-val _ = export_rewrites["get_code_labels_def"];
 
 (* elabs gives a set of existing code labels *)
 Definition stack_good_code_labels_def:

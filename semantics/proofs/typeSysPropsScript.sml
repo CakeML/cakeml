@@ -3,7 +3,7 @@
 *)
 Theory typeSysProps
 Ancestors
-  ast namespace typeSystem typeSoundInvariants astProps
+  ast namespace typeSystem typeSoundInvariants
   namespaceProps semanticPrimitivesProps[qualified]
 Libs
   preamble
@@ -1325,7 +1325,10 @@ Proof
      srw_tac[][] >>
      TRY(cases_on`wz`\\CHANGED_TAC(fs[])) >>
      TRY (Cases_on ‘v31’ >> fs[]) >>
-     full_simp_tac(srw_ss())[deBruijn_subst_def] >>
+     full_simp_tac(srw_ss())[deBruijn_subst_def]
+     >~ [‘t_of ty’] >-
+      (Cases_on ‘ty’ >> gvs [t_of_def,deBruijn_subst_def] >>
+       Cases_on ‘w’ >> gvs [t_of_def,deBruijn_subst_def]) >>
      metis_tac [])
    >- metis_tac [SIMP_RULE (srw_ss()) [PULL_FORALL] type_e_subst_lem3, ADD_COMM])
  >- (full_simp_tac(srw_ss())[RES_FORALL] >>
@@ -3031,12 +3034,11 @@ Overload tmenv_dom =
 
 open boolSimps semanticPrimitivesPropsTheory
 
-Definition tenv_names_def:
+Definition tenv_names_def[simp]:
   (tenv_names Empty = {}) ∧
   (tenv_names (Bind_tvar _ e) = tenv_names e) ∧
   (tenv_names (Bind_name n _ _ e) = n INSERT tenv_names e)
 End
-val _ = export_rewrites["tenv_names_def"]
 
 Theorem lookup_tenv_names:
    ∀tenv n inc x. lookup_tenv_val n inc tenv = SOME x ⇒ n ∈ tenv_names tenv

@@ -5255,7 +5255,7 @@ Proof
   \\ rw[Once mk_Ticks_def]
 QED
 
-Definition val_approx_every_Fn_SOME_def:
+Definition val_approx_every_Fn_SOME_def[simp]:
   (val_approx_every_Fn_SOME (Tuple _ vs) ⇔ EVERY val_approx_every_Fn_SOME vs) ∧
   (val_approx_every_Fn_SOME (Clos _ _ b _) ⇔ every_Fn_SOME [b]) ∧
   (val_approx_every_Fn_SOME _ ⇔ T)
@@ -5264,7 +5264,6 @@ Termination
  \\ gen_tac \\ Induct \\ EVAL_TAC
  \\ rw[] \\ res_tac \\ rw[]
 End
-val _ = export_rewrites["val_approx_every_Fn_SOME_def"];
 
 Theorem val_approx_every_Fn_SOME_merge:
    ∀a b. val_approx_every_Fn_SOME a ∧ val_approx_every_Fn_SOME b ⇒
@@ -5375,7 +5374,7 @@ Proof
   \\ imp_res_tac known_sing_EQ_E \\ fs []
 QED
 
-Definition val_approx_every_Fn_vs_NONE_def:
+Definition val_approx_every_Fn_vs_NONE_def[simp]:
   (val_approx_every_Fn_vs_NONE (Tuple _ vs) ⇔ EVERY val_approx_every_Fn_vs_NONE vs) ∧
   (val_approx_every_Fn_vs_NONE (Clos _ _ b _) ⇔ every_Fn_vs_NONE [b]) ∧
   (val_approx_every_Fn_vs_NONE _ ⇔ T)
@@ -5384,7 +5383,6 @@ Termination
  \\ gen_tac \\ Induct \\ EVAL_TAC
  \\ rw[] \\ res_tac \\ rw[]
 End
-val _ = export_rewrites["val_approx_every_Fn_vs_NONE_def"];
 
 Theorem val_approx_every_Fn_vs_NONE_merge:
    ∀a b. val_approx_every_Fn_vs_NONE a ∧ val_approx_every_Fn_vs_NONE b ⇒

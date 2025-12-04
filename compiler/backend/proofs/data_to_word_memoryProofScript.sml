@@ -9765,7 +9765,7 @@ Theorem word_cmp_loop_refl = Q.prove(
 
 val good_dimindex_def = good_dimindex_def;
 
-Definition v_same_type_def:
+Definition v_same_type_def[simp]:
   (v_same_type (Number _) (Number _) = T) ∧
   (v_same_type (Word64 _) (Word64 _) = T) ∧
   (v_same_type (Block _ t1 l1) (Block _ t2 l2) = (t1 = t2 ∧ LENGTH l1 = LENGTH l2 ⇒ LIST_REL v_same_type l1 l2)) ∧
@@ -9779,7 +9779,6 @@ Termination
  \\ res_tac \\ fs[] \\ rfs[]
  \\ first_x_assum(qspecl_then[`0`,`t1`]mp_tac) \\ rw[]
 End
-val _ = export_rewrites["v_same_type_def"];
 
 val v_ind =
   TypeBase.induction_of``:v``
@@ -10044,7 +10043,7 @@ Proof
   Induct \\ rw[v_size_def]
 QED
 
-Definition v_depth_def:
+Definition v_depth_def[simp]:
   (v_depth (Block _ _ ls) = (if NULL ls then 0 else 1) + MAX_LIST (MAP v_depth ls)) ∧
   (v_depth _ = 0n)
 Termination
@@ -10052,7 +10051,6 @@ Termination
  ntac 2 gen_tac \\ Induct \\ rw[v_size_def] \\ rw[]
  \\ res_tac \\ rw[]
 End
-val _ = export_rewrites["v_depth_def"];
 
 val v_depth_ind = theorem"v_depth_ind";
 
@@ -10070,13 +10068,12 @@ Proof
   \\ fs[LEFT_ADD_DISTRIB]
 QED
 
-Definition elements_list_def:
+Definition elements_list_def[simp]:
   (elements_list [] = T) ∧
   (elements_list [v] = T) ∧
   (elements_list (v::w::vs) =
    ∃ts t ls. w = Block ts t ls ∧ MEM v ls ∧ elements_list (w::vs))
 End
-val _ = export_rewrites["elements_list_def"];
 
 val elements_list_ind = theorem"elements_list_ind";
 

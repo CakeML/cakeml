@@ -131,14 +131,13 @@ End
 
 Overload is_bool_interpretation_ext = ``is_bool_interpretation_ext0 ^mem``
 
-Theorem boolrel_in_funspace:
+Theorem boolrel_in_funspace[simp]:
   is_set_theory ^mem ⇒ Boolrel R <: Funspace boolset (Funspace boolset boolset)
 Proof
   rw[Boolrel_def] >> match_mp_tac (UNDISCH abstract_in_funspace) >> rw[] >>
   match_mp_tac (UNDISCH abstract_in_funspace) >> rw[boolean_in_boolset]
 QED
 
-val _ = export_rewrites["boolrel_in_funspace"]
 
 val Defs = [TrueDef_def, AndDef_def, ImpliesDef_def, ForallDef_def, ExistsDef_def, OrDef_def, FalseDef_def, NotDef_def]
 

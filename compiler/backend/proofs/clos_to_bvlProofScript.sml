@@ -1098,13 +1098,12 @@ Definition compile_oracle_inv_def:
 End
 *)
 
-Definition ref_rel_def:
+Definition ref_rel_def[simp]:
   (ref_rel R (closSem$ValueArray vs) (bvlSem$ValueArray ws) ⇔ LIST_REL R vs ws) ∧
   (ref_rel R (closSem$Thunk m1 v) (bvlSem$Thunk m2 w) ⇔ m1 = m2 ∧ R v w) ∧
   (ref_rel R (ByteArray as) (ByteArray g bs) ⇔ ~g ∧ as = bs) ∧
   (ref_rel _ _ _ = F)
 End
-val _ = export_rewrites["ref_rel_def"];
 
 Theorem ref_rel_simp[simp]:
    (ref_rel R (ValueArray vs) y ⇔ ∃ws. y = ValueArray ws ∧ LIST_REL R vs ws) ∧
@@ -1555,7 +1554,18 @@ Theorem do_app[local]:
      state_rel f s2 t2 /\
      (t1.refs = t2.refs) /\ (t1.code = t2.code)
 Proof
-  Cases_on `op = BlockOp ListAppend`
+  Cases_on `∃test. op = BlockOp (BoolTest test)`
+  >-
+   (gvs [closSemTheory.do_app_def,AllCaseEqs()] \\ rw []
+    \\ gvs [bvlSemTheory.do_app_def])
+  \\ Cases_on `∃ws test. op = WordOp (WordTest ws test)`
+  >-
+   (fs [] \\ Cases_on ‘ws’ \\ Cases_on ‘test’
+    \\ gvs [closSemTheory.do_app_def,AllCaseEqs()] \\ rw []
+    \\ gvs [oneline closSemTheory.do_word_app_def,AllCaseEqs()] \\ rw []
+    \\ gvs [v_rel_SIMP,bvlSemTheory.do_app_def]
+    \\ gvs [bvlSemTheory.do_word_app_def])
+  \\ Cases_on `op = BlockOp ListAppend`
   >-
    (rw []
     \\ fs [do_app_def, closSemTheory.do_app_def, case_eq_thms, PULL_EXISTS]
@@ -1623,16 +1633,16 @@ Proof
     rw []) >>
   Cases_on `?tag. op = BlockOp (ConsExtend tag)`
   >- (
-    fs [closPropsTheory.do_app_cases_val] >>
-    fs [] >>
-    rw [do_app_def] >>
-    fs [v_rel_SIMP] >>
-    rw [] >>
-    imp_res_tac LIST_REL_LENGTH
-    >- intLib.ARITH_TAC >>
-    irule EVERY2_APPEND_suff >>
-    simp [] >>
-    metis_tac [EVERY2_TAKE, EVERY2_DROP]) >>
+    fs [closSemTheory.do_app_def,AllCaseEqs(),bvlSemTheory.do_app_def,PULL_EXISTS]
+    \\ rpt strip_tac \\ gvs []
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ gvs [v_rel_SIMP]
+    \\ imp_res_tac LIST_REL_LENGTH
+    \\ conj_tac
+    >- intLib.ARITH_TAC
+    \\ irule EVERY2_APPEND_suff
+    \\ simp []
+    \\ metis_tac [EVERY2_TAKE, EVERY2_DROP]) >>
   Cases_on `?l. op = BlockOp (LenEq l)`
   >- (
     fs [closSemTheory.do_app_def,bvlSemTheory.do_app_def,bvlSemTheory.do_eq_def] >>
@@ -1799,13 +1809,6 @@ val v_case_eq_thms =
     prove_case_eq_thm{nchotomy = closSemTheory.v_nchotomy, case_def = closSemTheory.v_case_def},
     prove_case_eq_thm{nchotomy = bvlSemTheory.v_nchotomy, case_def = bvlSemTheory.v_case_def}];
 
-val clos_do_app_case_eqs = closSemTheory.do_app_def |> concl
-  |> find_terms (can TypeBase.dest_case)
-  |> map (type_of o #2 o TypeBase.dest_case)
-  |> Redblackset.fromList Type.compare
-  |> Redblackset.listItems
-  |> map (TypeBasePure.case_eq_of o Option.valOf o TypeBase.fetch);
-
 Theorem do_app_err[local]:
   do_app op xs s1 = Rerr err ∧
    err ≠ Rabort Rtype_error ∧
@@ -1819,22 +1822,16 @@ Proof
     (srw_tac[][closSemTheory.do_app_def] \\ fs [] \\ every_case_tac \\ fs []) >>
   Cases_on `?tag. op = BlockOp (ConsExtend tag)`
   >- (
-    Cases_on `err` >>
-    rw [closPropsTheory.do_app_cases_err] >>
-    fs ([closSemTheory.do_app_def] @ clos_do_app_case_eqs)
+    Cases_on `err` >> gvs [] >> rw []
+    >> gvs [closSemTheory.do_app_def,AllCaseEqs(),do_app_def]
   )
   \\ Cases_on `?n. op = FFI n`
-  >- (Cases_on `err`
-      >> rw [closPropsTheory.do_app_cases_err]
-      >> fs ([closSemTheory.do_app_def] @ clos_do_app_case_eqs)
-      >> rveq >> fs [] >> rveq >> fs []
-      >> drule(GEN_ALL state_rel_refs_lookup) >> strip_tac
-      >> simp[Once do_app_def] >> fs[v_rel_SIMP]
-      >> first_x_assum drule >> disch_then drule
-      >> strip_tac >> simp[]
-      >> fs[ref_rel_simp]
+  >- (Cases_on `err` >> gvs [] >> rw []
+      >> gvs [closSemTheory.do_app_def,AllCaseEqs(),do_app_def,v_rel_SIMP]
+      >> simp [PULL_EXISTS]
       >> rfs[state_rel_def]
-      >> fs [])
+      >> res_tac
+      >> gvs[ref_rel_simp])
   \\ cases_on_op `op`
   \\ srw_tac[][closSemTheory.do_app_def,bvlSemTheory.do_app_def]
   \\ TRY (fs[case_eq_thms,bool_case_eq,v_case_eq_thms] \\ NO_TAC)
@@ -1843,11 +1840,10 @@ QED
 
 (* correctness of implemented primitives *)
 
-Definition eq_res_def:
+Definition eq_res_def[simp]:
   eq_res (Eq_val b) = Rval [bvlSem$Boolv b] ∧
   eq_res _ = Rerr (Rabort Rtype_error)
 End
-val _ = export_rewrites["eq_res_def"];
 
 Theorem eq_res_not_timeout[local]:
   eq_res x ≠ Rerr (Rabort Rtimeout_error)

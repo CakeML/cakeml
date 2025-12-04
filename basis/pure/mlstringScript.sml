@@ -25,11 +25,11 @@ Definition implode_def:
   implode = strlit
 End
 
-Definition strlen_def:
+Definition strlen_def[simp]:
   strlen (strlit s) = LENGTH s
 End
 
-Definition strsub_def:
+Definition strsub_def[simp]:
   strsub (strlit s) n = EL n s
 End
 
@@ -51,14 +51,11 @@ Proof
 EVAL_TAC
 QED
 
-val _ = export_rewrites["strlen_def","strsub_def"];
-
-Definition explode_aux_def:
+Definition explode_aux_def[simp]:
   (explode_aux s n 0 = []) ∧
   (explode_aux s n (SUC len) =
     strsub s n :: (explode_aux s (n + 1) len))
 End
-val _ = export_rewrites["explode_aux_def"];
 
 Theorem explode_aux_thm:
    ∀max n ls.
@@ -1369,23 +1366,21 @@ Definition escape_char_def:
   escape_char c = implode ("#\"" ++ char_escaped c ++ "\"")
 End
 
-Theorem ALL_DISTINCT_MAP_implode:
+Theorem ALL_DISTINCT_MAP_implode[simp]:
    ALL_DISTINCT ls ⇒ ALL_DISTINCT (MAP implode ls)
 Proof
   strip_tac >>
   match_mp_tac ALL_DISTINCT_MAP_INJ >>
   rw[implode_def]
 QED
-val _ = export_rewrites["ALL_DISTINCT_MAP_implode"]
 
-Theorem ALL_DISTINCT_MAP_explode:
+Theorem ALL_DISTINCT_MAP_explode[simp]:
    ∀ls. ALL_DISTINCT (MAP explode ls) ⇔ ALL_DISTINCT ls
 Proof
   gen_tac >> EQ_TAC >- MATCH_ACCEPT_TAC ALL_DISTINCT_MAP >>
   STRIP_TAC >> MATCH_MP_TAC ALL_DISTINCT_MAP_INJ >>
   simp[explode_11]
 QED
-val _ = export_rewrites["ALL_DISTINCT_MAP_explode"]
 
 (* optimising mlstring app_list *)
 
