@@ -1142,7 +1142,27 @@ Proof
   )
   >~[‘Seq’]
   >-(
-    cheat
+    rpt GEN_TAC
+    >> rename[‘evaluate (Seq p1 p2, st) = (err,st')’]
+    >> simp[evaluate_def,copy_prop_prog_def]
+    >> rpt(pairarg_tac>>fs[])
+    >> Cases_on ‘res’
+    >> simp[evaluate_def, copy_prop_prog_def]
+    >> strip_tac
+
+    >- (
+      qpat_assum `∀cs st prog' cs' err st'. _∧_∧ copy_prop_prog p1 cs = _ ∧ _ = _ ⇒ _ = _ ∧ (_ ⇒ _)` (fn hyp => qspecl_then [`cs`, `st`, `q1`, `cs''`, `NONE`, `s1`] assume_tac hyp)
+      >> qpat_assum `∀cs st prog' cs' err st'. _∧_∧ copy_prop_prog p2 cs = _ ∧ _ = _ ⇒ _ = _ ∧ (_ ⇒ _)` (fn hyp => qspecl_then [`cs''`, `s1`, `q2`, `cs'`, `err`, `st'`] assume_tac hyp)
+      >> `CPstate_inv cs''` by metis_tac[copy_prop_prog_inv]
+      >> gvs[evaluate_def]
+      )
+    >- (
+      qpat_assum `∀cs st prog' cs' err st'. _∧_∧ copy_prop_prog p1 cs = _ ∧ _ = _ ⇒ _ = _ ∧ (_ ⇒ _)` (fn hyp => qspecl_then [`cs`, `st`, `q1`, `cs''`, `SOME x`, `s1`] assume_tac hyp)
+      >> qpat_assum `∀cs st prog' cs' err st'. _∧_∧ copy_prop_prog p2 cs = _ ∧ _ = _ ⇒ _ = _ ∧ (_ ⇒ _)` (fn hyp => qspecl_then [`cs''`, `s1`, `q2`, `cs'`, `err`, `st'`] assume_tac hyp)
+      >> gvs[evaluate_def]
+      )
+    )
+
     (* try to reprove from scratch
     old proof below broken due to changed thm setup
     *)
@@ -1154,7 +1174,7 @@ Proof
       >> rpt(pairarg_tac>>fs[])
       >> Cases_on‘res’
       >> simp[evaluate_def]
-      >> pairarg_tac>>fs[]
+      >> pairarg_tac >>fs[]
       >> rpt DISCH_TAC
       >-(
         ‘evaluate (q1,st) = (NONE,s1) ∧ CPstate_inv cs'' ∧ CPstate_models cs'' s1’ by metis_tac[IH1]
@@ -1170,7 +1190,16 @@ Proof
   )
   >~[‘If’]
   >-(
-    cheat
+    rpt GEN_TAC
+    >> rename[‘evaluate (If c n r p1 p2, st) = (err,st')’]
+    >> Cases_on `err`
+    >> simp[evaluate_def, copy_prop_prog_def]
+    >> rpt (pairarg_tac >> fs[])
+    >- (
+        every_case_tac
+        >> rw[evaluate_def]
+      )
+
     (*
     rpt GEN_TAC
     >>rename[‘evaluate (If c n r p1 p2, st) = (err,st')’]
