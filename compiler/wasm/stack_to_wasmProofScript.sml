@@ -1790,8 +1790,8 @@ rpt strip_tac
     >>once_rewrite_tac[exec_list_cons]
     >>simp[exec_I64_CONST]
     >>once_rewrite_tac[exec_list_cons]
-    >>subgoal `∀ck. exec (GLOBAL_SET link_reg)
-    (push (I64 (n2w l << 1)) (t with clock := ck+t.clock)) = (RNormal, t with <|clock := ck+t.clock; globals := LUPDATE (I64 (n2w l << 1)) link_reg t.globals|>)`
+    >>subgoal `∀ck. exec (GLOBAL_SET link_reg) (push (I64 (n2w l << 1)) (t with clock := ck+t.clock)) =
+                    (RNormal, t with <|clock := ck+t.clock; globals := LUPDATE (I64 (n2w l << 1)) link_reg t.globals|>)`
     >-((* by auto[exec_GLOBAL_SET] *)
       strip_tac
       >>`LENGTH (t with clock := ck+t.clock).globals <= 4294967296 /\ link_reg < LENGTH (t with clock:=ck+t.clock).globals` by fs[stack_wasm_ok_def,state_rel_def,regs_rel_def,conf_ok_def]
@@ -1801,9 +1801,8 @@ rpt strip_tac
     >>pop_assum simp1
     >>fs[find_code_def]
     >>`∃prog_index. FLOOKUP (s.regs\\link_reg) y = SOME (Loc prog_index 0)` by fs[AllCaseEqs()]
-    >>subgoal ‘∀ck. exec (GLOBAL_GET y)
-     (t with <|clock:=ck+t.clock; globals:=LUPDATE (I64 (n2w l ≪ 1)) link_reg t.globals|>)
-     = (RNormal, push (wl_value (Loc prog_index 0)) (t with <|clock:=ck+t.clock; globals:=LUPDATE (I64 (n2w l ≪ 1)) link_reg t.globals|>))’
+    >>subgoal ‘∀ck. exec (GLOBAL_GET y) (t with <|clock:=ck+t.clock; globals:=LUPDATE (I64 (n2w l ≪ 1)) link_reg t.globals|>) =
+                    (RNormal, push (wl_value (Loc prog_index 0)) (t with <|clock:=ck+t.clock; globals:=LUPDATE (I64 (n2w l ≪ 1)) link_reg t.globals|>))’
     (* y: register holding pointer to callee *)
     >-(
       strip_tac
