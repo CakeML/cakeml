@@ -1149,7 +1149,6 @@ Proof
     >> Cases_on ‘res’
     >> simp[evaluate_def, copy_prop_prog_def]
     >> strip_tac
-
     >- (
       qpat_assum `∀cs st prog' cs' err st'. _∧_∧ copy_prop_prog p1 cs = _ ∧ _ = _ ⇒ _ = _ ∧ (_ ⇒ _)` (fn hyp => qspecl_then [`cs`, `st`, `q1`, `cs''`, `NONE`, `s1`] assume_tac hyp)
       >> qpat_assum `∀cs st prog' cs' err st'. _∧_∧ copy_prop_prog p2 cs = _ ∧ _ = _ ⇒ _ = _ ∧ (_ ⇒ _)` (fn hyp => qspecl_then [`cs''`, `s1`, `q2`, `cs'`, `err`, `st'`] assume_tac hyp)
@@ -1162,7 +1161,6 @@ Proof
       >> gvs[evaluate_def]
       )
     )
-
     (* try to reprove from scratch
     old proof below broken due to changed thm setup
     *)
@@ -1187,7 +1185,6 @@ Proof
         >>metis_tac[copy_prop_prog_inv]
       )
     )) *)
-  )
   >~[‘If’]
   >-(
     rpt GEN_TAC
@@ -1195,11 +1192,17 @@ Proof
     >> Cases_on `err`
     >> simp[evaluate_def, copy_prop_prog_def]
     >> rpt (pairarg_tac >> fs[])
-    >- (
+    >> (
         every_case_tac
         >> rw[evaluate_def]
+        >> ‘get_var (lookup_eq cs n) st = get_var n st’ by metis_tac[CPstate_modelsD_get_var]
+        >> ‘get_var_imm (lookup_eq_imm cs r) st = get_var_imm r st’ by metis_tac[CPstate_modelsD_get_var_imm]
+        >> qpat_assum `∀cs st prog' cs' err st'. _∧_∧ copy_prop_prog p1 cs = _ ∧ _ = _ ⇒ _ = _ ∧ (_ ⇒ _)` (fn hyp => qspecl_then [`cs`,`st`,`q1`,`cs''`,`NONE`,`st'`] assume_tac hyp)
+        >> qpat_assum `∀cs st prog' cs' err st'. _∧_∧ copy_prop_prog p2 cs = _ ∧ _ = _ ⇒ _ = _ ∧ (_ ⇒ _)` (fn hyp => qspecl_then [`cs`,`st`,`q2`,`cs'''`,`NONE`,`st'`] assume_tac hyp)
+        >> qpat_assum `∀cs st prog' cs' err st'. _∧_∧ copy_prop_prog p1 cs = _ ∧ _ = _ ⇒ _ = _ ∧ (_ ⇒ _)` (fn hyp => qspecl_then [`cs`,`st`,`q1`,`cs''`,`SOME x`,`st'`] assume_tac hyp)
+        >> qpat_assum `∀cs st prog' cs' err st'. _∧_∧ copy_prop_prog p2 cs = _ ∧ _ = _ ⇒ _ = _ ∧ (_ ⇒ _)` (fn hyp => qspecl_then [`cs`,`st`,`q2`,`cs'''`,`SOME x`,`st'`] assume_tac hyp)
+        >> gvs[evaluate_def, merge_eqs_model1, merge_eqs_model2]
       )
-
     (*
     rpt GEN_TAC
     >>rename[‘evaluate (If c n r p1 p2, st) = (err,st')’]
