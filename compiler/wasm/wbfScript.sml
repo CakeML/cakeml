@@ -924,7 +924,7 @@ Overload dec_expr = “λ bs. case dec_instr_list F bs of (INR (_,is), bs) => (I
 Overload dec_tArm = “dec_instr_list T”
 
 
-Triviality dec_instr_list_shortens:
+Theorem dec_instr_list_shortens[local]:
   ∀xs rs e x. dec_instr_list e xs = (INR x,rs) ⇒ rs [<] xs
 Proof
   rewrite_tac[dec_instructions_shorten]

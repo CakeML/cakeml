@@ -300,7 +300,7 @@ QED
    Some tests
  *----------------------------------------------------------------------------*)
 
-Triviality tests:
+Theorem tests[local]:
   enc_num 5   = [0x05w] ∧
   enc_num 127 = [0x7Fw] ∧
   enc_num 128 = [0x80w; 0x01w] ∧

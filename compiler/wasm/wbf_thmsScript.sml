@@ -634,7 +634,7 @@ Proof (* Note - all the work is really done in the instr (VS instr_list) case *)
   >> simp ssa
 QED
 
-Triviality dec_enc_instr_list:
+Theorem dec_enc_instr_list[local]:
   ∀rest e is dc encis.
     enc_instr_list e is = SOME encis ⇒
     dec_instr_list (¬e ∨ dc) (encis a++ rest) = ret rest (exprB e,is)
@@ -643,7 +643,7 @@ Proof
   \\ rw[dec_enc_instructions]
 QED
 
-Triviality dec_enc_instr:
+Theorem dec_enc_instr[local]:
   ∀rest i enci.
     enc_instr i = SOME enci ⇒
     dec_instr $ enci a++ rest = ret rest i
@@ -652,7 +652,7 @@ Proof
   \\ rw[dec_enc_instructions]
 QED
 
-Triviality dec_enc_expr:
+Theorem dec_enc_expr[local]:
   ∀is encis rest dc.
     enc_expr is = SOME encis ⇒
     dec_instr_list dc (encis a++ rest) = ret rest (endB,is)
@@ -662,7 +662,7 @@ Proof
   \\ simp[]
 QED
 
-Triviality dec_enc_tArm:
+Theorem dec_enc_tArm[local]:
   ∀es ences rest.
     enc_tArm es = SOME ences ⇒
     ∃tmB. dec_tArm (ences a++ rest) = ret rest (tmB,es)
@@ -684,55 +684,55 @@ QED
 (*                 *)
 (*******************)
 
-Triviality s2b_o_b2s__I[simp]:
+Theorem s2b_o_b2s__I[simp, local]:
   string2bytes ∘ bytes2string = I
 Proof
   rw[string2bytes_def, bytes2string_def, GSYM MAP_o, n2w_ORD_CHR_w2n, MAP_ID_I]
 QED
 
-Triviality s2b_b2s__I[simp]:
+Theorem s2b_b2s__I[simp, local]:
   ∀x. string2bytes $ bytes2string x = x
 Proof
   rw[string2bytes_def, bytes2string_def, MAP_MAP_o, n2w_ORD_CHR_w2n, MAP_ID_I]
 QED
 
-Triviality b2s_o_s2b__I[simp]:
+Theorem b2s_o_s2b__I[simp, local]:
   bytes2string ∘ string2bytes = I
 Proof
   rw[string2bytes_def, bytes2string_def, GSYM MAP_o, CHR_w2n_n2w_ORD, MAP_ID_I]
 QED
 
-Triviality b2s_s2b__I[simp]:
+Theorem b2s_s2b__I[simp, local]:
   ∀x. bytes2string $ string2bytes x = x
 Proof
   rw[string2bytes_def, bytes2string_def, MAP_MAP_o, CHR_w2n_n2w_ORD, MAP_ID_I]
 QED
 
-Triviality imp_b2s_null:
+Theorem imp_b2s_null[local]:
   ∀x. bytes2string x = "" ⇒ x = []
 Proof
   simp[implode_def, bytes2string_def]
 QED
 
-Triviality imp_b2s_null[simp]:
+Theorem imp_b2s_null[simp, local]:
   bytes2string [] = ""
 Proof
   simp[implode_def, bytes2string_def]
 QED
 
-Triviality implode_emp[simp]:
+Theorem implode_emp[simp, local]:
   implode "" = «»
 Proof
   simp[implode_def]
 QED
 
-Triviality id_OK_emp[simp]:
+Theorem id_OK_emp[simp, local]:
   id_OK ""
 Proof
   simp[id_OK_def]
 QED
 
-Triviality s2b_explode_NUL:
+Theorem s2b_explode_NUL[local]:
   ∀x. NULL (string2bytes (explode x)) ⇔ x = «»
 Proof
      gen_tac
@@ -745,13 +745,13 @@ Proof
   \\ simp[]
 QED
 
-Triviality blank_names_values:
+Theorem blank_names_values[local]:
   blank_names = names «» [] []
 Proof
   simp[blank_names_def, names_component_equality]
 QED
 
-Triviality b2s__STRING[simp]:
+Theorem b2s__STRING[simp, local]:
   ∀s' ss. implode (bytes2string (n2w (ORD s')::MAP (n2w ∘ ORD) ss)) = implode $ STRING s' ss
 Proof
   rw[bytes2string_def, MAP_MAP_o, CHR_w2n_n2w_ORD]
@@ -775,7 +775,7 @@ Proof
   \\ gvs[append_def]
 QED
 
-Triviality enc_names_section_blank[simp]:
+Theorem enc_names_section_blank[simp, local]:
   enc_names_section blank_names = SOME $ List []
 Proof
      rw[enc_names_section_def, blank_names_def, enc_section_def]
@@ -783,7 +783,7 @@ Proof
   >- fs[string2bytes_def]
 QED
 
-Triviality enc_names_section_blank__NUL_conv:
+Theorem enc_names_section_blank__NUL_conv[local]:
   ∀x ex. enc_names_section x = SOME ex ∧ NULL (append ex) ⇒ x = blank_names
 Proof
 (* askyk askmm *)
@@ -810,7 +810,7 @@ Proof
   \\ gvs[]
 QED
 
-Triviality names_not_blank:
+Theorem names_not_blank[local]:
   ∀x. x ≠ blank_names ⇒ x.mname ≠ «» ∨ ¬NULL x.fnames ∨ ¬NULL x.lnames
 Proof
      namedCases ["mname fnames lnames"]
@@ -822,7 +822,7 @@ Proof
   >> simp[blank_names_values]
 QED
 
-Triviality names_not_blank':
+Theorem names_not_blank'[local]:
   ∀x. x ≠ blank_names ⇒ ¬NULL (string2bytes $ explode x.mname) ∨ ¬NULL x.fnames ∨ ¬NULL x.lnames
 Proof
      rpt strip_tac
@@ -835,7 +835,7 @@ QED
 
 
 
-Triviality enc_names_section_not_blank__nNUL:
+Theorem enc_names_section_not_blank__nNUL[local]:
   ∀x encx.
     x ≠ blank_names ∧ enc_names_section x = SOME encx ⇒
     ¬NULL (append encx)
@@ -844,7 +844,7 @@ Proof
   \\ imp_res_tac enc_names_section_blank__NUL_conv
 QED
 
-Triviality enc_names_section_not_blank__lbn0:
+Theorem enc_names_section_not_blank__lbn0[local]:
   ∀x encx.
     x ≠ blank_names ∧ enc_names_section x = SOME encx ⇒
     ∃dc. append encx = 0w::dc
@@ -863,13 +863,13 @@ QED
 
 
 
-Triviality dec_names_section_empty[simp]:
+Theorem dec_names_section_empty[simp, local]:
   ∀lb enc. dec_names_section [] = ret [] [blank_names]
 Proof
   rw[Once dec_names_section_def]
 QED
 
-Triviality dec_section_empty[simp]:
+Theorem dec_section_empty[simp, local]:
   ∀lb dec. dec_section lb dec [] = ret [] []
 Proof
   rw[Once dec_section_def]
@@ -1113,7 +1113,7 @@ QED
 (*****************************************************************************)
 
 (* dec-enc sub-section (specialized) thms. used in the names_section proof *)
-Triviality dess0r:
+Theorem dess0r[local]:
   ∀rest x xs ex.
     enc_section 0w enc_byte (x::xs) = SOME ex ⇒
     dec_section 0w dec_byte (ex a++ rest) = ret rest (x::xs)
@@ -1126,7 +1126,7 @@ Proof
   \\ simp[]
 QED
 
-Triviality dess0:
+Theorem dess0[local]:
   ∀x xs ex.
     enc_section 0w enc_byte (x::xs) = SOME ex ⇒
     dec_section 0w dec_byte (append ex) = ret [] (x::xs)
@@ -1135,7 +1135,7 @@ Proof
 QED
 
 
-Triviality dess1r:
+Theorem dess1r[local]:
   ∀rest x xs ex.
     enc_section 1w enc_ass (x::xs) = SOME ex ⇒
     dec_section 1w dec_ass (ex a++ rest) = ret rest (x::xs)
@@ -1148,7 +1148,7 @@ Proof
   \\ simp[]
 QED
 
-Triviality dess1:
+Theorem dess1[local]:
   ∀x xs ex.
     enc_section 1w enc_ass (x::xs) = SOME ex ⇒
     dec_section 1w dec_ass (append ex) = ret [] (x::xs)
@@ -1157,7 +1157,7 @@ Proof
 QED
 
 
-Triviality dess2:
+Theorem dess2[local]:
   ∀x xs ex.
     enc_section 2w (enc_idx_alpha enc_map) (x::xs) = SOME ex ⇒
     dec_section 2w (dec_idx_alpha dec_map) (append ex) = ret [] (x::xs)
@@ -1175,7 +1175,7 @@ QED
 
 
 (* dec-enc section thms used in the module proof *)
-Triviality des1r:
+Theorem des1r[local]:
   ∀rest x xs ex.
     enc_section 1w enc_functype (x::xs) = SOME ex ⇒
     dec_section 1w dec_functype (ex a++ rest) = ret rest (x::xs)
@@ -1188,7 +1188,7 @@ Proof
   \\ simp[]
 QED
 
-Triviality des1:
+Theorem des1[local]:
   ∀x xs es.
   enc_section 1w enc_functype (x::xs) = SOME es ⇒
   dec_section 1w dec_functype (append es) = ret [] (x::xs)
@@ -1197,7 +1197,7 @@ Proof
 QED
 
 
-Triviality des3r:
+Theorem des3r[local]:
   ∀rest x xs es.
     enc_section 3w enc_u32 (x::xs) = SOME es ⇒
     dec_section 3w dec_u32 (es a++ rest) = ret rest (x::xs)
@@ -1210,7 +1210,7 @@ Proof
   \\ simp[]
 QED
 
-Triviality des3:
+Theorem des3[local]:
   ∀rest x xs es.
     enc_section 3w enc_u32 (x::xs) = SOME es ⇒
     dec_section 3w dec_u32 (append es) = ret [] (x::xs)
@@ -1218,7 +1218,7 @@ Proof
   qspec_then ‘[]’ mp_tac des3r \\ simp[]
 QED
 
-Triviality des5r:
+Theorem des5r[local]:
   ∀rest x xs es.
     enc_section 5w enc_limits (x::xs) = SOME es ⇒
     dec_section 5w dec_limits (es a++ rest) = ret rest (x::xs)
@@ -1231,7 +1231,7 @@ Proof
   >> simp[]
 QED
 
-Triviality des5:
+Theorem des5[local]:
   ∀rest x xs es.
     enc_section 5w enc_limits (x::xs) = SOME es ⇒
     dec_section 5w dec_limits (append es) = ret [] (x::xs)
@@ -1239,7 +1239,7 @@ Proof
   qspec_then ‘[]’ mp_tac des5r \\ simp[]
 QED
 
-Triviality des6r:
+Theorem des6r[local]:
   ∀rest x xs es.
     enc_section 6w enc_global (x::xs) = SOME es ⇒
     dec_section 6w dec_global (es a++ rest) = ret rest (x::xs)
@@ -1252,7 +1252,7 @@ Proof
   >> simp[]
 QED
 
-Triviality des6:
+Theorem des6[local]:
   ∀rest x xs es.
     enc_section 6w enc_global (x::xs) = SOME es ⇒
     dec_section 6w dec_global (append es) = ret [] (x::xs)
@@ -1261,7 +1261,7 @@ Proof
 QED
 
 
-Triviality des10r:
+Theorem des10r[local]:
   ∀rest x xs es.
     enc_section 10w enc_code (x::xs) = SOME es ⇒
     dec_section 10w dec_code (es a++ rest) = ret rest (x::xs)
@@ -1274,7 +1274,7 @@ Proof
   >> simp[]
 QED
 
-Triviality des10:
+Theorem des10[local]:
   ∀rest x xs es.
     enc_section 10w enc_code (x::xs) = SOME es ⇒
     dec_section 10w dec_code (append es) = ret [] (x::xs)
@@ -1282,7 +1282,7 @@ Proof
   qspec_then ‘[]’ mp_tac des10r \\ simp[]
 QED
 
-Triviality des11r:
+Theorem des11r[local]:
   ∀rest x xs es.
     enc_section 11w enc_data (x::xs) = SOME es ⇒
     dec_section 11w dec_data (es a++ rest) = ret rest (x::xs)
@@ -1296,7 +1296,7 @@ Proof
 QED
 
 
-Triviality des11:
+Theorem des11[local]:
   ∀x xs es.
     enc_section 11w enc_data (x::xs) = SOME es ⇒
     dec_section 11w dec_data (append es) = ret [] (x::xs)
@@ -1308,7 +1308,7 @@ QED
 
 
 (* pass through thms; saying that if trying to decode a X from the bytecode of a Y results in a no-op *)
-Triviality pt12:
+Theorem pt12[local]:
   ∀x xs ss2.
     enc_section 2w (enc_idx_alpha enc_map) (x::xs) = SOME ss2 ⇒
     dec_section 1w dec_ass (append ss2) = ret (append ss2) []
@@ -1319,7 +1319,7 @@ Proof
 QED
 
 
-Triviality pt0r:
+Theorem pt0r[local]:
   ∀rest b enc x xs es. b ≠ 0w ∧
     enc_section b enc (x::xs) = SOME es ⇒
     dec_section 0w dec_byte (es a++ rest) = ret (es a++ rest) []
@@ -1329,7 +1329,7 @@ Proof
   \\ simp[]
 QED
 
-Triviality pt0:
+Theorem pt0[local]:
   ∀b enc x xs es. b ≠ 0w ∧
     enc_section b enc (x::xs) = SOME es ⇒
     dec_section 0w dec_byte (append es) = ret (append es) []
@@ -1340,7 +1340,7 @@ Proof
 QED
 
 
-Triviality pt1r:
+Theorem pt1r[local]:
   ∀rest b enc x xs es. b ≠ 1w ∧
   enc_section b enc (x::xs) = SOME es ⇒
   dec_section 1w dec_functype (es a++ rest) = ret (es a++ rest) []
@@ -1350,7 +1350,7 @@ Proof
   >> simp[]
 QED
 
-Triviality pt1:
+Theorem pt1[local]:
   ∀b enc x xs es. b ≠ 1w ∧
     enc_section b enc (x::xs) = SOME es ⇒
     dec_section 1w dec_functype (append es) = ret (append es) []
@@ -1361,7 +1361,7 @@ Proof
 QED
 
 
-Triviality pt3r:
+Theorem pt3r[local]:
   ∀rest b enc x xs es. b ≠ 3w ∧
     enc_section b enc (x::xs) = SOME es ⇒
     dec_section 3w dec_u32 (es a++ rest) = ret (es a++ rest) []
@@ -1371,7 +1371,7 @@ Proof
   >> simp[]
 QED
 
-Triviality pt3:
+Theorem pt3[local]:
   ∀b enc x xs es. b ≠ 3w ∧
     enc_section b enc (x::xs) = SOME es ⇒
     dec_section 3w dec_u32 (append es) = ret (append es) []
@@ -1382,7 +1382,7 @@ Proof
 QED
 
 
-Triviality pt5r:
+Theorem pt5r[local]:
   ∀rest b enc x xs es. b ≠ 5w ∧
     enc_section b enc (x::xs) = SOME es ⇒
     dec_section 5w dec_limits (es a++ rest) = ret (es a++ rest) []
@@ -1392,7 +1392,7 @@ Proof
   >> simp[]
 QED
 
-Triviality pt5:
+Theorem pt5[local]:
   ∀b enc x xs es. b ≠ 5w ∧
     enc_section b enc (x::xs) = SOME es ⇒
     dec_section 5w dec_limits (append es) = ret (append es) []
@@ -1403,7 +1403,7 @@ Proof
 QED
 
 
-Triviality pt6r:
+Theorem pt6r[local]:
   ∀rest b enc x xs es. b ≠ 6w ∧
     enc_section b enc (x::xs) = SOME es ⇒
     dec_section 6w dec_global (es a++ rest) = ret (es a++ rest) []
@@ -1413,7 +1413,7 @@ Proof
   >> simp[]
 QED
 
-Triviality pt6:
+Theorem pt6[local]:
   ∀b enc x xs es. b ≠ 6w ∧
     enc_section b enc (x::xs) = SOME es ⇒
     dec_section 6w dec_global (append es) = ret (append es) []
@@ -1424,7 +1424,7 @@ Proof
 QED
 
 
-Triviality pt10r:
+Theorem pt10r[local]:
   ∀rest b enc x xs es. b ≠ 10w ∧
     enc_section b enc (x::xs) = SOME es ⇒
     dec_section 10w dec_code (es a++ rest) = ret (es a++ rest) []
@@ -1434,7 +1434,7 @@ Proof
   >> simp[]
 QED
 
-Triviality pt10:
+Theorem pt10[local]:
   ∀b enc x xs es. b ≠ 10w ∧
     enc_section b enc (x::xs) = SOME es ⇒
     dec_section 10w dec_code (append es) = ret (append es) []
@@ -1452,7 +1452,7 @@ QED
 (*   Pass through, names section   *)
 (***********************************)
 
-Triviality ptns1:
+Theorem ptns1[local]:
   ∀x ex.
     enc_names_section x = SOME ex ⇒
     dec_section 1w dec_functype (append ex) = ret (append ex) []
@@ -1464,7 +1464,7 @@ Proof
   >> rw[oneline dec_section_def]
 QED
 
-Triviality ptns3:
+Theorem ptns3[local]:
   ∀x ex.
     enc_names_section x = SOME ex ⇒
     dec_section 3w dec_u32 (append ex) = ret (append ex) []
@@ -1476,7 +1476,7 @@ Proof
   >> rw[oneline dec_section_def]
 QED
 
-Triviality ptns5:
+Theorem ptns5[local]:
   ∀x ex.
     enc_names_section x = SOME ex ⇒
     dec_section 5w dec_limits (append ex) = ret (append ex) []
@@ -1488,7 +1488,7 @@ Proof
   >> rw[oneline dec_section_def]
 QED
 
-Triviality ptns6:
+Theorem ptns6[local]:
   ∀x ex.
     enc_names_section x = SOME ex ⇒
     dec_section 6w dec_global (append ex) = ret (append ex) []
@@ -1500,7 +1500,7 @@ Proof
   >> rw[oneline dec_section_def]
 QED
 
-Triviality ptns10:
+Theorem ptns10[local]:
   ∀x ex.
     enc_names_section x = SOME ex ⇒
     dec_section 10w dec_code (append ex) = ret (append ex) []
@@ -1512,7 +1512,7 @@ Proof
   >> rw[oneline dec_section_def]
 QED
 
-Triviality ptns11:
+Theorem ptns11[local]:
   ∀x ex.
     enc_names_section x = SOME ex ⇒
     dec_section 11w dec_data (append ex) = ret (append ex) []

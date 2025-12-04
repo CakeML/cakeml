@@ -83,7 +83,7 @@ Definition fix_clock_def:
   fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
 End
 
-Triviality fix_clock_def':
+Theorem fix_clock_def'[local]:
   fix_clock s x =
   case x of (res,s1) =>
   (res,s1 with clock := MIN s.clock s1.clock)
@@ -92,7 +92,7 @@ Proof
   >>rw[fix_clock_def]
 QED
 
-Triviality fix_clock_IMP:
+Theorem fix_clock_IMP[local]:
   (fix_clock s x = (res,s1) ==> s1.clock <= s.clock) ∧
   ((res,s1) = fix_clock s x ==> s1.clock <= s.clock)
 Proof
@@ -689,19 +689,19 @@ End
 
 
 
-Triviality pop_clock:
+Theorem pop_clock[local]:
   pop s = SOME (r,s1) ⇒ s1.clock = s.clock
 Proof
   rw [oneline pop_def, AllCaseEqs()] \\ fs []
 QED
 
-Triviality pop_n_clock:
+Theorem pop_n_clock[local]:
   ∀n s. pop_n n s = SOME (r,s1) ⇒ s1.clock = s.clock
 Proof
   Induct \\ gvs [pop_n_def] \\ rw [] \\ gvs []
 QED
 
-Triviality fix_clock_leq:
+Theorem fix_clock_leq[local]:
   fix_clock s input = (output,s1) ⇒ s1.clock ≤ s.clock
 Proof
   Cases_on ‘input’ \\ rw [fix_clock_def] \\ fs []
@@ -723,7 +723,7 @@ Proof
   \\ gvs [oneline nonzero_def,AllCaseEqs(),push_def,set_local_def,set_global_def]
 QED
 
-Triviality fix_clock_exec:
+Theorem fix_clock_exec[local]:
   fix_clock s (exec e s) = exec e s ∧
   fix_clock s (exec_list es s) = exec_list es s
 Proof
