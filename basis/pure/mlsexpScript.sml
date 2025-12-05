@@ -1,5 +1,6 @@
 (*
-  Definitions to lex and parse S-expressions.
+  Definition of a simple mlstring-based s-expression, incldues
+  parsing and pretty printing for these s-expressions.
 *)
 Theory mlsexp
 Ancestors
@@ -7,18 +8,26 @@ Ancestors
 Libs
   preamble
 
-Datatype:
-  token = OPEN | CLOSE | SYMBOL mlstring
-End
+(*--------------------------------------------------------------*
+   Definition of s-expression
+ *--------------------------------------------------------------*)
 
 Datatype:
   sexp = Atom mlstring | Expr (sexp list)
 End
 
+(*--------------------------------------------------------------*
+   Lexing + parsing
+ *--------------------------------------------------------------*)
+
+Datatype:
+  token = OPEN | CLOSE | SYMBOL mlstring
+End
+
 Definition read_quoted_aux_def:
   read_quoted_aux [] acc = NONE ∧
   read_quoted_aux (#"\""::rest) acc =
-    SOME ((REVERSE acc), rest) ∧
+    SOME (implode (REVERSE acc), rest) ∧
   read_quoted_aux (#"\\"::#"\""::rest) acc =
     read_quoted_aux rest (#"\""::acc) ∧
   read_quoted_aux (#"\\"::#"\\"::rest) acc =
@@ -30,7 +39,7 @@ End
 (* Returns the string until a closing quote, and the rest of the input.
    Fails if closing quotes are missing. *)
 Definition read_quoted_def:
-  read_quoted (input: string) : (string # string) option =
+  read_quoted (input: string) : (mlstring # string) option =
     read_quoted_aux input []
 End
 
@@ -53,16 +62,16 @@ QED
 
 Definition read_atom_aux_def:
   read_atom_aux [] acc =
-    ((REVERSE acc), []) ∧
+    (implode (REVERSE acc), []) ∧
   read_atom_aux (c::cs) acc =
-    if MEM c ") \t\n" then ((REVERSE acc), (c::cs))
+    if MEM c ") \t\n" then (implode (REVERSE acc), (c::cs))
     else read_atom_aux cs (c::acc)
 End
 
 (* Returns the string until a closing parenthesis or whitespace, and the
    rest of the input. *)
 Definition read_atom_def:
-  read_atom (input: string) : (string # string) =
+  read_atom (input: string) : (mlstring # string) =
     read_atom_aux input []
 End
 
@@ -83,7 +92,7 @@ Type result[local,pp] = “:α + α”
    time. *)
 Definition lex_aux_def:
   lex_aux depth [] acc : (token list # string) result =
-    (if depth = 0 then INR (acc, []) else INL (acc, [])) ∧
+    (if depth = 0:num then INR (acc, []) else INL (acc, [])) ∧
   lex_aux depth (c::cs) acc =
     if MEM c " \t\n" then lex_aux depth cs acc
     else if c = #"(" then lex_aux (depth + 1) cs (OPEN::acc)
@@ -95,11 +104,11 @@ Definition lex_aux_def:
       case read_quoted cs of
       | NONE => INL (acc, c::cs)
       | SOME (s, rest) =>
-          lex_aux depth rest ((SYMBOL (implode s))::acc)
+          lex_aux depth rest ((SYMBOL s)::acc)
     else
       case read_atom (c::cs) of
       | (s, rest) =>
-          lex_aux depth rest ((SYMBOL (implode s))::acc)
+          lex_aux depth rest ((SYMBOL s)::acc)
 Termination
   wf_rel_tac ‘measure $ (λx. case x of (_, input, _) => LENGTH input)’ \\ rw[]
   \\ imp_res_tac read_quoted_length \\ fs[]

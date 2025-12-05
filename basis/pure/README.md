@@ -35,6 +35,10 @@ Pure functions for the Rat module.
 Pure functions for the Set module.
 This file defines a wrapper around the balanced_map type.
 
+[mlsexpScript.sml](mlsexpScript.sml):
+Definition of a simple mlstring-based s-expression, incldues
+parsing and pretty printing for these s-expressions.
+
 [mlstringLib.sml](mlstringLib.sml):
 More ML functions for manipulating HOL terms involving mlstrings.
 
