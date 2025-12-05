@@ -97,25 +97,26 @@ Definition lex_aux_def:
     if MEM c " \t\n" then lex_aux depth cs acc
     else if c = #"(" then lex_aux (depth + 1) cs (OPEN::acc)
     else if c = #")" then
-      (if 0 < depth
-       then lex_aux (depth - 1) cs (CLOSE::acc)
-       else INL (acc, c::cs))
+      (if depth = 0 then INL (ARB, c::cs)
+       else if depth = 1 then INR (CLOSE::acc, cs)
+       else lex_aux (depth - 1) cs (CLOSE::acc))
     else if c = #"\"" then
       case read_quoted cs of
       | NONE => INL (acc, c::cs)
       | SOME (s, rest) =>
-          lex_aux depth rest ((SYMBOL s)::acc)
+          if depth = 0 then INR ([SYMBOL s], rest)
+          else lex_aux depth rest ((SYMBOL s)::acc)
     else
       case read_atom (c::cs) of
       | (s, rest) =>
-          lex_aux depth rest ((SYMBOL s)::acc)
+          if depth = 0 then INR ([SYMBOL s], rest)
+          else lex_aux depth rest ((SYMBOL s)::acc)
 Termination
-  wf_rel_tac ‘measure $ (λx. case x of (_, input, _) => LENGTH input)’ \\ rw[]
+  wf_rel_tac ‘measure $ (λ(_, input, _). LENGTH input)’ \\ rw[]
   \\ imp_res_tac read_quoted_length \\ fs[]
-  \\ pop_assum mp_tac
-  \\ simp[read_atom_def]
-  \\ simp[Once read_atom_aux_def]
-  \\ strip_tac
+  \\ fs[read_atom_def]
+  \\ fs[Once read_atom_aux_def]
+  \\ gvs [AllCaseEqs()]
   \\ imp_res_tac read_atom_aux_length \\ fs[]
 End
 
@@ -124,6 +125,15 @@ Definition lex_def:
   lex (input: string) : (token list # string) result =
     lex_aux 0 input []
 End
+
+Theorem test_lex[local]:
+  lex " 1 2   3 " = INR ([SYMBOL «1»]," 2   3 ") ∧
+  lex " (1 2) 3 " = INR ([CLOSE; SYMBOL «2»; SYMBOL «1»; OPEN]," 3 ") ∧
+  lex " (1 2) ) " = INR ([CLOSE; SYMBOL «2»; SYMBOL «1»; OPEN]," ) ") ∧
+  lex " ) (1 2) " = INL (ARB,") (1 2) ")
+Proof
+  EVAL_TAC
+QED
 
 (* TODO Something feels off about this... are we correctly dealing with
    failures? *)
@@ -136,3 +146,18 @@ Definition parse_aux_def:
      | (y::ys) => parse_aux rest ((Expr xs)::y) ys) ∧
   parse_aux ((SYMBOL sy) :: rest) xs s = parse_aux rest ((Atom sy)::xs) s
 End
+
+Definition parse_def:
+  parse input =
+    case lex input of
+    | INL (err, rest) => INL (err, rest)
+    | INR (rev_toks, rest) => INR (parse_aux rev_toks [] [], rest)
+End
+
+Theorem test_parse[local]:
+  parse " 1 2 3 " = INR ([Atom «1»]," 2 3 ") ∧
+  parse "(1 2 3)" = INR ([Expr [Atom «1»; Atom «2»; Atom «3»]],"") ∧
+  parse "(()) ()" = INR ([Expr [Expr []]]," ()")
+Proof
+  EVAL_TAC
+QED
