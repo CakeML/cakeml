@@ -191,10 +191,30 @@ Proof
   blastLib.FULL_BBLAST_TAC
 QED
 
-val x64_enc1_2 = el 2 x64_enc1s |> wc_simp |> we_simp |> gconv |>
- bconv |> SIMP_RULE std_ss [SHIFT_ZERO,Q.ISPEC`Zsize_CASE`
- COND_RAND,COND_RATOR,Zsize_case_def] |> fconv |> SIMP_RULE
- std_ss[Once COND_RAND,simp_rw] |> csethm 2
+Theorem LIST_BIND_rw[local]:
+  list_CASE (LIST_BIND (if P then A else B) f) C D =
+  if P then
+    list_CASE (LIST_BIND A f) C D
+  else
+    list_CASE (LIST_BIND B f) C D
+Proof
+  rw[]
+QED
+
+Theorem COND_RAND_pair[local]:
+  (λ(a,b). f a b) (if P then A else B) =
+  (if P then (λ(a,b). f a b) A else (λ(a,b). f a b) B)
+Proof
+  rw[]
+QED
+
+val x64_enc1_2 = el 2 x64_enc1s
+  |> REWRITE_RULE [LIST_BIND_rw]
+  |> SIMP_RULE (srw_ss()) defaults
+  |> wc_simp |> we_simp |> gconv
+  |> bconv |> SIMP_RULE std_ss [SHIFT_ZERO,Q.ISPEC`Zsize_CASE`
+ COND_RAND,COND_RATOR,Zsize_case_def,COND_RAND_pair] |> fconv |> SIMP_RULE
+ std_ss[simp_rw] |> csethm 2
 
 val (binop::shift::rest) = el 3 x64_enc1s |> SIMP_RULE (srw_ss() ++
 DatatypeSimps.expand_type_quants_ss [``:64 arith``]) [] |> CONJUNCTS
