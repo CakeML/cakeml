@@ -147,16 +147,14 @@ Proof
   EVAL_TAC
 QED
 
-(* TODO Something feels off about this... are we correctly dealing with
-   failures? *)
 Definition parse_aux_def:
   parse_aux [] xs s = xs ∧
-  parse_aux (CLOSE :: rest) xs s = parse_aux rest [] (xs::s) ∧
-  parse_aux (OPEN :: rest) xs s =
+  parse_aux (CLOSE::rest) xs s = parse_aux rest [] (xs::s) ∧
+  parse_aux (OPEN::rest) xs s =
     (case s of
      | [] => parse_aux rest xs s
      | (y::ys) => parse_aux rest ((Expr xs)::y) ys) ∧
-  parse_aux ((SYMBOL sy) :: rest) xs s = parse_aux rest ((Atom sy)::xs) s
+  parse_aux ((SYMBOL sy)::rest) xs s = parse_aux rest ((Atom sy)::xs) s
 End
 
 (* Parses (at most) one S-expression, and returns the rest of the input.
