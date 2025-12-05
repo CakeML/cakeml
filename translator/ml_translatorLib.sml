@@ -225,6 +225,7 @@ fun remove_Eq_from_v_thm th = let
 fun normalise_assums th =
   th |> DISCH_ALL |> PURE_REWRITE_RULE[GSYM AND_IMP_INTRO] |> UNDISCH_ALL
 
+val translation_ancestor = ref "min"
 (* new state *)
 
 val clean_on_exit = ref false;
@@ -578,32 +579,140 @@ val default_eq_lemmas = CONJUNCTS EqualityType_NUM_BOOL
     @ [IsTypeRep_PAIR, IsTypeRep_LIST, IsTypeRep_VECTOR]
 
 local
-  val type_mappings = ref ([]:(hol_type * hol_type) list)
-  val other_types = ref ([]:(hol_type * term) list)
-  val preprocessor_rws = ref ([]:thm list)
-  val type_memory = ref ([]:(hol_type * thm * (term * thm) list * thm) list)
-  val deferred_dprogs = ref ([]:term list)
-  val all_eq_lemmas = ref default_eq_lemmas
+   local
+     (*Not the best way to do this but not intrusive*)
+     (*Local is for updates into the local theory*)
+     val type_mappings = ref ([]:(hol_type * hol_type) list)
+     val other_types = ref ([]:(hol_type * term) list)
+     val preprocessor_rws = ref ([]:thm list)
+     val type_memory = ref ([]:(hol_type * thm * (term * thm) list * thm) list)
+     val deferred_dprogs = ref ([]:term list)
+     val all_eq_lemmas = ref default_eq_lemmas
+
+     datatype deferred_dprog_delta = Add_d_dprog of term list
+                                   | Delete_dprog (* Clear the whole list*)
+
+     val local_type_mappings = ref ([]:(hol_type * hol_type) list)
+     val local_other_types = ref ([]:(hol_type * term) list)
+     val local_preprocessor_rws = ref ([]:thm list)
+     val local_type_memory = ref ([]:(hol_type * thm * (term * thm) list * thm) list)
+     val local_deferred_dprogs = ref ([]:deferred_dprog_delta list)
+     val local_all_eq_lemmas = ref default_eq_lemmas
+   in
+     fun type_reset () =
+       (translation_ancestor := "min";
+        type_mappings := [];
+        other_types := [];
+        preprocessor_rws := [];
+        type_memory := [];
+        deferred_dprogs := [];
+        all_eq_lemmas := default_eq_lemmas;
+        local_type_mappings := [];
+        local_other_types := [];
+        local_preprocessor_rws := [];
+        local_type_memory := [];
+        local_deferred_dprogs := [];
+        local_all_eq_lemmas := default_eq_lemmas)
+     fun get_type_mappings () = (!type_mappings)
+     fun add_new_type_mapping ty target_ty =
+       (local_type_mappings := (ty,target_ty) :: (!local_type_mappings);
+        type_mappings := (ty,target_ty) :: (!type_mappings))
+     fun get_other_types () = !other_types
+     fun new_type_inv ty inv = (local_other_types := (ty,inv) :: (!local_other_types);
+                                other_types := (ty,inv) :: (!other_types))
+     fun get_preprocessor_rws () = (!preprocessor_rws)
+     fun add_preprocessor_rws rws =
+       let
+         val _ = local_preprocessor_rws := rws @ !local_preprocessor_rws
+       in
+         preprocessor_rws := rws @ !preprocessor_rws
+       end
+     fun add_deferred_dprog dprog =
+       if listSyntax.is_nil dprog then ()
+       else (
+            local_deferred_dprogs := (Add_d_dprog [dprog])::(!local_deferred_dprogs);
+            deferred_dprogs := dprog::(!deferred_dprogs)
+            )
+     fun pop_deferred_dprogs () =
+       List.rev (!deferred_dprogs) before
+       (
+        local_deferred_dprogs := (Delete_dprog)::(!local_deferred_dprogs);
+        deferred_dprogs := [])
+     fun eq_lemmas () = (!all_eq_lemmas)
+     fun add_eq_lemma eq_lemma =
+       if Teq (concl eq_lemma) then () else
+         let
+         val _ = (local_all_eq_lemmas := eq_lemma :: (!local_all_eq_lemmas))
+         in
+         (all_eq_lemmas := eq_lemma :: (!all_eq_lemmas))
+         end
+     fun add_type_memory memory = (local_type_memory := memory @ !local_type_memory;
+                                   type_memory := memory @ !type_memory)
+     fun get_type_memory () = !type_memory
+     (* TODO change to pack local and pop local *)
+     (* store/load to/from a single thm *)
+     fun deferred_dprog_delta_to_option (Add_d_dprog terms) = SOME terms
+       | deferred_dprog_delta_to_option Delete_dprog = NONE
+     fun option_to_deferred_dprog_delta (SOME terms) = (Add_d_dprog terms)
+       | option_to_deferred_dprog_delta NONE = Delete_dprog
+     val pack_deferred_dprog_delta = (pack_option (pack_list pack_term)) o deferred_dprog_delta_to_option
+     val unpack_deferred_dprog_delta = option_to_deferred_dprog_delta o (unpack_option (unpack_list unpack_term))
+     fun apply_deferred_dprog_delta xs =
+         case xs of
+              [] => ()
+           |  x :: xs => let val _ = apply_deferred_dprog_delta xs
+                         in
+                             case x of
+                               (Add_d_dprog terms) => deferred_dprogs := terms @ (!deferred_dprogs)
+                             | Delete_dprog => deferred_dprogs := []
+                         end
+
+     fun pack_types () =
+       pack_6tuple
+         (pack_list (pack_pair pack_type pack_type))
+         (pack_list (pack_pair pack_type pack_term))
+         (pack_list pack_thm)
+         (pack_list (pack_4tuple pack_type pack_thm (pack_list (pack_pair pack_term pack_thm)) pack_thm))
+         (pack_list pack_deferred_dprog_delta)
+         (pack_list pack_thm)
+           ((!local_type_mappings), (!local_other_types), (!local_preprocessor_rws),
+            (!local_type_memory), (!local_deferred_dprogs), (!local_all_eq_lemmas))
+     fun unpack_types th = let
+       val (t1,t2,t3,t4,t5,t6) = unpack_6tuple
+         (unpack_list (unpack_pair unpack_type unpack_type))
+         (unpack_list (unpack_pair unpack_type unpack_term))
+         (unpack_list unpack_thm)
+         (unpack_list (unpack_4tuple unpack_type unpack_thm (unpack_list (unpack_pair unpack_term unpack_thm)) unpack_thm))
+         (unpack_list unpack_deferred_dprog_delta)
+         (unpack_list unpack_thm) th
+       val _ = (type_mappings := t1 @ !type_mappings)
+       val _ = (other_types := t2 @ !other_types)
+       val _ = (preprocessor_rws := t3 @ !preprocessor_rws)
+       val _ = (type_memory := t4 @ !type_memory)
+       val _ = (apply_deferred_dprog_delta t5)
+       val _ = (all_eq_lemmas := t6 @ !all_eq_lemmas)
+       in () end
+   end
 in
-  fun type_reset () =
-    (type_mappings := [];
-     other_types := [];
-     preprocessor_rws := [];
-     type_memory := [];
-     deferred_dprogs := [];
-     all_eq_lemmas := default_eq_lemmas)
-  fun dest_fun_type ty = let
-    val (name,args) = dest_type ty
-    in if name = "fun" then (el 1 args, el 2 args) else failwith("not fun type") end
+  val type_reset = type_reset
+  fun get_user_supplied_types () = map fst (get_other_types ())
+  val get_preprocessor_rws = get_preprocessor_rws
+  val eq_lemmas = eq_lemmas
+  val add_eq_lemma = add_eq_lemma
+  val pop_deferred_dprogs = pop_deferred_dprogs
+  val new_type_inv = new_type_inv
+  val pack_types = pack_types
+  val unpack_types = unpack_types
+
+
+  val dest_fun_type = Type.dom_rng
   fun find_type_mapping ty =
-    first (fn (t,_) => can (match_type t) ty) (!type_mappings)
+    first (fn (t,_) => can (match_type t) ty) (get_type_mappings ())
   fun free_typevars ty =
     if can dest_vartype ty then [ty] else let
     val (name,tt) = dest_type ty
     in Lib.flatten (map free_typevars tt) end
     handle HOL_ERR _ => []
-  fun add_new_type_mapping ty target_ty =
-    (type_mappings := (ty,target_ty) :: (!type_mappings))
   fun string_tl s = s |> explode |> tl |> implode
   fun prim_type name = Atapp [] (astSyntax.mk_Short(stringSyntax.fromMLstring name))
   val bool_ast_t = prim_type "bool"
@@ -685,58 +794,23 @@ in
       in VECTOR_TYPE_def |> ISPEC inv |> SPEC_ALL
          |> concl |> dest_eq |> fst |> rator |> rator end
     else
-      list_inst_type_inv ty (!other_types)
+      list_inst_type_inv ty (get_other_types ())
       handle HOL_ERR _ => raise UnsupportedType ty
-  fun new_type_inv ty inv = (other_types := (ty,inv) :: (!other_types))
   fun add_type_inv tm target_ty = let
     val ty = fst (dest_fun_type (type_of tm))
     val _ = add_new_type_mapping ty target_ty
     in new_type_inv ty tm end
-  fun add_deferred_dprog dprog =
-    if listSyntax.is_nil dprog then ()
-    else deferred_dprogs := dprog::(!deferred_dprogs)
-  fun pop_deferred_dprogs () =
-    List.rev (!deferred_dprogs) before deferred_dprogs := []
-  fun get_user_supplied_types () = map fst (!other_types)
-  fun add_eq_lemma eq_lemma =
-    if Teq (concl eq_lemma) then () else
-      (all_eq_lemmas := eq_lemma :: (!all_eq_lemmas))
   fun add_type_thms (rws1,rws2,res,tr_lemmas) = let
     val _ = map (fn (ty,eq_lemma,inv_def,conses,case_lemma,ts) => add_eq_lemma eq_lemma) res
     val _ = map add_eq_lemma tr_lemmas
-    val _ = (type_memory := map (fn (ty,eq_lemma,inv_def,conses,case_lemma,ts) => (ty,inv_def,conses,case_lemma)) res @ (!type_memory))
-    val _ = (preprocessor_rws := rws2 @ (!preprocessor_rws))
+    val new_type_memory = map (fn (ty,eq_lemma,inv_def,conses,case_lemma,ts) =>
+                            (ty,inv_def,conses,case_lemma)) res
+    val _ = add_type_memory new_type_memory
+    val _ = add_preprocessor_rws rws2
     in () end
-  fun ignore_type ty = (type_memory := (ty,TRUTH,[],TRUTH) :: (!type_memory));
-  fun lookup_type_thms ty = first (fn (ty1,_,_,_) => can (match_type ty1) ty) (!type_memory)
-  fun eq_lemmas () = (!all_eq_lemmas)
-  fun get_preprocessor_rws () = (!preprocessor_rws)
-  (* store/load to/from a single thm *)
-  fun pack_types () =
-    pack_6tuple
-      (pack_list (pack_pair pack_type pack_type))
-      (pack_list (pack_pair pack_type pack_term))
-      (pack_list pack_thm)
-      (pack_list (pack_4tuple pack_type pack_thm (pack_list (pack_pair pack_term pack_thm)) pack_thm))
-      (pack_list pack_term)
-      (pack_list pack_thm)
-        ((!type_mappings), (!other_types), (!preprocessor_rws),
-         (!type_memory), (!deferred_dprogs), (!all_eq_lemmas))
-  fun unpack_types th = let
-    val (t1,t2,t3,t4,t5,t6) = unpack_6tuple
-      (unpack_list (unpack_pair unpack_type unpack_type))
-      (unpack_list (unpack_pair unpack_type unpack_term))
-      (unpack_list unpack_thm)
-      (unpack_list (unpack_4tuple unpack_type unpack_thm (unpack_list (unpack_pair unpack_term unpack_thm)) unpack_thm))
-      (unpack_list unpack_term)
-      (unpack_list unpack_thm) th
-    val _ = (type_mappings := t1)
-    val _ = (other_types := t2)
-    val _ = (preprocessor_rws := t3)
-    val _ = (type_memory := t4)
-    val _ = (deferred_dprogs := t5)
-    val _ = (all_eq_lemmas := t6)
-    in () end
+  fun ignore_type ty = add_type_memory [(ty,TRUTH,[],TRUTH)]
+  fun lookup_type_thms ty = first (fn (ty1,_,_,_) => can (match_type ty1) ty)
+                           (get_type_memory ())
 end
 
 
@@ -918,6 +992,7 @@ local
     val p4 = pack_type_mods()
     val p = pack_4tuple I I I I (p1,p2,p3,p4)
     val _ = check_uptodate_term p
+    val p = pack_pair pack_string I (!translation_ancestor,p)
     in export p end
   fun unpack_state data = let
     val (p1,p2,p3,p4) = unpack_4tuple I I I I data
@@ -925,6 +1000,10 @@ local
     val _ = unpack_v_thms p2
     val _ = unpack_cons_names p3
     val _ = unpack_type_mods p4
+    in () end;
+  fun unpack_state2 data = let
+    val (p1,p2,p3,p4) = unpack_4tuple I I I I data
+    val _ = unpack_types p1
     in () end;
   val finalised = ref false
 in
@@ -936,13 +1015,32 @@ in
       val _ = pack_state ()
       val _ = print_translation_output ()
       in () end
-  fun translation_extends name = let
+  fun translation_extends name = if name = "min" then () else
+    let
+    val _ = print ("Loading translation: " ^ name ^ " ... ")
+    val _ = translation_ancestor := name
+    val _ =
+        case segment_data {thyname=name} of
+            NONE => raise mk_HOL_ERR "ml_translatorLib" "translation_extends"
+                          ("No translator data in theory " ^ name)
+          | SOME data => let val (ancestor, data) = unpack_pair unpack_string I data
+                         in translation_extends2 ancestor;
+                            unpack_state data
+                         end
+    val _ = init_printer name
+    val _ = print ("done.\n")
+    in () end
+  and translation_extends2 name = if name = "min" then () else
+    let
     val _ = print ("Loading translation: " ^ name ^ " ... ")
     val _ =
         case segment_data {thyname=name} of
             NONE => raise mk_HOL_ERR "ml_translatorLib" "translation_extends"
                           ("No translator data in theory " ^ name)
-          | SOME data => unpack_state data
+          | SOME data => let val (ancestor, data) = unpack_pair unpack_string I data
+                         in translation_extends2 ancestor;
+                            unpack_state data
+                         end
     val _ = init_printer name
     val _ = print ("done.\n")
     in () end;
