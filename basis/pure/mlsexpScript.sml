@@ -24,14 +24,25 @@ Datatype:
   token = OPEN | CLOSE | SYMBOL mlstring
 End
 
+(* In addition to reading until a closing quote, it also unescapes some common
+   escape characters. *)
 Definition read_string_aux_def:
-  read_string_aux [] acc = INL «read_string_aux: unterminated string literal» ∧
+  read_string_aux [] acc =
+    INL «read_string_aux: unterminated string literal» ∧
   read_string_aux (#"\""::rest) acc =
     INR (implode (REVERSE acc), rest) ∧
   read_string_aux (#"\\"::#"\""::rest) acc =
     read_string_aux rest (#"\""::acc) ∧
   read_string_aux (#"\\"::#"\\"::rest) acc =
     read_string_aux rest (#"\\"::acc) ∧
+  read_string_aux (#"\\"::#"0"::rest) acc =
+    read_string_aux rest (#"\000"::acc) ∧
+  read_string_aux (#"\\"::#"n"::rest) acc =
+    read_string_aux rest (#"\n"::acc) ∧
+  read_string_aux (#"\\"::#"r"::rest) acc =
+    read_string_aux rest (#"\r"::acc) ∧
+  read_string_aux (#"\\"::#"t"::rest) acc =
+    read_string_aux rest (#"\t"::acc) ∧
   read_string_aux (c::cs) acc =
     read_string_aux cs (c::acc)
 End
@@ -127,6 +138,7 @@ End
 
 Theorem test_lex[local]:
   lex " 1 2   3 " = INR ([SYMBOL «1»]," 2   3 ") ∧
+  lex "\"\n \" 2" = INR ([SYMBOL «\n »]," 2") ∧
   lex " (1 2) 3 " = INR ([CLOSE; SYMBOL «2»; SYMBOL «1»; OPEN]," 3 ") ∧
   lex " (1 2) ) " = INR ([CLOSE; SYMBOL «2»; SYMBOL «1»; OPEN]," ) ") ∧
   lex " (1 2    " = INL «lex_aux: missing closing parenthesis» ∧
