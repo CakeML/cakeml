@@ -72,7 +72,7 @@ Definition read_symbol_aux_def:
   read_symbol_aux [] acc =
     (implode (REVERSE acc), []) ∧
   read_symbol_aux (c::cs) acc =
-    if MEM c ") \t\n" then (implode (REVERSE acc), (c::cs))
+    if c = #")" ∨ isSpace c then (implode (REVERSE acc), (c::cs))
     else read_symbol_aux cs (c::acc)
 End
 
@@ -99,7 +99,7 @@ Definition lex_aux_def:
     (if depth = 0:num then INR (acc, [])
      else INL «lex_aux: missing closing parenthesis») ∧
   lex_aux depth (c::cs) acc =
-    if MEM c " \t\n" then lex_aux depth cs acc
+    if isSpace c then lex_aux depth cs acc
     else if c = #"(" then lex_aux (depth + 1) cs (OPEN::acc)
     else if c = #")" then
       (if depth = 0 then INL «lex_aux: too many closing parenthesis»
