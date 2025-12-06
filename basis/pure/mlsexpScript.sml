@@ -24,9 +24,13 @@ Datatype:
   token = OPEN | CLOSE | SYMBOL mlstring
 End
 
+(* Functions may not consume the entire input (string), so they always return
+   the rest of the string, independent of success or failure. *)
+Type result[local,pp] = “:(α # string) + (β # string)”
+
 Definition read_string_aux_def:
   read_string_aux [] acc =
-    INL «read_string_aux: unterminated string literal» ∧
+    INL («read_string_aux: unterminated string literal», []) ∧
   read_string_aux (c::rest) acc =
     if c = #"\"" then INR (implode (REVERSE acc), rest) else
     if c = #"\\" then
@@ -38,7 +42,7 @@ Definition read_string_aux_def:
             if e = #"n"  then read_string_aux rest (#"\n"::acc) else
             if e = #"r"  then read_string_aux rest (#"\""::acc) else
             if e = #"t"  then read_string_aux rest (#"\""::acc) else
-              INL «read_string_aux: unrecognised escape»))
+              INL («read_string_aux: unrecognised escape», rest)))
     else
       read_string_aux rest (c::acc)
 End
@@ -47,7 +51,7 @@ End
    Fails with an error message if closing quotes are missing or an
    unrecognised escape sequence occurs. *)
 Definition read_string_def:
-  read_string (input: string) : mlstring + (mlstring # string) =
+  read_string (input: string) : (mlstring, mlstring) result =
     read_string_aux input []
 End
 
@@ -95,19 +99,19 @@ QED
 (* By tracking the depth, we can ensure we only lex one S-expression at a
    time. *)
 Definition lex_aux_def:
-  lex_aux depth [] acc : mlstring + (token list # string) =
+  lex_aux depth [] acc : (mlstring, token list) result =
     (if depth = 0:num then INR (acc, [])
-     else INL «lex_aux: missing closing parenthesis») ∧
+     else INL («lex_aux: missing closing parenthesis», [])) ∧
   lex_aux depth (c::cs) acc =
     if isSpace c then lex_aux depth cs acc
     else if c = #"(" then lex_aux (depth + 1) cs (OPEN::acc)
     else if c = #")" then
-      (if depth = 0 then INL «lex_aux: too many closing parenthesis»
+      (if depth = 0 then INL («lex_aux: too many closing parenthesis», cs)
        else if depth = 1 then INR (CLOSE::acc, cs)
        else lex_aux (depth - 1) cs (CLOSE::acc))
     else if c = #"\"" then
       case read_string cs of
-      | INL msg => INL msg
+      | INL (msg, rest) => INL (msg, rest)
       | INR (s, rest) =>
           if depth = 0 then INR ([SYMBOL s], rest)
           else lex_aux depth rest ((SYMBOL s)::acc)
@@ -129,7 +133,7 @@ End
    Fails with an error message if parentheses are unbalanced or
    read_string fails on a string literal. *)
 Definition lex_def:
-  lex (input: string) : mlstring + (token list # string) =
+  lex (input: string) : (mlstring, token list) result =
     lex_aux 0 input []
 End
 
@@ -138,8 +142,8 @@ Theorem test_lex[local]:
   lex "\"\n \" 2" = INR ([SYMBOL «\n »]," 2") ∧
   lex " (1 2) 3 " = INR ([CLOSE; SYMBOL «2»; SYMBOL «1»; OPEN]," 3 ") ∧
   lex " (1 2) ) " = INR ([CLOSE; SYMBOL «2»; SYMBOL «1»; OPEN]," ) ") ∧
-  lex " (1 2    " = INL «lex_aux: missing closing parenthesis» ∧
-  lex " ) (1 2) " = INL «lex_aux: too many closing parenthesis»
+  lex " (1 2    " = INL («lex_aux: missing closing parenthesis», "") ∧
+  lex " ) (1 2) " = INL («lex_aux: too many closing parenthesis», " (1 2) ")
 Proof
   EVAL_TAC
 QED
@@ -157,12 +161,12 @@ End
 (* Parses (at most) one S-expression, and returns the rest of the input.
    Fails exactly when lexing fails. *)
 Definition parse_def:
-  parse (input: string) : mlstring + (sexp # string) =
+  parse (input: string) : (mlstring, sexp) result =
     case lex input of
-    | INL msg => INL msg
+    | INL (msg, rest) => INL (msg, rest)
     | INR (rev_toks, rest) =>
         case parse_aux rev_toks [] [] of
-        | [] => INL «parse: empty input»
+        | [] => INL («parse: empty input», rest)
         | (v::_) => INR (v, rest)
 End
 
