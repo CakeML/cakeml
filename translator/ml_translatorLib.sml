@@ -1039,7 +1039,7 @@ in
                           ("No translator data in theory " ^ name)
           | SOME data => let val (ancestor, data) = unpack_pair unpack_string I data
                          in translation_extends2 ancestor;
-                            unpack_state data
+                            unpack_state2 data
                          end
     val _ = init_printer name
     val _ = print ("done.\n")
