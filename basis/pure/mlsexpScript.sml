@@ -24,8 +24,6 @@ Datatype:
   token = OPEN | CLOSE | SYMBOL mlstring
 End
 
-(* In addition to reading until a closing quote, it also unescapes some common
-   escape characters. *)
 Definition read_string_aux_def:
   read_string_aux [] acc =
     INL «read_string_aux: unterminated string literal» ∧
@@ -46,7 +44,8 @@ Definition read_string_aux_def:
 End
 
 (* Returns the string until a closing quote, and the rest of the input.
-   Fails with an error message if closing quotes are missing. *)
+   Fails with an error message if closing quotes are missing or an
+   unrecognised escape sequence occurs. *)
 Definition read_string_def:
   read_string (input: string) : mlstring + (mlstring # string) =
     read_string_aux input []
@@ -127,8 +126,8 @@ Termination
 End
 
 (* Tokenizes (at most) one S-expression, and returns the rest of the input.
-   Fails if parentheses are not balanced, or if unterminated string literals
-   are present. *)
+   Fails with an error message if parentheses are unbalanced or
+   read_string fails on a string literal. *)
 Definition lex_def:
   lex (input: string) : mlstring + (token list # string) =
     lex_aux 0 input []
