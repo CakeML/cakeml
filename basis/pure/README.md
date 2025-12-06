@@ -36,7 +36,7 @@ Pure functions for the Set module.
 This file defines a wrapper around the balanced_map type.
 
 [mlsexpScript.sml](mlsexpScript.sml):
-Definition of a simple mlstring-based s-expression, incldues
+Definition of a simple mlstring-based s-expression, includes
 parsing and pretty printing for these s-expressions.
 
 [mlstringLib.sml](mlstringLib.sml):

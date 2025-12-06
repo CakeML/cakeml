@@ -29,22 +29,20 @@ End
 Definition read_string_aux_def:
   read_string_aux [] acc =
     INL «read_string_aux: unterminated string literal» ∧
-  read_string_aux (#"\""::rest) acc =
-    INR (implode (REVERSE acc), rest) ∧
-  read_string_aux (#"\\"::#"\""::rest) acc =
-    read_string_aux rest (#"\""::acc) ∧
-  read_string_aux (#"\\"::#"\\"::rest) acc =
-    read_string_aux rest (#"\\"::acc) ∧
-  read_string_aux (#"\\"::#"0"::rest) acc =
-    read_string_aux rest (#"\000"::acc) ∧
-  read_string_aux (#"\\"::#"n"::rest) acc =
-    read_string_aux rest (#"\n"::acc) ∧
-  read_string_aux (#"\\"::#"r"::rest) acc =
-    read_string_aux rest (#"\r"::acc) ∧
-  read_string_aux (#"\\"::#"t"::rest) acc =
-    read_string_aux rest (#"\t"::acc) ∧
-  read_string_aux (c::cs) acc =
-    read_string_aux cs (c::acc)
+  read_string_aux (c::rest) acc =
+    if c = #"\"" then INR (implode (REVERSE acc), rest) else
+    if c = #"\\" then
+      (case rest of
+       | [] => read_string_aux rest acc (* causes error: unterminated string *)
+       | (e::rest) =>
+           (if e = #"\\" then read_string_aux rest (#"\""::acc) else
+            if e = #"0"  then read_string_aux rest (#"\000"::acc) else
+            if e = #"n"  then read_string_aux rest (#"\n"::acc) else
+            if e = #"r"  then read_string_aux rest (#"\""::acc) else
+            if e = #"t"  then read_string_aux rest (#"\""::acc) else
+              INL «read_string_aux: unrecognised escape»))
+    else
+      read_string_aux rest (c::acc)
 End
 
 (* Returns the string until a closing quote, and the rest of the input.
