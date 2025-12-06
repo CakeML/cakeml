@@ -157,16 +157,56 @@ End
 (* Parses (at most) one S-expression, and returns the rest of the input.
    Fails exactly when lexing fails. *)
 Definition parse_def:
-  parse (input: string) : mlstring + (sexp list # string) =
+  parse (input: string) : mlstring + (sexp # string) =
     case lex input of
     | INL msg => INL msg
-    | INR (rev_toks, rest) => INR (parse_aux rev_toks [] [], rest)
+    | INR (rev_toks, rest) =>
+        case parse_aux rev_toks [] [] of
+        | [] => INL «parse: empty input»
+        | (v::_) => INR (v, rest)
 End
 
 Theorem test_parse[local]:
-  parse " 1 2 3 " = INR ([Atom «1»]," 2 3 ") ∧
-  parse "(1 2 3)" = INR ([Expr [Atom «1»; Atom «2»; Atom «3»]],"") ∧
-  parse "(()) ()" = INR ([Expr [Expr []]]," ()")
+  parse " 1 2 3 " = INR (Atom «1»," 2 3 ") ∧
+  parse "(1 2 3)" = INR (Expr [Atom «1»; Atom «2»; Atom «3»],"") ∧
+  parse "(()) ()" = INR (Expr [Expr []]," ()")
 Proof
   EVAL_TAC
+QED
+
+(*--------------------------------------------------------------*
+   Pretty printing
+ *--------------------------------------------------------------*)
+
+Definition to_tokens_def:
+  to_tokens (Atom a)  = [SYMBOL a] ∧
+  to_tokens (Expr xs) = [OPEN] ++ FLAT (MAP (λx. to_tokens x) xs) ++ [CLOSE]
+End
+
+Theorem parse_aux_to_tokens_lemma[local]:
+  ∀x xs s rest.
+    parse_aux (REVERSE (to_tokens x) ++ rest) xs s =
+    parse_aux rest (x::xs) s
+Proof
+  ho_match_mp_tac to_tokens_ind \\ rpt strip_tac
+  >- fs [to_tokens_def,parse_aux_def]
+  \\ fs [to_tokens_def,parse_aux_def]
+  \\ qsuff_tac
+     ‘∀rest ys s.
+        parse_aux (REVERSE (FLAT (MAP (λx. to_tokens x) xs)) ++ rest) ys s =
+        parse_aux rest (xs ++ ys) s’
+  >-
+   (strip_tac
+    \\ full_simp_tac std_ss [SF ETA_ss, GSYM APPEND_ASSOC]
+    \\ simp [parse_aux_def])
+  \\ Induct_on ‘xs’ using SNOC_INDUCT >- fs []
+  \\ fs [SF DNF_ss, SNOC_APPEND]
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC, APPEND]
+QED
+
+Theorem parse_aux_to_tokens_thm:
+  parse_aux (REVERSE (to_tokens x)) [] [] = [x]
+Proof
+  CONV_TAC (PATH_CONV "lrl" (ONCE_REWRITE_CONV [GSYM APPEND_NIL |> cj 1]))
+  \\ rewrite_tac [parse_aux_to_tokens_lemma] \\ fs [parse_aux_def]
 QED
