@@ -115,6 +115,20 @@ Definition read_string_aux_post_def:
            &(STRING_TYPE slit slitv))
 End
 
+(* Can be used in read_string_aux_spec to finish proofs about base cases.
+ * k indicates how much we moved forward (passed to forwardFD) *)
+fun read_string_aux_base_tac k =
+  (simp [read_string_aux_post_def, read_string_aux_def] \\ xsimpl
+   \\ qexists k \\ xsimpl \\ simp [Fail_exn_def]);
+
+(* Can be used in read_string_aux_spec to finish proofs about recursive cases. *)
+val read_string_aux_rec_tac =
+  (conj_tac >- xsimpl
+   \\ xsimpl
+   \\ rpt strip_tac \\ simp [forwardFD_o]
+   \\ qmatch_goalsub_abbrev_tac ‘forwardFD fs fd kpx’
+   \\ qexists ‘kpx’ \\ xsimpl);
+
 Theorem read_string_aux_spec:
   ∀s acc accv p is fs fd.
     LIST_TYPE CHAR acc accv ⇒
@@ -122,10 +136,11 @@ Theorem read_string_aux_spec:
       (STDIO fs * INSTREAM_STR fd is s fs)
       (read_string_aux_post s acc fs is fd)
 Proof
-  Induct
+  ho_match_mp_tac read_string_aux_ind
   \\ rpt strip_tac
   \\ qmatch_goalsub_abbrev_tac ‘read_string_aux_post s₁’
   \\ xcf "read_string_aux" st
+  (* [] *)
   >-
    (xlet ‘POSTv chv. SEP_EXISTS k.
              STDIO (forwardFD fs fd k) *
@@ -133,12 +148,9 @@ Proof
              &OPTION_TYPE CHAR (oHD s₁) chv’
     >- (xapp_spec b_input1_spec_str)
     \\ unabbrev_all_tac \\ gvs [OPTION_TYPE_def]
-    \\ xmatch
-    \\ xlet_autop
-    \\ xraise
-    \\ simp [read_string_aux_post_def, read_string_aux_def] \\ xsimpl
-    \\ qexists ‘k’ \\ xsimpl
-    \\ simp [Fail_exn_def])
+    \\ xmatch \\ xlet_autop \\ xraise
+    \\ read_string_aux_base_tac ‘k’)
+  (* c::rest *)
   >-
    (xlet ‘POSTv chv. SEP_EXISTS k.
              STDIO (forwardFD fs fd k) *
@@ -146,18 +158,16 @@ Proof
              &OPTION_TYPE CHAR (oHD s₁) chv’
     >- (xapp_spec b_input1_spec_str)
     \\ unabbrev_all_tac \\ gvs [OPTION_TYPE_def]
-    \\ xmatch
-    \\ xlet_autop
+    \\ xmatch \\ xlet_autop
     \\ xif
-    >-
+    >- (* c = " *)
      (xlet_autop
       \\ xapp \\ xsimpl
       \\ first_assum $ irule_at (Pos hd)
       \\ rpt strip_tac
-      \\ simp [read_string_aux_post_def, read_string_aux_def] \\ xsimpl
-      \\ qexists ‘k’ \\ xsimpl)
+      \\ read_string_aux_base_tac ‘k’)
     \\ xlet_autop
-    \\ xif
+    \\ xif (* c = \ *)
     >-
      (rename [‘read_string_aux_post (STRING _ s)’]
       \\ xlet ‘POSTv chv. SEP_EXISTS k₁.
@@ -169,32 +179,39 @@ Proof
         \\ qexistsl [‘emp’, ‘s’, ‘forwardFD fs fd k’, ‘fd’]
         \\ simp [forwardFD_o] \\ xsimpl)
       \\ Cases_on ‘s’ \\ gvs [OPTION_TYPE_def]
-      >-
+      >- (* Nothing after \ *)
        (xmatch \\ xapp
         \\ first_assum $ irule_at (Pos hd)
         \\ qexistsl [‘forwardFD fs fd (k + k₁)’, ‘fd’, ‘emp’]
-        \\ conj_tac >- xsimpl
         \\ simp [read_string_aux_post_def, read_string_aux_def]
-        \\ xsimpl
-        \\ rpt strip_tac \\ simp [forwardFD_o]
-        \\ qmatch_goalsub_abbrev_tac ‘forwardFD fs fd kpx’
-        \\ qexists ‘kpx’ \\ xsimpl)
+        \\ read_string_aux_rec_tac)
       \\ xmatch
-      \\ xlet_autop
-      \\ xif
-      >- cheat
-       (* (xlet_autop *)
-       (*  \\ xapp *)
-       (*  \\ qexistsl [‘emp’, ‘forwardFD fs fd (k + k₁)’, ‘fd’, ‘#"\""::acc’] *)
-       (*  \\ simp [LIST_TYPE_def] *)
-       (*  \\ conj_tac >- (cheat) *)
-       (*  \\ simp [read_string_aux_post_def, read_string_aux_def] *)
-       (*  \\ cheat *)
-         (* ) *)
-      \\ cheat)
-   \\ cheat)
+      (* escape characters *)
+      \\ ntac 5 (
+        xlet_autop
+        \\ xif
+        >-
+         (xlet_autop
+          \\ gvs []
+          \\ xapp
+          \\ simp [LIST_TYPE_def]
+          \\ qexistsl [‘emp’, ‘forwardFD fs fd (k + k₁)’, ‘fd’]
+          \\ simp [read_string_aux_post_def, read_string_aux_def]
+          \\ ntac 2 CASE_TAC
+          \\ read_string_aux_rec_tac))
+      (* unrecognised escape *)
+      \\ xlet_autop \\ xraise
+      \\ read_string_aux_base_tac ‘k + k₁’)
+  (* simply push c and recurse *)
+  \\ xlet_autop
+  \\ gvs []
+  \\ xapp
+  \\ simp [LIST_TYPE_def]
+  \\ qexistsl [‘emp’, ‘forwardFD fs fd k’, ‘fd’]
+  \\ simp [read_string_aux_post_def, read_string_aux_def]
+  \\ ntac 2 CASE_TAC
+  \\ read_string_aux_rec_tac)
 QED
-
 
 Definition lex_aux_post_def:
   lex_aux_post depth s acc fs is fd =
@@ -218,13 +235,14 @@ val MLSEXP_TOKEN_TYPE_def = theorem "MLSEXP_TOKEN_TYPE_def";
    lex_aux_post ... fs is fd *+ GC
 
    This usually comes up as part of a recursive call. *)
-val lex_aux_SEP_IMPPOST_tac =
-  (simp [lex_aux_post_def, lex_aux_def, isSpace_def]
-   \\ ntac 2 CASE_TAC
-   \\ simp [forwardFD_o]
-   \\ xsimpl \\ rpt strip_tac
-   \\ qmatch_goalsub_abbrev_tac ‘forwardFD fs fd kpx’
-   \\ qexists ‘kpx’ \\ xsimpl);
+(* TODO Move out ntac 2 ..., move in other things we repeat *)
+(* val lex_aux_SEP_IMPPOST_tac = *)
+(*   (simp [lex_aux_post_def, lex_aux_def, isSpace_def] *)
+(*    \\ ntac 2 CASE_TAC *)
+(*    \\ simp [forwardFD_o] *)
+(*    \\ xsimpl \\ rpt strip_tac *)
+(*    \\ qmatch_goalsub_abbrev_tac ‘forwardFD fs fd kpx’ *)
+(*    \\ qexists ‘kpx’ \\ xsimpl); *)
 
 (* Finish up the goal when we are returning.
    Should be preceeded by an x-tactic (xraise, xcon, ...) *)
@@ -240,66 +258,67 @@ Theorem lex_aux_spec:
       (STDIO fs * INSTREAM_STR fd is s fs)
       (lex_aux_post depth s acc fs is fd)
 Proof
-  Induct
-  \\ rpt strip_tac
-  \\ qmatch_goalsub_abbrev_tac ‘lex_aux_post _ s₁’
-  \\ xcf "lex_aux" st
-  >-
-   (xlet ‘POSTv chv. SEP_EXISTS k.
-            STDIO (forwardFD fs fd k) *
-            INSTREAM_STR fd is (TL s₁) (forwardFD fs fd k) *
-            &OPTION_TYPE CHAR (oHD s₁) chv’
-    >- (xapp_spec b_input1_spec_str)
-    \\ unabbrev_all_tac \\ gvs [OPTION_TYPE_def]
-    \\ xmatch
-    \\ xlet_autop
-    \\ xif
-    >-
-     (xvar
-      \\ simp [lex_aux_post_def, lex_aux_def] \\ xsimpl
-      >- (qexists ‘k’ \\ xsimpl))
-    \\ xlet_autop
-    \\ xraise \\ lex_aux_ret_tac)
-  >-
-   (xlet ‘POSTv chv. SEP_EXISTS k.
-            STDIO (forwardFD fs fd k) *
-            INSTREAM_STR fd is (TL s₁) (forwardFD fs fd k) *
-            &OPTION_TYPE CHAR (oHD s₁) chv’
-    >- (xapp_spec b_input1_spec_str)
-    \\ unabbrev_all_tac \\ gvs [OPTION_TYPE_def]
-    \\ xmatch
-    \\ xlet_autop
-    \\ xif >-
-     (last_x_assum $ drule_all_then assume_tac
-      \\ xapp
-      \\ qexistsl [‘emp’, ‘forwardFD fs fd k’, ‘fd’]
-      \\ xpull >- xsimpl
-      \\ lex_aux_SEP_IMPPOST_tac)
-    \\ xlet_autop
-    \\ xif >-
-     (ntac 3 xlet_autop
-      \\ xapp
-      \\ qexistsl [‘emp’, ‘forwardFD fs fd k’, ‘fd’, ‘depth + 1’, ‘OPEN::acc’]
-      \\ simp []
-      \\ conj_tac >- (simp [LIST_TYPE_def, MLSEXP_TOKEN_TYPE_def])
-      \\ xpull >- xsimpl
-      \\ lex_aux_SEP_IMPPOST_tac)
-    \\ xlet_autop
-    \\ xif >-
-     (xlet_autop
-      \\ xif >- (xlet_autop \\ xraise \\ lex_aux_ret_tac)
-      \\ xlet_autop
-      \\ xif >- (xlet_autop \\ xcon \\ lex_aux_ret_tac)
-      \\ ntac 3 xlet_autop
-      \\ xapp
-      \\ qexistsl
-           [‘emp’, ‘forwardFD fs fd k’, ‘fd’, ‘depth - 1’, ‘CLOSE::acc’]
-      \\ simp []
-      \\ conj_tac >- (simp [LIST_TYPE_def, MLSEXP_TOKEN_TYPE_def])
-      \\ xpull >- xsimpl
-      \\ lex_aux_SEP_IMPPOST_tac)
-    \\ xlet_autop
-    \\ xif >-
-     (cheat)
-    \\ cheat)
+  (* TODO induct over lex_aux_ind *)
+  (* Induct *)
+  (* \\ rpt strip_tac *)
+  (* \\ qmatch_goalsub_abbrev_tac ‘lex_aux_post _ s₁’ *)
+  (* \\ xcf "lex_aux" st *)
+  (* >- *)
+  (*  (xlet ‘POSTv chv. SEP_EXISTS k. *)
+  (*           STDIO (forwardFD fs fd k) * *)
+  (*           INSTREAM_STR fd is (TL s₁) (forwardFD fs fd k) * *)
+  (*           &OPTION_TYPE CHAR (oHD s₁) chv’ *)
+  (*   >- (xapp_spec b_input1_spec_str) *)
+  (*   \\ unabbrev_all_tac \\ gvs [OPTION_TYPE_def] *)
+  (*   \\ xmatch *)
+  (*   \\ xlet_autop *)
+  (*   \\ xif *)
+  (*   >- *)
+  (*    (xvar *)
+  (*     \\ simp [lex_aux_post_def, lex_aux_def] \\ xsimpl *)
+  (*     >- (qexists ‘k’ \\ xsimpl)) *)
+  (*   \\ xlet_autop *)
+  (*   \\ xraise \\ lex_aux_ret_tac) *)
+  (* >- *)
+  (*  (xlet ‘POSTv chv. SEP_EXISTS k. *)
+  (*           STDIO (forwardFD fs fd k) * *)
+  (*           INSTREAM_STR fd is (TL s₁) (forwardFD fs fd k) * *)
+  (*           &OPTION_TYPE CHAR (oHD s₁) chv’ *)
+  (*   >- (xapp_spec b_input1_spec_str) *)
+  (*   \\ unabbrev_all_tac \\ gvs [OPTION_TYPE_def] *)
+  (*   \\ xmatch *)
+  (*   \\ xlet_autop *)
+  (*   \\ xif >- *)
+  (*    (last_x_assum $ drule_all_then assume_tac *)
+  (*     \\ xapp *)
+  (*     \\ qexistsl [‘emp’, ‘forwardFD fs fd k’, ‘fd’] *)
+  (*     \\ xpull >- xsimpl *)
+  (*     \\ lex_aux_SEP_IMPPOST_tac) *)
+  (*   \\ xlet_autop *)
+  (*   \\ xif >- *)
+  (*    (ntac 3 xlet_autop *)
+  (*     \\ xapp *)
+  (*     \\ qexistsl [‘emp’, ‘forwardFD fs fd k’, ‘fd’, ‘depth + 1’, ‘OPEN::acc’] *)
+  (*     \\ simp [] *)
+  (*     \\ conj_tac >- (simp [LIST_TYPE_def, MLSEXP_TOKEN_TYPE_def]) *)
+  (*     \\ xpull >- xsimpl *)
+  (*     \\ lex_aux_SEP_IMPPOST_tac) *)
+  (*   \\ xlet_autop *)
+  (*   \\ xif >- *)
+  (*    (xlet_autop *)
+  (*     \\ xif >- (xlet_autop \\ xraise \\ lex_aux_ret_tac) *)
+  (*     \\ xlet_autop *)
+  (*     \\ xif >- (xlet_autop \\ xcon \\ lex_aux_ret_tac) *)
+  (*     \\ ntac 3 xlet_autop *)
+  (*     \\ xapp *)
+  (*     \\ qexistsl *)
+  (*          [‘emp’, ‘forwardFD fs fd k’, ‘fd’, ‘depth - 1’, ‘CLOSE::acc’] *)
+  (*     \\ simp [] *)
+  (*     \\ conj_tac >- (simp [LIST_TYPE_def, MLSEXP_TOKEN_TYPE_def]) *)
+  (*     \\ xpull >- xsimpl *)
+  (*     \\ lex_aux_SEP_IMPPOST_tac) *)
+  (*   \\ xlet_autop *)
+  (*   \\ xif >- *)
+  (*    (cheat) *)
+  (*   \\ cheat) *)
 QED
