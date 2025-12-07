@@ -177,7 +177,7 @@ Proof
 QED
 
 (* this encompasses ≥, >, ≤, < *)
-Definition encode_cmp_aux_def[simp]:
+Definition encode_cmp_aux_def:
   encode_cmp_aux cmp X Y =
   case cmp of
     GreaterEqual => mk_constraint_ge 1 X (-1) Y 0
@@ -210,7 +210,7 @@ Proof
   Cases_on ‘cmp’>>
   rw[reify_sem_def,cmpop_val_def,
     encode_order_cmpops_def,
-    iconstraint_sem_def]>>
+    iconstraint_sem_def,encode_cmp_aux_def]>>
   every_case_tac>>
   gvs[AllCasePreds(),reify_avar_def,reify_reif_def]>>
   intLib.ARITH_TAC
@@ -222,7 +222,7 @@ Theorem encode_order_cmpops_sem_2:
     (encode_order_cmpops bnd Zr cmp X Y) ⇒
   reify_sem Zr wi (cmpop_val cmp (varc wi X) (varc wi Y))
 Proof
-  rw[reify_sem_def,encode_order_cmpops_def,cmpop_val_def]>>
+  rw[reify_sem_def,encode_order_cmpops_def,cmpop_val_def,encode_cmp_aux_def]>>
   every_case_tac>>
   gvs[]>>
   intLib.ARITH_TAC
@@ -246,6 +246,137 @@ Definition encode_abs_def:
   ]
 End
 
+(* Theorems for Negative *)
+Theorem encode_negative_sem_1:
+  valid_assignment bnd wi ∧
+  unop_sem Negative X Y wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_negative X Y)
+Proof
+  cheat
+QED
+
+Theorem encode_negative_sem_2:
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_negative X Y) ⇒
+  unop_sem Negative X Y wi
+Proof
+  cheat
+QED
+
+(* Theorems for Abs *)
+Theorem encode_abs_sem_1:
+  valid_assignment bnd wi ∧
+  unop_sem Abs X Y wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_abs bnd X Y)
+Proof
+  cheat
+QED
+
+Theorem encode_abs_sem_2:
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_abs bnd X Y) ⇒
+  unop_sem Abs X Y wi
+Proof
+  cheat
+QED
+
+(* Binary operations *)
+Definition encode_plus_def:
+  encode_plus X Y Z =
+  [false_constr]
+End
+
+Theorem encode_plus_sem_1:
+  valid_assignment bnd wi ∧
+  binop_sem Plus X Y Z wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_plus X Y Z)
+Proof
+  cheat
+QED
+
+Theorem encode_plus_sem_2:
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_plus X Y Z) ⇒
+  binop_sem Plus X Y Z wi
+Proof
+  cheat
+QED
+
+Definition encode_minus_def:
+  encode_minus X Y Z =
+  [false_constr]
+End
+
+Theorem encode_minus_sem_1:
+  valid_assignment bnd wi ∧
+  binop_sem Minus X Y Z wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_minus X Y Z)
+Proof
+  cheat
+QED
+
+Theorem encode_minus_sem_2:
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_minus X Y Z) ⇒
+  binop_sem Minus X Y Z wi
+Proof
+  cheat
+QED
+
+Definition encode_min_def:
+  encode_min bnd X Y Z =
+  [false_constr]
+End
+
+Theorem encode_min_sem_1:
+  valid_assignment bnd wi ∧
+  binop_sem Min X Y Z wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_min bnd X Y Z)
+Proof
+  cheat
+QED
+
+Theorem encode_min_sem_2:
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_min bnd X Y Z) ⇒
+  binop_sem Min X Y Z wi
+Proof
+  cheat
+QED
+
+Definition encode_max_def:
+  encode_max bnd X Y Z =
+  [false_constr]
+End
+
+Theorem encode_max_sem_1:
+  valid_assignment bnd wi ∧
+  binop_sem Max X Y Z wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_max bnd X Y Z)
+Proof
+  cheat
+QED
+
+Theorem encode_max_sem_2:
+  valid_assignment bnd wi ∧
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (encode_max bnd X Y Z) ⇒
+  binop_sem Max X Y Z wi
+Proof
+  cheat
+QED
+
 Definition encode_prim_constr_def:
   encode_prim_constr bnd c name =
   case c of
@@ -255,7 +386,16 @@ Definition encode_prim_constr_def:
       else if cmp = NotEqual
       then encode_not_equal bnd Zr X Y name
       else encode_order_cmpops bnd Zr cmp X Y
-  | _ => ARB
+  | Unop uop X Y =>
+      (case uop of
+        Negative => encode_negative X Y
+      | Abs => encode_abs bnd X Y)
+  | Binop bop X Y Z =>
+      (case bop of
+        Plus => encode_plus X Y Z
+      | Minus => encode_minus X Y Z
+      | Min => encode_min bnd X Y Z
+      | Max => encode_max bnd X Y Z)
 End
 
 Theorem encode_prim_constr_sem_1:
@@ -267,8 +407,11 @@ Theorem encode_prim_constr_sem_1:
 Proof
   Cases_on`c`>>
   rw[encode_prim_constr_def,prim_constr_sem_def]
-  >- cheat
-  >- cheat
+  >- (Cases_on`p`>>gvs[]>>
+      metis_tac[encode_negative_sem_1,encode_abs_sem_1])
+  >- (Cases_on`p`>>gvs[]>>
+      metis_tac[encode_plus_sem_1,encode_minus_sem_1,
+                encode_min_sem_1,encode_max_sem_1])
   >- (irule encode_equal_sem_1>>
       gvs[cmpop_sem_def,cmpop_val_def])
   >- (irule encode_not_equal_sem_1>>
@@ -284,8 +427,11 @@ Theorem encode_prim_constr_sem_2:
 Proof
   Cases_on`c`>>
   rw[encode_prim_constr_def,prim_constr_sem_def]
-  >- cheat
-  >- cheat
+  >- (Cases_on`p`>>gvs[]>>
+      metis_tac[encode_negative_sem_2,encode_abs_sem_2])
+  >- (Cases_on`p`>>gvs[]>>
+      metis_tac[encode_plus_sem_2,encode_minus_sem_2,
+                encode_min_sem_2,encode_max_sem_2])
   >- (gvs[cmpop_sem_def,cmpop_val_def]>>
       metis_tac[encode_equal_sem_2])
   >- (gvs[cmpop_sem_def,cmpop_val_def]>>
@@ -375,11 +521,85 @@ Proof
     simp[])
 QED
 
+Definition cencode_order_cmpops_def:
+  cencode_order_cmpops bnd Zr cmp X Y name ec =
+  let constr = encode_cmp_aux cmp X Y
+  in
+    case Zr of
+      NONE =>
+      (List [
+        (SOME (strlit"c[" ^ name ^ strlit"]"), constr)], ec)
+    | SOME (INL Z) =>
+      let
+        (e,ec') = cencode_ge bnd Z 1 ec
+      in
+      (Append e $
+        List [
+        (SOME (strlit"c[" ^ name ^ strlit"]"),
+          (bits_imply bnd [Pos (INL (Ge Z 1))] constr))], ec')
+    | SOME (INR Z) =>
+      let
+        (e,ec') = cencode_ge bnd Z 1 ec
+      in
+      (Append e $
+        List (mk_annotate
+        [strlit"c[" ^ name ^ strlit"][r]";
+          strlit"c[" ^ name ^ strlit"][f]"]
+        (bimply_bits bnd [Pos (INL (Ge Z 1))] constr)), ec')
+End
+
+Theorem cencode_order_cmpops_sem:
+  valid_assignment bnd wi ∧
+  cencode_order_cmpops bnd Zr cmp X Y name ec = (es, ec') ⇒
+  enc_rel wi es (encode_order_cmpops bnd Zr cmp X Y) ec ec'
+Proof
+  rw[cencode_order_cmpops_def,encode_order_cmpops_def]>>
+  gvs[AllCaseEqs(),UNCURRY_EQ]
+  >- (
+    irule enc_rel_abstr_cong>>
+    simp[])
+  >- (
+    irule enc_rel_Append>>
+    irule_at Any enc_rel_encode_ge>>
+    simp[]>>
+    irule enc_rel_abstr_cong>>
+    simp[])
+  >- (
+    irule enc_rel_Append>>
+    irule_at Any enc_rel_encode_ge>>
+    simp[]>>
+    irule enc_rel_List_mk_annotate)
+QED
+
+(* Concrete encodings - TODO *)
+Definition cencode_prim_constr_def:
+  cencode_prim_constr bnd c name ec =
+  case c of
+    Cmpop Zr cmp X Y =>
+      if cmp = Equal
+      then cencode_equal bnd Zr X Y name ec
+      else if cmp = NotEqual
+      then cencode_not_equal bnd Zr X Y name ec
+      else cencode_order_cmpops bnd Zr cmp X Y name ec
+  | Unop uop X Y => (List [], ec)
+  | Binop bop X Y Z => (List [], ec)
+End
+
+Theorem cencode_prim_constr_sem:
+  valid_assignment bnd wi ∧
+  cencode_prim_constr bnd c name ec = (es, ec') ⇒
+  enc_rel wi es (encode_prim_constr bnd c name) ec ec'
+Proof
+  cheat
+QED
+
 (*
 
-EVAL``append o FST $ cencode_not_equal
+EVAL``append o FST $ cencode_order_cmpops
   (\x. (-5,5))
-  (SOME (INR (INL (strlit "Z")))) (INL (strlit "X")) (INL (strlit "Y")) (strlit "foo") init_ec``
+  NONE
+  GreaterEqual
+  (INL (strlit "X")) (INL (strlit "Y")) (strlit "foo") init_ec``
 
   [INL (strlit "x");INL (strlit "y")]) (strlit"t1") init_ec``
 

@@ -6,14 +6,28 @@ Libs
   preamble
 Ancestors
   cp cp_to_ilp
-  cp_to_ilp_extensional
   cp_to_ilp_prim
+  cp_to_ilp_counting
+  cp_to_ilp_linear
+  cp_to_ilp_array
+  cp_to_ilp_extensional
+  cp_to_ilp_logical
+  cp_to_ilp_lexicographical
+  cp_to_ilp_channeling
+  cp_to_ilp_misc
 
 Definition encode_constraint_def:
   encode_constraint bnd c name =
   case c of
     Prim c => encode_prim_constr bnd c name
+  | Counting c => encode_counting_constr bnd c name
+  | Linear c => encode_linear_constr bnd c name
+  | Array c => encode_array_constr bnd c name
   | Extensional c => encode_extensional_constr bnd c name
+  | Logical c => encode_logical_constr bnd c name
+  | Lexicographical c => encode_lexicographical_constr bnd c name
+  | Channeling c => encode_channeling_constr bnd c name
+  | Misc c => encode_misc_constr bnd c name
 End
 
 Theorem encode_cp_one_sem_1:
@@ -26,14 +40,14 @@ Proof
   Cases_on`c`>>
   rw[encode_constraint_def,constraint_sem_def]
   >- metis_tac[encode_prim_constr_sem_1]
-  >- cheat
-  >- cheat
-  >- cheat
+  >- metis_tac[encode_counting_constr_sem_1]
+  >- metis_tac[encode_linear_constr_sem_1]
+  >- metis_tac[encode_array_constr_sem_1]
   >- metis_tac[encode_extensional_constr_sem_1]
-  >- cheat
-  >- cheat
-  >- cheat
-  >- cheat
+  >- metis_tac[encode_logical_constr_sem_1]
+  >- metis_tac[encode_lexicographical_constr_sem_1]
+  >- metis_tac[encode_channeling_constr_sem_1]
+  >- metis_tac[encode_misc_constr_sem_1]
 QED
 
 Theorem encode_cp_one_sem_2:
@@ -44,14 +58,14 @@ Proof
   Cases_on`c`>>
   rw[encode_constraint_def,constraint_sem_def]
   >- metis_tac[encode_prim_constr_sem_2]
-  >- cheat
-  >- cheat
-  >- cheat
+  >- metis_tac[encode_counting_constr_sem_2]
+  >- metis_tac[encode_linear_constr_sem_2]
+  >- metis_tac[encode_array_constr_sem_2]
   >- metis_tac[encode_extensional_constr_sem_2]
-  >- cheat
-  >- cheat
-  >- cheat
-  >- cheat
+  >- metis_tac[encode_logical_constr_sem_2]
+  >- metis_tac[encode_lexicographical_constr_sem_2]
+  >- metis_tac[encode_channeling_constr_sem_2]
+  >- metis_tac[encode_misc_constr_sem_2]
 QED
 
 (* An actual implementation will avoid duplicates here *)
@@ -91,7 +105,15 @@ QED
 Definition cencode_constraint_def:
   cencode_constraint bnd c name ec =
   case c of
+    Prim c => cencode_prim_constr bnd c name ec
+  | Counting c => cencode_counting_constr bnd c name ec
+  | Linear c => cencode_linear_constr bnd c name ec
+  | Array c => cencode_array_constr bnd c name ec
   | Extensional c => cencode_extensional_constr bnd c name ec
+  | Logical c => cencode_logical_constr bnd c name ec
+  | Lexicographical c => cencode_lexicographical_constr bnd c name ec
+  | Channeling c => cencode_channeling_constr bnd c name ec
+  | Misc c => cencode_misc_constr bnd c name ec
 End
 
 Theorem cencode_constraint_sem:
@@ -101,15 +123,15 @@ Theorem cencode_constraint_sem:
 Proof
   rw[encode_constraint_def,cencode_constraint_def]>>
   gvs[AllCaseEqs()]
-  >- cheat
-  >- cheat
-  >- cheat
-  >- cheat
+  >- metis_tac[cencode_prim_constr_sem]
+  >- metis_tac[cencode_counting_constr_sem]
+  >- metis_tac[cencode_linear_constr_sem]
+  >- metis_tac[cencode_array_constr_sem]
   >- metis_tac[cencode_extensional_constr_sem]
-  >- cheat
-  >- cheat
-  >- cheat
-  >- cheat
+  >- metis_tac[cencode_logical_constr_sem]
+  >- metis_tac[cencode_lexicographical_constr_sem]
+  >- metis_tac[cencode_channeling_constr_sem]
+  >- metis_tac[cencode_misc_constr_sem]
 QED
 
 Definition cencode_constraints_def:
