@@ -15,8 +15,6 @@ val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = translation_extends"lpr_arrayParsingProg";
 
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
-
 (* This function is not specific to Ramsey, can take any encoder  *)
 
 (* 0 arg *)

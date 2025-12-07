@@ -9,8 +9,6 @@ Libs
 
 val _ = translation_extends"npbc_parseProg";
 
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
-
 Overload "graph_TYPE" = ``PAIR_TYPE NUM (SPTREE_SPT_TYPE (SPTREE_SPT_TYPE UNIT_TYPE))``;
 
 val res = translate is_edge_def;
@@ -225,4 +223,3 @@ Proof
   xcon>>xsimpl>>
   simp[SUM_TYPE_def]
 QED
-

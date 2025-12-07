@@ -12,8 +12,6 @@ val _ = diminish_srw_ss ["ABBREV"]
 
 val _ = translation_extends"scpog_arrayProg";
 
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
-
 val res = translate opt_union_def;
 val res = translate parse_show_def;
 

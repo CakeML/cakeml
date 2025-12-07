@@ -9,8 +9,6 @@ Libs
 
 val _ = translation_extends"npbc_parseProg";
 
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
-
 (* Translation for parsing an OPB file *)
 val r = translate nocomment_line_def;
 

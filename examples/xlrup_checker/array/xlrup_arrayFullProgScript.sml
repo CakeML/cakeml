@@ -14,8 +14,6 @@ val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = translation_extends"xlrup_arrayProg";
 
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
-
 val _ = translate parse_header_line_def;
 
 val parse_header_line_side = Q.prove(`
