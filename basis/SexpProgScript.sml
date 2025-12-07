@@ -51,16 +51,17 @@ End
 
 Quote add_cakeml:
   fun read_symbol_aux input acc =
-    case TextIO.b_input1 input of
+    case TextIO.b_peekChar input of
       None => String.implode (List.rev acc)
     | Some c =>
         if c = #")" orelse Char.isSpace c
         then String.implode (List.rev acc)
-        else read_symbol_aux input (c::acc)
+        (* Consume c *)
+        else (TextIO.b_input1 input; read_symbol_aux input (c::acc))
 End
 
 Quote add_cakeml:
-  fun read_symbol input = read_symbol input []
+  fun read_symbol input = read_symbol_aux input []
 End
 
 Quote add_cakeml:
@@ -121,15 +122,15 @@ fun read_string_aux_base_tac k =
   (simp [read_string_aux_post_def, read_string_aux_def] \\ xsimpl
    \\ qexists k \\ xsimpl \\ simp [Fail_exn_def]);
 
-(* Can be used in read_string_aux_spec to finish proofs about recursive cases. *)
-val read_string_aux_rec_tac =
-  (conj_tac >- xsimpl
-   \\ xsimpl
+(* Useful when finishing up recursive cases. Takes care of instantiating k in
+ * forward fs fd k. *)
+val STDIO_forwardFD_INSTREAM_STR_tac =
+  (xsimpl
    \\ rpt strip_tac \\ simp [forwardFD_o]
    \\ qmatch_goalsub_abbrev_tac ‘forwardFD fs fd kpx’
    \\ qexists ‘kpx’ \\ xsimpl);
 
-Theorem read_string_aux_spec:
+Theorem read_string_aux_spec[local]:
   ∀s acc accv p is fs fd.
     LIST_TYPE CHAR acc accv ⇒
     app (p:'ffi ffi_proj) read_string_aux_v [is; accv]
@@ -184,7 +185,7 @@ Proof
         \\ first_assum $ irule_at (Pos hd)
         \\ qexistsl [‘forwardFD fs fd (k + k₁)’, ‘fd’, ‘emp’]
         \\ simp [read_string_aux_post_def, read_string_aux_def]
-        \\ read_string_aux_rec_tac)
+        \\ STDIO_forwardFD_INSTREAM_STR_tac)
       \\ xmatch
       (* escape characters *)
       \\ ntac 5 (
@@ -198,7 +199,7 @@ Proof
           \\ qexistsl [‘emp’, ‘forwardFD fs fd (k + k₁)’, ‘fd’]
           \\ simp [read_string_aux_post_def, read_string_aux_def]
           \\ ntac 2 CASE_TAC
-          \\ read_string_aux_rec_tac))
+          \\ STDIO_forwardFD_INSTREAM_STR_tac))
       (* unrecognised escape *)
       \\ xlet_autop \\ xraise
       \\ read_string_aux_base_tac ‘k + k₁’)
@@ -210,7 +211,116 @@ Proof
   \\ qexistsl [‘emp’, ‘forwardFD fs fd k’, ‘fd’]
   \\ simp [read_string_aux_post_def, read_string_aux_def]
   \\ ntac 2 CASE_TAC
-  \\ read_string_aux_rec_tac)
+  \\ STDIO_forwardFD_INSTREAM_STR_tac)
+QED
+
+Theorem read_string_spec:
+  app (p:'ffi ffi_proj) read_string_v [is]
+    (STDIO fs * INSTREAM_STR fd is s fs)
+    (case read_string s of
+     | INL (msg, rest) =>
+         POSTe exn. SEP_EXISTS k.
+           INSTREAM_STR fd is rest (forwardFD fs fd k) *
+           &(Fail_exn msg exn)
+     | INR (slit, rest) =>
+         POSTv slitv. SEP_EXISTS k.
+           STDIO (forwardFD fs fd k) *
+           INSTREAM_STR fd is rest (forwardFD fs fd k) *
+           &(STRING_TYPE slit slitv))
+Proof
+  xcf "read_string" st
+  \\ xlet_autop \\ xapp
+  \\ simp [read_string_aux_post_def, read_string_def]
+  \\ qexistsl [‘emp’, ‘s’, ‘fs’, ‘fd’, ‘[]’]
+  \\ simp [LIST_TYPE_def] \\ xsimpl
+QED
+
+Theorem read_symbol_aux_spec[local]:
+  ∀s acc accv p is fs fd.
+    LIST_TYPE CHAR acc accv ⇒
+    app (p:'ffi ffi_proj) read_symbol_aux_v [is; accv]
+      (STDIO fs * INSTREAM_STR fd is s fs)
+      (case read_symbol_aux s acc of
+       | (slit, rest) =>
+           POSTv slitv. SEP_EXISTS k.
+             STDIO (forwardFD fs fd k) *
+             INSTREAM_STR fd is rest (forwardFD fs fd k) *
+             &(STRING_TYPE slit slitv))
+Proof
+  Induct
+  \\ rpt strip_tac
+  \\ qmatch_goalsub_abbrev_tac ‘read_symbol_aux s₁’
+  \\ xcf "read_symbol_aux" st
+  >- (* [] *)
+   (xlet ‘POSTv chv. SEP_EXISTS k.
+            STDIO (forwardFD fs fd k) *
+            INSTREAM_STR fd is s₁ (forwardFD fs fd k) *
+            &(OPTION_TYPE CHAR (oHD s₁) chv)’
+    >- (xapp_spec b_peekChar_spec_str)
+    \\ unabbrev_all_tac \\ gvs [OPTION_TYPE_def]
+    \\ xmatch \\ xlet_autop \\ xapp
+    \\ first_assum $ irule_at (Pos hd)
+    \\ simp [read_symbol_aux_def]
+    \\ xsimpl \\ rpt strip_tac
+    \\ qexists ‘k’ \\ xsimpl)
+  >- (* c::cs *)
+   (xlet ‘POSTv chv. SEP_EXISTS k.
+            STDIO (forwardFD fs fd k) *
+            INSTREAM_STR fd is s₁ (forwardFD fs fd k) *
+            &(OPTION_TYPE CHAR (oHD s₁) chv)’
+    >- (xapp_spec b_peekChar_spec_str)
+    \\ unabbrev_all_tac \\ gvs [OPTION_TYPE_def]
+    \\ xmatch \\ xlet_autop
+    \\ rename [‘read_symbol_aux (h::s)’]
+    \\ xlet ‘POSTv b.
+               STDIO (forwardFD fs fd k) *
+               INSTREAM_STR fd is (h::s) (forwardFD fs fd k) *
+               &BOOL (h = #")" ∨ isSpace h) b’
+    >-
+     (xlog
+      \\ IF_CASES_TAC >- (xsimpl \\ gvs [])
+      \\ xapp
+      \\ first_assum $ irule_at (Pos hd)
+      \\ xsimpl)
+    \\ simp [read_symbol_aux_def]
+    \\ xif
+    >-
+     (xlet_autop \\ xapp
+      \\ first_assum $ irule_at (Pos hd)
+      \\ xsimpl \\ rpt strip_tac \\ qexists ‘k’ \\ xsimpl)
+    \\ xlet ‘POSTv chv. SEP_EXISTS k₁.
+               STDIO (forwardFD fs fd (k + k₁)) *
+               INSTREAM_STR fd is s (forwardFD fs fd (k + k₁)) *
+               &OPTION_TYPE CHAR (SOME h) chv’
+    >-
+     (xapp_spec b_input1_spec_str
+      \\ qexistsl [‘emp’, ‘h::s’, ‘forwardFD fs fd k’, ‘fd’]
+      \\ xsimpl \\ rpt strip_tac \\ simp [forwardFD_o]
+      \\ qmatch_goalsub_abbrev_tac ‘forwardFD _ _ (_ + k₁)’
+      \\ qexists ‘k₁’ \\ xsimpl)
+    \\ xlet_autop
+    \\ xapp
+    \\ qexistsl [‘emp’, ‘forwardFD fs fd (k + k₁)’, ‘fd’, ‘h::acc’]
+    \\ simp [LIST_TYPE_def]
+    \\ CASE_TAC
+    \\ STDIO_forwardFD_INSTREAM_STR_tac)
+QED
+
+Theorem read_symbol_spec:
+  app (p:'ffi ffi_proj) read_symbol_v [is]
+    (STDIO fs * INSTREAM_STR fd is s fs)
+    (case read_symbol s of
+     | (slit, rest) =>
+         POSTv slitv. SEP_EXISTS k.
+           STDIO (forwardFD fs fd k) *
+           INSTREAM_STR fd is rest (forwardFD fs fd k) *
+          &(STRING_TYPE slit slitv))
+Proof
+  xcf "read_symbol" st
+  \\ xlet_autop \\ xapp
+  \\ simp [read_symbol_def]
+  \\ qexistsl [‘emp’, ‘s’, ‘fs’, ‘fd’, ‘[]’]
+  \\ simp [LIST_TYPE_def] \\ xsimpl
 QED
 
 Definition lex_aux_post_def:
@@ -258,6 +368,7 @@ Theorem lex_aux_spec:
       (STDIO fs * INSTREAM_STR fd is s fs)
       (lex_aux_post depth s acc fs is fd)
 Proof
+  cheat
   (* TODO induct over lex_aux_ind *)
   (* Induct *)
   (* \\ rpt strip_tac *)
