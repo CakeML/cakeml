@@ -99,6 +99,13 @@ Definition format_flag_def:
       strlit"v[" ^ name ^ strlit"][" ^ format_int_list ns ^ strlit"]" ^ format_annot annot
 End
 
+Definition format_var_def:
+  format_var v =
+  case v of
+    INL y => format_reif y
+  | INR z => format_flag z
+End
+
 (*
   We first design and prove sound the
   abstract encodings into the Boolean variable type:
@@ -119,15 +126,27 @@ End
 ***)
 
 (* Encoding a single variable X_{>=i} ⇔ X ≥ i *)
-Definition encode_ge_def:
-  encode_ge (bnd:'a bounds) (Xi:'a varc) i =
-  let cc =
+Definition encode_ge_aux_def:
+  encode_ge_aux Xi i =
     case Xi of
       INL X => ([(1,X)],[],i)
     | INR v => ([],[],1 - b2i (v ≥ i))
-  in
-  bimply_bits bnd [Pos (INL (Ge Xi i))] cc
 End
+
+Definition encode_ge_def:
+  encode_ge (bnd:'a bounds) (Xi:'a varc) i =
+  bimply_bit bnd (Pos (INL (Ge Xi i)))
+    (encode_ge_aux Xi i)
+End
+
+Theorem encode_ge_aux_sem[simp]:
+  iconstraint_sem (encode_ge_aux X n) (wi,wb) ⇔ varc wi X ≥ n
+Proof
+  rw[encode_ge_aux_def]>>
+  TOP_CASE_TAC>>
+  simp[iconstraint_sem_def,eval_ilin_term_def,iSUM_def,varc_def]>>
+  rw[b2i_alt]
+QED
 
 Theorem encode_ge_sem[simp]:
   valid_assignment bnd wi ⇒
@@ -136,20 +155,32 @@ Theorem encode_ge_sem[simp]:
   (wb (INL (Ge X i)) ⇔ varc wi X ≥ i)
 Proof
   rw[encode_ge_def]>>
-  TOP_CASE_TAC>>
-  simp[iconstraint_sem_def,eval_ilin_term_def,iSUM_def,varc_def]
-  >- metis_tac[]
-  >- rw[b2i_alt]
+  metis_tac[]
 QED
 
 (* Encoding a single variable X = i, separate from encode_ge
   X_{=i} ⇔ X_{>=i} ∧ ~X_{>=i+1}
 *)
+Definition encode_eq_aux_def:
+  encode_eq_aux X i =
+    ([],[(1,Pos(INL (Ge X i)));(1, Neg (INL (Ge X (i+1))))],2)
+End
+
 Definition encode_eq_def:
   encode_eq bnd X i =
-  (bimply_bits bnd [Pos (INL (Eq X i))]
-    ([],[(1,Pos(INL (Ge X i)));(1, Neg (INL (Ge X (i+1))))],2))
+  (bimply_bit bnd (Pos (INL (Eq X i)))
+    (encode_eq_aux X i))
 End
+
+Theorem encode_eq_aux_sem[simp]:
+  iconstraint_sem (encode_eq_aux X n) (wi,wb) ⇔
+    wb (INL (Ge X n)) ∧
+    ¬wb (INL (Ge X (n+1)))
+Proof
+  rw[encode_eq_aux_def]>>
+  gs[iconstraint_sem_def,b2i_alt]>>
+  rw[]
+QED
 
 Theorem encode_eq_sem[simp]:
   valid_assignment bnd wi ∧
@@ -161,9 +192,8 @@ Theorem encode_eq_sem[simp]:
   (wb (INL (Eq X i)) ⇔ varc wi X = i)
 Proof
   rw[encode_eq_def]>>
-  gs[iconstraint_sem_def,b2i_alt]>>
-  rw[]>>
-  eq_tac>>rw[]>>
+  rename1`(_ ⇔ v) ⇔ _`>>
+  Cases_on`v`>>rw[]>>
   intLib.ARITH_TAC
 QED
 
@@ -260,6 +290,41 @@ Proof
 QED
 
 (*
+  Helper functions for bit implications, but we
+    specialize with annotations and only use a single bit
+*)
+Definition cimply_var_def:
+  cimply_var bnd x cc =
+  List
+  [(SOME (format_var x ^ strlit "[f]"),
+    (imply_bit bnd (Pos x) cc))]
+End
+
+Definition cvar_imply_def:
+  cvar_imply bnd x cc =
+  List
+  [(SOME (format_var x ^ strlit "[r]"),
+    (bits_imply bnd [Pos x] cc))]
+End
+
+Definition cnvar_imply_def:
+  cnvar_imply bnd x cc =
+  List
+  [(SOME (format_var x ^ strlit "[nr]"),
+    (bits_imply bnd [Neg x] cc))]
+End
+
+Definition cbimply_var_def:
+  cbimply_var bnd x cc =
+  let fmt = format_var x in
+  List
+  [(SOME (fmt ^ strlit "[f]"),
+    (imply_bit bnd (Pos x) cc));
+   (SOME (fmt ^ strlit "[r]"),
+    (bits_imply bnd [Pos x] cc))]
+End
+
+(*
   General setup for problem encodings from
   mlstring-variabled CP constraints.
 
@@ -272,7 +337,7 @@ QED
   The mlstring option is an annotation.
 *)
 
-(* TODO: replace ge/eq with faster representations. *)
+(* TODO: replace ge/eq trackers with faster representations. *)
 Datatype:
   enc_conf =
     <|
@@ -282,7 +347,7 @@ Datatype:
 End
 
 (***
-  Semantic tools
+  (Mostly) semantic tools
 ***)
 
 (* lookup for when the given ge for a variable has been encoded *)
@@ -429,13 +494,7 @@ Definition cencode_ge_def:
   then (Nil, ec)
   else
     let ec = add_ge Y n ec in
-    let fmt = format_reif (Ge Y n) in
-    (List (
-      mk_annotate [
-        fmt ^ strlit"[f]";
-        fmt ^ strlit"[r]"
-      ]
-      (encode_ge bnd Y n)), ec)
+    (cbimply_var bnd (INL (Ge Y n)) (encode_ge_aux Y n),ec)
 End
 
 Definition cencode_eq_def:
@@ -444,13 +503,7 @@ Definition cencode_eq_def:
   then (Nil, ec)
   else
     let ec = add_eq Y n ec in
-    let fmt = format_reif (Eq Y n)  in
-    (List (
-      mk_annotate [
-        fmt ^ strlit"[f]";
-        fmt ^ strlit"[r]"
-      ]
-      (encode_eq bnd Y n)), ec)
+    (cbimply_var bnd (INL (Eq Y n)) (encode_eq_aux Y n),ec)
 End
 
 Definition cencode_full_eq_def:
@@ -522,18 +575,18 @@ Definition false_constr_def:
   false_constr = (([], [], 1i):ciconstraint)
 End
 
+Definition cfalse_constr_def:
+  cfalse_constr = (List [(SOME (strlit"BAD INPUT"), false_constr)])
+End
+
 Theorem iconstraint_sem_false_constr[simp]:
   ¬iconstraint_sem false_constr w
 Proof
   Cases_on`w`>>EVAL_TAC
 QED
 
-Definition cfalse_constr_def:
-  cfalse_constr = (SOME (strlit"BAD INPUT"), false_constr)
-End
-
 Theorem enc_rel_cfalse_constr[simp]:
-  enc_rel wi (List [cfalse_constr]) [false_constr] ec ec
+  enc_rel wi cfalse_constr [false_constr] ec ec
 Proof
   rw[enc_rel_def,cfalse_constr_def]
 QED
@@ -560,6 +613,58 @@ Proof
   rw[enc_rel_def]
 QED
 
+Overload abstr = ``\ls. MAP SND (append ls)``;
+Overload abstrl = ``\ls. MAP SND ls``;
+
+Definition cimply_var_n_def:
+  cimply_var_n bnd x cc n =
+  List
+  [(SOME (format_var x ^ strlit "[f][" ^ n ^ strlit"]"),
+    (imply_bit bnd (Pos x) cc))]
+End
+
+Theorem abstr_cimply_var[simp]:
+  abstr (cimply_var bnd v c) =
+  [imply_bit bnd (Pos v) c]
+Proof
+  rw[cimply_var_def]
+QED
+
+Theorem abstr_cimply_var_n[simp]:
+  abstr (cimply_var_n bnd v c n) =
+  [imply_bit bnd (Pos v) c]
+Proof
+  rw[cimply_var_n_def]
+QED
+
+Theorem abstr_cbimply_var[simp]:
+  abstr (cbimply_var bnd v c) =
+  REVERSE (bimply_bit bnd (Pos v) c)
+Proof
+  rw[cbimply_var_def,bimply_bit_def]
+QED
+
+Theorem abstr_cvar_imply[simp]:
+  abstr (cvar_imply bnd v c) =
+  [bits_imply bnd [Pos v] c]
+Proof
+  rw[cvar_imply_def]
+QED
+
+Theorem abstr_cnvar_imply[simp]:
+  abstr (cnvar_imply bnd v c) =
+  [bits_imply bnd [Neg v] c]
+Proof
+  rw[cnvar_imply_def]
+QED
+
+Theorem EVERY_SND:
+  EVERY (\x. f (SND x)) ls =
+  EVERY (\x. f x) (MAP SND ls)
+Proof
+  rw[EVERY_MAP]
+QED
+
 Theorem enc_rel_encode_ge:
   valid_assignment bnd wi ∧
   cencode_ge bnd X t ec = (x1,ec') ⇒
@@ -569,7 +674,8 @@ Proof
   >-
     rw[enc_rel_def,good_reif_def]>>
   rw[enc_rel_def,good_reif_def]>>
-  fs[]
+  gvs[EVERY_SND]>>
+  metis_tac[]
 QED
 
 Theorem enc_rel_encode_eq:
@@ -582,7 +688,8 @@ Proof
     rw[enc_rel_def,good_reif_def]>>
     simp[encode_eq_def,iconstraint_sem_def])>>
   rw[enc_rel_def,good_reif_def]>>
-  gs[encode_eq_def,iconstraint_sem_def]
+  gs[EVERY_SND,encode_eq_sem]>>
+  simp[encode_eq_def,iconstraint_sem_def]
 QED
 
 Theorem enc_rel_encode_full_eq:
@@ -602,4 +709,45 @@ QED
 Definition init_ec_def:
   init_ec = <| ge := [] ; eq := [] |>
 End
+
+Theorem enc_rel_abstr[simp]:
+  enc_rel wi ls (abstr ls) ec ec
+Proof
+  rw[enc_rel_def,EVERY_MAP]
+QED
+
+(* at least one over literals *)
+Definition cat_least_one_def:
+  cat_least_one name ls =
+    List [
+      (SOME (strlit"c[" ^ name ^ strlit"][al1]"),
+        ([], MAP (λl. (1,l)) ls, 1))]
+End
+
+Theorem at_least_one_sem[simp]:
+  EVERY (λx. iconstraint_sem x (wi,wb))
+    (abstr (cat_least_one name ls)) ⇔
+  ∃l. MEM l ls ∧ lit wb l
+Proof
+  rw[iconstraint_sem_def,cat_least_one_def,eval_lin_term_def]>>
+  simp[MAP_MAP_o,o_DEF]
+QED
+
+Theorem enc_rel_List_refl_mul:
+  set ls' = set $ (abstrl ls) ⇒
+  enc_rel wi (List ls) ls' ec ec
+Proof
+  rw[enc_rel_def]>>
+  fs[EVERY_MEM,EXTENSION,MEM_MAP]>>
+  metis_tac[]
+QED
+
+Theorem enc_rel_abstr_cong:
+  set ls' = set $ (abstr ls) ⇒
+  enc_rel wi ls ls' ec ec
+Proof
+  rw[enc_rel_def]>>
+  fs[EVERY_MEM,EXTENSION,MEM_MAP]>>
+  metis_tac[]
+QED
 

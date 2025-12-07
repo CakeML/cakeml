@@ -304,32 +304,46 @@ Proof
 QED
 
 (* constraint implies list of literals *)
-Definition imply_bits_def:
-  imply_bits bnd xs cc =
+Definition imply_bit_aux_def:
+  imply_bit_aux bnd cc =
   case cc of (is,bs,c) =>
     let nis = flip_coeffs is in
     let nbs = flip_coeffs bs in
     let nc = 1 - c in
     let r = nc + max_ilin_term bnd is + max_lin_term bs in
     let rr = int_max r 0 in
+    (nis, rr, nbs, nc)
+End
+
+Definition imply_bit_def:
+  imply_bit bnd x cc =
+  case imply_bit_aux bnd cc of (nis,rr,nbs,nc) =>
+    (nis, (rr, x) :: nbs, nc)
+End
+
+Definition imply_bits_def:
+  imply_bits bnd xs cc =
+  case imply_bit_aux bnd cc of (nis,rr,nbs,nc) =>
     MAP (λx. (nis, (rr, x) :: nbs, nc)) xs
 End
 
-Theorem imply_bits_sem[simp]:
-  valid_assignment bnd wi ⇒
-  EVERY (λx. iconstraint_sem x (wi,wb)) (imply_bits bnd xs c)
-  =
-  (iconstraint_sem c (wi,wb) ⇒ EVERY (lit wb) xs)
+Theorem imply_bits_def':
+  imply_bits bnd xs cc =
+  MAP (λx. imply_bit bnd x cc) xs
 Proof
-  rw[imply_bits_def]>>
+  rw[imply_bits_def,imply_bit_def]>>
+  every_case_tac>>simp[]
+QED
+
+Theorem imply_bit_sem[simp]:
+  valid_assignment bnd wi ⇒
+  iconstraint_sem (imply_bit bnd x c) (wi,wb)
+  =
+  (iconstraint_sem c (wi,wb) ⇒ lit wb x)
+Proof
+  rw[imply_bit_def,imply_bit_aux_def]>>
   every_case_tac>>
-  gvs[EVERY_MEM,MEM_MAP,PULL_EXISTS,PULL_FORALL,iconstraint_sem_def]>>
-  ho_match_mp_tac
-    (METIS_PROVE []
-    ``
-      (∀x. (P x ⇒ (Q x ⇔ (A x ⇒ R x)))) ⇒
-      ((!x. (P x ⇒ Q x)) ⇔ (!x. (A x ⇒ P x ⇒ R x)))``)>>
-  rw[]>>
+  gvs[iconstraint_sem_def]>>
   rename1`lit wb x`>>
   Cases_on`lit wb x`>>simp[]
   >- (
@@ -342,12 +356,39 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Theorem imply_bits_sem[simp]:
+  valid_assignment bnd wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (imply_bits bnd xs c)
+  =
+  (iconstraint_sem c (wi,wb) ⇒ EVERY (lit wb) xs)
+Proof
+  rw[imply_bits_def']>>
+  simp[EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
+  metis_tac[]
+QED
+
 (* encodes iff *)
+Definition bimply_bit_def:
+  bimply_bit bnd x cc =
+  [bits_imply bnd [x] cc;
+  imply_bit bnd x cc]
+End
+
 Definition bimply_bits_def:
   bimply_bits bnd xs cc =
   bits_imply bnd xs cc ::
   imply_bits bnd xs cc
 End
+
+Theorem bimply_bit_sem[simp]:
+  valid_assignment bnd wi ⇒
+  EVERY (λx. iconstraint_sem x (wi,wb)) (bimply_bit bnd x c)
+  =
+  (iconstraint_sem c (wi,wb) ⇔ lit wb x)
+Proof
+  rw[bimply_bit_def]>>
+  metis_tac[]
+QED
 
 Theorem bimply_bits_sem[simp]:
   valid_assignment bnd wi ⇒
@@ -356,7 +397,7 @@ Theorem bimply_bits_sem[simp]:
   (iconstraint_sem c (wi,wb) ⇔ EVERY (lit wb) xs)
 Proof
   rw[bimply_bits_def]>>
-  metis_tac[imply_bits_sem,bits_imply_sem]
+  metis_tac[]
 QED
 
 Theorem eval_ilin_term_NIL[simp]:

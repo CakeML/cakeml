@@ -7,58 +7,69 @@ Libs
 Ancestors
   pbc cp ilp cp_to_ilp
 
-Definition lt_var_def[simp]:
-  lt_var name =
+Definition ltv_def[simp]:
+  ltv name =
     INR (name, Flag (strlit "lt"))
 End
 
-Definition gt_var_def[simp]:
-  gt_var name =
+Definition gtv_def[simp]:
+  gtv name =
     INR (name, Flag (strlit "gt"))
 End
 
-Definition ne_var_def[simp]:
-  ne_var name =
+Definition nev_def[simp]:
+  nev name =
     INR (name, Flag (strlit "ne"))
 End
 
-Definition at_least_one_def:
-  at_least_one ls =
-    ([], MAP (λl. (1,l)) ls, 1)
+(* the two named equality constraints, held as a list *)
+Definition cmk_eq_def[simp]:
+  cmk_eq name X Y =
+  let pref = strlit"c[" ^ name  in
+  [
+    (SOME (pref ^ strlit "][ge]"),mk_constraint_ge 1 (X) (-1) (Y) 0);
+    (SOME (pref ^ strlit "][le]"),mk_constraint_ge 1 (Y) (-1) (X) 0)
+  ]
 End
 
-Theorem at_least_one_sem[simp]:
-  iconstraint_sem (at_least_one ls) (wi,wb) ⇔
-  ∃l. MEM l ls ∧ lit wb l
-Proof
-  rw[iconstraint_sem_def,at_least_one_def,eval_lin_term_def]>>
-  simp[MAP_MAP_o,o_DEF]
-QED
+(* For gt and lt, we'll have many different names for them *)
+Definition mk_gt_def[simp]:
+  mk_gt X Y = mk_constraint_ge 1 X (-1) Y 1
+End
+
+Definition mk_lt_def[simp]:
+  mk_lt X Y = mk_constraint_ge 1 Y (-1) X 1
+End
+
+Definition cencode_equal_1_def[simp]:
+  cencode_equal_1 bnd Z X Y name =
+  List (
+    MAP (I ## bits_imply bnd [Pos (INL (Ge Z 1))])
+      (cmk_eq name X Y))
+End
+
+Definition cencode_equal_2_def[simp]:
+  cencode_equal_2 bnd Z X Y name =
+  Append
+    (cencode_equal_1 bnd Z X Y name) $
+    Append
+      (cvar_imply bnd (gtv name) (mk_gt X Y)) $
+    Append
+      (cvar_imply bnd (ltv name) (mk_lt X Y)) $
+    (cat_least_one name
+      [Pos (ltv name); Pos (gtv name); Pos (INL (Ge Z 1))])
+End
 
 Definition encode_equal_def:
   encode_equal bnd Zr X Y name =
-  let constr =
-    [
-      mk_constraint_ge 1 (X) (-1) (Y) 0;
-      mk_constraint_ge 1 (Y) (-1) (X) 0
-    ] in
   case Zr of
-    NONE => constr
+    NONE => abstrl (cmk_eq name X Y)
   | SOME (INL Z) =>
     encode_ge bnd Z 1 ++
-    MAP (bits_imply bnd [Pos (INL (Ge Z 1))]) constr
+    abstr (cencode_equal_1 bnd Z X Y name)
   | SOME (INR Z) =>
     encode_ge bnd Z 1 ++
-    MAP (bits_imply bnd [Pos (INL (Ge Z 1))]) constr ++
-    [
-      bits_imply bnd [Pos (gt_var name)]
-        (mk_constraint_ge 1 X (-1) Y 1);
-      bits_imply bnd [Pos (lt_var name)]
-         (mk_constraint_ge 1 Y (-1) X 1);
-      at_least_one
-        [Pos (lt_var name); Pos (gt_var name);
-          Pos (INL (Ge Z 1))];
-    ]
+    abstr (cencode_equal_2 bnd Z X Y name)
 End
 
 Theorem encode_equal_sem_1:
@@ -91,37 +102,42 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Definition cencode_not_equal_1_def[simp]:
+  cencode_not_equal_1 bnd X Y name =
+  Append
+    (cvar_imply bnd (nev name) (mk_gt X Y))
+    (cnvar_imply bnd (nev name) (mk_gt Y X))
+End
+
+Definition cencode_not_equal_2_def[simp]:
+  cencode_not_equal_2 bnd Z X Y name =
+  Append
+    (cbimply_var bnd (gtv name) (mk_gt X Y)) $
+  Append
+    (cbimply_var bnd (ltv name) (mk_gt Y X)) $
+  (cat_least_one name
+      [Pos (ltv name); Pos (gtv name); Neg (INL (Ge Z 1))])
+End
+
+Definition cencode_not_equal_3_def[simp]:
+  cencode_not_equal_3 bnd Z X Y name =
+  Append
+    (List (MAP (I ## bits_imply bnd [Neg (INL (Ge Z 1))])
+      (cmk_eq name X Y))) $
+  cencode_not_equal_2 bnd Z X Y name
+End
+
 Definition encode_not_equal_def:
   encode_not_equal bnd Zr X Y name =
-  let xgty = (mk_constraint_ge 1 X (-1) Y 1) in
-  let ygtx = (mk_constraint_ge 1 Y (-1) X 1) in
   case Zr of
     NONE =>
-    [
-      bits_imply bnd [Pos (ne_var name)] xgty;
-      bits_imply bnd [Neg (ne_var name)] ygtx
-    ]
+    abstr (cencode_not_equal_1 bnd X Y name)
   | SOME (INL Z) =>
     encode_ge bnd Z 1 ++
-    bimply_bits bnd [Pos (gt_var name)] xgty ++
-    bimply_bits bnd [Pos (lt_var name)] ygtx ++
-    [at_least_one
-      [Pos (lt_var name); Pos (gt_var name);
-        Neg (INL (Ge Z 1))]]
+    abstr (cencode_not_equal_2 bnd Z X Y name)
   | SOME (INR Z) =>
     encode_ge bnd Z 1 ++
-    MAP (bits_imply bnd [Neg (INL (Ge Z 1))])
-      [
-        mk_constraint_ge 1 (X) (-1) (Y) 0;
-        mk_constraint_ge 1 (Y) (-1) (X) 0
-      ] ++
-    [
-      bits_imply bnd [Pos (gt_var name)] xgty;
-      bits_imply bnd [Pos (lt_var name)] ygtx;
-      at_least_one
-        [Pos (lt_var name); Pos (gt_var name);
-          Neg (INL (Ge Z 1))];
-    ]
+    abstr (cencode_not_equal_3 bnd Z X Y name)
 End
 
 Theorem encode_not_equal_sem_1:
@@ -161,15 +177,19 @@ Proof
 QED
 
 (* this encompasses ≥, >, ≤, < *)
+Definition encode_cmp_aux_def[simp]:
+  encode_cmp_aux cmp X Y =
+  case cmp of
+    GreaterEqual => mk_constraint_ge 1 X (-1) Y 0
+  | GreaterThan  => mk_constraint_ge 1 X (-1) Y 1
+  | LessEqual    => mk_constraint_ge (-1) X 1 Y 0
+  | LessThan     => mk_constraint_ge (-1) X 1 Y 1
+  | _            => false_constr
+End
+
 Definition encode_order_cmpops_def:
   encode_order_cmpops bnd Zr cmp X Y =
-  let constr =
-    (case cmp of
-      GreaterEqual => mk_constraint_ge 1 X (-1) Y 0
-    | GreaterThan  => mk_constraint_ge 1 X (-1) Y 1
-    | LessEqual    => mk_constraint_ge (-1) X 1 Y 0
-    | LessThan     => mk_constraint_ge (-1) X 1 Y 1
-    | _            => false_constr)
+  let constr = encode_cmp_aux cmp X Y
   in
     case Zr of
       NONE => [constr]
@@ -274,49 +294,22 @@ Proof
       metis_tac[encode_order_cmpops_sem_2])
 QED
 
+(* Concrete encodings *)
 Definition cencode_equal_def:
   cencode_equal bnd Zr X Y name ec =
-  let constr =
-    [
-      (SOME (strlit "ge"),mk_constraint_ge 1 (X) (-1) (Y) 0);
-      (SOME (strlit "le"),mk_constraint_ge 1 (Y) (-1) (X) 0)
-    ] in
   case Zr of
-    NONE => (List constr,ec)
+    NONE => (List (cmk_eq name X Y),ec)
   | SOME (INL Z) =>
       let
         (e,ec') = cencode_ge bnd Z 1 ec
       in
-        (Append e $
-          List (MAP (I ## bits_imply bnd [Pos (INL (Ge Z 1))]) constr),ec')
+        (Append e $ cencode_equal_1 bnd Z X Y name, ec')
   | SOME (INR Z) =>
       let
         (e,ec') = cencode_ge bnd Z 1 ec
       in
-        (Append e $
-          List (
-          MAP (I ## bits_imply bnd [Pos (INL (Ge Z 1))]) constr ++
-          [
-            (SOME (strlit "gt"),bits_imply bnd [Pos (gt_var name)]
-              (mk_constraint_ge 1 X (-1) Y 1));
-            (SOME (strlit "lt"),bits_imply bnd [Pos (lt_var name)]
-              (mk_constraint_ge 1 Y (-1) X 1));
-            (SOME (strlit "al1"),at_least_one
-              [
-                Pos (lt_var name); Pos (gt_var name);
-                Pos (INL (Ge Z 1))
-              ]);
-          ]),ec')
+        (Append e $  cencode_equal_2 bnd Z X Y name, ec')
 End
-
-Theorem enc_rel_List_refl_mul:
-  set ls' = set $ MAP SND ls ⇒
-  enc_rel wi (List ls) ls' ec ec
-Proof
-  rw[enc_rel_def]>>
-  fs[EVERY_MEM,EXTENSION,MEM_MAP]>>
-  metis_tac[]
-QED
 
 Theorem cencode_equal_sem:
   valid_assignment bnd wi ∧
@@ -330,58 +323,30 @@ Proof
     irule enc_rel_Append>>
     irule_at Any enc_rel_encode_ge>>
     simp[enc_rel_List_refl_mul])
-  >> (
-    pure_rewrite_tac[GSYM APPEND_ASSOC]>>
+  >- (
     irule enc_rel_Append>>
     irule_at Any enc_rel_encode_ge>>
-    simp[enc_rel_List_refl_mul])
+    simp[]>>
+    irule enc_rel_abstr_cong>>
+    simp[])
 QED
 
-(* HERE *)
 Definition cencode_not_equal_def:
   cencode_not_equal bnd Zr X Y name ec =
-  let xgty = (mk_constraint_ge 1 X (-1) Y 1) in
-  let ygtx = (mk_constraint_ge 1 Y (-1) X 1) in
-    case Zr of
-      NONE =>
-      (List
-        [
-          (SOME (strlit "gt"),bits_imply bnd [Pos (ne_var name)] xgty);
-          (SOME (strlit "lt"),bits_imply bnd [Neg (ne_var name)] ygtx)
-        ],ec)
-    | SOME (INL Z) =>
-        let
-          (e,ec') = cencode_ge bnd Z 1 ec
-        in
-          (Append e $
-            List $
-              (MAP (λc. (SOME (strlit "gt"),c)) $
-                bimply_bits bnd [Pos (gt_var name)] xgty) ++
-              (MAP (λc. (SOME (strlit "lt"),c)) $
-                bimply_bits bnd [Pos (lt_var name)] ygtx) ++
-              [
-               (SOME (strlit "al1"),at_least_one
-                 [
-                   Pos (lt_var name);
-                   Pos (gt_var name);
-                   Neg (INL (Ge Z 1))
-                 ])
-              ],ec')
-  (*
+  case Zr of
+    NONE => (cencode_not_equal_1 bnd X Y name, ec)
+  | SOME (INL Z) =>
+    let
+      (e,ec') = cencode_ge bnd Z 1 ec
+    in
+      (Append e $
+        cencode_not_equal_2 bnd Z X Y name, ec')
   | SOME (INR Z) =>
-    encode_ge bnd Z 1 ++
-    MAP (bits_imply bnd [Neg (INL (Ge Z 1))])
-      [
-        mk_constraint_ge 1 (X) (-1) (Y) 0;
-        mk_constraint_ge 1 (Y) (-1) (X) 0
-      ] ++
-    [
-      bits_imply bnd [Pos (gt_var name)] xgty;
-      bits_imply bnd [Pos (lt_var name)] ygtx;
-      at_least_one
-        [Pos (lt_var name); Pos (gt_var name);
-          Neg (INL (Ge Z 1))];
-    ]*)
+    let
+      (e,ec') = cencode_ge bnd Z 1 ec
+    in
+      (Append e $
+        cencode_not_equal_3 bnd Z X Y name, ec')
 End
 
 Theorem cencode_not_equal_sem:
@@ -391,6 +356,32 @@ Theorem cencode_not_equal_sem:
 Proof
   rw[cencode_not_equal_def,encode_not_equal_def]>>
   gvs[AllCaseEqs(),UNCURRY_EQ]
-  >- simp[enc_rel_List_refl_mul]
-  >> cheat
+  >- (
+    irule enc_rel_abstr_cong>>
+    simp[])
+  >- (
+    pure_rewrite_tac[GSYM APPEND_ASSOC]>>
+    irule enc_rel_Append>>
+    irule_at Any enc_rel_encode_ge>>
+    simp[]>>
+    irule enc_rel_abstr_cong>>
+    simp[])
+  >- (
+    pure_rewrite_tac[GSYM APPEND_ASSOC]>>
+    irule enc_rel_Append>>
+    irule_at Any enc_rel_encode_ge>>
+    simp[]>>
+    irule enc_rel_abstr_cong>>
+    simp[])
 QED
+
+(*
+
+EVAL``append o FST $ cencode_not_equal
+  (\x. (-5,5))
+  (SOME (INR (INL (strlit "Z")))) (INL (strlit "X")) (INL (strlit "Y")) (strlit "foo") init_ec``
+
+  [INL (strlit "x");INL (strlit "y")]) (strlit"t1") init_ec``
+
+
+*)

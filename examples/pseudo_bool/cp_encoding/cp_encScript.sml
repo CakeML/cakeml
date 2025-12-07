@@ -118,10 +118,7 @@ Definition format_string_def:
       concat [strlit"i[";x;strlit"][sign]"]
   | Bit x n =>
       concat [strlit"i[";x;strlit"][b";toString n;strlit"]"]
-  | Var x =>
-    case x of
-      INL y => format_reif y
-    | INR z => format_flag z
+  | Var v => format_var v
 End
 
 Theorem format_string_INJ:
