@@ -90,7 +90,10 @@ End
 val r = translate mlsexpTheory.parse_aux_def;
 
 Quote add_cakeml:
-  fun parse input = parse_aux (lex input) [] []
+  fun parse input =
+    case parse_aux (lex input) [] [] of
+      [] => raise Fail "parse: empty input"
+    | (v::_) => v
 End
 
 (*--------------------------------------------------------------*
@@ -443,4 +446,69 @@ Proof
   \\ simp [LIST_TYPE_def, MLSEXP_TOKEN_TYPE_def, lex_aux_post_def]
   \\ ntac 2 CASE_TAC
   \\ STDIO_forwardFD_INSTREAM_STR_tac
+QED
+
+Theorem lex_spec:
+  app (p:'ffi ffi_proj) lex_v [is]
+    (STDIO fs * INSTREAM_STR fd is s fs)
+    (case lex s of
+     | INL (msg, rest) =>
+       POSTe exn. SEP_EXISTS k.
+         INSTREAM_STR fd is rest (forwardFD fs fd k) *
+         &(Fail_exn msg exn)
+     | INR (toks, rest) =>
+       POSTv tokvs. SEP_EXISTS k.
+         STDIO (forwardFD fs fd k) *
+         INSTREAM_STR fd is rest (forwardFD fs fd k) *
+         &(LIST_TYPE MLSEXP_TOKEN_TYPE toks tokvs))
+Proof
+  xcf "lex" st
+  \\ xlet_autop \\ xapp
+  \\ simp [lex_aux_post_def, lex_def]
+  \\ qexistsl [‘emp’, ‘s’, ‘fs’, ‘fd’, ‘[]’]
+  \\ simp [LIST_TYPE_def, MLSEXP_TOKEN_TYPE_def] \\ xsimpl
+QED
+
+Theorem parse_spec:
+  app (p:'ffi ffi_proj) parse_v [is]
+    (STDIO fs * INSTREAM_STR fd is s fs)
+    (case parse s of
+     | INL (msg, rest) =>
+       POSTe exn. SEP_EXISTS k.
+         INSTREAM_STR fd is rest (forwardFD fs fd k) *
+         &(Fail_exn msg exn)
+     | INR (se, rest) =>
+       POSTv sev. SEP_EXISTS k.
+         STDIO (forwardFD fs fd k) *
+         INSTREAM_STR fd is rest (forwardFD fs fd k) *
+         &(MLSEXP_SEXP_TYPE se sev))
+Proof
+  xcf "parse" st
+  \\ ntac 2 xlet_autop
+  \\ simp [parse_def]
+  \\ namedCases_on ‘lex s’ ["l", "r"]
+  >-
+   (namedCases_on ‘l’ ["msg rest"]
+    \\ xlet ‘POSTe exn. SEP_EXISTS k.
+               INSTREAM_STR fd is rest (forwardFD fs fd k) *
+             &(Fail_exn msg exn)’
+    >- (xapp \\ qexistsl [‘emp’, ‘s’, ‘fs’, ‘fd’] \\ simp [] \\ xsimpl)
+    \\ simp [] \\ xsimpl)
+  \\ namedCases_on ‘r’ ["toks rest"]
+  \\ xlet ‘POSTv tokvs. SEP_EXISTS k.
+             STDIO (forwardFD fs fd k) *
+             INSTREAM_STR fd is rest (forwardFD fs fd k) *
+             &(LIST_TYPE MLSEXP_TOKEN_TYPE toks tokvs)’
+  >- (xapp \\ qexistsl [‘emp’, ‘s’, ‘fs’, ‘fd’] \\ simp [] \\ xsimpl)
+  \\ xlet ‘POSTv ses.
+             STDIO (forwardFD fs fd k) *
+             INSTREAM_STR fd is rest (forwardFD fs fd k) *
+             &(LIST_TYPE MLSEXP_SEXP_TYPE (parse_aux toks [] []) ses)’
+  >- (xapp \\ xsimpl \\ qexistsl [‘[]’, ‘[]’, ‘toks’] \\ simp [LIST_TYPE_def])
+  \\ namedCases_on ‘parse_aux toks [] []’ ["", "se ses"]
+  \\ gvs [LIST_TYPE_def]
+  \\ xmatch
+  >- (xlet_autop \\ xraise \\ xsimpl \\ qexists ‘k’ \\ xsimpl \\ simp [Fail_exn_def])
+  \\ xvar
+  \\ xsimpl \\ qexists ‘k’ \\ xsimpl
 QED
