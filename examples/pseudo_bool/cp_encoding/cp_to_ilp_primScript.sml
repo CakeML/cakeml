@@ -23,12 +23,19 @@ Definition nev_def[simp]:
 End
 
 (* the two named equality constraints, held as a list *)
+Definition mk_ge_def[simp]:
+  mk_ge X Y = mk_constraint_ge 1 (X) (-1) (Y) 0
+End
+
+Definition mk_le_def[simp]:
+  mk_le X Y = mk_ge Y X
+End
+
 Definition cmk_eq_def[simp]:
   cmk_eq name X Y =
-  let pref = strlit"c[" ^ name  in
   [
-    (SOME (pref ^ strlit "][ge]"),mk_constraint_ge 1 (X) (-1) (Y) 0);
-    (SOME (pref ^ strlit "][le]"),mk_constraint_ge 1 (Y) (-1) (X) 0)
+    (SOME (mk_name name (strlit"ge")), mk_ge X Y);
+    (SOME (mk_name name (strlit"le")), mk_le X Y)
   ]
 End
 
@@ -38,7 +45,7 @@ Definition mk_gt_def[simp]:
 End
 
 Definition mk_lt_def[simp]:
-  mk_lt X Y = mk_constraint_ge 1 Y (-1) X 1
+  mk_lt X Y = mk_gt Y X
 End
 
 Definition cencode_equal_1_def[simp]:
@@ -180,10 +187,10 @@ QED
 Definition encode_cmp_aux_def:
   encode_cmp_aux cmp X Y =
   case cmp of
-    GreaterEqual => mk_constraint_ge 1 X (-1) Y 0
-  | GreaterThan  => mk_constraint_ge 1 X (-1) Y 1
-  | LessEqual    => mk_constraint_ge (-1) X 1 Y 0
-  | LessThan     => mk_constraint_ge (-1) X 1 Y 1
+    GreaterEqual => mk_ge X Y
+  | GreaterThan  => mk_gt X Y
+  | LessEqual    => mk_le X Y
+  | LessThan     => mk_lt X Y
   | _            => false_constr
 End
 
@@ -228,28 +235,43 @@ Proof
   intLib.ARITH_TAC
 QED
 
+(* -X ≥ Y *)
+Definition mk_nge_def[simp]:
+  mk_nge X Y = mk_constraint_ge (-1) (X) (-1) (Y) 0
+End
+
+(* -X ≤ Y *)
+Definition mk_nle_def[simp]:
+  mk_nle X Y = mk_constraint_ge 1 (Y) (1) (X) 0
+End
+
+
 Definition encode_negative_def:
   encode_negative X Y =
   [
-    mk_constraint_ge 1 X 1 Y 0;
-    mk_constraint_ge (-1) X (-1) Y 0
+    mk_nle X Y;
+    mk_nge X Y;
+  ]
+End
+
+Definition encode_abs_body_def:
+  encode_abs_body bnd X Y =
+  [
+    bits_imply bnd [Pos (INL (Ge X 0))] (mk_ge X Y);
+    bits_imply bnd [Pos (INL (Ge X 0))] (mk_le X Y);
+    bits_imply bnd [Neg (INL (Ge X 0))] (mk_nle X Y);
+    bits_imply bnd [Neg (INL (Ge X 0))] (mk_nge X Y)
   ]
 End
 
 Definition encode_abs_def:
   encode_abs bnd X Y =
   encode_ge bnd X 0 ++
-  [
-    bits_imply bnd [Pos (INL (Ge X 0))] (mk_constraint_ge 1 X (-1) Y 0);
-    bits_imply bnd [Pos (INL (Ge X 0))] (mk_constraint_ge (-1) X 1 Y 0);
-    bits_imply bnd [Neg (INL (Ge X 0))] (mk_constraint_ge 1 X 1 Y 0);
-    bits_imply bnd [Neg (INL (Ge X 0))] (mk_constraint_ge (-1) X (-1) Y 0)
-  ]
+  encode_abs_body bnd X Y
 End
 
 (* Theorems for Negative *)
 Theorem encode_negative_sem_1:
-  valid_assignment bnd wi ∧
   unop_sem Negative X Y wi ⇒
   EVERY (λx. iconstraint_sem x (wi,wb))
     (encode_negative X Y)
@@ -259,7 +281,6 @@ Proof
 QED
 
 Theorem encode_negative_sem_2:
-  valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
     (encode_negative X Y) ⇒
   unop_sem Negative X Y wi
@@ -275,7 +296,8 @@ Theorem encode_abs_sem_1:
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_abs bnd X Y)
 Proof
-  rw[encode_abs_def,unop_sem_def,unop_val_def,reify_avar_def,reify_reif_def]>>
+  rw[encode_abs_def,encode_abs_body_def, unop_sem_def,
+    unop_val_def,reify_avar_def,reify_reif_def]>>
   intLib.ARITH_TAC
 QED
 
@@ -285,40 +307,13 @@ Theorem encode_abs_sem_2:
     (encode_abs bnd X Y) ⇒
   unop_sem Abs X Y wi
 Proof
-  rw[encode_abs_def,unop_sem_def,unop_val_def]>>
+  rw[encode_abs_def,encode_abs_body_def,unop_sem_def,unop_val_def]>>
   gvs[AllCasePreds(),reify_avar_def,reify_reif_def]>>
   every_case_tac>>
   gvs[]>>
   Cases_on ‘wb (INL (Ge X 0))’>>
   gvs[]>>
   intLib.ARITH_TAC
-QED
-
-Definition split_iclin_term_def:
-  (split_iclin_term ([]:'a iclin_term)
-    (acc:'a ilin_term) rhs = (acc,rhs)) ∧
-  (split_iclin_term ((c,X)::xs) acc rhs =
-    case X of
-      INL v => split_iclin_term xs ((c,v)::acc) rhs
-    | INR cc =>
-      split_iclin_term xs acc (rhs - c * cc))
-End
-
-Theorem split_iclin_term_sound:
-  ∀Xs rhs acc xs rhs'.
-    split_iclin_term Xs acc rhs = (xs,rhs') ⇒
-    eval_iclin_term wi Xs + eval_ilin_term wi acc - rhs =
-    eval_ilin_term wi xs - rhs'
-Proof
-  Induct
-  >-simp[split_iclin_term_def, eval_iclin_term_def, eval_ilin_term_def, iSUM_def]
-  >-(
-    Cases>>
-    Cases_on ‘r’>>
-    rw[split_iclin_term_def]>>
-    last_x_assum $ drule_then mp_tac>>
-    rw[eval_iclin_term_def, eval_ilin_term_def, iSUM_def, varc_def]>>
-    intLib.ARITH_TAC)
 QED
 
 (* Binary operations *)
@@ -332,21 +327,16 @@ Definition encode_plus_def:
 End
 
 Theorem encode_plus_sem_1:
-  valid_assignment bnd wi ∧
   binop_sem Plus X Y Z wi ⇒
   EVERY (λx. iconstraint_sem x (wi,wb))
     (encode_plus X Y Z)
 Proof
   rw[encode_plus_def,binop_sem_def,binop_val_def]>>
-  pairarg_tac>>
-  gvs[]>>
-  pairarg_tac>>
-  gvs[]>>
+  rpt(pairarg_tac>>gvs[])>>
   imp_res_tac split_iclin_term_sound>>
-  fs[iconstraint_sem_def]>>
+  fs[iconstraint_sem_def,eval_iclin_term_def,iSUM_def]>>
   pop_assum $ qspec_then ‘wi’ mp_tac>>
   pop_assum $ qspec_then ‘wi’ mp_tac>>
-  simp[eval_iclin_term_def,iSUM_def]>>
   intLib.ARITH_TAC
 QED
 
@@ -357,16 +347,11 @@ Theorem encode_plus_sem_2:
   binop_sem Plus X Y Z wi
 Proof
   rw[encode_plus_def,binop_sem_def,binop_val_def]>>
-  gvs[AllCasePreds(),reify_avar_def,reify_reif_def]>>
-  every_case_tac>>
-  pairarg_tac>>
-  gvs[]>>
-  pairarg_tac>>
-  gvs[iconstraint_sem_def]>>
+  rpt(pairarg_tac>>gvs[])>>
   imp_res_tac split_iclin_term_sound>>
   pop_assum $ qspec_then ‘wi’ mp_tac>>
   pop_assum $ qspec_then ‘wi’ mp_tac>>
-  simp[eval_iclin_term_def,iSUM_def]>>
+  fs[iconstraint_sem_def,eval_iclin_term_def,iSUM_def]>>
   intLib.ARITH_TAC
 QED
 
@@ -386,15 +371,11 @@ Theorem encode_minus_sem_1:
     (encode_minus X Y Z)
 Proof
   rw[encode_minus_def,binop_sem_def,binop_val_def]>>
-  pairarg_tac>>
-  gvs[]>>
-  pairarg_tac>>
-  gvs[]>>
+  rpt(pairarg_tac>>gvs[])>>
   imp_res_tac split_iclin_term_sound>>
-  fs[iconstraint_sem_def]>>
+  fs[iconstraint_sem_def,eval_iclin_term_def,iSUM_def]>>
   pop_assum $ qspec_then ‘wi’ mp_tac>>
   pop_assum $ qspec_then ‘wi’ mp_tac>>
-  simp[eval_iclin_term_def,iSUM_def]>>
   intLib.ARITH_TAC
 QED
 
@@ -405,40 +386,57 @@ Theorem encode_minus_sem_2:
   binop_sem Minus X Y Z wi
 Proof
   rw[encode_minus_def,binop_sem_def,binop_val_def]>>
-  gvs[AllCasePreds(),reify_avar_def,reify_reif_def]>>
-  every_case_tac>>
-  pairarg_tac>>
-  gvs[]>>
-  pairarg_tac>>
-  gvs[iconstraint_sem_def]>>
+  rpt(pairarg_tac>>gvs[])>>
   imp_res_tac split_iclin_term_sound>>
   pop_assum $ qspec_then ‘wi’ mp_tac>>
   pop_assum $ qspec_then ‘wi’ mp_tac>>
-  simp[eval_iclin_term_def,iSUM_def]>>
+  fs[iconstraint_sem_def,eval_iclin_term_def,iSUM_def]>>
   intLib.ARITH_TAC
 QED
 
+(* lle means X ≤ Z, rle means Y ≤ Z*)
+Definition cencode_min_def:
+  cencode_min bnd X Y Z name =
+  let
+    lle = INR (name, Flag (strlit "lle"));
+    rle = INR (name, Flag (strlit "rle"));
+  in
+  Append (cvar_imply bnd lle (mk_le X Z)) $
+  Append (cvar_imply bnd rle (mk_le Y Z)) $
+  Append
+    (List
+      (mk_annotate
+      [mk_name name (strlit"lge"); mk_name name (strlit"rge")]
+      [mk_ge X Z; mk_ge Y Z])) $
+  cat_least_one name [Pos lle; Pos rle]
+End
+
 Definition encode_min_def:
-  encode_min bnd X Y Z =
-  [false_constr]
+  encode_min bnd X Y Z name =
+  abstr (cencode_min bnd X Y Z name)
 End
 
 Theorem encode_min_sem_1:
   valid_assignment bnd wi ∧
+  ALOOKUP cs name = SOME (Prim (Binop cmp X Y Z)) ∧
   binop_sem Min X Y Z wi ⇒
-  EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_min bnd X Y Z)
+  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
+    (encode_min bnd X Y Z name)
 Proof
-  cheat
+  rw[binop_sem_def,encode_min_def,cencode_min_def,binop_val_def,mk_annotate_def]>>
+  gvs[reify_avar_def,reify_flag_def,SF DNF_ss]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem encode_min_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_min bnd X Y Z) ⇒
+    (encode_min bnd X Y Z name) ⇒
   binop_sem Min X Y Z wi
 Proof
-  cheat
+  rw[binop_sem_def,encode_min_def,cencode_min_def,binop_val_def,mk_annotate_def]>>
+  gvs[]>>
+  intLib.ARITH_TAC
 QED
 
 Definition encode_max_def:
@@ -481,7 +479,7 @@ Definition encode_prim_constr_def:
       (case bop of
         Plus => encode_plus X Y Z
       | Minus => encode_minus X Y Z
-      | Min => encode_min bnd X Y Z
+      | Min => encode_min bnd X Y Z name
       | Max => encode_max bnd X Y Z)
 End
 
@@ -658,6 +656,27 @@ Proof
     irule enc_rel_List_mk_annotate)
 QED
 
+Definition cencode_negative_def:
+  cencode_negative X Y name =
+    List (mk_annotate [mk_name name (strlit"le"); mk_name name (strlit"ge")]
+      (encode_negative X Y))
+End
+
+Definition cencode_abs_def:
+  cencode_abs bnd X Y name ec =
+  let
+    (e,ec') = cencode_ge bnd X 0 ec;
+    ls =
+      mk_annotate [
+        mk_name name (strlit"posge");
+        mk_name name (strlit"posle");
+        mk_name name (strlit"negle");
+        mk_name name (strlit"negge");]
+        (encode_abs_body bnd X Y)
+  in
+    (Append e (List ls) , ec')
+End
+
 (* Concrete encodings - TODO *)
 Definition cencode_prim_constr_def:
   cencode_prim_constr bnd c name ec =
@@ -668,8 +687,14 @@ Definition cencode_prim_constr_def:
       else if cmp = NotEqual
       then cencode_not_equal bnd Zr X Y name ec
       else cencode_order_cmpops bnd Zr cmp X Y name ec
-  | Unop uop X Y => (List [], ec)
-  | Binop bop X Y Z => (List [], ec)
+  | Unop uop X Y =>
+    (case uop of
+        Negative => (cencode_negative X Y name,ec)
+      | Abs => cencode_abs bnd X Y name ec)
+  | Binop bop X Y Z =>
+    (case bop of
+      Min => (cencode_min bnd X Y Z name, ec)
+    | _ => ARB)
 End
 
 Theorem cencode_prim_constr_sem:
@@ -677,18 +702,31 @@ Theorem cencode_prim_constr_sem:
   cencode_prim_constr bnd c name ec = (es, ec') ⇒
   enc_rel wi es (encode_prim_constr bnd c name) ec ec'
 Proof
-  cheat
+  rw[encode_prim_constr_def,cencode_prim_constr_def]>>
+  gvs[AllCaseEqs()]
+  >- (
+    simp[cencode_negative_def]>>
+    metis_tac[enc_rel_List_mk_annotate])
+  >- (
+    fs[cencode_abs_def,encode_abs_def]>>
+    pairarg_tac>>gvs[]>>
+    irule enc_rel_Append>>
+    metis_tac[enc_rel_List_mk_annotate,enc_rel_encode_ge])
+  >- cheat
+  >- cheat
+  >- simp[encode_min_def]
+  >- cheat
+  >- metis_tac[cencode_equal_sem]
+  >- metis_tac[cencode_not_equal_sem]
+  >- metis_tac[cencode_order_cmpops_sem]
 QED
 
 (*
 
-EVAL``append o FST $ cencode_order_cmpops
+EVAL``append o FST $ cencode_prim_constr
   (\x. (-5,5))
-  NONE
-  GreaterEqual
-  (INL (strlit "X")) (INL (strlit "Y")) (strlit "foo") init_ec``
-
-  [INL (strlit "x");INL (strlit "y")]) (strlit"t1") init_ec``
-
+  (Binop Min (INL (strlit "X")) (INL (strlit "Y")) (INL (strlit "Z")))
+  (strlit "foo")
+  init_ec``
 
 *)

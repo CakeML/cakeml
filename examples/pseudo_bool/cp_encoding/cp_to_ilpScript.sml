@@ -54,7 +54,12 @@ Definition reify_flag_def:
     | SOME (Prim (Cmpop _ _ X Y)) =>
       if ann = strlit"lt"
       then varc wi X < varc wi Y
-      else varc wi X > varc wi Y)
+      else varc wi X > varc wi Y
+    | SOME (Prim (Binop _ X Y Z)) =>
+      if ann = strlit"lle"
+      then varc wi X ≤ varc wi Z
+      else varc wi Y ≤ varc wi Z
+    )
 End
 
 Definition format_varc_def:
@@ -287,6 +292,33 @@ Proof
   rw[mk_constraint_ge_def]>>every_case_tac>>
   gvs[varc_def,iconstraint_sem_def,eval_ilin_term_def,iSUM_def]>>
   intLib.ARITH_TAC
+QED
+
+Definition split_iclin_term_def:
+  (split_iclin_term ([]:'a iclin_term)
+    (acc:'a ilin_term) rhs = (acc,rhs)) ∧
+  (split_iclin_term ((c,X)::xs) acc rhs =
+    case X of
+      INL v => split_iclin_term xs ((c,v)::acc) rhs
+    | INR cc =>
+      split_iclin_term xs acc (rhs - c * cc))
+End
+
+Theorem split_iclin_term_sound:
+  ∀Xs rhs acc xs rhs'.
+    split_iclin_term Xs acc rhs = (xs,rhs') ⇒
+    eval_iclin_term wi Xs + eval_ilin_term wi acc - rhs =
+    eval_ilin_term wi xs - rhs'
+Proof
+  Induct
+  >-simp[split_iclin_term_def, eval_iclin_term_def, eval_ilin_term_def, iSUM_def]
+  >-(
+    Cases>>
+    Cases_on ‘r’>>
+    rw[split_iclin_term_def]>>
+    last_x_assum $ drule_then mp_tac>>
+    rw[eval_iclin_term_def, eval_ilin_term_def, iSUM_def, varc_def]>>
+    intLib.ARITH_TAC)
 QED
 
 (*
@@ -716,11 +748,16 @@ Proof
   rw[enc_rel_def,EVERY_MAP]
 QED
 
+Definition mk_name_def:
+  mk_name name tag =
+  strlit"c[" ^ name ^ strlit "][" ^ tag ^ strlit"]"
+End
+
 (* at least one over literals *)
 Definition cat_least_one_def:
   cat_least_one name ls =
     List [
-      (SOME (strlit"c[" ^ name ^ strlit"][al1]"),
+      (SOME (mk_name name (strlit "al1")),
         ([], MAP (λl. (1,l)) ls, 1))]
 End
 
