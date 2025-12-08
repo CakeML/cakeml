@@ -111,9 +111,12 @@ QED
 
 Definition cencode_not_equal_1_def[simp]:
   cencode_not_equal_1 bnd X Y name =
-  Append
-    (cvar_imply bnd (nev name) (mk_gt X Y))
-    (cnvar_imply bnd (nev name) (mk_gt Y X))
+  List [
+    (SOME (mk_name name (strlit"gt")),
+      bits_imply bnd [Pos (nev name)] (mk_gt X Y));
+    (SOME (mk_name name (strlit"lt")),
+      bits_imply bnd [Neg (nev name)] (mk_gt Y X))
+  ]
 End
 
 Definition cencode_not_equal_2_def[simp]:
