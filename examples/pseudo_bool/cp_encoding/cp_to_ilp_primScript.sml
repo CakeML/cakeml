@@ -231,13 +231,14 @@ QED
 Definition encode_negative_def:
   encode_negative X Y =
   [
-    mk_constraint_ge 1 X (-1) Y 0;
-    mk_constraint_ge (-1) X 1 Y 0
+    mk_constraint_ge 1 X 1 Y 0;
+    mk_constraint_ge (-1) X (-1) Y 0
   ]
 End
 
 Definition encode_abs_def:
   encode_abs bnd X Y =
+  encode_ge bnd X 0 ++
   [
     bits_imply bnd [Pos (INL (Ge X 0))] (mk_constraint_ge 1 X (-1) Y 0);
     bits_imply bnd [Pos (INL (Ge X 0))] (mk_constraint_ge (-1) X 1 Y 0);
@@ -253,7 +254,8 @@ Theorem encode_negative_sem_1:
   EVERY (λx. iconstraint_sem x (wi,wb))
     (encode_negative X Y)
 Proof
-  cheat
+  rw[encode_negative_def,unop_sem_def,unop_val_def]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem encode_negative_sem_2:
@@ -262,17 +264,19 @@ Theorem encode_negative_sem_2:
     (encode_negative X Y) ⇒
   unop_sem Negative X Y wi
 Proof
-  cheat
+  rw[encode_negative_def,unop_sem_def,unop_val_def]>>
+  intLib.ARITH_TAC
 QED
 
 (* Theorems for Abs *)
 Theorem encode_abs_sem_1:
   valid_assignment bnd wi ∧
   unop_sem Abs X Y wi ⇒
-  EVERY (λx. iconstraint_sem x (wi,wb))
+  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_abs bnd X Y)
 Proof
-  cheat
+  rw[encode_abs_def,unop_sem_def,unop_val_def,reify_avar_def,reify_reif_def]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem encode_abs_sem_2:
@@ -281,13 +285,50 @@ Theorem encode_abs_sem_2:
     (encode_abs bnd X Y) ⇒
   unop_sem Abs X Y wi
 Proof
-  cheat
+  rw[encode_abs_def,unop_sem_def,unop_val_def]>>
+  gvs[AllCasePreds(),reify_avar_def,reify_reif_def]>>
+  every_case_tac>>
+  gvs[]>>
+  Cases_on ‘wb (INL (Ge X 0))’>>
+  gvs[]>>
+  intLib.ARITH_TAC
+QED
+
+Definition split_iclin_term_def:
+  (split_iclin_term ([]:'a iclin_term)
+    (acc:'a ilin_term) rhs = (acc,rhs)) ∧
+  (split_iclin_term ((c,X)::xs) acc rhs =
+    case X of
+      INL v => split_iclin_term xs ((c,v)::acc) rhs
+    | INR cc =>
+      split_iclin_term xs acc (rhs - c * cc))
+End
+
+Theorem split_iclin_term_sound:
+  ∀Xs rhs acc xs rhs'.
+    split_iclin_term Xs acc rhs = (xs,rhs') ⇒
+    eval_iclin_term wi Xs + eval_ilin_term wi acc - rhs =
+    eval_ilin_term wi xs - rhs'
+Proof
+  Induct
+  >-simp[split_iclin_term_def, eval_iclin_term_def, eval_ilin_term_def, iSUM_def]
+  >-(
+    Cases>>
+    Cases_on ‘r’>>
+    rw[split_iclin_term_def]>>
+    last_x_assum $ drule_then mp_tac>>
+    rw[eval_iclin_term_def, eval_ilin_term_def, iSUM_def, varc_def]>>
+    intLib.ARITH_TAC)
 QED
 
 (* Binary operations *)
 Definition encode_plus_def:
   encode_plus X Y Z =
-  [false_constr]
+  let
+    (xygez,rhs1) = split_iclin_term [(1i,X);(1i,Y);(-1i,Z)] [] 0;
+    (xylez,rhs2) = split_iclin_term [(-1i,X);(-1i,Y);(1i,Z)] [] 0
+  in
+    [(xygez,[],rhs1);(xylez,[],rhs2)]
 End
 
 Theorem encode_plus_sem_1:
@@ -296,7 +337,17 @@ Theorem encode_plus_sem_1:
   EVERY (λx. iconstraint_sem x (wi,wb))
     (encode_plus X Y Z)
 Proof
-  cheat
+  rw[encode_plus_def,binop_sem_def,binop_val_def]>>
+  pairarg_tac>>
+  gvs[]>>
+  pairarg_tac>>
+  gvs[]>>
+  imp_res_tac split_iclin_term_sound>>
+  fs[iconstraint_sem_def]>>
+  pop_assum $ qspec_then ‘wi’ mp_tac>>
+  pop_assum $ qspec_then ‘wi’ mp_tac>>
+  simp[eval_iclin_term_def,iSUM_def]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem encode_plus_sem_2:
@@ -305,12 +356,27 @@ Theorem encode_plus_sem_2:
     (encode_plus X Y Z) ⇒
   binop_sem Plus X Y Z wi
 Proof
-  cheat
+  rw[encode_plus_def,binop_sem_def,binop_val_def]>>
+  gvs[AllCasePreds(),reify_avar_def,reify_reif_def]>>
+  every_case_tac>>
+  pairarg_tac>>
+  gvs[]>>
+  pairarg_tac>>
+  gvs[iconstraint_sem_def]>>
+  imp_res_tac split_iclin_term_sound>>
+  pop_assum $ qspec_then ‘wi’ mp_tac>>
+  pop_assum $ qspec_then ‘wi’ mp_tac>>
+  simp[eval_iclin_term_def,iSUM_def]>>
+  intLib.ARITH_TAC
 QED
 
 Definition encode_minus_def:
   encode_minus X Y Z =
-  [false_constr]
+  let
+    (xygez,rhs1) = split_iclin_term [(1i,X);(-1i,Y);(-1i,Z)] [] 0;
+    (xylez,rhs2) = split_iclin_term [(-1i,X);(1i,Y);(1i,Z)] [] 0
+  in
+    [(xygez,[],rhs1);(xylez,[],rhs2)]
 End
 
 Theorem encode_minus_sem_1:
@@ -319,7 +385,17 @@ Theorem encode_minus_sem_1:
   EVERY (λx. iconstraint_sem x (wi,wb))
     (encode_minus X Y Z)
 Proof
-  cheat
+  rw[encode_minus_def,binop_sem_def,binop_val_def]>>
+  pairarg_tac>>
+  gvs[]>>
+  pairarg_tac>>
+  gvs[]>>
+  imp_res_tac split_iclin_term_sound>>
+  fs[iconstraint_sem_def]>>
+  pop_assum $ qspec_then ‘wi’ mp_tac>>
+  pop_assum $ qspec_then ‘wi’ mp_tac>>
+  simp[eval_iclin_term_def,iSUM_def]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem encode_minus_sem_2:
@@ -328,7 +404,18 @@ Theorem encode_minus_sem_2:
     (encode_minus X Y Z) ⇒
   binop_sem Minus X Y Z wi
 Proof
-  cheat
+  rw[encode_minus_def,binop_sem_def,binop_val_def]>>
+  gvs[AllCasePreds(),reify_avar_def,reify_reif_def]>>
+  every_case_tac>>
+  pairarg_tac>>
+  gvs[]>>
+  pairarg_tac>>
+  gvs[iconstraint_sem_def]>>
+  imp_res_tac split_iclin_term_sound>>
+  pop_assum $ qspec_then ‘wi’ mp_tac>>
+  pop_assum $ qspec_then ‘wi’ mp_tac>>
+  simp[eval_iclin_term_def,iSUM_def]>>
+  intLib.ARITH_TAC
 QED
 
 Definition encode_min_def:
