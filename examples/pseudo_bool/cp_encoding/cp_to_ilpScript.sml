@@ -58,7 +58,11 @@ Definition reify_flag_def:
     | SOME (Prim (Binop _ X Y Z)) =>
       if ann = strlit"lle"
       then varc wi X ≤ varc wi Z
-      else varc wi Y ≤ varc wi Z
+      else if ann = strlit"rle"
+      then varc wi Y ≤ varc wi Z
+      else if ann = strlit"lge"
+      then varc wi X ≥ varc wi Z
+      else varc wi Y ≥ varc wi Z
     )
 End
 

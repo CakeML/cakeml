@@ -245,7 +245,6 @@ Definition mk_nle_def[simp]:
   mk_nle X Y = mk_constraint_ge 1 (Y) (1) (X) 0
 End
 
-
 Definition encode_negative_def:
   encode_negative X Y =
   [
@@ -439,27 +438,48 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Definition cencode_max_def:
+  cencode_max bnd X Y Z name =
+  let
+    lge = INR (name, Flag (strlit "lge"));
+    rge = INR (name, Flag (strlit "rge"));
+  in
+  Append (cvar_imply bnd lge (mk_ge X Z)) $
+  Append (cvar_imply bnd rge (mk_ge Y Z)) $
+  Append
+    (List
+      (mk_annotate
+      [mk_name name (strlit"lle"); mk_name name (strlit"rle")]
+      [mk_le X Z; mk_le Y Z])) $
+  cat_least_one name [Pos lge; Pos rge]
+End
+
 Definition encode_max_def:
-  encode_max bnd X Y Z =
-  [false_constr]
+  encode_max bnd X Y Z name =
+  abstr (cencode_max bnd X Y Z name)
 End
 
 Theorem encode_max_sem_1:
   valid_assignment bnd wi ∧
+  ALOOKUP cs name = SOME (Prim (Binop cmp X Y Z)) ∧
   binop_sem Max X Y Z wi ⇒
-  EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_max bnd X Y Z)
+  EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
+    (encode_max bnd X Y Z name)
 Proof
-  cheat
+  rw[binop_sem_def,encode_max_def,cencode_max_def,binop_val_def,mk_annotate_def]>>
+  gvs[reify_avar_def,reify_flag_def,SF DNF_ss]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem encode_max_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_max bnd X Y Z) ⇒
+    (encode_max bnd X Y Z name) ⇒
   binop_sem Max X Y Z wi
 Proof
-  cheat
+  rw[binop_sem_def,encode_max_def,cencode_max_def,binop_val_def,mk_annotate_def]>>
+  gvs[]>>
+  intLib.ARITH_TAC
 QED
 
 Definition encode_prim_constr_def:
@@ -480,7 +500,7 @@ Definition encode_prim_constr_def:
         Plus => encode_plus X Y Z
       | Minus => encode_minus X Y Z
       | Min => encode_min bnd X Y Z name
-      | Max => encode_max bnd X Y Z)
+      | Max => encode_max bnd X Y Z name)
 End
 
 Theorem encode_prim_constr_sem_1:
@@ -694,6 +714,7 @@ Definition cencode_prim_constr_def:
   | Binop bop X Y Z =>
     (case bop of
       Min => (cencode_min bnd X Y Z name, ec)
+    | Max => (cencode_max bnd X Y Z name, ec)
     | _ => ARB)
 End
 
@@ -715,7 +736,7 @@ Proof
   >- cheat
   >- cheat
   >- simp[encode_min_def]
-  >- cheat
+  >- simp[encode_max_def]
   >- metis_tac[cencode_equal_sem]
   >- metis_tac[cencode_not_equal_sem]
   >- metis_tac[cencode_order_cmpops_sem]
