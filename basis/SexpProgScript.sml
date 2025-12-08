@@ -50,18 +50,15 @@ Quote add_cakeml:
 End
 
 Quote add_cakeml:
-  fun read_symbol_aux input acc =
+  fun read_symbol input acc =
     case TextIO.b_peekChar input of
       None => String.implode (List.rev acc)
     | Some c =>
         if c = #")" orelse Char.isSpace c
         then String.implode (List.rev acc)
-        (* Consume c *)
-        else (TextIO.b_input1 input; read_symbol_aux input (c::acc))
-End
-
-Quote add_cakeml:
-  fun read_symbol input = read_symbol_aux input []
+        else (
+          TextIO.b_input1 input;  (* Consume c *)
+          read_symbol input (c::acc))
 End
 
 Quote add_cakeml:
@@ -81,7 +78,7 @@ Quote add_cakeml:
             if depth = 0 then [Symbol s]
             else lex_aux depth input ((Symbol s)::acc) end
         else
-          let val s = read_symbol input in
+          let val s = read_symbol input [c] in
             if depth = 0 then [Symbol s]
             else lex_aux depth input ((Symbol s)::acc) end
 End
@@ -235,12 +232,12 @@ Proof
   \\ simp [LIST_TYPE_def] \\ xsimpl
 QED
 
-Theorem read_symbol_aux_spec[local]:
+Theorem read_symbol_spec[local]:
   ∀s acc accv p is fs fd.
     LIST_TYPE CHAR acc accv ⇒
-    app (p:'ffi ffi_proj) read_symbol_aux_v [is; accv]
+    app (p:'ffi ffi_proj) read_symbol_v [is; accv]
       (STDIO fs * INSTREAM_STR fd is s fs)
-      (case read_symbol_aux s acc of
+      (case read_symbol s acc of
        | (slit, rest) =>
            POSTv slitv. SEP_EXISTS k.
              STDIO (forwardFD fs fd k) *
@@ -249,8 +246,8 @@ Theorem read_symbol_aux_spec[local]:
 Proof
   Induct
   \\ rpt strip_tac
-  \\ qmatch_goalsub_abbrev_tac ‘read_symbol_aux s₁’
-  \\ xcf "read_symbol_aux" st
+  \\ qmatch_goalsub_abbrev_tac ‘read_symbol s₁’
+  \\ xcf "read_symbol" st
   >- (* [] *)
    (xlet ‘POSTv chv. SEP_EXISTS k.
             STDIO (forwardFD fs fd k) *
@@ -260,7 +257,7 @@ Proof
     \\ unabbrev_all_tac \\ gvs [OPTION_TYPE_def]
     \\ xmatch \\ xlet_autop \\ xapp
     \\ first_assum $ irule_at (Pos hd)
-    \\ simp [read_symbol_aux_def]
+    \\ simp [read_symbol_def]
     \\ xsimpl \\ rpt strip_tac
     \\ qexists ‘k’ \\ xsimpl)
   >- (* c::cs *)
@@ -271,7 +268,7 @@ Proof
     >- (xapp_spec b_peekChar_spec_str)
     \\ unabbrev_all_tac \\ gvs [OPTION_TYPE_def]
     \\ xmatch \\ xlet_autop
-    \\ rename [‘read_symbol_aux (h::s)’]
+    \\ rename [‘read_symbol (h::s)’]
     \\ xlet ‘POSTv b.
                STDIO (forwardFD fs fd k) *
                INSTREAM_STR fd is (h::s) (forwardFD fs fd k) *
@@ -282,7 +279,7 @@ Proof
       \\ xapp
       \\ first_assum $ irule_at (Pos hd)
       \\ xsimpl)
-    \\ simp [read_symbol_aux_def]
+    \\ simp [read_symbol_def]
     \\ xif
     >-
      (xlet_autop \\ xapp
@@ -304,23 +301,6 @@ Proof
     \\ simp [LIST_TYPE_def]
     \\ CASE_TAC
     \\ STDIO_forwardFD_INSTREAM_STR_tac)
-QED
-
-Theorem read_symbol_spec:
-  app (p:'ffi ffi_proj) read_symbol_v [is]
-    (STDIO fs * INSTREAM_STR fd is s fs)
-    (case read_symbol s of
-     | (slit, rest) =>
-         POSTv slitv. SEP_EXISTS k.
-           STDIO (forwardFD fs fd k) *
-           INSTREAM_STR fd is rest (forwardFD fs fd k) *
-          &(STRING_TYPE slit slitv))
-Proof
-  xcf "read_symbol" st
-  \\ xlet_autop \\ xapp
-  \\ simp [read_symbol_def]
-  \\ qexistsl [‘emp’, ‘s’, ‘fs’, ‘fd’, ‘[]’]
-  \\ simp [LIST_TYPE_def] \\ xsimpl
 QED
 
 Definition lex_aux_post_def:
@@ -356,6 +336,7 @@ Proof
   \\ rpt strip_tac
   \\ qmatch_goalsub_abbrev_tac ‘lex_aux_post _ s₁’
   \\ xcf "lex_aux" st
+  (* [] *)
   >-
    (xlet ‘POSTv chv. SEP_EXISTS k.
             STDIO (forwardFD fs fd k) *
@@ -368,91 +349,98 @@ Proof
     >- (xvar \\ lex_aux_base_tac ‘k’)
     \\ xlet_autop
     \\ xraise \\ lex_aux_base_tac ‘k’)
-
-  >-
-   (xlet ‘POSTv chv. SEP_EXISTS k.
+  (* c::cs *)
+  \\ xlet ‘POSTv chv. SEP_EXISTS k.
             STDIO (forwardFD fs fd k) *
             INSTREAM_STR fd is (TL s₁) (forwardFD fs fd k) *
             &OPTION_TYPE CHAR (oHD s₁) chv’
-    >- (xapp_spec b_input1_spec_str)
-    \\ unabbrev_all_tac \\ gvs [OPTION_TYPE_def]
-    \\ rename [‘lex_aux_post _ (STRING c s)’]
-    \\ xmatch
+  >- (xapp_spec b_input1_spec_str)
+  \\ unabbrev_all_tac \\ gvs [OPTION_TYPE_def]
+  \\ rename [‘lex_aux_post _ (STRING c s)’]
+  \\ xmatch
+  \\ xlet_autop
+  \\ xif >-
+   (last_x_assum $ drule_all_then assume_tac
+    \\ xapp
+    \\ qexistsl [‘emp’, ‘forwardFD fs fd k’, ‘fd’]
+    \\ simp [lex_aux_post_def, lex_aux_def]
+    \\ ntac 2 CASE_TAC
+    \\ STDIO_forwardFD_INSTREAM_STR_tac)
+  \\ xlet_autop
+  \\ xif >-
+   (ntac 3 xlet_autop
+    \\ xapp
+    \\ qexistsl [‘emp’, ‘forwardFD fs fd k’, ‘fd’]
+    \\ gvs [lex_aux_post_def, lex_aux_def]
+    \\ conj_tac >- (simp [LIST_TYPE_def, MLSEXP_TOKEN_TYPE_def])
+    \\ ntac 2 CASE_TAC
+    \\ STDIO_forwardFD_INSTREAM_STR_tac)
+  \\ xlet_autop
+  \\ xif >-
+   (xlet_autop
+    \\ xif >- (xlet_autop \\ xraise \\ lex_aux_base_tac ‘k’)
     \\ xlet_autop
-    \\ xif >-
-     (last_x_assum $ drule_all_then assume_tac
-      \\ xapp
-      \\ qexistsl [‘emp’, ‘forwardFD fs fd k’, ‘fd’]
-      \\ simp [lex_aux_post_def, lex_aux_def]
-      \\ ntac 2 CASE_TAC
-      \\ STDIO_forwardFD_INSTREAM_STR_tac)
-    \\ xlet_autop
-    \\ xif >-
-     (ntac 3 xlet_autop
-      \\ xapp
-      \\ qexistsl [‘emp’, ‘forwardFD fs fd k’, ‘fd’]
-      \\ gvs [lex_aux_post_def, lex_aux_def]
-      \\ conj_tac >- (simp [LIST_TYPE_def, MLSEXP_TOKEN_TYPE_def])
-      \\ ntac 2 CASE_TAC
-      \\ STDIO_forwardFD_INSTREAM_STR_tac)
-    \\ xlet_autop
-    \\ xif >-
-     (xlet_autop
-      \\ xif >- (xlet_autop \\ xraise \\ lex_aux_base_tac ‘k’)
-      \\ xlet_autop
-      \\ xif >- (xlet_autop \\ xcon \\ lex_aux_base_tac ‘k’)
-      \\ ntac 3 xlet_autop
-      \\ xapp
-      \\ qexistsl [‘emp’, ‘forwardFD fs fd k’, ‘fd’]
-      \\ gvs [lex_aux_post_def, lex_aux_def]
-      \\ conj_tac >- (simp [LIST_TYPE_def, MLSEXP_TOKEN_TYPE_def])
-      \\ ntac 2 CASE_TAC
-      \\ STDIO_forwardFD_INSTREAM_STR_tac)
-    \\ xlet_autop
-    \\ xif >-
-     (simp [lex_aux_post_def, lex_aux_def, isSpace_def]
-      \\ namedCases_on ‘mlsexp$read_string s’ ["l", "r"]
-      >-
-       (namedCases_on ‘l’ ["msg rest"]
-        \\ xlet ‘POSTe exn. SEP_EXISTS k.
-                   INSTREAM_STR fd is rest (forwardFD fs fd k) *
-                 &(Fail_exn msg exn)’
-        >-
-         (xapp
-          \\ qexistsl [‘emp’, ‘s’, ‘forwardFD fs fd k’, ‘fd’]
-          \\ simp []
-          \\ STDIO_forwardFD_INSTREAM_STR_tac)
-        \\ simp [] \\ xsimpl)
-      \\ namedCases_on ‘r’ ["slit rest"]
-      \\ xlet ‘POSTv slitv. SEP_EXISTS k.
-                 STDIO (forwardFD fs fd k) *
+    \\ xif >- (xlet_autop \\ xcon \\ lex_aux_base_tac ‘k’)
+    \\ ntac 3 xlet_autop
+    \\ xapp
+    \\ qexistsl [‘emp’, ‘forwardFD fs fd k’, ‘fd’]
+    \\ gvs [lex_aux_post_def, lex_aux_def]
+    \\ conj_tac >- (simp [LIST_TYPE_def, MLSEXP_TOKEN_TYPE_def])
+    \\ ntac 2 CASE_TAC
+    \\ STDIO_forwardFD_INSTREAM_STR_tac)
+  \\ xlet_autop
+  \\ xif >-
+   (simp [lex_aux_post_def, lex_aux_def, isSpace_def]
+    \\ namedCases_on ‘mlsexp$read_string s’ ["l", "r"]
+    >-
+     (namedCases_on ‘l’ ["msg rest"]
+      \\ xlet ‘POSTe exn. SEP_EXISTS k.
                  INSTREAM_STR fd is rest (forwardFD fs fd k) *
-                 &(STRING_TYPE slit slitv)’
+                 &(Fail_exn msg exn)’
       >-
        (xapp
         \\ qexistsl [‘emp’, ‘s’, ‘forwardFD fs fd k’, ‘fd’]
         \\ simp []
         \\ STDIO_forwardFD_INSTREAM_STR_tac)
-      \\ xlet_autop
-      \\ xif
-      >-
-       (ntac 2 xlet_autop \\ xcon
-        \\ simp [LIST_TYPE_def, MLSEXP_TOKEN_TYPE_def]
-        \\ STDIO_forwardFD_INSTREAM_STR_tac)
-      \\ ntac 2 xlet_autop \\ xapp
-      \\ qexistsl [‘emp’, ‘forwardFD fs fd k’, ‘fd’]
-      \\ simp [LIST_TYPE_def, MLSEXP_TOKEN_TYPE_def, lex_aux_post_def]
-      \\ ntac 2 CASE_TAC
-      \\ STDIO_forwardFD_INSTREAM_STR_tac)
-    \\ simp [lex_aux_post_def, lex_aux_def]
-    \\ namedCases_on ‘read_symbol (STRING c s)’ ["sym rest"]
+      \\ simp [] \\ xsimpl)
+    \\ namedCases_on ‘r’ ["slit rest"]
     \\ xlet ‘POSTv slitv. SEP_EXISTS k.
                STDIO (forwardFD fs fd k) *
                INSTREAM_STR fd is rest (forwardFD fs fd k) *
                &(STRING_TYPE slit slitv)’
-    >- (xapp \\ qexistsl [‘emp’, ‘c::s’, ‘forwardFD fs fd k’, ‘fd’]
-        \\ simp []
-        \\ xsimpl
-        \\ cheat (* TODO unprovable; need to use peek in lex_aux *) )
-    \\ cheat)
+    >-
+     (xapp
+      \\ qexistsl [‘emp’, ‘s’, ‘forwardFD fs fd k’, ‘fd’]
+      \\ simp []
+      \\ STDIO_forwardFD_INSTREAM_STR_tac)
+    \\ xlet_autop
+    \\ xif
+    >-
+     (ntac 2 xlet_autop \\ xcon
+      \\ simp [LIST_TYPE_def, MLSEXP_TOKEN_TYPE_def]
+      \\ lex_aux_base_tac ‘k’)
+    \\ ntac 2 xlet_autop \\ xapp
+    \\ qexistsl [‘emp’, ‘forwardFD fs fd k’, ‘fd’]
+    \\ simp [LIST_TYPE_def, MLSEXP_TOKEN_TYPE_def, lex_aux_post_def]
+    \\ ntac 2 CASE_TAC
+    \\ STDIO_forwardFD_INSTREAM_STR_tac)
+  \\ simp [lex_aux_post_def, lex_aux_def]
+  \\ ntac 2 xlet_autop
+  \\ namedCases_on ‘read_symbol s [c]’ ["sym rest"]
+  \\ xlet ‘POSTv symv. SEP_EXISTS k.
+             STDIO (forwardFD fs fd k) *
+             INSTREAM_STR fd is rest (forwardFD fs fd k) *
+             &(STRING_TYPE sym symv)’
+  >-
+   (xapp
+    \\ qexistsl [‘emp’, ‘s’, ‘forwardFD fs fd k’, ‘fd’, ‘[c]’]
+    \\ simp [LIST_TYPE_def]
+    \\ STDIO_forwardFD_INSTREAM_STR_tac)
+  \\ xlet_autop
+  \\ xif >- (ntac 2 xlet_autop \\ xcon \\ lex_aux_base_tac ‘k’)
+  \\ ntac 2 xlet_autop \\ xapp
+  \\ qexistsl [‘emp’, ‘forwardFD fs fd k’, ‘fd’]
+  \\ simp [LIST_TYPE_def, MLSEXP_TOKEN_TYPE_def, lex_aux_post_def]
+  \\ ntac 2 CASE_TAC
+  \\ STDIO_forwardFD_INSTREAM_STR_tac
 QED

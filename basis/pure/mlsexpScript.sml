@@ -72,28 +72,26 @@ Proof
   rw[read_string_def] \\ imp_res_tac read_string_aux_length
 QED
 
-Definition read_symbol_aux_def:
-  read_symbol_aux [] acc =
-    (implode (REVERSE acc), []) ∧
-  read_symbol_aux (c::cs) acc =
-    if c = #")" ∨ isSpace c then (implode (REVERSE acc), (c::cs))
-    else read_symbol_aux cs (c::acc)
-End
-
 (* Returns the string until a closing parenthesis or whitespace, and the
-   rest of the input. *)
+   rest of the input.
+
+   See usage in lex_aux as to why a "non-aux function" is exposing an
+   accumulator. *)
 Definition read_symbol_def:
-  read_symbol (input: string) : (mlstring # string) =
-    read_symbol_aux input []
+  read_symbol [] acc =
+    (implode (REVERSE acc), []) ∧
+  read_symbol (c::cs) acc =
+    if c = #")" ∨ isSpace c then (implode (REVERSE acc), (c::cs))
+    else read_symbol cs (c::acc)
 End
 
-Theorem read_symbol_aux_length:
+Theorem read_symbol_length:
   ∀input acc.
-    read_symbol_aux input acc = (s, rest) ⇒ LENGTH rest ≤ LENGTH input
+    read_symbol input acc = (s, rest) ⇒ LENGTH rest ≤ LENGTH input
 Proof
   Induct
-  \\ simp[read_symbol_aux_def]
-  \\ rw[read_symbol_aux_def] \\ res_tac \\ gvs[]
+  \\ simp[read_symbol_def]
+  \\ rw[read_symbol_def] \\ res_tac \\ gvs[]
 QED
 
 (* By tracking the depth, we can ensure we only lex one S-expression at a
@@ -116,17 +114,25 @@ Definition lex_aux_def:
           if depth = 0 then INR ([SYMBOL s], rest)
           else lex_aux depth rest ((SYMBOL s)::acc)
     else
-      case read_symbol (c::cs) of
+      (* We know that c is not a closing parenthesis or a space, so read_symbol
+         (c::cs) [] is equivalent to read_symbol cs [c].
+
+         The choice is an implementation detail relevant in the context of
+         streams: If we interpret the input string as a stream and use the
+         latter version of the call, the case split can be seen as consuming the
+         first character.  If we insist on the former version, the case split
+         can only peek at (not consume) c, and we must add calls to consume c in
+         the other branches. *)
+      case read_symbol cs [c] of
       | (s, rest) =>
           if depth = 0 then INR ([SYMBOL s], rest)
           else lex_aux depth rest ((SYMBOL s)::acc)
 Termination
   wf_rel_tac ‘measure $ (λ(_, input, _). LENGTH input)’ \\ rw[]
   \\ imp_res_tac read_string_length \\ fs[]
-  \\ fs[read_symbol_def]
-  \\ fs[Once read_symbol_aux_def]
+  \\ fs[Once read_symbol_def]
   \\ gvs [AllCaseEqs()]
-  \\ imp_res_tac read_symbol_aux_length \\ fs[]
+  \\ imp_res_tac read_symbol_length \\ fs[]
 End
 
 (* Tokenizes (at most) one S-expression, and returns the rest of the input.
