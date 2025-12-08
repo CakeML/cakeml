@@ -53,9 +53,9 @@ Definition cencode_equal_2_def[simp]:
   Append
     (cencode_equal_1 bnd Z X Y name) $
     Append
-      (cvar_imply bnd (gtv name) (mk_gt X Y)) $
+      (cbimply_var bnd (gtv name) (mk_gt X Y)) $
     Append
-      (cvar_imply bnd (ltv name) (mk_lt X Y)) $
+      (cbimply_var bnd (ltv name) (mk_lt X Y)) $
     (cat_least_one name
       [Pos (ltv name); Pos (gtv name); Pos (INL (Ge Z 1))])
 End
