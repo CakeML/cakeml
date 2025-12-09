@@ -25,7 +25,15 @@ val _ = translation_extends "TextIOProg";
 
 val _ = ml_prog_update (open_module "Sexp");
 
-val _ = register_type “:mlsexp$sexp”;
+(* Temporarily disable full type names to avoid mlsexp_sexp as the exported type name *)
+val _ = with_flag (use_full_type_names, false) register_type “:mlsexp$sexp”;
+
+(* Pretty printing function for s-expressions used by the REPL *)
+Quote add_cakeml:
+  fun pp_sexp se = case se of
+    Atom s => PrettyPrinter.app_block "Atom" [PrettyPrinter.token s]
+  | Expr ses => PrettyPrinter.app_block "Expr" [PrettyPrinter.pp_list pp_sexp ses]
+End
 
 val _ = ml_prog_update open_local_block;
 
@@ -492,7 +500,7 @@ Theorem parse_spec:
        POSTv sev. SEP_EXISTS k.
          STDIO (forwardFD fs fd k) *
          INSTREAM_STR fd is rest (forwardFD fs fd k) *
-         &(MLSEXP_SEXP_TYPE se sev))
+         &(SEXP_TYPE se sev))
 Proof
   xcf_with_def $ definition "Sexp_parse_v_def"
   \\ ntac 2 xlet_autop
@@ -514,7 +522,7 @@ Proof
   \\ xlet ‘POSTv ses.
              STDIO (forwardFD fs fd k) *
              INSTREAM_STR fd is rest (forwardFD fs fd k) *
-             &(LIST_TYPE MLSEXP_SEXP_TYPE (parse_aux toks [] []) ses)’
+             &(LIST_TYPE SEXP_TYPE (parse_aux toks [] []) ses)’
   >- (xapp \\ xsimpl \\ qexistsl [‘[]’, ‘[]’, ‘toks’] \\ simp [LIST_TYPE_def])
   \\ namedCases_on ‘parse_aux toks [] []’ ["", "se ses"]
   \\ gvs [LIST_TYPE_def]
