@@ -185,7 +185,167 @@ Proof
 QED
 
 (*--------------------------------------------------------------*
-   Pretty printing
+   Pretty printing of str_tree
+ *--------------------------------------------------------------*)
+
+Datatype:
+  str_tree = Str mlstring
+           | Trees (str_tree list)
+           | GrabLine str_tree
+End
+
+Datatype:
+  pretty = Parenthesis pretty
+         | String mlstring
+         | Append pretty bool pretty
+         | Size num pretty
+End
+
+Definition newlines_def:
+  newlines [] = String (strlit "") ∧
+  newlines [x] = x ∧
+  newlines (x::xs) = Append x T (newlines xs)
+End
+
+Definition v2pretty_def:
+  (v2pretty v =
+     case v of
+     | Str s => String s
+     | GrabLine w => Size 100000 (v2pretty w)
+     | Trees l => Parenthesis (newlines (vs2pretty l))) ∧
+  (vs2pretty vs =
+     case vs of
+     | [] => []
+     | (v::vs) => v2pretty v :: vs2pretty vs)
+End
+
+Definition get_size_def:
+  get_size (Size n x) = n ∧
+  get_size (Append x _ y) = get_size x + get_size y + 1 ∧
+  get_size (Parenthesis x) = get_size x + 2 ∧
+  get_size _ = 0
+End
+
+Definition get_next_size_def:
+  get_next_size (Size n x) = n ∧
+  get_next_size (Append x _ y) = get_next_size x ∧
+  get_next_size (Parenthesis x) = get_next_size x + 2 ∧
+  get_next_size _ = 0
+End
+
+Definition annotate_def:
+  annotate (String s) = Size (strlen s) (String s) ∧
+  annotate (Parenthesis b) =
+    (let b = annotate b in
+       Size (get_size b + 2) (Parenthesis b)) ∧
+  annotate (Append b1 n b2) =
+    (let b1 = annotate b1 in
+     let b2 = annotate b2 in
+       (* Size (get_size b1 + get_size b2 + 1) *) (Append b1 n b2)) ∧
+  annotate (Size n b) = Size n (annotate b)
+End
+
+Definition remove_all_def:
+  remove_all (Parenthesis v) = Parenthesis (remove_all v) ∧
+  remove_all (String v1) = String v1 ∧
+  remove_all (Append v2 _ v3) = Append (remove_all v2) F (remove_all v3) ∧
+  remove_all (Size v4 v5) = remove_all v5
+End
+
+Definition smart_remove_def:
+  smart_remove i k (Size n b) =
+    (if k + n < 70 then remove_all b else smart_remove i k b) ∧
+  smart_remove i k (Parenthesis v) = Parenthesis (smart_remove (i+1) (k+1) v) ∧
+  smart_remove i k (String v1) = String v1 ∧
+  smart_remove i k (Append v2 b v3) =
+    let n2 = get_size v2 in
+    let n3 = get_next_size v3 in
+      if k + n2 + n3 < 50 then
+        Append (smart_remove i k v2) F (smart_remove i (k+n2) v3)
+      else
+        Append (smart_remove i k v2) T (smart_remove i i v3)
+End
+
+Definition flatten_def:
+  flatten indent (Size n p) s = flatten indent p s ∧
+  flatten indent (Parenthesis p) s =
+    strlit "(" :: flatten (concat [indent; strlit "   "]) p (strlit ")" :: s) ∧
+  flatten indent (String t) s = t :: s ∧
+  flatten indent (Append p1 b p2) s =
+    flatten indent p1 ((if b then indent else strlit " ") :: flatten indent p2 s)
+End
+
+Definition v2strs_def:
+  v2strs end v = flatten (strlit "\n") (smart_remove 0 0 (annotate (v2pretty v))) [end]
+End
+
+Theorem test1_v2strs[local]:
+  concat (v2strs (strlit "")
+                 (Trees [Str (strlit "hello");
+                         Str (strlit "there")])) =
+  strlit "(hello there)"
+Proof
+  EVAL_TAC
+QED
+
+Theorem test2_v2strs[local]:
+  concat (v2strs (strlit "")
+                 (Trees [Str (strlit "test");
+                         GrabLine (Str (strlit "hi"));
+                         GrabLine (Str (strlit "there"))])) =
+  strlit "(test\n   hi\n   there)"
+Proof
+  EVAL_TAC
+QED
+
+(*--------------------------------------------------------------*
+   Pretty printing of sexp
+ *--------------------------------------------------------------*)
+
+Definition is_safe_char_def:
+  is_safe_char c ⇔ ~MEM c " \t\n()\"\000"
+End
+
+Definition str_every_def:
+  str_every p n s =
+    if n = 0 then T else
+      p (strsub s (n-1)) ∧ str_every p (n-1:num) s
+End
+
+Definition make_str_safe_def:
+  make_str_safe s =
+    if str_every is_safe_char (strlen s) s then s else escape_str s
+End
+
+Definition sexp2tree_def:
+  sexp2tree (Atom s) = Str (make_str_safe s) ∧
+  sexp2tree (Expr l) = Trees (sexp2trees l) ∧
+  sexp2trees [] = [] ∧
+  sexp2trees (v::vs) = sexp2tree v :: sexp2trees vs
+End
+
+Definition sexp_to_app_list_def:
+  sexp_to_app_list (Atom s) = List [make_str_safe s] ∧
+  sexp_to_app_list (Expr l) =
+    Append (List [strlit "("])
+           (Append (sexps_to_app_list l) (List [strlit ")"])) ∧
+  sexps_to_app_list [] = List [] ∧
+  sexps_to_app_list (v::vs) =
+    if NULL vs then sexp_to_app_list v
+    else Append (sexp_to_app_list v)
+                (Append (List [strlit " "]) (sexps_to_app_list vs))
+End
+
+Definition sexp_to_string_def:
+  sexp_to_string s = concat (append (Append (sexp_to_app_list s) (List [«\n»])))
+End
+
+Definition sexp_to_pretty_string_def:
+  sexp_to_pretty_string s = concat (v2strs (strlit "\n") (sexp2tree s))
+End
+
+(*--------------------------------------------------------------*
+   Proofs relating parsing with pretty prniting
  *--------------------------------------------------------------*)
 
 Definition to_tokens_def:
