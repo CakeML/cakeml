@@ -22,30 +22,12 @@ Definition nev_def[simp]:
     INR (name, Flag (strlit "ne"))
 End
 
-(* the two named equality constraints, held as a list *)
-Definition mk_ge_def[simp]:
-  mk_ge X Y = mk_constraint_ge 1 (X) (-1) (Y) 0
-End
-
-Definition mk_le_def[simp]:
-  mk_le X Y = mk_ge Y X
-End
-
 Definition cmk_eq_def[simp]:
   cmk_eq name X Y =
   [
     (SOME (mk_name name (strlit"ge")), mk_ge X Y);
     (SOME (mk_name name (strlit"le")), mk_le X Y)
   ]
-End
-
-(* For gt and lt, we'll have many different names for them *)
-Definition mk_gt_def[simp]:
-  mk_gt X Y = mk_constraint_ge 1 X (-1) Y 1
-End
-
-Definition mk_lt_def[simp]:
-  mk_lt X Y = mk_gt Y X
 End
 
 Definition cencode_equal_1_def[simp]:

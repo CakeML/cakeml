@@ -45,10 +45,12 @@ Overload Index = ``λname n. (name,Indices [n] NONE)``;
 Definition reify_flag_def:
   reify_flag cs wi (name,flag) ⇔
   case flag of
-  | Indices i ann =>
+  | Indices ids ann =>
     (case ALOOKUP cs name of
+    | SOME (Counting (AllDifferent Xs)) =>
+      varc wi (EL (EL 0 ids) Xs) > varc wi (EL (EL 1 ids) Xs)
     | SOME (Extensional (Table tss Xs)) =>
-      match_row (EL (HD i) tss) (MAP (varc wi) Xs))
+      match_row (EL (HD ids) tss) (MAP (varc wi) Xs))
   | Flag ann =>
     (case ALOOKUP cs name of
     | SOME (Prim (Cmpop _ _ X Y)) =>
@@ -297,6 +299,24 @@ Proof
   gvs[varc_def,iconstraint_sem_def,eval_ilin_term_def,iSUM_def]>>
   intLib.ARITH_TAC
 QED
+
+(* the two named equality constraints, held as a list *)
+Definition mk_ge_def[simp]:
+  mk_ge X Y = mk_constraint_ge 1 (X) (-1) (Y) 0
+End
+
+Definition mk_le_def[simp]:
+  mk_le X Y = mk_ge Y X
+End
+
+(* For gt and lt, we'll have many different names for them *)
+Definition mk_gt_def[simp]:
+  mk_gt X Y = mk_constraint_ge 1 X (-1) Y 1
+End
+
+Definition mk_lt_def[simp]:
+  mk_lt X Y = mk_gt Y X
+End
 
 Definition split_iclin_term_def:
   (split_iclin_term ([]:'a iclin_term)

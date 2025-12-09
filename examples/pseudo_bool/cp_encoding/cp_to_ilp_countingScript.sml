@@ -7,32 +7,45 @@ Libs
 Ancestors
   pbc cp ilp cp_to_ilp
 
+Definition neiv_def[simp]:
+  neiv name (i:num) j =
+    INR (name, Indices [i;j] (SOME $ strlit "ne"))
+End
+
 (* AllDifferent: All variables must take distinct values
    For n variables, this requires O(n^2) pairwise inequality constraints *)
 Definition encode_all_different_def:
-  encode_all_different bnd Xs =
+  encode_all_different bnd Xs name =
   FLAT (MAPi (λi X.
     FLAT (MAPi (λj Y.
       if i < j then
-        (* X ≠ Y encoded as (X - Y ≥ 1) ∨ (Y - X ≥ 1) *)
-        (* This requires reification *)
-        [false_constr]
+        [
+          bits_imply bnd [Pos (neiv name i j)] (mk_gt X Y);
+          bits_imply bnd [Neg (neiv name i j)] (mk_gt Y X)
+        ]
       else []) Xs)) Xs)
 End
 
 Theorem encode_all_different_sem_1:
   valid_assignment bnd wi ∧
+  ALOOKUP cs name = SOME (Counting (AllDifferent Xs)) ∧
   all_different_sem Xs wi ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (encode_all_different bnd Xs)
+    (encode_all_different bnd Xs name)
 Proof
+  rw[encode_all_different_def,all_different_sem_def,EVERY_MEM]>>
+  gs[MEM_FLAT,indexedListsTheory.MEM_MAPi]>>
+  Cases_on ‘i < j’>>
+  gs[reify_avar_def,reify_flag_def]
+  >- intLib.ARITH_TAC>>
+  gvs[EL_ALL_DISTINCT_EL_EQ]>>
   cheat
 QED
 
 Theorem encode_all_different_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_all_different bnd Xs) ⇒
+    (encode_all_different bnd Xs name) ⇒
   all_different_sem Xs wi
 Proof
   cheat
@@ -122,7 +135,7 @@ QED
 Definition encode_counting_constr_def:
   encode_counting_constr bnd c name =
   case c of
-    AllDifferent Xs => encode_all_different bnd Xs
+    AllDifferent Xs => encode_all_different bnd Xs name
   | NValue Xs Y => encode_n_value bnd Xs Y
   | Count Xs Y Z => encode_count bnd Xs Y Z
   | Among Xs iS Y => encode_among bnd Xs iS Y
