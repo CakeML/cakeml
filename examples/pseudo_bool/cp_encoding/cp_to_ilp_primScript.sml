@@ -357,6 +357,15 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Definition cencode_plus_def:
+  cencode_plus bnd X Y Z name =
+  List
+    (mk_annotate
+      [mk_name name (strlit"sge"); mk_name name (strlit"sle")]
+      (encode_plus X Y Z)
+    )
+End
+
 Definition encode_minus_def:
   encode_minus X Y Z =
   let
@@ -395,6 +404,15 @@ Proof
   fs[iconstraint_sem_def,eval_iclin_term_def,iSUM_def]>>
   intLib.ARITH_TAC
 QED
+
+Definition cencode_minus_def:
+  cencode_minus bnd X Y Z name =
+  List
+    (mk_annotate
+      [mk_name name (strlit"dge"); mk_name name (strlit"dle")]
+      (encode_minus X Y Z)
+    )
+End
 
 (* lle means X ≤ Z, rle means Y ≤ Z*)
 Definition cencode_min_def:
@@ -718,7 +736,8 @@ Definition cencode_prim_constr_def:
     (case bop of
       Min => (cencode_min bnd X Y Z name, ec)
     | Max => (cencode_max bnd X Y Z name, ec)
-    | _ => ARB)
+    | Plus => (cencode_plus bnd X Y Z name, ec)
+    | Minus => (cencode_minus bnd X Y Z name, ec))
 End
 
 Theorem cencode_prim_constr_sem:
@@ -736,8 +755,8 @@ Proof
     pairarg_tac>>gvs[]>>
     irule enc_rel_Append>>
     metis_tac[enc_rel_List_mk_annotate,enc_rel_encode_ge])
-  >- cheat
-  >- cheat
+  >- simp[cencode_plus_def,encode_plus_def,enc_rel_List_mk_annotate]
+  >- simp[cencode_minus_def,encode_minus_def,enc_rel_List_mk_annotate]
   >- simp[encode_min_def]
   >- simp[encode_max_def]
   >- metis_tac[cencode_equal_sem]
