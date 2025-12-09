@@ -98,6 +98,10 @@ A high-level specification of words and frequencies
 An example of a stack data structure implemented using CakeML arrays, verified
 using CF.
 
+[template](template):
+A simple example of how a standalone CakeML program can be produced from
+a functional program defined as functions in HOL.
+
 [vipr](vipr):
 Formalisation of VIPR: Verifying Integer Programming Results
 https://github.com/ambros-gleixner/VIPR

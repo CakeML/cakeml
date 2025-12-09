@@ -178,6 +178,10 @@ examples/deflate/translation/compilation
 examples/vipr
 examples/vipr/compilation
 
+examples/template
+examples/template/translation
+examples/template/compilation
+
 translator/okasaki-examples
 translator/other-examples
 translator/other-examples/auxiliary
