@@ -361,7 +361,7 @@ Definition cencode_plus_def:
   cencode_plus bnd X Y Z name =
   List
     (mk_annotate
-      [mk_name name (strlit"sge"); mk_name name (strlit"sle")]
+      [mk_name name (strlit"ge"); mk_name name (strlit"le")]
       (encode_plus X Y Z)
     )
 End
@@ -409,7 +409,7 @@ Definition cencode_minus_def:
   cencode_minus bnd X Y Z name =
   List
     (mk_annotate
-      [mk_name name (strlit"dge"); mk_name name (strlit"dle")]
+      [mk_name name (strlit"ge"); mk_name name (strlit"le")]
       (encode_minus X Y Z)
     )
 End
