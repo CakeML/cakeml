@@ -3,7 +3,7 @@
 *)
 Theory sexp_to_dafny
 Ancestors
-  result_monad dafny_sexp dafny_ast mlint
+  result_monad dafny_ast mlint mlsexp
 Libs
   preamble
 

@@ -13,6 +13,7 @@ Ancestors
 Libs
   preamble
   ml_translatorLib  (* translation_extends, register_type, .. *)
+  ml_progLib  (* open_module, open_local_block, .. *)
   basisFunctionsLib  (* add_cakeml *)
   cfLib (* x-tactics *)
 
@@ -22,7 +23,12 @@ Libs
 
 val _ = translation_extends "TextIOProg";
 
+val _ = ml_prog_update (open_module "Sexp");
+
 val _ = register_type “:mlsexp$sexp”;
+
+val _ = ml_prog_update open_local_block;
+
 val _ = register_type “:mlsexp$token”;
 
 Quote add_cakeml:
@@ -89,12 +95,17 @@ End
 
 val r = translate mlsexpTheory.parse_aux_def;
 
+val _ = ml_prog_update open_local_in_block;
+
 Quote add_cakeml:
   fun parse input =
     case parse_aux (lex input) [] [] of
       [] => raise Fail "parse: empty input"
     | (v::_) => v
 End
+
+val _ = ml_prog_update close_local_blocks;
+val _ = ml_prog_update (close_module NONE);
 
 (*--------------------------------------------------------------*
    Prove equivalence to mlsexp
@@ -133,14 +144,14 @@ val STDIO_forwardFD_INSTREAM_STR_tac =
 Theorem read_string_aux_spec[local]:
   ∀s acc accv p is fs fd.
     LIST_TYPE CHAR acc accv ⇒
-    app (p:'ffi ffi_proj) read_string_aux_v [is; accv]
+    app (p:'ffi ffi_proj) Sexp_read_string_aux_v [is; accv]
       (STDIO fs * INSTREAM_STR fd is s fs)
       (read_string_aux_post s acc fs is fd)
 Proof
   ho_match_mp_tac read_string_aux_ind
   \\ rpt strip_tac
   \\ qmatch_goalsub_abbrev_tac ‘read_string_aux_post s₁’
-  \\ xcf "read_string_aux" st
+  \\ xcf_with_def $ definition "Sexp_read_string_aux_v_def"
   (* [] *)
   >-
    (xlet ‘POSTv chv. SEP_EXISTS k.
@@ -215,7 +226,7 @@ Proof
 QED
 
 Theorem read_string_spec:
-  app (p:'ffi ffi_proj) read_string_v [is]
+  app (p:'ffi ffi_proj) Sexp_read_string_v [is]
     (STDIO fs * INSTREAM_STR fd is s fs)
     (case read_string s of
      | INL (msg, rest) =>
@@ -228,7 +239,7 @@ Theorem read_string_spec:
            INSTREAM_STR fd is rest (forwardFD fs fd k) *
            &(STRING_TYPE slit slitv))
 Proof
-  xcf "read_string" st
+  xcf_with_def $ definition "Sexp_read_string_v_def"
   \\ xlet_autop \\ xapp
   \\ simp [read_string_aux_post_def, read_string_def]
   \\ qexistsl [‘emp’, ‘s’, ‘fs’, ‘fd’, ‘[]’]
@@ -238,7 +249,7 @@ QED
 Theorem read_symbol_spec[local]:
   ∀s acc accv p is fs fd.
     LIST_TYPE CHAR acc accv ⇒
-    app (p:'ffi ffi_proj) read_symbol_v [is; accv]
+    app (p:'ffi ffi_proj) Sexp_read_symbol_v [is; accv]
       (STDIO fs * INSTREAM_STR fd is s fs)
       (case read_symbol s acc of
        | (slit, rest) =>
@@ -250,7 +261,7 @@ Proof
   Induct
   \\ rpt strip_tac
   \\ qmatch_goalsub_abbrev_tac ‘read_symbol s₁’
-  \\ xcf "read_symbol" st
+  \\ xcf_with_def $ definition "Sexp_read_symbol_v_def"
   >- (* [] *)
    (xlet ‘POSTv chv. SEP_EXISTS k.
             STDIO (forwardFD fs fd k) *
@@ -331,14 +342,14 @@ fun lex_aux_base_tac k =
 Theorem lex_aux_spec:
   ∀ depth s acc depthv accv p is fs fd.
     NUM depth depthv ∧ LIST_TYPE MLSEXP_TOKEN_TYPE acc accv ⇒
-    app (p:'ffi ffi_proj) lex_aux_v [depthv; is; accv]
+    app (p:'ffi ffi_proj) Sexp_lex_aux_v [depthv; is; accv]
       (STDIO fs * INSTREAM_STR fd is s fs)
       (lex_aux_post depth s acc fs is fd)
 Proof
   ho_match_mp_tac lex_aux_ind
   \\ rpt strip_tac
   \\ qmatch_goalsub_abbrev_tac ‘lex_aux_post _ s₁’
-  \\ xcf "lex_aux" st
+  \\ xcf_with_def $ definition "Sexp_lex_aux_v_def"
   (* [] *)
   >-
    (xlet ‘POSTv chv. SEP_EXISTS k.
@@ -449,7 +460,7 @@ Proof
 QED
 
 Theorem lex_spec:
-  app (p:'ffi ffi_proj) lex_v [is]
+  app (p:'ffi ffi_proj) Sexp_lex_v [is]
     (STDIO fs * INSTREAM_STR fd is s fs)
     (case lex s of
      | INL (msg, rest) =>
@@ -462,7 +473,7 @@ Theorem lex_spec:
          INSTREAM_STR fd is rest (forwardFD fs fd k) *
          &(LIST_TYPE MLSEXP_TOKEN_TYPE toks tokvs))
 Proof
-  xcf "lex" st
+  xcf_with_def $ definition "Sexp_lex_v_def"
   \\ xlet_autop \\ xapp
   \\ simp [lex_aux_post_def, lex_def]
   \\ qexistsl [‘emp’, ‘s’, ‘fs’, ‘fd’, ‘[]’]
@@ -470,7 +481,7 @@ Proof
 QED
 
 Theorem parse_spec:
-  app (p:'ffi ffi_proj) parse_v [is]
+  app (p:'ffi ffi_proj) Sexp_parse_v [is]
     (STDIO fs * INSTREAM_STR fd is s fs)
     (case parse s of
      | INL (msg, rest) =>
@@ -483,7 +494,7 @@ Theorem parse_spec:
          INSTREAM_STR fd is rest (forwardFD fs fd k) *
          &(MLSEXP_SEXP_TYPE se sev))
 Proof
-  xcf "parse" st
+  xcf_with_def $ definition "Sexp_parse_v_def"
   \\ ntac 2 xlet_autop
   \\ simp [parse_def]
   \\ namedCases_on ‘lex s’ ["l", "r"]
