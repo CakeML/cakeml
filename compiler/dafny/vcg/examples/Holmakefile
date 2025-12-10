@@ -1,4 +1,4 @@
-INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics $(CAKEMLDIR)/semantics/proofs $(CAKEMLDIR)/compiler/dafny $(CAKEMLDIR)/compiler/dafny/semantics $(CAKEMLDIR)/compiler/dafny/vcg
+INCLUDES = $(CAKEMLDIR)/compiler/dafny/vcg $(CAKEMLDIR)/compiler/dafny/proofs $(CAKEMLDIR)/translator
 
 all: $(DEFAULT_TARGETS) README.md
 .PHONY: all

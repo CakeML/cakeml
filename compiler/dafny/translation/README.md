@@ -12,6 +12,9 @@ Translates the Dafny to CakeML compiler.
 [dafny_freshenProgScript.sml](dafny_freshenProgScript.sml):
 Translates definitions for the freshen pass.
 
+[dafny_remove_assertProgScript.sml](dafny_remove_assertProgScript.sml):
+Translates definitions for removing assert.
+
 [dafny_to_cakemlProgScript.sml](dafny_to_cakemlProgScript.sml):
 Translates definitions to translate from Dafny's to CakeML's AST.
 
