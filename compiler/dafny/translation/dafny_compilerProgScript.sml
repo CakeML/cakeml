@@ -3,14 +3,14 @@
 *)
 Theory dafny_compilerProg
 Ancestors
-  dafny_freshenProg dafny_compiler
+  dafny_remove_assertProg dafny_compiler
   fromSexp (* listsexp *)
   string numposrep simpleSexp ml_translator simpleSexpParse
 Libs
   preamble ml_translatorLib
   cfTacticsLib (* process_topdecs *)
 
-val _ = translation_extends "dafny_freshenProg";
+val _ = translation_extends "dafny_remove_assertProg";
 
 (* First, we translate the functions for converting the output of the compiler
    (CakeML AST) into an S-expression string, namely decsexp, listsexp, and

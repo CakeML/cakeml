@@ -118,6 +118,7 @@ compiler/dafny/compilation
 compiler/dafny/semantics
 compiler/dafny/proofs
 compiler/dafny/vcg
+compiler/dafny/vcg/examples
 
 # Scheme compiler
 compiler/scheme
@@ -176,6 +177,10 @@ examples/deflate/translation
 examples/deflate/translation/compilation
 examples/vipr
 examples/vipr/compilation
+
+examples/template
+examples/template/translation
+examples/template/compilation
 
 translator/okasaki-examples
 translator/other-examples

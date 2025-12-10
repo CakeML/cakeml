@@ -12,8 +12,6 @@ Libs
 Datatype:
   sem_env =
   <|
-    (* Determines whether evaluate is actually running; relevant for Forall *)
-    is_running : bool;
     (* Store functions and methods *)
     prog : program
   |>;
@@ -49,8 +47,8 @@ End
 
 Datatype:
   error_result =
-  | Rtype_error
-  | Rtimeout_error
+  | Rfail
+  | Rtimeout
 End
 
 Datatype:
@@ -74,8 +72,7 @@ Datatype:
 End
 
 Definition mk_env_def:
-  mk_env is_running program =
-    <| is_running := is_running; prog := program |>
+  mk_env program = <| prog := program |>
 End
 
 Definition get_member_aux_def:
@@ -397,10 +394,10 @@ End
 
 Definition eval_forall_def:
   eval_forall (dom: α set) eval =
-    if (∃v. v ∈ dom ∧ SND (eval v) = Rerr Rtype_error)
-    then Rerr Rtype_error
-    else if (∃v. v ∈ dom ∧ SND (eval v) = Rerr Rtimeout_error)
-    then Rerr Rtimeout_error
+    if (∃v. v ∈ dom ∧ SND (eval v) = Rerr Rfail)
+    then Rerr Rfail
+    else if (∃v. v ∈ dom ∧ SND (eval v) = Rerr Rtimeout)
+    then Rerr Rtimeout
     else if (∀v. v ∈ dom ⇒ SND (eval v) = Rval (BoolV T))
     then Rval (BoolV T)
     (* NOTE For now, for simplicity reasons, we do not check whether (eval v) *)
@@ -444,4 +441,11 @@ End
 
 Definition get_locs_def:
   get_locs vs = OPT_MMAP get_loc vs
+End
+
+Definition has_main_def:
+  has_main prog ⇔
+    (∃name reqs ens reads decrs mods body.
+       get_member «Main» prog =
+       SOME (Method name [] reqs ens reads decrs [] mods body))
 End
