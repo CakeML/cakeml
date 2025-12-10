@@ -82,7 +82,9 @@ Theorem memory_rel_Thunk_bits:
   memory_rel c be ts refs sp st m dm ((RefPtr bl p,Word (w:'a word))::vars) ∧
   lookup p refs = SOME (Thunk ev z) ∧ good_dimindex (:α) ∧
   get_real_addr c st w = SOME a ∧
+  (* m a = Word x iff we have a pointer *)
   m a = Word x
+  (* TODO (ev = NotEvaluated) ⇔ 2nd bit pattern *)
   ⇒
   (case ev of
    | Evaluated => 0b111100w && x = n2w ((8 + 6) * 4)
