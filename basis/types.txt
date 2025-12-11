@@ -389,7 +389,8 @@ TextIO.foldChars: (char -> 'a -> 'a) -> 'a -> string option -> 'a option
 TextIO.foldLines: char -> (string -> 'a -> 'a) -> 'a -> string option -> 'a option
 TextIO.foldTokens: char -> (char -> bool) -> (string -> 'a) -> ('a list -> 'b -> 'b) -> 'b -> string option -> 'b option
 Sexp.pp_sexp: Sexp.sexp -> PrettyPrinter.pp_data
-Sexp.parse: TextIO.b_instream -> Sexp.sexp
+Sexp.fromString: string -> Sexp.sexp option
+Sexp.b_inputSexp: TextIO.b_instream -> Sexp.sexp
 fst: 'a * 'b -> 'a
 snd: 'a * 'b -> 'b
 curry: ('a * 'b -> 'c) -> 'a -> 'b -> 'c

@@ -184,6 +184,14 @@ Proof
   EVAL_TAC
 QED
 
+(* Function for parsing in the style of the Standard ML basis library. *)
+Definition fromString_def:
+  fromString (input: mlstring) : sexp option =
+    case parse (explode input) of
+    | INL _ => NONE
+    | INR (se, _) => SOME se
+End
+
 (*--------------------------------------------------------------*
    Pretty printing of str_tree
  *--------------------------------------------------------------*)
