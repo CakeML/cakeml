@@ -66,6 +66,10 @@ Definition reify_flag_def:
       then varc wi X ≥ varc wi Z
       else varc wi Y ≥ varc wi Z
     )
+  | Values vs ann =>
+    (case ALOOKUP cs name of
+    | SOME (Counting (NValue Xs Y)) =>
+      MEM (HD vs) $ MAP (varc wi) Xs)
 End
 
 Definition format_varc_def:
