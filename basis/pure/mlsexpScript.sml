@@ -345,7 +345,7 @@ Definition sexp_to_app_list_def:
 End
 
 Definition sexp_to_string_def:
-  sexp_to_string s = concat (append (Append (sexp_to_app_list s) (List [«\n»])))
+  sexp_to_string s = concat (append (sexp_to_app_list s))
 End
 
 Definition sexp_to_pretty_string_def:
@@ -387,4 +387,65 @@ Theorem parse_aux_to_tokens_thm:
 Proof
   CONV_TAC (PATH_CONV "lrl" (ONCE_REWRITE_CONV [GSYM APPEND_NIL |> cj 1]))
   \\ rewrite_tac [parse_aux_to_tokens_lemma] \\ fs [parse_aux_def]
+QED
+
+Theorem lex_aux_make_str_safe:
+  ∀m s ts depth.
+    (s ≠ "" ⇒ isSpace (HD s) ∨ HD s = #")") ⇒
+    lex_aux depth (STRCAT (case make_str_safe m of strlit x => x) s) ts =
+    if depth = 0 then INR (SYMBOL m::ts,s)
+    else lex_aux depth s (SYMBOL m::ts)
+Proof
+  cheat
+QED
+
+Theorem lex_aux_sexp_to_list:
+  (∀x s ts depth.
+     (s ≠ "" ⇒ isSpace (HD s) ∨ HD s = #")") ⇒
+     lex_aux depth (explode (concat (append (sexp_to_app_list x))) ++ s) ts =
+     if depth = 0 then
+       INR (REVERSE (to_tokens x) ++ ts, s)
+     else
+       lex_aux depth s (REVERSE (to_tokens x) ++ ts)) ∧
+  (∀xs s ts depth.
+     (s ≠ "" ⇒ isSpace (HD s) ∨ HD s = #")") ∧ depth ≠ 0 ⇒
+     lex_aux depth (explode (concat (append (sexps_to_app_list xs))) ++ s) ts =
+     lex_aux depth s (REVERSE (FLAT (MAP (λx. to_tokens x) xs)) ++ ts))
+Proof
+  Induct
+  >-
+   (fs [to_tokens_def]
+    \\ simp [sexp_to_app_list_def,concat_def]
+    \\ rpt strip_tac
+    \\ irule lex_aux_make_str_safe \\ simp [])
+  >-
+   (simp [sexp_to_app_list_def,concat_def] \\ fs [concat_def]
+    \\ rw [] \\ simp [Once lex_aux_def, EVAL “isSpace #"("”]
+    \\ simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+    \\ last_x_assum $ DEP_REWRITE_TAC o single
+    \\ fs [] \\ simp [Once lex_aux_def, EVAL “isSpace #")"”]
+    \\ simp [to_tokens_def] \\ fs [REVERSE_APPEND]
+    \\ simp_tac std_ss [APPEND,GSYM APPEND_ASSOC])
+  >-
+   (simp [sexp_to_app_list_def])
+  \\ simp [sexp_to_app_list_def] \\ rw []
+  >- gvs [NULL_EQ]
+  \\ fs [concat_def]
+  \\ simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+  \\ last_x_assum $ DEP_REWRITE_TAC o single
+  \\ fs [EVAL “isSpace #" "”]
+  \\ simp [Once lex_aux_def, EVAL “isSpace #" "”]
+  \\ fs [REVERSE_APPEND]
+  \\ simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+QED
+
+Theorem parse_sexp_to_string:
+  ∀s x.
+    (s ≠ "" ⇒ isSpace (HD s)) ⇒
+    parse (explode (sexp_to_string x) ++ s) = INR (x, s)
+Proof
+  fs [sexp_to_string_def,parse_def,lex_def]
+  \\ rpt strip_tac
+  \\ DEP_REWRITE_TAC [cj 1 lex_aux_sexp_to_list] \\ fs []
+  \\ simp [parse_aux_to_tokens_thm]
 QED
