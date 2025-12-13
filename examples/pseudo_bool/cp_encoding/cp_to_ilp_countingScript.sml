@@ -384,9 +384,10 @@ End
 
 Theorem encode_n_value_sem_1:
   valid_assignment bnd wi ∧
+  ALOOKUP cs name = SOME (Counting (NValue Xs Y)) ∧
   n_value_sem Xs Y wi ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (encode_n_value bnd Xs Y)
+    (encode_n_value bnd Xs Y name)
 Proof
   cheat
 QED
