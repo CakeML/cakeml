@@ -222,7 +222,7 @@ val _ = (append_prog o process_topdecs) ‘
 
 val _ = (append_prog o process_topdecs)
   ‘fun main u =
-     let val cs = String.explode(TextIO.inputAll TextIO.stdIn);
+     let val cs = String.explode(TextIO.inputAll (TextIO.openStdIn ()));
      in
         (case parse_list False hol_type_sum_pairs cs of
           None => print "Parse error!\n"

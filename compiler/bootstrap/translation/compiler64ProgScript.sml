@@ -608,11 +608,11 @@ in
   else if compiler_has_version_flag cl then
     print compiler_current_build_info_str
   else if compiler_has_pancake_flag cl then
-    case compiler_compile_pancake_64 cl (TextIO.inputAll TextIO.stdIn)  of
+    case compiler_compile_pancake_64 cl (TextIO.inputAll (TextIO.openStdIn ()))  of
       (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
                  compiler64prog_nonzero_exit_code_for_error_msg e)
   else
-    case compiler_compile_64 cl (TextIO.inputAll TextIO.stdIn)  of
+    case compiler_compile_64 cl (TextIO.inputAll (TextIO.openStdIn ()))  of
       (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
                  compiler64prog_nonzero_exit_code_for_error_msg e)
                 end`;

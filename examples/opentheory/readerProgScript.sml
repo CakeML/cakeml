@@ -255,7 +255,7 @@ QED
 val _ = (append_prog o process_topdecs) `
   fun read_stdin () =
     let
-      val st = fst (readlines init_state (l2c TextIO.stdIn))
+      val st = fst (readlines init_state (l2c (TextIO.openStdIn ())))
     in
       print_app_list (msg_success st (Kernel.context ()))
     end

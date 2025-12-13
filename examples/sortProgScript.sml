@@ -260,7 +260,7 @@ val _ = (append_prog o process_topdecs) `
   fun sort () =
     let val contents_list =
       case CommandLine.arguments () of
-        [] => get_file_contents TextIO.stdIn []
+        [] => get_file_contents (TextIO.openStdIn ()) []
       | files => get_files_contents files []
     val contents_array = Array.fromList contents_list
     in

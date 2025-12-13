@@ -27,7 +27,7 @@ val res = translate wc_lines_def;
 val inputLinesFromAny = process_topdecs`
   fun inputLinesFromAny fnameopt =
     case fnameopt of
-      None => Some (TextIO.inputLines (TextIO.stdIn))
+      None => Some (TextIO.inputLines (TextIO.openStdIn ()))
     | Some fname => TextIO.inputLinesFrom fname`;
 
 val () = append_prog inputLinesFromAny;
