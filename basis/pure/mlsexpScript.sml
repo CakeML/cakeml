@@ -399,6 +399,132 @@ Proof
   cheat
 QED
 
+Theorem flatten_acc:
+  ∀x indent s. flatten indent x s = flatten indent x [] ++ s
+Proof
+  Induct
+  \\ once_rewrite_tac [flatten_def]
+  \\ simp_tac std_ss []
+  \\ rpt $ pop_assum $ once_rewrite_tac o single
+  \\ fs []
+QED
+
+Theorem lex_aux_spaces:
+  ∀t rest ts depth.
+    EVERY isSpace t ⇒
+    lex_aux depth (t ++ rest) ts = lex_aux depth rest ts
+Proof
+  Induct \\ rw [] \\ simp [Once lex_aux_def]
+QED
+
+Theorem lex_aux_sexp2tree:
+  (∀x s ts depth m n indent.
+     (s ≠ "" ⇒ isSpace (HD s) ∨ HD s = #")") ∧
+     indent ≠ strlit "" ∧ EVERY isSpace (explode indent) ⇒
+     lex_aux depth
+             (STRCAT
+              (explode
+               (concat
+                (flatten indent
+                         (smart_remove m n (annotate (v2pretty (sexp2tree x))))
+                         []))) s) ts =
+     (if depth = 0 then INR (REVERSE (to_tokens x) ++ ts,s)
+      else lex_aux depth s (REVERSE (to_tokens x) ++ ts)) ∧
+     lex_aux depth
+             (STRCAT
+              (explode
+               (concat
+                (flatten indent
+                         (remove_all (annotate (v2pretty (sexp2tree x))))
+                         []))) s) ts =
+     (if depth = 0 then INR (REVERSE (to_tokens x) ++ ts,s)
+      else lex_aux depth s (REVERSE (to_tokens x) ++ ts))) ∧
+  (∀xs s ts depth indent m n.
+     (s ≠ "" ⇒ isSpace (HD s) ∨ HD s = #")") ∧ depth ≠ 0 ∧
+     indent ≠ strlit "" ∧ EVERY isSpace (explode indent) ⇒
+     lex_aux depth
+             (STRCAT
+              (explode
+               (concat
+                (flatten indent
+                  (smart_remove m n (annotate (newlines (vs2pretty (sexp2trees xs)))))
+                  []))) s) ts =
+     (lex_aux depth s (REVERSE (FLAT (MAP to_tokens xs)) ++ ts)) ∧
+     lex_aux depth
+             (STRCAT
+              (explode
+               (concat
+                (flatten indent
+                  (remove_all (annotate (newlines (vs2pretty (sexp2trees xs)))))
+                  []))) s) ts =
+     (lex_aux depth s (REVERSE (FLAT (MAP to_tokens xs)) ++ ts)))
+Proof
+  Induct
+  >-
+   (simp [sexp2tree_def]
+    \\ simp [v2strs_def,v2pretty_def]
+    \\ simp [annotate_def,to_tokens_def]
+    \\ simp [smart_remove_def,remove_all_def, flatten_def]
+    \\ rpt strip_tac
+    \\ DEP_REWRITE_TAC [GSYM lex_aux_make_str_safe]
+    \\ Cases_on ‘make_str_safe m’ \\ simp [])
+  >-
+   (rpt gen_tac \\ strip_tac
+    \\ simp [sexp2tree_def]
+    \\ once_rewrite_tac [v2pretty_def]
+    \\ simp [annotate_def,remove_all_def,smart_remove_def]
+    \\ conj_tac
+    THENL [IF_CASES_TAC, all_tac]
+    \\ simp [flatten_def,concat_def]
+    \\ Cases_on ‘indent’ \\ gvs [concat_def]
+    \\ simp [Once lex_aux_def, EVAL “isSpace #"("”]
+    \\ once_rewrite_tac [flatten_acc] \\ fs []
+    \\ simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+    \\ gvs [SF DNF_ss]
+    \\ qabbrev_tac ‘new_indent = strlit (STRCAT s' "   ")’
+    \\ rpt $ first_x_assum $ qspecl_then [‘")"++s’,
+              ‘OPEN::ts’,‘depth + 1’,‘new_indent’] mp_tac
+    \\ ‘new_indent ≠ «» ∧ EVERY isSpace (explode new_indent)’ by cheat
+    \\ simp []
+    \\ simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+    \\ rpt strip_tac
+    \\ simp [Once lex_aux_def,EVAL “isSpace #")"”]
+    \\ simp [to_tokens_def,REVERSE_APPEND]
+    \\ simp_tac std_ss [APPEND,GSYM APPEND_ASSOC, SF ETA_ss])
+  >-
+   (simp [sexp2tree_def]
+    \\ simp [v2pretty_def]
+    \\ simp [newlines_def,annotate_def,smart_remove_def,
+             remove_all_def,flatten_def,concat_def])
+  \\ Cases_on ‘xs’ \\ fs []
+  \\ simp [REVERSE_APPEND,sexp2tree_def]
+  \\ once_rewrite_tac [v2pretty_def |> cj 2] \\ simp []
+  \\ once_rewrite_tac [v2pretty_def |> cj 2] \\ simp []
+  \\ simp [newlines_def]
+  \\ simp [annotate_def,remove_all_def,smart_remove_def]
+  \\ rpt gen_tac
+  \\ strip_tac
+  \\ conj_tac
+  THENL [IF_CASES_TAC, all_tac]
+  \\ simp [Once flatten_def]
+  \\ once_rewrite_tac [flatten_acc]
+  \\ gvs [concat_def]
+  \\ simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+  \\ gvs [SF DNF_ss]
+  \\ simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+  \\ last_x_assum $ DEP_REWRITE_TAC o single
+  \\ last_x_assum $ DEP_REWRITE_TAC o single
+  \\ simp []
+  \\ Cases_on ‘indent’
+  \\ rename [‘EVERY isSpace (explode (strlit t))’]
+  \\ (conj_tac >- (gvs [EVAL “isSpace #" "”] \\ Cases_on ‘t’ \\ fs []))
+  \\ simp [Once lex_aux_def, EVAL “isSpace #" "”]
+  \\ simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+  \\ gvs [sexp2tree_def,lex_aux_spaces]
+  \\ gvs [v2pretty_def |> cj 2 |> Q.SPEC ‘_ :: _’ |> SRULE []]
+  \\ simp [REVERSE_APPEND]
+QED
+
 Theorem lex_aux_sexp_to_list:
   (∀x s ts depth.
      (s ≠ "" ⇒ isSpace (HD s) ∨ HD s = #")") ⇒
@@ -448,4 +574,31 @@ Proof
   \\ rpt strip_tac
   \\ DEP_REWRITE_TAC [cj 1 lex_aux_sexp_to_list] \\ fs []
   \\ simp [parse_aux_to_tokens_thm]
+QED
+
+Theorem parse_sexp_to_pretty_string:
+  ∀s x.
+    parse (explode (sexp_to_pretty_string x) ++ s) = INR (x, "\n" ++ s)
+Proof
+  fs [sexp_to_pretty_string_def,parse_def,lex_def,v2strs_def]
+  \\ rpt strip_tac
+  \\ once_rewrite_tac [flatten_acc] \\ simp []
+  \\ gvs [concat_append]
+  \\ simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
+  \\ DEP_REWRITE_TAC [lex_aux_sexp2tree |> cj 1 |> cj 1]
+  \\ simp [parse_aux_to_tokens_thm] \\ EVAL_TAC
+QED
+
+Theorem fromString_sexp_to_string:
+  fromString (sexp_to_string x) = SOME x
+Proof
+  fs [fromString_def,AllCaseEqs(),PULL_EXISTS]
+  \\ qspec_then ‘[]’ mp_tac parse_sexp_to_string \\ fs []
+QED
+
+Theorem fromString_sexp_to_pretty_string:
+  fromString (sexp_to_pretty_string x) = SOME x
+Proof
+  fs [fromString_def,AllCaseEqs(),PULL_EXISTS]
+  \\ qspec_then ‘[]’ mp_tac parse_sexp_to_pretty_string \\ fs []
 QED
