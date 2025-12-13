@@ -2727,7 +2727,7 @@ val r = translate nocheck_string_def;
 (* TODO: possibly make this dump every 10000 lines or so *)
 val check_unsat'' = process_topdecs `
   fun check_unsat'' fd lno xorig borig cfml xfml bfml tn def carr =
-    case TextIO.b_inputLineTokens #"\n" fd blanks tokenize_fast of
+    case TextIO.inputLineTokens #"\n" fd blanks tokenize_fast of
       None => (cfml, xfml, bfml)
     | Some l =>
     case parse_and_run_arr lno xorig borig cfml xfml bfml tn def carr l of
@@ -2788,8 +2788,8 @@ val blanks_v_thm = theorem "blanks_v_thm";
 val tokenize_v_thm = theorem "tokenize_v_thm";
 val tokenize_fast_v_thm = theorem "tokenize_fast_v_thm";
 
-val b_inputLineTokens_specialize =
-  b_inputLineTokens_spec_lines
+val inputLineTokens_specialize =
+  inputLineTokens_spec_lines
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
   |> Q.GEN `g` |> Q.ISPEC`tokenize_fast`
@@ -2866,7 +2866,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
                 &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     THEN1 (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac ‘ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv * ARRAY bfmlv bfmllsv * W8ARRAY Carrv Clist’
       \\ qexists_tac ‘[]’
       \\ qexists_tac ‘fs’
@@ -2889,7 +2889,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
                 & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks_fast h)) v)’
     THEN1 (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac ‘ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv * ARRAY bfmlv bfmllsv * W8ARRAY Carrv Clist’
       \\ qexists_tac ‘h::lines’
       \\ qexists_tac ‘fs’
@@ -2976,11 +2976,11 @@ val r = translate notfound_string_def;
 val check_unsat' = process_topdecs `
   fun check_unsat' xorig borig cfml xfml bfml tn def fname n =
   let
-    val fd = TextIO.b_openIn fname
+    val fd = TextIO.openIn fname
     val carr = Word8Array.array n w8z
     val chk = Inr (check_unsat'' fd 1 xorig borig cfml xfml bfml tn def carr)
       handle Fail s => Inl s
-    val close = TextIO.b_closeIn fd;
+    val close = TextIO.closeIn fd;
   in
     case chk of
       Inl s => Inl s
@@ -3045,7 +3045,7 @@ Proof
       STDIO fs *
       ARRAY cfmlv cfmllsv * ARRAY xfmlv xfmllsv * ARRAY bfmlv bfmllsv`
     >-
-      (xlet_auto_spec (SOME b_openIn_STDIO_spec) \\ xsimpl)
+      (xlet_auto_spec (SOME openIn_STDIO_spec) \\ xsimpl)
     >>
       fs[BadFileName_exn_def]>>
       xcases>>rw[]>>
@@ -3055,7 +3055,7 @@ Proof
   qmatch_goalsub_abbrev_tac`$POSTv Qval`>>
   xhandle`$POSTv Qval` \\ xsimpl >>
   qunabbrev_tac`Qval`>>
-  xlet_auto_spec (SOME (b_openIn_spec_lines |> Q.GEN `c0` |> Q.SPEC `#"\n"`)) \\ xsimpl >>
+  xlet_auto_spec (SOME (openIn_spec_lines |> Q.GEN `c0` |> Q.SPEC `#"\n"`)) \\ xsimpl >>
   `WORD8 w8z w8z_v` by fs[w8z_v_thm]>>
   xlet_autop >>
   qmatch_goalsub_abbrev_tac`STDIO fss`>>
@@ -3237,7 +3237,7 @@ Proof
   xlet `POSTv v. STDIO fs *
     ARRAY cfmlv' cfmllsv' * ARRAY xfmlv' xfmllsv'`
   THEN1
-   (xapp_spec b_closeIn_spec_lines >>
+   (xapp_spec closeIn_spec_lines >>
     rename [`_ * _ * ARRAY a1 a2 * ARRAY b1 b2 * ARRAY c1 c2`] >>
     qexists_tac `ARRAY a1 a2 * ARRAY b1 b2 * ARRAY c1 c2` >>
     qexists_tac `rest` >>

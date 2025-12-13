@@ -35,8 +35,8 @@ val _ = translate parse_lad_toks_def;
 
 val tokenize_num_v_thm = theorem "tokenize_num_v_thm";
 
-val b_inputAllTokensFrom_spec_specialize =
-  b_inputAllTokensFrom_spec
+val inputAllTokensFrom_spec_specialize =
+  inputAllTokensFrom_spec
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
   |> Q.GEN `g` |> Q.ISPEC`tokenize_num`
@@ -52,7 +52,7 @@ val r = translate noparse_string_def;
 
 val parse_lad = (append_prog o process_topdecs) `
   fun parse_lad f =
-  (case TextIO.b_inputAllTokensFrom #"\n" f blanks tokenize_num of
+  (case TextIO.inputAllTokensFrom #"\n" f blanks tokenize_num of
     None => Inl (notfound_string f)
   | Some lines =>
   (case parse_lad_toks lines of
@@ -107,7 +107,7 @@ Proof
                SOME(MAP (MAP tokenize_num o tokens blanks) (all_lines fs f))
              else NONE) sv * STDIO fs)`
   >- (
-    xapp_spec b_inputAllTokensFrom_spec_specialize >>
+    xapp_spec inputAllTokensFrom_spec_specialize >>
     xsimpl>>
     simp[pb_parseTheory.blanks_def]>>
     fs[FILENAME_def,validArg_def,blanks_v_thm]>>
@@ -155,7 +155,7 @@ val _ = translate parse_dimacs_toks_def;
 
 val parse_dimacs = (append_prog o process_topdecs) `
   fun parse_dimacs f =
-  (case TextIO.b_inputAllTokensFrom #"\n" f blanks tokenize_num of
+  (case TextIO.inputAllTokensFrom #"\n" f blanks tokenize_num of
     None => Inl (notfound_string f)
   | Some lines =>
   (case parse_dimacs_toks lines of
@@ -197,7 +197,7 @@ Proof
                SOME(MAP (MAP tokenize_num o tokens blanks) (all_lines fs f))
              else NONE) sv * STDIO fs)`
   >- (
-    xapp_spec b_inputAllTokensFrom_spec_specialize >>
+    xapp_spec inputAllTokensFrom_spec_specialize >>
     xsimpl>>
     simp[pb_parseTheory.blanks_def]>>
     fs[FILENAME_def,validArg_def,blanks_v_thm]>>

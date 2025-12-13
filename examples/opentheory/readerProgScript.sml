@@ -157,7 +157,7 @@ val _ = (append_prog o process_topdecs) ‘
   ’;
 
 (*
- * This is the drop-in replacement for b_inputAllTokensFrom for
+ * This is the drop-in replacement for inputAllTokensFrom for
  * stdin operation. Now, readLines (from readerTheory) can be used
  * both for stdin, buffered I/O, and with the monadIO version.
  *)
@@ -269,7 +269,7 @@ val _ = (append_prog o process_topdecs) `
 
 val _ = (append_prog o process_topdecs) `
   fun read_file file =
-    case TextIO.b_inputAllTokensFrom #"\n" file is_newline tokenize of
+    case TextIO.inputAllTokensFrom #"\n" file is_newline tokenize of
       None =>
         TextIO.output TextIO.stdErr (msg_bad_name file)
     | Some ls =>
@@ -365,10 +365,10 @@ Proof
   \\ rw [UNIT_TYPE_def]
 QED
 
-Theorem b_inputAllTokensFrom_spec2:
+Theorem inputAllTokensFrom_spec2:
   FILENAME fn fnv ∧
   hasFreeFD fs ⇒
-    app (p: 'ffi ffi_proj) TextIO_b_inputAllTokensFrom_v
+    app (p: 'ffi ffi_proj) TextIO.inputAllTokensFrom_v
       [Litv (Char #"\n") ; fnv; is_newline_v; tokenize_v]
       (STDIO fs)
       (POSTv sv.
@@ -385,7 +385,7 @@ Proof
   (* \\ `all_lines fs fn = all_lines_gen #"\n" fs fn` by *)
   (*   rw[all_lines_def,all_lines_gen_def,lines_of_def,lines_of_gen_def,splitlines_at_def,splitlines_def,str_def] *)
   \\ pop_assum SUBST_ALL_TAC
-  \\ irule b_inputAllTokensFrom_spec
+  \\ irule inputAllTokensFrom_spec
   \\ simp [theorem "is_newline_v_thm", tokenize_v_thm, is_newline_def]
 QED
 
@@ -416,7 +416,7 @@ Proof
              STDIO fs *
              HOL_STORE refs’
   >-
-   (xapp_spec b_inputAllTokensFrom_spec2
+   (xapp_spec inputAllTokensFrom_spec2
     \\ instantiate
     \\ xsimpl)
   \\ simp [read_file_def]

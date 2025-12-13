@@ -43,8 +43,8 @@ End
 
 val _ = translate format_dimacs_failure_def;
 
-val b_inputLineTokens_specialize =
-  b_inputLineTokens_spec_lines
+val inputLineTokens_specialize =
+  inputLineTokens_spec_lines
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
   |> Q.GEN `g` |> Q.ISPEC`tokenize`
@@ -54,7 +54,7 @@ val b_inputLineTokens_specialize =
 
 val parse_body_arr = process_topdecs`
   fun parse_body_arr lno maxvar fd cacc xacc bacc =
-  case TextIO.b_inputLineTokens #"\n" fd blanks tokenize of
+  case TextIO.inputLineTokens #"\n" fd blanks tokenize of
     None => Inr (List.rev cacc, (List.rev xacc, List.rev bacc))
   | Some l =>
     if nocomment_line l then
@@ -108,7 +108,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
                 &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     THEN1 (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac `emp`
       \\ qexists_tac ‘[]’
       \\ qexists_tac ‘fs’
@@ -127,7 +127,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
                 & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks h)) v)’
     THEN1 (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac `emp`
       \\ qexists_tac ‘h::lines’
       \\ qexists_tac ‘fs’
@@ -205,7 +205,7 @@ QED
 
 val parse_cnf_ext_toks_arr = process_topdecs`
   fun parse_cnf_ext_toks_arr lno fd =
-  case TextIO.b_inputLineTokens #"\n" fd blanks tokenize of
+  case TextIO.inputLineTokens #"\n" fd blanks tokenize of
     None => Inl (format_dimacs_failure lno "failed to find header")
   | Some l =>
     if nocomment_line l then
@@ -251,7 +251,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
                 &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     THEN1 (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac `emp`
       \\ qexists_tac ‘[]’
       \\ qexists_tac ‘fs’
@@ -271,7 +271,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
                 & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks h)) v)’
     THEN1 (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac `emp`
       \\ qexists_tac ‘h::lines’
       \\ qexists_tac ‘fs’
@@ -370,9 +370,9 @@ QED
 val parse_full = (append_prog o process_topdecs) `
   fun parse_full fname =
   let
-    val fd = TextIO.b_openIn fname
+    val fd = TextIO.openIn fname
     val res = parse_cnf_ext_toks_arr 0 fd
-    val close = TextIO.b_closeIn fd;
+    val close = TextIO.closeIn fd;
   in
     res
   end
@@ -409,7 +409,7 @@ Proof
       &(~inFS_fname fs f) *
       STDIO fs`
     >-
-      (xlet_auto_spec (SOME b_openIn_STDIO_spec) \\ xsimpl)
+      (xlet_auto_spec (SOME openIn_STDIO_spec) \\ xsimpl)
     >>
       fs[BadFileName_exn_def]>>
       xcases>>rw[]>>
@@ -419,7 +419,7 @@ Proof
   qmatch_goalsub_abbrev_tac`$POSTv Qval`>>
   xhandle`$POSTv Qval` \\ xsimpl >>
   qunabbrev_tac`Qval`>>
-  xlet_auto_spec (SOME (b_openIn_spec_lines |> Q.GEN `c0` |> Q.SPEC `#"\n"`)) \\ xsimpl >>
+  xlet_auto_spec (SOME (openIn_spec_lines |> Q.GEN `c0` |> Q.SPEC `#"\n"`)) \\ xsimpl >>
   qmatch_goalsub_abbrev_tac`STDIO fss`>>
   qmatch_goalsub_abbrev_tac`INSTREAM_LINES _ fdd fddv lines fss`>>
   xlet`(POSTv v.
@@ -439,7 +439,7 @@ Proof
     metis_tac[])>>
   xlet `POSTv v. STDIO fs`
   >- (
-    xapp_spec b_closeIn_spec_lines >>
+    xapp_spec closeIn_spec_lines >>
     qexists_tac `emp`>>
     qexists_tac `lines'` >>
     qexists_tac `forwardFD fss fdd k` >>
@@ -659,8 +659,8 @@ val check_unsat = (append_prog o process_topdecs) `
   | _ => TextIO.output TextIO.stdErr usage_string`
 
 (* We verify each argument type separately *)
-val b_inputAllTokensFrom_spec_specialize =
-  b_inputAllTokensFrom_spec
+val inputAllTokensFrom_spec_specialize =
+  inputAllTokensFrom_spec
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
   |> Q.GEN `g` |> Q.ISPEC`tokenize`

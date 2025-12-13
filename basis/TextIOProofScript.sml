@@ -6880,13 +6880,13 @@ Definition inputAllTokensStdIn_def:
            fastForwardFD fs 0))
 End
 
-(* Theorem EvalM_b_inputAllTokensStdIn: *)
+(* Theorem EvalM_inputAllTokensStdIn: *)
 (*    Eval env exp_f ((CHAR --> BOOL) f) /\ *)
 (*    Eval env exp_g ((STRING_TYPE --> (a:'a->v->bool)) g) /\ *)
-(*     (nsLookup env.v (Long "TextIO" (Short "b_inputAllTokensStdIn")) = *)
-(*        SOME TextIO_b_inputAllTokensStdIn_v) ==> *)
-(*     EvalM F env st (App Opapp [App Opapp [Var (Long "TextIO" (Short "b_inputAllTokensStdIn")); exp_f]; exp_g]) *)
-(*       (MONAD (OPTION_TYPE (LIST_TYPE (LIST_TYPE a))) exc_ty (b_inputAllTokensStdIn f g)) *)
+(*     (nsLookup env.v (Long "TextIO" (Short "inputAllTokensStdIn")) = *)
+(*        SOME TextIO.inputAllTokensStdIn_v) ==> *)
+(*     EvalM F env st (App Opapp [App Opapp [Var (Long "TextIO" (Short "inputAllTokensStdIn")); exp_f]; exp_g]) *)
+(*       (MONAD (OPTION_TYPE (LIST_TYPE (LIST_TYPE a))) exc_ty (inputAllTokensStdIn f g)) *)
 (*       (MONAD_IO,p:'ffi ffi_proj) *)
 (* Proof *)
 (*   (* TODO: Needs a version of EvalM_from_app that takes two arguments *) *)

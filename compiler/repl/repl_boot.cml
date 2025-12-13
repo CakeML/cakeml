@@ -116,9 +116,9 @@ end (* struct *)
 
 fun isFile fname =
   let
-    val ins = TextIO.b_openIn fname
+    val ins = TextIO.openIn fname
   in
-    TextIO.b_closeIn ins;
+    TextIO.closeIn ins;
     True
   end
   handle TextIO.BadFileName => False;
@@ -424,11 +424,11 @@ end (* struct *)
     fun loadMsg s = print ("- Loading " ^ s ^ "\n");
     fun load_use fname =
       let val _ = loadMsg fname in
-        TextIO.b_inputLinesFrom #"\n" fname
+        TextIO.inputLinesFrom #"\n" fname
       end;
     fun load fname =
       let val _ = loadMsg fname in
-        case TextIO.b_inputLinesFrom #"\n" fname of
+        case TextIO.inputLinesFrom #"\n" fname of
           None => None
         | Some lns =>
             (if List.exists (fn x => x = fname) (!loadedFiles) then () else

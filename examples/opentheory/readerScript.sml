@@ -141,7 +141,7 @@ Definition s2c_def:
 End
 
 (*
- * Line splitter for b_inputAllTokensFrom.
+ * Line splitter for inputAllTokensFrom.
  * (See readerProgScript.sml.)
  *)
 
@@ -785,7 +785,7 @@ End
 
 (*
  * Does not drop the newline character from the input, because
- * b_inputAllTokensFrom does this on its own.
+ * inputAllTokensFrom does this on its own.
  *)
 
 Definition tokenize_def:
