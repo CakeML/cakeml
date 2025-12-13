@@ -5,7 +5,7 @@ Theory patchProg
 Ancestors
   charset diff cfApp basis_ffi
 Libs
-  preamble basis
+  preamble basis basisFunctionsLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
@@ -115,17 +115,18 @@ End
 
 val r = translate rejected_patch_string_def;
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun patch' fname1 fname2 =
-    case TextIO.inputLinesFrom fname1 of
+    case TextIO.inputLinesFrom #"\n" fname1 of
         None => TextIO.output TextIO.stdErr (notfound_string fname1)
       | Some lines1 =>
-        case TextIO.inputLinesFrom fname2 of
+        case TextIO.inputLinesFrom #"\n" fname2 of
             None => TextIO.output TextIO.stdErr (notfound_string fname2)
           | Some lines2 =>
             case patch_alg lines2 lines1 of
                 None => TextIO.output TextIO.stdErr (rejected_patch_string)
-              | Some s => TextIO.print_list s`
+              | Some s => TextIO.print_list s
+End
 
 Theorem patch'_spec:
    FILENAME f1 fv1 ∧ FILENAME f2 fv2 /\ hasFreeFD fs
@@ -161,11 +162,12 @@ Proof
   \\ xapp \\ rw[]
 QED
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun patch u =
     case CommandLine.arguments () of
         (f1::f2::[]) => patch' f1 f2
-      | _ => TextIO.output TextIO.stdErr usage_string`
+      | _ => TextIO.output TextIO.stdErr usage_string
+End
 
 Definition patch_sem_def:
   patch_sem cl fs =

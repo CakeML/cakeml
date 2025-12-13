@@ -5,7 +5,7 @@ Theory diffProg
 Ancestors
   charset lcs diff basis_ffi
 Libs
-  preamble basis
+  preamble basis basisFunctionsLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
@@ -83,14 +83,15 @@ End
 
 val r = translate usage_string_def;
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun diff' fname1 fname2 =
-    case TextIO.inputLinesFrom fname1 of
+    case TextIO.inputLinesFrom #"\n" fname1 of
         None => TextIO.output TextIO.stdErr (notfound_string fname1)
       | Some lines1 =>
-        case TextIO.inputLinesFrom fname2 of
+        case TextIO.inputLinesFrom #"\n" fname2 of
             None => TextIO.output TextIO.stdErr (notfound_string fname2)
-          | Some lines2 => TextIO.print_list (diff_alg2 lines1 lines2)`
+          | Some lines2 => TextIO.print_list (diff_alg2 lines1 lines2)
+End
 
 Theorem diff'_spec:
    FILENAME f1 fv1 ∧ FILENAME f2 fv2 /\
