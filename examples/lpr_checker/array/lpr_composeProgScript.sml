@@ -200,12 +200,6 @@ Proof
   rw[FUN_EQ_THM,lines_of_gen_def,lines_of_def,splitlines_at_def,splitlines_def,str_def]
 QED
 
-Theorem all_lines_gen_all_lines[simp]:
-  all_lines_gen #"\n" = all_lines
-Proof
-  rw[FUN_EQ_THM,all_lines_gen_def,all_lines_def]
-QED
-
 Theorem line_count_of_spec:
   FILENAME proof_fname proofv ∧ file_content fs proof_fname = SOME proof ∧
   hasFreeFD fs
@@ -486,4 +480,3 @@ Proof
   \\ fs [closure_spt_thm |> SIMP_RULE (srw_ss()) [EXTENSION,domain_lookup]]
   \\ gvs [lookup_insert,lookup_def]
 QED
-

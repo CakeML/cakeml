@@ -2998,13 +2998,6 @@ Proof
   fs [forwardFD_def, IO_fs_component_equality]
 QED
 
-Theorem all_lines_gen_all_lines[simp]:
-  all_lines_gen #"\n" fs f =
-  all_lines fs f
-Proof
-  rw[all_lines_def,all_lines_gen_def,lines_of_def,lines_of_gen_def,splitlines_at_def,splitlines_def,str_def]
-QED
-
 Theorem check_unsat'_spec:
   NUM n nv ∧
   LIST_TYPE (LIST_TYPE CNF_EXT_LIT_TYPE) xorig xorigv ∧

@@ -381,8 +381,9 @@ Theorem b_inputAllTokensFrom_spec2:
         STDIO fs)
 Proof
   strip_tac
-  \\ `all_lines fs fn = all_lines_gen #"\n" fs fn` by
-    rw[all_lines_def,all_lines_gen_def,lines_of_def,lines_of_gen_def,splitlines_at_def,splitlines_def,str_def]
+  (* TODO remove if made unnecessary by all_lines_gen_all_lines *)
+  (* \\ `all_lines fs fn = all_lines_gen #"\n" fs fn` by *)
+  (*   rw[all_lines_def,all_lines_gen_def,lines_of_def,lines_of_gen_def,splitlines_at_def,splitlines_def,str_def] *)
   \\ pop_assum SUBST_ALL_TAC
   \\ irule b_inputAllTokensFrom_spec
   \\ simp [theorem "is_newline_v_thm", tokenize_v_thm, is_newline_def]
