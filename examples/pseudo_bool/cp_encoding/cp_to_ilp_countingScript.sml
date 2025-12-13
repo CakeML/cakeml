@@ -334,7 +334,7 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Theorem encode_nvalue_sem_aux:
+Theorem encode_n_value_sem_aux:
   valid_assignment bnd wi ∧
   (∀v. MEM v (union_dom bnd Xs) ⇒
     EVERY (λX. wb (INL (Eq X v)) ⇔ varc wi X = v) Xs ∧
@@ -389,13 +389,19 @@ Theorem encode_n_value_sem_1:
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_n_value bnd Xs Y name)
 Proof
+  rw[encode_n_value_def,n_value_sem_def]
+  >-(
+    rw[reify_some_eq_sem,reify_avar_def,reify_reif_def,reify_flag_def,MEM_MAP]>>
+    metis_tac[])>>
+  DEP_REWRITE_TAC[encode_bitsum_sem]>>
+  simp[]>>
   cheat
 QED
 
 Theorem encode_n_value_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_n_value bnd Xs Y) ⇒
+    (encode_n_value bnd Xs Y name) ⇒
   n_value_sem Xs Y wi
 Proof
   cheat
@@ -459,7 +465,7 @@ Definition encode_counting_constr_def:
   encode_counting_constr bnd c name =
   case c of
     AllDifferent Xs => encode_all_different bnd Xs name
-  | NValue Xs Y => encode_n_value bnd Xs Y
+  | NValue Xs Y => encode_n_value bnd Xs Y name
   | Count Xs Y Z => encode_count bnd Xs Y Z
   | Among Xs iS Y => encode_among bnd Xs iS Y
 End
