@@ -284,24 +284,24 @@ Definition flatten_def:
     flatten indent p1 ((if b then indent else strlit " ") :: flatten indent p2 s)
 End
 
-Definition v2strs_def:
-  v2strs end v = flatten (strlit "\n") (smart_remove 0 0 (annotate (v2pretty v))) [end]
+Definition str_tree_to_strs_def:
+  str_tree_to_strs end v = flatten (strlit "\n") (smart_remove 0 0 (annotate (v2pretty v))) [end]
 End
 
-Theorem test1_v2strs[local]:
-  concat (v2strs (strlit "")
-                 (Trees [Str (strlit "hello");
-                         Str (strlit "there")])) =
+Theorem test1_str_tree_to_strs[local]:
+  concat (str_tree_to_strs (strlit "")
+                           (Trees [Str (strlit "hello");
+                                   Str (strlit "there")])) =
   strlit "(hello there)"
 Proof
   EVAL_TAC
 QED
 
-Theorem test2_v2strs[local]:
-  concat (v2strs (strlit "")
-                 (Trees [Str (strlit "test");
-                         GrabLine (Str (strlit "hi"));
-                         GrabLine (Str (strlit "there"))])) =
+Theorem test2_str_tree_to_strs[local]:
+  concat (str_tree_to_strs (strlit "")
+                           (Trees [Str (strlit "test");
+                                   GrabLine (Str (strlit "hi"));
+                                   GrabLine (Str (strlit "there"))])) =
   strlit "(test\n   hi\n   there)"
 Proof
   EVAL_TAC
@@ -351,7 +351,7 @@ Definition sexp_to_string_def:
 End
 
 Definition sexp_to_pretty_string_def:
-  sexp_to_pretty_string s = concat (v2strs (strlit "\n") (sexp2tree s))
+  sexp_to_pretty_string s = concat (str_tree_to_strs (strlit "\n") (sexp2tree s))
 End
 
 (*--------------------------------------------------------------*
@@ -523,7 +523,7 @@ Proof
   Induct
   >-
    (simp [sexp2tree_def]
-    \\ simp [v2strs_def,v2pretty_def]
+    \\ simp [str_tree_to_strs_def,v2pretty_def]
     \\ simp [annotate_def,to_tokens_def]
     \\ simp [smart_remove_def,remove_all_def, flatten_def]
     \\ rpt strip_tac
@@ -646,7 +646,7 @@ Theorem parse_sexp_to_pretty_string:
   ∀s x.
     parse (explode (sexp_to_pretty_string x) ++ s) = INR (x, "\n" ++ s)
 Proof
-  fs [sexp_to_pretty_string_def,parse_def,lex_def,v2strs_def]
+  fs [sexp_to_pretty_string_def,parse_def,lex_def,str_tree_to_strs_def]
   \\ rpt strip_tac
   \\ once_rewrite_tac [flatten_acc] \\ simp []
   \\ gvs [concat_append]
