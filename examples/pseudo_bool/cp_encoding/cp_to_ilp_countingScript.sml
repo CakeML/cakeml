@@ -363,14 +363,6 @@ Proof
   metis_tac[]
 QED
 
-Theorem iSUM_FILTER:
-  iSUM (MAP (b2i o P) ls) = &(LENGTH $ FILTER P ls)
-Proof
-  Induct_on ‘ls’>>
-  rw[iSUM_def]>>
-  intLib.ARITH_TAC
-QED
-
 (* NValue: Y equals the number of distinct values in Xs
    This is very complex and requires auxiliary variables *)
 Definition encode_n_value_def:
@@ -381,6 +373,28 @@ Definition encode_n_value_def:
     (FLAT $ MAP (λv. reify_some_eq bnd Xs v name) vals) ++
     encode_bitsum (MAP (elm name) vals) Y
 End
+
+Triviality MAP_elm:
+  MAP (elm name) ls =
+  MAP (λv. elm name v) ls
+Proof
+  Induct_on ‘ls’>>
+  simp[MEM]
+QED
+
+Theorem subset_varc_union_dom:
+  valid_assignment bnd wi ⇒
+  set $ MAP (varc wi) Xs ⊆ set $ union_dom bnd Xs
+Proof
+  cheat
+QED
+
+Theorem subset_FILTER:
+  set ls1 ⊆ set ls2 ∧ LENGTH ls2 = CARD $ set ls2 ⇒
+  LENGTH (FILTER (λv. MEM v ls1) ls2) = CARD (set ls1)
+Proof
+  cheat
+QED
 
 Theorem encode_n_value_sem_1:
   valid_assignment bnd wi ∧
@@ -394,8 +408,15 @@ Proof
     rw[reify_some_eq_sem,reify_avar_def,reify_reif_def,reify_flag_def,MEM_MAP]>>
     metis_tac[])>>
   DEP_REWRITE_TAC[encode_bitsum_sem]>>
+  simp[MAP_elm]>>
+  simp[MAP_MAP_o]>>
+  simp[Once combinTheory.o_ABS_R,iSUM_FILTER,reify_avar_def,reify_flag_def]>>
+  DEP_REWRITE_TAC[subset_varc_union_dom,subset_FILTER]>>
+  DEP_REWRITE_TAC[EVERY_MEM_union_dom,subset_FILTER]>>
   simp[]>>
-  cheat
+  CONJ_TAC
+  >-simp[GSYM ALL_DISTINCT_CARD_LIST_TO_SET,ALL_DISTINCT_union_dom]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem encode_n_value_sem_2:
