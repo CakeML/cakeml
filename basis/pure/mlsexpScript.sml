@@ -37,11 +37,12 @@ Definition read_string_aux_def:
       (case rest of
        | [] => read_string_aux rest acc (* causes error: unterminated string *)
        | (e::rest) =>
-           (if e = #"\\" then read_string_aux rest (#"\""::acc) else
+           (if e = #"\\" then read_string_aux rest (#"\\"::acc) else
+            if e = #"\"" then read_string_aux rest (#"\""::acc) else
             if e = #"0"  then read_string_aux rest (#"\000"::acc) else
             if e = #"n"  then read_string_aux rest (#"\n"::acc) else
-            if e = #"r"  then read_string_aux rest (#"\""::acc) else
-            if e = #"t"  then read_string_aux rest (#"\""::acc) else
+            if e = #"r"  then read_string_aux rest (#"\r"::acc) else
+            if e = #"t"  then read_string_aux rest (#"\t"::acc) else
               INL («read_string_aux: unrecognised escape», rest)))
     else
       read_string_aux rest (c::acc)
@@ -311,7 +312,7 @@ QED
  *--------------------------------------------------------------*)
 
 Definition is_safe_char_def:
-  is_safe_char c ⇔ ~MEM c " \t\n()\"\000"
+  is_safe_char c ⇔ ~MEM c "()\"\000" ∧ ¬isSpace c
 End
 
 Definition str_every_def:
@@ -322,6 +323,7 @@ End
 
 Definition make_str_safe_def:
   make_str_safe s =
+    if s = strlit "" then strlit "\"\"" else
     if str_every is_safe_char (strlen s) s then s else escape_str s
 End
 
@@ -389,14 +391,72 @@ Proof
   \\ rewrite_tac [parse_aux_to_tokens_lemma] \\ fs [parse_aux_def]
 QED
 
+Theorem str_every_thm:
+  ∀P i m. str_every P i m ∧ i ≤ strlen m ⇒ ∀k. k < i ⇒ P $ EL k (explode m)
+Proof
+  Induct_on ‘i’\\ fs []
+  \\ simp [Once str_every_def] \\ rw []
+  \\ last_x_assum drule \\ gvs []
+  \\ ‘k = i ∨ k < i’ by decide_tac
+  \\ fs [] \\ Cases_on ‘m’ \\ gvs [strsub_def]
+QED
+
+Theorem read_symbol_thm:
+  ∀t s acc.
+    EVERY is_safe_char t ∧ (s ≠ "" ⇒ isSpace (HD s) ∨ HD s = #")") ⇒
+    read_symbol (t ++ s) acc = (implode (REVERSE acc ++ t), s)
+Proof
+  Induct
+  >- (rw [] \\ Cases_on ‘s’ \\ gvs [read_symbol_def])
+  \\ gvs [] \\ rw []
+  \\ gvs [read_symbol_def]
+  \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND, AllCaseEqs()]
+  \\ gvs [is_safe_char_def]
+QED
+
+Theorem read_string_aux_thm:
+  ∀xs s acc.
+    read_string_aux (STRCAT (STRCAT (CONCAT (MAP char_escaped xs)) "\"") s) acc =
+    INR (implode (REVERSE acc ++ xs), s)
+Proof
+  Induct
+  \\ simp [read_string_def,read_string_aux_def]
+  \\ gvs [char_escaped_def,char_escape_seq_def]
+  \\ rw [] \\ gvs []
+  \\ gvs [read_string_aux_def]
+  \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+QED
+
 Theorem lex_aux_make_str_safe:
   ∀m s ts depth.
-    (s ≠ "" ⇒ isSpace (HD s) ∨ HD s = #")") ⇒
+    (s ≠ "" ⇒ isSpace (HD s) ∨ HD s = #")") ∧
+    (depth = 0 ⇒ ts = []) ⇒
     lex_aux depth (STRCAT (case make_str_safe m of strlit x => x) s) ts =
     if depth = 0 then INR (SYMBOL m::ts,s)
     else lex_aux depth s (SYMBOL m::ts)
 Proof
-  cheat
+  rpt gen_tac
+  \\ simp [make_str_safe_def]
+  \\ IF_CASES_TAC \\ fs []
+  >-
+   (simp [Once lex_aux_def, EVAL “isSpace #"\""”]
+    \\ simp [Once read_string_def]
+    \\ simp [Once read_string_aux_def, implode_def])
+  \\ IF_CASES_TAC \\ fs []
+  >-
+   (dxrule str_every_thm \\ simp []
+    \\ Cases_on ‘m’ \\ gvs []
+    \\ rpt strip_tac
+    \\ rename [‘lex_aux depth (STRCAT input s) ts’]
+    \\ ‘EVERY is_safe_char input’ by gvs [EVERY_EL]
+    \\ qpat_x_assum ‘∀_._’ kall_tac
+    \\ Cases_on ‘input’ \\ gvs []
+    \\ gvs [lex_aux_def,is_safe_char_def]
+    \\ DEP_REWRITE_TAC [read_symbol_thm]
+    \\ simp [implode_def])
+  \\ simp [escape_str_def,implode_def]
+  \\ simp [Once lex_aux_def, EVAL “isSpace #"\""”]
+  \\ simp [read_string_def,read_string_aux_thm]
 QED
 
 Theorem flatten_acc:
@@ -420,6 +480,7 @@ QED
 Theorem lex_aux_sexp2tree:
   (∀x s ts depth m n indent.
      (s ≠ "" ⇒ isSpace (HD s) ∨ HD s = #")") ∧
+     (depth = 0 ⇒ ts = []) ∧
      indent ≠ strlit "" ∧ EVERY isSpace (explode indent) ⇒
      lex_aux depth
              (STRCAT
@@ -466,8 +527,9 @@ Proof
     \\ simp [annotate_def,to_tokens_def]
     \\ simp [smart_remove_def,remove_all_def, flatten_def]
     \\ rpt strip_tac
-    \\ DEP_REWRITE_TAC [GSYM lex_aux_make_str_safe]
-    \\ Cases_on ‘make_str_safe m’ \\ simp [])
+    \\ drule_all lex_aux_make_str_safe
+    \\ Cases_on ‘make_str_safe m’ \\ simp []
+     \\ disch_then $ qspec_then ‘m’ mp_tac \\ simp [])
   >-
    (rpt gen_tac \\ strip_tac
     \\ simp [sexp2tree_def]
@@ -484,7 +546,8 @@ Proof
     \\ qabbrev_tac ‘new_indent = strlit (STRCAT s' "   ")’
     \\ rpt $ first_x_assum $ qspecl_then [‘")"++s’,
               ‘OPEN::ts’,‘depth + 1’,‘new_indent’] mp_tac
-    \\ ‘new_indent ≠ «» ∧ EVERY isSpace (explode new_indent)’ by cheat
+    \\ ‘new_indent ≠ «» ∧ EVERY isSpace (explode new_indent)’ by
+      (gvs [Abbr‘new_indent’] \\ EVAL_TAC)
     \\ simp []
     \\ simp_tac std_ss [APPEND,GSYM APPEND_ASSOC]
     \\ rpt strip_tac
@@ -527,7 +590,8 @@ QED
 
 Theorem lex_aux_sexp_to_list:
   (∀x s ts depth.
-     (s ≠ "" ⇒ isSpace (HD s) ∨ HD s = #")") ⇒
+     (s ≠ "" ⇒ isSpace (HD s) ∨ HD s = #")") ∧
+     (depth = 0 ⇒ ts = []) ⇒
      lex_aux depth (explode (concat (append (sexp_to_app_list x))) ++ s) ts =
      if depth = 0 then
        INR (REVERSE (to_tokens x) ++ ts, s)
@@ -543,7 +607,9 @@ Proof
    (fs [to_tokens_def]
     \\ simp [sexp_to_app_list_def,concat_def]
     \\ rpt strip_tac
-    \\ irule lex_aux_make_str_safe \\ simp [])
+    \\ drule_all lex_aux_make_str_safe
+    \\ disch_then $ qspec_then ‘m’ assume_tac
+    \\ simp [])
   >-
    (simp [sexp_to_app_list_def,concat_def] \\ fs [concat_def]
     \\ rw [] \\ simp [Once lex_aux_def, EVAL “isSpace #"("”]
