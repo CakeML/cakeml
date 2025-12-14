@@ -60,7 +60,24 @@ val r = translate mlsexpTheory.parse_aux_def;
 val r = translate mlsexpTheory.read_string_aux_def;
 val r = translate mlsexpTheory.read_string_def;
 val r = translate $ SRULE [isSpace_def] mlsexpTheory.read_symbol_def;
-val r = translate $ SRULE [isSpace_def] mlsexpTheory.lex_aux_def;
+
+val r = translate_no_ind mlsexpTheory.lex_aux_def;
+
+Theorem lex_aux_ind[local]:
+  lex_aux_ind
+Proof
+  once_rewrite_tac [fetch "-" "lex_aux_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ gvs [FORALL_PROD]
+QED
+
+val _ = lex_aux_ind |> update_precondition;
+
 val r = translate mlsexpTheory.lex_def;
 val r = translate mlsexpTheory.parse_def;
 
@@ -386,7 +403,7 @@ Theorem lex_aux_imp_spec:
       (STDIO fs * INSTREAM_STR fd is s fs)
       (lex_aux_imp_post depth s acc fs is fd)
 Proof
-  ho_match_mp_tac lex_aux_ind
+  ho_match_mp_tac mlsexpTheory.lex_aux_ind
   \\ rpt strip_tac
   \\ qmatch_goalsub_abbrev_tac ‘lex_aux_imp_post _ s₁’
   \\ xcf_with_def $ definition "Sexp_lex_aux_imp_v_def"
