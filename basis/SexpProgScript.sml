@@ -75,11 +75,12 @@ Quote add_cakeml:
           (case TextIO.b_input1 input of
              None => read_string_aux_imp input acc (* causes error: unterminated string *)
            | Some e =>
-               (if e = #"\\" then read_string_aux_imp input (#"\""::acc) else
+               (if e = #"\\" then read_string_aux_imp input (#"\\"::acc) else
+                if e = #"\""  then read_string_aux_imp input (#"\""::acc) else
                 if e = #"0"  then read_string_aux_imp input (#"\000"::acc) else
                 if e = #"n"  then read_string_aux_imp input (#"\n"::acc) else
-                if e = #"r"  then read_string_aux_imp input (#"\""::acc) else
-                if e = #"t"  then read_string_aux_imp input (#"\""::acc) else
+                if e = #"r"  then read_string_aux_imp input (#"\r"::acc) else
+                if e = #"t"  then read_string_aux_imp input (#"\t"::acc) else
                   raise Fail "read_string_aux: unrecognised escape"))
         else
           read_string_aux_imp input (c::acc)
@@ -238,7 +239,7 @@ Proof
         \\ STDIO_forwardFD_INSTREAM_STR_tac)
       \\ xmatch
       (* escape characters *)
-      \\ ntac 5 (
+      \\ ntac 6 (
         xlet_autop
         \\ xif
         >-
