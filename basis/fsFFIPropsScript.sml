@@ -1033,6 +1033,15 @@ Definition all_lines_file_def:
     all_lines_inode fs (File (THE(ALOOKUP fs.files fname)))
 End
 
+Definition all_lines_stdin_def:
+  all_lines_stdin fs = all_lines_inode fs (UStream «stdin»)
+End
+
+Definition all_lines_from_def:
+  all_lines_from fs NONE = all_lines_stdin fs ∧
+  all_lines_from fs (SOME fname) = all_lines_file fs fname
+End
+
 Theorem concat_lines_of:
    !s. concat (lines_of s) = s ∨
         concat (lines_of s) = s ^ str #"\n"
@@ -1461,4 +1470,3 @@ Proof
   \\ fs [openFileFS_def,inFS_fname_def,openFile_def]
   \\ rw [] \\ fs [validFileFD_def]
 QED
-
