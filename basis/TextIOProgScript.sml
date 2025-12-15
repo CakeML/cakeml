@@ -586,6 +586,7 @@ Quote add_cakeml:
     inputAllTokens_aux c0 is f g []
 End
 
+(* TODO Maybe should be removed in favor of inputAllTokensFrom? *)
 Quote add_cakeml:
   fun inputAllTokensFile c0 fname f g =
     let
@@ -597,13 +598,13 @@ Quote add_cakeml:
 End
 
 Quote add_cakeml:
-  fun inputAllTokensStdIn c0 f g =
-    let
-      val is = openStdIn ()
-      val lines = inputAllTokens c0 is f g
-    in
-      Some lines (* TODO: remove the OPTION on the return value *)
-    end
+  fun inputAllTokensFrom c0 stdin_or_fname f g =
+    case open_option stdin_or_fname of
+      None => None
+    | Some (is,close) => let
+        val lines = inputAllTokens c0 is f g
+      in close (); Some lines end
+      handle e => (close (); raise e)
 End
 
 Quote add_cakeml:

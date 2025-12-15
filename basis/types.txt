@@ -376,7 +376,6 @@ TextIO.inputLinesStdIn: char -> string list
 TextIO.inputAll: TextIO.instream -> string
 TextIO.inputAllTokens: char -> TextIO.instream -> (char -> bool) -> (string -> 'a) -> 'a list list
 TextIO.inputAllTokensFile: char -> string -> (char -> bool) -> (string -> 'a) -> 'a list list option
-TextIO.inputAllTokensStdIn: char -> (char -> bool) -> (string -> 'a) -> 'a list list option
 TextIO.foldChars: (char -> 'a -> 'a) -> 'a -> string option -> 'a option
 TextIO.foldLines: char -> (string -> 'a -> 'a) -> 'a -> string option -> 'a option
 TextIO.foldTokens: char -> (char -> bool) -> (string -> 'a) -> ('a list -> 'b -> 'b) -> 'b -> string option -> 'b option

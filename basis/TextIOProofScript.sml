@@ -5884,6 +5884,16 @@ Proof
      splitlines_at_def,splitlines_def,str_def]
 QED
 
+(* TODO Move to fsFFIProps? *)
+Theorem all_lines_file_gen_lines_of_gen:
+  file_content fs fname = SOME s ⇒
+  all_lines_file_gen c0 fs fname = lines_of_gen c0 (implode s)
+Proof
+  simp [file_content_def, AllCaseEqs()]
+  \\ rpt strip_tac
+  \\ simp [all_lines_file_gen_def, lines_of_gen_def]
+QED
+
 Theorem openIn_spec_lines:
   FILENAME s sv /\ hasFreeFD fs /\ inFS_fname fs s ==>
   app (p:'ffi ffi_proj) TextIO_openIn_v [sv]
@@ -6833,65 +6843,6 @@ Proof
   \\ fs [INSTREAM_STR_fastForwardFD]
 QED
 
-Theorem inputAllTokensStdIn_spec:
-   CHAR c0 c0v ∧
-   (CHAR --> BOOL) f fv ∧ (STRING_TYPE --> (a:'a->v->bool)) g gv ∧ f c0 ∧
-   stdin_content fs = SOME text
-   ⇒
-   app (p:'ffi ffi_proj) TextIO_inputAllTokensStdIn_v
-     [c0v; fv; gv]
-     (STDIO fs)
-     (POSTv sv.
-      &OPTION_TYPE (LIST_TYPE (LIST_TYPE a))
-                   (SOME(MAP (MAP g o tokens f) (lines_of_gen c0 (implode text))))
-                   sv
-      * STDIO (fastForwardFD fs 0))
-Proof
-  rpt strip_tac
-  \\ xcf_with_def TextIO_inputAllTokensStdIn_v_def
-  \\ reverse (Cases_on `STD_streams fs`)
-  >- (fs [STDIO_def] \\ xpull)
-  \\ reverse (Cases_on`consistentFS fs`)
-  >- (fs [STDIO_def,IOFS_def,wfFS_def,consistentFS_def] \\ xpull \\ metis_tac[])
-  \\ xlet_auto >- (xcon \\ xsimpl)
-  \\ xlet_auto_spec (SOME openStdIn_spec_lines) \\ xsimpl
-  \\ xlet `(POSTv v.
-                STDIO (fastForwardFD fs 0) *
-                INSTREAM_LINES c0 0 is [] (fastForwardFD fs 0) *
-                & LIST_TYPE (LIST_TYPE a)
-                    (MAP (MAP g o tokens f) (lines_of_gen c0 (implode text))) v)`
-  THEN1
-   (xapp_spec inputAllTokens_spec
-    \\ rpt (first_assum $ irule_at (Pos hd))
-    \\ qexists_tac `lines_of_gen c0 (implode text)`
-    \\ qexists_tac `fs`
-    \\ qexists_tac `0`
-    \\ qexists_tac `emp`
-    \\ xsimpl \\ rw [implode_def] \\ xsimpl)
-  \\ xcon \\ xsimpl
-  \\ fs [std_preludeTheory.OPTION_TYPE_def]
-QED
-
-(* NOTE: Not modified to pass extra c0 argument *)
-Definition inputAllTokensStdIn_def:
-  inputAllTokensStdIn f g=
-  (\fs. (M_success (SOME (MAP (MAP g o tokens f)
-                        (lines_of (implode (THE (stdin_content fs)))))),
-           fastForwardFD fs 0))
-End
-
-(* Theorem EvalM_inputAllTokensStdIn: *)
-(*    Eval env exp_f ((CHAR --> BOOL) f) /\ *)
-(*    Eval env exp_g ((STRING_TYPE --> (a:'a->v->bool)) g) /\ *)
-(*     (nsLookup env.v (Long "TextIO" (Short "inputAllTokensStdIn")) = *)
-(*        SOME TextIO.inputAllTokensStdIn_v) ==> *)
-(*     EvalM F env st (App Opapp [App Opapp [Var (Long "TextIO" (Short "inputAllTokensStdIn")); exp_f]; exp_g]) *)
-(*       (MONAD (OPTION_TYPE (LIST_TYPE (LIST_TYPE a))) exc_ty (inputAllTokensStdIn f g)) *)
-(*       (MONAD_IO,p:'ffi ffi_proj) *)
-(* Proof *)
-(*   (* TODO: Needs a version of EvalM_from_app that takes two arguments *) *)
-(* QED *)
-
 Theorem inputAllTokensFile_spec:
    CHAR c0 c0v ∧
    FILENAME fname fnamev ∧ hasFreeFD fs ∧
@@ -6959,6 +6910,377 @@ Proof
     \\ fs [] \\ xsimpl)
   \\ xcon \\ xsimpl
   \\ fs [std_preludeTheory.OPTION_TYPE_def]
+QED
+
+Theorem open_option_SOME_fail:
+  OPTION_TYPE FILENAME (SOME s) fnv ∧ ~inFS_fname fs s ∧ hasFreeFD fs ⇒
+  app (p:'ffi ffi_proj) TextIO_open_option_v [fnv]
+    (STDIO fs)
+    (POSTv retv. STDIO fs * & (OPTION_TYPE a NONE retv))
+Proof
+  rpt strip_tac \\ fs []
+  \\ gvs [std_preludeTheory.OPTION_TYPE_def]
+  \\ rename [‘FILENAME s sv’]
+  \\ xcf_with_def TextIO_open_option_v_def
+  \\ xmatch
+  \\ reverse (xhandle ‘(POSTve
+            (λis.
+                 &(validFD (nextFD fs) (openFileFS s fs ReadMode 0) ∧
+                  inFS_fname fs s) * INSTREAM_BUFFERED_FD [] (nextFD fs) is *
+                 STDIO (openFileFS s fs ReadMode 0))
+            (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs s) * STDIO fs))’)
+  THEN1 (gvs [BadFileName_exn_def] \\ xcases \\ xcon \\ xsimpl)
+  THEN1 (xsimpl)
+  \\ xlet ‘(POSTve
+            (λis.
+                 &(validFD (nextFD fs) (openFileFS s fs ReadMode 0) ∧
+                  inFS_fname fs s) * INSTREAM_BUFFERED_FD [] (nextFD fs) is *
+                 STDIO (openFileFS s fs ReadMode 0))
+            (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs s) * STDIO fs))’
+  THEN1 (xapp_spec openIn_STDIO_spec \\ fs [])
+  \\ xsimpl
+QED
+
+Definition sub_spec_def:
+  sub_spec f p is fd =
+          ∀fs text v.
+            UNIT_TYPE () v ∧ fd ≥ 3 ∧ fd ≤ fs.maxFD ∧ validFileFD fd fs.infds ⇒
+            app (p:'ffi ffi_proj) f [v] (STDIO fs * INSTREAM_STR fd is text fs)
+              (POSTv u.
+                 &(UNIT_TYPE () u ∧ validFileFD fd fs.infds) *
+                 STDIO (fs with infds updated_by ADELKEY fd))
+End
+
+Theorem open_option_SOME:
+  OPTION_TYPE FILENAME (SOME s) fnv ∧ inFS_fname fs s ∧ hasFreeFD fs ∧
+  file_content fs s = SOME text ⇒
+  app (p:'ffi ffi_proj) TextIO_open_option_v [fnv]
+    (STDIO fs)
+    (POSTv retv. SEP_EXISTS is f.
+       STDIO (openFileFS s fs ReadMode 0) *
+       INSTREAM_STR (nextFD fs) is text (openFileFS s fs ReadMode 0) *
+       & (OPTION_TYPE (PAIR_TYPE (λx v. v = is) (λx v. v = f)) (SOME ((),())) retv ∧
+          sub_spec f p is (nextFD fs)))
+Proof
+  rpt strip_tac \\ fs []
+  \\ gvs [std_preludeTheory.OPTION_TYPE_def]
+  \\ rename [‘FILENAME s sv’]
+  \\ xcf_with_def TextIO_open_option_v_def
+  \\ xmatch
+  \\ reverse (xhandle ‘
+    (POSTv retv. SEP_EXISTS is f.
+       STDIO (openFileFS s fs ReadMode 0) *
+       INSTREAM_STR (nextFD fs) is text (openFileFS s fs ReadMode 0) *
+       & (OPTION_TYPE (PAIR_TYPE (λx v. v = is) (λx v. v = f)) (SOME ((),())) retv ∧
+          sub_spec f p is (nextFD fs)))’)
+  THEN1 (xsimpl \\ gvs [std_preludeTheory.OPTION_TYPE_def] \\ rw []
+         \\ first_x_assum $ irule_at Any \\ fs [] \\ xsimpl)
+  \\ drule (GEN_ALL openIn_spec_str)
+  \\ disch_then (drule_at Any) \\ fs []
+  \\ disch_then (assume_tac o SPEC_ALL)
+  \\ xlet_auto THEN1 xsimpl
+  \\ xfun_spec `f` ‘sub_spec f p is (nextFD fs)’
+  THEN1
+   (rw [sub_spec_def] \\ first_x_assum irule
+    \\ gvs [UNIT_TYPE_def]
+    \\ xmatch
+    \\ xapp_spec closeIn_spec_str
+    \\ qexists_tac `emp`
+    \\ qexists_tac `text'`
+    \\ qexists_tac `fs'`
+    \\ qexists_tac `nextFD fs`
+    \\ xsimpl \\ gvs [UNIT_TYPE_def])
+  \\ xlet_auto
+  THEN1 (xcon \\ xsimpl)
+  \\ gvs []
+  \\ xcon
+  \\ xsimpl
+  \\ gvs [std_preludeTheory.OPTION_TYPE_def,PAIR_TYPE_def]
+  \\ xsimpl
+QED
+
+Definition sub_spec_none_def:
+  sub_spec_none f p is =
+          ∀fs text v k.
+            UNIT_TYPE () v ⇒
+            app (p:'ffi ffi_proj) f [v]
+              (STDIO (forwardFD fs 0 k) *
+               INSTREAM_STR 0 is text (forwardFD fs 0 k))
+              (POSTv u. STDIO (fastForwardFD fs 0))
+End
+
+Theorem consume_rest_spec:
+  ∀s fs fd k.
+    app (p:'ffi ffi_proj) TextIO_consume_rest_v [is]
+      (STDIO (forwardFD fs fd k) * INSTREAM_STR fd is s (forwardFD fs fd k))
+      (POSTv retv. STDIO (fastForwardFD fs fd))
+Proof
+  Induct
+  THEN1
+   (rw[]
+    \\ xcf_with_def TextIO_consume_rest_v_def
+    \\ xlet ‘(POSTv chv.
+          STDIO (fastForwardFD fs fd) *
+          INSTREAM_STR fd is "" (fastForwardFD fs fd) *
+          &OPTION_TYPE CHAR NONE chv)’
+    THEN1
+     (xapp_spec (input1_spec_str |> Q.INST [‘s’|->‘[]’] )
+      \\ qexists_tac ‘emp’
+      \\ qexists_tac ‘forwardFD fs fd k’
+      \\ qexists_tac ‘fd’
+      \\ xsimpl \\ rw [fsFFIPropsTheory.forwardFD_o]
+      \\ irule SEP_IMP_TRANS
+      \\ irule_at Any INSTREAM_STR_fastForwardFD
+      \\ xsimpl)
+    \\ gvs [std_preludeTheory.OPTION_TYPE_def]
+    \\ xmatch \\ xvar \\ fs [INSTREAM_STR_fastForwardFD]
+    \\ xsimpl)
+  \\ rw[]
+  \\ xcf_with_def TextIO_consume_rest_v_def
+  \\ xlet ‘(POSTv chv. SEP_EXISTS k.
+            STDIO (forwardFD fs fd k) *
+            INSTREAM_STR fd is s (forwardFD fs fd k) *
+            &OPTION_TYPE CHAR (SOME h) chv)’
+  THEN1
+   (xapp_spec (input1_spec_str |> Q.INST [‘s’|->‘STRING h s’] )
+    \\ qexists_tac ‘emp’
+    \\ qexists_tac ‘s’
+    \\ qexists_tac ‘h’
+    \\ qexists_tac ‘(forwardFD fs fd k)’
+    \\ qexists_tac ‘fd’
+    \\ xsimpl \\ rw []
+    \\ rw [fsFFIPropsTheory.forwardFD_o]
+    \\ qexists_tac ‘k+x’ \\ xsimpl)
+  \\ gvs [std_preludeTheory.OPTION_TYPE_def]
+  \\ xmatch
+  \\ xapp
+QED
+
+Theorem STDIO_ADELKEY:
+  hasFreeFD fs ⇒
+  STDIO (forwardFD (openFileFS s fs ReadMode 0) (nextFD fs) k with
+   infds updated_by ADELKEY (nextFD fs)) ==>> STDIO fs * GC
+Proof
+  rw []
+  \\ ‘nextFD fs ≤ fs.maxFD’ by (imp_res_tac fsFFIPropsTheory.nextFD_ltX \\ fs [])
+  \\ fs [fsFFIPropsTheory.forwardFD_ADELKEY_same]
+  \\ fs [fsFFIPropsTheory.openFileFS_ADELKEY_nextFD]
+  \\ xsimpl
+QED
+
+Theorem open_option_NONE:
+  OPTION_TYPE b NONE fnv ∧
+  stdin_content fs = SOME text ⇒
+  app (p:'ffi ffi_proj) TextIO_open_option_v [fnv]
+    (STDIO fs)
+    (POSTv retv. SEP_EXISTS is f.
+       STDIO fs * INSTREAM_STR 0 is text fs *
+       & (OPTION_TYPE (PAIR_TYPE (λx v. v = is) (λx v. v = f)) (SOME ((),())) retv ∧
+          sub_spec_none f p is))
+Proof
+  rpt strip_tac \\ fs []
+  \\ gvs [std_preludeTheory.OPTION_TYPE_def]
+  \\ xcf_with_def TextIO_open_option_v_def
+  \\ xmatch
+  \\ xlet_auto THEN1 (xcon \\ xsimpl)
+  \\ xlet_auto_spec (SOME openStdIn_spec_str)
+  THEN1 xsimpl
+  \\ xfun_spec `f` ‘sub_spec_none f p is’
+  THEN1
+   (rw [sub_spec_none_def] \\ first_x_assum irule
+    \\ gvs [UNIT_TYPE_def]
+    \\ xmatch
+    \\ xapp_spec consume_rest_spec)
+  \\ xlet_auto
+  THEN1 (xcon \\ xsimpl)
+  \\ gvs []
+  \\ xcon
+  \\ xsimpl
+  \\ gvs [std_preludeTheory.OPTION_TYPE_def,PAIR_TYPE_def]
+  \\ xsimpl
+QED
+
+Theorem inFS_fname_file_content_SOME:
+  inFS_fname fs fname ∧ consistentFS fs ⇒
+  ∃s. file_content fs fname = SOME s
+Proof
+  rpt strip_tac
+  \\ drule_all inFS_fname_ALOOKUP_EXISTS \\ rpt strip_tac
+  \\ simp [file_content_def]
+QED
+
+Theorem inputAllTokensFrom_SOME:
+  CHAR c0 c0v ∧
+  OPTION_TYPE FILENAME (SOME fname) fnamev ∧ hasFreeFD fs ∧
+  (CHAR --> BOOL) f fv ∧ (STRING_TYPE --> (a:'a->v->bool)) g gv ∧ f c0
+  ⇒
+  app (p:'ffi ffi_proj) TextIO_inputAllTokensFrom_v
+    [c0v; fnamev; fv; gv]
+    (STDIO fs)
+    (POSTv sv. &OPTION_TYPE (LIST_TYPE (LIST_TYPE a))
+           (if inFS_fname fs fname then
+              SOME(MAP (MAP g o tokens f) (all_lines_file_gen c0 fs fname))
+            else NONE) sv * STDIO fs)
+Proof
+  rpt strip_tac
+  \\ xcf_with_def TextIO_inputAllTokensFrom_v_def
+  (* TODO This should probably be part of automation *)
+  \\ reverse (Cases_on ‘consistentFS fs’)
+  THEN1
+   (fs [STDIO_def,IOFS_def,wfFS_def] \\ xpull
+    \\ fs [fsFFIPropsTheory.consistentFS_def]
+    \\ res_tac \\ fs [])
+  \\ reverse (Cases_on ‘STD_streams fs’)
+  THEN1 (fs [STDIO_def] \\ xpull)
+  \\ reverse $ Cases_on ‘inFS_fname fs fname’ \\ simp []
+  >-
+   (xlet ‘POSTv sv. &OPTION_TYPE _ NONE sv * STDIO fs’
+    >-
+     (xapp_spec open_option_SOME_fail \\ fs []
+      \\ qpat_x_assum ‘¬inFS_fname _ _’ $ irule_at Any \\ fs []
+      \\ fs [std_preludeTheory.OPTION_TYPE_def]
+      \\ xsimpl)
+    \\ fs [std_preludeTheory.OPTION_TYPE_def]
+    \\ xmatch \\ xcon \\ xsimpl)
+  \\ drule_all inFS_fname_file_content_SOME \\ strip_tac
+  \\ drule_all_then assume_tac all_lines_file_gen_lines_of_gen
+  \\ drule_all open_option_SOME \\ rpt strip_tac
+  \\ xlet_auto >-
+   (xsimpl \\ rpt strip_tac
+    \\ first_assum $ irule_at (Pos hd)
+    \\ simp [] \\ xsimpl)
+  \\ gvs [std_preludeTheory.OPTION_TYPE_def, PAIR_TYPE_def]
+  \\ xmatch
+  \\ reverse $ xhandle
+       ‘POSTv sv. STDIO fs *
+          &(OPTION_TYPE (LIST_TYPE (LIST_TYPE a))
+            (SOME(MAP (MAP g o tokens f) (all_lines_file_gen c0 fs fname)))) sv’
+  >- (fs [std_preludeTheory.OPTION_TYPE_def] \\ xsimpl)
+  \\ qabbrev_tac ‘fs₁ = openFileFS fname fs ReadMode 0’
+  \\ qabbrev_tac ‘fd₁ = nextFD fs’
+  \\ xlet
+     ‘POSTv v.
+          STDIO (fastForwardFD fs₁ fd₁) *
+          INSTREAM_LINES c0 fd₁ is [] (fastForwardFD fs₁ fd₁) *
+          &LIST_TYPE (LIST_TYPE a)
+           (MAP (MAP g o tokens f) (all_lines_file_gen c0 fs fname)) v’
+  >-
+   (xapp \\ ntac 4 $ first_assum $ irule_at (Pos hd) \\ xsimpl
+    \\ qexistsl [‘all_lines_file_gen c0 fs fname’, ‘fs₁’, ‘fd₁’, ‘emp’]
+    \\ conj_tac
+    >- (simp [INSTREAM_LINES_def] \\ xsimpl \\ qexists ‘s’ \\ xsimpl)
+    \\ xsimpl)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ gvs [sub_spec_def]
+  \\ xlet ‘POSTv u.
+             &UNIT_TYPE () u *
+             STDIO (fs₁ with infds updated_by ADELKEY fd₁)’
+  >-
+   (xapp \\ qexistsl [‘emp’, ‘[]’, ‘fastForwardFD fs₁ fd₁’]
+    \\ simp [INSTREAM_LINES_def, lines_of_gen_def] \\ xsimpl
+    \\ unabbrev_all_tac \\ simp []
+    \\ irule_at Any validFileFD_nextFD \\ simp []
+    \\ drule_then assume_tac STD_streams_nextFD \\ simp []
+    \\ irule nextFD_leX \\ simp [])
+  \\ xcon
+  \\ simp [std_preludeTheory.OPTION_TYPE_def] \\ xsimpl
+  \\ unabbrev_all_tac
+  \\ DEP_REWRITE_TAC [openFileFS_ADELKEY_nextFD] \\ xsimpl
+  \\ irule nextFD_leX \\ simp []
+QED
+
+Theorem fs_with_infds_updated_by:
+  fs with infds updated_by AFUPDKEY k f =
+  fs with infds := AFUPDKEY k f fs.infds
+Proof
+  gvs [K_DEF, IO_fs_component_equality]
+QED
+
+(* TODO Can we formulate this generally and stuff it into automation? *)
+Theorem STDIO_INSTREAM_STR_fastForwardFD_forwardFD:
+  ∃k. STDIO (fastForwardFD fs 0) *
+      INSTREAM_STR 0 is rest (fastForwardFD fs 0) ==>>
+      STDIO (forwardFD fs 0 k) *
+      INSTREAM_STR 0 is rest (forwardFD fs 0 k)
+Proof
+  simp [fastForwardFD_def]
+  \\ Cases_on ‘ALOOKUP fs.infds 0’ \\ simp [the_def]
+  >- (qexists ‘0’ \\ xsimpl)
+  \\ rename [‘ALOOKUP _ _ = SOME x’]
+  \\ namedCases_on ‘x’ ["ino md off"] \\ simp []
+  \\ Cases_on ‘ALOOKUP fs.inode_tbl ino’ \\ simp [the_def]
+  >- (qexists ‘0’ \\ xsimpl)
+  \\ rename [‘ALOOKUP _.inode_tbl _ = SOME x’]
+  \\ simp [forwardFD_def, fs_with_infds_updated_by]
+  \\ Cases_on ‘STRLEN x < off’
+  >-
+   (qexists ‘0’
+    \\ qmatch_goalsub_abbrev_tac
+         ‘STDIO (fs with infds := infds₁) * _ ==>>
+          STDIO (fs with infds := infds₂) * _ ’
+    \\ ‘infds₁ = infds₂’ by
+      (unabbrev_all_tac \\ irule AFUPDKEY_eq \\ simp [MAX_DEF])
+    \\ xsimpl)
+  \\ qexists ‘STRLEN x - off’
+  \\ qmatch_goalsub_abbrev_tac
+       ‘STDIO (fs with infds := infds₁) * _ ==>>
+        STDIO (fs with infds := infds₂) * _ ’
+  \\ ‘infds₁ = infds₂’ by
+    (unabbrev_all_tac \\ irule AFUPDKEY_eq \\ simp [MAX_DEF])
+  \\ xsimpl
+QED
+
+Theorem inputAllTokensFrom_NONE:
+  CHAR c0 c0v ∧
+  OPTION_TYPE FILENAME NONE fnamev ∧ stdin_content fs = SOME text ∧
+  (CHAR --> BOOL) f fv ∧ (STRING_TYPE --> (a:'a->v->bool)) g gv ∧ f c0
+  ⇒
+  app (p:'ffi ffi_proj) TextIO_inputAllTokensFrom_v
+    [c0v; fnamev; fv; gv]
+    (STDIO fs)
+    (POSTv sv.
+       STDIO (fastForwardFD fs 0) *
+       &OPTION_TYPE (LIST_TYPE (LIST_TYPE a))
+         (SOME(MAP (MAP g o tokens f) (lines_of_gen c0 (implode text)))) sv)
+Proof
+  rpt strip_tac
+  \\ xcf_with_def TextIO_inputAllTokensFrom_v_def
+  \\ xlet
+       ‘POSTv retv. SEP_EXISTS is f.
+          STDIO fs * INSTREAM_STR 0 is text fs *
+          &(OPTION_TYPE (PAIR_TYPE (λx v. v = is) (λx v. v = f))
+              (SOME ((),())) retv ∧ sub_spec_none f p is)’
+  (* ensures instantiation of type variables in open_option_NONE *)
+  >- (drule_all open_option_NONE \\ strip_tac \\ xapp)
+  \\ fs [std_preludeTheory.OPTION_TYPE_def, PAIR_TYPE_def]
+  \\ xmatch
+  \\ reverse $ xhandle
+       ‘POSTv sv. STDIO (fastForwardFD fs 0) *
+          &(OPTION_TYPE (LIST_TYPE (LIST_TYPE a))
+            (SOME(MAP (MAP g o tokens f) (lines_of_gen c0 (implode text))))) sv’
+  >- (fs [std_preludeTheory.OPTION_TYPE_def] \\ xsimpl)
+  \\ xlet
+     ‘POSTv v.
+          STDIO (fastForwardFD fs 0) *
+          INSTREAM_LINES c0 0 is [] (fastForwardFD fs 0) *
+          &LIST_TYPE (LIST_TYPE a)
+           (MAP (MAP g o tokens f) (lines_of_gen c0 (implode text))) v’
+  >-
+   (xapp \\ ntac 4 $ first_assum $ irule_at (Pos hd) \\ xsimpl
+    \\ qexistsl [‘lines_of_gen c0 (implode text)’, ‘fs’, ‘0’, ‘emp’]
+    \\ conj_tac
+    >- (simp [INSTREAM_LINES_def] \\ xsimpl \\ qexists ‘text’ \\ xsimpl)
+    \\ xsimpl)
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ fs [sub_spec_none_def]
+  \\ simp [INSTREAM_LINES_def] \\ xpull
+  \\ xlet ‘POSTv u. STDIO (fastForwardFD fs 0)’
+  >-
+   (xapp
+    \\ qrefinel [‘emp’, ‘rest’, ‘_’, ‘fs’] \\ xsimpl
+    \\ metis_tac [STDIO_INSTREAM_STR_fastForwardFD_forwardFD])
+  \\ xcon \\ xsimpl
+  \\ simp [std_preludeTheory.OPTION_TYPE_def]
 QED
 
 Theorem inputLine_spec_lines:
@@ -7460,194 +7782,6 @@ Proof
   \\ qexists_tac ‘x+k’
   \\ fs [fsFFIPropsTheory.forwardFD_o]
   \\ xsimpl \\ fs [mllistTheory.foldl_def]
-QED
-
-Theorem consume_rest_spec:
-  ∀s fs fd k.
-    app (p:'ffi ffi_proj) TextIO_consume_rest_v [is]
-      (STDIO (forwardFD fs fd k) * INSTREAM_STR fd is s (forwardFD fs fd k))
-      (POSTv retv. STDIO (fastForwardFD fs fd))
-Proof
-  Induct
-  THEN1
-   (rw[]
-    \\ xcf_with_def TextIO_consume_rest_v_def
-    \\ xlet ‘(POSTv chv.
-          STDIO (fastForwardFD fs fd) *
-          INSTREAM_STR fd is "" (fastForwardFD fs fd) *
-          &OPTION_TYPE CHAR NONE chv)’
-    THEN1
-     (xapp_spec (input1_spec_str |> Q.INST [‘s’|->‘[]’] )
-      \\ qexists_tac ‘emp’
-      \\ qexists_tac ‘forwardFD fs fd k’
-      \\ qexists_tac ‘fd’
-      \\ xsimpl \\ rw [fsFFIPropsTheory.forwardFD_o]
-      \\ irule SEP_IMP_TRANS
-      \\ irule_at Any INSTREAM_STR_fastForwardFD
-      \\ xsimpl)
-    \\ gvs [std_preludeTheory.OPTION_TYPE_def]
-    \\ xmatch \\ xvar \\ fs [INSTREAM_STR_fastForwardFD]
-    \\ xsimpl)
-  \\ rw[]
-  \\ xcf_with_def TextIO_consume_rest_v_def
-  \\ xlet ‘(POSTv chv. SEP_EXISTS k.
-            STDIO (forwardFD fs fd k) *
-            INSTREAM_STR fd is s (forwardFD fs fd k) *
-            &OPTION_TYPE CHAR (SOME h) chv)’
-  THEN1
-   (xapp_spec (input1_spec_str |> Q.INST [‘s’|->‘STRING h s’] )
-    \\ qexists_tac ‘emp’
-    \\ qexists_tac ‘s’
-    \\ qexists_tac ‘h’
-    \\ qexists_tac ‘(forwardFD fs fd k)’
-    \\ qexists_tac ‘fd’
-    \\ xsimpl \\ rw []
-    \\ rw [fsFFIPropsTheory.forwardFD_o]
-    \\ qexists_tac ‘k+x’ \\ xsimpl)
-  \\ gvs [std_preludeTheory.OPTION_TYPE_def]
-  \\ xmatch
-  \\ xapp
-QED
-
-Theorem open_option_SOME_fail:
-  OPTION_TYPE FILENAME (SOME s) fnv ∧ ~inFS_fname fs s ∧ hasFreeFD fs ⇒
-  app (p:'ffi ffi_proj) TextIO_open_option_v [fnv]
-    (STDIO fs)
-    (POSTv retv. STDIO fs * & (OPTION_TYPE a NONE retv))
-Proof
-  rpt strip_tac \\ fs []
-  \\ gvs [std_preludeTheory.OPTION_TYPE_def]
-  \\ rename [‘FILENAME s sv’]
-  \\ xcf_with_def TextIO_open_option_v_def
-  \\ xmatch
-  \\ reverse (xhandle ‘(POSTve
-            (λis.
-                 &(validFD (nextFD fs) (openFileFS s fs ReadMode 0) ∧
-                  inFS_fname fs s) * INSTREAM_BUFFERED_FD [] (nextFD fs) is *
-                 STDIO (openFileFS s fs ReadMode 0))
-            (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs s) * STDIO fs))’)
-  THEN1 (gvs [BadFileName_exn_def] \\ xcases \\ xcon \\ xsimpl)
-  THEN1 (xsimpl)
-  \\ xlet ‘(POSTve
-            (λis.
-                 &(validFD (nextFD fs) (openFileFS s fs ReadMode 0) ∧
-                  inFS_fname fs s) * INSTREAM_BUFFERED_FD [] (nextFD fs) is *
-                 STDIO (openFileFS s fs ReadMode 0))
-            (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs s) * STDIO fs))’
-  THEN1 (xapp_spec openIn_STDIO_spec \\ fs [])
-  \\ xsimpl
-QED
-
-Definition sub_spec_def:
-  sub_spec f p is fd =
-          ∀fs text v.
-            UNIT_TYPE () v ∧ fd ≥ 3 ∧ fd ≤ fs.maxFD ∧ validFileFD fd fs.infds ⇒
-            app (p:'ffi ffi_proj) f [v] (STDIO fs * INSTREAM_STR fd is text fs)
-              (POSTv u.
-                 &(UNIT_TYPE () u ∧ validFileFD fd fs.infds) *
-                 STDIO (fs with infds updated_by ADELKEY fd))
-End
-
-Theorem open_option_SOME:
-  OPTION_TYPE FILENAME (SOME s) fnv ∧ inFS_fname fs s ∧ hasFreeFD fs ∧
-  file_content fs s = SOME text ⇒
-  app (p:'ffi ffi_proj) TextIO_open_option_v [fnv]
-    (STDIO fs)
-    (POSTv retv. SEP_EXISTS is f.
-       STDIO (openFileFS s fs ReadMode 0) *
-       INSTREAM_STR (nextFD fs) is text (openFileFS s fs ReadMode 0) *
-       & (OPTION_TYPE (PAIR_TYPE (λx v. v = is) (λx v. v = f)) (SOME ((),())) retv ∧
-          sub_spec f p is (nextFD fs)))
-Proof
-  rpt strip_tac \\ fs []
-  \\ gvs [std_preludeTheory.OPTION_TYPE_def]
-  \\ rename [‘FILENAME s sv’]
-  \\ xcf_with_def TextIO_open_option_v_def
-  \\ xmatch
-  \\ reverse (xhandle ‘
-    (POSTv retv. SEP_EXISTS is f.
-       STDIO (openFileFS s fs ReadMode 0) *
-       INSTREAM_STR (nextFD fs) is text (openFileFS s fs ReadMode 0) *
-       & (OPTION_TYPE (PAIR_TYPE (λx v. v = is) (λx v. v = f)) (SOME ((),())) retv ∧
-          sub_spec f p is (nextFD fs)))’)
-  THEN1 (xsimpl \\ gvs [std_preludeTheory.OPTION_TYPE_def] \\ rw []
-         \\ first_x_assum $ irule_at Any \\ fs [] \\ xsimpl)
-  \\ drule (GEN_ALL openIn_spec_str)
-  \\ disch_then (drule_at Any) \\ fs []
-  \\ disch_then (assume_tac o SPEC_ALL)
-  \\ xlet_auto THEN1 xsimpl
-  \\ xfun_spec `f` ‘sub_spec f p is (nextFD fs)’
-  THEN1
-   (rw [sub_spec_def] \\ first_x_assum irule
-    \\ gvs [UNIT_TYPE_def]
-    \\ xmatch
-    \\ xapp_spec closeIn_spec_str
-    \\ qexists_tac `emp`
-    \\ qexists_tac `text'`
-    \\ qexists_tac `fs'`
-    \\ qexists_tac `nextFD fs`
-    \\ xsimpl \\ gvs [UNIT_TYPE_def])
-  \\ xlet_auto
-  THEN1 (xcon \\ xsimpl)
-  \\ gvs []
-  \\ xcon
-  \\ xsimpl
-  \\ gvs [std_preludeTheory.OPTION_TYPE_def,PAIR_TYPE_def]
-  \\ xsimpl
-QED
-
-Definition sub_spec_none_def:
-  sub_spec_none f p is =
-          ∀fs text v k.
-            UNIT_TYPE () v ⇒
-            app (p:'ffi ffi_proj) f [v]
-              (STDIO (forwardFD fs 0 k) *
-               INSTREAM_STR 0 is text (forwardFD fs 0 k))
-              (POSTv u. STDIO (fastForwardFD fs 0))
-End
-
-Theorem open_option_NONE:
-  OPTION_TYPE b NONE fnv ∧
-  stdin_content fs = SOME text ⇒
-  app (p:'ffi ffi_proj) TextIO_open_option_v [fnv]
-    (STDIO fs)
-    (POSTv retv. SEP_EXISTS is f.
-       STDIO fs * INSTREAM_STR 0 is text fs *
-       & (OPTION_TYPE (PAIR_TYPE (λx v. v = is) (λx v. v = f)) (SOME ((),())) retv ∧
-          sub_spec_none f p is))
-Proof
-  rpt strip_tac \\ fs []
-  \\ gvs [std_preludeTheory.OPTION_TYPE_def]
-  \\ xcf_with_def TextIO_open_option_v_def
-  \\ xmatch
-  \\ xlet_auto THEN1 (xcon \\ xsimpl)
-  \\ xlet_auto_spec (SOME openStdIn_spec_str)
-  THEN1 xsimpl
-  \\ xfun_spec `f` ‘sub_spec_none f p is’
-  THEN1
-   (rw [sub_spec_none_def] \\ first_x_assum irule
-    \\ gvs [UNIT_TYPE_def]
-    \\ xmatch
-    \\ xapp_spec consume_rest_spec)
-  \\ xlet_auto
-  THEN1 (xcon \\ xsimpl)
-  \\ gvs []
-  \\ xcon
-  \\ xsimpl
-  \\ gvs [std_preludeTheory.OPTION_TYPE_def,PAIR_TYPE_def]
-  \\ xsimpl
-QED
-
-Theorem STDIO_ADELKEY:
-  hasFreeFD fs ⇒
-  STDIO (forwardFD (openFileFS s fs ReadMode 0) (nextFD fs) k with
-   infds updated_by ADELKEY (nextFD fs)) ==>> STDIO fs * GC
-Proof
-  rw []
-  \\ ‘nextFD fs ≤ fs.maxFD’ by (imp_res_tac fsFFIPropsTheory.nextFD_ltX \\ fs [])
-  \\ fs [fsFFIPropsTheory.forwardFD_ADELKEY_same]
-  \\ fs [fsFFIPropsTheory.openFileFS_ADELKEY_nextFD]
-  \\ xsimpl
 QED
 
 Theorem foldChars_SOME:
