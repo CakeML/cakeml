@@ -827,7 +827,7 @@ val r = translate noparse_string_def;
 (* parse_proof with simple wrapper *)
 val parse_proof_full = (append_prog o process_topdecs) `
   fun parse_proof_full f =
-  (case TextIO.inputAllTokensFrom #"\n" f blanks tokenize of
+  (case TextIO.inputAllTokensFile #"\n" f blanks tokenize of
     None => Inl (notfound_string f)
   | Some lines =>
   (case parse_proof_toks lines of
@@ -956,8 +956,8 @@ val check_unsat = (append_prog o process_topdecs) `
   | _ => TextIO.output TextIO.stdErr usage_string`
 
 (* We verify each argument type separately *)
-val inputAllTokensFrom_spec_specialize =
-  inputAllTokensFrom_spec
+val inputAllTokensFile_spec_specialize =
+  inputAllTokensFile_spec
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
   |> Q.GEN `g` |> Q.ISPEC`tokenize`
@@ -1379,7 +1379,7 @@ Proof
                SOME(MAP (MAP tokenize o tokens blanks) (all_lines_file fs f))
              else NONE) sv * STDIO fs)`
   >- (
-    xapp_spec inputAllTokensFrom_spec_specialize >>
+    xapp_spec inputAllTokensFile_spec_specialize >>
     xsimpl>>
     fs[FILENAME_def,validArg_def]>>
     qexists_tac`emp`>>

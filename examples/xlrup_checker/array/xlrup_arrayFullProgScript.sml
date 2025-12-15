@@ -659,8 +659,8 @@ val check_unsat = (append_prog o process_topdecs) `
   | _ => TextIO.output TextIO.stdErr usage_string`
 
 (* We verify each argument type separately *)
-val inputAllTokensFrom_spec_specialize =
-  inputAllTokensFrom_spec
+val inputAllTokensFile_spec_specialize =
+  inputAllTokensFile_spec
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
   |> Q.GEN `g` |> Q.ISPEC`tokenize`

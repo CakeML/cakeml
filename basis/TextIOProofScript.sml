@@ -6892,12 +6892,12 @@ End
 (*   (* TODO: Needs a version of EvalM_from_app that takes two arguments *) *)
 (* QED *)
 
-Theorem inputAllTokensFrom_spec:
+Theorem inputAllTokensFile_spec:
    CHAR c0 c0v ∧
    FILENAME fname fnamev ∧ hasFreeFD fs ∧
    (CHAR --> BOOL) f fv ∧ (STRING_TYPE --> (a:'a->v->bool)) g gv ∧ f c0
    ⇒
-   app (p:'ffi ffi_proj) TextIO_inputAllTokensFrom_v
+   app (p:'ffi ffi_proj) TextIO_inputAllTokensFile_v
      [c0v; fnamev; fv; gv]
      (STDIO fs)
      (POSTv sv. &OPTION_TYPE (LIST_TYPE (LIST_TYPE a))
@@ -6906,7 +6906,7 @@ Theorem inputAllTokensFrom_spec:
              else NONE) sv * STDIO fs)
 Proof
   rpt strip_tac
-  \\ xcf_with_def TextIO_inputAllTokensFrom_v_def
+  \\ xcf_with_def TextIO_inputAllTokensFile_v_def
   \\ reverse (Cases_on `STD_streams fs`)
   >- (fs [STDIO_def] \\ xpull)
   \\ reverse (Cases_on`consistentFS fs`)

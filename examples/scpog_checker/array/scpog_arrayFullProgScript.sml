@@ -59,7 +59,7 @@ val inputLineTokens_specialize =
 (* parse_dimacs_toks with simple wrapper *)
 val parse_dimacs_full = (append_prog o process_topdecs) `
   fun parse_dimacs_full fname =
-  case TextIO.inputAllTokensFrom #"\n" fname blanks tokenize of
+  case TextIO.inputAllTokensFile #"\n" fname blanks tokenize of
     None => Inl (notfound_string fname)
   | Some ls =>
     (case parse_ext_dimacs_toks ls of
@@ -103,7 +103,7 @@ Proof
                SOME (MAP (MAP tokenize ∘ tokens blanks) (all_lines_file_gen #"\n" fs f))
              else NONE) sv * STDIO fs)`
   >- (
-    xapp_spec inputAllTokensFrom_spec>>
+    xapp_spec inputAllTokensFile_spec>>
     simp[blanks_v_thm,tokenize_v_thm]>>
     CONJ_TAC >- EVAL_TAC>>
     gvs[FILENAME_def])>>
@@ -220,8 +220,8 @@ val main = (append_prog o process_topdecs) `
   | _ => TextIO.output TextIO.stdErr usage_string`
 
 (* We verify each argument type separately *)
-val inputAllTokensFrom_spec_specialize =
-  inputAllTokensFrom_spec
+val inputAllTokensFile_spec_specialize =
+  inputAllTokensFile_spec
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
   |> Q.GEN `g` |> Q.ISPEC`tokenize`

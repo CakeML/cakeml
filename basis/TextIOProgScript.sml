@@ -587,7 +587,7 @@ Quote add_cakeml:
 End
 
 Quote add_cakeml:
-  fun inputAllTokensFrom c0 fname f g =
+  fun inputAllTokensFile c0 fname f g =
     let
       val is = openIn fname
       val lines = inputAllTokens c0 is f g
