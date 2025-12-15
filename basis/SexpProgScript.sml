@@ -27,12 +27,17 @@ val _ = ml_prog_update (open_module "Sexp");
 
 (* Temporarily disable full type names to avoid mlsexp_sexp as the exported type name *)
 val _ = with_flag (use_full_type_names, false) register_type “:mlsexp$sexp”;
+val _ = with_flag (use_full_type_names, false) register_type “:mlsexp$str_tree”;
 
 (* Pretty printing function for s-expressions used by the REPL *)
 Quote add_cakeml:
   fun pp_sexp se = case se of
     Atom s => PrettyPrinter.app_block "Atom" [PrettyPrinter.token s]
-  | Expr ses => PrettyPrinter.app_block "Expr" [PrettyPrinter.pp_list pp_sexp ses]
+  | Expr ses => PrettyPrinter.app_block "Expr" [PrettyPrinter.pp_list pp_sexp ses];
+  fun pp_str_tree se = case se of
+    Str s => PrettyPrinter.app_block "Str" [PrettyPrinter.token s]
+  | Grabline s => PrettyPrinter.app_block "Grabline" [pp_str_tree s]
+  | Trees ses => PrettyPrinter.app_block "Trees" [PrettyPrinter.pp_list pp_str_tree ses];
 End
 
 (* We will define two functions to generate s-expressions:
@@ -160,6 +165,50 @@ Quote add_cakeml:
       [] => raise Fail "parse: empty input"
     | (v::_) => v
 End
+
+
+val _ = ml_prog_update open_local_block;
+
+val _ = translate mlsexpTheory.flatten_def;
+val _ = translate mlsexpTheory.get_size_def;
+val _ = translate mlsexpTheory.get_next_size_def;
+val _ = translate mlsexpTheory.remove_all_def;
+val _ = translate mlsexpTheory.smart_remove_def;
+val _ = translate mlsexpTheory.annotate_def;
+val _ = translate mlsexpTheory.newlines_def;
+val _ = translate mlsexpTheory.v2pretty_def;
+val _ = translate mlsexpTheory.str_every_def;
+val _ = translate (mlsexpTheory.is_safe_char_def |> SRULE []);
+val _ = translate mlsexpTheory.make_str_safe_def;
+
+Theorem str_every_side:
+  ∀x n P. n ≤ strlen x ⇒ str_every_side P n x
+Proof
+  Cases \\ fs [] \\ Induct \\ fs []
+  \\ simp [Once (fetch "-" "str_every_side_def")]
+QED
+
+Theorem make_str_safe_side[local]:
+  ∀x. make_str_safe_side x = T
+Proof
+  gvs [fetch "-" "make_str_safe_side_def"] \\ rw []
+  \\ irule_at Any str_every_side \\ fs []
+QED
+
+val _ = update_precondition make_str_safe_side;
+
+val _ = translate mlsexpTheory.sexp_to_app_list_def;
+val _ = translate mlsexpTheory.sexp2tree_def;
+
+val _ = ml_prog_update open_local_in_block;
+
+val _ = next_ml_names := ["str_tree_to_strings"];
+val _ = translate str_tree_to_strs_def;
+
+val _ = next_ml_names := ["toString"];
+val _ = translate mlsexpTheory.sexp_to_string_def;
+val _ = next_ml_names := ["toPrettyString"];
+val _ = translate mlsexpTheory.sexp_to_pretty_string_def;
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);
