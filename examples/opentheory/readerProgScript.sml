@@ -13,7 +13,7 @@ Libs
 val _ = m_translation_extends "reader_commonProg"
 
 (* -------------------------------------------------------------------------
- * Reading lines into commands
+ * Translation
  * ------------------------------------------------------------------------- *)
 
 val r = translate is_newline_def;
@@ -40,10 +40,14 @@ Quote add_cakeml:
     in
       case CommandLine.arguments () of
         [] => read_from None
-      | [file] => read_file (Some file)
+      | [file] => read_from (Some file)
       | _ => TextIO.output TextIO.stdErr msg_usage
       end
 End
+
+(* -------------------------------------------------------------------------
+ * Proofs
+ * ------------------------------------------------------------------------- *)
 
 
 Theorem POSTve_POSTv[local]:
@@ -92,6 +96,18 @@ Proof
   cheat
 QED
 
+Theorem read_from_SOME_fail:
+  OPTION_TYPE FILENAME (SOME fn) fnv ∧ hasFreeFD fs ∧ ¬inFS_fname fs fn
+  ⇒
+  app (p: 'ffi ffi_proj) read_from_v [fnv]
+    (STDIO fs * HOL_STORE refs)
+    (POSTv u.
+      &UNIT_TYPE () u *
+      STDIO (FST (add_stderr fs (msg_bad_name fn), refs, NONE)))
+Proof
+  cheat
+QED
+
 Theorem inputAllTokensFrom_NONE_specialized:
   OPTION_TYPE FILENAME NONE fnv ∧ stdin_content fs = SOME text
   ⇒
@@ -122,81 +138,6 @@ Theorem read_from_NONE:
 Proof
   cheat
 QED
-
-(* Theorem read_file_spec: *)
-(*   FILENAME fnm fnv ∧ *)
-(*   hasFreeFD fs ⇒ *)
-(*     app (p: 'ffi ffi_proj) read_file_v [fnv] *)
-(*       (STDIO fs * HOL_STORE refs) *)
-(*       (POSTv u. *)
-(*         &UNIT_TYPE () u * *)
-(*         STDIO (FST (read_file fs refs fnm)) * *)
-(*         HOL_STORE (FST (SND (read_file fs refs fnm)))) *)
-(* Proof *)
-(*   strip_tac *)
-(*   \\ xcf_with_def (fetch "-" "read_file_v_def") *)
-(*   \\ reverse (Cases_on `STD_streams fs`) *)
-(*   >- (fs [TextIOProofTheory.STDIO_def] \\ xpull) *)
-(*   \\ reverse (Cases_on`consistentFS fs`) *)
-(*   >- (fs [STDIO_def,IOFS_def,wfFS_def,consistentFS_def] \\ xpull \\ metis_tac[]) *)
-(*   \\ assume_tac init_state_v_thm *)
-(*   \\ xlet ‘POSTv sv. *)
-(*              &OPTION_TYPE (LIST_TYPE (LIST_TYPE READER_COMMAND_TYPE)) *)
-(*                (if inFS_fname fs fnm then *)
-(*                   SOME (MAP (MAP tokenize ∘ tokens is_newline) *)
-(*                             (all_lines_file fs fnm)) *)
-(*                 else *)
-(*                   NONE) sv * *)
-(*              STDIO fs * *)
-(*              HOL_STORE refs’ *)
-(*   >- *)
-(*    (xapp_spec inputAllTokensFile_spec2 *)
-(*     \\ instantiate *)
-(*     \\ xsimpl) *)
-(*   \\ simp [read_file_def] *)
-(*   \\ reverse IF_CASES_TAC \\ fs [OPTION_TYPE_def] *)
-(*   >- *)
-(*    (xmatch *)
-(*     \\ xlet_auto >- xsimpl *)
-(*     \\ xapp_spec output_stderr_spec *)
-(*     \\ instantiate *)
-(*     \\ Q.LIST_EXISTS_TAC [‘HOL_STORE refs’, ‘fs’] *)
-(*     \\ xsimpl) *)
-(*   \\ xmatch *)
-(*   \\ CASE_TAC \\ fs [] *)
-(*   \\ CASE_TAC \\ CASE_TAC \\ fs [] *)
-(*   >- *)
-(*    (qmatch_goalsub_abbrev_tac ‘$POSTv Q’ *)
-(*     \\ xhandle ‘$POSTv Q’ \\ xsimpl *)
-(*     \\ qunabbrev_tac ‘Q’ *)
-(*     \\ xlet_auto >- xsimpl *)
-(*     \\ xlet_auto \\ xsimpl *)
-(*     \\ xlet_auto >- xsimpl *)
-(*     \\ xlet_auto >- (xcon \\ xsimpl) *)
-(*     \\ rveq \\ fs [] *)
-(*     \\ rename1 ‘(M_success _, refs1)’ *)
-(*     \\ drule_then (qspecl_then [‘p’, ‘refs1’] strip_assume_tac) context_spec *)
-(*     \\ xlet_auto >- xsimpl *)
-(*     \\ xlet_auto >- xsimpl *)
-(*     \\ rveq \\ fs [] *)
-(*     \\ xapp *)
-(*     \\ instantiate *)
-(*     \\ Q.LIST_EXISTS_TAC [‘HOL_STORE refs'’, ‘fs’] *)
-(*     \\ xsimpl) *)
-(*   \\ xhandle ‘POSTe ev. *)
-(*                 &HOL_EXN_TYPE (Failure m) ev * *)
-(*                 HOL_STORE r * *)
-(*                 STDIO fs’ *)
-(*   >- *)
-(*    (xlet_auto \\ xsimpl *)
-(*     \\ xlet_auto \\ xsimpl) *)
-(*   \\ fs [HOL_EXN_TYPE_def] *)
-(*   \\ xcases *)
-(*   \\ xapp_spec output_stderr_spec *)
-(*   \\ instantiate *)
-(*   \\ Q.LIST_EXISTS_TAC [‘HOL_STORE r’, ‘fs’] *)
-(*   \\ xsimpl *)
-(* QED *)
 
 Theorem init_reader_spec:
   ∀uv state.
@@ -236,17 +177,17 @@ Proof
   >- xsimpl
   \\ fs [input_exists_def]
   \\ simp [reader_main_def]
+  \\ rename [‘init_reader _ _ = (_, refs')’]
   \\ CASE_TAC \\ fs []
   >-
    (fs [LIST_TYPE_def]
     \\ xmatch
     \\ xlet_auto >- (xcon \\ xsimpl)
-
-    \\ xapp
-    \\ simp [PULL_EXISTS]
-    \\ goal_assum (first_assum o mp_then Any mp_tac) \\ fs []
-    \\ Q.LIST_EXISTS_TAC [‘COMMANDLINE cl’, ‘refs'’]
+    \\ xapp \\ simp [PULL_EXISTS]
+    \\ qexistsl [‘COMMANDLINE cl’, ‘refs'’, ‘fs’, ‘inp’]
+    \\ fs [stdin_def, stdin_content_def, OPTION_TYPE_def]
     \\ xsimpl)
+  \\ rename [‘TL _ = h::t’]
   \\ Cases_on `t` \\ fs [LIST_TYPE_def]
   >-
    (Cases_on ‘h’ \\ fs [STRING_TYPE_def] \\ rveq
@@ -254,13 +195,21 @@ Proof
     \\ xmatch
     \\ IF_CASES_TAC >- (pop_assum mp_tac \\ EVAL_TAC)
     \\ reverse conj_tac >- (EVAL_TAC \\ fs [])
-    \\ xapp
-    \\ simp [PULL_EXISTS]
-    \\ goal_assum (first_assum o mp_then Any mp_tac) \\ fs []
-    \\ rename1 ‘StrLit ss’
+    \\ xlet_auto >- (xcon \\ xsimpl)
+    \\ IF_CASES_TAC
+    >-
+     (xapp_spec read_from_SOME_fail
+      \\ first_assum $ irule_at (Pos hd)
+      \\ fs [OPTION_TYPE_def, FILENAME_def, wfcl_def, validArg_def]
+      \\ qmatch_goalsub_abbrev_tac ‘COMMANDLINE cl’
+      \\ qexistsl [‘refs'’, ‘COMMANDLINE cl’]
+      \\ xsimpl)
+    \\ fs []
+    \\ xapp_spec read_from_SOME
+    \\ qpat_assum ‘inFS_fname _ _’ $ irule_at Any
+    \\ fs [OPTION_TYPE_def, FILENAME_def, wfcl_def, validArg_def]
     \\ qmatch_goalsub_abbrev_tac ‘COMMANDLINE cl’
-    \\ Q.LIST_EXISTS_TAC [‘COMMANDLINE cl’, ‘refs'’, ‘strlit ss’]
-    \\ fs [FILENAME_def, wfcl_def, validArg_def, Abbr ‘cl’]
+    \\ qexistsl [‘refs'’, ‘COMMANDLINE cl’]
     \\ xsimpl)
   \\ rveq \\ fs []
   \\ rename1 ‘TL cl = x1::x2::x3’
@@ -289,7 +238,7 @@ Proof
   \\ qexists_tac ‘fs1’ \\ qunabbrev_tac ‘fs1’
   \\ reverse conj_tac
   >-
-   (fs [reader_main_def, read_stdin_def, read_file_def]
+   (fs [reader_main_def, read_from_def]
     \\ rpt (PURE_CASE_TAC \\ fs [])
     \\ fs [GSYM add_stdo_with_numchars, with_same_numchars]
     \\ metis_tac [fastForwardFD_with_numchars, with_same_numchars])
