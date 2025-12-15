@@ -5399,6 +5399,20 @@ Definition lines_of_gen_def:
     MAP (λx. implode x ^ (str c0)) (splitlines_at c0 (explode s))
 End
 
+(* TODO Maybe splitlines should be defined exactly like this. *)
+Theorem splitlines_at_splitlines:
+  splitlines_at #"\n" s = splitlines s
+Proof
+  simp [splitlines_at_def, splitlines_def]
+QED
+
+(* TODO Maybe lines_of should be defined exactly like this. *)
+Theorem lines_of_gen_lines_of:
+  lines_of_gen #"\n" s = lines_of s
+Proof
+  simp [lines_of_gen_def, lines_of_def, splitlines_at_splitlines, str_def]
+QED
+
 Definition INSTREAM_LINES_def:
   INSTREAM_LINES c0 fd is (lines:mlstring list) fs =
     SEP_EXISTS rest.
