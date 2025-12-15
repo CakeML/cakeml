@@ -69,7 +69,7 @@ val parse_dimacs_full = (append_prog o process_topdecs) `
 Definition get_prob_def:
   get_prob fs f =
   if inFS_fname fs f then
-    parse_ext_dimacs_toks (MAP toks (all_lines fs f))
+    parse_ext_dimacs_toks (MAP toks (all_lines_file fs f))
   else NONE
 End
 
@@ -100,7 +100,7 @@ Proof
   xlet`(POSTv sv.
           &OPTION_TYPE (LIST_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)))
             (if inFS_fname fs f then
-               SOME (MAP (MAP tokenize ∘ tokens blanks) (all_lines_gen #"\n" fs f))
+               SOME (MAP (MAP tokenize ∘ tokens blanks) (all_lines_file_gen #"\n" fs f))
              else NONE) sv * STDIO fs)`
   >- (
     xapp_spec inputAllTokensFrom_spec>>
@@ -232,7 +232,7 @@ val inputAllTokensFrom_spec_specialize =
 Definition get_scpog_def:
   get_scpog fs f =
   if inFS_fname fs f then
-    parse_scpsteps (all_lines fs f)
+    parse_scpsteps (all_lines_file fs f)
   else NONE
 End
 

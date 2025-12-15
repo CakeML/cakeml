@@ -203,7 +203,7 @@ Theorem get_files_contents_spec:
         (\strings_v.
           STDIO fs *
           &(LIST_TYPE STRING_TYPE
-            (REVERSE (FLAT (MAP (all_lines fs) fnames))
+            (REVERSE (FLAT (MAP (all_lines_file fs) fnames))
               ++ (MAP implode acc))
              strings_v ∧
             EVERY (inFS_fname fs) fnames))
@@ -277,7 +277,7 @@ Definition valid_sort_result_def:
           (lines_of (implode (THE(ALOOKUP init_fs.inode_tbl (UStream(strlit"stdin"))))),
            fastForwardFD init_fs 0)
         else
-          (FLAT (MAP (all_lines init_fs) (TL cl)), init_fs)
+          (FLAT (MAP (all_lines_file init_fs) (TL cl)), init_fs)
       in
         ∃output.
         PERM output lines ∧
@@ -359,7 +359,7 @@ Proof
   qabbrev_tac `fnames = TL cl` >>
   qabbrev_tac `lines = if LENGTH cl ≤ 1 then
     lines_of (implode (THE (ALOOKUP fs.inode_tbl (UStream (strlit "stdin")))))
-    else FLAT (MAP (all_lines fs) fnames)` >>
+    else FLAT (MAP (all_lines_file fs) fnames)` >>
   reverse(Cases_on`wfcl cl`) >- (fs[COMMANDLINE_def] \\ xpull) >>
   fs[wfcl_def] >>
   reverse(Cases_on`MEM (UStream(strlit"stdin")) (MAP FST fs.inode_tbl)`)
@@ -434,7 +434,7 @@ Proof
       simp[linesFD_def,inFS_fname_def,INSTREAM_def,
            FD_def,stdin_v_thm,GSYM stdIn_def] \\
       rw[STD_streams_get_mode] \\
-      fs[get_file_content_def,all_lines_def,lines_of_def,Abbr`lines`] \\
+      fs[get_file_content_def,all_lines_file_def,lines_of_def,Abbr`lines`] \\
       pairarg_tac \\ fs[] \\
       `ino = UStream(strlit"stdin")` by metis_tac[STD_streams_def,PAIR_EQ,SOME_11] \\
       rw[] \\

@@ -5869,18 +5869,18 @@ QED
 Overload all_lines_inode_gen =
   ``λc0 fs ino. lines_of_gen c0 (implode (THE (ALOOKUP fs.inode_tbl ino)))``
 
-Definition all_lines_gen_def:
-  all_lines_gen c0 fs fname =
+Definition all_lines_file_gen_def:
+  all_lines_file_gen c0 fs fname =
     all_lines_inode_gen c0 fs (File (THE(ALOOKUP fs.files fname)))
 End
 
 (* end TODO: copied from fsFFIProps *)
 
-Theorem all_lines_gen_all_lines[simp]:
-  all_lines_gen #"\n" fs f =
-  all_lines fs f
+Theorem all_lines_file_gen_all_lines_file[simp]:
+  all_lines_file_gen #"\n" fs f =
+  all_lines_file fs f
 Proof
-  rw[all_lines_def,all_lines_gen_def,lines_of_def,lines_of_gen_def,
+  rw[all_lines_file_def,all_lines_file_gen_def,lines_of_def,lines_of_gen_def,
      splitlines_at_def,splitlines_def,str_def]
 QED
 
@@ -5890,7 +5890,7 @@ Theorem openIn_spec_lines:
      (STDIO fs)
      (POSTv is.
         STDIO (openFileFS s fs ReadMode 0) *
-        INSTREAM_LINES c0 (nextFD fs) is (all_lines_gen c0 fs s)
+        INSTREAM_LINES c0 (nextFD fs) is (all_lines_file_gen c0 fs s)
           (openFileFS s fs ReadMode 0))
 Proof
   reverse (Cases_on `consistentFS fs`) THEN1
@@ -5901,7 +5901,7 @@ Proof
   \\ mp_tac (GEN_ALL openIn_spec_str)
   \\ rpt (disch_then drule) \\ fs []
   \\ rpt (disch_then drule)
-  \\ fs [all_lines_gen_def,file_content_def]
+  \\ fs [all_lines_file_gen_def,file_content_def]
   \\ drule fsFFIPropsTheory.inFS_fname_ALOOKUP_EXISTS
   \\ disch_then drule \\ strip_tac \\ fs []
   \\ rename [`_ = SOME content`]
@@ -6902,7 +6902,7 @@ Theorem inputAllTokensFrom_spec:
      (STDIO fs)
      (POSTv sv. &OPTION_TYPE (LIST_TYPE (LIST_TYPE a))
             (if inFS_fname fs fname then
-               SOME(MAP (MAP g o tokens f) (all_lines_gen c0 fs fname))
+               SOME(MAP (MAP g o tokens f) (all_lines_file_gen c0 fs fname))
              else NONE) sv * STDIO fs)
 Proof
   rpt strip_tac
@@ -6926,11 +6926,11 @@ Proof
                 STDIO (fastForwardFD fs1 (nextFD fs)) *
                 INSTREAM_LINES c0 (nextFD fs) is [] (fastForwardFD fs1 (nextFD fs)) *
                 & LIST_TYPE (LIST_TYPE a)
-                    (MAP (MAP g o tokens f) (all_lines_gen c0 fs fname)) v)`
+                    (MAP (MAP g o tokens f) (all_lines_file_gen c0 fs fname)) v)`
   THEN1
    (xapp_spec inputAllTokens_spec
     \\ rpt (first_x_assum (irule_at Any))
-    \\ qexists_tac `all_lines_gen c0 fs fname`
+    \\ qexists_tac `all_lines_file_gen c0 fs fname`
     \\ qexists_tac `fs1`
     \\ qexists_tac `nextFD fs`
     \\ qexists_tac `emp`
@@ -7100,7 +7100,7 @@ Theorem inputLinesFrom_spec:
      (STDIO fs)
      (POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
             (if inFS_fname fs f then
-               SOME(all_lines_gen c0 fs f)
+               SOME(all_lines_file_gen c0 fs f)
              else NONE) sv
              * STDIO fs)
 Proof
@@ -7124,11 +7124,11 @@ Proof
   \\ xlet `(POSTv v.
                 STDIO (fastForwardFD fs1 (nextFD fs)) *
                 INSTREAM_LINES c0 (nextFD fs) is [] (fastForwardFD fs1 (nextFD fs)) *
-                & LIST_TYPE STRING_TYPE (all_lines_gen c0 fs f) v)`
+                & LIST_TYPE STRING_TYPE (all_lines_file_gen c0 fs f) v)`
   THEN1
    (xapp_spec inputLines_spec
     \\ qexists_tac `emp`
-    \\ qexists_tac `all_lines_gen c0 fs f`
+    \\ qexists_tac `all_lines_file_gen c0 fs f`
     \\ qexists_tac `fs1`
     \\ qexists_tac `nextFD fs`
     \\ qexists_tac `c0`

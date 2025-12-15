@@ -1026,10 +1026,10 @@ End
 Overload all_lines_inode =
   ``λfs ino. lines_of (implode (THE (ALOOKUP fs.inode_tbl ino)))``
 
-(* all_lines: get all the lines based on filename *)
+(* all_lines_file: get all the lines based on filename *)
 
-Definition all_lines_def:
-  all_lines fs fname =
+Definition all_lines_file_def:
+  all_lines_file fs fname =
     all_lines_inode fs (File (THE(ALOOKUP fs.files fname)))
 End
 
@@ -1065,25 +1065,25 @@ Proof
     qpat_x_assum`strlit [] = _`mp_tac \\ EVAL_TAC )
 QED
 
-Theorem concat_all_lines:
-   concat (all_lines fs fname) = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname))))) ∨
-   concat (all_lines fs fname) = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname))))) ^ str #"\n"
+Theorem concat_all_lines_file:
+   concat (all_lines_file fs fname) = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname))))) ∨
+   concat (all_lines_file fs fname) = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname))))) ^ str #"\n"
 Proof
-  fs [all_lines_def,concat_lines_of]
+  fs [all_lines_file_def,concat_lines_of]
 QED
 
-Theorem all_lines_with_numchars:
-   all_lines (fs with numchars := ns) = all_lines fs
+Theorem all_lines_file_with_numchars:
+   all_lines_file (fs with numchars := ns) = all_lines_file fs
 Proof
-  rw[FUN_EQ_THM,all_lines_def]
+  rw[FUN_EQ_THM,all_lines_file_def]
 QED
 
 Theorem linesFD_openFileFS_nextFD:
    consistentFS fs ∧ inFS_fname fs f ∧ nextFD fs ≤ fs.maxFD ⇒
-   linesFD (openFileFS f fs md 0) (nextFD fs) = MAP explode (all_lines fs f)
+   linesFD (openFileFS f fs md 0) (nextFD fs) = MAP explode (all_lines_file fs f)
 Proof
   rw[linesFD_def,get_file_content_def,ALOOKUP_inFS_fname_openFileFS_nextFD]
-  \\ rw[all_lines_def,lines_of_def]
+  \\ rw[all_lines_file_def,lines_of_def]
   \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS
   \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
   \\ fs[MAP_MAP_o,o_DEF,GSYM mlstringTheory.implode_STRCAT]

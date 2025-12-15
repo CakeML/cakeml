@@ -73,7 +73,7 @@ QED
 Definition get_graph_lad_def:
   get_graph_lad fs f =
   if inFS_fname fs f then
-    case parse_lad (all_lines fs f) of
+    case parse_lad (all_lines_file fs f) of
       NONE => NONE
     | SOME g =>
       if good_graph g then
@@ -104,7 +104,7 @@ Proof
     \\ xpull \\ metis_tac[]) >>
   xlet`(POSTv sv. &OPTION_TYPE (LIST_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE NUM)))
             (if inFS_fname fs f then
-               SOME(MAP (MAP tokenize_num o tokens blanks) (all_lines fs f))
+               SOME(MAP (MAP tokenize_num o tokens blanks) (all_lines_file fs f))
              else NONE) sv * STDIO fs)`
   >- (
     xapp_spec inputAllTokensFrom_spec_specialize >>
@@ -124,7 +124,7 @@ Proof
   xlet_autop>>
   `toks_num = (MAP tokenize_num ∘ tokens blanks)` by
     metis_tac[toks_num_def,ETA_AX,o_DEF]>>
-  Cases_on`parse_lad (all_lines fs f)`>>
+  Cases_on`parse_lad (all_lines_file fs f)`>>
   gvs[parse_lad_def,OPTION_TYPE_def]
   >- (
     xmatch >>
@@ -168,7 +168,7 @@ val parse_dimacs = (append_prog o process_topdecs) `
 Definition get_graph_dimacs_def:
   get_graph_dimacs fs f =
   if inFS_fname fs f then
-    parse_dimacs (all_lines fs f)
+    parse_dimacs (all_lines_file fs f)
   else NONE
 End
 
@@ -194,7 +194,7 @@ Proof
     \\ xpull \\ metis_tac[]) >>
   xlet`(POSTv sv. &OPTION_TYPE (LIST_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE NUM)))
             (if inFS_fname fs f then
-               SOME(MAP (MAP tokenize_num o tokens blanks) (all_lines fs f))
+               SOME(MAP (MAP tokenize_num o tokens blanks) (all_lines_file fs f))
              else NONE) sv * STDIO fs)`
   >- (
     xapp_spec inputAllTokensFrom_spec_specialize >>
@@ -214,7 +214,7 @@ Proof
   xlet_autop>>
   `toks_num = (MAP tokenize_num ∘ tokens blanks)` by
     metis_tac[toks_num_def,ETA_AX,o_DEF]>>
-  Cases_on`parse_dimacs (all_lines fs f)`>>
+  Cases_on`parse_dimacs (all_lines_file fs f)`>>
   gvs[parse_dimacs_def,OPTION_TYPE_def]
   >- (
     xmatch >>

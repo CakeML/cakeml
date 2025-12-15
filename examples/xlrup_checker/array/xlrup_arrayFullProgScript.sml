@@ -390,7 +390,7 @@ Theorem parse_full_spec:
     & (∃err. (SUM_TYPE STRING_TYPE (PAIR_TYPE NUM (PAIR_TYPE NUM
         (PAIR_TYPE LL_LIT_TYPE (PAIR_TYPE LL_LIT_TYPE L_BNN_TYPE))))
     (if inFS_fname fs f then
-    (case parse_cnf_ext_toks (MAP toks (all_lines fs f)) of
+    (case parse_cnf_ext_toks (MAP toks (all_lines_file fs f)) of
       NONE => INL err
     | SOME x => INR x)
     else INL err) v)) * STDIO fs)
@@ -606,7 +606,7 @@ val check_unsat_1 = (append_prog o process_topdecs) `
 Definition check_unsat_1_sem_def:
   check_unsat_1_sem fs f1 err =
   if inFS_fname fs f1 then
-    (case parse_cnf_ext (all_lines fs f1) of
+    (case parse_cnf_ext (all_lines_file fs f1) of
       NONE => add_stderr fs err
     | SOME fml => add_stdout fs (concat (print_cnf_ext fml)))
   else add_stderr fs err
@@ -671,12 +671,12 @@ val inputAllTokensFrom_spec_specialize =
 Definition check_unsat_2_sem_def:
   check_unsat_2_sem fs f1 f2 err =
   if inFS_fname fs f1 then
-  (case parse_cnf_ext_toks (MAP toks (all_lines fs f1)) of
+  (case parse_cnf_ext_toks (MAP toks (all_lines_file fs f1)) of
     NONE => add_stderr fs err
   | SOME (mv,ncl,cfml,xfml,bfml) =>
     let cfml = conv_cfml cfml in
     if inFS_fname fs f2 then
-      case parse_xlrups (all_lines fs f2) of
+      case parse_xlrups (all_lines_file fs f2) of
         SOME xlrups =>
         let cfmlls = enumerate 1 cfml in
         let base = REPLICATE (2*ncl) NONE in
@@ -718,7 +718,7 @@ Proof
 QED
 
 Theorem parse_cnf_ext_toks_bound:
-  parse_cnf_ext_toks (MAP toks (all_lines fs f1)) =
+  parse_cnf_ext_toks (MAP toks (all_lines_file fs f1)) =
     SOME (vars,ncx,cacc,xacc) ⇒
   EVERY (EVERY (λl. var_lit l ≤ vars)) cacc
 Proof
@@ -869,7 +869,7 @@ Proof
     SEP_EXISTS err.
      &SUM_TYPE STRING_TYPE BOOL
       (if inFS_fname fs f2 then
-         (case parse_xlrups (all_lines fs f2) of
+         (case parse_xlrups (all_lines_file fs f2) of
             NONE => INL err
           | SOME xlrups =>
             (case check_xlrups_list xfml bfml xlrups a b c d e f of

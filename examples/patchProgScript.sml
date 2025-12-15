@@ -138,7 +138,7 @@ Theorem patch'_spec:
        STDIO
        (if inFS_fname fs f1 then
         if inFS_fname fs f2 then
-        case patch_alg (all_lines fs f2) (all_lines fs f1) of
+        case patch_alg (all_lines_file fs f2) (all_lines_file fs f1) of
         | NONE => add_stderr fs rejected_patch_string
         | SOME s => add_stdout fs (concat s)
         else add_stderr fs (notfound_string f2)
@@ -174,8 +174,8 @@ Definition patch_sem_def:
     if (LENGTH cl = 3) then
     if inFS_fname fs (EL 1 cl) then
     if inFS_fname fs (EL 2 cl) then
-     case patch_alg (all_lines fs (EL 2 cl))
-                    (all_lines fs (EL 1 cl)) of
+     case patch_alg (all_lines_file fs (EL 2 cl))
+                    (all_lines_file fs (EL 1 cl)) of
        NONE => add_stderr fs (rejected_patch_string)
      | SOME s => add_stdout fs (concat s)
     else add_stderr fs (notfound_string (EL 2 cl))

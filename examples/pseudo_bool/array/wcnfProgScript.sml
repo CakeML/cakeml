@@ -190,7 +190,7 @@ Theorem parse_wcnf_full_spec:
     & (∃err. (SUM_TYPE STRING_TYPE
       (LIST_TYPE (PAIR_TYPE NUM (LIST_TYPE INT)))
     (if inFS_fname fs f then
-    (case parse_wcnf (all_lines fs f) of
+    (case parse_wcnf (all_lines_file fs f) of
       NONE => INL err
     | SOME x => INR x)
     else INL err) v)) * STDIO fs)
@@ -297,7 +297,7 @@ val parse_and_enc = (append_prog o process_topdecs) `
 Definition get_fml_def:
   get_fml fs f =
   if inFS_fname fs f then
-    parse_wcnf (all_lines fs f)
+    parse_wcnf (all_lines_file fs f)
   else NONE
 End
 

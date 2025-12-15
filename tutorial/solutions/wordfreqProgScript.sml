@@ -341,9 +341,9 @@ Proof
   (* now let us unabbreviate xxxx and yyyy *)
   map_every qunabbrev_tac[`xxxx`,`yyyy`] \\ simp[] \\
 
-  (* EXERCISE: use the lemmas above to finish the proof, see also all_lines_def *)
+  (* EXERCISE: use the lemmas above to finish the proof, see also all_lines_file_def *)
   (*ex *)
-  metis_tac[all_lines_def,wordfreq_output_valid,wordfreq_output_spec_def,valid_wordfreq_output_unique]
+  metis_tac[all_lines_file_def,wordfreq_output_valid,wordfreq_output_spec_def,valid_wordfreq_output_unique]
   (* ex*)
 QED
 

@@ -287,7 +287,7 @@ Proof
          \\ first_assum $ irule_at (Pos hd) \\ fs []
          \\ first_assum $ irule_at (Pos hd) \\ fs []
          \\ xsimpl
-         \\ fs [file_content_def,AllCaseEqs(),inFS_fname_def,all_lines_def]
+         \\ fs [file_content_def,AllCaseEqs(),inFS_fname_def,all_lines_file_def]
          \\ fs [std_preludeTheory.OPTION_TYPE_def,implode_def])
   \\ fs [std_preludeTheory.OPTION_TYPE_def,implode_def]
   \\ xmatch

@@ -1686,7 +1686,7 @@ Definition read_file_def:
     (if inFS_fname fs fnm then
        (case readLines init_state
              (FLAT (MAP (MAP tokenize o tokens is_newline)
-                   (all_lines fs fnm))) refs of
+                   (all_lines_file fs fnm))) refs of
         | (M_success (s,_), refs) =>
             (add_stdout fs (concat (append (msg_success s refs.the_context))),
              refs, SOME s)

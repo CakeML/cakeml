@@ -303,7 +303,7 @@ Theorem wordfreq_spec:
   (* now let us unabbreviate xxxx and yyyy *)
   map_every qunabbrev_tac[`xxxx`,`yyyy`] \\ simp[] \\
 
-  (* EXERCISE: use the lemmas above to finish the proof, see also all_lines_def *)
+  (* EXERCISE: use the lemmas above to finish the proof, see also all_lines_file_def *)
 QED
 
 (* Finally, we package the verified program up with the following boilerplate *)

@@ -41,7 +41,7 @@ Theorem inputLinesFromAny_spec:
     (POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
       (if IS_SOME fo ⇒ inFS_fname fs (THE fo)
        then SOME (case fo of NONE => all_lines_inode fs (UStream(strlit"stdin"))
-                           | SOME f => all_lines fs f)
+                           | SOME f => all_lines_file fs f)
        else NONE) sv * STDIO (if IS_SOME fo then fs else fastForwardFD fs 0))
 Proof
   rpt strip_tac
@@ -69,7 +69,7 @@ Proof
     >- (
       xcon
       \\ xsimpl
-      \\ simp[all_lines_def]
+      \\ simp[all_lines_file_def]
       \\ fs[get_file_content_def]
       \\ fs[STD_streams_def]
       \\ last_x_assum(qspecl_then[`0`,`ReadMode`,`inp`]mp_tac)
@@ -226,7 +226,7 @@ Proof
   simp[mlintTheory.toString_thm,integerTheory.INT_ABS_NUM] \\
   rveq \\
   reverse conj_tac >- (
-    simp[all_lines_def,lines_of_def] \\
+    simp[all_lines_file_def,lines_of_def] \\
     fs[Abbr`fo`]
     \\ fs[wordcount_precond_def]
     \\ Cases_on`cl` \\ fs[wfcl_def]
@@ -239,7 +239,7 @@ Proof
   \\ Cases_on`cl` \\ fs[wfcl_def]
   \\ Cases_on`t` \\ fs[]
   \\ TRY (Cases_on`t'` \\ fs[])
-  \\ simp[all_lines_def,splitwords_lines_of,splitwords_def, mlstringTheory.TOKENS_eq_tokens_sym]
+  \\ simp[all_lines_file_def,splitwords_lines_of,splitwords_def, mlstringTheory.TOKENS_eq_tokens_sym]
 QED
 
 Theorem wordcount_whole_prog_spec:

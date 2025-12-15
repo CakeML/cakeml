@@ -3019,7 +3019,7 @@ Theorem check_unsat'_spec:
     SEP_EXISTS err.
       &(SUM_TYPE STRING_TYPE BOOL)
       (if inFS_fname fs f then
-        (case parse_xlrups (all_lines fs f) of
+        (case parse_xlrups (all_lines_file fs f) of
          SOME xlrup =>
            (case check_xlrups_list xorig borig xlrup
              cfmlls xfmlls bfmlls tn def (REPLICATE n w8z) of
@@ -3069,7 +3069,7 @@ Proof
     ARRAY bfmlv' bfmllsv' *
     &(
       case
-        parse_and_run_file_list (all_lines fs f) xorig borig
+        parse_and_run_file_list (all_lines_file fs f) xorig borig
           cfmlls xfmlls bfmlls tn def (REPLICATE n w8z)
       of
         NONE => resv =
@@ -3094,7 +3094,7 @@ Proof
           ARRAY cfmlv cfmllsv *
           ARRAY xfmlv xfmllsv *
           ARRAY bfmlv bfmllsv *
-          &(Fail_exn e ∧ parse_and_run_file_list (all_lines fs f) xorig borig
+          &(Fail_exn e ∧ parse_and_run_file_list (all_lines_file fs f) xorig borig
             cfmlls xfmlls bfmlls tn def Clist = NONE)`
       >- (
         (* this used to be an xauto_let .. sigh *)
@@ -3105,14 +3105,14 @@ Proof
            ARRAY cfmlv cfmllsv *
            ARRAY xfmlv xfmllsv *
            ARRAY bfmlv bfmllsv *
-           &(Fail_exn e ∧ parse_and_run_file_list (all_lines fs f) xorig borig
+           &(Fail_exn e ∧ parse_and_run_file_list (all_lines_file fs f) xorig borig
             cfmlls xfmlls bfmlls tn def Clist = NONE)`
         THEN1
          (xapp_spec check_unsat''_spec
           \\ xsimpl
           \\ rpt (first_x_assum (irule_at Any))
           \\ xsimpl \\ fs [Abbr`Clist`]
-          \\ qexists_tac `all_lines fs f`
+          \\ qexists_tac `all_lines_file fs f`
           \\ qexists_tac `fss`
           \\ qexists_tac `nextFD fs`
           \\ qexists_tac `emp`
@@ -3166,15 +3166,15 @@ Proof
            ARRAY v3 bfmllsv' *
            &(unwrap_TYPE
              (λv fv. LIST_REL (OPTION_TYPE lit_list_TYPE) (FST v) fv)
-                (parse_and_run_file_list (all_lines fs f) xorig borig
+                (parse_and_run_file_list (all_lines_file fs f) xorig borig
                   cfmlls xfmlls bfmlls tn def Clist) cfmllsv' ∧
              unwrap_TYPE
              (λv fv. LIST_REL (OPTION_TYPE strxor_TYPE) (FST (SND v)) fv)
-                (parse_and_run_file_list (all_lines fs f) xorig borig
+                (parse_and_run_file_list (all_lines_file fs f) xorig borig
                   cfmlls xfmlls bfmlls tn def Clist) xfmllsv'  ∧
              unwrap_TYPE
              (λv fv. LIST_REL (OPTION_TYPE ibnn_TYPE) (SND (SND v)) fv)
-                (parse_and_run_file_list (all_lines fs f) xorig borig
+                (parse_and_run_file_list (all_lines_file fs f) xorig borig
                   cfmlls xfmlls bfmlls tn def Clist) bfmllsv'
             )))`
     >- (
@@ -3191,19 +3191,19 @@ Proof
                       (λv fv.
                            LIST_REL (OPTION_TYPE lit_list_TYPE)
                              (FST v) fv)
-                        (parse_and_run_file_list (all_lines fs f) xorig borig
+                        (parse_and_run_file_list (all_lines_file fs f) xorig borig
                           cfmlls xfmlls bfmlls tn def Clist) cfmllsv' ∧
                       unwrap_TYPE
                       (λv fv.
                            LIST_REL (OPTION_TYPE strxor_TYPE)
                              (FST (SND v)) fv)
-                        (parse_and_run_file_list (all_lines fs f) xorig borig
+                        (parse_and_run_file_list (all_lines_file fs f) xorig borig
                           cfmlls xfmlls bfmlls tn def Clist) xfmllsv' ∧
                       unwrap_TYPE
                       (λv fv.
                            LIST_REL (OPTION_TYPE ibnn_TYPE)
                              (SND (SND v)) fv)
-                        (parse_and_run_file_list (all_lines fs f) xorig borig
+                        (parse_and_run_file_list (all_lines_file fs f) xorig borig
                           cfmlls xfmlls bfmlls tn def Clist) bfmllsv'
                       ))`
         THEN1
@@ -3211,7 +3211,7 @@ Proof
           \\ xsimpl
           \\ rpt (first_x_assum (irule_at Any))
           \\ xsimpl \\ fs [Abbr`Clist`]
-          \\ qexists_tac `all_lines fs f`
+          \\ qexists_tac `all_lines_file fs f`
           \\ qexists_tac `fss`
           \\ qexists_tac `nextFD fs`
           \\ qexists_tac `emp`
@@ -3230,7 +3230,7 @@ Proof
       rename [`forwardFD _ _ kk`] \\
       qexists_tac `kk` >>
       rename [`INSTREAM_LINES _ _ _ rr`] \\ qexists_tac `rr` \\ xsimpl)>>
-  qspecl_then [`all_lines fs f`,`xorig`,`borig`,`cfmlls`,`xfmlls`,`bfmlls`,`tn`,`def`,`Clist`]
+  qspecl_then [`all_lines_file fs f`,`xorig`,`borig`,`cfmlls`,`xfmlls`,`bfmlls`,`tn`,`def`,`Clist`]
     strip_assume_tac parse_and_run_file_list_eq>>
   gs[]>>rw[]>>
   pop_assum kall_tac >>
@@ -3257,7 +3257,7 @@ Proof
     imp_res_tac fsFFIPropsTheory.nextFD_leX \\ fs [] >>
     drule fsFFIPropsTheory.openFileFS_ADELKEY_nextFD >>
     fs [Abbr`fss`] \\ xsimpl) >>
-  Cases_on`parse_xlrups (all_lines fs f)`>>
+  Cases_on`parse_xlrups (all_lines_file fs f)`>>
   fs[OPTION_TYPE_def]
   >- (
     xmatch>>

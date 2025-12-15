@@ -337,7 +337,7 @@ val parse_dimacs_full = (append_prog o process_topdecs) `
 Definition get_fml_def:
   get_fml fs f =
   if inFS_fname fs f then
-    parse_dimacs_toks (MAP toks (all_lines fs f))
+    parse_dimacs_toks (MAP toks (all_lines_file fs f))
   else NONE
 End
 
@@ -1317,7 +1317,7 @@ QED
 Definition get_proof_def:
   get_proof fs f =
   if inFS_fname fs f then
-    parse_proof_toks (MAP toks (all_lines fs f))
+    parse_proof_toks (MAP toks (all_lines_file fs f))
   else NONE
 End
 
@@ -1334,7 +1334,7 @@ Definition check_unsat_4_sem_def:
   | SOME (INL ()) =>
      if inFS_fname fs f3 then
       case check_lines (implode (md5 (THE (file_content fs f1)))) (implode (md5 (THE (file_content fs f2))))
-        (all_lines fs f3) (LENGTH pf) of
+        (all_lines_file fs f3) (LENGTH pf) of
         INL _ => out = strlit ""
       | INR s => out = s
     else
@@ -1376,7 +1376,7 @@ Proof
     \\ xpull \\ metis_tac[]) >>
   xlet`(POSTv sv. &OPTION_TYPE (LIST_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)))
             (if inFS_fname fs f then
-               SOME(MAP (MAP tokenize o tokens blanks) (all_lines fs f))
+               SOME(MAP (MAP tokenize o tokens blanks) (all_lines_file fs f))
              else NONE) sv * STDIO fs)`
   >- (
     xapp_spec inputAllTokensFrom_spec_specialize >>
@@ -1416,12 +1416,12 @@ Proof
   metis_tac[ALOOKUP_NONE,option_CASES]
 QED
 
-Theorem all_lines_lines_of:
+Theorem all_lines_file_lines_of:
   file_content fs f = SOME c ⇒
-  all_lines fs f = lines_of (strlit c)
+  all_lines_file fs f = lines_of (strlit c)
 Proof
   fs[file_content_def]>>
-  rw[all_lines_def,lines_of_def]>>
+  rw[all_lines_file_def,lines_of_def]>>
   every_case_tac>>fs[]
 QED
 
@@ -1518,7 +1518,7 @@ Proof
     xapp>>xsimpl>>fs[]>>
     gvs[get_fml_def,get_proof_def,AllCaseEqs()]>>
     imp_res_tac inFS_fname_file_content>>fs[]>>rw[]>>
-    imp_res_tac all_lines_lines_of>>simp[]>>
+    imp_res_tac all_lines_file_lines_of>>simp[]>>
     fs[FILENAME_def,validArg_def]>>
     first_x_assum (irule_at (Pos (el 1)))>>
     first_x_assum (irule_at (Pos (el 1)))>>
@@ -1529,7 +1529,7 @@ Proof
     first_x_assum (irule_at (Pos (el 2)))>>
     rpt(first_x_assum (irule_at (Pos (el 1))))>>
     qexists_tac`emp`>>xsimpl>>rw[]>>
-    (* relate all_lines and lines_of *)
+    (* relate all_lines_file and lines_of *)
     gs[]>>
     drule parse_proof_toks_LENGTH>>
     simp[]>>

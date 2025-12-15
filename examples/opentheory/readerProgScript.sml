@@ -171,7 +171,7 @@ Theorem l2c_from_spec:
       (POSTv sv.
         &OPTION_TYPE (LIST_TYPE READER_COMMAND_TYPE)
           (if inFS_fname fs f then
-             SOME (MAP (tokenize o str_prefix) (all_lines fs f))
+             SOME (MAP (tokenize o str_prefix) (all_lines_file fs f))
            else
              NONE) sv *
         STDIO fs)
@@ -375,15 +375,15 @@ Theorem inputAllTokensFrom_spec2:
         &OPTION_TYPE (LIST_TYPE (LIST_TYPE READER_COMMAND_TYPE))
           (if inFS_fname fs fn then
             SOME (MAP (MAP tokenize ∘ tokens is_newline)
-                      (all_lines fs fn))
+                      (all_lines_file fs fn))
            else
              NONE) sv *
         STDIO fs)
 Proof
   strip_tac
-  (* TODO remove if made unnecessary by all_lines_gen_all_lines *)
-  (* \\ `all_lines fs fn = all_lines_gen #"\n" fs fn` by *)
-  (*   rw[all_lines_def,all_lines_gen_def,lines_of_def,lines_of_gen_def,splitlines_at_def,splitlines_def,str_def] *)
+  (* TODO remove if made unnecessary by all_lines_file_gen_all_lines_file *)
+  (* \\ `all_lines_file fs fn = all_lines_file_gen #"\n" fs fn` by *)
+  (*   rw[all_lines_file_def,all_lines_file_gen_def,lines_of_def,lines_of_gen_def,splitlines_at_def,splitlines_def,str_def] *)
   \\ pop_assum SUBST_ALL_TAC
   \\ irule inputAllTokensFrom_spec
   \\ simp [theorem "is_newline_v_thm", tokenize_v_thm, is_newline_def]
@@ -410,7 +410,7 @@ Proof
              &OPTION_TYPE (LIST_TYPE (LIST_TYPE READER_COMMAND_TYPE))
                (if inFS_fname fs fnm then
                   SOME (MAP (MAP tokenize ∘ tokens is_newline)
-                            (all_lines fs fnm))
+                            (all_lines_file fs fnm))
                 else
                   NONE) sv *
              STDIO fs *

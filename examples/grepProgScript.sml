@@ -593,7 +593,7 @@ Theorem print_matching_lines_in_file_spec:
                    then add_stdout fs
                       (concat
                           (MAP (strcat f o strcat (strlit":"))
-                            (FILTER m (all_lines fs f))))
+                            (FILTER m (all_lines_file fs f))))
                    else add_stderr fs (notfound_string f)))
 Proof
   rpt strip_tac
@@ -981,7 +981,7 @@ Proof
     \\ simp[Abbr`s1`,Abbr`s2`]
     \\ AP_TERM_TAC
     \\ simp[FILTER_MAP,concat_cons,MAP_MAP_o,o_DEF,
-            all_lines_def,lines_of_def,implode_def]
+            all_lines_file_def,lines_of_def,implode_def]
     \\ AP_TERM_TAC
     \\ simp[FILTER_EQ,build_matcher_def,FRONT_APPEND]
     \\ gen_tac

@@ -354,7 +354,7 @@ Theorem parse_dimacs_full_spec:
     (POSTv v.
     & (∃err. (SUM_TYPE STRING_TYPE (PAIR_TYPE NUM (PAIR_TYPE NUM (LIST_TYPE (LIST_TYPE INT))))
     (if inFS_fname fs f then
-    (case parse_dimacs_toks (MAP lpr_parsing$toks (all_lines fs f)) of
+    (case parse_dimacs_toks (MAP lpr_parsing$toks (all_lines_file fs f)) of
       NONE => INL err
     | SOME x => INR x)
     else INL err) v)) * STDIO fs)
@@ -443,7 +443,7 @@ val parse_and_enc = (append_prog o process_topdecs) `
 Definition get_fml_def:
   get_fml fs f =
   if inFS_fname fs f then
-    parse_dimacs (all_lines fs f)
+    parse_dimacs (all_lines_file fs f)
   else NONE
 End
 

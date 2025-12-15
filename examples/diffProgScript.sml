@@ -106,8 +106,8 @@ Theorem diff'_spec:
          if inFS_fname fs f1 then
          if inFS_fname fs f2 then
            add_stdout fs (
-              concat ((diff_alg2 (all_lines fs f1)
-                                 (all_lines fs f2))))
+              concat ((diff_alg2 (all_lines_file fs f1)
+                                 (all_lines_file fs f2))))
          else add_stderr fs (notfound_string f2)
          else add_stderr fs (notfound_string f1)))
 Proof
@@ -143,8 +143,8 @@ Definition diff_sem_def:
     add_stdout fs (
       concat
         (diff_alg2
-           (all_lines fs (EL 1 cl))
-           (all_lines fs (EL 2 cl))))
+           (all_lines_file fs (EL 1 cl))
+           (all_lines_file fs (EL 2 cl))))
     else add_stderr fs (notfound_string (EL 2 cl))
     else add_stderr fs (notfound_string (EL 1 cl))
     else add_stderr fs usage_string

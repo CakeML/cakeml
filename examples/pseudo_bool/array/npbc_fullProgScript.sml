@@ -57,7 +57,7 @@ val inputAllTokensFrom_spec_specialize =
 Definition get_annot_fml_def:
   get_annot_fml fs f =
   if inFS_fname fs f then
-    parse_pbf (all_lines fs f)
+    parse_pbf (all_lines_file fs f)
   else NONE
 End
 
@@ -83,7 +83,7 @@ Proof
     \\ xpull \\ metis_tac[]) >>
   xlet`(POSTv sv. &OPTION_TYPE (LIST_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)))
             (if inFS_fname fs f then
-               SOME(MAP (MAP tokenize o tokens blanks) (all_lines fs f))
+               SOME(MAP (MAP tokenize o tokens blanks) (all_lines_file fs f))
              else NONE) sv * STDIO fs)`
   >- (
     xapp_spec inputAllTokensFrom_spec_specialize >>
