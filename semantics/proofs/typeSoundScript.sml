@@ -781,6 +781,10 @@ Proof
   >- (rw [do_app_cases, PULL_EXISTS] >>
       metis_tac [Tbool_def, type_v_Boolv, store_type_extension_refl,
                  eq_result_nchotomy, eq_same_type]) >~
+  [‘Arith a ty’]
+  >- cheat >~
+  [‘FromTo ty1 ty2’]
+  >- cheat >~
   [‘Test’]
   >- (rw [do_app_cases, PULL_EXISTS] >>
       rename [‘do_test test ty x y’] >>

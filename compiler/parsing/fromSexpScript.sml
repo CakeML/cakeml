@@ -703,6 +703,7 @@ Definition decode_arith_def:
      if s = "Div" then SOME Div else
      if s = "Mod" then SOME Mod else
      if s = "Neg" then SOME Neg else
+     if s = "Abs" then SOME Abs else
      if s = "And" then SOME And else
      if s = "Xor" then SOME Xor else
      if s = "Or"  then SOME Or  else
@@ -1388,6 +1389,7 @@ Definition arithsexp_def:
   arithsexp Or  = SX_SYM "Or" ∧
   arithsexp Not = SX_SYM "Not" ∧
   arithsexp Neg = SX_SYM "Neg" ∧
+  arithsexp Abs = SX_SYM "Abs" ∧
   arithsexp Sqrt = SX_SYM "Sqrt" ∧
   arithsexp FMA = SX_SYM "FMA"
 End

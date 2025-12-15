@@ -221,6 +221,7 @@ Definition arith_to_display_def:
   arith_to_display Or  = empty_item (strlit "Or") ∧
   arith_to_display Neg = empty_item (strlit "Neg") ∧
   arith_to_display Not = empty_item (strlit "Not") ∧
+  arith_to_display Abs = empty_item (strlit "Abs") ∧
   arith_to_display Sqrt = empty_item (strlit "Sqrt") ∧
   arith_to_display FMA = empty_item (strlit "FMA")
 End

@@ -791,12 +791,24 @@ Definition check_type_def:
   check_type Float64T v = (∃w. v = Litv (Float64 w))
 End
 
-Definition dest_Litv_def:
+Definition dest_Litv_def[simp]:
   dest_Litv (Litv v) = SOME v ∧
   dest_Litv _ = NONE
 End
 
-Definition the_Litv_Float64_def:
+Definition the_Litv_IntLit_def[simp]:
+  the_Litv_IntLit (Litv (IntLit i)) = i
+End
+
+Definition the_Litv_Word8_def[simp]:
+  the_Litv_Word8 (Litv (Word8 w)) = w
+End
+
+Definition the_Litv_Word64_def[simp]:
+  the_Litv_Word64 (Litv (Word64 w)) = w
+End
+
+Definition the_Litv_Float64_def[simp]:
   the_Litv_Float64 (Litv (Float64 w)) = w
 End
 
@@ -829,6 +841,37 @@ Definition do_test_def: (* TODO: extend with more cases *)
      | (Float64T, SOME (Float64 w), SOME (Float64 v)) => Eq_val (fp_cmp cmp w v)
      | _ => Eq_type_error) ∧
   do_test _ ty v1 v2 = Eq_type_error
+End
+
+Definition do_arith_def:
+  (do_arith a Float64T vals =
+     case (a, MAP the_Litv_Float64 vals) of
+     | (Abs,  [v1])       => SOME (INR $ Litv $ Float64 $ fp64_abs v1)
+     | (Neg,  [v1])       => SOME (INR $ Litv $ Float64 $ fp64_negate v1)
+     | (Sqrt, [v1])       => SOME (INR $ Litv $ Float64 $ fp64_sqrt roundTiesToEven v1)
+     | (Add,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_add roundTiesToEven v1 v2)
+     | (Sub,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_sub roundTiesToEven v1 v2)
+     | (Mul,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_mul roundTiesToEven v1 v2)
+     | (Div,  [v1;v2])    => SOME (INR $ Litv $ Float64 $ fp64_div roundTiesToEven v1 v2)
+     | (FMA,  [v1;v2;v3]) => SOME (INR $ Litv $ Float64 $ fp64_mul_add roundTiesToEven v2 v3 v1)
+     | _ => NONE) ∧
+  (do_arith a IntT vals =
+     case (a, MAP the_Litv_IntLit vals) of
+     | (Add,  [v1;v2]) => SOME (INR $ Litv $ IntLit $ v1 + v2)
+     | (Sub,  [v1;v2]) => SOME (INR $ Litv $ IntLit $ v1 - v2)
+     | (Mul,  [v1;v2]) => SOME (INR $ Litv $ IntLit $ v1 * v2)
+     | (Div,  [v1;v2]) => SOME (if v2 = 0 then INL div_exn_v else
+                                  INR (Litv $ IntLit $ v1 / v2))
+     | (Mod,  [v1;v2]) => SOME (if v2 = 0 then INL div_exn_v else
+                                  INR (Litv $ IntLit $ v1 % v2))
+     | _ => NONE) ∧
+  (do_arith a _ vals = NONE)
+End
+
+Definition do_conversion_def:
+  (do_conversion v (WordT W8) IntT =
+     SOME $ Litv $ IntLit $ & (w2n (the_Litv_Word8 v))) ∧
+  (do_conversion _ _ _ = NONE)
 End
 
 Definition do_app_def:
@@ -1182,6 +1225,19 @@ Definition do_app_def:
     | (Env_id, [Conv NONE [gen; id]]) => SOME ((s, t),
             Rval (Conv NONE [gen; id]))
     | (ThunkOp th_op, vs) => thunk_op (s,t) th_op vs
+    | (Arith a ty, vs) =>
+        (if EVERY (check_type ty) vs then
+           (case do_arith a ty vs of
+            | SOME (INR res) => SOME ((s, t), Rval res)
+            | SOME (INL exn) => SOME ((s, t), Rerr (Rraise exn))
+            | NONE           => NONE)
+         else NONE)
+    | (FromTo ty1 ty2, [v]) =>
+        (if check_type ty1 v then
+           (case do_conversion v ty1 ty2 of
+            | SOME res => SOME ((s, t), Rval res)
+            | NONE     => NONE)
+         else NONE)
     | (Test test test_ty, [v1; v2]) =>
         (case do_test test test_ty v1 v2 of
             Eq_type_error => NONE

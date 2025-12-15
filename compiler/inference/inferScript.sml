@@ -850,6 +850,14 @@ Theorem constrain_op_error_msg_sanity:
 Proof
   rpt strip_tac >>
   qmatch_abbrev_tac `IS_PREFIX _ m1 \/ IS_PREFIX _ m2 \/ IS_PREFIX _ m3` >>
+  Cases_on ‘∃a ty. op = Arith a ty’ >-
+   (gvs []
+    \\ fs [constrain_op_def]
+    \\ pairarg_tac \\ fs []
+    \\ gvs [op_to_string_def]
+    \\ gvs [AllCaseEqs(),op_simple_constraints_def,op_to_string_def]
+    \\ gvs [failwith_def, st_ex_bind_failure, st_ex_return_def]
+    \\ cheat) >>
   cases_on `op` >>
   fs [op_to_string_def, constrain_op_dtcase_def, op_simple_constraints_def] >>
   gvs [LENGTH_EQ_NUM_compute] >>

@@ -359,23 +359,25 @@ Definition t_of_def[simp]:
   t_of Float64T    = Tdouble
 End
 
-Definition supported_arith_def[simp]:
-  supported_arith a (ty:prim_type) =
-    case a of
-    | Add => (NONE : num option)
-    | Xor => NONE
-    | FMA => NONE
-    | _   => NONE
-End
-
 Definition supported_test_def[simp]:
   supported_test Equal       ty = T ∧
   supported_test (Compare _) ty = MEM ty [IntT; CharT; WordT W8; Float64T] ∧
   supported_test _           ty = F
 End
 
+Definition supported_arith_def[simp]:
+  (supported_arith a IntT =
+     if MEM a [Add; Sub; Mul; Div; Mod] then SOME (2:num) else NONE) ∧
+  (supported_arith a Float64T =
+     if MEM a [Abs; Neg; Sqrt] then SOME 1 else
+     if MEM a [Add; Sub; Mul; Div] then SOME 1 else
+     if MEM a [FMA] then SOME 1 else NONE) ∧
+  (supported_arith a (ty:prim_type) = NONE)
+End
+
 Definition supported_conversion_def[simp]:
-  supported_conversion (from_ty:prim_type) (to_ty:prim_type) = F
+  (supported_conversion (WordT W8) IntT = T) ∧
+  (supported_conversion (from_ty:prim_type) (to_ty:prim_type) = F)
 End
 
 (* Check that the operator can have type (t1 -> ... -> tn -> t) *)

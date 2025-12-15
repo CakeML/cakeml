@@ -7,5 +7,5 @@ Ancestors
   location[qualified]
 
 Datatype:
-  arith = Add | Sub | Mul | Div | Mod | Neg | And | Xor | Or | Not | Sqrt | FMA
+  arith = Add | Sub | Mul | Div | Mod | Neg | And | Xor | Or | Not | Abs | Sqrt | FMA
 End
