@@ -1663,45 +1663,28 @@ QED
  * Program specification (shared)
  * ------------------------------------------------------------------------- *)
 
-Definition read_stdin_def:
-  read_stdin fs refs =
-    let fs' = fastForwardFD fs 0;
-        stdin = UStream «stdin» in
-      case readLines init_state
-          (MAP (tokenize o str_prefix) (all_lines_inode fs stdin)) refs of
-        (M_success (s, _), refs) =>
-          (add_stdout fs' (concat (append (msg_success s refs.the_context))),
-           refs, SOME s)
-      | (M_failure (Failure e), refs) =>
-          (add_stderr fs' e, refs, NONE)
-End
-
-(*
- * Almost like the one above. I'm keeping both for the sake of
- * benchmarking. Eventually the non-buffered version can go.
- *)
-
-Definition read_file_def:
-  read_file fs refs fnm =
-    (if inFS_fname fs fnm then
-       (case readLines init_state
-             (FLAT (MAP (MAP tokenize o tokens is_newline)
-                   (all_lines_file fs fnm))) refs of
-        | (M_success (s,_), refs) =>
-            (add_stdout fs (concat (append (msg_success s refs.the_context))),
-             refs, SOME s)
-        | (M_failure (Failure e), refs) =>
-            (add_stderr fs e, refs, NONE))
-     else
-       (add_stderr fs (msg_bad_name fnm), refs, NONE))
+Definition read_from_def:
+  read_from fs refs inp =
+    case
+      readLines init_state
+        (FLAT
+           (MAP (MAP tokenize ∘ tokens is_newline) (all_lines_from fs inp)))
+        refs
+    of
+      (M_success (s, _), refs) =>
+        (add_stdout fs (concat (append (msg_success s refs.the_context))),
+         refs, SOME s)
+    | (M_failure (Failure e), refs) => (add_stderr fs e, refs, NONE)
 End
 
 Definition reader_main_def:
   reader_main fs refs cl =
     let refs = SND (init_reader () refs) in
       case cl of
-        [] => read_stdin fs refs
-      | [fnm] => read_file fs refs fnm
+        [] => read_from fs refs NONE
+      | [fnm] => if ¬inFS_fname fs fnm
+                 then (add_stderr fs (msg_bad_name fnm), refs, NONE)
+                 else read_from fs refs (SOME fnm)
       | _ => (add_stderr fs msg_usage, refs, NONE)
 End
 
@@ -1715,24 +1698,15 @@ Proof
   rw [READER_STATE_def, init_state_def, STATE_def, lookup_def]
 QED
 
-Definition flush_stdin_def[simp]:
-  flush_stdin cl fs =
-    case cl of
-      [] => fastForwardFD fs 0
-    | _ => fs
-End
-
 Theorem reader_proves:
   reader_main fs init_refs cl = (outp,refs,SOME s) ⇒
   (∀asl c.
      MEM (Sequent asl c) s.thms ⇒
        (thyof refs.the_context, asl) |- c) ∧
-  outp = add_stdout (flush_stdin cl fs)
-                    (concat (append (msg_success s refs.the_context))) ∧
+  outp = add_stdout fs (concat (append (msg_success s refs.the_context))) ∧
   refs.the_context extends init_ctxt
 Proof
-  rw [reader_main_def, case_eq_thms, read_stdin_def, read_file_def,
-      bool_case_eq, PULL_EXISTS]
+  rw [reader_main_def, case_eq_thms, read_from_def, bool_case_eq, PULL_EXISTS]
   \\ Cases_on `init_reader () init_refs`
   \\ drule init_reader_ok \\ rw []
   \\ ‘READER_STATE defs init_state’
@@ -1783,8 +1757,8 @@ Theorem reader_success_stderr:
   no_errors fs fs' ⇒
     ∃st. s = SOME st
 Proof
-  rw [reader_main_def, read_stdin_def, read_file_def, case_eq_thms,
-      no_errors_def, msg_bad_name_def, msg_usage_def]
+  rw [reader_main_def, read_from_def, case_eq_thms, no_errors_def,
+      msg_bad_name_def, msg_usage_def]
   \\ rfs []
   \\ fs [case_eq_thms, bool_case_eq] \\ rw [] \\ fs []
   \\ drule TextIOProofTheory.STD_streams_stderr \\ strip_tac
