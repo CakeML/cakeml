@@ -445,6 +445,7 @@ Proof
   rw[n_value_sem_def,EVERY_MEM,
      METIS_PROVE[] “(∀x. P x ⇒ (Q x ∧ R x)) ⇔ (∀x. P x ⇒ Q x) ∧ (∀x. P x ⇒ R x)”]>>
   gs[tr1]>>
+  cheat
 QED
 
 Definition eqi_def[simp]:
@@ -533,7 +534,7 @@ Definition encode_counting_constr_def:
   case c of
     AllDifferent Xs => encode_all_different bnd Xs name
   | NValue Xs Y => encode_n_value bnd Xs Y name
-  | Count Xs Y Z => encode_count bnd Xs Y Z
+  | Count Xs Y Z => encode_count bnd Xs Y Z name
   | Among Xs iS Y => encode_among bnd Xs iS Y
 End
 
