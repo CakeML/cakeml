@@ -1212,16 +1212,6 @@ Proof
   >>(Cases_on`x`>>simp[res_rel_def])
 QED
 
-(* NO.
-Theorem res_rel_stack:
-  res_rel s_res t_res (stk0, stk1) ⇒
-  ∀stk. res_rel s_res t_res (stk0++stk, stk1++stk)
-Proof
-  Cases_on`s_res`>-simp[res_rel_def]
-  >>(Cases_on`x`>>simp[res_rel_def])
-QED
-*)
-
 Theorem exec_list_add_clock_RNormal:
   exec_list p t = (RNormal, t') ⇒
   exec_list p (t with clock := ck + t.clock) = (RNormal, t' with clock := ck + t'.clock)
@@ -1351,8 +1341,8 @@ QED
 fun simp1 thm = simp[thm];
 
 Theorem state_rel_with_clock':
-  state_rel c s (t with <| clock:=ck; stack:=st ; locals :=l|>) ⇔
-  state_rel c s (t with <| clock := ck|>)
+  state_rel c s (t with <|clock:=ck; stack:=_; locals:=_|>) ⇔
+  state_rel c s (t with <|clock:=ck|>)
 Proof
   simp[state_rel_def,wasm_state_ok_def]
 QED
@@ -1499,7 +1489,8 @@ rpt strip_tac
     >>(qpat_x_assum `state_rel c s t` mp_tac >> simp[state_rel_def,regs_rel_def])
   )
   >>dxrule_all state_rel_set_var
-  >>simp[state_rel_with_clock'])
+  >>simp[state_rel_with_clock']
+)
 >>first_x_assum dxrule_all (* apply IH *)
 >>strip_tac
 >>fs[]
