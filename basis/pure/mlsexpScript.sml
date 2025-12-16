@@ -136,6 +136,16 @@ Termination
   \\ imp_res_tac read_symbol_length \\ fs[]
 End
 
+Theorem lex_aux_length:
+  ∀depth input acc e rest.
+    lex_aux depth input acc = INR (e,rest) ⇒ LENGTH rest ≤ LENGTH input
+Proof
+  ho_match_mp_tac lex_aux_ind \\ rw []
+  \\ gvs [lex_aux_def,AllCaseEqs()]
+  \\ imp_res_tac read_string_length \\ gvs []
+  \\ imp_res_tac read_symbol_length \\ gvs []
+QED
+
 (* Tokenizes (at most) one S-expression, and returns the rest of the input.
    Fails with an error message if parentheses are unbalanced or
    read_string fails on a string literal. *)
@@ -143,6 +153,19 @@ Definition lex_def:
   lex (input: string) : (mlstring, token list) result =
     lex_aux 0 input []
 End
+
+Theorem lex_IMP_LENGTH_LESS:
+  ∀input x rest. lex input = INR (x,rest) ⇒ LENGTH rest < LENGTH input ∨ x = []
+Proof
+  simp [AllCaseEqs(),PULL_EXISTS,lex_def]
+  \\ rpt gen_tac
+  \\ Cases_on ‘input’
+  \\ fs [lex_aux_def,AllCaseEqs()]
+  \\ CCONTR_TAC \\ gvs []
+  \\ imp_res_tac lex_aux_length \\ gvs []
+  \\ imp_res_tac read_string_length \\ gvs []
+  \\ imp_res_tac read_symbol_length \\ gvs []
+QED
 
 Theorem test_lex[local]:
   lex " 1 2   3 " = INR ([SYMBOL «1»]," 2   3 ") ∧
@@ -176,6 +199,21 @@ Definition parse_def:
         | [] => INL («parse: empty input», rest)
         | (v::_) => INR (v, rest)
 End
+
+Theorem parse_IMP_LENGTH_LESS:
+  ∀input x rest. parse input = INR (x,rest) ⇒ LENGTH rest < LENGTH input
+Proof
+  rw [parse_def,AllCaseEqs(),PULL_EXISTS]
+  \\ imp_res_tac lex_IMP_LENGTH_LESS
+  \\ gvs [parse_aux_def]
+QED
+
+Theorem parse_space:
+  parse (#"\n" :: xs) = parse xs
+Proof
+  simp [parse_def,lex_def]
+  \\ simp [Once lex_aux_def,EVAL “isSpace #"\n"”]
+QED
 
 Theorem test_parse[local]:
   parse " 1 2 3 " = INR (Atom «1»," 2 3 ") ∧
