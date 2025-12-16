@@ -386,7 +386,10 @@ Theorem subset_varc_union_dom:
   valid_assignment bnd wi ⇒
   set $ MAP (varc wi) Xs ⊆ set $ union_dom bnd Xs
 Proof
-  cheat
+  strip_tac>>
+  drule EVERY_MEM_union_dom>>
+  rw[EVERY_MEM,SUBSET_DEF]>>
+  gs[MEM_MAP]
 QED
 
 Theorem subset_FILTER:
