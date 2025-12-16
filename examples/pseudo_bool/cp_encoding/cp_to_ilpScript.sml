@@ -49,6 +49,12 @@ Definition reify_flag_def:
     (case ALOOKUP cs name of
     | SOME (Counting (AllDifferent Xs)) =>
       varc wi (EL (EL 0 ids) Xs) > varc wi (EL (EL 1 ids) Xs)
+    | SOME (Counting (Count Xs Y _)) =>
+      if ann = SOME (strlit"lt")
+      then varc wi (EL (HD ids) Xs) < varc wi Y
+      else if ann = SOME (strlit"gt")
+      then varc wi (EL (HD ids) Xs) > varc wi Y
+      else varc wi (EL (HD ids) Xs) = varc wi Y
     | SOME (Extensional (Table tss Xs)) =>
       match_row (EL (HD ids) tss) (MAP (varc wi) Xs))
   | Flag ann =>
@@ -64,8 +70,7 @@ Definition reify_flag_def:
       then varc wi Y ≤ varc wi Z
       else if ann = strlit"lge"
       then varc wi X ≥ varc wi Z
-      else varc wi Y ≥ varc wi Z
-    )
+      else varc wi Y ≥ varc wi Z)
   | Values vs ann =>
     (case ALOOKUP cs name of
     | SOME (Counting (NValue Xs Y)) =>

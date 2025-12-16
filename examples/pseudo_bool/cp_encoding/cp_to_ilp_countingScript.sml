@@ -410,7 +410,7 @@ Proof
   DEP_REWRITE_TAC[encode_bitsum_sem]>>
   simp[MAP_elm]>>
   simp[MAP_MAP_o]>>
-  simp[Once combinTheory.o_ABS_R,iSUM_FILTER,reify_avar_def,reify_flag_def]>>
+  simp[Once o_ABS_R,iSUM_FILTER,reify_avar_def,reify_flag_def]>>
   DEP_REWRITE_TAC[subset_varc_union_dom,subset_FILTER]>>
   DEP_REWRITE_TAC[EVERY_MEM_union_dom,subset_FILTER]>>
   simp[]>>
@@ -419,29 +419,75 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Triviality tr1:
+  (∀v. MEM v (union_dom bnd Xs) ⇒
+            (wb (INR (name,Values [v] NONE)) ⇔
+             ∃X. MEM X Xs ∧ wb (INL (Eq X v)))) ⇒
+  FILTER (λv. wb (INR (name,Values [v] NONE))) (union_dom bnd Xs) = FILTER (λv. ∃X. MEM X Xs ∧ wb (INL (Eq X v))) (union_dom bnd Xs)
+Proof
+  cheat
+QED
+
 Theorem encode_n_value_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
     (encode_n_value bnd Xs Y name) ⇒
   n_value_sem Xs Y wi
 Proof
-  cheat
+  strip_tac>>
+  pop_assum mp_tac>>
+  simp[encode_n_value_def,reify_some_eq_sem]>>
+  DEP_REWRITE_TAC[encode_bitsum_sem]>>
+  simp[MAP_elm]>>
+  simp[MAP_MAP_o]>>
+  simp[Once o_ABS_R]>>
+  simp[iSUM_FILTER]>>
+  rw[n_value_sem_def,EVERY_MEM,
+     METIS_PROVE[] “(∀x. P x ⇒ (Q x ∧ R x)) ⇔ (∀x. P x ⇒ Q x) ∧ (∀x. P x ⇒ R x)”]>>
+  gs[tr1]>>
 QED
 
-(* Count: Z equals the number of times Y appears in Xs
-   Z = Sum_i [Xs[i] = Y] *)
+Definition eqi_def[simp]:
+  eqi name (i:num) ann =
+    INR (name, Indices [i] (SOME ann))
+End
+
 Definition encode_count_def:
-  encode_count bnd Xs Y Z =
-  (* Need to encode: Z = Sum_i (Xs[i] = Y)
-     This requires equality reification for each Xs[i] = Y *)
-  [false_constr]
+  encode_count bnd Xs (Y:'a varc) (Z:'a varc) name =
+  FLAT (MAPi (λi X.
+  let
+    eq = Pos (eqi name i (strlit"eq"));
+    lt = Pos (eqi name i (strlit"lt"));
+    gt = Pos (eqi name i (strlit"gt"))
+  in
+  [
+    bits_imply bnd [eq] $ mk_ge X Y;
+    bits_imply bnd [eq] $ mk_le Y X;
+    bits_imply bnd [lt] $ mk_lt X Y;
+    bits_imply bnd [gt] $ mk_gt X Y;
+    ([], [(1i,eq);(1i,lt);(1i,gt)], 1)
+  ]) Xs) ++
+  (
+  case Z of
+    INL vZ =>
+      [
+        ([(1i,vZ)],GENLIST (λi. (-1i,Pos (eqi name i (strlit"eq")))) (LENGTH Xs),0);
+        ([(-1i,vZ)],GENLIST (λi. (1i,Pos (eqi name i (strlit"eq")))) (LENGTH Xs),0)
+      ]
+  | INR cZ =>
+      [
+        ([],GENLIST (λi. (-1i,Pos (eqi name i (strlit"eq")))) (LENGTH Xs),-cZ);
+        ([],GENLIST (λi. (1i,Pos (eqi name i (strlit"eq")))) (LENGTH Xs),cZ)
+      ]
+  )
 End
 
 Theorem encode_count_sem_1:
   valid_assignment bnd wi ∧
+  ALOOKUP cs name = SOME (Counting (Count Xs Y Z)) ∧
   count_sem Xs Y Z wi ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (encode_count bnd Xs Y Z)
+    (encode_count bnd Xs Y Z name)
 Proof
   cheat
 QED
@@ -449,7 +495,7 @@ QED
 Theorem encode_count_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_count bnd Xs Y Z) ⇒
+    (encode_count bnd Xs Y Z name) ⇒
   count_sem Xs Y Z wi
 Proof
   cheat
