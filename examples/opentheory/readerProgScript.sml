@@ -93,7 +93,51 @@ Theorem read_from_SOME:
       STDIO (FST (read_from fs refs (SOME fn))) *
       HOL_STORE (FST (SND (read_from fs refs (SOME fn)))))
 Proof
-  cheat
+  rpt strip_tac
+  \\ xcf_with_def (fetch "-" "read_from_v_def")
+  \\ assume_tac init_state_v_thm
+  \\ xlet ‘POSTv sv.
+             &OPTION_TYPE (LIST_TYPE (LIST_TYPE READER_COMMAND_TYPE))
+               (SOME (MAP (MAP tokenize ∘ tokens is_newline)
+                   (all_lines_file fs fn))) sv *
+             STDIO fs * HOL_STORE refs’
+  >-
+   (xapp_spec inputAllTokensFrom_SOME_specialized
+    \\ qexistsl [‘HOL_STORE refs’, ‘fs’, ‘fn’] \\ simp [] \\ xsimpl)
+  \\ fs [OPTION_TYPE_def]
+  \\ xmatch
+  \\ simp [read_from_def]
+  \\ CASE_TAC \\ fs [all_lines_from_def]
+  \\ CASE_TAC \\ CASE_TAC \\ fs []
+ >-
+   (qmatch_goalsub_abbrev_tac ‘$POSTv Q’
+    \\ xhandle ‘$POSTv Q’ \\ xsimpl
+    \\ qunabbrev_tac ‘Q’
+    \\ xlet_auto >- xsimpl
+    \\ xlet_auto \\ xsimpl
+    \\ xlet_auto >- xsimpl
+    \\ xlet_auto >- (xcon \\ xsimpl)
+    \\ rveq \\ fs []
+    \\ rename1 ‘(M_success _, refs1)’
+    \\ drule_then (qspecl_then [‘p’, ‘refs1’] strip_assume_tac) context_spec
+    \\ xlet_auto >- xsimpl
+    \\ xlet_auto >- xsimpl
+    \\ rveq \\ fs []
+    \\ xapp
+    \\ instantiate
+    \\ qexistsl [‘HOL_STORE refs'’, ‘fs’]
+    \\ xsimpl)
+  \\ xhandle ‘POSTe ev.
+                &HOL_EXN_TYPE (Failure m) ev *
+                HOL_STORE r *
+                STDIO fs’
+  >- (xlet_auto \\ xsimpl \\ xlet_auto \\ xsimpl)
+  \\ fs [HOL_EXN_TYPE_def]
+  \\ xcases
+  \\ xapp_spec output_stderr_spec
+  \\ instantiate
+  \\ qexistsl [‘HOL_STORE r’, ‘fs’]
+  \\ xsimpl
 QED
 
 Theorem read_from_SOME_fail:
@@ -105,7 +149,23 @@ Theorem read_from_SOME_fail:
       &UNIT_TYPE () u *
       STDIO (FST (add_stderr fs (msg_bad_name fn), refs, NONE)))
 Proof
-  cheat
+  rpt strip_tac
+  \\ xcf_with_def (fetch "-" "read_from_v_def")
+  \\ assume_tac init_state_v_thm
+  \\ xlet ‘POSTv sv.
+             &OPTION_TYPE (LIST_TYPE (LIST_TYPE READER_COMMAND_TYPE))
+               NONE sv * STDIO fs * HOL_STORE refs’
+  >-
+   (xapp_spec inputAllTokensFrom_SOME_specialized
+    \\ qexistsl [‘HOL_STORE refs’, ‘fs’, ‘fn’] \\ simp [] \\ xsimpl)
+  \\ pop_assum $ assume_tac o SRULE [OPTION_TYPE_def]
+  \\ xmatch
+  \\ xlet_auto >- xsimpl
+  \\ xlet_auto >- xsimpl
+  \\ xapp_spec output_stderr_spec
+  \\ instantiate
+  \\ qexistsl [‘HOL_STORE refs’, ‘fs’]
+  \\ xsimpl
 QED
 
 Theorem inputAllTokensFrom_NONE_specialized:
@@ -126,6 +186,13 @@ Proof
   \\ simp [theorem "is_newline_v_thm", tokenize_v_thm, is_newline_def]
 QED
 
+(* TODO Move? *)
+Theorem all_lines_stdin_lines_of:
+  stdin_content fs = SOME text ⇒ all_lines_stdin fs = lines_of (implode text)
+Proof
+  simp [stdin_content_def, all_lines_stdin_def, lines_of_def]
+QED
+
 Theorem read_from_NONE:
   OPTION_TYPE FILENAME NONE fnv ∧ stdin_content fs = SOME text
   ⇒
@@ -136,7 +203,59 @@ Theorem read_from_NONE:
       STDIO (FST (read_from fs refs NONE)) *
       HOL_STORE (FST (SND (read_from fs refs NONE))))
 Proof
-  cheat
+  rpt strip_tac
+  \\ xcf_with_def (fetch "-" "read_from_v_def")
+  \\ assume_tac init_state_v_thm
+  (* For using add_stdout_fastForwardFD *)
+  \\ reverse (Cases_on ‘STD_streams fs’) >- (fs [STDIO_def] \\ xpull)
+  \\ xlet ‘POSTv sv.
+             &OPTION_TYPE (LIST_TYPE (LIST_TYPE READER_COMMAND_TYPE))
+              (SOME (MAP (MAP tokenize ∘ tokens is_newline)
+                         (lines_of (implode text)))) sv *
+             STDIO (fastForwardFD fs 0) * HOL_STORE refs’
+  >-
+   (xapp_spec inputAllTokensFrom_NONE_specialized
+    \\ first_assum $ irule_at (Pos hd) \\ simp []
+    \\ qexists ‘HOL_STORE refs’ \\ xsimpl)
+  \\ fs [OPTION_TYPE_def]
+  \\ xmatch
+  \\ IF_CASES_TAC >- (pop_assum mp_tac \\ EVAL_TAC)
+  \\ reverse conj_tac >- (EVAL_TAC \\ fs [])
+  \\ simp [read_from_def]
+  \\ CASE_TAC \\ fs [all_lines_from_def]
+  \\ drule_all_then assume_tac all_lines_stdin_lines_of \\ fs []
+  \\ CASE_TAC \\ CASE_TAC \\ fs []
+ >-
+   (qmatch_goalsub_abbrev_tac ‘$POSTv Q’
+    \\ xhandle ‘$POSTv Q’ \\ xsimpl
+    \\ qunabbrev_tac ‘Q’
+    \\ xlet_auto >- xsimpl
+    \\ xlet_auto \\ xsimpl
+    \\ xlet_auto >- xsimpl
+    \\ xlet_auto >- (xcon \\ xsimpl)
+    \\ rveq \\ fs []
+    \\ rename1 ‘(M_success _, refs1)’
+    \\ drule_then (qspecl_then [‘p’, ‘refs1’] strip_assume_tac) context_spec
+    \\ xlet_auto >- xsimpl
+    \\ xlet_auto >- xsimpl
+    \\ rveq \\ fs []
+    \\ xapp
+    \\ instantiate
+    \\ qexistsl [‘HOL_STORE refs'’, ‘fastForwardFD fs 0’]
+    \\ simp [add_stdout_fastForwardFD]
+    \\ xsimpl)
+  \\ xhandle ‘POSTe ev.
+                &HOL_EXN_TYPE (Failure m) ev *
+                HOL_STORE r *
+                STDIO (fastForwardFD fs 0)’
+  >- (xlet_auto \\ xsimpl \\ xlet_auto \\ xsimpl)
+  \\ fs [HOL_EXN_TYPE_def]
+  \\ xcases
+  \\ xapp_spec output_stderr_spec
+  \\ instantiate
+  \\ qexistsl [‘HOL_STORE r’, ‘fastForwardFD fs 0’]
+  \\ simp [add_stderr_fastForwardFD]
+  \\ xsimpl
 QED
 
 Theorem init_reader_spec:
@@ -240,8 +359,8 @@ Proof
   >-
    (fs [reader_main_def, read_from_def]
     \\ rpt (PURE_CASE_TAC \\ fs [])
-    \\ fs [GSYM add_stdo_with_numchars, with_same_numchars]
-    \\ metis_tac [fastForwardFD_with_numchars, with_same_numchars])
+    \\ fs [GSYM add_stdo_with_numchars, with_same_numchars,
+           GSYM fastForwardFD_with_numchars])
   \\ irule reader_main_spec
   \\ Cases_on `init_reader () init_refs`
   \\ drule init_reader_success \\ rw []

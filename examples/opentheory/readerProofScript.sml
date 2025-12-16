@@ -8,7 +8,7 @@ Libs
   preamble
 Ancestors
   ml_monadBase holKernel holKernelProof holSyntax holSyntaxExtra
-  reader reader_init TextIOProg
+  reader reader_init TextIOProg TextIOProof
 
 Overload return[local] = “st_ex_return”;
 Overload failwith[local] = “raise_Failure”;
@@ -1663,6 +1663,13 @@ QED
  * Program specification (shared)
  * ------------------------------------------------------------------------- *)
 
+Definition flush_stdin_def[simp]:
+  flush_stdin inp fs =
+    case inp of
+      NONE => fastForwardFD fs 0
+    | SOME _ => fs
+End
+
 Definition read_from_def:
   read_from fs refs inp =
     case
@@ -1672,9 +1679,11 @@ Definition read_from_def:
         refs
     of
       (M_success (s, _), refs) =>
-        (add_stdout fs (concat (append (msg_success s refs.the_context))),
+        (flush_stdin inp
+           (add_stdout fs (concat (append (msg_success s refs.the_context)))),
          refs, SOME s)
-    | (M_failure (Failure e), refs) => (add_stderr fs e, refs, NONE)
+    | (M_failure (Failure e), refs) =>
+        (flush_stdin inp (add_stderr fs e), refs, NONE)
 End
 
 Definition reader_main_def:
@@ -1698,22 +1707,34 @@ Proof
   rw [READER_STATE_def, init_state_def, STATE_def, lookup_def]
 QED
 
+Definition flush_stdin_cl_def[simp]:
+  flush_stdin_cl cl fs =
+    case cl of
+      [] => fastForwardFD fs 0
+    | _ => fs
+End
+
 Theorem reader_proves:
   reader_main fs init_refs cl = (outp,refs,SOME s) ⇒
   (∀asl c.
      MEM (Sequent asl c) s.thms ⇒
        (thyof refs.the_context, asl) |- c) ∧
-  outp = add_stdout fs (concat (append (msg_success s refs.the_context))) ∧
+  outp = flush_stdin_cl cl
+           (add_stdout fs (concat (append (msg_success s refs.the_context)))) ∧
   refs.the_context extends init_ctxt
 Proof
-  rw [reader_main_def, case_eq_thms, read_from_def, bool_case_eq, PULL_EXISTS]
+  strip_tac
+  \\ fs [reader_main_def, AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ gvs [])
+  \\ gvs [read_from_def, AllCaseEqs()]
+  \\ rw [case_eq_thms, bool_case_eq, PULL_EXISTS]
   \\ Cases_on `init_reader () init_refs`
   \\ drule init_reader_ok \\ rw []
-  \\ ‘READER_STATE defs init_state’
-    by fs [READER_STATE_init_state]
+  \\ ‘READER_STATE defs init_state’ by fs [READER_STATE_init_state]
   \\ drule readLines_thm \\ simp []
   \\ disch_then drule \\ rw []
-  \\ fs [READER_STATE_def, EVERY_MEM, STATE_def, CONTEXT_def] \\ rveq
+  \\ fs [READER_STATE_def, EVERY_MEM, STATE_def, CONTEXT_def]
+  \\ rveq
   \\ metis_tac [THM_def]
 QED
 
@@ -1770,6 +1791,7 @@ Proof
   \\ fs [miscTheory.the_def, UNCURRY, AFUPDKEY_ALOOKUP, case_eq_thms,
          bool_case_eq]
   \\ fs [mlstringTheory.concat_thm, msg_bad_name_def]
+  \\ rpt (pairarg_tac \\ gvs []) \\ gvs []
   \\ SELECT_ELIM_TAC \\ fs []
   \\ rpt strip_tac
   \\ drule readLines_Fail_not_empty
