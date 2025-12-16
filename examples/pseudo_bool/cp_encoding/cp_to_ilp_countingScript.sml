@@ -472,32 +472,34 @@ Definition encode_count_def:
   encode_count bnd Xs (Y:'a varc) (Z:'a varc) name =
   FLAT (MAPi (λi X.
   let
-    eq = Pos (eqi name i (strlit"eq"));
-    lt = Pos (eqi name i (strlit"lt"));
-    gt = Pos (eqi name i (strlit"gt"))
+    ge = eqi name i (strlit"ge");
+    le = eqi name i (strlit"le");
+    eq = eqi name i (strlit"eq")
   in
   [
-    bits_imply bnd [eq] $ mk_ge X Y;
-    bits_imply bnd [eq] $ mk_le Y X;
-    bits_imply bnd [lt] $ mk_lt X Y;
-    bits_imply bnd [gt] $ mk_gt X Y;
-    ([], [(1i,eq);(1i,lt);(1i,gt)], 1)
+    bits_imply bnd [Pos ge] $ mk_ge X Y;
+    bits_imply bnd [Neg ge] $ mk_lt X Y;
+    bits_imply bnd [Pos le] $ mk_le X Y;
+    bits_imply bnd [Neg le] $ mk_gt X Y;
+    bits_imply bnd [Pos eq] ([],[(1i,Pos ge);(1i,Pos le)],2);
+    bits_imply bnd [Neg eq] ([],[(1i,Neg ge);(1i,Neg le)],1)
   ]) Xs) ++
   (
   case Z of
     INL vZ =>
       [
-        ([(1i,vZ)],GENLIST (λi. (-1i,Pos (eqi name i (strlit"eq")))) (LENGTH Xs),0);
-        ([(-1i,vZ)],GENLIST (λi. (1i,Pos (eqi name i (strlit"eq")))) (LENGTH Xs),0)
+        ([(-1i,vZ)],GENLIST (λi. (1i,Pos (eqi name i (strlit"eq")))) (LENGTH Xs),0);
+        ([(1i,vZ)],GENLIST (λi. (-1i,Pos (eqi name i (strlit"eq")))) (LENGTH Xs),0)
       ]
   | INR cZ =>
       [
-        ([],GENLIST (λi. (-1i,Pos (eqi name i (strlit"eq")))) (LENGTH Xs),-cZ);
-        ([],GENLIST (λi. (1i,Pos (eqi name i (strlit"eq")))) (LENGTH Xs),cZ)
+        ([],GENLIST (λi. (1i,Pos (eqi name i (strlit"eq")))) (LENGTH Xs),cZ);
+        ([],GENLIST (λi. (-1i,Pos (eqi name i (strlit"eq")))) (LENGTH Xs),-cZ)
       ]
   )
 End
 
+(* proof to be revised *)
 Theorem encode_count_sem_1:
   valid_assignment bnd wi ∧
   ALOOKUP cs name = SOME (Counting (Count Xs Y Z)) ∧
@@ -505,7 +507,15 @@ Theorem encode_count_sem_1:
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_count bnd Xs Y Z name)
 Proof
-  cheat
+  rw[encode_count_def,count_sem_def,EVERY_MEM]>>
+  gs[MEM_FLAT,MEM_MAPi,iconstraint_sem_def,
+    reify_avar_def,reify_flag_def,b2i_alt]>>
+  rpt intLib.ARITH_TAC>>
+  Cases_on ‘Z’>>
+  gs[iconstraint_sem_def,eval_ilin_term_def,eval_lin_term_def,
+     iSUM_def,MAP_GENLIST,o_ABS_R,reify_avar_def,reify_flag_def,
+     b2i_alt,varc_def,GENLIST_EL_MAP,iSUM_MAP_lin_const]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem encode_count_sem_2:

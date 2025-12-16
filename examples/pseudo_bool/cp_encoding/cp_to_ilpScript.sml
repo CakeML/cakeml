@@ -50,10 +50,10 @@ Definition reify_flag_def:
     | SOME (Counting (AllDifferent Xs)) =>
       varc wi (EL (EL 0 ids) Xs) > varc wi (EL (EL 1 ids) Xs)
     | SOME (Counting (Count Xs Y _)) =>
-      if ann = SOME (strlit"lt")
-      then varc wi (EL (HD ids) Xs) < varc wi Y
-      else if ann = SOME (strlit"gt")
-      then varc wi (EL (HD ids) Xs) > varc wi Y
+      if ann = SOME (strlit"ge")
+      then varc wi (EL (HD ids) Xs) ≥ varc wi Y
+      else if ann = SOME (strlit"le")
+      then varc wi (EL (HD ids) Xs) ≤ varc wi Y
       else varc wi (EL (HD ids) Xs) = varc wi Y
     | SOME (Extensional (Table tss Xs)) =>
       match_row (EL (HD ids) tss) (MAP (varc wi) Xs))
