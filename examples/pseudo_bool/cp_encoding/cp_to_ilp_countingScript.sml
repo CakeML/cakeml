@@ -392,11 +392,23 @@ Proof
   gs[MEM_MAP]
 QED
 
-Theorem subset_FILTER:
+Theorem LENGTH_FILTER_subset:
   set ls1 ⊆ set ls2 ∧ LENGTH ls2 = CARD $ set ls2 ⇒
   LENGTH (FILTER (λv. MEM v ls1) ls2) = CARD (set ls1)
 Proof
-  cheat
+  rw[SUBSET_DEF]>>
+  Induct_on ‘ls2’
+  >-simp[NIL_NO_MEM]>>
+  strip_tac>>
+  Cases_on ‘MEM h ls2’
+  >-(
+    rpt strip_tac>>
+    pop_assum (fn thm => assume_tac $ GSYM thm)>>
+    drule_then assume_tac CARD_LIST_TO_SET_ALL_DISTINCT>>
+    gs[])
+  >-(
+    rpt strip_tac>>
+    cheat)
 QED
 
 Theorem encode_n_value_sem_1:
@@ -414,8 +426,8 @@ Proof
   simp[MAP_elm]>>
   simp[MAP_MAP_o]>>
   simp[Once o_ABS_R,iSUM_FILTER,reify_avar_def,reify_flag_def]>>
-  DEP_REWRITE_TAC[subset_varc_union_dom,subset_FILTER]>>
-  DEP_REWRITE_TAC[EVERY_MEM_union_dom,subset_FILTER]>>
+  DEP_REWRITE_TAC[subset_varc_union_dom,LENGTH_FILTER_subset]>>
+  DEP_REWRITE_TAC[EVERY_MEM_union_dom,LENGTH_FILTER_subset]>>
   simp[]>>
   CONJ_TAC
   >-simp[GSYM ALL_DISTINCT_CARD_LIST_TO_SET,ALL_DISTINCT_union_dom]>>
