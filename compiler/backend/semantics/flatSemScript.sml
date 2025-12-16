@@ -260,6 +260,22 @@ Definition do_test_def:
   do_test _ ty v1 v2 = Eq_type_error
 End
 
+Definition v_to_flat_def:
+  v_to_flat (semanticPrimitives$Litv v) = flatSem$Litv v ∧
+  v_to_flat (Conv x y) =
+    (if Conv x y = Boolv T then Boolv T else
+     if Conv x y = Boolv F then Boolv F else Vectorv []) ∧
+  v_to_flat _ = Vectorv []
+End
+
+Definition flat_to_v_def:
+  flat_to_v (flatSem$Litv v) = semanticPrimitives$Litv v ∧
+  flat_to_v (Conv x y) =
+    (if Conv x y = Boolv T then Boolv T else
+     if Conv x y = Boolv F then Boolv F else Vectorv []) ∧
+  flat_to_v _ = Vectorv []
+End
+
 Definition do_app_def:
   do_app s op (vs:flatSem$v list) =
   case (op, vs) of
@@ -296,6 +312,21 @@ Definition do_app_def:
     (case do_test test test_ty v1 v2 of
      | Eq_type_error => NONE
      | Eq_val b => SOME (s, Rval (Boolv b)))
+  | (Arith a ty, vs) =>
+    (let vs = MAP flat_to_v vs in
+       if EVERY (check_type ty) vs then
+         (case do_arith a ty vs of
+          | SOME (INR res) => SOME (s, Rval (v_to_flat res))
+          | SOME (INL exn) => SOME (s, Rerr (Rraise div_exn_v))
+          | NONE           => NONE)
+       else NONE)
+  | (FromTo ty1 ty2, [v]) =>
+    (let v = flat_to_v v in
+       if check_type ty1 v then
+         (case do_conversion v ty1 ty2 of
+          | SOME res => SOME (s, Rval (v_to_flat res))
+          | NONE     => NONE)
+       else NONE)
   | (Opassign, [Loc _ lnum; v]) =>
     (case store_assign lnum (Refv v) s.refs of
      | SOME s' => SOME (s with refs := s', Rval Unitv)
@@ -983,30 +1014,11 @@ val eqs = LIST_CONJ (map prove_case_eq_thm
 Theorem case_eq_thms =
   eqs
 
-Theorem pair_case_eq[local]:
-  pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v
-Proof
-  Cases_on `x` >>
- srw_tac[][]
-QED
-
-Theorem pair_lam_lem[local]:
-  !f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)
-Proof
-  srw_tac[][]
-QED
-
-Theorem do_app_cases =
-  ``do_app st op vs = SOME (st',v)`` |>
-  (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem, CaseEq "thunk_op"] THENC
-   SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs])
-
 Theorem do_app_const:
-   do_app s op vs = SOME (s',r) ⇒ s.clock = s'.clock ∧ s.c = s'.c
+  do_app s op vs = SOME (s',r) ⇒ s.clock = s'.clock ∧ s.c = s'.c
 Proof
-  rw [do_app_cases] >>
-  rw [] >>
-  rfs []
+  Cases_on ‘op’ \\ rw [do_app_def,AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ gvs []) \\ gvs []
 QED
 
 Theorem evaluate_clock:

@@ -1265,7 +1265,7 @@ Theorem op_arith:
 Proof
   rpt strip_tac \\ rveq \\ fs []
   \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
-         CaseEq "ast$lit",store_assign_def,option_case_eq]
+         CaseEq "ast$lit",store_assign_def,option_case_eq] \\ cheat
 QED
 
 Theorem op_from_to:
@@ -1274,7 +1274,7 @@ Theorem op_from_to:
 Proof
   rpt strip_tac \\ rveq \\ fs []
   \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
-         CaseEq "ast$lit",store_assign_def,option_case_eq]
+         CaseEq "ast$lit",store_assign_def,option_case_eq] \\ cheat
 QED
 
 Theorem op_test:

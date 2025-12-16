@@ -938,7 +938,7 @@ QED
 Theorem v_rel_check_type:
   v_rel genv v1 w1 ∧ genv_c_ok genv.c ∧ check_type ty v1 ⇒ check_type ty w1
 Proof
-  Cases_on ‘ty’ \\ TRY (rename [‘WordT ws’] \\ Cases_on ‘ws’)
+  Cases_on ‘ty’ using prim_type_cases
   \\ rw [] \\ gvs [semanticPrimitivesTheory.check_type_def]
   \\ gvs [v_rel_eqns,semanticPrimitivesTheory.Boolv_def]
   \\ rw [] \\ gvs [flatSemTheory.check_type_def,Boolv_def]
@@ -966,6 +966,69 @@ Proof
   \\ gvs [oneline semanticPrimitivesTheory.dest_Litv_def, AllCaseEqs()]
   \\ gvs [oneline flatSemTheory.dest_Litv_def, AllCaseEqs()]
   \\ gvs [v_rel_eqns]
+QED
+
+Theorem check_type_IMP_v_rel:
+  check_type ty v ∧ genv_c_ok genv.c ⇒ v_rel genv v (v_to_flat v)
+Proof
+  Cases_on ‘ty’ using prim_type_cases
+  \\ gvs [semanticPrimitivesTheory.check_type_def]
+  \\ rw [] \\ gvs [v_to_flat_def]
+  \\ EVAL_TAC \\ simp [Once v_rel_cases]
+  \\ gvs [genv_c_ok_def,has_bools_def,EVAL “true_tag”,EVAL “false_tag”,EVAL “bool_id”]
+  \\ EVAL_TAC
+QED
+
+Theorem check_type_v_rel_flat_to_v:
+  check_type ty v ∧ v_rel genv v y ∧ genv_c_ok genv.c ⇒ flat_to_v y = v
+Proof
+  Cases_on ‘ty’ using prim_type_cases
+  \\ gvs [semanticPrimitivesTheory.check_type_def] \\ rw []
+  \\ fs [Once v_rel_cases,flat_to_v_def]
+  \\ gvs [Boolv_def,semanticPrimitivesTheory.Boolv_def]
+  \\ gvs [genv_c_ok_def,has_bools_def,EVAL “true_tag”,EVAL “false_tag”,EVAL “bool_id”]
+  \\ rw [] \\ gvs [semanticPrimitivesTheory.ctor_same_type_def,FORALL_PROD]
+  \\ Cases_on ‘cn'’ \\ gvs [] \\ res_tac
+QED
+
+Theorem check_type_v_rel_MAP_flat_to_v:
+  ∀v y.
+    EVERY (check_type ty) v ∧ LIST_REL (v_rel genv) v y ∧ genv_c_ok genv.c ⇒
+    MAP flat_to_v y = v
+Proof
+  Induct \\ gvs [PULL_EXISTS] \\ rpt strip_tac
+  \\ drule_all check_type_v_rel_flat_to_v \\ fs []
+QED
+
+Theorem do_arith_INL[local]:
+  EVERY (check_type ty) vs ∧ genv_c_ok genv.c ∧
+  LIST_REL (v_rel genv) vs vs_i1 ∧
+  do_arith a ty vs = SOME (INL exn) ⇒
+  exn = div_exn_v ∧
+  EVERY (check_type ty) (MAP flat_to_v vs_i1) ∧
+  ∃e. do_arith a ty (MAP flat_to_v vs_i1) = SOME (INL e)
+Proof
+  strip_tac
+  \\ drule_all check_type_v_rel_MAP_flat_to_v
+  \\ strip_tac \\ fs []
+  \\ gvs [oneline do_arith_def,AllCaseEqs()]
+QED
+
+Theorem do_arith_INR[local]:
+  EVERY (check_type ty) vs ∧ genv_c_ok genv.c ∧
+  LIST_REL (v_rel genv) vs vs_i1 ∧
+  do_arith a ty vs = SOME (INR r) ⇒
+  EVERY (check_type ty) (MAP flat_to_v vs_i1) ∧
+  ∃r'. do_arith a ty (MAP flat_to_v vs_i1) = SOME (INR r') ∧
+       v_rel genv r (v_to_flat r')
+Proof
+  strip_tac
+  \\ drule_all check_type_v_rel_MAP_flat_to_v
+  \\ strip_tac \\ fs []
+  \\ drule_all do_arith_check_type
+  \\ rpt strip_tac
+  \\ drule_all check_type_IMP_v_rel
+  \\ simp []
 QED
 
 val s_i1 = ``s_i1 : ('f_orac_st, 'ffi) flatSem$state``;
@@ -1029,10 +1092,23 @@ Proof
       metis_tac [Boolv_11, do_eq, eq_result_11, eq_result_distinct, v_rel_lems])
   >~ [‘Arith a ty’] >- (
       gvs [oneline semanticPrimitivesTheory.do_app_def,AllCaseEqs()]
-      \\ gvs [oneline flatSemTheory.do_app_def,AllCaseEqs()])
+      \\ gvs [oneline flatSemTheory.do_app_def,AllCaseEqs()]
+      \\ reverse (rw []) \\ fs []
+      \\ simp [result_rel_cases,PULL_EXISTS]
+      >- (drule_all do_arith_INR \\ strip_tac \\ simp [])
+      \\ drule_all do_arith_INL \\ strip_tac \\ gvs []
+      \\ EVAL_TAC
+      \\ simp [Once v_rel_cases]
+      \\ gvs [genv_c_ok_def,has_exns_def,EVAL “div_tag”]
+      \\ EVAL_TAC)
   >~ [‘FromTo ty1 ty2’] >- (
       gvs [oneline semanticPrimitivesTheory.do_app_def,AllCaseEqs()]
-      \\ gvs [oneline flatSemTheory.do_app_def,AllCaseEqs()])
+      \\ gvs [oneline flatSemTheory.do_app_def,AllCaseEqs()]
+      \\ rw [] \\ gvs [PULL_EXISTS]
+      \\ simp [result_rel_cases,PULL_EXISTS]
+      \\ drule_all check_type_v_rel_flat_to_v \\ simp []
+      \\ drule_all do_conversion_check_type \\ rpt strip_tac
+      \\ drule_all check_type_IMP_v_rel \\ simp [])
   >~ [‘Test test ty’] >- (
       gvs [oneline semanticPrimitivesTheory.do_app_def,AllCaseEqs()]
       \\ gvs [oneline flatSemTheory.do_app_def,AllCaseEqs()]

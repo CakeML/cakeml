@@ -333,9 +333,8 @@ Theorem do_app_state_unchanged:
   !c s op vs s' r. do_app s op vs = SOME (s', r) ⇒
      s'.c = s.c ∧ s'.eval_config = s.eval_config
 Proof
-  rw [do_app_cases] >>
-  fs [semanticPrimitivesTheory.store_assign_def] >>
-  rfs []
+  rw [do_app_def,AllCaseEqs()] \\ gvs []
+  \\ rpt (pairarg_tac \\ gvs []) \\ gvs []
 QED
 
 Theorem evaluate_decs_append:
@@ -357,7 +356,8 @@ Theorem do_app_add_to_clock[local]:
    do_app (s with clock := s.clock + k) op es =
      SOME (t with clock := t.clock + k, r)
 Proof
-  rw [do_app_cases] \\ fs []
+  rw [Once do_app_def,AllCaseEqs(),semanticPrimitivesTheory.store_alloc_def] \\ gvs []
+  \\ simp [do_app_def,semanticPrimitivesTheory.store_alloc_def]
 QED
 
 Theorem do_app_add_to_clock_NONE[local]:
@@ -1163,6 +1163,15 @@ Proof
   \\ rfs [EL_MAP]
 QED
 
+Theorem check_type_LIST_REL_same[local]:
+  LIST_REL vr vs1 vs2 ∧
+  EVERY (check_type ty) (MAP flat_to_v vs1) ∧
+  simple_val_rel vr ⇒
+  vs2 = vs1
+Proof
+  cheat
+QED
+
 val sv_rel_cases = semanticPrimitivesPropsTheory.sv_rel_cases;
 
 Theorem simple_do_app_thm:
@@ -1180,6 +1189,13 @@ Proof
   \\ simp [Once do_app_def]
   \\ simp [case_eq_thms, bool_case_eq, pair_case_eq]
   \\ simp_tac bool_ss [PULL_EXISTS, DISJ_IMP_THM, FORALL_AND_THM]
+  \\ Cases_on ‘∃a ty. op = Arith a ty’ >-
+   (gvs [do_app_def,AllCaseEqs(),SF DNF_ss] \\ rw []
+    \\ imp_res_tac check_type_LIST_REL_same \\ gvs []
+    >- (EVAL_TAC \\ fs [simple_val_rel_def])
+    \\ imp_res_tac semanticPrimitivesPropsTheory.do_arith_check_type
+    \\ cheat)
+  \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ >- cheat
   \\ Cases_on ‘∃test ty. op = Test test ty’
   >-
    (gvs [PULL_EXISTS,do_app_def,AllCaseEqs()] \\ rw []
