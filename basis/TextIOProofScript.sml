@@ -73,6 +73,22 @@ Definition STDIO_def:
    &STD_streams fs
 End
 
+Theorem STDIO_STD_streams:
+  STDIO fs = STDIO fs * &STD_streams fs
+Proof
+  Cases_on ‘STD_streams fs’ \\ simp[STDIO_def, SEP_CLAUSES]
+QED
+
+Theorem STDIO_consistentFS:
+  STDIO fs = STDIO fs * &(consistentFS fs)
+Proof
+  Cases_on ‘consistentFS fs’ \\ simp [SEP_CLAUSES]
+  \\ simp [FUN_EQ_THM, SEP_F_def] \\ rpt strip_tac
+  \\ gvs [STDIO_def, IOFS_def, wfFS_def, cond_def, STAR_def, SEP_EXISTS_THM,
+          consistentFS_def]
+  \\ res_tac
+QED
+
 (* Used by the monadic translator *)
 Definition MONAD_IO_def:
   MONAD_IO fs = STDIO fs * &hasFreeFD fs
@@ -275,6 +291,7 @@ End
 Overload add_stdout = ``add_stdo 1 "stdout"``;
 Overload add_stderr = ``add_stdo 2 "stderr"``;
 
+
 Theorem stdo_add_stdo:
    stdo fd nm fs init ⇒ stdo fd nm (add_stdo fd nm fs out) (strcat init out)
 Proof
@@ -303,6 +320,15 @@ Proof
   rw[add_stdo_def]
   \\ SELECT_ELIM_TAC
   \\ metis_tac[up_stdo_unchanged]
+QED
+
+Theorem add_stdout_nil:
+  STD_streams fs ⇒ add_stdout fs «» = fs
+Proof
+  strip_tac
+  \\ irule add_stdo_nil
+  \\ fs [STD_streams_def, stdo_def]
+  \\ qrefine ‘implode x’ \\ simp []
 QED
 
 Theorem add_stdo_o:
@@ -409,6 +435,34 @@ Proof
   \\ match_mp_tac STD_streams_fsupdate \\ rw[]
 QED
 
+Theorem fsupdate_add_stdout:
+  STD_streams fs ∧ get_file_content fs 1 = SOME (content,pos) ⇒
+  (fsupdate fs 1 0 (pos + LENGTH s) (insert_atI s pos content)) =
+  (add_stdout fs (implode s))
+Proof
+  rpt strip_tac
+  \\ drule STD_streams_stdout \\ rpt strip_tac
+  \\ simp [add_stdo_def]
+  \\ SELECT_ELIM_TAC
+  \\ first_assum $ irule_at (Pos hd)
+  \\ rpt strip_tac \\ rveq
+  \\ gvs [stdo_def, up_stdo_def, get_file_content_def]
+  \\ ‘strlen out = LENGTH (explode out)’ by fs[]
+  \\ pop_assum SUBST_ALL_TAC
+  \\ rewrite_tac [insert_atI_end]
+QED
+
+Theorem fsupdate_add_stdout_str:
+  STD_streams fs ∧ get_file_content fs 1 = SOME (content,pos) ⇒
+  (fsupdate fs 1 0 (pos + 1) (insert_atI [c] pos content)) =
+  (add_stdout fs (str c))
+Proof
+  rpt strip_tac
+  \\ drule_all fsupdate_add_stdout
+  \\ disch_then $ qspec_then ‘[c]’ assume_tac
+  \\ gvs [str_def]
+QED
+
 Theorem validFD_up_stdo[simp]:
    validFD fd (up_stdo fd' fs out) ⇔ validFD fd fs
 Proof
@@ -431,6 +485,12 @@ Theorem validFileFD_add_stdo[simp]:
    validFileFD fd (add_stdo fd' nm fs out).infds ⇔ validFileFD fd fs.infds
 Proof
   rw[add_stdo_def]
+QED
+
+Theorem consistentFS_add_stdout[simp]:
+  consistentFS (add_stdout fs s) = consistentFS fs
+Proof
+  simp [consistentFS_def, add_stdo_def]
 QED
 
 Theorem up_stdo_ADELKEY:
@@ -1423,6 +1483,21 @@ Proof
   \\ `fs1 = fs2` suffices_by xsimpl
   \\ fs[get_file_content_def] \\ pairarg_tac \\ fs[]
   \\ rw[Abbr`fs1`,Abbr`fs2`,IO_fs_component_equality,fsupdate_def]
+QED
+
+Theorem output1_stdOut_spec:
+  CHAR c cv ⇒
+  app (p:'ffi ffi_proj) TextIO_output1_v [stdout_v; cv]
+    (STDIO fs)
+    (POSTv uv. &UNIT_TYPE () uv * STDIO (add_stdout fs (str c)))
+Proof
+  strip_tac
+  \\ reverse $ Cases_on ‘STD_streams fs’ >- (fs[STDIO_def] \\ xpull)
+  \\ drule get_file_content_stdout \\ rpt strip_tac
+  \\ xapp_spec output1_STDIO_spec
+  \\ instantiate
+  \\ simp [OUTSTREAM_stdout, Req0 STD_streams_get_mode] \\ xsimpl
+  \\ simp [Req0 fsupdate_add_stdout_str] \\ xsimpl
 QED
 
 val tac =
@@ -5369,6 +5444,49 @@ Definition INSTREAM_STR_def:
          get_file_content fs fd = SOME(read ++ str, LENGTH read + LENGTH active) /\
          get_mode fs fd = SOME ReadMode)
 End
+
+Theorem INSTREAM_STR_fd_neq:
+  STD_streams fs ⇒
+  INSTREAM_STR fd is s fs =
+  INSTREAM_STR fd is s fs * &(fd ≠ 1 ∧ fd ≠ 2)
+Proof
+  strip_tac
+  \\ drule_then assume_tac STD_streams_get_mode
+  \\ Cases_on ‘fd ≠ 1 ∧ fd ≠ 2’
+  \\ gvs [INSTREAM_STR_def, SEP_CLAUSES]
+QED
+
+Theorem INSTREAM_STR_add_stdout_forwardFD:
+  STD_streams fs ⇒
+  INSTREAM_STR fd is rest (add_stdout fs s) =
+  INSTREAM_STR fd is rest fs
+Proof
+  simp [FUN_EQ_THM] \\ rpt strip_tac
+  \\ drule STD_streams_add_stdout
+  \\ disch_then $ qspec_then ‘s’ assume_tac
+  \\ imp_res_tac INSTREAM_STR_fd_neq
+  \\ ntac 2 $ pop_assum $ once_rewrite_tac o sing
+  \\ iff_tac
+  \\ simp [STAR_def, cond_def] \\ rpt strip_tac \\ instantiate
+  \\ qpat_x_assum ‘INSTREAM_STR _ _ _ _ _’ mp_tac
+  \\ simp [INSTREAM_STR_def]
+  \\ DEP_REWRITE_TAC [get_file_content_add_stdout]
+  \\ simp []
+QED
+
+(* Useful for applying fastForwardFD_forwardFD *)
+Theorem INSTREAM_STR_get_file_content:
+  INSTREAM_STR fd is s (forwardFD fs fd k) =
+  INSTREAM_STR fd is s (forwardFD fs fd k) *
+  &(∃content pos.
+      get_file_content fs fd = SOME (content,pos) ∧ pos + k ≤ STRLEN content)
+Proof
+  qmatch_goalsub_abbrev_tac ‘&P’
+  \\ Cases_on ‘P’ \\ gvs [SEP_CLAUSES]
+  \\ simp [FUN_EQ_THM, SEP_F_def]
+  \\ rpt strip_tac
+  \\ gvs [INSTREAM_STR_def, SEP_EXISTS_THM, STAR_def, cond_def]
+QED
 
 Definition INSTREAM_STR'_def:
   INSTREAM_STR' fd is (str:string) fs non_empty is_empty =

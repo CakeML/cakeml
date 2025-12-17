@@ -39,6 +39,14 @@ Proof
   fs[]
 QED
 
+Theorem nextFD_maxFD:
+  hasFreeFD fs ⇒ nextFD fs ≤ fs.maxFD
+Proof
+  strip_tac
+  \\ drule_then assume_tac nextFD_ltX
+  \\ gvs [nextFD_def]
+QED
+
 Theorem nextFD_leX:
    CARD (set (MAP FST fs.infds)) ≤ x ⇒ nextFD fs ≤ x
 Proof
@@ -1400,6 +1408,28 @@ Proof
   qmatch_assum_rename_tac`ALOOKUP _ ino = SOME r` \\
   qexists_tac`if fd = 0 then MAX (LENGTH r) off else inp` \\ rw[EXISTS_PROD] \\
   metis_tac[SOME_11,PAIR,FST,SND,lemma]
+QED
+
+Theorem get_file_content_stdout:
+  STD_streams fs ⇒
+  ∃content pos. get_file_content fs 1 = SOME (content, pos)
+Proof
+  simp [STD_streams_def, get_file_content_def]
+  \\ rpt strip_tac
+  \\ rename [‘ALOOKUP fs.inode_tbl (UStream «stdout») = SOME out’]
+  \\ qexistsl [‘out’, ‘STRLEN out’, ‘(UStream «stdout», WriteMode, STRLEN out)’]
+  \\ simp []
+QED
+
+Theorem get_file_content_stderr:
+  STD_streams fs ⇒
+  ∃content pos. get_file_content fs 2 = SOME (content, pos)
+Proof
+  simp [STD_streams_def, get_file_content_def]
+  \\ rpt strip_tac
+  \\ rename [‘ALOOKUP fs.inode_tbl (UStream «stderr») = SOME err’]
+  \\ qexistsl [‘err’, ‘STRLEN err’, ‘(UStream «stderr», WriteMode, STRLEN err)’]
+  \\ simp []
 QED
 
 Definition get_mode_def:
