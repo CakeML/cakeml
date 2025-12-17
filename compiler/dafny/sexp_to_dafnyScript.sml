@@ -33,7 +33,7 @@ Definition to_int_def:
   to_int (Atom s) =
   (case fromString s of
    | NONE => fail «to_int: fromString failed»
-   | SOME i => return i) ∧
+   | SOME (i: int) => return i) ∧
   to_int _ = fail «to_int: Was not Atom»
 End
 
