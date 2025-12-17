@@ -403,7 +403,7 @@ Proof
   drule_then assume_tac $ GSYM ALL_DISTINCT_CARD_LIST_TO_SET>>
   fs[]>>
   irule $ METIS_PROVE[] “s1 = s2 ⇒ CARD s1 = CARD s2”>>
-  rw[GSYM list_set_eq,rich_listTheory.IS_EL_FILTER]>>
+  rw[GSYM list_set_eq,MEM_FILTER]>>
   metis_tac[]
 QED
 
@@ -430,15 +430,6 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Triviality tr1:
-  (∀v. MEM v (union_dom bnd Xs) ⇒
-            (wb (INR (name,Values [v] NONE)) ⇔
-             ∃X. MEM X Xs ∧ wb (INL (Eq X v)))) ⇒
-  FILTER (λv. wb (INR (name,Values [v] NONE))) (union_dom bnd Xs) = FILTER (λv. ∃X. MEM X Xs ∧ wb (INL (Eq X v))) (union_dom bnd Xs)
-Proof
-  cheat
-QED
-
 Theorem encode_n_value_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
@@ -451,12 +442,19 @@ Proof
   DEP_REWRITE_TAC[encode_bitsum_sem]>>
   simp[MAP_elm]>>
   simp[MAP_MAP_o]>>
-  simp[Once o_ABS_R]>>
-  simp[iSUM_FILTER]>>
-  rw[n_value_sem_def,EVERY_MEM,
-     METIS_PROVE[] “(∀x. P x ⇒ (Q x ∧ R x)) ⇔ (∀x. P x ⇒ Q x) ∧ (∀x. P x ⇒ R x)”]>>
-  gs[tr1]>>
-  cheat
+  rw[Once o_ABS_R,iSUM_FILTER,n_value_sem_def,EVERY_MEM,
+    METIS_PROVE[] “(∀x. P x ⇒ (Q x ∧ R x)) ⇔ (∀x. P x ⇒ Q x) ∧ (∀x. P x ⇒ R x)”]>>
+  assume_tac ALL_DISTINCT_union_dom>>
+  drule_then assume_tac $ FILTER_ALL_DISTINCT>>
+  pop_assum $ qspec_then ‘(λv. wb (INR (name,Values [v] NONE)))’ assume_tac>>
+  drule_then assume_tac $ GSYM ALL_DISTINCT_CARD_LIST_TO_SET>>
+  gs[]>>
+  ‘(set (FILTER (λv. wb (INR (name,Values [v] NONE))) (union_dom bnd Xs))) =
+   (set (MAP (varc wi) Xs))’ by (
+    simp[GSYM list_set_eq,MEM_FILTER,MEM_MAP]>>
+    cheat)>>
+  gs[]>>
+  intLib.ARITH_TAC
 QED
 
 Definition eqi_def[simp]:
@@ -521,10 +519,14 @@ Theorem encode_count_sem_2:
   count_sem Xs Y Z wi
 Proof
   Cases_on ‘Z’>>
-  rw[encode_count_def,count_sem_def,MEM_FLAT,MEM_MAPi,
-    EVERY_MEM,PULL_EXISTS,SF DNF_ss,varc_def]>>
-  gs[iconstraint_sem_def,eval_ilin_term_def,eval_lin_term_def,
-    iSUM_def,MAP_GENLIST,o_ABS_R]>>
+  rw[encode_count_def,count_sem_def,varc_def,
+    EVERY_MEM,MEM_FLAT,MEM_MAPi,PULL_EXISTS,SF DNF_ss,
+    bits_imply_sem,iconstraint_sem_def,
+    eval_ilin_term_def,eval_lin_term_def,iSUM_def,
+    MAP_GENLIST,o_ABS_R,GSYM GENLIST_EL_MAP]>>
+  gs[GSYM MAP_COUNT_LIST,iSUM_MAP_lin_const]>>
+  ‘∀i. i < LENGTH $ COUNT_LIST $ LENGTH Xs ⇒ b2i $ wb (INR (name,Indices [i] (SOME «eq»))) =
+                                             b2i $ ((case EL i Xs of INL v => wi v | INR c => c) = (case Y of INL v => wi v | INR c => c))’ by cheat>>
   cheat
 QED
 
