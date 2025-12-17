@@ -56,9 +56,8 @@ QED
 
 val _ = json_to_mlstring_ind |> update_precondition;
 
-(* str_tree and displayLang *)
+(* displayLang *)
 
-val r = translate str_treeTheory.v2strs_def;
 val r = translate displayLangTheory.display_to_str_tree_def;
 
 (* presLang *)
