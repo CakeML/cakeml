@@ -397,18 +397,14 @@ Theorem LENGTH_FILTER_subset:
   LENGTH (FILTER (λv. MEM v ls1) ls2) = CARD (set ls1)
 Proof
   rw[SUBSET_DEF]>>
-  Induct_on ‘ls2’
-  >-simp[NIL_NO_MEM]>>
-  strip_tac>>
-  Cases_on ‘MEM h ls2’
-  >-(
-    rpt strip_tac>>
-    pop_assum (fn thm => assume_tac $ GSYM thm)>>
-    drule_then assume_tac CARD_LIST_TO_SET_ALL_DISTINCT>>
-    gs[])
-  >-(
-    rpt strip_tac>>
-    cheat)
+  drule_then assume_tac $ GSYM CARD_LIST_TO_SET_ALL_DISTINCT>>
+  drule_then assume_tac $ FILTER_ALL_DISTINCT>>
+  pop_assum $ qspec_then ‘(λv. MEM v ls1)’ assume_tac>>
+  drule_then assume_tac $ GSYM ALL_DISTINCT_CARD_LIST_TO_SET>>
+  fs[]>>
+  irule $ METIS_PROVE[] “s1 = s2 ⇒ CARD s1 = CARD s2”>>
+  rw[GSYM list_set_eq,rich_listTheory.IS_EL_FILTER]>>
+  metis_tac[]
 QED
 
 Theorem encode_n_value_sem_1:
@@ -513,8 +509,8 @@ Proof
   rpt intLib.ARITH_TAC>>
   Cases_on ‘Z’>>
   gs[iconstraint_sem_def,eval_ilin_term_def,eval_lin_term_def,
-     iSUM_def,MAP_GENLIST,o_ABS_R,reify_avar_def,reify_flag_def,
-     b2i_alt,varc_def,GENLIST_EL_MAP,iSUM_MAP_lin_const]>>
+    iSUM_def,MAP_GENLIST,o_ABS_R,reify_avar_def,reify_flag_def,
+    b2i_alt,varc_def,GENLIST_EL_MAP,iSUM_MAP_lin_const]>>
   intLib.ARITH_TAC
 QED
 
@@ -524,6 +520,11 @@ Theorem encode_count_sem_2:
     (encode_count bnd Xs Y Z name) ⇒
   count_sem Xs Y Z wi
 Proof
+  Cases_on ‘Z’>>
+  rw[encode_count_def,count_sem_def,MEM_FLAT,MEM_MAPi,
+    EVERY_MEM,PULL_EXISTS,SF DNF_ss,varc_def]>>
+  gs[iconstraint_sem_def,eval_ilin_term_def,eval_lin_term_def,
+    iSUM_def,MAP_GENLIST,o_ABS_R]>>
   cheat
 QED
 
