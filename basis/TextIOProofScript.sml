@@ -435,7 +435,7 @@ Proof
   \\ match_mp_tac STD_streams_fsupdate \\ rw[]
 QED
 
-Theorem fsupdate_add_stdout:
+Theorem fsupdate_add_stdout_implode:
   STD_streams fs ∧ get_file_content fs 1 = SOME (content,pos) ⇒
   (fsupdate fs 1 0 (pos + LENGTH s) (insert_atI s pos content)) =
   (add_stdout fs (implode s))
@@ -458,7 +458,7 @@ Theorem fsupdate_add_stdout_str:
   (add_stdout fs (str c))
 Proof
   rpt strip_tac
-  \\ drule_all fsupdate_add_stdout
+  \\ drule_all fsupdate_add_stdout_implode
   \\ disch_then $ qspec_then ‘[c]’ assume_tac
   \\ gvs [str_def]
 QED
