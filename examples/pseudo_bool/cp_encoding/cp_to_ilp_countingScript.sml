@@ -374,7 +374,7 @@ Definition encode_n_value_def:
     encode_bitsum (MAP (elm name) vals) Y
 End
 
-Triviality MAP_elm:
+Theorem MAP_elm[local]:
   MAP (elm name) ls =
   MAP (λv. elm name v) ls
 Proof
@@ -393,15 +393,12 @@ Proof
 QED
 
 Theorem LENGTH_FILTER_subset:
-  set ls1 ⊆ set ls2 ∧ LENGTH ls2 = CARD $ set ls2 ⇒
+  set ls1 ⊆ set ls2 ∧ ALL_DISTINCT ls2 ⇒
   LENGTH (FILTER (λv. MEM v ls1) ls2) = CARD (set ls1)
 Proof
   rw[SUBSET_DEF]>>
-  drule_then assume_tac $ GSYM CARD_LIST_TO_SET_ALL_DISTINCT>>
-  drule_then assume_tac $ FILTER_ALL_DISTINCT>>
-  pop_assum $ qspec_then ‘(λv. MEM v ls1)’ assume_tac>>
-  drule_then assume_tac $ GSYM ALL_DISTINCT_CARD_LIST_TO_SET>>
-  fs[]>>
+  drule_then (qspec_then ‘(λv. MEM v ls1)’ assume_tac) FILTER_ALL_DISTINCT>>
+  drule_then (fn thm => simp[thm]) $ GSYM ALL_DISTINCT_CARD_LIST_TO_SET>>
   irule $ METIS_PROVE[] “s1 = s2 ⇒ CARD s1 = CARD s2”>>
   rw[GSYM list_set_eq,MEM_FILTER]>>
   metis_tac[]
@@ -419,9 +416,8 @@ Proof
     rw[reify_some_eq_sem,reify_avar_def,reify_reif_def,reify_flag_def,MEM_MAP]>>
     metis_tac[])>>
   DEP_REWRITE_TAC[encode_bitsum_sem]>>
-  simp[MAP_elm]>>
   simp[MAP_MAP_o]>>
-  simp[Once o_ABS_R,iSUM_FILTER,reify_avar_def,reify_flag_def]>>
+  simp[o_DEF,iSUM_FILTER,reify_avar_def,reify_flag_def]>>
   DEP_REWRITE_TAC[subset_varc_union_dom,LENGTH_FILTER_subset]>>
   DEP_REWRITE_TAC[EVERY_MEM_union_dom,LENGTH_FILTER_subset]>>
   simp[]>>
@@ -430,6 +426,7 @@ Proof
   intLib.ARITH_TAC
 QED
 
+(* to address the issue of splitted subgoals *)
 Theorem encode_n_value_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
@@ -448,11 +445,23 @@ Proof
   drule_then assume_tac $ FILTER_ALL_DISTINCT>>
   pop_assum $ qspec_then ‘(λv. wb (INR (name,Values [v] NONE)))’ assume_tac>>
   drule_then assume_tac $ GSYM ALL_DISTINCT_CARD_LIST_TO_SET>>
-  gs[]>>
   ‘(set (FILTER (λv. wb (INR (name,Values [v] NONE))) (union_dom bnd Xs))) =
    (set (MAP (varc wi) Xs))’ by (
-    simp[GSYM list_set_eq,MEM_FILTER,MEM_MAP]>>
-    cheat)>>
+    cheat
+    (*simp[GSYM list_set_eq,MEM_FILTER,MEM_MAP]>>
+    strip_tac>>
+    iff_tac>>
+    strip_tac
+    >-(metis_tac[])
+    >-(
+      pure_rewrite_tac[Once $ METIS_PROVE[] “Q ∧ P ⇔ P ∧ (P ⇒ Q)”]>>
+      CONJ_TAC
+      >-(
+        drule_then assume_tac EVERY_MEM_union_dom>>
+        gs[EVERY_MEM])
+      >-(
+        strip_tac>>
+        metis_tac[]))*))>>
   gs[]>>
   intLib.ARITH_TAC
 QED
@@ -512,6 +521,13 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Theorem tr1[local]:
+  (∀i. i < LENGTH ls ⇒ f i = g i) ⇒
+  MAP (λi. g i) ls = MAP (λi. f i) ls
+Proof
+  cheat
+QED
+
 Theorem encode_count_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
@@ -525,9 +541,13 @@ Proof
     eval_ilin_term_def,eval_lin_term_def,iSUM_def,
     MAP_GENLIST,o_ABS_R,GSYM GENLIST_EL_MAP]>>
   gs[GSYM MAP_COUNT_LIST,iSUM_MAP_lin_const]>>
-  ‘∀i. i < LENGTH $ COUNT_LIST $ LENGTH Xs ⇒ b2i $ wb (INR (name,Indices [i] (SOME «eq»))) =
-                                             b2i $ ((case EL i Xs of INL v => wi v | INR c => c) = (case Y of INL v => wi v | INR c => c))’ by cheat>>
+  ‘∀i. i < LENGTH $ COUNT_LIST $ LENGTH Xs ⇒
+       b2i $ wb (INR (name,Indices [i] (SOME «eq»))) =
+       b2i $ ((case EL i Xs of INL v => wi v | INR c => c) =
+              (case Y of INL v => wi v | INR c => c))’ by cheat>>
+  pop_assum mp_tac>>
   cheat
+  (*qmatch_goalsub_abbrev_tac ‘LENGTH ls’>>*)
 QED
 
 (* Among: Y equals the number of times values from iS appear in Xs
