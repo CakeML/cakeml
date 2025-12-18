@@ -104,7 +104,7 @@ Proof
   \\ ‘STD_streams (fastForwardFD fs fd)’ by
     (DEP_REWRITE_TAC [STD_streams_fastForwardFD] \\ simp [])
   \\ conj_tac
-  >- (DEP_REWRITE_TAC [INSTREAM_STR_add_stdout_forwardFD] \\ simp [] \\ xsimpl)
+  >- (DEP_REWRITE_TAC [INSTREAM_STR_add_stdout] \\ simp [] \\ xsimpl)
   \\ conj_tac >- (DEP_REWRITE_TAC [STD_streams_add_stdout] \\ simp [])
   \\ DEP_REWRITE_TAC [GSYM add_stdout_fastForwardFD]
   \\ conj_tac >- simp []
@@ -113,7 +113,7 @@ Proof
   \\ drule STD_streams_stdout \\ strip_tac
   \\ drule_then assume_tac add_stdo_o \\ simp []
   \\ simp [implode_cons_str] \\ xsimpl
-  \\ DEP_REWRITE_TAC [INSTREAM_STR_add_stdout_forwardFD]
+  \\ DEP_REWRITE_TAC [INSTREAM_STR_add_stdout]
   \\ simp [] \\ xsimpl
 QED
 
@@ -155,7 +155,7 @@ Proof
     \\ unabbrev_all_tac \\ simp []
     \\ conj_tac >-
      (DEP_REWRITE_TAC [
-         INSTREAM_STR_add_stdout_forwardFD,
+         INSTREAM_STR_add_stdout,
          STD_streams_fastForwardFD,
          STD_streams_openFileFS
        ]

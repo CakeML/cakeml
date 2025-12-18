@@ -471,99 +471,97 @@ val parse_regexp_side = Q.prove(
 
 (* -- *)
 
-val print_matching_lines = process_topdecs`
+Quote add_cakeml:
   fun print_matching_lines match prefix fd =
-    case TextIO.inputLine fd of None => ()
+    case TextIO.inputLine #"\n" fd of None => ()
     | Some ln => (if match ln then (TextIO.print prefix; TextIO.print ln) else ();
-                  print_matching_lines match prefix fd)`;
-val _ = append_prog print_matching_lines;
+                  print_matching_lines match prefix fd)
+End
 
 Theorem print_matching_lines_spec:
-   (STRING_TYPE --> BOOL) m mv ∧ STRING_TYPE pfx pfxv ∧
-   INSTREAM fd fdv ∧ fd ≠ 1 ∧ fd ≠ 2 ∧
-   IS_SOME (get_file_content fs fd) ∧ get_mode fs fd = SOME ReadMode ⇒
-   app (p:'ffi ffi_proj)
-     ^(fetch_v "print_matching_lines"(get_ml_prog_state())) [mv; pfxv; fdv]
-     (STDIO fs)
-     (POSTv uv.
-       &UNIT_TYPE () uv *
-       STDIO (add_stdout (fastForwardFD fs fd)
-                     (concat
-                        (MAP (strcat pfx)
-                           (FILTER m (MAP implode (linesFD fs fd)))))))
+  ∀fs.
+  (STRING_TYPE --> BOOL) m mv ∧ STRING_TYPE pfx pfxv
+  ⇒
+  app (p:'ffi ffi_proj)
+    print_matching_lines_v [mv; pfxv; fdv]
+      (STDIO fs * INSTREAM_LINES #"\n" fd fdv lines fs)
+      (POSTv uv.
+         &UNIT_TYPE () uv *
+         STDIO (add_stdout (fastForwardFD fs fd)
+                  (concat (MAP (strcat pfx) (FILTER m lines)))) *
+         INSTREAM_LINES #"\n" fd fdv [] (fastForwardFD fs fd))
 Proof
-  Induct_on`linesFD fs fd` \\ rw[]
-  >- (
-    qpat_x_assum`[] = _`(assume_tac o SYM) \\ fs[]
-    \\ xcf"print_matching_lines"(get_ml_prog_state())
-    \\ xlet_auto >- xsimpl
-    \\ rfs[linesFD_nil_lineFD_NONE,OPTION_TYPE_def]
-    \\ xmatch
-    \\ xcon
-    \\ fs[lineFD_NONE_lineForwardFD_fastForwardFD]
-    \\ reverse(Cases_on`STD_streams (fastForwardFD fs fd)`) >- (fs[STDIO_def] \\ xsimpl)
-    \\ imp_res_tac STD_streams_stdout
-    \\ imp_res_tac add_stdo_nil
-    \\ xsimpl )
-  \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
-  \\ qpat_x_assum`_::_ = _`(assume_tac o SYM) \\ fs[]
-  \\ xcf"print_matching_lines"(get_ml_prog_state())
-  \\ xlet_auto >- xsimpl
-  \\ Cases_on`lineFD fs fd` \\ fs[GSYM linesFD_nil_lineFD_NONE]
-  \\ fs[OPTION_TYPE_def]
-  \\ xmatch
-  \\ rename1`lineFD _ _ = SOME ln`
-  \\ rveq
-  \\ xlet_auto >- xsimpl
-  (* TODO: xlet_auto doesn't handle if statements yet *)
-  \\ xlet`POSTv x. STDIO (add_stdout (lineForwardFD fs fd)
-                                     (if m (implode ln) then strcat pfx (implode ln) else strlit""))`
-  >- (
-    xif
-    >- (
-      (* TODO: xlet_auto failing on STDIO *)
-      xlet`POSTv x. STDIO (add_stdout (lineForwardFD fs fd) pfx)`
-      >- (xapp \\ instantiate \\ xsimpl
-          \\ CONV_TAC(SWAP_EXISTS_CONV) \\ qexists_tac`lineForwardFD fs fd`
-          \\ xsimpl )
-      \\ xapp \\ instantiate \\ xsimpl
-      (* TODO: make this less painful? *)
-      \\ CONV_TAC(SWAP_EXISTS_CONV) \\ qexists_tac`add_stdout (lineForwardFD fs fd) pfx`
-      \\ xsimpl \\ rw[]
-      (* TODO: make this less painful? *)
-      \\ imp_res_tac STD_streams_lineForwardFD
-      \\ imp_res_tac STD_streams_stdout
-      \\ imp_res_tac add_stdo_o
-      \\ xsimpl)
-    \\ xcon
-    \\ DEP_REWRITE_TAC[GEN_ALL add_stdo_nil]
+  Induct_on ‘lines’
+  \\ rpt strip_tac
+  \\ simp [Once STDIO_STD_streams] \\ xpull
+  \\ simp [Once INSTREAM_LINES_fd_neq] \\ xpull
+  \\ ‘CHAR #"\n" (Litv (Char #"\n"))’ by simp [CHAR_def]
+  >-
+   (xcf_with_def $ definition "print_matching_lines_v_def"
+    \\ xlet ‘POSTv v. SEP_EXISTS k.
+         STDIO (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
+         &OPTION_TYPE STRING_TYPE NONE v’
+    >- (xapp \\ qexistsl [‘emp’, ‘[]’, ‘fs’, ‘fd’, ‘#"\n"’] \\ xsimpl)
+    \\ gvs [OPTION_TYPE_def] \\ xmatch \\ xcon
+    \\ DEP_REWRITE_TAC [add_stdout_nil, STD_streams_fastForwardFD]
+    \\ simp [] \\ xsimpl
+    \\ rewrite_tac [Once STDIO_STD_streams] \\ xpull
+    \\ simp [Req0 add_stdout_nil]
     \\ xsimpl
-    \\ metis_tac[STD_streams_stdout,STD_streams_lineForwardFD])
-  \\ imp_res_tac linesFD_cons_imp \\ rveq \\ fs[]
-  \\ qmatch_goalsub_abbrev_tac`STDIO fs'`
-  \\ first_x_assum(qspecl_then[`fs'`,`fd`]mp_tac)
-  \\ simp[AND_IMP_INTRO]
-  \\ impl_keep_tac
-  >- (
-    simp[Abbr`fs'`]
-    \\ qmatch_goalsub_rename_tac`add_stdout _ x`
-    \\ DEP_REWRITE_TAC[linesFD_add_stdout]
-    \\ simp[STD_streams_lineForwardFD,get_file_content_add_stdout] )
-  \\ strip_tac
+    \\ simp [INSTREAM_LINES_fastForwardFD])
+  \\ xcf_with_def $ definition "print_matching_lines_v_def"
+  \\ rename [‘INSTREAM_LINES _ _ _ (line::lines) _’]
+  \\ xlet ‘(POSTv v. SEP_EXISTS k.
+         STDIO (forwardFD fs fd k) *
+         INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
+         & (OPTION_TYPE STRING_TYPE (SOME line) v))’
+  >- (xapp \\ qexistsl [‘emp’, ‘line::lines’, ‘fs’, ‘fd’, ‘#"\n"’] \\ xsimpl)
+  \\ simp [Once INSTREAM_LINES_get_file_content] \\ xpull
+  \\ gvs [OPTION_TYPE_def] \\ xmatch
+  \\ xlet_auto >- xsimpl
+  \\ qmatch_goalsub_abbrev_tac ‘STDIO (forwardFD _ _ _) * INSTREAM_LINES₁’
+  \\ reverse $ Cases_on ‘m line’ \\ simp []
+  >-
+   (xlet ‘POSTv uv.
+             &UNIT_TYPE () uv *
+             STDIO (forwardFD fs fd k) *
+             INSTREAM_LINES₁’
+    >- (xif \\ instantiate \\ xcon \\ xsimpl)
+    \\ xapp \\ qexistsl [‘emp’, ‘forwardFD fs fd k’] \\ xsimpl
+    \\ DEP_REWRITE_TAC [fastForwardFD_forwardFD] \\ xsimpl)
+  \\ ‘STD_streams (forwardFD fs fd k)’ by (simp [STD_streams_forwardFD])
+  \\ xlet ‘POSTv uv.
+             &UNIT_TYPE () uv *
+             STDIO (add_stdout (forwardFD fs fd k) (pfx ^ line)) *
+             INSTREAM_LINES₁’
+  >-
+   (xif \\ instantiate
+    \\ xlet_auto >- xsimpl
+    \\ xapp
+    \\ instantiate \\ xsimpl
+    \\ qexistsl [‘INSTREAM_LINES₁’, ‘add_stdout (forwardFD fs fd k) pfx’]
+    \\ xsimpl
+    \\ drule STD_streams_stdout \\ strip_tac
+    \\ drule add_stdo_o \\ simp [] \\ xsimpl)
   \\ xapp
+  \\ qexistsl [‘emp’, ‘add_stdout (forwardFD fs fd k) (pfx ^ line)’]
   \\ xsimpl
-  \\ qmatch_goalsub_abbrev_tac`STDIO fs1 ==>> STDIO fs2 * _`
-  \\ `fs1 = fs2` suffices_by xsimpl
-  \\ fs[Abbr`fs1`,Abbr`fs2`]
-  \\ qpat_x_assum`_ = linesFD fs' fd`(assume_tac o SYM) \\ fs[]
-  \\ simp[Abbr`fs'`,linesFD_add_stdout]
-  \\ simp[add_stdout_lineForwardFD]
-  \\ simp[add_stdout_fastForwardFD,STD_streams_fastForwardFD]
-  \\ DEP_REWRITE_TAC[add_stdout_fastForwardFD]
-  \\ simp[STD_streams_add_stdout]
-  \\ DEP_REWRITE_TAC[GEN_ALL add_stdo_o]
-  \\ conj_tac >- metis_tac[STD_streams_stdout]
-  \\ rw[concat_cons]
+  \\ conj_tac
+  >-
+   (unabbrev_all_tac
+    \\ DEP_REWRITE_TAC [INSTREAM_LINES_add_stdout]
+    \\ simp [] \\ xsimpl)
+  \\ DEP_REWRITE_TAC [GSYM add_stdout_fastForwardFD]
+  \\ conj_tac >- simp []
+  \\ DEP_REWRITE_TAC [INSTREAM_LINES_add_stdout]
+  \\ conj_tac >- (DEP_REWRITE_TAC [STD_streams_fastForwardFD] \\ simp [])
+  \\ DEP_REWRITE_TAC [fastForwardFD_forwardFD]
+  \\ conj_tac >- simp []
+  \\ ‘STD_streams (fastForwardFD fs fd)’ by (simp [STD_streams_fastForwardFD])
+  \\ drule STD_streams_stdout \\ strip_tac
+  \\ drule_then assume_tac add_stdo_o \\ simp [concat_cons]
+  \\ xsimpl
 QED
 
 Definition notfound_string_def:
@@ -572,20 +570,20 @@ End
 
 val r = translate notfound_string_def;
 
-val print_matching_lines_in_file = process_topdecs`
+Quote add_cakeml:
   fun print_matching_lines_in_file m file =
     let val fd = TextIO.openIn file
     in (print_matching_lines m (String.concat[file,":"]) fd;
         TextIO.closeIn fd)
     end handle TextIO.BadFileName =>
-        TextIO.output TextIO.stdErr (notfound_string file)`;
-val _ = append_prog print_matching_lines_in_file;
+        TextIO.output TextIO.stdErr (notfound_string file)
+End
 
 Theorem print_matching_lines_in_file_spec:
    FILENAME f fv ∧ hasFreeFD fs ∧
    (STRING_TYPE --> BOOL) m mv
    ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v"print_matching_lines_in_file"(get_ml_prog_state()))
+   app (p:'ffi ffi_proj) print_matching_lines_in_file_v
      [mv; fv]
      (STDIO fs)
      (POSTv uv. &UNIT_TYPE () uv *
@@ -597,64 +595,63 @@ Theorem print_matching_lines_in_file_spec:
                    else add_stderr fs (notfound_string f)))
 Proof
   rpt strip_tac
-  \\ xcf"print_matching_lines_in_file"(get_ml_prog_state())
-  \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
-  \\ reverse(Cases_on`consistentFS fs`)
-  >-(fs[STDIO_def,IOFS_def] >> xpull >> fs[wfFS_def,consistentFS_def] >> res_tac)
-  \\ qmatch_goalsub_abbrev_tac`_ * STDIO fs'`
-  \\ reverse(xhandle`POSTve
-       (λv. &UNIT_TYPE () v * STDIO fs')
-       (λe. &(BadFileName_exn e ∧ ¬inFS_fname fs f) * STDIO fs)`)
-  >- (
-    xcases
-    \\ fs[BadFileName_exn_def]
-    \\ reverse conj_tac >- (EVAL_TAC \\ rw[])
-    \\ xlet_auto >- xsimpl
-    \\ xapp_spec output_stderr_spec \\ instantiate \\ xsimpl
-    \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`fs`
+  \\ xcf_with_def $ definition "print_matching_lines_in_file_v_def"
+  \\ rewrite_tac [Once STDIO_STD_streams] \\ xpull
+  \\ drule_then assume_tac STD_streams_nextFD
+  \\ rewrite_tac [Once STDIO_consistentFS] \\ xpull
+  \\ reverse $ Cases_on ‘inFS_fname fs f’ \\ simp []
+  >-
+   (reverse $
+      xhandle ‘POSTe e. &(BadFileName_exn e ∧ ¬inFS_fname fs f) * STDIO fs’
+    >-
+     (fs [BadFileName_exn_def]
+      \\ xcases
+      \\ xlet_auto >- xsimpl
+      \\ xapp_spec output_stderr_spec \\ simp [])
+    \\ xlet_auto_spec (SOME openIn_STDIO_spec) >- xsimpl
     \\ xsimpl)
-  >- ( xsimpl )
-  \\ xlet_auto_spec(SOME (SPEC_ALL openIn_STDIO_spec))
-  >- ( xsimpl )
-  >- ( xsimpl )
-  \\ xlet_auto
-  >- ( xcon \\ xsimpl \\ fs[ml_translatorTheory.LIST_TYPE_def] )
-  \\ xlet_auto
-  >- ( xcon \\ xsimpl \\ fs[ml_translatorTheory.LIST_TYPE_def] )
-  \\ xlet_auto
-  >- ( xcon \\ xsimpl \\ fs[ml_translatorTheory.LIST_TYPE_def,FILENAME_def] )
+  \\ qmatch_goalsub_abbrev_tac ‘_ * STDIO fs'’
+  \\ reverse $ xhandle ‘POSTv v. &UNIT_TYPE () v * STDIO fs'’ >- xsimpl
+  \\ xlet ‘POSTv is.
+             STDIO (openFileFS f fs ReadMode 0) *
+             INSTREAM_LINES #"\n" (nextFD fs) is (all_lines_file fs f)
+               (openFileFS f fs ReadMode 0)’
+  >-
+   (xapp_spec openIn_spec_lines
+    \\ instantiate \\ qexistsl [‘emp’, ‘#"\n"’] \\ xsimpl)
+  \\ ntac 3 $ (xlet_auto >- (xcon \\ xsimpl))
   \\ qmatch_assum_rename_tac`lv = Conv _ [fv;_]`
   \\ `LIST_TYPE STRING_TYPE [f;strlit":"] lv` by ( fs[LIST_TYPE_def,FILENAME_def] )
   \\ rveq
   \\ xlet_auto >- xsimpl
-  \\ qmatch_asmsub_abbrev_tac`add_stdout fs out`
-  \\ imp_res_tac nextFD_ltX
-  \\ progress inFS_fname_ALOOKUP_EXISTS
-  \\ progress IS_SOME_get_file_content_openFileFS_nextFD \\ rfs[]
-  \\ imp_res_tac STD_streams_nextFD
-  \\ rpt(first_x_assum(qspecl_then[`0`,`ReadMode`]strip_assume_tac))
-  \\ xlet_auto >- (
-    xsimpl
-    \\ simp[get_mode_def]
-    \\ DEP_REWRITE_TAC[ALOOKUP_inFS_fname_openFileFS_nextFD]
-    \\ simp[] )
-  \\ xapp_spec closeIn_STDIO_spec
-  \\ instantiate
-  \\ qmatch_goalsub_abbrev_tac`STDIO fs'' ==>> _`
-  \\ CONV_TAC SWAP_EXISTS_CONV \\ qexists_tac`fs''`
+  \\ qmatch_goalsub_abbrev_tac ‘STDIO fs₁ * _’
+  \\ xlet ‘POSTv uv.
+         &UNIT_TYPE () uv *
+         STDIO (add_stdout (fastForwardFD fs₁ (nextFD fs))
+                  (concat (MAP (strcat (f ^ «:»)) (FILTER m (all_lines_file fs f))))) *
+         INSTREAM_LINES #"\n" (nextFD fs) is [] (fastForwardFD fs₁ (nextFD fs))’
+  >- (xapp \\ simp [strcat_def])
+  \\ qmatch_goalsub_abbrev_tac ‘STDIO fs₂ * _’
+  \\ xapp_spec closeIn_spec_lines
+  \\ qexistsl [‘emp’, ‘[]’, ‘fs₂’, ‘nextFD fs’, ‘#"\n"’]
   \\ xsimpl
-  \\ reverse(rw[Abbr`fs''`,Abbr`fs'`,Abbr`out`])
-  >- (
-    simp[validFileFD_def]
-    \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
-    \\ rfs[] )
-  \\ simp[o_DEF,mlstringTheory.concat_thm,mlstringTheory.strcat_thm]
-  \\ fs[linesFD_openFileFS_nextFD]
-  \\ srw_tac[ETA_ss][FILTER_MAP,o_DEF]
-  \\ simp[MAP_MAP_o,o_DEF]
-  \\ rewrite_tac[GSYM APPEND_ASSOC,GSYM CONS_APPEND]
-  \\ simp[GSYM add_stdo_ADELKEY,openFileFS_ADELKEY_nextFD]
-  \\ xsimpl
+  \\ drule_then assume_tac nextFD_maxFD
+  \\ conj_tac
+  >-
+   (drule_then assume_tac STD_streams_nextFD \\ simp []
+    \\ unabbrev_all_tac \\ simp [])
+  \\ simp [Abbr ‘fs₂’, Abbr ‘fs₁’]
+  \\ DEP_REWRITE_TAC [INSTREAM_LINES_add_stdout]
+  \\ conj_tac
+  >- (DEP_REWRITE_TAC [STD_streams_fastForwardFD, STD_streams_openFileFS] \\ simp [])
+  \\ conj_tac >- xsimpl
+  \\ conj_tac
+  >-
+   (rpt strip_tac
+    \\ simp [Abbr ‘fs'’]
+    \\ simp[GSYM add_stdo_ADELKEY, openFileFS_ADELKEY_nextFD, strcat_o]
+    \\ xsimpl)
+  \\ drule_all validFileFD_nextFD \\ simp []
 QED
 
 Definition usage_string_def:
@@ -715,7 +712,7 @@ Proof
   \\ simp[build_matcher_v_thm]
 QED
 
-val grep = process_topdecs`
+Quote add_cakeml:
   fun grep u =
     case CommandLine.arguments ()
     of [] => TextIO.output TextIO.stdErr usage_string
@@ -734,8 +731,8 @@ val grep = process_topdecs`
            *)
            (* TODO: similar issue with higher-order function, CF seems to need this eta  *)
            List.app (fn file => print_matching_lines_in_file (build_matcher r) file) files
-         (* end *)`;
-val _ = append_prog grep;
+         (* end *)
+End
 
 (* TODO: maybe these would be better with the arguments flipped? *)
 Overload addout = ``combin$C add_stdout``

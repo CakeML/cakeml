@@ -463,6 +463,34 @@ Proof
   \\ gvs [str_def]
 QED
 
+Theorem fsupdate_add_stderr_implode:
+  STD_streams fs ∧ get_file_content fs 2 = SOME (content,pos) ⇒
+  (fsupdate fs 2 0 (pos + LENGTH s) (insert_atI s pos content)) =
+  (add_stderr fs (implode s))
+Proof
+  rpt strip_tac
+  \\ drule STD_streams_stderr \\ rpt strip_tac
+  \\ simp [add_stdo_def]
+  \\ SELECT_ELIM_TAC
+  \\ first_assum $ irule_at (Pos hd)
+  \\ rpt strip_tac \\ rveq
+  \\ gvs [stdo_def, up_stdo_def, get_file_content_def]
+  \\ ‘strlen out = LENGTH (explode out)’ by fs[]
+  \\ pop_assum SUBST_ALL_TAC
+  \\ rewrite_tac [insert_atI_end]
+QED
+
+Theorem fsupdate_add_stderr:
+  STD_streams fs ∧ get_file_content fs 2 = SOME (content,pos) ⇒
+  (fsupdate fs 2 0 (pos + strlen s) (insert_atI (explode s) pos content)) =
+  (add_stderr fs s)
+Proof
+  ‘s = implode (explode s)’ by simp []
+  \\ pop_assum SUBST_ALL_TAC
+  \\ rewrite_tac [strlen_implode, explode_implode]
+  \\ rewrite_tac [fsupdate_add_stderr_implode]
+QED
+
 Theorem validFD_up_stdo[simp]:
    validFD fd (up_stdo fd' fs out) ⇔ validFD fd fs
 Proof
@@ -1492,7 +1520,7 @@ Theorem output1_stdOut_spec:
     (POSTv uv. &UNIT_TYPE () uv * STDIO (add_stdout fs (str c)))
 Proof
   strip_tac
-  \\ reverse $ Cases_on ‘STD_streams fs’ >- (fs[STDIO_def] \\ xpull)
+  \\ rewrite_tac [Once STDIO_STD_streams] \\ xpull
   \\ drule get_file_content_stdout \\ rpt strip_tac
   \\ xapp_spec output1_STDIO_spec
   \\ instantiate
@@ -1697,7 +1725,7 @@ Theorem output_stderr_spec:
     (POSTv uv. &(UNIT_TYPE () uv) * STDIO (add_stderr fs s))
 Proof
   rpt strip_tac
-  \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull)
+  \\ rewrite_tac [Once STDIO_STD_streams] \\ xpull
   \\ xapp_spec output_STDIO_spec
   \\ tac
 QED
@@ -5456,7 +5484,7 @@ Proof
   \\ gvs [INSTREAM_STR_def, SEP_CLAUSES]
 QED
 
-Theorem INSTREAM_STR_add_stdout_forwardFD:
+Theorem INSTREAM_STR_add_stdout:
   STD_streams fs ⇒
   INSTREAM_STR fd is rest (add_stdout fs s) =
   INSTREAM_STR fd is rest fs
@@ -5538,6 +5566,37 @@ Definition INSTREAM_LINES_def:
       & (lines = lines_of_gen c0 (implode rest))
 End
 
+(* Useful for applying fastForwardFD_forwardFD *)
+Theorem INSTREAM_LINES_get_file_content:
+  INSTREAM_LINES c0 fd is lines (forwardFD fs fd k) =
+  INSTREAM_LINES c0 fd is lines (forwardFD fs fd k) *
+  &(∃content pos.
+      get_file_content fs fd = SOME (content,pos) ∧ pos + k ≤ STRLEN content)
+Proof
+  simp [INSTREAM_LINES_def, Once INSTREAM_STR_get_file_content]
+  \\ simp [FUN_EQ_THM, SEP_EXISTS_THM, cond_def, STAR_def]
+  \\ metis_tac []
+QED
+
+Theorem INSTREAM_LINES_fd_neq:
+  STD_streams fs ⇒
+  INSTREAM_LINES c0 fd is s fs =
+  INSTREAM_LINES c0 fd is s fs * &(fd ≠ 1 ∧ fd ≠ 2)
+Proof
+  strip_tac
+  \\ drule_then assume_tac STD_streams_get_mode
+  \\ Cases_on ‘fd ≠ 1 ∧ fd ≠ 2’
+  \\ gvs [INSTREAM_LINES_def, INSTREAM_STR_def, SEP_CLAUSES]
+QED
+
+Theorem INSTREAM_LINES_add_stdout:
+  STD_streams fs ⇒
+  INSTREAM_LINES c0 fd is rest (add_stdout fs s) =
+  INSTREAM_LINES c0 fd is rest fs
+Proof
+  simp [INSTREAM_LINES_def, Once INSTREAM_STR_add_stdout]
+QED
+
 (* TODO: COPIED THEOREMS ABOUT splitlines *)
 Theorem splitlines_at_next:
    splitlines_at c0 ls = ln::lns ⇒
@@ -5580,6 +5639,12 @@ Proof
   \\ Cases_on`LENGTH "" < LENGTH ls`
   >- ( imp_res_tac FIELDS_next \\ fs[] )
   \\ fs[LENGTH_NIL]
+QED
+
+Theorem lines_of_gen_nil:
+  lines_of_gen c0 s = [] ⇒ s = «»
+Proof
+  simp [lines_of_gen_def, explode_eq]
 QED
 
 Theorem splitlines_at_CONS_FST_SPLITP:
@@ -6133,6 +6198,18 @@ Proof
       \\ qmatch_assum_rename_tac ‘ALOOKUP _ _ = SOME (ino,mode,off')’
       \\ gs[] \\ simp[miscTheory.the_def,AFUPDKEY_ALOOKUP])
   \\ xsimpl \\ simp[fastForwardFD_eq_forwardFD] \\ xsimpl
+QED
+
+Theorem INSTREAM_LINES_fastForwardFD:
+  STDIO (forwardFD fs fd x) * INSTREAM_LINES c0 fd is [] (forwardFD fs fd x) ==>>
+  STDIO (fastForwardFD fs fd) * INSTREAM_LINES c0 fd is [] (fastForwardFD fs fd) * GC
+Proof
+  simp [INSTREAM_LINES_def]
+  \\ xsimpl \\ rpt strip_tac
+  \\ irule_at (Pos hd) EQ_REFL
+  \\ qpat_x_assum ‘[] = _’ $ assume_tac o SYM
+  \\ drule lines_of_gen_nil \\ simp [implode_def]
+  \\ simp [INSTREAM_STR_fastForwardFD]
 QED
 
 Definition find_surplus_fun_def:
