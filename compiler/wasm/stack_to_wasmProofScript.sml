@@ -1308,6 +1308,12 @@ Proof
 simp[pop_n_def,push_def]
 QED
 
+Theorem pop_n_2_push_push[simp]:
+  pop_n 2 (push b (push a t)) = SOME([a;b],t)
+Proof
+simp[pop_n_def,push_def]
+QED
+
 Theorem wasm_chop64_thm_aux:
   chop64 a = (lo,hi) ∧
   t.locals = [I64 a] ⇒
@@ -1359,21 +1365,7 @@ rw[CALL_def,wasm_chop64_index_def,exec_def]
 >>simp[push_def]
 QED
 
-(*
-Datatype: state =
-  <|
-    clock   : num;
-    stack   : value list;
-    locals  : value list;
-    globals : value list;
-    memory  : word8 list;
-    types   : functype list;
-    funcs   : func list;
-    func_table : word32 list;
-  |>
-End
-*)
-Theorem wasm_long_mul_thm_aux1:
+Theorem wasm_long_mul_thm_aux:
   longmul64 a b = (lo,hi) ∧
   LLOOKUP t.funcs wasm_chop64_index = SOME wasm_chop64 ∧
   LLOOKUP t.types (w2n wasm_chop64.ftype) = SOME ([i64],[i64; i64]) ∧
@@ -1497,6 +1489,27 @@ simp[wasm_long_mul_body_def,longmul64_def]
 >>rw[push_def,glue64_def]
 >>simp[wasmSemTheory.state_component_equality]
 QED
+
+Theorem wasm_long_mul_thm:
+  longmul64 a b = (lo,hi) ∧
+  LLOOKUP t.funcs wasm_chop64_index = SOME wasm_chop64 ∧
+  LLOOKUP t.types (w2n wasm_chop64.ftype) = SOME ([i64],[i64;i64]) ∧
+  LLOOKUP t.funcs wasm_long_mul_index = SOME wasm_long_mul ∧
+  LLOOKUP t.types (w2n wasm_long_mul.ftype) = SOME ([i64;i64],[i64;i64]) ∧
+  t.clock>=6 ⇒
+  exec (CALL wasm_long_mul_index) (push (I64 b) (push (I64 a) t)) =
+  (RNormal, push (I64 hi) (push (I64 lo) (t with clock:=t.clock-6)))
+Proof
+rw[CALL_def,exec_def]
+>>fs[wasm_long_mul_index_def]
+>>`∃res t'. exec_list wasm_long_mul.body (t with <|clock := t.clock − 1; stack := []; locals := I64 a::I64 b::MAP init_val_of wasm_long_mul.locals|>) = (res,t')` by metis_tac[pair_CASES]
+>>first_assum(fn eq=>rewrite_tac[eq])
+>>drule wasm_long_mul_thm_aux
+>>disch_then (qspecl_then[`t'`,`t with <|clock := t.clock − 1; stack := []; locals := [I64 a; I64 b; I64 0w; I64 0w; I64 0w; I64 0w; I64 0w; I64 0w]|>`]assume_tac)
+>>gvs[wasm_long_mul_def,init_val_of_def,i64_def]
+>>simp[push_def]
+QED
+
 
 (* a proof for each case *)
 

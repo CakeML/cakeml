@@ -56,7 +56,7 @@ End
 Definition pop_n_def:
   pop_n n s =
     if LENGTH s.stack < n then NONE else
-      SOME (TAKE n s.stack, s with stack := DROP n s.stack)
+      SOME (REVERSE (TAKE n s.stack), s with stack := DROP n s.stack)
 End
 
 Definition push_def:
