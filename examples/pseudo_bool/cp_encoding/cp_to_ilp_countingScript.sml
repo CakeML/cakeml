@@ -374,14 +374,6 @@ Definition encode_n_value_def:
     encode_bitsum (MAP (elm name) vals) Y
 End
 
-Theorem MAP_elm[local]:
-  MAP (elm name) ls =
-  MAP (λv. elm name v) ls
-Proof
-  Induct_on ‘ls’>>
-  simp[MEM]
-QED
-
 Theorem subset_varc_union_dom:
   valid_assignment bnd wi ⇒
   set $ MAP (varc wi) Xs ⊆ set $ union_dom bnd Xs
@@ -426,7 +418,14 @@ Proof
   intLib.ARITH_TAC
 QED
 
-(* to address the issue of splitted subgoals *)
+Theorem MAP_elm[local]:
+  MAP (elm name) ls =
+  MAP (λv. elm name v) ls
+Proof
+  Induct_on ‘ls’>>
+  simp[MEM]
+QED
+
 Theorem encode_n_value_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
@@ -436,34 +435,30 @@ Proof
   strip_tac>>
   pop_assum mp_tac>>
   simp[encode_n_value_def,reify_some_eq_sem]>>
-  DEP_REWRITE_TAC[encode_bitsum_sem]>>
-  simp[MAP_elm]>>
+  DEP_REWRITE_TAC[encode_bitsum_sem,MAP_elm]>>
   simp[MAP_MAP_o]>>
-  rw[Once o_ABS_R,iSUM_FILTER,n_value_sem_def,EVERY_MEM,
+  rw[Once o_ABS_R,iSUM_FILTER,EVERY_MEM,
     METIS_PROVE[] “(∀x. P x ⇒ (Q x ∧ R x)) ⇔ (∀x. P x ⇒ Q x) ∧ (∀x. P x ⇒ R x)”]>>
-  assume_tac ALL_DISTINCT_union_dom>>
-  drule_then assume_tac $ FILTER_ALL_DISTINCT>>
-  pop_assum $ qspec_then ‘(λv. wb (INR (name,Values [v] NONE)))’ assume_tac>>
-  drule_then assume_tac $ GSYM ALL_DISTINCT_CARD_LIST_TO_SET>>
-  ‘(set (FILTER (λv. wb (INR (name,Values [v] NONE))) (union_dom bnd Xs))) =
-   (set (MAP (varc wi) Xs))’ by (
-    cheat
-    (*simp[GSYM list_set_eq,MEM_FILTER,MEM_MAP]>>
-    strip_tac>>
-    iff_tac>>
-    strip_tac
-    >-(metis_tac[])
-    >-(
-      pure_rewrite_tac[Once $ METIS_PROVE[] “Q ∧ P ⇔ P ∧ (P ⇒ Q)”]>>
-      CONJ_TAC
-      >-(
-        drule_then assume_tac EVERY_MEM_union_dom>>
-        gs[EVERY_MEM])
-      >-(
-        strip_tac>>
-        metis_tac[]))*))>>
-  gs[]>>
-  intLib.ARITH_TAC
+  simp[n_value_sem_def]>>
+  ‘LENGTH (FILTER (λv. wb (INR (name,Values [v] NONE))) (union_dom bnd Xs)) =
+   CARD (set (MAP (varc wi) Xs))’ suffices_by intLib.ARITH_TAC>>
+  DEP_REWRITE_TAC[GSYM ALL_DISTINCT_CARD_LIST_TO_SET]>>
+  CONJ_TAC
+  >-(
+    irule FILTER_ALL_DISTINCT>>
+    simp[ALL_DISTINCT_union_dom])>>
+  CONG_TAC (SOME 1)>>
+  simp[GSYM list_set_eq,MEM_FILTER,MEM_MAP]>>
+  strip_tac>>
+  iff_tac
+  >-metis_tac[]>>
+  strip_tac>>
+  pure_rewrite_tac[Once $ METIS_PROVE[] “Q ∧ P ⇔ P ∧ (P ⇒ Q)”]>>
+  CONJ_TAC
+  >-(
+    drule_then assume_tac EVERY_MEM_union_dom>>
+    gs[EVERY_MEM])>>
+  metis_tac[]
 QED
 
 Definition eqi_def[simp]:
