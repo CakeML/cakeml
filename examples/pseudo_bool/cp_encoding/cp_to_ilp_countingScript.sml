@@ -418,14 +418,6 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Theorem MAP_elm[local]:
-  MAP (elm name) ls =
-  MAP (λv. elm name v) ls
-Proof
-  Induct_on ‘ls’>>
-  simp[MEM]
-QED
-
 Theorem encode_n_value_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
@@ -435,12 +427,12 @@ Proof
   strip_tac>>
   pop_assum mp_tac>>
   simp[encode_n_value_def,reify_some_eq_sem]>>
-  DEP_REWRITE_TAC[encode_bitsum_sem,MAP_elm]>>
+  DEP_REWRITE_TAC[encode_bitsum_sem]>>
   simp[MAP_MAP_o]>>
-  rw[Once o_ABS_R,iSUM_FILTER,EVERY_MEM,
+  rw[iSUM_FILTER,EVERY_MEM,
     METIS_PROVE[] “(∀x. P x ⇒ (Q x ∧ R x)) ⇔ (∀x. P x ⇒ Q x) ∧ (∀x. P x ⇒ R x)”]>>
   simp[n_value_sem_def]>>
-  ‘LENGTH (FILTER (λv. wb (INR (name,Values [v] NONE))) (union_dom bnd Xs)) =
+  ‘LENGTH (FILTER (wb o elm name) (union_dom bnd Xs)) =
    CARD (set (MAP (varc wi) Xs))’ suffices_by intLib.ARITH_TAC>>
   DEP_REWRITE_TAC[GSYM ALL_DISTINCT_CARD_LIST_TO_SET]>>
   CONJ_TAC
