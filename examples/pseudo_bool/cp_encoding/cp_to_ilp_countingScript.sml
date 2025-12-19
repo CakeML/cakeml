@@ -515,26 +515,23 @@ Proof
   cheat
 QED
 
+(*
+may use miscTheory.enumerate_def somewhere in the proof
+*)
 Theorem encode_count_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
     (encode_count bnd Xs Y Z name) ⇒
   count_sem Xs Y Z wi
 Proof
-  Cases_on ‘Z’>>
-  rw[encode_count_def,count_sem_def,varc_def,
-    EVERY_MEM,MEM_FLAT,MEM_MAPi,PULL_EXISTS,SF DNF_ss,
-    bits_imply_sem,iconstraint_sem_def,
-    eval_ilin_term_def,eval_lin_term_def,iSUM_def,
-    MAP_GENLIST,o_ABS_R,GSYM GENLIST_EL_MAP]>>
-  gs[GSYM MAP_COUNT_LIST,iSUM_MAP_lin_const]>>
-  ‘∀i. i < LENGTH $ COUNT_LIST $ LENGTH Xs ⇒
-       b2i $ wb (INR (name,Indices [i] (SOME «eq»))) =
-       b2i $ ((case EL i Xs of INL v => wi v | INR c => c) =
-              (case Y of INL v => wi v | INR c => c))’ by cheat>>
-  pop_assum mp_tac>>
+  rw[encode_count_def,EVERY_MEM,MEM_FLAT,MEM_MAPi,PULL_EXISTS,SF DNF_ss,bits_imply_sem]>>
+  gs[iconstraint_sem_def]>>
+  ‘∀i. i < LENGTH Xs ⇒
+    (wb (INR (name,Indices [i] (SOME «eq»))) ⇔ varc wi (EL i Xs) = varc wi Y)’ by (
+    rw[METIS_PROVE[] “(P ⇔ Q) ⇔ ((P ⇒ Q) ∧ (¬P ⇒ ¬Q))”]>>
+    res_tac>>
+    intLib.ARITH_TAC)>>
   cheat
-  (*qmatch_goalsub_abbrev_tac ‘LENGTH ls’>>*)
 QED
 
 (* Among: Y equals the number of times values from iS appear in Xs
