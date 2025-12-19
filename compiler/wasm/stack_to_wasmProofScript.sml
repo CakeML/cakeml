@@ -5,8 +5,9 @@ Theory stack_to_wasmProof
 Libs
   preamble helperLib shLib
 Ancestors
-  misc wasmLang
+  longmul misc wasmLang
   wasmSem stackSem stackLang stackProps asm
+
 
 (* TODO: move Irvin's simps *)
 Theorem option_CASE_OPTION_MAP[simp]:
@@ -82,6 +83,10 @@ Definition I64_SUB_def:
   I64_SUB = Numeric (N_binary (Sub Int W64))
 End
 
+Definition I64_MUL_def:
+  I64_MUL = Numeric (N_binary (Mul Int W64))
+End
+
 Definition I64_AND_def:
   I64_AND = Numeric (N_binary (And W64))
 End
@@ -134,6 +139,14 @@ Definition GLOBAL_SET_def:
   GLOBAL_SET i = Variable (GlobalSet (n2w i))
 End
 
+Definition LOCAL_GET_def:
+  LOCAL_GET i = Variable (LocalGet (n2w i))
+End
+
+Definition LOCAL_SET_def:
+  LOCAL_SET i = Variable (LocalSet (n2w i))
+End
+
 Definition RETURN_def:
   RETURN = wasmLang$Return
 End
@@ -157,10 +170,134 @@ End
 (* more wasm instructions go here *)
 (* see wasmLangScript.sml *)
 
+Definition i32_def:
+  i32 = Tnum Int W32
+End
+
+Definition i64_def:
+  i64 = Tnum Int W64
+End
+
 (* compiler definition (TODO: move to another file when ready) *)
 
+(* Long multiplication *)
+
+(*
+Definition chop64_def:
+  chop64 (a:word64) = (a && 0xFFFFFFFFw, a >>> 32)
+End
+chop64 a = (lo,hi)
+
+Definition glue64_def:
+  glue64 (w1:word64) (w2:word64) = (w2 << 32) + w1
+End
+glue64 (lo,hi)
+
+Definition longmul64_def:
+  longmul64 (a:word64) (b:word64) =
+    let (a1,a2) = chop64 a in
+    let (b1,b2) = chop64 b in
+    let (a1b1,k1) = chop64 (a1 * b1) in
+    let (a1b2,k1) = chop64 (a1 * b2 + k1) in
+    let (a2b1,k2) = chop64 (a2 * b1 + a1b2) in
+    let lower = glue64 a1b1 a2b1 in (* or just a * b but that's one more mult *)
+    let upper = a2 * b2 + k2 + k1 in
+    ((lower:word64), (upper:word64))
+End
+*)
+
+Definition wasm_chop64_ftype_index_def:
+  wasm_chop64_ftype_index = 1w:word32
+End
+
+Definition wasm_chop64_index_def:
+  wasm_chop64_index = 0:num
+End
+
+(*
+  wasm_chop64 i = [
+    LOCAL_GET i; I64_CONST 0xffffffffw; I64_AND;
+    LOCAL_GET i; I64_CONST 32w; I64_SHR_U
+  ]
+*)
+Definition wasm_chop64_def:
+  wasm_chop64 = <|
+    ftype := wasm_chop64_ftype_index;
+    locals := [];
+    body := [
+      LOCAL_GET 0; I64_CONST 0xffffffffw; I64_AND;
+      LOCAL_GET 0; I64_CONST 32w; I64_SHR_U
+    ]
+  |>
+End
+
+Definition wasm_long_mul_ftype_index_def:
+  wasm_long_mul_ftype_index = 2w:word32
+End
+
+Definition wasm_long_mul_index_def:
+  wasm_long_mul_index = 1:num
+End
+
+Definition wasm_long_mul_body_def:
+(* a    0
+   b    1
+   a1   0
+   a2   2
+   b1   1
+   b2   3
+   a1b1 4
+   k1   5
+   a2b1 6
+   k2   7
+*)
+  wasm_long_mul_body = [
+  (* (a1,a2) = chop64 a *)
+    LOCAL_GET 0(*a*);
+    CALL wasm_chop64_index;
+    LOCAL_SET 2(*a2*); LOCAL_SET 0(*a1*);
+  (* (b1,b2) = chop64 b *)
+    LOCAL_GET 1(*b*);
+    CALL wasm_chop64_index;
+    LOCAL_SET 3(*b2*); LOCAL_SET 1(*b1*);
+  (* (a1b1,k1) = chop64 (a1 * b1) *)
+    LOCAL_GET 0(*a1*); LOCAL_GET 1(*b1*); I64_MUL;
+    CALL wasm_chop64_index;
+    LOCAL_SET 5(*k1*); LOCAL_SET 4(*a1b1*);
+  (* (a1b2,k1) = chop64 (a1 * b2 + k1) *)
+    LOCAL_GET 0(*a1*); LOCAL_GET 3(*b2*); I64_MUL;
+    LOCAL_GET 5(*k1*); I64_ADD;
+    CALL wasm_chop64_index;
+    LOCAL_SET 5(*k1*);
+    (* a1b2 is left on the stack *)
+  (* (a2b1,k2) = chop64 (a2 * b1 + a1b2) *)
+    LOCAL_GET 2(*a2*); LOCAL_GET 1(*b1*); I64_MUL;
+    I64_ADD; (* add a1b2 *)
+    CALL wasm_chop64_index;
+    LOCAL_SET 7(*k2*);
+    (* a2b1 is left on the stack *)
+  (* lower = glue64 a1b1 a2b1 *)
+    I64_CONST 32w; I64_SHL; (* a2b1 <<= 32; *)
+    LOCAL_GET 4(*a1b1*); I64_ADD(*OR*);
+    (* 'lower' is left on the stack *)
+  (* upper = a2 * b2 + k2 + k1 *)
+    LOCAL_GET 2(*a2*); LOCAL_GET 3(*b2*); I64_MUL;
+    LOCAL_GET 7(*k2*); I64_ADD;
+    LOCAL_GET 5(*k1*); I64_ADD
+  ]
+End
+
+Definition wasm_long_mul_def:
+  wasm_long_mul = <|
+    ftype := wasm_long_mul_ftype_index;
+    locals := [i64;i64;i64;i64;i64;i64];
+    body := wasm_long_mul_body
+  |>
+End
+
 (* reg_imm = Reg reg | Imm ('a imm) *)
-Definition comp_ri_def:  comp_ri (Reg r) = GLOBAL_GET r ∧
+Definition comp_ri_def:
+  comp_ri (Reg r) = GLOBAL_GET r ∧
   comp_ri (Imm n) = I64_CONST n
 End
 
@@ -235,7 +372,7 @@ Definition ftype_def:
 End
 
 Definition wasm_support_function_list_def:
-  wasm_support_function_list = []: func list (*DUMMY*)
+  wasm_support_function_list = [wasm_chop64; wasm_long_mul]
 End
 
 Definition tail_call_def:
@@ -393,7 +530,11 @@ Definition wasm_state_ok_def:
   (* presence of support functions *)
   (∀i. i < LENGTH wasm_support_function_list ==> oEL i t.funcs = SOME (EL i wasm_support_function_list)) ∧
   (* func type table *)
-  oEL (w2n cakeml_ftype_index) t.types = SOME ([], [Tnum Int W32]) ∧
+  (
+    oEL (w2n cakeml_ftype_index) t.types = SOME ([], [Tnum Int W32]) ∧
+    oEL (w2n wasm_chop64_ftype_index) t.types = SOME ([i64],[i64;i64]) ∧
+    oEL (w2n wasm_long_mul_ftype_index) t.types = SOME ([i64;i64],[i64;i64])
+  ) ∧
   (* every wasm func is present in the func_table for indirect calls *)
   (∀i. i < LENGTH t.funcs ⇒ oEL i t.func_table = SOME (n2w (LENGTH wasm_support_function_list + i)))
 End
@@ -619,7 +760,7 @@ Proof
 QED
 
 Theorem wasm_state_useless_fupd[simp]:
-  (^t with clock:=t.clock) = t ∧ (t with stack:=t.stack) = t
+  (^t with clock:=t.clock) = t ∧ (t with stack:=t.stack) = t ∧ (t with locals:=t.locals) = t
 Proof
   simp[wasmSemTheory.state_component_equality]
 QED
@@ -724,6 +865,29 @@ Proof
 QED
 
 Theorem exec_list_add_clock = CONJUNCT2 exec_list_add_clock_aux;
+
+Theorem exec_LOCAL_GET:
+  oEL i t.locals = SOME v ∧
+  i < 4294967296 ⇒
+  exec (LOCAL_GET i) t = (RNormal, push v t)
+Proof
+  simp[LOCAL_GET_def,exec_def]
+QED
+
+Theorem exec_LOCAL_GET':
+  i < LENGTH t.locals ∧
+  i < 4294967296 ⇒
+  exec (LOCAL_GET i) t = (RNormal, push (EL i t.locals) t)
+Proof
+  simp[LOCAL_GET_def,exec_def,oEL_THM]
+QED
+
+Theorem exec_LOCAL_SET:
+  i < LENGTH t.locals ∧ i < 4294967296 ⇒
+  exec (LOCAL_SET i) (push v t) = (RNormal, t with locals := LUPDATE v i t.locals)
+Proof
+simp[LOCAL_SET_def,exec_def,set_local_def]
+QED
 
 Theorem exec_GLOBAL_GET:
   get_var r s = SOME w ∧
@@ -982,6 +1146,27 @@ Proof
 simp[I64_AND_def,exec_def,num_stk_op_def,push_def,do_bin_eq]
 QED
 
+Theorem exec_I64_OR:
+  exec I64_OR (push (I64 b) (push (I64 a) t)) =
+  (RNormal, push (I64 (a || b)) t)
+Proof
+simp[I64_OR_def,exec_def,num_stk_op_def,push_def,do_bin_eq]
+QED
+
+Theorem exec_I64_ADD:
+  exec I64_ADD (push (I64 b) (push (I64 a) t)) =
+  (RNormal, push (I64 (a+b)) t)
+Proof
+simp[I64_ADD_def,exec_def,num_stk_op_def,push_def,do_bin_eq]
+QED
+
+Theorem exec_I64_MUL:
+  exec I64_MUL (push (I64 b) (push (I64 a) t)) =
+  (RNormal, push (I64 (a*b)) t)
+Proof
+simp[I64_MUL_def,exec_def,num_stk_op_def,push_def,do_bin_eq]
+QED
+
 Theorem exec_I64_EQZ:
   exec I64_EQZ (push (I64 a) t) =
   (RNormal, push (I32 (b2w (a=0w))) t)
@@ -1008,6 +1193,13 @@ Theorem exec_I64_SHR_U:
   (RNormal, push (I64 (a >>> w2n (b && 63w))) t)
 Proof
   simp[I64_SHR_U_def,exec_def,num_stk_op_def,push_def,do_bin_eq]
+QED
+
+Theorem exec_I64_SHL:
+  exec I64_SHL (push (I64 b) (push (I64 a) t)) =
+  (RNormal, push (I64 (a << w2n (b && 63w))) t)
+Proof
+  simp[I64_SHL_def,exec_def,num_stk_op_def,push_def,do_bin_eq]
 QED
 
 Theorem push_inj[simp]:
@@ -1104,6 +1296,206 @@ Proof
   rw[state_rel_def,wasm_state_ok_def,regs_rel_def,EL_LUPDATE,set_var_def,FLOOKUP_UPDATE]
   >>gvs[bool_case_eq]
   >>metis_tac[]
+QED
+
+fun simp1 thm = simp[thm];
+
+(* proof for long mul *)
+
+Theorem pop_n_1_push[simp]:
+  pop_n 1 (push v t) = SOME([v],t)
+Proof
+simp[pop_n_def,push_def]
+QED
+
+Theorem wasm_chop64_thm_aux:
+  chop64 a = (lo,hi) ∧
+  t.locals = [I64 a] ⇒
+  exec_list wasm_chop64.body ^t = (RNormal, push (I64 hi) (push (I64 lo) t))
+Proof
+simp[wasm_chop64_def]
+>>strip_tac
+>>once_rewrite_tac[exec_list_cons]
+>>`exec (LOCAL_GET 0) t = (RNormal, push (I64 a) t)` by simp[exec_LOCAL_GET,LLOOKUP_def]
+>>pop_assum simp1
+>>once_rewrite_tac[exec_list_cons]
+>>simp[exec_I64_CONST]
+>>once_rewrite_tac[exec_list_cons]
+>>simp[exec_I64_AND]
+>>once_rewrite_tac[exec_list_cons]
+>>`exec (LOCAL_GET 0) (push (I64 (0xFFFFFFFFw && a)) t) = (RNormal, push (I64 a) (push (I64 (0xFFFFFFFFw && a)) t))` by simp[exec_LOCAL_GET,LLOOKUP_def,push_def]
+>>pop_assum simp1
+>>once_rewrite_tac[exec_list_cons]
+>>simp[exec_I64_CONST]
+>>simp[exec_I64_SHR_U]
+>>fs[chop64_def]
+QED
+
+Theorem push_consts[simp]:
+  (push v t).funcs = t.funcs ∧ (push v t).types = t.types ∧ (push v t).locals = t.locals
+Proof
+simp[push_def]
+QED
+
+Theorem push_with_locals[simp]:
+  (push v t with locals:=L) = push v (t with locals:=L)
+Proof
+simp[push_def]
+QED
+
+Theorem wasm_chop64_thm:
+  chop64 a = (lo,hi) ∧
+  LLOOKUP t.funcs wasm_chop64_index = SOME wasm_chop64 ∧
+  LLOOKUP t.types (w2n wasm_chop64.ftype) = SOME ([i64],[i64;i64]) ∧
+  t.clock≠0 ⇒
+  exec (CALL wasm_chop64_index) (push (I64 a) t) =
+  (RNormal, push (I64 hi) (push (I64 lo) (t with clock:=t.clock-1)))
+Proof
+rw[CALL_def,wasm_chop64_index_def,exec_def]
+>>`wasm_chop64.locals=[]` by simp[wasm_chop64_def]
+>>pop_assum simp1
+>>drule wasm_chop64_thm_aux
+>>DISCH_THEN (fn th=>DEP_REWRITE_TAC[th])
+>>simp[push_def]
+QED
+
+(*
+Datatype: state =
+  <|
+    clock   : num;
+    stack   : value list;
+    locals  : value list;
+    globals : value list;
+    memory  : word8 list;
+    types   : functype list;
+    funcs   : func list;
+    func_table : word32 list;
+  |>
+End
+*)
+Theorem wasm_long_mul_thm_aux1:
+  longmul64 a b = (lo,hi) ∧
+  LLOOKUP t.funcs wasm_chop64_index = SOME wasm_chop64 ∧
+  LLOOKUP t.types (w2n wasm_chop64.ftype) = SOME ([i64],[i64; i64]) ∧
+  t.locals=[I64 a; I64 b; I64 0w; I64 0w; I64 0w; I64 0w; I64 0w; I64 0w] ∧ t.stack=[] ∧
+  t.clock>=5 ∧
+  exec_list wasm_long_mul_body ^t = (res,t') ⇒
+  res=RNormal ∧
+  (∃L. t' = t with <|clock:=t.clock-5; stack:=[I64 hi; I64 lo]; locals:=L|>)
+Proof
+simp[wasm_long_mul_body_def,longmul64_def]
+>>strip_tac
+>>rpt(pairarg_tac>>fs[])
+>>qpat_x_assum `exec_list _ _ = _` mp_tac
+>>once_rewrite_tac[exec_list_cons]
+>>`exec (LOCAL_GET 0) t = (RNormal, push(I64 a)t)` by simp[exec_LOCAL_GET,LLOOKUP_def]
+>>pop_assum simp1
+>>once_rewrite_tac[exec_list_cons]
+>>qpat_x_assum `chop64 a = _` assume_tac
+>>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) wasm_chop64_thm
+>>simp[]
+>>once_rewrite_tac[exec_list_cons]
+>>DEP_REWRITE_TAC[exec_LOCAL_SET]
+>>simp[]
+>>once_rewrite_tac[exec_list_cons]
+>>simp[]
+>>DEP_REWRITE_TAC[exec_LOCAL_SET]
+>>simp[]
+>>once_rewrite_tac[exec_list_cons]
+>>DEP_REWRITE_TAC[exec_LOCAL_GET']
+>>simp[EL_LUPDATE]
+>>once_rewrite_tac[exec_list_cons]
+>>qpat_x_assum `chop64 b = _` assume_tac
+>>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) wasm_chop64_thm
+>>simp[]
+>>once_rewrite_tac[exec_list_cons]
+>>DEP_REWRITE_TAC[exec_LOCAL_SET]
+>>simp[]
+>>once_rewrite_tac[exec_list_cons]
+>>DEP_REWRITE_TAC[exec_LOCAL_SET]
+>>simp[]
+>>once_rewrite_tac[exec_list_cons]
+>>DEP_REWRITE_TAC[exec_LOCAL_GET']
+>>simp[EL_LUPDATE]
+>>once_rewrite_tac[exec_list_cons]
+>>DEP_REWRITE_TAC[exec_LOCAL_GET']
+>>simp[EL_LUPDATE,HD_LUPDATE]
+>>once_rewrite_tac[exec_list_cons]
+>>simp[exec_I64_MUL]
+>>once_rewrite_tac[exec_list_cons]
+>>qpat_x_assum `chop64 (a1*b1) = _` assume_tac
+>>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) wasm_chop64_thm
+>>simp[]
+>>once_rewrite_tac[exec_list_cons]
+>>DEP_REWRITE_TAC[exec_LOCAL_SET]
+>>simp[]
+>>once_rewrite_tac[exec_list_cons]
+>>DEP_REWRITE_TAC[exec_LOCAL_SET]
+>>simp[]
+>>once_rewrite_tac[exec_list_cons]
+>>DEP_REWRITE_TAC[exec_LOCAL_GET']
+>>simp[EL_LUPDATE]
+>>once_rewrite_tac[exec_list_cons]
+>>DEP_REWRITE_TAC[exec_LOCAL_GET']
+>>simp[EL_LUPDATE,HD_LUPDATE]
+>>once_rewrite_tac[exec_list_cons]
+>>simp[exec_I64_MUL]
+>>once_rewrite_tac[exec_list_cons]
+>>DEP_REWRITE_TAC[exec_LOCAL_GET']
+>>simp[EL_LUPDATE]
+>>once_rewrite_tac[exec_list_cons]
+>>simp[exec_I64_ADD]
+>>once_rewrite_tac[exec_list_cons]
+>>qpat_x_assum `chop64 (k1+_) = _` assume_tac
+>>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) wasm_chop64_thm
+>>simp[]
+>>once_rewrite_tac[exec_list_cons]
+>>DEP_REWRITE_TAC[exec_LOCAL_SET]
+>>simp[]
+>>once_rewrite_tac[exec_list_cons]
+>>DEP_REWRITE_TAC[exec_LOCAL_GET']
+>>simp[EL_LUPDATE]
+>>once_rewrite_tac[exec_list_cons]
+>>DEP_REWRITE_TAC[exec_LOCAL_GET']
+>>simp[EL_LUPDATE]
+>>once_rewrite_tac[exec_list_cons]
+>>simp[exec_I64_MUL]
+>>once_rewrite_tac[exec_list_cons]
+>>simp[exec_I64_ADD]
+>>once_rewrite_tac[exec_list_cons]
+>>dxrule_then (fn th=>DEP_REWRITE_TAC[th]) wasm_chop64_thm
+>>simp[]
+>>once_rewrite_tac[exec_list_cons]
+>>DEP_REWRITE_TAC[exec_LOCAL_SET]
+>>simp[]
+>>once_rewrite_tac[exec_list_cons]
+>>simp[exec_I64_CONST]
+>>once_rewrite_tac[exec_list_cons]
+>>simp[exec_I64_SHL]
+>>once_rewrite_tac[exec_list_cons]
+>>DEP_REWRITE_TAC[exec_LOCAL_GET']
+>>simp[EL_LUPDATE]
+>>once_rewrite_tac[exec_list_cons]
+>>simp[exec_I64_ADD]
+>>once_rewrite_tac[exec_list_cons]
+>>DEP_REWRITE_TAC[exec_LOCAL_GET']
+>>simp[EL_LUPDATE]
+>>once_rewrite_tac[exec_list_cons]
+>>DEP_REWRITE_TAC[exec_LOCAL_GET']
+>>simp[EL_LUPDATE]
+>>once_rewrite_tac[exec_list_cons]
+>>simp[exec_I64_MUL]
+>>once_rewrite_tac[exec_list_cons]
+>>DEP_REWRITE_TAC[exec_LOCAL_GET']
+>>simp[EL_LUPDATE]
+>>once_rewrite_tac[exec_list_cons]
+>>simp[exec_I64_ADD]
+>>once_rewrite_tac[exec_list_cons]
+>>DEP_REWRITE_TAC[exec_LOCAL_GET']
+>>simp[EL_LUPDATE]
+>>simp[exec_I64_ADD]
+>>rw[push_def,glue64_def]
+>>simp[wasmSemTheory.state_component_equality]
 QED
 
 (* a proof for each case *)
@@ -1337,8 +1729,6 @@ Theorem wasm_state_ok_LLOOKUP_cakeml_ftype_index:
 Proof
   fs[wasm_state_ok_def]
 QED
-
-fun simp1 thm = simp[thm];
 
 Theorem state_rel_with_clock':
   state_rel c s (t with <|clock:=ck; stack:=_; locals:=_|>) ⇔

@@ -232,8 +232,8 @@ Inductive b_op_rel:
   (∀ w n. b_op_rel (Shr_ Unsigned W32) (I32 w) (I32 n) (I32 $ w >>> (w2n (n && 31w))) )
   ∧
   (∀ l r. b_op_rel (Add Int W64) (I64 l) (I64 r) (I64 $ l + r) )∧
-  (∀ l r. b_op_rel (Mul Int W64) (I64 l) (I64 r) (I64 $ l - r) )∧
-  (∀ l r. b_op_rel (Sub Int W64) (I64 l) (I64 r) (I64 $ l * r) )
+  (∀ l r. b_op_rel (Sub Int W64) (I64 l) (I64 r) (I64 $ l - r) )∧
+  (∀ l r. b_op_rel (Mul Int W64) (I64 l) (I64 r) (I64 $ l * r) )
   ∧
   (∀ n d. d ≠ 0w ⇒ b_op_rel (Div_ Unsigned W64) (I64 n) (I64 d) (I64 $ n // d) )∧
   (∀ n d. d ≠ 0w ⇒ b_op_rel (Rem_ Unsigned W64) (I64 n) (I64 d) (I64 $ n // d) )
@@ -545,7 +545,7 @@ Definition exec_def:
     let np = LENGTH ins in
     let nr = LENGTH outs in
     case pop_n np s of NONE => inv s | SOME (args,s) =>
-    let init_locals = args ++ MAP init_val_of ins in
+    let init_locals = args ++ MAP init_val_of f.locals in
     if s.clock = 0 then (RTimeout,s) else
     let s_call = s with <|clock:= s.clock - 1; stack:=[]; locals:=init_locals|> in
     (* real WASM treats the body as wrapped in a Block *)
@@ -577,7 +577,7 @@ Definition exec_def:
     let np = LENGTH ins in
     let nr = LENGTH outs in
     case pop_n np s of NONE => inv s | SOME (args,s) =>
-    let init_locals = args ++ MAP init_val_of ins in
+    let init_locals = args ++ MAP init_val_of f.locals in
     if s.clock = 0 then (RTimeout,s) else
     let s_call = s with <|clock:= s.clock - 1; stack:=[]; locals:=init_locals|> in
     (* real WASM treats the body as wrapped in a Block *)
@@ -585,10 +585,10 @@ Definition exec_def:
       case res of
       | RNormal =>
           if LENGTH s1.stack ≠ nr then (RInvalid,s1) else
-            (RNormal, s1 with stack := s1.stack ++ s.stack)
+            (RNormal, s1 with <|stack := s1.stack ++ s.stack; locals:=s.locals|>)
       | RReturn =>
           if LENGTH s1.stack < nr then (RInvalid,s1) else
-            (RNormal, s1 with stack := TAKE nr s1.stack ++ s.stack)
+            (RNormal, s1 with <|stack := TAKE nr s1.stack ++ s.stack; locals:=s.locals|>)
       | RBreak _ => (RInvalid, s1)
       | _ => (res, s1)
   ) ∧
