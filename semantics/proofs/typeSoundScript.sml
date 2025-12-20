@@ -784,7 +784,17 @@ Proof
   [‘Arith a ty’]
   >- cheat >~
   [‘FromTo ty1 ty2’]
-  >- cheat >~
+  >- (rw [do_app_cases, PULL_EXISTS] >>
+      Cases_on ‘ty1’ >> Cases_on ‘ty2’ >>
+      TRY (Cases_on ‘w’) >>
+      gvs[supported_conversion_def, do_conversion_def, check_type_def,
+          t_of_def, the_Litv_Word8_def] >>
+      imp_res_tac prim_canonical_values_thm >> gvs[] >> simp [Once type_v_cases] >>
+      qexists_tac ‘tenvS’ >> rw [store_type_extension_refl] >>
+      qpat_x_assum ‘∀_ _ _. _ ⇒ ∃n. _ = Litv (Word8 n)’
+        (qspec_then ‘x’ mp_tac) >> simp[] >> strip_tac >>
+      first_x_assum drule >> strip_tac >>
+      gvs[the_Litv_Word8_def] >> simp [Once type_v_cases]) >~
   [‘Test’]
   >- (rw [do_app_cases, PULL_EXISTS] >>
       rename [‘do_test test ty x y’] >>
