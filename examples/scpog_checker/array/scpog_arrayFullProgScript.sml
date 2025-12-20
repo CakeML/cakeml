@@ -47,14 +47,14 @@ End
 
 val _ = translate format_dimacs_failure_def;
 
-val inputLineTokens_specialize =
-  inputLineTokens_spec_lines
+val inputAllTokensFile_specialize =
+  inputAllTokensFile_spec
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
   |> Q.GEN `g` |> Q.ISPEC`tokenize`
   |> Q.GEN `gv` |> Q.ISPEC`tokenize_v`
   |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
-  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_v_thm,blanks_def] ;
+  |> SIMP_RULE std_ss [blanks_v_thm,tokenize_v_thm,blanks_def];
 
 (* parse_dimacs_toks with simple wrapper *)
 val parse_dimacs_full = (append_prog o process_topdecs) `
@@ -103,10 +103,13 @@ Proof
                SOME (MAP (MAP tokenize ∘ tokens blanks) (all_lines_file_gen #"\n" fs f))
              else NONE) sv * STDIO fs)`
   >- (
-    xapp_spec inputAllTokensFile_spec>>
-    simp[blanks_v_thm,tokenize_v_thm]>>
-    CONJ_TAC >- EVAL_TAC>>
-    gvs[FILENAME_def])>>
+    xapp_spec inputAllTokensFile_specialize>>
+    xsimpl>>
+    first_x_assum (irule_at Any)>>
+    first_x_assum (irule_at Any)>>
+    gvs[FILENAME_def]>>
+    first_x_assum (irule_at Any)>>
+    xsimpl)>>
   gvs[OPTION_TYPE_SPLIT]>>xmatch
   >- (
     xlet_autop>>
