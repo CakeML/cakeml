@@ -371,11 +371,12 @@ TextIO.input1: TextIO.instream -> char option
 TextIO.inputLine: char -> TextIO.instream -> string option
 TextIO.inputLineTokens: char -> TextIO.instream -> (char -> bool) -> (string -> 'a) -> 'a list option
 TextIO.inputLines: char -> TextIO.instream -> string list
-TextIO.inputLinesFrom: char -> string -> string list option
+TextIO.inputLinesFile: char -> string -> string list option
 TextIO.inputLinesStdIn: char -> string list
 TextIO.inputAll: TextIO.instream -> string
 TextIO.inputAllTokens: char -> TextIO.instream -> (char -> bool) -> (string -> 'a) -> 'a list list
 TextIO.inputAllTokensFile: char -> string -> (char -> bool) -> (string -> 'a) -> 'a list list option
+TextIO.inputAllTokensFrom: char -> string option -> (char -> bool) -> (string -> 'a) -> 'a list list option
 TextIO.foldChars: (char -> 'a -> 'a) -> 'a -> string option -> 'a option
 TextIO.foldLines: char -> (string -> 'a -> 'a) -> 'a -> string option -> 'a option
 TextIO.foldTokens: char -> (char -> bool) -> (string -> 'a) -> ('a list -> 'b -> 'b) -> 'b -> string option -> 'b option

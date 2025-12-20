@@ -117,10 +117,10 @@ val r = translate rejected_patch_string_def;
 
 Quote add_cakeml:
   fun patch' fname1 fname2 =
-    case TextIO.inputLinesFrom #"\n" fname1 of
+    case TextIO.inputLinesFile #"\n" fname1 of
         None => TextIO.output TextIO.stdErr (notfound_string fname1)
       | Some lines1 =>
-        case TextIO.inputLinesFrom #"\n" fname2 of
+        case TextIO.inputLinesFile #"\n" fname2 of
             None => TextIO.output TextIO.stdErr (notfound_string fname2)
           | Some lines2 =>
             case patch_alg lines2 lines1 of

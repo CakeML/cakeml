@@ -241,7 +241,7 @@ val _ = (append_prog o process_topdecs) `
       case md5_of (Some proof_fname) of
         None => TextIO.output TextIO.stdErr (notfound_string proof_fname)
       | Some proof_md5 =>
-        case TextIO.inputLinesFrom #"\n" lines_fname of
+        case TextIO.inputLinesFile #"\n" lines_fname of
           None => TextIO.output TextIO.stdErr (notfound_string lines_fname)
         | Some lines =>
           case line_count_of proof_fname of
@@ -283,7 +283,7 @@ Proof
   \\ xmatch
   \\ xlet ‘(POSTv retv. STDIO fs * &OPTION_TYPE (LIST_TYPE STRING_TYPE)
             (SOME (lines_of (strlit x))) retv)’
-  THEN1 (xapp_spec inputLinesFrom_spec \\ fs []
+  THEN1 (xapp_spec inputLinesFile_spec \\ fs []
          \\ first_assum $ irule_at (Pos hd) \\ fs []
          \\ first_assum $ irule_at (Pos hd) \\ fs []
          \\ xsimpl
@@ -377,7 +377,7 @@ Proof
   \\ xmatch
   \\ xlet ‘(POSTv retv.
              STDIO fs * &OPTION_TYPE (LIST_TYPE STRING_TYPE) NONE retv)’
-  THEN1 (xapp_spec inputLinesFrom_spec \\ fs []
+  THEN1 (xapp_spec inputLinesFile_spec \\ fs []
          \\ first_assum $ irule_at (Pos hd) \\ fs []
          \\ first_assum $ irule_at (Pos hd) \\ fs []
          \\ xsimpl

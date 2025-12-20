@@ -546,7 +546,7 @@ Quote add_cakeml:
 End
 
 Quote add_cakeml:
-  fun inputLinesFrom c0 fname =
+  fun inputLinesFile c0 fname =
     let
       val is = openIn fname
       val lines = inputLines c0 is

@@ -122,7 +122,7 @@ Quote add_cakeml:
     case files of
       [] => Some acc
     | file::files =>
-      case TextIO.inputLinesFrom #"\n" file of
+      case TextIO.inputLinesFile #"\n" file of
         None => None
       | Some res => get_files_contents files (res @ acc);
 End

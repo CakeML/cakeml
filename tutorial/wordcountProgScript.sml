@@ -11,7 +11,6 @@ Ancestors
 Libs
   preamble basis
 
-
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = translation_extends"basisProg";
@@ -24,19 +23,19 @@ val res = translate splitwords_def;
 val res = translate wc_lines_def;
 
 (* TODO: move *)
-val inputLinesFromAny = process_topdecs`
-  fun inputLinesFromAny fnameopt =
+val inputLinesFrom = process_topdecs`
+  fun inputLinesFrom fnameopt =
     case fnameopt of
       None => Some (TextIO.inputLines (TextIO.openStdIn ()))
-    | Some fname => TextIO.inputLinesFrom fname`;
+    | Some fname => TextIO.inputLinesFile fname`;
 
-val () = append_prog inputLinesFromAny;
+val () = append_prog inputLinesFrom;
 
-Theorem inputLinesFromAny_spec:
+Theorem inputLinesFrom_spec:
    OPTION_TYPE FILENAME fo fov ∧ (IS_SOME fo ⇒ hasFreeFD fs) ∧
   (IS_NONE fo ⇒ (ALOOKUP fs.infds 0 = SOME (UStream(strlit"stdin"),ReadMode,0)))
    ⇒
-   app (p:'ffi ffi_proj) ^(fetch_v "inputLinesFromAny" (get_ml_prog_state()))
+   app (p:'ffi ffi_proj) ^(fetch_v "inputLinesFrom" (get_ml_prog_state()))
     [fov] (STDIO fs)
     (POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
       (if IS_SOME fo ⇒ inFS_fname fs (THE fo)
@@ -45,7 +44,7 @@ Theorem inputLinesFromAny_spec:
        else NONE) sv * STDIO (if IS_SOME fo then fs else fastForwardFD fs 0))
 Proof
   rpt strip_tac
-  \\ xcf"inputLinesFromAny"(get_ml_prog_state())
+  \\ xcf"inputLinesFrom"(get_ml_prog_state())
   \\ reverse(Cases_on`STD_streams fs`) >- (fs[STDIO_def] \\ xpull )
   \\ reverse(Cases_on`∃ll. wfFS (fs with numchars := ll)`) >- (fs[STDIO_def,IOFS_def] \\ xpull)
   \\ Cases_on`fo` \\ fs[OPTION_TYPE_def]
@@ -89,7 +88,7 @@ QED
 
 val wordcount = process_topdecs`
   fun wordcount u =
-      case inputLinesFromAny
+      case inputLinesFrom
              (case CommandLine.arguments() of [fname] => Some fname | _ => None)
       of Some lines =>
         (TextIO.print (Int.toString (wc_lines lines)); TextIO.output1 TextIO.stdOut #" ";

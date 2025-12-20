@@ -85,10 +85,10 @@ val r = translate usage_string_def;
 
 Quote add_cakeml:
   fun diff' fname1 fname2 =
-    case TextIO.inputLinesFrom #"\n" fname1 of
+    case TextIO.inputLinesFile #"\n" fname1 of
         None => TextIO.output TextIO.stdErr (notfound_string fname1)
       | Some lines1 =>
-        case TextIO.inputLinesFrom #"\n" fname2 of
+        case TextIO.inputLinesFile #"\n" fname2 of
             None => TextIO.output TextIO.stdErr (notfound_string fname2)
           | Some lines2 => TextIO.print_list (diff_alg2 lines1 lines2)
 End
@@ -113,13 +113,13 @@ Theorem diff'_spec:
 Proof
   rpt strip_tac
   \\ xcf"diff'"(get_ml_prog_state())
-  \\ xlet_auto_spec(SOME inputLinesFrom_spec)
+  \\ xlet_auto_spec(SOME inputLinesFile_spec)
   >- xsimpl
   \\ reverse(Cases_on `inFS_fname fs f1`) \\ fs[OPTION_TYPE_def]
   \\ xmatch
   >- (xlet_auto >- xsimpl
       \\ xapp_spec output_stderr_spec \\ xsimpl)
-  \\ xlet_auto_spec(SOME inputLinesFrom_spec)
+  \\ xlet_auto_spec(SOME inputLinesFile_spec)
   >- xsimpl
   \\ reverse(Cases_on `inFS_fname fs f2`) \\ fs[OPTION_TYPE_def]
   \\ xmatch

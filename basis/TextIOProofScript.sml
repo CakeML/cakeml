@@ -7622,11 +7622,11 @@ Proof
   \\ xsimpl \\ simp[fastForwardFD_eq_forwardFD] \\ xsimpl
 QED
 
-Theorem inputLinesFrom_spec:
+Theorem inputLinesFile_spec:
    CHAR c0 c0v ∧
    FILENAME f fv /\ hasFreeFD fs
    ⇒
-   app (p:'ffi ffi_proj) TextIO_inputLinesFrom_v
+   app (p:'ffi ffi_proj) TextIO_inputLinesFile_v
      [c0v ; fv]
      (STDIO fs)
      (POSTv sv. &OPTION_TYPE (LIST_TYPE STRING_TYPE)
@@ -7636,7 +7636,7 @@ Theorem inputLinesFrom_spec:
              * STDIO fs)
 Proof
   rpt strip_tac
-  \\ xcf_with_def TextIO_inputLinesFrom_v_def
+  \\ xcf_with_def TextIO_inputLinesFile_v_def
   \\ reverse (Cases_on `STD_streams fs`)
   >- (fs [STDIO_def] \\ xpull)
   \\ reverse (Cases_on`consistentFS fs`)

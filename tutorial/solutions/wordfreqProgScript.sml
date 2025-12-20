@@ -120,7 +120,7 @@ val res = translate compute_wordfreq_output_def;
 
 val wordfreq = process_topdecs`
   fun wordfreq u =
-    case TextIO.inputLinesFrom (List.hd (CommandLine.arguments()))
+    case TextIO.inputLinesFile (List.hd (CommandLine.arguments()))
     of Some lines =>
       TextIO.print_list (compute_wordfreq_output lines)`;
 
@@ -297,7 +297,7 @@ Proof
   (* EXERCISE: step through the first few function calls in wordfreq using CF
      tactics like xlet_auto, xsimpl, xcon, etc. *)
 
-  (* Before you step through the call to TextIO.inputLinesFrom, the following
+  (* Before you step through the call to TextIO.inputLinesFile, the following
      may be useful first to establish `wfcl cl`, which constrains fname to be
      a valid filename:
   *)
