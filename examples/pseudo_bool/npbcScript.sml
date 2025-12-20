@@ -460,6 +460,130 @@ Proof
   \\ fs[div_ceiling_eq_0]
 QED
 
+(* variable-form division (Chvatal-Gomory) *)
+
+Definition cg_offset_def:
+  (cg_offset [] k = ([],0)) ∧
+  (cg_offset ((c,v)::xs) k =
+    let r = (if c < 0 then Num (-c) MOD k else 0) in
+    let c' = div_ceiling_up c k in
+    let (ys,rhs) = cg_offset xs k in
+    (if c' = 0 then ys else ((c',v)::ys), r + rhs))
+End
+
+Definition var_divide_def:
+  var_divide ((l,n):npbc) k =
+    let (ll,rr) = cg_offset l k in
+    (ll, div_ceiling_up (n - &rr) k)
+End
+
+Theorem int_neg_add:
+  -(&(x+y)):int = -&x - &y
+Proof
+  rw[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem var_divide_thm:
+  satisfies_npbc w c ∧ k ≠ 0 ⇒
+  satisfies_npbc w (var_divide c k)
+Proof
+  Cases_on ‘c’>>
+  rename1 ‘satisfies_npbc w (q,r)’>>
+  rw[var_divide_def]>>
+  pairarg_tac>>
+  fs[satisfies_npbc_def,MAP_MAP_o]>>
+  qmatch_goalsub_abbrev_tac`r - &rr`>>
+  Cases_on`r − &rr < 0`>>
+  fs[div_ceiling_up_eq]
+  >- (
+    DEP_REWRITE_TAC[IQ_quot]>>
+    Cases_on`r - &rr`>>fs[]>>
+    intLib.ARITH_TAC)>>
+  DEP_REWRITE_TAC[div_ceiling_le_x]>>
+  CONJ_TAC >- intLib.ARITH_TAC>>
+  simp[INT_LE_SUB_RADD]>>
+  irule INT_LE_TRANS>>
+  goal_assum $ drule_at Any>>
+  last_x_assum $ kall_tac>>
+  pop_assum $ kall_tac>>
+  pop_assum mp_tac>>
+  qid_spec_tac`ll`>>
+  qid_spec_tac`rr`>>
+  Induct_on ‘q’>>
+  simp[]>> Cases>>
+  fs[cg_offset_def]>>
+  pairarg_tac>>gvs[]>>
+  qmatch_goalsub_abbrev_tac`_ * SUM (MAP (eval_term w) ls)`>>
+  `SUM (MAP (eval_term w) ls) =
+    SUM (MAP (eval_term w) ((div_ceiling_up q' k,r)::ys))` by
+      (rw[Abbr`ls`]>>fs[])>>
+  pop_assum SUBST_ALL_TAC>>
+  pop_assum kall_tac>>
+  simp[]>>
+  qmatch_goalsub_abbrev_tac` &(xx + A) ≤ &(k * (yy + B)) + &(zz + C)`>>
+  qsuff_tac`A <= k * B + C`
+  >- intLib.ARITH_TAC>>
+  unabbrev_all_tac>>
+  `0 < k` by fs[]>>
+  rename1`Num(-qq)`>>
+  Cases_on`qq`>>
+  fs[div_ceiling_up_eq,IQ_quot]>>
+  rw[oneline b2n_def]>>
+  gvs[div_ceiling_sign]
+  >- (
+    simp[div_ceiling_compute]>>
+    irule LE_MULT_CEILING_DIV >> fs[])
+  >- (
+    drule DIVISION>>
+    simp[]>>
+    disch_then (fn th => simp[GSYM th]))
+  >- (
+    drule DIVISION>>
+    disch_then (qspec_then`n` mp_tac)>>
+    simp[])
+QED
+
+Theorem MEM_cg_offset:
+  ∀l k c v.
+  MEM (c,v) (FST (cg_offset l k)) ⇒
+  MEM v (MAP SND l) ∧ c ≠ 0
+Proof
+  ho_match_mp_tac cg_offset_ind>>
+  rw[cg_offset_def]>>
+  pairarg_tac>>gvs[]>>
+  every_case_tac>>gvs[]>>
+  metis_tac[]
+QED
+
+Theorem SORTED_cg_offset:
+  ∀l k.
+  SORTED $< (MAP SND l) ⇒
+  SORTED $< (MAP SND (FST (cg_offset l k)))
+Proof
+  ho_match_mp_tac cg_offset_ind>>
+  rw[cg_offset_def]>>
+  pairarg_tac>>gvs[]>>rw[]>>
+  gvs[less_sorted_eq]>>rw[]>>
+  first_x_assum irule>>
+  fs[MEM_MAP,EXISTS_PROD]>>
+  metis_tac[MEM_cg_offset,MEM_MAP,PAIR,FST,SND]
+QED
+
+Theorem compact_var_divide:
+  compact c ∧ k ≠ 0 ⇒ compact (var_divide c k)
+Proof
+  Cases_on`c` \\
+  rename1`(l,r)` \\
+  rw[var_divide_def]>>
+  pairarg_tac>>rw[compact_def]
+  >-
+    metis_tac[SORTED_cg_offset,FST]
+  >- (
+    fs[EVERY_MEM,MEM_MAP]>>
+    metis_tac[MEM_cg_offset,FST,PAIR,SND])
+QED
+
 (* negation *)
 
 Definition not_def:
@@ -733,6 +857,30 @@ Proof
     metis_tac[SORTED_weaken_aux]
   \\ fs[EVERY_MEM,FORALL_PROD]
   \\ metis_tac[weaken_aux_contains,MEM_MAP]
+QED
+
+(* minus *)
+
+Definition minus_def:
+  minus ((l,n):npbc) (k:num) =
+    (l, n - &k)
+End
+
+Theorem minus_thm:
+  satisfies_npbc w c ⇒ satisfies_npbc w (minus c k)
+Proof
+  Cases_on ‘c’ \\
+  rename1`(l,r)` \\ fs [minus_def]
+  \\ rw [satisfies_npbc_def,GREATER_EQ]
+  \\ intLib.ARITH_TAC
+QED
+
+Theorem compact_minus:
+  compact c ⇒ compact (minus c k)
+Proof
+  Cases_on ‘c’ \\
+  rename1`(l,r)` \\
+  rw [minus_def,compact_def]
 QED
 
 (* clean up *)
