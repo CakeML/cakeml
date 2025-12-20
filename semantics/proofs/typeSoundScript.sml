@@ -782,7 +782,26 @@ Proof
       metis_tac [Tbool_def, type_v_Boolv, store_type_extension_refl,
                  eq_result_nchotomy, eq_same_type]) >~
   [‘Arith a ty’]
-  >- cheat >~
+  >- (rw [do_app_cases, PULL_EXISTS] >>
+      Cases_on ‘ty’ >> gvs[supported_arith_def, t_of_def] >~
+      [‘Float64T’] >- cheat >>
+      (* All 5 IntT subgoals: Add, Sub, Mul, Div, Mod *)
+      ‘ts = [Tint; Tint]’ by (
+        qpat_x_assum ‘EVERY _ ts’ mp_tac >>
+        qpat_x_assum ‘2 = LENGTH ts’ mp_tac >>
+        Cases_on ‘ts’ >> simp[] >>
+        Cases_on ‘t’ >> simp[]) >>
+      gvs[LIST_REL_def] >>
+      imp_res_tac prim_canonical_values_thm >> gvs[] >>
+      res_tac >> gvs[check_type_def, the_Litv_IntLit_def, do_arith_def] >>
+      first_x_assum (qspec_then ‘x’ mp_tac) >> simp[] >>
+      first_x_assum (qspec_then ‘x'’ mp_tac) >> simp[] >>
+      rw[] >>
+      TRY (rename1 ‘divisor = 0’ >> Cases_on ‘divisor = 0’ >> gvs[]
+           >- (simp[div_exn_v_def] >> fs[ctMap_has_exns_def])) >>
+      qexists_tac ‘tenvS’ >>
+      simp[store_type_extension_refl, Once type_v_cases]
+      >> simp[div_exn_v_def] >> fs[ctMap_has_exns_def]) >~
   [‘FromTo ty1 ty2’]
   >- (rw [do_app_cases, PULL_EXISTS] >>
       Cases_on ‘ty1’ >> Cases_on ‘ty2’ >>
