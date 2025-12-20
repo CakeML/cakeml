@@ -8,13 +8,12 @@ Libs
 Ancestors
   splitwords balanced_map mllist mlmap basis_ffi
 
-
 (* note: opening all these theories/libraries can take a while
    and it will print many warning messages which can be ignored *)
-
 val _ = translation_extends"basisProg";
 
 (* Avoid printing potentially very long output *)
+val _ = hide_environments true;
 val _ = Globals.max_print_depth := 20
 
 (* Pure functions for word frequency counting *)
@@ -118,13 +117,12 @@ val res = translate compute_wordfreq_output_def;
 
 (* Main wordfreq implementation *)
 
-val wordfreq = process_topdecs`
+Quote add_cakeml:
   fun wordfreq u =
-    case TextIO.inputLinesFile (List.hd (CommandLine.arguments()))
+    case TextIO.inputLinesFile #"\n" (List.hd (CommandLine.arguments()))
     of Some lines =>
-      TextIO.print_list (compute_wordfreq_output lines)`;
-
-val () = append_prog wordfreq;
+      TextIO.print_list (compute_wordfreq_output lines);
+End
 
 (* Main wordfreq specification.
    Idea: for a given file_contents, the output of wordfreq should be the
