@@ -388,8 +388,9 @@ end (* struct *)
 
  structure CakeML = struct
   val loadPath = Ref [Filename.currentDir];
+  val stdin = TextIO.openStdIn ();
   val (input1: (unit -> char option) ref) =
-    Ref (fn () => TextIO.input1 (TextIO.openStdIn ()));
+    Ref (fn () => TextIO.input1 stdin);
   val prompt1 = Ref "> ";
   val prompt2 = Ref "# ";
   val userInput = Ref True;
