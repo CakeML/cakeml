@@ -24,9 +24,12 @@ Proof
   \\ `stdin (stdin_fs input) input 0` by EVAL_TAC
   \\ drule TextIOProofTheory.stdin_get_file_content
   \\ rw[wfFS_stdin_fs, STD_streams_stdin_fs, CommandLineProofTheory.wfcl_def, clFFITheory.validArg_def]
+  \\ ‘stdin_content (stdin_fs input) = SOME input’ by
+    (simp [TextIOProofTheory.stdin_content_def, stdin_fs_def])
+  \\ fs []
   \\ asm_exists_tac \\ rw[]
-  \\ fs[valid_sort_result_def, fsFFIPropsTheory.all_lines_file_def]
-  \\ rfs[TextIOProofTheory.stdin_def]
+  \\ fs[valid_sort_result_def]
+  \\ rfs[TextIOProofTheory.stdin_def, good_args_def]
   \\ asm_exists_tac \\ simp[]
 QED
 
@@ -227,4 +230,3 @@ Proof
   \\ qexists_tac`clk` \\ simp[]
   \\ EVAL_TAC
 QED
-
