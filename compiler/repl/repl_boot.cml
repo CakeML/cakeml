@@ -388,9 +388,9 @@ end (* struct *)
 
  structure CakeML = struct
   val loadPath = Ref [Filename.currentDir];
-  val stdin = TextIO.openStdIn ();
+  val stdIn = TextIO.openStdIn ();
   val (input1: (unit -> char option) ref) =
-    Ref (fn () => TextIO.input1 stdin);
+    Ref (fn () => TextIO.input1 stdIn);
   val prompt1 = Ref "> ";
   val prompt2 = Ref "# ";
   val userInput = Ref True;
@@ -425,11 +425,11 @@ end (* struct *)
     fun loadMsg s = print ("- Loading " ^ s ^ "\n");
     fun load_use fname =
       let val _ = loadMsg fname in
-        TextIO.inputLinesFrom #"\n" fname
+        TextIO.inputLinesFile #"\n" fname
       end;
     fun load fname =
       let val _ = loadMsg fname in
-        case TextIO.inputLinesFrom #"\n" fname of
+        case TextIO.inputLinesFile #"\n" fname of
           None => None
         | Some lns =>
             (if List.exists (fn x => x = fname) (!loadedFiles) then () else
