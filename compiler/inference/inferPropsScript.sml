@@ -1764,7 +1764,7 @@ Proof
      irule nsAll_nsOptBind
      >> simp [option_nchotomy]
      >> metis_tac [check_env_more, DECIDE ``x:num ≤ x + 1``])
- >- cheat
+ >- ( first_x_assum drule \\ rw[] )
  >- (
    first_x_assum old_drule
    >> first_x_assum old_drule
