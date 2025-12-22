@@ -370,8 +370,8 @@ Definition supported_arith_def[simp]:
      if MEM a [Add; Sub; Mul; Div; Mod] then SOME (2:num) else NONE) ∧
   (supported_arith a Float64T =
      if MEM a [Abs; Neg; Sqrt] then SOME 1 else
-     if MEM a [Add; Sub; Mul; Div] then SOME 1 else
-     if MEM a [FMA] then SOME 1 else NONE) ∧
+     if MEM a [Add; Sub; Mul; Div] then SOME 2 else
+     if MEM a [FMA] then SOME 3 else NONE) ∧
   (supported_arith a (ty:prim_type) = NONE)
 End
 
