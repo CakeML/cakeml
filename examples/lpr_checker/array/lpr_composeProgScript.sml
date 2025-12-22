@@ -200,12 +200,6 @@ Proof
   rw[FUN_EQ_THM,lines_of_gen_def,lines_of_def,splitlines_at_def,splitlines_def,str_def]
 QED
 
-Theorem all_lines_gen_all_lines[simp]:
-  all_lines_gen #"\n" = all_lines
-Proof
-  rw[FUN_EQ_THM,all_lines_gen_def,all_lines_def]
-QED
-
 Theorem line_count_of_spec:
   FILENAME proof_fname proofv ∧ file_content fs proof_fname = SOME proof ∧
   hasFreeFD fs
@@ -247,7 +241,7 @@ val _ = (append_prog o process_topdecs) `
       case md5_of (Some proof_fname) of
         None => TextIO.output TextIO.stdErr (notfound_string proof_fname)
       | Some proof_md5 =>
-        case TextIO.b_inputLinesFrom #"\n" lines_fname of
+        case TextIO.inputLinesFile #"\n" lines_fname of
           None => TextIO.output TextIO.stdErr (notfound_string lines_fname)
         | Some lines =>
           case line_count_of proof_fname of
@@ -289,11 +283,11 @@ Proof
   \\ xmatch
   \\ xlet ‘(POSTv retv. STDIO fs * &OPTION_TYPE (LIST_TYPE STRING_TYPE)
             (SOME (lines_of (strlit x))) retv)’
-  THEN1 (xapp_spec b_inputLinesFrom_spec \\ fs []
+  THEN1 (xapp_spec inputLinesFile_spec \\ fs []
          \\ first_assum $ irule_at (Pos hd) \\ fs []
          \\ first_assum $ irule_at (Pos hd) \\ fs []
          \\ xsimpl
-         \\ fs [file_content_def,AllCaseEqs(),inFS_fname_def,all_lines_def]
+         \\ fs [file_content_def,AllCaseEqs(),inFS_fname_def,all_lines_file_def]
          \\ fs [std_preludeTheory.OPTION_TYPE_def,implode_def])
   \\ fs [std_preludeTheory.OPTION_TYPE_def,implode_def]
   \\ xmatch
@@ -383,7 +377,7 @@ Proof
   \\ xmatch
   \\ xlet ‘(POSTv retv.
              STDIO fs * &OPTION_TYPE (LIST_TYPE STRING_TYPE) NONE retv)’
-  THEN1 (xapp_spec b_inputLinesFrom_spec \\ fs []
+  THEN1 (xapp_spec inputLinesFile_spec \\ fs []
          \\ first_assum $ irule_at (Pos hd) \\ fs []
          \\ first_assum $ irule_at (Pos hd) \\ fs []
          \\ xsimpl
@@ -486,4 +480,3 @@ Proof
   \\ fs [closure_spt_thm |> SIMP_RULE (srw_ss()) [EXTENSION,domain_lookup]]
   \\ gvs [lookup_insert,lookup_def]
 QED
-

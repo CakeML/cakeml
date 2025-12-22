@@ -135,9 +135,7 @@ val mem = ``mem:'U->'U-> bool``;
 Overload reader[local] = ``\inp r. readLines init_state inp r``
 
 Theorem all_lines_stdin_fs[local]:
-  all_lines_inode (stdin_fs inp) (UStream «stdin»)
-   =
-   lines_of (implode inp)
+  all_lines_stdin (stdin_fs inp) = lines_of (implode inp)
 Proof
   EVAL_TAC
 QED
@@ -149,7 +147,8 @@ Theorem reader_extract_writes:
          out = extract_writes 1 events;
          err = extract_writes 2 events;
          refs = SND (init_reader () init_refs) in
-     case reader (MAP (tokenize o str_prefix) (lines_of (implode inp))) refs of
+       case reader (FLAT (MAP (MAP tokenize ∘ tokens is_newline)
+                              (lines_of (implode inp)))) refs of
        (M_failure (Failure e), refs) =>
          (out = "") ∧
          (err = explode e)
@@ -182,10 +181,10 @@ Proof
     \\ goal_assum (first_assum o mp_then Any mp_tac)
     \\ simp [RIGHT_EXISTS_AND_THM]
     \\ simp [readerProofTheory.reader_main_def,
-             readerProofTheory.read_stdin_def]
-(*  \\ qpat_x_assum ‘_ = init_reader _ _’ (assume_tac o SYM) *)
-    \\ simp [all_lines_stdin_fs]
-    \\ (conj_tac >- simp [fsFFIPropsTheory.inFS_fname_def, stdin_fs_def])
+             readerProofTheory.read_from_def]
+    \\ simp [fsFFIPropsTheory.all_lines_from_def, all_lines_stdin_fs]
+    \\ (conj_tac >- simp [fsFFIPropsTheory.inFS_fname_def,
+                          TextIOProofTheory.add_stdo_def, stdin_fs_def])
     \\ (conj_tac >- simp [stdin_fs_def])
     \\ conj_tac
     \\ simp [stdin_fs_def, fsFFIPropsTheory.fastForwardFD_def,
@@ -218,10 +217,10 @@ Proof
   \\ goal_assum (first_assum o mp_then Any mp_tac)
   \\ simp [RIGHT_EXISTS_AND_THM]
   \\ simp [readerProofTheory.reader_main_def,
-           readerProofTheory.read_stdin_def]
-(*\\ qpat_x_assum ‘_ = init_reader _ _’ (assume_tac o SYM) *)
-  \\ simp [all_lines_stdin_fs]
-  \\ (conj_tac >- simp [fsFFIPropsTheory.inFS_fname_def, stdin_fs_def])
+           readerProofTheory.read_from_def]
+  \\ simp [fsFFIPropsTheory.all_lines_from_def, all_lines_stdin_fs]
+  \\ (conj_tac >- simp [fsFFIPropsTheory.inFS_fname_def,
+                        TextIOProofTheory.add_stdo_def, stdin_fs_def])
   \\ (conj_tac >- simp [stdin_fs_def])
   \\ conj_tac
   \\ simp [stdin_fs_def, fsFFIPropsTheory.fastForwardFD_def,
@@ -280,4 +279,3 @@ Proof
   \\ goal_assum (first_assum o mp_then Any mp_tac)
   \\ metis_tac []
 QED
-

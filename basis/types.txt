@@ -351,7 +351,6 @@ Double.poszero64: Double.double
 Double.pp_double: Double.double -> PrettyPrinter.pp_data
 Marshalling.n2w2: int -> byte_array -> int -> unit
 Marshalling.w22n: byte_array -> int -> int
-TextIO.stdIn: TextIO.instream
 TextIO.stdOut: TextIO.outstream
 TextIO.stdErr: TextIO.outstream
 TextIO.output1: TextIO.outstream -> char -> unit
@@ -359,32 +358,25 @@ TextIO.output: TextIO.outstream -> string -> unit
 TextIO.print: string -> unit
 TextIO.print_err: string -> unit
 TextIO.print_list: string list -> unit
-TextIO.openIn: string -> TextIO.instream
 TextIO.openOut: string -> TextIO.outstream
 TextIO.closeOut: TextIO.outstream -> unit
+TextIO.openStdInSetBufferSize: int -> TextIO.instream
+TextIO.openStdIn: unit -> TextIO.instream
+TextIO.openInSetBufferSize: string -> int -> TextIO.instream
+TextIO.openIn: string -> TextIO.instream
 TextIO.closeIn: TextIO.instream -> unit
+TextIO.input: TextIO.instream -> byte_array -> int -> int -> int
+TextIO.peekChar: TextIO.instream -> char option
 TextIO.input1: TextIO.instream -> char option
-TextIO.inputLine: TextIO.instream -> string option
-TextIO.inputLines: TextIO.instream -> string list
-TextIO.inputLinesFrom: string -> string list option
+TextIO.inputLine: char -> TextIO.instream -> string option
+TextIO.inputLineTokens: char -> TextIO.instream -> (char -> bool) -> (string -> 'a) -> 'a list option
+TextIO.inputLines: char -> TextIO.instream -> string list
+TextIO.inputLinesFile: char -> string -> string list option
+TextIO.inputLinesStdIn: char -> string list
 TextIO.inputAll: TextIO.instream -> string
-TextIO.copy: TextIO.instream -> TextIO.outstream -> unit
-TextIO.b_openStdInSetBufferSize: int -> TextIO.b_instream
-TextIO.b_openStdIn: unit -> TextIO.b_instream
-TextIO.b_openInSetBufferSize: string -> int -> TextIO.b_instream
-TextIO.b_openIn: string -> TextIO.b_instream
-TextIO.b_closeIn: TextIO.b_instream -> unit
-TextIO.b_input: TextIO.b_instream -> byte_array -> int -> int -> int
-TextIO.b_peekChar: TextIO.b_instream -> char option
-TextIO.b_input1: TextIO.b_instream -> char option
-TextIO.b_inputLine: char -> TextIO.b_instream -> string option
-TextIO.b_inputLineTokens: char -> TextIO.b_instream -> (char -> bool) -> (string -> 'a) -> 'a list option
-TextIO.b_inputLines: char -> TextIO.b_instream -> string list
-TextIO.b_inputLinesFrom: char -> string -> string list option
-TextIO.b_inputLinesStdIn: char -> string list
-TextIO.b_inputAllTokens: char -> TextIO.b_instream -> (char -> bool) -> (string -> 'a) -> 'a list list
-TextIO.b_inputAllTokensFrom: char -> string -> (char -> bool) -> (string -> 'a) -> 'a list list option
-TextIO.b_inputAllTokensStdIn: char -> (char -> bool) -> (string -> 'a) -> 'a list list option
+TextIO.inputAllTokens: char -> TextIO.instream -> (char -> bool) -> (string -> 'a) -> 'a list list
+TextIO.inputAllTokensFile: char -> string -> (char -> bool) -> (string -> 'a) -> 'a list list option
+TextIO.inputAllTokensFrom: char -> string option -> (char -> bool) -> (string -> 'a) -> 'a list list option
 TextIO.foldChars: (char -> 'a -> 'a) -> 'a -> string option -> 'a option
 TextIO.foldLines: char -> (string -> 'a -> 'a) -> 'a -> string option -> 'a option
 TextIO.foldTokens: char -> (char -> bool) -> (string -> 'a) -> ('a list -> 'b -> 'b) -> 'b -> string option -> 'b option

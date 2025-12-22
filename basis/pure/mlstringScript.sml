@@ -202,6 +202,12 @@ Proof
     rw[strcat_def,concat_def]
 QED
 
+Theorem strcat_o:
+  strcat x ∘ strcat y = strcat (x ^ y)
+Proof
+  simp [FUN_EQ_THM]
+QED
+
 Theorem strcat_nil[simp]:
    (strcat (strlit "") s = s) ∧
    (strcat s (strlit "") = s)
