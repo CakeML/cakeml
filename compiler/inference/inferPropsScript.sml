@@ -1871,17 +1871,33 @@ Theorem constrain_op_check_s:
     ⇒
     check_s tvs (count st'.next_uvar) st'.subst
 Proof
-   cheat (*
    rw [] >>
-   `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_int)` by rw [check_t_def] >>
-   `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_word8)` by rw [check_t_def] >>
-   `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_word8array)` by rw [check_t_def] >>
-   `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_string)` by rw [check_t_def] >>
-   `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_char)` by rw [check_t_def] >>
-   `!uvs tvs wz. check_t tvs uvs (Infer_Tapp [] (TC_word wz))` by rw [check_t_def] >>
+   `!uvs tvs tc. check_t tvs uvs (Infer_Tapp [] tc)` by rw [check_t_def] >>
    fs [constrain_op_success] >> rw [] >>
    rpt (pairarg_tac \\ gvs [AllCaseEqs(),st_ex_bind_def,st_ex_return_def,failwith_def]) >>
    fs [op_to_string_def, infer_st_rewrs]
+   >~ [‘supported_arith a p’]
+   >- (Cases_on‘p’ >> gvs[supported_arith_def] >>
+       TRY (Cases_on‘a:arith’) >>
+       gvs [supported_arith_def,LENGTH_EQ_NUM_compute,REPLICATE_compute,
+            add_constraints_def, st_ex_bind_success, add_constraint_def,
+            CaseEq"prod", CaseEq"option", st_ex_return_success] >>
+       imp_res_tac t_unify_wfs >>
+       match_mp_tac t_unify_check_s >> asm_exists_tac >> rw[] >>
+       TRY(match_mp_tac t_unify_check_s \\ asm_exists_tac \\ rw[]) >>
+       TRY(match_mp_tac t_unify_check_s \\ asm_exists_tac \\ rw[])
+       \\ TRY(match_mp_tac check_t_more_0 \\ rw[]))
+   >~ [‘supported_conversion p p0’]
+   >- (Cases_on`p` \\ Cases_on`p0` >> gvs [supported_conversion_def] >>
+       match_mp_tac t_unify_check_s >> asm_exists_tac >>
+       imp_res_tac t_unify_wfs >> rw[] >>
+       match_mp_tac check_t_more_0 \\ rw[])
+   >~ [‘supported_test t0 p0’]
+   >- (Cases_on`t0` >> gvs [supported_test_def] >>
+       imp_res_tac t_unify_wfs >>
+       match_mp_tac t_unify_check_s >> asm_exists_tac >> rw[] >>
+       TRY(match_mp_tac t_unify_check_s \\ asm_exists_tac \\ rw[]) >>
+       match_mp_tac check_t_more_0 \\ rw[])
    \\ TRY (Cases_on `uop`)
    \\ TRY pairarg_tac >> fs [success_eqns]
    \\ imp_res_tac t_unify_wfs \\ rfs[fresh_uvar_success]
@@ -1893,7 +1909,7 @@ Proof
    \\ TRY (match_mp_tac check_s_more \\ rw[])
    \\ TRY (CHANGED_TAC(rw[check_t_def]))
    \\ TRY (match_mp_tac check_t_more_1 \\ rw[])
-   \\ match_mp_tac check_t_more_0 \\ simp[] \\ NO_TAC *)
+   \\ match_mp_tac check_t_more_0 \\ simp[] \\ NO_TAC
 QED
 
 Definition ienv_ok_def:
