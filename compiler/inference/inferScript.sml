@@ -857,7 +857,11 @@ Proof
     \\ gvs [op_to_string_def]
     \\ gvs [AllCaseEqs(),op_simple_constraints_def,op_to_string_def]
     \\ gvs [failwith_def, st_ex_bind_failure, st_ex_return_def]
-    \\ cheat) >>
+    \\ Cases_on ‘ty’ \\ gvs[supported_arith_def] \\ TRY (Cases_on ‘a:arith’)
+    \\ gvs [supported_arith_def, LENGTH_EQ_NUM_compute,
+            add_constraints_def, add_constraint_def,
+            st_ex_bind_failure, st_ex_return_def, option_case_eq]
+    \\ unabbrev_all_tac \\ fs [mlstringTheory.concat_thm]) >>
   cases_on `op` >>
   fs [op_to_string_def, constrain_op_dtcase_def, op_simple_constraints_def] >>
   gvs [LENGTH_EQ_NUM_compute] >>
