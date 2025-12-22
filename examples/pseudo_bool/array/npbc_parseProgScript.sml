@@ -235,7 +235,7 @@ val r = translate sub_one_def;
 
 val parse_lsteps_aux = process_topdecs`
   fun parse_lsteps_aux f_ns fd lno acc =
-    case TextIO.b_inputLineTokens #"\n" fd blanks tokenize_fast of
+    case TextIO.inputLineTokens #"\n" fd blanks tokenize_fast of
       None => raise Fail (format_failure lno "reached EOF while reading PBP steps")
     | Some s =>
     case parse_lstep_aux f_ns s of
@@ -254,8 +254,8 @@ val parse_lsteps_aux = process_topdecs`
 val blanks_v_thm = theorem "blanks_v_thm";
 val tokenize_fast_v_thm = theorem "tokenize_fast_v_thm";
 
-val b_inputLineTokens_specialize =
-  b_inputLineTokens_spec_lines
+val inputLineTokens_specialize =
+  inputLineTokens_spec_lines
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
   |> Q.GEN `g` |> Q.ISPEC`tokenize_fast`
@@ -352,7 +352,7 @@ Proof
             INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
             &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     THEN1 (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac ‘emp’
       \\ qexists_tac ‘[]’
       \\ xsimpl
@@ -377,7 +377,7 @@ Proof
             INSTREAM_LINES #"\n" fd fdv ls (forwardFD fs fd k) *
             & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks_fast l)) v)’
     THEN1 (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac ‘emp’
       \\ qexists_tac ‘l::ls’
       \\ qexists_tac ‘fs’
@@ -980,7 +980,7 @@ val r = translate check_mark_qed_id_opt_red_def;
 
 val parse_sstep_imp = process_topdecs`
   fun parse_sstep_imp fns fd lno =
-    case TextIO.b_inputLineTokens #"\n" fd blanks tokenize_fast of
+    case TextIO.inputLineTokens #"\n" fd blanks tokenize_fast of
       None =>
       raise Fail (format_failure lno "Unexpected EOF when parsing proof steps")
     | Some s =>
@@ -1047,7 +1047,7 @@ Proof
             INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
             &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     >- (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac ‘emp’
       \\ qexists_tac ‘lines’
       \\ qexists_tac ‘fs’
@@ -1070,7 +1070,7 @@ Proof
       INSTREAM_LINES #"\n" fd fdv ls (forwardFD fs fd k) *
       & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks_fast l)) v)’
   THEN1 (
-    xapp_spec b_inputLineTokens_specialize
+    xapp_spec inputLineTokens_specialize
     \\ qexists_tac ‘emp’
     \\ qexists_tac ‘l::ls’
     \\ qexists_tac ‘fs’
@@ -1217,7 +1217,7 @@ val res = translate pre_order_symbols_def;
 
 val read_open = process_topdecs`
   fun read_open lno h fd acc =
-    let val l = TextIO.b_inputLineTokens #"\n" fd blanks tokenize_fast in
+    let val l = TextIO.inputLineTokens #"\n" fd blanks tokenize_fast in
     case l of None =>
       raise Fail (format_failure lno ("reached EOF while looking for def_order opening line:" ^ h))
     | Some x =>
@@ -1267,7 +1267,7 @@ Proof
             INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
             &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     >- (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac ‘emp’
       \\ qexists_tac ‘[]’
       \\ qexists_tac ‘fs’
@@ -1288,7 +1288,7 @@ Proof
       INSTREAM_LINES #"\n" fd fdv ls (forwardFD fs fd k) *
       & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks_fast l)) v)’
   THEN1 (
-    xapp_spec b_inputLineTokens_specialize
+    xapp_spec inputLineTokens_specialize
     \\ qexists_tac ‘emp’
     \\ qexists_tac ‘l::ls’
     \\ qexists_tac ‘fs’
@@ -1318,7 +1318,7 @@ QED
 
 val read_end = process_topdecs`
   fun read_end lno h fd acc =
-    let val l = TextIO.b_inputLineTokens #"\n" fd blanks tokenize_fast in
+    let val l = TextIO.inputLineTokens #"\n" fd blanks tokenize_fast in
     case l of None =>
       raise Fail (format_failure lno ("reached EOF while looking for def_order ending line:" ^ h))
     | Some x =>
@@ -1368,7 +1368,7 @@ Proof
             INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
             &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     >- (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac ‘emp’
       \\ qexists_tac ‘[]’
       \\ qexists_tac ‘fs’
@@ -1389,7 +1389,7 @@ Proof
       INSTREAM_LINES #"\n" fd fdv ls (forwardFD fs fd k) *
       & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks_fast l)) v)’
   THEN1 (
-    xapp_spec b_inputLineTokens_specialize
+    xapp_spec inputLineTokens_specialize
     \\ qexists_tac ‘emp’
     \\ qexists_tac ‘l::ls’
     \\ qexists_tac ‘fs’
@@ -2572,7 +2572,7 @@ val run_concl_file = process_topdecs`
     fml' inds' pres' obj' bound' dbound' chk'
     fmlt prest objt =
   let
-    val ls = TextIO.b_inputAllTokens #"\n" fd blanks tokenize
+    val ls = TextIO.inputAllTokens #"\n" fd blanks tokenize
   in
     case parse_output_concl s f_ns ls of
       None => Inl (format_failure (sub_one lno) (mk_parse_err s))
@@ -2589,8 +2589,8 @@ val run_concl_file = process_topdecs`
 
 val tokenize_v_thm = theorem "tokenize_v_thm";
 
-val b_inputAllTokens_specialize =
-  b_inputAllTokens_spec
+val inputAllTokens_specialize =
+  inputAllTokens_spec
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
   |> Q.GEN `g` |> Q.ISPEC`tokenize`
@@ -2652,7 +2652,7 @@ Proof
             (MAP (MAP tokenize o tokens blanks) lines) v
           )’
   >- (
-    xapp_spec b_inputAllTokens_specialize
+    xapp_spec inputAllTokens_specialize
     \\ qexists_tac ‘ARRAY fml1v fmllsv’
     \\ xsimpl
     \\ metis_tac[STDIO_INSTREAM_LINES_refl,STDIO_INSTREAM_LINES_refl_gc]) >>
@@ -3100,14 +3100,14 @@ val r = translate check_header_full_def;
 val check_header = process_topdecs`
   fun check_header fd =
   let
-    val s1 = TextIO.b_inputLineTokens #"\n" fd blanks tokenize_fast
-    val s2 = TextIO.b_inputLineTokens #"\n" fd blanks tokenize_fast
+    val s1 = TextIO.inputLineTokens #"\n" fd blanks tokenize_fast
+    val s2 = TextIO.inputLineTokens #"\n" fd blanks tokenize_fast
   in
   check_header_full s1 s2
   end` |> append_prog;
 
-val b_inputLineTokens_specialize =
-  b_inputLineTokens_spec_lines
+val inputLineTokens_specialize =
+  inputLineTokens_spec_lines
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
   |> Q.GEN `g` |> Q.ISPEC`tokenize_fast`
@@ -3137,7 +3137,7 @@ Proof
           &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
             (OPTION_MAP (MAP tokenize_fast ∘ tokens blanks) (oHD lines)) v)’
   >- (
-    xapp_spec b_inputLineTokens_specialize
+    xapp_spec inputLineTokens_specialize
     \\ EVAL_TAC)>>
   xlet ‘(POSTv v.
       SEP_EXISTS k.
@@ -3146,7 +3146,7 @@ Proof
           &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT))
             (OPTION_MAP (MAP tokenize_fast ∘ tokens blanks) (oHD (TL lines))) v)’
   >- (
-    xapp_spec b_inputLineTokens_specialize
+    xapp_spec inputLineTokens_specialize
     \\ qexists_tac ‘emp’
     \\ xsimpl
     \\ metis_tac[forwardFD_o,STDIO_INSTREAM_LINES_refl,STDIO_INSTREAM_LINES_refl_gc]
@@ -3165,16 +3165,16 @@ val r = translate notfound_string_def;
 val check_unsat_top = process_topdecs `
   fun check_unsat_top b fns fml pres obj fmlt prest objt fname =
   let
-    val fd = TextIO.b_openIn fname
+    val fd = TextIO.openIn fname
   in
     case check_header fd of
       Some n =>
-      (TextIO.b_closeIn fd;
+      (TextIO.closeIn fd;
       Inl (format_failure n "Unable to parse header"))
     | None =>
       let val res =
         (check_unsat' b fns fd 3 fml pres obj fmlt prest objt)
-        val close = TextIO.b_closeIn fd;
+        val close = TextIO.closeIn fd;
       in
         res
       end
@@ -3232,7 +3232,7 @@ Proof
       &(~inFS_fname fs f) *
       STDIO fs`
     >-
-      (xlet_auto_spec (SOME b_openIn_STDIO_spec) \\ xsimpl)
+      (xlet_auto_spec (SOME openIn_STDIO_spec) \\ xsimpl)
     >>
       fs[BadFileName_exn_def]>>
       xcases>>rw[]>>
@@ -3243,7 +3243,7 @@ Proof
   qmatch_goalsub_abbrev_tac`$POSTv Qval`>>
   xhandle`$POSTv Qval` \\ xsimpl >>
   qunabbrev_tac`Qval`>>
-  xlet_auto_spec (SOME (b_openIn_spec_lines |> Q.GEN `c0` |> Q.SPEC `#"\n"`)) \\ xsimpl >>
+  xlet_auto_spec (SOME (openIn_spec_lines |> Q.GEN `c0` |> Q.SPEC `#"\n"`)) \\ xsimpl >>
   qmatch_goalsub_abbrev_tac`INSTREAM_LINES #"\n" fd fdv lines fss`>>
   xlet`POSTv v.
     SEP_EXISTS k lines' res.
@@ -3260,7 +3260,7 @@ Proof
   >- (
     xlet `POSTv v. STDIO fs`
     >- (
-      xapp_spec b_closeIn_spec_lines >>
+      xapp_spec closeIn_spec_lines >>
       xsimpl>>
       qexists_tac `emp`>>
       qexists_tac `lines'` >>
@@ -3308,7 +3308,7 @@ Proof
     metis_tac[STDIO_INSTREAM_LINES_refl_more_gc,STDIO_INSTREAM_LINES_refl,STDIO_INSTREAM_LINES_refl_gc])>>
   xlet `POSTv v. STDIO fs`
   >- (
-    xapp_spec b_closeIn_spec_lines >>
+    xapp_spec closeIn_spec_lines >>
     xsimpl>>
     qexists_tac `emp`>>
     qexists_tac `lines'` >>
@@ -3526,10 +3526,3 @@ Definition default_prob_def:
 End
 
 val res = translate default_prob_def;
-
-Theorem all_lines_gen_all_lines[simp]:
-  all_lines_gen #"\n" fs f =
-  all_lines fs f
-Proof
-  rw[all_lines_def,all_lines_gen_def,lines_of_def,lines_of_gen_def,splitlines_at_def,splitlines_def,str_def]
-QED

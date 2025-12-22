@@ -35,7 +35,7 @@ val r = translate noparse_string_def;
 
 val parse_pbf_full = (append_prog o process_topdecs) `
   fun parse_pbf_full f =
-  (case TextIO.b_inputAllTokensFrom #"\n" f blanks tokenize of
+  (case TextIO.inputAllTokensFile #"\n" f blanks tokenize of
     None => Inl (notfound_string f)
   | Some lines =>
   (case parse_pbf_toks lines of
@@ -43,8 +43,8 @@ val parse_pbf_full = (append_prog o process_topdecs) `
   | Some res => Inr res
   ))`
 
-val b_inputAllTokensFrom_spec_specialize =
-  b_inputAllTokensFrom_spec
+val inputAllTokensFile_spec_specialize =
+  inputAllTokensFile_spec
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
   |> Q.GEN `g` |> Q.ISPEC`tokenize`
@@ -55,7 +55,7 @@ val b_inputAllTokensFrom_spec_specialize =
 Definition get_annot_fml_def:
   get_annot_fml fs f =
   if inFS_fname fs f then
-    parse_pbf (all_lines fs f)
+    parse_pbf (all_lines_file fs f)
   else NONE
 End
 
@@ -81,10 +81,10 @@ Proof
     \\ xpull \\ metis_tac[]) >>
   xlet`(POSTv sv. &OPTION_TYPE (LIST_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)))
             (if inFS_fname fs f then
-               SOME(MAP (MAP tokenize o tokens blanks) (all_lines fs f))
+               SOME(MAP (MAP tokenize o tokens blanks) (all_lines_file fs f))
              else NONE) sv * STDIO fs)`
   >- (
-    xapp_spec b_inputAllTokensFrom_spec_specialize >>
+    xapp_spec inputAllTokensFile_spec_specialize >>
     xsimpl>>
     simp[pb_parseTheory.blanks_def]>>
     fs[FILENAME_def,validArg_def,blanks_v_thm]>>

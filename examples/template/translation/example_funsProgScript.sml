@@ -15,7 +15,7 @@ val _ = type_of “main_function” = “:mlstring -> mlstring”
         orelse failwith "The main_function has the wrong type.";
 
 val main = process_topdecs
-  `print (main_function (TextIO.inputAll TextIO.stdIn));`;
+  `print (main_function (TextIO.inputAll (TextIO.openStdIn ())));`;
 
 val prog =
   get_ml_prog_state ()

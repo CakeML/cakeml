@@ -5,7 +5,7 @@ Theory diffProg
 Ancestors
   charset lcs diff basis_ffi
 Libs
-  preamble basis
+  preamble basis basisFunctionsLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
@@ -83,14 +83,15 @@ End
 
 val r = translate usage_string_def;
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun diff' fname1 fname2 =
-    case TextIO.inputLinesFrom fname1 of
+    case TextIO.inputLinesFile #"\n" fname1 of
         None => TextIO.output TextIO.stdErr (notfound_string fname1)
       | Some lines1 =>
-        case TextIO.inputLinesFrom fname2 of
+        case TextIO.inputLinesFile #"\n" fname2 of
             None => TextIO.output TextIO.stdErr (notfound_string fname2)
-          | Some lines2 => TextIO.print_list (diff_alg2 lines1 lines2)`
+          | Some lines2 => TextIO.print_list (diff_alg2 lines1 lines2)
+End
 
 Theorem diff'_spec:
    FILENAME f1 fv1 ∧ FILENAME f2 fv2 /\
@@ -105,20 +106,20 @@ Theorem diff'_spec:
          if inFS_fname fs f1 then
          if inFS_fname fs f2 then
            add_stdout fs (
-              concat ((diff_alg2 (all_lines fs f1)
-                                 (all_lines fs f2))))
+              concat ((diff_alg2 (all_lines_file fs f1)
+                                 (all_lines_file fs f2))))
          else add_stderr fs (notfound_string f2)
          else add_stderr fs (notfound_string f1)))
 Proof
   rpt strip_tac
   \\ xcf"diff'"(get_ml_prog_state())
-  \\ xlet_auto_spec(SOME inputLinesFrom_spec)
+  \\ xlet_auto_spec(SOME inputLinesFile_spec)
   >- xsimpl
   \\ reverse(Cases_on `inFS_fname fs f1`) \\ fs[OPTION_TYPE_def]
   \\ xmatch
   >- (xlet_auto >- xsimpl
       \\ xapp_spec output_stderr_spec \\ xsimpl)
-  \\ xlet_auto_spec(SOME inputLinesFrom_spec)
+  \\ xlet_auto_spec(SOME inputLinesFile_spec)
   >- xsimpl
   \\ reverse(Cases_on `inFS_fname fs f2`) \\ fs[OPTION_TYPE_def]
   \\ xmatch
@@ -142,8 +143,8 @@ Definition diff_sem_def:
     add_stdout fs (
       concat
         (diff_alg2
-           (all_lines fs (EL 1 cl))
-           (all_lines fs (EL 2 cl))))
+           (all_lines_file fs (EL 1 cl))
+           (all_lines_file fs (EL 2 cl))))
     else add_stderr fs (notfound_string (EL 2 cl))
     else add_stderr fs (notfound_string (EL 1 cl))
     else add_stderr fs usage_string

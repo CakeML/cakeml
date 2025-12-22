@@ -45,7 +45,7 @@ End
        - simple,
        - fails with None (in the style of the SML basis)
        - translated from mlsexp.
-   2. b_inputSexp, which is
+   2. inputSexp, which is
        - efficient (buffered input),
        - fails with exceptions,
        - written in CakeML, proved equivalent to definitions in mlsexp using
@@ -86,15 +86,15 @@ val _ = lex_aux_ind |> update_precondition;
 val r = translate mlsexpTheory.lex_def;
 val r = translate mlsexpTheory.parse_def;
 
-(* Private helpers for b_inputSexp *)
+(* Private helpers for inputSexp *)
 Quote add_cakeml:
   fun read_string_aux_imp input acc =
-    case TextIO.b_input1 input of
+    case TextIO.input1 input of
       None => raise Fail "read_string_aux: unterminated string literal"
     | Some c =>
         if c = #"\"" then String.implode (List.rev acc) else
         if c = #"\\" then
-          (case TextIO.b_input1 input of
+          (case TextIO.input1 input of
              None => read_string_aux_imp input acc (* causes error: unterminated string *)
            | Some e =>
                (if e = #"\\" then read_string_aux_imp input (#"\\"::acc) else
@@ -114,19 +114,19 @@ End
 
 Quote add_cakeml:
   fun read_symbol_imp input acc =
-    case TextIO.b_peekChar input of
+    case TextIO.peekChar input of
       None => String.implode (List.rev acc)
     | Some c =>
         if c = #")" orelse Char.isSpace c
         then String.implode (List.rev acc)
         else (
-          TextIO.b_input1 input;  (* Consume c *)
+          TextIO.input1 input;  (* Consume c *)
           read_symbol_imp input (c::acc))
 End
 
 Quote add_cakeml:
   fun lex_aux_imp depth input acc =
-    case TextIO.b_input1 input of
+    case TextIO.input1 input of
       None => if depth = 0 then acc
               else raise Fail "lex_aux: missing closing parenthesis"
     | Some c =>
@@ -158,9 +158,9 @@ val r = translate mlsexpTheory.fromString_def;
 
 (* If we were 100% consistent, we should call this parse_imp. Since it isn't a
    neat name, and parse is already taken by the translated pure version, we
-   use b_inputSexp. *)
+   use inputSexp. *)
 Quote add_cakeml:
-  fun b_inputSexp input =
+  fun inputSexp input =
     case parse_aux (lex_imp input) [] [] of
       [] => raise Fail "parse: empty input"
     | (v::_) => v
@@ -264,7 +264,7 @@ Proof
              STDIO (forwardFD fs fd k) *
              INSTREAM_STR fd is (TL s₁) (forwardFD fs fd k) *
              &OPTION_TYPE CHAR (oHD s₁) chv’
-    >- (xapp_spec b_input1_spec_str)
+    >- (xapp_spec input1_spec_str)
     \\ unabbrev_all_tac \\ gvs [OPTION_TYPE_def]
     \\ xmatch \\ xlet_autop \\ xraise
     \\ read_string_aux_imp_base_tac ‘k’)
@@ -274,7 +274,7 @@ Proof
              STDIO (forwardFD fs fd k) *
              INSTREAM_STR fd is (TL s₁) (forwardFD fs fd k) *
              &OPTION_TYPE CHAR (oHD s₁) chv’
-    >- (xapp_spec b_input1_spec_str)
+    >- (xapp_spec input1_spec_str)
     \\ unabbrev_all_tac \\ gvs [OPTION_TYPE_def]
     \\ xmatch \\ xlet_autop
     \\ xif
@@ -293,7 +293,7 @@ Proof
                  INSTREAM_STR fd is (TL s) (forwardFD fs fd (k + k₁)) *
                  &OPTION_TYPE CHAR (oHD s) chv’
       >-
-       (xapp_spec b_input1_spec_str
+       (xapp_spec input1_spec_str
         \\ qexistsl [‘emp’, ‘s’, ‘forwardFD fs fd k’, ‘fd’]
         \\ simp [forwardFD_o] \\ xsimpl)
       \\ Cases_on ‘s’ \\ gvs [OPTION_TYPE_def]
@@ -373,7 +373,7 @@ Proof
             STDIO (forwardFD fs fd k) *
             INSTREAM_STR fd is s₁ (forwardFD fs fd k) *
             &(OPTION_TYPE CHAR (oHD s₁) chv)’
-    >- (xapp_spec b_peekChar_spec_str)
+    >- (xapp_spec peekChar_spec_str)
     \\ unabbrev_all_tac \\ gvs [OPTION_TYPE_def]
     \\ xmatch \\ xlet_autop \\ xapp
     \\ first_assum $ irule_at (Pos hd)
@@ -385,7 +385,7 @@ Proof
             STDIO (forwardFD fs fd k) *
             INSTREAM_STR fd is s₁ (forwardFD fs fd k) *
             &(OPTION_TYPE CHAR (oHD s₁) chv)’
-    >- (xapp_spec b_peekChar_spec_str)
+    >- (xapp_spec peekChar_spec_str)
     \\ unabbrev_all_tac \\ gvs [OPTION_TYPE_def]
     \\ xmatch \\ xlet_autop
     \\ rename [‘read_symbol (h::s)’]
@@ -410,7 +410,7 @@ Proof
                INSTREAM_STR fd is s (forwardFD fs fd (k + k₁)) *
                &OPTION_TYPE CHAR (SOME h) chv’
     >-
-     (xapp_spec b_input1_spec_str
+     (xapp_spec input1_spec_str
       \\ qexistsl [‘emp’, ‘h::s’, ‘forwardFD fs fd k’, ‘fd’]
       \\ xsimpl \\ rpt strip_tac \\ simp [forwardFD_o]
       \\ qmatch_goalsub_abbrev_tac ‘forwardFD _ _ (_ + k₁)’
@@ -462,7 +462,7 @@ Proof
             STDIO (forwardFD fs fd k) *
             INSTREAM_STR fd is (TL s₁) (forwardFD fs fd k) *
             &OPTION_TYPE CHAR (oHD s₁) chv’
-    >- (xapp_spec b_input1_spec_str)
+    >- (xapp_spec input1_spec_str)
     \\ unabbrev_all_tac \\ gvs [OPTION_TYPE_def]
     \\ xmatch \\ xlet_autop
     \\ xif
@@ -474,7 +474,7 @@ Proof
             STDIO (forwardFD fs fd k) *
             INSTREAM_STR fd is (TL s₁) (forwardFD fs fd k) *
             &OPTION_TYPE CHAR (oHD s₁) chv’
-  >- (xapp_spec b_input1_spec_str)
+  >- (xapp_spec input1_spec_str)
   \\ unabbrev_all_tac \\ gvs [OPTION_TYPE_def]
   \\ rename [‘lex_aux_imp_post _ (STRING c s)’]
   \\ xmatch
@@ -586,8 +586,8 @@ Proof
   \\ simp [LIST_TYPE_def, MLSEXP_TOKEN_TYPE_def] \\ xsimpl
 QED
 
-Theorem b_inputSexp_spec:
-  app (p:'ffi ffi_proj) Sexp_b_inputSexp_v [is]
+Theorem inputSexp_spec:
+  app (p:'ffi ffi_proj) Sexp_inputSexp_v [is]
     (STDIO fs * INSTREAM_STR fd is s fs)
     (case parse s of
      | INL (msg, rest) =>
@@ -600,7 +600,7 @@ Theorem b_inputSexp_spec:
          INSTREAM_STR fd is rest (forwardFD fs fd k) *
          &(SEXP_TYPE se sev))
 Proof
-  xcf_with_def $ definition "Sexp_b_inputSexp_v_def"
+  xcf_with_def $ definition "Sexp_inputSexp_v_def"
   \\ ntac 2 xlet_autop
   \\ simp [parse_def]
   \\ namedCases_on ‘lex s’ ["l", "r"]

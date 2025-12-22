@@ -152,7 +152,7 @@ val parse_lprstep_side = Q.prove(
 (* Uncompressed parsing *)
 val parse_one_u = process_topdecs`
 fun parse_one_u lno fd =
-case TextIO.b_inputLineTokens #"\n" fd blanks tokenize_fast of
+case TextIO.inputLineTokens #"\n" fd blanks tokenize_fast of
   None => None
 | Some l =>
     case parse_lprstep l of
@@ -164,8 +164,8 @@ val blanks_v_thm = theorem "blanks_v_thm";
 val tokenize_v_thm = theorem "tokenize_v_thm";
 val tokenize_fast_v_thm = theorem "tokenize_fast_v_thm";
 
-val b_inputLineTokens_specialize =
-b_inputLineTokens_spec_lines
+val inputLineTokens_specialize =
+inputLineTokens_spec_lines
   |> Q.GEN `f` |> Q.SPEC`blanks`
                |> Q.GEN `fv` |> Q.SPEC`blanks_v`
                              |> Q.GEN `g` |> Q.ISPEC`tokenize_fast`
@@ -222,7 +222,7 @@ Proof
          INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
          &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
   THEN1 (
-    xapp_spec b_inputLineTokens_specialize
+    xapp_spec inputLineTokens_specialize
     \\ qexists_tac ‘emp’
     \\ qexists_tac ‘[]’
     \\ qexists_tac ‘fs’
@@ -238,7 +238,7 @@ Proof
             INSTREAM_LINES #"\n" fd fdv t (forwardFD fs fd k) *
             & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks_fast h)) v)’
   THEN1 (
-  xapp_spec b_inputLineTokens_specialize
+  xapp_spec inputLineTokens_specialize
   \\ qexists_tac ‘emp’
   \\ qexists_tac ‘h::t’
   \\ qexists_tac ‘fs’
@@ -322,14 +322,14 @@ val c0_v_thm = translate c0_def;
 
 val parse_one_c = process_topdecs`
 fun parse_one_c lno fd =
-case TextIO.b_inputLine c0 fd of
+case TextIO.inputLine c0 fd of
   None => None
 | Some l =>
     (case parse_vb_string_head l of
        None => raise Fail (format_failure lno "failed to parse line (compressed format)")
      | Some (Inl d) => Some d
      | Some (Inr r) =>
-         (case TextIO.b_inputLine c0 fd of
+         (case TextIO.inputLine c0 fd of
             None => raise Fail (format_failure lno "failed to parse line (compressed format)")
           | Some y =>
               (case do_pr r y of
@@ -656,12 +656,12 @@ val res = translate good_char_opt_def;
 val check_unsat' = process_topdecs `
   fun check_unsat' mindel fml ls earr fname n cls =
   let
-    val fd = TextIO.b_openIn fname
-    val b = good_char_opt (TextIO.b_peekChar fd)
+    val fd = TextIO.openIn fname
+    val b = good_char_opt (TextIO.peekChar fd)
     val carr = Word8Array.array n w8z
     val chk = Inr (check_unsat'' b fd 0 mindel fml ls carr earr)
       handle Fail s => Inl s
-    val close = TextIO.b_closeIn fd;
+    val close = TextIO.closeIn fd;
   in
     case chk of
       Inl s => Inl s
@@ -755,7 +755,7 @@ Proof
       ARRAY Earrv earliestv *
       SEP_EXISTS fmllsv'. ARRAY fmlv fmllsv'`
     >-
-      (xlet_auto_spec (SOME b_openIn_STDIO_spec) \\ xsimpl)
+      (xlet_auto_spec (SOME openIn_STDIO_spec) \\ xsimpl)
     >>
       fs[BadFileName_exn_def]>>
       xcases>>rw[]>>
@@ -775,7 +775,7 @@ Proof
       INSTREAM_STR (nextFD fs) is text (openFileFS f fs ReadMode 0) *
       ARRAY fmlv fmllsv * ARRAY Earrv earliestv`
   >- (
-    xapp_spec b_openIn_spec_str >>
+    xapp_spec openIn_spec_str >>
     xsimpl>>
     rpt(first_x_assum (irule_at Any))>>
     gvs[consistentFS_def]>>
@@ -791,7 +791,7 @@ Proof
          &OPTION_TYPE CHAR (oHD text) v *
          ARRAY fmlv fmllsv * ARRAY Earrv earliestv`
   >- (
-    xapp_spec b_peekChar_spec_str>>xsimpl>>
+    xapp_spec peekChar_spec_str>>xsimpl>>
     qexists_tac`ARRAY fmlv fmllsv * ARRAY Earrv earliestv`>>
     qexists_tac`text`>>
     qexists_tac`fss`>>
@@ -930,7 +930,7 @@ Proof
       sep_triv)>>
   xlet `POSTv v. STDIO fs * ARRAY fmlv' fmllsv'`
   THEN1
-   (xapp_spec b_closeIn_spec_lines >>
+   (xapp_spec closeIn_spec_lines >>
     rename [`ARRAY a1 a2`] >>
     qexists_tac `ARRAY a1 a2` >>
     qexists_tac `rest` >>
