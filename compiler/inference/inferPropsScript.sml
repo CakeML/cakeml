@@ -889,7 +889,9 @@ Proof
   >~ [‘supported_arith a ty’]
   >- (Cases_on ‘supported_arith a ty’
       \\ gvs [failwith_def,AllCaseEqs(),st_ex_bind_def,st_ex_return_def]
-      \\ cheat)
+      \\ gvs [add_constraints_success]
+      \\ prove_tac [pure_add_constraints_append, pure_add_constraints_def,
+                    infer_p_constraints, type_name_check_subst_state])
   \\ prove_tac [pure_add_constraints_append, pure_add_constraints_def,
                 infer_p_constraints, type_name_check_subst_state]
 QED
