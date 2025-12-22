@@ -467,9 +467,8 @@ in
   fun mk_cons_name tm =
     let
       val (_, ty) = strip_fun (type_of tm)
-      val info = Option.valOf (TypeBase.fetch ty)
-      val (thyn, tyn) = TypeBasePure.ty_name_of info
-      val name = term_to_string tm
+      val {Thy = thyn,Tyop = tyn,...} = Type.dest_thy_type ty
+      val name = dest_const tm |> fst
     in
       (* separating with underscores is more prone to name clashes *)
       String.concat ["%%", thyn, "%%", tyn, "%%", name, "%%"]
