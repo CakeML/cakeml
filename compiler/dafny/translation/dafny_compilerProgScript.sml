@@ -3,14 +3,14 @@
 *)
 Theory dafny_compilerProg
 Ancestors
-  dafny_freshenProg dafny_compiler
+  dafny_remove_assertProg dafny_compiler
   fromSexp (* listsexp *)
   string numposrep simpleSexp ml_translator simpleSexpParse
 Libs
   preamble ml_translatorLib
   cfTacticsLib (* process_topdecs *)
 
-val _ = translation_extends "dafny_freshenProg";
+val _ = translation_extends "dafny_remove_assertProg";
 
 (* First, we translate the functions for converting the output of the compiler
    (CakeML AST) into an S-expression string, namely decsexp, listsexp, and
@@ -229,6 +229,8 @@ val r = translate fromSexpTheory.typesexp_def;
 val r = translate fromSexpTheory.patsexp_def;
 val r = translate fromSexpTheory.encode_thunk_mode_def;
 (* TODO 101 automatically added string IMPLODEs *)
+val r = translate fromSexpTheory.prim_typesexp_def;
+val r = translate fromSexpTheory.testsexp_def;
 val r = translate fromSexpTheory.opsexp_def;
 val r = translate fromSexpTheory.lopsexp_def;
 (* TODO 24 automatically added string IMPLODEs *)
@@ -259,7 +261,7 @@ val _ = r |> hyp |> null orelse
                   \dafny_compilerTheory.main_function_def");
 
 val main = process_topdecs
-           ‘print (main_function (TextIO.inputAll TextIO.stdIn));’;
+           ‘print (main_function (TextIO.inputAll (TextIO.openStdIn ())));’;
 
 val prog =
   get_ml_prog_state ()

@@ -474,11 +474,15 @@ Theorem constrain_op_sound[local]:
  type_op op (MAP (convert_t o t_walkstar s) ts) (convert_t (t_walkstar s t))
 Proof
   fs[constrain_op_success] >>
- rw [] >>
- fs [fresh_uvar_def,infer_st_rewrs,Tchar_def,Tword64_def] >> rw[] >>
- TRY pairarg_tac >>
- fs [success_eqns] >>
- binop_tac
+  rw [] >>
+  fs [fresh_uvar_def,infer_st_rewrs,Tchar_def,Tword64_def] >> rw[] >>
+  TRY pairarg_tac >>
+  fs [success_eqns] >~
+  [‘Test t1 t2’] >-
+   (Cases_on ‘t1’ \\ Cases_on ‘t2’
+    \\ TRY (rename [‘WordT ww’] \\ Cases_on ‘ww’ \\ fs [])
+    \\ binop_tac)
+  \\ binop_tac
 QED
 
 Theorem infer_deBruijn_subst_walkstar:

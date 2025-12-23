@@ -114,7 +114,7 @@ val _ = type_of “main_function” = “:mlstring -> mlstring app_list”
         orelse failwith "The main_function has the wrong type.";
 
 val main = process_topdecs
-  `print_app_list (main_function (TextIO.inputAll TextIO.stdIn));`;
+  `print_app_list (main_function (TextIO.inputAll (TextIO.openStdIn ())));`;
 
 val prog =
   get_ml_prog_state ()

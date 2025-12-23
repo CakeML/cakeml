@@ -349,8 +349,22 @@ End
  * - the set of type identity stamps defined here
  * - the environment of new stuff declared here *)
 
-(*val type_d : bool -> type_env -> dec -> set nat -> type_env -> bool*)
-(*val type_ds : bool -> type_env -> list dec -> set nat -> type_env -> bool*)
+Definition t_of_def[simp]:
+  t_of BoolT       = Tbool   ∧
+  t_of IntT        = Tint    ∧
+  t_of CharT       = Tchar   ∧
+  t_of StrT        = Tstring ∧
+  t_of (WordT W8)  = Tword8  ∧
+  t_of (WordT W64) = Tword64 ∧
+  t_of Float64T    = Tdouble
+End
+
+Definition supported_test_def[simp]:
+  supported_test Equal  ty = T ∧
+  supported_test Less   ty = MEM ty [CharT; WordT W8] ∧
+  supported_test LessEq ty = MEM ty [CharT; WordT W8] ∧
+  supported_test _      ty = F
+End
 
 (* Check that the operator can have type (t1 -> ... -> tn -> t) *)
 (*val type_op : op -> list t -> t -> bool*)
@@ -371,6 +385,8 @@ Definition type_op_def:
     | (Shift W8 _ _, [t1]) => (t1 = Tword8) /\ (t = Tword8)
     | (Shift W64 _ _, [t1]) => (t1 = Tword64) /\ (t = Tword64)
     | (Equality, [t1; t2]) => (t1 = t2) /\ (t = Tbool)
+    | (Test test ty, [t1; t2]) => (t1 = t2) /\ (t = Tbool) /\ (t1 = t_of ty) /\
+                                  supported_test test ty
     | (Opassign, [t1; t2]) => (t1 = Tref t2) /\ (t = Ttup [])
     | (Opref, [t1]) => t = Tref t1
     | (Opderef, [t1]) => t1 = Tref t
@@ -390,7 +406,6 @@ Definition type_op_def:
       (t1 = Tword8array) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t4 = Tword8array) /\ (t5 = Tint) /\ (t = Ttup [])
     | (Chr, [t1]) => (t1 = Tint) /\ (t = Tchar)
     | (Ord, [t1]) => (t1 = Tchar) /\ (t = Tint)
-    | (Chopb _, [t1; t2]) => (t1 = Tchar) /\ (t2 = Tchar) /\ (t = Tbool)
     | (Implode, [t1]) => (t1 = Tlist Tchar) /\ (t = Tstring)
     | (Explode, [t1]) => (t1 = Tstring) /\ (t = Tlist Tchar)
     | (Strsub, [t1; t2]) => (t1 = Tstring) /\ (t2 = Tint) /\ (t = Tchar)
