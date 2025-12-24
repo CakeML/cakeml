@@ -16,8 +16,6 @@ val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = translation_extends"lpr_arrayParsingProg";
 
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
-
 val usage_string = ‘
 Input: <r = radius> <k = total colors> <c = center color, 1 ≤ c ≤ k>
 

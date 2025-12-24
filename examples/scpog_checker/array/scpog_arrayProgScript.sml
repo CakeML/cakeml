@@ -83,8 +83,6 @@ val delete_literals_sing_arr_def = process_topdecs`
       if every_one_arr carr cs then ~c
       else raise Fail (format_failure lno ("clause at index not empty or singleton after reduction: "  ^ Int.toString i))` |> append_prog
 
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
-
 Theorem update_resize_LUPDATE[simp]:
   LENGTH Clist > index h ⇒
   update_resize Clist w8z v (index h) = LUPDATE v (index h) Clist

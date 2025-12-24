@@ -9,8 +9,6 @@ Libs
 
 val _ = translation_extends"graphProg";
 
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
-
 val res = translate enc_string_def;
 val res = translate pbcTheory.map_obj_def;
 val res = translate clique_obj_def;

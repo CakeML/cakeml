@@ -76,6 +76,9 @@ Proof about the exit function in the Runtime module.
 This module contains CakeML code implementing a functional set type
 using a self-balancing binary tree.
 
+[SexpProgScript.sml](SexpProgScript.sml):
+Module for parsing and pretty-printing s-expressions.
+
 [StringProgScript.sml](StringProgScript.sml):
 Module about the built-in string tyoe.
 
@@ -144,9 +147,7 @@ Lemmas about the file system model used by the proof about TextIO.
 Logical model of filesystem and I/O streams
 
 [mlbasicsProgScript.sml](mlbasicsProgScript.sml):
-Bind various built-in functions to function names that the parser
-expects, e.g. the parser generates a call to a function called "+"
-when it parses 1+2.
+Translates a variety of basic constructs.
 
 [pure](pure):
 HOL definitions of the pure functions used in the CakeML basis.

@@ -9,8 +9,6 @@ Libs
 
 val _ = translation_extends "graphProg";
 
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
-
 (* The encoder *)
 
 (* Translate the string converter *)

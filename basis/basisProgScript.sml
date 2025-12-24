@@ -4,11 +4,11 @@
 Theory basisProg
 Ancestors
   std_prelude CommandLineProof TextIOProof RuntimeProof
-  PrettyPrinterProg
+  PrettyPrinterProg SexpProg
 Libs
   preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
 
-val _ = translation_extends"TextIOProg";
+val _ = translation_extends"SexpProg";
 
 val print_e = ``Var(Long"TextIO"(Short"print"))``
 val eval_thm = let
@@ -135,4 +135,3 @@ End
 Theorem basis_Decls_thm =
   ml_progLib.get_Decls_thm basis_st
   |> REWRITE_RULE [GSYM basis_def];
-
