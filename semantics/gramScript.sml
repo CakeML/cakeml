@@ -15,21 +15,21 @@ val tokmap0 =
                [("(", ``LparT``), (")", ``RparT``), (",", ``CommaT``),
                 ("[", ``LbrackT``),
                 ("]", ``RbrackT``),
-                (";", ``SemicolonT``), (":=", ``SymbolT ":="``),
+                (";", ``SemicolonT``), (":=", ``SymbolT «:=»``),
                 (":>", ``SealT``),
                 ("->", ``ArrowT``), ("=>", ``DarrowT``),
                 ("*", ``StarT``),
-                ("::", “SymbolT "::"”),
+                ("::", “SymbolT «::»”),
                 ("|", ``BarT``), ("=", ``EqualsT``), (":", ``ColonT``),
                 ("_", ``UnderbarT``),
                 ("and", ``AndT``),
                 ("andalso", ``AndalsoT``),
                 ("as", ``AsT``),
-                ("before", ``AlphaT "before"``),
-                ("Bind", ``AlphaT "Bind"``),
+                ("before", ``AlphaT «before»``),
+                ("Bind", ``AlphaT «Bind»``),
                 ("case", ``CaseT``),
                 ("datatype", ``DatatypeT``),
-                ("Div", ``AlphaT "Div"``),
+                ("Div", ``AlphaT «Div»``),
                 ("else", ``ElseT``),
                 ("end", ``EndT``),
                 ("exception", ``ExceptionT``),
@@ -38,10 +38,10 @@ val tokmap0 =
                 ("handle", ``HandleT``),
                 ("if", ``IfT``),
                 ("in", ``InT``),
-                ("IntError", ``AlphaT "IntError"``),
+                ("IntError", ``AlphaT «IntError»``),
                 ("let", ``LetT``),
                 ("local", ``LocalT``),
-                ("o", ``AlphaT "o"``),
+                ("o", ``AlphaT «o»``),
                 ("of", ``OfT``),
                 ("op", ``OpT``),
                 ("orelse", ``OrelseT``),
@@ -135,19 +135,19 @@ val cmlG_def = mk_grammar_def ginfo
  TypeAbbrevDec ::= "type" TypeName "=" Type;
 
  (* expressions - base cases and function applications *)
- UQConstructorName ::= ^(``{AlphaT s | s ≠ "" ∧ isUpper (HD s)}``);
+ UQConstructorName ::= ^(``{AlphaT s | s ≠ «» ∧ isUpper (HD (explode s))}``);
  ConstructorName ::=
      UQConstructorName
-  | ^(``{LongidT str s | str,s | s ≠ "" ∧ isAlpha (HD s) ∧ isUpper (HD s)}``);
- V ::= ^(``{AlphaT s | s ∉ {"before"; "div"; "mod"; "o"} ∧
-                       s ≠ "" ∧ ¬isUpper (HD s)}``)
-    |  ^(“{SymbolT s | validPrefixSym s}”);
+  | ^(``{LongidT str s | str,s | s ≠ «» ∧ isAlpha (HD (explode s)) ∧ isUpper (HD (explode s))}``);
+ V ::= ^(``{AlphaT s | s ∉ {«before»; «div»; «mod»; «o»} ∧
+                       s ≠ «» ∧ ¬isUpper (HD (explode s))}``)
+    |  ^(“{SymbolT s | validPrefixSym (explode s)}”);
  FQV ::= V
       |  ^(``{LongidT str s | str,s |
-              s ≠ "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s))}``) ;
- OpID ::= ^(``{LongidT str s | str,s | s ≠ ""}``)
-       |  ^(``{AlphaT s | s ≠ ""}``)
-       |  ^(``{SymbolT s | s ≠ ""}``)
+              s ≠ «» ∧ (isAlpha (HD (explode s)) ⇒ ¬isUpper (HD (explode s)))}``) ;
+ OpID ::= ^(``{LongidT str s | str,s | s ≠ «»}``)
+       |  ^(``{AlphaT s | s ≠ «»}``)
+       |  ^(``{SymbolT s | s ≠ «»}``)
        |  "*" | "=" ;
 
  Eliteral ::= <IntT> | <CharT> | <StringT> | <WordT> | <FFIT> ;
@@ -162,12 +162,12 @@ val cmlG_def = mk_grammar_def ginfo
  Eapp ::= Eapp Ebase | Ebase;
 
  (* expressions - binary operators *)
- MultOps ::= ^(``{AlphaT "div"; AlphaT "mod"; StarT} ∪
-                 {SymbolT s | validMultSym s}``);
- AddOps ::= ^(``{SymbolT s | validAddSym s}``);
- RelOps ::= ^(``{SymbolT s | validRelSym s}``) | "=";
+ MultOps ::= ^(``{AlphaT «div»; AlphaT «mod»; StarT} ∪
+                 {SymbolT s | validMultSym (explode s)}``);
+ AddOps ::= ^(``{SymbolT s | validAddSym (explode s)}``);
+ RelOps ::= ^(``{SymbolT s | validRelSym (explode s)}``) | "=";
  CompOps ::= "o" | ":=";
- ListOps ::= ^(``{SymbolT s | validListSym s}``);
+ ListOps ::= ^(``{SymbolT s | validListSym (explode s)}``);
  Emult ::= Emult MultOps Eapp | Eapp;
  Eadd ::= Eadd AddOps Emult | Emult;
  Elistop ::= Eadd ListOps Elistop | Eadd;
@@ -207,7 +207,7 @@ val cmlG_def = mk_grammar_def ginfo
  PEs ::= Pattern "=>" PE;
 
  (* modules *)
- StructName ::= ^(``{AlphaT s | s ≠ ""}``) ;
+ StructName ::= ^(``{AlphaT s | s ≠ «»}``) ;
  SpecLine ::= "val" V ":" Type
            |  "type" TypeName OptTypEqn
            |  "exception" Dconstructor
@@ -270,7 +270,7 @@ val ast =
                 Ndl (mkNT nMultOps) [Lfl (TK StarT)];
                 Ndl (mkNT nEapp) [mkI 4]
               ];
-              Ndl (mkNT nMultOps) [Lfl (TK (SymbolT "/"))];
+              Ndl (mkNT nMultOps) [Lfl (TK (SymbolT «/»))];
               Ndl (mkNT nEapp) [mkI 5]
             ]``
 
@@ -283,4 +283,3 @@ val check_results =
 
 val _ = if aconv (rhs (concl check_results)) T then print "valid_ptree: OK\n"
         else raise Fail "valid_ptree: failed"
-
