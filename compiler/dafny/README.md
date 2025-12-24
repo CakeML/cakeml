@@ -19,9 +19,6 @@ any of them.
 [dafny_remove_assertScript.sml](dafny_remove_assertScript.sml):
 Replaces assert with skip to ignore the former during compilation.
 
-[dafny_sexpScript.sml](dafny_sexpScript.sml):
-Definitions to lex and parse S-expressions.
-
 [dafny_to_cakemlScript.sml](dafny_to_cakemlScript.sml):
 Defines the translation of Dafny's to CakeML's AST.
 

@@ -9,8 +9,6 @@ Libs
 
 val _ = translation_extends "npbc_parseProg";
 
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
-
 (* TODO: COPIED from lpr_arrayFullProgScript.sml *)
 Theorem fastForwardFD_ADELKEY_same[simp]:
    forwardFD fs fd n with infds updated_by ADELKEY fd =
