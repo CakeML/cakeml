@@ -77,7 +77,7 @@ Theorem machine_code_sound:
         get_graph_lad fs (EL 2 cl) = SOME gt ∧
         (
           (LENGTH cl = 3 ∧
-            out = concat (print_prob (mk_prob (full_encode gp gt)))) ∨
+            out = concat (print_annot_prob (mk_prob (full_encode gp gt)))) ∨
           (LENGTH cl = 4 ∧
             (
               (out = «s VERIFIED NOT SUBGRAPH ISOMORPHIC\n» ∧

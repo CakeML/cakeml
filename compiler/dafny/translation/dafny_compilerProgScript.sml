@@ -261,7 +261,7 @@ val _ = r |> hyp |> null orelse
                   \dafny_compilerTheory.main_function_def");
 
 val main = process_topdecs
-           ‘print (main_function (TextIO.inputAll TextIO.stdIn));’;
+           ‘print (main_function (TextIO.inputAll (TextIO.openStdIn ())));’;
 
 val prog =
   get_ml_prog_state ()
