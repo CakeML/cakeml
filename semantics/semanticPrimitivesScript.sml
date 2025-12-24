@@ -4,7 +4,7 @@
 *)
 Theory semanticPrimitives
 Ancestors
-  misc ast namespace ffi fpSem
+  misc ast namespace ffi fpSem mlstring
 
 val _ = numLib.temp_prefer_num();
 
@@ -477,7 +477,7 @@ End
 
 Definition v_to_char_list_def:
   v_to_char_list (Conv (SOME stamp) []) =
-    (if stamp = TypeStamp «[]» list_type_num then SOME «» else NONE) ∧
+    (if stamp = TypeStamp «[]» list_type_num then SOME "" else NONE) ∧
   v_to_char_list (Conv (SOME stamp) [Litv (Char c); v]) =
     (if stamp = TypeStamp «::» list_type_num then
        case v_to_char_list v of NONE => NONE | SOME cs => SOME (STRING c cs)
@@ -944,17 +944,17 @@ Definition do_app_def:
         SOME ((s,t), Rval (Litv (IntLit (int_of_num(w2n w)))))
     | (WordToInt W64, [Litv (Word64 w)]) =>
         SOME ((s,t), Rval (Litv (IntLit (int_of_num(w2n w)))))
-    | (CopyStrStr, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len)]) =>
+    | (CopyStrStr, [Litv(StrLit strng);Litv(IntLit off);Litv(IntLit len)]) =>
         SOME ((s,t),
-        (case copy_array (EXPLODE str,off) len NONE of
+        (case copy_array (explode strng,off) len NONE of
           NONE => Rerr (Rraise sub_exn_v)
-        | SOME cs => Rval (Litv(StrLit(IMPLODE(cs))))
+        | SOME cs => Rval (Litv(StrLit(implode(cs))))
         ))
-    | (CopyStrAw8, [Litv(StrLit str);Litv(IntLit off);Litv(IntLit len);
+    | (CopyStrAw8, [Litv(StrLit strng);Litv(IntLit off);Litv(IntLit len);
                     Loc _ dst;Litv(IntLit dstoff)]) =>
         (case store_lookup dst s of
           SOME (W8array ws) =>
-            (case copy_array (EXPLODE str,off) len (SOME(ws_to_chars ws,dstoff)) of
+            (case copy_array (explode strng,off) len (SOME(ws_to_chars ws,dstoff)) of
               NONE => SOME ((s,t), Rerr (Rraise sub_exn_v))
             | SOME cs =>
               (case store_assign dst (W8array (chars_to_ws cs)) s of
@@ -970,7 +970,7 @@ Definition do_app_def:
         SOME ((s,t),
               (case copy_array (ws,off) len NONE of
                  NONE => Rerr (Rraise sub_exn_v)
-               | SOME ws => Rval (Litv(StrLit(IMPLODE(ws_to_chars ws))))
+               | SOME ws => Rval (Litv(StrLit(implode(ws_to_chars ws))))
               ))
        | _ => NONE
       )
@@ -991,7 +991,7 @@ Definition do_app_def:
     | (XorAw8Str_unsafe, [Loc _ dst; Litv (StrLit str_arg)]) =>
         (case store_lookup dst s of
           SOME (W8array bs) =>
-            (case xor_bytes (MAP (n2w o ORD) str_arg) bs of
+            (case xor_bytes (MAP (n2w o ORD) (explode str_arg)) bs of
              | NONE => NONE
              | SOME new_bs =>
                 case store_assign dst (W8array new_bs) s of
@@ -1010,32 +1010,32 @@ Definition do_app_def:
     | (Implode, [v]) =>
           (case v_to_char_list v of
             SOME ls =>
-              SOME ((s,t), Rval (Litv (StrLit (IMPLODE ls))))
+              SOME ((s,t), Rval (Litv (StrLit (implode ls))))
           | NONE => NONE
           )
     | (Explode, [v]) =>
           (case v of
-            Litv (StrLit str) =>
-              SOME ((s,t), Rval (list_to_v (MAP (\ c .  Litv (Char c)) (EXPLODE str))))
+            Litv (StrLit strng) =>
+              SOME ((s,t), Rval (list_to_v (MAP (\ c .  Litv (Char c)) (explode strng))))
           | _ => NONE
           )
-    | (Strsub, [Litv (StrLit str); Litv (IntLit i)]) =>
+    | (Strsub, [Litv (StrLit strng); Litv (IntLit i)]) =>
         if i <( 0 : int) then
           SOME ((s,t), Rerr (Rraise sub_exn_v))
         else
           let n = (Num (ABS (I i))) in
-            if n >= STRLEN str then
+            if n >= strlen strng then
               SOME ((s,t), Rerr (Rraise sub_exn_v))
             else
-              SOME ((s,t), Rval (Litv (Char (EL n (EXPLODE str)))))
-    | (Strlen, [Litv (StrLit str)]) =>
-        SOME ((s,t), Rval (Litv(IntLit(int_of_num(STRLEN str)))))
+              SOME ((s,t), Rval (Litv (Char (EL n (explode strng)))))
+    | (Strlen, [Litv (StrLit strng)]) =>
+        SOME ((s,t), Rval (Litv(IntLit(int_of_num(strlen strng)))))
     | (Strcat, [v]) =>
         (case v_to_list v of
           SOME vs =>
             (case vs_to_string vs of
-              SOME str =>
-                SOME ((s,t), Rval (Litv(StrLit str)))
+              SOME strng =>
+                SOME ((s,t), Rval (Litv(StrLit strng)))
             | _ => NONE
             )
         | _ => NONE
@@ -1147,7 +1147,7 @@ Definition do_app_def:
     | (FFI n, [Litv(StrLit conf); Loc _ lnum]) =>
         (case store_lookup lnum s of
           SOME (W8array ws) =>
-            (case call_FFI t (ExtCall n) (MAP (n2w o ORD) conf) ws of
+            (case call_FFI t (ExtCall n) (MAP (n2w o ORD) (explode conf)) ws of
               FFI_return t' ws' =>
                (case store_assign lnum (W8array ws') s of
                  SOME s' => SOME ((s', t'), Rval (Conv NONE []))
@@ -1194,8 +1194,8 @@ End
 
 (* Build a constructor environment for the type definition tds *)
 Definition build_tdefs_def:
-  build_tdefs next_stamp ([]:(tvarN list # string # (string # ast_t list) list) list) =
-    ((alist_to_ns []):((string),(string),(num#stamp))namespace) ∧
+  build_tdefs next_stamp ([]:(tvarN list # mlstring # (mlstring # ast_t list) list) list) =
+    ((alist_to_ns []):((mlstring),(mlstring),(num#stamp))namespace) ∧
   build_tdefs next_stamp ((tvs,tn,condefs)::tds) =
     nsAppend (build_tdefs (next_stamp + 1) tds)
       (alist_to_ns (REVERSE (build_constrs next_stamp condefs)))
@@ -1203,7 +1203,7 @@ End
 
 (* Checks that no constructor is defined twice in a type *)
 Definition check_dup_ctors_def:
-  check_dup_ctors ((tvs,tn,condefs):(tvarN)list#string#(string#(ast_t)list)list) ⇔
+  check_dup_ctors ((tvs,tn,condefs):(tvarN)list#mlstring#(mlstring#(ast_t)list)list) ⇔
     ALL_DISTINCT
       (let x2 = [] in
          FOLDR (λ(n,ts) x2. if T then n::x2 else x2) x2 condefs)
