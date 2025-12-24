@@ -643,7 +643,7 @@ Proof
     \\ Cases_on ‘test_ty’ \\ gvs [check_type_def]
     \\ res_tac
     \\ rename [‘WordT wt’] \\ Cases_on ‘wt’ \\ gvs [check_type_def])
-  >~ [‘do_airth’] >- cheat
+  >~ [‘do_arith’] >- cheat
   >~ [‘do_conversion’] >- cheat
   >~ [`thunk_op`]
   >- (
