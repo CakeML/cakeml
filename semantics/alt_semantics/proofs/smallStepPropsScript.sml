@@ -1696,9 +1696,9 @@ Theorem e_step_ffi_changed:
     ev = Val (Litv (StrLit conf)) ∧
     cs = (Capp (FFI s) [Loc b lnum] () [], env') :: ccs ∧
     store_lookup lnum st = SOME (W8array ws) ∧
-    s ≠ "" ∧
+    s ≠ «» ∧
     ffi.oracle
-       (ExtCall s) ffi.ffi_state (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws =
+       (ExtCall s) ffi.ffi_state (MAP (λc. n2w $ ORD c) (explode conf)) ws =
        Oracle_return ffi_st ws' ∧
     LENGTH ws = LENGTH ws' ∧
     ev' = Val (Conv NONE []) ∧
@@ -1708,7 +1708,7 @@ Theorem e_step_ffi_changed:
     ffi'.ffi_state = ffi_st ∧
     ffi'.io_events =
       ffi.io_events ++
-        [IO_event (ExtCall s) (MAP (λc. n2w $ ORD c) (EXPLODE conf))
+        [IO_event (ExtCall s) (MAP (λc. n2w $ ORD c) (explode conf))
                   (ZIP (ws,ws'))]
 Proof
   rpt gen_tac >> simp[e_step_def] >>
@@ -1728,7 +1728,7 @@ Proof
     gvs[application_def, do_app_def, call_FFI_def, astTheory.getOpClass_def] >>
     every_case_tac >> gvs[return_def, store_lookup_def, store_assign_def]
   ) >>
-  fs[combinTheory.o_DEF, IMPLODE_EXPLODE_I]
+  fs[combinTheory.o_DEF]
 QED
 
 Theorem decl_step_ffi_changed:
@@ -1737,9 +1737,9 @@ Theorem decl_step_ffi_changed:
     dev = ExpVal env (Val (Litv (StrLit conf)))
             ((Capp (FFI s) [Loc b lnum] () [], env')::ccs) locs pat ∧
     store_lookup lnum st.refs = SOME (W8array ws) ∧
-    s ≠ "" ∧
+    s ≠ «» ∧
     st.ffi.oracle (ExtCall s) st.ffi.ffi_state
-      (MAP (λc. n2w $ ORD c) (EXPLODE conf)) ws =
+      (MAP (λc. n2w $ ORD c) (explode conf)) ws =
       Oracle_return ffi_st ws' ∧
     LENGTH ws = LENGTH ws' ∧
     dev' = ExpVal env' (Val (Conv NONE [])) ccs locs pat ∧
@@ -1748,7 +1748,7 @@ Theorem decl_step_ffi_changed:
             ffi := st.ffi with <|
               ffi_state := ffi_st;
               io_events := st.ffi.io_events ++
-                 [IO_event (ExtCall s) (MAP (λc. n2w $ ORD c) (EXPLODE conf))
+                 [IO_event (ExtCall s) (MAP (λc. n2w $ ORD c) (explode conf))
                            (ZIP (ws,ws'))] |>
             |> ∧
     dcs = dcs'
@@ -1768,7 +1768,7 @@ Proof
   every_case_tac >> gvs[Abbr `foo`, state_component_equality] >> rw[] >> gvs[] >>
   gvs[e_step_def, continue_def, application_thm, do_app_def, call_FFI_def,
       return_def, store_assign_def, store_lookup_def, store_v_same_type_def,
-      astTheory.getOpClass_def, IMPLODE_EXPLODE_I, combinTheory.o_DEF]
+      astTheory.getOpClass_def, combinTheory.o_DEF]
 QED
 
 Theorem io_events_mono_e_step:
