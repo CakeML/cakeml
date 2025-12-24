@@ -462,19 +462,48 @@ QED
 
 (* variable-form division (Chvatal-Gomory) *)
 
+(* Strip out 0 coefficients *)
+Definition strip_zero_def:
+  (strip_zero [] = []) ∧
+  (strip_zero ((c,v)::xs) =
+    if c = 0i then strip_zero xs
+    else
+      (c,v)::strip_zero xs)
+End
+
+Theorem satisfies_npbc_strip_zero[simp]:
+  satisfies_npbc w (strip_zero l,k) ⇔
+  satisfies_npbc w (l,k)
+Proof
+  rw[satisfies_npbc_def]>>
+  AP_TERM_TAC>>
+  qid_spec_tac`l`>>
+  ho_match_mp_tac strip_zero_ind>>
+  rw[strip_zero_def]
+QED
+
+Theorem EVERY_strip_zero[simp]:
+  ∀l.
+  EVERY (λc. c ≠ 0)
+    (MAP FST (strip_zero l))
+Proof
+  ho_match_mp_tac strip_zero_ind>>
+  rw[strip_zero_def]
+QED
+
 Definition cg_offset_def:
-  (cg_offset [] k = ([],0)) ∧
+  (cg_offset [] k = 0) ∧
   (cg_offset ((c,v)::xs) k =
     let r = (if c < 0 then Num (-c) MOD k else 0) in
-    let c' = div_ceiling_up c k in
-    let (ys,rhs) = cg_offset xs k in
-    (if c' = 0 then ys else ((c',v)::ys), r + rhs))
+    r + cg_offset xs k)
 End
 
 Definition var_divide_def:
   var_divide ((l,n):npbc) k =
-    let (ll,rr) = cg_offset l k in
-    (ll, div_ceiling_up (n - &rr) k)
+    (
+    strip_zero
+      (MAP (λ(c,v). (div_ceiling_up c k,v)) l),
+    div_ceiling_up (n - &cg_offset l k) k)
 End
 
 Theorem int_neg_add:
@@ -491,7 +520,6 @@ Proof
   Cases_on ‘c’>>
   rename1 ‘satisfies_npbc w (q,r)’>>
   rw[var_divide_def]>>
-  pairarg_tac>>
   fs[satisfies_npbc_def,MAP_MAP_o]>>
   qmatch_goalsub_abbrev_tac`r - &rr`>>
   Cases_on`r − &rr < 0`>>
@@ -507,20 +535,10 @@ Proof
   goal_assum $ drule_at Any>>
   last_x_assum $ kall_tac>>
   pop_assum $ kall_tac>>
-  pop_assum mp_tac>>
-  qid_spec_tac`ll`>>
-  qid_spec_tac`rr`>>
+  simp[Abbr`rr`]>>
   Induct_on ‘q’>>
   simp[]>> Cases>>
   fs[cg_offset_def]>>
-  pairarg_tac>>gvs[]>>
-  qmatch_goalsub_abbrev_tac`_ * SUM (MAP (eval_term w) ls)`>>
-  `SUM (MAP (eval_term w) ls) =
-    SUM (MAP (eval_term w) ((div_ceiling_up q' k,r)::ys))` by
-      (rw[Abbr`ls`]>>fs[])>>
-  pop_assum SUBST_ALL_TAC>>
-  pop_assum kall_tac>>
-  simp[]>>
   qmatch_goalsub_abbrev_tac` &(xx + A) ≤ &(k * (yy + B)) + &(zz + C)`>>
   qsuff_tac`A <= k * B + C`
   >- intLib.ARITH_TAC>>
@@ -544,30 +562,27 @@ Proof
     simp[])
 QED
 
-Theorem MEM_cg_offset:
-  ∀l k c v.
-  MEM (c,v) (FST (cg_offset l k)) ⇒
+Theorem MEM_strip_zero:
+  ∀l c v.
+  MEM (c,v) (strip_zero l) ⇒
   MEM v (MAP SND l) ∧ c ≠ 0
 Proof
-  ho_match_mp_tac cg_offset_ind>>
-  rw[cg_offset_def]>>
-  pairarg_tac>>gvs[]>>
-  every_case_tac>>gvs[]>>
+  ho_match_mp_tac strip_zero_ind>>
+  rw[strip_zero_def]>>
   metis_tac[]
 QED
 
-Theorem SORTED_cg_offset:
-  ∀l k.
+Theorem SORTED_strip_zero:
+  ∀l.
   SORTED $< (MAP SND l) ⇒
-  SORTED $< (MAP SND (FST (cg_offset l k)))
+  SORTED $< (MAP SND (strip_zero l))
 Proof
-  ho_match_mp_tac cg_offset_ind>>
-  rw[cg_offset_def]>>
-  pairarg_tac>>gvs[]>>rw[]>>
+  ho_match_mp_tac strip_zero_ind>>
+  rw[strip_zero_def]>>
   gvs[less_sorted_eq]>>rw[]>>
   first_x_assum irule>>
   fs[MEM_MAP,EXISTS_PROD]>>
-  metis_tac[MEM_cg_offset,MEM_MAP,PAIR,FST,SND]
+  metis_tac[MEM_strip_zero,MEM_MAP,PAIR]
 QED
 
 Theorem compact_var_divide:
@@ -576,12 +591,425 @@ Proof
   Cases_on`c` \\
   rename1`(l,r)` \\
   rw[var_divide_def]>>
-  pairarg_tac>>rw[compact_def]
-  >-
-    metis_tac[SORTED_cg_offset,FST]
+  irule SORTED_strip_zero >>
+  simp[MAP_MAP_o,o_DEF,LAMBDA_PROD]>>
+  metis_tac[SND_pair]
+QED
+
+(* MIR cut (normalized) *)
+Definition mir_coeff_def:
+  mir_coeff c k Ak =
+  let a = Num (ABS c) in
+  let cc = &(MIN (a MOD k) (Ak) + a DIV k * Ak) in
+  if c < 0
+  then -cc
+  else cc
+End
+
+Definition mir_def:
+  mir ((l,n):npbc) k =
+  let Ak = n % &k in
+    (strip_zero (MAP (λ(c,v). (mir_coeff c k (Num Ak), v)) l),
+      div_ceiling_up n k * Ak)
+End
+
+(* TODO: some SUM lemmas not needed, but should be in the libs *)
+Theorem INT_MOD_nat_nn:
+  k ≠ 0 ⇒ 0 ≤ p % &k
+Proof
+  rw[]>>
+  `&k ≠ 0` by fs[]>>
+  drule INT_MOD_BOUNDS>>
+  rw[]
+QED
+
+Theorem INT_MUL_LE_ZERO:
+  x ≤ 0 ∧ 0 ≤ y ⇒ x * y ≤ 0i
+Proof
+  Cases_on`y=0`>>rw[]>>
+  `0 < y` by intLib.ARITH_TAC>>
+  drule INT_LE_MONO>>
+  disch_then(qspecl_then[`x`,`0`] assume_tac)>>
+  gvs[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem SUM_MAP_MUL_CONST:
+  ∀ls.
+  SUM (MAP (\x. C * f x) ls) =
+  C * (SUM (MAP f ls))
+Proof
+  Induct>>rw[]
+QED
+
+Theorem SUM_MAP_FILTER:
+  ∀ls.
+  SUM (MAP f (FILTER P ls)) ≤
+  SUM (MAP f ls)
+Proof
+  Induct>>rw[]
+QED
+
+Theorem SUB_RIGHT_ADD':
+  n:num ≤ m ⇒
+  m - n + p = m + p - n
+Proof
+  rw[]
+QED
+
+Theorem SUM_MIN_split:
+  ∀ls.
+  SUM (MAP (\x. MIN (f x) (g x)) ls) =
+  SUM (MAP f ls) -
+  SUM (MAP f (FILTER (λx. g x ≤ f x) ls)) +
+  SUM (MAP g (FILTER (λx. g x ≤ f x) ls))
+Proof
+  Induct>>rw[]>>
+  gvs[MIN_DEF]>>
+  DEP_ONCE_REWRITE_TAC[SUB_RIGHT_ADD']>>
+  CONJ_ASM1_TAC
+  >- metis_tac[SUM_MAP_FILTER]
+  >- intLib.ARITH_TAC
+QED
+
+Theorem SUM_CONST:
+  ∀ls.
+  SUM (MAP (λx. c) ls) = c * LENGTH ls
+Proof
+  Induct>>rw[ADD1]
+QED
+
+Theorem iSUM_MAP_PLUS:
+  ∀ls.
+  iSUM (MAP (λx. f x + g x) ls) =
+    iSUM (MAP f ls) + iSUM (MAP g ls)
+Proof
+  Induct>>rw[iSUM_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem iSUM_MAP_MUL_CONST:
+  ∀ls.
+  iSUM (MAP (\x. f x * C) ls) =
+  C * (iSUM (MAP f ls))
+Proof
+  Induct>>rw[iSUM_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem iSUM_int_min_split:
+  ∀ls.
+  iSUM (MAP (\x. int_min (f x) (g x)) ls) =
+  iSUM (MAP f ls) -
+  iSUM (MAP f (FILTER (λx. g x ≤ f x) ls)) +
+  iSUM (MAP g (FILTER (λx. g x ≤ f x) ls))
+Proof
+  Induct>>rw[iSUM_def]>>
+  gvs[INT_MIN]>>rw[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem iSUM_CONST:
+  ∀ls.
+  iSUM (MAP (λx. c) ls) = c * &LENGTH ls
+Proof
+  Induct>>rw[ADD1,iSUM_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem iSUM_MAP_FILTER:
+  ∀ls.
+  (∀x. MEM x ls ⇒ 0 ≤ f x) ⇒
+  iSUM (MAP f (FILTER P ls)) ≤
+  iSUM (MAP f ls)
+Proof
+  Induct>>rw[iSUM_def]>>
+  gvs[SF DNF_ss]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem INT_MOD_BOUNDS':
+  0 < k ⇒ 0 ≤ p % k ∧ p % k < k
+Proof
+  rw[]>>
+  `k ≠ 0` by intLib.ARITH_TAC>>
+  drule INT_MOD_BOUNDS>>
+  disch_then(qspec_then`p` mp_tac)>>rw[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem iSUM_EQ_DIV_MOD:
+  0 < d ⇒
+  iSUM ls =
+    d * iSUM ( MAP (λx. x / d) ls ) +
+      iSUM (MAP ( λx. x % d) ls)
+Proof
+  Induct_on`ls`>>rw[iSUM_def]>>gvs[]>>
+  `d ≠ 0` by intLib.ARITH_TAC>>
+  drule INT_DIVISION>>
+  disch_then(qspec_then`h` (assume_tac o cj 1))>>
+  intLib.ARITH_TAC
+QED
+
+Theorem mix_inequality:
+  B ≤ A ∧ C ≤ D ⇒
+  A * C + D * B ≤
+  A * D + C * (B:int)
+Proof
+  rw[]>>
+  `(D - C) * B ≤ (D - C) * A` by (
+    Cases_on`0 < D-C`>>fs[]
+    >- (
+      DEP_REWRITE_TAC[INT_LE_MONO]>>
+      fs[])>>
+    `D - C = 0` by intLib.ARITH_TAC>>
+    simp[])>>
+  fs[INT_SUB_RDISTRIB]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem int_mir_inequality:
+  0 < d ∧ 0 ≤ C ∧ C < d ∧
+  B * d + C ≤ iSUM ls ⇒
+  (B + 1) * C ≤
+    iSUM
+      (MAP (λx.
+        int_min (x % d) C + x / d * C
+      ) ls)
+Proof
+  rw[]>>
+  qmatch_goalsub_abbrev_tac`_ ≤ rhs`>>
+  `rhs =
+     iSUM (MAP (λx. int_min (x % d) C) ls) +
+     C * iSUM (MAP (λx. x / d) ls)` by
+     rw[Abbr`rhs`,iSUM_MAP_PLUS,iSUM_MAP_MUL_CONST]>>
+  gvs[]>>pop_assum kall_tac>>
+  qabbrev_tac`lsS = FILTER (λx. C ≤ x % d) ls`>>
+  qmatch_goalsub_abbrev_tac`_ ≤ rhs1 +  _`>>
+  `rhs1 =
+    iSUM (MAP (λx. x % d) ls) -
+    iSUM (MAP (λx. x % d) lsS) +
+    C * &(LENGTH lsS)` by
+    simp[Abbr`rhs1`,iSUM_int_min_split,iSUM_CONST]>>
+  gvs[]>>pop_assum kall_tac>>
+  qmatch_goalsub_abbrev_tac`_ ≤ xx - yy + C * &LENGTH lsS + C * E`>>
+  drule INT_MOD_BOUNDS'>> strip_tac>>
+  `yy ≤ xx` by (
+    unabbrev_all_tac>>
+    irule iSUM_MAP_FILTER>>
+    rw[])>>
+  reverse(Cases_on`E + &LENGTH lsS ≤ B`)
   >- (
-    fs[EVERY_MEM,MEM_MAP]>>
-    metis_tac[MEM_cg_offset,FST,PAIR,SND])
+    `B + 1 ≤ E + &LENGTH lsS` by intLib.ARITH_TAC>>
+    `C * (B+1) ≤ C * (E + &LENGTH lsS)` by
+      (Cases_on`C`>>fs[]>>
+      DEP_REWRITE_TAC[INT_LE_MONO]>>
+      fs[])>>
+    fs[]>>
+    intLib.ARITH_TAC)>>
+  `yy ≤ d * &LENGTH lsS` by (
+    unabbrev_all_tac>>
+    ntac 2 $ pop_assum kall_tac>>
+    qpat_x_assum` _ ≤ iSUM _` kall_tac>>
+    Induct_on`ls`>>rw[ADD1,iSUM_def]>>
+    `h % d < d` by fs[]>>
+    intLib.ARITH_TAC)>>
+  `iSUM ls = d * E + xx` by (
+    unabbrev_all_tac>>
+    irule iSUM_EQ_DIV_MOD>>
+    fs[])>>
+  `(B - E) * d + C ≤ xx` by (
+    fs[INT_SUB_RDISTRIB]>>
+    intLib.ARITH_TAC)>>
+  qsuff_tac`
+     (B − E) * C + d * &LENGTH lsS ≤
+      (B − E) * d + C * &LENGTH lsS`
+  >- (
+    fs[INT_SUB_RDISTRIB]>>
+    intLib.ARITH_TAC)>>
+  irule mix_inequality>>
+  gvs[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem SUM_iSUM:
+  ∀ls.
+  &SUM ls = iSUM (MAP (λn:num. (&n):int) ls)
+Proof
+  Induct>>rw[iSUM_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem mir_inequality:
+  0 < d ∧ C < d ∧
+  B * d + C ≤ SUM ls ⇒
+  (B + 1) * C ≤
+    SUM (MAP (λx.
+      MIN (x MOD d) C + x DIV d * C
+      ) ls)
+Proof
+  PURE_REWRITE_TAC[Once (GSYM INT_OF_NUM_LE),SUM_iSUM]>>
+  strip_tac>>
+  `&(B * d + C)  = &B * &d + &C` by
+    fs[INT_OF_NUM_ADD]>>
+  pop_assum SUBST_ALL_TAC>>
+  drule_at Any int_mir_inequality>>
+  simp[]>>
+  strip_tac>>
+  PURE_REWRITE_TAC[Once (GSYM INT_OF_NUM_LE),SUM_iSUM]>>
+  fs[INT_OF_NUM_ADD,MAP_MAP_o,o_DEF]>>
+  qmatch_asmsub_abbrev_tac`_ ≤ iSUM ls1`>>
+  qmatch_goalsub_abbrev_tac`_ ≤ iSUM ls2`>>
+  `ls1 = ls2` by (
+    unabbrev_all_tac>>
+    rw[MAP_EQ_f]>>
+    intLib.ARITH_TAC)>>
+  fs[]
+QED
+
+Theorem mir_thm:
+  satisfies_npbc w c ∧ k ≠ 0 ⇒
+  satisfies_npbc w (mir c k)
+Proof
+  Cases_on ‘c’>>
+  rename1 ‘satisfies_npbc w (q,r)’>>
+  rw[mir_def,satisfies_npbc_def,MAP_MAP_o]>>
+  drule INT_MOD_nat_nn>>
+  disch_then(qspec_then`r` assume_tac)>>
+  Cases_on`r < 0` >> fs[div_ceiling_up_eq]
+  >- (
+    Cases_on`r`>>
+    DEP_REWRITE_TAC[IQ_quot]>>
+    fs[]>>
+    qmatch_goalsub_abbrev_tac`lhs ≤ _`>>
+    qsuff_tac`lhs ≤ 0` >- intLib.ARITH_TAC>>
+    fs[Abbr`lhs`]>>
+    irule INT_MUL_LE_ZERO>>
+    fs[])>>
+  Cases_on`r`>>fs[]>>
+  `n DIV k * k + n MOD k ≤ SUM (MAP (eval_term w) q)` by
+    (`0 < k` by fs[]>>
+    metis_tac[DIVISION])>>
+  drule_at Any mir_inequality>>
+  simp[]>>
+  qmatch_goalsub_abbrev_tac`ll ≤ rr ⇒ l ≤ &r`>>
+  `l = &ll` by (
+    unabbrev_all_tac>>
+    simp[div_ceiling_compute,CEILING_DIV]>>
+    rw[MIN_DEF])>>
+  `rr = r` by (
+    unabbrev_all_tac>>
+    AP_TERM_TAC>>
+    simp[MAP_EQ_f,MAP_MAP_o]>>rw[]>>
+    pairarg_tac>>simp[oneline b2n_def,mir_coeff_def]>>rw[]>>gvs[]
+  )>>
+  simp[]
+QED
+
+Theorem compact_mir:
+  compact c ∧ k ≠ 0 ⇒ compact (mir c k)
+Proof
+  Cases_on`c` \\
+  rename1`(l,r)` \\
+  rw[mir_def]>>
+  irule SORTED_strip_zero >>
+  simp[MAP_MAP_o,o_DEF,LAMBDA_PROD]>>
+  metis_tac[SND_pair]
+QED
+
+(* MIR cut variable-form *)
+
+Definition var_form_offset_def:
+  (var_form_offset [] = 0) ∧
+  (var_form_offset ((c,v)::xs) =
+    let r = (if c < 0 then c else 0i) in
+    r + var_form_offset xs)
+End
+
+(* the int_min expression can be simplified...*)
+Definition var_mir_coeff_def:
+  var_mir_coeff c k Ak =
+  if c < 0
+  then
+    int_min (c % &k) (&Ak) + c / &k * &Ak
+  else
+    let a = Num c in
+      &(MIN (a MOD k) (Ak) + a DIV k * Ak)
+End
+
+(* n'/&k should be the same as div_ceiling_up, but this is easier to prove *)
+Definition var_mir_def:
+  var_mir ((l,n):npbc) k =
+  let n' = n + var_form_offset l in
+  let Ak = n' % &k in
+  let ll = MAP (λ(c,v). (var_mir_coeff c k (Num Ak), v)) l in
+    (strip_zero ll,
+      (n' / &k + 1) * Ak - var_form_offset ll)
+End
+
+(* re-stating in variable normal form *)
+Theorem SUM_eval_term_alt:
+  ∀xs.
+  &SUM (MAP (eval_term w) xs) =
+  iSUM (MAP (λ(c,v). c * b2i (w v)) xs) - var_form_offset xs
+Proof
+  ho_match_mp_tac var_form_offset_ind>>
+  rw[var_form_offset_def,iSUM_def]>>
+  Cases_on`w xs`>>fs[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem satisfies_npbc_alt:
+  satisfies_npbc w (xs,n) ⇔
+  n + var_form_offset xs ≤
+    iSUM ( MAP (λ(c,v). c * b2i (w v)) xs)
+Proof
+  rw[satisfies_npbc_def]>>
+  simp[SUM_eval_term_alt]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem var_mir_thm:
+  satisfies_npbc w c ∧ k ≠ 0 ⇒
+  satisfies_npbc w (var_mir c k)
+Proof
+  Cases_on ‘c’>>
+  rename1 ‘satisfies_npbc w (q,r)’>>
+  simp[Once satisfies_npbc_alt]>>
+  qmatch_goalsub_abbrev_tac`n ≤ _`>>
+  strip_tac>>
+  `&k ≠ 0i` by fs[]>>
+  drule INT_DIVISION>>fs[SF DNF_ss]>>
+  strip_tac>>
+  `n / &k * &k + n % &k ≤ iSUM (MAP (λ(c,v). c * b2i (w v)) q)` by
+    metis_tac[]>>
+  drule_at Any int_mir_inequality>>
+  simp[var_mir_def,Once satisfies_npbc_alt]>>
+  `0 ≤ n % &k` by metis_tac[INT_MOD_nat_nn]>>
+  `?nn. n % &k = &nn` by
+    (Cases_on`n % &k`>>fs[])>>
+  pop_assum SUBST_ALL_TAC>>
+  qmatch_goalsub_abbrev_tac`_ ≤ rr ⇒ _ ≤ rrr`>>
+  `rr = rrr` by (
+    unabbrev_all_tac>>
+    AP_TERM_TAC>>
+    simp[MAP_EQ_f,MAP_MAP_o]>>rw[]>>
+    pairarg_tac>>simp[oneline b2i_def,var_mir_coeff_def]>>
+    rw[]>>gvs[]>>
+    Cases_on`c`>>fs[]>>
+    intLib.ARITH_TAC)>>
+  simp[]
+QED
+
+Theorem compact_var_mir:
+  compact c ∧ k ≠ 0 ⇒ compact (var_mir c k)
+Proof
+  Cases_on`c` \\
+  rename1`(l,r)` \\
+  rw[var_mir_def]>>
+  irule SORTED_strip_zero >>
+  simp[MAP_MAP_o,o_DEF,LAMBDA_PROD]>>
+  metis_tac[SND_pair]
 QED
 
 (* negation *)
@@ -3066,60 +3494,5 @@ Definition sem_output_def:
         (proj_pres pres' {w' | satisfies w' fml' ∧ eval_obj obj' w' ≤ v})
     )
   )
-End
-
-(* EXPERIMENTAL UNUSED *)
-Type npbcspt = ``: (int spt) #num``
-
-Definition lookup_default_def:
-  lookup_default k t =
-  case lookup k t of NONE => (0:int) | SOME v => v
-End
-
-Definition add_terms_spt_def:
-  add_terms_spt c1 c2 v t (k:num) =
-  let c = c1 + c2 in
-  if c = 0 then (delete v t, k + Num (ABS c1))
-  else
-    (insert v c t, k + offset c1 c2)
-End
-
-Definition add_lists_spt_def:
-  (add_lists_spt t [] = (t,0)) ∧
-  (add_lists_spt t ((c,x)::xs) =
-  let (t',n) = add_lists_spt t xs in
-  add_terms_spt
-    c (lookup_default x t') x t' n)
-End
-
-Definition add_spt_def:
-  add_spt ((xs,m):npbcspt) (ys,n) =
-    let (xs,d) = add_lists_spt xs ys in
-      (xs,((m + n) - d))
-End
-
-Definition divide_spt_def:
-  divide_spt ((l,n):npbcspt) k =
-    (map (λc. div_ceiling c k) l,n \\ k)
-End
-
-Definition multiply_spt_def:
-  multiply_spt ((l,n):npbcspt) k =
-    if k = 0 then (LN,0) else
-      (map (λc. c * & k) l,n * k)
-End
-
-Definition saturate_spt_def:
-  saturate_spt ((l,n):npbcspt) =
-    if n = 0 then (LN,n)
-    else (map (λc. abs_min c n) l, n)
-End
-
-Definition weaken_spt_def:
-  weaken_spt ((l,n):npbcspt) v =
-  case lookup v l of
-    NONE => (l,n)
-  | SOME c =>
-    (delete v l, n-Num(ABS c))
 End
 

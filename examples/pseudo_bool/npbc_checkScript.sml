@@ -33,11 +33,17 @@ val _ = numLib.temp_prefer_num();
 
 (* A constraint to be added by a cutting planes proof *)
 Datatype:
+  div_ty =
+  | Cd | Dd | Nd | Md
+End
+
+Datatype:
   constr =
   | Id num              (* Constraints can refer to earlier IDs *)
   | Add constr constr   (* Add two constraints *)
   | Mul constr num      (* Multiply by a constant factor *)
-  | Div constr num      (* Divide by a constant factor *)
+  | Div div_ty constr num      (* Divide by a constant factor *)
+  | Minus constr num      (* Subtract from RHS *)
   | Sat constr          (* Saturation *)
   | Lit (num lit)       (* Literal axiom lit ≥ 0 (superseded by triv but used in parsing) *)
   | Weak constr (var list)     (* Addition of literal axioms until "var" disappears *)
@@ -52,6 +58,8 @@ Datatype:
   | Rup npbc (num list) (* Add a constraint by RUP *)
   | Con npbc (lstep list) num
     (* Prove constraint by contradiction, indicated by the id *)
+  | ImplyAdd num npbc
+    (* Prove constraint by implication from the id *)
   | Check num npbc
     (* Debugging / other steps are parsed as no ops *)
   | NoOp              (* Other steps are parsed as no ops *)
@@ -118,7 +126,8 @@ Definition to_triv_def:
     case cc of
       Triv ls => Triv (mul_triv ls k)
     | _ => Mul cc k) ∧
-  (to_triv (Div c k) = Div (to_triv c) k) ∧
+  (to_triv (Div dt c k) = Div dt (to_triv c) k) ∧
+  (to_triv (Minus c k) = Minus (to_triv c) k) ∧
   (to_triv (Sat c) = Sat (to_triv c)) ∧
   (to_triv (Weak c vs) = fuse_weaken vs (to_triv c)) ∧
   (to_triv (Lit l) = Triv (List [(1,l)])) ∧
@@ -167,6 +176,15 @@ Definition weaken_sorted_def:
   weaken c (mk_strict_sorted_num vs)
 End
 
+Definition do_divide_def:
+  do_divide dty c k =
+  case dty of
+    Cd => var_divide c k
+  | Dd => divide c k
+  | Md => var_mir c k
+  | Nd => mir c k
+End
+
 Definition check_cutting_def:
   (check_cutting b (fml:pbf) (Id n) =
     lookup_core_only b fml n) ∧
@@ -174,10 +192,12 @@ Definition check_cutting_def:
     OPTION_MAP2 add (check_cutting b fml c1) (check_cutting b fml c2)) ∧
   (check_cutting b fml (Mul c k) =
        OPTION_MAP (λc. multiply c k) (check_cutting b fml c)) ∧
-  (check_cutting b fml (Div c k) =
+  (check_cutting b fml (Div dty c k) =
     if k ≠ 0 then
-      OPTION_MAP (λc. divide c k) (check_cutting b fml c)
+      OPTION_MAP (λc. do_divide dty c k) (check_cutting b fml c)
     else NONE) ∧
+  (check_cutting b fml (Minus c k) =
+     OPTION_MAP (λc. minus c k) (check_cutting b fml c)) ∧
   (check_cutting b fml (Sat c) =
     OPTION_MAP saturate (check_cutting b fml c)) ∧
   (check_cutting b fml (Lit l) =
@@ -283,9 +303,14 @@ Definition check_lstep_def:
       then SOME (insert_fml b fml id' c)
       else NONE
     | _ => NONE)
+  | ImplyAdd n c =>
+    (case lookup_core_only b fml n of NONE => NONE
+    | SOME c' =>
+      if imp c' c then SOME(insert_fml b fml id c)
+      else NONE)
   | Check n c =>
-    (case lookup n fml of NONE => NONE
-    | SOME (c',b) =>
+    (case lookup_core_only b fml n of NONE => NONE
+    | SOME c' =>
       if c = c' then SOME(fml,id)
       else NONE)
   | NoOp => SOME(fml,id)) ∧
@@ -363,8 +388,16 @@ Proof
   >~[`Div`]
   >- (
     rw[check_cutting_def]>>
-    match_mp_tac divide_thm>>
-    metis_tac[])
+    simp[oneline do_divide_def]>>
+    every_case_tac>>fs[]
+    >- metis_tac[var_divide_thm]
+    >- metis_tac[divide_thm]
+    >- metis_tac[mir_thm]
+    >- metis_tac[var_mir_thm])
+  >~[`Minus`]
+  >- (
+    rw[check_cutting_def]>>
+    metis_tac[minus_thm])
   >~[`Sat`]
   >- (
     rw[check_cutting_def]>>
@@ -420,13 +453,18 @@ Proof
   >- (
     (* add case *)
     metis_tac[compact_add])
- >- (
+  >- (
     (* multiply case *)
     metis_tac[compact_multiply])
   >- (
-    metis_tac[compact_divide])
-  >- (
-    metis_tac[compact_saturate])
+    simp[oneline do_divide_def]>>
+    every_case_tac
+    >- metis_tac[compact_var_divide]
+    >- metis_tac[compact_divide]
+    >- metis_tac[compact_mir]
+    >- metis_tac[compact_var_mir])
+  >- metis_tac[compact_minus]
+  >- metis_tac[compact_saturate]
   >- (
     (* literal case *)
     Cases_on`l`>>fs[check_cutting_def]>>rveq>>
@@ -803,6 +841,23 @@ Proof
     \\ first_x_assum(qspec_then`w` mp_tac)
     \\ impl_tac >- metis_tac[not_thm]
     \\ metis_tac[satisfies_def,satisfiable_def])
+  \\ Cases_on ‘∃c n. step = ImplyAdd n c’
+  THEN1 (
+    fs[check_lstep_def] \\
+    every_case_tac \\
+    gvs[insert_fml_def]>>
+    drule imp_thm>>
+    DEP_REWRITE_TAC[core_only_fml_insert] >> fs[id_ok_def]>>
+    rw[]>>fs[sat_implies_def,core_only_fml_def]
+    >- (
+      rw[lookup_insert]>>fs[]>>
+      first_x_assum(qspec_then`id` mp_tac)>>
+      fs[domain_lookup])
+    >- gvs[lookup_insert,AllCaseEqs()]
+    >- (
+      fs[lookup_core_only_def,core_only_fml_def]>>
+      every_case_tac>>fs[satisfies_def,PULL_EXISTS]>>
+      metis_tac[]))
   THEN1 (
     rw[Once check_lstep_def]
     \\ every_case_tac \\ gvs [])

@@ -66,11 +66,41 @@ val r = translate add_listsLR_thm;
 val r = translate (add_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 
 val r = translate multiply_def;
+val r = translate minus_def;
 
 val r = translate IQ_def;
 val r = translate div_ceiling_def;
 val r = translate div_ceiling_up_def;
 val r = translate divide_def;
+
+val r = translate strip_zero_def;
+
+val r = translate cg_offset_def;
+
+val cg_offset_side_def = fetch "-" "cg_offset_side_def";
+
+val cg_offset_side = Q.prove(
+  `∀x y. y ≠ 0 ⇒ cg_offset_side x y`,
+  ho_match_mp_tac cg_offset_ind>>
+  rw[]>>
+  simp[Once cg_offset_side_def]) |> update_precondition;
+
+val r = translate var_divide_def;
+
+val r = translate mir_coeff_def;
+
+val r = translate mir_def;
+
+val r = translate var_form_offset_def;
+val r = translate integerTheory.INT_MIN;
+val r = translate var_mir_coeff_def;
+
+val var_mir_coeff_side = Q.prove(
+  `∀x y z. y ≠ 0 ⇒ var_mir_coeff_side x y z`,
+  EVAL_TAC>>rw[]>>
+  intLib.ARITH_TAC) |> update_precondition;
+
+val r = translate var_mir_def;
 
 val divide_side = Q.prove(
   `∀x y. divide_side x y ⇔ y ≠ 0`,
@@ -79,6 +109,44 @@ val divide_side = Q.prove(
   rw[EQ_IMP_THM]>>
   intLib.ARITH_TAC
   ) |> update_precondition
+
+val var_divide_side = Q.prove(
+  `∀x y. var_divide_side x y ⇔ y ≠ 0`,
+  Cases>>
+  EVAL_TAC>>
+  rw[EQ_IMP_THM]>>
+  rw[]>>gvs[]
+  >- (irule cg_offset_side>>fs[])
+  >- intLib.ARITH_TAC
+  >- intLib.ARITH_TAC
+  >- (irule cg_offset_side>>fs[])
+  >- intLib.ARITH_TAC) |> update_precondition;
+
+val mir_side = Q.prove(
+  `∀x y. mir_side x y ⇔ y ≠ 0`,
+  Cases>>
+  EVAL_TAC>>
+  rw[EQ_IMP_THM]>>
+  rw[]>>gvs[]
+  >- (irule INT_MOD_nat_nn>>fs[])
+  >- intLib.ARITH_TAC
+  >- (irule INT_MOD_nat_nn>>fs[])) |> update_precondition;
+
+val var_mir_side = Q.prove(
+  `∀x y. var_mir_side x y ⇔ y ≠ 0`,
+  Cases>>
+  EVAL_TAC>>
+  rw[EQ_IMP_THM]>>
+  rw[]>>gvs[]
+  >- intLib.ARITH_TAC
+  >- (irule INT_MOD_nat_nn>>fs[])) |> update_precondition;
+
+val r = translate npbc_checkTheory.do_divide_def;
+
+val do_divide_side = Q.prove(
+  `do_divide_side dty x y ⇔ y ≠ 0`,
+  EVAL_TAC>>
+  Cases_on`dty`>>rw[]) |> update_precondition;
 
 val r = translate abs_min_def;
 val r = translate saturate_def;
@@ -239,10 +307,12 @@ val check_cutting_arr = process_topdecs`
       (check_cutting_arr lno b fml c2)
   | Mul c k =>
     multiply (check_cutting_arr lno b fml c) k
-  | Div_1 c k =>
+  | Div_1 dty c k =>
     if k <> 0 then
-      divide (check_cutting_arr lno b fml c) k
+      do_divide dty (check_cutting_arr lno b fml c) k
     else raise Fail (format_failure lno ("divide by zero"))
+  | Minus c k =>
+    minus (check_cutting_arr lno b fml c) k
   | Sat c =>
     saturate (check_cutting_arr lno b fml c)
   | Lit l =>
@@ -276,30 +346,30 @@ Theorem check_cutting_arr_spec:
 Proof
   Induct_on`constr` >> rw[]>>
   xcf "check_cutting_arr" (get_ml_prog_state ())
-  >- ( (* Id *)
+  >~[`Id`] >- (
     fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
     xmatch>>
     xapp>>xsimpl>>
     metis_tac[])
-  >- ( (* Add *)
+  >~[`Add`] >- (
     fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
     xmatch>>
     xlet_autop >- xsimpl>>
     xlet_autop >- xsimpl>>
     last_x_assum kall_tac>>
-    last_x_assum kall_tac>>
-    every_case_tac>>fs[]>>
-    xapp>>xsimpl>>
-    metis_tac[])
-  >- ( (* Mul *)
-    fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
-    xmatch>>
-    xlet_autop >- xsimpl>>
     last_x_assum kall_tac>>
     every_case_tac>>fs[]>>
     xapp>>xsimpl>>
     metis_tac[])
-  >- ( (* Div *)
+  >~[`Mul`] >- (
+    fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
+    xmatch>>
+    xlet_autop >- xsimpl>>
+    last_x_assum kall_tac>>
+    every_case_tac>>fs[]>>
+    xapp>>xsimpl>>
+    metis_tac[])
+  >~[`Div`] >- (
     fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
     xmatch>>
     xlet_autop>>
@@ -314,7 +384,15 @@ Proof
     pop_assum mp_tac>>
     TOP_CASE_TAC>>rw[]>>
     metis_tac[])
-  >- ( (* Sat *)
+   >~[`Minus`] >- (
+    fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
+    xmatch>>
+    xlet_autop >- xsimpl>>
+    last_x_assum kall_tac>>
+    every_case_tac>>fs[]>>
+    xapp>>xsimpl>>
+    metis_tac[])
+  >~[`Sat`] >- ( (* Sat *)
     fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
     xmatch>>
     xlet_autop>- xsimpl>>
@@ -324,7 +402,7 @@ Proof
     pop_assum mp_tac>>
     TOP_CASE_TAC>>rw[]>>
     metis_tac[])
-  >- ( (* Lit *)
+  >~[`Lit`] >- ( (* Lit *)
     fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
     xmatch>>
     Cases_on`l`>>
@@ -332,7 +410,7 @@ Proof
     rpt xlet_autop>>
     xcon>>xsimpl>>
     simp[LIST_TYPE_def,PAIR_TYPE_def])
-  >- ( (* Weak *)
+  >~[`Weak`]>- ( (* Weak *)
     fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
     xmatch>>
     xlet_autop>- xsimpl>>
@@ -343,7 +421,7 @@ Proof
     TOP_CASE_TAC>>rw[]>>
     first_x_assum (irule_at Any)>>
     metis_tac[EqualityType_NUM_BOOL])
-  >- ( (* Triv *)
+  >~[`Triv`]>- ( (* Triv *)
     fs[check_cutting_list_def,NPBC_CHECK_CONSTR_TYPE_def]>>
     xmatch>>
     xapp>>xsimpl>>
@@ -617,6 +695,15 @@ Definition err_check_string_def:
     npbc_string c']
 End
 
+Definition err_imp_string_def:
+  err_imp_string c c' =
+  concat[
+    strlit"imply-add for constraint id. expect: ";
+    npbc_string c;
+    strlit" from: ";
+    npbc_string c']
+End
+
 val res = translate coeff_lit_string_def;
 
 val coeff_lit_string_side = Q.prove(
@@ -628,6 +715,7 @@ val coeff_lit_string_side = Q.prove(
 val res = translate npbc_lhs_string_def;
 val res = translate npbc_string_def;
 val res = translate err_check_string_def;
+val res = translate err_imp_string_def;
 
 val every_less = process_topdecs`
   fun every_less mindel fml ls =
@@ -1266,6 +1354,7 @@ val res = translate npbc_checkTheory.map_app_list_def;
 val res = translate npbc_checkTheory.mul_triv_def;
 val res = translate SmartAppend_def;
 val res = translate npbc_checkTheory.to_triv_def;
+val res = translate imp_def;
 
 val check_lstep_arr = process_topdecs`
   fun check_lstep_arr lno step b fml mindel id zeros =
@@ -1274,6 +1363,11 @@ val check_lstep_arr = process_topdecs`
       let val c' = lookup_core_only_err_arr lno b fml n in
         if c = c' then (fml, (None, (id, zeros)))
         else raise Fail (format_failure lno (err_check_string c c'))
+      end
+  | Implyadd n c =>
+      let val c' = lookup_core_only_err_arr lno b fml n in
+        if imp c' c then (fml, (Some(c,b), (id, zeros)))
+        else raise Fail (format_failure lno (err_imp_string c c'))
       end
   | Noop => (fml, (None, (id, zeros)))
   | Delete ls =>
@@ -1485,6 +1579,24 @@ Proof
       xif>>asm_exists_tac>>xsimpl>>
       rpt xlet_autop>>
       xraise>>xsimpl>>
+      metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])
+    >- ( (* Implyadd *)
+      fs[NPBC_CHECK_LSTEP_TYPE_def,check_lstep_list_def]>>
+      xmatch>>
+      xlet_autop >- (
+        xsimpl>>
+        metis_tac[ARRAY_W8ARRAY_refl])>>
+      fs[AllCasePreds()]>>
+      xlet_autop>>
+      xif >> xsimpl
+      >- (
+        rpt xlet_autop>>
+        xcon>>xsimpl>>
+        simp[PAIR_TYPE_def,OPTION_TYPE_def]>>
+        metis_tac[ARRAY_W8ARRAY_refl])>>
+      rpt xlet_autop>>
+      xraise>>
+      xsimpl>>
       metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])
     >- ( (* Check *)
       fs[NPBC_CHECK_LSTEP_TYPE_def,check_lstep_list_def]>>
@@ -2094,7 +2206,6 @@ Proof
 QED
 
 val res = translate subst_opt_aux_acc_def;
-val res = translate imp_def;
 val res = translate (subst_opt_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def])
 val res = translate subst_opt_subst_fun_def;
 

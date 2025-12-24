@@ -433,6 +433,13 @@ Definition parse_lit_num_def:
     | SOME l => apply_lit f_ns l
 End
 
+Definition binopc_def:
+  binopc stack =
+  case stack of
+    Id a::b::rest => SOME (a,b,rest)
+  | _ => NONE
+End
+
 (* Parsing cutting planes in polish notation (header "pol", ";" stripped) *)
 Definition parse_cutting_aux_def:
   (parse_cutting_aux f_ns (x::xs) stack =
@@ -441,26 +448,43 @@ Definition parse_cutting_aux_def:
       parse_cutting_aux f_ns xs (Id (Num n) :: stack)
     else NONE
   | INL s =>
-  if s = str #"+" then
-    (case stack of
-      a::b::rest => parse_cutting_aux f_ns xs (Add b a::rest)
-    | _ => NONE)
-  else if s = str #"*" then
-    (case stack of
-      Id a::b::rest => parse_cutting_aux f_ns xs (Mul b a::rest)
-    | _ => NONE)
-  else if s = str #"d" then
-    (case stack of
-      Id a::b::rest => parse_cutting_aux f_ns xs (Div b a::rest)
-    | _ => NONE)
-  else if s = str #"s" then
-    (case stack of
-      a::rest => parse_cutting_aux f_ns xs (Sat a::rest)
-    | _ => NONE)
-  else if s = str #"w" then
-    (case stack of
-      Lit (Pos v)::a::rest => parse_cutting_aux f_ns xs (Weak a [v]::rest)
-    | _ => NONE)
+  if strlen s = 1
+  then
+    let c = strsub s 0 in
+      if c = #"+" then
+        (case stack of
+          a::b::rest => parse_cutting_aux f_ns xs (Add b a::rest)
+        | _ => NONE)
+      else if c = #"*" then
+        (case binopc stack of NONE => NONE
+        | SOME (a,b,rest) => parse_cutting_aux f_ns xs (Mul b a::rest))
+      else if c = #"w" then
+        (case stack of
+          Lit (Pos v)::a::rest => parse_cutting_aux f_ns xs (Weak a [v]::rest)
+        | _ => NONE)
+      else if c = #"s" then
+        (case stack of
+          a::rest => parse_cutting_aux f_ns xs (Sat a::rest)
+        | _ => NONE)
+     else if c = #"c" then
+      (case binopc stack of NONE => NONE
+      | SOME (a,b,rest) => parse_cutting_aux f_ns xs (Div Cd b a::rest))
+     else if c = #"d" then
+      (case binopc stack of NONE => NONE
+      | SOME (a,b,rest) => parse_cutting_aux f_ns xs (Div Dd b a::rest))
+     else if c = #"m" then
+      (case binopc stack of NONE => NONE
+      | SOME (a,b,rest) => parse_cutting_aux f_ns xs (Div Md b a::rest))
+     else if c = #"n" then
+      (case binopc stack of NONE => NONE
+      | SOME (a,b,rest) => parse_cutting_aux f_ns xs (Div Nd b a::rest))
+     else if c = #"-" then
+      (case binopc stack of NONE => NONE
+      | SOME (a,b,rest) => parse_cutting_aux f_ns xs (Minus b a::rest))
+     else
+      (case parse_lit_num f_ns s of
+      | SOME (l,f_ns1)=> parse_cutting_aux f_ns1 xs (Lit l::stack)
+      | NONE => NONE)
   else
     case parse_lit_num f_ns s of
     | SOME (l,f_ns1)=> parse_cutting_aux f_ns1 xs (Lit l::stack)
@@ -474,7 +498,7 @@ Definition parse_cutting_def:
 End
 
 (*
-  EVAL ``parse_cutting (plainVar_nf,()) (toks_fast (strlit "8 2 + 3 + 1 s + 9 2 d + x5 2 * +"))``;
+  EVAL ``parse_cutting (plainVar_nf,()) (toks_fast (strlit "8 2 + 3 + 1 s + 9 2 n + x5 2 * + 5 -"))``;
 *)
 
 (* Parse a pseudo-Boolean constraint *)
@@ -614,6 +638,22 @@ Definition parse_lstep_aux_def:
       else if r = INL (strlit "rup") then
         (case parse_rup f_ns rs of NONE => NONE
         | SOME (c,ns,f_ns') => SOME (INL (Rup c ns),f_ns'))
+      else if r = INL (strlit "e") then
+        (case parse_constraint_npbc f_ns rs of
+          NONE => NONE
+        | SOME (c,rest,f_ns') =>
+          case colon_id_opt rest of
+          | SOME (SOME res) =>
+            SOME (INL (Check res c), f_ns')
+          | _ => NONE)
+      else if r = INL (strlit "ia") then
+        (case parse_constraint_npbc f_ns rs of
+          NONE => NONE
+        | SOME (c,rest,f_ns') =>
+          case colon_id_opt rest of
+          | SOME (SOME res) =>
+            SOME (INL (ImplyAdd res c), f_ns')
+          | _ => NONE)
       else if r = INL (strlit "e") then
         (case parse_constraint_npbc f_ns rs of
           NONE => NONE

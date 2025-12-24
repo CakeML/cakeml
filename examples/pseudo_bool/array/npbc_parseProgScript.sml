@@ -53,6 +53,7 @@ val r = translate parse_lit_def;
 
 val r = translate apply_lit_def;
 val r = translate parse_lit_num_def;
+val r = translate binopc_def;
 
 val r = translate parse_cutting_aux_def;
 val parse_cutting_aux_side_def = theorem "parse_cutting_aux_side_def";

@@ -36,10 +36,12 @@ Definition check_cutting_list_def:
     OPTION_MAP2 add (check_cutting_list b fml c1) (check_cutting_list b fml c2)) ∧
   (check_cutting_list b fml (Mul c k) =
        OPTION_MAP (λc. multiply c k) (check_cutting_list b fml c)) ∧
-  (check_cutting_list b fml (Div c k) =
+  (check_cutting_list b fml (Div dty c k) =
     if k ≠ 0 then
-      OPTION_MAP (λc. divide c k) (check_cutting_list b fml c)
+      OPTION_MAP (λc. do_divide dty c k) (check_cutting_list b fml c)
     else NONE) ∧
+  (check_cutting_list b fml (Minus c k) =
+       OPTION_MAP (λc. minus c k) (check_cutting_list b fml c)) ∧
   (check_cutting_list b fml (Sat c) =
     OPTION_MAP saturate (check_cutting_list b fml c)) ∧
   (check_cutting_list b fml (Lit l) =
@@ -222,6 +224,12 @@ Definition check_lstep_list_def:
           zeros)
       else NONE
     | _ => NONE)
+  | ImplyAdd n c =>
+    (case lookup_core_only_list b fml n of
+      NONE => NONE
+    | SOME c' =>
+      if imp c' c then SOME(fml, SOME(c,b), id, zeros)
+      else NONE)
   | Check n c =>
     (case lookup_core_only_list b fml n of
       NONE => NONE
@@ -971,9 +979,13 @@ Proof
       disch_then match_mp_tac>>
       simp[any_el_update_resize])
     >- (
-      gvs[lookup_core_only_list_def,AllCaseEqs()]>>
-      rw[]>>fs[fml_rel_def]>>
-      metis_tac[SOME_11]))
+      drule fml_rel_lookup_core_only>>
+      rw[]>>gvs[insert_fml_def]>>
+      match_mp_tac fml_rel_update_resize>>
+      fs[])
+    >- (
+      drule fml_rel_lookup_core_only>>
+      rw[]>>gvs[]))
   >- fs[check_lstep_list_def,check_lstep_def]
   >- (
     pop_assum mp_tac>>
