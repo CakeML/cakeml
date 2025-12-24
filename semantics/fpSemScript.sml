@@ -1,10 +1,9 @@
 (*
   Definitions of the floating point operations used in CakeML.
 *)
-open HolKernel Parse boolLib bossLib;
-open astTheory machine_ieeeTheory;
-
-val _ = new_theory "fpSem";
+Theory fpSem
+Ancestors
+  machine_ieee ast (* order important because of FP_Add in ast & binary_ieee *)
 
 Definition fp_cmp_comp_def:
   fp_cmp_comp fop =
@@ -40,5 +39,3 @@ End
 Definition fp_top_comp_def:
   fp_top_comp fop = fpfma
 End
-
-val _ = export_theory();

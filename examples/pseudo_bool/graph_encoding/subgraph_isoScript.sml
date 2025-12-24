@@ -1,9 +1,11 @@
 (*
   Formalization of the subgraph isomorphism encoder (non-induced)
 *)
-open preamble graph_basicTheory pbcTheory pbc_normaliseTheory;
-
-val _ = new_theory "subgraph_iso";
+Theory subgraph_iso
+Ancestors
+  graph_basic pbc pbc_normalise
+Libs
+  preamble
 
 Definition has_subgraph_iso_def:
   has_subgraph_iso ((vp,ep):graph) ((vt,et):graph) ⇔
@@ -16,26 +18,38 @@ End
 Type map_var = ``:num # num``
 
 (* For a in vp, vp is mapped to exactly 1 target in vt *)
-Definition has_mapping_def:
-  has_mapping (a:num) vt =
-  (Equal, (GENLIST (λv. (1, Pos (a,v))) vt), 1):map_var pbc
+Definition has_mapping_al1_def:
+  has_mapping_al1 (a:num) vt =
+  ((strlit"al1" ^ toString a)
+  ,(GreaterEqual, (GENLIST (λv. (1, Pos (a,v))) vt), 1):map_var pbc)
+End
+
+Definition has_mapping_am1_def:
+  has_mapping_am1 (a:num) vt =
+  ((strlit"am1" ^ toString a)
+  ,(LessEqual, (GENLIST (λv. (1, Pos (a,v))) vt), 1):map_var pbc)
 End
 
 Definition one_one_def:
   one_one u vp =
-  (GreaterEqual, GENLIST (λb. (1, Neg (b,u))) vp, &vp-1): map_var pbc
+  ((strlit"inj" ^ toString u)
+  ,(GreaterEqual, GENLIST (λb. (1, Neg (b,u))) vp, &vp-1): map_var pbc)
 End
 
 Definition edge_map_def:
   edge_map (a:num,b:num) (u:num) et =
-  (GreaterEqual,
-    (1,Neg (a,u)) :: MAP (λv. (1,Pos (b,v))) (neighbours et u),
-    1): map_var pbc
+  (
+  concat [strlit"adj"; toString a; strlit"_"; toString u; strlit"_"; toString b]
+  ,(GreaterEqual,
+    (1,Neg (a,u)) ::
+      MAP (λv. (1,Pos (b,v))) (neighbours et u),
+    1): map_var pbc)
 End
 
 Definition all_has_mapping_def:
   all_has_mapping vp vt =
-  GENLIST (λa. has_mapping a vt) vp
+  GENLIST (λa. has_mapping_al1 a vt) vp ++
+  GENLIST (λa. has_mapping_am1 a vt) vp
 End
 
 Definition all_one_one_def:
@@ -53,7 +67,9 @@ End
 
 Definition encode_def:
   encode (vp,ep) (vt,et) =
-  all_has_mapping vp vt ++ all_one_one vp vt ++ all_edge_map (vp,ep) (vt,et)
+  all_has_mapping vp vt ++
+  all_one_one vp vt ++
+  all_edge_map (vp,ep) (vt,et)
 End
 
 Theorem iSUM_zero:
@@ -244,7 +260,8 @@ Theorem encode_correct:
   good_graph (vp,ep) ∧
   good_graph (vt,et) ∧
   encode (vp,ep) (vt,et) = constraints ⇒
-  (has_subgraph_iso (vp,ep) (vt,et) ⇔ satisfiable (set constraints))
+  (has_subgraph_iso (vp,ep) (vt,et) ⇔
+    satisfiable (set (MAP SND constraints)))
 Proof
   rw[EQ_IMP_THM]
   >- (
@@ -254,17 +271,20 @@ Proof
     rw[encode_def]
     >- (
       rename1`all_has_mapping`>>
-      simp[all_has_mapping_def,satisfies_def,MEM_GENLIST,has_mapping_def]>>
-      rw[]>>
-      simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
-      DEP_REWRITE_TAC[iSUM_eq_1,eval_lin_term_def]>>
-      CONJ_TAC>-
-        (simp[MEM_GENLIST]>>metis_tac[])>>
-      qexists_tac`f a`>>
-      CONJ_ASM1_TAC>>fs[EL_GENLIST,INJ_DEF])
+      simp[all_has_mapping_def,satisfies_def,MEM_GENLIST,MEM_MAP,PULL_EXISTS]>>
+      `∀a. a < vp ⇒
+        iSUM (GENLIST (λv. b2i (f a = v)) vt) = 1` by (
+        rw[]>>
+        DEP_REWRITE_TAC[iSUM_eq_1,eval_lin_term_def]>>
+        CONJ_TAC>-
+          (simp[MEM_GENLIST]>>metis_tac[])>>
+        qexists_tac`f a`>>
+        CONJ_ASM1_TAC>>fs[EL_GENLIST,INJ_DEF])>>
+      rw[]>>first_x_assum drule>>
+      simp[satisfies_pbc_def,has_mapping_al1_def,eval_lin_term_def,MAP_GENLIST,o_DEF,has_mapping_am1_def])
     >- (
       rename1`all_one_one`>>
-      simp[all_one_one_def,satisfies_def,MEM_GENLIST,one_one_def]>>
+      simp[all_one_one_def,satisfies_def,MEM_GENLIST,one_one_def,MEM_MAP,PULL_EXISTS]>>
       rw[]>>
       simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
       fs[INJ_DEF]>>
@@ -284,7 +304,7 @@ Proof
       simp[])
     >- (
       rename1`all_edge_map`>>
-      simp[all_edge_map_def,satisfies_def,MEM_GENLIST,MEM_FLAT,edge_map_def]>>
+      simp[all_edge_map_def,satisfies_def,MEM_GENLIST,MEM_FLAT,edge_map_def,MEM_MAP,PULL_EXISTS]>>
       rw[]>>
       gvs[MEM_FLAT,MEM_GENLIST,MEM_MAP]>>
       fs[MEM_neighbours]>>
@@ -312,10 +332,15 @@ Proof
   `∀n. n < vp ⇒
     ∃m. m < vt ∧ w (n,m) ∧
     ∀m'. m' < vt ∧ w (n,m') ⇔ m = m'` by (
-    fs[all_has_mapping_def,MEM_GENLIST,has_mapping_def,PULL_EXISTS]>>
+    fs[all_has_mapping_def,MEM_GENLIST,has_mapping_al1_def,
+      has_mapping_am1_def,PULL_EXISTS,MEM_MAP,PULL_EXISTS,SF DNF_ss]>>
     rw[]>>
     first_x_assum drule>>
+    first_x_assum drule>>
     simp[satisfies_pbc_def,MAP_GENLIST,o_DEF,eval_lin_term_def]>>
+    rw[]>>
+    `iSUM (GENLIST (λv. b2i (w (n,v))) vt) = 1` by intLib.ARITH_TAC>>
+    pop_assum mp_tac>>
     DEP_REWRITE_TAC[iSUM_eq_1]>>
     CONJ_TAC>- (
       simp[MEM_GENLIST]>>metis_tac[])>>
@@ -325,6 +350,7 @@ Proof
     Cases_on`i=m'`>>gs[]>>
     first_x_assum drule>>
     fs[])>>
+  fs[MEM_MAP,PULL_EXISTS]>>
   rw[]
   >- (
     rw[INJ_DEF]
@@ -418,63 +444,34 @@ QED
 
 Definition full_encode_def:
   full_encode gp gt =
-  MAP (map_pbc enc_string) (FLAT (MAP pbc_ge (encode gp gt)))
+  MAP (SOME ## map_pbc enc_string) (encode gp gt)
 End
-
-(* TODO: move *)
-Theorem satisfies_set_FLAT:
-  pbc$satisfies w (set (FLAT ls)) ⇔
-  ∀x. MEM x ls ⇒ pbc$satisfies w (set x)
-Proof
-  rw[EQ_IMP_THM]>>fs[pbcTheory.satisfies_def,MEM_FLAT]>>
-  metis_tac[]
-QED
-
-Theorem satisfies_FLAT_MAP_pbc_ge:
-  satisfies w (set (FLAT (MAP pbc_ge pbf))) ⇔
-  satisfies w (set pbf)
-Proof
-  simp[satisfies_set_FLAT]>>
-  rw[EQ_IMP_THM]
-  >- (
-    rw[satisfies_def]>>fs[MEM_MAP,PULL_EXISTS]>>
-    first_x_assum drule>>
-    metis_tac[pbc_ge_thm])>>
-  fs[MEM_MAP]>>
-  metis_tac[pbc_ge_thm,satisfies_def]
-QED
-
-Theorem satisfiable_FLAT_MAP_pbc_ge:
-  satisfiable (set (FLAT (MAP pbc_ge pbf))) ⇔
-  satisfiable (set pbf)
-Proof
-  simp[satisfiable_def]>>
-  metis_tac[satisfies_FLAT_MAP_pbc_ge]
-QED
 
 Theorem full_encode_correct:
   good_graph gp ∧
   good_graph gt ⇒
-  (has_subgraph_iso gp gt ⇔ satisfiable (set (full_encode gp gt)))
+  (has_subgraph_iso gp gt ⇔
+    satisfiable (set (MAP SND (full_encode gp gt))))
 Proof
   rw[full_encode_def]>>
-  simp[LIST_TO_SET_MAP]>>
+  simp[LIST_TO_SET_MAP,IMAGE_IMAGE]>>
+  simp[Once (GSYM IMAGE_IMAGE)]>>
   DEP_REWRITE_TAC[satisfiable_INJ_iff]>>
   rw[]
   >- (
     assume_tac enc_string_INJ>>
     drule INJ_SUBSET>>
+    simp[IMAGE_IMAGE]>>
     disch_then match_mp_tac>>
     simp[])>>
-  simp[satisfiable_FLAT_MAP_pbc_ge] >>
-  metis_tac[encode_correct,PAIR,pbc_ge_thm]
+  metis_tac[encode_correct,PAIR,LIST_TO_SET_MAP]
 QED
 
 (* The theorem relating to sem_concl *)
 Theorem full_encode_sem_concl:
   good_graph gp ∧
   good_graph gt ∧
-  sem_concl (set (full_encode gp gt)) NONE concl
+  sem_concl (set (MAP SND (full_encode gp gt))) NONE concl
   ⇒
   case concl of
     DSat => has_subgraph_iso gp gt
@@ -489,10 +486,9 @@ QED
 Theorem full_encode_eq =
   full_encode_def
   |> SIMP_RULE (srw_ss()) [FORALL_PROD,encode_def]
-  |> SIMP_RULE (srw_ss()) [all_has_mapping_def,all_one_one_def,all_edge_map_def,has_mapping_def,one_one_def,edge_map_def]
+  |> SIMP_RULE (srw_ss()) [all_has_mapping_def,all_one_one_def,all_edge_map_def,has_mapping_al1_def,has_mapping_am1_def,one_one_def,edge_map_def]
   |> SIMP_RULE (srw_ss()) [MAP_FLAT,MAP_GENLIST,MAP_APPEND,o_DEF,MAP_MAP_o,pbc_ge_def,map_pbc_def,FLAT_FLAT,FLAT_MAP_SING,map_lit_def]
   |> SIMP_RULE (srw_ss()) [FLAT_GENLIST_FOLDN,FOLDN_APPEND,FOLDN_APPEND_op]
   |> PURE_ONCE_REWRITE_RULE [APPEND_OP_DEF]
   |> SIMP_RULE (srw_ss()) [];
 
-val _ = export_theory();

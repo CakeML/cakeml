@@ -4,9 +4,11 @@
   to make use of closLang's support for true multi-argument
   functions. This phase is vital for good performance.
 *)
-open preamble closLangTheory;
-
-val _ = new_theory "clos_mti";
+Theory clos_mti
+Ancestors
+  closLang
+Libs
+  preamble
 
 Definition collect_args_def:
   (collect_args max_app num_args (Fn t NONE NONE num_args' e) =
@@ -31,7 +33,7 @@ Proof
    decide_tac
 QED
 
-Triviality collect_args_more:
+Theorem collect_args_more[local]:
   !max_app num_args e num_args' e'.
     (num_args', e') = collect_args max_app num_args e
     ⇒
@@ -67,14 +69,14 @@ End
 
 val collect_apps_ind = theorem "collect_apps_ind";
 
-Triviality exp3_size_append:
+Theorem exp3_size_append[local]:
   !es1 es2. exp3_size (es1 ++ es2) = exp3_size es1 + exp3_size es2
 Proof
   Induct_on `es1` >>
  simp [exp_size_def]
 QED
 
-Triviality collect_apps_more:
+Theorem collect_apps_more[local]:
   !max_app args e args' e'.
     (args', e') = collect_apps max_app args e
     ⇒
@@ -285,4 +287,3 @@ Proof
   Cases_on`do_mti` \\ EVAL_TAC
 QED
 
-val _ = export_theory()

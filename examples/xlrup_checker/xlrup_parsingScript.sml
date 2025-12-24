@@ -1,9 +1,11 @@
 (*
    Parsing interface for XLRUP
 *)
-open preamble miscTheory cnf_extTheory xlrupTheory mlintTheory;
-
-val _ = new_theory "xlrup_parsing";
+Theory xlrup_parsing
+Ancestors
+  misc cnf_ext xlrup mlint
+Libs
+  preamble
 
 Definition fromString_unsafe_def:
   fromString_unsafe str =
@@ -465,4 +467,3 @@ val xlrupsraw = ``[
 
 val xlrups = rconc (EVAL ``THE (parse_xlrups ^(xlrupsraw))``);
 
-val _ = export_theory ();

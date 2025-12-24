@@ -145,6 +145,14 @@ val lem14b = Q.prove(
    rw [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_config_def]
    )
 
+
+val lem14c = Q.prove(
+   `!s state c: word64 n.
+      target_state_rel arm8_target s state /\ n <> 18 /\ n <> 31 /\ n <> 26 /\ n < 32 /\
+      aligned 1 (c + s.regs n) ==> aligned 1 (c + state.REG (n2w n))`,
+   rw [asmPropsTheory.target_state_rel_def, arm8_target_def, arm8_config_def]
+   )
+
 val lem16 =
    blastLib.BBLAST_PROVE
     ``!c: word64.
@@ -183,6 +191,14 @@ val lem18 = Q.prove(
        (c = w2w ((11 >< 0) (c >>> 2) : word12) << 2) ==>
        (w2w (v2w [c ' 13; c ' 12; c ' 11; c ' 10; c ' 9; c ' 8; c ' 7;
                   c ' 6; c ' 5; c ' 4; c ' 3; c ' 2]: word12) << 2 = c)`,
+   blastLib.BBLAST_TAC
+   )
+
+val lem18b = Q.prove(
+   `!c: word64.
+       (c = w2w ((11 >< 0) (c >>> 1) : word12) << 1) ==>
+       (w2w (v2w [c ' 12; c ' 11; c ' 10; c ' 9; c ' 8; c ' 7;
+                  c ' 6; c ' 5; c ' 4; c ' 3; c ' 2; c ' 1]: word12) << 1 = c)`,
    blastLib.BBLAST_TAC
    )
 
@@ -366,6 +382,7 @@ val encode_rwts =
       open arm8Theory
    in
       [arm8_enc, arm8_ast, arm8_load_store_ast_def, arm8_load_store_ast32_def,
+       arm8_load_store_ast16_def,
        arm8_encode_def, Encode_def,
        e_data_def, e_branch_def, e_load_store_def, e_sf_def,
        e_LoadStoreImmediate_def, EncodeLogicalOp_def, NoOperation_def,
@@ -481,7 +498,7 @@ fun next_state_tac0 imp_res pick fltr q =
    \\ asmLib.byte_eq_tac
    \\ arm8_rfs [lem13, lem16, lem16b, lem16c, lem17, lem18, lem20, lem21, lem22,
            lem23, lem24, lem25, lem26, comm lem21, comm lem22, lem29, lem32,
-           lem33, lem36, lem37,
+           lem33, lem36, lem37, lem18b,
            combinTheory.UPDATE_APPLY, ShiftValue0,
            alignmentTheory.aligned_numeric,
            arm8_stepTheory.ConditionTest, wordsTheory.ADD_WITH_CARRY_SUB,

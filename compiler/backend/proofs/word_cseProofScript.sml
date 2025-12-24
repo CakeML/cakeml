@@ -1,13 +1,12 @@
 (*
   Correctness proof for word_cse
 *)
-open preamble alistTheory totoTheory;
-open wordLangTheory wordSemTheory wordPropsTheory reg_allocTheory;
-open word_simpTheory word_cseTheory helperLib;
-open wordConvsTheory
-val _ = new_theory "word_cseProof";
-
-val _ = set_grammar_ancestry ["wordLang", "wordSem", "wordProps", "word_cse"];
+Theory word_cseProof
+Libs
+  preamble helperLib
+Ancestors
+  wordLang wordSem wordProps word_cse alist toto reg_alloc
+  word_simp wordConvs
 
 Definition data_inv_def:
   data_inv (data:knowledge) (s:('a,'c,'ffi) wordSem$state) ⇔
@@ -1040,7 +1039,7 @@ Proof
   \\ Cases_on ‘a’ \\ gvs [is_complex_def, inst_def, assign_def, firstRegOfArith_def, AllCaseEqs(), data_inv_set_var]
 QED
 
-Triviality if_eq_rw[simp]:
+Theorem if_eq_rw[local,simp]:
   (if x = y then y else x) = x
 Proof
   rw []
@@ -2062,5 +2061,3 @@ Proof
   fs [word_common_subexp_elim_def] \\ pairarg_tac \\ gvs []
   \\ qspecl_then [‘p’,‘empty_data’,‘ac’] mp_tac word_cse_conventions \\ fs []
 QED
-
-val _ = export_theory();

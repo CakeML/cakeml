@@ -2,12 +2,11 @@
   A collection of functions that have in the past turned out to be tricky to
   translate.
 *)
-
-open HolKernel Parse boolLib bossLib;
-open listTheory pairTheory ml_translatorLib ml_translatorTheory;
-open ml_progLib blastLib;
-
-val _ = new_theory "ml_translator_test";
+Theory ml_translator_test
+Ancestors
+  list pair ml_translator
+Libs
+  ml_translatorLib ml_progLib blastLib
 
 val _ = register_type “:'a list”;
 val _ = register_type “:'a option”;
@@ -260,7 +259,7 @@ val _ = (print_asts := true);
 
 (* test no_ind *)
 
-Triviality word64_msb_thm:
+Theorem word64_msb_thm[local]:
   !w. word_msb (w:word64) =
          ((w && 0x8000000000000000w) = 0x8000000000000000w)
 Proof
@@ -274,7 +273,7 @@ val res = translate (miscTheory.arith_shift_right_def
                      |> PURE_REWRITE_RULE [wordsTheory.dimindex_64]
                      |> CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV));
 
-Triviality arith_shift_right_ind:
+Theorem arith_shift_right_ind[local]:
   arith_shift_right_ind
 Proof
   once_rewrite_tac [fetch "-" "arith_shift_right_ind_def"]
@@ -632,5 +631,3 @@ val _ = use_sub_check true;
 
 (* no precondition *)
 val res = translate foo_sub_def;
-
-val _ = export_theory();

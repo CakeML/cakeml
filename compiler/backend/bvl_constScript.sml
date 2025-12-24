@@ -11,17 +11,18 @@
 
    bvi_let is a simpler version of this optimisation.
 *)
-open preamble bvlTheory
-
-val _ = new_theory "bvl_const";
+Theory bvl_const
+Ancestors
+  bvl
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
-Definition dest_simple_def:
+Definition dest_simple_def[simp]:
   (dest_simple (bvl$Op (IntOp (Const i)) xs) = if NULL xs then SOME i else NONE) /\
   (dest_simple _ = NONE)
 End
-val _ = export_rewrites["dest_simple_def"];
 
 Theorem dest_simple_pmatch:
     ∀op. dest_simple op =
@@ -318,6 +319,12 @@ Definition compile_def:
      [Raise (HD (compile env [x1]))]) /\
   (compile env [Op op xs] = [SmartOp op (compile env xs)]) /\
   (compile env [Tick x] = [Tick (HD (compile env [x]))]) /\
+  (compile env [Force loc v] =
+     dtcase LLOOKUP env v of
+     | NONE => [Force loc v]
+     | SOME NONE => [Force loc v]
+     | SOME (SOME (Var i)) => [Force loc (v + i)]
+     | SOME (SOME x) => [Force loc v]) /\
   (compile env [Call t dest xs] = [Call t dest (compile env xs)])
 End
 
@@ -345,6 +352,12 @@ Definition compile_sing_def:
      Raise (compile_sing env x1)) /\
   (compile_sing env (Op op xs) = SmartOp op (compile_list env xs)) /\
   (compile_sing env (Tick x) = Tick (compile_sing env x)) /\
+  (compile_sing env (Force loc v) =
+     dtcase LLOOKUP env v of
+     | NONE => Force loc v
+     | SOME NONE => Force loc v
+     | SOME (SOME (Var i)) => Force loc (v + i)
+     | SOME (SOME x) => Force loc v) ∧
   (compile_sing env (Call t dest xs) = Call t dest (compile_list env xs)) ∧
 
   (compile_list env [] = []) /\
@@ -382,4 +395,3 @@ End
 
 Theorem compile_exp_eq = compile_exp_def |> SRULE [compile_eq];
 
-val _ = export_theory();

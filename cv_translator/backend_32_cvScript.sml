@@ -1,18 +1,24 @@
 (*
   Translate arch-size-specific functions to cv equations.
 *)
-open preamble cv_transLib cv_stdTheory backend_cvTheory to_data_cvTheory;
-open backendTheory;
 
 (* The following line is (and shall remain) the only difference between
    the 32-bit and 64-bit versions of this file. *)
+Theory backend_32_cv[no_sig_docs]
+Ancestors
+  cv_std backend_cv to_data_cv backend
+Libs
+  preamble cv_transLib
 
-val arch_size = (new_theory "backend_32_cv"; “:32”);
+val arch_size = if String.isSubstring "32" (current_theory()) then “:32” else “:64”;
 
 val arch_spec = INST_TYPE [alpha |-> arch_size];
 val arch_spec_beta = INST_TYPE [beta |-> arch_size];
 
 val _ = cv_memLib.use_long_names := true;
+
+Overload Num[local] = “cv$Num”;
+Overload Pair[local] = “cv$Pair”;
 
 val _ = cv_trans (alignmentTheory.aligned_w2n |> arch_spec);;
 val _ = cv_trans (asmTheory.offset_ok_def |> arch_spec);
@@ -21,7 +27,7 @@ val _ = cv_trans (lab_to_targetTheory.compute_labels_alt_def |> arch_spec);
 val _ = cv_trans (lab_to_targetTheory.lines_upd_lab_len_def |> arch_spec);
 val _ = cv_auto_trans (lab_to_targetTheory.get_jump_offset_def |> arch_spec);
 
-val pre = cv_trans_pre (lab_to_targetTheory.upd_lab_len_def |> arch_spec);
+val pre = cv_trans_pre "" (lab_to_targetTheory.upd_lab_len_def |> arch_spec);
 Theorem lab_to_target_upd_lab_len_pre[cv_pre]:
   ∀pos v. lab_to_target_upd_lab_len_pre pos v
 Proof
@@ -30,7 +36,7 @@ QED
 
 val _ = cv_trans (lab_to_targetTheory.add_nop_def |> arch_spec);
 
-val pre = cv_trans_pre (lab_to_targetTheory.pad_section_def |> arch_spec);
+val pre = cv_trans_pre "" (lab_to_targetTheory.pad_section_def |> arch_spec);
 Theorem lab_to_target_pad_section_pre[cv_pre,local]:
   ∀nop v aux. lab_to_target_pad_section_pre nop v aux
 Proof
@@ -39,7 +45,7 @@ QED
 
 val _ = cv_trans (lab_to_targetTheory.pad_code_def |> arch_spec);
 
-Triviality to_shmem_rec:
+Theorem to_shmem_rec[local]:
   <| entry_pc := ep ;
      nbytes := nb ;
      access_addr := aa ;
@@ -50,7 +56,7 @@ Proof
   gvs [lab_to_targetTheory.shmem_rec_component_equality]
 QED
 
-val pre = cv_trans_pre (lab_to_targetTheory.get_shmem_info_def
+val pre = cv_trans_pre "" (lab_to_targetTheory.get_shmem_info_def
                           |> SRULE [to_shmem_rec] |> arch_spec);
 
 Theorem lab_to_target_get_shmem_info_pre[cv_pre]:
@@ -72,7 +78,7 @@ val _ = data_to_wordTheory.get_gen_size_def |> arch_spec |> SRULE [] |> cv_trans
 val _ = stack_to_labTheory.compile_jump_def |> arch_spec |> cv_trans;
 val _ = stack_to_labTheory.is_Seq_def |> arch_spec |> cv_trans;
 
-val pre = stack_to_labTheory.flatten_def |> arch_spec |> cv_trans_pre;
+val pre = stack_to_labTheory.flatten_def |> arch_spec |> cv_trans_pre "";
 Theorem stack_to_lab_flatten_pre[cv_pre,local]:
   ∀t p n m. stack_to_lab_flatten_pre t p n m
 Proof
@@ -142,7 +148,7 @@ val _ = stack_allocTheory.stubs_def |> arch_spec |> cv_auto_trans;
 val _ = stack_allocTheory.stub_names_def |> arch_spec |> cv_auto_trans;
 val _ = stack_allocTheory.next_lab_def |> arch_spec |> cv_trans;
 
-val pre = stack_allocTheory.comp_def |> arch_spec |> cv_trans_pre;
+val pre = stack_allocTheory.comp_def |> arch_spec |> cv_trans_pre "";
 Theorem stack_alloc_comp_pre[cv_pre,local]:
   ∀n m p. stack_alloc_comp_pre n m p
 Proof
@@ -172,7 +178,7 @@ val _ = word_to_stackTheory.wInst_def |> arch_spec |> cv_auto_trans;
 val _ = word_to_stackTheory.wMove_def |> arch_spec |> cv_auto_trans;
 val _ = word_to_stackTheory.bits_to_word_def |> arch_spec |> cv_trans;
 
-Triviality cv_DROP_lemma:
+Theorem cv_DROP_lemma[local]:
   ∀n cv_xs. cv_size (cv_DROP (Num n) cv_xs) ≤ cv_size cv_xs
 Proof
   Induct \\ rw [] \\ simp [Once cv_DROP_def]
@@ -223,7 +229,7 @@ val _ = cv_trans_rec (word_to_stackTheory.const_words_to_bitmap_def |> arch_spec
 
 val _ = wordLangTheory.max_var_inst_def |> arch_spec |> cv_trans
 
-val pre = max_var_exp_eq |> arch_spec |> cv_trans_pre;
+val pre = max_var_exp_eq |> arch_spec |> cv_trans_pre "";
 Theorem wordLang_max_var_exp_pre[cv_pre]:
   (∀v. wordLang_max_var_exp_pre v) ∧
   (∀v. backend_cv_max_var_exp_list_pre v)
@@ -233,7 +239,7 @@ QED
 
 val _ = wordLangTheory.max_var_def |> arch_spec |> cv_auto_trans;
 
-val pre = every_stack_var'_eq |> arch_spec |> cv_trans_pre
+val pre = every_stack_var'_eq |> arch_spec |> cv_trans_pre "";
 Theorem backend_cv_every_stack_var'_pre[cv_pre]:
   ∀v m. backend_cv_every_stack_var'_pre m v
 Proof
@@ -245,7 +251,7 @@ QED
 val _ = apply_colour_imm'_eq |> arch_spec |> cv_trans;
 val _ = apply_colour_inst'_eq |> arch_spec |> cv_trans;
 
-val pre = apply_colour_exp'_eq |> arch_spec |> cv_trans_pre;
+val pre = apply_colour_exp'_eq |> arch_spec |> cv_trans_pre "";
 Theorem backend_cv_apply_colour_exp'_pre[cv_pre]:
   (∀v colour. backend_cv_apply_colour_exp'_pre colour v) ∧
   (∀v colour. backend_cv_apply_colour_exp'_list_pre colour v)
@@ -253,7 +259,7 @@ Proof
   ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
 QED
 
-val pre = apply_colour'_eq |> arch_spec |> cv_auto_trans_pre;
+val pre = apply_colour'_eq |> arch_spec |> cv_auto_trans_pre "";
 Theorem apply_colour'_pre[cv_pre]:
   ∀v colour. backend_cv_apply_colour'_pre colour v
 Proof
@@ -264,7 +270,7 @@ QED
 
 val _ = oracle_colour_ok_eq |> arch_spec |> cv_auto_trans;
 
-val pre = get_reads_exp_eq |> arch_spec |> cv_trans_pre;
+val pre = get_reads_exp_eq |> arch_spec |> cv_trans_pre "";
 Theorem word_alloc_get_reads_exp_pre[cv_pre]:
   (∀v. word_alloc_get_reads_exp_pre v) ∧
   (∀v. backend_cv_get_reads_exp_list_pre v)
@@ -276,7 +282,7 @@ val _ = word_allocTheory.get_delta_inst_def |> arch_spec |> cv_trans;
 val _ = word_allocTheory.get_clash_tree_def |> arch_spec |> cv_trans;
 val _ = word_removeTheory.remove_must_terminate_def |> arch_spec |> cv_trans;
 
-val pre = word_allocTheory.remove_dead_def |> arch_spec |> cv_auto_trans_pre;
+val pre = word_allocTheory.remove_dead_def |> arch_spec |> cv_auto_trans_pre "";
 Theorem word_alloc_remove_dead_pre[cv_pre]:
   ∀v live. word_alloc_remove_dead_pre v live
 Proof
@@ -291,7 +297,7 @@ val _ = word_instTheory.reduce_const_def |> arch_spec |> cv_auto_trans;
 
 val _ = wordLangTheory.word_op_def |> arch_spec |> cv_auto_trans;
 
-val pre = word_instTheory.optimize_consts_def |> arch_spec |> cv_auto_trans_pre;
+val pre = word_instTheory.optimize_consts_def |> arch_spec |> cv_auto_trans_pre "";
 Theorem optimize_consts_pre:
   ∀op ls. op ≠ Sub ⇒ word_inst_optimize_consts_pre op ls
 Proof
@@ -304,7 +310,7 @@ QED
 
 val _ = word_instTheory.convert_sub_def |> arch_spec |> cv_auto_trans;
 
-val pre = pull_exp_eq |> arch_spec |> cv_trans_pre;
+val pre = pull_exp_eq |> arch_spec |> cv_trans_pre "";
 Theorem word_inst_pull_exp_pre[cv_pre]:
   (∀v. word_inst_pull_exp_pre v) ∧
   (∀v. backend_cv_pull_exp_list_pre v)
@@ -314,7 +320,7 @@ Proof
   \\ irule optimize_consts_pre \\ gvs []
 QED
 
-val pre = flatten_exp_eq |> arch_spec |> cv_trans_pre;
+val pre = flatten_exp_eq |> arch_spec |> cv_trans_pre "";
 Theorem word_inst_flatten_exp_pre[cv_pre]:
   (∀v. word_inst_flatten_exp_pre v) ∧
   (∀v. backend_cv_flatten_exp_list_pre v)
@@ -346,7 +352,7 @@ val _ = word_allocTheory.limit_var_def |> arch_spec |> cv_trans;
 val _ = word_allocTheory.setup_ssa_def |> arch_spec |> cv_trans;
 val _ = word_allocTheory.ssa_cc_trans_inst_def |> arch_spec |> cv_trans;
 
-val pre = ssa_cc_trans_exp_eq |> arch_spec |> cv_trans_pre;
+val pre = ssa_cc_trans_exp_eq |> arch_spec |> cv_trans_pre "";
 Theorem word_alloc_ssa_cc_trans_exp_pre[cv_pre,local]:
   (∀v t. word_alloc_ssa_cc_trans_exp_pre t v) ∧
   (∀v t. backend_cv_ssa_cc_trans_exp_list_pre t v)
@@ -354,7 +360,7 @@ Proof
   ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
 QED
 
-val pre = word_allocTheory.ssa_cc_trans_def |> arch_spec |> cv_auto_trans_pre;
+val pre = word_allocTheory.ssa_cc_trans_def |> arch_spec |> cv_auto_trans_pre "";
 Theorem word_alloc_ssa_cc_trans_pre[cv_pre]:
   ∀v ssa na. word_alloc_ssa_cc_trans_pre v ssa na
 Proof
@@ -370,7 +376,7 @@ val _ = word_simpTheory.strip_const_def |> arch_spec |> cv_trans;
 val _ = wordLangTheory.word_sh_def |> arch_spec
           |> SRULE [GREATER_EQ,wordsTheory.word_asr_n2w] |> cv_trans;
 
-val pre = const_fp_exp_eq |> arch_spec |> cv_auto_trans_pre;
+val pre = const_fp_exp_eq |> arch_spec |> cv_auto_trans_pre "";
 Theorem word_simp_const_fp_exp_pre[cv_pre,local]:
   (∀t v. word_simp_const_fp_exp_pre t v) ∧
   (∀t v. backend_cv_const_fp_exp_list_pre t v)
@@ -378,7 +384,7 @@ Proof
   ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
 QED
 
-val pre = word_simpTheory.const_fp_loop_def |> arch_spec |> cv_auto_trans_pre;
+val pre = word_simpTheory.const_fp_loop_def |> arch_spec |> cv_auto_trans_pre "";
 Theorem word_simp_const_fp_loop_pre[cv_pre,local]:
   ∀v cs. word_simp_const_fp_loop_pre v cs
 Proof
@@ -443,7 +449,7 @@ val _ = byteTheory.bytes_to_word_def |> arch_spec |> cv_trans;
 val _ = data_to_wordTheory.write_bytes_def |> arch_spec |> SRULE [LET_THM] |> cv_trans;
 val _ = data_to_wordTheory.lookup_mem_def |> arch_spec |> cv_trans;
 
-val pre = cv_trans_pre_rec
+val pre = cv_trans_pre_rec ""
   (multiwordTheory.n2mw_def |> SRULE [n2w_mod] |> arch_spec |> SRULE [])
   (WF_REL_TAC ‘measure cv$c2n’
    \\ Cases \\ gvs [DIV_LT_X] \\ Cases_on ‘m’ \\ gvs []);
@@ -454,7 +460,7 @@ Proof
   \\ rw [] \\ simp [Once pre]
 QED
 
-Triviality lemma:
+Theorem lemma[local]:
   ∀i. Num (ABS i) = Num i
 Proof
   Cases \\ gvs []
@@ -476,7 +482,7 @@ val _ = get_words_def |> arch_spec |> cv_trans;
 val _ = data_to_wordTheory.getWords_def |> arch_spec_beta |> cv_trans;
 val cv_getWords_def = fetch "-" "cv_data_to_word_getWords_def";
 
-Triviality cv_getWords_lemma:
+Theorem cv_getWords_lemma[local]:
   ∀g acc. cv_size (cv_snd (cv_data_to_word_getWords g acc)) ≤ cv_size g
 Proof
   Induct \\ gvs []
@@ -487,7 +493,7 @@ Proof
   \\ first_x_assum $ irule_at $ Pos hd \\ gvs []
 QED
 
-val pre = cv_trans_pre_rec (data_to_wordTheory.StoreAnyConsts_def |> arch_spec)
+val pre = cv_trans_pre_rec "" (data_to_wordTheory.StoreAnyConsts_def |> arch_spec)
   (WF_REL_TAC ‘measure $ λ(_,_,_,xs,_). cv_size xs’
    \\ reverse (rw []) >- cv_termination_tac
    \\ simp [Once cv_getWords_def]
@@ -536,7 +542,9 @@ val _ = cv_trans (data_to_wordTheory.assign_def |> arch_spec |> SRULE
    data_to_wordTheory.arg3_def,
    data_to_wordTheory.arg4_def])
 
-val pre = data_to_wordTheory.comp_def |> arch_spec |> SRULE [to_adjust_vars] |> cv_trans_pre;
+val _ = cv_trans (data_to_wordTheory.force_thunk_def |> arch_spec);
+
+val pre = data_to_wordTheory.comp_def |> arch_spec |> SRULE [to_adjust_vars] |> cv_trans_pre "";
 Theorem data_to_word_comp_pre[cv_pre,local]:
   ∀c secn l p. data_to_word_comp_pre c secn l p
 Proof
@@ -558,7 +566,7 @@ val _ = word_allocTheory.add1_lhs_mem_def |> arch_spec |> cv_trans;
 val _ = word_allocTheory.add1_rhs_mem_def |> arch_spec |> cv_trans;
 val _ = word_allocTheory.get_heu_inst_def |> arch_spec |> cv_trans;
 
-val pre = word_allocTheory.get_heu_def |> arch_spec |> cv_auto_trans_pre;
+val pre = word_allocTheory.get_heu_def |> arch_spec |> cv_auto_trans_pre "";
 Theorem word_alloc_get_heu_pre[cv_pre]:
   ∀fc v0 v. word_alloc_get_heu_pre fc v0 v
 Proof
@@ -567,6 +575,3 @@ Proof
 QED
 
 val _ = word_allocTheory.get_heuristics_def |> arch_spec |> cv_auto_trans;
-
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
-val _ = export_theory();

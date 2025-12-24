@@ -1,10 +1,12 @@
 (*
   Determinism for the small-step and relational big-step semantics
 *)
+Theory determ
+Ancestors
+  semanticPrimitives bigStep smallStep
+Libs
+  preamble
 
-open preamble semanticPrimitivesTheory bigStepTheory smallStepTheory;
-
-val _ = new_theory "determ";
 
 val s = ``s:'ffi state``;
 
@@ -36,7 +38,6 @@ Proof
   res_tac >>
   fs [] >>
   rw [] >>
-  ‘s with fp_state := s.fp_state = s’ by gs[state_component_equality] >>
   gs[] >> res_tac >> gs[] >>
   metis_tac []
 QED
@@ -132,7 +133,7 @@ Proof
   metis_tac[TC_functional_deterministic]
 QED
 
-Triviality decl_step_reln_functional:
+Theorem decl_step_reln_functional[local]:
   ∀env a b1 b2. decl_step_reln env a b1 ∧ decl_step_reln env a b2 ⇒ b1 = b2
 Proof
   rw[decl_step_reln_def] >> gvs[]
@@ -216,4 +217,3 @@ Proof
     )
 QED
 
-val _ = export_theory ();

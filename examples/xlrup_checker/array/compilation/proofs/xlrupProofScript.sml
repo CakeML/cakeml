@@ -3,13 +3,12 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     TextIOProofTheory
-     cnf_extTheory xlrupTheory xlrup_listTheory xlrup_arrayFullProgTheory
-     xlrup_parsingTheory xlrupCompileTheory;
-
-val _ = new_theory"xlrupProof";
+Theory xlrupProof
+Ancestors
+  semanticsProps backendProof x64_configProof TextIOProof cnf_ext
+  xlrup xlrup_list xlrup_arrayFullProg xlrup_parsing xlrupCompile
+Libs
+  preamble
 
 val cake_xlrup_io_events_def = new_specification("cake_xlrup_io_events_def",["cake_xlrup_io_events"],
   check_unsat_semantics |> Q.GENL[`cl`,`fs`]
@@ -74,7 +73,7 @@ Theorem machine_code_sound:
   if LENGTH cl = 2 then
     if inFS_fname fs (EL 1 cl)
     then
-      case parse_cnf_ext (all_lines fs (EL 1 cl)) of
+      case parse_cnf_ext (all_lines_file fs (EL 1 cl)) of
         NONE => out = strlit ""
       | SOME fml => out = concat (print_cnf_ext fml)
     else out = strlit ""
@@ -82,7 +81,7 @@ Theorem machine_code_sound:
     if out = strlit "s VERIFIED UNSAT\n" then
       inFS_fname fs (EL 1 cl) ∧
       ∃f.
-        parse_cnf_ext (all_lines fs (EL 1 cl)) = SOME f ∧
+        parse_cnf_ext (all_lines_file fs (EL 1 cl)) = SOME f ∧
         sols f = {}
     else out = strlit ""
   else
@@ -174,4 +173,3 @@ Proof
   metis_tac[STD_streams_add_stderr, STD_streams_stdout,add_stdo_nil]
 QED
 
-val _ = export_theory();

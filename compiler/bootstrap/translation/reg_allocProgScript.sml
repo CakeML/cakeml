@@ -1,6 +1,13 @@
 (*
   Translate the compiler's register allocator.
 *)
+Theory reg_allocProg[no_sig_docs]
+Libs
+  preamble ml_monad_translatorLib
+Ancestors
+  linear_scan state_transformer ml_translator
+  pancake_parseProg reg_alloc reg_allocProof
+
 open preamble
 open reg_allocTheory reg_allocProofTheory state_transformerTheory
 open ml_monad_translatorLib ml_translatorTheory;
@@ -11,8 +18,6 @@ open basisProgTheory
 *)
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "reg_allocProg";
 
 val _ = translation_extends "pancake_parseProg";
 val _ = ml_translatorLib.use_string_type true;
@@ -138,7 +143,7 @@ val _ = m_translate split_degree_def;
 val _ = translate sort_moves_def;
 val _ = translate smerge_def;
 
-Triviality rewrite_subs:
+Theorem rewrite_subs[local]:
   (st_ex_MAP adj_ls_sub = st_ex_MAP (\v. adj_ls_sub v)) ∧
   (st_ex_MAP node_tag_sub = st_ex_MAP (\v. node_tag_sub v)) ∧
   (st_ex_PARTITION move_related_sub = st_ex_PARTITION (\v. move_related_sub v)) ∧
@@ -235,7 +240,7 @@ val _ = m_translate do_reg_alloc_def;
 
 (* Finish the monadic translation *)
 (* Rewrite reg_alloc_aux before giving it to the monadic translator *)
-Triviality reg_alloc_aux_trans_def:
+Theorem reg_alloc_aux_trans_def[local]:
   ∀k mtable ct forced fs x.
      reg_alloc_aux alg scost k mtable ct forced fs x =
      run_ira_state (do_reg_alloc alg scost k mtable ct forced fs x)
@@ -370,13 +375,13 @@ val res = m_translate list_to_sorted_regs_def;
 val res = m_translate swap_regs_def;
 val res = m_translate partition_regs_def;
 
-val res = m_translate qsort_regs_def;
+val res = m_translate sort_regs_def;
 val res = m_translate sorted_regs_to_list_def;
 val res = m_translate list_to_sorted_moves_def;
 
 val res = m_translate swap_moves_def;
 val res = m_translate partition_moves_def;
-val res = m_translate qsort_moves_def;
+val res = m_translate sort_moves_def;
 val res = m_translate sorted_moves_to_list_def;
 
 val res = m_translate edges_to_adjlist_def;
@@ -408,7 +413,6 @@ val res = translate apply_bij_on_clash_tree_def;
 val res = translate size_of_clash_tree_def;
 val res = translate linear_scan_reg_alloc_def;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 (*
 TODO: update the following code (comes from the non-monadic register allocator
@@ -449,5 +453,3 @@ val _ = disable_astPP()
 *)
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

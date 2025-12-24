@@ -2,13 +2,11 @@
   Defines a datatype for nested namespaces where names can be either
   short (e.g. foo) or long (e.g. ModuleA.InnerB.bar).
 *)
-open HolKernel Parse boolLib bossLib;
+Theory namespace
+Ancestors[qualified]
+  alist
 
 val _ = numLib.temp_prefer_num();
-
-local open alistTheory in end;
-val _ = new_theory "namespace"
-val _ = set_grammar_ancestry ["alist"];
 
 Type alist = ``: ('k # 'v) list``
 
@@ -117,4 +115,3 @@ Definition nsMap_def:
     Bind (MAP (λ(n,x). (n,f x)) v) (MAP (λ(mn,e). (mn,nsMap f e)) m)
 End
 
-val _ = export_theory()

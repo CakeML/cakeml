@@ -1,14 +1,14 @@
 (*
   Proves an end-to-end correctness theorem for the bootstrapped compiler.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     compiler64ProgTheory x64BootstrapTheory replProofTheory
-     candle_prover_semanticsTheory
+Theory x64BootstrapProof
+Ancestors
+  semanticsProps backendProof x64_configProof compiler64Prog
+  x64Bootstrap replProof candle_prover_semantics
+Libs
+  preamble
 
-val _ = new_theory"x64BootstrapProof";
-
-Triviality with_clos_conf_simp:
+Theorem with_clos_conf_simp[local]:
     (mc_init_ok (x64_backend_config with <| clos_conf := z ; bvl_conf updated_by
                     (λc. c with <|inline_size_limit := t1; exp_cut := t2|>) |>) =
      mc_init_ok x64_backend_config) /\
@@ -30,7 +30,7 @@ Definition compiler_instance_def:
        decs_v := LIST_v AST_DEC_v |>
 End
 
-Triviality compiler_instance_lemma:
+Theorem compiler_instance_lemma[local]:
   INJ compiler_instance.config_v 𝕌(:inc_config) 𝕌(:semanticPrimitives$v) ∧
   compiler_instance.init_state = config_to_inc_config info ∧
   compiler_instance.compiler_fun = compile_inc_progs_for_eval x64_config
@@ -104,7 +104,7 @@ Theorem cake_compiled_thm =
 
 (* --- *)
 
-Triviality mk_compiler_fun_from_ci_tuple:
+Theorem mk_compiler_fun_from_ci_tuple[local]:
   mk_compiler_fun_from_ci c = (λ(x,y,z). mk_compiler_fun_from_ci c (x,y,z))
 Proof
   fs [FUN_EQ_THM,FORALL_PROD]
@@ -199,13 +199,13 @@ Proof
   \\ gvs [backend_config_ok_init_conf,mc_init_ok_init_conf]
 QED
 
-Triviality isPREFIX_MEM:
+Theorem isPREFIX_MEM[local]:
   ∀xs ys. isPREFIX xs ys ⇒ ∀x. MEM x xs ⇒ MEM x ys
 Proof
   Induct \\ fs [] \\ Cases_on ‘ys’ \\ fs [] \\ metis_tac []
 QED
 
-Triviality LPREFIX_MEM:
+Theorem LPREFIX_MEM[local]:
   ∀xs ys. LPREFIX (fromList xs) ys ⇒ ∀x. MEM x xs ⇒ x IN LSET ys
 Proof
   Induct \\ fs [] \\ Cases_on ‘ys’ \\ fs []
@@ -254,14 +254,14 @@ Proof
   \\ rw [] \\ Cases_on ‘o'’ \\ fs [safe_exp'_def]
 QED
 
-Triviality MAP_SND:
+Theorem MAP_SND[local]:
   MAP SND [] = [] ∧
   MAP SND ((x1,x2)::xs) = x2 :: MAP SND xs
 Proof
   fs []
 QED
 
-Triviality MAP_SND_SND:
+Theorem MAP_SND_SND[local]:
   MAP (SND ∘ SND) [] = [] ∧
   MAP (SND ∘ SND) ((x1,x2,x3)::xs) = x3 :: MAP (SND ∘ SND) xs
 Proof
@@ -297,7 +297,7 @@ Proof
            IN_INSERT,NOT_IN_EMPTY,EVAL “kernel_ffi”] @ char_eq_lemmas)
 QED
 
-Triviality prog_syntax_ok_candle_code:
+Theorem prog_syntax_ok_candle_code[local]:
   prog_syntax_ok candle_code
 Proof
   ‘prog_syntax_ok compiler64_prog’ by fs [compiler64_compiled]
@@ -343,4 +343,3 @@ val _ = print "Checking that no cheats were used in the proofs.\n";
 val _ = candle_top_level_soundness |> check_thm;
 val _ = cake_compiled_thm |> check_thm;
 
-val _ = export_theory();

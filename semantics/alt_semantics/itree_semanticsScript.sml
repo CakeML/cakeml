@@ -1,12 +1,11 @@
 (*
   An itree-based semantics for CakeML
 *)
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open namespaceTheory astTheory
-     ffiTheory semanticPrimitivesTheory smallStepTheory;
-open itreeTheory fpSemTheory
-
-val _ = new_theory "itree_semantics"
+Theory itree_semantics
+Ancestors
+  namespace ast ffi semanticPrimitives smallStep fpSem itree
+Libs
+  BasicProvers dep_rewrite
 
 (******************** do_app ********************)
 
@@ -15,6 +14,19 @@ Datatype:
 End
 
 Overload flit[local] = “λw. Litv (Float64 w)”
+
+Definition thunk_op_def:
+  thunk_op (s: v store_v list) th_op vs =
+    case (th_op,vs) of
+    | (AllocThunk m, [v]) =>
+        (let (s',n) = store_alloc (Thunk m v) s in
+           SOME (s', Rval (Loc F n)))
+    | (UpdateThunk m, [Loc _ lnum; v]) =>
+        (case store_assign lnum (Thunk m v) s of
+         | SOME s' => SOME (s', Rval (Conv NONE []))
+         | NONE => NONE)
+    | _ => NONE
+End
 
 Definition do_app_def:
   do_app s op vs = case (op, vs) of
@@ -50,6 +62,11 @@ Definition do_app_def:
         SOME (s, Rval (Litv (Word64 (shift64_lookup op w n))))
     | (Equality, [v1; v2]) =>
         (case do_eq v1 v2 of
+            Eq_type_error => NONE
+          | Eq_val b => SOME (s, Rval (Boolv b))
+        )
+    | (Test test test_ty, [v1; v2]) =>
+        (case do_test test test_ty v1 v2 of
             Eq_type_error => NONE
           | Eq_val b => SOME (s, Rval (Boolv b))
         )
@@ -209,8 +226,6 @@ Definition do_app_def:
             Rraise chr_exn_v
           else
             Rval (Litv(Char(CHR(Num (ABS (I i))))))))
-    | (Chopb op, [Litv (Char c1); Litv (Char c2)]) =>
-        SOME (s, Rval (Boolv (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2)))))
     | (Implode, [v]) =>
           (case v_to_char_list v of
             SOME ls =>
@@ -259,6 +274,11 @@ Definition do_app_def:
               SOME (s, Rraise sub_exn_v)
             else
               SOME (s, Rval (EL n vs))
+    | (Vsub_unsafe, [Vectorv vs; Litv (IntLit i)]) =>
+        if 0 ≤ i ∧ Num i < LENGTH vs then
+          SOME (s, Rval (EL (Num i) vs))
+        else
+          NONE
     | (Vlength, [Vectorv vs]) =>
         SOME (s, Rval (Litv (IntLit (int_of_num (LENGTH vs)))))
     | (Aalloc, [Litv (IntLit n); v]) =>
@@ -347,6 +367,7 @@ Definition do_app_def:
             Rval (Conv NONE [nat_to_v gen; nat_to_v id]))
     | (Env_id, [Conv NONE [gen; id]]) => SOME (s,
             Rval (Conv NONE [gen; id]))
+    | (ThunkOp th_op, vs) => thunk_op s th_op vs
     | _ => NONE
 End
 
@@ -357,6 +378,7 @@ Datatype:
   ctxt_frame = Craise
              | Chandle ((pat # exp) list)
              | Capp op (v list) (exp list)
+             | Cforce num
              | Clog lop exp
              | Cif exp exp
              | Cmat_check ((pat # exp) list) v
@@ -394,6 +416,17 @@ Definition application_def:
        (case do_opapp vs of
           SOME (env,e) => (Estep (env, s, Exp e, c):estep_result)
         | NONE => Etype_error)
+   | Force =>
+      (case vs of
+         [Loc b n] => (
+            case dest_thunk [Loc b n] s of
+            | BadRef => Etype_error
+            | NotThunk => Etype_error
+            | IsThunk Evaluated v => return env s v c
+            | IsThunk NotEvaluated f =>
+                return env s f
+                  ((Capp Opapp [Conv NONE []] [], env)::(Cforce n, env)::c))
+        | _ => Etype_error)
    | _ =>
        case op of
        | FFI n => (
@@ -420,6 +453,14 @@ Definition continue_def:
   continue s v ((Chandle pes, env)::c) = return env s v c ∧
   continue s v ((Capp op vs [], env) :: c) = application op env s (v::vs) c ∧
   continue s v ((Capp op vs (e::es), env) :: c) = push env s e (Capp op (v::vs) es) c ∧
+  continue s v ((Cforce n, env) :: c) = (
+    case dest_thunk [v] s of
+    | BadRef => Etype_error
+    | NotThunk => (
+        case store_assign n (Thunk Evaluated v) s of
+        | SOME s' => return env s' v c
+        | NONE => Etype_error)
+    | IsThunk v3 v4 => Etype_error) ∧
   continue s v ((Clog l e, env) :: c) = (
     case do_log l v e of
       SOME (Exp e) => Estep (env, s, Exp e, c)
@@ -702,5 +743,3 @@ CoInductive safe_itree:
   (safe_itree P Div) ∧
   ((∀s. P s ⇒ safe_itree P (rest s)) ⇒ safe_itree P (Vis e rest))
 End
-
-val _ = export_theory();

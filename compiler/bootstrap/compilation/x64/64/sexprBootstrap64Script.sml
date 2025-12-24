@@ -2,9 +2,11 @@
   Produces an sexp print-out of the bootstrap translated compiler
   definition for the 64-bit version of the compiler.
 *)
-open preamble compiler64ProgTheory astToSexprLib
-
-val _ = new_theory"sexprBootstrap64";
+Theory sexprBootstrap64
+Ancestors
+  compiler64Prog
+Libs
+  preamble astToSexprLib
 
 val filename = "cake-sexpr-64"
 
@@ -104,4 +106,3 @@ val l2 = length (linesFrom filename2)
 
 *)
 
-val _ = export_theory();

@@ -1,13 +1,13 @@
 (*
   Correctness proof for word_elim
 *)
+Theory word_elimProof
+Libs
+  preamble
+Ancestors
+  mllist wordLang word_elim wordSem wordProps spt_closure wordConvs
 
-open preamble wordLangTheory
-     word_elimTheory wordSemTheory wordPropsTheory wordConvsTheory spt_closureTheory
 
-val _ = new_theory "word_elimProof";
-val _ = set_grammar_ancestry
-  ["wordLang", "word_elim", "wordSem", "wordProps", "spt_closure"];
 val _ = temp_delsimps ["fromAList_def"]
 val _ = Parse.hide"mem";
 val _ = Parse.bring_to_front_overload"domain"{Thy="sptree",Name="domain"};
@@ -496,12 +496,12 @@ Theorem stack_list_rearrange_lemma:
         domain (get_locals s.locals) ⊆ dr ∧
         domain (get_stack s.stack) ⊆ dr
     ⇒ domain (get_stack (StackFrame lsz (toAList (inter s.locals n)) (list_rearrange (s.permute 0)
-    (QSORT key_val_compare (toAList (inter s.locals locs)))) opt::s.stack))
+    (sort key_val_compare (toAList (inter s.locals locs)))) opt::s.stack))
         ⊆ dr
 Proof
     rw[] >> fs[get_stack_def, domain_union] >> rw[SUBSET_DEF] >>
     imp_res_tac get_num_wordloc_alist_thm >>
-    fs[MEM_MAP] >> fs[mem_list_rearrange, QSORT_MEM] >>
+    fs[MEM_MAP] >> fs[mem_list_rearrange, sort_MEM] >>
     Cases_on `y` >> fs[MEM_toAList] >> fs[lookup_inter] >>
     gvs[option_case_eq] >>
     fs[SUBSET_DEF, domain_get_locals_lookup] >> metis_tac[]
@@ -1199,6 +1199,7 @@ Proof
         gvs[AllCaseEqs(),
         sh_mem_load_def,sh_mem_load_byte_def,
         sh_mem_load32_def,sh_mem_store32_def,
+        sh_mem_load16_def,sh_mem_store16_def,
         sh_mem_store_def,sh_mem_store_byte_def,
         DefnBase.one_line_ify NONE sh_mem_set_var_def] >>
       rw[set_var_def,dest_result_loc_def,flush_state_def] >>
@@ -1533,5 +1534,3 @@ Proof
                 ) >> fs[ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME])
         )
 QED
-
-val _ = export_theory();

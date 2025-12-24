@@ -3,11 +3,12 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     helloErrProgTheory helloErrCompileTheory
-
-val _ = new_theory"helloErrProof";
+Theory helloErrProof
+Ancestors
+  semanticsProps backendProof x64_configProof helloErrProg
+  helloErrCompile
+Libs
+  preamble
 
 val helloErr_io_events_def =
   new_specification("helloErr_io_events_def",["helloErr_io_events"],
@@ -35,4 +36,3 @@ Theorem helloErr_compiled_thm =
   |> DISCH_ALL
   |> check_thm
 
-val _ = export_theory();

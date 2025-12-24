@@ -1,16 +1,19 @@
 (*
   The formal semantics of closLang
 *)
-open preamble backend_commonTheory closLangTheory flatLangTheory
-     semanticPrimitivesPropsTheory (* for opw_lookup and others *)
-
-val _ = new_theory"closSem"
+Theory closSem
+Ancestors
+  backend_common closLang flatLang
+  semanticPrimitivesProps (* for opw_lookup and others *)
+Libs
+  preamble
 
 (* differs from store_v by removing the single value Refv,
    also, adds flag to ByteArray for equality semantics *)
 Datatype:
   ref = ValueArray ('a list)
       | ByteArray (word8 list)
+      | Thunk thunk_mode 'a
 End
 
 (* --- Semantics of ClosLang --- *)
@@ -197,6 +200,14 @@ Definition do_word_app_def:
         | SOME (w1,w2) => SOME (Number &(w2n (opw_lookup opw w1 w2))))) /\
   do_word_app (WordOpw W64 opw) [Word64 w1; Word64 w2] =
         SOME (Word64 (opw_lookup opw w1 w2)) /\
+  do_word_app (WordTest W8 test) [Number n1; Number n2] =
+       (if 0 ≤ n1 ∧ n1 < 256 ∧ 0 ≤ n2 ∧ n2 < 256 then
+          (case test of
+           | Equal  => SOME (Boolv (n1 = n2))
+           | Less   => SOME (Boolv (n1 < n2))
+           | LessEq => SOME (Boolv (n1 <= n2))
+           | _ => NONE)
+        else NONE) /\
   do_word_app (WordShift W8 sh n) [Number i] =
        (case some (w:word8). i = &(w2n w) of
         | NONE => NONE
@@ -271,6 +282,10 @@ Definition do_app_def:
              then Rval (EL (Num i) xs, s)
              else Error)
          | _ => Error)
+    | (BlockOp (BoolTest test),[v1;v2]) =>
+        (if (v1 ≠ Boolv T ∧ v1 ≠ Boolv F) then Error else
+         if (v2 ≠ Boolv T ∧ v2 ≠ Boolv F) then Error else
+           Rval (Boolv (v1 = v2), s))
     | (BlockOp (ElemAt n),[Block tag xs]) =>
         if n < LENGTH xs then Rval (EL n xs, s) else Error
     | (BlockOp ListAppend, [x1; x2]) =>
@@ -432,6 +447,17 @@ Definition do_app_def:
              Rval (Boolv (0 <= i /\ i < & LENGTH ws),s)
          | _ => Error)
     | (MemOp ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
+    | (ThunkOp th_op, vs) =>
+        (case (th_op,vs) of
+         | (AllocThunk m, [v]) =>
+             (let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
+                Rval (RefPtr F ptr, s with refs := s.refs |+ (ptr,Thunk m v)))
+         | (UpdateThunk m, [RefPtr _ ptr; v]) =>
+             (case FLOOKUP s.refs ptr of
+              | SOME (Thunk NotEvaluated _) =>
+                 Rval (Unit, s with refs := s.refs |+ (ptr,Thunk m v))
+              | _ => Error)
+         | _ => Error)
     | _ => Error
 End
 
@@ -439,7 +465,7 @@ Definition dec_clock_def:
   dec_clock n ^s = s with clock := s.clock - n
 End
 
-Triviality LESS_EQ_dec_clock:
+Theorem LESS_EQ_dec_clock[local]:
   (r:('c,'ffi) closSem$state).clock <= (dec_clock n s).clock ==> r.clock <= s.clock
 Proof
   SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC
@@ -465,7 +491,7 @@ Definition fix_clock_def:
   fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
 End
 
-Triviality fix_clock_IMP:
+Theorem fix_clock_IMP[local]:
   fix_clock s x = (res,s1) ==> s1.clock <= s.clock
 Proof
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
@@ -562,7 +588,8 @@ Theorem case_eq_thms = LIST_CONJ (
   closLangTheory.word_op_case_eq ::
   closLangTheory.block_op_case_eq ::
   closLangTheory.glob_op_case_eq ::
-  closLangTheory.mem_op_case_eq :: map CaseEq
+  closLangTheory.mem_op_case_eq ::
+  astTheory.thunk_op_case_eq :: map CaseEq
   ["list","option","v","ref",
    "result","error_result","eq_result","app_kind","word_size"]);
 
@@ -578,6 +605,81 @@ Theorem do_install_clock_less_eq:
 Proof
   rw[do_install_def,case_eq_thms] \\ fs []
   \\ pairarg_tac \\ gvs[case_eq_thms,pair_case_eq,bool_case_eq]
+QED
+
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk [RefPtr _ ptr] refs =
+    (case FLOOKUP refs ptr of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk vs refs = NotThunk
+End
+
+Definition store_thunk_def:
+  store_thunk ptr v refs =
+    case FLOOKUP refs ptr of
+    | SOME (Thunk NotEvaluated _) => SOME (refs |+ (ptr,v))
+    | _ => NONE
+End
+
+Definition update_thunk_def:
+  update_thunk [RefPtr _ ptr] refs [v] =
+    (case dest_thunk [v] refs of
+     | NotThunk => store_thunk ptr (Thunk Evaluated v) refs
+     | _ => NONE) ∧
+  update_thunk _ _ _ = NONE
+End
+
+Definition AppUnit_def:
+  AppUnit x = closLang$App None NONE x [Op None (BlockOp (Cons 0)) []]
+End
+
+Definition exp_alt_size_def[simp]:
+  exp_alt_size (Var a0 a1) = 1 + (tra_size a0 + a1) ∧
+  exp_alt_size (If a0 a1 a2 a3) =
+  1 + (tra_size a0 + (exp_alt_size a1 + (exp_alt_size a2 + exp_alt_size a3))) ∧
+  exp_alt_size (Let a0 a1 a2) =
+  1 + (tra_size a0 + (exp3_alt_size a1 + exp_alt_size a2)) ∧
+  exp_alt_size (Raise a0 a1) = 1 + (tra_size a0 + exp_alt_size a1) ∧
+  exp_alt_size (Handle a0 a1 a2) =
+  1 + (tra_size a0 + (exp_alt_size a1 + exp_alt_size a2)) ∧
+  exp_alt_size (Tick a0 a1) = 1 + (tra_size a0 + exp_alt_size a1) ∧
+  exp_alt_size (Call a0 a1 a2 a3) =
+  1 + (tra_size a0 + (a1 + (a2 + exp3_alt_size a3))) ∧
+  exp_alt_size (App a0 a1 a2 a3) =
+  1 +
+  (tra_size a0 + (option_size (λx. x) a1 + (exp_alt_size a2 + exp3_alt_size a3))) ∧
+  exp_alt_size (Fn a0 a1 a2 a3 a4) =
+  1 +
+  (mlstring_size a0 +
+   (option_size (λx. x) a1 +
+    (option_size (list_size (λx. x)) a2 + (a3 + exp_alt_size a4)))) ∧
+  exp_alt_size (Letrec a0 a1 a2 a3 a4) =
+  1 +
+  (list_size mlstring_size a0 +
+   (option_size (λx. x) a1 +
+    (option_size (list_size (λx. x)) a2 + (exp1_alt_size a3 + exp_alt_size a4)))) ∧
+  exp_alt_size (Op a0 a1 a2) = 1 + (tra_size a0 + (op_size a1 + exp3_alt_size a2))
+    + (if a1 = ThunkOp ForceThunk then 100 else 0) ∧
+  exp1_alt_size [] = 0 ∧
+  exp1_alt_size (a0::a1) = 1 + (exp2_alt_size a0 + exp1_alt_size a1) ∧
+  exp2_alt_size (a0,a1) = 1 + (a0 + exp_alt_size a1) ∧ exp3_alt_size [] = 0 ∧
+  exp3_alt_size (a0::a1) = 1 + (exp_alt_size a0 + exp3_alt_size a1)
+End
+
+Theorem exp3_alt_size[local,simp]:
+  exp3_alt_size xs = list_size exp_alt_size xs
+Proof
+  Induct_on `xs` \\ simp []
 QED
 
 Definition evaluate_def[nocompute]:
@@ -620,6 +722,18 @@ Definition evaluate_def[nocompute]:
              | (Rval vs,s) => (Rval [LAST vs],s)
              | res => res)
         | (Rerr err,s) => (Rerr err,s))
+       else if op = ThunkOp ForceThunk then
+         (case dest_thunk vs s.refs of
+          | BadRef => (Rerr (Rabort Rtype_error),s)
+          | NotThunk => (Rerr (Rabort Rtype_error),s)
+          | IsThunk Evaluated v => (Rval [v],s)
+          | IsThunk NotEvaluated f =>
+             (case evaluate ([AppUnit (Var None 0)],[f],s) of
+              | (Rval vs2,s) =>
+                 (case update_thunk vs s.refs vs2 of
+                  | NONE => (Rerr (Rabort Rtype_error),s)
+                  | SOME refs => (Rval vs2,s with refs := refs))
+              | (Rerr e,s) => (Rerr e,s)))
        else
        (case do_app op (REVERSE vs) s of
         | Rerr err => (Rerr err,s)
@@ -690,7 +804,7 @@ Definition evaluate_def[nocompute]:
            | res => res)
 Termination
   WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure I)
-                (\x. case x of INL (xs,env,s) => (s.clock,list_size exp_size xs,0)
+                (\x. case x of INL (xs,env,s) => (s.clock,list_size exp_alt_size xs,0)
                              | INR (l,f,args,s) => (s.clock,0,LENGTH args)))`
   \\ rpt strip_tac
   \\ simp[dec_clock_def]
@@ -701,7 +815,8 @@ Termination
   \\ imp_res_tac dest_closure_length
   \\ imp_res_tac LESS_EQ_dec_clock
   \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ decide_tac
+  \\ simp [AppUnit_def]
+  \\ IF_CASES_TAC \\ gvs []
 End
 
 Theorem evaluate_app_NIL[simp] =
@@ -722,7 +837,7 @@ Proof
   \\ every_case_tac \\ fs[] \\ rveq \\ fs[]
 QED
 
-Triviality evaluate_clock_help:
+Theorem evaluate_clock_help[local]:
   (!tup vs (s2:('c,'ffi) closSem$state).
       (evaluate tup = (vs,s2)) ==> s2.clock <= (SND (SND tup)).clock) ∧
     (!loc_opt f args (s1:('c,'ffi) closSem$state) vs s2.
@@ -801,5 +916,3 @@ Definition semantics_def:
              (IMAGE (λk. fromList
                 (SND (evaluate (es,[],st k))).ffi.io_events) UNIV))
 End
-
-val _ = export_theory()

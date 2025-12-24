@@ -3,14 +3,11 @@
   checks for exhaustiveness, and then converts the pattern rows into
   an if-then-else decision tree.
 *)
-open preamble astTheory semanticPrimitivesTheory pattern_commonTheory
-     pattern_semanticsTheory;
-
-val _ = new_theory "pattern_comp";
-
-val _ = set_grammar_ancestry
-  ["pattern_common", "semanticPrimitives", "pattern_semantics"];
-
+Theory pattern_comp
+Ancestors
+  pattern_common semanticPrimitives pattern_semantics ast
+Libs
+  preamble
 
 (* moving constant patterns up *)
 
@@ -82,7 +79,7 @@ Proof
   \\ rw [] \\ every_case_tac \\ fs []
 QED
 
-Triviality pmatchResult_case_NONE:
+Theorem pmatchResult_case_NONE[local]:
   (case x of PMatchSuccess => NONE
            | PMatchFailure => NONE
            | PTypeFailure => K NONE NONE) = NONE
@@ -445,13 +442,13 @@ Proof
   \\ CASE_TAC \\ fs []
 QED
 
-Triviality is_True_thm:
+Theorem is_True_thm[local]:
   is_True t <=> t = True
 Proof
   Cases_on `t` \\ fs [is_True_def]
 QED
 
-Triviality dt_eval_guard_mk_Conj:
+Theorem dt_eval_guard_mk_Conj[local]:
   dt_eval_guard refs v (mk_Conj p q) =
   dt_eval_guard refs v (Conj p q)
 Proof
@@ -537,7 +534,7 @@ Proof
     \\ fs [CaseEq"pmatchResult"])
 QED
 
-Triviality mk_If_thm:
+Theorem mk_If_thm[local]:
   dt_eval refs v (mk_If g p q) = dt_eval refs v (If g p q)
 Proof
   rw [mk_If_def] \\ fs [is_True_thm,dt_eval_def,dt_eval_guard_def]
@@ -581,4 +578,3 @@ Proof
   \\ metis_tac [pat_to_code_thm,exh_rows_thm,match_insert_Any]
 QED
 
-val _ = export_theory();

@@ -1,15 +1,14 @@
 (*
   Instantiate the CakeML FFI oracle for the oracle of the basis library.
 *)
-open preamble ml_translatorTheory ml_translatorLib ml_progLib
-     cfLib basisFunctionsLib set_sepTheory
-     fsFFITheory fsFFIPropsTheory
-     CommandLineProofTheory TextIOProofTheory
-     runtimeFFITheory RuntimeProofTheory
+Theory basis_ffi
+Ancestors
+  ml_translator set_sep fsFFI fsFFIProps CommandLineProof
+  TextIOProof runtimeFFI RuntimeProof
+Libs
+  preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"basis_ffi";
 
 (*---------------------------------------------------------------------------*)
 (* GENERALISED FFI *)
@@ -288,16 +287,14 @@ Theorem extract_stdo_extract_fs
   \\ rw[] \\ fs[]
   stdo_def
 
-Definition is_write_def:
+Definition is_write_def[simp]:
   (is_write fd (IO_event name _ ((fd',st)::_)) ⇔ name="write" ∧ fd' = fd ∧ st = 0w) ∧
   (is_write _ _ ⇔ F)
 End
-val _ = export_rewrites["is_write_def"];
 
-Definition extract_write_def:
+Definition extract_write_def[simp]:
   extract_write (IO_event _ _ (_::(_,nw)::bytes)) = TAKE (w2n nw) (MAP FST bytes)
 End
-val _ = export_rewrites["extract_write_def"];
 
 Definition extract_writes_def:
   extract_writes fd io_events =
@@ -750,5 +747,3 @@ Theorem same_eval_state:
 Proof
   fs [semanticPrimitivesTheory.state_component_equality]
 QED
-
-val _ = export_theory();

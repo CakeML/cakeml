@@ -1,15 +1,13 @@
 (*
   Correctness proof for loop_to_word
 *)
+Theory loop_to_wordProof
+Libs
+  preamble
+Ancestors
+  loopSem loopProps wordLang wordSem wordProps pan_common
+  pan_commonProps loop_to_word loop_removeProof wordConvs
 
-open preamble
-     loopSemTheory loopPropsTheory
-     wordLangTheory wordSemTheory wordPropsTheory
-     pan_commonTheory pan_commonPropsTheory
-     loop_to_wordTheory loop_removeProofTheory
-     wordConvsTheory;
-
-val _ = new_theory "loop_to_wordProof";
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"];
 
@@ -41,6 +39,7 @@ End
 
 Definition state_rel_def:
   state_rel s t <=>
+  ∃len.
     t.memory = s.memory ∧
     t.mdomain = s.mdomain ∧
     t.sh_mdomain = s.sh_mdomain ∧
@@ -48,6 +47,8 @@ Definition state_rel_def:
     t.be = s.be ∧
     t.ffi = s.ffi ∧
     ALOOKUP (fmap_to_alist t.store) CurrHeap = SOME (Word s.base_addr) ∧
+    ALOOKUP (fmap_to_alist t.store) HeapLength = SOME (Word len) ∧
+    s.top_addr = s.base_addr + 2w*len ∧
     globals_rel s.globals t.store ∧
     code_rel s.code t.code
 End
@@ -56,7 +57,8 @@ val goal =
   ``λ(prog:α loopLang$prog, s). ∀res s1 t ctxt retv l.
       evaluate (prog,s) = (res,s1) ∧ res ≠ SOME Error ∧
       state_rel s t ∧ locals_rel ctxt s.locals t.locals ∧
-      ALOOKUP (fmap_to_alist t.store) CurrHeap = SOME (Word s.base_addr) ∧
+(*      ALOOKUP (fmap_to_alist t.store) CurrHeap = SOME (Word s.base_addr) ∧
+      ALOOKUP (fmap_to_alist t.store) EndOfHeap = SOME (Word s.top_addr) ∧*)
       lookup 0 t.locals = SOME retv ∧ no_Loops prog ∧
       good_dimindex(:'a) ∧
       ~(isWord retv) ∧
@@ -131,7 +133,7 @@ Theorem state_rel_intro:
     globals_rel s.globals t.store ∧
     code_rel s.code t.code
 Proof
-  rw [state_rel_def]
+  rw [state_rel_def] >> simp[]
 QED
 
 Theorem find_var_neq_0:
@@ -178,10 +180,10 @@ Proof
 QED
 
 
-Triviality state_rel_IMP:
+Theorem state_rel_IMP[local]:
   state_rel s t ⇒ t.clock = s.clock
 Proof
-  fs [state_rel_def]
+  fs [state_rel_def] >> metis_tac[]
 QED
 
 Theorem set_fromNumSet:
@@ -215,7 +217,7 @@ Proof
   >> metis_tac []
 QED
 
-Triviality make_ctxt_APPEND:
+Theorem make_ctxt_APPEND[local]:
   ∀xs ys n l.
     make_ctxt n (xs ++ ys) l =
     make_ctxt (n + 2 * LENGTH xs) ys (make_ctxt n xs l)
@@ -223,7 +225,7 @@ Proof
   Induct >> fs [make_ctxt_def,MULT_CLAUSES]
 QED
 
-Triviality make_ctxt_NOT_MEM:
+Theorem make_ctxt_NOT_MEM[local]:
   ∀xs n l x. ~MEM x xs ⇒ lookup x (make_ctxt n xs l) = lookup x l
 Proof
   Induct >> fs [make_ctxt_def,lookup_insert]
@@ -335,15 +337,15 @@ Proof
   >> fs [lookup_inter_alt]
 QED
 
-Triviality LASTN_ADD_CONS:
+Theorem LASTN_ADD_CONS[local]:
   ~(LENGTH xs <= n) ⇒ LASTN (n + 1) (x::xs) = LASTN (n + 1) xs
 Proof
   fs [LASTN_CONS]
 QED
 
 Theorem comp_exp_preserves_eval:
-  ∀s e v t ctxt.
-    eval s e = SOME v ∧
+  ∀s (e:'a loopLang$exp) v t ctxt.
+    eval s e = SOME v ∧ good_dimindex(:'a) ∧
     state_rel s t /\ locals_rel ctxt s.locals t.locals ==>
     word_exp t (comp_exp ctxt e) = SOME v
 Proof
@@ -370,7 +372,7 @@ Proof
                     (MAP (λa. comp_exp ctxt a) wexps)) = SOME ws’
     >- fs [] >>
     ntac 2 (pop_assum mp_tac) >>
-    ntac 2 (pop_assum kall_tac) >>
+    ntac 3 (pop_assum kall_tac) >>
     rpt (pop_assum mp_tac) >>
     qid_spec_tac ‘ws’ >>
     qid_spec_tac ‘wexps’ >>
@@ -384,7 +386,9 @@ Proof
   fs[state_rel_def,get_store_def] >>
   Cases_on ‘FLOOKUP t.store CurrHeap’ >> fs[] >>
   rename1 ‘x’ >>
-  Cases_on ‘x’ >> fs[theWord_def, isWord_def]
+  Cases_on ‘x’ >> fs[theWord_def, isWord_def,word_sh_def, the_words_def, good_dimindex_def,word_op_def] >>
+  gvs[] >>
+  simp[WORD_MUL_LSL]
 QED
 
 Theorem compile_Skip:
@@ -399,7 +403,8 @@ Proof
   TOP_CASE_TAC >>
   fs [flush_state_def, state_rel_def,
       loopSemTheory.dec_clock_def, dec_clock_def] >> rveq >>
-  fs []
+  fs [] >>
+  rw[]
 QED
 
 Theorem compile_Loop:
@@ -619,7 +624,8 @@ Proof
   fs [] >>
   fs [state_rel_def, set_store_def,
       loopSemTheory.set_globals_def, globals_rel_def] >>
-  rw [FLOOKUP_UPDATE]
+  rw [FLOOKUP_UPDATE] >>
+  rw[] >> gvs[]
 QED
 
 Theorem acc_vars_acc'[local] =
@@ -1035,9 +1041,11 @@ Proof
       PULL_EXISTS,
       sh_mem_load_def,
       sh_mem_load_byte_def,
+      sh_mem_load16_def,
       sh_mem_load32_def,
       sh_mem_store_def,
       sh_mem_store_byte_def,
+      sh_mem_store16_def,
       sh_mem_store32_def,
       sh_mem_set_var_def,
       find_var_def,
@@ -1157,8 +1165,7 @@ Proof
     >- (
      fs [Abbr ‘ctxt’] >>
      match_mp_tac locals_rel_mk_ctxt_ln >>
-     fs []) >>
-    conj_tac >- fs[state_rel_def]
+     fs [])
     >> (
      fs [no_Loops_def, no_Loop_def] >>
      fs [every_prog_def]) >>
@@ -1197,8 +1204,7 @@ Proof
      >- (
       fs [Abbr ‘ctxt’] >>
       match_mp_tac locals_rel_mk_ctxt_ln >>
-      fs []) >>
-    conj_tac >- fs[state_rel_def]
+      fs [])
      >> (
       fs [no_Loops_def, no_Loop_def] >>
       fs [every_prog_def]) >>
@@ -1240,8 +1246,7 @@ Proof
    >- (
     fs [Abbr ‘ctxt’] >>
     match_mp_tac locals_rel_mk_ctxt_ln >>
-    fs []) >>
-    conj_tac >- fs[state_rel_def]
+    fs [])
      >> (
     fs [no_Loops_def, no_Loop_def] >>
     fs [every_prog_def]) >>
@@ -1281,8 +1286,7 @@ Proof
    >- (
     fs [Abbr ‘ctxt’] >>
     match_mp_tac locals_rel_mk_ctxt_ln >>
-    fs []) >>
-    conj_tac >- fs[state_rel_def]
+    fs [])
      >> (
     fs [no_Loops_def, no_Loop_def] >>
     fs [every_prog_def]) >>
@@ -1319,8 +1323,7 @@ Proof
    >- (
     fs [Abbr ‘ctxt’] >>
     match_mp_tac locals_rel_mk_ctxt_ln >>
-    fs []) >>
-    conj_tac >- fs[state_rel_def]
+    fs [])
      >> (
     fs [no_Loops_def, no_Loop_def] >>
     fs [every_prog_def]) >>
@@ -1394,7 +1397,6 @@ Proof
     fs [Abbr ‘ctxt’] >>
     match_mp_tac locals_rel_mk_ctxt_ln >>
     fs []) >>
-   impl_tac>- fs[state_rel_def] >>
    impl_tac >- (
     fs [no_Loops_def, no_Loop_def] >>
     fs [every_prog_def]) >>
@@ -1426,7 +1428,6 @@ Proof
    fs [Abbr ‘ctxt’] >>
    match_mp_tac locals_rel_mk_ctxt_ln >>
    fs []) >>
-   impl_tac>- fs[state_rel_def] >>
   impl_tac
   >- (
    fs [no_Loops_def, no_Loop_def] >>
@@ -1443,7 +1444,9 @@ Proof
                [‘Call NONE (SOME start) [0] NONE’, ‘t with clock := k’] mp_tac) >>
   strip_tac >> fs [] >>
   qexists_tac ‘k’ >> fs [] >>
-  fs [state_rel_def]
+  fs [state_rel_def] >>
+  first_x_assum drule >>
+  gvs[]
 QED
 
 Definition st_rel_def:
@@ -1611,7 +1614,7 @@ Proof
   strip_tac>>pairarg_tac>>gs[loop_to_word_comp_func_not_created]
 QED
 
-Triviality loop_to_word_compile_not_created_MEM:
+Theorem loop_to_word_compile_not_created_MEM[local]:
   MEM (a, b, p) (compile_prog pan_prog) ==>
   (!x. (case x of ShareInst _ _ _ => T | Call _ _ _ _ => T
         | LocValue _ _ => T | _ => F) ==>
@@ -2025,13 +2028,13 @@ Proof
   simp[]
 QED
 
-Triviality comp_with_loop_alt_ind =
+Theorem comp_with_loop_alt_ind[local] =
   loop_removeTheory.comp_with_loop_ind
     |> PURE_REWRITE_RULE [METIS_PROVE [] “(a,b) = comp_with_loop x y z w ⇔ comp_with_loop x y z w = (a,b)”,
                           METIS_PROVE [] “(a,b) = store_cont x y z ⇔ store_cont x y z = (a,b)”];
 
 
-Triviality eq_forall_elim:
+Theorem eq_forall_elim[local]:
   (∀x. y = x ⇒ P x) = P y
 Proof
   metis_tac[]
@@ -2126,5 +2129,3 @@ Proof
   drule_then irule loop_to_word_compile_prog_every_inst_ok_less>>
   gs[every_loop_inst_ok_comp_prog]
 QED
-
-val _ = export_theory();

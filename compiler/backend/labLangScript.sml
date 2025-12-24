@@ -2,9 +2,11 @@
   The labLang intermediate language is a target-neutral assembly
   language at the bottom end of the compielr backend.
 *)
-open preamble asmTheory;
-
-val _ = new_theory "labLang";
+Theory labLang
+Ancestors
+  asm
+Libs
+  preamble
 
 Type reg = ``:num``
 
@@ -47,16 +49,13 @@ Datatype:
   sec = Section num (('a line) list)
 End
 
-Definition Section_num_def:
+Definition Section_num_def[simp]:
   Section_num (Section k _) = k
 End
-Definition Section_lines_def:
+Definition Section_lines_def[simp]:
   Section_lines (Section _ lines) = lines
 End
-val _ = export_rewrites["Section_num_def","Section_lines_def"];
 
 (* A full assembly program consists of a list of sections. *)
 
 Type prog = ``:('a sec) list``
-
-val _ = export_theory();

@@ -1,11 +1,11 @@
 (*
   Implementation of interpreter for closLang expressions written in closLang.
 *)
-open preamble closLangTheory backend_commonTheory;
-
-val _ = new_theory "clos_interp";
-
-val _ = set_grammar_ancestry ["closLang", "backend_common"];
+Theory clos_interp
+Ancestors
+  closLang backend_common
+Libs
+  preamble
 
 (* fits in subset *)
 
@@ -284,4 +284,3 @@ Proof
   \\ rpt CASE_TAC \\ fs [to_constant_op_def]
 QED
 
-val _ = export_theory();

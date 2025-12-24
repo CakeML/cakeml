@@ -1,13 +1,12 @@
 (*
   Definition of a compiler from Scheme to CakeML
 *)
-open preamble;
-open fromSexpTheory simpleSexpParseTheory;
-open scheme_astTheory
-     scheme_parsingTheory
-     scheme_to_cakeTheory;
-
-val _ = new_theory "scheme_compiler";
+Theory scheme_compiler
+Ancestors
+  fromSexp simpleSexpParse scheme_ast scheme_parsing
+  scheme_to_cake
+Libs
+  preamble
 
 Definition cake_prog_to_string_def:
   cake_prog_to_string ast =
@@ -25,9 +24,12 @@ Definition compile_def:
     case parse_to_ast s of
     | INL err_str => cake_for_err ("PARSE ERROR: " ++ err_str ++ "\n")
     | INR ast =>
+      (case static_scope_check ast of
+      | INL err_str => cake_for_err ("TYPE ERROR: " ++ err_str ++ "\n")
+      | INR ast' =>
        (case codegen ast of
         | INL err_str => cake_for_err ("CODEGEN ERROR: " ++ err_str ++ "\n")
-        | INR cake_prog => cake_prog_to_string cake_prog)
+        | INR cake_prog => cake_prog_to_string cake_prog))
 End
 
 (*
@@ -38,4 +40,3 @@ Definition main_function_def:
   main_function s = implode (compile (explode s))
 End
 
-val _ = export_theory();

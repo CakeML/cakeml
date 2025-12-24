@@ -1,12 +1,13 @@
 (*
   A monadic graph-coloring register allocator
 *)
+Theory reg_alloc
+Libs
+  preamble ml_monadBaseLib
+Ancestors
+  mllist state_transformer ml_monadBase sorting
 
-open preamble state_transformerTheory
-open ml_monadBaseLib ml_monadBaseTheory
-open sortingTheory
 
-val _ = new_theory "reg_alloc"
 val _ = ParseExtras.temp_tight_equality();
 val _ = monadsyntax.temp_add_monadsyntax()
 
@@ -342,7 +343,7 @@ End
 (* sort moves by priority *)
 Definition sort_moves_def:
   sort_moves ls =
-    QSORT (λp:num,x p',x'. p>p') ls
+    sort (λp:num,x p',x'. p>p') ls
 End
 
 (* merge two sorted lists *)
@@ -966,7 +967,7 @@ Definition assign_Stemp_tag_def:
       do
         adjs <- adj_ls_sub n;
         tags <- st_ex_MAP node_tag_sub adjs;
-        let bads = QSORT (λx y. x≤y) (MAP tag_col tags) in
+        let bads = sort (λx y. x≤y) (MAP tag_col tags) in
         do
           c <- prefs n bads;
           case c of
@@ -1219,7 +1220,7 @@ End
 
 Definition sp_default_def:
   sp_default t i =
-  (case lookup i t of NONE => if is_phy_var i then i DIV 2 else i | SOME x => x)
+  (case lookup i t of NONE => if is_phy_var i then i DIV 2 else 0 | SOME x => x)
 End
 
 Definition extend_graph_def:
@@ -1474,5 +1475,3 @@ Definition reg_alloc_def:
   reg_alloc alg scost k moves ct forced fs =
     reg_alloc_aux alg scost k moves ct forced fs (mk_bij ct)
 End
-
-val _ = export_theory();

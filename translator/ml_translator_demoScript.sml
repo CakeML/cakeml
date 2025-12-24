@@ -1,12 +1,11 @@
 (*
   A small example of using the HOL to CakeML translator.
 *)
-open HolKernel Parse boolLib bossLib;
-open arithmeticTheory listTheory combinTheory pairTheory;
-open semanticPrimitivesTheory
-open ml_translatorLib ml_translatorTheory;
-
-val _ = new_theory "ml_translator_demo";
+Theory ml_translator_demo
+Ancestors
+  arithmetic list combin pair semanticPrimitives ml_translator
+Libs
+  ml_translatorLib
 
 (* --- qsort translation --- *)
 
@@ -38,7 +37,7 @@ Theorem lookup_qsort =
 
 (* --- a more concrete example, not much use --- *)
 
-Triviality Eval_Var_lemma:
+Theorem Eval_Var_lemma[local]:
   (lookup_var name env = SOME x) /\ P x ==> Eval env (Var (Short name)) P
 Proof
   fs[Eval_Var]
@@ -65,4 +64,3 @@ Proof
 QED
 
 
-val _ = export_theory();

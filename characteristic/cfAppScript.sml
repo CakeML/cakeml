@@ -3,12 +3,12 @@
   value to one or multiple value arguments. It is in particular used
   in cf to abstract from the concrete representation of closures.
 *)
-open preamble
-open set_sepTheory helperLib semanticPrimitivesTheory
-open cfHeapsBaseTheory cfHeapsTheory cfHeapsBaseLib cfStoreTheory cfNormaliseTheory
-open cfTacticsBaseLib cfHeapsLib
-
-val _ = new_theory "cfApp"
+Theory cfApp
+Ancestors
+  set_sep semanticPrimitives cfHeapsBase cfHeaps cfStore
+  cfNormalise evaluate evaluateProps
+Libs
+  preamble helperLib cfHeapsBaseLib cfTacticsBaseLib cfHeapsLib
 
 Type state = ``:'ffi semanticPrimitives$state``
 
@@ -59,7 +59,7 @@ Definition app_basic_def:
         Q r h_f /\ evaluate_to_heap st env exp p heap r
 End
 
-Triviality app_basic_local:
+Theorem app_basic_local[local]:
   !f x. is_local (app_basic p f x)
 Proof
   simp [is_local_def] \\ rpt strip_tac \\
@@ -360,7 +360,6 @@ Proof
   \\ Cases_on`r` \\ fs[cond_def,EQ_IMP_THM]
 QED
 
-open evaluateTheory evaluatePropsTheory
 val dec_clock_def = evaluateTheory.dec_clock_def
 val evaluate_empty_state_IMP = ml_translatorTheory.evaluate_empty_state_IMP
 
@@ -389,7 +388,7 @@ Proof
   \\ simp[]
 QED
 
-Triviality forall_cases:
+Theorem forall_cases[local]:
   (!x. P x) <=> (!x1 x2. P (Mem x1 x2)) /\
                   (P FFI_split) /\
                   (!x3 x4 x2 x1. P (FFI_part x1 x2 x3 x4)) /\
@@ -398,13 +397,13 @@ Proof
   EQ_TAC \\ rw [] \\ Cases_on `x` \\ fs []
 QED
 
-Triviality SPLIT_UNION_IMP_SUBSET:
+Theorem SPLIT_UNION_IMP_SUBSET[local]:
   SPLIT x (y UNION y1,y2) ==> y1 SUBSET x
 Proof
   SPLIT_TAC
 QED
 
-Triviality FILTER_ffi_has_index_in_EQ_NIL:
+Theorem FILTER_ffi_has_index_in_EQ_NIL[local]:
   ~(MEM n xs) /\ EVERY (ffi_has_index_in xs) ys ==>
     FILTER (ffi_has_index_in [n]) ys = []
 Proof
@@ -414,7 +413,7 @@ Proof
   \\ CCONTR_TAC \\ fs [] \\ fs [ffi_has_index_in_def]
 QED
 
-Triviality FILTER_ffi_has_index_in_MEM:
+Theorem FILTER_ffi_has_index_in_MEM[local]:
   !ys zs xs x.
       MEM x xs /\
       FILTER (ffi_has_index_in xs) ys = FILTER (ffi_has_index_in xs) zs ==>
@@ -448,7 +447,7 @@ Proof
   \\ fs [FILTER_APPEND]
 QED
 
-Triviality LENGTH_FILTER_EQ_IMP_EMPTY:
+Theorem LENGTH_FILTER_EQ_IMP_EMPTY[local]:
   !xs l.
       (!io_ev. MEM io_ev l ==>
         ?s bs bs'. io_ev = IO_event (ExtCall s) bs bs') /\
@@ -473,13 +472,13 @@ Proof
   \\ fs[LENGTH]
 QED
 
-Triviality IN_DISJOINT_LEMMA1:
+Theorem IN_DISJOINT_LEMMA1[local]:
   !s. x IN h_g /\ DISJOINT s h_g ==> ~(x IN s)
 Proof
   SPLIT_TAC
 QED
 
-Triviality FFI_part_EXISTS:
+Theorem FFI_part_EXISTS[local]:
   parts_ok s1 (p0,p1) /\ parts_ok s2 (p0,p1) /\
     FFI_part x1 x2 x3 x4 ∈ ffi2heap (p0,p1) s1 ==>
     ?y1 y2 y4. FFI_part y1 y2 x3 y4 ∈ ffi2heap (p0,p1) s2
@@ -488,7 +487,7 @@ Proof
   \\ fs [parts_ok_def] \\ metis_tac []
 QED
 
-Triviality ALL_DISTINCT_FLAT_MEM_IMP:
+Theorem ALL_DISTINCT_FLAT_MEM_IMP[local]:
   !p1 x x2 y2.
       ALL_DISTINCT (FLAT (MAP FST p1)) /\ x <> [] /\
       MEM (x,x2) p1 /\ MEM (x,y2) p1 ==> x2 = y2
@@ -501,7 +500,7 @@ Proof
   \\ metis_tac [MEM]
 QED
 
-Triviality FFI_part_11:
+Theorem FFI_part_11[local]:
   parts_ok s1 (p0,p1) /\ parts_ok s2 (p0,p1) /\
     FFI_part x1 x2 x3 x4 ∈ ffi2heap (p0,p1) s1 /\
     FFI_part y1 y2 x3 y4 ∈ ffi2heap (p0,p1) s1 ==>
@@ -614,7 +613,8 @@ Theorem do_app_io_events_ExtCall:
         ?s bs bs'. io_ev = IO_event (ExtCall s) bs bs'
 Proof
   strip_tac >>
-  gvs[DefnBase.one_line_ify NONE do_app_def,
+  gvs[oneline do_app_def,
+    oneline thunk_op_def, store_alloc_def,
     AllCaseEqs(),ffiTheory.call_FFI_def] >>
   pairarg_tac >> fs[]
 QED
@@ -698,4 +698,3 @@ Proof
   metis_tac[GEN_ALL Arrow_IMP_app_basic, GEN_ALL app_basic_IMP_Arrow]
 QED
 
-val _ = export_theory ()

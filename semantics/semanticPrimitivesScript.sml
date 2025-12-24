@@ -2,12 +2,11 @@
   Definitions of semantic primitives (e.g., values, and functions for doing
   primitive operations) used in the semantics.
 *)
-open HolKernel Parse boolLib bossLib;
-open miscTheory astTheory namespaceTheory ffiTheory fpSemTheory;
+Theory semanticPrimitives
+Ancestors
+  misc ast namespace ffi fpSem
 
 val _ = numLib.temp_prefer_num();
-
-val _ = new_theory "semanticPrimitives"
 
 (* Constructors and exceptions need unique identities, which we represent by stamps. *)
 Datatype:
@@ -172,14 +171,17 @@ Datatype:
   | W8array (word8 list)
   (* An array of values *)
   | Varray ('a list)
+  (* Thunk *)
+  | Thunk thunk_mode 'a
 End
 
 Definition store_v_same_type_def:
   store_v_same_type v1 v2 =
     case (v1:'a store_v, v2:'a store_v) of
-    | (Refv _, Refv _) => T
-    | (W8array _,W8array _) => T
-    | (Varray _,Varray _) => T
+    | (Refv _,    Refv _   ) => T
+    | (W8array _, W8array _) => T
+    | (Varray _,  Varray _ ) => T
+    | (Thunk NotEvaluated _, Thunk _ _) => T
     | _ => F
 End
 
@@ -361,8 +363,7 @@ Definition pmatch_def:
   (case store_lookup lnum s of
      NONE => Match_type_error
    | SOME (Refv v) => pmatch envC s p v env
-   | SOME (W8array v6) => Match_type_error
-   | SOME (Varray v7) => Match_type_error) ∧
+   | SOME _ => Match_type_error) ∧
   pmatch envC s (Pas p i) v env = pmatch envC s p v ((i,v)::env) ∧
   pmatch envC s (Ptannot p t) v env = pmatch envC s p v env ∧
   pmatch envC s _ _ env = Match_type_error ∧
@@ -767,6 +768,50 @@ Definition xor_bytes_def:
     | SOME rest => SOME (word_xor b1 b2 :: rest)
 End
 
+Definition thunk_op_def:
+  thunk_op (s: v store_v list, t: 'ffi ffi_state) th_op vs =
+    case (th_op,vs) of
+    | (AllocThunk m, [v]) =>
+        (let (s',n) = store_alloc (Thunk m v) s in
+           SOME ((s',t), Rval (Loc F n)))
+    | (UpdateThunk m, [Loc _ lnum; v]) =>
+        (case store_assign lnum (Thunk m v) s of
+         | SOME s' => SOME ((s',t), Rval (Conv NONE []))
+         | NONE => NONE)
+    | _ => NONE
+End
+
+Definition check_type_def:
+  check_type BoolT v = (v = Boolv T ∨ v = Boolv F) ∧
+  check_type IntT v = (∃i. v = Litv (IntLit i)) ∧
+  check_type CharT v = (∃c. v = Litv (Char c)) ∧
+  check_type StrT v = (∃s. v = Litv (StrLit s)) ∧
+  check_type (WordT W8) v = (∃w. v = Litv (Word8 w)) ∧
+  check_type (WordT W64) v = (∃w. v = Litv (Word64 w)) ∧
+  check_type Float64T v = (∃w. v = Litv (Float64 w))
+End
+
+Definition dest_Litv_def:
+  dest_Litv (Litv v) = SOME v ∧
+  dest_Litv _ = NONE
+End
+
+Definition do_test_def: (* TODO: extend with more cases *)
+  do_test Equal ty v1 v2 =
+    (if check_type ty v1 ∧ check_type ty v2 then do_eq v1 v2 else Eq_type_error) ∧
+  do_test Less ty v1 v2 =
+    (case (ty, dest_Litv v1, dest_Litv v2) of
+     | (CharT, SOME (Char i), SOME (Char j)) => Eq_val (i < j)
+     | (WordT W8, SOME (Word8 w), SOME (Word8 v)) => Eq_val (w2n w < w2n v)
+     | _ => Eq_type_error) ∧
+  do_test LessEq ty v1 v2 =
+    (case (ty, dest_Litv v1, dest_Litv v2) of
+     | (CharT, SOME (Char i), SOME (Char j)) => Eq_val (i <= j)
+     | (WordT W8, SOME (Word8 w), SOME (Word8 v)) => Eq_val (w2n w <= w2n v)
+     | _ => Eq_type_error) ∧
+  do_test _ ty v1 v2 = Eq_type_error
+End
+
 Definition do_app_def:
   do_app (s: v store_v list, t: 'ffi ffi_state) op vs =
     case (op, vs) of
@@ -962,8 +1007,6 @@ Definition do_app_def:
             Rerr (Rraise chr_exn_v)
           else
             Rval (Litv(Char(CHR(Num (ABS (I i))))))))
-    | (Chopb op, [Litv (Char c1); Litv (Char c2)]) =>
-        SOME ((s,t), Rval (Boolv (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2)))))
     | (Implode, [v]) =>
           (case v_to_char_list v of
             SOME ls =>
@@ -1003,6 +1046,11 @@ Definition do_app_def:
                 SOME ((s,t), Rval (Vectorv vs))
             | NONE => NONE
           )
+    | (Vsub_unsafe, [Vectorv vs; Litv (IntLit i)]) =>
+        if (0:int) ≤ i ∧ Num i < LENGTH vs then
+          SOME ((s,t), Rval (EL (Num i) vs))
+        else
+          NONE
     | (Vsub, [Vectorv vs; Litv (IntLit i)]) =>
         if i <( 0 : int) then
           SOME ((s,t), Rerr (Rraise sub_exn_v))
@@ -1114,6 +1162,12 @@ Definition do_app_def:
             Rval (Conv NONE [nat_to_v gen; nat_to_v id]))
     | (Env_id, [Conv NONE [gen; id]]) => SOME ((s, t),
             Rval (Conv NONE [gen; id]))
+    | (ThunkOp th_op, vs) => thunk_op (s,t) th_op vs
+    | (Test test test_ty, [v1; v2]) =>
+        (case do_test test test_ty v1 v2 of
+            Eq_type_error => NONE
+          | Eq_val b => SOME ((s,t), Rval (Boolv b))
+        )
     | _ => NONE
 End
 
@@ -1170,4 +1224,35 @@ End
 val _ = set_fixity "+++" (Infixl 480);
 Overload "+++" = “extend_dec_env”;
 
-val _ = export_theory()
+(* With `dest_thunk` we check 3 things:
+     - The values contain exactly one reference
+     - The reference is valid
+     - The reference points to a thunk
+   We distinguish between `BadRef` and `NotThunk` instead of returning an option
+   with `NONE` for both, because we want `update_thunk` to succeed when
+   `dest_thunk` fails but only when the reference actually exists and points to
+   something other than a thunk. *)
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk [Loc _ n] st =
+    (case store_lookup n st of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk vs st = NotThunk
+End
+
+Definition update_thunk_def:
+  update_thunk [Loc _ n] st [v] =
+    (case dest_thunk [v] st of
+     | NotThunk => store_assign n (Thunk Evaluated v) st
+     | _ => NONE) ∧
+  update_thunk _ st _ = NONE
+End

@@ -1,11 +1,14 @@
 (*
   Translation of the OCaml lexer.
  *)
+Theory caml_lexProg[no_sig_docs]
+Ancestors
+  caml_lex parserProg ml_translator
+Libs
+  preamble ml_translatorLib
 
 open preamble caml_lexTheory;
 open parserProgTheory ml_translatorLib ml_translatorTheory;
-
-val _ = new_theory "caml_lexProg";
 
 val _ = translation_extends "parserProg";
 
@@ -167,8 +170,5 @@ val r = translate (caml_lexTheory.next_sym_def |> REWRITE_RULE [GSYM sub_check_d
 
 val r = translate caml_lexTheory.lexer_fun_def;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val () = ml_translatorLib.clean_on_exit := true;
-
-val _ = export_theory ();

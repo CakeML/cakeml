@@ -1,13 +1,13 @@
 (*
   Module about the built-in byte-array type.
 *)
-open preamble ml_translatorLib ml_progLib basisFunctionsLib
-     Word8ProgTheory
-
-val _ = new_theory "Word8ArrayProg";
+Theory Word8ArrayProg
+Ancestors
+  Word8Prog
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
 
 val _ = translation_extends "Word8Prog";
-val cakeml = append_prog o process_topdecs;
 
 val _ = ml_prog_update (add_dec
   ``Dtabbrev unknown_loc [] "byte_array" (Atapp [] (Short "word8array"))`` I);
@@ -34,7 +34,7 @@ val _ = append_decs
 
 val _ = ml_prog_update open_local_block;
 
-Quote cakeml:
+Quote add_cakeml:
   fun findi_aux f arr max n =
     if n = max
       then None
@@ -45,7 +45,7 @@ End
 
 val _ = ml_prog_update open_local_in_block;
 
-Quote cakeml:
+Quote add_cakeml:
   fun findi f arr =
     findi_aux f arr (length arr) 0
 End
@@ -54,4 +54,3 @@ val _ = ml_prog_update close_local_blocks;
 
 val _ = ml_prog_update (close_module NONE);
 
-val _ = export_theory()

@@ -2,11 +2,12 @@
   Various lemmas that are handy in the soundness and completeness
   proofs of the type inferencer.
 *)
-open preamble;
-open namespacePropsTheory typeSystemTheory astTheory semanticPrimitivesTheory inferTheory unifyTheory infer_tTheory;
-open astPropsTheory typeSysPropsTheory;
-
-val _ = new_theory "inferProps";
+Theory inferProps
+Ancestors
+  namespaceProps typeSystem ast semanticPrimitives infer unify
+  infer_t typeSysProps
+Libs
+  preamble
 
 Theorem ienv_unchanged[simp]:
    (ienv with inf_v := ienv.inf_v) = ienv ∧
@@ -359,7 +360,7 @@ Proof
   rw [infer_st_component_equality]
 QED
 
-Triviality st_ex_return_success:
+Theorem st_ex_return_success[local]:
   !v st v' st'.
   (st_ex_return v st = (Success v', st')) =
   ((v = v') ∧ (st = st'))
@@ -367,7 +368,7 @@ Proof
   rw [st_ex_return_def]
 QED
 
-Triviality st_ex_bind_success:
+Theorem st_ex_bind_success[local]:
   !f g st st' v.
  (st_ex_bind f g st = (Success v, st')) =
  ?v' st''. (f st = (Success v', st'')) /\ (g v' st'' = (Success v, st'))
@@ -379,7 +380,7 @@ cases_on `q` >>
 rw []
 QED
 
-Triviality fresh_uvar_success:
+Theorem fresh_uvar_success[local]:
   !st t st'.
   (fresh_uvar st = (Success t, st')) =
   ((t = Infer_Tuvar st.next_uvar) ∧
@@ -407,7 +408,7 @@ eq_tac >>
 srw_tac [ARITH_ss] [arithmeticTheory.ADD1]
 QED
 
-Triviality apply_subst_success:
+Theorem apply_subst_success[local]:
   !t1 st1 t2 st2.
   (apply_subst t1 st1 = (Success t2, st2))
   =
@@ -430,7 +431,7 @@ full_case_tac >>
 metis_tac []
 QED
 
-Triviality add_constraints_success:
+Theorem add_constraints_success[local]:
   !l ts1 ts2 st st' x.
   (add_constraints l ts1 ts2 st = (Success x, st'))
   =
@@ -452,7 +453,7 @@ cases_on `t_unify st.subst t1 t2` >>
 fs []
 QED
 
-Triviality add_constraints_nil2_success:
+Theorem add_constraints_nil2_success[local]:
   (add_constraints l ts1 [] st = (Success x, st'))
   = (ts1 = [] /\ st = st')
 Proof
@@ -460,7 +461,7 @@ Proof
   \\ simp [failwith_def, st_ex_bind_success, st_ex_return_success]
 QED
 
-Triviality add_constraints_cons2_success:
+Theorem add_constraints_cons2_success[local]:
   (add_constraints l ts1 (t2 :: ts2) st = (Success x, st'))
   = (?t1 tl1 st''. ts1 = t1 :: tl1 /\
     add_constraint l t1 t2 st = (Success (), st'') /\
@@ -470,13 +471,13 @@ Proof
   \\ simp [failwith_def, st_ex_bind_success, st_ex_return_success]
 QED
 
-Triviality failwith_success:
+Theorem failwith_success[local]:
   !l m st v st'. (failwith l m st = (Success v, st')) = F
 Proof
   rw [failwith_def]
 QED
 
-Triviality lookup_st_ex_success:
+Theorem lookup_st_ex_success[local]:
   !loc x err l st v st'.
   (lookup_st_ex loc err x l st = (Success v, st'))
   =
@@ -515,7 +516,7 @@ Proof
   Cases_on `x` \\ simp []
 QED
 
-Triviality constrain_op_op_case:
+Theorem constrain_op_op_case[local]:
   constrain_op l op ts st = (case op of
       Opapp => let x = () in constrain_op l op ts st
     | _ => constrain_op l op ts st)
@@ -539,7 +540,7 @@ val constrain_op_success =
 Theorem constrain_op_success =
   constrain_op_success
 
-Triviality get_next_uvar_success:
+Theorem get_next_uvar_success[local]:
   !st v st'.
   (get_next_uvar st = (Success v, st'))
   =
@@ -553,7 +554,7 @@ val apply_subst_list_success =
   SIMP_CONV (srw_ss()) [apply_subst_list_def, LET_THM]
   ``(apply_subst_list ts st = (Success v, st'))``
 
-Triviality guard_success:
+Theorem guard_success[local]:
   ∀P l m st v st'.
   (guard P l m st = (Success v, st'))
   =
@@ -696,7 +697,7 @@ Proof
  fs [LAMBDA_PROD, combinTheory.o_DEF]
 QED
 
-Triviality option_case_eq:
+Theorem option_case_eq[local]:
   !opt f g v st st'.
   ((case opt of NONE => f | SOME x => g x) st = (Success v, st')) =
   (((opt = NONE) ∧ (f st = (Success v, st'))) ∨ (?x. (opt = SOME x) ∧ (g x st = (Success v, st'))))
@@ -796,7 +797,7 @@ QED
 
 (* ---------- Dealing with the constraint set ---------- *)
 
-Triviality pure_add_constraints_append2:
+Theorem pure_add_constraints_append2[local]:
   !s1 ts s2 t1 t2.
   t_wfs s1 ∧
   pure_add_constraints s1 ts s2 ∧
@@ -873,18 +874,20 @@ Theorem infer_e_constraints:
     ⇒
     (?ts. pure_add_constraints st.subst ts st'.subst))
 Proof
-ho_match_mp_tac infer_e_ind >>
-rw [infer_e_def, constrain_op_success, success_eqns, remove_pair_lem, GSYM FORALL_PROD] >>
-rw [] >>
-res_tac >>
-fs [] >>
-TRY (cases_on `v'`) >>
-every_case_tac >> TRY (Cases_on `uop:fp_uop`) >>
-fs [success_eqns] >>
-rw [] >>
-fs [infer_st_rewrs] >>
-TRY (prove_tac [pure_add_constraints_append, pure_add_constraints_def,
-           infer_p_constraints, type_name_check_subst_state])
+  ho_match_mp_tac infer_e_ind >>
+  rw [infer_e_def, constrain_op_success, success_eqns, remove_pair_lem,
+      GSYM FORALL_PROD] >>
+  rw [] >>~-
+  ([‘∃y. pure_add_constraints x y x (* g *)’],
+   irule_at Any (iffRL (cj 1 pure_add_constraints_def)) >> simp[]) >>
+  rpt (first_x_assum $ drule_then strip_assume_tac) >> simp[] >>
+  gvs[success_eqns] >~
+  [‘t_unify s2.subst t1 (FST v) = SOME s’]
+  >- (Cases_on ‘v’ >> gvs[] >>
+      prove_tac [pure_add_constraints_append, pure_add_constraints_def,
+                 infer_p_constraints, type_name_check_subst_state]) >>
+  prove_tac [pure_add_constraints_append, pure_add_constraints_def,
+             infer_p_constraints, type_name_check_subst_state]
 QED
 
 Theorem pure_add_constraints_wfs:
@@ -1079,7 +1082,7 @@ rw [t_vars_eqn, check_t_def, EVERY_MEM, SUBSET_DEF, MEM_MAP] >>
 metis_tac []
 QED
 
-Triviality check_s_more:
+Theorem check_s_more[local]:
   !s tvs uvs. check_s tvs (count uvs) s ⇒ check_s tvs (count (uvs + 1)) s
 Proof
   rw [check_s_def] >>
@@ -1176,7 +1179,7 @@ fs [check_s_def, FLOOKUP_DEF] >>
 metis_tac [check_t_def, IN_UNION]
 QED
 
-Triviality t_walkstar_check':
+Theorem t_walkstar_check'[local]:
   !s. t_wfs s ⇒
   !t tvs uvs.
     check_s tvs (uvs ∪ FDOM s) s ∧
@@ -1226,7 +1229,7 @@ Proof
 metis_tac [t_walkstar_check']
 QED
 
-Triviality t_walkstar_uncheck_lem:
+Theorem t_walkstar_uncheck_lem[local]:
   !s. t_wfs s ⇒
     ∀t max_tvs uvs.
     check_t max_tvs uvs (t_walkstar s t) ⇒
@@ -1258,7 +1261,7 @@ Proof
  metis_tac [t_walkstar_uncheck_lem]
 QED
 
-Triviality t_unify_check_s_help:
+Theorem t_unify_check_s_help[local]:
   (!s t1 t2. t_wfs s ⇒
     !tvs uvs s'. check_s tvs uvs s ∧
            check_t tvs uvs t1 ∧
@@ -1329,7 +1332,7 @@ Proof
   metis_tac []
 QED
 
-Triviality t_walkstar_no_vars:
+Theorem t_walkstar_no_vars[local]:
   !tvs uvs t s.
   t_wfs s ∧
   uvs = {} ∧
@@ -1471,7 +1474,7 @@ Proof
       metis_tac [infer_p_wfs, check_t_more3])
 QED
 
-Triviality check_infer_type_subst:
+Theorem check_infer_type_subst[local]:
   (!t tvs uvs.
   check_freevars 0 tvs t
   ⇒
@@ -1662,7 +1665,7 @@ Proof
  >> fs [EL_MAP, LENGTH_COUNT_LIST, check_t_def, EL_COUNT_LIST]
 QED
 
-Triviality check_t_infer_db_subst:
+Theorem check_t_infer_db_subst[local]:
   (!t uvs tvs.
    check_t 0 (count (uvs + tvs)) (infer_deBruijn_subst (MAP (\n. Infer_Tuvar (uvs + n)) (COUNT_LIST tvs)) t)
    =
@@ -2282,7 +2285,7 @@ Proof
    >> simp [check_s_more])
 QED
 
-Triviality generalise_complete_lemma:
+Theorem generalise_complete_lemma[local]:
   !tvs ts.
   (∀uv. uv ∈ FDOM (FEMPTY |++ ts) ⇒ ∃tv. (FEMPTY |++ ts) ' uv = tv ∧ tv < tvs)
   ⇒
@@ -2296,7 +2299,7 @@ Proof
   metis_tac [FST, fupdate_list_map]
 QED
 
-Triviality generalise_complete_lemma2:
+Theorem generalise_complete_lemma2[local]:
   !s ts.
   t_wfs s ∧
   ALL_DISTINCT (MAP FST ts) ∧
@@ -2336,7 +2339,7 @@ Definition infer_subst_var_def:
 (infer_subst_var s t = t)
 End
 
-Triviality generalise_complete_lemma4:
+Theorem generalise_complete_lemma4[local]:
   !s. t_wfs s ⇒
   !t s'. t_wfs (s |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) s') ∧
          ALL_DISTINCT (MAP FST s') ∧
@@ -2373,7 +2376,7 @@ Proof
      metis_tac [])
 QED
 
-Triviality generalise_complete_lemma5:
+Theorem generalise_complete_lemma5[local]:
   !s. t_wfs s ⇒
   !t s'. t_wfs (s |++ MAP (λ(uv,tv). (uv,Infer_Tvar_db tv)) s') ⇒
          ALL_DISTINCT (MAP FST s') ∧
@@ -2402,7 +2405,7 @@ Proof
  fs []
 QED
 
-Triviality fst_lem:
+Theorem fst_lem[local]:
   FST = (\(x,y).x)
 Proof
   rw [FUN_EQ_THM] >>
@@ -2817,7 +2820,7 @@ Proof
      \\ metis_tac[])
 QED
 
-Triviality init_infer_state_wfs:
+Theorem init_infer_state_wfs[local]:
   t_wfs (init_infer_state st).subst ∧
    check_s 0 ∅ (init_infer_state st).subst
 Proof
@@ -2890,13 +2893,13 @@ val let_tac =
    >> fs [sub_completion_def, EVERY_MEM, MEM_MAP, PULL_EXISTS]
    >> metis_tac [check_t_more2, check_t_more5, MEM_EL, DECIDE ``x + 0n = x``];
 
-Triviality eta2_thm:
+Theorem eta2_thm[local]:
   (\x. f a b x) = f a b
 Proof
   metis_tac []
 QED
 
-Triviality check_env_letrec_lem2:
+Theorem check_env_letrec_lem2[local]:
   ∀funs.
     nsAll (λx (tvs,t). check_t tvs (count (LENGTH funs)) t)
       (alist_to_ns (MAP2 (λ(f,x,e) uvar. (f,0,uvar))
@@ -3112,13 +3115,13 @@ Proof
   metis_tac[LESS_EQ_TRANS]
 QED
 
-Triviality count_list_one:
+Theorem count_list_one[local]:
   COUNT_LIST 1 = [0]
 Proof
   metis_tac [COUNT_LIST_def, MAP, DECIDE ``1 = SUC 0``]
 QED
 
-Triviality check_freevars_more_append:
+Theorem check_freevars_more_append[local]:
   (!t x fvs1 fvs2.
   check_freevars x fvs1 t ⇒
   check_freevars x (fvs2++fvs1) t ∧
@@ -3859,6 +3862,8 @@ Proof
                   \\fs[prim_tids_def,prim_type_nums_def]))
     \\ strip_tac \\ fs[])
   \\ rveq \\ fs[inf_set_tids_def,prim_tids_def, prim_type_nums_def]
+  \\ rename [‘supported_test  _ ty’] \\ Cases_on ‘ty’ \\ gvs []
+  \\ rename [‘WordT ws’] \\ Cases_on ‘ws’ \\ gvs []
 QED
 
 Theorem infer_e_inf_set_tids:
@@ -4338,5 +4343,3 @@ Proof
   \\ fs[n_fresh_id_def] \\ rw[]
   \\ metis_tac[]
 QED
-
-val _ = export_theory ();

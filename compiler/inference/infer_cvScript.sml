@@ -1,12 +1,11 @@
 (*
   Translating inferTheory to cv equations for use with cv_eval
 *)
-open preamble miscTheory;
-open cv_transLib;
-open astTheory namespaceTheory inferTheory inferPropsTheory;
-open basis_cvTheory unify_cvTheory;
-
-val _ = new_theory "infer_cv";
+Theory infer_cv[no_sig_docs]
+Ancestors
+  misc typeSystem ast namespace infer inferProps basis_cv unify_cv
+Libs
+  preamble cv_transLib
 
 val expand = let
   val th1 = SRULE [FUN_EQ_THM] st_ex_bind_def
@@ -25,7 +24,7 @@ val _ = cv_auto_trans lookup_st_ex_def;
 
 val _ = cv_auto_trans $ expand fresh_uvar_def;
 val pre = n_fresh_uvar_def |> SRULE [fresh_uvar_def,COND_RATOR,FUN_EQ_THM]
-                           |> expand |> cv_trans_pre;
+                           |> expand |> cv_trans_pre "";
 
 Theorem n_fresh_uvar_pre[cv_pre,local]:
   ∀a0 a1. n_fresh_uvar_pre a0 a1
@@ -36,7 +35,7 @@ QED
 val _ = cv_auto_trans $ expand n_fresh_id_def;
 
 val _ = cv_auto_trans $ expand get_next_uvar_def;
-val apply_subst_pre = cv_auto_trans_pre
+val apply_subst_pre = cv_auto_trans_pre ""
                       (expand apply_subst_def |> SRULE [read_def]);
 
 Definition map_t_walkstar_def:
@@ -44,20 +43,20 @@ Definition map_t_walkstar_def:
   map_t_walkstar s (t::ts) = t_walkstar s t :: map_t_walkstar s ts
 End
 
-Triviality map_t_walkstar_thm:
+Theorem map_t_walkstar_thm[local]:
   MAP (t_walkstar s) ts = map_t_walkstar s ts
 Proof
   Induct_on ‘ts’ \\ gvs [map_t_walkstar_def]
 QED
 
-val map_t_walkstar_pre = cv_trans_pre map_t_walkstar_def;
+val map_t_walkstar_pre = cv_trans_pre "" map_t_walkstar_def;
 
-val apply_subst_list_pre = cv_trans_pre
+val apply_subst_list_pre = cv_trans_pre ""
                            (apply_subst_list_def |> expand |> SRULE [read_def,map_t_walkstar_thm]);
 
 val _ = cv_trans infer_tTheory.add_parens_def;
 
-val res = cv_trans_pre infer_tTheory.get_tyname_def;
+val res = cv_trans_pre "" infer_tTheory.get_tyname_def;
 
 Theorem get_tyname_pre[cv_pre]:
   ∀a0 a1. get_tyname_pre a0 a1
@@ -68,7 +67,7 @@ QED
 
 val _ = cv_auto_trans infer_tTheory.type_ident_to_string_def;
 
-val res = cv_trans_pre infer_tTheory.ty_var_name_def;
+val res = cv_trans_pre "" infer_tTheory.ty_var_name_def;
 
 Theorem ty_var_name_pre[cv_pre,local]:
   ∀a0. ty_var_name_pre a0
@@ -81,8 +80,8 @@ val res = expand infer_tTheory.inf_type_to_string_rec_def
 
 val res = infer_tTheory.inf_type_to_string_def |> cv_trans;
 
-val add_constraint_pre = add_constraint_def |> expand |> cv_auto_trans_pre;
-val add_constraints_pre = add_constraints_def |> expand |> cv_auto_trans_pre;
+val add_constraint_pre = add_constraint_def |> expand |> cv_auto_trans_pre "";
+val add_constraints_pre = add_constraints_def |> expand |> cv_auto_trans_pre "";
 
 Theorem add_constraint_pre_eq:
   add_constraint_pre l t1 t2 s = t_wfs s.subst
@@ -106,7 +105,7 @@ QED
 val _ = cv_trans generalise_def;
 val _ = cv_trans infer_type_subst_def;
 
-val infer_deBruijn_subst_pre = cv_trans_pre infer_deBruijn_subst_def;
+val infer_deBruijn_subst_pre = cv_trans_pre "" infer_deBruijn_subst_def;
 
 Theorem infer_deBruijn_subst_pre[cv_pre,local]:
   (∀a1 a0. infer_deBruijn_subst_pre a0 a1) ∧
@@ -118,6 +117,8 @@ QED
 
 val _ = cv_trans word_tc_def
 val _ = cv_trans op_to_string_def
+val _ = cv_trans (supported_test_def |> oneline |> SRULE [])
+val _ = cv_trans t_num_of_def
 val _ = cv_trans op_simple_constraints_def
 val _ = cv_trans op_n_args_msg_def
 val _ = cv_auto_trans extend_dec_ienv_def
@@ -144,8 +145,8 @@ QED
 
 val _ = cv_trans type_subst_alist_def;
 
-val type_name_check_sub_pre = cv_auto_trans_pre
-                              (type_name_check_sub_def
+val type_name_check_sub_pre = cv_auto_trans_pre ""
+                               (type_name_check_sub_def
                                  |> SRULE [type_subst_alist_to_fmap,FUN_EQ_THM])
 
 Theorem type_name_check_sub_pre[local,cv_pre]:
@@ -156,7 +157,7 @@ Proof
   \\ simp [Once type_name_check_sub_pre]
 QED
 
-val res = cv_trans_pre check_ctor_types_expand
+val res = cv_trans_pre "" check_ctor_types_expand
 
 Theorem check_ctor_types_pre[local,cv_pre]:
   ∀a0 a1 a2 a3 a4. check_ctor_types_pre a0 a1 a2 a3 a4
@@ -164,7 +165,7 @@ Proof
   Induct_on ‘a3’ \\ rw [] \\ simp [Once res]
 QED
 
-val res = cv_trans_pre check_ctors_expand
+val res = cv_trans_pre "" check_ctors_expand
 
 Theorem check_ctors_pre[local,cv_pre]:
   ∀a0 a1 a2 a3. check_ctors_pre a0 a1 a2 a3
@@ -174,14 +175,14 @@ QED
 
 val res = cv_trans (check_type_definition_expand |> SRULE [GSYM MAP_MAP_o])
 
-val infer_p_pre = cv_auto_trans_pre infer_p_expand;
+val infer_p_pre = cv_auto_trans_pre "" infer_p_expand;
 
-val constrain_op_pre = cv_trans_pre constrain_op_expand;
+val constrain_op_pre = cv_trans_pre "" constrain_op_expand;
 
 val _ = cv_trans nsBind_def;
 val _ = cv_trans nsOptBind_def;
 
-val infer_e_pre = cv_auto_trans_pre_rec
+val infer_e_pre = cv_auto_trans_pre_rec ""
           (infer_e_expand |> SRULE [namespaceTheory.alist_to_ns_def])
  (WF_REL_TAC ‘measure $ λx. case x of
                             | INL (_,_,e,_) => cv_size e
@@ -246,7 +247,7 @@ Proof
           typeSystemTheory.type_name_subst_def] \\ gvs [SF ETA_ss]
 QED
 
-val res = cv_auto_trans_pre (typeSystemTheory.build_ctor_tenv_def
+val res = cv_auto_trans_pre "" (typeSystemTheory.build_ctor_tenv_def
  |> SRULE [type_name_subst_1_eq, namespaceTheory.alist_to_ns_def, namespaceTheory.nsEmpty_def])
 
 Theorem build_ctor_tenv_pre[cv_pre,local]:
@@ -257,7 +258,7 @@ QED
 
 val _ = cv_trans namespaceTheory.nsSing_def;
 
-val infer_d_pre = cv_auto_trans_pre
+val infer_d_pre = cv_auto_trans_pre ""
   (infer_d_expand |>
    SRULE [exp_is_value_eq, nsEmpty_def, extend_dec_ienv_def, init_state_def]);
 
@@ -273,7 +274,7 @@ val infertype_prog_eq =
 val infertype_prog_inc_eq =
   infertype_prog_inc_def |> SRULE [init_infer_state_def, GSYM call_infer_def];
 
-val call_infer_pre = cv_auto_trans_pre call_infer_def;
+val call_infer_pre = cv_auto_trans_pre "" call_infer_def;
 
 Theorem type_name_check_sub_success:
   type_name_check_sub l ienv.inf_t xs a s = (Success r,s1) ⇒
@@ -410,6 +411,3 @@ val _ = cv_auto_trans (infertype_prog_inc_eq |> SRULE [extend_dec_ienv_def]);
 
 (* main results stored as: cv_infertype_prog_thm
                            cv_infertype_prog_inc_thm *)
-
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
-val _ = export_theory ();

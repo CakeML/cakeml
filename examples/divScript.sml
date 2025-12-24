@@ -1,12 +1,13 @@
 (*
   Examples of non-termination.
 *)
-open preamble basis
-open integerTheory cfDivTheory cfDivLib
+Theory div
+Ancestors
+  integer cfDiv mlbasicsProg Word8Prog
+Libs
+  preamble basis cfDivLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "div";
 
 val _ = translation_extends "basisProg";
 
@@ -32,7 +33,7 @@ QED
 
 (* Lemma needed for examples with integers *)
 
-Triviality eq_v_INT_thm:
+Theorem eq_v_INT_thm[local]:
   (INT --> INT --> BOOL) $= eq_v
 Proof
   metis_tac[DISCH_ALL mlbasicsProgTheory.eq_v_thm,EqualityType_NUM_BOOL]
@@ -292,7 +293,7 @@ Proof
   \\ xcon \\ xsimpl
 QED
 
-Triviality eq_v_WORD8_thm:
+Theorem eq_v_WORD8_thm[local]:
   (WORD8 --> WORD8 --> BOOL) $= eq_v
 Proof
   metis_tac[DISCH_ALL mlbasicsProgTheory.eq_v_thm,EqualityType_NUM_BOOL]
@@ -907,7 +908,7 @@ Proof
   rw[FUN_EQ_THM,cell_def,REF_def,SEP_EXISTS,cond_STAR]
 QED
 
-Triviality LTAKE_LNTH_EQ:
+Theorem LTAKE_LNTH_EQ[local]:
   !x ll y. LTAKE (LENGTH x) ll = SOME x
    /\ y < LENGTH x
    ==> LNTH y ll = SOME(EL y x)
@@ -1007,7 +1008,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality push_cond:
+Theorem push_cond[local]:
   m ~~>> v * (&C * B) = cond C * (m ~~>> v * B)
 /\ m ~~>> v * &C = &C * m ~~>> v
 /\ REF_LIST rv rvs A l * (&C * B) = cond C * (REF_LIST rv rvs A l * B)
@@ -1016,14 +1017,14 @@ Proof
   simp[AC STAR_COMM STAR_ASSOC]
 QED
 
-Triviality EL_LENGTH_TAKE:
+Theorem EL_LENGTH_TAKE[local]:
   !h e. EL (LENGTH l) (h::TAKE (LENGTH l) (e::l))
    = EL(LENGTH l) (h::e::l)
 Proof
   Induct_on `l` >> fs[]
 QED
 
-Triviality EL_LENGTH_TAKE2:
+Theorem EL_LENGTH_TAKE2[local]:
   !h e l. n < LENGTH l ==>
    EL n (h::TAKE n (e::l))
    = EL n (h::e::l)
@@ -1032,7 +1033,7 @@ Proof
  Cases_on `l` >> fs[]
 QED
 
-Triviality PRE_SUB:
+Theorem PRE_SUB[local]:
   !n. n <> 0 ==> PRE n = n - 1
 Proof
   Cases >> simp[]
@@ -1132,7 +1133,7 @@ Proof
   simp[]
 QED
 
-Triviality highly_specific_MOD_lemma:
+Theorem highly_specific_MOD_lemma[local]:
   !n a. n < a
    ==> (n + 2) MOD (a + 1)
     = if n + 1 = a then 0 else (n + 1) MOD a + 1
@@ -1140,7 +1141,7 @@ Proof
   rw[] >> rw[]
 QED
 
-Triviality highly_specific_MOD_lemma2:
+Theorem highly_specific_MOD_lemma2[local]:
   0 < LENGTH l
   ==>
   EL ((i+1) MOD LENGTH l) (CONS (LAST l) (FRONT l))
@@ -1197,7 +1198,7 @@ Proof
   >> Cases_on `t` >> fs[]
 QED
 
-Triviality LNTH_LREPEAT_ub:
+Theorem LNTH_LREPEAT_ub[local]:
   !n l.
     (l <> []
     /\
@@ -1253,7 +1254,7 @@ Proof
   simp[SUB_MOD]
 QED
 
-Triviality LPREFIX_ub_LAPPEND:
+Theorem LPREFIX_ub_LAPPEND[local]:
   l <> [] /\
    (∀x.
     LPREFIX
@@ -1434,5 +1435,3 @@ Proof
   xlet_auto >- (xcon >> xsimpl) >>
   xvar >> xsimpl
 QED
-
-val _ = export_theory();

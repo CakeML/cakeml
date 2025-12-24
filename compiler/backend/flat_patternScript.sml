@@ -6,14 +6,12 @@
   - decodes decision tree to if-tree
   - encodes the variable bindings of each case as let-bindings
 *)
+Theory flat_pattern
+Ancestors
+  misc flatLang sptree pattern_semantics pattern_comp
+Libs
+  preamble
 
-open preamble sptreeTheory flatLangTheory pattern_semanticsTheory
-  pattern_compTheory
-
-val _ = new_theory "flat_pattern";
-
-val _ = set_grammar_ancestry ["misc","flatLang","sptree",
-    "pattern_semantics"];
 
 Datatype:
   config =
@@ -322,5 +320,3 @@ Definition compile_dec_def:
   compile_dec cfg (Dtype tid amap) = Dtype tid amap /\
   compile_dec cfg (Dexn n n') = Dexn n n'
 End
-
-val _ = export_theory()

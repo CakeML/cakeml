@@ -3,14 +3,13 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory
-     arm8_asl_configProofTheory
-     TextIOProofTheory
-     satSemTheory lprTheory lpr_listTheory lpr_arrayFullProgTheory
-     lpr_parsingTheory lpr_arrayCompileARM8Theory lpr_composeProgTheory;
-
-val _ = new_theory"lpr_arrayProofARM8";
+Theory lpr_arrayProofARM8
+Ancestors
+  semanticsProps backendProof arm8_asl_configProof TextIOProof
+  satSem lpr lpr_list lpr_arrayFullProg lpr_parsing
+  lpr_arrayCompileARM8 lpr_composeProg
+Libs
+  preamble
 
 val check_unsat_io_events_def = new_specification("check_unsat_io_events_def",["check_unsat_io_events"],
   check_unsat_semantics |> Q.GENL[`cl`,`fs`]
@@ -104,19 +103,19 @@ Theorem machine_code_sound:
   if LENGTH cl = 2 then
     inFS_fname fs (EL 1 cl) ∧
     ∃fml.
-      parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
+      parse_dimacs (all_lines_file fs (EL 1 cl)) = SOME fml ∧
       out = concat (print_dimacs fml)
   else if LENGTH cl = 3 then
     inFS_fname fs (EL 1 cl) ∧
     ∃fml.
-      parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
+      parse_dimacs (all_lines_file fs (EL 1 cl)) = SOME fml ∧
       out = strlit "s VERIFIED UNSAT\n" ∧
       unsatisfiable (interp fml)
   else if LENGTH cl = 4 then
     inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 3 cl) ∧
     ∃fml fml2.
-      parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
-      parse_dimacs (all_lines fs (EL 3 cl)) = SOME fml2 ∧
+      parse_dimacs (all_lines_file fs (EL 1 cl)) = SOME fml ∧
+      parse_dimacs (all_lines_file fs (EL 3 cl)) = SOME fml2 ∧
       out = strlit "s VERIFIED TRANSFORMATION\n" ∧
       (satisfiable (interp fml) ⇒ satisfiable (interp fml2))
   else if LENGTH cl = 5 then
@@ -128,8 +127,8 @@ Theorem machine_code_sound:
         check_lines
           (implode (md5 (THE (file_content fs (EL 1 cl)))))
           (implode (md5 (THE (file_content fs (EL 2 cl)))))
-          (all_lines fs (EL 4 cl))
-          (LENGTH (all_lines fs (EL 2 cl))) = INR out ∧
+          (all_lines_file fs (EL 4 cl))
+          (LENGTH (all_lines_file fs (EL 2 cl))) = INR out ∧
           ∃n:num.
             out = concat [strlit "s VERIFIED INTERVALS COVER 0-"; toString n; strlit "\n"]
     | SOME (INR (i,j)) =>
@@ -139,8 +138,8 @@ Theorem machine_code_sound:
           (implode (md5 (THE (file_content fs (EL 1 cl)))))
           (implode (md5 (THE (file_content fs (EL 2 cl)))))
           (print_rng i j) ∧
-        parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
-        parse_proof (all_lines fs (EL 2 cl)) = SOME pf ∧
+        parse_dimacs (all_lines_file fs (EL 1 cl)) = SOME fml ∧
+        parse_proof (all_lines_file fs (EL 2 cl)) = SOME pf ∧
         i ≤ j ∧ j ≤ LENGTH pf ∧
         (satisfiable (interp (run_proof fml (TAKE i pf))) ⇒
          satisfiable (interp (run_proof fml (TAKE j pf))))
@@ -224,7 +223,7 @@ Proof
     fs[GSYM parse_proof_def]>>
     drule parse_proof_wf_proof>>
     simp[]>>
-    `parse_dimacs (all_lines fs f1) = SOME ff2` by
+    `parse_dimacs (all_lines_file fs f1) = SOME ff2` by
       fs[parse_dimacs_def]>>
     drule parse_dimacs_wf>>simp[])
 QED
@@ -278,8 +277,8 @@ Proof
       SOME (add_stdout (add_stderr fs err) out) ∧
     (out ≠ strlit "" ⇒
       ∃fml pf.
-      parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
-      parse_proof (all_lines fs (EL 2 cl)) = SOME pf ∧
+      parse_dimacs (all_lines_file fs (EL 1 cl)) = SOME fml ∧
+      parse_proof (all_lines_file fs (EL 2 cl)) = SOME pf ∧
       i ≤ j ∧ j ≤ LENGTH pf ∧
       (satisfiable (interp (run_proof fml (TAKE i pf))) ⇒
        satisfiable (interp (run_proof fml (TAKE j pf)))))) nodes` by (
@@ -309,7 +308,7 @@ Proof
     disch_then drule>>
     rw[]>>gvs[stdout_add_stderr]>>
     gvs[success_str_nonempty]>>
-    imp_res_tac all_lines_lines_of>>
+    imp_res_tac all_lines_file_lines_of>>
     gvs[])>>
   simp[]
 QED
@@ -345,7 +344,7 @@ Proof
     drule machine_code_sound>> rpt(disch_then drule)>>
     simp[]>>  rpt(disch_then drule)>>
     rw[]>>
-    imp_res_tac all_lines_lines_of>>
+    imp_res_tac all_lines_file_lines_of>>
     fs[cake_lpr_run_def]>>
     drule STD_streams_stdout>>rw[]>>
     drule add_stdout_inj>>
@@ -392,7 +391,7 @@ Definition check_successful_par_def:
       inFS_fname fs (EL 1 cl) ∧ inFS_fname fs (EL 2 cl) ∧
       file_content fs (EL 1 cl) = SOME fmlstr ∧
       file_content fs (EL 2 cl) = SOME pfstr ∧
-      all_lines fs (EL 4 cl) = outstr ∧
+      all_lines_file fs (EL 4 cl) = outstr ∧
       extract_fs fs (check_unsat_io_events cl fs) =
         SOME (add_stdout fs
           (concat [«s VERIFIED INTERVALS COVER 0-» ; toString (LENGTH (lines_of (strlit pfstr))); «\n»])))
@@ -426,7 +425,7 @@ Proof
   asm_exists_tac>> simp[]>>
   asm_exists_tac>> simp[]>>
   drule parse_proof_LENGTH>>
-  imp_res_tac all_lines_lines_of>>
+  imp_res_tac all_lines_file_lines_of>>
   rw[]>>
   gs[]>>
   asm_exists_tac>> simp[]>>
@@ -467,4 +466,3 @@ Proof
   metis_tac[stdout_add_stderr]
 QED
 
-val _ = export_theory();

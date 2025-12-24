@@ -3,14 +3,12 @@
   are total, and that they have the proper relationship to the
   unclocked version.
 *)
-
-open preamble;
-open astTheory bigStepTheory semanticPrimitivesTheory;
-open evaluateTheory determTheory;
-open semanticPrimitivesPropsTheory;
-open boolSimps;
-
-val _ = new_theory "bigClock";
+Theory bigClock
+Ancestors
+  ast bigStep semanticPrimitives evaluate determ
+  semanticPrimitivesProps
+Libs
+  preamble boolSimps
 
 val evaluate_ind = bigStepTheory.evaluate_ind;
 val _ = bring_to_front_overload"evaluate_decs"{Name="evaluate_decs",Thy="bigStep"};
@@ -38,13 +36,12 @@ Theorem big_unclocked_unchanged[local]:
      SND r1 ≠ Rerr (Rabort Rtimeout_error) ∧
      s.clock = (FST r1).clock)
 Proof
-  ho_match_mp_tac evaluate_ind >> rw [] >>
-  fs[do_app_cases] >>
-  rw [] >> fs [] >>
-  every_case_tac >> fs[] >> rveq >> fs[]
+  ho_match_mp_tac evaluate_ind \\ rw []
+  \\ gvs [AllCaseEqs()]
+  \\ gvs [do_app_cases,AllCaseEqs(),oneline thunk_op_def,store_alloc_def]
 QED
 
-Triviality lemma:
+Theorem lemma[local]:
   ((s with clock := c) with <| refs := r; ffi := io |>) =
   s with <| clock := c; refs := r; ffi := io |>
 Proof
@@ -128,7 +125,40 @@ Proof
        qexists_tac ‘vs’ >>
        qexists_tac `s2 with clock := count'` >>
        rw[] >>
-       NO_TAC) >>
+       NO_TAC)
+  >>~ [‘dest_thunk’]
+  >- metis_tac[]
+  >- metis_tac[]
+  >- metis_tac[]
+  >- metis_tac[]
+  >- (
+    ntac 3 disj2_tac >> disj1_tac >>
+    last_x_assum $ irule_at Any >> simp[]
+    )
+  >- (
+    ntac 3 disj2_tac >> disj1_tac >>
+    last_x_assum $ irule_at Any >> simp[]
+    )
+  >- (
+    ntac 4 disj2_tac >> disj1_tac >>
+    last_x_assum $ irule_at Any >> simp[] >>
+    first_x_assum $ irule_at Any >> simp[]
+    )
+  >- (
+    ntac 4 disj2_tac >> disj1_tac >>
+    last_x_assum $ irule_at Any >> simp[] >>
+    first_x_assum $ irule_at Any >> simp[]
+    )
+  >- (
+    disj2_tac >>
+    last_x_assum $ irule_at Any >> simp[] >>
+    last_x_assum $ irule_at Any >> simp[]
+    )
+  >- (
+    disj2_tac >>
+    last_x_assum $ irule_at Any >> simp[] >>
+    last_x_assum $ irule_at Any >> simp[]
+    ) >>
   rfs [] >>
   metis_tac [with_clock_refs]
 QED
@@ -187,7 +217,25 @@ Proof
   TRY (qexists_tac ‘s2 with clock := extra + s2.clock’ >> qexists_tac ‘v’ >>
        gs[state_component_equality] >> NO_TAC) >>
   TRY (qexists_tac ‘s2 with clock := extra + s2.clock’ >>
-       gs[state_component_equality] >> NO_TAC) >>
+       gs[state_component_equality] >> NO_TAC)
+  >>~ [‘ThunkOp ForceThunk’]
+  >- (
+    ntac 3 disj2_tac >> disj1_tac >>
+    first_assum(match_exists_tac o (snd o strip_forall o concl)) >>
+    simp[]
+    )
+  >- (
+    ntac 4 disj2_tac >> disj1_tac >>
+    first_assum(match_exists_tac o (snd o strip_forall o concl)) >>
+    simp[] >>
+    first_assum(match_exists_tac o (snd o strip_forall o concl)) >>
+    simp[]
+    )
+  >- (
+    disj2_tac >>
+    last_x_assum $ qspec_then ‘extra’ $ irule_at Any >> simp[] >>
+    first_x_assum $ qspec_then ‘extra’ $ irule_at Any >> simp[]
+    ) >>
   disj1_tac >>
   CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``evaluate_list`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o (snd o strip_forall o concl)) >>
@@ -197,7 +245,7 @@ Proof
   metis_tac []
 QED
 
-Triviality with_clock_clock:
+Theorem with_clock_clock[local]:
   (s with clock := a).clock = a
 Proof
   rw[]
@@ -249,7 +297,27 @@ Proof
   TRY (
     srw_tac[DNF_ss][] >>
     rewrite_tac[ CONJ_ASSOC] >> once_rewrite_tac [CONJ_COMM] >>
-    first_assum(match_exists_tac o concl) >> simp[] >> NO_TAC) >>
+    first_assum(match_exists_tac o concl) >> simp[] >> NO_TAC)
+  >>~ [‘ThunkOp ForceThunk’]
+  >- (
+    gvs[] >> ntac 4 disj2_tac >> disj1_tac >>
+    dxrule $ cj 2 add_to_counter >> simp[] >>
+    disch_then $ qspec_then ‘c' + 1’ assume_tac >>
+    goal_assum drule >> simp[]
+    )
+  >- (
+    gvs[] >> ntac 4 disj2_tac >> disj1_tac >>
+    dxrule $ cj 2 add_to_counter >> simp[] >>
+    disch_then $ qspec_then ‘c' + 1’ assume_tac >>
+    rpt (goal_assum drule >> simp[])
+    )
+  >- (
+    gvs[] >> disj2_tac >>
+    dxrule $ cj 2 add_to_counter >> simp[] >>
+    disch_then $ qspec_then ‘c' + 1’ assume_tac >>
+    goal_assum $ drule_at Any >> simp[] >>
+    goal_assum $ drule_at $ Pat ‘evaluate _ _ _ _ _’ >> simp[]
+    ) >>
   metis_tac [add_to_counter, with_clock_with_clock, with_clock_clock,
              arithmeticTheory.ADD_COMM, arithmeticTheory.ADD_0, with_clock_refs,
              result_distinct, error_result_distinct, result_11]
@@ -281,7 +349,7 @@ Proof
   full_simp_tac (srw_ss()++ARITH_ss) []
 QED
 
-Triviality with_same_clock:
+Theorem with_same_clock[local]:
   (s with clock := s.clock) = s
 Proof
   rw[state_component_equality]
@@ -310,7 +378,7 @@ Proof
              with_clock_with_clock]
 QED
 
-Triviality wf_lem:
+Theorem wf_lem[local]:
   WF (($< :(num->num->bool)) LEX measure exp_size)
 Proof
   rw [] >>
@@ -521,11 +589,31 @@ Proof
           `s2.clock-1 < s2.clock` by srw_tac [ARITH_ss] [] >>
           metis_tac [pair_CASES, clock_monotone, LESS_OR_EQ,
                      LESS_TRANS, with_clock_clock]) >>
+      Cases_on ‘o' = ThunkOp ForceThunk’ >> gvs[]
+      >- ( (* Force *)
+        simp[opClass_cases] >> gvs[SF DNF_ss] >>
+        Cases_on ‘dest_thunk (REVERSE v) s2.refs’ >- metis_tac[] >- metis_tac[] >>
+        ntac 2 disj2_tac >>
+        Cases_on ‘t’ >> gvs[] >- metis_tac[] >>
+        rename1 ‘IsThunk _ f’ >>
+        Cases_on ‘do_opapp [f; Conv NONE []]’ >- metis_tac[] >>
+        rename1 ‘SOME env_e’ >> PairCases_on ‘env_e’ >>
+        ntac 2 disj2_tac >>
+        Cases_on ‘s2.clock = 0’ >- metis_tac[] >>
+        disj2_tac >>
+        last_x_assum $ qspec_then ‘s2.clock - 1’ mp_tac >>
+        last_x_assum kall_tac >> impl_tac
+        >- (imp_res_tac clock_monotone >> gvs[]) >>
+        disch_then $ qspecl_then [‘env_e1’,‘env_e0’,‘s2’] $
+          qx_choosel_then [‘s3’,‘res’] assume_tac >>
+        reverse $ Cases_on ‘res’ >- metis_tac[] >>
+        disj2_tac >> Cases_on ‘update_thunk (REVERSE v) s3.refs [a]’ >> metis_tac[]
+        ) >>
       `(do_app (s2.refs,s2.ffi) o' (REVERSE v) = NONE) ∨
        (?s3 e2. do_app (s2.refs,s2.ffi) o' (REVERSE v) = SOME (s3,e2))`
         by metis_tac [optionTheory.option_nchotomy, pair_CASES]
       >- (rename [‘op ≠ Opapp’] >>
-          ‘¬opClass op FunApp’ by simp[opClass_cases] >> simp[] >>
+          ‘¬opClass op FunApp ∧ ¬opClass op Force’ by simp[opClass_cases] >> simp[] >>
           metis_tac[]) >>
       cases_on ‘opClass o' Simple’ >> gs[] >- metis_tac [pair_CASES]  >>
       ‘opClass o' EvalOp’ by (Cases_on ‘o'’ >> TRY (gs[opClass_cases] >> NO_TAC)) >>
@@ -635,7 +723,8 @@ Proof
   rw [] >>
   fs [] >>
   every_case_tac >> fs[] >> rveq >> fs[] >>
-  gs[] >> every_case_tac >> gs[]
+  gs[] >> every_case_tac >> gs[] >>
+  gvs[thunk_op_def, AllCaseEqs(), store_alloc_def]
 QED
 
 Theorem big_clocked_unclocked_equiv_timeout:
@@ -704,7 +793,34 @@ Proof
   >- metis_tac [pair_CASES, FST, clock_monotone, DECIDE “y + z ≤ x ⇒ (x = (x - z) + z:num)”] >~
   [‘opClass op Simple (* a *)’]
   >- (‘¬opClass op FunApp’ by gs[opClass_cases] >> simp[] >> disj1_tac >>
-      first_assum $ irule_at (Pat ‘evaluate_list _ _ _ _ _ ’) >> simp[]) >>
+      first_assum $ irule_at (Pat ‘evaluate_list _ _ _ _ _ ’) >> simp[])
+  >>~ [‘ThunkOp ForceThunk’]
+  >- simp[SF SFY_ss]
+  >- simp[SF SFY_ss]
+  >- simp[SF SFY_ss]
+  >- simp[SF SFY_ss]
+  >- simp[SF SFY_ss]
+  >- (
+    ntac 8 disj2_tac >> disj1_tac >>
+    last_x_assum $ irule_at Any >> simp[] >>
+    first_x_assum $ irule_at Any >> simp[] >>
+    qexists ‘s2.clock - extra’ >> simp[] >>
+    imp_res_tac clock_monotone >> gvs[]
+    )
+  >- (
+    ntac 7 disj2_tac >> disj1_tac >>
+    last_x_assum $ irule_at Any >> simp[] >>
+    first_x_assum $ irule_at Any >> simp[] >>
+    qexists ‘s2.clock - extra’ >> simp[] >>
+    imp_res_tac clock_monotone >> gvs[]
+    )
+  >- (
+    rpt disj2_tac >>
+    last_x_assum $ irule_at Any >> simp[] >>
+    first_x_assum $ irule_at $ Pat ‘evaluate _ _ _ _ _’ >> simp[] >>
+    qexists ‘s2.clock - extra’ >> simp[] >>
+    imp_res_tac clock_monotone >> gvs[]
+    ) >>
   metis_tac [pair_CASES, FST, clock_monotone, DECIDE “y + z ≤ x ⇒ (x = (x - z) + z:num)”,
              with_clock_refs]
 QED
@@ -976,13 +1092,13 @@ Theorem evaluate_decs_unclocked_to_clocked =
   CONJUNCTS |> map (Q.SPEC `F`) |> LIST_CONJ |>
   SIMP_RULE (srw_ss()) [FORALL_PROD, AND_IMP_INTRO];
 
-Triviality wf_dec_lem:
+Theorem wf_dec_lem[local]:
   WF $ ($< : num -> num -> bool) LEX measure dec_size
 Proof
   simp[WF_LEX]
 QED
 
-Triviality dec_ind = MATCH_MP WF_INDUCTION_THM wf_dec_lem;
+Theorem dec_ind[local] = MATCH_MP WF_INDUCTION_THM wf_dec_lem;
 
 Theorem evaluate_decs_total_lemma:
   ∀ds env ^s clk.
@@ -1063,5 +1179,3 @@ Proof
   imp_res_tac big_unclocked >> gvs[] >>
   Cases_on `r` >> gvs[combine_dec_result_def]
 QED
-
-val _ = export_theory ();

@@ -1,16 +1,11 @@
 (*
   Compilation from looLang to wordLang.
 *)
-open preamble loopLangTheory
-     wordLangTheory
-     loop_removeTheory
-
-val _ = new_theory "loop_to_word"
-
-val _ = set_grammar_ancestry
-        ["loopLang", "wordLang",
-         "backend_common"];
-
+Theory loop_to_word
+Ancestors
+  loopLang wordLang backend_common[qualified] loop_remove
+Libs
+  preamble
 
 Definition find_var_def:
   find_var ctxt v =
@@ -29,6 +24,7 @@ Definition comp_exp_def :
   (comp_exp ctxt (Var n) = Var (find_var ctxt n)) /\
   (comp_exp ctxt (Lookup m) = Lookup (Temp m)) /\
   (comp_exp ctxt (BaseAddr) = Lookup CurrHeap) /\
+  (comp_exp ctxt (TopAddr) = Op Add [Lookup CurrHeap; Shift Lsl (Lookup HeapLength) 1]) /\
   (comp_exp ctxt (Load exp) = Load (comp_exp ctxt exp)) /\
   (comp_exp ctxt (Shift s exp n) = Shift s (comp_exp ctxt exp) n) /\
   (comp_exp ctxt (Op op wexps) =
@@ -158,4 +154,3 @@ Definition compile_def:
      compile_prog p
 End
 
-val _ = export_theory();

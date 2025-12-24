@@ -1,25 +1,24 @@
 (*
   An I/O shim for the verified cyclicity checker
 *)
-open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
-open astTheory evaluateTheory semanticPrimitivesTheory
-open ml_progLib ml_progTheory evaluateTheory
-open set_sepTheory cfTheory cfStoreTheory cfTacticsLib Satisfy
-open cfHeapsBaseTheory basisFunctionsLib
-open ml_monadBaseTheory ml_monad_translatorTheory ml_monadStoreLib ml_monad_translatorLib
-open holKernelTheory holKernelProofTheory
-open basisProgTheory
-open holAxiomsSyntaxTheory (* for setting up the context *)
-open ml_hol_kernel_funsProgTheory ml_hol_kernelProgTheory (* for setting up the context *)
-open fromSexpTheory
-open astToSexprLib
-open patternMatchesLib patternMatchesSyntax patternMatchesTheory
+Theory ml_cyclicityCheckerProg
+Ancestors
+  ml_translator ml_pmatch patternMatches ast evaluate
+  semanticPrimitives ml_prog evaluate set_sep cf cfStore
+  cfHeapsBase ml_monadBase ml_monad_translator holKernel
+  holKernelProof basisProg
+  holAxiomsSyntax (* for setting up the context *)
+  ml_hol_kernel_funsProg ml_hol_kernelProg (* for setting up the context *)
+  fromSexp patternMatches
+Libs
+  preamble ml_translatorLib ml_progLib cfTacticsLib Satisfy
+  basisFunctionsLib ml_monadStoreLib ml_monad_translatorLib
+  astToSexprLib patternMatchesLib patternMatchesSyntax
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory "ml_cyclicityCheckerProg";
 val _ = translation_extends "ml_hol_kernelProg"
 
 val () = ENABLE_PMATCH_CASES();
@@ -38,7 +37,7 @@ End
 
 val res = parse_strlit_innards_def |> translate_no_ind;
 
-Triviality parse_strlit_innards_ind:
+Theorem parse_strlit_innards_ind[local]:
   parse_strlit_innards_ind
 Proof
   rewrite_tac [fetch "-" "parse_strlit_innards_ind_def"]
@@ -223,7 +222,7 @@ val _ = (append_prog o process_topdecs) ‘
 
 val _ = (append_prog o process_topdecs)
   ‘fun main u =
-     let val cs = String.explode(TextIO.inputAll TextIO.stdIn);
+     let val cs = String.explode(TextIO.inputAll (TextIO.openStdIn ()));
      in
         (case parse_list False hol_type_sum_pairs cs of
           None => print "Parse error!\n"
@@ -269,8 +268,6 @@ val _ = (append_prog o process_topdecs)
 val prog =
   “SNOC (Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short "main"); Con NONE []]))
         ^(get_ml_prog_state() |> get_prog)
-  ” |> EVAL |> concl |> rhs
+  ” |> EVAL |> concl |> rhs;
 
 val _ = astToSexprLib.write_ast_to_file "cyclicity_checker.sexp" prog;
-
-val _ = export_theory();

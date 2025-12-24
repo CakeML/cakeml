@@ -1,13 +1,14 @@
 (*
   Correctness proof for word_to_word
 *)
-open preamble word_to_wordTheory wordSemTheory word_simpProofTheory
-     wordPropsTheory wordConvsTheory word_allocProofTheory word_instProofTheory
-     word_unreachTheory word_removeProofTheory word_cseProofTheory
-     word_elimTheory word_elimProofTheory word_unreachProofTheory
-     word_copyProofTheory wordConvsProofTheory;
-
-val _ = new_theory "word_to_wordProof";
+Theory word_to_wordProof
+Ancestors
+  word_to_word wordSem word_simpProof wordProps wordConvs
+  word_allocProof word_instProof word_unreach word_removeProof
+  word_cseProof word_elim word_elimProof word_unreachProof
+  word_copyProof wordConvsProof
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -134,7 +135,7 @@ Proof
   every_case_tac>>gvs[]
 QED
 
-Triviality rm_perm:
+Theorem rm_perm[local]:
   s with permute:= s.permute = s
 Proof
   full_simp_tac(srw_ss())[state_component_equality]
@@ -142,7 +143,7 @@ QED
 
 val size_tac= (full_simp_tac(srw_ss())[wordLangTheory.prog_size_def]>>DECIDE_TAC);
 
-Triviality find_code_thm:
+Theorem find_code_thm[local]:
   (!n v. lookup n st.code = SOME v ==>
          ∃t k a c col.
          lookup n l = SOME (SND (compile_single t k a c ((n,v),col)))) ∧
@@ -166,7 +167,7 @@ Proof
     metis_tac[]
 QED
 
-Triviality pop_env_termdep:
+Theorem pop_env_termdep[local]:
   pop_env rst = SOME x ⇒ x.termdep = rst.termdep
 Proof
   full_simp_tac(srw_ss())[pop_env_def]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[state_component_equality]
@@ -180,7 +181,7 @@ Definition code_rel_def:
          lookup n ttc = SOME (SND (compile_single t k a c ((n,v),col))))
 End
 
-Triviality compile_single_eta:
+Theorem compile_single_eta[local]:
   compile_single t k a c ((p,x),y) =
   (p,SND (compile_single t k a c ((p,x),y)))
 Proof
@@ -188,7 +189,7 @@ Proof
 QED
 
 
-Triviality code_rel_union_fromAList:
+Theorem code_rel_union_fromAList[local]:
   ∀s l ls.
   code_rel s l ∧
   domain s = domain l
@@ -629,6 +630,7 @@ Proof
     fs[DefnBase.one_line_ify NONE share_inst_def,
       DefnBase.one_line_ify NONE sh_mem_set_var_def,
       sh_mem_load_def,sh_mem_load_byte_def,sh_mem_load32_def,
+      sh_mem_load16_def,sh_mem_store16_def,
       sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def] >>
     rpt (TOP_CASE_TAC >>
       fs[state_component_equality,set_var_def,flush_state_def]))
@@ -689,8 +691,60 @@ val rmt_thms = (remove_must_terminate_conventions|>SIMP_RULE std_ss [LET_THM,FOR
 
 val rmd_thms = (remove_dead_prog_conventions|>SIMP_RULE std_ss [LET_THM,FORALL_AND_THM])|>CONJUNCTS;
 
+Theorem cond16bit_inst_select_exp':
+  x = inst_select_exp c t1 t2 exp ⇒
+  (no_share_inst x ∨ c.ISA ≠ Ag32)
+Proof
+  map_every qid_spec_tac [‘x’,‘exp’,‘t2’,‘t1’,‘c’]>>
+  ho_match_mp_tac word_instTheory.inst_select_exp_ind>>
+  rw[no_share_inst_def,word_instTheory.inst_select_exp_def]>>
+  rpt (CASE_TAC>>fs[no_share_inst_def])>>
+  fs[no_share_inst_def,word_instTheory.inst_select_exp_def]
+QED
+
+val cond16bit_inst_select_exp = cond16bit_inst_select_exp' |> SIMP_RULE std_ss [];
+
+Theorem cond16bit_inst_select:
+  x = inst_select c n p ∧
+  (no_share_inst p ∨ c.ISA ≠ Ag32) ⇒
+  (no_share_inst x ∨ c.ISA ≠ Ag32)
+Proof
+  map_every qid_spec_tac [‘x’,‘p’,‘n’,‘c’]>>
+  ho_match_mp_tac word_instTheory.inst_select_ind>>
+  rw[no_share_inst_def,word_instTheory.inst_select_def]>>
+  rpt (TOP_CASE_TAC>>fs[])>>
+  gvs[no_share_inst_def,word_instTheory.inst_select_def,AllCaseEqs()]>>
+  TRY (irule cond16bit_inst_select_exp>>metis_tac[])
+QED
+
+Theorem remove_must_terminate_no_share_inst:
+  no_share_inst p ⇒ no_share_inst (remove_must_terminate p)
+Proof
+  qid_spec_tac ‘p’>>
+  recInduct word_removeTheory.remove_must_terminate_ind>>
+  rw[no_share_inst_def,
+     word_removeTheory.remove_must_terminate_def]>>
+  rpt (FULL_CASE_TAC>>fs[])
+QED
+
+Theorem full_compile_single_no_share_inst:
+  no_share_inst (SND (SND (FST prog_info))) ==>
+  no_share_inst
+    (SND (SND (full_compile_single two_reg_arith reg_count alg c prog_info)))
+Proof
+  PairCases_on `prog_info`
+  \\ rw []
+  \\ fs [full_compile_single_def]
+  \\ rpt (pairarg_tac \\ fs [])
+  \\ gvs [PAIR_FST_SND_EQ]
+  \\ irule remove_must_terminate_no_share_inst
+  \\ fs [no_share_inst_subprogs_def]
+  \\ simp [compile_single_not_created_subprogs]
+QED
+
 (* syntax going into stackLang *)
 Theorem compile_to_word_conventions:
+  EVERY (λ(_,_,prg). no_share_inst prg ∨ ac.ISA ≠ Ag32) p ⇒
   let (_,progs) = compile wc ac p in
   MAP FST progs = MAP FST p ∧
   EVERY2 labels_rel (MAP (extract_labels o SND o SND) p)
@@ -699,11 +753,12 @@ Theorem compile_to_word_conventions:
     flat_exp_conventions prog ∧
     post_alloc_conventions (ac.reg_count - (5+LENGTH ac.avoid_regs)) prog ∧
     (EVERY (λ(n,m,prog). every_inst (inst_ok_less ac) prog) p ∧
-     addr_offset_ok ac 0w ∧ byte_offset_ok ac 0w ⇒
+     addr_offset_ok ac 0w ∧ hw_offset_ok ac 0w ∧ byte_offset_ok ac 0w ⇒
       full_inst_ok_less ac prog) ∧
-    (ac.two_reg_arith ⇒ every_inst two_reg_inst prog)) progs
+    (ac.two_reg_arith ⇒ every_inst two_reg_inst prog) ∧
+    (no_share_inst prog ∨ ac.ISA ≠ Ag32)) progs
 Proof
-  fs[compile_def]>>
+  fs[compile_def]>>rw[]>>
   rpt(pairarg_tac>>fs[])>>
   gvs[]>>
   `LENGTH n_oracles = LENGTH p` by
@@ -779,13 +834,20 @@ Proof
     match_mp_tac inst_select_full_inst_ok_less>>
     fs[]>>
     metis_tac[compile_exp_no_inst,MEM_EL])>>
-  rw[]>>
-  match_mp_tac (el 4 rmt_thms)>>
-  match_mp_tac word_alloc_two_reg_inst>>
-  match_mp_tac (el 4 rmd_thms)>>
-  match_mp_tac every_inst_remove_unreach >>
-  match_mp_tac three_to_two_reg_prog_two_reg_inst >>
-  fs[]
+  rw[]
+  >- (match_mp_tac (el 4 rmt_thms)>>
+      match_mp_tac word_alloc_two_reg_inst>>
+      match_mp_tac (el 4 rmd_thms)>>
+      match_mp_tac every_inst_remove_unreach >>
+      match_mp_tac three_to_two_reg_prog_two_reg_inst >>
+      fs[])>>
+  ‘no_share_inst (SND (SND (FST (EL n p,EL n n_oracles))))’ by
+    (fs[MEM_EL]>>res_tac>>
+     qpat_x_assum ‘_ = EL n p’ $ assume_tac o GSYM >> fs[])>>
+  imp_res_tac full_compile_single_no_share_inst>>
+  first_x_assum $ qspecl_then [‘ac.two_reg_arith’,‘ac.reg_count - (LENGTH ac.avoid_regs + 5)’,‘ac’, ‘wc.reg_alg’] assume_tac>>
+  qpat_x_assum ‘_ = EL n p’ $ assume_tac o GSYM>>fs[]>>
+  fs[full_compile_single_def,compile_single_def]
 QED
 
 (**** more on syntactic form restrictions ****)
@@ -805,12 +867,12 @@ Proof
   simp []
 QED
 
-Triviality code_rel_P = Q.GEN `P` code_rel_not_created_subprogs;
+Theorem code_rel_P[local] = Q.GEN `P` code_rel_not_created_subprogs;
 
-Triviality code_rel_no_alloc = code_rel_P |> Q.SPEC `(<>) (Alloc 0 (LN,LN))`
+Theorem code_rel_no_alloc[local] = code_rel_P |> Q.SPEC `(<>) (Alloc 0 (LN,LN))`
     |> REWRITE_RULE [GSYM no_alloc_subprogs_def]
 
-Triviality code_rel_no_install = code_rel_P |> Q.SPEC `(<>) (Install 0 0 0 0 (LN,LN))`
+Theorem code_rel_no_install[local] = code_rel_P |> Q.SPEC `(<>) (Install 0 0 0 0 (LN,LN))`
     |> REWRITE_RULE [GSYM no_install_subprogs_def]
 
 
@@ -1229,6 +1291,7 @@ Proof
     fs[DefnBase.one_line_ify NONE share_inst_def,
       DefnBase.one_line_ify NONE sh_mem_set_var_def,
       sh_mem_load_def,sh_mem_load_byte_def,sh_mem_load32_def,
+      sh_mem_load16_def,sh_mem_store16_def,
       sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def] >>
     rpt (TOP_CASE_TAC >>
       fs[state_component_equality,set_var_def,flush_state_def]))>>
@@ -1352,34 +1415,6 @@ Theorem code_rel_no_share_inst:
 Proof
   simp [no_share_inst_subprogs_def]
   \\ metis_tac [code_rel_not_created_subprogs]
-QED
-
-Theorem remove_must_terminate_no_share_inst:
-  !prog. no_share_inst (remove_must_terminate prog) = no_share_inst prog
-Proof
-  ho_match_mp_tac word_removeTheory.remove_must_terminate_ind >>
-  rw[word_removeTheory.remove_must_terminate_def,
-    no_share_inst_def] >>
-  rpt (TOP_CASE_TAC >>
-    gvs[word_removeTheory.remove_must_terminate_def,
-      no_share_inst_def]) >>
-  gvs[word_removeTheory.remove_must_terminate_def,
-    no_share_inst_def,AllCaseEqs()]
-QED
-
-Theorem full_compile_single_no_share_inst:
-  no_share_inst (SND (SND (FST prog_info))) ==>
-  no_share_inst
-    (SND (SND (full_compile_single two_reg_arith reg_count alg c prog_info)))
-Proof
-  PairCases_on `prog_info`
-  \\ rw []
-  \\ fs [full_compile_single_def]
-  \\ rpt (pairarg_tac \\ fs [])
-  \\ gvs [PAIR_FST_SND_EQ]
-  \\ simp[remove_must_terminate_no_share_inst]
-  \\ fs [no_share_inst_subprogs_def]
-  \\ simp [compile_single_not_created_subprogs]
 QED
 
 (***** word_to_word semantics correctness for Pancake *****)
@@ -1657,4 +1692,3 @@ Proof
   pairarg_tac>>gs[]
 QED
 
-val _ = export_theory();

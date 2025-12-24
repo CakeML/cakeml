@@ -2,14 +2,13 @@
   A small-step semantics for CakeML. This semantics is no longer used
   in the main CakeML development, but is used in PureCake and choreographies.
 *)
-open HolKernel Parse boolLib bossLib;
-open namespaceTheory astTheory ffiTheory semanticPrimitivesTheory;
+Theory smallStep
+Ancestors
+  namespace ast ffi semanticPrimitives
 
 val _ = numLib.temp_prefer_num();
 
 
-
-val _ = new_theory "smallStep"
 
 (* Small-step semantics for expressions, modules, and definitions *)
 
@@ -22,6 +21,7 @@ Datatype:
     Craise unit
   | Chandle unit ((pat # exp) list)
   | Capp op (v list) unit (exp list)
+  | Cforce num
   | Clog lop unit exp
   | Cif unit exp exp
   (* The value is raised if none of the patterns match *)
@@ -84,6 +84,17 @@ Definition application_def:
       (case do_opapp vs of
           SOME (env,e) => Estep (env, s, Exp e, c)
         | NONE => Eabort Rtype_error)
+     | Force => (
+        case vs of
+        | [Loc b n] => (
+            case dest_thunk [Loc b n] (FST s) of
+            | BadRef => Eabort Rtype_error
+            | NotThunk => Eabort Rtype_error
+            | IsThunk Evaluated v => Estep (env, s, Val v, c)
+            | IsThunk NotEvaluated f =>
+                Estep (env, s, Val f,
+                       (Capp Opapp [Conv NONE []] () [], env)::(Cforce n, env)::c))
+        | _ => Eabort Rtype_error)
      | _ =>
       (case do_app s op vs of
           SOME (s',r) =>
@@ -109,6 +120,14 @@ Definition continue_def:
         application op env s (v::vs) c
     | (Capp op vs ()  (e::es), env) :: c =>
         push env s e (Capp op (v::vs) ()  es) c
+    | (Cforce n, env) :: c => (
+        case dest_thunk [v] (FST s) of
+        | BadRef => Eabort Rtype_error
+        | NotThunk => (
+            case store_assign n (Thunk Evaluated v) (FST s) of
+            | SOME s' => return env (s', SND s) v c
+            | NONE => Eabort Rtype_error)
+        | IsThunk v3 v4 => Eabort Rtype_error)
     | (Clog l ()  e, env) :: c =>
         (case do_log l v e of
             SOME (Exp e) => Estep (env, s, Exp e, c)
@@ -454,4 +473,3 @@ Definition small_decl_diverges_def:
 End
 
 
-val _ = export_theory()

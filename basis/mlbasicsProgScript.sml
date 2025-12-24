@@ -1,14 +1,15 @@
 (*
-  Bind various built-in functions to function names that the parser
-  expects, e.g. the parser generates a call to a function called "+"
+  Translates a variety of basic constructs.
+
+  In particular, we vind various built-in functions to function names that
+  the parser expects, e.g. the parser generates a call to a function called "+"
   when it parses 1+2.
 *)
-open preamble
-     semanticPrimitivesTheory ml_translatorTheory
-     ml_translatorLib ml_progLib cfLib basisFunctionsLib
-     StringProgTheory
-
-val _ = new_theory "mlbasicsProg"
+Theory mlbasicsProg
+Ancestors
+  semanticPrimitives ml_translator StringProg
+Libs
+  preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
 
 val _ = translation_extends"StringProg"
 
@@ -94,12 +95,23 @@ Proof
 QED
 
 Definition bool_toString_def:
-  bool_toString b = if b then strlit "True" else strlit"False"
+  bool_toString b = if b then strlit "True" else strlit "False"
+End
+
+Definition bool_fromString_def:
+  bool_fromString s = if s = strlit "True" then SOME T else
+                      if s = strlit "False" then SOME F else
+                      NONE
 End
 
 val _ = ml_prog_update (open_module "Bool");
+val _ = (next_ml_names := ["not"]);
+val _ = trans "not" ``\x. ~x:bool``;
+val _ = trans "=" “(=):bool->bool->bool”;
 val _ = (next_ml_names := ["toString"]);
 val _ = translate bool_toString_def;
+val _ = (next_ml_names := ["fromString"]);
+val _ = translate bool_fromString_def;
 val _ = (next_ml_names := ["compare"]);
 val _ = translate comparisonTheory.bool_cmp_def;
 val _ = ml_prog_update (close_module NONE);
@@ -122,4 +134,13 @@ val _ = (next_ml_names := ["compare"]);
 val _ = translate comparisonTheory.pair_cmp_def;
 val _ = ml_prog_update (close_module NONE);
 
-val _ = export_theory ()
+
+Quote add_cakeml:
+  exception Fail string
+End
+
+val Fail_ = get_exn_conv “"Fail"”;
+
+Definition Fail_exn_def:
+  Fail_exn s v = (∃sv. v = Conv (SOME ^Fail_) [sv] ∧ STRING_TYPE s sv)
+End

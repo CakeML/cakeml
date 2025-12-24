@@ -1,5 +1,5 @@
 INCLUDES = $(HOLDIR)/examples/formal-languages/context-free\
-					 $(HOLDIR)/examples/fun-op-sem/lprefix_lub\
+					 $(HOLDIR)/examples/pl-semantics/lprefix_lub\
 					 $(CAKEMLDIR)/developers $(CAKEMLDIR)/misc\
                      $(CAKEMLDIR)/basis/pure \
 					 ffi

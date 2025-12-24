@@ -1,14 +1,15 @@
 (*
   Encoding program for the n-queens problem
 *)
+Theory nQueensEncoderProg
+Ancestors
+  misc set_sep list cnf boolExpToCnf quantifierExp
+  orderEncodingBool nqueens
+  (* for parsing: *) parsing source_values
+  toCnfHelper sat_encodersProg
+Libs
+  preamble basis
 
-open preamble basis miscTheory set_sepTheory listTheory cnfTheory;
-open boolExpToCnfTheory quantifierExpTheory orderEncodingBoolTheory;
-open nqueensTheory;
-open (* for parsing: *) parsingTheory source_valuesTheory;
-open toCnfHelperTheory sat_encodersProgTheory;
-
-val _ = new_theory "nQueensEncoderProg";
 
 val _ = translation_extends "sat_encodersProg";
 
@@ -113,7 +114,7 @@ val _ = type_of “main_function” = “:mlstring -> mlstring app_list”
         orelse failwith "The main_function has the wrong type.";
 
 val main = process_topdecs
-  `print_app_list (main_function (TextIO.inputAll TextIO.stdIn));`;
+  `print_app_list (main_function (TextIO.inputAll (TextIO.openStdIn ())));`;
 
 val prog =
   get_ml_prog_state ()
@@ -128,6 +129,3 @@ val prog =
 Definition nQueens_encoder_prog_def:
   nQueens_encoder_prog = ^prog
 End
-
-
-val _ = export_theory();

@@ -3,11 +3,12 @@
   by composing the application-specific correctness theorem, the
   compiler evaluation theorem and the compiler correctness theorem.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     wordfreqProgTheory wordfreqCompileTheory
-
-val _ = new_theory"wordfreqProof";
+Theory wordfreqProof
+Ancestors
+  semanticsProps backendProof x64_configProof wordfreqProg
+  wordfreqCompile
+Libs
+  preamble
 
 val wordfreq_io_events_def = new_specification("wordfreq_io_events_def",["wordfreq_io_events"],
   wordfreq_semantics |> Q.GENL[`fs`,`pname`,`fname`]
@@ -82,4 +83,3 @@ Proof
   \\ metis_tac [wordfreqProgTheory.wordfreq_output_spec_def]
 QED
 
-val _ = export_theory();

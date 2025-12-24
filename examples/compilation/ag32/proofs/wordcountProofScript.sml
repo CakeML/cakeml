@@ -3,13 +3,13 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory ag32_configProofTheory
-     ag32_memoryTheory ag32_memoryProofTheory ag32_ffi_codeProofTheory
-     ag32_machine_configTheory ag32_basis_ffiProofTheory
-     wordcountProgTheory wordcountCompileTheory;
-
-val _ = new_theory"wordcountProof";
+Theory wordcountProof
+Ancestors
+  semanticsProps backendProof ag32_configProof ag32_memory
+  ag32_memoryProof ag32_ffi_codeProof ag32_machine_config
+  ag32_basis_ffiProof wordcountProg wordcountCompile
+Libs
+  preamble
 
 val is_ag32_init_state_def = ag32_targetTheory.is_ag32_init_state_def;
 
@@ -21,21 +21,25 @@ Proof
 QED
 (* -- *)
 
-Theorem wordcount_stdin_semantics = Q.prove(
-  `∃io_events.
-     semantics_prog (init_state (basis_ffi [strlit"wordcount"] (stdin_fs input))) init_env
-       wordcount_prog (Terminate Success io_events) ∧
-     (extract_fs (stdin_fs input) io_events =
-      SOME (add_stdout (fastForwardFD (stdin_fs input) 0)
-             (concat
-               [mlint$toString (&LENGTH (TOKENS isSpace input)); strlit " ";
-                mlint$toString (&LENGTH (splitlines input)); strlit "\n"])))`,
+Theorem wordcount_stdin_semantics_raw[local]:
+  ∃io_events.
+    semantics_prog (init_state (basis_ffi [strlit"wordcount"] (stdin_fs input))) init_env
+      wordcount_prog (Terminate Success io_events) ∧
+    (extract_fs (stdin_fs input) io_events =
+       SOME (add_stdout (fastForwardFD (stdin_fs input) 0)
+              (concat
+                [mlint$toString (&LENGTH (TOKENS isSpace input)); strlit " ";
+                 mlint$toString (&LENGTH (splitlines input)); strlit "\n"])))
+Proof
   simp [wordcount_compiled, GSYM ml_progTheory.prog_syntax_ok_semantics]
   \\ match_mp_tac (GEN_ALL wordcount_semantics)
   \\ simp[wordcount_precond_def, CommandLineProofTheory.wfcl_def, clFFITheory.validArg_def]
   \\ simp[wfFS_stdin_fs, STD_streams_stdin_fs]
-  \\ simp[stdin_fs_def])
-  |> SIMP_RULE std_ss[int_toString_num]
+  \\ simp[stdin_fs_def, TextIOProofTheory.stdin_content_def]
+QED
+
+Theorem wordcount_stdin_semantics =
+  SIMP_RULE std_ss[int_toString_num] wordcount_stdin_semantics_raw
 
 val wordcount_io_events_def =
   new_specification("wordcount_io_events_def",["wordcount_io_events"],
@@ -233,5 +237,3 @@ Proof
   \\ qexists_tac`clk` \\ simp[]
   \\ EVAL_TAC
 QED
-
-val _ = export_theory();

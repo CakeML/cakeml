@@ -33,6 +33,9 @@ echo program example: print the command line arguments.
 [filterProgScript.sml](filterProgScript.sml):
 Filter case study from CASE.
 
+[flover](flover):
+# FloVer - A Certificate Checker for Roundoff Error Bounds
+
 [grepProgScript.sml](grepProgScript.sml):
 grep example: search for file lines matching a regular expression.
 
@@ -44,9 +47,6 @@ Hello World example, printing to standard output.
 
 [insertSortProgScript.sml](insertSortProgScript.sml):
 In-place insertion sort on a polymorphic array.
-
-[iocatProgScript.sml](iocatProgScript.sml):
-Faster cat: process 2048 chars at a time.
 
 [lcsScript.sml](lcsScript.sml):
 Verification of longest common subsequence algorithms.
@@ -94,6 +94,10 @@ A high-level specification of words and frequencies
 [stackProgScript.sml](stackProgScript.sml):
 An example of a stack data structure implemented using CakeML arrays, verified
 using CF.
+
+[template](template):
+A simple example of how a standalone CakeML program can be produced from
+a functional program defined as functions in HOL.
 
 [vipr](vipr):
 Formalisation of VIPR: Verifying Integer Programming Results

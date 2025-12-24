@@ -1,14 +1,14 @@
 (*
   Relating the itree- and FFI state-based CakeML semantics
 *)
-open HolKernel Parse boolLib bossLib BasicProvers dep_rewrite;
-open optionTheory relationTheory pairTheory listTheory arithmeticTheory llistTheory;
-open namespaceTheory astTheory ffiTheory lprefix_lubTheory semanticPrimitivesTheory
-     semanticsTheory evaluatePropsTheory smallStepTheory smallStepPropsTheory primSemEnvTheory;
-open itreeTheory itree_semanticsTheory itree_semanticsPropsTheory;
-
-val _ = new_theory "itree_semanticsEquiv";
-
+Theory itree_semanticsEquiv
+Ancestors
+  option relation pair list arithmetic llist namespace ast ffi
+  lprefix_lub semanticPrimitives semantics evaluateProps
+  smallStep smallStepProps primSemEnv itree itree_semantics
+  itree_semanticsProps
+Libs
+  BasicProvers dep_rewrite
 
 (******************** Useful simplifications ********************)
 
@@ -59,11 +59,15 @@ Proof
   rw[] >> reverse $ Cases_on `do_app (st,ffi) op vs` >> gvs[]
   >- (
     PairCases_on `x` >> gvs[semanticPrimitivesPropsTheory.do_app_cases] >>
-    simp[do_app_def, result_rel_cases] >> every_case_tac >> gvs[]
+    simp[do_app_def, result_rel_cases] >> every_case_tac >> gvs[] >>
+    gvs[semanticPrimitivesTheory.thunk_op_def, itree_semanticsTheory.thunk_op_def] >>
+    gvs[AllCaseEqs(), store_alloc_def]
     ) >>
   Cases_on `do_app st op vs` >> gvs[] >> PairCases_on `x` >>
   gvs[do_app_cases, semanticPrimitivesTheory.do_app_def, store_alloc_def] >>
-  every_case_tac >> gvs[]
+  every_case_tac >> gvs[] >>
+  gvs[semanticPrimitivesTheory.thunk_op_def, itree_semanticsTheory.thunk_op_def] >>
+  gvs[AllCaseEqs(), store_alloc_def, NOT_LESS]
 QED
 
 Theorem application_rel:
@@ -77,19 +81,28 @@ Proof
   drule do_app_rel >> disch_then $ qspecl_then [`vs`,`st`,`ffi`] assume_tac >>
   Cases_on ‘getOpClass op’
   >- (
-    Cases_on ‘op’ >> gs[getOpClass_def, application_def, cml_application_thm] >>
+    Cases_on ‘op’ >> gs[getOpClass_def, application_def, cml_application_thm]
+    >- gvs[AllCaseEqs()] >>
     simp[step_result_rel_cases, AllCaseEqs(), PULL_EXISTS] >>
     Cases_on ‘do_app (st,ffi) Eval vs’ >> gvs[] >>
     Cases_on ‘do_app st Eval vs’ >> gvs[] >>
     PairCases_on ‘x’ >> PairCases_on ‘x'’ >>
     gvs[result_rel_cases, SF smallstep_ss, SF itree_ss] >>
     gs[do_app_def, semanticPrimitivesTheory.do_app_def] >> every_case_tac >>
-    gs[])
+    gs[]
+    )
   >- (
     rw[application_def, cml_application_thm] >>
     simp[step_result_rel_cases, AllCaseEqs(), PULL_EXISTS] >>
     Cases_on `do_opapp vs` >> simp[] >>
     PairCases_on `x` >> simp[]
+    )
+  >- (
+    gvs[oneline getOpClass_def, AllCaseEqs()] >>
+    simp[application_thm, cml_application_thm] >>
+    rpt (TOP_CASE_TAC >> gvs[step_result_rel_cases]) >>
+    simp[return_def] >> gvs[ctxt_rel_def] >>
+    simp[ctxt_frame_rel_cases]
     )
   >- (
     rw[application_def, cml_application_thm] >>
@@ -102,7 +115,8 @@ Proof
     gvs[result_rel_cases, SF smallstep_ss, SF itree_ss] >>
     gvs[step_result_rel_cases, AllCaseEqs(), ctxt_rel_def] >>
     simp[ctxt_frame_rel_cases] >>
-    gvs[do_app_def, AllCaseEqs(), store_alloc_def])
+    gvs[do_app_def, thunk_op_def, AllCaseEqs(), store_alloc_def]
+    )
 QED
 
 Theorem application_rel_FFI_type_error:
@@ -157,7 +171,7 @@ QED
 
 (******************** Relating non-FFI steps ********************)
 
-Triviality FST_THM:
+Theorem FST_THM[local]:
   FST = λ(x,y,z). x
 Proof
   rw[FUN_EQ_THM, UNCURRY]
@@ -185,7 +199,7 @@ Proof
     gvs[estep_def, step_result_rel_cases] >> strip_tac >>
     gvs[SF smallstep_ss, SF itree_ss, ctxt_rel_def, ctxt_frame_rel_cases, get_ffi_def] >>
     gvs[GSYM ctxt_frame_rel_cases, GSYM step_result_rel_cases] >>
-    CASE_TAC >- gvs[continue_def, get_ffi_def] >>
+    TOP_CASE_TAC >- gvs[continue_def, get_ffi_def] >>
     PairCases_on `h` >> gvs[] >> PairCases_on `x` >> gvs[] >>
     rename1 `ctxt_frame_rel c1 c2` >> rename1 `(c1,env)` >>
     rename1 `LIST_REL _ rest1 rest2` >>
@@ -216,6 +230,7 @@ Proof
       >- metis_tac[application_rel_FFI_type_error] >>
       imp_res_tac application_rel_FFI_step >> gvs[get_ffi_def]
       )
+    >- (EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases])
     >- (EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases])
     >- (EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases])
     >- (EVERY_CASE_TAC >> gvs[get_ffi_def, ctxt_frame_rel_cases])
@@ -473,8 +488,9 @@ Theorem step_result_rel_single_FFI_error:
     Effi s conf ws lnum env (FST $ SND ea) (TL $ SND $ SND $ SND $ ea)
 Proof
   rpt $ PairCases >> rw[e_step_def] >> gvs[AllCaseEqs(), SF smallstep_ss] >>
-  gvs[cml_application_thm, AllCaseEqs(), SF smallstep_ss] >>
-  gvs[semanticPrimitivesPropsTheory.do_app_cases, AllCaseEqs()] >>
+  gvs[cml_application_thm, AllCaseEqs(), SF smallstep_ss, thunk_op_def] >>
+  gvs[semanticPrimitivesPropsTheory.do_app_cases,
+      semanticPrimitivesTheory.thunk_op_def, AllCaseEqs()] >>
   gvs[step_result_rel_cases, ctxt_rel_def] >>
   gvs[GSYM ctxt_rel_def, ctxt_frame_rel_cases] >> pairarg_tac >> gvs[] >>
   simp[SF itree_ss, application_def] >> gvs[call_FFI_def, AllCaseEqs()] >>
@@ -790,7 +806,8 @@ Theorem do_app_not_SharedMem:
 Proof
   rpt strip_tac >>
   gvs[DefnBase.one_line_ify NONE semanticPrimitivesTheory.do_app_def,
-    AllCaseEqs(),call_FFI_def] >>
+    AllCaseEqs(),call_FFI_def,store_alloc_def,
+    semanticPrimitivesTheory.thunk_op_def] >>
   rw[] >>
   pairarg_tac >> fs[]
 QED
@@ -1640,7 +1657,7 @@ End
 
 Overload itree_ffi = `` λst. (st.ffi.oracle,st.ffi.ffi_state)``;
 
-Triviality evaluate_decs_NIL[simp]:
+Theorem evaluate_decs_NIL[local,simp]:
   evaluate_decs ck env st [] res ⇔ res = (st, Rval empty_dec_env)
 Proof
   simp[Once bigStepTheory.evaluate_dec_cases, empty_dec_env_def]
@@ -1863,5 +1880,3 @@ QED
 
 
 (****************************************)
-
-val _ = export_theory();

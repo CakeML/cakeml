@@ -137,7 +137,7 @@ fun MY_MP name th1 th2 =
       val _ = print "\n\n"
     in raise e end
 
-fun reraise fname message r = raise (ERR fname (message ^ ": " ^ #message r))
+fun reraise fname message r = raise (ERR fname (message ^ ": " ^ message_of r))
 
 fun auto_prove_asms name ((asms,goal),tac) = let
   val (rest,validation) = tac (asms,goal)
@@ -345,7 +345,10 @@ in
           subst [code |-> mk_Var(mk_Short (stringSyntax.fromMLstring ml_name))] tm
     in
       ASSUME tm |> SPEC_ALL |> UNDISCH_ALL
-    end handle HOL_ERR {origin_function="first",...} => raise NotFoundVThm const
+    end handle e as HOL_ERR holerr =>
+      if top_function_of holerr = "first" then
+         raise NotFoundVThm const
+      else raise e
   fun lookup_eval_thm const = let
     val (name,c,th) = (first (fn c => can (match_term (#2 c)) const) (!eval_thms))
     in th |> SPEC_ALL |> UNDISCH_ALL end
@@ -1280,7 +1283,7 @@ fun mk_EqualityType_ind typ = let
         \\ full_simp_tac ss [EqualityType_eq_at, markerTheory.Case_def]
         \\ simp_tac (bool_ss ++ simpLib.type_ssfrag typ) []
     )
-  in (assums, thm) end
+  in (assums, thm) end;
 
 fun mk_EqualityType_thm is_exn_type typ = let
     val final_goal = ml_translatorSyntax.mk_EqualityType (get_type_inv typ)
@@ -1322,7 +1325,7 @@ fun fetch_v_fun_ex extra_tms extra_thms ty = case assoc1 ty extra_tms of
     val m = match_type f_arg ty
   in (list_mk_comb (inst m f, arg_funs), thms @ List.concat (map snd rec_xs)) end
 
-fun mk_v_app extras v = mk_comb (fetch_v_fun_ex extras [] (type_of v) |> fst, v)
+fun mk_v_app extras v = mk_comb (fetch_v_fun_ex extras [] (type_of v) |> fst, v);
 
 val fetch_v_fun = fetch_v_fun_ex [] []
 
@@ -1391,7 +1394,7 @@ fun define_type_reps [] = []
     val more = case fetch_v_fun_ex [] reps ty of
         (_, []) => define_v_fun ty
       | _ => []
-  in more @ reps end
+  in more @ reps end;
 
 fun EqualityType_cc dir tm = let
     val lemmas = map (REWRITE_RULE [AND_IMP_INTRO]) (eq_lemmas ())
@@ -1598,8 +1601,8 @@ val (ml_ty_name,x::xs,ty,lhs,input) = hd ys
       |> map fst |> define_type_reps |> map simp_eq_lemma
   in (name,res,type_rep_lemmas) end;
 
-fun domain ty = ty |> dest_fun_type |> fst
-fun codomain ty = ty |> dest_fun_type |> snd
+fun domain ty = ty |> dest_fun_type |> fst;
+fun codomain ty = ty |> dest_fun_type |> snd;
 
 val (FILTER_ASSUM_TAC : (term -> bool) -> tactic) = let
   fun sing f [x] = f x
@@ -1608,7 +1611,7 @@ val (FILTER_ASSUM_TAC : (term -> bool) -> tactic) = let
   fun f p (asl,w) =
     ([(filter p asl,w)], sing (fn th =>
            (foldr add_assum th (filter (not o p) asl))))
-  in f end
+  in f end;
 
 (*
 val ty = ``:lit``; derive_thms_for_type false ty
@@ -1636,7 +1639,7 @@ fun avoid_v_subst ty = let
       [mk_vartype "'v" |-> mk_vartype(prime_v "'w")]
     else
       []
-  end
+  end;
 
 fun derive_thms_for_type is_exn_type ty = let
 
@@ -2540,7 +2543,7 @@ fun pmatch_hol2deep tm hol2deep = let
   val th = UNDISCH_ALL (th |> CONJUNCT2)
   in th end handle HOL_ERR e =>
   (pmatch_hol2deep_fail := tm;
-   failwith ("pmatch_hol2deep failed (" ^ #message e ^ ")"));
+   failwith ("pmatch_hol2deep failed (" ^ message_of e ^ ")"));
 
 local
   (* list_conv: applies c to every xi in a term such as [x1;x2;x3;x4] *)
@@ -2894,15 +2897,20 @@ val builtin_binops =
    Eval_NUM_LESS_EQ,
    Eval_NUM_GREATER,
    Eval_NUM_GREATER_EQ,
+   Eval_NUM_EQ,
+   Eval_BOOL_EQ,
    Eval_char_lt,
    Eval_char_le,
    Eval_char_gt,
    Eval_char_ge,
+   Eval_char_eq,
+   Eval_str_eq,
    Eval_INT_ADD,
    Eval_INT_SUB,
    Eval_INT_MULT,
    Eval_INT_DIV,
    Eval_INT_MOD,
+   Eval_INT_EQ,
    Eval_INT_LESS,
    Eval_INT_LESS_EQ,
    Eval_INT_GREATER,
@@ -2921,6 +2929,7 @@ val builtin_binops =
    Eval_strsub,
    Eval_ListAppend,
    Eval_sub,
+   Eval_sub_unsafe,
    Eval_Implies,
    Eval_pure_seq]
  |> map (fn th =>
@@ -2940,6 +2949,8 @@ val builtin_monops =
    Eval_FLOAT_ABS,
    Eval_FLOAT_SQRT,
    Eval_FLOAT_NEG,
+   Eval_FP_fromWord,
+   Eval_FP_toWord,
    Eval_empty_ffi,
    Eval_force_out_of_memory_error,
    Eval_Chr,
@@ -3316,6 +3327,11 @@ fun dest_word_binop tm =
   if wordsSyntax.is_word_or  tm then Eval_word_or  else
   if wordsSyntax.is_word_xor tm then Eval_word_xor else
   if wordsSyntax.is_word_sub tm then Eval_word_sub else
+  if wordsSyntax.is_word_lo tm  then Eval_word_lo else
+  if wordsSyntax.is_word_ls tm  then Eval_word_ls else
+  if wordsSyntax.is_word_hi tm  then Eval_word_hi else
+  if wordsSyntax.is_word_hs tm  then Eval_word_hs else
+  if is_eq tm                   then Eval_word_eq else
     failwith("not a word binop")
 
 fun dest_word_shift tm =
@@ -3366,6 +3382,26 @@ val tm = sortingTheory.PARTITION_DEF |> SPEC_ALL |> concl |> rhs
 val tm = def |> SPEC_ALL |> concl |> rand
 *)
 
+val float64_ty = mk_thy_type{
+      Args = [
+          fcpSyntax.mk_numeric_type (Arbnum.fromInt 52),
+          fcpSyntax.mk_numeric_type (Arbnum.fromInt 11)
+      ],
+      Thy = "binary_ieee",
+      Tyop = "float"
+    }
+
+(* slightly more generous than binary_ieeeSyntax.dest_floating_point which
+   insists on the record fields in the exp-sign-signif order *)
+fun is_float_literal tm =
+    let val (ty, alist) = TypeBase.dest_record tm
+        val _ = ty = float64_ty orelse raise ERR "" ""
+        val _ = Listsort.sort String.compare (map #1 alist) =
+                ["Exponent", "Sign", "Significand"] orelse raise ERR "" ""
+    in
+      List.all (wordsSyntax.is_word_literal o #2) alist
+    end handle HOL_ERR _ => false
+
 fun hol2deep tm =
   (* variables *)
   if is_var tm then let
@@ -3388,6 +3424,17 @@ fun hol2deep tm =
                  |> CONV_RULE (RATOR_CONV wordsLib.WORD_CONV)
     in check_inv "word_literal" tm result end else
   if stringSyntax.is_char_literal tm then SPEC tm Eval_Val_CHAR else
+  if is_float_literal tm then
+    let
+      val th0 = SPEC tm Eval_Val_FLOAT64
+    in
+      CONV_RULE
+        (LAND_CONV
+           (RAND_CONV
+              (RAND_CONV (REWR_CONV machine_ieeeTheory.float_to_fp64_def THENC
+                          EVAL))))
+        th0
+    end else
   if mlstringSyntax.is_mlstring_literal tm then
     SPEC (rand tm) Eval_Val_STRING else
   if use_hol_string_type () andalso can stringSyntax.fromHOLstring tm then
@@ -3474,6 +3521,18 @@ fun hol2deep tm =
     val th3 = hol2deep x3
     val result = MATCH_MP (MATCH_MP (MATCH_MP lemma th1) (UNDISCH_ALL th2)) (UNDISCH_ALL th3) |> UNDISCH_ALL
     in check_inv "terop" tm result end else
+  (* equality: n = 0 *)
+  if can (match_term (get_term "n = 0")) tm then let
+    val x1 = fst (dest_eq tm)
+    val th1 = hol2deep x1
+    val result = MATCH_MP Eval_NUM_EQ_0 th1
+    in check_inv "num_eq_0" tm result end else
+  (* equality: 0 = n *)
+  if can (match_term (get_term "0 = n")) tm then let
+    val x1 = snd (dest_eq tm)
+    val th1 = hol2deep x1
+    val result = MATCH_MP (GSYM Eval_NUM_EQ_0) th1
+    in check_inv "0_eq_num" tm result end else
   (* built-in binary operations *)
   if can dest_builtin_binop tm then let
     val (p,x1,x2,lemma) = dest_builtin_binop tm
@@ -3487,20 +3546,8 @@ fun hol2deep tm =
     val th1 = hol2deep x1
     val result = MATCH_MP lemma th1 |> UNDISCH_ALL
     in check_inv "monop" tm result end else
-  (* equality: n = 0 *)
-  if can (match_term (get_term "n = 0")) tm then let
-    val x1 = fst (dest_eq tm)
-    val th1 = hol2deep x1
-    val result = MATCH_MP Eval_NUM_EQ_0 th1
-    in check_inv "num_eq_0" tm result end else
-  (* equality: 0 = n *)
-  if can (match_term (get_term "0 = n")) tm then let
-    val x1 = snd (dest_eq tm)
-    val th1 = hol2deep x1
-    val result = MATCH_MP (GSYM Eval_NUM_EQ_0) th1
-    in check_inv "0_eq_num" tm result end else
-  (* equality *)
-  if is_eq tm then let
+  (* equality (but not word equality) *)
+  if is_eq tm andalso not (word_ty_ok (type_of (rand tm))) then let
     val (x1,x2) = dest_eq tm
     val th1 = hol2deep x1
     val th2 = hol2deep x2
@@ -3597,7 +3644,7 @@ fun hol2deep tm =
           (hol2deep x1)
     in check_inv "w2w" tm result end else
   (* word_add, _and, _or, _xor, _sub *)
-  if can dest_word_binop tm andalso word_ty_ok (type_of tm) then let
+  if can dest_word_binop tm andalso word_ty_ok (type_of (rand tm)) then let
     val lemma = dest_word_binop tm
     val th1 = hol2deep (tm |> rator |> rand)
     val th2 = hol2deep (tm |> rand)
@@ -4118,7 +4165,7 @@ fun print_unable_to_prove_ind_thm ind_goal_def original_def ml_name = let
   val _ = print ("\n")
   val _ = print ("\nval res = translate_no_ind "^name^";")
   val _ = print ("\n")
-  val _ = print ("\nTriviality " ^ ind_name ^ ":")
+  val _ = print ("\nTheorem " ^ ind_name ^ "[local]:")
   val _ = print ("\n  " ^ ind_name)
   val _ = print ("\nProof")
   val _ = print ("\n  once_rewrite_tac [fetch \"-\" \"" ^ ind_name ^ "_def\"]")

@@ -1,16 +1,14 @@
 (*
   The formal semantics of stackLang
 *)
+Theory stackSem
+Ancestors
+  stackLang
+  wordSem[qualified] (* for word_loc *)
+  labSem[qualified]
+Libs
+  preamble
 
-open preamble stackLangTheory
-local open wordSemTheory labSemTheory in end
-
-val _ = new_theory"stackSem";
-
-val _ = set_grammar_ancestry
-  ["stackLang",
-   "wordSem" (* for word_loc *)
-  ];
 
 Datatype:
   result = Result ('w word_loc)
@@ -232,6 +230,19 @@ Definition sh_mem_store_byte_def:
    | _ => (SOME Error, s))
 End
 
+Definition sh_mem_store16_def:
+  sh_mem_store16 r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
+  (case get_var r s of
+     SOME (Word w) =>
+       if byte_align a IN s.sh_mdomain then
+         (case call_FFI s.ffi (SharedMem MappedWrite) [2w:word8]
+                        (TAKE 2 (word_to_bytes w F) ++ word_to_bytes a F) of
+            FFI_final outcome => (SOME (FinalFFI outcome), s)
+          | FFI_return new_ffi new_bytes => (NONE,s with ffi := new_ffi))
+       else (SOME Error, s)
+   | _ => (SOME Error, s))
+End
+
 Definition sh_mem_store32_def:
   sh_mem_store32 r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
   (case get_var r s of
@@ -249,6 +260,19 @@ Definition sh_mem_load_byte_def:
   sh_mem_load_byte r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
   if byte_align a IN s.sh_mdomain then
     (case call_FFI s.ffi (SharedMem MappedRead) [1w:word8] (word_to_bytes a F) of
+       FFI_final outcome => (SOME (FinalFFI outcome), s)
+     | FFI_return new_ffi new_bytes =>
+         (NONE,
+          s with <|
+              regs := s.regs |+ (r, Word (word_of_bytes F 0w new_bytes)) ;
+              ffi := new_ffi |>))
+  else (SOME Error, s)
+End
+
+Definition sh_mem_load16_def:
+  sh_mem_load16 r (a:'a word) (s:('a,'c,'ffi) stackSem$state):'a result option # ('a,'c,'ffi) stackSem$state =
+  if byte_align a IN s.sh_mdomain then
+    (case call_FFI s.ffi (SharedMem MappedRead) [2w:word8] (word_to_bytes a F) of
        FFI_final outcome => (SOME (FinalFFI outcome), s)
      | FFI_return new_ffi new_bytes =>
          (NONE,
@@ -276,6 +300,8 @@ Definition sh_mem_op_def:
   (sh_mem_op Store r ad s = sh_mem_store r ad s) ∧
   (sh_mem_op Load8 r ad s = sh_mem_load_byte r ad s) ∧
   (sh_mem_op Store8 r ad s = sh_mem_store_byte r ad s) ∧
+  (sh_mem_op Load16 r ad s = sh_mem_load16 r ad s) ∧
+  (sh_mem_op Store16 r ad s = sh_mem_store16 r ad s) ∧
   (sh_mem_op Load32 r ad s = sh_mem_load32 r ad s) ∧
   (sh_mem_op Store32 r ad s = sh_mem_store32 r ad s)
 End
@@ -458,6 +484,7 @@ Definition inst_def:
             | NONE => NONE
             | SOME w => SOME (set_var r (Word (w2w w)) s))
         | _ => NONE)
+    | Mem Load16 _ _ => NONE
     | Mem Load32 r (Addr a w) =>
        (case word_exp s (Op Add [Var a; Const w]) of
         | SOME w =>
@@ -479,6 +506,7 @@ Definition inst_def:
              | SOME new_m => SOME (s with memory := new_m)
              | NONE => NONE)
         | _ => NONE)
+    | Mem Store16 _ _ => NONE
     | Mem Store32 r (Addr a w) =>
        (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME a, SOME (Word w)) =>
@@ -624,7 +652,7 @@ Definition fix_clock_def:
   fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
 End
 
-Triviality fix_clock_IMP:
+Theorem fix_clock_IMP[local]:
   fix_clock s x = (res,s1) ==> s1.clock <= s.clock
 Proof
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
@@ -1021,7 +1049,8 @@ Theorem sh_mem_op_clock[local]:
   sh_mem_op op r a s = (res, s') ⇒ s'. clock ≤ s.clock
 Proof
   strip_tac>>Cases_on ‘op’>>
-  fs[sh_mem_op_def,sh_mem_store_def,sh_mem_load_def,sh_mem_store32_def,sh_mem_load32_def,
+  fs[sh_mem_op_def,sh_mem_store_def,sh_mem_load_def,sh_mem_store32_def,
+     sh_mem_load32_def,sh_mem_load16_def,sh_mem_store16_def,
      sh_mem_store_byte_def,sh_mem_load_byte_def,ffiTheory.call_FFI_def]>>
   every_case_tac>>gvs[]
 QED
@@ -1102,5 +1131,3 @@ End
 (* clean up *)
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
-
-val _ = export_theory();

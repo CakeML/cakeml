@@ -1,10 +1,13 @@
 (*
   The Floyd-Warshall algorithm - testing the monadic translator
 *)
+Theory floyd_warshallProg
+Ancestors
+  ml_monadBase ml_monad_translator
+Libs
+  preamble ml_monad_translator_interfaceLib
 
-open preamble ml_monad_translator_interfaceLib ml_monadBaseTheory
-
-val _ = new_theory "floyd_warshallProg"
+val _ = set_up_monadic_translator ();
 
 (* An adjacency matrix represented as a 1D-array with a dimension var *)
 Datatype:
@@ -261,7 +264,7 @@ Proof
   Cases_on`n`>>fs[]
 QED
 
-Triviality adj_mat_sub_SUCCESS:
+Theorem adj_mat_sub_SUCCESS[local]:
   ∀s. i < s.dim ∧ j < s.dim ∧
   LENGTH s.adj_mat = s.dim * s.dim ⇒
   ∃v.
@@ -289,7 +292,7 @@ Proof
   Cases_on`n`>>fs[LUPDATE_def]
 QED
 
-Triviality update_adj_mat_SUCCESS:
+Theorem update_adj_mat_SUCCESS[local]:
   ∀s.
     i < s.dim ∧ j < s.dim ∧
     LENGTH s.adj_mat = s.dim * s.dim ⇒
@@ -304,7 +307,7 @@ Proof
   rpt (disch_then drule)>>fs[]
 QED
 
-Triviality relax_SUCCESS:
+Theorem relax_SUCCESS[local]:
   i < s.dim ∧
   k < s.dim ∧
   j < s.dim ∧
@@ -322,7 +325,7 @@ Proof
   imp_res_tac update_adj_mat_SUCCESS>>rfs[]
 QED
 
-Triviality floyd_warshall_SUCCESS_j:
+Theorem floyd_warshall_SUCCESS_j[local]:
   ∀j s.
   i < s.dim ∧
   k < s.dim ∧
@@ -343,7 +346,7 @@ Proof
     first_x_assum(qspecl_then[`res`,`j+1`] assume_tac)>>rfs[]
 QED
 
-Triviality floyd_warshall_SUCCESS_i:
+Theorem floyd_warshall_SUCCESS_i[local]:
   ∀i s.
   k < s.dim ∧
   LENGTH s.adj_mat = s.dim * s.dim
@@ -364,7 +367,7 @@ Proof
     first_x_assum(qspecl_then[`res''`,`i+1`] assume_tac)>>rfs[]
 QED
 
-Triviality floyd_warshall_SUCCESS_k:
+Theorem floyd_warshall_SUCCESS_k[local]:
   ∀k s.
   LENGTH s.adj_mat = s.dim * s.dim ⇒
   ∃res.
@@ -446,6 +449,3 @@ val res = m_translate relax_def;
 val res = m_translate floyd_warshall_def;
 val res = m_translate init_from_ls_def;
 val res = m_translate do_floyd_def;
-
-
-val _ = export_theory();

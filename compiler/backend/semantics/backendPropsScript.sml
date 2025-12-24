@@ -2,9 +2,11 @@
   General definitions and theorems that are useful within the proofs
   about the compiler backend.
 *)
-open preamble
-
-val _ = new_theory"backendProps";
+Theory backendProps
+Ancestors
+  misc
+Libs
+  preamble
 
 Definition state_cc_def:
   state_cc f cc =
@@ -363,35 +365,35 @@ Theorem restrict_nonzero_SUBSET:
   restrict_nonzero l ⊆ l
 Proof
   rw[restrict_nonzero_def,SUBSET_DEF]
-QED;
+QED
 
 Theorem restrict_nonzero_SUBSET_left:
   s ⊆ t ⇒
   restrict_nonzero s ⊆ t
 Proof
   metis_tac[restrict_nonzero_SUBSET,SUBSET_TRANS]
-QED;
+QED
 
 Theorem restrict_nonzero_left_union :
   restrict_nonzero s ⊆ a ∪ b ⇒
   restrict_nonzero s ⊆ restrict_nonzero a ∪ b
 Proof
   rw[restrict_nonzero_def,SUBSET_DEF]
-QED;
+QED
 
 Theorem restrict_nonzero_right_union :
   restrict_nonzero s ⊆ a ∪ b ⇒
   restrict_nonzero s ⊆ a ∪ restrict_nonzero b
 Proof
   rw[restrict_nonzero_def,SUBSET_DEF]
-QED;
+QED
 
 Theorem restrict_nonzero_mono:
   s ⊆ t ⇒
   restrict_nonzero s ⊆ restrict_nonzero t
 Proof
  rw[restrict_nonzero_def,SUBSET_DEF]
-QED;
+QED
 
 Theorem restrict_nonzero_BIGUNION:
   restrict_nonzero(BIGUNION ss) = BIGUNION (IMAGE restrict_nonzero ss)
@@ -403,7 +405,7 @@ Proof
     simp[]>>
     qexists_tac`s`>>simp[])>>
   metis_tac[]
-QED;
+QED
 
 Definition option_le_def[simp]:
   option_le _ NONE = T /\
@@ -494,5 +496,3 @@ Theorem OPTION_MAP2_MAX_ASSOC:
 Proof
   Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs [MAX_DEF]
 QED
-
-val _ = export_theory();

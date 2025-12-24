@@ -1,11 +1,12 @@
 (*
   A few properties about the relational big-step semantics.
 *)
-open preamble;
-open semanticPrimitivesTheory semanticPrimitivesPropsTheory;
-open bigStepTheory evaluatePropsTheory;
-
-val _ = new_theory "bigStepProps";
+Theory bigStepProps
+Ancestors
+  semanticPrimitives semanticPrimitivesProps bigStep
+  evaluateProps
+Libs
+  preamble
 
 val st = ``st:'ffi state``
 
@@ -28,6 +29,14 @@ Theorem evaluate_no_new_types_exns:
 Proof
   ho_match_mp_tac bigStepTheory.evaluate_ind >>
   srw_tac[][]
+QED
+
+Theorem opClass_11[simp]:
+  (opClass op Simple ⇒ ¬opClass op Force ∧ ¬opClass op FunApp) ∧
+  (opClass op Force ⇒ ¬opClass op Simple ∧ ¬opClass op FunApp) ∧
+  (opClass op FunApp ⇒ ¬opClass op Simple ∧ ¬opClass op Force)
+Proof
+  Cases_on ‘op’ >> gvs[opClass_cases]
 QED
 
 Theorem evaluate_ignores_types_exns_eval:
@@ -106,4 +115,3 @@ Proof
 QED
 
 
-val _ = export_theory ();

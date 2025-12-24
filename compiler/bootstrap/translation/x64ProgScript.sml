@@ -1,6 +1,12 @@
 (*
   Translate the x64 instruction encoder and x64-specific config.
 *)
+Theory x64Prog[no_sig_docs]
+Ancestors
+  evaluate ml_translator from_pancake64Prog x64_target x64
+Libs
+  preamble ml_translatorLib inliningLib
+
 open preamble;
 open evaluateTheory
 open ml_translatorLib ml_translatorTheory;
@@ -9,8 +15,6 @@ open x64_targetTheory x64Theory;
 open inliningLib;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory "x64Prog"
 
 val _ = translation_extends "from_pancake64Prog";
 val _ = ml_translatorLib.use_string_type true;
@@ -21,7 +25,7 @@ val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "x64Prog");
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-Triviality NOT_NIL_AND_LEMMA:
+Theorem NOT_NIL_AND_LEMMA[local]:
   (b <> [] /\ x) = if b = [] then F else x
 Proof
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []
@@ -49,7 +53,7 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
-Triviality v2w_rw:
+Theorem v2w_rw[local]:
   v2w [P] = if P then 1w else 0w
 Proof
   rw[]>>EVAL_TAC
@@ -57,13 +61,13 @@ QED
 
 val _ = translate (conv64_RHS integer_wordTheory.WORD_LEi)
 
-Triviality zreg2num_totalnum2zerg:
+Theorem zreg2num_totalnum2zerg[local]:
   Zreg2num (total_num2Zreg n) = if n < 16 then n else 0
 Proof
   EVAL_TAC>>IF_CASES_TAC>>fs[Zreg2num_num2Zreg]
 QED
 
-Triviality zreg2num_num2zerg_MOD8:
+Theorem zreg2num_num2zerg_MOD8[local]:
   Zreg2num (num2Zreg (n MOD 8)) = n MOD 8
 Proof
   `n MOD 8 < 8` by fs[] >>
@@ -71,7 +75,7 @@ Proof
   fs[Zreg2num_num2Zreg]
 QED
 
-Triviality n2w_MOD8_simps:
+Theorem n2w_MOD8_simps[local]:
   n2w (n MOD 8) :word4 >>> 3 = 0w /\
   (n2w (n MOD 8) :word4 && 7w) = n2w (n MOD 8) ∧
   BITS 3 0 (n MOD 8) =n MOD 8
@@ -89,7 +93,7 @@ Proof
   fs[]
 QED
 
-Triviality Zbinop_name2num_x64_sh:
+Theorem Zbinop_name2num_x64_sh[local]:
   ∀s.Zbinop_name2num (x64_sh s) =
   case s of
     Lsl => 12
@@ -100,19 +104,19 @@ Proof
   Cases>>EVAL_TAC
 QED
 
-Triviality x64_sh_notZtest:
+Theorem x64_sh_notZtest[local]:
   ∀s.(x64_sh s) ≠ Ztest
 Proof
   Cases>>EVAL_TAC
 QED
 
-Triviality exh_if_collapse:
+Theorem exh_if_collapse[local]:
   ((if P then Ztest else Zcmp) = Ztest) ⇔ P
 Proof
   rw[]
 QED
 
-Triviality is_rax_zr_thm:
+Theorem is_rax_zr_thm[local]:
   is_rax (Zr (total_num2Zreg n)) ⇔
   n = 0 ∨ n ≥ 16
 Proof
@@ -123,7 +127,7 @@ Proof
 QED
 
 (* commute list case, option case and if *)
-Triviality case_ifs:
+Theorem case_ifs[local]:
   ((case
     if P then
       l1
@@ -135,7 +139,7 @@ Proof
   rw[]
 QED
 
-Triviality case_ifs2:
+Theorem case_ifs2[local]:
   ((case
     if P then
       SOME (a,b,c)
@@ -147,7 +151,7 @@ Proof
   rw[]
 QED
 
-Triviality if_neq:
+Theorem if_neq[local]:
   (if P then [x] else []) ≠ [] ⇔ P
 Proof
   rw[]
@@ -179,7 +183,7 @@ val x64_enc1s = x64_enc1 |> SIMP_RULE (srw_ss() ++ LET_ss ++ DatatypeSimps.expan
 
 val x64_enc1_1 = el 1 x64_enc1s
 
-Triviality simp_rw:
+Theorem simp_rw[local]:
   (if ((1w:word4 && n2w (if n < 16 then n else 0) ⋙ 3) = 1w) then 1w else 0w:word4) =
   (1w && n2w (if n < 16 then n else 0) ⋙ 3)
 Proof
@@ -187,10 +191,30 @@ Proof
   blastLib.FULL_BBLAST_TAC
 QED
 
-val x64_enc1_2 = el 2 x64_enc1s |> wc_simp |> we_simp |> gconv |>
- bconv |> SIMP_RULE std_ss [SHIFT_ZERO,Q.ISPEC`Zsize_CASE`
- COND_RAND,COND_RATOR,Zsize_case_def] |> fconv |> SIMP_RULE
- std_ss[Once COND_RAND,simp_rw] |> csethm 2
+Theorem LIST_BIND_rw[local]:
+  list_CASE (LIST_BIND (if P then A else B) f) C D =
+  if P then
+    list_CASE (LIST_BIND A f) C D
+  else
+    list_CASE (LIST_BIND B f) C D
+Proof
+  rw[]
+QED
+
+Theorem COND_RAND_pair[local]:
+  (λ(a,b). f a b) (if P then A else B) =
+  (if P then (λ(a,b). f a b) A else (λ(a,b). f a b) B)
+Proof
+  rw[]
+QED
+
+val x64_enc1_2 = el 2 x64_enc1s
+  |> REWRITE_RULE [LIST_BIND_rw]
+  |> SIMP_RULE (srw_ss()) defaults
+  |> wc_simp |> we_simp |> gconv
+  |> bconv |> SIMP_RULE std_ss [SHIFT_ZERO,Q.ISPEC`Zsize_CASE`
+ COND_RAND,COND_RATOR,Zsize_case_def,COND_RAND_pair] |> fconv |> SIMP_RULE
+ std_ss[simp_rw] |> csethm 2
 
 val (binop::shift::rest) = el 3 x64_enc1s |> SIMP_RULE (srw_ss() ++
 DatatypeSimps.expand_type_quants_ss [``:64 arith``]) [] |> CONJUNCTS
@@ -300,7 +324,7 @@ else if is_conj t then
 else
   false
 
-Triviality case_append:
+Theorem case_append[local]:
   (case a ++ [b;c] ++ d of [] => x | ls => ls) = a++[b;c]++d
 Proof
   EVERY_CASE_TAC>>fs[]
@@ -318,7 +342,7 @@ val x64_simp3 =
 
 val x64_simp4 = x64_enc4 |> SIMP_RULE (srw_ss() ++ LET_ss) defaults |> wc_simp |> we_simp |> gconv |> SIMP_RULE std_ss [SHIFT_ZERO]
 
-Triviality case_append2:
+Theorem case_append2[local]:
   (case a ++ [b;c] of [] => e | ls => ls) = a++[b;c]
 Proof
   EVERY_CASE_TAC>>fs[]
@@ -536,10 +560,7 @@ val res = translate def;
 
 Theorem x64_config_v_thm[allow_rebind] = translate (x64_config_def |> gconv);
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
 val _ = (ml_translatorLib.clean_on_exit := true);
-
-val _ = export_theory();

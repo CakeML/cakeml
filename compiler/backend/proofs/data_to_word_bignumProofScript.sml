@@ -1,17 +1,15 @@
 (*
   Part of the correctness proof for data_to_word
 *)
-open preamble dataSemTheory dataPropsTheory
-     copying_gcTheory int_bitwiseTheory finite_mapTheory
-     data_to_word_memoryProofTheory data_to_word_gcProofTheory
-     data_to_wordTheory wordPropsTheory
-     set_sepTheory semanticsPropsTheory
-     helperLib alignmentTheory blastLib word_bignumTheory
-     wordLangTheory word_bignumProofTheory gen_gc_partialTheory
-     gc_sharedTheory word_gcFunctionsTheory word_depthProofTheory;
-local open gen_gcTheory in end
-
-val _ = new_theory "data_to_word_bignumProof";
+Theory data_to_word_bignumProof
+Libs
+  preamble helperLib blastLib
+Ancestors
+  mllist dataSem wordSem[qualified] data_to_word
+  data_to_word_memoryProof data_to_word_gcProof word_bignumProof
+  dataProps copying_gc int_bitwise finite_map wordProps set_sep
+  semanticsProps alignment word_bignum wordLang gen_gc_partial
+  gc_shared word_gcFunctions word_depthProof gen_gc[qualified]
 
 val _ = temp_delsimps ["NORMEQ_CONV", "fromAList_def", "domain_union",
                        "domain_inter", "domain_difference",
@@ -19,11 +17,6 @@ val _ = temp_delsimps ["NORMEQ_CONV", "fromAList_def", "domain_union",
                        "sptree.insert_notEmpty", "sptree.isEmpty_union"]
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
-
-val _ = set_grammar_ancestry
-  ["dataSem", "wordSem", "data_to_word",
-   "data_to_word_memoryProof", "data_to_word_gcProof", "word_bignumProof"
-  ];
 
 val _ = temp_bring_to_front_overload"cut_env"{Name="cut_env",Thy="wordSem"};
 
@@ -220,9 +213,11 @@ Proof
   \\ rw [] \\ Cases_on `i = 0` \\ fs [word_bit_def]
 QED
 
-val if_eq_b2w = prove(
-  ``(if b then 1w else 0w) = b2w b``,
-  Cases_on `b` \\ EVAL_TAC);
+Theorem if_eq_b2w[local]:
+    (if b then 1w else 0w) = b2w b
+Proof
+  Cases_on `b` \\ EVAL_TAC
+QED
 
 
 Theorem option_le_max_dest:
@@ -241,7 +236,7 @@ Proof
   \\ every_case_tac \\ fs []
 QED
 
-Triviality b2n_not:
+Theorem b2n_not[local]:
   (if c then 0 else 1) = b2n (~c)
 Proof
   Cases_on ‘c’ \\ EVAL_TAC
@@ -918,7 +913,7 @@ Proof
   \\ fs [Abbr `t2`,lookup_insert,multiwordTheory.single_div_def]
   \\ impl_tac THEN1 fs [wordSemTheory.MustTerminate_limit_def]
   \\ strip_tac \\ fs [] \\ pop_assum kall_tac
-  \\ fs [wordSemTheory.pop_env_def,EVAL “QSORT R []”,
+  \\ fs [wordSemTheory.pop_env_def,EVAL “sort R []”,
          FLOOKUP_UPDATE,wordSemTheory.set_store_def,wordSemTheory.set_vars_def]
   \\ gvs [alist_insert_def,EVAL “list_rearrange p []”,fromAList_def,
           domain_fromAList_toAList,wordSemTheory.get_store_def,FLOOKUP_SIMP]
@@ -2544,5 +2539,3 @@ Proof
   \\ Cases_on `stack_size t.stack` THEN1 fs [OPTION_MAP2_DEF]
   \\ fs [] \\ rw [MAX_DEF] \\ fs [])
 QED
-
-val _ = export_theory();

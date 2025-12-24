@@ -1,13 +1,13 @@
 (*
   Refine npbc_list to npbc_array
 *)
-open preamble basis UnsafeProgTheory UnsafeProofTheory npbcTheory npbc_listTheory;
-
-val _ = new_theory "npbc_arrayProg"
+Theory npbc_arrayProg
+Libs
+  preamble basis
+Ancestors
+  UnsafeProg UnsafeProof npbc npbc_list
 
 val _ = translation_extends"UnsafeProg";
-
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
 val _ = process_topdecs `
   exception Fail string;
@@ -67,7 +67,7 @@ val r = translate multiply_def;
 
 val r = translate IQ_def;
 val r = translate div_ceiling_def;
-val r = translate arithmeticTheory.CEILING_DIV_def ;
+val r = translate div_ceiling_up_def;
 val r = translate divide_def;
 
 val divide_side = Q.prove(
@@ -81,105 +81,11 @@ val divide_side = Q.prove(
 val r = translate abs_min_def;
 val r = translate saturate_def;
 
+val r = translate integerTheory.INT_ABS;
+
 val r = translate (weaken_aux_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
 
-Triviality weaken_aux_ind:
-  weaken_aux_ind (:'a)
-Proof
-  once_rewrite_tac [fetch "-" "weaken_aux_ind_def"]
-  \\ rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac (latest_ind ())
-  \\ rpt strip_tac
-  \\ last_x_assum match_mp_tac
-  \\ rpt strip_tac
-  \\ gvs [FORALL_PROD,sub_check_def]
-QED
-
-val _ = weaken_aux_ind |> update_precondition;
-
 val r = translate weaken_def;
-
-val r = translate mergesortTheory.sort2_def;
-val r = translate mergesortTheory.sort3_def;
-val r = translate mergesortTheory.merge_def;
-val r = translate DROP_def;
-val r = translate (mergesortTheory.mergesortN_def |> SIMP_RULE std_ss [DIV2_def]);
-
-Triviality mergesortn_ind:
-  mergesortn_ind (:'a)
-Proof
-  once_rewrite_tac [fetch "-" "mergesortn_ind_def"]
-  \\ rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac (latest_ind ())
-  \\ rpt strip_tac
-  \\ last_x_assum match_mp_tac
-  \\ rpt strip_tac
-  \\ gvs [FORALL_PROD, DIV2_def]
-QED
-
-val _ = mergesortn_ind |> update_precondition;
-
-Triviality mergesortn_side:
-  ∀x y z.
-  mergesortn_side x y z
-Proof
-  completeInduct_on`y`>>
-  rw[Once (fetch "-" "mergesortn_side_def")]>>
-  simp[arithmeticTheory.DIV2_def]
-  >- (
-    first_x_assum match_mp_tac>>
-    simp[]>>
-    match_mp_tac dividesTheory.DIV_POS>>
-    simp[])
-  >>
-    match_mp_tac DIV_LESS_EQ>>
-    simp[]
-QED
-val _ = mergesortn_side |> update_precondition;
-
-val r = translate mergesortTheory.mergesort_def;
-
-val r = translate mergesortTheory.sort2_tail_def;
-val r = translate mergesortTheory.sort3_tail_def;
-val r = translate mergesortTheory.merge_tail_def;
-val r = translate (mergesortTheory.mergesortN_tail_def |> SIMP_RULE std_ss [DIV2_def]);
-
-Triviality mergesortn_tail_ind:
-  mergesortn_tail_ind (:'a)
-Proof
-  once_rewrite_tac [fetch "-" "mergesortn_tail_ind_def"]
-  \\ rpt gen_tac
-  \\ rpt (disch_then strip_assume_tac)
-  \\ match_mp_tac (latest_ind ())
-  \\ rpt strip_tac
-  \\ last_x_assum match_mp_tac
-  \\ rpt strip_tac
-  \\ gvs [FORALL_PROD, DIV2_def]
-QED
-
-val _ = mergesortn_tail_ind |> update_precondition;
-
-Triviality mergesortn_tail_side:
-  ∀w x y z.
-  mergesortn_tail_side w x y z
-Proof
-  completeInduct_on`y`>>
-  rw[Once (fetch "-" "mergesortn_tail_side_def")]>>
-  simp[arithmeticTheory.DIV2_def]
-  >- (
-    first_x_assum match_mp_tac>>
-    simp[]>>
-    match_mp_tac dividesTheory.DIV_POS>>
-    simp[])
-  >>
-    match_mp_tac DIV_LESS_EQ>>
-    simp[]
-QED
-val _ = mergesortn_tail_side |> update_precondition;
-
-val r = translate mergesortTheory.mergesort_tail_def;
 
 val res = translate npbc_checkTheory.mk_strict_aux_def;
 val res = translate npbc_checkTheory.mk_strict_def;
@@ -201,7 +107,7 @@ End
 val r = translate lookup_err_string_def;
 
 (* Overload notation for long _TYPE relations *)
-Overload "constraint_TYPE" = ``PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT NUM)) NUM``
+Overload "constraint_TYPE" = ``PAIR_TYPE (LIST_TYPE (PAIR_TYPE INT NUM)) INT``
 Overload "bconstraint_TYPE" = ``PAIR_TYPE constraint_TYPE BOOL``
 
 val NPBC_CHECK_CONSTR_TYPE_def = fetch "-" "NPBC_CHECK_CONSTR_TYPE_def";
@@ -693,7 +599,7 @@ Definition npbc_lhs_string_def:
 End
 
 Definition npbc_string_def:
-  (npbc_string (xs,i:num) =
+  (npbc_string (xs,i:int) =
     concat [
       npbc_lhs_string xs;
       strlit" >= ";
@@ -872,11 +778,11 @@ End
 
 val res = translate eq_zw_def;
 
-Definition abs_def:
-  abs i = Num (ABS i)
+Definition nabs_def:
+  nabs i = Num (ABS i)
 End
 
-val res = translate abs_def;
+val res = translate nabs_def;
 
 Definition add_to_acc_def:
   add_to_acc i v k acc =
@@ -892,7 +798,7 @@ val rup_pass1_arr = process_topdecs`
   | inn::xs =>
     case inn of (i,n) =>
     let
-      val k = abs i in
+      val k = nabs i in
       if n < Word8Array.length assg
       then
         let val v = Unsafe.w8sub assg n in
@@ -930,13 +836,12 @@ Proof
   xcf"rup_pass1_arr"(get_ml_prog_state ())>>
   gvs[LIST_TYPE_def,rup_pass1_list_def]>>
   xmatch
-  >- (
-    xcon>>xsimpl)>>
+  >- (xcon>>xsimpl)>>
   PairCases_on`h`>>
   gvs[PAIR_TYPE_def,rup_pass1_list_def]>>
   xmatch>>
   rpt xlet_autop>>
-  gvs[abs_def]>>
+  gvs[nabs_def]>>
   reverse xif
   >- (
     rpt xlet_autop>>
@@ -1067,9 +972,14 @@ QED
 val update_assg_arr = process_topdecs`
   fun update_assg_arr assg lsn =
   case lsn of (ls,n) =>
+  if n <= 0
+  then
+    ([],assg)
+  else
   case rup_pass1_arr assg ls 0 [] 0 of (max,ls1,m) =>
-    let val assg1 = resize_to_fit m assg
-        val changes2 = rup_pass2_arr assg1 max ls1 n [] in
+    let val n1 = nabs n
+        val assg1 = resize_to_fit m assg
+        val changes2 = rup_pass2_arr assg1 max ls1 n1 [] in
         (changes2,assg1)
     end` |> append_prog;
 
@@ -1094,8 +1004,14 @@ Proof
   Cases_on`lsn`>>gvs[PAIR_TYPE_def]>>
   xmatch>>
   xlet_autop>>
-  gvs[update_assg_list_def]>>
+  xif>>
+  gvs[update_assg_list_def]
+  >- (
+    xlet_autop>>
+    xcon>>xsimpl>>
+    simp[LIST_TYPE_def])>>
   rpt(pairarg_tac>>gvs[])>>
+  xlet_autop>>
   xlet_auto
   >- (
     xsimpl>>
@@ -1104,7 +1020,7 @@ Proof
   rpt xlet_autop>>
   xlet_auto>>
   xlet_autop>>
-  gvs[]>>
+  gvs[nabs_def]>>
   xlet_auto
   >- (
     xsimpl>>
@@ -1165,8 +1081,11 @@ val check_rup_loop_arr = process_topdecs`
   | (n::ns) =>
     let val c = get_rup_constraint_arr lno b fml n nc in
       if List.null ns then
+        if snd c <= 0 then
+            raise Fail (format_failure lno ("contradiction not derived at end of hints"))
+        else
         case rup_pass1_arr assg (fst c) 0 [] 0 of (max,ls1,m) =>
-          if max < snd c then (assg,all_changes)
+          if max < nabs (snd c) then (assg,all_changes)
           else
             raise Fail (format_failure lno ("contradiction not derived at end of hints"))
       else
@@ -1220,37 +1139,41 @@ Proof
     xsimpl>>
     rw[]>>gvs[]>>
     metis_tac[W8ARRAY_refl])>>
-  gvs[AllCaseEqs()]
+  gvs[AllCasePreds()]>>
+  xlet_autop>>
+  xif>>gvs[]
   >- (
-    (* NULL ns *)
-    rpt(pairarg_tac>>gvs[])>>
-    xlet_autop>>
-    xif>>gvs[]>>
-    first_x_assum (irule_at Any)>>
-    simp[]>>
     rpt xlet_autop>>
-    xlet_auto
-    >-
-      (xsimpl>> EVAL_TAC)>>
-    xmatch>>
-    rpt xlet_autop>>
-    xif
-    >-
-      (xcon>>xsimpl)>>
-    rpt xlet_autop>>
-    xraise>>xsimpl>>
-    simp[Fail_exn_def]>>
-    metis_tac[W8ARRAY_refl])>>
+    xif>>gvs[]
+    >- (
+      rpt xlet_autop>>
+      xraise>>xsimpl>>
+      simp[Fail_exn_def]>>
+      metis_tac[W8ARRAY_refl])
+    >- (
+      rpt(pairarg_tac>>gvs[])>>
+      rpt xlet_autop>>
+      gvs[]>>
+      xlet_auto
+      >-
+        (xsimpl>> EVAL_TAC)>>
+      xmatch>>
+      rpt xlet_autop>>
+      gvs[nabs_def]>>
+      xif
+      >-
+        (xcon>>xsimpl)>>
+      rpt xlet_autop>>
+      xraise>>xsimpl>>
+      simp[Fail_exn_def]>>
+      metis_tac[W8ARRAY_refl]))>>
   (* ¬NULL ns *)
+  gvs[NULL_EQ_NIL]>>
   rpt(pairarg_tac>>gvs[])>>
   xlet_auto
   >- (
     xsimpl>>
     gvs[AllCaseEqs()])>>
-  xif>>gvs[]>>
-  first_x_assum (irule_at Any)>>
-  simp[]>>
-  xlet_autop>>
   xmatch>>
   xlet_autop>>
   xapp>>xsimpl>>
@@ -2065,7 +1988,7 @@ QED
 val res = translate EL;
 val res = translate npbc_checkTheory.mk_scope_def;
 
-Triviality el_side:
+Theorem el_side[local]:
   ∀xs n.
   n < LENGTH xs ⇒
   el_side n xs
@@ -2076,7 +1999,7 @@ QED
 
 val _ = el_side |> update_precondition;
 
-Triviality mk_scope_side:
+Theorem mk_scope_side[local]:
   mk_scope_side x y
 Proof
   EVAL_TAC>>rw[]>>
@@ -2529,7 +2452,7 @@ val hash_simps = [h_base_def, h_base_sq_def, h_mod_def, splim_def];
 
 val res = translate (hash_pair_def |> REWRITE_RULE hash_simps);
 
-Triviality hash_pair_side:
+Theorem hash_pair_side[local]:
   hash_pair_side n
 Proof
   rw[Once (fetch "-" "hash_pair_side_def")]>>
@@ -2739,7 +2662,7 @@ QED
 
 Definition red_cond_check_def:
   red_cond_check bortcb fml inds extra
-    pfs (rsubs:((int # num) list # num) list list) goals skipped =
+    pfs (rsubs:((int # num) list # int) list list) goals skipped =
   let (l,r) = extract_scoped_pids pfs LN LN in
   let fmlls = revalue bortcb fml inds in
   split_goals_hash fmlls extra l goals ∧
@@ -2767,8 +2690,8 @@ End
 Definition red_cond_check_pure_def:
   red_cond_check_pure extra
   pfs
-  (rsubs:((int # num) list # num) list list)
-  (goals:(num # (int # num) list # num) list)
+  (rsubs:((int # num) list # int) list list)
+  (goals:(num # (int # num) list # int) list)
   skipped =
   let (l,r) = extract_scoped_pids pfs LN LN in
   if
@@ -3225,7 +3148,7 @@ Overload "vomap_TYPE" = ``STRING_TYPE``
 val r = translate spt_to_vecTheory.prepend_def;
 val r = translate (spt_to_vecTheory.to_flat_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def])
 
-Triviality to_flat_ind:
+Theorem to_flat_ind[local]:
   to_flat_ind (:'a)
 Proof
   once_rewrite_tac [fetch "-" "to_flat_ind_def"]
@@ -3916,12 +3839,6 @@ val res = translate npbc_checkTheory.check_cutting_def;
 val res = translate npbc_checkTheory.check_contradiction_fml_def;
 val res = translate npbc_checkTheory.insert_fml_def;
 
-val res = translate npbc_checkTheory.nn_int_def;
-val nn_int_side = Q.prove(
-  `∀x. nn_int_side x`,
-  EVAL_TAC>>
-  intLib.ARITH_TAC
-  ) |> update_precondition
 val res = translate npbc_checkTheory.rup_pass1_def;
 val res = translate npbc_checkTheory.rup_pass2_def;
 val res = translate npbc_checkTheory.update_assg_def;
@@ -4253,17 +4170,18 @@ val res = translate npbc_checkTheory.opt_lt_def;
 Theorem satisfies_npbc_compute:
   satisfies_npbc w xsn ⇔
     case xsn of (xs,n) =>
-    FOLDL (λn cv. eval_term w cv + n) 0 xs ≥ n
+    &(FOLDL (λn cv. eval_term w cv + n) 0 xs) ≥ n
 Proof
   `?xs n. xsn = (xs,n)` by metis_tac[PAIR]>>
-  simp[satisfies_npbc_def,SUM_MAP_FOLDL]
+  simp[satisfies_npbc_def,SUM_MAP_FOLDL]>>
+  intLib.ARITH_TAC
 QED
 
 val res = translate satisfies_npbc_compute;
 
 val r = translate (npbc_checkTheory.to_flat_d_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def])
 
-Triviality to_flat_d_ind:
+Theorem to_flat_d_ind[local]:
   to_flat_d_ind (:'a)
 Proof
   once_rewrite_tac [fetch "-" "to_flat_d_ind_def"]
@@ -4486,8 +4404,7 @@ Proof
   gvs[AllCasePreds(),do_dso_def]>>
   rpt xlet_autop>>
   rename1`_ (not n) vvv`>>
-  qmatch_asmsub_abbrev_tac`Conv (SOME (TypeStamp "Some" 2))
-          [Conv NONE [vvv;bbb]]`>>
+  qmatch_asmsub_abbrev_tac`Conv NONE [vvv;bbb]`>>
   `LIST_REL (OPTION_TYPE bconstraint_TYPE)
     (update_resize fmlls NONE (SOME (not n,F)) id)
     (update_resize fmllsv (Conv (SOME (TypeStamp "None" 2)) [])
@@ -4604,6 +4521,7 @@ Proof
 QED
 
 val res = translate npbc_checkTheory.update_bound_def;
+val res = translate npbc_checkTheory.update_dbound_def;
 
 val core_from_inds_arr = process_topdecs`
   fun core_from_inds_arr lno fml is =
@@ -5144,6 +5062,13 @@ End
 
 val res = translate change_obj_update_def;
 
+Definition assert_obj_update_def:
+  assert_obj_update pc id' dbound' =
+  pc with <| id := id'; dbound := dbound' |>
+End
+
+val res = translate assert_obj_update_def;
+
 Definition change_pres_update_def:
   change_pres_update pc id' pres' =
   pc with <| id := id'; pres := SOME pres' |>
@@ -5377,8 +5302,10 @@ val check_cstep_arr = process_topdecs`
        raise Fail (format_failure lno
         ("supplied assignment did not satisfy constraints or did not improve objective"))
       | Some new =>
-      case update_bound (get_chk pc)
-        (get_bound pc) (get_dbound pc) new of (bound',dbound') =>
+      let
+        val bound' = update_bound (get_chk pc) (get_bound pc) new
+        val dbound' = update_dbound (get_dbound pc) new
+      in
       if mi
       then
         let
@@ -5393,6 +5320,7 @@ val check_cstep_arr = process_topdecs`
         end
       else
         (fml, (zeros, (inds, (vimap, (vomap, obj_update pc (get_id pc) bound' dbound')))))
+      end
     end
     )
   | Changeobj b fc' pfs =>
@@ -5406,6 +5334,19 @@ val check_cstep_arr = process_topdecs`
     else
       raise Fail (format_failure lno
         (err_obj_check_string (get_obj pc) fc'))
+  | Assertobj i =>
+    let
+      val id = get_id pc
+      val obj = get_obj pc
+      val c = model_improving obj i
+      val dbound' = update_dbound (get_dbound pc) i in
+      (Array.updateResize fml None id (Some (c,True)),
+       (zeros,
+       (sorted_insert id inds,
+       (update_vimap_arr vimap id (fst c),
+       (vomap,
+        assert_obj_update pc (id+1) dbound')))))
+    end
   | Changepres b v c pfs =>
     (case check_change_pres_arr lno b fml
       (get_id pc) (get_pres pc) v c pfs zeros of
@@ -5802,16 +5743,14 @@ Proof
       xsimpl>>
       metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])>>
     rpt xlet_autop>>
-    pairarg_tac>>
     fs[get_chk_def,get_bound_def,get_dbound_def,PAIR_TYPE_def]>>
-    xmatch>>
     reverse xif
     >- (
       rpt xlet_autop>>
       xcon>>xsimpl>>
       fs[PAIR_TYPE_def,get_id_def,obj_update_def]>>
-      `pc with <|id := pc.id; bound := bound'; dbound := dbound'|>
-        = pc with <|bound := bound'; dbound := dbound'|>` by
+      `∀b db. pc with <|id := pc.id; bound := b; dbound := db|>
+        = pc with <|bound := b; dbound := db|>` by
        fs[npbc_checkTheory.proof_conf_component_equality]>>
       metis_tac[ARRAY_W8ARRAY_refl])
     >- ( (* model improving *)
@@ -5858,6 +5797,18 @@ Proof
     rpt xlet_autop>>
     xraise>>xsimpl>>
     metis_tac[Fail_exn_def,ARRAY_W8ARRAY_refl])
+  >- ( (* AssertObj *)
+    xmatch>>
+    rpt xlet_autop>>
+    xcon>> xsimpl>>
+    simp[PAIR_TYPE_def]>>
+    qmatch_goalsub_abbrev_tac`ARRAY _ A`>>
+    qexists_tac`A`>>xsimpl>>
+    fs[get_id_def,assert_obj_update_def,get_dbound_def,get_obj_def]>>
+    unabbrev_all_tac>>
+    match_mp_tac LIST_REL_update_resize>>
+    fs[OPTION_TYPE_def,PAIR_TYPE_def]>>
+    EVAL_TAC)
   >- ( (* ChangePres *)
     xmatch>>
     rpt xlet_autop>>
@@ -6360,5 +6311,3 @@ Proof
     fs[OPTION_TYPE_def,map_snd_def]>>
     metis_tac[])
 QED
-
-val _ = export_theory();

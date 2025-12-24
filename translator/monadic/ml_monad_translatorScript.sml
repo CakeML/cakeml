@@ -2,16 +2,14 @@
   Defines EvalM and other judgements that are central to the monadic
   translator.
 *)
-open ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
-open astTheory semanticPrimitivesTheory evaluateTheory evaluatePropsTheory
-open evaluateTheory ml_progLib ml_progTheory
-open set_sepTheory Satisfy
-open cfHeapsBaseTheory AC_Sort
-open ml_monadBaseTheory ml_monad_translatorBaseTheory
-open cfStoreTheory cfTheory cfTacticsLib packLib;
-open preamble;
-
-val _ = new_theory "ml_monad_translator";
+Theory ml_monad_translator
+Ancestors
+  ml_translator ml_pmatch patternMatches ast semanticPrimitives
+  evaluate evaluateProps evaluate ml_prog set_sep cfHeapsBase
+  ml_monadBase ml_monad_translatorBase cfStore cf
+Libs
+  ml_translatorLib ml_progLib Satisfy AC_Sort cfTacticsLib
+  packLib preamble
 
 Overload monad_bind[local] = ``st_ex_bind``;
 Overload monad_unitbind[local] = ``st_ex_ignore_bind``;
@@ -44,7 +42,7 @@ Proof
 QED
 (* -- *)
 
-Triviality GC_ABSORB_L:
+Theorem GC_ABSORB_L[local]:
   !A B s. (A * B * GC) s ==> (A * GC) s
 Proof
   rw[]
@@ -55,7 +53,7 @@ Proof
   \\ fs[SAT_GC]
 QED
 
-Triviality GC_ABSORB_R:
+Theorem GC_ABSORB_R[local]:
   !A B s. (A * GC * B) s ==> (A * GC) s
 Proof
   rw[]
@@ -66,19 +64,19 @@ QED
 
 val HCOND_EXTRACT = cfLetAutoTheory.HCOND_EXTRACT;
 
-Triviality REF_EXISTS_LOC:
+Theorem REF_EXISTS_LOC[local]:
   (rv ~~> v * H) s ==> ?l. rv = Loc T l
 Proof
   rw[REF_def, SEP_CLAUSES, SEP_EXISTS_THM, GSYM STAR_ASSOC, HCOND_EXTRACT]
 QED
 
-Triviality ARRAY_EXISTS_LOC:
+Theorem ARRAY_EXISTS_LOC[local]:
   (ARRAY rv v * H) s ==> ?l. rv = Loc T l
 Proof
   rw[STAR_def, SEP_EXISTS_THM, SEP_CLAUSES, REF_def, ARRAY_def, cond_def]
 QED
 
-Triviality UNIQUE_CELLS:
+Theorem UNIQUE_CELLS[local]:
   !p s. !l xv xv' H H'. (l ~~>> xv * H) (st2heap p s) /\ (l ~~>> xv' * H') (st2heap p s) ==> xv' = xv
 Proof
   rw[] >>
@@ -701,7 +699,7 @@ Proof
   \\ fs [EvalM_def,PURE_def,PULL_EXISTS,FUN_FORALL] \\ METIS_TAC []
 QED
 
-Triviality M_FUN_FORALL_PUSH1:
+Theorem M_FUN_FORALL_PUSH1[local]:
   (FUN_FORALL x. ArrowP ro ^H a (PURE (b x))) =
    (ArrowP ro H a (PURE (FUN_FORALL x. b x)))
 Proof
@@ -1011,7 +1009,7 @@ Definition write_list_def:
   (write_list (n::nl) (v::vl) env = write_list nl vl (write n v env))
 End
 
-Triviality pats_bindings_MAP_Pvar:
+Theorem pats_bindings_MAP_Pvar[local]:
   !bind_names already_bound.
   pats_bindings (MAP (\x. Pvar x) bind_names) already_bound =
   (REVERSE bind_names) ++ already_bound
@@ -1019,7 +1017,7 @@ Proof
   Induct_on `bind_names` >> rw[pat_bindings_def]
 QED
 
-Triviality ALL_DISTINCT_pats_bindings:
+Theorem ALL_DISTINCT_pats_bindings[local]:
   !bind_names. ALL_DISTINCT bind_names ==>
   ALL_DISTINCT (pats_bindings (MAP (λx. Pvar x) bind_names) [])
 Proof
@@ -1030,7 +1028,7 @@ Proof
   \\ rw[]
 QED
 
-Triviality pmatch_list_MAP_Pvar:
+Theorem pmatch_list_MAP_Pvar[local]:
   !bind_names paramsv env already_bound s.
   LENGTH paramsv = LENGTH bind_names==>
   pmatch_list env s (MAP (λx. Pvar x) bind_names) paramsv already_bound = Match ((REVERSE(ZIP (bind_names,paramsv))) ++ already_bound)
@@ -1039,13 +1037,13 @@ Proof
   \\ Cases_on `paramsv` \\ fs[pmatch_def]
 QED
 
-Triviality nsAppend_append:
+Theorem nsAppend_append[local]:
   !a b env. nsAppend (Bind (a ++ b) []) env = nsAppend (Bind a []) (nsAppend (Bind b []) env)
 Proof
   Induct_on `a` >> rw[namespaceTheory.nsAppend_def]
 QED
 
-Triviality write_list_eq:
+Theorem write_list_eq[local]:
   !bind_names paramsv l1 l2 cenv.
   LENGTH paramsv = LENGTH bind_names ==>
   write_list bind_names paramsv (sem_env (Bind l1 l2) cenv) = sem_env (Bind ((REVERSE (ZIP (bind_names,paramsv))) ++ l1) l2) cenv
@@ -1057,7 +1055,7 @@ Proof
   >> rw[namespaceTheory.nsBind_def]
 QED
 
-Triviality nsAppend_write_list_eq:
+Theorem nsAppend_write_list_eq[local]:
   !bind_names paramsv env.
   LENGTH paramsv = LENGTH bind_names ==>
   env with v := nsAppend (alist_to_ns (REVERSE (ZIP (bind_names,paramsv)))) env.v = write_list bind_names paramsv env
@@ -1191,27 +1189,28 @@ Definition LIST_CONJ_def:
   LIST_CONJ (x::l) = (x /\ LIST_CONJ l)
 End
 
-Triviality LIST_CONJ_APPEND:
+Theorem LIST_CONJ_APPEND[local]:
   !a b. LIST_CONJ (a++b) = (LIST_CONJ a /\ LIST_CONJ b)
 Proof
   Induct_on `a` >> rw[LIST_CONJ_def]
   \\ EQ_TAC >> rw[LIST_CONJ_def]
 QED
 
-Triviality LIST_CONJ_REVERSE:
+Theorem LIST_CONJ_REVERSE[local]:
   !x. LIST_CONJ (REVERSE x) = LIST_CONJ x
 Proof
   Induct_on `x` >> rw[LIST_CONJ_def, LIST_CONJ_APPEND]
   \\ EQ_TAC >> rw[]
 QED
 
-val LIST_CONJ_Eval = prove(
-  ``!xs Ps s:'d state.
+Theorem LIST_CONJ_Eval[local]:
+    !xs Ps s:'d state.
       LIST_CONJ (MAP (λ(exp,P). Eval env exp P) (ZIP (xs,Ps))) /\
       LENGTH xs = LENGTH Ps ==>
       ?ck vs junk.
          evaluate (s with clock := ck) env xs =
-           (s with refs := s.refs ++ junk,Rval vs) /\ LIST_REL (\f x. f x) Ps vs``,
+           (s with refs := s.refs ++ junk,Rval vs) /\ LIST_REL (\f x. f x) Ps vs
+Proof
   Induct \\ Cases_on `Ps` \\ fs [LIST_CONJ_def]
   THEN1 fs [state_component_equality]
   \\ rw []
@@ -1230,7 +1229,8 @@ val LIST_CONJ_Eval = prove(
   \\ drule evaluate_set_clock \\ fs []
   \\ disch_then (qspec_then `ck1''` strip_assume_tac)
   \\ qexists_tac `ck1'''` \\ once_rewrite_tac [evaluate_cons]
-  \\ fs [state_component_equality]);
+  \\ fs [state_component_equality]
+QED
 
 Theorem LIST_REL_EQ_LIST_CONJ_MAP:
    !xs ys.
@@ -1402,7 +1402,7 @@ Definition RES_MONAD:
 End
 
 (* Validity of a store extension *)
-Triviality valid_state_refs_frame_extension:
+Theorem valid_state_refs_frame_extension[local]:
   !H junk. A (cons x) res ==>
             (STATE_REFS A ptrs state * H) (st2heap (p:'ffi ffi_proj) s) ==>
     (STATE_REFS A (Loc T (LENGTH (s.refs ++ junk))::ptrs)
@@ -1435,7 +1435,7 @@ Proof
   \\ fs[SEP_EXISTS_THM, HCOND_EXTRACT]
 QED
 
-Triviality valid_state_refs_extension:
+Theorem valid_state_refs_extension[local]:
   A (cons x) res
    ==>
    REFS_PRED (STATE_REFS A ptrs,p:'ffi ffi_proj) refs s
@@ -1449,7 +1449,7 @@ Proof
   \\ fs[GSYM STAR_ASSOC, GC_STAR_GC]
 QED
 
-Triviality STATE_REFS_LENGTH:
+Theorem STATE_REFS_LENGTH[local]:
   !ptrs state H.
    (STATE_REFS A ptrs state * H) s ==> LENGTH ptrs = LENGTH state
 Proof
@@ -1472,7 +1472,7 @@ Proof
   \\ last_x_assum imp_res_tac
 QED
 
-Triviality valid_state_refs_reduction:
+Theorem valid_state_refs_reduction[local]:
   (STATE_REFS A (rv::ptrs) refs * H * GC) s
    ==>
    (STATE_REFS A ptrs (TL refs) * H * GC) s
@@ -1575,7 +1575,7 @@ Proof
 QED
 
 (* Validity of a deref operation *)
-Triviality STATE_REFS_EXTRACT:
+Theorem STATE_REFS_EXTRACT[local]:
   !ptrs1 r ptrs2 refs TYPE H (p:'ffi ffi_proj) s.
    ((STATE_REFS TYPE (ptrs1 ++ [r] ++ ptrs2) refs) * H) (st2heap p s) ==>
    ((STATE_REFS TYPE ptrs1 (TAKE (LENGTH ptrs1) refs) *
@@ -1606,7 +1606,7 @@ Proof
   \\ fs[SUC_ONE_ADD]
 QED
 
-Triviality STATE_REFS_EXTRACT_2:
+Theorem STATE_REFS_EXTRACT_2[local]:
   !ptrs1 r ptrs2 refs1 x refs2 TYPE H (p:'ffi ffi_proj) s.
   LENGTH ptrs1 = LENGTH refs1 ==>
   LENGTH ptrs2 = LENGTH refs2 ==>
@@ -1638,7 +1638,7 @@ Proof
   >> metis_tac[]
 QED
 
-Triviality STATE_REFS_RECONSTRUCT:
+Theorem STATE_REFS_RECONSTRUCT[local]:
   !ptrs1 r ptrs2 refs1 y refs2 TYPE H (p:'ffi ffi_proj) s.
   ((STATE_REFS TYPE ptrs1 refs1) *
   (STATE_REF TYPE r y) *
@@ -1833,7 +1833,7 @@ Proof
   \\ fs[EL_APPEND1]
 QED
 
-Triviality UPDATE_STATE_REFS:
+Theorem UPDATE_STATE_REFS[local]:
   !ptrs2 l ptrs1 x res TYPE junk refs p s.
   TYPE x res ==>
   REFS_PRED_FRAME ro (STATE_REFS TYPE (ptrs1 ++ [Loc T l] ++ ptrs2),p:'ffi ffi_proj) (refs, s)
@@ -1935,13 +1935,13 @@ Proof
 QED
 
 (* Resizable arrays *)
-Triviality ABS_NUM_EQ:
+Theorem ABS_NUM_EQ[local]:
   Num(ABS(&n))=n
 Proof
   rw[DB.fetch "integer" "Num", integerTheory.INT_ABS]
 QED
 
-Triviality do_app_Opderef_REF:
+Theorem do_app_Opderef_REF[local]:
   (REF (Loc T loc) v * H refs) (st2heap (p:'ffi ffi_proj) s) ==>
   !junk. do_app (s.refs ++ junk, s.ffi) Opderef [Loc T loc] =
     SOME ((s.refs ++ junk, s.ffi), Rval v)
@@ -1951,7 +1951,7 @@ Proof
   \\ fs[with_same_ffi]
 QED
 
-Triviality do_app_Alength_ARRAY:
+Theorem do_app_Alength_ARRAY[local]:
   (ARRAY rv v * H) (st2heap (p:'ffi ffi_proj) s) ==>
   do_app (s.refs, s.ffi) Alength [rv] =
   SOME ((s.refs, s.ffi), Rval (Litv(IntLit(int_of_num(LENGTH v)))))
@@ -2002,7 +2002,7 @@ QED
 val Conv_Subscript = EVAL ``sub_exn_v`` |> concl |> rand
 val Stamp_Subscript = Conv_Subscript |> rator |> rand |> rand
 
-Triviality do_app_Asub_ARRAY:
+Theorem do_app_Asub_ARRAY[local]:
   (ARRAY rv v * H) (st2heap (p:'ffi ffi_proj) s) ==>
   !junk. do_app (s.refs ++ junk, s.ffi) Asub [rv; Litv (IntLit (&n))] =
     if n < LENGTH v then SOME ((s.refs ++ junk, s.ffi), Rval (EL n v))
@@ -2374,7 +2374,7 @@ Proof
   \\ rfs []
 QED
 
-Triviality HPROP_TO_GC_R:
+Theorem HPROP_TO_GC_R[local]:
   (A * B) s ==> (A * GC) s
 Proof
   rw[STAR_def]
@@ -2383,7 +2383,7 @@ Proof
   \\ fs[SAT_GC]
 QED
 
-Triviality HPROP_TO_GC_L:
+Theorem HPROP_TO_GC_L[local]:
   (A * B) s ==> (GC * B) s
 Proof
   rw[STAR_def]
@@ -2917,7 +2917,7 @@ Definition EvalSt_def:
       P res /\ REFS_PRED_FRAME T H (st, s) (st2, s2)
 End
 
-Triviality LENGTH_Mem_IN_store2heap:
+Theorem LENGTH_Mem_IN_store2heap[local]:
   !refs n. n < LENGTH refs ==> (Mem n (EL n refs)) IN (store2heap refs)
 Proof
   ASSUME_TAC(Q.ISPEC `\refs. !n. n < LENGTH refs ==>
@@ -2937,7 +2937,7 @@ Proof
   \\ rw[]
 QED
 
-Triviality REFS_PRED_FRAME_partial_frame_rule:
+Theorem REFS_PRED_FRAME_partial_frame_rule[local]:
   !s refs'.
      (!F. F (st2heap p s) ==>
      (F * GC) (st2heap p (s with refs := refs'))) ==>
@@ -3004,7 +3004,7 @@ Definition handle_mult_def:
     Handle exp1 [(Pvar "e",(Con (SOME (Short ename)) [Var (Short "e")]))]
 End
 
-Triviality evaluate_handle_mult_Rval:
+Theorem evaluate_handle_mult_Rval[local]:
   !cons_names exp1 ename res s s2 env.
      evaluate s env [exp1] = (s2, Rval res) ==>
      evaluate s env [handle_mult cons_names exp1 ename] = (s2, Rval res)
@@ -3014,7 +3014,7 @@ Proof
   \\ rw[evaluate_def, astTheory.getOpClass_def]
 QED
 
-Triviality evaluate_handle_mult_Rabort:
+Theorem evaluate_handle_mult_Rabort[local]:
   !cons_names exp1 ename res s s2 env.
      evaluate s env [exp1] = (s2, Rerr (Rabort res)) ==>
      evaluate s env [handle_mult cons_names exp1 ename] =
@@ -3035,7 +3035,7 @@ Definition handle_all_def:
     Handle exp [(Pvar "e",(Con (SOME (Short ename)) [Var (Short "e")]))]
 End
 
-Triviality evaluate_handle_all_Rval:
+Theorem evaluate_handle_all_Rval[local]:
   !exp1 ename res s s2 env.
      evaluate s env [exp1] = (s2, Rval res) ==>
      evaluate s env [handle_all exp1 ename] = (s2, Rval res)
@@ -3045,7 +3045,7 @@ Proof
   \\ rw[evaluate_def, astTheory.getOpClass_def]
 QED
 
-Triviality evaluate_handle_all_Rabort:
+Theorem evaluate_handle_all_Rabort[local]:
   !exp1 ename res s s2 env.
      evaluate s env [exp1] = (s2, Rerr (Rabort res)) ==>
      evaluate s env [handle_all exp1 ename] = (s2, Rerr (Rabort res))
@@ -3055,7 +3055,7 @@ Proof
   \\ rw[evaluate_def, astTheory.getOpClass_def]
 QED
 
-Triviality evaluate_Success_CONS:
+Theorem evaluate_Success_CONS[local]:
   evaluate s env [e] = (s', Rval [v]) ==>
   lookup_cons (Short "M_success") env = SOME (1,TypeStamp "M_success" exc_stamp) ==>
   evaluate s env [Con (SOME (Short "M_success")) [e]] = (s', Rval [Conv (SOME (TypeStamp "M_success" exc_stamp)) [v]])
@@ -3069,7 +3069,7 @@ Proof
   \\ every_case_tac \\ fs []
 QED
 
-Triviality evaluate_Success_CONS_err:
+Theorem evaluate_Success_CONS_err[local]:
   evaluate s env [e] = (s', Rerr v) ==>
   lookup_cons (Short "M_success") env = SOME (1,TypeStamp "M_success" exc_stamp) ==>
   evaluate s env [Con (SOME (Short "M_success")) [e]] = (s', Rerr v)
@@ -3156,7 +3156,7 @@ Proof
   \\ metis_tac[]
 QED
 
-Triviality nsAppend_build_rec_env_eq_lemma:
+Theorem nsAppend_build_rec_env_eq_lemma[local]:
   !funs funs0 cl_env v0 v1.
     nsAppend (FOLDR (λ(f,x,e) env'. nsBind f
       (Recclosure cl_env funs0 f) env') v1 funs) v0 =
@@ -3171,7 +3171,7 @@ Proof
   \\ fs[namespaceTheory.nsAppend_def, namespaceTheory.nsBind_def]
 QED
 
-Triviality nsAppend_build_rec_env_eq:
+Theorem nsAppend_build_rec_env_eq[local]:
   !funs cl_env v0 v1.
      nsAppend (build_rec_env funs cl_env v1) v0 =
      build_rec_env funs cl_env (nsAppend v1 v0)
@@ -3180,7 +3180,7 @@ Proof
   \\ fs[nsAppend_build_rec_env_eq_lemma]
 QED
 
-Triviality merge_build_rec_env:
+Theorem merge_build_rec_env[local]:
   !funs env1 env0.
      merge_env <|v := (build_rec_env funs (merge_env env1 env0) env1.v);
                  c := env1.c|> env0 =
@@ -3226,14 +3226,14 @@ Proof
   \\ rw[namespaceTheory.nsAppend_def, namespaceTheory.nsBind_def]
 QED
 
-Triviality evaluate_Var_IMP:
+Theorem evaluate_Var_IMP[local]:
   evaluate s1 env [Var (Short name)] = (s2, Rval [v]) ==>
   nsLookup env.v (Short name) = SOME v
 Proof
   rw[evaluate_def, astTheory.getOpClass_def] \\ every_case_tac \\ fs []
 QED
 
-Triviality evaluate_Var_same_state:
+Theorem evaluate_Var_same_state[local]:
   evaluate s1 env [Var (Short name)] = (s2, res) <=>
   evaluate s1 env [Var (Short name)] = (s2, res) /\ s2 = s1
 Proof
@@ -3483,14 +3483,14 @@ Proof
   rw[Eval_def,eval_rel_def,evaluate_def, astTheory.getOpClass_def,state_component_equality]
 QED
 
-Triviality nsBind_to_write:
+Theorem nsBind_to_write[local]:
   <|v := nsBind name v env1; c := env2|> =
    write name v <|v := env1; c := env2|>
 Proof
   fs[write_def,sem_env_component_equality]
 QED
 
-Triviality nsLookup_write_simp:
+Theorem nsLookup_write_simp[local]:
   nsLookup (write name1 exp env).v (Short name2) =
    if name1 = name2 then SOME exp
    else nsLookup env.v (Short name2)
@@ -3499,20 +3499,20 @@ Proof
   \\ fs[namespaceTheory.nsLookup_def, merge_env_def, write_def]
 QED
 
-Triviality sem_env_same_components:
+Theorem sem_env_same_components[local]:
   <|v := env.v; c := env.c|> = (env : v sem_env)
 Proof
   fs[sem_env_component_equality]
 QED
 
-Triviality lookup_cons_write_simp:
+Theorem lookup_cons_write_simp[local]:
   lookup_cons name2 (write name1 exp env) =
    lookup_cons name2 env
 Proof
   fs[lookup_cons_def, write_def]
 QED
 
-Triviality lookup_cons_build_rec_env_simp:
+Theorem lookup_cons_build_rec_env_simp[local]:
   lookup_cons name2 <|v := build_rec_env exp env env.v; c := env.c|> =
    lookup_cons name2 env
 Proof
@@ -3575,4 +3575,3 @@ QED
 
 val _ = (print_asts := true);
 
-val _ = export_theory();

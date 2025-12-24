@@ -1,14 +1,12 @@
 (*
   Build a CakeML program implementing Scheme-to-Cake compiler
 *)
-open preamble basis;
-open to_sexpProgTheory;
-open scheme_astTheory;
-open scheme_parsingTheory;
-open scheme_to_cakeTheory;
-open scheme_compilerTheory;
-
-val _ = new_theory "scheme_compilerProg";
+Theory scheme_compilerProg
+Ancestors
+  to_sexpProg scheme_ast scheme_parsing scheme_to_cake
+  scheme_compiler
+Libs
+  preamble basis
 
 val _ = translation_extends "to_sexpProg";
 
@@ -67,7 +65,7 @@ val _ = type_of “main_function” = “:mlstring -> mlstring”
         orelse failwith "The main_function has the wrong type.";
 
 val main = process_topdecs
-           `print (main_function (TextIO.inputAll TextIO.stdIn));`;
+           `print (main_function (TextIO.inputAll (TextIO.openStdIn ())));`;
 
 val prog =
   get_ml_prog_state ()
@@ -83,4 +81,3 @@ Definition scheme_compiler_prog_def:
   scheme_compiler_prog = ^prog
 End
 
-val _ = export_theory ();

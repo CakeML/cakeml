@@ -4,12 +4,12 @@
       5) word_cse ; 6) copy_prop ; 7) three-to-two reg
       8) remove_unreach ; 9) remove_dead ; 10) word_alloc
 *)
-open preamble asmTheory wordLangTheory word_allocTheory word_removeTheory
-open word_simpTheory word_cseTheory word_unreachTheory word_copyTheory word_instTheory
-open mlstringTheory
-
-val _ = new_theory "word_to_word";
-
+Theory word_to_word
+Ancestors
+  asm wordLang word_alloc word_remove word_simp word_cse
+  word_unreach word_copy word_inst mlstring
+Libs
+  preamble
 
 (*reg_alg = choice of register allocator*)
 Datatype:
@@ -134,4 +134,3 @@ Proof
   simp[compile_single_def]
 QED
 
-val _ = export_theory();

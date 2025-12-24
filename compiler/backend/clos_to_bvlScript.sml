@@ -37,23 +37,13 @@
   function bodies to get the alignment right.
 
 *)
-open preamble closLangTheory bvlTheory bvl_jumpTheory;
-open backend_commonTheory
-local open
-  clos_mtiTheory
-  clos_callTheory
-  clos_knownTheory
-  clos_numberTheory
-  clos_annotateTheory
-in (* clos-to-clos transformations *) end;
-
-val _ = new_theory "clos_to_bvl";
-val _ = set_grammar_ancestry [
-  "backend_common",
-  "clos_mti", "clos_call", "clos_known", "clos_number",
-  "clos_annotate",
-  "bvl_jump"
-]
+Theory clos_to_bvl
+Ancestors
+  backend_common clos_mti[qualified] clos_call[qualified]
+  clos_known[qualified] clos_number[qualified]
+  clos_annotate[qualified] bvl_jump closLang bvl
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -129,7 +119,7 @@ Definition partial_app_label_table_loc_def:
   partial_app_label_table_loc = 0n
 End
 
-Definition compile_op_def:
+Definition compile_op_def[simp]:
   compile_op (BlockOp (Cons tag)) = BlockOp (Cons (clos_tag_shift tag)) ∧
   compile_op (BlockOp (ConsExtend tag)) = BlockOp (ConsExtend (clos_tag_shift tag)) ∧
   compile_op (BlockOp (TagEq tag)) = BlockOp (TagEq (clos_tag_shift tag)) ∧
@@ -142,7 +132,6 @@ Definition compile_op_def:
   compile_op (BlockOp (Constant c)) = compile_const c ∧
   compile_op x = x
 End
-val _ = export_rewrites["compile_op_def"];
 
 Theorem compile_op_pmatch:
   ∀op.
@@ -176,8 +165,6 @@ End
 Definition mk_el_def[simp]:
   mk_el b i : bvl$exp = Op (MemOp El) [i; b]
 End
-
-Overload mk_elem_at[local] = “λb i. bvl$Op (BlockOp (ElemAt i)) [b]”;
 
 Definition free_let_def:
   free_let cl n = (GENLIST (\n. mk_elem_at cl (n+2)) n)
@@ -275,6 +262,7 @@ Definition num_stubs_def:
     (* generic apps *)         max_app
     (* partial apps *)       + max_app * (max_app - 1) DIV 2
     + 1 (* code to install a jump table in global 0 *)
+    + 1 (* location for force_thunk stub *)
 End
 
 Definition generic_app_fn_location_def:
@@ -401,6 +389,16 @@ Definition init_globals_def:
       (Call 0 (SOME start_loc) []))
 End
 
+Definition force_thunk_code_def:
+  force_thunk_code =
+    If (Op (BlockOp (EqualConst (Int 0))) [mk_elem_at (Var 1) 1])
+      (Let [Call 0 NONE [mk_unit; Var 1; mk_elem_at (Var 1) 0]]
+        (Let [Op (ThunkOp (UpdateThunk Evaluated)) [Var 0; Var 1]] (Var 1)))
+      (Let [Call 0 (SOME 0) [mk_unit; Var 1]]
+        (Let [Op (ThunkOp (UpdateThunk Evaluated)) [Var 0; Var 1]] (Var 1)))
+       : bvl$exp
+End
+
 Definition compile_exps_def:
   (compile_exps max_app [] aux = ([],aux)) /\
   (compile_exps max_app ((x:closLang$exp)::y::xs) aux =
@@ -427,6 +425,8 @@ Definition compile_exps_def:
      let (c1,aux1) = compile_exps max_app xs aux in
      ([if op = Install then
          Call 0 NONE [Op Install c1]
+       else if op = ThunkOp ForceThunk then
+         Let c1 (Force (num_stubs max_app - 2) 0)
        else
          Op (compile_op op) c1]
      ,aux1)) /\
@@ -514,6 +514,7 @@ Definition compile_exp_sing_def:
   (compile_exp_sing max_app (Op t op xs) aux =
      let (c1,aux1) = compile_exp_list max_app xs aux in
      (if op = Install then Call 0 NONE [Op Install c1]
+      else if op = ThunkOp ForceThunk then Let c1 (Force (num_stubs max_app - 2) 0)
       else Op (compile_op op) c1
      ,aux1)) /\
   (compile_exp_sing max_app (App t loc_opt x1 xs2) aux =
@@ -608,7 +609,7 @@ End
 
 Theorem compile_prog_eq = compile_prog_def |> SRULE [compile_exp_sing_eq];
 
-Triviality pair_lem1:
+Theorem pair_lem1[local]:
   !f x. (\(a,b). f a b) x = f (FST x) (SND x)
 Proof
   rw [] >>
@@ -616,7 +617,7 @@ Proof
   fs []
 QED
 
-Triviality pair_lem2:
+Theorem pair_lem2[local]:
   !x y z. (x,y) = z ⇔ x = FST z ∧ y = SND z
 Proof
   rw [] >>
@@ -862,8 +863,9 @@ Definition make_name_alist_def:
   make_name_alist nums prog nstubs dec_start (dec_length:num) =
     let src_names = get_src_names (MAP (SND o SND) prog) LN in
       fromAList(MAP(λn.(n, if n < nstubs then
-                             if n = nstubs-1 then mlstring$strlit "bvl_init"
-                                             else mlstring$strlit "bvl_stub"
+                             if n = nstubs-1 then mlstring$strlit "bvl_init" else
+                             if n = nstubs-2 then mlstring$strlit "bvl_force" else
+                                                  mlstring$strlit "bvl_stub"
                            else let clos_name = n - nstubs in
                              if dec_start ≤ clos_name ∧ clos_name < dec_start + dec_length
                              then mlstring$strlit "dec" else
@@ -879,13 +881,15 @@ Theorem make_name_alist_eq =
 Definition compile_def:
   compile c0 es =
     let (c, prog) = compile_common c0 es in
+    let n = num_stubs c.max_app in
     let init_stubs = toAList (init_code c.max_app) in
-    let init_globs = [(num_stubs c.max_app - 1, 0n, init_globals c.max_app (num_stubs c.max_app + c.start))] in
+    let init_globs = [(n - 1, 0n, init_globals c.max_app (n + c.start))] in
+    let force_stub = [(n - 2, 2n, force_thunk_code)] in
     let comp_progs = compile_prog c.max_app prog in
-    let prog' = init_stubs ++ init_globs ++ comp_progs in
-    let func_names = make_name_alist (MAP FST prog') prog (num_stubs c.max_app)
+    let prog' = init_stubs ++ force_stub ++ init_globs ++ comp_progs in
+    let func_names = make_name_alist (MAP FST prog') prog n
                        c0.next_loc (LENGTH es) in
-    let c = c with start := num_stubs c.max_app - 1 in
+    let c = c with start := n - 1 in
       (c, code_sort prog', func_names)
 End
 
@@ -939,4 +943,3 @@ Definition clos_to_bvl_compile_inc_def:
       (c, p)
 End
 
-val _ = export_theory()

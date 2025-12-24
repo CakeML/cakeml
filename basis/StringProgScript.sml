@@ -1,11 +1,11 @@
 (*
   Module about the built-in string tyoe.
 *)
-open preamble
-  ml_translatorLib ml_translatorTheory ml_progLib
-  mlstringTheory VectorProgTheory basisFunctionsLib
-
-val _ = new_theory"StringProg"
+Theory StringProg
+Ancestors
+  ml_translator mlstring VectorProg
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
 
 val _ = translation_extends "VectorProg";
 val _ = ml_translatorLib.use_string_type false;
@@ -25,6 +25,7 @@ val _ = trans "concat" mlstringSyntax.concat_tm;
 val _ = trans "substring" mlstringSyntax.substring_tm;
 val result = translate strcat_def;
 val _ = trans "^" mlstringSyntax.strcat_tm;
+val _ = trans "=" “((=):mlstring -> mlstring -> bool)”;
 
 val result = translate (extract_def |> REWRITE_RULE [implode_def]);
 
@@ -51,7 +52,7 @@ val _ = next_ml_names := ["translate"];
 val result = translate translate_def;
 val translate_side_def = definition"translate_side_def";
 
-Triviality translate_aux_side_thm:
+Theorem translate_aux_side_thm[local]:
   !f s n len. n + len = strlen s ==> translate_aux_side f s n len
 Proof
   Induct_on `len` \\ rw[Once translate_aux_side_def]
@@ -80,7 +81,7 @@ val _ = next_ml_names := ["tokens"];
 val result = translate tokens_alt;
 val tokens_side_def = definition"tokens_side_def";
 
-Triviality tokens_alt_aux_side_thm:
+Theorem tokens_alt_aux_side_thm[local]:
   !f s i j k. i ≤ j ∧ j ≤ k ∧ k ≤ strlen s ⇒ tokens_alt_aux_side f s i j k
 Proof
   ho_match_mp_tac tokens_alt_aux_ind>>
@@ -103,7 +104,7 @@ val _ = next_ml_names := ["fields"];
 val result = translate fields_alt;
 val fields_side_def = definition"fields_side_def";
 
-Triviality fields_alt_aux_side_thm:
+Theorem fields_alt_aux_side_thm[local]:
   !f s i j k. i ≤ j ∧ j ≤ k ∧ k ≤ strlen s ⇒ fields_alt_aux_side f s i j k
 Proof
   ho_match_mp_tac fields_alt_aux_ind>>
@@ -123,7 +124,7 @@ val result = translate isStringThere_aux_def;
 val isStringThere_aux_side_def = theorem"isstringthere_aux_side_def";
 val _ = ml_prog_update open_local_in_block;
 
-Triviality isStringThere_aux_side_thm:
+Theorem isStringThere_aux_side_thm[local]:
   !s1 s2 s1i s2i len.
      s1i + len ≤ strlen s1 ∧ s2i + len <= strlen s2 ==>
      isstringthere_aux_side s1 s2 s1i s2i len
@@ -134,7 +135,7 @@ QED
 val _ = next_ml_names := ["isSubstring"];
 val result = translate isSubstring_aux_def;
 val isSubstring_aux_side_def = theorem"issubstring_aux_side_def";
-Triviality isSubstring_aux_side_thm:
+Theorem isSubstring_aux_side_thm[local]:
   !s1 s2 lens1 n len.
     (lens1 = strlen s1) ∧ n + len + lens1 ≤ strlen s2 + 1 ==>
     issubstring_aux_side s1 s2 lens1 n len
@@ -174,7 +175,7 @@ val _ = next_ml_names := ["compare"];
 val result = translate compare_def;
 val compare_side_def = definition"compare_1_side_def";
 
-Triviality compare_aux_side_thm:
+Theorem compare_aux_side_thm[local]:
   !s1 s2 ord n len. (n + len =
     if strlen s1 < strlen s2
       then strlen s1
@@ -205,7 +206,7 @@ val _ = next_ml_names := ["collate"];
 val result = translate collate_def;
 val collate_side_def = definition"collate_1_side_def";
 
-Triviality collate_aux_side_thm:
+Theorem collate_aux_side_thm[local]:
   !f s1 s2 ord n len. (n + len =
     if strlen s1 < strlen s2
       then strlen s1
@@ -227,5 +228,3 @@ val _ = translate escape_char_def;
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);
-
-val _ = export_theory()

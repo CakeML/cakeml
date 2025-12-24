@@ -1,14 +1,13 @@
 (*
   Definition of CakeML's type inferencer.
 *)
-open preamble miscTheory astTheory namespaceTheory typeSystemTheory;
-open namespacePropsTheory;
-open infer_tTheory unifyTheory;
-open stringTheory ;
-open primTypesTheory;
+Theory infer
+Ancestors
+  misc ast namespace typeSystem namespaceProps infer_t unify
+  string primTypes
+Libs
+  preamble
 
-
-val _ = new_theory "infer";
 val _ = monadsyntax.temp_add_monadsyntax()
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -534,6 +533,8 @@ Definition infer_p_def:
     return (Infer_Tapp [] Tword8_num, [])) ∧
   (infer_p l ienv (Plit (Word64 w)) =
     return (Infer_Tapp [] Tword64_num, [])) ∧
+  (infer_p l ienv (Plit (Float64 f)) =
+    failwith l «Floats cannot be used in patterns» ) ∧
   (infer_p l ienv (Pcon cn_opt ps) =
     dtcase cn_opt of
       | NONE =>
@@ -606,12 +607,9 @@ Definition op_to_string_def:
   (op_to_string (FP_cmp _) = (implode "FP_cmp", 2)) ∧
   (op_to_string (FpToWord) = (implode "FpToWord", 1)) /\
   (op_to_string (FpFromWord) = (implode "FpFromWord", 1)) /\
-  (op_to_string (Real_bop _) = (implode "Real_bop", 2)) ∧
-  (op_to_string (Real_uop _) = (implode "Real_uop", 1)) ∧
-  (op_to_string (Real_cmp _) = (implode "Real_cmp", 2)) ∧
-  (op_to_string (RealFromFP) = (implode "RealFromFP", 1)) ∧
   (op_to_string (Shift _ _ _) = (implode "Shift", 1)) ∧
   (op_to_string Equality = (implode "Equality", 2)) ∧
+  (op_to_string (Test _ _) = (implode "Test", 2)) ∧
   (op_to_string Opapp = (implode "Opapp", 2)) ∧
   (op_to_string Opassign = (implode "Opassign", 2)) ∧
   (op_to_string Opref = (implode "Opref", 1)) ∧
@@ -631,7 +629,6 @@ Definition op_to_string_def:
   (op_to_string CopyAw8Aw8 = (implode "CopyAw8Aw8", 5)) ∧
   (op_to_string Chr = (implode "Chr", 1)) ∧
   (op_to_string Ord = (implode "Ord", 1)) ∧
-  (op_to_string (Chopb _) = (implode "Chopb", 2)) ∧
   (op_to_string Strsub = (implode "Strsub", 2)) ∧
   (op_to_string Implode = (implode "Implode", 1)) ∧
   (op_to_string Explode = (implode "Explode", 1)) ∧
@@ -639,6 +636,7 @@ Definition op_to_string_def:
   (op_to_string Strcat = (implode "Strcat", 1)) ∧
   (op_to_string VfromList = (implode "VfromList", 1)) ∧
   (op_to_string Vsub = (implode "Vsub", 2)) ∧
+  (op_to_string Vsub_unsafe = (implode "Vsub_unsafe", 2)) ∧
   (op_to_string Vlength = (implode "Vlength", 1)) ∧
   (op_to_string Aalloc = (implode "Aalloc", 2)) ∧
   (op_to_string AallocEmpty = (implode "AallocEmpty", 1)) ∧
@@ -652,10 +650,23 @@ Definition op_to_string_def:
   (op_to_string Eval = (implode "Eval", 6)) ∧
   (op_to_string Env_id = (implode "Env_id", 1)) ∧
   (op_to_string ListAppend = (implode "ListAppend", 2)) ∧
-  (op_to_string (FFI _) = (implode "FFI", 2))
+  (op_to_string (FFI _) = (implode "FFI", 2)) ∧
+  (op_to_string (ThunkOp ForceThunk) = (implode "ForceThunk", 1)) ∧
+  (op_to_string (ThunkOp (AllocThunk _)) = (implode "AllocThunk", 1)) ∧
+  (op_to_string (ThunkOp (UpdateThunk _)) = (implode "UpdateThunk", 2))
 End
 
 Overload Tem[local,inferior] = ``Infer_Tapp []``
+
+Definition t_num_of_def[simp]:
+  t_num_of BoolT       = Tbool_num   ∧
+  t_num_of IntT        = Tint_num    ∧
+  t_num_of CharT       = Tchar_num   ∧
+  t_num_of StrT        = Tstring_num ∧
+  t_num_of (WordT W8)  = Tword8_num  ∧
+  t_num_of (WordT W64) = Tword64_num ∧
+  t_num_of Float64T    = Tdouble_num
+End
 
 Definition op_simple_constraints_def:
 op_simple_constraints op =
@@ -663,6 +674,9 @@ op_simple_constraints op =
    | Opn _ => (T, [Tem Tint_num; Tem Tint_num], Tem Tint_num)
    | Opb _ => (T, [Tem Tint_num; Tem Tint_num], Tem Tbool_num)
    | Opw wz opw => (T, [Tem (word_tc wz); Tem (word_tc wz)], Tem (word_tc wz))
+   | Test test ty => (supported_test test ty,
+                      [Tem (t_num_of ty); Tem (t_num_of ty)],
+                      Tem Tbool_num)
    | FP_top _ => (T, [Tem Tdouble_num; Tem Tdouble_num; Tem Tdouble_num],
         Tem Tdouble_num)
    | FP_bop _ => (T, [Tem Tdouble_num; Tem Tdouble_num], Tem Tdouble_num)
@@ -688,7 +702,6 @@ op_simple_constraints op =
             Tem Tword8array_num; Tem Tint_num], Tem Ttup_num)
    | Chr => (T, [Tem Tint_num], Tem Tchar_num)
    | Ord => (T, [Tem Tchar_num], Tem Tint_num)
-   | Chopb _ => (T, [Tem Tchar_num; Tem Tchar_num], Tem Tbool_num)
    | Strsub => (T, [Tem Tstring_num; Tem Tint_num], Tem Tchar_num)
    | Strlen => (T, [Tem Tstring_num], Tem Tint_num)
    | ConfigGC => (T, [Tem Tint_num; Tem Tint_num], Tem Ttup_num)
@@ -784,18 +797,17 @@ constrain_op l op ts s =
           () <- add_constraint l t2 (Infer_Tapp [uvar] Tlist_num);
           return (Infer_Tapp [uvar] Tlist_num)
        od s
+   | (Vsub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
    | (Asub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
    | (Aupdate_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
    | (Aw8sub_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
    | (Aw8update_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
    | (XorAw8Str_unsafe, _) => failwith l (implode "Unsafe ops do not have a type") s
-   | (Real_uop _, _) => failwith l (implode "Reals do not have a type") s
-   | (Real_bop _, _) => failwith l (implode "Reals do not have a type") s
-   | (Real_cmp _, _) => failwith l (implode "Reals do not have a type") s
-   | (RealFromFP, _) => failwith l (implode "Reals do not have a type") s
    | (AallocFixed, _) => failwith l (implode "Unsafe ops do not have a type")  s(* not actually unsafe *)
    | (Eval, _) => failwith l (implode "Unsafe ops do not have a type") s
    | (Env_id, _) => failwith l (implode "Unsafe ops do not have a type") s
+   | (ThunkOp _, _) => failwith l (implode "Thunk ops do not have a type") s
+   | (Test _ _, _) => failwith l (implode "Type mismatch") s
    | _ => failwith l (op_n_args_msg op (LENGTH ts)) s
 End
 
@@ -815,26 +827,33 @@ Proof
 QED
 
 Theorem constrain_op_error_msg_sanity:
- !l op args s l' s' msg.
-  LENGTH args = SND (op_to_string op) ∧
-  constrain_op l op args s = (Failure (l',msg), s')
-  ⇒
-  IS_PREFIX (explode msg) "Type mismatch" \/
-  IS_PREFIX (explode msg) "Unsafe" \/
-  IS_PREFIX (explode msg) "Real"
+  ∀l op args s l' s' msg.
+    LENGTH args = SND (op_to_string op) ∧
+    constrain_op l op args s = (Failure (l',msg), s')
+    ⇒
+    IS_PREFIX (explode msg) "Type mismatch" ∨
+    IS_PREFIX (explode msg) "Unsafe" ∨
+    IS_PREFIX (explode msg) "Thunk"
 Proof
- rpt strip_tac >>
- qmatch_abbrev_tac `IS_PREFIX _ m1 \/ IS_PREFIX _ m2 \/ IS_PREFIX _ m3` >>
- cases_on `op` >>
- fs [op_to_string_def, constrain_op_dtcase_def, op_simple_constraints_def] >>
- gvs [LENGTH_EQ_NUM_compute] >>
- rfs [] >>
- fs [add_constraints_def, add_constraint_def, fresh_uvar_def,
-   st_ex_bind_failure, st_ex_return_def, option_case_eq] >>
- rw [] >>
- fs [mlstringTheory.concat_thm] >>
- fs [failwith_def] >> rw [] >> fs [] >>
- unabbrev_all_tac >> fs []
+  rpt strip_tac >>
+  qmatch_abbrev_tac `IS_PREFIX _ m1 \/ IS_PREFIX _ m2 \/ IS_PREFIX _ m3` >>
+  cases_on `op` >>
+  fs [op_to_string_def, constrain_op_dtcase_def, op_simple_constraints_def] >>
+  gvs [LENGTH_EQ_NUM_compute] >>
+  rfs [] >>
+  fs [add_constraints_def, add_constraint_def, fresh_uvar_def,
+      st_ex_bind_failure, st_ex_return_def, option_case_eq] >>
+  rw [] >>
+  fs [mlstringTheory.concat_thm] >>
+  fs [failwith_def] >> rw [] >> fs [] >>
+  unabbrev_all_tac >> fs [] >>
+  pop_assum mp_tac >>
+  IF_CASES_TAC >> gvs [] >>
+  fs [add_constraints_def, add_constraint_def, fresh_uvar_def,
+      st_ex_bind_failure, st_ex_return_def, option_case_eq] >>
+  fs [mlstringTheory.concat_thm] >>
+  fs [failwith_def] >> rw [] >> fs [] >>
+  unabbrev_all_tac >> fs []
 QED
 
 Definition infer_e_def:
@@ -862,6 +881,8 @@ Definition infer_e_def:
     return (Infer_Tapp [] Tword8_num)) ∧
   (infer_e l ienv (Lit (Word64 _)) =
     return (Infer_Tapp [] Tword64_num)) ∧
+  (infer_e l ienv (Lit (Float64 _)) =
+    return (Infer_Tapp [] Tdouble_num)) ∧
   (infer_e l ienv (Var id) =
     do (tvs,t) <- lookup_st_ex l "variable" id ienv.inf_v;
        uvs <- n_fresh_uvar tvs;
@@ -970,8 +991,6 @@ Definition infer_e_def:
        () <- add_constraint l t' (infer_type_subst [] t'');
        return t'
      od) ∧
-  (infer_e l ienv (FpOptimise annot e) =
-    infer_e l ienv e) /\
   (infer_e l ienv (Lannot e new_l) =
     infer_e (l with loc := SOME new_l) ienv e) ∧
   (infer_es l ienv [] =
@@ -1012,7 +1031,7 @@ Termination
   rw []
 End
 
-Triviality FUN_EQ_THM_state:
+Theorem FUN_EQ_THM_state[local]:
   f = g ⇔ ∀s. f s = g s
 Proof
   gvs [FUN_EQ_THM]
@@ -1252,7 +1271,5 @@ Definition inf_env_to_types_string_def:
     let xs = MAP (\(n,_,t). concat [implode n; strlit ": ";
                                     inf_type_to_string s.inf_t t;
                                     strlit "\n";]) l in
-      (* QSORT mlstring_le *) REVERSE xs
+      (* sort mlstring_le *) REVERSE xs
 End
-
-val _ = export_theory ();

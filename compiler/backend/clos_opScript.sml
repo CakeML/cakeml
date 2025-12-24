@@ -3,11 +3,11 @@
   constructor. When possible, this smart constructor breaks
   the operation into faster separate operators.
 *)
-open preamble closLangTheory;
-
-val _ = new_theory "clos_op";
-
-val _ = set_grammar_ancestry ["closLang","backend_common","misc"]
+Theory clos_op
+Ancestors
+  closLang backend_common[qualified] misc[qualified]
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -326,7 +326,7 @@ Definition eq_pure_def:
   eq_pure x y = ConjList (append (eq_pure_list [(x,y)]))
 End
 
-Triviality eq_pure_list_test:
+Theorem eq_pure_list_test[local]:
    append
        (eq_pure_list
           [(Var None 5,
@@ -410,4 +410,3 @@ Definition SmartOp_def:
     | SOME x => x
 End
 
-val _ = export_theory();

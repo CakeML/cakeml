@@ -2,13 +2,11 @@
   Invariants used in the proof relating the big-step and small-step
   version of the CakeML source semantics.
 *)
-open HolKernel Parse boolLib bossLib;
-open namespaceTheory astTheory semanticPrimitivesTheory
-     smallStepTheory bigStepTheory;
+Theory bigSmallInvariants
+Ancestors
+  namespace ast semanticPrimitives smallStep bigStep
 
 val _ = numLib.temp_prefer_num();
-
-val _ = new_theory "bigSmallInvariants"
 
 (* ------ Auxiliary relations for proving big/small step equivalence ------ *)
 
@@ -44,7 +42,68 @@ Inductive evaluate_ctxt:
       ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
           (s2 with <| ffi := new_ffi; refs := new_refs |>, res)) ∧
 
-  ((~opClass op FunApp) ∧
+  (opClass op Force ∧
+   evaluate_list ck env s1 es (s2, Rval vs2) ∧
+   (dest_thunk (REVERSE vs2 ++ [v] ++ vs1) s2.refs = BadRef ∨
+    dest_thunk (REVERSE vs2 ++ [v] ++ vs1) s2.refs = NotThunk ∨
+    (dest_thunk (REVERSE vs2 ++ [v] ++ vs1) s2.refs = IsThunk NotEvaluated f ∧
+     do_opapp [f; Conv NONE []] = NONE))
+    ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
+        (s2, Rerr (Rabort Rtype_error))) ∧
+
+  (opClass op Force ∧
+   evaluate_list ck env s1 es (s2, Rval vs2) ∧
+   dest_thunk (REVERSE vs2 ++ [v] ++ vs1) s2.refs = IsThunk Evaluated v'
+    ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v (s2, Rval v')) ∧
+
+  (opClass op Force ∧
+   evaluate_list T env s1 es (s2, Rval vs2) ∧
+   dest_thunk (REVERSE vs2 ++ [v] ++ vs1) s2.refs = IsThunk NotEvaluated f ∧
+   do_opapp [f; Conv NONE []] = SOME env_e ∧
+   s2.clock = 0
+    ⇒ evaluate_ctxt T env s1 (Capp op vs1 () es) v
+        (s2, Rerr (Rabort Rtimeout_error))) ∧
+
+  (opClass op Force ∧
+   evaluate_list ck env s1 es (s2, Rval vs2) ∧
+   dest_thunk (REVERSE vs2 ++ [v] ++ vs1) s2.refs = IsThunk NotEvaluated f ∧
+   do_opapp [f; Conv NONE []] = SOME (env', e) ∧
+   (ck ⇒ s2.clock ≠ 0) ∧
+   evaluate ck env' (if ck then (s2 with clock := s2.clock - 1) else s2) e (s3, Rerr err)
+    ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
+        (s3, Rerr err)) ∧
+
+  (opClass op Force ∧
+   evaluate_list ck env s1 es (s2, Rval vs2) ∧
+   dest_thunk (REVERSE vs2 ++ [v] ++ vs1) s2.refs = IsThunk NotEvaluated f ∧
+   do_opapp [f; Conv NONE []] = SOME (env', e) ∧
+   (ck ⇒ s2.clock ≠ 0) ∧
+   evaluate ck env' (if ck then (s2 with clock := s2.clock - 1) else s2) e (s3, Rval v') ∧
+   update_thunk (REVERSE vs2 ++ [v] ++ vs1) s3.refs [v'] = NONE
+    ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
+        (s3, Rerr (Rabort Rtype_error))) ∧
+
+  (opClass op Force ∧
+   evaluate_list ck env s1 es (s2, Rval vs2) ∧
+   dest_thunk (REVERSE vs2 ++ [v] ++ vs1) s2.refs = IsThunk NotEvaluated f ∧
+   do_opapp [f; Conv NONE []] = SOME (env', e) ∧
+   (ck ⇒ s2.clock ≠ 0) ∧
+   evaluate ck env' (if ck then (s2 with clock := s2.clock - 1) else s2) e (s3, Rval v') ∧
+   update_thunk (REVERSE vs2 ++ [v] ++ vs1) s3.refs [v'] = SOME refs
+    ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
+        (s3 with refs := refs, Rval v')) ∧
+
+  (dest_thunk [v] s1.refs = BadRef ∨
+   dest_thunk [v] s1.refs = IsThunk a b ∨
+   (dest_thunk [v] s1.refs = NotThunk ∧
+    store_assign loc (Thunk Evaluated v) s1.refs = NONE)
+    ⇒ evaluate_ctxt ck env s1 (Cforce loc) v (s1, Rerr (Rabort Rtype_error))) ∧
+
+  (dest_thunk [v] s1.refs = NotThunk ∧
+   store_assign loc (Thunk Evaluated v) s1.refs = SOME refs
+    ⇒ evaluate_ctxt ck env s1 (Cforce loc) v (s1 with refs := refs, Rval v)) ∧
+
+  ((~opClass op FunApp ∧ ¬ opClass op Force) ∧
    evaluate_list ck env s1 es (s2, Rval vs2) ∧
    do_app (s2.refs, s2.ffi) op (REVERSE vs2 ++ [v] ++ vs1) = NONE
       ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
@@ -200,4 +259,3 @@ Inductive evaluate_dec_state:
 End
 
 
-val _ = export_theory()

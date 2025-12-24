@@ -1,13 +1,13 @@
 (*
   Module about the built-in 'a vector.
 *)
-open preamble ml_translatorLib ml_translatorTheory ml_progLib
-     ListProgTheory basisFunctionsLib;
-open mlvectorTheory;
+Theory VectorProg
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
+Ancestors
+  ast[qualified] regexp_compiler[qualified] ml_translator
+  ListProg mlvector
 
-val _ = new_theory"VectorProg"
-
-val _ = set_grammar_ancestry ["ast", "regexp_compiler", "ml_translator"]
 val _ = translation_extends "ListProg";
 
 val _ = ml_prog_update (open_module "Vector");
@@ -51,7 +51,7 @@ val _ = next_ml_names := ["foldli"];
 val result = translate foldli_def;
 val foldli_side_def = definition"foldli_1_side_def";
 
-Triviality foldli_aux_side_thm:
+Theorem foldli_aux_side_thm[local]:
   !f e vec n len. n + len = length vec ==> foldli_aux_side f e vec n len
 Proof
   Induct_on`len` \\ rw[Once foldli_aux_side_def]
@@ -70,7 +70,7 @@ val _ = next_ml_names := ["foldl"];
 val result = translate foldl_def;
 val foldl_side_def = definition"foldl_1_side_def";
 
-Triviality foldl_aux_side_thm:
+Theorem foldl_aux_side_thm[local]:
   !f e vec n len. n + len = length vec ==> foldl_aux_side f e vec n len
 Proof
   Induct_on `len` \\ rw [Once foldl_aux_side_def]
@@ -89,7 +89,7 @@ val _ = next_ml_names := ["foldri"];
 val result = translate foldri_def;
 val foldri_side_def = definition"foldri_1_side_def";
 
-Triviality foldri_aux_side_thm:
+Theorem foldri_aux_side_thm[local]:
   !f e vec len. len <= length vec ==> foldri_aux_side f e vec len
 Proof
   Induct_on `len` \\ rw [Once foldri_aux_side_def]
@@ -108,7 +108,7 @@ val _ = next_ml_names := ["foldr"];
 val result = translate foldr_def;
 val foldr_side_def = definition"foldr_1_side_def";
 
-Triviality foldr_aux_side_thm:
+Theorem foldr_aux_side_thm[local]:
   !f e vec len. len <= length vec ==> foldr_aux_side f e vec len
 Proof
   Induct_on `len` \\ rw[Once foldr_aux_side_def]
@@ -127,7 +127,7 @@ val _ = next_ml_names := ["findi"];
 val result = translate findi_def;
 val findi_side_def = definition"findi_side_def"
 
-Triviality findi_aux_side_thm:
+Theorem findi_aux_side_thm[local]:
   !f vec n len. n + len = length vec ==> findi_aux_side f vec n len
 Proof
   Induct_on `len` \\ rw [Once findi_aux_side_def]
@@ -146,7 +146,7 @@ val _ = next_ml_names := ["find"];
 val result = translate find_def;
 val find_side_def = definition"find_1_side_def"
 
-Triviality find_aux_side_thm:
+Theorem find_aux_side_thm[local]:
   !f vec n len. n + len = length vec ==> find_aux_side f vec n len
 Proof
   Induct_on `len` \\ rw [Once find_aux_side_def]
@@ -165,7 +165,7 @@ val _ = next_ml_names := ["exists"];
 val result = translate exists_def;
 val exists_side_def = definition"exists_1_side_def";
 
-Triviality exists_aux_side_thm:
+Theorem exists_aux_side_thm[local]:
   !f vec n len. n + len = length vec ==> exists_aux_side f vec n len
 Proof
   Induct_on `len` \\ rw [Once exists_aux_side_def]
@@ -184,7 +184,7 @@ val _ = next_ml_names := ["all"];
 val result = translate all_def;
 val all_side_def = definition"all_1_side_def";
 
-Triviality all_aux_side_thm:
+Theorem all_aux_side_thm[local]:
   !f vec n len. n + len = length vec ==> all_aux_side f vec n len
 Proof
   Induct_on `len` \\ rw[Once all_aux_side_def]
@@ -203,7 +203,7 @@ val _ = next_ml_names := ["collate"];
 val result = translate collate_def;
 val collate_side_def = definition"collate_1_side_def";
 
-Triviality collate_aux_side_thm:
+Theorem collate_aux_side_thm[local]:
   !f vec1 vec2 n ord len. n + len =
     (if length vec1 < length vec2
       then length vec1
@@ -219,5 +219,3 @@ val collate_side_thm = Q.prove (
 
 val _ = ml_prog_update close_local_blocks;
 val _ = ml_prog_update (close_module NONE);
-
-val _ = export_theory ()

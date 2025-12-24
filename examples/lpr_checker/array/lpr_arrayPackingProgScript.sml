@@ -2,17 +2,19 @@
   This builds a proof checker specialized to the
   packing chromatic number bounds
 *)
-open preamble basis lpr_composeProgTheory UnsafeProofTheory lprTheory lpr_listTheory lpr_parsingTheory HashtableProofTheory lpr_arrayProgTheory lpr_arrayParsingProgTheory packingTheory;
-
-val _ = new_theory "lpr_arrayPackingProg"
+Theory lpr_arrayPackingProg
+Ancestors
+  lpr_composeProg UnsafeProof lpr lpr_list lpr_parsing
+  HashtableProof lpr_arrayProg lpr_arrayParsingProg packing
+  basis_ffi
+Libs
+  preamble basis
 
 val _ = temp_delsimps ["NORMEQ_CONV"] (*"*)
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = translation_extends"lpr_arrayParsingProg";
-
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
 val usage_string = ‘
 Input: <r = radius> <k = total colors> <c = center color, 1 ≤ c ≤ k>
@@ -208,5 +210,3 @@ Theorem main_semantics =
   |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
 
 end
-
-val _ = export_theory();

@@ -1,12 +1,10 @@
 (*
   Definition of CakeML abstract syntax (AST).
 *)
-open HolKernel Parse boolLib bossLib;
-open namespaceTheory;
-
-local open integerTheory wordsTheory stringTheory mlstringTheory namespaceTheory locationTheory in end;
-val _ = new_theory "ast"
-val _ = set_grammar_ancestry ["integer", "words", "string", "namespace", "location"];
+Theory ast
+Ancestors
+  integer[qualified] words[qualified] string[qualified] mlstring[qualified] namespace
+  location[qualified]
 
 (* Literal constants *)
 Datatype:
@@ -72,6 +70,30 @@ Datatype:
 End
 
 Datatype:
+  thunk_mode = Evaluated | NotEvaluated
+End
+
+Datatype:
+  thunk_op =
+    AllocThunk thunk_mode
+  | UpdateThunk thunk_mode
+  | ForceThunk
+End
+
+Datatype:
+  test = Equal | Less | Less_alt | LessEq | LessEq_alt
+End
+
+Datatype:
+  prim_type = BoolT
+            | IntT
+            | CharT
+            | StrT
+            | WordT word_size
+            | Float64T
+End
+
+Datatype:
   op =
   (* Operations on integers *)
     Opn opn
@@ -80,6 +102,7 @@ Datatype:
   | Opw word_size opw
   | Shift word_size shift num
   | Equality
+  | Test test prim_type
   (* FP operations *)
   | FP_cmp fp_cmp
   | FP_uop fp_uop
@@ -111,7 +134,6 @@ Datatype:
   (* Char operations *)
   | Ord
   | Chr
-  | Chopb opb
   (* String operations *)
   | Implode
   | Explode
@@ -129,11 +151,14 @@ Datatype:
   | Asub
   | Alength
   | Aupdate
-  (* Unsafe array accesses *)
+  (* Unsafe vector/array accesses *)
+  | Vsub_unsafe
   | Asub_unsafe
   | Aupdate_unsafe
   | Aw8sub_unsafe
   | Aw8update_unsafe
+  (* thunk operations *)
+  | ThunkOp thunk_op
   (* List operations *)
   | ListAppend
   (* Configure the GC *)
@@ -151,6 +176,7 @@ Datatype:
  op_class =
     EvalOp (* Eval primitive *)
   | FunApp (* function application *)
+  | Force (* forcing a thunk *)
   | Simple (* arithmetic operation, no finite-precision/reals *)
 End
 Definition getOpClass_def[simp]:
@@ -158,6 +184,7 @@ Definition getOpClass_def[simp]:
  case op of
   | Opapp => FunApp
   | Eval => EvalOp
+  | ThunkOp t => (if t = ForceThunk then Force else Simple)
   | _ => Simple
 End
 
@@ -170,7 +197,7 @@ Datatype:
  lop = And | Or
 End
 
-(* Types *)
+(* Types used in type annotations *)
 Datatype:
  ast_t =
   (* Type variables that the user writes down ('a, 'b, etc.) *)
@@ -318,5 +345,3 @@ Definition Funs_def:
   Funs [] e = e ∧
   Funs (x::xs) e = Fun x (Funs xs e)
 End
-
-val _ = export_theory()

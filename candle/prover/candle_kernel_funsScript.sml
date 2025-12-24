@@ -1,20 +1,16 @@
 (*
   Prove that kernel functions maintain Candle prover's invariants
  *)
+Theory candle_kernel_funs
+Libs
+  preamble helperLib ml_progLib[qualified]
+Ancestors
+  candle_kernel_vals candle_prover_inv ast_extras evaluate
+  namespaceProps perms semanticPrimitivesProps misc[qualified]
+  semanticPrimitives evaluateProps sptree holKernelProof
+  ml_hol_kernel_funsProg candle_kernel_perms candle_kernelProg
+  computeProof
 
-open preamble helperLib;
-open semanticPrimitivesTheory semanticPrimitivesPropsTheory
-     evaluateTheory namespacePropsTheory evaluatePropsTheory
-     sptreeTheory holKernelProofTheory ml_hol_kernel_funsProgTheory
-     candle_kernel_permsTheory candle_kernelProgTheory computeProofTheory;
-open permsTheory candle_kernel_valsTheory candle_prover_invTheory ast_extrasTheory;
-local open ml_progLib in end
-
-val _ = new_theory "candle_kernel_funs";
-
-val _ = set_grammar_ancestry [
-  "candle_kernel_vals", "candle_prover_inv", "ast_extras", "evaluate",
-  "namespaceProps", "perms", "semanticPrimitivesProps", "misc"];
 
 Theorem Arrow1:
   (A --> B) f fv ∧
@@ -127,7 +123,7 @@ Proof
   \\ gs [io_events_mono_antisym]
 QED
 
-Triviality GC_T:
+Theorem GC_T[local]:
   GC s = T
 Proof
   fs [cfHeapsBaseTheory.GC_def,set_sepTheory.SEP_EXISTS_THM]
@@ -199,7 +195,7 @@ Proof
          the_context_def]
 QED
 
-Triviality IMP_perms_ok_lemma:
+Theorem IMP_perms_ok_lemma[local]:
   (LIST_TYPE (PAIR_TYPE STRING_TYPE NUM) x1 v ⇒ perms_ok ps v) ∧
   (LIST_TYPE (PAIR_TYPE STRING_TYPE TYPE_TYPE) x2 v ⇒ perms_ok ps v) ∧
   (LIST_TYPE THM_TYPE x3 v ⇒ perms_ok ps v) ∧
@@ -2200,5 +2196,3 @@ Proof
   \\ fs [kernel_funs_def]
   \\ TRY (rewrite_tac [kernel_funs_v_def,v_11] \\ simp [] \\ NO_TAC)
 QED
-
-val _ = export_theory ();

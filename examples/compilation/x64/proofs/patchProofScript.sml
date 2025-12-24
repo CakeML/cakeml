@@ -3,11 +3,12 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     patchProgTheory patchCompileTheory
-
-val _ = new_theory"patchProof";
+Theory patchProof
+Ancestors
+  semanticsProps backendProof x64_configProof patchProg
+  patchCompile
+Libs
+  preamble
 
 val patch_io_events_def = new_specification("patch_io_events_def",["patch_io_events"],
   patch_semantics |> Q.GENL[`cl`,`fs`]
@@ -34,4 +35,3 @@ Theorem patch_compiled_thm =
   |> DISCH_ALL
   |> check_thm
 
-val _ = export_theory();

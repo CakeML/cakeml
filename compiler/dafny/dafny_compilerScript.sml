@@ -1,38 +1,24 @@
 (*
   Definition of the Dafny to CakeML compiler.
 *)
+Theory dafny_compiler
+Ancestors
+  result_monad sexp_to_dafny dafny_to_cakeml
+  dafny_freshen dafny_remove_assert fromSexp simpleSexpParse
+Libs
+  preamble
 
-open preamble
-open result_monadTheory
-open dafny_sexpTheory
-open sexp_to_dafnyTheory
-open dafny_to_cakemlTheory
-open dafny_freshenTheory
-open fromSexpTheory
-open simpleSexpParseTheory
 
-val _ = new_theory "dafny_compiler";
-
-(* Trusted frontend *)
-Definition frontend_def:
-  frontend (dfy_sexp: string) =
-  do
-    dfy_sexp <- lex dfy_sexp;
-    dfy_sexp <- parse dfy_sexp;
-    to_program dfy_sexp
-  od
-End
-
+(* TODO First do freshen, then remove assert
+   Both compile and vcg require freshen, but only compile removing asserts;
+   if we start with freshen, there is more overlap in the path a program takes *)
 Definition compile_def:
-  compile dfy = from_program (freshen_program dfy)
+  compile dfy = from_program $ freshen_program $ remove_assert dfy
 End
 
 Definition dfy_to_cml_def:
-  dfy_to_cml (dfy_sexp: string) =
-  do
-    dfy <- frontend dfy_sexp;
-    compile dfy
-  od
+  dfy_to_cml dfy_sexp =
+    do dfy <- to_program dfy_sexp; compile dfy od
 End
 
 (* If compilation failed, outputs a program that prints the error message in
@@ -57,13 +43,10 @@ Definition cmlm_to_str_def:
 End
 
 Definition main_function_def:
-  main_function (input: mlstring): mlstring =
+  main_function (sexp: mlsexp$sexp): mlstring =
   let
-    input = explode input;
-    cmlm = dfy_to_cml input;
+    cmlm = dfy_to_cml sexp;
     cml_str = cmlm_to_str cmlm;
   in
     implode cml_str
 End
-
-val _ = export_theory ();

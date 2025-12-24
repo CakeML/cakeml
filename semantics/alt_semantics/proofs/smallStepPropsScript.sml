@@ -1,11 +1,12 @@
 (*
   Properties about the small-step semantics.
 *)
-open preamble;
-open semanticPrimitivesTheory ffiTheory semanticPrimitivesPropsTheory
-     evaluatePropsTheory smallStepTheory determTheory;
-
-val _ = new_theory "smallStepProps";
+Theory smallStepProps
+Ancestors
+  semanticPrimitives ffi semanticPrimitivesProps evaluateProps
+  smallStep determ
+Libs
+  preamble
 
 (**
 Theorem application_thm:
@@ -704,11 +705,15 @@ Theorem small_eval_app_err:
 Proof
   ho_match_mp_tac small_eval_list_ind >> simp[] >> srw_tac[][] >>
   srw_tac[boolSimps.DNF_ss][Once RTC_CASES1,e_step_reln_def] >- (
-  srw_tac[][Once e_step_def,continue_def,application_thm] >>
+  srw_tac[][Once e_step_def,continue_def,application_thm,return_def] >>
   BasicProvers.CASE_TAC >>
   TRY BasicProvers.CASE_TAC >>
   Cases_on`s` >> fs[do_app_cases] >> rw[] >> fs[] >>
-  rpt TOP_CASE_TAC >> gs[do_app_cases]) >>
+  rpt TOP_CASE_TAC >> gs[do_app_cases] >>
+  (* ThunkOp cases *)
+  namedCases_on ‘v0’ ["", "hd tl"] >> gvs[] >> Cases_on ‘tl’ >> gvs[] >>
+  gvs[oneline thunk_op_def, AllCaseEqs()]
+  ) >>
   disj2_tac >>
   srw_tac[][Once e_step_def,continue_def,push_def] >>
   imp_res_tac e_step_add_ctxt >>
@@ -737,7 +742,11 @@ Proof
   BasicProvers.CASE_TAC >>
   TRY BasicProvers.CASE_TAC >>
   Cases_on`s` >> fs[do_app_cases] >> rw[] >> fs[] >>
-  rpt TOP_CASE_TAC >> gs[do_app_cases]) >>
+  rpt TOP_CASE_TAC >> gs[do_app_cases] >>
+  (* ThunkOp cases *)
+  namedCases_on ‘v0’ ["", "hd tl"] >> gvs[] >> Cases_on ‘tl’ >> gvs[] >>
+  gvs[oneline thunk_op_def, AllCaseEqs()]
+  ) >>
   disj2_tac >>
   srw_tac[][Once e_step_def,continue_def,push_def] >>
   imp_res_tac e_step_add_ctxt >>
@@ -1520,7 +1529,7 @@ Proof
   goal_assum drule >> simp[]
 QED
 
-Triviality small_decl_diverges_ExpVal_lemma:
+Theorem small_decl_diverges_ExpVal_lemma[local]:
   ∀benv (st:'ffi state) env ev cs locs p dcs b.
     (decl_step_reln benv)꙳ (st,ExpVal env ev cs locs p,dcs) b ∧
     (∀res. (e_step_reln꙳ (env,(st.refs,st.ffi),ev,cs) res ⇒
@@ -1813,5 +1822,3 @@ Proof
   rev_drule RTC_decl_step_confl >> disch_then drule >> rw[] >>
   imp_res_tac RTC_decl_step_reln_io_events_mono >> gvs[io_events_mono_def]
 QED
-
-val _ = export_theory ();
