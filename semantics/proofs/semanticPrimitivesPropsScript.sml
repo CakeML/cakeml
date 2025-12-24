@@ -307,11 +307,11 @@ Theorem do_app_ffi_changed:
     op = FFI s ∧
     vs = [Litv (StrLit conf); Loc b lnum] ∧
     store_lookup lnum st = SOME (W8array ws) ∧
-    s ≠ "" ∧
+    s ≠ «» ∧
     ffi.oracle
        (ExtCall s)
        ffi.ffi_state
-       (MAP (λc. n2w $ ORD c) (EXPLODE conf))
+       (MAP (λc. n2w $ ORD c) (explode conf))
        ws =
     Oracle_return ffi_st ws' ∧
     LENGTH ws = LENGTH ws' ∧
@@ -320,7 +320,7 @@ Theorem do_app_ffi_changed:
     ffi'.ffi_state = ffi_st ∧
     ffi'.io_events =
       ffi.io_events ++
-        [IO_event (ExtCall s) (MAP (λc. n2w $ ORD c) (EXPLODE conf))
+        [IO_event (ExtCall s) (MAP (λc. n2w $ ORD c) (explode conf))
                   (ZIP (ws,ws'))]
 Proof
   simp[do_app_def,thunk_op_def] >>
@@ -328,7 +328,7 @@ Proof
   dsimp[AllCaseEqs(), PULL_EXISTS, UNCURRY_EQ] >>
   simp[call_FFI_def, AllCaseEqs(), SF CONJ_ss] >>
   rw[] >>
-  gvs[combinTheory.o_DEF, IMPLODE_EXPLODE_I, store_assign_def]
+  gvs[combinTheory.o_DEF, store_assign_def]
 QED
 
 Theorem do_app_not_timeout:
