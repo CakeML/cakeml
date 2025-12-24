@@ -3876,7 +3876,6 @@ Theorem constrain_op_set_tids:
    ⇒
    inf_set_tids_subset tids t ∧ inf_set_tids_subst tids st'.subst
 Proof
-  cheat (*
   simp[constrain_op_success,success_eqns]
   \\ strip_tac \\ rveq >>
   TRY pairarg_tac
@@ -3893,8 +3892,21 @@ Proof
                   \\fs[prim_tids_def,prim_type_nums_def]))
     \\ strip_tac \\ fs[])
   \\ rveq \\ fs[inf_set_tids_def,prim_tids_def, prim_type_nums_def]
-  \\ rename [‘supported_test  _ ty’] \\ Cases_on ‘ty’ \\ gvs []
-  \\ rename [‘WordT ws’] \\ Cases_on ‘ws’ \\ gvs [] *)
+  \\ gvs[CaseEq"option",failwith_success,CaseEq"bool",
+         st_ex_bind_success,st_ex_return_success,inf_set_tids_def,
+         add_constraints_success]
+  \\ TRY(rename1`supported_arith a p` \\ Cases_on`a`
+         \\ Cases_on`p` \\ gvs[supported_arith_def]
+         \\ irule pure_add_constraints_set_tids
+         \\ first_x_assum $ irule_at (Pat`pure_add_constraints`)
+         \\ gvs[LENGTH_EQ_NUM_compute,REPLICATE_compute]
+         \\ gvs[inf_set_tids_subset_def, inf_set_tids_def])
+  \\ TRY(rename1`supported_conversion c x` \\ Cases_on`c`
+         \\ Cases_on`x` \\ gvs[supported_conversion_def]
+         \\ Cases_on`w` \\ gvs[supported_conversion_def])
+  \\ rename1`supported_test x p`
+  \\ Cases_on`x` \\ Cases_on`p` \\ gvs[supported_test_def]
+  \\ Cases_on`w` \\ gvs[supported_test_def]
 QED
 
 Theorem infer_e_inf_set_tids:
