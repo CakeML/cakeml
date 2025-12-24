@@ -33,6 +33,7 @@ Definition eval_term_def[simp]:
 End
 
 (* npbc are trivially satisfied when n is <= 0 *)
+
 Definition satisfies_npbc_def:
   satisfies_npbc w ((xs,n):npbc) ⇔ n ≤ &(SUM (MAP (eval_term w) xs))
 End
@@ -1530,16 +1531,13 @@ Proof
   \\ rpt (pairarg_tac \\ gvs [])
 QED
 
+(* Check if a constraint is a contradiction *)
+
 (* Computes the LHS term of the slack of a constraint under
    a partial assignment p (list of literals) *)
 Definition lslack_def:
   lslack ls =
   SUM (MAP (Num o ABS o FST) ls)
-End
-
-Definition check_contradiction_def:
-  check_contradiction ((ls,num):npbc) ⇔
-    &lslack ls < num
 End
 
 Theorem lslack_thm:
@@ -1549,37 +1547,250 @@ Proof
   \\ rw [] \\ Cases_on ‘w p_2’ \\ gvs []
 QED
 
+(* short circuit the lslack check against an RHS *)
+Definition check_lslack_def:
+  (check_lslack ls rhs =
+    if rhs ≤ 0 then F
+    else
+      case ls of [] => T
+      | (c,v)::xs =>
+        check_lslack xs (rhs - (ABS c)))
+End
+
+Theorem check_lslack_thm:
+  ∀ls rhs.
+  check_lslack ls rhs ⇔
+  &lslack ls < rhs
+Proof
+  simp[lslack_def]>>
+  ho_match_mp_tac check_lslack_ind>>
+  rw[]>>
+  simp[Once check_lslack_def]>>
+  Cases_on`rhs <= 0`>>simp[]
+  >- intLib.ARITH_TAC>>
+  TOP_CASE_TAC>>simp[]
+  >- intLib.ARITH_TAC>>
+  TOP_CASE_TAC>>gs[]>>
+  intLib.ARITH_TAC
+QED
+
+Definition check_contradiction_def:
+  check_contradiction ((ls,rhs):npbc) ⇔
+    check_lslack ls rhs
+End
+
+Theorem check_contradiction_thm:
+  check_contradiction (ls,rhs) ⇔
+  &lslack ls < rhs
+Proof
+  rw[check_contradiction_def]>>
+  metis_tac[check_lslack_thm]
+QED
+
 Theorem check_contradiction_unsat:
   check_contradiction c ⇒
   ¬satisfies_npbc w c
 Proof
   Cases_on`c`>>
   rename1`(l,n)`>>
-  rw[check_contradiction_def,satisfies_npbc_def,GREATER_EQ,GSYM NOT_LESS,
+  rw[check_contradiction_thm,satisfies_npbc_def,GREATER_EQ,GSYM NOT_LESS,
     integerTheory.INT_NOT_LE]>>
   irule integerTheory.INT_LET_TRANS>>
   goal_assum $ drule_at Any>>
   simp[lslack_thm]
 QED
 
-(* constraint c1 implies constraint c2 *)
+(* Check if a constraint is trivial *)
+Definition check_trivial_def:
+  check_trivial ((ls,rhs):npbc) ⇔
+    rhs <= 0
+End
+
+Theorem check_trivial_valid:
+  check_trivial c ⇒
+  satisfies_npbc w c
+Proof
+  Cases_on`c`>>
+  rename1`(l,n)`>>
+  rw[check_trivial_def,satisfies_npbc_def]>>
+  intLib.ARITH_TAC
+QED
+
+Definition match_sign_def:
+  match_sign c d ⇔
+  c < 0i ∧ d < 0i ∨
+  0 ≤ c ∧ 0 ≤ d
+End
+
+Definition imp_terms_def:
+  imp_terms drhs c d =
+  let cc = ABS c in
+  let dd = ABS d in
+  if dd < cc ∧ dd < drhs
+  then
+    cc - dd
+  else
+    0
+End
+
+Definition imp_lists_def:
+  (imp_lists drhs xs [] = lslack xs) ∧
+  (imp_lists drhs [] ys = 0) ∧
+  (imp_lists drhs ((c,x)::xs) ((d,y)::ys) =
+    if x < y then
+      Num (ABS c) + imp_lists drhs xs ((d,y)::ys)
+    else if y < x then
+      imp_lists drhs ((c,x)::xs) ys
+    else (* x = y *)
+      if match_sign c d then
+        Num (imp_terms drhs c d) + imp_lists drhs xs ys
+      else
+        Num (ABS c) + imp_lists drhs xs ((d,y)::ys)
+  )
+End
+
+Definition check_imp_lists_def:
+  (check_imp_lists drhs xs [] rhs = check_lslack xs rhs) ∧
+  (check_imp_lists drhs [] ys rhs = T) ∧
+  (check_imp_lists drhs ((c,x)::xs) ((d,y)::ys) rhs =
+    if x < y then
+      let rhs = rhs - (ABS c) in
+      (if 0 < rhs
+      then check_imp_lists drhs xs ((d,y)::ys) rhs
+      else F)
+    else if y < x then
+      check_imp_lists drhs ((c,x)::xs) ys rhs
+    else (* x = y *)
+      if match_sign c d then
+        let rhs = rhs - imp_terms drhs c d in
+        (if 0 < rhs
+        then check_imp_lists drhs xs ys rhs
+        else F)
+      else
+        let rhs = rhs - (ABS c) in
+        (if 0 < rhs
+        then check_imp_lists drhs xs ((d,y)::ys) rhs
+        else F))
+End
+
+Theorem check_imp_lists_eq:
+  ∀drhs cls dls rhs.
+  0 < rhs ⇒
+  (check_imp_lists drhs cls dls rhs ⇔
+  &imp_lists drhs cls dls < rhs)
+Proof
+  ho_match_mp_tac imp_lists_ind>>
+  rw[check_imp_lists_def]
+  >- simp[check_lslack_thm,imp_lists_def]
+  >- simp[imp_lists_def]>>
+  rw[imp_lists_def]>>fs[]
+  >~[`imp_terms`]
+  >- (
+    Cases_on`0 < rhs - imp_terms drhs c d`>>fs[]
+    >- (
+      `0 ≤ imp_terms drhs c d` by
+        (rw[imp_terms_def]>>
+        intLib.ARITH_TAC)>>
+      first_x_assum drule>>rw[]>>
+      intLib.ARITH_TAC)>>
+    intLib.ARITH_TAC)>>
+  (* three subgoals *)
+  (Cases_on`0 < rhs - ABS c`>>fs[]
+  >- (
+    first_x_assum drule>>rw[]>>
+    intLib.ARITH_TAC)>>
+  intLib.ARITH_TAC)
+QED
+
+Definition check_imp_def:
+  check_imp ((cls,crhs):npbc) ((dls,drhs):npbc) =
+  let rhs = crhs - drhs + 1 in
+  if 0 < rhs then
+    check_imp_lists drhs cls dls rhs
+  else F
+End
+
+Theorem match_sign_eval_term_le:
+  match_sign c d ∧ ABS c ≤ ABS d ⇒
+  eval_term w (c,x) ≤ eval_term w (d,x)
+Proof
+  rw[match_sign_def]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem imp_lists_lem':
+  ∀drhs cls dls m.
+  drhs + &imp_lists drhs cls dls ≤ &SUM (MAP (eval_term w) cls) + &m
+  ⇒
+  drhs ≤ &SUM (MAP (eval_term w) dls) + &m
+Proof
+  ho_match_mp_tac imp_lists_ind>>
+  CONJ_TAC>- (
+    rw[imp_lists_def]>>
+    `&SUM (MAP (eval_term w) cls) ≤ &lslack cls ` by fs[lslack_thm]>>
+    intLib.ARITH_TAC)>>
+  CONJ_TAC>- (
+    rw[imp_lists_def]>>
+    intLib.ARITH_TAC)>>
+  rw[imp_lists_def,Excl"eval_term_def"]
+  >- (
+    `eval_term w (c,x) ≤ (Num (ABS c)) ` by
+      rw[eval_term_def,oneline b2n_def]>>
+    intLib.ARITH_TAC)
+  >- intLib.ARITH_TAC
+  >- (
+    `x = y` by fs[]>>
+    gvs[imp_terms_def,Excl"eval_term_def"]>>
+    reverse $ Cases_on`ABS d < ABS c`>>
+    gs[Excl"eval_term_def",INT_NOT_LT]
+    >- (
+      (* coeff c ≤ d, do nothing *)
+      PURE_REWRITE_TAC[GSYM INT_OF_NUM_ADD, GSYM INT_ADD_ASSOC]>>
+      PURE_ONCE_REWRITE_TAC[INT_OF_NUM_ADD]>>
+      first_x_assum irule>>
+      drule_all match_sign_eval_term_le>>
+      disch_then(qspecl_then[`x`,`w`] assume_tac)>>
+      intLib.ARITH_TAC)>>
+    gs[match_sign_def,oneline b2n_def]>>
+    rw[]>>gvs[]>>
+    intLib.ARITH_TAC)
+  >- (
+    `eval_term w (c,x) ≤ (Num (ABS c)) ` by
+      rw[eval_term_def,oneline b2n_def]>>
+    intLib.ARITH_TAC)
+QED
+
+Theorem imp_lists_lem =
+  SIMP_RULE (srw_ss()) [] (SPEC_ALL imp_lists_lem' |> Q.GEN`m` |> Q.SPEC`0`)
+
+Theorem check_imp_thm:
+  check_imp c1 c2 ∧
+  satisfies_npbc w c1 ⇒ satisfies_npbc w c2
+Proof
+  `?cls crhs. c1 = (cls,crhs)` by metis_tac[PAIR]>>
+  `?dls drhs. c2 = (dls,drhs)` by metis_tac[PAIR]>>
+  rw[check_imp_def,satisfies_npbc_def]>>
+  drule check_imp_lists_eq>>
+  rw[]>>gvs[]>>
+  `drhs +  &imp_lists drhs cls dls ≤ crhs` by intLib.ARITH_TAC>>
+  metis_tac[INT_LE_TRANS,imp_lists_lem]
+QED
+
 Definition imp_def:
-  imp c1 c2 ⇔
-  check_contradiction (add c1 (not c2))
+  imp c d ⇔
+  check_trivial d ∨
+  check_contradiction c ∨
+  check_imp c d
 End
 
 Theorem imp_thm:
   imp c1 c2 ∧
   satisfies_npbc w c1 ⇒ satisfies_npbc w c2
 Proof
-  rw[imp_def]>>
-  drule add_thm>>
-  strip_tac>>
-  CCONTR_TAC>>
-  fs[GSYM not_thm]>>
-  first_x_assum drule>>
-  drule check_contradiction_unsat>>
-  metis_tac[]
+  rw[imp_def]
+  >- metis_tac[check_trivial_valid]
+  >- metis_tac[check_contradiction_unsat]
+  >- metis_tac[check_imp_thm]
 QED
 
 Definition subst_opt_def:
