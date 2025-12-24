@@ -75,10 +75,6 @@ End
 
 val _ = ml_prog_update open_local_block;
 
-fun get_exn_conv name =
-  EVAL ``lookup_cons (Short ^name) ^(get_env (get_ml_prog_state ()))``
-  |> concl |> rand |> rand |> rand
-
 val BadFileName = get_exn_conv ``"BadFileName"``
 val InvalidFD = get_exn_conv ``"InvalidFD"``
 val EndOfFile = get_exn_conv ``"EndOfFile"``

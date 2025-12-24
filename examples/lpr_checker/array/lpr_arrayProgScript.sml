@@ -84,8 +84,6 @@ val delete_literals_sing_arr_def = process_topdecs`
       if every_one_arr carr cs then ~c
       else raise Fail (format_failure lno "clause not empty or singleton after reduction")` |> append_prog
 
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
-
 Theorem any_el_eq_EL[simp]:
   LENGTH Clist > index h ⇒
   any_el (index h) Clist w8z = EL (index h) Clist

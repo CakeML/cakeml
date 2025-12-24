@@ -94,7 +94,6 @@ candle/standard/syntax
 candle/standard/semantics
 candle/standard/monadic
 candle/standard/ml_kernel
-candle/standard/ml_kernel/lisp
 candle/overloading
 candle/overloading/syntax
 candle/overloading/semantics
