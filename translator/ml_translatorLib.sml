@@ -1803,17 +1803,14 @@ val th = inv_defs |> map #2 |> hd
     val input_var = filter (fn x => not (tmem x (free_vars cases_tm))) (free_vars exp) |> hd
     val ret_ty = type_of exp
     val xs = rev (map rand (find_terms is_eq (concl case_th)))
-    fun add_nums [] = []
-      | add_nums (x::xs) = (x,length xs+1) :: add_nums xs
-    val ys = rev (add_nums (rev (zip (map snd vs) xs)))
+    fun add_nums xs = mapi (fn i => fn x => (x,i + 1)) xs
+    val ys = add_nums (zip (map snd vs) xs)
     fun str_tl s = implode (tl (explode s))
-    fun list_app x [] = x
-      | list_app x (y::ys) = list_app (mk_comb(x,y)) ys
     val start_mk_vars = start_timing "mk_vars"
     fun mk_vars ((f,tm),n) = let
       val xs = rev (free_vars tm)
-      val fxs = list_app f xs
-      val pxs = list_app (mk_var("b" ^ int_to_string n,list_mk_type xs bool)) xs
+      val fxs = list_mk_comb(f, xs)
+      val pxs = list_mk_comb(mk_var("b" ^ int_to_string n,list_mk_type xs bool), xs)
       val xs = map (fn x => let val s = str_tl (fst (dest_var x)) in
                             (x,mk_var("n" ^ s,mlstringSyntax.mlstring_ty),
                                mk_var("v" ^ s,v_ty)) end) xs
@@ -2769,7 +2766,7 @@ fun split_let_and_conv tm = let
                           THEN REWRITE_TAC [])
   in lemma end handle HOL_ERR _ => NO_CONV tm;
 
-fun mk_fun_type ty1 ty2 = mk_type("fun",[ty1,ty2])
+fun mk_fun_type ty1 ty2 = ty1 --> ty2
 
 fun list_mk_fun_type [ty] = ty
   | list_mk_fun_type (ty1::tys) =
@@ -2832,9 +2829,7 @@ fun get_induction_for_def def = let
     val step = mk_abs(v,list_mk_forall(xs @ ys,prop))
     in (P,(goal,step)) end
   val res = map goal_step xs
-  fun ISPEC_LIST [] th = th
-    | ISPEC_LIST (x::xs) th = ISPEC_LIST xs (ISPEC x th)
-  val ind = ISPEC_LIST (map (snd o snd) res) raw_ind
+  val ind = ISPECL (map (snd o snd) res) raw_ind
             |> CONV_RULE (DEPTH_CONV BETA_CONV)
   val goal1 = ind |> concl |> dest_imp |> snd
   val goal2 = list_mk_conj (map (fst o snd) res)
