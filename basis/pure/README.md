@@ -53,8 +53,3 @@ Pure functions for the Vector module.
 
 [mlvectorSyntax.sml](mlvectorSyntax.sml):
 ML functions for manipulating HOL terms and types involving vectors.
-
-[typeDecToPPScript.sml](typeDecToPPScript.sml):
-Maps a Dtype or Dtabbrev declaration (the ast syntax) to
-the default pretty-printer function definition for it
-(also as ast syntax).

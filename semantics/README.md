@@ -75,5 +75,10 @@ TODO: perhaps should just appear in tokensTheory.
 The tokens CakeML concrete syntax.
 Some tokens are from Standard ML and not used in CakeML.
 
+[typeDecToPPScript.sml](typeDecToPPScript.sml):
+Maps a Dtype or Dtabbrev declaration (the ast syntax) to
+the default pretty-printer function definition for it
+(also as ast syntax).
+
 [typeSystemScript.sml](typeSystemScript.sml):
 Specification of CakeML's type system.
