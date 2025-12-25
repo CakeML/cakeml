@@ -1169,7 +1169,16 @@ Theorem check_type_LIST_REL_same[local]:
   simple_val_rel vr ⇒
   vs2 = vs1
 Proof
-  cheat
+  rw[LIST_REL_EL_EQN, EVERY_MAP, EVERY_EL]
+  \\ rw[LIST_EQ_REWRITE]
+  \\ gs[] \\ first_x_assum drule
+  \\ first_x_assum drule
+  \\ Cases_on`ty`
+  \\ TRY(qmatch_goalsub_rename_tac`WordT w` \\ Cases_on`w`)
+  \\ rw[semanticPrimitivesTheory.check_type_def]
+  \\ Cases_on`EL x vs1`
+  \\ gvs[flat_to_v_def,CaseEq"bool",semanticPrimitivesTheory.Boolv_def]
+  \\ gvs[flatSemTheory.Boolv_def]
 QED
 
 val sv_rel_cases = semanticPrimitivesPropsTheory.sv_rel_cases;
