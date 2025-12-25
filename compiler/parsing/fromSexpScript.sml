@@ -8,7 +8,7 @@
 Theory fromSexp
 Ancestors
   simpleSexp ast location[qualified] fpSem
-  quantHeuristics ASCIInumbers numposrep
+  quantHeuristics ASCIInumbers numposrep mlstring
 Libs
   preamble match_goal
 
@@ -293,7 +293,7 @@ Proof
 QED
 
 Definition odestSEXSTR_def[simp]:
-  (odestSEXSTR (SX_STR s) = decode_control s) ∧
+  (odestSEXSTR (SX_STR s) = OPTION_MAP implode (decode_control s)) ∧
   (odestSEXSTR _ = NONE)
 End
 
@@ -310,12 +310,12 @@ Proof
 QED
 
 Definition odestSXSTR_def[simp]:
-  (odestSXSTR (SX_STR s) = SOME s) ∧
+  (odestSXSTR (SX_STR s) = SOME (implode s)) ∧
   (odestSXSTR _ = NONE)
 End
 
 Definition odestSXSYM_def[simp]:
-  (odestSXSYM (SX_SYM s) = SOME s) ∧
+  (odestSXSYM (SX_SYM s) = SOME (implode s)) ∧
   (odestSXSYM _ = NONE)
 End
 
@@ -325,7 +325,7 @@ Definition odestSXNUM_def[simp]:
 End
 
 Theorem odestSXNUM_SEXSTR[simp]:
-  odestSXNUM (SEXSTR str) = NONE
+  odestSXNUM (SEXSTR strng) = NONE
 Proof
   simp[SEXSTR_def]
 QED
@@ -334,7 +334,7 @@ Definition sexpopt_def:
   sexpopt p s =
     do
        nm <- odestSXSYM s ;
-       assert(nm = "NONE");
+       assert(nm = «NONE»);
        return NONE
     od ++
     do
@@ -362,7 +362,7 @@ Theorem sexplist_thm[simp]:
     do ph <- p h ; pt <- sexplist p t; return (ph::pt) od ∧
   (sexplist p (SX_SYM s) = if s = "nil" then return [] else fail) ∧
   sexplist p (&n) = fail ∧
-  sexplist p (SX_STR str) = fail
+  sexplist p (SX_STR strng) = fail
 Proof
   rpt strip_tac >> simp[Once sexplist_def]
 QED
@@ -411,7 +411,7 @@ QED
 Theorem strip_sxcons_thm[simp]:
   strip_sxcons ⟪ h • t ⟫ = lift (CONS h) (strip_sxcons t) ∧
   strip_sxcons (&n) = NONE ∧
-  strip_sxcons (SX_STR str) = NONE ∧
+  strip_sxcons (SX_STR strng) = NONE ∧
   strip_sxcons (SX_SYM s) = if s = "nil" then SOME [] else NONE
 Proof
   rpt strip_tac >> simp[]
@@ -534,8 +534,8 @@ Definition sexplit_def:
       guard (nm = "char")
             do
               cs <- odestSEXSTR (HD args);
-              assert(LENGTH cs = 1);
-              return (Char (HD cs))
+              assert(strlen cs = 1);
+              return (Char (HD (explode cs)))
             od ++
       guard (nm = "word8")
             do
@@ -772,7 +772,7 @@ Definition sexpop_def:
   if s = "Eval" then SOME Eval else
   if s = "Envid" then SOME Env_id else NONE) ∧
   (sexpop (SX_CONS (SX_SYM s) (SX_STR s')) =
-     if s = "FFI" then OPTION_MAP FFI (decode_control s') else NONE
+     if s = "FFI" then OPTION_MAP (FFI ∘ implode) (decode_control s') else NONE
    ) ∧
   (sexpop (SX_CONS (SX_SYM s) (SX_SYM t)) =
      case decode_thunk_mode t of
@@ -1225,8 +1225,8 @@ Proof
 QED
 
 Definition idsexp_def:
-  (idsexp (Short n) = listsexp [SX_SYM"Short"; SEXSTR n]) ∧
-  (idsexp (Long ns n) = listsexp [SX_SYM"Long"; SEXSTR ns; idsexp n])
+  (idsexp (Short n) = listsexp [SX_SYM"Short"; SEXSTR (explode n)]) ∧
+  (idsexp (Long ns n) = listsexp [SX_SYM"Long"; SEXSTR (explode ns); idsexp n])
 End
 
 Theorem idsexp_11[simp]:
@@ -1236,7 +1236,7 @@ Proof
 QED
 
 Definition typesexp_def:
-  (typesexp (Atvar s) = listsexp [SX_SYM "Atvar"; SEXSTR s]) ∧
+  (typesexp (Atvar s) = listsexp [SX_SYM "Atvar"; SEXSTR (explode s)]) ∧
   (typesexp (Atfun t1 t2) = listsexp [SX_SYM "Atfun"; typesexp t1; typesexp t2]) ∧
   (typesexp (Attup ts) = listsexp [SX_SYM "Attup"; listsexp (MAP typesexp ts)]) ∧
   (typesexp (Atapp ts tc) = listsexp [SX_SYM "Atapp"; listsexp (MAP typesexp ts); idsexp tc])
@@ -1263,7 +1263,7 @@ Definition litsexp_def:
    if i < 0 then listsexp [SX_SYM "-"; SX_NUM (Num(-i))]
             else SX_NUM (Num i)) ∧
   (litsexp (Char c) = listsexp [SX_SYM "char"; SEXSTR [c]]) ∧
-  (litsexp (StrLit s) = SEXSTR s) ∧
+  (litsexp (StrLit s) = SEXSTR (explode s)) ∧
   (litsexp (Word8 w) = listsexp [SX_SYM "word8"; SX_NUM (w2n w)]) ∧
   (litsexp (Word64 w) = listsexp [SX_SYM "word64"; SX_NUM (w2n w)]) ∧
   (litsexp (Float64 w) = listsexp [SX_SYM "float64"; SX_NUM (w2n w)])
@@ -1278,10 +1278,10 @@ QED
 
 Definition patsexp_def:
   (patsexp Pany = listsexp [SX_SYM "Pany"]) ∧
-  (patsexp (Pvar s) = SEXSTR s) ∧
+  (patsexp (Pvar s) = SEXSTR (explode s)) ∧
   (patsexp (Plit l) = listsexp [SX_SYM "Plit"; litsexp l]) ∧
   (patsexp (Pcon cn ps) = listsexp [SX_SYM "Pcon"; optsexp (OPTION_MAP idsexp cn); listsexp (MAP patsexp ps)]) ∧
-  (patsexp (Pas p i) = listsexp [SX_SYM "Pas"; patsexp p; SEXSTR i]) ∧
+  (patsexp (Pas p i) = listsexp [SX_SYM "Pas"; patsexp p; SEXSTR (explode i)]) ∧
   (patsexp (Pref p) = listsexp [SX_SYM "Pref"; patsexp p]) ∧
   (patsexp (Ptannot p t) = listsexp [SX_SYM "Ptannot" ; patsexp p; typesexp t])
 Termination
@@ -1370,18 +1370,20 @@ Proof
 QED
 
 Theorem odestSXSTR_SOME[simp]:
-   (odestSXSTR s = SOME y ⇔ s = SX_STR y) ∧
-   (SOME y = odestSXSTR s ⇔ s = SX_STR y)
+   (odestSXSTR s = SOME y ⇔ s = SX_STR (explode y)) ∧
+   (SOME y = odestSXSTR s ⇔ s = SX_STR (explode y))
 Proof
-  Cases_on`s`>>simp[odestSXSTR_def] >> simp[EQ_SYM_EQ]
+  Cases_on`s`>>simp[odestSXSTR_def] >> simp[EQ_SYM_EQ] >>
+  iff_tac >> strip_tac >> simp []
 QED
 
 Theorem odestSEXSTR_SOME[simp]:
-   (odestSEXSTR s = SOME y ⇔ s = SEXSTR y) ∧
-   (SOME y = odestSEXSTR s ⇔ s = SEXSTR y)
+   (odestSEXSTR s = SOME y ⇔ s = SEXSTR (explode y)) ∧
+   (SOME y = odestSEXSTR s ⇔ s = SEXSTR (explode y))
 Proof
   Cases_on`s`\\simp[odestSEXSTR_def,SEXSTR_def]
-  \\ metis_tac[decode_encode_control,encode_decode_control]
+  \\ metis_tac[decode_encode_control,encode_decode_control,
+               explode_implode,implode_explode]
 QED
 
 Theorem odestSXNUM_SOME[simp]:
@@ -1392,13 +1394,13 @@ Proof
 QED
 
 Theorem odestSXSTR_SX_STR[simp]:
-   odestSXSTR (SX_STR s) = SOME s
+  (odestSXSTR (SX_STR s) = SOME (implode s))
 Proof
   simp[]
 QED
 
 Theorem odestSEXSTR_SEXSTR[simp]:
-   odestSEXSTR (SEXSTR s) = SOME s
+   odestSEXSTR (SEXSTR s) = SOME (implode s)
 Proof simp[]
 QED
 
@@ -1408,7 +1410,7 @@ Proof simp[]
 QED
 
 Theorem odestSXSYM_SX_SYM[simp]:
-   odestSXSYM (SX_SYM s) = SOME s
+   odestSXSYM (SX_SYM s) = SOME (implode s)
 Proof
   simp[]
 QED
@@ -1476,11 +1478,11 @@ QED
 Theorem dstrip_sexp_thm[simp]:
   dstrip_sexp ⟪SX_SYM s • args⟫ = lift (λt. (s,t)) (strip_sxcons args) ∧
   dstrip_sexp ⟪ &n • args⟫ = NONE ∧
-  dstrip_sexp ⟪SX_STR str • args⟫ = NONE ∧
+  dstrip_sexp ⟪SX_STR strng • args⟫ = NONE ∧
   dstrip_sexp ⟪ ⟪s1 • s2⟫ • args⟫ = NONE ∧
   dstrip_sexp (&n) = NONE ∧
   dstrip_sexp (SX_SYM s) = NONE ∧
-  dstrip_sexp (SX_STR str) = NONE
+  dstrip_sexp (SX_STR strng) = NONE
 Proof
   simp[dstrip_sexp_def]
 QED
@@ -1604,7 +1606,7 @@ Definition opsexp_def:
   (opsexp ConfigGC = SX_SYM "ConfigGC") ∧
   (opsexp Eval = SX_SYM "Eval") ∧
   (opsexp Env_id = SX_SYM "Envid") ∧
-  (opsexp (FFI s) = SX_CONS (SX_SYM "FFI") (SEXSTR s)) ∧
+  (opsexp (FFI s) = SX_CONS (SX_SYM "FFI") (SEXSTR (explode s))) ∧
   (opsexp (ThunkOp ForceThunk) = SX_SYM "ForceThunk")  ∧
   (opsexp (ThunkOp (AllocThunk m)) =
     SX_CONS (SX_SYM "AllocThunk") (SX_SYM (encode_thunk_mode m))) ∧
@@ -1673,7 +1675,7 @@ Definition expsexp_def:
     listsexp [SX_SYM "Con"; optsexp (OPTION_MAP idsexp cn);
               listsexp (MAP expsexp es)] ∧
   expsexp (Var id) = listsexp [SX_SYM "Var"; idsexp id] ∧
-  expsexp (Fun x e) = listsexp [SX_SYM "Fun"; SEXSTR x; expsexp e] ∧
+  expsexp (Fun x e) = listsexp [SX_SYM "Fun"; SEXSTR (explode x); expsexp e] ∧
   expsexp (App op es) =
     listsexp [SX_SYM "App"; opsexp op; listsexp (MAP expsexp es)] ∧
   expsexp (Log lop e1 e2) = ⟪SX_SYM "Log";lopsexp lop; expsexp e1; expsexp e2⟫ ∧
@@ -1682,15 +1684,21 @@ Definition expsexp_def:
     ⟪SX_SYM "Mat"; expsexp e;
      listsexp (MAP (λ(p,e). SX_CONS (patsexp p) (expsexp e)) pes)⟫ ∧
   expsexp (Let so e1 e2) =
-    ⟪SX_SYM "Let"; optsexp (OPTION_MAP SEXSTR so); expsexp e1; expsexp e2⟫ ∧
+    ⟪SX_SYM "Let"; optsexp (OPTION_MAP (SEXSTR ∘ explode) so); expsexp e1; expsexp e2⟫ ∧
   expsexp (Letrec funs e) =
   ⟪SX_SYM "Letrec";
-   listsexp (MAP (λ(x,y,z). SX_CONS (SEXSTR x)
-                                     (SX_CONS (SEXSTR y) (expsexp z))) funs);
+   listsexp (MAP (λ(x,y,z). SX_CONS (SEXSTR (explode x))
+                                     (SX_CONS (SEXSTR (explode y)) (expsexp z))) funs);
    expsexp e⟫ ∧
   expsexp (Tannot e t) = ⟪SX_SYM "Tannot"; expsexp e; typesexp t⟫ ∧
   expsexp (Lannot e loc) = ⟪SX_SYM "Lannot"; expsexp e; locssexp loc⟫
 End
+
+Theorem SEXSTR_explode_11[local]:
+  (SEXSTR ∘ explode) s1 = (SEXSTR ∘ explode) s2 ⇒ s1 = s2
+Proof
+  simp []
+QED
 
 Theorem expsexp_11[simp]:
    ∀e1 e2. expsexp e1 = expsexp e2 ⇒ e1 = e2
@@ -1702,15 +1710,15 @@ Proof
   \\ imp_res_tac (REWRITE_RULE[AND_IMP_INTRO] MAP_EQ_MAP_IMP)
   \\ TRY(first_x_assum match_mp_tac \\ rw[FORALL_PROD])
   \\ rpt(pairarg_tac \\ fs[])
-  \\ metis_tac[OPTION_MAP_INJ,idsexp_11,simpleSexpTheory.sexp_11,SEXSTR_11]
+  \\ metis_tac[OPTION_MAP_INJ,idsexp_11,simpleSexpTheory.sexp_11,SEXSTR_11,SEXSTR_explode_11]
 QED
 
 Definition type_defsexp_def:
   type_defsexp = listsexp o
     MAP (λ(xs,x,ls).
-      SX_CONS (listsexp (MAP SEXSTR xs))
-        (SX_CONS (SEXSTR x)
-          (listsexp (MAP (λ(y,ts). SX_CONS (SEXSTR y) (listsexp (MAP typesexp ts))) ls))))
+      SX_CONS (listsexp (MAP (SEXSTR ∘ explode) xs))
+        (SX_CONS (SEXSTR (explode x))
+          (listsexp (MAP (λ(y,ts). SX_CONS (SEXSTR (explode y)) (listsexp (MAP typesexp ts))) ls))))
 End
 
 Theorem type_defsexp_11[simp]:
@@ -1723,7 +1731,7 @@ Proof
   \\ rpt (pairarg_tac \\ fs[]) \\ rveq
   \\ conj_tac
   >- (
-    Q.ISPEC_THEN`SEXSTR`match_mp_tac INJ_MAP_EQ
+    Q.ISPEC_THEN`SEXSTR ∘ explode`match_mp_tac INJ_MAP_EQ
     \\ simp[INJ_DEF] )
   \\ imp_res_tac (REWRITE_RULE[AND_IMP_INTRO] MAP_EQ_MAP_IMP)
   \\ first_x_assum match_mp_tac
@@ -1753,15 +1761,15 @@ Definition decsexp_def:
          SX_SYM "Dletrec";
          locssexp locs;
          listsexp
-           (MAP (λ(f,x,e). SX_CONS (SEXSTR f) (SX_CONS (SEXSTR x) (expsexp e)))
+           (MAP (λ(f,x,e). SX_CONS (SEXSTR (explode f)) (SX_CONS (SEXSTR (explode x)) (expsexp e)))
             funs)] ∧
   decsexp (Dtype locs td) = ⟪SX_SYM "Dtype"; locssexp locs; type_defsexp td⟫ ∧
-  decsexp (Dtabbrev locs ns x t) = ⟪SX_SYM "Dtabbrev"; locssexp locs; listsexp (MAP SEXSTR ns); SEXSTR x; typesexp t⟫ ∧
-  decsexp (Denv name) = ⟪SX_SYM "Denv"; SEXSTR name⟫ ∧
+  decsexp (Dtabbrev locs ns x t) = ⟪SX_SYM "Dtabbrev"; locssexp locs; listsexp (MAP (SEXSTR ∘ explode) ns); SEXSTR (explode x); typesexp t⟫ ∧
+  decsexp (Denv name) = ⟪SX_SYM "Denv"; SEXSTR (explode name)⟫ ∧
   decsexp (Dexn locs x ts) =
-    ⟪SX_SYM "Dexn"; locssexp locs; SEXSTR x; listsexp (MAP typesexp ts)⟫ ∧
+    ⟪SX_SYM "Dexn"; locssexp locs; SEXSTR (explode x); listsexp (MAP typesexp ts)⟫ ∧
   decsexp (Dmod name decs) =
-    ⟪SX_SYM "Dmod"; SEXSTR name; listsexp (MAP decsexp decs)⟫ ∧
+    ⟪SX_SYM "Dmod"; SEXSTR (explode name); listsexp (MAP decsexp decs)⟫ ∧
   decsexp (Dlocal ldecs decs) =
     listsexp [SX_SYM "Dlocal"; listsexp (MAP decsexp ldecs);
               listsexp (MAP decsexp decs)]
@@ -1870,10 +1878,11 @@ Proof
 QED
 
 Theorem odestSXSYM_EQ_SOME[simp]:
-  (odestSXSYM s = SOME str ⇔ s = SX_SYM str) ∧
-  (SOME str = odestSXSYM s ⇔ s = SX_SYM str)
+  (odestSXSYM s = SOME strng ⇔ s = SX_SYM (explode strng)) ∧
+  (SOME strng = odestSXSYM s ⇔ s = SX_SYM (explode strng))
 Proof
-  Cases_on‘s’ >> simp[odestSXSYM_def] >> metis_tac[]
+  Cases_on‘s’ >> simp[odestSXSYM_def] >>
+  metis_tac[implode_explode,explode_implode]
 QED
 
 Theorem sexpopt_SOME:
@@ -1932,6 +1941,7 @@ Proof
   Cases_on‘l’ >>
   simp[litsexp_def, listsexp_def, PULL_EXISTS, AllCaseEqs(), SF CONJ_ss] >~
   [‘i < 0i’] >- (Cases_on ‘i’ >> simp[]) >~
+  [‘STRING c ""’] >- (qexists ‘str c’ >> simp []) >~
   [‘w2n (c : word8)’]
   >- (Cases_on ‘c’ using ranged_word_nchotomy >> gs[dimword_def]) >>~-
   ([‘w2n (w : word64)’],
