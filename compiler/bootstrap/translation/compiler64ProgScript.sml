@@ -608,11 +608,11 @@ in
   else if compiler_has_version_flag cl then
     print compiler_current_build_info_str
   else if compiler_has_pancake_flag cl then
-    case compiler_compile_pancake_64 cl (TextIO.inputAll TextIO.stdIn)  of
+    case compiler_compile_pancake_64 cl (TextIO.inputAll (TextIO.openStdIn ()))  of
       (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
                  compiler64prog_nonzero_exit_code_for_error_msg e)
   else
-    case compiler_compile_64 cl (TextIO.inputAll TextIO.stdIn)  of
+    case compiler_compile_64 cl (TextIO.inputAll (TextIO.openStdIn ()))  of
       (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
                  compiler64prog_nonzero_exit_code_for_error_msg e)
                 end`;
@@ -686,7 +686,16 @@ Proof
   >> xlet_auto>-xsimpl
   >> xif
   >- (
-  xlet_auto >- (xsimpl \\ fs[INSTREAM_stdin, STD_streams_get_mode])
+  xlet_auto >- (xcon \\ xsimpl)
+  \\ xlet_auto_spec (SOME openStdIn_STDIO_spec) >- xsimpl
+  \\ rename [‘get_file_content _ _ = SOME (inp,pos)’]
+  \\ xlet ‘POSTv v.
+       &STRING_TYPE (implode (DROP pos inp)) v *
+       STDIO (fastForwardFD fs 0) * COMMANDLINE cl’
+  >-
+   (xapp
+    \\ qexistsl [‘COMMANDLINE cl’, ‘pos’, ‘fs’, ‘0’, ‘inp’, ‘[]’]
+    \\ fs [STD_streams_get_mode] \\ xsimpl)
   \\ fs [GSYM HOL_STRING_TYPE_def]
   \\ xlet_auto >- xsimpl
   \\ fs [full_compile_64_def]
@@ -695,7 +704,6 @@ Proof
   \\ gvs[CaseEq "bool"]
   \\ xmatch
   \\ xlet_auto >- xsimpl
-
   \\ qmatch_goalsub_abbrev_tac `STDIO fs'`
   \\ xlet `POSTv uv. &UNIT_TYPE () uv * STDIO (add_stderr fs' err) *
      COMMANDLINE cl`
@@ -706,7 +714,16 @@ Proof
     \\ qexists_tac `fs'` \\ xsimpl)
   \\ xapp
   \\ asm_exists_tac \\ simp [] \\ xsimpl)
-  \\ xlet_auto >- (xsimpl \\ fs[INSTREAM_stdin, STD_streams_get_mode])
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xlet_auto_spec (SOME openStdIn_STDIO_spec) >- xsimpl
+  \\ rename [‘get_file_content _ _ = SOME (inp,pos)’]
+  \\ xlet ‘POSTv v.
+       &STRING_TYPE (implode (DROP pos inp)) v *
+       STDIO (fastForwardFD fs 0) * COMMANDLINE cl’
+  >-
+   (xapp
+    \\ qexistsl [‘COMMANDLINE cl’, ‘pos’, ‘fs’, ‘0’, ‘inp’, ‘[]’]
+    \\ fs [STD_streams_get_mode] \\ xsimpl)
   \\ fs [GSYM HOL_STRING_TYPE_def]
   \\ xlet_auto >- xsimpl
   \\ fs [full_compile_64_def]

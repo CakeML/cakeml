@@ -24,9 +24,12 @@ Definition compile_def:
     case parse_to_ast s of
     | INL err_str => cake_for_err ("PARSE ERROR: " ++ err_str ++ "\n")
     | INR ast =>
+      (case static_scope_check ast of
+      | INL err_str => cake_for_err ("TYPE ERROR: " ++ err_str ++ "\n")
+      | INR ast' =>
        (case codegen ast of
         | INL err_str => cake_for_err ("CODEGEN ERROR: " ++ err_str ++ "\n")
-        | INR cake_prog => cake_prog_to_string cake_prog)
+        | INR cake_prog => cake_prog_to_string cake_prog))
 End
 
 (*

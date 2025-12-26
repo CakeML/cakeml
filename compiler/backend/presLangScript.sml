@@ -1524,14 +1524,14 @@ End
 
 Definition source_to_strs_def:
   source_to_strs decs =
-    map_to_append (v2strs (strlit "\n\n") o
+    map_to_append (str_tree_to_strs (strlit "\n\n") o
                    display_to_str_tree o
                    source_to_display_dec) decs
 End
 
 Definition flat_to_strs_def:
   flat_to_strs (decs:flatLang$dec list) =
-    map_to_append (v2strs (strlit "\n\n") o
+    map_to_append (str_tree_to_strs (strlit "\n\n") o
                    display_to_str_tree o
                    flat_to_display_dec) decs
 End
@@ -1539,17 +1539,17 @@ End
 Definition clos_to_strs_def:
   clos_to_strs (decs,funs) =
     let names = clos_to_bvl$get_src_names (decs ++ MAP (SND o SND) funs) LN in
-      Append (map_to_append (v2strs (strlit "\n\n") o
+      Append (map_to_append (str_tree_to_strs (strlit "\n\n") o
                              display_to_str_tree o
                              clos_dec_to_display names) decs)
-             (map_to_append (v2strs (strlit "\n\n") o
+             (map_to_append (str_tree_to_strs (strlit "\n\n") o
                              display_to_str_tree o
                              clos_fun_to_display names) funs)
 End
 
 Definition bvl_to_strs_def:
   bvl_to_strs names xs =
-    map_to_append (v2strs (strlit "\n\n") o
+    map_to_append (str_tree_to_strs (strlit "\n\n") o
                    display_to_str_tree o
                    bvl_fun_to_display names) xs
 End
@@ -1566,7 +1566,7 @@ val bvl_test =
 
 Definition bvi_to_strs_def:
   bvi_to_strs names xs =
-    map_to_append (v2strs (strlit "\n\n") o
+    map_to_append (str_tree_to_strs (strlit "\n\n") o
                    display_to_str_tree o
                    bvi_fun_to_display names) xs
 End
@@ -1583,7 +1583,7 @@ val bvi_test =
 
 Definition data_to_strs_def:
   data_to_strs names xs =
-    map_to_append (v2strs (strlit "\n\n") o
+    map_to_append (str_tree_to_strs (strlit "\n\n") o
                    display_to_str_tree o
                    data_fun_to_display names) xs
 End
@@ -1600,21 +1600,21 @@ val data_test =
 
 Definition word_to_strs_def:
   word_to_strs names xs =
-    map_to_append (v2strs (strlit "\n\n") o
+    map_to_append (str_tree_to_strs (strlit "\n\n") o
                    display_to_str_tree o
                    word_fun_to_display names) xs
 End
 
 Definition stack_to_strs_def:
   stack_to_strs names xs =
-    map_to_append (v2strs (strlit "\n\n") o
+    map_to_append (str_tree_to_strs (strlit "\n\n") o
                    display_to_str_tree o
                    stack_fun_to_display names) xs
 End
 
 Definition lab_to_strs_def:
   lab_to_strs names xs =
-    map_to_append (v2strs (strlit "\n\n") o
+    map_to_append (str_tree_to_strs (strlit "\n\n") o
                    display_to_str_tree o
                    lab_fun_to_display names) xs
 End

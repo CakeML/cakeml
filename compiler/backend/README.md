@@ -314,9 +314,6 @@ This compiler phase maps stackLang programs, which has structure
 such as If, While, Return etc, to labLang programs that are a soup
 of goto-like jumps.
 
-[str_treeScript.sml](str_treeScript.sml):
-A Lisp inspired tree of mlstrings and a pretty printing function
-
 [wasm](wasm):
 This directory contains the WASM-specific compiler configuration.
 

@@ -9,8 +9,6 @@ Ancestors
 
 val _ = translation_extends"UnsafeProg";
 
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
-
 val _ = process_topdecs `
   exception Fail string;
 ` |> append_prog

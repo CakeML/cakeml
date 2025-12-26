@@ -74,7 +74,11 @@ Definition x64_ast_def:
    (x64_ast (Inst (Const r i)) =
       let sz = if (63 >< 31) i = 0w: 33 word then Z32 else Z64
       in
-        [Zmov (Z_ALWAYS, sz, Zrm_i (reg r, i))]) /\
+        if i = 0w
+        then
+          [Zbinop (Zxor, (Z32, Zrm_r (reg r, total_num2Zreg r)))]
+        else
+          [Zmov (Z_ALWAYS, sz, Zrm_i (reg r, i))]) /\
    (x64_ast (Inst (Arith (Binop bop r1 r2 (Reg r3)))) =
       let a = (Z64, Zrm_r (reg r1, total_num2Zreg r3))
       in

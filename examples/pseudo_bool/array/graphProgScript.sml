@@ -9,8 +9,6 @@ Libs
 
 val _ = translation_extends"npbc_parseProg";
 
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
-
 Overload "graph_TYPE" = ``PAIR_TYPE NUM (SPTREE_SPT_TYPE (SPTREE_SPT_TYPE UNIT_TYPE))``;
 
 val res = translate is_edge_def;
@@ -35,8 +33,8 @@ val _ = translate parse_lad_toks_def;
 
 val tokenize_num_v_thm = theorem "tokenize_num_v_thm";
 
-val b_inputAllTokensFrom_spec_specialize =
-  b_inputAllTokensFrom_spec
+val inputAllTokensFile_spec_specialize =
+  inputAllTokensFile_spec
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
   |> Q.GEN `g` |> Q.ISPEC`tokenize_num`
@@ -52,7 +50,7 @@ val r = translate noparse_string_def;
 
 val parse_lad = (append_prog o process_topdecs) `
   fun parse_lad f =
-  (case TextIO.b_inputAllTokensFrom #"\n" f blanks tokenize_num of
+  (case TextIO.inputAllTokensFile #"\n" f blanks tokenize_num of
     None => Inl (notfound_string f)
   | Some lines =>
   (case parse_lad_toks lines of
@@ -73,7 +71,7 @@ QED
 Definition get_graph_lad_def:
   get_graph_lad fs f =
   if inFS_fname fs f then
-    case parse_lad (all_lines fs f) of
+    case parse_lad (all_lines_file fs f) of
       NONE => NONE
     | SOME g =>
       if good_graph g then
@@ -104,10 +102,10 @@ Proof
     \\ xpull \\ metis_tac[]) >>
   xlet`(POSTv sv. &OPTION_TYPE (LIST_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE NUM)))
             (if inFS_fname fs f then
-               SOME(MAP (MAP tokenize_num o tokens blanks) (all_lines fs f))
+               SOME(MAP (MAP tokenize_num o tokens blanks) (all_lines_file fs f))
              else NONE) sv * STDIO fs)`
   >- (
-    xapp_spec b_inputAllTokensFrom_spec_specialize >>
+    xapp_spec inputAllTokensFile_spec_specialize >>
     xsimpl>>
     simp[pb_parseTheory.blanks_def]>>
     fs[FILENAME_def,validArg_def,blanks_v_thm]>>
@@ -124,7 +122,7 @@ Proof
   xlet_autop>>
   `toks_num = (MAP tokenize_num ∘ tokens blanks)` by
     metis_tac[toks_num_def,ETA_AX,o_DEF]>>
-  Cases_on`parse_lad (all_lines fs f)`>>
+  Cases_on`parse_lad (all_lines_file fs f)`>>
   gvs[parse_lad_def,OPTION_TYPE_def]
   >- (
     xmatch >>
@@ -155,7 +153,7 @@ val _ = translate parse_dimacs_toks_def;
 
 val parse_dimacs = (append_prog o process_topdecs) `
   fun parse_dimacs f =
-  (case TextIO.b_inputAllTokensFrom #"\n" f blanks tokenize_num of
+  (case TextIO.inputAllTokensFile #"\n" f blanks tokenize_num of
     None => Inl (notfound_string f)
   | Some lines =>
   (case parse_dimacs_toks lines of
@@ -168,7 +166,7 @@ val parse_dimacs = (append_prog o process_topdecs) `
 Definition get_graph_dimacs_def:
   get_graph_dimacs fs f =
   if inFS_fname fs f then
-    parse_dimacs (all_lines fs f)
+    parse_dimacs (all_lines_file fs f)
   else NONE
 End
 
@@ -194,10 +192,10 @@ Proof
     \\ xpull \\ metis_tac[]) >>
   xlet`(POSTv sv. &OPTION_TYPE (LIST_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE NUM)))
             (if inFS_fname fs f then
-               SOME(MAP (MAP tokenize_num o tokens blanks) (all_lines fs f))
+               SOME(MAP (MAP tokenize_num o tokens blanks) (all_lines_file fs f))
              else NONE) sv * STDIO fs)`
   >- (
-    xapp_spec b_inputAllTokensFrom_spec_specialize >>
+    xapp_spec inputAllTokensFile_spec_specialize >>
     xsimpl>>
     simp[pb_parseTheory.blanks_def]>>
     fs[FILENAME_def,validArg_def,blanks_v_thm]>>
@@ -214,7 +212,7 @@ Proof
   xlet_autop>>
   `toks_num = (MAP tokenize_num ∘ tokens blanks)` by
     metis_tac[toks_num_def,ETA_AX,o_DEF]>>
-  Cases_on`parse_dimacs (all_lines fs f)`>>
+  Cases_on`parse_dimacs (all_lines_file fs f)`>>
   gvs[parse_dimacs_def,OPTION_TYPE_def]
   >- (
     xmatch >>
@@ -225,4 +223,3 @@ Proof
   xcon>>xsimpl>>
   simp[SUM_TYPE_def]
 QED
-
