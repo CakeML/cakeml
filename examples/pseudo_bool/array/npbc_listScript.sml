@@ -1284,7 +1284,7 @@ Definition split_goals_hash_def:
     (goals:(num # (int # num) list # int) list) =
   let (lp,lf) =
     PARTITION (λ(i,c). lookup i proved ≠ NONE) goals in
-  let lf = FILTER (λc. ¬check_triv extra (not c)) (MAP SND lf) in
+  let lf = FILTER (λc. ¬imp extra c) (MAP SND lf) in
   let proved = MAP SND lp in
   let hs = mk_hashset fmlls (mk_hashset proved (REPLICATE splim [])) in
   EVERY (λc. in_hashset c hs) lf
@@ -1293,7 +1293,7 @@ End
 (* Not meant to be executed, mainly just abbrevation... *)
 Definition do_red_check_def:
   do_red_check idopt b tcb fml inds
-    s rfml rinds extra pfs rsubs skipped cond =
+    s rfml rinds c extra pfs rsubs skipped cond =
   case idopt of NONE =>
     let goals = subst_indexes s (b ∨ tcb) rfml rinds in
     let (l,r) = extract_scoped_pids pfs LN LN in
@@ -1302,7 +1302,7 @@ Definition do_red_check_def:
       split_goals_hash fmlls extra l goals ∧
       EVERY (λ(id,cs).
         lookup id r ≠ NONE ∨
-        check_hash_triv extra cs  ∨
+        check_hash_imp c cs ∨
         MEM id skipped
         )
         (enumerate 0 rsubs)
@@ -1735,7 +1735,7 @@ Definition check_red_list_def:
         let (untouched,skipped) = skip_ord_subgoal s ord in
         if
           do_red_check idopt b tcb fml' inds'
-            ss rfml rinds nc pfs rsubs skipped
+            ss rfml rinds c nc pfs rsubs skipped
           (hs ∨ ¬ untouched ⇒
             check_fresh_aspo_list c s ord vimap' vomap)
         then
@@ -3496,7 +3496,7 @@ Proof
 QED
 
 Definition do_dom_check_def:
-  do_dom_check idopt fml rfml w indcore rinds extra pfs dsubs dindex =
+  do_dom_check idopt fml rfml w indcore rinds c extra pfs dsubs dindex =
   case idopt of NONE =>
     let goals =
       MAP_OPT (subst_opt w) indcore in
@@ -3505,7 +3505,7 @@ Definition do_dom_check_def:
       find_scope_1 dindex pfs ∧
       EVERY (λ(id,cs).
               lookup id r ≠ NONE ∨
-              check_hash_triv extra cs ∨
+              check_hash_imp c cs ∨
               id = dindex)
       (enumerate 0 dsubs)
     then
@@ -3940,7 +3940,7 @@ Definition check_cstep_list_def:
           NONE => NONE
         | SOME (fml',id',zeros') =>
           let rfml = rollback fml' id id' in
-          if do_dom_check idopt fml' rfml w corels rinds nc pfs dsubs dindex then
+          if do_dom_check idopt fml' rfml w corels rinds c nc pfs dsubs dindex then
             SOME(
               update_resize rfml NONE (SOME (c,pc.tcb)) id',
               zeros',
@@ -4548,7 +4548,7 @@ Definition check_implies_fml_list_def:
   (case any_el n fml NONE of
       NONE => F
     | SOME (ci,_) =>
-      check_triv2 ci c)
+      imp ci c)
 End
 
 Definition check_hconcl_list_def:

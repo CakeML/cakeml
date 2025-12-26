@@ -483,8 +483,8 @@ val check_cutting_alt_arr = process_topdecs`
 
 (* Translation for pb checking *)
 
-val r = translate (lslack_def |> SIMP_RULE std_ss [MEMBER_INTRO, o_DEF]);
-val r = translate (check_contradiction_def |> SIMP_RULE std_ss[LET_DEF]);
+val r = translate check_lslack_def;
+val r = translate check_contradiction_def;
 
 val delete_arr = process_topdecs`
   fun delete_arr i fml =
@@ -1352,6 +1352,12 @@ val res = translate npbc_checkTheory.map_app_list_def;
 val res = translate npbc_checkTheory.mul_triv_def;
 val res = translate SmartAppend_def;
 val res = translate npbc_checkTheory.to_triv_def;
+
+val res = translate check_trivial_def;
+val res = translate match_sign_def;
+val res = translate imp_terms_def;
+val res = translate check_imp_lists_def;
+val res = translate check_imp_def;
 val res = translate imp_def;
 
 val check_lstep_arr = process_topdecs`
@@ -2772,88 +2778,87 @@ Proof
 QED
 
 Definition red_cond_check_def:
-  red_cond_check bortcb fml inds extra
+  red_cond_check bortcb fml inds c extra
     pfs (rsubs:((int # num) list # int) list list) goals skipped =
   let (l,r) = extract_scoped_pids pfs LN LN in
   let fmlls = revalue bortcb fml inds in
   split_goals_hash fmlls extra l goals ∧
   EVERY (λ(id,cs).
     lookup id r ≠ NONE ∨
-    check_hash_triv extra cs ∨
+    check_hash_imp c cs ∨
     MEM id skipped
     )
   (enumerate 0 rsubs)
 End
 
-Definition lookup_hash_triv_def:
-  lookup_hash_triv r extra skipped (id,cs) =
+Definition lookup_hash_imp_def:
+  lookup_hash_imp r c skipped (id,cs) =
   case sptree$lookup id r of
-    NONE => check_hash_triv extra cs ∨ MEM id skipped
+    NONE => check_hash_imp c cs ∨ MEM id skipped
   | SOME _ => T
 End
 
-Definition every_check_hash_triv_def:
-  every_check_hash_triv r extra skipped rsubs =
-  EVERY (lookup_hash_triv r extra skipped)
+Definition every_check_hash_imp_def:
+  every_check_hash_imp r c skipped rsubs =
+  EVERY (lookup_hash_imp r c skipped)
     (enumerate 0 rsubs)
 End
 
 Definition red_cond_check_pure_def:
-  red_cond_check_pure extra
+  red_cond_check_pure c extra
   pfs
   (rsubs:((int # num) list # int) list list)
   (goals:(num # (int # num) list # int) list)
   skipped =
   let (l,r) = extract_scoped_pids pfs LN LN in
   if
-     every_check_hash_triv r extra skipped rsubs
+     every_check_hash_imp r c skipped rsubs
   then
     let (lp,lf) =
       PARTITION (λ(i,c). lookup i l ≠ NONE) goals in
-    let lf = FILTER (λc. ¬check_triv extra (not c)) (MAP SND lf) in
+    let lf = FILTER (λc. ¬imp extra c) (MAP SND lf) in
     let proved = MAP SND lp in
     SOME (proved,lf)
   else NONE
 End
 
-Theorem lookup_hash_triv_fun_eq:
-  lookup_hash_triv r extra skipped =
-  (λ(id,cs). lookup id r = NONE ⇒ check_hash_triv extra cs ∨ MEM id skipped)
+Theorem lookup_hash_imp_fun_eq:
+  lookup_hash_imp r c skipped =
+  (λ(id,cs). lookup id r = NONE ⇒ check_hash_imp c cs ∨ MEM id skipped)
 Proof
   rw[FUN_EQ_THM]>>
-  pairarg_tac>>fs[lookup_hash_triv_def]>>
+  pairarg_tac>>fs[lookup_hash_imp_def]>>
   every_case_tac>>gvs[]
 QED
 
 Theorem red_cond_check_eq:
-  red_cond_check bortcb fml inds extra pfs rsubs goals skipped =
-  case red_cond_check_pure extra pfs rsubs goals skipped of
+  red_cond_check bortcb fml inds c extra pfs rsubs goals skipped =
+  case red_cond_check_pure c extra pfs rsubs goals skipped of
     NONE => F
   | SOME (x,ls) =>
     let fmlls = revalue bortcb fml inds in
     let hs = mk_hashset fmlls (mk_hashset x (REPLICATE splim [])) in
     EVERY (λc. in_hashset c hs) ls
 Proof
-  rw[red_cond_check_def,red_cond_check_pure_def,every_check_hash_triv_def]>>
+  rw[red_cond_check_def,red_cond_check_pure_def,every_check_hash_imp_def]>>
   pairarg_tac>>fs[split_goals_hash_def]>>
   rpt (pairarg_tac>>fs[])>>
-  rw[lookup_hash_triv_fun_eq]
+  rw[lookup_hash_imp_fun_eq]
 QED
 
-val res = translate npbc_checkTheory.check_triv_def;
-val res = translate npbc_checkTheory.check_hash_triv_def;
+val res = translate npbc_checkTheory.check_hash_imp_def;
 val res = translate miscTheory.enumerate_def;
 val res = translate PART_DEF;
 val res = translate PARTITION_DEF;
-val res = translate (lookup_hash_triv_def |> REWRITE_RULE [MEMBER_INTRO]);
-val res = translate every_check_hash_triv_def;
+val res = translate (lookup_hash_imp_def |> REWRITE_RULE [MEMBER_INTRO]);
+val res = translate every_check_hash_imp_def;
 val res = translate npbc_checkTheory.extract_scope_val_def;
 val res = translate npbc_checkTheory.extract_scoped_pids_def;
 val res = translate red_cond_check_pure_def;
 
 val red_cond_check = process_topdecs`
-  fun red_cond_check bortcb fml inds extra pfs rsubs goals skipped =
-  case red_cond_check_pure extra pfs rsubs goals skipped of
+  fun red_cond_check bortcb fml inds c extra pfs rsubs goals skipped =
+  case red_cond_check_pure c extra pfs rsubs goals skipped of
     None => Some "not all # subgoals present"
   | Some (x,ls) =>
     case ls of [] => None
@@ -2866,6 +2871,7 @@ Theorem red_cond_check_spec:
   BOOL bt btv ∧
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
   LIST_TYPE NUM inds indsv ∧
+  constraint_TYPE caa caav ∧
   constraint_TYPE aa aav ∧
   scpfs_TYPE b bv ∧
   LIST_TYPE (LIST_TYPE constraint_TYPE) c cv ∧
@@ -2874,13 +2880,13 @@ Theorem red_cond_check_spec:
   ⇒
   app (p : 'ffi ffi_proj)
     ^(fetch_v "red_cond_check" (get_ml_prog_state()))
-    [btv; fmlv; indsv; aav; bv; cv; dv; ev]
+    [btv; fmlv; indsv; caav; aav; bv; cv; dv; ev]
     (ARRAY fmlv fmllsv)
     (POSTv resv.
       ARRAY fmlv fmllsv *
       & ∃err.
       OPTION_TYPE STRING_TYPE
-        (if red_cond_check bt fmlls inds aa b c d e then NONE
+        (if red_cond_check bt fmlls inds caa aa b c d e then NONE
         else SOME err) resv)
 Proof
   rw[]>>
@@ -2888,7 +2894,7 @@ Proof
   fs[]>>
   xlet_autop>>
   simp[red_cond_check_eq]>>
-  Cases_on`red_cond_check_pure aa b c d e`>>
+  Cases_on`red_cond_check_pure caa aa b c d e`>>
   fs[OPTION_TYPE_def]
   >- (
     xmatch>>
@@ -3496,7 +3502,7 @@ val check_red_arr = process_topdecs`
            case skip_ord_subgoal s ord of (untouched,skipped) =>
            if cond_check_fresh_aspo_arr hs untouched c s ord vimap' vomap
            then
-             case red_cond_check bortcb fml' inds' nc pfs rsubs goals skipped
+             case red_cond_check bortcb fml' inds' c nc pfs rsubs goals skipped
                of None =>
                (fml', (inds', (vimap', (id', zeros'))))
              | Some err =>
@@ -4389,7 +4395,7 @@ Definition check_dom_list_def:
     | SOME (fml',(id',zeros')) =>
       let rfml = rollback fml' id id' in
       if do_dom_check idopt fml' rfml w
-        corels rinds nc pfs dsubs dindex then
+        corels rinds c nc pfs dsubs dindex then
         SOME (rfml,rinds,id',zeros')
       else NONE)
 End
@@ -4429,7 +4435,7 @@ val check_dom_arr = process_topdecs`
          let val u = rollback_arr fml' id id'
              val goals = core_subgoals s corels in
              if find_scope_1 dindex pfs then
-               case red_cond_check False fml' rinds nc pfs dsubs goals [dindex] of
+               case red_cond_check False fml' rinds c nc pfs dsubs goals [dindex] of
                  None => (fml',(rinds,(id',zeros')))
                | Some err =>
                 raise Fail (format_failure_2 lno ("dominance subproofs did not cover all subgoals. Info: " ^ err ^ ".") (print_subproofs_err dsubs goals))
@@ -4579,7 +4585,7 @@ Proof
          & ∃err.
            OPTION_TYPE STRING_TYPE
            (if
-                red_cond_check F fmlls'' (reindex fmlls inds) (not n) pfs
+                red_cond_check F fmlls'' (reindex fmlls inds) n (not n) pfs
                   dsubs
                   (core_subgoals s (core_fmlls fmlls (reindex fmlls inds)))
                   [dindex]
@@ -5942,13 +5948,11 @@ Proof
     fs[change_pres_update_def])
 QED
 
-val res = translate npbc_checkTheory.check_triv2_def;
-
 val check_implies_fml_arr = process_topdecs`
   fun check_implies_fml_arr fml n c =
   case Array.lookup fml None n of
     None => False
-  | Some (ci,b) => check_triv2 ci c
+  | Some (ci,b) => imp ci c
 ` |> append_prog
 
 Theorem check_implies_fml_arr_spec:

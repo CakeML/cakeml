@@ -1156,16 +1156,9 @@ Definition mem_constraint_def:
     if equal_constraint c x then T else mem_constraint c xs
 End
 
-(* Checking triviality for a negated target c *)
-Definition check_triv_def:
-  check_triv extra nc =
-  (check_contradiction (add extra nc) ∨
-  check_contradiction nc)
-End
-
 (* Partition the formula goals into proved and non-proved
   For each non-proved goal, check if
-  0) it is implied by extra (= ¬ C) or trivial
+  0) it is implied by extra (i.e., ¬ C) or trivial
   1) it was already in the formula
   2) it was already proved by another proofgoal (excluding #)
 *)
@@ -1177,7 +1170,7 @@ Definition split_goals_def:
     PARTITION (λ(i,c). sptree$lookup i proved ≠ NONE) goals in
   let proved = MAP SND lp in
   let f = range fml in
-  EVERY (λ(i,c). c ∈ f ∨ check_triv extra (not c) ∨ mem_constraint c proved) lf
+  EVERY (λ(i,c). c ∈ f ∨ imp extra c ∨ mem_constraint c proved) lf
 End
 
 Theorem list_pair_eq_thm[local]:
@@ -1214,9 +1207,10 @@ Definition mk_subst_def:
   (mk_subst xs = INR (spt_to_vec (fromAList xs)))
 End
 
-Definition check_hash_triv_def:
-  check_hash_triv extra ncs =
-    EXISTS (check_triv extra) ncs
+(* contrapositive check *)
+Definition check_hash_imp_def:
+  check_hash_imp extra ncs =
+    EXISTS (λnc. check_imp nc extra) ncs
 End
 
 (* pres : num_set -- forces all LHS of the
@@ -1414,7 +1408,7 @@ Definition check_red_def:
                 (* Every # goal is checked *)
                 EVERY (λ(id,cs).
                   lookup id r ≠ NONE ∨
-                  check_hash_triv nc cs ∨
+                  check_hash_imp c cs ∨
                   MEM id skipped
                   )
                   (enumerate 0 rsubs)
@@ -1809,7 +1803,7 @@ QED
 Theorem split_goals_checked:
   split_goals fml e proved goals ∧
   MEM (n,yy) goals ⇒
-  yy ∈ range fml ∨ check_triv e (not yy) ∨
+  yy ∈ range fml ∨ imp e yy ∨
   ∃i.
     lookup i proved ≠ NONE ∧
     MEM (i,yy) goals
@@ -1918,28 +1912,6 @@ Proof
   CCONTR_TAC>>fs[]>>
   drule MEM_enumerate_index>>
   rw[]
-QED
-
-Theorem check_triv_unsatisfiable:
-  check_triv extra nc ⇒
-  unsatisfiable (fml ∪ {extra} ∪ {nc})
-Proof
-  rw[check_triv_def]>>
-  drule check_contradiction_unsat>>
-  rw[unsatisfiable_def,satisfiable_def]>>
-  metis_tac[add_thm]
-QED
-
-Theorem check_triv_unsatisfiable_2:
-  check_triv extra nc ∧
-  extra ∈ fml ∧ nc ∈ fml
-  ⇒
-  unsatisfiable fml
-Proof
-  rw[check_triv_def]>>
-  drule check_contradiction_unsat>>
-  rw[unsatisfiable_def,satisfiable_def,satisfies_def]>>
-  metis_tac[add_thm]
 QED
 
 Theorem check_pres_subst_fun:
@@ -2140,6 +2112,29 @@ Proof
   metis_tac[]
 QED
 
+Theorem not_not:
+  not (not c) = c
+Proof
+  Cases_on`c`>>
+  rw[not_def,MAP_MAP_o,o_DEF]
+  >- (
+    rw[MAP_EQ_ID]>>
+    pairarg_tac>>gvs[]>>
+    pairarg_tac>>gvs[])>>
+  gvs[LAMBDA_PROD]
+QED
+
+Theorem check_imp_unsatisfiable:
+  check_imp d (not c) ∧
+  c ∈ fml ∧ d ∈ fml
+  ⇒
+  unsatisfiable fml
+Proof
+  rw[unsatisfiable_def,satisfiable_def,satisfies_def]>>
+  drule check_imp_thm>>
+  metis_tac[not_thm]
+QED
+
 Theorem check_red_correct_extra:
   ∀extra.
   id_ok fml id ∧
@@ -2246,16 +2241,16 @@ Proof
       \\ metis_tac[INSERT_SING_UNION,UNION_COMM,
                    sat_implies_subset,sat_implies_transitive,SUBSET_UNION])
     >- (
-     fs[check_hash_triv_def]
+     fs[check_hash_imp_def]
      \\ pop_assum mp_tac
      \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
      \\ simp[EL_MAP]
      \\ pairarg_tac \\ gvs[]
      \\ strip_tac
      \\ match_mp_tac unsatisfiable_not_sat_implies
-     \\ irule check_triv_unsatisfiable_2
+     \\ irule check_imp_unsatisfiable
      \\ simp[]
-     \\ metis_tac[]))
+     \\ metis_tac[not_not]))
   \\ CONJ_TAC >-
    metis_tac[check_pres_subst_fun]
   \\ fs[EVERY_MEM,MEM_MAP,EXISTS_PROD,LAMBDA_PROD,FORALL_PROD]
@@ -2300,15 +2295,15 @@ Proof
       \\ simp[range_insert]
       \\ metis_tac[INSERT_SING_UNION,UNION_COMM,sat_implies_subset,sat_implies_transitive,SUBSET_UNION])
     >- (
-      fs[check_hash_triv_def]
+      fs[check_hash_imp_def]
       \\ pop_assum mp_tac
       \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
       \\ simp[EL_MAP]
       \\ strip_tac
       \\ match_mp_tac unsatisfiable_not_sat_implies
-      \\ irule check_triv_unsatisfiable_2
+      \\ irule check_imp_unsatisfiable
       \\ simp[]
-      \\ metis_tac[]))
+      \\ metis_tac[not_not]))
   >- (
     (* redundancy #0 *)
     last_x_assum(qspec_then`0` mp_tac)>>
@@ -2329,14 +2324,14 @@ Proof
       \\ simp[range_insert]
       \\ metis_tac[INSERT_SING_UNION,UNION_COMM,sat_implies_subset,sat_implies_transitive,SUBSET_UNION])
     >- (
-      fs[check_hash_triv_def]
+      fs[check_hash_imp_def]
       \\ pop_assum mp_tac
       \\ simp[EL_MAP]
       \\ strip_tac
       \\ match_mp_tac unsatisfiable_not_sat_implies
-      \\ irule check_triv_unsatisfiable_2
+      \\ irule check_imp_unsatisfiable
       \\ simp[]
-      \\ metis_tac[]))
+      \\ metis_tac[not_not]))
   \\ drule sat_implies_transitive
   \\ disch_then (fn th => DEP_REWRITE_TAC[th])
   \\ gvs [GSYM unsat_iff_implies]
@@ -2363,8 +2358,7 @@ Proof
     simp[]>>
     metis_tac[range_mk_core_fml,in_core_only_fml_or_left])
   >- (
-    drule check_triv_unsatisfiable>>
-    fs[unsatisfiable_def,satisfiable_def,not_thm,satisfies_def]>>
+    fs[satisfiable_def,not_thm,satisfies_def]>>
     drule subst_opt_SOME >>
     metis_tac[not_thm,imp_thm,in_core_only_fml_or_left])
   \\ drule_all lookup_extract_scoped_pids_l>>rw[]
@@ -3088,28 +3082,11 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Theorem imp_model_bounding:
-  imp c (model_bounding fc fc') ∧
-  satisfies_npbc w c ⇒
-  eval_obj (SOME fc) w ≤ eval_obj (SOME fc') w
-Proof
-  rw[]>>
-  imp_res_tac imp_thm>>
-  fs[satisfies_npbc_model_bounding]
-QED
-
 Definition change_obj_subgoals_def:
   change_obj_subgoals fc fc' =
   let nmb1 = [not(model_bounding fc fc')] in
   let nmb2 = [not(model_bounding fc' fc)] in
   [nmb1; nmb2]
-End
-
-(* A simple equality test on objectives *)
-Definition eq_obj_def:
-  eq_obj fc fc' =
-  (check_contradiction (not(model_bounding fc fc')) ∧
-  check_contradiction (not(model_bounding fc' fc)))
 End
 
 Definition add_obj_def:
@@ -3123,42 +3100,6 @@ Theorem add_id[simp]:
 Proof
   Cases_on`c`>>EVAL_TAC>>
   Cases_on`q`>>EVAL_TAC
-QED
-
-Theorem check_contradiction_not_model_bounding:
-  check_contradiction (not (model_bounding fc fc')) ⇒
-  eval_obj (SOME fc) w ≤ eval_obj (SOME fc') w
-Proof
-  rw[]>>
-  `imp ([],0) (model_bounding fc fc')` by
-    fs[imp_def,add_def]>>
-  drule imp_model_bounding>>
-  simp[satisfies_npbc_def]
-QED
-
-Theorem eq_obj_eval_obj:
-  eq_obj fc fc' ⇒
-  eval_obj (SOME fc) w = eval_obj (SOME fc') w
-Proof
-  rw[eq_obj_def]>>
-  imp_res_tac check_contradiction_not_model_bounding>>
-  first_x_assum(qspec_then`w` assume_tac)>>
-  first_x_assum(qspec_then`w` assume_tac)>>
-  intLib.ARITH_TAC
-QED
-
-Theorem add_obj_eval_obj:
-  eval_obj (SOME (add_obj fc fc')) w =
-  eval_obj (SOME fc) w + eval_obj (SOME fc') w
-Proof
-  Cases_on`fc`>>
-  Cases_on`fc'`>>
-  rw[add_obj_def]>>
-  pairarg_tac>>fs[]>>
-  drule add_lists_thm>>
-  disch_then(qspec_then`w` assume_tac)>>
-  simp[eval_obj_def]>>
-  intLib.ARITH_TAC
 QED
 
 Definition mk_diff_obj_def:
@@ -3195,6 +3136,47 @@ Definition check_change_obj_def:
           SOME (fc'',id')
         else NONE))
 End
+
+(* A simple equality test on objectives *)
+Definition eq_obj_def:
+  eq_obj fc fc' =
+  (check_trivial (model_bounding fc fc') ∧
+  check_trivial (model_bounding fc' fc))
+End
+
+Theorem check_trivial_model_bounding:
+  check_trivial (model_bounding fc fc') ⇒
+  eval_obj (SOME fc) w ≤ eval_obj (SOME fc') w
+Proof
+  rw[]>>
+  drule check_trivial_valid>>
+  simp[satisfies_npbc_model_bounding]
+QED
+
+Theorem eq_obj_eval_obj:
+  eq_obj fc fc' ⇒
+  eval_obj (SOME fc) w = eval_obj (SOME fc') w
+Proof
+  rw[eq_obj_def]>>
+  imp_res_tac check_trivial_model_bounding>>
+  first_x_assum(qspec_then`w` assume_tac)>>
+  first_x_assum(qspec_then`w` assume_tac)>>
+  intLib.ARITH_TAC
+QED
+
+Theorem add_obj_eval_obj:
+  eval_obj (SOME (add_obj fc fc')) w =
+  eval_obj (SOME fc) w + eval_obj (SOME fc') w
+Proof
+  Cases_on`fc`>>
+  Cases_on`fc'`>>
+  rw[add_obj_def]>>
+  pairarg_tac>>fs[]>>
+  drule add_lists_thm>>
+  disch_then(qspec_then`w` assume_tac)>>
+  simp[eval_obj_def]>>
+  intLib.ARITH_TAC
+QED
 
 Definition check_eq_obj_def:
   check_eq_obj obj fc' =
@@ -3383,7 +3365,7 @@ Definition check_cstep_def:
                 find_scope_1 dindex pfs ∧
                 EVERY (λ(id,cs).
                   lookup id r ≠ NONE ∨
-                  check_hash_triv nc cs ∨
+                  check_hash_imp c cs ∨
                   MEM id skipped
                 )
                 (enumerate 0 dsubs)
@@ -4087,8 +4069,6 @@ Proof
           drule subst_opt_SOME >>
           rw[]>> metis_tac[not_thm])
         >- (
-          drule check_triv_unsatisfiable>>
-          disch_then(qspec_then`{}` mp_tac)>>
           fs[unsatisfiable_def,satisfiable_def,not_thm,satisfies_def]>>
           drule subst_opt_SOME >>
           fs[range_def]>>
@@ -4153,7 +4133,7 @@ Proof
           \\ pop_assum $ irule_at Any
           \\ gvs [SUBSET_DEF])
         >- (
-          fs[check_hash_triv_def]
+          fs[check_hash_imp_def]
           \\ pop_assum mp_tac
           \\ gvs [neg_dom_subst_def]
           \\ DEP_REWRITE_TAC [EL_APPEND_EQN]
@@ -4161,11 +4141,10 @@ Proof
           \\ gvs[lookup_list_list_insert,good_ord_s_def,vec_lookup_num_man_to_vec]
           \\ strip_tac
           \\ match_mp_tac unsatisfiable_not_sat_implies
-          \\ drule check_triv_unsatisfiable
+          \\ irule check_imp_unsatisfiable
           \\ qmatch_goalsub_abbrev_tac ‘set pp’
-          \\ disch_then $ qspec_then
-                ‘{v | ∃n b. lookup n fml = SOME (v,b)} ∪ set pp’ mp_tac
-          \\ simp [AC UNION_COMM UNION_ASSOC])
+          \\ simp [AC UNION_COMM UNION_ASSOC]
+          \\ metis_tac[not_not])
         >- (
           gvs [neg_dom_subst_def])
       )>>
@@ -4230,11 +4209,11 @@ Proof
         \\ gvs [MEM_MAP,lookup_list_list_insert,good_ord_s_def,vec_lookup_num_man_to_vec])
       >- (
           match_mp_tac unsatisfiable_not_sat_implies
-          \\ gvs [check_hash_triv_def]
-          \\ drule check_triv_unsatisfiable
+          \\ gvs [check_hash_imp_def]
+          \\ irule check_imp_unsatisfiable
           \\ qpat_abbrev_tac ‘ss = set x1 ⇂ _’
-          \\ disch_then $ qspec_then ‘ss ∪ {v | ∃n b. lookup n fml = SOME (v,b)}’ mp_tac
-          \\ simp [AC UNION_COMM UNION_ASSOC])
+          \\ simp [AC UNION_COMM UNION_ASSOC]
+          \\ metis_tac[not_not])
       )>>
     CONJ_TAC >- (
       pop_assum mp_tac>>
@@ -5107,10 +5086,11 @@ Datatype:
   | HOBounds (int option) (int option) num (assg_raw option)
 End
 
-(* Either c is already contradictory, or it implies c' *)
-Definition check_triv2_def:
-  check_triv2 ci c =
-  (check_contradiction ci ∨ imp ci c)
+(* if lower bound is infinity, must prove infeasibility *)
+Definition lower_bound_def:
+  lower_bound obj lb =
+    let ob = case obj of NONE => ([],0) | SOME fc => fc in
+    model_bounding ([],lb) ob
 End
 
 Definition check_implies_fml_def:
@@ -5118,14 +5098,7 @@ Definition check_implies_fml_def:
   (case lookup n fml of
       NONE => F
     | SOME (ci,b) =>
-      check_triv2 ci c)
-End
-
-(* if lower bound is infinity, must prove infeasibility *)
-Definition lower_bound_def:
-  lower_bound obj lb =
-    let ob = case obj of NONE => ([],0) | SOME fc => fc in
-    model_bounding ([],lb) ob
+      imp ci c)
 End
 
 (* fml, obj are the original formula (as a list) and objective
@@ -5184,17 +5157,6 @@ Definition init_conf_def:
      ; orders := []
     |>
 End
-
-Theorem check_triv2_imp:
-  check_triv2 c1 c2 ∧
-  satisfies_npbc w c1 ⇒
-  satisfies_npbc w c2
-Proof
-  rw[check_triv2_def]
-  >-
-    metis_tac[check_contradiction_unsat]>>
-  metis_tac[imp_thm]
-QED
 
 Theorem check_csteps_check_hconcl:
   id_ok fml id ∧
@@ -5261,7 +5223,7 @@ Proof
         simp[sat_obj_le_def]>>
         qexists_tac`w`>>gvs[all_core_core_only_fml_eq])>>
       strip_tac>>fs[sat_obj_le_def,satisfies_def,range_def]>>
-      drule check_triv2_imp>>
+      drule imp_thm>>
       disch_then(qspec_then `w'` mp_tac)>>
       impl_tac>- (
         first_x_assum match_mp_tac>>
