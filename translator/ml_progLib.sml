@@ -6,7 +6,7 @@ structure ml_progLib :> ml_progLib =
 struct
 
 open preamble;
-open ml_progTheory astSyntax packLib alist_treeLib comparisonTheory;
+open ml_progTheory astSyntax packLib alist_tree2Lib comparisonTheory;
 local open mlstringSyntax in end;
 
 fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f
@@ -34,7 +34,7 @@ local
 
 val nsLookup_repr_set = let
     val irrefl_thm = MATCH_MP good_cmp_Less_irrefl_trans mlstringTheory.good_cmp_compare
-  in alist_treeLib.mk_alist_reprs irrefl_thm EVAL
+  in alist_tree2Lib.mk_alist_reprs irrefl_thm EVAL
     str_dest (list_compare Int.compare)
   end
 
