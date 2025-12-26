@@ -10,6 +10,50 @@ open HolKernel Parse boolLib simpLib bossLib
 
 open alist_treeTheory comparisonTheory
 
+(* Copied from Drule.sml faster than ISPECL for subtituting big terms*)
+local
+   fun strip [] _ = []     (* Returns a list of (pat,ob) pairs. *)
+     | strip (tm :: tml) M =
+         let
+            val (Bvar, Body) = dest_forall M
+         in
+            (type_of Bvar, type_of tm)::strip tml Body
+         end
+   fun merge [] theta = theta
+     | merge ((x as {redex, residue})::rst) theta =
+       case subst_assoc (equal redex) theta of
+          NONE      => x :: merge rst theta
+        | SOME rdue => if residue = rdue then merge rst theta
+                       else raise ERR "ISPECL" ""
+   fun err s = raise ERR "ISPECL" s
+in
+   fun ISPECL [] = I
+     | ISPECL [tm] = ISPEC tm
+     | ISPECL tms =
+        fn th =>
+           let
+              val pairs =
+                 strip tms (concl th)
+                 handle HOL_ERR _ => err "list of terms too long for theorem"
+              val inst =
+                 rev_itlist
+                    (fn (pat, ob) => fn ty_theta =>
+                        let
+                           val theta = Type.match_type pat ob
+                        in
+                           merge theta ty_theta
+                        end) pairs []
+                 handle HOL_ERR _ => err "can't type-instantiate input theorem"
+              val genvars = List.map (genvar o type_of) tms
+              val ss = ListPair.map (op |->) (genvars,tms)
+           in
+              INST_TYPE inst th
+              |> SPECL genvars
+              |> INST ss
+              handle HOL_ERR _ => err "type variable free in assumptions"
+           end
+end
+
 (* Syntax *)
 
 val alookup_tm = prim_mk_const {Name = "ALOOKUP", Thy = "alist"}
