@@ -905,7 +905,6 @@ Theorem one_step_backward:
     evaluate_state ck (env',s with <| refs := refs'; ffi := ffi' ; |>,e',c') bv
   ⇒ evaluate_state ck (env,s with <| refs := refs; ffi := ffi ; |>,e,c) bv
 Proof
-  cheat (*
   rw[e_step_def] >> Cases_on `e` >> gvs[]
   >- (
     Cases_on `e''` >> gvs[push_def, return_def]
@@ -925,14 +924,16 @@ Proof
     >- (every_case_tac >> gvs[] >> tac3)
     >- tac3
     >- (
-      FULL_CASE_TAC >> gvs[application_thm, do_opapp_def, do_app_def]
+      gvs[application_thm, do_opapp_def, do_app_def, CaseEq"list"]
       >- (
         gvs[AllCaseEqs(), store_alloc_def, return_def] >>
         simp[Once evaluate_state_cases] >> gvs[Once evaluate_state_cases, getOpClass_def] >>
         goal_assum $ dxrule_at Any >> ntac 2 $ simp[Once evaluate_cases, opClass_cases] >>
         gvs[AllCaseEqs(), thunk_op_def] >>
-        simp[do_app_def, store_alloc_def] >> irule_at Any EQ_REFL
-        ) >>
+        simp[do_app_def, store_alloc_def] >>
+        simp[Once evaluate_cases] >>
+        irule_at Any EQ_REFL
+      ) >>
       gvs[SWAP_REVERSE_SYM] >> metis_tac[evaluate_state_app_cons]
       ) >>
     every_case_tac >> gvs[] >> tac3
@@ -1007,7 +1008,7 @@ Proof
     gvs[AllCaseEqs()] >>
     gvs[evaluate_state_cases, evaluate_ctxts_cons, evaluate_ctxt_cases,
         evaluate_ctxts_cons, evaluate_ctxt_cases, ADD1, SF SFY_ss, getOpClass_opClass]
-    ) *)
+    )
 QED
 
 Theorem evaluate_ctxts_type_error:
