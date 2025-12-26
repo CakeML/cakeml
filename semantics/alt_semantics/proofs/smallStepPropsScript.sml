@@ -709,11 +709,20 @@ Proof
     BasicProvers.CASE_TAC >>
     TRY BasicProvers.CASE_TAC >>
     Cases_on`s` >> fs[do_app_cases] >> rw[] >> fs[] >>
-    rpt TOP_CASE_TAC >> gs[do_app_cases] >>
-    (* ThunkOp cases *)
-    namedCases_on ‘v0’ ["", "hd tl"] >> gvs[] >> Cases_on ‘tl’ >> gvs[] >>
-    gvs[oneline thunk_op_def, AllCaseEqs()] >> cheat
-  ) >>
+    TRY(PairCases_on`x`) >>
+    gvs[CaseEq"prod",CaseEq"result",CaseEq"error_result",
+        do_app_cases,PULL_EXISTS]
+    >~ [`do_arith a p`] >- (
+      Cases_on`a` \\ Cases_on`p` \\ gvs[do_arith_def, CaseEq"list"]
+      \\ Cases_on`v0` \\ gvs[] ) >>
+    (* ThunkOp *)
+    namedCases_on ‘v0’ ["", "hd tl"] >> gvs[]
+    >- (Cases_on`v1` \\ simp[])
+    >> Cases_on ‘tl’ >> gvs[] >>
+    simp[do_app_def] >>
+    gvs[oneline thunk_op_def, AllCaseEqs()] >>
+    Cases_on`t` \\ gvs[]
+    >- (Cases_on`v1` \\ simp[]) ) >>
   disj2_tac >>
   srw_tac[][Once e_step_def,continue_def,push_def] >>
   imp_res_tac e_step_add_ctxt >>
