@@ -124,7 +124,7 @@ val nsLookup_rewrs = List.concat (map BODY_CONJUNCTS
 val nsLookup_rewrs_conv = GEN_REWRITE_CONV I Rewrite.empty_rewrites nsLookup_rewrs
 
 fun nsLookup_conv tm = REPEATC (BETA_CONV ORELSEC FIRST_CONV
-   (([nsLookup_rewrs_conv,RATOR_CONV nsLookup_rewrs_conv]
+   ([nsLookup_rewrs_conv,RATOR_CONV nsLookup_rewrs_conv]
     @ map QCHANGED_CONV [nsLookup_arg1_conv nsLookup_conv,
         nsLookup_pf_conv])) tm
 
