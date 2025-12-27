@@ -3527,3 +3527,43 @@ Definition default_prob_def:
 End
 
 val res = translate default_prob_def;
+
+(* == Build info =========================================================== *)
+
+val current_version_tm = mlstring_from_proc "git" ["rev-parse", "HEAD"]
+(*"*)
+val poly_version_tm = mlstring_from_proc "poly" ["-v"]
+val hol_version_tm = mlstring_from_proc "git" ["-C", Globals.HOLDIR, "rev-parse", "HEAD"]
+
+val date_str = Date.toString (Date.fromTimeUniv (Time.now ())) ^ " UTC\n"
+val date_tm = Term `strlit^(stringSyntax.fromMLstring date_str)`
+
+Definition print_option_def:
+  print_option h x =
+    case x of
+      NONE => strlit""
+    | SOME y => h ^ strlit" " ^ y ^ strlit"\n"
+End
+
+val current_build_info_str_tm = EVAL ``
+    let commit = print_option (strlit"CakeML:") ^current_version_tm in
+    let hol    = print_option (strlit"HOL4:  ") ^hol_version_tm in
+    let poly   = print_option (strlit"PolyML:") ^poly_version_tm in
+      concat
+        [ strlit"CakePB\n\n"
+        ; strlit"Version details:\n"
+        ; ^date_tm; strlit"\n"
+        ; commit; hol; poly ]``
+  |> concl |> rhs
+
+Definition current_build_info_str_def:
+  current_build_info_str = ^current_build_info_str_tm
+End
+
+val res = translate current_build_info_str_def;
+
+Definition mk_usage_string_def:
+  mk_usage_string s = current_build_info_str ^ strlit "\n\n" ^ s
+End
+
+val res = translate mk_usage_string_def;
