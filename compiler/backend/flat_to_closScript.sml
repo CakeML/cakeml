@@ -97,6 +97,33 @@ Definition CopyByteAw8_def:
   CopyByteAw8 t = ^checkF
 End
 
+Definition compile_arith_def:
+  compile_arith t a ty xs =
+    dtcase ty of
+    | IntT => (dtcase a of
+               | Add => Op t (IntOp closLang$Add) xs
+               | Sub => Op t (IntOp closLang$Sub) xs
+               | Mul => Op t (IntOp Mult) xs
+               | ast_temp$Div => Let t xs (If t (Op t (BlockOp Equal) [Var t 0; Op t (IntOp (Const 0)) []])
+                                   (Raise t (Op t (BlockOp (Cons div_tag)) []))
+                                   (Op t (IntOp closLang$Div) [Var t 0; Var t 1]))
+               | Mod => Let t xs (If t (Op t (BlockOp Equal) [Var t 0; Op t (IntOp (Const 0)) []])
+                                   (Raise t (Op t (BlockOp (Cons div_tag)) []))
+                                   (Op t (IntOp closLang$Mod) [Var t 0; Var t 1]))
+               | _ => Let None xs (Var None 0))
+    | Float64T => (dtcase a of
+                   | Abs => Op t (WordOp (FP_uop FP_Abs)) xs
+                   | Neg => Op t (WordOp (FP_uop FP_Neg)) xs
+                   | Sqrt => Op t (WordOp (FP_uop FP_Sqrt)) xs
+                   | Add => Op t (WordOp (FP_bop FP_Add)) xs
+                   | Sub => Op t (WordOp (FP_bop FP_Sub)) xs
+                   | Mul => Op t (WordOp (FP_bop FP_Mul)) xs
+                   | ast_temp$Div => Op t (WordOp (FP_bop FP_Div)) xs
+                   | FMA => Op t (WordOp (FP_top FP_Fma)) xs
+                   | _ => Let None xs (Var None 0))
+    | _ => Let None xs (Var None 0)
+End
+
 Definition compile_op_def:
   compile_op t op xs =
     dtcase op of
@@ -208,6 +235,8 @@ Definition compile_op_def:
     | FpFromWord => Let None xs (Var None 0)
     | FpToWord => Let None xs (Var None 0)
     | ThunkOp op => Op t (ThunkOp op) xs
+    | Arith a ty => compile_arith t a ty xs
+    | FromTo (WordT W8) IntT => arg1 xs (\x. x)
     | _ => Let None xs (Var None 0)
 End
 
