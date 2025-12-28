@@ -584,6 +584,20 @@ Proof
   \\ res_tac \\ fs []
 QED
 
+Theorem evaluate_Let_error:
+  evaluate (es,env,s) = (Rerr err,s') ==>
+  evaluate ([Let t es e],env,s) = (Rerr err,s')
+Proof
+  rw [evaluate_def]
+QED
+
+Theorem evaluate_Op_error:
+  evaluate (es,env,s) = (Rerr err,s') ==>
+  evaluate ([Op t op es],env,s) = (Rerr err,s')
+Proof
+  rw [evaluate_def]
+QED
+
 Theorem compile_op_evaluates_args:
   evaluate (xs,db,t) = (Rerr err,t1) /\
   op <> Opapp /\ op <> Eval /\ op <> ThunkOp ForceThunk
@@ -591,6 +605,24 @@ Theorem compile_op_evaluates_args:
   evaluate ([compile_op tra op xs],db,t) = (Rerr err,t1)
 Proof
   Cases_on `op`
+  (* Handle Arith case first *)
+  >~ [`Arith`]
+  >- (rename [`Arith a ty`] \\ rw [compile_op_def]
+      \\ Cases_on `ty` \\ Cases_on `a`
+      \\ simp [compile_arith_def]
+      \\ TRY (irule evaluate_Op_error \\ simp [])
+      \\ TRY (irule evaluate_Let_error \\ simp []))
+  (* Handle FromTo case *)
+  >~ [`FromTo`]
+  >- (rename [`FromTo ty1 ty2`] \\ rw [compile_op_def]
+      \\ Cases_on `ty1` \\ Cases_on `ty2`
+      \\ simp [arg1_def]
+      \\ TRY (irule evaluate_Let_error \\ simp [])
+      \\ TRY (irule evaluate_Op_error \\ simp [])
+      \\ rpt TOP_CASE_TAC \\ simp []
+      \\ TRY (irule evaluate_Let_error \\ simp [])
+      \\ TRY (irule evaluate_Op_error \\ simp []))
+  (* All other cases *)
   \\ fs [compile_op_def,evaluate_def,evaluate_APPEND,arg1_def,arg2_def]
   \\ every_case_tac \\ fs [evaluate_def]
   \\ fs [pair_case_eq,result_case_eq]
@@ -2119,7 +2151,7 @@ Proof
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
     \\ simp [compile_lit_def,op_gbag_def])
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
-    \\ simp ([compile_op_def] @ props_defs)
+    \\ simp ([compile_op_def, compile_arith_def] @ props_defs)
     \\ rpt (CASE_TAC \\ simp props_defs))
   \\ simp [compile_def, closPropsTheory.op_gbag_def,set_globals_SmartCons,
     flatPropsTheory.op_gbag_def, closPropsTheory.elist_globals_append]
@@ -2200,7 +2232,7 @@ Proof
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
     \\ simp [compile_lit_def])
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
-    \\ simp ([compile_op_def] @ props_defs)
+    \\ simp ([compile_op_def, compile_arith_def] @ props_defs)
     \\ rpt (CASE_TAC \\ simp props_defs))
   \\ simp [compile_def, closPropsTheory.op_gbag_def,esgc_free_SmartCons,
     flatPropsTheory.op_gbag_def, closPropsTheory.elist_globals_append]
@@ -2309,7 +2341,7 @@ Proof
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
     \\ simp [compile_lit_def])
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
-    \\ simp ([compile_op_def] @ props_defs)
+    \\ simp ([compile_op_def, compile_arith_def] @ props_defs)
     \\ rpt (CASE_TAC \\ simp props_defs))
   \\ fs [dest_nop_def]
   \\ simp ([CopyByteAw8_def, CopyByteStr_def] @ props_defs)
