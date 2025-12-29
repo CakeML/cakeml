@@ -1291,13 +1291,65 @@ Proof
   Cases \\ gvs [int_cmp_def] \\ intLib.COOPER_TAC
 QED
 
+Theorem check_type_IntT_flat_to_v[local]:
+  check_type IntT (flat_to_v (v:flatSem$v)) ==> ?i. v = Litv (IntLit i)
+Proof
+  Cases_on `v`
+  \\ simp [flat_to_v_def, semanticPrimitivesTheory.check_type_def,
+           Boolv_def, semanticPrimitivesTheory.Boolv_def]
+  \\ rw []
+QED
+
+Theorem check_type_Float64T_flat_to_v[local]:
+  check_type Float64T (flat_to_v (v:flatSem$v)) ==> ?w. v = Litv (Float64 w)
+Proof
+  Cases_on `v`
+  \\ simp [flat_to_v_def, semanticPrimitivesTheory.check_type_def,
+           Boolv_def, semanticPrimitivesTheory.Boolv_def]
+  \\ rw []
+QED
+
 Theorem op_arith:
   (∃a ty. op = Arith a ty) ==>
   ^op_goal
 Proof
   rpt strip_tac \\ rveq \\ fs []
   \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
-         CaseEq "ast$lit",store_assign_def,option_case_eq] \\ cheat
+         CaseEq "ast$lit",store_assign_def,option_case_eq]
+  \\ gvs [AllCaseEqs()]
+  \\ Cases_on `ty`
+  (* Eliminate impossible types: BoolT, CharT, StrT, WordT all make do_arith return NONE *)
+  \\ gvs [semanticPrimitivesTheory.do_arith_def]
+  (* Now only IntT and Float64T remain. Destruct the value list. *)
+  \\ gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
+  \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
+  (* Derive concrete flatLang values from check_type *)
+  \\ rpt (first_x_assum (strip_assume_tac o MATCH_MP check_type_IntT_flat_to_v)
+          ORELSE first_x_assum (strip_assume_tac o MATCH_MP check_type_Float64T_flat_to_v))
+  \\ gvs []
+  (* Now expand the_Litv functions with concrete Litv values *)
+  \\ gvs [flatSemTheory.flat_to_v_def,
+          semanticPrimitivesTheory.the_Litv_IntLit_def,
+          semanticPrimitivesTheory.the_Litv_Float64_def,
+          semanticPrimitivesTheory.do_arith_def, AllCaseEqs()]
+  (* Derive closLang value forms from v_rel *)
+  \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
+  \\ fs [compile_op_def, compile_arith_def]
+  \\ simp [closSemTheory.evaluate_def, closSemTheory.do_app_def,
+           do_int_app_def, do_eq_def, do_word_app_def,
+           fpSemTheory.fp_bop_comp_def, fpSemTheory.fp_uop_comp_def,
+           fpSemTheory.fp_top_comp_def, fpSemTheory.fpfma_def]
+  \\ TRY (IF_CASES_TAC \\ gvs [])
+  \\ gvs [v_rel_def, div_exn_v_def, flatSemTheory.v_to_flat_def]
+QED
+
+Theorem check_type_WordT_W8_flat_to_v[local]:
+  check_type (WordT W8) (flat_to_v (v:flatSem$v)) ==> ?w. v = Litv (Word8 w)
+Proof
+  Cases_on `v`
+  \\ simp [flat_to_v_def, semanticPrimitivesTheory.check_type_def,
+           Boolv_def, semanticPrimitivesTheory.Boolv_def]
+  \\ rw []
 QED
 
 Theorem op_from_to:
@@ -1306,7 +1358,24 @@ Theorem op_from_to:
 Proof
   rpt strip_tac \\ rveq \\ fs []
   \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
-         CaseEq "ast$lit",store_assign_def,option_case_eq] \\ cheat
+         CaseEq "ast$lit",store_assign_def,option_case_eq]
+  \\ gvs [AllCaseEqs()]
+  \\ Cases_on `ty1` \\ Cases_on `ty2`
+  (* Only WordT W8 -> IntT is handled; others make do_conversion return NONE *)
+  \\ gvs [semanticPrimitivesTheory.do_conversion_def]
+  \\ TRY (Cases_on `w`) \\ gvs [semanticPrimitivesTheory.do_conversion_def]
+  (* Now only WordT W8 -> IntT remains *)
+  \\ gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
+  \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
+  (* Derive concrete flatLang value from check_type *)
+  \\ first_x_assum (strip_assume_tac o MATCH_MP check_type_WordT_W8_flat_to_v)
+  \\ gvs [flatSemTheory.flat_to_v_def,
+          semanticPrimitivesTheory.the_Litv_Word8_def]
+  (* Derive closLang value form from v_rel *)
+  \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
+  \\ fs [compile_op_def, arg1_def]
+  \\ simp [closSemTheory.evaluate_def]
+  \\ gvs [v_rel_def, flatSemTheory.v_to_flat_def]
 QED
 
 Theorem op_test:
