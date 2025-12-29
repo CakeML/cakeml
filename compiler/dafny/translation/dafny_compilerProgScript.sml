@@ -241,7 +241,6 @@ val r = translate fromSexpTheory.decsexp_def;
 
 (* Translating dafny_compilerTheory *)
 
-val r = translate dafny_compilerTheory.frontend_def;
 val r = translate dafny_compilerTheory.compile_def;
 val r = translate dafny_compilerTheory.dfy_to_cml_def;
 val r = translate dafny_compilerTheory.unpack_def;
@@ -253,7 +252,7 @@ val r = translate dafny_compilerTheory.main_function_def;
 
 (* Sanity checks + Finalizing *)
 
-val _ = type_of “main_function” = “:mlstring -> mlstring”
+val _ = type_of “main_function” = “:mlsexp$sexp -> mlstring”
         orelse failwith "The main_function has the wrong type.";
 
 val _ = r |> hyp |> null orelse
@@ -261,7 +260,7 @@ val _ = r |> hyp |> null orelse
                   \dafny_compilerTheory.main_function_def");
 
 val main = process_topdecs
-           ‘print (main_function (TextIO.inputAll TextIO.stdIn));’;
+           ‘print (main_function (Sexp.parse (TextIO.openStdIn ())));’;
 
 val prog =
   get_ml_prog_state ()

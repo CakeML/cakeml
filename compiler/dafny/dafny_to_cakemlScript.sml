@@ -522,7 +522,6 @@ End
 
 
 (* Testing *)
-(* open dafny_sexpTheory *)
 (* open sexp_to_dafnyTheory *)
 (* open TextIO *)
 

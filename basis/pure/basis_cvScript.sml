@@ -3,7 +3,7 @@
 *)
 Theory basis_cv[no_sig_docs]
 Ancestors
-  cv_std
+  mlsexp cv_std
 Libs
   preamble cv_transLib
 
@@ -51,3 +51,6 @@ QED
 val _ = cv_trans (mlintTheory.toString_def |> SRULE [Num_ABS]);
 val _ = cv_trans mlintTheory.num_to_str_def;
 
+val _ = cv_auto_trans (mlsexpTheory.smart_remove_def |> SRULE [GSYM GREATER_DEF]);
+val _ = cv_auto_trans mlsexpTheory.v2pretty_def;
+val _ = cv_auto_trans mlsexpTheory.str_tree_to_strs_def;

@@ -318,7 +318,7 @@ End
 Definition pan_to_strs_def:
   pan_to_strs xs =
     map_to_append
-      (v2strs «\n\n» ∘ display_to_str_tree ∘ pan_fun_to_display) xs
+      (str_tree_to_strs «\n\n» ∘ display_to_str_tree ∘ pan_fun_to_display) xs
 End
 
 (* crep *)
@@ -476,7 +476,7 @@ End
 Definition crep_to_strs_def:
   crep_to_strs xs =
     map_to_append
-      (v2strs «\n\n» ∘ display_to_str_tree ∘ crep_fun_to_display) xs
+      (str_tree_to_strs «\n\n» ∘ display_to_str_tree ∘ crep_fun_to_display) xs
 End
 
 (* loop *)
@@ -626,7 +626,7 @@ End
 Definition loop_to_strs_def:
   loop_to_strs names xs =
     map_to_append
-      (v2strs «\n\n» ∘ display_to_str_tree ∘ loop_fun_to_display names) xs
+      (str_tree_to_strs «\n\n» ∘ display_to_str_tree ∘ loop_fun_to_display names) xs
 End
 
 Definition any_pan_prog_pp_def:

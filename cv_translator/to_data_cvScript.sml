@@ -2727,97 +2727,6 @@ QED
 val _ = cv_auto_trans (to_data_all_def |> REWRITE_RULE [bvi_to_data_compile_sing]);
 
 (* Explorer *)
-val _ = cv_auto_trans (str_treeTheory.smart_remove_def |> SRULE [GSYM GREATER_DEF]);
-
-Theorem dest_list_size_lemma[local]:
-  ∀x v w.
-    (v,w) = dest_list x ⇒
-    list_size str_tree_size v + str_tree_size w ≤ str_tree_size x
-Proof
-  Induct \\ gvs [str_treeTheory.dest_list_def]
-  \\ gvs [str_treeTheory.str_tree_size_def,list_size_def]
-  \\ pairarg_tac \\ gvs [str_treeTheory.str_tree_size_def,list_size_def]
-QED
-
-Definition v2pretty_sing_def:
-  v2pretty_sing v =
-    (case v of
-     | Str s => String s
-     | GrabLine w => Size 100000 (v2pretty_sing w)
-     | Pair h t => let (rest,e) = dest_list t in
-              Parenthesis
-              (if e = Str «» then
-                 newlines (v2pretty_sing h :: v2pretty_list rest)
-               else
-                 Append (newlines (v2pretty_sing h :: v2pretty_list rest)) T
-                  (Append (String « . ») T (v2pretty_sing e)))) ∧
-  v2pretty_list [] = [] ∧
-  v2pretty_list (x::xs) = v2pretty_sing x :: v2pretty_list xs
-Termination
-  WF_REL_TAC ‘measure $ λx. case x of
-                            | INL e => str_tree$str_tree_size e
-                            | INR e => list_size str_tree$str_tree_size e’
-  \\ rw [] \\ gvs [str_treeTheory.dest_list_def]
-  \\ imp_res_tac dest_list_size_lemma
-  \\ gvs [str_treeTheory.str_tree_size_def,list_size_def]
-End
-
-Theorem v2pretty_eq_v2pretty_sing:
-  (∀v. v2pretty v = v2pretty_sing v) ∧
-  (∀v. MAP v2pretty v = v2pretty_list v)
-Proof
-  ho_match_mp_tac v2pretty_sing_ind \\ rpt strip_tac
-  \\ once_rewrite_tac [v2pretty_sing_def] \\ fs []
-  \\ simp [Once str_treeTheory.v2pretty_def]
-  \\ TOP_CASE_TAC \\ gvs[]
-  \\ pairarg_tac \\ gvs [] \\ rw [SF ETA_ss]
-  \\ pairarg_tac >> gvs[str_treeTheory.dest_list_def]
-QED
-
-val _ = cv_trans str_treeTheory.dest_list_def;
-
-val cv_str_tree_dest_list_def = fetch "-" "cv_str_tree_dest_list_def";
-
-Theorem cv_size_cv_fst_snd:
-  cv_size (cv_fst z) + cv_size (cv_snd z) ≤ cv_size z
-Proof
-  Cases_on`z`>>cv_termination_tac
-QED
-
-Theorem cv_str_tree_dest_list_size[local]:
-  ∀v x1 x2.
-    cv_str_tree_dest_list v = cv$Pair x1 x2 ⇒
-    cv_size x1 < cv_size v ∧
-    cv_size x2 ≤ cv_size v
-Proof
-  ho_match_mp_tac (fetch "-" "cv_str_tree_dest_list_ind")
-  \\ rw[]
-  \\ pop_assum mp_tac
-  \\ simp [Once cv_str_tree_dest_list_def]
-  \\ rw[]
-  \\ cv_termination_tac
-  \\ Cases_on`k` \\ gvs[]
-  \\ assume_tac cv_size_cv_fst_snd
-  \\ gvs[]
-QED
-
-val pre = cv_auto_trans_pre_rec "" v2pretty_sing_def
-  (WF_REL_TAC ‘measure $ λx. case x of INL v => cv_size v | INR v => cv_size v’
-   \\ cv_termination_tac \\ Cases_on ‘k’ \\ gvs []
-   \\ imp_res_tac cv_str_tree_dest_list_size
-   \\ assume_tac cv_size_cv_fst_snd \\ gvs []);
-
-Theorem v2pretty_sing_pre[cv_pre]:
-  (∀v. v2pretty_sing_pre v) ∧
-  (∀v. v2pretty_list_pre v)
-Proof
-  ho_match_mp_tac v2pretty_sing_ind
-  \\ rw [] \\ simp [Once pre] \\ gvs []
-QED
-
-val _ = cv_trans (v2pretty_eq_v2pretty_sing |> CONJUNCT1);
-
-val _ = cv_auto_trans str_treeTheory.v2strs_def;
 
 val _ = cv_trans_pre "" jsonLangTheory.num_to_hex_digit_def;
 
@@ -2949,4 +2858,3 @@ val _ = cv_auto_trans presLangTheory.word_exp_to_display_def;
 val _ = cv_auto_trans presLangTheory.word_prog_to_display_def;
 
 val _ = cv_auto_trans presLangTheory.stack_prog_to_display_def;
-
