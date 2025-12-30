@@ -9,6 +9,8 @@ Ancestors
 Libs
   preamble
 
+val _ = numLib.prefer_num ();
+
 Datatype:
   v = Number int              (* integer *)
     | Word64 word64           (* 64-bit word *)
@@ -665,7 +667,7 @@ Definition do_lim_safe[simp]:
 End
 
 Definition check_lim_def:
-  check_lim ^s (n: num) =
+  check_lim ^s n =
      s with safe_for_space := (n < 2 ** s.limits.length_limit ∧
                                s.safe_for_space)
 End
