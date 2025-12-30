@@ -2918,6 +2918,7 @@ Proof
   \\ rw[has_io_name_def]
   \\ CASE_TAC \\ fs[]
   \\ CASE_TAC \\ fs[]
+  \\ rename1 ‘s = index ∨ _’
   \\ Cases_on`s = index` \\ fs[]
 QED
 
