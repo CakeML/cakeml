@@ -69,12 +69,6 @@ Theorem v_rel_def =
 
 Theorem env_rel_def = ``env_rel env m db`` |> ONCE_REWRITE_CONV [v_rel_cases];
 
-Definition opt_rel_def[simp]:
-  opt_rel f NONE NONE = T /\
-  opt_rel f (SOME x) (SOME y) = f x y /\
-  opt_rel f _ _ = F
-End
-
 Definition store_rel_def:
   store_rel refs t_refs =
     !i. if LENGTH refs <= i then FLOOKUP t_refs i = NONE else
@@ -107,7 +101,7 @@ Definition state_rel_def:
     store_rel s.refs t.refs ∧
     LENGTH t.globals ≠ 0 ∧
  (* HD t.globals = SOME (Closure NONE [] [] 1 clos_interpreter) ∧ *)
-    LIST_REL (opt_rel v_rel) s.globals (TL t.globals) ∧
+    LIST_REL (OPTREL v_rel) s.globals (TL t.globals) ∧
     install_config_rel' s.eval_config t.compile_oracle t.compile
 End
 
@@ -1083,7 +1077,7 @@ Proof
     \\ fs [GSYM ADD1,EL]
     \\ fs [LIST_REL_EL] \\ res_tac \\ fs []
     \\ qpat_x_assum `_ = NONE` assume_tac
-    \\ rename [‘opt_rel _ _ (EL _ tt)’]
+    \\ rename [‘OPTREL _ _ (EL _ tt)’]
     \\ Cases_on `EL n tt` \\ fs []
     \\ simp [Once v_rel_cases,Unit_def,LUPDATE_def]
     \\ fs [EL_LUPDATE]
