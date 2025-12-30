@@ -665,7 +665,7 @@ Definition do_lim_safe[simp]:
 End
 
 Definition check_lim_def:
-  check_lim ^s n =
+  check_lim ^s (n: num) =
      s with safe_for_space := (n < 2 ** s.limits.length_limit ∧
                                s.safe_for_space)
 End
