@@ -141,14 +141,14 @@ QED
 
 Definition has_bools_def:
   has_bools genv ⇔
-    FLOOKUP genv ((true_tag, SOME bool_id), 0n) = SOME (TypeStamp "True" bool_type_num) ∧
-    FLOOKUP genv ((false_tag, SOME bool_id), 0n) = SOME (TypeStamp "False" bool_type_num)
+    FLOOKUP genv ((true_tag, SOME bool_id), 0n) = SOME (TypeStamp «True» bool_type_num) ∧
+    FLOOKUP genv ((false_tag, SOME bool_id), 0n) = SOME (TypeStamp «False» bool_type_num)
 End
 
 Definition has_lists_def:
   has_lists genv ⇔
-    FLOOKUP genv ((cons_tag, SOME list_id), 2n) = SOME (TypeStamp "::" list_type_num) ∧
-    FLOOKUP genv ((nil_tag, SOME list_id), 0n) = SOME (TypeStamp "[]" list_type_num)
+    FLOOKUP genv ((cons_tag, SOME list_id), 2n) = SOME (TypeStamp «::» list_type_num) ∧
+    FLOOKUP genv ((nil_tag, SOME list_id), 0n) = SOME (TypeStamp «[]» list_type_num)
 End
 
 Definition has_exns_def:
@@ -303,7 +303,7 @@ Theorem v_rel_eqns:
    (! genv fp v cn.
       v_rel genv (FP_BoolTree fp) v <=>
       FLOOKUP (genv.c) (((if (compress_bool fp) then true_tag else false_tag),SOME bool_id), 0) =
-        SOME (TypeStamp (if (compress_bool fp) then "True" else "False") bool_type_num) /\
+        SOME (TypeStamp (if (compress_bool fp) then «True» else «False») bool_type_num) /\
       v = Boolv (compress_bool fp)) /\
    (!genv env'.
     env_rel genv nsEmpty env' ⇔
@@ -813,7 +813,7 @@ QED
 
 Theorem genv_lookup_nil:
   genv_c_ok genv_c ==>
-  (FLOOKUP genv_c cn = SOME (TypeStamp "[]" list_type_num)
+  (FLOOKUP genv_c cn = SOME (TypeStamp «[]» list_type_num)
   <=> cn = ((nil_tag, SOME list_id), 0))
 Proof
   Cases_on `cn`
@@ -823,7 +823,7 @@ QED
 
 Theorem genv_lookup_cons:
   genv_c_ok genv_c ==>
-  (FLOOKUP genv_c cn = SOME (TypeStamp "::" list_type_num)
+  (FLOOKUP genv_c cn = SOME (TypeStamp «::» list_type_num)
   <=> cn = ((cons_tag, SOME list_id), 2))
 Proof
   Cases_on `cn`
@@ -1190,7 +1190,9 @@ Proof
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems] >>
       imp_res_tac v_to_char_list >>
       srw_tac[][] >>
-      Induct_on `str` >>
+      namedCases_on ‘strng’ ["s"] >>
+      fs [] >>
+      Induct_on `s` >>
       fs [semanticPrimitivesTheory.list_to_v_def,flatSemTheory.list_to_v_def] >>
       simp [Once v_rel_cases] >>
       fs [genv_c_ok_def,has_lists_def] >>
@@ -1200,7 +1202,8 @@ Proof
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_eqns] >>
       srw_tac[][markerTheory.Abbrev_def] >>
       srw_tac[][markerTheory.Abbrev_def] >>
-      full_simp_tac(srw_ss())[stringTheory.IMPLODE_EXPLODE_I, v_rel_lems])
+      full_simp_tac(srw_ss())[v_rel_lems]
+      >> rename1 ‘explode strng’ >> Cases_on ‘strng’ >> fs [])
   >~ [‘Strlen’] >- (
       srw_tac[][semanticPrimitivesPropsTheory.do_app_cases, flatSemTheory.do_app_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, v_rel_lems])
@@ -3442,7 +3445,7 @@ Proof
 QED
 
 Theorem alloc_tags_invariant:
-  alloc_tags idx.tidx (ctors : (string # ast_t list) list) = (ns, cids) ∧
+  alloc_tags idx.tidx (ctors : (mlstring # ast_t list) list) = (ns, cids) ∧
   invariant interp g gen genv (idx, end_idx, os) st st' ∧
   global_env_inv genv comp_map {} env ∧
   ALL_DISTINCT (MAP FST ctors) ∧
@@ -5205,10 +5208,10 @@ End
 
 Definition init_genv_ty_els_def:
   init_genv_ty_els = [
-    (bool_id, [(false_tag, 0n, TypeStamp "False" bool_type_num);
-        (true_tag, 0n, TypeStamp "True" bool_type_num)]);
-    (list_id, REVERSE [(cons_tag, 2n, TypeStamp "::" list_type_num);
-        (nil_tag, 0n, TypeStamp "[]" list_type_num)])]
+    (bool_id, [(false_tag, 0n, TypeStamp «False» bool_type_num);
+        (true_tag, 0n, TypeStamp «True» bool_type_num)]);
+    (list_id, REVERSE [(cons_tag, 2n, TypeStamp «::» list_type_num);
+        (nil_tag, 0n, TypeStamp «[]» list_type_num)])]
 End
 
 Definition init_genv_els_def:
