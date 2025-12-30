@@ -606,7 +606,7 @@ Proof
      \\ pop_assum $ irule_at Any \\ fs [data_to_bvi_v_def])
   >- (rename1 `Label` \\ rfs [code_rel_def])
   >- (rename1 `FFI` \\ rw[])
-  >- (rename1 `FFI ""` \\ rw[])
+  >- (rename1 `FFI «»` \\ rw[])
   >~ [`ThunkOp (AllocThunk t)`]
   >- (rw [data_to_bvi_ref_def]
       \\ gvs [refs_rel_LEAST_eq, lookup_map, map_replicate])
