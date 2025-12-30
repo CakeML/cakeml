@@ -371,14 +371,14 @@ Definition do_app_def:
       | SOME i => SOME (s, Rval (Litv (IntLit i))))
   | (CopyStrStr, [Litv(StrLit strng);Litv(IntLit off);Litv(IntLit len)]) =>
       SOME (s,
-      (case copy_array (strng,off) len NONE of
+      (case copy_array (explode strng,off) len NONE of
         NONE => Rerr (Rraise subscript_exn_v)
-      | SOME cs => Rval (Litv(StrLit(cs)))))
+      | SOME cs => Rval (Litv(StrLit(implode cs)))))
   | (CopyStrAw8, [Litv(StrLit strng);Litv(IntLit off);Litv(IntLit len);
                   Loc _ dst;Litv(IntLit dstoff)]) =>
       (case store_lookup dst s.refs of
         SOME (W8array ws) =>
-          (case copy_array (strng,off) len (SOME(ws_to_chars ws,dstoff)) of
+          (case copy_array (explode strng,off) len (SOME(ws_to_chars ws,dstoff)) of
             NONE => SOME (s, Rerr (Rraise subscript_exn_v))
           | SOME cs =>
             (case store_assign dst (W8array (chars_to_ws cs)) s.refs of
@@ -391,7 +391,7 @@ Definition do_app_def:
       SOME (s,
         (case copy_array (ws,off) len NONE of
           NONE => Rerr (Rraise subscript_exn_v)
-        | SOME ws => Rval (Litv(StrLit(ws_to_chars ws)))))
+        | SOME ws => Rval (Litv(StrLit(implode (ws_to_chars ws))))))
     | _ => NONE)
   | (CopyAw8Aw8, [Loc _ src;Litv(IntLit off);Litv(IntLit len);
                   Loc _ dst;Litv(IntLit dstoff)]) =>
@@ -407,7 +407,7 @@ Definition do_app_def:
   | (Aw8xor_unsafe, [Loc _ dst; Litv (StrLit str_arg)]) =>
     (case store_lookup dst s.refs of
      | SOME (W8array ds) =>
-         (case xor_bytes (MAP (n2w o ORD) str_arg) ds of
+         (case xor_bytes (MAP (n2w o ORD) (explode str_arg)) ds of
           | NONE => NONE
           | SOME new_bs =>
               (case store_assign dst (W8array new_bs) s.refs of
@@ -425,21 +425,21 @@ Definition do_app_def:
   | (Implode, [v]) =>
     (case v_to_char_list v of
      | SOME ls =>
-       SOME (s, Rval (Litv (StrLit (IMPLODE ls))))
+       SOME (s, Rval (Litv (StrLit (implode ls))))
      | NONE => NONE)
-  | (Explode, [Litv (StrLit str)]) =>
-    (SOME (s, Rval (list_to_v (MAP (\c. Litv (Char c)) strng))))
+  | (Explode, [Litv (StrLit strng)]) =>
+    (SOME (s, Rval (list_to_v (MAP (\c. Litv (Char c)) (explode strng)))))
   | (Strsub, [Litv (StrLit strng); Litv (IntLit i)]) =>
     if i < 0 then
       SOME (s, Rerr (Rraise subscript_exn_v))
     else
       let n = (Num (ABS i)) in
-        if n >= LENGTH strng then
+        if n >= strlen strng then
           SOME (s, Rerr (Rraise subscript_exn_v))
         else
-          SOME (s, Rval (Litv (Char (EL n strng))))
+          SOME (s, Rval (Litv (Char (strsub strng n))))
   | (Strlen, [Litv (StrLit strng)]) =>
-    SOME (s, Rval (Litv(IntLit(int_of_num(STRLEN strng)))))
+    SOME (s, Rval (Litv(IntLit(int_of_num(strlen strng)))))
   | (Strcat, [v]) =>
       (case v_to_list v of
         SOME vs =>
@@ -548,7 +548,7 @@ Definition do_app_def:
   | (FFI n, [Litv(StrLit conf); Loc _ lnum]) =>
     (case store_lookup lnum s.refs of
      | SOME (W8array ws) =>
-       (case call_FFI s.ffi (ExtCall n) (MAP (λc. n2w(ORD c)) conf) ws of
+       (case call_FFI s.ffi (ExtCall n) (MAP (λc. n2w(ORD c)) (explode conf)) ws of
         | FFI_final outcome => SOME(s, Rerr (Rabort (Rffi_error outcome)))
         | FFI_return t' ws' =>
           (case store_assign lnum (W8array ws') s.refs of
@@ -762,9 +762,9 @@ Definition exp_alt_size_def[simp]:
   (tra_size a0 +
    (option_size (pair_size (λx. x) (option_size (λx. x))) a1 +
     exp6_alt_size a2)) ∧
-  exp_alt_size (Var_local a0 a1) = 1 + (tra_size a0 + list_size char_size a1) ∧
+  exp_alt_size (Var_local a0 a1) = 1 + (tra_size a0 + mlstring_size a1) ∧
   exp_alt_size (Fun a0 a1 a2) =
-  1 + (list_size char_size a0 + (list_size char_size a1 + exp_alt_size a2)) ∧
+  1 + (mlstring_size a0 + (mlstring_size a1 + exp_alt_size a2)) ∧
   exp_alt_size (App a0 a1 a2) =
   1 + (tra_size a0 + (op_size a1 + exp6_alt_size a2))
     + (if a1 = ThunkOp ForceThunk then 100 else 0) ∧
@@ -775,15 +775,15 @@ Definition exp_alt_size_def[simp]:
   exp_alt_size (Let a0 a1 a2 a3) =
   1 +
   (tra_size a0 +
-   (option_size (list_size char_size) a1 + (exp_alt_size a2 + exp_alt_size a3))) ∧
+   (option_size mlstring_size a1 + (exp_alt_size a2 + exp_alt_size a3))) ∧
   exp_alt_size (Letrec a0 a1 a2) =
-  1 + (list_size char_size a0 + (exp1_alt_size a1 + exp_alt_size a2)) ∧
+  1 + (mlstring_size a0 + (exp1_alt_size a1 + exp_alt_size a2)) ∧
   exp1_alt_size [] = 0 ∧
   exp1_alt_size (a0::a1) = 1 + (exp2_alt_size a0 + exp1_alt_size a1) ∧
-  exp2_alt_size (a0,a1) = 1 + (list_size char_size a0 + exp4_alt_size a1) ∧
+  exp2_alt_size (a0,a1) = 1 + (mlstring_size a0 + exp4_alt_size a1) ∧
   exp3_alt_size [] = 0 ∧
   exp3_alt_size (a0::a1) = 1 + (exp5_alt_size a0 + exp3_alt_size a1) ∧
-  exp4_alt_size (a0,a1) = 1 + (list_size char_size a0 + exp_alt_size a1) ∧
+  exp4_alt_size (a0,a1) = 1 + (mlstring_size a0 + exp_alt_size a1) ∧
   exp5_alt_size (a0,a1) = 1 + (pat_size a0 + exp_alt_size a1) ∧ exp6_alt_size [] = 0 ∧
   exp6_alt_size (a0::a1) = 1 + (exp_alt_size a0 + exp6_alt_size a1)
 End
@@ -879,8 +879,8 @@ Definition evaluate_def:
           | NotThunk => (s, Rerr (Rabort Rtype_error))
           | IsThunk Evaluated v => (s, Rval [v])
           | IsThunk NotEvaluated f =>
-             (case evaluate <| v := [("f",f)] |> s
-                    [AppUnit (Var_local None "f")] of
+             (case evaluate <| v := [(«f»,f)] |> s
+                    [AppUnit (Var_local None «f»)] of
               | (s, Rval vs2) =>
                   (case update_thunk vs s.refs vs2 of
                    | NONE => (s, Rerr (Rabort Rtype_error))
