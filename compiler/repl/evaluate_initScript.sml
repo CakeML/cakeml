@@ -631,11 +631,16 @@ Proof
   \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def])
+         store_lookup_def, copy_array_def, store_assign_def]
+    \\ Cases_on ‘ty1’ \\ Cases_on ‘ty2’ \\ gvs[do_conversion_def]
+    \\ Cases_on ‘w’ \\ gvs[do_conversion_def, v_ok_thm] )
   \\ Cases_on ‘∃a ty. op = Arith a ty’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
-         store_lookup_def, copy_array_def, store_assign_def])
+         store_lookup_def, copy_array_def, store_assign_def,
+         CaseEq"sum"]
+    \\ Cases_on ‘a’ \\ Cases_on ‘ty’
+    \\ gvs[do_arith_def,CaseEq"list",v_ok_thm] )
   \\ Cases_on ‘op = Opderef’ \\ gs []
   >- (
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
