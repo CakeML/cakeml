@@ -457,7 +457,7 @@ val _ = cv_auto_trans pattern_compTheory.pat_to_guard_def
 val _ = cv_auto_trans flat_patternTheory.compile_pats_def
 
 val _ = cv_trans_rec flat_patternTheory.sum_string_ords_def
-  (wf_rel_tac ‘measure $ λ(x,y). cv_size(cv_LENGTH y) - cv_size x’ >>
+  (wf_rel_tac ‘measure $ λ(x,y). cv_size(cv_mlstring_strlen y) - cv_size x’ >>
    cv_termination_tac >>
    gvs[cvTheory.c2b_def,oneline cvTheory.cv_lt_def0,AllCaseEqs(),
        oneline cvTheory.b2c_def])
@@ -819,7 +819,7 @@ Definition flat_to_clos_compile_alt_def:
      | SOME e => flat_to_clos_compile_alt m e
      | NONE => (compile_op t op (flat_to_clos_compile_alts m (REVERSE es)))) /\
   (flat_to_clos_compile_alt m (Fun t v e) =
-     (Fn (mlstring$implode t) NONE NONE 1 (flat_to_clos_compile_alt (SOME v::m) (e)))) /\
+     (Fn t NONE NONE 1 (flat_to_clos_compile_alt (SOME v::m) (e)))) /\
   (flat_to_clos_compile_alt m (If t x1 x2 x3) =
      (If t (flat_to_clos_compile_alt m (x1))
            (flat_to_clos_compile_alt m (x2))
@@ -833,7 +833,7 @@ Definition flat_to_clos_compile_alt_def:
      | _ => flat_to_clos_compile_alt m (e)) /\
   (flat_to_clos_compile_alt m (Letrec t funs e) =
      let new_m = MAP (\n. SOME (FST n)) funs ++ m in
-       (Letrec (MAP (\n. join_strings (mlstring$implode t) (mlstring$implode (FST n))) funs) NONE NONE
+       (Letrec (MAP (\n. join_strings t (FST n)) funs) NONE NONE
           (flat_to_clos_compile_lets_alt new_m funs)
           (flat_to_clos_compile_alt new_m (e)))) ∧
   (flat_to_clos_compile_lets_alt m [] = []) /\
@@ -2784,15 +2784,15 @@ QED
 
 val _ = cv_auto_trans displayLangTheory.display_to_str_tree_def;
 
-val pre = cv_trans_pre_rec "" presLangTheory.num_to_varn_def
+val pre = cv_trans_pre_rec "" presLangTheory.num_to_varn_aux_def
   (WF_REL_TAC ‘measure cv_size’
    \\ cv_termination_tac
    \\ Cases_on`cv_n`
    \\ gvs[cvTheory.cv_div_def,cvTheory.c2b_def]
    \\ intLib.ARITH_TAC);
 
-Theorem presLang_num_to_varn_pre[cv_pre]:
-  ∀n. presLang_num_to_varn_pre n
+Theorem presLang_num_to_varn_aux_pre[cv_pre]:
+  ∀n. presLang_num_to_varn_aux_pre n
 Proof
   completeInduct_on`n`>>
   rw[Once pre]
@@ -2801,6 +2801,8 @@ Proof
     intLib.ARITH_TAC)>>
   intLib.ARITH_TAC
 QED
+
+val _ = cv_auto_trans presLangTheory.num_to_varn_def;
 
 val pre = cv_trans_pre_rec "" presLangTheory.num_to_varn_list_def
   (WF_REL_TAC ‘measure (cv_size o SND)’
