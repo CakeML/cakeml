@@ -12,7 +12,6 @@ Ancestors
 Libs
   preamble
 
-
 Datatype:
   config =
   <| source_conf : source_to_flat$config
@@ -75,7 +74,7 @@ Definition compile_def:
       (asm_conf.addr_offset) p in
     let _ = empty_ffi (strlit "finished: stack_to_lab") in
     let res = attach_bitmaps names c bm
-      (lab_to_target$compile_inc asm_conf c.lab_conf (p:'a prog)) in
+      (lab_to_target$compile_inc asm_conf c.lab_conf (p:'a labLang$prog)) in
     let _ = empty_ffi (strlit "finished: lab_to_target") in
       res
 End
@@ -163,7 +162,7 @@ Definition to_lab_def:
     c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
     (asm_conf.reg_count - (LENGTH asm_conf.avoid_regs +3))
     (asm_conf.addr_offset) p in
-  (bm,c,p:'a prog,names)
+  (bm,c,p:'a labLang$prog,names)
 End
 
 Definition to_target_def:
@@ -220,7 +219,7 @@ Definition from_stack_def:
     c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
     (asm_conf.reg_count - (LENGTH asm_conf.avoid_regs +3))
     (asm_conf.addr_offset) p in
-  from_lab asm_conf c names (p:'a prog) bm
+  from_lab asm_conf c names (p:'a labLang$prog) bm
 End
 
 Definition from_word_def:
@@ -591,7 +590,7 @@ Definition compile_inc_progs_def:
         c.stack_conf.reg_names c.stack_conf.jump asm_conf.addr_offset
         reg_count2 p in
     let ps = ps with <| lab_prog := keep_progs k p |> in
-    let target = lab_to_target$compile_inc asm_conf c.lab_conf (p:'a prog) in
+    let target = lab_to_target$compile_inc asm_conf c.lab_conf (p:'a labLang$prog) in
     let ps = ps with <| target_prog := OPTION_MAP
         (\(bytes, _). (bytes, cur_bm)) target |> in
     let c = c with lab_conf updated_by (case target of NONE => I
@@ -722,7 +721,7 @@ Theorem compile_inc_progs_for_eval_eq:
         c.stack_conf.reg_names c.stack_conf.jump asm_conf.addr_offset
         reg_count2 p in
     let _ = empty_ffi (strlit "finished: stack_to_lab") in
-    let target = lab_to_target$compile_inc asm_conf c.lab_conf (p:'a prog) in
+    let target = lab_to_target$compile_inc asm_conf c.lab_conf (p:'a labLang$prog) in
     let _ = empty_ffi (strlit "finished: lab_to_target") in
     let c = c with lab_conf updated_by (case target of NONE => I
                                         | SOME (_, c') => K c') in

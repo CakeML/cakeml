@@ -4220,4 +4220,3 @@ Proof
   \\ fs [extend_with_resource_limit_def,SUBSET_DEF]
 QED
 
-val _ = export_theory();
