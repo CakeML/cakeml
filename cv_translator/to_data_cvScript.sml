@@ -129,7 +129,7 @@ val _ = cv_auto_trans (source_to_flatTheory.alloc_tags_def
                          |> PURE_ONCE_REWRITE_RULE[GSYM nsMap_alt_thm])
 
 Definition compile_decs_alt_def:
-  (compile_dec_alt (t:string list) n next env envs (ast$Dlet locs p e) =
+  (compile_dec_alt (t:mlstring list) n next env envs (ast$Dlet locs p e) =
      let n' = n + 4 in
      let xs = REVERSE (pat_bindings p []) in
      let e' = compile_exp (xs++t) env e in
@@ -245,7 +245,7 @@ Definition compile_pat_bindings_clocked_def:
     compile_pat_bindings_clocked ck t i m exp /\
   compile_pat_bindings_clocked (SUC ck) t i ((Pcon _ ps, k, x) :: m) exp = (
     let j_nms = MAP (\(j, p). let k = i + 1 + j in
-        let nm = enc_num_to_name k [] in
+        let nm = enc_num_to_name k in
         ((j, nm), (p, k, Var_local t nm))) (enumerate 0 ps) in
     let (spt, exp2) = compile_pat_bindings_clocked ck t (i + 2 + LENGTH ps)
         (MAP SND j_nms ++ m) exp in
@@ -255,13 +255,13 @@ Definition compile_pat_bindings_clocked_def:
     let spt2 = if NULL j_nms_used then spt else insert k () spt in
     (spt2, exp3)) /\
   compile_pat_bindings_clocked (SUC ck) t i ((Pas p v, k, x) :: m) exp = (
-    let nm = enc_num_to_name (i + 1) [] in
+    let nm = enc_num_to_name (i + 1) in
     let (spt, exp2) = compile_pat_bindings_clocked ck t (i + 2)
                       ((p, i + 1, Var_local t nm) :: m) exp in
     (insert k () spt, Let t (SOME v) x
                             (Let t (SOME nm) (Var_local t v) exp2))) /\
   compile_pat_bindings_clocked (SUC ck) t i ((Pref p, k, x) :: m) exp = (
-    let nm = enc_num_to_name (i + 1) [] in
+    let nm = enc_num_to_name (i + 1) in
     let (spt, exp2) = compile_pat_bindings_clocked ck t (i + 2)
         ((p, i + 1, Var_local t nm) :: m) exp in
     (insert k () spt, Let t (SOME nm) (App t (El 0) [x]) exp2))
@@ -481,7 +481,7 @@ Definition compile_exp_alt_def:
     let (i, sgx, y) = compile_exp_alt cfg x in
     let (j, sgp, ps2) = compile_match_alt cfg ps in
     let k = MAX i j + 2 in
-    let nm = enc_num_to_name k [] in
+    let nm = enc_num_to_name k in
     let v = Var_local t nm in
     let r = Raise t v in
     let exp = compile_pats cfg sgp t k v r ps2 in
@@ -499,7 +499,7 @@ Definition compile_exp_alt_def:
     let (i, sgx, y) = compile_exp_alt cfg x in
     let (j, sgp, ps2) = compile_match_alt cfg ps in
     let k = MAX i j + 2 in
-    let nm = enc_num_to_name k [] in
+    let nm = enc_num_to_name k in
     let v = Var_local t nm in
     let r = Raise t (Con t (SOME (bind_tag, NONE)) []) in
     let exp = compile_pats cfg sgp t k v r ps2 in
