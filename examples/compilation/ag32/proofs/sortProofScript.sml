@@ -3,13 +3,13 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory ag32_configProofTheory
-     ag32_memoryTheory ag32_memoryProofTheory ag32_ffi_codeProofTheory
-     ag32_machine_configTheory ag32_basis_ffiProofTheory
-     sortProgTheory sortCompileTheory;
-
-val _ = new_theory"sortProof";
+Theory sortProof
+Ancestors
+  semanticsProps backendProof ag32_configProof ag32_memory
+  ag32_memoryProof ag32_ffi_codeProof ag32_machine_config
+  ag32_basis_ffiProof sortProg sortCompile
+Libs
+  preamble
 
 Theorem sort_stdin_semantics:
   ∃io_events.
@@ -24,9 +24,12 @@ Proof
   \\ `stdin (stdin_fs input) input 0` by EVAL_TAC
   \\ drule TextIOProofTheory.stdin_get_file_content
   \\ rw[wfFS_stdin_fs, STD_streams_stdin_fs, CommandLineProofTheory.wfcl_def, clFFITheory.validArg_def]
+  \\ ‘stdin_content (stdin_fs input) = SOME input’ by
+    (simp [TextIOProofTheory.stdin_content_def, stdin_fs_def])
+  \\ fs []
   \\ asm_exists_tac \\ rw[]
-  \\ fs[valid_sort_result_def, fsFFIPropsTheory.all_lines_def]
-  \\ rfs[TextIOProofTheory.stdin_def]
+  \\ fs[valid_sort_result_def]
+  \\ rfs[TextIOProofTheory.stdin_def, good_args_def]
   \\ asm_exists_tac \\ simp[]
 QED
 
@@ -227,5 +230,3 @@ Proof
   \\ qexists_tac`clk` \\ simp[]
   \\ EVAL_TAC
 QED
-
-val _ = export_theory();

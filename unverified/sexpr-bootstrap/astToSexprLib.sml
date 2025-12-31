@@ -60,6 +60,7 @@ val int_lit = ``ast$IntLit``;
 val char_lit = ``ast$Char``;
 val word8_lit = ``ast$Word8``;
 val word64_lit = ``ast$Word64``;
+val float64_lit = prim_mk_const{Thy = "ast", Name = "Float64"}
 fun lit_to_exp t =
   let
     val (x, xs) = strip_comb t
@@ -69,13 +70,17 @@ fun lit_to_exp t =
     else if same_const x char_lit then char_to_exp h
     else if same_const x word8_lit then word_to_exp "word8" h
     else if same_const x word64_lit then word_to_exp "word64" h
+    else if same_const x float64_lit then word_to_exp "float64" h
     else string_to_exp h
   end
 
 val shift_op = ``ast$Shift``;
 val to_int_op = ``ast$WordToInt``;
+val test_op = ``ast$Test``;
 val from_int_op = ``ast$WordFromInt``;
 val ffi_op = ``ast$FFI``;
+val wordT_W8 = ``WordT W8``;
+val wordT_W64 = ``WordT W64``;
 fun op_to_exp arg =
   let
     val underscore_filter =
@@ -87,6 +92,13 @@ fun op_to_exp arg =
                         | s => underscore_filter s
     fun wordInt xs s = exp_str ((hd (map to_string xs)) ^ s)
     fun ffi xs = exp_tuple [exp_str "FFI", string_to_exp (hd xs)]
+    fun test_ty x =
+      if aconv x wordT_W8 then exp_str "Word8T" else
+      if aconv x wordT_W64 then exp_str "Word64T" else
+        exp_str (to_string x)
+    fun test xs = exp_tuple [exp_str "Test",
+                             exp_str (to_string (hd xs)),
+                             test_ty (hd (tl xs))]
     fun shift xs =
       let
         val consts = List.take (xs, 2)
@@ -100,6 +112,7 @@ fun op_to_exp arg =
     else if same_const x to_int_op then wordInt xs "toInt"
     else if same_const x from_int_op then wordInt xs "fromInt"
     else if same_const x ffi_op then ffi xs
+    else if same_const x test_op then test xs
     else exp_str (String.concat (map filtered_string (x::xs)))
   end
 

@@ -2,10 +2,11 @@
   Pretty prints the CakeML code of the Candle kernel.
   The output is produced in a file called kernel_ml.txt.
 *)
-open HolKernel boolLib bossLib
-open ml_translatorLib ml_monad_translatorTheory ml_hol_kernelProgTheory astPP
-
-val _ = new_theory"ppKernel"
+Theory ppKernel
+Ancestors
+  ml_monad_translator ml_hol_kernelProg
+Libs
+  ml_translatorLib astPP
 
 val pat = ``Dmod "Kernel" _``
 val decls = ml_hol_kernelProgTheory.candle_code_def |> concl |> rand
@@ -89,7 +90,6 @@ fun chltprinter _ _ sysp _ gs d t =
   in
     sys gs d ``App Opapp [App Opapp [Var(Short"<");^l];^r]``
   end
-val _ = add_astPP("chltprinter",``App (Chopb Lt) [x;y]``,chltprinter)
 
 val _ = enable_astPP()
 
@@ -107,5 +107,3 @@ val _ = app appthis (fst(listSyntax.dest_list decls))
 val _ = TextIO.closeOut f
 
 val _ = disable_astPP()
-
-val _ = export_theory()

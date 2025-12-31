@@ -1,13 +1,14 @@
 (*
   Translate of all to-CNF encoding functions
 *)
-open preamble basis miscTheory set_sepTheory listTheory lispProgTheory;
-open boolExpToCnfTheory quantifierExpTheory orderEncodingBoolTheory;
-open numBoolExpTheory numBoolExtendedTheory numBoolRangeTheory;
-open unorderedSetsTheory toCnfHelperTheory cnfTheory;
-open (* for parsing: *) parsingTheory source_valuesTheory;
-
-val _ = new_theory "sat_encodersProg";
+Theory sat_encodersProg
+Ancestors
+  misc set_sep list lispProg boolExpToCnf quantifierExp
+  orderEncodingBool numBoolExp numBoolExtended numBoolRange
+  unorderedSets toCnfHelper cnf
+  (* for parsing: *) parsing source_values
+Libs
+  preamble basis
 
 val _ = translation_extends "lispProg";
 
@@ -70,16 +71,12 @@ Theorem el_side:
 Proof
   gs[Once el_side_def]
   >> Induct
-  >- (rw[]
-      >> Cases_on ‘l = []’ >> gs[])
+  >- (
+    rw[]>>
+    pure_rewrite_tac[GSYM LENGTH_NIL]>>
+    intLib.ARITH_TAC)
   >> rw[]
   >> rw[Once el_side_def]
-  >- (Cases_on ‘l’ >> gs[]
-      >> Cases_on ‘t’ >> gs[])
-  >> first_x_assum (qspecl_then [‘TL l’] assume_tac)
-  >> first_x_assum irule
-  >> gs[ADD1]
-  >> Cases_on ‘l’ >> gs[]
 QED
 
 val res = translate encode_eqConst_def; (* side *)
@@ -183,5 +180,3 @@ val res = translate (exp_rangeList_ok_def |> PURE_REWRITE_RULE [MEMBER_INTRO]);
 val res = translate (numVarAssignment_range_ok_def |> PURE_REWRITE_RULE [MEMBER_INTRO]);
 val res = translate get_first_non_boolVar_num_def
 val res = translate get_boolVar_list_def
-
-val _ = export_theory();

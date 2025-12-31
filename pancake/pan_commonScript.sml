@@ -1,9 +1,9 @@
 (*
   Common definitions for Pancake compiler
 *)
-open preamble
-
-val _ = new_theory "pan_common"
+Theory pan_common
+Libs
+  preamble
 
 Definition distinct_lists_def:
   distinct_lists xs ys =
@@ -11,4 +11,3 @@ Definition distinct_lists_def:
 End
 
 
-val _ = export_theory();

@@ -1,16 +1,11 @@
 (*
   Compilation from looLang to wordLang.
 *)
-open preamble loopLangTheory
-     wordLangTheory
-     loop_removeTheory
-
-val _ = new_theory "loop_to_word"
-
-val _ = set_grammar_ancestry
-        ["loopLang", "wordLang",
-         "backend_common"];
-
+Theory loop_to_word
+Ancestors
+  loopLang wordLang backend_common[qualified] loop_remove
+Libs
+  preamble
 
 Definition find_var_def:
   find_var ctxt v =
@@ -29,6 +24,7 @@ Definition comp_exp_def :
   (comp_exp ctxt (Var n) = Var (find_var ctxt n)) /\
   (comp_exp ctxt (Lookup m) = Lookup (Temp m)) /\
   (comp_exp ctxt (BaseAddr) = Lookup CurrHeap) /\
+  (comp_exp ctxt (TopAddr) = Op Add [Lookup CurrHeap; Shift Lsl (Lookup HeapLength) 1]) /\
   (comp_exp ctxt (Load exp) = Load (comp_exp ctxt exp)) /\
   (comp_exp ctxt (Shift s exp n) = Shift s (comp_exp ctxt exp) n) /\
   (comp_exp ctxt (Op op wexps) =
@@ -99,7 +95,7 @@ Definition comp_def:
   (comp ctxt Break l = (Skip,l)) /\ (* not present in input *)
   (comp ctxt Continue l = (Skip,l)) /\ (* not present in input *)
   (comp ctxt (Raise v) l = (Raise (find_var ctxt v),l)) /\
-  (comp ctxt (Return v) l = (Return 0 (find_var ctxt v),l)) /\
+  (comp ctxt (Return v) l = (Return 0 [find_var ctxt v],l)) /\
   (comp ctxt Tick l = (Tick,l)) /\
   (comp ctxt (Mark p) l = comp ctxt p l) /\
   (comp ctxt Fail l = (Skip,l)) /\
@@ -113,17 +109,17 @@ Definition comp_def:
          let live = mk_new_cutset ctxt live in
          let new_l = (FST l, SND l+1) in
            case handler of
-           | NONE => (wordLang$Call (SOME (v,live,Skip,l)) dest args NONE, new_l)
+           | NONE => (wordLang$Call (SOME ([v],(live,LN),Skip,l)) dest args NONE, new_l)
            | SOME (n,p1,p2,_) =>
               let (p1,l1) = comp ctxt p1 new_l in
               let (p2,l1) = comp ctxt p2 l1 in
               let new_l = (FST l1, SND l1+1) in
-                (Seq (Call (SOME (v,live,p2,l)) dest args
+                (Seq (Call (SOME ([v],(live,LN),p2,l)) dest args
                    (SOME (find_var ctxt n,p1,l1))) Tick, new_l)) /\
    (comp ctxt (FFI f ptr1 len1 ptr2 len2 live) l =
       let live = mk_new_cutset ctxt live in
         (FFI f (find_var ctxt ptr1) (find_var ctxt len1)
-               (find_var ctxt ptr2) (find_var ctxt len2) live,l)) ∧
+               (find_var ctxt ptr2) (find_var ctxt len2) (live,LN),l)) ∧
    (comp ctxt (ShMem memop n e) l =
       (ShareInst memop (find_var ctxt n) (comp_exp ctxt e),l))
 End
@@ -140,14 +136,12 @@ End
   exsiting assigned variables present in the body of the program already
 *)
 
-
 Definition comp_func_def:
   comp_func name params body =
     let vs = fromNumSet (difference (acc_vars body LN) (toNumSet params)) in
     let ctxt = make_ctxt 2 (params ++ vs) LN in
       FST (comp ctxt body (name,2))
 End
-
 
 Definition compile_prog_def:
   compile_prog p = MAP (λ(name, params, body).
@@ -160,5 +154,3 @@ Definition compile_def:
      compile_prog p
 End
 
-
-val _ = export_theory();

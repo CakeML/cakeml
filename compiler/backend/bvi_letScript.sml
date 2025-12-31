@@ -38,9 +38,11 @@
    Let [compile p1; compile p2] (Var 1).
 
 *)
-open preamble bviTheory;
-
-val _ = new_theory "bvi_let";
+Theory bvi_let
+Ancestors
+  bvi
+Libs
+  preamble
 
 Definition extract_def:
   (extract ((Var n):bvi$exp) ys = n + LENGTH ys + 1) /\
@@ -90,6 +92,10 @@ Definition compile_def:
      [Raise (HD (compile env d [x1]))]) /\
   (compile env d [Op op xs] = [Op op (compile env d xs)]) /\
   (compile env d [Tick x] = [Tick (HD (compile env d [x]))]) /\
+  (compile env d [Force loc v] =
+     case LLOOKUP env v of
+     | SOME n => [Force loc (v + n)]
+     | _ => [Force loc (v + d)]) /\
   (compile env d [Call t dest xs h] =
      [Call t dest (compile env d xs)
          (case h of NONE => NONE
@@ -127,6 +133,10 @@ Definition compile_sing_def:
      (Raise ((compile_sing env d x1)))) /\
   (compile_sing env d (Op op xs) = (Op op (compile_list env d xs))) /\
   (compile_sing env d (Tick x) = (Tick (compile_sing env d x))) /\
+  (compile_sing env d (Force loc v) =
+     case LLOOKUP env v of
+     | SOME n => Force loc (v + n)
+     | _ => Force loc (v + d)) /\
   (compile_sing env d (Call t dest xs h) =
      (Call t dest (compile_list env d xs)
          (case h of NONE => NONE
@@ -137,9 +147,13 @@ Definition compile_sing_def:
 Termination
   WF_REL_TAC ‘measure $ λx. case x of
                             | INL (_,_,e) => bvi$exp_size e
-                            | INR (_,_,es) => bvi$exp2_size es’
-  \\ conj_tac \\ Cases using SNOC_CASES
-  \\ gvs [SNOC_APPEND,exp2_size_APPEND,bviTheory.exp_size_def]
+                            | INR (_,_,es) => list_size bvi$exp_size es’
+  \\ rw[bviTheory.exp_size_def]
+  \\ rename1`xs ≠ []`
+  \\ pop_assum mp_tac
+  \\ qid_spec_tac`xs`
+  \\ Cases using SNOC_CASES
+  \\ gvs [SNOC_APPEND,exp2_size_APPEND,bviTheory.exp_size_def,list_size_APPEND]
 End
 
 Theorem compile_sing:
@@ -176,4 +190,3 @@ End
 
 Theorem compile_exp_eq = compile_exp_def |> SRULE [compile_sing];
 
-val _ = export_theory();

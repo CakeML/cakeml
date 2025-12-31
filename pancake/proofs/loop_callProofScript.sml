@@ -1,12 +1,12 @@
 (*
    loop_call proof
 *)
+Theory loop_callProof
+Ancestors
+  loopSem loopProps loop_call
+Libs
+  preamble
 
-open preamble
-     loopSemTheory loopPropsTheory
-     loop_callTheory
-
-val _ = new_theory "loop_callProof";
 
 Definition labels_in_def:
   labels_in l locals =
@@ -481,4 +481,3 @@ Proof
 QED
 
 
-val _ = export_theory();

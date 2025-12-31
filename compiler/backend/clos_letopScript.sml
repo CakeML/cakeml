@@ -4,11 +4,11 @@
   into `Op op [x0; x1; ...]`, which enables further optimisation
   later, e.g. in bvi_tailrec.
 *)
-open preamble closLangTheory;
-
-val _ = new_theory "clos_letop";
-
-val _ = set_grammar_ancestry ["closLang"]
+Theory clos_letop
+Ancestors
+  closLang
+Libs
+  preamble
 
 (* let_op -- a function that optimises Let [...] (Op op [Var ...]) *)
 
@@ -52,12 +52,6 @@ Definition let_op_def:
      let new_fns = MAP (\(num_args, x). (num_args, HD (let_op [x]))) fns in
      [Letrec t loc_opt vs new_fns (HD (let_op [x1]))]) /\
   (let_op [Fn t loc_opt vs num_args x1] = [Fn t loc_opt vs num_args (HD (let_op [x1]))])
-Termination
-  WF_REL_TAC `measure exp3_size`
-   \\ simp []
-   \\ rpt strip_tac
-   \\ imp_res_tac exp1_size_lemma
-   \\ simp []
 End
 
 val let_op_ind = theorem "let_op_ind";
@@ -104,8 +98,8 @@ Definition let_op_sing_def:
 Termination
   wf_rel_tac ‘measure $ λx. case x of
                             | INL x => exp_size x
-                            | INR(INL x) => exp3_size x
-                            | INR(INR x) => exp1_size x’
+                            | INR(INL x) => list_size exp_size x
+                            | INR(INR x) => list_size (pair_size (λx. x) exp_size) x’
 End
 
 Theorem let_op_sing_eq:
@@ -126,4 +120,3 @@ Definition compile_inc_def:
   compile_inc (e, xs) = (let_op e, [])
 End
 
-val _ = export_theory();

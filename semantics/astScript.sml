@@ -1,12 +1,10 @@
 (*
   Definition of CakeML abstract syntax (AST).
 *)
-open HolKernel Parse boolLib bossLib;
-open namespaceTheory fpSemTheory fpValTreeTheory realOpsTheory;
-
-local open integerTheory wordsTheory stringTheory namespaceTheory locationTheory in end;
-val _ = new_theory "ast"
-val _ = set_grammar_ancestry ["integer", "words", "string", "namespace", "location"];
+Theory ast
+Ancestors
+  integer[qualified] words[qualified] string[qualified] namespace
+  location[qualified]
 
 (* Literal constants *)
 Datatype:
@@ -16,6 +14,7 @@ Datatype:
   | StrLit string
   | Word8 word8
   | Word64 word64
+  | Float64 word64
 End
 
 (* Built-in binary operations *)
@@ -33,6 +32,22 @@ End
 
 Datatype:
   shift = Lsl | Lsr | Asr | Ror
+End
+
+Datatype:
+  fp_cmp = FP_Less | FP_LessEqual | FP_Greater | FP_GreaterEqual | FP_Equal
+End
+
+Datatype:
+  fp_uop = FP_Abs | FP_Neg | FP_Sqrt
+End
+
+Datatype:
+  fp_bop = FP_Add | FP_Sub | FP_Mul | FP_Div
+End
+
+Datatype:
+  fp_top = FP_Fma
 End
 
 (* Module names *)
@@ -55,6 +70,30 @@ Datatype:
 End
 
 Datatype:
+  thunk_mode = Evaluated | NotEvaluated
+End
+
+Datatype:
+  thunk_op =
+    AllocThunk thunk_mode
+  | UpdateThunk thunk_mode
+  | ForceThunk
+End
+
+Datatype:
+  test = Equal | Less | Less_alt | LessEq | LessEq_alt
+End
+
+Datatype:
+  prim_type = BoolT
+            | IntT
+            | CharT
+            | StrT
+            | WordT word_size
+            | Float64T
+End
+
+Datatype:
   op =
   (* Operations on integers *)
     Opn opn
@@ -63,6 +102,7 @@ Datatype:
   | Opw word_size opw
   | Shift word_size shift num
   | Equality
+  | Test test prim_type
   (* FP operations *)
   | FP_cmp fp_cmp
   | FP_uop fp_uop
@@ -71,12 +111,6 @@ Datatype:
   (* Floating-point <-> word translations *)
   | FpFromWord
   | FpToWord
-  (* Real ops for verification *)
-  | Real_cmp real_cmp
-  | Real_uop real_uop
-  | Real_bop real_bop
-  (* Translation from floating-points to reals for verification *)
-  | RealFromFP
   (* Function application *)
   | Opapp
   (* Reference operations *)
@@ -96,10 +130,10 @@ Datatype:
   | CopyStrAw8
   | CopyAw8Str
   | CopyAw8Aw8
+  | XorAw8Str_unsafe
   (* Char operations *)
   | Ord
   | Chr
-  | Chopb opb
   (* String operations *)
   | Implode
   | Explode
@@ -117,11 +151,14 @@ Datatype:
   | Asub
   | Alength
   | Aupdate
-  (* Unsafe array accesses *)
+  (* Unsafe vector/array accesses *)
+  | Vsub_unsafe
   | Asub_unsafe
   | Aupdate_unsafe
   | Aw8sub_unsafe
   | Aw8update_unsafe
+  (* thunk operations *)
+  | ThunkOp thunk_op
   (* List operations *)
   | ListAppend
   (* Configure the GC *)
@@ -139,23 +176,15 @@ Datatype:
  op_class =
     EvalOp (* Eval primitive *)
   | FunApp (* function application *)
+  | Force (* forcing a thunk *)
   | Simple (* arithmetic operation, no finite-precision/reals *)
-  | Icing (* 64-bit floating-points *)
-  | Reals (* real numbers *)
 End
 Definition getOpClass_def[simp]:
  getOpClass op =
  case op of
-   FP_cmp _ => Icing
-  | FP_top _ => Icing
-  | FP_bop _ => Icing
-  | FP_uop _ => Icing
-  | Real_cmp _ => Reals
-  | Real_bop _ => Reals
-  | Real_uop _ => Reals
-  | RealFromFP => Reals
   | Opapp => FunApp
   | Eval => EvalOp
+  | ThunkOp t => (if t = ForceThunk then Force else Simple)
   | _ => Simple
 End
 
@@ -168,7 +197,7 @@ Datatype:
  lop = And | Or
 End
 
-(* Types *)
+(* Types used in type annotations *)
 Datatype:
  ast_t =
   (* Type variables that the user writes down ('a, 'b, etc.) *)
@@ -228,8 +257,6 @@ Datatype:
   | Tannot exp ast_t
   (* Location annotated expressions, not expected in source programs *)
   | Lannot exp locs
-  (* Floating-point optimisations *)
-  | FpOptimise fp_opt exp
 End
 
 Type type_def = ``: ( tvarN list # typeN # (conN # ast_t list) list) list``
@@ -300,12 +327,21 @@ Definition every_exp_def[simp]:
              p (Tannot e a) ∧ every_exp p e) ∧
   (every_exp p (Lannot e a) ⇔
              p (Lannot e a) ∧ every_exp p e) ∧
-  (every_exp p (FpOptimise fpopt e) ⇔
-             p (FpOptimise fpopt e) ∧ every_exp p e) ∧
   (every_exp p (Letrec funs e) ⇔
              p (Letrec funs e) ∧ every_exp p e ∧ EVERY (λ(n,v,e). every_exp p e) funs)
-Termination
-  WF_REL_TAC ‘measure $ exp_size o SND’
 End
 
-val _ = export_theory()
+Definition Seqs_def:
+  Seqs [] = Con NONE [] ∧
+  Seqs (x::xs) = Let NONE x (Seqs xs)
+End
+
+Definition Apps_def:
+  Apps f [] = f ∧
+  Apps f (x::xs) = Apps (App Opapp [f; x]) xs
+End
+
+Definition Funs_def:
+  Funs [] e = e ∧
+  Funs (x::xs) e = Fun x (Funs xs e)
+End

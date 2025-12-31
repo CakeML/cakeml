@@ -2,11 +2,13 @@
   Define new version of CakeML complier where asm_conf is lifted out to
   be a separate argument and where inc_config is used instead of config.
 *)
+Theory backend_asm
+Ancestors
+  backend lab_to_target backend_enc_dec backend_passes
+  evaluate_dec
+Libs
+  preamble
 
-open preamble backendTheory lab_to_targetTheory backend_enc_decTheory;
-open backend_passesTheory evaluate_decTheory;
-
-val _ = new_theory "backend_asm";
 
 (*----------------------------------------------------------------*
     Early passes adjusted to use inc_config
@@ -571,7 +573,8 @@ Definition to_bvl_all_def:
            call_state := (g,aux)|> in
     let init_stubs = toAList (init_code c1.max_app) in
     let init_globs =
-            [(num_stubs c1.max_app − 1,0,
+            [(num_stubs c1.max_app − 2, 2, force_thunk_code);
+             (num_stubs c1.max_app − 1, 0,
               init_globals c1.max_app (num_stubs c1.max_app + c1.start))] in
     let comp_progs = clos_to_bvl$compile_prog c1.max_app prog in
     let prog' = init_stubs ++ init_globs ++ comp_progs in
@@ -649,7 +652,7 @@ Definition to_word_all_def:
               ((name_num,arg_count,
                remove_must_terminate
                  (case word_alloc_inlogic asm_conf prog col_opt of
-                  | NONE => Skip
+                  | NONE => FFI "reg alloc fail" 0 0 0 0 (LN,LN)
                   | SOME x => x)))) (ZIP (p,n_oracles)) in
     let ps = ps ++ [(strlit "after word_alloc (and remove_must_terminate)",Word p names)] in
     let c = c with inc_word_to_word_conf updated_by (λc. c with col_oracle := col) in
@@ -705,4 +708,3 @@ Proof
   metis_tac []
 QED
 
-val _ = export_theory();

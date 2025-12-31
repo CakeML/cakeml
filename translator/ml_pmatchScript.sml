@@ -2,14 +2,13 @@
   Theory support for translation of deeply-embedded (PMATCH-based)
   pattern-matches occurring in HOL functions.
 *)
-open preamble
-     astTheory semanticPrimitivesTheory
-     patternMatchesTheory patternMatchesLib
-     ml_progTheory ml_translatorTheory evaluateTheory
-     semanticPrimitivesPropsTheory evaluatePropsTheory;
-open ml_translatorTheory integerTheory;
-
-val _ = new_theory "ml_pmatch";
+Theory ml_pmatch
+Ancestors
+  ast semanticPrimitives patternMatches ml_prog ml_translator
+  evaluate semanticPrimitivesProps evaluateProps ml_translator
+  integer
+Libs
+  preamble patternMatchesLib
 
 val write_def = ml_progTheory.write_def;
 
@@ -58,8 +57,6 @@ Definition Pmatch_def:
    | _ => NONE) ∧
   (Pmatch env refs [Ptannot p t] [v] = Pmatch env refs [p] [v]) ∧
   (Pmatch env refs _ _ = NONE)
-Termination
-  WF_REL_TAC`measure (pat1_size o FST o SND o SND)`
 End
 
 val Pmatch_ind = theorem"Pmatch_ind"
@@ -315,4 +312,3 @@ Proof
   fs [CONTAINER_def]
 QED
 
-val _ = export_theory()

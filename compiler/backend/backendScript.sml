@@ -3,23 +3,15 @@
   a single compile function which is connected (in ../compilerScript.sml)
   to the front-end, i.e. parsing and type inference.
 *)
+Theory backend
+Ancestors
+  source_to_source source_to_flat flat_to_clos clos_to_bvl
+  bvl_to_bvi bvi_to_data data_to_word word_to_stack stack_to_lab
+  lab_to_target word_to_word jsonLang presLang
+  primTypes[qualified]
+Libs
+  preamble
 
-open preamble
-     source_to_sourceTheory
-     source_to_flatTheory
-     flat_to_closTheory
-     clos_to_bvlTheory
-     bvl_to_bviTheory
-     bvi_to_dataTheory
-     data_to_wordTheory
-     word_to_wordTheory
-     word_to_stackTheory
-     stack_to_labTheory
-     lab_to_targetTheory
-local open primTypesTheory in end
-open jsonLangTheory presLangTheory
-
-val _ = new_theory"backend";
 
 Datatype:
   config =
@@ -384,13 +376,13 @@ Definition from_livesets_def:
   from_word asm_conf c names p
 End
 
-Triviality ZIP_MAP_MAP:
+Theorem ZIP_MAP_MAP[local]:
   ∀xs. ZIP (MAP f xs, MAP g xs) = MAP (λx. (f x, g x)) xs
 Proof
   Induct \\ fs []
 QED
 
-Triviality EL_ZIP_MAP:
+Theorem EL_ZIP_MAP[local]:
   ∀p q x.
     x < LENGTH q ∧ x < LENGTH p ⇒
     (EL x (ZIP (q, MAP f p))) = (λ(y,x). (x,f y)) (EL x (ZIP (p,q)))
@@ -799,4 +791,3 @@ Proof
 QED
 *)
 
-val _ = export_theory();

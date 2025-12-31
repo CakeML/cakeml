@@ -1,0 +1,83 @@
+(*
+  Build a CakeML program implementing Scheme-to-Cake compiler
+*)
+Theory scheme_compilerProg
+Ancestors
+  to_sexpProg scheme_ast scheme_parsing scheme_to_cake
+  scheme_compiler
+Libs
+  preamble basis
+
+val _ = translation_extends "to_sexpProg";
+
+(* parsing *)
+
+val r = translate (delimits_next_def |> SRULE [MEMBER_INTRO]);
+val r = translate (read_bool_def |> SRULE [MEMBER_INTRO]);
+val r = translate read_num_def;
+val r = translate read_word_def;
+val r = translate end_line_def;
+val r = translate (lex_def |> SRULE [MEMBER_INTRO]);
+val r = translate lexer_def;
+(*val r = translate scheme_valuesTheory.list_def;*)
+(*val r = translate scheme_valuesTheory.name_def;*)
+val r = translate scheme_valuesTheory.head_def;
+(*val r = translate quote_def;*)
+val r = translate (IN_UNION |> SIMP_RULE bool_ss [SPECIFICATION]);
+val r = translate LIST_TO_SET_DEF;
+val r = translate static_scope_def;
+val r = translate parse_def;
+val r = translate pair_to_list_def;
+val r = translate cons_formals_def;
+val r = translate cons_ast_def;
+val r = translate EMPTY_DEF;
+val r = translate static_scope_check_def;
+val r = translate parse_to_ast_def;
+
+(* codegen *)
+
+val r = translate locationTheory.unknown_loc_def;
+val r = translate lit_to_ml_val_def;
+val r = translate cake_print_def;
+val r = translate cons_list_def;
+val r = translate proc_ml_def;
+val r = translate letpreinit_ml_def;
+val r = translate refunc_set_def;
+val r = translate letinit_ml_def;
+val r = translate cps_transform_def;
+val r = translate compile_scheme_prog_def;
+val r = translate scheme_basis_types_def;
+val r = translate scheme_basis_def;
+val r = translate scheme_basis_list_def;
+val r = translate scheme_basis_app_def;
+val r = translate codegen_def;
+
+(* top-level compiler *)
+
+val r = translate cake_prog_to_string_def;
+val r = translate cake_for_err_def;
+val r = translate compile_def;
+val r = translate main_function_def;
+
+(* main function *)
+
+val _ = type_of “main_function” = “:mlstring -> mlstring”
+        orelse failwith "The main_function has the wrong type.";
+
+val main = process_topdecs
+           `print (main_function (TextIO.inputAll (TextIO.openStdIn ())));`;
+
+val prog =
+  get_ml_prog_state ()
+  |> ml_progLib.clean_state
+  |> ml_progLib.remove_snocs
+  |> ml_progLib.get_thm
+  |> REWRITE_RULE [ml_progTheory.ML_code_def]
+  |> concl |> rator |> rator |> rand
+  |> (fn tm => “^tm ++ ^main”)
+  |> EVAL |> concl |> rand;
+
+Definition scheme_compiler_prog_def:
+  scheme_compiler_prog = ^prog
+End
+

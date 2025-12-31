@@ -1,11 +1,13 @@
 (*
   The formal semantics of BVL
 *)
-open preamble bvlTheory closSemTheory
-open clos_to_bvlTheory (* for closure_tag and num_added_globals *)
-local open backendPropsTheory in end;
-
-val _ = new_theory"bvlSem"
+Theory bvlSem
+Ancestors
+  bvl closSem
+  clos_to_bvl (* for closure_tag and num_added_globals *)
+  backendProps[qualified]
+Libs
+  preamble
 
 val _ = Parse.hide "str";
 
@@ -18,6 +20,7 @@ Datatype:
                   F = compare-by-pointer, mutable *)
                (* in closLang all are ByteArray F,
                   ByteArray T introduced in BVL to implement ByteVector *)
+      | Thunk thunk_mode 'a
 End
 
 (* these parts are shared by bytecode and, if bytecode is to be supported, need
@@ -74,7 +77,7 @@ Definition isClos_def:
   isClos t1 l1 = (((t1 = closure_tag) \/ (t1 = partial_app_tag)) /\ l1 <> [])
 End
 
-Definition do_eq_def:
+Definition do_eq_def[simp]:
   (do_eq _ (CodePtr _) _ = Eq_type_error) ∧
   (do_eq _ _ (CodePtr _) = Eq_type_error) ∧
   (do_eq _ (Number n1) (Number n2) = (Eq_val (n1 = n2))) ∧
@@ -107,10 +110,7 @@ Definition do_eq_def:
    | Eq_val F => Eq_val F
    | bad => bad) ∧
   (do_eq_list _ _ _ = Eq_val F)
-Termination
-  WF_REL_TAC `measure (\x. case x of INL (_,v1,v2) => v_size v1 | INR (_,vs1,vs2) => v1_size vs1)`
 End
-val _ = export_rewrites["do_eq_def"];
 
 Overload Error[local] = ``(Rerr(Rabort Rtype_error)):(bvlSem$v#('c,'ffi) bvlSem$state, bvlSem$v)result``
 
@@ -199,6 +199,14 @@ Definition do_word_app_def:
         | SOME (w1,w2) => SOME (Number &(w2n (opw_lookup opw w1 w2))))) /\
   do_word_app (WordOpw W64 opw) [Word64 w1; Word64 w2] =
         SOME (Word64 (opw_lookup opw w1 w2)) /\
+  do_word_app (WordTest W8 test) [Number n1; Number n2] =
+       (if 0 ≤ n1 ∧ n1 < 256 ∧ 0 ≤ n2 ∧ n2 < 256 then
+          (case test of
+           | Equal  => SOME (Boolv (n1 = n2))
+           | Less   => SOME (Boolv (n1 < n2))
+           | LessEq => SOME (Boolv (n1 <= n2))
+           | _ => NONE)
+        else NONE) /\
   do_word_app (WordShift W8 sh n) [Number i] =
        (case some (w:word8). i = &(w2n w) of
         | NONE => NONE
@@ -264,6 +272,10 @@ Definition do_app_def:
          else Rval (Unit, s with globals := s.globals ++ REPLICATE (Num i) NONE))
     | (Install,vs) => do_install vs s
     | (BlockOp (Cons tag),xs) => Rval (Block tag xs, s)
+    | (BlockOp (BoolTest test),[v1;v2]) =>
+        (if (v1 ≠ Boolv T ∧ v1 ≠ Boolv F) then Error else
+         if (v2 ≠ Boolv T ∧ v2 ≠ Boolv F) then Error else
+           Rval (Boolv (v1 = v2), s))
     | (BlockOp (Build parts),[]) =>
         (let (v,rs) = do_build_const parts s.refs in Rval (v, s with refs := rs))
     | (BlockOp (ConsExtend tag),Block _ xs'::Number lower::Number len::Number tot::xs) =>
@@ -377,6 +389,13 @@ Definition do_app_def:
                     refs := s.refs |+ (ptr, ByteArray T ds))
             | _ => Error)
         | _ => Error)
+    | (MemOp XorByte,[RefPtr _ dst; RefPtr _ src]) =>
+        (case (FLOOKUP s.refs src, FLOOKUP s.refs dst) of
+         | (SOME (ByteArray _ ws), SOME (ByteArray fl ds)) =>
+           (case xor_bytes ws ds of
+            | SOME ds1 => Rval (Unit, s with refs := s.refs |+ (dst, ByteArray fl ds1))
+            | NONE => Error)
+         | _ => Error)
     | (BlockOp (TagEq n),[Block tag xs]) =>
         Rval (Boolv (tag = n), s)
     | (BlockOp (LenEq l),[Block tag xs]) =>
@@ -451,6 +470,17 @@ Definition do_app_def:
            | _ => Error)
          | _ => Error)
     | (MemOp ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
+    | (ThunkOp th_op, vs) =>
+        (case (th_op,vs) of
+         | (AllocThunk m, [v]) =>
+             (let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
+                Rval (RefPtr F ptr, s with refs := s.refs |+ (ptr,Thunk m v)))
+         | (UpdateThunk m, [RefPtr _ ptr; v]) =>
+             (case FLOOKUP s.refs ptr of
+              | SOME (Thunk NotEvaluated _) =>
+                 Rval (Unit, s with refs := s.refs |+ (ptr,Thunk m v))
+              | _ => Error)
+         | _ => Error)
     | _ => Error
 End
 
@@ -478,6 +508,25 @@ Definition find_code_def:
        | other => NONE)
 End
 
+(* Functions for working with thunks *)
+
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk (RefPtr _ ptr) refs =
+    (case FLOOKUP refs ptr of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk _ refs = NotThunk
+End
+
 (* The evaluation is defined as a clocked functional version of
    a conventional big-step operational semantics. *)
 
@@ -490,7 +539,7 @@ Definition fix_clock_def:
   fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
 End
 
-Triviality fix_clock_IMP:
+Theorem fix_clock_IMP[local]:
   fix_clock s x = (res,s1) ==> s1.clock <= s.clock
 Proof
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
@@ -531,13 +580,30 @@ Definition evaluate_def:
      | (Rerr(Rraise v),s) => evaluate ([x2],v::env,s)
      | res => res) /\
   (evaluate ([Op op xs],env,s) =
-     case evaluate (xs,env,s) of
-     | (Rval vs,s) => (case do_app op (REVERSE vs) s of
-                          | Rerr err => (Rerr err,s)
-                          | Rval (v,s) => (Rval [v],s))
+     case fix_clock s (evaluate (xs,env,s)) of
+     | (Rval vs,s) =>
+         (case do_app op (REVERSE vs) s of
+          | Rerr err => (Rerr err,s)
+          | Rval (v,s) => (Rval [v],s))
      | res => res) /\
   (evaluate ([Tick x],env,s) =
-     if s.clock = 0 then (Rerr(Rabort Rtimeout_error),s) else evaluate ([x],env,dec_clock 1 s)) /\
+     if s.clock = 0 then (Rerr(Rabort Rtimeout_error),s)
+     else evaluate ([x],env,dec_clock 1 s)) /\
+  (evaluate ([Force force_loc n],env,s) =
+     if ~(n < LENGTH env) then (Rerr(Rabort Rtype_error),s) else
+       let thunk_v = EL n env in
+         case dest_thunk thunk_v s.refs of
+         | BadRef => (Rerr (Rabort Rtype_error),s)
+         | NotThunk => (Rerr (Rabort Rtype_error),s)
+         | IsThunk Evaluated v => (Rval [v],s)
+         | IsThunk NotEvaluated f =>
+             (case find_code (SOME force_loc) [thunk_v; f] s.code of
+              | NONE => (Rerr(Rabort Rtype_error),s)
+              | SOME (args,exp) =>
+                  if s.clock = 0 then
+                    (Rerr(Rabort Rtimeout_error),s with clock := 0)
+                  else
+                    evaluate ([exp],args,dec_clock 1 s))) /\
   (evaluate ([Call ticks dest xs],env,s1) =
      case fix_clock s1 (evaluate (xs,env,s1)) of
      | (Rval vs,s) =>
@@ -548,7 +614,7 @@ Definition evaluate_def:
                   evaluate ([exp],args,dec_clock (ticks + 1) s))
      | res => res)
 Termination
-  WF_REL_TAC `(inv_image (measure I LEX measure exp1_size)
+  WF_REL_TAC `(inv_image (measure I LEX measure (list_size exp_size))
                          (\(xs,env,s). (s.clock,xs)))`
   \\ rpt strip_tac
   \\ simp[dec_clock_def]
@@ -674,5 +740,3 @@ End
 (* clean up *)
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
-
-val _ = export_theory()

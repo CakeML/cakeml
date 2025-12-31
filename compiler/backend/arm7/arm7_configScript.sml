@@ -1,9 +1,11 @@
 (*
   Define the compiler configuration for ARMv7
 *)
-open preamble backendTheory arm7_targetTheory arm7_targetLib
-
-val _ = new_theory"arm7_config";
+Theory arm7_config
+Ancestors
+  backend arm7_target
+Libs
+  preamble arm7_targetLib
 
 Definition arm7_names_def:
   arm7_names =
@@ -54,4 +56,3 @@ Definition arm7_backend_config_def:
                |>
 End
 
-val _ = export_theory();

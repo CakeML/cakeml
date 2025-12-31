@@ -1,9 +1,11 @@
 (*
   Useful predicates on the CakeML ast.
  *)
-open preamble astTheory semanticPrimitivesPropsTheory;
-
-val _ = new_theory "ast_extras";
+Theory ast_extras
+Ancestors
+  ast semanticPrimitivesProps
+Libs
+  preamble
 
 Definition every_exp_def[simp]:
   (every_exp f (Raise e) <=>
@@ -48,15 +50,13 @@ Definition every_exp_def[simp]:
   (every_exp f (Lannot e l) <=>
     f (Lannot e l) /\
     every_exp f e) /\
-  (every_exp f (FpOptimise fpopt e) <=>
-    f (FpOptimise fpopt e) /\
-    every_exp f e) /\
   (every_exp f e <=> f e)
 Termination
   WF_REL_TAC `measure (exp_size o SND)`
-  \\ rw [exp_size_eq, MEM_MAP, EXISTS_PROD]
-  \\ gvs [MEM_SPLIT, list_size_append, list_size_def,
-          basicSizeTheory.pair_size_def]
+  \\ rw [list_size_pair_size_MAP_FST_SND]
+  \\ drule MEM_list_size
+  \\ disch_then(qspec_then `exp_size` mp_tac)
+  \\ simp[]
 End
 
 Theorem every_exp_the[simp]:
@@ -79,8 +79,6 @@ Definition every_pat_def[simp]:
   every_pat f (Pas p s) = (f (Pas p s) ∧ every_pat f p) ∧
   every_pat f (Ptannot p t) = (f (Ptannot p t) ∧ every_pat f p) ∧
   every_pat f p = f p
-Termination
-  wf_rel_tac ‘measure (pat_size o SND)’
 End
 
 Theorem every_pat_the[simp]:
@@ -107,8 +105,6 @@ Definition every_dec_def[simp]:
      EVERY (every_dec f) ds2) /\
   (every_dec f d <=>
      f d)
-Termination
-  WF_REL_TAC `measure (dec_size o SND)`
 End
 
 Definition freevars_def[simp]:
@@ -134,10 +130,7 @@ Definition freevars_def[simp]:
                                        {Short fn; Short vn}) f)) ∪
        (freevars x DIFF set (MAP (Short o FST) f))) ∧
   freevars (Tannot x t) = freevars x ∧
-  freevars (Lannot x l) = freevars x ∧
-  freevars (FpOptimise fpopt e) = freevars e
-Termination
-  wf_rel_tac ‘measure exp_size’
+  freevars (Lannot x l) = freevars x
 End
 
 (* Partial applications of closures.
@@ -151,4 +144,3 @@ Definition do_partial_app_def:
     | _ => NONE
 End
 
-val _ = export_theory ();

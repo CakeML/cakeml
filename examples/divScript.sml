@@ -1,12 +1,13 @@
 (*
   Examples of non-termination.
 *)
-open preamble basis
-open integerTheory cfDivTheory cfDivLib
+Theory div
+Ancestors
+  integer cfDiv mlbasicsProg Word8Prog
+Libs
+  preamble basis cfDivLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory "div";
 
 val _ = translation_extends "basisProg";
 
@@ -32,7 +33,7 @@ QED
 
 (* Lemma needed for examples with integers *)
 
-Triviality eq_v_INT_thm:
+Theorem eq_v_INT_thm[local]:
   (INT --> INT --> BOOL) $= eq_v
 Proof
   metis_tac[DISCH_ALL mlbasicsProgTheory.eq_v_thm,EqualityType_NUM_BOOL]
@@ -292,6 +293,12 @@ Proof
   \\ xcon \\ xsimpl
 QED
 
+Theorem eq_v_WORD8_thm[local]:
+  (WORD8 --> WORD8 --> BOOL) $= eq_v
+Proof
+  metis_tac[DISCH_ALL mlbasicsProgTheory.eq_v_thm,EqualityType_NUM_BOOL]
+QED
+
 Theorem get_char_spec:
   !uv c input events.
   limited_parts names p /\ UNIT_TYPE () uv ==>
@@ -324,6 +331,7 @@ Proof
              names_def, SNOC_APPEND, EVAL ``REPLICATE 2 0w``, State_def]
       \\ xsimpl)
     \\ rpt (xlet_auto THEN1 xsimpl)
+    \\ assume_tac eq_v_WORD8_thm
     \\ xlet_auto THEN1 (xsimpl \\ fs [WORD_def])
     \\ xif \\ instantiate
     \\ rpt (xlet_auto THEN1 xsimpl)
@@ -900,7 +908,7 @@ Proof
   rw[FUN_EQ_THM,cell_def,REF_def,SEP_EXISTS,cond_STAR]
 QED
 
-Triviality LTAKE_LNTH_EQ:
+Theorem LTAKE_LNTH_EQ[local]:
   !x ll y. LTAKE (LENGTH x) ll = SOME x
    /\ y < LENGTH x
    ==> LNTH y ll = SOME(EL y x)
@@ -1000,7 +1008,7 @@ Proof
   metis_tac[]
 QED
 
-Triviality push_cond:
+Theorem push_cond[local]:
   m ~~>> v * (&C * B) = cond C * (m ~~>> v * B)
 /\ m ~~>> v * &C = &C * m ~~>> v
 /\ REF_LIST rv rvs A l * (&C * B) = cond C * (REF_LIST rv rvs A l * B)
@@ -1009,14 +1017,14 @@ Proof
   simp[AC STAR_COMM STAR_ASSOC]
 QED
 
-Triviality EL_LENGTH_TAKE:
+Theorem EL_LENGTH_TAKE[local]:
   !h e. EL (LENGTH l) (h::TAKE (LENGTH l) (e::l))
    = EL(LENGTH l) (h::e::l)
 Proof
   Induct_on `l` >> fs[]
 QED
 
-Triviality EL_LENGTH_TAKE2:
+Theorem EL_LENGTH_TAKE2[local]:
   !h e l. n < LENGTH l ==>
    EL n (h::TAKE n (e::l))
    = EL n (h::e::l)
@@ -1025,7 +1033,7 @@ Proof
  Cases_on `l` >> fs[]
 QED
 
-Triviality PRE_SUB:
+Theorem PRE_SUB[local]:
   !n. n <> 0 ==> PRE n = n - 1
 Proof
   Cases >> simp[]
@@ -1125,7 +1133,7 @@ Proof
   simp[]
 QED
 
-Triviality highly_specific_MOD_lemma:
+Theorem highly_specific_MOD_lemma[local]:
   !n a. n < a
    ==> (n + 2) MOD (a + 1)
     = if n + 1 = a then 0 else (n + 1) MOD a + 1
@@ -1133,7 +1141,7 @@ Proof
   rw[] >> rw[]
 QED
 
-Triviality highly_specific_MOD_lemma2:
+Theorem highly_specific_MOD_lemma2[local]:
   0 < LENGTH l
   ==>
   EL ((i+1) MOD LENGTH l) (CONS (LAST l) (FRONT l))
@@ -1148,7 +1156,7 @@ Cases_on `1 < LENGTH l` >-
       pop_assum(fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
       simp[ONE_MOD] >>
       Q.ISPEC_THEN `l` assume_tac SNOC_CASES >>
-      fs[] >> rveq >> fs[EL_APPEND2]) >>
+      fs[] >> rveq >> fs[EL_APPEND2,SNOC_APPEND]) >>
    drule(GSYM MOD_PLUS) >>
    disch_then(qspecl_then[`i`,`1`] mp_tac) >>
    disch_then(fn thm => PURE_ONCE_REWRITE_TAC [thm]) >>
@@ -1163,7 +1171,7 @@ Cases_on `1 < LENGTH l` >-
    simp[DECIDE ``!n. PRE(n+1) = n``] >>
    match_mp_tac EL_FRONT >>
    Q.ISPEC_THEN `l` assume_tac SNOC_CASES >>
-   fs[] >> rveq >> fs[FRONT_APPEND]) >>
+   fs[] >> rveq >> fs[FRONT_APPEND,SNOC_APPEND]) >>
   Cases_on `l` >> fs[] >> Cases_on `t` >> fs[]
 QED
 
@@ -1190,7 +1198,7 @@ Proof
   >> Cases_on `t` >> fs[]
 QED
 
-Triviality LNTH_LREPEAT_ub:
+Theorem LNTH_LREPEAT_ub[local]:
   !n l.
     (l <> []
     /\
@@ -1246,7 +1254,7 @@ Proof
   simp[SUB_MOD]
 QED
 
-Triviality LPREFIX_ub_LAPPEND:
+Theorem LPREFIX_ub_LAPPEND[local]:
   l <> [] /\
    (∀x.
     LPREFIX
@@ -1427,5 +1435,3 @@ Proof
   xlet_auto >- (xcon >> xsimpl) >>
   xvar >> xsimpl
 QED
-
-val _ = export_theory();

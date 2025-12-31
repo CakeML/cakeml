@@ -1,14 +1,14 @@
 (*
   Proofs about how the REPL uses types and the type inferencer
 *)
-open preamble
-open semanticsPropsTheory evaluateTheory semanticPrimitivesTheory
-open inferTheory inferSoundTheory typeSoundTheory semanticsTheory
-     envRelTheory primSemEnvTheory typeSoundInvariantsTheory
-     namespacePropsTheory inferPropsTheory repl_check_and_tweakTheory
-open ml_progTheory evaluate_skipTheory evaluate_initTheory
-
-val _ = new_theory "repl_types";
+Theory repl_types
+Ancestors
+  semanticsProps evaluate semanticPrimitives infer inferSound
+  typeSound semantics envRel primSemEnv typeSoundInvariants
+  namespaceProps inferProps repl_check_and_tweak ml_prog
+  evaluate_skip evaluate_init
+Libs
+  preamble
 
 Datatype:
   simple_type = Bool | Str | Exn
@@ -978,8 +978,7 @@ Theorem repl_types_skip_alt:
   s1.clock ≤ s.clock ∧
   s.eval_state = s1.eval_state ∧
   s.next_type_stamp ≤ s1.next_type_stamp ∧
-  s.next_exn_stamp ≤ s1.next_exn_stamp ∧
-  s.fp_state = s1.fp_state ⇒
+  s.next_exn_stamp ≤ s1.next_exn_stamp ⇒
   repl_types T (ffi,rs) (t,s1,env)
 Proof
   rw [] \\ gvs [LESS_EQ_EXISTS,rich_listTheory.IS_PREFIX_APPEND]
@@ -1030,7 +1029,7 @@ Proof
   \\ rpt (first_assum $ irule_at Any)
 QED
 
-Triviality INJ_count_ADD:
+Theorem INJ_count_ADD[local]:
   INJ f a (count k) ⇒ INJ f a (count (t + k))
 Proof
   fs [INJ_DEF] \\ rw [] \\ res_tac \\ fs []
@@ -1186,5 +1185,3 @@ Proof
   \\ Cases_on ‘r’ \\ fs []
   \\ Cases_on ‘e’ \\ fs []
 QED
-
-val _ = export_theory();

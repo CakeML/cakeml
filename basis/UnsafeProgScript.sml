@@ -9,10 +9,11 @@
     Unsafe.w8sub -- unsafe version of Word8Array.sub
     Unsafe.w8update -- unsafe version of Word8Array.update
 *)
-open preamble ml_translatorLib ml_progLib basisFunctionsLib
-     basisProgTheory
-
-val _ = new_theory"UnsafeProg"
+Theory UnsafeProg
+Ancestors
+  basisProg
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
 
 val _ = translation_extends"basisProg"
 
@@ -30,6 +31,15 @@ val () = append_decs
        (Fun "x" (Fun "y" (Fun "z"
          (App Aw8update_unsafe [Var (Short "x"); Var (Short "y"); Var (Short "z")])))) ]``;
 
-val _ = ml_prog_update (close_module NONE);
+val () = append_decs
+   ``[mk_binop "w8xor_str" XorAw8Str_unsafe]``;
 
-val _ = export_theory ()
+Definition vsub_def[simp]:
+  vsub v n = sub_unsafe v n
+End
+
+val _ = (next_ml_names := ["vsub"]);
+val _ = translate vsub_def;
+val _ = update_precondition (fetch "-" "vsub_side_def");
+
+val _ = ml_prog_update (close_module NONE);

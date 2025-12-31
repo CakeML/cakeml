@@ -1,15 +1,15 @@
 (*
   Proves an end-to-end correctness theorem for the bootstrapped compiler.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory
-     ag32_configProofTheory ag32_machine_configTheory
-     ag32_memoryProofTheory ag32_basis_ffiProofTheory ag32_ffi_codeProofTheory
-     compiler32ProgTheory ag32BootstrapTheory
+Theory ag32BootstrapProof
+Ancestors
+  repl_decs_allowed semanticsProps backendProof ag32_configProof
+  ag32_machine_config ag32_memoryProof ag32_basis_ffiProof
+  ag32_ffi_codeProof compiler32Prog ag32Bootstrap
+Libs
+  preamble
 
-val _ = new_theory"ag32BootstrapProof";
-
-Triviality with_clos_conf_simp:
+Theorem with_clos_conf_simp[local]:
     (mc_init_ok (ag32_backend_config with <| clos_conf := z ; bvl_conf updated_by
                     (λc. c with <|inline_size_limit := t1; exp_cut := t2|>) |>) =
      mc_init_ok ag32_backend_config) /\
@@ -33,7 +33,7 @@ Definition compiler_instance_def:
        decs_v := LIST_v AST_DEC_v |>
 End
 
-Triviality compiler_instance_lemma:
+Theorem compiler_instance_lemma[local]:
   INJ compiler_instance.config_v 𝕌(:inc_config) 𝕌(:semanticPrimitives$v) ∧
   compiler_instance.init_state = config_to_inc_config cake_config ∧
   compiler_instance.compiler_fun =
@@ -562,5 +562,3 @@ Proof
   \\ goal_assum(first_assum o mp_then Any mp_tac)
   \\ metis_tac[]
 QED
-
-val _ = export_theory();

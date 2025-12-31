@@ -2,9 +2,11 @@
   This compilation pass performs a copy propagation phase.
   NOTE: Copy propagation may be incomplete if input is not in SSA form.
 *)
-open preamble wordLangTheory reg_allocTheory;
-
-val _ = new_theory "word_copy";
+Theory word_copy
+Ancestors
+  wordLang reg_alloc
+Libs
+  preamble
 
 (*
   The copy propagator does the "propagation" but
@@ -151,6 +153,14 @@ Definition copy_prop_inst_def:
     let a' = lookup_eq cs a in
     let r' = lookup_eq cs r in
       (Inst (Mem Store8 r' (Addr a' w)),cs)) ∧
+  (copy_prop_inst (Mem Load16 r (Addr a w)) cs =
+    let a' = lookup_eq cs a in
+      (Inst (Mem Load16 r (Addr a' w)),
+        remove_eq cs r)) ∧
+  (copy_prop_inst (Mem Store16 r (Addr a w)) cs =
+    let a' = lookup_eq cs a in
+    let r' = lookup_eq cs r in
+      (Inst (Mem Store16 r' (Addr a' w)),cs)) ∧
   (copy_prop_inst (Mem Load32 r (Addr a w)) cs =
     let a' = lookup_eq cs a in
       (Inst (Mem Load32 r (Addr a' w)),
@@ -247,7 +257,7 @@ Definition copy_prop_prog_def:
     copy_prop_inst i cs) ∧
   (copy_prop_prog (Return v1 v2) cs =
     let v1' = lookup_eq cs v1 in
-    let v2' = lookup_eq cs v2 in
+    let v2' = MAP (lookup_eq cs) v2 in
       (Return v1' v2',cs)) ∧
   (copy_prop_prog (Raise v) cs =
     let v' = lookup_eq cs v in
@@ -317,4 +327,3 @@ Definition copy_prop_def:
     FST (copy_prop_prog e empty_eq)
 End
 
-val _ = export_theory();

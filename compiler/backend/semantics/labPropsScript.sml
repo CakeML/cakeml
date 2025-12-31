@@ -1,19 +1,19 @@
 (*
   Properties about labLang and its semantics
 *)
-open preamble ffiTheory wordSemTheory labSemTheory lab_to_targetTheory
-     semanticsPropsTheory;
-
-val _ = new_theory"labProps";
+Theory labProps
+Ancestors
+  ffi wordSem labSem lab_to_target semanticsProps
+Libs
+  preamble
 
 val _ = Parse.hide"mem";
 
-Definition extract_labels_def:
+Definition extract_labels_def[simp]:
   (extract_labels [] = []) ∧
   (extract_labels ((Label l1 l2 _)::xs) = (l1,l2):: extract_labels xs) ∧
   (extract_labels (x::xs) = extract_labels xs)
 End
-val _ = export_rewrites["extract_labels_def"];
 
 val extract_labels_ind = theorem"extract_labels_ind";
 
@@ -24,13 +24,12 @@ Proof
   Induct>>fs[extract_labels_def]>>Cases_on`h`>>rw[extract_labels_def]
 QED
 
-Definition labs_of_def:
+Definition labs_of_def[simp]:
   labs_of (LocValue _ (Lab n1 n2)) = {(n1,n2)} ∧
   labs_of (Jump (Lab n1 n2)) = {(n1,n2)} ∧
   labs_of (JumpCmp _ _ _ (Lab n1 n2)) = {(n1,n2)} ∧
   labs_of _ = {}
 End
-val _ = export_rewrites["labs_of_def"];
 
 Definition line_get_labels_def:
   line_get_labels (LabAsm a _ _ _) = labs_of a ∧
@@ -52,11 +51,10 @@ Proof
   rw[get_labels_def]
 QED
 
-Definition line_get_code_labels_def:
+Definition line_get_code_labels_def[simp]:
   line_get_code_labels (Label _ l _) = {l} ∧
   line_get_code_labels _ = {}
 End
-val _ = export_rewrites["line_get_code_labels_def"];
 
 Definition sec_get_code_labels_def:
   sec_get_code_labels (Section n1 lines) =
@@ -584,9 +582,9 @@ Proof
   \\ every_case_tac \\ fs[]
   \\ imp_res_tac mem_load_32_align_dm
   \\ fs[]
-  \\ fs[mem_load_32_def]
-  \\ fs[align_dm_def]
+  \\ gs[mem_load_32_def]
   \\ every_case_tac \\ fs[]
+  \\ fs[align_dm_def]
 QED
 
 Theorem mem_load_byte_aux_align_dm:
@@ -1242,26 +1240,23 @@ Definition line_ok_pre_def:
   (line_ok_pre c _ ⇔ T)
 End
 
-Definition sec_ok_pre_def:
+Definition sec_ok_pre_def[simp]:
   sec_ok_pre c (Section k ls) ⇔
     EVERY (line_ok_pre c) ls
 End
-val _ = export_rewrites["sec_ok_pre_def"];
 
 Overload all_enc_ok_pre = ``λc ls. EVERY (sec_ok_pre c) ls``
 
 (* invariant: labels have correct section number and are non-zero *)
 
-Definition sec_label_ok_def:
+Definition sec_label_ok_def[simp]:
   (sec_label_ok k (Label l1 l2 len) ⇔ l1 = k ∧ l2 ≠ 0) ∧
   (sec_label_ok _ _ = T)
 End
-val _ = export_rewrites["sec_label_ok_def"];
 
-Definition sec_labels_ok_def:
+Definition sec_labels_ok_def[simp]:
   sec_labels_ok (Section k ls) ⇔ EVERY (sec_label_ok k) ls
 End
-val _ = export_rewrites["sec_labels_ok_def"];
 
 Theorem sec_label_ok_extract_labels:
    EVERY (sec_label_ok n1) lines ∧
@@ -1321,4 +1316,3 @@ Definition no_share_mem_inst_def:
       SOME (Asm (ShareMem op re a) inst len)
 End
 
-val _ = export_theory();

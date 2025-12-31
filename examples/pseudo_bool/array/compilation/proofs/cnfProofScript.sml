@@ -3,13 +3,12 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     TextIOProofTheory
-     cnfProgTheory
-     satSemTheory cnfCompileTheory;
-
-val _ = new_theory"cnfProof";
+Theory cnfProof
+Ancestors
+  semanticsProps backendProof x64_configProof TextIOProof cnfProg
+  satSem cnfCompile
+Libs
+  preamble
 
 val cake_pb_cnf_io_events_def = new_specification("cake_pb_cnf_io_events_def",["cake_pb_cnf_io_events"],
   main_semantics |> Q.GENL[`cl`,`fs`]
@@ -77,14 +76,15 @@ Theorem machine_code_sound:
       (
         (LENGTH cl = 2 ∧
         ∃fml.
-          parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
+          parse_dimacs (all_lines_file fs (EL 1 cl)) = SOME fml ∧
           out = concat (print_npbf (fml_to_pbf fml))) ∨
         (LENGTH cl = 3 ∧
         ∃fml.
-          parse_dimacs (all_lines fs (EL 1 cl)) = SOME fml ∧
+          parse_dimacs (all_lines_file fs (EL 1 cl)) = SOME fml ∧
           (
           out = UNSAT_string ∧ unsatisfiable (interp fml) ∨
-          out = SAT_string ∧ satisfiable (interp fml)))
+          out = SAT_string ∧ satisfiable (interp fml) ∨
+          out = NO_CONCLUSION_string ))
       )
     )
 Proof
@@ -110,4 +110,3 @@ QED
 
 val chk = machine_code_sound |> check_thm;
 
-val _ = export_theory();

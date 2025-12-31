@@ -1,9 +1,11 @@
 (*
   This refines lpr_list to use arrays
 *)
-open preamble basis md5ProgTheory lpr_composeProgTheory UnsafeProofTheory lprTheory lpr_listTheory HashtableProofTheory;
-
-val _ = new_theory "lpr_arrayProg"
+Theory lpr_arrayProg
+Ancestors
+  md5Prog lpr_composeProg UnsafeProof lpr lpr_list HashtableProof
+Libs
+  preamble basis
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = diminish_srw_ss ["ABBREV"]
@@ -81,8 +83,6 @@ val delete_literals_sing_arr_def = process_topdecs`
     else
       if every_one_arr carr cs then ~c
       else raise Fail (format_failure lno "clause not empty or singleton after reduction")` |> append_prog
-
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
 Theorem any_el_eq_EL[simp]:
   LENGTH Clist > index h ⇒
@@ -168,9 +168,7 @@ Proof
     metis_tac[])>>
   rpt xlet_autop>>
   xraise>>xsimpl>>
-  IF_CASES_TAC>-
-    metis_tac[NOT_EVERY]>>
-  simp[unwrap_TYPE_def,Fail_exn_def]>>
+  gvs[unwrap_TYPE_def,Fail_exn_def]>>
   metis_tac[]
 QED
 
@@ -274,7 +272,6 @@ Proof
     xcon>>xsimpl>>
     simp[SUM_TYPE_def])>>
   rpt xlet_autop>>
-
   `index z < LENGTH Clist ∧ WORD8 w8o w8o_v` by (
     fs[w8o_v_thm]>>
     fs[bounded_fml_def,EVERY_EL]>>
@@ -288,7 +285,6 @@ Proof
     rpt (first_x_assum drule)>>
     rw[]>>
     qpat_x_assum`-z = _` sym_sub_tac>>fs[])>>
-
   rpt xlet_autop>>
   xapp>>
   xsimpl>>
@@ -1977,5 +1973,3 @@ Proof
   drule reindex_characterize>>fs[]>>
   simp[MEM_MAP]
 QED
-
-val _ = export_theory();

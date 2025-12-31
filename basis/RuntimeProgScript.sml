@@ -2,13 +2,13 @@
   Module that contains a few special functions, e.g. a function for
   forcing a full GC to run, a function for producing debug output.
 *)
-open preamble ml_translatorLib ml_progLib cfDivTheory
-     mloptionTheory basisFunctionsLib
-
-val _ = new_theory "RuntimeProg";
+Theory RuntimeProg
+Ancestors
+  cfDiv mloption
+Libs
+  preamble ml_translatorLib ml_progLib basisFunctionsLib
 
 val _ = translation_extends "cfDiv";
-val cakeml = append_prog o process_topdecs;
 
 val _ = ml_prog_update (open_module "Runtime");
 
@@ -43,11 +43,11 @@ val exit =
 
 val _ = append_prog exit
 
-Quote cakeml:
+Quote add_cakeml:
   fun abort u = case u of () => exit 1
 End
 
-Quote cakeml:
+Quote add_cakeml:
   fun assert cond msg =
     if cond
     then ()
@@ -57,4 +57,3 @@ End
 
 val _ = ml_prog_update (close_module NONE);
 
-val _ = export_theory();

@@ -6,18 +6,13 @@
   large expressions are split into samller ones (in order to protect
   the register allocator from overly large inputs).
 *)
-open preamble bvlTheory bviTheory;
-open backend_commonTheory
-local open
-  bvl_inlineTheory
-  bvl_constTheory
-  bvl_handleTheory
-  bvi_letTheory
-  bvi_tailrecTheory
-  dataLangTheory
-in end;
-
-val _ = new_theory "bvl_to_bvi";
+Theory bvl_to_bvi
+Ancestors
+  bvl bvi backend_common bvl_inline[qualified]
+  bvl_const[qualified] bvl_handle[qualified] bvi_let[qualified]
+  bvi_tailrec[qualified] dataLang[qualified]
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -48,7 +43,7 @@ End
 Definition alloc_glob_count_def:
   (alloc_glob_count [] = 0:num) /\
   (alloc_glob_count (x::y::xs) =
-     alloc_glob_count [x] + alloc_glob_count (y::xs) /\
+     alloc_glob_count [x] + alloc_glob_count (y::xs)) /\
   (alloc_glob_count [(Var _):bvl$exp] = 0) /\
   (alloc_glob_count [If x y z] =
      alloc_glob_count [x] +
@@ -58,15 +53,14 @@ Definition alloc_glob_count_def:
      alloc_glob_count [x] +
      alloc_glob_count [y]) /\
   (alloc_glob_count [Tick x] = alloc_glob_count [x]) /\
+  (alloc_glob_count [Force loc v] = 0) /\
   (alloc_glob_count [Raise x] = alloc_glob_count [x]) /\
   (alloc_glob_count [Let xs x] = alloc_glob_count (x::xs)) /\
   (alloc_glob_count [Call _ _ xs] = alloc_glob_count xs) /\
   (alloc_glob_count [Op op xs] =
      if op = GlobOp AllocGlobal then 1 + alloc_glob_count xs
                                 else alloc_glob_count xs) /\
-  (alloc_glob_count [_] = 0))
-Termination
-  WF_REL_TAC `measure exp1_size`
+  (alloc_glob_count [_] = 0) (* Impossible *)
 End
 
 Definition global_count_sing_def:
@@ -78,6 +72,7 @@ Definition global_count_sing_def:
   (global_count_sing (Handle x y) =
      global_count_sing x +
      global_count_sing y) /\
+  (global_count_sing (Force loc v) = 0) /\
   (global_count_sing (Tick x) = global_count_sing x) /\
   (global_count_sing (Raise x) = global_count_sing x) /\
   (global_count_sing (Let xs x) =
@@ -358,6 +353,8 @@ Definition compile_exps_def:
   (compile_exps n [Tick x1] =
      let (c1,aux1,n1) = compile_exps n [x1] in
        ([Tick (HD c1)], aux1, n1)) /\
+  (compile_exps n [Force loc v] =
+     ([Force (num_stubs + nss * loc) v], Nil, n)) /\
   (compile_exps n [Op op xs] =
      let (c1,aux1,n1) = compile_exps n xs in
        ([compile_op op c1],aux1,n1)) /\
@@ -409,6 +406,8 @@ Definition compile_exps_sing_def:
   (compile_exps_sing n (Tick x1) =
      let (c1,aux1,n1) = compile_exps_sing n x1 in
        (Tick c1, aux1, n1)) /\
+  (compile_exps_sing n (Force loc v) =
+     (Force (num_stubs + nss * loc) v, Nil, n)) /\
   (compile_exps_sing n (Op op xs) =
      let (c1,aux1,n1) = compile_exps_list n xs in
        (compile_op op c1,aux1,n1)) /\
@@ -454,7 +453,7 @@ Proof
   \\ gvs [compile_exps_def,compile_exps_sing_def,SmartAppend_Nil]
 QED
 
-Triviality compile_exps_LENGTH_lemma:
+Theorem compile_exps_LENGTH_lemma[local]:
   !n xs. (LENGTH (FST (compile_exps n xs)) = LENGTH xs)
 Proof
   HO_MATCH_MP_TAC compile_exps_ind \\ REPEAT STRIP_TAC
@@ -580,4 +579,3 @@ Definition bvl_to_bvi_compile_inc_all_def:
       (c, p)
 End
 
-val _ = export_theory();

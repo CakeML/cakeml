@@ -1,6 +1,12 @@
 (*
   Finish translation of the 64-bit version of the compiler.
 *)
+Theory compiler64Prog[no_sig_docs]
+Ancestors
+  mipsProg compiler export ml_translator basis_ffi[qualified]
+Libs
+  preamble ml_translatorLib cfLib basis
+
 open preamble
      mipsProgTheory compilerTheory
      exportTheory
@@ -8,8 +14,6 @@ open preamble
 open cfLib basis
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
-
-val _ = new_theory"compiler64Prog";
 
 val _ = translation_extends "mipsProg";
 
@@ -31,10 +35,15 @@ val res = translate $ errorLogMonadTheory.bind_def;
 val res = translate $ errorLogMonadTheory.log_def;
 val res = translate $ errorLogMonadTheory.error_def;
 
+val res = translate $ panStaticTheory.sh_bd_from_sh_def;
+val res = translate $ panStaticTheory.sh_bd_from_bd_def;
+val res = translate $ panStaticTheory.sh_bd_has_shape_def;
+val res = translate $ panStaticTheory.sh_bd_eq_shapes_def;
+val res = translate $ panStaticTheory.index_sh_bd_def;
 val res = translate $ panStaticTheory.based_merge_def;
-val res = translate $ panStaticTheory.based_cmp_def;
-val res = translate $ panStaticTheory.branch_vbases_def;
-val res = translate $ panStaticTheory.seq_vbases_def;
+val res = translate $ panStaticTheory.sh_bd_branch_def;
+val res = translate $ panStaticTheory.branch_loc_inf_def;
+val res = translate $ panStaticTheory.seq_loc_inf_def;
 
 val res = translate $ panStaticTheory.last_to_str_def;
 val res = translate $ panStaticTheory.next_is_reachable_def;
@@ -43,22 +52,37 @@ val res = translate $ spec64 $ panStaticTheory.reached_warnable_def;
 val res = translate $ panStaticTheory.branch_last_stmt_def;
 val res = translate $ panStaticTheory.seq_last_stmt_def;
 
+val res = translate $ panStaticTheory.get_scope_desc_def;
 val res = translate $ panStaticTheory.get_scope_msg_def;
 val res = translate $ panStaticTheory.get_redec_msg_def;
 val res = translate $ panStaticTheory.get_memop_msg_def;
 val res = translate $ panStaticTheory.get_oparg_msg_def;
 val res = translate $ panStaticTheory.get_unreach_msg_def;
 val res = translate $ panStaticTheory.get_rogue_msg_def;
+val res = translate $ panStaticTheory.get_non_word_msg_def;
+val res = translate $ panStaticTheory.get_shape_mismatch_msg_def;
 
 val res = translate $ panStaticTheory.first_repeat_def;
 val res = translate $ panStaticTheory.binop_to_str_def;
 val res = translate $ panStaticTheory.panop_to_str_def;
 
+val res = translate $ panStaticTheory.scope_check_fun_name_def;
+val res = translate $ panStaticTheory.scope_check_global_var_def;
+val res = translate $ panStaticTheory.scope_check_local_var_def;
+val res = translate $ panStaticTheory.check_redec_var_def;
+val res = translate $ panStaticTheory.check_export_params_def;
+val res = translate $ panStaticTheory.check_operands_def;
+val res = translate $ panStaticTheory.check_func_args_def;
+
 val res = translate $ spec64 $ panStaticTheory.static_check_exp_def;
 val res = translate $ spec64 $ panStaticTheory.static_check_prog_def;
-val res = translate $
-  INST_TYPE[beta|->``:64``] panStaticTheory.static_check_funs_def;
-val res = translate $ INST_TYPE[beta|->``:64``] panStaticTheory.static_check_def;
+val res = translate $ spec64 $ panStaticTheory.static_check_progs_def;
+val res = translate $ spec64 $ panStaticTheory.static_check_decls_def;
+val res = translate $ spec64 $ panStaticTheory.static_check_def;
+
+val _ = res |> hyp |> null orelse
+        failwith ("Unproved side condition in the translation of " ^
+                  "panStaticTheory.static_check_def.");
 
 Definition max_heap_limit_64_def:
                                   max_heap_limit_64 c =
@@ -97,7 +121,7 @@ val r = backend_passesTheory.to_clos_all_def |> spec64 |> translate;
 val r = backend_passesTheory.to_bvl_all_def |> spec64 |> translate;
 val r = backend_passesTheory.to_bvi_all_def |> spec64 |> translate;
 
-Triviality backend_passes_to_bvi_all_side:
+Theorem backend_passes_to_bvi_all_side[local]:
   backend_passes_to_bvi_all_side c p
 Proof
   fs [fetch "-" "backend_passes_to_bvi_all_side_def"]
@@ -150,7 +174,8 @@ val r = pan_passesTheory.pan_to_target_all_def |> spec64
 val r = pan_passesTheory.opsize_to_display_def |> translate;
 val r = pan_passesTheory.shape_to_str_def |> translate;
 val r = pan_passesTheory.insert_es_def |> translate;
-Triviality lem:
+val r = pan_passesTheory.varkind_to_str_def |> translate;
+Theorem lem[local]:
   dimindex(:64) = 64
 Proof
   EVAL_TAC
@@ -387,14 +412,14 @@ Definition compiler_for_eval_def:
   compiler_for_eval = compile_inc_progs_for_eval x64_config
 End
 
-Triviality upper_w2w_eq_I:
+Theorem upper_w2w_eq_I[local]:
   backend$upper_w2w = (I:word64 -> word64)
 Proof
   fs [backendTheory.upper_w2w_def,FUN_EQ_THM]
 QED
 
 val compiler_for_eval_alt =
-“compiler_for_eval (id,c,decs)”
+“compiler_for_eval (id,c,ds)”
   |> SIMP_CONV std_ss [backendTheory.compile_inc_progs_for_eval_eq,
                        compiler_for_eval_def, EVAL “x64_config.reg_count”,
                        backendTheory.ensure_fp_conf_ok_def,
@@ -583,11 +608,11 @@ in
   else if compiler_has_version_flag cl then
     print compiler_current_build_info_str
   else if compiler_has_pancake_flag cl then
-    case compiler_compile_pancake_64 cl (TextIO.inputAll TextIO.stdIn)  of
+    case compiler_compile_pancake_64 cl (TextIO.inputAll (TextIO.openStdIn ()))  of
       (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
                  compiler64prog_nonzero_exit_code_for_error_msg e)
   else
-    case compiler_compile_64 cl (TextIO.inputAll TextIO.stdIn)  of
+    case compiler_compile_64 cl (TextIO.inputAll (TextIO.openStdIn ()))  of
       (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
                  compiler64prog_nonzero_exit_code_for_error_msg e)
                 end`;
@@ -661,7 +686,16 @@ Proof
   >> xlet_auto>-xsimpl
   >> xif
   >- (
-  xlet_auto >- (xsimpl \\ fs[INSTREAM_stdin, STD_streams_get_mode])
+  xlet_auto >- (xcon \\ xsimpl)
+  \\ xlet_auto_spec (SOME openStdIn_STDIO_spec) >- xsimpl
+  \\ rename [‘get_file_content _ _ = SOME (inp,pos)’]
+  \\ xlet ‘POSTv v.
+       &STRING_TYPE (implode (DROP pos inp)) v *
+       STDIO (fastForwardFD fs 0) * COMMANDLINE cl’
+  >-
+   (xapp
+    \\ qexistsl [‘COMMANDLINE cl’, ‘pos’, ‘fs’, ‘0’, ‘inp’, ‘[]’]
+    \\ fs [STD_streams_get_mode] \\ xsimpl)
   \\ fs [GSYM HOL_STRING_TYPE_def]
   \\ xlet_auto >- xsimpl
   \\ fs [full_compile_64_def]
@@ -670,7 +704,6 @@ Proof
   \\ gvs[CaseEq "bool"]
   \\ xmatch
   \\ xlet_auto >- xsimpl
-
   \\ qmatch_goalsub_abbrev_tac `STDIO fs'`
   \\ xlet `POSTv uv. &UNIT_TYPE () uv * STDIO (add_stderr fs' err) *
      COMMANDLINE cl`
@@ -681,7 +714,16 @@ Proof
     \\ qexists_tac `fs'` \\ xsimpl)
   \\ xapp
   \\ asm_exists_tac \\ simp [] \\ xsimpl)
-  \\ xlet_auto >- (xsimpl \\ fs[INSTREAM_stdin, STD_streams_get_mode])
+  \\ xlet_auto >- (xcon \\ xsimpl)
+  \\ xlet_auto_spec (SOME openStdIn_STDIO_spec) >- xsimpl
+  \\ rename [‘get_file_content _ _ = SOME (inp,pos)’]
+  \\ xlet ‘POSTv v.
+       &STRING_TYPE (implode (DROP pos inp)) v *
+       STDIO (fastForwardFD fs 0) * COMMANDLINE cl’
+  >-
+   (xapp
+    \\ qexistsl [‘COMMANDLINE cl’, ‘pos’, ‘fs’, ‘0’, ‘inp’, ‘[]’]
+    \\ fs [STD_streams_get_mode] \\ xsimpl)
   \\ fs [GSYM HOL_STRING_TYPE_def]
   \\ xlet_auto >- xsimpl
   \\ fs [full_compile_64_def]
@@ -742,8 +784,8 @@ get_ml_prog_state ()
   |> ml_progLib.get_thm
   |> REWRITE_RULE [ml_progTheory.ML_code_def]
 
-                  Triviality BUTLAST_compiler64_prog:
-                    ^(mk_eq(concl th |> rator |> rator |> rand,“BUTLAST compiler64_prog”))
+Theorem BUTLAST_compiler64_prog[local]:
+  ^(mk_eq(concl th |> rator |> rator |> rand,“BUTLAST compiler64_prog”))
 Proof
   CONV_TAC (RAND_CONV (ONCE_REWRITE_CONV [compiler64_prog_def]))
   \\ CONV_TAC (RAND_CONV (PURE_REWRITE_CONV [listTheory.FRONT_CONS]))
@@ -760,6 +802,4 @@ Theorem Decls_FRONT_compiler64_prog = th1
 
 Theorem LAST_compiler64_prog = EVAL “LAST compiler64_prog”;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.reset_translation(); (* because this translation won't be continued *)
-val _ = export_theory();

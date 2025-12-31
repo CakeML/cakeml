@@ -1,11 +1,12 @@
 (*
   Encoding of sudoku to numBoolRange and to cnf
 *)
+Theory numberSudoku
+Ancestors
+  misc ASCIInumbers set_sep quantifierExp numBoolRange sudoku
+Libs
+  preamble
 
-open preamble miscTheory ASCIInumbersTheory set_sepTheory;
-open quantifierExpTheory numBoolRangeTheory sudokuTheory;
-
-val _ = new_theory "numberSudoku";
 
 (* ------------------------ Types --------------------------- *)
 
@@ -600,4 +601,3 @@ Proof
   rw[get_sudoku_rangeList_lemma]
 QED
 
-val _ = export_theory();

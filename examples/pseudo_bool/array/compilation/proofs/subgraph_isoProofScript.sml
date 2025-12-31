@@ -3,13 +3,12 @@
   theorem with the compiler evaluation theorem to produce end-to-end
   correctness theorem that reaches final machine code.
 *)
-open preamble
-     semanticsPropsTheory backendProofTheory x64_configProofTheory
-     TextIOProofTheory
-     subgraph_isoProgTheory
-     subgraph_isoCompileTheory;
-
-val _ = new_theory"subgraph_isoProof";
+Theory subgraph_isoProof
+Ancestors
+  semanticsProps backendProof x64_configProof TextIOProof
+  subgraph_isoProg subgraph_isoCompile
+Libs
+  preamble
 
 val cake_pb_iso_io_events_def = new_specification("cake_pb_iso_io_events_def",["cake_pb_iso_io_events"],
   main_semantics |> Q.GENL[`cl`,`fs`]
@@ -78,7 +77,7 @@ Theorem machine_code_sound:
         get_graph_lad fs (EL 2 cl) = SOME gt ∧
         (
           (LENGTH cl = 3 ∧
-            out = concat (print_prob (mk_prob (full_encode gp gt)))) ∨
+            out = concat (print_annot_prob (mk_prob (full_encode gp gt)))) ∨
           (LENGTH cl = 4 ∧
             (
               (out = «s VERIFIED NOT SUBGRAPH ISOMORPHIC\n» ∧
@@ -114,4 +113,3 @@ QED
 
 val chk = machine_code_sound |> check_thm;
 
-val _ = export_theory();

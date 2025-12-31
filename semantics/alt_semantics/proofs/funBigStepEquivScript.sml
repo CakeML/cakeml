@@ -2,10 +2,11 @@
   Relate functional big-step semantics with relational big-step
   semantics.
 *)
-open preamble evaluateTheory evaluatePropsTheory
-     interpTheory semanticPrimitivesTheory fpSemPropsTheory;
-
-val _ = new_theory"funBigStepEquiv"
+Theory funBigStepEquiv
+Ancestors
+  evaluate evaluateProps interp semanticPrimitives
+Libs
+  preamble
 
 val s = ``s:'ffi state``;
 
@@ -54,24 +55,23 @@ Theorem evaluate_eq_run_eval_list:
 Proof
   ho_match_mp_tac evaluate_ind >>
   rw[evaluate_def,run_eval_def,
-     result_return_def,result_bind_def, Excl"getOpClass_def"] >> gvs [Excl"getOpClass_def"]
+     result_return_def,result_bind_def, Excl"getOpClass_def"] >>
+  gvs [Excl"getOpClass_def"]
   >~[‘getOpClass op’]
   >- (
     ntac 3 TOP_CASE_TAC >> gs[Excl"getOpClass_def"]
     >- prove_tac
     >- prove_tac
+    >- (
+      qpat_x_assum ‘getOpClass _ = _’ kall_tac >>
+      simp[get_store_def] >>
+      TOP_CASE_TAC >> gvs[] >- prove_tac >- prove_tac >>
+      ntac 2 (TOP_CASE_TAC >> gvs[]) >- prove_tac >>
+      ntac 2 (TOP_CASE_TAC >> gvs[dec_clock_def]) >>
+      prove_tac
+      )
     >- prove_tac
-    >- (gs[get_store_def] >>
-        ntac 4 (TOP_CASE_TAC >>
-                gs[result_raise_def, set_store_def, state_transformerTheory.UNIT_DEF, shift_fp_opts_def]) >>
-        every_case_tac >> gs[]) >>
-    gs[get_store_def, Excl"getOpClass_def"] >>
-    imp_res_tac (INST_TYPE [alpha |-> “:'ffi”, beta |-> “:'ffi”] fpSemPropsTheory.realOp_determ) >>
-    ntac 5 (TOP_CASE_TAC >>
-            gs[result_raise_def, set_store_def, state_transformerTheory.UNIT_DEF, shift_fp_opts_def]) >>
-    res_tac >> gs[state_component_equality]) >>
-   TRY (rpt $ pop_assum mp_tac >>
-        ntac 2 (TOP_CASE_TAC >> gs[do_fpoptimise_LENGTH]) >> NO_TAC) >>
+    ) >>
   prove_tac
 QED
 
@@ -130,4 +130,3 @@ Proof
   Cases_on`r` \\ fs[]
 QED
 
-val _ = export_theory()

@@ -1,14 +1,15 @@
 (*
   Encoding program for the numBoolRange datatype
 *)
+Theory numBoolRangeEncoderProg
+Ancestors
+  misc set_sep list cnf boolExpToCnf quantifierExp
+  orderEncodingBool numBoolExp numBoolExtended numBoolRange
+  (* for parsing: *) parsing source_values mlstring
+  toCnfHelper sat_encodersProg
+Libs
+  preamble basis
 
-open preamble basis miscTheory set_sepTheory listTheory cnfTheory;
-open boolExpToCnfTheory quantifierExpTheory orderEncodingBoolTheory;
-open numBoolExpTheory numBoolExtendedTheory numBoolRangeTheory;
-open (* for parsing: *) parsingTheory source_valuesTheory mlstringTheory;
-open toCnfHelperTheory sat_encodersProgTheory;
-
-val _ = new_theory "numBoolRangeEncoderProg";
 
 val _ = translation_extends "sat_encodersProg";
 
@@ -203,7 +204,7 @@ val _ = type_of “main_function” = “:mlstring -> mlstring app_list”
         orelse failwith "The main_function has the wrong type.";
 
 val main = process_topdecs
-  `print_app_list (main_function (TextIO.inputAll TextIO.stdIn));`;
+  `print_app_list (main_function (TextIO.inputAll (TextIO.openStdIn ())));`;
 
 val prog =
   get_ml_prog_state ()
@@ -218,5 +219,3 @@ val prog =
 Definition numBoolRange_encoder_prog_def:
   numBoolRange_encoder_prog = ^prog
 End
-
-val _ = export_theory();

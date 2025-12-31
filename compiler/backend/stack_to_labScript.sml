@@ -3,11 +3,14 @@
   such as If, While, Return etc, to labLang programs that are a soup
   of goto-like jumps.
 *)
-open preamble stackLangTheory labLangTheory;
-local open stack_allocTheory stack_removeTheory stack_namesTheory
-           word_to_stackTheory bvl_to_bviTheory stack_rawcallTheory in end
-
-val _ = new_theory "stack_to_lab";
+Theory stack_to_lab
+Ancestors
+  stackLang labLang stack_alloc[qualified]
+  stack_remove[qualified] stack_names[qualified]
+  word_to_stack[qualified] bvl_to_bvi[qualified]
+  stack_rawcall[qualified]
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -18,7 +21,7 @@ Definition compile_jump_def:
   (compile_jump (INR r) = Asm (JumpReg r) [] 0)
 End
 
-Definition negate_def:
+Definition negate_def[simp]:
   (negate Less = NotLess) /\
   (negate Equal = NotEqual) /\
   (negate Lower = NotLower) /\
@@ -29,7 +32,6 @@ Definition negate_def:
   (negate NotTest = Test)
 End
 
-val _ = export_rewrites ["negate_def"];
 
 Overload "++"[local] = ``misc$Append``
 
@@ -69,7 +71,7 @@ local val flatten_quotation = `
           (List [Label n m 0; LabAsm (JumpCmp (negate c) r ri (Lab n (m+1))) 0w [] 0] ++
            xs ++ List [LabAsm (Jump (Lab n m)) 0w [] 0; Label n (m+1) 0],F,m+2)
     | Raise r => (List [Asm (JumpReg r) [] 0],T,m)
-    | Return r _ => (List [Asm (JumpReg r) [] 0],T,m)
+    | Return r => (List [Asm (JumpReg r) [] 0],T,m)
     | RawCall n => (List [LabAsm (Jump (Lab n 1)) 0w [] 0],T,m)
     | Call NONE dest handler => (List [compile_jump dest],T,m)
     | Call (SOME (p1,lr,l1,l2)) dest handler =>
@@ -152,4 +154,3 @@ Definition compile_no_stubs_def:
         (MAP prog_comp prog)))
 End
 
-val _ = export_theory();

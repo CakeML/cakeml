@@ -1,13 +1,15 @@
 (*
   Translation of basis types and functions for use with cv_compute.
 *)
-open preamble cv_transLib cv_stdTheory;
-
-val _ = new_theory "basis_cv";
+Theory basis_cv[no_sig_docs]
+Ancestors
+  mlsexp cv_std
+Libs
+  preamble cv_transLib
 
 val _ = cv_memLib.use_long_names := true;
 
-Triviality list_mem[cv_inline] = listTheory.MEM;
+Theorem list_mem[local,cv_inline] = listTheory.MEM;
 
 val _ = cv_trans sptreeTheory.fromAList_def;
 val _ = cv_trans miscTheory.SmartAppend_def;
@@ -22,8 +24,8 @@ val _ = cv_auto_trans mlstringTheory.concat_def;
 val _ = cv_trans miscTheory.list_max_def;
 val _ = cv_trans (miscTheory.max3_def |> PURE_REWRITE_RULE [GREATER_DEF]);
 
-val toChar_pre = cv_trans_pre mlintTheory.toChar_def
-val num_to_chars_pre = cv_auto_trans_pre mlintTheory.num_to_chars_def;
+val toChar_pre = cv_trans_pre "mlint_toChar_pre" mlintTheory.toChar_def
+val num_to_chars_pre = cv_auto_trans_pre "mlint_num_to_chars_pre" mlintTheory.num_to_chars_def;
 
 Theorem IMP_toChar_pre:
   n < 16 ⇒ mlint_toChar_pre n
@@ -40,7 +42,7 @@ Proof
   \\ ‘k MOD 10 < 10’ by gvs [] \\ simp []
 QED
 
-Triviality Num_ABS:
+Theorem Num_ABS[local]:
   Num (ABS i) = Num i
 Proof
   Cases_on ‘i’ \\ gvs []
@@ -49,5 +51,6 @@ QED
 val _ = cv_trans (mlintTheory.toString_def |> SRULE [Num_ABS]);
 val _ = cv_trans mlintTheory.num_to_str_def;
 
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
-val _ = export_theory();
+val _ = cv_auto_trans (mlsexpTheory.smart_remove_def |> SRULE [GSYM GREATER_DEF]);
+val _ = cv_auto_trans mlsexpTheory.v2pretty_def;
+val _ = cv_auto_trans mlsexpTheory.str_tree_to_strs_def;

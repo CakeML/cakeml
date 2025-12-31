@@ -2,10 +2,12 @@
   Logical model of the FFI calls for functions to-/fromString in
   the Double module.
 *)
+Theory DoubleFFI
+Ancestors
+  cfFFIType cfHeapsBase DoubleProg
+Libs
+  preamble
 
-open preamble cfFFITypeTheory cfHeapsBaseTheory DoubleProgTheory;
-
-val _ = new_theory "DoubleFFI";
 
 Datatype:
   doubleFuns = <|
@@ -121,11 +123,12 @@ Proof
   qexists_tac `\f. some c. encode c = f` \\ fs [encode_11]
 QED
 
+val decode_encode_name = "decode_encode";
 val decode_encode = new_specification(
-  "decode_encode",
+  decode_encode_name,
   ["decode"],
   encode_decode_exists);
-val _ = export_rewrites ["decode_encode"];
+val _ = export_rewrites [decode_encode_name];
 
 Definition double_ffi_part_def:
   double_ffi_part = (encode,decode,
@@ -138,5 +141,3 @@ Definition double_ffi_part_def:
      ("double_ln",ffi_ln);
      ("double_floor",ffi_floor)])
 End
-
-val _ = export_theory ();

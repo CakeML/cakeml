@@ -1,10 +1,11 @@
 (*
   Logical model of the Runtime module's exit function calls.
 *)
-open preamble
-     cfHeapsBaseTheory
-
-val _ = new_theory"runtimeFFI";
+Theory runtimeFFI
+Ancestors
+  cfHeapsBase
+Libs
+  preamble
 
 Definition ffi_exit_def:
  ffi_exit (conf:word8 list) (bytes:word8 list) () = SOME(FFIdiverge:unit ffi_result)
@@ -27,9 +28,11 @@ Definition decode_def:
   decode = (K(SOME ())):ffi -> unit option
 End
 
-val encode_11 = prove(
-  ``!x y. encode x = encode y <=> x = y``,
-  rw [encode_def]);
+Theorem encode_11[local]:
+    !x y. encode x = encode y <=> x = y
+Proof
+  rw [encode_def]
+QED
 
 Theorem decode_encode:
    decode(encode cls) = SOME cls
@@ -42,4 +45,3 @@ Definition runtime_ffi_part_def:
     [("exit",ffi_exit)])
 End
 
-val _ = export_theory();

@@ -3,9 +3,11 @@
   programs. It is in particular designed to clean up some awkward
   patterns that can be produced by the data_to_word compiler.
 *)
-open preamble wordLangTheory asmTheory sptreeTheory;
-
-val _ = new_theory "word_simp";
+Theory word_simp
+Ancestors
+  wordLang asm sptree
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -202,8 +204,6 @@ Definition const_fp_exp_def:
                         | _ => Shift sh (Const c) n)
          | _ => Shift sh e n) /\
   (const_fp_exp e _ = e)
-Termination
-  WF_REL_TAC `measure (exp_size (\x.0) o FST)`
 End
 
 Definition const_fp_move_cs_def:
@@ -248,6 +248,13 @@ Definition is_gc_const_def:
   is_gc_const c = ((c && 1w) = 0w)
 End
 
+
+Definition all_names_def[simp]:
+  all_names (n,m) = union n m
+End
+
+Overload delete_all[local] = “λn l. FOLDR delete l n”
+
 (* We only drop constants that can potentially be in registers *)
 Definition drop_consts_def:
   drop_consts cs [] = Skip ∧
@@ -287,7 +294,7 @@ Definition const_fp_loop_def:
                  filter_v is_gc_const cs)
       | SOME (n, names, ret_handler, l1, l2) =>
         (if handler = NONE then
-           (let cs' = delete n (filter_v is_gc_const (inter cs names)) in
+           (let cs' = delete_all n (filter_v is_gc_const (inter cs (all_names names))) in
             let (ret_handler', cs'') = const_fp_loop ret_handler cs' in
               (SmartSeq (drop_consts cs args)
                 (Call (SOME (n, names, ret_handler', l1, l2)) dest args handler), cs''))
@@ -295,26 +302,30 @@ Definition const_fp_loop_def:
            (SmartSeq (drop_consts cs args)
              (Call ret dest args handler), LN))) /\
   (const_fp_loop (FFI x0 x1 x2 x3 x4 names) cs =
-    (SmartSeq (drop_consts cs [x1;x2;x3;x4]) (FFI x0 x1 x2 x3 x4 names), inter cs names)) /\
+    (SmartSeq (drop_consts cs [x1;x2;x3;x4]) (FFI x0 x1 x2 x3 x4 names), inter cs (all_names names))) /\
   (const_fp_loop (LocValue v x3) cs = (LocValue v x3, delete v cs)) /\
   (const_fp_loop (Alloc n names) cs =
-    (SmartSeq (drop_consts cs [n]) (Alloc n names), filter_v is_gc_const (inter cs names))) /\
+    (SmartSeq (drop_consts cs [n]) (Alloc n names), filter_v is_gc_const (inter cs (all_names names)))) /\
   (const_fp_loop (StoreConsts a b c d ws) cs = (StoreConsts a b c d ws, delete a (delete b (delete c (delete d cs))))) /\
   (const_fp_loop (Install r1 r2 r3 r4 names) cs =
     (SmartSeq (drop_consts cs [r1;r2;r3;r4])
-      (Install r1 r2 r3 r4 names), delete r1 (filter_v is_gc_const (inter cs names)))) /\
+      (Install r1 r2 r3 r4 names), delete r1 (filter_v is_gc_const (inter cs (all_names names))))) /\
   (const_fp_loop (Store e v) cs =
     (Store (const_fp_exp e cs) v, cs)) /\
   (const_fp_loop (ShareInst Load v e) cs =
     (ShareInst Load v (const_fp_exp e cs), delete v cs)) /\
   (const_fp_loop (ShareInst Load8 v e) cs =
     (ShareInst Load8 v (const_fp_exp e cs), delete v cs)) /\
+  (const_fp_loop (ShareInst Load16 v e) cs =
+    (ShareInst Load16 v (const_fp_exp e cs), delete v cs)) /\
   (const_fp_loop (ShareInst Load32 v e) cs =
     (ShareInst Load32 v (const_fp_exp e cs), delete v cs)) /\
   (const_fp_loop (ShareInst Store v e) cs =
     (ShareInst Store v (const_fp_exp e cs), cs)) /\
   (const_fp_loop (ShareInst Store8 v e) cs =
     (ShareInst Store8 v (const_fp_exp e cs), cs)) /\
+  (const_fp_loop (ShareInst Store16 v e) cs =
+    (ShareInst Store16 v (const_fp_exp e cs), cs)) /\
   (const_fp_loop (ShareInst Store32 v e) cs =
     (ShareInst Store32 v (const_fp_exp e cs), cs)) /\
   (const_fp_loop p cs = (p, cs))
@@ -433,14 +444,44 @@ Definition simp_duplicate_if_def:
   | _ => p
 End
 
+(*Optimize pairs where one side is known to terminate due to a Raise or a Return
+the flag is T when its known to halt and F otherwise
+
+*)
+Definition push_out_if_aux_def:
 (* all of them together *)
+  push_out_if_aux p = dtcase p of
+  | MustTerminate q =>
+    (dtcase (push_out_if_aux q) of
+    | (c,b) => (MustTerminate c,b))
+  | Return _ _ => (p,T)
+  | Raise _ => (p,T)
+  | Call NONE _ _ _ => (p, T)
+  | If cmp r1 ri c1 c2 => (dtcase (push_out_if_aux c1,push_out_if_aux c2) of
+                            | ((c1',T),(c2',T)) => (If cmp r1 ri c1' c2', T)
+                            | ((c1',F),(c2',T)) => (Seq (If cmp r1 ri Skip c2') c1', F)
+                            | ((c1',T),(c2',F)) => (Seq (If cmp r1 ri c1' Skip) c2', F)
+                            | ((c1',F),(c2',F)) => (If cmp r1 ri c1' c2', F))
+  | Seq c1 c2 => (dtcase (push_out_if_aux c1) of
+                   | (c1', T) => ((Seq c1' c2),T) (*Don't have to bother as DCE will get rid of it*)
+                   | (c1', F) =>
+                      (dtcase (push_out_if_aux c2) of
+                      |  (c2',b) => (Seq c1' c2', b)))
+  | _ => (p,F)
+End
+
+Definition push_out_if_def:
+ push_out_if p = FST (push_out_if_aux p)
+End
+
+
 
 Definition compile_exp_def:
   compile_exp (e:'a wordLang$prog) =
     let e = Seq_assoc Skip e in
     let e = const_fp e in
     let e = simp_duplicate_if e in
+    let e = push_out_if e in
       e
 End
 
-val _ = export_theory();

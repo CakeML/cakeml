@@ -1,10 +1,11 @@
 (*
   Proofs about the Array module.
 *)
-open preamble ml_translatorTheory ml_translatorLib cfLib
-     mlbasicsProgTheory ArrayProgTheory
-
-val _ = new_theory"ArrayProof";
+Theory ArrayProof
+Ancestors
+  ml_translator mlbasicsProg ArrayProg
+Libs
+  preamble ml_translatorLib cfLib
 
 val _ = translation_extends "ArrayProg";
 
@@ -111,7 +112,7 @@ Proof
         ) \\
       once_rewrite_tac[CONS_APPEND] \\
       rewrite_tac[APPEND_ASSOC] \\
-      xapp \\ xsimpl ) \\
+      xapp \\ xsimpl \\ gvs []) \\
   Cases_on `l` >>
   fs [LIST_TYPE_def] >>
   rfs [] >>
@@ -153,7 +154,7 @@ QED
 val eq_v_thm = fetch "mlbasicsProg" "eq_v_thm"
 val eq_num_v_thm = MATCH_MP (DISCH_ALL eq_v_thm) (EqualityType_NUM_BOOL |> CONJUNCT1)
 
-Triviality num_eq_thm:
+Theorem num_eq_thm[local]:
   !n nv x xv. NUM n nv /\ NUM x xv ==> (n = x <=> nv = xv)
 Proof
   metis_tac[EqualityType_NUM_BOOL, EqualityType_def]
@@ -182,7 +183,7 @@ Proof
           \\ `xv = nv` by fs [NUM_def, INT_def]
           \\ instantiate \\ fs [])
       \\ xif >- (xret \\ xsimpl \\ `LENGTH rest = 0` by decide_tac \\ fs[] )
-      \\ fs [NUM_def, INT_def] \\ rfs[])
+      \\ gvs [NUM_def, INT_def] \\ Cases_on ‘rest’ >> gvs[])
     \\ rw[] \\ first_assum match_mp_tac
     \\ xlet `POSTv bv. & BOOL (xv = nv) bv * ARRAY av (l_pre ++ rest)`
       >- (xapp_spec eq_num_v_thm \\ xsimpl \\ instantiate \\ fs[BOOL_def, NUM_def, INT_def])
@@ -253,7 +254,7 @@ val res = max_print_depth := 100
 *)
 
 
-Triviality less_than_length_thm:
+Theorem less_than_length_thm[local]:
   !xs n. (n < LENGTH xs) ==> (?ys z zs. (xs = ys ++ z::zs) /\ (LENGTH ys = n))
 Proof
   rw[] \\
@@ -266,7 +267,7 @@ Proof
 QED
 
 
-Triviality lupdate_breakdown_thm:
+Theorem lupdate_breakdown_thm[local]:
   !l val n. n < LENGTH l
     ==> LUPDATE val n l = TAKE n l ++ [val] ++ DROP (n + 1) l
 Proof
@@ -466,14 +467,14 @@ Proof
   rw [NUM_def]
 QED
 
-Triviality list_rel_take_thm:
+Theorem list_rel_take_thm[local]:
   !A xs ys n.
       LIST_REL A xs ys ==> LIST_REL A (TAKE n xs) (TAKE n ys)
 Proof
   Induct_on `xs` \\ Induct_on `ys` \\ rw[LIST_REL_def, TAKE_def]
 QED
 
-Triviality drop_pre_length_thm:
+Theorem drop_pre_length_thm[local]:
   !l. l <> [] ==> (DROP (LENGTH l - 1) l) = [(EL (LENGTH l - 1) l)]
 Proof
   rw[] \\ Induct_on `l` \\ rw[DROP, LENGTH, DROP_EL_CONS, DROP_LENGTH_NIL]
@@ -794,7 +795,7 @@ Proof
       \\ fs[] \\metis_tac[TAKE_LENGTH_ID]
 QED
 
-Triviality IMP_app:
+Theorem IMP_app[local]:
   f = Closure v1 env (Fun v2 x) ∧
   app p (Closure (v1 with v := nsBind env x1 v1.v) v2 x) (x2::xs) H Q ⇒
   app p f (x1::x2::xs) H Q
@@ -961,4 +962,111 @@ Proof
   \\ xvar \\ fs [] \\ xsimpl
 QED
 
-val _ = export_theory();
+Theorem array_exists_aux_spec:
+  ∀n nv.
+  NUM max maxv ∧
+  NUM n nv ∧
+  LIST_REL R ls arr ∧
+  (R --> BOOL) f fv ∧
+  n ≤ max ∧
+  max = LENGTH ls
+  ⇒
+  app (p:'ffi ffi_proj) Array_exists_aux_v [fv; arrv; maxv; nv]
+    (ARRAY arrv arr)
+    (POSTv v. ARRAY arrv arr * &BOOL (EXISTS f (DROP n ls)) v)
+Proof
+  Induct_on`max - n`>>rw[]
+  \\ xcf_with_def Array_exists_aux_v_def
+  >- (
+    xlet_auto >> xsimpl>>
+    xif >> instantiate>>
+    xcon>>xsimpl>>
+    DEP_REWRITE_TAC[DROP_LENGTH_NIL_rwt]>>
+    simp[]>>EVAL_TAC)>>
+  xlet_auto >- xsimpl >>
+  xif >> instantiate >>
+  gvs[LIST_REL_EL_EQN]>>
+  xlet_auto >- xsimpl>>
+  rename1`EL n arr`>>
+  `DROP n ls = EL n ls :: DROP (n+1) ls` by
+    (irule DROP_EL_CONS>>
+    gvs[])>>
+  first_x_assum (qspec_then`n` assume_tac)>>gvs[]>>
+  xlet_auto >-xsimpl>>
+  xif>- (xcon>>xsimpl)>>
+  xlet_auto >- xsimpl>>
+  xapp>>
+  xsimpl
+QED
+
+Theorem array_exists_spec:
+  LIST_REL R ls arr ∧
+  (R --> BOOL) f fv
+  ⇒
+  app (p:'ffi ffi_proj) Array_exists_v [fv; arrv]
+    (ARRAY arrv arr)
+    (POSTv v. ARRAY arrv arr * &BOOL (EXISTS f ls) v)
+Proof
+  rw[]>>xcf_with_def Array_exists_v_def>>
+  xlet_auto >- xsimpl>>
+  imp_res_tac LIST_REL_LENGTH>>
+  xapp>> xsimpl>>
+  first_x_assum (irule_at Any)>>
+  first_x_assum (irule_at Any)>>
+  simp[]
+QED
+
+Theorem array_all_aux_spec:
+  ∀n nv.
+  NUM max maxv ∧
+  NUM n nv ∧
+  LIST_REL R ls arr ∧
+  (R --> BOOL) f fv ∧
+  n ≤ max ∧
+  max = LENGTH ls
+  ⇒
+  app (p:'ffi ffi_proj) Array_all_aux_v [fv; arrv; maxv; nv]
+    (ARRAY arrv arr)
+    (POSTv v. ARRAY arrv arr * &BOOL (EVERY f (DROP n ls)) v)
+Proof
+  Induct_on`max - n`>>rw[]
+  \\ xcf_with_def Array_all_aux_v_def
+  >- (
+    xlet_auto >> xsimpl>>
+    xif >> instantiate>>
+    xcon>>xsimpl>>
+    DEP_REWRITE_TAC[DROP_LENGTH_NIL_rwt]>>
+    simp[]>>EVAL_TAC)>>
+  xlet_auto >- xsimpl >>
+  xif >> instantiate >>
+  gvs[LIST_REL_EL_EQN]>>
+  xlet_auto >- xsimpl>>
+  rename1`EL n arr`>>
+  `DROP n ls = EL n ls :: DROP (n+1) ls` by
+    (irule DROP_EL_CONS>>
+    gvs[])>>
+  first_x_assum (qspec_then`n` assume_tac)>>gvs[]>>
+  xlet_auto >-xsimpl>>
+  xif>- (
+    xlet_auto >- xsimpl>>
+    xapp>>
+    xsimpl)>>
+  xcon>>xsimpl
+QED
+
+Theorem array_all_spec:
+  LIST_REL R ls arr ∧
+  (R --> BOOL) f fv
+  ⇒
+  app (p:'ffi ffi_proj) Array_all_v [fv; arrv]
+    (ARRAY arrv arr)
+    (POSTv v. ARRAY arrv arr * &BOOL (EVERY f ls) v)
+Proof
+  rw[]>>xcf_with_def Array_all_v_def>>
+  xlet_auto >- xsimpl>>
+  imp_res_tac LIST_REL_LENGTH>>
+  xapp>> xsimpl>>
+  first_x_assum (irule_at Any)>>
+  first_x_assum (irule_at Any)>>
+  simp[]
+QED

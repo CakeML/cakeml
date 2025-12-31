@@ -1,12 +1,12 @@
 (*
   Simplification of panLang.
 *)
+Theory pan_simp
+Ancestors
+  panLang backend_common[qualified]
+Libs
+  preamble
 
-open preamble panLangTheory
-
-val _ = new_theory "pan_simp"
-
-val _ = set_grammar_ancestry ["panLang","backend_common"];
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -17,8 +17,8 @@ End
 
 Definition seq_assoc_def:
   (seq_assoc p Skip = p) /\
-  (seq_assoc p (Dec v e q) =
-    SmartSeq p (Dec v e (seq_assoc Skip q))) /\
+  (seq_assoc p (Dec v s e q) =
+    SmartSeq p (Dec v s e (seq_assoc Skip q))) /\
   (seq_assoc p (Seq q r) = seq_assoc (seq_assoc p q) r) /\
   (seq_assoc p (If e q r) =
     SmartSeq p (If e (seq_assoc Skip q) (seq_assoc Skip r))) /\
@@ -42,14 +42,14 @@ End
 Definition seq_call_ret_def:
   seq_call_ret prog =
    dtcase prog of
-    | Seq (AssignCall rv1 NONE trgt args) (Return (Var (rv2:mlstring))) =>
+    | Seq (AssignCall (Local,rv1) NONE trgt args) (Return (Var Local (rv2:mlstring))) =>
       if rv1 = rv2 then (TailCall trgt args) else prog
     | other => other
 End
 
 Definition ret_to_tail_def:
   (ret_to_tail Skip = Skip) /\
-  (ret_to_tail (Dec v e q) = Dec v e (ret_to_tail q)) /\
+  (ret_to_tail (Dec v s e q) = Dec v s e (ret_to_tail q)) /\
   (ret_to_tail (Seq p q) =
     seq_call_ret (Seq (ret_to_tail p) (ret_to_tail q))) /\
   (ret_to_tail (If e p q) = If e (ret_to_tail p) (ret_to_tail q)) /\
@@ -73,10 +73,11 @@ End
 
 Definition compile_prog_def:
   compile_prog prog =
-    MAP (λ(name, params, body).
-          (name,
-           params,
-           compile body)) prog
+    MAP (λdecl.
+           dtcase decl of
+             Function fi =>
+               Function (fi with body := compile fi.body)
+           | _ => decl) prog
 End
 
 
@@ -85,7 +86,7 @@ Theorem seq_assoc_pmatch:
   seq_assoc p prog =
   case prog of
    | Skip => p
-   | (Dec v e q) => SmartSeq p (Dec v e (seq_assoc Skip q))
+   | (Dec v s e q) => SmartSeq p (Dec v s e (seq_assoc Skip q))
    | (Seq q r) => seq_assoc (seq_assoc p q) r
    | (If e q r) =>
      SmartSeq p (If e (seq_assoc Skip q) (seq_assoc Skip r))
@@ -113,7 +114,7 @@ Theorem ret_to_tail_pmatch:
   ret_to_tail p =
   case p of
    | Skip => Skip
-   | (Dec v e q) => Dec v e (ret_to_tail q)
+   | (Dec v s e q) => Dec v s e (ret_to_tail q)
    | (Seq q r) => seq_call_ret (Seq (ret_to_tail q) (ret_to_tail r))
    | (If e q r) =>
       If e (ret_to_tail q) (ret_to_tail r)
@@ -135,4 +136,15 @@ Proof
   every_case_tac >> fs[ret_to_tail_def]
 QED
 
-val _ = export_theory();
+Theorem compile_prog_pmatch:
+  compile_prog prog =
+    MAP (λdecl.
+           case decl of
+             Function fi =>
+               Function (fi with body := compile fi.body)
+           | _ => decl) prog
+Proof
+  rw[compile_prog_def,MAP_EQ_f] >>
+  CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >>
+  simp[]
+QED

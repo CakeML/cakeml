@@ -2,14 +2,11 @@
   Definition of a function for mapping types back to ASTs, and proofs that
   check that the conversion functions are doing something reasonable.
 *)
-open HolKernel Parse boolLib bossLib;
-open preamble boolSimps
-
-open cmlPtreeConversionTheory
-open gramPropsTheory
-
-val _ = new_theory "cmlPtreeConversionProps";
-val _ = set_grammar_ancestry ["cmlPtreeConversion", "gramProps"]
+Theory cmlPtreeConversionProps
+Ancestors
+  cmlPtreeConversion gramProps
+Libs
+  preamble boolSimps
 
 val _ = option_monadsyntax.temp_add_option_monadsyntax()
 
@@ -75,11 +72,8 @@ Definition user_expressible_type_def:
      EVERY user_expressible_type tys ∧ 2 ≤ LENGTH tys) ∧
   (user_expressible_type (Atfun dty rty) ⇔
      user_expressible_type dty ∧ user_expressible_type rty)
-Termination
-  WF_REL_TAC ‘measure ast$ast_t_size’ >> simp[] >> conj_tac >> rpt gen_tac >>
-   Induct_on ‘tys’ >>
-   dsimp[astTheory.ast_t_size_def] >> rpt strip_tac >> res_tac  >> simp[]
 End
+
 val _ = augment_srw_ss [rewrites [
            SIMP_RULE (srw_ss() ++ ETA_ss) [] user_expressible_type_def]]
 
@@ -139,11 +133,6 @@ Definition type_to_AST_def:
     ND nPType [ND nDType [ND nTbase [LF LparT; type_to_AST ty; LF RparT]];
                LF StarT;
                typel_to_AST_PType tys]
-Termination
-  WF_REL_TAC
-     ‘measure (λs. case s of INL ty => ast_t_size ty
-                           | INR (INL tyl) => ast_t1_size tyl
-                           | INR (INR tyl) => ast_t1_size tyl)’
 End
 
 Theorem destTyvarPT_tyname_to_AST:
@@ -229,13 +218,12 @@ Proof
   metis_tac[types_inverted]
 QED
 
-Theorem ptree_head_TOK:
+Theorem ptree_head_TOK[simp]:
    (ptree_head pt = TOK sym ⇔ ?l. pt = Lf (TOK sym,l)) ∧
     (TOK sym = ptree_head pt ⇔ ?l. pt = Lf (TOK sym,l))
 Proof
   Cases_on `pt` >> Cases_on`p` >> simp[] >> metis_tac[]
 QED
-val _ = export_rewrites ["ptree_head_TOK"]
 
 val start =
   Cases_on `pt` >> Cases_on `p` >> simp[]
@@ -408,7 +396,7 @@ Proof
   simp[ptree_Op_def, tokcheck_def, tokcheckl_def, singleSymP_def]
 QED
 
-Triviality MAP_TK11:
+Theorem MAP_TK11[local]:
   ∀l1 l2. MAP TK l1 = MAP TK l2 ⇔ l1 = l2
 Proof
   Induct_on `l1` >> simp[] >> rpt gen_tac >>
@@ -562,7 +550,7 @@ Proof
    metis_tac[pair_CASES]) >>~-
   ([‘∃p. ptree_Op pt = SOME p (* g *)’],
    match_mp_tac (GEN_ALL Ops_OK0) >> simp[]) >>~-
-  ([‘∃es. Eseq_encode el = SOME es’],
+  ([‘∃es. Eseq_encode _ = SOME es’],
    erule strip_assume_tac Eseq_encode_OK >> simp[]) >~
   [‘∃ty. ptree_Type nType pt = SOME ty’]
   >- (erule strip_assume_tac (n Type_OK) >> simp[]) >~
@@ -844,5 +832,3 @@ Proof
       >- (rename[`Lf p`] >> Cases_on `p` >> fs[] >> fs[]) >>
       metis_tac[Decl_OK, grammarTheory.ptree_fringe_def])
 QED
-
-val _ = export_theory();

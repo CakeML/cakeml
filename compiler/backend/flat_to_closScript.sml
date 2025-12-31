@@ -4,11 +4,11 @@
   closLang. It also makes all division-by-zero and out-of-bounds
   exceptions raised explicitly.
 *)
-open preamble flatLangTheory closLangTheory clos_interpTheory;
-
-val _ = new_theory "flat_to_clos"
-
-val _ = set_grammar_ancestry ["flatLang", "closLang", "clos_interp", "backend_common"];
+Theory flat_to_clos
+Ancestors
+  flatLang closLang clos_interp backend_common[qualified]
+Libs
+  preamble
 
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
@@ -42,7 +42,8 @@ Definition compile_lit_def:
       | Char c => IntOp (Const (& (ORD c)))
       | StrLit s => BlockOp (Constant (ConstStr (mlstring$implode s)))
       | Word8 b => IntOp (Const (& (w2n b)))
-      | Word64 w => BlockOp (Constant (ConstWord64 w))) []
+      | Word64 w => BlockOp (Constant (ConstWord64 w))
+      | Float64 w => BlockOp (Constant (ConstWord64 w))) []
 End
 
 Definition arg1_def:
@@ -109,11 +110,6 @@ Definition compile_op_def:
                         (If t (Op t (IntOp Less) [Var t 0; Op None (IntOp (Const 255)) []])
                           (Raise t (Op t (BlockOp (Cons chr_tag)) []))
                           (Var t 0)))
-    | Chopb chop => Op t (IntOp (dtcase chop of
-                                 | Lt => Less
-                                 | Gt => Greater
-                                 | Leq => LessEq
-                                 | Geq => GreaterEq)) xs
     | Opassign => arg2 xs (\x y. Op t (MemOp Update) [x; Op None (IntOp (Const 0)) []; y])
     | Opref => Op t (MemOp Ref) xs
     | ConfigGC => Op t (MemOp ConfigGC) xs
@@ -147,7 +143,14 @@ Definition compile_op_def:
     | CopyStrAw8 => Let t xs (CopyByteAw8 t)
     | CopyAw8Str => Let t xs (CopyByteStr t)
     | CopyAw8Aw8 => Let t xs (CopyByteAw8 t)
+    | Aw8xor_unsafe => Op t (MemOp XorByte) xs
     | VfromList => Op t (BlockOp (FromList 0)) xs
+    | Test test test_ty =>
+         (dtcase test_ty of
+          | BoolT => Op t (BlockOp (BoolTest test)) xs
+          | CharT => Op t (WordOp (WordTest W8 test)) xs
+          | WordT W8 => Op t (WordOp (WordTest W8 test)) xs
+          | _ => Op t (BlockOp Equal) xs)
     | WordFromInt W64 => Op t (WordOp WordFromInt) xs
     | WordToInt W64 => Op t (WordOp WordToInt) xs
     | WordFromInt W8 => arg1 xs (\x. Op t (IntOp Mod) [Op t (IntOp (Const 256)) []; x])
@@ -163,6 +166,7 @@ Definition compile_op_def:
     | Vsub => Let t xs (If t (Op t (BlockOp BoundsCheckBlock) [Var t 0; Var t 1])
                              (Op t (MemOp El) [Var t 0; Var t 1])
                              (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
+    | Vsub_unsafe => Op t (MemOp El) xs
     | Asub => Let t xs (If t (Op t (MemOp BoundsCheckArray) [Var t 0; Var t 1])
                              (Op t (MemOp El) [Var t 0; Var t 1])
                              (Raise t (Op t (BlockOp (Cons subscript_tag)) [])))
@@ -189,6 +193,9 @@ Definition compile_op_def:
     | Shift x1 x2 x3 => Op t (WordOp (WordShift x1 x2 x3)) xs
     | Opw x1 x2 => Op t (WordOp (WordOpw x1 x2)) xs
     | Eval => Op t Install xs (* if need to flip:  Let t xs (Op t Install [Var t 1; Var t 0]) *)
+    | FpFromWord => Let None xs (Var None 0)
+    | FpToWord => Let None xs (Var None 0)
+    | ThunkOp op => Op t (ThunkOp op) xs
     | _ => Let None xs (Var None 0)
 End
 
@@ -326,5 +333,3 @@ Proof
   qspecl_then [`m`,`[x]`] mp_tac (SIMP_RULE std_ss [] LENGTH_compile)
   \\ Cases_on `compile m [x]` \\ fs []
 QED
-
-val _ = export_theory()

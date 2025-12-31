@@ -1,12 +1,13 @@
 (*
   Specification of how to convert parse trees to abstract syntax.
 *)
+Theory cmlPtreeConversion
+Ancestors
+  gram tokenUtils ast namespace[qualified]
+Libs
+  preamble
 
-open preamble gramTheory tokenUtilsTheory astTheory
 
-val _ = new_theory "cmlPtreeConversion"
-
-val _ = set_grammar_ancestry ["gram", "tokenUtils", "ast", "namespace"]
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 (* handling constructor arities gets very complicated when "open" is
@@ -1245,17 +1246,17 @@ Definition ptree_Expr_def[nocompute]:
         | _ => NONE)
 End
 
-Triviality dumb1:
+Theorem dumb1[local]:
   COND (p = q) t e = COND (q = p) t e
 Proof
   rw[]
 QED
-Triviality dumb2:
+Theorem dumb2[local]:
   COND gd t NONE = OPTION_IGNORE_BIND (assert gd) t
 Proof
   Cases_on ‘gd’ >> simp[]
 QED
-Triviality ptree_Expr_def' =
+Theorem ptree_Expr_def'[local] =
   ptree_Expr_def |> ONCE_REWRITE_RULE [dumb1]
                  |> SRULE []
                  |> REWRITE_RULE[dumb2]
@@ -1492,4 +1493,3 @@ Definition ptree_TopLevelDecs_def:
        | _ => fail)
 End
 
-val _ = export_theory()

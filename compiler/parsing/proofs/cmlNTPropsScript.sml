@@ -1,15 +1,13 @@
 (*
   Properties (first sets etc) for non-terminals in the CakeML grammar
 *)
-open HolKernel Parse boolLib bossLib;
+Theory cmlNTProps
+Ancestors
+  gramProps NTproperties gram
+Libs
+  preamble
 
-open preamble
-open NTpropertiesTheory gramTheory gramPropsTheory
-val _ = new_theory "cmlNTProps";
-
-val _ = set_grammar_ancestry ["gramProps"]
-
-Triviality disjImpI:
+Theorem disjImpI[local]:
   ~p \/ q ⇔ p ⇒ q
 Proof
   DECIDE_TAC
@@ -831,4 +829,3 @@ Proof
   fs[firstSet_nV, firstSet_nConstructorName]
 QED
 
-val _ = export_theory();

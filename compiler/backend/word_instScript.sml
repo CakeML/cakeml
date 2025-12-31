@@ -2,9 +2,11 @@
   This compiler phase implements instruction selection. It uses the
   Maximal Munch strategy.
 *)
-open preamble wordLangTheory stackLangTheory sortingTheory;
-
-val _ = new_theory "word_inst";
+Theory word_inst
+Ancestors
+  wordLang stackLang sorting
+Libs
+  preamble
 
 val _ = Parse.bring_to_front_overload"Shift"{Thy="wordLang",Name="Shift"};
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
@@ -119,10 +121,11 @@ Definition pull_exp_def:
   (pull_exp exp = exp)
 Termination
   WF_REL_TAC `measure (exp_size ARB)`
-   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
-   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-   \\ fs[exp_size_def,asmTheory.binop_size_def,astTheory.shift_size_def,store_name_size_def]
-   \\ TRY (DECIDE_TAC)
+  \\ rw[]
+  \\ gvs[]
+  \\ drule MEM_list_size
+  \\ disch_then(qspec_then `exp_size ARB` mp_tac)
+  \\ rw[]
 End
 
 Theorem pull_exp_pmatch:
@@ -392,6 +395,7 @@ Definition inst_select_def:
     | Op Add [exp';Const w] =>
       if ((op = Load ∨ op = Store) /\ addr_offset_ok c w) ∨
           ((op = Load32 ∨ op  = Store32) /\ addr_offset_ok c w) ∨
+          ((op = Load16 ∨ op  = Store16) /\ hw_offset_ok c w) ∨
           ((op = Load8 ∨ op  = Store8) /\ byte_offset_ok c w) then
         let prog = inst_select_exp c temp temp exp' in
           Seq prog (ShareInst op v (Op Add [Var temp; Const w]))
@@ -451,6 +455,7 @@ Theorem inst_select_pmatch:
     | Op Add [exp';Const w] =>
       if ((op = Load ∨ op = Store) /\ addr_offset_ok c w) \/
           ((op = Load32 ∨ op  = Store32) /\ addr_offset_ok c w) \/
+          ((op = Load16 ∨ op  = Store16) /\ hw_offset_ok c w) \/
           ((op = Load8 ∨ op  = Store8) /\ byte_offset_ok c w) then
         let prog = inst_select_exp c temp temp exp' in
           Seq prog (ShareInst op var (Op Add [Var temp; Const w]))
@@ -477,6 +482,7 @@ Proof
     rpt strip_tac
     >> rpt(CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV) >> every_case_tac >>
          PURE_ONCE_REWRITE_TAC[LET_DEF] >> BETA_TAC)
+    >> TRY (rename1 ‘Ag32’>>CASE_TAC>>gvs[])
     >> fs[inst_select_def] )
 QED
 
@@ -563,4 +569,3 @@ Definition three_to_two_reg_prog_def:
     if b then three_to_two_reg prog else prog
 End
 
-val _ = export_theory();

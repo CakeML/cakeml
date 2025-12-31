@@ -1,13 +1,13 @@
 (*
   The infer_t datatype and various to_string functions.
 *)
-open preamble;
-open mlstringTheory mlintTheory;
-open astTheory semanticPrimitivesTheory typeSystemTheory;
+Theory infer_t
+Ancestors
+  mlstring mlint ast semanticPrimitives typeSystem
+Libs
+  preamble
 
 val _ = numLib.temp_prefer_num();
-
-val _ = new_theory "infer_t";
 
 Datatype:
  infer_t =
@@ -65,8 +65,6 @@ Definition type_ident_to_string_def:
     strlit "byte_array"
   else if ti = Tdouble_num then
     strlit "Double.double"
-  else if ti = Treal_num then
-    strlit "Double.real"
   else
     case get_tyname ti tys of
     | NONE => mlint$toString (&ti)
@@ -132,4 +130,3 @@ Definition inf_type_to_string_def:
   inf_type_to_string tys t = FST (inf_type_to_string_rec tys t)
 End
 
-val _ = export_theory ();

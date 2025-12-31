@@ -2,14 +2,14 @@
   This is an example of applying the translator to the Leftist
   Heap algorithm from Chris Okasaki's book.
 *)
-open preamble
-open bagTheory bagLib okasaki_miscTheory;
-open ml_translatorLib ListProgTheory;
+Theory LeftistHeap
+Ancestors
+  bag okasaki_misc ListProg
+Libs
+  preamble bagLib ml_translatorLib
 
 val fs = full_simp_tac (srw_ss ())
 val rw = srw_tac []
-
-val _ = new_theory "LeftistHeap"
 
 val _ = translation_extends "ListProg";
 
@@ -183,7 +183,7 @@ QED
 val delete_min_side_def = fetch "-" "delete_min_side_def"
 val find_min_side_def = fetch "-" "find_min_side_def"
 
-Triviality delete_min_side:
+Theorem delete_min_side[local]:
   !get_key leq h. delete_min_side get_key leq h = (h ≠ Empty)
 Proof
   rw [delete_min_side_def] >>
@@ -193,7 +193,7 @@ cases_on `h` >>
 rw []
 QED
 
-Triviality find_min_side:
+Theorem find_min_side[local]:
   !h. find_min_side h = (h ≠ Empty)
 Proof
   rw [find_min_side_def] >>
@@ -203,4 +203,3 @@ cases_on `h` >>
 rw []
 QED
 
-val _ = export_theory ();

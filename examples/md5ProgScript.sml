@@ -1,9 +1,11 @@
 (*
   Translate md5 function
 *)
-open preamble basis md5Theory UnsafeProgTheory cfLib basisFunctionsLib;
-
-val _ = new_theory "md5Prog"
+Theory md5Prog
+Libs
+  preamble basis cfLib basisFunctionsLib
+Ancestors
+  md5 UnsafeProg
 
 val _ = translation_extends "UnsafeProg";
 
@@ -16,7 +18,7 @@ val init_v = translate init_def;
 val res = translate DROP_def;
 val res = translate subVec_def;
 
-Triviality word_not_thm:
+Theorem word_not_thm[local]:
   ¬w = word_xor w (0xFFFFFFFFw:word32)
 Proof
   fs []
@@ -161,5 +163,3 @@ Proof
   \\ gvs [std_preludeTheory.OPTION_TYPE_def,md5_final_def]
   \\ fs [md5_lem]
 QED
-
-val _ = export_theory();

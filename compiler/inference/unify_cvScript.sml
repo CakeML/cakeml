@@ -1,13 +1,13 @@
 (*
   Translating unifyTheory to cv equations for use with cv_eval
 *)
-open preamble;
-open cv_transLib unifyTheory;
-open cv_stdTheory basis_cvTheory;
+Theory unify_cv
+Ancestors
+  unify cv_std basis_cv
+Libs
+  preamble cv_transLib
 
-val _ = new_theory "unify_cv";
-
-val tcvwalk_pre_def = cv_trans_pre tcvwalk_thm;
+val tcvwalk_pre_def = cv_trans_pre "" tcvwalk_thm;
 
 Theorem tcvwalk_pre:
   ∀s t. cwfs s ⇒ tcvwalk_pre s t
@@ -21,7 +21,7 @@ Proof
   simp[cvwalk_code_def, AllCaseEqs()]
 QED
 
-val tcwalk_pre_def = cv_trans_pre tcwalk_def;
+val tcwalk_pre_def = cv_trans_pre "" tcwalk_def;
 
 Theorem tcwalk_pre:
   cwfs s ⇒ tcwalk_pre s t
@@ -29,7 +29,7 @@ Proof
   simp[tcwalk_pre_def, tcvwalk_pre]
 QED
 
-val tcocwl_pre_def = cv_trans_pre tcocwl_thm;
+val tcocwl_pre_def = cv_trans_pre "" tcocwl_thm;
 
 Theorem tcocwl_pre:
   ∀s n wl. cwfs s ⇒ tcocwl_pre s n wl
@@ -43,7 +43,7 @@ Proof
   simp[kcocwl_code_def]
 QED
 
-val tcwalkstar_pre_def = cv_trans_pre tcwalkstarwl_thm
+val tcwalkstar_pre_def = cv_trans_pre "" tcwalkstarwl_thm
 
 Theorem tcwalkstar_p1_pre_thm:
   cwfs s ⇒ (tcwalkstar_p1_pre s its ks ⇔
@@ -87,9 +87,9 @@ Proof
   gvs[kcwalkstarwl_ensures_decrease]
 QED
 
-Theorem tcwalkstar_pre_def = cv_trans_pre tcwalkstarwl_correct
+Theorem tcwalkstar_pre_def = cv_trans_pre "" tcwalkstarwl_correct
 
-val tcunify_pre_def = cv_trans_pre tcunify_thm;
+val tcunify_pre_def = cv_trans_pre "" tcunify_thm;
 
 Theorem tcunify_pre_thm:
   cwfs s ⇒
@@ -116,7 +116,7 @@ Proof
   metis_tac[]
 QED
 
-val cunify_pre_def = cv_trans_pre tcunify_correct;
+val cunify_pre_def = cv_trans_pre "" tcunify_correct;
 
 Theorem cunify_pre[cv_pre]:
   cunify_pre s t1 t2 ⇔ cwfs s
@@ -132,7 +132,7 @@ Proof
   Cases_on ‘x’ \\ gvs [cv_typeTheory.from_option_def]
 QED
 
-Triviality to_encode_infer_t_o_f[simp]:
+Theorem to_encode_infer_t_o_f[local,simp]:
   sp2fm (map encode_infer_t (fromAList (fmap_to_alist s))) =
   encode_infer_t o_f s
 Proof
@@ -184,4 +184,3 @@ Proof
   gvs[spt_eq_thm, cwfs_def, lookup_fromAList]
 QED
 
-val _ = export_theory ();

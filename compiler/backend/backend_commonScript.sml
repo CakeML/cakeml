@@ -1,12 +1,12 @@
 (*
   Definitions that are common for many parts of the compiler backend.
 *)
+Theory backend_common
+Ancestors[qualified]
+  arithmetic integer words
+Libs
+  preamble
 
-open preamble
-
-val _ = new_theory "backend_common";
-
-val _ = set_grammar_ancestry ["arithmetic", "integer", "words"];
 
 (* Small general definition *)
 Definition small_enough_int_def:
@@ -129,7 +129,7 @@ Definition data_num_stubs_def:
 End
 
 Definition bvl_num_stubs_def:
-  bvl_num_stubs = data_num_stubs + 8 + (* dummy to make it a multiple of 3 *) 1
+  bvl_num_stubs = data_num_stubs + 9 + (* dummy to make it a multiple of 3 *) 0
 End
 
 Definition bvl_to_bvi_namespaces_def:

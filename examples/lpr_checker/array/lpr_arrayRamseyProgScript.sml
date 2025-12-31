@@ -1,17 +1,19 @@
 (*
   This builds a proof checker specialized to Ramsey number 4
 *)
-open preamble basis lpr_composeProgTheory UnsafeProofTheory lprTheory lpr_listTheory lpr_parsingTheory HashtableProofTheory lpr_arrayProgTheory lpr_arrayParsingProgTheory ramseyTheory;
-
-val _ = new_theory "lpr_arrayRamseyProg"
+Theory lpr_arrayRamseyProg
+Ancestors
+  lpr_composeProg UnsafeProof lpr lpr_list lpr_parsing
+  HashtableProof lpr_arrayProg lpr_arrayParsingProg ramsey
+  basis_ffi
+Libs
+  preamble basis
 
 val _ = temp_delsimps ["NORMEQ_CONV"] (*"*)
 val _ = diminish_srw_ss ["ABBREV"]
 val _ = set_trace "BasicProvers.var_eq_old" 1
 
 val _ = translation_extends"lpr_arrayParsingProg";
-
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
 
 (* This function is not specific to Ramsey, can take any encoder  *)
 
@@ -372,5 +374,3 @@ Theorem check_unsat_semantics =
   |> SIMP_RULE(srw_ss())[GSYM CONJ_ASSOC,AND_IMP_INTRO];
 
 end
-
-val _ = export_theory();

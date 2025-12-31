@@ -1,11 +1,13 @@
 (*
   Lemmas about the file system model used by the proof about TextIO.
 *)
-open preamble mlstringTheory cfHeapsBaseTheory fsFFITheory MarshallingTheory
+Theory fsFFIProps
+Ancestors
+  mlstring cfHeapsBase fsFFI Marshalling
+Libs
+  preamble
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
-
-val _ = new_theory"fsFFIProps"
 
 val _ = option_monadsyntax.temp_add_option_monadsyntax();
 
@@ -35,6 +37,14 @@ Proof
   `x ≤ CARD (set ns)`
      by metis_tac[CARD_COUNT, CARD_SUBSET, FINITE_LIST_TO_SET] >>
   fs[]
+QED
+
+Theorem nextFD_maxFD:
+  hasFreeFD fs ⇒ nextFD fs ≤ fs.maxFD
+Proof
+  strip_tac
+  \\ drule_then assume_tac nextFD_ltX
+  \\ gvs [nextFD_def]
 QED
 
 Theorem nextFD_leX:
@@ -148,7 +158,7 @@ Proof
   fs [validFD_def,nextFD_def]
   \\ qabbrev_tac `xs = MAP FST fs.infds`
   \\ match_mp_tac (SIMP_RULE std_ss []
-          (Q.ISPEC `\n:num. ~MEM n xs` whileTheory.LEAST_INTRO))
+          (Q.ISPEC `\n:num. ~MEM n xs` WhileTheory.LEAST_INTRO))
   \\ qexists_tac `SUM xs + 1`
   \\ strip_tac
   \\ qsuff_tac `!xs m:num. MEM m xs ==> m <= SUM xs`
@@ -1024,11 +1034,20 @@ End
 Overload all_lines_inode =
   ``λfs ino. lines_of (implode (THE (ALOOKUP fs.inode_tbl ino)))``
 
-(* all_lines: get all the lines based on filename *)
+(* all_lines_file: get all the lines based on filename *)
 
-Definition all_lines_def:
-  all_lines fs fname =
+Definition all_lines_file_def:
+  all_lines_file fs fname =
     all_lines_inode fs (File (THE(ALOOKUP fs.files fname)))
+End
+
+Definition all_lines_stdin_def:
+  all_lines_stdin fs = all_lines_inode fs (UStream «stdin»)
+End
+
+Definition all_lines_from_def:
+  all_lines_from fs NONE = all_lines_stdin fs ∧
+  all_lines_from fs (SOME fname) = all_lines_file fs fname
 End
 
 Theorem concat_lines_of:
@@ -1037,11 +1056,12 @@ Theorem concat_lines_of:
 Proof
   rw[lines_of_def] \\
   `s = implode (explode s)` by fs [explode_implode] \\
-  qabbrev_tac `ls = explode s` \\ pop_assum kall_tac \\ rveq \\
-  Induct_on`splitlines ls` \\ rw[] \\
-  pop_assum(assume_tac o SYM) \\
-  fs[splitlines_eq_nil,concat_cons]
+  qabbrev_tac `ls = explode s`
+  \\ pop_assum kall_tac \\ rveq \\
+  Induct_on`splitlines ls` \\ rw[]
   >- EVAL_TAC \\
+  pop_assum(assume_tac o SYM) \\
+  fs[splitlines_eq_nil,concat_cons] \\
   imp_res_tac splitlines_next \\ rw[] \\
   first_x_assum(qspec_then`DROP (SUC (LENGTH h)) ls`mp_tac) \\
   rw[] \\ rw[]
@@ -1062,25 +1082,25 @@ Proof
     qpat_x_assum`strlit [] = _`mp_tac \\ EVAL_TAC )
 QED
 
-Theorem concat_all_lines:
-   concat (all_lines fs fname) = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname))))) ∨
-   concat (all_lines fs fname) = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname))))) ^ str #"\n"
+Theorem concat_all_lines_file:
+   concat (all_lines_file fs fname) = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname))))) ∨
+   concat (all_lines_file fs fname) = implode (THE (ALOOKUP fs.inode_tbl (File (THE (ALOOKUP fs.files fname))))) ^ str #"\n"
 Proof
-  fs [all_lines_def,concat_lines_of]
+  fs [all_lines_file_def,concat_lines_of]
 QED
 
-Theorem all_lines_with_numchars:
-   all_lines (fs with numchars := ns) = all_lines fs
+Theorem all_lines_file_with_numchars:
+   all_lines_file (fs with numchars := ns) = all_lines_file fs
 Proof
-  rw[FUN_EQ_THM,all_lines_def]
+  rw[FUN_EQ_THM,all_lines_file_def]
 QED
 
 Theorem linesFD_openFileFS_nextFD:
    consistentFS fs ∧ inFS_fname fs f ∧ nextFD fs ≤ fs.maxFD ⇒
-   linesFD (openFileFS f fs md 0) (nextFD fs) = MAP explode (all_lines fs f)
+   linesFD (openFileFS f fs md 0) (nextFD fs) = MAP explode (all_lines_file fs f)
 Proof
   rw[linesFD_def,get_file_content_def,ALOOKUP_inFS_fname_openFileFS_nextFD]
-  \\ rw[all_lines_def,lines_of_def]
+  \\ rw[all_lines_file_def,lines_of_def]
   \\ imp_res_tac inFS_fname_ALOOKUP_EXISTS
   \\ imp_res_tac ALOOKUP_inFS_fname_openFileFS_nextFD
   \\ fs[MAP_MAP_o,o_DEF,GSYM mlstringTheory.implode_STRCAT]
@@ -1298,7 +1318,7 @@ Proof
  fs[STD_streams_def]
 QED
 
-Triviality lemma:
+Theorem lemma[local]:
   UStream (strlit "stdin") ≠ UStream (strlit "stdout") ∧
    UStream (strlit "stdin") ≠ UStream (strlit "stderr") ∧
    UStream (strlit "stdout") ≠ UStream (strlit "stderr")
@@ -1390,6 +1410,28 @@ Proof
   metis_tac[SOME_11,PAIR,FST,SND,lemma]
 QED
 
+Theorem get_file_content_stdout:
+  STD_streams fs ⇒
+  ∃content pos. get_file_content fs 1 = SOME (content, pos)
+Proof
+  simp [STD_streams_def, get_file_content_def]
+  \\ rpt strip_tac
+  \\ rename [‘ALOOKUP fs.inode_tbl (UStream «stdout») = SOME out’]
+  \\ qexistsl [‘out’, ‘STRLEN out’, ‘(UStream «stdout», WriteMode, STRLEN out)’]
+  \\ simp []
+QED
+
+Theorem get_file_content_stderr:
+  STD_streams fs ⇒
+  ∃content pos. get_file_content fs 2 = SOME (content, pos)
+Proof
+  simp [STD_streams_def, get_file_content_def]
+  \\ rpt strip_tac
+  \\ rename [‘ALOOKUP fs.inode_tbl (UStream «stderr») = SOME err’]
+  \\ qexistsl [‘err’, ‘STRLEN err’, ‘(UStream «stderr», WriteMode, STRLEN err)’]
+  \\ simp []
+QED
+
 Definition get_mode_def:
   get_mode fs fd =
     OPTION_MAP (FST o SND) (ALOOKUP fs.infds fd)
@@ -1458,5 +1500,3 @@ Proof
   \\ fs [openFileFS_def,inFS_fname_def,openFile_def]
   \\ rw [] \\ fs [validFileFD_def]
 QED
-
-val _ = export_theory();

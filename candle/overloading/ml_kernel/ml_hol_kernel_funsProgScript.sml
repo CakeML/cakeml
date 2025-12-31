@@ -5,22 +5,21 @@
   state a formal connection between the generated code and the input
   HOL functions.
 *)
-open preamble ml_translatorTheory ml_translatorLib ml_pmatchTheory patternMatchesTheory
-open astTheory evaluateTheory semanticPrimitivesTheory
-open ml_progLib ml_progTheory evaluateTheory
-open set_sepTheory cfTheory cfStoreTheory cfTacticsLib Satisfy
-open cfHeapsBaseTheory basisFunctionsLib
-open ml_monadBaseTheory ml_monad_translatorTheory ml_monadStoreLib ml_monad_translatorLib
-open holKernelTheory holKernelProofTheory
-open basisProgTheory
-open holAxiomsSyntaxTheory
-local open holKernelPmatchTheory in end
+Theory ml_hol_kernel_funsProg
+Libs
+  preamble ml_translatorLib ml_progLib cfTacticsLib Satisfy
+  basisFunctionsLib ml_monadStoreLib ml_monad_translatorLib
+Ancestors
+  ml_translator ml_pmatch patternMatches ast evaluate
+  semanticPrimitives ml_prog evaluate set_sep cf cfStore
+  cfHeapsBase ml_monadBase ml_monad_translator holKernel
+  holKernelProof basisProg holAxiomsSyntax
+  holKernelPmatch[qualified]
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory "ml_hol_kernel_funsProg";
 val _ = translation_extends "basisProg"
 
 val _ = (use_full_type_names := false);
@@ -104,7 +103,10 @@ val (monad_parameters, store_translation, exn_specs) =
 
 (* mechanism for adding type checking annotations *)
 
-val pure_seq_intro = prove(“x = y ⇒ ∀z. x = pure_seq z y”, fs [pure_seq_def]);
+Theorem pure_seq_intro[local]:
+  x = y ⇒ ∀z. x = pure_seq z y
+Proof fs [pure_seq_def]
+QED
 
 fun mlstring_check s = “mlstring$strlen ^s”
 fun type_check ty = “case ^ty of Tyvar _ => () | _ => abc” |> subst [“abc:unit”|->“()”]
@@ -176,7 +178,7 @@ val res = translate check_tm_tm_def;
 (*
 val res = translate mlstringTheory.explode_aux_def;
 val res = translate mlstringTheory.explode_def;
-Triviality explode_aux_side_thm:
+Theorem explode_aux_side_thm[local]:
   ∀s n m. n + m = strlen s ==> explode_aux_side s n m
 Proof
   Induct_on`m` \\ rw[Once (theorem"explode_aux_side_def")]
@@ -322,10 +324,6 @@ Definition type_compare_def:
          (case type_compare t1 t2 of
           | Equal => type_list_compare ts1 ts2
           | other => other))
-Termination
-  WF_REL_TAC `measure (\x. case x of
-                  INR (x,_) => type1_size x
-                | INL (x,_) => type_size x)`
 End
 
 val type_cmp_thm = Q.prove(
@@ -382,7 +380,7 @@ Definition term_compare_def:
          | Greater => Greater
 End
 
-Triviality term_cmp_thm:
+Theorem term_cmp_thm[local]:
   term_cmp = term_compare
 Proof
   fs [FUN_EQ_THM]
@@ -523,7 +521,7 @@ val def = new_basic_definition_def |> check [‘tm’] |> m_translate
 
 val def = holSyntaxExtraTheory.instance_subst_def |> PURE_REWRITE_RULE [MEM_EXISTS] |> translate_no_ind
 
-Triviality instance_subst_ind:
+Theorem instance_subst_ind[local]:
   instance_subst_ind
 Proof
   rewrite_tac [fetch "-" "instance_subst_ind_def"]
@@ -553,7 +551,7 @@ Definition allTypes_ty_def:
   allTypes_ty = allTypes'
 End
 
-Triviality allTypes'_eqn:
+Theorem allTypes'_eqn[local]:
   allTypes' ty =
     case ty of
       Tyapp s tys =>
@@ -576,7 +574,7 @@ val def = holSyntaxTheory.allTypes_def
           |> REWRITE_RULE[GSYM allTypes_ty_def]
           |> translate
 
-Triviality allCInsts_eqn =
+Theorem allCInsts_eqn[local] =
   holSyntaxTheory.allCInsts_def
   |> SIMP_RULE std_ss [holSyntaxTheory.builtin_const_def,
                        holSyntaxTheory.init_ctxt_def,FILTER,
@@ -587,12 +585,12 @@ Triviality allCInsts_eqn =
 
 val def = allCInsts_eqn |> translate
 
-(* MAP Tyvar (MAP implode (QSORT string_le (MAP explode (type_vars_in_term P)))) *)
+(* MAP Tyvar (MAP implode (sort string_le (MAP explode (type_vars_in_term P)))) *)
 
 val def = REPLICATE |> translate
 
 val def = holSyntaxTheory.dependency_compute_def
-          |> PURE_REWRITE_RULE[GSYM QSORT_type_vars_in_term,GSYM allTypes_ty_def]
+          |> PURE_REWRITE_RULE[GSYM sort_type_vars_in_term,GSYM allTypes_ty_def]
           |> translate
 
 val def = list_max_def |> translate
@@ -604,7 +602,7 @@ QED*)
 
 (*val def = FOLDL |> translate*)
 
-Triviality lambda_lemma:
+Theorem lambda_lemma[local]:
   (λx y. (λ(a,b) c. P a b c) y x) = λc (a,b). P a b c
 Proof
   rw[ELIM_UNCURRY]
@@ -657,7 +655,7 @@ val def = holSyntaxExtraTheory.unify_types_def
                                 PURE_REWRITE_RULE[GSYM FUN_EQ_THM] (GSYM (cj 1 holKernelProofTheory.type_subst))]
           |> translate_no_ind
 
-Triviality unify_types_ind:
+Theorem unify_types_ind[local]:
   unify_types_ind
 Proof
   rewrite_tac [fetch "-" "unify_types_ind_def"]
@@ -681,7 +679,7 @@ val def = holSyntaxExtraTheory.unify_def
 
 val def = holSyntaxExtraTheory.orth_ctxt_compute_def
           |> PURE_REWRITE_RULE[holSyntaxLibTheory.mlstring_sort_def,
-                               GSYM QSORT_type_vars_in_term]
+                               GSYM sort_type_vars_in_term]
           |> translate
 
 val def = holSyntaxCyclicityTheory.unify_LR_def |> translate
@@ -769,5 +767,3 @@ val def = m_translate constants_def;
 
 val _ = Globals.max_print_depth := 10;
 val _ = print_asts := false;
-
-val _ = export_theory();

@@ -4,10 +4,11 @@
   design of displayLang is intentionally very simple. The language
   supports Tuples, Items (e.g. datatype constructors), and Lists.
 *)
-open preamble jsonLangTheory mlintTheory backend_commonTheory;
-open str_treeTheory;
-
-val _ = new_theory"displayLang";
+Theory displayLang
+Ancestors
+  jsonLang mlint backend_common mlsexp (* for str_tree *)
+Libs
+  preamble
 
 Datatype:
   sExp =
@@ -63,24 +64,19 @@ Definition display_to_json_def:
       Object [(strlit "isTuple", Bool T); (strlit "elements", Array es')])
   /\
    (display_to_json (List es) = Array (MAP display_to_json es))
-Termination
-  WF_REL_TAC `measure sExp_size` \\ rw []
-  \\ imp_res_tac MEM_sExp_size \\ fs []
 End
 
 Definition display_to_str_tree_def:
   (display_to_str_tree (Item tra name es) =
-     mk_list (Str name :: display_to_str_tree_list es)) ∧
+     Trees (Str name :: display_to_str_tree_list es)) ∧
   (display_to_str_tree (String s : sExp) = Str s) /\
   (display_to_str_tree (Tuple es) =
      if NULL es then Str (strlit "()")
-     else mk_list (display_to_str_tree_list es)) ∧
+     else Trees (display_to_str_tree_list es)) ∧
   (display_to_str_tree (List es) =
      if NULL es then Str (strlit "()")
-     else mk_list (MAP GrabLine (display_to_str_tree_list es))) ∧
+     else Trees (MAP GrabLine (display_to_str_tree_list es))) ∧
   (display_to_str_tree_list [] = []) ∧
   (display_to_str_tree_list (x::xs) =
     display_to_str_tree x :: display_to_str_tree_list xs)
 End
-
-val _ = export_theory();

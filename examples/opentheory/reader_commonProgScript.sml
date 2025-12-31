@@ -3,16 +3,17 @@
   translations of the functions which are used by both versions so that we
   do not translate more than once.
 *)
-open preamble basis ml_monadBaseTheory ml_monad_translator_interfaceLib
-     cfMonadTheory cfMonadLib holKernelTheory holKernelProofTheory
-     ml_hol_kernel_funsProgTheory ml_hol_kernelProgTheory
-     readerTheory readerProofTheory reader_initTheory
-     prettyTheory;
+Theory reader_commonProg
+Ancestors
+  ml_monadBase cfMonad holKernel holKernelProof
+  ml_hol_kernel_funsProg ml_hol_kernelProg reader readerProof
+  reader_init pretty
+Libs
+  preamble basis ml_monad_translator_interfaceLib cfMonadLib
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = temp_delsimps ["lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory "reader_commonProg"
 val _ = m_translation_extends "ml_hol_kernelProg"
 
 val _ = use_full_type_names := true;
@@ -30,7 +31,7 @@ val r = translate (blanks_def |> REWRITE_RULE [GSYM sub_check_def]);
 val r = translate SmartAppend_def;
 val r = translate (print_list_def |> REWRITE_RULE [GSYM sub_check_def]);
 
-Triviality print_list_ind:
+Theorem print_list_ind[local]:
   print_list_ind
 Proof
   once_rewrite_tac [fetch "-" "print_list_ind_def"]
@@ -324,4 +325,3 @@ QED
 Theorem context_spec =
   mk_app_of_ArrowP (fetch "ml_hol_kernelProg" "context_v_thm");
 
-val _ = export_theory ();

@@ -2,12 +2,12 @@
   Reformulates compile definition to expose the result of each internal
   compiler pass
 *)
+Theory backend_passes
+Ancestors
+  backend presLang
+Libs
+  preamble
 
-open preamble backendTheory presLangTheory
-
-val _ = new_theory"backend_passes";
-
-val _ = set_grammar_ancestry ["backend"];
 
 Datatype:
   any_prog = Source (ast$dec list)
@@ -85,7 +85,8 @@ Definition to_bvl_all_def:
            call_state := (g,aux)|> in
     let init_stubs = toAList (init_code c1.max_app) in
     let init_globs =
-            [(num_stubs c1.max_app − 1,0,
+            [(num_stubs c1.max_app − 2, 2, force_thunk_code);
+             (num_stubs c1.max_app − 1, 0,
               init_globals c1.max_app (num_stubs c1.max_app + c1.start))] in
     let comp_progs = clos_to_bvl$compile_prog c1.max_app prog in
     let prog' = init_stubs ++ init_globs ++ comp_progs in
@@ -106,6 +107,7 @@ Proof
   \\ fs [to_bvl_all_def,to_bvl_def,clos_to_bvlTheory.compile_def,
          clos_to_bvlTheory.compile_common_def]
   \\ rpt (pairarg_tac \\ gvs [])
+  \\ rewrite_tac [GSYM APPEND_ASSOC,APPEND]
 QED
 
 Definition to_bvi_all_def:
@@ -248,7 +250,7 @@ Proof
   rw[word_to_wordTheory.next_n_oracle_def]>>fs[LENGTH_TAKE]
 QED
 
-Triviality ZIP_MAP_1:
+Theorem ZIP_MAP_1[local]:
   ∀l1 l2 f1 f2.
     LENGTH l1 = LENGTH l2 ⇒
     ZIP (MAP f1 l1,l2) = MAP (λp. (f1 (FST p),SND p)) (ZIP (l1,l2))
@@ -517,4 +519,3 @@ Proof
   \\ pairarg_tac \\ gvs []
 QED
 
-val _ = export_theory();

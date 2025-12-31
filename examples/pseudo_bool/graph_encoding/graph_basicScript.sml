@@ -1,9 +1,11 @@
 (*
   Basic graph notions
 *)
-open preamble mlintTheory;
-
-val _ = new_theory "graph_basic";
+Theory graph_basic
+Ancestors
+  mlint
+Libs
+  preamble
 
 (* Graph: (V : num , E : (num_set) num_map)
   V number of vertices
@@ -361,7 +363,7 @@ Theorem FLAT_GENLIST_APPEND_FOLDN:
   FLAT (GENLIST f n) ++ y =
   FOLDN (λu. $++ (f u)) n y
 Proof
-  Induct_on`n`>>rw[FOLDN_def,GENLIST]>>
+  Induct_on`n`>>rw[FOLDN_def,GENLIST,SNOC_APPEND]>>
   simp[FOLDN_APPEND]
 QED
 
@@ -427,4 +429,3 @@ strlit"e 5 3";
 
 val pattern = rconc (EVAL``(THE (parse_dimacs ^dimraw))``)
 
-val _ = export_theory();

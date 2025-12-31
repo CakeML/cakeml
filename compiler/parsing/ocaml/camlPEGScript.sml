@@ -1,13 +1,12 @@
 (*
   Definition of a PEG for (a subset of) OCaml.
  *)
+Theory camlPEG
+Ancestors
+  caml_lex pegexec peg mlstring
+Libs
+  preamble finite_mapSyntax
 
-open preamble caml_lexTheory;
-open pegexecTheory pegTheory;
-open finite_mapSyntax;
-open mlstringTheory;
-
-val _ = new_theory "camlPEG";
 
 val _ = enable_monadsyntax ();
 val _ = enable_monad "option";
@@ -1074,7 +1073,7 @@ val topo_nts =
 Theorem cml_wfpeg_thm =
   LIST_CONJ (List.foldl wfnt [] topo_nts)
 
-Triviality subexprs_pnt:
+Theorem subexprs_pnt[local]:
   subexprs (pnt n) = {pnt n}
 Proof
   simp [pegTheory.subexprs_def, pnt_def]
@@ -1111,4 +1110,3 @@ Theorem coreloop_Start_total =
 Theorem owhile_Start_total =
   SIMP_RULE (srw_ss()) [pegexecTheory.coreloop_def] coreloop_Start_total;
 
-val _ = export_theory ();

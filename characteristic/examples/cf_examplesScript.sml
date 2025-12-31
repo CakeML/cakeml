@@ -2,18 +2,18 @@
   A collection of small examples that show (and test) what can be done
   in CF proofs.
 *)
-open preamble
-open ml_translatorTheory ml_translatorLib cfTacticsBaseLib cfTacticsLib
-open ml_progLib basisFunctionsLib
-local open basisProgTheory in end
+Theory cf_examples
+Ancestors
+  ml_translator basisProg[qualified]
+Libs
+  preamble ml_translatorLib cfTacticsBaseLib cfTacticsLib
+  ml_progLib basisFunctionsLib
 
-val _ = new_theory "cf_examples";
 val _ = translation_extends "basisProg"
-val cakeml = append_prog o process_topdecs;
 
 fun xcf' s = xcf_with_def (DB.fetch "-" (s ^ "_v_def"))
 
-Quote cakeml:
+Quote add_cakeml:
   fun example_let0 n = let val a = 3; in a end
 End
 
@@ -27,7 +27,7 @@ Proof
   xret \\ xsimpl
 QED
 
-Quote cakeml:
+Quote add_cakeml:
   fun example_let1 _ = let val a = (); in a end
 End
 
@@ -40,7 +40,7 @@ Proof
   xret \\ xsimpl
 QED
 
-Quote cakeml:
+Quote add_cakeml:
   fun example_let2 u = let val a = u; in a end
 End
 
@@ -52,7 +52,7 @@ Proof
   xret \\ xsimpl
 QED
 
-Quote cakeml:
+Quote add_cakeml:
   fun example_let n = let val a = n + 1; val b = n - 1; in a+b end
 End
 
@@ -70,7 +70,7 @@ Proof
   xapp \\ xsimpl \\ fs [INT_def] \\ intLib.ARITH_TAC
 QED
 
-Quote cakeml:
+Quote add_cakeml:
   fun alloc_ref2 a b = (Ref a, Ref b);
 End
 
@@ -92,7 +92,7 @@ Proof
   xret \\ fs [PAIR_TYPE_def] \\ xsimpl
 QED
 
-Quote cakeml:
+Quote add_cakeml:
   fun swap r1 r2 = let val x1 = !r1 in r1 := !r2; r2 := x1 end
 End
 
@@ -113,7 +113,7 @@ Proof
   xapp \\ xsimpl
 QED
 
-Quote cakeml:
+Quote add_cakeml:
   fun example_if n = if n > 0 then 1 else 2
 End
 
@@ -130,7 +130,7 @@ Proof
   xif \\ xret \\ xsimpl
 QED
 
-Quote cakeml:
+Quote add_cakeml:
   fun is_nil l = case l of [] => True | x::xs => False
 End
 
@@ -146,7 +146,7 @@ Proof
   xmatch \\ xret \\ xsimpl
 QED
 
-Quote cakeml:
+Quote add_cakeml:
   fun is_none opt = case opt of None => True | Some _ => False
 End
 
@@ -164,7 +164,7 @@ Proof
   xmatch \\ xcon \\ xsimpl
 QED
 
-Quote cakeml:
+Quote add_cakeml:
   fun example_eq x = (x = 3)
 End
 
@@ -179,7 +179,7 @@ Proof
   fs [EqualityType_NUM_BOOL]
 QED
 
-Quote cakeml:
+Quote add_cakeml:
   fun example_and u = True andalso False
 End
 
@@ -194,7 +194,7 @@ Proof
   xlog \\ xret \\ xsimpl
 QED
 
-Quote cakeml:
+Quote add_cakeml:
   exception Foo
   fun example_raise u = raise Foo
 End
@@ -203,15 +203,15 @@ Theorem example_raise_spec[local]:
   !uv.
     UNIT_TYPE () uv ==>
     app (p:'ffi ffi_proj) example_raise_v [uv]
-      emp (POSTe v. & (v = Conv (SOME (ExnStamp 8)) []))
+      emp (POSTe v. & (v = Conv (SOME (ExnStamp 9)) []))
 Proof
   rpt strip_tac \\ xcf' "example_raise" \\
-  xlet `POSTv ev. & (ev = Conv (SOME (ExnStamp 8)) [])`
+  xlet `POSTv ev. & (ev = Conv (SOME (ExnStamp 9)) [])`
   THEN1 (xcon \\ xsimpl) \\
   xraise \\ xsimpl
 QED
 
-Quote cakeml:
+Quote add_cakeml:
   exception Foo int
   fun example_handle x = (raise Foo 3) handle Foo i => i
 End
@@ -228,16 +228,16 @@ Theorem example_handle_spec[local]:
 Proof
   rpt strip_tac \\
   xcf' "example_handle" \\
-  xhandle `POSTe v. & Foo_exn 9 3 v`
+  xhandle `POSTe v. & Foo_exn 10 3 v`
   THEN1 (
-    xlet `POSTv v. & Foo_exn 9 3 v`
+    xlet `POSTv v. & Foo_exn 10 3 v`
     THEN1 (xcon \\ fs [Foo_exn_def] \\ xsimpl) \\
     xraise \\ xsimpl
   ) \\
   fs [Foo_exn_def] \\ xcases \\ xvar \\ xsimpl
 QED
 
-Quote cakeml:
+Quote add_cakeml:
   exception Foo int
   fun example_handle2 x =
      (if x > 0 then
@@ -255,7 +255,7 @@ Theorem example_handle2_spec[local]:
 Proof
   rpt strip_tac \\ xcf' "example_handle2" \\
   xhandle ‘POSTve (\v. & (x > 0 /\ INT 1 v))
-                  (\e. & (x <= 0 /\ Foo_exn 10 (-1) e))’
+                  (\e. & (x <= 0 /\ Foo_exn 11 (-1) e))’
   THEN1 (
     xlet `POSTv bv. & (BOOL (x > 0) bv)`
     THEN1 (xapp \\ fs []) \\
@@ -265,7 +265,7 @@ Proof
       irule FALSITY \\ intLib.ARITH_TAC
     )
     THEN1 (
-      xlet `POSTv ev. & Foo_exn 10 (-1) ev`
+      xlet `POSTv ev. & Foo_exn 11 (-1) ev`
       THEN1 (xret \\ fs [Foo_exn_def] \\ xsimpl) \\
       xraise \\ xsimpl \\ intLib.ARITH_TAC
     )
@@ -274,7 +274,7 @@ Proof
   fs [Foo_exn_def] \\ xcases \\ xret \\ xsimpl \\ intLib.ARITH_TAC
 QED
 
-Quote cakeml:
+Quote add_cakeml:
   fun f i = ~ (~ (~ i))
 End
 
@@ -291,7 +291,7 @@ Proof
   xapp \\ fs []
 QED
 
-Quote cakeml:
+Quote add_cakeml:
    fun length l =
      case l of
          [] => 0
@@ -370,7 +370,7 @@ Proof
   xapp \\ fs [] \\ xsimpl \\ fs [LENGTH_NIL_SYM, LENGTH_REPLICATE]
 QED
 
-(* Quote cakeml: *)
+(* Quote add_cakeml: *)
 (*   fun strcat_foo r = r := !r ^ "foo" *)
 (* End *)
 (* TODO Try new syntax using Quote once #1313 on HOL has been resolved *)
@@ -396,7 +396,7 @@ Proof
   rveq >> xapp >> xsimpl
 QED
 
-Quote cakeml:
+Quote add_cakeml:
   fun example_ffidiv b = if b then Runtime.abort () else ()
 End
 
@@ -421,7 +421,7 @@ Proof
   >> xcon >> xsimpl
 QED
 
-Quote cakeml:
+Quote add_cakeml:
   fun is_even n =
     if n = 0 then True else is_odd(n-1)
   and is_odd n =
@@ -469,5 +469,3 @@ Proof
   xsimpl>>
   rw[]>>simp[Once even_odd_def]
 QED
-
-val _ = export_theory();

@@ -1,18 +1,17 @@
 (*
   Properties about stackLang and its semantics
 *)
+Theory stackProps
+Libs
+  preamble
+Ancestors
+  stackSem stack_names backendProps
 
-open preamble stackSemTheory stack_namesTheory backendPropsTheory
 
-val _ = new_theory"stackProps";
-
-val _ = set_grammar_ancestry["stackSem", "stack_names","backendProps"];
-
-fun get_thms ty = { case_def = TypeBase.case_def_of ty, nchotomy = TypeBase.nchotomy_of ty }
 Theorem case_eq_thms =
   (pair_case_eq::
    bool_case_eq::
-   map (prove_case_eq_thm o get_thms)
+   map (TypeBase.case_eq_of)
         [``:'a option``,``:'a list``,``:'a word_loc``,``:'a inst``, ``:binop``,
          ``:'a reg_imm`` ,``:'a arith``,``:'a addr``,``:memop``,``:'a result``,
          ``:'a ffi_result``])
@@ -27,6 +26,7 @@ Theorem set_store_const[simp]:
    (set_store x y z).code = z.code ∧
    (set_store x y z).be = z.be ∧
    (set_store x y z).gc_fun = z.gc_fun ∧
+   (set_store x y z).memory = z.memory ∧
    (set_store x y z).mdomain = z.mdomain ∧
    (set_store x y z).sh_mdomain = z.sh_mdomain ∧
    (set_store x y z).bitmaps = z.bitmaps ∧
@@ -54,12 +54,17 @@ Theorem set_var_const[simp]:
    (set_var x y z).use_stack = z.use_stack ∧
    (set_var x y z).code = z.code ∧
    (set_var x y z).be = z.be ∧
+   (set_var x y z).fp_regs = z.fp_regs ∧
+   (set_var x y z).data_buffer = z.data_buffer ∧
+   (set_var x y z).code_buffer = z.code_buffer ∧
    (set_var x y z).gc_fun = z.gc_fun ∧
+   (set_var x y z).memory = z.memory ∧
    (set_var x y z).mdomain = z.mdomain ∧
    (set_var x y z).sh_mdomain = z.sh_mdomain ∧
    (set_var x y z).bitmaps = z.bitmaps ∧
    (set_var x y z).compile = z.compile ∧
    (set_var x y z).compile_oracle = z.compile_oracle ∧
+   (set_var x y z).store = z.store ∧
    (set_var x y z).stack = z.stack ∧
    (set_var x y z).stack_space = z.stack_space
 Proof
@@ -67,19 +72,22 @@ Proof
 QED
 
 Theorem set_var_with_const[simp]:
-   set_var x y (z with clock := k) = set_var x y z with clock := k ∧
-   set_var x y (z with stack_space := k) = set_var x y z with stack_space := k
+   set_var x y (z with clock := clk) = set_var x y z with clock := clk ∧
+   set_var x y (z with memory := m) = set_var x y z with memory := m ∧
+   set_var x y (z with ffi := ffi) = set_var x y z with ffi := ffi /\
+   set_var x y (z with stack := stk) = set_var x y z with stack := stk /\
+   set_var x y (z with stack_space := stk_space) = set_var x y z with stack_space := stk_space
 Proof
   EVAL_TAC
 QED
 
-Triviality set_fp_var_with_const[simp]:
+Theorem set_fp_var_with_const[local,simp]:
    set_fp_var x y (z with clock := k) = set_fp_var x y z with clock := k
 Proof
   EVAL_TAC
 QED
 
-Triviality set_fp_var_const[simp]:
+Theorem set_fp_var_const[local,simp]:
    (set_fp_var x y z).ffi = z.ffi ∧
    (set_fp_var x y z).clock = z.clock ∧
    (set_fp_var x y z).use_alloc = z.use_alloc ∧
@@ -99,19 +107,22 @@ Proof
   EVAL_TAC
 QED
 
-Triviality get_fp_var_with_const[simp]:
+Theorem get_fp_var_with_const[local,simp]:
    get_fp_var x (y with clock := k) = get_fp_var x y
 Proof
   EVAL_TAC
 QED
 
-Triviality get_var_with_const[simp]:
-   get_var x (y with clock := k) = get_var x y
+Theorem get_var_with_const[simp]:
+  get_var r (t with clock := clk) =
+  (get_var r t) /\
+  get_var r (t with stack_space := stk_space) =
+  (get_var r t)
 Proof
   EVAL_TAC
 QED
 
-Triviality get_vars_with_const[simp]:
+Theorem get_vars_with_const[local,simp]:
    get_vars xs (y with clock := k) = get_vars xs y
 Proof
   Induct_on `xs` >> EVAL_TAC >> simp[]
@@ -121,6 +132,13 @@ Theorem get_var_imm_with_const[simp]:
    get_var_imm x (y with clock := k) = get_var_imm x y
 Proof
   Cases_on`x`>>EVAL_TAC
+QED
+
+Theorem set_fp_var_const[simp]:
+  (set_fp_var x y z).stack_space = z.stack_space /\
+  (set_fp_var x y z).stack = z.stack
+Proof
+  EVAL_TAC
 QED
 
 Theorem empty_env_const[simp]:
@@ -246,6 +264,20 @@ Proof
   gs[]
 QED
 
+Theorem sh_mem_load16_with_const[simp]:
+  (sh_mem_load16 r x (y with clock := k)) = (I ## (\s. s with clock := k)) (sh_mem_load16 r x y)
+Proof
+  simp[sh_mem_load16_def,ffiTheory.call_FFI_def]>>every_case_tac>>
+  fs[]
+QED
+
+Theorem sh_mem_store16_with_const[simp]:
+  (sh_mem_store16 x y (z with clock := k)) = (I ## (\s. s with clock := k)) (sh_mem_store16 x y z)
+Proof
+  gs[sh_mem_store16_def,ffiTheory.call_FFI_def]>>every_case_tac>>
+  gs[]
+QED
+
 Theorem sh_mem_load_byte_with_const[simp]:
    (sh_mem_load_byte r x (y with clock := k)) = (I ## (\s. s with clock := k)) (sh_mem_load_byte r x y)
 Proof
@@ -260,7 +292,7 @@ Proof
   gs[]
 QED
 
-Triviality sh_mem_op_with_const[simp]:
+Theorem sh_mem_op_with_const[local,simp]:
    (sh_mem_op op x y (z with clock := k)) = (I ## (\s. s with clock := k)) (sh_mem_op op x y z)
 Proof
   gs[oneline sh_mem_op_def] >>
@@ -321,17 +353,25 @@ Theorem dec_clock_const[simp]:
    (dec_clock z).use_alloc = z.use_alloc ∧
    (dec_clock z).use_store = z.use_store ∧
    (dec_clock z).use_stack = z.use_stack ∧
+   (dec_clock z).stack = z.stack ∧
+   (dec_clock z).store = z.store ∧
    (dec_clock z).code = z.code ∧
+   (dec_clock z).data_buffer = z.data_buffer ∧
+   (dec_clock z).code_buffer = z.code_buffer ∧
+   (dec_clock z).fp_regs = z.fp_regs ∧
    (dec_clock z).be = z.be ∧
    (dec_clock z).gc_fun = z.gc_fun ∧
+   (dec_clock z).memory = z.memory ∧
    (dec_clock z).mdomain = z.mdomain ∧
    (dec_clock z).sh_mdomain = z.sh_mdomain ∧
    (dec_clock z).bitmaps = z.bitmaps ∧
+   (dec_clock z).stack_space = z.stack_space ∧
    (dec_clock z).compile = z.compile ∧
    (dec_clock z).compile_oracle = z.compile_oracle
 Proof
   EVAL_TAC
 QED
+
 
 Theorem sh_mem_op_const[simp]:
    sh_mem_op op a r s = (res,t) ⇒
@@ -351,6 +391,7 @@ Proof
   strip_tac>>Cases_on`op` >>
   fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,
      sh_mem_load_byte_def,sh_mem_store_byte_def,
+     sh_mem_load16_def,sh_mem_store16_def,
      sh_mem_load32_def,sh_mem_store32_def,
      ffiTheory.call_FFI_def] >>
   every_case_tac >> gvs[get_var_def]
@@ -427,6 +468,7 @@ Proof
   >-(
     gvs[oneline sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,
     sh_mem_load32_def,sh_mem_store32_def,sh_mem_load_byte_def,
+    sh_mem_load16_def,sh_mem_store16_def,
     sh_mem_store_byte_def,ffiTheory.call_FFI_def,AllCaseEqs()])
   >-(gvs[ffiTheory.call_FFI_def,AllCaseEqs()])
 QED
@@ -593,7 +635,7 @@ Definition clock_neutral_def:
   (clock_neutral r <=> F)
 End
 
-Triviality inst_clock_neutral:
+Theorem inst_clock_neutral[local]:
   (inst i s = SOME t ==> inst i (s with clock := k) = SOME (t with clock := k)) /\
     (inst i s = NONE ==> inst i (s with clock := k) = NONE)
 Proof
@@ -605,7 +647,7 @@ Proof
   \\ srw_tac[][state_component_equality]
 QED
 
-Triviality inst_clock_neutral_ffi:
+Theorem inst_clock_neutral_ffi[local]:
   (inst i s = SOME t ==> inst i (s with ffi := k) = SOME (t with ffi := k)) /\
     (inst i s = NONE ==> inst i (s with ffi := k) = NONE)
 Proof
@@ -747,7 +789,10 @@ QED
 Definition addr_ok_def:
   addr_ok op (Addr a w) c ⇔
   (reg_ok a c ∧
-   if op ∈ {Load; Store; Load32; Store32} then addr_offset_ok c w else byte_offset_ok c w)
+   if op ∈ {Load; Store; Load32; Store32}
+   then addr_offset_ok c w
+   else if op IN {Load16; Store16}
+   then hw_offset_ok c w ∧ c.ISA ≠ Ag32 else byte_offset_ok c w)
 End
 
 (* TODO: This is not updated for Install, CBW and DBW *)
@@ -760,7 +805,7 @@ Definition stack_asm_ok_def:
   (stack_asm_ok c (If cmp n r p p') ⇔ stack_asm_ok c p ∧ stack_asm_ok c p') ∧
   (stack_asm_ok c (While cmp n r p) ⇔ stack_asm_ok c p) ∧
   (stack_asm_ok c (Raise n) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
-  (stack_asm_ok c (Return n _) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
+  (stack_asm_ok c (Return n) ⇔ n < c.reg_count ∧ ¬MEM n c.avoid_regs) ∧
   (stack_asm_ok c (Call r tar h) ⇔
     (case tar of INR r => r < c.reg_count ∧ ¬MEM r c.avoid_regs | _ => T) ∧
     case r of
@@ -860,7 +905,11 @@ End
 Definition addr_name_def:
   addr_name m (Addr r w) c ⇔
   reg_name r c ∧
-  (if m IN {Load; Store; Load32; Store32} then addr_offset_ok c w else byte_offset_ok c w)
+  (if m IN {Load; Store; Load32; Store32}
+   then addr_offset_ok c w
+   else if m IN {Load16; Store16}
+   then hw_offset_ok c w ∧ c.ISA ≠ Ag32
+   else byte_offset_ok c w)
 End
 
 Definition inst_name_def:
@@ -882,7 +931,7 @@ Definition stack_asm_name_def:
   (stack_asm_name c (If cmp n r p p') ⇔ stack_asm_name c p ∧ stack_asm_name c p') ∧
   (stack_asm_name c (While cmp n r p) ⇔ stack_asm_name c p) ∧
   (stack_asm_name c (Raise n) ⇔ reg_name n c) ∧
-  (stack_asm_name c (Return n _) ⇔ reg_name n c) ∧
+  (stack_asm_name c (Return n) ⇔ reg_name n c) ∧
   (stack_asm_name c (Call r tar h) ⇔
     (case tar of INR r => reg_name r c | _ => T) ∧
     case r of
@@ -952,7 +1001,7 @@ End
 
 (* stack_remove requires that all register arguments are bounded by k *)
 
-Definition reg_bound_exp_def:
+Definition reg_bound_exp_def[simp]:
   (reg_bound_exp (Var n) k ⇔ n < k) ∧
   (reg_bound_exp (Load e) k ⇔ reg_bound_exp e k) ∧
   (reg_bound_exp (Shift _ e _) k ⇔ reg_bound_exp e k) ∧
@@ -964,9 +1013,8 @@ Termination
    \\ Induct \\ simp[wordLangTheory.exp_size_def]
    \\ srw_tac[][] \\ res_tac \\ simp[]
 End
-val _ = export_rewrites["reg_bound_exp_def"];
 
-Definition reg_bound_inst_def:
+Definition reg_bound_inst_def[simp]:
   (reg_bound_inst (Mem _ n (Addr a _)) k ⇔ n < k ∧ a < k) ∧
   (reg_bound_inst (Const n _) k ⇔ n < k) ∧
   (reg_bound_inst (Arith (Shift _ n r2 _)) k ⇔ r2 < k ∧ n < k) ∧
@@ -984,7 +1032,6 @@ Definition reg_bound_inst_def:
   (reg_bound_inst (FP (FPMovFromReg d r1 r2)) k ⇔ r1 < k ∧ r2 < k) ∧
   (reg_bound_inst _ _ ⇔ T)
 End
-val _ = export_rewrites["reg_bound_inst_def"];
 
 Definition reg_bound_def:
   (reg_bound (Halt v1) k <=>
@@ -1001,8 +1048,8 @@ Definition reg_bound_def:
      v1 < k) /\
   (reg_bound (StoreConsts t1 t2 _) k <=>
      3 < k ∧ t1 < k ∧ t2 < k) /\
-  (reg_bound (Return v1 v2) k <=>
-     v1 < k /\ v2 < k) /\
+  (reg_bound (Return v1) k <=>
+     v1 < k) /\
   (reg_bound (JumpLower v1 v2 dest) k <=>
      v1 < k /\ v2 < k) /\
   (reg_bound ((Seq p1 p2):'a stackLang$prog) k <=>
@@ -1067,7 +1114,7 @@ End
 
 (* TODO: remove "stack_" prefix from these functions *)
 
-Definition stack_get_handler_labels_def:
+Definition stack_get_handler_labels_def[simp]:
   (stack_get_handler_labels n (Call r d h) =
     (case r of SOME (x,_,_) => stack_get_handler_labels n x  ∪
       (case h of SOME (x,l1,l2) => (if l1 = n then {(l1,l2)} else {}) ∪ (stack_get_handler_labels n x) | _ => {})
@@ -1078,9 +1125,8 @@ Definition stack_get_handler_labels_def:
   (stack_get_handler_labels n (While _ _ _ p) = stack_get_handler_labels n p) ∧
   (stack_get_handler_labels n _ = {})
 End
-val _ = export_rewrites["stack_get_handler_labels_def"];
 
-Definition get_code_labels_def:
+Definition get_code_labels_def[simp]:
   (get_code_labels (Call r d h) =
     (case d of INL x => {(x,0n)} | _ => {}) ∪
     (case r of SOME (x,_,_) => get_code_labels x | _ => {}) ∪
@@ -1094,7 +1140,6 @@ Definition get_code_labels_def:
   (get_code_labels (StoreConsts _ _ (SOME l)) = {(l,0)}) ∧
   (get_code_labels _ = {})
 End
-val _ = export_rewrites["get_code_labels_def"];
 
 (* elabs gives a set of existing code labels *)
 Definition stack_good_code_labels_def:
@@ -1133,5 +1178,3 @@ Definition no_shmemop_def:
   (no_shmemop (ShMemOp _ _ _) = F) /\
   (no_shmemop _ = T)
 End
-
-val _ = export_theory();

@@ -1,1 +1,0 @@
-Contains programs and scripts to test the compiler.

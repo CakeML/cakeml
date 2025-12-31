@@ -5,7 +5,7 @@
   operations It then proves functional correctness of these operations.
 
   It is a simplified version of the balanced binary tree example found in
-  $HOLDIR/examples/balanced_bst
+  $HOLDIR/examples/data-structures/balanced_bst
 *)
 
 (*
@@ -15,15 +15,17 @@
   typically open HolKernel boolLib bossLib and Parse (at least). CakeML's
   preamble wrapper includes all of those structures and more.
 *)
+Theory simple_bst
+Ancestors
+  comparison finite_map
+Libs
+  preamble
 
-open preamble comparisonTheory
 
 (*
   Create the logical theory in which we will work. Its name should match the name
   of this file, before the "Script.sml" suffix.
 *)
-
-val _ = new_theory "simple_bst";
 
 val _ = Parse.hide "cmp";
 
@@ -172,7 +174,7 @@ QED
   We start by defining what a predicate on trees indicating
   whether they have the binary search tree property
 *)
-Definition key_ordered_def:
+Definition key_ordered_def[simp]:
   (key_ordered cmp k Leaf res ⇔ T) ∧
   (key_ordered cmp k (Node k' _ l r) res ⇔
    cmp k k' = res ∧
@@ -182,7 +184,6 @@ End
 
 (* We make this definition an automatic rewrite, so it is expanded
    automatically by simplification tactics (such as rw, fs, and simp) *)
-val _ = export_rewrites["key_ordered_def"];
 
 Definition wf_tree_def:
   (wf_tree cmp Leaf ⇔ T) ∧
@@ -316,5 +317,3 @@ Proof
   metis_tac[cmp_thms]
   (* ex*)
 QED
-
-val _ = export_theory();

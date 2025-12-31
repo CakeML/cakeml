@@ -3,9 +3,11 @@
   table and tries to change calls to known closures into fast C-style
   function calls.
 *)
-open preamble closLangTheory db_varsTheory;
-
-val _ = new_theory "clos_call";
+Theory clos_call
+Ancestors
+  closLang db_vars
+Libs
+  preamble
 
 Definition free_def:
   (free [] = ([],Empty)) /\
@@ -56,9 +58,6 @@ Definition free_def:
   (free [Call t ticks dest xs] =
      let (c1,l1) = free xs in
        ([Call t ticks dest c1],l1))
-Termination
-  WF_REL_TAC `measure exp3_size`
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ DECIDE_TAC
 End
 
 val free_ind = theorem "free_ind";
@@ -113,9 +112,6 @@ Definition free_sing_def:
      let (c1,l1) = free_sing x in
      let (c2,l2) = free_list xs in
        (c1 :: c2,mk_Union l1 l2))
-Termination
-  WF_REL_TAC `measure $ λx. case x of INL e => exp_size e
-                                    | INR es => exp3_size es`
 End
 
 Theorem free_sing_eq:
@@ -197,7 +193,7 @@ Proof
   simp[closed_def, free_sing_eq] >> pairarg_tac >> gvs[]
 QED
 
-Triviality EL_MEM_LEMMA:
+Theorem EL_MEM_LEMMA[local]:
   !xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs
 Proof
   Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []
@@ -227,7 +223,7 @@ Definition calls_list_def:
           calls_list t (i+1) (loc+2n) xs)
 End
 
-Triviality exp3_size_MAP_SND:
+Theorem exp3_size_MAP_SND[local]:
   !fns. exp3_size (MAP SND fns) <= exp1_size fns
 Proof
   Induct \\ fs [exp_size_def,FORALL_PROD]
@@ -313,7 +309,7 @@ Definition calls_def:
 Termination
   WF_REL_TAC `measure (exp3_size o FST)`
   \\ REPEAT STRIP_TAC
-  \\ fs [GSYM NOT_LESS]
+  \\ fs [GSYM NOT_LESS,exp_size_def]
   \\ IMP_RES_TAC EL_MEM_LEMMA
   \\ IMP_RES_TAC exp1_size_lemma
   \\ assume_tac (SPEC_ALL exp3_size_MAP_SND)
@@ -391,13 +387,9 @@ Definition calls_sing_def:
        (e1 :: e2,g))
 Termination
   WF_REL_TAC `measure $ λx. case x of INL (e,_) => exp_size e
-                                    | INR (es,_) => exp3_size es`
+                                    | INR (es,_) => list_size exp_size es`
   \\ REPEAT STRIP_TAC
-  \\ fs [GSYM NOT_LESS]
-  \\ IMP_RES_TAC EL_MEM_LEMMA
-  \\ IMP_RES_TAC exp1_size_lemma
-  \\ assume_tac (SPEC_ALL exp3_size_MAP_SND)
-  \\ DECIDE_TAC
+  \\ fs [GSYM NOT_LESS,list_size_pair_size_MAP_FST_SND]
 End
 
 Theorem calls_sing_eq:
@@ -481,4 +473,3 @@ val selftest = let
   val _ = (n = 5) orelse failwith "clos_call implementation broken"
   in tm end
 
-val _ = export_theory();

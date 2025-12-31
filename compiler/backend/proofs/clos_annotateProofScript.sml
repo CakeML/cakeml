@@ -1,13 +1,12 @@
 (*
   Correctness proof for clos_annotate
 *)
+Theory clos_annotateProof
+Ancestors
+  db_vars closSem closProps clos_annotate backendProps
+Libs
+  preamble
 
-open preamble
-     db_varsTheory
-     closSemTheory closPropsTheory
-     clos_annotateTheory backendPropsTheory
-
-val _ = new_theory"clos_annotateProof";
 
 val _ = temp_bring_to_front_overload"do_app"{Name="do_app",Thy="closSem"};
 val _ = temp_bring_to_front_overload"compile"{Name="compile",Thy="clos_annotate"};
@@ -180,7 +179,7 @@ QED
 
 val env_ok_def = v_rel_cases |> CONJUNCT2
 
-Triviality env_ok_EXTEND:
+Theorem env_ok_EXTEND[local]:
   EVERY2 v_rel env1 env2 /\ (l1 = LENGTH env1) /\
     (l1 <= n ==> env_ok m l i env1' env2' (n - l1)) ==>
     env_ok m (l + l1) i (env1 ++ env1') (env2 ++ env2') n
@@ -226,7 +225,7 @@ val env_ok_append = env_ok_EXTEND
   |> GSYM |> Q.INST [`l`|->`0`]
   |> SIMP_RULE (srw_ss()) []
 
-Triviality env_ok_EXTEND_IGNORE:
+Theorem env_ok_EXTEND_IGNORE[local]:
   (LENGTH env2 = LENGTH env1) /\ LENGTH env1 <= n /\ l1 = LENGTH env1 /\
    env_ok m l i env1' env2' (n - l1) ==>
    env_ok m (l + l1) i (env1 ++ env1') (env2 ++ env2') n
@@ -237,6 +236,12 @@ Proof
   \\ full_simp_tac(srw_ss())[env_ok_def]
   \\ fs [rich_listTheory.EL_APPEND2]
 QED
+
+Definition opt_rel_def[simp]:
+  opt_rel f NONE NONE = T /\
+  opt_rel f (SOME x) (SOME y) = f x y /\
+  opt_rel f _ _ = F
+End
 
 Definition state_rel_def:
   state_rel (s:('c,'ffi) closSem$state) (t:('c,'ffi) closSem$state) <=>
@@ -303,7 +308,7 @@ Proof
   \\ rw [] \\ fs [v_rel_simp, list_to_v_def]
 QED
 
-Triviality v_to_list:
+Theorem v_to_list[local]:
   !h h'.
       v_rel h h' ==>
       (v_to_list h = NONE /\
@@ -323,13 +328,14 @@ Proof
   \\ RES_TAC \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ fs[]
 QED
 
-val do_app_lemma = prove(
-  ``state_rel s t ∧ LIST_REL v_rel xs ys ⇒
+Theorem do_app_lemma[local]:
+    state_rel s t ∧ LIST_REL v_rel xs ys ⇒
     case do_app opp xs s of
       Rval (x,s1) =>
         ∃y t1. v_rel x y ∧ state_rel s1 t1 ∧ do_app opp ys t = Rval (y,t1)
     | Rerr err1 =>
-        ∃err2. do_app opp ys t = Rerr err2 ∧ exc_rel v_rel err1 err2``,
+        ∃err2. do_app opp ys t = Rerr err2 ∧ exc_rel v_rel err1 err2
+Proof
   match_mp_tac simple_val_rel_do_app
   \\ conj_tac THEN1
    (fs [simple_val_rel_def]
@@ -345,10 +351,15 @@ val do_app_lemma = prove(
    (`ref_rel v_rel (s.refs ' ptr) (t.refs ' ptr)` by fs []
     \\ rpt (qpat_x_assum `!x. _` kall_tac) \\ rfs []
     \\ Cases_on `s.refs ' ptr` \\ fs [ref_rel_def])
+  THEN1
+   (`ref_rel v_rel (s.refs ' ptr) (t.refs ' ptr)` by fs []
+    \\ rpt (qpat_x_assum `!x. _` kall_tac) \\ rfs []
+    \\ Cases_on `s.refs ' ptr` \\ fs [ref_rel_def])
   \\ rfs [] \\ fs [FAPPLY_FUPDATE_THM] \\ rveq
-  \\ fs [ref_rel_def] \\ rw []);
+  \\ fs [ref_rel_def] \\ rw []
+QED
 
-Triviality do_app_thm:
+Theorem do_app_thm[local]:
   state_rel s1 t1 /\ EVERY2 v_rel xs ys /\
    (do_app op xs s1 = Rval (v,s2)) ==>
    ?w t2. (do_app op ys t1 = Rval (w,t2)) /\
@@ -361,34 +372,27 @@ Proof
   \\ rpt strip_tac \\ fs []
 QED
 
-val v_rel_Number = prove(
-  ``(v_rel x (Number i) <=> (x = Number i)) /\
+Theorem v_rel_Number[local]:
+    (v_rel x (Number i) <=> (x = Number i)) /\
     (v_rel (Number i) x <=> (x = Number i)) /\
     (v_rel (ByteVector ws) x <=> (x = ByteVector ws)) /\
     (v_rel x (Word64 w) <=> (x = Word64 w)) /\
-    (v_rel (Word64 w) x <=> (x = Word64 w))``,
-  once_rewrite_tac [v_rel_cases] \\ fs []);
+    (v_rel (Word64 w) x <=> (x = Word64 w))
+Proof
+  once_rewrite_tac [v_rel_cases] \\ fs []
+QED
 
-Triviality do_app_err_thm:
+Theorem do_app_err_thm[local]:
   state_rel s1 t1 /\ EVERY2 v_rel xs ys /\
    do_app op xs s1 = Rerr err /\ (err <> Rabort Rtype_error) ==>
      ?w. do_app op ys t1 = Rerr w /\
           exc_rel v_rel err w
 Proof
-  srw_tac[][] >>
-  imp_res_tac do_app_err >> fsrw_tac[][] >>
-  Cases_on `?i. op = BlockOp (EqualConst i)`
-  THEN1 (rw [] \\ fsrw_tac[][do_app_def] \\ every_case_tac >> fs[])
-  \\ Cases_on `err` \\ fs []
-  \\ fs [do_app_cases_err]
-  \\ Cases_on `a` \\ fs []
-  \\ imp_res_tac do_app_ffi_error_IMP
-  \\ fs[do_app_def]
-  \\ rpt(PURE_TOP_CASE_TAC >> fs[] >> rveq >> fs[v_rel_simp]
-         \\ rveq >> fs[] >> fs[v_rel_simp])
-  \\ rpt(PURE_FULL_CASE_TAC \\ fs[])
-  \\ fs[state_rel_def] \\ first_x_assum drule \\ strip_tac \\ fs[]
-  \\ rveq \\ rfs[]
+  srw_tac[][]
+  \\ imp_res_tac do_app_err \\ fsrw_tac[][]
+  \\ gvs [oneline do_app_def, AllCaseEqs()]
+  \\ fs[v_rel_simp,state_rel_def]
+  \\ res_tac \\ gvs []
 QED
 
 Theorem v_to_bytes:
@@ -468,7 +472,7 @@ QED
 
 (* compiler correctness *)
 
-Triviality lookup_EL_shifted_env:
+Theorem lookup_EL_shifted_env[local]:
   !y n k. n < LENGTH y /\ ALL_DISTINCT y ==>
             (lookup (EL n y) (shifted_env k y) = SOME (k + n))
 Proof
@@ -477,7 +481,7 @@ Proof
   \\ full_simp_tac(srw_ss())[MEM_EL] \\ METIS_TAC []
 QED
 
-Triviality env_ok_shifted_env:
+Theorem env_ok_shifted_env[local]:
   env_ok m l i env env2 k /\ MEM k live /\ ALL_DISTINCT live /\
     (lookup_vars (MAP (get_var m l i) (FILTER (\n. n < m + l) live)) env2 =
       SOME x) ==>
@@ -509,7 +513,7 @@ Proof
   \\ IMP_RES_TAC lookup_vars_SOME \\ full_simp_tac(srw_ss())[]
 QED
 
-Triviality EL_shift_alt_free:
+Theorem EL_shift_alt_free[local]:
   !fns index.
      index < LENGTH fns ==>
      ([EL index (shift (FST (alt_free fns)) l m i)] =
@@ -524,11 +528,13 @@ Proof
   \\ full_simp_tac(srw_ss())[SING_HD,LENGTH_FST_alt_free]
 QED
 
-val FOLDR_mk_Union = prove(
-  ``!ys aux l.
+Theorem FOLDR_mk_Union[local]:
+    !ys aux l.
       FOLDR (λ(x,l) (ts,alt_frees). (x::ts,mk_Union l alt_frees)) (aux,l) ys =
-      (MAP FST ys ++ aux, FOLDR mk_Union l (MAP SND ys))``,
-  Induct \\ fs [FORALL_PROD]);
+      (MAP FST ys ++ aux, FOLDR mk_Union l (MAP SND ys))
+Proof
+  Induct \\ fs [FORALL_PROD]
+QED
 
 (*
 Theorem MAPi_MAPi:
@@ -549,22 +555,26 @@ Proof
   \\ fs [EVAL ``evaluate ([Op v8 (IntOp (Const 0)) []],env,t1)``]
 QED
 
-val no_overlap_has_var_IMP = prove(
-  ``!n l2 x. clos_annotate$no_overlap n l2 /\ has_var x l2 ==> n <= x``,
+Theorem no_overlap_has_var_IMP[local]:
+    !n l2 x. clos_annotate$no_overlap n l2 /\ has_var x l2 ==> n <= x
+Proof
   Induct \\ fs [no_overlap_def] \\ rw [] \\ res_tac
-  \\ Cases_on `x = n` \\ fs []);
+  \\ Cases_on `x = n` \\ fs []
+QED
 
-val evaluate_pure_IMP = prove(
-  ``evaluate (xs,env,(s:('c,'ffi)closSem$state)) = (q,r) /\ EVERY pure xs /\
+Theorem evaluate_pure_IMP[local]:
+    evaluate (xs,env,(s:('c,'ffi)closSem$state)) = (q,r) /\ EVERY pure xs /\
     q <> Rerr (Rabort Rtype_error) ==>
-    ?vs. q = Rval vs /\ r = s /\ LENGTH vs = LENGTH xs``,
+    ?vs. q = Rval vs /\ r = s /\ LENGTH vs = LENGTH xs
+Proof
   rw[]
   \\ imp_res_tac EVERY_pure_correct \\ fs[]
   \\ first_x_assum(qspecl_then[`s`,`env`]mp_tac)
   \\ simp[case_eq_thms]
   \\ CASE_TAC \\ simp[]
   \\ CASE_TAC \\ simp[]
-  \\ strip_tac \\ fs[]);
+  \\ strip_tac \\ fs[]
+QED
 
 val every_Fn_vs_NONE_EVERY_MAP =
   every_Fn_vs_NONE_EVERY
@@ -579,7 +589,43 @@ val code_tac =
           EVERY_MAP,EVERY_GENLIST,shift_seq_def]
     \\ fs[every_Fn_vs_NONE_EVERY_MAP,o_DEF];
 
-Triviality shift_correct:
+Theorem state_rel_opt_rel_refs[local]:
+  (state_rel s1 s2 ∧ FLOOKUP s1.refs n = r1 ⇒
+     ∃r2. FLOOKUP s2.refs n = r2 ∧ opt_rel (ref_rel v_rel) r1 r2) ∧
+  (state_rel s1 s2 ∧ FLOOKUP s2.refs n = r2 ⇒
+     ∃r1. FLOOKUP s1.refs n = r1 ∧ opt_rel (ref_rel v_rel) r1 r2)
+Proof
+  rw [] \\ gvs [state_rel_def, FLOOKUP_DEF] \\ rw []
+QED
+
+Theorem state_rel_clocks_eqs[local]:
+  state_rel s t ⇒ s.clock = t.clock
+Proof
+  gvs [state_rel_def]
+QED
+
+Theorem rel_update_thunk[local]:
+  state_rel s1 s2 ∧
+  LIST_REL v_rel vs ys ⇒
+    (update_thunk [RefPtr v ptr] s1.refs vs = SOME refs1 ⇒
+       ∃refs2. update_thunk [RefPtr v ptr] s2.refs ys = SOME refs2 ∧
+               state_rel (s1 with refs := refs1) (s2 with refs := refs2))
+Proof
+  rw []
+  \\ gvs [oneline update_thunk_def, AllCaseEqs()] \\ rw []
+  \\ gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
+  \\ (
+    gvs [Once v_rel_cases, oneline store_thunk_def, AllCaseEqs(), PULL_EXISTS]
+    \\ rpt (
+      imp_res_tac state_rel_opt_rel_refs \\ rw []
+      \\ gvs [oneline opt_rel_def]
+      \\ FULL_CASE_TAC \\ gvs [])
+    \\ gvs [state_rel_def, FLOOKUP_UPDATE] \\ rw []
+    \\ simp [ref_rel_def, Once v_rel_cases]
+    \\ metis_tac [])
+QED
+
+Theorem shift_correct[local]:
   (!xs env (s1:('c,'ffi) closSem$state) env' t1 res s2 m l i.
      (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr (Rabort Rtype_error) /\
      (LENGTH env = m + l) /\
@@ -833,6 +879,24 @@ Proof
       \\ fs[shift_LENGTH_LEMMA, LENGTH_FST_alt_free]
       \\ Q.ISPEC_THEN`vs'`FULL_STRUCT_CASES_TAC SNOC_CASES \\ fs[]
       \\ fs[LIST_REL_SNOC] )
+    >- ( (* ThunkOp ThunkForce case *)
+      gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
+      \\ rgs [Once v_rel_cases]
+      \\ imp_res_tac (cj 1 state_rel_opt_rel_refs)
+      \\ qpat_x_assum `opt_rel (ref_rel v_rel) _ _` mp_tac
+      \\ simp [oneline opt_rel_def] \\ CASE_TAC \\ gvs [PULL_EXISTS]
+      \\ imp_res_tac state_rel_clocks_eqs \\ gvs [PULL_EXISTS]
+      \\ last_x_assum $ qspecl_then [`[b]`, `t2`, `0`, `1`, `i`] mp_tac
+      \\ (
+        gvs [] \\ impl_tac
+        >- (
+          gvs [AppUnit_def, alt_fv, alt_fv1_thm, SUBSET_DEF, IN_DEF, env_ok_def,
+               dec_clock_def]
+          \\ code_tac
+          \\ gvs [state_rel_def])
+        \\ rw [AppUnit_def, alt_free_def, shift_def, get_var_def]
+        \\ goal_assum drule \\ rw []
+        \\ drule_all rel_update_thunk \\ rw []))
     \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] >>
     last_x_assum mp_tac >>
     reverse BasicProvers.CASE_TAC >- (
@@ -1239,7 +1303,7 @@ Proof
     \\ full_simp_tac(srw_ss())[])
 QED
 
-Triviality env_set_default:
+Theorem env_set_default[local]:
   x SUBSET env_ok 0 0 LN [] env'
 Proof
   full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,env_ok_def]
@@ -1316,7 +1380,7 @@ QED
 
 val IF_MAP_EQ = MAP_EQ_f |> SPEC_ALL |> EQ_IMP_RULE |> snd;
 
-Triviality shift_code_locs:
+Theorem shift_code_locs[local]:
   !xs env s1 env'. code_locs (shift xs env s1 env') = code_locs xs
 Proof
   ho_match_mp_tac shift_ind
@@ -1333,7 +1397,7 @@ Proof
 EVAL_TAC
 QED
 
-Triviality alt_free_code_locs:
+Theorem alt_free_code_locs[local]:
   !xs. set (code_locs (FST (alt_free xs))) ⊆ set (code_locs xs)
 Proof
   ho_match_mp_tac alt_free_ind
@@ -1348,7 +1412,7 @@ Proof
   \\ metis_tac[HD_FST_alt_free,FST,PAIR]
 QED
 
-Triviality alt_free_code_locs_distinct:
+Theorem alt_free_code_locs_distinct[local]:
   ∀xs. ALL_DISTINCT (code_locs xs) ⇒ ALL_DISTINCT (code_locs (FST (alt_free xs)))
 Proof
   recInduct alt_free_ind
@@ -1643,5 +1707,3 @@ Proof
   \\ fs [HD_annotate_SING]
   \\ match_mp_tac every_Fn_SOME_annotate \\ fs []
 QED
-
-val _ = export_theory()

@@ -2,10 +2,14 @@
  An example showing how to use the monadic translator to translate polymorphic
  monadic array quicksort, including exceptions.
 *)
+Theory poly_array_sortProg
+Libs
+  preamble ml_monad_translator_interfaceLib
+Ancestors
+  ml_monad_translator
 
-open preamble ml_monad_translator_interfaceLib
+val _ = set_up_monadic_translator ();
 
-val _ = new_theory "poly_array_sortProg"
 
 fun allowing_rebind f = Feedback.trace ("Theory.allow_rebinds", 1) f
 
@@ -1299,7 +1303,7 @@ val run_quicksort_v_thm = m_translate_run run_quicksort_def;
 
 val qsort_v_thm = translate qsort_def;
 
-Triviality qsort_v_precond:
+Theorem qsort_v_precond[local]:
   ∀ cmp l . strict_weak_order cmp ⇒ qsort_side cmp l
 Proof
   rw[fetch "-" "qsort_side_def"] >>
@@ -1337,5 +1341,3 @@ QED
 
 
 (******************************************************************************)
-
-val _ = export_theory ();

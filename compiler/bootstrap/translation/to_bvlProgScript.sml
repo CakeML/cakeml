@@ -1,12 +1,16 @@
 (*
   Translate the backend phase from closLang to BVL.
 *)
-open preamble ml_translatorLib ml_translatorTheory to_closProgTheory
-local open backendTheory in end
+Theory to_bvlProg[no_sig_docs]
+Ancestors
+  ml_translator to_closProg backend[qualified]
+Libs
+  preamble ml_translatorLib
+
+open preamble ml_translatorLib ml_translatorTheory to_closProgTheory;
 
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
-val _ = new_theory "to_bvlProg";
 val _ = translation_extends "to_closProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_bvlProg");
@@ -31,7 +35,7 @@ fun list_mk_fun_type [ty] = ty
 val _ = add_preferred_thy "-";
 val _ = add_preferred_thy "termination";
 
-Triviality NOT_NIL_AND_LEMMA:
+Theorem NOT_NIL_AND_LEMMA[local]:
   (b <> [] /\ x) = if b = [] then F else x
 Proof
   Cases_on `b` THEN FULL_SIMP_TAC std_ss []
@@ -74,7 +78,7 @@ val r = translate clos_to_bvlTheory.compile_op_pmatch;
 
 val r = translate (bvl_jumpTheory.JumpList_def |> REWRITE_RULE [GSYM mllistTheory.take_def,GSYM mllistTheory.drop_def]);
 
-Triviality bvl_jump_jumplist_ind:
+Theorem bvl_jump_jumplist_ind[local]:
   bvl_jump_jumplist_ind
 Proof
   once_rewrite_tac [fetch "-" "bvl_jump_jumplist_ind_def"]
@@ -262,7 +266,7 @@ val bvl_inline_tick_inline_side = Q.prove (
 
 val r = translate (bvl_inlineTheory.is_small_aux_def |> REWRITE_RULE [GSYM sub_check_def]);
 
-Triviality bvl_inline_is_small_aux_ind:
+Theorem bvl_inline_is_small_aux_ind[local]:
   bvl_inline_is_small_aux_ind
 Proof
   once_rewrite_tac [fetch "-" "bvl_inline_is_small_aux_ind_def"]
@@ -345,7 +349,5 @@ val res = translate clos_to_bvlTheory.clos_to_bvl_compile_inc_def
 
 (* ------------------------------------------------------------------------- *)
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 val _ = ml_translatorLib.clean_on_exit := true;
-val _ = export_theory ();

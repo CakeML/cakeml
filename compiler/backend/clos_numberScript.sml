@@ -2,10 +2,11 @@
   This simple compiler phase walks the program and gives each closure
   a unique numeric name.
 *)
-open preamble closLangTheory;
-
-val _ = new_theory"clos_number";
-val _ = set_grammar_ancestry ["closLang"]
+Theory clos_number
+Ancestors
+  closLang
+Libs
+  preamble
 
 (* add fresh code locations *)
 
@@ -53,14 +54,13 @@ Definition renumber_code_locs_def:
      let (n,xs) = renumber_code_locs_list n xs in
        (n,Op t (IntOp Add) xs)) (* this case cannot occur *)
 Termination
-  WF_REL_TAC `inv_image $< (λx. case x of INL p => exp3_size (SND p) | INR p => exp_size (SND p))` >>
+  WF_REL_TAC `inv_image $< (λx. case x of INL p => list_size exp_size (SND p) | INR p => exp_size (SND p))` >>
  rw [] >>
  TRY decide_tac >>
  Induct_on `fns` >>
  srw_tac [ARITH_ss] [exp_size_def] >>
  Cases_on `h` >>
- rw [exp_size_def] >>
- decide_tac
+ rw [exp_size_def, basicSizeTheory.pair_size_def]
 End
 
 val renumber_code_locs_ind = theorem"renumber_code_locs_ind";
@@ -88,4 +88,3 @@ Definition ignore_table_def:
   ignore_table f st (code,aux) = let (st',code') = f st code in (st',(code',aux))
 End
 
-val _ = export_theory()

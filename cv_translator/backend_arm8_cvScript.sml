@@ -1,11 +1,12 @@
 (*
   Translate arm8-specialised functions to cv equations.
 *)
-open preamble cv_transLib cv_stdTheory backend_cvTheory backend_64_cvTheory;
-open backend_arm8Theory arm8Theory arm8_targetTheory to_data_cvTheory;
-open export_arm8Theory arm8_configTheory;
-
-val _ = new_theory "backend_arm8_cv";
+Theory backend_arm8_cv[no_sig_docs]
+Ancestors
+  cv_std backend_cv backend_64_cv backend_arm8 arm8 arm8_target
+  to_data_cv export_arm8 arm8_config
+Libs
+  preamble cv_transLib
 
 (*---------------------------------------------------------------------------*
   Translation of instruction encoder
@@ -20,7 +21,7 @@ Theorem v2w_sing[cv_inline,local] = miscTheory.v2w_sing;
 val _ = cv_trans e_LoadStoreImmediate_def;
 val _ = cv_trans ExtendType2num_thm;
 val _ = cv_trans e_LoadStoreRegister_def;
-val res = cv_trans_pre $ SRULE [word_len_def] e_load_store_def;
+val res = cv_trans_pre "" $ SRULE [word_len_def] e_load_store_def;
 
 Theorem e_load_store_pre[cv_pre]:
   ∀i. e_load_store_pre i
@@ -43,7 +44,7 @@ Theorem e_sf_word64_T[cv_inline,local] =
 
 val _ = cv_trans ShiftType2num_thm;
 val highest_set_bit_pre =
-  cv_trans_pre (HighestSetBit_def |> INST_TYPE [``:'N`` |-> ``:7``]);
+  cv_trans_pre "" (HighestSetBit_def |> INST_TYPE [``:'N`` |-> ``:7``]);
 
 Theorem HighestSetBit_pre[cv_pre,local]:
   ∀w. HighestSetBit_pre w
@@ -135,11 +136,12 @@ val _ = cv_trans NoOperation_def;
 val _ = cv_trans arm8_enc_mov_imm_def;
 val _ = cv_trans arm8_encode_fail_def;
 val _ = cv_trans arm8_load_store_ast_def;
+val _ = cv_trans arm8_load_store_ast16_def;
 val _ = cv_trans arm8_load_store_ast32_def;
 val _ = cv_trans cmp_cond_def;
 val _ = cv_trans asmSemTheory.is_test_def;
-val bop_enc_pre = cv_trans_pre bop_enc_def;
-val arm8_ast_pre = cv_trans_pre (SRULE [SF LET_ss] arm8_ast_def);
+val bop_enc_pre = cv_trans_pre "" bop_enc_def;
+val arm8_ast_pre = cv_trans_pre "" (SRULE [SF LET_ss] arm8_ast_def);
 
 Theorem arm8_ast_pre[cv_pre]:
   ∀v. arm8_ast_pre v
@@ -154,7 +156,7 @@ val _ = cv_auto_trans (arm8_targetTheory.arm8_enc_def |>
   Remaining arm8-specific functions
  *---------------------------------------------------------------------------*)
 
-val pre = cv_auto_trans_pre comp_arm8_def;
+val pre = cv_auto_trans_pre "" comp_arm8_def;
 
 Theorem comp_arm8_pre[cv_pre,local]:
   ∀v bs kf. comp_arm8_pre v bs kf
@@ -169,7 +171,7 @@ QED
 
 val _ = cv_auto_trans compile_prog_arm8_def;
 
-val pre = cv_auto_trans_pre compile_word_to_stack_arm8_def;
+val pre = cv_auto_trans_pre "" compile_word_to_stack_arm8_def;
 
 Theorem compile_word_to_stack_arm8_pre[cv_pre]:
   ∀k v bitmaps. compile_word_to_stack_arm8_pre k v bitmaps
@@ -178,14 +180,14 @@ Proof
   \\ rw [] \\ simp [Once pre]
 QED
 
-Triviality fp_reg_ok_arm8_def[cv_inline] = fp_reg_ok_arm8_def;
+Theorem fp_reg_ok_arm8_def[local,cv_inline] = fp_reg_ok_arm8_def;
 
 val _ = cv_auto_trans inst_ok_arm8_def;
 val _ = cv_auto_trans asm_ok_arm8_def;
 val _ = cv_auto_trans line_ok_light_arm8_def;
 val _ = cv_auto_trans sec_ok_light_arm8_def;
 
-val pre = cv_trans_pre enc_lines_again_arm8_def;
+val pre = cv_trans_pre "" enc_lines_again_arm8_def;
 
 Theorem enc_lines_again_arm8_pre[cv_pre,local]:
   ∀labs ffis pos v0 v. enc_lines_again_arm8_pre labs ffis pos v0 v
@@ -193,7 +195,7 @@ Proof
   Induct_on ‘v0’ \\ simp [Once pre]
 QED
 
-val pre = cv_trans_pre enc_secs_again_arm8_def;
+val pre = cv_trans_pre "" enc_secs_again_arm8_def;
 
 Theorem enc_secs_again_arm8_pre[cv_pre,local]:
   ∀pos labs ffis v. enc_secs_again_arm8_pre pos labs ffis v
@@ -201,7 +203,7 @@ Proof
   Induct_on ‘v’ \\ simp [Once pre]
 QED
 
-val pre = cv_auto_trans_pre remove_labels_loop_arm8_def;
+val pre = cv_auto_trans_pre "" remove_labels_loop_arm8_def;
 
 Theorem remove_labels_loop_arm8_pre[cv_pre]:
   ∀clock pos init_labs ffis sec_list.
@@ -223,7 +225,7 @@ val _ = cv_trans (from_stack_arm8_def
 
 val _ = cv_auto_trans from_word_arm8_def;
 
-val pre = cv_trans_pre get_forced_arm8_def;
+val pre = cv_trans_pre "" get_forced_arm8_def;
 Theorem get_forced_arm8_pre[cv_pre,local]:
   ∀v acc. get_forced_arm8_pre v acc
 Proof
@@ -236,7 +238,7 @@ QED
 
 val _ = cv_trans word_alloc_inlogic_arm8_def;
 
-val pre = cv_trans_pre inst_select_exp_arm8_def;
+val pre = cv_trans_pre "" inst_select_exp_arm8_def;
 Theorem inst_select_exp_arm8_pre[cv_pre]:
   ∀v tar temp. inst_select_exp_arm8_pre tar temp v
 Proof
@@ -248,7 +250,7 @@ Proof
   \\ gvs [wordLangTheory.exp_size_def]
 QED
 
-val pre = cv_trans_pre inst_select_arm8_def;
+val pre = cv_trans_pre "" inst_select_arm8_def;
 Theorem inst_select_arm8_pre[cv_pre,local]:
   ∀v temp. inst_select_arm8_pre temp v
 Proof
@@ -258,7 +260,7 @@ Proof
   \\ first_x_assum irule \\ gvs [wordLangTheory.prog_size_def]
 QED
 
-val pre = each_inlogic_arm8_def |> cv_trans_pre;
+val pre = each_inlogic_arm8_def |> cv_trans_pre "";
 Theorem each_inlogic_arm8_pre[cv_pre,local]:
   ∀v. each_inlogic_arm8_pre v
 Proof
@@ -317,5 +319,3 @@ Proof
   irule backendTheory.set_asm_conf_id \\ EVAL_TAC
 QED
 
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
-val _ = export_theory();
