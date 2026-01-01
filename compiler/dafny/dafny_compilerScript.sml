@@ -28,7 +28,7 @@ Definition unpack_def:
   (case m of
    | INR d => d
    | INL s =>
-     [Dlet unknown_loc Pany (cml_fapp [] "print" [Lit (StrLit (explode s))])])
+     [Dlet unknown_loc Pany (cml_fapp [] «print» [Lit (StrLit s)])])
 End
 
 (* Converts the monad with the CakeML AST into a string with its S-Expression.
