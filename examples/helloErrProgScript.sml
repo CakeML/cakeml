@@ -9,12 +9,11 @@ Libs
 
 val _ = translation_extends"basisProg";
 
-val helloErr = process_topdecs
-  `fun helloErr u =
+Quote add_cakeml:
+  fun helloErr u =
      (TextIO.output TextIO.stdErr "Well oH lord!\n";
-      Runtime.abort())`
-
-val () = append_prog helloErr;
+      Runtime.abort())
+End
 
 val st = get_ml_prog_state ()
 

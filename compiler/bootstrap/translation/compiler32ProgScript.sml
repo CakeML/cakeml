@@ -375,7 +375,7 @@ val res = translate compile_pancake_32_def;
 
 val res = translate (has_pancake_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
 
-val main = process_topdecs`
+Quote add_cakeml:
   fun main u =
     let
       val cl = CommandLine.arguments ()
@@ -392,9 +392,8 @@ val main = process_topdecs`
         case compiler_compile_32 cl (TextIO.inputAll (TextIO.openStdIn ()))  of
           (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
                      compiler32prog_nonzero_exit_code_for_error_msg e)
-    end`;
-
-val res = append_prog main;
+    end
+End
 
 val main_v_def = fetch "-" "main_v_def";
 

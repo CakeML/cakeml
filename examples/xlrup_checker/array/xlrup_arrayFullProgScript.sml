@@ -50,7 +50,7 @@ val inputLineTokens_specialize =
   |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
   |> SIMP_RULE std_ss [blanks_v_thm,tokenize_v_thm,blanks_def] ;
 
-val parse_body_arr = process_topdecs`
+Quote add_cakeml:
   fun parse_body_arr lno maxvar fd cacc xacc bacc =
   case TextIO.inputLineTokens #"\n" fd blanks tokenize of
     None => Inr (List.rev cacc, (List.rev xacc, List.rev bacc))
@@ -65,7 +65,8 @@ val parse_body_arr = process_topdecs`
       | Some (Cmsbnn bl) =>
         parse_body_arr (lno+1) maxvar fd cacc xacc (bl::bacc)
       )
-    else parse_body_arr (lno+1) maxvar fd cacc xacc bacc` |> append_prog;
+    else parse_body_arr (lno+1) maxvar fd cacc xacc bacc
+End;
 
 Overload "LL_LIT_TYPE" = ``LIST_TYPE (LIST_TYPE CNF_EXT_LIT_TYPE)``
 Overload "L_BNN_TYPE" = ``LIST_TYPE (PAIR_TYPE (LIST_TYPE CNF_EXT_LIT_TYPE)
@@ -201,7 +202,7 @@ Proof
     metis_tac[])
 QED
 
-val parse_cnf_ext_toks_arr = process_topdecs`
+Quote add_cakeml:
   fun parse_cnf_ext_toks_arr lno fd =
   case TextIO.inputLineTokens #"\n" fd blanks tokenize of
     None => Inl (format_dimacs_failure lno "failed to find header")
@@ -217,7 +218,8 @@ val parse_cnf_ext_toks_arr = process_topdecs`
             Inr (vars,(ncx,(cacc,(xacc,bacc))))
           else
             Inl (format_dimacs_failure lno "incorrect number of clauses / xors")))
-    else parse_cnf_ext_toks_arr (lno+1) fd` |> append_prog;
+    else parse_cnf_ext_toks_arr (lno+1) fd
+End;
 
 Theorem parse_cnf_ext_toks_arr_spec:
   !lines fd fdv fs lno lnov.
@@ -365,7 +367,7 @@ Proof
 QED
 
 (* parse_cnf_ext_toks with simple wrapper *)
-val parse_full = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun parse_full fname =
   let
     val fd = TextIO.openIn fname
@@ -374,7 +376,8 @@ val parse_full = (append_prog o process_topdecs) `
   in
     res
   end
-  handle TextIO.BadFileName => Inl (notfound_string fname)`;
+  handle TextIO.BadFileName => Inl (notfound_string fname)
+End;
 
 Theorem parse_full_spec:
   STRING_TYPE f fv ∧
@@ -492,12 +495,13 @@ val r = translate max_var_opt_def;
 val r = translate max_var_bnn_def;
 
 (*
-val map_conv_xor_arr = process_topdecs`
+Quote add_cakeml:
   fun map_conv_xor_arr mv xs =
   case xs of [] => []
   | (x::xs) =>
     conv_rawxor_arr mv (map_conv_lit x) ::
-    map_conv_xor_arr mv xs` |> append_prog;
+    map_conv_xor_arr mv xs
+End;
 
 Theorem map_conv_xor_arr_spec:
   ∀xs xsv.
@@ -521,13 +525,14 @@ Proof
   xcon>>xsimpl
 QED
 
-val conv_xfml_arr = process_topdecs`
+Quote add_cakeml:
   fun conv_xfml_arr xfml =
   let
     val mv = max_var_xor xfml
   in
     (map_conv_xor_arr mv xfml, mv)
-  end` |> append_prog;
+  end
+End;
 
 Theorem conv_xfml_arr_spec:
   LL_LIT_TYPE x xv
@@ -562,7 +567,7 @@ QED
     parse CNF XOR, run proof, report UNSAT (or error)
 *)
 
-val check_unsat_2 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_2 f1 f2 =
   case parse_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
@@ -583,7 +588,8 @@ val check_unsat_2 = (append_prog o process_topdecs) `
         TextIO.print "s VERIFIED UNSAT\n"
       else
         TextIO.output TextIO.stdErr "c empty clause not derived at end of proof\n"
-  end`
+  end
+End
 
 val _ = translate print_lit_def;
 
@@ -595,11 +601,12 @@ val _ = translate print_bnn_def;
 val _ = translate print_header_line_def;
 val _ = translate print_cnf_ext_def;
 
-val check_unsat_1 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_1 f1 =
   case parse_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
-  | Inr (mv,(ncl,fml)) => TextIO.print_list (print_cnf_ext fml)`
+  | Inr (mv,(ncl,fml)) => TextIO.print_list (print_cnf_ext fml)
+End
 
 Definition check_unsat_1_sem_def:
   check_unsat_1_sem fs f1 err =
@@ -649,12 +656,13 @@ Proof
   rw[]>>qexists_tac`err`>>xsimpl
 QED
 
-val check_unsat = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat u =
   case CommandLine.arguments () of
     [f1] => check_unsat_1 f1
   | [f1,f2] => check_unsat_2 f1 f2
-  | _ => TextIO.output TextIO.stdErr usage_string`
+  | _ => TextIO.output TextIO.stdErr usage_string
+End
 
 (* We verify each argument type separately *)
 val inputAllTokensFile_spec_specialize =
