@@ -24,7 +24,7 @@ val r = translate thm_to_string_def;
 
 val _ = ml_prog_update open_local_in_block;
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
   val print_thm = fn th => case th of Sequent tms c =>
     let
       val ctxt = !the_context
@@ -33,7 +33,8 @@ val _ = (append_prog o process_topdecs) `
     in
       #(kernel_ffi) str arr
     end;
-`
+
+End
 (* compute primitive *)
 
 val _ = ml_prog_update open_local_block;

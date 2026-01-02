@@ -129,11 +129,12 @@ Proof
   \\ xapp \\ rw[]
 QED
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun diff u =
     case CommandLine.arguments () of
         (f1::f2::[]) => diff' f1 f2
-      | _ => TextIO.output TextIO.stdErr usage_string`;
+      | _ => TextIO.output TextIO.stdErr usage_string
+End
 
 Definition diff_sem_def:
   diff_sem cl fs =

@@ -259,8 +259,9 @@ val _ = r |> hyp |> null orelse
         failwith ("Unproved side condition in the translation of \
                   \dafny_compilerTheory.main_function_def");
 
-val main = process_topdecs
-           ‘print (main_function (Sexp.parse (TextIO.openStdIn ())));’;
+Quote main = cakeml:
+  print (main_function (Sexp.parse (TextIO.openStdIn ())));
+End
 
 val prog =
   get_ml_prog_state ()

@@ -103,7 +103,7 @@ QED
 
 (* -- tailrec -- *)
 
-val tailrec_clos = cfTacticsLib.process_topdecs `
+val tailrec_clos = process_topdecs `
   fun tailrec f x =
     case f x of
       Inl x => tailrec f x
@@ -2250,7 +2250,7 @@ QED
 
 (* -- repeat -- *)
 
-val repeat_clos = cfTacticsLib.process_topdecs `
+val repeat_clos = process_topdecs `
   fun repeat f x = repeat f (f x);
   ` |> rator |> rand |> rand
 
@@ -3983,7 +3983,7 @@ QED
 
 (* -- old repeat approach -- *)
 
-val _ = (append_prog o cfTacticsLib.process_topdecs)
+val _ = (append_prog o process_topdecs)
   `fun repeat f x = repeat f (f x);`
 
 val st = ml_translatorLib.get_ml_prog_state ();

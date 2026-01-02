@@ -456,7 +456,7 @@ End
 
 val _ = register_type “:('a,'b,'c,'d,'e) eval_res”;
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
 fun eval ((s1,next_gen), (env,id), decs) =
 case compiler_for_eval ((id,0),(s1,decs)) of
   None => Compile_error "ERROR: failed to compile input\n"
@@ -464,12 +464,14 @@ case compiler_for_eval ((id,0),(s1,decs)) of
     let
 val new_env = eval_prim (env,s1,decs,s2,bs,ws)
     in Eval_result (new_env,next_gen) (s2,next_gen+1) end
-                   handle e => Eval_exn e (s2,next_gen+1) `
+                   handle e => Eval_exn e (s2,next_gen+1)
+End
 
-val exn_msg_dec = process_topdecs ‘
+Quote exn_msg_dec = cakeml:
 val _ = (TextIO.print (!Repl.errorMessage);
          print_pp (pp_exn (!Repl.exn));
-         print "\n")’
+         print "\n")
+End
 
 Definition report_exn_dec_def:
   report_exn_dec = ^exn_msg_dec
@@ -478,14 +480,16 @@ End
 val _ = (next_ml_names := ["report_exn_dec"]);
 val r = translate report_exn_dec_def;
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
 fun report_exn e =
 (Repl.exn := e;
  Repl.errorMessage := "EXCEPTION: ";
- report_exn_dec)`
+ report_exn_dec)
+End
 
-val error_msg_dec = process_topdecs ‘
-val _ = (TextIO.print (!Repl.errorMessage))’
+Quote error_msg_dec = cakeml:
+val _ = (TextIO.print (!Repl.errorMessage))
+End
 
 Definition report_error_dec_def:
   report_error_dec = ^error_msg_dec
@@ -494,10 +498,11 @@ End
 val _ = (next_ml_names := ["report_error_dec"]);
 val r = translate report_error_dec_def;
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
 fun report_error msg =
 (Repl.errorMessage := msg;
- report_error_dec)`
+ report_error_dec)
+End
 
 val _ = (next_ml_names := ["roll_back"]);
 val r = translate repl_check_and_tweakTheory.roll_back_def;
@@ -505,7 +510,7 @@ val r = translate repl_check_and_tweakTheory.roll_back_def;
 val _ = (next_ml_names := ["check_and_tweak"]);
 val r = translate repl_check_and_tweakTheory.check_and_tweak_def;
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
 fun repl (parse, types, conf, env, decs, input_str) =
 (* input_str is passed in here only for error reporting purposes *)
 case check_and_tweak (decs, (types, input_str)) of
@@ -525,7 +530,8 @@ case check_and_tweak (decs, (types, input_str)) of
             case parse new_input of
               Inl msg      => repl (parse, new_types, new_conf, new_env, report_error msg, "")
             | Inr new_decs => repl (parse, new_types, new_conf, new_env, new_decs, new_input)
-                                   end `
+                                   end
+End
 
 val _ = (next_ml_names := ["init_types"]);
 val r = translate repl_init_typesTheory.repl_init_types_eq;
@@ -564,7 +570,7 @@ End
 val _ = (next_ml_names := ["init_next_string"]);
 val res = translate (init_next_string_def |> REWRITE_RULE [MEMBER_INTRO]);
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
 fun start_repl (cl,s1) =
 let
 val parse = select_parse cl
@@ -576,16 +582,18 @@ val input_str = ""
 val _ = (Repl.nextString := init_next_string cl)
 in
   repl (parse, types, conf, env, decs, input_str)
-       end`
+       end
+End
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
 fun run_interactive_repl cl =
 let
 val cs = Repl.charsFrom "config_enc_str.txt"
 val s1 = decodeProg.decode_backend_config cs
 in
   start_repl (cl,s1)
-             end`
+             end
+End
 
 Definition has_repl_flag_def:
   has_repl_flag cl ⇔ MEM (strlit "--repl") cl ∨ MEM (strlit "--candle") cl
@@ -596,28 +604,27 @@ val res = translate (has_repl_flag_def |> REWRITE_RULE [MEMBER_INTRO]);
 
 val res = translate (has_pancake_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
 
-val main = process_topdecs`
-fun main u =
-let
-val cl = CommandLine.arguments ()
-in
-  if compiler_has_repl_flag cl then
-    run_interactive_repl cl
-  else if compiler_has_help_flag cl then
-    print compiler_help_string
-  else if compiler_has_version_flag cl then
-    print compiler_current_build_info_str
-  else if compiler_has_pancake_flag cl then
-    case compiler_compile_pancake_64 cl (TextIO.inputAll (TextIO.openStdIn ()))  of
-      (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
-                 compiler64prog_nonzero_exit_code_for_error_msg e)
-  else
-    case compiler_compile_64 cl (TextIO.inputAll (TextIO.openStdIn ()))  of
-      (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
-                 compiler64prog_nonzero_exit_code_for_error_msg e)
-                end`;
-
-val res = append_prog main;
+Quote add_cakeml:
+  fun main u =
+  let
+  val cl = CommandLine.arguments ()
+  in
+    if compiler_has_repl_flag cl then
+      run_interactive_repl cl
+    else if compiler_has_help_flag cl then
+      print compiler_help_string
+    else if compiler_has_version_flag cl then
+      print compiler_current_build_info_str
+    else if compiler_has_pancake_flag cl then
+      case compiler_compile_pancake_64 cl (TextIO.inputAll (TextIO.openStdIn ()))  of
+        (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
+                   compiler64prog_nonzero_exit_code_for_error_msg e)
+    else
+      case compiler_compile_64 cl (TextIO.inputAll (TextIO.openStdIn ()))  of
+        (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
+                   compiler64prog_nonzero_exit_code_for_error_msg e)
+                  end
+End
 
 val main_v_def = fetch "-" "main_v_def";
 

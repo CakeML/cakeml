@@ -13,11 +13,9 @@ fun basis_st () = get_ml_prog_state ()
 
 (**********)
 
-val double = process_topdecs `
+Quote add_cakeml:
     fun double x = if x = 0 then 0 else double (x - 1) + 2;
-`;
-
-val _ = append_prog double;
+End
 
 Theorem double_spec:
      ∀x x_v. NUM x x_v
@@ -48,15 +46,13 @@ QED
 
 (**********)
 
-val double_tail_rec = process_topdecs `
+Quote add_cakeml:
     fun double_tail_rec x = if x = 0 then 0 else
         let fun aux n carry =
             if n = 0 then carry else
                 aux (n - 1) (carry + 2)
         in aux x 0 end;
-`;
-
-val _ = append_prog double_tail_rec;
+End
 
 Theorem double_tail_rec_spec:
      ∀x x_v. NUM x x_v
@@ -105,7 +101,7 @@ QED
 
 (**********)
 
-val double_ref = process_topdecs `
+Quote add_cakeml:
     fun double_ref x =
         if !x = 0 then (Ref 0) else
             (
@@ -114,9 +110,7 @@ val double_ref = process_topdecs `
                     (result := !result + 2; result)
                  end)
             );
-`;
-
-val _ = append_prog double_ref;
+End
 
 Theorem double_ref_spec:
      ∀ inp inp_v inp_ref ffi_p .
@@ -176,13 +170,11 @@ QED
 
 (**********)
 
-val double_ref_same = process_topdecs `
+Quote add_cakeml:
     fun double_ref_same x =
         if !x = 0 then x else
             (x := (!x - 1); x := (!(double_ref_same x) + 2); x);
-`;
-
-val _ = append_prog double_ref_same;
+End
 
 Theorem double_ref_same_spec:
      ∀ inp inp_v inp_ref ffi_p .

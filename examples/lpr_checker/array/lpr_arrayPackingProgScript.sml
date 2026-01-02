@@ -49,13 +49,14 @@ val r = translate parse_numbers_def;
 
 (* NOTE: still written in the old style since this doesn't actually use the UNSAT checker *)
 (* 3 arg *)
-val check_unsat_3 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_3 enc r k c =
     case parse_numbers r k c of
       Some (r,(k,c)) =>
       TextIO.print_list (print_dimacs (enc r k c))
     | None =>
-      TextIO.output TextIO.stdErr usage_string`
+      TextIO.output TextIO.stdErr usage_string
+End
 
 Definition check_unsat_3_sem_def:
   check_unsat_3_sem fs enc r k c err =
@@ -129,11 +130,12 @@ val res = translate packingTheory.full_restrict_def;
 val res = translate packingTheory.encode_def;
 val res = translate full_encode_def;
 
-val main = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun main u =
   case CommandLine.arguments () of
     [r,k,c] => check_unsat_3 full_encode r k c
-  | _ => TextIO.output TextIO.stdErr usage_string`
+  | _ => TextIO.output TextIO.stdErr usage_string
+End
 
 Definition main_sem_def:
   main_sem cl fs err =
