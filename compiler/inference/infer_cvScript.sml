@@ -116,7 +116,7 @@ Proof
 QED
 
 val _ = cv_trans word_tc_def
-val _ = cv_trans supported_arith_def
+val _ = cv_trans (supported_arith_def |> oneline |> SRULE [])
 val _ = cv_trans supported_conversion_def
 val _ = cv_trans (supported_test_def |> oneline |> SRULE [])
 val _ = cv_trans op_to_string_def
