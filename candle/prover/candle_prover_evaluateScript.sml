@@ -607,14 +607,20 @@ Proof
   >- (
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
+    \\ Cases_on ‘ty1’ \\ Cases_on ‘ty2’ \\ gvs[do_conversion_def]
+    \\ Cases_on ‘w’ \\ gvs[do_conversion_def]
     \\ simp [Boolv_def]
     \\ rw [v_ok_def])
   \\ Cases_on ‘∃a ty. op = Arith a ty’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
+    \\ Cases_on ‘a’ \\ Cases_on ‘ty’
+    \\ gvs[do_arith_def,CaseEq"list",CaseEq"bool"]
     \\ simp [Boolv_def]
-    \\ rw [v_ok_def])
+    \\ rw [v_ok_def]
+    \\ first_x_assum irule
+    \\ goal_assum drule \\ rw[])
   \\ Cases_on ‘op = Opderef’ \\ gs []
   >- (
     rw [do_app_cases] \\ gs [SF SFY_ss]
