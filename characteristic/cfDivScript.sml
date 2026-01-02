@@ -103,14 +103,12 @@ QED
 
 (* -- tailrec -- *)
 
-Quote tailrec_clos_ast = cakeml:
+val tailrec_clos = process_topdecs `
   fun tailrec f x =
     case f x of
       Inl x => tailrec f x
     | Inr y => y;
-End
-
-val tailrec_clos = tailrec_clos_ast |> rator |> rand |> rand
+  ` |> rator |> rand |> rand
 
 val tailrec_body = tailrec_clos |> rator |> rand |> rand |> rand |> rand
 
@@ -2252,11 +2250,9 @@ QED
 
 (* -- repeat -- *)
 
-Quote repeat_clos_ast = cakeml:
+val repeat_clos = process_topdecs `
   fun repeat f x = repeat f (f x);
-End
-
-val repeat_clos = repeat_clos_ast |> rator |> rand |> rand
+  ` |> rator |> rand |> rand
 
 val repeat_body = repeat_clos |> rator |> rand |> rand |> rand |> rand
 
@@ -3987,9 +3983,8 @@ QED
 
 (* -- old repeat approach -- *)
 
-Quote add_cakeml:
-  fun repeat f x = repeat f (f x);
-End
+val _ = (append_prog o process_topdecs)
+  `fun repeat f x = repeat f (f x);`
 
 val st = ml_translatorLib.get_ml_prog_state ();
 
