@@ -283,6 +283,7 @@ val r = translate decode_thunk_mode_def;
 
 val _ = fromSexpTheory.decode_test_def |> translate;
 val _ = fromSexpTheory.decode_prim_type_def |> translate;
+val _ = fromSexpTheory.decode_arith_def |> translate;
 
 val r = translate (fromSexpTheory.sexpop_def
                    |> REWRITE_RULE [decode_control_eq]);
@@ -481,6 +482,7 @@ val _ = translate typesexp_def;
 val _ = translate patsexp_def;
 val _ = translate prim_typesexp_def;
 val _ = translate testsexp_def;
+val _ = translate arithsexp_def;
 val _ = translate opsexp_def;
 val _ = translate lopsexp_def;
 val _ = translate locssexp_def;

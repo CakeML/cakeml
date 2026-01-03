@@ -79,9 +79,15 @@ Definition iAssign_def:
           Assign n1 op vs xs
     else
       let k = op_space_req op (LENGTH vs) in
-        if k = 0 then Assign n1 op vs NONE
-          else Seq (MakeSpace k (list_to_num_set (vs++live++env)))
-                   (Assign n1 op vs NONE)
+        if k = 0 then
+          (if op = WordOp $ WordTest W8 (Compare Gt) then
+             Assign n1 (WordOp $ WordTest W8 (Compare Lt)) (REVERSE vs) NONE
+           else if op = WordOp $ WordTest W8 (Compare Geq) then
+             Assign n1 (WordOp $ WordTest W8 (Compare Leq)) (REVERSE vs) NONE
+           else
+             Assign n1 op vs NONE)
+        else Seq (MakeSpace k (list_to_num_set (vs++live++env)))
+                 (Assign n1 op vs NONE)
 End
 
 val _ = Parse.hide"tail";
@@ -293,4 +299,3 @@ Proof
   \\ drule $ cj 1 compile_sing_eq
   \\ gvs [compile_exp_def]
 QED
-

@@ -117,7 +117,7 @@ Definition cml_read_var_def:
 End
 
 Definition from_un_op_def:
-  from_un_op Not cml_e = If cml_e False True
+  from_un_op dafny_ast$Not cml_e = If cml_e False True
 End
 
 Definition from_bin_op_def:

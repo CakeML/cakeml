@@ -5,6 +5,15 @@ Theory fpSem
 Ancestors
   machine_ieee ast (* order important because of FP_Add in ast & binary_ieee *)
 
+Definition fp_cmp_def:
+  fp_cmp cmp =
+  case cmp of
+  | Lt  => fp64_lessThan
+  | Leq => fp64_lessEqual
+  | Gt  => fp64_greaterThan
+  | Geq => fp64_greaterEqual
+End
+
 Definition fp_cmp_comp_def:
   fp_cmp_comp fop =
   case fop of

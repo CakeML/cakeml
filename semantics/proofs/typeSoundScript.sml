@@ -781,6 +781,32 @@ Proof
   >- (rw [do_app_cases, PULL_EXISTS] >>
       metis_tac [Tbool_def, type_v_Boolv, store_type_extension_refl,
                  eq_result_nchotomy, eq_same_type]) >~
+  [‘Arith a ty’]
+  >- (rw [do_app_cases, PULL_EXISTS] >>
+      Cases_on ‘ty’ >> gvs[supported_arith_def, t_of_def]
+      >> gvs[LIST_REL_def,LENGTH_EQ_NUM_compute] >>
+      imp_res_tac prim_canonical_values_thm >> gvs[] >>
+      res_tac >> gvs[check_type_def, the_Litv_IntLit_def, do_arith_def] >>
+      rw[] >>
+      TRY (rename1 ‘divisor = 0’ >> Cases_on ‘divisor = 0’ >> gvs[]
+           >- (simp[div_exn_v_def] >> fs[ctMap_has_exns_def])) >>
+      qexists_tac ‘tenvS’ >>
+      simp[store_type_extension_refl, Once type_v_cases]
+      >> simp[div_exn_v_def] >> fs[ctMap_has_exns_def] >>
+      gvs[LENGTH_EQ_NUM_compute,CaseEq"bool"] >>
+      res_tac \\ rw[check_type_def]) >~
+  [‘FromTo ty1 ty2’]
+  >- (rw [do_app_cases, PULL_EXISTS] >>
+      Cases_on ‘ty1’ >> Cases_on ‘ty2’ >>
+      TRY (Cases_on ‘w’) >>
+      gvs[supported_conversion_def, do_conversion_def, check_type_def,
+          t_of_def, the_Litv_Word8_def] >>
+      imp_res_tac prim_canonical_values_thm >> gvs[] >> simp [Once type_v_cases] >>
+      qexists_tac ‘tenvS’ >> rw [store_type_extension_refl] >>
+      qpat_x_assum ‘∀_ _ _. _ ⇒ ∃n. _ = Litv (Word8 n)’
+        (qspec_then ‘x’ mp_tac) >> simp[] >> strip_tac >>
+      first_x_assum drule >> strip_tac >>
+      gvs[the_Litv_Word8_def] >> simp [Once type_v_cases]) >~
   [‘Test’]
   >- (rw [do_app_cases, PULL_EXISTS] >>
       rename [‘do_test test ty x y’] >>

@@ -206,10 +206,24 @@ End
 
 Definition test_to_display_def:
   test_to_display Equal = empty_item (strlit "Equal") ∧
-  test_to_display Less = empty_item (strlit "Less") ∧
-  test_to_display Less_alt = empty_item (strlit "Less_alt") ∧
-  test_to_display LessEq = empty_item (strlit "LessEq") ∧
-  test_to_display LessEq_alt = empty_item (strlit "LessEq_alt")
+  test_to_display (Compare cmp) = Item NONE (strlit "Compare") [opb_to_display cmp] ∧
+  test_to_display (AltCompare cmp) = Item NONE (strlit "AltCompare") [opb_to_display cmp]
+End
+
+Definition arith_to_display_def:
+  arith_to_display Add = empty_item (strlit "Add") ∧
+  arith_to_display Sub = empty_item (strlit "Sub") ∧
+  arith_to_display Mul = empty_item (strlit "Mul") ∧
+  arith_to_display Div = empty_item (strlit "Div") ∧
+  arith_to_display Mod = empty_item (strlit "Mod") ∧
+  arith_to_display And = empty_item (strlit "And") ∧
+  arith_to_display Xor = empty_item (strlit "Xor") ∧
+  arith_to_display Or  = empty_item (strlit "Or") ∧
+  arith_to_display Neg = empty_item (strlit "Neg") ∧
+  arith_to_display Not = empty_item (strlit "Not") ∧
+  arith_to_display Abs = empty_item (strlit "Abs") ∧
+  arith_to_display Sqrt = empty_item (strlit "Sqrt") ∧
+  arith_to_display FMA = empty_item (strlit "FMA")
 End
 
 Definition prim_type_to_display_def:
@@ -233,6 +247,12 @@ Definition op_to_display_def:
                             [word_size_to_display ws;
                              shift_to_display sh;
                              num_to_display num]
+  | Arith a ty => Item NONE (strlit "Arith")
+                         [arith_to_display a;
+                          prim_type_to_display ty]
+  | FromTo ty1 ty2 => Item NONE (strlit "FromTo")
+                         [prim_type_to_display ty1;
+                          prim_type_to_display ty2]
   | Test test ty => Item NONE (strlit "Test")
                          [test_to_display test;
                           prim_type_to_display ty]
@@ -462,6 +482,12 @@ Definition flat_op_to_display_def:
       word_size_to_display ws;
       shift_to_display sh;
       num_to_display num]
+    | Arith a ty => Item NONE (strlit "Arith")
+                         [arith_to_display a;
+                          prim_type_to_display ty]
+    | FromTo ty1 ty2 => Item NONE (strlit "FromTo")
+                             [prim_type_to_display ty1;
+                              prim_type_to_display ty2]
     | Test test ty => Item NONE (strlit "Test")
                            [test_to_display test;
                             prim_type_to_display ty]

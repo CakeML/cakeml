@@ -131,7 +131,8 @@ fun cf_get_precondition t = rand (rator t)
 
 (* xx *)
 val cf_defs =
-  [cf_lit_def, cf_con_def, cf_var_def, cf_let_def, cf_opn_def, cf_opb_def,
+  [cf_lit_def, cf_con_def, cf_var_def, cf_let_def, cf_opn_def,
+   cf_int_cmp_def,
    cf_app_def, cf_fun_def, cf_fun_rec_def, cf_ref_def, cf_assign_def,
    cf_deref_def, cf_aalloc_def, cf_asub_def, cf_alength_def, cf_aupdate_def,
    cf_aw8alloc_def, cf_aw8sub_def, cf_aw8length_def, cf_aw8update_def,
@@ -712,13 +713,13 @@ in
     g
 end
 
-(* [xopb] *)
-val xopb =
+(* [xint_cmp] *)
+val xint_cmp =
   xpull_check_not_needed \\
-  head_unfold cf_opb_def \\
+  head_unfold cf_int_cmp_def \\
   reduce_tac \\
   irule local_elim \\ hnf \\
-  simp[app_opb_def, semanticPrimitivesTheory.opb_lookup_def] \\
+  simp[app_int_cmp_def, semanticPrimitivesTheory.int_cmp_def] \\
   cleanup_exn_side_cond
 
 (* [xopn] *)

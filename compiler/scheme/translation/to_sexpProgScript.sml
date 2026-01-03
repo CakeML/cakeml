@@ -37,6 +37,7 @@ val r = translate fromSexpTheory.patsexp_def;
 val r = translate fromSexpTheory.encode_thunk_mode_def;
 val r = translate fromSexpTheory.prim_typesexp_def;
 val r = translate fromSexpTheory.testsexp_def;
+val r = translate fromSexpTheory.arithsexp_def;
 val r = translate fromSexpTheory.opsexp_def;
 val r = translate fromSexpTheory.lopsexp_def;
 val r = translate fromSexpTheory.expsexp_def;

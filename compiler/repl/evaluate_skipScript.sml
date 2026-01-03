@@ -837,6 +837,9 @@ Proof
   \\ imp_res_tac v_rel_IMP_check_type_eq \\ rw []
   \\ gvs []
   >-
+   (gvs [check_type_def,the_Litv_Float64_def]
+   \\ fs [Once v_rel_cases])
+  >-
    (Cases_on ‘ty’ \\ TRY (rename [‘WordT ww’] \\ Cases_on ‘ww’)
     \\ gvs [check_type_def]
     \\ fs [do_eq_def,Boolv_def] \\ EVAL_TAC
@@ -844,6 +847,35 @@ Proof
     \\ once_rewrite_tac [v_rel_cases]
     \\ gvs [stamp_rel_cases])
   \\ imp_res_tac v_rel_IMP_dest_Litv_eq \\ fs []
+QED
+
+Theorem do_arith_update:
+  state_rel l fr ft fe s t ∧
+  LIST_REL (v_rel fr ft fe) vs ws ∧
+  EVERY (check_type ty) vs
+  ⇒
+  OPTREL ((v_rel fr ft fe) +++ (v_rel fr ft fe))
+    (do_arith a ty vs) (do_arith a ty ws)
+Proof
+  rw[LIST_REL_EL_EQN, EVERY_EL]
+  \\ drule v_rel_IMP_check_type_eq
+  \\ strip_tac
+  \\ rw[OPTREL_def]
+  \\ Cases_on ‘a’ \\ Cases_on ‘ty’ \\ rw[do_arith_def]
+  \\ gvs[check_type_def, CaseEq"list", PULL_EXISTS]
+  \\ simp[Once v_rel_cases]
+  \\ Cases_on ‘vs’ \\ Cases_on ‘ws’ \\ gvs[PULL_EXISTS]
+  \\ rpt (
+    qmatch_assum_rename_tac‘LENGTH vs = LENGTH ws’
+    \\ Cases_on ‘vs’ \\ Cases_on ‘ws’ \\ gvs[PULL_EXISTS])
+  \\ gvs[NUMERAL_LESS_THM, SF DNF_ss]
+  \\ gvs[Once v_rel_cases]
+  \\ gvs[Once v_rel_cases]
+  \\ rw[]
+  \\ TRY (
+    rw[Once v_rel_cases, div_exn_v_def, stamp_rel_cases, div_stamp_def]
+    \\ gvs[state_rel_def] \\ NO_TAC )
+  \\ gvs[Once v_rel_cases]
 QED
 
 Theorem do_app_update:
@@ -870,6 +902,33 @@ Theorem do_app_update:
               res res1
 Proof
   strip_tac
+  \\ Cases_on ‘∃a ty. op = Arith a ty’ \\ gs []
+  >- (
+    gvs [do_app_def] \\ rpt $ irule_at Any SUBMAP_REFL
+    \\ drule_then drule do_arith_update
+    \\ drule v_rel_IMP_check_type_eq
+    \\ reverse $ rw[]
+    >- prove_tac[LIST_REL_EL_EQN, EVERY_EL]
+    >- prove_tac[LIST_REL_EL_EQN, EVERY_EL]
+    \\ first_x_assum $ drule_then(qspec_then‘a’mp_tac)
+    \\ rw[OPTREL_def] \\ gvs[CaseEq"sum",PULL_EXISTS]
+    \\ Cases_on‘x0’ \\ Cases_on‘y0’ \\ gvs[]
+    \\ prove_tac[] )
+  \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ \\ gs []
+  >- (
+    gvs [do_app_def] \\ rpt $ irule_at Any SUBMAP_REFL
+    \\ CASE_TAC \\ gvs[]
+    \\ TOP_CASE_TAC \\ gvs[]
+    \\ drule v_rel_IMP_check_type_eq
+    \\ reverse $ rw[]
+    >- prove_tac[]
+    >- prove_tac[]
+    \\ Cases_on‘ty1’ \\ Cases_on‘ty2’ \\ gvs[do_conversion_def]
+    \\ Cases_on‘w’ \\ gvs[do_conversion_def]
+    \\ simp[Once v_rel_cases]
+    \\ gvs[check_type_def]
+    \\ gvs[Once v_rel_cases]
+    \\ prove_tac[]  )
   \\ Cases_on ‘∃test ty. op = Test test ty’ \\ gs []
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,

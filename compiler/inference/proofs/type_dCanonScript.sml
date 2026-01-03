@@ -617,7 +617,8 @@ Proof
   rw[]>>
   fs[typeSysPropsTheory.type_op_cases,oneline t_of_def]>>
   every_case_tac >> fs[ts_tid_rename_def] >>
-  fs[good_remap_def,prim_type_nums_def]
+  fs[good_remap_def,prim_type_nums_def] >>
+  gvs [LENGTH_EQ_NUM_compute,ts_tid_rename_def,AllCaseEqs()]
 QED
 
 Definition remap_tenvE_def:
