@@ -2457,6 +2457,14 @@ Proof
   \\ imp_res_tac Eval_HOL_STRING_DEST
 QED
 
+Theorem Eval_HOL_STRING_LITERAL:
+  !s. Eval env (Lit (StrLit (strlit s))) (HOL_STRING_TYPE s)
+Proof
+  rpt strip_tac
+  \\ qspec_then `strlit s` mp_tac Eval_Val_STRING
+  \\ fs[HOL_STRING_TYPE_def,mlstringTheory.implode_def]
+QED
+
 (* vectors *)
 
 Definition VECTOR_TYPE_def:
