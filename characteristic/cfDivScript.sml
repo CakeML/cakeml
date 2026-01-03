@@ -80,10 +80,10 @@ Theorem nsLookup_build_rec_env_fresh:
     nsLookup(build_rec_env funs env' env.v) (Short fname) =
     nsLookup env.v (Short fname)
 Proof
-  `∀(funs:(string # string # exp) list) funs' env env' fname.
+  `∀(funs:(mlstring # mlstring # exp) list) funs' env env' fname.
    EVERY (λx. fname ≠ x) (MAP FST funs) ⇒
    nsLookup
-   (FOLDR (λ(f,x,e) env''. nsBind f (Recclosure env' (funs':(string # string # exp) list) f) env'')
+   (FOLDR (λ(f,x,e) env''. nsBind f (Recclosure env' (funs':(mlstring # mlstring # exp) list) f) env'')
           env.v funs) (Short fname) = nsLookup env.v (Short fname)`
     suffices_by rw[semanticPrimitivesTheory.build_rec_env_def] >>
   Induct >> rw[semanticPrimitivesTheory.build_rec_env_def] >>
