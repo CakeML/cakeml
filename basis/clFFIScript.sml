@@ -71,14 +71,14 @@ QED
 (* FFI part for the commandline *)
 
 Definition encode_def:
-  encode = encode_list (Str o explode)
+  encode = encode_list Str
 End
 
 Theorem encode_11[local]:
     !x y. encode x = encode y <=> x = y
 Proof
   rw [] \\ eq_tac \\ fs [encode_def] \\ rw []
-  \\ drule encode_list_11 \\ fs [mlstringTheory.explode_11]
+  \\ drule encode_list_11 \\ fs []
 QED
 
 Theorem encode_decode_exists[local]:
