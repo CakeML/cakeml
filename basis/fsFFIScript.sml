@@ -307,12 +307,12 @@ End
 (* Packaging up the model as an ffi_part *)
 
 Definition encode_inode_def:
-  (encode_inode (UStream s) = Cons (Num 0) ((Str o explode) s)) /\
-  encode_inode (File s) = Cons (Num 1) ((Str o explode) s)
+  (encode_inode (UStream s) = Cons (Num 0) (Str s)) /\
+  encode_inode (File s) = Cons (Num 1) (Str s)
 End
 
 Definition encode_inode_tbl_def:
-  encode_inode_tbl tbl = encode_list (encode_pair encode_inode Str) tbl
+  encode_inode_tbl tbl = encode_list (encode_pair encode_inode (Str ∘ implode)) tbl
 End
 
 Definition encode_mode_def:
@@ -326,7 +326,7 @@ Definition encode_fds_def:
 End
 
 Definition encode_files_def:
-  encode_files fs = encode_list (encode_pair (Str o explode) (Str o explode)) fs
+  encode_files fs = encode_list (encode_pair Str Str) fs
 End
 
 Definition encode_def[nocompute]:
@@ -344,7 +344,7 @@ End
 Theorem encode_inode_11[simp]:
    !x y. encode_inode x = encode_inode y <=> x = y
 Proof
-  Cases \\ Cases_on `y` \\ fs [encode_inode_def,explode_11]
+  ntac 2 Cases \\ fs [encode_inode_def]
 QED
 
 Theorem encode_inode_tbl_11[simp]:
@@ -352,7 +352,9 @@ Theorem encode_inode_tbl_11[simp]:
 Proof
   rw [] \\ eq_tac \\ rw [encode_inode_tbl_def]
   \\ drule encode_list_11
-  \\ fs [encode_pair_def,FORALL_PROD,encode_inode_def]
+  \\ impl_tac
+  >- (ntac 2 PairCases \\ fs [encode_pair_def, implode_def])
+  \\ simp []
 QED
 
 Theorem encode_mode_11[simp]:
