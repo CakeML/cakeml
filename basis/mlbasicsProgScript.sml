@@ -15,12 +15,12 @@ val _ = translation_extends"StringProg"
 
 Definition mk_binop_def:
   mk_binop name prim = Dlet unknown_loc (Pvar name)
-    (Fun "x" (Fun "y" (App prim [Var (Short "x"); Var (Short "y")])))
+    (Fun «x» (Fun «y» (App prim [Var (Short «x»); Var (Short «y»)])))
 End
 
 Definition mk_unop_def:
   mk_unop name prim = Dlet unknown_loc (Pvar name)
-    (Fun "x" (App prim [Var (Short "x")]))
+    (Fun «x» (App prim [Var (Short «x»)]))
 End
 
 (* no longer necessary
@@ -59,9 +59,9 @@ val _ = trans "<>" ``\x1 x2. x1 <> (x2:'a)``;
 val _ = trans "^" mlstringSyntax.strcat_tm;
 
 val _ = append_prog
-  ``[mk_binop ":=" Opassign;
-     mk_unop "!" Opderef
-  (* mk_unop "ref" Opref *)]``
+  ``[mk_binop «:=» Opassign;
+     mk_unop «!» Opderef
+  (* mk_unop «ref» Opref *)]``
 
 fun prove_ref_spec op_name =
   rpt strip_tac \\
@@ -139,7 +139,7 @@ Quote add_cakeml:
   exception Fail string
 End
 
-val Fail_ = get_exn_conv “"Fail"”;
+val Fail_ = get_exn_conv “«Fail»”;
 
 Definition Fail_exn_def:
   Fail_exn s v = (∃sv. v = Conv (SOME ^Fail_) [sv] ∧ STRING_TYPE s sv)
