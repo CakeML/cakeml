@@ -23,7 +23,8 @@ Datatype:
   mode = ReadMode | WriteMode
 End
 
-(* files: a list of file names and their content.
+(* inode_tbl: maps each existing inode to its content
+*  files: maps each filename to its inode identifier
 *  infds: descriptor * (filename * mode * position)
 *  numchars: stream of num modeling the nondeterministic output of read and
 *    write
