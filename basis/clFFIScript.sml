@@ -96,7 +96,7 @@ val _ = export_rewrites [decode_encode_name];
 
 Definition cl_ffi_part_def:
   cl_ffi_part = (encode,decode,
-    [("get_arg_count",ffi_get_arg_count);
-     ("get_arg_length",ffi_get_arg_length);
-     ("get_arg",ffi_get_arg)])
+    [(«get_arg_count»,ffi_get_arg_count);
+     («get_arg_length»,ffi_get_arg_length);
+     («get_arg»,ffi_get_arg)])
 End

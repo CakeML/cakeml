@@ -402,9 +402,9 @@ val _ = export_rewrites [decode_encode_name];
 Definition fs_ffi_part_def:
   fs_ffi_part =
     (encode,decode,
-      [("open_in",ffi_open_in);
-       ("open_out",ffi_open_out);
-       ("read",ffi_read);
-       ("write",ffi_write);
-       ("close",ffi_close)])
+      [(«open_in»,ffi_open_in);
+       («open_out»,ffi_open_out);
+       («read»,ffi_read);
+       («write»,ffi_write);
+       («close»,ffi_close)])
 End

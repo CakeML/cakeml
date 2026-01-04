@@ -132,12 +132,12 @@ val _ = export_rewrites [decode_encode_name];
 
 Definition double_ffi_part_def:
   double_ffi_part = (encode,decode,
-    [("double_fromString",ffi_fromString);
-     ("double_toString",ffi_toString);
-     ("double_fromInt",ffi_fromInt);
-     ("double_toInt",ffi_toInt);
-     ("double_pow",ffi_pow);
-     ("double_exp",ffi_exp);
-     ("double_ln",ffi_ln);
-     ("double_floor",ffi_floor)])
+    [(«double_fromString»,ffi_fromString);
+     («double_toString»,ffi_toString);
+     («double_fromInt»,ffi_fromInt);
+     («double_toInt»,ffi_toInt);
+     («double_pow»,ffi_pow);
+     («double_exp»,ffi_exp);
+     («double_ln»,ffi_ln);
+     («double_floor»,ffi_floor)])
 End
