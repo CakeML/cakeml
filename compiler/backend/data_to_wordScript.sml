@@ -1619,16 +1619,16 @@ val def = assign_Define `
 val def = assign_Define `
   assign_WordTest (l:num) (dest:num) (test: ast$test) v1 v2 =
        ((dtcase test of
-         | Equal  => If Equal (adjust_var v1) (Reg (adjust_var v2))
-                        (Assign (adjust_var dest) TRUE_CONST)
-                        (Assign (adjust_var dest) FALSE_CONST)
-         | Less   => If Lower (adjust_var v1) (Reg (adjust_var v2))
-                       (Assign (adjust_var dest) TRUE_CONST)
-                       (Assign (adjust_var dest) FALSE_CONST)
-         | LessEq => If NotLower (adjust_var v2) (Reg (adjust_var v1))
-                       (Assign (adjust_var dest) TRUE_CONST)
-                       (Assign (adjust_var dest) FALSE_CONST)
-         | _      => Skip),l)
+         | Equal       => If Equal (adjust_var v1) (Reg (adjust_var v2))
+                             (Assign (adjust_var dest) TRUE_CONST)
+                             (Assign (adjust_var dest) FALSE_CONST)
+         | Compare Lt  => If Lower (adjust_var v1) (Reg (adjust_var v2))
+                             (Assign (adjust_var dest) TRUE_CONST)
+                             (Assign (adjust_var dest) FALSE_CONST)
+         | Compare Leq => If NotLower (adjust_var v2) (Reg (adjust_var v1))
+                             (Assign (adjust_var dest) TRUE_CONST)
+                             (Assign (adjust_var dest) FALSE_CONST)
+         | _           => Skip),l)
       : 'a wordLang$prog # num`;
 
 val def = assign_Define `
