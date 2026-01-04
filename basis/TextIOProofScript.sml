@@ -227,8 +227,8 @@ QED
 
 Definition stdo_def:
   stdo fd name fs out =
-    (ALOOKUP fs.infds fd = SOME(UStream(strlit name),WriteMode,strlen out) /\
-     ALOOKUP fs.inode_tbl (UStream(strlit name)) = SOME (explode out))
+    (ALOOKUP fs.infds fd = SOME(UStream(implode name),WriteMode,strlen out) /\
+     ALOOKUP fs.inode_tbl (UStream(implode name)) = SOME (explode out))
 End
 
 Overload stdout = ``stdo 1 "stdout"``;
@@ -327,7 +327,7 @@ Theorem add_stdout_nil:
 Proof
   strip_tac
   \\ irule add_stdo_nil
-  \\ fs [STD_streams_def, stdo_def]
+  \\ fs [STD_streams_def, stdo_def, implode_def]
   \\ qrefine ‘implode x’ \\ simp []
 QED
 
@@ -402,13 +402,15 @@ QED
 Theorem STD_streams_stdout:
    STD_streams fs ⇒ ∃out. stdout fs out
 Proof
-  rw[STD_streams_def,stdo_def] \\ rw[] \\ metis_tac[explode_implode,strlen_implode]
+  rw[STD_streams_def,stdo_def,implode_def] \\ rw[]
+  \\ metis_tac[explode_implode,strlen_implode]
 QED
 
 Theorem STD_streams_stderr:
    STD_streams fs ⇒ ∃out. stderr fs out
 Proof
-  rw[STD_streams_def,stdo_def] \\ rw[] \\ metis_tac[explode_implode,strlen_implode]
+  rw[STD_streams_def,stdo_def,implode_def] \\ rw[]
+  \\ metis_tac[explode_implode,strlen_implode]
 QED
 
 Theorem STD_streams_add_stdout:
@@ -753,7 +755,7 @@ Theorem stdout_add_stderr:
   STD_streams fs ∧ stdout fs out ⇒
   stdout (add_stderr fs err) out
 Proof
-  rw[stdo_def]>>
+  rw[stdo_def,implode_def]>>
   simp[add_stdo_def,up_stdo_def,fsupdate_def]>>
   every_case_tac>>simp[AFUPDKEY_ALOOKUP]>>
   fs[STD_streams_def]>>
@@ -766,7 +768,7 @@ Theorem stderr_add_stdout:
   STD_streams fs ∧ stderr fs err ⇒
   stderr (add_stdout fs out) err
 Proof
-  rw[stdo_def]>>
+  rw[stdo_def,implode_def]>>
   simp[add_stdo_def,up_stdo_def,fsupdate_def]>>
   every_case_tac>>simp[AFUPDKEY_ALOOKUP]>>
   fs[STD_streams_def]>>
@@ -877,18 +879,18 @@ QED
 
 (* file descriptors are encoded on 8 bytes *)
 Definition FD_def:
-  FD fd fdv = (STRING_TYPE (strlit(MAP (CHR ∘ w2n) (n2w8 fd))) fdv ∧ fd < 256**8)
+  FD fd fdv = (STRING_TYPE (implode(MAP (CHR ∘ w2n) (n2w8 fd))) fdv ∧ fd < 256**8)
 End
 
 Definition INSTREAM_def:
   INSTREAM fd fdv <=>
-    INSTREAM_TYPE (Instream (strlit(MAP (CHR ∘ w2n) (n2w8 fd)))) fdv ∧
+    INSTREAM_TYPE (Instream (implode(MAP (CHR ∘ w2n) (n2w8 fd)))) fdv ∧
     fd < 256**8
 End
 
 Definition OUTSTREAM_def:
   OUTSTREAM fd fdv <=>
-    OUTSTREAM_TYPE (Outstream (strlit(MAP (CHR ∘ w2n) (n2w8 fd)))) fdv ∧
+    OUTSTREAM_TYPE (Outstream (implode(MAP (CHR ∘ w2n) (n2w8 fd)))) fdv ∧
     fd < 256**8
 End
 
@@ -955,7 +957,7 @@ Proof
   \\ drule LESS_EQ_LENGTH \\ strip_tac \\ gvs [TAKE_LENGTH_APPEND]
 QED
 
-Overload TypeStamp_InstreamBuffered = “TypeStamp "InstreamBuffered" 35”;
+Overload TypeStamp_InstreamBuffered = “TypeStamp «InstreamBuffered» 35”;
 
 Definition INSTREAM_BUFFERED_def:
   INSTREAM_BUFFERED bactive is =
@@ -1535,7 +1537,7 @@ val tac =
   \\ simp[add_stdo_def,up_stdo_def]
   \\ SELECT_ELIM_TAC \\ conj_tac >- metis_tac[]
   \\ rw[] \\ imp_res_tac stdo_UNICITY_R \\ rveq
-  \\ fs[stdo_def,get_file_content_def,get_mode_def,PULL_EXISTS]
+  \\ fs[stdo_def,get_file_content_def,get_mode_def,implode_def,STRING_TYPE_def,PULL_EXISTS]
   \\ instantiate \\ xsimpl
   \\ conj_tac >- (EVAL_TAC \\ simp[EVAL_RULE stdout_v_thm,EVAL_RULE stderr_v_thm])
   \\ simp[Q.ISPEC`explode x`(Q.GEN`l2`insert_atI_end) |> SIMP_RULE(srw_ss())[]]
@@ -1704,8 +1706,8 @@ End
 
 Theorem EvalM_print:
    Eval env exp (STRING_TYPE x) /\
-   (nsLookup env.v (Short "print") = SOME TextIO_print_v) ==>
-    EvalM F env st (App Opapp [Var (Short "print"); exp])
+   (nsLookup env.v (Short «print») = SOME TextIO_print_v) ==>
+    EvalM F env st (App Opapp [Var (Short «print»); exp])
       (MONAD UNIT_TYPE exc_ty (print x))
       (MONAD_IO,p:'ffi ffi_proj)
 Proof
@@ -1749,9 +1751,9 @@ End
 
 Theorem EvalM_print_err:
    Eval env exp (STRING_TYPE x) /\
-    (nsLookup env.v (Long "TextIO" (Short "print_err")) =
+    (nsLookup env.v (Long «TextIO» (Short «print_err»)) =
       SOME TextIO_print_err_v) ==>
-    EvalM F env st (App Opapp [Var (Long "TextIO" (Short "print_err")); exp])
+    EvalM F env st (App Opapp [Var (Long «TextIO» (Short «print_err»)); exp])
       (MONAD UNIT_TYPE exc_ty (print_err x))
       (MONAD_IO,p:'ffi ffi_proj)
 Proof
@@ -6026,7 +6028,7 @@ Proof
 QED
 
 Theorem str_STRING:
-  str h = strlit (STRING h "")
+  str h = implode (STRING h "")
 Proof
   EVAL_TAC
 QED
@@ -6051,7 +6053,7 @@ Theorem openStdIn_spec_lines:
   UNIT_TYPE () uv ⇒
   app (p:'ffi ffi_proj) TextIO_openStdIn_v [uv]
      (STDIO fs)
-     (POSTv is. STDIO fs * INSTREAM_LINES c0 0 is (lines_of_gen c0 (strlit text)) fs)
+     (POSTv is. STDIO fs * INSTREAM_LINES c0 0 is (lines_of_gen c0 (implode text)) fs)
 Proof
   rw [INSTREAM_LINES_def,SEP_CLAUSES]
   \\ xapp_spec openStdIn_spec_str
@@ -6540,7 +6542,7 @@ QED
 Theorem gen_inputLine_lem1:
   ∀bs1 bs2.
     EVERY (λv. v ≠ c) bs1 ⇒
-    gen_inputLine c (STRCAT bs1 bs2) = strlit bs1 ^ gen_inputLine c bs2 ∧
+    gen_inputLine c (STRCAT bs1 bs2) = implode bs1 ^ gen_inputLine c bs2 ∧
     dropUntilIncl ($= c) (STRCAT bs1 bs2) = dropUntilIncl ($= c) bs2
 Proof
   Induct \\ gvs [dropUntilIncl_def,gen_inputLine_def]
@@ -7710,7 +7712,7 @@ Proof
   \\ xlet_auto_spec (SOME openStdIn_spec_lines) \\ xsimpl
   \\ xapp_spec inputLines_spec
   \\ qexists_tac `emp`
-  \\ qexists_tac `lines_of_gen c0 (strlit text)`
+  \\ qexists_tac `lines_of_gen c0 (implode text)`
   \\ qexists_tac `fs`
   \\ qexists_tac `0`
   \\ qexists_tac `c0`
@@ -7765,6 +7767,7 @@ Proof
       simp[STRING_TYPE_def] \\
       simp[MAX_DEF] \\
       simp[fsupdate_unchanged] \\
+      simp[implode_def] \\
       xsimpl )
     \\ xapp \\ xsimpl
     \\ simp[DROP_LENGTH_TOO_LONG,implode_def]

@@ -119,11 +119,11 @@ val _ = ml_prog_update open_local_in_block;
 (* stdout, stderr *)
 
 Definition stdOut_def:
-  stdOut = Outstream (strlit (MAP (CHR o w2n) (n2w8 1)))
+  stdOut = Outstream (implode (MAP (CHR o w2n) (n2w8 1)))
 End
 
 Definition stdErr_def:
-  stdErr = Outstream (strlit (MAP (CHR o w2n) (n2w8 2)))
+  stdErr = Outstream (implode (MAP (CHR o w2n) (n2w8 2)))
 End
 
 val _ = next_ml_names := ["stdOut","stdErr"];
@@ -143,7 +143,7 @@ val _ = ml_prog_update open_local_block;
    because we want to only expose the more efficient, buffered input to users. *)
 
 Definition raw_stdIn_def:
-  raw_stdIn = Instream (strlit (MAP (CHR o w2n) (n2w8 0)))
+  raw_stdIn = Instream (implode (MAP (CHR o w2n) (n2w8 0)))
 End
 
 val _ = next_ml_names := ["raw_stdIn"];
