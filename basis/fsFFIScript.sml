@@ -34,7 +34,7 @@ End
 *)
 
 Datatype:
-  IO_fs = <| inode_tbl : (inode # mlstring) list ;
+  IO_fs = <| inode_tbl : (inode # char list) list ;
              files : (mlstring # mlstring) list;
              infds : (num # (inode # mode # num)) list;
              numchars : num llist;
@@ -93,7 +93,7 @@ Definition openFile_truncate_def:
         iname <- ALOOKUP fsys.files fnm;
         ALOOKUP fsys.inode_tbl (File iname);
         return (fd, (fsys with infds := (nextFD fsys, (File iname, md, 0)) :: fsys.infds)
-                          with inode_tbl updated_by (AFUPDKEY (File iname) (\x. «»)))
+                          with inode_tbl updated_by (AFUPDKEY (File iname) (\x."")))
       od
 End
 
@@ -116,8 +116,8 @@ Definition read_def:
       assert (md = ReadMode) ;
       content <- ALOOKUP fs.inode_tbl ino ;
       strm <- LHD fs.numchars;
-      let k = MIN n (MIN (strlen content - off) (SUC strm)) in
-      return (substring content k off, bumpFD fd fs k)
+      let k = MIN n (MIN (LENGTH content - off) (SUC strm)) in
+      return (TAKE k (DROP off content), bumpFD fd fs k)
     od
 End
 
@@ -306,8 +306,8 @@ End
 (* Packaging up the model as an ffi_part *)
 
 Definition encode_inode_def:
-  (encode_inode (UStream s) = Cons (Num 0) (Str s)) /\
-  encode_inode (File s) = Cons (Num 1) (Str s)
+  (encode_inode (UStream s) = Cons (Num 0) ((Str o explode) s)) /\
+  encode_inode (File s) = Cons (Num 1) ((Str o explode) s)
 End
 
 Definition encode_inode_tbl_def:
@@ -325,7 +325,7 @@ Definition encode_fds_def:
 End
 
 Definition encode_files_def:
-  encode_files fs = encode_list (encode_pair Str Str) fs
+  encode_files fs = encode_list (encode_pair (Str o explode) (Str o explode)) fs
 End
 
 Definition encode_def[nocompute]:
