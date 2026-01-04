@@ -15,7 +15,7 @@ val _ = ml_prog_update (open_module "String");
 val () = generate_sigs := true;
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [] "string" (Atapp [] (Short "string"))`` I);
+  ``Dtabbrev unknown_loc [] «string» (Atapp [] (Short «string»))`` I);
 
 val _ = trans "sub" mlstringSyntax.strsub_tm;
 val _ = trans "implode" mlstringSyntax.implode_tm;
