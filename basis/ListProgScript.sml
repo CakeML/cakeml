@@ -181,17 +181,17 @@ Proof
   \\ Induct_on`m-n`
   >- (
     rw[]
-    \\ xcf "tabulate" st
+    \\ xcf "tabulate" st \\ simp []
     \\ xlet `POSTv boolv. &BOOL (n >= m) boolv * heap_inv`
-      >-(xopb \\ xsimpl \\ fs[NUM_def, INT_def] \\ intLib.COOPER_TAC)
+    >- (xint_cmp \\ xsimpl \\ fs[NUM_def, INT_def] \\ intLib.COOPER_TAC)
     \\ xif \\ gvs[]
     \\ xapp
     \\ instantiate \\ xsimpl
     \\ `m - n = 0` by simp[] \\ simp[])
   \\ rw[]
-  \\ xcf "tabulate" st
+  \\ xcf "tabulate" st \\ simp []
   \\ xlet `POSTv boolv. &BOOL (n >= m) boolv * heap_inv`
-    >-(xopb \\ xsimpl \\ fs[NUM_def, INT_def] \\ intLib.COOPER_TAC)
+  >- (xint_cmp \\ xsimpl \\ fs[NUM_def, INT_def] \\ intLib.COOPER_TAC)
   \\ xif \\ gvs []
   \\ Cases_on`m` \\ fs[]
   \\ rename1`SUC v = SUC m - n`

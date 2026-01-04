@@ -672,10 +672,14 @@ End
 Definition decode_test_def:
   decode_test (SX_SYM s) =
     (if s = "Equal" then SOME Equal else
-     if s = "Less" then SOME Less else
-     if s = "Less_alt" then SOME Less_alt else
-     if s = "LessEq" then SOME LessEq else
-     if s = "LessEq_alt" then SOME LessEq_alt else NONE) ∧
+     if s = "Less" then SOME (Compare Lt) else
+     if s = "LessEq" then SOME (Compare Leq) else
+     if s = "Greater" then SOME (Compare Gt) else
+     if s = "GreaterEq" then SOME (Compare Geq) else
+     if s = "AltLess" then SOME (AltCompare Lt) else
+     if s = "AltLessEq" then SOME (AltCompare Leq) else
+     if s = "AltGreater" then SOME (AltCompare Gt) else
+     if s = "AltGreaterEq" then SOME (AltCompare Geq) else NONE) ∧
   decode_test _ = NONE
 End
 
@@ -689,6 +693,24 @@ Definition decode_prim_type_def:
      if s = "Word64T" then SOME $ WordT W64 else
      if s = "Float64T" then SOME Float64T else NONE) ∧
   decode_prim_type _ = NONE
+End
+
+Definition decode_arith_def:
+  decode_arith (SX_SYM s) =
+    (if s = "Add" then SOME Add else
+     if s = "Sub" then SOME Sub else
+     if s = "Mul" then SOME Mul else
+     if s = "Div" then SOME Div else
+     if s = "Mod" then SOME Mod else
+     if s = "Neg" then SOME Neg else
+     if s = "Abs" then SOME Abs else
+     if s = "And" then SOME And else
+     if s = "Xor" then SOME Xor else
+     if s = "Or"  then SOME Or  else
+     if s = "Not" then SOME Not else
+     if s = "Sqrt" then SOME Sqrt else
+     if s = "FMA" then SOME FMA else NONE) ∧
+  decode_arith _ = NONE
 End
 
 Definition sexpop_def:
@@ -791,7 +813,15 @@ Definition sexpop_def:
     if s = "Shift64Asr" then SOME (Shift W64 Asr n) else
     if s = "Shift64Ror" then SOME (Shift W64 Ror n) else NONE) ∧
   (sexpop (SX_CONS (SX_SYM s) (SX_CONS x y)) =
-    if s = "Test" then
+    if s = "Arith" then
+      (case (decode_arith x, decode_prim_type y) of
+       | (SOME a, SOME prim_type) => SOME (Arith a prim_type)
+       | _ => NONE)
+    else if s = "FromTo" then
+      (case (decode_prim_type x, decode_prim_type y) of
+       | (SOME ty1, SOME ty2) => SOME (FromTo ty1 ty2)
+       | _ => NONE)
+    else if s = "Test" then
       (case (decode_test x, decode_prim_type y) of
        | (SOME test, SOME prim_type) => SOME (Test test prim_type)
        | _ => NONE)
@@ -1321,22 +1351,61 @@ QED
 
 Definition testsexp_def:
   testsexp Equal = SX_SYM "Equal" ∧
-  testsexp Less = SX_SYM "Less" ∧
-  testsexp Less_alt = SX_SYM "Less_alt" ∧
-  testsexp LessEq = SX_SYM "LessEq" ∧
-  testsexp LessEq_alt = SX_SYM "LessEq_alt"
+  testsexp (Compare Lt) = SX_SYM "Less" ∧
+  testsexp (Compare Leq) = SX_SYM "LessEq" ∧
+  testsexp (Compare Gt) = SX_SYM "Greater" ∧
+  testsexp (Compare Geq) = SX_SYM "GreaterEq" ∧
+  testsexp (AltCompare Lt) = SX_SYM "AltLess" ∧
+  testsexp (AltCompare Leq) = SX_SYM "AltLessEq" ∧
+  testsexp (AltCompare Gt) = SX_SYM "AltGreater" ∧
+  testsexp (AltCompare Geq) = SX_SYM "AltGreaterEq"
 End
 
 Theorem testsexp_11[simp]:
    ∀l1 l2. testsexp l1 = testsexp l2 ⇔ l1 = l2
 Proof
-  Cases \\ Cases \\ simp[testsexp_def]
+  rw []
+  \\ simp [oneline testsexp_def]
+  \\ every_case_tac \\ fs []
 QED
 
 Theorem sexptest_testsexp[simp]:
   ∀x. decode_test (testsexp x) = SOME x
 Proof
-  Cases \\ fs [decode_test_def,testsexp_def]
+  Cases
+  \\ TRY (rename [‘Compare oo’] \\ Cases_on ‘oo’)
+  \\ TRY (rename [‘AltCompare oo’] \\ Cases_on ‘oo’)
+  \\ fs [decode_test_def,testsexp_def]
+QED
+
+Definition arithsexp_def:
+  arithsexp Add = SX_SYM "Add" ∧
+  arithsexp Sub = SX_SYM "Sub" ∧
+  arithsexp Mul = SX_SYM "Mul" ∧
+  arithsexp Div = SX_SYM "Div" ∧
+  arithsexp Mod = SX_SYM "Mod" ∧
+  arithsexp And = SX_SYM "And" ∧
+  arithsexp Xor = SX_SYM "Xor" ∧
+  arithsexp Or  = SX_SYM "Or" ∧
+  arithsexp Not = SX_SYM "Not" ∧
+  arithsexp Neg = SX_SYM "Neg" ∧
+  arithsexp Abs = SX_SYM "Abs" ∧
+  arithsexp Sqrt = SX_SYM "Sqrt" ∧
+  arithsexp FMA = SX_SYM "FMA"
+End
+
+Theorem arithsexp_11[simp]:
+   ∀l1 l2. arithsexp l1 = arithsexp l2 ⇔ l1 = l2
+Proof
+  rw []
+  \\ simp [oneline arithsexp_def]
+  \\ every_case_tac \\ fs []
+QED
+
+Theorem sexparith_arithsexp[simp]:
+  ∀x. decode_arith (arithsexp x) = SOME x
+Proof
+  Cases \\ fs [decode_arith_def,arithsexp_def]
 QED
 
 Definition prim_typesexp_def:
@@ -1610,6 +1679,14 @@ Definition opsexp_def:
     SX_CONS (SX_SYM "AllocThunk") (SX_SYM (encode_thunk_mode m))) ∧
   (opsexp (ThunkOp (UpdateThunk m)) =
     SX_CONS (SX_SYM "UpdateThunk") (SX_SYM (encode_thunk_mode m))) ∧
+  (opsexp (Arith a prim_type) =
+    SX_CONS (SX_SYM "Arith") $
+    SX_CONS (arithsexp a)
+            (prim_typesexp prim_type)) ∧
+  (opsexp (FromTo ty1 ty2) =
+    SX_CONS (SX_SYM "FromTo") $
+    SX_CONS (prim_typesexp ty1)
+            (prim_typesexp ty2)) ∧
   (opsexp (Test test prim_type) =
     SX_CONS (SX_SYM "Test") $
     SX_CONS (testsexp test)
@@ -1999,6 +2076,13 @@ Proof
   \\ simp [testsexp_def]
 QED
 
+Theorem decode_arith_arithsexp:
+  decode_arith s = SOME arith ⇒ arithsexp arith = s
+Proof
+  rw [oneline decode_arith_def, AllCaseEqs()]
+  \\ simp [arithsexp_def]
+QED
+
 Theorem decode_prim_type_prim_typesexp:
   decode_prim_type s0 = SOME prim_type ⇒
   prim_typesexp prim_type = s0
@@ -2016,7 +2100,8 @@ Proof
   \\ Cases_on ‘s2’
   \\ gvs[sexpop_def, AllCaseEqs(), opsexp_def, encode_decode_control]
   \\ gvs [encode_thunk_mode_def,decode_thunk_mode_def,AllCaseEqs(),
-          decode_test_testsexp,decode_prim_type_prim_typesexp]
+          decode_test_testsexp,decode_prim_type_prim_typesexp,
+          decode_arith_arithsexp]
 QED
 
 Theorem lopsexp_sexplop:
@@ -2194,6 +2279,12 @@ Proof
   \\ Cases_on ‘w’ \\ fs [] \\ EVAL_TAC
 QED
 
+Theorem valid_sexp_arithsexp[local,simp]:
+  valid_sexp (arithsexp a)
+Proof
+  Cases_on ‘a’ \\ EVAL_TAC
+QED
+
 Theorem opsexp_valid[simp]:
    ∀op. valid_sexp (opsexp op)
 Proof
@@ -2208,6 +2299,8 @@ Proof
   \\ TRY(Cases_on`t'`) \\ simp[encode_thunk_mode_def]
   \\ TRY(Cases_on`b`) \\ simp[opsexp_def]
   \\ EVAL_TAC
+  \\ TRY (rename [‘Compare oo’] \\ Cases_on ‘oo’ \\ EVAL_TAC)
+  \\ TRY (rename [‘AltCompare oo’] \\ Cases_on ‘oo’ \\ EVAL_TAC)
 QED
 
 Theorem lopsexp_valid[simp]:
