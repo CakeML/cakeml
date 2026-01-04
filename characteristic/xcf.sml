@@ -7,18 +7,11 @@ struct
 
   open preamble;
   open alistTheory cfAppTheory cfHeapsTheory cfTheory cfAppTheory cfHeapsTheory
-       cfTheory cfTacticsTheory cfNormaliseTheory stringTheory xcfTheory;
-  open astSyntax cfAppSyntax semanticPrimitivesSyntax stringSyntax;
+       cfTheory cfTacticsTheory cfNormaliseTheory stringTheory mlstringTheory xcfTheory;
+  open astSyntax cfAppSyntax semanticPrimitivesSyntax stringSyntax mlstringSyntax;
 
   fun THENCC (l, r) = ConseqConv.THEN_CONSEQ_CONV l r;
   infix THENCC
-
-  (*
-  load "stringLib";
-  load "cfHeapsBaseSyntax";
-  load "cfSyntax";
-  load "cfTacticsBaseLib";
-  *)
 
   val ERR = mk_HOL_ERR "xcf" "xcf";
 
@@ -156,7 +149,7 @@ struct
     fun mk_naryFun ns bod = list_mk_comb (naryFun_tm, [ns, bod]);
     fun build acc tm =
       case total dest_Fun tm of
-        NONE => mk_naryFun (listSyntax.mk_list (List.rev acc, string_ty)) tm
+        NONE => mk_naryFun (listSyntax.mk_list (List.rev acc, mlstring_ty)) tm
       | SOME (n, e) => build (n::acc) e;
     val cnv =
       computeLib.compset_conv (listLib.list_compset()) [
