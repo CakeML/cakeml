@@ -881,13 +881,19 @@ Proof
   ([‘∃y. pure_add_constraints x y x (* g *)’],
    irule_at Any (iffRL (cj 1 pure_add_constraints_def)) >> simp[]) >>
   rpt (first_x_assum $ drule_then strip_assume_tac) >> simp[] >>
-  gvs[success_eqns] >~
-  [‘t_unify s2.subst t1 (FST v) = SOME s’]
+  gvs[success_eqns]
+  >~ [‘t_unify s2.subst t1 (FST v) = SOME s’]
   >- (Cases_on ‘v’ >> gvs[] >>
       prove_tac [pure_add_constraints_append, pure_add_constraints_def,
-                 infer_p_constraints, type_name_check_subst_state]) >>
-  prove_tac [pure_add_constraints_append, pure_add_constraints_def,
-             infer_p_constraints, type_name_check_subst_state]
+                 infer_p_constraints, type_name_check_subst_state])
+  >~ [‘supported_arith a ty’]
+  >- (Cases_on ‘supported_arith a ty’
+      \\ gvs [failwith_def,AllCaseEqs(),st_ex_bind_def,st_ex_return_def]
+      \\ gvs [add_constraints_success]
+      \\ prove_tac [pure_add_constraints_append, pure_add_constraints_def,
+                    infer_p_constraints, type_name_check_subst_state])
+  \\ prove_tac [pure_add_constraints_append, pure_add_constraints_def,
+                infer_p_constraints, type_name_check_subst_state]
 QED
 
 Theorem pure_add_constraints_wfs:
@@ -1698,26 +1704,26 @@ metis_tac []
 QED
 
 Theorem infer_e_check_t:
-   (!l ienv e st st' t.
-    infer_e l ienv e st = (Success t, st') ∧
-    ienv_val_ok (count st.next_uvar) ienv.inf_v
-    ⇒
+  (∀l ienv e st st' t.
+     infer_e l ienv e st = (Success t, st') ∧
+     ienv_val_ok (count st.next_uvar) ienv.inf_v
+     ⇒
     check_t 0 (count st'.next_uvar) t) ∧
-   (!l ienv es st st' ts.
-    infer_es l ienv es st = (Success ts, st') ∧
+  (∀l ienv es st st' ts.
+     infer_es l ienv es st = (Success ts, st') ∧
+     ienv_val_ok (count st.next_uvar) ienv.inf_v
+     ⇒
+     EVERY (check_t 0 (count st'.next_uvar)) ts) ∧
+  (∀l ienv pes t1 t2 st st'.
+     infer_pes l ienv pes t1 t2 st = (Success (), st') ∧
     ienv_val_ok (count st.next_uvar) ienv.inf_v
-    ⇒
-    EVERY (check_t 0 (count st'.next_uvar)) ts) ∧
-   (!l ienv pes t1 t2 st st'.
-    infer_pes l ienv pes t1 t2 st = (Success (), st') ∧
-    ienv_val_ok (count st.next_uvar) ienv.inf_v
-    ⇒
-    T) ∧
-   (!l ienv funs st st' ts'.
-    infer_funs l ienv funs st = (Success ts', st') ∧
-    ienv_val_ok (count st.next_uvar) ienv.inf_v
-    ⇒
-    EVERY (check_t 0 (count st'.next_uvar)) ts')
+     ⇒
+     T) ∧
+  (∀l ienv funs st st' ts'.
+     infer_funs l ienv funs st = (Success ts', st') ∧
+     ienv_val_ok (count st.next_uvar) ienv.inf_v
+     ⇒
+     EVERY (check_t 0 (count st'.next_uvar)) ts')
 Proof
  ho_match_mp_tac infer_e_ind >>
  srw_tac[] [infer_e_def, constrain_op_success, success_eqns, remove_pair_lem, LET_THM] >>
@@ -1758,6 +1764,7 @@ Proof
      irule nsAll_nsOptBind
      >> simp [option_nchotomy]
      >> metis_tac [check_env_more, DECIDE ``x:num ≤ x + 1``])
+ >- ( first_x_assum drule \\ rw[] )
  >- (
    first_x_assum old_drule
    >> first_x_assum old_drule
@@ -1826,6 +1833,10 @@ Theorem constrain_op_wfs:
 Proof
   rw [constrain_op_success, success_eqns] >>
   fs [] >>
+  TRY (rename [‘supported_arith a p’] >>
+       rpt (pairarg_tac >> gvs [AllCaseEqs(),failwith_def]) >>
+       gvs [st_ex_bind_def,AllCaseEqs(),st_ex_return_def] >>
+       imp_res_tac pure_add_constraints_wfs) >>
   every_case_tac >>
   TRY (Cases_on `f`) >>
   fs [op_to_string_def, success_eqns] >>
@@ -1843,6 +1854,7 @@ Theorem constrain_op_check_t:
     check_t 0 (count st'.next_uvar) t
 Proof
   rw [constrain_op_success, success_eqns] >>
+  rpt (pairarg_tac >> gvs [AllCaseEqs(),st_ex_bind_def,st_ex_return_def]) >>
   every_case_tac >>
   TRY (Cases_on `f`) >>
   fs [op_to_string_def, success_eqns] >>
@@ -1860,14 +1872,32 @@ Theorem constrain_op_check_s:
     check_s tvs (count st'.next_uvar) st'.subst
 Proof
    rw [] >>
-   `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_int)` by rw [check_t_def] >>
-   `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_word8)` by rw [check_t_def] >>
-   `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_word8array)` by rw [check_t_def] >>
-   `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_string)` by rw [check_t_def] >>
-   `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_char)` by rw [check_t_def] >>
-   `!uvs tvs wz. check_t tvs uvs (Infer_Tapp [] (TC_word wz))` by rw [check_t_def] >>
+   `!uvs tvs tc. check_t tvs uvs (Infer_Tapp [] tc)` by rw [check_t_def] >>
    fs [constrain_op_success] >> rw [] >>
+   rpt (pairarg_tac \\ gvs [AllCaseEqs(),st_ex_bind_def,st_ex_return_def,failwith_def]) >>
    fs [op_to_string_def, infer_st_rewrs]
+   >~ [‘supported_arith a p’]
+   >- (Cases_on‘p’ >> gvs[supported_arith_def] >>
+       TRY (Cases_on‘a:arith’) >>
+       gvs [supported_arith_def,LENGTH_EQ_NUM_compute,REPLICATE_compute,
+            add_constraints_def, st_ex_bind_success, add_constraint_def,
+            CaseEq"prod", CaseEq"option", st_ex_return_success] >>
+       imp_res_tac t_unify_wfs >>
+       match_mp_tac t_unify_check_s >> asm_exists_tac >> rw[] >>
+       TRY(match_mp_tac t_unify_check_s \\ asm_exists_tac \\ rw[]) >>
+       TRY(match_mp_tac t_unify_check_s \\ asm_exists_tac \\ rw[])
+       \\ TRY(match_mp_tac check_t_more_0 \\ rw[]))
+   >~ [‘supported_conversion p p0’]
+   >- (Cases_on`p` \\ Cases_on`p0` >> gvs [supported_conversion_def] >>
+       match_mp_tac t_unify_check_s >> asm_exists_tac >>
+       imp_res_tac t_unify_wfs >> rw[] >>
+       match_mp_tac check_t_more_0 \\ rw[])
+   >~ [‘supported_test t0 p0’]
+   >- (Cases_on`t0` >> gvs [supported_test_def] >>
+       imp_res_tac t_unify_wfs >>
+       match_mp_tac t_unify_check_s >> asm_exists_tac >> rw[] >>
+       TRY(match_mp_tac t_unify_check_s \\ asm_exists_tac \\ rw[]) >>
+       match_mp_tac check_t_more_0 \\ rw[])
    \\ TRY (Cases_on `uop`)
    \\ TRY pairarg_tac >> fs [success_eqns]
    \\ imp_res_tac t_unify_wfs \\ rfs[fresh_uvar_success]
@@ -3862,8 +3892,21 @@ Proof
                   \\fs[prim_tids_def,prim_type_nums_def]))
     \\ strip_tac \\ fs[])
   \\ rveq \\ fs[inf_set_tids_def,prim_tids_def, prim_type_nums_def]
-  \\ rename [‘supported_test  _ ty’] \\ Cases_on ‘ty’ \\ gvs []
-  \\ rename [‘WordT ws’] \\ Cases_on ‘ws’ \\ gvs []
+  \\ gvs[CaseEq"option",failwith_success,CaseEq"bool",
+         st_ex_bind_success,st_ex_return_success,inf_set_tids_def,
+         add_constraints_success]
+  \\ TRY(rename1`supported_arith a p` \\ Cases_on`a`
+         \\ Cases_on`p` \\ gvs[supported_arith_def]
+         \\ irule pure_add_constraints_set_tids
+         \\ first_x_assum $ irule_at (Pat`pure_add_constraints`)
+         \\ gvs[LENGTH_EQ_NUM_compute,REPLICATE_compute]
+         \\ gvs[inf_set_tids_subset_def, inf_set_tids_def])
+  \\ TRY(rename1`supported_conversion c x` \\ Cases_on`c`
+         \\ Cases_on`x` \\ gvs[supported_conversion_def]
+         \\ Cases_on`w` \\ gvs[supported_conversion_def])
+  \\ rename1`supported_test x p`
+  \\ Cases_on`x` \\ Cases_on`p` \\ gvs[supported_test_def]
+  \\ Cases_on`w` \\ gvs[supported_test_def]
 QED
 
 Theorem infer_e_inf_set_tids:
