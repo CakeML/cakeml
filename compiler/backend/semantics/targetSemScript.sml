@@ -460,9 +460,11 @@ Definition installed_def:
    (!i. mmio_pcs_min_index mc_conf.ffi_names = SOME i ==>
      MAP (\rec. n2w rec.entry_pc + mc_conf.target.get_pc ms) shmem_extra =
       DROP i mc_conf.ffi_entry_pcs /\
-     mc_conf.mmio_info =  (MAPi (\index rec. (index + i, rec.nbytes, Addr rec.addr_reg (n2w rec.addr_off),
-                                    rec.reg, n2w rec.exit_pc + mc_conf.target.get_pc ms))
-                                   shmem_extra) /\
+     mc_conf.mmio_info = ZIP (GENLIST (λindex. index + i) (LENGTH shmem_extra),
+                              (MAP (\rec. (rec.nbytes,
+                                   Addr rec.addr_reg (n2w rec.addr_off), rec.reg,
+                                   n2w rec.exit_pc + mc_conf.target.get_pc ms))
+                                   shmem_extra)) /\
     cbspace + LENGTH bytes + ffi_offset * (i + 3) < dimword (:'a))
 End
 

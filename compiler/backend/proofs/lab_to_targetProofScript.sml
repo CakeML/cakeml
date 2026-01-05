@@ -6691,7 +6691,7 @@ Theorem pos_val_asm_fetch_aux_distinct:
   a < LENGTH (line_bytes line) /\
   LENGTH (prog_to_bytes code2) < dimword (:'a) /\
   pc' <> pc ==>
-  ((n2w (a + pos_val pc p code2)): 'a word) <> n2w (pos_val pc' p code2)
+  a + pos_val pc p code2 <> pos_val pc' p code2
 Proof
   rpt strip_tac >>
   drule_then (qspec_then `0` assume_tac) pos_val_num_pcs >>
@@ -9282,8 +9282,6 @@ Theorem get_shmem_info_ok_lemma:
         {p + a + (pos_val pc 0 code2) |
           a < LENGTH (line_bytes line)})
 Proof
-  cheat
-  (*
   rw[] >>
   drule_all mmio_pcs_min_index_get_shmem_info_ok >>
   old_drule get_shmem_info_PREPEND >>
@@ -9317,7 +9315,7 @@ Proof
     Cases_on `get_shmem_info code2 p [] []` >>
     gvs[EL_ZIP] >>
     qpat_x_assum `_ = EL n r'` $ assume_tac o PURE_REWRITE_RULE[Once EQ_SYM_EQ] >>
-    gvs[shmem_rec_accessors] >>
+    gvs[shmem_info_num_accessors] >>
     drule_all all_enc_ok_asm_fetch_aux_IMP_line_ok >>
     disch_then assume_tac >>
     gvs[line_ok_def] >>
@@ -9326,7 +9324,6 @@ Proof
     gvs[pos_val_acc_sum]
   ) >>
   gvs[pos_val_acc_0] >>
-  rw[] >>
   old_drule get_shmem_info_thm >>
   disch_then $ qspecl_then [`p`,`[]`,`[]`] assume_tac >>
   gvs[UNZIP_MAP,MAP_FLAT,MAP_GENLIST,combinTheory.o_DEF,MAP_MAP_o] >>
@@ -9343,9 +9340,9 @@ Proof
   imp_res_tac asm_fetch_SOME_IMP_LESS_num_pcs >>
   `pc = x'` suffices_by (rpt strip_tac >> gvs[]) >>
   spose_not_then assume_tac >>
-  old_drule $ GEN_ALL pos_val_asm_fetch_aux_distinct >>
+  drule $ GEN_ALL pos_val_asm_fetch_aux_distinct >>
   disch_then imp_res_tac >>
-  gvs[] *)
+  gvs[]
 QED
 
 Theorem asm_fetch_NOT_ffi_entry_pcs:
@@ -9483,9 +9480,10 @@ Theorem IMP_state_rel_make_init[local]:
    DROP i mc_conf.ffi_names = new_ffi_names /\
    mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
    MAP (\rec. n2w rec.entry_pc) new_shmem_info = DROP i (mc_conf.ffi_entry_pcs) /\
-   (mc_conf.mmio_info = MAPi (\index rec. (index + i, rec.nbytes, Addr rec.addr_reg (n2w rec.addr_off),
-                                    rec.reg, n2w rec.exit_pc))
-                                   new_shmem_info) /\
+   (mc_conf.mmio_info = ZIP (GENLIST (λindex. index + i) (LENGTH new_shmem_info),
+                              (MAP (\rec. (rec.nbytes,
+                                Addr rec.addr_reg (n2w rec.addr_off),
+                                rec.reg, n2w rec.exit_pc)) new_shmem_info))) /\
    no_install_or_no_share_mem code mc_conf.ffi_names /\
    (!bn. bn < cbspace ==>
       ~MEM (n2w bn + n2w (LENGTH (prog_to_bytes code2)) +
@@ -9521,8 +9519,6 @@ Proof
   \\ conj_tac >- (
         fs[Abbr ‘new_shmem_info’]>>
         fs[MAP_MAP_o,o_DEF]>>
-        cheat
-        (*
         qmatch_goalsub_abbrev_tac ‘ZIP (l1,MAP ff _)’>>
         ‘LENGTH l1 = LENGTH (MAP ff shmem_info)’ by fs[Abbr ‘l1’,LENGTH_GENLIST]>>
         fs[ALOOKUP_ZIP_MAP_SND]>>
@@ -9537,7 +9533,7 @@ Proof
             reverse conj_asm1_tac>- fs[EL_GENLIST]>>fs[])>>
         rewrite_tac[ALOOKUP_FAILS]>>
         rpt strip_tac>>
-        gvs[NOT_LESS,NOT_LESS_EQUAL,MEM_ZIP]*))>>
+        gvs[NOT_LESS,NOT_LESS_EQUAL,MEM_ZIP])>>
   conj_tac >- (
     rw[]>>
     gvs[IMP_CONJ_THM,AND_IMP_INTRO] >>
@@ -9572,8 +9568,6 @@ Proof
   \\ conj_tac >- metis_tac[word_add_n2w]
   \\ conj_tac >- simp[bytes_in_mem_def]
   \\ conj_tac >- (
-    cheat
-    (*
     rpt strip_tac >>
     qpat_x_assum `!bn. bn < cbspace ==> _` $ imp_res_tac >>
     gvs[MEM_EL] >>
@@ -9593,6 +9587,7 @@ Proof
     gvs[] >>
     pop_assum kall_tac >>
     qpat_x_assum `_ = DROP i mc_conf.ffi_entry_pcs` $ assume_tac o GSYM >>
+    fs[GSYM word_add_n2w]>>
     qmatch_assum_abbrev_tac `DROP i mc_conf.ffi_entry_pcs = MAP offset_func flatten_genlist` >>
     gvs[] >>
     `n - i < LENGTH (MAP offset_func flatten_genlist)` by (
@@ -9605,11 +9600,11 @@ Proof
     strip_tac >>
     drule_then (qspec_then `n-i` assume_tac) $ iffLR EVERY_EL >>
     gvs[Abbr`flatten_genlist`] >>
-    qmatch_asmsub_abbrev_tac `w2n entry_pc' < pos_val _ _ _` >>
+    qmatch_asmsub_abbrev_tac `entry_pc' < pos_val _ _ _` >>
     drule_then (fn t =>
       gvs[t,addressTheory.word_arith_lemma1]) $
       GEN_ALL pos_val_num_pcs
-  *))
+  )
   \\ conj_tac>-
     (old_drule pos_val_0 \\ simp[])
   \\ conj_tac >- metis_tac[code_similar_sec_labels_ok]
@@ -9654,11 +9649,18 @@ Proof
   )
   \\ rw[]
   >- (
-    cheat
-    (* qpat_x_assum `!pc op re a inst len. asm_fetch_aux _ _ = _ ==> ?i._` $ imp_res_tac
+    (* Something goes wrong because of:
+      MAP (\rec. n2w rec.entry_pc) new_shmem_info = DROP i (mc_conf.ffi_entry_pcs)
+
+      Perhaps it should be something like this:
+
+      MAP (\rec. rec.entry_pc) new_shmem_info = DROP i (MAP w2n (mc_conf.ffi_entry_pcs))
+    *)
+    qpat_x_assum `!pc op re a inst len. asm_fetch_aux _ _ = _ ==> ?i._` $ imp_res_tac
     \\ qexists `index + i`
     \\ old_drule find_index_LESS_LENGTH
-    \\ `LENGTH (MAP (\rec. rec.entry_pc) new_shmem_info) =
+    \\ fs[GSYM word_add_n2w]
+    \\ `LENGTH (MAP (\rec. (n2w rec.entry_pc):'a word) new_shmem_info) =
         LENGTH mc_conf.ffi_entry_pcs - i`
           by metis_tac[LENGTH_DROP]
     \\ fs[LENGTH_MAP,LESS_SUB_ADD_LESS,EL_MAP,LENGTH_TAKE]
@@ -9670,16 +9672,16 @@ Proof
     \\ gvs[AllCaseEqs()]
     \\ Cases_on `get_memop_info op`
     >- (
-      old_drule find_index_shift
+      cheat
+      \\ old_drule find_index_shift
       \\ fs[]
       \\ disch_then $ qspec_then `i` assume_tac
-      \\ gvs[ELIM_UNCURRY,shmem_rec_component_equality]>>
+      \\ gvs[ELIM_UNCURRY,shmem_info_num_component_equality]>>
       irule ALOOKUP_ALL_DISTINCT_MEM>>
       qmatch_goalsub_abbrev_tac ‘ZIP (l1, l2)’>>
       ‘LENGTH l1 = LENGTH l2’ by (unabbrev_all_tac>>fs[LENGTH_GENLIST,LENGTH_MAP])>>
       fs[MAP_ZIP,MEM_ZIP]>>unabbrev_all_tac>>fs[]>>
       fs[ALL_DISTINCT_GENLIST]>>fs[MAP_MAP_o,o_DEF]>>gvs[]>>simp[EL_MAP]>>
-
       qexists_tac ‘index’>>fs[EL_MAP]>>
       fs[EL_GENLIST])
     \\ qpat_x_assum `SOME _ = find_index _ _ _` $ assume_tac o GSYM
@@ -9688,7 +9690,7 @@ Proof
       strip_tac
       \\ drule_then assume_tac (iffLR find_index_NOT_MEM)
       \\ pop_assum $ qspec_then `0` assume_tac
-      \\ gvs[ELIM_UNCURRY,shmem_rec_component_equality,LENGTH_TAKE]
+      \\ gvs[ELIM_UNCURRY,shmem_info_num_component_equality,LENGTH_TAKE]
     )
     \\ `LENGTH (prog_to_bytes code2) < dimword (:α)` by gvs[]
     \\ old_drule $ GEN_ALL asm_fetch_NOT_ffi_entry_pcs
@@ -9703,8 +9705,7 @@ Proof
       \\ pop_assum $ qspec_then `Inst (Mem op re a)` assume_tac
       \\ gvs[]
     )
-    \\ gvs[]
-  *))
+    \\ gvs[])
   >- (
     cheat
     (*qpat_x_assum `!pc line. asm_fetch_aux _ _ = _ /\ _ ==> _` imp_res_tac
@@ -10235,9 +10236,10 @@ val semantics_compile_lemma = Q.prove(
     (* set up mmio_info and ffi_entry_pcs for mmio *)
     MAP (\rec. n2w rec.entry_pc + mc_conf.target.get_pc ms) c'.shmem_extra =
       DROP i mc_conf.ffi_entry_pcs /\
-    mc_conf.mmio_info = MAPi (\index rec. (index + i, rec.nbytes, Addr rec.addr_reg (n2w rec.addr_off),
-                                    rec.reg, n2w rec.exit_pc + mc_conf.target.get_pc ms))
-                                   c'.shmem_extra /\
+    mc_conf.mmio_info = ZIP (GENLIST (λindex. index + i) (LENGTH c'.shmem_extra),
+                              (MAP (\rec. (rec.nbytes, Addr rec.addr_reg (n2w rec.addr_off),
+                                rec.reg, n2w rec.exit_pc + mc_conf.target.get_pc ms))
+                                   c'.shmem_extra)) /\
     no_install_or_no_share_mem code mc_conf.ffi_names /\
     (mmio_pcs_min_index mc_conf.ffi_names = SOME i) /\
     (* to avoid the ffi_entry_pc wraps around and overlaps with the program or code buffer *)
@@ -10253,8 +10255,6 @@ val semantics_compile_lemma = Q.prove(
       (lab_to_target$compile asm_conf) (mc_conf.target.get_pc ms+n2w(LENGTH bytes)) cbspace
       coracle
     )}`,
-  cheat
-  (*
   fs[compile_def,compile_lab_def]>>
   pairarg_tac \\ fs[] \\
   CASE_TAC>>fs[]>>
@@ -10337,6 +10337,7 @@ val semantics_compile_lemma = Q.prove(
     gvs[TAKE_LENGTH_APPEND]
   ) >>
   simp[DROP_LENGTH_APPEND,TAKE_LENGTH_APPEND] >>
+  simp[GSYM word_add_n2w]>>
   simp[no_install_or_no_share_mem_filter_skip] >>
   gvs[start_pc_ok_def,MEM_EL]>>
   rw[] >>
@@ -10370,7 +10371,7 @@ val semantics_compile_lemma = Q.prove(
       drule_at_then (Pos $ el 2) irule LESS_TRANS >>
       simp[LESS_MONO_ADD]
   ) >>
-  gvs[ffi_offset_def]*))
+  gvs[ffi_offset_def])
   |> REWRITE_RULE [CONJ_ASSOC]
   |> MATCH_MP implements_intro_gen
   |> REWRITE_RULE [GSYM CONJ_ASSOC]
@@ -10462,9 +10463,10 @@ Theorem semantics_compile:
   mmio_pcs_min_index mc_conf.ffi_names = SOME i /\
   MAP (\rec. n2w rec.entry_pc + mc_conf.target.get_pc ms) c'.shmem_extra =
    DROP i mc_conf.ffi_entry_pcs /\
-  mc_conf.mmio_info = MAPi (\index rec. (index + i, rec.nbytes, Addr rec.addr_reg (n2w rec.addr_off),
-                                   rec.reg, n2w rec.exit_pc + mc_conf.target.get_pc ms))
-                                  c'.shmem_extra ∧
+  mc_conf.mmio_info = ZIP (GENLIST (λindex. index + i) (LENGTH c'.shmem_extra),
+                              (MAP (\rec. (rec.nbytes, Addr rec.addr_reg (n2w rec.addr_off),
+                                rec.reg, n2w rec.exit_pc + mc_conf.target.get_pc ms))
+                                   c'.shmem_extra)) /\
   no_install_or_no_share_mem code mc_conf.ffi_names /\
   (* to avoid the ffi_entry_pc wraps around and overlaps with the program or code buffer *)
   cbspace + LENGTH bytes + ffi_offset * (i + 3) < dimword (:'a) /\
