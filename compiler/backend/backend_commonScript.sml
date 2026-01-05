@@ -162,4 +162,3 @@ Definition upper_w2w_def:
     if dimindex (:'a) = 32 then w2w w << 32 else (w2w w):word64
 End
 
-val _ = export_theory();

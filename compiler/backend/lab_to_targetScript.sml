@@ -1,7 +1,7 @@
 (*
   This compiler phase generates concrete (ARM, x64, ag32, RISC-V,
-  MIPS) machine code from labLang assmebly programs. This phase is the
-  CakeML compiler's assmebler: it computes label offsets and encodes
+  MIPS) machine code from labLang assembly programs. This phase is the
+  CakeML compiler's assembler: it computes label offsets and encodes
   all instructions according to the instruction encoder stored in the
   compiler configuration.
 *)
@@ -347,29 +347,26 @@ QED
 
 (* compile labels *)
 Datatype:
-  shmem_rec = <| entry_pc: 'a word
-               ; nbytes: word8
-               ; access_addr: 'a addr
-               ; reg: num
-               ; exit_pc: 'a word
-               |>
+  shmem_info_num
+  = <| entry_pc: num
+       ; nbytes: word8
+       ; addr_reg: num
+       ; addr_off: num
+       ; reg: num
+       ; exit_pc: num
+    |>
 End
 
-Type shmem_info = ``:'a shmem_rec list``;
-
 Datatype:
-  config = <| labels : num num_map num_map
-            ; sec_pos_len : (num # num # num) list
-            ; pos : num
-            ; asm_conf : 'a asm_config
-            ; init_clock : num
-            ; ffi_names : ffiname list option
-            (* shmem_info is
-            * a list of (entry pc, no. of bytes, address of the shared memory, register
-            * to be load/store and the end pc)s for each share memory access *)
-            ; shmem_extra: 'a shmem_info
-            ; hash_size : num
-            |>
+  config = <|
+    labels : num num_map num_map
+    ; sec_pos_len : (num # num # num) list
+    ; pos : num
+    ; init_clock : num
+    ; ffi_names : ffiname list option
+    ; shmem_extra: shmem_info_num list
+    ; hash_size : num
+    |>
 End
 
 Definition list_add_if_fresh_def:
@@ -389,7 +386,7 @@ Definition find_ffi_names_def:
 End
 
 Definition get_memop_info_def:
-  get_memop_info Load = (MappedRead, 0w) /\
+  get_memop_info Load = (MappedRead, 0w:word8) /\
   get_memop_info Load32 = (MappedRead,4w) /\
   get_memop_info Load16 = (MappedRead,2w) /\
   get_memop_info Load8 = (MappedRead,1w) /\
@@ -402,7 +399,7 @@ End
 (* produce a list of ffi_names for shared memory instructions and
   a list of shmem_infos (e.g. pc of the shared memory instruction) *)
 Definition get_shmem_info_def:
-  (get_shmem_info [] pos ffi_names (shmem_info: 'a shmem_info) =
+  (get_shmem_info ([]:'a prog) pos ffi_names (shmem_info: shmem_info_num list) =
     (ffi_names, shmem_info)) /\
   (get_shmem_info (Section k []::rest) pos ffi_names shmem_info =
     get_shmem_info rest pos ffi_names shmem_info) /\
@@ -411,13 +408,18 @@ Definition get_shmem_info_def:
   (get_shmem_info (Section k ((Asm (ShareMem m r ad) bytes _)::xs)::rest) pos
   ffi_names shmem_info =
     let (name,nb) = get_memop_info m in
-    get_shmem_info (Section k xs::rest) (pos+LENGTH bytes) (ffi_names ++ [SharedMem name])
-      (shmem_info ++ [
-        <|entry_pc:=n2w pos
+    get_shmem_info (Section k xs::rest) (pos+LENGTH bytes)
+      (ffi_names ++ [SharedMem name])
+      (shmem_info ++
+      [
+        <|entry_pc:=pos
         ; nbytes:=nb
-        ;access_addr:=ad
-        ;reg:=r
-        ;exit_pc:=n2w $ pos+LENGTH bytes|>])) /\
+        ; addr_reg := (case ad of Addr r off => r)
+        ; addr_off := (case ad of Addr r off => w2n off)
+        ; reg:=r
+        ; exit_pc:=pos+LENGTH bytes|>
+      ]
+      )) /\
   (get_shmem_info (Section k ((LabAsm _ _ bytes _)::xs)::rest) pos ffi_names shmem_info =
     get_shmem_info (Section k xs::rest) (pos+LENGTH bytes) ffi_names shmem_info) /\
   (get_shmem_info (Section k ((Asm _ bytes _)::xs)::rest) pos ffi_names shmem_info =
@@ -447,21 +449,25 @@ Definition compile_lab_def:
 End
 *)
 
+
 Definition compile_lab_def:
-  compile_lab c sec_list =
+  compile_lab asm_conf c sec_list =
     let current_ffis = find_ffi_names sec_list in
     let (ffis,ffis_ok) =
-      case c.ffi_names of SOME ffis => (ffis, list_subset current_ffis ffis) | _ => (current_ffis, T)
+        (case c.ffi_names of
+         | SOME ffis => (ffis, list_subset current_ffis ffis)
+         | _ => (current_ffis,T))
     in
     if ffis_ok then
-      case remove_labels c.init_clock c.asm_conf c.pos c.labels ffis sec_list of
+      case remove_labels c.init_clock asm_conf c.pos c.labels ffis sec_list of
       | SOME (sec_list,l1) =>
           let bytes = prog_to_bytes sec_list in
           let (new_ffis,shmem_infos) = get_shmem_info sec_list c.pos [] [] in
           SOME (bytes,
-                c with <| labels := l1; pos := LENGTH bytes + c.pos;
+                c with <| labels := l1;
+                          pos := LENGTH bytes + c.pos;
                           sec_pos_len := get_symbols c.pos sec_list;
-                          ffi_names := SOME $ ffis ++ new_ffis;
+                          ffi_names := SOME (ffis ++ new_ffis) ;
                           shmem_extra := shmem_infos |>)
       | NONE => NONE
     else NONE
@@ -470,80 +476,5 @@ End
 (* compile labLang *)
 
 Definition compile_def:
-  compile lc sec_list = compile_lab lc (filter_skip sec_list)
+  compile asm_conf c sec_list = compile_lab asm_conf c (filter_skip sec_list)
 End
-
-(* config without asm conf *)
-
-Datatype:
-  shmem_info_num
-  = <| entry_pc: num
-       ; nbytes: word8
-       ; addr_reg: num
-       ; addr_off: num
-       ; reg: num
-       ; exit_pc: num
-    |>
-End
-
-Datatype:
-  inc_config = <|
-    inc_labels : num num_map num_map
-    ; inc_sec_pos_len : (num # num # num) list
-    ; inc_pos : num
-    ; inc_init_clock : num
-    ; inc_ffi_names : ffiname list option
-    ; inc_shmem_extra: shmem_info_num list
-    ; inc_hash_size : num
-    |>
-End
-
-Definition to_inc_shmem_info_def:
-  to_inc_shmem_info info =
-  <| entry_pc := w2n info.entry_pc
-     ; nbytes := info.nbytes
-     ; addr_reg := (case info.access_addr of Addr r off => r)
-     ; addr_off := (case info.access_addr of Addr r off => w2n off)
-     ; reg := info.reg
-     ; exit_pc := w2n info.exit_pc |>
-End
-
-Definition to_shmem_info_def:
-  to_shmem_info ninfo =
-  <| entry_pc := n2w ninfo.entry_pc
-     ; nbytes := ninfo.nbytes
-     ; access_addr := Addr ninfo.addr_reg (n2w ninfo.addr_off)
-     ; reg := ninfo.reg
-     ; exit_pc := n2w ninfo.exit_pc |>
-End
-
-Definition config_to_inc_config_def:
-  config_to_inc_config (c : 'a config) = <|
-    inc_labels := c.labels; inc_sec_pos_len := c.sec_pos_len;
-    inc_pos := c.pos; inc_init_clock := c.init_clock;
-    inc_ffi_names := c.ffi_names; inc_shmem_extra := MAP to_inc_shmem_info c.shmem_extra;
-    inc_hash_size := c.hash_size;
-  |>
-End
-
-Definition inc_config_to_config_def:
-  inc_config_to_config (asm : 'a asm_config) (c : inc_config) = <|
-    labels := c.inc_labels; sec_pos_len := c.inc_sec_pos_len;
-    pos := c.inc_pos; asm_conf := asm; init_clock := c.inc_init_clock;
-    ffi_names := c.inc_ffi_names; shmem_extra := MAP to_shmem_info c.inc_shmem_extra;
-    hash_size := c.inc_hash_size;
-  |>
-End
-
-Definition compile_lab_inc_def:
-  compile_lab_inc asm_conf ilc sec_list =
-  OPTION_MAP (λ(bytes, c'). (bytes,config_to_inc_config c'))
-      (compile_lab (inc_config_to_config asm_conf ilc) sec_list)
-End
-
-Definition compile_inc_def:
-  compile_inc asm_conf ilc sec_list =
-    compile_lab_inc asm_conf ilc (filter_skip sec_list)
-End
-
-val _ = export_theory();

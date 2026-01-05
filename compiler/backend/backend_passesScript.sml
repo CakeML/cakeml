@@ -328,7 +328,7 @@ Definition to_target_all_def:
     let (ps,bm,c,p,names) = to_lab_all asm_conf c p in
     let p = filter_skip p in
     let ps = ps ++ [(strlit "after filter_skip",Lab p names)] in
-    let p = compile_lab_inc asm_conf c.lab_conf p in
+    let p = compile_lab asm_conf c.lab_conf p in
       ((ps: (mlstring # 'a any_prog) list), attach_bitmaps names c bm p)
 End
 
@@ -336,7 +336,7 @@ Theorem to_target_thm:
   SND (to_target_all asm_conf c p) = to_target asm_conf c p
 Proof
   assume_tac to_lab_thm
-  \\ fs [to_target_all_def,to_target_def,lab_to_targetTheory.compile_def,lab_to_targetTheory.compile_inc_def]
+  \\ fs [to_target_all_def,to_target_def,lab_to_targetTheory.compile_def,lab_to_targetTheory.compile_def]
   \\ rpt (pairarg_tac \\ gvs [])
 QED
 
@@ -344,14 +344,14 @@ Definition from_lab_all_def:
   from_lab_all ps asm_conf (c:config) names p (bm:'a word list) =
     let p = filter_skip p in
     let ps = ps ++ [(strlit "after filter_skip",Lab p names)] in
-    let p = compile_lab_inc asm_conf c.lab_conf p in
+    let p = compile_lab asm_conf c.lab_conf p in
       ((ps: (mlstring # 'a any_prog) list), attach_bitmaps names c bm p)
 End
 
 Theorem from_lab_thm:
   SND (from_lab_all ps asm_conf c names p bm) = from_lab asm_conf c names p bm
 Proof
-  gvs [from_lab_all_def,from_lab_def,lab_to_targetTheory.compile_inc_def]
+  gvs [from_lab_all_def,from_lab_def,lab_to_targetTheory.compile_def]
 QED
 
 Definition from_stack_all_def:

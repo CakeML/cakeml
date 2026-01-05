@@ -21,8 +21,7 @@ Datatype:
    ; word_to_word_conf : word_to_word$config
    ; word_conf : word_to_stack$config
    ; stack_conf : stack_to_lab$config
-   ; lab_conf : lab_to_target$inc_config
-     (* Note use of inc_config instead of config for lab *)
+   ; lab_conf : lab_to_target$config
    ; symbols : (mlstring # num # num) list
    ; tap_conf : tap_config
    ; exported : mlstring list
@@ -36,7 +35,7 @@ Definition attach_bitmaps_def:
   (attach_bitmaps names c bm (SOME (bytes, c')) =
     SOME (bytes, bm,
           c with <| lab_conf := c'
-                  ; symbols := MAP (\(n,p,l). (lookup_any n names «NOTFOUND»,p,l)) c'.inc_sec_pos_len
+                  ; symbols := MAP (\(n,p,l). (lookup_any n names «NOTFOUND»,p,l)) c'.sec_pos_len
                   |>) ) /\
   (attach_bitmaps names c bm NONE = NONE)
 End
@@ -74,7 +73,7 @@ Definition compile_def:
       (asm_conf.addr_offset) p in
     let _ = empty_ffi (strlit "finished: stack_to_lab") in
     let res = attach_bitmaps names c bm
-      (lab_to_target$compile_inc asm_conf c.lab_conf (p:'a labLang$prog)) in
+      (lab_to_target$compile asm_conf c.lab_conf (p:'a labLang$prog)) in
     let _ = empty_ffi (strlit "finished: lab_to_target") in
       res
 End
@@ -169,7 +168,7 @@ Definition to_target_def:
   to_target asm_conf c p =
   let (bm,c,p,names) = to_lab asm_conf c p in
     attach_bitmaps names c bm (
-      lab_to_target$compile_inc
+      lab_to_target$compile
         asm_conf c.lab_conf p)
 End
 
@@ -210,7 +209,7 @@ Theorem prim_config_eq =
 Definition from_lab_def:
   from_lab asm_conf c names p bm =
     attach_bitmaps names c bm
-      (lab_to_target$compile_inc asm_conf c.lab_conf p)
+      (lab_to_target$compile asm_conf c.lab_conf p)
 End
 
 Definition from_stack_def:
@@ -590,81 +589,13 @@ Definition compile_inc_progs_def:
         c.stack_conf.reg_names c.stack_conf.jump asm_conf.addr_offset
         reg_count2 p in
     let ps = ps with <| lab_prog := keep_progs k p |> in
-    let target = lab_to_target$compile_inc asm_conf c.lab_conf (p:'a labLang$prog) in
+    let target = lab_to_target$compile asm_conf c.lab_conf (p:'a labLang$prog) in
     let ps = ps with <| target_prog := OPTION_MAP
         (\(bytes, _). (bytes, cur_bm)) target |> in
     let c = c with lab_conf updated_by (case target of NONE => I
         | SOME (_, c') => K c') in
     (c, ps)
 End
-
-Theorem to_shmem_info_to_inc_shmem_info_inv[simp]:
-  MAP to_shmem_info (MAP to_inc_shmem_info ls) = ls
-Proof
-  Induct_on ‘ls’>>rw[]>>
-  simp[lab_to_targetTheory.to_inc_shmem_info_def,
-       lab_to_targetTheory.to_shmem_info_def,
-       lab_to_targetTheory.shmem_rec_component_equality]>>
-  Cases_on ‘h.access_addr’>>fs[]
-QED
-
-Theorem to_inc_shmem_info_to_shmem_info_inv[simp]:
-  EVERY (λh. h.entry_pc < dimword (:α) ∧
-             h.addr_off < dimword (:α) ∧
-             h.exit_pc < dimword (:α)) ls ⇒
-  MAP to_inc_shmem_info ((MAP to_shmem_info ls):'a shmem_info) = ls
-Proof
-  Induct_on ‘ls’>>rw[]>>
-  simp[lab_to_targetTheory.to_inc_shmem_info_def,
-       lab_to_targetTheory.to_shmem_info_def,
-       lab_to_targetTheory.shmem_info_num_component_equality]>>fs[]
-QED
-
-(* TODO delete?
-
-Theorem inc_config_to_config_inv:
-  asm_c = c.lab_conf.asm_conf ==>
-  inc_config_to_config asm_c  (config_to_inc_config c) = c
-Proof
-  simp [config_to_inc_config_def, inc_config_to_config_def, components]
-  \\ simp [lab_to_targetTheory.config_to_inc_config_def, MAP_MAP_o, o_DEF,
-    lab_to_targetTheory.inc_config_to_config_def,
-    lab_to_targetTheory.config_component_equality]
-QED
-
-val inc_components = theorem "inc_config_component_equality"
-
-Theorem config_to_inc_config_inv:
-  EVERY
-     (λh.
-        h.entry_pc < dimword (:α) ∧ h.addr_off < dimword (:α) ∧
-        h.exit_pc < dimword (:α)) c.inc_lab_conf.inc_shmem_extra ⇒
-  config_to_inc_config (inc_config_to_config (asm_c:'a asm_config) c) = c
-Proof
-  simp [config_to_inc_config_def, inc_config_to_config_def, inc_components]
-  \\ simp [lab_to_targetTheory.config_to_inc_config_def,
-    lab_to_targetTheory.inc_config_to_config_def,
-    lab_to_targetTheory.inc_config_component_equality]>>
-  strip_tac>>irule to_inc_shmem_info_to_shmem_info_inv>>fs[]
-QED
-
-Theorem config_to_inc_bounded:
-  EVERY (λh. h.entry_pc < dimword (:α) ∧ h.addr_off < dimword (:α) ∧
-             h.exit_pc < dimword (:α))
-  (config_to_inc_config (cfg:'a config)).inc_lab_conf.inc_shmem_extra
-Proof
-  simp[config_to_inc_config_def,
-       config_component_equality,
-       lab_to_targetTheory.config_to_inc_config_def,
-       lab_to_targetTheory.config_component_equality]>>
-  simp[EVERY_MAP,
-       lab_to_targetTheory.to_inc_shmem_info_def,
-       lab_to_targetTheory.config_component_equality]>>
-  simp[EVERY_MEM]>>strip_tac>>strip_tac>>
-  CASE_TAC>>fs[w2n_lt]
-QED
-*)
-
 Definition compile_inc_progs_for_eval_def:
   compile_inc_progs_for_eval asm_conf x =
   let (env_id, c', decs) = x in
@@ -721,7 +652,7 @@ Theorem compile_inc_progs_for_eval_eq:
         c.stack_conf.reg_names c.stack_conf.jump asm_conf.addr_offset
         reg_count2 p in
     let _ = empty_ffi (strlit "finished: stack_to_lab") in
-    let target = lab_to_target$compile_inc asm_conf c.lab_conf (p:'a labLang$prog) in
+    let target = lab_to_target$compile asm_conf c.lab_conf (p:'a labLang$prog) in
     let _ = empty_ffi (strlit "finished: lab_to_target") in
     let c = c with lab_conf updated_by (case target of NONE => I
                                         | SOME (_, c') => K c') in
@@ -749,44 +680,4 @@ Definition set_oracle_def:
     word_to_word_conf := c.word_to_word_conf with col_oracle := oracle
 End
 
-(*
-Definition inc_set_oracle_def:
-  inc_set_oracle c oracle =
-    c with inc_word_to_word_conf :=
-        (c.inc_word_to_word_conf with col_oracle := oracle)
-End
-
-Definition set_asm_conf_def:
-  set_asm_conf c asm_c =
-    c with lab_conf := c.lab_conf with asm_conf := asm_c
-End
-
-Theorem inc_set_oracle_pull:
-  ∀oracle c. inc_config_to_config b (inc_set_oracle c oracle) =
-             set_oracle (inc_config_to_config b c) oracle
-Proof
-  gvs [inc_set_oracle_def,inc_config_to_config_def,set_oracle_def]
-QED
-
-Theorem inc_config_to_config_config_to_inc_config:
-  inc_config_to_config asm_c (config_to_inc_config c) =
-  set_asm_conf c asm_c
-Proof
-  gvs [inc_config_to_config_def,
-       config_to_inc_config_def,
-       lab_to_targetTheory.inc_config_to_config_def,
-       lab_to_targetTheory.config_to_inc_config_def,
-       config_component_equality,
-       lab_to_targetTheory.config_component_equality,
-       set_asm_conf_def]
-QED
-
-Theorem set_asm_conf_id:
-  c.lab_conf.asm_conf = asm_c ⇒
-  set_asm_conf c asm_c = c
-Proof
-  gvs [set_asm_conf_def, fetch "-" "config_component_equality",
-       lab_to_targetTheory.config_component_equality]
-QED
-*)
 
