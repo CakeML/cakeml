@@ -199,7 +199,10 @@ Definition arith_ok_def:
      reg_ok r1 c /\ reg_ok r2 c /\
      (case ri of
       | Imm i => (((i = 0w) ==> (l = Lsl)) /\ w2n i < dimindex(:'a))
-      | Reg r => reg_ok r c)) /\
+      | Reg r =>
+        reg_ok r c ∧
+        (c.ISA = x86_64 ⇒ r = 1)
+      )) /\
   (arith_ok (Div r1 r2 r3) c <=>
      reg_ok r1 c /\ reg_ok r2 c /\ reg_ok r3 c /\
      c.ISA IN {ARMv8; MIPS; RISC_V}) /\
