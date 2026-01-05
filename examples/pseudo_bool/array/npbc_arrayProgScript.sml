@@ -11,7 +11,6 @@ val _ = translation_extends"UnsafeProg";
 
 Quote add_cakeml:
   exception Fail string;
-
 End
 
 fun get_exn_conv name =
@@ -124,7 +123,7 @@ Quote add_cakeml:
       (if b' then Some c
        else None)
     else Some c
-End;
+End
 
 Theorem lookup_core_only_arr_spec:
   NUM n nv ∧
@@ -178,7 +177,7 @@ Quote add_cakeml:
        else
         raise Fail (format_failure lno (lookup_err_string b ^ Int.toString n)))
     else c
-End;
+End
 
 Theorem lookup_core_only_err_arr_spec:
   NUM lno lnov ∧
@@ -398,7 +397,6 @@ Quote add_cakeml:
   | Weak c var =>
     weaken_spt (check_cutting_spt_arr lno fml c) var
   | Lit l => spt_of_lit l
-
 End
 
 val res = translate npbc_checkTheory.constraint_of_spt_def;
@@ -406,7 +404,7 @@ val res = translate npbc_checkTheory.constraint_of_spt_def;
 Quote add_cakeml:
   fun check_cutting_alt_arr lno fml constr =
   constraint_of_spt (check_cutting_spt_arr lno fml constr)
-End;
+End
 *)
 
 (* Translation for pb checking *)
@@ -647,7 +645,7 @@ Quote add_cakeml:
         every_less mindel fml is
     | Some c => False
   )
-End;
+End
 
 Theorem every_less_spec:
   ∀fmlls ls mindel lsv fmlv fmllsv mindelv.
@@ -700,7 +698,7 @@ Quote add_cakeml:
       None => (fml,id)
     | Some cc =>
     (Array.updateResize fml None id (Some cc), id+1)
-End;
+End
 
 Theorem ARRAY_refl:
   (ARRAY fml fmllsv ==>> ARRAY fml fmllsv) ∧
@@ -821,7 +819,7 @@ Quote add_cakeml:
       else
         rup_pass1_arr assg xs (acc + k) ((k,inn)::ys) (max m n)
     end
-End;
+End
 
 Theorem rup_pass1_arr_spec:
   ∀ls lsv acc ys m accv ysv mv.
@@ -891,7 +889,7 @@ Quote add_cakeml:
         rup_pass2_arr assg max ys l (n::changes))
     else
       rup_pass2_arr assg max ys l changes
-End;
+End
 
 Theorem rup_pass2_arr_spec:
   ∀ls lsv changes changesv assg.
@@ -955,7 +953,7 @@ Quote add_cakeml:
         val u = Word8Array.copy assg 0 (Word8Array.length assg) arr 0 in
         arr
       end
-End;
+End
 
 Theorem resize_to_fit_spec:
   NUM n nv ⇒
@@ -996,7 +994,7 @@ Quote add_cakeml:
         val changes2 = rup_pass2_arr assg1 max ls1 n1 [] in
         (changes2,assg1)
     end
-End;
+End
 
 Theorem update_assg_arr_spec:
   constraint_TYPE lsn lsnv ∧
@@ -1048,7 +1046,7 @@ Quote add_cakeml:
   if n = 0 then nc
   else
     lookup_core_only_err_arr lno b fml n
-End;
+End
 
 Theorem get_rup_constraint_arr_spec:
   NUM lno lnov ∧
@@ -1108,7 +1106,7 @@ Quote add_cakeml:
       case update_assg_arr assg c of (new_changes,assg) =>
       check_rup_loop_arr lno b nc fml assg (new_changes @ all_changes) ns
     end
-End;
+End
 
 Theorem check_rup_loop_arr_spec:
   ∀ns nsv ac acv assg assgv.
@@ -1204,7 +1202,7 @@ Quote add_cakeml:
   | (n::ns) =>
     (Unsafe.w8update assg n w8z;
     delete_each ns assg)
-End;
+End
 
 Theorem delete_each_spec:
   ∀ns nsv assg.
@@ -1236,7 +1234,7 @@ Quote add_cakeml:
     case check_rup_loop_arr lno b nc fml zeros [] ls of
      (assg1,all_changes1) =>
       (delete_each all_changes1 assg1; assg1)
-End;
+End
 
 Theorem check_rup_arr_spec:
   NUM lno lnov ∧
@@ -1326,7 +1324,6 @@ Quote add_cakeml:
       (fml', (c , (id', zeros))) =>
         (case opt_update_arr fml' c id' of (fml'',id'') =>
         check_lsteps_arr lno ss b fml'' mindel id'' zeros))
-
 End
 
 val NPBC_CHECK_LSTEP_TYPE_def = fetch "-" "NPBC_CHECK_LSTEP_TYPE_def";
@@ -1905,8 +1902,7 @@ Quote add_cakeml:
       if u < List.length rsubs then
         extract_clauses_arr lno s b fml rsubs pfs ((Some (List.nth rsubs u,i),pf)::acc)
       else raise Fail (format_failure lno ("invalid #proofgoal id: " ^ Int.toString u))
-
-End;
+End
 
 Overload "subst_TYPE" = ``SUM_TYPE (PAIR_TYPE NUM (SUM_TYPE BOOL (PBC_LIT_TYPE NUM))) (VECTOR_TYPE (OPTION_TYPE (SUM_TYPE BOOL (PBC_LIT_TYPE NUM))))``
 
@@ -2043,7 +2039,7 @@ Quote add_cakeml:
     val cpfs = extract_clauses_arr lno s b fml rsubs pfs [] in
       (scs,cpfs)::extract_scopes_arr lno scopes s b fml rsubs rest
     end
-End;
+End
 
 Theorem extract_scopes_arr_spec:
   ∀pfs pfsv s sv b bv fmlls fmlv fmllsv
@@ -2131,7 +2127,7 @@ Quote add_cakeml:
       (case subst_opt_subst_fun s res of
         None => subst_indexes_arr s b fml is
       | Some c => (i,c)::subst_indexes_arr s b fml is)
-End;
+End
 
 Theorem subst_indexes_arr_spec:
   ∀is isv s sv b bv fmlls fmllsv fmlv.
@@ -2499,7 +2495,7 @@ Quote add_cakeml:
     Unsafe.update acc h (p::(Array.sub acc h));
     mk_hashset_arr ps acc
   end
-End;
+End
 
 Theorem hash_constraint_splim:
   hash_constraint h < splim
@@ -2558,7 +2554,7 @@ Quote add_cakeml:
     val r = Unsafe.sub hs h in
     mem_constraint p r
   end
-End;
+End
 
 Theorem in_hashset_arr_spec:
   constraint_TYPE c cv ∧
@@ -2899,7 +2895,7 @@ Quote add_cakeml:
         end
       else raise Fail (format_failure lno ("did not derive contradiction from index: " ^ Int.toString cid))
     end
-End;
+End
 
 Overload "vimapn_TYPE" = ``
   SUM_TYPE (PAIR_TYPE (OPTION_TYPE NUM) (PAIR_TYPE (LIST_TYPE NUM) (LIST_TYPE NUM))) NUM``
@@ -3108,8 +3104,7 @@ Quote add_cakeml:
         val rinds = get_inds_rhs rhs pinds ninds in
         (rinds, (inds, Array.updateResize vimap None n (Some (Inl (None,(pinds,ninds))))))
       end
-
-End;
+End
 
 Theorem get_set_indices_arr_spec:
   LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv ∧
@@ -3230,7 +3225,7 @@ Quote add_cakeml:
     case Array.lookup vimap None x of
       None => check_fresh_aux_fml_vimap_arr xs vimap
     | Some _ => False
-End;
+End
 
 Theorem check_fresh_aux_fml_vimap_arr_spec:
   ∀xs xsv.
@@ -3285,7 +3280,7 @@ Quote add_cakeml:
     case res of
       Inl u => True
     | Inr xs => check_fresh_aux_fml_vimap_arr xs vimap
-End;
+End
 
 Quote add_cakeml:
   fun cond_check_fresh_aspo_arr hs untouched
@@ -3293,7 +3288,7 @@ Quote add_cakeml:
     if hs orelse not untouched then
       check_fresh_aspo_arr c s ord vimap vomap
     else True
-End;
+End
 
 (* Overloads all the _TYPEs that we will reuse *)
 Overload "aspo_TYPE" = ``
@@ -3444,8 +3439,7 @@ Quote add_cakeml:
     check_red_arr_fast lno b fml inds id c pf cid vimap zeros
   end
   else raise Fail (format_failure lno ("domain of substitution must not mention projection set."))
-
-End;
+End
 
 Theorem check_red_arr_spec:
   NUM lno lnov ∧
@@ -3635,7 +3629,7 @@ Quote add_cakeml:
       (Some (opt_cons i v (Array.lookup vimap None n))))
     v
     ns
-End;
+End
 
 Theorem update_vimap_arr_spec:
   ∀ls lsv vimap vimaplsv vimapv.
@@ -3706,7 +3700,6 @@ Quote add_cakeml:
         (update_vimap_arr vimap' id' (fst c),
         (id'+1,
         zeros)))))
-
 End
 
 val NPBC_CHECK_SSTEP_TYPE_def = theorem "NPBC_CHECK_SSTEP_TYPE_def";
@@ -3920,7 +3913,7 @@ Quote add_cakeml:
         zeros'
     else
       raise Fail (format_failure lno ("specification proof in order definition failed."))
-End;
+End
 
 Theorem check_spec_aux_arr_spec:
   ∀gs gsv fmlls fmllsv id idv vimap vimaplsv zeros fmlv indsv vimapv zerosv inds.
@@ -4041,7 +4034,7 @@ Quote add_cakeml:
   in
     (check_spec_aux_arr lno aa fml [] 1 gs vimap zeros; aa)
   end)
-End;
+End
 
 Theorem check_spec_arr_spec:
   NUM lno lnov ∧
@@ -4103,7 +4096,7 @@ Quote add_cakeml:
     else
       raise Fail (format_failure lno ("illegal variable usage in order definition."))
   end
-End;
+End
 
 Theorem check_storeorder_arr_spec:
   NUM lno lnov ∧
@@ -4265,7 +4258,7 @@ Quote add_cakeml:
     | Some (v,b) =>
       if b then (i,v)::core_fmlls_arr fml is
       else core_fmlls_arr fml is)
-End;
+End
 
 Theorem core_fmlls_arr_spec:
   ∀inds indsv fmlv fmlls fmllsv.
@@ -4378,7 +4371,7 @@ Quote add_cakeml:
            end
          else raise Fail (format_failure lno ("did not derive contradiction from index: " ^ Int.toString cid)))
     end
-End;
+End
 
 Theorem check_dom_arr_spec:
   NUM lno lnov ∧
@@ -4579,7 +4572,7 @@ Quote add_cakeml:
         "core transfer given invalid ids")
     | Some (c,b) =>
       core_from_inds_arr lno (Array.updateResize fml None i (Some (c,True))) is)
-End;
+End
 
 Theorem core_from_inds_arr_spec:
   ∀inds indsv fmlv fmlls fmllsv.
@@ -5168,8 +5161,7 @@ Quote add_cakeml:
           (Word8Array.update arr x w8o;
           fold_update_resize_bitset xs arr)
         end
-
-End;
+End
 
 Theorem fold_update_resize_bitset_spec:
   ∀ls lsv accv accls.
@@ -5210,7 +5202,7 @@ Quote add_cakeml:
   val acc = fold_update_resize_bitset (fst fc) acc in
     Word8Array.substring acc 0 (Word8Array.length acc)
   end
-End;
+End
 
 Theorem map_foldl_rel:
   ∀ls accA accB.
@@ -5405,8 +5397,7 @@ Quote add_cakeml:
       (get_id pc) (get_pres pc) v c pfs zeros of
       (fml',(pres',(id',zeros'))) =>
         (fml', (zeros', (inds, (vimap, (vomap, change_pres_update pc id' pres'))))))
-
-End;
+End
 
 val NPBC_CHECK_CSTEP_TYPE_def = theorem "NPBC_CHECK_CSTEP_TYPE_def";
 
@@ -5891,7 +5882,6 @@ Quote add_cakeml:
   case Array.lookup fml None n of
     None => False
   | Some (ci,b) => check_triv2 ci c
-
 End
 
 Theorem check_implies_fml_arr_spec:
@@ -6006,7 +5996,6 @@ Quote add_cakeml:
       hobounds_res b1 b2
         (check_implies_fml_arr fml' n (lower_bound obj' lb))
     end
-
 End
 
 val NPBC_CHECK_HCONCL_TYPE_def = theorem"NPBC_CHECK_HCONCL_TYPE_def";
@@ -6099,7 +6088,7 @@ Quote add_cakeml:
     val u = mk_hashset_arr fml hs in
     every_hs hs fml'
   end
-End;
+End
 
 Theorem fml_include_arr_spec:
   (LIST_TYPE constraint_TYPE) ls lsv ∧
@@ -6296,8 +6285,7 @@ Quote add_cakeml:
       (fml_include_arr cls fml')
       (fml_include_arr fml' cls)
     end
-
-End;
+End
 
 val PBC_OUTPUT_TYPE_def = theorem"PBC_OUTPUT_TYPE_def";
 

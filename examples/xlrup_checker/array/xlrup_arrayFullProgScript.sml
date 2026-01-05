@@ -66,7 +66,7 @@ Quote add_cakeml:
         parse_body_arr (lno+1) maxvar fd cacc xacc (bl::bacc)
       )
     else parse_body_arr (lno+1) maxvar fd cacc xacc bacc
-End;
+End
 
 Overload "LL_LIT_TYPE" = ``LIST_TYPE (LIST_TYPE CNF_EXT_LIT_TYPE)``
 Overload "L_BNN_TYPE" = ``LIST_TYPE (PAIR_TYPE (LIST_TYPE CNF_EXT_LIT_TYPE)
@@ -219,7 +219,7 @@ Quote add_cakeml:
           else
             Inl (format_dimacs_failure lno "incorrect number of clauses / xors")))
     else parse_cnf_ext_toks_arr (lno+1) fd
-End;
+End
 
 Theorem parse_cnf_ext_toks_arr_spec:
   !lines fd fdv fs lno lnov.
@@ -377,7 +377,7 @@ Quote add_cakeml:
     res
   end
   handle TextIO.BadFileName => Inl (notfound_string fname)
-End;
+End
 
 Theorem parse_full_spec:
   STRING_TYPE f fv ∧
@@ -501,7 +501,7 @@ Quote add_cakeml:
   | (x::xs) =>
     conv_rawxor_arr mv (map_conv_lit x) ::
     map_conv_xor_arr mv xs
-End;
+End
 
 Theorem map_conv_xor_arr_spec:
   ∀xs xsv.
@@ -532,7 +532,7 @@ Quote add_cakeml:
   in
     (map_conv_xor_arr mv xfml, mv)
   end
-End;
+End
 
 Theorem conv_xfml_arr_spec:
   LL_LIT_TYPE x xv

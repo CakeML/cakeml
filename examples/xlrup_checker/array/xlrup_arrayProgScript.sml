@@ -41,7 +41,6 @@ val index_side = Q.prove(`
 
 Quote add_cakeml:
   exception Fail string;
-
 End
 
 fun get_exn_conv name =
@@ -502,7 +501,7 @@ Quote add_cakeml:
   in
     strxor_aux_c_arr cs ds n1
   end
-End;
+End
 
 Theorem strxor_aux_c_arr_spec:
   ∀n nv cs csv ds dsv.
@@ -547,7 +546,7 @@ Quote add_cakeml:
         (Unsafe.w8xor_str ss t; ss)
       end
   end
-End;
+End
 
 Theorem xor_bytes_eq[local]:
   ∀xs ys zs.
@@ -679,7 +678,7 @@ Quote add_cakeml:
       None => raise Fail (format_failure lno ("no xor at index (maybe deleted): " ^ Int.toString i))
     | Some x =>
       add_xors_aux_c_arr lno fml is (strxor_c_arr s x)
-End;
+End
 
 Theorem add_xors_aux_c_arr_spec:
   ∀ls lsv cs csv fmlv fmlls fmllsv lno lnov.
@@ -780,7 +779,7 @@ Quote add_cakeml:
     val r = n mod 8 in
     get_bit_word' (Unsafe.w8sub s q) r
   end
-End;
+End
 
 Theorem get_bit_arr_spec:
   NUM n nv ∧ n DIV 8 < LENGTH cs ⇒
@@ -810,7 +809,7 @@ Quote add_cakeml:
     val b = set_bit_word' (Unsafe.w8sub s q) r b in
     Unsafe.w8update s q b
   end
-End;
+End
 
 Theorem set_bit_arr_spec:
   NUM n nv ∧ n DIV 8 < LENGTH cs ∧ BOOL b bv ⇒
@@ -867,7 +866,7 @@ Quote add_cakeml:
     val b = flip_bit_word' (Unsafe.w8sub s q) r in
     Unsafe.w8update s q b
   end
-End;
+End
 
 Theorem flip_bit_arr_spec:
   NUM n nv ∧ n DIV 8 < LENGTH cs ⇒
@@ -915,7 +914,7 @@ Quote add_cakeml:
       else set_bit_arr s n False
     else ()
   end
-End;
+End
 
 Theorem unit_prop_xor_arr_spec:
   INT l lv ∧
@@ -980,7 +979,7 @@ Quote add_cakeml:
       case x of [l] =>
         get_units_arr lno fml is (l::s)
       | _ => raise Fail (format_failure lno ("clause at index not unit: " ^ Int.toString i))
-End;
+End
 
 Theorem get_units_arr_spec:
   ∀ls lsv cs csv fmlv fmlls fmllsv lno lnov.
@@ -1051,13 +1050,13 @@ Quote add_cakeml:
   | (x::xs) =>
     (unit_prop_xor_arr t s x;
     fold_unit_prop_xor_arr t s xs)
-End;
+End
 
 Quote add_cakeml:
   fun unit_props_xor_arr lno fml t is s =
   fold_unit_prop_xor_arr t s
     (get_units_arr lno fml is [])
-End;
+End
 
 Theorem fold_unit_prop_xor_arr_spec:
   ∀ls lsv cs csv.
@@ -1166,7 +1165,7 @@ Quote add_cakeml:
   fun xor_to_string r =
   print_xor_string
     (Word8Array.substring r 0 (Word8Array.length r))
-End;
+End
 
 Theorem xor_to_string_spec:
   app (p : 'ffi ffi_proj)
@@ -1216,7 +1215,7 @@ Quote add_cakeml:
       end
   end
   else ()
-End;
+End
 
 Theorem is_emp_xor_arr_aux_spec:
   ∀n nv.
@@ -1266,7 +1265,7 @@ Quote add_cakeml:
   in
     is_emp_xor_arr_aux lno tn r (Word8Array.length r)
   end
-End;
+End
 
 Theorem is_xor_arr_spec:
   NUM lno lnov ∧
@@ -1452,7 +1451,7 @@ Quote add_cakeml:
     ss
   end
   end
-End;
+End
 
 Theorem extend_s_arr_spec:
   NUM n nv
@@ -1493,7 +1492,7 @@ Quote add_cakeml:
       (flip_bit_arr s 0;
       conv_xor_aux_arr s xs)
   end
-End;
+End
 
 Theorem conv_xor_aux_arr_spec:
   ∀xs xsv cs csv.
@@ -1541,7 +1540,7 @@ Quote add_cakeml:
   in
     Word8Array.substring r 0 (Word8Array.length r)
   end
-End;
+End
 
 Theorem conv_rawxor_arr_spec:
   NUM n nv ∧
@@ -1580,7 +1579,7 @@ Quote add_cakeml:
   in
     is_emp_xor_arr_aux lno tn res (Word8Array.length res)
   end
-End;
+End
 
 Theorem strxor_imp_cclause_arr_spec:
   NUM lno lnov ∧
@@ -1662,7 +1661,7 @@ Quote add_cakeml:
           None => raise Fail (format_failure lno ("no clause/constraint at index (maybe deleted): " ^ Int.toString i))
         | Some ci =>
           ci :: get_constrs_arr lno fml is)
-End;
+End
 
 Theorem get_constrs_arr_spec:
   ∀ls lsv fmlv fmlls fml lno lnov.
@@ -1739,7 +1738,7 @@ Quote add_cakeml:
     else raise Fail
       (format_failure lno ("clauses do not imply XOR"))
   end
-End;
+End
 
 Theorem is_xfromc_arr_spec:
   NUM lno lnov ∧
@@ -1784,7 +1783,7 @@ val r = translate map_conv_lit_def;
 Quote add_cakeml:
   fun conv_xor_mv_arr mv x =
   conv_rawxor_arr mv (map_conv_lit x)
-End;
+End
 
 Theorem conv_xor_mv_arr_spec:
   NUM n nv ∧
@@ -1847,7 +1846,7 @@ Quote add_cakeml:
     else
       raise Fail (format_failure lno
         ("failed to derive conflict after propagation with units for BNN constraint: " ^ Int.toString ib))
-End;
+End
 
 Theorem is_cfromb_arr_spec:
   NUM lno lnov ∧
@@ -2024,8 +2023,7 @@ Quote add_cakeml:
         val u = is_cfromb_arr lno c cfml bfml ib i0 in
       (resize_update_arr (Some c) n cfml, xfml, bfml, tn, def, carr)
     end
-
-End;
+End
 
 val XLRUP_XLRUP_TYPE_def = fetch "-" "XLRUP_XLRUP_TYPE_def";
 

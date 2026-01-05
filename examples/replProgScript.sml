@@ -276,7 +276,7 @@ Quote rep = cakeml:
               end
           | _ => (TextIO.print_err "Cannot understand input\n";
                   Some state)
-End;
+End
 
 Quote main_ast = cakeml:
   fun main u =

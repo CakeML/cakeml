@@ -249,7 +249,7 @@ Quote add_cakeml:
             None => raise Fail (format_failure (sub_one lno') "subproof not terminated with contradiction id")
           | Some id =>
             parse_lsteps_aux f_ns'' fd (lno') (Con c pf id::acc))
-End;
+End
 
 val blanks_v_thm = theorem "blanks_v_thm";
 val tokenize_fast_v_thm = theorem "tokenize_fast_v_thm";
@@ -501,7 +501,7 @@ QED
 Quote add_cakeml:
   fun parse_lsteps f_ns fd lno =
     parse_lsteps_aux f_ns fd lno []
-End;
+End
 
 Theorem parse_lsteps_spec:
   fns_TYPE a fns fnsv ∧
@@ -1230,7 +1230,7 @@ Quote add_cakeml:
       if check_open h x then (x::acc,lno+1)
       else read_open (lno+1) h fd (x::acc)
     end
-End;
+End
 
 Theorem read_open_spec:
   !h ss acc lines lno lnov hv accv fs.
@@ -1332,7 +1332,7 @@ Quote add_cakeml:
       if check_end_full h x then (x::acc,lno+1)
       else read_end (lno+1) h fd (x::acc)
     end
-End;
+End
 
 Theorem read_end_spec:
   !h ss acc lines lno lnov hv accv fs.
@@ -1437,7 +1437,7 @@ Quote add_cakeml:
       | Inr h =>
           (case read_end lno h fd acc of (acc',lno') =>
             read_while lno' hs fd acc')
-End;
+End
 
 Theorem read_while_spec:
   !hs ss acc lines lno lnov hsv accv fs.
@@ -1590,7 +1590,7 @@ Quote add_cakeml:
       raise Fail (format_failure lno ("failed to parse order definition starting at line."))
   | Some (vars,(gspec,(f,(pfr,(pft,fns))))) =>
     (vars,(gspec,(f,(pfr,(pft,(fns,lno'))))))
-End;
+End
 
 Theorem parse_pre_order_spec:
   NUM lno lnov ∧
@@ -1780,8 +1780,7 @@ Quote add_cakeml:
     | Some (Changeprespar b x c, fns'') =>
         raise Fail (format_failure lno "Parsing change proj set not yet supported")
     )
-
-End;
+End
 
 Theorem parse_cstep_spec:
   !ss fd fdv lines lno lnov fs fns fnsv.
@@ -2530,7 +2529,7 @@ Quote add_cakeml:
   (check_output_arr fml' inds'
     pres' obj' bound' dbound' chk' fmlt prest objt output)
   (check_hconcl_arr fml obj fml' obj' bound' dbound' hconcl)
-End;
+End
 
 Theorem check_output_hconcl_arr_spec:
   LIST_TYPE constraint_TYPE fml fmlv ∧
@@ -2599,7 +2598,7 @@ Quote add_cakeml:
         None => Inr (output,hconcl)
       | Some s => Inl (format_failure lno s)
   end
-End;
+End
 
 val tokenize_v_thm = theorem "tokenize_v_thm";
 
@@ -2720,7 +2719,7 @@ Quote add_cakeml:
   case obj of None => ""
   | Some fc =>
     mk_vomap_arr (List.length (fst fc)) fc
-End;
+End
 
 Theorem mk_vomap_opt_arr_spec:
   obj_TYPE obj objv
@@ -3122,7 +3121,7 @@ Quote add_cakeml:
   in
   check_header_full s1 s2
   end
-End;
+End
 
 val inputLineTokens_specialize =
   inputLineTokens_spec_lines
@@ -3419,7 +3418,6 @@ Quote add_cakeml:
   case normalise_full_2 prob probt of
     ((pres,(obj,fml)),((prest,(objt,fmlt)),t)) =>
     check_unsat_top b (name_to_num_var_nf,t) fml pres obj fmlt prest objt fname
-
 End
 
 Overload "prob_TYPE" = ``

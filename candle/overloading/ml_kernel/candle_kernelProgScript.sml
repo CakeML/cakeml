@@ -31,7 +31,6 @@ Quote add_cakeml:
     in
       #(kernel_ffi) str arr
     end;
-
 End
 
 val _ = ml_prog_update close_local_blocks;

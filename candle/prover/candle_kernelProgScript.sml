@@ -33,7 +33,6 @@ Quote add_cakeml:
     in
       #(kernel_ffi) str arr
     end;
-
 End
 (* compute primitive *)
 

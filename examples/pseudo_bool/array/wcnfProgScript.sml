@@ -59,7 +59,7 @@ Quote add_cakeml:
         None => Inl (format_wcnf_failure lno "failed to parse line")
       | Some cl => parse_wcnf_toks_arr (lno+1) fd (cl::acc))
     else parse_wcnf_toks_arr (lno+1) fd acc
-End;
+End
 
 Theorem parse_wcnf_toks_arr_spec:
   !lines fd fdv fs acc accv lno lnov.
@@ -176,7 +176,7 @@ Quote add_cakeml:
     res
   end
   handle TextIO.BadFileName => Inl (notfound_string fname)
-End;
+End
 
 Theorem parse_wcnf_full_spec:
   STRING_TYPE f fv ∧

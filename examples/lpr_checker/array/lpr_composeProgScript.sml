@@ -192,7 +192,7 @@ val add_one_v = translate add_one_def;
 Quote add_cakeml:
   fun line_count_of fname =
     TextIO.foldLines #"\n" add_one 0 (Some fname)
-End;
+End
 
 (* TODO move? *)
 Theorem line_of_gen_lines_of[simp]:

@@ -36,7 +36,6 @@ val index_side = Q.prove(`
 
 Quote add_cakeml:
   exception Fail string;
-
 End
 
 fun get_exn_conv name =
@@ -772,7 +771,6 @@ Quote add_cakeml:
        every_check_RAT_inds_arr lno fml carr np d ik mini is (i::acc))
   else
     rev_1 acc (i::is)
-
 End
 
 Theorem every_check_RAT_inds_arr_spec:
@@ -859,7 +857,6 @@ Quote add_cakeml:
        every_check_PR_inds_arr lno fml carr nw d ik mini is (i::acc))
   else
   rev_1 acc (i::is)
-
 End
 
 Theorem every_check_PR_inds_arr_spec:
@@ -1252,7 +1249,7 @@ Quote add_cakeml:
       else
         check_earliest_arr fml x old new is)
     else True
-End;
+End
 
 Theorem check_earliest_arr_spec:
   ∀is isv new newv old oldv x xv fmlls fmllsv fmlv.
@@ -1399,7 +1396,6 @@ Quote add_cakeml:
             (Array.updateResize fml None n (Some c), sorted_insert n ls, carr, earr) end
     else
       raise Fail (format_failure lno ("Overwrite not permitted for clause index <= " ^ Int.toString mindel))
-
 End
 
 val LPR_LPRSTEP_TYPE_def = fetch "-" "LPR_LPRSTEP_TYPE_def";

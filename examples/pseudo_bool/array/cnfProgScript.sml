@@ -62,7 +62,7 @@ Quote add_cakeml:
         None => Inl (format_dimacs_failure lno "failed to parse line")
       | Some cl => parse_dimacs_body_arr (lno+1) maxvar fd (cl::acc))
     else parse_dimacs_body_arr (lno+1) maxvar fd acc
-End;
+End
 
 Theorem parse_dimacs_body_arr_spec:
   !lines fd fdv fs maxvar maxvarv acc accv lno lnov.
@@ -187,7 +187,7 @@ Quote add_cakeml:
           else
             Inl (format_dimacs_failure lno "incorrect number of clauses")))
     else parse_dimacs_toks_arr (lno+1) fd
-End;
+End
 
 Theorem parse_dimacs_toks_arr_spec:
   !lines fd fdv fs lno lnov.
@@ -342,7 +342,7 @@ Quote add_cakeml:
     res
   end
   handle TextIO.BadFileName => Inl (notfound_string fname)
-End;
+End
 
 Theorem parse_dimacs_full_spec:
   STRING_TYPE f fv ∧

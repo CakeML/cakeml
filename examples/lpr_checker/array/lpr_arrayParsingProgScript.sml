@@ -159,7 +159,7 @@ case TextIO.inputLineTokens #"\n" fd blanks tokenize_fast of
       None =>
         raise Fail (format_failure lno "failed to parse line (uncompressed format)")
     | Some lpr => Some lpr
-End;
+End
 
 val blanks_v_thm = theorem "blanks_v_thm";
 val tokenize_v_thm = theorem "tokenize_v_thm";
@@ -338,7 +338,7 @@ case TextIO.inputLine c0 fd of
                | Some p => Some p)
          )
     )
-End;
+End
 
 Definition parse_one_c_def:
   parse_one_c lines =
@@ -450,7 +450,7 @@ fun parse_one b lno fd =
 if b
 then parse_one_c lno fd
 else parse_one_u lno fd
-End;
+End
 
 Definition parse_one_def:
   parse_one b lines =
