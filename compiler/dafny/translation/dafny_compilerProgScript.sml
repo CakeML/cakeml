@@ -7,7 +7,7 @@ Ancestors
   fromSexp (* listsexp *)
   string numposrep simpleSexp ml_translator simpleSexpParse
 Libs
-  preamble basisFunctionsLib
+  preamble ml_translatorLib basisFunctionsLib
 
 val _ = translation_extends "dafny_remove_assertProg";
 
