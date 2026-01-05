@@ -121,6 +121,13 @@ Definition compile_arith_def:
                    | ast_temp$Div => Op t (WordOp (FP_bop FP_Div)) xs
                    | FMA => Op t (WordOp (FP_top FP_Fma)) xs
                    | _ => Let None xs (Var None 0))
+    | WordT ws => (dtcase a of
+                   | Add => Op t (WordOp (WordOpw ws ast$Add)) xs
+                   | Sub => Op t (WordOp (WordOpw ws ast$Sub)) xs
+                   | And => Op t (WordOp (WordOpw ws Andw)) xs
+                   | Or => Op t (WordOp (WordOpw ws Orw)) xs
+                   | ast_temp$Xor => Op t (WordOp (WordOpw ws ast$Xor)) xs
+                   | _ => Let None xs (Var None 0))
     | _ => Let None xs (Var None 0)
 End
 
