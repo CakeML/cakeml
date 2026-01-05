@@ -188,7 +188,8 @@ struct
         optionSyntax.mk_option alpha
       ],
       computeLib.Extenders [
-        stringLib.add_string_compset
+        stringLib.add_string_compset,
+        mlstringLib.add_mlstring_compset
       ]
     ];
 
@@ -206,6 +207,7 @@ struct
       ],
       computeLib.Extenders [
         stringLib.add_string_compset,
+        mlstringLib.add_mlstring_compset,
         pairLib.add_pair_compset
       ]
     ];
