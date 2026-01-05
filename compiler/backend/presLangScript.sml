@@ -97,6 +97,9 @@ Definition lit_to_display_def:
   /\
   (lit_to_display (Word64 w) =
     Item NONE (strlit "Word64") [word_to_display w])
+  /\
+  (lit_to_display (Float64 w) =
+    Item NONE (strlit "Float64") [word_to_display w])
 End
 
 Overload list_to_display = ``λf xs. displayLang$Tuple (MAP f xs)``
@@ -125,7 +128,7 @@ End
 
 Definition fp_bop_to_display_def:
   fp_bop_to_display op = case op of
-    | fpValTree$FP_Add => empty_item (strlit "FP_Add")
+    | ast$FP_Add => empty_item (strlit "FP_Add")
     | FP_Sub => empty_item (strlit "FP_Sub")
     | FP_Mul => empty_item (strlit "FP_Mul")
     | FP_Div => empty_item (strlit "FP_Div")
@@ -187,6 +190,52 @@ Definition shift_to_display_def:
   (shift_to_display Ror = empty_item (strlit "Ror"))
 End
 
+Definition thunk_mode_to_display_def:
+  (thunk_mode_to_display Evaluated = empty_item (strlit "Evaluated"))
+  /\
+  (thunk_mode_to_display NotEvaluated = empty_item (strlit "NotEvaluated"))
+End
+
+Definition thunk_op_to_display_def:
+  (thunk_op_to_display (AllocThunk m) =
+    Item NONE (strlit "AllocThunk") [thunk_mode_to_display m]) ∧
+  (thunk_op_to_display (UpdateThunk m) =
+    Item NONE (strlit "UpdateThunk") [thunk_mode_to_display m]) ∧
+  (thunk_op_to_display ForceThunk = empty_item (strlit "ForceThunk"))
+End
+
+Definition test_to_display_def:
+  test_to_display Equal = empty_item (strlit "Equal") ∧
+  test_to_display (Compare cmp) = Item NONE (strlit "Compare") [opb_to_display cmp] ∧
+  test_to_display (AltCompare cmp) = Item NONE (strlit "AltCompare") [opb_to_display cmp]
+End
+
+Definition arith_to_display_def:
+  arith_to_display Add = empty_item (strlit "Add") ∧
+  arith_to_display Sub = empty_item (strlit "Sub") ∧
+  arith_to_display Mul = empty_item (strlit "Mul") ∧
+  arith_to_display Div = empty_item (strlit "Div") ∧
+  arith_to_display Mod = empty_item (strlit "Mod") ∧
+  arith_to_display And = empty_item (strlit "And") ∧
+  arith_to_display Xor = empty_item (strlit "Xor") ∧
+  arith_to_display Or  = empty_item (strlit "Or") ∧
+  arith_to_display Neg = empty_item (strlit "Neg") ∧
+  arith_to_display Not = empty_item (strlit "Not") ∧
+  arith_to_display Abs = empty_item (strlit "Abs") ∧
+  arith_to_display Sqrt = empty_item (strlit "Sqrt") ∧
+  arith_to_display FMA = empty_item (strlit "FMA")
+End
+
+Definition prim_type_to_display_def:
+  prim_type_to_display BoolT = empty_item (strlit "BoolT") ∧
+  prim_type_to_display IntT = empty_item (strlit "IntT") ∧
+  prim_type_to_display CharT = empty_item (strlit "CharT") ∧
+  prim_type_to_display StrT = empty_item (strlit "StrT") ∧
+  prim_type_to_display Float64T = empty_item (strlit "Float64T") ∧
+  prim_type_to_display (WordT W8) = empty_item (strlit "WordT_W8") ∧
+  prim_type_to_display (WordT W64) = empty_item (strlit "WordT_W64")
+End
+
 Definition op_to_display_def:
   op_to_display (p:ast$op) =
   case p of
@@ -198,6 +247,15 @@ Definition op_to_display_def:
                             [word_size_to_display ws;
                              shift_to_display sh;
                              num_to_display num]
+  | Arith a ty => Item NONE (strlit "Arith")
+                         [arith_to_display a;
+                          prim_type_to_display ty]
+  | FromTo ty1 ty2 => Item NONE (strlit "FromTo")
+                         [prim_type_to_display ty1;
+                          prim_type_to_display ty2]
+  | Test test ty => Item NONE (strlit "Test")
+                         [test_to_display test;
+                          prim_type_to_display ty]
   | Equality => empty_item (strlit "Equality")
   | FP_cmp cmp => fp_cmp_to_display cmp
   | FP_uop op => fp_uop_to_display op
@@ -205,10 +263,6 @@ Definition op_to_display_def:
   | FP_top op => fp_top_to_display op
   | FpFromWord => empty_item (strlit "FpFromWord")
   | FpToWord => empty_item (strlit "FpToWord")
-  | Real_cmp cmp => empty_item (strlit "Real_cmp")
-  | Real_uop op => empty_item (strlit "Real_uop")
-  | Real_bop op => empty_item (strlit "Real_bop")
-  | RealFromFP => empty_item (strlit "RealFromFP")
   | Opapp => empty_item (strlit "Opapp")
   | Opassign => empty_item (strlit "Opassign")
   | Opref => empty_item (strlit "Opref")
@@ -227,7 +281,6 @@ Definition op_to_display_def:
   | CopyAw8Aw8 => empty_item (strlit "CopyAw8Aw8")
   | Ord => empty_item (strlit "Ord")
   | Chr => empty_item (strlit "Chr")
-  | Chopb op => Item NONE (strlit "Chopb") [opb_to_display op]
   | Implode => empty_item (strlit "Implode")
   | Explode => empty_item (strlit "Explode")
   | Strsub => empty_item (strlit "Strsub")
@@ -235,6 +288,7 @@ Definition op_to_display_def:
   | Strcat => empty_item (strlit "Strcat")
   | VfromList => empty_item (strlit "VfromList")
   | Vsub => empty_item (strlit "Vsub")
+  | Vsub_unsafe => empty_item (strlit "Vsub_unsafe")
   | Vlength => empty_item (strlit "Vlength")
   | Aalloc => empty_item (strlit "Aalloc")
   | AallocEmpty => empty_item (strlit "AallocEmpty")
@@ -252,6 +306,7 @@ Definition op_to_display_def:
   | FFI v35 => empty_item (strlit "FFI v35")
   | Eval => empty_item (strlit "Eval")
   | Env_id => empty_item (strlit "Eval")
+  | ThunkOp t => thunk_op_to_display t
 End
 
 Definition lop_to_display_def:
@@ -337,8 +392,7 @@ Definition exp_to_display_def:
       [Tuple (fun_to_display_list fns);
        exp_to_display e]
   | Tannot e _ => Item NONE «Tannot» [exp_to_display e]
-  | Lannot e _ => Item NONE «Lannot» [exp_to_display e]
-  | FpOptimise _ e => Item NONE «FpOptimise» [exp_to_display e]) ∧
+  | Lannot e _ => Item NONE «Lannot» [exp_to_display e]) ∧
   (exp_to_display_list [] = []) ∧
   (exp_to_display_list (x::xs) =
     exp_to_display x :: exp_to_display_list xs) ∧
@@ -387,7 +441,7 @@ End
 
 (* flatLang *)
 
-Triviality MEM_pat_size:
+Theorem MEM_pat_size[local]:
   !pats a. MEM a (pats:flatLang$pat list) ==> pat_size a < pat1_size pats
 Proof
   Induct \\ rw [] \\ rw [flatLangTheory.pat_size_def] \\ res_tac \\ fs []
@@ -428,11 +482,22 @@ Definition flat_op_to_display_def:
       word_size_to_display ws;
       shift_to_display sh;
       num_to_display num]
+    | Arith a ty => Item NONE (strlit "Arith")
+                         [arith_to_display a;
+                          prim_type_to_display ty]
+    | FromTo ty1 ty2 => Item NONE (strlit "FromTo")
+                             [prim_type_to_display ty1;
+                              prim_type_to_display ty2]
+    | Test test ty => Item NONE (strlit "Test")
+                           [test_to_display test;
+                            prim_type_to_display ty]
     | Equality => empty_item (strlit "Equality")
     | FP_cmp cmp => fp_cmp_to_display cmp
     | FP_uop op => fp_uop_to_display op
     | FP_bop op => fp_bop_to_display op
     | FP_top op => fp_top_to_display op
+    | FpFromWord => empty_item (strlit "FpFromWord")
+    | FpToWord => empty_item (strlit "FpToWord")
     | Opapp => empty_item (strlit "Opapp")
     | Opassign => empty_item (strlit "Opassign")
     | Opref => empty_item (strlit "Opref")
@@ -453,7 +518,6 @@ Definition flat_op_to_display_def:
     | Aw8xor_unsafe => empty_item (strlit "Aw8xor_unsafe")
     | Ord => empty_item (strlit "Ord")
     | Chr => empty_item (strlit "Chr")
-    | Chopb op => Item NONE (strlit "Chopb") [opb_to_display op]
     | Implode => empty_item (strlit "Implode")
     | Explode => empty_item (strlit "Explode")
     | Strsub => empty_item (strlit "Strsub")
@@ -461,6 +525,7 @@ Definition flat_op_to_display_def:
     | Strcat => empty_item (strlit "Strcat")
     | VfromList => empty_item (strlit "VfromList")
     | Vsub => empty_item (strlit "Vsub")
+    | Vsub_unsafe => empty_item (strlit "Vsub_unsafe")
     | Vlength => empty_item (strlit "Vlength")
     | Aalloc => empty_item (strlit "Aalloc")
     | AallocFixed => empty_item (strlit "AallocFixed")
@@ -473,6 +538,7 @@ Definition flat_op_to_display_def:
     | ConfigGC => empty_item (strlit "ConfigGC")
     | FFI s => Item NONE (strlit "FFI") [string_imp s]
     | Eval => empty_item (strlit "Eval")
+    | ThunkOp t => thunk_op_to_display t
     | GlobalVarAlloc n => item_with_num (strlit "GlobalVarAlloc") n
     | GlobalVarInit n => item_with_num (strlit "GlobalVarInit") n
     | GlobalVarLookup n => item_with_num (strlit "GlobalVarLookup") n
@@ -482,21 +548,21 @@ Definition flat_op_to_display_def:
     | Id => empty_item (strlit "Id")
 End
 
-Triviality MEM_funs_size:
+Theorem MEM_funs_size[local]:
   !fs v1 v2 e. MEM (v1,v2,e) fs ==> flatLang$exp_size e < exp1_size fs
 Proof
   Induct \\ fs [flatLangTheory.exp_size_def] \\ rw []
   \\ fs [flatLangTheory.exp_size_def] \\ res_tac \\ fs []
 QED
 
-Triviality MEM_exps_size:
+Theorem MEM_exps_size[local]:
   !exps e. MEM e exps ==> flatLang$exp_size e < exp6_size exps
 Proof
   Induct \\ fs [flatLangTheory.exp_size_def] \\ rw []
   \\ fs [flatLangTheory.exp_size_def] \\ res_tac \\ fs []
 QED
 
-Triviality MEM_pats_size:
+Theorem MEM_pats_size[local]:
   !pats p e. MEM (p, e) pats ==> flatLang$exp_size e < exp3_size pats
 Proof
   Induct \\ fs [flatLangTheory.exp_size_def] \\ rw []
@@ -632,6 +698,7 @@ Definition clos_op_to_display_def:
     | BlockOp (Cons num) => item_with_num (strlit "Cons") num
     | BlockOp (ElemAt num) => item_with_num (strlit "ElemAt") num
     | BlockOp (TagLenEq n1 n2) => item_with_nums (strlit "TagLenEq") [n1; n2]
+    | BlockOp (BoolTest test) => Item NONE (strlit "BoolTest") [test_to_display test]
     | BlockOp (LenEq num) => item_with_num (strlit "LenEq") num
     | BlockOp (TagEq num) => item_with_num (strlit "TagEq") num
     | BlockOp LengthBlock => String (strlit "LengthBlock")
@@ -675,13 +742,16 @@ Definition clos_op_to_display_def:
     | IntOp Greater => String (strlit "Greater")
     | IntOp GreaterEq => String (strlit "GreaterEq")
     | IntOp (LessConstSmall num) => item_with_num (strlit "LessConstSmall") num
-    | WordOp (WordOpw ws op) =>
-        Item NONE (strlit "WordOp") [ word_size_to_display ws; opw_to_display op ]
-    | WordOp (WordShift ws sh num) => Item NONE (strlit "WordShift") [
-      word_size_to_display ws;
-      shift_to_display sh;
-      num_to_display num
-    ]
+    | WordOp (WordOpw ws op) => Item NONE (strlit "WordOp")
+                                     [word_size_to_display ws;
+                                      opw_to_display op]
+    | WordOp (WordShift ws sh num) => Item NONE (strlit "WordShift")
+                                           [word_size_to_display ws;
+                                            shift_to_display sh;
+                                            num_to_display num]
+    | WordOp (WordTest ws test) => Item NONE (strlit "WordTest")
+                                        [word_size_to_display ws;
+                                         test_to_display test]
     | WordOp WordFromInt => String (strlit "WordFromInt")
     | WordOp WordToInt => String (strlit "WordToInt")
     | WordOp (WordFromWord b) => Item NONE (strlit "WordFromWord") [bool_to_display b]
@@ -690,9 +760,10 @@ Definition clos_op_to_display_def:
     | WordOp (FP_bop op) => fp_bop_to_display op
     | WordOp (FP_top op) => fp_top_to_display op
     | Install => String (strlit "Install")
+    | ThunkOp t => thunk_op_to_display t
 End
 
-Triviality MEM_clos_exps_size:
+Theorem MEM_clos_exps_size[local]:
   !exps e. MEM e exps ==> closLang$exp_size e < exp3_size exps
 Proof
   Induct \\ fs [closLangTheory.exp_size_def] \\ rw []
@@ -786,7 +857,7 @@ End
 
 (* bvl to displayLang *)
 
-Triviality MEM_bvl_exps_size:
+Theorem MEM_bvl_exps_size[local]:
   !exps e. MEM e exps ==> bvl$exp_size e < exp1_size exps
 Proof
   Induct \\ fs [bvlTheory.exp_size_def] \\ rw []
@@ -815,6 +886,9 @@ Definition bvl_to_display_def:
     Item NONE (strlit "call")
          (String (attach_name ns dest) ::
           (bvl_to_display_list ns h xs))) /\
+  (bvl_to_display ns h (Force loc n) =
+    Item NONE (strlit "force")
+         [display_num_as_varn (h-n-1); String (attach_name ns (SOME loc))]) /\
   (bvl_to_display ns h (Op op xs) =
     Item NONE (strlit "op") (clos_op_to_display ns op ::
                              (bvl_to_display_list ns h xs)))  ∧
@@ -843,7 +917,7 @@ End
 
 (* bvi to displayLang *)
 
-Triviality MEM_bvi_exps_size:
+Theorem MEM_bvi_exps_size[local]:
   !exps e. MEM e exps ==> bvi$exp_size e < exp2_size exps
 Proof
   Induct \\ fs [bviTheory.exp_size_def] \\ rw []
@@ -873,6 +947,9 @@ Definition bvi_to_display_def:
            | SOME e => [Item NONE (strlit "handler") [display_num_as_varn h;
                                                       empty_item (strlit "->");
                                                       bvi_to_display ns (h+1) e]]))) /\
+  (bvi_to_display ns h (Force loc n) =
+    Item NONE (strlit "force")
+         [display_num_as_varn (h-n-1); String (attach_name ns (SOME loc))]) ∧
   (bvi_to_display ns h (Op op xs) =
     Item NONE (strlit "op") (clos_op_to_display ns op ::
                              (bvi_to_display_list ns h xs)))  ∧
@@ -915,14 +992,14 @@ Definition data_seqs_def:
     | _ => List [z]
 End
 
-Triviality MEM_append_data_seqs:
+Theorem MEM_append_data_seqs[local]:
   ∀x. MEM a (append (data_seqs x)) ⇒ prog_size a ≤ prog_size x
 Proof
   Induct \\ simp [Once data_seqs_def,dataLangTheory.prog_size_def]
   \\ rw [] \\ res_tac \\ gvs []
 QED
 
-Triviality list_size_append_data_seqs:
+Theorem list_size_append_data_seqs[local]:
   ∀x.
   list_size prog_size (append (data_seqs x)) =
   prog_size x + 1
@@ -950,6 +1027,11 @@ Definition data_prog_to_display_def:
             list_to_display num_to_display args;
             Item NONE (strlit "some") [Tuple [num_to_display v;
                 data_prog_to_display k ns handler]]]
+    | Force ret loc src => Item NONE (strlit "force")
+        [option_to_display (\(x, y). Tuple
+                [num_to_display x; num_set_to_display y]) ret;
+         num_to_display loc;
+         num_to_display src]
     | Assign n op args n_set => Tuple
         [num_to_display n;
          String (strlit ":=");
@@ -1033,9 +1115,11 @@ Definition asm_memop_to_display_def:
   asm_memop_to_display op = case op of
     | Load => empty_item (strlit "Load")
     | Load8 => empty_item (strlit "Load8")
+    | Load16 => empty_item (strlit "Load16")
     | Load32 => empty_item (strlit "Load32")
     | Store => empty_item (strlit "Store")
     | Store8 => empty_item (strlit "Store8")
+    | Store16 => empty_item (strlit "Store16")
     | Store32 => empty_item (strlit "Store32")
 End
 
@@ -1125,14 +1209,14 @@ Definition stack_seqs_def:
     | _ => List [z]
 End
 
-Triviality MEM_append_stack_seqs:
+Theorem MEM_append_stack_seqs[local]:
   ∀x. MEM a (append (stack_seqs x)) ⇒ prog_size ARB a ≤ prog_size ARB x
 Proof
   Induct \\ simp [Once stack_seqs_def,stackLangTheory.prog_size_def]
   \\ rw [] \\ res_tac \\ gvs []
 QED
 
-Triviality list_size_append_stack_seqs:
+Theorem list_size_append_stack_seqs[local]:
   ∀x.
   list_size (prog_size ARB) (append (stack_seqs x)) =
   prog_size ARB x + 1
@@ -1297,14 +1381,14 @@ Definition word_seqs_def:
     | _ => List [z]
 End
 
-Triviality MEM_append_word_seqs:
+Theorem MEM_append_word_seqs[local]:
   ∀x. MEM a (append (word_seqs x)) ⇒ prog_size ARB a ≤ prog_size ARB x
 Proof
   Induct \\ simp [Once word_seqs_def,wordLangTheory.prog_size_def]
   \\ rw [] \\ res_tac \\ gvs []
 QED
 
-Triviality MEM_word_exps_size_ARB =
+Theorem MEM_word_exps_size_ARB[local] =
   wordLangTheory.MEM_IMP_exp_size |> Q.GEN `l` |> Q.SPEC `ARB`;
 
 Definition word_exp_to_display_def:
@@ -1469,14 +1553,14 @@ End
 
 Definition source_to_strs_def:
   source_to_strs decs =
-    map_to_append (v2strs (strlit "\n\n") o
+    map_to_append (str_tree_to_strs (strlit "\n\n") o
                    display_to_str_tree o
                    source_to_display_dec) decs
 End
 
 Definition flat_to_strs_def:
   flat_to_strs (decs:flatLang$dec list) =
-    map_to_append (v2strs (strlit "\n\n") o
+    map_to_append (str_tree_to_strs (strlit "\n\n") o
                    display_to_str_tree o
                    flat_to_display_dec) decs
 End
@@ -1484,17 +1568,17 @@ End
 Definition clos_to_strs_def:
   clos_to_strs (decs,funs) =
     let names = clos_to_bvl$get_src_names (decs ++ MAP (SND o SND) funs) LN in
-      Append (map_to_append (v2strs (strlit "\n\n") o
+      Append (map_to_append (str_tree_to_strs (strlit "\n\n") o
                              display_to_str_tree o
                              clos_dec_to_display names) decs)
-             (map_to_append (v2strs (strlit "\n\n") o
+             (map_to_append (str_tree_to_strs (strlit "\n\n") o
                              display_to_str_tree o
                              clos_fun_to_display names) funs)
 End
 
 Definition bvl_to_strs_def:
   bvl_to_strs names xs =
-    map_to_append (v2strs (strlit "\n\n") o
+    map_to_append (str_tree_to_strs (strlit "\n\n") o
                    display_to_str_tree o
                    bvl_fun_to_display names) xs
 End
@@ -1511,7 +1595,7 @@ val bvl_test =
 
 Definition bvi_to_strs_def:
   bvi_to_strs names xs =
-    map_to_append (v2strs (strlit "\n\n") o
+    map_to_append (str_tree_to_strs (strlit "\n\n") o
                    display_to_str_tree o
                    bvi_fun_to_display names) xs
 End
@@ -1528,7 +1612,7 @@ val bvi_test =
 
 Definition data_to_strs_def:
   data_to_strs names xs =
-    map_to_append (v2strs (strlit "\n\n") o
+    map_to_append (str_tree_to_strs (strlit "\n\n") o
                    display_to_str_tree o
                    data_fun_to_display names) xs
 End
@@ -1545,21 +1629,21 @@ val data_test =
 
 Definition word_to_strs_def:
   word_to_strs names xs =
-    map_to_append (v2strs (strlit "\n\n") o
+    map_to_append (str_tree_to_strs (strlit "\n\n") o
                    display_to_str_tree o
                    word_fun_to_display names) xs
 End
 
 Definition stack_to_strs_def:
   stack_to_strs names xs =
-    map_to_append (v2strs (strlit "\n\n") o
+    map_to_append (str_tree_to_strs (strlit "\n\n") o
                    display_to_str_tree o
                    stack_fun_to_display names) xs
 End
 
 Definition lab_to_strs_def:
   lab_to_strs names xs =
-    map_to_append (v2strs (strlit "\n\n") o
+    map_to_append (str_tree_to_strs (strlit "\n\n") o
                    display_to_str_tree o
                    lab_fun_to_display names) xs
 End
@@ -1587,4 +1671,3 @@ val data_prog_tm =
 val _ = data_to_strs data_prog_tm names_tm |> print_strs
 
 *)
-

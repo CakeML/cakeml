@@ -62,7 +62,7 @@ for idx, line in enumerate(all_dirs):
 
     # Check if the path is a directory
     if os.path.isdir(full_path):
-        jobs = 1 if "compiler/bootstrap/translation" in str(full_path) else 4
+        jobs = 4 # 1 if "compiler/bootstrap/translation" in str(full_path) else 4
         retries = 0
         success = False
 

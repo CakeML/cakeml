@@ -40,6 +40,13 @@ Proof
     \\ fs [stack_removeTheory.store_list_def]
     \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
     \\ rveq \\ fs [] \\ EVAL_TAC)
+  >- (
+    fs [stack_removeTheory.store_offset_def,
+        stack_removeTheory.store_pos_def]
+    \\ every_case_tac \\ fs [] THEN1 EVAL_TAC
+    \\ fs [stack_removeTheory.store_list_def]
+    \\ fs [INDEX_FIND_CONS_EQ_SOME,EVAL ``INDEX_FIND n f []``]
+    \\ rveq \\ fs [] \\ EVAL_TAC)
   \\ fs[stack_removeTheory.max_stack_alloc_def]
   \\ EVAL_TAC>>fs[]
   \\ fs [bitTheory.BIT_def,bitTheory.BITS_THM,LESS_DIV_EQ_ZERO]
@@ -90,7 +97,7 @@ Proof
   \\ pairarg_tac \\ gvs []
 QED
 
-Triviality IMP_EVERY_list_add_if_fresh:
+Theorem IMP_EVERY_list_add_if_fresh[local]:
   ∀xs x p. p x ∧ EVERY p xs ⇒ EVERY p (list_add_if_fresh x xs)
 Proof
   Induct \\ gvs [lab_to_targetTheory.list_add_if_fresh_def] \\ rw []

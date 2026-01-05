@@ -101,7 +101,7 @@ Definition f11_def:
 End
 val f11_v_thm = m_translate f11_def;
 val f11_side_def = fetch "-" "f11_side_def"
-Triviality f11_side_true:
+Theorem f11_side_true[local]:
   !xs st. f11_side st xs
 Proof
   Induct \\ rw[Once f11_side_def]

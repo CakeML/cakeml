@@ -26,18 +26,25 @@ Libs
  * been added, also TagLenEq and El for pattern match compilation. *)
 Datatype:
  op =
+  (* primitive operations for the primitive types: +, -, and, sqrt, etc. *)
+    Arith arith prim_type
+  (* conversions between primitive types: char<->int, word<->double, word<->int *)
+  | FromTo prim_type prim_type
   (* Operations on integers *)
-    Opn opn
+  | Opn opn
   | Opb opb
   (* Operations on words *)
   | Opw word_size opw
   | Shift word_size shift num
   | Equality
+  | Test test prim_type
   (* FP operations *)
   | FP_cmp fp_cmp
   | FP_uop fp_uop
   | FP_bop fp_bop
   | FP_top fp_top
+  | FpFromWord
+  | FpToWord
   (* Function application *)
   | Opapp
   (* Reference operations *)
@@ -60,7 +67,6 @@ Datatype:
   (* Char operations *)
   | Ord
   | Chr
-  | Chopb opb
   (* String operations *)
   | Implode
   | Explode
@@ -70,6 +76,7 @@ Datatype:
   (* Vector operations *)
   | VfromList
   | Vsub
+  | Vsub_unsafe
   | Vlength
   (* Array operations *)
   | Aalloc
@@ -103,6 +110,8 @@ Datatype:
   | El num
   (* No-op step for a single value *)
   | Id
+  (* Thunk *)
+  | ThunkOp ast$thunk_op
 End
 
 Type ctor_id = ``:num``
@@ -260,4 +269,3 @@ Proof
   \\ CONV_TAC (RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   \\ rw [SmartIf_def]
 QED
-

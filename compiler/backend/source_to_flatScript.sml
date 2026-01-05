@@ -89,9 +89,12 @@ Definition astOp_to_flatOp_def:
   | FP_uop uop => flatLang$FP_uop uop
   | FP_bop bop => flatLang$FP_bop bop
   | FP_top t_op => flatLang$FP_top t_op
-  | FpFromWord => Id
-  | FpToWord => Id
+  | FpFromWord => flatLang$FpFromWord
+  | FpToWord => flatLang$FpToWord
   | Equality => flatLang$Equality
+  | Arith a test_ty => flatLang$Arith a test_ty
+  | FromTo ty1 ty2 => flatLang$FromTo ty1 ty2
+  | Test test test_ty => flatLang$Test test test_ty
   | Opapp => flatLang$Opapp
   | Opassign => flatLang$Opassign
   | Opref => flatLang$Opref
@@ -109,7 +112,6 @@ Definition astOp_to_flatOp_def:
   | XorAw8Str_unsafe => flatLang$Aw8xor_unsafe
   | Ord => flatLang$Ord
   | Chr => flatLang$Chr
-  | Chopb opb => flatLang$Chopb opb
   | Implode => flatLang$Implode
   | Explode => flatLang$Explode
   | Strsub => flatLang$Strsub
@@ -117,6 +119,7 @@ Definition astOp_to_flatOp_def:
   | Strcat => flatLang$Strcat
   | VfromList => flatLang$VfromList
   | Vsub => flatLang$Vsub
+  | Vsub_unsafe => flatLang$Vsub_unsafe
   | Vlength => flatLang$Vlength
   | Aalloc => flatLang$Aalloc
   | AallocFixed => flatLang$AallocFixed
@@ -131,6 +134,7 @@ Definition astOp_to_flatOp_def:
   | ConfigGC => flatLang$ConfigGC
   | FFI string => flatLang$FFI string
   | Eval => Eval
+  | ThunkOp t => ThunkOp t
   (* default element *)
   | _ => flatLang$ConfigGC
 End
@@ -238,8 +242,6 @@ Definition compile_exp_def:
   (compile_exp t env (Tannot e _) = compile_exp t env e) ∧
   (* When encountering a Lannot, we update the trace we are passing *)
   (compile_exp t env (Lannot e (Locs st en)) = compile_exp t env e) ∧
-  (* remove FPOptimise annotations *)
-  (compile_exp t env (FpOptimise fpopt e) = compile_exp t env e) /\
   (compile_exps t env [] = []) ∧
   (compile_exps t env (e::es) =
      compile_exp t env e :: compile_exps t env es) ∧
@@ -536,4 +538,3 @@ Definition inc_compile_def:
     let p' = MAP (flat_pattern$compile_dec c'.pattern_cfg) p' in
     (c', p')
 End
-

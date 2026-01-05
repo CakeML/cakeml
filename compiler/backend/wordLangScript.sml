@@ -5,7 +5,7 @@
 *)
 Theory wordLang
 Ancestors
-  asm stackLang
+  stackLang
 Libs
   preamble
 
@@ -198,7 +198,7 @@ End
 Definition max_var_exp_def:
   (max_var_exp (Var num) = num) ∧
   (max_var_exp (Load exp) = max_var_exp exp) ∧
-  (max_var_exp (Op wop ls) = list_max (MAP (max_var_exp) ls))∧
+  (max_var_exp (Op wop ls) = MAX_LIST (MAP (max_var_exp) ls))∧
   (max_var_exp (Shift sh exp n) = max_var_exp exp) ∧
   (max_var_exp exp = 0:num)
 End
@@ -235,24 +235,24 @@ End
 
 Definition cutsets_max_def[simp]:
   cutsets_max (c:cutsets) =
-    MAX (list_max (MAP FST (toAList (FST c)))) (list_max (MAP FST (toAList (SND c))))
+    MAX (MAX_LIST (MAP FST (toAList (FST c)))) (MAX_LIST (MAP FST (toAList (SND c))))
 End
 
 Definition max_var_def:
   (max_var Skip = 0) ∧
   (max_var (Move pri ls) =
-    list_max (MAP FST ls ++ MAP SND ls)) ∧
+    MAX_LIST (MAP FST ls ++ MAP SND ls)) ∧
   (max_var (Inst i) = max_var_inst i) ∧
   (max_var (Assign num exp) = MAX num (max_var_exp exp)) ∧
   (max_var (Get num store) = num) ∧
   (max_var (Store exp num) = MAX num (max_var_exp exp)) ∧
   (max_var (Call ret dest args h) =
-    let n = list_max args in
+    let n = MAX_LIST args in
     case ret of
       NONE => n
     | SOME (v,cutset,ret_handler,l1,l2) =>
       let cutset_max = MAX n (cutsets_max cutset) in
-      let ret_max = max3 (list_max v) cutset_max (max_var ret_handler) in
+      let ret_max = max3 (MAX_LIST v) cutset_max (max_var ret_handler) in
       (case h of
         NONE => ret_max
       | SOME (v,prog,l1,l2) =>
@@ -265,18 +265,18 @@ Definition max_var_def:
   (max_var (Alloc num numset) =
     MAX num (cutsets_max numset)) ∧
   (max_var (StoreConsts a b c d ws) =
-    list_max [a;b;c;d]) ∧
+    MAX_LIST [a;b;c;d]) ∧
   (max_var (Install r1 r2 r3 r4 numset) =
-    (list_max (r1::r2::r3::r4::cutsets_max numset::[]))) ∧
+    (MAX_LIST [r1;r2;r3;r4;cutsets_max numset])) ∧
   (max_var (CodeBufferWrite r1 r2) =
     MAX r1 r2) ∧
   (max_var (DataBufferWrite r1 r2) =
     MAX r1 r2) ∧
   (max_var (FFI ffi_index ptr1 len1 ptr2 len2 numset) =
-    list_max (ptr1::len1::ptr2::len2::cutsets_max numset::[])) ∧
+    MAX_LIST [ptr1;len1;ptr2;len2;cutsets_max numset]) ∧
   (max_var (Raise num) = num) ∧
   (max_var (OpCurrHeap _ num1 num2) = MAX num1 num2) ∧
-  (max_var (Return num1 ns) = list_max (num1::ns)) ∧
+  (max_var (Return num1 ns) = MAX_LIST (num1::ns)) ∧
   (max_var Tick = 0) ∧
   (max_var (LocValue r l1) = r) ∧
   (max_var (Set n exp) = max_var_exp exp) ∧

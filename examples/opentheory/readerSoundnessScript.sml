@@ -14,8 +14,8 @@ val mem = ``mem:'U->'U-> bool``;
 Theorem reader_sound:
   reader_main fs init_refs cl = (outp,refs,SOME s) ⇒
     refs.the_context extends init_ctxt ∧
-    outp = add_stdout (flush_stdin cl fs)
-                      (concat (append (msg_success s refs.the_context))) ∧
+    outp = flush_stdin_cl cl
+      (add_stdout fs (concat (append (msg_success s refs.the_context)))) ∧
     ∀asl c.
       MEM (Sequent asl c) s.thms ∧
       is_set_theory ^mem ⇒
@@ -25,4 +25,3 @@ Proof
   \\ drule (GEN_ALL reader_proves) \\ rw []
   \\ irule proves_sound \\ fs []
 QED
-

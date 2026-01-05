@@ -6,10 +6,9 @@
 Theory bigClock
 Ancestors
   ast bigStep semanticPrimitives evaluate determ
-  semanticPrimitivesProps fpSemProps
+  semanticPrimitivesProps
 Libs
   preamble boolSimps
-
 
 val evaluate_ind = bigStepTheory.evaluate_ind;
 val _ = bring_to_front_overload"evaluate_decs"{Name="evaluate_decs",Thy="bigStep"};
@@ -37,13 +36,12 @@ Theorem big_unclocked_unchanged[local]:
      SND r1 ≠ Rerr (Rabort Rtimeout_error) ∧
      s.clock = (FST r1).clock)
 Proof
-  ho_match_mp_tac evaluate_ind >> rw [] >>
-  fs[do_app_cases, shift_fp_opts_def, do_fprw_def, compress_if_bool_def] >>
-  rw [] >> fs [] >>
-  every_case_tac >> fs[] >> rveq >> fs[]
+  ho_match_mp_tac evaluate_ind \\ rw []
+  \\ gvs [AllCaseEqs()]
+  \\ gvs [do_app_cases,AllCaseEqs(),oneline thunk_op_def,store_alloc_def]
 QED
 
-Triviality lemma:
+Theorem lemma[local]:
   ((s with clock := c) with <| refs := r; ffi := io |>) =
   s with <| clock := c; refs := r; ffi := io |>
 Proof
@@ -81,8 +79,8 @@ Theorem big_unclocked_ignore:
 Proof
   ho_match_mp_tac evaluate_ind >>
   rw [] >>
-  rw [Once evaluate_cases, shift_fp_opts_def]>>
-  fs [opClass_cases, compress_if_bool_def, isFpBool_def] >>
+  rw [Once evaluate_cases]>>
+  fs [opClass_cases, isFpBool_def] >>
   rw [] >> fs[] >>
   TRY (disj1_tac >>
        qexists_tac `vs` >>
@@ -127,7 +125,40 @@ Proof
        qexists_tac ‘vs’ >>
        qexists_tac `s2 with clock := count'` >>
        rw[] >>
-       NO_TAC) >>
+       NO_TAC)
+  >>~ [‘dest_thunk’]
+  >- metis_tac[]
+  >- metis_tac[]
+  >- metis_tac[]
+  >- metis_tac[]
+  >- (
+    ntac 3 disj2_tac >> disj1_tac >>
+    last_x_assum $ irule_at Any >> simp[]
+    )
+  >- (
+    ntac 3 disj2_tac >> disj1_tac >>
+    last_x_assum $ irule_at Any >> simp[]
+    )
+  >- (
+    ntac 4 disj2_tac >> disj1_tac >>
+    last_x_assum $ irule_at Any >> simp[] >>
+    first_x_assum $ irule_at Any >> simp[]
+    )
+  >- (
+    ntac 4 disj2_tac >> disj1_tac >>
+    last_x_assum $ irule_at Any >> simp[] >>
+    first_x_assum $ irule_at Any >> simp[]
+    )
+  >- (
+    disj2_tac >>
+    last_x_assum $ irule_at Any >> simp[] >>
+    last_x_assum $ irule_at Any >> simp[]
+    )
+  >- (
+    disj2_tac >>
+    last_x_assum $ irule_at Any >> simp[] >>
+    last_x_assum $ irule_at Any >> simp[]
+    ) >>
   rfs [] >>
   metis_tac [with_clock_refs]
 QED
@@ -176,7 +207,7 @@ Theorem add_to_counter:
        evaluate_match T env (s with clock := s.clock+extra) v pes err_v ((s' with clock := s'.clock+extra),r'))
 Proof
   ho_match_mp_tac evaluate_ind >>
-  rw [] >> rw [Once evaluate_cases, shift_fp_opts_def] >>
+  rw [] >> rw [Once evaluate_cases] >>
   fs[opClass_cases] >> rfs[] >>
   TRY (metis_tac[with_clock_refs]) >>
   TRY (disj2_tac >> disj1_tac >>
@@ -186,7 +217,25 @@ Proof
   TRY (qexists_tac ‘s2 with clock := extra + s2.clock’ >> qexists_tac ‘v’ >>
        gs[state_component_equality] >> NO_TAC) >>
   TRY (qexists_tac ‘s2 with clock := extra + s2.clock’ >>
-       gs[state_component_equality] >> NO_TAC) >>
+       gs[state_component_equality] >> NO_TAC)
+  >>~ [‘ThunkOp ForceThunk’]
+  >- (
+    ntac 3 disj2_tac >> disj1_tac >>
+    first_assum(match_exists_tac o (snd o strip_forall o concl)) >>
+    simp[]
+    )
+  >- (
+    ntac 4 disj2_tac >> disj1_tac >>
+    first_assum(match_exists_tac o (snd o strip_forall o concl)) >>
+    simp[] >>
+    first_assum(match_exists_tac o (snd o strip_forall o concl)) >>
+    simp[]
+    )
+  >- (
+    disj2_tac >>
+    last_x_assum $ qspec_then ‘extra’ $ irule_at Any >> simp[] >>
+    first_x_assum $ qspec_then ‘extra’ $ irule_at Any >> simp[]
+    ) >>
   disj1_tac >>
   CONV_TAC(STRIP_QUANT_CONV(move_conj_left(same_const``evaluate_list`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o (snd o strip_forall o concl)) >>
@@ -196,7 +245,7 @@ Proof
   metis_tac []
 QED
 
-Triviality with_clock_clock:
+Theorem with_clock_clock[local]:
   (s with clock := a).clock = a
 Proof
   rw[]
@@ -224,7 +273,7 @@ Theorem add_clock[local]:
 Proof
   ho_match_mp_tac evaluate_ind >>
   rw [] >>
-  rw [Once evaluate_cases, shift_fp_opts_def] >>
+  rw [Once evaluate_cases] >>
   srw_tac[DNF_ss][] >> fs[opClass_cases] >>
   TRY(fs[state_component_equality]>>NO_TAC) >>
   TRY (
@@ -248,7 +297,27 @@ Proof
   TRY (
     srw_tac[DNF_ss][] >>
     rewrite_tac[ CONJ_ASSOC] >> once_rewrite_tac [CONJ_COMM] >>
-    first_assum(match_exists_tac o concl) >> simp[] >> NO_TAC) >>
+    first_assum(match_exists_tac o concl) >> simp[] >> NO_TAC)
+  >>~ [‘ThunkOp ForceThunk’]
+  >- (
+    gvs[] >> ntac 4 disj2_tac >> disj1_tac >>
+    dxrule $ cj 2 add_to_counter >> simp[] >>
+    disch_then $ qspec_then ‘c' + 1’ assume_tac >>
+    goal_assum drule >> simp[]
+    )
+  >- (
+    gvs[] >> ntac 4 disj2_tac >> disj1_tac >>
+    dxrule $ cj 2 add_to_counter >> simp[] >>
+    disch_then $ qspec_then ‘c' + 1’ assume_tac >>
+    rpt (goal_assum drule >> simp[])
+    )
+  >- (
+    gvs[] >> disj2_tac >>
+    dxrule $ cj 2 add_to_counter >> simp[] >>
+    disch_then $ qspec_then ‘c' + 1’ assume_tac >>
+    goal_assum $ drule_at Any >> simp[] >>
+    goal_assum $ drule_at $ Pat ‘evaluate _ _ _ _ _’ >> simp[]
+    ) >>
   metis_tac [add_to_counter, with_clock_with_clock, with_clock_clock,
              arithmeticTheory.ADD_COMM, arithmeticTheory.ADD_0, with_clock_refs,
              result_distinct, error_result_distinct, result_11]
@@ -276,11 +345,11 @@ Theorem clock_monotone[local]:
 Proof
   ho_match_mp_tac evaluate_ind >>
   rw [] >>
-  rw [Once evaluate_cases, shift_fp_opts_def] >>
+  rw [Once evaluate_cases] >>
   full_simp_tac (srw_ss()++ARITH_ss) []
 QED
 
-Triviality with_same_clock:
+Theorem with_same_clock[local]:
   (s with clock := s.clock) = s
 Proof
   rw[state_component_equality]
@@ -309,7 +378,7 @@ Proof
              with_clock_with_clock]
 QED
 
-Triviality wf_lem:
+Theorem wf_lem[local]:
   WF (($< :(num->num->bool)) LEX measure exp_size)
 Proof
   rw [] >>
@@ -507,70 +576,46 @@ Proof
       `?s2 r2. evaluate_list T env (s with clock := count') (REVERSE l) (s2,r2)`
                 by metis_tac [pair_CASES, eval_list_total_app] >>
       `(?err. r2 = Rerr err) ∨ (?v. r2 = Rval v)` by (cases_on `r2` >> metis_tac []) >>
-      rw [] >-
-      metis_tac [clock_monotone, arithmeticTheory.LESS_OR_EQ] >>
-      cases_on `o' = Opapp` >> rw[] >- (
-        `(do_opapp (REVERSE v) = NONE) ∨ (?env' e2. do_opapp (REVERSE v) = SOME (env',e2))`
-       by metis_tac [optionTheory.option_nchotomy, pair_CASES] >>
-        fs[opClass_cases] >- metis_tac[] >>
-        cases_on `s2.clock = 0` >>
-        rw [] >-
-          metis_tac [pair_CASES] >>
-        `s2.clock-1 < s2.clock` by srw_tac [ARITH_ss] [] >>
-        metis_tac [pair_CASES, clock_monotone, LESS_OR_EQ, LESS_TRANS, with_clock_clock]) >>
-      cases_on ‘opClass o' Reals’ >- (
-        cases_on ‘s2.fp_state.real_sem’ >- (
-          `(do_app (s2.refs,s2.ffi) o' (REVERSE v) = NONE) ∨
-           (?s3 e2. do_app (s2.refs,s2.ffi) o' (REVERSE v) = SOME (s3,e2))`
-           by metis_tac [optionTheory.option_nchotomy, pair_CASES] >- (
-             fs [opClass_cases] >> metis_tac [pair_CASES]) >>
-          ‘getOpClass o' = Reals’ by (cases_on ‘o'’ >> gs[opClass_cases, getOpClass_def]) >>
-          first_x_assum $ mp_then Any assume_tac (INST_TYPE [beta |-> alpha] realOp_determ) >>
-          cases_on ‘s3’ >> gs[] >> res_tac >>
-          first_x_assum $ qspec_then ‘s2.ffi’ assume_tac >> gs[] >> rveq >>
-          qexists_tac ‘s2 with <| refs := s2.refs ; ffi := s2.ffi |>’ >>
-          qexists_tac ‘e2’ >> gs[] >>
-          ntac 7 disj2_tac >> disj1_tac >>
-          last_x_assum $ irule_at Any >>
-          qexists_tac ‘s2.refs’ >> qexists_tac ‘s2.ffi’ >>
-          gs[]) >>
-        qexists_tac ‘shift_fp_opts s2’ >> qexists_tac ‘Rerr (Rabort Rtype_error)’ >>
-        gs[] >> ntac 7 disj2_tac >> disj1_tac >>
-        last_x_assum $ irule_at Any >> gs[]) >>
+      rw []
+      >- metis_tac [clock_monotone, arithmeticTheory.LESS_OR_EQ] >>
+      cases_on `o' = Opapp` >> rw[]
+      >- (`(do_opapp (REVERSE v) = NONE) ∨
+           (?env' e2. do_opapp (REVERSE v) = SOME (env',e2))`
+            by metis_tac [optionTheory.option_nchotomy, pair_CASES] >>
+          fs[opClass_cases] >- metis_tac[] >>
+          cases_on `s2.clock = 0` >>
+          rw []
+          >- metis_tac [pair_CASES] >>
+          `s2.clock-1 < s2.clock` by srw_tac [ARITH_ss] [] >>
+          metis_tac [pair_CASES, clock_monotone, LESS_OR_EQ,
+                     LESS_TRANS, with_clock_clock]) >>
+      Cases_on ‘o' = ThunkOp ForceThunk’ >> gvs[]
+      >- ( (* Force *)
+        simp[opClass_cases] >> gvs[SF DNF_ss] >>
+        Cases_on ‘dest_thunk (REVERSE v) s2.refs’ >- metis_tac[] >- metis_tac[] >>
+        ntac 2 disj2_tac >>
+        Cases_on ‘t’ >> gvs[] >- metis_tac[] >>
+        rename1 ‘IsThunk _ f’ >>
+        Cases_on ‘do_opapp [f; Conv NONE []]’ >- metis_tac[] >>
+        rename1 ‘SOME env_e’ >> PairCases_on ‘env_e’ >>
+        ntac 2 disj2_tac >>
+        Cases_on ‘s2.clock = 0’ >- metis_tac[] >>
+        disj2_tac >>
+        last_x_assum $ qspec_then ‘s2.clock - 1’ mp_tac >>
+        last_x_assum kall_tac >> impl_tac
+        >- (imp_res_tac clock_monotone >> gvs[]) >>
+        disch_then $ qspecl_then [‘env_e1’,‘env_e0’,‘s2’] $
+          qx_choosel_then [‘s3’,‘res’] assume_tac >>
+        reverse $ Cases_on ‘res’ >- metis_tac[] >>
+        disj2_tac >> Cases_on ‘update_thunk (REVERSE v) s3.refs [a]’ >> metis_tac[]
+        ) >>
       `(do_app (s2.refs,s2.ffi) o' (REVERSE v) = NONE) ∨
        (?s3 e2. do_app (s2.refs,s2.ffi) o' (REVERSE v) = SOME (s3,e2))`
-        by metis_tac [optionTheory.option_nchotomy, pair_CASES] >- (
-        fs [opClass_cases] >> metis_tac [pair_CASES]) >>
-      cases_on ‘opClass o' Simple’ >> gs[] >- metis_tac [pair_CASES] >>
-      cases_on ‘opClass o' Icing’ >> gs[] >- (
-        PairCases_on ‘s3’ >> gs[] >>
-        first_assum $ mp_then Any assume_tac (INST_TYPE [beta |-> alpha] fpOp_determ) >>
-        ‘~ opClass o' FunApp’ by (Cases_on ‘o'’ >> gs[opClass_cases]) >>
-        ‘getOpClass o' = Icing’ by (Cases_on ‘o'’ >> gs[getOpClass_def, opClass_cases]) >>
-        res_tac >>
-        first_x_assum $ qspec_then ‘s2.ffi’ assume_tac >> gs[] >>
-        pop_assum $ kall_tac >>
-        reverse $ cases_on ‘s2.fp_state.canOpt = FPScope Opt’ >> gs[] >- (
-          qexists_tac ‘s2 with <| refs := s2.refs ; ffi := s2.ffi |>’ >>
-          qexists_tac ‘compress_if_bool o' e2’ >> gs[] >>
-          disj1_tac >>
-          last_x_assum $ irule_at Any >>
-          qexists_tac ‘e2’ >>
-          qexists_tac ‘s2.refs’ >> qexists_tac ‘s2.ffi’ >> gs[]) >>
-        qexists_tac ‘shift_fp_opts s2 with <| refs := s2.refs ; ffi := s2.ffi |>’ >>
-        gs[] >>
-        cases_on ‘do_fprw e2 (s2.fp_state.opts 0) s2.fp_state.rws’ >- (
-          qexists_tac ‘compress_if_bool o' e2’ >>
-          disj2_tac >> disj1_tac >>
-          last_x_assum $ irule_at Any >>
-          qexists_tac ‘e2’ >>
-          qexists_tac ‘s2.refs’ >> qexists_tac ‘s2.ffi’ >> gs[]) >>
-        qexists_tac ‘compress_if_bool o' x’ >>
-        ntac 2 disj2_tac >> disj1_tac >>
-        last_x_assum $ irule_at Any >>
-        qexists_tac ‘e2’ >> qexists_tac ‘s2.refs’ >>
-        qexists_tac ‘x’ >> qexists_tac ‘s2.ffi’ >>
-        gs[]) >>
+        by metis_tac [optionTheory.option_nchotomy, pair_CASES]
+      >- (rename [‘op ≠ Opapp’] >>
+          ‘¬opClass op FunApp ∧ ¬opClass op Force’ by simp[opClass_cases] >> simp[] >>
+          metis_tac[]) >>
+      cases_on ‘opClass o' Simple’ >> gs[] >- metis_tac [pair_CASES]  >>
       ‘opClass o' EvalOp’ by (Cases_on ‘o'’ >> TRY (gs[opClass_cases] >> NO_TAC)) >>
       cases_on ‘o'’ >> gs[opClass_cases, do_app_def] >> every_case_tac >> gs[])
   >- ((* Log *)
@@ -630,14 +675,6 @@ Proof
       `exp_size e' < exp_size (Letrec l e')`
              by srw_tac [ARITH_ss] [exp_size_def] >>
       metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, with_clock_clock])
-  >- ((* FpOptimise Strict *)
-      `exp_size e' < exp_size (FpOptimise f e')`
-             by srw_tac [ARITH_ss] [exp_size_def] >>
-      metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, with_clock_clock])
-  >- ((* FpOptimise not Strict*)
-      `exp_size e' < exp_size (FpOptimise f e')`
-             by srw_tac [ARITH_ss] [exp_size_def] >>
-      metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, with_clock_clock])
 QED
 
 Theorem big_clocked_total:
@@ -686,7 +723,8 @@ Proof
   rw [] >>
   fs [] >>
   every_case_tac >> fs[] >> rveq >> fs[] >>
-  gs[do_fprw_def, compress_if_bool_def] >> every_case_tac >> gs[]
+  gs[] >> every_case_tac >> gs[] >>
+  gvs[thunk_op_def, AllCaseEqs(), store_alloc_def]
 QED
 
 Theorem big_clocked_unclocked_equiv_timeout:
@@ -734,81 +772,57 @@ Proof
   rw [] >>
   rw [Once evaluate_cases] >>
   full_simp_tac (srw_ss()++ARITH_ss) [state_component_equality]
-  >- metis_tac [pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``,
-                                                                                           with_clock_refs]
-  >- metis_tac [pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``,
-                                                                                           with_clock_refs]
-  >- metis_tac [pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``,
-                                                                                           with_clock_refs]
+  >- metis_tac [pair_CASES, FST, clock_monotone, DECIDE “y + z ≤ x ⇒ (x = (x - z) + z:num)”,
+                with_clock_refs]
+  >- metis_tac [pair_CASES, FST, clock_monotone, DECIDE “y + z ≤ x ⇒ (x = (x - z) + z:num)”,
+                with_clock_refs]
+  >- metis_tac [pair_CASES, FST, clock_monotone, DECIDE “y + z ≤ x ⇒ (x = (x - z) + z:num)”,
+                with_clock_refs]
   >- (fs [] >>
       disj1_tac >>
       CONV_TAC(STRIP_BINDER_CONV(SOME existential)(move_conj_left(can lhs))) >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       imp_res_tac clock_monotone >>
       fs [] >>
-      `?count'''. s2.clock = count''' + extra`
-        by (qexists_tac `s2.clock - extra` >>
+      ‘?count'''. s2.clock = count''' + extra’
+        by (qexists_tac ‘s2.clock - extra’ >>
             simp []) >>
-      qexists_tac `s2 with clock := count'''` >>
+      qexists_tac ‘s2 with clock := count'''’ >>
       simp [])
-  >- metis_tac [pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``]
-  >- metis_tac [pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``]
-  >- (gs[] >>
-      disj2_tac >> disj2_tac >> disj2_tac >>
-      disj1_tac >>
-      imp_res_tac clock_monotone >>
-      fs [] >>
-      qexists_tac `vs` >>
-      qexists_tac `s2 with clock := count''` >>
-      rw [])
-  >- (gs[] >>
-      ntac 4 disj2_tac >>
-      disj1_tac >>
-      imp_res_tac clock_monotone >>
-      fs [] >>
-      qexists_tac `vs` >> qexists_tac ‘vFp’ >>
-      qexists_tac `s2 with clock := count''` >>
-      rw [])
-  >- (gs[shift_fp_opts_def] >>
-      ntac 5 disj2_tac >>
-      disj1_tac >>
-      imp_res_tac clock_monotone >>
-      fs [] >>
-      qexists_tac `vs` >> qexists_tac ‘vFp’ >>
-      qexists_tac `s2 with clock := count''` >>
-      rw [])
-  >- (gs[shift_fp_opts_def] >>
-      ntac 6 disj2_tac >>
-      disj1_tac >>
-      imp_res_tac clock_monotone >>
-      fs [] >>
-      qexists_tac `vs` >> qexists_tac ‘res’ >>
-      qexists_tac ‘rOpt’ >>
-      qexists_tac `s2 with clock := count''` >>
-      rw [])
-  >- (gs[shift_fp_opts_def] >>
-      ntac 7 disj2_tac >> disj1_tac >>
-      imp_res_tac clock_monotone >>
-      fs [] >>
-      qexists_tac `vs` >>
-      qexists_tac `s2 with clock := count''` >>
-      rw [])
-  >- (gs[shift_fp_opts_def] >>
-      ntac 7 disj2_tac >> disj1_tac >>
-      imp_res_tac clock_monotone >>
-      fs [] >>
-      qexists_tac `vs` >>
-      qexists_tac `s2 with clock := count''` >>
-      rw [])
-  >- (gs[shift_fp_opts_def] >>
-      ntac 6 disj2_tac >> disj1_tac >>
-      imp_res_tac clock_monotone >> fs [] >>
-      qexists_tac `vs` >>
-      rw []) >>
-  TRY (
-    qexists_tac ‘s2 with clock := count''’ >> TRY $ qexists_tac ‘v’ >> gs[] >> NO_TAC) >>
-  metis_tac [pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``,
-                                                                                        with_clock_refs]
+  >- metis_tac [pair_CASES, FST, clock_monotone, DECIDE “y + z ≤ x ⇒ (x = (x - z) + z:num)”]
+  >- metis_tac [pair_CASES, FST, clock_monotone, DECIDE “y + z ≤ x ⇒ (x = (x - z) + z:num)”] >~
+  [‘opClass op Simple (* a *)’]
+  >- (‘¬opClass op FunApp’ by gs[opClass_cases] >> simp[] >> disj1_tac >>
+      first_assum $ irule_at (Pat ‘evaluate_list _ _ _ _ _ ’) >> simp[])
+  >>~ [‘ThunkOp ForceThunk’]
+  >- simp[SF SFY_ss]
+  >- simp[SF SFY_ss]
+  >- simp[SF SFY_ss]
+  >- simp[SF SFY_ss]
+  >- simp[SF SFY_ss]
+  >- (
+    ntac 8 disj2_tac >> disj1_tac >>
+    last_x_assum $ irule_at Any >> simp[] >>
+    first_x_assum $ irule_at Any >> simp[] >>
+    qexists ‘s2.clock - extra’ >> simp[] >>
+    imp_res_tac clock_monotone >> gvs[]
+    )
+  >- (
+    ntac 7 disj2_tac >> disj1_tac >>
+    last_x_assum $ irule_at Any >> simp[] >>
+    first_x_assum $ irule_at Any >> simp[] >>
+    qexists ‘s2.clock - extra’ >> simp[] >>
+    imp_res_tac clock_monotone >> gvs[]
+    )
+  >- (
+    rpt disj2_tac >>
+    last_x_assum $ irule_at Any >> simp[] >>
+    first_x_assum $ irule_at $ Pat ‘evaluate _ _ _ _ _’ >> simp[] >>
+    qexists ‘s2.clock - extra’ >> simp[] >>
+    imp_res_tac clock_monotone >> gvs[]
+    ) >>
+  metis_tac [pair_CASES, FST, clock_monotone, DECIDE “y + z ≤ x ⇒ (x = (x - z) + z:num)”,
+             with_clock_refs]
 QED
 
 Theorem clocked_min_counter:
@@ -1078,13 +1092,13 @@ Theorem evaluate_decs_unclocked_to_clocked =
   CONJUNCTS |> map (Q.SPEC `F`) |> LIST_CONJ |>
   SIMP_RULE (srw_ss()) [FORALL_PROD, AND_IMP_INTRO];
 
-Triviality wf_dec_lem:
+Theorem wf_dec_lem[local]:
   WF $ ($< : num -> num -> bool) LEX measure dec_size
 Proof
   simp[WF_LEX]
 QED
 
-Triviality dec_ind = MATCH_MP WF_INDUCTION_THM wf_dec_lem;
+Theorem dec_ind[local] = MATCH_MP WF_INDUCTION_THM wf_dec_lem;
 
 Theorem evaluate_decs_total_lemma:
   ∀ds env ^s clk.
@@ -1165,4 +1179,3 @@ Proof
   imp_res_tac big_unclocked >> gvs[] >>
   Cases_on `r` >> gvs[combine_dec_result_def]
 QED
-

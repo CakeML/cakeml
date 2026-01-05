@@ -8,7 +8,6 @@ Ancestors
 Libs
   ml_translatorLib ml_progLib blastLib
 
-
 val _ = register_type “:'a list”;
 val _ = register_type “:'a option”;
 
@@ -260,7 +259,7 @@ val _ = (print_asts := true);
 
 (* test no_ind *)
 
-Triviality word64_msb_thm:
+Theorem word64_msb_thm[local]:
   !w. word_msb (w:word64) =
          ((w && 0x8000000000000000w) = 0x8000000000000000w)
 Proof
@@ -274,7 +273,7 @@ val res = translate (miscTheory.arith_shift_right_def
                      |> PURE_REWRITE_RULE [wordsTheory.dimindex_64]
                      |> CONV_RULE (DEPTH_CONV wordsLib.WORD_GROUND_CONV));
 
-Triviality arith_shift_right_ind:
+Theorem arith_shift_right_ind[local]:
   arith_shift_right_ind
 Proof
   once_rewrite_tac [fetch "-" "arith_shift_right_ind_def"]
@@ -315,7 +314,7 @@ val res = translate test_def;
 
 (* Test floating-point support *)
 Definition test1_def:
-  test1 f = fp64_add roundTiesToEven f f
+  test1 f = float64_add f f
 End
 
 val res = translate test1_def;
@@ -323,7 +322,7 @@ val res = translate test1_def;
 (* FMA: *)
 
 Definition test2_def:
-  test2 f1 f2 f3 = (fp64_mul_add roundTiesToEven) f1 f2 f3
+  test2 f1 f2 f3 = float64_fma f1 f2 f3
 End
 
 val res = translate test2_def;
@@ -632,4 +631,3 @@ val _ = use_sub_check true;
 
 (* no precondition *)
 val res = translate foo_sub_def;
-

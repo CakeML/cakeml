@@ -28,7 +28,7 @@ Definition lab_inst_def:
   (lab_inst w (CallFFI n) = Jump w)
 End
 
-Definition cbw_to_asm_def:
+Definition cbw_to_asm_def[simp]:
   cbw_to_asm a =
   case a of
     Asmi a => a
@@ -36,7 +36,6 @@ Definition cbw_to_asm_def:
   | ShareMem m r ad => Inst (Mem m r ad)
 End
 
-val _ = export_rewrites ["cbw_to_asm_def"]
 
 Definition enc_line_def:
   (enc_line enc skip_len (Label n1 n2 n3) = Label n1 n2 skip_len) /\
@@ -181,11 +180,10 @@ Definition line_ok_light_def:
      asm_ok (lab_inst w a) c)
 End
 
-Definition sec_ok_light_def:
+Definition sec_ok_light_def[simp]:
   sec_ok_light c (Section k ls) ⇔
     EVERY (line_ok_light c) ls
 End
-val _ = export_rewrites["sec_ok_light_def"];
 
 Overload all_enc_ok_light = ``λc ls. EVERY (sec_ok_light c) ls``
 
@@ -247,7 +245,7 @@ Definition get_symbols_def:
 End
 
 (* Compute the labels whose second part is 0 *)
-Definition zero_labs_acc_of_def:
+Definition zero_labs_acc_of_def[simp]:
   (zero_labs_acc_of (LocValue _ (Lab n1 n2)) acc =
     if n2 = 0 then insert n1 () acc else acc) ∧
   (zero_labs_acc_of (Jump (Lab n1 n2)) acc =
@@ -257,7 +255,6 @@ Definition zero_labs_acc_of_def:
   (zero_labs_acc_of _ acc = acc)
 End
 
-val _ = export_rewrites["zero_labs_acc_of_def"];
 
 Definition line_get_zero_labs_acc_def:
   line_get_zero_labs_acc (LabAsm a _ _ _) acc = zero_labs_acc_of a acc ∧
@@ -394,9 +391,11 @@ End
 Definition get_memop_info_def:
   get_memop_info Load = (MappedRead, 0w) /\
   get_memop_info Load32 = (MappedRead,4w) /\
+  get_memop_info Load16 = (MappedRead,2w) /\
   get_memop_info Load8 = (MappedRead,1w) /\
   get_memop_info Store = (MappedWrite, 0w) /\
   get_memop_info Store32 = (MappedWrite,4w) /\
+  get_memop_info Store16 = (MappedWrite,2w) /\
   get_memop_info Store8 =(MappedWrite,1w)
 End
 

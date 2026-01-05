@@ -1,7 +1,7 @@
 (*
   Translate the compiler explorer parts of the compiler.
 *)
-Theory explorerProg
+Theory explorerProg[no_sig_docs]
 Ancestors
   inferProg
 Libs
@@ -44,7 +44,7 @@ val res = translate jsonLangTheory.concat_with_def;
 
 val res = translate_no_ind jsonLangTheory.json_to_mlstring_def;
 
-Triviality json_to_mlstring_ind:
+Theorem json_to_mlstring_ind[local]:
   json_to_mlstring_ind
 Proof
   rewrite_tac [fetch "-" "json_to_mlstring_ind_def"]
@@ -56,9 +56,8 @@ QED
 
 val _ = json_to_mlstring_ind |> update_precondition;
 
-(* str_tree and displayLang *)
+(* displayLang *)
 
-val r = translate str_treeTheory.v2strs_def;
 val r = translate displayLangTheory.display_to_str_tree_def;
 
 (* presLang *)
@@ -100,7 +99,7 @@ val r = translate presLangTheory.bvi_to_display_def;
 val r = translate presLangTheory.bvi_fun_to_display_def;
 val r = translate presLangTheory.bvi_to_strs_def;
 
-Triviality string_imp_thm:
+Theorem string_imp_thm[local]:
   string_imp = λs. String (implode s)
 Proof
   fs [FUN_EQ_THM,presLangTheory.string_imp_def]
@@ -114,7 +113,6 @@ val r = presLangTheory.clos_to_display_def
 val r = translate presLangTheory.clos_dec_to_display_def;
 val r = translate presLangTheory.clos_to_strs_def;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

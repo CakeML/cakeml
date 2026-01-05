@@ -19,7 +19,7 @@ Definition dest_2exp_def:
     else dest_2exp (n + 1n) (word_lsr w 1n)
 End
 
-Triviality dest_2exp_lemma:
+Theorem dest_2exp_lemma[local]:
   ! i w n. dest_2exp i w = SOME n ==>
   i <= n /\ w = word_lsl 1w (n - i)
 Proof
@@ -97,10 +97,9 @@ Definition simp_prog_def:
           | NONE => NONE
           | SOME (ix, ep) => SOME (ix, simp_prog ep)
       ) in
-    Call call_type2 (simp_exp e) (MAP simp_exp exps)
+    Call call_type2 e (MAP simp_exp exps)
   ) /\
   simp_prog (Return exp) = Return (simp_exp exp) /\
   simp_prog (ShMem op vn exp) = ShMem op vn (simp_exp exp) /\
   simp_prog p = p
 End
-

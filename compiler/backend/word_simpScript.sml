@@ -316,12 +316,16 @@ Definition const_fp_loop_def:
     (ShareInst Load v (const_fp_exp e cs), delete v cs)) /\
   (const_fp_loop (ShareInst Load8 v e) cs =
     (ShareInst Load8 v (const_fp_exp e cs), delete v cs)) /\
+  (const_fp_loop (ShareInst Load16 v e) cs =
+    (ShareInst Load16 v (const_fp_exp e cs), delete v cs)) /\
   (const_fp_loop (ShareInst Load32 v e) cs =
     (ShareInst Load32 v (const_fp_exp e cs), delete v cs)) /\
   (const_fp_loop (ShareInst Store v e) cs =
     (ShareInst Store v (const_fp_exp e cs), cs)) /\
   (const_fp_loop (ShareInst Store8 v e) cs =
     (ShareInst Store8 v (const_fp_exp e cs), cs)) /\
+  (const_fp_loop (ShareInst Store16 v e) cs =
+    (ShareInst Store16 v (const_fp_exp e cs), cs)) /\
   (const_fp_loop (ShareInst Store32 v e) cs =
     (ShareInst Store32 v (const_fp_exp e cs), cs)) /\
   (const_fp_loop p cs = (p, cs))
@@ -440,13 +444,44 @@ Definition simp_duplicate_if_def:
   | _ => p
 End
 
+(*Optimize pairs where one side is known to terminate due to a Raise or a Return
+the flag is T when its known to halt and F otherwise
+
+*)
+Definition push_out_if_aux_def:
 (* all of them together *)
+  push_out_if_aux p = dtcase p of
+  | MustTerminate q =>
+    (dtcase (push_out_if_aux q) of
+    | (c,b) => (MustTerminate c,b))
+  | Return _ _ => (p,T)
+  | Raise _ => (p,T)
+  | Call NONE _ _ _ => (p, T)
+  | If cmp r1 ri c1 c2 => (dtcase (push_out_if_aux c1,push_out_if_aux c2) of
+                            | ((c1',T),(c2',T)) => (If cmp r1 ri c1' c2', T)
+                            | ((c1',F),(c2',T)) => (Seq (If cmp r1 ri Skip c2') c1', F)
+                            | ((c1',T),(c2',F)) => (Seq (If cmp r1 ri c1' Skip) c2', F)
+                            | ((c1',F),(c2',F)) => (If cmp r1 ri c1' c2', F))
+  | Seq c1 c2 => (dtcase (push_out_if_aux c1) of
+                   | (c1', T) => ((Seq c1' c2),T) (*Don't have to bother as DCE will get rid of it*)
+                   | (c1', F) =>
+                      (dtcase (push_out_if_aux c2) of
+                      |  (c2',b) => (Seq c1' c2', b)))
+  | _ => (p,F)
+End
+
+Definition push_out_if_def:
+ push_out_if p = FST (push_out_if_aux p)
+End
+
+
 
 Definition compile_exp_def:
   compile_exp (e:'a wordLang$prog) =
     let e = Seq_assoc Skip e in
     let e = const_fp e in
     let e = simp_duplicate_if e in
+    let e = push_out_if e in
       e
 End
 

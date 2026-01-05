@@ -1,7 +1,7 @@
 (*
   Translation of the to_data compiler function.
 *)
-Theory to_data_cv
+Theory to_data_cv[no_sig_docs]
 Ancestors
   cv_std basis_cv backend backend_asm unify_cv infer_cv
 Libs
@@ -9,7 +9,7 @@ Libs
 
 val _ = cv_memLib.use_long_names := true;
 
-Triviality list_mem[cv_inline] = listTheory.MEM;
+Theorem list_mem[local,cv_inline] = listTheory.MEM;
 
 (* source_let *)
 
@@ -1291,7 +1291,7 @@ Proof
   rw[] >> rw[Once pre]
 QED
 
-Triviality free_LENGTH_LEMMA:
+Theorem free_LENGTH_LEMMA[local]:
   !xs ys s1. free xs = (ys,s1) ⇒ LENGTH xs = LENGTH ys
 Proof
   recInduct clos_knownTheory.free_ind \\ rpt strip_tac
@@ -1670,7 +1670,7 @@ Proof
   gvs[cv_stdTheory.MAPi_eq_list_mapi]
 QED
 
-Triviality SUM_MAP_const =
+Theorem SUM_MAP_const[local] =
   SUM_MAP_PLUS
         |> CONV_RULE SWAP_FORALL_CONV
         |> Q.SPEC ‘K x’
@@ -1772,7 +1772,7 @@ Proof
   rw[] >> rw[Once pre]
 QED
 
-Triviality cons_measure_pmatch_elim = clos_opTheory.cons_measure_def
+Theorem cons_measure_pmatch_elim[local] = clos_opTheory.cons_measure_def
                                         |> CONV_RULE $ QUANT_CONV $ RHS_CONV $ patternMatchesLib.PMATCH_ELIM_CONV;
 
 Theorem cons_measure_alt_thm:
@@ -1805,7 +1805,7 @@ Proof
   Cases_on ‘x’ \\ gvs []
 QED
 
-Triviality cv_lt_eq_SUC:
+Theorem cv_lt_eq_SUC[local]:
   cv_lt x y = cv$Num(SUC k) ⇔
   k = 0 ∧ ∃n m. x = cv$Num n ∧ y = cv$Num m ∧ n < m
 Proof
@@ -2193,7 +2193,7 @@ val _ = cv_auto_trans backend_asmTheory.to_bvl_def;
 (* Bring everything from bvl to the front -- everything because this file is
    too big for me to try everything separately. *)
 val bvl_names =
-  ["Var", "If", "Let", "Raise", "Handle", "Tick", "Call", "Op", "Bool",
+  ["Var", "If", "Let", "Raise", "Handle", "Tick", "Force", "Call", "Op", "Bool",
    "mk_tick"];
 val _ = app (fn name =>
   temp_bring_to_front_overload name {Name=name, Thy="bvl"}) bvl_names;
@@ -2475,7 +2475,7 @@ val _ = cv_trans bvl_inlineTheory.compile_prog_def;
 val _ = cv_trans (bvi_tailrecTheory.is_rec_def |> measure_args [1]);
 val _ = cv_auto_trans bvi_tailrecTheory.let_wrap_def;
 
-Triviality term_ok_int_eq:
+Theorem term_ok_int_eq[local]:
   term_ok_int ts expr ⇔
   case expr of
   | Var i => if i < LENGTH ts then EL i ts = Int else F
@@ -2505,7 +2505,7 @@ QED
 
 val _ = cv_trans bvi_tailrecTheory.get_bin_args_def;
 
-Triviality cv_bvi_tailrec_get_bin_args_lemma:
+Theorem cv_bvi_tailrec_get_bin_args_lemma[local]:
   cv_bvi_tailrec_get_bin_args (cv$Pair t v) = cv$Pair x (cv$Pair y z) ⇒
   cv_size y ≤ cv_size v ∧
   cv_size z ≤ cv_size v
@@ -2716,7 +2716,7 @@ val _ = cv_trans backend_asmTheory.to_bvl_all_def;
 val _ = cv_auto_trans (backend_asmTheory.to_bvi_all_def
                          |> REWRITE_RULE [bvl_inlineTheory.remove_ticks_sing,HD]);
 
-Triviality bvi_to_data_compile_sing:
+Theorem bvi_to_data_compile_sing[local]:
   FST (bvi_to_data$compile n env t l [x]) = FST (compile_sing n env t l x)
 Proof
   ‘∃y. compile_sing n env t l x = y’ by gvs []
@@ -2727,97 +2727,6 @@ QED
 val _ = cv_auto_trans (to_data_all_def |> REWRITE_RULE [bvi_to_data_compile_sing]);
 
 (* Explorer *)
-val _ = cv_auto_trans (str_treeTheory.smart_remove_def |> SRULE [GSYM GREATER_DEF]);
-
-Triviality dest_list_size_lemma:
-  ∀x v w.
-    (v,w) = dest_list x ⇒
-    list_size str_tree_size v + str_tree_size w ≤ str_tree_size x
-Proof
-  Induct \\ gvs [str_treeTheory.dest_list_def]
-  \\ gvs [str_treeTheory.str_tree_size_def,list_size_def]
-  \\ pairarg_tac \\ gvs [str_treeTheory.str_tree_size_def,list_size_def]
-QED
-
-Definition v2pretty_sing_def:
-  v2pretty_sing v =
-    (case v of
-     | Str s => String s
-     | GrabLine w => Size 100000 (v2pretty_sing w)
-     | Pair h t => let (rest,e) = dest_list t in
-              Parenthesis
-              (if e = Str «» then
-                 newlines (v2pretty_sing h :: v2pretty_list rest)
-               else
-                 Append (newlines (v2pretty_sing h :: v2pretty_list rest)) T
-                  (Append (String « . ») T (v2pretty_sing e)))) ∧
-  v2pretty_list [] = [] ∧
-  v2pretty_list (x::xs) = v2pretty_sing x :: v2pretty_list xs
-Termination
-  WF_REL_TAC ‘measure $ λx. case x of
-                            | INL e => str_tree$str_tree_size e
-                            | INR e => list_size str_tree$str_tree_size e’
-  \\ rw [] \\ gvs [str_treeTheory.dest_list_def]
-  \\ imp_res_tac dest_list_size_lemma
-  \\ gvs [str_treeTheory.str_tree_size_def,list_size_def]
-End
-
-Theorem v2pretty_eq_v2pretty_sing:
-  (∀v. v2pretty v = v2pretty_sing v) ∧
-  (∀v. MAP v2pretty v = v2pretty_list v)
-Proof
-  ho_match_mp_tac v2pretty_sing_ind \\ rpt strip_tac
-  \\ once_rewrite_tac [v2pretty_sing_def] \\ fs []
-  \\ simp [Once str_treeTheory.v2pretty_def]
-  \\ TOP_CASE_TAC \\ gvs[]
-  \\ pairarg_tac \\ gvs [] \\ rw [SF ETA_ss]
-  \\ pairarg_tac >> gvs[str_treeTheory.dest_list_def]
-QED
-
-val _ = cv_trans str_treeTheory.dest_list_def;
-
-val cv_str_tree_dest_list_def = fetch "-" "cv_str_tree_dest_list_def";
-
-Theorem cv_size_cv_fst_snd:
-  cv_size (cv_fst z) + cv_size (cv_snd z) ≤ cv_size z
-Proof
-  Cases_on`z`>>cv_termination_tac
-QED
-
-Triviality cv_str_tree_dest_list_size:
-  ∀v x1 x2.
-    cv_str_tree_dest_list v = cv$Pair x1 x2 ⇒
-    cv_size x1 < cv_size v ∧
-    cv_size x2 ≤ cv_size v
-Proof
-  ho_match_mp_tac (fetch "-" "cv_str_tree_dest_list_ind")
-  \\ rw[]
-  \\ pop_assum mp_tac
-  \\ simp [Once cv_str_tree_dest_list_def]
-  \\ rw[]
-  \\ cv_termination_tac
-  \\ Cases_on`k` \\ gvs[]
-  \\ assume_tac cv_size_cv_fst_snd
-  \\ gvs[]
-QED
-
-val pre = cv_auto_trans_pre_rec "" v2pretty_sing_def
-  (WF_REL_TAC ‘measure $ λx. case x of INL v => cv_size v | INR v => cv_size v’
-   \\ cv_termination_tac \\ Cases_on ‘k’ \\ gvs []
-   \\ imp_res_tac cv_str_tree_dest_list_size
-   \\ assume_tac cv_size_cv_fst_snd \\ gvs []);
-
-Theorem v2pretty_sing_pre[cv_pre]:
-  (∀v. v2pretty_sing_pre v) ∧
-  (∀v. v2pretty_list_pre v)
-Proof
-  ho_match_mp_tac v2pretty_sing_ind
-  \\ rw [] \\ simp [Once pre] \\ gvs []
-QED
-
-val _ = cv_trans (v2pretty_eq_v2pretty_sing |> CONJUNCT1);
-
-val _ = cv_auto_trans str_treeTheory.v2strs_def;
 
 val _ = cv_trans_pre "" jsonLangTheory.num_to_hex_digit_def;
 
@@ -2949,5 +2858,3 @@ val _ = cv_auto_trans presLangTheory.word_exp_to_display_def;
 val _ = cv_auto_trans presLangTheory.word_prog_to_display_def;
 
 val _ = cv_auto_trans presLangTheory.stack_prog_to_display_def;
-
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;

@@ -10,20 +10,20 @@ Libs
 
 val _ = temp_delsimps ["NORMEQ_CONV"]
 
-Triviality option_le_X_MAX_X[simp]:
+Theorem option_le_X_MAX_X[local,simp]:
   option_le x (OPTION_MAP2 MAX m x) /\
   option_le x (OPTION_MAP2 MAX x m)
 Proof
   Cases_on `m` \\ Cases_on `x` \\ fs []
 QED
 
-Triviality OPTION_MAP2_MAX_IDEMPOT[simp]:
+Theorem OPTION_MAP2_MAX_IDEMPOT[local,simp]:
   OPTION_MAP2 MAX x x = x
 Proof
   Cases_on `x` \\ fs []
 QED
 
-Triviality OPTION_MAP2_SOME_0[simp]:
+Theorem OPTION_MAP2_SOME_0[local,simp]:
   OPTION_MAP2 (+) x (SOME 0n) = x /\
   OPTION_MAP2 MAX x (SOME 0n) = x
 Proof
@@ -114,7 +114,7 @@ Proof
   \\ fs[option_le_max] \\ fs[option_le_max_right]
 QED
 
-Triviality LENGTH_LESS_size:
+Theorem LENGTH_LESS_size[local]:
   !name ns funs y.
     ~MEM name ns /\ set ns ⊆ domain funs /\ ALL_DISTINCT ns /\
     lookup name funs = SOME y ==>
@@ -274,6 +274,7 @@ Proof
       oneline share_inst_def,
       sh_mem_store_def,sh_mem_store_byte_def,sh_mem_store32_def,
       sh_mem_load_def,sh_mem_load_byte_def,sh_mem_load32_def,
+      sh_mem_load16_def,sh_mem_store16_def,
       oneline sh_mem_set_var_def,
       flush_state_def]) (*FIXME should be using share_inst_const*)
   (* Call *)

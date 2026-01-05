@@ -110,7 +110,10 @@ Inductive ref_rel:
   (!bs. ref_rel (ByteArray bs) (ByteArray bs)) /\
   (!xs ys.
     LIST_REL v_rel xs ys ==>
-    ref_rel (ValueArray xs) (ValueArray ys))
+    ref_rel (ValueArray xs) (ValueArray ys)) /\
+  (!m v w.
+    v_rel v w ==>
+    ref_rel (Thunk m v) (Thunk m w))
 End
 
 Definition FMAP_REL_def:
@@ -287,31 +290,35 @@ Proof
   \\ rw [] \\ fs [ref_rel_cases]
 QED
 
-val do_app_lemma = prove(
-  ``state_rel s t /\ LIST_REL v_rel xs ys ==>
+Theorem do_app_lemma[local]:
+    state_rel s t /\ LIST_REL v_rel xs ys ==>
     case do_app opp ys t of
       | Rerr err2 => ?err1. do_app opp xs s = Rerr err1 /\
                             exc_rel v_rel err1 err2
       | Rval (y, t1) => ?x s1. v_rel x y /\ state_rel s1 t1 /\
-                               do_app opp xs s = Rval (x, s1)``,
+                               do_app opp xs s = Rval (x, s1)
+Proof
   match_mp_tac simple_val_rel_do_app_rev
-  \\ fs [simple_val_rel, simple_state_rel]);
+  \\ fs [simple_val_rel, simple_state_rel]
+QED
 
-val do_install_lemma = prove(
-  ``state_rel s t /\ LIST_REL v_rel xs ys ==>
+Theorem do_install_lemma[local]:
+    state_rel s t /\ LIST_REL v_rel xs ys ==>
     case do_install xs s of
       | (Rerr err1, s1) => ?err2 t1. do_install ys t = (Rerr err2, t1) /\
                             exc_rel v_rel err1 err2 /\ state_rel s1 t1
       | (Rval exps1, s1) => ?exps2 t1. state_rel s1 t1 /\ (~ (exps1 = [])) /\
                                code_rel exps1 exps2 /\
-                               do_install ys t = (Rval exps2, t1)``,
+                               do_install ys t = (Rval exps2, t1)
+Proof
   ho_match_mp_tac (Q.SPEC `compile_inc` simple_val_rel_do_install)
   \\ fs [simple_val_rel, simple_state_rel, simple_compile_state_rel_def]
   \\ fs [compile_inc_def]
   \\ fs [compile_inc_def, pairTheory.FORALL_PROD,
             code_rel_def, state_rel_def]
   \\ rw [shift_seq_def, backendPropsTheory.pure_co_def, FUN_EQ_THM]
-  \\ metis_tac [remove_ticks_IMP_LENGTH]);
+  \\ metis_tac [remove_ticks_IMP_LENGTH]
+QED
 
 Theorem lookup_vars_lemma:
    !vs env1 env2. LIST_REL v_rel env1 env2 ==>
@@ -335,9 +342,11 @@ Proof
   fs [state_rel_def]
 QED
 
-val state_rel_IMP_code_FEMPTY = prove(
-  ``!s t. state_rel s t ==> s.code = FEMPTY /\ t.code = FEMPTY``,
-  fs [state_rel_def]);
+Theorem state_rel_IMP_code_FEMPTY[local]:
+    !s t. state_rel s t ==> s.code = FEMPTY /\ t.code = FEMPTY
+Proof
+  fs [state_rel_def]
+QED
 
 Theorem state_rel_clock:
    !s t k. state_rel (s with clock := k) (t with clock := k) <=> state_rel s (t with clock := s.clock)
@@ -354,13 +363,61 @@ Proof
   fs [dest_closure_def,case_eq_thms] \\ rw [] \\ fs []
 QED
 
-val v_rel_IMP_v_to_bytes = prove(
-  ``v_rel x y ==> v_to_bytes y = v_to_bytes x``,
-  metis_tac [simple_val_rel, closPropsTheory.simple_val_rel_v_to_bytes]);
+Theorem v_rel_IMP_v_to_bytes[local]:
+    v_rel x y ==> v_to_bytes y = v_to_bytes x
+Proof
+  metis_tac [simple_val_rel, closPropsTheory.simple_val_rel_v_to_bytes]
+QED
 
-val v_rel_IMP_v_to_words = prove(
-  ``v_rel x y ==> v_to_words y = v_to_words x``,
-  metis_tac [simple_val_rel, closPropsTheory.simple_val_rel_v_to_words]);
+Theorem v_rel_IMP_v_to_words[local]:
+    v_rel x y ==> v_to_words y = v_to_words x
+Proof
+  metis_tac [simple_val_rel, closPropsTheory.simple_val_rel_v_to_words]
+QED
+
+Theorem state_rel_opt_rel_refs[local]:
+  (state_rel s1 s2 ∧ FLOOKUP s1.refs n = r1 ⇒
+     ∃r2. FLOOKUP s2.refs n = r2 ∧ OPTREL ref_rel r1 r2) ∧
+  (state_rel s1 s2 ∧ FLOOKUP s2.refs n = r2 ⇒
+     ∃r1. FLOOKUP s1.refs n = r1 ∧ OPTREL ref_rel r1 r2)
+Proof
+  rw [] \\ gvs [state_rel_def, FMAP_REL_def, FLOOKUP_DEF] \\ rw []
+QED
+
+Theorem state_rel_clock_eqs[local]:
+  state_rel s t ⇒ s.clock = t.clock
+Proof
+  gvs [state_rel_def]
+QED
+
+Theorem state_rel_dec_clock[local]:
+  state_rel s1 s2 ⇒ state_rel (dec_clock 1 s1) (dec_clock 1 s2)
+Proof
+  rw [state_rel_def, dec_clock_def, state_component_equality]
+QED
+
+Theorem rel_update_thunk[local]:
+  state_rel s1 s2 ∧
+  LIST_REL v_rel vs ys ⇒
+    (update_thunk [RefPtr v ptr] s2.refs ys = NONE ⇒
+       update_thunk [RefPtr v ptr] s1.refs vs = NONE) ∧
+    (update_thunk [RefPtr v ptr] s2.refs ys = SOME refs2 ⇒
+       ∃refs1. update_thunk [RefPtr v ptr] s1.refs vs = SOME refs1 ∧
+               state_rel (s1 with refs := refs1) (s2 with refs := refs2))
+Proof
+  rw []
+  \\ gvs [oneline update_thunk_def, AllCaseEqs()] \\ rw []
+  \\ gvs [oneline dest_thunk_def, AllCaseEqs()]
+  \\ (
+    gvs [Once v_rel_cases, oneline store_thunk_def, AllCaseEqs()]
+    \\ rpt (
+      imp_res_tac state_rel_opt_rel_refs \\ rw []
+      \\ gvs [oneline OPTREL_THM]
+      \\ FULL_CASE_TAC \\ gvs []
+      \\ rgs [Once ref_rel_cases])
+    \\ gvs [state_rel_def, FMAP_REL_def, FLOOKUP_UPDATE] \\ rw []
+    \\ simp [Once ref_rel_cases])
+QED
 
 Theorem evaluate_remove_ticks:
    (!ys env2 (t1:('c,'ffi) closSem$state) res2 t2 env1 s1 xs.
@@ -540,8 +597,9 @@ Proof
     \\ reverse (fs [case_eq_thms]) \\ rveq
     \\ Cases_on `res1` \\ fs []
     THEN1 (qexists_tac `ck + LENGTH ts` \\ fs [])
-    \\ reverse (Cases_on `op = Install`) \\ fs [] \\ rveq
-    THEN1 (* op /= Install *)
+    \\ reverse (Cases_on `op = Install ∨ op = ThunkOp ForceThunk`)
+    \\ fs [] \\ rveq
+    THEN1 (* op /= Install /\ op /= ForceThunk *)
      (fs [case_eq_thms] \\ rw []
       \\ qexists_tac `ck + LENGTH ts` \\ fs []
       \\ drule (GEN_ALL do_app_lemma)
@@ -552,35 +610,59 @@ Proof
       \\ PairCases_on `v1`
       \\ fs []
       \\ metis_tac [])
-    (* op = Install *)
-    \\ drule EVERY2_REVERSE \\ disch_tac
-    \\ drule (GEN_ALL do_install_lemma)
-    \\ disch_then drule
-    \\ fs [CaseEq "prod"]
-    \\ TOP_CASE_TAC
-    \\ reverse TOP_CASE_TAC
+    THEN1 (* op = Install *)
+     (drule EVERY2_REVERSE \\ disch_tac
+      \\ drule (GEN_ALL do_install_lemma)
+      \\ disch_then drule
+      \\ fs [CaseEq "prod"]
+      \\ TOP_CASE_TAC
+      \\ reverse TOP_CASE_TAC
+      >- (
+        rw [] \\ qexists_tac`ck + LENGTH ts` \\ rw []
+        \\ fs [] \\ rveq \\ fs [] \\ rfs []
+      )
+      \\ rw [] \\ fs [CaseEq "prod"] \\ rfs []
+      \\ FIRST_X_ASSUM drule
+      \\ disch_then drule
+      \\ disch_then (drule o SIMP_RULE bool_ss [GSYM code_rel_def])
+      \\ fs [code_rel_def]
+      \\ rw []
+      \\ qexists_tac `ck' + ck + LENGTH ts` \\ rw[]
+      \\ imp_res_tac evaluate_clock
+      \\ imp_res_tac evaluate_add_clock \\ fs []
+      \\ imp_res_tac do_install_add_to_clock
+      \\ imp_res_tac evaluate_length_imp
+      \\ fs []
+      \\ CASE_TAC \\ fs [] \\ rveq \\ fs [] \\ rveq \\ fs []
+      \\ irule LIST_REL_LAST
+      \\ rw []
+      \\ CCONTR_TAC
+      \\ fs [])
+    (* op = ThunkOp ForceThunk *)
+    \\ gvs [PULL_FORALL]
+    \\ qrefine `ck' + ck + LENGTH ts` \\ gvs []
+    \\ `∀ck'. evaluate (es,env1,s1 with clock := ck + (ck' + s1.clock)) =
+         (Rval a,s2 with clock := s2.clock + ck')` by (
+      rw [] \\ drule evaluate_add_clock \\ gvs []) \\ gvs []
+    \\ gvs [AllCaseEqs()]
+    \\ gvs [oneline dest_thunk_def, AllCaseEqs(), PULL_EXISTS]
+    \\ TRY (qexists `0` \\ gvs [state_rel_def] \\ NO_TAC)
+    \\ imp_res_tac (cj 2 state_rel_opt_rel_refs)
+    \\ qpat_x_assum `OPTREL ref_rel _ _` mp_tac
+    \\ simp [oneline OPTREL_THM] \\ TRY CASE_TAC \\ gvs []
+    \\ rgs [Once ref_rel_cases]
+    \\ TRY (qexists `0` \\ gvs [state_rel_def] \\ NO_TAC)
+    \\ imp_res_tac state_rel_clock_eqs \\ gvs [PULL_EXISTS]
+    \\ imp_res_tac state_rel_dec_clock \\ gvs []
+    \\ last_x_assum $ drule_then $ drule_then
+        $ qspec_then `[AppUnit (Var None 0)]` assume_tac
+    \\ gvs [AppUnit_def, remove_ticks_def, dec_clock_def]
+    \\ goal_assum drule \\ gvs [PULL_EXISTS]
+    \\ Cases_on `res1` \\ gvs []
+    >- (drule_all rel_update_thunk \\ rw [])
     >- (
-      rw [] \\ qexists_tac`ck + LENGTH ts` \\ rw []
-      \\ fs [] \\ rveq \\ fs [] \\ rfs []
-    )
-    \\ rw [] \\ fs [CaseEq "prod"] \\ rfs []
-    \\ FIRST_X_ASSUM drule
-    \\ disch_then drule
-    \\ disch_then (drule o SIMP_RULE bool_ss [GSYM code_rel_def])
-    \\ fs [code_rel_def]
-    \\ rw []
-    \\ qexists_tac `ck' + ck + LENGTH ts` \\ rw[]
-    \\ imp_res_tac evaluate_clock
-    \\ imp_res_tac evaluate_add_clock \\ fs []
-    \\ imp_res_tac do_install_add_to_clock
-    \\ imp_res_tac evaluate_length_imp
-    \\ fs []
-    \\ CASE_TAC \\ fs [] \\ rveq \\ fs [] \\ rveq \\ fs []
-    \\ irule LIST_REL_LAST
-    \\ rw []
-    \\ CCONTR_TAC
-    \\ fs []
-  )
+      qrefine `Rval _` \\ rw [PULL_EXISTS]
+      \\ drule_all rel_update_thunk \\ rw []))
   THEN1 (* Fn *)
    (fs [LENGTH_EQ_NUM_compute] \\ rveq
     \\ fs [code_rel_def]

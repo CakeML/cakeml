@@ -45,9 +45,11 @@ End
 Definition hash_memop_def:
   (hash_memop Load   = 17n) ∧
   (hash_memop Load8  = 18n) ∧
+  (hash_memop Load16  = 57n) ∧
   (hash_memop Load32  = 56n) ∧
   (hash_memop Store  = 19n) ∧
   (hash_memop Store8 = 20n) ∧
+  (hash_memop Store16 = 57n) ∧
   (hash_memop Store32  = 56n)
 End
 

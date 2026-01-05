@@ -125,7 +125,7 @@ Proof
   Induct \\ fs [build_map_def,ADD1]
 QED
 
-Triviality LIST_REL_eq:
+Theorem LIST_REL_eq[local]:
   ∀l rs. LIST_REL (λc r. f r = c) l rs ⇔ l = MAP f rs
 Proof
   Induct \\ Cases_on ‘rs’ \\ fs [] \\ metis_tac []

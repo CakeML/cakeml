@@ -81,13 +81,13 @@ Proof
   EVAL_TAC
 QED
 
-Triviality set_fp_var_with_const[simp]:
+Theorem set_fp_var_with_const[local,simp]:
    set_fp_var x y (z with clock := k) = set_fp_var x y z with clock := k
 Proof
   EVAL_TAC
 QED
 
-Triviality set_fp_var_const[simp]:
+Theorem set_fp_var_const[local,simp]:
    (set_fp_var x y z).ffi = z.ffi ∧
    (set_fp_var x y z).clock = z.clock ∧
    (set_fp_var x y z).use_alloc = z.use_alloc ∧
@@ -107,7 +107,7 @@ Proof
   EVAL_TAC
 QED
 
-Triviality get_fp_var_with_const[simp]:
+Theorem get_fp_var_with_const[local,simp]:
    get_fp_var x (y with clock := k) = get_fp_var x y
 Proof
   EVAL_TAC
@@ -122,7 +122,7 @@ Proof
   EVAL_TAC
 QED
 
-Triviality get_vars_with_const[simp]:
+Theorem get_vars_with_const[local,simp]:
    get_vars xs (y with clock := k) = get_vars xs y
 Proof
   Induct_on `xs` >> EVAL_TAC >> simp[]
@@ -264,6 +264,20 @@ Proof
   gs[]
 QED
 
+Theorem sh_mem_load16_with_const[simp]:
+  (sh_mem_load16 r x (y with clock := k)) = (I ## (\s. s with clock := k)) (sh_mem_load16 r x y)
+Proof
+  simp[sh_mem_load16_def,ffiTheory.call_FFI_def]>>every_case_tac>>
+  fs[]
+QED
+
+Theorem sh_mem_store16_with_const[simp]:
+  (sh_mem_store16 x y (z with clock := k)) = (I ## (\s. s with clock := k)) (sh_mem_store16 x y z)
+Proof
+  gs[sh_mem_store16_def,ffiTheory.call_FFI_def]>>every_case_tac>>
+  gs[]
+QED
+
 Theorem sh_mem_load_byte_with_const[simp]:
    (sh_mem_load_byte r x (y with clock := k)) = (I ## (\s. s with clock := k)) (sh_mem_load_byte r x y)
 Proof
@@ -278,7 +292,7 @@ Proof
   gs[]
 QED
 
-Triviality sh_mem_op_with_const[simp]:
+Theorem sh_mem_op_with_const[local,simp]:
    (sh_mem_op op x y (z with clock := k)) = (I ## (\s. s with clock := k)) (sh_mem_op op x y z)
 Proof
   gs[oneline sh_mem_op_def] >>
@@ -377,6 +391,7 @@ Proof
   strip_tac>>Cases_on`op` >>
   fs[sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,
      sh_mem_load_byte_def,sh_mem_store_byte_def,
+     sh_mem_load16_def,sh_mem_store16_def,
      sh_mem_load32_def,sh_mem_store32_def,
      ffiTheory.call_FFI_def] >>
   every_case_tac >> gvs[get_var_def]
@@ -453,6 +468,7 @@ Proof
   >-(
     gvs[oneline sh_mem_op_def,sh_mem_load_def,sh_mem_store_def,
     sh_mem_load32_def,sh_mem_store32_def,sh_mem_load_byte_def,
+    sh_mem_load16_def,sh_mem_store16_def,
     sh_mem_store_byte_def,ffiTheory.call_FFI_def,AllCaseEqs()])
   >-(gvs[ffiTheory.call_FFI_def,AllCaseEqs()])
 QED
@@ -619,7 +635,7 @@ Definition clock_neutral_def:
   (clock_neutral r <=> F)
 End
 
-Triviality inst_clock_neutral:
+Theorem inst_clock_neutral[local]:
   (inst i s = SOME t ==> inst i (s with clock := k) = SOME (t with clock := k)) /\
     (inst i s = NONE ==> inst i (s with clock := k) = NONE)
 Proof
@@ -631,7 +647,7 @@ Proof
   \\ srw_tac[][state_component_equality]
 QED
 
-Triviality inst_clock_neutral_ffi:
+Theorem inst_clock_neutral_ffi[local]:
   (inst i s = SOME t ==> inst i (s with ffi := k) = SOME (t with ffi := k)) /\
     (inst i s = NONE ==> inst i (s with ffi := k) = NONE)
 Proof
@@ -773,7 +789,10 @@ QED
 Definition addr_ok_def:
   addr_ok op (Addr a w) c ⇔
   (reg_ok a c ∧
-   if op ∈ {Load; Store; Load32; Store32} then addr_offset_ok c w else byte_offset_ok c w)
+   if op ∈ {Load; Store; Load32; Store32}
+   then addr_offset_ok c w
+   else if op IN {Load16; Store16}
+   then hw_offset_ok c w ∧ c.ISA ≠ Ag32 else byte_offset_ok c w)
 End
 
 (* TODO: This is not updated for Install, CBW and DBW *)
@@ -886,7 +905,11 @@ End
 Definition addr_name_def:
   addr_name m (Addr r w) c ⇔
   reg_name r c ∧
-  (if m IN {Load; Store; Load32; Store32} then addr_offset_ok c w else byte_offset_ok c w)
+  (if m IN {Load; Store; Load32; Store32}
+   then addr_offset_ok c w
+   else if m IN {Load16; Store16}
+   then hw_offset_ok c w ∧ c.ISA ≠ Ag32
+   else byte_offset_ok c w)
 End
 
 Definition inst_name_def:
@@ -978,7 +1001,7 @@ End
 
 (* stack_remove requires that all register arguments are bounded by k *)
 
-Definition reg_bound_exp_def:
+Definition reg_bound_exp_def[simp]:
   (reg_bound_exp (Var n) k ⇔ n < k) ∧
   (reg_bound_exp (Load e) k ⇔ reg_bound_exp e k) ∧
   (reg_bound_exp (Shift _ e _) k ⇔ reg_bound_exp e k) ∧
@@ -990,9 +1013,8 @@ Termination
    \\ Induct \\ simp[wordLangTheory.exp_size_def]
    \\ srw_tac[][] \\ res_tac \\ simp[]
 End
-val _ = export_rewrites["reg_bound_exp_def"];
 
-Definition reg_bound_inst_def:
+Definition reg_bound_inst_def[simp]:
   (reg_bound_inst (Mem _ n (Addr a _)) k ⇔ n < k ∧ a < k) ∧
   (reg_bound_inst (Const n _) k ⇔ n < k) ∧
   (reg_bound_inst (Arith (Shift _ n r2 _)) k ⇔ r2 < k ∧ n < k) ∧
@@ -1010,7 +1032,6 @@ Definition reg_bound_inst_def:
   (reg_bound_inst (FP (FPMovFromReg d r1 r2)) k ⇔ r1 < k ∧ r2 < k) ∧
   (reg_bound_inst _ _ ⇔ T)
 End
-val _ = export_rewrites["reg_bound_inst_def"];
 
 Definition reg_bound_def:
   (reg_bound (Halt v1) k <=>
@@ -1093,7 +1114,7 @@ End
 
 (* TODO: remove "stack_" prefix from these functions *)
 
-Definition stack_get_handler_labels_def:
+Definition stack_get_handler_labels_def[simp]:
   (stack_get_handler_labels n (Call r d h) =
     (case r of SOME (x,_,_) => stack_get_handler_labels n x  ∪
       (case h of SOME (x,l1,l2) => (if l1 = n then {(l1,l2)} else {}) ∪ (stack_get_handler_labels n x) | _ => {})
@@ -1104,9 +1125,8 @@ Definition stack_get_handler_labels_def:
   (stack_get_handler_labels n (While _ _ _ p) = stack_get_handler_labels n p) ∧
   (stack_get_handler_labels n _ = {})
 End
-val _ = export_rewrites["stack_get_handler_labels_def"];
 
-Definition get_code_labels_def:
+Definition get_code_labels_def[simp]:
   (get_code_labels (Call r d h) =
     (case d of INL x => {(x,0n)} | _ => {}) ∪
     (case r of SOME (x,_,_) => get_code_labels x | _ => {}) ∪
@@ -1120,7 +1140,6 @@ Definition get_code_labels_def:
   (get_code_labels (StoreConsts _ _ (SOME l)) = {(l,0)}) ∧
   (get_code_labels _ = {})
 End
-val _ = export_rewrites["get_code_labels_def"];
 
 (* elabs gives a set of existing code labels *)
 Definition stack_good_code_labels_def:

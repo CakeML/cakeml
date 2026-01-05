@@ -338,7 +338,7 @@ Proof
   fs [do_partial_app_def]
 QED
 
-Triviality same_clock_exists:
+Theorem same_clock_exists[local]:
   (∃k. s = s with clock := k) = T ∧
   (∃k. s with clock := k' = s with clock := k) = T
 Proof
@@ -1047,8 +1047,8 @@ Proof
     \\ rpt strip_tac \\ simp [same_clock_exists])
   \\ fs [PAIR_TYPE_HEAD_def,PAIR_TYPE_def]
   \\ pop_assum mp_tac
-  \\ ntac 5 (simp [Once evaluate_def,do_app_def])
-  \\ strip_tac \\ gvs [AllCaseEqs(),same_clock_exists]
+  \\ ntac 5 (simp [Once evaluate_def,do_app_def,do_test_def,dest_Litv_def,do_if_def])
+  \\ strip_tac \\ gvs [AllCaseEqs(),same_clock_exists,do_if_def,oneline dest_Litv_def]
   \\ fs [INT_HEAD_def,INT_def]
 QED
 
@@ -1701,4 +1701,3 @@ Proof
   \\ rpt conj_tac \\ Cases
   \\ fs [TYPE_TYPE_def,TERM_TYPE_def,THM_TYPE_def]
 QED
-

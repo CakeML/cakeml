@@ -29,7 +29,7 @@ val res = translate end_line_def;
 val res = translate read_num_def;
 val res = translate_no_ind (REWRITE_RULE [MEMBER_INTRO] lex_def);
 
-Triviality lex_ind:
+Theorem lex_ind[local]:
   lex_ind
 Proof
   rewrite_tac [fetch "-" "lex_ind_def"]
@@ -57,7 +57,7 @@ val res = translate from_str_def;
 
 val res = translate num2str_def;
 
-Triviality num2str_side:
+Theorem num2str_side[local]:
   ∀n. num2str_side n
 Proof
   ho_match_mp_tac num2str_ind \\ rpt strip_tac
@@ -70,7 +70,7 @@ val _ = update_precondition num2str_side;
 val res = translate num2ascii_def;
 val res = translate ascii_name_def;
 
-Triviality ascii_name_side:
+Theorem ascii_name_side[local]:
   ∀n. ascii_name_side n
 Proof
   rw [fetch "-" "ascii_name_side_def"]

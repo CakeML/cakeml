@@ -1,7 +1,7 @@
 (*
   Translate non-target-specific backend functions to cv equations.
 *)
-Theory backend_cv
+Theory backend_cv[no_sig_docs]
 Libs
   preamble cv_transLib
 Ancestors
@@ -34,7 +34,6 @@ Definition collect_conses_def:
      collect_conses (collect_conses p e2) e1) ∧
   (collect_conses p (Tannot e a) = collect_conses p e) ∧
   (collect_conses p (Lannot e a) = collect_conses p e) ∧
-  (collect_conses p (FpOptimise fpopt e) = collect_conses p e) ∧
   (collect_conses p (Letrec funs e) =
      collect_conses_list3 (collect_conses p e) funs) ∧
   (collect_conses_list p [] = p) ∧
@@ -83,7 +82,7 @@ Proof
   Induct_on ‘v’ \\ simp [Once pre]
 QED
 
-Triviality collect_conses_acc_lemma:
+Theorem collect_conses_acc_lemma[local]:
   (∀(p:((string, string) id # num) list) v q p.
      collect_conses p v = q ⇒
      set p ∪ set (collect_conses [] v) = set q) ∧
@@ -115,7 +114,7 @@ Proof
   \\ simp_tac (srw_ss()) [AC UNION_ASSOC UNION_COMM]
 QED
 
-Triviality collect_conses_acc =
+Theorem collect_conses_acc[local] =
   collect_conses_acc_lemma |> SRULE [] |> GSYM;
 
 Theorem do_con_checks_set:
@@ -208,7 +207,7 @@ val _ = cv_trans (lab_to_targetTheory.get_memop_info_def
 
 val _ = cv_trans num_list_enc_decTheory.append_rev_def;
 
-Triviality make_cv_term_provable:
+Theorem make_cv_term_provable[local]:
   (if n < 30 then x else y) = (if n = 0n then x else if 30 ≤ n then y else x)
 Proof
   rw [] \\ gvs []
@@ -226,7 +225,7 @@ QED
 
 val _ = cv_trans num_list_enc_decTheory.rev_nums_to_chars_def;
 
-Triviality spt_enc_def[cv_inline] = num_list_enc_decTheory.spt_enc_def;
+Theorem spt_enc_def[local,cv_inline] = num_list_enc_decTheory.spt_enc_def;
 
 val _ = cv_auto_trans backend_enc_decTheory.data_to_word_config_enc_def;
 val _ = cv_auto_trans backend_enc_decTheory.word_to_word_config_enc_def;
@@ -464,10 +463,10 @@ Proof
 QED
 
 Definition max_var_exp_list_def:
-  max_var_exp_list ls = list_max (MAP (λx. max_var_exp x) ls)
+  max_var_exp_list ls = MAX_LIST (MAP (λx. max_var_exp x) ls)
 End
 
-Triviality max_var_exp_list_thm:
+Theorem max_var_exp_list_thm[local]:
   max_var_exp_list ([]:'a wordLang$exp list) = 0 ∧
   ∀e es:'a wordLang$exp list.
     max_var_exp_list (e::es) = MAX (max_var_exp e) (max_var_exp_list es)
@@ -596,7 +595,7 @@ Definition get_reads_exp_list_def:
   get_reads_exp_list xs = FLAT (MAP (λa. get_reads_exp a) xs)
 End
 
-Triviality get_reads_exp_list_thm:
+Theorem get_reads_exp_list_thm[local]:
   get_reads_exp_list ([]:'a wordLang$exp list) = [] ∧
   ∀x xs:'a wordLang$exp list.
     get_reads_exp_list (x::xs) = get_reads_exp x ++ get_reads_exp_list xs
@@ -613,22 +612,23 @@ Definition get_live_exps_def:
   get_live_exps ls = big_union (MAP (λa. get_live_exp a) ls)
 End
 
-Triviality get_live_exps_thm:
+Theorem get_live_exps_thm[local]:
   get_live_exps ([]:'a wordLang$exp list) = LN ∧
   get_live_exps (x::xs:'a wordLang$exp list) = union (get_live_exp x) (get_live_exps xs)
 Proof
   gvs [get_live_exps_def,word_allocTheory.big_union_def]
 QED
 
-Triviality get_live_exp_eq =
+Theorem get_live_exp_eq[local] =
   CONJUNCTS word_allocTheory.get_live_exp_def
   @ CONJUNCTS get_live_exps_thm |> map GEN_ALL
   |> LIST_CONJ |> SRULE [GSYM get_live_exps_def];
 
 val pre = cv_trans_pre "" get_live_exp_eq
+
 Theorem word_alloc_get_live_exp_pre[cv_pre]:
-  (∀v:'a exp. word_alloc_get_live_exp_pre v) ∧
-  (∀v:'a exp list. get_live_exps_pre v)
+  (∀v:'a wordLang$exp. word_alloc_get_live_exp_pre v) ∧
+  (∀v:'a wordLang$exp list. get_live_exps_pre v)
 Proof
   ho_match_mp_tac wordLangTheory.exp_induction \\ rw [] \\ simp [Once pre]
 QED
@@ -640,7 +640,7 @@ Definition pull_exp_list_def:
   pull_exp_list ls = MAP (λa. pull_exp a) ls
 End
 
-Triviality pull_exp_list_thm:
+Theorem pull_exp_list_thm[local]:
   pull_exp_list ([]:'a wordLang$exp list) = [] ∧
   ∀x xs:'a wordLang$exp list.
     pull_exp_list (x::xs) = pull_exp x :: pull_exp_list xs
@@ -656,7 +656,7 @@ Definition flatten_exp_list_def:
   flatten_exp_list ls = MAP (λa. flatten_exp a) ls
 End
 
-Triviality flatten_exp_list_thm:
+Theorem flatten_exp_list_thm[local]:
   flatten_exp_list ([]:'a wordLang$exp list) = [] ∧
   ∀x xs:'a wordLang$exp list.
     flatten_exp_list (x::xs) = flatten_exp x :: flatten_exp_list xs
@@ -735,7 +735,7 @@ Definition ssa_cc_trans_exp_list_def:
   ssa_cc_trans_exp_list t =  MAP (λa. ssa_cc_trans_exp t a)
 End
 
-Triviality list_thm:
+Theorem list_thm[local]:
   (∀t. ssa_cc_trans_exp_list t ([]:'a wordLang$exp list) = []) ∧
   ∀x (xs:'a wordLang$exp list) t.
     ssa_cc_trans_exp_list t (x::xs) = ssa_cc_trans_exp t x :: ssa_cc_trans_exp_list t xs
@@ -751,7 +751,7 @@ Definition const_fp_exp_list_def:
   const_fp_exp_list ls cs = MAP (λa. const_fp_exp a cs) ls
 End
 
-Triviality list_thm:
+Theorem list_thm[local]:
   (∀cs. const_fp_exp_list ([]:'a wordLang$exp list) cs = []) ∧
   ∀x (xs:'a wordLang$exp list) cs.
     const_fp_exp_list (x::xs) cs = const_fp_exp x cs :: const_fp_exp_list xs cs
@@ -768,6 +768,17 @@ val _ = word_simpTheory.dest_If_Eq_Imm_def |> cv_trans;
 val _ = word_simpTheory.dest_Seq_def |> cv_trans;
 val _ = word_simpTheory.dest_Seq_Assign_Const_def |> cv_trans;
 val _ = word_simpTheory.const_fp_move_cs_def |> cv_trans;
+
+val pre = cv_trans_pre "" word_simpTheory.push_out_if_aux_def;
+
+Theorem word_simp_push_out_if_aux_pre[cv_pre]:
+  ∀p. word_simp_push_out_if_aux_pre p
+Proof
+  ho_match_mp_tac word_simpTheory.push_out_if_aux_ind>>
+  rw[]>>simp[Once pre]
+QED
+val _ = word_simpTheory.push_out_if_def |> cv_trans;
+
 val _ = cv_trans word_to_wordTheory.next_n_oracle_def;
 
 Definition adjust_vars_def:
@@ -865,7 +876,7 @@ val mergesortN_tail_eq = mergesortN_tail_def
             |> Q.GEN ‘R’ |> ISPEC tm |> SRULE [GSYM mergesortN_tail_canonize_def, GSYM merge_tail_canonize_def]
             |> GEN_ALL |> SRULE [FORALL_PROD] |> SPEC_ALL;
 
-Triviality c2b_b2c:
+Theorem c2b_b2c[local]:
   cv$c2b (b2c b) = b
 Proof
   fs[cvTheory.b2c_if,cvTheory.c2b_def]
@@ -906,7 +917,7 @@ val _ = cv_auto_trans (exportTheory.data_section_def |> SRULE [GSYM mlstringTheo
 val _ = cv_trans (exportTheory.data_buffer_def |> SRULE []);
 val _ = cv_trans (exportTheory.code_buffer_def |> SRULE []);
 
-Triviality eq_toChar:
+Theorem eq_toChar[local]:
   ∀n. n < 16 ⇒ EL n "0123456789ABCDEF" = toChar n
 Proof
   Cases \\ gvs [] \\ EVAL_TAC
@@ -1051,4 +1062,3 @@ QED
 
 val _ = cv_trans word_copyTheory.copy_prop_def;
 
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;

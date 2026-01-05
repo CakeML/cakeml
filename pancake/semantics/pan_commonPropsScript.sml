@@ -313,7 +313,7 @@ Proof
   Induct >> rw []
 QED
 
-Triviality FUPDATE_LIST_APPLY_NOT_MEM_ZIP:
+Theorem FUPDATE_LIST_APPLY_NOT_MEM_ZIP[local]:
   ∀l1 l2 f k.
   LENGTH l1 = LENGTH l2 ∧ ¬MEM k l1 ⇒ (f |++ ZIP (l1, l2)) ' k = f ' k
 Proof

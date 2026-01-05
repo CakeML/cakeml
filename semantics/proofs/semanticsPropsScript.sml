@@ -67,7 +67,7 @@ Proof
   MATCH_ACCEPT_TAC evaluate_prog_io_events_chain
 QED
 
-Triviality with_clock_ffi:
+Theorem with_clock_ffi[local]:
   (s with clock := x).ffi = s.ffi
 Proof
   EVAL_TAC
@@ -151,6 +151,17 @@ Proof
   \\ metis_tac[semantics_prog_deterministic]
 QED
 
+Theorem semantics_prog_Diverge_not_Fail:
+   semantics_prog s e p (Diverge y) ⇒
+    ¬semantics_prog s e p Fail ∧
+    semantics_prog s e p = {Diverge y}
+Proof
+  rpt strip_tac
+  \\ simp[FUN_EQ_THM]
+  \\ imp_res_tac semantics_prog_deterministic \\ fs[]
+  \\ metis_tac[semantics_prog_deterministic]
+QED
+
 Definition state_invariant_def:
   state_invariant st ⇔
   ?ctMap tenvS.
@@ -158,7 +169,7 @@ Definition state_invariant_def:
     type_sound_invariant st.sem_st st.sem_env ctMap tenvS {} st.tenv
 End
 
-Triviality clock_lemmas:
+Theorem clock_lemmas[local]:
   ((x with clock := c).clock = c) ∧
    (((x with clock := c) with clock := d) = (x with clock := d)) ∧
    (x with clock := x.clock = x)
@@ -242,7 +253,7 @@ Proof
   \\ full_simp_tac(srw_ss())[extend_with_resource_limit_def]
 QED
 
-Triviality isPREFIX_IMP_LPREFIX:
+Theorem isPREFIX_IMP_LPREFIX[local]:
   !xs ys. isPREFIX xs ys ==> LPREFIX (fromList xs) (fromList ys)
 Proof
   full_simp_tac(srw_ss())[LPREFIX_def,llistTheory.from_toList]
@@ -305,4 +316,3 @@ Proof
   Cases_on `b`
   \\ fs [extend_with_resource_limit'_def,extend_with_resource_limit_def,SUBSET_DEF]
 QED
-

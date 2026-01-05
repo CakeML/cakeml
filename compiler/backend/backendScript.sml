@@ -73,7 +73,7 @@ Definition compile_def:
       (c.lab_conf.asm_conf.addr_offset) p in
     let _ = empty_ffi (strlit "finished: stack_to_lab") in
     let res = attach_bitmaps names c bm
-      (lab_to_target$compile c.lab_conf (p:'a prog)) in
+      (lab_to_target$compile c.lab_conf (p:'a labLang$prog)) in
     let _ = empty_ffi (strlit "finished: lab_to_target") in
       res
 End
@@ -161,7 +161,7 @@ Definition to_lab_def:
     c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
     (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3))
     (c.lab_conf.asm_conf.addr_offset) p in
-  (bm,c,p:'a prog,names)
+  (bm,c,p:'a labLang$prog,names)
 End
 
 Definition to_target_def:
@@ -215,7 +215,7 @@ Definition from_stack_def:
     c.stack_conf c.data_conf (2 * max_heap_limit (:'a) c.data_conf - 1)
     (c.lab_conf.asm_conf.reg_count - (LENGTH c.lab_conf.asm_conf.avoid_regs +3))
     (c.lab_conf.asm_conf.addr_offset) p in
-  from_lab c names (p:'a prog) bm
+  from_lab c names (p:'a labLang$prog) bm
 End
 
 Definition from_word_def:
@@ -405,13 +405,13 @@ Definition from_livesets_def:
   from_word c names p
 End
 
-Triviality ZIP_MAP_MAP:
+Theorem ZIP_MAP_MAP[local]:
   ∀xs. ZIP (MAP f xs, MAP g xs) = MAP (λx. (f x, g x)) xs
 Proof
   Induct \\ fs []
 QED
 
-Triviality EL_ZIP_MAP:
+Theorem EL_ZIP_MAP[local]:
   ∀p q x.
     x < LENGTH q ∧ x < LENGTH p ⇒
     (EL x (ZIP (q, MAP f p))) = (λ(y,x). (x,f y)) (EL x (ZIP (p,q)))
@@ -619,7 +619,7 @@ Definition compile_inc_progs_def:
         c.stack_conf.reg_names c.stack_conf.jump asm_c.addr_offset
         reg_count2 p in
     let ps = ps with <| lab_prog := keep_progs k p |> in
-    let target = lab_to_target$compile c.lab_conf (p:'a prog) in
+    let target = lab_to_target$compile c.lab_conf (p:'a labLang$prog) in
     let ps = ps with <| target_prog := OPTION_MAP
         (\(bytes, _). (bytes, cur_bm)) target |> in
     let c = c with lab_conf updated_by (case target of NONE => I
@@ -806,7 +806,7 @@ Theorem compile_inc_progs_for_eval_eq:
         c.stack_conf.reg_names c.stack_conf.jump asm_c'.addr_offset
         reg_count2 p in
     let _ = empty_ffi (strlit "finished: stack_to_lab") in
-    let target = lab_to_target$compile c.lab_conf (p:'a prog) in
+    let target = lab_to_target$compile c.lab_conf (p:'a labLang$prog) in
     let _ = empty_ffi (strlit "finished: lab_to_target") in
     let c = c with lab_conf updated_by (case target of NONE => I
                                         | SOME (_, c') => K c') in

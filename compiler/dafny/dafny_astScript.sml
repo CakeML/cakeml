@@ -21,7 +21,7 @@ Datatype:
 End
 
 Datatype:
-  bin_op = Lt | Le | Ge | Eq | Neq | Sub | Add | Mul | And | Or | Imp | Div
+  bin_op = Lt | Le | Ge | Eq | Neq | Sub | Add | Mul | And | Or | Imp | Div | Mod
 End
 
 Datatype:
@@ -47,6 +47,16 @@ Datatype:
   | FunCall mlstring (exp list)
   (* Forall var term *)
   | Forall (mlstring # type) exp
+  | Old exp
+  | OldHeap exp
+  (* Let [(name, rhs)] body *)
+  | Let ((mlstring # exp) list) exp
+  (* ForallHeap mods term *)
+  | ForallHeap (exp list) exp
+  (* Prev, PrevHeap, SetPrev used in VCG output *)
+  | Prev exp
+  | PrevHeap exp
+  | SetPrev exp
 End
 
 Overload If = “Exp_If”
@@ -65,8 +75,8 @@ End
 Datatype:
   rhs_exp =
   | ExpRhs exp
-  (* ArrAlloc length init_value *)
-  | ArrAlloc exp exp
+  (* ArrAlloc length init_value type *)
+  | ArrAlloc exp exp type
 End
 
 Datatype:
@@ -80,6 +90,7 @@ Datatype:
   | Dec (mlstring # type) statement
   | Assign ((lhs_exp # rhs_exp) list)
   (* While guard invariants decreases mod body *)
+  (* TODO put specs into a record? *)
   | While exp (exp list) (exp list) (exp list) statement
   | Print exp type
   (* MetCall lhss name args
@@ -92,10 +103,12 @@ Datatype:
   member_decl =
   (* Method name ins req ens reads
             decreases outs mod body *)
+  (* TODO put specs into a record? *)
   | Method mlstring ((mlstring # type) list) (exp list) (exp list) (exp list)
            (exp list) ((mlstring # type) list) (exp list) statement
   (* Function name ins result_type req reads
               decreases body *)
+  (* TODO put specs into a record? *)
   | Function mlstring ((mlstring # type) list) type (exp list) (exp list)
              (exp list) exp
 End
@@ -116,4 +129,3 @@ Datatype:
      default class *)
   program = Program (member_decl list)
 End
-

@@ -83,8 +83,6 @@ val delete_literals_sing_arr_def = process_topdecs`
       if every_one_arr carr cs then ~c
       else raise Fail (format_failure lno ("clause at index not empty or singleton after reduction: "  ^ Int.toString i))` |> append_prog
 
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
-
 Theorem update_resize_LUPDATE[simp]:
   LENGTH Clist > index h ⇒
   update_resize Clist w8z v (index h) = LUPDATE v (index h) Clist
@@ -191,7 +189,7 @@ Proof
   >- (
     xapp>>xsimpl>>simp[unwrap_TYPE_def]>>
     metis_tac[])>>
-  IF_CASES_TAC>- metis_tac[NOT_EVERY]>>
+  gvs[NOT_EVERY]>>
   raise_tac
 QED
 
@@ -1369,7 +1367,7 @@ val _ = translate tokenize_def;
 
 val check_unsat'' = process_topdecs `
   fun check_unsat'' fd lno pc fml sc carr =
-    case TextIO.b_inputLineTokens #"\n" fd blanks tokenize of
+    case TextIO.inputLineTokens #"\n" fd blanks tokenize of
       None => (fml,sc)
     | Some l =>
     case parse_and_run_arr lno pc fml sc carr l of
@@ -1429,8 +1427,8 @@ QED
 val blanks_v_thm = theorem "blanks_v_thm";
 val tokenize_v_thm = theorem "tokenize_v_thm";
 
-val b_inputLineTokens_specialize =
-  b_inputLineTokens_spec_lines
+val inputLineTokens_specialize =
+  inputLineTokens_spec_lines
   |> Q.GEN `f` |> Q.SPEC`blanks`
   |> Q.GEN `fv` |> Q.SPEC`blanks_v`
   |> Q.GEN `g` |> Q.ISPEC`tokenize`
@@ -1485,7 +1483,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv [] (forwardFD fs fd k) *
                 &OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) NONE v)’
     THEN1 (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac ‘ARRAY fmlv fmllsv * W8ARRAY Carrv Clist’
       \\ qexists_tac ‘[]’
       \\ qexists_tac ‘fs’
@@ -1506,7 +1504,7 @@ Proof
                 INSTREAM_LINES #"\n" fd fdv lines (forwardFD fs fd k) *
                 & OPTION_TYPE (LIST_TYPE (SUM_TYPE STRING_TYPE INT)) (SOME (toks h)) v)’
     THEN1 (
-      xapp_spec b_inputLineTokens_specialize
+      xapp_spec inputLineTokens_specialize
       \\ qexists_tac ‘ARRAY fmlv fmllsv * W8ARRAY Carrv Clist’
       \\ qexists_tac ‘h::lines’
       \\ qexists_tac ‘fs’
@@ -1645,7 +1643,7 @@ val res = translate prepend_def;
 
 val r = translate (to_flat_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def])
 
-Triviality to_flat_ind:
+Theorem to_flat_ind[local]:
   to_flat_ind (:'a)
 Proof
   once_rewrite_tac [fetch "-" "to_flat_ind_def"]
@@ -1662,7 +1660,7 @@ val _ = to_flat_ind |> update_precondition;
 
 val r = translate (to_flat_chr_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def])
 
-Triviality to_flat_chr_ind:
+Theorem to_flat_chr_ind[local]:
   to_flat_chr_ind
 Proof
   once_rewrite_tac [fetch "-" "to_flat_chr_ind_def"]
@@ -2051,11 +2049,11 @@ val check_final_arr = process_topdecs `
 val check_unsat' = process_topdecs `
   fun check_unsat' pc fml sc fname n =
   let
-    val fd = TextIO.b_openIn fname
+    val fd = TextIO.openIn fname
     val carr = Word8Array.array n w8z
     val chk = Inr (check_unsat'' fd 1 pc fml sc carr)
       handle Fail s => Inl s
-    val close = TextIO.b_closeIn fd;
+    val close = TextIO.closeIn fd;
   in
     case chk of
       Inl s => Inl s
@@ -2071,13 +2069,6 @@ Theorem fastForwardFD_ADELKEY_same[simp]:
    fs with infds updated_by ADELKEY fd
 Proof
   fs [forwardFD_def, IO_fs_component_equality]
-QED
-
-Theorem all_lines_gen_all_lines[simp]:
-  all_lines_gen #"\n" fs f =
-  all_lines fs f
-Proof
-  rw[all_lines_def,all_lines_gen_def,lines_of_def,lines_of_gen_def,splitlines_at_def,splitlines_def,str_def]
 QED
 
 Theorem check_final_arr_spec:
@@ -2183,7 +2174,7 @@ Theorem check_unsat'_spec:
     SEP_EXISTS err.
       &(SUM_TYPE STRING_TYPE res_TYPE)
       (if inFS_fname fs f then
-        (case parse_scpsteps (all_lines fs f) of
+        (case parse_scpsteps (all_lines_file fs f) of
          SOME scpsteps =>
            (case check_scp_final_list scpsteps pc fmlls sc (REPLICATE n w8z) of
              NONE => INL err
@@ -2207,7 +2198,7 @@ Proof
       STDIO fs *
       ARRAY fmlv fmllsv`
     >-
-      (xlet_auto_spec (SOME b_openIn_STDIO_spec) \\ xsimpl)
+      (xlet_auto_spec (SOME openIn_STDIO_spec) \\ xsimpl)
     >>
       fs[BadFileName_exn_def]>>
       xcases>>rw[]>>
@@ -2217,7 +2208,7 @@ Proof
   qmatch_goalsub_abbrev_tac`$POSTv Qval`>>
   xhandle`$POSTv Qval` \\ xsimpl >>
   qunabbrev_tac`Qval`>>
-  xlet_auto_spec (SOME (b_openIn_spec_lines |> Q.GEN `c0` |> Q.SPEC `#"\n"`)) \\ xsimpl >>
+  xlet_auto_spec (SOME (openIn_spec_lines |> Q.GEN `c0` |> Q.SPEC `#"\n"`)) \\ xsimpl >>
   `WORD8 w8z w8z_v` by fs[w8z_v_thm]>>
   xlet_autop >>
   qmatch_goalsub_abbrev_tac`STDIO fss`>>
@@ -2229,7 +2220,7 @@ Proof
     ARRAY fmlv' fmllsv' *
     &(
       case
-        parse_and_run_file_list (all_lines fs f) pc fmlls sc (REPLICATE n w8z)
+        parse_and_run_file_list (all_lines_file fs f) pc fmlls sc (REPLICATE n w8z)
       of
         NONE => resv =
           Conv (SOME (TypeStamp "Inl" 4)) [v0] ∧ ∃s. STRING_TYPE s v0
@@ -2248,7 +2239,7 @@ Proof
           STDIO (forwardFD fss (nextFD fs) k) *
           INSTREAM_LINES #"\n" (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
           ARRAY fmlv fmllsv *
-          &(Fail_exn e ∧ parse_and_run_file_list (all_lines fs f) pc fmlls sc Clist = NONE)`
+          &(Fail_exn e ∧ parse_and_run_file_list (all_lines_file fs f) pc fmlls sc Clist = NONE)`
       >- (
         (* this used to be an xauto_let .. sigh *)
         xlet `POSTe e.
@@ -2256,13 +2247,13 @@ Proof
            STDIO (forwardFD fss (nextFD fs) k) *
            INSTREAM_LINES #"\n" (nextFD fs) is lines' (forwardFD fss (nextFD fs) k) *
            ARRAY fmlv fmllsv *
-           &(Fail_exn e ∧ parse_and_run_file_list (all_lines fs f) pc fmlls sc Clist = NONE)`
+           &(Fail_exn e ∧ parse_and_run_file_list (all_lines_file fs f) pc fmlls sc Clist = NONE)`
         THEN1 (
           xapp_spec check_unsat''_spec
           \\ xsimpl
           \\ rpt (first_x_assum (irule_at Any))
           \\ xsimpl \\ fs [Abbr`Clist`]
-          \\ qexists_tac `all_lines fs f`
+          \\ qexists_tac `all_lines_file fs f`
           \\ qexists_tac `fss`
           \\ qexists_tac `nextFD fs`
           \\ qexists_tac `emp`
@@ -2302,10 +2293,10 @@ Proof
            ARRAY v1 fmllsv' *
            &(unwrap_TYPE
              (λv fv. LIST_REL (OPTION_TYPE ctag_TYPE) (FST v) fv)
-                (parse_and_run_file_list (all_lines fs f) pc fmlls sc Clist) fmllsv' ∧
+                (parse_and_run_file_list (all_lines_file fs f) pc fmlls sc Clist) fmllsv' ∧
              unwrap_TYPE
              (λv fv. SCPOG_SCPOG_CONF_TYPE (SND v) fv)
-                (parse_and_run_file_list (all_lines fs f) pc fmlls sc Clist ) v2)))`
+                (parse_and_run_file_list (all_lines_file fs f) pc fmlls sc Clist ) v2)))`
     >- (
         xlet `POSTv v.
            SEP_EXISTS k v1 v2.
@@ -2316,16 +2307,16 @@ Proof
                     ARRAY v1 fmllsv' *
                     &(unwrap_TYPE
                      (λv fv. LIST_REL (OPTION_TYPE ctag_TYPE) (FST v) fv)
-                        (parse_and_run_file_list (all_lines fs f) pc fmlls sc Clist) fmllsv' ∧
+                        (parse_and_run_file_list (all_lines_file fs f) pc fmlls sc Clist) fmllsv' ∧
                      unwrap_TYPE
                      (λv fv. SCPOG_SCPOG_CONF_TYPE (SND v) fv)
-                        (parse_and_run_file_list (all_lines fs f) pc fmlls sc Clist ) v2))`
+                        (parse_and_run_file_list (all_lines_file fs f) pc fmlls sc Clist ) v2))`
         THEN1
          (xapp_spec check_unsat''_spec
           \\ xsimpl
           \\ rpt (first_x_assum (irule_at Any))
           \\ xsimpl \\ fs [Abbr`Clist`]
-          \\ qexists_tac `all_lines fs f`
+          \\ qexists_tac `all_lines_file fs f`
           \\ qexists_tac `fss`
           \\ qexists_tac `nextFD fs`
           \\ qexists_tac `emp`
@@ -2337,16 +2328,17 @@ Proof
         xcon >>
         xsimpl>>
         rename [`forwardFD _ _ k`] \\ qexists_tac `k` >>
-        rename [`INSTREAM_LINES _ _ _ rr`] \\ qexists_tac `rr` \\ xsimpl) >>
+        rename [`INSTREAM_LINES _ _ _ rr`] \\ qexists_tac `rr`
+        \\ gvs[] \\ xsimpl) >>
       xsimpl>>simp[unwrap_TYPE_def]>>
       Cases_on`x`>>fs[]>>rw[]>>xsimpl >>
       rename [`forwardFD _ _ k`] \\ qexists_tac `k` >>
       rename [`INSTREAM_LINES _ _ _ rr`] \\ qexists_tac `rr` \\ xsimpl)>>
-  qspecl_then [`all_lines fs f`,`pc`,`fmlls`,`sc`,`Clist`] strip_assume_tac parse_and_run_file_list_eq>>
-  fs[]>>rw[]>>
+  qspecl_then [`all_lines_file fs f`,`pc`,`fmlls`,`sc`,`Clist`] strip_assume_tac parse_and_run_file_list_eq>>
+  gs[]>>rw[]>>
   xlet `POSTv v. STDIO fs * ARRAY fmlv' fmllsv'`
   THEN1
-   (xapp_spec b_closeIn_spec_lines >>
+   (xapp_spec closeIn_spec_lines >>
     rename [`_ * _ * ARRAY a1 a2`] >>
     qexists_tac `ARRAY a1 a2` >>
     qexists_tac `rest` >>
@@ -2366,7 +2358,8 @@ Proof
     imp_res_tac fsFFIPropsTheory.nextFD_leX \\ fs [] >>
     drule fsFFIPropsTheory.openFileFS_ADELKEY_nextFD >>
     fs [Abbr`fss`] \\ xsimpl) >>
-  Cases_on`parse_scpsteps (all_lines fs f)`>> fs[OPTION_TYPE_def]
+  Cases_on`parse_scpsteps (all_lines_file fs f)`>>
+  fs[OPTION_TYPE_def]
   >- (
     xmatch>>
     xcon >> xsimpl >>
@@ -2383,4 +2376,3 @@ Proof
   xsimpl>>
   metis_tac[]
 QED
-

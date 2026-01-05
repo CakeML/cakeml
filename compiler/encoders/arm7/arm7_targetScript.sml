@@ -160,6 +160,10 @@ Definition arm7_enc_def:
       let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
       enc (Load (LoadWord (add, T, F, n2w r1, n2w r2,
                            immediate_form1 imm12)))) /\
+   (arm7_enc (Inst (Mem Load16 r1 (Addr r2 a))) =
+      let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
+      enc (Load (LoadHalf (T, add, T, F, n2w r1, n2w r2,
+                           immediate_form1 imm12)))) /\
    (arm7_enc (Inst (Mem Load8 r1 (Addr r2 a))) =
       let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
       enc (Load (LoadByte (T, add, T, F, n2w r1, n2w r2,
@@ -171,6 +175,10 @@ Definition arm7_enc_def:
    (arm7_enc (Inst (Mem Store32 r1 (Addr r2 a))) =
       let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
       enc (Store (StoreWord (add, T, F, n2w r1, n2w r2,
+                             immediate_form1 imm12)))) /\
+   (arm7_enc (Inst (Mem Store16 r1 (Addr r2 a))) =
+      let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
+      enc (Store (StoreHalf (add, T, F, n2w r1, n2w r2,
                              immediate_form1 imm12)))) /\
    (arm7_enc (Inst (Mem Store8 r1 (Addr r2 a))) =
       let (add, imm12) = if 0w <= a then (T, a) else (F, -a) in
@@ -252,6 +260,8 @@ End
 (* --- Configuration for ARMv7 --- *)
 
 val eval = rhs o concl o EVAL
+val min8 = eval ``-(w2w (UINT_MAXw: word8)) : word32``
+val max8 = eval ``w2w (UINT_MAXw: word8) : word32``
 val min12 = eval ``-(w2w (UINT_MAXw: word12)) : word32``
 val max12 = eval ``w2w (UINT_MAXw: word12) : word32``
 val min26 = eval ``sw2sw (INT_MINw: 26 word) : word32``
@@ -274,6 +284,7 @@ Definition arm7_config_def:
     ; big_endian := F
     ; valid_imm := \c i. valid_immediate i
     ; addr_offset := (^min12, ^max12)
+    ; hw_offset := (^min8, ^max8)
     ; byte_offset := (^min12, ^max12)
     ; jump_offset := (^min26 + 8w, ^max26 + 8w)
     ; cjump_offset := (^min26 + 12w, ^max26 + 12w)

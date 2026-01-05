@@ -64,32 +64,32 @@ Definition queue_inv_def:
     lenr <= lenf /\ ((w = []) ==> (q = [])) /\ isPREFIX w f
 End
 
-Triviality empty_thm:
+Theorem empty_thm[local]:
   !xs. queue_inv xs empty = (xs = [])
 Proof
   EVAL_TAC THEN SIMP_TAC std_ss []
 QED
 
-Triviality is_empty_thm:
+Theorem is_empty_thm[local]:
   !q xs. queue_inv xs q ==> (is_empty q = (xs = []))
 Proof
   Cases THEN Cases_on `l` THEN EVAL_TAC THEN SRW_TAC [] []
   THEN Cases_on `l0` THEN FULL_SIMP_TAC (srw_ss()) [APPEND_eq_NIL,LENGTH_NIL]
 QED
 
-Triviality isPREFIX_APPEND:
+Theorem isPREFIX_APPEND[local]:
   !xs ys. isPREFIX xs (xs ++ ys)
 Proof
   Induct THEN FULL_SIMP_TAC (srw_ss()) [isPREFIX]
 QED
 
-Triviality isPREFIX_REFL:
+Theorem isPREFIX_REFL[local]:
   !xs ys. isPREFIX xs xs
 Proof
   Induct THEN FULL_SIMP_TAC (srw_ss()) [isPREFIX]
 QED
 
-Triviality snoc_thm:
+Theorem snoc_thm[local]:
   !q xs x. queue_inv xs q ==> queue_inv (xs ++ [x]) (snoc q x)
 Proof
   Cases THEN Cases_on `l`
@@ -102,14 +102,14 @@ Proof
   THEN DECIDE_TAC
 QED
 
-Triviality head_thm:
+Theorem head_thm[local]:
   !q x xs. queue_inv (x::xs) q ==> (head q = x)
 Proof
   Cases THEN Cases_on `l` THEN EVAL_TAC THEN SRW_TAC [] []
   THEN Cases_on `l0` THEN FULL_SIMP_TAC (srw_ss()) [REVERSE_DEF,LENGTH_NIL]
 QED
 
-Triviality tail_thm:
+Theorem tail_thm[local]:
   !q x xs. queue_inv (x::xs) q ==> queue_inv xs (tail q)
 Proof
   Cases THEN Cases_on `l`

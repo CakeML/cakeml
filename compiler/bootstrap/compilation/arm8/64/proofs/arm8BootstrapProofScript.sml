@@ -8,7 +8,7 @@ Ancestors
 Libs
   preamble
 
-Triviality with_clos_conf_simp:
+Theorem with_clos_conf_simp[local]:
     (mc_init_ok (arm8_backend_config with <| clos_conf := z ; bvl_conf updated_by
                     (λc. c with <|inline_size_limit := t1; exp_cut := t2|>) |>) =
      mc_init_ok arm8_backend_config) /\
@@ -30,7 +30,7 @@ Definition compiler_instance_def:
        decs_v := LIST_v AST_DEC_v |>
 End
 
-Triviality compiler_instance_lemma:
+Theorem compiler_instance_lemma[local]:
   INJ compiler_instance.config_v 𝕌(:inc_config) 𝕌(:semanticPrimitives$v) ∧
   compiler_instance.init_state = config_to_inc_config info ∧
   compiler_instance.compiler_fun = compile_inc_progs_for_eval arm8_config

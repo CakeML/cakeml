@@ -11,7 +11,7 @@ val () = wordsLib.guess_lengths()
 
 (* some lemmas ---------------------------------------------------------- *)
 
-Triviality bytes_in_memory_thm:
+Theorem bytes_in_memory_thm[local]:
   !w s state a b c d.
       target_state_rel ag32_target s state /\
       bytes_in_memory s.pc [a; b; c; d] s.mem s.mem_domain ==>
@@ -32,7 +32,7 @@ Proof
    \\ fs []
 QED
 
-Triviality bytes_in_memory_thm2:
+Theorem bytes_in_memory_thm2[local]:
   !w s state a b c d.
       target_state_rel ag32_target s state /\
       bytes_in_memory (s.pc + w) [a; b; c; d] s.mem s.mem_domain ==>
@@ -49,13 +49,13 @@ Proof
        ag32_ok_def, miscTheory.bytes_in_memory_def, set_sepTheory.fun2set_eq]
 QED
 
-Triviality add_carry_lem:
+Theorem add_carry_lem[local]:
   !w: word32. 0x100000000 <= w2n w + 0xFFFFFFFF <=> w <> 0w
 Proof
   Cases \\ simp []
 QED
 
-Triviality add_carry_lem2:
+Theorem add_carry_lem2[local]:
   !a b. n2w (w2n a + (w2n b + 1)) = a + b + 1w
 Proof
   Cases
@@ -63,7 +63,7 @@ Proof
   \\ simp [wordsTheory.word_add_n2w]
 QED
 
-Triviality shift_lem:
+Theorem shift_lem[local]:
   !n. n < 32 ==> (w2n (sw2sw (n2w n : word6) : word32) = n)
 Proof
   rpt strip_tac
@@ -71,7 +71,7 @@ Proof
   \\ simp []
 QED
 
-Triviality long_mul_lem:
+Theorem long_mul_lem[local]:
   !a : word32 b : word32.
     n2w ((w2n a * w2n b) DIV 4294967296) =
     (63 >< 32) (w2w a * w2w b : word64) : word32
@@ -104,7 +104,7 @@ val load_lem =
   blastLib.BBLAST_PROVE
    ``!c: word32.  0xFFFFFFE0w <= c /\ c <= 31w ==> (sw2sw (w2w c :word6) = c)``
 
-Triviality load_lem2:
+Theorem load_lem2[local]:
   !c : word32. aligned 2 c ==> ((31 >< 2) c @@ (0w : word2) = c)
 Proof
   simp [alignmentTheory.aligned_extract]
@@ -155,7 +155,7 @@ val enc_ok_rwts =
    ag32 target_ok
    ------------------------------------------------------------------------- *)
 
-Triviality length_ag32_encode:
+Theorem length_ag32_encode[local]:
   !i. (LENGTH (ag32_encode1 i) = 4) /\ (ag32_encode1 i <> [])
 Proof
   rw [ag32_encode1_def]
@@ -172,7 +172,7 @@ val ag32_encoding = Q.prove (
    )
    |> SIMP_RULE (srw_ss()++boolSimps.LET_ss) [ag32_enc_def]
 
-Triviality ag32_target_ok:
+Theorem ag32_target_ok[local]:
   target_ok ag32_target
 Proof
   rw ([asmPropsTheory.target_ok_def, asmPropsTheory.target_state_rel_def,
@@ -189,7 +189,7 @@ Proof
    \\ blastLib.FULL_BBLAST_TAC
 QED
 
-Triviality aligned_pc:
+Theorem aligned_pc[local]:
   !a : word32. aligned 2 a ==> (((31 >< 2) a : word30) @@ (0w : word2) = a)
 Proof
   simp [alignmentTheory.aligned_extract]
@@ -202,7 +202,7 @@ Proof
   blastLib.BBLAST_TAC
 QED
 
-Triviality funcT_thm:
+Theorem funcT_thm[local]:
   !func.
      num2funcT
        (w2n (v2w
@@ -212,7 +212,7 @@ Proof
   Cases \\ simp_tac (srw_ss()++bitstringLib.v2w_n2w_ss) []
 QED
 
-Triviality shiftT_thm:
+Theorem shiftT_thm[local]:
   !shiftOp.
      num2shiftT
        (w2n ((1 >< 0) (v2w
@@ -257,7 +257,7 @@ Proof
   \\ CONV_TAC blastLib.BBLAST_CONV
 QED
 
-Triviality ag32_run:
+Theorem ag32_run[local]:
   !i ms.
      (ms.MEM ms.PC = (7 >< 0) (Encode i)) /\
      (ms.MEM (ms.PC + 1w) = (15 >< 8) (Encode i)) /\
@@ -321,7 +321,7 @@ val state_tac =
   \\ full_simp_tac (srw_ss()++bitstringLib.v2w_n2w_ss) [load_lem2, store_lem]
   \\ blastLib.FULL_BBLAST_TAC
 
-Triviality bytes_in_memory_IMP_all_pcs_MEM:
+Theorem bytes_in_memory_IMP_all_pcs_MEM[local]:
   !env a xs m dm.
    bytes_in_memory a xs m dm /\
    (*(!(i:num) ms'. (∀a. a ∈ dm ⇒ (env i ms').MEM a = ms'.MEM a)) ==>*)

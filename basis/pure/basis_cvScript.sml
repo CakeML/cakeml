@@ -1,15 +1,15 @@
 (*
   Translation of basis types and functions for use with cv_compute.
 *)
-Theory basis_cv
+Theory basis_cv[no_sig_docs]
 Ancestors
-  cv_std
+  mlsexp cv_std
 Libs
   preamble cv_transLib
 
 val _ = cv_memLib.use_long_names := true;
 
-Triviality list_mem[cv_inline] = listTheory.MEM;
+Theorem list_mem[local,cv_inline] = listTheory.MEM;
 
 val _ = cv_trans sptreeTheory.fromAList_def;
 val _ = cv_trans miscTheory.SmartAppend_def;
@@ -42,7 +42,7 @@ Proof
   \\ ‘k MOD 10 < 10’ by gvs [] \\ simp []
 QED
 
-Triviality Num_ABS:
+Theorem Num_ABS[local]:
   Num (ABS i) = Num i
 Proof
   Cases_on ‘i’ \\ gvs []
@@ -51,4 +51,6 @@ QED
 val _ = cv_trans (mlintTheory.toString_def |> SRULE [Num_ABS]);
 val _ = cv_trans mlintTheory.num_to_str_def;
 
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
+val _ = cv_auto_trans (mlsexpTheory.smart_remove_def |> SRULE [GSYM GREATER_DEF]);
+val _ = cv_auto_trans mlsexpTheory.v2pretty_def;
+val _ = cv_auto_trans mlsexpTheory.str_tree_to_strs_def;

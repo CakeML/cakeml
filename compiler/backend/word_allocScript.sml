@@ -20,7 +20,7 @@ Overload Move0[inferior] = ``Move 0n``;
 Overload Move1[inferior] = ``Move 1n``;
 
 (*SSA form*)
-Definition apply_nummap_key_def:
+Definition apply_nummap_key_def[simp]:
   apply_nummap_key f names =
   fromAList (MAP (λx,y.f x,y) (toAList names))
 End
@@ -487,7 +487,7 @@ Definition ssa_cc_trans_def:
         (prog,ssa_fin,na_fin))) /\
   (ssa_cc_trans (ShareInst op v exp) ssa na =
     let exp' = ssa_cc_trans_exp ssa exp in
-      if op = Store ∨ op = Store8 ∨ op = Store32
+      if op = Store ∨ op = Store8 ∨ op = Store16 ∨ op = Store32
       then
         (ShareInst op (option_lookup ssa v) exp',ssa,na)
       else
@@ -497,7 +497,7 @@ End
 
 (*Recursively applying colours to a program*)
 
-Definition apply_colour_exp_def:
+Definition apply_colour_exp_def[simp]:
   (apply_colour_exp f (Var num) = Var (f num)) /\
   (apply_colour_exp f (Load exp) = Load (apply_colour_exp f exp)) /\
   (apply_colour_exp f (Op wop ls) = Op wop (MAP (apply_colour_exp f) ls)) /\
@@ -505,12 +505,12 @@ Definition apply_colour_exp_def:
   (apply_colour_exp f expr = expr)
 End
 
-Definition apply_colour_imm_def:
+Definition apply_colour_imm_def[simp]:
   (apply_colour_imm f (Reg n) = Reg (f n)) ∧
   (apply_colour_imm f x = x)
 End
 
-Definition apply_colour_inst_def:
+Definition apply_colour_inst_def[simp]:
   (apply_colour_inst f Skip = Skip) ∧
   (apply_colour_inst f (Const reg w) = Const (f reg) w) ∧
   (apply_colour_inst f (Arith (Binop bop r1 r2 ri)) =
@@ -549,7 +549,7 @@ Definition apply_colour_inst_def:
   (apply_colour_inst f x = x)
 End (*Catchall -- for future instructions to be added*)
 
-Definition apply_colour_def:
+Definition apply_colour_def[simp]:
   (apply_colour f Skip = Skip) ∧
   (apply_colour f (Move pri ls) =
     Move pri (ZIP (MAP (f o FST) ls, MAP (f o SND) ls))) ∧
@@ -592,9 +592,6 @@ Definition apply_colour_def:
   (apply_colour f p = p )
 End
 
-val _ = export_rewrites ["apply_nummap_key_def", "apply_nummap_key_def",
-                        "apply_colour_exp_def","apply_colour_inst_def",
-                        "apply_colour_imm_def","apply_colour_def"];
 
 (* Liveness Analysis*)
 
@@ -742,7 +739,7 @@ Definition get_live_def:
   (get_live (OpCurrHeap b n1 n2) live = insert n2 () (delete n1 live)) ∧
   (get_live (ShareInst mop v exp) live =
     let sub = get_live_exp exp in
-      if mop = Store ∨ mop = Store8 ∨ mop = Store32
+      if mop = Store ∨ mop = Store8 ∨ mop = Store16 ∨ mop = Store32
       then union sub (insert v () live)
       else union sub (delete v live)) ∧
   (*Cut-set must be live, args input must be live
@@ -875,6 +872,7 @@ Definition get_writes_def:
   (get_writes (StoreConsts a b c d _) = insert a () (insert b () (insert c () (insert d () LN)))) ∧
   (get_writes (ShareInst Load v _) = insert v () LN) ∧
   (get_writes (ShareInst Load8 v _) = insert v () LN) ∧
+  (get_writes (ShareInst Load16 v _) = insert v () LN) ∧
   (get_writes (ShareInst Load32 v _) = insert v () LN) ∧
   (get_writes prog = LN)
 End
@@ -893,6 +891,7 @@ Theorem get_writes_pmatch:
     | StoreConsts a b c d _ => insert a () (insert b () (insert c () (insert d () LN)))
     | ShareInst Load v _ => insert v () LN
     | ShareInst Load8 v _ => insert v () LN
+    | ShareInst Load16 v _ => insert v () LN
     | ShareInst Load32 v _ => insert v () LN
     | prog => LN
 Proof
@@ -1016,7 +1015,7 @@ Definition get_clash_tree_def:
   (get_clash_tree (Set n exp) = Delta [] (get_reads_exp exp)) ∧
   (get_clash_tree (OpCurrHeap b dst src) = Delta [dst] [src]) ∧
   (get_clash_tree (StoreConsts a b c d ws) = Delta [a;b;c;d] [c;d]) ∧
-  (get_clash_tree (ShareInst op v exp) = if op = Store ∨ op = Store8 ∨ op = Store32
+  (get_clash_tree (ShareInst op v exp) = if op = Store ∨ op = Store8 ∨ op = Store16 ∨ op = Store32
     then Delta [] (v::get_reads_exp exp)
     else Delta [v] $ get_reads_exp exp) ∧
   (get_clash_tree (Call ret dest args h) =
@@ -1279,9 +1278,11 @@ Definition get_heu_def:
       (heu_max_all lr2 lr3, heu_merge_call calls2 calls3)) ∧
   (get_heu fs (ShareInst Load r _) (lr,calls) = (add1_lhs_mem r lr,calls)) ∧
   (get_heu fs (ShareInst Load8 r _) (lr,calls) = (add1_lhs_mem r lr,calls)) ∧
+  (get_heu fs (ShareInst Load16 r _) (lr,calls) = (add1_lhs_mem r lr,calls)) ∧
   (get_heu fs (ShareInst Load32 r _) (lr,calls) = (add1_lhs_mem r lr,calls)) ∧
   (get_heu fs (ShareInst Store r _) (lr,calls) = (add1_rhs_mem r lr,calls)) ∧
   (get_heu fs (ShareInst Store8 r _) (lr,calls) = (add1_rhs_mem r lr,calls)) ∧
+  (get_heu fs (ShareInst Store16 r _) (lr,calls) = (add1_rhs_mem r lr,calls)) ∧
   (get_heu fs (ShareInst Store32 r _) (lr,calls) = (add1_rhs_mem r lr,calls)) ∧
   (* The remaining ones are exps, or otherwise unimportant from the
   pov of register allocation, since all their temps are already forced into
@@ -1416,7 +1417,7 @@ End
 (*Extract a colouring function from the generated sptree*)
 Definition total_colour_def:
   total_colour col x =
-    dtcase lookup x col of NONE => if is_phy_var x then x else 2*x | SOME x => 2*x
+    dtcase lookup x col of NONE => if is_phy_var x then x else 0 | SOME x => 2*x
 End
 
 Theorem total_colour_alt:

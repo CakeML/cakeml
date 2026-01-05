@@ -361,7 +361,7 @@ Proof
   simp[GSYM mlstringTheory.TOKENS_eq_tokens]
 QED
 
-Triviality isDigit_not_blanks:
+Theorem isDigit_not_blanks[local]:
   isDigit c ==> ~ blanks c
 Proof
   CCONTR_TAC \\ fs [blanks_def] \\ fs [isDigit_def]

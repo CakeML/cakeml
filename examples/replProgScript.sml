@@ -223,7 +223,7 @@ fun repl_build_and_format_output inf_state pp_map env bindings =
 val rep_ast = process_topdecs`
   fun rep state =
     case state of (inf_state, env, pp_map) =>
-      case TextIO.inputLine TextIO.stdIn of
+      case TextIO.inputLine (TextIO.openStdIn ()) of
         None => None
       | Some line =>
           case lex_and_parse_TopLevel line of

@@ -1,7 +1,7 @@
 (*
   Translate the compiler's state decoder.
 *)
-Theory decodeProg
+Theory decodeProg[no_sig_docs]
 Ancestors
   num_list_enc_dec num_tree_enc_dec backend_enc_dec explorerProg
   ml_translator
@@ -214,7 +214,7 @@ val def = closLang_exp_dec'_def |> DefnBase.one_line_ify NONE
           |> CONV_RULE (DEPTH_CONV BETA_CONV)
 val res = translate_no_ind def;
 
-Triviality closlang_exp_dec'_ind:
+Theorem closlang_exp_dec'_ind[local]:
   closlang_exp_dec'_ind
 Proof
   rewrite_tac [fetch "-" "closlang_exp_dec'_ind_def"]
@@ -260,7 +260,6 @@ val res = translate backend_inc_config_dec_def;
 
 val res = translate decode_backend_config_def;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

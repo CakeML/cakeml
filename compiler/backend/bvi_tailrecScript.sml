@@ -41,7 +41,7 @@ Proof
   \\ Cases_on `hdl` \\ fs [is_rec_def]
 QED
 
-Definition is_const_def:
+Definition is_const_def[simp]:
   (is_const (IntOp (Const i)) <=> small_enough_int i) /\
   (is_const _                 <=> F)
 End
@@ -55,8 +55,6 @@ Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV)
   \\ Cases \\ rpt CASE_TAC \\ rw [is_const_def]
 QED
-
-val _ = export_rewrites ["is_const_def"];
 
 Datatype:
   assoc_op = Plus
@@ -381,7 +379,7 @@ End
 
 (* --- Type analysis --- *)
 
-Definition decide_ty_def:
+Definition decide_ty_def[simp]:
   (decide_ty Int  Int  = Int)  /\
   (decide_ty List List = List) /\
   (decide_ty _    _    = Any)
@@ -395,10 +393,8 @@ Theorem decide_ty_PMATCH:
        | (List, List) => List
        | _            => Any
 Proof
-  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ Cases \\ rw [decide_ty_def]
+  CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV) \\ Cases \\ Cases \\ rw []
 QED
-
-val _ = export_rewrites ["decide_ty_def"]
 
 Definition LAST1_def:
   LAST1 []      = NONE   /\
@@ -511,6 +507,9 @@ Definition scan_expr_def:
       [(DROP (LENGTH ys) tu, ty, F, op)]) ∧
   (scan_expr ts loc [Raise x] = [(ts, Any, F, NONE)]) ∧
   (scan_expr ts loc [Tick x] = scan_expr ts loc [x]) ∧
+  (scan_expr ts loc [Force _ n] =
+    let ty = if n < LENGTH ts then EL n ts else Any in
+      [(ts, ty, F, NONE)]) ∧
   (scan_expr ts loc [Call t d xs h] = [(ts, Any, F, NONE)]) ∧
   (scan_expr ts loc [Op op xs] =
     let opr = from_op op in
@@ -566,6 +565,9 @@ Definition scan_expr_sing_def:
       (DROP (LENGTH ys) tu, ty, F, op)) ∧
   (scan_expr_sing ts loc (Raise x) = (ts, Any, F, NONE)) ∧
   (scan_expr_sing ts loc (Tick x) = scan_expr_sing ts loc x) ∧
+  (scan_expr_sing ts loc (Force _ n) =
+    let ty = if n < LENGTH ts then EL n ts else Any in
+      (ts, ty, F, NONE)) ∧
   (scan_expr_sing ts loc (Call t d xs h) = (ts, Any, F, NONE)) ∧
   (scan_expr_sing ts loc (Op op xs) =
     let opr = from_op op in
@@ -639,6 +641,7 @@ Definition rewrite_def:
   (rewrite loc next opr acc ts (Tick x) =
     let (r, y) = rewrite loc next opr acc ts x in
       (r, Tick y)) /\
+  (rewrite loc next opr acc ts (Force l v) = (F, Force l v)) /\
   (rewrite loc next opr acc ts exp =
     dtcase check_op ts opr loc exp of
       NONE => (F, apply_op opr (Var acc) exp)
@@ -668,6 +671,7 @@ Theorem rewrite_PMATCH:
              (r, Let xs y)
        | Tick x =>
            let (r, y) = rewrite loc next opr acc ts x in (r, Tick y)
+       | Force l v => (F, Force l v)
        | _ =>
            dtcase check_op ts opr loc expr of
              NONE => (F, apply_op opr (Var acc) expr)
@@ -679,7 +683,6 @@ Proof
   CONV_TAC (DEPTH_CONV PMATCH_ELIM_CONV)
   \\ recInduct (theorem "rewrite_ind") \\ rw [rewrite_def]
 QED
-
 
 Theorem rewrite_eq = rewrite_def |> SRULE [scan_expr_eq];
 
@@ -857,16 +860,16 @@ val opt_tm = ``
               NONE)))``
 val aux_tm = ``Let [Var 0; Op (IntOp (Const 1)) []] ^opt_tm``
 
-Theorem fac_check_exp:
+Theorem fac_check_exp[local]:
    check_exp 0 1 ^fac_tm = SOME Times
 Proof
-EVAL_TAC
+  EVAL_TAC
 QED
 
 Theorem fac_compile_exp:
    compile_exp 0 1 1 ^fac_tm = SOME (^aux_tm, ^opt_tm)
 Proof
-EVAL_TAC
+  EVAL_TAC
 QED
 
 val rev_tm = ``
@@ -892,15 +895,14 @@ val opt_tm = ``
 
 val aux_tm = ``Let [Var 0; Op (BlockOp (Cons 0)) []] ^opt_tm``
 
-Theorem rev_check_exp:
-   check_exp 444 1 ^rev_tm = SOME Append
+Theorem rev_check_exp[local]:
+  check_exp 444 1 ^rev_tm = SOME Append
 Proof
-EVAL_TAC
+  EVAL_TAC
 QED
 
-Theorem rev_compile_exp:
-   compile_exp 444 445 1 ^rev_tm = SOME (^aux_tm, ^opt_tm)
+Theorem rev_compile_exp[local]:
+  compile_exp 444 445 1 ^rev_tm = SOME (^aux_tm, ^opt_tm)
 Proof
-EVAL_TAC
+  EVAL_TAC
 QED
-

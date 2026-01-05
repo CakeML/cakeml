@@ -1,7 +1,7 @@
 (*
   Translate the compiler's lexer.
 *)
-Theory lexerProg
+Theory lexerProg[no_sig_docs]
 Ancestors
   lexer_fun lexer_impl to_dataProg ml_translator
 Libs
@@ -113,7 +113,7 @@ val num_from_hex_string_alt_side = Q.prove(`
     strip_tac>>
     fs[]) |> update_precondition;
 
-Triviality next_sym_alt_side:
+Theorem next_sym_alt_side[local]:
   ∀x l. next_sym_alt_side x l ⇔ T
 Proof
   ho_match_mp_tac next_sym_alt_ind>>rw[]>>
@@ -133,7 +133,6 @@ val lexer_fun_side = Q.prove(`
   ∀x. lexer_fun_side x ⇔ T`,
   EVAL_TAC>>fs[lexer_fun_aux_side]) |> update_precondition
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 

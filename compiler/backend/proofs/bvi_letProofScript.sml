@@ -28,7 +28,7 @@ Proof
   \\ imp_res_tac (METIS_PROVE [] ``x=y ==> LENGTH x = LENGTH y``) \\ fs []
 QED
 
-Triviality env_rel_LLOOKUP_NONE:
+Theorem env_rel_LLOOKUP_NONE[local]:
   !ax env env2 n d.
       env_rel ax d env env2 /\
       LLOOKUP ax n = NONE /\
@@ -42,7 +42,7 @@ Proof
   \\ res_tac \\ fs [LLOOKUP_def] \\ rfs [] \\ fs[ADD_CLAUSES]
 QED
 
-Triviality env_rel_LOOKUP_SOME:
+Theorem env_rel_LOOKUP_SOME[local]:
   !env env2 ax x n d.
       env_rel ax d env env2 /\
       LLOOKUP ax n = SOME x ==>
@@ -66,7 +66,7 @@ Proof
   \\ CCONTR_TAC \\ fs [] \\ rw []
 QED
 
-Triviality evaluate_delete_var_Rerr:
+Theorem evaluate_delete_var_Rerr[local]:
   !xs s r e env2.
       evaluate (xs,env2,s) = (Rerr e,r) /\
       e <> Rabort Rtype_error ==>
@@ -82,7 +82,7 @@ Proof
   \\ pop_assum mp_tac \\ EVAL_TAC
 QED
 
-Triviality evaluate_delete_var_Rval:
+Theorem evaluate_delete_var_Rval[local]:
   !xs env2 s a r ax env d.
       evaluate (xs,env2,s:('c,'ffi) bviSem$state) = (Rval a,r) /\
       env_rel ax d env env2 ==>
@@ -259,6 +259,18 @@ Proof
     \\ pop_assum $ drule_at $ Pos $ el 2 \\ gvs []
     \\ disch_then drule
     \\ impl_tac >- (CCONTR_TAC \\ gvs []) \\ gvs [])
+  \\ Cases_on ‘∃force_loc n. h = Force force_loc n’ \\ gvs []
+  >- (
+    imp_res_tac env_rel_length \\ gvs []
+    \\ gvs [evaluate_def, AllCaseEqs()]
+    \\ gvs [compile_def, evaluate_def]
+    \\ CASE_TAC \\ gvs []
+    >>~- ([‘LLOOKUP ax n = NONE’],
+      gvs [evaluate_def] \\ drule_all env_rel_LLOOKUP_NONE \\ rw [])
+    \\ (
+      drule env_rel_LOOKUP_SOME \\ gvs [v_rel_def]
+      \\ disch_then drule \\ gvs [] \\ rw []
+      \\ gvs [evaluate_def, LLOOKUP_EQ_EL, EL_DROP]))
   \\ reverse (Cases_on `?ys y. h = Let ys y` \\ fs [])
   THEN1 (Cases_on `h` \\ fs [])
   \\ fs [] \\ rpt (qpat_x_assum `T` kall_tac) \\ rveq \\ fs [evaluate_def]

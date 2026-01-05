@@ -1,7 +1,7 @@
 (*
   Translate arm8-specialised functions to cv equations.
 *)
-Theory backend_arm8_cv
+Theory backend_arm8_cv[no_sig_docs]
 Ancestors
   cv_std backend_cv backend_64_cv backend_arm8 arm8 arm8_target
   to_data_cv export_arm8 arm8_config
@@ -136,6 +136,7 @@ val _ = cv_trans NoOperation_def;
 val _ = cv_trans arm8_enc_mov_imm_def;
 val _ = cv_trans arm8_encode_fail_def;
 val _ = cv_trans arm8_load_store_ast_def;
+val _ = cv_trans arm8_load_store_ast16_def;
 val _ = cv_trans arm8_load_store_ast32_def;
 val _ = cv_trans cmp_cond_def;
 val _ = cv_trans asmSemTheory.is_test_def;
@@ -179,7 +180,7 @@ Proof
   \\ rw [] \\ simp [Once pre]
 QED
 
-Triviality fp_reg_ok_arm8_def[cv_inline] = fp_reg_ok_arm8_def;
+Theorem fp_reg_ok_arm8_def[local,cv_inline] = fp_reg_ok_arm8_def;
 
 val _ = cv_auto_trans inst_ok_arm8_def;
 val _ = cv_auto_trans asm_ok_arm8_def;
@@ -318,4 +319,3 @@ Proof
   irule backendTheory.set_asm_conf_id \\ EVAL_TAC
 QED
 
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;

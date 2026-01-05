@@ -40,10 +40,12 @@ Datatype:
 End
 
 Datatype:
+  varkind = Local | Global
+End
+
+Datatype:
   exp = Const ('a word)
-      | Var varname
-      | Label funname
-   (* | GetAddr decname *)
+      | Var varkind varname
       | Struct (exp list)
       | Field index exp
       | Load shape exp (* exp: start addr of value with given shape *)
@@ -54,17 +56,18 @@ Datatype:
       | Cmp cmp exp exp
       | Shift shift exp num
       | BaseAddr
+      | TopAddr
       | BytesInWord
 End
 
 Datatype:
-  opsize = Op8 | OpW | Op32
+  opsize = Op8 | OpW | Op32 | Op16
 End
 
 Datatype:
   prog = Skip
-       | Dec varname ('a exp) prog
-       | Assign    varname ('a exp)  (* dest, source *)
+       | Dec varname shape ('a exp) prog
+       | Assign varkind varname ('a exp)  (* dest, source *)
        | Store     ('a exp) ('a exp) (* dest, source *)
        | Store32   ('a exp) ('a exp) (* dest, source *)
        | StoreByte ('a exp) ('a exp) (* dest, source *)
@@ -73,38 +76,36 @@ Datatype:
        | While ('a exp) prog
        | Break
        | Continue
-       | Call ((varname option # ((eid # varname # prog) option)) option) ('a exp) (('a exp) list)
-       | DecCall varname shape ('a exp) ('a exp list) prog
+       | Call (((varkind # varname) option # ((eid # varname # prog) option)) option) funname (('a exp) list)
+       | DecCall varname shape funname ('a exp list) prog
        | ExtCall funname ('a exp) ('a exp) ('a exp) ('a exp)
          (* FFI name, conf_ptr, conf_len, array_ptr, array_len *)
        | Raise eid ('a exp)
        | Return ('a exp)
-       | ShMemLoad opsize varname ('a exp)
+       | ShMemLoad opsize varkind varname ('a exp)
        | ShMemStore opsize ('a exp) ('a exp)
        | Tick
        | Annot mlstring mlstring
 End
 
-(*
 Datatype:
-  handler = Handle eid varname ('a prog)
+  fun_decl =
+  <| name        : mlstring
+   ; export      : bool
+   ; params      : (varname # shape) list
+   ; body        : 'a prog
+   ; return      : shape
+  |>
 End
 
 Datatype:
-  ret = Tail | Ret varname ('a handler option)
+  decl = Function ('a fun_decl)
+       | Decl shape mlstring ('a exp)
 End
-*)
 
 Overload TailCall = “Call NONE”
 Overload AssignCall = “\s h. Call (SOME (SOME s , h))”
 Overload StandAloneCall = “\h. Call (SOME (NONE , h))”
-
-(*
-Datatype:
-  decl = Decl decname string
-       | Func funname (shape option) shape ('a prog)
-End
-*)
 
 Theorem MEM_IMP_shape_size:
    !shapes a. MEM a shapes ==> (shape_size a < 1 + shape1_size shapes)
@@ -146,7 +147,7 @@ End
 Definition exp_ids_def:
   (exp_ids Skip = ([]:mlstring list)) ∧
   (exp_ids (Raise e _) = [e]) ∧
-  (exp_ids (Dec _ _ p) = exp_ids p) ∧
+  (exp_ids (Dec _ _ _ p) = exp_ids p) ∧
   (exp_ids (Seq p q) = exp_ids p ++ exp_ids q) ∧
   (exp_ids (If _ p q) = exp_ids p ++ exp_ids q) ∧
   (exp_ids (While _ p) = exp_ids p) ∧
@@ -155,18 +156,10 @@ Definition exp_ids_def:
   (exp_ids _ = [])
 End
 
-(* defining here for insead of in pan_to_crep for pan_simpProof*)
-Definition remove_dup:
-  (remove_dup [] = []) ∧
-  (remove_dup (x::xs) =
-   if MEM x xs then remove_dup xs
-   else x::remove_dup xs)
-End
-
 Definition size_of_eids_def:
   size_of_eids prog =
-  let eids = FLAT (MAP (exp_ids o SND o SND) prog) in
-   LENGTH (remove_dup eids)
+  let eids = FLAT (MAP (λp. case p of Decl _ _ _ => [] | Function fi => exp_ids fi.body) prog) in
+   LENGTH (nub eids)
 End
 
 (*
@@ -188,8 +181,8 @@ End
 
 Definition var_exp_def:
   (var_exp (Const w) = ([]:mlstring list)) ∧
-  (var_exp (Var v) = [v]) ∧
-  (var_exp (Label f) = []) ∧
+  (var_exp (Var Local v) = [v]) ∧
+  (var_exp (Var Global v) = []) ∧
   (var_exp (Struct es) = FLAT (MAP var_exp es)) ∧
   (var_exp (Field i e) = var_exp e) ∧
   (var_exp (Load sh e) = var_exp e) ∧
@@ -198,7 +191,10 @@ Definition var_exp_def:
   (var_exp (Op bop es) = FLAT (MAP var_exp es)) ∧
   (var_exp (Panop op es) = FLAT (MAP var_exp es)) ∧
   (var_exp (Cmp c e1 e2) = var_exp e1 ++ var_exp e2) ∧
-  (var_exp (Shift sh e num) = var_exp e)
+  (var_exp (Shift sh e num) = var_exp e) ∧
+  (var_exp BaseAddr = []) ∧
+  (var_exp TopAddr = []) ∧
+  (var_exp BytesInWord = [])
 Termination
   wf_rel_tac `measure (\e. exp_size ARB e)` >>
   rpt strip_tac >>
@@ -207,20 +203,99 @@ Termination
   decide_tac
 End
 
-
-Definition destruct_def:
-  (destruct (Struct es) = es) /\
-  (destruct _ = [])
+Definition global_var_exp_def:
+  (global_var_exp (Const w) = ([]:mlstring list)) ∧
+  (global_var_exp (Var Local v) = []) ∧
+  (global_var_exp (Var Global v) = [v]) ∧
+  (global_var_exp (Struct es) = FLAT (MAP global_var_exp es)) ∧
+  (global_var_exp (Field i e) = global_var_exp e) ∧
+  (global_var_exp (Load sh e) = global_var_exp e) ∧
+  (global_var_exp (LoadByte e) = global_var_exp e) ∧
+  (global_var_exp (Op bop es) = FLAT (MAP global_var_exp es)) ∧
+  (global_var_exp (Panop op es) = FLAT (MAP global_var_exp es)) ∧
+  (global_var_exp (Cmp c e1 e2) = global_var_exp e1 ++ global_var_exp e2) ∧
+  (global_var_exp (Shift sh e num) = global_var_exp e)
+Termination
+  wf_rel_tac `measure (\e. exp_size ARB e)` >>
+  rpt strip_tac >>
+  imp_res_tac MEM_IMP_exp_size >>
+  TRY (first_x_assum (assume_tac o Q.SPEC `ARB`)) >>
+  decide_tac
 End
 
 Definition load_op_def:
   load_op Op8 = Load8 ∧
+  load_op Op16 = Load16 ∧
   load_op OpW = Load ∧
   load_op Op32 = Load32
 End
 
 Definition store_op_def:
   store_op Op8 = Store8 ∧
+  store_op Op16 = Store16 ∧
   store_op OpW = Store ∧
   store_op Op32 = Store32
+End
+
+Definition is_function_def:
+  is_function(Function _) = T ∧
+  is_function _ = F
+End
+
+Definition functions_def:
+  functions [] = [] ∧
+  functions(Function fi::fs) =
+  (fi.name,fi.params,fi.body)::functions fs ∧
+  functions(Decl _ _ _::fs) = functions fs
+End
+
+Definition fun_ids_def:
+  (fun_ids (Dec _ _ _ p) = fun_ids p) ∧
+  (fun_ids (Seq p q) = fun_ids p ++ fun_ids q) ∧
+  (fun_ids (If _ p q) = fun_ids p ++ fun_ids q) ∧
+  (fun_ids (While _ p) = fun_ids p) ∧
+  (fun_ids (Call (SOME (_ , (SOME (_ ,  _ , ep)))) nm _) = nm::fun_ids ep) ∧
+  (fun_ids (Call _ nm _) = [nm]) ∧
+  (fun_ids (DecCall _ _ nm _ p) = nm::fun_ids p) ∧
+  (fun_ids _ = [])
+End
+
+Definition free_var_ids_def:
+  (free_var_ids (Dec vn sh e p) = var_exp e ++ FILTER ($≠ vn) (free_var_ids p)) ∧
+  (free_var_ids (Seq p q) = free_var_ids p ++ free_var_ids q) ∧
+  (free_var_ids (If g p q) = var_exp g ++ free_var_ids p ++ free_var_ids q) ∧
+  (free_var_ids (While g p) = var_exp g ++ free_var_ids p) ∧
+  (free_var_ids (Assign vk v e) =
+   if vk = Local then
+     v::var_exp e
+   else
+     var_exp e
+  ) ∧
+  (free_var_ids (Store e1 e2) = var_exp e1 ++ var_exp e2) ∧
+  (free_var_ids (Store32 e1 e2) = var_exp e1 ++ var_exp e2) ∧
+  (free_var_ids (StoreByte e1 e2) = var_exp e1 ++ var_exp e2) ∧
+  (free_var_ids (Raise eid e) = var_exp e) ∧
+  (free_var_ids (Return e) = var_exp e) ∧
+  (free_var_ids (ExtCall fn e1 e2 e3 e4) = var_exp e1 ++ var_exp e2 ++ var_exp e3 ++ var_exp e4) ∧
+  (free_var_ids (ShMemLoad os vk v e) =
+   if vk = Local then
+     v::var_exp e
+   else
+     var_exp e) ∧
+  (free_var_ids (ShMemStore os e1 e2) = var_exp e1 ++ var_exp e2) ∧
+  (free_var_ids (panLang$Call (SOME (NONE , SOME (_ ,  vn , ep))) _ args) =
+   vn::free_var_ids ep ++
+   FLAT (MAP var_exp args)) ∧
+  (free_var_ids (panLang$Call (SOME (SOME(vk,vn) , SOME (_ ,  en , ep))) _ args) =
+   (if vk = Local then [vn] else []) ++
+   en::free_var_ids ep ++
+   FLAT (MAP var_exp args)) ∧
+  (free_var_ids (panLang$Call (SOME (SOME(vk,vn) , NONE)) _ args) =
+   (if vk = Local then [vn] else []) ++
+   FLAT (MAP var_exp args)) ∧
+  (free_var_ids (panLang$Call (SOME (NONE , NONE)) _ args) =
+   FLAT (MAP var_exp args)) ∧
+  (free_var_ids (panLang$Call NONE _ args) = FLAT (MAP var_exp args)) ∧
+  (free_var_ids (DecCall vn _ _ args p) = vn::free_var_ids p ++ FLAT (MAP var_exp args)) ∧
+  (free_var_ids _ = [])
 End

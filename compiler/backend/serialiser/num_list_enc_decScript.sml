@@ -735,7 +735,7 @@ QED
 Overload CUT[local] = “30:num”
 Overload SHIFT[local] = “32:num”
 
-Triviality good_chars:
+Theorem good_chars[local]:
   ORD #" " ≤ SHIFT ∧ SHIFT + CUT + CUT ≤ ORD #"\\"
 Proof
   EVAL_TAC
@@ -768,7 +768,7 @@ Definition dec_next_def:
       else dec_next (k + l * (m - CUT)) (l * CUT) ns
 End
 
-Triviality dec_next_LENGTH:
+Theorem dec_next_LENGTH[local]:
   ∀k ks n l t. (k,ks) = dec_next n l t ⇒ LENGTH ks ≤ LENGTH t
 Proof
   Induct_on ‘t’ \\ fs [dec_next_def]
@@ -825,7 +825,7 @@ Proof
   \\ simp [Once nums_to_chars_def] \\ rw []
 QED
 
-Triviality nums_to_chars_APPEND:
+Theorem nums_to_chars_APPEND[local]:
   ∀xs ys. nums_to_chars (xs ++ ys) = nums_to_chars xs ++ nums_to_chars ys
 Proof
   ho_match_mp_tac nums_to_chars_ind \\ rw []

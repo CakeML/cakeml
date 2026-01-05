@@ -224,6 +224,58 @@ Definition v_to_words_def:
   v_to_words lv = some ns. v_to_list lv = SOME (MAP (Litv o Word64) ns)
 End
 
+Definition check_type_def:
+  check_type BoolT v = (v = Boolv T ∨ v = Boolv F) ∧
+  check_type IntT v = (∃i. v = Litv (IntLit i)) ∧
+  check_type CharT v = (∃c. v = Litv (Char c)) ∧
+  check_type StrT v = (∃s. v = Litv (StrLit s)) ∧
+  check_type (WordT W8) v = (∃w. v = Litv (Word8 w)) ∧
+  check_type (WordT W64) v = (∃w. v = Litv (Word64 w)) ∧
+  check_type Float64T v = (∃w. v = Litv (Float64 w))
+End
+
+Definition dest_Litv_def:
+  dest_Litv (Litv v) = SOME v ∧
+  dest_Litv _ = NONE
+End
+
+Definition the_Litv_Float64_def:
+  the_Litv_Float64 (Litv (Float64 w)) = w
+End
+
+Definition do_test_def:
+  do_test Equal ty v1 v2 =
+    (if check_type ty v1 ∧ check_type ty v2 then
+       (if ty = Float64T
+        then Eq_val (fp64_equal (the_Litv_Float64 v1) (the_Litv_Float64 v2))
+        else do_eq v1 v2)
+     else Eq_type_error) ∧
+  do_test (Compare cmp) ty v1 v2 =
+    (case (ty, dest_Litv v1, dest_Litv v2) of
+     | (IntT,     SOME (IntLit i),  SOME (IntLit j))  => Eq_val (int_cmp cmp i j)
+     | (CharT,    SOME (Char c),    SOME (Char d))    => Eq_val (num_cmp cmp (ORD c) (ORD d))
+     | (WordT W8, SOME (Word8 w),   SOME (Word8 v))   => Eq_val (num_cmp cmp (w2n w) (w2n v))
+     | (Float64T, SOME (Float64 w), SOME (Float64 v)) => Eq_val (fp_cmp cmp w v)
+     | _ => Eq_type_error) ∧
+  do_test _ ty v1 v2 = Eq_type_error
+End
+
+Definition v_to_flat_def:
+  v_to_flat (semanticPrimitives$Litv v) = flatSem$Litv v ∧
+  v_to_flat (Conv x y) =
+    (if Conv x y = Boolv T then Boolv T else
+     if Conv x y = Boolv F then Boolv F else Vectorv []) ∧
+  v_to_flat _ = Vectorv []
+End
+
+Definition flat_to_v_def:
+  flat_to_v (flatSem$Litv v) = semanticPrimitives$Litv v ∧
+  flat_to_v (Conv x y) =
+    (if Conv x y = Boolv T then Boolv T else
+     if Conv x y = Boolv F then Boolv F else Vectorv []) ∧
+  flat_to_v _ = Vectorv []
+End
+
 Definition do_app_def:
   do_app s op (vs:flatSem$v list) =
   case (op, vs) of
@@ -234,14 +286,16 @@ Definition do_app_def:
       SOME (s, Rval (Litv (IntLit (opn_lookup op n1 n2))))
   | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
     SOME (s, Rval (Boolv (opb_lookup op n1 n2)))
-  | (FP_top t_op, [Litv (Word64 w1); Litv (Word64 w2); Litv (Word64 w3)] =>
-      SOME (s,Rval (Litv (Word64 (fp_top_comp t_op w1 w2 w3)))))
-  | (FP_bop bop, [Litv (Word64 w1); Litv (Word64 w2)]) =>
-      SOME (s,Rval (Litv (Word64 (fp_bop_comp bop w1 w2))))
-  | (FP_uop uop, [Litv (Word64 w)]) =>
-      SOME (s,Rval (Litv (Word64 (fp_uop_comp uop w))))
-  | (FP_cmp cmp, [Litv (Word64 w1); Litv (Word64 w2)]) =>
+  | (FP_top t_op, [Litv (Float64 w1); Litv (Float64 w2); Litv (Float64 w3)] =>
+      SOME (s,Rval (Litv (Float64 (fp_top_comp t_op w1 w2 w3)))))
+  | (FP_bop bop, [Litv (Float64 w1); Litv (Float64 w2)]) =>
+      SOME (s,Rval (Litv (Float64 (fp_bop_comp bop w1 w2))))
+  | (FP_uop uop, [Litv (Float64 w)]) =>
+      SOME (s,Rval (Litv (Float64 (fp_uop_comp uop w))))
+  | (FP_cmp cmp, [Litv (Float64 w1); Litv (Float64 w2)]) =>
       SOME (s,Rval (Boolv (fp_cmp_comp cmp w1 w2)))
+  | (FpFromWord, [Litv (Word64 w)]) => SOME (s,Rval (Litv (Float64 w)))
+  | (FpToWord, [Litv (Float64 w)]) => SOME (s,Rval (Litv (Word64 w)))
   | (Opw wz op, [Litv w1; Litv w2]) =>
      (case do_word_op op wz w1 w2 of
           | NONE => NONE
@@ -254,6 +308,25 @@ Definition do_app_def:
     (case do_eq v1 v2 of
      | Eq_type_error => NONE
      | Eq_val b => SOME (s, Rval (Boolv b)))
+  | (Test test test_ty, [v1; v2]) =>
+    (case do_test test test_ty v1 v2 of
+     | Eq_type_error => NONE
+     | Eq_val b => SOME (s, Rval (Boolv b)))
+  | (Arith a ty, vs) =>
+    (let vs = MAP flat_to_v vs in
+       if EVERY (check_type ty) vs then
+         (case do_arith a ty vs of
+          | SOME (INR res) => SOME (s, Rval (v_to_flat res))
+          | SOME (INL exn) => SOME (s, Rerr (Rraise div_exn_v))
+          | NONE           => NONE)
+       else NONE)
+  | (FromTo ty1 ty2, [v]) =>
+    (let v = flat_to_v v in
+       if check_type ty1 v then
+         (case do_conversion v ty1 ty2 of
+          | SOME res => SOME (s, Rval (v_to_flat res))
+          | NONE     => NONE)
+       else NONE)
   | (Opassign, [Loc _ lnum; v]) =>
     (case store_assign lnum (Refv v) s.refs of
      | SOME s' => SOME (s with refs := s', Rval Unitv)
@@ -385,8 +458,6 @@ Definition do_app_def:
             Rerr (Rraise chr_exn_v)
           else
             Rval (Litv(Char(CHR(Num(ABS i))))))
-  | (Chopb op, [Litv (Char c1); Litv (Char c2)]) =>
-    SOME (s, Rval (Boolv (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2)))))
   | (Implode, [v]) =>
     (case v_to_char_list v of
      | SOME ls =>
@@ -427,6 +498,11 @@ Definition do_app_def:
           SOME (s, Rerr (Rraise subscript_exn_v))
         else
           SOME (s, Rval (EL n vs))
+  | (Vsub_unsafe, [Vectorv vs; Litv (IntLit i)]) =>
+    if 0 ≤ i ∧ Num i < LENGTH vs then
+      SOME (s, Rval (EL (Num i) vs))
+    else
+      NONE
   | (Vlength, [Vectorv vs]) =>
     SOME (s, Rval (Litv (IntLit (int_of_num (LENGTH vs)))))
   | (Aalloc, [Litv (IntLit n); v]) =>
@@ -531,7 +607,7 @@ Definition do_app_def:
     SOME (s, Rval (Boolv (tag = n /\ LENGTH xs = l)))
   | (LenEq l, [Conv _ xs]) =>
     SOME (s, Rval (Boolv (LENGTH xs = l)))
- | (El n, [Conv _ vs]) =>
+  | (El n, [Conv _ vs]) =>
     (if n < LENGTH vs then SOME (s, Rval (EL n vs)) else NONE)
   | (El n, [Loc _ p]) =>
     (if n <> 0 then NONE else
@@ -540,6 +616,16 @@ Definition do_app_def:
        | _ => NONE)
   | (Id, [v1]) =>
     SOME (s, Rval v1)
+  | (ThunkOp th_op, vs) =>
+     (case (th_op,vs) of
+      | (AllocThunk m, [v]) =>
+          (let (r,n) = store_alloc (Thunk m v) s.refs in
+             SOME (s with refs := r, Rval (Loc F n)))
+      | (UpdateThunk m, [Loc _ lnum; v]) =>
+          (case store_assign lnum (Thunk m v) s.refs of
+           | SOME r => SOME (s with refs := r, Rval (Conv NONE []))
+           | NONE => NONE)
+      | _ => NONE)
   | _ => NONE
 End
 
@@ -638,19 +724,10 @@ Definition fix_clock_def:
   fix_clock s (s1,res) = (s1 with clock := MIN s.clock s1.clock,res)
 End
 
-Triviality fix_clock_IMP:
+Theorem fix_clock_IMP[local]:
   fix_clock s x = (s1,res) ==> s1.clock <= s.clock
 Proof
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
-QED
-
-Theorem pmatch_rows_Match_exp_size:
-  !pes s v env e.
-    pmatch_rows pes s v = Match (env',p,e) ==>
-    exp_size e < exp3_size pes
-Proof
-  Induct \\ fs [pmatch_rows_def,FORALL_PROD,CaseEq"match_result",CaseEq"bool"]
-  \\ rw [] \\ res_tac \\ fs [exp_size_def]
 QED
 
 Definition is_fresh_type_def:
@@ -680,6 +757,92 @@ Definition do_eval_def:
           | _ => NONE)
        | _ => NONE)
     | _ => NONE)
+End
+
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk [Loc _ n] st =
+    (case store_lookup n st of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk vs st = NotThunk
+End
+
+Definition update_thunk_def:
+  update_thunk [Loc _ n] st [v] =
+    (case dest_thunk [v] st of
+     | NotThunk => store_assign n (Thunk Evaluated v) st
+     | _ => NONE) ∧
+  update_thunk _ st _ = NONE
+End
+
+Definition AppUnit_def:
+  AppUnit x = flatLang$App None Opapp [x; Con None NONE []]
+End
+
+Definition exp_alt_size_def[simp]:
+  exp_alt_size (Raise a0 a1) = 1 + (tra_size a0 + exp_alt_size a1) ∧
+  exp_alt_size (Handle a0 a1 a2) =
+  1 + (tra_size a0 + (exp_alt_size a1 + exp3_alt_size a2)) ∧
+  exp_alt_size (Lit a0 a1) = 1 + (tra_size a0 + lit_size a1) ∧
+  exp_alt_size (Con a0 a1 a2) =
+  1 +
+  (tra_size a0 +
+   (option_size (pair_size (λx. x) (option_size (λx. x))) a1 +
+    exp6_alt_size a2)) ∧
+  exp_alt_size (Var_local a0 a1) = 1 + (tra_size a0 + list_size char_size a1) ∧
+  exp_alt_size (Fun a0 a1 a2) =
+  1 + (list_size char_size a0 + (list_size char_size a1 + exp_alt_size a2)) ∧
+  exp_alt_size (App a0 a1 a2) =
+  1 + (tra_size a0 + (op_size a1 + exp6_alt_size a2))
+    + (if a1 = ThunkOp ForceThunk then 100 else 0) ∧
+  exp_alt_size (If a0 a1 a2 a3) =
+  1 + (tra_size a0 + (exp_alt_size a1 + (exp_alt_size a2 + exp_alt_size a3))) ∧
+  exp_alt_size (Mat a0 a1 a2) =
+  1 + (tra_size a0 + (exp_alt_size a1 + exp3_alt_size a2)) ∧
+  exp_alt_size (Let a0 a1 a2 a3) =
+  1 +
+  (tra_size a0 +
+   (option_size (list_size char_size) a1 + (exp_alt_size a2 + exp_alt_size a3))) ∧
+  exp_alt_size (Letrec a0 a1 a2) =
+  1 + (list_size char_size a0 + (exp1_alt_size a1 + exp_alt_size a2)) ∧
+  exp1_alt_size [] = 0 ∧
+  exp1_alt_size (a0::a1) = 1 + (exp2_alt_size a0 + exp1_alt_size a1) ∧
+  exp2_alt_size (a0,a1) = 1 + (list_size char_size a0 + exp4_alt_size a1) ∧
+  exp3_alt_size [] = 0 ∧
+  exp3_alt_size (a0::a1) = 1 + (exp5_alt_size a0 + exp3_alt_size a1) ∧
+  exp4_alt_size (a0,a1) = 1 + (list_size char_size a0 + exp_alt_size a1) ∧
+  exp5_alt_size (a0,a1) = 1 + (pat_size a0 + exp_alt_size a1) ∧ exp6_alt_size [] = 0 ∧
+  exp6_alt_size (a0::a1) = 1 + (exp_alt_size a0 + exp6_alt_size a1)
+End
+
+Theorem exp6_alt_size:
+  exp6_alt_size xs = LENGTH xs + SUM (MAP exp_alt_size xs)
+Proof
+  Induct_on `xs` \\ simp []
+QED
+
+Theorem pmatch_rows_Match_exp_alt_size:
+  !pes s v env e.
+    pmatch_rows pes s v = Match (env',p,e) ==>
+    exp_alt_size e < exp3_alt_size pes
+Proof
+  Induct \\ fs [pmatch_rows_def,FORALL_PROD,CaseEq"match_result",CaseEq"bool"]
+  \\ rw [] \\ res_tac \\ fs []
+QED
+
+Definition dec_alt_size_def[simp]:
+  dec_alt_size (Dlet a) = 1 + exp_alt_size a ∧
+  dec_alt_size (Dtype a0 a1) = 1 + (a0 + spt_size (λx. x) a1) ∧
+  dec_alt_size (Dexn a0 a1) = 1 + (a0 + a1)
 End
 
 Definition evaluate_def:
@@ -746,10 +909,23 @@ Definition evaluate_def:
                | (s, NONE) => (s, Rval [retv])
                | (s, SOME e) => (s, Rerr e))
           | NONE => (s, Rerr (Rabort Rtype_error)))
+       else if op = ThunkOp ForceThunk then
+         (case dest_thunk vs s.refs of
+          | BadRef => (s, Rerr (Rabort Rtype_error))
+          | NotThunk => (s, Rerr (Rabort Rtype_error))
+          | IsThunk Evaluated v => (s, Rval [v])
+          | IsThunk NotEvaluated f =>
+             (case evaluate <| v := [("f",f)] |> s
+                    [AppUnit (Var_local None "f")] of
+              | (s, Rval vs2) =>
+                  (case update_thunk vs s.refs vs2 of
+                   | NONE => (s, Rerr (Rabort Rtype_error))
+                   | SOME refs => (s with refs := refs, Rval vs2))
+              | (s, Rerr e) => (s, Rerr e)))
        else
-       (case (do_app s op (REVERSE vs)) of
-        | NONE => (s, Rerr (Rabort Rtype_error))
-        | SOME (s',r) => (s', evaluate$list_result r))
+        (case (do_app s op (REVERSE vs)) of
+         | NONE => (s, Rerr (Rabort Rtype_error))
+         | SOME (s',r) => (s', evaluate$list_result r))
    | res => res) ∧
   (evaluate env s [If _ e1 e2 e3] =
    case fix_clock s (evaluate env s [e1]) of
@@ -805,16 +981,16 @@ Definition evaluate_def:
 Termination
   wf_rel_tac `inv_image ($< LEX $<)
     (\x. case x of
-        | INL (env,s,exps) => (s.clock, SUM (MAP exp_size exps) + LENGTH exps)
-        | (INR(INL(s,d))) => (s.clock,dec_size d + 1)
-        | (INR(INR(s,ds))) => (s.clock,SUM (MAP dec_size ds) + LENGTH ds + 1))`
-  \\ simp [exp_size_def, dec_clock_def]
+        | INL (env,s,exps) => (s.clock, SUM (MAP exp_alt_size exps) + LENGTH exps)
+        | (INR(INL(s,d))) => (s.clock,dec_alt_size d + 1)
+        | (INR(INR(s,ds))) => (s.clock,SUM (MAP dec_alt_size ds) + LENGTH ds + 1))`
+  \\ simp [dec_clock_def]
   \\ rw []
   \\ imp_res_tac fix_clock_IMP
   \\ imp_res_tac do_if_either_or
-  \\ imp_res_tac pmatch_rows_Match_exp_size
+  \\ imp_res_tac pmatch_rows_Match_exp_alt_size
   \\ fs []
-  \\ simp [MAP_REVERSE, SUM_REVERSE, exp6_size]
+  \\ simp [MAP_REVERSE, SUM_REVERSE, exp6_alt_size, AppUnit_def, char_size_def]
 End
 
 val op_thms = { nchotomy = op_nchotomy, case_def = op_case_def};
@@ -838,31 +1014,11 @@ val eqs = LIST_CONJ (map prove_case_eq_thm
 Theorem case_eq_thms =
   eqs
 
-Triviality pair_case_eq:
-  pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v
-Proof
-  Cases_on `x` >>
- srw_tac[][]
-QED
-
-Triviality pair_lam_lem:
-  !f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)
-Proof
-  srw_tac[][]
-QED
-
-Theorem do_app_cases =
-  ``do_app st op vs = SOME (st',v)`` |>
-  (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
-   SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs] THENC
-   ALL_CONV)
-
 Theorem do_app_const:
-   do_app s op vs = SOME (s',r) ⇒ s.clock = s'.clock ∧ s.c = s'.c
+  do_app s op vs = SOME (s',r) ⇒ s.clock = s'.clock ∧ s.c = s'.c
 Proof
-  rw [do_app_cases] >>
-  rw [] >>
-  rfs []
+  Cases_on ‘op’ \\ rw [do_app_def,AllCaseEqs()]
+  \\ rpt (pairarg_tac \\ gvs []) \\ gvs []
 QED
 
 Theorem evaluate_clock:
@@ -893,27 +1049,25 @@ Theorem evaluate_def[compute,allow_rebind] =
 Theorem evaluate_ind[allow_rebind] =
   REWRITE_RULE [fix_clock_evaluate] evaluate_ind;
 
-Definition bool_ctors_def:
+Definition bool_ctors_def[simp]:
   bool_ctors =
     { ((true_tag, SOME bool_id), 0n)
     ; ((false_tag, SOME bool_id), 0n) }
 End
 
-Definition list_ctors_def:
+Definition list_ctors_def[simp]:
   list_ctors =
     { ((cons_tag, SOME list_id), 2n)
     ; ((nil_tag, SOME list_id), 0n) }
 End
 
-Definition exn_ctors_def:
+Definition exn_ctors_def[simp]:
   exn_ctors =
     { ((div_tag, NONE), 0n)
     ; ((chr_tag, NONE), 0n)
     ; ((subscript_tag, NONE), 0n)
     ; ((bind_tag, NONE), 0n) }
 End
-
-val _ = export_rewrites ["bool_ctors_def", "list_ctors_def", "exn_ctors_def"];
 
 Definition initial_ctors_def:
    initial_ctors = bool_ctors UNION list_ctors UNION exn_ctors
@@ -947,7 +1101,7 @@ Definition semantics_def:
     of SOME res => res
      | NONE =>
        Diverge
-         (build_lprefix_lub
+         (lprefix_lub$build_lprefix_lub
            (IMAGE (λk. fromList
              (FST (evaluate_decs (initial_state ffi k ec) prog)).ffi.io_events)
                UNIV))
@@ -956,4 +1110,3 @@ End
 val _ = map (can delete_const)
   ["do_eq_UNION_aux","do_eq_UNION",
    "pmatch_UNION_aux","pmatch_UNION"];
-

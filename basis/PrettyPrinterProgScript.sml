@@ -34,7 +34,7 @@ val res = translate pp_paren_contents_def;
 
 val _ = translate escape_str_app_list_def;
 
-Triviality escape_str_app_list_side:
+Theorem escape_str_app_list_side[local]:
   !i s. escape_str_app_list_side i s <=> i <= strlen s
 Proof
   recInduct escape_str_app_list_ind

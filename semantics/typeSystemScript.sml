@@ -3,7 +3,7 @@
 *)
 Theory typeSystem
 Ancestors
-  fpValTree ast namespace semanticPrimitives
+  ast namespace semanticPrimitives
 
 val _ = numLib.temp_prefer_num();
 
@@ -84,18 +84,13 @@ Definition Tdouble_num_def:
  ((Tdouble_num:num) : type_ident= (( 14 : num)))
 End
 
-Definition Treal_num_def:
- ((Treal_num:num) : type_ident= (( 15 : num)))
-End
-
-
 (* The numbers for the primitive types *)
 Definition prim_type_nums_def:
- ((prim_type_nums:(num)list)=
-   ([Tarray_num; Tchar_num; Texn_num; Tfn_num; Tint_num; Tref_num; Tstring_num; Ttup_num;
-   Tvector_num; Tword64_num; Tword8_num; Tword8array_num; Tdouble_num; Treal_num]))
+ prim_type_nums: num list =
+ [Tarray_num; Tchar_num; Texn_num; Tfn_num; Tint_num; Tref_num; Tstring_num;
+  Ttup_num; Tvector_num; Tword64_num; Tword8_num; Tword8array_num; Tdouble_num;
+ ]
 End
-
 
 Definition Tarray_def:
  ((Tarray:t -> t) t=  (Tapp [t] Tarray_num))
@@ -156,11 +151,6 @@ End
 Definition Tdouble_def:
  ((Tdouble:t)=  (Tapp [] Tdouble_num))
 End
-
-Definition Treal_def:
- ((Treal:t)=  (Tapp [] Treal_num))
-End
-
 
 (* Check that the free type variables are in the given list. Every deBruijn
  * variable must be smaller than the first argument. So if it is 0, no deBruijn
@@ -359,14 +349,42 @@ End
  * - the set of type identity stamps defined here
  * - the environment of new stuff declared here *)
 
-(*val type_d : bool -> type_env -> dec -> set nat -> type_env -> bool*)
-(*val type_ds : bool -> type_env -> list dec -> set nat -> type_env -> bool*)
+Definition t_of_def[simp]:
+  t_of BoolT       = Tbool   ∧
+  t_of IntT        = Tint    ∧
+  t_of CharT       = Tchar   ∧
+  t_of StrT        = Tstring ∧
+  t_of (WordT W8)  = Tword8  ∧
+  t_of (WordT W64) = Tword64 ∧
+  t_of Float64T    = Tdouble
+End
+
+Definition supported_test_def[simp]:
+  supported_test Equal       ty = T ∧
+  supported_test (Compare _) ty = MEM ty [IntT; CharT; WordT W8; Float64T] ∧
+  supported_test _           ty = F
+End
+
+Definition supported_arith_def[simp]:
+  (supported_arith a IntT =
+     if MEM a [Add; Sub; Mul; Div; Mod] then SOME (2:num) else NONE) ∧
+  (supported_arith a Float64T =
+     if MEM a [Abs; Neg; Sqrt] then SOME 1 else
+     if MEM a [Add; Sub; Mul; Div] then SOME 2 else
+     if MEM a [FMA] then SOME 3 else NONE) ∧
+  (supported_arith a (ty:prim_type) = NONE)
+End
+
+Definition supported_conversion_def[simp]:
+  (supported_conversion (WordT W8) IntT = T) ∧
+  (supported_conversion (from_ty:prim_type) (to_ty:prim_type) = F)
+End
 
 (* Check that the operator can have type (t1 -> ... -> tn -> t) *)
 (*val type_op : op -> list t -> t -> bool*)
 Definition type_op_def:
- ((type_op:op ->(t)list -> t -> bool) op ts t=
-   ((case (op,ts) of
+ (type_op:op -> t list -> t -> bool) op ts t=
+   case (op,ts) of
       (Opapp, [t1; t2]) => t1 = Tfn t2 t
     | (Opn _, [t1; t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Tint)
     | (Opb _, [t1; t2]) => (t1 = Tint) /\ (t2 = Tint) /\ (t = Tbool)
@@ -378,13 +396,15 @@ Definition type_op_def:
     | (FP_cmp _, [t1; t2]) =>  (t1 = Tdouble) /\ (t2 = Tdouble) /\ (t = Tbool)
     | (FpToWord, [t1]) => (t1 = Tdouble) /\ (t = Tword64)
     | (FpFromWord, [t1]) => (t1 = Tword64) /\ (t = Tdouble)
-    | (Real_cmp _, [t1; t2]) => F (* t1 = Treal && t2 = Treal && t = Tbool *)
-    | (Real_bop _, [t1; t2]) => F (* t1 = Treal && t2 = Treal && t = Treal *)
-    | (Real_uop _, [t1]) => F (* t1 = Treal && t = Treal *)
-    | (RealFromFP, [t1]) => F
     | (Shift W8 _ _, [t1]) => (t1 = Tword8) /\ (t = Tword8)
     | (Shift W64 _ _, [t1]) => (t1 = Tword64) /\ (t = Tword64)
     | (Equality, [t1; t2]) => (t1 = t2) /\ (t = Tbool)
+    | (Arith a ty, ts) => EVERY (λarg. arg = t_of ty) ts /\ (t = t_of ty) /\
+                          supported_arith a ty = SOME (LENGTH ts)
+    | (FromTo ty1 ty2, [t1]) => (t1 = t_of ty1) /\ (t = t_of ty2) /\
+                                supported_conversion ty1 ty2
+    | (Test test ty, [t1; t2]) => (t1 = t2) /\ (t = Tbool) /\ (t1 = t_of ty) /\
+                                  supported_test test ty
     | (Opassign, [t1; t2]) => (t1 = Tref t2) /\ (t = Ttup [])
     | (Opref, [t1]) => t = Tref t1
     | (Opderef, [t1]) => t1 = Tref t
@@ -404,7 +424,6 @@ Definition type_op_def:
       (t1 = Tword8array) /\ (t2 = Tint) /\ (t3 = Tint) /\ (t4 = Tword8array) /\ (t5 = Tint) /\ (t = Ttup [])
     | (Chr, [t1]) => (t1 = Tint) /\ (t = Tchar)
     | (Ord, [t1]) => (t1 = Tchar) /\ (t = Tint)
-    | (Chopb _, [t1; t2]) => (t1 = Tchar) /\ (t2 = Tchar) /\ (t = Tbool)
     | (Implode, [t1]) => (t1 = Tlist Tchar) /\ (t = Tstring)
     | (Explode, [t1]) => (t1 = Tstring) /\ (t = Tlist Tchar)
     | (Strsub, [t1; t2]) => (t1 = Tstring) /\ (t2 = Tint) /\ (t = Tchar)
@@ -422,9 +441,7 @@ Definition type_op_def:
     | (FFI n, [t1;t2]) => (t1 = Tstring) /\ (t2 = Tword8array) /\ (t = Ttup [])
     | (ListAppend, [Tapp [t1] ctor; t2]) => (ctor = Tlist_num) /\ (t2 = Tapp [t1] ctor) /\ (t = t2)
     | _ => F
-  )))
 End
-
 
 Definition check_type_names_def:
 ((check_type_names:((string),(string),((string)list#t))namespace -> ast_t -> bool) tenvT (Atvar tv)=
@@ -617,6 +634,11 @@ T
 ==>
 type_e tenv tenvE (Lit (Word64 w)) Tword64)
 
+/\ (! tenv tenvE w.
+T
+==>
+type_e tenv tenvE (Lit (Float64 w)) Tdouble)
+
 /\ (! tenv tenvE e t.
 (check_freevars (num_tvs tenvE) [] t /\
 type_e tenv tenvE e Texn)
@@ -721,11 +743,6 @@ type_e tenv tenvE (Tannot e t) (type_name_subst tenv.t t))
 (type_e tenv tenvE e t)
 ==>
 type_e tenv tenvE (Lannot e l) t)
-
-/\ (! tenv tenvE e opt t.
-(type_e tenv tenvE e t)
-==>
-type_e tenv tenvE (FpOptimise opt e) t)
 
 /\ (! tenv tenvE.
 T

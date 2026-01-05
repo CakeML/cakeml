@@ -1,7 +1,7 @@
 (*
   Translate the compiler's register allocator.
 *)
-Theory reg_allocProg
+Theory reg_allocProg[no_sig_docs]
 Libs
   preamble ml_monad_translatorLib
 Ancestors
@@ -143,7 +143,7 @@ val _ = m_translate split_degree_def;
 val _ = translate sort_moves_def;
 val _ = translate smerge_def;
 
-Triviality rewrite_subs:
+Theorem rewrite_subs[local]:
   (st_ex_MAP adj_ls_sub = st_ex_MAP (\v. adj_ls_sub v)) ∧
   (st_ex_MAP node_tag_sub = st_ex_MAP (\v. node_tag_sub v)) ∧
   (st_ex_PARTITION move_related_sub = st_ex_PARTITION (\v. move_related_sub v)) ∧
@@ -240,7 +240,7 @@ val _ = m_translate do_reg_alloc_def;
 
 (* Finish the monadic translation *)
 (* Rewrite reg_alloc_aux before giving it to the monadic translator *)
-Triviality reg_alloc_aux_trans_def:
+Theorem reg_alloc_aux_trans_def[local]:
   ∀k mtable ct forced fs x.
      reg_alloc_aux alg scost k mtable ct forced fs x =
      run_ira_state (do_reg_alloc alg scost k mtable ct forced fs x)
@@ -413,7 +413,6 @@ val res = translate apply_bij_on_clash_tree_def;
 val res = translate size_of_clash_tree_def;
 val res = translate linear_scan_reg_alloc_def;
 
-val () = Feedback.set_trace "TheoryPP.include_docs" 0;
 
 (*
 TODO: update the following code (comes from the non-monadic register allocator

@@ -65,7 +65,7 @@ fun EXTRACT_PURE_FACTS_TAC (g as (asl, w)) =
   end;
 (***********************************************************************************************)
 
-Triviality REFS_PRED_lemma:
+Theorem REFS_PRED_lemma[local]:
   SPLIT (st2heap (p : 'ffi ffi_proj)  st) (h1, h2) /\ H refs h1 ==> REFS_PRED (H,p) refs st
 Proof
   rw[REFS_PRED_def, STAR_def]
@@ -74,7 +74,7 @@ Proof
 \\ fs[SAT_GC]
 QED
 
-Triviality HPROP_SPLIT3:
+Theorem HPROP_SPLIT3[local]:
   (H1 * H2 * H3) h ==> ?h1 h2 h3. SPLIT3 h (h1, h2, h3) /\ H1 h1 /\ H2 h2 /\ H3 h3
 Proof
   rw[STAR_def, SPLIT_def, SPLIT3_def]
@@ -82,7 +82,7 @@ Proof
 \\ metis_tac[]
 QED
 
-Triviality HPROP_SPLIT3_clock0:
+Theorem HPROP_SPLIT3_clock0[local]:
   (H1 * H2 * H3) (st2heap p st) ==>
  ?h1 h2 h3. SPLIT3 (st2heap p (st with clock := 0)) (h1, h2, h3) /\ H1 h1 /\ H2 h2 /\ H3 h3
 Proof
@@ -91,7 +91,7 @@ Proof
 \\ metis_tac[]
 QED
 
-Triviality REFS_PRED_from_SPLIT:
+Theorem REFS_PRED_from_SPLIT[local]:
   !state (st : 'ffi semanticPrimitives$state) H p h1 h2.
    H state h1 ==>
    SPLIT (st2heap p st) (h1,h2) ==>

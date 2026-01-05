@@ -122,7 +122,9 @@ Definition size_of_def:
      | NONE => (0, refs, seen)
      | SOME (ByteArray _ bs) => (LENGTH bs DIV (arch_size lims DIV 8) + 2, delete r refs, seen)
      | SOME (ValueArray vs) => let (n,refs,seen) = size_of lims vs (delete r refs) seen in
-                                 (n + LENGTH vs + 1, refs, seen)) /\
+                                 (n + LENGTH vs + 1, refs, seen)
+     | SOME (Thunk _ v) => let (n,refs,seen) = size_of lims [v] (delete r refs) seen in
+                             (n + 2, refs, seen)) /\
   (size_of lims [Block ts tag []]) refs seen = (0, refs, seen) /\
   (size_of lims [Block ts tag vs] refs seen =
      if IS_SOME (sptree$lookup ts seen) then (0, refs, seen) else
@@ -137,7 +139,7 @@ Termination
   \\ imp_res_tac check_res_IMP \\ fs []
 End
 
-Triviality check_res_size_of:
+Theorem check_res_size_of[local]:
   check_res refs (size_of lims vs refs seen) = size_of lims vs refs seen
 Proof
   qsuff_tac
@@ -721,6 +723,14 @@ Definition do_word_app_def:
         | SOME (w1,w2) => SOME (Number &(w2n (opw_lookup opw w1 w2))))) /\
   do_word_app (WordOpw W64 opw) [Word64 w1; Word64 w2] =
         SOME (Word64 (opw_lookup opw w1 w2)) /\
+  do_word_app (WordTest W8 test) [Number n1; Number n2] =
+       (if 0 ≤ n1 ∧ n1 < 256 ∧ 0 ≤ n2 ∧ n2 < 256 then
+          (case test of
+           | Equal       => SOME (Boolv (n1 = n2))
+           | Compare Lt  => SOME (Boolv (n1 < n2))
+           | Compare Leq => SOME (Boolv (n1 <= n2))
+           | _           => NONE)
+        else NONE) /\
   do_word_app (WordShift W8 sh n) [Number i] =
        (case some (w:word8). i = &(w2n w) of
         | NONE => NONE
@@ -755,6 +765,12 @@ Definition do_word_app_def:
          | [Word64 w1; Word64 w2] => (SOME (Boolv (fp_cmp_comp cmp w1 w2)))
          | _ => NONE) /\
   do_word_app (op:closLang$word_op) (vs:dataSem$v list) = NONE
+End
+
+Definition dest_Boolv_def:
+  dest_Boolv (Block _ tag xs) =
+    (if xs = [] ∧ tag < 2 then SOME (tag = 1) else NONE) ∧
+  dest_Boolv _ = NONE
 End
 
 Definition do_app_aux_def:
@@ -865,6 +881,10 @@ Definition do_app_aux_def:
             (if n < LENGTH xs
              then Rval (EL n xs, s)
              else Error)
+         | _ => Error)
+    | (BlockOp (BoolTest test),[v1;v2]) =>
+        (case (dest_Boolv v1, dest_Boolv v2) of
+         | (SOME b1, SOME b2) => Rval (Boolv (b1 = b2), s)
          | _ => Error)
     | (BlockOp ListAppend,[x1;x2]) =>
         (case (v_to_list x1, v_to_list x2) of
@@ -995,6 +1015,18 @@ Definition do_app_aux_def:
            | _ => Error)
          | _ => Error)
     | (MemOp ConfigGC,[Number _; Number _]) => (Rval (Unit, s))
+    | (ThunkOp th_op,vs) =>
+        (case (th_op,vs) of
+         | (AllocThunk m, [v]) =>
+             (let ptr = (LEAST ptr. ptr ∉ domain s.refs) in
+                Rval (RefPtr F ptr,
+                      s with refs := insert ptr (Thunk m v) s.refs))
+         | (UpdateThunk m, [RefPtr _ ptr; v]) =>
+             (case lookup ptr s.refs of
+              | SOME (Thunk NotEvaluated _) =>
+                 Rval (Unit,s with refs := insert ptr (Thunk m v) s.refs)
+              | _ => Error)
+         | _ => Error)
     | _ => Error
 End
 
@@ -1048,13 +1080,13 @@ Definition fix_clock_def:
   fix_clock s (res,s1) = (res,s1 with clock := MIN s.clock s1.clock)
 End
 
-Triviality fix_clock_IMP:
+Theorem fix_clock_IMP[local]:
   fix_clock s x = (res,s1) ==> s1.clock <= s.clock
 Proof
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
 QED
 
-Triviality LESS_EQ_dec_clock:
+Theorem LESS_EQ_dec_clock[local]:
   r.clock <= (dec_clock s).clock ==> r.clock <= s.clock
 Proof
   SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC
@@ -1148,7 +1180,7 @@ Definition cut_state_opt_def:
     | SOME names => cut_state names s
 End
 
-Triviality pop_env_clock:
+Theorem pop_env_clock[local]:
   (pop_env s = SOME s1) ==> (s1.clock = s.clock)
 Proof
   full_simp_tac(srw_ss())[pop_env_def]
@@ -1156,7 +1188,7 @@ Proof
   \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
 QED
 
-Triviality push_env_clock:
+Theorem push_env_clock[local]:
   (push_env env b s).clock = s.clock
 Proof
   Cases_on `b` \\ full_simp_tac(srw_ss())[push_env_def]
@@ -1192,6 +1224,23 @@ End
 
 Definition install_sfs_def[simp]:
   install_sfs op ^s = s with safe_for_space := (op ≠ closLang$Install ∧ s.safe_for_space)
+End
+
+Datatype:
+  dest_thunk_ret
+    = BadRef
+    | NotThunk
+    | IsThunk thunk_mode v
+End
+
+Definition dest_thunk_def:
+  dest_thunk (RefPtr _ ptr) refs =
+    (case lookup ptr refs of
+     | NONE => BadRef
+     | SOME (Thunk Evaluated v) => IsThunk Evaluated v
+     | SOME (Thunk NotEvaluated v) => IsThunk NotEvaluated v
+     | SOME _ => NotThunk) ∧
+  dest_thunk v refs = NotThunk
 End
 
 Definition evaluate_def:
@@ -1239,6 +1288,49 @@ Definition evaluate_def:
      | SOME x => if isBool T x then evaluate (c1,s) else
                  if isBool F x then evaluate (c2,s) else
                    (SOME (Rerr(Rabort Rtype_error)),s)) /\
+  (evaluate (Force ret loc src,s) =
+     case get_var src s.locals of
+     | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
+     | SOME thunk_v =>
+       (case dest_thunk thunk_v s.refs of
+        | BadRef => (SOME (Rerr (Rabort Rtype_error)),s)
+        | NotThunk => (SOME (Rerr (Rabort Rtype_error)),s)
+        | IsThunk Evaluated v =>
+          (case ret of
+           | NONE => (SOME (Rval v),flush_state F s)
+           | SOME (dest,names) =>
+             (case cut_env names s.locals of
+              | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
+              | SOME env => (NONE, set_var dest v (s with locals := env))))
+        | IsThunk NotEvaluated f =>
+           (case find_code (SOME loc) [thunk_v; f] s.code s.stack_frame_sizes of
+            | NONE => (SOME (Rerr (Rabort Rtype_error)),s)
+            | SOME (args1,prog,ss) =>
+              (case ret of
+               | NONE =>
+                  (if s.clock = 0 then
+                     (SOME (Rerr(Rabort Rtimeout_error)),
+                           s with <| stack := [] ; locals := LN |>)
+                   else
+                     (case evaluate (prog, call_env args1 ss (dec_clock s)) of
+                      | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
+                      | (SOME res,s) => (SOME res,s)))
+               | SOME (dest,names) =>
+                 (case cut_env names s.locals of
+                  | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
+                  | SOME env =>
+                      let s1 = call_env args1 ss (push_env env F (dec_clock s)) in
+                        if s.clock = 0 then
+                          (SOME (Rerr(Rabort Rtimeout_error)),
+                           s1 with <| stack := [] ; locals := LN |>)
+                        else
+                          (case fix_clock s1 (evaluate (prog, s1)) of
+                           | (SOME (Rval x),s2) =>
+                             (case pop_env s2 of
+                              | NONE => (SOME (Rerr(Rabort Rtype_error)),s2)
+                              | SOME s1 => (NONE, set_var dest x s1))
+                           | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
+                           | res => res)))))) /\
   (evaluate (Call ret dest args handler,s) =
      case get_vars args s.locals of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
@@ -1280,14 +1372,13 @@ Definition evaluate_def:
                          | res => res)))))
 Termination
   WF_REL_TAC `(inv_image (measure I LEX measure prog_size)
-                          (\(xs,s). (s.clock,xs)))`
+                         (\(xs,s). (s.clock,xs)))`
   \\ rpt strip_tac
   \\ simp[dec_clock_def]
   \\ imp_res_tac fix_clock_IMP
   \\ imp_res_tac (GSYM fix_clock_IMP)
   \\ FULL_SIMP_TAC (srw_ss()) [set_var_def,push_env_clock, call_env_def,LET_THM]
-  >- fs [LESS_OR_EQ,dec_clock_def]
-  \\ decide_tac
+  \\ fs [dec_clock_def]
 End
 
 val evaluate_ind = theorem"evaluate_ind";

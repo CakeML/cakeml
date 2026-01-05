@@ -7,5 +7,10 @@ compiler/backend/San
 unverified
 
 # Unmaintained + exampleLib does unholy things like calling set_grammar_ancestry
-icing/examples
-icing/examples/output
+
+examples/flover
+examples/flover/Infra
+examples/flover/semantics
+
+unverified/sexpr-bootstrap/x64/64
+unverified/sexpr-bootstrap/x64/32

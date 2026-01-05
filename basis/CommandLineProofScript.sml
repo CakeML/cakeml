@@ -83,35 +83,39 @@ Proof
   \\ EVAL_TAC
 QED
 
-val SUC_SUC_LENGTH = prove(
-  ``SUC (SUC (LENGTH (TL (TL (REPLICATE (MAX 2 n) x))))) = (MAX 2 n)``,
-  Cases_on `n` \\ fs [] THEN1 EVAL_TAC
-  \\ Cases_on `n'` \\ fs [] THEN1 EVAL_TAC
-  \\ fs [ADD1] \\ rw [MAX_DEF]
-  \\ fs [EVAL ``REPLICATE 2 x``]
-  \\ once_rewrite_tac [ADD_COMM]
-  \\ rewrite_tac [GSYM REPLICATE_APPEND]
-  \\ fs [EVAL ``REPLICATE 2 x``]);
+Theorem SUC_SUC_MAX2[local]:
+    SUC (SUC (MAX 2 n - 2)) = (MAX 2 n)
+Proof
+  Cases_on `n` \\ fs []
+  \\ Cases_on `n'` \\ fs [ADD1]
+  \\ simp[MAX_DEF]
+QED
 
-val two_byte_sum = prove(
-  ``k < 65536 ==> k MOD 256 + 256 * (k DIV 256) MOD 256 = k``,
+Theorem two_byte_sum[local]:
+    k < 65536 ==> k MOD 256 + 256 * (k DIV 256) MOD 256 = k
+Proof
   rw []
   \\ `(k DIV 256) MOD 256 = k DIV 256` by
         (match_mp_tac LESS_MOD \\ fs [DIV_LT_X,wfcl_def]) \\ fs []
   \\ `(k DIV 256) * 256 + k MOD 256 = k` by metis_tac [DIVISION,EVAL ``0 < 256n``]
-  \\ fs []);
+  \\ fs []
+QED
 
-val LESS_LENGTH_EXISTS = prove(
-  ``!xs n. n < LENGTH xs ==> ?ys y ts. xs = ys ++ y::ts /\ LENGTH ys = n``,
+Theorem LESS_LENGTH_EXISTS[local]:
+    !xs n. n < LENGTH xs ==> ?ys y ts. xs = ys ++ y::ts /\ LENGTH ys = n
+Proof
   Induct \\ fs [] \\ Cases_on `n` \\ fs []
   \\ rw [] \\ res_tac \\ fs [] \\ rveq \\ fs []
-  \\ qexists_tac `h::ys` \\ fs []);
+  \\ qexists_tac `h::ys` \\ fs []
+QED
 
-val DROP_SUC_LENGTH_MAP = prove(
-  ``(DROP (SUC (LENGTH ys)) (MAP f ys ⧺ y::ts)) = ts``,
+Theorem DROP_SUC_LENGTH_MAP[local]:
+    (DROP (SUC (LENGTH ys)) (MAP f ys ⧺ y::ts)) = ts
+Proof
   qsuff_tac `MAP f ys ⧺ y::ts = (MAP f ys ⧺ [y]) ++ ts /\
              SUC (LENGTH ys) = LENGTH (MAP f ys ⧺ [y])`
-  THEN1 simp_tac std_ss [DROP_LENGTH_APPEND] \\ fs []);
+  THEN1 simp_tac std_ss [DROP_LENGTH_APPEND] \\ fs []
+QED
 
 Theorem CommandLine_cloop_spec:
    !n nv av cv a.
@@ -160,7 +164,7 @@ Proof
   \\ rpt (xlet_auto THEN1 xsimpl)
   \\ qmatch_goalsub_abbrev_tac`W8ARRAY av1 bytes`
   \\ `strlen x < 65536` by
-       (fs [wfcl_def,SUC_SUC_LENGTH,Abbr`x`] \\ `n < LENGTH cl` by fs []
+       (fs [wfcl_def,Abbr`x`] \\ `n < LENGTH cl` by fs []
         \\ fs [EVERY_EL] \\ first_x_assum drule \\ fs [validArg_def])
   \\ xlet `POSTv v. W8ARRAY av1 (MAP (n2w o ORD) (explode x) ++ DROP (strlen x) bytes) *
        W8ARRAY av [n2w (strlen x); n2w (strlen x DIV 256)] * COMMANDLINE cl`
@@ -178,11 +182,12 @@ Proof
     \\ unabbrev_all_tac \\ fs []
     \\ fs[cfHeapsBaseTheory.mk_ffi_next_def,ffi_get_arg_def,
            GSYM cfHeapsBaseTheory.encode_list_def,LENGTH_EQ_NUM_compute]
-    \\ fs [wfcl_def,SUC_SUC_LENGTH,two_byte_sum] \\ xsimpl
+    \\ fs [wfcl_def,SUC_SUC_MAX2,two_byte_sum] \\ xsimpl
+    \\ xsimpl
     \\ qpat_abbrev_tac `new_events = events ++ _`
     \\ qexists_tac `new_events` \\ xsimpl)
   \\ xlet_auto
-  THEN1 (xsimpl \\ fs [SUC_SUC_LENGTH,two_byte_sum,mlstringTheory.LENGTH_explode])
+  THEN1 (xsimpl \\ fs [two_byte_sum,mlstringTheory.LENGTH_explode])
   \\ xlet_auto THEN1 (xcon \\ xsimpl)
   \\ qpat_abbrev_tac `Q = $POSTv _`
   \\ simp [COMMANDLINE_def,cl_ffi_part_def,IOx_def,IO_def]

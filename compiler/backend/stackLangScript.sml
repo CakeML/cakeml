@@ -7,8 +7,8 @@
 *)
 Theory stackLang
 Ancestors
-  asm backend_common
   misc[qualified] (* for bytes_in_word *)
+  asm backend_common
 Libs
   preamble
 
@@ -63,22 +63,21 @@ Datatype:
        | Halt num
 End
 
-val _ = map overload_on
-  [("move",``\dest src. Inst (Arith (Binop Or dest src (Reg src)))``),
-   ("sub_1_inst",``\r1. Inst (Arith (Binop Sub r1 r1 (Imm 1w)))``),
-   ("sub_inst",``\r1 r2. Inst (Arith (Binop Sub r1 r1 (Reg r2)))``),
-   ("add_inst",``\r1 r2. Inst (Arith (Binop Add r1 r1 (Reg r2)))``),
-   ("and_inst",``\r1 r2. Inst (Arith (Binop And r1 r1 (Reg r2)))``),
-   ("xor_inst",``\r1 r2. Inst (Arith (Binop Xor r1 r1 (Reg r2)))``),
-   ("add_1_inst",``\r1. Inst (Arith (Binop Add r1 r1 (Imm 1w)))``),
-   ("or_inst",``\r1 r2. Inst (Arith (Binop Or r1 r1 (Reg r2)))``),
-   ("add_bytes_in_word_inst",``\r1. Inst (Arith (Binop Add r1 r1 (Imm (bytes_in_word))))``),
-   ("div2_inst",``\r. Inst (Arith (Shift Lsr r r (Imm 1w)))``),
-   ("left_shift_inst",``\r v. Inst (Arith (Shift Lsl r r (Imm (n2w v))))``),
-   ("right_shift_inst",``\r v. Inst (Arith (Shift Lsr r r (Imm (n2w v))))``),
-   ("const_inst",``\r w. Inst (Const r w)``),
-   ("load_inst",``\r a. Inst (Mem Load r (Addr a 0w))``),
-   ("store_inst",``\r a. Inst (Mem Store r (Addr a 0w))``)]
+Overload move = “λdest src. Inst (Arith (Binop Or dest src (Reg src)))”
+Overload sub_1_inst = “λr1. Inst (Arith (Binop Sub r1 r1 (Imm 1w)))”
+Overload sub_inst = “λr1 r2. Inst (Arith (Binop Sub r1 r1 (Reg r2)))”
+Overload add_inst = “λr1 r2. Inst (Arith (Binop Add r1 r1 (Reg r2)))”
+Overload and_inst = “λr1 r2. Inst (Arith (Binop And r1 r1 (Reg r2)))”
+Overload xor_inst = “λr1 r2. Inst (Arith (Binop Xor r1 r1 (Reg r2)))”
+Overload add_1_inst = “λr1. Inst (Arith (Binop Add r1 r1 (Imm 1w)))”
+Overload or_inst = “λr1 r2. Inst (Arith (Binop Or r1 r1 (Reg r2)))”
+Overload add_bytes_in_word_inst = “λr1. Inst (Arith (Binop Add r1 r1 (Imm (bytes_in_word))))”
+Overload div2_inst = “λr. Inst (Arith (Shift Lsr r r (Imm 1w)))”
+Overload left_shift_inst = “λr v. Inst (Arith (Shift Lsl r r (Imm (n2w v))))”
+Overload right_shift_inst = “λr v. Inst (Arith (Shift Lsr r r (Imm (n2w v))))”
+Overload const_inst = “λr w. Inst (Const r w)”
+Overload load_inst = “λr a. Inst (Mem Load r (Addr a 0w))”
+Overload store_inst = “λr a. Inst (Mem Store r (Addr a 0w))”
 
 Definition list_Seq_def:
   (list_Seq [] = Skip) /\

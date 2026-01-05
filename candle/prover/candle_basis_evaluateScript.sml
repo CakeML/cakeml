@@ -26,6 +26,9 @@ Definition simple_exp_def:
       App op xs => (case op of
         VfromList => T
       | Aw8alloc => T
+      | Test _ _ => T
+      | Arith _ _ => T
+      | FromTo _ _ => T
       | Opb _ => T
       | _ => F)
     | Lit lit => T
@@ -220,9 +223,19 @@ Proof
   >- (Cases_on ‘op’ \\ gs[])
   >- (Cases_on ‘op’ \\ gs[])
   >- (Cases_on ‘op’ \\ gs[])
+  >- (Cases_on ‘op’ \\ gvs [])
   >- (
     gvs [do_app_cases, Boolv_def]
     \\ rw [v_ok_def]
+    >~ [`do_arith a ty`]
+    >- (
+      Cases_on ‘a’ \\ Cases_on ‘ty’
+      \\ gvs[do_arith_def, CaseEq"list", v_ok_def, CaseEq"bool"]
+    ) >~ [`do_conversion _ ty1 ty2`]
+    >- (
+      Cases_on ‘ty2’ \\ Cases_on ‘ty1’
+      \\ gvs[do_conversion_def, CaseEq"list", v_ok_def, CaseEq"bool"]
+      \\ Cases_on ‘w’ \\ gvs[do_conversion_def, v_ok_def] )
     >- (
       gvs [store_alloc_def, post_state_ok_def]
       \\ strip_tac
@@ -233,19 +246,6 @@ Proof
       \\ first_assum (irule_at Any)
       \\ first_x_assum irule \\ gs []
       \\ gs [post_state_ok_def]))
-  >- (Cases_on ‘op’ \\ gs[])
-  >- (Cases_on ‘op’ \\ gs[])
-QED
-
-Theorem evaluate_basis_v_ok_FpOptimise:
-  ^(get_goal "FpOptimise")
-Proof
-  rw [evaluate_def]
-  \\ gvs [CaseEqs ["bool", "option", "prod", "semanticPrimitives$result"], SF SFY_ss]
-  >- (irule EVERY_v_ok_do_fpoptimise \\ first_assum irule \\ gs[simple_exp_def])
-  >- (Cases_on ‘e'’ \\ gs[] \\ first_assum irule \\ gs[simple_exp_def])
-  >- (irule EVERY_v_ok_do_fpoptimise \\ first_assum irule \\ gs[simple_exp_def])
-  >- (Cases_on ‘e'’ \\ gs[] \\ first_assum irule \\ gs[simple_exp_def])
 QED
 
 Theorem evaluate_basis_v_ok_decs_Nil:
@@ -401,7 +401,6 @@ Proof
   \\ rewrite_tac [evaluate_basis_v_ok_Nil, evaluate_basis_v_ok_Cons,
                   evaluate_basis_v_ok_Lit, evaluate_basis_v_ok_Con,
                   evaluate_basis_v_ok_Var, evaluate_basis_v_ok_App,
-                  evaluate_basis_v_ok_FpOptimise,
                   evaluate_basis_v_ok_decs_Nil,
                   evaluate_basis_v_ok_decs_Cons,
                   evaluate_basis_v_ok_decs_Dlet,
@@ -421,4 +420,3 @@ Theorem post_state_ok_with_clock[simp]:
 Proof
   rw [post_state_ok_def]
 QED
-

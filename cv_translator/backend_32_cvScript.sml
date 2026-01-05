@@ -4,7 +4,7 @@
 
 (* The following line is (and shall remain) the only difference between
    the 32-bit and 64-bit versions of this file. *)
-Theory backend_32_cv
+Theory backend_32_cv[no_sig_docs]
 Ancestors
   cv_std backend_cv to_data_cv backend
 Libs
@@ -45,7 +45,7 @@ QED
 
 val _ = cv_trans (lab_to_targetTheory.pad_code_def |> arch_spec);
 
-Triviality to_shmem_rec:
+Theorem to_shmem_rec[local]:
   <| entry_pc := ep ;
      nbytes := nb ;
      access_addr := aa ;
@@ -178,7 +178,7 @@ val _ = word_to_stackTheory.wInst_def |> arch_spec |> cv_auto_trans;
 val _ = word_to_stackTheory.wMove_def |> arch_spec |> cv_auto_trans;
 val _ = word_to_stackTheory.bits_to_word_def |> arch_spec |> cv_trans;
 
-Triviality cv_DROP_lemma:
+Theorem cv_DROP_lemma[local]:
   ∀n cv_xs. cv_size (cv_DROP (Num n) cv_xs) ≤ cv_size cv_xs
 Proof
   Induct \\ rw [] \\ simp [Once cv_DROP_def]
@@ -460,7 +460,7 @@ Proof
   \\ rw [] \\ simp [Once pre]
 QED
 
-Triviality lemma:
+Theorem lemma[local]:
   ∀i. Num (ABS i) = Num i
 Proof
   Cases \\ gvs []
@@ -482,7 +482,7 @@ val _ = get_words_def |> arch_spec |> cv_trans;
 val _ = data_to_wordTheory.getWords_def |> arch_spec_beta |> cv_trans;
 val cv_getWords_def = fetch "-" "cv_data_to_word_getWords_def";
 
-Triviality cv_getWords_lemma:
+Theorem cv_getWords_lemma[local]:
   ∀g acc. cv_size (cv_snd (cv_data_to_word_getWords g acc)) ≤ cv_size g
 Proof
   Induct \\ gvs []
@@ -542,6 +542,8 @@ val _ = cv_trans (data_to_wordTheory.assign_def |> arch_spec |> SRULE
    data_to_wordTheory.arg3_def,
    data_to_wordTheory.arg4_def])
 
+val _ = cv_trans (data_to_wordTheory.force_thunk_def |> arch_spec);
+
 val pre = data_to_wordTheory.comp_def |> arch_spec |> SRULE [to_adjust_vars] |> cv_trans_pre "";
 Theorem data_to_word_comp_pre[cv_pre,local]:
   ∀c secn l p. data_to_word_comp_pre c secn l p
@@ -573,5 +575,3 @@ Proof
 QED
 
 val _ = word_allocTheory.get_heuristics_def |> arch_spec |> cv_auto_trans;
-
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;

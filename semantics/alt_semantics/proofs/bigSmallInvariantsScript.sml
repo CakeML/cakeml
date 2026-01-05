@@ -42,51 +42,68 @@ Inductive evaluate_ctxt:
       ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
           (s2 with <| ffi := new_ffi; refs := new_refs |>, res)) ∧
 
-  (opClass op Icing ∧
+  (opClass op Force ∧
    evaluate_list ck env s1 es (s2, Rval vs2) ∧
-   do_app (s2.refs,s2.ffi) op (REVERSE vs2 ++ [v] ++ vs1) =
-   SOME ((new_refs, new_ffi) ,vFp) ∧
-   s2.fp_state.canOpt ≠ FPScope Opt ∧
-   compress_if_bool op vFp = res
-      ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
-          (s2 with <| ffi := new_ffi; refs := new_refs |>, res)) ∧
+   (dest_thunk (REVERSE vs2 ++ [v] ++ vs1) s2.refs = BadRef ∨
+    dest_thunk (REVERSE vs2 ++ [v] ++ vs1) s2.refs = NotThunk ∨
+    (dest_thunk (REVERSE vs2 ++ [v] ++ vs1) s2.refs = IsThunk NotEvaluated f ∧
+     do_opapp [f; Conv NONE []] = NONE))
+    ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
+        (s2, Rerr (Rabort Rtype_error))) ∧
 
-  (opClass op Icing ∧
+  (opClass op Force ∧
    evaluate_list ck env s1 es (s2, Rval vs2) ∧
-   do_app (s2.refs,s2.ffi) op (REVERSE vs2 ++ [v] ++ vs1) =
-   SOME ((new_refs, new_ffi) ,vFp) ∧
-   s2.fp_state.canOpt = FPScope Opt ∧
-   do_fprw vFp (s2.fp_state.opts 0) s2.fp_state.rws = NONE ∧
-   compress_if_bool op vFp = res
-      ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
-          ((shift_fp_opts s2) with <| ffi := new_ffi; refs := new_refs |>, res)) ∧
+   dest_thunk (REVERSE vs2 ++ [v] ++ vs1) s2.refs = IsThunk Evaluated v'
+    ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v (s2, Rval v')) ∧
 
-  (opClass op Icing ∧
+  (opClass op Force ∧
+   evaluate_list T env s1 es (s2, Rval vs2) ∧
+   dest_thunk (REVERSE vs2 ++ [v] ++ vs1) s2.refs = IsThunk NotEvaluated f ∧
+   do_opapp [f; Conv NONE []] = SOME env_e ∧
+   s2.clock = 0
+    ⇒ evaluate_ctxt T env s1 (Capp op vs1 () es) v
+        (s2, Rerr (Rabort Rtimeout_error))) ∧
+
+  (opClass op Force ∧
    evaluate_list ck env s1 es (s2, Rval vs2) ∧
-   do_app (s2.refs,s2.ffi) op (REVERSE vs2 ++ [v] ++ vs1) =
-   SOME ((new_refs, new_ffi) ,vFp) ∧
-   s2.fp_state.canOpt = FPScope Opt ∧
-   do_fprw vFp (s2.fp_state.opts 0) s2.fp_state.rws = SOME rOpt ∧
-   compress_if_bool op rOpt = res
-      ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
-          ((shift_fp_opts s2) with <| ffi := new_ffi; refs := new_refs |>, res)) ∧
+   dest_thunk (REVERSE vs2 ++ [v] ++ vs1) s2.refs = IsThunk NotEvaluated f ∧
+   do_opapp [f; Conv NONE []] = SOME (env', e) ∧
+   (ck ⇒ s2.clock ≠ 0) ∧
+   evaluate ck env' (if ck then (s2 with clock := s2.clock - 1) else s2) e (s3, Rerr err)
+    ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
+        (s3, Rerr err)) ∧
 
-  (opClass op Reals ∧
+  (opClass op Force ∧
    evaluate_list ck env s1 es (s2, Rval vs2) ∧
-   do_app (s2.refs,s2.ffi) op (REVERSE vs2 ++ [v] ++ vs1) =
-   SOME ((new_refs, new_ffi) ,res) ∧
-   s2.fp_state.real_sem
-      ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
-          (s2 with <| ffi := new_ffi; refs := new_refs |>, res)) ∧
+   dest_thunk (REVERSE vs2 ++ [v] ++ vs1) s2.refs = IsThunk NotEvaluated f ∧
+   do_opapp [f; Conv NONE []] = SOME (env', e) ∧
+   (ck ⇒ s2.clock ≠ 0) ∧
+   evaluate ck env' (if ck then (s2 with clock := s2.clock - 1) else s2) e (s3, Rval v') ∧
+   update_thunk (REVERSE vs2 ++ [v] ++ vs1) s3.refs [v'] = NONE
+    ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
+        (s3, Rerr (Rabort Rtype_error))) ∧
 
-  (opClass op Reals ∧
+  (opClass op Force ∧
    evaluate_list ck env s1 es (s2, Rval vs2) ∧
-   ~s2.fp_state.real_sem
-      ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
-          (shift_fp_opts s2, Rerr (Rabort Rtype_error))) ∧
+   dest_thunk (REVERSE vs2 ++ [v] ++ vs1) s2.refs = IsThunk NotEvaluated f ∧
+   do_opapp [f; Conv NONE []] = SOME (env', e) ∧
+   (ck ⇒ s2.clock ≠ 0) ∧
+   evaluate ck env' (if ck then (s2 with clock := s2.clock - 1) else s2) e (s3, Rval v') ∧
+   update_thunk (REVERSE vs2 ++ [v] ++ vs1) s3.refs [v'] = SOME refs
+    ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
+        (s3 with refs := refs, Rval v')) ∧
 
-  ((~opClass op FunApp) ∧
-   (opClass op Reals ⇒ s2.fp_state.real_sem) ∧
+  (dest_thunk [v] s1.refs = BadRef ∨
+   dest_thunk [v] s1.refs = IsThunk a b ∨
+   (dest_thunk [v] s1.refs = NotThunk ∧
+    store_assign loc (Thunk Evaluated v) s1.refs = NONE)
+    ⇒ evaluate_ctxt ck env s1 (Cforce loc) v (s1, Rerr (Rabort Rtype_error))) ∧
+
+  (dest_thunk [v] s1.refs = NotThunk ∧
+   store_assign loc (Thunk Evaluated v) s1.refs = SOME refs
+    ⇒ evaluate_ctxt ck env s1 (Cforce loc) v (s1 with refs := refs, Rval v)) ∧
+
+  ((~opClass op FunApp ∧ ¬ opClass op Force) ∧
    evaluate_list ck env s1 es (s2, Rval vs2) ∧
    do_app (s2.refs, s2.ffi) op (REVERSE vs2 ++ [v] ++ vs1) = NONE
       ⇒ evaluate_ctxt ck env s1 (Capp op vs1 () es) v
@@ -142,15 +159,7 @@ Inductive evaluate_ctxt:
 
   evaluate_ctxt ck env s (Ctannot () t) v (s, Rval v) ∧
 
-  evaluate_ctxt ck env s (Clannot () l) v (s, Rval v) ∧
-
-  (oldSc = Strict ⇒
-   evaluate_ctxt ck env s (Coptimise oldSc fpopt ()) v (s with fp_state := s.fp_state with canOpt := oldSc,
-                                                     Rval (HD (do_fpoptimise fpopt [v])))) ∧
-
-  (oldSc ≠ Strict ⇒
-   evaluate_ctxt ck env s (Coptimise oldSc fpopt ()) v (s with fp_state := s.fp_state with canOpt := oldSc,
-                                                     Rval (HD (do_fpoptimise fpopt [v]))))
+  evaluate_ctxt ck env s (Clannot () l) v (s, Rval v)
 End
 
 Inductive evaluate_ctxts:
@@ -161,12 +170,8 @@ Inductive evaluate_ctxts:
       ⇒ evaluate_ctxts ck s1 ((c,env)::cs) (Rval v) bv) ∧
 
   (evaluate_ctxts ck s cs (Rerr err) bv ∧
-  ((∀pes. c ≠ Chandle () pes) ∨ (∀v. err ≠ Rraise v)) ∧
-   (∀ oldSc fpopt. c ≠ Coptimise oldSc fpopt ())
+  ((∀pes. c ≠ Chandle () pes) ∨ (∀v. err ≠ Rraise v))
       ⇒ evaluate_ctxts ck s ((c,env)::cs) (Rerr err) bv) ∧
-
-  (evaluate_ctxts ck (s with fp_state := s.fp_state with canOpt := oldSc) cs (Rerr err) bv ⇒
-   evaluate_ctxts ck s ((Coptimise oldSc fpopt (),env)::cs) (Rerr err) bv) ∧
 
   (¬can_pmatch_all env.c s.refs (MAP FST pes) v ∧
    evaluate_ctxts ck s cs (Rerr (Rabort Rtype_error)) res2

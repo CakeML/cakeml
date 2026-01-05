@@ -4,13 +4,11 @@
 Theory basisProg
 Ancestors
   std_prelude CommandLineProof TextIOProof RuntimeProof
-  PrettyPrinterProg
+  PrettyPrinterProg SexpProg
 Libs
   preamble ml_translatorLib ml_progLib cfLib basisFunctionsLib
 
-val _ = translation_extends"TextIOProg";
-
-val cakeml = append_prog o process_topdecs;
+val _ = translation_extends"SexpProg";
 
 val print_e = ``Var(Long"TextIO"(Short"print"))``
 val eval_thm = let
@@ -36,7 +34,7 @@ val _ = (next_ml_names := ["str_app_list_opt"]);
 val r = translate mlstringTheory.str_app_list_opt_def;
 val _ = (use_full_type_names := true);
 
-Quote cakeml:
+Quote add_cakeml:
   fun print_app_list_aux ls =
     (case ls of
        Nil => ()
@@ -46,7 +44,7 @@ End
 
 val _ = ml_prog_update open_local_in_block;
 
-Quote cakeml:
+Quote add_cakeml:
   fun print_app_list ls = print_app_list_aux (str_app_list_opt ls)
 End
 
@@ -95,7 +93,7 @@ Proof
   \\ xapp_spec print_app_list_aux_spec \\ fs []
 QED
 
-Quote cakeml:
+Quote add_cakeml:
   fun print_int i = TextIO.print (Int.toString i)
 End
 
@@ -110,7 +108,7 @@ Proof
   \\ xapp \\ xsimpl
 QED
 
-Quote cakeml:
+Quote add_cakeml:
   fun print_pp pp = print_app_list (PrettyPrinter.toAppList pp)
 End
 
@@ -137,4 +135,3 @@ End
 Theorem basis_Decls_thm =
   ml_progLib.get_Decls_thm basis_st
   |> REWRITE_RULE [GSYM basis_def];
-

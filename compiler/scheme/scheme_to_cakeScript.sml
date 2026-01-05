@@ -31,18 +31,17 @@ Definition cons_list_def:
 End
 
 Definition proc_ml_def:
-  proc_ml [] NONE k ce = Mat (Var (Short "ts")) [
-        (Pcon (SOME $ Short "[]") [],
-          App Opapp [ce; Var (Short k)]);
+  proc_ml [] NONE ce = Mat (Var (Short "ts")) [
+        (Pcon (SOME $ Short "[]") [], ce);
         (Pany,
           Con (SOME $ Short "Ex") [Lit $ StrLit "Wrong number of arguments"])
     ] ∧
-  proc_ml [] (SOME x) k ce = Let (SOME $ "var" ++ explode x)
+  proc_ml [] (SOME x) ce = Let (SOME $ "var" ++ explode x)
       (App Opref [Con (SOME $ Short "Some") [
         App Opapp [Var (Short "allocate_list"); Var (Short "ts")]]])
-      (App Opapp [ce; Var (Short k)]) ∧
-  proc_ml (x::xs) xp k ce = (let
-    inner = proc_ml xs xp k ce
+      ce ∧
+  proc_ml (x::xs) xp ce = (let
+    inner = proc_ml xs xp ce
   in
     Mat (Var (Short "ts")) [
         (Pcon (SOME $ Short "[]") [],
@@ -63,8 +62,7 @@ End
 Definition refunc_set_def:
   refunc_set t k x = Let NONE (App Opassign [Var (Short $ "var" ++ explode x);
               Con (SOME $ Short "Some") [t]]) $
-            Let (SOME "t") (Con (SOME $ Short "Wrong") [Lit $ StrLit "Unspecified"])
-              (App Opapp [k; Var (Short "t")])
+                (App Opapp [Var (Short k); Con (SOME $ Short "Wrong") [Lit $ StrLit "Unspecified"]])
 End
 
 Definition letinit_ml_def:
@@ -76,104 +74,67 @@ Definition letinit_ml_def:
 End
 
 Definition cps_transform_def:
-  cps_transform (Lit v) = (let
+  cps_transform (Lit v) k = (let
     mlv = lit_to_ml_val v
   in
-    Fun "k" $ Let (SOME "t") mlv $
-      App Opapp [Var (Short "k"); Var (Short "t")]) ∧
+    App Opapp [Var (Short k); mlv]) ∧
 
-  cps_transform (Cond c t f) = (let
-    cc = cps_transform c;
-    ct = cps_transform t;
-    cf = cps_transform f;
-  in
-    Fun "k" $ Let (SOME "k'") (Fun "t" $ Mat (Var (Short "t")) [
-      (Pcon (SOME $ Short "SBool") [Pcon (SOME $ Short "False") []],
-        App Opapp [cf; Var (Short "k")]);
-      (Pany,
-        App Opapp [ct; Var (Short "k")])
-    ]) $ App Opapp [cc; Var (Short "k'")]) ∧
+  cps_transform (Cond c t f) k =
+    Let (SOME "k") (Fun "t" $ Mat (Var (Short "t")) [
+      (Pcon (SOME $ Short "SBool") [Pcon (SOME $ Short "False") []], cps_transform f k);
+      (Pany, cps_transform t k)
+    ]) $ cps_transform c "k" ∧
 
-  cps_transform (Apply fn args) = (let
-    cfn = cps_transform fn;
-    capp = cps_transform_app (Var (Short "t")) [] args (Var (Short "k"))
-  in
-    Fun "k" $ Let (SOME "k'") (Fun "t" capp) $ App Opapp [cfn; Var (Short "k'")]) ∧
+  cps_transform (Apply fn args) k =
+    Let (SOME "k") (Fun "t" $ cps_transform_app (Var (Short "t")) [] args k) $ cps_transform fn "k" ∧
 
-  cps_transform (Ident x) = Fun "k" $ Mat (App Opderef [Var (Short $ "var" ++ explode x)]) [
+  cps_transform (Ident x) k = Mat (App Opderef [Var (Short $ "var" ++ explode x)]) [
       (Pcon (SOME $ Short "None") [],
         Con (SOME $ Short "Ex") [Lit $ StrLit "Letrec variable touched"]);
       (Pcon (SOME $ Short "Some") [Pvar "t"],
-        App Opapp [Var (Short "k"); Var (Short "t")])] ∧
+        App Opapp [Var (Short k); Var (Short "t")])] ∧
 
-  cps_transform (Lambda xs xp e) = (let
-    ce = cps_transform e;
-    inner = proc_ml xs xp "k" ce;
-  in
-    Fun "k" $ Let (SOME "t")
-      (Con (SOME $ Short "Proc") [Fun "k" $ Fun "ts" inner]) $
-      App Opapp [Var (Short "k"); Var (Short "t")]) ∧
+  cps_transform (Lambda xs xp e) k =
+      App Opapp [Var (Short k); Con (SOME $ Short "Proc") [Fun "k" $ Fun "ts" $ proc_ml xs xp $ cps_transform e "k"]] ∧
 
-  cps_transform (Begin es e) = (let
-      inner = cps_transform_seq (Var (Short "k")) es e
-    in
-      Fun "k" inner) ∧
+  cps_transform (Begin es e) k = cps_transform_seq k es e ∧
 
-  cps_transform (Set x e) = (let
-    ce = cps_transform e;
-    inner = refunc_set (Var (Short "t")) (Var (Short "k")) x;
-  in
-    Fun "k" $ Let (SOME "k'") (Fun "t" inner) $ App Opapp [ce; Var (Short "k'")]) ∧
+  cps_transform (Set x e) k =
+    Let (SOME "k") (Fun "t" $ refunc_set (Var (Short "t")) k x) $ cps_transform e "k" ∧
 
-  cps_transform (Letrec bs e) = (let
-    inner = cps_transform_letinit [] bs e (Var (Short "k"));
-  in
-    Fun "k" $ letpreinit_ml (MAP FST bs) $ inner) ∧
+  cps_transform (Letrec bs e) k = letpreinit_ml (MAP FST bs) $ cps_transform_letinit [] bs e k ∧
 
-  cps_transform (Letrecstar bs e) = (let
-    ce = cps_transform (Begin (MAP (UNCURRY Set) bs) e);
-  in
-    Fun "k" $ letpreinit_ml (MAP FST bs) $ App Opapp [ce; Var (Short "k")]) ∧
+  cps_transform (Letrecstar bs e) k =
+    letpreinit_ml (MAP FST bs) $ cps_transform (Begin (MAP (UNCURRY Set) bs) e) k ∧
 
 
   cps_transform_app tfn ts (e::es) k = (let
-    ce = cps_transform e;
     t = "t" ++ toString (LENGTH ts);
     inner = cps_transform_app tfn (Var (Short t)::ts) es k
   in
-    Let (SOME "k'") (Fun t inner) $ App Opapp [ce; Var (Short "k'")]) ∧
+    Let (SOME "k") (Fun t inner) $ cps_transform e "k") ∧
 
   cps_transform_app tfn ts [] k = App Opapp [
-      App Opapp [App Opapp [Var (Short "app"); k]; tfn];
+      App Opapp [App Opapp [Var (Short "app"); (Var (Short k))]; tfn];
       cons_list (REVERSE ts)] ∧
 
 
-  cps_transform_letinit xts [] e k = (let
-    ce = cps_transform e
-  in
-    letinit_ml xts $ App Opapp [ce; k]) ∧
+  cps_transform_letinit xts [] e k = letinit_ml xts $ cps_transform e k ∧
 
   cps_transform_letinit xts ((x, e')::bs) e k = (let
-    ce = cps_transform e';
     t = "t" ++ toString (LENGTH xts);
     inner = cps_transform_letinit ((x, Var (Short t))::xts) bs e k
   in
-    Let (SOME "k'") (Fun t inner) $ App Opapp [ce; Var (Short "k'")]) ∧
+    Let (SOME "k") (Fun t inner) $ cps_transform e' "k") ∧
 
 
-  cps_transform_seq k [] e = (let
-    ce = cps_transform e
-  in
-    App Opapp [ce; k]) ∧
+  cps_transform_seq k [] e = cps_transform e k ∧
 
-  cps_transform_seq k (e'::es) e = (let
-    ce = cps_transform e';
-    inner = cps_transform_seq k es e
-  in
-     Let (SOME "k'") (Fun "_" inner) $ App Opapp [ce; Var (Short "k'")])
+  cps_transform_seq k (e'::es) e =
+     Let (SOME "k") (Fun "_" $ cps_transform_seq k es e) $ cps_transform e' "k"
 Termination
   WF_REL_TAC ‘inv_image ($< LEX $<) (λ x . case x of
-    | INL(e) => (exp_size e, case e of Letrecstar _ _ => 1 | _ => 0)
+    | INL(e,_) => (exp_size e, case e of Letrecstar _ _ => 1 | _ => 0)
     | INR(INL(_,_,es,_)) => (list_size exp_size es, 2n)
     | INR(INR(INL(_,bs,e,_))) => (exp1_size bs + exp_size e, 2)
     | INR(INR(INR(_,es,e))) => (list_size exp_size es + exp_size e, 2))’
@@ -187,11 +148,7 @@ Termination
 End
 
 Definition compile_scheme_prog_def:
-  compile_scheme_prog p = let
-    cp = cps_transform p
-  in
-    Let (SOME $ "k") (Fun "t" $ Var (Short "t")) $
-      App Opapp [cp; Var (Short "k")]
+  compile_scheme_prog p = Let (SOME $ "k") (Fun "t" $ Var (Short "t")) $ cps_transform p "k"
 End
 
 Definition cake_print_def:
@@ -201,38 +158,42 @@ Definition cake_print_def:
 End
 
 Definition scheme_basis_types_def:
-  scheme_basis_types = Dtype unknown_loc [
-    ([], "sprim", [
-      ("SAdd", []);
-      ("SMul", []);
-      ("SMinus", []);
-      ("SEqv", []);
-      ("CallCC", []);
-      ("Cons", []);
-      ("Car", []);
-      ("Cdr", []);
-      ("IsNull", []);
-      ("IsPair", [])
-    ]);
-    ([], "sval", [
-      ("SNum", [Atapp [] (Short "int")]);
-      ("SBool", [Atapp [] (Short "bool")]);
-      ("Prim", [Atapp [] (Short "sprim")]);
-      ("Null", []);
-      ("PairP", [Atapp [] (Short "sval")]);
-      ("Wrong", [Atapp [] (Short "string")]);
-      ("Ex", [Atapp [] (Short "string")]);
-      ("Proc", [Atfun
-                 (Atfun
-                   (Atapp [] (Short "sval"))
-                   (Atapp [] (Short "sval")))
-                 (Atfun
-                   (Atapp [Atapp [] (Short "sval")] (Short "list"))
-                   (Atapp [] (Short "sval")))]);
-      ("Throw", [Atfun
-                  (Atapp [] (Short "sval"))
-                  (Atapp [] (Short "sval"))]);
-    ])
+  scheme_basis_types = [
+    Dtype unknown_loc [(["'a"],"option", [("None",[]); ("Some",[Atvar "'a"])])];
+    Dtype unknown_loc [
+      ([], "sprim", [
+        ("SAdd", []);
+        ("SMul", []);
+        ("SMinus", []);
+        ("SEqv", []);
+        ("CallCC", []);
+        ("Cons", []);
+        ("Car", []);
+        ("Cdr", []);
+        ("IsNull", []);
+        ("IsPair", [])
+      ])];
+    Dtype unknown_loc [
+      ([], "sval", [
+        ("SNum", [Atapp [] (Short "int")]);
+        ("SBool", [Atapp [] (Short "bool")]);
+        ("Prim", [Atapp [] (Short "sprim")]);
+        ("Null", []);
+        ("PairP", [Atapp [] (Short "sval")]);
+        ("Wrong", [Atapp [] (Short "string")]);
+        ("Ex", [Atapp [] (Short "string")]);
+        ("Proc", [Atfun
+                   (Atfun
+                     (Atapp [] (Short "sval"))
+                     (Atapp [] (Short "sval")))
+                   (Atfun
+                     (Atapp [Atapp [] (Short "sval")] (Short "list"))
+                     (Atapp [] (Short "sval")))]);
+        ("Throw", [Atfun
+                    (Atapp [] (Short "sval"))
+                    (Atapp [] (Short "sval"))]);
+      ])
+    ]
   ]
 End
 
@@ -241,8 +202,7 @@ Definition scheme_basis_def:
     Dletrec unknown_loc [
       ("sadd", "k", Fun "n" $ Fun "ts" $ Mat (Var (Short "ts")) [
         (Pcon (SOME $ Short "[]") [],
-          Let (SOME "t") (Con (SOME $ Short "SNum") [Var (Short "n")]) $
-            App Opapp [Var (Short "k"); Var (Short "t")]);
+          App Opapp [Var (Short "k"); Con (SOME $ Short "SNum") [Var (Short "n")]]);
         (Pcon (SOME $ Short "::") [Pvar "t"; Pvar "ts'"],
           Mat (Var (Short "t")) [
             (Pcon (SOME $ Short "SNum") [Pvar "tn"],
@@ -262,8 +222,7 @@ Definition scheme_basis_def:
     Dletrec unknown_loc [
       ("smul", "k", Fun "n" $ Fun "ts" $ Mat (Var (Short "ts")) [
         (Pcon (SOME $ Short "[]") [],
-          Let (SOME "t") (Con (SOME $ Short "SNum") [Var (Short "n")]) $
-            App Opapp [Var (Short "k"); Var (Short "t")]);
+          App Opapp [Var (Short "k"); Con (SOME $ Short "SNum") [Var (Short "n")]]);
         (Pcon (SOME $ Short "::") [Pvar "t"; Pvar "ts'"],
           Mat (Var (Short "t")) [
             (Pcon (SOME $ Short "SNum") [Pvar "tn"],
@@ -289,15 +248,13 @@ Definition scheme_basis_def:
             (Pcon (SOME $ Short "SNum") [Pvar "n"],
               Mat (Var (Short "ts'")) [
                 (Pcon (SOME $ Short "[]") [],
-                  Let (SOME "t") (Con (SOME $ Short "SNum") [
-                      App (Opn Minus) [Lit $ IntLit 0; Var (Short "n")]]) $
-                    App Opapp [Var (Short "k"); Var (Short "t")]);
+                  App Opapp [Var (Short "k"); Con (SOME $ Short "SNum") [
+                    App (Opn Minus) [Lit $ IntLit 0; Var (Short "n")]]]);
                 (Pany, App Opapp [App Opapp [App Opapp [Var (Short "sadd");
                   Fun "t" $ Mat (Var (Short "t")) [
                     (Pcon (SOME $ Short "SNum") [Pvar "m"],
-                      Let (SOME "t") (Con (SOME $ Short "SNum") [
-                          App (Opn Minus) [Var (Short "n"); Var (Short "m")]]) $
-                        App Opapp [Var (Short "k"); Var (Short "t")]);
+                      App Opapp [Var (Short "k"); Con (SOME $ Short "SNum") [
+                        App (Opn Minus) [Var (Short "n"); Var (Short "m")]]]);
                     (Pany,
                       App Opapp [Var (Short "k"); Var (Short "t")])
                   ]];
@@ -319,25 +276,24 @@ Definition scheme_basis_def:
             (Pcon (SOME $ Short "::") [Pvar "t2"; Pvar "ts''"],
               Mat (Var (Short "ts''")) [
                 (Pcon (SOME $ Short "[]") [],
-                  (Let (SOME "t") (Con (SOME $ Short "SBool") [
-                    Mat (Var (Short "t1")) [
-                      (Pcon (SOME $ Short "SNum") [Pvar "n"],
-                        Mat (Var (Short "t2")) [
-                          (Pcon (SOME $ Short "SNum") [Pvar "m"],
-                            App Equality [Var (Short "n"); Var (Short "m")]);
-                          (Pany,
-                            Con (SOME $ Short "False") [])
-                        ]);
-                      (Pcon (SOME $ Short "SBool") [Pvar "b"],
-                        Mat (Var (Short "t2")) [
-                          (Pcon (SOME $ Short "SBool") [Pvar "b'"],
-                            App Equality [Var (Short "b"); Var (Short "b'")]);
-                          (Pany,
-                            Con (SOME $ Short "False") [])
-                        ]);
-                      (Pany,
-                        Con (SOME $ Short "False") [])
-                      ]]) $ App Opapp [Var (Short "k"); Var (Short "t")]));
+                  Mat (Var (Short "t1")) [
+                    (Pcon (SOME $ Short "SNum") [Pvar "n"],
+                      Mat (Var (Short "t2")) [
+                        (Pcon (SOME $ Short "SNum") [Pvar "m"],
+                          App Opapp [Var (Short "k"); Con (SOME $ Short "SBool") [App Equality [Var (Short "n"); Var (Short "m")]]]);
+                        (Pany,
+                          App Opapp [Var (Short "k"); Con (SOME $ Short "SBool") [Con (SOME $ Short "False") []]])
+                      ]);
+                    (Pcon (SOME $ Short "SBool") [Pvar "b"],
+                      Mat (Var (Short "t2")) [
+                        (Pcon (SOME $ Short "SBool") [Pvar "b'"],
+                          App Opapp [Var (Short "k"); Con (SOME $ Short "SBool") [App Equality [Var (Short "b"); Var (Short "b'")]]]);
+                        (Pany,
+                          App Opapp [Var (Short "k"); Con (SOME $ Short "SBool") [Con (SOME $ Short "False") []]])
+                      ]);
+                    (Pany,
+                      App Opapp [Var (Short "k"); Con (SOME $ Short "SBool") [Con (SOME $ Short "False") []]])
+                  ]);
                 (Pany,
                   Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"])
               ])
@@ -355,9 +311,9 @@ Definition scheme_basis_def:
             (Pcon (SOME $ Short "::") [Pvar "t2"; Pvar "ts''"],
               Mat (Var (Short "ts''")) [
                 (Pcon (SOME $ Short "[]") [],
+                  (*non-trivial value is let-bound*)
                   Let (SOME "t") (Con (SOME $ Short "PairP") [
-                                    App AallocFixed [Var (Short "t1"); Var (Short "t2")]
-                                  ]) $
+                      App AallocFixed [Var (Short "t1"); Var (Short "t2")]]) $
                     App Opapp [Var (Short "k"); Var (Short "t")]);
                 (Pany,
                   Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"])
@@ -374,6 +330,7 @@ Definition scheme_basis_def:
             (Pcon (SOME $ Short "[]") [],
               Mat (Var (Short "t")) [
                 (Pcon (SOME $ Short "PairP") [Pvar "pp"],
+                  (*non-trivial value is let-bound*)
                   Let (SOME "t") (App Asub [Var (Short "pp"); Lit (IntLit 0)]) $
                     App Opapp [Var (Short "k"); Var (Short "t")]);
                 (Pany,
@@ -393,6 +350,7 @@ Definition scheme_basis_def:
             (Pcon (SOME $ Short "[]") [],
               Mat (Var (Short "t")) [
                 (Pcon (SOME $ Short "PairP") [Pvar "pp"],
+                  (*non-trivial value is let-bound*)
                   Let (SOME "t") (App Asub [Var (Short "pp"); Lit (IntLit 1)]) $
                     App Opapp [Var (Short "k"); Var (Short "t")]);
                 (Pany,
@@ -410,12 +368,12 @@ Definition scheme_basis_def:
         (Pcon (SOME $ Short "::") [Pvar "t"; Pvar "ts'"],
           Mat (Var (Short "ts'")) [
             (Pcon (SOME $ Short "[]") [],
-              Let (SOME "t") (Mat (Var (Short "t")) [
+              Mat (Var (Short "t")) [
                 (Pcon (SOME $ Short "Null") [],
-                  Con (SOME $ Short "SBool") [Con (SOME $ Short "True") []]);
+                  App Opapp [Var (Short "k"); Con (SOME $ Short "SBool") [Con (SOME $ Short "True") []]]);
                 (Pany,
-                  Con (SOME $ Short "SBool") [Con (SOME $ Short "False") []])
-              ]) $ App Opapp [Var (Short "k"); Var (Short "t")]);
+                  App Opapp [Var (Short "k"); Con (SOME $ Short "SBool") [Con (SOME $ Short "False") []]])
+              ]);
             (Pany,
               Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
           ])
@@ -428,12 +386,12 @@ Definition scheme_basis_def:
         (Pcon (SOME $ Short "::") [Pvar "t"; Pvar "ts'"],
           Mat (Var (Short "ts'")) [
             (Pcon (SOME $ Short "[]") [],
-              Let (SOME "t") (Mat (Var (Short "t")) [
+              Mat (Var (Short "t")) [
                 (Pcon (SOME $ Short "PairP") [Pany],
-                  Con (SOME $ Short "SBool") [Con (SOME $ Short "True") []]);
+                  App Opapp [Var (Short "k"); Con (SOME $ Short "SBool") [Con (SOME $ Short "True") []]]);
                 (Pany,
-                  Con (SOME $ Short "SBool") [Con (SOME $ Short "False") []])
-              ]) $ App Opapp [Var (Short "k"); Var (Short "t")]);
+                  App Opapp [Var (Short "k"); Con (SOME $ Short "SBool") [Con (SOME $ Short "False") []]])
+              ]);
             (Pany,
               Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"]);
           ])
@@ -484,8 +442,7 @@ Definition scheme_basis_app_def:
                   App Opapp [Var (Short "app");Var (Short "k")];
                   Var (Short "t")];
                 cons_list [Var (Short "t0")]]
-            ) $ Let (SOME "t") (Con (SOME $ Short "Throw") [Var (Short "k")]) $
-              App Opapp [Var (Short "k'"); Var (Short "t")]);
+            ) $ App Opapp [Var (Short "k'"); Con (SOME $ Short "Throw") [Var (Short "k")]]);
           (Pany,
             Con (SOME $ Short "Ex") [Lit $ StrLit "Arity mismatch"])
         ])
@@ -520,21 +477,32 @@ Definition scheme_basis_app_def:
   ]
 End
 
+Definition static_scope_check_def:
+  static_scope_check p = if static_scope ∅ p
+    then INR p
+    else INL "Not statically scoped or duplicate parameter in lambda or letrec"
+End
+
 Definition codegen_def:
-  codegen p = INR $ [scheme_basis_types] ++ scheme_basis ++ [scheme_basis_list; scheme_basis_app] ++ [
+  codegen p = INR $ scheme_basis_types ++ scheme_basis ++ [scheme_basis_list; scheme_basis_app] ++ [
     Dlet unknown_loc (Pvar "res") $ compile_scheme_prog p;
     Dlet unknown_loc Pany $ Mat (Var (Short "res")) [
       (Pcon (SOME $ Short "SNum") [Pvar "n"],
-        App Opapp [Var (Short "print_int"); Var (Short "n")]);
+        App (FFI "scheme_out") [Lit $ StrLit "num"; App Aw8alloc [Lit $ IntLit 0; Lit $ Word8 0w]]);
       (Pcon (SOME $ Short "SBool") [Pcon (SOME $ Short "True") []],
-        App Opapp [Var (Short "print"); Lit $ StrLit "#t"]);
+        App (FFI "scheme_out") [Lit $ StrLit "#t"; App Aw8alloc [Lit $ IntLit 0; Lit $ Word8 0w]]);
       (Pcon (SOME $ Short "SBool") [Pcon (SOME $ Short "False") []],
-        App Opapp [Var (Short "print"); Lit $ StrLit "#f"]);
+        App (FFI "scheme_out") [Lit $ StrLit "#f"; App Aw8alloc [Lit $ IntLit 0; Lit $ Word8 0w]]);
       (Pcon (SOME $ Short "Ex") [Pvar "ex"],
-        App Opapp [Var (Short "print"); Var (Short "ex")]);
+        App (FFI "scheme_out") [Var (Short "ex"); App Aw8alloc [Lit $ IntLit 0; Lit $ Word8 0w]]);
       (Pcon (SOME $ Short "Wrong") [Pany],
-        App Opapp [Var (Short "print"); Lit $ StrLit "unspecified"]);
-      (Pany, App Opapp [Var (Short "print"); Lit $ StrLit "proc"])
+        App (FFI "scheme_out") [Lit $ StrLit "unspecified"; App Aw8alloc [Lit $ IntLit 0; Lit $ Word8 0w]]);
+      (Pcon (SOME $ Short "PairP") [Pany],
+        App (FFI "scheme_out") [Lit $ StrLit "pair"; App Aw8alloc [Lit $ IntLit 0; Lit $ Word8 0w]]);
+      (Pcon (SOME $ Short "Null") [],
+        App (FFI "scheme_out") [Lit $ StrLit "null"; App Aw8alloc [Lit $ IntLit 0; Lit $ Word8 0w]]);
+      (Pany,
+        App (FFI "scheme_out") [Lit $ StrLit "proc"; App Aw8alloc [Lit $ IntLit 0; Lit $ Word8 0w]]);
     ]
   ]
 End

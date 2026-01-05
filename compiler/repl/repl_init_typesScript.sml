@@ -3,7 +3,7 @@
   Candle kernel and REPL module, i.e. everything in the user-visible
   initial environment of the read-eval-print loop.
 *)
-Theory repl_init_types
+Theory repl_init_types[no_sig_docs]
 Ancestors
   infer_cv repl_moduleProg repl_check_and_tweak
 Libs
@@ -58,7 +58,7 @@ End
 
 val _ = cv_trans locationTheory.unknown_loc_def
 
-Triviality CommandLine_arguments_lemma =
+Theorem CommandLine_arguments_lemma[local] =
   “case infertype_prog_inc (init_config,start_type_id) repl_prog of
    | Failure _ => F
    | Success env => infertype_prog_inc env
@@ -78,7 +78,7 @@ Proof
   rewrite_tac [CommandLine_arguments_lemma]
 QED
 
-Triviality Repl_charsFrom_lemma =
+Theorem Repl_charsFrom_lemma[local] =
   “case infertype_prog_inc (init_config,start_type_id) repl_prog of
    | Failure _ => F
    | Success env => infertype_prog_inc env
@@ -98,4 +98,3 @@ Proof
   rewrite_tac [Repl_charsFrom_lemma]
 QED
 
-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;

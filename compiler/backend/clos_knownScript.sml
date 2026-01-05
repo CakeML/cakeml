@@ -412,7 +412,7 @@ Proof
   >> fs[known_op_def]
 QED
 
-Triviality EL_MEM_LEMMA:
+Theorem EL_MEM_LEMMA[local]:
   !xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs
 Proof
   Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []
