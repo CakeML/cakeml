@@ -5565,7 +5565,7 @@ Definition INSTREAM_LINES_def:
   INSTREAM_LINES c0 fd is (lines:mlstring list) fs =
     SEP_EXISTS rest.
       INSTREAM_STR fd is rest fs *
-      & (lines = lines_of_gen c0 (implode rest))
+      & (lines_of_gen c0 (implode rest) = lines)
 End
 
 (* Useful for applying fastForwardFD_forwardFD *)
@@ -5643,8 +5643,8 @@ Proof
   \\ fs[LENGTH_NIL]
 QED
 
-Theorem lines_of_gen_nil:
-  lines_of_gen c0 s = [] ⇒ s = «»
+Theorem lines_of_gen_nil[simp]:
+  lines_of_gen c0 s = [] ⇔ s = «»
 Proof
   simp [lines_of_gen_def, explode_eq]
 QED
@@ -6208,9 +6208,8 @@ Theorem INSTREAM_LINES_fastForwardFD:
 Proof
   simp [INSTREAM_LINES_def]
   \\ xsimpl \\ rpt strip_tac
-  \\ irule_at (Pos hd) EQ_REFL
-  \\ qpat_x_assum ‘[] = _’ $ assume_tac o SYM
-  \\ drule lines_of_gen_nil \\ simp [implode_def]
+  \\ first_assum $ irule_at (Pos hd)
+  \\ fs [implode_def]
   \\ simp [INSTREAM_STR_fastForwardFD]
 QED
 
@@ -7388,7 +7387,7 @@ Proof
              STDIO (fs₁ with infds updated_by ADELKEY fd₁)’
   >-
    (xapp \\ qexistsl [‘emp’, ‘[]’, ‘fastForwardFD fs₁ fd₁’]
-    \\ simp [INSTREAM_LINES_def, lines_of_gen_def] \\ xsimpl
+    \\ simp [INSTREAM_LINES_def, lines_of_gen_def, implode_def] \\ xsimpl
     \\ unabbrev_all_tac \\ simp []
     \\ irule_at Any validFileFD_nextFD \\ simp []
     \\ drule_then assume_tac STD_streams_nextFD \\ simp []
@@ -8168,7 +8167,7 @@ Proof
   \\ full_simp_tac (std_ss ++ sep_cond_ss) [implode_def]
   \\ fs []
   \\ xlet_auto
-  THEN1 (xsimpl  \\ rw [] \\ qexists_tac ‘x'’ \\ qexists_tac ‘x''’ \\ xsimpl)
+  THEN1 (xsimpl  \\ rw [] \\ qexists_tac ‘x'’ \\ xsimpl)
   \\ xlet_auto
   THEN1 (xcon \\ xsimpl)
   \\ fs [sub_spec_def]
@@ -8221,12 +8220,12 @@ Proof
   \\ full_simp_tac (std_ss ++ sep_cond_ss) [implode_def]
   \\ fs [SEP_CLAUSES] \\ rw []
   \\ xlet_auto
-  THEN1 (xsimpl \\ rw [] \\ qexists_tac ‘x'’ \\ qexists_tac ‘x''’ \\ xsimpl)
+  THEN1 (xsimpl \\ rw [] \\ qexists_tac ‘x'’ \\ xsimpl)
   \\ xlet_auto
   THEN1 (xcon \\ xsimpl)
   \\ fs [sub_spec_none_def]
   \\ last_x_assum drule
-  \\ disch_then (qspecl_then [‘fs’,‘rest’,‘k’] mp_tac)
+  \\ disch_then (qspecl_then [‘fs’,‘rest’,‘k’] mp_tac) \\ simp []
   \\ strip_tac
   \\ xlet_auto
   THEN1 (qexists_tac ‘emp’ \\ xsimpl)
