@@ -489,7 +489,6 @@ Definition encode_count_def:
   )
 End
 
-(* proof to be revised *)
 Theorem encode_count_sem_1:
   valid_assignment bnd wi ∧
   ALOOKUP cs name = SOME (Counting (Count Xs Y Z)) ∧
@@ -508,30 +507,46 @@ Proof
   intLib.ARITH_TAC
 QED
 
-Theorem tr1[local]:
-  (∀i. i < LENGTH ls ⇒ f i = g i) ⇒
-  MAP (λi. g i) ls = MAP (λi. f i) ls
+Theorem iSUM_SNOC:
+  ∀init last. iSUM (SNOC last init) = last + iSUM init
 Proof
-  cheat
+  Induct>>
+  rw[iSUM_def,SNOC]>>
+  intLib.ARITH_TAC
 QED
 
-(*
-may use miscTheory.enumerate_def somewhere in the proof
-*)
+Theorem iSUM_GENLIST_lin_const:
+  ∀n a. iSUM (GENLIST (λi. a * f i) n) = a * iSUM (GENLIST f n)
+Proof
+  Induct>>
+  rw[iSUM_def,GENLIST,iSUM_SNOC]>>
+  intLib.ARITH_TAC
+QED
+
 Theorem encode_count_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
     (encode_count bnd Xs Y Z name) ⇒
   count_sem Xs Y Z wi
 Proof
-  rw[encode_count_def,EVERY_MEM,MEM_FLAT,MEM_MAPi,PULL_EXISTS,SF DNF_ss,bits_imply_sem]>>
+  rw[encode_count_def,EVERY_MEM,MEM_FLAT,MEM_MAPi,PULL_EXISTS,SF DNF_ss,
+    bits_imply_sem]>>
   gs[iconstraint_sem_def]>>
   ‘∀i. i < LENGTH Xs ⇒
-    (wb (INR (name,Indices [i] (SOME «eq»))) ⇔ varc wi (EL i Xs) = varc wi Y)’ by (
+    b2i (wb (INR (name,Indices [i] (SOME «eq»)))) =
+    b2i (varc wi (EL i Xs) = varc wi Y)’ by (
+    rw[]>>
+    cong_tac NONE>>
     rw[METIS_PROVE[] “(P ⇔ Q) ⇔ ((P ⇒ Q) ∧ (¬P ⇒ ¬Q))”]>>
     res_tac>>
     intLib.ARITH_TAC)>>
-  cheat
+  rw[count_sem_def]>>
+  Cases_on ‘Z’>>
+  gs[SF DNF_ss,iconstraint_sem_def,eval_ilin_term_def,eval_lin_term_def,
+    MAP_GENLIST,o_ABS_R,iSUM_def]>>
+  simp[Once varc_def,GSYM GENLIST_EL_MAP]>>
+  gs[iSUM_GENLIST_lin_const,GSYM GENLIST_FUN_EQ]>>
+  intLib.ARITH_TAC
 QED
 
 (* Among: Y equals the number of times values from iS appear in Xs
