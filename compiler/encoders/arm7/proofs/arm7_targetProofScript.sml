@@ -535,7 +535,7 @@ val encode_rwts =
        arm7_encode_def, arm7_encode1_def, encode_def, arm7_vfp_cmp_def,
        e_branch_def, e_data_def, e_load_def, e_store_def, e_vfp_def,
        e_multiply_def, EncodeImmShift_def, EncodeImmShift_def,
-       EncodeVFPReg_def
+       EncodeVFPReg_def, EncodeRegShift_def
       ]
    end
 
@@ -935,6 +935,13 @@ Proof
    \\ blastLib.FULL_BBLAST_TAC
 QED
 
+Theorem word_extract_8:
+  w <+ 32w ⇒
+  ((7 >< 0) (w:word32)):word8 = (w2w w)
+Proof
+  blastLib.FULL_BBLAST_TAC
+QED
+
 (* -------------------------------------------------------------------------
    arm7 encoder_correct
    ------------------------------------------------------------------------- *)
@@ -998,8 +1005,22 @@ Proof
                 Shift
               --------------*)
             print_tac "Shift"
-            \\ Cases_on `s`
-            \\ next_tac
+            \\ reverse (Cases_on`r`)
+            >- (
+              Cases_on `s`
+              \\ next_tac)
+            >- (
+              rename1`Reg r`
+              \\ `w2n ((7 >< 0) (s1.regs r):word8) =
+                  w2n (s1.regs r)` by (
+                fs enc_rwts
+                \\ `s1.regs r <+ 32w` by (
+                  Cases_on`s1.regs 32`
+                  \\ fs[wordsTheory.WORD_LO])
+                \\ simp[word_extract_8,wordsTheory.w2w_def])
+              \\ Cases_on `s`
+              \\ next_tac
+              )
             )
          >- (
             (*--------------
