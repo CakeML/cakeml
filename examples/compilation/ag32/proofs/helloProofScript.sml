@@ -5,7 +5,7 @@
 *)
 Theory helloProof
 Ancestors
-  semanticsProps backendProof ag32_configProof ag32_memory
+  mlstring semanticsProps backendProof ag32_configProof ag32_memory
   ag32_memoryProof ag32_ffi_codeProof ag32_machine_config
   ag32_basis_ffiProof helloProg helloCompile
 Libs
@@ -144,7 +144,7 @@ Proof
   \\ simp[wfFS_stdin_fs, STD_streams_stdin_fs]
   \\ simp[TextIOProofTheory.add_stdo_def]
   \\ SELECT_ELIM_TAC
-  \\ simp[TextIOProofTheory.stdo_def]
+  \\ simp[TextIOProofTheory.stdo_def,implode_def]
   \\ conj_tac
   >- (
     simp[stdin_fs_def]
@@ -210,4 +210,3 @@ Proof
   \\ goal_assum(first_assum o mp_then Any mp_tac)
   \\ metis_tac[]
 QED
-
