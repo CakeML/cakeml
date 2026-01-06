@@ -42,7 +42,7 @@ fun get_exn_conv name =
   EVAL ``lookup_cons (Short ^name) ^(get_env (get_ml_prog_state ()))``
   |> concl |> rand |> rand |> rand
 
-val fail = get_exn_conv ``"Fail"``
+val fail = get_exn_conv ``«Fail»``
 
 Definition Fail_exn_def:
   Fail_exn v = (∃s sv. v = Conv (SOME ^fail) [sv] ∧ STRING_TYPE s sv)
@@ -1956,7 +1956,7 @@ Proof
   >- (
     xapp>>xsimpl>>
     qexists_tac`emp`>>xsimpl>>
-    `BOOL T (Conv (SOME (TypeStamp "True" 0)) [])` by EVAL_TAC>>
+    `BOOL T (Conv (SOME (TypeStamp «True» 0)) [])` by EVAL_TAC>>
     rpt (asm_exists_tac>>simp[])>>
     qexists_tac`FEMPTY`>>xsimpl)>>
   xapp>>

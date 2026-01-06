@@ -742,7 +742,7 @@ Proof
   >- (
     xapp>>xsimpl>>
     qexists_tac`STDIO fs * ARRAY Earrv earliestv`>>xsimpl>>
-    `BOOL F (Conv (SOME (TypeStamp "False" 0)) [])` by EVAL_TAC>>
+    `BOOL F (Conv (SOME (TypeStamp «False» 0)) [])` by EVAL_TAC>>
     rpt (asm_exists_tac>>simp[])>>
     qexists_tac`FEMPTY`>>xsimpl)>>
   rpt xlet_autop>>
@@ -1064,12 +1064,12 @@ Proof
   rpt xlet_autop>>
   (* help instantiate fill_arr_spec *)
   `LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (REPLICATE (2 * x1) NONE)
-        (REPLICATE (2 * x1) (Conv (SOME (TypeStamp "None" 2)) []))` by
+        (REPLICATE (2 * x1) (Conv (SOME (TypeStamp «None» 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   rpt xlet_autop >>
   (* help instantiate fill_earliest_spec *)
   `LIST_REL (OPTION_TYPE NUM) (REPLICATE (2 * x0 + 3) NONE)
-          (REPLICATE (2 * x0 + 3) (Conv (SOME (TypeStamp "None" 2)) []))` by
+          (REPLICATE (2 * x0 + 3) (Conv (SOME (TypeStamp «None» 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   rpt xlet_autop>>
   simp[check_lpr_unsat_list_def]>>
@@ -1218,12 +1218,12 @@ Proof
   rpt(xlet_autop)>>
   (* help instantiate fill_arr_spec *)
   `LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (REPLICATE (2 * x1) NONE)
-        (REPLICATE (2 * x1) (Conv (SOME (TypeStamp "None" 2)) []))` by
+        (REPLICATE (2 * x1) (Conv (SOME (TypeStamp «None» 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   rpt (xlet_autop) >>
   (* help instantiate fill_earliest_spec *)
   `LIST_REL (OPTION_TYPE NUM) (REPLICATE (2 * x0 + 3) NONE)
-          (REPLICATE (2 * x0 + 3) (Conv (SOME (TypeStamp "None" 2)) []))` by
+          (REPLICATE (2 * x0 + 3) (Conv (SOME (TypeStamp «None» 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   rpt xlet_autop>>
   simp[check_lpr_sat_equiv_list_def]>>
@@ -1562,12 +1562,12 @@ Proof
   rpt(xlet_autop)>>
   (* help instantiate fill_arr_spec *)
   `LIST_REL (OPTION_TYPE (LIST_TYPE INT)) (REPLICATE (2 * x1) NONE)
-        (REPLICATE (2 * x1) (Conv (SOME (TypeStamp "None" 2)) []))` by
+        (REPLICATE (2 * x1) (Conv (SOME (TypeStamp «None» 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   rpt (xlet_autop) >>
   (* help instantiate fill_earliest_spec *)
   `LIST_REL (OPTION_TYPE NUM) (REPLICATE (2 * x0 + 3) NONE)
-          (REPLICATE (2 * x0 + 3) (Conv (SOME (TypeStamp "None" 2)) []))` by
+          (REPLICATE (2 * x0 + 3) (Conv (SOME (TypeStamp «None» 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   rpt xlet_autop >>
   xlet_auto
