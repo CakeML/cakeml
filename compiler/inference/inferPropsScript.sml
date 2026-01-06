@@ -3896,7 +3896,7 @@ Proof
          st_ex_bind_success,st_ex_return_success,inf_set_tids_def,
          add_constraints_success]
   \\ TRY(rename1`supported_arith a p` \\ Cases_on`a`
-         \\ Cases_on`p` \\ gvs[supported_arith_def]
+         \\ Cases_on`p` \\ TRY (Cases_on`w`) \\ gvs[supported_arith_def]
          \\ irule pure_add_constraints_set_tids
          \\ first_x_assum $ irule_at (Pat`pure_add_constraints`)
          \\ gvs[LENGTH_EQ_NUM_compute,REPLICATE_compute]
