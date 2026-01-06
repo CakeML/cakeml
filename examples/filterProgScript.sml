@@ -499,7 +499,7 @@ val dummyarr_loc_def = fetch "-" "dummyarr_loc_def";
 
 val _ = ml_prog_update (add_Dlet eval_thm "dummyarr");
 
-val forward_matching_lines = process_topdecs`
+Quote add_cakeml:
 fun forward_loop inputarr =
     (#(accept_call) "" inputarr;
      let val ln = Word8Array.substring inputarr 0 256;
@@ -515,9 +515,8 @@ fun forward_matching_lines u =
     let val inputarr = Word8Array.array 256 (Word8.fromInt 0);
     in
       forward_loop inputarr
-    end`
-
-val _ = append_prog forward_matching_lines;
+    end
+End
 
 val st = get_ml_prog_state();
 
