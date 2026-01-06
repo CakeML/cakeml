@@ -41,7 +41,7 @@ fun get_exn_conv name =
   EVAL ``lookup_cons (Short ^name) ^(get_env (get_ml_prog_state ()))``
   |> concl |> rand |> rand |> rand
 
-val fail = get_exn_conv ``"Fail"``
+val fail = get_exn_conv ``«Fail»``
 
 Definition Fail_exn_def:
   Fail_exn v = (∃s sv. v = Conv (SOME ^fail) [sv] ∧ STRING_TYPE s sv)
@@ -726,7 +726,7 @@ Theorem delete_arr_spec:
     (ARRAY fmlv fmllsv)
     (POSTv resv.
       &UNIT_TYPE () resv *
-      ARRAY fmlv (LUPDATE (Conv (SOME (TypeStamp "None" 2)) []) i fmllsv))
+      ARRAY fmlv (LUPDATE (Conv (SOME (TypeStamp «None» 2)) []) i fmllsv))
 Proof
   rw[]>>
   xcf "delete_arr" (get_ml_prog_state ())>>
@@ -761,8 +761,8 @@ val arb_delete_arr = process_topdecs`
 
 Theorem OPTION_TYPE_SPLIT:
   OPTION_TYPE a x v ⇔
-  (x = NONE ∧ v = Conv (SOME (TypeStamp "None" 2)) []) ∨
-  (∃y vv. x = SOME y ∧ v = Conv (SOME (TypeStamp "Some" 2)) [vv] ∧ a y vv)
+  (x = NONE ∧ v = Conv (SOME (TypeStamp «None» 2)) []) ∨
+  (∃y vv. x = SOME y ∧ v = Conv (SOME (TypeStamp «Some» 2)) [vv] ∧ a y vv)
 Proof
   Cases_on`x`>>rw[OPTION_TYPE_def]
 QED
@@ -2223,9 +2223,9 @@ Proof
         parse_and_run_file_list (all_lines_file fs f) pc fmlls sc (REPLICATE n w8z)
       of
         NONE => resv =
-          Conv (SOME (TypeStamp "Inl" 4)) [v0] ∧ ∃s. STRING_TYPE s v0
+          Conv (SOME (TypeStamp «Inl» 4)) [v0] ∧ ∃s. STRING_TYPE s v0
       | SOME(fmlls',sc') =>
-        resv = Conv (SOME (TypeStamp "Inr" 4)) [Conv NONE [v1; v2]] ∧
+        resv = Conv (SOME (TypeStamp «Inr» 4)) [Conv NONE [v1; v2]] ∧
         v1 = fmlv' ∧
         SCPOG_SCPOG_CONF_TYPE sc' v2 ∧
         LIST_REL (OPTION_TYPE ctag_TYPE) fmlls' fmllsv'
@@ -2288,7 +2288,7 @@ Proof
         SEP_EXISTS v1 v2 k rest.
          STDIO (forwardFD fss (nextFD fs) k) *
          INSTREAM_LINES #"\n" (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
-         &(v = Conv (SOME (TypeStamp "Inr" 4)) [Conv NONE [v1; v2]]) *
+         &(v = Conv (SOME (TypeStamp «Inr» 4)) [Conv NONE [v1; v2]]) *
          (SEP_EXISTS fmllsv'.
            ARRAY v1 fmllsv' *
            &(unwrap_TYPE
