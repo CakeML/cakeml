@@ -47,7 +47,7 @@ fun get_exn_conv name =
   EVAL ``lookup_cons (Short ^name) ^(get_env (get_ml_prog_state ()))``
   |> concl |> rand |> rand |> rand
 
-val fail = get_exn_conv ``"Fail"``
+val fail = get_exn_conv ``«Fail»``
 
 Definition Fail_exn_def:
   Fail_exn v = (∃s sv. v = Conv (SOME ^fail) [sv] ∧ STRING_TYPE s sv)
@@ -882,8 +882,8 @@ QED
 
 Theorem OPTION_TYPE_SPLIT:
   OPTION_TYPE a x v ⇔
-  (x = NONE ∧ v = Conv (SOME (TypeStamp "None" 2)) []) ∨
-  (∃y vv. x = SOME y ∧ v = Conv (SOME (TypeStamp "Some" 2)) [vv] ∧ a y vv)
+  (x = NONE ∧ v = Conv (SOME (TypeStamp «None» 2)) []) ∨
+  (∃y vv. x = SOME y ∧ v = Conv (SOME (TypeStamp «Some» 2)) [vv] ∧ a y vv)
 Proof
   Cases_on`x`>>rw[OPTION_TYPE_def]
 QED
@@ -1369,10 +1369,10 @@ Proof
   >>
   rpt (xlet_autop) >>
   xlet`POSTv uv. (* TODO: probably should be added to the basis spec for Array.copy: &UNIT_TYPE () uv * *)
-    ARRAY av (fmllsv ++ REPLICATE (2*n+1-LENGTH fmllsv) (Conv (SOME (TypeStamp "None" 2)) []))`
+    ARRAY av (fmllsv ++ REPLICATE (2*n+1-LENGTH fmllsv) (Conv (SOME (TypeStamp «None» 2)) []))`
   >- (
     xapp>>xsimpl>>
-    qexists_tac`REPLICATE (LENGTH fmllsv) (Conv (SOME (TypeStamp "None" 2)) [])`>>
+    qexists_tac`REPLICATE (LENGTH fmllsv) (Conv (SOME (TypeStamp «None» 2)) [])`>>
     simp[]>>
     simp[REPLICATE_APPEND])
   >>
@@ -3071,9 +3071,9 @@ Proof
           cfmlls xfmlls bfmlls tn def (REPLICATE n w8z)
       of
         NONE => resv =
-          Conv (SOME (TypeStamp "Inl" 4)) [v0] ∧ ∃s. STRING_TYPE s v0
+          Conv (SOME (TypeStamp «Inl» 4)) [v0] ∧ ∃s. STRING_TYPE s v0
       | SOME(cfmlls',xfmlls',bfmlls') =>
-        resv = Conv (SOME (TypeStamp "Inr" 4)) [Conv NONE [v1; v2; v3]] ∧
+        resv = Conv (SOME (TypeStamp «Inr» 4)) [Conv NONE [v1; v2; v3]] ∧
         v1 = cfmlv' ∧
         v2 = xfmlv' ∧
         v3 = bfmlv' ∧
@@ -3157,7 +3157,7 @@ Proof
         SEP_EXISTS v1 v2 v3 k rest.
          STDIO (forwardFD fss (nextFD fs) k) *
          INSTREAM_LINES #"\n" (nextFD fs) is rest (forwardFD fss (nextFD fs) k) *
-         &(v = Conv (SOME (TypeStamp "Inr" 4)) [Conv NONE [v1; v2; v3]]) *
+         &(v = Conv (SOME (TypeStamp «Inr» 4)) [Conv NONE [v1; v2; v3]]) *
          (SEP_EXISTS cfmllsv' xfmllsv' bfmllsv'.
            ARRAY v1 cfmllsv' *
            ARRAY v2 xfmllsv' *
