@@ -11,8 +11,8 @@ Libs
 
 Datatype:
   doubleFuns = <|
-    fromString : string -> word64 option;
-    toString : word64 -> string;
+    fromString : mlstring -> word64 option;
+    toString : word64 -> mlstring;
     fromInt : num -> word64;
     toInt : word64 -> num;
     power : word64 -> word64 -> word64;
@@ -36,7 +36,7 @@ End
 Definition ffi_fromString_def:
   ffi_fromString (conf: word8 list) (bytes: word8 list) doubleFns =
     if LENGTH bytes = 8 then
-      case doubleFns.fromString (MAP (CHR o w2n) conf) of
+      case doubleFns.fromString (implode (MAP (CHR o w2n) conf)) of
       | NONE => NONE
       | SOME bs => SOME (FFIreturn (into_bytes 8 bs) doubleFns)
     else NONE
@@ -45,7 +45,7 @@ End
 Definition ffi_toString_def:
   ffi_toString (conf: word8 list) (bytes: word8 list) doubleFns =
     if LENGTH bytes = 256 then
-      let str = doubleFns.toString (concat_word_list (TAKE 8 bytes)) ++
+      let str = explode (doubleFns.toString (concat_word_list (TAKE 8 bytes))) ++
                 [CHR 0] in
       SOME (FFIreturn (MAP (n2w o ORD) str ++
                        DROP (LENGTH str) bytes) doubleFns)
