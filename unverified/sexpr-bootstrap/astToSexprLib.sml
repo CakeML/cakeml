@@ -18,7 +18,7 @@ fun escape_char c =
 val fromHOLchar =
   escape_wrap o escape_char o stringSyntax.fromHOLchar;
 val fromHOLstring =
-  escape_wrap o (String.translate escape_char) o stringSyntax.fromHOLstring;
+  escape_wrap o (String.translate escape_char) o mlstringSyntax.dest_mlstring;
 val fromHOLnum = Arbnumcore.toString o numSyntax.dest_numeral;
 
 fun char_to_exp c = exp_list [exp_str "char", exp_str (fromHOLchar c)]
@@ -142,7 +142,7 @@ val pvar = ``ast$Pvar``;
 val pany = ``ast$Pany``;
 val locs = ``Locs``;
 val nil_l = ``[] : 'a list``;
-val string_ty = ``:string``;
+val string_ty = ``:mlstring``;
 val app = ``ast$App``;
 val lit = ``ast$Lit``;
 val plit = ``ast$Plit``;
@@ -166,7 +166,7 @@ fun ast_to_exp term =
                    | _ => exp_list (exp::args_exp)
       end
     fun cons_to_exp term =
-      if stringSyntax.is_string_literal term
+      if mlstringSyntax.is_mlstring_literal term
         then string_to_exp term
         else (exp_list o list_to_exp o #1 o listSyntax.dest_list) term
     val tuple_to_exp =
