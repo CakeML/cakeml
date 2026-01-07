@@ -1019,7 +1019,7 @@ val th = MATCH_MP Eval_If (LIST_CONJ (map (DISCH T) [th2,th_sub,th1]))
          |> REWRITE_RULE [CONTAINER_def]
 val code =
   ``Let (SOME «k») x1
-       (If (App (Opb Lt) [Var (Short «k»); Lit (IntLit 0)])
+       (If (App (Test (Compare Lt) IntT) [Var (Short «k»); Lit (IntLit 0)])
           (App (Opn Minus) [Lit (IntLit 0); Var (Short «k»)])
           (Var (Short «k»)))``
 
@@ -1136,7 +1136,7 @@ val th = MATCH_MP Eval_If (LIST_CONJ (map (DISCH T) [th2,th0,th1]))
          |> REWRITE_RULE [CONTAINER_def]
 val code =
   ``Let (SOME «k») (App (Opn Minus) [x1; x2])
-      (If (App (Opb Lt) [Var (Short «k»); Lit (IntLit 0)])
+      (If (App (Test (Compare Lt) IntT) [Var (Short «k»); Lit (IntLit 0)])
           (Lit (IntLit 0)) (Var (Short «k»))): exp``
 
 in
@@ -1472,7 +1472,7 @@ QED
 local
   val lemma = Q.prove(
     `(∀v. NUM (w2n w) v ⇒ Eval (write «x» v env)
-                 (If (App (Opb Lt) [Var (Short «x»); Lit (IntLit (& k))])
+                 (If (App (Test (Compare Lt) IntT) [Var (Short «x»); Lit (IntLit (& k))])
                     (Var (Short «x»))
                     (App (Opn Minus) [Var (Short «x»); Lit (IntLit (& d))]))
         (INT ((\n. if n < k then &n else &n - &d) (w2n w))))`,

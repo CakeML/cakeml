@@ -609,7 +609,7 @@ Definition op_to_string_def:
   (op_to_string (Arith a ty) =
      («Arith»,
       dtcase supported_arith a ty of SOME n => (n:num) | NONE => 0n)) ∧
-  (op_to_string (FromTo _ _) = (implode "FromTo", 1)) ∧
+  (op_to_string (FromTo _ _) = («FromTo», 1)) ∧
   (op_to_string (Test _ _) = («Test», 2)) ∧
   (op_to_string Opapp = («Opapp», 2)) ∧
   (op_to_string Opassign = («Opassign», 2)) ∧
@@ -815,9 +815,9 @@ constrain_op l op ts s =
    | (Eval, _) => failwith l («Unsafe ops do not have a type») s
    | (Env_id, _) => failwith l («Unsafe ops do not have a type») s
    | (ThunkOp _, _) => failwith l («Thunk ops do not have a type») s
-   | (Arith _ _, _) => failwith l ("Type mismatch") s
-   | (FromTo _ _, _) => failwith l ("Type mismatch") s
-   | (Test _ _, _) => failwith l ("Type mismatch") s
+   | (Arith _ _, _) => failwith l («Type mismatch») s
+   | (FromTo _ _, _) => failwith l («Type mismatch») s
+   | (Test _ _, _) => failwith l («Type mismatch») s
    | _ => failwith l (op_n_args_msg op (LENGTH ts)) s
 End
 
