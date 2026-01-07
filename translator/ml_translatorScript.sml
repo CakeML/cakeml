@@ -1011,8 +1011,8 @@ local
 
 val th0 = Q.SPEC `0` Eval_Val_INT
 val th_sub = MATCH_MP (MATCH_MP Eval_INT_SUB (Q.SPEC `0` Eval_Val_INT))
-            (ASSUME ``Eval env (Var (Short "k")) (INT k)``)
-val th1 = ASSUME ``Eval env (Var (Short "k")) (INT k)``
+            (ASSUME ``Eval env (Var (Short «k»)) (INT k)``)
+val th1 = ASSUME ``Eval env (Var (Short «k»)) (INT k)``
 val th2 = Eval_INT_LESS  |> Q.SPECL [`k`,`0`]
           |> (fn th => MATCH_MP th th1) |> (fn th => MATCH_MP th th0)
 val th = MATCH_MP Eval_If (LIST_CONJ (map (DISCH T) [th2,th_sub,th1]))
