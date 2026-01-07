@@ -373,9 +373,9 @@ QED
 (* Quote add_cakeml: *)
 (*   fun strcat_foo r = r := !r ^ "foo" *)
 (* End *)
-(* TODO Try new syntax using Quote once #1313 on HOL has been resolved *)
-val strcat_foo = (append_prog o process_topdecs)
-  `fun strcat_foo r = r := !r ^ "foo"`
+Quote add_cakeml:
+  fun strcat_foo r = r := !r ^ "foo"
+End
 
 val xlet_auto = cfLetAutoLib.xlet_auto
 
