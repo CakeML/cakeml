@@ -33,9 +33,9 @@ val index_side = Q.prove(`
   simp[index_side_def]>>
   intLib.ARITH_TAC) |> update_precondition;
 
-val _ = process_topdecs `
+Quote add_cakeml:
   exception Fail string;
-` |> append_prog
+End
 
 fun get_exn_conv name =
   EVAL ``lookup_cons (Short ^name) ^(get_env (get_ml_prog_state ()))``
@@ -53,12 +53,13 @@ End
 
 val _ = translate (eq_w8o_def |> SIMP_RULE std_ss [w8o_def]);
 
-val every_one_arr = process_topdecs`
+Quote add_cakeml:
   fun every_one_arr carr cs =
   case cs of [] => True
   | c::cs =>
     if eq_w8o (Unsafe.w8sub carr (index c)) then every_one_arr carr cs
-    else False` |> append_prog
+    else False
+End
 
 Definition format_failure_def:
   format_failure (lno:num) s =
@@ -72,7 +73,7 @@ Definition unwrap_TYPE_def:
   ∃z. x = SOME z ∧ P z y
 End
 
-val delete_literals_sing_arr_def = process_topdecs`
+Quote add_cakeml:
   fun delete_literals_sing_arr lno i carr cs =
   case cs of
     [] => 0
@@ -81,7 +82,8 @@ val delete_literals_sing_arr_def = process_topdecs`
       delete_literals_sing_arr lno i carr cs
     else
       if every_one_arr carr cs then ~c
-      else raise Fail (format_failure lno ("clause at index not empty or singleton after reduction: "  ^ Int.toString i))` |> append_prog
+      else raise Fail (format_failure lno ("clause at index not empty or singleton after reduction: "  ^ Int.toString i))
+End
 
 Theorem update_resize_LUPDATE[simp]:
   LENGTH Clist > index h ⇒
@@ -199,7 +201,7 @@ End
 
 val res = translate check_imp_def;
 
-val is_rup_arr_aux = process_topdecs`
+Quote add_cakeml:
   fun is_rup_arr_aux lno is_struct fml ls c carr =
     case ls of
       [] =>
@@ -224,7 +226,7 @@ val is_rup_arr_aux = process_topdecs`
       else
         raise Fail (format_failure lno
           ("wrong clause type at index: " ^ Int.toString i))
-         ` |> append_prog
+End
 
 (* For every literal in every clause and their negations,
   the index is bounded above by n *)
@@ -350,12 +352,13 @@ Proof
   metis_tac[]
 QED
 
-val set_array = process_topdecs`
+Quote add_cakeml:
   fun set_array carr v cs =
   case cs of [] => ()
   | (c::cs) =>
     (Unsafe.w8update carr (index c) v;
-    set_array carr v cs)` |> append_prog
+    set_array carr v cs)
+End
 
 Theorem set_array_spec:
   ∀c cv Carrv Clist.
@@ -382,12 +385,12 @@ Proof
   xsimpl
 QED
 
-val is_rup_arr = process_topdecs`
+Quote add_cakeml:
   fun is_rup_arr lno is_struct fml ls c carr =
     (set_array carr w8o c;
     set_array carr w8z (is_rup_arr_aux lno is_struct fml ls c carr);
-    carr)`
-    |> append_prog
+    carr)
+End
 
 Theorem LENGTH_set_list_bound[simp]:
   ∀c Clist.
@@ -520,13 +523,14 @@ val _ = translate MAX_LIST_def;
 val _ = translate list_max_index_def;
 
 (* bump up the length to a large number *)
-val resize_carr = process_topdecs`
+Quote add_cakeml:
   fun resize_carr c carr =
   let val lm = list_max_index c in
     if Word8Array.length carr <= lm
     then Word8Array.array (2*lm) w8z
     else carr
-  end` |> append_prog
+  end
+End
 
 Theorem resize_carr_spec:
   (LIST_TYPE INT) c cv ⇒
@@ -550,12 +554,12 @@ Proof
 QED
 
 (* bump up the length to a large number *)
-val fold_resize_carr = process_topdecs`
+Quote add_cakeml:
   fun fold_resize_carr cs carr =
     case cs of [] => carr
     | (c::cs) =>
-    fold_resize_carr cs (resize_carr c carr)`
-    |> append_prog;
+    fold_resize_carr cs (resize_carr c carr)
+End
 
 Theorem fold_resize_carr_spec:
   ∀cs csv Carrv Clist.
@@ -577,13 +581,14 @@ Proof
   xapp>>xsimpl
 QED
 
-val insert_one_arr = process_topdecs`
+Quote add_cakeml:
   fun insert_one_arr lno tag fml i c =
   case Array.lookup fml None i of
     None =>
       Array.updateResize fml None i (Some (c,tag))
   | Some cc =>
-    raise Fail (format_failure lno "cannot overwrite existing clause at id: "^ Int.toString i)` |> append_prog;
+    raise Fail (format_failure lno "cannot overwrite existing clause at id: "^ Int.toString i)
+End
 
 (* TODO: copied *)
 Theorem LIST_REL_update_resize:
@@ -642,11 +647,12 @@ Proof
   gvs[OPTION_TYPE_def,PAIR_TYPE_def]
 QED
 
-val insert_list_arr = process_topdecs`
+Quote add_cakeml:
   fun insert_list_arr lno tag fml i ls =
   case ls of [] => fml
   | c::cs =>
-    insert_list_arr lno tag (insert_one_arr lno tag fml i c) (i+1) cs` |> append_prog;
+    insert_list_arr lno tag (insert_one_arr lno tag fml i c) (i+1) cs
+End
 
 Theorem insert_list_arr_spec:
   ∀ls lsv i iv fmlls fmllsv fmlv.
@@ -703,11 +709,12 @@ val res = translate is_fresh_def;
 val res = translate var_lit_def;
 val res = translate every_not_is_fresh_def;
 
-val delete_arr = process_topdecs`
+Quote add_cakeml:
   fun delete_arr i fml =
     if Array.length fml <= i then ()
     else
-      (Unsafe.update fml i None)` |> append_prog
+      (Unsafe.update fml i None)
+End
 
 Theorem LUPDATE_outside:
   ∀ls n.
@@ -741,7 +748,7 @@ Proof
   simp[]
 QED
 
-val arb_delete_arr = process_topdecs`
+Quote add_cakeml:
   fun arb_delete_arr lno nc ls fml =
     case ls of [] => ()
   | (i::is) =>
@@ -757,7 +764,7 @@ val arb_delete_arr = process_topdecs`
      raise Fail (format_failure lno "invalid arbitrary deletion of structural clause at id: "^ Int.toString i)
     else
       (delete_arr i fml; arb_delete_arr lno nc is fml)
-    ` |> append_prog;
+End
 
 Theorem OPTION_TYPE_SPLIT:
   OPTION_TYPE a x v ⇔
@@ -861,7 +868,7 @@ End
 
 val res = translate get_nc_def;
 
-val check_scpstep_arr = process_topdecs`
+Quote add_cakeml:
   fun check_scpstep_arr lno scpstep pc fml sc carr =
   case scpstep of
     Skip => (fml,sc,carr)
@@ -907,8 +914,8 @@ val check_scpstep_arr = process_topdecs`
         (insert_one_arr lno True fml n cT, sc',carr)
         end
     | _ =>
-      raise Fail (format_failure lno "Skolem node freshness/variable checks failed"))`
-  |> append_prog;
+      raise Fail (format_failure lno "Skolem node freshness/variable checks failed"))
+End
 
 val SCPOG_SCPSTEP_TYPE_def = fetch "-" "SCPOG_SCPSTEP_TYPE_def";
 
@@ -1299,12 +1306,13 @@ Definition parse_and_run_list_def:
     check_scpstep_list scpstep pc fml sc Clist
 End
 
-val parse_and_run_arr = process_topdecs`
+Quote add_cakeml:
   fun parse_and_run_arr lno pc fml sc carr l =
   case parse_scpstep l of
     None => raise Fail (format_failure lno "failed to parse line")
   | Some scpstep =>
-    check_scpstep_arr lno scpstep pc fml sc carr` |> append_prog
+    check_scpstep_arr lno scpstep pc fml sc carr
+End
 
 Theorem parse_and_run_arr_spec:
   NUM lno lnov ∧
@@ -1365,15 +1373,15 @@ val r = translate noparse_string_def;
 val _ = translate blanks_def;
 val _ = translate tokenize_def;
 
-val check_unsat'' = process_topdecs `
+Quote add_cakeml:
   fun check_unsat'' fd lno pc fml sc carr =
     case TextIO.inputLineTokens #"\n" fd blanks tokenize of
       None => (fml,sc)
     | Some l =>
     case parse_and_run_arr lno pc fml sc carr l of
       (fml',sc',carr') =>
-      check_unsat'' fd (lno+1) pc fml' sc' carr'`
-      |> append_prog;
+      check_unsat'' fd (lno+1) pc fml' sc' carr'
+End
 
 (* This says what happens to the STDIO *)
 Definition check_unsat''_def:
@@ -1577,7 +1585,7 @@ End
 
 val r = translate notfound_string_def;
 
-val iter_input_fml_arr = process_topdecs`
+Quote add_cakeml:
   fun iter_input_fml_arr i n fml p =
     if n < i then True
     else
@@ -1585,7 +1593,8 @@ val iter_input_fml_arr = process_topdecs`
       None => iter_input_fml_arr (i+1) n fml p
     | Some (c,b) =>
       (p c andalso
-      iter_input_fml_arr (i+1) n fml p))` |> append_prog;
+      iter_input_fml_arr (i+1) n fml p))
+End
 
 Theorem iter_input_fml_arr_spec:
   ∀i n fmlls P fmlv fmllsv Pv iv nv.
@@ -1731,13 +1740,14 @@ val r = translate toSortedAList_def;
 val r = translate spt_to_vec_def;
 *)
 
-val clean_arr = process_topdecs`
+Quote add_cakeml:
   fun clean_arr i fml =
   if Array.length fml <= i
   then ()
   else
     (Unsafe.update fml i None;
-    clean_arr (i+1) fml)` |> append_prog;
+    clean_arr (i+1) fml)
+End
 
 Theorem check_arr_spec:
   ∀i fmlls iv fmllsv.
@@ -1796,7 +1806,7 @@ End
 
 val res = translate check_dec_top_def;
 
-val check_inputs_scp_arr = process_topdecs`
+Quote add_cakeml:
   fun check_inputs_scp_arr r pc scp fml =
   let val u = clean_arr (get_nc pc + 1) fml in
   case check_dec_top scp of
@@ -1818,7 +1828,8 @@ val check_inputs_scp_arr = process_topdecs`
       then Inr (Inr (r,scp))
       else Inl ("final condition check failed: could not delete all input clauses using POG\n")
     end
-  end`|>append_prog;
+  end
+End
 
 Theorem EqualityType_INT:
   EqualityType INT
@@ -2009,9 +2020,10 @@ QED
 
 val is_forward_clause_v_thm = translate is_forward_clause_def;
 
-val is_forward_fml_arr = process_topdecs`
+Quote add_cakeml:
   fun is_forward_fml_arr arr c =
-  Array.exists (is_forward_clause c) arr` |> append_prog;
+  Array.exists (is_forward_clause c) arr
+End
 
 Definition get_root_def:
   get_root sc = sc.root
@@ -2026,7 +2038,7 @@ End
 
 val r = translate is_data_ext_lit_run_Ev_def;
 
-val check_final_arr = process_topdecs `
+Quote add_cakeml:
   fun check_final_arr pc sc fml =
   case get_root sc of
     None => Inl ("root not declared")
@@ -2044,9 +2056,9 @@ val check_final_arr = process_topdecs `
           check_inputs_scp_arr r pc (get_scp sc) fml
         else Inl ("final condition check failed: invalid root declared\n")
       else Inl ("final condition check failed: root unit clause not found\n")
-  ` |> append_prog;
+End
 
-val check_unsat' = process_topdecs `
+Quote add_cakeml:
   fun check_unsat' pc fml sc fname n =
   let
     val fd = TextIO.openIn fname
@@ -2061,7 +2073,8 @@ val check_unsat' = process_topdecs `
       (case res of (fml,sc) =>
         check_final_arr pc sc fml)
   end
-  handle TextIO.BadFileName => Inl (notfound_string fname)` |> append_prog;
+  handle TextIO.BadFileName => Inl (notfound_string fname)
+End
 
 (* TODO: COPIED from readerProg, should be moved *)
 Theorem fastForwardFD_ADELKEY_same[simp]:

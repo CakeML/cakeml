@@ -65,6 +65,19 @@ Definition do_app_def:
             Eq_type_error => NONE
           | Eq_val b => SOME (s, Rval (Boolv b))
         )
+    | (Arith a ty, vs) =>
+        (if EVERY (check_type ty) vs then
+           (case do_arith a ty vs of
+            | SOME (INR res) => SOME (s, Rval res)
+            | SOME (INL exn) => SOME (s, Rraise exn)
+            | NONE           => NONE)
+         else NONE)
+    | (FromTo ty1 ty2, [v]) =>
+        (if check_type ty1 v then
+           (case do_conversion v ty1 ty2 of
+            | SOME res => SOME (s, Rval res)
+            | NONE     => NONE)
+         else NONE)
     | (Test test test_ty, [v1; v2]) =>
         (case do_test test test_ty v1 v2 of
             Eq_type_error => NONE

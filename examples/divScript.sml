@@ -13,9 +13,9 @@ val _ = translation_extends "basisProg";
 
 (* A simple pure non-terminating loop *)
 
-val _ = process_topdecs `
+Quote add_cakeml:
   fun pureLoop x = pureLoop x;
-  ` |> append_prog;
+End
 
 val st = ml_translatorLib.get_ml_prog_state();
 
@@ -41,9 +41,9 @@ QED
 
 (* A conditionally terminating loop *)
 
-val _ = process_topdecs `
+Quote add_cakeml:
   fun condLoop x = if x = 0 then 0 else condLoop (x - 1);
-  ` |> append_prog;
+End
 
 val st = ml_translatorLib.get_ml_prog_state();
 
@@ -92,9 +92,9 @@ QED
 
 (* Another conditionally terminating loop, using FFI_full *)
 
-val _ = process_topdecs `
+Quote add_cakeml:
   fun oddLoop x = if x = 0 then () else oddLoop(x-2);
-  ` |> append_prog;
+End
 
 val st = ml_translatorLib.get_ml_prog_state();
 
@@ -126,9 +126,9 @@ QED
 
 (* A loop containing a divergent function *)
 
-val _ = process_topdecs `
+Quote add_cakeml:
   fun outerLoop x = if x = 5000 then pureLoop () else outerLoop (x + 1);
-  ` |> append_prog;
+End
 
 val st = ml_translatorLib.get_ml_prog_state();
 
@@ -204,23 +204,23 @@ Definition SIO_def:
     one (FFI_part (State input) update names events)
 End
 
-val _ = process_topdecs `
+Quote add_cakeml:
   fun put_char c = let
       val s = String.implode [c]
       val a = Word8Array.array 0 (Word8.fromInt 0)
       val _ = #(put_char) s a
     in () end
-  ` |> append_prog;
+End
 
-val _ = process_topdecs `
+Quote add_cakeml:
   fun put_line l = let
       val s = l ^ "\n"
       val a = Word8Array.array 0 (Word8.fromInt 0)
       val _ = #(put_char) s a
     in () end
-  ` |> append_prog;
+End
 
-val _ = process_topdecs `
+Quote add_cakeml:
   fun get_char (u:unit) = let
       val a = Word8Array.array 2 (Word8.fromInt 0)
       val _ = #(get_char) "" a
@@ -229,7 +229,7 @@ val _ = process_topdecs `
       else
         None
     end
-  ` |> append_prog;
+End
 
 val st = ml_translatorLib.get_ml_prog_state();
 
@@ -468,9 +468,9 @@ QED
 
 (* A non-terminating loop with side effects *)
 
-val _ = process_topdecs `
+Quote add_cakeml:
   fun printLoop c = (put_char c; printLoop c);
-  ` |> append_prog;
+End
 
 val st = ml_translatorLib.get_ml_prog_state();
 
@@ -499,9 +499,9 @@ QED
 
 (* The Unix yes program *)
 
-val _ = process_topdecs `
+Quote add_cakeml:
   fun yes u = (put_line "y"; yes u);
-  ` |> append_prog;
+End
 
 val st = ml_translatorLib.get_ml_prog_state();
 
@@ -546,11 +546,11 @@ Theorem yes_spec =
 
 (* An IO-conditional loop with side effects *)
 
-val _ = process_topdecs `
+Quote add_cakeml:
   fun catLoop u = case get_char () of
       None   => ()
     | Some c => (put_char c; catLoop u);
-  ` |> append_prog;
+End
 
 val st = ml_translatorLib.get_ml_prog_state();
 
@@ -1271,11 +1271,11 @@ Proof
   metis_tac[LNTH_LREPEAT_ub]
 QED
 
-val _ = process_topdecs `
+Quote add_cakeml:
   fun pointerLoop c = (
     case !c of
      (a,b) => (put_char a; pointerLoop b));
-  ` |> append_prog;
+End
 
 val st = ml_translatorLib.get_ml_prog_state();
 
@@ -1404,8 +1404,9 @@ QED
 
 (* Meta-example: using the repeat transformation to verify repeat *)
 
-val _ = (append_prog o process_topdecs)
-  `fun myRepeat (f,x) = myRepeat (f,f x)`
+Quote add_cakeml:
+  fun myRepeat (f,x) = myRepeat (f,f x)
+End
 
 val st = get_ml_prog_state()
 

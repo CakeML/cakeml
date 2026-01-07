@@ -43,7 +43,7 @@ val inputLineTokens_specialize =
   |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
   |> SIMP_RULE std_ss [blanks_v_thm,tokenize_v_thm,blanks_def] ;
 
-val parse_dimacs_body_arr = process_topdecs`
+Quote add_cakeml:
   fun parse_dimacs_body_arr lno maxvar fd acc =
   case TextIO.inputLineTokens #"\n" fd blanks tokenize of
     None => Inr (List.rev acc)
@@ -52,7 +52,8 @@ val parse_dimacs_body_arr = process_topdecs`
       (case parse_clause maxvar l of
         None => Inl (format_dimacs_failure lno "failed to parse line")
       | Some cl => parse_dimacs_body_arr (lno+1) maxvar fd (cl::acc))
-    else parse_dimacs_body_arr (lno+1) maxvar fd acc` |> append_prog;
+    else parse_dimacs_body_arr (lno+1) maxvar fd acc
+End
 
 Theorem parse_dimacs_body_arr_spec:
   !lines fd fdv fs maxvar maxvarv acc accv lno lnov.
@@ -160,7 +161,7 @@ Proof
   metis_tac[]
 QED
 
-val parse_dimacs_toks_arr = process_topdecs`
+Quote add_cakeml:
   fun parse_dimacs_toks_arr lno fd =
   case TextIO.inputLineTokens #"\n" fd blanks tokenize of
     None => Inl (format_dimacs_failure lno "failed to find header")
@@ -176,7 +177,8 @@ val parse_dimacs_toks_arr = process_topdecs`
             Inr (vars,(clauses,acc))
           else
             Inl (format_dimacs_failure lno "incorrect number of clauses")))
-    else parse_dimacs_toks_arr (lno+1) fd` |> append_prog;
+    else parse_dimacs_toks_arr (lno+1) fd
+End
 
 Theorem parse_dimacs_toks_arr_spec:
   !lines fd fdv fs lno lnov.
@@ -321,7 +323,7 @@ Proof
 QED
 
 (* parse_dimacs_toks with simple wrapper *)
-val parse_dimacs_full = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun parse_dimacs_full fname =
   let
     val fd = TextIO.openIn fname
@@ -330,7 +332,8 @@ val parse_dimacs_full = (append_prog o process_topdecs) `
   in
     res
   end
-  handle TextIO.BadFileName => Inl (notfound_string fname)`;
+  handle TextIO.BadFileName => Inl (notfound_string fname)
+End
 
 Definition get_fml_def:
   get_fml fs f =
@@ -462,7 +465,7 @@ val _ = register_type``:step``;
 
 val LPR_STEP_TYPE_def = fetch "-" "LPR_STEP_TYPE_def";
 
-val run_proof_arr = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun run_proof_arr fml inds earr hm n mv steps =
   case steps of [] => (fml,inds,earr,n,mv)
   | step::rest =>
@@ -481,7 +484,8 @@ val run_proof_arr = (append_prog o process_topdecs) `
     in
       run_proof_arr (Array.updateResize fml None n (Some c))
         (sorted_insert n inds) earr hm (n+1) mv rest
-    end)`
+    end)
+End
 
 Theorem run_proof_arr_spec:
   ∀sts stsv ls lsv fmlls fmllsv earliest earliestv n nv fmlv Earrv h hv mv mvv.
@@ -558,7 +562,7 @@ Proof
 QED
 
 (* Only run proof on the hash table *)
-val run_proof_hash_arr = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun run_proof_hash_arr hm n steps =
   case steps of [] => ()
   | step::rest =>
@@ -568,7 +572,8 @@ val run_proof_hash_arr = (append_prog o process_topdecs) `
        run_proof_hash_arr hm n rest)
   | Add c =>
       (hash_ins hm c n;
-      run_proof_hash_arr hm (n+1) rest))`
+      run_proof_hash_arr hm (n+1) rest))
+End
 
 Theorem run_proof_hash_arr_spec:
   ∀sts stsv n nv h hv a b c d.
@@ -625,7 +630,7 @@ End
 
 val _ = translate mapf_def;
 
-val check_lpr_range_arr = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_lpr_range_arr fname fml inds earr mv n pf i j =
   let
     val hm = (Hashtable.empty (2 * n) hash_func order_lists)
@@ -641,7 +646,8 @@ val check_lpr_range_arr = (append_prog o process_topdecs) `
     in
       check_unsat' 0 fml' inds' earr' fname mv' cls
     end
-  end`
+  end
+End
 
 Theorem bounded_fml_run_proof_list:
   ∀pf fmlls ls earliest fm n mv fmlls' ls' earliest' fm' n' mv'.
@@ -823,22 +829,24 @@ End
 val r = translate noparse_string_def;
 
 (* parse_proof with simple wrapper *)
-val parse_proof_full = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun parse_proof_full f =
   (case TextIO.inputAllTokensFile #"\n" f blanks tokenize of
     None => Inl (notfound_string f)
   | Some lines =>
   (case parse_proof_toks lines of
     None => Inl (noparse_string f "Proof")
-  | Some x => Inr x))`
+  | Some x => Inr x))
+End
 
-val check_unsat_1 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_1 f1 =
   case parse_dimacs_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
-  | Inr (mv,(ncl,fml)) => TextIO.print_list (print_dimacs fml)`
+  | Inr (mv,(ncl,fml)) => TextIO.print_list (print_dimacs fml)
+End
 
-val check_unsat_2 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_2 f1 f2 =
   case parse_dimacs_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
@@ -855,7 +863,8 @@ val check_unsat_2 = (append_prog o process_topdecs) `
       Inl err => TextIO.output TextIO.stdErr err
     | Inr None => TextIO.print "s VERIFIED UNSAT\n"
     | Inr (Some l) => TextIO.output TextIO.stdErr "c empty clause not derived at end of proof\n"
-  end`
+  end
+End
 
 Definition transformation_err_def:
   transformation_err cl =
@@ -864,7 +873,7 @@ End
 
 val _ = translate transformation_err_def;
 
-val check_unsat_3 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_3 f1 f2 f3 =
   case parse_dimacs_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
@@ -884,7 +893,8 @@ val check_unsat_3 = (append_prog o process_topdecs) `
       Inl err => TextIO.output TextIO.stdErr err
     | Inr None => TextIO.print "s VERIFIED TRANSFORMATION\n"
     | Inr (Some cl) => TextIO.output TextIO.stdErr (transformation_err cl)
-  end`
+  end
+End
 
 Definition check_cond_def:
   check_cond i j pf = (i ≤ j ∧ j ≤ LENGTH pf)
@@ -908,7 +918,7 @@ val _ = translate parse_rng_or_check_def;
 
 val _ = translate print_rng_def;
 
-val check_unsat_4 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_4 f1 f2 rng f3 =
   case parse_dimacs_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
@@ -942,16 +952,18 @@ val check_unsat_4 = (append_prog o process_topdecs) `
             | Some proof_md5 => TextIO.print (success_str cnf_md5 proof_md5 (print_rng i j)))
       | Inr (Some cl) => TextIO.output TextIO.stdErr (transformation_err cl)
     end
-    else TextIO.output TextIO.stdErr "c Invalid range specification: range a-b must satisfy a <= b <= num lines in proof file\n"`
+    else TextIO.output TextIO.stdErr "c Invalid range specification: range a-b must satisfy a <= b <= num lines in proof file\n"
+End
 
-val check_unsat = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat u =
   case CommandLine.arguments () of
     [f1] => check_unsat_1 f1
   | [f1,f2] => check_unsat_2 f1 f2
   | [f1,f2,f3] => check_unsat_3 f1 f2 f3
   | [f1,f2,rng,f3] => check_unsat_4 f1 f2 rng f3
-  | _ => TextIO.output TextIO.stdErr usage_string`
+  | _ => TextIO.output TextIO.stdErr usage_string
+End
 
 (* We verify each argument type separately *)
 val inputAllTokensFile_spec_specialize =

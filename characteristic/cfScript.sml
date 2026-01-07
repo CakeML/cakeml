@@ -1492,9 +1492,9 @@ Definition app_opn_def:
      Q =~v> POST_F)
 End
 
-Definition app_opb_def:
-  app_opb opb i1 i2 H Q =
-    (H ==>> Q (Val (Boolv (opb_lookup opb i1 i2))) /\
+Definition app_int_cmp_def:
+  app_int_cmp cmp i1 i2 H Q =
+    (H ==>> Q (Val (Boolv (int_cmp cmp i1 i2))) /\
      Q =~v> POST_F)
 End
 
@@ -1544,12 +1544,12 @@ Definition cf_opn_def:
       app_opn opn i1 i2 H Q)
 End
 
-Definition cf_opb_def:
-  cf_opb opb x1 x2 = \env. local (\H Q.
+Definition cf_int_cmp_def:
+  cf_int_cmp cmp x1 x2 = \env. local (\H Q.
     ?i1 i2.
       exp2v env x1 = SOME (Litv (IntLit i1)) /\
       exp2v env x2 = SOME (Litv (IntLit i2)) /\
-      app_opb opb i1 i2 H Q)
+      app_int_cmp cmp i1 i2 H Q)
 End
 
 Definition cf_equality_def:
@@ -1882,9 +1882,9 @@ Definition cf_def:
           (case args of
             | [x1; x2] => cf_opn opn x1 x2
             | _ => cf_bottom)
-        | Opb opb =>
+        | Test (Compare cmp) IntT =>
           (case args of
-            | [x1; x2] => cf_opb opb x1 x2
+            | [x1; x2] => cf_int_cmp cmp x1 x2
             | _ => cf_bottom)
         | Equality =>
           (case args of
@@ -2029,6 +2029,7 @@ Termination
       drule Fun_body_exp_size \\ strip_tac \\ fs [astTheory.exp_size_def]
     )
 End
+
 val cf_defs = [
   cf_def,
   cf_lit_def,
@@ -2037,7 +2038,7 @@ val cf_defs = [
   cf_fun_def,
   cf_let_def,
   cf_opn_def,
-  cf_opb_def,
+  cf_int_cmp_def,
   cf_equality_def,
   cf_aalloc_def,
   cf_aalloc_empty_def,
@@ -2070,7 +2071,7 @@ val cf_defs = [
   cf_ffi_def,
   cf_raise_def,
   cf_handle_def
-]
+];
 
 (*------------------------------------------------------------------*)
 (** Properties about [cf]. The main result is the proof of soundness,
@@ -2087,7 +2088,7 @@ Proof
     fs [Fun_body_def] \\ every_case_tac \\ fs [local_is_local]
   )
   THEN1 (
-    Cases_on `op` \\ fs [local_is_local] \\
+    Cases_on `op` \\ fs [local_is_local,cf_int_cmp_def] \\
     every_case_tac \\ fs [local_is_local]
   )
 QED
@@ -2694,19 +2695,17 @@ Proof
 QED
 
 Theorem cf_sound:
-   !p e. sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e)
+  ∀p e. sound (p:'ffi ffi_proj) e (cf (p:'ffi ffi_proj) e)
 Proof
   recInduct cf_ind \\ rpt strip_tac \\
   rewrite_tac cf_defs \\ fs [sound_local, sound_false]
-  THEN1 (* Lit *) cf_base_case_tac
-  THEN1 (
-    (* Con *)
+  >~ [‘Lit’] >- cf_base_case_tac
+  >~ [‘Con’] >- (
     cf_base_case_tac \\ progress exp2v_list_REVERSE \\
     fs [with_clock_self_eq]
   )
-  THEN1 (* Var *) cf_base_case_tac
-  THEN1 (
-    (* Let *)
+  >~ [‘Var’] >- cf_base_case_tac
+  >~ [‘Let’] >- (
     Cases_on `is_bound_Fun opt e1` \\ fs []
     THEN1 (
       (* function declaration *)
@@ -2841,7 +2840,7 @@ Proof
       )
     )
   )
-  THEN1 (
+  >~ [‘Letrec’] >- (
     (* Letrec; the bulk of the proof is done in [cf_letrec_sound] *)
     HO_MATCH_MP_TAC sound_local \\ simp [MAP_MAP_o, o_DEF, LAMBDA_PROD] \\
     mp_tac (Q.SPECL [`funs`, `e`] cf_letrec_sound) \\
@@ -2854,26 +2853,55 @@ Proof
   )
   >~ [‘sound p (App op args)’] >- (
     (* App *)
-    Cases_on `?ffi_index. op = FFI ffi_index` THEN1 (
-      (* FFI *)
-      fs [] \\ rveq \\
+    Cases_on ‘∃ffi_index. op = FFI ffi_index’ >-
+     (fs [] \\ rveq \\
       (every_case_tac \\ TRY (MATCH_ACCEPT_TAC sound_local_false)) \\
-      irule cf_ffi_sound
-    ) \\
-    Cases_on `op = Eval` \\ fs [] THEN1
-      (fs [sound_def,local_def] \\ rw [] \\ fs [htriple_valid_def]) \\
+      irule cf_ffi_sound) \\
+    Cases_on `op = Eval` \\ fs []
+    >- (fs [sound_def,local_def] \\ rw [] \\ fs [htriple_valid_def]) \\
     Cases_on `op` \\ fs [] \\ TRY (MATCH_ACCEPT_TAC sound_local_false) \\
     (every_case_tac \\ TRY (MATCH_ACCEPT_TAC sound_local_false)) \\
     cf_strip_sound_tac
-    \\ TRY (
-      (* Opn & Opb *)
-      (rename1 `app_opn op` ORELSE rename1 `app_opb op`) \\
+    >~ [‘App XorAw8Str_unsafe’] >-
+     (Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
+      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+      cf_exp2v_evaluate_tac `st` \\
+      fs [st2heap_def,app_xoraw8str_def] \\
+      fs [W8ARRAY_def] \\
+      fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
+      first_x_assum progress
+      \\ rename1 `d = Loc T ld` \\ rw [] \\
+      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+      rename1 `W8array _` \\
+      `Mem ld (W8array wd) IN (store2heap st.refs)` by SPLIT_TAC \\
+      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
+      fs [do_app_def, store_lookup_def, store_assign_def, store_v_same_type_def, IMPLODE_EXPLODE_I] \\
+      drule IMP_xor_bytes_SOME \\ strip_tac \\ gvs [] \\
+      qexists_tac `Mem ld (W8array xor_res) INSERT u` \\
+      qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
+      THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC) \\
+      first_assum irule \\
+      qexists_tac`u` \\
+      qexists_tac`{Mem ld (W8array xor_res)}` \\ fs[] \\
+      SPLIT_TAC)
+    >~ [‘Opn’] >- (
+      rename1 `app_opn op` \\
       Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
-      fs [app_opn_def, app_opb_def, st2heap_def] \\
+      fs [app_opn_def, st2heap_def] \\
       progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
       GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
       cf_exp2v_evaluate_tac `st` \\
       Cases_on `op` \\ fs [do_app_def] \\ fs [SEP_IMP_def] \\
+      fs [state_component_equality]
+    )
+    >~ [‘Test (Compare cmp) IntT’] >- (
+      Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
+      fs [app_int_cmp_def, st2heap_def, cf_int_cmp_def] \\
+      progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
+      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+      cf_exp2v_evaluate_tac `st` \\
+      Cases_on `cmp` \\ fs [do_app_def, do_test_def, dest_Litv_def] \\
+      fs [SEP_IMP_def] \\
       fs [state_component_equality]
     )
     THEN1 (
@@ -3131,11 +3159,10 @@ Proof
       `Mem r (Refv x) IN (store2heap st.refs)` by SPLIT_TAC \\
       progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
       fs [state_component_equality]
-    )
-    \\
+    ) \\
+    try_finally (
       (* Aw8alloc & Aalloc *)
-    (IF (rename1 `Aw8alloc` ORELSE rename1 `Aalloc`)
-      (Q.REFINE_EXISTS_TAC `Val tv` \\ simp [] \\ cf_evaluate_step_tac \\
+      Q.REFINE_EXISTS_TAC `Val tv` \\ simp [] \\ cf_evaluate_step_tac \\
       GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
       cf_exp2v_evaluate_tac `st` \\
       fs [do_app_def, store_alloc_def, st2heap_def] \\
@@ -3157,28 +3184,7 @@ Proof
         THEN1 (irule FALSITY \\ intLib.ARITH_TAC) \\
         instantiate \\ fs [integerTheory.INT_ABS, store2heap_append] \\
         qexists_tac `{}` \\ SPLIT_TAC
-      ))
-      ALL_TAC
-    ) \\
-      (* Aw8sub & Asub *)
-    (IF
-      (MAP_FIRST rename1 [`Aw8sub`,`Asub`,`Aw8sub_unsafe`,`Asub_unsafe`])
-      (Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
-      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\
-      fs [st2heap_def, app_aw8sub_def, app_asub_def, W8ARRAY_def, ARRAY_def] \\
-      fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
-      progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
-      rpt (first_x_assum progress) \\ rename1 `a = Loc T l` \\ rw [] \\
-      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
-      fs [do_app_def, store_lookup_def] \\
-      ((`Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC) ORELSE
-       (`Mem l (Varray vs) IN (store2heap st.refs)` by SPLIT_TAC)) \\
-      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\ fs [] \\
-      instantiate \\ fs [integerTheory.INT_ABS] \\
-      full_case_tac THEN1 (irule FALSITY \\ intLib.ARITH_TAC) \\
-      fs [state_component_equality])
-      ALL_TAC
+      )
     ) \\
     try_finally (
       (* Aalloc_empty *)
@@ -3204,6 +3210,24 @@ Proof
         instantiate \\ fs [integerTheory.INT_ABS, store2heap_append] \\
         qexists_tac `{}` \\ SPLIT_TAC
       )
+    ) \\
+    try_finally (
+      (* Aw8sub & Asub *)
+      Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
+      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
+      cf_exp2v_evaluate_tac `st` \\
+      fs [st2heap_def, app_aw8sub_def, app_asub_def, W8ARRAY_def, ARRAY_def] \\
+      fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
+      progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
+      rpt (first_x_assum progress) \\ rename1 `a = Loc T l` \\ rw [] \\
+      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
+      fs [do_app_def, store_lookup_def] \\
+      ((`Mem l (W8array ws) IN (store2heap st.refs)` by SPLIT_TAC) ORELSE
+       (`Mem l (Varray vs) IN (store2heap st.refs)` by SPLIT_TAC)) \\
+      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\ fs [] \\
+      instantiate \\ fs [integerTheory.INT_ABS] \\
+      full_case_tac THEN1 (irule FALSITY \\ intLib.ARITH_TAC) \\
+      fs [state_component_equality]
     ) \\
     try_finally (
       (* Aw8length & Alength *)
@@ -3350,28 +3374,6 @@ Proof
       `Num do + Num l = Num (do +l)` by intLib.ARITH_TAC \\
       SPLIT_TAC
     )
-    >~ [‘App XorAw8Str_unsafe’] >-
-     (Q.REFINE_EXISTS_TAC `Val v'` \\ simp [] \\ cf_evaluate_step_tac \\
-      GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
-      cf_exp2v_evaluate_tac `st` \\
-      fs [st2heap_def,app_xoraw8str_def] \\
-      fs [W8ARRAY_def] \\
-      fs [SEP_EXISTS, cond_def, SEP_IMP_def, STAR_def, one_def, cell_def] \\
-      first_x_assum progress
-      \\ rename1 `d = Loc T ld` \\ rw [] \\
-      assume_tac (GEN_ALL Mem_NOT_IN_ffi2heap) \\
-      rename1 `W8array _` \\
-      `Mem ld (W8array wd) IN (store2heap st.refs)` by SPLIT_TAC \\
-      progress store2heap_IN_LENGTH \\ progress store2heap_IN_EL \\
-      fs [do_app_def, store_lookup_def, store_assign_def, store_v_same_type_def, IMPLODE_EXPLODE_I] \\
-      drule IMP_xor_bytes_SOME \\ strip_tac \\ gvs [] \\
-      qexists_tac `Mem ld (W8array xor_res) INSERT u` \\
-      qexists_tac `{}` \\ mp_tac store2heap_IN_unique_key \\ rpt strip_tac
-      THEN1 (progress_then (fs o sing) store2heap_LUPDATE \\ SPLIT_TAC) \\
-      first_assum irule \\
-      qexists_tac`u` \\
-      qexists_tac`{Mem ld (W8array xor_res)}` \\ fs[] \\
-      SPLIT_TAC)
   )
   THEN1 (
     (* Log *)
@@ -3700,4 +3702,3 @@ Proof
   rpt strip_tac \\ irule app_rec_of_htriple_valid \\ fs [] \\
   progress (REWRITE_RULE [sound_def] cf_sound)
 QED
-

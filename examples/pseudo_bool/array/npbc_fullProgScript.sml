@@ -33,7 +33,7 @@ End
 
 val r = translate noparse_string_def;
 
-val parse_pbf_full = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun parse_pbf_full f =
   (case TextIO.inputAllTokensFile #"\n" f blanks tokenize of
     None => Inl (notfound_string f)
@@ -41,7 +41,8 @@ val parse_pbf_full = (append_prog o process_topdecs) `
   (case parse_pbf_toks lines of
     None => Inl (noparse_string f "OPB")
   | Some res => Inr res
-  ))`
+  ))
+End
 
 val inputAllTokensFile_spec_specialize =
   inputAllTokensFile_spec
@@ -157,7 +158,7 @@ val res = translate int_inf_to_string_def;
 val res = translate concl_to_string_def;
 val res = translate map_concl_to_string_def;
 
-val check_unsat_2 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_2 f1 f2 =
   case parse_pbf_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
@@ -170,7 +171,8 @@ val check_unsat_2 = (append_prog o process_topdecs) `
           (check_unsat_top_norm False prob probt f2) of
         Inl err => TextIO.output TextIO.stdErr err
       | Inr s => TextIO.print s)
-    end`
+    end
+End
 
 Theorem check_unsat_2_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -276,12 +278,13 @@ Definition check_unsat_1_sem_def:
   | NONE => out = strlit ""
 End
 
-val check_unsat_1 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_1 f1 =
   case parse_pbf_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr prob =>
-    TextIO.print_list (print_annot_prob prob)`
+    TextIO.print_list (print_annot_prob prob)
+End
 
 Theorem check_unsat_1_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -358,7 +361,7 @@ End
 val res = translate output_to_string_def;
 val res = translate map_out_concl_to_string_def;
 
-val check_unsat_3 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_3 f1 f2 f3 =
   case parse_pbf_full f1 of
     Inl err => TextIO.output TextIO.stdErr err
@@ -371,7 +374,8 @@ val check_unsat_3 = (append_prog o process_topdecs) `
         (check_unsat_top_norm True
           (strip_annot_prob prob) (strip_annot_prob probt) f2) of
       Inl err => TextIO.output TextIO.stdErr err
-    | Inr s => TextIO.print s))`
+    | Inr s => TextIO.print s))
+End
 
 Theorem check_unsat_3_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -491,13 +495,14 @@ End
 
 val r = translate usage_string_def;
 
-val main = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun main u =
   case CommandLine.arguments () of
     [f1] => check_unsat_1 f1
   | [f1,f2] => check_unsat_2 f1 f2
   | [f1,f2,f3] => check_unsat_3 f1 f2 f3
-  | _ => TextIO.output TextIO.stdErr usage_string`
+  | _ => TextIO.output TextIO.stdErr usage_string
+End
 
 Definition main_sem_def:
   main_sem fs cl out =
