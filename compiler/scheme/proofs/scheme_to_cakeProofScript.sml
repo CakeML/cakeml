@@ -153,113 +153,113 @@ Theorem scheme_typestamp_eq[simp, compute] = SRULE [] $
 
 Inductive env_rel:
   FEVERY (λ (x, l).
-    nsLookup env.v (Short ("var" ++ explode x)) = SOME (Loc T l)) se
+    nsLookup env.v (Short («var» ^ x)) = SOME (Loc T l)) se
   ⇒
   env_rel se env
 End
 
 Theorem vcons_list_def[allow_rebind] = SRULE [] $ Define ‘
-  vcons_list [] = Conv (SOME (scheme_typestamp "[]")) [] ∧
-  vcons_list (v::vs) = Conv (SOME (scheme_typestamp "::")) [v; vcons_list vs]
+  vcons_list [] = Conv (SOME (scheme_typestamp «[]»)) [] ∧
+  vcons_list (v::vs) = Conv (SOME (scheme_typestamp «::»)) [v; vcons_list vs]
 ’;
 
 Definition cps_app_ts_def:
   cps_app_ts (v::vs) = (let
     (t, ts) = cps_app_ts vs
   in
-    ("t" ++ toString (SUC (LENGTH ts)), t::ts)) ∧
+    («t» ^ toString (SUC (LENGTH ts)), t::ts)) ∧
 
-  cps_app_ts [] = ("t0", [])
+  cps_app_ts [] = («t0», [])
 End
 
 val (bool_val_rel_rules,bool_val_rel_ind,bool_val_rel_cases) =
 (fn (x,y,z) => (SRULE [] x,SRULE [] y, SRULE [] z)) $ Hol_reln ‘
-  bool_val_rel T (Conv (SOME (scheme_typestamp "True")) []) ∧
-  bool_val_rel F (Conv (SOME (scheme_typestamp "False")) [])
+  bool_val_rel T (Conv (SOME (scheme_typestamp «True»)) []) ∧
+  bool_val_rel F (Conv (SOME (scheme_typestamp «False»)) [])
 ’;
 
 val (prim_val_rel_rules,prim_val_rel_ind,prim_val_rel_cases) =
 (fn (x,y,z) => (SRULE [] x,SRULE [] y, SRULE [] z)) $ Hol_reln ‘
-  prim_val_rel SAdd (Conv (SOME (scheme_typestamp "SAdd")) []) ∧
-  prim_val_rel SMul (Conv (SOME (scheme_typestamp "SMul")) []) ∧
-  prim_val_rel SMinus (Conv (SOME (scheme_typestamp "SMinus")) []) ∧
-  prim_val_rel SEqv (Conv (SOME (scheme_typestamp "SEqv")) []) ∧
-  prim_val_rel CallCC (Conv (SOME (scheme_typestamp "CallCC")) []) ∧
-  prim_val_rel Cons (Conv (SOME (scheme_typestamp "Cons")) []) ∧
-  prim_val_rel Car (Conv (SOME (scheme_typestamp "Car")) []) ∧
-  prim_val_rel Cdr (Conv (SOME (scheme_typestamp "Cdr")) []) ∧
-  prim_val_rel IsNull (Conv (SOME (scheme_typestamp "IsNull")) []) ∧
-  prim_val_rel IsPair (Conv (SOME (scheme_typestamp "IsPair")) [])
+  prim_val_rel SAdd (Conv (SOME (scheme_typestamp «SAdd»)) []) ∧
+  prim_val_rel SMul (Conv (SOME (scheme_typestamp «SMul»)) []) ∧
+  prim_val_rel SMinus (Conv (SOME (scheme_typestamp «SMinus»)) []) ∧
+  prim_val_rel SEqv (Conv (SOME (scheme_typestamp «SEqv»)) []) ∧
+  prim_val_rel CallCC (Conv (SOME (scheme_typestamp «CallCC»)) []) ∧
+  prim_val_rel Cons (Conv (SOME (scheme_typestamp «Cons»)) []) ∧
+  prim_val_rel Car (Conv (SOME (scheme_typestamp «Car»)) []) ∧
+  prim_val_rel Cdr (Conv (SOME (scheme_typestamp «Cdr»)) []) ∧
+  prim_val_rel IsNull (Conv (SOME (scheme_typestamp «IsNull»)) []) ∧
+  prim_val_rel IsPair (Conv (SOME (scheme_typestamp «IsPair»)) [])
 ’;
 
 Inductive val_cont_rels:
 [~SBool:]
   bool_val_rel b mlb
   ==>
-  ml_v_vals (SBool b) $ Conv (SOME (scheme_typestamp "SBool")) [mlb]
+  ml_v_vals (SBool b) $ Conv (SOME (scheme_typestamp «SBool»)) [mlb]
 [~SNum:]
   ml_v_vals (SNum i) $
-    Conv (SOME (scheme_typestamp "SNum")) [Litv (IntLit i)]
+    Conv (SOME (scheme_typestamp «SNum»)) [Litv (IntLit i)]
 [~Prim:]
   prim_val_rel prim mlprim
   ==>
-  ml_v_vals (Prim prim) $ Conv (SOME (scheme_typestamp "Prim")) [mlprim]
+  ml_v_vals (Prim prim) $ Conv (SOME (scheme_typestamp «Prim»)) [mlprim]
 [~Wrong:]
   ml_v_vals (Wrong s) $
-    Conv (SOME (scheme_typestamp "Wrong")) [Litv (StrLit s)]
+    Conv (SOME (scheme_typestamp «Wrong»)) [Litv (StrLit s)]
 [~Proc:]
   scheme_env env ∧
   env_rel se env
   ⇒
   ml_v_vals (Proc se xs xp e) $
-    Conv (SOME (scheme_typestamp "Proc")) [
-      Closure env "k" $ Fun "ts" $ proc_ml xs xp $ cps_transform e "k"
+    Conv (SOME (scheme_typestamp «Proc»)) [
+      Closure env «k» $ Fun «ts» $ proc_ml xs xp $ cps_transform e «k»
     ]
 [~Throw:]
   cont_rel ks kv
   ⇒
   ml_v_vals (Throw ks) $
-    Conv (SOME (scheme_typestamp "Throw")) [kv]
+    Conv (SOME (scheme_typestamp «Throw»)) [kv]
 [~PairP:]
   ml_v_vals (PairP l) $
-    Conv (SOME (scheme_typestamp "PairP")) [Loc T l]
+    Conv (SOME (scheme_typestamp «PairP»)) [Loc T l]
 [~Null:]
   ml_v_vals Null $
-    Conv (SOME (scheme_typestamp "Null")) []
+    Conv (SOME (scheme_typestamp «Null»)) []
 
 [~Id:]
   scheme_env env
   ⇒
   cont_rel []
-    (Closure env "t" (Var (Short "t")))
+    (Closure env «t» (Var (Short «t»)))
 [~CondK:]
   cont_rel ks kv ∧
-  nsLookup env.v (Short "k") = SOME kv ∧
+  nsLookup env.v (Short «k») = SOME kv ∧
   scheme_env env ∧
   env_rel se env
   ⇒
   cont_rel ((se, CondK te fe) :: ks)
-    (Closure env "t" $ Mat (Var (Short "t")) [
-      (Pcon (SOME $ Short "SBool") [Pcon (SOME $ Short "False") []], cps_transform fe "k");
-      (Pany, cps_transform te "k")
+    (Closure env «t» $ Mat (Var (Short «t»)) [
+      (Pcon (SOME $ Short «SBool») [Pcon (SOME $ Short «False») []], cps_transform fe «k»);
+      (Pany, cps_transform te «k»)
     ])
 [~ApplyK_NONE:]
   cont_rel ks kv ∧
-  nsLookup env.v (Short "k") = SOME kv ∧
-  inner = cps_transform_app (Var (Short "t")) [] es "k" ∧
+  nsLookup env.v (Short «k») = SOME kv ∧
+  inner = cps_transform_app (Var (Short «t»)) [] es «k» ∧
   scheme_env env ∧
   env_rel se env
   ⇒
   cont_rel ((se, ApplyK NONE es) :: ks)
-    (Closure env "t" $ inner)
+    (Closure env «t» $ inner)
 [~ApplyK_SOME:]
   cont_rel ks kv ∧
-  nsLookup env.v (Short "k") = SOME kv ∧
+  nsLookup env.v (Short «k») = SOME kv ∧
   (t, ts) = cps_app_ts vs ∧
-  inner = cps_transform_app (Var (Short "t"))
-    (MAP (Var o Short) (t::ts)) es "k" ∧
+  inner = cps_transform_app (Var (Short «t»))
+    (MAP (Var o Short) (t::ts)) es «k» ∧
   ml_v_vals fn mlfn ∧
-  nsLookup env.v (Short "t") = SOME mlfn ∧
+  nsLookup env.v (Short «t») = SOME mlfn ∧
   LIST_REL ml_v_vals vs mlvs ∧
   LIST_REL (λ x mlv . nsLookup env.v (Short x) = SOME mlv) ts mlvs ∧
   scheme_env env ∧
@@ -269,29 +269,29 @@ Inductive val_cont_rels:
     (Closure env t $ inner)
 [~BeginK:]
   cont_rel ks kv ∧
-  nsLookup env.v (Short "k") = SOME kv ∧
-  inner = cps_transform_seq "k" es e ∧
+  nsLookup env.v (Short «k») = SOME kv ∧
+  inner = cps_transform_seq «k» es e ∧
   scheme_env env ∧
   env_rel se env
   ⇒
   cont_rel ((se, BeginK es e) :: ks)
-    (Closure env "_" $ inner)
+    (Closure env «_» $ inner)
 [~SetK:]
   cont_rel ks kv ∧
-  nsLookup env.v (Short "k") = SOME kv ∧
-  inner = refunc_set (Var (Short "t")) "k" x ∧
+  nsLookup env.v (Short «k») = SOME kv ∧
+  inner = refunc_set (Var (Short «t»)) «k» x ∧
   scheme_env env ∧
   env_rel se env
   ⇒
   cont_rel ((se, SetK x) :: ks)
-    (Closure env "t" $ inner)
+    (Closure env «t» $ inner)
 [~LetinitK:]
   cont_rel ks kv ∧
-  nsLookup env.v (Short "k") = SOME kv ∧
+  nsLookup env.v (Short «k») = SOME kv ∧
   (t, ts) = cps_app_ts xvs ∧
   inner = cps_transform_letinit
     ((x,Var (Short t))::ZIP (MAP FST xvs, MAP (Var o Short) ts))
-    bs e "k" ∧
+    bs e «k» ∧
   LIST_REL ml_v_vals (MAP SND xvs) mlvs ∧
   LIST_REL (λ x mlv . nsLookup env.v (Short x) = SOME mlv) ts mlvs ∧
   scheme_env env ∧
@@ -311,7 +311,7 @@ Theorem mlv_always_conv:
     ==>
     ? cons type vs .
       mlv = Conv (SOME (TypeStamp cons type)) vs /\
-      TypeStamp "SBool" type = scheme_typestamp "SBool"
+      TypeStamp «SBool» type = scheme_typestamp «SBool»
 Proof
   rpt strip_tac
   >> gvs[Once ml_v_vals_cases]
@@ -321,10 +321,10 @@ Theorem mlv_always_conv[allow_rebind] = SRULE [] mlv_always_conv;
 
 val (store_entry_rel_rules,store_entry_rel_ind,store_entry_rel_cases) =
 (fn (x,y,z) => (SRULE [] x,SRULE [] y, SRULE [] z)) $ Hol_reln ‘
-  store_entry_rel (Mut NONE) (Refv (Conv (SOME (scheme_typestamp "None")) [])) ∧
+  store_entry_rel (Mut NONE) (Refv (Conv (SOME (scheme_typestamp «None»)) [])) ∧
   (ml_v_vals v mlv
   ⇒
-  store_entry_rel (Mut (SOME v)) (Refv (Conv (SOME (scheme_typestamp "Some")) [mlv]))) ∧
+  store_entry_rel (Mut (SOME v)) (Refv (Conv (SOME (scheme_typestamp «Some»)) [mlv]))) ∧
   (ml_v_vals v1 mlv1 ∧
   ml_v_vals v2 mlv2
   ⇒
@@ -433,16 +433,16 @@ Inductive cps_rel:
   ⇒
   cps_rel (st:'a state) (Val v) k env kv $ App Opapp [Var (Short k); ve]
 [~Exp:]
-  nsLookup env.v (Short "k") = SOME kv ∧
+  nsLookup env.v (Short «k») = SOME kv ∧
   scheme_env env ∧
   env_rel senv env
   ⇒
-  cps_rel st (Exp senv e) var env kv $ cps_transform e "k"
+  cps_rel st (Exp senv e) var env kv $ cps_transform e «k»
 [~Exception:]
   env.c = scheme_cons_env
   ⇒
   cps_rel st (Exception s) var env kv $
-    Con (SOME $ Short "Ex") [Lit $ StrLit $ explode s]
+    Con (SOME $ Short «Ex») [Lit $ StrLit s]
 End
 
 Theorem env_rel_FEMPTY[simp]:
@@ -456,7 +456,7 @@ Theorem env_rel_FUPDATE:
     env_rel se (env with v := env_v)
     ==>
     env_rel (se |+ (x, l))
-      (env with v := nsBind ("var" ++ explode x) (Loc T l) env_v)
+      (env with v := nsBind («var» ^ x) (Loc T l) env_v)
 Proof
   simp[env_rel_cases]
   >> rpt strip_tac
@@ -469,7 +469,7 @@ QED
 
 Theorem env_rel_non_var[simp]:
   ! se env envv var v .
-    (! x . var <> "var" ++ x)
+    (! x . var <> «var» ^ x)
     ==>
     env_rel se (env with v := nsBind var v envv) = env_rel se (env with v := envv)
 Proof
@@ -515,13 +515,16 @@ Theorem cps_app_ts_res:
   ∀ t ts vs .
     (t, ts) = cps_app_ts vs
     ⇒
-    t = "t" ++ toString (LENGTH ts) ∧
-    (∀ n:num . n ≥ LENGTH ts ⇒ ¬ MEM ("t" ++ toString n) ts) ∧
+    t = «t» ^ toString (LENGTH ts) ∧
+    (∀ n:num . n ≥ LENGTH ts ⇒ ¬ MEM («t» ^ toString n) ts) ∧
     LENGTH vs = LENGTH ts
 Proof
   Induct_on ‘vs’
   >> simp[cps_app_ts_def]
   >> rpt (pairarg_tac >> gvs[])
+  >- EVAL_TAC>>
+  rw[]>>
+  CCONTR_TAC>>fs[mlintTheory.num_to_str_11]
 QED
 
 Theorem str_not_num:
@@ -536,23 +539,28 @@ Theorem cps_app_ts_distinct:
     ⇒
     ¬ MEM t ts ∧
     ALL_DISTINCT ts ∧
-    t ≠ "t" ∧
-    t ≠ "k" ∧
-    ¬ MEM "t" ts ∧
-    ¬ MEM "k" ts ∧
+    t ≠ «t» ∧
+    t ≠ «k» ∧
+    ¬ MEM «t» ts ∧
+    ¬ MEM «k» ts ∧
     ¬ MEM t scheme_runtime_funs ∧
     EVERY (λ t. ¬ MEM t scheme_runtime_funs) ts ∧
-    (∀ x . t ≠ "var" ++ x) ∧
-    EVERY (λ t. ∀ x . t ≠ "var" ++ x) ts
+    (∀ x . t ≠ «var» ^ x) ∧
+    EVERY (λ t. ∀ x . t ≠ «var» ^ x) ts
 Proof
   Induct_on ‘vs’
   >> simp[cps_app_ts_def]
   >> rpt (pairarg_tac >> gvs[])
   >> gvs[scheme_runtime_funs_def]
+  >- (rw[]>> EVAL_TAC)
   >> drule_then mp_tac $ GSYM cps_app_ts_res
   >> strip_tac
   >> qpat_x_assum ‘_ = t’ $ assume_tac o GSYM
   >> simp[]
+  >> CONJ_TAC >-
+    (CCONTR_TAC>>fs[mlintTheory.num_to_str_11])
+  (* TODO *)
+  >> cheat
   >> qpat_assum ‘∀ _ . _ ⇒ _’ $ irule_at (Pos hd) o SRULE []
   >> simp[]
   >> irule_at Any str_not_num
@@ -610,7 +618,7 @@ Definition exp_eval_def:
 End
 
 Definition ex_eval_def:
-  ex_eval st env s = evaluate st env [Con (SOME $ Short "Ex") [Lit $ StrLit s]]
+  ex_eval st env s = evaluate st env [Con (SOME $ Short «Ex») [Lit $ StrLit s]]
 End
 
 Theorem state_ffi_trivial[simp]:
@@ -634,7 +642,7 @@ QED
 Definition letpreinit_mlenv_def:
   letpreinit_mlenv mlenv xs l
   =
-  (mlenv with v := nsAppend (Bind (REVERSE $ MAP (\ p. ("var" ++ (explode $ FST p), Loc T $ l + SND p)) $ ZIP (xs, GENLIST I $ LENGTH xs)) []) mlenv.v)
+  (mlenv with v := nsAppend (Bind (REVERSE $ MAP (\ p. («var» ^ FST p, Loc T $ l + SND p)) $ ZIP (xs, GENLIST I $ LENGTH xs)) []) mlenv.v)
 End
 
 Theorem letpreinit_ml_eval:
@@ -644,7 +652,7 @@ Theorem letpreinit_ml_eval:
     evaluate st mlenv [letpreinit_ml xs e]
     =
     evaluate
-      (st with refs := st.refs ++ (GENLIST (K $ Refv $ Conv (SOME $ scheme_typestamp "None") []) $ LENGTH xs))
+      (st with refs := st.refs ++ (GENLIST (K $ Refv $ Conv (SOME $ scheme_typestamp «None») []) $ LENGTH xs))
       (letpreinit_mlenv mlenv xs $ LENGTH st.refs)
       [e]
 Proof
@@ -668,7 +676,10 @@ Proof
   >> qpat_abbrev_tac `mlenv' = mlenv with v := _`
   >> last_x_assum $ qspec_then `st'` $
     qspec_then `mlenv'` $ qspec_then `e` $ assume_tac
-  >> `scheme_env mlenv'` by (unabbrev_all_tac >> rpt scheme_env_tac)
+  >> `scheme_env mlenv'` by (
+    unabbrev_all_tac >> rpt scheme_env_tac>>
+    (* TODO *)
+    cheat)
   >> unabbrev_all_tac
   >> simp[]
   >> `! n . SUC n = n + 1` by simp[]
@@ -722,7 +733,7 @@ Theorem allocate_list_ml:
     ==>
     ? ck st' mltail .
       (! start . evaluate (st with clock := ck + start) env [App Opapp [
-        Var (Short "allocate_list");
+        Var (Short «allocate_list»);
         Var (Short ts)
       ]]
       = (st' with clock := start, Rval [mltail])) /\
@@ -756,7 +767,7 @@ Proof
   >> `closure_in_env newenv scheme_basis_list env_list`
     by (EVAL_TAC >> unabbrev_all_tac >> simp[])
   >> first_x_assum $ dxrule_at_then (Pat `closure_in_env _ _`) assume_tac
-  >> pop_assum $ qspec_then `"ts'"` assume_tac
+  >> pop_assum $ qspec_then `«ts'»` assume_tac
   >> unabbrev_all_tac
   >> gvs[scheme_runtime_funs_def]
   >> qexists `ck`
@@ -787,7 +798,7 @@ Theorem letinit_preservation:
     EVERY (valid_val store) (MAP SND xvs) ∧
     LIST_REL ml_v_vals (MAP SND xvs) mlvs ∧
     LIST_REL (λx mlv. nsLookup mlenv.v (Short x) = SOME mlv) ts mlvs ∧
-    cont_rel k kv ∧ nsLookup mlenv.v (Short "k") = SOME kv ∧
+    cont_rel k kv ∧ nsLookup mlenv.v (Short «k») = SOME kv ∧
     scheme_env mlenv ∧
     env_rel env mlenv ∧
     can_lookup env store ∧
@@ -798,7 +809,7 @@ Theorem letinit_preservation:
          evaluate (st with clock := ck + start) mlenv
            [letinit_ml
               (ZIP (MAP FST xvs,MAP (Var ∘ Short) ts))
-              (cps_transform e "k")] =
+              (cps_transform e «k»)] =
          evaluate (st' with clock := start) mlenv' [mle']) ∧
       cont_rel k kv' ∧ cps_rel st' (Exp env e) var' mlenv' kv' mle' ∧
       LIST_REL store_entry_rel (letinit store env xvs) st'.refs ∧
@@ -862,7 +873,7 @@ Theorem application_preservation:
       (∀ start . evaluate (st with clock := start + ck) mlenv
         [App Opapp
           [App Opapp
-            [App Opapp [Var (Short "app"); Var (Short k)];
+            [App Opapp [Var (Short «app»); Var (Short k)];
             Var (Short t)];
           cons_list (MAP (Var o Short) ts)]]
       =
@@ -924,7 +935,7 @@ Proof
     >>> LASTGOAL (
       gvs[]
       >> rename1 `ml_v_vals v mlv`
-      >> `! vs . mlv <> Conv (SOME $ scheme_typestamp "SNum") vs`
+      >> `! vs . mlv <> Conv (SOME $ scheme_typestamp «SNum») vs`
         by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
       >> drule_then assume_tac mlv_always_conv
       >> gvs[]
@@ -993,7 +1004,7 @@ Proof
     >>> LASTGOAL (
       gvs[]
       >> rename1 `ml_v_vals v mlv`
-      >> `! vs . mlv <> Conv (SOME $ scheme_typestamp "SNum") vs`
+      >> `! vs . mlv <> Conv (SOME $ scheme_typestamp «SNum») vs`
         by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
       >> drule_then assume_tac mlv_always_conv
       >> gvs[]
@@ -1038,7 +1049,7 @@ Proof
       >> Cases_on `? i . v = SNum i` >>> LASTGOAL (
         gvs[]
         >> rename1 `ml_v_vals v mlv`
-        >> `! vs . mlv <> Conv (SOME $ scheme_typestamp "SNum") vs`
+        >> `! vs . mlv <> Conv (SOME $ scheme_typestamp «SNum») vs`
           by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
         >> drule_then assume_tac mlv_always_conv
         >> gvs[]
@@ -1074,8 +1085,8 @@ Proof
           >> ‘∃ n . 0i = n’ by simp[]
           >> pop_assum $ simp o single
           >> qpat_abbrev_tac `env_sminus' = env_sminus with v := _`
-          >> ‘nsLookup env_sminus'.v (Short "n") = SOME (Litv (IntLit i))’ by (unabbrev_all_tac >> gvs[])
-          >> ‘nsLookup env_sminus'.v (Short "k") = SOME kv’ by (unabbrev_all_tac >> gvs[])
+          >> ‘nsLookup env_sminus'.v (Short «n») = SOME (Litv (IntLit i))’ by (unabbrev_all_tac >> gvs[])
+          >> ‘nsLookup env_sminus'.v (Short «k») = SOME kv’ by (unabbrev_all_tac >> gvs[])
           >> ‘env_sminus'.c = env_sminus.c’ by (unabbrev_all_tac >> gvs[])
           >> qpat_x_assum ‘Abbrev _’ kall_tac
           >> qpat_x_assum ‘! _ . _’ kall_tac
@@ -1108,7 +1119,7 @@ Proof
           >>> LASTGOAL (
             gvs[]
             >> rename1 `ml_v_vals v mlv`
-            >> `! vs . mlv <> Conv (SOME $ scheme_typestamp "SNum") vs`
+            >> `! vs . mlv <> Conv (SOME $ scheme_typestamp «SNum») vs`
               by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
             >> drule_then assume_tac mlv_always_conv
             >> gvs[]
@@ -1187,7 +1198,7 @@ Proof
               >> simp[do_con_check_def, build_conv_def, nsLookup_def]
             )
             >> rename1 `ml_v_vals v' mlv'`
-            >> `! vs . mlv' <> Conv (SOME $ scheme_typestamp "SNum") vs`
+            >> `! vs . mlv' <> Conv (SOME $ scheme_typestamp «SNum») vs`
               by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
             >> drule_then assume_tac mlv_always_conv
             >> gvs[]
@@ -1214,7 +1225,7 @@ Proof
             )
             >> gvs[]
             >> rename1 `ml_v_vals v' mlv'`
-            >>`! vs . mlv' <> Conv (SOME $ scheme_typestamp "SBool") vs`
+            >>`! vs . mlv' <> Conv (SOME $ scheme_typestamp «SBool») vs`
               by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
             >> drule_then assume_tac mlv_always_conv
             >> gvs[]
@@ -1226,9 +1237,9 @@ Proof
             >> simp[evaluate_def, do_con_check_def, build_conv_def, nsLookup_def]
           )
           >> rename1 `ml_v_vals v mlv`
-          >> `! vs . mlv <> Conv (SOME $ scheme_typestamp "SNum") vs`
+          >> `! vs . mlv <> Conv (SOME $ scheme_typestamp «SNum») vs`
             by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
-          >>`! vs . mlv <> Conv (SOME $ scheme_typestamp "SBool") vs`
+          >>`! vs . mlv <> Conv (SOME $ scheme_typestamp «SBool») vs`
             by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
           >> rev_drule_then assume_tac mlv_always_conv
           >> gvs[]
@@ -1274,8 +1285,8 @@ Proof
     >> qpat_abbrev_tac `proc_env' = proc_env with v:= _`
     >> `scheme_env proc_env'` by (unabbrev_all_tac >> rpt scheme_env_tac)
     >> `env_rel se proc_env'` by simp[Abbr `proc_env'`]
-    >> `nsLookup proc_env'.v (Short "ts") = SOME (vcons_list mlvs)` by simp[Abbr `proc_env'`]
-    >> `nsLookup proc_env'.v (Short "k") = SOME kv` by simp[Abbr `proc_env'`]
+    >> `nsLookup proc_env'.v (Short «ts») = SOME (vcons_list mlvs)` by simp[Abbr `proc_env'`]
+    >> `nsLookup proc_env'.v (Short «k») = SOME kv` by simp[Abbr `proc_env'`]
     >> qpat_x_assum `Abbrev _` kall_tac
     >> qpat_x_assum `scheme_env proc_env` kall_tac
     >> qpat_x_assum `env_rel _ proc_env` kall_tac
@@ -1312,7 +1323,7 @@ Proof
       >> strip_tac
       >> `closure_in_env proc_env' scheme_basis_list env_list` by (EVAL_TAC >> simp[])
       >> first_x_assum $ drule_at_then (Pat `closure_in_env _ _ _`) assume_tac
-      >> pop_assum $ qspec_then `"ts"` assume_tac
+      >> pop_assum $ qspec_then `«ts»` assume_tac
       >> gvs[scheme_cons_env_simp, scheme_runtime_funs_def]
       >> qrefine `ck + ck'`
       >> simp[do_app_def, store_alloc_def]
@@ -1496,7 +1507,7 @@ Proof
           >> gvs[Once store_entry_rel_cases]
         )
         >>> LASTGOAL (
-          `! vs . mlv <> Conv (SOME $ scheme_typestamp "PairP") vs`
+          `! vs . mlv <> Conv (SOME $ scheme_typestamp «PairP») vs`
             by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
           >> drule_then assume_tac mlv_always_conv
           >> gvs[car_not_pairp_exception]
@@ -1542,7 +1553,7 @@ Proof
           >> gvs[Once store_entry_rel_cases]
         )
         >>> LASTGOAL (
-          `! vs . mlv <> Conv (SOME $ scheme_typestamp "PairP") vs`
+          `! vs . mlv <> Conv (SOME $ scheme_typestamp «PairP») vs`
             by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
           >> drule_then assume_tac mlv_always_conv
           >> gvs[cdr_not_pairp_exception]
@@ -1580,7 +1591,7 @@ Proof
         rename1 `ml_v_vals v mlv`
         >> Cases_on `v = Null` >>> HEADGOAL $ gvs[Once ml_v_vals_cases]
         >>> LASTGOAL (
-          `! vs . mlv <> Conv (SOME $ scheme_typestamp "Null") vs`
+          `! vs . mlv <> Conv (SOME $ scheme_typestamp «Null») vs`
             by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
           >> drule_then assume_tac mlv_always_conv
           >> gvs[isnull_not_null_false]
@@ -1617,7 +1628,7 @@ Proof
         rename1 `ml_v_vals v mlv`
         >> Cases_on `? l . v = PairP l` >>> HEADGOAL $ gvs[Once ml_v_vals_cases]
         >>> LASTGOAL (
-          `! vs . mlv <> Conv (SOME $ scheme_typestamp "PairP") vs`
+          `! vs . mlv <> Conv (SOME $ scheme_typestamp «PairP») vs`
             by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases])
           >> drule_then assume_tac mlv_always_conv
           >> gvs[ispair_not_pairp_false]
@@ -1868,7 +1879,7 @@ Proof
       >>> HEADGOAL $ gvs[Once ml_v_vals_cases, bool_val_rel_cases]
       >>> LASTGOAL (
         gvs[]
-        >> `! vs . mlv <> Conv (SOME $ scheme_typestamp "SBool") vs`
+        >> `! vs . mlv <> Conv (SOME $ scheme_typestamp «SBool») vs`
          by (spose_not_then assume_tac >> gvs[Once ml_v_vals_cases, bool_val_rel_cases])
         >> drule_then assume_tac mlv_always_conv
         >> gvs[]
@@ -2201,7 +2212,7 @@ Theorem exception_terminating:
     LIST_REL store_entry_rel store st.refs
     ⇒
     ∃ ck st' mlv . evaluate (st with clock:=ck) mlenv [mle]
-      = (st', Rval [Conv (SOME (scheme_typestamp "Ex")) [Litv (StrLit (explode s))]]) ∧
+      = (st', Rval [Conv (SOME (scheme_typestamp «Ex»)) [Litv (StrLit (explode s))]]) ∧
     st.ffi = st'.ffi
 Proof
   rpt strip_tac

@@ -41,7 +41,7 @@ Datatype:
        | SetK mlstring
        | LetinitK ((mlstring # val) list) mlstring ((mlstring # exp) list) exp
 ;
-  val = Prim prim | SNum int | Wrong string | SBool bool
+  val = Prim prim | SNum int | Wrong mlstring | SBool bool
       | Proc senv (mlstring list) (mlstring option) exp
       (*requires HOL 94eb753a85c5628f4fd0401deb4b7e2972a8eb25*)
       | Throw ((senv # cont) list)
