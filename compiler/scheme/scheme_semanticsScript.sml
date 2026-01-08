@@ -92,7 +92,7 @@ Definition parameterize_def:
   parameterize store env (p::ps) lp e (x::xs) = (let
       (n, store') = fresh_loc store (Mut $ SOME x)
     in parameterize store' (env |+ (p, n)) ps lp e xs) ∧
-  parameterize store _ _ _ _ _ = (store, Exception «Wrong number of arguments»)
+  parameterize store _ _ _ _ _ = (store, Exception $ strlit "Wrong number of arguments")
 End
 
 Definition application_def:
@@ -162,7 +162,7 @@ Definition return_def:
   return store ((env, BeginK es e) :: ks) v = (case es of
   | [] => (store, ks, Exp env e)
   | e'::es' => (store, (env, BeginK es' e) :: ks, Exp env e')) ∧
-  return store ((env, SetK x) :: ks) v = (LUPDATE (Mut $ SOME v) (env ' x) store, ks, Val $ Wrong «Unspecified»)
+  return store ((env, SetK x) :: ks) v = (LUPDATE (Mut $ SOME v) (env ' x) store, ks, Val $ Wrong "Unspecified")
 End
 
 Definition letrec_preinit_def:

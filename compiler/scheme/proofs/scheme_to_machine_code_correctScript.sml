@@ -63,7 +63,7 @@ Theorem scheme_to_machine_code_exception_terminates:
   ⇒
   machine_sem mc scheme_out_oracle ms
   ⊆
-  extend_with_resource_limit {Terminate Success [IO_event (ExtCall «scheme_out») (MAP (n2w o ORD) (explode s)) []]}
+  extend_with_resource_limit {Terminate Success [IO_event (ExtCall "scheme_out") (MAP (n2w o ORD) (explode s)) []]}
 Proof
   strip_tac
   \\ dxrule_all scheme_semantics_preservation_exception_terminates
