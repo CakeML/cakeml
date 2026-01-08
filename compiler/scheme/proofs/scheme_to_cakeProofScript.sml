@@ -1740,16 +1740,19 @@ Proof
       >> simp[Once cont_rel_cases]
       >> first_assum $ irule_at $ Pos hd
       >> drule_then assume_tac LIST_REL_LENGTH
+      >> DEP_REWRITE_TAC [env_rel_non_var]
+      >> conj_tac >- simp [strcat_thm, implode_def]
       >> simp[cps_app_ts_def, letpreinit_env_rel]
       >> simp[letrec_preinit_env_def, letpreinit_mlenv_def]
-      >> rpt scheme_env_tac
       >> strip_tac >- (
         simp[nsLookup_nsAppend_some, id_to_mods_def,
           nsLookup_def, ALOOKUP_NONE, MEM_MAP]
         >> disj2_tac
         >> PairCases
-        >> simp[]
+        >> simp[strcat_thm, implode_def]
       )
+      >> strip_tac >- simp [strcat_thm, num_to_str_thm, implode_def]
+      >> rpt scheme_env_tac
       >> strip_tac >- (
         gvs[scheme_env_def]
         >> simp[nsLookup_nsAppend_some, id_to_mods_def,
@@ -1760,7 +1763,7 @@ Proof
         >> rpt strip_tac
         >> disj2_tac
         >> PairCases
-        >> simp[]
+        >> simp[strcat_thm, implode_def]
       )
       >> irule LIST_REL_APPEND_suff
       >> simp[LIST_REL_EL_EQN, Once store_entry_rel_cases]
@@ -1787,7 +1790,7 @@ Proof
           nsLookup_def, ALOOKUP_NONE, MEM_MAP]
         >> disj2_tac
         >> PairCases
-        >> simp[]
+        >> simp[strcat_thm, implode_def]
       )
       >> strip_tac >- (
         gvs[scheme_env_def]
@@ -1799,7 +1802,7 @@ Proof
         >> rpt strip_tac
         >> disj2_tac
         >> PairCases
-        >> simp[]
+        >> simp[strcat_thm, implode_def]
       )
       >> irule LIST_REL_APPEND_suff
       >> simp[LIST_REL_EL_EQN, Once store_entry_rel_cases]
@@ -1852,6 +1855,8 @@ Proof
       >> simp[evaluate_def]
     )
     >> rpt scheme_env_tac
+    >> DEP_REWRITE_TAC [env_rel_non_var]
+    >> simp [strcat_thm, implode_def]
   )
   >~ [‘Val v’] >- (
     Cases_on ‘ks’
@@ -1887,6 +1892,8 @@ Proof
       >> qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
       >> simp[Once cps_rel_cases]
       >> scheme_env_tac
+      >> DEP_REWRITE_TAC [env_rel_non_var]
+      >> simp [strcat_thm, implode_def]
     )
     >> Cases_on ‘∃ es e . h1 = BeginK es e’ >- (
       gvs[]
@@ -1902,6 +1909,8 @@ Proof
       >> simp[Once cps_rel_cases]
       >> simp[Once cont_rel_cases]
       >> rpt scheme_env_tac
+      >> DEP_REWRITE_TAC [env_rel_non_var]
+      >> simp [strcat_thm, implode_def]
     )
     >> Cases_on ‘∃ x . h1 = SetK x’ >- (
       gvs[]
@@ -1920,12 +1929,13 @@ Proof
       >> gvs[store_entry_rel_cases]
       >> simp[Once evaluate_def]
       >> reduce_to_cps 1 []
+      >> fs [strcat_thm, implode_def]
       >> simp[lex_sim_order_simp]
       >> simp[GSYM eval_eq_def]
       >> irule_at (Pos hd) eval_eq_trivial
       >> simp[]
       >> qpat_assum ‘cont_rel _ _’ $ irule_at (Pos hd)
-      >> simp[Once cps_rel_cases, Once ml_v_vals_cases]
+      >> simp[Once cps_rel_cases, Once ml_v_vals_cases, implode_def]
       >> simp[evaluate_def, do_con_check_def, build_conv_def, nsLookup_def]
       >> irule EVERY2_LUPDATE_same
       >> simp[Once store_entry_rel_cases]
@@ -2009,6 +2019,8 @@ Proof
         >> gvs[]
       )
       >> rpt scheme_env_tac
+      >> DEP_REWRITE_TAC [env_rel_non_var]
+      >> simp [strcat_thm, implode_def]
     )
     >> Cases_on ‘∃ e es . h1 = ApplyK NONE (e::es)’ >- (
       gvs[]
@@ -2023,6 +2035,8 @@ Proof
       >> simp[Once cps_rel_cases, Once cont_rel_cases]
       >> simp[cps_app_ts_def]
       >> rpt scheme_env_tac
+      >> DEP_REWRITE_TAC [env_rel_non_var]
+      >> simp [strcat_thm, implode_def, num_to_str_thm]
     )
     >> Cases_on ‘∃ fn vs e es . h1 = ApplyK (SOME (fn, vs)) (e::es)’ >- (
       gvs[]
@@ -2059,6 +2073,8 @@ Proof
         >> gvs[]
       )
       >> rpt scheme_env_tac
+      >> DEP_REWRITE_TAC [env_rel_non_var]
+      >> simp [strcat_thm, implode_def]
     )
     >> Cases_on ‘h1 = ApplyK NONE []’ >- (
       gvs[]
@@ -2075,9 +2091,12 @@ Proof
       >> irule application_preservation
       >> simp[]
       >> rpt scheme_env_tac
-      >> rpt $ first_assum $ irule_at $ Pos hd
+      >> rename [‘application store t v’, ‘env_rel h0’]
+      >> qexistsl [‘store’, ‘t’, ‘v’, ‘h0’]
       >> gvs[Once valid_state_cases]
       >> gvs[Once valid_cont_cases]
+      >> DEP_REWRITE_TAC [env_rel_non_var]
+      >> simp [strcat_thm, implode_def]
     )
     >> Cases_on ‘∃ fn vs . h1 = ApplyK (SOME (fn, vs)) []’ >- (
       gvs[]
@@ -2338,7 +2357,10 @@ Proof
     gvs[cps_transform_def, letinit_ml_def, letpreinit_ml_def]
     >> gvs[evaluate_def, do_app_def, store_alloc_def, nsOptBind_def]
     >> qmatch_asmsub_abbrev_tac `evaluate _ newenv _`
-    >> `scheme_env newenv` by (unabbrev_all_tac >> simp[scheme_env_sub, scheme_runtime_funs_def])
+    >> `scheme_env newenv` by
+      (unabbrev_all_tac
+       >> DEP_REWRITE_TAC [scheme_env_sub]
+       >> simp[scheme_runtime_funs_def, strcat_thm, implode_def])
     >> gvs[letpreinit_ml_eval]
     >> gvs[evaluate_def, nsOptBind_def]
     >> last_x_assum $ drule_at_then (Pos last) assume_tac
@@ -2353,13 +2375,16 @@ Proof
     >> rpt strip_tac
     >> disj2_tac
     >> PairCases
-    >> simp[]
+    >> simp[strcat_thm, implode_def]
   )
   >~ [`Letrecstar ((_,_)::_) _`] >- (
     gvs[cps_transform_def, letinit_ml_def, letpreinit_ml_def]
     >> gvs[evaluate_def, do_app_def, store_alloc_def, nsOptBind_def]
     >> qmatch_asmsub_abbrev_tac `evaluate _ newenv _`
-    >> `scheme_env newenv` by (unabbrev_all_tac >> simp[scheme_env_sub, scheme_runtime_funs_def])
+    >> `scheme_env newenv` by
+      (unabbrev_all_tac
+       >> DEP_REWRITE_TAC [scheme_env_sub]
+       >> simp[scheme_runtime_funs_def, strcat_thm, implode_def])
     >> gvs[letpreinit_ml_eval]
     >> gvs[evaluate_def, nsOptBind_def]
     >> last_x_assum $ drule_at_then (Pos last) assume_tac
@@ -2374,7 +2399,7 @@ Proof
     >> rpt strip_tac
     >> disj2_tac
     >> PairCases
-    >> simp[]
+    >> simp[strcat_thm, implode_def]
   )
   >> gvs[cps_transform_def]
   >> gvs[evaluate_def, nsOptBind_def, letinit_ml_def, letpreinit_ml_def]
