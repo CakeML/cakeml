@@ -97,6 +97,21 @@ val _ = update_precondition validaddsym_side_lemma;
 
 val _ = translate (def_of_const ``cmlPEG``);
 
+Theorem not_mlstring_emp[simp]:
+  x ≠  «» ⇒
+  explode x ≠ ""
+Proof
+  Cases_on`x`>>rw[]
+QED
+
+Theorem cmlpeg_side = Q.prove(`
+  cmlpeg_side ⇔ T`,
+  fs[fetch "-" "cmlpeg_side_def",
+    fetch "-" "peg_v_side_def",
+    fetch "-" "peg_longv_side_def",
+    fetch "-" "peg_uqconstructorname_side_def"
+    ]) |> update_precondition;
+
 Theorem INTRO_FLOOKUP:
    (if n ∈ FDOM G.rules then
       pegexec$EV (G.rules ' n) i r eo errs (appf1 tf3 k) fk
@@ -233,7 +248,6 @@ Theorem parse_prog_side_lemma = Q.prove(`
   THEN FULL_SIMP_TAC std_ss [INTRO_FLOOKUP] THEN POP_ASSUM MP_TAC
   THEN CONV_TAC (DEPTH_CONV ETA_CONV) THEN FULL_SIMP_TAC std_ss [])
   |> update_precondition;
-
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.close_module NONE);
 
