@@ -4,7 +4,7 @@
 Theory decProg
 Ancestors
   ast ml_translator ml_pmatch[qualified] semanticPrimitives
-  repl_init_envProg
+  repl_init_envProg ast_extras
 Libs
   preamble ml_translatorLib ml_progLib
 
@@ -58,6 +58,7 @@ Proof
   \\ rpt (irule_at Any (fetch_v_fun “:word8” |> snd |> hd))
   \\ rpt (irule_at Any (fetch_v_fun “:word64” |> snd |> hd))
   \\ rpt (irule_at Any (fetch_v_fun “:string” |> snd |> hd))
+  \\ rpt (irule_at Any (fetch_v_fun “:mlstring” |> snd |> hd))
   \\ fs []
 QED
 
