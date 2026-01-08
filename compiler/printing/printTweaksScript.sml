@@ -7,12 +7,11 @@ Ancestors
 Libs
   BasicProvers dep_rewrite[qualified]
 
-
 Definition print_failure_message_def:
-  print_failure_message s =
-  Dlet unknown_loc Pany (App Opapp [Var (Short "print_pp");
-        (App Opapp [Var (Long "PrettyPrinter" (Short "failure_message"));
-            Lit (StrLit (explode s))])])
+  print_failure_message (s:mlstring) =
+  Dlet unknown_loc Pany (App Opapp [Var (Short «print_pp»);
+        (App Opapp [Var (Long «PrettyPrinter» (Short «failure_message»));
+            Lit (StrLit s)])])
 End
 
 Definition add_err_message_def:
@@ -29,7 +28,7 @@ End
 
 Definition add_print_from_opts_def:
   add_print_from_opts nm [] (decs_ext, st) =
-  add_err_message (strlit "exhausted print options for " ^ implode nm) decs_ext st /\
+  add_err_message («exhausted print options for » ^ nm) decs_ext st /\
   add_print_from_opts nm (print_opt :: xs) (decs_ext, st) =
   let (ienv, inf_st) = st in
   case infer_ds ienv [print_opt] inf_st of
@@ -37,7 +36,7 @@ Definition add_print_from_opts_def:
         (print_opt :: decs_ext, (extend_dec_ienv ienv2 ienv, inf_st2))
   | (Failure x, _) =>
   let (decs_ext, st) = add_err_message
-        (strlit "adding val pretty-print: " ^ SND x) decs_ext st in
+        («adding val pretty-print: » ^ SND x) decs_ext st in
   add_print_from_opts nm xs (decs_ext, st)
 End
 
@@ -62,7 +61,7 @@ Definition add_print_features_def:
   (* maybe the default pretty-printer decs are the problem *)
   (case infer_ds ienv decs (init_infer_state <| next_id := next_id |>) of
   (Success ienv3, inf_st3) =>
-  let (decs_ext, i_st) = add_err_message (strlit "adding type pp funs: " ^ SND x)
+  let (decs_ext, i_st) = add_err_message («adding type pp funs: » ^ SND x)
         [] (extend_dec_ienv ienv3 ienv, inf_st3) in
   (Success (decs ++ REVERSE decs_ext, (tn, i_st)))
   | (Failure x, _) => Failure x
@@ -73,7 +72,7 @@ Definition read_next_dec_def:
   read_next_dec =
     [Dlet (Locs UNKNOWNpt UNKNOWNpt) Pany
        (App Opapp
-          [App Opderef [Var (Long "Repl" (Short "readNextString"))];
+          [App Opderef [Var (Long «Repl» (Short «readNextString»))];
            Con NONE []])]
 End
 
