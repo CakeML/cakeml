@@ -137,7 +137,7 @@ val _ = (extra_preprocessing :=
 Theorem maybe_handleRef_eq:
   !p. maybe_handleRef p =
       case p of
-      | (Pcon (SOME (Short n)) [pat]) => if n = "Ref" then Pref pat else p
+      | (Pcon (SOME (Short n)) [pat]) => if n = «Ref» then Pref pat else p
       | _ => p
 Proof
   recInduct cmlPtreeConversionTheory.maybe_handleRef_ind

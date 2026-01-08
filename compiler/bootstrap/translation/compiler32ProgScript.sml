@@ -361,7 +361,7 @@ val res = translate compilerTheory.help_string_def;
 Definition nonzero_exit_code_for_error_msg_def:
   nonzero_exit_code_for_error_msg e =
     if compiler$is_error_msg e then
-      (let a = empty_ffi (strlit "nonzero_exit") in
+      (let a = empty_ffi «nonzero_exit» in
          ml_translator$force_out_of_memory_error ())
     else ()
 End

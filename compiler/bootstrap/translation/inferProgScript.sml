@@ -402,7 +402,7 @@ val _ = translate infer_tTheory.get_tyname_def;
 
 Theorem ty_var_name_eq:
   ty_var_name n =
-    concat [strlit "'";
+    concat [«'»;
             if n < 28 then str (CHR (n + ORD #"a")) else mlint$toString (&n)]
 Proof
   rw [infer_tTheory.ty_var_name_def,mlstringTheory.implode_def]
