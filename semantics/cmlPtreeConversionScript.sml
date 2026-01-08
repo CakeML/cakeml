@@ -1450,7 +1450,6 @@ Definition ptree_Decl_def:
             SOME(Dmod sname (*asc*) ds)
           od
         | _ => NONE
-
 End
 
 Definition ptree_TopLevelDecs_def:

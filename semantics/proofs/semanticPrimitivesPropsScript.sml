@@ -736,3 +736,34 @@ Theorem concrete_v_simps[simp]:
 Proof
   simp [concrete_v_def]
 QED
+
+Theorem prim_type_cases:
+  ∀ty.
+    ty = BoolT ∨
+    ty = IntT ∨
+    ty = CharT ∨
+    ty = StrT ∨
+    ty = WordT W8 ∨
+    ty = WordT W64 ∨
+    ty = Float64T
+Proof
+  Cases \\ fs [] \\ Cases_on ‘w’ \\ fs []
+QED
+
+Theorem do_conversion_check_type:
+  do_conversion v ty1 ty2 = SOME res ⇒
+  check_type ty2 res
+Proof
+  Cases_on ‘ty2’ using prim_type_cases
+  \\ rw [semanticPrimitivesTheory.check_type_def]
+  \\ gvs [oneline do_conversion_def,AllCaseEqs()]
+QED
+
+Theorem do_arith_check_type:
+  do_arith a ty vs = SOME (INR res) ⇒
+  check_type ty res
+Proof
+  Cases_on ‘ty’ using prim_type_cases
+  \\ gvs [oneline do_arith_def, AllCaseEqs()]
+  \\ rw [] \\ fs [semanticPrimitivesTheory.check_type_def]
+QED

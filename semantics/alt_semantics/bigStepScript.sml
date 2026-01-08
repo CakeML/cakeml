@@ -31,6 +31,7 @@ Inductive opClass:
        op = Implode ∨ op = Explode ∨ op = Strsub ∨ op = Strlen ∨
        op = Strcat ∨ op = VfromList ∨ op = Vsub ∨ op = Vsub_unsafe ∨
        op = XorAw8Str_unsafe ∨ (∃test ty. op = Test test ty) ∨
+       (∃a ty. op = Arith a ty) ∨ (∃ty1 ty2. op = FromTo ty1 ty2) ∨
        op = Vlength ∨ op = Aalloc ∨ op = AallocEmpty ∨ op = Asub ∨
        op = Alength ∨ op = Aupdate ∨ op = Asub_unsafe ∨ op = Aupdate_unsafe ∨
        op = Aw8sub_unsafe ∨ op = Aw8update_unsafe ∨ op = ListAppend ∨
