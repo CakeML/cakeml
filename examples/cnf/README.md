@@ -11,3 +11,6 @@ Syntax and semantics of CNF
 
 [lrup](lrup):
 An LRUP checker
+
+[syntax_helperScript.sml](syntax_helperScript.sml):
+Syntactic print/parse helper files

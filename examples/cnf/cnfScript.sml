@@ -157,4 +157,8 @@ Proof
   qexists_tac`n`>>simp[]
 QED
 
+Definition var_lit_def[simp]:
+  (var_lit (Pos n) = n) ∧
+  (var_lit (Neg n) = n)
+End
 

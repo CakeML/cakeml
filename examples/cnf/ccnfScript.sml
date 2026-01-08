@@ -3,7 +3,7 @@
 *)
 Theory ccnf
 Ancestors
-  cnf mlvector
+  cnf syntax_helper mlvector
 Libs
   preamble
 
