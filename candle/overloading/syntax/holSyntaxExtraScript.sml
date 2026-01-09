@@ -4643,22 +4643,6 @@ Proof
   >> simp[]
 QED
 
-Theorem MAX_LIST_APPEND[local]:
-  !l x y. MAX_LIST l <= MAX_LIST (x ++ l ++ y)
-Proof
-  Induct
-  >- rw[MAX_LIST_def]
-  >> rw[MAX_LIST_def]
-  >- (
-    match_mp_tac MAX_LIST_MEM_local
-    >> fs[]
-  )
-  >> first_x_assum (qspecl_then [`x ++ [h]`,`y`] mp_tac)
-  >> `h::l = [h] ⧺ l` by rw[]
-  >> asm_rewrite_tac[]
-  >> fs[]
-QED
-
 Definition renaming_def:
   renaming = EVERY (λ(x,y). (?m n. (x = Tyvar m) /\ (y = Tyvar n)))
 End
@@ -4999,41 +4983,6 @@ Theorem list_subset_tyvar:
 Proof
   ho_match_mp_tac type_ind
   >> rw[list_subset_def,tyvars_def]
-QED
-
-(* All type variables within a substitution from normalise_tyvars_subst are
- * shorter than a certain number n *)
-Theorem normalise_tyvars_subst_max[local]:
-  !ty n_subst n0 chr.
-    let max = λ(n,subst). ~NULL subst ==> n = (SUC o MAX_LIST o FLAT)  (MAP (MAP strlen o tyvars o FST) subst)
-    in max n_subst
-    ==>  max (normalise_tyvars_subst ty (FST n_subst) n0 (SND n_subst) chr)
-Proof
-  ho_match_mp_tac type_ind
-  >> strip_tac
-  >- (
-    rw[normalise_tyvars_subst_def,ELIM_UNCURRY]
-    >> Cases_on `n_subst`
-    >> Cases_on `r`
-    >> fs[MAP,tyvars_def,MAX_LIST_def]
-  )
-  >> Induct
-  >- rw[normalise_tyvars_subst_def,ELIM_UNCURRY]
-  >> strip_tac
-  >> fs[EVERY_DEF]
-  >> strip_tac
-  >> first_x_assum drule
-  >> strip_tac
-  >> rw[normalise_tyvars_subst_def]
-  >> match_mp_tac FOLDL_invariant
-  >> strip_tac
-  >> last_x_assum drule
-  >> strip_tac
-  >> first_x_assum (qspecl_then [`n0`,`chr`] mp_tac)
-  >> NTAC 2 strip_tac
-  >> fs[ELIM_UNCURRY]
-  >> NTAC 3 strip_tac
-  >> fs[EVERY_MEM]
 QED
 
 Theorem normalise_tyvars_subst_len_inv[local]:
@@ -13072,13 +13021,6 @@ Proof
   rw[MAX_LIST_eq_0,EVERY_MEM,MEM_MAP] >>
   first_x_assum(match_mp_tac o MP_CANON) >>
   metis_tac[]
-QED
-
-Theorem MAX_LIST_IMP:
- !l1 n.
-  MAX_LIST l1 = n ==> n = 0 \/ MEM n l1
-Proof
-  Induct_on `l1` >> rw[MAX_LIST_def] >> fs[]
 QED
 
 Theorem MAX_LIST_MAX_SET:
