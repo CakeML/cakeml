@@ -13069,9 +13069,8 @@ Theorem tydepth_TYPE_SUBST:
 Proof
   qid_spec_tac `ty` >>
   ho_match_mp_tac type_ind >>
-  rw[tydepth_def,EVERY_MEM,MEM_MAP,type_ok_def,GSYM IMP_DISJ_THM,tyvars_def] >-
-   (rw[MAX_LIST_def]) >>
-  rw[] >> fs[] >>
+  rw[tydepth_def,EVERY_MEM,MEM_MAP,type_ok_def,GSYM IMP_DISJ_THM,tyvars_def]
+  >> rw[] >> fs[] >>
   fs[MAX_LIST_eq_0,EVERY_MEM,MEM_MAP,PULL_EXISTS] >>
   fs[MAX_LIST_MAX_SET] >>
   pred_setLib.MAX_SET_elim_tac >>
@@ -13896,7 +13895,7 @@ Proof
      conj_tac >-
        (rw[dependency_cases] >> metis_tac[]) >>
      simp[tydepth'_def,tydepth_def,INST_def,INST_CORE_def] >>
-     rw[MAX_LIST_def])
+     rw[MAX_LIST_def,MAX_DEF])
   >-
     (disj1_tac >>
      conj_tac >-
@@ -13951,7 +13950,7 @@ Proof
      conj_tac >-
        (rw[dependency_cases] >> metis_tac[]) >>
      simp[INST_def,INST_CORE_def,tydepth_def,tydepth'_def] >>
-     simp[MAX_LIST_def] >> rw[])
+     simp[MAX_LIST_def,MAX_DEF] >> rw[])
   >-
     (disj1_tac >>
      conj_tac >-
