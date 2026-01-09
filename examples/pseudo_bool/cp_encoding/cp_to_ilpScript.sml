@@ -55,6 +55,14 @@ Definition reify_flag_def:
       else if ann = SOME (strlit"le")
       then varc wi (EL (HD ids) Xs) ≤ varc wi Y
       else varc wi (EL (HD ids) Xs) = varc wi Y
+    | SOME (Counting (Among Xs iS _)) =>
+      if ann = SOME (strlit"ge")
+      then varc wi (EL (EL 0 ids) Xs) ≥ EL (EL 1 ids) iS
+      else if ann = SOME (strlit"le")
+      then varc wi (EL (EL 0 ids) Xs) ≤ EL (EL 1 ids) iS
+      else if ann = SOME (strlit"eq")
+      then varc wi (EL (EL 0 ids) Xs) = EL (EL 1 ids) iS
+      else MEM (varc wi (EL (HD ids) Xs)) iS (* ann = SOME (strlit"fnd") *)
     | SOME (Extensional (Table tss Xs)) =>
       match_row (EL (HD ids) tss) (MAP (varc wi) Xs))
   | Flag ann =>

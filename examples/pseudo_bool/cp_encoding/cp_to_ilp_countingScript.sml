@@ -460,21 +460,22 @@ End
 
 Definition encode_count_def:
   encode_count bnd Xs (Y:'a varc) (Z:'a varc) name =
-  FLAT (MAPi (λi X.
-  let
-    ge = eqi name i (strlit"ge");
-    le = eqi name i (strlit"le");
-    eq = eqi name i (strlit"eq")
-  in
-  [
-    bits_imply bnd [Pos ge] $ mk_ge X Y;
-    bits_imply bnd [Neg ge] $ mk_lt X Y;
-    bits_imply bnd [Pos le] $ mk_le X Y;
-    bits_imply bnd [Neg le] $ mk_gt X Y;
-    bits_imply bnd [Pos eq] ([],[(1i,Pos ge);(1i,Pos le)],2);
-    bits_imply bnd [Neg eq] ([],[(1i,Neg ge);(1i,Neg le)],1)
-  ]) Xs) ++
-  (
+  FLAT (MAPi
+    (λi X.
+      let
+        ge = eqi name i (strlit"ge");
+        le = eqi name i (strlit"le");
+        eq = eqi name i (strlit"eq")
+      in
+        [
+          bits_imply bnd [Pos ge] $ mk_ge X Y;
+          bits_imply bnd [Neg ge] $ mk_lt X Y;
+          bits_imply bnd [Pos le] $ mk_le X Y;
+          bits_imply bnd [Neg le] $ mk_gt X Y;
+          bits_imply bnd [Pos eq] ([],[(1i,Pos ge);(1i,Pos le)],2);
+          bits_imply bnd [Neg eq] ([],[(1i,Neg ge);(1i,Neg le)],1)
+        ]
+    ) Xs) ++
   case Z of
     INL vZ =>
       [
@@ -486,7 +487,6 @@ Definition encode_count_def:
         ([],GENLIST (λi. (1i,Pos (eqi name i (strlit"eq")))) (LENGTH Xs),cZ);
         ([],GENLIST (λi. (-1i,Pos (eqi name i (strlit"eq")))) (LENGTH Xs),-cZ)
       ]
-  )
 End
 
 Theorem encode_count_sem_1:
@@ -549,30 +549,111 @@ Proof
   intLib.ARITH_TAC
 QED
 
+Definition eqij_def[simp]:
+  eqij name (i:num) (j:num) ann =
+    INR (name, Indices [i;j] (SOME ann))
+End
+
 (* Among: Y equals the number of times values from iS appear in Xs
    Y = Sum_i [Xs[i] ∈ iS] *)
 Definition encode_among_def:
-  encode_among bnd Xs iS Y =
-  (* Need to encode: Y = Sum_i (Xs[i] ∈ iS)
-     For each i, need disjunction: Xs[i] = v1 ∨ Xs[i] = v2 ∨ ... *)
-  [false_constr]
+  encode_among bnd (Xs:'a varc list) (iS:int list) (Y:'a varc) name =
+  FLAT (MAPi
+    (λi X.
+      FLAT (MAPi
+        (λj v.
+          let
+            ge = eqij name i j (strlit"ge");
+            le = eqij name i j (strlit"le");
+            eq = eqij name i j (strlit"eq")
+          in
+            [
+              bits_imply bnd [Pos ge] $ mk_ge X (INR v);
+              bits_imply bnd [Neg ge] $ mk_lt X (INR v);
+              bits_imply bnd [Pos le] $ mk_le X (INR v);
+              bits_imply bnd [Neg le] $ mk_gt X (INR v);
+              bits_imply bnd [Pos eq] ([],[(1i,Pos ge);(1i,Pos le)],2);
+              bits_imply bnd [Neg eq] ([],[(1i,Neg ge);(1i,Neg le)],1)
+            ]
+        ) iS) ++
+      let
+        al1 = eqi name i (strlit"al1")
+      in
+        [
+          bits_imply bnd [Pos al1]
+            ([],MAPi (λj v. (1i,Pos $ eqij name i j (strlit"eq"))) iS,1);
+          bits_imply bnd [Neg al1]
+            ([],MAPi (λj v. (-1i,Pos $ eqij name i j (strlit"eq"))) iS,0)
+        ]
+    ) Xs) ++
+  case Y of
+    INL vY =>
+      [
+        ([(-1i,vY)],MAPi (λi X. (1i,Pos $ eqi name i (strlit"al1"))) Xs,0);
+        ([(1i,vY)],MAPi (λi X. (-1i,Pos $ eqi name i (strlit"al1"))) Xs,0)
+      ]
+  | INR cY =>
+      [
+        ([],MAPi (λi X. (1i,Pos $ eqi name i (strlit"al1"))) Xs,cY);
+        ([],MAPi (λi X. (-1i,Pos $ eqi name i (strlit"al1"))) Xs,-cY)
+      ]
 End
+
+Theorem MAPi_EL_MAP[local]:
+  ∀ls. MAPi (λi X. f $ EL i ls) ls = MAP f ls
+Proof
+  Induct>>
+  rw[MAPi_def,MAP,o_ABS_L]
+QED
 
 Theorem encode_among_sem_1:
   valid_assignment bnd wi ∧
+  ALOOKUP cs name = SOME (Counting (Among Xs iS Y)) ∧
   among_sem Xs iS Y wi ⇒
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
-    (encode_among bnd Xs iS Y)
+    (encode_among bnd Xs iS Y name)
 Proof
-  cheat
+  rw[encode_among_def,among_sem_def,EVERY_MEM]>>
+  gs[MEM_FLAT,MEM_MAPi,iconstraint_sem_def,
+     reify_avar_def,reify_flag_def,varc_def,eval_lin_term_def,o_ABS_R]>>
+  rpt intLib.ARITH_TAC
+  >-(
+    simp[b2i_alt]>>
+    intLib.ARITH_TAC)
+  >-(
+    strip_tac>>
+    irule pbc_encodeTheory.iSUM_ge_gen>>
+    CONJ_TAC
+    >-(
+      rw[MEM_MAPi]>>
+      simp[pbc_encodeTheory.b2i_ge_0])
+    >-(
+      rw[MEM_MAPi]>>
+      gs[MEM_EL,PULL_EXISTS]>>
+      rename1 ‘n < LENGTH iS’>>
+      qexists ‘n’>>
+      simp[b2i_def]))
+  >-(
+    strip_tac>>
+    irule pbc_encodeTheory.iSUM_ge_0>>
+    rw[MEM_MAPi]>>
+    gs[MEM_EL,METIS_PROVE[] “P ⇒ ¬Q ⇔ Q ⇒ ¬P”])>>
+  Cases_on ‘Y’>>
+  gs[iconstraint_sem_def,eval_ilin_term_def,eval_lin_term_def,
+    iSUM_def,o_ABS_R,reify_avar_def,reify_flag_def,varc_def]>>
+  simp[MAPi_EL_MAP,iSUM_MAP_lin_const]>>
+  intLib.ARITH_TAC
 QED
 
 Theorem encode_among_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
-    (encode_among bnd Xs iS Y) ⇒
+    (encode_among bnd Xs iS Y name) ⇒
   among_sem Xs iS Y wi
 Proof
+  rw[encode_among_def,EVERY_MEM,MEM_FLAT,MEM_MAPi,PULL_EXISTS,SF DNF_ss,
+    bits_imply_sem]>>
+  gs[iconstraint_sem_def]>>
   cheat
 QED
 
@@ -582,7 +663,7 @@ Definition encode_counting_constr_def:
     AllDifferent Xs => encode_all_different bnd Xs name
   | NValue Xs Y => encode_n_value bnd Xs Y name
   | Count Xs Y Z => encode_count bnd Xs Y Z name
-  | Among Xs iS Y => encode_among bnd Xs iS Y
+  | Among Xs iS Y => encode_among bnd Xs iS Y name
 End
 
 Theorem encode_counting_constr_sem_1:
