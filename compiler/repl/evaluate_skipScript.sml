@@ -861,7 +861,9 @@ Proof
   \\ drule v_rel_IMP_check_type_eq
   \\ strip_tac
   \\ rw[OPTREL_def]
-  \\ Cases_on ‘a’ \\ Cases_on ‘ty’ \\ rw[do_arith_def]
+  \\ Cases_on ‘a’ \\ Cases_on ‘ty’
+  \\ TRY(rename1 ‘WordT w’ \\ Cases_on ‘w’)
+  \\ rw[do_arith_def]
   \\ gvs[check_type_def, CaseEq"list", PULL_EXISTS]
   \\ simp[Once v_rel_cases]
   \\ Cases_on ‘vs’ \\ Cases_on ‘ws’ \\ gvs[PULL_EXISTS]
