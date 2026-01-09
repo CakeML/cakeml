@@ -471,7 +471,7 @@ Theorem max_var_exp_list_thm[local]:
   ∀e es:'a wordLang$exp list.
     max_var_exp_list (e::es) = MAX (max_var_exp e) (max_var_exp_list es)
 Proof
-  gvs [max_var_exp_list_def,list_max_def,MAX_DEF] \\ rw []
+  gvs [max_var_exp_list_def,MAX_LIST_def,MAX_DEF] \\ rw []
 QED
 
 Theorem max_var_exp_eq =
