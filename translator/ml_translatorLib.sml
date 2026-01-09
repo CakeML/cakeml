@@ -1145,8 +1145,10 @@ fun derive_record_specific_thms ty = let
 
 fun rename_bound_vars_rule prefix th = let
   val i = ref 0
-  fun next_name () = (i:= !i+1; prefix ^ int_to_string (!i))
-  fun next_var v = mk_var(next_name (), type_of v)
+  fun next_name orig = (i:= !i+1; prefix ^ int_to_string (!i) ^ "_" ^ orig)
+  fun next_var v = let
+    val (name, ty) = dest_var v
+    in mk_var(next_name name, ty) end
   fun next_alpha_conv tm = let
     val (v,_) = dest_abs tm
     val _ = not (String.isPrefix prefix (fst (dest_var v))) orelse fail()
@@ -2765,9 +2767,11 @@ fun get_induction_for_def def = let
     get_ind names
   end handle HOL_ERR _ => let
   fun mk_arg_vars xs = let
+    fun mk_name n x =
+      "v" ^ int_to_string n ^ "_" ^ fst (dest_var x)
+      handle HOL_ERR _ => "v" ^ int_to_string n
     fun aux [] = []
-      | aux (x::xs) = mk_var("v" ^ (int_to_string (length xs + 1)),type_of x)
-                       :: aux xs
+      | aux (x::xs) = mk_var(mk_name (length xs + 1) x, type_of x) :: aux xs
     in (rev o aux o rev) xs end
   fun f tm = let
     val (lhs,rhs) = dest_eq tm
@@ -2825,9 +2829,11 @@ fun mutual_to_single_line_def def = let
   val ind = get_induction_for_def def
   (* collapse to one line per function *)
   fun mk_arg_vars xs = let
+    fun mk_name n x =
+      "v" ^ int_to_string n ^ "_" ^ fst (dest_var x)
+      handle HOL_ERR _ => "v" ^ int_to_string n
     fun aux [] = []
-      | aux (x::xs) = mk_var("v" ^ (int_to_string (length xs + 1)),type_of x)
-                       :: aux xs
+      | aux (x::xs) = mk_var(mk_name (length xs + 1) x, type_of x) :: aux xs
     in (rev o aux o rev) xs end
   fun f tm = let
     val (lhs,rhs) = dest_eq tm
@@ -3769,8 +3775,10 @@ fun clean_precondition pre_def = let
 
 fun ex_rename_bound_vars_rule th = let
   val i = ref 0
-  fun next_name () = (i:= !i+1; "x" ^ int_to_string (!i))
-  fun next_var v = mk_var(next_name (), type_of v)
+  fun next_name orig = (i:= !i+1; "x" ^ int_to_string (!i) ^ "_" ^ orig)
+  fun next_var v = let
+    val (name, ty) = dest_var v
+    in mk_var(next_name name, ty) end
   fun next_alpha_conv tm = let
     val (v,_) = dest_abs tm
     val _ = not (String.isPrefix "x" (fst (dest_var v))) orelse fail()
