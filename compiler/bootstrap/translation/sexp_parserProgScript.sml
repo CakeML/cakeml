@@ -17,6 +17,7 @@ val _ = temp_delsimps ["NORMEQ_CONV"]
 val _ = translation_extends "decodeProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "sexp_parserProg");
+val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;
 
 val monad_unitbind_assert = parserProgTheory.monad_unitbind_assert;
@@ -169,6 +170,8 @@ Proof
   rw[num_from_hex_string_alt_intro]
 QED
 
+val _ = ml_translatorLib.use_string_type false;
+
 val _ = add_preferred_thy "-";
 
 val r = fromSexpTheory.decode_control_def
@@ -211,6 +214,8 @@ Definition decode_control_wrapper_def:
 End
 
 val r = translate decode_control_wrapper_def
+
+val _ = ml_translatorLib.use_string_type true;
 
 Theorem decode_control_eq:
   decode_control s =
@@ -304,7 +309,9 @@ val _ = translate strip_dot_alt
 
 val _ = translate simpleSexpParseTheory.print_space_separated_def;
 
+val _ = use_string_type false;
 val _ = translate simpleSexpParseTheory.escape_string_def;
+val _ = use_string_type true;
 
 Theorem num_to_dec_string_v_thm:
   (NUM --> HOL_STRING_TYPE) toString ^(IntProgTheory.tostring_v_thm |> concl |> rand)
@@ -392,6 +399,8 @@ val _ = translate listsexp_alt
 
 val _ = translate (locnsexp_def |> SIMP_RULE list_ss []);
 
+val _ = ml_translatorLib.use_string_type false;
+
 val _ = translate HEX_def
 
 Theorem l2n_side_thm[local]:
@@ -456,6 +465,8 @@ val _ = translate num_to_hex_string_alt;
 val _ = translate num_to_hex_string_alt_intro;
 
 val r = translate fromSexpTheory.encode_control_def
+
+val _ = use_string_type true;
 
 val _ = translate SEXSTR_def;
 
