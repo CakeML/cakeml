@@ -1145,7 +1145,9 @@ fun derive_record_specific_thms ty = let
 
 fun rename_bound_vars_rule prefix th = let
   val i = ref 0
-  fun next_name orig = (i:= !i+1; prefix ^ int_to_string (!i) ^ "_" ^ orig)
+  fun next_name orig = let
+    val n = (i:= !i+1; prefix ^ int_to_string (!i))
+    in if String.isSubstring " " orig then n else n ^ "_" ^ orig end
   fun next_var v = let
     val (name, ty) = dest_var v
     in mk_var(next_name name, ty) end
@@ -3775,7 +3777,9 @@ fun clean_precondition pre_def = let
 
 fun ex_rename_bound_vars_rule th = let
   val i = ref 0
-  fun next_name orig = (i:= !i+1; "x" ^ int_to_string (!i) ^ "_" ^ orig)
+  fun next_name orig = let
+    val n = (i:= !i+1; "x" ^ int_to_string (!i))
+    in if String.isSubstring " " orig then n else n ^ "_" ^ orig end
   fun next_var v = let
     val (name, ty) = dest_var v
     in mk_var(next_name name, ty) end
