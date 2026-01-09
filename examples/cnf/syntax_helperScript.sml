@@ -141,6 +141,17 @@ Definition parse_vb_num_def:
   parse_vb_num_aux s offset len 1 0
 End
 
+Definition parse_vb_int_def:
+  parse_vb_int s offset len =
+  let (m,i) = parse_vb_num s offset len in
+  let v =
+      (if m = 0 then 0i
+      else if m MOD 2 = 0n
+      then (&(m DIV 2):int)
+      else (-&(m DIV 2):int)) in
+  (v,i)
+End
+
 Definition parse_vb_nums_aux_def:
   parse_vb_nums_aux (s:mlstring) (i:num) (len:num) (acc:num list) =
   let (m,i) = parse_vb_num s i len in

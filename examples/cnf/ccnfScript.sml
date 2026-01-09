@@ -303,6 +303,44 @@ Proof
   simp[map_I]
 QED
 
+Definition unit_prop_vec_vb_def:
+  (unit_prop_vec_vb fml dm s i len =
+   let (m,i) = parse_vb_int s i len in
+   if m <= 0 then NONE
+   else
+   case lookup i fml of
+     NONE => NONE
+   | SOME c =>
+   case delete_literals_sing_vec dm c (length c) of
+     NONE => NONE
+   | SOME (T,dm) => SOME(i,(T,dm))
+   | SOME (F,dm') => unit_prop_vec_vb fml dm' s i len)
+Termination
+  cheat
+End
+
+Theorem unit_prop_vec_vb':
+  unit_prop_vec_vb fml dm s i len = SOME (i',res) ==>
+  ?is.
+  unit_prop_vec fml dm is = SOME res
+Proof
+  MAP_EVERY qid_spec_tac $ List.rev [`fml`,`dm`,`s`,`i`,`len`,`i'`,`res`] >>
+  ho_match_mp_tac unit_prop_vec_vb_ind >>
+  rpt gen_tac >> disch_tac >>
+  simp[Once unit_prop_vec_vb_def] >>
+  rpt strip_tac >> gvs[AllCaseEqs(),UNCURRY_EQ]
+  >- (
+    simp[Once $ oneline unit_prop_vec_def] >>
+    simp[AllCaseEqs()] >>
+    first_x_assum (irule_at (Pos hd)) >>
+    first_x_assum (irule_at (Pos hd)) >>
+    fs[])
+  >- (
+    simp[Once $ oneline unit_prop_vec_def] >>
+    qexists_tac `i'':: is` >>
+    fs[])
+QED
+
 Definition lit_map_def:
   lit_map d dm ⇔
   ∀n b.
@@ -582,6 +620,15 @@ Definition is_rup_def:
   | _ => F
 End
 
+(* RUP directly defined for vb enc string *)
+Definition is_rup_vb_def:
+  is_rup_vb fml v s i len =
+  let dm = init_lit_map_vec (length v) v FEMPTY in
+  case unit_prop_vec_vb fml dm s i len of
+    SOME (_,(T,_)) => T
+  | _ => F
+End
+
 Theorem lit_map_REVERSE[simp]:
   lit_map (REVERSE ds) dm ⇔
   lit_map ds dm
@@ -607,6 +654,22 @@ Proof
   drule init_lit_map_lit_map>>
   simp[]>>
   metis_tac[lit_map_REVERSE]
+QED
+
+Theorem is_rup_vb_sound:
+  is_rup_vb fml v s i len ∧
+  satisfies_vcfml w (range fml) ⇒
+  satisfies_vcclause w v
+Proof
+  rpt strip_tac >>
+  fs[is_rup_vb_def,AllCasePreds()] >>
+  rveq >>
+  irule is_rup_sound >>
+  drule_then strip_assume_tac unit_prop_vec_vb' >>
+  qexists_tac `fml` >>
+  fs[is_rup_def] >>
+  qexists_tac `is` >>
+  fs[]
 QED
 
 Definition contains_emp_def:
