@@ -21,7 +21,7 @@ val _ = cv_trans mlstringTheory.explode_thm;
 val _ = cv_trans mlstringTheory.strcat_thm;
 val _ = cv_trans mlstringTheory.str_def;
 val _ = cv_auto_trans mlstringTheory.concat_def;
-val _ = cv_trans miscTheory.list_max_def;
+val _ = cv_trans rich_listTheory.MAX_LIST_def;
 val _ = cv_trans (miscTheory.max3_def |> PURE_REWRITE_RULE [GREATER_DEF]);
 
 val toChar_pre = cv_trans_pre "mlint_toChar_pre" mlintTheory.toChar_def
