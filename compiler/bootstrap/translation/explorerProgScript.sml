@@ -89,7 +89,7 @@ val r = translate presLangTheory.bvi_fun_to_display_def;
 val r = translate presLangTheory.bvi_to_strs_def;
 
 Theorem string_imp_thm[local]:
-  string_imp = λs. String (implode s)
+  string_imp = λs. String s
 Proof
   fs [FUN_EQ_THM,presLangTheory.string_imp_def]
 QED

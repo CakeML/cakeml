@@ -535,7 +535,7 @@ Definition sexplit_def:
             do
               cs <- odestSEXSTR (HD args);
               assert(strlen cs = 1);
-              return (Char (HD (explode cs)))
+              return (Char (strsub cs 0))
             od ++
       guard (nm = "word8")
             do
