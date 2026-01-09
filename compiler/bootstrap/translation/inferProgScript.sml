@@ -278,7 +278,7 @@ val _ = translate rich_listTheory.COUNT_LIST_AUX_def
 val _ = translate rich_listTheory.COUNT_LIST_compute
 
 Theorem pair_abs_hack[local]:
-  (\(v2:string,v1:infer_t). (v2,0,v1)) =
+  (\(v2:mlstring,v1:infer_t). (v2,0,v1)) =
     (\v3. case v3 of (v2,v1) => (v2,0:num,v1))
 Proof
   SIMP_TAC (srw_ss()) [FUN_EQ_THM,FORALL_PROD]
