@@ -306,7 +306,7 @@ QED
 Definition unit_prop_vec_vb_def:
   (unit_prop_vec_vb fml dm s i len =
    let (m,i) = parse_vb_int s i len in
-   if m <= 0 then NONE
+   if m <= 0 then SOME(i,(F,dm))
    else
    case lookup i fml of
      NONE => NONE
@@ -329,6 +329,9 @@ Proof
   rpt gen_tac >> disch_tac >>
   simp[Once unit_prop_vec_vb_def] >>
   rpt strip_tac >> gvs[AllCaseEqs(),UNCURRY_EQ]
+  >- (
+    qexists_tac `[]` >> fs[unit_prop_vec_def]
+     )
   >- (
     simp[Once $ oneline unit_prop_vec_def] >>
     simp[AllCaseEqs()] >>
