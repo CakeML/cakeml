@@ -3362,8 +3362,77 @@ Theorem evaluate_remove_dead:
 Proof
   ho_match_mp_tac remove_dead_ind>>rw[]>>
   gvs[flat_exp_conventions_def]
-  >~[`Move`] >-
-    cheat
+  >~[`Move`] >- (
+    gvs[evaluate_def,remove_dead_def,AllCaseEqs(),set_vars_def]
+    >- (* empty filter case *)
+      (fs[strong_locals_rel_def]>>
+       imp_res_tac get_vars_length_lemma>>
+       simp[lookup_alist_insert]>>
+       ntac 2 strip_tac>>
+       TOP_CASE_TAC>>simp[]>>
+       rw[]>>
+       `MEM n (MAP FST ls)` by
+         (imp_res_tac ALOOKUP_MEM>>
+          rfs[MEM_ZIP,MEM_EL]>>
+          metis_tac[])>>
+       fs[MEM_MAP,FILTER_EQ_NIL,EVERY_MEM]>>
+       res_tac>>
+       Cases_on`y`>>fs[domain_lookup])
+    >> (* normal case *)
+   qmatch_goalsub_abbrev_tac`ALL_DISTINCT Z`>>
+  `ALL_DISTINCT Z` by
+    (qpat_x_assum `ALL_DISTINCT (MAP FST ls)` mp_tac>>
+     fs[Abbr`Z`]>>
+     rpt (pop_assum kall_tac)>>
+     Induct_on`ls`>>fs[FORALL_PROD]>>rw[]>>
+     fs[MEM_MAP,FORALL_PROD,MEM_FILTER])>>
+  simp[]>>
+  qmatch_goalsub_abbrev_tac`get_vars A stt`>>
+  imp_res_tac get_vars_exists>>
+  `set A ⊆ domain stt.locals` by
+    (unabbrev_all_tac>>
+     fs[SUBSET_DEF,MEM_MAP,MEM_FILTER,EXISTS_PROD,strong_locals_rel_def,domain_numset_list_insert]>>
+     rw[]>>
+     fs[domain_lookup]>>
+     fs[SUBSET_DEF,domain_lookup]>>
+     metis_tac[MEM_MAP,SND])>>
+  imp_res_tac get_vars_eq>>fs[]>>
+  unabbrev_all_tac>>fs[set_vars_def,state_component_equality]>>
+  qpat_x_assum`A=vs` sym_sub_tac>>
+  last_x_assum mp_tac>>
+  qpat_x_assum`A ⊆ Z` mp_tac>>
+  qpat_x_assum`A ⊆ Z` mp_tac>>
+  qpat_x_assum`ALL_DISTINCT A` mp_tac>>
+  qpat_x_assum`ALL_DISTINCT A` mp_tac>>
+  rpt (pop_assum kall_tac)>>
+  qid_spec_tac`live`>>
+  Induct_on`ls`>>
+  fs[numset_list_insert_def,FORALL_PROD,alist_insert_def]>>rw[]>>
+  fs[alist_insert_def]
+  >-
+    (match_mp_tac strong_locals_rel_I_insert_insert>>rw[]
+     >-
+       (first_x_assum(qspec_then`delete p_1 live` mp_tac)>>
+        fs[AND_IMP_INTRO]>>
+        qpat_abbrev_tac`A = FILTER P ls`>>
+        qpat_abbrev_tac`Z = FILTER P ls`>>
+        `A=Z` by
+          (fs[Abbr`A`,Abbr`Z`,lookup_delete]>>
+           qpat_x_assum`¬(MEM p_1 (MAP FST ls))` mp_tac>>
+           rpt (pop_assum kall_tac)>>
+           Induct_on`ls`>>fs[FORALL_PROD])>>
+        fs[]>>impl_tac>>
+        fs[domain_numset_list_insert,domain_FOLDR_delete,DELETE_DEF,strong_locals_rel_def]>>
+        rw[]>>
+        first_assum match_mp_tac>>fs[MEM_MAP,MEM_FILTER]>>
+        Cases_on`y`>>fs[EXISTS_PROD]>>
+        metis_tac[])
+     >>
+       fs[domain_lookup,domain_numset_list_insert,domain_FOLDR_delete,strong_locals_rel_def,numset_list_insert_def]>>
+       pop_assum(qspecl_then[`p_2`,`v`] mp_tac)>>fs[])
+  >>
+    match_mp_tac strong_locals_rel_insert_notin>>
+    fs[domain_lookup])
   >~[`Inst`] >-
     cheat
   >~[`Get`] >- (
