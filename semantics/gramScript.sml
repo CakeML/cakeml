@@ -135,16 +135,16 @@ val cmlG_def = mk_grammar_def ginfo
  TypeAbbrevDec ::= "type" TypeName "=" Type;
 
  (* expressions - base cases and function applications *)
- UQConstructorName ::= ^(``{AlphaT s | s ≠ «» ∧ isUpper (HD (explode s))}``);
+ UQConstructorName ::= ^(``{AlphaT s | s ≠ «» ∧ isUpper (strsub s 0)}``);
  ConstructorName ::=
      UQConstructorName
-  | ^(``{LongidT str s | str,s | s ≠ «» ∧ isAlpha (HD (explode s)) ∧ isUpper (HD (explode s))}``);
+  | ^(``{LongidT str s | str,s | s ≠ «» ∧ isAlpha (strsub s 0) ∧ isUpper (strsub s 0)}``);
  V ::= ^(``{AlphaT s | s ∉ {«before»; «div»; «mod»; «o»} ∧
-                       s ≠ «» ∧ ¬isUpper (HD (explode s))}``)
+                       s ≠ «» ∧ ¬isUpper (strsub s 0)}``)
     |  ^(“{SymbolT s | validPrefixSym (explode s)}”);
  FQV ::= V
       |  ^(``{LongidT str s | str,s |
-              s ≠ «» ∧ (isAlpha (HD (explode s)) ⇒ ¬isUpper (HD (explode s)))}``) ;
+              s ≠ «» ∧ (isAlpha (strsub s 0) ⇒ ¬isUpper (strsub s 0))}``) ;
  OpID ::= ^(``{LongidT str s | str,s | s ≠ «»}``)
        |  ^(``{AlphaT s | s ≠ «»}``)
        |  ^(``{SymbolT s | s ≠ «»}``)

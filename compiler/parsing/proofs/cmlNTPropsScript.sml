@@ -177,7 +177,7 @@ QED
 
 Theorem firstSet_nV:
   firstSet cmlG (NN nV:: rest) =
-  { AlphaT s | s ≠ «» ∧ ¬isUpper (HD (explode s)) ∧ s ≠ «before» ∧ s ≠ «div» ∧
+  { AlphaT s | s ≠ «» ∧ ¬isUpper (strsub s 0) ∧ s ≠ «before» ∧ s ≠ «div» ∧
                s ≠ «mod» ∧ s ≠ «o»} ∪
                                     { SymbolT s | validPrefixSym (explode s) }
 Proof
@@ -188,7 +188,7 @@ QED
 Theorem firstSet_nFQV:
   firstSet cmlG [NT (mkNT nFQV)] =
   firstSet cmlG [NT (mkNT nV)] ∪
-           { LongidT m i | (m,i) | i ≠ «» ∧ (isAlpha (HD (explode i)) ⇒ ¬isUpper (HD (explode i)))}
+           { LongidT m i | (m,i) | i ≠ «» ∧ (isAlpha (strsub i 0) ⇒ ¬isUpper (strsub i 0))}
 Proof
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   dsimp[Once EXTENSION]
@@ -196,7 +196,7 @@ QED
 
 Theorem firstSet_nUQConstructorName:
   firstSet cmlG (NN nUQConstructorName :: rest) =
-  { AlphaT s | s ≠ «» ∧ isUpper (HD (explode s)) }
+  { AlphaT s | s ≠ «» ∧ isUpper (strsub s 0) }
 Proof
   simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]
@@ -204,8 +204,8 @@ QED
 
 Theorem firstSet_nConstructorName:
   firstSet cmlG (NN nConstructorName :: rest) =
-  { LongidT str s | (str,s) | s ≠ «» ∧ isAlpha (HD (explode s)) ∧ isUpper (HD (explode s))} ∪
-                                                                        { AlphaT s | s ≠ «» ∧ isUpper (HD (explode s)) }
+  { LongidT str s | (str,s) | s ≠ «» ∧ isAlpha (strsub s 0) ∧ isUpper (strsub s 0)} ∪
+                                                                        { AlphaT s | s ≠ «» ∧ isUpper (strsub s 0) }
 Proof
   ntac 2 (simp [Once firstSet_NT, cmlG_applied, cmlG_FDOM]) >>
   dsimp[Once EXTENSION, EQ_IMP_THM]

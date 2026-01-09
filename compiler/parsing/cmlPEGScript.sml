@@ -121,7 +121,7 @@ End
 Definition peg_UQConstructorName_def:
   peg_UQConstructorName =
     tok (λt. do s <- destAlphaT t ;
-                assert (s ≠ «» ∧ isUpper (HD (explode s)))
+                assert (s ≠ «» ∧ isUpper (strsub s 0))
              od = SOME ())
         (bindNT nUQConstructorName o mktokLf)
 End
@@ -140,7 +140,7 @@ Definition peg_V_def:
    choicel [tok (λt.
                   do s <- destAlphaT t;
                      assert(s ∉ {«before»; «div»; «mod»; «o»} ∧
-                            s ≠ «» ∧ ¬isUpper (HD (explode s)))
+                            s ≠ «» ∧ ¬isUpper (strsub s 0))
                   od = SOME ())
                 (bindNT nV o mktokLf);
             pegf (tokSymP (validPrefixSym ∘ explode)) (bindNT nV)]
@@ -149,7 +149,7 @@ End
 Definition peg_longV_def:
   peg_longV = tok (λt. do
                         (str,s) <- destLongidT t;
-                        assert(s <> «» ∧ (isAlpha (HD (explode s)) ⇒ ¬isUpper (HD (explode s))))
+                        assert(s <> «» ∧ (isAlpha (strsub s 0) ⇒ ¬isUpper (strsub s 0)))
                        od = SOME ())
                   (bindNT nFQV o mktokLf)
 End
@@ -406,8 +406,8 @@ Definition cmlPEG_def[nocompute]:
                  tok (λt. do
                             (str,s) <- destLongidT t;
                             assert(s <> «» ∧
-                                   isAlpha (HD (explode s)) ∧
-                                   isUpper (HD (explode s)))
+                                   isAlpha (strsub s 0) ∧
+                                   isUpper (strsub s 0))
                           od = SOME ())
                      (bindNT nConstructorName o mktokLf)]);
               (mkNT nPbase,

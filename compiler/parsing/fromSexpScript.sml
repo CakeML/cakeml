@@ -1884,7 +1884,8 @@ Theorem sexplit_litsexp[simp]:
    sexplit (litsexp l) = SOME l
 Proof
   Cases_on`l`>>simp[sexplit_def,litsexp_def]
-  >- (rw[] >> intLib.ARITH_TAC ) >>
+  >- (rw[] >> intLib.ARITH_TAC )
+  >- EVAL_TAC >>
   ONCE_REWRITE_TAC[GSYM wordsTheory.dimword_8] >>
   ONCE_REWRITE_TAC[GSYM wordsTheory.dimword_64] >>
   ONCE_REWRITE_TAC[wordsTheory.w2n_lt]
@@ -2013,16 +2014,21 @@ Proof
   simp[sexplit_def, OPTION_CHOICE_EQUALS_OPTION, dstrip_sexp_SOME, PULL_EXISTS,
        OPTION_CHOICE_EQ_NONE, LENGTH_EQ_NUM_compute, SF CONJ_ss, odestSXNUM_def,
        odestSEXSTR_def] >>
-  rpt gen_tac >> eq_tac >> rpt strip_tac >> gvs[litsexp_def, listsexp_def] >>
-  simp[SF CONJ_ss, litsexp_def] >>
-  Cases_on‘l’ >>
-  simp[litsexp_def, listsexp_def, PULL_EXISTS, AllCaseEqs(), SF CONJ_ss] >~
-  [‘i < 0i’] >- (Cases_on ‘i’ >> simp[]) >~
-  [‘STRING c ""’] >- (qexists ‘str c’ >> simp []) >~
-  [‘w2n (c : word8)’]
-  >- (Cases_on ‘c’ using ranged_word_nchotomy >> gs[dimword_def]) >>~-
-  ([‘w2n (w : word64)’],
-   Cases_on ‘w’ using ranged_word_nchotomy >> gs[dimword_def])
+  rpt gen_tac >> eq_tac >> rpt strip_tac >> gvs[litsexp_def, listsexp_def]
+  >- (
+    simp[SF CONJ_ss, litsexp_def] >>
+    Cases_on‘l’ >>
+    simp[litsexp_def, listsexp_def, PULL_EXISTS, AllCaseEqs(), SF CONJ_ss] >~
+    [‘i < 0i’] >- (Cases_on ‘i’ >> simp[]) >~
+    [‘STRING c ""’] >- (
+      qexists_tac ‘str c’ >> simp []>>
+      EVAL_TAC) >~
+    [‘w2n (c : word8)’]
+    >- (Cases_on ‘c’ using ranged_word_nchotomy >> gs[dimword_def]) >>~-
+    ([‘w2n (w : word64)’],
+     Cases_on ‘w’ using ranged_word_nchotomy >> gs[dimword_def])) >>
+  Cases_on`cs`>>
+  Cases_on`s`>>fs[]
 QED
 
 Theorem idsexp_sexpid_odestSEXSTR:
