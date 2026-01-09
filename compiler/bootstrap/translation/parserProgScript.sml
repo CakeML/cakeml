@@ -98,9 +98,10 @@ val _ = translate (def_of_const ``cmlPEG``);
 
 Theorem not_mlstring_emp[simp]:
   x ≠  «» ⇒
-  explode x ≠ ""
+  0 < strlen x
 Proof
-  Cases_on`x`>>rw[]
+  Cases_on`x`>>rw[]>>
+  Cases_on`s`>>gvs[]
 QED
 
 Theorem cmlpeg_side = Q.prove(`
