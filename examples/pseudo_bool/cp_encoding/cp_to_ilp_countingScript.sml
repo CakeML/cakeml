@@ -564,6 +564,7 @@ Theorem encode_among_sem_1:
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_among bnd Xs iS Y)
 Proof
+  cheat>>
   cheat
 QED
 
