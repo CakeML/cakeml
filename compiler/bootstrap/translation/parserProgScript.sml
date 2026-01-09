@@ -17,7 +17,6 @@ val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 val _ = translation_extends "lexerProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "parserProg");
-val _ = ml_translatorLib.use_string_type true;
 
 (* translator setup *)
 

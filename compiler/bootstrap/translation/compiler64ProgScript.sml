@@ -18,7 +18,6 @@ val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 val _ = translation_extends "mipsProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "compiler64Prog");
-val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;
 
 val _ = (ml_translatorLib.trace_timing_to
@@ -296,10 +295,8 @@ val res = translate get_err_str_def;
 val res = translate parse_num_list_def;
 
 (* comma_tokens treats strings as char lists so we switch modes temporarily *)
-val _ = ml_translatorLib.use_string_type false;
 val res = translate comma_tokens_def;
 val res = translate parse_nums_def;
-val _ = ml_translatorLib.use_string_type true;
 
 val res = translate clos_knownTheory.default_inline_factor_def;
 val res = translate clos_knownTheory.default_max_body_size_def;

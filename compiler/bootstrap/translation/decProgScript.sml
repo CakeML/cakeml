@@ -14,8 +14,6 @@ open repl_init_envProgTheory;
 
 val _ = translation_extends "repl_init_envProg";
 
-val _ = use_string_type true;
-
 (* this is a hack to make the translator avoid these names *)
 Datatype:
   dummy = Tyvar | Tyapp | Var | Const | Abs | Comb | Sequent
