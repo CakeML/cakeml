@@ -394,7 +394,7 @@ fun state_tac asm =
                    (srw_ss()++wordsLib.WORD_EXTRACT_ss++wordsLib.WORD_CANCEL_ss)
                    []
              else
-              NO_STRIP_FULL_SIMP_TAC std_ss
+              NO_STRIP_FULL_SIMP_TAC (srw_ss())
                  [gt_not_leq, alignmentTheory.aligned_extract,
                   EVAL ``mips_reg_ok 30``]
               \\ blastLib.FULL_BBLAST_TAC
@@ -589,14 +589,36 @@ Proof
               Cases_on`s = Ror`
               >- (
                 rename1`Reg r`
-                \\ `w2n ((5 >< 0) (s1.regs r):word6) =
-                    w2n (s1.regs r)` by (
-                  fs enc_rwts
-                  \\ `s1.regs r <+ 64w` by (
+                \\ `w2n (s1.regs r) < 64` by fs enc_rwts
+                \\ `s1.regs r <+ 64w ∧ s1.regs r <=+ 64w` by (
                     Cases_on`s1.regs r`
-                    \\ fs[wordsTheory.WORD_LO])
-                  \\ simp[word_extract_6,wordsTheory.w2w_def])
-                \\ cheat
+                    \\ fs[wordsTheory.WORD_LO,wordsTheory.WORD_LS])
+                \\ `-1w * (s1.regs r) + 64w =
+                  64w - s1.regs r` by blastLib.FULL_BBLAST_TAC
+
+                \\ `w2n (64w - s1.regs r) =
+                  64 - w2n (s1.regs r)` by
+                    (dep_rewrite.DEP_REWRITE_TAC[wordsTheory.word_sub_w2n]>>
+                    simp[])
+
+                 \\ `w2n (((5 >< 0) (s1.regs r)):word6) =
+                    w2n (s1.regs r)` by
+                      fs[word_extract_6,wordsTheory.w2w_def,wordsTheory.WORD_LO]
+
+                \\ `ms.gpr (n2w n0) ≪ (64 - w2n (s1.regs r)) ‖
+                    ms.gpr (n2w n0) ⋙ w2n (s1.regs r) =
+                    ms.gpr (n2w n0) ⇄ w2n (s1.regs r)` by
+                    simp[bitstringTheory.word_ror_alt]
+
+                \\ Cases_on`s1.regs r = 0w`
+                >- (
+                  `w2n ((5 >< 0) (64w - s1.regs r):word6) = 0` by simp[]
+                  \\ next_tac)
+                \\ `w2n ((5 >< 0) (64w - s1.regs r):word6) =
+                  w2n (64w - s1.regs r) ` by
+                    (dep_rewrite.DEP_REWRITE_TAC[word_extract_6]>>
+                    fs[wordsTheory.w2w_def,wordsTheory.WORD_LO]>>
+                    Cases_on`s1.regs r`>>fs[])
                 \\ next_tac
               )
               >- (
