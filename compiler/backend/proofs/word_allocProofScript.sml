@@ -3433,8 +3433,40 @@ Proof
   >>
     match_mp_tac strong_locals_rel_insert_notin>>
     fs[domain_lookup])
-  >~[`Inst`] >-
-    cheat
+  >~[`Inst`] >- (
+  gvs[evaluate_def,remove_dead_def,AllCaseEqs(),inst_def,
+      remove_dead_inst_def,get_live_inst_def,assign_def,
+      word_exp_def,set_var_def, PULL_EXISTS]>>
+  TRY (match_mp_tac strong_locals_rel_insert_notin>>
+       fs[domain_lookup]>>
+       match_mp_tac strong_locals_rel_insert_notin>>
+       fs[domain_lookup]>>
+       NO_TAC) >>
+  TRY (irule strong_locals_rel_I_insert_insert >> simp[] >> NO_TAC) >>
+  TRY (
+   imp_res_tac strong_locals_rel_I_get_var >>
+   gvs[get_vars_def,the_words_def,CaseEq"option",CaseEq"word_loc",PULL_EXISTS] >>
+   irule_at Any strong_locals_rel_I_insert_insert >> simp[] >>
+   imp_res_tac strong_locals_rel_I_get_var >> gvs[] >>
+   irule_at Any strong_locals_rel_subset >>
+   first_x_assum (irule_at Any) >>
+   simp[SUBSET_DEF] >> gvs[mem_load_def] >>
+   goal_assum $ drule_at Any \\ simp[] >>
+   qmatch_rename_tac`∃lv. strong_locals_rel I (_ INSERT lv) _ _`
+   \\ metis_tac[INSERT_COMM] ) >>
+  TRY (
+    imp_res_tac strong_locals_rel_I_get_vars' >>
+    gvs[get_vars_def, get_var_def, CaseEq"option", CaseEq"word_loc"] >>
+    irule_at Any strong_locals_rel_I_insert_insert >> simp[] >>
+    irule_at Any strong_locals_rel_I_insert_insert >> simp[] >>
+    irule_at Any strong_locals_rel_subset >>
+    first_x_assum (irule_at Any) >>
+    simp[SUBSET_DEF] >>
+    TRY(first_x_assum (irule_at Any)) >>
+    rw[] >> fsrw_tac[DNF_ss][] >> gvs[] >> NO_TAC)
+  (* 7 subgoals left *)
+  cheat
+ )
   >~[`Get`] >- (
     gvs[evaluate_def,remove_dead_def,AllCaseEqs(),set_var_def]
     >-
