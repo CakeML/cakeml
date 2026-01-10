@@ -467,26 +467,11 @@ Definition encode_count_def:
         le = eqi name i (strlit"le");
         eq = eqi name i (strlit"eq")
       in
-        [
-          bits_imply bnd [Pos ge] $ mk_ge X Y;
-          bits_imply bnd [Neg ge] $ mk_lt X Y;
-          bits_imply bnd [Pos le] $ mk_le X Y;
-          bits_imply bnd [Neg le] $ mk_gt X Y;
-          bits_imply bnd [Pos eq] ([],[(1i,Pos ge);(1i,Pos le)],2);
-          bits_imply bnd [Neg eq] ([],[(1i,Neg ge);(1i,Neg le)],1)
-        ]
+        bimply_bit bnd (Pos ge) (mk_ge X Y) ++
+        bimply_bit bnd (Pos le) (mk_le X Y) ++
+        bimply_bit bnd (Pos eq) ([],[(1i,Pos ge);(1i,Pos le)],2i)
     ) Xs) ++
-  case Z of
-    INL vZ =>
-      [
-        ([(-1i,vZ)],GENLIST (λi. (1i,Pos (eqi name i (strlit"eq")))) (LENGTH Xs),0);
-        ([(1i,vZ)],GENLIST (λi. (-1i,Pos (eqi name i (strlit"eq")))) (LENGTH Xs),0)
-      ]
-  | INR cZ =>
-      [
-        ([],GENLIST (λi. (1i,Pos (eqi name i (strlit"eq")))) (LENGTH Xs),cZ);
-        ([],GENLIST (λi. (-1i,Pos (eqi name i (strlit"eq")))) (LENGTH Xs),-cZ)
-      ]
+  encode_bitsum (GENLIST (λi. eqi name i (strlit"eq")) (LENGTH Xs)) Z
 End
 
 Theorem encode_count_sem_1:
@@ -496,17 +481,18 @@ Theorem encode_count_sem_1:
   EVERY (λx. iconstraint_sem x (wi,reify_avar cs wi))
     (encode_count bnd Xs Y Z name)
 Proof
-  rw[encode_count_def,count_sem_def,EVERY_MEM]>>
-  gs[MEM_FLAT,MEM_MAPi,iconstraint_sem_def,
-    reify_avar_def,reify_flag_def,b2i_alt]>>
-  rpt intLib.ARITH_TAC>>
-  Cases_on ‘Z’>>
-  gs[iconstraint_sem_def,eval_ilin_term_def,eval_lin_term_def,
-    iSUM_def,MAP_GENLIST,o_ABS_R,reify_avar_def,reify_flag_def,
-    b2i_alt,varc_def,GENLIST_EL_MAP,iSUM_MAP_lin_const]>>
+  rw[encode_count_def,count_sem_def]
+  >-(
+  rw[EVERY_FLAT,Once EVERY_MEM,MEM_MAPi,EVERY_APPEND]>>
+  simp[iconstraint_sem_def,reify_avar_def,reify_flag_def]>>
   intLib.ARITH_TAC
+  )>>
+  drule_then (fn thm => simp[thm]) encode_bitsum_sem>>
+  cong_tac NONE>>
+  simp[MAP_GENLIST,o_ABS_R,reify_avar_def,reify_flag_def,GENLIST_EL_MAP]
 QED
 
+(* unused theorems
 Theorem iSUM_SNOC:
   ∀init last. iSUM (SNOC last init) = last + iSUM init
 Proof
@@ -522,6 +508,7 @@ Proof
   rw[iSUM_def,GENLIST,iSUM_SNOC]>>
   intLib.ARITH_TAC
 QED
+*)
 
 Theorem encode_count_sem_2:
   valid_assignment bnd wi ∧
@@ -529,24 +516,19 @@ Theorem encode_count_sem_2:
     (encode_count bnd Xs Y Z name) ⇒
   count_sem Xs Y Z wi
 Proof
-  rw[encode_count_def,EVERY_MEM,MEM_FLAT,MEM_MAPi,PULL_EXISTS,SF DNF_ss,
-    bits_imply_sem]>>
-  gs[iconstraint_sem_def]>>
-  ‘∀i. i < LENGTH Xs ⇒
-    b2i (wb (INR (name,Indices [i] (SOME «eq»)))) =
-    b2i (varc wi (EL i Xs) = varc wi Y)’ by (
-    rw[]>>
-    cong_tac NONE>>
-    rw[METIS_PROVE[] “(P ⇔ Q) ⇔ ((P ⇒ Q) ∧ (¬P ⇒ ¬Q))”]>>
-    res_tac>>
-    intLib.ARITH_TAC)>>
-  rw[count_sem_def]>>
-  Cases_on ‘Z’>>
-  gs[SF DNF_ss,iconstraint_sem_def,eval_ilin_term_def,eval_lin_term_def,
-    MAP_GENLIST,o_ABS_R,iSUM_def]>>
-  simp[Once varc_def,GSYM GENLIST_EL_MAP]>>
-  gs[iSUM_GENLIST_lin_const,GSYM GENLIST_FUN_EQ]>>
-  intLib.ARITH_TAC
+  rw[encode_count_def,EVERY_FLAT]>>
+  gs[Once EVERY_MEM,MEM_MAPi,SF DNF_ss,iconstraint_sem_def]>>
+  drule_then (fn thm => gs[thm]) encode_bitsum_sem>>
+  gs[MAP_GENLIST,o_ABS_R,count_sem_def]>>
+  qmatch_asmsub_abbrev_tac ‘s1 = varc wi Z’>>
+  qmatch_goalsub_abbrev_tac ‘varc wi Z = s2’>>
+  ‘s1 = s2’ suffices_by simp[]>>
+  unabbrev_all_tac>>
+  cong_tac NONE>>
+  rw[GENLIST_eq_MAP]>>
+  cong_tac NONE>>
+  res_tac>>
+  cheat
 QED
 
 Definition eqij_def[simp]:
