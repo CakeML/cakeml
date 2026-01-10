@@ -70,6 +70,15 @@ val res = translate presLangTheory.source_to_strs_def;
 val res = translate presLangTheory.flat_to_strs_def;
 val res = translate presLangTheory.clos_op_to_display_def;
 
+val r = translate presLangTheory.num_to_varn_aux_def
+
+val num_to_varn_aux_side = Q.prove(`
+  ∀n. num_to_varn_aux_side n ⇔ T`,
+  recInduct presLangTheory.num_to_varn_aux_ind \\ rw[] \\
+  rw[Once (theorem"num_to_varn_aux_side_def")] \\
+  `n MOD 26 < 26` by simp[] \\ decide_tac)
+  |> update_precondition;
+
 val r = translate presLangTheory.num_to_varn_def
 
 val r = presLangTheory.display_num_as_varn_def
