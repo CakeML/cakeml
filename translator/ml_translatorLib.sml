@@ -1147,7 +1147,7 @@ fun rename_bound_vars_rule prefix th = let
   val i = ref 0
   fun next_name orig = let
     val n = (i:= !i+1; prefix ^ int_to_string (!i))
-    in if String.isSubstring " " orig then n else n ^ "_" ^ orig end
+    in if String.isSubstring " " orig then n else n ^ "_" ^ orig ^ "_" end
   fun next_var v = let
     val (name, ty) = dest_var v
     in mk_var(next_name name, ty) end
@@ -2770,7 +2770,7 @@ fun get_induction_for_def def = let
   end handle HOL_ERR _ => let
   fun mk_arg_vars xs = let
     fun mk_name n x =
-      "v" ^ int_to_string n ^ "_" ^ fst (dest_var x)
+      "v" ^ int_to_string n ^ "_" ^ fst (dest_var x) ^ "_"
       handle HOL_ERR _ => "v" ^ int_to_string n
     fun aux [] = []
       | aux (x::xs) = mk_var(mk_name (length xs + 1) x, type_of x) :: aux xs
@@ -2832,7 +2832,7 @@ fun mutual_to_single_line_def def = let
   (* collapse to one line per function *)
   fun mk_arg_vars xs = let
     fun mk_name n x =
-      "v" ^ int_to_string n ^ "_" ^ fst (dest_var x)
+      "v" ^ int_to_string n ^ "_" ^ fst (dest_var x) ^ "_"
       handle HOL_ERR _ => "v" ^ int_to_string n
     fun aux [] = []
       | aux (x::xs) = mk_var(mk_name (length xs + 1) x, type_of x) :: aux xs
@@ -3779,7 +3779,7 @@ fun ex_rename_bound_vars_rule th = let
   val i = ref 0
   fun next_name orig = let
     val n = (i:= !i+1; "x" ^ int_to_string (!i))
-    in if String.isSubstring " " orig then n else n ^ "_" ^ orig end
+    in if String.isSubstring " " orig then n else n ^ "_" ^ orig ^ "_" end
   fun next_var v = let
     val (name, ty) = dest_var v
     in mk_var(next_name name, ty) end
