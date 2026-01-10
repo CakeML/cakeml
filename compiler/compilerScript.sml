@@ -224,7 +224,8 @@ End
 Overload add_locs = ``MAP (λc. (c,unknown_loc))``
 
 Definition parse_sexp_input_def:
-  parse_sexp_input input =
+  parse_sexp_input inp =
+    let input = explode inp in
     let err = strlit "Parsing of sexp syntax failed" in
       case parse_sexp (add_locs input) of
       | NONE => INL err
@@ -234,19 +235,20 @@ Definition parse_sexp_input_def:
 End
 
 Definition parse_cml_input_def:
-  parse_cml_input input =
+  parse_cml_input inp =
+    let input = explode inp in
     case parse_prog (lexer_fun input) of
-    | Failure l _ => INL (strlit "Parsing failed at " ^ locs_to_string (implode input) (SOME l))
+    | Failure l _ => INL (strlit "Parsing failed at " ^ locs_to_string inp (SOME l))
     | Success _ x _ => INR x
 End
 
 Definition compile_def:
-  compile c prelude input =
+  compile c prelude inp =
     let _ = empty_ffi (strlit "finished: start up") in
     case
       if c.input_is_sexp
-      then parse_sexp_input input
-      else parse_cml_input input
+      then parse_sexp_input inp
+      else parse_cml_input inp
     of
     | INL msg => (Failure (ParseError msg), Nil)
     | INR prog =>
@@ -259,7 +261,7 @@ Definition compile_def:
        of
        | Failure (locs, msg) =>
            (Failure (TypeError (concat [msg; strlit " at ";
-               locs_to_string (implode input) locs])), Nil)
+               locs_to_string inp locs])), Nil)
        | Success ic =>
           let _ = empty_ffi (strlit "finished: type inference") in
           if c.only_print_types then
@@ -276,13 +278,14 @@ Definition compile_def:
 End
 
 Definition compile_pancake_def:
-  compile_pancake c input =
+  compile_pancake c inp =
   let _ = empty_ffi (strlit "finished: start up") in
+  let input = explode inp in
   case panPtreeConversion$parse_topdecs_to_ast input of
   | INR errs =>
     ((Failure $ ParseError $ concat $
        MAP (λ(msg,loc). concat [msg; strlit " at ";
-                                locs_to_string (implode input) (SOME loc); strlit "\n"])
+                                locs_to_string inp (SOME loc); strlit "\n"])
            errs), Nil, [])
   | INL funs =>
       case static_check funs of
@@ -677,7 +680,7 @@ End
 
 (* The top-level compiler with almost everything instantiated except the top-level configuration *)
 Definition compile_64_def:
-  compile_64 cl input =
+  compile_64 cl inp =
   let confexp = parse_target_64 cl in
   let topconf = parse_top_config cl in
   case (confexp,topconf) of
@@ -694,7 +697,7 @@ Definition compile_64_def:
              only_print_types    := onlyprinttypes;
              only_print_sexp     := sexpprint;
              |> in
-        (case compiler$compile compiler_conf basis input of
+        (case compiler$compile compiler_conf basis inp of
           (Success (bytes,data,c), td) =>
             (add_tap_output td (export
               (ffinames_to_string_list
@@ -709,7 +712,7 @@ Definition compile_64_def:
 End
 
 Definition compile_pancake_64_def:
-  compile_pancake_64 cl input =
+  compile_pancake_64 cl inp =
   let confexp = parse_target_64 cl in
   case confexp of
   | INR err => (List[], error_to_str (ConfigError err))
@@ -723,7 +726,7 @@ Definition compile_pancake_64_def:
           | INR err =>
               (List[], error_to_str (ConfigError (get_err_str ext_conf)))
           | INL ext_conf =>
-              case compiler$compile_pancake ext_conf input of
+              case compiler$compile_pancake ext_conf inp of
               | (Failure err, td, warns) =>
                   (List[], concat (MAP error_to_str (err::(if nowarn then [] else warns))))
               | (Success (bytes, data, c), td, warns) =>
@@ -751,7 +754,7 @@ Definition full_compile_64_def:
 End
 
 Definition compile_32_def:
-  compile_32 cl input =
+  compile_32 cl inp =
   let confexp = parse_target_32 cl in
   let topconf = parse_top_config cl in
   case (confexp,topconf) of
@@ -768,7 +771,7 @@ Definition compile_32_def:
              only_print_types    := onlyprinttypes;
              only_print_sexp     := sexpprint;
              |> in
-        (case compiler$compile compiler_conf basis input of
+        (case compiler$compile compiler_conf basis inp of
           (Success (bytes,data,c), td) =>
             (add_tap_output td (export
               (ffinames_to_string_list $
@@ -783,7 +786,7 @@ Definition compile_32_def:
 End
 
 Definition compile_pancake_32_def:
-  compile_pancake_32 cl input =
+  compile_pancake_32 cl inp =
   let confexp = parse_target_32 cl in
   case confexp of
   | INR err => (List[], error_to_str (ConfigError err))
@@ -797,7 +800,7 @@ Definition compile_pancake_32_def:
           | INR err =>
               (List[], error_to_str (ConfigError (get_err_str ext_conf)))
           | INL ext_conf =>
-              case compiler$compile_pancake ext_conf input of
+              case compiler$compile_pancake ext_conf inp of
               | (Failure err, td, warns) =>
                   (List[], concat (MAP error_to_str (err::(if nowarn then [] else warns))))
               | (Success (bytes, data, c), td, warns) =>
