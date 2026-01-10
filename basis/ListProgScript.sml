@@ -375,6 +375,7 @@ Theorem mergesortn_tail_side[local]:
 Proof
   completeInduct_on `y`
   \\ once_rewrite_tac[(fetch "-" "mergesortn_tail_side_def")]
+  \\ rpt gen_tac \\ rename1 `SUC x1`
   \\ rw[DIV2_def]
      >- (
         first_x_assum match_mp_tac
