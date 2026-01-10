@@ -1329,7 +1329,7 @@ Proof
   \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
          CaseEq "ast$lit",store_assign_def,option_case_eq]
   \\ gvs [AllCaseEqs()]
-  \\ Cases_on `ty` using prim_type_cases_all
+  \\ Cases_on ‘ty’ using prim_type_cases_all
   (* Eliminate impossible types: BoolT, CharT, StrT all make do_arith return NONE *)
   \\ gvs [semanticPrimitivesTheory.do_arith_def]
   (* Now only IntT, Float64T, WordT W8, WordT W64 remain. Destruct the value list. *)
@@ -1374,8 +1374,8 @@ Proof
   \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
          CaseEq "ast$lit",store_assign_def,option_case_eq]
   \\ gvs [AllCaseEqs()]
-  \\ Cases_on `ty1` using prim_type_cases_all
-  \\ Cases_on `ty2` using prim_type_cases_all
+  \\ Cases_on ‘ty1’ using prim_type_cases_all
+  \\ Cases_on ‘ty2’ using prim_type_cases_all
   (* Only WordT W8 -> IntT is handled; others make do_conversion return NONE *)
   \\ gvs [semanticPrimitivesTheory.do_conversion_def]
   (* Now only WordT W8 -> IntT remains *)
@@ -1433,7 +1433,7 @@ Proof
             w2n_lt |> INST_TYPE [alpha|->“:8”] |> SRULE [],
             closSemTheory.do_word_app_def])
   >-
-   (Cases_on `ty` using prim_type_cases_all
+   (Cases_on ‘ty’ using prim_type_cases_all
     \\ gvs [flatSemTheory.check_type_def,
             flatSemTheory.do_eq_def,flatSemTheory.Boolv_def,AllCaseEqs()]
     \\ gvs [closSemTheory.evaluate_def,

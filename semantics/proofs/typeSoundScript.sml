@@ -783,7 +783,7 @@ Proof
                  eq_result_nchotomy, eq_same_type]) >~
   [‘Arith a ty’]
   >- (rw [do_app_cases, PULL_EXISTS] >>
-      Cases_on ‘ty’ >> TRY (Cases_on ‘w’) >>
+      Cases_on ‘ty’ using prim_type_cases_all >>
       gvs[supported_arith_def, t_of_def]
       >> gvs[LIST_REL_def,LENGTH_EQ_NUM_compute] >>
       imp_res_tac prim_canonical_values_thm >> gvs[] >>
@@ -799,8 +799,8 @@ Proof
       res_tac \\ rw[check_type_def]) >~
   [‘FromTo ty1 ty2’]
   >- (rw [do_app_cases, PULL_EXISTS] >>
-      Cases_on ‘ty1’ >> Cases_on ‘ty2’ >>
-      TRY (Cases_on ‘w’) >>
+      Cases_on ‘ty1’ using prim_type_cases_all >>
+      Cases_on ‘ty2’ using prim_type_cases_all >>
       gvs[supported_conversion_def, do_conversion_def, check_type_def,
           t_of_def, the_Litv_Word8_def] >>
       imp_res_tac prim_canonical_values_thm >> gvs[] >> simp [Once type_v_cases] >>

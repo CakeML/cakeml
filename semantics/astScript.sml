@@ -97,7 +97,7 @@ Theorem prim_type_cases_all:
   !ty. ty = BoolT \/ ty = IntT \/ ty = CharT \/ ty = StrT \/
        ty = WordT W8 \/ ty = WordT W64 \/ ty = Float64T
 Proof
-  Cases \\ gvs[] \\ Cases_on `w` \\ gvs[]
+  Cases \\ gvs[] \\ Cases_on ‘w’ \\ gvs[]
 QED
 
 Datatype:

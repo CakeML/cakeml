@@ -648,14 +648,14 @@ Proof
         \\ gvs [dest_Litv_def]
         \\ gvs [oneline dest_Litv_def,AllCaseEqs()])
     \\ res_tac
-    \\ Cases_on `test_ty` using astTheory.prim_type_cases_all \\ gvs [check_type_def]
+    \\ Cases_on ‘test_ty’ using astTheory.prim_type_cases_all \\ gvs [check_type_def]
     \\ res_tac)
   >~ [‘do_arith’] >- (
     drule_then(qspec_then`ty`strip_assume_tac) LIST_REL_v_rel_check_type
     \\ `refs = s.refs` by gvs[CaseEq"sum"]
     \\ gvs[]
     \\ first_assum $ irule_at Any
-    \\ Cases_on`a` \\ Cases_on `ty` using astTheory.prim_type_cases_all
+    \\ Cases_on`a` \\ Cases_on ‘ty’ using astTheory.prim_type_cases_all
     \\ Cases_on`xs`
     \\ gvs[do_arith_def, CaseEq"list", check_type_def, CaseEq"bool"]
     >- (EVAL_TAC \\ rw[])
@@ -664,8 +664,8 @@ Proof
   >~ [‘do_conversion’] >- (
     imp_res_tac v_rel_check_type \\ rw[]
     \\ first_assum $ irule_at Any
-    \\ Cases_on `ty1` using astTheory.prim_type_cases_all
-    \\ Cases_on `ty2` using astTheory.prim_type_cases_all
+    \\ Cases_on ‘ty1’ using astTheory.prim_type_cases_all
+    \\ Cases_on ‘ty2’ using astTheory.prim_type_cases_all
     \\ gvs[do_conversion_def, check_type_def])
   >~ [`thunk_op`]
   >- (
