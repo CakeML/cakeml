@@ -229,8 +229,7 @@ Proof
     \\ rw [v_ok_def]
     >~ [`do_arith a ty`]
     >- (
-      Cases_on ‘a’ \\ Cases_on ‘ty’
-      \\ TRY (rename1 ‘WordT w’ \\ Cases_on ‘w’)
+      Cases_on ‘a’ \\ Cases_on ‘ty’ using prim_type_cases
       \\ gvs[do_arith_def, CaseEq"list", v_ok_def, CaseEq"bool"]
     ) >~ [`do_conversion _ ty1 ty2`]
     >- (

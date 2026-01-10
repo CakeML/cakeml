@@ -547,7 +547,7 @@ Proof
   \\ Cases_on ‘∃a ty. op = Arith a ty’ >- (
     fs [do_app_def]
     \\ gvs [AllCaseEqs()]
-    \\ Cases_on ‘ty’ using prim_type_cases_all
+    \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
     \\ gvs [semanticPrimitivesTheory.do_arith_def, AllCaseEqs()]
     \\ simp [do_app_def, semanticPrimitivesTheory.do_arith_def,
               find_sem_prim_res_globals_def, find_result_globals_def,
@@ -555,8 +555,8 @@ Proof
   \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ >- (
     fs [do_app_def]
     \\ gvs [AllCaseEqs()]
-    \\ Cases_on ‘ty1’ using prim_type_cases_all
-    \\ Cases_on ‘ty2’ using prim_type_cases_all
+    \\ Cases_on ‘ty1’ using semanticPrimitivesPropsTheory.prim_type_cases
+    \\ Cases_on ‘ty2’ using semanticPrimitivesPropsTheory.prim_type_cases
     \\ gvs [semanticPrimitivesTheory.do_conversion_def, AllCaseEqs()]
     \\ simp [do_app_def, semanticPrimitivesTheory.do_conversion_def,
               find_sem_prim_res_globals_def, find_result_globals_def,

@@ -1328,18 +1328,18 @@ Proof
      full_simp_tac(srw_ss())[deBruijn_subst_def]
      >~ [‘supported_arith’] >-
       (qexists_tac ‘REPLICATE (LENGTH ts) (t_of ty)’
-       \\ Cases_on ‘ty’ using prim_type_cases_all
+       \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
        >> gvs [t_of_def, deBruijn_subst_def, EVERY_REPLICATE,
                LENGTH_EQ_NUM_compute, REPLICATE_compute]
        >> TRY (Cases_on ‘a’)
        >> gvs [t_of_def, deBruijn_subst_def, EVERY_REPLICATE,
                LENGTH_EQ_NUM_compute, REPLICATE_compute])
      >~ [‘supported_conversion ty1 ty2’] >-
-      (Cases_on ‘ty1’ using prim_type_cases_all >> gvs [t_of_def,deBruijn_subst_def])
+      (Cases_on ‘ty1’ using semanticPrimitivesPropsTheory.prim_type_cases >> gvs [t_of_def,deBruijn_subst_def])
      >~ [‘supported_conversion ty1 ty2’] >-
-      (Cases_on ‘ty2’ using prim_type_cases_all >> gvs [t_of_def,deBruijn_subst_def])
+      (Cases_on ‘ty2’ using semanticPrimitivesPropsTheory.prim_type_cases >> gvs [t_of_def,deBruijn_subst_def])
      >~ [‘t_of ty’] >-
-      (Cases_on ‘ty’ using prim_type_cases_all >> gvs [t_of_def,deBruijn_subst_def]) >>
+      (Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases >> gvs [t_of_def,deBruijn_subst_def]) >>
      metis_tac [])
    >- metis_tac [SIMP_RULE (srw_ss()) [PULL_FORALL] type_e_subst_lem3, ADD_COMM])
  >- (full_simp_tac(srw_ss())[RES_FORALL] >>

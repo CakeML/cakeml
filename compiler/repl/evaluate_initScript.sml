@@ -639,8 +639,7 @@ Proof
     gvs [do_app_cases, v_ok_thm, nat_to_v_def, with_same_refs_and_ffi,
          store_lookup_def, copy_array_def, store_assign_def,
          CaseEq"sum"]
-    \\ Cases_on ‘a’ \\ Cases_on ‘ty’
-    \\ TRY(rename1 ‘WordT w’ \\ Cases_on ‘w’)
+    \\ Cases_on ‘a’ \\ Cases_on ‘ty’ using prim_type_cases
     \\ gvs[do_arith_def,CaseEq"list",v_ok_thm] )
   \\ Cases_on ‘op = Opderef’ \\ gs []
   >- (

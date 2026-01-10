@@ -480,7 +480,7 @@ Proof
   TRY pairarg_tac >>
   fs [success_eqns] >~
   [‘Test t1 t2’] >-
-   (Cases_on ‘t1’ \\ Cases_on ‘t2’ using prim_type_cases_all
+   (Cases_on ‘t1’ \\ Cases_on ‘t2’ using semanticPrimitivesPropsTheory.prim_type_cases
     \\ binop_tac)
   >~ [‘FromTo p1 p2’] >- (
     Cases_on`p1` \\ Cases_on`p2` \\ gvs[supported_conversion_def]
@@ -489,7 +489,7 @@ Proof
   >~ [‘Arith a p’] >- (
     gvs[CaseEq"option",CaseEq"bool",failwith_def,
         st_ex_bind_def,st_ex_return_def,CaseEq"exc",CaseEq"prod"]
-    \\ Cases_on`a` \\ Cases_on ‘p’ using prim_type_cases_all
+    \\ Cases_on`a` \\ Cases_on ‘p’ using semanticPrimitivesPropsTheory.prim_type_cases
     \\ gvs[supported_arith_def,LENGTH_EQ_NUM_compute, REPLICATE_compute,
            add_constraints_def, st_ex_bind_def,CaseEq"prod",CaseEq"exc",
            st_ex_return_def,add_constraint_def,CaseEq"option"]

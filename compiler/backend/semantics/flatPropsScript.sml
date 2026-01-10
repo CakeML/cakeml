@@ -1173,7 +1173,7 @@ Proof
   \\ rw[LIST_EQ_REWRITE]
   \\ gs[] \\ first_x_assum drule
   \\ first_x_assum drule
-  \\ Cases_on ‘ty’ using astTheory.prim_type_cases_all
+  \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
   \\ rw[semanticPrimitivesTheory.check_type_def]
   \\ Cases_on`EL x vs1`
   \\ gvs[flat_to_v_def,CaseEq"bool",semanticPrimitivesTheory.Boolv_def]
@@ -1202,7 +1202,7 @@ Proof
     \\ imp_res_tac check_type_LIST_REL_same \\ gvs []
     >- (EVAL_TAC \\ fs [simple_val_rel_def])
     \\ imp_res_tac semanticPrimitivesPropsTheory.do_arith_check_type
-    \\ Cases_on ‘ty’ using astTheory.prim_type_cases_all
+    \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
     \\ gvs[semanticPrimitivesTheory.do_arith_def,CaseEq"list",CaseEq"arith"]
     \\ gvs[simple_val_rel_simps,v_to_flat_def])
   \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ >- (
@@ -1219,7 +1219,7 @@ Proof
   >-
    (gvs [PULL_EXISTS,do_app_def,AllCaseEqs()] \\ rw []
     \\ qexists_tac ‘b’ \\ conj_tac >- gvs [Boolv_def]
-    \\ Cases_on ‘ty’ using astTheory.prim_type_cases_all
+    \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
     \\ Cases_on ‘test’
     \\ gvs [AllCaseEqs(),flatSemTheory.do_test_def,PULL_EXISTS]
     \\ gvs [oneline dest_Litv_def, AllCaseEqs()]

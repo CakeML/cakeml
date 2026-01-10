@@ -3896,16 +3896,16 @@ Proof
          st_ex_bind_success,st_ex_return_success,inf_set_tids_def,
          add_constraints_success]
   \\ TRY(rename1`supported_arith a p` \\ Cases_on`a`
-         \\ Cases_on ‘p’ using prim_type_cases_all \\ gvs[supported_arith_def]
+         \\ Cases_on ‘p’ using semanticPrimitivesPropsTheory.prim_type_cases \\ gvs[supported_arith_def]
          \\ irule pure_add_constraints_set_tids
          \\ first_x_assum $ irule_at (Pat`pure_add_constraints`)
          \\ gvs[LENGTH_EQ_NUM_compute,REPLICATE_compute]
          \\ gvs[inf_set_tids_subset_def, inf_set_tids_def])
   \\ TRY(rename1`supported_conversion c x`
-         \\ Cases_on ‘c’ using prim_type_cases_all
-         \\ Cases_on ‘x’ using prim_type_cases_all \\ gvs[supported_conversion_def])
+         \\ Cases_on ‘c’ using semanticPrimitivesPropsTheory.prim_type_cases
+         \\ Cases_on ‘x’ using semanticPrimitivesPropsTheory.prim_type_cases \\ gvs[supported_conversion_def])
   \\ rename1`supported_test x p`
-  \\ Cases_on`x` \\ Cases_on ‘p’ using prim_type_cases_all \\ gvs[supported_test_def]
+  \\ Cases_on`x` \\ Cases_on ‘p’ using semanticPrimitivesPropsTheory.prim_type_cases \\ gvs[supported_test_def]
 QED
 
 Theorem infer_e_inf_set_tids:

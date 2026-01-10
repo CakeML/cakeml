@@ -880,7 +880,7 @@ Proof
   \\ rpt conj_tac
   \\ TRY $ irule pure_add_constraints_ignore
   \\ simp [t_walkstar_eqn1]
-  \\ TRY (rename [‘t_num_of ty’] \\ Cases_on ‘ty’ using prim_type_cases_all \\ gvs [])
+  \\ TRY (rename [‘t_num_of ty’] \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases \\ gvs [])
   \\ unconversion_tac
   \\ gvs[LENGTH_EQ_NUM_compute, REPLICATE_compute,CaseEq"bool"]
   \\ unconversion_tac
