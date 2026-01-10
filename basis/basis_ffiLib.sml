@@ -134,7 +134,7 @@ fun whole_prog_thm st name spec =
         |> (fn th => MATCH_MP th s_th handle HOL_ERR _ =>
                      MATCH_MP th (PURE_ONCE_REWRITE_RULE [GSYM same_eval_state] s_th)
                      |> PURE_REWRITE_RULE [same_eval_state])
-        |> SPEC(stringSyntax.fromMLstring name)
+        |> SPEC(mlstringSyntax.mk_mlstring name)
         |> CONV_RULE(QUANT_CONV(LAND_CONV(LAND_CONV EVAL THENC SIMP_CONV std_ss [])))
         |> CONV_RULE(HO_REWR_CONV UNWIND_FORALL_THM1)
         |> C HO_MATCH_MP spec

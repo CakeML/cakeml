@@ -10,7 +10,7 @@ Ancestors
   pattern_semantics
 Ancestors[ignore_grammar]
   semanticPrimitives semanticPrimitivesProps flatLang
-  flatSem
+  flatSem mlstring
 
 (* Set up ML bindings *)
 open flat_patternTheory semanticPrimitivesTheory
@@ -58,26 +58,33 @@ QED
 (* decoding the encoded names *)
 
 Theorem sum_string_ords_eq:
-  sum_string_ords i s = SUM (MAP (\c. ORD c - 35) (DROP i s))
+  sum_string_ords i s = SUM (MAP (\c. ORD c - 35) (DROP i (explode s)))
 Proof
-  measureInduct_on `(\i. LENGTH s - i) i`
-  \\ simp [Once sum_string_ords_def]
+  measureInduct_on `(\i. strlen s - i) i`
+  \\ Cases_on ‘s’
+  \\ simp [Once sum_string_ords_def, strlen_def, strsub_def]
   \\ rw [rich_listTheory.DROP_EL_CONS, listTheory.DROP_LENGTH_TOO_LONG]
 QED
 
-Theorem dec_enc:
-  !xs. dec_name_to_num (enc_num_to_name i xs) =
+Theorem dec_enc_aux:
+  !xs. dec_name_to_num (implode (enc_num_to_name_aux i xs)) =
   i + SUM (MAP (\c. ORD c - 35) xs)
 Proof
   measureInduct_on `I i`
-  \\ simp [Once enc_num_to_name_def]
-  \\ CASE_TAC \\ simp [dec_name_to_num_def, sum_string_ords_eq]
+  \\ simp [Once enc_num_to_name_aux_def]
+  \\ CASE_TAC \\ simp [dec_name_to_num_def, sum_string_ords_eq, implode_def]
+QED
+
+Theorem dec_enc:
+  dec_name_to_num (enc_num_to_name i) = i
+Proof
+  simp [enc_num_to_name_def, dec_enc_aux]
 QED
 
 Theorem enc_num_to_name_inj:
-  (enc_num_to_name i [] = enc_num_to_name j []) = (i = j)
+  (enc_num_to_name i = enc_num_to_name j) = (i = j)
 Proof
-  metis_tac [dec_enc |> Q.SPEC `[]` |> SIMP_RULE list_ss []]
+  metis_tac [dec_enc]
 QED
 
 (* lists and lookups *)
@@ -584,7 +591,7 @@ Proof
     \\ qpat_assum ‘pmatch s p _ _ = Match _’ (irule_at Any) \\ simp []
     \\ first_assum (irule_at Any)
     \\ gs [miscTheory.opt_bind_def]
-    \\ ‘¬((λk. k < j) o dec_name_to_num) (enc_num_to_name (i + 1) "")’
+    \\ ‘¬((λk. k < j) o dec_name_to_num) (enc_num_to_name (i + 1))’
       by simp [dec_enc]
     \\ simp [ALOOKUP_rel_cons_false]
     \\ irule_at Any ALOOKUP_rel_cons \\ simp []
@@ -1478,12 +1485,12 @@ QED
 
 Theorem evaluate_compile_pat_rhs:
   evaluate (env3 with v updated_by f) s
-    [compile_pat_rhs tr N (Var_local tr (enc_num_to_name N ""))
+    [compile_pat_rhs tr N (Var_local tr (enc_num_to_name N))
     (p, exp)] = (t, res) /\
   pmatch s p v [] = Match bindings /\
   env_rel M env1 env2 /\
   nv_rel M l_bindings bindings /\
-  f env3.v = (enc_num_to_name N "", v) :: env2.v /\
+  f env3.v = (enc_num_to_name N, v) :: env2.v /\
   N <= M /\
   max_dec_name (pat_bindings p []) < N - 1
   ==>
@@ -1780,7 +1787,7 @@ Proof
           \\ Cases_on `EL n t2.refs` \\ gvs []) \\ gvs []
         \\ simp [PULL_EXISTS]
         \\ gvs [AppUnit_def, compile_exp_def, PULL_EXISTS, dec_name_to_num_def]
-        \\ last_x_assum $ qspecl_then [`1`, `<|v := [("f",a)]|>`, `t2`] mp_tac
+        \\ last_x_assum $ qspecl_then [`1`, `<|v := [(«f»,a)]|>`, `t2`] mp_tac
         \\ impl_tac
         >- gvs [env_rel_def, ALOOKUP_rel_def, OPTREL_def, state_rel_def]
         \\ rw [] \\ gvs []
@@ -1809,7 +1816,7 @@ Proof
           \\ qpat_x_assum `∀n. n < LENGTH t2.refs ⇒ _` drule \\ rw []
           \\ Cases_on `EL n t2.refs` \\ gvs []) \\ gvs []
         \\ gvs [AppUnit_def, compile_exp_def, PULL_EXISTS, dec_name_to_num_def]
-        \\ last_x_assum $ qspecl_then [`1`, `<|v := [("f",a)]|>`, `t2`] mp_tac
+        \\ last_x_assum $ qspecl_then [`1`, `<|v := [(«f»,a)]|>`, `t2`] mp_tac
         \\ impl_tac
         >- gvs [env_rel_def, ALOOKUP_rel_def, OPTREL_def, state_rel_def]
         \\ rw [] \\ gvs []
@@ -2169,7 +2176,7 @@ Proof
     \\ simp[elist_globals_FOLDR]
     \\ qmatch_goalsub_abbrev_tac`FOLDR _ bb _ `
     \\ qid_spec_tac`bb`
-    \\ last_x_assum mp_tac
+    \\ qpat_x_assum ‘∀_ _ _. _ ⇒ _’ mp_tac
     \\ rpt(pop_assum kall_tac)
     \\ Induct_on`fs`\\rw[]
     \\ rpt (pairarg_tac \\ fs[]) \\ gvs[PULL_FORALL]

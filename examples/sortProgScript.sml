@@ -41,7 +41,7 @@ QED
 
 Theorem string_list_uniq:
    !l1 l2.
-    LIST_REL STRING_TYPE l1 l2 ⇒ l2 = MAP (λs. Litv (StrLit (explode s))) l1
+    LIST_REL STRING_TYPE l1 l2 ⇒ l2 = MAP (λs. Litv (StrLit s)) l1
 Proof
   Induct_on `l1` >>
   rw [] >>
@@ -102,7 +102,7 @@ Definition v_to_string_def:
 End
 
 Theorem LIST_REL_STRING_TYPE:
-   LIST_REL STRING_TYPE ls vs ⇒ ls = MAP (implode o v_to_string) vs
+   LIST_REL STRING_TYPE ls vs ⇒ ls = MAP v_to_string vs
 Proof
   rw[LIST_REL_EL_EQN,LIST_EQ_REWRITE,EL_MAP] \\ rfs[] \\ res_tac \\
   Cases_on`EL x ls` \\ fs[STRING_TYPE_def,v_to_string_def,implode_def]
@@ -405,7 +405,7 @@ Proof
   xsimpl >>
   qexists_tac `COMMANDLINE cl` >>
   xsimpl >>
-  qexists_tac `\l n. STDIO (add_stdout fss (implode (CONCAT (MAP v_to_string (TAKE n l)))))` >>
+  qexists_tac `\l n. STDIO (add_stdout fss (concat (MAP v_to_string (TAKE n l))))` >>
   xsimpl >>
   simp [implode_def] >>
   DEP_REWRITE_TAC[GEN_ALL add_stdo_nil] >>
@@ -464,6 +464,8 @@ Proof
     fs[MAP_MAP_o,o_DEF,ETA_AX] \\
     `(λs. case s of strlit x => x) = explode` by
           (fs [FUN_EQ_THM] \\ Cases \\ fs []) \\ fs [] \\
+    ‘(λx. case v_to_string x of strlit x => x) =
+     (λx. explode (v_to_string x))’ by (fs [FUN_EQ_THM]) \\
     fs [SORTED_mlstring_le] \\
     drule (Q.ISPEC `explode `PERM_MAP) \\
     fs [MAP_MAP_o,o_DEF] \\

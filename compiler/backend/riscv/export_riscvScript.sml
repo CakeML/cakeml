@@ -56,8 +56,8 @@ Definition ffi_asm_def:
   (ffi_asm [] = Nil) /\
   (ffi_asm (ffi::ffis) =
       SmartAppend (List [
-       strlit"cake_ffi"; implode ffi; strlit":\n";
-       strlit"     tail cdecl(ffi"; implode ffi; strlit")\n";
+       strlit"cake_ffi"; ffi; strlit":\n";
+       strlit"     tail cdecl(ffi"; ffi; strlit")\n";
        strlit"     .p2align 4\n";
        strlit"\n"]) (ffi_asm ffis))
 End
@@ -187,4 +187,3 @@ Definition riscv_export_def:
         (SmartAppend ^entry_point_code (export_funcs lsyms exp))
       else List []))))
 End
-

@@ -16,7 +16,6 @@ val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 val _ = translation_extends "printingProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "to_word64Prog");
-val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;
 
 val RW = REWRITE_RULE
@@ -232,9 +231,7 @@ Definition bytes_of_string_def:
   bytes_of_string cs = MAP (λc. n2w (ORD c) :word8) (explode cs)
 End
 
-val _ = ml_translatorLib.use_string_type false;
 val _ = translate bytes_of_string_def;
-val _ = ml_translatorLib.use_string_type true;
 
 val r = int_to_words_def
      |> REWRITE_RULE [data_to_wordTheory.small_int_def,
@@ -688,7 +685,6 @@ val res = translate (data_to_wordTheory.compile_def
 
 (* explorer specific functions *)
 
-val _ = ml_translatorLib.use_string_type false;
 val r = presLangTheory.num_to_hex_def |> translate;
 val r = presLangTheory.word_to_display_def |> conv64 |> translate;
 val r = presLangTheory.item_with_word_def |> conv64 |> translate;
@@ -703,7 +699,6 @@ val r = presLangTheory.asm_inst_to_display_def |> conv64 |> translate;
 val r = presLangTheory.ws_to_display_def |> conv64 |> translate
 val r = presLangTheory.word_seqs_def |> conv64 |> translate
 
-val _ = ml_translatorLib.use_string_type true;
 val r = presLangTheory.word_prog_to_display_def
           |> conv64
           |> REWRITE_RULE [presLangTheory.string_imp_def]

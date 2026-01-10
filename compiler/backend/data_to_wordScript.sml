@@ -333,7 +333,7 @@ Definition SilentFFI_def:
       list_Seq [Assign n (Const 0w);
                 Assign 7 (Op Sub [Lookup NextFree; Lookup CurrHeap]);
                 Assign 9 (Lookup HeapLength);
-                FFI "" 7 n 9 n names]
+                FFI «» 7 n 9 n names]
     else Skip
 End
 
@@ -2164,7 +2164,7 @@ val def = assign_Define `
 val def = assign_Define `
   assign_FFI ffi_index (c:data_to_word$config) (secn:num)
              (l:num) (dest:num) (names:num_set option) v1 v2 =
-      if ¬c.call_empty_ffi ∧ ffi_index = "" then (Assign (adjust_var dest) Unit,l) else
+      if ¬c.call_empty_ffi ∧ ffi_index = «» then (Assign (adjust_var dest) Unit,l) else
         let addr1 = real_addr c (adjust_var v1) in
         let header1 = Load addr1 in
         let k = dimindex(:'a) - shift(:'a) - c.len_size in
@@ -2175,8 +2175,8 @@ val def = assign_Define `
         (list_Seq [
           Assign 1 (Op Add [addr1; Const bytes_in_word]);
           Assign 3 (Op Sub [fakelen1; Const bytes_in_word]);
-          Assign 5 (if ffi_index = "" then Const 0w else (Op Add [addr2; Const bytes_in_word]));
-          Assign 7 (if ffi_index = "" then Const 0w else (Op Sub [fakelen2; Const bytes_in_word]));
+          Assign 5 (if ffi_index = «» then Const 0w else (Op Add [addr2; Const bytes_in_word]));
+          Assign 7 (if ffi_index = «» then Const 0w else (Op Sub [fakelen2; Const bytes_in_word]));
           FFI ffi_index 1 3 5 7 (adjust_sets (dtcase names of SOME names => names | NONE => LN));
           Assign (adjust_var dest) Unit]
         , l)

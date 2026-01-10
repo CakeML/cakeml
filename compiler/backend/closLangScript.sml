@@ -111,7 +111,7 @@ End
 
 Datatype:
   op = Label num     (* constructs a CodePtr *)
-     | FFI string    (* calls the FFI *)
+     | FFI mlstring    (* calls the FFI *)
      | IntOp int_op
      | WordOp word_op
      | BlockOp block_op

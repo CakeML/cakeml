@@ -14,7 +14,7 @@ val _ = ml_prog_update (open_module "List");
 val () = generate_sigs := true;
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc ["'a"] "list" (Atapp [Atvar "'a"] (Short "list"))`` I);
+  ``Dtabbrev unknown_loc [«'a»] «list» (Atapp [Atvar «'a»] (Short «list»))`` I);
 
 val r = translate NULL;
 

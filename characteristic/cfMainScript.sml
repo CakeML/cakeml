@@ -18,7 +18,7 @@ Libs
 fun mk_main_call s =
 (* TODO: don't use the parser so much here? *)
   ``Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short ^s); Con NONE []])``;
-val fname = mk_var("fname",``:string``);
+val fname = mk_var("fname",``:mlstring``);
 val main_call = mk_main_call fname;
 
 Theorem call_main_thm1:
@@ -217,4 +217,3 @@ Proof
       \\ fs[] \\ metis_tac[RTC_RTC])
   >- (fs[cond_def])
 QED
-

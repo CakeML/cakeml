@@ -30,7 +30,7 @@ val _ = ml_prog_update (open_module "Rat");
 
 (* provides the Map.map name for the map type *)
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [] "rat" (Atapp [] (Short "rational"))`` I);
+  ``Dtabbrev unknown_loc [] «rat» (Atapp [] (Short «rational»))`` I);
 
 (* refinement invariants *)
 
@@ -1018,7 +1018,6 @@ Theorem EqualityType_REAL_TYPE = Q.prove(`
 val _ = ml_prog_update (close_module NONE);
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [] "rat" (Atapp [] (Short "rational"))`` I);
+  ``Dtabbrev unknown_loc [] «rat» (Atapp [] (Short «rational»))`` I);
 
 val _ = ml_prog_update close_local_block;
-

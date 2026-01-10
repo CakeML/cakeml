@@ -123,7 +123,7 @@ Definition ppat_size'_def:
   ppat_size' (Pp_var a) = 1 ∧
   ppat_size' (Pp_lit a) = 1 ∧
   ppat_size' (Pp_con x xs) = (1 + list_size ppat_size' xs) ∧
-  ppat_size' (Pp_record x xs) = (1 + list_size (list_size char_size) xs) ∧
+  ppat_size' (Pp_record x xs) = (1 + list_size mlstring_size xs) ∧
   ppat_size' (Pp_prod xs) = (1 + list_size ppat_size' xs) ∧
   ppat_size' (Pp_or x y) = (1 + ppat_size' x + ppat_size' y) ∧
   ppat_size' (Pp_tannot x y) = (1 + ppat_size' x) ∧
@@ -192,15 +192,15 @@ Definition compatCurryP_def:
   compatCurryP id pat =
     case id of
       Long mn vn =>
-        if mn = "PrettyPrinter" ∧ vn = Short "PP_Data" then
+        if mn = «PrettyPrinter» ∧ vn = Short «PP_Data» then
           case pat of
             Pp_con NONE ps => Pp_con (SOME id) ps
           | _ => Pp_con (SOME id) [pat]
         else
           Pp_con (SOME id) [pat]
     | Short nm =>
-        if nm = "Abs" ∨ nm = "Var" ∨ nm = "Const" ∨ nm = "Comb" ∨
-           nm = "Tyapp" ∨ nm = "Sequent" ∨ nm = "Append" then
+        if nm = «Abs» ∨ nm = «Var» ∨ nm = «Const» ∨ nm = «Comb» ∨
+           nm = «Tyapp» ∨ nm = «Sequent» ∨ nm = «Append» then
           case pat of
           | Pp_any => Pp_con (SOME id) [Pp_any; Pp_any]
           | Pp_con NONE ps => Pp_con (SOME id) ps
@@ -213,19 +213,19 @@ Definition compatCurryE_def:
   compatCurryE id exp =
     case id of
       Long mn vn =>
-        if mn = "PrettyPrinter" ∧ vn = Short "PP_Data" then
+        if mn = «PrettyPrinter» ∧ vn = Short «PP_Data» then
           case exp of
             Con NONE xs => Con (SOME id) xs
           | _ => Con (SOME id) [exp]
         else
           Con (SOME id) [exp]
     | Short nm =>
-        if nm = "Abs" ∨ nm = "Var" ∨ nm = "Const" ∨ nm = "Comb" ∨
-           nm = "Tyapp" ∨ nm = "Sequent" ∨ nm = "Append" then
+        if nm = «Abs» ∨ nm = «Var» ∨ nm = «Const» ∨ nm = «Comb» ∨
+           nm = «Tyapp» ∨ nm = «Sequent» ∨ nm = «Append» then
           case exp of
             Con NONE xs => Con (SOME id) xs
           | _ => Con (SOME id) [exp]
-        else if nm = "Ref" then
+        else if nm = «Ref» then
           App Opref [exp]
         else
           Con (SOME id) [exp]
@@ -237,8 +237,8 @@ End
 
 Definition compatCons_def:
   compatCons cn =
-    if cn = "Bad_file_name" then "BadFileName"
-    else if cn = "Pp_data" then "PP_Data"
+    if cn = «Bad_file_name» then «BadFileName»
+    else if cn = «Pp_data» then «PP_Data»
     else cn
 End
 
@@ -248,10 +248,10 @@ End
 
 Definition compatModName_def:
   compatModName mn =
-    if mn = "Text_io" then "TextIO"
-    else if mn = "Pretty_printer" then "PrettyPrinter"
-    else if mn = "Command_line" then "CommandLine"
-    else if mn = "Word8_array" then "Word8Array"
+    if mn = «Text_io» then «TextIO»
+    else if mn = «Pretty_printer» then «PrettyPrinter»
+    else if mn = «Command_line» then «CommandLine»
+    else if mn = «Word8_array» then «Word8Array»
     else mn
 End
 
@@ -327,11 +327,11 @@ Definition ptree_Op_def:
           tk <- option $ destTOK lf;
           if nterm = INL nShiftOp then
             if tk = LslT then
-              return "lsl"
+              return «lsl»
             else if tk = LsrT then
-              return "lsr"
+              return «lsr»
             else if tk = AsrT then
-              return "asr"
+              return «asr»
             else if isSymbol tk then
               let s = THE (destSymbol tk) in
                 return s
@@ -339,15 +339,15 @@ Definition ptree_Op_def:
               fail (locs, «Impossible: nShiftOp»)
           else if nterm = INL nMultOp then
             if tk = StarT then
-              return "*"
+              return «*»
             else if tk = ModT then
-              return "mod"
+              return «mod»
             else if tk = LandT then
-              return "land"
+              return «land»
             else if tk = LorT then
-              return "lor"
+              return «lor»
             else if tk = LxorT then
-              return "lxor"
+              return «lxor»
             else if isSymbol tk then
               let s = THE (destSymbol tk) in
                 return s
@@ -355,11 +355,11 @@ Definition ptree_Op_def:
               fail (locs, «Impossible: nMultOp»)
           else if nterm = INL nAddOp then
             if tk = PlusT then
-              return "+"
+              return «+»
             else if tk = MinusT then
-              return "-"
+              return «-»
             else if tk = MinusFT then
-              return "-."
+              return «-.»
             else if isSymbol tk then
               let s = THE (destSymbol tk) in
                 return s
@@ -367,11 +367,11 @@ Definition ptree_Op_def:
              fail (locs, «Impossible: nAddOp»)
           else if nterm = INL nRelOp then
             if tk = LessT then
-              return "<"
+              return «<»
             else if tk = GreaterT then
-              return ">"
+              return «>»
             else if tk = EqualT then
-              return "="
+              return «=»
             else if isSymbol tk then
               let s = THE (destSymbol tk) in
                 return s
@@ -379,9 +379,9 @@ Definition ptree_Op_def:
               fail (locs, «Impossible: nRelOp»)
           else if nterm = INL nAndOp then
             if tk = AndalsoT then
-              return "&&"
+              return «&&»
             else if tk = AmpT then
-              return "&"
+              return «&»
             else if isSymbol tk then
               let s = THE (destSymbol tk) in
                 return s
@@ -389,9 +389,9 @@ Definition ptree_Op_def:
               fail (locs, «Impossible: nAndOp»)
           else if nterm = INL nOrOp then
             if tk = OrelseT then
-              return "||"
+              return «||»
             else if tk = OrT then
-              return "|"
+              return «|»
             else if isSymbol tk then
               let s = THE (destSymbol tk) in
                 return s
@@ -399,23 +399,23 @@ Definition ptree_Op_def:
               fail (locs, «Impossible: nOrOp»)
           else if nterm = INL nHolInfixOp then
             if tk = FuncompT then
-              return "o"
+              return «o»
             else if tk = F_FT then
-              return "F_F"
+              return «F_F»
             else if tk = THEN_T then
-              return "THEN"
+              return «THEN»
             else if tk = THENC_T then
-              return "THENC"
+              return «THENC»
             else if tk = THENL_T then
-              return "THENL"
+              return «THENL»
             else if tk = THEN_TCL_T then
-              return "THEN_TCL"
+              return «THEN_TCL»
             else if tk = ORELSE_T then
-              return "ORELSE"
+              return «ORELSE»
             else if tk = ORELSEC_T then
-              return "ORELSEC"
+              return «ORELSEC»
             else if tk = ORELSE_TCL_T then
-              return "ORELSE_TCL"
+              return «ORELSE_TCL»
             else
               fail (locs, «Impossible: nHolInfixOp»)
           else if nterm = INL nCatOp then
@@ -432,9 +432,9 @@ Definition ptree_Op_def:
               fail (locs, «Impossible: nPrefixOp»)
           else if nterm = INL nAssignOp then
             if tk = LarrowT then
-              return "<-"
+              return «<-»
             else if tk = UpdateT then
-              return ":="
+              return «:=»
             else
               fail (locs, «Impossible: nAssignOp»)
           else
@@ -810,7 +810,7 @@ Definition ptree_Literal_def:
 End
 
 Definition bool2id_def:
-  bool2id b = Short (if b then "True" else "False")
+  bool2id b = Short (if b then «True» else «False»)
 End
 
 Definition ptree_Bool_def:
@@ -949,7 +949,7 @@ Definition ppat_reduce_def:
     | INL po_cons =>
         (case (a, b) of
            (INL x, INL y) =>
-             SOME (INL (Pp_con (SOME (Short "::")) [ppat_close x; y]))
+             SOME (INL (Pp_con (SOME (Short «::»)) [ppat_close x; y]))
          | _ => NONE)
     | INL po_alias =>
         (case (a, b) of
@@ -990,8 +990,8 @@ End
 
 Definition build_list_ppat_def:
   build_list_ppat =
-    FOLDR (λt p. Pp_con (SOME (Short "::")) [t; p])
-          (Pp_con (SOME (Short "[]")) [])
+    FOLDR (λt p. Pp_con (SOME (Short «::»)) [t; p])
+          (Pp_con (SOME (Short «[]»)) [])
 End
 
 Definition ptree_FieldsList_def:
@@ -1253,9 +1253,9 @@ End
 
 Definition build_binop_def:
   build_binop symb x y =
-    if symb = "&&" then
+    if symb = «&&» then
       Log And x y
-    else if symb = "||" then
+    else if symb = «||» then
       Log Or x y
     else
       App Opapp [App Opapp [Var (Short symb); x]; y]
@@ -1267,8 +1267,8 @@ End
 
 Definition build_list_exp_def:
   build_list_exp =
-    FOLDR (λt e. Con (SOME (Short "::")) [t; e])
-          (Con (SOME (Short "[]")) [])
+    FOLDR (λt e. Con (SOME (Short «::»)) [t; e])
+          (Con (SOME (Short «[]»)) [])
 End
 
 Definition build_funapp_def:
@@ -1276,7 +1276,7 @@ Definition build_funapp_def:
     FOLDL (λa b.
       case a of
         Var (Short id) =>
-          if id = "raise" then
+          if id = «raise» then
             Raise b
           else
             App Opapp [a; b]
@@ -1290,7 +1290,7 @@ End
 
 Definition mk_record_update_name_def:
   mk_record_update_name field cons =
-    "{record_update(" ++ cons ++ "." ++ field ++ ")}"
+    concat [«{record_update(» ^ cons ^ «.» ^ field ^ «)}»]
 End
 
 Definition id_map_def:
@@ -1305,7 +1305,7 @@ End
 
 Definition mk_record_proj_name_def:
   mk_record_proj_name field cons =
-    "{record_projection(" ++ cons ++ "." ++ field ++ ")}"
+    concat [«{record_projection(» ^ cons ^ «.» ^ field ^ «)}»]
 End
 
 Definition build_record_proj_def:
@@ -1315,8 +1315,8 @@ End
 
 Definition mk_record_constr_name_def:
   mk_record_constr_name constr fields =
-    FLAT $ ["{record_constructor("; constr; ")"] ++
-           MAP (λfn. "(" ++ fn ++ ")") fields ++ ["}"]
+    concat ([«{record_constructor(»; constr; «)»] ++
+            MAP (λfn. «(» ^ fn ^ «)») fields ++ [«}»])
 End
 
 Definition build_record_cons_id_def:
@@ -1333,7 +1333,7 @@ End
 
 Definition build_record_cons_def:
   build_record_cons path upds =
-    let (names,exprs) = UNZIP (sort (λ(f,_) (g,_). string_lt f g) upds) in
+    let (names,exprs) = UNZIP (sort (λ(f,_) (g,_). mlstring_lt f g) upds) in
       do
         id <- build_record_cons_id names path;
         return $ build_funapp (Var id) exprs
@@ -1378,9 +1378,9 @@ End
 Definition build_fun_lam_def:
   build_fun_lam body pats =
       FOLDR (λp b. case p of
-                     INL (c, fs) => Fun "" (mk_record_match c fs "" b)
+                     INL (c, fs) => Fun «» (mk_record_match c fs «» b)
                    | INR (Pvar x) => Fun x b
-                   | INR p => Fun "" (Mat (Var (Short "")) [p, b]))
+                   | INR p => Fun «» (Mat (Var (Short «»)) [p, b]))
             body pats
 End
 
@@ -1419,13 +1419,13 @@ Definition build_letrec_def:
     MAP (λ(f,ps,x).
            case ps of
              [] =>
-               (f, "", App Opapp [x; Var (Short "")])
+               (f, «», App Opapp [x; Var (Short «»)])
            | INL (c, fs) ::ps =>
-               (f, "", mk_record_match c fs "" (build_fun_lam x ps))
+               (f, «», mk_record_match c fs «» (build_fun_lam x ps))
            | INR (Pvar v)::ps =>
                (f, v, build_fun_lam x ps)
            | INR p::ps =>
-               (f, "", Mat (Var (Short "")) [(p, build_fun_lam x ps)]))
+               (f, «», Mat (Var (Short «»)) [(p, build_fun_lam x ps)]))
 End
 
 (* Builds a sequence of lets out of a list of let bindings.
@@ -1439,7 +1439,7 @@ Definition build_lets_def:
     FOLDR (λbind rest.
              case bind of
                INL (INL (c, fs), x) =>
-                 Let (SOME " r") x (mk_record_match c fs " r" rest)
+                 Let (SOME « r») x (mk_record_match c fs « r» rest)
              | INL (INR (Pvar v), x) =>
                  Let (SOME v) x rest
              | INL (INR Pany, x) =>
@@ -1489,15 +1489,15 @@ Definition build_pmatch_def:
     build_pmatch mvar ((pat,exp)::acc) ps ∧
   build_pmatch mvar acc ((pat,exp,SOME guard)::ps) =
     let mexp = SmartMat mvar acc in
-    let clos = Let (SOME " p") (Fun " u" mexp) in
-    let call = App Opapp [Var (Short " p"); Con NONE []] in
+    let clos = Let (SOME « p») (Fun « u» mexp) in
+    let call = App Opapp [Var (Short « p»); Con NONE []] in
     let mat = SmartMat mvar [(pat,If guard exp call); (INR Pany,call)] in
       build_pmatch mvar [INR Pany,clos mat] ps
 End
 
 Definition build_match_def:
   build_match x rows =
-    let mvar = " m" in
+    let mvar = « m» in
     Let (SOME mvar) x
       (if EXISTS (λ(p,x,g). case g of SOME _ => T | _ => F) rows then
          build_pmatch mvar [] (REVERSE rows)
@@ -1514,14 +1514,14 @@ Definition build_handle_def:
      *
      * This trickery is used to support pattern guards and fake records.
      *)
-    let mvar = " e" in
+    let mvar = « e» in
     let rows' = (INR Pany, Raise (Var (Short mvar)), NONE)::REVERSE rows in
     Handle x [Pvar mvar, build_pmatch mvar [] rows']
 End
 
 Definition build_function_def:
   build_function rows =
-    Fun ""  (build_pmatch "" [] (REVERSE rows))
+    Fun «»  (build_pmatch «» [] (REVERSE rows))
 End
 
 (* Flatten the row-alternatives in a pattern-match.
@@ -1671,10 +1671,10 @@ Definition ptree_Expr_def:
             idx_expr <- ptree_Index idx;
             case idx_expr of
               INL str_idx =>
-                return $ build_funapp (Var (Long "String" (Short "sub")))
+                return $ build_funapp (Var (Long «String» (Short «sub»)))
                                       [pfx; str_idx]
             | INR arr_idx =>
-                return $ build_funapp (Var (Long "Array" (Short "sub")))
+                return $ build_funapp (Var (Long «Array» (Short «sub»)))
                                       [pfx; arr_idx]
           od
       | _ => fail (locs, «Impossible: nEIndex»)
@@ -1718,7 +1718,7 @@ Definition ptree_Expr_def:
           do
             expect_tok assr AssertT;
             x <- ptree_Expr nERecProj expr;
-            return (App Opapp [Var (Short "assert"); x])
+            return (App Opapp [Var (Short «assert»); x])
           od
       | _ => fail (locs, «Impossible: nEAssert»)
     else if nterm = INL nELazy then
@@ -1727,7 +1727,7 @@ Definition ptree_Expr_def:
           do
             expect_tok lazy LazyT;
             x <- ptree_Expr nERecProj expr;
-            return (App Opapp [Var (Short "lazy"); x])
+            return (App Opapp [Var (Short «lazy»); x])
           od
       | _ => fail (locs, «Impossible: nELazy»)
     else if nterm = INL nEConstr then
@@ -1789,9 +1789,9 @@ Definition ptree_Expr_def:
             tk <- option $ destTOK lf;
             x <- ptree_Expr nEUnclosed expr;
             if tk = MinusT then
-              return (App Opapp [Var (Long "Int" (Short "~")); x])
+              return (App Opapp [Var (Long «Int» (Short «~»)); x])
             else if tk = MinusFT then
-              return (App Opapp [Var (Long "Double" (Short "~")); x])
+              return (App Opapp [Var (Long «Double» (Short «~»)); x])
             else if isSymbol tk then
               let s = THE (destSymbol tk) in
                 return (App Opapp [Var (Short s); x])
@@ -1841,7 +1841,7 @@ Definition ptree_Expr_def:
             expect_tok colons ColonsT;
             x <- ptree_Expr nEAdd lhs;
             y <- ptree_Expr nECons rhs;
-            return (Con (SOME (Short "::")) [x; y])
+            return (Con (SOME (Short «::»)) [x; y])
           od
       | _ => fail (locs, «Impossible: nECons»)
     else if nterm = INL nECat then
@@ -2040,7 +2040,7 @@ Definition ptree_Expr_def:
             expect_tok donet DoneT;
             x <- ptree_Expr nExpr expr;
             b <- ptree_Expr nExpr body;
-            return (build_funapp (Var (Short "while")) [x; b])
+            return (build_funapp (Var (Short «while»)) [x; b])
           od
       | _ => fail (locs, «Impossible: nEWhile»)
     else if nterm = INL nEFor then
@@ -2058,7 +2058,7 @@ Definition ptree_Expr_def:
             u <- ptree_Expr nExpr ubd;
             l <- ptree_Expr nExpr lbd;
             b <- ptree_Expr nExpr body;
-            return (build_funapp (Var (Short "for"))
+            return (build_funapp (Var (Short «for»))
                                  [Con (SOME (bool2id (tk = ToT))) [];
                                   Var (Short id); u; l; b])
           od
@@ -2744,11 +2744,11 @@ Definition build_rec_funs_def:
                     | _ => pvars) in
     let projs = MAP (λf.
                   Dlet locs (Pvar (mk_record_proj_name f cname))
-                    (Fun "" (Mat (Var (Short ""))
+                    (Fun «» (Mat (Var (Short «»))
                         [(pat, Var (Short f))]))) fds in
     let upds = MAP (λf.
                   Dlet locs (Pvar (mk_record_update_name f cname))
-                    (Fun "" (Mat (Var (Short ""))
+                    (Fun «» (Mat (Var (Short «»))
                         [(pat, Fun f rhs)]))) fds in
       constr :: projs ++ upds
 End
@@ -2789,7 +2789,7 @@ Definition sort_records_def:
      MAP (λtdef.
        case tdef of
        | INL (cn,tys) => INL (cn,tys)
-       | INR (cn,fds) => INR (cn,sort (λ(l,_) (r,_). string_lt l r) fds)) tds)
+       | INR (cn,fds) => INR (cn,sort (λ(l,_) (r,_). mlstring_lt l r) fds)) tds)
 End
 
 Definition MAP_OUTR_def:
@@ -2868,7 +2868,7 @@ Definition build_dlet_def:
     MAP (λbind.
            case bind of
              INL (INL (c, fs), x) =>
-               let v = " c" in
+               let v = « c» in
                Dlocal
                  [Dlet locs (Pvar v) x]
                  (MAP (λf. Dlet locs (Pvar f)
@@ -2904,7 +2904,7 @@ End
 
 Definition ptree_ExprDec_def:
   ptree_ExprDec locs pt =
-    fmap (λx. [Dlet locs (Pvar "it") x])
+    fmap (λx. [Dlet locs (Pvar «it») x])
          (ptree_Expr nExpr pt)
 End
 
@@ -3206,7 +3206,7 @@ Definition ptree_Definition_def:
             lf <- destLf arg;
             tk <- option $ destTOK lf;
             str <- option $ destPragma tk;
-            toks <<- lexer_fun$lexer_fun str;
+            toks <<- lexer_fun$lexer_fun (explode str);
             if EXISTS (λt. FST t = LexErrorT) toks then
               fail (locs, «The CakeML lexer failed»)
             else

@@ -11,6 +11,8 @@ Ancestors
 Libs
   preamble
 
+val _ = numLib.prefer_num ();
+
 val reader_io_events_def =
   new_specification ("reader_io_events_def", ["reader_io_events"],
   reader_semantics |> Q.GENL [`cl`,`fs`]
@@ -85,7 +87,7 @@ val compile_correct_applied =
   |> DISCH(#1(dest_imp(concl ag32_init_ok)))
   |> C MATCH_MP is_ag32_machine_config_ag32_machine_config
   |> Q.GEN`cbspace` |> Q.SPEC`0`
-  |> Q.GEN`data_sp` |> Q.SPEC`0`
+  |> Q.GEN`data_sp` |> Q.SPEC`0`;
 
 Theorem reader_installed:
    SUM (MAP strlen cl) + LENGTH cl ≤ cline_size ∧
@@ -117,6 +119,7 @@ Proof
   \\ disch_then drule
   \\ strip_tac
   \\ simp[]
+  \\ conj_tac >- (EVAL_TAC)
   \\ conj_tac >- (simp[LENGTH_code] \\ EVAL_TAC)
   \\ conj_tac >- (simp[LENGTH_code, LENGTH_data] \\ EVAL_TAC)
   \\ conj_tac >- (EVAL_TAC)
@@ -190,6 +193,7 @@ Proof
     \\ simp [stdin_fs_def, fsFFIPropsTheory.fastForwardFD_def,
             miscTheory.the_def, TextIOProofTheory.add_stdo_def,
             TextIOProofTheory.up_stdo_def, TextIOProofTheory.stdo_def,
+            mlstringTheory.implode_def,
             fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP]
     \\ SELECT_ELIM_TAC
     \\ (conj_asm1_tac >- (qexists_tac ‘«»’ \\ simp []))
@@ -226,6 +230,7 @@ Proof
   \\ simp [stdin_fs_def, fsFFIPropsTheory.fastForwardFD_def,
           miscTheory.the_def, TextIOProofTheory.add_stdo_def,
           TextIOProofTheory.up_stdo_def, TextIOProofTheory.stdo_def,
+          mlstringTheory.implode_def,
           fsFFITheory.fsupdate_def, AFUPDKEY_ALOOKUP]
   \\ SELECT_ELIM_TAC
   \\ (conj_asm1_tac >- (qexists_tac ‘«»’ \\ simp []))
@@ -265,7 +270,7 @@ Proof
     \\ simp [stdin_fs_def, TextIOProofTheory.stdin_def])
   \\ strip_tac
   \\ irule ag32_next
-  \\ conj_tac >- simp [ffi_names, extcalls_def]
+  \\ conj_tac >- (simp [ffi_names, extcalls_def] \\ EVAL_TAC)
   \\ conj_tac >- (simp [ffi_names, extcalls_def, LENGTH_code, LENGTH_data] \\ EVAL_TAC)
   \\ conj_tac >- (simp [ffi_names, extcalls_def] \\ EVAL_TAC)
   \\ goal_assum (first_assum o mp_then Any mp_tac)

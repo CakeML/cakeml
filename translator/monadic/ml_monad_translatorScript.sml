@@ -2019,18 +2019,18 @@ QED
 val evaluate_empty_state_IMP_2 =
   evaluate_empty_state_IMP
   |> Q.GEN`s` |> Q.SPEC`s with refs := s.refs ++ more`
-  |> SIMP_RULE(srw_ss())[]
+  |> SIMP_RULE(srw_ss())[];
 
 val evaluate_empty_state_IMP_3 =
   evaluate_empty_state_IMP
   |> Q.GEN`s` |> Q.SPEC`s with refs := s.refs ++ more ++ more2`
-  |> SIMP_RULE(srw_ss())[]
+  |> SIMP_RULE(srw_ss())[];
 
 Theorem EvalM_R_Marray_sub_subscript:
    !vname loc TYPE EXC_TYPE H get_arr e env n nexp.
      EXC_TYPE e ^Conv_Subscript ==>
      nsLookup env.v (Short vname) = SOME loc ==>
-     lookup_cons (Short "Subscript") env = SOME (0,^Stamp_Subscript) ==>
+     lookup_cons (Short «Subscript») env = SOME (0,^Stamp_Subscript) ==>
      Eval env nexp (NUM n) ==>
      EvalM ro env st (App Asub [App Opderef [Var (Short vname)]; nexp])
      ((MONAD TYPE EXC_TYPE) (Marray_sub get_arr e n))
@@ -2081,11 +2081,11 @@ QED
 Theorem EvalM_R_Marray_sub_handle:
    !vname loc TYPE EXC_TYPE H get_arr e rexp env n nexp.
      nsLookup env.v (Short vname) = SOME loc ==>
-     lookup_cons (Short "Subscript") env = SOME (0,^Stamp_Subscript) ==>
+     lookup_cons (Short «Subscript») env = SOME (0,^Stamp_Subscript) ==>
      Eval env nexp (NUM n) ==>
      Eval env rexp (EXC_TYPE e) ==>
      EvalM ro env st (Handle (App Asub [App Opderef [Var (Short vname)]; nexp])
-                [(Pcon (SOME (Short("Subscript"))) [], Raise rexp)])
+                [(Pcon (SOME (Short(«Subscript»))) [], Raise rexp)])
      ((MONAD TYPE EXC_TYPE) (Marray_sub get_arr e n))
      ((λrefs. RARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)
 Proof
@@ -2145,7 +2145,7 @@ QED
 Theorem EvalM_R_Marray_update_subscript:
    !vname loc TYPE EXC_TYPE H get_arr set_arr e env n x xexp nexp.
      nsLookup env.v (Short vname) = SOME loc ==>
-     lookup_cons (Short "Subscript") env = SOME (0,^Stamp_Subscript) ==>
+     lookup_cons (Short «Subscript») env = SOME (0,^Stamp_Subscript) ==>
      EXC_TYPE e ^Conv_Subscript ==>
      (!refs x. get_arr (set_arr x refs) = x) ==>
      (!refs x. H (set_arr x refs) = H refs) ==>
@@ -2253,14 +2253,14 @@ QED
 Theorem EvalM_R_Marray_update_handle:
    !vname loc TYPE EXC_TYPE H get_arr set_arr e rexp env n x xexp nexp.
    nsLookup env.v (Short vname) = SOME loc ==>
-   lookup_cons (Short "Subscript") env = SOME (0,^Stamp_Subscript) ==>
+   lookup_cons (Short «Subscript») env = SOME (0,^Stamp_Subscript) ==>
    (!refs x. get_arr (set_arr x refs) = x) ==>
    (!refs x. H (set_arr x refs) = H refs) ==>
    Eval env nexp (NUM n) ==>
    Eval env rexp (EXC_TYPE e) ==>
    Eval env xexp (TYPE x) ==>
    EvalM ro env st (Handle (App Aupdate [App Opderef [Var (Short vname)]; nexp; xexp])
-              [(Pcon (SOME (Short("Subscript"))) [], Raise rexp)])
+              [(Pcon (SOME (Short(«Subscript»))) [], Raise rexp)])
    ((MONAD UNIT_TYPE EXC_TYPE) (Marray_update get_arr set_arr e n x))
    ((λrefs. RARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)
 Proof
@@ -2505,7 +2505,7 @@ Theorem EvalM_F_Marray_sub_subscript:
    !vname loc TYPE EXC_TYPE H get_arr e env n nexp.
    EXC_TYPE e ^Conv_Subscript ==>
    nsLookup env.v (Short vname) = SOME loc ==>
-   lookup_cons (Short "Subscript") env = SOME (0,^Stamp_Subscript) ==>
+   lookup_cons (Short «Subscript») env = SOME (0,^Stamp_Subscript) ==>
    Eval env nexp (NUM n) ==>
    EvalM ro env st (App Asub [Var (Short vname); nexp])
    ((MONAD TYPE EXC_TYPE) (Marray_sub get_arr e n))
@@ -2545,11 +2545,11 @@ QED
 Theorem EvalM_F_Marray_sub_handle:
    !vname loc TYPE EXC_TYPE H get_arr e rexp env n nexp.
    nsLookup env.v (Short vname) = SOME loc ==>
-   lookup_cons (Short "Subscript") env = SOME (0,^Stamp_Subscript) ==>
+   lookup_cons (Short «Subscript») env = SOME (0,^Stamp_Subscript) ==>
    Eval env nexp (NUM n) ==>
    Eval env rexp (EXC_TYPE e) ==>
    EvalM ro env st (Handle (App Asub [Var (Short vname); nexp])
-              [(Pcon (SOME (Short("Subscript"))) [], Raise rexp)])
+              [(Pcon (SOME (Short(«Subscript»))) [], Raise rexp)])
    ((MONAD TYPE EXC_TYPE) (Marray_sub get_arr e n))
    ((λrefs. ARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)
 Proof
@@ -2606,7 +2606,7 @@ QED
 Theorem EvalM_F_Marray_update_subscript:
    !vname loc TYPE EXC_TYPE H get_arr set_arr e env n x xexp nexp.
    nsLookup env.v (Short vname) = SOME loc ==>
-   lookup_cons (Short "Subscript") env = SOME (0,^Stamp_Subscript) ==>
+   lookup_cons (Short «Subscript») env = SOME (0,^Stamp_Subscript) ==>
    EXC_TYPE e ^Conv_Subscript ==>
    (!refs x. get_arr (set_arr x refs) = x) ==>
    (!refs x. H (set_arr x refs) = H refs) ==>
@@ -2689,14 +2689,14 @@ QED
 Theorem EvalM_F_Marray_update_handle:
    !vname loc TYPE EXC_TYPE H get_arr set_arr e rexp env n x xexp nexp.
    nsLookup env.v (Short vname) = SOME loc ==>
-   lookup_cons (Short "Subscript") env = SOME (0,^Stamp_Subscript) ==>
+   lookup_cons (Short «Subscript») env = SOME (0,^Stamp_Subscript) ==>
    (!refs x. get_arr (set_arr x refs) = x) ==>
    (!refs x. H (set_arr x refs) = H refs) ==>
    Eval env nexp (NUM n) ==>
    Eval env rexp (EXC_TYPE e) ==>
    Eval env xexp (TYPE x) ==>
    EvalM ro env st (Handle (App Aupdate [Var (Short vname); nexp; xexp])
-              [(Pcon (SOME (Short("Subscript"))) [], Raise rexp)])
+              [(Pcon (SOME (Short(«Subscript»))) [], Raise rexp)])
    ((MONAD UNIT_TYPE EXC_TYPE) (Marray_update get_arr set_arr e n x))
    ((λrefs. ARRAY_REL TYPE loc (get_arr refs) * H refs),p:'ffi ffi_proj)
 Proof
@@ -3001,7 +3001,7 @@ QED
 Definition handle_mult_def:
   handle_mult [] exp1 ename = exp1 /\
   handle_mult (_:string list) exp1 ename =
-    Handle exp1 [(Pvar "e",(Con (SOME (Short ename)) [Var (Short "e")]))]
+    Handle exp1 [(Pvar «e»,(Con (SOME (Short ename)) [Var (Short «e»)]))]
 End
 
 Theorem evaluate_handle_mult_Rval[local]:
@@ -3032,7 +3032,7 @@ val EVERY_CONJ_1 = GSYM EVERY_CONJ |> SPEC_ALL |> EQ_IMP_RULE
 
 Definition handle_all_def:
   handle_all exp ename =
-    Handle exp [(Pvar "e",(Con (SOME (Short ename)) [Var (Short "e")]))]
+    Handle exp [(Pvar «e»,(Con (SOME (Short ename)) [Var (Short «e»)]))]
 End
 
 Theorem evaluate_handle_all_Rval[local]:
@@ -3057,8 +3057,8 @@ QED
 
 Theorem evaluate_Success_CONS[local]:
   evaluate s env [e] = (s', Rval [v]) ==>
-  lookup_cons (Short "M_success") env = SOME (1,TypeStamp "M_success" exc_stamp) ==>
-  evaluate s env [Con (SOME (Short "M_success")) [e]] = (s', Rval [Conv (SOME (TypeStamp "M_success" exc_stamp)) [v]])
+  lookup_cons (Short «M_success») env = SOME (1,TypeStamp «M_success» exc_stamp) ==>
+  evaluate s env [Con (SOME (Short «M_success»)) [e]] = (s', Rval [Conv (SOME (TypeStamp «M_success» exc_stamp)) [v]])
 Proof
   rw[]
   \\ rw[evaluate_def, astTheory.getOpClass_def]
@@ -3071,8 +3071,8 @@ QED
 
 Theorem evaluate_Success_CONS_err[local]:
   evaluate s env [e] = (s', Rerr v) ==>
-  lookup_cons (Short "M_success") env = SOME (1,TypeStamp "M_success" exc_stamp) ==>
-  evaluate s env [Con (SOME (Short "M_success")) [e]] = (s', Rerr v)
+  lookup_cons (Short «M_success») env = SOME (1,TypeStamp «M_success» exc_stamp) ==>
+  evaluate s env [Con (SOME (Short «M_success»)) [e]] = (s', Rerr v)
 Proof
   rw[]
   \\ rw[evaluate_def, astTheory.getOpClass_def]
@@ -3086,20 +3086,20 @@ QED
 (* It is not possible to use register_type here... *)
 Definition EXC_TYPE_aux_def:
        (EXC_TYPE_aux stamp a b (M_failure x_2) v ⇔
-        ∃v2_1. v = Conv (SOME (TypeStamp "M_failure" stamp)) [v2_1]
+        ∃v2_1. v = Conv (SOME (TypeStamp «M_failure» stamp)) [v2_1]
                         ∧ b x_2 v2_1) ∧
        (EXC_TYPE_aux stamp a b (M_success x_1) v ⇔
-        ∃v1_1. v = Conv (SOME (TypeStamp "M_success" stamp)) [v1_1]
+        ∃v1_1. v = Conv (SOME (TypeStamp «M_success» stamp)) [v1_1]
                         ∧ a x_1 v1_1)
 End
 
 Theorem EvalM_to_EvalSt:
   ∀exc_stamp TYPE EXN_TYPE x exp H init_state env.
     EvalM T env init_state exp (MONAD TYPE EXN_TYPE x) H ⇒
-    lookup_cons (Short "M_success") env = SOME (1, TypeStamp "M_success" exc_stamp) ⇒
-    lookup_cons (Short "M_failure") env = SOME (1, TypeStamp "M_failure" exc_stamp) ⇒
+    lookup_cons (Short «M_success») env = SOME (1, TypeStamp «M_success» exc_stamp) ⇒
+    lookup_cons (Short «M_failure») env = SOME (1, TypeStamp «M_failure» exc_stamp) ⇒
     EvalSt env init_state
-      (handle_all (Con (SOME (Short "M_success")) [exp]) "M_failure")
+      (handle_all (Con (SOME (Short «M_success»)) [exp]) «M_failure»)
       (EXC_TYPE_aux exc_stamp TYPE EXN_TYPE (run x init_state)) H
 Proof
   rw[EvalM_def, EvalSt_def]
@@ -3110,7 +3110,7 @@ Proof
       imp_res_tac evaluate_sing \\ rveq \\ fs []
       \\ IMP_RES_TAC evaluate_Success_CONS
       \\ first_x_assum (fn x => MATCH_MP evaluate_handle_all_Rval x |> ASSUME_TAC)
-      \\ first_x_assum (qspec_then `"M_failure"` ASSUME_TAC)
+      \\ first_x_assum (qspec_then `«M_failure»` ASSUME_TAC)
       \\ asm_exists_tac \\ fs []
       \\ fs[MONAD_def, run_def, EXC_TYPE_aux_def]
       \\ Cases_on `x init_state'`
@@ -3132,7 +3132,7 @@ Proof
   \\ Cases_on `q` \\ fs[]
   \\ LAST_ASSUM IMP_RES_TAC
   \\ qexists_tac `s2`
-  \\ qexists_tac `Conv (SOME (TypeStamp "M_failure" exc_stamp)) [a]`
+  \\ qexists_tac `Conv (SOME (TypeStamp «M_failure» exc_stamp)) [a]`
   \\ qexists_tac `r`
   \\ qexists_tac `ck`
   \\ rw[handle_all_def]
@@ -3574,4 +3574,3 @@ fs[]
 QED
 
 val _ = (print_asts := true);
-

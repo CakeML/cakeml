@@ -363,6 +363,13 @@ Proof
   \\ fs [enc_dec_ok_def,mlstring_enc_def,mlstringTheory.implode_def]
 QED
 
+Theorem mlstring_dec_ok:
+  dec_ok mlstring_dec
+Proof
+  assume_tac mlstring_enc_dec_ok
+  \\ fs [enc_dec_ok_def]
+QED
+
 (* prod *)
 
 Definition prod_enc_def:
@@ -589,16 +596,16 @@ Proof
   \\ rw [] \\ fs [fromAList_toAList]
 QED
 
-(* namespace -- instantiated to (string, string, 'a) *)
+(* namespace -- instantiated to (mlstring, mlstring, 'a) *)
 
 Definition namespace_enc'_def:
   namespace_enc' e (Bind xs ys) =
-    (let ns1 = list_enc (prod_enc (list_enc char_enc) e) xs in
+    (let ns1 = list_enc (prod_enc mlstring_enc e) xs in
      let ns2 = namespace_enc'_list e ys in
        Append ns1 ns2) ∧
   namespace_enc'_list e [] = List [0] ∧
   namespace_enc'_list e ((m,x)::xs) =
-    Append (Append (List [1]) (list_enc char_enc m))
+    Append (Append (List [1]) (mlstring_enc m))
       (Append (namespace_enc' e x) (namespace_enc'_list e xs))
 End
 
@@ -616,7 +623,7 @@ End
 Definition namespace_dec'_def:
   namespace_dec' k d ns =
     (if k = 0:num then (Bind [] [],ns) else
-       let (xs,ns1) = list_dec (prod_dec (string_dec) d) ns in
+       let (xs,ns1) = list_dec (prod_dec mlstring_dec d) ns in
        let (ys,ns2) = namespace_dec'_list (k-1) d ns1 in
          (Bind xs ys,ns2)) ∧
   namespace_dec'_list k d ns =
@@ -625,7 +632,7 @@ Definition namespace_dec'_def:
     | (n::rest) =>
       if n = 0n then ([],rest) else
       if k = 0:num then ([],ns) else
-        let (m,ns) = string_dec rest in
+        let (m,ns) = mlstring_dec rest in
         let (x,ns) = namespace_dec' (k-1) d ns in
         let (ys,ns) = namespace_dec'_list (k-1) d ns in
           ((m,x)::ys,ns)
@@ -656,17 +663,17 @@ Proof
   \\ once_rewrite_tac [namespace_dec'_def]
   \\ fs [UNCURRY] \\ rw [] \\ fs []
   THEN1
-   (Cases_on ‘list_dec (prod_dec string_dec d) i’ \\ fs []
-    \\ ‘dec_ok (list_dec (prod_dec string_dec d))’ by
-     (irule list_dec_ok \\ irule prod_dec_ok \\ fs [string_dec_ok])
+   (Cases_on ‘list_dec (prod_dec mlstring_dec d) i’ \\ fs []
+    \\ ‘dec_ok (list_dec (prod_dec mlstring_dec d))’ by
+     (irule list_dec_ok \\ irule prod_dec_ok \\ fs [mlstring_dec_ok])
     \\ fs [dec_ok_def] \\ first_x_assum (qspec_then ‘i’ mp_tac) \\ fs [])
   \\ Cases_on ‘i’ \\ fs []
   \\ Cases_on ‘h=0’ \\ fs []
-  \\ Cases_on ‘string_dec t’ \\ fs []
+  \\ Cases_on ‘mlstring_dec t’ \\ fs []
   \\ Cases_on ‘k’ \\ fs []
   \\ Cases_on ‘namespace_dec' n d r’ \\ fs []
   \\ Cases_on ‘namespace_dec'_list n d r'’ \\ fs []
-  \\ ‘dec_ok string_dec’ by fs [string_dec_ok]
+  \\ ‘dec_ok mlstring_dec’ by fs [mlstring_dec_ok]
   \\ fs [dec_ok_def]
   \\ first_x_assum (qspec_then ‘t’ mp_tac) \\ fs []
 QED
@@ -699,15 +706,15 @@ Proof
   \\ simp [Once namespace_dec'_def]
   THEN1
    (‘enc_dec_ok
-        (list_enc (prod_enc (list_enc char_enc) e))
-        (list_dec (prod_dec string_dec d))’ by
+        (list_enc (prod_enc mlstring_enc e))
+        (list_dec (prod_dec mlstring_dec d))’ by
      (irule list_enc_dec_ok
-      \\ irule prod_enc_dec_ok \\ fs [string_enc_dec_ok])
+      \\ irule prod_enc_dec_ok \\ fs [mlstring_enc_dec_ok])
     \\ fs [enc_dec_ok_def] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ ‘namespace_depth_list x ≤ l - 1’ by fs []
     \\ res_tac \\ fs [])
   \\ rpt (pairarg_tac \\ fs [])
-  \\ ‘enc_dec_ok (list_enc char_enc) string_dec’ by fs [string_enc_dec_ok]
+  \\ ‘enc_dec_ok mlstring_enc mlstring_dec’ by fs [mlstring_enc_dec_ok]
   \\ fs [enc_dec_ok_def] \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
   \\ gvs [] \\ rev_full_simp_tac std_ss [GSYM APPEND_ASSOC] \\ gvs []
   \\ ‘namespace_depth x ≤ l - 1’ by fs [MAX_DEF]
@@ -841,4 +848,3 @@ Proof
   \\ rw [] \\ once_rewrite_tac [num_to_chars_def,nums_to_chars_def]
   \\ rw [] \\ EVAL_TAC
 QED
-

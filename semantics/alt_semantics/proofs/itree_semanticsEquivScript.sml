@@ -377,10 +377,10 @@ QED
 Theorem estep_to_Effi:
   estep ea = Effi (ExtCall s) conf ws lnum env st cs ⇔
   ∃env' conf' b.
-    conf = MAP (λc. n2w (ORD c)) (EXPLODE conf') ∧
+    conf = MAP (λc. n2w (ORD c)) (explode conf') ∧
     ea = (env',st,Val (Litv (StrLit conf')),
             (Capp (FFI s) [Loc b lnum] [],env)::cs) ∧
-    store_lookup lnum st = SOME (W8array ws) ∧ s ≠ ""
+    store_lookup lnum st = SOME (W8array ws) ∧ s ≠ «»
 Proof
   PairCases_on `ea` >>
   rename [‘(ea0,ea1,ea2,ea3) = (_, st, Val _, (Capp _ _ _, env)::cs)’] >>
@@ -416,8 +416,8 @@ Theorem dstep_to_Dffi:
     dst = dst' ∧ dcs = dcs' ∧
     dev = ExpVal env'' (Val (Litv (StrLit conf)))
             ((Capp (FFI s) [Loc b lnum] [],env')::cs) locs pat ∧
-    ws1 = MAP (λc. n2w (ORD c)) (EXPLODE conf) ∧
-    store_lookup lnum dst.refs = SOME (W8array ws2) ∧ s ≠ ""
+    ws1 = MAP (λc. n2w (ORD c)) (explode conf) ∧
+    store_lookup lnum dst.refs = SOME (W8array ws2) ∧ s ≠ «»
 Proof
   Cases_on `∃d. dev = Decl d` >> gvs[dstep_def]
   >- (Cases_on `d` >> gvs[dstep_def] >> every_case_tac >> gvs[]) >>
@@ -443,7 +443,7 @@ Theorem decl_step_ffi_changed_dstep_to_Dffi:
             ((Capp (FFI s) [Loc b lnum] [], env'') :: ccs) locs pat ∧
     store_lookup lnum dst1.refs = SOME (W8array ws) ∧
     dstep env dst1 dev1 dcs = Dffi dst1
-      (ExtCall s,MAP (λc. n2w $ ORD c) (EXPLODE conf),ws,lnum,env'',ccs)
+      (ExtCall s,MAP (λc. n2w $ ORD c) (explode conf),ws,lnum,env'',ccs)
       locs pat dcs'
 Proof
   rw[] >> drule_all decl_step_ffi_changed >> rw[] >>
@@ -477,7 +477,7 @@ Proof
   every_case_tac >> gvs[dget_ffi_def] >>
   gvs[store_lookup_def, store_assign_def, store_v_same_type_def, dstate_rel_def] >>
   rw[ffi_state_component_equality] >>
-  simp[combinTheory.o_DEF, stringTheory.IMPLODE_EXPLODE_I]
+  simp[combinTheory.o_DEF]
 QED
 
 Theorem step_result_rel_single_FFI_error:
@@ -494,7 +494,7 @@ Proof
   gvs[step_result_rel_cases, ctxt_rel_def] >>
   gvs[GSYM ctxt_rel_def, ctxt_frame_rel_cases] >> pairarg_tac >> gvs[] >>
   simp[SF itree_ss, application_def] >> gvs[call_FFI_def, AllCaseEqs()] >>
-  simp[combinTheory.o_DEF, stringTheory.IMPLODE_EXPLODE_I]
+  simp[combinTheory.o_DEF]
 QED
 
 Theorem dstep_result_rel_single_FFI_strong:
@@ -504,12 +504,12 @@ Theorem dstep_result_rel_single_FFI_strong:
     dstep env dsta deva dcsa =
     Dffi dsta' (ExtCall s,conf,ws,lnum,eenv,cs1) locs pat dcsa'
   ⇒ ∃env' ffi conf' cs2 b.
-      conf = MAP (λc. n2w (ORD c)) (EXPLODE conf') ∧
+      conf = MAP (λc. n2w (ORD c)) (explode conf') ∧
       deva = ExpVal env' (Val (Litv $ StrLit conf'))
               ((Capp (FFI s) [Loc b lnum] [], eenv)::cs1) locs pat ∧
       devb = ExpVal env' (Val (Litv $ StrLit conf'))
               ((Capp (FFI s) [Loc b lnum] () [], eenv)::cs2) locs pat ∧
-      store_lookup lnum dsta.refs = SOME (W8array ws) ∧ s ≠ "" ∧
+      store_lookup lnum dsta.refs = SOME (W8array ws) ∧ s ≠ «» ∧
       dget_ffi (Dstep (dstb, devb, dcsb)) = SOME ffi ∧
       decl_step env (dstb, devb, dcsb) =
         case ffi.oracle (ExtCall s) ffi.ffi_state conf ws of
@@ -537,7 +537,7 @@ Proof
   gvs[dstate_rel_def] >> every_case_tac >> gvs[] >>
   gvs[store_assign_def, store_lookup_def, store_v_same_type_def,
       semanticPrimitivesTheory.state_component_equality] >>
-  gvs[combinTheory.o_DEF, stringTheory.IMPLODE_EXPLODE_I]
+  gvs[combinTheory.o_DEF]
 QED
 
 Theorem dstep_result_rel_single_FFI_error:
@@ -1585,7 +1585,7 @@ Proof
   >- (goal_assum drule >> unabbrev_all_tac >>
     gvs[ffi_state_component_equality])
   >- (
-    gvs[trace_prefix_interp,stringTheory.IMPLODE_EXPLODE_I] >>
+    gvs[trace_prefix_interp] >>
     `step_n_cml env (SUC l') (Dstep (st0,devb,dcs)) = decl_step env (st',dev2,l'')` by
       simp[step_n_cml_alt_def] >>
     qpat_x_assum `deval_rel _ _` mp_tac >>
@@ -1602,7 +1602,7 @@ Proof
   )
   >- (goal_assum drule >> unabbrev_all_tac >> gvs[ffi_state_component_equality])
   >- (
-    pairarg_tac >> gvs[stringTheory.IMPLODE_EXPLODE_I] >>
+    pairarg_tac >> gvs[] >>
     `step_n_cml env (SUC l') (Dstep (st0,devb,dcs)) = decl_step env (st',dev2,l'')` by
       simp[step_n_cml_alt_def] >>
     qpat_x_assum `deval_rel _ _` mp_tac >>

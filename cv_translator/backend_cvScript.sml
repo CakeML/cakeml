@@ -83,16 +83,16 @@ Proof
 QED
 
 Theorem collect_conses_acc_lemma[local]:
-  (∀(p:((string, string) id # num) list) v q p.
+  (∀(p:((mlstring, mlstring) id # num) list) v q p.
      collect_conses p v = q ⇒
      set p ∪ set (collect_conses [] v) = set q) ∧
-  (∀(p:((string, string) id # num) list) v q p.
+  (∀(p:((mlstring, mlstring) id # num) list) v q p.
      collect_conses_list p v = q ⇒
      set p ∪ set (collect_conses_list [] v) = set q) ∧
-  (∀(p:((string, string) id # num) list) v q p.
+  (∀(p:((mlstring, mlstring) id # num) list) v q p.
      collect_conses_list2 p v = q ⇒
      set p ∪ set (collect_conses_list2 [] v) = set q) ∧
-  (∀(p:((string, string) id # num) list) v q p.
+  (∀(p:((mlstring, mlstring) id # num) list) v q p.
      collect_conses_list3 p v = q ⇒
      set p ∪ set (collect_conses_list3 [] v) = set q)
 Proof
@@ -127,16 +127,16 @@ Proof
 QED
 
 Theorem do_con_checks_collect_conses_thm:
-  (∀(p:((string, string) id # num) list) v.
+  (∀(p:((mlstring, mlstring) id # num) list) v.
      do_con_checks env_c (collect_conses [] v) =
      every_exp (one_con_check env_c) v) ∧
-  (∀(p:((string, string) id # num) list) v.
+  (∀(p:((mlstring, mlstring) id # num) list) v.
      do_con_checks env_c (collect_conses_list [] v) =
      EVERY (every_exp (one_con_check env_c)) v) ∧
-  (∀(p:((string, string) id # num) list) v.
+  (∀(p:((mlstring, mlstring) id # num) list) v.
      do_con_checks env_c (collect_conses_list2 [] v) =
      EVERY (λ(x,e). every_exp (one_con_check env_c) e) v) ∧
-  (∀(p:((string, string) id # num) list) v.
+  (∀(p:((mlstring, mlstring) id # num) list) v.
      do_con_checks env_c (collect_conses_list3 [] v) =
      EVERY (λ(x,y,e). every_exp (one_con_check env_c) e) v)
 Proof
@@ -1061,4 +1061,3 @@ Proof
 QED
 
 val _ = cv_trans word_copyTheory.copy_prop_def;
-

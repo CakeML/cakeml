@@ -365,7 +365,7 @@ Proof
   (drule_at (Pos (hd o tl))) fill_arr_spec>>
   (* help instantiate fill_arr_spec *)
   `LIST_REL (OPTION_TYPE (PAIR_TYPE (LIST_TYPE INT) BOOL)) (REPLICATE (2 * nc) NONE)
-        (REPLICATE (2 * nc) (Conv (SOME (TypeStamp "None" 2)) []))` by
+        (REPLICATE (2 * nc) (Conv (SOME (TypeStamp «None» 2)) []))` by
     simp[LIST_REL_REPLICATE_same,OPTION_TYPE_def]>>
   qpat_x_assum`NUM 1 _` assume_tac>>
   disch_then drule>>

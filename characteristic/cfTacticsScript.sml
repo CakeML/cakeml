@@ -78,7 +78,7 @@ Proof
 QED
 
 Theorem STRING_Litv[simp]:
-   STRING_TYPE s (Litv (StrLit s')) = (s = strlit s')
+   STRING_TYPE s (Litv (StrLit s')) = (s = s')
 Proof
   Cases_on`s` \\ fs [STRING_TYPE_def] \\ eq_tac \\ fs []
 QED
@@ -102,13 +102,13 @@ Proof
 QED
 
 Theorem BOOL_T_Conv[simp]:
-   BOOL T (Conv (SOME (TypeStamp "True" bool_type_num)) []) = T
+   BOOL T (Conv (SOME (TypeStamp «True» bool_type_num)) []) = T
 Proof
   fs [BOOL_def, semanticPrimitivesTheory.Boolv_def]
 QED
 
 Theorem BOOL_F_Conv[simp]:
-   BOOL F (Conv (SOME (TypeStamp "False" bool_type_num)) []) = T
+   BOOL F (Conv (SOME (TypeStamp «False» bool_type_num)) []) = T
 Proof
   fs [BOOL_def, semanticPrimitivesTheory.Boolv_def]
 QED
@@ -150,8 +150,8 @@ Proof
 QED
 
 Theorem BOOL_T =
-  EVAL ``BOOL T (Conv (SOME (TypeStamp "True" 0)) [])``
+  EVAL ``BOOL T (Conv (SOME (TypeStamp «True» 0)) [])``
 
 Theorem BOOL_F =
-  EVAL ``BOOL F (Conv (SOME (TypeStamp "False" 0)) [])``
+  EVAL ``BOOL F (Conv (SOME (TypeStamp «False» 0)) [])``
 

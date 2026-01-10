@@ -815,7 +815,7 @@ QED
 
 Theorem call_FFI_return_unchanged:
   call_FFI ffi s conf bytes = FFI_return ffi bytes' <=>
-  (s = ExtCall "" /\ bytes' = bytes)
+  (s = ExtCall «» /\ bytes' = bytes)
 Proof
   simp [ffiTheory.call_FFI_def]
   \\ every_case_tac
@@ -834,7 +834,7 @@ Proof
   >- metis_tac[]
   >- (pairarg_tac \\ gvs [])
   \\ gvs [call_FFI_return_unchanged,
-          Q.SPECL [`x`, `ExtCall ""`] ffiTheory.call_FFI_def]
+          Q.SPECL [`x`, `ExtCall «»`] ffiTheory.call_FFI_def]
 QED
 
 Theorem evaluate_ffi_intro:

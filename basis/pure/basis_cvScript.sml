@@ -16,11 +16,21 @@ val _ = cv_trans miscTheory.SmartAppend_def;
 val _ = cv_trans miscTheory.append_aux_def;
 val _ = cv_trans miscTheory.append_def;
 val _ = cv_trans miscTheory.tlookup_def;
+
 val _ = cv_trans mlstringTheory.implode_def;
 val _ = cv_trans mlstringTheory.explode_thm;
 val _ = cv_trans mlstringTheory.strcat_thm;
 val _ = cv_trans mlstringTheory.str_def;
 val _ = cv_auto_trans mlstringTheory.concat_def;
+
+val res = cv_trans_pre "strsub_pre" mlstringTheory.strsub_def;
+
+Theorem strsub_pre[cv_pre]:
+  ∀v n. strsub_pre v n ⇔ n < strlen v
+Proof
+  Cases \\ simp [Once res, mlstringTheory.strlen_def]
+QED
+
 val _ = cv_trans miscTheory.list_max_def;
 val _ = cv_trans (miscTheory.max3_def |> PURE_REWRITE_RULE [GREATER_DEF]);
 

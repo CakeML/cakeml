@@ -195,7 +195,7 @@ Definition compile_def:
     case (FLOOKUP ctxt.vars ptr1, FLOOKUP ctxt.vars len1,
           FLOOKUP ctxt.vars ptr2, FLOOKUP ctxt.vars len2) of
      | (SOME pc, SOME lc, SOME pc', SOME lc') =>
-         FFI (explode f) pc lc pc' lc' l
+         FFI f pc lc pc' lc' l
      | _ => Skip)
 End
 

@@ -2915,7 +2915,7 @@ Proof
     first_x_assum (irule_at Any)>>
     simp[])>>
   rpt xlet_autop>>
-  `BOOL T (Conv (SOME (TypeStamp "True" 0)) [])` by EVAL_TAC>>
+  `BOOL T (Conv (SOME (TypeStamp «True» 0)) [])` by EVAL_TAC>>
   xlet_autop>>
   qmatch_asmsub_abbrev_tac`LIST_REL (OPTION_TYPE bconstraint_TYPE) fmlls fmllsv`>>
   qmatch_asmsub_abbrev_tac`LIST_TYPE _ inds indsv`>>

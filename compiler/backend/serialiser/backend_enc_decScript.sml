@@ -27,7 +27,8 @@ val enc_dec_mapping =
         (“:num”,  “num_enc'”,  “num_dec'” ),
         (“:int”,  “int_enc'”,  “int_dec'” ),
         (“:char”, “chr_enc'”,  “chr_dec'” ),
-        (“:word64”, “word64_enc'”, “word64_dec'” )]);
+        (“:word64”, “word64_enc'”, “word64_dec'”),
+        (“:mlstring”, “mlstring_enc'”, “mlstring_dec'”)]);
 
 fun reg_enc_dec_only ty enc dec =
    (enc_dec_mapping := (ty,enc,dec) :: (!enc_dec_mapping));

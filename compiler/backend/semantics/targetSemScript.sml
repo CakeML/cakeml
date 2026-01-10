@@ -317,7 +317,7 @@ Definition ffi_interfer_ok_def:
          (index < i ==>
            read_ffi_bytearrays mc_conf ms2 = (SOME bytes, SOME bytes2) ∧
            LENGTH new_bytes = LENGTH bytes2 ∧
-           (EL index mc_conf.ffi_names = ExtCall "" ⇒ new_bytes = bytes2) ∧
+           (EL index mc_conf.ffi_names = ExtCall «» ⇒ new_bytes = bytes2) ∧
            target_state_rel mc_conf.target
              (t1 with pc := -n2w ((3 + index) * ffi_offset) + pc) ms2 ∧
            aligned mc_conf.target.config.code_alignment
@@ -466,4 +466,3 @@ Definition installed_def:
                                    shmem_extra)) /\
     cbspace + LENGTH bytes + ffi_offset * (i + 3) < dimword (:'a))
 End
-

@@ -127,7 +127,7 @@ val tidy_up =
 val _ = ml_prog_update (open_module "Repl");
 
 (* declares: val exn = ref Bind; *)
-val bind_e = ``App Opref [Con (SOME (Short "Bind")) []]``
+val bind_e = ``App Opref [Con (SOME (Short «Bind»)) []]``
 val eval_thm = let
   val env = get_ml_prog_state () |> ml_progLib.get_env
   val st = get_ml_prog_state () |> ml_progLib.get_state

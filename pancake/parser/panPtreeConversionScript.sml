@@ -10,7 +10,7 @@
  *)
 Theory panPtreeConversion
 Ancestors
-  arithmetic peg pegexec grammar panLexer panLang panPEG combin mlmap
+  arithmetic peg pegexec grammar panLexer panLang panPEG combin mlmap mlstring mlint
 Libs
   stringLib numLib intLib preamble ASCIInumbersLib helperLib
 
@@ -86,14 +86,14 @@ End
 Definition conv_ident_def:
   conv_ident tree =
     case destTOK ' (destLf tree) of
-      SOME (IdentT s) => SOME (strlit s)
+      SOME (IdentT s) => SOME (implode s)
     | _ => NONE
 End
 
 Definition conv_ffi_ident_def:
   conv_ffi_ident tree =
     case destTOK ' (destLf tree) of
-      SOME (ForeignIdent s) => SOME (strlit s)
+      SOME (ForeignIdent s) => SOME (implode s)
     | _ => NONE
 End
 
@@ -498,13 +498,18 @@ Definition parsetree_locs_def:
 End
 
 Definition posn_string_def:
-  posn_string (POSN lnum cnum) = (toString lnum ++ ":" ++ toString cnum) /\
-  posn_string EOFpt = "EOF" /\
-  posn_string UNKNOWNpt = "UNKNOWN"
+  posn_string (POSN lnum cnum) = (toString lnum ^ strlit ":" ^ toString cnum) /\
+  posn_string EOFpt = strlit "EOF" /\
+  posn_string UNKNOWNpt = strlit "UNKNOWN"
 End
 
 Definition locs_comment_def:
-  locs_comment (p1, p2) = implode ("(" ++ posn_string p1 ++ " " ++ posn_string p2 ++ ")")
+  locs_comment (p1, p2) =
+  concat [strlit"(";
+    posn_string p1;
+    strlit " ";
+    posn_string p2;
+    strlit ")"]
 End
 
 Definition add_locs_annot_def:

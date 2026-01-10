@@ -22,13 +22,13 @@ End
 Definition compile_def:
   compile (s:string) =
     case parse_to_ast s of
-    | INL err_str => cake_for_err ("PARSE ERROR: " ++ err_str ++ "\n")
+    | INL err_str => cake_for_err (concat [«PARSE ERROR: »; implode err_str; «\n»])
     | INR ast =>
       (case static_scope_check ast of
-      | INL err_str => cake_for_err ("TYPE ERROR: " ++ err_str ++ "\n")
+      | INL err_str => cake_for_err (concat [«TYPE ERROR: »; err_str; «\n»])
       | INR ast' =>
        (case codegen ast of
-        | INL err_str => cake_for_err ("CODEGEN ERROR: " ++ err_str ++ "\n")
+        | INL err_str => cake_for_err (concat [«CODEGEN ERROR: »; err_str; «\n»])
         | INR cake_prog => cake_prog_to_string cake_prog))
 End
 
@@ -39,4 +39,3 @@ EVAL “compile "(print hi)"”
 Definition main_function_def:
   main_function s = implode (compile (explode s))
 End
-

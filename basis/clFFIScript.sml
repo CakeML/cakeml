@@ -71,14 +71,14 @@ QED
 (* FFI part for the commandline *)
 
 Definition encode_def:
-  encode = encode_list (Str o explode)
+  encode = encode_list Str
 End
 
 Theorem encode_11[local]:
     !x y. encode x = encode y <=> x = y
 Proof
   rw [] \\ eq_tac \\ fs [encode_def] \\ rw []
-  \\ drule encode_list_11 \\ fs [mlstringTheory.explode_11]
+  \\ drule encode_list_11 \\ fs []
 QED
 
 Theorem encode_decode_exists[local]:
@@ -96,7 +96,7 @@ val _ = export_rewrites [decode_encode_name];
 
 Definition cl_ffi_part_def:
   cl_ffi_part = (encode,decode,
-    [("get_arg_count",ffi_get_arg_count);
-     ("get_arg_length",ffi_get_arg_length);
-     ("get_arg",ffi_get_arg)])
+    [(«get_arg_count»,ffi_get_arg_count);
+     («get_arg_length»,ffi_get_arg_length);
+     («get_arg»,ffi_get_arg)])
 End

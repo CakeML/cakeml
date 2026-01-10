@@ -87,12 +87,12 @@ End
 
 Type loc = ``:num``
 
-Type ffi_next = ``:string -> word8 list -> word8 list -> ffi -> ffi ffi_result option``
+Type ffi_next = ``:mlstring -> word8 list -> word8 list -> ffi -> ffi ffi_result option``
 
 Datatype:
   heap_part = Mem loc (v semanticPrimitives$store_v)
             | FFI_split
-            | FFI_part ffi ffi_next (string list) (io_event list)
+            | FFI_part ffi ffi_next (mlstring list) (io_event list)
             | FFI_full (io_event list)
 End
 
@@ -102,12 +102,12 @@ Type hprop = ``:heap -> bool``
 Datatype:
   res = Val v
       | Exn v
-      | FFIDiv string (word8 list) (word8 list)
+      | FFIDiv mlstring (word8 list) (word8 list)
       | Div (io_event llist)
 End
 
-Type ffi_proj = ``: ('ffi -> (string |-> ffi)) #
-                    ((string list # ffi_next) list)``
+Type ffi_proj = ``: ('ffi -> (mlstring |-> ffi)) #
+                    ((mlstring list # ffi_next) list)``
 
 Definition SPLIT3_def:
   SPLIT3 (s:'a set) (u,v,w) =
@@ -178,7 +178,7 @@ End
 
 (* Injections for post-conditions *)
 Definition POST_def:
-  POST (Qv: v -> hprop) (Qe: v -> hprop) (Qf: string -> word8 list -> word8 list -> hprop) (Qd: io_event llist -> bool) = \r.
+  POST (Qv: v -> hprop) (Qe: v -> hprop) (Qf: mlstring -> word8 list -> word8 list -> hprop) (Qd: io_event llist -> bool) = \r.
     case r of
      | Val v => Qv v
      | Exn e => Qe e
@@ -195,7 +195,7 @@ val POSTe_def = new_binder_definition("POSTe_def",
       POST (\v. cond F) Qe (\name conf bytes. cond F) (\io. F)``)
 
 val POSTf_def = new_binder_definition("POSTf_def",
-  ``($POSTf) (Qf: string -> word8 list -> word8 list -> hprop) =
+  ``($POSTf) (Qf: mlstring -> word8 list -> word8 list -> hprop) =
       POST (\v. cond F) (\e. cond F) Qf (\io. F)``)
 
 val POSTd_def = new_binder_definition("POSTd_def",
@@ -250,7 +250,7 @@ Definition W8ARRAY_def:
 End
 
 Definition IO_def:
-  IO s u ns = SEP_EXISTS events. one (FFI_part s u ns events) * cond (~MEM "" ns)
+  IO s u ns = SEP_EXISTS events. one (FFI_part s u ns events) * cond (~MEM «» ns)
 End
 
 Definition IOx_def:

@@ -83,7 +83,7 @@ val res = translate x_list_strs_def;
 val res = translate x_maps_def;
 
 val dlet_empty =
-  ``Dlet unknown_loc (Pvar "x_app_list_empty") (Con (SOME (Short "Nil")) [])``;
+  ``Dlet unknown_loc (Pvar «x_app_list_empty») (Con (SOME (Short «Nil»)) [])``;
 
 val _ = ml_prog_update remove_snocs;
 

@@ -153,9 +153,10 @@ Proof
     \\ fs[cfHeapsBaseTheory.IOx_def,cl_ffi_part_def,COMMANDLINE_def,IO_def]
     \\ xsimpl
     \\ qmatch_goalsub_abbrev_tac `FFI_part s u ns`
-    \\ map_every qexists_tac [`emp`, `s`, `u`, `ns`, `events`]
+    \\ qexistsl [‘[]’, `emp`, `s`, `u`, `ns`, `events`]
     \\ xsimpl
     \\ unabbrev_all_tac \\ fs []
+    \\ rewrite_tac [mlstringTheory.implode_def]
     \\ fs[cfHeapsBaseTheory.mk_ffi_next_def,ffi_get_arg_length_def,
            GSYM cfHeapsBaseTheory.encode_list_def,LENGTH_EQ_NUM_compute]
     \\ fs [wfcl_def] \\ xsimpl
@@ -177,9 +178,10 @@ Proof
     \\ qabbrev_tac `extra = W8ARRAY av [n2w (strlen x); n2w (strlen x DIV 256)]`
     \\ xsimpl
     \\ qmatch_goalsub_abbrev_tac `FFI_part s u ns`
-    \\ map_every qexists_tac [`extra`, `s`, `u`, `ns`, `events`]
+    \\ qexistsl [‘[]’, `extra`, `s`, `u`, `ns`, `events`]
     \\ xsimpl
     \\ unabbrev_all_tac \\ fs []
+    \\ rewrite_tac [mlstringTheory.implode_def]
     \\ fs[cfHeapsBaseTheory.mk_ffi_next_def,ffi_get_arg_def,
            GSYM cfHeapsBaseTheory.encode_list_def,LENGTH_EQ_NUM_compute]
     \\ fs [wfcl_def,SUC_SUC_MAX2,two_byte_sum] \\ xsimpl
@@ -236,8 +238,9 @@ Proof
     \\ fs[cfHeapsBaseTheory.IOx_def,cl_ffi_part_def,IO_def]
     \\ xsimpl
     \\ qmatch_goalsub_abbrev_tac `FFI_part s u ns`
-    \\ map_every qexists_tac [`emp`, `s`, `u`, `ns`, `events`]
+    \\ qexistsl [‘[]’, `emp`, `s`, `u`, `ns`, `events`]
     \\ xsimpl
+    \\ rewrite_tac [mlstringTheory.implode_def]
     \\ unabbrev_all_tac \\ fs []
     \\ fs[cfHeapsBaseTheory.mk_ffi_next_def,ffi_get_arg_count_def,
            GSYM cfHeapsBaseTheory.encode_list_def]
@@ -289,9 +292,9 @@ End
 
 Theorem EvalM_name:
    Eval env exp (UNIT_TYPE u) /\
-    (nsLookup env.v (Long "CommandLine" (Short "name")) =
+    (nsLookup env.v (Long «CommandLine» (Short «name»)) =
       SOME CommandLine_name_v) ==>
-    EvalM F env st (App Opapp [Var (Long "CommandLine" (Short "name")); exp])
+    EvalM F env st (App Opapp [Var (Long «CommandLine» (Short «name»)); exp])
       (MONAD STRING_TYPE exc_ty (name u))
       (COMMANDLINE,p:'ffi ffi_proj)
 Proof
@@ -321,9 +324,9 @@ End
 
 Theorem EvalM_arguments:
    Eval env exp (UNIT_TYPE u) /\
-    (nsLookup env.v (Long "CommandLine" (Short "arguments")) =
+    (nsLookup env.v (Long «CommandLine» (Short «arguments»)) =
        SOME CommandLine_arguments_v) ==>
-    EvalM F env st (App Opapp [Var (Long "CommandLine" (Short "arguments")); exp])
+    EvalM F env st (App Opapp [Var (Long «CommandLine» (Short «arguments»)); exp])
       (MONAD (LIST_TYPE STRING_TYPE) exc_ty (arguments u))
       (COMMANDLINE,p:'ffi ffi_proj)
 Proof

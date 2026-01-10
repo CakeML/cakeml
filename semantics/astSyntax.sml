@@ -8,7 +8,7 @@ structure astSyntax = struct
   open semanticPrimitivesSyntax astTheory;
   in
   fun id_ty tyM tyV = mk_thy_type{Thy="namespace",Tyop="id",Args=[tyM,tyV]};
-  val str_id_ty = id_ty stringSyntax.string_ty stringSyntax.string_ty;
+  val ml_str_id_ty = id_ty mlstringSyntax.mlstring_ty mlstringSyntax.mlstring_ty;
   (* types *)
   val lit_ty = mk_thy_type{Thy="ast",Tyop="lit",Args=[]};
   val opn_ty = mk_thy_type{Thy="ast",Tyop="opn",Args=[]};

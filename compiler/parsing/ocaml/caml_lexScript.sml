@@ -36,14 +36,14 @@ Datatype:
     | THEN_T | THENC_T | THENL_T | THEN_TCL_T
     | ORELSE_T | ORELSEC_T | ORELSE_TCL_T
     (* CakeML pragma *)
-    | PragmaT string
+    | PragmaT mlstring
     (* literals and identifiers: *)
     | IntT int
-    | FloatT string
+    | FloatT mlstring
     | CharT char
-    | StringT string
-    | IdentT string
-    | SymbolT string    (* symbols *)
+    | StringT mlstring
+    | IdentT mlstring
+    | SymbolT mlstring    (* symbols *)
     | LexErrorT
 End
 
@@ -827,19 +827,19 @@ Definition get_token_def:
     if s = "ORELSE_TCL" then ORELSE_TCL_T else
     (* identifiers or symbols *)
       let c = HD s in
-        if isAlpha c ∨ c = #"_" then IdentT s else
-          SymbolT s
+        if isAlpha c ∨ c = #"_" then IdentT (implode s) else
+          SymbolT (implode s)
 End
 
 Definition sym2token_def:
   sym2token s =
     case s of
       NumberS i => IntT i
-    | FloatS s => FloatT s
-    | StringS s => StringT s
+    | FloatS s => FloatT (implode s)
+    | StringS s => StringT (implode s)
     | CharS c => CharT c
     | ErrorS => LexErrorT
-    | PragmaS s => PragmaT s
+    | PragmaS s => PragmaT (implode s)
     | OtherS s => get_token s
 End
 
@@ -1042,4 +1042,3 @@ Proof
   CONV_TAC (DEPTH_CONV PMCONV)
   \\ Cases \\ rw []
 QED
-

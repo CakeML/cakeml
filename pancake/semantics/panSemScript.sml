@@ -576,7 +576,7 @@ Definition evaluate_def:
         (case (read_bytearray sz1 (w2n ad1) (mem_load_byte s.memory s.memaddrs s.be),
                read_bytearray sz2 (w2n ad2) (mem_load_byte s.memory s.memaddrs s.be)) of
          | SOME bytes,SOME bytes2 =>
-           (case call_FFI s.ffi (ExtCall (explode ffi_index)) bytes bytes2 of
+           (case call_FFI s.ffi (ExtCall ffi_index) bytes bytes2 of
             | FFI_final outcome => (SOME (FinalFFI outcome), empty_locals s)
             | FFI_return new_ffi new_bytes =>
                 let nmem = write_bytearray sz2 new_bytes s.memory s.memaddrs s.be in

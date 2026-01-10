@@ -840,8 +840,8 @@ Termination
   >-
    (irule LESS_EQ_LESS_TRANS
     \\ qexists_tac ‘list_size
-           (pair_size (list_size char_size)
-              (pair_size (list_size char_size) exp_size)) fs’
+           (pair_size mlstring_size
+              (pair_size mlstring_size exp_size)) fs’
     \\ gvs [] \\ Induct_on ‘fs’ \\ gvs [FORALL_PROD])
   \\ irule LESS_EQ_LESS_TRANS
   \\ qexists_tac ‘list_size (pair_size pat_size exp_size) pes’ \\ gvs []

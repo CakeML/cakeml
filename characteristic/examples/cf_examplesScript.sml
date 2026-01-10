@@ -385,13 +385,13 @@ Theorem strcat_foo_spec[local]:
     app (p:'ffi ffi_proj) strcat_foo_v [rv]
       (REF rv sv)
       (POSTv uv. SEP_EXISTS sv'.
-           &(UNIT_TYPE () uv /\ STRING_TYPE (s ^ implode "foo") sv') *
+           &(UNIT_TYPE () uv /\ STRING_TYPE (s ^ «foo») sv') *
            REF rv sv')
 Proof
   rpt strip_tac >>
   xcf' "strcat_foo" >>
   xlet_auto >- xsimpl >>
-  xlet `POSTv sv'. &(STRING_TYPE (s ^ implode "foo") sv') * rv ~~> sv`
+  xlet `POSTv sv'. &(STRING_TYPE (s ^ «foo») sv') * rv ~~> sv`
   >- (xapp >> xsimpl >> simp[mlstringTheory.implode_def] >> metis_tac[]) >>
   rveq >> xapp >> xsimpl
 QED
@@ -408,7 +408,7 @@ Theorem example_ffidiv_spec[local]:
       (POST
          (λuv. &(UNIT_TYPE () uv) * &(¬b) * RUNTIME)
          (λev. &F)
-         (λn conf bytes. &b * &(n = "exit" /\ conf = [] /\ bytes = [1w])
+         (λn conf bytes. &b * &(n = «exit» /\ conf = [] /\ bytes = [1w])
                   * RUNTIME)
          (λio. F))
 Proof
