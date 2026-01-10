@@ -3460,12 +3460,19 @@ Proof
     irule_at Any strong_locals_rel_I_insert_insert >> simp[] >>
     irule_at Any strong_locals_rel_I_insert_insert >> simp[] >>
     irule_at Any strong_locals_rel_subset >>
-    first_x_assum (irule_at Any) >>
+    first_assum (irule_at Any) >>
     simp[SUBSET_DEF] >>
-    TRY(first_x_assum (irule_at Any)) >>
-    rw[] >> fsrw_tac[DNF_ss][] >> gvs[] >> NO_TAC)
-  (* 7 subgoals left *)
-  cheat
+    TRY(first_assum (irule_at Any)) >>
+    rw[] >> fsrw_tac[DNF_ss][] >> gvs[] >> NO_TAC) >>
+  TRY (
+    imp_res_tac strong_locals_rel_I_get_var >>
+    TRY pairarg_tac >>
+    gvs[get_var_def, the_words_def, CaseEq"option", CaseEq"word_loc",
+        mem_store_def] >>
+    irule_at Any strong_locals_rel_subset >> simp[] >>
+    rpt(first_assum (irule_at Any)) >>
+    simp[SUBSET_DEF] >>
+    metis_tac[INSERT_COMM] )
  )
   >~[`Get`] >- (
     gvs[evaluate_def,remove_dead_def,AllCaseEqs(),set_var_def]
