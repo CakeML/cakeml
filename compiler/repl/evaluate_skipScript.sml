@@ -809,7 +809,7 @@ Theorem v_rel_IMP_check_type_eq[local]:
   v_rel fr ft fe v1 w1 ⇒ (check_type ty v1 = check_type ty w1)
 Proof
   simp [Once v_rel_cases] \\ rw [] \\ simp [check_type_def]
-  \\ Cases_on ‘ty’ \\ TRY (rename [‘WordT ww’] \\ Cases_on ‘ww’)
+  \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
   \\ gvs [check_type_def,Boolv_def]
   \\ eq_tac \\ rw [] \\ gvs [OPTREL_def,stamp_rel_cases]
   \\ gvs [state_rel_def]
@@ -840,7 +840,7 @@ Proof
    (gvs [check_type_def,the_Litv_Float64_def]
    \\ fs [Once v_rel_cases])
   >-
-   (Cases_on ‘ty’ \\ TRY (rename [‘WordT ww’] \\ Cases_on ‘ww’)
+   (Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
     \\ gvs [check_type_def]
     \\ fs [do_eq_def,Boolv_def] \\ EVAL_TAC
     \\ rpt $ pop_assum mp_tac
@@ -861,8 +861,7 @@ Proof
   \\ drule v_rel_IMP_check_type_eq
   \\ strip_tac
   \\ rw[OPTREL_def]
-  \\ Cases_on ‘a’ \\ Cases_on ‘ty’
-  \\ TRY(rename1 ‘WordT w’ \\ Cases_on ‘w’)
+  \\ Cases_on ‘a’ \\ Cases_on ‘ty’ using prim_type_cases
   \\ rw[do_arith_def]
   \\ gvs[check_type_def, CaseEq"list", PULL_EXISTS]
   \\ simp[Once v_rel_cases]
