@@ -382,11 +382,11 @@ Quote add_cakeml:
       else if compiler_has_version_flag cl then
         print compiler_current_build_info_str
       else if compiler_has_pancake_flag cl then
-        case compiler_compile_pancake_32 cl (TextIO.inputAll (TextIO.openStdIn ()))  of
+        case compiler_compile_pancake_32 cl (String.explode (TextIO.inputAll (TextIO.openStdIn ())))  of
           (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
                      compiler32prog_nonzero_exit_code_for_error_msg e)
       else
-        case compiler_compile_32 cl (TextIO.inputAll (TextIO.openStdIn ()))  of
+        case compiler_compile_32 cl (String.explode (TextIO.inputAll (TextIO.openStdIn ())))  of
           (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
                      compiler32prog_nonzero_exit_code_for_error_msg e)
     end
@@ -468,7 +468,7 @@ Proof
       (xapp
        \\ qexistsl [‘COMMANDLINE cl’, ‘pos’, ‘fs’, ‘0’, ‘inp’, ‘[]’]
        \\ fs [STD_streams_get_mode] \\ xsimpl)
-     \\ fs [GSYM HOL_STRING_TYPE_def]
+     \\ xlet_auto >- xsimpl
      \\ xlet_auto >- xsimpl
      \\ fs [full_compile_32_def]
      \\ pairarg_tac
@@ -496,7 +496,7 @@ Proof
    (xapp
     \\ qexistsl [‘COMMANDLINE cl’, ‘pos’, ‘fs’, ‘0’, ‘inp’, ‘[]’]
     \\ fs [STD_streams_get_mode] \\ xsimpl)
-  \\ fs [GSYM HOL_STRING_TYPE_def]
+  \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ fs [full_compile_32_def]
   \\ pairarg_tac
