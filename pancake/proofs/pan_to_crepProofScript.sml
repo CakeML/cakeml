@@ -4381,7 +4381,7 @@ QED
 Theorem MAX_LIST_NOT_MEM:
   x > MAX_LIST l ⇒ ¬MEM x l
 Proof
-  Induct_on ‘l’ \\ gvs[MAX_LIST_def]
+  Induct_on ‘l’ \\ gvs[MAX_LIST_def,MAX_DEF]
 QED
 
 Theorem compile_ExtCall:
