@@ -548,6 +548,7 @@ Proof
     fs [do_app_def]
     \\ gvs [AllCaseEqs()]
     \\ Cases_on ‘ty’
+    \\ TRY(rename1 `WordT w` \\ Cases_on`w`)
     \\ gvs [semanticPrimitivesTheory.do_arith_def, AllCaseEqs()]
     \\ simp [do_app_def, semanticPrimitivesTheory.do_arith_def,
               find_sem_prim_res_globals_def, find_result_globals_def,

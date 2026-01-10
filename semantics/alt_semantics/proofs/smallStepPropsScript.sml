@@ -698,6 +698,7 @@ Theorem small_eval_app_err:
       ∀op env0 v1 v0.
         LENGTH es + LENGTH v0 > 2 ∧ op ≠ Opapp ∧ op ≠ AallocFixed
         ∧ op ≠ CopyStrStr ∧ op ≠ CopyStrAw8 ∧ op ≠ CopyAw8Str ∧ op ≠ CopyAw8Aw8
+        ∧ op ≠ Arith FMA Float64T
         ⇒
         ∃env' e' c'.
           e_step_reln^* (env0,s,Val v1,[Capp op v0 () es,env]) (env',s',e',c') ∧
@@ -713,8 +714,8 @@ Proof
     gvs[CaseEq"prod",CaseEq"result",CaseEq"error_result",
         do_app_cases,PULL_EXISTS]
     >~ [`do_arith a p`] >- (
-      Cases_on`a` \\ Cases_on`p` \\ gvs[do_arith_def, CaseEq"list"]
-      \\ Cases_on`v0` \\ gvs[] ) >>
+      Cases_on`a` \\ Cases_on`p` \\ TRY (Cases_on ‘w’)
+      \\ gvs[do_arith_def, CaseEq"list"] ) >>
     (* ThunkOp *)
     namedCases_on ‘v0’ ["", "hd tl"] >> gvs[]
     >- (Cases_on`v1` \\ simp[])
@@ -755,7 +756,8 @@ Proof
     gvs[CaseEq"prod",CaseEq"result",CaseEq"error_result",
         do_app_cases,PULL_EXISTS]
     >~ [`do_arith a p`] >- (
-      Cases_on`a` \\ Cases_on`p` \\ gvs[do_arith_def, CaseEq"list"]
+      Cases_on`a` \\ Cases_on`p` \\ TRY (Cases_on ‘w’)
+      \\ gvs[do_arith_def, CaseEq"list"]
       \\ Cases_on`v0` \\ gvs[] ) >>
     (* ThunkOp *)
     namedCases_on ‘v0’ ["", "hd tl"] >> gvs[]
