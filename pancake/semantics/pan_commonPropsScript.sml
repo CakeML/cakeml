@@ -620,7 +620,7 @@ QED
 Theorem MAX_LIST_add_not_mem:
   !xs. ~MEM (MAX_LIST xs + 1) xs
 Proof
-  Induct >> rw [] >> fs [MAX_LIST_def] >>
+  Induct >> rw [] >> fs [MAX_LIST_def,MAX_DEF] >>
   CCONTR_TAC >> fs [] >>
   every_case_tac >> fs [MAX_LIST_def] >>
   ntac 2 (pop_assum mp_tac) >> pop_assum kall_tac >>
