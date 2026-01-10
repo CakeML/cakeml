@@ -3438,9 +3438,9 @@ fun hol2deep tm =
   if (tm ~~ TRUE) then Eval_Val_BOOL_TRUE else
   if (tm ~~ FALSE) then Eval_Val_BOOL_FALSE else
   (* data-type constructor *)
-  inst_cons_thm tm hol2deep handle HOL_ERR _ =>
+  if can cons_for tm then inst_cons_thm tm hol2deep else
   (* data-type pattern-matching *)
-  inst_case_thm tm hol2deep handle HOL_ERR _ =>
+  if can TypeBase.dest_case tm then inst_case_thm tm hol2deep else
   (* recursive pattern *)
   if can match_rec_pattern tm then let
     val (lhs,fname,pre_var) = match_rec_pattern tm
@@ -3469,6 +3469,7 @@ fun hol2deep tm =
     val result = apply_arrow h ys
     in check_inv "rec_pattern" tm result end else
   (* previously translated term *)
+  if can lookup_abs_v_thm tm then
   let
     val th = lookup_abs_v_thm tm
     val _ = check_no_ind_assum tm th
@@ -3478,7 +3479,7 @@ fun hol2deep tm =
     val (ss,ii) = match_term res target handle HOL_ERR _ =>
                   match_term (rm_fix res) (rm_fix target) handle HOL_ERR _ => ([],[])
     val result = INST ss (INST_TYPE ii th)
-  in check_inv "lookup_abs_v_thm" tm result end handle NotFoundVThm _ =>
+  in check_inv "lookup_abs_v_thm" tm result end else
   (* previously translated term *)
   if can lookup_v_thm tm then let
     val th = lookup_v_thm tm
@@ -3681,6 +3682,7 @@ fun hol2deep tm =
     val th2 = INST [v|->z] th2
     val result = MATCH_MP Eval_Let (CONJ th1 th2)
     in check_inv "let" tm result end else
+  (* TODO stop recursively case spliting *)
   (* special pattern *) let
     fun pat_match pat tm = (match_term pat tm; rator pat)
     val r = pat_match MAP_pattern tm handle HOL_ERR _ =>
