@@ -377,6 +377,8 @@ QED
 
 val _ = translate print_sexp_alt_def;
 
+val _ = translate print_sexp_alt_thm;
+
 Theorem listsexp_alt[local]:
   listsexp = FOLDR (λs1 s2. SX_CONS s1 s2) nil
 Proof
