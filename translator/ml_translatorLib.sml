@@ -2982,7 +2982,6 @@ val builtin_monops =
 
 val builtin_hol_string_binops =
   [Eval_HOL_STRING_EL,
-   Eval_HOL_STRING_CONS,
    Eval_HOL_STRING_APPEND]
   |> map (fn th =>
       (th |> SPEC_ALL |> UNDISCH_ALL |> concl |> rand |> rand |> rator |> rator, th))
@@ -3468,9 +3467,36 @@ fun hol2deep tm =
   if (tm ~~ TRUE) then Eval_Val_BOOL_TRUE else
   if (tm ~~ FALSE) then Eval_Val_BOOL_FALSE else
   (* data-type constructor *)
-  inst_cons_thm tm hol2deep handle HOL_ERR _ =>
+  if use_hol_string_type () andalso type_of tm = string_ty
+     andalso can listSyntax.dest_cons tm then
+     let
+       val (x1,x2) = listSyntax.dest_cons tm
+       val th1 = hol2deep x1
+       val th2 = hol2deep x2
+       val result = MATCH_MP (MATCH_MP Eval_HOL_STRING_CONS th1) (UNDISCH_ALL th2)
+                  |> UNDISCH_ALL
+     in
+       check_inv "HOL_STRING_CONS" tm result
+     end else
+  if can cons_for tm then inst_cons_thm tm hol2deep else
+  (* if statements *)
+  if is_cond tm then
+    if is_precond (tm |> rator |> rator |> rand) then let
+      val (x1,x2,x3) = dest_cond tm
+      val th2 = hol2deep x2
+      val lemma = IF_TAKEN |> SPEC x1 |> ISPEC x2 |> SPEC x3 |> UNDISCH |> SYM
+      val result = th2 |> CONV_RULE ((RAND_CONV o RAND_CONV) (K lemma))
+      in check_inv "if" tm result end
+    else let
+      val (x1,x2,x3) = dest_cond tm
+      val th1 = hol2deep x1
+      val th2 = hol2deep x2
+      val th3 = hol2deep x3
+      val th = MATCH_MP Eval_If (LIST_CONJ [D th1, D th2, D th3])
+      val result = UNDISCH th
+      in check_inv "if" tm result end else
   (* data-type pattern-matching *)
-  inst_case_thm tm hol2deep handle HOL_ERR _ =>
+  if can TypeBase.dest_case tm then inst_case_thm tm hol2deep else
   (* recursive pattern *)
   if can match_rec_pattern tm then let
     val (lhs,fname,pre_var) = match_rec_pattern tm
@@ -3499,6 +3525,7 @@ fun hol2deep tm =
     val result = apply_arrow h ys
     in check_inv "rec_pattern" tm result end else
   (* previously translated term *)
+  if can lookup_abs_v_thm tm then
   let
     val th = lookup_abs_v_thm tm
     val _ = check_no_ind_assum tm th
@@ -3508,7 +3535,7 @@ fun hol2deep tm =
     val (ss,ii) = match_term res target handle HOL_ERR _ =>
                   match_term (rm_fix res) (rm_fix target) handle HOL_ERR _ => ([],[])
     val result = INST ss (INST_TYPE ii th)
-  in check_inv "lookup_abs_v_thm" tm result end handle NotFoundVThm _ =>
+  in check_inv "lookup_abs_v_thm" tm result end else
   (* previously translated term *)
   if can lookup_v_thm tm then let
     val th = lookup_v_thm tm
@@ -3592,22 +3619,6 @@ fun hol2deep tm =
     val th = MATCH_MP Eval_Or (LIST_CONJ [D th1, D th2])
     val result = UNDISCH th
     in check_inv "or" tm result end else
-  (* if statements *)
-  if is_cond tm then
-    if is_precond (tm |> rator |> rator |> rand) then let
-      val (x1,x2,x3) = dest_cond tm
-      val th2 = hol2deep x2
-      val lemma = IF_TAKEN |> SPEC x1 |> ISPEC x2 |> SPEC x3 |> UNDISCH |> SYM
-      val result = th2 |> CONV_RULE ((RAND_CONV o RAND_CONV) (K lemma))
-      in check_inv "if" tm result end
-    else let
-      val (x1,x2,x3) = dest_cond tm
-      val th1 = hol2deep x1
-      val th2 = hol2deep x2
-      val th3 = hol2deep x3
-      val th = MATCH_MP Eval_If (LIST_CONJ [D th1, D th2, D th3])
-      val result = UNDISCH th
-      in check_inv "if" tm result end else
   (* Num (ABS i) *)
   if can (match_term Num_ABS_pat) tm then let
     val x1 = tm |> rand |> rand
@@ -3711,6 +3722,7 @@ fun hol2deep tm =
     val th2 = INST [v|->z] th2
     val result = MATCH_MP Eval_Let (CONJ th1 th2)
     in check_inv "let" tm result end else
+  (* TODO stop recursively case spliting *)
   (* special pattern *) let
     fun pat_match pat tm = (match_term pat tm; rator pat)
     val r = pat_match MAP_pattern tm handle HOL_ERR _ =>
