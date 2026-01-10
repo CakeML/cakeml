@@ -86,14 +86,14 @@ End
 Definition conv_ident_def:
   conv_ident tree =
     case destTOK ' (destLf tree) of
-      SOME (IdentT s) => SOME (strlit s)
+      SOME (IdentT s) => SOME (implode s)
     | _ => NONE
 End
 
 Definition conv_ffi_ident_def:
   conv_ffi_ident tree =
     case destTOK ' (destLf tree) of
-      SOME (ForeignIdent s) => SOME (strlit s)
+      SOME (ForeignIdent s) => SOME (implode s)
     | _ => NONE
 End
 
