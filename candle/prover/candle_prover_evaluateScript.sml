@@ -616,6 +616,7 @@ Proof
     rw [do_app_cases] \\ gs [SF SFY_ss]
     \\ first_assum (irule_at Any)
     \\ Cases_on ‘a’ \\ Cases_on ‘ty’
+    \\ TRY (rename1 ‘WordT w’ \\ Cases_on ‘w’)
     \\ gvs[do_arith_def,CaseEq"list",CaseEq"bool"]
     \\ simp [Boolv_def]
     \\ rw [v_ok_def]

@@ -865,6 +865,22 @@ Definition do_arith_def:
      | (Mod,  [v1;v2]) => SOME (if v2 = 0 then INL div_exn_v else
                                   INR (Litv $ IntLit $ v1 % v2))
      | _ => NONE) ∧
+  (do_arith a (WordT W8) vals =
+     case (a, MAP the_Litv_Word8 vals) of
+     | (Add, [v1;v2]) => SOME (INR $ Litv $ Word8 $ word_add v1 v2)
+     | (Sub, [v1;v2]) => SOME (INR $ Litv $ Word8 $ word_sub v1 v2)
+     | (And, [v1;v2]) => SOME (INR $ Litv $ Word8 $ word_and v1 v2)
+     | (Or,  [v1;v2]) => SOME (INR $ Litv $ Word8 $ word_or v1 v2)
+     | (Xor, [v1;v2]) => SOME (INR $ Litv $ Word8 $ word_xor v1 v2)
+     | _ => NONE) ∧
+  (do_arith a (WordT W64) vals =
+     case (a, MAP the_Litv_Word64 vals) of
+     | (Add, [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_add v1 v2)
+     | (Sub, [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_sub v1 v2)
+     | (And, [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_and v1 v2)
+     | (Or,  [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_or v1 v2)
+     | (Xor, [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_xor v1 v2)
+     | _ => NONE) ∧
   (do_arith a _ vals = NONE)
 End
 

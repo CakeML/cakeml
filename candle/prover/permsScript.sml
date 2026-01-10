@@ -542,7 +542,7 @@ Proof
   \\ Cases_on ‘∃a ty. op = Arith a ty’ \\ gs []
   >- (
     rw [do_app_cases]
-    \\ Cases_on ‘a’ \\ Cases_on ‘ty’
+    \\ Cases_on ‘a’ \\ Cases_on ‘ty’ \\ TRY(rename1 ‘WordT w’ \\ Cases_on ‘w’)
     \\ gvs [do_arith_def, CaseEq"list",CaseEq"sum"]
     \\ simp [Boolv_def]
     \\ rw [perms_ok_def])

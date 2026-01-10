@@ -1331,7 +1331,10 @@ Proof
        \\ Cases_on ‘ty’
        >> gvs [t_of_def, deBruijn_subst_def, EVERY_REPLICATE,
                LENGTH_EQ_NUM_compute, REPLICATE_compute]
-       >> Cases_on ‘a’
+       >> TRY (Cases_on ‘w’)
+       >> gvs [t_of_def, deBruijn_subst_def, EVERY_REPLICATE,
+               LENGTH_EQ_NUM_compute, REPLICATE_compute]
+       >> TRY (Cases_on ‘a’)
        >> gvs [t_of_def, deBruijn_subst_def, EVERY_REPLICATE,
                LENGTH_EQ_NUM_compute, REPLICATE_compute])
      >~ [‘supported_conversion ty1 ty2’] >-

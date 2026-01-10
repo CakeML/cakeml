@@ -783,10 +783,12 @@ Proof
                  eq_result_nchotomy, eq_same_type]) >~
   [‘Arith a ty’]
   >- (rw [do_app_cases, PULL_EXISTS] >>
-      Cases_on ‘ty’ >> gvs[supported_arith_def, t_of_def]
+      Cases_on ‘ty’ >> TRY (Cases_on ‘w’) >>
+      gvs[supported_arith_def, t_of_def]
       >> gvs[LIST_REL_def,LENGTH_EQ_NUM_compute] >>
       imp_res_tac prim_canonical_values_thm >> gvs[] >>
-      res_tac >> gvs[check_type_def, the_Litv_IntLit_def, do_arith_def] >>
+      res_tac >> gvs[check_type_def, the_Litv_IntLit_def, the_Litv_Word8_def,
+                     the_Litv_Word64_def, do_arith_def] >>
       rw[] >>
       TRY (rename1 ‘divisor = 0’ >> Cases_on ‘divisor = 0’ >> gvs[]
            >- (simp[div_exn_v_def] >> fs[ctMap_has_exns_def])) >>
