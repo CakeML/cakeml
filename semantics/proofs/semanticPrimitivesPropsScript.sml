@@ -751,12 +751,12 @@ Proof
 QED
 
 Theorem do_conversion_check_type:
-  do_conversion v ty1 ty2 = SOME res ⇒
+  do_conversion v ty1 ty2 = SOME (INR res) ⇒
   check_type ty2 res
 Proof
   Cases_on ‘ty2’ using prim_type_cases
-  \\ rw [semanticPrimitivesTheory.check_type_def]
-  \\ gvs [oneline do_conversion_def,AllCaseEqs()]
+  \\ gvs [oneline do_conversion_def, AllCaseEqs()]
+  \\ rw [] \\ fs [semanticPrimitivesTheory.check_type_def]
 QED
 
 Theorem do_arith_check_type:

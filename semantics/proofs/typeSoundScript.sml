@@ -801,14 +801,17 @@ Proof
   >- (rw [do_app_cases, PULL_EXISTS] >>
       Cases_on ‘ty1’ using prim_type_cases >>
       Cases_on ‘ty2’ using prim_type_cases >>
-      gvs[supported_conversion_def, do_conversion_def, check_type_def,
-          t_of_def, the_Litv_Word8_def] >>
-      imp_res_tac prim_canonical_values_thm >> gvs[] >> simp [Once type_v_cases] >>
-      qexists_tac ‘tenvS’ >> rw [store_type_extension_refl] >>
-      qpat_x_assum ‘∀_ _ _. _ ⇒ ∃n. _ = Litv (Word8 n)’
-        (qspec_then ‘x’ mp_tac) >> simp[] >> strip_tac >>
-      first_x_assum drule >> strip_tac >>
-      gvs[the_Litv_Word8_def] >> simp [Once type_v_cases]) >~
+      gvs[supported_conversion_def, t_of_def] >>
+      imp_res_tac prim_canonical_values_thm >> gvs[] >>
+      res_tac >> gvs[check_type_def, do_conversion_def,
+          the_Litv_Word8_def, the_Litv_Word64_def,
+          the_Litv_IntLit_def, the_Litv_Char_def, the_Litv_Float64_def] >>
+      rw[] >>
+      TRY (rename1 ‘i < 0 ∨ i > 255’ >> Cases_on ‘i < 0 ∨ i > 255’ >> gvs[]
+           >- (simp[chr_exn_v_def] >> fs[ctMap_has_exns_def])) >>
+      qexists_tac ‘tenvS’ >>
+      simp[store_type_extension_refl, Once type_v_cases] >>
+      simp[chr_exn_v_def] >> fs[ctMap_has_exns_def]) >~
   [‘Test’]
   >- (rw [do_app_cases, PULL_EXISTS] >>
       rename [‘do_test test ty x y’] >>
