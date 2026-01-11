@@ -8,8 +8,6 @@ Ancestors
 Libs
   preamble basis blastLib
 
-val xlet_autop = xlet_auto >- (TRY( xcon) >> xsimpl)
-
 val _ = hide_environments true;
 
 val cakeml = append_prog o process_topdecs;
@@ -17,6 +15,24 @@ val cakeml = append_prog o process_topdecs;
 (* Default inheritance path, means all programs will use
   the unsafe primitives *)
 val _ = translation_extends"UnsafeProg";
+
+Overload "vcclause_TYPE" = ``VECTOR_TYPE INT``
+
+(* TODO: MOVE? *)
+Theorem OPTION_TYPE_SPLIT:
+  OPTION_TYPE a x v ⇔
+  (x = NONE ∧ v = Conv (SOME (TypeStamp "None" 2)) []) ∨
+  (∃y vv. x = SOME y ∧ v = Conv (SOME (TypeStamp "Some" 2)) [vv] ∧ a y vv)
+Proof
+  Cases_on`x`>>rw[OPTION_TYPE_def]
+QED
+
+Theorem W8ARRAY_refl:
+  (W8ARRAY fml fmllsv ==>> W8ARRAY fml fmllsv) ∧
+  (W8ARRAY fml fmllsv ==>> W8ARRAY fml fmllsv * GC)
+Proof
+  xsimpl
+QED
 
 Quote cakeml:
   exception Fail string;
@@ -92,10 +108,11 @@ Proof
   simp[uvsub_def,oneline mlvectorTheory.sub_unsafe_def,oneline mlvectorTheory.sub_def]
 QED
 
+
 Theorem all_assigned_arr_spec:
   ∀Clist b vec i bv vecv iv Carrv.
   WORD8 b bv ∧
-  VECTOR_TYPE INT vec vecv ∧
+  vcclause_TYPE vec vecv ∧
   NUM i iv ∧
   all_assigned_list' Clist b vec i = SOME res
   ⇒
@@ -452,3 +469,179 @@ Proof
   xcon>>xsimpl>>
   metis_tac[init_lit_map_list']
 QED
+
+Quote cakeml:
+  fun unit_prop_arr lno fml carr b hints =
+    case hints of
+      [] => False
+    | i::is =>
+      if i < Array.length fml
+      then
+        case Unsafe.sub fml i of
+          None =>
+            raise Fail (format_failure lno ("invalid clause hint (maybe deleted): " ^ Int.toString i))
+        | Some c =>
+          if delete_literals_sing_arr lno carr b c (Vector.length c)
+          then
+            True
+          else
+            unit_prop_arr lno fml carr b is
+      else
+        raise Fail (format_failure lno ("invalid clause hint: " ^ Int.toString i))
+End
+
+Theorem unit_prop_arr_spec:
+  ∀ls lsv Carrv Clist b bv res.
+  NUM lno lnov ∧
+  LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
+  WORD8 b bv ∧
+  LIST_TYPE NUM ls lsv ∧
+  unit_prop_list' fmlls Clist b ls = SOME res
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "unit_prop_arr" (get_ml_prog_state()))
+    [lnov; fmlv; Carrv; bv; lsv]
+    (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
+    (POSTve
+      (λv.
+        ARRAY fmlv fmllsv *
+        SEP_EXISTS b' Clist'.
+        W8ARRAY Carrv Clist' *
+        &(res = SOME(b',Clist') ∧ BOOL b' v))
+      (λe.
+        ARRAY fmlv fmllsv *
+        SEP_EXISTS Clist'.
+        W8ARRAY Carrv Clist' *
+        &(Fail_exn e ∧ res = NONE))
+    )
+Proof
+  Induct>>rw[]>>
+  pop_assum mp_tac>>
+  simp[Once unit_prop_list'_def]>>
+  strip_tac>>
+  xcf "unit_prop_arr" (get_ml_prog_state ())>>
+  gvs[LIST_TYPE_def]>>
+  xmatch
+  >- (
+    xcon>>xsimpl>>
+    EVAL_TAC)>>
+  rpt xlet_autop>>
+  drule LIST_REL_LENGTH>>
+  rw[]>>
+  reverse xif>>gvs[any_el_ALT]
+  >- (
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    metis_tac[Fail_exn_def])>>
+  rename1`EL h fmlls`>>
+  `OPTION_TYPE vcclause_TYPE (EL h fmlls) (EL h fmllsv)` by fs[LIST_REL_EL_EQN]>>
+  rpt xlet_autop>>
+  gvs[OPTION_TYPE_SPLIT]>>
+  xmatch
+  >- (
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    metis_tac[Fail_exn_def])>>
+  rpt xlet_autop
+  >- (
+    xsimpl>>
+    rw[]>>gvs[])>>
+  xif>>gvs[]
+  >- (
+    xcon>>xsimpl>>
+    EVAL_TAC)>>
+  xapp>>xsimpl>>
+  first_x_assum $ irule_at Any>>xsimpl
+QED
+
+Quote cakeml:
+  fun is_rup_arr lno fml carr b v hints =
+  case prepare_rup carr b v of (carr',b') =>
+  if unit_prop_arr lno fml carr' b' hints
+  then b'
+  else
+    raise Fail (format_failure lno ("unit propagation did not prove RUP"))
+End
+
+(* Note, we will prove this spec in two parts *)
+Theorem is_rup_arr_spec':
+  NUM lno lnov ∧
+  LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
+  WORD8 b bv ∧
+  vcclause_TYPE v vv ∧
+  LIST_TYPE NUM ls lsv ∧
+  is_rup_list' fmlls Clist b v ls = SOME res
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "is_rup_arr" (get_ml_prog_state()))
+    [lnov; fmlv; Carrv; bv; vv; lsv]
+    (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
+    (POSTve
+      (λv.
+        ARRAY fmlv fmllsv *
+        SEP_EXISTS b' Carrv' Clist'.
+        W8ARRAY Carrv' Clist' *
+        &(res = (T,(Clist',b')) ∧
+          WORD8 b' v))
+      (λe.
+        ARRAY fmlv fmllsv *
+        SEP_EXISTS b' Carrv' Clist'.
+        W8ARRAY Carrv' Clist' *
+        &(Fail_exn e ∧ FST res = F))
+    )
+Proof
+  rw[]>>
+  xcf "is_rup_arr" (get_ml_prog_state ())>>
+  xlet_autop>>
+  gvs[is_rup_list'_def]>>
+  xmatch>>
+  xlet_autop
+  >- (
+    xsimpl>>
+    metis_tac[W8ARRAY_refl])>>
+  xif
+  >- (
+    xvar>>xsimpl>>
+    metis_tac[W8ARRAY_refl])>>
+  rpt xlet_autop>>
+  xraise>>
+  xsimpl>>
+  metis_tac[Fail_exn_def,W8ARRAY_refl]
+QED
+
+Theorem is_rup_arr_spec:
+  NUM lno lnov ∧
+  LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
+  WORD8 b bv ∧
+  vcclause_TYPE v vv ∧
+  LIST_TYPE NUM ls lsv ∧
+  bnd_fml fmlls (LENGTH Clist)
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "is_rup_arr" (get_ml_prog_state()))
+    [lnov; fmlv; Carrv; bv; vv; lsv]
+    (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
+    (POSTve
+      (λres.
+        ARRAY fmlv fmllsv *
+        SEP_EXISTS b' Carrv' Clist'.
+        W8ARRAY Carrv' Clist' *
+        &(is_rup_list fmlls Clist b v ls = (T,(Clist',b')) ∧
+          WORD8 b' res))
+      (λe.
+        ARRAY fmlv fmllsv *
+        SEP_EXISTS b' Carrv' Clist'.
+        W8ARRAY Carrv' Clist' *
+        &(Fail_exn e ∧
+          FST (is_rup_list fmlls Clist b v ls) = F))
+    )
+Proof
+  rw[]>>
+  drule is_rup_list'_SOME>>
+  disch_then (qspecl_then [`v`,`ls`,`b`] assume_tac)>>
+  fs[IS_SOME_EXISTS]>>
+  drule_all is_rup_arr_spec'>>
+  drule is_rup_list'>>
+  rw[]
+QED
+
