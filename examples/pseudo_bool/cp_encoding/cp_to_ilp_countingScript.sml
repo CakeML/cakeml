@@ -520,15 +520,18 @@ Proof
   gs[Once EVERY_MEM,MEM_MAPi,SF DNF_ss,iconstraint_sem_def]>>
   drule_then (fn thm => gs[thm]) encode_bitsum_sem>>
   gs[MAP_GENLIST,o_ABS_R,count_sem_def]>>
-  qmatch_asmsub_abbrev_tac ‘s1 = varc wi Z’>>
-  qmatch_goalsub_abbrev_tac ‘varc wi Z = s2’>>
-  ‘s1 = s2’ suffices_by simp[]>>
-  unabbrev_all_tac>>
+  pop_assum (SUBST_ALL_TAC o SYM)>>
   cong_tac NONE>>
   rw[GENLIST_eq_MAP]>>
   cong_tac NONE>>
-  res_tac>>
-  cheat
+  last_x_assum kall_tac>>
+  last_x_assum $ drule_then (fn thm => assume_tac $ GSYM thm)>>
+  last_x_assum $ drule_then (fn thm => assume_tac $ GSYM thm)>>
+  last_x_assum $ drule_then (fn thm => assume_tac $ GSYM thm)>>
+  pop_assum SUBST_ALL_TAC>>
+  pop_assum SUBST_ALL_TAC>>
+  pop_assum SUBST_ALL_TAC>>
+  intLib.ARITH_TAC
 QED
 
 Definition eqij_def[simp]:
