@@ -1,6 +1,6 @@
 structure astToSexprLib = struct
 
-open preamble mlstringSyntax fromSexpTheory
+open preamble fromSexpTheory
 
 datatype exp = exp_tuple of exp list | exp_list of exp list | exp_str of string;
 
