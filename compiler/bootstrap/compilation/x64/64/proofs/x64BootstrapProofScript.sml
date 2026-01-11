@@ -4,7 +4,7 @@
 Theory x64BootstrapProof
 Ancestors
   semanticsProps backendProof x64_configProof compiler64Prog
-  x64Bootstrap replProof candle_prover_semantics
+  x64Bootstrap replProof candle_prover_semantics mlstring
 Libs
   preamble
 
@@ -293,7 +293,7 @@ Proof
                     |> CONV_RULE (DEPTH_CONV ETA_CONV)]
   \\ rewrite_tac [EVAL “«[]» ∉ kernel_ctors”, EVAL “«::» ∉ kernel_ctors”]
   \\ rewrite_tac
-       ([EVAL “kernel_ctors”,CONS_11,NOT_CONS_NIL,NOT_NIL_CONS,
+       ([EVAL “kernel_ctors”,mlstring_11,CONS_11,NOT_CONS_NIL,NOT_NIL_CONS,
            IN_INSERT,NOT_IN_EMPTY,EVAL “kernel_ffi”] @ char_eq_lemmas)
 QED
 
