@@ -291,7 +291,7 @@ Proof
                     |> CONV_RULE (DEPTH_CONV ETA_CONV),
                   ast_extrasTheory.every_dec_def
                     |> CONV_RULE (DEPTH_CONV ETA_CONV)]
-  \\ rewrite_tac [EVAL “"[]" ∉ kernel_ctors”, EVAL “"::" ∉ kernel_ctors”]
+  \\ rewrite_tac [EVAL “«[]» ∉ kernel_ctors”, EVAL “«::» ∉ kernel_ctors”]
   \\ rewrite_tac
        ([EVAL “kernel_ctors”,CONS_11,NOT_CONS_NIL,NOT_NIL_CONS,
            IN_INSERT,NOT_IN_EMPTY,EVAL “kernel_ffi”] @ char_eq_lemmas)
