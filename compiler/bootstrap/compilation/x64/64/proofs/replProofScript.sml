@@ -130,16 +130,16 @@ Theorem evaluate_Eval:
   BACKEND_INC_CONFIG_TYPE s2 s2_v ∧
   LIST_TYPE WORD ws ws_v ∧
   LIST_TYPE WORD bs bs_v ∧
-  nsLookup env.v (Short "env") = SOME (Env env1 id1) ⇒
-  nsLookup env.v (Short "decs") = SOME decs_v ⇒
-  nsLookup env.v (Short "s1") = SOME s1_v ⇒
-  nsLookup env.v (Short "s2") = SOME s2_v ⇒
-  nsLookup env.v (Short "bs") = SOME bs_v ⇒
-  nsLookup env.v (Short "ws") = SOME ws_v ⇒
+  nsLookup env.v (Short «env») = SOME (Env env1 id1) ⇒
+  nsLookup env.v (Short «decs») = SOME decs_v ⇒
+  nsLookup env.v (Short «s1») = SOME s1_v ⇒
+  nsLookup env.v (Short «s2») = SOME s2_v ⇒
+  nsLookup env.v (Short «bs») = SOME bs_v ⇒
+  nsLookup env.v (Short «ws») = SOME ws_v ⇒
   decs_allowed decs ⇒
-  evaluate st env [App Eval [Var (Short "env");  Var (Short "s1");
-                             Var (Short "decs"); Var (Short "s2");
-                             Var (Short "bs");   Var (Short "ws")]] =
+  evaluate st env [App Eval [Var (Short «env»);  Var (Short «s1»);
+                             Var (Short «decs»); Var (Short «s2»);
+                             Var (Short «bs»);   Var (Short «ws»)]] =
     let st = (st with eval_state := SOME (EvalDecs
                    (add_decs_generation (s with compiler_state := s2_v)))) in
       if st.clock = 0 then (st, Rerr (Rabort Rtimeout_error)) else
@@ -246,7 +246,7 @@ Theorem evaluate_eval:
       evaluate st env [App Opapp [Var (Short eval_str); Var (Short arg_str)]] = (s1,res) ∧
       (res ≠ Rerr (Rabort Rtimeout_error) ⇒
         res = Rval
-            [Conv (SOME (TypeStamp "Compile_error" eval_res_stamp))
+            [Conv (SOME (TypeStamp «Compile_error» eval_res_stamp))
                [Litv (StrLit msg)]] ∧
         s1 = st with <|clock := st.clock − ck; refs := st.refs ++ junk|> ∨
         (∃f. res = Rerr (Rabort (Rffi_error f))) ∨
@@ -255,7 +255,7 @@ Theorem evaluate_eval:
              <|clock := st.clock − ck1; refs := st.refs ++ junk;
                eval_state := NONE|>) env1 decs = (st7,Rerr (Rraise exn)) ∧
            BACKEND_INC_CONFIG_TYPE s2 s2_v ∧
-           res = Rval [Conv (SOME (TypeStamp "Eval_exn" eval_res_stamp))
+           res = Rval [Conv (SOME (TypeStamp «Eval_exn» eval_res_stamp))
                         [exn; Conv NONE [s2_v; Litv (IntLit (&next_gen + 1))]]] ∧
            s1 = st7 with <| clock := st7.clock - ck2 ;
                             eval_state := SOME (EvalDecs
@@ -266,7 +266,7 @@ Theorem evaluate_eval:
              <|clock := st.clock − ck1; refs := st.refs ++ junk;
                eval_state := NONE|>) env1 decs = (st7,Rval env2) ∧
            BACKEND_INC_CONFIG_TYPE s2 s2_v ∧
-           res = Rval [Conv (SOME (TypeStamp "Eval_result" eval_res_stamp))
+           res = Rval [Conv (SOME (TypeStamp «Eval_result» eval_res_stamp))
              [Conv NONE
                 [Env (extend_dec_env env2 env1) (next_gen1,0);
                  Litv (IntLit (&next_gen))];
@@ -583,7 +583,7 @@ Proof
     \\ ‘repl_types T (ffi,repl_rs)
           (SND types,st with <| eval_state := NONE ; refs := st.refs ++ junk |>,env1)’
          by (drule_then irule repl_types_skip_alt \\ fs [])
-    \\ ‘MEM (Long "Repl" (Short "errorMessage"),Str,
+    \\ ‘MEM (Long «Repl» (Short «errorMessage»),Str,
              the_Loc errorMessage_loc) repl_rs’ by simp [repl_rs_def]
     \\ drule_then drule repl_types_str_assign
     \\ simp [store_assign_def,repl_moduleProgTheory.errorMessage_def,the_Loc_def]
@@ -625,8 +625,8 @@ Proof
            namespaceTheory.nsOptBind_def]
   \\ qmatch_goalsub_abbrev_tac ‘evaluate st6 env6’
   \\ ‘st6.eval_state = SOME (EvalDecs s)’ by fs [Abbr‘st6’]
-  \\ drule (evaluate_eval |> Q.INST [‘arg_str’|->‘" v5"’]) \\ simp []
-  \\ ‘nsLookup env6.v (Short "eval") = SOME eval_v’ by
+  \\ drule (evaluate_eval |> Q.INST [‘arg_str’|->‘« v5»’]) \\ simp []
+  \\ ‘nsLookup env6.v (Short «eval») = SOME eval_v’ by
    (fs [Abbr‘env6’]
     \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [])
   \\ drule check_and_tweak \\ strip_tac
@@ -676,7 +676,7 @@ Proof
           (SND types,st6 with <| eval_state := NONE ; refs := st6.refs ++ junk' |>,env1)’
          by (drule_then irule repl_types_skip_alt \\ fs [Abbr‘st6’]
              \\ simp_tac std_ss [GSYM APPEND_ASSOC,rich_listTheory.IS_PREFIX_APPEND3])
-    \\ ‘MEM (Long "Repl" (Short "errorMessage"),Str,
+    \\ ‘MEM (Long «Repl» (Short «errorMessage»),Str,
              the_Loc errorMessage_loc) repl_rs’ by simp [repl_rs_def]
     \\ drule_then drule repl_types_str_assign
     \\ simp [store_assign_def,repl_moduleProgTheory.errorMessage_def,the_Loc_def]
@@ -733,7 +733,7 @@ Proof
                                  eval_state := NONE |>,env1)’
          by (drule_then irule repl_types_skip_alt \\ fs [Abbr‘st6’]
              \\ simp_tac std_ss [GSYM APPEND_ASSOC,rich_listTheory.IS_PREFIX_APPEND3])
-    \\ ‘MEM (Long "Repl" (Short "exn"),Exn,the_Loc exn) repl_rs’ by simp [repl_rs_def]
+    \\ ‘MEM (Long «Repl» (Short «exn»),Exn,the_Loc exn) repl_rs’ by simp [repl_rs_def]
     \\ drule_then drule repl_types_exn_assign
     \\ disch_then drule
     \\ disch_then drule
@@ -763,7 +763,7 @@ Proof
              namespaceTheory.nsOptBind_def,do_app_def]
     \\ simp [repl_moduleProgTheory.errorMessage_def]
     \\ qmatch_goalsub_abbrev_tac ‘StrLit msg_e’
-    \\ ‘MEM (Long "Repl" (Short "errorMessage"),Str,
+    \\ ‘MEM (Long «Repl» (Short «errorMessage»),Str,
              the_Loc errorMessage_loc) repl_rs’ by simp [repl_rs_def]
     \\ drule_then drule repl_types_str_assign
     \\ simp [store_assign_def,repl_moduleProgTheory.errorMessage_def,the_Loc_def]
@@ -864,7 +864,7 @@ Proof
    (drule repl_types_thm \\ strip_tac \\ fs [repl_rs_def]
     \\ fs [repl_moduleProgTheory.nextString_def,the_Loc_def,ref_lookup_ok_def])
   \\ fs []
-  \\ ‘STRING_TYPE (strlit inp) (Litv (StrLit inp))’ by fs [STRING_TYPE_def]
+  \\ ‘STRING_TYPE inp (Litv (StrLit inp))’ by fs [STRING_TYPE_def]
   (* calling parse *)
   \\ simp [Once evaluate_def,evaluate_Var]
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_list]
@@ -879,7 +879,7 @@ Proof
   \\ fs [] \\ IF_CASES_TAC \\ fs [Abbr‘st2’,dec_clock_def]
   \\ Cases_on ‘res = Rerr (Rabort Rtimeout_error)’ \\ gvs []
   (* case on result of parse *)
-  \\ Cases_on ‘parse (strlit inp)’ \\ gvs [std_preludeTheory.SUM_TYPE_def]
+  \\ Cases_on ‘parse inp’ \\ gvs [std_preludeTheory.SUM_TYPE_def]
   THEN1
    (rename [‘_ = INL msg’]
     \\ simp [Once evaluate_def,evaluate_Var]
@@ -911,7 +911,7 @@ Proof
           (SND new_types,st7 with <| eval_state := NONE ; refs := st7.refs ++ junk'' |>,
            extend_dec_env env2 env1)’
          by (drule_then irule repl_types_skip_alt \\ fs [])
-    \\ ‘MEM (Long "Repl" (Short "errorMessage"),Str,
+    \\ ‘MEM (Long «Repl» (Short «errorMessage»),Str,
              the_Loc errorMessage_loc) repl_rs’ by simp [repl_rs_def]
     \\ drule_then drule repl_types_str_assign
     \\ simp [store_assign_def,repl_moduleProgTheory.errorMessage_def,the_Loc_def]
@@ -962,7 +962,7 @@ QED
 Theorem evaluate_repl_thm =
   evaluate_repl |> SIMP_RULE std_ss [] |> SPEC_ALL
   |> Q.INST [‘cur_gen’|->‘0’,‘next_id’|->‘1’,‘next_gen’|->‘1’,‘env_id’|->‘0’,
-             ‘input_str’|->‘strlit""’,‘decs’|->‘[]’] |> GEN_ALL
+             ‘input_str’|->‘«»’,‘decs’|->‘[]’] |> GEN_ALL
   |> SIMP_RULE std_ss [STRING_TYPE_def,LIST_TYPE_def] |> SPEC_ALL;
 
 Theorem evaluate_start_repl:
@@ -1020,7 +1020,7 @@ Proof
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
            namespaceTheory.nsOptBind_def,evaluate_Lit,do_con_check_def,build_conv_def]
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp []
-  (* let input_str = "" *)
+  (* let input_str = «» *)
   \\ simp [Once evaluate_def,evaluate_Var,evaluate_Con,evaluate_list,
            namespaceTheory.nsOptBind_def,evaluate_Lit]
   (* call init_next_string *)
@@ -1075,7 +1075,7 @@ Proof
   \\ rpt (first_assum $ irule_at Any)
   \\ simp [repl_init_typesTheory.repl_init_types_def]
   \\ qexists_tac ‘ffi’
-  \\ ‘MEM (Long "Repl" (Short "nextString"),Str,the_Loc nextString_loc) repl_rs’ by
+  \\ ‘MEM (Long «Repl» (Short «nextString»),Str,the_Loc nextString_loc) repl_rs’ by
         fs [repl_rs_def]
   \\ drule_then drule repl_types_str_assign
   \\ fs [the_Loc_def,store_assign_def,store_v_same_type_def]
@@ -1167,7 +1167,7 @@ Proof
   \\ CONV_TAC (DEPTH_CONV ml_progLib.nsLookup_conv) \\ simp [do_con_check_def]
   \\ rewrite_tac [main_v_def]
   \\ rewrite_tac [EVAL “semanticPrimitives$do_opapp
-       [Recclosure env [("main","u", e)] "main"; Conv NONE []]”] \\ simp []
+       [Recclosure env [(«main»,«u», e)] «main»; Conv NONE []]”] \\ simp []
   \\ IF_CASES_TAC >- (fs [] \\ rw [] \\ fs [combine_dec_result_def])
   \\ fs [dec_clock_def]
   (* inside main *)
@@ -1255,7 +1255,7 @@ Proof
            namespaceTheory.nsOptBind_def,evaluate_Lit]
   \\ qmatch_goalsub_abbrev_tac ‘evaluate st8 env8’
   \\ qspecl_then
-       [‘st8’,‘env8’,‘Short "start_repl"’,‘Short " v0"’,‘basis_ffi cl fs’,‘TL cl’] mp_tac
+       [‘st8’,‘env8’,‘Short «start_repl»’,‘Short « v0»’,‘basis_ffi cl fs’,‘TL cl’] mp_tac
     (Q.GENL [‘st’,‘env’,‘start_repl_str’,‘arg_str’,‘ffi’,‘cl’,‘s1’,‘s’] evaluate_start_repl)
   \\ simp [Abbr‘st8’,Abbr‘env8’,Abbr‘ev’]
   \\ fs [backend_enc_decTheory.encode_backend_config_thm]
