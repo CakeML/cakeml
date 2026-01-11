@@ -1212,35 +1212,42 @@ QED
 (* word operations *)
 
 val tac =
-  qmatch_goalsub_abbrev_tac`Opw wx`
+  qmatch_goalsub_abbrev_tac `Arith _ ws`
   \\ rw[Eval_rw] \\ Eval2_tac \\ fs [do_app_def,WORD_def]
-  \\ rw [] \\ fs [WORD_def,Abbr`wx`,state_component_equality]
-  \\ fs [do_app_def,opw8_lookup_def,opw64_lookup_def]
-  \\ fs [GSYM WORD_w2w_OVER_BITWISE]
+  \\ reverse IF_CASES_TAC
+  >-
+   (qsuff_tac ‘F’ \\ fs [Abbr‘ws’]
+    \\ pop_assum mp_tac \\ rw [check_type_def])
+  \\ rw [] \\ fs [WORD_def,Abbr‘ws’,state_component_equality]
+  \\ fs [do_app_def,do_arith_def,state_component_equality]
+  \\ fs [GSYM WORD_w2w_OVER_BITWISE];
 
 Theorem Eval_word_and:
-    Eval env x1 (WORD (w1:'a word)) /\
-    Eval env x2 (WORD (w2:'a word)) ==>
-    Eval env (App (Opw (if dimindex (:'a) <= 8 then W8 else W64) Andw) [x1;x2])
-      (WORD (word_and w1 w2))
+  Eval env x1 (WORD (w1:'a word)) /\
+  Eval env x2 (WORD (w2:'a word)) ==>
+  Eval env
+       (App (Arith And (if dimindex (:'a) <= 8 then WordT W8 else WordT W64)) [x1;x2])
+       (WORD (word_and w1 w2))
 Proof
   tac
 QED
 
 Theorem Eval_word_or:
-    Eval env x1 (WORD (w1:'a word)) /\
-    Eval env x2 (WORD (w2:'a word)) ==>
-    Eval env (App (Opw (if dimindex (:'a) <= 8 then W8 else W64) Orw) [x1;x2])
-      (WORD (word_or w1 w2))
+  Eval env x1 (WORD (w1:'a word)) /\
+  Eval env x2 (WORD (w2:'a word)) ==>
+  Eval env
+       (App (Arith Or (if dimindex (:'a) <= 8 then WordT W8 else WordT W64)) [x1;x2])
+       (WORD (word_or w1 w2))
 Proof
   tac
 QED
 
 Theorem Eval_word_xor:
-    Eval env x1 (WORD (w1:'a word)) /\
-    Eval env x2 (WORD (w2:'a word)) ==>
-    Eval env (App (Opw (if dimindex (:'a) <= 8 then W8 else W64) Xor) [x1;x2])
-      (WORD (word_xor w1 w2))
+  Eval env x1 (WORD (w1:'a word)) /\
+  Eval env x2 (WORD (w2:'a word)) ==>
+  Eval env
+       (App (Arith Xor (if dimindex (:'a) <= 8 then WordT W8 else WordT W64)) [x1;x2])
+       (WORD (word_xor w1 w2))
 Proof
   tac
 QED
@@ -1278,10 +1285,11 @@ Proof
 QED
 
 Theorem Eval_word_add:
-    Eval env x1 (WORD (w1:'a word)) /\
-    Eval env x2 (WORD (w2:'a word)) ==>
-    Eval env (App (Opw (if dimindex (:'a) <= 8 then W8 else W64) Add) [x1;x2])
-      (WORD (word_add w1 w2))
+  Eval env x1 (WORD (w1:'a word)) /\
+  Eval env x2 (WORD (w2:'a word)) ==>
+  Eval env
+       (App (Arith Add (if dimindex (:'a) <= 8 then WordT W8 else WordT W64)) [x1;x2])
+       (WORD (word_add w1 w2))
 Proof
   tac
   \\ Cases_on `w1` \\ Cases_on `w2`
@@ -1302,10 +1310,11 @@ Proof
 QED
 
 Theorem Eval_word_sub:
-    Eval env x1 (WORD (w1:'a word)) /\
-    Eval env x2 (WORD (w2:'a word)) ==>
-    Eval env (App (Opw (if dimindex (:'a) <= 8 then W8 else W64) Sub) [x1;x2])
-      (WORD (word_sub w1 w2))
+  Eval env x1 (WORD (w1:'a word)) /\
+  Eval env x2 (WORD (w2:'a word)) ==>
+  Eval env
+       (App (Arith Sub (if dimindex (:'a) <= 8 then WordT W8 else WordT W64)) [x1;x2])
+       (WORD (word_sub w1 w2))
 Proof
   tac
   \\ Cases_on `w1` \\ Cases_on `w2`
