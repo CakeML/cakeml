@@ -1739,15 +1739,14 @@ Definition float64_fma_def:
   SND (float_mul_add roundTiesToEven f1 f2 f3)
 End
 
-(* arithmetic for doubles (word64) *)
-Theorem Eval_FP_top:
-  ! f f1 f2 f3.
-        Eval env x2 (FLOAT64 (f2:(52,11)float)) ==>
-        Eval env x3 (FLOAT64 f3) ==>
-        Eval env x1 (FLOAT64 f1) ==>
-        Eval env
-             (App (FP_top f) [x1;x2;x3])
-             (FLOAT64 (lift_fp_top f f1 f2 f3))
+Theorem Eval_FLOAT_FMA:
+  ∀f1 f2 f3.
+    Eval env x2 (FLOAT64 f2) ⇒
+    Eval env x3 (FLOAT64 f3) ⇒
+    Eval env x1 (FLOAT64 f1) ⇒
+    Eval env
+         (App (Arith FMA Float64T) [x1; x2; x3])
+         (FLOAT64 (float64_fma f2 f3 f1))
 Proof
   rw[Eval_rw,FLOAT64_def, lift_fp_top_def]
   \\ first_x_assum mp_tac
@@ -1762,19 +1761,10 @@ Proof
   \\ pop_assum (qspec_then `ck1' + ck1''` strip_assume_tac)
   \\ fs[] \\ qexists_tac `ck1 + ck1' + ck1''` \\ fs[]
   \\ fs[empty_state_def, do_app_def, state_component_equality, isFpBool_def]
+  \\ fs [check_type_def,do_arith_def]
+  \\ fs [fpfma_def, lift_fp_top_def, GSYM float64_fma_def,
+         fp64_to_float_float_to_fp64, fp64_mul_add_def]
 QED
-
-local
-  fun f name q =
-    save_thm("Eval_" ^ name,
-             SIMP_RULE (srw_ss()) [fp_top_comp_def, fpfma_def,
-                                   lift_fp_top_def, GSYM float64_fma_def,
-                                   fp64_to_float_float_to_fp64,
-                                   fp64_mul_add_def]
-                       (Q.SPEC q Eval_FP_top))
-in
-  val Eval_FLOAT_FMA = f "FLOAT_FMA" `FP_Fma`
-end;
 
 Definition lift_fp_bop_def:
   lift_fp_bop f f1 f2 =
@@ -1825,31 +1815,57 @@ Proof
        fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
 QED
 
-Theorem Eval_FP_bop:
-  !f f1 f2.
-        Eval env x1 (FLOAT64 f1) ==>
-        Eval env x2 (FLOAT64 f2) ==>
-        Eval env (App (FP_bop f) [x1;x2]) (FLOAT64 (lift_fp_bop f f1 f2))
+Theorem Eval_FLOAT_ADD:
+  ∀f1 f2.
+    Eval env x1 (FLOAT64 f1) ⇒
+    Eval env x2 (FLOAT64 f2) ⇒
+    Eval env (App (Arith Add Float64T) [x1; x2]) (FLOAT64 (float64_add f1 f2))
 Proof
   rw[Eval_rw,FLOAT64_def,lift_fp_bop_def]
   \\ Eval2_tac \\ fs [do_app_def] \\ rw []
-  \\ fs[empty_state_def, do_app_def, state_component_equality,isFpBool_def]
+  \\ fs[empty_state_def, do_app_def, state_component_equality,isFpBool_def,
+        do_arith_def, fp_bop_comp_def,GSYM float64_add_def, check_type_def]
+  \\ EVAL_TAC
 QED
 
-local
-  fun f name q =
-    save_thm("Eval_" ^ name,
-             SIMP_RULE (srw_ss()) [fp_bop_comp_def,GSYM float64_add_def,
-                                   GSYM float64_sub_def,
-                                   GSYM float64_mul_def,
-                                   GSYM float64_div_def]
-              (Q.SPEC q Eval_FP_bop))
-in
-  val Eval_FLOAT_ADD  = f "FLOAT_ADD" `FP_Add`
-  val Eval_FLOAT_SUB  = f "FLOAT_SUB" `FP_Sub`
-  val Eval_FLOAT_MULT = f "FLOAT_MULT" `FP_Mul`
-  val Eval_FLOAT_DIV  = f "FLOAT_DIV" `FP_Div`
-end;
+Theorem Eval_FLOAT_SUB:
+  ∀f1 f2.
+    Eval env x1 (FLOAT64 f1) ⇒
+    Eval env x2 (FLOAT64 f2) ⇒
+    Eval env (App (Arith Sub Float64T) [x1; x2]) (FLOAT64 (float64_sub f1 f2))
+Proof
+  rw[Eval_rw,FLOAT64_def,lift_fp_bop_def]
+  \\ Eval2_tac \\ fs [do_app_def] \\ rw []
+  \\ fs[empty_state_def, do_app_def, state_component_equality,isFpBool_def,
+        do_arith_def, fp_bop_comp_def,GSYM float64_add_def, check_type_def]
+  \\ EVAL_TAC
+QED
+
+Theorem Eval_FLOAT_MULT:
+  ∀f1 f2.
+    Eval env x1 (FLOAT64 f1) ⇒
+    Eval env x2 (FLOAT64 f2) ⇒
+    Eval env (App (Arith Mul Float64T) [x1; x2]) (FLOAT64 (float64_mul f1 f2))
+Proof
+  rw[Eval_rw,FLOAT64_def,lift_fp_bop_def]
+  \\ Eval2_tac \\ fs [do_app_def] \\ rw []
+  \\ fs[empty_state_def, do_app_def, state_component_equality,isFpBool_def,
+        do_arith_def, fp_bop_comp_def,GSYM float64_add_def, check_type_def]
+  \\ EVAL_TAC
+QED
+
+Theorem Eval_FLOAT_DIV:
+  ∀f1 f2.
+    Eval env x1 (FLOAT64 f1) ⇒
+    Eval env x2 (FLOAT64 f2) ⇒
+    Eval env (App (Arith Div Float64T) [x1; x2]) (FLOAT64 (float64_div f1 f2))
+Proof
+  rw[Eval_rw,FLOAT64_def,lift_fp_bop_def]
+  \\ Eval2_tac \\ fs [do_app_def] \\ rw []
+  \\ fs[empty_state_def, do_app_def, state_component_equality,isFpBool_def,
+        do_arith_def, fp_bop_comp_def,GSYM float64_add_def, check_type_def]
+  \\ EVAL_TAC
+QED
 
 Definition lift_fp_cmp_def:
   lift_fp_cmp f f1 f2 = fp_cmp f (float_to_fp64 f1) (float_to_fp64 f2)
@@ -1957,18 +1973,6 @@ Definition lift_fp_uop_def:
   lift_fp_uop f f1 = fp64_to_float (fp_uop_comp f (float_to_fp64 f1))
 End
 
-Theorem Eval_FP_uop:
-  !f f1.
-    Eval env x1 (FLOAT64 f1) ==>
-    Eval env (App (FP_uop f) [x1]) (FLOAT64 (lift_fp_uop f f1))
-Proof
-  rw[Eval_rw,FLOAT64_def, lift_fp_uop_def]
-  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
-  \\ fs[empty_state_def]
-  \\ qexists_tac `ck1`
-  \\ fs[do_app_def, state_component_equality, isFpBool_def]
-QED
-
 Definition float64_abs_def:
   float64_abs = lift_fp_uop FP_Abs
 End
@@ -2002,18 +2006,47 @@ Proof
        fp64_to_float_float_to_fp64, float_to_fp64_fp64_to_float]
 QED
 
-local
-  fun f name q = let
-    val th = SIMP_RULE (srw_ss()) [fp_uop_comp_def,GSYM float64_sqrt_def,
-                                   GSYM float64_neg_def, GSYM float64_abs_def]
-                       (Q.SPEC q Eval_FP_uop)
-    val _ = save_thm("Eval_" ^ name,SPEC_ALL th)
-   in th end
-in
-  val Eval_FLOAT_ABS = f "FLOAT_ABS" `FP_Abs`
-  val Eval_FLOAT_NEG = f "FLOAT_NEG" `FP_Neg`
-  val Eval_FLOAT_SQRT = f "FLOAT_SQRT" `FP_Sqrt`
-end;
+Theorem Eval_FLOAT_ABS:
+  ∀f1.
+    Eval env x1 (FLOAT64 f1) ⇒
+    Eval env (App (Arith Abs Float64T) [x1]) (FLOAT64 (float64_abs f1))
+Proof
+  rw[Eval_rw, FLOAT64_def]
+  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ fs[empty_state_def]
+  \\ qexists_tac `ck1`
+  \\ fs[do_app_def, state_component_equality, isFpBool_def, fp_uop_comp_def,
+        do_arith_def, check_type_def]
+  \\ EVAL_TAC
+QED
+
+Theorem Eval_FLOAT_NEG:
+  ∀f1.
+    Eval env x1 (FLOAT64 f1) ⇒
+    Eval env (App (Arith Neg Float64T) [x1]) (FLOAT64 (float64_neg f1))
+Proof
+  rw[Eval_rw, FLOAT64_def]
+  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ fs[empty_state_def]
+  \\ qexists_tac `ck1`
+  \\ fs[do_app_def, state_component_equality, isFpBool_def, fp_uop_comp_def,
+        do_arith_def, check_type_def]
+  \\ EVAL_TAC
+QED
+
+Theorem Eval_FLOAT_SQRT:
+  ∀f1.
+    Eval env x1 (FLOAT64 f1) ⇒
+    Eval env (App (Arith Sqrt Float64T) [x1]) (FLOAT64 (float64_sqrt f1))
+Proof
+  rw[Eval_rw, FLOAT64_def]
+  \\ first_x_assum (qspec_then `refs` strip_assume_tac)
+  \\ fs[empty_state_def]
+  \\ qexists_tac `ck1`
+  \\ fs[do_app_def, state_component_equality, isFpBool_def, fp_uop_comp_def,
+        do_arith_def, check_type_def]
+  \\ EVAL_TAC
+QED
 
 Theorem Eval_FP_fromWord:
   !w1.
