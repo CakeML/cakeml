@@ -1376,20 +1376,44 @@ Proof
   \\ gvs [AllCaseEqs()]
   \\ Cases_on ‘ty1’ using prim_type_cases
   \\ Cases_on ‘ty2’ using prim_type_cases
-  (* Only WordT W8 -> IntT is handled; others make do_conversion return NONE *)
+  (* Only a few cases are handled; others make do_conversion return NONE *)
   \\ gvs [semanticPrimitivesTheory.do_conversion_def]
-  (* Now only WordT W8 -> IntT remains *)
-  \\ gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
-  \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
-  (* Derive concrete flatLang value from check_type *)
-  \\ first_x_assum (strip_assume_tac o MATCH_MP check_type_WordT_W8_flat_to_v)
-  \\ gvs [flatSemTheory.flat_to_v_def,
-          semanticPrimitivesTheory.the_Litv_Word8_def]
-  (* Derive closLang value form from v_rel *)
-  \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
-  \\ fs [compile_op_def, arg1_def]
-  \\ simp [closSemTheory.evaluate_def]
-  \\ gvs [v_rel_def, flatSemTheory.v_to_flat_def]
+  >~ [‘FromTo (WordT W8) IntT’] >-
+   (gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
+    \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
+    (* Derive concrete flatLang value from check_type *)
+    \\ first_x_assum (strip_assume_tac o MATCH_MP check_type_WordT_W8_flat_to_v)
+    \\ gvs [flatSemTheory.flat_to_v_def,
+            semanticPrimitivesTheory.the_Litv_Word8_def]
+    (* Derive closLang value form from v_rel *)
+    \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
+    \\ fs [compile_op_def, arg1_def]
+    \\ simp [closSemTheory.evaluate_def]
+    \\ gvs [v_rel_def, flatSemTheory.v_to_flat_def])
+  >~ [‘FromTo (WordT W64) Float64T’] >-
+   (gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
+    \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
+    (* Derive concrete flatLang value from check_type *)
+    \\ drule check_type_WordT_W64_flat_to_v \\ strip_tac
+    \\ gvs [flatSemTheory.flat_to_v_def,
+            semanticPrimitivesTheory.the_Litv_Word64_def]
+    (* Derive closLang value form from v_rel *)
+    \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
+    \\ fs [compile_op_def, arg1_def]
+    \\ simp [closSemTheory.evaluate_def]
+    \\ gvs [v_rel_def, flatSemTheory.v_to_flat_def])
+  >~ [‘FromTo Float64T (WordT W64)’] >-
+   (gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
+    \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
+    (* Derive concrete flatLang value from check_type *)
+    \\ drule check_type_Float64T_flat_to_v \\ strip_tac
+    \\ gvs [flatSemTheory.flat_to_v_def,
+            semanticPrimitivesTheory.the_Litv_Word64_def]
+    (* Derive closLang value form from v_rel *)
+    \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
+    \\ fs [compile_op_def, arg1_def]
+    \\ simp [closSemTheory.evaluate_def]
+    \\ gvs [v_rel_def, flatSemTheory.v_to_flat_def])
 QED
 
 Theorem op_test:

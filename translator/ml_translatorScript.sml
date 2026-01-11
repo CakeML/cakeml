@@ -2051,25 +2051,25 @@ QED
 Theorem Eval_FP_fromWord:
   !w1.
     Eval env x1 (WORD (w1:word64)) ==>
-    Eval env (App FpFromWord [x1]) (FLOAT64 (fp64_to_float w1))
+    Eval env (App (FromTo (WordT W64) Float64T) [x1]) (FLOAT64 (fp64_to_float w1))
 Proof
   rw[Eval_rw,WORD_def,FLOAT64_def] >>
   first_x_assum (qspec_then `refs` strip_assume_tac) >>
   fs[empty_state_def] >>
   qexists_tac `ck1` >>
-  simp[do_app_def]
+  simp[do_app_def,check_type_def,do_conversion_def]
 QED
 
 Theorem Eval_FP_toWord:
   !f1.
     Eval env x1 (FLOAT64 f1) ==>
-    Eval env (App FpToWord [x1]) (WORD (float_to_fp64 f1))
+    Eval env (App (FromTo Float64T (WordT W64)) [x1]) (WORD (float_to_fp64 f1))
 Proof
   rw[Eval_rw,WORD_def,FLOAT64_def] >>
   first_x_assum (qspec_then `refs` strip_assume_tac) >>
   fs[empty_state_def] >>
   qexists_tac `ck1` >>
-  simp[do_app_def]
+  simp[do_app_def,check_type_def,do_conversion_def]
 QED
 
 

@@ -379,6 +379,8 @@ End
 
 Definition supported_conversion_def[simp]:
   (supported_conversion (WordT W8) IntT = T) ∧
+  (supported_conversion (WordT W64) Float64T = T) ∧
+  (supported_conversion Float64T (WordT W64) = T) ∧
   (supported_conversion (from_ty:prim_type) (to_ty:prim_type) = F)
 End
 

@@ -887,6 +887,10 @@ End
 Definition do_conversion_def:
   (do_conversion v (WordT W8) IntT =
      SOME $ Litv $ IntLit $ & (w2n (the_Litv_Word8 v))) ∧
+  (do_conversion v (WordT W64) Float64T =
+     SOME $ Litv $ Float64 $ (the_Litv_Word64 v)) ∧
+  (do_conversion v Float64T (WordT W64) =
+     SOME $ Litv $ Word64 $ (the_Litv_Float64 v)) ∧
   (do_conversion _ _ _ = NONE)
 End
 
