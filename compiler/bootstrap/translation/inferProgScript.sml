@@ -602,21 +602,21 @@ Proof
          \\ imp_res_tac infer_e_wfs \\ fs[])
   THEN1 (metis_tac [infer_p_side_thm])
   THEN1 (fs [bool_case_eq] \\ rveq >>
-         PairCases_on `x26` >>
+         rename1 `SND x26` \\ PairCases_on `x26` >>
          imp_res_tac infer_p_wfs >>
          fs [])
   THEN1 (fs [bool_case_eq] \\ rveq >> fs [pair_abs_hack] >>
          first_x_assum match_mp_tac \\ fs [] >>
-         PairCases_on `x26` >> fs [] >>
+         rename1 `SND x26` \\ PairCases_on `x26` >> fs [] >>
          imp_res_tac infer_p_wfs >>
          imp_res_tac unifyTheory.t_unify_wfs >> fs [])
   THEN1 (fs [bool_case_eq] \\ rveq >> fs [pair_abs_hack] >>
-         PairCases_on `x26` >> fs [] >>
+         rename1 `SND x26` \\ PairCases_on `x26` >> fs [] >>
          imp_res_tac infer_p_wfs >>
          imp_res_tac infer_e_wfs >>
          imp_res_tac unifyTheory.t_unify_wfs >> fs [])
   THEN1 (fs [bool_case_eq] \\ rveq >> fs [pair_abs_hack] >>
-         PairCases_on `x26` >> fs [] >>
+         rename1 `SND x26` \\ PairCases_on `x26` >> fs [] >>
          imp_res_tac infer_p_wfs >>
          imp_res_tac infer_e_wfs >>
          imp_res_tac unifyTheory.t_unify_wfs >> fs [])
