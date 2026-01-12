@@ -1,7 +1,7 @@
 (*
   Finish translation of the 32-bit version of the compiler.
 *)
-Theory compiler32Prog[no_sig_docs]
+Theory compiler32Prog
 Ancestors
   compiler export ml_translator ag32Prog[qualified]
   arm7Prog[qualified] basis_ffi[qualified]

@@ -104,13 +104,17 @@ Proof
   Cases_on`s`>>gvs[]
 QED
 
-Theorem cmlpeg_side = Q.prove(`
-  cmlpeg_side ⇔ T`,
+Theorem cmlpeg_side[local]:
+  cmlpeg_side ⇔ T
+Proof
   fs[fetch "-" "cmlpeg_side_def",
     fetch "-" "peg_v_side_def",
     fetch "-" "peg_longv_side_def",
     fetch "-" "peg_uqconstructorname_side_def"
-    ]) |> update_precondition;
+    ]
+QED
+
+val _ = update_precondition cmlpeg_side;
 
 Theorem INTRO_FLOOKUP:
    (if n ∈ FDOM G.rules then

@@ -1,7 +1,7 @@
 (*
   Finish translation of the 64-bit version of the compiler.
 *)
-Theory compiler64Prog[no_sig_docs]
+Theory compiler64Prog
 Ancestors
   mipsProg compiler export ml_translator basis_ffi[qualified]
 Libs
