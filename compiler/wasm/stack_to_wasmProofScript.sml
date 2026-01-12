@@ -1577,6 +1577,50 @@ rpt strip_tac
 >>simp[exec_list_append]
 QED
 
+Theorem compile_Inst:
+  ^(get_goal "Inst")
+Proof cheat
+(*
+  rw[compile_def]
+  >>qexists_tac`0`
+  >>(Cases_on`i`>>fs[compile_inst_def])
+  >~[`Skip`]
+  >-gvs[evaluate_def,exec_def,res_rel_def,inst_def]
+  >~[`Const`]
+  >-(
+    fs[evaluate_def,inst_def,assign_def,CaseEq"option"]
+    >>fs[exec_list_cons,exec_I64_CONST]
+    >>rpt(pairarg_tac>>fs[])
+    >>drule exec_GLOBAL_SET_drule
+    >>simp[]
+    >>CONV_TAC(DEPTH_CONV record_canon_simp_conv)
+    >>impl_keep_tac
+    >-fs[stack_wasm_ok_def,inst_ok_def,reg_ok_def,conf_ok_def,state_rel_def,regs_rel_def]
+    >>rw[]
+    >-simp[res_rel_def]
+    >>irule state_rel_set_var
+    >>fs[word_exp_def,wl_value_def]
+  )
+  >~[`Arith`]
+  >-(
+    rename1`Arith a`>>Cases_on`a`
+    >~[`Binop`] >- cheat
+    >~[`Shift`] >- cheat
+    >~[`Div`] >- cheat
+    >~[`LongMul`] >- cheat
+    >~[`LongDiv`] >- fs[stack_wasm_ok_def,inst_ok_def,arith_ok_def,conf_ok_def]
+    >~[`AddCarry`] >- cheat
+    >~[`AddOverflow`] >- cheat
+    >~[`SubOverflow`] >- cheat
+  )
+  >~[`Mem`] >-
+    cheat
+  >~[`FP`] >-
+    gvs[stack_wasm_ok_def,inst_ok_def,oneline fp_ok_def,AllCasePreds(),fp_reg_ok_def,conf_ok_def]
+*)
+QED
+
+
 Theorem res_rel_RBreak:
   res_rel res (RBreak n) stack_pair ⇒ F
 Proof
@@ -1912,7 +1956,7 @@ rpt strip_tac
     (* use IH 1 *)
     >>`stack_wasm_ok c ret_handler` by fs[stack_wasm_ok_def]
     (* BE CAREFUL WITH ∀t'!! *)
-    >>`state_rel c s_call (t_call with stack:=[])` by metis_tac[state_rel_with_stack]
+    >>`state_rel c s_call (t_call with <|stack:=[]; locals:=t.locals|>)` by metis_tac[state_rel_with_stack,state_rel_with_locals]
     >>(first_x_assum drule_all >> strip_tac (* apply IH; obtain ck' *))
     >>qexists_tac`ck+ck'`
 
@@ -1952,7 +1996,7 @@ rpt strip_tac
     >>(Cases_on`wl = Loc eh_l eh_m`>>fs[])
     >>`stack_wasm_ok c eh` by fs[stack_wasm_ok_def]
     (* BE CAREFUL WITH ∀t'!! *)
-    >>`state_rel c s_call (t_call with stack:=[])` by metis_tac[state_rel_with_stack]
+    >>`state_rel c s_call (t_call with <|stack:=[]; locals:=t.locals|>)` by metis_tac[state_rel_with_stack,state_rel_with_locals]
     >>(first_x_assum drule_all >> strip_tac (* apply IH; obtain ck' *))
     >>qexists_tac`ck+ck'`
     >>subgoal `exec_list (flatten (compile prog))
@@ -2263,49 +2307,6 @@ rpt strip_tac
     >>(dxrule_all compile_Call_aux2 >> rewrite_tac[] >> NO_TAC)
   )
 )
-QED
-
-Theorem compile_Inst:
-  ^(get_goal "Inst")
-Proof cheat
-(*
-  rw[compile_def]
-  >>qexists_tac`0`
-  >>(Cases_on`i`>>fs[compile_inst_def])
-  >~[`Skip`]
-  >-gvs[evaluate_def,exec_def,res_rel_def,inst_def]
-  >~[`Const`]
-  >-(
-    fs[evaluate_def,inst_def,assign_def,CaseEq"option"]
-    >>fs[exec_list_cons,exec_I64_CONST]
-    >>rpt(pairarg_tac>>fs[])
-    >>drule exec_GLOBAL_SET_drule
-    >>simp[]
-    >>CONV_TAC(DEPTH_CONV record_canon_simp_conv)
-    >>impl_keep_tac
-    >-fs[stack_wasm_ok_def,inst_ok_def,reg_ok_def,conf_ok_def,state_rel_def,regs_rel_def]
-    >>rw[]
-    >-simp[res_rel_def]
-    >>irule state_rel_set_var
-    >>fs[word_exp_def,wl_value_def]
-  )
-  >~[`Arith`]
-  >-(
-    rename1`Arith a`>>Cases_on`a`
-    >~[`Binop`] >- cheat
-    >~[`Shift`] >- cheat
-    >~[`Div`] >- cheat
-    >~[`LongMul`] >- cheat
-    >~[`LongDiv`] >- fs[stack_wasm_ok_def,inst_ok_def,arith_ok_def,conf_ok_def]
-    >~[`AddCarry`] >- cheat
-    >~[`AddOverflow`] >- cheat
-    >~[`SubOverflow`] >- cheat
-  )
-  >~[`Mem`] >-
-    cheat
-  >~[`FP`] >-
-    gvs[stack_wasm_ok_def,inst_ok_def,oneline fp_ok_def,AllCasePreds(),fp_reg_ok_def,conf_ok_def]
-*)
 QED
 
 Theorem compile_While:
