@@ -227,6 +227,7 @@ Proof
   \\ rpt gen_tac \\ strip_tac
   \\ rpt var_eq_tac
   \\ gen_tac \\ disch_then (assume_tac o SYM)
+  \\ rename1 ‘SUC x6’
   \\ Cases_on ‘x6 = 0’ \\ asm_rewrite_tac [] THEN1 (gvs [ADD1])
   \\ ‘n ≠ 1 ∧ n ≠ 0’ by decide_tac
   \\ Cases_on ‘x6 = 1’ \\ asm_rewrite_tac [] THEN1 (gvs [ADD1])
