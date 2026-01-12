@@ -19,6 +19,7 @@ val _ = translation_extends"UnsafeProg";
 Overload "vcclause_TYPE" = ``VECTOR_TYPE INT``
 
 (* TODO: MOVE? *)
+
 Theorem OPTION_TYPE_SPLIT:
   OPTION_TYPE a x v ⇔
   (x = NONE ∧ v = Conv (SOME (TypeStamp "None" 2)) []) ∨
@@ -311,11 +312,10 @@ Theorem reset_dm_arr_spec:
     [Carrv; bv; szv]
     (W8ARRAY Carrv Clist)
     (POSTv v.
-        SEP_EXISTS Carrv' b' Clist' bv'.
+        SEP_EXISTS Carrv' b' Clist'.
         W8ARRAY Carrv' Clist' *
-        &(v = Conv NONE [Carrv'; bv'] ∧
-        WORD8 b' bv' ∧
-        reset_dm_list Clist b sz = (Clist',b')))
+        &(PAIR_TYPE ($=) WORD8 (Carrv', b') v ∧
+          reset_dm_list Clist b sz = (Clist',b')))
 Proof
   rw[]>>
   xcf "reset_dm_arr" (get_ml_prog_state ())>>
@@ -326,18 +326,21 @@ Proof
   >- (
     rpt xlet_autop>>
     xcon>>xsimpl>>
-    simp[reset_dm_list_def]>>
-    metis_tac[bw1_def,bw1_v_thm])>>
+    simp[reset_dm_list_def,PAIR_TYPE_def]>>
+    CONJ_TAC >- metis_tac[bw1_def,bw1_v_thm]>>
+    xsimpl)>>
   xlet_autop>>
   xif>>gvs[]
   >- (
     xlet_autop>>
     xcon>>xsimpl>>
-    simp[reset_dm_list_def])>>
+    simp[reset_dm_list_def,PAIR_TYPE_def]>>
+    xsimpl)>>
   rpt xlet_autop>>
   xcon>>xsimpl>>
-  simp[reset_dm_list_def]>>
-  metis_tac[bw1_def,bw1_v_thm]
+  simp[reset_dm_list_def,PAIR_TYPE_def]>>
+  CONJ_TAC >- metis_tac[bw1_def,bw1_v_thm]>>
+  xsimpl
 QED
 
 val res = translate sz_lit_map_def;
@@ -442,9 +445,8 @@ Theorem prepare_rup_spec:
     (POSTv v.
         SEP_EXISTS Carrv' b' Clist' bv'.
         W8ARRAY Carrv' Clist' *
-        &(v = Conv NONE [Carrv'; bv'] ∧
-        WORD8 b' bv' ∧
-        prepare_rup Clist b vec = (Clist',b')))
+        &(PAIR_TYPE ($=) WORD8 (Carrv', b') v ∧
+          prepare_rup Clist b vec = (Clist',b')))
 Proof
   rw[]>>
   xcf "prepare_rup" (get_ml_prog_state ())>>
@@ -455,6 +457,7 @@ Proof
     irule sz_lit_map_side>>
     simp[])>>
   xlet_auto>>
+  gvs[PAIR_TYPE_def]>>
   xmatch>>
   simp[prepare_rup_def]>>
   rename1`init_lit_map_list (length vec) vec Clist' b'`>>
@@ -556,11 +559,13 @@ QED
 
 Quote cakeml:
   fun is_rup_arr lno fml carr b v hints =
-  case prepare_rup carr b v of (carr',b') =>
-  if unit_prop_arr lno fml carr' b' hints
-  then b'
-  else
-    raise Fail (format_failure lno ("unit propagation did not prove RUP"))
+  let val dmb = prepare_rup carr b v in
+    case dmb of (carr',b') =>
+    if unit_prop_arr lno fml carr' b' hints
+    then dmb
+    else
+      raise Fail (format_failure lno ("unit propagation did not prove RUP"))
+  end
 End
 
 (* Note, we will prove this spec in two parts *)
@@ -581,8 +586,8 @@ Theorem is_rup_arr_spec':
         ARRAY fmlv fmllsv *
         SEP_EXISTS b' Carrv' Clist'.
         W8ARRAY Carrv' Clist' *
-        &(res = (T,(Clist',b')) ∧
-          WORD8 b' v))
+        &(PAIR_TYPE ($=) WORD8 (Carrv', b') v ∧
+          res = (T, (Clist',b'))))
       (λe.
         ARRAY fmlv fmllsv *
         SEP_EXISTS b' Carrv' Clist'.
@@ -592,17 +597,18 @@ Theorem is_rup_arr_spec':
 Proof
   rw[]>>
   xcf "is_rup_arr" (get_ml_prog_state ())>>
-  xlet_autop>>
-  gvs[is_rup_list'_def]>>
+  xlet_auto
+  >- (
+    xsimpl>>
+    metis_tac[W8ARRAY_refl])>>
+  gvs[PAIR_TYPE_def,is_rup_list'_def]>>
   xmatch>>
   xlet_autop
   >- (
     xsimpl>>
     metis_tac[W8ARRAY_refl])>>
   xif
-  >- (
-    xvar>>xsimpl>>
-    metis_tac[W8ARRAY_refl])>>
+  >- (xvar>>xsimpl)>>
   rpt xlet_autop>>
   xraise>>
   xsimpl>>
@@ -626,8 +632,8 @@ Theorem is_rup_arr_spec:
         ARRAY fmlv fmllsv *
         SEP_EXISTS b' Carrv' Clist'.
         W8ARRAY Carrv' Clist' *
-        &(is_rup_list fmlls Clist b v ls = (T,(Clist',b')) ∧
-          WORD8 b' res))
+        &(PAIR_TYPE ($=) WORD8 (Carrv', b') res ∧
+          is_rup_list fmlls Clist b v ls = (T,(Clist',b'))))
       (λe.
         ARRAY fmlv fmllsv *
         SEP_EXISTS b' Carrv' Clist'.
