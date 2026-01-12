@@ -651,3 +651,71 @@ Proof
   rw[]
 QED
 
+Quote add_cakeml:
+  fun delete_arr fml i =
+    if Array.length fml <= i then ()
+    else
+      (Unsafe.update fml i None)
+End
+
+Theorem delete_arr_spec:
+  NUM i iv ∧
+  LIST_REL (OPTION_TYPE a) fmlls fmllsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "delete_arr" (get_ml_prog_state()))
+    [fmlv; iv]
+    (ARRAY fmlv fmllsv)
+    (POSTv resv.
+      &UNIT_TYPE () resv *
+      SEP_EXISTS fmllsv'.
+      ARRAY fmlv fmllsv' *
+      &(LIST_REL (OPTION_TYPE a) (delete_list fmlls i) fmllsv') )
+Proof
+  rw[]>>
+  xcf "delete_arr" (get_ml_prog_state ())>>
+  simp[delete_list_def]>>
+  rpt xlet_autop>>
+  `LENGTH fmlls = LENGTH fmllsv` by
+    metis_tac[LIST_REL_LENGTH]>>
+  xif>-(xcon>>xsimpl)>>
+  xlet_auto >- (xcon>>xsimpl)>>
+  xapp>>xsimpl>>
+  first_x_assum (irule_at Any)>>
+  rw[]>>
+  match_mp_tac EVERY2_LUPDATE_same>> simp[OPTION_TYPE_def]
+QED
+
+Quote add_cakeml:
+  fun delete_ids_arr fml ls =
+    case ls of
+      [] => ()
+    | (i::is) =>
+      (delete_arr fml i; delete_ids_arr fml is)
+End
+
+Theorem delete_ids_arr_spec:
+  ∀ls lsv fmlls fmllsv.
+  (LIST_TYPE NUM) ls lsv ∧
+  LIST_REL (OPTION_TYPE a) fmlls fmllsv
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "delete_ids_arr" (get_ml_prog_state()))
+    [fmlv; lsv]
+    (ARRAY fmlv fmllsv)
+    (POSTv resv.
+      &UNIT_TYPE () resv *
+      SEP_EXISTS fmllsv'.
+      ARRAY fmlv fmllsv' *
+      &(LIST_REL (OPTION_TYPE a) (delete_ids_list fmlls ls) fmllsv') )
+Proof
+  Induct>>
+  rw[]>>fs[delete_ids_list_def]>>
+  xcf "delete_ids_arr" (get_ml_prog_state ())>>
+  fs[LIST_TYPE_def]>>xmatch
+  >- (xcon>>xsimpl) >>
+  xlet_autop>>
+  xapp>>
+  xsimpl
+QED
+

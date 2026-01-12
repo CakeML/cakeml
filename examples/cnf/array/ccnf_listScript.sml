@@ -732,54 +732,54 @@ Proof
   fs[]
 QED
 
-Definition delete_ids_list_def:
-  (delete_ids_list [] fml = fml) ∧
-  (delete_ids_list (i::is) fml =
-    if LENGTH fml ≤ i
-    then delete_ids_list is fml
-    else delete_ids_list is (LUPDATE NONE i fml))
+Definition delete_list_def:
+  delete_list fml i =
+  if i < LENGTH fml
+  then LUPDATE NONE i fml
+  else fml
 End
 
-Theorem delete_ids_list_FOLDL:
-  ∀l fmlls.
-  delete_ids_list l fmlls =
-  FOLDL (\fml i.
-    if LENGTH fml ≤ i then fml else LUPDATE NONE i fml) fmlls l
+Definition delete_ids_list_def:
+  (delete_ids_list fml ls =
+  FOLDL delete_list fml ls)
+End
+
+Theorem LENGTH_delete_list[simp]:
+  LENGTH (delete_list fmlls i) = LENGTH fmlls
 Proof
-  Induct>>rw[delete_ids_list_def]
+  rw[delete_list_def]
 QED
 
 Theorem LENGTH_delete_ids_list[simp]:
   ∀l.
-  LENGTH (delete_ids_list l fmlls) = LENGTH fmlls
+  LENGTH (delete_ids_list fmlls l) = LENGTH fmlls
 Proof
-  simp[delete_ids_list_FOLDL,FOLDL_FOLDR_REVERSE]>>
+  simp[delete_ids_list_def,FOLDL_FOLDR_REVERSE]>>
   strip_tac>>
   qabbrev_tac`ll= REVERSE l`>>
   pop_assum kall_tac>>
   Induct_on`ll`>>rw[]
 QED
 
+Theorem fml_rel_delete_list:
+  fml_rel fml fmlls ⇒
+  fml_rel (delete l fml) (delete_list fmlls l)
+Proof
+  rw[fml_rel_def,any_el_ALT,lookup_delete,delete_list_def]>>
+  gvs[AllCaseEqs(),SF DNF_ss]>>
+  rw[EL_LUPDATE]>>
+  metis_tac[]
+QED
+
 Theorem fml_rel_delete_ids_list:
   ∀l fml fmlls fmlls'.
-  fml_rel fml fmlls ∧
-  delete_ids_list l fmlls = fmlls' ⇒
-  fml_rel (delete_ids fml l) fmlls'
+  fml_rel fml fmlls ⇒
+  fml_rel (delete_ids fml l) (delete_ids_list fmlls l)
 Proof
-  simp[delete_ids_def,delete_ids_list_FOLDL,FOLDL_FOLDR_REVERSE]>>
-  strip_tac>>
-  qabbrev_tac`ll= REVERSE l`>>
-  pop_assum kall_tac>>
-  Induct_on`ll`>>rw[]>>
-  first_x_assum drule>>
-  rw[fml_rel_def]
-  >- (
-    rw[lookup_delete]>>
-    first_x_assum(qspec_then`h` (assume_tac o SYM))>>
-    fs[any_el_ALT])>>
-  rw[any_el_ALT,EL_LUPDATE,lookup_delete]>>
-  first_x_assum(qspec_then`n` assume_tac)>>
-  gvs[any_el_ALT]
+  simp[delete_ids_def,delete_ids_list_def]>>
+  Induct>>rw[]>>
+  first_x_assum irule>>
+  metis_tac[fml_rel_delete_list]
 QED
 
 Theorem fml_rel_update_resize:
@@ -807,3 +807,4 @@ Proof
   gvs[AllCaseEqs()]>>
   metis_tac[]
 QED
+
