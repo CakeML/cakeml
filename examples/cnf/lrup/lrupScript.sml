@@ -13,6 +13,9 @@ Datatype:
   | Del (num list) (* Clauses to delete *)
   | Lrup num vcclause (num list)
     (* Lrup n C hints : derive clause C by RUP using hints *)
+  | Lrupvb num vcclause mlstring
+    (* Lrupvb n C hints : derive clause C by RUP using hints,
+        hints are passed in raw vb-encoded mlstring. *)
 End
 
 Definition check_lrup_def:
@@ -25,6 +28,7 @@ Definition check_lrup_def:
     then
       SOME (insert n vc fml)
     else NONE
+  | Lrupvb n vc hints => NONE
 End
 
 Definition check_lrups_def:

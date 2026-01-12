@@ -630,15 +630,6 @@ Proof
   metis_tac[]
 QED
 
-Theorem bnd_clause_le:
-  bnd_clause v sz ∧ sz ≤ sz' ⇒
-  bnd_clause v sz'
-Proof
-  rw[bnd_clause_def]>>
-  first_x_assum drule>>
-  gvs[]
-QED
-
 (* Automatically resize the dml if needed for the new clause
 *)
 Definition prepare_rup_def:
@@ -649,9 +640,6 @@ Definition prepare_rup_def:
   let dml'' = init_lit_map_list lv v dml' b' in
     (dml'',b')
 End
-
-(* TODO: prepare_rup should be unconditional,
-  not sure if this is the right theorem... *)
 
 Definition is_rup_list_def:
   is_rup_list fmlls dml b v is =
@@ -806,5 +794,84 @@ Proof
   rw[bnd_fml_def,any_el_update_resize]>>
   gvs[AllCaseEqs()]>>
   metis_tac[]
+QED
+
+Theorem bnd_fml_delete_ids_list:
+  ∀ls fmlls sz.
+  bnd_fml fmlls sz ⇒
+  bnd_fml (delete_ids_list fmlls ls) sz
+Proof
+  Induct>>
+  rw[]>>fs[delete_ids_list_def]>>
+  first_x_assum irule>>
+  fs[bnd_fml_def,any_el_ALT]>>
+  rw[delete_list_def,EL_LUPDATE]>>
+  metis_tac[]
+QED
+
+Theorem bnd_clause_prepare_rup:
+  prepare_rup dml b v = (dml',b') ⇒
+  bnd_clause v (LENGTH dml')
+Proof
+  rw[prepare_rup_def]>>
+  pairarg_tac>>gvs[]>>
+  cheat
+QED
+
+Theorem bnd_clause_is_rup_list':
+  is_rup_list' fmlls dml b vc hints = SOME (res,dml',b') ⇒
+  bnd_clause vc (LENGTH dml')
+Proof
+  rw[is_rup_list'_def]>>
+  gvs[AllCaseEqs(),UNCURRY_EQ]>>
+  drule bnd_clause_prepare_rup>>
+  simp[]>>
+  drule unit_prop_list'_LENGTH>>
+  rw[]
+QED
+
+Theorem is_rup_list'_LENGTH:
+  is_rup_list' fmlls dml b vc hints = SOME (res,dml',b') ⇒
+  LENGTH dml ≤ LENGTH dml'
+Proof
+  rw[is_rup_list'_def]>>
+  gvs[AllCaseEqs(),UNCURRY_EQ]>>
+  drule prepare_rup_LENGTH>>simp[]>>
+  drule unit_prop_list'_LENGTH>>
+  rw[]
+QED
+
+Theorem bnd_clause_le:
+  bnd_clause c n ∧ n ≤ n' ⇒
+  bnd_clause c n'
+Proof
+  rw[bnd_clause_def]>>
+  first_x_assum drule>>simp[]
+QED
+
+Theorem bnd_fml_le:
+  bnd_fml fml n ∧ n ≤ n' ⇒
+  bnd_fml fml n'
+Proof
+  rw[bnd_fml_def]>>
+  first_x_assum drule_all>>
+  metis_tac[bnd_clause_le]
+QED
+
+Theorem bnd_fml_is_rup_list:
+  bnd_fml fmlls (LENGTH dml) ∧
+  is_rup_list fmlls dml b vc hints = (res,dml',b') ⇒
+  bnd_clause vc (LENGTH dml') ∧
+  bnd_fml fmlls (LENGTH dml')
+Proof
+  strip_tac>>
+  drule is_rup_list'_SOME>>
+  disch_then (qspecl_then [`vc`,`hints`,`b`] assume_tac)>>
+  fs[EXISTS_PROD,IS_SOME_EXISTS]>>
+  drule bnd_clause_is_rup_list'>>
+  drule is_rup_list'_LENGTH>>
+  drule is_rup_list'>>
+  rw[]>>gvs[]>>
+  metis_tac[bnd_fml_le]
 QED
 
