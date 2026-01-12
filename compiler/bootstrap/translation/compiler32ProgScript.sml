@@ -1,7 +1,7 @@
 (*
   Finish translation of the 32-bit version of the compiler.
 *)
-Theory compiler32Prog
+Theory compiler32Prog[no_sig_docs]
 Ancestors
   compiler export ml_translator ag32Prog[qualified]
   arm7Prog[qualified] basis_ffi[qualified]
@@ -546,10 +546,22 @@ Definition compiler32_prog_def:
   compiler32_prog = ^prog_tm
 End
 
+Theorem dec_sides[local]:
+  (peg_v_side ⇔ T) ∧
+  (peg_longv_side ⇔ T) ∧
+  (peg_uqconstructorname_side ⇔ T) ∧
+  (cmlpeg_side ⇔ T)
+Proof
+  fs[cmlpeg_side_def,
+    peg_v_side_def,
+    peg_longv_side_def,
+    peg_uqconstructorname_side_def]
+QED
+
 Theorem semantics_compiler32_prog =
   semantics_thm
   |> PURE_ONCE_REWRITE_RULE[GSYM compiler32_prog_def]
   |> DISCH_ALL
-  |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC, dec_sides]
 
 val _ = ml_translatorLib.reset_translation(); (* because this translation won't be continued *)

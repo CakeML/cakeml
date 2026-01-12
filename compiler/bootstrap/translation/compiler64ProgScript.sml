@@ -1,7 +1,7 @@
 (*
   Finish translation of the 64-bit version of the compiler.
 *)
-Theory compiler64Prog
+Theory compiler64Prog[no_sig_docs]
 Ancestors
   mipsProg compiler export ml_translator basis_ffi[qualified]
 Libs
@@ -775,17 +775,29 @@ Proof
 QED
 
 val (semantics_thm,prog_tm) =
-whole_prog_thm (get_ml_prog_state()) "main" (main_whole_prog_spec |> UNDISCH);
+  whole_prog_thm (get_ml_prog_state()) "main" (main_whole_prog_spec |> UNDISCH);
 
 Definition compiler64_prog_def:
   compiler64_prog = ^prog_tm
 End
 
+Theorem dec_sides[local]:
+  (peg_v_side ⇔ T) ∧
+  (peg_longv_side ⇔ T) ∧
+  (peg_uqconstructorname_side ⇔ T) ∧
+  (cmlpeg_side ⇔ T)
+Proof
+  fs[cmlpeg_side_def,
+    peg_v_side_def,
+    peg_longv_side_def,
+    peg_uqconstructorname_side_def]
+QED
+
 Theorem semantics_compiler64_prog =
   semantics_thm
     |> PURE_ONCE_REWRITE_RULE[GSYM compiler64_prog_def]
     |> DISCH_ALL
-    |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC]
+    |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC,dec_sides]
 
 (* saving a tidied up final theorem *)
 
