@@ -362,6 +362,43 @@ Proof
     intLib.ARITH_TAC)
 QED
 
+(* encodes (sum of the bitlist Bs) = Y *)
+Definition encode_bitsum_def:
+  encode_bitsum Bs Y =
+  case Y of
+    INL vY => [
+      ([(-1i, vY)], MAP (λb. (1i, Pos b)) Bs, 0i);
+      ([(1i, vY)], MAP (λb. (-1i, Pos b)) Bs, 0i)]
+  | INR cY => [
+      ([], MAP (λb. (1i, Pos b)) Bs, cY);
+      ([], MAP (λb. (-1i, Pos b)) Bs, -cY)]
+End
+
+Theorem iSUM_MAP_lin:
+  ∀ls a f b. iSUM (MAP (λx. a * f x + b) ls) = a * iSUM (MAP (λx. f x) ls) + b * &LENGTH ls
+Proof
+  Induct>>
+  simp[iSUM_def,MAP,LENGTH]>>
+  rw[]>>
+  intLib.ARITH_TAC
+QED
+
+Theorem iSUM_MAP_lin_const = iSUM_MAP_lin |> CONV_RULE (RESORT_FORALL_CONV List.rev) |> Q.SPEC `0` |> SRULE [] |> SPEC_ALL;
+
+Theorem encode_bitsum_sem:
+  valid_assignment bnd wi ⇒
+  (EVERY (λx. iconstraint_sem x (wi,wb)) (encode_bitsum Bs Y) ⇔
+  iSUM $ MAP (b2i o wb) Bs = varc wi Y)
+Proof
+  rw[encode_bitsum_def]>>
+  CASE_TAC>>
+  simp[varc_def,iconstraint_sem_def,eval_ilin_term_def,eval_lin_term_def,
+    eval_iterm_def,eval_term_def,iSUM_def,MAP_MAP_o,combinTheory.o_ABS_R,
+    iSUM_MAP_lin_const]>>
+  simp[GSYM combinTheory.o_ABS_R,GSYM combinTheory.I_EQ_IDABS]>>
+  intLib.ARITH_TAC
+QED
+
 (*
   Helper functions for bit implications, but we
     specialize with annotations and only use a single bit
