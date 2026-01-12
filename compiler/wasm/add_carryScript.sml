@@ -23,7 +23,7 @@ Proof
 QED
 
 Theorem add_carry_aux':
-  ¬(a+b<+b:'a word) ⇒ w2n a + w2n b < dimword(:'a) 
+  ¬(a+b<+b:'a word) ⇒ w2n a + w2n b < dimword(:'a)
 Proof
   `w2n a + w2n b >= dimword(:'a) ⇒ a+b<+b:'a word` suffices_by metis_tac[NOT_LESS,GREATER_EQ]
   >>rw[word_add_def,WORD_LO]
@@ -66,7 +66,7 @@ Proof
   >>(Cases_on`a+b+1w<+1w`>>fs[])
   >-(dxrule_then assume_tac add_carry_aux>>gvs[word_add_def])
   >-(dxrule_then assume_tac add_carry_aux'>>gvs[word_add_def])
-End
+QED
 
 Theorem word_bits_1bit:
   (i--i)a = if word_bit i a then 1w else 0w
@@ -94,7 +94,7 @@ Definition add_overflow_def:
   add_overflow (a:'a word) (b:'a word) =
   let sum = a+b in
   (sum, (~(a⊕b) && (b⊕sum)) >>> (dimindex(:'a)-1))
-End 
+End
 
 Definition sub_overflow_def:
   sub_overflow (a:'a word) (b:'a word) =
