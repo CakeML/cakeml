@@ -382,9 +382,17 @@ val res = translate backendTheory.ffinames_to_string_list_def;
 
 val res = translate compile_64_def;
 
+val _ = res |> hyp |> null orelse
+        failwith ("Unproved side condition in the translation of " ^
+                  "compile_64_def.");
+
 val res = translate $ spec64 compile_pancake_def;
 
 val res = translate compile_pancake_64_def;
+
+val _ = res |> hyp |> null orelse
+        failwith ("Unproved side condition in the translation of " ^
+                  "compile_pancake_64_def.");
 
 val res = translate (has_version_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
 val res = translate (has_help_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])

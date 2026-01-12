@@ -349,6 +349,10 @@ val res = format_compiler_result_def
 
 val res = translate compile_32_def;
 
+val _ = res |> hyp |> null orelse
+        failwith ("Unproved side condition in the translation of " ^
+                  "compile_32_def.");
+
 val res = translate (has_version_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
 val res = translate (has_help_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
 val res = translate print_option_def
@@ -369,6 +373,10 @@ val res = translate nonzero_exit_code_for_error_msg_def;
 val res = translate $ spec32 compile_pancake_def;
 
 val res = translate compile_pancake_32_def;
+
+val _ = res |> hyp |> null orelse
+        failwith ("Unproved side condition in the translation of " ^
+                  "compile_pancake_32_def.");
 
 val res = translate (has_pancake_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
 
