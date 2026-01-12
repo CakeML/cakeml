@@ -787,10 +787,11 @@ Theorem dec_sides[local]:
   (peg_uqconstructorname_side ⇔ T) ∧
   (cmlpeg_side ⇔ T)
 Proof
-  fs[cmlpeg_side_def,
-    peg_v_side_def,
-    peg_longv_side_def,
-    peg_uqconstructorname_side_def]
+  fs[
+    parserProgTheory.cmlpeg_side_def,
+    parserProgTheory.peg_v_side_def,
+    parserProgTheory.peg_longv_side_def,
+    parserProgTheory.peg_uqconstructorname_side_def]
 QED
 
 Theorem semantics_compiler64_prog =
