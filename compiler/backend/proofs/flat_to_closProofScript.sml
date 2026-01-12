@@ -69,12 +69,6 @@ Theorem v_rel_def =
 
 Theorem env_rel_def = ``env_rel env m db`` |> ONCE_REWRITE_CONV [v_rel_cases];
 
-Definition opt_rel_def[simp]:
-  opt_rel f NONE NONE = T /\
-  opt_rel f (SOME x) (SOME y) = f x y /\
-  opt_rel f _ _ = F
-End
-
 Definition store_rel_def:
   store_rel refs t_refs =
     !i. if LENGTH refs <= i then FLOOKUP t_refs i = NONE else
@@ -107,7 +101,7 @@ Definition state_rel_def:
     store_rel s.refs t.refs ∧
     LENGTH t.globals ≠ 0 ∧
  (* HD t.globals = SOME (Closure NONE [] [] 1 clos_interpreter) ∧ *)
-    LIST_REL (opt_rel v_rel) s.globals (TL t.globals) ∧
+    LIST_REL (OPTREL v_rel) s.globals (TL t.globals) ∧
     install_config_rel' s.eval_config t.compile_oracle t.compile
 End
 
@@ -584,6 +578,20 @@ Proof
   \\ res_tac \\ fs []
 QED
 
+Theorem evaluate_Let_error:
+  evaluate (es,env,s) = (Rerr err,s') ==>
+  evaluate ([Let t es e],env,s) = (Rerr err,s')
+Proof
+  rw [evaluate_def]
+QED
+
+Theorem evaluate_Op_error:
+  evaluate (es,env,s) = (Rerr err,s') ==>
+  evaluate ([Op t op es],env,s) = (Rerr err,s')
+Proof
+  rw [evaluate_def]
+QED
+
 Theorem compile_op_evaluates_args:
   evaluate (xs,db,t) = (Rerr err,t1) /\
   op <> Opapp /\ op <> Eval /\ op <> ThunkOp ForceThunk
@@ -591,6 +599,24 @@ Theorem compile_op_evaluates_args:
   evaluate ([compile_op tra op xs],db,t) = (Rerr err,t1)
 Proof
   Cases_on `op`
+  (* Handle Arith case first *)
+  >~ [`Arith`]
+  >- (rename [`Arith a ty`] \\ rw [compile_op_def]
+      \\ Cases_on `ty` \\ Cases_on `a`
+      \\ simp [compile_arith_def]
+      \\ TRY (irule evaluate_Op_error \\ simp [])
+      \\ TRY (irule evaluate_Let_error \\ simp []))
+  (* Handle FromTo case *)
+  >~ [`FromTo`]
+  >- (rename [`FromTo ty1 ty2`] \\ rw [compile_op_def]
+      \\ Cases_on `ty1` \\ Cases_on `ty2`
+      \\ simp [arg1_def]
+      \\ TRY (irule evaluate_Let_error \\ simp [])
+      \\ TRY (irule evaluate_Op_error \\ simp [])
+      \\ rpt TOP_CASE_TAC \\ simp []
+      \\ TRY (irule evaluate_Let_error \\ simp [])
+      \\ TRY (irule evaluate_Op_error \\ simp []))
+  (* All other cases *)
   \\ fs [compile_op_def,evaluate_def,evaluate_APPEND,arg1_def,arg2_def]
   \\ every_case_tac \\ fs [evaluate_def]
   \\ fs [pair_case_eq,result_case_eq]
@@ -1083,7 +1109,7 @@ Proof
     \\ fs [GSYM ADD1,EL]
     \\ fs [LIST_REL_EL] \\ res_tac \\ fs []
     \\ qpat_x_assum `_ = NONE` assume_tac
-    \\ rename [‘opt_rel _ _ (EL _ tt)’]
+    \\ rename [‘OPTREL _ _ (EL _ tt)’]
     \\ Cases_on `EL n tt` \\ fs []
     \\ simp [Once v_rel_cases,Unit_def,LUPDATE_def]
     \\ fs [EL_LUPDATE]
@@ -1253,6 +1279,119 @@ Proof
   Induct \\ Cases_on ‘s'’ \\ gvs [ORD_BOUND,ORD_11]
 QED
 
+Theorem imp_cmp_eq_num_cmp:
+  ∀cmp. int_cmp cmp (&m) (&n) ⇔ num_cmp cmp m n
+Proof
+  Cases \\ gvs [int_cmp_def] \\ intLib.COOPER_TAC
+QED
+
+Theorem check_type_IntT_flat_to_v[local]:
+  check_type IntT (flat_to_v (v:flatSem$v)) ==> ?i. v = Litv (IntLit i)
+Proof
+  Cases_on `v`
+  \\ simp [flat_to_v_def, semanticPrimitivesTheory.check_type_def,
+           Boolv_def, semanticPrimitivesTheory.Boolv_def]
+  \\ rw []
+QED
+
+Theorem check_type_Float64T_flat_to_v[local]:
+  check_type Float64T (flat_to_v (v:flatSem$v)) ==> ?w. v = Litv (Float64 w)
+Proof
+  Cases_on `v`
+  \\ simp [flat_to_v_def, semanticPrimitivesTheory.check_type_def,
+           Boolv_def, semanticPrimitivesTheory.Boolv_def]
+  \\ rw []
+QED
+
+Theorem check_type_WordT_W8_flat_to_v[local]:
+  check_type (WordT W8) (flat_to_v (v:flatSem$v)) ==> ?w. v = Litv (Word8 w)
+Proof
+  Cases_on `v`
+  \\ simp [flat_to_v_def, semanticPrimitivesTheory.check_type_def,
+           Boolv_def, semanticPrimitivesTheory.Boolv_def]
+  \\ rw []
+QED
+
+Theorem check_type_WordT_W64_flat_to_v[local]:
+  check_type (WordT W64) (flat_to_v (v:flatSem$v)) ==> ?w. v = Litv (Word64 w)
+Proof
+  Cases_on `v`
+  \\ simp [flat_to_v_def, semanticPrimitivesTheory.check_type_def,
+           Boolv_def, semanticPrimitivesTheory.Boolv_def]
+  \\ rw []
+QED
+
+Theorem op_arith:
+  (∃a ty. op = Arith a ty) ==>
+  ^op_goal
+Proof
+  rpt strip_tac \\ rveq \\ fs []
+  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
+         CaseEq "ast$lit",store_assign_def,option_case_eq]
+  \\ gvs [AllCaseEqs()]
+  \\ Cases_on `ty` \\ TRY (Cases_on ‘w’)
+  (* Eliminate impossible types: BoolT, CharT, StrT all make do_arith return NONE *)
+  \\ gvs [semanticPrimitivesTheory.do_arith_def]
+  (* Now only IntT, Float64T, WordT W8, WordT W64 remain. Destruct the value list. *)
+  \\ gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
+  \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
+  (* Derive concrete flatLang values from check_type *)
+  \\ rpt (first_x_assum (strip_assume_tac o MATCH_MP check_type_IntT_flat_to_v)
+          ORELSE first_x_assum (strip_assume_tac o MATCH_MP check_type_Float64T_flat_to_v)
+          ORELSE first_x_assum (strip_assume_tac o MATCH_MP check_type_WordT_W8_flat_to_v)
+          ORELSE first_x_assum (strip_assume_tac o MATCH_MP check_type_WordT_W64_flat_to_v))
+  \\ gvs []
+  (* Now expand the_Litv functions with concrete Litv values *)
+  \\ gvs [flatSemTheory.flat_to_v_def,
+          semanticPrimitivesTheory.the_Litv_IntLit_def,
+          semanticPrimitivesTheory.the_Litv_Float64_def,
+          semanticPrimitivesTheory.the_Litv_Word8_def,
+          semanticPrimitivesTheory.the_Litv_Word64_def,
+          semanticPrimitivesTheory.do_arith_def, AllCaseEqs()]
+  (* Derive closLang value forms from v_rel *)
+  \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
+  \\ fs [compile_op_def, compile_arith_def]
+  \\ simp [closSemTheory.evaluate_def, closSemTheory.do_app_def,
+           do_int_app_def, do_eq_def, do_word_app_def,
+           fpSemTheory.fp_bop_comp_def, fpSemTheory.fp_uop_comp_def,
+           fpSemTheory.fp_top_comp_def, fpSemTheory.fpfma_def]
+  (* Handle IntT/Float64T/W64 cases *)
+  \\ TRY (IF_CASES_TAC \\ gvs [])
+  \\ gvs [v_rel_def, div_exn_v_def, flatSemTheory.v_to_flat_def]
+  (* Handle W8 cases: eliminate the 'some' pattern *)
+  \\ fs [some_def, EXISTS_PROD]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+  \\ `(@x. w' = FST x ∧ w = SND x) = (w', w)` by
+       (irule SELECT_UNIQUE \\ simp [FORALL_PROD] \\ metis_tac [])
+  \\ simp []
+QED
+
+Theorem op_from_to:
+  (∃ty1 ty2. op = FromTo ty1 ty2) ==>
+  ^op_goal
+Proof
+  rpt strip_tac \\ rveq \\ fs []
+  \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
+         CaseEq "ast$lit",store_assign_def,option_case_eq]
+  \\ gvs [AllCaseEqs()]
+  \\ Cases_on `ty1` \\ Cases_on `ty2`
+  (* Only WordT W8 -> IntT is handled; others make do_conversion return NONE *)
+  \\ gvs [semanticPrimitivesTheory.do_conversion_def]
+  \\ TRY (Cases_on `w`) \\ gvs [semanticPrimitivesTheory.do_conversion_def]
+  (* Now only WordT W8 -> IntT remains *)
+  \\ gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
+  \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
+  (* Derive concrete flatLang value from check_type *)
+  \\ first_x_assum (strip_assume_tac o MATCH_MP check_type_WordT_W8_flat_to_v)
+  \\ gvs [flatSemTheory.flat_to_v_def,
+          semanticPrimitivesTheory.the_Litv_Word8_def]
+  (* Derive closLang value form from v_rel *)
+  \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
+  \\ fs [compile_op_def, arg1_def]
+  \\ simp [closSemTheory.evaluate_def]
+  \\ gvs [v_rel_def, flatSemTheory.v_to_flat_def]
+QED
+
 Theorem op_test:
   (∃test ty. op = Test test ty) ==>
   ^op_goal
@@ -1267,39 +1406,49 @@ Proof
   >-
    (gvs [oneline dest_Litv_def, AllCaseEqs()]
     \\ fs [Once v_rel_cases] \\ gvs []
+    \\ Cases_on ‘cmp’
+    \\ gvs [closSemTheory.evaluate_def,closSemTheory.do_app_def,
+            fpSemTheory.fp_cmp_def,
+            closSemTheory.do_word_app_def,fpSemTheory.fp_cmp_comp_def])
+  >-
+   (gvs [oneline dest_Litv_def, AllCaseEqs()]
+    \\ fs [Once v_rel_cases] \\ gvs []
     \\ gvs [closSemTheory.evaluate_def,
-            closSemTheory.do_app_def,
+            closSemTheory.do_app_def,imp_cmp_eq_num_cmp,
             w2n_lt |> INST_TYPE [alpha|->“:8”] |> SRULE [],
             closSemTheory.do_word_app_def])
   >-
    (gvs [oneline dest_Litv_def, AllCaseEqs()]
     \\ fs [Once v_rel_cases] \\ gvs []
     \\ gvs [closSemTheory.evaluate_def,char_lt_def,char_le_def,
-            closSemTheory.do_app_def,ORD_BOUND,
+            closSemTheory.do_app_def,imp_cmp_eq_num_cmp,ORD_BOUND,
             closSemTheory.do_word_app_def])
   >-
    (gvs [oneline dest_Litv_def, AllCaseEqs()]
     \\ fs [Once v_rel_cases] \\ gvs []
-    \\ gvs [closSemTheory.evaluate_def,
-            closSemTheory.do_app_def,
+    \\ rename [‘int_cmp cmp’]
+    \\ Cases_on ‘cmp’ \\ gvs []
+    \\ gvs [closSemTheory.evaluate_def,do_int_app_def,
+            closSemTheory.do_app_def,imp_cmp_eq_num_cmp,
             w2n_lt |> INST_TYPE [alpha|->“:8”] |> SRULE [],
             closSemTheory.do_word_app_def])
   >-
-   (gvs [oneline dest_Litv_def, AllCaseEqs()]
-    \\ fs [Once v_rel_cases] \\ gvs []
-    \\ gvs [closSemTheory.evaluate_def,char_lt_def,char_le_def,
-            closSemTheory.do_app_def,ORD_BOUND,
-            closSemTheory.do_word_app_def])
-  \\ Cases_on ‘ty’ \\ TRY (rename [‘WordT ws’] \\ Cases_on ‘ws’)
-  \\ gvs [flatSemTheory.check_type_def,
-          flatSemTheory.do_eq_def,flatSemTheory.Boolv_def,AllCaseEqs()]
-  \\ gvs [closSemTheory.evaluate_def,
-          closSemTheory.do_app_def,
-          closSemTheory.Boolv_def]
-  \\ fs [Once v_rel_cases]
-  \\ gvs [closSemTheory.do_eq_def,ORD_BOUND,MAP_n2w_ORD_eq,
-          w2n_lt |> INST_TYPE [alpha|->“:8”] |> SRULE [],
-          closSemTheory.do_word_app_def,closSemTheory.Boolv_def,ORD_11]
+   (Cases_on ‘ty’ \\ TRY (rename [‘WordT ws’] \\ Cases_on ‘ws’)
+    \\ gvs [flatSemTheory.check_type_def,
+            flatSemTheory.do_eq_def,flatSemTheory.Boolv_def,AllCaseEqs()]
+    \\ gvs [closSemTheory.evaluate_def,
+            closSemTheory.do_app_def,
+            closSemTheory.Boolv_def]
+    \\ fs [Once v_rel_cases]
+    \\ gvs [closSemTheory.do_eq_def,ORD_BOUND,MAP_n2w_ORD_eq,
+            w2n_lt |> INST_TYPE [alpha|->“:8”] |> SRULE [],
+            closSemTheory.do_word_app_def,closSemTheory.Boolv_def,ORD_11])
+  \\ gvs [flatSemTheory.check_type_def]
+  \\ fs [Once v_rel_cases] \\ gvs [the_Litv_Float64_def]
+  \\ gvs [closSemTheory.evaluate_def,closSemTheory.do_word_app_def,
+          closSemTheory.do_app_def,AllCaseEqs(),
+          closSemTheory.Boolv_def,fpSemTheory.fp_cmp_comp_def]
+  \\ CCONTR_TAC \\ gvs []
 QED
 
 Theorem op_ffi:
@@ -1387,9 +1536,10 @@ Theorem compile_op_correct:
   ^op_goal
 Proof
   EVERY (map assume_tac
-    [op_refs, op_chars, op_ints, op_words, op_str, op_shifts, op_thunk,
-     op_floats, op_eq_gc, op_byte_arrays, op_vectors, op_arrays, op_test,
-     op_globals, op_blocks, op_ffi, op_byte_copy, op_eval, op_id])
+    [op_refs, op_chars, op_ints, op_words, op_str, op_shifts,
+     op_thunk, op_floats, op_eq_gc, op_byte_arrays, op_vectors,
+     op_arrays, op_test, op_arith, op_from_to, op_globals, op_blocks,
+     op_ffi, op_byte_copy, op_eval, op_id])
   \\ `?this_is_case. this_is_case op` by (qexists_tac `K T` \\ fs [])
   \\ rpt strip_tac \\ fs [] \\ Cases_on `op` \\ fs []
 QED
@@ -2084,7 +2234,7 @@ Proof
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
     \\ simp [compile_lit_def,op_gbag_def])
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
-    \\ simp ([compile_op_def] @ props_defs)
+    \\ simp ([compile_op_def, compile_arith_def] @ props_defs)
     \\ rpt (CASE_TAC \\ simp props_defs))
   \\ simp [compile_def, closPropsTheory.op_gbag_def,set_globals_SmartCons,
     flatPropsTheory.op_gbag_def, closPropsTheory.elist_globals_append]
@@ -2165,7 +2315,7 @@ Proof
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
     \\ simp [compile_lit_def])
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
-    \\ simp ([compile_op_def] @ props_defs)
+    \\ simp ([compile_op_def, compile_arith_def] @ props_defs)
     \\ rpt (CASE_TAC \\ simp props_defs))
   \\ simp [compile_def, closPropsTheory.op_gbag_def,esgc_free_SmartCons,
     flatPropsTheory.op_gbag_def, closPropsTheory.elist_globals_append]
@@ -2274,7 +2424,7 @@ Proof
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_lit _ lit` \\ Cases_on `lit`
     \\ simp [compile_lit_def])
   \\ TRY (qmatch_goalsub_abbrev_tac `compile_op _ op` \\ Cases_on `op`
-    \\ simp ([compile_op_def] @ props_defs)
+    \\ simp ([compile_op_def, compile_arith_def] @ props_defs)
     \\ rpt (CASE_TAC \\ simp props_defs))
   \\ fs [dest_nop_def]
   \\ simp ([CopyByteAw8_def, CopyByteStr_def] @ props_defs)

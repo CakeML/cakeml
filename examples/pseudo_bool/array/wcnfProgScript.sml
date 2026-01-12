@@ -49,7 +49,7 @@ val inputLineTokens_specialize =
   |> Q.GEN `a` |> Q.ISPEC`SUM_TYPE STRING_TYPE INT`
   |> SIMP_RULE std_ss [blanks_1_v_thm,tokenize_1_v_thm,blanks_def] ;
 
-val parse_wcnf_toks_arr = process_topdecs`
+Quote add_cakeml:
   fun parse_wcnf_toks_arr lno fd acc =
   case TextIO.inputLineTokens #"\n" fd blanks_1 tokenize_1 of
     None => Inr (List.rev acc)
@@ -58,7 +58,8 @@ val parse_wcnf_toks_arr = process_topdecs`
       (case parse_wclause l of
         None => Inl (format_wcnf_failure lno "failed to parse line")
       | Some cl => parse_wcnf_toks_arr (lno+1) fd (cl::acc))
-    else parse_wcnf_toks_arr (lno+1) fd acc` |> append_prog;
+    else parse_wcnf_toks_arr (lno+1) fd acc
+End
 
 Theorem parse_wcnf_toks_arr_spec:
   !lines fd fdv fs acc accv lno lnov.
@@ -165,7 +166,7 @@ Proof
 QED
 
 (* parse_wcnf_toks with simple wrapper *)
-val parse_wcnf_full = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun parse_wcnf_full fname =
   let
     val fd = TextIO.openIn fname
@@ -174,7 +175,8 @@ val parse_wcnf_full = (append_prog o process_topdecs) `
   in
     res
   end
-  handle TextIO.BadFileName => Inl (notfound_string fname)`;
+  handle TextIO.BadFileName => Inl (notfound_string fname)
+End
 
 Theorem parse_wcnf_full_spec:
   STRING_TYPE f fv ∧
@@ -285,12 +287,13 @@ val _ = translate pbcTheory.map_obj_def;
 val _ = translate full_encode_def;
 
 (* parse input from f1 and run encoder into npbc *)
-val parse_and_enc = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun parse_and_enc f1 =
   case parse_wcnf_full f1 of
     Inl err => Inl err
   | Inr wfml =>
-    Inr (full_encode wfml)`
+    Inr (full_encode wfml)
+End
 
 Definition get_fml_def:
   get_fml fs f =
@@ -439,7 +442,7 @@ End
 
 val res = translate mk_prob_def;
 
-val check_unsat_2 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_2 f1 f2 =
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
@@ -450,7 +453,8 @@ val check_unsat_2 = (append_prog o process_topdecs) `
         (check_unsat_top_norm False (mk_prob objf) probt f2) of
         Inl err => TextIO.output TextIO.stdErr err
       | Inr s => TextIO.print s)
-    end`
+    end
+End
 
 Theorem check_unsat_2_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -569,12 +573,13 @@ Definition check_unsat_1_sem_def:
     out = concat (print_prob (mk_prob (full_encode wfml)))
 End
 
-val check_unsat_1 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_1 f1 =
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
   | Inr objf =>
-    TextIO.print_list (print_prob (mk_prob objf))`
+    TextIO.print_list (print_prob (mk_prob objf))
+End
 
 Theorem check_unsat_1_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -654,7 +659,7 @@ val res = translate conv_output_def;
 val res = translate print_maxsat_output_str_def;
 val res = translate map_out_concl_to_string_def;
 
-val check_unsat_3 = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_unsat_3 f1 f2 f3 =
   case parse_and_enc f1 of
     Inl err => TextIO.output TextIO.stdErr err
@@ -666,7 +671,8 @@ val check_unsat_3 = (append_prog o process_topdecs) `
       map_out_concl_to_string
         (check_unsat_top_norm True (mk_prob objf) (mk_prob objft) f2) of
       Inl err => TextIO.output TextIO.stdErr err
-    | Inr s => TextIO.print s))`
+    | Inr s => TextIO.print s))
+End
 
 Theorem check_unsat_3_spec:
   STRING_TYPE f1 f1v ∧ validArg f1 ∧
@@ -809,13 +815,14 @@ End
 
 val r = translate usage_string_def;
 
-val main = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun main u =
   case CommandLine.arguments () of
     [f1] => check_unsat_1 f1
   | [f1,f2] => check_unsat_2 f1 f2
   | [f1,f2,f3] => check_unsat_3 f1 f2 f3
-  | _ => TextIO.output TextIO.stdErr usage_string`
+  | _ => TextIO.output TextIO.stdErr usage_string
+End
 
 Definition main_sem_def:
   main_sem fs cl out =

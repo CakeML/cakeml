@@ -68,7 +68,7 @@ Definition ctxt_fc_def:
   ctxt_fc c cvs ns args =
     <|vars := FEMPTY |++ ZIP (ns, args);
       funcs := cvs;
-      vmax := list_max args;
+      vmax := MAX_LIST args;
       target := c
       |>
 End
@@ -2835,7 +2835,7 @@ Proof
      qexists_tac ‘n’ >> fs [] >>
      drule EL_ZIP >>
      disch_then (qspec_then ‘n’ mp_tac) >> fs []) >>
-   assume_tac list_max_max >>
+   assume_tac MAX_LIST_max >>
    pop_assum (qspec_then ‘lns’ assume_tac) >>
    fs [EVERY_MEM]) >>
   ‘FRONT (MAP wlab_wloc args ++ [Loc loc 0]) =
@@ -3502,7 +3502,7 @@ Proof
   \\ rpt (qpat_assum `_ < LENGTH _` (irule_at Any))
   \\ simp [EL_MAP2, EL_MAP]
   \\ simp [comp_func_def, mk_ctxt_def, ctxt_fc_def, make_vmap_def,
-    make_funcs_def, pan_commonPropsTheory.list_max_i_genlist]
+    make_funcs_def, pan_commonPropsTheory.MAX_LIST_i_genlist]
   \\ simp [MAP2_ZIP, MAP_MAP_o, o_DEF, ELIM_UNCURRY]
   \\ simp [ETA_THM, MAP_ZIP]
   \\ simp [ALL_DISTINCT_GENLIST]

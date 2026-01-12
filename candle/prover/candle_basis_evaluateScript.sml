@@ -26,6 +26,9 @@ Definition simple_exp_def:
       App op xs => (case op of
         VfromList => T
       | Aw8alloc => T
+      | Test _ _ => T
+      | Arith _ _ => T
+      | FromTo _ _ => T
       | Opb _ => T
       | _ => F)
     | Lit lit => T
@@ -224,6 +227,16 @@ Proof
   >- (
     gvs [do_app_cases, Boolv_def]
     \\ rw [v_ok_def]
+    >~ [`do_arith a ty`]
+    >- (
+      Cases_on ‘a’ \\ Cases_on ‘ty’
+      \\ TRY (rename1 ‘WordT w’ \\ Cases_on ‘w’)
+      \\ gvs[do_arith_def, CaseEq"list", v_ok_def, CaseEq"bool"]
+    ) >~ [`do_conversion _ ty1 ty2`]
+    >- (
+      Cases_on ‘ty2’ \\ Cases_on ‘ty1’
+      \\ gvs[do_conversion_def, CaseEq"list", v_ok_def, CaseEq"bool"]
+      \\ Cases_on ‘w’ \\ gvs[do_conversion_def, v_ok_def] )
     >- (
       gvs [store_alloc_def, post_state_ok_def]
       \\ strip_tac
@@ -408,4 +421,3 @@ Theorem post_state_ok_with_clock[simp]:
 Proof
   rw [post_state_ok_def]
 QED
-

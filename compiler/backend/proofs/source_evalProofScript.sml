@@ -615,6 +615,14 @@ Proof
   \\ eq_tac \\ rw [] \\ gvs []
 QED
 
+Theorem LIST_REL_v_rel_check_type[local]:
+  LIST_REL (v_rel x) vs1 vs2 ⇒
+  (EVERY (check_type ty) vs1 ⇔ EVERY (check_type ty) vs2)
+Proof
+  rw[LIST_REL_EL_EQN, EVERY_EL]
+  \\ PROVE_TAC[v_rel_check_type]
+QED
+
 Theorem do_app_sim:
   do_app (s.refs, s.ffi) op (REVERSE xs) = SOME ((refs, ffi), r) /\
   s_rel ^ci s t /\
@@ -636,8 +644,30 @@ Proof
   >~ [`do_test`] >- (
     imp_res_tac v_rel_check_type
     \\ Cases_on ‘test’ \\ gvs [do_test_def,AllCaseEqs()]
-    \\ irule (cj 1 do_eq)
-    \\ rpt $ first_assum $ irule_at Any)
+    >- (Cases_on ‘y’ \\ Cases_on ‘y'’ \\ gvs [check_type_def]
+        \\ gvs [dest_Litv_def]
+        \\ gvs [oneline dest_Litv_def,AllCaseEqs()])
+    \\ res_tac
+    \\ Cases_on ‘test_ty’ \\ gvs [check_type_def]
+    \\ res_tac
+    \\ rename [‘WordT wt’] \\ Cases_on ‘wt’ \\ gvs [check_type_def])
+  >~ [‘do_arith’] >- (
+    drule_then(qspec_then`ty`strip_assume_tac) LIST_REL_v_rel_check_type
+    \\ `refs = s.refs` by gvs[CaseEq"sum"]
+    \\ gvs[]
+    \\ first_assum $ irule_at Any
+    \\ Cases_on`a` \\ Cases_on`ty` \\ Cases_on`xs`
+    \\ TRY(rename1 `WordT w` \\ Cases_on `w`)
+    \\ gvs[do_arith_def, CaseEq"list", check_type_def, CaseEq"bool"]
+    >- (EVAL_TAC \\ rw[])
+    >- (EVAL_TAC \\ rw[])
+    \\ Cases_on`t` \\ gvs[check_type_def])
+  >~ [‘do_conversion’] >- (
+    imp_res_tac v_rel_check_type \\ rw[]
+    \\ first_assum $ irule_at Any
+    \\ Cases_on`ty1` \\ Cases_on`ty2` \\ gvs[do_conversion_def]
+    \\ Cases_on`w` \\ gvs[do_conversion_def]
+    \\ gvs[check_type_def])
   >~ [`thunk_op`]
   >- (
     gvs [AllCaseEqs(), PULL_EXISTS, thunk_op_def]

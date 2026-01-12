@@ -360,10 +360,26 @@ Definition t_of_def[simp]:
 End
 
 Definition supported_test_def[simp]:
-  supported_test Equal  ty = T ∧
-  supported_test Less   ty = MEM ty [CharT; WordT W8] ∧
-  supported_test LessEq ty = MEM ty [CharT; WordT W8] ∧
-  supported_test _      ty = F
+  supported_test Equal       ty = T ∧
+  supported_test (Compare _) ty = MEM ty [IntT; CharT; WordT W8; Float64T] ∧
+  supported_test _           ty = F
+End
+
+Definition supported_arith_def[simp]:
+  (supported_arith a IntT =
+     if MEM a [Add; Sub; Mul; Div; Mod] then SOME (2:num) else NONE) ∧
+  (supported_arith a Float64T =
+     if MEM a [Abs; Neg; Sqrt] then SOME 1 else
+     if MEM a [Add; Sub; Mul; Div] then SOME 2 else
+     if MEM a [FMA] then SOME 3 else NONE) ∧
+  (supported_arith a (WordT _) =
+     if MEM a [Add; Sub; And; Or; Xor] then SOME 2 else NONE) ∧
+  (supported_arith a (ty:prim_type) = NONE)
+End
+
+Definition supported_conversion_def[simp]:
+  (supported_conversion (WordT W8) IntT = T) ∧
+  (supported_conversion (from_ty:prim_type) (to_ty:prim_type) = F)
 End
 
 (* Check that the operator can have type (t1 -> ... -> tn -> t) *)
@@ -385,6 +401,10 @@ Definition type_op_def:
     | (Shift W8 _ _, [t1]) => (t1 = Tword8) /\ (t = Tword8)
     | (Shift W64 _ _, [t1]) => (t1 = Tword64) /\ (t = Tword64)
     | (Equality, [t1; t2]) => (t1 = t2) /\ (t = Tbool)
+    | (Arith a ty, ts) => EVERY (λarg. arg = t_of ty) ts /\ (t = t_of ty) /\
+                          supported_arith a ty = SOME (LENGTH ts)
+    | (FromTo ty1 ty2, [t1]) => (t1 = t_of ty1) /\ (t = t_of ty2) /\
+                                supported_conversion ty1 ty2
     | (Test test ty, [t1; t2]) => (t1 = t2) /\ (t = Tbool) /\ (t1 = t_of ty) /\
                                   supported_test test ty
     | (Opassign, [t1; t2]) => (t1 = Tref t2) /\ (t = Ttup [])

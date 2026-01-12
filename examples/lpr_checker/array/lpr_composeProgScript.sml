@@ -189,9 +189,10 @@ End
 
 val add_one_v = translate add_one_def;
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun line_count_of fname =
-    TextIO.foldLines #"\n" add_one 0 (Some fname)`;
+    TextIO.foldLines #"\n" add_one 0 (Some fname)
+End
 
 (* TODO move? *)
 Theorem line_of_gen_lines_of[simp]:
@@ -233,7 +234,7 @@ End
 
 val r = translate notfound_string_def;
 
-val _ = (append_prog o process_topdecs) `
+Quote add_cakeml:
   fun check_compose cnf_fname proof_fname lines_fname =
     case md5_of (Some cnf_fname) of
       None => TextIO.output TextIO.stdErr (notfound_string cnf_fname)
@@ -249,7 +250,8 @@ val _ = (append_prog o process_topdecs) `
           | Some n =>
               case check_lines cnf_md5 proof_md5 lines n of
                 Inl err => TextIO.output TextIO.stdErr err
-              | Inr succ => print succ`
+              | Inr succ => print succ
+End
 
 Theorem check_compose_spec:
   FILENAME cnf_fname cnfv     ∧ file_content fs cnf_fname = SOME cnf ∧

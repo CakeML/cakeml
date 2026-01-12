@@ -617,7 +617,8 @@ Proof
   rw[]>>
   fs[typeSysPropsTheory.type_op_cases,oneline t_of_def]>>
   every_case_tac >> fs[ts_tid_rename_def] >>
-  fs[good_remap_def,prim_type_nums_def]
+  fs[good_remap_def,prim_type_nums_def] >>
+  gvs [LENGTH_EQ_NUM_compute,ts_tid_rename_def,AllCaseEqs()]
 QED
 
 Definition remap_tenvE_def:
@@ -1531,9 +1532,9 @@ Proof
       fs[BIJ_DEF,prim_tids_def,INJ_DEF,good_remap_def]>>
       metis_tac[])>>
     CONJ_TAC >- (
-      rw[FOLDR_MAX_0_list_max]
+      rw[FOLDR_MAX_0_MAX_LIST]
       \\ fs[good_remap_def]
-      \\ DEEP_INTRO_TAC list_max_intro
+      \\ DEEP_INTRO_TAC MAX_LIST_intro
       \\ conj_tac
       >- (
         fs[BIJ_DEF,prim_tids_def,INJ_DEF]

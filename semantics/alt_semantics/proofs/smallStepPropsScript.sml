@@ -698,6 +698,7 @@ Theorem small_eval_app_err:
       ∀op env0 v1 v0.
         LENGTH es + LENGTH v0 > 2 ∧ op ≠ Opapp ∧ op ≠ AallocFixed
         ∧ op ≠ CopyStrStr ∧ op ≠ CopyStrAw8 ∧ op ≠ CopyAw8Str ∧ op ≠ CopyAw8Aw8
+        ∧ op ≠ Arith FMA Float64T
         ⇒
         ∃env' e' c'.
           e_step_reln^* (env0,s,Val v1,[Capp op v0 () es,env]) (env',s',e',c') ∧
@@ -705,15 +706,24 @@ Theorem small_eval_app_err:
 Proof
   ho_match_mp_tac small_eval_list_ind >> simp[] >> srw_tac[][] >>
   srw_tac[boolSimps.DNF_ss][Once RTC_CASES1,e_step_reln_def] >- (
-  srw_tac[][Once e_step_def,continue_def,application_thm,return_def] >>
-  BasicProvers.CASE_TAC >>
-  TRY BasicProvers.CASE_TAC >>
-  Cases_on`s` >> fs[do_app_cases] >> rw[] >> fs[] >>
-  rpt TOP_CASE_TAC >> gs[do_app_cases] >>
-  (* ThunkOp cases *)
-  namedCases_on ‘v0’ ["", "hd tl"] >> gvs[] >> Cases_on ‘tl’ >> gvs[] >>
-  gvs[oneline thunk_op_def, AllCaseEqs()]
-  ) >>
+    srw_tac[][Once e_step_def,continue_def,application_thm,return_def] >>
+    BasicProvers.CASE_TAC >>
+    TRY BasicProvers.CASE_TAC >>
+    Cases_on`s` >> fs[do_app_cases] >> rw[] >> fs[] >>
+    TRY(PairCases_on`x`) >>
+    gvs[CaseEq"prod",CaseEq"result",CaseEq"error_result",
+        do_app_cases,PULL_EXISTS]
+    >~ [`do_arith a p`] >- (
+      Cases_on`a` \\ Cases_on`p` \\ TRY (Cases_on ‘w’)
+      \\ gvs[do_arith_def, CaseEq"list"] ) >>
+    (* ThunkOp *)
+    namedCases_on ‘v0’ ["", "hd tl"] >> gvs[]
+    >- (Cases_on`v1` \\ simp[])
+    >> Cases_on ‘tl’ >> gvs[] >>
+    simp[do_app_def] >>
+    gvs[oneline thunk_op_def, AllCaseEqs()] >>
+    Cases_on`t` \\ gvs[]
+    >- (Cases_on`v1` \\ simp[]) ) >>
   disj2_tac >>
   srw_tac[][Once e_step_def,continue_def,push_def] >>
   imp_res_tac e_step_add_ctxt >>
@@ -738,15 +748,25 @@ Theorem small_eval_app_err_more:
 Proof
   ho_match_mp_tac small_eval_list_ind >> simp[] >> srw_tac[][] >>
   srw_tac[boolSimps.DNF_ss][Once RTC_CASES1,e_step_reln_def] >- (
-  srw_tac[][Once e_step_def,continue_def,application_thm] >>
-  BasicProvers.CASE_TAC >>
-  TRY BasicProvers.CASE_TAC >>
-  Cases_on`s` >> fs[do_app_cases] >> rw[] >> fs[] >>
-  rpt TOP_CASE_TAC >> gs[do_app_cases] >>
-  (* ThunkOp cases *)
-  namedCases_on ‘v0’ ["", "hd tl"] >> gvs[] >> Cases_on ‘tl’ >> gvs[] >>
-  gvs[oneline thunk_op_def, AllCaseEqs()]
-  ) >>
+    srw_tac[][Once e_step_def,continue_def,application_thm] >>
+    BasicProvers.CASE_TAC >>
+    TRY BasicProvers.CASE_TAC >>
+    Cases_on`s` >> fs[do_app_cases] >> rw[] >> fs[] >>
+    TRY(PairCases_on`x`) >>
+    gvs[CaseEq"prod",CaseEq"result",CaseEq"error_result",
+        do_app_cases,PULL_EXISTS]
+    >~ [`do_arith a p`] >- (
+      Cases_on`a` \\ Cases_on`p` \\ TRY (Cases_on ‘w’)
+      \\ gvs[do_arith_def, CaseEq"list"]
+      \\ Cases_on`v0` \\ gvs[] ) >>
+    (* ThunkOp *)
+    namedCases_on ‘v0’ ["", "hd tl"] >> gvs[]
+    >- (Cases_on`v1` \\ simp[])
+    >> Cases_on ‘tl’ >> gvs[] >>
+    simp[do_app_def] >>
+    gvs[oneline thunk_op_def, AllCaseEqs()] >>
+    Cases_on`t` \\ gvs[]
+    \\ Cases_on`v1` \\ simp[] ) >>
   disj2_tac >>
   srw_tac[][Once e_step_def,continue_def,push_def] >>
   imp_res_tac e_step_add_ctxt >>
