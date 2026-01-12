@@ -31,7 +31,7 @@ Proof
   Cases \\ simp [Once res, mlstringTheory.strlen_def]
 QED
 
-val _ = cv_trans miscTheory.list_max_def;
+val _ = cv_trans rich_listTheory.MAX_LIST_def;
 val _ = cv_trans (miscTheory.max3_def |> PURE_REWRITE_RULE [GREATER_DEF]);
 
 val toChar_pre = cv_trans_pre "mlint_toChar_pre" mlintTheory.toChar_def
