@@ -201,6 +201,7 @@ val decode_control_side = Q.prove(
   rw[Once(theorem"decode_control_side_def")] \\ rfs[] \\
   rw[num_from_hex_string_alt_length_2] \\
   rfs [num_from_hex_string_alt_intro] \\
+  rename1 `decode_control_side x1` \\
   Cases_on`x1` \\ fs[] \\
   rw[Once(theorem"decode_control_side_def")] \\
   rw[Once(theorem"decode_control_side_def")])
