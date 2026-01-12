@@ -1210,7 +1210,7 @@ End
 (* contrapositive check *)
 Definition check_hash_imp_def:
   check_hash_imp extra ncs =
-    EXISTS (λnc. check_imp nc extra) ncs
+    EXISTS (λnc. imp nc extra) ncs
 End
 
 (* pres : num_set -- forces all LHS of the
@@ -2124,14 +2124,14 @@ Proof
   gvs[LAMBDA_PROD]
 QED
 
-Theorem check_imp_unsatisfiable:
-  check_imp d (not c) ∧
+Theorem imp_unsatisfiable:
+  imp d (not c) ∧
   c ∈ fml ∧ d ∈ fml
   ⇒
   unsatisfiable fml
 Proof
   rw[unsatisfiable_def,satisfiable_def,satisfies_def]>>
-  drule check_imp_thm>>
+  drule imp_thm>>
   metis_tac[not_thm]
 QED
 
@@ -2248,7 +2248,7 @@ Proof
      \\ pairarg_tac \\ gvs[]
      \\ strip_tac
      \\ match_mp_tac unsatisfiable_not_sat_implies
-     \\ irule check_imp_unsatisfiable
+     \\ irule imp_unsatisfiable
      \\ simp[]
      \\ metis_tac[not_not]))
   \\ CONJ_TAC >-
@@ -2301,7 +2301,7 @@ Proof
       \\ simp[EL_MAP]
       \\ strip_tac
       \\ match_mp_tac unsatisfiable_not_sat_implies
-      \\ irule check_imp_unsatisfiable
+      \\ irule imp_unsatisfiable
       \\ simp[]
       \\ metis_tac[not_not]))
   >- (
@@ -2329,7 +2329,7 @@ Proof
       \\ simp[EL_MAP]
       \\ strip_tac
       \\ match_mp_tac unsatisfiable_not_sat_implies
-      \\ irule check_imp_unsatisfiable
+      \\ irule imp_unsatisfiable
       \\ simp[]
       \\ metis_tac[not_not]))
   \\ drule sat_implies_transitive
@@ -4141,7 +4141,7 @@ Proof
           \\ gvs[lookup_list_list_insert,good_ord_s_def,vec_lookup_num_man_to_vec]
           \\ strip_tac
           \\ match_mp_tac unsatisfiable_not_sat_implies
-          \\ irule check_imp_unsatisfiable
+          \\ irule imp_unsatisfiable
           \\ qmatch_goalsub_abbrev_tac ‘set pp’
           \\ simp [AC UNION_COMM UNION_ASSOC]
           \\ metis_tac[not_not])
@@ -4210,7 +4210,7 @@ Proof
       >- (
           match_mp_tac unsatisfiable_not_sat_implies
           \\ gvs [check_hash_imp_def]
-          \\ irule check_imp_unsatisfiable
+          \\ irule imp_unsatisfiable
           \\ qpat_abbrev_tac ‘ss = set x1 ⇂ _’
           \\ simp [AC UNION_COMM UNION_ASSOC]
           \\ metis_tac[not_not])
