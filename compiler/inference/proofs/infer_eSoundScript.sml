@@ -483,8 +483,9 @@ Proof
    (Cases_on ‘t1’ \\ Cases_on ‘t2’ using semanticPrimitivesPropsTheory.prim_type_cases
     \\ binop_tac)
   >~ [‘FromTo p1 p2’] >- (
-    Cases_on`p1` \\ Cases_on`p2` \\ gvs[supported_conversion_def]
-    \\ Cases_on`w` \\ gvs[supported_conversion_def]
+    Cases_on ‘p1’ using semanticPrimitivesPropsTheory.prim_type_cases
+    \\ Cases_on ‘p2’ using semanticPrimitivesPropsTheory.prim_type_cases
+    \\ gvs[supported_conversion_def]
     \\ binop_tac )
   >~ [‘Arith a p’] >- (
     gvs[CaseEq"option",CaseEq"bool",failwith_def,
