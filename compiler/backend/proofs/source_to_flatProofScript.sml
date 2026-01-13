@@ -1031,6 +1031,37 @@ Proof
   \\ simp []
 QED
 
+Theorem do_conversion_INL[local]:
+  check_type ty1 v ∧ genv_c_ok genv.c ∧
+  v_rel genv v v_i1 ∧
+  do_conversion v ty1 ty2 = SOME (INL exn) ⇒
+  exn = chr_exn_v ∧
+  check_type ty1 (flat_to_v v_i1) ∧
+  ∃e. do_conversion (flat_to_v v_i1) ty1 ty2 = SOME (INL e)
+Proof
+  strip_tac
+  \\ drule_all check_type_v_rel_flat_to_v
+  \\ strip_tac \\ fs []
+  \\ gvs [oneline do_conversion_def,AllCaseEqs()]
+QED
+
+Theorem do_conversion_INR[local]:
+  check_type ty1 v ∧ genv_c_ok genv.c ∧
+  v_rel genv v v_i1 ∧
+  do_conversion v ty1 ty2 = SOME (INR r) ⇒
+  check_type ty1 (flat_to_v v_i1) ∧
+  ∃r'. do_conversion (flat_to_v v_i1) ty1 ty2 = SOME (INR r') ∧
+       v_rel genv r (v_to_flat r')
+Proof
+  strip_tac
+  \\ drule_all check_type_v_rel_flat_to_v
+  \\ strip_tac \\ fs []
+  \\ drule_all do_conversion_check_type
+  \\ rpt strip_tac
+  \\ drule_all check_type_IMP_v_rel
+  \\ simp []
+QED
+
 val s_i1 = ``s_i1 : ('f_orac_st, 'ffi) flatSem$state``;
 val s1_i1 = mk_var ("s1_i1", type_of s_i1);
 
@@ -1104,11 +1135,11 @@ Proof
   >~ [‘FromTo ty1 ty2’] >- (
       gvs [oneline semanticPrimitivesTheory.do_app_def,AllCaseEqs()]
       \\ gvs [oneline flatSemTheory.do_app_def,AllCaseEqs()]
-      \\ rw [] \\ gvs [PULL_EXISTS]
+      \\ reverse (rw []) \\ fs []
       \\ simp [result_rel_cases,PULL_EXISTS]
-      \\ drule_all check_type_v_rel_flat_to_v \\ simp []
-      \\ drule_all do_conversion_check_type \\ rpt strip_tac
-      \\ drule_all check_type_IMP_v_rel \\ simp [])
+      >- (drule_all do_conversion_INR \\ strip_tac \\ simp [])
+      \\ drule_all do_conversion_INL \\ strip_tac \\ gvs []
+      \\ imp_res_tac v_rel_lems \\ gvs [])
   >~ [‘Test test ty’] >- (
       gvs [oneline semanticPrimitivesTheory.do_app_def,AllCaseEqs()]
       \\ gvs [oneline flatSemTheory.do_app_def,AllCaseEqs()]

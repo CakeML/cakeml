@@ -606,16 +606,7 @@ Proof
       \\ simp [compile_arith_def]
       \\ TRY (irule evaluate_Op_error \\ simp [])
       \\ TRY (irule evaluate_Let_error \\ simp []))
-  (* Handle FromTo case *)
-  >~ [`FromTo`]
-  >- (rename [`FromTo ty1 ty2`] \\ rw [compile_op_def]
-      \\ Cases_on `ty1` \\ Cases_on `ty2`
-      \\ simp [arg1_def]
-      \\ TRY (irule evaluate_Let_error \\ simp [])
-      \\ TRY (irule evaluate_Op_error \\ simp [])
-      \\ rpt TOP_CASE_TAC \\ simp []
-      \\ TRY (irule evaluate_Let_error \\ simp [])
-      \\ TRY (irule evaluate_Op_error \\ simp []))
+  (* Handle FromTo case - merged with all other cases below *)
   (* All other cases *)
   \\ fs [compile_op_def,evaluate_def,evaluate_APPEND,arg1_def,arg2_def]
   \\ every_case_tac \\ fs [evaluate_def]
@@ -1321,6 +1312,15 @@ Proof
   \\ rw []
 QED
 
+Theorem check_type_CharT_flat_to_v[local]:
+  check_type CharT (flat_to_v (v:flatSem$v)) ==> ?c. v = Litv (Char c)
+Proof
+  Cases_on `v`
+  \\ simp [flat_to_v_def, semanticPrimitivesTheory.check_type_def,
+           Boolv_def, semanticPrimitivesTheory.Boolv_def]
+  \\ rw []
+QED
+
 Theorem op_arith:
   (∃a ty. op = Arith a ty) ==>
   ^op_goal
@@ -1372,12 +1372,12 @@ Theorem op_from_to:
 Proof
   rpt strip_tac \\ rveq \\ fs []
   \\ fs [flatSemTheory.do_app_def,list_case_eq,CaseEq "flatSem$v",PULL_EXISTS,
-         CaseEq "ast$lit",store_assign_def,option_case_eq]
+         CaseEq "ast$lit",store_assign_def,option_case_eq,CaseEq "sum"]
   \\ gvs [AllCaseEqs()]
   \\ Cases_on ‘ty1’ using prim_type_cases
   \\ Cases_on ‘ty2’ using prim_type_cases
   (* Only a few cases are handled; others make do_conversion return NONE *)
-  \\ gvs [semanticPrimitivesTheory.do_conversion_def]
+  \\ gvs [semanticPrimitivesTheory.do_conversion_def, AllCaseEqs()]
   >~ [‘FromTo (WordT W8) IntT’] >-
    (gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
     \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
@@ -1414,6 +1414,83 @@ Proof
     \\ fs [compile_op_def, arg1_def]
     \\ simp [closSemTheory.evaluate_def]
     \\ gvs [v_rel_def, flatSemTheory.v_to_flat_def])
+  >~ [‘FromTo (WordT W64) IntT’] >-
+   (gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
+    \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
+    \\ drule check_type_WordT_W64_flat_to_v \\ strip_tac
+    \\ gvs [flatSemTheory.flat_to_v_def,
+            semanticPrimitivesTheory.the_Litv_Word64_def]
+    \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
+    \\ fs [compile_op_def]
+    \\ simp [closSemTheory.evaluate_def, closSemTheory.do_app_def,
+             closSemTheory.do_word_app_def]
+    \\ gvs [v_rel_def, flatSemTheory.v_to_flat_def])
+  >~ [‘FromTo IntT (WordT W8)’] >-
+   (gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
+    \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
+    \\ drule check_type_IntT_flat_to_v \\ strip_tac
+    \\ gvs [flatSemTheory.flat_to_v_def,
+            semanticPrimitivesTheory.the_Litv_IntLit_def]
+    \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
+    \\ fs [compile_op_def, arg1_def]
+    \\ simp [closSemTheory.evaluate_def, closSemTheory.do_app_def,
+             closSemTheory.do_int_app_def]
+    \\ gvs [v_rel_def, flatSemTheory.v_to_flat_def, integer_wordTheory.w2n_i2w])
+  >~ [‘FromTo IntT (WordT W64)’] >-
+   (gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
+    \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
+    \\ drule check_type_IntT_flat_to_v \\ strip_tac
+    \\ gvs [flatSemTheory.flat_to_v_def,
+            semanticPrimitivesTheory.the_Litv_IntLit_def]
+    \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
+    \\ fs [compile_op_def]
+    \\ simp [closSemTheory.evaluate_def, closSemTheory.do_app_def,
+             closSemTheory.do_word_app_def]
+    \\ gvs [v_rel_def, flatSemTheory.v_to_flat_def])
+  >~ [‘FromTo CharT IntT’] >-
+   (gvs [AllCaseEqs(), LENGTH_EQ_NUM_compute]
+    \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
+    \\ drule check_type_CharT_flat_to_v \\ strip_tac
+    \\ gvs [flatSemTheory.flat_to_v_def,
+            semanticPrimitivesTheory.the_Litv_Char_def]
+    \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
+    \\ fs [compile_op_def, arg1_def]
+    \\ simp [closSemTheory.evaluate_def]
+    \\ gvs [v_rel_def, flatSemTheory.v_to_flat_def])
+  (* IntT CharT case - handle both exception and success paths *)
+  (* Exception case: i < 0 *)
+  >- (drule check_type_IntT_flat_to_v \\ strip_tac
+      \\ gvs [flatSemTheory.flat_to_v_def,
+              semanticPrimitivesTheory.the_Litv_IntLit_def]
+      \\ gvs [v_rel_def]
+      \\ fs [compile_op_def]
+      \\ simp [closSemTheory.evaluate_def, closSemTheory.do_app_def,
+               closSemTheory.do_int_app_def]
+      \\ simp [chr_exn_v_def, v_rel_def])
+  (* Exception case: i > 255 *)
+  >- (drule check_type_IntT_flat_to_v \\ strip_tac
+      \\ gvs [flatSemTheory.flat_to_v_def,
+              semanticPrimitivesTheory.the_Litv_IntLit_def]
+      \\ gvs [v_rel_def]
+      \\ fs [compile_op_def]
+      \\ simp [closSemTheory.evaluate_def, closSemTheory.do_app_def,
+               closSemTheory.do_int_app_def]
+      \\ IF_CASES_TAC \\ gvs [chr_exn_v_def, v_rel_def]
+      \\ ‘255 < i’ by intLib.COOPER_TAC \\ simp [])
+  (* Success case: 0 <= i <= 255 *)
+  \\ drule check_type_IntT_flat_to_v \\ strip_tac
+  \\ gvs [flatSemTheory.flat_to_v_def,
+          semanticPrimitivesTheory.the_Litv_IntLit_def]
+  \\ gvs [v_rel_def]
+  \\ fs [compile_op_def]
+  \\ simp [closSemTheory.evaluate_def, closSemTheory.do_app_def,
+           closSemTheory.do_int_app_def]
+  \\ ‘~(255 < i)’ by intLib.COOPER_TAC \\ simp []
+  \\ simp [flatSemTheory.v_to_flat_def, v_rel_def,
+           integerTheory.INT_ABS, integerTheory.INT_OF_NUM]
+  \\ ‘Num i < 256’ by (Cases_on ‘i’ \\ gvs [])
+  \\ gvs [GSYM ORD_CHR, integerTheory.INT_OF_NUM]
+  \\ intLib.COOPER_TAC
 QED
 
 Theorem op_test:

@@ -663,10 +663,10 @@ Proof
     \\ Cases_on`t` \\ gvs[check_type_def])
   >~ [‘do_conversion’] >- (
     imp_res_tac v_rel_check_type \\ rw[]
-    \\ first_assum $ irule_at Any
     \\ Cases_on ‘ty1’ using prim_type_cases
     \\ Cases_on ‘ty2’ using prim_type_cases
-    \\ gvs[do_conversion_def, check_type_def])
+    \\ gvs[do_conversion_def, check_type_def, AllCaseEqs()]
+    \\ simp [chr_exn_v_def, EVERY2_refl])
   >~ [`thunk_op`]
   >- (
     gvs [AllCaseEqs(), PULL_EXISTS, thunk_op_def]

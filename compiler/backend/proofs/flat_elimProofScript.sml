@@ -560,7 +560,7 @@ Proof
     \\ gvs [semanticPrimitivesTheory.do_conversion_def, AllCaseEqs()]
     \\ simp [do_app_def, semanticPrimitivesTheory.do_conversion_def,
               find_sem_prim_res_globals_def, find_result_globals_def,
-              find_v_globals_def, v_has_Eval_def, v_to_flat_def])
+              find_v_globals_def, v_has_Eval_def, v_to_flat_def, chr_exn_v_def])
   \\ qpat_x_assum `do_app _ _ _ = SOME _`
       (strip_assume_tac o REWRITE_RULE [do_app_cases])
   \\ rw []
