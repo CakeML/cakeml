@@ -11,7 +11,8 @@ Libs
 Definition check_lrup_list_def:
   check_lrup_list lrup fml dml b =
   case lrup of
-    Del ls =>
+    Skip => SOME (fml, (dml, b))
+  | Del ls =>
     SOME (delete_ids_list fml ls, (dml, b))
   | Lrup n vc hints =>
     (case is_rup_list fml dml b vc hints of
@@ -34,6 +35,7 @@ Theorem check_lrup_list:
 Proof
   rw[check_lrup_list_def]>>
   gvs[AllCaseEqs(),check_lrup_def]
+  >- metis_tac[]
   >- (
     simp[fml_rel_delete_ids_list]>>
     metis_tac[bnd_fml_delete_ids_list])
@@ -43,4 +45,13 @@ Proof
     drule_all bnd_fml_is_rup_list>>
     metis_tac[bnd_fml_update_resize])
 QED
+
+(* Hooking up to the parser *)
+Definition parse_and_run_list_def:
+  parse_and_run_list fml dml b l =
+  case parse_lrup l of
+    NONE => NONE
+  | SOME lrup =>
+    check_lrup_list lrup fml dml b
+End
 

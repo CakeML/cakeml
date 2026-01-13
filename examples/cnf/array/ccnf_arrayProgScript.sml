@@ -4,7 +4,7 @@
 Theory ccnf_arrayProg
 Ancestors
   UnsafeProg UnsafeProof
-  ccnf ccnf_list
+  ccnf ccnf_list mlint syntax_helper
 Libs
   preamble basis blastLib
 
@@ -716,4 +716,122 @@ Proof
   xapp>>
   xsimpl
 QED
+
+(* Parsing helpers *)
+
+(* TODO: Mostly copied from mlintTheory *)
+val result = translate (fromChar_unsafe_def |> REWRITE_RULE [GSYM ml_translatorTheory.sub_check_def]);
+
+Definition fromChars_range_unsafe_tail_def:
+  fromChars_range_unsafe_tail b n str mul acc =
+  if n ≤ b then acc
+  else
+    let m = n - 1 in
+    fromChars_range_unsafe_tail b m str (mul * 10)
+      (acc + fromChar_unsafe (strsub str m) * mul)
+Termination
+  WF_REL_TAC`measure (λ(b,n,_). n)`>>
+  rw[]
+End
+
+Theorem fromChars_range_unsafe_tail_eq:
+  ∀n l s mul acc.
+  fromChars_range_unsafe_tail l (n+l) s mul acc =
+  (fromChars_range_unsafe l n s) * mul + acc
+Proof
+  Induct
+  >-
+    rw[Once fromChars_range_unsafe_tail_def,fromChars_range_unsafe_def]>>
+  rw[]>>
+  simp[Once fromChars_range_unsafe_tail_def,ADD1,fromChars_range_unsafe_def]>>
+  fs[ADD1]
+QED
+
+Theorem fromChars_range_unsafe_alt:
+  fromChars_range_unsafe l n s =
+  fromChars_range_unsafe_tail l (n+l) s 1 0
+Proof
+  rw[fromChars_range_unsafe_tail_eq]
+QED
+
+val result = translate fromChars_range_unsafe_tail_def;
+
+val fromchars_range_unsafe_tail_side_def = theorem"fromchars_range_unsafe_tail_side_def";
+
+Theorem fromchars_range_unsafe_tail_side_def[allow_rebind]:
+  ∀a1 a0 a2 a3 a4.
+  fromchars_range_unsafe_tail_side a0 a1 a2 a3 a4 ⇔
+   ¬(a1 ≤ a0) ⇒
+   (T ∧ a1 < 1 + strlen a2 ∧ 0 < strlen a2) ∧
+   fromchars_range_unsafe_tail_side a0 (a1 − 1) a2 (a3 * 10)
+     (a4 + fromChar_unsafe (strsub a2 (a1 − 1)) * a3)
+Proof
+  Induct>>
+  rw[Once fromchars_range_unsafe_tail_side_def]>>
+  simp[]>>eq_tac>>rw[ADD1]>>
+  gvs[]
+QED
+
+val result = translate fromChars_range_unsafe_alt;
+
+val res = translate_no_ind (mlintTheory.fromChars_unsafe_def
+  |> REWRITE_RULE[maxSmall_DEC_def,padLen_DEC_eq]);
+
+Theorem fromChars_unsafe_ind[local]:
+  fromchars_unsafe_ind
+Proof
+  rewrite_tac [fetch "-" "fromchars_unsafe_ind_def"]
+  \\ rpt gen_tac
+  \\ rpt (disch_then strip_assume_tac)
+  \\ match_mp_tac (latest_ind ())
+  \\ rpt strip_tac
+  \\ last_x_assum match_mp_tac
+  \\ rpt strip_tac
+  \\ fs [FORALL_PROD]
+  \\ fs [padLen_DEC_eq,ADD1]
+QED
+
+val _ = fromChars_unsafe_ind |> update_precondition;
+
+val result = translate fromString_unsafe_def;
+
+val fromstring_unsafe_side_def = definition"fromstring_unsafe_side_def";
+val fromchars_unsafe_side_def = theorem"fromchars_unsafe_side_def";
+val fromchars_range_unsafe_side_def = fetch "-" "fromchars_range_unsafe_side_def";
+
+Theorem fromchars_unsafe_side_thm[local]:
+   ∀n s. n ≤ LENGTH s ⇒ fromchars_unsafe_side n (strlit s)
+Proof
+  completeInduct_on`n` \\ rw[]
+  \\ rw[Once fromchars_unsafe_side_def,fromchars_range_unsafe_side_def,fromchars_range_unsafe_tail_side_def]
+QED
+
+Theorem fromString_unsafe_side[local]:
+  ∀x. fromstring_unsafe_side x = T
+Proof
+  Cases
+  \\ rw[fromstring_unsafe_side_def]
+  \\ Cases_on`s` \\ fs[mlstringTheory.substring_def]
+  \\ simp_tac bool_ss [ONE,SEG_SUC_CONS,SEG_LENGTH_ID]
+  \\ match_mp_tac fromchars_unsafe_side_thm
+  \\ rw[]
+QED
+
+val _ = update_precondition fromString_unsafe_side;
+
+val res = translate blanks_def;
+val res = translate tokenize_def;
+
+val res = translate mk_lit_def;
+
+val res = translate parse_until_zero_aux_def;
+val res = translate parse_until_zero_def;
+
+val res = translate parse_until_zero_nn_aux_def;
+val res = translate parse_until_zero_nn_def;
+
+val res = translate is_int_def;
+val res = translate tokenize_fast_def;
+
+val res = translate starts_with_def;
 

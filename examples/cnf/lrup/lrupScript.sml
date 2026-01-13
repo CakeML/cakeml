@@ -5,11 +5,12 @@ Theory lrup
 Libs
   preamble
 Ancestors
-  ccnf cnf
+  cnf ccnf syntax_helper
 
 (* The LRUP format only has two proof steps. *)
 Datatype:
   lrup =
+  | Skip (* Comment line *)
   | Del (num list) (* Clauses to delete *)
   | Lrup num vcclause (num list)
     (* Lrup n C hints : derive clause C by RUP using hints *)
@@ -21,7 +22,8 @@ End
 Definition check_lrup_def:
   check_lrup lrup fml =
   case lrup of
-    Del ls =>
+    Skip => SOME fml
+  | Del ls =>
     SOME (delete_ids fml ls)
   | Lrup n vc hints =>
     if is_rup fml vc hints
@@ -97,4 +99,44 @@ Proof
   simp[range_build_fml]>>
   metis_tac[contains_emp_unsat]
 QED
+
+(* Parser for LRUP *)
+
+(* Parses the following format:
+   (int list) 0 (num list) 0 *)
+Definition parse_rup_def:
+  parse_rup rest =
+  case parse_until_zero rest of
+    NONE => NONE
+  | SOME (c ,rest) =>
+    (case parse_until_zero_nn rest of
+      SOME (hints, []) => SOME (c,hints)
+    | _ => NONE)
+End
+
+(* Uncompressed line-by-line syntax.
+
+  id d (... num list ...) 0
+
+  id (... int list ...) 0 (num list) 0
+*)
+Definition parse_lrup_def:
+  (parse_lrup (cid::rest) =
+    case cid of
+      INL s => if s = strlit "c" then SOME Skip else NONE
+    | INR n =>
+    if n < 0 then NONE
+    else
+    case starts_with (INL (strlit "d")) rest of
+      INL rest =>
+      (case parse_rup rest of NONE => NONE
+      | SOME (c,hints) =>
+        SOME (Lrup (Num (ABS n)) (Vector c) hints))
+    | INR rest =>
+      (* Del *)
+      case parse_until_zero_nn rest of
+       SOME (ls, []) => SOME (Del ls)
+      | _ => NONE) ∧
+  (parse_lrup _ = NONE)
+End
 

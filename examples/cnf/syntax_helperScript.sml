@@ -35,16 +35,23 @@ Definition mk_lit_def:
   if l > 0 then Pos n else Neg n
 End
 
-(* Parse a list of integers as literals, ending with 0 and return the rest *)
-Definition parse_lits_aux_def:
-  (parse_lits_aux [] (acc:num lit list) = NONE) ∧
-  (parse_lits_aux (x::xs) acc =
+(* Parse ints until the next zero and returns. *)
+Definition parse_until_zero_aux_def:
+  (parse_until_zero_aux [] acc = NONE) ∧
+  (parse_until_zero_aux (x::xs) acc =
     case x of
-      INR l =>
-      if l = 0i then SOME (REVERSE acc, xs)
-      else
-        parse_lits_aux xs (mk_lit l::acc)
-    | INL (_:mlstring) => NONE)
+      INL _ => NONE
+    | INR l =>
+    if l = 0:int then
+      SOME (REVERSE acc, xs)
+    else
+      parse_until_zero_aux xs (l::acc)
+  )
+End
+
+Definition parse_until_zero_def:
+  parse_until_zero ls =
+    parse_until_zero_aux ls []
 End
 
 (* Force literals to be in maxvar *)
@@ -56,8 +63,9 @@ End
 (* A single line of literals, forcing maxvar *)
 Definition parse_lits_def:
   parse_lits maxvar ls =
-  case parse_lits_aux ls [] of
+  case parse_until_zero ls of
     SOME (ls,[]) =>
+    let ls = MAP mk_lit ls in
     if check_maxvar maxvar ls
     then SOME ls
     else NONE
@@ -179,5 +187,39 @@ End
 
 Definition clausify_def:
   clausify cls = clausify_aux cls []
+End
+
+(* Other ASCII syntax parsing tools *)
+
+(* Parse nums until the next zero and returns. *)
+Definition parse_until_zero_nn_aux_def:
+  (parse_until_zero_nn_aux [] acc = NONE) ∧
+  (parse_until_zero_nn_aux (x::xs) acc =
+    case x of
+      INL _ => NONE
+    | INR l =>
+    if l = 0:int then
+      SOME (REVERSE acc, xs)
+    else
+      if l > 0 then parse_until_zero_nn_aux xs (Num (ABS l)::acc)
+      else NONE
+  )
+End
+
+Definition parse_until_zero_nn_def:
+  parse_until_zero_nn ls =
+    parse_until_zero_nn_aux ls []
+End
+
+(* If a line starts with the character,
+  return INR without that char
+  otherwise INL or line unchanged *)
+Definition starts_with_def:
+  (starts_with s (first::rest) =
+  if first = s
+  then
+    INR rest
+  else INL (first::rest)) ∧
+  (starts_with s [] = INL [])
 End
 
