@@ -2127,8 +2127,8 @@ Proof
   Cases_on `m <= n` \\ fs []
   \\ imp_res_tac LESS_EQ_EXISTS \\ rw []
   \\ qpat_x_assum `(m + _) MOD k = 0` mp_tac
-  \\ drule MOD_PLUS
-  \\ disch_then (fn th => once_rewrite_tac [GSYM th]) \\ fs []
+  \\ once_rewrite_tac[GSYM MOD_PLUS]
+  \\ fs[]
 QED
 
 Theorem FLAT_REPLICATE_NIL:
