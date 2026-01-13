@@ -466,9 +466,8 @@ in
   fun mk_cons_name tm =
     let
       val (_, ty) = strip_fun (type_of tm)
-      val info = Option.valOf (TypeBase.fetch ty)
-      val (thyn, tyn) = TypeBasePure.ty_name_of info
-      val name = term_to_string tm
+      val {Thy = thyn,Tyop = tyn,...} = Type.dest_thy_type ty
+      val name = dest_const tm |> fst
     in
       (* separating with underscores is more prone to name clashes *)
       String.concat ["%%", thyn, "%%", tyn, "%%", name, "%%"]
@@ -1790,17 +1789,14 @@ val th = inv_defs |> map #2 |> hd
     val input_var = filter (fn x => not (tmem x (free_vars cases_tm))) (free_vars exp) |> hd
     val ret_ty = type_of exp
     val xs = rev (map rand (find_terms is_eq (concl case_th)))
-    fun add_nums [] = []
-      | add_nums (x::xs) = (x,length xs+1) :: add_nums xs
-    val ys = rev (add_nums (rev (zip (map snd vs) xs)))
+    fun add_nums xs = mapi (fn i => fn x => (x,i + 1)) xs
+    val ys = add_nums (zip (map snd vs) xs)
     fun str_tl s = implode (tl (explode s))
-    fun list_app x [] = x
-      | list_app x (y::ys) = list_app (mk_comb(x,y)) ys
     val start_mk_vars = start_timing "mk_vars"
     fun mk_vars ((f,tm),n) = let
       val xs = rev (free_vars tm)
-      val fxs = list_app f xs
-      val pxs = list_app (mk_var("b" ^ int_to_string n,list_mk_type xs bool)) xs
+      val fxs = list_mk_comb(f, xs)
+      val pxs = list_mk_comb(mk_var("b" ^ int_to_string n,list_mk_type xs bool), xs)
       val xs = map (fn x => let val s = str_tl (fst (dest_var x)) in
                             (x,mk_var("n" ^ s,stringSyntax.string_ty),
                                mk_var("v" ^ s,v_ty)) end) xs
@@ -2750,7 +2746,7 @@ fun split_let_and_conv tm = let
                           THEN REWRITE_TAC [])
   in lemma end handle HOL_ERR _ => NO_CONV tm;
 
-fun mk_fun_type ty1 ty2 = mk_type("fun",[ty1,ty2])
+fun mk_fun_type ty1 ty2 = ty1 --> ty2
 
 fun list_mk_fun_type [ty] = ty
   | list_mk_fun_type (ty1::tys) =
@@ -2813,9 +2809,7 @@ fun get_induction_for_def def = let
     val step = mk_abs(v,list_mk_forall(xs @ ys,prop))
     in (P,(goal,step)) end
   val res = map goal_step xs
-  fun ISPEC_LIST [] th = th
-    | ISPEC_LIST (x::xs) th = ISPEC_LIST xs (ISPEC x th)
-  val ind = ISPEC_LIST (map (snd o snd) res) raw_ind
+  val ind = ISPECL (map (snd o snd) res) raw_ind
             |> CONV_RULE (DEPTH_CONV BETA_CONV)
   val goal1 = ind |> concl |> dest_imp |> snd
   val goal2 = list_mk_conj (map (fst o snd) res)
@@ -3452,9 +3446,9 @@ fun hol2deep tm =
   if (tm ~~ TRUE) then Eval_Val_BOOL_TRUE else
   if (tm ~~ FALSE) then Eval_Val_BOOL_FALSE else
   (* data-type constructor *)
-  inst_cons_thm tm hol2deep handle HOL_ERR _ =>
+  if can cons_for tm then inst_cons_thm tm hol2deep else
   (* data-type pattern-matching *)
-  inst_case_thm tm hol2deep handle HOL_ERR _ =>
+  if can TypeBase.dest_case tm then inst_case_thm tm hol2deep else
   (* recursive pattern *)
   if can match_rec_pattern tm then let
     val (lhs,fname,pre_var) = match_rec_pattern tm
@@ -3483,6 +3477,7 @@ fun hol2deep tm =
     val result = apply_arrow h ys
     in check_inv "rec_pattern" tm result end else
   (* previously translated term *)
+  if can lookup_abs_v_thm tm then
   let
     val th = lookup_abs_v_thm tm
     val _ = check_no_ind_assum tm th
@@ -3492,7 +3487,7 @@ fun hol2deep tm =
     val (ss,ii) = match_term res target handle HOL_ERR _ =>
                   match_term (rm_fix res) (rm_fix target) handle HOL_ERR _ => ([],[])
     val result = INST ss (INST_TYPE ii th)
-  in check_inv "lookup_abs_v_thm" tm result end handle NotFoundVThm _ =>
+  in check_inv "lookup_abs_v_thm" tm result end else
   (* previously translated term *)
   if can lookup_v_thm tm then let
     val th = lookup_v_thm tm
@@ -3695,6 +3690,7 @@ fun hol2deep tm =
     val th2 = INST [v|->z] th2
     val result = MATCH_MP Eval_Let (CONJ th1 th2)
     in check_inv "let" tm result end else
+  (* TODO stop recursively case spliting *)
   (* special pattern *) let
     fun pat_match pat tm = (match_term pat tm; rator pat)
     val r = pat_match MAP_pattern tm handle HOL_ERR _ =>
