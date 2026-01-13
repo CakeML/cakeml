@@ -415,14 +415,14 @@ Definition compile_decs_def:
       <| v := nsEmpty;
          c := FOLDL (\ns (l,cids). nsAppend l ns) nsEmpty new_env |>,
       envs,
-      MAPi (λi (ns,cids). flatLang$Dtype (next.tidx + i) cids) new_env)) ∧
+      [])) ∧
   (compile_decs _ n next env envs [Dtabbrev locs tvs tn t] =
      (n, next, empty_env, envs, [])) ∧
   (compile_decs t n next env envs [Dexn locs cn ts] =
      (n, (next with eidx := next.eidx + 1),
       <| v := nsEmpty; c := nsSing cn (next.eidx, NONE) |>,
       envs,
-      [Dexn next.eidx (LENGTH ts)])) ∧
+      [])) ∧
   (compile_decs t n next env envs [Dmod mn ds] =
      let (n', next', new_env, envs', ds') = compile_decs (mn::t) n next env envs ds in
        (n', next', (lift_env mn new_env), envs', ds')) ∧
