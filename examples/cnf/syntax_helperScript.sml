@@ -144,6 +144,21 @@ Termination
   WF_REL_TAC` measure (λ(x,s,i,r). i-s)`
 End
 
+Theorem parse_vb_num_aux_i:
+ !s i len ex n m i'.
+  m <> 0 /\
+  (m,i') = parse_vb_num_aux s i len ex n ==>
+  i < len /\ i < i'
+Proof
+ ho_match_mp_tac parse_vb_num_aux_ind >>
+ rpt GEN_TAC >> strip_tac >>
+ simp[Once parse_vb_num_aux_def] >>
+ rw[] >> fs[] >>
+ first_x_assum (drule_at (Pos last)) >>
+ rw[] >>
+ fs[Once parse_vb_num_aux_def,AllCaseEqs()]
+QED
+
 Definition parse_vb_num_def:
   parse_vb_num s offset len =
   parse_vb_num_aux s offset len 1 0
@@ -170,8 +185,9 @@ Definition parse_vb_nums_aux_def:
     parse_vb_nums_aux s i len (m::acc)
 Termination
   WF_REL_TAC` measure (λ(x,s,i,r). i-s)`>>
-  rw[]>>
-  cheat
+  rw[]>> fs[parse_vb_num_def] >>
+  drule_all parse_vb_num_aux_i >>
+  fs[]
 End
 
 (* Clausify reverses the order of the input *)

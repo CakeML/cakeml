@@ -556,6 +556,28 @@ Proof
 QED
 
 Quote add_cakeml:
+  fun unit_prop_arr_vb lno fml carr b s i len =
+    let val (m,i) = parse_vb_int s i len
+    in
+    if m <= 0 then (i,False)
+    else
+      if m < Array.length fml
+      then
+        case Unsafe.sub fml m of
+          None =>
+            raise Fail (format_failure lno ("invalid clause hint (maybe deleted): " ^ Int.toString m))
+        | Some c =>
+          if delete_literals_sing_arr lno carr b c (Vector.length c)
+          then
+            (i,True)
+          else
+            unit_prop_arr_vb lno fml carr b s i len
+      else
+        raise Fail (format_failure lno ("invalid clause hint: " ^ Int.toString m))
+    end
+End
+
+Quote add_cakeml:
   fun is_rup_arr lno fml carr b v hints =
   let val dmb = prepare_rup carr b v in
     case dmb of (carr',b') =>

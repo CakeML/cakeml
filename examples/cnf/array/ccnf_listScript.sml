@@ -493,6 +493,49 @@ Proof
   rw[]
 QED
 
+Definition unit_prop_list_vb_def:
+  (unit_prop_list_vb fmlls dml b s i len =
+  let (m,i) = parse_vb_int s i len in
+  if m <= 0 then SOME (i,(F,dml))
+  else
+  case any_el (Num m) fmlls NONE of
+    NONE => NONE
+  | SOME c =>
+  case delete_literals_sing_list dml b c (length c) of
+    NONE => NONE
+  | SOME (T,dml') => SOME (i, (T,dml'))
+  | SOME (F,dml') => unit_prop_list_vb fmlls dml' b s i len)
+Termination
+ WF_REL_TAC `measure (\(fmlls, dml, b, s, i, len). len - i)` >>
+ rw[] >> fs[syntax_helperTheory.parse_vb_int_def,
+  syntax_helperTheory.parse_vb_num_def,
+  AllCaseEqs(),UNCURRY_EQ] >> rveq >> fs[] >>
+ last_x_assum (assume_tac o GSYM) >>
+ drule_all syntax_helperTheory.parse_vb_num_aux_i >>
+ fs[]
+End
+
+Theorem unit_prop_list_vb:
+  ∀s i len dm dml dml'.
+  fml_rel fml fmlls ∧
+  dm_rel dm dml b ∧
+  unit_prop_list_vb fmlls dml b s i len = SOME (i',(res,dml')) ⇒
+  ∃dm'.
+    unit_prop_vec_vb fml dm s i len = SOME (i',(res,dm')) ∧
+    dm_rel dm' dml' b
+Proof
+  rpt GEN_TAC >>
+  map_every qid_spec_tac $ List.rev [`fml`,`dm`,`s`,`i`,`len`,`dml`,`dml'`] >>
+  ho_match_mp_tac unit_prop_vec_vb_ind >>
+  rpt GEN_TAC >> strip_tac >>
+  rw[Once unit_prop_vec_vb_def,Once unit_prop_list_vb_def]>>
+  gvs[AllCaseEqs(),UNCURRY_EQ,PULL_EXISTS,fml_rel_def]>>
+  drule_all delete_literals_sing_list>>rw[]>>
+  simp[]>> fs[] >>
+  first_x_assum drule >>
+  fs[]
+QED
+
 Definition init_lit_map_list_def:
   init_lit_map_list i v dml b =
   if i = 0
@@ -503,6 +546,12 @@ Definition init_lit_map_list_def:
     let (bb,nc) = if d > 0 then (b+1w, d) else (b,-d) in
     init_lit_map_list i1 v (update_resize dml (b-1w) bb (Num nc)) b
 End
+
+Theorem init_lit_map_list_simps = [``init_lit_map_list 0 v dml b``,
+``init_lit_map_list (SUC i) v dml b ``]
+|> map ((REWR_CONV init_lit_map_list_def)
+    THENC (SIMP_CONV(srw_ss())[]))
+|> LIST_CONJ
 
 Theorem init_lit_map_list:
   ∀i v dml b dm.
@@ -696,14 +745,34 @@ Proof
   simp[LENGTH_REPLICATE]
 QED
 
+Theorem LENGTH_init_lit_map_list:
+  !i v dml b.
+  i <= length v ==>
+  LENGTH dml <=
+  LENGTH (init_lit_map_list i v dml b)
+Proof
+  Induct_on `i` >>
+  simp[init_lit_map_list_simps] >>
+  simp[UNCURRY_RAND,o_ABS_R] >>
+  rw[] >>
+  `i <= length v` by simp[] >>
+  first_x_assum drule >> rw[] >>
+  rw[update_resize_def] >>
+  irule LESS_EQ_TRANS >>
+  first_x_assum (irule_at (Pos last)) >>
+  fs[]
+QED
+
 Theorem prepare_rup_LENGTH:
   prepare_rup dml b v = (dml',b') ⇒
   LENGTH dml ≤ LENGTH dml'
 Proof
   rw[prepare_rup_def]>>
   gvs[UNCURRY_EQ]>>
-  (* annoying! *)
-  cheat
+  drule_then strip_assume_tac reset_dm_list_LENGTH >>
+  irule LESS_EQ_TRANS >>
+  (irule_at (Pos last)) LENGTH_init_lit_map_list >>
+  fs[]
 QED
 
 Theorem is_rup_list'_SOME:

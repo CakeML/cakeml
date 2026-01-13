@@ -308,7 +308,7 @@ Definition unit_prop_vec_vb_def:
    let (m,i) = parse_vb_int s i len in
    if m <= 0 then SOME(i,(F,dm))
    else
-   case lookup i fml of
+   case lookup (Num m) fml of
      NONE => NONE
    | SOME c =>
    case delete_literals_sing_vec dm c (length c) of
@@ -316,7 +316,13 @@ Definition unit_prop_vec_vb_def:
    | SOME (T,dm) => SOME(i,(T,dm))
    | SOME (F,dm') => unit_prop_vec_vb fml dm' s i len)
 Termination
-  cheat
+  WF_REL_TAC `measure (\(fml,dm,s,i,len) . len - i)` >>
+  rw[] >> fs[parse_vb_int_def,parse_vb_num_def,
+  UNCURRY_EQ,AllCaseEqs()] >> rveq >>
+  fs[] >>
+  last_x_assum (assume_tac o GSYM) >>
+  drule_all parse_vb_num_aux_i >>
+  fs[]
 End
 
 Theorem unit_prop_vec_vb':
@@ -340,8 +346,8 @@ Proof
     fs[])
   >- (
     simp[Once $ oneline unit_prop_vec_def] >>
-    qexists_tac `i'':: is` >>
-    fs[])
+    simp[AllCaseEqs(),SF DNF_ss] >>
+    metis_tac[])
 QED
 
 Definition lit_map_def:
