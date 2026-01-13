@@ -298,7 +298,7 @@ Theorem evaluate'_1_ffi_changed:
                       if nb = 0w then word_to_bytes w F
                       else word_to_bytes_aux (w2n nb) w F) ++
                  word_to_bytes ad F) \/
-         ((∃s. EL n mc.ffi_names = ExtCall s ∧ s ≠ "") ∧
+         ((∃s. EL n mc.ffi_names = ExtCall s ∧ s ≠ «») ∧
            ALOOKUP mc.mmio_info n = NONE ∧
           read_ffi_bytearrays mc ms = (SOME ws1,SOME ws2))
       ) ∧
@@ -349,7 +349,7 @@ Theorem evaluate'_1_ffi_failed:
                       if nb = 0w then word_to_bytes w F
                       else word_to_bytes_aux (w2n nb) w F) ++
             word_to_bytes ad F) \/
-         ((∃s. EL n mc.ffi_names = ExtCall s /\ s ≠ "") /\
+         ((∃s. EL n mc.ffi_names = ExtCall s /\ s ≠ «») /\
           ALOOKUP mc.mmio_info n = NONE ∧
           read_ffi_bytearrays mc ms = (SOME ws1,SOME ws2))
       ) ∧

@@ -9,6 +9,8 @@ Ancestors
 Libs
   preamble
 
+val _ = numLib.prefer_num ();
+
 Datatype:
   v = Number int              (* integer *)
     | Word64 word64           (* 64-bit word *)

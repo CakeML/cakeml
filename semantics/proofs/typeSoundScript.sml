@@ -160,7 +160,7 @@ Proof
     metis_tac [same_type_def, stamp_nchotomy]) >>
   rw [] >>
   full_simp_tac(srw_ss())[ctMap_has_lists_def] >>
-  `cn = "::" ∨ cn = "[]"` by metis_tac [NOT_SOME_NONE] >>
+  `cn = «::» ∨ cn = «[]»` by metis_tac [NOT_SOME_NONE] >>
   srw_tac[][] >>
   full_simp_tac(srw_ss())[] >>
   srw_tac[][] >>
@@ -202,7 +202,7 @@ Proof
   full_simp_tac std_ss [ctMap_has_bools_def, Boolv_def, type_num_defs, ctMap_ok_def] >>
   imp_res_tac type_funs_Tfn
   >- (
-    `stamp = TypeStamp "True" bool_type_num ∨ stamp = TypeStamp "False" bool_type_num`
+    `stamp = TypeStamp «True» bool_type_num ∨ stamp = TypeStamp «False» bool_type_num`
        by metis_tac [NOT_SOME_NONE, same_type_def, stamp_nchotomy] >>
     var_eq_tac >>
     rpt (qpat_x_assum `LIST_REL _ _ _` mp_tac) >>
@@ -425,7 +425,7 @@ Theorem v_to_list_type[local]:
   ctMap_ok ctMap ∧
   ctMap_has_lists ctMap ∧
   v_to_list v = SOME vs ∧
-  type_v 0 ctMap tenvS v (Tapp [t] (TC_name (Short "list")))
+  type_v 0 ctMap tenvS v (Tapp [t] (TC_name (Short «list»)))
   ⇒
   type_v tvs ctMap tenvS (Vectorv vs) (Tapp [t] TC_vector)
 Proof
@@ -454,7 +454,7 @@ Theorem v_to_char_list_type[local]:
   !v vs.
   ctMap_has_lists ctMap ∧
   v_to_char_list v = SOME vs ∧
-  type_v 0 ctMap tenvS v (Tapp [t] (TC_name (Short "list")))
+  type_v 0 ctMap tenvS v (Tapp [t] (TC_name (Short «list»)))
   ⇒
   type_v tvs ctMap tenvS (Litv (StrLit (IMPLODE vs))) (Tstring)
 Proof
@@ -970,8 +970,8 @@ Proof
    rw [] >>
    goal_assum (first_assum o mp_then Any mp_tac) >>
    simp [store_type_extension_refl] >>
-   qspec_tac (`s`,`s`) >> Induct >>
-   fs [IMPLODE_EXPLODE_I,list_to_v_def,ctMap_has_lists_def] >>
+   qspec_tac (`explode s`,`s'`) >> Induct >>
+   fs [list_to_v_def,ctMap_has_lists_def,mlstringTheory.explode_def] >>
    once_rewrite_tac [type_v_cases] >> simp [] >>
    simp [type_subst_def,FLOOKUP_UPDATE,FUPDATE_LIST,check_freevars_def] >>
    once_rewrite_tac [type_v_cases] >> simp []) >~
@@ -982,7 +982,7 @@ Proof
    Cases_on `n < 0`
    >> rw [type_v_exn, sub_exn_v_def]
    >- metis_tac [store_type_extension_refl]
-   >> Cases_on `Num (ABS n) ≥ LENGTH s`
+   >> Cases_on `Num (ABS n) ≥ strlen s`
    >> rw [type_v_exn]
    >- metis_tac [store_type_extension_refl]
    >> simp [Once type_v_cases, EVERY_EL]

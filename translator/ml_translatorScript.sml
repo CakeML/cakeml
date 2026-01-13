@@ -103,14 +103,8 @@ Definition CHAR_def:
 End
 
 Definition STRING_TYPE_def:
-  STRING_TYPE (strlit s) = \v:v. (v = Litv (StrLit s))
+  STRING_TYPE s = \v:v. (v = Litv (StrLit s))
 End
-
-Theorem STRING_TYPE_explode:
-  STRING_TYPE s = \v. (v = Litv (StrLit (explode s)))
-Proof
-  Cases_on`s` \\ rw[STRING_TYPE_def]
-QED
 
 Theorem explode_eq:
   explode s = l <=> s = strlit l
@@ -374,7 +368,7 @@ Proof
 QED
 
 Theorem Eval_Val_STRING:
-   !s. Eval env (Lit (StrLit s)) (STRING_TYPE (strlit s))
+   !s. Eval env (Lit (StrLit s)) (STRING_TYPE s)
 Proof
   fs [Eval_rw,empty_state_def,state_component_equality,STRING_TYPE_def]
 QED
@@ -570,7 +564,7 @@ Definition CHAR_v_def:
 End
 
 Definition STRING_v_def:
-  STRING_v (strlit s) = Litv (StrLit s)
+  STRING_v s = Litv (StrLit s)
 End
 
 Definition HOL_STRING_v_def:
@@ -1050,17 +1044,17 @@ local
 
 val th0 = Q.SPEC `0` Eval_Val_INT
 val th_sub = MATCH_MP (MATCH_MP Eval_INT_SUB (Q.SPEC `0` Eval_Val_INT))
-            (ASSUME ``Eval env (Var (Short "k")) (INT k)``)
-val th1 = ASSUME ``Eval env (Var (Short "k")) (INT k)``
+            (ASSUME ``Eval env (Var (Short «k»)) (INT k)``)
+val th1 = ASSUME ``Eval env (Var (Short «k»)) (INT k)``
 val th2 = Eval_INT_LESS  |> Q.SPECL [`k`,`0`]
           |> (fn th => MATCH_MP th th1) |> (fn th => MATCH_MP th th0)
 val th = MATCH_MP Eval_If (LIST_CONJ (map (DISCH T) [th2,th_sub,th1]))
          |> REWRITE_RULE [CONTAINER_def]
 val code =
-  ``Let (SOME "k") x1
-       (If (App (Test (Compare Lt) IntT) [Var (Short "k"); Lit (IntLit 0)])
-          (App (Arith Sub IntT) [Lit (IntLit 0); Var (Short "k")])
-          (Var (Short "k")))``
+  ``Let (SOME «k») x1
+       (If (App (Test (Compare Lt) IntT) [Var (Short «k»); Lit (IntLit 0)])
+          (App (Arith Sub IntT) [Lit (IntLit 0); Var (Short «k»)])
+          (Var (Short «k»)))``
 
 in
 
@@ -1169,15 +1163,15 @@ val Eval_NUM_MULT =
 local
 
 val th0 = Q.SPEC `0` Eval_Val_INT
-val th1 = ASSUME ``Eval env (Var (Short "k")) (INT k)``
+val th1 = ASSUME ``Eval env (Var (Short «k»)) (INT k)``
 val th2 = Eval_INT_LESS  |> Q.SPECL [`k`,`0`]
           |> (fn th => MATCH_MP th th1) |> (fn th => MATCH_MP th th0)
 val th = MATCH_MP Eval_If (LIST_CONJ (map (DISCH T) [th2,th0,th1]))
          |> REWRITE_RULE [CONTAINER_def]
 val code =
-  ``Let (SOME "k") (App (Arith Sub IntT) [x1; x2])
-      (If (App (Test (Compare Lt) IntT) [Var (Short "k"); Lit (IntLit 0)])
-          (Lit (IntLit 0)) (Var (Short "k"))): exp``
+  ``Let (SOME «k») (App (Arith Sub IntT) [x1; x2])
+      (If (App (Test (Compare Lt) IntT) [Var (Short «k»); Lit (IntLit 0)])
+          (Lit (IntLit 0)) (Var (Short «k»))): exp``
 
 in
 
@@ -1520,10 +1514,10 @@ QED
 
 local
   val lemma = Q.prove(
-    `(∀v. NUM (w2n w) v ⇒ Eval (write "x" v env)
-                 (If (App (Test (Compare Lt) IntT) [Var (Short "x"); Lit (IntLit (& k))])
-                    (Var (Short "x"))
-                    (App (Arith Sub IntT) [Var (Short "x"); Lit (IntLit (& d))]))
+    `(∀v. NUM (w2n w) v ⇒ Eval (write «x» v env)
+                 (If (App (Test (Compare Lt) IntT) [Var (Short «x»); Lit (IntLit (& k))])
+                    (Var (Short «x»))
+                    (App (Arith Sub IntT) [Var (Short «x»); Lit (IntLit (& d))]))
         (INT ((\n. if n < k then &n else &n - &d) (w2n w))))`,
     fs [] \\ rpt strip_tac
     \\ match_mp_tac (MP_CANON Eval_If |> GEN_ALL)
@@ -2112,10 +2106,10 @@ QED
 Definition LIST_TYPE_def:
   (LIST_TYPE a (x_2::x_1) v <=>
      ?v2_1 v2_2.
-       v = Conv (SOME (TypeStamp "::" 1)) [v2_1; v2_2] /\
+       v = Conv (SOME (TypeStamp «::» 1)) [v2_1; v2_2] /\
        a x_2 v2_1 /\ LIST_TYPE a x_1 v2_2) /\
   (LIST_TYPE a [] v <=>
-     v = Conv (SOME (TypeStamp "[]" 1)) [])
+     v = Conv (SOME (TypeStamp «[]» 1)) [])
 End
 
 Theorem LIST_TYPE_SIMP' = Q.prove(
@@ -2147,8 +2141,8 @@ Proof
 QED
 
 Definition LIST_v_def:
-  LIST_v a_v [] = Conv (SOME (TypeStamp "[]" 1)) [] /\
-  LIST_v a_v (x :: xs) = Conv (SOME (TypeStamp "::" 1)) [a_v x; LIST_v a_v xs]
+  LIST_v a_v [] = Conv (SOME (TypeStamp «[]» 1)) [] /\
+  LIST_v a_v (x :: xs) = Conv (SOME (TypeStamp «::» 1)) [a_v x; LIST_v a_v xs]
 End
 
 Theorem IsTypeRep_LIST:
@@ -2371,7 +2365,8 @@ Proof
   \\ Cases_on`st` \\ fs[STRING_TYPE_def,empty_state_def]
   \\ fs[NUM_def,INT_def,IMPLODE_EXPLODE_I]
   \\ rw[copy_array_def,INT_ABS_NUM,INT_ADD,
-        substring_def,SEG_TAKE_DROP,STRING_TYPE_def]
+        substring_def,SEG_TAKE_DROP,STRING_TYPE_def,
+        implode_def]
 QED
 
 Theorem Eval_str_eq:
@@ -2457,12 +2452,12 @@ Theorem Eval_HOL_STRING_APPEND:
    !env x1 x2 s1 s2 n.
       Eval env x1 (HOL_STRING_TYPE s1) ==>
       Eval env x2 (HOL_STRING_TYPE s2) ==>
-      lookup_cons (Short "::") env = SOME (2,TypeStamp "::" 1) /\
-      lookup_cons (Short "[]") env = SOME (0,TypeStamp "[]" 1) ==>
+      lookup_cons (Short «::») env = SOME (2,TypeStamp «::» 1) /\
+      lookup_cons (Short «[]») env = SOME (0,TypeStamp «[]» 1) ==>
       Eval env
-        (App Strcat [Con (SOME (Short "::"))
-                    [x1; Con (SOME (Short "::"))
-                         [x2; Con (SOME (Short "[]")) []]]])
+        (App Strcat [Con (SOME (Short «::»))
+                    [x1; Con (SOME (Short «::»))
+                         [x2; Con (SOME (Short «[]»)) []]]])
         (HOL_STRING_TYPE (s1++s2))
 Proof
   rw [HOL_STRING_TYPE_def] \\ fs [implode_def,lookup_cons_def]
@@ -2486,14 +2481,14 @@ Theorem Eval_HOL_STRING_CONS:
    !env x1 x2 c s n.
       Eval env x1 (CHAR c) ==>
       Eval env x2 (HOL_STRING_TYPE s) ==>
-      lookup_cons (Short "::") env = SOME (2,TypeStamp "::" 1) /\
-      lookup_cons (Short "[]") env = SOME (0,TypeStamp "[]" 1) ==>
+      lookup_cons (Short «::») env = SOME (2,TypeStamp «::» 1) /\
+      lookup_cons (Short «[]») env = SOME (0,TypeStamp «[]» 1) ==>
       Eval env
-        (App Strcat [Con (SOME (Short "::"))
-                    [App Implode [Con (SOME (Short "::"))
-                                    [x1; Con (SOME (Short "[]")) []]];
-                     Con (SOME (Short "::"))
-                       [x2; Con (SOME (Short "[]")) []]]])
+        (App Strcat [Con (SOME (Short «::»))
+                    [App Implode [Con (SOME (Short «::»))
+                                    [x1; Con (SOME (Short «[]»)) []]];
+                     Con (SOME (Short «::»))
+                       [x2; Con (SOME (Short «[]»)) []]]])
         (HOL_STRING_TYPE (STRING c s))
 Proof
   rw[] \\ `STRING c s = [c] ++ s` by fs []
@@ -2525,7 +2520,7 @@ Proof
   \\ fs[v_to_list_def,LIST_TYPE_def,EVAL ``list_type_num``]
   \\ first_x_assum drule \\ rw[]
   \\ fs [] \\ fs [HOL_STRING_TYPE_def,STRING_TYPE_def,implode_def]
-  \\ rveq \\ rw[vs_to_string_def]
+  \\ rveq \\ rw[vs_to_string_def, strcat_def, concat_def]
 QED
 
 Theorem Eval_HOL_STRING_IMPLODE:
@@ -2547,11 +2542,11 @@ Proof
 QED
 
 Theorem Eval_HOL_STRING_LITERAL:
-  !s. Eval env (Lit (StrLit s)) (HOL_STRING_TYPE s)
+  !s. Eval env (Lit (StrLit (strlit s))) (HOL_STRING_TYPE s)
 Proof
-  rw []
-  \\ qspec_then `s` mp_tac Eval_Val_STRING
-  \\ fs [HOL_STRING_TYPE_def,mlstringTheory.implode_def]
+  rpt strip_tac
+  \\ qspec_then `strlit s` mp_tac Eval_Val_STRING
+  \\ fs[HOL_STRING_TYPE_def,mlstringTheory.implode_def]
 QED
 
 (* vectors *)
@@ -2717,10 +2712,10 @@ val two_pow_64 = EVAL ``2i**64`` |> concl |> rand
 
 Theorem Eval_force_out_of_memory_error:
     Eval env x (a i) ==>
-    Eval env (Let (SOME "a") x
-             (Let (SOME "n") (Lit (IntLit ^two_pow_64))
-             (Let NONE (App Aalloc [Var (Short "n"); Var (Short "n")])
-               (Var (Short "a"))))) (a (force_out_of_memory_error i))
+    Eval env (Let (SOME «a») x
+             (Let (SOME «n») (Lit (IntLit ^two_pow_64))
+             (Let NONE (App Aalloc [Var (Short «n»); Var (Short «n»)])
+               (Var (Short «a»))))) (a (force_out_of_memory_error i))
 Proof
   tac1 \\ fs [namespaceTheory.nsOptBind_def,store_alloc_def,
                force_out_of_memory_error_def]
@@ -2728,7 +2723,7 @@ QED
 
 Theorem Eval_empty_ffi:
    Eval env x (STRING_TYPE s) ==>
-   Eval env (App (FFI "") [x; App Aw8alloc [Lit (IntLit 0); Lit (Word8 0w)]])
+   Eval env (App (FFI «») [x; App Aw8alloc [Lit (IntLit 0); Lit (Word8 0w)]])
      (UNIT_TYPE (empty_ffi s))
 Proof
   rw[Eval_rw,WORD_def] \\ fs [store_alloc_def,do_app_def]

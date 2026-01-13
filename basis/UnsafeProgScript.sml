@@ -20,19 +20,19 @@ val _ = translation_extends"basisProg"
 val () = ml_prog_update (open_module "Unsafe");
 
 val () = append_decs
-   ``[mk_binop "sub" Asub_unsafe;
-      Dlet unknown_loc (Pvar "update")
-       (Fun "x" (Fun "y" (Fun "z"
-         (App Aupdate_unsafe [Var (Short "x"); Var (Short "y"); Var (Short "z")])))) ]``;
+   ``[mk_binop «sub» Asub_unsafe;
+      Dlet unknown_loc (Pvar «update»)
+       (Fun «x» (Fun «y» (Fun «z»
+         (App Aupdate_unsafe [Var (Short «x»); Var (Short «y»); Var (Short «z»)])))) ]``;
 
 val () = append_decs
-   ``[mk_binop "w8sub" Aw8sub_unsafe;
-      Dlet unknown_loc (Pvar "w8update")
-       (Fun "x" (Fun "y" (Fun "z"
-         (App Aw8update_unsafe [Var (Short "x"); Var (Short "y"); Var (Short "z")])))) ]``;
+   ``[mk_binop «w8sub» Aw8sub_unsafe;
+      Dlet unknown_loc (Pvar «w8update»)
+       (Fun «x» (Fun «y» (Fun «z»
+         (App Aw8update_unsafe [Var (Short «x»); Var (Short «y»); Var (Short «z»)])))) ]``;
 
 val () = append_decs
-   ``[mk_binop "w8xor_str" XorAw8Str_unsafe]``;
+   ``[mk_binop «w8xor_str» XorAw8Str_unsafe]``;
 
 Definition vsub_def[simp]:
   vsub v n = sub_unsafe v n

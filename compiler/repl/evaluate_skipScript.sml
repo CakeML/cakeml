@@ -689,7 +689,7 @@ Proof
     \\ rpt strip_tac \\ gvs []
     \\ gs [INJ_DEF])
   \\ gs [CaseEq "option"]
-  \\ Cases_on ‘m1 = list_type_num ∧ n = "::"’ \\ gvs []
+  \\ Cases_on ‘m1 = list_type_num ∧ n = «::»’ \\ gvs []
   >- (
     first_x_assum (drule_all_then assume_tac)
     \\ gs [])
@@ -753,7 +753,7 @@ Proof
     \\ rpt strip_tac \\ gvs []
     \\ gs [INJ_DEF, flookup_thm])
   \\ gs [CaseEq "option"]
-  \\ Cases_on ‘m1 = list_type_num ∧ n = "::"’ \\ gvs []
+  \\ Cases_on ‘m1 = list_type_num ∧ n = «::»’ \\ gvs []
   >- (
     first_x_assum (drule_all_then assume_tac)
     \\ simp[AllCaseEqs()]
@@ -1407,7 +1407,7 @@ Proof
     \\ ‘∃res. v_to_char_list x2 = res’ by gs []
     \\ drule_all v_rel_v_to_char_list \\ rw []
     \\ first_assum (irule_at Any)
-    \\ gs [v_rel_def])
+    \\ gs [v_rel_def] \\ metis_tac[])
   \\ Cases_on ‘op = Chr’ \\ gs []
   >- (
     Cases_on ‘res’ \\ gvs [do_app_def, v_rel_def, OPTREL_def,

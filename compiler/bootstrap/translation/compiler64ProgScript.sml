@@ -18,7 +18,6 @@ val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 val _ = translation_extends "mipsProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "compiler64Prog");
-val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;
 
 val _ = (ml_translatorLib.trace_timing_to
@@ -296,10 +295,8 @@ val res = translate get_err_str_def;
 val res = translate parse_num_list_def;
 
 (* comma_tokens treats strings as char lists so we switch modes temporarily *)
-val _ = ml_translatorLib.use_string_type false;
 val res = translate comma_tokens_def;
 val res = translate parse_nums_def;
-val _ = ml_translatorLib.use_string_type true;
 
 val res = translate clos_knownTheory.default_inline_factor_def;
 val res = translate clos_knownTheory.default_max_body_size_def;
@@ -385,9 +382,17 @@ val res = translate backendTheory.ffinames_to_string_list_def;
 
 val res = translate compile_64_def;
 
+val _ = res |> hyp |> null orelse
+        failwith ("Unproved side condition in the translation of " ^
+                  "compile_64_def.");
+
 val res = translate $ spec64 compile_pancake_def;
 
 val res = translate compile_pancake_64_def;
+
+val _ = res |> hyp |> null orelse
+        failwith ("Unproved side condition in the translation of " ^
+                  "compile_pancake_64_def.");
 
 val res = translate (has_version_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
 val res = translate (has_help_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
@@ -398,7 +403,7 @@ val res = translate compilerTheory.help_string_def;
 Definition nonzero_exit_code_for_error_msg_def:
                                                  nonzero_exit_code_for_error_msg e =
 if compiler$is_error_msg e then
-  (let a = empty_ffi (strlit "nonzero_exit") in
+  (let a = empty_ffi «nonzero_exit» in
      ml_translator$force_out_of_memory_error ())
 else ()
 End
@@ -443,12 +448,12 @@ val r = translate compiler_for_eval_alt;
 
 (* fun eval_prim env s1 decs s2 bs ws = Eval [env,s1,decs,s2,bs,ws] *)
 val _ = append_prog
-        “[Dlet (Locs (POSN 1 2) (POSN 2 21)) (Pvar "eval_prim")
-          (Fun "x" (Mat (Var (Short "x"))
-                    [(Pcon NONE [Pvar "env"; Pvar "s1"; Pvar "decs";
-                                 Pvar "s2"; Pvar "bs"; Pvar "ws"],
-                      App Eval [Var (Short "env"); Var (Short "s1"); Var (Short "decs");
-                                Var (Short "s2"); Var (Short "bs"); Var (Short "ws")])]))]”;
+        “[Dlet (Locs (POSN 1 2) (POSN 2 21)) (Pvar «eval_prim»)
+          (Fun «x» (Mat (Var (Short «x»))
+                    [(Pcon NONE [Pvar «env»; Pvar «s1»; Pvar «decs»;
+                                 Pvar «s2»; Pvar «bs»; Pvar «ws»],
+                      App Eval [Var (Short «env»); Var (Short «s1»); Var (Short «decs»);
+                                Var (Short «s2»); Var (Short «bs»); Var (Short «ws»)])]))]”;
 
 Datatype:
   eval_res = Compile_error 'a | Eval_result 'b 'c | Eval_exn 'd 'e
@@ -459,7 +464,7 @@ val _ = register_type “:('a,'b,'c,'d,'e) eval_res”;
 Quote add_cakeml:
 fun eval ((s1,next_gen), (env,id), decs) =
 case compiler_for_eval ((id,0),(s1,decs)) of
-  None => Compile_error "ERROR: failed to compile input\n"
+  None => Compile_error "ERROR: failed to compile input\n»"
 | Some (s2,(bs,ws)) =>
     let
 val new_env = eval_prim (env,s1,decs,s2,bs,ws)
@@ -540,7 +545,7 @@ Definition parse_cakeml_syntax_def:
   parse_cakeml_syntax input =
   case parse_prog (lexer_fun (explode input)) of
   | Success _ x _ => INR x
-  | Failure l _ => INL (strlit "Parsing failed at " ^ locs_to_string input (SOME l))
+  | Failure l _ => INL («Parsing failed at » ^ locs_to_string input (SOME l))
 End
 
 Definition parse_ocaml_syntax_def:
@@ -553,7 +558,7 @@ End
 
 Definition select_parse_def:
   select_parse cl =
-  if MEMBER (strlit "--candle") cl
+  if MEMBER «--candle» cl
   then parse_ocaml_syntax
   else parse_cakeml_syntax
 End
@@ -564,7 +569,7 @@ val _ = (next_ml_names := ["select_parse"]);
 val r = translate select_parse_def;
 
 Definition init_next_string_def:
-  init_next_string cl = if MEM (strlit "--candle") cl then "candle" else ""
+  init_next_string cl = if MEM «--candle» cl then «candle» else «»
 End
 
 val _ = (next_ml_names := ["init_next_string"]);
@@ -596,7 +601,7 @@ in
 End
 
 Definition has_repl_flag_def:
-  has_repl_flag cl ⇔ MEM (strlit "--repl") cl ∨ MEM (strlit "--candle") cl
+  has_repl_flag cl ⇔ MEM «--repl» cl ∨ MEM «--candle» cl
 End
 
 val _ = (next_ml_names := ["compiler_has_repl_flag"]);
@@ -616,11 +621,11 @@ Quote add_cakeml:
     else if compiler_has_version_flag cl then
       print compiler_current_build_info_str
     else if compiler_has_pancake_flag cl then
-      case compiler_compile_pancake_64 cl (TextIO.inputAll (TextIO.openStdIn ()))  of
+      case compiler_compile_pancake_64 cl (String.explode (TextIO.inputAll (TextIO.openStdIn ())))  of
         (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
                    compiler64prog_nonzero_exit_code_for_error_msg e)
     else
-      case compiler_compile_64 cl (TextIO.inputAll (TextIO.openStdIn ()))  of
+      case compiler_compile_64 cl (String.explode (TextIO.inputAll (TextIO.openStdIn ())))  of
         (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
                    compiler64prog_nonzero_exit_code_for_error_msg e)
                   end
@@ -703,7 +708,7 @@ Proof
    (xapp
     \\ qexistsl [‘COMMANDLINE cl’, ‘pos’, ‘fs’, ‘0’, ‘inp’, ‘[]’]
     \\ fs [STD_streams_get_mode] \\ xsimpl)
-  \\ fs [GSYM HOL_STRING_TYPE_def]
+  \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ fs [full_compile_64_def]
   \\ pairarg_tac
@@ -731,7 +736,7 @@ Proof
    (xapp
     \\ qexistsl [‘COMMANDLINE cl’, ‘pos’, ‘fs’, ‘0’, ‘inp’, ‘[]’]
     \\ fs [STD_streams_get_mode] \\ xsimpl)
-  \\ fs [GSYM HOL_STRING_TYPE_def]
+  \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ fs [full_compile_64_def]
   \\ pairarg_tac
@@ -770,17 +775,30 @@ Proof
 QED
 
 val (semantics_thm,prog_tm) =
-whole_prog_thm (get_ml_prog_state()) "main" (main_whole_prog_spec |> UNDISCH);
+  whole_prog_thm (get_ml_prog_state()) "main" (main_whole_prog_spec |> UNDISCH);
 
 Definition compiler64_prog_def:
   compiler64_prog = ^prog_tm
 End
 
+Theorem dec_sides[local]:
+  (peg_v_side ⇔ T) ∧
+  (peg_longv_side ⇔ T) ∧
+  (peg_uqconstructorname_side ⇔ T) ∧
+  (cmlpeg_side ⇔ T)
+Proof
+  fs[
+    parserProgTheory.cmlpeg_side_def,
+    parserProgTheory.peg_v_side_def,
+    parserProgTheory.peg_longv_side_def,
+    parserProgTheory.peg_uqconstructorname_side_def]
+QED
+
 Theorem semantics_compiler64_prog =
   semantics_thm
     |> PURE_ONCE_REWRITE_RULE[GSYM compiler64_prog_def]
     |> DISCH_ALL
-    |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC]
+    |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC,dec_sides]
 
 (* saving a tidied up final theorem *)
 

@@ -15,7 +15,6 @@ open preamble
 val _ = translation_extends "pancake_lexProg";
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "pancake_parseProg");
-val _ = ml_translatorLib.use_string_type true;
 
 val RW = REWRITE_RULE
 val RW1 = ONCE_REWRITE_RULE

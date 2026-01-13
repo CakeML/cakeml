@@ -16,7 +16,7 @@ val _ = ml_prog_update (open_module "Char");
 val () = generate_sigs := true;
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [] "char" (Atapp [] (Short "char"))`` I);
+  ``Dtabbrev unknown_loc [] «char» (Atapp [] (Short «char»))`` I);
 
 val _ = trans "ord" stringSyntax.ord_tm;
 val _ = trans "chr" stringSyntax.chr_tm;

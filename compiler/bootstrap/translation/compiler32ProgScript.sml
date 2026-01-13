@@ -17,7 +17,6 @@ open cfLib basis;
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "ag32Prog";
-val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;
 
 val _ = ml_translatorLib.ml_prog_update (ml_progLib.open_module "compiler32Prog");
@@ -290,10 +289,8 @@ val res = translate get_err_str_def;
 val res = translate parse_num_list_def;
 
 (* comma_tokens treats strings as char lists so we switch modes temporarily *)
-val _ = ml_translatorLib.use_string_type false;
 val res = translate comma_tokens_def;
 val res = translate parse_nums_def;
-val _ = ml_translatorLib.use_string_type true;
 
 val res = translate clos_knownTheory.default_inline_factor_def;
 val res = translate clos_knownTheory.default_max_body_size_def;
@@ -352,6 +349,10 @@ val res = format_compiler_result_def
 
 val res = translate compile_32_def;
 
+val _ = res |> hyp |> null orelse
+        failwith ("Unproved side condition in the translation of " ^
+                  "compile_32_def.");
+
 val res = translate (has_version_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
 val res = translate (has_help_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
 val res = translate print_option_def
@@ -361,7 +362,7 @@ val res = translate compilerTheory.help_string_def;
 Definition nonzero_exit_code_for_error_msg_def:
   nonzero_exit_code_for_error_msg e =
     if compiler$is_error_msg e then
-      (let a = empty_ffi (strlit "nonzero_exit") in
+      (let a = empty_ffi «nonzero_exit» in
          ml_translator$force_out_of_memory_error ())
     else ()
 End
@@ -372,6 +373,10 @@ val res = translate nonzero_exit_code_for_error_msg_def;
 val res = translate $ spec32 compile_pancake_def;
 
 val res = translate compile_pancake_32_def;
+
+val _ = res |> hyp |> null orelse
+        failwith ("Unproved side condition in the translation of " ^
+                  "compile_pancake_32_def.");
 
 val res = translate (has_pancake_flag_def |> SIMP_RULE (srw_ss()) [MEMBER_INTRO])
 
@@ -385,11 +390,11 @@ Quote add_cakeml:
       else if compiler_has_version_flag cl then
         print compiler_current_build_info_str
       else if compiler_has_pancake_flag cl then
-        case compiler_compile_pancake_32 cl (TextIO.inputAll (TextIO.openStdIn ()))  of
+        case compiler_compile_pancake_32 cl (String.explode (TextIO.inputAll (TextIO.openStdIn ())))  of
           (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
                      compiler32prog_nonzero_exit_code_for_error_msg e)
       else
-        case compiler_compile_32 cl (TextIO.inputAll (TextIO.openStdIn ()))  of
+        case compiler_compile_32 cl (String.explode (TextIO.inputAll (TextIO.openStdIn ())))  of
           (c, e) => (print_app_list c; TextIO.output TextIO.stdErr e;
                      compiler32prog_nonzero_exit_code_for_error_msg e)
     end
@@ -471,7 +476,7 @@ Proof
       (xapp
        \\ qexistsl [‘COMMANDLINE cl’, ‘pos’, ‘fs’, ‘0’, ‘inp’, ‘[]’]
        \\ fs [STD_streams_get_mode] \\ xsimpl)
-     \\ fs [GSYM HOL_STRING_TYPE_def]
+     \\ xlet_auto >- xsimpl
      \\ xlet_auto >- xsimpl
      \\ fs [full_compile_32_def]
      \\ pairarg_tac
@@ -499,7 +504,7 @@ Proof
    (xapp
     \\ qexistsl [‘COMMANDLINE cl’, ‘pos’, ‘fs’, ‘0’, ‘inp’, ‘[]’]
     \\ fs [STD_streams_get_mode] \\ xsimpl)
-  \\ fs [GSYM HOL_STRING_TYPE_def]
+  \\ xlet_auto >- xsimpl
   \\ xlet_auto >- xsimpl
   \\ fs [full_compile_32_def]
   \\ pairarg_tac
@@ -541,10 +546,23 @@ Definition compiler32_prog_def:
   compiler32_prog = ^prog_tm
 End
 
+Theorem dec_sides[local]:
+  (peg_v_side ⇔ T) ∧
+  (peg_longv_side ⇔ T) ∧
+  (peg_uqconstructorname_side ⇔ T) ∧
+  (cmlpeg_side ⇔ T)
+Proof
+  fs[
+    parserProgTheory.cmlpeg_side_def,
+    parserProgTheory.peg_v_side_def,
+    parserProgTheory.peg_longv_side_def,
+    parserProgTheory.peg_uqconstructorname_side_def]
+QED
+
 Theorem semantics_compiler32_prog =
   semantics_thm
   |> PURE_ONCE_REWRITE_RULE[GSYM compiler32_prog_def]
   |> DISCH_ALL
-  |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  |> SIMP_RULE (srw_ss()) [AND_IMP_INTRO,GSYM CONJ_ASSOC, dec_sides]
 
 val _ = ml_translatorLib.reset_translation(); (* because this translation won't be continued *)

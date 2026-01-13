@@ -13,13 +13,13 @@ Libs
 val _ = patternMatchesLib.ENABLE_PMATCH_CASES();
 
 Definition dest_pat_def:
-  dest_pat [(Pvar v, h)] = SOME (v:string,h) /\
+  dest_pat [(Pvar v, h)] = SOME (v:mlstring,h) /\
   dest_pat _ = NONE
 End
 
 Theorem dest_pat_pmatch:
   dest_pat x =
-    case x of [(Pvar v, h)] => SOME (v:string,h) | _ => NONE
+    case x of [(Pvar v, h)] => SOME (v:mlstring,h) | _ => NONE
 Proof
   CONV_TAC(RAND_CONV patternMatchesLib.PMATCH_ELIM_CONV)
   \\ every_case_tac \\ fs [dest_pat_def]
@@ -40,7 +40,7 @@ Definition compile_lit_def:
      (dtcase l of
       | IntLit i => IntOp (Const i)
       | Char c => IntOp (Const (& (ORD c)))
-      | StrLit s => BlockOp (Constant (ConstStr (mlstring$implode s)))
+      | StrLit s => BlockOp (Constant (ConstStr s))
       | Word8 b => IntOp (Const (& (w2n b)))
       | Word64 w => BlockOp (Constant (ConstWord64 w))
       | Float64 w => BlockOp (Constant (ConstWord64 w))) []
@@ -331,7 +331,7 @@ Definition compile_def:
      | SOME e => compile m [e]
      | NONE => [compile_op t op (compile m (REVERSE es))]) /\
   (compile m [Fun t v e] =
-     [Fn (mlstring$implode t) NONE NONE 1 (HD (compile (SOME v::m) [e]))]) /\
+     [Fn t NONE NONE 1 (HD (compile (SOME v::m) [e]))]) /\
   (compile m [If t x1 x2 x3] =
      [If t (HD (compile m [x1]))
            (HD (compile m [x2]))
@@ -345,7 +345,7 @@ Definition compile_def:
      | _ => compile m [e]) /\
   (compile m [Letrec t funs e] =
      let new_m = MAP (\n. SOME (FST n)) funs ++ m in
-       [Letrec (MAP (\n. join_strings (mlstring$implode t) (mlstring$implode (FST n))) funs) NONE NONE
+       [Letrec (MAP (\n. join_strings t (FST n)) funs) NONE NONE
           (MAP ( \ (f,v,x). (1, HD (compile (SOME v :: new_m) [x]))) funs)
           (HD (compile new_m [e]))])
 Termination
