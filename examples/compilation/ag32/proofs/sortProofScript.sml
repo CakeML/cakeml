@@ -5,7 +5,7 @@
 *)
 Theory sortProof
 Ancestors
-  semanticsProps backendProof ag32_configProof ag32_memory
+  mlstring semanticsProps backendProof ag32_configProof ag32_memory
   ag32_memoryProof ag32_ffi_codeProof ag32_machine_config
   ag32_basis_ffiProof sortProg sortCompile
 Libs
@@ -140,6 +140,7 @@ Proof
   \\ disch_then drule
   \\ strip_tac
   \\ simp[]
+  \\ conj_tac >- (EVAL_TAC)
   \\ conj_tac >- (simp[LENGTH_code] \\ EVAL_TAC)
   \\ conj_tac >- (simp[LENGTH_code, LENGTH_data] \\ EVAL_TAC)
   \\ conj_tac >- (EVAL_TAC)
@@ -170,7 +171,7 @@ Proof
   \\ simp[STD_streams_stdin_fs]
   \\ simp[TextIOProofTheory.add_stdo_def]
   \\ SELECT_ELIM_TAC
-  \\ simp[TextIOProofTheory.stdo_def]
+  \\ simp[TextIOProofTheory.stdo_def,implode_def]
   \\ conj_tac
   >- (
     simp[stdin_fs_def]
@@ -217,7 +218,7 @@ Proof
   \\ disch_then drule
   \\ strip_tac
   \\ irule ag32_next
-  \\ conj_tac >- simp[ffi_names,extcalls_def]
+  \\ conj_tac >- (simp[ffi_names,extcalls_def] \\ EVAL_TAC)
   \\ conj_tac >- (simp[ffi_names,extcalls_def, LENGTH_code, LENGTH_data] \\ EVAL_TAC)
   \\ conj_tac >- (simp[ffi_names,extcalls_def] \\ EVAL_TAC)
   \\ rpt $ goal_assum $ drule_at Any

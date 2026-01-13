@@ -16,7 +16,6 @@ open inliningLib;
 val _ = temp_delsimps ["NORMEQ_CONV", "lift_disj_eq", "lift_imp_disj"]
 
 val _ = translation_extends "arm7Prog";
-val _ = ml_translatorLib.use_string_type true;
 val _ = ml_translatorLib.use_sub_check true;
 
 Theorem ri2bits_eq[local]:

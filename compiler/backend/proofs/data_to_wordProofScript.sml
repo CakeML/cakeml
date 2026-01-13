@@ -1704,7 +1704,7 @@ QED
 
 fun cases_on_op q = Cases_on q >|
   map (MAP_EVERY Cases_on)
-      [[`n`], [`s`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
+      [[`n`], [`m`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
 
 Theorem data_to_word_lab_pres_lem:
   ∀c n l p.
@@ -2010,7 +2010,7 @@ QED
 
 fun cases_on_op q = Cases_on q >|
   map (MAP_EVERY Cases_on)
-      [[`n`], [`s`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
+      [[`n`], [`m`], [`i`], [`w`], [`b`], [`g`], [`m`], [], [`t`]];
 
 Theorem assign_no_inst[local]:
   ((a.has_longdiv ⇒ (ac.ISA = x86_64)) ∧

@@ -533,9 +533,9 @@ Theorem application_thm:
           [Litv (StrLit conf); Loc b lnum] => (
             case store_lookup lnum s of
               SOME (W8array ws) =>
-                if n = "" then Estep (env, s, Val $ Conv NONE [], c)
+                if n = «» then Estep (env, s, Val $ Conv NONE [], c)
                 else Effi (ExtCall n)
-                          (MAP (λc. n2w $ ORD c) (EXPLODE conf))
+                          (MAP (λc. n2w $ ORD c) (explode conf))
                           ws lnum env s c
             | _ => Etype_error)
         | _ => Etype_error)
@@ -586,7 +586,7 @@ Theorem application_eq_Effi_fields:
   op = FFI s ∧ env = env' ∧ st = st' ∧ cs' = cs ∧
   ∃conf' b.
     vs = [Litv $ StrLit conf'; Loc b lnum] ∧
-    conf = MAP (λc. n2w $ ORD c) (EXPLODE conf')
+    conf = MAP (λc. n2w $ ORD c) (explode conf')
 Proof
   Cases_on `op` >> simp[application_def, SF itree_ss] >>
   every_case_tac >> gvs[] >> rw[]
@@ -765,4 +765,3 @@ QED
 
 
 (****************************************)
-

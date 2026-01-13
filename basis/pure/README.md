@@ -3,9 +3,6 @@ HOL definitions of the pure functions used in the CakeML basis.
 The CakeML code for the pure parts of the basis is produced
 from these by the translator.
 
-[basisComputeLib.sml](basisComputeLib.sml):
-compset for the pure basis functions.
-
 [basis_cvScript.sml](basis_cvScript.sml):
 Translation of basis types and functions for use with cv_compute.
 
@@ -53,8 +50,3 @@ Pure functions for the Vector module.
 
 [mlvectorSyntax.sml](mlvectorSyntax.sml):
 ML functions for manipulating HOL terms and types involving vectors.
-
-[typeDecToPPScript.sml](typeDecToPPScript.sml):
-Maps a Dtype or Dtabbrev declaration (the ast syntax) to
-the default pretty-printer function definition for it
-(also as ast syntax).
