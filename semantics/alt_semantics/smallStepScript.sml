@@ -321,7 +321,7 @@ End
 
 (*val lift_dec_env : forall 'v. modN -> sem_env 'v -> sem_env 'v*)
 Definition lift_dec_env_def:
- ((lift_dec_env:string -> 'v sem_env -> 'v sem_env) mn env=  (<| v := (nsLift mn env.v) ; c := (nsLift mn env.c) |>))
+ ((lift_dec_env:mlstring -> 'v sem_env -> 'v sem_env) mn env=  (<| v := (nsLift mn env.v) ; c := (nsLift mn env.c) |>))
 End
 
 

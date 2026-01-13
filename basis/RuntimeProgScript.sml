@@ -35,11 +35,11 @@ val result = translate debugMsg_def;
 
 val exit =
  ``[Dletrec (unknown_loc)
-     ["exit","i",
-      Let (SOME "y") (App (WordFromInt W8) [Var (Short "i")])
-        (Let (SOME "x") (App Aw8alloc [Lit(IntLit 1);
-                                       Var (Short "y")])
-             (App (FFI "exit") [Lit(StrLit ""); Var (Short "x")]))]]``
+     [«exit»,«i»,
+      Let (SOME «y») (App (WordFromInt W8) [Var (Short «i»)])
+        (Let (SOME «x») (App Aw8alloc [Lit(IntLit 1);
+                                       Var (Short «y»)])
+             (App (FFI «exit») [Lit(StrLit «»); Var (Short «x»)]))]]``
 
 val _ = append_prog exit
 
@@ -56,4 +56,3 @@ Quote add_cakeml:
 End
 
 val _ = ml_prog_update (close_module NONE);
-

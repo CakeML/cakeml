@@ -1532,9 +1532,9 @@ Proof
       fs[BIJ_DEF,prim_tids_def,INJ_DEF,good_remap_def]>>
       metis_tac[])>>
     CONJ_TAC >- (
-      rw[FOLDR_MAX_0_list_max]
+      rw[FOLDR_MAX_0_MAX_LIST]
       \\ fs[good_remap_def]
-      \\ DEEP_INTRO_TAC list_max_intro
+      \\ DEEP_INTRO_TAC MAX_LIST_intro
       \\ conj_tac
       >- (
         fs[BIJ_DEF,prim_tids_def,INJ_DEF]

@@ -258,7 +258,7 @@ Definition compile_def:
          else infertype_prog c.inferencer_config full_prog
        of
        | Failure (locs, msg) =>
-           (Failure (TypeError (concat [msg; implode " at ";
+           (Failure (TypeError (concat [msg; strlit " at ";
                locs_to_string (implode input) locs])), Nil)
        | Success ic =>
           let _ = empty_ffi (strlit "finished: type inference") in

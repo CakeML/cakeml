@@ -490,7 +490,7 @@ Proof
   >~ [‘Arith a p’] >- (
     gvs[CaseEq"option",CaseEq"bool",failwith_def,
         st_ex_bind_def,st_ex_return_def,CaseEq"exc",CaseEq"prod"]
-    \\ Cases_on`a` \\ Cases_on`p`
+    \\ Cases_on`a` \\ Cases_on`p` \\ TRY (rename1 `WordT w` \\ Cases_on`w`)
     \\ gvs[supported_arith_def,LENGTH_EQ_NUM_compute, REPLICATE_compute,
            add_constraints_def, st_ex_bind_def,CaseEq"prod",CaseEq"exc",
            st_ex_return_def,add_constraint_def,CaseEq"option"]

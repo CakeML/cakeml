@@ -640,6 +640,7 @@ Proof
          store_lookup_def, copy_array_def, store_assign_def,
          CaseEq"sum"]
     \\ Cases_on ‘a’ \\ Cases_on ‘ty’
+    \\ TRY(rename1 ‘WordT w’ \\ Cases_on ‘w’)
     \\ gvs[do_arith_def,CaseEq"list",v_ok_thm] )
   \\ Cases_on ‘op = Opderef’ \\ gs []
   >- (

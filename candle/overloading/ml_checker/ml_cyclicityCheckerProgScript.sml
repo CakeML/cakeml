@@ -276,7 +276,7 @@ Quote add_cakeml:
 End
 
 val prog =
-  “SNOC (Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short "main"); Con NONE []]))
+  “SNOC (Dlet unknown_loc (Pcon NONE []) (App Opapp [Var (Short «main»); Con NONE []]))
         ^(get_ml_prog_state() |> get_prog)
   ” |> EVAL |> concl |> rhs;
 

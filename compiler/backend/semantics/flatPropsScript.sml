@@ -840,8 +840,8 @@ Termination
   >-
    (irule LESS_EQ_LESS_TRANS
     \\ qexists_tac ‘list_size
-           (pair_size (list_size char_size)
-              (pair_size (list_size char_size) exp_size)) fs’
+           (pair_size mlstring_size
+              (pair_size mlstring_size exp_size)) fs’
     \\ gvs [] \\ Induct_on ‘fs’ \\ gvs [FORALL_PROD])
   \\ irule LESS_EQ_LESS_TRANS
   \\ qexists_tac ‘list_size (pair_size pat_size exp_size) pes’ \\ gvs []
@@ -1203,7 +1203,7 @@ Proof
     \\ imp_res_tac check_type_LIST_REL_same \\ gvs []
     >- (EVAL_TAC \\ fs [simple_val_rel_def])
     \\ imp_res_tac semanticPrimitivesPropsTheory.do_arith_check_type
-    \\ Cases_on`ty`
+    \\ Cases_on`ty` \\ TRY (Cases_on ‘w’)
     \\ gvs[semanticPrimitivesTheory.do_arith_def,CaseEq"list",CaseEq"arith"]
     \\ gvs[simple_val_rel_simps,v_to_flat_def])
   \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ >- (

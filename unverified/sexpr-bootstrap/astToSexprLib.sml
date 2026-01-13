@@ -1,6 +1,6 @@
 structure astToSexprLib = struct
 
-open preamble fromSexpTheory
+open preamble mlstringSyntax fromSexpTheory
 
 datatype exp = exp_tuple of exp list | exp_list of exp list | exp_str of string;
 
@@ -18,7 +18,7 @@ fun escape_char c =
 val fromHOLchar =
   escape_wrap o escape_char o stringSyntax.fromHOLchar;
 val fromHOLstring =
-  escape_wrap o (String.translate escape_char) o stringSyntax.fromHOLstring;
+  escape_wrap o (String.translate escape_char) o mlstringSyntax.dest_mlstring;
 val fromHOLnum = Arbnumcore.toString o numSyntax.dest_numeral;
 
 fun char_to_exp c = exp_list [exp_str "char", exp_str (fromHOLchar c)]
@@ -142,7 +142,6 @@ val pvar = ``ast$Pvar``;
 val pany = ``ast$Pany``;
 val locs = ``Locs``;
 val nil_l = ``[] : 'a list``;
-val string_ty = ``:string``;
 val app = ``ast$App``;
 val lit = ``ast$Lit``;
 val plit = ``ast$Plit``;
@@ -166,9 +165,7 @@ fun ast_to_exp term =
                    | _ => exp_list (exp::args_exp)
       end
     fun cons_to_exp term =
-      if stringSyntax.is_string_literal term
-        then string_to_exp term
-        else (exp_list o list_to_exp o #1 o listSyntax.dest_list) term
+      (exp_list o list_to_exp o #1 o listSyntax.dest_list) term
     val tuple_to_exp =
       exp_tuple o list_to_exp o pairSyntax.spine_pair
     val (x, xs) = strip_comb term
@@ -180,11 +177,11 @@ fun ast_to_exp term =
     else if same_const x plit then
       exp_list [exp_str "Plit", lit_to_exp (hd xs)]
     else if same_const x locs then loc_to_exp xs
-    else if same_const x nil_l andalso type_of x = string_ty then exp_str "\"\""
     else if same_const x nil_l then exp_list []
     else if same_const x cons then cons_to_exp term
     else if same_const x comma then tuple_to_exp term
     else if same_const x app then app_to_exp x xs
+    else if mlstringSyntax.is_mlstring_literal term then string_to_exp term
     else generic_to_exp x xs
   end
 

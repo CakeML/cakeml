@@ -1298,7 +1298,8 @@ Proof
     )
   >- (
     gvs[EXISTS_PROD, SF DNF_ss] >>
-    Cases_on ‘declare_env s'.eval_state env’ >> gvs[] >> Cases_on ‘x’ >> gvs[]
+    Cases_on ‘declare_env s.eval_state env’ >> gvs[] >>
+    rename1 ‘_ = SOME x’ >> Cases_on ‘x’ >> gvs[]
     )
   >- (
     gvs[EXISTS_PROD, declare_env_def] >>
