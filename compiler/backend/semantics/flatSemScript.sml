@@ -648,20 +648,6 @@ Proof
     Cases_on `v = Boolv F` THEN simp []])
 QED
 
-Inductive pmatch_stamps_ok:
-  ( (* exception constructors *)
-    ((cn, NONE), n_ps) ∈ c
-  ==> pmatch_stamps_ok c (SOME (cn, NONE)) (SOME (cn', NONE)) n_ps n_vs) ∧
-  ( (* constructors *)
-    ((cn, SOME ty_id), n_ps) ∈ c ∧
-        ty_id = ty_id' ∧ MEM (cn, n_ps) ctor_set ∧ MEM (cn', n_vs) ctor_set
-  ==> pmatch_stamps_ok c (SOME (cn, (SOME (ty_id, ctor_set))))
-    (SOME (cn', SOME ty_id')) n_ps n_vs) ∧
-  ( (* tuples *)
-    n_ps = n_vs
-  ==> pmatch_stamps_ok c NONE NONE n_ps n_vs)
-End
-
 Definition pmatch_def:
   (pmatch s (Pvar x) v' bindings =
     (Match ((x,v') :: bindings))) ∧
@@ -674,10 +660,8 @@ Definition pmatch_def:
     else
       Match_type_error) ∧
   (pmatch s (Pcon stmp ps) (Conv stmp' vs) bindings =
-    if ~ pmatch_stamps_ok s.c stmp stmp' (LENGTH ps) (LENGTH vs) then
-      Match_type_error
-    else if OPTION_MAP FST stmp = OPTION_MAP FST stmp' ∧
-            LENGTH ps = LENGTH vs then
+    if OPTION_MAP FST stmp = OPTION_MAP FST stmp' ∧
+       LENGTH ps = LENGTH vs then
       pmatch_list s ps vs bindings
     else
       No_match) ∧
@@ -730,15 +714,6 @@ Proof
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []
 QED
 
-Definition is_fresh_type_def:
-  is_fresh_type type_id ctors ⇔
-    !ctor. ctor ∈ ctors ⇒ !arity id. ctor ≠ ((id, SOME type_id), arity)
-End
-
-Definition is_fresh_exn_def:
-  is_fresh_exn exn_id ctors ⇔
-    !ctor. ctor ∈ ctors ⇒ !arity. ctor ≠ ((exn_id, NONE), arity)
-End
 
 Definition do_eval_def:
   do_eval (vs :v list) eval_config =
@@ -840,9 +815,7 @@ Proof
 QED
 
 Definition dec_alt_size_def[simp]:
-  dec_alt_size (Dlet a) = 1 + exp_alt_size a ∧
-  dec_alt_size (Dtype a0 a1) = 1 + (a0 + spt_size (λx. x) a1) ∧
-  dec_alt_size (Dexn a0 a1) = 1 + (a0 + a1)
+  dec_alt_size (Dlet a) = 1 + exp_alt_size a
 End
 
 Definition evaluate_def:
@@ -876,13 +849,9 @@ Definition evaluate_def:
       | (s, Rval vs) => (s,Rval [Conv NONE (REVERSE vs)])
       | res => res) ∧
   (evaluate env s [Con _ (SOME cn) es] =
-    if (cn, LENGTH es) ∈ s.c
-    then
-      (case evaluate env s (REVERSE es) of
+    case evaluate env s (REVERSE es) of
       | (s, Rval vs) => (s, Rval [Conv (SOME cn) (REVERSE vs)])
-      | res => res)
-    else
-      (s, Rerr (Rabort Rtype_error))) ∧
+      | res => res) ∧
   (evaluate env s [Var_local _ n] = (s,
    case ALOOKUP env.v n of
    | SOME v => Rval [v]
@@ -961,18 +930,6 @@ Definition evaluate_def:
      else
        (s, SOME (Rabort Rtype_error))
    | (s, Rerr e) => (s, SOME e)) ∧
-  (evaluate_dec s (Dtype id ctors) =
-    if is_fresh_type id s.c then
-      let new_c = { ((idx, SOME id), arity) |
-          ?max. lookup arity ctors = SOME max ∧ idx < max } in
-      (s with c updated_by $UNION new_c, NONE)
-    else
-      (s, SOME (Rabort Rtype_error))) ∧
-  (evaluate_dec s (Dexn id arity) =
-    if is_fresh_exn id s.c then
-      (s with c updated_by $UNION {((id, NONE), arity)}, NONE)
-    else
-      (s, SOME (Rabort Rtype_error))) ∧
   (evaluate_decs s [] = (s, NONE)) ∧
   (evaluate_decs s (d::ds) =
    case fix_clock s (evaluate_dec s d) of

@@ -1581,26 +1581,22 @@ Theorem compile_exps_evaluate:
     evaluate env1 s1 xs = (t1, r1) /\
     compile_exps cfg xs = (i, sg, ys) /\
     env_rel N env1 env2 /\ state_rel s_cfg s1 s2 /\ i < N /\
-    initial_ctors ⊆ s2.c /\
     r1 <> Rerr (Rabort Rtype_error)
     ==>
     ?t2 r2.
       result_rel (LIST_REL v_rel) v_rel r1 r2 /\
       state_rel s_cfg t1 t2 /\
-      evaluate env2 s2 ys = (t2, r2) /\
-      initial_ctors ⊆ t2.c
+      evaluate env2 s2 ys = (t2, r2)
   ) /\
   (!^s1 decs s2 t1 cfg decs' res.
   evaluate_decs s1 decs = (t1, res) /\
   decs' = MAP (compile_dec cfg) decs /\
   state_rel s_cfg s1 s2 /\
-  initial_ctors ⊆ s2.c /\
   res <> SOME (Rabort Rtype_error)
   ==>
   ?t2 res'.
   evaluate_decs s2 decs' = (t2, res') /\
   OPTREL (exc_rel v_rel) res res' /\
-  initial_ctors ⊆ t2.c /\
   state_rel s_cfg t1 t2
   )
 Proof
