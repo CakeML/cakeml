@@ -10,8 +10,6 @@ Libs
 
 val _ = hide_environments true;
 
-val cakeml = append_prog o process_topdecs;
-
 (* Default inheritance path, means all programs will use
   the unsafe primitives *)
 val _ = translation_extends"UnsafeProg";
@@ -35,7 +33,7 @@ Proof
   xsimpl
 QED
 
-Quote cakeml:
+Quote add_cakeml:
   exception Fail string;
 End
 
@@ -80,7 +78,7 @@ val res = translate uvsub_def;
 
 val uvsub_side_def = fetch "-" "uvsub_side_def";
 
-Quote cakeml:
+Quote add_cakeml:
   fun all_assigned_arr carr b v i =
   if i = 0 then True
   else
@@ -162,7 +160,7 @@ End
 
 val res = translate badd1_def;
 
-Quote cakeml:
+Quote add_cakeml:
   fun delete_literals_sing_arr lno carr b v i =
   if i = 0 then True
   else
@@ -289,7 +287,7 @@ End
 
 val res = translate badd2_def;
 
-Quote cakeml:
+Quote add_cakeml:
   fun reset_dm_arr carr b sz =
   let
     val len = Word8Array.length carr
@@ -373,7 +371,7 @@ QED
 
 val _ = mk_bb_nc_side |> update_precondition;
 
-Quote cakeml:
+Quote add_cakeml:
   fun init_lit_map_arr i v carr b =
   if i = 0
   then ()
@@ -423,7 +421,7 @@ Proof
   xapp>>gvs[]
 QED
 
-Quote cakeml:
+Quote add_cakeml:
   fun prepare_rup carr b v =
   let
     val lv = Vector.length v
@@ -473,7 +471,7 @@ Proof
   metis_tac[init_lit_map_list']
 QED
 
-Quote cakeml:
+Quote add_cakeml:
   fun unit_prop_arr lno fml carr b hints =
     case hints of
       [] => False
@@ -557,7 +555,7 @@ Proof
   first_x_assum $ irule_at Any>>xsimpl
 QED
 
-Quote cakeml:
+Quote add_cakeml:
   fun is_rup_arr lno fml carr b v hints =
   let val dmb = prepare_rup carr b v in
     case dmb of (carr',b') =>
@@ -590,7 +588,7 @@ Theorem is_rup_arr_spec':
           res = (T, (Clist',b'))))
       (λe.
         ARRAY fmlv fmllsv *
-        SEP_EXISTS b' Carrv' Clist'.
+        SEP_EXISTS Carrv' Clist'.
         W8ARRAY Carrv' Clist' *
         &(Fail_exn e ∧ FST res = F))
     )
@@ -636,7 +634,7 @@ Theorem is_rup_arr_spec:
           is_rup_list fmlls Clist b v ls = (T,(Clist',b'))))
       (λe.
         ARRAY fmlv fmllsv *
-        SEP_EXISTS b' Carrv' Clist'.
+        SEP_EXISTS Carrv' Clist'.
         W8ARRAY Carrv' Clist' *
         &(Fail_exn e ∧
           FST (is_rup_list fmlls Clist b v ls) = F))
