@@ -942,29 +942,62 @@ QED
 
 (* arithmetic for integers *)
 
-Theorem Eval_Opn[local]:
-  !f n1 n2.
-        Eval env x1 (INT n1) ==>
-        Eval env x2 (INT n2) ==>
-        PRECONDITION (((f = Divide) \/ (f = Modulo)) ==> ~(n2 = 0)) ==>
-        Eval env (App (Opn f) [x1;x2]) (INT (opn_lookup f n1 n2))
+Theorem Eval_INT_ADD:
+  ∀n1 n2.
+    Eval env x1 (INT n1) ⇒
+    Eval env x2 (INT n2) ⇒
+    Eval env (App (Arith Add IntT) [x1; x2]) (INT (n1 + n2))
 Proof
   rw[Eval_rw,INT_def,PRECONDITION_def]
-  \\ Eval2_tac \\ fs [do_app_def] \\ rw []
-  \\ fs [state_component_equality]
+  \\ Eval2_tac \\ fs [do_app_def, do_arith_def] \\ rw []
+  \\ fs [state_component_equality, check_type_def]
 QED
 
-local
-  fun f name q =
-    save_thm("Eval_" ^ name,SIMP_RULE (srw_ss()) [opn_lookup_def,EVAL ``PRECONDITION T``]
-                              (Q.SPEC q Eval_Opn))
-in
-  val Eval_INT_ADD  = f "INT_ADD" `Plus`
-  val Eval_INT_SUB  = f "INT_SUB" `Minus`
-  val Eval_INT_MULT = f "INT_MULT" `Times`
-  val Eval_INT_DIV  = f "INT_DIV" `Divide`
-  val Eval_INT_MOD  = f "INT_MOD" `Modulo`
-end;
+Theorem Eval_INT_SUB:
+  ∀n1 n2.
+    Eval env x1 (INT n1) ⇒
+    Eval env x2 (INT n2) ⇒
+    Eval env (App (Arith Sub IntT) [x1; x2]) (INT (n1 - n2))
+Proof
+  rw[Eval_rw,INT_def,PRECONDITION_def]
+  \\ Eval2_tac \\ fs [do_app_def, do_arith_def] \\ rw []
+  \\ fs [state_component_equality, check_type_def]
+QED
+
+Theorem Eval_INT_MULT:
+  ∀n1 n2.
+    Eval env x1 (INT n1) ⇒
+    Eval env x2 (INT n2) ⇒
+    Eval env (App (Arith Mul IntT) [x1; x2]) (INT (n1 * n2))
+Proof
+  rw[Eval_rw,INT_def,PRECONDITION_def]
+  \\ Eval2_tac \\ fs [do_app_def, do_arith_def] \\ rw []
+  \\ fs [state_component_equality, check_type_def]
+QED
+
+Theorem Eval_INT_DIV:
+  ∀n1 n2.
+    Eval env x1 (INT n1) ⇒
+    Eval env x2 (INT n2) ⇒
+    PRECONDITION (n2 ≠ 0) ⇒
+    Eval env (App (Arith Div IntT) [x1; x2]) (INT (n1 / n2))
+Proof
+  rw[Eval_rw,INT_def,PRECONDITION_def]
+  \\ Eval2_tac \\ fs [do_app_def, do_arith_def] \\ rw []
+  \\ fs [state_component_equality, check_type_def]
+QED
+
+Theorem Eval_INT_MOD:
+  ∀n1 n2.
+    Eval env x1 (INT n1) ⇒
+    Eval env x2 (INT n2) ⇒
+    PRECONDITION (n2 ≠ 0) ⇒
+    Eval env (App (Arith Mod IntT) [x1; x2]) (INT (n1 % n2))
+Proof
+  rw[Eval_rw,INT_def,PRECONDITION_def]
+  \\ Eval2_tac \\ fs [do_app_def, do_arith_def] \\ rw []
+  \\ fs [state_component_equality, check_type_def]
+QED
 
 Theorem Eval_INT_CMP[local]:
   ∀f n1 n2.
@@ -1026,7 +1059,7 @@ val th = MATCH_MP Eval_If (LIST_CONJ (map (DISCH T) [th2,th_sub,th1]))
 val code =
   ``Let (SOME "k") x1
        (If (App (Test (Compare Lt) IntT) [Var (Short "k"); Lit (IntLit 0)])
-          (App (Opn Minus) [Lit (IntLit 0); Var (Short "k")])
+          (App (Arith Sub IntT) [Lit (IntLit 0); Var (Short "k")])
           (Var (Short "k")))``
 
 in
@@ -1084,12 +1117,13 @@ QED
 
 Theorem Eval_int_negate:
    Eval env x1 (INT i) ==>
-   Eval env (App (Opn Minus) [Lit (IntLit 0); x1]) (INT (-i))
+   Eval env (App (Arith Sub IntT) [Lit (IntLit 0); x1]) (INT (-i))
 Proof
   rw[Eval_rw]
   \\ first_x_assum (qspec_then `refs` strip_assume_tac)
   \\ qexists_tac `ck1`
-  \\ fs [do_app_def,INT_def,state_component_equality,opn_lookup_def]
+  \\ fs [do_app_def,do_arith_def,check_type_def,
+         INT_def,state_component_equality,opn_lookup_def]
 QED
 
 (* arithmetic for num *)
@@ -1141,7 +1175,7 @@ val th2 = Eval_INT_LESS  |> Q.SPECL [`k`,`0`]
 val th = MATCH_MP Eval_If (LIST_CONJ (map (DISCH T) [th2,th0,th1]))
          |> REWRITE_RULE [CONTAINER_def]
 val code =
-  ``Let (SOME "k") (App (Opn Minus) [x1; x2])
+  ``Let (SOME "k") (App (Arith Sub IntT) [x1; x2])
       (If (App (Test (Compare Lt) IntT) [Var (Short "k"); Lit (IntLit 0)])
           (Lit (IntLit 0)) (Var (Short "k"))): exp``
 
@@ -1489,7 +1523,7 @@ local
     `(∀v. NUM (w2n w) v ⇒ Eval (write "x" v env)
                  (If (App (Test (Compare Lt) IntT) [Var (Short "x"); Lit (IntLit (& k))])
                     (Var (Short "x"))
-                    (App (Opn Minus) [Var (Short "x"); Lit (IntLit (& d))]))
+                    (App (Arith Sub IntT) [Var (Short "x"); Lit (IntLit (& d))]))
         (INT ((\n. if n < k then &n else &n - &d) (w2n w))))`,
     fs [] \\ rpt strip_tac
     \\ match_mp_tac (MP_CANON Eval_If |> GEN_ALL)
@@ -2153,21 +2187,23 @@ QED
 
 Theorem Eval_Ord:
     Eval env x (CHAR c) ==>
-    Eval env (App Ord [x]) (NUM (ORD c))
+    Eval env (App (FromTo CharT IntT) [x]) (NUM (ORD c))
 Proof
   rw[Eval_rw,CHAR_def,NUM_def,INT_def]
   \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
-  \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
+  \\ qexists_tac `ck1`
+  \\ fs [do_app_def,empty_state_def,check_type_def,do_conversion_def]
 QED
 
 Theorem Eval_Chr:
     Eval env x (NUM n) ==>
     n < 256 ==>
-    Eval env (App Chr [x]) (CHAR (CHR n))
+    Eval env (App (FromTo IntT CharT) [x]) (CHAR (CHR n))
 Proof
   rw[Eval_rw,CHAR_def,NUM_def,INT_def]
   \\ first_x_assum (qspec_then `refs` mp_tac) \\ strip_tac
-  \\ qexists_tac `ck1` \\ fs [do_app_def,empty_state_def]
+  \\ qexists_tac `ck1`
+  \\ fs [do_app_def,empty_state_def,check_type_def,do_conversion_def]
   \\ simp[integerTheory.INT_ABS_NUM]
   \\ srw_tac[DNF_ss][]
   \\ intLib.COOPER_TAC
