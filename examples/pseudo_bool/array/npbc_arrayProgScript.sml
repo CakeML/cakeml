@@ -17,7 +17,7 @@ fun get_exn_conv name =
   EVAL ``lookup_cons (Short ^name) ^(get_env (get_ml_prog_state ()))``
   |> concl |> rand |> rand |> rand
 
-val fail = get_exn_conv ``"Fail"``
+val fail = get_exn_conv ``«Fail»``
 
 Definition Fail_exn_def:
   Fail_exn v = (∃s sv. v = Conv (SOME ^fail) [sv] ∧ STRING_TYPE s sv)
@@ -2953,8 +2953,8 @@ Proof
   rpt xlet_autop>>
   `LIST_REL (OPTION_TYPE bconstraint_TYPE)
    (update_resize fmlls NONE (SOME (not c,b)) id)
-   (update_resize fmllsv (Conv (SOME (TypeStamp "None" 2)) [])
-           (Conv (SOME (TypeStamp "Some" 2)) [Conv NONE [v; bv]]) id)` by (
+   (update_resize fmllsv (Conv (SOME (TypeStamp «None» 2)) [])
+           (Conv (SOME (TypeStamp «Some» 2)) [Conv NONE [v; bv]]) id)` by (
     match_mp_tac LIST_REL_update_resize>>fs[OPTION_TYPE_def,PAIR_TYPE_def])>>
   xlet_auto
   >- (
@@ -3316,8 +3316,8 @@ Overload "subst_raw_TYPE" = ``LIST_TYPE (PAIR_TYPE NUM (SUM_TYPE BOOL (PBC_LIT_T
 
 Theorem OPTION_TYPE_SPLIT:
   OPTION_TYPE a x v ⇔
-  (x = NONE ∧ v = Conv (SOME (TypeStamp "None" 2)) []) ∨
-  (∃y vv. x = SOME y ∧ v = Conv (SOME (TypeStamp "Some" 2)) [vv] ∧ a y vv)
+  (x = NONE ∧ v = Conv (SOME (TypeStamp «None» 2)) []) ∨
+  (∃y vv. x = SOME y ∧ v = Conv (SOME (TypeStamp «Some» 2)) [vv] ∧ a y vv)
 Proof
   Cases_on`x`>>rw[OPTION_TYPE_def]
 QED
@@ -3545,8 +3545,8 @@ Proof
   rename1`_ (not n) vvv`>>
   `LIST_REL (OPTION_TYPE bconstraint_TYPE)
     (update_resize fmlls NONE (SOME (not n,b)) id)
-    (update_resize fmllsv (Conv (SOME (TypeStamp "None" 2)) [])
-            (Conv (SOME (TypeStamp "Some" 2)) [Conv NONE [vvv; bv]]) id)` by (
+    (update_resize fmllsv (Conv (SOME (TypeStamp «None» 2)) [])
+            (Conv (SOME (TypeStamp «Some» 2)) [Conv NONE [vvv; bv]]) id)` by (
     match_mp_tac LIST_REL_update_resize>>fs[OPTION_TYPE_def,PAIR_TYPE_def])>>
   xlet_auto
   >- (
@@ -4447,8 +4447,8 @@ Proof
   qmatch_asmsub_abbrev_tac`Conv NONE [vvv;bbb]`>>
   `LIST_REL (OPTION_TYPE bconstraint_TYPE)
     (update_resize fmlls NONE (SOME (not n,F)) id)
-    (update_resize fmllsv (Conv (SOME (TypeStamp "None" 2)) [])
-            (Conv (SOME (TypeStamp "Some" 2)) [Conv NONE [vvv;bbb]]) id)` by (
+    (update_resize fmllsv (Conv (SOME (TypeStamp «None» 2)) [])
+            (Conv (SOME (TypeStamp «Some» 2)) [Conv NONE [vvv;bbb]]) id)` by (
     match_mp_tac LIST_REL_update_resize>>
     unabbrev_all_tac>>
     fs[OPTION_TYPE_def,PAIR_TYPE_def]>>
@@ -5236,7 +5236,7 @@ Proof
   rpt xlet_autop>>
   xapp>>xsimpl>>
   first_x_assum (irule_at Any)>> rw[]>>
-  Cases_on`fc`>>fs[mk_vomap_def]>>
+  Cases_on`fc`>>fs[mk_vomap_def, implode_def]>>
   qmatch_asmsub_abbrev_tac`strlit A`>>
   qmatch_goalsub_abbrev_tac`strlit B`>>
   qsuff_tac`A = B`>- metis_tac[]>>

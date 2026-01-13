@@ -186,7 +186,7 @@ Inductive inferred:
 End
 
 Definition kernel_ffi_def:
-  kernel_ffi = "kernel_ffi"
+  kernel_ffi = «kernel_ffi»
 End
 
 Definition thm2bytes_def:
@@ -374,10 +374,10 @@ Theorem evaluate_ty_check:
   evaluate ^s env
     [Let NONE
        (Mat (Var (Short v))
-          [(Pcon (SOME (Short "Tyvar")) [Pvar a1], Con NONE []);
-           (Pcon (SOME (Short "Tyapp")) [Pvar a3; Pvar a4], Con NONE [])]) ee] = (s',res) ∧
-  nsLookup env.c (Short "Tyvar") = SOME (1,TypeStamp "Tyvar" type_stamp_n) ∧
-  nsLookup env.c (Short "Tyapp") = SOME (2,TypeStamp "Tyapp" type_stamp_n) ∧
+          [(Pcon (SOME (Short «Tyvar»)) [Pvar a1], Con NONE []);
+           (Pcon (SOME (Short «Tyapp»)) [Pvar a3; Pvar a4], Con NONE [])]) ee] = (s',res) ∧
+  nsLookup env.c (Short «Tyvar») = SOME (1,TypeStamp «Tyvar» type_stamp_n) ∧
+  nsLookup env.c (Short «Tyapp») = SOME (2,TypeStamp «Tyapp» type_stamp_n) ∧
   nsLookup env.v (Short v) = SOME w ⇒
   ^safe_error_goal ∨ TYPE_TYPE_HEAD w ∧ evaluate ^s env [ee] = (s',res)
 Proof
@@ -399,14 +399,14 @@ Theorem evaluate_tm_check:
   evaluate ^s env
     [Let NONE
        (Mat (Var (Short v))
-          [(Pcon (SOME (Short "Var"))   [Pvar a1; Pvar a2], Con NONE []);
-           (Pcon (SOME (Short "Const")) [Pvar a3; Pvar a4], Con NONE []);
-           (Pcon (SOME (Short "Comb"))  [Pvar a5; Pvar a6], Con NONE []);
-           (Pcon (SOME (Short "Abs"))   [Pvar a7; Pvar a8], Con NONE [])]) ee] = (s',res) ∧
-  nsLookup env.c (Short "Var")   = SOME (2,TypeStamp "Var" term_stamp_n) ∧
-  nsLookup env.c (Short "Const") = SOME (2,TypeStamp "Const" term_stamp_n) ∧
-  nsLookup env.c (Short "Comb")  = SOME (2,TypeStamp "Comb" term_stamp_n) ∧
-  nsLookup env.c (Short "Abs")   = SOME (2,TypeStamp "Abs" term_stamp_n) ∧
+          [(Pcon (SOME (Short «Var»))   [Pvar a1; Pvar a2], Con NONE []);
+           (Pcon (SOME (Short «Const»)) [Pvar a3; Pvar a4], Con NONE []);
+           (Pcon (SOME (Short «Comb»))  [Pvar a5; Pvar a6], Con NONE []);
+           (Pcon (SOME (Short «Abs»))   [Pvar a7; Pvar a8], Con NONE [])]) ee] = (s',res) ∧
+  nsLookup env.c (Short «Var»)   = SOME (2,TypeStamp «Var» term_stamp_n) ∧
+  nsLookup env.c (Short «Const») = SOME (2,TypeStamp «Const» term_stamp_n) ∧
+  nsLookup env.c (Short «Comb»)  = SOME (2,TypeStamp «Comb» term_stamp_n) ∧
+  nsLookup env.c (Short «Abs»)   = SOME (2,TypeStamp «Abs» term_stamp_n) ∧
   nsLookup env.v (Short v) = SOME w ⇒
   ^safe_error_goal ∨ TERM_TYPE_HEAD w ∧ evaluate ^s env [ee] = (s',res)
 Proof
@@ -428,9 +428,9 @@ Theorem evaluate_thm_check:
   evaluate ^s env
     [Let NONE
       (Mat (Var (Short v))
-        [(Pcon (SOME (Short "Sequent")) [Pvar a1; Pvar a2], Con NONE [])]) ee] =
+        [(Pcon (SOME (Short «Sequent»)) [Pvar a1; Pvar a2], Con NONE [])]) ee] =
     (s',res) ∧
-  nsLookup env.c (Short "Sequent") = SOME (2,TypeStamp "Sequent" thm_stamp_n) ∧
+  nsLookup env.c (Short «Sequent») = SOME (2,TypeStamp «Sequent» thm_stamp_n) ∧
   nsLookup env.v (Short v) = SOME w ⇒
   ^safe_error_goal ∨ THM_TYPE_HEAD w ∧ evaluate ^s env [ee] = (s',res)
 Proof
@@ -468,8 +468,8 @@ QED
 Theorem evaluate_mat_thm:
   evaluate ^s env
     [Mat (Var (Short v))
-       [(Pcon (SOME (Short "Sequent")) [Pvar a1; Pvar a2], ee)]] = (s',res) ∧
-  nsLookup env.c (Short "Sequent") = SOME (2,TypeStamp "Sequent" thm_stamp_n) ∧
+       [(Pcon (SOME (Short «Sequent»)) [Pvar a1; Pvar a2], ee)]] = (s',res) ∧
+  nsLookup env.c (Short «Sequent») = SOME (2,TypeStamp «Sequent» thm_stamp_n) ∧
   nsLookup env.v (Short v) = SOME w ⇒
   ^safe_error_goal ∨
   ∃v1 v2.
@@ -900,8 +900,8 @@ QED
 
 Theorem evaluate_ty_list_check:
   evaluate ^s env
-    [Let NONE (App Opapp [Var (Short "check_ty"); Var (Short v)]) ee] = (s',res) ∧
-  nsLookup env.v (Short "check_ty") = SOME check_ty_v ∧
+    [Let NONE (App Opapp [Var (Short «check_ty»); Var (Short v)]) ee] = (s',res) ∧
+  nsLookup env.v (Short «check_ty») = SOME check_ty_v ∧
   nsLookup env.v (Short v) = SOME w ⇒
   ^safe_error_goal ∨
   LIST_TYPE_HEAD TYPE_TYPE_HEAD w ∧
@@ -916,8 +916,8 @@ QED
 
 Theorem evaluate_thm_list_check:
   evaluate ^s env
-    [Let NONE (App Opapp [Var (Short "check_thm"); Var (Short v)]) ee] = (s',res) ∧
-  nsLookup env.v (Short "check_thm") = SOME check_thm_v ∧
+    [Let NONE (App Opapp [Var (Short «check_thm»); Var (Short v)]) ee] = (s',res) ∧
+  nsLookup env.v (Short «check_thm») = SOME check_thm_v ∧
   nsLookup env.v (Short v) = SOME w ⇒
   ^safe_error_goal ∨
   LIST_TYPE_HEAD THM_TYPE_HEAD w ∧
@@ -932,8 +932,8 @@ QED
 
 Theorem evaluate_ty_ty_list_check:
   evaluate ^s env
-    [Let NONE (App Opapp [Var (Short "check_ty_ty"); Var (Short v)]) ee] = (s',res) ∧
-  nsLookup env.v (Short "check_ty_ty") = SOME check_ty_ty_v ∧
+    [Let NONE (App Opapp [Var (Short «check_ty_ty»); Var (Short v)]) ee] = (s',res) ∧
+  nsLookup env.v (Short «check_ty_ty») = SOME check_ty_ty_v ∧
   nsLookup env.v (Short v) = SOME w ⇒
   ^safe_error_goal ∨
   LIST_TYPE_HEAD (PAIR_TYPE_HEAD TYPE_TYPE_HEAD TYPE_TYPE_HEAD) w ∧
@@ -948,8 +948,8 @@ QED
 
 Theorem evaluate_tm_list_check:
   evaluate ^s env
-    [Let NONE (App Opapp [Var (Short "check_tm"); Var (Short v)]) ee] = (s',res) ∧
-  nsLookup env.v (Short "check_tm") = SOME check_tm_v ∧
+    [Let NONE (App Opapp [Var (Short «check_tm»); Var (Short v)]) ee] = (s',res) ∧
+  nsLookup env.v (Short «check_tm») = SOME check_tm_v ∧
   nsLookup env.v (Short v) = SOME w ⇒
   ^safe_error_goal ∨
   LIST_TYPE_HEAD TERM_TYPE_HEAD w ∧
@@ -964,8 +964,8 @@ QED
 
 Theorem evaluate_tm_tm_list_check:
   evaluate ^s env
-    [Let NONE (App Opapp [Var (Short "check_tm_tm"); Var (Short v)]) ee] = (s',res) ∧
-  nsLookup env.v (Short "check_tm_tm") = SOME check_tm_tm_v ∧
+    [Let NONE (App Opapp [Var (Short «check_tm_tm»); Var (Short v)]) ee] = (s',res) ∧
+  nsLookup env.v (Short «check_tm_tm») = SOME check_tm_tm_v ∧
   nsLookup env.v (Short v) = SOME w ⇒
   ^safe_error_goal ∨
   LIST_TYPE_HEAD (PAIR_TYPE_HEAD TERM_TYPE_HEAD TERM_TYPE_HEAD) w ∧

@@ -7604,6 +7604,7 @@ Proof
     (*FFI*)
     exists_tac>>
     last_x_assum kall_tac>>
+    rename1 ‘FFI s n n0 n1 n2 p’>>
     qabbrev_tac`A = ssa_cc_trans (FFI s n n0 n1 n2 p) ssa na`>>
     PairCases_on`p`>>
     PairCases_on`A`>>full_simp_tac(srw_ss())[ssa_cc_trans_def]>>

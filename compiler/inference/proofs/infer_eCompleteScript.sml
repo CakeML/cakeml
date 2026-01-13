@@ -1160,7 +1160,8 @@ Proof
   strip_tac>>
   Induct>>rw[]
   >-
-    (fs[check_freevars_def,infer_type_subst_alt]>>
+    (rename1 ‘Tvar s’>>
+     fs[check_freevars_def,infer_type_subst_alt]>>
     `?x. ALOOKUP (ZIP(tvs,ls)) s = SOME x` by
       (SPOSE_NOT_THEN assume_tac>>
       imp_res_tac NOT_SOME_NONE>>

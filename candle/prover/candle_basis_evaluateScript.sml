@@ -230,6 +230,7 @@ Proof
     >~ [`do_arith a ty`]
     >- (
       Cases_on ‘a’ \\ Cases_on ‘ty’
+      \\ TRY (rename1 ‘WordT w’ \\ Cases_on ‘w’)
       \\ gvs[do_arith_def, CaseEq"list", v_ok_def, CaseEq"bool"]
     ) >~ [`do_conversion _ ty1 ty2`]
     >- (

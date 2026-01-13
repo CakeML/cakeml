@@ -657,6 +657,7 @@ Proof
     \\ gvs[]
     \\ first_assum $ irule_at Any
     \\ Cases_on`a` \\ Cases_on`ty` \\ Cases_on`xs`
+    \\ TRY(rename1 `WordT w` \\ Cases_on `w`)
     \\ gvs[do_arith_def, CaseEq"list", check_type_def, CaseEq"bool"]
     >- (EVAL_TAC \\ rw[])
     >- (EVAL_TAC \\ rw[])

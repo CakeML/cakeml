@@ -45,7 +45,7 @@ Quote add_cakeml:
 End
 
 val cur_env = get_env (get_ml_prog_state());
-val stamp_eval = EVAL ``nsLookup (^cur_env).c (Short "InstreamBuffered")``
+val stamp_eval = EVAL ``nsLookup (^cur_env).c (Short «InstreamBuffered»)``
 val instreambuffered_con_stamp = rhs (concl stamp_eval)
 
 Definition instreambuffered_con_stamp_def[simp]:
@@ -60,11 +60,11 @@ val _ = translate get_in_def;
 val _ = ml_prog_update open_local_in_block;
 
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [] "raw_instream" (Atapp [] (Short "instream"))`` I);
+  ``Dtabbrev unknown_loc [] «raw_instream» (Atapp [] (Short «instream»))`` I);
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [] "outstream" (Atapp [] (Short "outstream"))`` I);
+  ``Dtabbrev unknown_loc [] «outstream» (Atapp [] (Short «outstream»))`` I);
 val _ = ml_prog_update (add_dec
-  ``Dtabbrev unknown_loc [] "instream" (Atapp [] (Short "instreambuffered"))`` I);
+  ``Dtabbrev unknown_loc [] «instream» (Atapp [] (Short «instreambuffered»))`` I);
 
 Quote add_cakeml:
   exception BadFileName;
@@ -75,10 +75,10 @@ End
 
 val _ = ml_prog_update open_local_block;
 
-val BadFileName = get_exn_conv ``"BadFileName"``
-val InvalidFD = get_exn_conv ``"InvalidFD"``
-val EndOfFile = get_exn_conv ``"EndOfFile"``
-val IllegalArgument = get_exn_conv ``"IllegalArgument"``
+val BadFileName = get_exn_conv ``«BadFileName»``
+val InvalidFD = get_exn_conv ``«InvalidFD»``
+val EndOfFile = get_exn_conv ``«EndOfFile»``
+val IllegalArgument = get_exn_conv ``«IllegalArgument»``
 
 Definition BadFileName_exn_def:
   BadFileName_exn v = (v = Conv (SOME ^BadFileName) [])
@@ -119,21 +119,21 @@ val _ = ml_prog_update open_local_in_block;
 (* stdout, stderr *)
 
 Definition stdOut_def:
-  stdOut = Outstream (strlit (MAP (CHR o w2n) (n2w8 1)))
+  stdOut = Outstream (implode (MAP (CHR o w2n) (n2w8 1)))
 End
 
 Definition stdErr_def:
-  stdErr = Outstream (strlit (MAP (CHR o w2n) (n2w8 2)))
+  stdErr = Outstream (implode (MAP (CHR o w2n) (n2w8 2)))
 End
 
 val _ = next_ml_names := ["stdOut","stdErr"];
 
 val r = stdOut_def
-          |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
+          |> SIMP_RULE (srw_ss()) [mlstringTheory.implode_def, MarshallingTheory.n2w8_def]
           |> translate;
 
 val r = stdErr_def
-          |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
+          |> SIMP_RULE (srw_ss()) [mlstringTheory.implode_def, MarshallingTheory.n2w8_def]
           |> translate ;
 
 
@@ -143,13 +143,13 @@ val _ = ml_prog_update open_local_block;
    because we want to only expose the more efficient, buffered input to users. *)
 
 Definition raw_stdIn_def:
-  raw_stdIn = Instream (strlit (MAP (CHR o w2n) (n2w8 0)))
+  raw_stdIn = Instream (implode (MAP (CHR o w2n) (n2w8 0)))
 End
 
 val _ = next_ml_names := ["raw_stdIn"];
 
 val r = raw_stdIn_def
-          |> SIMP_RULE (srw_ss()) [MarshallingTheory.n2w8_def]
+          |> SIMP_RULE (srw_ss()) [mlstringTheory.implode_def, MarshallingTheory.n2w8_def]
           |> translate;
 
 Quote add_cakeml:
