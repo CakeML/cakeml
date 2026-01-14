@@ -951,7 +951,7 @@ val print_tac = asmLib.print_tac "correct"
 val _ = diminish_srw_ss ["NORMEQ"]
 
 Theorem arm7_encoder_correct:
-   encoder_correct arm7_target
+  encoder_correct arm7_target
 Proof
    simp [asmPropsTheory.encoder_correct_def, arm7_target_ok]
    \\ qabbrev_tac `state_rel = target_state_rel arm7_target`
@@ -1201,4 +1201,3 @@ Proof
       \\ blastLib.FULL_BBLAST_TAC
       )
 QED
-
