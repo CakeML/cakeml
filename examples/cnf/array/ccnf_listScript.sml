@@ -5,7 +5,7 @@ Theory ccnf_list
 Ancestors
   cnf ccnf
 Libs
-  preamble basis blastLib
+  preamble blastLib
 
 (* TODO: move? *)
 Theorem any_el_update_resize:

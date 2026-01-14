@@ -5,7 +5,7 @@ Theory lrup_list
 Ancestors
   cnf ccnf lrup ccnf_list
 Libs
-  preamble basis
+  preamble
 
 (* Refinement to make use of array representations *)
 Definition check_lrup_list_def:
@@ -25,33 +25,32 @@ End
 Theorem check_lrup_list:
   fml_rel fml fmlls ∧
   dm_rel dm dml b ∧
-  bnd_fml fmlls (LENGTH dml) ∧
   check_lrup_list lrup fmlls dml b = SOME (fmlls',(dml',b')) ⇒
   ∃fml' dm'.
     check_lrup lrup fml = SOME fml' ∧
     fml_rel fml' fmlls' ∧
-    dm_rel dm' dml' b' ∧
-    bnd_fml fmlls' (LENGTH dml')
+    dm_rel dm' dml' b'
 Proof
   rw[check_lrup_list_def]>>
   gvs[AllCaseEqs(),check_lrup_def]
   >- metis_tac[]
-  >- (
-    simp[fml_rel_delete_ids_list]>>
-    metis_tac[bnd_fml_delete_ids_list])
+  >- (simp[fml_rel_delete_ids_list]>>metis_tac[])
   >- (
     drule_all is_rup_list>>rw[]>>
     simp[fml_rel_update_resize]>>
+    metis_tac[])
+QED
+
+Theorem check_lrup_list_bnd_fml:
+  bnd_fml fmlls (LENGTH dml) ∧
+  check_lrup_list lrup fmlls dml b = SOME (fmlls',(dml',b')) ⇒
+  bnd_fml fmlls' (LENGTH dml')
+Proof
+  rw[check_lrup_list_def]>>
+  gvs[AllCaseEqs(),check_lrup_def]
+  >- metis_tac[bnd_fml_delete_ids_list]
+  >- (
     drule_all bnd_fml_is_rup_list>>
     metis_tac[bnd_fml_update_resize])
 QED
-
-(* Hooking up to the parser *)
-Definition parse_and_run_list_def:
-  parse_and_run_list fml dml b l =
-  case parse_lrup l of
-    NONE => NONE
-  | SOME lrup =>
-    check_lrup_list lrup fml dml b
-End
 

@@ -374,8 +374,6 @@ Quote add_cakeml:
       run_checker t fd (lno+1) fml' carr' b'
 End
 
-(* Technically, we know that the checker will consume all
-  lines *)
 Theorem run_checker_spec:
   ∀t lines fmlls Clist b
     tv fmlv fmllsv lno lnov Carrv bv fs.
@@ -459,8 +457,7 @@ Proof
   Cases_on`z`>>gvs[]>>
   irule_at Any (cj 2 STDIO_INSTREAM_LINES_refl)>>
   xsimpl>>rw[]
-  >-
-    cheat>>
+  >- metis_tac[check_lrup_list_bnd_fml]>>
   simp[Once run_checker_def,fsFFIPropsTheory.forwardFD_o]>>
   metis_tac[STDIO_INSTREAM_LINES_refl]
 QED
