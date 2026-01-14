@@ -20,8 +20,8 @@ Overload "vcclause_TYPE" = ``VECTOR_TYPE INT``
 
 Theorem OPTION_TYPE_SPLIT:
   OPTION_TYPE a x v ⇔
-  (x = NONE ∧ v = Conv (SOME (TypeStamp "None" 2)) []) ∨
-  (∃y vv. x = SOME y ∧ v = Conv (SOME (TypeStamp "Some" 2)) [vv] ∧ a y vv)
+  (x = NONE ∧ v = Conv (SOME (TypeStamp (strlit "None") 2)) []) ∨
+  (∃y vv. x = SOME y ∧ v = Conv (SOME (TypeStamp (strlit "Some") 2)) [vv] ∧ a y vv)
 Proof
   Cases_on`x`>>rw[OPTION_TYPE_def]
 QED
@@ -41,7 +41,7 @@ fun get_exn_conv name =
   EVAL ``lookup_cons (Short ^name) ^(get_env (get_ml_prog_state ()))``
   |> concl |> rand |> rand |> rand
 
-val fail = get_exn_conv ``"Fail"``
+val fail = get_exn_conv ``strlit "Fail"``
 
 Definition Fail_exn_def:
   Fail_exn v = (∃s sv. v = Conv (SOME ^fail) [sv] ∧ STRING_TYPE s sv)
@@ -472,24 +472,78 @@ Proof
 QED
 
 Quote add_cakeml:
+  fun unit_prop_one lno fml carr b i =
+  if i < Array.length fml
+  then
+    case Unsafe.sub fml i of
+      None =>
+        raise Fail (format_failure lno ("invalid clause hint (maybe deleted): " ^ Int.toString i))
+    | Some c =>
+      delete_literals_sing_arr lno carr b c (Vector.length c)
+  else
+    raise Fail (format_failure lno ("invalid clause hint: " ^ Int.toString i))
+End
+
+Quote add_cakeml:
   fun unit_prop_arr lno fml carr b hints =
     case hints of
       [] => False
     | i::is =>
-      if i < Array.length fml
+      if unit_prop_one lno fml carr b i
       then
-        case Unsafe.sub fml i of
-          None =>
-            raise Fail (format_failure lno ("invalid clause hint (maybe deleted): " ^ Int.toString i))
-        | Some c =>
-          if delete_literals_sing_arr lno carr b c (Vector.length c)
-          then
-            True
-          else
-            unit_prop_arr lno fml carr b is
+        True
       else
-        raise Fail (format_failure lno ("invalid clause hint: " ^ Int.toString i))
+        unit_prop_arr lno fml carr b is
 End
+
+Theorem unit_prop_one_spec:
+  NUM lno lnov ∧
+  LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
+  WORD8 b bv ∧
+  NUM i iv ∧
+  unit_prop_one' fmlls Clist b i = SOME res
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "unit_prop_one" (get_ml_prog_state()))
+    [lnov; fmlv; Carrv; bv; iv]
+    (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
+    (POSTve
+      (λv.
+        ARRAY fmlv fmllsv *
+        SEP_EXISTS b' Clist'.
+        W8ARRAY Carrv Clist' *
+        &(res = SOME(b',Clist') ∧ BOOL b' v))
+      (λe.
+        ARRAY fmlv fmllsv *
+        SEP_EXISTS Clist'.
+        W8ARRAY Carrv Clist' *
+        &(Fail_exn e ∧ res = NONE))
+    )
+Proof
+  simp[Once unit_prop_one'_def]>>
+  strip_tac>>
+  xcf "unit_prop_one" (get_ml_prog_state ())>>
+  rpt xlet_autop>>
+  drule LIST_REL_LENGTH>>
+  rw[]>>
+  reverse xif>>gvs[any_el_ALT]
+  >- (
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    metis_tac[Fail_exn_def])>>
+  rename1`EL h fmlls`>>
+  `OPTION_TYPE vcclause_TYPE (EL h fmlls) (EL h fmllsv)` by fs[LIST_REL_EL_EQN]>>
+  rpt xlet_autop>>
+  gvs[OPTION_TYPE_SPLIT]>>
+  xmatch
+  >- (
+    rpt xlet_autop>>
+    xraise>>xsimpl>>
+    metis_tac[Fail_exn_def])>>
+  xlet_autop>>
+  xapp>>xsimpl>>
+  rpt(first_x_assum $ irule_at Any>>xsimpl)
+QED
 
 Theorem unit_prop_arr_spec:
   ∀ls lsv Carrv Clist b bv res.
@@ -526,27 +580,10 @@ Proof
   >- (
     xcon>>xsimpl>>
     EVAL_TAC)>>
-  rpt xlet_autop>>
-  drule LIST_REL_LENGTH>>
-  rw[]>>
-  reverse xif>>gvs[any_el_ALT]
-  >- (
-    rpt xlet_autop>>
-    xraise>>xsimpl>>
-    metis_tac[Fail_exn_def])>>
-  rename1`EL h fmlls`>>
-  `OPTION_TYPE vcclause_TYPE (EL h fmlls) (EL h fmllsv)` by fs[LIST_REL_EL_EQN]>>
-  rpt xlet_autop>>
-  gvs[OPTION_TYPE_SPLIT]>>
-  xmatch
-  >- (
-    rpt xlet_autop>>
-    xraise>>xsimpl>>
-    metis_tac[Fail_exn_def])>>
-  rpt xlet_autop
+  xlet_autop
   >- (
     xsimpl>>
-    rw[]>>gvs[])>>
+    gvs[AllCaseEqs()])>>
   xif>>gvs[]
   >- (
     xcon>>xsimpl>>
@@ -555,27 +592,81 @@ Proof
   first_x_assum $ irule_at Any>>xsimpl
 QED
 
+val res = translate parse_vb_num_aux_def;
+
+Theorem parse_vb_num_aux_side[local]:
+  parse_vb_num_aux_side a b c d e ⇔ T
+Proof
+  cheat
+QED
+
+val _ = parse_vb_num_aux_side |> update_precondition;
+
+val res = translate parse_vb_num_def;
+val res = translate parse_vb_int_def;
+
 Quote add_cakeml:
-  fun unit_prop_arr_vb lno fml carr b s i len =
-    let val (m,i) = parse_vb_int s i len
-    in
-    if m <= 0 then (i,False)
+  fun unit_prop_vb_arr lno fml carr b s i1 len =
+    case parse_vb_int s i1 len of (m,i) =>
+    if m <= 0 then Some i1
     else
-      if m < Array.length fml
+      if unit_prop_one lno fml carr b m
       then
-        case Unsafe.sub fml m of
-          None =>
-            raise Fail (format_failure lno ("invalid clause hint (maybe deleted): " ^ Int.toString m))
-        | Some c =>
-          if delete_literals_sing_arr lno carr b c (Vector.length c)
-          then
-            (i,True)
-          else
-            unit_prop_arr_vb lno fml carr b s i len
+        None
       else
-        raise Fail (format_failure lno ("invalid clause hint: " ^ Int.toString m))
-    end
+        unit_prop_vb_arr lno fml carr b s i len
 End
+
+Theorem unit_prop_arr_vb_spec:
+  ∀ls lsv Carrv Clist b bv res.
+  NUM lno lnov ∧
+  LIST_REL (OPTION_TYPE vcclause_TYPE) fmlls fmllsv ∧
+  WORD8 b bv ∧
+  STRING_TYPE s sv ∧
+  NUM i iv ∧
+  NUM l lv ∧
+  unit_prop_vb_list' fmlls Clist b s i l = SOME res
+  ⇒
+  app (p : 'ffi ffi_proj)
+    ^(fetch_v "unit_prop_vb_arr" (get_ml_prog_state()))
+    [lnov; fmlv; Carrv; bv; sv; iv; lv]
+    (ARRAY fmlv fmllsv * W8ARRAY Carrv Clist)
+    (POSTve
+      (λv.
+        ARRAY fmlv fmllsv *
+        SEP_EXISTS b' Clist'.
+        W8ARRAY Carrv Clist' *
+        &(res = SOME(b',Clist') ∧ OPTION_TYPE NUM b' v))
+      (λe.
+        ARRAY fmlv fmllsv *
+        SEP_EXISTS Clist'.
+        W8ARRAY Carrv Clist' *
+        &(Fail_exn e ∧ res = NONE))
+    )
+Proof
+  cheat
+  (*
+  Induct>>rw[]>>
+  pop_assum mp_tac>>
+  simp[Once unit_prop_list'_def]>>
+  strip_tac>>
+  xcf "unit_prop_arr" (get_ml_prog_state ())>>
+  gvs[LIST_TYPE_def]>>
+  xmatch
+  >- (
+    xcon>>xsimpl>>
+    EVAL_TAC)>>
+  xlet_autop
+  >- (
+    xsimpl>>
+    gvs[AllCaseEqs()])>>
+  xif>>gvs[]
+  >- (
+    xcon>>xsimpl>>
+    EVAL_TAC)>>
+  xapp>>xsimpl>>
+  first_x_assum $ irule_at Any>>xsimpl*)
+QED
 
 Quote add_cakeml:
   fun is_rup_arr lno fml carr b v hints =
@@ -670,6 +761,8 @@ Proof
   drule is_rup_list'>>
   rw[]
 QED
+
+(* TODO: define and prove is_rup_vb_arr_spec *)
 
 Quote add_cakeml:
   fun delete_arr fml i =

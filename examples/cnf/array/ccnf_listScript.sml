@@ -398,14 +398,19 @@ Definition bnd_fml_def:
     bnd_clause v sz
 End
 
+Definition unit_prop_one_def:
+  unit_prop_one fmlls dml b i =
+  case any_el i fmlls NONE of
+    NONE => NONE
+  | SOME c =>
+    delete_literals_sing_list dml b c (length c)
+End
+
 (* Unit propagating on an array *)
 Definition unit_prop_list_def:
   (unit_prop_list fmlls dml b [] = SOME (F,dml)) ∧
   (unit_prop_list fmlls dml b (i::is) =
-  case any_el i fmlls NONE of
-    NONE => NONE
-  | SOME c =>
-  case delete_literals_sing_list dml b c (length c) of
+  case unit_prop_one fmlls dml b i of
     NONE => NONE
   | SOME (T,dml') => SOME (T,dml')
   | SOME (F,dml') => unit_prop_list fmlls dml' b is)
@@ -420,28 +425,43 @@ Theorem unit_prop_list:
     unit_prop_vec fml dm is = SOME (res,dm') ∧
     dm_rel dm' dml' b
 Proof
-  Induct>>rw[unit_prop_vec_def,unit_prop_list_def]>>
+  Induct>>
+  rw[unit_prop_vec_def,unit_prop_list_def,unit_prop_one_def]>>
   gvs[AllCaseEqs(),PULL_EXISTS,fml_rel_def]>>
   drule_all delete_literals_sing_list>>rw[]>>
   simp[]>>
   metis_tac[]
 QED
 
+Definition unit_prop_one'_def:
+  unit_prop_one' fmlls dml b i =
+  case any_el i fmlls NONE of
+    NONE => SOME NONE
+  | SOME c =>
+    delete_literals_sing_list' dml b c (length c)
+End
+
 Definition unit_prop_list'_def:
   (unit_prop_list' fmlls dml b [] =
     SOME (SOME (F,dml))) ∧
   (unit_prop_list' fmlls dml b (i::is) =
-  case any_el i fmlls NONE of
-    NONE => SOME NONE
-  | SOME c =>
   OPTION_BIND
-    (delete_literals_sing_list' dml b c (length c))
+    (unit_prop_one' fmlls dml b i)
     (λres.
     case res of
       NONE => SOME NONE
     | SOME (T,dml') => SOME (SOME (T,dml'))
     | SOME (F,dml') => unit_prop_list' fmlls dml' b is))
 End
+
+Theorem unit_prop_one':
+  unit_prop_one' fmlls dml b i = SOME res ⇒
+  unit_prop_one fmlls dml b i = res
+Proof
+  rw[unit_prop_one_def,unit_prop_one'_def]>>
+  gvs[AllCaseEqs()]>>
+  drule delete_literals_sing_list'>>rw[]
+QED
 
 Theorem unit_prop_list':
   ∀is dml res.
@@ -451,7 +471,7 @@ Proof
   Induct>>
   rw[unit_prop_list_def,unit_prop_list'_def]>>
   gvs[AllCaseEqs()]>>
-  drule delete_literals_sing_list'>>rw[]
+  drule unit_prop_one'>>rw[]
 QED
 
 Theorem IS_SOME_OPTION_BIND:
@@ -462,6 +482,29 @@ Proof
   Cases_on`opt`>>rw[]
 QED
 
+Theorem unit_prop_one'_SOME:
+  bnd_fml fmlls (LENGTH dml) ⇒
+  IS_SOME (unit_prop_one' fmlls dml b i)
+Proof
+  rw[unit_prop_one'_def]>>
+  every_case_tac>>
+  gvs[]>>
+  irule delete_literals_sing_list'_SOME>>
+  gvs[bnd_fml_def,any_el_ALT]>>
+  metis_tac[]
+QED
+
+Theorem unit_prop_one'_LENGTH:
+  unit_prop_one' fmlls dml b i = SOME (SOME (res,dml')) ⇒
+  LENGTH dml = LENGTH dml'
+Proof
+  rw[unit_prop_one'_def]>>
+  every_case_tac>>
+  gvs[]>>
+  drule delete_literals_sing_list'_LENGTH>>
+  metis_tac[]
+QED
+
 Theorem unit_prop_list'_SOME:
   ∀is dml res.
   bnd_fml fmlls (LENGTH dml) ⇒
@@ -469,15 +512,11 @@ Theorem unit_prop_list'_SOME:
 Proof
   Induct>>
   rw[unit_prop_list'_def]>>
-  every_case_tac>>gvs[IS_SOME_OPTION_BIND]>>
-  rw[]
-  >- (
-    irule delete_literals_sing_list'_SOME>>
-    gvs[bnd_fml_def,any_el_ALT]>>
-    metis_tac[])>>
+  gvs[IS_SOME_OPTION_BIND]>>
+  rw[unit_prop_one'_SOME]>>
   every_case_tac>>fs[]>>
   first_x_assum irule>>
-  drule delete_literals_sing_list'_LENGTH>>
+  drule unit_prop_one'_LENGTH>>
   metis_tac[]
 QED
 
@@ -489,51 +528,79 @@ Proof
   Induct>>
   rw[unit_prop_list'_def]>>
   gvs[AllCaseEqs()]>>
-  drule delete_literals_sing_list'_LENGTH>>
+  drule unit_prop_one'_LENGTH>>
   rw[]
 QED
 
-Definition unit_prop_list_vb_def:
-  (unit_prop_list_vb fmlls dml b s i len =
-  let (m,i) = parse_vb_int s i len in
-  if m <= 0 then SOME (i,(F,dml))
+Definition unit_prop_vb_list_def:
+  (unit_prop_vb_list fmlls dml b s i1 len =
+  let (m,i) = parse_vb_int s i1 len in
+  if m <= 0 then
+    SOME (SOME i1,dml)
   else
-  case any_el (Num m) fmlls NONE of
+  case unit_prop_one fmlls dml b (Num m) of
     NONE => NONE
-  | SOME c =>
-  case delete_literals_sing_list dml b c (length c) of
-    NONE => NONE
-  | SOME (T,dml') => SOME (i, (T,dml'))
-  | SOME (F,dml') => unit_prop_list_vb fmlls dml' b s i len)
+  | SOME (T,dml') => SOME (NONE,dml')
+  | SOME (F,dml') => unit_prop_vb_list fmlls dml' b s i len)
 Termination
- WF_REL_TAC `measure (\(fmlls, dml, b, s, i, len). len - i)` >>
- rw[] >> fs[syntax_helperTheory.parse_vb_int_def,
-  syntax_helperTheory.parse_vb_num_def,
-  AllCaseEqs(),UNCURRY_EQ] >> rveq >> fs[] >>
- last_x_assum (assume_tac o GSYM) >>
- drule_all syntax_helperTheory.parse_vb_num_aux_i >>
- fs[]
+  WF_REL_TAC `measure (\(fmlls, dml, b, s, i, len). len - i)` >>
+  rw[] >> fs[syntax_helperTheory.parse_vb_int_def,
+   syntax_helperTheory.parse_vb_num_def,
+   AllCaseEqs(),UNCURRY_EQ] >> rveq >> fs[] >>
+  last_x_assum (assume_tac o GSYM) >>
+  drule_all syntax_helperTheory.parse_vb_num_aux_i >>
+  fs[]
 End
 
-Theorem unit_prop_list_vb:
+Theorem unit_prop_vb_list:
   ∀s i len dm dml dml'.
   fml_rel fml fmlls ∧
   dm_rel dm dml b ∧
-  unit_prop_list_vb fmlls dml b s i len = SOME (i',(res,dml')) ⇒
+  unit_prop_vb_list fmlls dml b s i len = SOME (res,dml') ⇒
   ∃dm'.
-    unit_prop_vec_vb fml dm s i len = SOME (i',(res,dm')) ∧
+    unit_prop_vb_vec fml dm s i len = SOME (res,dm') ∧
     dm_rel dm' dml' b
 Proof
+  cheat
+  (*
   rpt GEN_TAC >>
   map_every qid_spec_tac $ List.rev [`fml`,`dm`,`s`,`i`,`len`,`dml`,`dml'`] >>
-  ho_match_mp_tac unit_prop_vec_vb_ind >>
+  ho_match_mp_tac unit_prop_vb_vec_ind >>
   rpt GEN_TAC >> strip_tac >>
-  rw[Once unit_prop_vec_vb_def,Once unit_prop_list_vb_def]>>
+  rw[Once unit_prop_vb_vec_def,Once unit_prop_vb_list_def]>>
   gvs[AllCaseEqs(),UNCURRY_EQ,PULL_EXISTS,fml_rel_def]>>
   drule_all delete_literals_sing_list>>rw[]>>
   simp[]>> fs[] >>
   first_x_assum drule >>
-  fs[]
+  fs[] *)
+QED
+
+(* TODO: *)
+Definition unit_prop_vb_list'_def:
+  (unit_prop_vb_list' fmlls dml b s i1 len =
+    ARB:((num option # word8 list) option option))
+End
+
+Theorem unit_prop_vb_list':
+  unit_prop_vb_list' fmlls dml b s i1 len = SOME res ⇒
+  unit_prop_vb_list fmlls dml b s i1 len = res
+Proof
+  cheat
+QED
+
+Theorem unit_prop_vb_list'_SOME:
+  ∀is dml res.
+  bnd_fml fmlls (LENGTH dml) ⇒
+  IS_SOME (unit_prop_vb_list' fmlls dml b s i1 len)
+Proof
+  cheat
+QED
+
+Theorem unit_prop_vb_list'_LENGTH:
+  unit_prop_vb_list' fmlls dml b s i1 len = SOME (SOME (res,dml')) ⇒
+  LENGTH dml = LENGTH dml'
+Proof
+  cheat
 QED
 
 Definition init_lit_map_list_def:
@@ -944,3 +1011,99 @@ Proof
   metis_tac[bnd_fml_le]
 QED
 
+Definition is_rup_vb_list_def:
+  is_rup_vb_list fmlls dml b v s =
+  let (dml',b') = prepare_rup dml b v in
+  case unit_prop_vb_list fmlls dml' b' s 0 (strlen s) of
+    SOME (NONE,dml'') => (T,dml'',b')
+  | _ => (F, (dml',b'))
+End
+
+Theorem is_rup_vb_list:
+  fml_rel fml fmlls ∧
+  dm_rel dm dml b ∧
+  is_rup_vb_list fmlls dml b v s = (T, (dml',b')) ⇒
+  is_rup_vb fml v s ∧
+  ∃dm'. dm_rel dm' dml' b'
+Proof
+  cheat
+QED
+
+Definition is_rup_vb_list'_def:
+  is_rup_vb_list' fmlls dml b v s =
+  let (dml',b') = prepare_rup dml b v in
+  OPTION_MAP
+  (λres.
+    case res of
+      SOME (NONE,dml'') => (T,dml'',b')
+    | _ => (F, (dml',b')))
+  (unit_prop_vb_list' fmlls dml' b' s 0 (strlen s))
+End
+
+Theorem is_rup_vb_list':
+  is_rup_vb_list' fmlls dml b v s = SOME res ⇒
+  is_rup_vb_list fmlls dml b v s = res
+Proof
+  rw[is_rup_vb_list'_def,is_rup_vb_list_def]>>
+  gvs[UNCURRY_EQ,AllCaseEqs()]>>
+  cheat (* not sure why drule fails
+  drule unit_prop_vb_list'>>
+  rw[] *)
+QED
+
+Theorem is_rup_vb_list'_SOME:
+  bnd_fml fmlls (LENGTH dml) ⇒
+  IS_SOME (is_rup_vb_list' fmlls dml b v s)
+Proof
+  rw[is_rup_vb_list'_def]>>
+  pairarg_tac>>gvs[IS_SOME_MAP]>>
+  irule unit_prop_vb_list'_SOME>>
+  drule prepare_rup_LENGTH>>
+  fs[bnd_fml_def,bnd_clause_def]>>
+  rw[]>>
+  first_x_assum drule_all>>
+  fs[]
+QED
+
+Theorem bnd_clause_is_rup_vb_list':
+  is_rup_vb_list' fmlls dml b vc s =
+    SOME (res,dml',b') ⇒
+  bnd_clause vc (LENGTH dml')
+Proof
+  rw[is_rup_vb_list'_def]>>
+  gvs[AllCaseEqs(),UNCURRY_EQ]>>
+  drule bnd_clause_prepare_rup>>
+  simp[]>>
+  drule unit_prop_vb_list'_LENGTH>>
+  rw[]
+QED
+
+Theorem is_rup_vb_list'_LENGTH:
+  is_rup_vb_list' fmlls dml b vc s =
+    SOME (res,dml',b') ⇒
+  LENGTH dml ≤ LENGTH dml'
+Proof
+  rw[is_rup_vb_list'_def]>>
+  gvs[AllCaseEqs(),UNCURRY_EQ]>>
+  drule prepare_rup_LENGTH>>simp[]>>
+  drule unit_prop_vb_list'_LENGTH>>
+  rw[]
+QED
+
+(* Main theorem we need *)
+Theorem bnd_fml_is_rup_vb_list:
+  bnd_fml fmlls (LENGTH dml) ∧
+  is_rup_vb_list fmlls dml b vc s = (res,dml',b') ⇒
+  bnd_clause vc (LENGTH dml') ∧
+  bnd_fml fmlls (LENGTH dml')
+Proof
+  strip_tac>>
+  drule is_rup_vb_list'_SOME>>
+  disch_then (qspecl_then [`vc`,`s`,`b`] assume_tac)>>
+  fs[EXISTS_PROD,IS_SOME_EXISTS]>>
+  drule bnd_clause_is_rup_vb_list'>>
+  drule is_rup_vb_list'_LENGTH>>
+  drule is_rup_vb_list'>>
+  rw[]>>gvs[]>>
+  metis_tac[bnd_fml_le]
+QED

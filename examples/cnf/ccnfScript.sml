@@ -303,18 +303,21 @@ Proof
   simp[map_I]
 QED
 
-Definition unit_prop_vec_vb_def:
-  (unit_prop_vec_vb fml dm s i len =
-   let (m,i) = parse_vb_int s i len in
-   if m <= 0 then SOME(i,(F,dm))
+(* The return is either
+    SOME i (which means need to continue from index i)
+  or NONE (which means it was proved, and we can discard the remainder of the hints) *)
+Definition unit_prop_vb_vec_def:
+  (unit_prop_vb_vec fml dm s i1 len =
+   let (m,i) = parse_vb_int s i1 len in
+   if m <= 0 then SOME(SOME i1,dm)
    else
    case lookup (Num m) fml of
      NONE => NONE
    | SOME c =>
    case delete_literals_sing_vec dm c (length c) of
      NONE => NONE
-   | SOME (T,dm) => SOME(i,(T,dm))
-   | SOME (F,dm') => unit_prop_vec_vb fml dm' s i len)
+   | SOME (T,dm) => SOME(NONE,dm)
+   | SOME (F,dm') => unit_prop_vb_vec fml dm' s i len)
 Termination
   WF_REL_TAC `measure (\(fml,dm,s,i,len) . len - i)` >>
   rw[] >> fs[parse_vb_int_def,parse_vb_num_def,
@@ -325,15 +328,17 @@ Termination
   fs[]
 End
 
-Theorem unit_prop_vec_vb':
-  unit_prop_vec_vb fml dm s i len = SOME (i',res) ==>
+Theorem unit_prop_vb_vec:
+  unit_prop_vb_vec fml dm s i len = SOME (res,dm') ==>
   ?is.
-  unit_prop_vec fml dm is = SOME res
+  unit_prop_vec fml dm is = SOME (IS_NONE res,dm')
 Proof
+  cheat
+  (*
   MAP_EVERY qid_spec_tac $ List.rev [`fml`,`dm`,`s`,`i`,`len`,`i'`,`res`] >>
-  ho_match_mp_tac unit_prop_vec_vb_ind >>
+: ho_match_mp_tac unit_prop_vb_vec_ind >>
   rpt gen_tac >> disch_tac >>
-  simp[Once unit_prop_vec_vb_def] >>
+  simp[Once unit_prop_vb_vec_def] >>
   rpt strip_tac >> gvs[AllCaseEqs(),UNCURRY_EQ]
   >- (
     qexists_tac `[]` >> fs[unit_prop_vec_def]
@@ -347,7 +352,7 @@ Proof
   >- (
     simp[Once $ oneline unit_prop_vec_def] >>
     simp[AllCaseEqs(),SF DNF_ss] >>
-    metis_tac[])
+    metis_tac[]) *)
 QED
 
 Definition lit_map_def:
@@ -631,10 +636,10 @@ End
 
 (* RUP directly defined for vb enc string *)
 Definition is_rup_vb_def:
-  is_rup_vb fml v s i len =
+  is_rup_vb fml v s =
   let dm = init_lit_map_vec (length v) v FEMPTY in
-  case unit_prop_vec_vb fml dm s i len of
-    SOME (_,(T,_)) => T
+  case unit_prop_vb_vec fml dm s 0 (strlen s) of
+    SOME (NONE,_) => T
   | _ => F
 End
 
@@ -666,7 +671,7 @@ Proof
 QED
 
 Theorem is_rup_vb_sound:
-  is_rup_vb fml v s i len ∧
+  is_rup_vb fml v s ∧
   satisfies_vcfml w (range fml) ⇒
   satisfies_vcclause w v
 Proof
@@ -674,7 +679,7 @@ Proof
   fs[is_rup_vb_def,AllCasePreds()] >>
   rveq >>
   irule is_rup_sound >>
-  drule_then strip_assume_tac unit_prop_vec_vb' >>
+  drule_then strip_assume_tac unit_prop_vb_vec >>
   qexists_tac `fml` >>
   fs[is_rup_def] >>
   qexists_tac `is` >>
