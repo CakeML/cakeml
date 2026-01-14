@@ -1848,8 +1848,7 @@ Definition cf_raise_def:
   cf_raise e = \env. local (\H Q.
     ?v.
       exp2v env e = SOME v /\
-      H ==>> Q (Exn v) /\
-      Q =~e> POST_F)
+      H ==>> Q (Exn v))
 End
 
 Definition cf_handle_def:
