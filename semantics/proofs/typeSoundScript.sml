@@ -736,6 +736,17 @@ Proof
   metis_tac [ctor_canonical_values_thm]
 QED
 
+Theorem prim_canonical_Boolv_cases[local]:
+  type_v tvs ctMap tenvS v (Tapp [] Tbool_num) ∧
+  ctMap_ok ctMap ∧
+  ctMap_has_bools ctMap ⇒
+  v = Boolv T ∨ v = Boolv F
+Proof
+  rewrite_tac [GSYM Tbool_def] \\ strip_tac
+  \\ drule_all prim_canonical_Boolv_thm
+  \\ strip_tac \\ Cases_on ‘b’ \\ gvs []
+QED
+
 Theorem op_type_sound:
  !ctMap tenvS vs op ts t store (ffi : 'ffi ffi_state).
    good_ctMap ctMap ∧
@@ -784,8 +795,14 @@ Proof
   [‘Arith a ty’]
   >- (rw [do_app_cases, PULL_EXISTS] >>
       Cases_on ‘ty’ using prim_type_cases >>
-      gvs[supported_arith_def, t_of_def]
-      >> gvs[LIST_REL_def,LENGTH_EQ_NUM_compute] >>
+      gvs[supported_arith_def, t_of_def] >>
+      gvs[LIST_REL_def,LENGTH_EQ_NUM_compute]
+      >~ [‘do_arith Not’] >-
+       (drule_all prim_canonical_Boolv_cases >> gvs [] >>
+        rw [] >> gvs [Boolv_def, do_arith_def, check_type_def] >>
+        qexists_tac ‘tenvS’ >>
+        simp[store_type_extension_refl, Once type_v_cases] >>
+        gvs [ctMap_has_bools_def]) >>
       imp_res_tac prim_canonical_values_thm >> gvs[] >>
       res_tac >> gvs[check_type_def, the_Litv_IntLit_def, the_Litv_Word8_def,
                      the_Litv_Word64_def, do_arith_def] >>
@@ -1135,7 +1152,6 @@ Proof
   simp[Boolv_def, AllCaseEqs(), SF DNF_ss] >>
   gvs[ctMap_has_bools_def]
 QED
-
 
 Theorem build_conv_type_sound:
  !envC cn vs tvs ts ctMap tenvS ts' tn tenvC tvs' tenvE l.

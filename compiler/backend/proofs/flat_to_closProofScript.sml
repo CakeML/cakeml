@@ -1329,6 +1329,16 @@ Proof
   \\ rw []
 QED
 
+Theorem check_type_BoolT_flat_to_v[local]:
+  check_type BoolT (flat_to_v (v:flatSem$v)) ==> v = Boolv F ∨ v = Boolv T
+Proof
+  Cases_on `v`
+  \\ simp [flat_to_v_def, semanticPrimitivesTheory.check_type_def,
+           Boolv_def, semanticPrimitivesTheory.Boolv_def, Boolv_def,
+           flatSemTheory.Boolv_def]
+  \\ rw []
+QED
+
 Theorem op_arith:
   (∃a ty. op = Arith a ty) ==>
   ^op_goal
@@ -1345,10 +1355,12 @@ Proof
   \\ gvs [MAP_EQ_CONS, PULL_EXISTS]
   (* Derive concrete flatLang values from check_type *)
   \\ rpt (first_x_assum (strip_assume_tac o MATCH_MP check_type_IntT_flat_to_v)
+          ORELSE first_x_assum (strip_assume_tac o MATCH_MP check_type_BoolT_flat_to_v)
           ORELSE first_x_assum (strip_assume_tac o MATCH_MP check_type_Float64T_flat_to_v)
           ORELSE first_x_assum (strip_assume_tac o MATCH_MP check_type_WordT_W8_flat_to_v)
           ORELSE first_x_assum (strip_assume_tac o MATCH_MP check_type_WordT_W64_flat_to_v))
-  \\ gvs []
+  \\ gvs [Boolv_def, semanticPrimitivesTheory.Boolv_def, Boolv_def,
+          flatSemTheory.Boolv_def]
   (* Now expand the_Litv functions with concrete Litv values *)
   \\ gvs [flatSemTheory.flat_to_v_def,
           semanticPrimitivesTheory.the_Litv_IntLit_def,
@@ -1356,6 +1368,7 @@ Proof
           semanticPrimitivesTheory.the_Litv_Word8_def,
           semanticPrimitivesTheory.the_Litv_Word64_def,
           semanticPrimitivesTheory.do_arith_def, AllCaseEqs()]
+  \\ gvs []
   (* Derive closLang value forms from v_rel *)
   \\ gvs [v_rel_def, SWAP_REVERSE_SYM]
   \\ fs [compile_op_def, compile_arith_def]
@@ -1365,7 +1378,21 @@ Proof
            fpSemTheory.fp_top_comp_def, fpSemTheory.fpfma_def]
   (* Handle IntT/Float64T/W64 cases *)
   \\ TRY (IF_CASES_TAC \\ gvs [])
+  \\ rewrite_tac [Boolv_def, semanticPrimitivesTheory.Boolv_def,
+                  flatSemTheory.Boolv_def]
   \\ gvs [v_rel_def, div_exn_v_def, flatSemTheory.v_to_flat_def]
+  \\ rewrite_tac [Boolv_def, semanticPrimitivesTheory.Boolv_def,
+                  flatSemTheory.Boolv_def]
+  \\ gvs [v_rel_def, div_exn_v_def, flatSemTheory.v_to_flat_def,
+          backend_commonTheory.true_tag_def,
+          backend_commonTheory.false_tag_def]
+  \\ rewrite_tac [Boolv_def, semanticPrimitivesTheory.Boolv_def,
+                  flatSemTheory.Boolv_def]
+  \\ gvs [v_rel_def, div_exn_v_def, flatSemTheory.v_to_flat_def,
+          Boolv_def, semanticPrimitivesTheory.Boolv_def,
+          flatSemTheory.Boolv_def,
+          backend_commonTheory.true_tag_def,
+          backend_commonTheory.false_tag_def]
   (* Handle W8 cases: eliminate the 'some' pattern *)
   \\ fs [some_def, EXISTS_PROD]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)

@@ -1204,7 +1204,10 @@ Proof
     \\ imp_res_tac semanticPrimitivesPropsTheory.do_arith_check_type
     \\ Cases_on ‘ty’ using semanticPrimitivesPropsTheory.prim_type_cases
     \\ gvs[semanticPrimitivesTheory.do_arith_def,CaseEq"list",CaseEq"arith"]
-    \\ gvs[simple_val_rel_simps,v_to_flat_def])
+    \\ gvs[simple_val_rel_simps,v_to_flat_def]
+    >~ [‘Arith Not BoolT’] >-
+     (Cases_on ‘flat_to_v x0 = Boolv T’ \\ gvs []
+      \\ EVAL_TAC \\ gvs [simple_val_rel_def]))
   \\ Cases_on ‘∃ty1 ty2. op = FromTo ty1 ty2’ >- (
     gvs[do_app_def,AllCaseEqs(),SF DNF_ss] \\ rw[]
     \\ imp_res_tac check_type_LIST_REL_same \\ gvs []

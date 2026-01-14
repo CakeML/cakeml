@@ -704,6 +704,7 @@ Definition clos_op_to_display_def:
     | BlockOp (ElemAt num) => item_with_num (strlit "ElemAt") num
     | BlockOp (TagLenEq n1 n2) => item_with_nums (strlit "TagLenEq") [n1; n2]
     | BlockOp (BoolTest test) => Item NONE (strlit "BoolTest") [test_to_display test]
+    | BlockOp BoolNot => String (strlit "BoolNot")
     | BlockOp (LenEq num) => item_with_num (strlit "LenEq") num
     | BlockOp (TagEq num) => item_with_num (strlit "TagEq") num
     | BlockOp LengthBlock => String (strlit "LengthBlock")

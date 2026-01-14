@@ -749,9 +749,9 @@ QED
 
 Theorem Eval_Bool_Not:
   Eval env x1 (BOOL b1) ==>
-  Eval env (App (Test Equal BoolT) [x1; False_ast]) (BOOL (~b1))
+  Eval env (App (Arith Not BoolT) [x1]) (BOOL (~b1))
 Proof
-  rw[Eval_rw,BOOL_def,do_app_def,do_test_def]
+  rw[Eval_rw,BOOL_def,do_app_def,do_arith_def]
   \\ pop_assum (qspec_then `refs` strip_assume_tac)
   \\ qexists_tac `ck1` \\ fs [empty_state_def]
   \\ Cases_on `b1`

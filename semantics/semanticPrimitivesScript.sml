@@ -816,6 +816,10 @@ Definition the_Litv_Char_def[simp]:
   the_Litv_Char (Litv (Char c)) = c
 End
 
+Definition the_Boolv_def[simp]:
+  the_Boolv v = (v = Boolv T)
+End
+
 Definition num_cmp_def[simp]:
   num_cmp Lt  i j = (i <  j:num) ∧
   num_cmp Leq i j = (i <= j) ∧
@@ -884,6 +888,10 @@ Definition do_arith_def:
      | (And, [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_and v1 v2)
      | (Or,  [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_or v1 v2)
      | (Xor, [v1;v2]) => SOME (INR $ Litv $ Word64 $ word_xor v1 v2)
+     | _ => NONE) ∧
+  (do_arith a BoolT vals =
+     case (a, vals) of
+     | (Not, [v1]) => SOME (INR $ Boolv (¬ (the_Boolv v1)))
      | _ => NONE) ∧
   (do_arith a _ vals = NONE)
 End

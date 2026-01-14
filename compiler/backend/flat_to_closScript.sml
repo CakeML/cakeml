@@ -128,6 +128,7 @@ Definition compile_arith_def:
                    | Or => Op t (WordOp (WordOpw ws Orw)) xs
                    | ast_temp$Xor => Op t (WordOp (WordOpw ws ast$Xor)) xs
                    | _ => Let None xs (Var None 0))
+    | BoolT => Op t (BlockOp BoolNot) xs
     | _ => Let None xs (Var None 0)
 End
 

@@ -374,6 +374,8 @@ Definition supported_arith_def[simp]:
      if MEM a [FMA] then SOME 3 else NONE) ∧
   (supported_arith a (WordT _) =
      if MEM a [Add; Sub; And; Or; Xor] then SOME 2 else NONE) ∧
+  (supported_arith a BoolT =
+     if MEM a [Not] then SOME 1 else NONE) ∧
   (supported_arith a (ty:prim_type) = NONE)
 End
 
