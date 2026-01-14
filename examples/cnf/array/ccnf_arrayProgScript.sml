@@ -950,3 +950,20 @@ val res = translate tokenize_fast_def;
 
 val res = translate starts_with_def;
 
+Theorem LIST_REL_update_resize:
+  LIST_REL R a b ∧ R a1 b1 ∧ R a2 b2 ⇒
+  LIST_REL R (update_resize a a1 a2 n) (update_resize b b1 b2 n)
+Proof
+  rw[update_resize_def]
+  >- (
+    match_mp_tac EVERY2_LUPDATE_same>>
+    fs[])
+  >- fs[LIST_REL_EL_EQN]
+  >- fs[LIST_REL_EL_EQN]>>
+  match_mp_tac EVERY2_LUPDATE_same>>
+  simp[]>>
+  match_mp_tac EVERY2_APPEND_suff>>
+  fs[LIST_REL_EL_EQN]>>rw[]>>
+  fs[EL_REPLICATE]
+QED
+
