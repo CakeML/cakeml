@@ -455,6 +455,13 @@ Proof
   simp[MAP_GENLIST,o_ABS_R,reify_avar_def,reify_flag_def,GENLIST_EL_MAP]
 QED
 
+(* ntac or rpt *)
+(*
+rpt (first_x_assum drule)>>
+  rpt (disch_then (SUBST_ALL_TAC o SYM))>>
+in place of
+drule_then assume_tac
+*)
 Theorem encode_count_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
@@ -527,6 +534,13 @@ Proof
   rw[reify_avar_def,reify_flag_def]
 QED
 
+(* ntac or rpt *)
+(*
+rpt (first_x_assum drule)>>
+  rpt (disch_then (SUBST_ALL_TAC o SYM))>>
+in place of
+drule_then assume_tac
+*)
 Theorem encode_among_sem_2:
   valid_assignment bnd wi ∧
   EVERY (λx. iconstraint_sem x (wi,wb))
@@ -556,6 +570,50 @@ Definition encode_counting_constr_def:
   | NValue Xs Y => encode_n_value bnd Xs Y name
   | Count Xs Y Z => encode_count bnd Xs Y Z name
   | Among Xs iS Y => encode_among bnd Xs iS Y name
+End
+
+(* concrete full encoding for Y ('a varc) equal to some element in an int list *)
+Definition cencode_full_eq_ilist_def:
+  cencode_full_eq_ilist bnd Y [] ec = (Nil,ec) ∧
+  cencode_full_eq_ilist bnd Y (i::iS) ec =
+  let
+    (x1,ec') = cencode_full_eq bnd Y i ec;
+    (x2,ec'') = cencode_full_eq_ilist bnd Y iS ec'
+  in
+    (Append x1 x2,ec'')
+End
+
+(* In cencode_among_aux bnd n Xs iS Y name ec, the first element
+   in Xs (indexed 0) is associated with this flag: eqi name n (strlit"al1")
+*)
+Definition cencode_among_aux_def:
+  cencode_among_aux bnd _ [] iS Y name ec = (Nil,ec) ∧
+  cencode_among_aux bnd n (X::Xs) iS Y name ec =
+  let
+    (x1,ec') = cencode_full_eq_ilist bnd X iS ec;
+    x2 = cbimply_var bnd (eqi name n (strlit"al1"))
+      (at_least_one name (MAP (λv. Pos (INL (Eq X v))) iS));
+    (x3,ec'') = cencode_among_aux bnd (n + 1) Xs iS Y name ec'
+  in
+    (Append (Append x1 x2) x3,ec'')
+End
+
+Definition cencode_bitsum_def:
+  cencode_bitsum Bs Y name =
+  List
+    (mk_annotate
+      [mk_name name (strlit"ge"); mk_name name (strlit"le")]
+      (encode_bitsum Bs Y)
+    )
+End
+
+Definition cencode_among_def:
+  cencode_among bnd Xs iS Y name ec =
+  let
+    (x1,ec') = cencode_among_aux bnd 0 Xs iS Y name ec;
+    x2 = cencode_bitsum (GENLIST (λi. eqi name i (strlit"al1")) (LENGTH Xs)) Y name
+  in
+    (Append x1 x2,ec')
 End
 
 Theorem encode_counting_constr_sem_1:
