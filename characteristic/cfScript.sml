@@ -1013,7 +1013,7 @@ QED
 
 Definition cf_cases_def:
   cf_cases v nomatch_exn [] env H Q =
-    local (\H Q. H ==>> Q (Exn nomatch_exn) /\ Q =~e> POST_F) H Q /\
+    local (\H Q. H ==>> Q (Exn nomatch_exn)) H Q /\
   cf_cases v nomatch_exn ((pat, row_cf)::rows) env H Q =
     local (\H Q.
       ((if (?insts wildcards. v_of_pat_norest env.c pat insts wildcards = SOME v) then
@@ -1322,194 +1322,163 @@ QED
 
 Definition app_ref_def:
   app_ref (x: v) H Q =
-    ((!r. H * r ~~> x ==>> Q (Val r)) /\
-     Q =~v> POST_F)
+    (∀r. H * r ~~> x ==>> Q (Val r))
 End
 
 Definition app_assign_def:
   app_assign r (x: v) H Q =
-    ((?x' F.
-        (H ==>> F * r ~~> x') /\
-        (F * r ~~> x ==>> Q (Val (Conv NONE [])))) /\
-     Q =~v> POST_F)
+    (∃x' F.
+       (H ==>> F * r ~~> x') /\
+       (F * r ~~> x ==>> Q (Val (Conv NONE []))))
 End
 
 Definition app_deref_def:
   app_deref r H Q =
-    ((?x F.
-        (H ==>> F * r ~~> x) /\
-        (H ==>> Q (Val x))) /\
-     Q =~v> POST_F)
+    (∃x F.
+       (H ==>> F * r ~~> x) /\
+       (H ==>> Q (Val x)))
 End
 
 Definition app_aalloc_def:
   app_aalloc (n: int) v H Q =
-    ((!a.
-        n >= 0 /\
-        (H * ARRAY a (REPLICATE (Num n) v) ==>> Q (Val a))) /\
-     Q =~v> POST_F)
+    (∀a.
+       n >= 0 /\
+       (H * ARRAY a (REPLICATE (Num n) v) ==>> Q (Val a)))
 End
 
 Definition app_asub_def:
   app_asub a (i: int) H Q =
-    ((?vs F.
-        0 <= i /\ (Num i) < LENGTH vs /\
-        (H ==>> F * ARRAY a vs) /\
-        (H ==>> Q (Val (EL (Num i) vs)))) /\
-     Q =~v> POST_F)
+    (∃vs F.
+       0 <= i /\ (Num i) < LENGTH vs /\
+       (H ==>> F * ARRAY a vs) /\
+       (H ==>> Q (Val (EL (Num i) vs))))
 End
 
 Definition app_alength_def:
   app_alength a H Q =
-    ((?vs F.
-        (H ==>> F * ARRAY a vs) /\
-        (H ==>> Q (Val (Litv (IntLit (& LENGTH vs)))))) /\
-     Q =~v> POST_F)
+    (∃vs F.
+       (H ==>> F * ARRAY a vs) /\
+       (H ==>> Q (Val (Litv (IntLit (& LENGTH vs))))))
 End
 
 Definition app_aupdate_def:
   app_aupdate a (i: int) v H Q =
-    ((?vs F.
-        0 <= i /\ (Num i) < LENGTH vs /\
-        (H ==>> F * ARRAY a vs) /\
-        (F * ARRAY a (LUPDATE v (Num i) vs) ==>> Q (Val (Conv NONE [])))) /\
-     Q =~v> POST_F)
+    (∃vs F.
+       0 <= i /\ (Num i) < LENGTH vs /\
+       (H ==>> F * ARRAY a vs) /\
+       (F * ARRAY a (LUPDATE v (Num i) vs) ==>> Q (Val (Conv NONE []))))
 End
 
 Definition app_aw8alloc_def:
   app_aw8alloc (n: int) w H Q =
-    ((!a.
-        n >= 0 /\
-        (H * W8ARRAY a (REPLICATE (Num n) w) ==>> Q (Val a))) /\
-     Q =~v> POST_F)
+    (∀a.
+       n >= 0 /\
+       (H * W8ARRAY a (REPLICATE (Num n) w) ==>> Q (Val a)))
 End
 
 Definition app_aw8sub_def:
   app_aw8sub a (i: int) H Q =
-    ((?ws F.
-        0 <= i /\ (Num i) < LENGTH ws /\
-        (H ==>> F * W8ARRAY a ws) /\
-        (H ==>> Q (Val (Litv (Word8 (EL (Num i) ws)))))) /\
-     Q =~v> POST_F)
+    (∃ws F.
+       0 <= i /\ (Num i) < LENGTH ws /\
+       (H ==>> F * W8ARRAY a ws) /\
+       (H ==>> Q (Val (Litv (Word8 (EL (Num i) ws))))))
 End
 
 Definition app_aw8length_def:
   app_aw8length a H Q =
-    ((?ws F.
-        (H ==>> F * W8ARRAY a ws) /\
-        (H ==>> Q (Val (Litv (IntLit (& LENGTH ws)))))) /\
-     Q =~v> POST_F)
+    (∃ws F.
+       (H ==>> F * W8ARRAY a ws) /\
+       (H ==>> Q (Val (Litv (IntLit (& LENGTH ws))))))
 End
 
 Definition app_aw8update_def:
   app_aw8update a (i: int) w H Q =
-    ((?ws F.
-        0 <= i /\ (Num i) < LENGTH ws /\
-        (H ==>> F * W8ARRAY a ws) /\
-        (F * W8ARRAY a (LUPDATE w (Num i) ws) ==>> Q (Val (Conv NONE [])))) /\
-     Q =~v> POST_F)
+    (∃ws F.
+       0 <= i /\ (Num i) < LENGTH ws /\
+       (H ==>> F * W8ARRAY a ws) /\
+       (F * W8ARRAY a (LUPDATE w (Num i) ws) ==>> Q (Val (Conv NONE []))))
 End
 
 Definition app_copyaw8aw8_def:
   app_copyaw8aw8 s so l d do' H Q =
-    ((?ws wd F.
-        0 <= do' /\ 0 <= so /\ 0 <= l /\
-        (Num do' + Num l) <= LENGTH wd /\ (Num so + Num l) <= LENGTH ws /\
-        (H ==>> F * W8ARRAY s ws * W8ARRAY d wd) /\
-        (F * W8ARRAY s ws *
-             W8ARRAY d (TAKE (Num do') wd ⧺
-                        TAKE (Num l) (DROP (Num so) ws) ⧺
-                        DROP (Num do' + Num l) wd)
-            ==>> Q (Val (Conv NONE [])))) /\
-     Q =~v> POST_F)
+    (∃ws wd F.
+       0 <= do' /\ 0 <= so /\ 0 <= l /\
+       (Num do' + Num l) <= LENGTH wd /\ (Num so + Num l) <= LENGTH ws /\
+       (H ==>> F * W8ARRAY s ws * W8ARRAY d wd) /\
+       (F * W8ARRAY s ws *
+            W8ARRAY d (TAKE (Num do') wd ⧺
+                       TAKE (Num l) (DROP (Num so) ws) ⧺
+                       DROP (Num do' + Num l) wd)
+        ==>> Q (Val (Conv NONE []))))
 End
 
 Definition app_copystraw8_def:
   app_copystraw8 s so l d do' H Q =
-    ((?wd F.
-        0 <= do' /\ 0 <= so /\ 0 <= l /\
-        (Num do' + Num l) <= LENGTH wd /\ (Num so + Num l) <= strlen s /\
-        (H ==>> F * W8ARRAY d wd) /\
-        (F * W8ARRAY d (TAKE (Num do') wd ⧺
-                        MAP (n2w o ORD) (TAKE (Num l) (DROP (Num so) (explode s))) ⧺
-                        DROP (Num do' + Num l) wd)
-            ==>> Q (Val (Conv NONE [])))) /\
-     Q =~v> POST_F)
+    (∃wd F.
+       0 <= do' /\ 0 <= so /\ 0 <= l /\
+       (Num do' + Num l) <= LENGTH wd /\ (Num so + Num l) <= strlen s /\
+       (H ==>> F * W8ARRAY d wd) /\
+       (F * W8ARRAY d (TAKE (Num do') wd ⧺
+                       MAP (n2w o ORD) (TAKE (Num l) (DROP (Num so) (explode s))) ⧺
+                       DROP (Num do' + Num l) wd)
+            ==>> Q (Val (Conv NONE []))))
 End
 
 Definition app_copyaw8str_def:
   app_copyaw8str s so l H Q =
-    ((?ws F.
-        0 <= so /\ 0 <= l /\
-        (Num so + Num l) <= LENGTH ws /\
-        (H ==>> F * W8ARRAY s ws) /\
-        (F * W8ARRAY s ws
-            ==>> Q (Val (Litv (StrLit (implode (MAP (CHR o w2n) (TAKE (Num l) (DROP (Num so) ws))))))))) /\
-     Q =~v> POST_F)
+    (∃ws F.
+       0 <= so /\ 0 <= l /\
+       (Num so + Num l) <= LENGTH ws /\
+       (H ==>> F * W8ARRAY s ws) /\
+       (F * W8ARRAY s ws
+        ==>> Q (Val (Litv (StrLit (implode (MAP (CHR o w2n) (TAKE (Num l) (DROP (Num so) ws)))))))))
 End
 
 Definition app_xoraw8str_def:
   app_xoraw8str s d H Q =
-    ((?wd F.
-        strlen s ≤ LENGTH wd /\
-        (H ==>> F * W8ARRAY d wd) /\
-        (F * W8ARRAY d (THE (xor_bytes (MAP (n2w o ORD) (explode s)) wd))
-            ==>> Q (Val (Conv NONE [])))) /\
-     Q =~v> POST_F)
+    (∃wd F.
+       strlen s ≤ LENGTH wd /\
+       (H ==>> F * W8ARRAY d wd) /\
+       (F * W8ARRAY d (THE (xor_bytes (MAP (n2w o ORD) (explode s)) wd))
+              ==>> Q (Val (Conv NONE []))))
 End
 
 Definition app_wordFromInt_W8_def:
   app_wordFromInt_W8 (i: int) H Q =
-    (H ==>> Q (Val (Litv (Word8 (i2w i)))) /\
-     Q =~v> POST_F)
+    (H ==>> Q (Val (Litv (Word8 (i2w i)))))
 End
 
 Definition app_wordFromInt_W64_def:
   app_wordFromInt_W64 (i: int) H Q =
-    (H ==>> Q (Val (Litv (Word64 (i2w i)))) /\
-     Q =~v> POST_F)
+    (H ==>> Q (Val (Litv (Word64 (i2w i)))))
 End
 
 Definition app_wordToInt_def:
   app_wordToInt w H Q =
-    (H ==>> Q (Val (Litv (IntLit (& w2n w)))) /\
-     Q =~v> POST_F)
+    (H ==>> Q (Val (Litv (IntLit (& w2n w)))))
 End
 
-(*
 Definition app_opn_def:
-  app_opn opn i1 i2 H Q =
-    if (opn = Divide \/ opn = Modulo) /\ i2 = 0 then
-      H ==>> Q (Exn (prim_exn "Div"))
-    else
-      H ==>> Q (Val (Litv (IntLit (opn_lookup opn i1 i2))))
-*)
-
-Definition app_opn_def:
-  app_opn opn i1 i2 H Q =
-    ((if opn = Divide \/ opn = Modulo then i2 <> 0 else T) /\
-     H ==>> Q (Val (Litv (IntLit (opn_lookup opn i1 i2)))) /\
-     Q =~v> POST_F)
+  app_opn opn i1 i2 H Q <=>
+    (if opn = Divide \/ opn = Modulo then i2 <> 0 else T) /\
+     H ==>> Q (Val (Litv (IntLit (opn_lookup opn i1 i2))))
 End
 
 Definition app_int_cmp_def:
   app_int_cmp cmp i1 i2 H Q =
-    (H ==>> Q (Val (Boolv (int_cmp cmp i1 i2))) /\
-     Q =~v> POST_F)
+    (H ==>> Q (Val (Boolv (int_cmp cmp i1 i2))))
 End
 
 Definition app_equality_def:
   app_equality v1 v2 H Q =
     (no_closures v1 /\ no_closures v2 /\
      types_match v1 v2 /\
-     H ==>> Q (Val (Boolv (v1 = v2))) /\
-     Q =~v> POST_F)
+     H ==>> Q (Val (Boolv (v1 = v2))))
 End
 
 Definition cf_lit_def:
   cf_lit l = \env: v sem_env. local (\H Q.
-    H ==>> Q (Val (Litv l)) /\
-    Q =~v> POST_F)
+    H ==>> Q (Val (Litv l)))
 End
 
 Definition cf_con_def:
@@ -1518,16 +1487,14 @@ Definition cf_con_def:
        do_con_check env.c cn (LENGTH args) /\
        (build_conv env.c cn argsv = SOME cv) /\
        (exp2v_list env args = SOME argsv) /\
-       H ==>> Q (Val cv)) /\
-    Q =~v> POST_F)
+       H ==>> Q (Val cv)))
 End
 
 Definition cf_var_def:
   cf_var name = \env. local (\H Q.
     (?v.
        nsLookup env.v name = SOME v /\
-       H ==>> Q (Val v)) /\
-    Q =~v> POST_F)
+       H ==>> Q (Val v)))
 End
 
 Definition cf_let_def:
@@ -1767,7 +1734,7 @@ End
 
 Definition app_fptoword_def:
    app_fptoword fp H Q =
-   (H ==>> Q (Val (Litv (Word64 fp))) ∧ Q =~v> POST_F)
+   (H ==>> Q (Val (Litv (Word64 fp))))
 End
 
 Definition cf_fptoword_def:
@@ -1779,7 +1746,7 @@ End
 
 Definition app_fpfromword_def:
  app_fpfromword w H Q =
- (H ==>> Q (Val (Litv (Float64 w))) ∧ Q =~v> POST_F)
+ (H ==>> Q (Val (Litv (Float64 w))))
 End
 
 Definition cf_fpfromword_def:
@@ -1804,8 +1771,7 @@ Definition app_ffi_def:
           | SOME(FFIdiverge) =>
              (frame * W8ARRAY a ws * one (FFI_part s u ns events) *
               cond (~MEM «» ns)) ==>> Q (FFIDiv ffi_index conf ws)
-          | NONE => F)) /\
-     Q ==e> POST_F /\ Q ==d> POST_F)
+          | NONE => F)))
 End
 
 Definition cf_ffi_def:
@@ -1824,8 +1790,8 @@ Definition cf_log_def:
       (case (lop, b) of
            (And, T) => cf2 env H Q
          | (Or, F) => cf2 env H Q
-         | (Or, T) => (H ==>> Q (Val v) /\ Q =~v> POST_F)
-         | (And, F) => (H ==>> Q (Val v) /\ Q =~v> POST_F)))
+         | (Or, T) => (H ==>> Q (Val v))
+         | (And, F) => (H ==>> Q (Val v))))
 End
 
 Definition cf_if_def:
