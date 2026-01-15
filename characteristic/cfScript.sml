@@ -1476,19 +1476,17 @@ Definition app_wordToInt_def:
      Q =~v> POST_F)
 End
 
-(*
-Definition app_opn_def:
-  app_opn opn i1 i2 H Q =
-    if (opn = Divide \/ opn = Modulo) /\ i2 = 0 then
-      H ==>> Q (Exn (prim_exn "Div"))
-    else
-      H ==>> Q (Val (Litv (IntLit (opn_lookup opn i1 i2))))
-*)
-
-Definition app_opn_def:
-  app_opn opn i1 i2 H Q =
-    ((if opn = Divide \/ opn = Modulo then i2 <> 0 else T) /\
-     H ==>> Q (Val (Litv (IntLit (opn_lookup opn i1 i2)))) /\
+Definition app_arith_def:
+  app_arith arith i1 i2 H Q =
+    ((if arith = Div \/ arith = Mod then i2 <> 0 else T) /\
+     MEM arith [Add; Sub; Mul; Div; Mod] /\
+     H ==>> Q (Val (Litv (IntLit (case arith of
+                                  | Add => i1 + i2
+                                  | Sub => i1 - i2
+                                  | Mul => i1 * i2
+                                  | Div => i1 / i2
+                                  | Mod => i1 % i2
+                                  | _   => 0)))) /\
      Q =~v> POST_F)
 End
 
@@ -1536,12 +1534,12 @@ Definition cf_let_def:
          (!xv. F2 (env with <| v := nsOptBind n xv env.v |>) (Q' (Val xv)) Q))
 End
 
-Definition cf_opn_def:
-  cf_opn opn x1 x2 = \env. local (\H Q.
+Definition cf_arith_def:
+  cf_arith arith x1 x2 = \env. local (\H Q.
     ?i1 i2.
       exp2v env x1 = SOME (Litv (IntLit i1)) /\
       exp2v env x2 = SOME (Litv (IntLit i2)) /\
-      app_opn opn i1 i2 H Q)
+      app_arith arith i1 i2 H Q)
 End
 
 Definition cf_int_cmp_def:
@@ -1878,9 +1876,9 @@ Definition cf_def:
        (cf (p:'ffi ffi_proj) e)) /\
   cf (p:'ffi ffi_proj) (App op args) =
     (case op of
-        | Opn opn =>
+        | Arith arith IntT =>
           (case args of
-            | [x1; x2] => cf_opn opn x1 x2
+            | [x1; x2] => cf_arith arith x1 x2
             | _ => cf_bottom)
         | Test (Compare cmp) IntT =>
           (case args of
@@ -2037,7 +2035,7 @@ val cf_defs = [
   cf_var_def,
   cf_fun_def,
   cf_let_def,
-  cf_opn_def,
+  cf_arith_def,
   cf_int_cmp_def,
   cf_equality_def,
   cf_aalloc_def,
@@ -2884,14 +2882,13 @@ Proof
       qexists_tac`u` \\
       qexists_tac`{Mem ld (W8array xor_res)}` \\ fs[] \\
       SPLIT_TAC)
-    >~ [‘Opn’] >- (
-      rename1 `app_opn op` \\
+    >~ [‘Arith a IntT’] >- (
       Q.REFINE_EXISTS_TAC `Val v` \\ simp [] \\ cf_evaluate_step_tac \\
-      fs [app_opn_def, st2heap_def] \\
+      fs [app_arith_def, st2heap_def] \\
       progress SPLIT3_of_SPLIT_emp3 \\ instantiate \\
       GEN_EXISTS_TAC "ck" `st.clock` \\ fs [with_clock_self] \\
       cf_exp2v_evaluate_tac `st` \\
-      Cases_on `op` \\ fs [do_app_def] \\ fs [SEP_IMP_def] \\
+      fs [do_app_def,do_arith_def,check_type_def] \\ fs [SEP_IMP_def] \\
       fs [state_component_equality]
     )
     >~ [‘Test (Compare cmp) IntT’] >- (
