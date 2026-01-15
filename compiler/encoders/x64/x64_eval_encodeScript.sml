@@ -4,7 +4,8 @@
 Theory x64_eval_encode[no_sig_docs]
 Ancestors
   x64 x64_target
-
+Libs
+  utilsLib blastLib
 
 Theorem not_fail[local]:
   (case a ++ b :: c of [] => x64_dec_fail | v2::v3 => v2::v3) =
@@ -27,7 +28,7 @@ val Zreg2num_num2Zreg =
   |> SIMP_RULE std_ss [lem]
 
 val xmm_reg =
-  blastLib.BBLAST_PROVE ``((3 >< 3) (w2w (a : word3) : word4) = 0w : word1)``
+  BBLAST_PROVE ``((3 >< 3) (w2w (a : word3) : word4) = 0w : word1)``
 
 Theorem xmm_reg2[local]:
   !n. (3 >< 3) (n2w (n MOD 8) : word4) = 0w : word1
@@ -39,7 +40,7 @@ Proof
 QED
 
 local
-  val n = ["skip", "const", "binop reg", "binop imm", "shift", "div",
+  val n = ["skip", "const", "binop reg", "binop imm", "shift imm", "shift reg", "div",
            "long mul", "long div", "add carry", "add overflow", "sub overflow",
            "load", "load32", "load16", "load8", "store", "store32", "store16", "store8",
            "fp less", "fp less eq", "fp eq", "fp mov", "fp abs", "fp neg",
@@ -50,7 +51,7 @@ local
   val rex_prefix_conv =
      Conv.REWR_CONV rex_prefix_def
      THENC Conv.PATH_CONV "llr"
-             (blastLib.BBLAST_CONV
+             (BBLAST_CONV
               THENC (fn t => if Teq t orelse Feq t then
                                 ALL_CONV t
                              else
@@ -126,11 +127,24 @@ in
        th, not_byte_def, e_opsize_def]
 end
 
-val shift_rwt =
-  enc_thm "shift"
-   [e_rax_imm_def, e_opsize_imm_def, e_opsize_def, not_byte_def,
+(* NOTE: this pre-eval may not be correct *)
+local
+   val th = Q.prove(`!sh. x64_sh sh <> Ztest`, Cases \\ simp [x64_sh_def])
+in
+
+val shift_imm_rwt =
+  enc_thm "shift imm"
+   [th,e_rax_imm_def, e_opsize_imm_def, e_opsize_def, not_byte_def,
     mk_let_thm `(_, 1w: word8)`,
-    mk_let_thm `n2w (Zreg2num (total_num2Zreg r1))`]
+    mk_let_thm `n2w (Zreg2num (total_num2Zreg r))`]
+
+val shift_reg_rwt =
+  enc_thm "shift reg"
+   [th,e_rax_imm_def, e_opsize_imm_def, e_opsize_def, not_byte_def,
+    mk_let_thm `(_, 1w: word8)`,
+    mk_let_thm `n2w (Zreg2num (total_num2Zreg r2))`]
+
+end
 
 val long_div_rwt =
   enc_thm "long div" [boolTheory.LET_THM, e_opsize_def]
@@ -216,7 +230,7 @@ end
 
 val x64_encode_rwts = Theory.save_thm("x64_encode_rwts",
   Drule.LIST_CONJ
-    [skip_rwt, div_rwt, const_rwt, binop_rwt, binop_imm_rwt, shift_rwt,
+    [skip_rwt, div_rwt, const_rwt, binop_rwt, binop_imm_rwt, shift_imm_rwt, shift_reg_rwt,
      long_div_rwt, long_mul_rwt, add_carry_rwt, add_overflow_rwt,
      sub_overflow_rwt, load_rwt, load32_rwt, load16_rwt, load8_rwt,
      store_rwt, store32_rwt, store16_rwt, store8_rwt, jump_rwt, jump_cmp_rwt,
